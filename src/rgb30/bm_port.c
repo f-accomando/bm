@@ -6,6 +6,7 @@
  * image-to-3D tools, the development assistant's network. The controls
  * come from rgb30/bm_input.c, the sound from audio.c (rk_audio.c).
  */
+#include "ai/lua_music.h"
 #include "gpu/gpu3d.h"
 #include "gpu/v3d.h"
 #include "drivers/dma.h"
@@ -74,7 +75,8 @@ int prop_query(uint32_t tag, uint32_t *vals, unsigned n)
 uint32_t prop_clock_rate(uint32_t clock_id)             { (void)clock_id; return 0; }
 uint32_t prop_clock_max(uint32_t clock_id)              { (void)clock_id; return 0; }
 
-/* --- image to 3D (Meshy), the assistant's networks: not on the RGB30 --- */
+/* --- image to 3D (Meshy), the assistant's networks: not on the RGB30 (its
+ * music is: ai.music, src/ai/lua_music.c) --- */
 
 const img3d_provider_t *img3d_provider(const char *name) { (void)name; return NULL; }
 const char *img3d_provider_name(int i)                  { (void)i; return NULL; }
@@ -114,10 +116,21 @@ static void module(lua_State *L, const char *name)
     lua_setglobal(L, name);
 }
 
-void ai_lua_open(lua_State *L)                          { module(L, "ai"); }
 void ai_set_lang(int lang, int follow)                  { (void)lang; (void)follow; }
 int ai_lang(void)                                       { return 0; }
 int ai_lang_follows(void)                               { return 1; }
+/* the assistant's network is not here, its music is: ai.music picks the
+ * recipe from the words alone (mus_guess) */
+void ai_lua_open(lua_State *L)
+{
+    module(L, "ai");
+    lua_getglobal(L, "ai");
+    lua_pushcfunction(L, ai_lua_music);
+    lua_setfield(L, -2, "music");
+    lua_pushcfunction(L, ai_lua_music_recipes);
+    lua_setfield(L, -2, "music_recipes");
+    lua_pop(L, 1);
+}
 void nnet_lua_open(lua_State *L)                        { module(L, "nnet"); }
 
 /* --- USB: the RGB30's port is not driven (no USB mouse or pad) --- */

@@ -143,7 +143,7 @@ def pool_table():
 # ---------------------------------------------------------------- knowledge base
 
 FIELDS = ('kind', 'name', 'title', 'title_en', 'ask', 'see', 'text', 'text_en', 'code', 'gen', 'keys')
-KINDS = ('api', 'howto', 'error', 'sprite', 'tip', 'action', 'mesh', 'guide', 'none')
+KINDS = ('api', 'howto', 'error', 'sprite', 'tip', 'action', 'mesh', 'guide', 'music', 'none')
 # a field is `key:` then a space or the end of the line (so `text:sub(1)` in
 # a code block stays code)
 _FIELD_RE = re.compile(r'^(kind|name|title_en|title|ask|see|text_en|text|code|gen|keys):(?: (.*))?$')
@@ -225,7 +225,7 @@ def parse_kb(paths):
             raise ValueError('%s: no title_en (the English title)' % e.where)
         if e.text and not e.text_en:
             raise ValueError('%s: no text_en (the English text)' % e.where)
-        if e.kind in ('sprite', 'mesh') and not e.gen:
+        if e.kind in ('sprite', 'mesh', 'music') and not e.gen:
             raise ValueError('%s: a %s entry needs gen:' % (e.where, e.kind))
         for s in e.see:
             if s not in seen:

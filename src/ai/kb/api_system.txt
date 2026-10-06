@@ -555,6 +555,36 @@ local hits, us = ai.ask("come salto")
 log(hits[1].title, us .. " us")
 local s = ai.sprite("moneta", { size = 16 })
 
+== ai_music
+kind: api
+name: ai.music
+title: ai.music(richiesta, [opzioni]) - ritmi, basi e melodie dal codice
+title_en: ai.music(request, [options]) - beats, backing tracks and melodies from code
+ask: generare una melodia dal codice | ai music | comporre musica con l'ai
+ask: generate a drum beat from code | un arpeggio generato | effetto sonoro generato
+ask: musica procedurale per il gioco | base musicale generata
+keys: comporre, melodia, ritmo, arpeggio
+see: ai_ask, music, play
+text:
+ai.music("melodia triste in la minore", {seed=1, bpm=, bars=}) scrive
+musica per il banco: ritmi, basi, bassi, arpeggi, melodie ed effetti
+classici. Restituisce bpm, chords, instruments e patterns: in ogni traccia
+un passo è nota | strumento << 8 | vol << 16 (0 niente). ai.music_recipes()
+le ricette.
+text_en:
+ai.music("sad melody in A minor", {seed=1, bpm=, bars=}) writes music
+for the bank: beats, backing tracks, bass lines, arpeggios, melodies and
+classic sound effects. Returns bpm, chords, instruments and patterns: in
+each track a step is note | instrument << 8 | volume << 16 (0 nothing).
+ai.music_recipes() lists the recipes.
+code:
+local m = ai.music("arpeggio in do", { seed = 2 })
+local t = m.patterns[1].tracks[0]
+for i = 1, #t do
+  local n = t[i] & 255
+  if n > 0 and n < 128 then log(i, n) end
+end
+
 == cart_read
 kind: api
 name: cart_read

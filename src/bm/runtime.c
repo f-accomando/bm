@@ -30,6 +30,8 @@
 #include "audio/audio.h"
 #include "audio/player.h"
 #include "audio/synth.h"
+#include "audio/presets.h"
+#include "audio/lua_tone.h"
 #include "drivers/dma.h"
 #include "gpu/gpu3d.h"
 #include "gpu/version3d.h"
@@ -3287,13 +3289,13 @@ static int l_playing(lua_State *L)
     return 1;
 }
 
-/* apu(ch, reg, [value]): raw register byte, the synthesizer's layout (synth.h) */
+/* apu(ch, reg, [value]): raw register byte 0..31, the synthesizer's layout (synth.h) */
 static int l_apu(lua_State *L)
 {
     unsigned ch = voice_arg(L);
     lua_Integer reg = luaL_checkinteger(L, 2);
-    luaL_argcheck(L, reg >= 0 && reg < 16, 2, "register 0..15");
-    volatile uint8_t *r = audio_regs() + ch * 16 + reg;
+    luaL_argcheck(L, reg >= 0 && reg < SYNTH_VOICE_BYTES, 2, "register 0..31");
+    volatile uint8_t *r = audio_regs() + ch * SYNTH_VOICE_BYTES + reg;
     if (lua_gettop(L) >= 3) {
         *r = (uint8_t)luaL_checkinteger(L, 3);
         return 0;
@@ -3487,12 +3489,178 @@ static int l_audio_play(lua_State *L)
     return 0;
 }
 
+/* tone(ch, [sound]): the sound of the voice for note(): an instrument's
+ * name ("epiano", "pluck", "kick"... instruments() lists them) or a table
+ * in plain units ({wave = "saw", cutoff = 800, res = 0.6, attack = 5,
+ * release = 300, reverb = 0.3, pan = -0.5, preset = "bass", ...});
+ * tone(ch) puts back the plain square of a fresh voice */
+static int l_tone(lua_State *L)
+{
+    unsigned ch = voice_arg(L);
+    uint8_t regs[SYNTH_VOICE_BYTES];
+    if (lua_isnoneornil(L, 2))
+        au_voice_default(regs);
+    else {
+        audio_tone_get(ch, regs);
+        au_lua_tone(L, 2, regs);
+    }
+    audio_tone(ch, regs);
+    return 0;
+}
+
+/* a note for play(): a MIDI number (60 = C4) or a name ("C4", "F#3") */
+static int midi_arg(lua_State *L, int i)
+{
+    if (lua_type(L, i) == LUA_TSTRING) {
+        float m = 0;
+        if (!note_name(lua_tostring(L, i), &m))
+            luaL_argerror(L, i, "a note name like \"C4\", \"F#3\" or \"Bb2\"");
+        return (int)(m + 0.5f);
+    }
+    return (int)luaL_optinteger(L, i, 60);
+}
+
+/* play([voice], sound, [note], [ms], [vol]): an instrument as the music
+ * plays it, its pitch envelope and vibrato included: a name (instruments()),
+ * a table as tone()'s (with pitch, ptime, vib, vibhz, detune) or a sound of
+ * the cartridge's bank (a number). voice nil: a free one; ms 0: held until
+ * noteoff(); vol 0..1. Returns the voice, or nil. */
+static int l_play(lua_State *L)
+{
+    int ch = lua_isnoneornil(L, 1) ? -1 : (int)(luaL_checkinteger(L, 1) % SYNTH_VOICES);
+    int note = midi_arg(L, 3);
+    lua_Integer ms = luaL_optinteger(L, 4, 400);
+    int vol = (int)(luaL_optnumber(L, 5, 1.0) * 255.0 + 0.5);
+    luaL_argcheck(L, note >= 1 && note <= 127, 3, "a note from 1 to 127");
+    int v;
+    if (lua_type(L, 2) == LUA_TNUMBER) {
+        if (ch < 0)
+            ch = 7;
+        audio_play(ch, (int)lua_tointeger(L, 2), note, vol, 0, ms > 0 ? (uint32_t)ms : 0);
+        v = ch;
+    } else {
+        au_sound_t snd;
+        au_lua_sound(L, 2, &snd);
+        v = audio_play_sound(ch, &snd, note, vol, ms > 0 ? (uint32_t)ms : 0);
+    }
+    if (v < 0)
+        lua_pushnil(L);
+    else
+        lua_pushinteger(L, v);
+    return 1;
+}
+
+/* audio_time(): the sound's clock, in seconds (the time of play_at) */
+static int l_audio_time(lua_State *L)
+{
+    lua_pushnumber(L, (lua_Number)audio_clock() / AUDIO_RATE);
+    return 1;
+}
+
+/* play_at(t, sound, [note], [ms], [vol], [tag]): a note at the time t of
+ * audio_time(), started by the sound's interrupt within 1.3 ms whatever
+ * the frame rate: sound as play()'s (a number is a sound of the bank),
+ * held ms (at least 1), vol 0..1, tag 1..255 (a group for play_cancel).
+ * The voice is chosen when it starts (play_voices). true, or false when
+ * the queue (160 notes) is full. The pattern language (require "riff")
+ * plans its notes with it. */
+static int l_play_at(lua_State *L)
+{
+    lua_Number t = luaL_checknumber(L, 1);
+    int note = midi_arg(L, 3);
+    lua_Number ms = luaL_optnumber(L, 4, 250);
+    lua_Number vol = luaL_optnumber(L, 5, 1.0);
+    lua_Integer tag = luaL_optinteger(L, 6, 1);
+    luaL_argcheck(L, note >= 1 && note <= 127, 3, "a note from 1 to 127");
+    luaL_argcheck(L, tag >= 1 && tag <= 255, 6, "a tag from 1 to 255");
+    au_sound_t snd;
+    au_lua_sound(L, 2, &snd);
+    lua_Number at = t * AUDIO_RATE;
+    uint64_t when = at <= 0 ? 0 : (uint64_t)at;
+    lua_Number len = ms * (AUDIO_RATE / 1000.0);
+    int v = (int)(vol * 255.0 + 0.5);
+    lua_pushboolean(L, audio_at(when, &snd, note, v, len < 1 ? 1u : len > 4e8 ? 400000000u : (uint32_t)len,
+                                (int)tag) == 0);
+    return 1;
+}
+
+/* play_cancel([tag]): the notes of play_at waiting with that tag (none:
+ * all) forgotten, and released if they sound */
+static int l_play_cancel(lua_State *L)
+{
+    lua_Integer tag = luaL_optinteger(L, 1, 0);
+    audio_at_cancel(tag >= 0 && tag <= 255 ? (int)tag : 0);
+    return 0;
+}
+
+/* play_voices([v, ...]): the voices play_at may take (none: all 8);
+ * returns how many notes wait */
+static int l_play_voices(lua_State *L)
+{
+    int n = lua_gettop(L);
+    if (n > 0) {
+        unsigned mask = 0;
+        for (int i = 1; i <= n; i++)
+            mask |= 1u << (luaL_checkinteger(L, i) & 7);
+        audio_at_voices((uint8_t)mask);
+    } else {
+        audio_at_voices(0);
+    }
+    lua_pushinteger(L, audio_at_waiting(0));
+    return 1;
+}
+
+/* reverb([size], [damp], [wet]): the room every voice sends to (0..1
+ * each: a small room .. a hall, bright .. dull, how much is heard);
+ * returns the three as they are now */
+static int l_reverb(lua_State *L)
+{
+    float room[3], echo[3];
+    audio_fx_get(room, echo);
+    if (!lua_isnoneornil(L, 1))
+        audio_room((float)luaL_checknumber(L, 1), (float)luaL_optnumber(L, 2, room[1]),
+                   (float)luaL_optnumber(L, 3, room[2]));
+    audio_fx_get(room, echo);
+    lua_pushnumber(L, room[0]);
+    lua_pushnumber(L, room[1]);
+    lua_pushnumber(L, room[2]);
+    return 3;
+}
+
+/* echo([ms], [feedback], [wet]): the echo's time (at most 680 ms), how
+ * much of each repeat comes back (0..0.95) and how much is heard */
+static int l_echo(lua_State *L)
+{
+    float room[3], echo[3];
+    audio_fx_get(room, echo);
+    if (!lua_isnoneornil(L, 1))
+        audio_echo((float)luaL_checknumber(L, 1), (float)luaL_optnumber(L, 2, echo[1]),
+                   (float)luaL_optnumber(L, 3, echo[2]));
+    audio_fx_get(room, echo);
+    lua_pushnumber(L, echo[0]);
+    lua_pushnumber(L, echo[1]);
+    lua_pushnumber(L, echo[2]);
+    return 3;
+}
+
+/* retro([on]): every voice the 8-bit chip of the first versions (no
+ * room, no echo) while the game runs; returns whether it is (Settings
+ * can ask for it too) */
+static int l_retro(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1))
+        audio_retro(AUDIO_RETRO_GAME, lua_toboolean(L, 1));
+    lua_pushboolean(L, audio_retro_on());
+    return 1;
+}
+
 /* ---------------------------------------------------------------- keys */
 
 /* keyp(): the next key typed, as text ("a", "\n", "\b", "\t"), a name
  * ("up", "down", "left", "right", "home", "end", "pgup", "pgdn", "del",
  * "esc", "f1".."f10") or "^s" for Ctrl+S ("^i", "^m" too: not Tab and
- * Enter), "^S" for Ctrl+Shift+S; nil if
+ * Enter), "^S" for Ctrl+Shift+S, "^\n" for Ctrl+Enter, "^." for Ctrl+.
+ * (riff's play and stop); nil if
  * none. F11, F12 and Ctrl+Esc are the system's (they never come). The first call
  * turns on typing: the keyboard stops being a gamepad for btn(), Esc no
  * longer leaves the cartridge (Start+Select and PS still do). */
@@ -3530,6 +3698,8 @@ static int l_keyp(lua_State *L)
     if (c >= HID_KEY_UP && c <= HID_KEY_F1 + 4) lua_pushstring(L, nav[c - HID_KEY_UP]);
     else if (c >= HID_KEY_F6 && c <= HID_KEY_F6 + 6) lua_pushfstring(L, "f%d", c - HID_KEY_F6 + 6);
     else if (c == 0x1B) lua_pushstring(L, "esc");
+    else if (c == HID_KEY_CTRL_ENTER) lua_pushstring(L, "^\n");
+    else if (c == HID_KEY_CTRL_DOT) lua_pushstring(L, "^.");
     else if (c == '\r') lua_pushstring(L, "\n");
     else if (c == 0x7F) lua_pushstring(L, "\b");
     else if (c == '\t') lua_pushstring(L, "\t");
@@ -3912,6 +4082,10 @@ static const luaL_Reg api[] = {
     { "hz", l_hz }, { "slide", l_slide }, { "vibrato", l_vibrato }, { "arp", l_arp },
     { "sfx", l_sfx }, { "sfxpos", l_sfxpos }, { "music", l_music }, { "tempo", l_tempo },
     { "mute", l_mute }, { "volume", l_volume },
+    { "tone", l_tone }, { "play", l_play }, { "instruments", au_lua_instruments }, { "instrument", au_lua_instrument },
+    { "reverb", l_reverb }, { "echo", l_echo }, { "retro", l_retro },
+    { "audio_time", l_audio_time }, { "play_at", l_play_at }, { "play_cancel", l_play_cancel },
+    { "play_voices", l_play_voices },
     { "audio_bank", l_audio_bank }, { "audio_pattern", l_audio_pattern }, { "audio_play", l_audio_play },
     { "cart_audio", l_cart_audio }, { "cart_put_audio", l_cart_put_audio },
     { NULL, NULL },
@@ -4027,7 +4201,9 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     }
     nnet_lua_open(L);           /* small INT8 networks of the carts (M38.4) */
     bm_require_open(L);         /* require "assist": libraries in the kernel */
-    static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL" };
+    au_lua_bank = audio_bank_now;       /* play("lead"): the bank's sounds by name */
+    static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL",
+                                                    "FM", "PLUCK", "SUPERSAW", "ORGAN" };
     for (int w = 0; w < SYNTH_WAVES; w++) {
         lua_pushinteger(L, w);
         lua_setglobal(L, waves[w]);
@@ -4088,7 +4264,7 @@ static void text_push(uint8_t c)
 
 /* serial terminal: ESC [ A..D arrows, ESC [ H / F home and end,
  * ESC O P..S F1..F4, ESC [ n ~ (3 delete, 5/6 page up/down, 15 F5,
- * 17-21 F6-F10, 23-24 F11-F12) */
+ * 17-21 F6-F10, 23-24 F11-F12; ours: 28 Ctrl+Enter, 29 Ctrl+.) */
 static void serial_text(char c)
 {
     if (rt.esc == 1) {
@@ -4118,6 +4294,8 @@ static void serial_text(char c)
         case 23: case 24: text_push((uint8_t)(HID_KEY_F6 + rt.esc_num - 18)); break;
         case 1: text_push(HID_KEY_HOME); break;
         case 4: text_push(HID_KEY_END); break;
+        case 28: text_push(HID_KEY_CTRL_ENTER); break;
+        case 29: text_push(HID_KEY_CTRL_DOT); break;
         }
         return;
     }
@@ -4137,9 +4315,8 @@ static void serial_text(char c)
     if (c == 0x1C) { rt.serial_quit = 1; return; }  /* Ctrl+\: Ctrl+Esc on the serial line */
     if (c == '\n') return;                  /* terminals send \r or \r\n */
     if (c == 0x08) c = 0x7F;
-    if (((uint8_t)c >= HID_KEY_F6 && (uint8_t)c <= HID_KEY_F6 + 6) || (uint8_t)c == HID_KEY_CTRL ||
-        (uint8_t)c == HID_KEY_CTRL_SHIFT)
-        return;                             /* a UTF-8 byte, not a function key */
+    if ((uint8_t)c >= HID_KEY_CTRL_ENTER && (uint8_t)c <= HID_KEY_CTRL_DOT)
+        return;                             /* a UTF-8 byte, not one of our keys */
     text_push((uint8_t)c);
 }
 

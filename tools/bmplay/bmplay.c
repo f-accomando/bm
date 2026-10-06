@@ -16,7 +16,7 @@
  *     --video FILE    the frames, raw RGB24 ("-" for stdout)
  *     --every K       one frame in K (2: 30 frames a second)
  *     --scale S       every pixel S x S
- *     --audio FILE    the sound, raw s16le mono at 48 kHz
+ *     --audio FILE    the sound, raw s16le stereo at 48 kHz
  *     --png FILE      the last frame drawn, as a PPM picture
  *     --shots N,N,..  those frames as PPM pictures in --shotdir (default .),
  *                     shot-N.ppm
@@ -30,6 +30,8 @@
 #include "bm/gfx16.h"
 #include "audio/synth.h"
 #include "audio/player.h"
+#include "audio/presets.h"
+#include "audio/lua_tone.h"
 
 #include "lauxlib.h"
 #include "lua.h"
@@ -244,6 +246,55 @@ static int l_envelope(lua_State *L)
 
 static int l_duty(lua_State *L) { voice(voice_arg(L))[SYNTH_DUTY] = clamp8((int)luaL_checkinteger(L, 2)); return 0; }
 
+/* the console's tone(), play(), reverb(), echo(), retro() (src/bm/runtime.c) */
+static int l_tone(lua_State *L)
+{
+    volatile uint8_t *v = voice(voice_arg(L));
+    uint8_t regs[SYNTH_VOICE_BYTES];
+    for (int i = 0; i < SYNTH_VOICE_BYTES; i++) regs[i] = v[i];
+    if (lua_isnoneornil(L, 2)) au_voice_default(regs);
+    else au_lua_tone(L, 2, regs);
+    for (int i = SYNTH_WAVEFORM; i <= SYNTH_RELEASE; i++) v[i] = regs[i];
+    for (int i = SYNTH_CUTOFF; i < SYNTH_VOICE_BYTES; i++) v[i] = regs[i];
+    rt.player.v[voice_arg(L)].bank_tone = 0;
+    return 0;
+}
+
+static int l_play(lua_State *L)
+{
+    int ch = lua_isnoneornil(L, 1) ? -1 : (int)(luaL_checkinteger(L, 1) % SYNTH_VOICES);
+    au_sound_t snd;
+    au_lua_sound(L, 2, &snd);
+    lua_Integer ms = luaL_optinteger(L, 4, 400);
+    int v = player_play_sound(&rt.player, ch, &snd, (int)luaL_optinteger(L, 3, 60),
+                              (int)(luaL_optnumber(L, 5, 1.0) * 255.0 + 0.5), ms > 0 ? (uint32_t)ms : 0);
+    if (v < 0) lua_pushnil(L); else lua_pushinteger(L, v);
+    return 1;
+}
+
+static int l_reverb(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1))
+        synth_room(&rt.synth, (float)luaL_checknumber(L, 1), (float)luaL_optnumber(L, 2, rt.synth.room_damp),
+                   (float)luaL_optnumber(L, 3, rt.synth.room_wet));
+    return 0;
+}
+
+static int l_echo(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1))
+        synth_echo(&rt.synth, (float)luaL_checknumber(L, 1), (float)luaL_optnumber(L, 2, rt.synth.echo_fb),
+                   (float)luaL_optnumber(L, 3, rt.synth.echo_wet));
+    return 0;
+}
+
+static int l_retro(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1)) rt.synth.retro = (uint8_t)lua_toboolean(L, 1);
+    lua_pushboolean(L, rt.synth.retro);
+    return 1;
+}
+
 /* ---- lighting by levels */
 static int fade_ready(lua_State *L)
 {
@@ -321,7 +372,9 @@ static const luaL_Reg api[] = {
     { "lastinput", l_lastinput }, { "btn", l_btn }, { "btnp", l_btnp }, { "pad", l_pad }, { "time", l_time },
     { "stat", l_stat }, { "log", l_log }, { "quit", l_quit }, { "timeslice", l_nothing },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq }, { "envelope", l_envelope },
-    { "duty", l_duty }, { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow },
+    { "duty", l_duty }, { "tone", l_tone }, { "play", l_play }, { "instruments", au_lua_instruments },
+    { "instrument", au_lua_instrument },
+    { "reverb", l_reverb }, { "echo", l_echo }, { "retro", l_retro }, { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow },
     { "dark_end", l_dark_end }, { NULL, NULL },
 };
 
@@ -454,6 +507,8 @@ int main(int argc, char **argv)
 
     synth_init(&rt.synth, RATE);
     player_init(&rt.player, RATE, rt.regs, &rt.synth);
+    for (unsigned ch = 0; ch < SYNTH_VOICES; ch++)
+        au_voice_default(voice(ch));            /* as the console's audio_reset() */
 
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
@@ -463,8 +518,9 @@ int main(int argc, char **argv)
     }
     lua_pushinteger(L, w); lua_setglobal(L, "SCREEN_W");
     lua_pushinteger(L, h); lua_setglobal(L, "SCREEN_H");
-    const char *waves[] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL" };
-    for (int i = 0; i < 6; i++) { lua_pushinteger(L, i); lua_setglobal(L, waves[i]); }
+    const char *waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL",
+                                       "FM", "PLUCK", "SUPERSAW", "ORGAN" };
+    for (int i = 0; i < SYNTH_WAVES; i++) { lua_pushinteger(L, i); lua_setglobal(L, waves[i]); }
     lua_getglobal(L, "math");
     lua_getfield(L, -1, "randomseed");
     lua_pushinteger(L, seed);
@@ -486,7 +542,7 @@ int main(int argc, char **argv)
     FILE *vf = video ? (!strcmp(video, "-") ? stdout : fopen(video, "wb")) : NULL;
     FILE *af = audio ? fopen(audio, "wb") : NULL;
     if ((video && !vf) || (audio && !af)) { perror("bmplay"); return 1; }
-    static int16_t pcm[RATE / FPS];
+    static int16_t pcm[RATE / FPS * 2];         /* left, right */
     for (rt.frame = 0; rt.frame < frames && !rt.quit; rt.frame++) {
         uint32_t held = 0;
         int stop = 0;
@@ -513,9 +569,9 @@ int main(int argc, char **argv)
         for (int k = 0; k < RATE / FPS; k += BLOCK) {
             unsigned m = RATE / FPS - k < BLOCK ? (unsigned)(RATE / FPS - k) : BLOCK;
             player_advance(&rt.player, m);
-            synth_render(&rt.synth, rt.regs, pcm + k, m);
+            synth_render(&rt.synth, rt.regs, pcm + 2 * k, m);
         }
-        if (af) fwrite(pcm, 2, RATE / FPS, af);
+        if (af) fwrite(pcm, 4, RATE / FPS, af);
         if (vf && rt.frame % every == 0) write_frame(vf, scale);
         if (shots) {
             for (const char *q = shots; *q; ) {

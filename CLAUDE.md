@@ -563,6 +563,48 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Il formato del banco esiste in tre posti: C (`au_parse`), Lua (l'editor) e Python
   (`scripts/bmaudio.py`). Se cambia, cambiarlo in tutti e tre: `make test-sound`
   controlla che il banco demo torni identico byte per byte.
+- **Audio 2** (M46, branch `claude/audio-synth`, richiesta dell'utente 2026-10-06: il suono
+  era troppo "8 bit"): `synth.c` è hi-fi e **stereo** fino all'uscita (frame sinistra/destra
+  in `audio_render`, HDMI IEC958, I2S della RGB30 con la sinistra nella metà bassa, QEMU,
+  bmhost, bmplay): onde PolyBLEP, filtro TPT con inviluppo e LFO, inviluppi esponenziali, FM,
+  PLUCK (Karplus-Strong), SUPERSAW, ORGAN, ambiente (FDN) ed eco, compressore (il volume
+  generale dopo di lui). 32 registri per voce: dall'11 il **timbro** (21 byte, mappa in
+  `synth.h`). Il suono di prima resta identico campione per campione: `SYNTH_FLAG_RAW` per
+  voce, `synth_t.retro` per tutto (`audio_retro`: il gioco con `retro()`, l'utente con
+  *Settings > Screen and sound > Sound style*, config `sound=8bit`); i test vecchi di
+  `test_audio.c` girano in retro. Il VFP del Pi è in RunFast (niente denormali); i buffer
+  del blocco stanno in `synth_t` (l'interrupt usa lo stack SVC). Costo sul Pi (armprof):
+  4,2% con 8 voci e l'ambiente.
+- **Strumenti pronti** `src/audio/presets.c` (42, gli stessi in bm Sound, *Instrument...*);
+  dal Lua `tone`, `play`, `instruments`, `instrument`, `reverb`, `echo`, `retro`
+  (`lua_tone.c`, condiviso da runtime, bmhost e bmplay). **Banco versione 2**: suoni da 48
+  byte (`tone[21]`), byte 12/13 del brano eco (passi) e ambiente; la versione 1 si legge
+  (mandata all'ambiente `AU_ROOM_SEND`).
+- **Assistente della musica** (`src/ai/music.c`, portabile): 87 ricette (`beat.*`, `base.*`,
+  `bass.*`, `arp.*`, `melody.*`, `sfx.*`), le voci `kind: music` in `src/ai/kb/music.txt`
+  (scritte dalle ricette), il tipo `AI_KIND_MUSIC` (256: `kmask` a 16 bit) e il modo
+  `music` del pannello (`assist.lua`, F6 in bm Sound). Le melodie le sceglie la rete
+  `music_net.c` (scritta da `scripts/trainmusic.py` su `src/ai/melodies.txt`, solo melodie
+  tradizionali o scritte per bm; `make music-model`, poi commit di `music_net.c`): il C
+  dà le stesse uscite del Python (`make test-music`). `ai.music`/`ai.music_recipes` anche
+  sulla RGB30 (senza la rete dell'assistente: `mus_guess` dalle parole).
+- **riff** (M46, richiesta dell'utente: un linguaggio di pattern come Strudel, in Lua;
+  guida `docs/RIFF.md`): `src/script/riff.lua` (`require "riff"`, incorporata come bmlib:
+  `embed.S`, `require.c`, `tests/host/libs.S`, `src/rgb30/bm_embed.S`). Mini-notazione,
+  pattern come funzioni da un intervallo di cicli agli eventi (alla Tidal, tempi in float
+  con `EPS`), controlli con le unità di `tone()` (non quelle di Strudel), scale, accordi.
+  `R.update()` in `_update` chiede ~0,2 s avanti (pezzi di 1/8 di ciclo) e mette le note in
+  coda con **`play_at`**: la coda è nel player (`player_at`, 160 note, `at_next`; la voce
+  si sceglie alla partenza, mai quelle di un brano o di un effetto), l'orologio è
+  `player_t.clock` (`audio_time()`). `R.code(testo)` compila con il loader di testo che
+  `require.c` dà solo a riff (`l_loadtext`, modo `"t"`: la sandbox non ha `load`); ogni
+  globale con un pattern suona col suo nome. Nomi negli strumenti: prima i suoni del banco
+  (`au_lua_bank` in `lua_tone.c`), poi i preset (`triangle` è quello senza nome). bm Code:
+  Ctrl+Invio (`"^\n"` di `keyp`, `HID_KEY_CTRL_ENTER`; seriale `ESC [ 28 ~`) e Ctrl+.
+  (`"^."`, `ESC [ 29 ~`), parole accese con `R.active()`; bm Sound: F7 *Riff...*,
+  `R.bake` nella forma di `ai.music` e `merge`. Prove: `make test-riff`
+  (`tests/riff/cart.lua`, anche gli esempi dei documenti), `make test-audio` (`test_at`),
+  QEMU `test_riff_code`, `test_sound_riff`, `test_audio`.
 
 ## nano8 (M23)
 

@@ -1,0 +1,1221 @@
+# Le ricette musicali di bm Sound (src/ai/music.c): ritmi, basi, bassi,
+# arpeggi, melodie ed effetti sonori. Il pannello dell'assistente (F6 in
+# bm Sound) le sceglie dalle parole; ai.music(richiesta) le scrive.
+
+== music.beat.rock
+kind: music
+gen: beat.rock
+title: Rock beat
+title_en: Rock beat
+ask: fammi un ritmo rock | batteria rock | beat rock
+ask: ritmo di batteria per una canzone rock | groove rock classico
+ask: rock drum beat | a rock rhythm | drums for a rock song
+keys: rock, batteria, drums, ritmo, beat
+text:
+Una batteria rock in quattro battute: cassa sull'uno e sul tre, rullante sul due e sul quattro, charleston in ottavi, un fill alla fine.
+text_en:
+A rock drum kit over four bars: kick on one and three, snare on two and four, hi-hat in eighths, a fill at the end.
+
+== music.beat.pop
+kind: music
+gen: beat.pop
+title: Pop beat
+title_en: Pop beat
+ask: ritmo pop | batteria pop moderna | beat pop
+ask: un ritmo semplice per una canzone pop | groove pop allegro
+ask: pop drum beat | a pop groove | simple pop drums
+keys: pop, ritmo, batteria
+text:
+Una batteria pop: cassa con un colpo in levare, rullante sul due e sul quattro, charleston in sedicesimi leggeri.
+text_en:
+A pop drum kit: kick with an offbeat hit, snare on two and four, light hi-hat in sixteenths.
+
+== music.beat.funk
+kind: music
+gen: beat.funk
+title: Funk groove
+title_en: Funk groove
+ask: ritmo funk | groove funky | batteria funk sincopata
+ask: un ritmo funk con le note fantasma | funk anni 70
+ask: funk drum groove | funky beat | syncopated funk drums
+keys: funk, funky, groove, sincopato
+text:
+Un groove funk: cassa sincopata, rullante con note fantasma, charleston in sedicesimi e uno aperto prima del giro.
+text_en:
+A funk groove: syncopated kick, snare with ghost notes, hi-hat in sixteenths and an open one before the turn.
+
+== music.beat.disco
+kind: music
+gen: beat.disco
+title: Disco beat
+title_en: Disco beat
+ask: ritmo disco | batteria disco anni 70 | four on the floor disco
+ask: beat da discoteca con il charleston aperto
+ask: disco drum beat | disco groove | open hi hat disco
+keys: disco, discoteca, dance
+text:
+Disco: cassa su ogni quarto, battimani sul due e sul quattro, charleston aperto in levare.
+text_en:
+Disco: kick on every quarter, claps on two and four, open hi-hat on the offbeat.
+
+== music.beat.house
+kind: music
+gen: beat.house
+title: House beat
+title_en: House beat
+ask: ritmo house | cassa dritta house | beat house
+ask: una base ritmica house con lo shaker | four on the floor
+ask: house beat | four to the floor kick | house drums
+keys: house, cassa dritta, four
+text:
+House: cassa dritta su ogni quarto, clap, charleston aperto in levare e uno shaker in sedicesimi.
+text_en:
+House: straight kick on every quarter, clap, open hi-hat on the offbeat and a shaker in sixteenths.
+
+== music.beat.techno
+kind: music
+gen: beat.techno
+title: Techno beat
+title_en: Techno beat
+ask: ritmo techno | beat techno | batteria techno martellante
+ask: una cassa techno con il rim | techno minimale
+ask: techno beat | techno drums | pounding techno kick
+keys: techno, cassa, elettronica
+text:
+Techno: cassa su ogni quarto, clap, charleston aperto in levare e un rim che gira.
+text_en:
+Techno: kick on every quarter, clap, open hi-hat on the offbeat and a rim that turns around.
+
+== music.beat.hiphop
+kind: music
+gen: beat.hiphop
+title: Hip-hop beat
+title_en: Hip-hop beat
+ask: ritmo hip hop | beat rap | boom bap
+ask: una base rap anni 90 | ritmo hip-hop con lo swing
+ask: hip hop beat | boom bap drums | rap beat
+keys: hiphop, hip, hop, rap, boom
+text:
+Boom bap: cassa sincopata, rullante pieno sul due e sul quattro, charleston con un po' di swing, lento.
+text_en:
+Boom bap: syncopated kick, full snare on two and four, hi-hat with some swing, slow.
+
+== music.beat.trap
+kind: music
+gen: beat.trap
+title: Trap beat
+title_en: Trap beat
+ask: ritmo trap | beat trap | batteria trap con i charleston veloci
+ask: trap moderna | una base trap
+ask: trap beat | trap hi hats | modern trap drums
+keys: trap
+text:
+Trap: mezzo tempo, rullante sul tre, charleston fitti, la cassa che scivola.
+text_en:
+Trap: half time, snare on three, busy hi-hats, the kick that slides.
+
+== music.beat.dnb
+kind: music
+gen: beat.dnb
+title: Drum and bass
+title_en: Drum and bass
+ask: ritmo drum and bass | dnb veloce | batteria drum'n'bass
+ask: una ritmica jungle | breakbeat veloce
+ask: drum and bass beat | dnb | fast breakbeat
+keys: drum, bass, dnb, jungle, breakbeat
+text:
+Drum and bass a 170 BPM: cassa sull'uno e in mezzo, rullante sul due e sul quattro, charleston in ottavi.
+text_en:
+Drum and bass at 170 BPM: kick on one and in the middle, snare on two and four, hi-hat in eighths.
+
+== music.beat.reggae
+kind: music
+gen: beat.reggae
+title: Reggae one drop
+title_en: Reggae one drop
+ask: ritmo reggae | one drop | batteria reggae
+ask: una ritmica reggae rilassata | levare giamaicano
+ask: reggae beat | one drop drums | reggae rhythm
+keys: reggae, one, drop, levare
+text:
+One drop: cassa e rim solo sul tre, charleston in ottavi con swing; lento e rilassato.
+text_en:
+One drop: kick and rim only on three, hi-hat in swung eighths; slow and relaxed.
+
+== music.beat.bossa
+kind: music
+gen: beat.bossa
+title: Bossa nova
+title_en: Bossa nova
+ask: ritmo bossa nova | batteria bossa | brasiliano
+ask: una bossa morbida con il rim | samba lenta
+ask: bossa nova beat | brazilian rhythm | bossa drums
+keys: bossa, nova, brasile, samba
+text:
+Bossa nova: il clave del rim, la cassa che dondola, i charleston in sedicesimi.
+text_en:
+Bossa nova: the rim's clave, the rocking kick, hi-hats in sixteenths.
+
+== music.beat.waltz
+kind: music
+gen: beat.waltz
+title: Waltz
+title_en: Waltz
+ask: ritmo di valzer | tre quarti | batteria in 3/4
+ask: un valzer lento | ritmo ternario
+ask: waltz rhythm | 3/4 beat | waltz drums
+keys: valzer, waltz, tre, quarti, ternario
+text:
+Valzer in 3/4: cassa sull'uno, rullante leggero sul due e sul tre.
+text_en:
+Waltz in 3/4: kick on one, a light snare on two and three.
+
+== music.beat.march
+kind: music
+gen: beat.march
+title: March
+title_en: March
+ask: ritmo di marcia | tamburo militare | marcia
+ask: una marcia con il rullante | banda
+ask: march rhythm | military snare | marching drums
+keys: marcia, march, militare, tamburo
+text:
+Marcia: cassa sull'uno e sul tre, il rullante che rulla in sedicesimi.
+text_en:
+March: kick on one and three, the snare rolling in sixteenths.
+
+== music.beat.shuffle
+kind: music
+gen: beat.shuffle
+title: Shuffle
+title_en: Shuffle
+ask: ritmo shuffle | blues shuffle | ritmo terzinato
+ask: una ritmica blues | swing pesante
+ask: shuffle beat | blues shuffle drums | swing beat
+keys: shuffle, blues, swing
+text:
+Shuffle: ottavi con lo swing forte, cassa e rullante del blues.
+text_en:
+Shuffle: eighths with a strong swing, the kick and snare of the blues.
+
+== music.beat.metal
+kind: music
+gen: beat.metal
+title: Metal double kick
+title_en: Metal double kick
+ask: ritmo metal | doppia cassa | batteria metal
+ask: un ritmo heavy metal veloce | doppio pedale
+ask: metal beat | double kick drums | heavy metal drums
+keys: metal, heavy, doppia, cassa
+text:
+Metal: doppia cassa in sedicesimi, rullante sul due e sul quattro, piatti sui quarti.
+text_en:
+Metal: double kick in sixteenths, snare on two and four, cymbals on the quarters.
+
+== music.beat.chip
+kind: music
+gen: beat.chip
+title: 8-bit beat
+title_en: 8-bit beat
+ask: ritmo 8 bit | batteria chiptune | beat retro
+ask: un ritmo da videogioco anni 80 | batteria del NES
+ask: 8-bit beat | chiptune drums | retro game drums
+keys: 8bit, chiptune, retro, nes
+text:
+Una batteria 8-bit: cassa, rumore e charleston metallico della voce di una volta.
+text_en:
+An 8-bit drum kit: kick, noise and the metallic hi-hat of the old voice.
+
+== music.beat.lofi
+kind: music
+gen: beat.lofi
+title: Lo-fi beat
+title_en: Lo-fi beat
+ask: ritmo lo-fi | beat lofi rilassato | lofi hip hop
+ask: un ritmo per studiare | beat chill
+ask: lo-fi beat | chill hop drums | lofi study beat
+keys: lofi, lo, fi, chill, rilassato
+text:
+Lo-fi: lento, swing, note fantasma sul charleston, la cassa pigra.
+text_en:
+Lo-fi: slow, swung, ghost notes on the hi-hat, the lazy kick.
+
+== music.beat.halftime
+kind: music
+gen: beat.halftime
+title: Half-time beat
+title_en: Half-time beat
+ask: ritmo a mezzo tempo | half time | batteria epica lenta
+ask: rullante sul tre | ritmo pesante
+ask: half-time beat | halftime drums | heavy slow groove
+keys: mezzo, tempo, half, epico
+text:
+Mezzo tempo: cassa sull'uno, rullante sul tre, potente e largo.
+text_en:
+Half time: kick on one, snare on three, powerful and wide.
+
+== music.base.pop
+kind: music
+gen: base.pop
+title: Pop backing track
+title_en: Pop backing track
+ask: base pop | una base per una canzone pop | accompagnamento pop
+ask: base musicale pop con batteria basso e accordi
+ask: pop backing track | pop instrumental | chords bass and drums pop
+keys: base, accompagnamento, backing, pop
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.rock
+kind: music
+gen: base.rock
+title: Rock backing track
+title_en: Rock backing track
+ask: base rock | accompagnamento rock con chitarre | base da suonarci sopra rock
+ask: base rock con il basso in ottavi
+ask: rock backing track | rock instrumental | guitar rock backing
+keys: base, accompagnamento, backing, rock
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.lofi
+kind: music
+gen: base.lofi
+title: Lo-fi backing track
+title_en: Lo-fi backing track
+ask: base lofi | base chill per studiare | accordi jazz lenti
+ask: una base lo-fi con il piano elettrico
+ask: lo-fi backing track | chill lofi instrumental | study music
+keys: base, accompagnamento, backing, lofi
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.synthwave
+kind: music
+gen: base.synthwave
+title: Synthwave backing track
+title_en: Synthwave backing track
+ask: base synthwave | anni 80 elettronica | retrowave
+ask: base outrun con il pad e l'arpeggio
+ask: synthwave backing track | retrowave | 80s synth music
+keys: base, accompagnamento, backing, synthwave
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.chiptune
+kind: music
+gen: base.chiptune
+title: Chiptune backing track
+title_en: Chiptune backing track
+ask: base chiptune | musica 8 bit | base da videogioco retro
+ask: accompagnamento 8 bit con arpeggi veloci
+ask: chiptune backing track | 8-bit music | retro game music
+keys: base, accompagnamento, backing, chiptune
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.ambient
+kind: music
+gen: base.ambient
+title: Ambient backing track
+title_en: Ambient backing track
+ask: base ambient | musica di sottofondo atmosferica | pad lenti
+ask: un tappeto sonoro rilassante | atmosfera
+ask: ambient backing | atmospheric background music | ambient pads
+keys: base, accompagnamento, backing, ambient
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.epic
+kind: music
+gen: base.epic
+title: Epic backing track
+title_en: Epic backing track
+ask: base epica | musica epica orchestrale | battaglia epica
+ask: base cinematografica con gli archi | colonna sonora epica
+ask: epic backing track | cinematic music | epic orchestral
+keys: base, accompagnamento, backing, epic
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.jazz
+kind: music
+gen: base.jazz
+title: Jazz backing track
+title_en: Jazz backing track
+ask: base jazz | accompagnamento jazz con il walking bass | bossa jazz
+ask: accordi jazz con la settima
+ask: jazz backing track | walking bass jazz | jazz chords
+keys: base, accompagnamento, backing, jazz
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.reggae
+kind: music
+gen: base.reggae
+title: Reggae backing track
+title_en: Reggae backing track
+ask: base reggae | accompagnamento in levare | skank reggae
+ask: una base reggae con l'organo
+ask: reggae backing track | reggae skank | reggae instrumental
+keys: base, accompagnamento, backing, reggae
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.funk
+kind: music
+gen: base.funk
+title: Funk backing track
+title_en: Funk backing track
+ask: base funk | groove funky con il basso slap | accompagnamento funk
+ask: funk con gli accordi stoppati
+ask: funk backing track | funky instrumental | funk groove with bass
+keys: base, accompagnamento, backing, funk
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.boss
+kind: music
+gen: base.boss
+title: Boss fight backing track
+title_en: Boss fight backing track
+ask: musica per il boss | base da combattimento | battaglia finale
+ask: base metal per lo scontro col boss | musica tesa da boss
+ask: boss fight music | boss battle backing | final battle
+keys: base, accompagnamento, backing, boss
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.town
+kind: music
+gen: base.town
+title: Town backing track
+title_en: Town backing track
+ask: musica del villaggio | base per la citta' | musica da paese allegra
+ask: una base serena per il paese del gioco
+ask: town music | village theme backing | peaceful town
+keys: base, accompagnamento, backing, town
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.dungeon
+kind: music
+gen: base.dungeon
+title: Dungeon backing track
+title_en: Dungeon backing track
+ask: musica del dungeon | base per la grotta | musica sotterranea misteriosa
+ask: atmosfera da sotterraneo | caverna
+ask: dungeon music | cave ambience | dark dungeon backing
+keys: base, accompagnamento, backing, dungeon
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.space
+kind: music
+gen: base.space
+title: Space backing track
+title_en: Space backing track
+ask: musica spaziale | base per lo spazio | fantascienza
+ask: atmosfera da astronave | musica cosmica
+ask: space music | sci-fi backing | spaceship ambience
+keys: base, accompagnamento, backing, space
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.sad
+kind: music
+gen: base.sad
+title: Sad backing track
+title_en: Sad backing track
+ask: base triste | accompagnamento malinconico | musica triste
+ask: base lenta e malinconica in minore
+ask: sad backing track | melancholic music | sad instrumental
+keys: base, accompagnamento, backing, sad
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.happy
+kind: music
+gen: base.happy
+title: Happy backing track
+title_en: Happy backing track
+ask: base allegra | musica felice | accompagnamento gioioso
+ask: una base solare e positiva
+ask: happy backing track | cheerful music | upbeat instrumental
+keys: base, accompagnamento, backing, happy
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.blues
+kind: music
+gen: base.blues
+title: Blues backing track
+title_en: Blues backing track
+ask: base blues | blues in dodici battute | accompagnamento blues
+ask: blues con il walking bass e lo shuffle
+ask: blues backing track | 12 bar blues | blues shuffle
+keys: base, accompagnamento, backing, blues
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.base.techno
+kind: music
+gen: base.techno
+title: Techno backing track
+title_en: Techno backing track
+ask: base techno | traccia techno | elettronica da ballare
+ask: una base techno con il basso acido
+ask: techno backing track | techno track | acid techno
+keys: base, accompagnamento, backing, techno
+text:
+Una base di otto battute: batteria, basso e accordi sul giro dello stile (lo strumento si cambia con le parole: "con il piano", "con l'organo"); la tonalita' con "in la minore", il tempo con "120 bpm" o "veloce".
+text_en:
+An eight-bar backing track: drums, bass and chords on the style's progression (the words change the instrument: "with the piano", "with the organ"); the key with "in A minor", the tempo with "120 bpm" or "fast".
+
+== music.bass.root
+kind: music
+gen: bass.root
+title: Bass on the beat
+title_en: Bass on the beat
+ask: linea di basso semplice | basso sulle toniche | un giro di basso
+ask: basso che segue gli accordi
+ask: simple bass line | root note bass | bassline
+keys: basso, bass, linea
+text:
+Un basso che suona la fondamentale di ogni accordo sul tempo.
+text_en:
+A bass that plays the root of each chord on the beat.
+
+== music.bass.octave
+kind: music
+gen: bass.octave
+title: Octave bass
+title_en: Octave bass
+ask: basso a ottave | basso disco | basso che salta d'ottava
+ask: ottavi alternati basso disco
+ask: octave bass | disco bass line | bouncing octave bass
+keys: ottave, octave, disco, basso
+text:
+Basso disco: ottavi che saltano tra la nota e la sua ottava.
+text_en:
+Disco bass: eighths jumping between the note and its octave.
+
+== music.bass.walking
+kind: music
+gen: bass.walking
+title: Walking bass
+title_en: Walking bass
+ask: walking bass | basso jazz che cammina | linea di basso jazz
+ask: basso in quarti che va verso il prossimo accordo
+ask: walking bass line | jazz bass | walking bass
+keys: walking, jazz, basso
+text:
+Walking bass: quattro quarti per battuta, l'ultimo che si avvicina all'accordo dopo.
+text_en:
+Walking bass: four quarters a bar, the last one leading to the next chord.
+
+== music.bass.acid
+kind: music
+gen: bass.acid
+title: Acid bass line
+title_en: Acid bass line
+ask: basso acido | linea acid | basso 303
+ask: basso techno con le scivolate
+ask: acid bass line | 303 bass | acid techno bassline
+keys: acid, acido, 303, techno
+text:
+Un basso acid: sedicesimi con salti d'ottava e scivolate sul suono risonante.
+text_en:
+An acid bass: sixteenths with octave jumps and slides on the resonant sound.
+
+== music.bass.funk
+kind: music
+gen: bass.funk
+title: Funk bass
+title_en: Funk bass
+ask: basso funk | basso slap | linea di basso funky
+ask: basso sincopato funk
+ask: funk bass line | slap bass | funky bassline
+keys: funk, slap, basso
+text:
+Basso funk: sincopato, con l'ottava e la settima.
+text_en:
+Funk bass: syncopated, with the octave and the seventh.
+
+== music.arp.up
+kind: music
+gen: arp.up
+title: Arpeggio up
+title_en: Arpeggio up
+ask: arpeggio ascendente | arpeggio che sale | arpeggio degli accordi
+ask: fai un arpeggio sopra gli accordi
+ask: rising arpeggio | arpeggio up | arpeggiate the chords
+keys: arpeggio, arp, sale
+text:
+Le note degli accordi una dopo l'altra, dal basso in alto. Sopra una base che c'e' gia' segue i suoi accordi.
+text_en:
+The notes of the chords one after the other, from low to high. Over a backing that is already there it follows its chords.
+
+== music.arp.down
+kind: music
+gen: arp.down
+title: Arpeggio down
+title_en: Arpeggio down
+ask: arpeggio discendente | arpeggio che scende
+ask: arpeggio dall'alto verso il basso
+ask: falling arpeggio | arpeggio down | descending arpeggio
+keys: arpeggio, scende
+text:
+Le note degli accordi dall'alto in basso.
+text_en:
+The notes of the chords from high to low.
+
+== music.arp.updown
+kind: music
+gen: arp.updown
+title: Arpeggio up and down
+title_en: Arpeggio up and down
+ask: arpeggio su e giu' | arpeggio avanti e indietro
+ask: arpeggio che sale e poi scende
+ask: up and down arpeggio | arpeggio up down | ping pong arpeggio
+keys: arpeggio, su, giu
+text:
+Le note degli accordi su e poi giu'.
+text_en:
+The notes of the chords up and then down.
+
+== music.arp.broken
+kind: music
+gen: arp.broken
+title: Broken chords
+title_en: Broken chords
+ask: accordi spezzati | arpeggio spezzato
+ask: accordi suonati una nota per volta in ordine sparso
+ask: broken chords | broken arpeggio | chord pattern
+keys: spezzati, broken, accordi
+text:
+Accordi spezzati: la prima, la quinta, la terza, l'ottava.
+text_en:
+Broken chords: the root, the fifth, the third, the octave.
+
+== music.arp.alberti
+kind: music
+gen: arp.alberti
+title: Alberti bass
+title_en: Alberti bass
+ask: basso albertino | accompagnamento classico al pianoforte | arpeggio alla Mozart
+ask: accompagnamento classico
+ask: alberti bass | classical piano accompaniment | mozart style
+keys: albertino, alberti, classico
+text:
+Il basso albertino del pianoforte classico: bassa, alta, media, alta.
+text_en:
+The Alberti bass of classical piano: low, high, middle, high.
+
+== music.arp.trance
+kind: music
+gen: arp.trance
+title: Trance arpeggio
+title_en: Trance arpeggio
+ask: arpeggio trance | arpeggio veloce elettronico | arpeggiatore
+ask: arpeggio in sedicesimi da discoteca
+ask: trance arpeggio | fast synth arpeggio | arpeggiator
+keys: trance, arpeggiatore, veloce
+text:
+Un arpeggiatore trance in sedicesimi, con l'eco a tempo.
+text_en:
+A trance arpeggiator in sixteenths, with the echo in time.
+
+== music.arp.chip
+kind: music
+gen: arp.chip
+title: 8-bit arpeggio
+title_en: 8-bit arpeggio
+ask: arpeggio 8 bit | arpeggio chiptune | arpeggio retro velocissimo
+ask: arpeggio da videogioco del NES
+ask: 8-bit arpeggio | chiptune arpeggio | fast retro arpeggio
+keys: 8bit, chiptune, arpeggio
+text:
+L'arpeggio velocissimo delle vecchie console, sulla voce a 8 bit.
+text_en:
+The very fast arpeggio of the old consoles, on the 8-bit voice.
+
+== music.arp.harp
+kind: music
+gen: arp.harp
+title: Harp sweep
+title_en: Harp sweep
+ask: arpeggio d'arpa | arpa che sale | glissato d'arpa
+ask: un arpeggio sognante con l'arpa
+ask: harp arpeggio | harp sweep | dreamy harp
+keys: arpa, harp, sognante
+text:
+L'arpa che sale e scende su due ottave.
+text_en:
+The harp going up and down over two octaves.
+
+== music.melody.happy
+kind: music
+gen: melody.happy
+title: Happy melody
+title_en: Happy melody
+ask: melodia allegra | una melodia felice | motivetto allegro
+ask: melodia gioiosa per il menu
+ask: happy melody | cheerful tune | upbeat melody
+keys: melodia, melody, allegra, felice, happy
+text:
+Una melodia di otto battute scritta nota per nota da una piccola rete neurale addestrata su melodie tradizionali e scritte per bm, nella forma di una canzone (una frase, la sua ripetizione, una risposta, la chiusa sulla tonica). Sopra una base che c'e' gia' ne segue la tonalita' e gli accordi; "in re maggiore", "lenta", "con il flauto" la cambiano. A destra e a sinistra: un'altra.
+text_en:
+An eight-bar melody written note by note by a small neural network trained on traditional melodies and melodies written for bm, in the form of a song (a phrase, its repeat, an answer, the close on the tonic). Over a backing that is already there it follows its key and chords; "in D major", "slow", "with the flute" change it. Left and right: another one.
+
+== music.melody.sad
+kind: music
+gen: melody.sad
+title: Sad melody
+title_en: Sad melody
+ask: melodia triste | una melodia malinconica | tema triste
+ask: melodia lenta in minore
+ask: sad melody | melancholic tune | sad theme
+keys: melodia, melody, triste, malinconica, sad
+text:
+Una melodia di otto battute scritta nota per nota da una piccola rete neurale addestrata su melodie tradizionali e scritte per bm, nella forma di una canzone (una frase, la sua ripetizione, una risposta, la chiusa sulla tonica). Sopra una base che c'e' gia' ne segue la tonalita' e gli accordi; "in re maggiore", "lenta", "con il flauto" la cambiano. A destra e a sinistra: un'altra.
+text_en:
+An eight-bar melody written note by note by a small neural network trained on traditional melodies and melodies written for bm, in the form of a song (a phrase, its repeat, an answer, the close on the tonic). Over a backing that is already there it follows its key and chords; "in D major", "slow", "with the flute" change it. Left and right: another one.
+
+== music.melody.epic
+kind: music
+gen: melody.epic
+title: Epic melody
+title_en: Epic melody
+ask: melodia epica | tema epico | melodia da battaglia
+ask: una melodia grandiosa e solenne
+ask: epic melody | epic theme | heroic battle tune
+keys: melodia, melody, epica, epic, solenne
+text:
+Una melodia di otto battute scritta nota per nota da una piccola rete neurale addestrata su melodie tradizionali e scritte per bm, nella forma di una canzone (una frase, la sua ripetizione, una risposta, la chiusa sulla tonica). Sopra una base che c'e' gia' ne segue la tonalita' e gli accordi; "in re maggiore", "lenta", "con il flauto" la cambiano. A destra e a sinistra: un'altra.
+text_en:
+An eight-bar melody written note by note by a small neural network trained on traditional melodies and melodies written for bm, in the form of a song (a phrase, its repeat, an answer, the close on the tonic). Over a backing that is already there it follows its key and chords; "in D major", "slow", "with the flute" change it. Left and right: another one.
+
+== music.melody.mysterious
+kind: music
+gen: melody.mysterious
+title: Mysterious melody
+title_en: Mysterious melody
+ask: melodia misteriosa | tema del mistero | melodia enigmatica
+ask: una melodia per un luogo segreto
+ask: mysterious melody | mystery theme | enigmatic tune
+keys: melodia, melody, misteriosa, mistero, mysterious
+text:
+Una melodia di otto battute scritta nota per nota da una piccola rete neurale addestrata su melodie tradizionali e scritte per bm, nella forma di una canzone (una frase, la sua ripetizione, una risposta, la chiusa sulla tonica). Sopra una base che c'e' gia' ne segue la tonalita' e gli accordi; "in re maggiore", "lenta", "con il flauto" la cambiano. A destra e a sinistra: un'altra.
+text_en:
+An eight-bar melody written note by note by a small neural network trained on traditional melodies and melodies written for bm, in the form of a song (a phrase, its repeat, an answer, the close on the tonic). Over a backing that is already there it follows its key and chords; "in D major", "slow", "with the flute" change it. Left and right: another one.
+
+== music.melody.calm
+kind: music
+gen: melody.calm
+title: Calm melody
+title_en: Calm melody
+ask: melodia calma | melodia rilassante | tema tranquillo
+ask: una melodia dolce e lenta
+ask: calm melody | relaxing tune | peaceful theme
+keys: melodia, melody, calma, rilassante, calm, tranquilla
+text:
+Una melodia di otto battute scritta nota per nota da una piccola rete neurale addestrata su melodie tradizionali e scritte per bm, nella forma di una canzone (una frase, la sua ripetizione, una risposta, la chiusa sulla tonica). Sopra una base che c'e' gia' ne segue la tonalita' e gli accordi; "in re maggiore", "lenta", "con il flauto" la cambiano. A destra e a sinistra: un'altra.
+text_en:
+An eight-bar melody written note by note by a small neural network trained on traditional melodies and melodies written for bm, in the form of a song (a phrase, its repeat, an answer, the close on the tonic). Over a backing that is already there it follows its key and chords; "in D major", "slow", "with the flute" change it. Left and right: another one.
+
+== music.melody.heroic
+kind: music
+gen: melody.heroic
+title: Heroic melody
+title_en: Heroic melody
+ask: melodia eroica | tema dell'eroe | fanfara eroica
+ask: melodia per il titolo dell'avventura
+ask: heroic melody | hero theme | heroic tune
+keys: melodia, melody, eroica, eroe, heroic
+text:
+Una melodia di otto battute scritta nota per nota da una piccola rete neurale addestrata su melodie tradizionali e scritte per bm, nella forma di una canzone (una frase, la sua ripetizione, una risposta, la chiusa sulla tonica). Sopra una base che c'e' gia' ne segue la tonalita' e gli accordi; "in re maggiore", "lenta", "con il flauto" la cambiano. A destra e a sinistra: un'altra.
+text_en:
+An eight-bar melody written note by note by a small neural network trained on traditional melodies and melodies written for bm, in the form of a song (a phrase, its repeat, an answer, the close on the tonic). Over a backing that is already there it follows its key and chords; "in D major", "slow", "with the flute" change it. Left and right: another one.
+
+== music.melody.chip
+kind: music
+gen: melody.chip
+title: 8-bit melody
+title_en: 8-bit melody
+ask: melodia 8 bit | motivetto chiptune | melodia retro
+ask: una melodia da videogioco anni 80
+ask: 8-bit melody | chiptune tune | retro game melody
+keys: melodia, melody, 8bit, chiptune, retro
+text:
+Una melodia di otto battute scritta nota per nota da una piccola rete neurale addestrata su melodie tradizionali e scritte per bm, nella forma di una canzone (una frase, la sua ripetizione, una risposta, la chiusa sulla tonica). Sopra una base che c'e' gia' ne segue la tonalita' e gli accordi; "in re maggiore", "lenta", "con il flauto" la cambiano. A destra e a sinistra: un'altra.
+text_en:
+An eight-bar melody written note by note by a small neural network trained on traditional melodies and melodies written for bm, in the form of a song (a phrase, its repeat, an answer, the close on the tonic). Over a backing that is already there it follows its key and chords; "in D major", "slow", "with the flute" change it. Left and right: another one.
+
+== music.melody.jazzy
+kind: music
+gen: melody.jazzy
+title: Jazzy melody
+title_en: Jazzy melody
+ask: melodia jazz | una melodia jazzata | tema jazz
+ask: melodia per un locale jazz
+ask: jazzy melody | jazz tune | smooth jazz theme
+keys: melodia, melody, jazz, jazzata
+text:
+Una melodia di otto battute scritta nota per nota da una piccola rete neurale addestrata su melodie tradizionali e scritte per bm, nella forma di una canzone (una frase, la sua ripetizione, una risposta, la chiusa sulla tonica). Sopra una base che c'e' gia' ne segue la tonalita' e gli accordi; "in re maggiore", "lenta", "con il flauto" la cambiano. A destra e a sinistra: un'altra.
+text_en:
+An eight-bar melody written note by note by a small neural network trained on traditional melodies and melodies written for bm, in the form of a song (a phrase, its repeat, an answer, the close on the tonic). Over a backing that is already there it follows its key and chords; "in D major", "slow", "with the flute" change it. Left and right: another one.
+
+== music.melody.spooky
+kind: music
+gen: melody.spooky
+title: Spooky melody
+title_en: Spooky melody
+ask: melodia spaventosa | tema horror | melodia da fantasmi
+ask: una melodia inquietante
+ask: spooky melody | horror theme | creepy tune
+keys: melodia, melody, spaventosa, horror, fantasmi, spooky
+text:
+Una melodia di otto battute scritta nota per nota da una piccola rete neurale addestrata su melodie tradizionali e scritte per bm, nella forma di una canzone (una frase, la sua ripetizione, una risposta, la chiusa sulla tonica). Sopra una base che c'e' gia' ne segue la tonalita' e gli accordi; "in re maggiore", "lenta", "con il flauto" la cambiano. A destra e a sinistra: un'altra.
+text_en:
+An eight-bar melody written note by note by a small neural network trained on traditional melodies and melodies written for bm, in the form of a song (a phrase, its repeat, an answer, the close on the tonic). Over a backing that is already there it follows its key and chords; "in D major", "slow", "with the flute" change it. Left and right: another one.
+
+== music.melody.adventure
+kind: music
+gen: melody.adventure
+title: Adventure melody
+title_en: Adventure melody
+ask: melodia d'avventura | tema per l'esplorazione | melodia del viaggio
+ask: una melodia per il mondo del gioco
+ask: adventure melody | exploration theme | overworld tune
+keys: melodia, melody, avventura, esplorazione, adventure
+text:
+Una melodia di otto battute scritta nota per nota da una piccola rete neurale addestrata su melodie tradizionali e scritte per bm, nella forma di una canzone (una frase, la sua ripetizione, una risposta, la chiusa sulla tonica). Sopra una base che c'e' gia' ne segue la tonalita' e gli accordi; "in re maggiore", "lenta", "con il flauto" la cambiano. A destra e a sinistra: un'altra.
+text_en:
+An eight-bar melody written note by note by a small neural network trained on traditional melodies and melodies written for bm, in the form of a song (a phrase, its repeat, an answer, the close on the tonic). Over a backing that is already there it follows its key and chords; "in D major", "slow", "with the flute" change it. Left and right: another one.
+
+== music.sfx.coin
+kind: music
+gen: sfx.coin
+title: Coin
+title_en: Coin
+ask: effetto moneta | suono della monetina | prendere una moneta
+ask: il suono quando raccogli un soldo
+ask: coin sound | coin pickup sfx | collect coin
+keys: effetto, suono, sfx, moneta, monetina, coin, soldi
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.jump
+kind: music
+gen: sfx.jump
+title: Jump
+title_en: Jump
+ask: effetto del salto | il personaggio salta in alto
+ask: il suono di un platform quando si salta
+ask: jump sound | jump sfx | platformer jump
+keys: effetto, suono, sfx, salto, jump
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.laser
+kind: music
+gen: sfx.laser
+title: Laser
+title_en: Laser
+ask: effetto laser | suono di un laser | raggio laser
+ask: pew pew laser fantascienza
+ask: laser sound | laser sfx | sci-fi laser
+keys: effetto, suono, sfx, laser, raggio
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.shoot
+kind: music
+gen: sfx.shoot
+title: Shot
+title_en: Shot
+ask: effetto sparo | suono di un colpo | sparare
+ask: il suono quando spari un proiettile
+ask: shoot sound | gun shot sfx | bullet fire
+keys: effetto, suono, sfx, sparo, sparare, shoot, colpo
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.explosion
+kind: music
+gen: sfx.explosion
+title: Explosion
+title_en: Explosion
+ask: effetto esplosione | suono di un'esplosione | boom
+ask: una bomba che esplode | esplosione grande
+ask: explosion sound | explosion sfx | bomb blast
+keys: effetto, suono, sfx, esplosione, bomba, boom, explosion
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.powerup
+kind: music
+gen: sfx.powerup
+title: Power-up
+title_en: Power-up
+ask: effetto power up | suono del potenziamento | prendere un potere
+ask: il suono quando diventi piu' forte
+ask: power up sound | powerup sfx | upgrade
+keys: effetto, suono, sfx, power, potenziamento, potere
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.levelup
+kind: music
+gen: sfx.levelup
+title: Level up
+title_en: Level up
+ask: effetto livello superiore | suono del level up | sali di livello
+ask: suono di vittoria del livello
+ask: level up sound | level up sfx | ding level
+keys: effetto, suono, sfx, livello, level, up
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.hurt
+kind: music
+gen: sfx.hurt
+title: Hurt
+title_en: Hurt
+ask: effetto danno | suono quando ti colpiscono | il giocatore si fa male
+ask: suono del danno subito
+ask: hurt sound | damage sfx | player hit
+keys: effetto, suono, sfx, danno, male, ferito, hurt
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.hit
+kind: music
+gen: sfx.hit
+title: Hit
+title_en: Hit
+ask: effetto colpo | suono di un pugno | colpire il nemico
+ask: suono dell'impatto
+ask: hit sound | punch sfx | impact
+keys: effetto, suono, sfx, colpo, pugno, impatto, hit
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.select
+kind: music
+gen: sfx.select
+title: Menu select
+title_en: Menu select
+ask: effetto selezione menu | suono di conferma | click del menu
+ask: suono quando scegli una voce
+ask: menu select sound | confirm sfx | ui click
+keys: effetto, suono, sfx, menu, selezione, conferma, select
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.back
+kind: music
+gen: sfx.back
+title: Menu back
+title_en: Menu back
+ask: effetto indietro | suono per annullare | torna indietro nel menu
+ask: suono di uscita dal menu
+ask: menu back sound | cancel sfx | ui back
+keys: effetto, suono, sfx, indietro, annulla, back
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.alarm
+kind: music
+gen: sfx.alarm
+title: Alarm
+title_en: Alarm
+ask: effetto allarme | sirena | suono d'allarme
+ask: allarme che si ripete
+ask: alarm sound | siren sfx | warning
+keys: effetto, suono, sfx, allarme, sirena, alarm
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.pickup
+kind: music
+gen: sfx.pickup
+title: Pick up
+title_en: Pick up
+ask: effetto raccogliere | suono di un oggetto preso | raccolta
+ask: prendere una gemma | oggetto raccolto
+ask: pickup sound | item pickup sfx | collect item
+keys: effetto, suono, sfx, raccogliere, oggetto, gemma, pickup
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.door
+kind: music
+gen: sfx.door
+title: Door
+title_en: Door
+ask: effetto porta | suono di una porta | aprire la porta
+ask: porta che si chiude
+ask: door sound | door sfx | open door
+keys: effetto, suono, sfx, porta, door
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.step
+kind: music
+gen: sfx.step
+title: Footstep
+title_en: Footstep
+ask: effetto passo | suono dei passi | camminare
+ask: un passo sul pavimento
+ask: footstep sound | step sfx | walking
+keys: effetto, suono, sfx, passo, passi, footstep
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.death
+kind: music
+gen: sfx.death
+title: Death
+title_en: Death
+ask: effetto morte | suono quando muori | il personaggio muore
+ask: suono di sconfitta del giocatore
+ask: death sound | die sfx | player death
+keys: effetto, suono, sfx, morte, muori, death
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.win
+kind: music
+gen: sfx.win
+title: Victory
+title_en: Victory
+ask: effetto vittoria | fanfara di vittoria | hai vinto
+ask: suono del livello completato
+ask: victory sound | win fanfare | level complete
+keys: effetto, suono, sfx, vittoria, vinto, win, fanfara
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.lose
+kind: music
+gen: sfx.lose
+title: Game over
+title_en: Game over
+ask: effetto game over | suono di sconfitta | hai perso
+ask: suono triste di fine partita
+ask: game over sound | lose sfx | defeat
+keys: effetto, suono, sfx, game, over, sconfitta, perso, lose
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.teleport
+kind: music
+gen: sfx.teleport
+title: Teleport
+title_en: Teleport
+ask: effetto teletrasporto | suono magico di trasporto | portale
+ask: teletrasportarsi
+ask: teleport sound | warp sfx | portal
+keys: effetto, suono, sfx, teletrasporto, portale, teleport, magia
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.splash
+kind: music
+gen: sfx.splash
+title: Splash
+title_en: Splash
+ask: effetto splash | suono di acqua | tuffo
+ask: cadere nell'acqua
+ask: splash sound | water splash sfx | dive
+keys: effetto, suono, sfx, acqua, splash, tuffo
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.thunder
+kind: music
+gen: sfx.thunder
+title: Thunder
+title_en: Thunder
+ask: effetto tuono | suono del temporale | fulmine
+ask: un tuono lontano
+ask: thunder sound | storm sfx | lightning
+keys: effetto, suono, sfx, tuono, temporale, fulmine, thunder
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.dash
+kind: music
+gen: sfx.dash
+title: Dash
+title_en: Dash
+ask: effetto scatto | suono dello scatto | dash veloce
+ask: uno scatto rapido del personaggio
+ask: dash sound | whoosh sfx | quick dash
+keys: effetto, suono, sfx, scatto, dash, whoosh
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.bounce
+kind: music
+gen: sfx.bounce
+title: Bounce
+title_en: Bounce
+ask: effetto rimbalzo | suono di una palla che rimbalza | molla
+ask: rimbalzare su un nemico
+ask: bounce sound | boing sfx | spring
+keys: effetto, suono, sfx, rimbalzo, molla, bounce, boing
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.charge
+kind: music
+gen: sfx.charge
+title: Charge up
+title_en: Charge up
+ask: effetto carica | suono che si carica | caricare il colpo
+ask: energia che sale
+ask: charge up sound | charging sfx | power charge
+keys: effetto, suono, sfx, carica, caricare, charge
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.heal
+kind: music
+gen: sfx.heal
+title: Heal
+title_en: Heal
+ask: effetto cura | suono della guarigione | recuperare vita
+ask: una pozione che cura
+ask: heal sound | healing sfx | restore health
+keys: effetto, suono, sfx, cura, guarigione, vita, heal
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.typing
+kind: music
+gen: sfx.typing
+title: Typing
+title_en: Typing
+ask: effetto testo | suono delle lettere che appaiono | dialogo
+ask: il suono del testo scritto lettera per lettera
+ask: typing sound | text blip sfx | dialogue beep
+keys: effetto, suono, sfx, testo, dialogo, lettere, typing
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.bell
+kind: music
+gen: sfx.bell
+title: Bell
+title_en: Bell
+ask: effetto campanella | suono di una campana | rintocco
+ask: un campanello
+ask: bell sound | bell sfx | chime
+keys: effetto, suono, sfx, campana, campanella, bell, rintocco
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).
+
+== music.sfx.blip
+kind: music
+gen: sfx.blip
+title: Blip
+title_en: Blip
+ask: effetto blip | un bip | suono breve
+ask: un piccolo bip elettronico
+ask: blip sound | beep sfx | short beep
+keys: effetto, suono, sfx, blip, bip, beep
+text:
+Un effetto sonoro classico da videogioco, nel primo posto libero degli effetti; a destra e a sinistra: un'altra variante. Nel gioco si suona con sfx(n).
+text_en:
+A classic video game sound effect, in the first free sound effect; left and right: another variant. In the game it plays with sfx(n).

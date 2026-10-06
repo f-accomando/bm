@@ -1,9 +1,12 @@
 -- bm Sound: the sounds, sound effects and music of .bm cartridges.
 --
--- Four pages: SOUNDS (the instruments), SFX (sound effects for games),
+-- Four pages: SOUNDS (the instruments: wave, envelope and pitch, then the
+-- filter and its motion, then the wave's own settings and the place, room
+-- and echo; ready-made ones from the menu), SFX (sound effects for games),
 -- PATTERN (an 8-track step sequencer, one track per voice) and SONG (the
--- order of the patterns). What it edits is the AUDIO section of a .bm,
--- the same bank sfx() and music() play in the games.
+-- order of the patterns, the echo on the beat, the room). What it edits is
+-- the AUDIO section of a .bm, the same bank sfx() and music() play in the
+-- games.
 --
 -- Gamepad: d-pad moves; A tap adds / removes, A + up/down / left/right
 -- changes the note (or the value); Y + up/down / left/right sound and
@@ -25,10 +28,10 @@ local C = {
   red = 0xE8463A, yellow = 0xF2C230, purple = 0xA472F2, cyan = 0x2EC8D2, pink = 0xF0609E,
 }
 local TRACK_C = { C.orange, C.yellow, C.green, C.cyan, C.blue, C.purple, C.pink, C.white }
-local WAVE_C = { C.blue, C.green, C.orange, C.white, C.cyan, C.yellow }
+local WAVE_C = { C.blue, C.green, C.orange, C.white, C.cyan, C.yellow, C.pink, C.purple, C.red, C.green }
 local PAGE_C = { C.blue, C.green, C.orange, C.purple }
 
-local WAVES = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL" }
+local WAVES = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL", "FM", "PLUCK", "SUPERSAW", "ORGAN" }
 local NOTE = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }
 local CHORDS = { "OCTAVE", "MAJOR", "MINOR", "SUS2", "SUS4", "MAJ7", "MIN7", "DOM7", "DIM", "AUG",
                  "POWER", "POWER+8", "MAJOR+8", "MINOR+8", "OCT DOWN", "2 OCTAVES" }
@@ -76,14 +79,24 @@ local function s_fx(s) return s >> 24 & 255 end
 
 local B = {}
 B.NSOUND, B.NSFX, B.NPAT, B.NSONG = 32, 64, 64, 8
+-- the tone of a sound: registers 11..31 of the voice (src/audio/synth.h),
+-- tone[1] is register 11; the plain one has a little room (AU_ROOM_SEND)
+B.TONE, B.ROOM_SEND = 21, 40
+local function tone_default()
+  local t = {}
+  for i = 1, B.TONE do t[i] = 0 end
+  t[22 - 10] = B.ROOM_SEND
+  return t
+end
+B.tone_default = tone_default
 
 function B.sound()
   return { name = "", wave = 0, duty = 128, vol = 200, a = 1, d = 0, s = 255, r = 10,
-           pitch = 0, ptime = 0, vdepth = 0, vrate = 0, detune = 0 }
+           pitch = 0, ptime = 0, vdepth = 0, vrate = 0, detune = 0, tone = tone_default() }
 end
 function B.sfx() return { name = "", ms = 60, len = 8, ls = 0, le = 0, steps = {} } end
 function B.pat() return { len = 16, tracks = {} } end
-function B.song() return { name = "", bpm = 120, swing = 0, loop = 0, order = {} } end
+function B.song() return { name = "", bpm = 120, swing = 0, loop = 0, echo = 0, room = 0, order = {} } end
 
 function B.new()
   local b = { sounds = {}, sfx = {}, pats = {}, songs = {} }
@@ -109,6 +122,7 @@ function B.sound_empty(s)
   local d = B.sound()
   if s.name ~= "" then return false end
   for _, k in ipairs(SOUND_KEYS) do if s[k] ~= d[k] then return false end end
+  for i = 1, B.TONE do if s.tone[i] ~= d.tone[i] then return false end end
   return true
 end
 function B.sfx_empty(x)
@@ -136,20 +150,21 @@ end
 local function name8(s) return (s:upper():gsub("[^%w%-_ !%.]", ""):sub(1, 8)) end
 local function unname(s) return (s:match("^[^%z]*")) end
 
-local PSOUND = "<c8BBBBBBBbBBBbxxxx"
+local PSOUND = "<c8BBBBBBBbBBBbxxxx"   -- then the tone, 21 bytes, and 3 reserved
 local PSFX = "<c8HBBBxxx"
-local PSONG = "<c8BBBBxxxx"
+local PSONG = "<c8BBBBBBxx"
 
 function B.pack(b)
   local ns = last_used(b.sounds, B.sound_empty)
   local nx = last_used(b.sfx, B.sfx_empty)
   local np = last_used(b.pats, B.pat_empty)
   local ng = last_used(b.songs, B.song_empty)
-  local out = { "BMAU", string.pack("<BBBBBxxxxxxx", 1, ns, nx, np, ng) }
+  local out = { "BMAU", string.pack("<BBBBBxxxxxxx", 2, ns, nx, np, ng) }
   for i = 1, ns do
     local s = b.sounds[i]
     out[#out + 1] = string.pack(PSOUND, name8(s.name), s.wave, s.duty, s.vol, s.a, s.d, s.s, s.r,
                                 s.pitch, s.ptime, s.vdepth, s.vrate, s.detune)
+    out[#out + 1] = string.char(table.unpack(s.tone, 1, B.TONE)) .. "\0\0\0"
   end
   for i = 1, nx do
     local x = b.sfx[i]
@@ -176,7 +191,7 @@ function B.pack(b)
     local order = #s.order > 0 and s.order or { 0 }
     local loop = s.loop
     if loop ~= 255 and loop >= #order then loop = 0 end
-    out[#out + 1] = string.pack(PSONG, name8(s.name), s.bpm, s.swing, #order, loop)
+    out[#out + 1] = string.pack(PSONG, name8(s.name), s.bpm, s.swing, #order, loop, s.echo or 0, s.room or 0)
     for k = 1, #order do out[#out + 1] = string.char(order[k]) end
   end
   return table.concat(out)
@@ -185,7 +200,7 @@ end
 function B.parse(data)
   if type(data) ~= "string" or #data < 16 or data:sub(1, 4) ~= "BMAU" then return nil, "not a sound bank" end
   local ver, ns, nx, np, ng = data:byte(5, 9)
-  if ver ~= 1 then return nil, "unsupported sound bank version" end
+  if ver ~= 1 and ver ~= 2 then return nil, "unsupported sound bank version" end
   local b = B.new()
   local ok, err = pcall(function()
     local pos = 17
@@ -195,7 +210,11 @@ function B.parse(data)
       name, s.wave, s.duty, s.vol, s.a, s.d, s.s, s.r, s.pitch, s.ptime, s.vdepth, s.vrate, s.detune, pos =
         string.unpack(PSOUND, data, pos)
       s.name = unname(name)
-      if s.wave > 5 then s.wave = 0 end
+      if s.wave >= #WAVES then s.wave = 0 end
+      if ver >= 2 then
+        s.tone = { data:byte(pos, pos + B.TONE - 1) }
+        pos = pos + 24
+      end
     end
     for i = 1, nx do
       local x = b.sfx[i]
@@ -219,8 +238,10 @@ function B.parse(data)
     for i = 1, ng do
       local s = b.songs[i]
       local name, n
-      name, s.bpm, s.swing, n, s.loop, pos = string.unpack(PSONG, data, pos)
+      local echo, room
+      name, s.bpm, s.swing, n, s.loop, echo, room, pos = string.unpack(PSONG, data, pos)
       s.name = unname(name)
+      if ver >= 2 then s.echo, s.room = math.min(echo, 16), room end
       for k = 1, n do s.order[k] = data:byte(pos + k - 1) end
       pos = pos + n
     end
@@ -431,31 +452,113 @@ local function pct(v) return math.floor(v * 100 / 255 + 0.5) .. "%" end
 
 ----------------------------------------------------------------- SOUNDS
 
-local SPARAM = {
-  { "wave", "WAVE", 0, 5, function(v) return WAVES[v + 1] end, 1 },
-  { "duty", "DUTY", 0, 255, pct, 16 },
-  { "vol", "VOLUME", 0, 255, pct, 16 },
-  { "detune", "DETUNE", -99, 99, function(v) return string.format("%+d cent", v) end, 10 },
-  { "a", "ATTACK", 0, 255, ms_text, 10 },
-  { "d", "DECAY", 0, 255, ms_text, 10 },
-  { "s", "SUSTAIN", 0, 255, pct, 16 },
-  { "r", "RELEASE", 0, 255, ms_text, 10 },
-  { "pitch", "BEND FROM", -48, 48, function(v) return string.format("%+d st", v) end, 12 },
-  { "ptime", "BEND TIME", 0, 255, function(v) return v == 0 and "off" or (v * 10) .. " ms" end, 10 },
-  { "vdepth", "VIBRATO", 0, 200, function(v) return v .. " cent" end, 10 },
-  { "vrate", "VIB SPEED", 0, 200, function(v) return string.format("%.1f Hz", v / 10) end, 10 },
+-- the parameters of a sound, in three groups that scroll with up and down
+-- (SOUND, FILTER, WAVE & SPACE). A parameter: label, min, max, text of
+-- the value, step of left/right, and how it is read and written: a field
+-- of the sound, or a byte of its tone (registers 11..31, s.tone[1] is 11)
+local function field(key, label, lo, hi, fmt, step)
+  return { label = label, lo = lo, hi = hi, fmt = fmt, step = step,
+           get = function(s) return s[key] end, put = function(s, v) set(s, key, v) end }
+end
+local function tbyte(i, label, lo, hi, fmt, step, signed)
+  return { label = label, lo = lo, hi = hi, fmt = fmt, step = step,
+           get = function(s) local v = s.tone[i]; return signed and v > 127 and v - 256 or v end,
+           put = function(s, v) set(s.tone, i, v & 255) end }
+end
+local function tbits(i, mask, shift, label, lo, hi, fmt)
+  return { label = label, lo = lo, hi = hi, fmt = fmt, step = 1,
+           get = function(s) return (s.tone[i] & mask) >> shift end,
+           put = function(s, v) set(s.tone, i, (s.tone[i] & ~mask & 255) | (v << shift & mask)) end }
+end
+local function off_or(f) return function(v) return v == 0 and "OFF" or f(v) end end
+local function hz_text(hz) return hz >= 1000 and string.format("%.1f kHz", hz / 1000) or math.floor(hz + 0.5) .. " Hz" end
+local function cutoff_hz(v) return 20 * 2 ^ ((v - 1) * 9.9658 / 254) end
+local function lfo_hz(v) return 0.1 * 2 ^ ((v - 1) * 7.64 / 254) end
+-- the wave's own settings: what they mean depends on the wave (synth.h)
+local MOD_LABEL = { [6] = { "FM RATIO", "FM DEPTH" }, [7] = { "BRIGHT", "RING" }, [8] = { "SPREAD", "-" },
+                    [9] = { "BARS 1 2", "BARS 3 4" } }
+local function mod_text(n)
+  return function(v, s)
+    local w = s.wave
+    if w == 6 then
+      if n == 1 then return v == 0 and "1 AUTO" or string.format("%g", v / 16) end
+      return v == 0 and "1.3 AUTO" or string.format("%.1f", v / 32)
+    elseif w == 7 then return v == 0 and "AUTO" or pct(v)
+    elseif w == 8 then return n == 1 and (v == 0 and "AUTO" or pct(v)) or "-"
+    elseif w == 9 then
+      if s.tone[7] == 0 and s.tone[8] == 0 then return "AUTO" end
+      return (v >> 4) .. " " .. (v & 15)
+    end
+    return "-"
+  end
+end
+local FILTERS = { "LOW PASS", "BAND PASS", "HIGH PASS", "NOTCH" }
+local SGROUPS = {
+  { name = "SOUND", c = C.blue, cols = {
+    { field("wave", "WAVE", 0, #WAVES - 1, function(v) return WAVES[v + 1] end, 1),
+      field("duty", "DUTY", 0, 255, pct, 16), field("vol", "VOLUME", 0, 255, pct, 16),
+      field("detune", "DETUNE", -99, 99, function(v) return string.format("%+d cent", v) end, 10) },
+    { field("a", "ATTACK", 0, 255, ms_text, 10), field("d", "DECAY", 0, 255, ms_text, 10),
+      field("s", "SUSTAIN", 0, 255, pct, 16), field("r", "RELEASE", 0, 255, ms_text, 10) },
+    { field("pitch", "BEND FROM", -48, 48, function(v) return string.format("%+d st", v) end, 12),
+      field("ptime", "BEND TIME", 0, 255, function(v) return v == 0 and "off" or (v * 10) .. " ms" end, 10),
+      field("vdepth", "VIBRATO", 0, 200, function(v) return v .. " cent" end, 10),
+      field("vrate", "VIB SPEED", 0, 200, function(v) return string.format("%.1f Hz", v / 10) end, 10) } } },
+  { name = "FILTER", c = C.green, cols = {
+    { tbyte(1, "CUTOFF", 0, 255, off_or(function(v) return hz_text(cutoff_hz(v)) end), 12),
+      tbyte(2, "RESONANCE", 0, 255, pct, 16),
+      tbits(3, 3, 0, "MODE", 0, 3, function(v) return FILTERS[v + 1] end),
+      tbits(3, 4, 2, "KEY TRACK", 0, 1, function(v) return v == 1 and "ON" or "OFF" end) },
+    { tbyte(4, "FILT ENV", -127, 127, function(v) return string.format("%+.1f oct", v / 16) end, 16, true),
+      tbyte(5, "ENV DECAY", 0, 255, function(v) return v == 0 and "HOLD" or ms_text(v) end, 10),
+      tbyte(11, "DRIVE", 0, 255, off_or(pct), 16), tbyte(10, "NOISE", 0, 255, off_or(pct), 16) },
+    { tbyte(14, "LFO SPEED", 0, 255, off_or(function(v) return string.format("%.1f Hz", lfo_hz(v)) end), 12),
+      tbyte(15, "LFO CUT", 0, 255, off_or(function(v) return string.format("%.1f oct", v * 4 / 255) end), 16),
+      tbyte(16, "LFO DUTY", 0, 255, off_or(pct), 16),
+      tbits(18, 1, 0, "8-BIT", 0, 1, function(v) return v == 1 and "ON" or "OFF" end) } } },
+  { name = "WAVE & SPACE", c = C.orange, cols = {
+    { tbyte(7, function(s) return (MOD_LABEL[s.wave] or { "WAVE SET 1" })[1] end, 0, 255, mod_text(1), 16),
+      tbyte(8, function(s) return (MOD_LABEL[s.wave] or { "", "WAVE SET 2" })[2] end, 0, 255, mod_text(2), 16),
+      tbyte(9, "FM FADE", 0, 255, function(v, s) return s.wave ~= 6 and "-" or v == 0 and "STAYS" or ms_text(v) end, 10),
+      tbyte(17, "FM FEEDBACK", 0, 255, function(v, s) return s.wave ~= 6 and "-" or pct(v) end, 16) },
+    { tbyte(6, "PAN", -127, 127, function(v)
+        return v == 0 and "CENTER" or (v < 0 and "LEFT " or "RIGHT ") .. math.floor(math.abs(v) * 100 / 127) .. "%" end, 16, true),
+      tbyte(12, "ROOM", 0, 255, off_or(pct), 16), tbyte(13, "ECHO", 0, 255, off_or(pct), 16) } } },
 }
-local SCOL_C = { C.blue, C.green, C.orange }
+local function plabel(d, s) return type(d.label) == "function" and d.label(s) or d.label end
 local SCOL_X = { 168, 324, 480 }
 
-local sp = { col = 1, row = 1 }      -- row 0: the name
+local sp = { group = 1, col = 1, row = 1 }      -- row 0: the name
 local last_note = 60                 -- the note the previews and new steps use
 
-local function wave_y(w, p, duty, seed)
+local function sound_param(g, col, row)
+  local c = SGROUPS[g].cols[col]
+  return c and c[row]
+end
+
+-- one cycle of the wave, as the synthesizer makes it (for the picture)
+local function wave_y(s, p, seed)
+  local w, duty = s.wave, s.duty
+  local function saw(x) return 2 * (x % 1) - 1 end
   if w == 0 then return p < duty / 256 and 1 or -1
   elseif w == 1 then return p < 0.5 and -1 + 4 * p or 3 - 4 * p
-  elseif w == 2 then return 2 * p - 1
+  elseif w == 2 then return saw(p)
   elseif w == 4 then return math.sin(p * 2 * math.pi)
+  elseif w == 6 then
+    local ratio = s.tone[7] > 0 and s.tone[7] / 16 or 1
+    local depth = (s.tone[8] > 0 and s.tone[8] or 40) / 32
+    return math.sin(2 * math.pi * p + depth * math.sin(2 * math.pi * p * ratio))
+  elseif w == 7 then
+    local k = 0.18
+    return ((p < k and p / k or 1 - (p - k) / (1 - k)) * 2 - 1) * 0.9
+  elseif w == 8 then
+    return (saw(p) + 0.75 * saw(p * 1.035 + 0.3) + 0.75 * saw(p * 0.965 + 0.6)) * 0.55
+  elseif w == 9 then
+    local m1, m2 = s.tone[7], s.tone[8]
+    local b = (m1 == 0 and m2 == 0) and { 15, 9, 5, 3 } or { m1 >> 4, m1 & 15, m2 >> 4, m2 & 15 }
+    local sum, y = 0, 0
+    for h = 1, 4 do sum = sum + b[h]; y = y + b[h] * math.sin(2 * math.pi * h * p) end
+    return sum > 0 and y / sum * 1.2 or 0
   else
     local k = math.floor(p * (w == 5 and 8 or 24)) + seed
     return ((k * 7919 + (w == 5 and k % 3 or k * k) * 104729) % 97) / 48 - 1
@@ -471,7 +574,8 @@ local function draw_wave_graph(s, x, y, w, h, c)
   local px, py
   for i = 0, w - 13 do
     local p = (i / ((w - 12) / 2)) % 1
-    local v = wave_y(s.wave, p, s.duty, i // ((w - 12) // 2))
+    local v = wave_y(s, p, i // ((w - 12) // 2))
+    if v > 1.2 then v = 1.2 elseif v < -1.2 then v = -1.2 end
     local yy = math.floor(cy - v * amp)
     if px then line(px, py, x + 6 + i, yy, c) end
     px, py = x + 6 + i, yy
@@ -483,19 +587,24 @@ local function draw_env_graph(s, x, y, w, h, c)
   print("ENVELOPE", x + 6, y + 4, C.dim)
   local A, D, R = s.a * 2000 / 255, s.d * 2000 / 255, s.r * 2000 / 255
   local hold = 250
-  local total = math.max(A + D + hold + R, 400)
+  local total = math.max(A + D * 1.5 + hold + R * 1.5, 400)
   local k = (w - 16) / total
   local x0, base, top = x + 8, y + h - 8, y + 26
-  local sus = base - (base - top) * s.s / 255
-  local xa, xd = x0 + A * k, x0 + (A + D) * k
-  local xh = xd + hold * k
-  local xr = xh + R * k
+  local sus = s.s / 255
   rectfill(x0, base, w - 16, 1, C.line)
-  line(x0, base, xa, top, c)
-  line(xa, top, xd, sus, c)
-  line(xd, sus, xh, sus, c)
-  line(xh, sus, xr, base, c)
-  circfill(math.floor(xa), top, 2, c)
+  -- as the synthesizer: the attack bends like an RC, decay and release fall
+  -- exponentially (5% left at their time)
+  local px, py = x0, base
+  local function to(t, lv)
+    local xx, yy = x0 + t * k, base - (base - top) * lv
+    line(px, py, xx, yy, c)
+    px, py = xx, yy
+  end
+  for i = 1, 8 do local f = i / 8; to(A * f, (1 - math.exp(-1.466 * f)) / (1 - math.exp(-1.466))) end
+  for i = 1, 12 do local f = i / 12; to(A + D * 1.5 * f, sus + (1 - sus) * math.exp(-3 * 1.5 * f)) end
+  to(A + D * 1.5 + hold, sus)
+  for i = 1, 12 do local f = i / 12; to(A + D * 1.5 + hold + R * 1.5 * f, sus * math.exp(-3 * 1.5 * f)) end
+  circfill(math.floor(x0 + A * k), top, 2, c)
 end
 
 local function draw_pitch_graph(s, x, y, w, h, c)
@@ -518,7 +627,118 @@ local function draw_pitch_graph(s, x, y, w, h, c)
   end
 end
 
-local function sound_param(col, row) return SPARAM[(col - 1) * 4 + row] end
+-- the filter's response (the synthesizer's state variable filter), 20 Hz
+-- to 20 kHz across, -36 to +18 dB up
+local function draw_filter_graph(s, x, y, w, h, c)
+  ui.box(x, y, w, h, C.panel)
+  print("FILTER", x + 6, y + 4, C.dim)
+  local cut = s.tone[1]
+  if cut == 0 then
+    print("OFF", x + w - 30, y + 4, C.faint)
+    rectfill(x + 8, y + 26 + (h - 34) * 18 // 54, w - 16, 1, c)
+    return
+  end
+  local fc, k, mode = cutoff_hz(cut), 2 - 1.94 * s.tone[2] / 255, s.tone[3] & 3
+  print(FILTERS[mode + 1]:sub(1, 4), x + w - 38, y + 4, c)
+  local top, bot = y + 26, y + h - 8
+  local px, py
+  for i = 0, w - 17 do
+    local f = 20 * 1000 ^ (i / (w - 17))
+    local r = f / fc
+    local den = math.sqrt((1 - r * r) ^ 2 + (k * r) ^ 2)
+    local g = mode == 0 and 1 / den or mode == 1 and k * r / den or mode == 2 and r * r / den or math.abs(1 - r * r) / den
+    local db = 20 * math.log(math.max(g, 1e-4), 10)
+    db = math.max(-36, math.min(18, db))
+    local yy = math.floor(top + (18 - db) / 54 * (bot - top))
+    if px then line(px, py, x + 8 + i, yy, c) end
+    px, py = x + 8 + i, yy
+  end
+  rectfill(x + 8, top + (bot - top) * 18 // 54, w - 16, 1, C.line)
+end
+
+-- the filter envelope and the LFO, over a second
+local function draw_motion_graph(s, x, y, w, h, c)
+  ui.box(x, y, w, h, C.panel)
+  print("MOTION", x + 6, y + 4, C.dim)
+  local fenv = s.tone[4] > 127 and s.tone[4] - 256 or s.tone[4]
+  local fd, rate, lc = s.tone[5] * 2000 / 255, s.tone[14], s.tone[15]
+  local cy, half = y + 26 + (h - 34) // 2, (h - 34) // 2
+  rectfill(x + 8, cy, w - 16, 1, C.line)
+  local px, py
+  for i = 0, w - 17 do
+    local t = i / (w - 16) * 1000
+    local oct = 0
+    if fenv ~= 0 then oct = fenv / 16 * (fd > 0 and math.exp(-3 * t / fd) or 1) end
+    if rate > 0 then oct = oct + lc * 4 / 255 * math.sin(2 * math.pi * lfo_hz(rate) * t / 1000) end
+    local yy = math.floor(cy - math.max(-1, math.min(1, oct / 4)) * half)
+    if px then line(px, py, x + 8 + i, yy, c) end
+    px, py = x + 8 + i, yy
+  end
+end
+
+-- where the sound sits: left to right, and how much room and echo
+local function draw_space_graph(s, x, y, w, h, c)
+  ui.box(x, y, w, h, C.panel)
+  print("SPACE", x + 6, y + 4, C.dim)
+  local pan = s.tone[6] > 127 and s.tone[6] - 256 or s.tone[6]
+  local mx, my = x + w // 2, y + 26 + (h - 34) // 2
+  rectfill(x + 12, my, w - 24, 1, C.line)
+  print("L", x + 4, my - 7, C.faint)
+  print("R", x + w - 12, my - 7, C.faint)
+  local room, echo = s.tone[12], s.tone[13]
+  local px = mx + pan * (w // 2 - 16) // 127
+  for r = 1, 3 do
+    local rr = 6 + r * 8 * room // 255
+    if room > 0 then circ(px, my, rr, r == 1 and C.line or C.panel2) end
+  end
+  for e = 1, 3 do
+    if echo > 0 then
+      local ex = px + (e % 2 == 1 and -1 or 1) * e * 14
+      circfill(ex, my, math.max(1, 4 - e), echo > e * 60 and c or C.faint)
+    end
+  end
+  circfill(px, my, 5, c)
+end
+
+local function draw_param_graphs(s, g, gy)
+  if g == 1 then
+    draw_wave_graph(s, 160, gy, 152, 92, WAVE_C[s.wave + 1])
+    draw_env_graph(s, 316, gy, 152, 92, C.green)
+    draw_pitch_graph(s, 472, gy, 152, 92, C.orange)
+  elseif g == 2 then
+    draw_filter_graph(s, 160, gy, 152, 92, C.green)
+    draw_env_graph(s, 316, gy, 152, 92, C.blue)
+    draw_motion_graph(s, 472, gy, 152, 92, C.cyan)
+  else
+    draw_wave_graph(s, 160, gy, 152, 92, WAVE_C[s.wave + 1])
+    draw_space_graph(s, 316, gy, 308, 92, C.orange)
+  end
+end
+
+-- a ready-made instrument (instruments(), src/audio/presets.c) into the
+-- sound; the list plays each one as it is chosen
+local function preset_into(s, name)
+  local p = instrument and instrument(name)
+  if not p then return end
+  begin_edit()
+  for _, k in ipairs({ "wave", "duty", "vol", "a", "d", "s", "r", "pitch", "ptime", "vdepth", "vrate", "detune" }) do
+    set(s, k, p[k])
+  end
+  set(s, "tone", B.copy(p.tone))
+  if s.name == "" or s.name == "SOUND" then set(s, "name", name8(p.name)) end
+  say("instrument " .. p.name:upper() .. ": " .. p.about, C.green, 240)
+end
+
+local function choose_preset()
+  if not instruments then return end
+  local items = {}
+  for _, it in ipairs(instruments()) do
+    items[#items + 1] = { label = it.name:upper(), note = it.kind, name = it.name }
+  end
+  local s = bank.sounds[cur.sound + 1]
+  ui.choose("instrument into sound " .. string.format("%02d", cur.sound), items, function(it) preset_into(s, it.name) end)
+  overlay.hover = function(it) if play then play(PREVIEW_VOICE, it.name, last_note, 500) end end
+end
 
 local P = {}
 
@@ -534,19 +754,29 @@ P[1] = {
     if nsel then ui.box(160, TOP + 2, 472, 38, C.panel2) ui.frame2(160, TOP + 2, 472, 38, C.blue) end
     print(s.name ~= "" and s.name or "NO NAME", 172, TOP + 5, s.name ~= "" and C.text or C.faint, 2)
     ui.textr(string.format("sound %02d", cur.sound), 620, TOP + 14, C.dim)
-    -- the graphs
-    local gy = TOP + 48
-    draw_wave_graph(s, 160, gy, 152, 92, WAVE_C[s.wave + 1])
-    draw_env_graph(s, 316, gy, 152, 92, C.green)
-    draw_pitch_graph(s, 472, gy, 152, 92, C.orange)
-    -- the parameters
-    for col = 1, 3 do
-      for row = 1, 4 do
-        local d = sound_param(col, row)
-        local v = s[d[1]]
-        ui.bar(SCOL_X[col], TOP + 152 + (row - 1) * 38, 136, d[2], d[5](v), (v - d[3]) / (d[4] - d[3]),
-               SCOL_C[col], sp.row == row and sp.col == col)
+    -- the group of parameters: its graphs, then its bars
+    local g = sp.group
+    local grp = SGROUPS[g]
+    draw_param_graphs(s, g, TOP + 48)
+    local by = TOP + 152
+    for col = 1, #grp.cols do
+      for row = 1, #grp.cols[col] do
+        local d = grp.cols[col][row]
+        local v = d.get(s)
+        ui.bar(SCOL_X[col], by + (row - 1) * 38, 136, plabel(d, s), d.fmt(v, s), (v - d.lo) / (d.hi - d.lo),
+               grp.c, sp.row == row and sp.col == col)
       end
+    end
+    if #grp.cols < 3 then
+      -- the third column of the last group: the groups, and the presets
+      local x = SCOL_X[3]
+      for i, gg in ipairs(SGROUPS) do
+        print((i == g and "> " or "  ") .. gg.name, x, by + 4 + (i - 1) * 20, i == g and gg.c or C.dim)
+      end
+      print("MENU: INSTRUMENT", x, by + 84, C.faint)
+      print("PRESETS", x, by + 100, C.faint)
+    else
+      print(grp.name, 486, TOP + 152 - 14, grp.c)
     end
     if sp.row == 0 then
       hint_line({ { "A", nil, "rename" }, { "Y", nil, "play" }, { "START", nil, "chord" } })
@@ -556,16 +786,31 @@ P[1] = {
     end
   end,
   move = function(dx, dy)
-    if dy ~= 0 then sp.row = clamp(sp.row + dy, 0, 4) end
-    if dx ~= 0 and sp.row > 0 then sp.col = clamp(sp.col + dx, 1, 3) end
+    local grp = SGROUPS[sp.group]
+    if dy ~= 0 then
+      local n = #(grp.cols[sp.col] or {})
+      local r = sp.row + dy
+      if r > n then                                 -- past the bottom: the next group
+        if sp.group < #SGROUPS then sp.group, r = sp.group + 1, 1 else r = n end
+      elseif r < 1 and sp.group > 1 then            -- past the top: the group before
+        sp.group = sp.group - 1
+        r = #SGROUPS[sp.group].cols[math.min(sp.col, #SGROUPS[sp.group].cols)]
+      elseif r < 0 then
+        r = 0
+      end
+      sp.row = r
+    end
+    if dx ~= 0 and sp.row > 0 then sp.col = clamp(sp.col + dx, 1, #SGROUPS[sp.group].cols) end
+    sp.col = clamp(sp.col, 1, #SGROUPS[sp.group].cols)
+    if sp.row > 0 then sp.row = clamp(sp.row, 1, #SGROUPS[sp.group].cols[sp.col]) end
   end,
   edit = function(mod, dx, dy)
     if mod ~= "A" or sp.row == 0 then return end
     local s = bank.sounds[cur.sound + 1]
-    local d = sound_param(sp.col, sp.row)
-    local step = dy ~= 0 and -dy or dx * d[6]
-    if d[1] == "wave" then step = dy ~= 0 and -dy or dx end
-    set(s, d[1], clamp(s[d[1]] + step, d[3], d[4]))
+    local d = sound_param(sp.group, sp.col, sp.row)
+    local step = dy ~= 0 and -dy or dx * d.step
+    if d.step == 1 then step = dy ~= 0 and -dy or dx end
+    d.put(s, clamp(d.get(s) + step, d.lo, d.hi))
   end,
   tap = function(mod)
     if mod == "A" and sp.row == 0 then
@@ -577,8 +822,9 @@ P[1] = {
   end,
   clear = function()
     if sp.row == 0 then return end
-    local d = sound_param(sp.col, sp.row)
-    set(bank.sounds[cur.sound + 1], d[1], B.sound()[d[1]])
+    local d = sound_param(sp.group, sp.col, sp.row)
+    local fresh = B.sound()
+    d.put(bank.sounds[cur.sound + 1], d.get(fresh))
   end,
   play = function()
     -- the sound as a chord, strummed (the delay effect starts each note later)
@@ -589,11 +835,11 @@ P[1] = {
   end,
   piano = function(n) last_note = n; preview(PREVIEW_VOICE, cur.sound, n) end,
   key = function(k)
-    local d = sp.row > 0 and sound_param(sp.col, sp.row)
+    local d = sp.row > 0 and sound_param(sp.group, sp.col, sp.row)
     if not d then return false end
     local s = bank.sounds[cur.sound + 1]
-    local step = ({ ["-"] = -1, ["="] = 1, ["_"] = -d[6], ["+"] = d[6] })[k]
-    if step then begin_edit(); set(s, d[1], clamp(s[d[1]] + step, d[3], d[4])) return true end
+    local step = ({ ["-"] = -1, ["="] = 1, ["_"] = -d.step, ["+"] = d.step })[k]
+    if step then begin_edit(); d.put(s, clamp(d.get(s) + step, d.lo, d.hi)) return true end
     return false
   end,
 }
@@ -1061,7 +1307,8 @@ P[3] = {
 ----------------------------------------------------------------- SONG
 
 local gp = { slot = 0, field = -1 }
-local SONG_FIELDS = { "NAME", "TEMPO", "SWING", "LOOP" }
+local SONG_FIELDS = { "NAME", "TEMPO", "SWING", "LOOP", "ECHO", "ROOM" }
+local NSF = #SONG_FIELDS - 1          -- the last field
 local OX, OY, OW, OH = 164, TOP + 70, 28, 30
 local function pat_c(n) return TRACK_C[n % 8 + 1] end
 
@@ -1069,7 +1316,9 @@ local function song_field_text(s, f)
   if f == 0 then return s.name ~= "" and s.name or "NO NAME"
   elseif f == 1 then return s.bpm .. " BPM"
   elseif f == 2 then return s.swing .. "%"
-  else return s.loop == 255 and "OFF" or ("FROM " .. (s.loop + 1)) end
+  elseif f == 3 then return s.loop == 255 and "OFF" or ("FROM " .. (s.loop + 1))
+  elseif f == 4 then return (s.echo or 0) == 0 and "AS IS" or (s.echo .. "/16")
+  else return (s.room or 0) == 0 and "AS IS" or pct(s.room) end
 end
 
 local function set_order(s, order) set(s, "order", order) end
@@ -1082,8 +1331,8 @@ P[4] = {
     slot_list("SONGS", B.NSONG, cur.song, function(i) return bank.songs[i + 1].name end,
               function(i) return not B.song_empty(bank.songs[i + 1]) end, C.purple)
     local fx0 = 160
-    for f = 0, 3 do
-      local w = f == 0 and 128 or 104
+    for f = 0, NSF do
+      local w = f == 0 and 112 or 64
       local sel = gp.field == f
       ui.box(fx0, TOP + 2, w, 38, sel and C.panel2 or C.panel)
       if sel then ui.frame2(fx0, TOP + 2, w, 38, C.purple) end
@@ -1137,7 +1386,12 @@ P[4] = {
     else
       print(({ "A: rename the song", "A + up/down: tempo, left/right: +-10",
                "A + up/down: swing, the first step of each pair longer",
-               "A + up/down: where the song goes on after the end (OFF: it stops)" })[gp.field + 1], 172, py + 26, C.dim)
+               "A + up/down: where the song goes on after the end (OFF: it stops)",
+               "A + up/down: the echo's time in steps, on the beat",
+               "A + up/down: the size of the room, small to a hall" })[gp.field + 1], 172, py + 26, C.dim)
+      if gp.field >= 4 then
+        print("(a sound's ECHO and ROOM say how much of it goes there)", 172, py + 44, C.faint)
+      end
     end
     if gp.field >= 0 then
       hint_line({ { "A", "ud", "change" }, { "A", "lr", "+-10" }, { "START", nil, "play" } })
@@ -1150,10 +1404,10 @@ P[4] = {
     local s = song_now()
     if gp.field >= 0 then
       if dy > 0 then gp.field = -1
-      elseif dx ~= 0 then gp.field = clamp(gp.field + dx, 0, 3) end
+      elseif dx ~= 0 then gp.field = clamp(gp.field + dx, 0, NSF) end
       return
     end
-    if dy < 0 and gp.slot < 16 then gp.field = clamp(gp.slot // 4, 0, 3) return end
+    if dy < 0 and gp.slot < 16 then gp.field = clamp(gp.slot * (NSF + 1) // 16, 0, NSF) return end
     gp.slot = clamp(gp.slot + dx + dy * 16, 0, math.min(#s.order, 63))
   end,
   edit = function(mod, dx, dy)
@@ -1167,6 +1421,8 @@ P[4] = {
         local l = s.loop == 255 and -1 or s.loop
         l = clamp(l + d + dx, -1, math.max(#s.order - 1, 0))
         set(s, "loop", l < 0 and 255 or l)
+      elseif gp.field == 4 then set(s, "echo", clamp((s.echo or 0) + d + dx, 0, 16))
+      elseif gp.field == 5 then set(s, "room", clamp((s.room or 0) + d * 16 + dx * 64, 0, 255))
       end
       return
     end
@@ -1222,6 +1478,7 @@ P[4] = {
 ----------------------------------------------------------------- overlays
 
 local NAME_CHARS = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_!."
+local riff_key, riff_pad, riff_draw, riff_open, riff_frame     -- the Riff... dialog (after merge)
 
 -- an 8-character name, with the pad (up/down letters) or the keyboard
 function ui.ask_name(label, text, done)
@@ -1261,8 +1518,11 @@ local function overlay_key(k)
     elseif k == "esc" or k == "n" then overlay = nil end
   elseif o.kind == "help" then
     overlay = nil
+  elseif o.kind == "riff" then
+    riff_key(o, k)
   else
     local n = #o.items
+    local was = o.sel
     if k == "up" then o.sel = (o.sel - 2) % n + 1
     elseif k == "down" then o.sel = o.sel % n + 1
     elseif k == "pgup" then o.sel = math.max(1, o.sel - 10)
@@ -1272,6 +1532,7 @@ local function overlay_key(k)
       overlay = o.parent
       if it and not it.off then o.done(it, o.sel) end
     elseif k == "esc" then overlay = o.parent end
+    if o.hover and overlay == o and o.sel ~= was then o.hover(o.items[o.sel]) end
   end
 end
 
@@ -1279,6 +1540,7 @@ end
 local function overlay_pad()
   local o = overlay
   local k
+  if o.kind == "riff" then riff_pad(o) return end
   if o.kind == "name" then
     if btnp(6) then o.chars[o.pos] = " " end
     k = rep[2] and "up" or rep[3] and "down" or rep[0] and "left" or rep[1] and "right" or
@@ -1323,6 +1585,8 @@ local function draw_overlay()
     print(o.detail or "", x + 16, y + 44, C.text)
     local hx = ui.hint(x + 16, y + 92, "A", nil, o.yes)
     ui.hint(hx + 8, y + 92, "B", nil, "cancel")
+  elseif o.kind == "riff" then
+    riff_draw(o)
   elseif o.kind == "help" then
     local lines = o.lines
     local x, y = draw_panel(624, #lines * 16 + 40, "CONTROLS", C.cyan)
@@ -1697,6 +1961,12 @@ local HELP = {
   "SELECT     this menu                  Ctrl+S save  Ctrl+O open  F5 try",
   "START + SELECT together leave the     Ctrl+C Ctrl+V copy, paste",
   "editor (as Ctrl+Esc)                  F12 held: all the keys",
+  "F6 (or the menu): the assistant writes beats, backing tracks, bass lines,",
+  "arpeggios, melodies and sound effects for the words (\"base lofi in re\").",
+  "SOUNDS: down past the last row goes to FILTER, then WAVE & SPACE;",
+  "the menu's Instrument... puts a ready-made sound in (it plays as you choose).",
+  "F7 Riff...: a pattern in a line (s \"kick*4, ~ snare\"), Enter plays it,",
+  "Ctrl+Enter puts its bars into the bank as a song (docs/RIFF.md).",
 }
 
 -- the keys while F12 is held, under the system's (keyhelp(), the kernel
@@ -1719,6 +1989,8 @@ local KEYHELP = {
   { "space", "play / stop" },
   { "pgup / pgdn", "the next sound, pattern, song" },
   { "ctrl e", "export to a game" },
+  { "f6", "the assistant: beats, backing tracks, melodies, sound effects" },
+  { "f7", "riff: a pattern in a line, played, then into the bank" },
   "pad",
   { "DPAD", "move" },
   { "A", "add / remove, choose" },
@@ -1732,6 +2004,361 @@ local KEYHELP = {
   { "SELECT UPDOWN", "the next sound, pattern, song" },
   { "SELECT", "the menu" },
 }
+
+----------------------------------------------------------------- the assistant (F6)
+
+-- ai.music (src/ai/music.c) in the assistant's panel (require "assist",
+-- mode "music"): rhythms, backing tracks, bass lines, arpeggios, melodies
+-- and sound effects; each one heard while it is chosen, A puts it in the
+-- bank. Rhythms and backing tracks go into new patterns with a song of
+-- their own; bass lines, arpeggios and melodies over the pattern on the
+-- page (they follow its key and chords); a sound effect into the first
+-- free slot. Their instruments become sounds of the bank (the ones with
+-- the same name are used again).
+
+local assist_lib = false
+local function assist_mod()
+  if assist_lib == false then
+    local ok, m = pcall(require, "assist")
+    assist_lib = ok and type(m) == "table" and m or nil
+  end
+  return assist_lib
+end
+
+local SOUND_FIELDS = { "wave", "duty", "vol", "a", "d", "s", "r", "pitch", "ptime", "vdepth", "vrate", "detune" }
+
+-- the bank's sound for an instrument: the one with its name, or a free one
+local function sound_for(b, name, put)
+  local up = name8(name)
+  for i = 1, B.NSOUND do if b.sounds[i].name == up then return i - 1 end end
+  local p = instrument and instrument(name)
+  if not p then return nil end
+  for i = 1, B.NSOUND do
+    local s = b.sounds[i]
+    if B.sound_empty(s) then
+      for _, k in ipairs(SOUND_FIELDS) do put(s, k, p[k]) end
+      put(s, "tone", B.copy(p.tone))
+      put(s, "name", up)
+      return i - 1
+    end
+  end
+  return nil
+end
+
+-- the notes of the patterns from the one on the page, as ai.music's
+-- context (16 steps to a bar)
+local function context_notes(npats)
+  local notes, bars, off = {}, {}, 0
+  for k = 0, npats - 1 do
+    local p = bank.pats[(cur.pat + k) % B.NPAT + 1]
+    for t = 1, 8 do
+      local tr = p.tracks[t]
+      if tr then
+        for i = 1, p.len do
+          local n = s_note(tr[i] or 0)
+          if n > 0 and n < 128 and #notes < 500 then
+            notes[#notes + 1] = n
+            bars[#bars + 1] = (off + i - 1) // 16
+          end
+        end
+      end
+    end
+    off = off + p.len
+  end
+  return { notes = notes, bars = bars }
+end
+
+-- the piece into a bank (put: set, undone with Ctrl+Z, or a plain write
+-- on a copy for the preview); what it made: {sfx =}, {song =, pat =} or {pat =}
+local function merge(b, piece, put)
+  local map = {}
+  for i, name in ipairs(piece.instruments) do
+    local s = sound_for(b, name, put)
+    if not s then return nil, "no free sound for " .. name:upper() end
+    map[i - 1] = s
+  end
+  local function conv(w)
+    local note, inst, vol, fx = w & 255, w >> 8 & 255, w >> 16 & 255, w >> 24 & 255
+    if note == 0 and fx == 0 then return 0 end
+    if note >= 128 then return mk(128, 0, 255, 0) end
+    return mk(note, map[inst] or 0, vol, fx)
+  end
+  if piece.kind == "sfx" then
+    for i = 1, B.NSFX do
+      local x = b.sfx[i]
+      if B.sfx_empty(x) then
+        local steps = {}
+        for k, w in ipairs(piece.sfx.steps) do steps[k] = conv(w) end
+        put(x, "name", name8(piece.name))
+        put(x, "ms", piece.sfx.ms)
+        put(x, "len", #steps)
+        put(x, "ls", piece.sfx.loop[1])
+        put(x, "le", piece.sfx.loop[2])
+        put(x, "steps", steps)
+        return { sfx = i - 1 }
+      end
+    end
+    return nil, "no free sound effect"
+  end
+  if piece.kind == "beat" or piece.kind == "base" then
+    local free = {}
+    for i = 1, B.NPAT do
+      if #free < #piece.patterns and B.pat_empty(b.pats[i]) then free[#free + 1] = i - 1 end
+    end
+    if #free < #piece.patterns then return nil, "not enough free patterns" end
+    local g
+    for i = 1, B.NSONG do if not g and B.song_empty(b.songs[i]) then g = i - 1 end end
+    if not g then return nil, "no free song" end
+    for k, pp in ipairs(piece.patterns) do
+      local tracks = {}
+      for t, steps in pairs(pp.tracks) do
+        local tr = {}
+        for i = 1, pp.len do tr[i] = conv(steps[i] or 0) end
+        tracks[t + 1] = tr
+      end
+      put(b.pats[free[k] + 1], "len", pp.len)
+      put(b.pats[free[k] + 1], "tracks", tracks)
+    end
+    local song = b.songs[g + 1]
+    put(song, "name", name8(piece.name))
+    put(song, "bpm", piece.bpm)
+    put(song, "swing", piece.swing)
+    put(song, "loop", 0)
+    put(song, "echo", piece.echo)
+    put(song, "room", piece.room)
+    put(song, "order", free)
+    return { song = g, pat = free[1] }
+  end
+  -- a bass line, an arpeggio, a melody: its tracks over the patterns from the one on the page
+  for k, pp in ipairs(piece.patterns) do
+    local p = b.pats[(cur.pat + k - 1) % B.NPAT + 1]
+    local len = math.max(B.pat_empty(p) and 0 or p.len, pp.len)
+    local tracks = B.copy(p.tracks)
+    for t, steps in pairs(pp.tracks) do
+      local tr = {}
+      for i = 1, len do tr[i] = conv(steps[i] or 0) end
+      tracks[t + 1] = tr
+    end
+    put(p, "len", len)
+    put(p, "tracks", tracks)
+  end
+  return { pat = cur.pat }
+end
+
+local preview_due                         -- {piece, frames}: played when the choice rests
+
+local function play_piece(piece)
+  local tmp = B.copy(bank)
+  local res = merge(tmp, piece, function(t, k, v) t[k] = v end)
+  if not res then return end
+  audio_bank(B.pack(tmp))
+  if res.sfx then
+    sfx(res.sfx, PREVIEW_VOICE)
+  elseif res.song then
+    music(res.song)
+  else
+    audio_pattern(res.pat, piece.bpm, piece.swing)
+  end
+end
+
+local function compose()
+  local a = assist_mod()
+  if not (a and ai and ai.music) then say("the music assistant is not on this console", C.red) return end
+  music(-1)
+  a.open{
+    mode = "music", context = context_notes(4),
+    on_preview = function(piece) preview_due = { piece = piece, t = 10 } end,
+    on_close = function()
+      preview_due = nil
+      music(-1)
+      sfx(-1)
+      bank_changed = true                 -- the bank as it is again
+    end,
+    on_music = function(piece)
+      begin_edit()
+      local res, err = merge(bank, piece, set)
+      if not res then say("assistant: " .. err, C.red, 300) return end
+      if res.sfx then
+        cur.page, cur.sfx = 2, res.sfx
+      elseif res.song then
+        cur.page, cur.song, cur.pat = 4, res.song, res.pat
+      else
+        cur.page = 3
+        learn_tracks()
+      end
+      local where = res.sfx and string.format("sound effect %02d", res.sfx)
+                    or res.song and string.format("song %d", res.song) or string.format("pattern %02d", res.pat)
+      say(string.format("assistant: %s into %s (Ctrl+Z takes it back)", piece.name, where), C.green, 300)
+      note_log("assistant: " .. piece.gen .. " #" .. piece.seed .. " into " .. where)
+    end,
+  }
+end
+
+----------------------------------------------------------------- riff
+
+-- Riff... (F7): a pattern in a line (require "riff", docs/RIFF.md), with
+-- the bank's sounds by name and the ready-made instruments; Enter plays it
+-- live (the words of the notes sounding light up), Ctrl+Enter puts some
+-- bars of it into the bank as a song. The pad: up/down the examples,
+-- left/right the bars, A plays, X into the bank, B closes.
+do
+  local riff_lib
+  local function riff_mod()
+    if riff_lib == nil then
+      local ok, m = pcall(require, "riff")
+      riff_lib = ok and m or false
+    end
+    return riff_lib or nil
+  end
+
+  local RIFF_EX = {
+    { "four on the floor", 's "kick*4, ~ snare, hat*8"' },
+    { "boom bap", 's "kick ~ ~ kick, ~ snare, [~ hat]*4" :swing(4)' },
+    { "acid bass", 'note "<c2 c2 eb2 g1>*4" :s "acid" :lpf(sine:range(300, 1800):slow(4))' },
+    { "arpeggio", 'chord "<Am F C G>" :s "epiano" :arp("updown") :fast(4)' },
+    { "melody", 'n "0 2 4 <7 6> 4 2 1 ~" :scale("A:minor") :s "pluck"' },
+    { "chords", 'chord "<Am F C G>" :s "pad" :room(.6)' },
+    { "Euclid", 's "kick(3,8), hat(7,16), ~ clap"' },
+    { "chip tune", 'note "c4 e4 g4 c5" :s "chip" :every(4, rev) :fast(2)' },
+  }
+  local RIFF_PREFIX = "riff = "
+
+  -- a line with an assignment plays as it is, an expression as "riff"
+  local function riff_source(text)
+    if text:match("^%s*[%a_][%w_]*%s*=[^=]") then return text, 0 end
+    return RIFF_PREFIX .. text, #RIFF_PREFIX
+  end
+
+  function riff_open()
+    if not riff_mod() then say("riff is not on this console", C.red) return end
+    music(-1)
+    sfx(-1)
+    local t = RIFF_EX[1][2]
+    overlay = { kind = "riff", text = t, cx = #t, ex = 1, bars = 4, msg = "Enter plays it", msg_c = C.dim }
+  end
+
+  local function riff_play(o)
+    local R = riff_mod()
+    local src, off = riff_source(o.text)
+    local ok, err = R.code(src, "riff")
+    o.off = off
+    if ok then
+      o.on = true
+      o.msg, o.msg_c = "playing   Ctrl+Enter: " .. o.bars .. " bars into the bank", C.green
+      note_log("riff " .. o.text)
+    else
+      o.msg, o.msg_c = (tostring(err):gsub("^riff:%d+: ", "")), C.red
+    end
+  end
+
+  local function riff_stop(o)
+    riff_mod().hush()
+    o.on = false
+    o.msg, o.msg_c = "stopped", C.dim
+  end
+
+  local function riff_bank(o)
+    local R = riff_mod()
+    if not o.on then riff_play(o) end
+    if not o.on then return end
+    local piece = R.bake(R.get(), { cycles = o.bars, steps = 16, name = "RIFF" })
+    R.hush()
+    overlay = nil
+    begin_edit()
+    local res, err = merge(bank, piece, set)
+    if not res then say("riff: " .. err, C.red, 300) return end
+    cur.page, cur.song, cur.pat = 4, res.song, res.pat
+    say(string.format("riff: %d bars into song %d (Ctrl+Z takes it back)", o.bars, res.song), C.green, 300)
+    note_log(string.format("riff into song %d, %d patterns, %d BPM", res.song, #piece.patterns, piece.bpm))
+  end
+
+  local function riff_bars(o, d)
+    o.bars = d > 0 and math.min(16, o.bars * 2) or math.max(1, o.bars // 2)
+    if o.on then o.msg = "playing   Ctrl+Enter: " .. o.bars .. " bars into the bank" end
+  end
+
+  function riff_key(o, k)
+    if k == "esc" then riff_mod().hush(); overlay = nil
+    elseif k == "\n" then riff_play(o)
+    elseif k == "^\n" then riff_bank(o)
+    elseif k == "^." then riff_stop(o)
+    elseif k == "\t" then riff_bars(o, o.bars == 16 and -16 or 1)
+    elseif k == "up" or k == "down" then
+      o.ex = (o.ex - 1 + (k == "up" and -1 or 1)) % #RIFF_EX + 1
+      o.text, o.cx = RIFF_EX[o.ex][2], #RIFF_EX[o.ex][2]
+      if o.on then riff_play(o) end
+    elseif k == "left" then o.cx = math.max(0, o.cx - 1)
+    elseif k == "right" then o.cx = math.min(#o.text, o.cx + 1)
+    elseif k == "home" then o.cx = 0
+    elseif k == "end" then o.cx = #o.text
+    elseif k == "\b" then
+      if o.cx > 0 then o.text, o.cx = o.text:sub(1, o.cx - 1) .. o.text:sub(o.cx + 1), o.cx - 1 end
+    elseif k == "del" then o.text = o.text:sub(1, o.cx) .. o.text:sub(o.cx + 2)
+    elseif #k == 1 and k:byte() >= 32 and #o.text < 200 then
+      o.text, o.cx = o.text:sub(1, o.cx) .. k .. o.text:sub(o.cx + 1), o.cx + 1
+    end
+  end
+
+  function riff_pad(o)
+    if rep[2] then riff_key(o, "up")
+    elseif rep[3] then riff_key(o, "down")
+    elseif rep[0] then riff_bars(o, -1)
+    elseif rep[1] then riff_bars(o, 1)
+    elseif btnp(4) then riff_play(o)
+    elseif btnp(6) then riff_bank(o)
+    elseif btnp(5) or btnp(9) then riff_mod().hush(); overlay = nil end
+  end
+
+  -- every frame while it is open: the notes ahead, the errors
+  function riff_frame()
+    local o = overlay
+    if not (o and o.kind == "riff" and o.on) then return end
+    local R = riff_mod()
+    R.update()
+    for _, e in ipairs(R.errors()) do o.msg, o.msg_c, o.on = e, C.red, false end
+  end
+
+  local RIFF_COLS = 72
+  function riff_draw(o)
+    local x, y = draw_panel(600, 196, "RIFF  -  a pattern in a line", C.orange)
+    print(string.format("example %d/%d: %s", o.ex, #RIFF_EX, RIFF_EX[o.ex][1]), x + 12, y + 36, C.dim)
+    ui.textr(o.bars .. " bars", x + 588, y + 36, C.yellow)
+    -- the line, lit where the notes sounding were written
+    local lit = {}
+    if o.on then
+      for _, l in ipairs(riff_mod().active()) do
+        for c = l[1] - o.off, l[2] - o.off - 1 do lit[c] = true end
+      end
+    end
+    local first = math.max(0, o.cx - RIFF_COLS + 1)
+    local fx, fy = x + 12, y + 60
+    ui.box(fx - 4, fy - 3, RIFF_COLS * 8 + 8, 22, C.dark)
+    for c = first, math.min(#o.text, first + RIFF_COLS) - 1 do
+      local cx = fx + (c - first) * 8
+      if lit[c] then rectfill(cx, fy, 8, 16, C.orange) end
+      print(o.text:sub(c + 1, c + 1), cx, fy, lit[c] and C.dark or C.text)
+    end
+    if (frame // 30) % 2 == 0 then rectfill(fx + (o.cx - first) * 8, fy, 2, 16, C.yellow) end
+    print(o.msg:sub(1, 72), x + 12, y + 92, o.msg_c)
+    local li = lastinput()
+    local kb, hx = li ~= "pad" and li ~= "ds4", x + 12
+    if kb then
+      hx = ui.chips({ "enter" }, "play", hx, y + 124)
+      hx = ui.chips({ "ctrl", "enter" }, "into the bank", hx, y + 124)
+      hx = ui.chips({ "ctrl", "." }, "stop", hx, y + 124)
+      hx = x + 12
+      hx = ui.chips({ "tab" }, "bars", hx, y + 156)
+      hx = ui.chips({ "up", "down" }, "examples", hx, y + 156)
+      ui.chips({ "esc" }, "close", hx, y + 156)
+    else
+      hx = ui.chips({ "A" }, "play", hx, y + 124)
+      hx = ui.chips({ "X" }, "into the bank", hx, y + 124)
+      ui.chips({ "B" }, "close", hx, y + 124)
+      hx = ui.chips({ "UPDOWN" }, "examples", x + 12, y + 156)
+      ui.chips({ "LEFTRIGHT" }, "bars", hx, y + 156)
+    end
+  end
+end
 
 local function play_toggle() P[cur.page].play() end
 
@@ -1766,6 +2393,11 @@ local function open_menu()
       end },
     { label = "Export to a game...", act = function() pick_file("export to", { game = true }, export_to) end },
   }
+  if cur.page == 1 and instruments then
+    items[#items + 1] = { label = "Instrument...", note = "a ready-made sound", act = choose_preset }
+  end
+  items[#items + 1] = { label = "Compose with the assistant...", note = "F6: beats, melodies, sfx", act = compose }
+  items[#items + 1] = { label = "Riff...", note = "F7: a pattern in a line", act = riff_open }
   if proj.path and proj.is_game then
     items[#items + 1] = { label = "Try it in the game", note = "F5, saves first", act = try_game }
   end
@@ -1918,6 +2550,8 @@ local function global_key(k)
   elseif k == "^v" then item_paste()
   elseif k == "^o" then open_other()
   elseif k == "^e" then pick_file("export to", { game = true }, export_to)
+  elseif k == "f6" then compose()
+  elseif k == "f7" then riff_open()
   elseif k == "up" then page.move(0, -1)
   elseif k == "down" then page.move(0, 1)
   elseif k == "left" then page.move(-1, 0)
@@ -1973,7 +2607,20 @@ end
 function _update()
   frame = frame + 1
   if msg_t > 0 then msg_t = msg_t - 1 end
+  local a = assist_lib or nil
+  if a and a.is_open() then
+    if preview_due then
+      preview_due.t = preview_due.t - 1
+      if preview_due.t <= 0 then
+        local piece = preview_due.piece
+        preview_due = nil
+        play_piece(piece)
+      end
+    end
+    if a.update() then return end
+  end
   read_pad()
+  riff_frame()
   while true do
     local k = keyp()
     if not k then break end
@@ -1993,4 +2640,5 @@ function _draw()
   draw_top()
   draw_bottom()
   if overlay then draw_overlay() end
+  if assist_lib and assist_lib.is_open() then assist_lib.draw() end
 end

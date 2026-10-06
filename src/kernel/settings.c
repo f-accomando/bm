@@ -25,6 +25,7 @@
 #include "usb/hid.h"
 #include "wifi/wifi.h"
 #include "audio/audio.h"
+#include "audio/presets.h"
 #ifdef BM_RGB30
 #include "rgb30/pad.h"
 #include "rgb30/plat.h"
@@ -85,7 +86,7 @@ enum {
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
-    R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF,
+    R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_STYLE,
 };
 
 static int popcount(unsigned v)
@@ -412,12 +413,17 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
                  "Sound of the games and tools (the + and - keys too)",
                  "%d / %d", audio_volume(), AUDIO_VOLUME_MAX);
+        home_row(p, MENU_ROW_CHOICE, R_STYLE, "Sound style",
+                 "Hi-fi, or the 8-bit chip of the first versions", "%s", audio_retro_on() ? "8-bit" : "Hi-fi");
         home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
                  "The sound's state and a test tune", NULL);
 #else
         home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
                  "Sound of the games and tools (games can change it in their pause menu)",
                  "%d / %d", audio_volume(), AUDIO_VOLUME_MAX);
+        home_row(p, MENU_ROW_CHOICE, R_STYLE, "Sound style",
+                 "Hi-fi (stereo, room), or the 8-bit chip of the first versions", "%s",
+                 audio_retro_on() ? "8-bit" : "Hi-fi");
         home_row(p, MENU_ROW_ACTION, R_PATTERN, "Test pattern",
                  "HDMI colour bars; any button returns", NULL);
         home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
@@ -834,6 +840,15 @@ void home_act(int id, int row, int how, home_do_t *d)
     case R_AUDIO:
         if (how == 0) text(d, x_audio, 1, 0);
         break;
+    case R_STYLE: {
+        int retro = !audio_retro_on();
+        audio_retro(AUDIO_RETRO_USER, retro);
+        config_set("sound", retro ? "8bit" : "hifi");
+        config_save();
+        audio_play_sound(0, &au_presets[au_preset_find(retro ? "chip" : "epiano")].s, 72, 220, 300);
+        ksnprintf(d->note, sizeof d->note, "sound: %s", retro ? "8-bit" : "hi-fi");
+        break;
+    }
 #ifdef BM_RGB30
     case R_CONFIRM:
         config_set("confirm", pad_ok == PAD_A ? "b" : "a");

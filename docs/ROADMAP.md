@@ -3234,6 +3234,43 @@ e PDF (niente conteggi e ricerca per ora).
 - **Fatto quando:** sul Pi si scrive una lettera con titolo, stili e una lista, si salva,
   si esporta in PDF e il PDF aperto sul PC ha la stessa pagina dello schermo.
 
+## M46 — Audio 2: suono hi-fi, strumenti e musica dall'assistente (L) — in corso
+Richiesta dell'utente (2026-10-06, branch `claude/audio-synth`): il suono di M10 era tutto
+"8 bit" (onde ingenue con aliasing, inviluppi dritti, niente filtro né ambiente). Senza
+campioni: un sintetizzatore che suoni pulito, per il Pi e per la RGB30, gli strumenti in
+bm Sound e un assistente che scriva ritmi, basi, arpeggi, melodie ed effetti classici.
+1. **Sintetizzatore** ✅ (`src/audio/synth.c`): onde PolyBLEP/PolyBLAMP (l'aliasing della
+   quadra a 1760 Hz da −22 a −60 dB, del dente di sega a 3520 Hz da −16 a −57), filtro risonante TPT (passa-basso, banda, alto,
+   notch, con inviluppo, keytrack e LFO), inviluppi esponenziali, FM a due operatori con
+   retroazione, corda pizzicata (Karplus-Strong con allpass di Thiran), supersaw, organo;
+   **stereo** (pan per voce) fino all'uscita (HDMI IEC958 del Pi, I2S della RGB30),
+   ambiente (FDN a 8 linee) ed eco a ping-pong, compressore e limitatore leggeri. Il suono
+   di prima resta identico campione per campione (`retro`, Settings *Sound style*, config
+   `sound=8bit`). Sul Pi: 4,2% della CPU con 8 voci e l'ambiente (armprof).
+2. **Strumenti** ✅: 42 pronti (`src/audio/presets.c`), `tone`, `play`, `instruments`,
+   `instrument`, `reverb`, `echo`, `retro` dal Lua; banco versione 2 (suoni da 48 byte col
+   timbro, eco e ambiente del brano) in C, Lua e Python.
+3. **bm Sound** ✅: gruppi FILTER e WAVE & SPACE nella pagina SOUNDS, *Instrument...* con
+   l'anteprima, ECHO e ROOM nel brano, il brano HIFI nel progetto dimostrativo.
+4. **L'assistente della musica** ✅ (`src/ai/music.c`): 87 ricette (beat, base, bass, arp,
+   melody, sfx), tonalità, tempo, battute e strumento dalle parole, accordi e tonalità
+   dalle note che ci sono già; le melodie da una rete INT8 (116→64→24,
+   `scripts/trainmusic.py` su `src/ai/melodies.txt`: 43% del passo e 65% della durata
+   su melodie mai viste). Nel pannello il modo `music` (F6 in bm Sound), `ai.music` dal
+   codice (sulla RGB30 la ricetta la scelgono le parole).
+5. **riff, un linguaggio di pattern** ✅ (richiesta dell'utente: come Strudel, in Lua;
+   `docs/RIFF.md`): `require "riff"` nei `.bm` (Pi e RGB30), mini-notazione e funzioni di
+   Tidal/Strudel, le note in coda a tempo nel player (`play_at`, entro 1,3 ms qualunque sia
+   il frame rate; ~700 istruzioni Lua a fotogramma), gli strumenti pronti e i suoni del
+   banco per nome; in bm Code Ctrl+Invio suona e accende le parole delle note, Ctrl+.
+   ferma; in bm Sound F7 la suona e la mette nel banco come brano; `R.piece` suona i pezzi
+   dell'assistente.
+- **Da verificare sul Pi e sulla RGB30**: Dev → *Audio test* (la battuta di strumenti), bm
+  Sound → brano HIFI, F6 → "ritmo rock", Settings → *Sound style* 8-bit e ritorno; bm Code
+  → Ctrl+T, un riff, Ctrl+Invio (tempo stabile, parole accese), bm Sound → F7.
+- **Fatto quando:** i giochi suonano puliti sulle due console, quelli vecchi possono
+  restare 8 bit, e il linguaggio di pattern suona da un gioco e da bm Code.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

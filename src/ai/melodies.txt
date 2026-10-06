@@ -1,0 +1,371 @@
+# Melodies for the music assistant's network (scripts/trainmusic.py).
+#
+# Only tunes in the public domain (traditional, or by composers dead for
+# more than 70 years), written down here from memory for bm (a melody,
+# simplified, not anyone's edition), and tunes written for bm itself
+# ("bm" in the title). They teach the network how a melody moves over the
+# chords; it never copies them.
+#
+# == id               the start of a tune
+# title:              what it is
+# mode:               major or minor
+# meter:              sixteenths in a bar (16 = 4/4, 12 = 3/4 or 6/8, 8 = 2/4)
+# chords:             one per bar, between |; two in a bar ("I V") take a half each;
+#                     roman numerals on the scale: I ii iii IV V vi vii (major),
+#                     i ii III iv v V VI VII (minor)
+# notes:              degrees of the scale 1..7, '#' or 'b' before for a sharp or a
+#                     flat, ' or , after for an octave up or down, :n the length in
+#                     sixteenths (4 if missing), r a rest; bars between |. A tune
+#                     can have several notes: lines.
+
+== ode_to_joy
+title: Ode to Joy (Beethoven, 1824)
+mode: major
+meter: 16
+chords: I | V | I | V | I | V | I | V I | V I | V I | V I | V | I | V | I | V I
+notes: 3 3 4 5 | 5 4 3 2 | 1 1 2 3 | 3:6 2:2 2:8 | 3 3 4 5 | 5 4 3 2 | 1 1 2 3 | 2:6 1:2 1:8
+notes: 2 2 3 1 | 2 3:2 4:2 3 1 | 2 3:2 4:2 3 2 | 1 2 5,:8 | 3 3 4 5 | 5 4 3 2 | 1 1 2 3 | 2:6 1:2 1:8
+
+== twinkle
+title: Twinkle, twinkle (French folk song, 18th century)
+mode: major
+meter: 16
+chords: I | IV I | IV I | V I | I V | I V | I V | I V | I | IV I | IV I | V I
+notes: 1 1 5 5 | 6 6 5:8 | 4 4 3 3 | 2 2 1:8 | 5 5 4 4 | 3 3 2:8 | 5 5 4 4 | 3 3 2:8
+notes: 1 1 5 5 | 6 6 5:8 | 4 4 3 3 | 2 2 1:8
+
+== frere_jacques
+title: Frere Jacques (traditional)
+mode: major
+meter: 16
+chords: I | I | I | I | I | I | I V | I V
+notes: 1 2 3 1 | 1 2 3 1 | 3 4 5:8 | 3 4 5:8 | 5:2 6:2 5:2 4:2 3 1 | 5:2 6:2 5:2 4:2 3 1 | 1 5, 1:8 | 1 5, 1:8
+
+== mary_lamb
+title: Mary had a little lamb (traditional)
+mode: major
+meter: 16
+chords: I | I | V | I | I | I | V | I
+notes: 3:6 2:2 1 2 | 3 3 3:8 | 2 2 2:8 | 3 5 5:8 | 3:6 2:2 1 2 | 3 3 3 3 | 2 2 3 2 | 1:16
+
+== jingle_bells
+title: Jingle Bells (Pierpont, 1857)
+mode: major
+meter: 16
+chords: I | I | I | I | IV | I | V | V | I | I | I | I | IV | I | V | I
+notes: 3 3 3:8 | 3 3 3:8 | 3 5 1:6 2:2 | 3:16 | 4 4 4:6 4:2 | 4 3 3 3:2 3:2 | 3 2 2 3 | 2:8 5:8
+notes: 3 3 3:8 | 3 3 3:8 | 3 5 1:6 2:2 | 3:16 | 4 4 4:6 4:2 | 4 3 3 3:2 3:2 | 5 5 4 2 | 1:16
+
+== brahms_lullaby
+title: Lullaby (Brahms, 1868)
+mode: major
+meter: 12
+chords: I | I | I | V | V | V | V | I
+notes: 3:2 3:2 5:8 | 3:2 3:2 5:8 | 3:2 5:2 1':6 7:2 | 6:4 6:4 5:4 | 2:2 3:2 4:4 2:4 | 2:2 3:2 4:8
+notes: 2:2 4:2 7:2 6:2 5:4 | 7:4 1':8
+
+== korobeiniki
+title: Korobeiniki (Russian folk song)
+mode: minor
+meter: 16
+chords: V | i | V | i | iv | i | V | i
+notes: 5 2:2 3:2 4 3:2 2:2 | 1 1:2 3:2 5 4:2 3:2 | 2:6 3:2 4 5 | 3 1 1:8
+notes: r:2 4 6:2 1' 7:2 6:2 | 5:6 3:2 5 4:2 3:2 | 2 2:2 3:2 4 5 | 3 1 1:8
+
+== greensleeves
+title: Greensleeves (English folk song, 16th century)
+mode: minor
+meter: 12
+chords: i | VII | i | V | i | VII | i V | V | i | VII | i | V | III | V | V | i
+notes: 1:4 3:8 | 4:4 5:6 6:2 | 5:4 4:8 | 2:4 7,:6 1:2 | 2:4 3:8 | 1:4 1:6 #7,:2 | 1:4 2:8 | #7,:4 5,:8
+notes: 1:4 3:8 | 4:4 5:6 6:2 | 5:4 4:8 | 2:4 7,:6 1:2 | 2:4 3:6 2:2 | 1:4 #7,:6 6,:2 | #7,:4 1:8 | 1:12
+
+== scarborough
+title: Scarborough Fair (English folk song)
+mode: minor
+meter: 12
+chords: i | i | VII | i | i | VII | IV | i
+notes: 1:8 1:4 | 5:6 5:2 5:4 | 2:6 3:2 2:4 | 1:12 | r:4 5:4 1':4 | 1':8 7:4 | 5:4 6:4 4:4 | 5:12
+
+== amazing_grace
+title: Amazing Grace (traditional)
+mode: major
+meter: 12
+chords: I | I | IV | I | I | I | V | I | I | V | IV | I | I | V | I
+notes: 1:8 3:2 1:2 | 3:8 2:4 | 1:8 6,:4 | 5,:8 5,:4 | 1:8 3:2 1:2 | 3:8 2:2 3:2 | 5:12 | 3:4 5:6 3:2
+notes: 5:2 3:2 1:8 | 3:8 2:4 | 1:8 6,:4 | 5,:8 5,:4 | 1:8 3:2 1:2 | 3:8 2:4 | 1:12
+
+== saints
+title: When the Saints Go Marching In (traditional)
+mode: major
+meter: 16
+chords: I | I | I | I | I | I | I | V | V | I | I | IV | IV | I | V | I
+notes: r:4 1 3 4 | 5:16 | r:4 1 3 4 | 5:16 | r:4 1 3 4 | 5:8 3:8 | 1:8 3:8 | 2:16
+notes: r:4 3 3 2 | 1:12 1 | 3:8 5:8 | 5 4:12 | r:4 3 4 5 | 3:8 1:8 | 2:16 | 1:16
+
+== oh_susanna
+title: Oh! Susanna (Foster, 1848)
+mode: major
+meter: 16
+chords: I | I | I | V | I | I | V | I
+notes: 1:2 2:2 3 5 5 | 6:3 5:1 3:4 1:6 2:2 | 3 3 2 1 | 2:12 1:2 2:2 | 3:4 5:4 5:6 6:2 | 5:4 3:4 1:6 2:2
+notes: 3 3 2 2 | 1:12 r:4
+
+== yankee_doodle
+title: Yankee Doodle (traditional)
+mode: major
+meter: 16
+chords: I V | I V | I | V I
+notes: 1:2 1:2 2:2 3:2 1:2 3:2 2:2 5,:2 | 1:2 1:2 2:2 3:2 1:4 7,:4 | 1:2 1:2 2:2 3:2 4:2 3:2 2:2 1:2
+notes: 7,:2 5,:2 6,:2 7,:2 1:4 1:4
+
+== row_boat
+title: Row, row, row your boat (traditional)
+mode: major
+meter: 12
+chords: I | I | I V | I | I | I | V | I
+notes: 1:6 1:6 | 1:4 2:2 3:6 | 3:4 2:2 3:4 4:2 | 5:12 | 1':2 1':2 1':2 5:2 5:2 5:2 | 3:2 3:2 3:2 1:2 1:2 1:2
+notes: 5:4 4:2 3:4 2:2 | 1:12
+
+== london_bridge
+title: London Bridge (traditional)
+mode: major
+meter: 16
+chords: I | I | V | I | I | I | V | I
+notes: 5:6 6:2 5 4 | 3 4 5:8 | 2 3 4:8 | 3 4 5:8 | 5:6 6:2 5 4 | 3 4 5:8 | 2:8 5:8 | 3 1:12
+
+== auld_lang_syne
+title: Auld Lang Syne (Scottish folk song)
+mode: major
+meter: 16
+chords: I | V | I | IV | I | V | vi V | I
+notes: 1:6 1:2 1 3 | 2:6 1:2 2 3 | 1:6 1:2 3 5 | 6:12 6 | 5:6 3:2 3 1 | 2:6 1:2 2 3:2 2:2
+notes: 1:6 6,:2 6, 5, | 1:12 r:4
+
+== silent_night
+title: Silent Night (Gruber, 1818)
+mode: major
+meter: 12
+chords: I | I | I | I | V | V | I | I | IV | I | I | I | IV | I | I | I | V | V | I | I | I | V | I
+notes: 5:6 6:2 5:4 | 3:12 | 5:6 6:2 5:4 | 3:12 | 2':8 2':4 | 7:12 | 1':8 1':4 | 5:12
+notes: 6:8 6:4 | 1':6 7:2 6:4 | 5:6 6:2 5:4 | 3:12 | 6:8 6:4 | 1':6 7:2 6:4 | 5:6 6:2 5:4 | 3:12
+notes: 2':8 2':4 | 4':6 2':2 7:4 | 1':12 | 3':12 | 1':4 5:4 3:4 | 5:6 4:2 2:4 | 1:12
+
+== weasel
+title: Pop Goes the Weasel (traditional)
+mode: major
+meter: 12
+chords: I | I | V | I | I | I | IV V | I
+notes: 1:4 1:2 2:4 2:2 | 3:2 5:2 3:2 1:6 | 1:4 1:2 2:4 2:2 | 3:6 1:6 | 1:4 1:2 2:4 2:2 | 3:2 5:2 3:2 1:6
+notes: 6:6 2:4 4:2 | 3:6 1:6
+
+== can_can
+title: Galop infernal, the can-can (Offenbach, 1858)
+mode: major
+meter: 16
+chords: I | I | V | V I | I | I | V | I
+notes: 1:8 2:2 4:2 3:2 2:2 | 5:4 5:4 5:2 6:2 3:2 4:2 | 2:4 2:4 2:2 4:2 3:2 2:2 | 1:2 1':2 7:2 6:2 5:2 4:2 3:2 2:2
+notes: 1:8 2:2 4:2 3:2 2:2 | 5:4 5:4 5:2 6:2 3:2 4:2 | 2:4 2:4 2:2 4:2 3:2 2:2 | 1:2 5:2 2:2 3:2 1:8
+
+== donna_mobile
+title: La donna e' mobile (Verdi, 1851)
+mode: major
+meter: 6
+chords: I | V | V | I | V | V | I | I
+notes: 5:2 5:2 5:2 | 7:3 6:1 4:2 | 6:2 6:2 6:2 | 1':3 7:1 5:2 | 2':2 1':2 7:2 | 6:2 5:2 4:2 | 3:6 | r:6
+
+== old_macdonald
+title: Old MacDonald (traditional)
+mode: major
+meter: 16
+chords: I | IV I | I V | I | I | IV I | V | I
+notes: 1 1 1 5, | 6, 6, 5,:8 | 3 3 2 2 | 1:12 5, | 1 1 1 5, | 6, 6, 5,:8 | 3 3 2 2 | 1:16
+
+== drunken_sailor
+title: What Shall We Do with the Drunken Sailor (sea shanty)
+mode: minor
+meter: 16
+chords: i | i | VII | VII | i | i | VII | i
+notes: 5:2 5:2 5:2 5:2 5:2 5:2 5:2 5:2 | 5:4 1:4 3:4 5:4 | 4:2 4:2 4:2 4:2 4:2 4:2 4:2 4:2 | 4:4 7,:4 2:4 4:4
+notes: 5:2 5:2 5:2 5:2 5:2 5:2 5:2 5:2 | 5:4 6:4 7:4 1':4 | 6:4 4:4 5:4 3:4 | 1:8 1:8
+
+== morning_mood
+title: Morning Mood (Grieg, 1875)
+mode: major
+meter: 12
+chords: I | I | IV | I | I | I | IV | V I
+notes: 5:2 3:2 2:2 1:2 2:2 3:2 | 5:2 3:2 2:2 1:2 2:2 3:2 | 5:2 3:2 5:2 6:2 3:2 6:2 | 5:2 3:2 2:2 1:6
+notes: 5:2 3:2 2:2 1:2 2:2 3:2 | 5:2 3:2 2:2 1:2 2:2 3:2 | 5:2 3:2 5:2 6:2 3:2 6:2 | 5:4 2:4 1:4
+
+== minuet_g
+title: Minuet in G (Petzold, about 1725)
+mode: major
+meter: 12
+chords: I | I | IV | I | V | I | V | V
+notes: 5:4 1:2 2:2 3:2 4:2 | 5:4 1:4 1:4 | 6:4 4:2 5:2 6:2 7:2 | 1':4 1:4 1:4 | 4:4 5:2 4:2 3:2 2:2
+notes: 3:4 4:2 3:2 2:2 1:2 | 7,:4 1:2 2:2 3:2 1:2 | 2:12
+
+== nachtmusik
+title: Eine kleine Nachtmusik (Mozart, 1787)
+mode: major
+meter: 16
+chords: I | I | V | V
+notes: 1:4 r:2 5,:2 1:4 r:2 5,:2 | 1:2 5,:2 1:2 3:2 5:8 | 4:4 r:2 2:2 4:4 r:2 2:2 | 4:2 2:2 7,:2 2:2 5,:8
+
+== alouette
+title: Alouette (French folk song)
+mode: major
+meter: 16
+chords: I | V I | I | V I
+notes: 1:6 2:2 3:4 3:4 | 2:2 1:2 2:2 3:2 1:4 5,:4 | 1:6 2:2 3:4 3:4 | 2:2 1:2 2:2 3:2 1:8
+
+== clair_de_lune
+title: Au clair de la lune (French folk song)
+mode: major
+meter: 16
+chords: I | I V | I V | I | I | I V | I V | I | V | ii | V | V | I | I V | I V | I
+notes: 1 1 1 2 | 3:8 2:8 | 1 3 2 2 | 1:16 | 1 1 1 2 | 3:8 2:8 | 1 3 2 2 | 1:16
+notes: 2 2 2 2 | 6,:8 6,:8 | 2 1 7, 6, | 5,:16 | 1 1 1 2 | 3:8 2:8 | 1 3 2 2 | 1:16
+
+# ---------------------------------------------------------------- written for bm
+
+== bm_heroic
+title: bm: heroic theme
+mode: major
+meter: 16
+chords: I | I | IV | V | I | I | IV V | I
+notes: 1:4 5:4 5:6 4:2 | 3:4 4:4 5:8 | 6:4 5:4 4:4 3:4 | 2:12 5,:4 | 1:4 5:4 5:6 4:2 | 3:4 4:4 5:8
+notes: 6:4 1':4 7:4 2':4 | 1':16
+
+== bm_town
+title: bm: a happy town
+mode: major
+meter: 16
+chords: I | IV I | IV | V | I | V | IV V | I
+notes: 3:2 5:2 1':2 5:2 3:2 5:2 1':4 | 7:2 6:2 5:2 6:2 5:8 | 4:2 6:2 1':2 6:2 4:2 6:2 1':4 | 7:2 1':2 2':2 7:2 5:8
+notes: 3:2 5:2 1':2 5:2 3:2 5:2 1':4 | 2':2 1':2 7:2 6:2 5:8 | 4:2 3:2 2:2 4:2 3:2 2:2 1:2 7,:2 | 1:16
+
+== bm_sad
+title: bm: a sad song
+mode: minor
+meter: 16
+chords: i | v | VI | V | i | i | V | i
+notes: 1:8 3:4 2:4 | 1:4 7,:4 5,:8 | 6,:8 1:4 7,:4 | 5,:16 | 3:8 5:4 4:4 | 3:4 2:4 1:8 | 7,:6 1:2 2:4 #7,:4 | 1:16
+
+== bm_mystery
+title: bm: mystery
+mode: minor
+meter: 16
+chords: i | VII | VI | iv | i | VII | iv V | i
+notes: 1:6 2:2 3:8 | 2:6 1:2 7,:8 | 1:4 3:4 6:4 5:4 | 4:16 | 3:6 4:2 5:8 | 4:6 3:2 2:8 | 1:4 7,:4 6,:4 #7,:4 | 1:16
+
+== bm_calm
+title: bm: calm waltz
+mode: major
+meter: 12
+chords: I | V | I | V | I | IV | V | I
+notes: 3:8 5:4 | 4:8 2:4 | 3:8 1:4 | 2:12 | 3:8 5:4 | 6:8 5:4 | 4:4 3:4 2:4 | 1:12
+
+== bm_chase
+title: bm: chase
+mode: minor
+meter: 16
+chords: i | iv | V | V | i | iv | V | i
+notes: 1:2 1:2 5:2 1:2 3:2 1:2 5:2 3:2 | 4:2 4:2 1':2 4:2 6:2 4:2 1':2 6:2 | 5:2 5:2 2':2 5:2 7:2 5:2 2':2 7:2 | 1':4 7:4 6:4 5:4
+notes: 1:2 1:2 5:2 1:2 3:2 1:2 5:2 3:2 | 4:2 4:2 1':2 4:2 6:2 4:2 1':2 6:2 | 5:2 7:2 2':2 7:2 5:2 4:2 3:2 2:2 | 1:16
+
+== bm_march
+title: bm: march
+mode: major
+meter: 16
+chords: I | I | IV | V | I | IV | I V | I
+notes: 5:6 5:2 1':4 5:4 | 3:6 3:2 1:8 | 4:6 4:2 6:4 4:4 | 5:16 | 5:6 5:2 1':4 5:4 | 6:6 5:2 4:8 | 3:4 2:4 5:4 7,:4 | 1:16
+
+== bm_waltz
+title: bm: ballroom waltz
+mode: major
+meter: 12
+chords: I | I | IV | I | ii | IV | V | I
+notes: 1:4 3:4 5:4 | 1':8 7:4 | 6:4 5:4 4:4 | 3:12 | 2:4 4:4 6:4 | 1':8 7:4 | 5:4 6:4 7:4 | 1':12
+
+== bm_boss
+title: bm: boss fight
+mode: minor
+meter: 16
+chords: i | iv | V | VI | i | VI | V | i
+notes: 1:4 1:2 1:2 3:4 2:4 | 1:4 1:2 1:2 4:4 3:4 | 2:4 3:4 4:4 5:4 | 6:8 5:8 | 1:4 1:2 1:2 3:4 2:4
+notes: 1:4 1:2 1:2 6,:4 7,:4 | 1:4 5,:4 1:8 | 1:16
+
+== bm_victory
+title: bm: victory fanfare
+mode: major
+meter: 16
+chords: I | IV | IV | V | I | I | V | I
+notes: 1:2 3:2 5:2 1':10 | 7:2 6:2 5:4 6:8 | 4:2 6:2 1':2 2':10 | 1':2 7:2 6:4 5:8 | 1:2 3:2 5:2 1':10
+notes: 7:2 1':2 2':4 3':8 | 2':4 1':4 7:4 2':4 | 1':16
+
+== bm_dream
+title: bm: underwater dream
+mode: major
+meter: 16
+chords: I | I | V | vi | I | IV | V | I
+notes: 3:8 2:8 | 3:4 5:4 3:8 | 2:8 1:8 | 6,:16 | 3:8 2:8 | 3:4 5:4 6:8 | 5:8 4:4 2:4 | 1:16
+
+== bm_folk
+title: bm: village dance
+mode: minor
+meter: 12
+chords: i | v | i | III | i | iv | V | i
+notes: 1:4 2:2 3:4 4:2 | 5:6 4:6 | 3:4 2:2 1:4 2:2 | 3:12 | 1:4 2:2 3:4 4:2 | 5:6 6:6 | 5:4 4:2 2:4 #7,:2 | 1:12
+
+== bm_space
+title: bm: space station
+mode: major
+meter: 16
+chords: I | V | ii | I | IV | ii | V | I
+notes: 5,:4 1:4 5:8 | 4:4 3:4 2:8 | 5,:4 2:4 6:8 | 5:4 4:4 3:8 | 6:4 5:4 4:4 3:4 | 2:4 3:4 4:8 | 3:4 2:4 1:4 7,:4 | 1:16
+
+== bm_puzzle
+title: bm: puzzle
+mode: major
+meter: 16
+chords: I | IV | I | V | IV | I | V | I
+notes: 1:2 r:2 3:2 r:2 5:4 3:4 | 4:2 r:2 6:2 r:2 5:8 | 1:2 r:2 3:2 r:2 5:4 1':4 | 7:2 6:2 5:2 4:2 5:8
+notes: 6:2 r:2 4:2 r:2 2:4 4:4 | 5:2 r:2 3:2 r:2 1:8 | 2:4 4:4 3:4 2:4 | 1:16
+
+== bm_stealth
+title: bm: night patrol
+mode: minor
+meter: 16
+chords: i | VII | VI | i | III | iv | V | i
+notes: 1:4 r:4 7,:4 1:4 | 3:8 2:8 | 1:4 r:4 6,:4 7,:4 | 1:16 | 3:4 r:4 2:4 3:4 | 5:8 4:8 | 3:4 2:4 7,:4 2:4 | 1:16
+
+== bm_title
+title: bm: title screen
+mode: major
+meter: 16
+chords: I | IV | ii V | I | I | IV | V | I
+notes: 1:6 2:2 3:4 5:4 | 6:8 5:8 | 4:6 3:2 2:4 5,:4 | 1:16 | 1:6 2:2 3:4 5:4 | 1':8 7:4 6:4 | 5:4 4:4 3:4 2:4 | 1:16
+
+== bm_shop
+title: bm: the shop
+mode: major
+meter: 16
+chords: I | vi | ii | V | I | vi | ii V | I
+notes: 5:2 3:2 5:2 6:6 5:4 | 3:2 1:2 3:2 6:6 r:4 | 4:2 2:2 4:2 6:6 4:4 | 7,:2 2:2 5:2 7:6 r:4
+notes: 5:2 3:2 5:2 6:6 5:4 | 1':2 6:2 5:2 3:6 r:4 | 4:2 6:2 2:2 7,:2 2:4 5,:4 | 1:16
+
+== bm_cave
+title: bm: deep cave
+mode: minor
+meter: 16
+chords: i | i | VI | V | i | iv | VI V | i
+notes: 1:8 r:4 5,:4 | 1:4 2:4 3:8 | 1:8 r:4 6,:4 | 7,:16 | 3:8 r:4 2:4 | 4:4 3:4 1:8 | 6,:4 1:4 7,:4 2:4 | 1:16
+
+== bm_race
+title: bm: race
+mode: major
+meter: 16
+chords: I | V | vi | IV | I | V | IV | V
+notes: 5:2 5:2 5:2 6:2 5:4 3:4 | 5:2 5:2 5:2 6:2 7:8 | 1':2 1':2 1':2 7:2 6:4 5:4 | 4:2 4:2 4:2 5:2 6:8
+notes: 5:2 5:2 5:2 6:2 5:4 3:4 | 2:2 3:2 4:2 5:2 7:8 | 6:2 5:2 4:2 6:2 1':4 6:4 | 5:8 7:8

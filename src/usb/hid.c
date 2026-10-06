@@ -98,6 +98,10 @@ static uint8_t translate(uint8_t u, uint8_t mods)
         if (shift ^ caps) c = (char)(c - 32);
         return (uint8_t)c;
     }
+    if (text_mode && ctrl) {
+        if (u == 0x28 || u == 0x58) return HID_KEY_CTRL_ENTER;     /* Enter, keypad Enter */
+        if (u == 0x37 || u == 0x63) return HID_KEY_CTRL_DOT;       /* ".", keypad "." */
+    }
     if (text_mode)
         switch (u) {
         case 0x52: return HID_KEY_UP;

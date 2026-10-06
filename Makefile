@@ -417,7 +417,8 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 # make yharnam-video: a hunt played by tools/bmplay/yharnam_bot.lua, from the
 # title to the Butcher slain (build/yharnam-run.mp4; needs ffmpeg)
 BMPLAY_SRCS := tools/bmplay/bmplay.c src/bm/gfx16.c src/bm/format.c src/lib/crc32.c src/gfx/font8x16.c \
-               src/gfx/font8x14.c src/gfx/font6x12.c src/audio/synth.c src/audio/player.c
+               src/gfx/font8x14.c src/gfx/font6x12.c src/audio/synth.c src/audio/player.c \
+               src/audio/presets.c src/audio/lua_tone.c
 $(BUILD)/host/bmplay: $(BMPLAY_SRCS) src/bm/*.h src/audio/*.h $(LUA_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Ithird_party/lua -o $@ $(BMPLAY_SRCS) $(LUA_SRCS) -lm
@@ -457,6 +458,17 @@ $(BUILD)/host/test_loading: tests/bm/test_loading.c src/bm/loading.c src/bm/load
 test-loading: $(BUILD)/host/test_loading
 	@mkdir -p $(BUILD)/loading
 	$< $(BUILD)/loading
+
+# riff (require "riff", the language of patterns for music, M46): the
+# mini-notation, the functions, the scheduler on the sound's clock, the
+# live code and the bake, in bmhost; the sound in build/riff/riff.wav
+$(BUILD)/riff-test.bm: tests/riff/cart.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "riff test"
+
+test-riff: $(BUILD)/host/bmhost-bin $(BUILD)/riff-test.bm
+	@mkdir -p $(BUILD)/riff
+	$< $(BUILD)/riff-test.bm --seconds 7 --wav $(BUILD)/riff/riff.wav 2>&1 | tee $(BUILD)/riff-test.log | grep "^riff"
+	grep -q "^riff: \([0-9]*\)/\1 checks passed" $(BUILD)/riff-test.log
 
 test-keymap: $(BUILD)/host/bmhost-bin $(BUILD)/keymap-test.bm tests/keymap/input.txt
 	$< $(BUILD)/keymap-test.bm --input tests/keymap/input.txt --seconds 8 2>&1 | tee $(BUILD)/keymap-test.log | grep "^keymap"
@@ -559,7 +571,8 @@ BMHOST_RT := src/bm/runtime.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm
              src/kernel/syskeys.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c \
              src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c src/audio/audio.c src/audio/synth.c \
-             src/audio/player.c src/ai/net.c src/ai/nn.c src/bm/decimate.c src/bm/cutout.c \
+             src/audio/player.c src/audio/presets.c src/audio/lua_tone.c src/ai/net.c src/ai/nn.c \
+             src/bm/decimate.c src/bm/cutout.c \
              src/bm/glb.c src/bm/json.c src/bm/png.c src/bm/jpeg.c src/bm/loading.c src/bm/loading_logo.c \
              src/bm/profile.c
 BMHOST_LUA := $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS))
@@ -571,7 +584,8 @@ $(BUILD)/host/bmhost/runtime-deps: $(wildcard src/bm/*.h src/audio/*.h src/kerne
 	@mkdir -p $(dir $@) && touch $@
 $(BMHOST_OBJS): $(BUILD)/host/bmhost/runtime-deps
 $(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
-                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua src/ai/predict.lua $(BUILD)/words.lua src/ai/padtype.lua
+                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua src/ai/predict.lua $(BUILD)/words.lua src/ai/padtype.lua \
+                          src/script/riff.lua
 	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) \
 	    -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/libs.S $(BMHOST_OBJS) -lm
 bmhost: $(BUILD)/host/bmhost-bin
@@ -598,6 +612,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 .PHONY: FORCE test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
+        test-music music-model \
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-studio-ui studio test-prompts test-hyp test-zero2 \
         showreel bmhost bmhost-gpu test-overbit overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video \
@@ -782,7 +797,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # make test: the tests on the PC, then those in QEMU. The CI runs them on
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
-HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
+HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-overbit $(if $(K7),test-hyp)
@@ -970,6 +985,23 @@ $(BUILD)/host/test_http: tests/net/test_http.c src/net/http.c src/net/http.h
 test-audio: $(BUILD)/host/test_audio
 	$<
 
+# The music assistant (src/ai/music.c): the melody network against the
+# Python reference, every recipe, the words of the requests. `make
+# music-model` trains the network again (numpy) from src/ai/melodies.txt:
+# then commit src/ai/music_net.c. MUSIC_WAV=dir also writes examples.
+test-music: $(BUILD)/host/test_music
+	$(PYTHON) scripts/trainmusic.py --check
+	$< $(MUSIC_WAV)
+
+$(BUILD)/host/test_music: tests/ai/test_music.c src/ai/music.c src/ai/music_net.c src/ai/nn.c src/audio/presets.c \
+                          src/audio/player.c src/audio/synth.c src/ai/*.h src/audio/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ai/test_music.c src/ai/music.c src/ai/music_net.c src/ai/nn.c \
+	    src/audio/presets.c src/audio/player.c src/audio/synth.c -lm
+
+music-model:
+	$(PYTHON) scripts/trainmusic.py
+
 $(BUILD)/host/test_audio: tests/audio/test_audio.c src/audio/synth.c src/audio/player.c src/audio/iec958.c src/audio/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/audio/test_audio.c src/audio/synth.c src/audio/player.c src/audio/iec958.c -lm
@@ -1086,15 +1118,16 @@ test-prompts: $(BUILD)/host/test_prompts
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
-AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c src/ai/mesh.c src/ai/mesh_chars.c src/ai/mesh_script.c
+AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c src/ai/mesh.c src/ai/mesh_chars.c src/ai/mesh_script.c \
+           src/ai/music.c src/ai/music_net.c
 $(BUILD)/host/test_ai: tests/ai/test_ai.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ai/test_ai.c $(AI_SRCS) src/lib/crc32.c -lm
 
 # Lua for the PC with the `ai` table: the panel's tests
-$(BUILD)/host/luaai: tests/ai/luaai.c src/ai/lua_ai.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c $(LUA_SRCS)
+$(BUILD)/host/luaai: tests/ai/luaai.c src/ai/lua_ai.c src/ai/lua_music.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c $(LUA_SRCS)
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -w -DBM_HOST_TEST -Isrc -Ithird_party/lua -o $@ tests/ai/luaai.c src/ai/lua_ai.c \
+	$(HOSTCC) -O2 -w -DBM_HOST_TEST -Isrc -Ithird_party/lua -o $@ tests/ai/luaai.c src/ai/lua_ai.c src/ai/lua_music.c \
 		$(AI_SRCS) src/lib/crc32.c $(LUA_SRCS) -lm
 
 # The 3D recipes drawn on the PC: build/ai/meshes.ppm (every recipe) and

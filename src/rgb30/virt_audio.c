@@ -19,7 +19,7 @@
 #define IRQ_VTIMER  27
 #define LOUD        1000                /* below it, silence */
 
-static int16_t pcm[AUDIO_CHUNK];
+static int16_t pcm[AUDIO_CHUNK * 2];      /* left, right */
 static uint64_t period, next;
 static volatile uint32_t chunks, late;
 
@@ -32,10 +32,11 @@ static volatile uint32_t heard_hz, heard_peak, heard_rate;
 static void measure(const int16_t *s, unsigned n)
 {
     for (unsigned i = 0; i < n; i++) {
-        if (prev < 0 && s[i] >= 0)
+        int16_t x = s[2 * i];           /* the left channel */
+        if (prev < 0 && x >= 0)
             crossings++;
-        prev = s[i];
-        uint32_t a = (uint32_t)(s[i] < 0 ? -s[i] : s[i]);
+        prev = x;
+        uint32_t a = (uint32_t)(x < 0 ? -x : x);
         if (a > peak)
             peak = a;
     }

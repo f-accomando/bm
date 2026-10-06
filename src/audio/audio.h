@@ -17,6 +17,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "player.h"
+
 #define AUDIO_RATE          48000
 #define AUDIO_CHUNK         256         /* samples per buffer of the output */
 #define AUDIO_VOLUME_MAX    10
@@ -63,6 +65,41 @@ void audio_tempo(float scale);
 void audio_mute(int track, int on);
 /* A sound of the bank as a step plays it (the editor's previews). */
 void audio_play(int ch, int sound, int note, int vol, int fx, uint32_t ms);
+/* Any sound (a preset of presets.h) on a voice (-1: a free one), pitch
+ * envelope and vibrato included: the voice, or -1. */
+int  audio_play_sound(int ch, const au_sound_t *s, int note, int vol, uint32_t ms);
+
+/* Notes at a time (the pattern language): the clock in samples (48 kHz)
+ * since the sound started, a note queued for a time on it (player_at:
+ * 0, or -1 when the queue is full), the notes of a tag forgotten and
+ * released (0: all), the voices they may use (bit v; 0: all), how many
+ * wait. */
+uint64_t audio_clock(void);
+int  audio_at(uint64_t when, const au_sound_t *s, int note, int vol, uint32_t len, int tag);
+void audio_at_cancel(int tag);
+void audio_at_voices(uint8_t mask);
+int  audio_at_waiting(int tag);
+/* the cartridge's bank (NULL: none), for the names of its sounds */
+const au_bank_t *audio_bank_now(void);
+
+/* The sound of a voice for note(): registers 2..8 (wave, duty, volume,
+ * envelope) and 11..31 (the tone) of `regs`, a whole voice's 32 bytes;
+ * audio_tone_get reads them. */
+void audio_tone(unsigned ch, const uint8_t *regs);
+void audio_tone_get(unsigned ch, uint8_t *regs);
+
+/* The room (size, damping, level 0..1) and the echo (ms, feedback,
+ * level); audio_reset() puts back the usual ones. */
+void audio_room(float size, float damp, float wet);
+void audio_echo(float ms, float feedback, float wet);
+void audio_fx_get(float room[3], float echo[3]);
+
+/* Every voice the 8-bit chip of the first versions, no room nor echo:
+ * asked by the game (until audio_reset) or by the player (Settings). */
+#define AUDIO_RETRO_GAME    1
+#define AUDIO_RETRO_USER    2
+void audio_retro(int who, int on);
+int  audio_retro_on(void);
 /* A game left (suspended): music paused and every voice released; 0
  * goes on from there. */
 void audio_pause(int on);

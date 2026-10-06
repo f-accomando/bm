@@ -101,6 +101,17 @@ la musica deve andare più veloce col boss => tempo
 nota con il vibrato => vibrato
 suonare un accordo di do maggiore arpeggiato => arp
 abbassa il volume => volume
+voglio che le note suonino come un pianoforte elettrico => tone
+il suono è troppo 8 bit, lo voglio più morbido => tone, retro
+far suonare la cassa e il rullante dal codice => play
+che strumenti pronti ci sono => instruments
+mettere un po' di eco e riverbero alla musica => reverb
+voglio il suono grezzo delle console a 8 bit => retro
+generare una melodia nel codice del gioco => ai_music
+voglio scrivere la musica a pattern come in strudel => riff, riff_code
+una nota esattamente in tempo anche se il gioco rallenta => play_at
+cosa significa <c e g> nella stringa del ritmo => riff_mini
+come sento la musica mentre la scrivo in bm code => riff_live, riff_code
 
 # saves, players, system
 salvare il punteggio più alto => high_score, save
@@ -329,3 +340,15 @@ ospitare una partita sulla rete di casa => net.host
 la partita deve andare uguale su tutte le console => net.frames, net.check
 mandare la mossa all'altro giocatore in un gioco a turni => net.post
 tasti con i nomi delle azioni del gioco => keymap
+
+# music (bm Sound)
+mi serve una batteria per una canzone rock => music.beat.rock
+suono quando il personaggio prende una moneta => music.sfx.coin
+musica di sottofondo per una grotta buia => music.base.dungeon, music.base.ambient
+una melodia malinconica per il finale => music.melody.sad
+arpeggio veloce in stile trance => music.arp.trance
+effetto per quando esplode una bomba => music.sfx.explosion
+la base per la battaglia col boss finale => music.base.boss
+a funky bass line => music.bass.funk
+the sound when the hero jumps => music.sfx.jump
+lofi beats to study to => music.beat.lofi, music.base.lofi

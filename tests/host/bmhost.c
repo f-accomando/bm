@@ -340,7 +340,7 @@ void host_frame(const uint16_t *px, int w, int h, int stride)
 void host_audio(const int16_t *s, unsigned n)
 {
     if (run.wav) {
-        fwrite(s, 2, n, run.wav);
+        fwrite(s, 4, n, run.wav);           /* stereo frames */
         run.wav_samples += n;
     }
 }
@@ -348,17 +348,17 @@ void host_audio(const int16_t *s, unsigned n)
 static void wav_header(FILE *f, uint32_t samples)
 {
     uint8_t h[44];
-    const uint32_t rate = AUDIO_RATE, bytes = samples * 2;
+    const uint32_t rate = AUDIO_RATE, bytes = samples * 4;
     memcpy(h, "RIFF", 4);
     uint32_t v = 36 + bytes;
     memcpy(h + 4, &v, 4);
     memcpy(h + 8, "WAVEfmt ", 8);
     v = 16; memcpy(h + 16, &v, 4);
     uint16_t s = 1; memcpy(h + 20, &s, 2);              /* PCM */
-    s = 1; memcpy(h + 22, &s, 2);                       /* mono */
+    s = 2; memcpy(h + 22, &s, 2);                       /* stereo */
     memcpy(h + 24, &rate, 4);
-    v = rate * 2; memcpy(h + 28, &v, 4);
-    s = 2; memcpy(h + 32, &s, 2);
+    v = rate * 4; memcpy(h + 28, &v, 4);
+    s = 4; memcpy(h + 32, &s, 2);
     s = 16; memcpy(h + 34, &s, 2);
     memcpy(h + 36, "data", 4);
     memcpy(h + 40, &bytes, 4);

@@ -372,8 +372,11 @@ up in the sprite sheet) and from there into the `.bm`; for a game of the reposit
 
 ## 7. Sound
 
-Audio goes out over HDMI: eight synth voices (0–7), six waveforms (`SQUARE`, `TRIANGLE`,
-`SAW`, `NOISE`, `SINE`, `METAL`) with an ADSR envelope. Two ways, also together.
+Audio goes out in stereo (over HDMI on the Pi, from the headphones or the speaker on the
+RGB30): eight synth voices (0–7), ten waveforms (`SQUARE`, `TRIANGLE`, `SAW`, `NOISE`,
+`SINE`, `METAL`, and the new `FM`, `PLUCK`, `SUPERSAW`, `ORGAN`) with an ADSR envelope, a
+filter, a room and an echo; the 8-bit sound of before with `retro(true)`. Two ways, also
+together.
 
 **Effects and music made with the Sound editor** (**Dev** tab of the menu). It is the
 easiest way: you compose with the pad or the keyboard and save inside the game.
@@ -381,12 +384,34 @@ easiest way: you compose with the pad or the keyboard and save inside the game.
 1. In the menu, on the game: **X** → *Open in the Sound editor* (or Dev → Sound, then
    *Open...* from the editor's menu, SELECT).
 2. **SOUNDS** page: the instruments (try *KICK*, *BASS*, *LEAD* of the demo project).
+   Going down past the last row: **FILTER** (cutoff, resonance, its envelope, LFO, drive)
+   and **WAVE & SPACE** (the settings of FM, string, supersaw and organ; place, room,
+   echo). From the menu, *Instrument...* puts a ready-made instrument in a sound (electric
+   piano, string, pad, 808 kick...), heard while you choose it.
 3. **SFX** page: the game's effects, one note per step (A adds, A + up/down changes the
    note, START plays).
 4. **PATTERN** page: 8 tracks × 16 steps, like a drum machine; **SONG**: the patterns'
    order.
 5. **Save** (SELECT → Save, or Ctrl+S): the sounds end up in the `.bm`. *Try it in the game*
    starts it and comes back to the editor.
+
+**The assistant composes** (in bm Sound **F6**, or the menu's *Compose with the
+assistant...*): write what you need and it makes it, plays it while you choose and puts it
+in the bank with A; left and right the variants, Ctrl+Z takes it back.
+
+- **Rhythms**: "rock beat", "house beat", "trap drums", "waltz", "8 bit beat".
+- **Backing tracks** (drums, bass and chords, with a song of their own): "lofi backing in
+  D", "dungeon music", "boss fight backing", "fast chiptune backing".
+- **Bass lines and arpeggios** over the pattern you have: "walking bass", "trance
+  arpeggio".
+- **Melodies**, written by a small neural network trained on traditional tunes and tunes
+  written for bm: "sad melody with the guitar", "heroic theme", "8 bit melody"; over a
+  backing track they follow its key and chords.
+- **Classic effects**: coin, jump, laser, shot, explosion, power-up, hit, death, victory,
+  game over, door, footstep, teleport, heal...
+
+The words choose the key too ("in A minor"), the tempo ("120 bpm", "slow"), the length
+("8 bars") and the instrument ("with the piano"). From the code: `ai.music("funk beat")`.
 
 In the code two functions are enough:
 
@@ -410,11 +435,41 @@ note(3, "C4", 500, SQUARE, 90)
 arp(3, "minor", 40)                  -- an arpeggiated chord, chip style
 ```
 
+**Ready-made instruments from the code**: `tone(v, "epiano")` gives the voice an
+instrument's tone for the `note()`s that follow; `play(nil, "kick", "C2")` plays an
+instrument as the music does (with its falling pitch); a table changes only what it says:
+
+```lua
+tone(0, { preset = "lead", cutoff = 1200, res = 0.6, echo = 0.3 })
+play(nil, { wave = "noise", cutoff = 600, fenv = -2, fdecay = 400, decay = 500, sustain = 0 }, "C3")
+reverb(0.9, 0.6, 1)                  -- a huge nave
+```
+
 A good habit: one voice per kind of sound (weapon, hits, music), so an effect does not cut
 another; with `sfx(n)` the console chooses the voice, leaving the music alone. The
 **volume** is the console's: it changes in Settings or in the game's pause menu (`volume()`
 reads and changes it; put it in your game's pause too: `lib.pause()` of bmlib has it). For
 short tunes there is `lib.jingle`.
+
+**Music written in a line: riff** (`require "riff"`, guide in [RIFF.md](RIFF.md), in
+Italian), as in Strudel: a rhythm is a string, functions change it, the sound's interrupt
+plays it on time.
+
+```lua
+local R = require "riff"
+R.code [[
+setcpm(30)
+drums = s "kick*4, ~ snare, hat*8"
+bass  = note "<c2 a1 f1 g1>*2" :s "acid" :lpf(800)
+lead  = n "0 2 4 <7 6>" :scale("A:minor") :s "pluck" :sometimes(add(12))
+]]
+function _update() R.update() end      -- every frame
+```
+
+In **bm Code** write it and press **Ctrl+Enter**: it plays at once and the words of the
+notes light up as they sound; change a word and Ctrl+Enter again, **Ctrl+.** stops. In
+**bm Sound** **F7** plays a line and **Ctrl+Enter** puts it into the bank as a song, to use
+with `music()`.
 
 ## 8. Lights (dark scenes)
 

@@ -406,9 +406,11 @@ int main(int argc, char **argv)
             start_at = instr;           /* past the start (translation, _init) */
         if (frame > 60 && instr - before > peak)
             peak = instr - before;
-        int16_t pcm[RATE / 60];
-        memset(pcm, 0, sizeof pcm);
-        n8snd_mix(pcm, RATE / 60, volume_level / 10.0f);
+        int16_t pcm[RATE / 60], lr[RATE / 60 * 2];
+        memset(lr, 0, sizeof lr);
+        n8snd_mix(lr, RATE / 60, volume_level / 10.0f);
+        for (int i = 0; i < RATE / 60; i++)
+            pcm[i] = lr[2 * i];                 /* the WAV is mono: nano8 is the same on both */
         if (wf) {
             fwrite(pcm, 2, RATE / 60, wf);
             samples += RATE / 60;

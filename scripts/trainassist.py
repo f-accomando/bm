@@ -244,7 +244,7 @@ def main():
     ap.add_argument('--kb', default=os.path.join(ROOT, 'src/ai/kb'))
     ap.add_argument('--out', default=os.path.join(ROOT, 'src/ai/assist.weights'))
     ap.add_argument('--epochs', type=int, default=30)
-    ap.add_argument('--hidden', type=int, default=64)
+    ap.add_argument('--hidden', type=int, default=96)
     ap.add_argument('--variants', type=int, default=8)
     ap.add_argument('--seed', type=int, default=1)
     a = ap.parse_args()

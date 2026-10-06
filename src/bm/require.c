@@ -18,6 +18,7 @@ extern const uint8_t bm_lib_bmnet[], bm_lib_bmnet_end[];
 extern const uint8_t bm_lib_predict[], bm_lib_predict_end[];
 extern const uint8_t bm_lib_words[], bm_lib_words_end[];
 extern const uint8_t bm_lib_padtype[], bm_lib_padtype_end[];
+extern const uint8_t bm_lib_riff[], bm_lib_riff_end[];
 
 static const struct {
     const char *name;
@@ -30,9 +31,32 @@ static const struct {
     { "predict", bm_lib_predict, bm_lib_predict_end },  /* word completion */
     { "words", bm_lib_words, bm_lib_words_end },        /* its dictionaries */
     { "padtype", bm_lib_padtype, bm_lib_padtype_end },  /* typing with the pad */
+    { "riff", bm_lib_riff, bm_lib_riff_end },           /* the language of patterns (music) */
 };
 
 #define LOADED "bm.loaded"
+
+/* For riff's live code (riff.code): Lua text, never bytecode, compiled
+ * with env as its globals. The sandbox has no load(): a cartridge can run
+ * only text, which is what it could write in its own code. Returns the
+ * function, or nil and the message. */
+static int l_loadtext(lua_State *L)
+{
+    size_t n;
+    const char *src = luaL_checklstring(L, 1, &n);
+    const char *name = luaL_optstring(L, 2, "=riff");
+    if (luaL_loadbufferx(L, src, n, name, "t") != LUA_OK) {
+        lua_pushnil(L);
+        lua_insert(L, -2);
+        return 2;
+    }
+    if (!lua_isnoneornil(L, 3)) {
+        lua_pushvalue(L, 3);
+        if (!lua_setupvalue(L, -2, 1))
+            lua_pop(L, 1);
+    }
+    return 1;
+}
 
 static int l_require(lua_State *L)
 {
@@ -50,7 +74,12 @@ static int l_require(lua_State *L)
         if (luaL_loadbuffer(L, (const char *)libs[i].src, (size_t)(libs[i].end - libs[i].src), chunk) != LUA_OK)
             return lua_error(L);
         lua_pushstring(L, name);
-        lua_call(L, 1, 1);
+        int nargs = 1;
+        if (!strcmp(name, "riff")) {
+            lua_pushcfunction(L, l_loadtext);
+            nargs = 2;
+        }
+        lua_call(L, nargs, 1);
         if (lua_isnil(L, -1)) {
             lua_pop(L, 1);
             lua_pushboolean(L, 1);
@@ -59,7 +88,7 @@ static int l_require(lua_State *L)
         lua_setfield(L, -3, name);
         return 1;
     }
-    return luaL_error(L, "module '%s' not found (built in: assist, bm3d, bmlib, bmnet, predict, words, padtype)", name);
+    return luaL_error(L, "module '%s' not found (built in: assist, bm3d, bmlib, bmnet, predict, words, padtype, riff)", name);
 }
 
 void bm_require_open(lua_State *L)

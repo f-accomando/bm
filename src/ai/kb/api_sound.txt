@@ -299,10 +299,271 @@ title_en: apu(v, reg, [value]) - raw registers of the synthesiser
 ask: registri del sintetizzatore | accesso diretto all'audio | raw audio registers
 see: note
 text:
-Legge o scrive un registro grezzo (16 byte per voce: src/audio/synth.h).
-Di solito bastano note, slide, envelope e duty.
+Legge o scrive un registro grezzo (32 byte per voce, 0-31:
+src/audio/synth.h; dall'11 il timbro: filtro, posto, ambiente, eco, LFO).
+Di solito bastano note, tone, envelope e duty.
 text_en:
-Reads or writes a raw register (16 bytes per voice: src/audio/synth.h).
-Usually note, slide, envelope and duty are enough.
+Reads or writes a raw register (32 bytes per voice, 0-31:
+src/audio/synth.h; from 11 the tone: filter, place, room, echo, LFO).
+Usually note, tone, envelope and duty are enough.
 code:
 local vol = apu(0, 5)
+
+== tone
+kind: api
+name: tone
+title: tone(v, suono) - il timbro della voce: strumenti pronti e filtro
+title_en: tone(v, sound) - a voice's tone: ready-made instruments and filter
+ask: suonare le note con il pianoforte | cambiare strumento a una voce
+ask: un suono meno 8 bit | suono più morbido | filtro passa basso | cutoff
+ask: strumento pronto per note | electric piano sound | change the instrument
+ask: basso con il filtro risonante | suono a destra o a sinistra | pan stereo
+keys: timbro, strumento, filtro, cutoff, risonanza, pan, stereo
+see: play, instruments, reverb, note
+text:
+Il timbro della voce v per le note() che seguono: il nome di uno strumento
+pronto ("epiano", "pluck", "pad", "bass", "kick"...: instruments()) o una
+tabella con le chiavi che cambiano: preset, wave, attack, decay, sustain,
+release (ms), cutoff (Hz), res, filter ("lp", "bp", "hp"), fenv, fdecay,
+pan (-1 sinistra, 1 destra), reverb, echo, drive, lfo, wah, raw (8 bit).
+tone(v) torna alla voce di partenza.
+text_en:
+The tone of voice v for the note()s that follow: the name of a ready-made
+instrument ("epiano", "pluck", "pad", "bass", "kick"...: instruments()) or a
+table with the keys that change: preset, wave, attack, decay, sustain,
+release (ms), cutoff (Hz), res, filter ("lp", "bp", "hp"), fenv, fdecay,
+pan (-1 left, 1 right), reverb, echo, drive, lfo, wah, raw (8-bit).
+tone(v) goes back to a fresh voice.
+code:
+tone(0, "epiano")
+note(0, "E4", 400)
+tone(1, { preset = "bass", cutoff = 300, res = 0.7, pan = -0.3 })
+note(1, "E2", 300)
+
+== play
+kind: api
+name: play
+title: play([v], suono, [nota, ms, vol]) - suonare uno strumento
+title_en: play([v], sound, [note, ms, vol]) - play an instrument
+ask: suonare uno strumento pronto | suonare la cassa della batteria
+ask: play an instrument | suono di batteria dal codice | rullante e charleston
+ask: suonare un suono del banco con un'altra nota | colpo di cassa
+keys: strumento, batteria, cassa, rullante
+see: tone, instruments, sfx
+text:
+Suona uno strumento come lo suona la musica, con il suo inviluppo
+dell'altezza e il vibrato (la cassa che scende, il laser): un nome, una
+tabella come quella di tone() (più pitch, ptime, vib) o un suono del banco
+(un numero). nota: MIDI o nome ("C4"), ms 0 = tenuta fino a noteoff, vol
+0-1. Senza v sceglie una voce libera; restituisce la voce.
+text_en:
+Plays an instrument as the music plays it, with its pitch envelope and
+vibrato (the kick that falls, the laser): a name, a table like tone()'s
+(plus pitch, ptime, vib) or a sound of the bank (a number). note: MIDI or
+a name ("C4"), ms 0 = held until noteoff, vol 0-1. Without v it chooses a
+free voice; returns the voice.
+code:
+play(nil, "kick", "C2")
+play(nil, "snare", "D3", 0, 0.8)
+local v = play(nil, "pad", "A3", 0)
+-- dopo: noteoff(v)
+
+== instruments
+kind: api
+name: instruments
+title: instruments([tipo]), instrument(nome) - gli strumenti pronti
+title_en: instruments([kind]), instrument(name) - the ready-made instruments
+ask: elenco degli strumenti | quali strumenti ci sono | list the instruments
+ask: strumenti di batteria disponibili | i preset del sintetizzatore
+keys: strumenti, preset, elenco
+see: tone, play
+text:
+instruments() gli strumenti pronti {name, kind, about}; tipo: "drum",
+"bass", "keys", "pad", "pluck", "lead", "fx". instrument(nome) tutti i
+valori di uno (wave, a, d, s, r, pitch, tone...), come bm Sound li tiene.
+text_en:
+instruments() the ready-made instruments {name, kind, about}; kind: "drum",
+"bass", "keys", "pad", "pluck", "lead", "fx". instrument(name) all the
+values of one (wave, a, d, s, r, pitch, tone...), as bm Sound keeps them.
+code:
+for _, i in ipairs(instruments("drum")) do
+  log(i.name, i.about)
+end
+
+== reverb
+kind: api
+name: reverb
+title: reverb([grandezza, smorzo, livello]), echo([ms, ritorno, livello])
+title_en: reverb([size, damp, wet]), echo([ms, feedback, wet])
+ask: aggiungere il riverbero | suono in una cattedrale | ambiente della musica
+ask: add reverb | eco del suono | echo delay | eco a tempo con la musica
+ask: suono in una grotta | suono che rimbomba in una sala
+keys: riverbero, ambiente, eco, sala, grotta
+see: tone, retro
+text:
+reverb: l'ambiente delle voci (0-1: da una stanza piccola a una sala,
+da brillante a sordo, quanto si sente). echo: l'eco a ping-pong, ms tra
+le ripetizioni (fino a 680), quanto torna (0-0.95), quanto si sente.
+Quanto ci manda ogni voce lo dicono reverb ed echo di tone().
+text_en:
+reverb: the room of the voices (0-1: a small room to a hall, bright to
+dull, how much is heard). echo: the ping-pong echo, ms between repeats
+(up to 680), how much comes back (0-0.95), how much is heard. How much
+each voice sends is tone()'s reverb and echo.
+code:
+reverb(0.8, 0.5, 1)            -- una cattedrale
+echo(375, 0.4, 1)              -- a tempo a 80 BPM
+tone(2, { preset = "lead", echo = 0.5 })
+
+== retro
+kind: api
+name: retro
+title: retro([on]) - il suono 8-bit di una volta
+title_en: retro([on]) - the 8-bit sound of the old days
+ask: suono 8 bit come le vecchie console | suono chiptune | old 8-bit sound
+ask: togliere il riverbero da tutto | suono grezzo e retro
+keys: 8bit, chiptune, retro
+see: tone, reverb
+text:
+retro(true): tutte le voci 8-bit come nelle prime versioni (onde
+ingenue, inviluppi dritti, niente ambiente né eco) finché il gioco gira;
+retro(false) torna al suono pulito. Restituisce se lo sono. Per una voce
+sola: tone(v, {raw = true}).
+text_en:
+retro(true): every voice 8-bit as in the first versions (naive waves,
+straight envelopes, no room nor echo) while the game runs; retro(false)
+goes back to the clean sound. Returns whether they are. For one voice
+only: tone(v, {raw = true}).
+code:
+retro(true)
+note(0, "C5", 100, SQUARE, 80)
+
+== play_at
+kind: api
+name: play_at
+title: play_at(t, suono, [nota, ms, vol, tag]) - una nota a un tempo preciso
+title_en: play_at(t, sound, [note, ms, vol, tag]) - a note at an exact time
+ask: suonare una nota a un tempo preciso | nota in tempo senza ritardi
+ask: play a note at an exact time | sequencer preciso dal codice
+ask: musica che non rallenta col gioco | audio_time orologio del suono
+keys: tempo, preciso, orologio, coda
+see: play, riff
+text:
+Mette in coda una nota per il tempo t di audio_time() (secondi):
+la fa partire l'interrupt del suono, entro 1,3 ms, anche se il gioco
+rallenta. suono come in play(); tag 1-255 raggruppa le note per
+play_cancel(tag). La voce si sceglie quando parte (play_voices).
+text_en:
+Queues a note for the time t of audio_time() (seconds): the sound's
+interrupt starts it within 1.3 ms, even if the game slows down. sound as
+in play(); tag 1-255 groups the notes for play_cancel(tag). The voice is
+chosen when it starts (play_voices).
+code:
+local t = audio_time()
+for i = 0, 3 do
+  play_at(t + i * 0.25, "kick", "C2", 100)
+end
+
+== riff
+kind: api
+name: riff
+title: require "riff" - musica in pattern, come Strudel
+title_en: require "riff" - music as patterns, as in Strudel
+ask: scrivere un ritmo in una riga come strudel | musica a pattern come tidal
+ask: live coding della musica | strudel su bm | pattern musicali in lua
+ask: write music as patterns like strudel | drum pattern in one line
+ask: mini notazione dei ritmi | sequencer a pattern | algorave
+keys: riff, strudel, tidal, pattern, mininotazione
+see: riff_code, riff_mini, play_at
+text:
+Ritmi e melodie scritti in una stringa (mini-notazione) e cambiati
+da funzioni concatenate con i due punti; R.play(nome, p) li suona,
+R.update() in _update li tiene in tempo. Strumenti pronti e suoni del
+banco per nome; le unita' sono quelle di tone(). Guida: docs/RIFF.md.
+text_en:
+Rhythms and melodies written in a string (the mini-notation) and changed
+by functions chained with a colon; R.play(name, p) plays them, R.update()
+in _update keeps them on time. Ready-made instruments and the bank's
+sounds by name; the units are tone()'s. Guide: docs/RIFF.md.
+code:
+local R = require "riff"
+R.play("drums", R.s "kick*4, ~ snare, hat*8")
+R.play("bass", R.note "<c2 a1 f1 g1>" :s "acid" :lpf(800))
+function _update() R.update() end
+
+== riff_code
+kind: api
+name: riff.code
+title: riff.code(testo) - musica dal vivo, una globale per pattern
+title_en: riff.code(text) - live music, one global per pattern
+ask: codice musicale dal vivo | cambiare la musica mentre suona
+ask: riff code | tante tracce di musica con un nome
+ask: live code music while it plays | suonare piu' pattern insieme
+keys: riff, dal vivo, live
+see: riff, riff_live
+text:
+Esegue un pezzo di Lua dove note, s, chord, stack, sine, setcpm...
+sono globali: ogni globale con un pattern suona con quel nome (_nome
+no), quelle di prima non piu' nominate si fermano. true, o nil e
+l'errore (la musica continua). In bm Code: Ctrl+Invio.
+text_en:
+Runs a piece of Lua where note, s, chord, stack, sine, setcpm... are
+globals: every global given a pattern plays under that name (not _name),
+the earlier ones not named again stop. true, or nil and the error (the
+music goes on). In bm Code: Ctrl+Enter.
+code:
+local R = require "riff"
+R.code [[
+setcpm(30)
+drums = s "kick ~ ~ kick, ~ snare, hat*8?"
+arp = chord "<Am F C G>" :s "pluck" :arp("updown") :fast(4)
+]]
+
+== riff_mini
+kind: howto
+title: La mini-notazione di riff: ~ [ ] < > * / ! @ ? ( )
+title_en: riff's mini-notation: ~ [ ] < > * / ! @ ? ( )
+ask: come si scrive un ritmo nella stringa | cosa vuol dire <a b> e [a b]
+ask: ritmo euclideo 3 su 8 | pausa nel pattern | mini-notation syntax
+ask: suonare una nota ogni ciclo diversa | hat*8 cosa fa
+ask: il significato dei simboli nella stringa del ritmo | parentesi angolari nel pattern
+ask: what do the brackets mean in a riff string | note diverse a ogni giro
+keys: mininotazione, euclideo, pausa, ciclo
+see: riff, riff_code
+text:
+Una stringa e' un ciclo diviso in parti: "a b c d". ~ pausa, [a b]
+un gruppo in una parte, a,b insieme, <a b> una per ciclo, a*2 piu'
+veloce, a/2 piu' lenta, a!3 ripetuta, a@3 piu' lunga, a? a caso,
+a(3,8) euclideo, {a b c}%4 polimetro, a|b una delle due.
+text_en:
+A string is a cycle split in parts: "a b c d". ~ a rest, [a b] a group
+in one part, a,b together, <a b> one a cycle, a*2 faster, a/2 slower,
+a!3 repeated, a@3 longer, a? at random, a(3,8) Euclidean, {a b c}%4
+polymeter, a|b one of the two.
+code:
+local R = require "riff"
+R.play("beat", R.s "kick(3,8), [~ hat]*4, ~ <snare clap>")
+R.play("mel", R.n "0 [2 4] <7 6> ~" :scale("C:minor") :s "pluck")
+
+== riff_live
+kind: howto
+title: Suonare la musica dal vivo in bm Code (Ctrl+Invio)
+title_en: Playing music live in bm Code (Ctrl+Enter)
+ask: sentire la musica mentre scrivo il codice | suonare il codice in bm code
+ask: ctrl invio suona | fermare la musica in bm code | live coding bm code
+ask: play the code as music in the editor
+keys: dal vivo, ctrl, invio, suona
+see: riff_code, riff
+text:
+In bm Code Ctrl+Invio suona la scheda (in un gioco il blocco
+riff.code [[ ]] sotto il cursore): le parole delle note si accendono
+mentre suonano, un errore segna la riga e la musica continua.
+Ctrl+. ferma. In bm Sound F7 mette un riff nel banco come brano.
+text_en:
+In bm Code Ctrl+Enter plays the tab (in a game the riff.code [[ ]] block
+under the cursor): the words of the notes light up as they sound, a
+mistake marks its line and the music goes on. Ctrl+. stops. In bm Sound
+F7 puts a riff into the bank as a song.
+code:
+drums = s "kick*4, ~ snare, hat*8"
+bass = note "<c2 eb2 g1 bb1>" :s "acid" :lpf(sine:range(300, 1800))

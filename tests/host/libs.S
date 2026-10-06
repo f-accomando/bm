@@ -4,7 +4,7 @@
     .section .rodata
     .global bm_lib_assist, bm_lib_assist_end, bm_lib_bm3d, bm_lib_bm3d_end, bm_lib_bmlib, bm_lib_bmlib_end
     .global bm_lib_predict, bm_lib_predict_end, bm_lib_words, bm_lib_words_end, bm_lib_bmnet, bm_lib_bmnet_end
-    .global bm_lib_padtype, bm_lib_padtype_end
+    .global bm_lib_padtype, bm_lib_padtype_end, bm_lib_riff, bm_lib_riff_end
 bm_lib_assist:
     .incbin "src/ai/assist.lua"
 bm_lib_assist_end:
@@ -32,5 +32,9 @@ bm_lib_words_end:
 bm_lib_padtype:
     .incbin "src/ai/padtype.lua"
 bm_lib_padtype_end:
+    .byte 0
+bm_lib_riff:
+    .incbin "src/script/riff.lua"
+bm_lib_riff_end:
     .byte 0
     .section .note.GNU-stack,"",@progbits
