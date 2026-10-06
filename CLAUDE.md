@@ -836,6 +836,29 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   fotogrammi in `build/padtype/`), QEMU `test_pad_typing` (DS4 simulato: Pad Typing e Share
   in bm Code). Dopo aver cambiato `padtype.lua` va ricompilato bmhost (lo incorpora).
 
+## bm Write (M45, branch `claude/bm-write`, 2026-10-06)
+
+- Lo strumento per scrivere (richiesta dell'utente: come Word e Pages; `carts/write/main.lua`,
+  scheda Games, un'app del Market). La pagina A4 a 540×764 pixel (margini 54, 72 lettere del
+  testo), gli stili (`STY`: testo 6x12, titolo 8x16 ×2, intestazioni, citazione, elenchi) con
+  le misure dei loro caratteri; il PDF usa Courier a `cw * PT / 0.6` punti, così le righe e
+  le pagine sono quelle dello schermo (cambiare insieme `STY` e l'esportazione).
+- Formato `.BMD` (testo, `save_text`/`load_bmd`: `bmwrite 1`, poi una riga per paragrafo
+  `stile allineamento inizio:lunghezza:bit|testo` in CP437); esporta `.TXT`, `.MD`, `.HTM`,
+  `.PDF` (`EXP`), apre anche `.MD` e `.TXT`. Tab completa (`predict`), Share la scrittura col
+  pad (`padtype`), F1 i tasti.
+- **Documenti** (`docs/API-IT.md`, *Documenti*): `/docs` sulla SD, comune alle app;
+  `doc_list`/`doc_read`/`doc_write`/`doc_delete` in `runtime.c` (nomi 8.3, 4 MiB), il permesso
+  `PERM_DOCS` (`docs=` nella riga `allow_...` di `bm/config.txt`) chiesto la prima volta come
+  la rete. La domanda di un permesso ferma il gioco dentro la sua chiamata: il modo testo
+  (`keyp`) è spento mentre si risponde e il tasto della risposta non arriva al gioco.
+- Ctrl+I e Ctrl+M mentre si scrive arrivano come `"^i"` e `"^m"` (`HID_KEY_CTRL` in `hid.h`),
+  non Tab e Invio.
+- Prove: `make test-write` (bmhost con `tests/write/input.txt` e `reopen.txt`; bmhost `type`
+  accetta `\xNN`; `tests/write/check.py` legge `.BMD`, `.MD`, `.HTM`, `.TXT` e il PDF anche
+  con `pdftotext`), QEMU `test_bm_write` (il permesso, il salvataggio, il PDF, i file nella
+  FAT).
+
 ## Mouse e puntatore (M32)
 
 - `src/kernel/pointer.c`: il puntatore di sistema (mouse USB/Bluetooth). Decisioni

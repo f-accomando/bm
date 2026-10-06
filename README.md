@@ -239,6 +239,10 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
   turn it), R2 takes a whole word; an overlay of the pad shows what each button writes;
   Share switches to an on-screen keyboard. The same typing works in bm Code
   ([docs/PADTYPE.md](docs/PADTYPE.md)).
+- **bm Write**: letters and documents on A4 pages, as in a word processor: title, headings,
+  quotes and lists, bold, italic and underline, four alignments, word completion and typing
+  with the pad. Documents stay in `/docs` on the SD card and export to PDF (the same page as
+  on the screen), HTML, Markdown and plain text.
 - The rest: Pong (2 players), Snake, Star Shooter, and **nano8** for `.p8` carts.
 
 **The Market**, the first tab of the menu, downloads free games from

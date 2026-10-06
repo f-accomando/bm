@@ -444,6 +444,11 @@ save({ record = record })
 Numbers, strings, booleans and tables, up to 32 KiB, in `/bm/save/` on the SD card. With
 bmlib: `lib.best("record", score)` keeps the record and writes only when it is beaten.
 
+An app that makes files for the player (texts, drawings, exports) writes them in `/docs`,
+shared by all the apps: `doc_write("NOTES.TXT", text)`, `doc_read`, `doc_list`,
+`doc_delete` (8.3 names; the first time the console asks the player). bm Write keeps its
+documents there.
+
 ## 10. Cover
 
 `--cover cover.png`: a PNG of any size, printed on the game's "card" in the menu, an 88×88

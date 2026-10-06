@@ -5783,6 +5783,74 @@ def test_devkit_per_run(b, opts):
         q.close()
 
 
+def test_bm_write(b, opts):
+    """bm Write (carts/write, 2026-10-06): a document with a title and a bold
+    word, saved in /docs: the console asks the first time for the documents
+    (A allows, docs=yes in bm/config.txt); exported to PDF; the toolbar
+    shows its name. The card is still a clean FAT32 volume and holds
+    /DOCS/PROVA.BMD and PROVA.PDF."""
+    tmp = tempfile.mkdtemp(prefix="bm-write-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def k(s, gap=0.05):
+        for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
+            q.send(c)
+            time.sleep(gap)
+
+    try:
+        q.boot()
+        with open(b("carts/write.bm"), "rb") as f:
+            assert _upload(q, f.read())
+        q.expect("write: ready", timeout=30)
+        time.sleep(0.5)
+        k("\x1bOQProva\r")                             # F2: the title, Enter
+        k("Una parola in \x02grassetto\x02.\r")        # Ctrl+B
+        k("\x13", 0.4)                                  # Ctrl+S: the name
+        k("PROVA\r")
+        q.expect("asks for the documents (ok: allow, back: no)", timeout=15)
+        time.sleep(0.3)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "write-permission.png"))
+        q.send("j")                                     # A: allow
+        q.expect("bm: allowed", timeout=10)
+        q.expect("write: saved /docs/PROVA.BMD (3 paragraphs)", timeout=15)
+        _, text = settled_screen(q, lambda i, t: any("PROVA.BMD" in l for l in t))
+        assert any("bm Write" in l and "PROVA.BMD" in l for l in text), "\n".join(text)
+        k("\x1b", 0.7)                                  # Esc: the menu, Export..., PDF
+        k("\x1b[B\x1b[B\x1b[B\x1b[B\r", 0.2)
+        k("\r", 0.2)
+        q.expect("write: exported /docs/PROVA.PDF", timeout=20)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "write.png"))
+        q.send("\x1c")                                  # Ctrl+\: Ctrl+Esc, saved: it leaves
+        q.expect("> ", timeout=20)
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        bmd = subprocess.run(["mtype", "-i", part, "::/DOCS/PROVA.BMD"], capture_output=True, env=env).stdout
+        assert bmd.startswith(b"bmwrite 1\n") and b"title center |Prova\n" in bmd, bmd
+        assert b"body left 15:9:1|Una parola in grassetto." in bmd, bmd
+        pdf = subprocess.run(["mtype", "-i", part, "::/DOCS/PROVA.PDF"], capture_output=True, env=env).stdout
+        assert pdf.startswith(b"%PDF-1.4") and b"(Prova) Tj" in pdf and pdf.rstrip().endswith(b"%%EOF"), pdf[:200]
+        txt = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"], capture_output=True,
+                             text=True, env=env).stdout
+        assert re.search(r"allow_[0-9A-F]{8}=docs=yes \(bm Write\)", txt), txt
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 PERMIT_CART = r"""
 function _init()
   log("report1", report("test", "hello"))

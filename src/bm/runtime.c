@@ -2683,7 +2683,7 @@ static int l_log(lua_State *L)
  * true if it was saved. */
 #define REPORTS_MAX     8
 #define REPORT_MAX_LEN  (256 * 1024)
-enum { PERM_NET, PERM_REPORT };
+enum { PERM_NET, PERM_REPORT, PERM_DOCS, PERM_COUNT };
 static int perm_allowed(int what);
 static int l_report(lua_State *L)
 {
@@ -2953,6 +2953,148 @@ static int l_saved(lua_State *L)
         lua_pushnil(L);
         return 1;
     }
+    return 1;
+}
+
+/* ---- documents (bm Write, 2026-10-06): the files of /docs on the SD card,
+ * shared by the apps that ask for them (the player allows it the first
+ * time: PERM_DOCS). Names 8.3, no folders ("LETTER.BMD", "LETTER.PDF"). */
+
+#define DOCS_DIR    "/docs"
+#define DOC_MAX     (4u * 1024 * 1024)
+
+/* a valid 8.3 name, upper case, in out (13 bytes); 0, or -1 */
+static int doc_name(const char *in, char out[13])
+{
+    int base = 0, ext = -1, n = 0;
+    for (const char *p = in; *p; p++) {
+        const char c = *p;
+        if (c == '.') {
+            if (ext >= 0 || !base)
+                return -1;
+            ext = 0;
+        } else if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+                   c == '_' || c == '-') {
+            if (ext >= 0 ? ++ext > 3 : ++base > 8)
+                return -1;
+        } else {
+            return -1;
+        }
+        out[n++] = (char)(c >= 'a' && c <= 'z' ? c - 32 : c);
+    }
+    out[n] = 0;
+    return base && ext != 0 ? 0 : -1;
+}
+
+static int doc_check(lua_State *L, int idx, char name[13])
+{
+    const char *in = luaL_checkstring(L, idx);
+    if (doc_name(in, name) != 0) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: a document's name is 8.3, like LETTER.BMD", in);
+        return 2;
+    }
+    if (!perm_allowed(PERM_DOCS)) {
+        lua_pushnil(L);
+        lua_pushstring(L, "the player did not allow this app the documents");
+        return 2;
+    }
+    return 0;
+}
+
+/* doc_list() -> { {name =, size =}, ... } of /docs (none: empty); nil and
+ * why if not allowed */
+static int l_doc_list(lua_State *L)
+{
+    if (!perm_allowed(PERM_DOCS)) {
+        lua_pushnil(L);
+        lua_pushstring(L, "the player did not allow this app the documents");
+        return 2;
+    }
+    lua_newtable(L);
+    fat_dir_t d;
+    fat_entry_t e;
+    if (fat_opendir(&d, DOCS_DIR) != 0)
+        return 1;
+    int n = 0;
+    while (fat_readdir(&d, &e) > 0) {
+        if (e.is_dir)
+            continue;
+        lua_createtable(L, 0, 2);
+        lua_pushstring(L, e.name);
+        lua_setfield(L, -2, "name");
+        lua_pushinteger(L, (lua_Integer)e.size);
+        lua_setfield(L, -2, "size");
+        lua_rawseti(L, -2, ++n);
+    }
+    return 1;
+}
+
+/* doc_read(name) -> its bytes, or nil and why */
+static int l_doc_read(lua_State *L)
+{
+    char name[13], path[24];
+    const int r = doc_check(L, 1, name);
+    if (r)
+        return r;
+    ksnprintf(path, sizeof path, "%s/%s", DOCS_DIR, name);
+    fat_entry_t e;
+    uint8_t *data;
+    size_t len;
+    if (fat_find(path, &e) != 0 || e.is_dir) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "no document %s", name);
+        return 2;
+    }
+    if (e.size > DOC_MAX || fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, e.size > DOC_MAX ? "more than 4 MiB" : fat_error());
+        return 2;
+    }
+    lua_pushlstring(L, (const char *)data, len);
+    free(data);
+    return 1;
+}
+
+/* doc_write(name, bytes) -> true, or nil and why (new or replaced) */
+static int l_doc_write(lua_State *L)
+{
+    char name[13];
+    size_t len;
+    luaL_checklstring(L, 2, &len);
+    const int r = doc_check(L, 1, name);
+    if (r)
+        return r;
+    const char *data = lua_tolstring(L, 2, &len);
+    if (len > DOC_MAX) {
+        lua_pushnil(L);
+        lua_pushstring(L, "more than 4 MiB");
+        return 2;
+    }
+    if (fat_mkdirs(DOCS_DIR) != 0 || fat_write_file(DOCS_DIR, name, data, len) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, fat_error());
+        return 2;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/* doc_delete(name) -> true, or nil and why */
+static int l_doc_delete(lua_State *L)
+{
+    char name[13], path[24];
+    const int r = doc_check(L, 1, name);
+    if (r)
+        return r;
+    ksnprintf(path, sizeof path, "%s/%s", DOCS_DIR, name);
+    fat_entry_t e;
+    if (fat_find(path, &e) != 0 || fat_delete(path) != 0) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "no document %s", name);
+        return 2;
+    }
+    lua_pushboolean(L, 1);
     return 1;
 }
 
@@ -3272,7 +3414,8 @@ static int l_audio_play(lua_State *L)
 
 /* keyp(): the next key typed, as text ("a", "\n", "\b", "\t"), a name
  * ("up", "down", "left", "right", "home", "end", "pgup", "pgdn", "del",
- * "esc", "f1".."f10") or "^s" for Ctrl+S, "^S" for Ctrl+Shift+S; nil if
+ * "esc", "f1".."f10") or "^s" for Ctrl+S ("^i", "^m" too: not Tab and
+ * Enter), "^S" for Ctrl+Shift+S; nil if
  * none. F11, F12 and Ctrl+Esc are the system's (they never come). The first call
  * turns on typing: the keyboard stops being a gamepad for btn(), Esc no
  * longer leaves the cartridge (Start+Select and PS still do). */
@@ -3290,15 +3433,18 @@ static int l_keyp(lua_State *L)
     static const char *const nav[] = { "up", "down", "left", "right", "home", "end", "pgup", "pgdn",
                                        "del", "f1", "f2", "f3", "f4", "f5" };
     char buf[4];
-    if (c == HID_KEY_CTRL_SHIFT) {          /* Ctrl+Shift+S: "^S" (the next code is the Ctrl letter) */
+    if (c == HID_KEY_CTRL_SHIFT || c == HID_KEY_CTRL) {
+        /* Ctrl+Shift+S: "^S"; Ctrl+I and Ctrl+M: "^i", "^m" (their codes are
+         * Tab's and Enter's); the next code is the Ctrl letter */
         if (rt.tq_tail == rt.tq_head) {
             lua_pushnil(L);
             return 1;
         }
+        const int upper = c == HID_KEY_CTRL_SHIFT;
         c = rt.tq[rt.tq_tail++];
         if (c >= 1 && c <= 26) {
             buf[0] = '^';
-            buf[1] = (char)('A' + c - 1);
+            buf[1] = (char)((upper ? 'A' : 'a') + c - 1);
             buf[2] = 0;
             lua_pushstring(L, buf);
             return 1;
@@ -3672,6 +3818,7 @@ static const luaL_Reg api[] = {
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "save", l_save }, { "saved", l_saved },
+    { "doc_list", l_doc_list }, { "doc_read", l_doc_read }, { "doc_write", l_doc_write }, { "doc_delete", l_doc_delete },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
     { "keys", l_keys }, { "pad", l_pad }, { "mouse", l_mouse }, { "mousep", l_mousep }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg },
@@ -3876,7 +4023,8 @@ static void serial_text(char c)
     if (c == 0x1C) { rt.serial_quit = 1; return; }  /* Ctrl+\: Ctrl+Esc on the serial line */
     if (c == '\n') return;                  /* terminals send \r or \r\n */
     if (c == 0x08) c = 0x7F;
-    if ((uint8_t)c >= HID_KEY_F6 && (uint8_t)c <= HID_KEY_F6 + 6)
+    if (((uint8_t)c >= HID_KEY_F6 && (uint8_t)c <= HID_KEY_F6 + 6) || (uint8_t)c == HID_KEY_CTRL ||
+        (uint8_t)c == HID_KEY_CTRL_SHIFT)
         return;                             /* a UTF-8 byte, not a function key */
     text_push((uint8_t)c);
 }
@@ -6151,7 +6299,7 @@ static char perm_title[49];             /* the game asking */
 
 void bm_permissions(int on) { perm_ask = on; }
 
-static const char *const perm_names[2] = { "net=", "report=" };
+static const char *const perm_names[PERM_COUNT] = { "net=", "report=", "docs=" };
 
 static void perm_key(char *key, size_t n)
 {
@@ -6176,16 +6324,15 @@ static int perm_get(int what)
 
 static void perm_set(int what, int yes)
 {
-    char key[32], v[100];
+    char key[32], v[120];
     perm_key(key, sizeof key);
-    int other = perm_get(!what);
-    int net = what == PERM_NET ? yes : other, rep = what == PERM_REPORT ? yes : other;
     int o = 0;
     v[0] = 0;
-    if (net >= 0)
-        o += ksnprintf(v + o, sizeof v - (size_t)o, "net=%s", net ? "yes" : "no");
-    if (rep >= 0)
-        o += ksnprintf(v + o, sizeof v - (size_t)o, "%sreport=%s", o ? "," : "", rep ? "yes" : "no");
+    for (int p = 0; p < PERM_COUNT; p++) {          /* "net=yes,report=no,docs=yes (title)" */
+        const int a = p == what ? yes : perm_get(p);
+        if (a >= 0)
+            o += ksnprintf(v + o, sizeof v - (size_t)o, "%s%s%s", o ? "," : "", perm_names[p], a ? "yes" : "no");
+    }
     ksnprintf(v + o, sizeof v - (size_t)o, " (%s)", perm_title);
     config_set(key, v);
     config_save();
@@ -6200,13 +6347,18 @@ static int perm_question(int what)
         lines[1] = "wants to use the network:";
         lines[2] = "online games, with other consoles";
         lines[3] = "or a server on the internet.";
+    } else if (what == PERM_DOCS) {
+        lines[1] = "wants to read and write your";
+        lines[2] = "documents: the files in /docs on";
+        lines[3] = "the SD card, shared by the apps.";
     } else {
         lines[1] = "wants to send a report to your";
         lines[2] = "GitHub repository, with the";
         lines[3] = "console's github_token.";
     }
     lines[4] = "The answer stays in bm/config.txt";
-    kprintf("bm: %s %s (ok: allow, back: no)\n", lines[0], what == PERM_NET ? "asks for the network"
+    kprintf("bm: %s %s (ok: allow, back: no)\n", lines[0],
+            what == PERM_NET ? "asks for the network" : what == PERM_DOCS ? "asks for the documents"
                                                                          : "asks to send a report");
     sync3d();                               /* nothing of the GPU's left to land on the page */
     static const uint8_t usage[4] = { 0x28, 0x2C, 0x29, 0x2A };   /* Enter, Space; Esc, Backspace */
@@ -6215,6 +6367,8 @@ static int perm_question(int what)
     int answer = 0;
     rt.leave_ask = 1;                       /* Esc: no (poll_keys), not Start */
     rt.leave_no = 0;
+    const int text = rt.text_mode;          /* an app that types (keyp): the serial keys */
+    rt.text_mode = 0;                       /* are buttons for the answer */
     while (!answer) {
         const int q = poll_keys();
         uint32_t held = rt.raw_all;
@@ -6243,6 +6397,23 @@ static int perm_question(int what)
     }
     rt.leave_ask = 0;
     rt.leave_no = 0;
+    /* back in the game's call, in the middle of its frame: the polls of the
+     * question moved the buttons, so the rest of the frame sees them held
+     * as they are, without the answer's and with nothing pressed */
+    {
+        const uint32_t m = rt.leave_held;
+        rt.now = rt.prev = hid_to_btn(rt.raw_all & ~m);
+        for (int p = 0; p < INPUT_PLAYERS; p++) {
+            rt.praw[p] &= ~m;
+            rt.praw_prev[p] = rt.praw[p];
+            rt.pnow[p] = rt.pprev[p] = hid_to_btn(rt.praw[p]);
+        }
+        rt.ptr.pressed = rt.ptr.released = 0;
+    }
+    rt.text_mode = text;
+    if (text)
+        while (hid_getc() >= 0)
+            ;                               /* Enter or Esc of the answer: not typed for the app */
     kprintf("bm: %s\n", answer > 0 ? "allowed" : "not allowed");
     return answer > 0;
 }

@@ -168,6 +168,67 @@ function _init()
   best = d and d.best or 0
 end
 
+== doc_write
+kind: api
+name: doc_write
+title: doc_write(nome, byte) - scrive un documento in /docs
+ask: scrivere un file di testo | salvare un documento | write a document
+ask: esportare un file per il giocatore | save a text file | creare un file in docs
+keys: documento, docs, file
+see: doc_read, doc_list, save
+text:
+Scrive un documento in /docs sulla SD, la cartella dei file del giocatore
+comune a tutte le app (bm Write ci tiene i suoi): nome 8.3 senza cartelle,
+al massimo 4 MiB; true, oppure nil e il motivo. La prima volta la console
+chiede al giocatore se l'app può usare i documenti.
+code:
+local ok, why = doc_write("NOTES.TXT", "pane\nlatte\n")
+if not ok then log("non scritto: " .. why) end
+
+== doc_read
+kind: api
+name: doc_read
+title: doc_read(nome) - legge un documento di /docs
+ask: leggere un file di testo | aprire un documento | read a document
+ask: caricare un file da docs | open a text file | leggere un file della sd
+keys: documento, docs, file
+see: doc_write, doc_list
+text:
+I byte di un documento di /docs (una stringa), oppure nil e il motivo.
+Il nome è 8.3, come "LETTER.BMD"; le minuscole vanno bene.
+code:
+local text, why = doc_read("NOTES.TXT")
+if text then lines = #text end
+
+== doc_list
+kind: api
+name: doc_list
+title: doc_list() - i documenti di /docs
+ask: elencare i documenti | quali file ci sono | list the documents
+ask: lista dei file | files in docs | cartella docs
+keys: documenti, docs, elenco
+see: doc_read, doc_delete
+text:
+I file di /docs: una tabella di {name =, size =} (vuota se non ce ne
+sono), oppure nil e il motivo se il giocatore non l'ha permesso.
+code:
+for _, d in ipairs(doc_list() or {}) do
+  log(d.name .. " " .. d.size .. " byte")
+end
+
+== doc_delete
+kind: api
+name: doc_delete
+title: doc_delete(nome) - cancella un documento
+ask: cancellare un documento | eliminare un file | delete a document
+ask: togliere un file da docs | remove a file
+keys: cancellare, documento
+see: doc_list, doc_write
+text:
+Cancella un documento di /docs: true, oppure nil e il motivo.
+code:
+doc_delete("OLD.TXT")
+
 == random
 kind: api
 name: math.random

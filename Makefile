@@ -189,7 +189,7 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 	    --map carts/demo/map.csv --title "bm native demo" --author bm
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
-GAMES := pong snake shooter astrowing hunt kitchen titan village nano8 overbit yharnam typing
+GAMES := pong snake shooter astrowing hunt kitchen titan village nano8 overbit yharnam typing write
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
@@ -204,6 +204,7 @@ title_village := Studio Village
 res_village := 320x180
 title_yharnam := Yharnam
 title_typing := Pad Typing
+title_write := bm Write
 res_yharnam := 256x256
 sheet8_yharnam := 1
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
@@ -480,6 +481,18 @@ test-gameapi: $(BUILD)/host/bmhost-bin $(BUILD)/gameapi-test.bm tests/gameapi/in
 	    | tee $(BUILD)/gameapi-test.log | grep "^gameapi"
 	grep -q "^gameapi: \([0-9]*\)/\1 checks passed" $(BUILD)/gameapi-test.log
 
+# bm Write (carts/write, 2026-10-06): a document typed, styled, saved in
+# /docs and exported in bmhost, then opened again (the session, the
+# Markdown); tests/write/check.py reads the files (the PDF's xref too)
+test-write: $(BUILD)/host/bmhost-bin $(BUILD)/carts/write.bm tests/write/input.txt tests/write/reopen.txt \
+            tests/write/check.py
+	rm -rf $(BUILD)/write-sd $(BUILD)/write && mkdir -p $(BUILD)/write-sd $(BUILD)/write
+	$< $(BUILD)/carts/write.bm --sd $(BUILD)/write-sd --input tests/write/input.txt --seconds 14 \
+	    --shots $(BUILD)/write > $(BUILD)/write/run1.log 2>&1
+	$< $(BUILD)/carts/write.bm --sd $(BUILD)/write-sd --input tests/write/reopen.txt --seconds 2 \
+	    --shots $(BUILD)/write > $(BUILD)/write/run2.log 2>&1
+	$(PYTHON) tests/write/check.py $(BUILD)/write-sd/docs $(BUILD)/write
+
 # PS in a game played online (online(), 2026-10-04): the question to the
 # player leaving over the game that goes on, back and Esc stay, PS again
 # leaves through _leave(); the screen of the question in build/online/
@@ -573,7 +586,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-keymap test-gameapi test-online test-bmnet test-loading test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-keymap test-gameapi test-write test-online test-bmnet test-loading test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
@@ -761,7 +774,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-keymap test-gameapi test-online test-bmnet test-loading \
+      test-catalog test-github test-lan test-keymap test-gameapi test-write test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-overbit $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)

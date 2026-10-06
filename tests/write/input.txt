@@ -1,0 +1,71 @@
+# bm Write in bmhost (make test-write): a document typed, styled, saved
+# and exported. The keys as the serial line sends them: \x1bOQ F2 (style),
+# \x1bOS F4 (alignment), \x02 Ctrl+B, \x15 Ctrl+U, \x13 Ctrl+S, \x1b alone Esc
+# (then six frames of nothing), \x1b[B down.
+20 type \x1bOQUna lettera\n
+40 type Questo testo ha una parola in \x02grassetto\x02 e una \x15sottolineata\x15.\n
+60 type \x1bOQ\x1bOQUn titoletto\n
+80 type \x1bOQ\x1bOQ\x1bOQ\x1bOQ\x1bOQuno\ndue\ntre\n\n
+100 type \x1bOS\x1bOS\x1bOSUn paragrafo giustificato, lungo abbastanza da andare a capo piu' volte: le parole si allargano fino al margine destro, tranne l'ultima riga che resta a sinistra come in ogni programma di scrittura.
+120 shot write-typed
+130 type \x13
+140 type LETTERA\n
+160 type \x1b
+180 type \x1b[B\x1b[B\x1b[B\x1b[B\n
+200 shot write-export
+210 type \n
+240 type \x1b
+260 type \x1b[B\x1b[B\x1b[B\x1b[B\n\x1b[B\n
+290 type \x1b
+310 type \x1b[B\x1b[B\x1b[B\x1b[B\n\x1b[B\x1b[B\n
+340 type \x1b
+360 type \x1b[B\x1b[B\x1b[B\x1b[B\n\x1b[B\x1b[B\x1b[B\n
+400 shot write-done
+# more: italic from the menu (the serial line has no Ctrl+I: its code is
+# Tab's), accented letters (code page 437: \x8a e grave), a quote and a
+# numbered list, then pages of text; Ctrl+S saves it again, PDF again
+420 type \x1b
+440 type \x1b[B\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B\n
+450 type Corsivo
+460 type \x1b
+480 type \x1b[B\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B\n
+490 type  e poi no: \x8a la fine.\n
+500 type \x1bOQ\x1bOQ\x1bOQ\x1bOQUna citazione, in corsivo con la barra a sinistra.\n
+510 type \x1bOQ\x1bOQprimo\nsecondo\nterzo\n\n
+520 type Paragrafo 1: la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console.\n
+524 type Paragrafo 2: vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma.\n
+528 type Paragrafo 3: in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine.\n
+532 type Paragrafo 4: numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della.\n
+536 type Paragrafo 5: del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF.\n
+540 type Paragrafo 6: documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi.\n
+544 type Paragrafo 7: videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e.\n
+548 type Paragrafo 8: con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i.\n
+552 type Paragrafo 9: e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo.\n
+556 type Paragrafo 10: esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la.\n
+560 type Paragrafo 11: un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero.\n
+564 type Paragrafo 12: porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in.\n
+568 type Paragrafo 13: il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero.\n
+572 type Paragrafo 14: aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del.\n
+576 type Paragrafo 15: scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti.\n
+580 type Paragrafo 16: di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura.\n
+584 type Paragrafo 17: A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con.\n
+588 type Paragrafo 18: pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e.\n
+592 type Paragrafo 19: che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta.\n
+596 type Paragrafo 20: come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un.\n
+600 type Paragrafo 21: li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta.\n
+604 type Paragrafo 22: margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il.\n
+608 type Paragrafo 23: stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto.\n
+612 type Paragrafo 24: console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive.\n
+616 type Paragrafo 25: programma di videoscrittura e li porta in pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di.\n
+620 type Paragrafo 26: pagine A4 con i margini il numero della pagina e lo stesso aspetto del PDF che esporta la console scrive documenti lunghi come un vero programma di videoscrittura e li porta in pagine A4.\n
+634 shot write-pages
+644 type \x13
+664 type \x1b
+684 type \x1b[B\x1b[B\x1b[B\x1b[B\n\n
+704 type \x1b
+724 type \x1b[B\x1b[B\x1b[B\x1b[B\n\x1b[B\n
+744 type \x1b
+764 type \x1b[B\x1b[B\x1b[B\x1b[B\n\x1b[B\x1b[B\n
+784 type \x1b
+804 type \x1b[B\x1b[B\x1b[B\x1b[B\n\x1b[B\x1b[B\x1b[B\n
+834 shot write-saved

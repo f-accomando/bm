@@ -318,8 +318,29 @@ def typing():
     return c
 
 
+def write():
+    c = Canvas()
+    c.vgradient(0, H, 0x1C2234, 0x2E3A58)
+    # a page with its title, lines of text (a word in bold, one underlined)
+    c.rect(37, 39, 52, 40, 0x10131C)
+    c.rect(34, 36, 52, 40, 0xFFFFFF)
+    c.rect(46, 40, 28, 3, 0x15233F)
+    for i, w in enumerate((44, 40, 44, 28, 36)):
+        c.rect(38, 47 + i * 5, w, 2, 0x8A93A6)
+    c.rect(38, 52, 11, 2, 0x1C1F26)
+    c.rect(54, 63, 14, 1, 0x1A5FD8)
+    c.rect(67, 66, 2, 5, 0x1A5FD8)          # the cursor
+    # a pen
+    c.tri((106, 38), (114, 46), (94, 66), 0xFFB84A)
+    c.tri((94, 66), (114, 46), (99, 71), 0xE0962A)
+    c.tri((94, 66), (99, 71), (89, 75), 0x1C1F26)
+    c.ctext("WRITE", 2, 0xFFB84A, scale=2, outline=0x000000)
+    return c
+
+
 COVERS = (("pong", pong), ("snake", snake), ("shooter", shooter), ("astrowing", astrowing),
-          ("hunt", hunt), ("editor", editor), ("sound", sound), ("nano8", nano8), ("typing", typing))
+          ("hunt", hunt), ("editor", editor), ("sound", sound), ("nano8", nano8), ("typing", typing),
+          ("write", write))
 
 
 def main():

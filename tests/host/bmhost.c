@@ -34,6 +34,7 @@
  *     900 quit              leave the cartridge (Start+Select)
  *     900 ps                the PS button (Ctrl+Esc): online() asks first
  */
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -184,10 +185,17 @@ static void events(long f)
                 if (strcmp(t, "none"))
                     host.keys[host.nkeys++] = (uint8_t)strtol(t, NULL, 0);
         } else if (!strcmp(cmd, "type")) {
+            if (host.typed_pos == host.typed_len)
+                host.typed_pos = host.typed_len = 0;    /* all read: from the start again */
             for (char *c = arg; *c && *c != '\n' && host.typed_len < (int)sizeof host.typed - 1; c++) {
                 if (c[0] == '\\' && c[1] == 'n') {
                     host.typed[host.typed_len++] = '\r';
                     c++;
+                } else if (c[0] == '\\' && c[1] == 'x' && isxdigit((unsigned char)c[2]) &&
+                           isxdigit((unsigned char)c[3])) {
+                    char hex[3] = { c[2], c[3], 0 };    /* \x13 Ctrl+S, \xfa F2: the codes of keyp() */
+                    host.typed[host.typed_len++] = (char)strtol(hex, NULL, 16);
+                    c += 3;
                 } else {
                     host.typed[host.typed_len++] = *c;
                 }

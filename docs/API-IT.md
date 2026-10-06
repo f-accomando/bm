@@ -359,6 +359,28 @@ end
 if score > best then best = score; save({ best = best }) end
 ```
 
+### Documenti
+
+I file del giocatore, comuni a tutte le app: `/docs` sulla SD (bm Write ci tiene i suoi
+`.BMD`, con le esportazioni `.TXT`, `.MD`, `.HTM` e `.PDF`). Nomi 8.3 senza cartelle
+(`"LETTER.BMD"`; vanno bene le minuscole, il file si scrive in maiuscolo); la cartella la
+crea la prima scrittura. La prima volta che un'app li usa la console chiede al giocatore,
+come per la rete; la risposta resta in `bm/config.txt` (`allow_...=docs=yes`), e dopo un no
+ogni chiamata restituisce `nil` e il motivo.
+
+| Funzione | Descrizione |
+|---|---|
+| `doc_list()` | i file di `/docs`: `{ {name = "LETTER.BMD", size = 1234}, ... }` (vuota se non ce ne sono); `nil` e il motivo se il giocatore non l'ha permesso |
+| `doc_read(nome)` | i byte di un documento (una stringa), oppure `nil` e il motivo |
+| `doc_write(nome, byte)` | scrive un documento, nuovo o sostituito (al massimo 4 MiB); `true`, oppure `nil` e il motivo |
+| `doc_delete(nome)` | cancella un documento; `true`, oppure `nil` e il motivo |
+
+```lua
+local ok, why = doc_write("NOTES.TXT", "spesa:\npane\nlatte\n")
+if not ok then msg = why end
+for _, d in ipairs(doc_list() or {}) do print(d.name .. " " .. d.size) end
+```
+
 ### Suono
 
 L'audio esce dall'HDMI a 48 kHz (dagli altoparlanti del monitor) ed è generato in un
@@ -454,7 +476,7 @@ SONG=0` lo ascolta in un WAV.
 | Funzione | Descrizione |
 |---|---|
 | `keyheld(nome)` | `true` finché è premuto il tasto `nome` di una tastiera: `"f1"`…`"f12"`, `"tab"`, `"space"`, `"enter"`, `"esc"` (bm Pixel: spazio tenuto per disegnare) |
-| `keyp()` | il prossimo tasto scritto: un carattere (`"a"`, `"\n"` Invio, `"\b"` Backspace, `"\t"`), un nome (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f10"`), `"^s"` per Ctrl+S o `"^S"` per Ctrl+Shift+S; `nil` se nessuno. F11 e F12 sono del sistema e non arrivano. Dalla prima chiamata la tastiera scrive e non fa più da gamepad per `btn()`, ed Esc è un tasto come gli altri (Ctrl+Esc, Start+Select e PS chiudono) |
+| `keyp()` | il prossimo tasto scritto: un carattere (`"a"`, `"\n"` Invio, `"\b"` Backspace, `"\t"`), un nome (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f10"`), `"^s"` per Ctrl+S o `"^S"` per Ctrl+Shift+S (anche Ctrl+I e Ctrl+M: `"^i"`, `"^m"`, non Tab e Invio); `nil` se nessuno. F11 e F12 sono del sistema e non arrivano. Dalla prima chiamata la tastiera scrive e non fa più da gamepad per `btn()`, ed Esc è un tasto come gli altri (Ctrl+Esc, Start+Select e PS chiudono) |
 | `keyhelp(lista, [titolo])` | i tasti della cartuccia, mostrati sotto quelli del sistema mentre si tiene **F12** (2026-10-04): `lista` è `{ {"tasti", "cosa fanno"}, "titoletto", … }`; i tasti come in `prompt()` (minuscolo la tastiera, maiuscolo il pad), separati da spazi: `"ctrl s"`, `"shift w a s d"`, `"a / d"` (alternative), `"1 - 5"` (intervallo), `"Y LEFTRIGHT"`. Restituisce quante voci nominano un tasto che il sistema tiene per sé e la cartuccia non riceve mai (F11, F12, Ctrl+Esc, Ctrl+Shift+Esc: in rosso e nel log, vanno tolte); gli altri tasti di sistema (Esc, Ctrl+S…) si elencano quando si dice che cosa fanno lì; `keyhelp(nil)` la toglie. Chiamarla di nuovo quando la pagina cambia |
 | `ls([cartella])` | i file della SD: `{ {name=, size=, dir=}, … }` |
 | `cart_load(percorso)` | apre un `.bm`: il suo sprite sheet (con i flag delle tile, le zone e i loro riquadri), la sua mappa (con i livelli) e i suoi modelli 3D (con gli scheletri) sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h, layers, [palette]}`; `layers` i nomi dei livelli della mappa; `palette` sono i colori (0xRRGGBB) della tavolozza della sezione SHEET8, nel loro ordine, se lo sheet è salvato così |

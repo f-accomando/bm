@@ -356,6 +356,28 @@ end
 if score > best then best = score; save({ best = best }) end
 ```
 
+### Documents
+
+The player's files, shared by the apps: `/docs` on the SD card (bm Write keeps its `.BMD`
+there, with the exports `.TXT`, `.MD`, `.HTM` and `.PDF`). Names are 8.3 without folders
+(`"LETTER.BMD"`; lower case is fine, the file is written in upper case); the folder is made
+by the first write. The first time an app uses them the console asks the player, as for the
+network; the answer stays in `bm/config.txt` (`allow_...=docs=yes`), and after a no every
+call returns `nil` and the reason.
+
+| Function | Description |
+|---|---|
+| `doc_list()` | the files in `/docs`: `{ {name = "LETTER.BMD", size = 1234}, ... }` (empty if there are none); `nil` and the reason if the player did not allow it |
+| `doc_read(name)` | the bytes of a document (a string), or `nil` and the reason |
+| `doc_write(name, bytes)` | writes a document, new or replaced (at most 4 MiB); `true`, or `nil` and the reason |
+| `doc_delete(name)` | deletes a document; `true`, or `nil` and the reason |
+
+```lua
+local ok, why = doc_write("NOTES.TXT", "shopping:\nbread\nmilk\n")
+if not ok then msg = why end
+for _, d in ipairs(doc_list() or {}) do print(d.name .. " " .. d.size) end
+```
+
 ### Sound
 
 Audio goes out over HDMI at 48 kHz (from the monitor's speakers) and is generated in an
@@ -450,7 +472,7 @@ SONG=0` plays it into a WAV.
 | Function | Description |
 |---|---|
 | `keyheld(name)` | `true` while key `name` of a keyboard is held: `"f1"`…`"f12"`, `"tab"`, `"space"`, `"enter"`, `"esc"` (bm Pixel: space held to draw) |
-| `keyp()` | the next key typed: a character (`"a"`, `"\n"` Enter, `"\b"` Backspace, `"\t"`), a name (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f10"`), `"^s"` for Ctrl+S or `"^S"` for Ctrl+Shift+S; `nil` if none. F11 and F12 are the system's and never come. From the first call the keyboard types and no longer works as a gamepad for `btn()`, and Esc is a key like the others (Ctrl+Esc, Start+Select and PS close) |
+| `keyp()` | the next key typed: a character (`"a"`, `"\n"` Enter, `"\b"` Backspace, `"\t"`), a name (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f10"`), `"^s"` for Ctrl+S or `"^S"` for Ctrl+Shift+S (Ctrl+I and Ctrl+M too: `"^i"`, `"^m"`, not Tab and Enter); `nil` if none. F11 and F12 are the system's and never come. From the first call the keyboard types and no longer works as a gamepad for `btn()`, and Esc is a key like the others (Ctrl+Esc, Start+Select and PS close) |
 | `keyhelp(list, [title])` | the cartridge's keys, shown under the system's while **F12** is held (2026-10-04): `list` is `{ {"keys", "what they do"}, "subtitle", … }`; keys as in `prompt()` (lower case the keyboard, upper case the pad), separated by spaces: `"ctrl s"`, `"shift w a s d"`, `"a / d"` (alternatives), `"1 - 5"` (a range), `"Y LEFTRIGHT"`. Returns how many entries name a key the system keeps for itself and the cartridge never gets (F11, F12, Ctrl+Esc, Ctrl+Shift+Esc: in red and in the log, they must go); the other system keys (Esc, Ctrl+S…) are listed when saying what they do there; `keyhelp(nil)` takes it away. Call it again when the page changes |
 | `ls([folder])` | the files of the SD card: `{ {name=, size=, dir=}, … }` |
 | `cart_load(path)` | opens a `.bm`: its sprite sheet (with the tiles' flags, the zones and their boxes), its map (with its layers) and its 3D models (with the skeletons) take the place of those of the calling cartridge; returns `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h, layers, [palette]}`; `layers` the names of the map's layers; `palette` the colours (0xRRGGBB) of the SHEET8 section's palette, in their order, if the sheet is saved that way |

@@ -60,6 +60,19 @@ Sul PC: python3 scripts/mkbm.py -o gioco.bm --lua main.lua --title "Gioco"
 320x180). Poi copia gioco.bm nella cartella carts/ della SD; R nel menu
 rilegge la SD. Dall'editor sulla console il gioco si salva già in /carts.
 
+== bm_write
+kind: tip
+title: bm Write - scrivere lettere e documenti
+ask: programma di videoscrittura | scrivere una lettera | word processor
+ask: scrivere un documento | esportare in pdf | write a letter | text editor for documents
+keys: write, lettera, pdf, documento
+see: doc_write, doc_read
+text:
+bm Write (scheda Games, dal Market) scrive documenti con stili (titolo,
+intestazioni, citazione, elenchi), grassetto, corsivo, sottolineato e
+allineamenti sulla pagina A4, il completamento delle parole e la scrittura
+col pad. Salva in /docs (.BMD) ed esporta testo, Markdown, HTML e PDF.
+
 == resolution
 kind: tip
 title: Bassa risoluzione 320x180

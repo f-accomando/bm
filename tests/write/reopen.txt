@@ -1,0 +1,8 @@
+# bm Write again (make test-write): the session opens LETTERA.BMD as it was
+# saved; Ctrl+O lists /docs and opens the Markdown export, which comes back
+# with the same paragraphs
+20 shot write-reopen
+30 type \x0f
+50 shot write-open
+60 type \x1b[B\n
+80 shot write-md

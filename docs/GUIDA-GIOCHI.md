@@ -449,6 +449,11 @@ save({ record = record })
 Numeri, stringhe, booleani e tabelle, fino a 32 KiB, in `/bm/save/` sulla SD. Con bmlib:
 `lib.best("record", punti)` tiene il record e scrive solo quando viene battuto.
 
+Un'app che fa dei file per il giocatore (testi, disegni, esportazioni) li scrive in
+`/docs`, comune a tutte le app: `doc_write("NOTES.TXT", testo)`, `doc_read`, `doc_list`,
+`doc_delete` (nomi 8.3; la prima volta la console chiede al giocatore). bm Write ci tiene i
+suoi documenti.
+
 ## 10. Copertina
 
 `--cover copertina.png`: un PNG di qualsiasi misura, stampato sulla "scheda" del gioco nel

@@ -259,6 +259,8 @@ static void keyboard_boot(int k, const uint8_t *r)
         if (c) {
             if (text_mode && c >= 1 && c <= 26 && (mods & MOD_SHIFT))
                 push(HID_KEY_CTRL_SHIFT);       /* Ctrl+Shift+S: "^S" for keyp() */
+            else if (text_mode && (c == 9 || c == 13) && (mods & MOD_CTRL))
+                push(HID_KEY_CTRL);             /* Ctrl+I, Ctrl+M: "^i", "^m", not Tab and Enter */
             push(c);
             rep_usage = u;
             rep_mods = mods;

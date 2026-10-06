@@ -3139,6 +3139,33 @@ niente file, `rnd()` con seme; 8 MiB; nessun limite di token.
 - **Fatto quando:** Yharnam `.b16` gira uguale sul Pi e sulla RGB30 nel profilo, con la CPU
   che scende a 30 fps negli stessi punti sulle due console.
 
+## M45 — bm Write: i documenti, come Word e Pages (M) — in corso
+Richiesta dell'utente (2026-10-06): uno strumento per scrivere. Decisioni: un'app del Market
+(`carts/write`, nella scheda Games), un formato nostro più le esportazioni, stili e
+impaginazione, il completamento delle parole e la scrittura col pad, l'esportazione in HTML
+e PDF (niente conteggi e ricerca per ora).
+1. ✅ **I documenti del giocatore**: `/docs` sulla SD, comune alle app, con `doc_list`,
+   `doc_read`, `doc_write`, `doc_delete` (nomi 8.3, 4 MiB) e il permesso `docs` chiesto al
+   giocatore la prima volta come la rete (`allow_...=docs=yes`). Ctrl+I e Ctrl+M arrivano a
+   `keyp()` come `"^i"` e `"^m"` (non Tab e Invio); il tasto che risponde alla domanda di un
+   permesso non arriva al gioco.
+2. ✅ **L'app**: la pagina A4 (540×764 pixel, margini di 54) con le pagine numerate, gli
+   stili (testo, titolo, intestazioni 1 e 2, citazione, elenco puntato e numerato; F2), gli
+   allineamenti (sinistra, centro, destra, giustificato; F4), grassetto, corsivo e
+   sottolineato (Ctrl+B, I, U), la selezione (Shift e le frecce, F3 o Select nel menu),
+   annulla e rifai, copia e incolla, la sessione ripresa all'avvio. Il completamento di `predict`
+   (Tab) e la scrittura col pad di `padtype` (Share).
+3. ✅ **Il formato e le esportazioni**: `.BMD` (testo con una riga per paragrafo: stile,
+   allineamento, pezzi formattati); esporta `.TXT`, `.MD`, `.HTM` e `.PDF` (PDF 1.4 coi
+   font Courier delle misure dello schermo: la stessa impaginazione), apre `.BMD`, `.MD` e
+   `.TXT`. Prove: `make test-write` (bmhost: scrive, salva, esporta, riapre; il PDF letto da
+   `pdftotext`), QEMU `test_bm_write`.
+4. **Sul Pi e nel Market**: provarla sulla console (tastiera e pad) e aprire il PDF sul PC;
+   dopo l'unione a `bm-core` pubblicarla nel Market (`market/about.txt`).
+5. Poi, se servono: immagini nel testo, tabelle, ricerca e conteggi, più font.
+- **Fatto quando:** sul Pi si scrive una lettera con titolo, stili e una lista, si salva,
+  si esporta in PDF e il PDF aperto sul PC ha la stessa pagina dello schermo.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

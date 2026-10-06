@@ -119,7 +119,8 @@ see: keyheld, name_input
 text:
 Il prossimo tasto scritto: un carattere ("a", "\n" Invio, "\b"
 Backspace), un nome ("up", "down", "left", "right", "pgup", "del", "esc",
-"f1"..."f12") o "^s" per Ctrl+S; nil se nessuno. Dalla prima chiamata la
+"f1"..."f10"), "^s" per Ctrl+S e "^S" per Ctrl+Shift+S (anche "^i" e "^m",
+non Tab e Invio); nil se nessuno. Dalla prima chiamata la
 tastiera scrive e non fa più da gamepad, ed Esc non chiude il gioco.
 code:
 local k = keyp()
