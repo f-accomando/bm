@@ -269,17 +269,34 @@ up_to_date() {                                  # before a build: the branch as 
 
 change_branch() {
     say "Branch"
-    git fetch -q origin 2>/dev/null || true
-    echo "on GitHub:"
-    git branch -r --format='  %(refname:lstrip=3)' | grep -v '^  HEAD$' | head -20
-    local b
-    read -r -p "Branch to use (Enter: stay on $BRANCH and update it): " b || b=
-    if [ -z "$b" ] || [ "$b" = "$BRANCH" ]; then
-        git pull --ff-only || warn "git pull failed"
-        return
+    # every branch on GitHub (whatever the clone's refspec), the ones deleted
+    # there gone here too: without --prune they stayed in the list for ever
+    git fetch -q --prune origin '+refs/heads/*:refs/remotes/origin/*' 2>/dev/null ||
+        warn "GitHub not reached: the list may be old"
+    echo "on GitHub, the most recent first:"
+    local names=() name date subject b
+    while IFS='|' read -r name date subject; do
+        [ "$name" != HEAD ] || continue
+        names+=("$name")
+        printf '  %2d %s %-26s %s  %.44s\n' "${#names[@]}" "$([ "$name" = "$BRANCH" ] && echo '*' || echo ' ')" \
+            "$name" "$date" "$subject"
+        [ "${#names[@]}" -lt 15 ] || break
+    done < <(git for-each-ref --sort=-committerdate \
+                 --format='%(refname:lstrip=3)|%(committerdate:short)|%(subject)' refs/remotes/origin)
+    read -r -p "Branch to use (number or name; Enter: stay on $BRANCH and update it): " b || b=
+    if [[ $b =~ ^[0-9]+$ ]] && [ "$b" -ge 1 ] && [ "$b" -le "${#names[@]}" ]; then
+        b=${names[$((b - 1))]}
     fi
-    [ -z "$(git status --porcelain --untracked-files=no)" ] || die "there are changes not committed: commit or git stash them first"
-    git checkout "$b" && git pull --ff-only || warn "could not move to $b"
+    b=${b:-$BRANCH}
+    if [ "$b" != "$BRANCH" ]; then
+        [ -z "$(git status --porcelain --untracked-files=no)" ] ||
+            die "there are changes not committed: commit or git stash them first"
+        git checkout -q "$b" || { warn "could not move to $b"; return; }
+    fi
+    # from GitHub's branch of the same name, also for a local branch made
+    # without tracking (a plain git pull refused it)
+    git branch -q --set-upstream-to="origin/$b" 2>/dev/null || true
+    git pull -q --ff-only origin "$b" || warn "git pull failed: $b is not where GitHub has it"
 }
 
 change_paths() {
