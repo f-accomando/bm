@@ -1,0 +1,30 @@
+bm report
+kind: bench3d
+kernel: v0.2.3-48-gf55ec9c
+branch: bm3d-driver
+board: Pi Zero W
+date: 2026-10-06 08:21:01
+file: 20261006-082101_bench3d_pi-zero-w_v0.2.3-48-gf55ec9c.txt
+
+bm 3D Bench
+kernel v0.2.3-48-gf55ec9c
+drivers bm3d 6.4 (M41)
+date 2026-10-06 08:20 UTC
+machine ARM 1000 MHz, core 250, V3D 250, SDRAM 400 MHz, 42.7 C, throttled 00000
+gpu bm3d 6.4 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders no, vertex shader no, indexed no, clipping no, lit models no, queue yes, zclear in job yes)
+probes vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0); the two-thread shaders: 1 pixels differ with fs_tex_rgb and its alpha and screen-door shaders (they stay off)
+counters ARM1176 PMU
+previous bm/bench/3D0009.TXT
+only tests quad_flat,quad_smooth,quad_alpha,quad_screen,quad_texscreen,quad_tex,spheres,heroes,heroes_skin,match, profiles GPU,FS2
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs
+R,spheres,GPU,2.1,202.9,425.6,0,13.2,13.2,14976,6103,8736,0,0,1.0,2.2,5778576,244844,202903,13215712,1
+R,heroes,GPU,2.1,6.0,12.0,0,16.6,16.7,9216,3767,5376,0,0,1.0,1.2,5727216,138615,205256,16628854,1
+R,heroes_skin,GPU,2.1,6.8,14.7,0,15.0,15.1,9216,3805,5376,0,0,1.0,1.3,5166311,146431,230054,15013039,1
+R,quad_flat,GPU,2.1,69.5,146.1,0,15.9,15.9,132,132,264,0,0,1.0,14.2,2042011,1606030,33240,15907371,1
+R,quad_smooth,GPU,2.1,68.7,144.8,0,16.1,16.1,132,132,264,0,0,1.0,14.2,2082475,1601065,35391,16068231,1
+R,quad_tex,GPU,2.1,61.0,130.4,0,13.8,13.8,100,100,200,0,0,1.0,12.1,1777994,1362889,31387,13765979,1
+R,quad_alpha,GPU,2.1,56.1,118.1,0,15.0,15.0,100,100,200,0,0,1.0,13.4,1921580,1507989,31443,15024899,1
+R,quad_screen,GPU,2.1,69.6,146.4,0,15.9,15.9,132,132,264,0,0,1.0,14.2,2042110,1606262,33177,15883190,1
+R,quad_texscreen,GPU,2.1,51.3,107.9,0,16.3,16.3,100,100,200,0,0,1.0,14.6,2064393,1651945,31523,16289814,1
+R,match,GPU,2.1,-1,5.2,0,17.2,17.3,6272,3443,3542,0,0,2.0,2.3,5773013,256563,229792,17236878,1
+total 15 s
