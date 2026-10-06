@@ -3,6 +3,7 @@
 == jump_gravity
 kind: howto
 title: Saltare con la gravità
+title_en: Jumping with gravity
 ask: come faccio saltare il personaggio | salto con la gravità | jump with gravity
 ask: far cadere il giocatore | gravità | il personaggio vola via | fisica del salto
 ask: saltare quando premo A | platform jump | caduta
@@ -11,6 +12,9 @@ see: platformer, double_jump, btnp
 text:
 Una velocità verticale vy: la gravità la aumenta a ogni fotogramma, il
 salto la rende negativa (verso l'alto). Si salta solo da terra.
+text_en:
+A vertical speed vy: gravity increases it every frame, the jump makes it
+negative (upwards). You can jump only from the ground.
 code:
 local vy, on_ground = 0, false
 
@@ -28,11 +32,14 @@ end
 == double_jump
 kind: howto
 title: Doppio salto
+title_en: Double jump
 ask: doppio salto | saltare in aria una seconda volta | double jump | salto multiplo
 keys: doppio, salto
 see: jump_gravity
 text:
 Conta i salti: si azzerano toccando terra.
+text_en:
+Count the jumps: they go back to zero when you touch the ground.
 code:
 if on_ground then jumps = 0 end
 if btnp(4) and jumps < 2 then
@@ -44,6 +51,7 @@ end
 == platformer
 kind: howto
 title: Platform: camminare e saltare sulle tile della mappa
+title_en: Platformer: walking and jumping on the tiles of the map
 ask: gioco di piattaforme | platformer | camminare sulle piattaforme della mappa
 ask: collisione con il pavimento della mappa | stare sopra i blocchi | super mario
 ask: il personaggio cade attraverso il pavimento | collisioni del platform
@@ -54,6 +62,11 @@ Prima il movimento orizzontale e la sua collisione, poi quello verticale:
 così si scivola lungo i muri. solid() dice se in un punto c'è una tile
 solida (con il flag 0). Più corto: lib.step di bmlib fa gravità, muri e
 piattaforme.
+text_en:
+First the horizontal movement and its collision, then the vertical one: so
+you slide along the walls. solid() says whether there is a solid tile at a
+point (with flag 0). Shorter: lib.step of bmlib does gravity, walls and
+platforms.
 code:
 local function solid(x, y)
   return fget(mget(x // 8, y // 8), 0)
@@ -81,6 +94,7 @@ end
 == collide_rect
 kind: howto
 title: Collisione tra due rettangoli
+title_en: Collision between two rectangles
 ask: collisione tra due rettangoli | due sprite si toccano | collision between two boxes
 ask: controllare se il giocatore tocca il nemico | aabb | hitbox | sovrapposizione
 ask: rilevare un urto | overlap check | collisioni tra sprite
@@ -89,6 +103,9 @@ see: collide_circle, bullets, lib.overlap
 text:
 Due rettangoli si sovrappongono se nessuno dei due è tutto a sinistra,
 destra, sopra o sotto l'altro.
+text_en:
+Two rectangles overlap if neither of them is entirely to the left, right,
+above or below the other.
 code:
 local function hit(a, b)
   return a.x < b.x + b.w and b.x < a.x + a.w and
@@ -100,6 +117,7 @@ if hit(player, enemy) then lives = lives - 1 end
 == collide_circle
 kind: howto
 title: Collisione tra due cerchi
+title_en: Collision between two circles
 ask: collisione tra cerchi | palle che si toccano | circle collision | raggio di collisione
 ask: collisione rotonda | distanza minore della somma dei raggi
 ask: two circles collide | circles overlap | sfere che si toccano
@@ -108,6 +126,9 @@ see: collide_rect, distance, lib.overlap
 text:
 Si toccano se la distanza tra i centri è minore della somma dei raggi
 (confronta i quadrati: niente radice).
+text_en:
+They touch if the distance between the centres is less than the sum of the
+radii (compare the squares: no square root).
 code:
 local dx, dy = a.x - b.x, a.y - b.y
 local r = a.r + b.r
@@ -118,6 +139,7 @@ end
 == point_in_rect
 kind: howto
 title: Un punto dentro un rettangolo
+title_en: A point inside a rectangle
 ask: punto dentro un rettangolo | il cursore è sopra il pulsante | point in rectangle
 ask: cliccare su un bottone | il colpo è dentro il bersaglio
 keys: punto, dentro
@@ -125,6 +147,9 @@ see: collide_rect, lib.overlap
 text:
 Il punto è dentro se sta tra i bordi sinistro e destro e tra quelli sopra
 e sotto.
+text_en:
+The point is inside if it lies between the left and right edges and
+between the top and bottom ones.
 code:
 local function inside(px, py, r)
   return px >= r.x and px < r.x + r.w and py >= r.y and py < r.y + r.h
@@ -133,6 +158,7 @@ end
 == collide_map
 kind: howto
 title: Collisioni con i muri della mappa
+title_en: Collisions with the walls of the map
 ask: collisione con i muri | non attraversare i muri | wall collision with the tile map
 ask: tile solide | il personaggio passa attraverso i muri | blocchi solidi della mappa
 ask: labirinto con i muri | top down collision
@@ -143,6 +169,11 @@ Prova la nuova posizione: se lo sprite tocca una tile solida (flag 0) non
 muoverti. x e y separati, così si scivola lungo i muri. mflags guarda
 tutte le tile sotto il rettangolo in una chiamata; lib.move di bmlib fa
 lo stesso e accosta lo sprite al muro.
+text_en:
+Try the new position: if the sprite touches a solid tile (flag 0), do not
+move. x and y separately, so you slide along the walls. mflags looks at
+all the tiles under the rectangle in one call; lib.move of bmlib does the
+same and brings the sprite right up to the wall.
 code:
 local function free(x, y)            -- uno sprite 8x8
   return mflags(x, y, 8, 8) & 1 == 0
@@ -154,6 +185,7 @@ if free(px, py + dy) then py = py + dy end
 == bounce_walls
 kind: howto
 title: Una palla che rimbalza sui bordi
+title_en: A ball that bounces off the edges
 ask: palla che rimbalza | rimbalzare sui bordi dello schermo | bouncing ball
 ask: rimbalzo | invertire la direzione sul muro | bounce
 ask: rimbalza sulle pareti | ball bounces off the walls
@@ -161,6 +193,8 @@ keys: rimbalzare, rimbalzo, palla
 see: pong_ball
 text:
 Quando la palla supera un bordo, inverti la sua velocità su quell'asse.
+text_en:
+When the ball goes past an edge, reverse its speed on that axis.
 code:
 bx, by = bx + vx, by + vy
 if bx < r or bx > SCREEN_W - r then vx = -vx end
@@ -170,6 +204,7 @@ circfill(bx, by, r, 0xFFFFFF)
 == pong_ball
 kind: howto
 title: Pallina e racchetta (come Pong o Arkanoid)
+title_en: Ball and paddle (like Pong or Arkanoid)
 ask: pallina che rimbalza sulla racchetta | pong | arkanoid | breakout | paddle
 ask: rimbalzo sulla racchetta con angolo
 keys: racchetta, pong, pallina
@@ -177,6 +212,9 @@ see: bounce_walls, collide_rect
 text:
 Se la palla tocca la racchetta, torna su; l'angolo dipende da dove l'ha
 presa.
+text_en:
+If the ball touches the paddle it goes back up; the angle depends on where
+the paddle caught it.
 code:
 if by + r >= pad.y and bx > pad.x and bx < pad.x + pad.w and vy > 0 then
   vy = -vy

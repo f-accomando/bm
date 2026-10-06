@@ -3,6 +3,7 @@
 == perf_tips
 kind: tip
 title: Consigli per i 60 fps
+title_en: Tips for 60 fps
 ask: il gioco rallenta | come rendo il gioco più veloce | ottimizzare | performance tips
 ask: troppi sprite | troppi nemici | scatti | il gioco va a scatti | lag
 keys: veloce, ottimizzare, rallenta
@@ -13,6 +14,12 @@ tabelle nuove a ogni fotogramma nei cicli caldi; aggiorna solo i nemici
 vicini alla camera; disegna solo la parte visibile della mappa; usa local.
 Ordini di grandezza sul Pi: ~1800 sprite 16x16 da Lua a 60 fps, ~1200
 triangoli 3D.
+text_en:
+Drawing is done in C, the cost is the Lua of _update and _draw. Do not
+create new tables every frame in hot loops; update only the enemies near
+the camera; draw only the visible part of the map; use local. Orders of
+magnitude on the Pi: ~1800 16x16 sprites from Lua at 60 fps, ~1200 3D
+triangles.
 code:
 local spr, abs = spr, math.abs       -- local: piu' veloci
 for _, e in ipairs(enemies) do
@@ -22,6 +29,7 @@ end
 == editor_keys
 kind: tip
 title: I tasti dell'editor (bm SDK)
+title_en: The editor keys (bm SDK)
 ask: tasti dell'editor | come si usa l'editor | editor shortcuts | scorciatoie
 ask: come passo agli sprite | pagina della mappa | come salvo nell'editor
 ask: come provo il gioco | ctrl r | annullare | undo
@@ -33,10 +41,17 @@ mappa), F4 il 3D, Esc menu (nuovo da un modello, apri, salva, salva come,
 prova). Ctrl+N un progetto nuovo, Ctrl+S salva, Ctrl+R (F5) prova il gioco,
 Ctrl+Z annulla, Ctrl+K taglia la riga, Ctrl+D la duplica, Ctrl+G va alla
 riga dell'errore, F9 la fa spiegare. F12 tenuto: i tasti della pagina.
+text_en:
+F1 the project (again: the dev kit), F2 code, F3 sprites (again: the
+map), F4 3D, Esc menu (new from a template, open, save, save as, try).
+Ctrl+N a new project, Ctrl+S saves, Ctrl+R (F5) tries the game, Ctrl+Z
+undoes, Ctrl+K cuts the line, Ctrl+D duplicates it, Ctrl+G goes to the
+line of the error, F9 has it explained. F12 held: the keys of the page.
 
 == editor_run
 kind: tip
 title: Provare il gioco e tornare all'editor
+title_en: Trying the game and going back to the editor
 ask: provare il gioco dall'editor | far partire il gioco | run the game | testare
 ask: il gioco si ferma con un errore | tornare all'editor | ctrl r
 keys: provare, run
@@ -46,10 +61,16 @@ Ctrl+R (o F5) salva, gioca e torna all'editor; se il gioco si ferma con un
 errore l'editor apre la riga in rosso. Esc, Start+Select o PS escono dal
 gioco. Tornando, il dev kit dell'SDK (F1 F1) ha i numeri della prova: fps,
 ms, RAM, token.
+text_en:
+Ctrl+R (or F5) saves, plays and goes back to the editor; if the game
+stops with an error the editor opens the line in red. Esc, Start+Select
+or PS leave the game. Back in the editor, the SDK's dev kit (F1 F1) has
+the numbers of the try: fps, ms, RAM, tokens.
 
 == sd_card
 kind: tip
 title: Mettere un gioco sulla SD dal PC
+title_en: Putting a game on the SD card from the PC
 ask: copiare il gioco sulla sd | mettere un gioco sulla scheda | install a game
 ask: impacchettare il gioco | mkbm | creare il file bm dal pc | copertina del gioco
 keys: sd, copiare, mkbm
@@ -59,10 +80,17 @@ Sul PC: python3 scripts/mkbm.py -o gioco.bm --lua main.lua --title "Gioco"
 (con --sheet foglio.png, --map mappa.csv, --cover copertina.png, --res
 320x180). Poi copia gioco.bm nella cartella carts/ della SD; R nel menu
 rilegge la SD. Dall'editor sulla console il gioco si salva già in /carts.
+text_en:
+On the PC: python3 scripts/mkbm.py -o gioco.bm --lua main.lua --title "Gioco"
+(with --sheet foglio.png, --map mappa.csv, --cover copertina.png, --res
+320x180). Then copy gioco.bm into the carts/ folder of the SD card; R in
+the menu reads the SD card again. From the editor on the console the game
+is already saved in /carts.
 
 == bm_write
 kind: tip
 title: bm Write - scrivere lettere e documenti
+title_en: bm Write - writing letters and documents
 ask: programma di videoscrittura | scrivere una lettera | word processor
 ask: scrivere un documento | esportare in pdf | write a letter | text editor for documents
 keys: write, lettera, pdf, documento
@@ -72,10 +100,16 @@ bm Write (scheda Games, dal Market) scrive documenti con stili (titolo,
 intestazioni, citazione, elenchi), grassetto, corsivo, sottolineato e
 allineamenti sulla pagina A4, il completamento delle parole e la scrittura
 col pad. Salva in /docs (.BMD) ed esporta testo, Markdown, HTML e PDF.
+text_en:
+bm Write (Games tab, from the Market) writes documents with styles (title,
+headings, quote, lists), bold, italic, underline and alignments on the A4
+page, with word completion and typing with the pad. It saves in /docs
+(.BMD) and exports plain text, Markdown, HTML and PDF.
 
 == resolution
 kind: tip
 title: Bassa risoluzione 320x180
+title_en: Low resolution 320x180
 ask: pixel più grossi | bassa risoluzione | stile 16 bit | 320x180 | low resolution
 keys: risoluzione, pixel
 see: screen_size
@@ -83,10 +117,15 @@ text:
 Con --res 320x180 (o "risoluzione" nel menu dell'editor) lo schermo è
 320x180: pixel grossi e più tempo per fotogramma. SCREEN_W e SCREEN_H lo
 dicono al codice.
+text_en:
+With --res 320x180 (or "screen" on the editor's project page) the screen
+is 320x180: big pixels and more time per frame. SCREEN_W and SCREEN_H
+tell the code.
 
 == colors_tip
 kind: tip
 title: Colori sullo schermo a 16 bit
+title_en: Colours on the 16-bit screen
 ask: i colori sono diversi | colori sbiaditi | perché il colore cambia | rgb565
 ask: quanti colori ha lo schermo | palette
 keys: colori, 16 bit
@@ -95,10 +134,14 @@ text:
 I colori 0xRRGGBB diventano RGB565 (5 bit rosso, 6 verde, 5 blu): le
 sfumature molto vicine diventano uguali. Per i gradienti tri() aggiunge un
 dithering.
+text_en:
+The 0xRRGGBB colours become RGB565 (5 bits red, 6 green, 5 blue): very
+close shades become the same. For gradients tri() adds dithering.
 
 == assistant_keys
 kind: tip
 title: Come si usa l'assistente
+title_en: How to use the assistant
 ask: come funziona l'assistente | tasti dell'assistente | help with the assistant
 ask: cosa sai fare | aiuto | chi sei | come ti uso | cosa posso chiederti
 keys: assistente, aiuto
@@ -110,10 +153,18 @@ mostra il resto, Tab (X) cambia modo (codice, sprite, tutto), Esc (B)
 chiude. Negli sprite sinistra/destra danno le varianti; i colori e la
 misura si scrivono nella domanda: "slime rosso 32x32". Non è un chatbot:
 conosce bm, le sue API, il Lua per i giochi e gli errori più comuni.
+text_en:
+Type a question (Italian or English): the answers change as you type.
+Up/down choose, Enter (A) inserts the code or the sprite, PgDn shows the
+rest, Tab (X) changes mode (code, sprites, all), Esc (B) closes. In
+sprites left/right give the variants; the colours and the size go in the
+question: "red slime 32x32". It is not a chatbot: it knows bm, its APIs,
+Lua for games and the most common errors.
 
 == bm_code
 kind: tip
 title: bm Code, l'editor del codice
+title_en: bm Code, the code editor
 ask: come uso bm code | editor del codice | code editor | scrivere codice sulla console
 ask: aprire più file | due pagine affiancate | split screen | schede | tab
 ask: font piccolo nell'editor | più righe sullo schermo | come apro un gioco per modificarlo
@@ -126,10 +177,18 @@ e torna sulla riga dell'errore. F2/F3 cambiano tab, F4 mette due pagine
 affiancate (F7 passa all'altra), F10 cambia il font (6x12, 8x14, 8x16). F6
 l'assistente, F9 spiega l'errore, F1 tutti i tasti. Le tab restano aperte
 la volta dopo.
+text_en: In the Dev tab, Code (or "Open in bm Code" in the options of a
+cartridge, or C from the monitor). Each cartridge in a tab: Ctrl+O opens,
+Ctrl+N makes a new one, Ctrl+S saves only the code (sprites and map
+stay), F5 tries it and goes back to the line of the error. F2/F3 switch
+tabs, F4 puts two pages side by side (F7 moves to the other), F10
+changes the font (6x12, 8x14, 8x16). F6 the assistant, F9 explains the
+error, F1 all the keys. The tabs stay open for the next time.
 
 == entry_lines
 kind: tip
 title: Righe #entry: l'assistente lavora sul codice
+title_en: #entry lines: the assistant works on the code
 ask: come uso entry | righe entry | far modificare il codice all'assistente
 ask: chiedere all'assistente di cambiare una funzione | #entry | comandi per l'assistente
 keys: entry
@@ -142,6 +201,14 @@ questa funzione", "aggiungi un log", "togli i log", "controlla i parametri",
 "ottimizza", "spiega questa funzione", "commenta tutta la funzione"; oppure
 un esempio da inserire ("crea uno snippet per un effetto di particelle") o uno
 sprite come codice ("crea uno sprite slime rosso").
+text_en: In bm Code write "#entry: what you want #" on a line and press
+Enter: the assistant does it on the function around the line (or right
+below it) and the line disappears; Ctrl+Z undoes it. Examples: "add
+ternary operator", "comment this function", "add a log", "remove the
+logs", "check the parameters", "make local", "fix the indentation",
+"rename old to new", "optimize", "explain this function", "comment out
+the whole function"; or an example to insert ("create a snippet for a
+particle effect") or a sprite as code ("create a red slime sprite").
 code:
 function move(dx)
   -- #entry: aggiungi operatore ternario #

@@ -303,7 +303,8 @@ reads the keyboard key by key and the controllers button by button:
 | `time()` | seconds since the cartridge started (with decimals) |
 | `stat(n)` | 0 KiB used by Lua, 1 ms of the last frame (`_update` + `_draw`, with the GPU's 3D), 2 fps, 3 frame number, 4 3D triangles, 5 3D pixels (0 with the GPU), 6 ms spent in 3D drawing (since `zclear`; with the GPU the ARM's part), 7 3D vertices transformed, 8 ms since the start of this frame (to measure the phases), 9 `1` if the GPU draws the 3D, 10 Lua instructions of the last frame (`_update` + `_draw`, in thousands); the **dev kit** (2026-10-04): 11 tokens of the cartridge's code (`code_tokens`), 12 the most KiB of Lua of this run, 13 KiB of the cartridge's data in memory (sprite sheet, map, models and skeletons, sound bank, the 3D z-buffer), 14 the Lua instructions of the busiest frame of this run; 15 how many `_update` ran before this `_draw` (1; more with `frameskip`) |
 | `frameskip([n])` | the game's time at 60 `_update` a second whatever `_draw` costs (2026-10-05): when a frame takes longer than 1/60 s, up to `n` `_update` run before the next `_draw` (the frames in between are not drawn), so a game that moves 1/60 s per `_update` does not slow down; past `n` the time is let go (the game slows rather than never drawing). `1` (the default) is one `_update` a frame, as before; at most 8. Returns the old value. A button pressed counts once in `btnp()` (and `mousep()`, the wheel) however many `_update` see it; `btn()` stays held. Overbit uses `frameskip(4)` (its benchmark `1`) |
-| `devkit([mode])` | the dev kit's overlay: `0` off, `1` simple, `2` detailed; with a mode it shows that page (a game's own key for it, e.g. Select on a pad: F11 is the keyboard's), in this run only: every game starts as Settings says. Returns the old mode |
+| `devkit([mode])` | the dev kit's overlay: `0` off, `1` simple, `2` detailed, `3` functions; with a mode it shows that page (a game's own key for it, e.g. Select on a pad: F11 is the keyboard's), in this run only: every game starts as Settings says. Returns the old mode |
+| `profile([on])` | the profiler of functions (R14): the functions that cost the most in the last whole second (60 frames), the costliest first, up to 32: `{name, where, c, self, total, calls}` (`where` `"main.lua:120"` or `"[C]"`; `c` true for the console's functions and Lua's written in C; `self` and `total` ms a frame, its own time and with what it calls; `calls` the calls a frame, C ones only), and the frames measured (0 during the first second). `profile(true)` turns it on for the run even without the dev kit's page, `profile(false)` turns it off (and forgets). E.g. `for _, f in ipairs(profile()) do log(f.name, f.self) end` |
 | `devinfo(line, ...)` | up to 4 lines of the game on the dev kit's detailed page (its quality, its actors...), 18 characters each; `devinfo()` none. Call it again when they change (Overbit every frame while the detailed page is shown) |
 | `code_tokens(text)` | the **tokens** of a piece of Lua code, counted as `stat(11)`, the overlay and the SDK's dev kit do (`src/bm/tokens.c`): each name, keyword, number, string and operator is one; comments, spaces, `,` `.` `:` `;` `::`, closing brackets (`)` `]` `}`), `end` and `local` do not count, nor the minus sign in front of a number (`-1` is one token). Information, not a limit: bm puts no ceiling on tokens (nor does the `.b16`, [B16.md](B16.md) §2.4) |
 | `log(...)` | writes in the kernel's log (serial line and console), not on the game's screen |
@@ -337,15 +338,21 @@ consoles on the same PC, `--realtime` to play at 60 frames a second).
 
 | Function | Description |
 |---|---|
-| `save(t)` | saves table `t` on the SD card; `true`, or `false` and the reason (no SD card, card full...) |
-| `saved()` | the table saved last time, or `nil` |
+| `save(t, [slot])` | saves table `t` on the SD card, in slot 1–8 (default 1); `true`, or `false` and the reason (no SD card, card full...) |
+| `saved([slot])` | the table saved last time in that slot (default 1), or `nil` |
+| `saves()` | the slots in use, `{[slot] = bytes}` (e.g. `{[1] = 40, [3] = 212}`), and how many there are (8): for a "load game" page |
+| `delsave([slot])` | empties the slot (default 1); `true`, or `false` and the reason (`"nothing saved in slot 3"`) |
 
-Each cartridge has **one** save, in `/bm/save/XXXXXXXX.SAV` on the SD card (the name
-depends on title and author: changing them starts again from zero). The table can hold
-numbers, strings, booleans and other tables (no functions, at most 32 KiB). Writing on the
-SD card takes a few milliseconds: call `save()` at moments like the end of a match, not in
-every frame (`lib.store` and `lib.best` of [bmlib](#bmlib-the-games-shared-library) write
-only when a value changes). Example (Snake's record):
+Each cartridge has **8 save slots**, each a table of up to 32 KiB, in `/bm/save/` on the SD
+card: slot 1 is `XXXXXXXX.SAV` (the one of always: `save(t)` and `saved()` without a slot),
+the others `XXXXXXXX.S02` ... `.S08`. The name depends on title and author: changing them
+starts again from zero. A common use: slot 1 for settings and records (`lib.store` uses it
+too), the others for the games in progress. A table can hold numbers, strings, booleans and
+other tables (no functions). The game's options in the menu (X on the cover) show the bytes
+of all the slots and *Delete the save data* deletes them all. Writing on the SD card takes a
+few milliseconds: call `save()` at moments like the end of a match, not in every frame
+(`lib.store` and `lib.best` of [bmlib](#bmlib-the-games-shared-library) write only when a
+value changes). Example (Snake's record):
 
 ```lua
 function _init()
@@ -354,6 +361,21 @@ function _init()
 end
 -- at the end of the match
 if score > best then best = score; save({ best = best }) end
+```
+
+Three games in progress, with the page to choose one (slots 2, 3 and 4):
+
+```lua
+local function slots()                  -- the rows of the "load game" page
+  local used, rows = saves(), {}
+  for i = 1, 3 do
+    local p = used[i + 1] and saved(i + 1)
+    rows[i] = p and ("Game " .. i .. ": level " .. p.level) or ("Game " .. i .. ": empty")
+  end
+  return rows
+end
+function save_game(i) save({ level = level, hp = hp }, i + 1) end
+function load_game(i) local p = saved(i + 1) if p then level, hp = p.level, p.hp end end
 ```
 
 ### Documents
@@ -489,7 +511,9 @@ SONG=0` plays it into a WAV.
 | `cart_put_audio(path, bank, [title, lua])` | puts the bank (a string; `nil` takes it away) into a `.bm`, the rest of the file as before; if the file is not there it creates it with that title and that code. `true`, or `false` and a message |
 | `audio_bank(bank)` | from now on this bank plays (for the editors: music and effects playing go on); `nil`: none |
 | `audio_pattern(p, bpm, swing)` / `audio_play(v, sound, note, [vol], [fx], [ms])` | a pattern in a loop, a sound of the bank on a voice (the editors' previews) |
-| `cart_run(path)` | leaves, plays that file and then opens again the cartridge that asked, with `cart_arg()` = `{path=, error=, back=true, run=}` (from the menu, "Open in the SDK", "... Sound editor", "... bm Studio", "... bm Animator", "... bm Mesh" or "... bm Pixel": `back=false`). `run` (2026-10-04, the dev kit) are the numbers of the run tried: `{frames, secs, fps, ms, ms_max, slow, lua_kb, lua_peak_kb, data_kb, instr_max, tokens, tris, gpu}` (average and top ms of `_update` + `_draw`, `slow` the frames over 16.7 ms, Lua's memory at the end and at its top, the data's, the instructions of the busiest frame, the tokens, the triangles of the last frame, whether the GPU did the 3D); the SDK shows them in its dev kit |
+| `cart_run(path, [options])` | leaves, plays that file and then opens again the cartridge that asked, with `cart_arg()` = `{path=, error=, back=true, run=}` (from the menu, "Open in the SDK", "... Sound editor", "... bm Studio", "... bm Animator", "... bm Mesh" or "... bm Pixel": `back=false`). `run` (2026-10-04, the dev kit) are the numbers of the run tried: `{frames, secs, fps, ms, ms_max, slow, lua_kb, lua_peak_kb, data_kb, instr_max, tokens, tris, gpu}` (average and top ms of `_update` + `_draw`, `slow` the frames over 16.7 ms, Lua's memory at the end and at its top, the data's, the instructions of the busiest frame, the tokens, the triangles of the last frame, whether the GPU did the 3D); the SDK shows them in its dev kit |
+| `cart_run(path, {breaks = {lines}, stop = true})` | the game tried is a session of the **debugger** (R13, bm Code: F8 and F5): it stops at the lines `breaks` of its `main.lua`, at `breakpoint()` and, with `stop`, at its first line. Stopped, the debugger covers the screen: the code round the line, the function's variables (the locals, then the upvalues in light blue), the stack; F10 or A the next line (over the calls), F8 or X into the call, Shift+F8 or Y out of the function, F5 or Start goes on, Esc or Select stops the game (which ends with `main.lua:N: stopped in the debugger`: the tool comes back on the line); the arrows scroll the variables and choose the function of the stack. Every game tried from a tool with `cart_run` is a session: without lines it costs nothing until it reaches `breakpoint()` |
+| `breakpoint([why])` | in a game tried from a tool (`cart_run`) the debugger stops here, with the reason in its title; in the other games it does nothing |
 | `cart_tool(name, [path])` | leaves and opens another tool of the console on the same file: `"studio"`, `"animator"`, `"mesh"`, `"pixel"`, `"code"`, `"sdk"`, `"sound"` (bm Studio → *Open in bm Animator*, and back); the tool finds it in `cart_arg()` as from the menu, with `from` = the name of the tool that opened it (`"sdk"`: the suite's menus offer *Back to bm SDK*) |
 | `cart_data(kind, [bytes])` | the project's **MESH** (`kind` 8) and **ANIM** (9) sections, as strings in the format of `src/bm/bm.h`: without `bytes` it returns them (`nil` if there are none), with `bytes` it replaces them (`nil` or `""` takes them away) → `true`, or `false` and the reason. The kernel checks them first; `model()`, `animate()` and `bone3d()` use the new ones at once and `cart_save` writes them. So bm Studio and bm Animator of the console change models and skeletons (with `string.pack` / `string.unpack`, in the library `require "bm3d"`) |
 
@@ -504,9 +528,10 @@ network are in the kernel). Try it from **Dev > Assistant** (or `I` from the mon
 
 | Function | Description |
 |---|---|
-| `ai.ask(question, [{n=5, ctx=word, kinds="api,howto"}])` | the best entries, the first the most likely: `{ {id=, title=, kind=, score=}, … }`, and as the second value the microseconds taken. `ctx`: the word under the cursor (if it is a function of the API, its entry goes to the top). `kinds`: `api`, `howto`, `error`, `tip`, `sprite` |
+| `ai.ask(question, [{n=5, ctx=word, kinds="api,howto"}])` | the best entries, the first the most likely: `{ {id=, title=, kind=, score=}, … }`, and as the second value the microseconds taken. Titles and texts are in the language of the answers (`ai.lang()`), which follows the question's. `ctx`: the word under the cursor (if it is a function of the API, its entry goes to the top). `kinds`: `api`, `howto`, `error`, `tip`, `sprite` |
 | `ai.entry(id)` | an entry: `{id, kind, title, name, text, code, gen, see = {id, …}}` |
 | `ai.list([kinds])` | all the entries `{id, title, kind}` (to browse them with the pad) |
+| `ai.lang([language])` | the language of the answers (R18): `"it"` or `"en"`, and whether it follows the questions (`true`); `"it"`/`"en"` fix it, `"auto"` makes it follow the language of each question again. It starts from `assist_lang` in `bm/config.txt` (`it`, `en`, `auto`: the default, from the language used last). In the panel Ctrl+E changes it; the language is on the title bar |
 | `ai.near(word)` | the name of the API closest to a misspelt word (`"sprr"` → `"spr"`, 1), or `nil` |
 | `ai.sprite(request, [{gen=, size=16, seed=1, outline=true, palette={…}}])` | the base of a sprite: `{w, h, gen, name, seed, px = {0xRRGGBB or -1 (transparent), …}}` row by row. The recipe comes from the words (`"slime"`, `"spaceship"`, `"coin"`, `"grass"`…) or from `gen`; the colours (`"red"`, `"blu"`…) and the size (`"8x8"`, `"32x32"`, `"small"`, `"big"`) from the words; another `seed` is a variant; with `palette` each pixel becomes the closest colour of the palette |
 | `ai.recipes()` | the sprites' recipes `{id, name}`; `ai.recipes("mesh")` the 3D ones `{id, name, rigged}` |
@@ -1121,10 +1146,10 @@ consoles, a player leaving; on the LAN and through the relay.
 - 60 fps = **16.7 ms** per frame for `_update` + `_draw` + the copy to the screen. At the
   top left of the demo, `stat(1)` shows how much the cartridge uses.
 - The **dev kit**: the performance overlay over any game, at the top right. It is turned on
-  from Settings > Screen and sound > "Performance overlay" (Off, Simple, Detailed: it stays
-  saved), with F11 on the keyboard (a system key, also in the tools; it was F3), with `p`
-  from the serial line or with `devkit(mode)` from the game: once the simple page, again
-  the detailed one, again off. F11, `p` and `devkit()` last one run: every game starts (and
+  from Settings > Screen and sound > "Performance overlay" (Off, Simple, Detailed,
+  Functions: it stays saved), with F11 on the keyboard (a system key, also in the tools; it
+  was F3), with `p` from the serial line or with `devkit(mode)` from the game: once the
+  simple page, again the detailed one, again the functions page, again off. F11, `p` and `devkit()` last one run: every game starts (and
   resumes) as Settings says. The simple page:
 
       60fps 6.1ms ^7.5      frames a second; ms of _update + _draw: average and,
@@ -1146,8 +1171,23 @@ consoles, a player leaving; on the LAN and through the relay.
       bm3d 2.1 GPU          the 3D driver (ARM, GPU, GPU+AA)
       quality HIGH          the game's lines (devinfo)
 
+  The **functions** page (R14) shows, under the simple one, the ten functions that cost
+  the most, in ms a frame, the average of the last second (60 frames):
+
+      function        self   all
+      draw_scene      2.28  6.43    a Lua function: its own time and with what it calls
+      map             0.94  0.94    in light blue the console's functions (spr, map, the 3D...)
+      _draw           0.03  7.70    the callbacks have their names
+
+  `self` is the function's own time, `all` the time with the functions it calls: a
+  function with a big `all` and a small `self` spends its time in the others. The console's
+  functions are measured exactly, the Lua ones in pieces of 1000 instructions (enough to see
+  where the time goes). The profiler runs only with this page or `profile(true)`; off it
+  costs nothing. From the code: `profile()` (below).
+
   On the big screens it is bigger (x2 from 1280 wide, x3 at 1920). From the code:
-  `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`, `devkit()`. The
+  `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`, `devkit()`,
+  `profile()`. The
   limit is 20 million instructions per call. The
   **SDK's dev kit** (F1 twice) has the same numbers for the project: tokens, the biggest
   functions, the data's memory, the file against the 8 MiB of a `.b16` and the numbers of

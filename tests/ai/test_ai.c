@@ -123,6 +123,32 @@ static void test_near(void)
     CHECK(!s, "near banana: %s", s ? s : "-");
 }
 
+/* R18: the answers in the question's language, every entry in English */
+static void test_lang(void)
+{
+    CHECK(ai_lang_of("come muovo il personaggio con le frecce") == AI_LANG_IT, "lang: Italian question");
+    CHECK(ai_lang_of("how do I move the player with the arrows") == AI_LANG_EN, "lang: English question");
+    CHECK(ai_lang_of("perch\xC3\xA9 lo sprite") == AI_LANG_IT, "lang: an accented letter");
+    CHECK(ai_lang_of("circfill") == -1 && ai_lang_of("") == -1, "lang: cannot say");
+    int missing = 0, n = ai_count();
+    for (int i = 0; i < n; i++) {
+        ai_entry_t e;
+        ai_get(i, &e);
+        if (e.kmask && (!e.title_en[0] || (e.text[0] && !e.text_en[0]))) {
+            if (missing++ < 5)
+                printf("  no English: %s\n", e.id);
+        }
+    }
+    CHECK(missing == 0, "every entry has its English (title_en, text_en): %d without", missing);
+    ai_entry_t e;
+    CHECK(ai_get(ai_find("spr"), &e) == 0, "the entry spr");
+    ai_set_lang(AI_LANG_EN, 0);
+    CHECK(ai_lang() == AI_LANG_EN && !ai_lang_follows(), "English, fixed");
+    CHECK(ai_title(&e) == e.title_en && ai_text(&e) == e.text_en, "English: title_en and text_en");
+    ai_set_lang(AI_LANG_IT, 1);
+    CHECK(ai_title(&e) == e.title && ai_text(&e) == e.text && ai_lang_follows(), "Italian: title and text");
+}
+
 static void test_speed(void)
 {
     ai_hit_t hits[5];
@@ -384,6 +410,7 @@ int main(int argc, char **argv)
     test_words();
     test_reference(argv[2]);
     test_near();
+    test_lang();
     test_speed();
     test_sprites();
     test_meshes();

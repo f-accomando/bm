@@ -3,6 +3,7 @@
 == bullets
 kind: howto
 title: Sparare dei proiettili
+title_en: Shooting bullets
 ask: come sparo | sparare proiettili | shoot bullets | il giocatore spara
 ask: lista di proiettili | colpi che si muovono | fire bullets | sparare con A
 ask: proiettili che spariscono fuori dallo schermo
@@ -13,6 +14,10 @@ text:
 Una tabella di proiettili: si aggiungono quando spari, si muovono a ogni
 fotogramma, si tolgono quando escono (scorrendo la lista all'indietro,
 così table.remove non salta nessuno).
+text_en:
+A table of bullets: you add them when you shoot, move them every frame and
+remove them when they go off the screen (walking the list backwards, so
+table.remove skips none).
 code:
 bullets = {}
 
@@ -34,12 +39,15 @@ end
 == cooldown
 kind: howto
 title: Fuoco continuo con una cadenza
+title_en: Continuous fire at a set rate
 ask: tenere premuto per sparare | cadenza di fuoco | fire rate | rateo
 ask: sparare ogni tot fotogrammi | ricarica dell'arma | cooldown | mitragliatrice
 keys: cadenza, ricarica, cooldown
 see: bullets, timer
 text:
 btn (tenuto) con un contatore: un colpo, poi aspetta qualche fotogramma.
+text_en:
+btn (held) with a counter: one shot, then wait a few frames.
 code:
 cool = math.max(0, (cool or 0) - 1)
 if btn(4) and cool == 0 then
@@ -51,6 +59,7 @@ end
 == enemies_list
 kind: howto
 title: Tanti nemici in una lista
+title_en: Many enemies in a list
 ask: tanti nemici | lista di nemici | gestire più nemici | multiple enemies
 ask: aggiungere e togliere nemici | ciclo sui nemici | enemy table | orde
 keys: nemici, lista, enemies
@@ -58,6 +67,9 @@ see: bullets_hit, chase, spawn_waves
 text:
 Ogni nemico è una tabella; tutti in una lista. Per toglierli mentre la
 scorri, scorrila all'indietro.
+text_en:
+Each enemy is a table; all of them go in a list. To remove them while you
+walk the list, walk it backwards.
 code:
 enemies = {}
 
@@ -76,6 +88,7 @@ end
 == bullets_hit
 kind: howto
 title: I proiettili colpiscono i nemici
+title_en: Bullets hit the enemies
 ask: proiettili che colpiscono i nemici | uccidere i nemici | bullet enemy collision
 ask: il colpo distrugge il nemico | punti quando colpisco | hit detection
 keys: colpire, distruggere, uccidere
@@ -83,6 +96,9 @@ see: bullets, enemies_list, collide_rect
 text:
 Per ogni proiettile, prova ogni nemico; al primo colpito il proiettile
 sparisce.
+text_en:
+For each bullet, test each enemy; at the first one hit the bullet
+disappears.
 code:
 for i = #bullets, 1, -1 do
   local b = bullets[i]
@@ -100,6 +116,7 @@ end
 == enemy_aim
 kind: howto
 title: Un nemico che spara verso il giocatore
+title_en: An enemy that shoots at the player
 ask: nemico che spara al giocatore | mirare al giocatore | enemy shoots at player
 ask: proiettile diretto verso il personaggio | aimed shot
 keys: mirare, nemico, spara
@@ -107,6 +124,9 @@ see: angle_to, bullets
 text:
 La direzione dal nemico al giocatore, divisa per la distanza, per la
 velocità del colpo.
+text_en:
+The direction from the enemy to the player, divided by the distance, times
+the speed of the shot.
 code:
 local dx, dy = px - e.x, py - e.y
 local d = math.max(1, math.sqrt(dx * dx + dy * dy))
@@ -116,12 +136,15 @@ ebullets[#ebullets + 1] = { x = e.x, y = e.y,
 == spawn_waves
 kind: howto
 title: Ondate di nemici
+title_en: Waves of enemies
 ask: ondate di nemici | livelli sempre più difficili | waves of enemies | difficoltà crescente
 ask: nuova ondata quando finiscono i nemici
 keys: ondate, difficolta, waves
 see: enemies_list, timer
 text:
 Quando la lista è vuota parte l'ondata successiva, con più nemici.
+text_en:
+When the list is empty the next wave starts, with more enemies.
 code:
 if #enemies == 0 then
   wave = wave + 1
@@ -133,6 +156,7 @@ end
 == particles
 kind: howto
 title: Particelle (esplosioni, scintille, fumo)
+title_en: Particles (explosions, sparks, smoke)
 ask: particelle | esplosione di particelle | scintille | particles effect | fumo
 ask: effetto quando un nemico muore | detriti | sangue | coriandoli
 ask: snippet per un effetto particelle | sprite particle effect | effetto particelle per uno sprite
@@ -140,6 +164,8 @@ keys: particelle, scintille, esplosione
 see: screen_shake, sfx_examples, lib.particles
 text:
 Tanti puntini con velocità a caso che vivono pochi fotogrammi.
+text_en:
+Lots of dots with random speeds that live a few frames.
 code:
 parts = {}
 
@@ -163,12 +189,15 @@ end
 == screen_shake
 kind: howto
 title: Far tremare lo schermo
+title_en: Shaking the screen
 ask: far tremare lo schermo | scossa | screen shake | terremoto | impatto forte
 ask: l'esplosione fa tremare tutto | vibrazione dello schermo
 keys: tremare, scossa, shake
 see: camera, particles, lib.camera
 text:
 Per qualche fotogramma sposta la camera a caso, sempre meno.
+text_en:
+For a few frames move the camera at random, less and less.
 code:
 shake = 10                            -- quando c'e' un'esplosione
 -- in _draw:
@@ -183,6 +212,7 @@ end
 == invincible
 kind: howto
 title: Invincibilità dopo un colpo (lampeggia)
+title_en: Invincibility after a hit (blinking)
 ask: invincibile dopo essere colpito | il giocatore lampeggia | invincibility frames
 ask: perdere una vita sola alla volta | i frame | danno una volta sola
 keys: invincibile, lampeggia, danno
@@ -190,6 +220,9 @@ see: blink, collide_rect
 text:
 Dopo un colpo, per un po' i nemici non fanno male; intanto lo sprite si
 disegna un fotogramma sì e uno no.
+text_en:
+After a hit, for a while the enemies do no harm; meanwhile the sprite is
+drawn every other frame.
 code:
 if hurt_t > 0 then hurt_t = hurt_t - 1 end
 if hit(player, enemy) and hurt_t == 0 then
@@ -202,12 +235,15 @@ if hurt_t == 0 or hurt_t % 4 < 2 then spr(1, px, py) end
 == health_bar
 kind: howto
 title: Barra dell'energia
+title_en: Health bar
 ask: barra della vita | barra dell'energia | health bar | punti vita sullo schermo
 ask: barra del boss | hp bar | indicatore di salute
 keys: barra, energia, vita
 see: hud
 text:
 Un rettangolo pieno lungo in proporzione alla vita, sopra uno scuro.
+text_en:
+A filled rectangle as long as the health, in proportion, over a dark one.
 code:
 local w = 100
 rectfill(8, 8, w, 8, 0x402020)
@@ -217,6 +253,7 @@ rect(7, 7, w + 2, 10, 0xFFFFFF)
 == hitbox_frames
 kind: howto
 title: Hitbox per fotogramma da uno sprite animato (picchiaduro)
+title_en: Per-frame hitboxes from an animated sprite (fighting game)
 ask: hitbox che cambiano con l'animazione | il pugno colpisce solo in un fotogramma
 ask: hitbox per ogni fotogramma | frame by frame hitboxes | attacco con fotogrammi attivi
 ask: hurtbox che seguono lo sprite | riquadri dei colpi disegnati nello sheet
@@ -227,6 +264,11 @@ Nel file delle zone (mkbm.py --sprites) sotto la zona: "hurt * x y w h"
 per tutti i fotogrammi, "hit 3 x y w h" per il fotogramma attivo. Nel
 gioco H:zone mette nel mondo quelli del fotogramma disegnato, specchiati
 se guarda a sinistra; l'id dell'attacco fa colpire una volta.
+text_en:
+In the zones file (mkbm.py --sprites), under the zone: "hurt * x y w h"
+for all the frames, "hit 3 x y w h" for the active frame. In the game
+H:zone puts into the world the boxes of the frame drawn, mirrored if it
+faces left; the id of the attack makes it hit once.
 code:
 H:clear()
 H:zone(p1, "pugno", p1.frame, p1.x, p1.y, p1.face < 0,

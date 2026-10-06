@@ -11,10 +11,10 @@
 #include <math.h>
 #include <string.h>
 
-#define AI_VERSION      1
+#define AI_VERSION      2       /* 2: the English title and text (R18) */
 #define MAX_ENTRIES     1024
 #define MAX_HID         256
-#define NFIELDS         9
+#define NFIELDS         11
 
 static struct {
     int open;
@@ -151,8 +151,84 @@ int ai_get(int i, ai_entry_t *e)
     e->gen = ai.strs + f[6];
     e->see = ai.strs + f[7];
     e->keys = ai.strs + f[8];
+    e->title_en = ai.strs + f[9];
+    e->text_en = ai.strs + f[10];
     e->kmask = ai.kmask[i];
     return 0;
+}
+
+/* ---------------------------------------------------------------- the language (R18) */
+
+static int lang;                /* AI_LANG_IT, AI_LANG_EN */
+static int lang_auto = 1;       /* the answers follow the question's language */
+
+void ai_set_lang(int l, int follow)
+{
+    lang = l == AI_LANG_EN ? AI_LANG_EN : AI_LANG_IT;
+    lang_auto = follow != 0;
+}
+
+int ai_lang(void) { return lang; }
+int ai_lang_follows(void) { return lang_auto; }
+
+const char *ai_title(const ai_entry_t *e)
+{
+    return lang == AI_LANG_EN && e->title_en && e->title_en[0] ? e->title_en : e->title;
+}
+
+const char *ai_text(const ai_entry_t *e)
+{
+    return lang == AI_LANG_EN && e->text_en && e->text_en[0] ? e->text_en : e->text;
+}
+
+/* words only one of the two languages has (the questions are short: a few
+ * of these decide) */
+static const char *const words_it[] = {
+    "come", "il", "lo", "la", "le", "gli", "un", "una", "uno", "che", "non", "di", "del", "della",
+    "dei", "nel", "nella", "per", "con", "su", "sono", "voglio", "fare", "faccio", "posso", "si",
+    "cosa", "perche", "quando", "dove", "quale", "mio", "mia", "gioco", "giocatore", "schermo",
+    "disegnare", "muovere", "suono", "nemico", "nemici", "salvare", "mettere", "metto", "sulla",
+    "alla", "dal", "dalla", "tra", "fra", "anche", "piu", "meno", "ogni", "questo", "questa", NULL,
+};
+static const char *const words_en[] = {
+    "how", "the", "an", "to", "of", "with", "my", "what", "why", "when", "where",
+    "which", "does", "can", "make", "is", "are", "it", "on", "for", "from", "game",
+    "player", "screen", "draw", "move", "sound", "enemy", "enemies", "save", "put", "and", "this",
+    "that", "each", "every", "more", "less", "want", "show", "use", "get", "set", NULL,
+};
+
+static int lang_word(const char *w, size_t n, const char *const *list)
+{
+    for (int i = 0; list[i]; i++)
+        if (strlen(list[i]) == n && !strncmp(list[i], w, n))
+            return 1;
+    return 0;
+}
+
+int ai_lang_of(const char *q)
+{
+    int it = 0, en = 0;
+    for (const char *p = q; p && *p;) {
+        while (*p && !((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (unsigned char)*p >= 0x80))
+            p++;
+        const char *w = p;
+        char low[16];
+        size_t n = 0;
+        while (*p && ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (unsigned char)*p >= 0x80)) {
+            if ((unsigned char)*p >= 0x80)
+                it++;                   /* an accented letter: Italian */
+            if (n < sizeof low - 1)
+                low[n++] = (char)(*p >= 'A' && *p <= 'Z' ? *p + 32 : *p);
+            p++;
+        }
+        if (p == w)
+            break;
+        if (n >= sizeof low - 1)
+            continue;
+        it += lang_word(low, n, words_it);
+        en += lang_word(low, n, words_en);
+    }
+    return it > en ? AI_LANG_IT : en > it ? AI_LANG_EN : -1;
 }
 
 int ai_find(const char *id)

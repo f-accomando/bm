@@ -16,6 +16,7 @@ local FONTS = { "6x12", "8x14", "8x16" }
 local C_BG, C_PANE, C_BAR, C_LINE = 0x0E1016, 0x14161E, 0x22273A, 0x343B54
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_OK = 0xE0E4F0, 0x6A7290, 0xFFC050, 0xFF6464, 0x70E090
 local C_SEL, C_CUR, C_ERRBG, C_GUT, C_GUTCUR = 0x2E4A8A, 0x1C2131, 0x4A1C24, 0x485068, 0xA8B0C8
+local C_BP = 0xA02C34                      -- a breakpoint's line number (F8)
 local C_KW, C_API, C_STR, C_NUM, C_COM = 0xFF7AB0, 0x70D0FF, 0x90E070, 0xFFB060, 0x6A7690
 
 local TEMPLATE = [[
@@ -41,7 +42,7 @@ end
 
 ------------------------------------------------------------------ state
 
-local tabs = {}               -- {path, name, title, author, res, lines, dirty, undo, redo, err}
+local tabs = {}               -- {path, name, title, author, res, lines, dirty, undo, redo, err, breaks}
 local panes = { { tab = 1, views = {} }, { tab = 1, views = {} } }
 local focus, split = 1, false
 local font_i = 1
@@ -125,6 +126,43 @@ local function clamp(t, v)
   v.cx = math.max(0, math.min(#t.lines[v.cy], v.cx))
 end
 
+------------------------------------------------------------------ breakpoints
+
+-- the debugger (R13): F8 marks a line, F5 runs the game, which stops there
+-- (the kernel's debugger, cart_run(path, {breaks =, stop =}))
+local function bp_list(t)
+  local out = {}
+  for l in pairs(t.breaks or {}) do
+    if l <= #t.lines then out[#out + 1] = l end
+  end
+  table.sort(out)
+  return out
+end
+
+-- d lines inserted (or removed) after line `at`: the breakpoints below
+-- follow their lines; those of the lines removed go
+local function bp_shift(t, at, d)
+  if not t.breaks or not next(t.breaks) then return end
+  local nb = {}
+  for l in pairs(t.breaks) do
+    if l <= at then nb[l] = true
+    elseif d > 0 or l > at - d then nb[l + d] = true end
+  end
+  t.breaks = nb
+end
+
+local function toggle_break(t, v)
+  t.breaks = t.breaks or {}
+  if t.breaks[v.cy] then
+    t.breaks[v.cy] = nil
+    say("breakpoint off: line " .. v.cy)
+  else
+    t.breaks[v.cy] = true
+    say("breakpoint on line " .. v.cy .. ": F5 runs the game, it stops there", C_ACC)
+  end
+  log("code: breakpoints " .. (next(t.breaks) and table.concat(bp_list(t), " ") or "none"))
+end
+
 ------------------------------------------------------------------ undo
 
 local function snapshot(t, v, kind)
@@ -189,6 +227,7 @@ local function save_session()
   local budget = 16000
   for i, t in ipairs(tabs) do
     local e = { path = t.path, title = t.title, author = t.author, res = t.res }
+    if t.breaks and next(t.breaks) then e.breaks = bp_list(t) end
     if not t.path or t.dirty then
       local txt = text_of(t)
       if #txt <= budget then e.text, budget = txt, budget - #txt end
@@ -212,12 +251,17 @@ local function load_session()
   set_font(s.font or 1)
   if s.complete then complete_on, words_lang = s.complete.on ~= false, s.complete.lang or 1 end
   for _, e in ipairs(s.tabs or {}) do
+    local i
     if e.text then
-      local i = new_tab(e.path, e.text, e)
+      i = new_tab(e.path, e.text, e)
       tabs[i].dirty = e.dirty or false
     elseif e.path then
       local c = cart_read(e.path)
-      if c then new_tab(e.path, c.lua, c) end
+      if c then i = new_tab(e.path, c.lua, c) end
+    end
+    if i and e.breaks then
+      tabs[i].breaks = {}
+      for _, l in ipairs(e.breaks) do tabs[i].breaks[l] = true end
     end
   end
   if #tabs == 0 then return false end
@@ -504,7 +548,7 @@ end
 
 ------------------------------------------------------------------ actions
 
-local function run_game()
+local function run_game(stop)
   local t = current()
   if not t.path then say("save it first (Esc, Save as)", C_ERR); return end
   for _, o in ipairs(tabs) do
@@ -515,8 +559,10 @@ local function run_game()
   end
   t.err = nil
   save_session()
-  log("code: run " .. t.path)
-  cart_run(t.path)
+  local breaks = bp_list(t)
+  log("code: run " .. t.path .. (#breaks > 0 and " (breakpoints " .. table.concat(breaks, " ") .. ")" or "")
+      .. (stop and ", stopping at the first line" or ""))
+  cart_run(t.path, { breaks = breaks, stop = stop })
 end
 
 -- opened by the bm SDK on a file: the way back to it (the tabs saved first)
@@ -659,6 +705,7 @@ end
 local MENU = {
   { "New cartridge", "Ctrl+N" }, { "Open...", "Ctrl+O" }, { "Save", "Ctrl+S" },
   { "Save as...", "Ctrl+Shift+S" }, { "Close tab", "Ctrl+W" }, { "Run the game", "F5" },
+  { "Breakpoint", "F8" }, { "Debug from the start", "" }, { "Clear breakpoints", "" },
   { "Split screen", "F4" }, { "Font size", "F10" }, { "Find", "Ctrl+F" },
   { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
   { "Explain the error", "F9" }, { "Word completion", "" }, { "Words in comments", "" },
@@ -685,6 +732,11 @@ local function menu_choose(name)
   elseif name == "Save as..." then save_as(t)
   elseif name == "Close tab" then ask_close(panes[focus].tab)
   elseif name == "Run the game" then run_game()
+  elseif name == "Breakpoint" then toggle_break(t, v)
+  elseif name == "Debug from the start" then run_game(true)
+  elseif name == "Clear breakpoints" then
+    t.breaks = nil
+    say("no breakpoints")
   elseif name == "Split screen" then do_command("f4")
   elseif name == "Font size" then do_command("f10")
   elseif name == "Find" then do_command("^f")
@@ -728,6 +780,7 @@ do_command = function(k)
     set_font(font_i + 1)
     say("font " .. FONTS[font_i])
   elseif k == "f5" or k == "^r" then run_game()
+  elseif k == "f8" then toggle_break(t, v)
   elseif k == "f6" then open_assistant(t, v)
   elseif k == "f9" then explain_error(t, v)
   -- the system's keys (the kernel's syskeys.c)
@@ -990,7 +1043,12 @@ function _init()
   if a and a.path then
     if not find_tab(a.path) then open_file(a.path) end
     show_tab(find_tab(a.path) or 1)
-    if a.error then
+    if a.error and a.error:find("stopped in the debugger", 1, true) then
+      local t, v = current()
+      local line = tonumber(a.error:match("main%.lua:(%d+):"))
+      if line then v.cy, v.cx = line, 0; clamp(t, v) end
+      say("stopped in the debugger" .. (line and " at line " .. line or ""), C_ACC, 600)
+    elseif a.error then
       local t, v = current()
       local line = tonumber(a.error:match("main%.lua:(%d+):"))
       t.err = { line = line, msg = a.error }
@@ -1049,6 +1107,23 @@ function _update()
       end
     else
       pad()
+    end
+  end
+end
+
+-- lines inserted or removed in a frame (keys, the pad, the assistant, undo):
+-- the tab's breakpoints follow them
+do
+  local body = _update
+  function _update()
+    local t, v = current()
+    local n0, cy0, cx0 = #t.lines, v.cy, v.cx
+    body()
+    local d = #t.lines - n0
+    if d ~= 0 and t.breaks then
+      local at = math.min(cy0, v.cy)
+      if d > 0 and cx0 == 0 and v.cy == cy0 + d then at = cy0 - 1 end   -- Enter at the start: the line went down
+      bp_shift(t, at, d)
     end
   end
 end
@@ -1135,7 +1210,9 @@ local function draw_pane(p, c0, ncols, r0, nrows)
       if b > a then rectfill(tx + (a - v.left) * CW, y, (b - a) * CW, CH, C_SEL) end
     end
     local num = tostring(i)
-    print(string.rep(" ", digits - #num) .. num, x0, y, i == v.cy and C_GUTCUR or C_GUT)
+    local bp = t.breaks and t.breaks[i]
+    if bp then rectfill(x0, y, digits * CW, CH, C_BP) end
+    print(string.rep(" ", digits - #num) .. num, x0, y, bp and C_TEXT or i == v.cy and C_GUTCUR or C_GUT)
     local c = active and i == v.cy and comp_here(t, v)
     if c then l = l:sub(1, v.cx) .. c.rest .. l:sub(v.cx + 1) end
     if entry_request(l) then
@@ -1272,6 +1349,7 @@ local KEYHELP = {
   { "f7", "the other page" },
   { "f10", "font 6x12 / 8x14 / 8x16" },
   { "f9", "explain the game's error" },
+  { "f8", "breakpoint: the game stops on the line" },
   { "ctrl b", "start a selection" },
   { "ctrl k / ctrl d", "cut / duplicate the line" },
   { "tab / ctrl u", "indent / unindent" },
@@ -1291,6 +1369,8 @@ local KEYHELP = {
 local HELP = {
   "Files", "Ctrl+N new cartridge", "Ctrl+O open", "Ctrl+S save", "Ctrl+Shift+S save as",
   "Ctrl+W close tab", "F5 / Ctrl+R run, then back here", "",
+  "Debugger", "F8 breakpoint on the line (F5 stops there)", "  then F10 next, F8 into, Shift+F8 out,",
+  "  F5 go on, Esc stop; the arrows: variables", "",
   "Tabs and pages", "Ctrl+T new empty tab", "F2 / F3 previous / next tab", "F4 two pages side by side",
   "F7 the other page", "F10 font 6x12 / 8x14 / 8x16", "",
   "Editing", "Ctrl+Z undo, Ctrl+Y redo", "Ctrl+B start a selection", "Ctrl+C copy, Ctrl+X cut",

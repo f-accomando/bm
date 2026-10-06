@@ -1104,7 +1104,7 @@ def test_online_leave(b, opts):
 
 SAVER_CART = r"""
 local n = 0
-function _init() save({ n = 1 }) log("saver start") end
+function _init() save({ n = 1 }) save({ level = 2 }, 2) log("saver start") end
 function _update() n = n + 1 end
 function _draw() cls(0x203040) print("frame " .. n, 8, 8, 0xFFFFFF) end
 """
@@ -1166,6 +1166,7 @@ def test_home_ui(b, opts):
         shot("options")
         keys("ww")                              # up from the first row: the last ones
         screen(["Delete the save data", "Records and progress start again"])
+        screen(["Save data", "bytes in 2 slots"])     # save(t) and save(t, 2): R12
         keys("\r")
         screen(["Delete the save data?", "Delete", "Cancel"])
         shot("ask")
@@ -1245,12 +1246,14 @@ def test_home_ui(b, opts):
         screen(["Settings > Screen and sound", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
                 "3D anti-aliasing", "Off",      # QEMU has no V3D; no anti-aliasing unless asked
                 "3D vertices"])                 # nor the vertex shader (M36)
-        keys("sssss")                           # the dev kit's overlay: simple, detailed, off again
-        screen(["< Off >", "fps, ms, Lua instructions"])
+        keys("sssss")                           # the dev kit's overlay: simple, detailed, functions, off again
+        screen(["< Off >", "fps, ms, Lua, costliest functions (F11 too)"])
         keys("\r")
         screen(["< Simple >", "performance overlay: Simple"])
         keys("\r")
         screen(["< Detailed >", "performance overlay: Detailed"])
+        keys("\r")
+        screen(["< Functions >", "performance overlay: Function"])   # (the note ends at the hints)
         keys("\r")
         screen(["< Off >", "performance overlay: Off"])
         keys("s")                               # the volume: left/right, saved
@@ -1335,7 +1338,7 @@ def test_home_ui(b, opts):
         assert "saver" in carts.lower() and "cancellare" not in carts, carts
         saves = subprocess.run(["mdir", "-i", part, "::/BM/SAVE"], capture_output=True,
                                text=True, env=env).stdout
-        assert not re.search(r"^[0-9A-F]{8}\s+SAV", saves, re.M), saves
+        assert not re.search(r"^[0-9A-F]{8}\s+(SAV|S02)", saves, re.M), saves
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -4251,7 +4254,7 @@ def test_yharnam(b, opts):
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-controls.png"))
         # the dev kit: the performance overlay ('p' from the serial line, F11 on a
-        # keyboard): simple, detailed (the frame's phases), off
+        # keyboard): simple, detailed (the frame's phases), functions, off
         q.send("p")
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
@@ -4265,6 +4268,16 @@ def test_yharnam(b, opts):
         assert any("update" in l and "ms" in l for l in text) and any("draw" in l for l in text), "\n".join(text)
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-perf-detailed.png"))
+        q.send("p")                             # functions (R14): its map() is always among them
+        for _ in range(12):
+            time.sleep(0.5)
+            text = screen_text(box(q.screendump()))
+            if any(re.search(r"\bmap +\d+\.\d+ +\d+\.\d+", l) for l in text):
+                break
+        assert any("function" in l and "self" in l for l in text), "\n".join(text)
+        assert any(re.search(r"\bmap +\d+\.\d+ +\d+\.\d+", l) for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-perf-functions.png"))
         q.send("p")
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
@@ -5475,7 +5488,8 @@ def test_square_lights(b, opts):
     """A 256x256 cartridge: shown in the middle of a 480x270 screen, black
     round it; the light by levels (fades, dark_begin, glow, dark_end): the
     lamp's middle as drawn, its edge dark; L1 from the serial line ('u');
-    the dev kit's performance overlay ('p' from the serial line, F3)"""
+    the dev kit's performance overlay ('p' from the serial line, F11): simple,
+    detailed, functions, off"""
     BX, BY = 112, 7                             # the 256x256 box in the 480x270 screen
 
     def box(img):
@@ -5518,6 +5532,16 @@ def test_square_lights(b, opts):
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
         assert any("update" in l for l in text) and any("draw" in l for l in text), "\n".join(text)
+        q.send("p")                             # functions (R14): the costliest of the last second
+        for _ in range(12):
+            time.sleep(0.5)
+            text = screen_text(box(q.screendump()))
+            if any("_draw" in l for l in text):
+                break
+        assert any("function" in l and "self" in l and "all" in l for l in text), "\n".join(text)
+        assert any("_draw" in l for l in text) and any("glow" in l for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "square-functions.png"))
         q.send("p")                             # off
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
@@ -6535,6 +6559,108 @@ def test_assistant(b, opts):
         assert "error" not in out, out
     finally:
         q.close()
+
+
+DEBUG_CART = r"""local n = 0
+function add(a, b)
+  local s = a + b
+  return s
+end
+function _update()
+  n = add(n, 1)
+  if n == 30 then breakpoint("thirty") end
+end
+function _draw()
+  cls(0x102030)
+  print("n " .. n, 8, 8, 0xFFFFFF)
+end
+"""
+
+
+def test_debugger(b, opts):
+    """R13, the debugger: in bm Code F8 puts a breakpoint on line 3, F5 runs
+    the game, which stops there (the code, the variables a and b, the stack
+    add < _update); A the next line (s = 1), Y out of add (back in
+    _update), Start goes on to the breakpoint again, Select stops the game
+    and bm Code comes back on the line; then without breakpoints
+    breakpoint("thirty") stops it at n = 30 (an upvalue), Start goes on."""
+    tmp = tempfile.mkdtemp(prefix="bm-debug-")
+    img = os.path.join(tmp, "sd.img")
+    cart = os.path.join(tmp, "dbg.bm")
+    with open(cart, "wb") as f:
+        f.write(mkbm.pack(DEBUG_CART.encode(), title="debug me", author="tests"))
+    mksd.build(img, [(cart, "carts/DBG.BM")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def k(s, gap=0.04):
+        for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
+            q.send(c)
+            time.sleep(gap)
+
+    def expect(needle, timeout=20):
+        return q.expect(needle, timeout=timeout).decode(errors="replace")
+
+    def see(words, font=(8, 16), tries=40):
+        text = []
+        for _ in range(tries):
+            text = screen_text(q.screendump(), *font)
+            if all(any(w in l for l in text) for w in words):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+
+    try:
+        q.boot()
+        k("C")
+        expect("code: ready")
+        time.sleep(0.5)
+        k("\x0f", 0.5)                                     # Ctrl+O: the files
+        k("\r")
+        expect("code: opened /carts/DBG.BM")
+        k("\x0c")                                          # Ctrl+L: line 3
+        k("3\r", 0.1)
+        k("\x1b[19~", 0.3)                                 # F8: a breakpoint
+        expect("code: breakpoints 3")
+        see(["breakpoint on line 3"], (6, 12))
+        k("\x1b[15~")                                      # F5: run
+        expect("code: run /carts/DBG.BM (breakpoints 3)")
+        out = expect("debug: breakpoint at main.lua:3 in add")
+        out += expect("debug:   b = 1")
+        assert "debug:   a = 0" in out, out
+        text = see(["DEBUG", "main.lua:3", "variables of add", "a = 0", "b = 1", "stack", "add  3", "_update  7"])
+        assert any(l.startswith(">*   3   local s = a + b") for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "debugger.png"))
+        k("j")                                              # A: the next line
+        out = expect("debug: step at main.lua:4 in add")
+        out += expect("debug:   s = 1")
+        k("v")                                              # Y: out of add
+        expect("debug: step at main.lua:8 in _update")
+        see(["variables of _update", "n = 1", "_update  8"])   # n: an upvalue, in blue
+        k("\r")                                            # Start: go on, to the breakpoint again
+        expect("debug: go on")
+        out = expect("debug: breakpoint at main.lua:3 in add")
+        out += expect("debug:   b = 1")
+        assert "debug:   a = 1" in out, out
+        k("\t")                                            # Select: stop the game
+        expect("debug: stopped at main.lua:3")
+        expect("code: ready", timeout=30)
+        text = see(["stopped in the debugger at line 3"], (6, 12))
+        k("\x1b[19~", 0.3)                                 # F8 on line 3 again: off
+        expect("code: breakpoints none")
+        k("\x1b[15~")                                      # F5: breakpoint("thirty") stops it
+        expect("code: run /carts/DBG.BM")
+        out = expect("debug: thirty at main.lua:8 in _update")
+        out += expect("debug:   ^n = 30")
+        see(["DEBUG", "thirty", "n = 30"])
+        k("\r")                                            # Start: go on
+        expect("debug: go on")
+        time.sleep(0.5)
+        k("q")
+        expect("code: ready", timeout=30)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_code_editor(b, opts):

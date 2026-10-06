@@ -4,6 +4,7 @@
 kind: api
 name: bmnet
 title: require "bmnet" - giochi in rete: lobby, messaggi, lockstep
+title_en: require "bmnet" - network games: lobby, messages, lockstep
 ask: libreria per giocare in rete | multiplayer online | gioco in rete tra console
 ask: network multiplayer library | online game between consoles | bmnet
 ask: giocare con un amico su un'altra console | lan multiplayer | partita in rete
@@ -14,6 +15,12 @@ Le console si trovano sulla LAN (o su internet con un relay), una ospita
 e le altre entrano, si mandano messaggi (persi o sicuri e in ordine); le
 partite d'azione vanno in lockstep: ogni console fa girare tutto e
 viaggiano solo gli input. net.update() a ogni fotogramma dà gli eventi.
+text_en:
+The consoles find each other on the LAN (or over the internet with a
+relay), one hosts and the others join, they send each other messages
+(that may be lost, or sure and in order); action games run in lockstep:
+every console runs everything and only the inputs travel. net.update()
+every frame gives the events.
 code:
 local net = require "bmnet"
 function _init()
@@ -24,6 +31,7 @@ end
 kind: api
 name: net.open
 title: net.open(o) / net.close() - aprire e chiudere la rete (bmnet)
+title_en: net.open(o) / net.close() - opening and closing the network (bmnet)
 ask: aprire la rete | connettersi | relay su internet | giocare su internet | stanza del relay
 ask: open the network | play over the internet | chiudere la connessione
 keys: open, relay, stanza, internet
@@ -33,6 +41,11 @@ o.game (4 lettere: i pacchetti degli altri giochi non si vedono), o.relay
 ("nome:porta", tools/overbit_relay.py: su internet; senza, la LAN),
 o.room (4 lettere), o.name. true, o false e il perché (niente rete).
 net.close() avvisa gli altri e chiude.
+text_en:
+o.game (4 letters: the packets of other games are not seen), o.relay
+("name:port", tools/overbit_relay.py: over the internet; without it,
+the LAN), o.room (4 letters), o.name. Returns true, or false and why
+(no network). net.close() tells the others and closes.
 code:
 local ok, why = net.open({ game = "MYG1", relay = "relay.example.org" })
 if not ok then msg = why end
@@ -42,6 +55,7 @@ function _leave() net.close() end
 kind: api
 name: net.host
 title: net.host(o) / net.hosts() / net.join(id) - ospitare o entrare (bmnet)
+title_en: net.host(o) / net.hosts() / net.join(id) - hosting or joining (bmnet)
 ask: ospitare una partita | entrare in una partita | elenco delle partite trovate
 ask: host a match | join a match | lobby online | cercare partite sulla lan
 keys: ospitare, entrare, host, join
@@ -50,6 +64,10 @@ text:
 net.host{max, info} ospita (posto 1); net.hosts() le partite trovate
 {id, name, players, max, info}; net.join(id) chiede un posto (evento
 "joined"). net.peers() chi c'è, con il posto.
+text_en:
+net.host{max, info} hosts (seat 1); net.hosts() the matches found
+{id, name, players, max, info}; net.join(id) asks for a seat (event
+"joined"). net.peers() who is there, with their seat.
 code:
 if btnp("a") then net.host({ max = 4, info = "mappa 1" }) end
 local list = net.hosts()
@@ -59,12 +77,17 @@ if #list > 0 and btnp("b") then net.join(list[1].id) end
 kind: api
 name: net.update
 title: net.update() - gli eventi della rete (bmnet)
+title_en: net.update() - the network events (bmnet)
 ask: eventi della rete | un giocatore è entrato | arriva un messaggio | network events
 ask: il giocatore si è disconnesso | la partita comincia | net update
 keys: eventi, update
 see: net.host, net.post, net.start
 text:
 Una volta in _update: legge i pacchetti e dà gli eventi del fotogramma
+{type = ...}: join, leave, joined, refused, start (seed, seat, seats,
+data), msg (from, data, sure), lost, desync, error.
+text_en:
+Once in _update: it reads the packets and gives the frame's events
 {type = ...}: join, leave, joined, refused, start (seed, seat, seats,
 data), msg (from, data, sure), lost, desync, error.
 code:
@@ -77,6 +100,7 @@ end
 kind: api
 name: net.start
 title: net.start(o) - chi ospita comincia la partita (bmnet)
+title_en: net.start(o) - the host starts the match (bmnet)
 ask: cominciare la partita online | stesso seme per tutti | start the match
 ask: opzioni della partita a tutti | seed della partita
 keys: start, cominciare, seme
@@ -85,6 +109,11 @@ text:
 Solo chi ospita: o.seed (lo stesso caso per tutti), o.delay (fotogrammi
 tra un tasto e il suo fotogramma: 4 sulla LAN, 7 col relay), o.data
 (una stringa per tutti). Tutti ricevono l'evento "start".
+text_en:
+Only the host: o.seed (the same random numbers for everybody), o.delay
+(frames between a key press and its frame: 4 on the LAN, 7 with the
+relay), o.data (a string for everybody). Everybody gets the event
+"start".
 code:
 if net.is_host and btnp("start") then
   net.start({ data = "mappa=2" })
@@ -94,6 +123,7 @@ end
 kind: api
 name: net.frames
 title: net.input(v) e net.frames() - il lockstep (bmnet)
+title_en: net.input(v) and net.frames() - the lockstep (bmnet)
 ask: lockstep | stesso gioco su tutte le console | mandare i tasti in rete
 ask: sincronizzare la partita | input in rete | deterministic multiplayer
 keys: lockstep, input, frames, sincronizzare
@@ -103,6 +133,12 @@ net.input(v) il mio input (32 bit: net.pad(1) per tasti e levetta),
 poi per ogni fotogramma pronto inputs[posto] (false: è uscito). Il
 gioco dipende solo da quelli e dal seme: lib.rng, mai math.random.
 net.unpad(v) e net.held(v, "a") leggono un input.
+text_en:
+net.input(v) my input (32 bits: net.pad(1) for the buttons and the
+stick), then for every frame that is ready inputs[seat] (false: that
+player has left). The game depends only on these and on the seed:
+lib.rng, never math.random. net.unpad(v) and net.held(v, "a") read an
+input.
 code:
 net.input(net.pad(1))
 for _, inputs in net.frames() do
@@ -115,6 +151,7 @@ end
 kind: api
 name: net.post
 title: net.post(dati) / net.send(dati) - messaggi in rete (bmnet)
+title_en: net.post(data) / net.send(data) - messages over the network (bmnet)
 ask: mandare un messaggio | chat in rete | messaggio sicuro | send a message to players
 ask: gioco a turni in rete | la mossa all'altro giocatore | messages over the network
 keys: messaggio, chat, post, send
@@ -123,6 +160,10 @@ text:
 net.post(s, [a]) un messaggio sicuro: arriva, e nell'ordine (turni,
 chat, scelte). net.send(s, [a]) uno che si può perdere (posizioni). A
 tutti o all'id a; al più 900 byte; arrivano come eventi "msg".
+text_en:
+net.post(s, [a]) a sure message: it arrives, and in order (turns, chat,
+choices). net.send(s, [a]) one that may be lost (positions). To
+everybody or to id a; at most 900 bytes; they arrive as "msg" events.
 code:
 net.post("move " .. col .. " " .. row)
 for _, e in ipairs(net.update()) do
@@ -133,6 +174,7 @@ end
 kind: api
 name: net.check
 title: net.check(hash) - le console fanno la stessa partita? (bmnet)
+title_en: net.check(hash) - are the consoles playing the same match? (bmnet)
 ask: desync | le console non sono uguali | controllare la sincronia | check desync
 ask: la partita va diversa sulle due console
 keys: desync, hash, check
@@ -141,6 +183,10 @@ text:
 Un numero che riassume il gioco dopo il fotogramma (posizioni,
 punteggi): le console lo confrontano, una differenza è l'evento
 "desync". Ogni secondo basta.
+text_en:
+A number that sums up the game after the frame (positions, scores): the
+consoles compare it, and a difference is the event "desync". Once a
+second is enough.
 code:
 if net.frame % 60 == 0 then
   net.check(score * 1000 + math.floor(px))

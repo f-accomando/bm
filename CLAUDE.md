@@ -55,7 +55,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   richiesta dell'utente: quello di Overbit è tolto): F11 una volta la pagina semplice, di nuovo
   quella **dettagliata** (ms di tutti gli `_update` e quanti, `_draw`, 3D, GPU e lavori o pixel
   dell'ARM, triangoli e vertici, driver bm3d, le righe del gioco con `devinfo()`), di nuovo
-  spento; ×2 da 1280 di larghezza, ×3 a 1920. `devkit([modo])` lo legge e lo cambia dal gioco
+  quella delle **funzioni** (R14, 2026-10-06: le dieci più care dell'ultimo secondo, ms per
+  fotogramma `self` e `all`; `src/bm/profile.c`: l'hook di conteggio e `luai_cprof`, un test
+  in `precallC` di `third_party/lua/ldo.c` attorno a ogni funzione C; `profile()` dal gioco;
+  prove `make test-profile`, QEMU `test_square_lights`), di nuovo spento; ×2 da 1280 di larghezza, ×3 a 1920. `devkit([modo])` lo legge e lo cambia dal gioco
   (Overbit: Select, Tab, F1); F11, `p` e `devkit()` valgono per la partita, ogni gioco parte e
   riprende come dice Settings (`perf_user`, prova QEMU `test_devkit_per_run`). Settings > Screen and sound > "Performance overlay" Off / Simple /
   Detailed (config `perf` 0/1/2), F11 (tasto di sistema, anche nelle app; era F3), `p` dalla
@@ -85,6 +88,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `i` scrive il codice), Esc menu; Ctrl+N i modelli di gioco (`TEMPLATES`: codice, sprite e
   mappa); F6 l'assistente nel modo della pagina (`guide` sul progetto, il modello dell'
   assistente entra in MESH/ANIM). Salva con `cart_save` (nome 8.3).
+- **Debugger** (R13, 2026-10-06): un gioco provato da uno strumento con `cart_run(path, {breaks
+  =, stop =})` è una sessione (`dbg_begin`, `dbg_line`, `dbg_pause` in `runtime.c`: l'hook
+  delle righe solo con righe o un passo da fare, la pausa dentro l'hook sopra lo schermo del
+  gioco, poi rimesso); F8 in bm Code (`t.breaks`, `bp_shift`), `breakpoint()` nei giochi;
+  fermare finisce il gioco con `main.lua:N: stopped in the debugger`. Prova QEMU
+  `test_debugger` (dalla seriale nella pausa: `j` riga dopo, `c` dentro, `v` fuori, Invio
+  continua, Tab ferma).
 - `cart_arg().from` è lo strumento che ha aperto quello corrente: bm Code, Pixel, Studio,
   Animator, Mesh e Sound aperti dall'SDK hanno *Back to bm SDK* nel menu (solo allora: i
   menu dei test restano come prima).
@@ -193,6 +203,9 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   lobby, `net.send`/`net.post`, lockstep `net.input`/`net.frames`, `net.check`); gli eventi
   arrivano da `net.update()` (anche quello di `net.start` di chi ospita, al giro dopo). Le
   regole del lockstep sono quelle di Overbit (sezione *Overbit*, "Rete").
+- **Salvataggi** (R12, 2026-10-06): 8 slot per cartuccia (`save(t, slot)`, `saved(slot)`,
+  `saves()`, `delsave(slot)`); lo slot 1 è `XXXXXXXX.SAV` di prima, gli altri `.S02`–`.S08`
+  (`bm_save_slot`); il menu li conta e li cancella tutti insieme (`save_size` in `carts.c`).
 - Modelli dell'SDK (`TEMPLATES` in `carts/editor/main.lua`): Platform, Top-down e Shooter
   con bmlib e `fset` nel `paint`; Versus 2D e Online 2D. `tests/studio/sdk_host.lua` li
   compila e li fa girare sugli stand-in (bmnet senza rete).
@@ -773,6 +786,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `write_cart`. Qui non si provano i backend veri (niente GPU, huggingface negato):
   `tests/ai/check_local2mesh.py` (in `make test-img2mesh`) usa un comando finto che scrive
   il `.glb` di `glbfix.py`.
+- **In due lingue** (R18, 2026-10-06): ogni voce ha `title_en:` e `text_en:` (obbligatori,
+  `make test-ai` li conta); il pannello risponde nella lingua della domanda (`ai_lang_of`),
+  Ctrl+E la cambia, `assist_lang=it|en|auto` in `bm/config.txt`, `ai.lang()`. Una voce nuova
+  si scrive nelle due lingue.
 - Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
   `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
   esempi di codice e pannello. Il tipo `guide` (2026-10-04, `kb/guide_sdk.txt`): come fare un

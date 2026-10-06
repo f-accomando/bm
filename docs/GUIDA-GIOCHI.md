@@ -449,6 +449,15 @@ save({ record = record })
 Numeri, stringhe, booleani e tabelle, fino a 32 KiB, in `/bm/save/` sulla SD. Con bmlib:
 `lib.best("record", punti)` tiene il record e scrive solo quando viene battuto.
 
+Più partite: gli **slot** da 1 a 8, ognuno una tabella sua. Senza slot è l'1 (lì record e
+impostazioni); `saves()` dice quali sono usati, `delsave(slot)` ne svuota uno:
+
+```lua
+save({ livello = livello, vita = vita }, 2)      -- la partita nello slot 2
+local p = saved(2)                                -- e ricaricata (nil se vuoto)
+if saves()[3] then print("slot 3: partita salvata", 8, 8, 7) end
+```
+
 Un'app che fa dei file per il giocatore (testi, disegni, esportazioni) li scrive in
 `/docs`, comune a tutte le app: `doc_write("NOTES.TXT", testo)`, `doc_read`, `doc_list`,
 `doc_delete` (nomi 8.3; la prima volta la console chiede al giocatore). bm Write ci tiene i
@@ -715,7 +724,14 @@ con `BMHOST_NET_ID=0` e `1` sono due console (`make test-bmnet`).
   in C. Evitare di creare tabelle nuove a ogni fotogramma nei cicli caldi; aggiornare
   solo i nemici vicini alla camera; disegnare solo la parte visibile della mappa. F11 due
   volte mostra la pagina dettagliata del dev kit: quanto sono durati `_update`, `_draw` e
-  il 3D nell'ultimo fotogramma.
+  il 3D nell'ultimo fotogramma. F11 tre volte, la pagina delle **funzioni**: le dieci che
+  costano di più (ms per fotogramma: il loro tempo e con quelle che chiamano); si
+  comincia a ottimizzare dalla prima.
+- **Debugger** (bm Code): F8 mette un punto di interruzione sulla riga, F5 prova il gioco
+  che si ferma lì e mostra le variabili e la pila; F10 la riga dopo, F8 dentro una
+  chiamata, Shift+F8 fuori, F5 continua, Esc ferma (si torna sulla riga). Dal codice
+  `breakpoint("perché")` ferma il gioco quando lo provi da bm Code o dall'SDK; `log()`
+  scrive i valori sulla seriale senza fermarlo.
 - **Fotogrammi pesanti:** un gioco che avanza di 1/60 s a ogni `_update` rallenta quando
   un fotogramma costa più di 16,7 ms. `frameskip(4)` in `_init` gli tiene il tempo: fino a
   4 `_update` prima di ogni `_draw`, i fotogrammi in mezzo non disegnati (un gioco 3D

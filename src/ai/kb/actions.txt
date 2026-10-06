@@ -6,106 +6,139 @@
 kind: action
 gen: ternary
 title: Operatore ternario (if/else -> cond and a or b)
+title_en: Ternary operator (if/else -> cond and a or b)
 ask: aggiungi operatore ternario su questa funzione | usa l'operatore ternario
 ask: trasforma gli if in ternario | ternario | ternary operator | use the ternary operator
 ask: semplifica if else in una riga | if else su una riga sola | convert if else to and or
 ask: rendi più compatti gli if | accorcia gli if else
 text: Un if/else che assegna la stessa variabile (o restituisce un valore)
 diventa "x = cond and a or b". Attenzione: a non deve mai essere nil o false.
+text_en: An if/else that assigns the same variable (or returns a value)
+becomes "x = cond and a or b". Careful: a must never be nil or false.
 
 == act.comment
 kind: action
 gen: comment
 title: Commenta la funzione (cosa usa, cosa restituisce)
+title_en: Comment the function (what it uses, what it returns)
 ask: commenta questa funzione | aggiungi un commento alla funzione | documenta la funzione
 ask: scrivi la documentazione | add a comment to this function | document this function
 ask: metti un commento sopra | descrivi la funzione con un commento
 text: Sopra la funzione: nome e parametri, le funzioni di bm che usa e cosa
 restituisce.
+text_en: Above the function: name and parameters, the bm functions it uses
+and what it returns.
 
 == act.log
 kind: action
 gen: log
 title: Aggiungi un log di debug all'inizio della funzione
+title_en: Add a debug log at the start of the function
 ask: aggiungi un log di debug | stampa i parametri della funzione | debug this function
 ask: voglio vedere quando viene chiamata | traccia la funzione | add logging
 ask: log dei valori in ingresso | metti un log
 text: Una riga log() con i parametri all'inizio della funzione (Dev > Log).
+text_en: A log() line with the parameters at the start of the function
+(Dev > Log).
 
 == act.remove_log
 kind: action
 gen: remove_log
 title: Togli i log di debug dalla funzione
+title_en: Remove the debug logs from the function
 ask: togli i log | rimuovi le righe di debug | remove the logs | cancella i log
 ask: pulisci i log di debug | elimina i print di debug | niente più log | basta log
 ask: senza log | delete all logs
 text: Le righe log(...) della funzione vengono tolte.
+text_en: The log(...) lines of the function are removed.
 
 == act.nil_check
 kind: action
 gen: nil_check
 title: Controlla che i parametri non siano nil
+title_en: Check that the parameters are not nil
 ask: controlla i parametri | aggiungi un controllo nil | check the parameters for nil
 ask: proteggi la funzione dai valori nil | se manca un parametro esci | guard nil
 text: All'inizio della funzione: se un parametro è nil, esce subito.
+text_en: At the start of the function: if a parameter is nil, it returns
+right away.
 
 == act.make_local
 kind: action
 gen: make_local
 title: Rendi locale la funzione
+title_en: Make the function local
 ask: rendi locale questa funzione | funzione locale | make this function local
 ask: trasforma in local function | non globale
 text: "function nome(" diventa "local function nome(": più veloce, visibile solo
 nel file dalla riga dopo.
+text_en: "function name(" becomes "local function name(": faster, visible
+only in the file from the next line on.
 
 == act.indent
 kind: action
 gen: indent
 title: Sistema il rientro (indentazione)
+title_en: Fix the indentation
 ask: sistema l'indentazione | indenta il codice | formatta questa funzione | fix the indentation
 ask: rientri sbagliati | allinea il codice | reindent | format the code
 ask: indenta tutto il file
 text: Due spazi per ogni blocco (function, if, for, while, repeat, tabelle).
 "tutto il file" lo fa su tutto.
+text_en: Two spaces for each block (function, if, for, while, repeat,
+tables). "whole file" does it on everything.
 
 == act.comment_out
 kind: action
 gen: comment_out
 title: Commenta tutta la funzione (disattivala)
+title_en: Comment out the whole function (turn it off)
 ask: commenta tutta la funzione | disattiva questa funzione | comment out this function
 ask: metti la funzione tra commenti | escludi la funzione
 text: Ogni riga della funzione comincia con "-- ".
+text_en: Every line of the function starts with "-- ".
 
 == act.uncomment
 kind: action
 gen: uncomment
 title: Togli i commenti (riattiva il codice)
+title_en: Remove the comments (turn the code back on)
 ask: togli i commenti | riattiva il codice commentato | uncomment | decommenta
 text: Le righe commentate intorno alla riga #entry tornano codice.
+text_en: The commented lines around the #entry line become code again.
 
 == act.optimize
 kind: action
 gen: optimize
 title: Ottimizza: funzioni di bm come variabili locali
+title_en: Optimize: bm functions as local variables
 ask: ottimizza questa funzione | rendi più veloce la funzione | optimize this function
 ask: velocizza il ciclo | funzioni api locali | speed up
 text: Sopra la funzione "local spr, btn = spr, btn": le variabili locali sono più
 veloci delle globali nei cicli di ogni fotogramma.
+text_en: Above the function "local spr, btn = spr, btn": local variables
+are faster than globals in the loops of every frame.
 
 == act.rename
 kind: action
 gen: rename
 title: Rinomina una variabile (rinomina vecchio in nuovo)
+title_en: Rename a variable (rename old to new)
 ask: rinomina x in posizione | cambia nome alla variabile | rename x to pos
 ask: rinomina la variabile in tutto il file | sostituisci il nome
 text: "rinomina vecchio in nuovo": le parole intere nella funzione ("ovunque" o
 "tutto il file": dappertutto).
+text_en: "rename old to new": the whole words in the function ("everywhere"
+or "whole file": in all the code).
 
 == act.explain
 kind: action
 gen: explain
 title: Spiega questa funzione
+title_en: Explain this function
 ask: spiega questa funzione | cosa fa questa funzione | explain this function
 ask: descrivimi il codice | come funziona questo codice | what does this do
 text: Le funzioni di bm che usa, le variabili globali che cambia, le altre
 funzioni che chiama, cosa restituisce.
+text_en: The bm functions it uses, the global variables it changes, the
+other functions it calls, what it returns.

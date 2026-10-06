@@ -5,6 +5,7 @@
 == guide.sdk_start
 kind: guide
 title: Guida: cominciare un gioco con l'SDK
+title_en: Guide: starting a game with the SDK
 ask: come comincio un gioco con l'sdk | primo gioco con bm sdk | da dove parto per fare un gioco
 ask: how do i start a game with the sdk | make my first game | nuovo progetto nell'sdk
 ask: voglio creare un videogioco | create a new game project | come si crea un gioco su bm
@@ -25,6 +26,20 @@ mappa, F4 i modelli 3D.
 
 5. F1 è la pagina del progetto: da lì 1-6 aprono il progetto negli altri
 programmi della suite. F1 di nuovo: il dev kit (fps, RAM, token).
+text_en:
+1. In the SDK, Ctrl+N: choose a template (Platform 2D, Top-down 2D, Shooter
+2D, Versus 2D for two players, Online 2D over the network, 3D scene, 3D
+with models). It comes with code, sprites and map ready.
+
+2. F5 tries the game right away; Esc (or Ctrl+Esc) goes back to the SDK.
+
+3. F2 the code: change speeds, colours, texts. F3 the sprites and the
+map, F4 the 3D models.
+
+4. Esc > Save as gives the file its name (8.3, in /carts); then Ctrl+S saves.
+
+5. F1 is the project page: from there 1-6 open the project in the other
+programs of the suite. F1 again: the dev kit (fps, RAM, tokens).
 code:
 -- il gioco minimo: _init una volta, _update e _draw a ogni fotogramma
 function _init()
@@ -44,6 +59,7 @@ end
 == guide.sdk_pages
 kind: guide
 title: Guida: le pagine dell'SDK e i suoi tasti
+title_en: Guide: the SDK's pages and their keys
 ask: quali sono le pagine dell'sdk | come si usa l'sdk | tasti dell'sdk | sdk shortcuts
 ask: cosa fa f1 nell'sdk | dove disegno gli sprite nell'sdk | where is the map editor
 ask: how do i use the bm sdk | sdk pages | menu dell'sdk | pagina 3d dell'sdk
@@ -65,10 +81,27 @@ codice per usarli.
 
 Esc il menu: nuovo, apri, salva, salva come, prova. F5 prova, F6
 l'assistente, F12 tenuto mostra tutti i tasti.
+text_en:
+F1 the project: title, author, screen, target, what the file holds, the
+other programs of the suite (1-6). F1 again: the dev kit.
+
+F2 the code, with syntax colours (the 3D functions in teal).
+Ctrl+G goes to the error, F9 has it explained.
+
+F3 the sprites (space draws, x picks the colour, f fills, Tab the
+sheet, 0-7 the tile's flags); F3 again the map (space places the
+tile, Tab chooses it, l changes layer, L adds one).
+
+F4 the 3D: the project's models and animations, turning; i writes the
+code to use them.
+
+Esc the menu: new, open, save, save as, try. F5 tries, F6 the
+assistant, F12 held shows all the keys.
 
 == guide.sdk_suite
 kind: guide
 title: Guida: l'SDK e gli altri programmi della bm Suite
+title_en: Guide: the SDK and the other programs of the bm Suite
 ask: aprire il progetto in bm studio | passare a bm pixel | bm code dall'sdk
 ask: open the project in another tool | bm suite programs | quali programmi ci sono
 ask: tornare all'sdk da bm studio | back to the sdk | lavorare con più programmi
@@ -82,10 +115,19 @@ bm Mesh (vertici e facce), 6 bm Sound (suoni e musica).
 
 L'SDK salva prima; il programma si apre sullo stesso file. Nel suo menu
 "Back to bm SDK" salva e torna all'SDK, che rilegge il file.
+text_en:
+From the project page (F1): 1 bm Code (the code in tabs, find and
+replace), 2 bm Pixel (the pixel art of the sheet, all the tools), 3
+bm Studio (3D models made of tiles), 4 bm Animator (skeletons and
+animations), 5 bm Mesh (vertices and faces), 6 bm Sound (sounds and music).
+
+The SDK saves first; the program opens on the same file. In its menu
+"Back to bm SDK" saves and goes back to the SDK, which reads the file again.
 
 == guide.platformer
 kind: guide
 title: Guida: un platform 2D passo passo
+title_en: Guide: a 2D platformer step by step
 ask: come faccio un platform | fare un gioco di piattaforme | platform game step by step
 ask: gioco tipo mario | make a platformer with the sdk | personaggio che salta sulle piattaforme
 ask: guida platform 2d | un gioco a scorrimento con i salti | side scroller
@@ -105,6 +147,21 @@ dice hero.ground; il salto mette vy negativa solo a terra.
 camera() prima del testo.
 
 5. Poi: nemici (guida dei nemici), monete (pickup_tiles), suoni (sfx).
+text_en:
+1. Ctrl+N > Platform 2D: sprite 1 is the hero, 2 the ground (flag 0:
+solid), 6 the planks (flag 1: platform, you go up through it from below).
+
+2. F3: keys 0-7 turn on the flags of the chosen tile; F3 again,
+the map: draw more platforms with tile 2 or 6.
+
+3. In the code lib.step(hero) does gravity and the map (bmlib): it reads
+the flags and sets hero.ground; the jump makes vy negative only on the
+ground.
+
+4. The bmlib camera follows the hero: cam:apply() before the map,
+camera() before the text.
+
+5. Then: enemies (the enemies guide), coins (pickup_tiles), sounds (sfx).
 code:
 local lib = require "bmlib"
 local hero = { x = 64, y = 40, w = 8, h = 8 }
@@ -117,6 +174,7 @@ end
 == guide.topdown
 kind: guide
 title: Guida: un gioco 2D con la visuale dall'alto
+title_en: Guide: a 2D game seen from above
 ask: gioco visto dall'alto | top down game | come zelda | rpg dall'alto
 ask: personaggio che cammina tra i muri | labirinto | make a top-down adventure
 ask: guida visuale dall'alto | raccogliere monete nella mappa | dungeon crawler
@@ -134,6 +192,18 @@ svuotandola con mset.
 
 4. Poi: nemici che inseguono (chase), una porta che si apre, più stanze
 con la camera.
+text_en:
+1. Ctrl+N > Top-down 2D: walls (tile 4, flag 0: solid) and coins
+(tile 3) are in the map, the hero is sprite 1.
+
+2. lib.move(hero, dx, dy) stops the hero against solid tiles and makes it
+slide along the walls instead of just stopping.
+
+3. You pick up a coin by looking at the cell under the hero's centre and
+emptying it with mset.
+
+4. Then: enemies that chase the hero (chase), a door that opens, more
+rooms with the camera.
 code:
 local lib = require "bmlib"
 local hero = { x = 40, y = 48, w = 8, h = 8 }
@@ -146,6 +216,7 @@ end
 == guide.shooter
 kind: guide
 title: Guida: uno sparatutto 2D
+title_en: Guide: a 2D shooter
 ask: come faccio uno sparatutto | shoot em up | astronave che spara | space shooter
 ask: gioco con navicella e nemici | make a shooter game | ondate di nemici
 ask: guida sparatutto 2d | spaceship game | proiettili e nemici
@@ -162,6 +233,17 @@ quelli per cui la funzione dice false.
 lib.particles, la camera trema con cam:shake.
 
 4. Poi: boss, power-up, il record (lib.best).
+text_en:
+1. Ctrl+N > Shooter 2D: the ship (sprite 1) fires with A, the enemies
+(sprite 5) come from the right in waves.
+
+2. Bullets and enemies live in lists: lib.each updates them and removes
+those for which the function returns false.
+
+3. A hit is a rectangle touching an enemy (lib.hit): it explodes with
+lib.particles, the camera shakes with cam:shake.
+
+4. Then: bosses, power-ups, the high score (lib.best).
 code:
 local lib = require "bmlib"
 local fx = lib.particles(200)
@@ -174,6 +256,7 @@ fx:burst(x, y, 14, { colors = { 0xFFE070, 0xE84A5A } })
 == guide.versus
 kind: guide
 title: Guida: un gioco per due sulla stessa console (versus)
+title_en: Guide: a game for two on the same console (versus)
 ask: gioco per due giocatori | due giocatori sulla stessa console | local multiplayer
 ask: picchiaduro per due | versus game | two players one console | gioco a due
 ask: guida versus | split screen | ogni giocatore col suo controller
@@ -193,6 +276,20 @@ colori delle loro luci.
 tocca una volta sola.
 
 5. Uno schermo diviso: lib.split(2) e una camera per giocatore.
+text_en:
+1. Ctrl+N > Versus 2D: two fighters, each with their own controller (P1,
+P2); when you play alone, the computer plays the second one.
+
+2. lib.party is the screen where players join: ok joins, back leaves,
+Start begins; it gives the numbers of the players who joined.
+
+3. btn("a", p) reads the controller of player p; lib.PLAYER_COLORS the
+colours of their lights.
+
+4. Punches are hitboxes and bodies are hurtboxes (lib.hits): a hit with an
+id lands only once.
+
+5. A split screen: lib.split(2) and one camera per player.
 code:
 local lib = require "bmlib"
 local party = lib.party({ min = 2 })
@@ -205,6 +302,7 @@ end
 == guide.online
 kind: guide
 title: Guida: un gioco in rete per più console
+title_en: Guide: a network game for several consoles
 ask: gioco in rete | giocare online | multiplayer in rete | online game
 ask: due console in rete | gioco con gli amici in rete | network game
 ask: guida online | lobby e partita | lockstep | giocare su internet
@@ -223,6 +321,20 @@ input. net.input(net.pad(1)), poi i fotogrammi pronti in net.frames().
 4. Numeri a caso solo da lib.rng(seme della partita), mai math.random.
 
 5. Su internet: un relay (tools/overbit_relay.py) e l'opzione relay.
+text_en:
+1. Ctrl+N > Online 2D: each console moves its own square. A hosts a
+match or joins one it found; the host starts it with Start.
+
+2. bmnet (require "bmnet"): net.open, net.host or net.join, net.update
+every frame (it gives the events: join, start, msg, leave, lost).
+
+3. Lockstep: every console runs the whole game, only the inputs travel.
+net.input(net.pad(1)), then the frames that are ready in net.frames().
+
+4. Random numbers only from lib.rng(the match's seed), never math.random.
+
+5. Over the internet: a relay (tools/overbit_relay.py) and the relay
+option.
 code:
 local net = require "bmnet"
 net.open({ game = "MYG1" })
@@ -237,6 +349,7 @@ end
 == guide.puzzle
 kind: guide
 title: Guida: un gioco a griglia (puzzle)
+title_en: Guide: a grid game (puzzle)
 ask: gioco a griglia | puzzle game | tris | sokoban | gioco con le caselle
 ask: come faccio un puzzle | match three | griglia di celle | grid based game
 ask: guida gioco a caselle | memory game | board game
@@ -251,6 +364,15 @@ grid[r][c].
 3. _draw disegna ogni casella come rettangolo (o sprite) a c*S, r*S.
 
 4. Dopo ogni mossa controlla la vittoria scorrendo la griglia.
+text_en:
+1. Start from Empty 2D (Ctrl+N). The grid is a table of rows:
+grid[r][c].
+
+2. A cursor (r, c) moves with btnp, A changes the cell.
+
+3. _draw draws each cell as a rectangle (or a sprite) at c*S, r*S.
+
+4. After each move check for a win by going through the grid.
 code:
 local N, S = 6, 32
 local grid = {}
@@ -270,6 +392,7 @@ end
 == guide.sprites
 kind: guide
 title: Guida: disegnare gli sprite del gioco (SDK e bm Pixel)
+title_en: Guide: drawing the game's sprites (SDK and bm Pixel)
 ask: come disegno gli sprite | creare la grafica del gioco | draw sprites in the sdk
 ask: pixel art del personaggio | dove si disegnano i pixel | sprite editor
 ask: guida sprite | disegnare un personaggio a pixel | animare uno sprite
@@ -288,6 +411,19 @@ tempo.
 
 4. F6 sulla pagina degli sprite: l'assistente disegna la base di uno
 sprite ("slime", "moneta"). Per più attrezzi: 2 sul progetto, bm Pixel.
+text_en:
+1. F3: the chosen sprite, zoomed in. Arrows and space draw, x picks a
+colour, f fills, z switches between 8x8 and 16x16, Tab chooses the cell on
+the sheet.
+
+2. In the game spr(n, x, y) draws cell n; spr(n, x, y, 2, 2) a 16x16
+sprite (four cells).
+
+3. For an animation put the frames in neighbouring cells and change n
+over time.
+
+4. F6 on the sprites page: the assistant draws the base of a
+sprite ("slime", "coin"). For more tools: 2 on the project page, bm Pixel.
 code:
 local frame = 1 + (time() * 8 // 1) % 4   -- 4 fotogrammi, 8 al secondo
 spr(frame, x, y)
@@ -295,6 +431,7 @@ spr(frame, x, y)
 == guide.map
 kind: guide
 title: Guida: disegnare un livello con la mappa
+title_en: Guide: drawing a level with the map
 ask: come disegno il livello | editor della mappa | draw a level with tiles
 ask: mappa a tessere | tilemap | dove metto i muri | creare un livello
 ask: guida mappa | level design | piattaforme nella mappa
@@ -314,6 +451,20 @@ acqua, 4 fa male. Le collisioni leggono i flag (mflags, lib.move).
 
 4. mset cambia la mappa mentre si gioca (una moneta presa, una porta
 aperta).
+text_en:
+1. F3 F3: the map. Tab chooses the tile (a cell of the sheet), space
+places it, Backspace clears, f fills, u undoes; l goes to the next layer
+(up to 8: say, one in front of the character), o shows only that one.
+
+2. In the game map(0, 0, 0, 0, w, h) draws w x h cells; with camera(x, y)
+before it, the map scrolls. map(..., "front") draws another layer.
+
+3. A tile's flags say what it is (tile_flags): on the sprites page
+keys 0-7, 0 solid, 1 platform, 2 ladder, 3 water, 4 hurts. Collisions
+read the flags (mflags, lib.move).
+
+4. mset changes the map during play (a coin picked up, a door
+opened).
 code:
 local f = mflags(px, py + 8, 8, 1)     -- i flag sotto i piedi
 if f & 1 ~= 0 then ground = true end
@@ -321,6 +472,7 @@ if f & 1 ~= 0 then ground = true end
 == guide.sound
 kind: guide
 title: Guida: suoni e musica per il gioco (bm Sound)
+title_en: Guide: sounds and music for the game (bm Sound)
 ask: come metto la musica nel gioco | effetti sonori | add sound effects
 ask: suonare un effetto quando salto | music for my game | colonna sonora
 ask: guida suoni | come uso bm sound | sound editor
@@ -334,6 +486,14 @@ sullo stesso file. Crea suoni e brani, salva, "Back to bm SDK".
 deciso nell'editor), music(-1) lo ferma.
 
 3. Un suono a ogni evento: salto, moneta, colpo, game over.
+text_en:
+1. Save the project, then 6 on the project page: bm Sound opens on the
+same file. Make sounds and songs, save, "Back to bm SDK".
+
+2. In the game sfx(n) plays effect n, music(n) song n (looping as set
+in the editor), music(-1) stops it.
+
+3. A sound for every event: jump, coin, hit, game over.
 code:
 function _init()
   music(0)                  -- il brano 0
@@ -345,6 +505,7 @@ end
 == guide.ui
 kind: guide
 title: Guida: titolo, punteggio e game over
+title_en: Guide: title, score and game over
 ask: schermata del titolo | game over | stati del gioco | menu iniziale
 ask: come faccio il titolo e il game over | title screen and game over
 ask: guida interfaccia | mostrare il punteggio | hud del gioco
@@ -357,6 +518,14 @@ cose diverse per ciascuno.
 2. Il punteggio si disegna per ultimo, sopra tutto, con print.
 
 3. Al game over salva il record con save, leggilo in _init con saved().
+text_en:
+1. A variable state: "title", "play", "over". _update and _draw do
+different things for each one.
+
+2. The score is drawn last, on top of everything, with print.
+
+3. At game over save the high score with save, read it in _init with
+saved().
 code:
 state = state or "title"
 function _update()
@@ -367,6 +536,7 @@ end
 == guide.3d_first
 kind: guide
 title: Guida: il primo gioco 3D
+title_en: Guide: your first 3D game
 ask: come faccio un gioco 3d | primo gioco in 3d | make a 3d game with the sdk
 ask: come comincio con il 3d | 3d per principianti | scena 3d con la telecamera
 ask: guida 3d | how do i start a 3d game | gioco tridimensionale
@@ -383,6 +553,17 @@ camera che la segue.
 modelli di bm Studio con model("nome").
 
 4. Il 2D (punteggio) dopo il 3D. stat(4) dice quanti triangoli.
+text_en:
+1. Ctrl+N > 3D scene: a floor, some cubes, a ball with its shadow and the
+camera following it.
+
+2. Every frame: camera3d (where it looks), light3d (the light), zclear
+(clears the z-buffer), then draw3d for each object.
+
+3. Meshes are made in _init: mesh_cube, mesh_sphere, mesh(v, f) or the
+bm Studio models with model("name").
+
+4. The 2D (the score) after the 3D. stat(4) says how many triangles.
 code:
 function _draw()
   cls(0x101828)
@@ -395,6 +576,7 @@ end
 == guide.3d_models
 kind: guide
 title: Guida: usare i modelli di bm Studio nel gioco
+title_en: Guide: using bm Studio models in the game
 ask: come uso i modelli di bm studio | caricare un modello 3d | use a model in my game
 ask: disegnare il modello che ho fatto | modello dal file | model from bm studio
 ask: guida modelli 3d | importare un modello | i modelli del progetto
@@ -411,6 +593,17 @@ righe per caricarne uno e disegnarlo.
 dà una mesh da disegnare con draw3d.
 
 4. bounds3d(m) dice quanto è grande: per centrarlo o metterlo a terra.
+text_en:
+1. Make the models with bm Studio (3 on the project page) or with the
+assistant (F6 on the 3D page): they end up in the game's file.
+
+2. F4 in the SDK: the models turn in a preview; i writes in the code the
+lines that load one and draw it.
+
+3. Call model("name") once (in _init or outside the functions): it
+gives a mesh to draw with draw3d.
+
+4. bounds3d(m) says how big it is: to centre it or put it on the ground.
 code:
 local house = model("house")
 function _draw()
@@ -423,6 +616,7 @@ end
 == guide.3d_anim
 kind: guide
 title: Guida: un personaggio 3D animato (bm Animator)
+title_en: Guide: an animated 3D character (bm Animator)
 ask: animare un personaggio 3d | camminata del modello | animate my 3d character
 ask: scheletro e animazioni | far camminare il modello | walk animation 3d
 ask: guida animazione 3d | come uso bm animator | personaggio che corre e salta
@@ -441,6 +635,19 @@ t, k) con k da 0 a 1.
 
 4. bone3d(m, "hand") dice dove è la mano: per attaccarci una spada o una
 luce.
+text_en:
+1. 4 on the project page: bm Animator gives the model a skeleton and
+animations (walk, jump...). F4 in the SDK shows them: left/right
+chooses them.
+
+2. In the game animate(m, "walk", t) puts the model in the pose of "walk"
+at time t, before draw3d.
+
+3. To go from one animation to another: animate(m, "idle", t, "walk",
+t, k) with k from 0 to 1.
+
+4. bone3d(m, "hand") says where the hand is: to attach a sword or a
+light to it.
 code:
 local hero = model("hero")
 local t = 0
@@ -454,6 +661,7 @@ end
 == guide.3d_camera
 kind: guide
 title: Guida: la telecamera in terza persona
+title_en: Guide: the third-person camera
 ask: telecamera dietro il personaggio | camera in terza persona | third person camera
 ask: la camera segue il giocatore in 3d | camera che gira intorno | orbit camera
 ask: guida telecamera 3d | follow camera 3d | visuale da dietro
@@ -468,6 +676,15 @@ pitch negativo per guardare in giù.
 
 3. Per una camera morbida avvicina la posizione a quella voluta di un
 pezzo ogni fotogramma.
+text_en:
+1. The player has a direction a (radians); the camera stays behind
+them, at distance d and a bit higher.
+
+2. camera3d(x, y, z, yaw, pitch): yaw = a so that it looks where the
+player looks, a negative pitch to look down.
+
+3. For a smooth camera move its position a little closer to the wanted
+one every frame.
 code:
 local d, h = 6, 3
 local cx = px - math.sin(a) * d
@@ -477,6 +694,7 @@ camera3d(cx, py + h, cz, a, -0.35, 60)
 == guide.3d_world
 kind: guide
 title: Guida: collisioni e movimento nel 3D
+title_en: Guide: collisions and movement in 3D
 ask: collisioni nel 3d | muri nel gioco 3d | camminare nel livello 3d | 3d collision
 ask: il personaggio attraversa i muri | salire i gradini | world collision boxes
 ask: guida collisioni 3d | fisica 3d | sparare con un raggio
@@ -490,6 +708,14 @@ solide (muri, casse, piattaforme), una volta in _init.
 muri e sale i gradini; il flag 1 dice se è a terra.
 
 3. world_ray per i colpi e la vista: il primo punto colpito.
+text_en:
+1. world3d() makes a collision world; world_box puts solid boxes in it
+(walls, crates, platforms), once in _init.
+
+2. world_move(w, x, y, z, r, h, dx, dy, dz) moves a body that slides along
+the walls and climbs steps; flag 1 says whether it is on the ground.
+
+3. world_ray for shots and line of sight: the first point hit.
 code:
 local w = world3d()
 world_box(w, -5, 0, 4, 5, 2, 5)            -- un muro
@@ -500,6 +726,7 @@ local on_ground = f & 1 ~= 0
 == guide.3d_light
 kind: guide
 title: Guida: luci, cielo, nebbia e ombre nel 3D
+title_en: Guide: lights, sky, fog and shadows in 3D
 ask: luci nella scena 3d | nebbia | ombre 3d | atmosfera notturna 3d
 ask: come rendo più bello il 3d | lighting and fog | scena di notte con le lanterne
 ask: guida luce 3d | colori del cielo | riflessi sulle superfici
@@ -515,6 +742,17 @@ text:
 
 4. lamp3d(i, x, y, z, raggio): fino a 4 lanterne. draw3d con il flag 8
 disegna l'ombra di un oggetto sul terreno.
+text_en:
+1. light3d(x, y, z, ambient): the direction of the sun and the ambient
+light (low for night).
+
+2. sky3d(sun, sky, ground): the colours of the light from above and
+from below.
+
+3. fog3d(colour, near, far): the fog, of the same colour as cls.
+
+4. lamp3d(i, x, y, z, radius): up to 4 lanterns. draw3d with flag 8
+draws an object's shadow on the ground.
 code:
 cls(0x0A0C1C)
 light3d(-0.3, 0.8, -0.5, 0.18)              -- notte
@@ -525,6 +763,7 @@ zclear()
 == guide.3d_effects
 kind: guide
 title: Guida: effetti 3D (scintille, proiettili, esplosioni)
+title_en: Guide: 3D effects (sparks, bullets, explosions)
 ask: particelle in 3d | esplosione 3d | proiettili nel gioco 3d | 3d particles
 ask: scia di un colpo | raggio laser 3d | fumo e fuoco in 3d | sprite nel mondo 3d
 ask: guida effetti 3d | effetti speciali | spari in 3d
@@ -540,6 +779,16 @@ proiettili).
 rivolto alla camera (esplosioni, fumo, icone).
 
 4. Le particelle stanno in una lista con posizione, velocità e vita.
+text_en:
+1. point3d(x, y, z, radius, colour): a round point in the world (sparks,
+bullets).
+
+2. line3d(x0, y0, z0, x1, y1, z1, colour): a line (tracers, lasers).
+
+3. sprite3d(sx, sy, sw, sh, x, y, z, width): a piece of the sheet
+facing the camera (explosions, smoke, icons).
+
+4. Particles live in a list with position, velocity and life.
 code:
 for _, p in ipairs(sparks) do
   point3d(p.x, p.y, p.z, 0.05, 0xFFC040)
@@ -549,6 +798,7 @@ line3d(gx, gy, gz, hx, hy, hz, 0x60E0FF, 2)
 == guide.3d_hud
 kind: guide
 title: Guida: mescolare 3D e 2D (HUD, scritte sui personaggi)
+title_en: Guide: mixing 3D and 2D (HUD, labels on the characters)
 ask: scritte sopra i personaggi 3d | hud nel gioco 3d | 2d sopra il 3d
 ask: mirino al centro | nome sopra il nemico | label over a 3d object
 ask: guida hud 3d | barra della vita in 3d | mixing 2d and 3d
@@ -560,6 +810,13 @@ veloce con la GPU.
 
 2. project3d(x, y, z) dà la posizione sullo schermo di un punto del mondo
 (nil se è dietro la camera): ci scrivi il nome o la barra della vita.
+text_en:
+1. Draw all the 3D first, then the 2D (print, rectfill, spr): it is also
+faster with the GPU.
+
+2. project3d(x, y, z) gives the position on the screen of a point of the
+world (nil if it is behind the camera): write the name or the life bar
+there.
 code:
 local sx, sy = project3d(ex, ey + 2, ez)
 if sx then
@@ -569,6 +826,7 @@ end
 == guide.3d_perf
 kind: guide
 title: Guida: un 3D veloce sul Pi
+title_en: Guide: fast 3D on the Pi
 ask: il gioco 3d è lento | troppi triangoli | 3d performance | ottimizzare il 3d
 ask: quanti triangoli posso disegnare | gpu o arm | faster 3d game
 ask: guida prestazioni 3d | ridurre i poligoni | 3d a 60 fps
@@ -585,12 +843,24 @@ riduce (il tasto - nella pagina models).
 lontane con meno dettaglio; la nebbia nasconde dove il mondo finisce.
 
 4. Misura con F11 in qualunque gioco: fps, ms, RAM e token.
+text_en:
+1. Count the triangles: stat(4) in a frame. On the ARM about 1200 at 60
+fps; the Pi's GPU many more (stat(9) says whether it is used).
+
+2. The SDK's 3D page shows the triangles of each model; bm Studio
+reduces them (the - key on the models page).
+
+3. The floor first, with draw3d(..., 1) (without the z-buffer); far
+things with less detail; the fog hides where the world ends.
+
+4. Measure with F11 in any game: fps, ms, RAM and tokens.
 code:
 print(stat(4) .. " tri  " .. stat(1) .. " ms  gpu " .. stat(9), 8, 8)
 
 == guide.devkit
 kind: guide
 title: Guida: il dev kit (fps, ms, RAM e token)
+title_en: Guide: the dev kit (fps, ms, RAM and tokens)
 ask: quanta ram usa il mio gioco | monitor delle prestazioni | dev kit | performance monitor
 ask: quanti token ha il codice | memoria usata dal gioco | ram usage of my game
 ask: come misuro il gioco | overlay delle prestazioni | profiling del gioco
@@ -601,7 +871,8 @@ text:
 _update + _draw, istruzioni Lua, RAM (adesso e il massimo) e token del
 codice, con il grafico degli ultimi fotogrammi. F11 di nuovo: la pagina
 dettagliata, con i ms di _update, _draw e 3D, la GPU, i triangoli e le
-righe del gioco (devinfo).
+righe del gioco (devinfo). F11 la terza volta: le dieci funzioni che
+costano di più, il loro tempo e con quelle che chiamano (profile()).
 
 2. Nell'SDK F5 prova il gioco: tornando, il dev kit (F1 F1) mostra i
 numeri della prova: fps, ms medi e massimi, fotogrammi oltre 16,7 ms, RAM
@@ -612,6 +883,25 @@ dati (sheet, mappa, modelli, suoni) e il file contro gli 8 MiB di un .b16.
 
 4. Dal codice: stat(1) ms, stat(2) fps, stat(11) token, stat(12) KiB di Lua
 al massimo, stat(13) KiB dei dati.
+text_en:
+1. In any game F11 (or Settings > Performance overlay): fps, ms of
+_update + _draw, Lua instructions, RAM (now and the peak) and the code's
+tokens, with the graph of the last frames. F11 again: the detailed
+page, with the ms of _update, _draw and 3D, the GPU, the triangles and
+the game's lines (devinfo). F11 a third time: the ten functions that
+cost the most, their time on their own and with the ones they call
+(profile()).
+
+2. In the SDK F5 tries the game: when you come back, the dev kit (F1 F1)
+shows the numbers of that try: fps, average and peak ms, frames over 16.7
+ms, peak RAM, instructions of the heaviest frame.
+
+3. The dev kit also shows the tokens, the biggest functions, the memory
+of the data (sheet, map, models, sounds) and the file against the 8 MiB
+of a .b16.
+
+4. From the code: stat(1) ms, stat(2) fps, stat(11) tokens, stat(12) peak
+KiB of Lua, stat(13) KiB of the data.
 code:
 print(stat(2) .. " fps " .. stat(1) .. " ms", 8, 8, 0x80FF80)
 print(stat(12) + stat(13) .. " KiB  " .. stat(11) .. " token", 8, 24)
@@ -619,6 +909,7 @@ print(stat(12) + stat(13) .. " KiB  " .. stat(11) .. " token", 8, 24)
 == guide.ram
 kind: guide
 title: Guida: usare meno memoria
+title_en: Guide: using less memory
 ask: il gioco usa troppa memoria | ridurre la ram | not enough memory | out of memory
 ask: risparmiare memoria | tabelle che crescono | memory leak | garbage collector
 ask: guida memoria | quanta memoria ho | la ram finisce
@@ -635,6 +926,17 @@ piccolo, togli le celle che non usi.
 proiettili e delle particelle, togli quelle finite.
 
 4. stat(0) è la memoria di Lua adesso, stat(12) il massimo.
+text_en:
+1. Look at the dev kit: the data (sheet, map, models, sounds) stays in
+memory for the whole game, the Lua goes up and down.
+
+2. A 256x256 sheet costs about 200 KiB, a 1024x1024 one 3 MiB: keep it
+small, remove the cells you do not use.
+
+3. Do not create new tables every frame: reuse those of the bullets and
+of the particles, remove the finished ones.
+
+4. stat(0) is the memory of Lua now, stat(12) the peak.
 code:
 -- riusa la tabella invece di crearne una nuova a ogni colpo
 local pool = {}
@@ -647,6 +949,7 @@ end
 == guide.tokens
 kind: guide
 title: Guida: i token del codice
+title_en: Guide: the tokens of the code
 ask: cosa sono i token | quanti token posso usare | token count | limite di token
 ask: contare i token del codice | ridurre i token | code size in tokens
 ask: perche' il dev kit conta i token | token del gioco
@@ -662,12 +965,23 @@ nemmeno il .b16 lo farà (conta la memoria e il tempo per fotogramma).
 
 Li vedi nella pagina del progetto, nel dev kit, nell'overlay (F11) e con
 stat(11); code_tokens(testo) li conta per un pezzo di codice.
+text_en:
+Tokens measure how much code there is: every name, keyword, number,
+string and operator counts one; commas, dots, closing brackets, end and
+local do not count (as on fantasy consoles).
+
+They are information, not a limit: bm puts no ceiling on tokens, and
+neither will the .b16 (what counts is memory and time per frame).
+
+You see them on the project page, in the dev kit, in the overlay (F11)
+and with stat(11); code_tokens(text) counts them for a piece of code.
 code:
 print(stat(11) .. " token", 8, 8)
 
 == guide.b16
 kind: guide
 title: Guida: preparare un gioco per la RGB30 (.b16)
+title_en: Guide: preparing a game for the RGB30 (.b16)
 ask: gioco per la rgb30 | formato b16 | cartuccia per la console portatile
 ask: prepare my game for the rgb30 | limite di 8 mb | portare il gioco sulla powkiddy
 ask: guida b16 | che cos'è il b16 | s16 cartridge
@@ -683,6 +997,16 @@ un tuo generatore); niente file, rete, require o load.
 
 Nell'SDK, b sulla pagina del progetto mette il target .b16: il dev kit
 mostra il file contro gli 8 MiB e le righe che il .b16 non avrà.
+text_en:
+The .b16 is the cartridge with limited resources for handhelds like the
+RGB30: it does not exist yet, the specification is in docs/B16.md.
+
+The rules already known: the file at most 8 MiB; the same game gives the
+same pixels on every machine (no system math.random and no clock: a
+generator of your own); no files, network, require or load.
+
+In the SDK, b on the project page sets the .b16 target: the dev kit
+shows the file against the 8 MiB and the lines the .b16 will not have.
 code:
 -- un generatore tuo, lo stesso su ogni macchina
 local seed = 12345
@@ -694,6 +1018,7 @@ end
 == guide.test
 kind: guide
 title: Guida: provare il gioco e correggere gli errori
+title_en: Guide: trying the game and fixing errors
 ask: come provo il gioco | il gioco si ferma con un errore | test my game
 ask: dove è l'errore | debug del gioco | correggere un errore | fix a bug
 ask: guida debug | il gioco non parte | trovare il problema
@@ -707,12 +1032,22 @@ rosso: Ctrl+G ci va, F9 chiede all'assistente di spiegarlo.
 
 3. log(...) scrive nel registro della console (la seriale e il monitor):
 utile per vedere i valori mentre si gioca.
+text_en:
+1. F5 (Ctrl+R) saves and tries the game; Esc or Ctrl+Esc go back to the
+SDK.
+
+2. If the game stops with an error, the SDK opens the code on the line in
+red: Ctrl+G goes there, F9 asks the assistant to explain it.
+
+3. log(...) writes in the console's log (the serial line and the
+monitor): useful to see the values while you play.
 code:
 log("x", x, "y", y)
 
 == guide.publish
 kind: guide
 title: Guida: pubblicare il gioco
+title_en: Guide: publishing the game
 ask: pubblicare il gioco | mettere il gioco nel market | share my game
 ask: far giocare gli altri | copertina del gioco | publish to the market
 ask: guida pubblicazione | condividere il gioco | caricare il gioco online
@@ -725,12 +1060,21 @@ text:
 la pubblicazione nel Market (serve github_token in bm/config.txt).
 
 3. In rete locale il Market manda il gioco a un'altra console.
+text_en:
+1. Give the game a title and an author (project page, t and a) and save
+it.
+
+2. In the console's menu, X on the game's cover: the options include
+publishing to the Market (you need github_token in bm/config.txt).
+
+3. On the local network the Market sends the game to another console.
 code:
 -- titolo e autore vengono dalla pagina del progetto (t, a)
 
 == guide.racing3d
 kind: guide
 title: Guida: un gioco di corse 3D
+title_en: Guide: a 3D racing game
 ask: gioco di macchine | corse in 3d | racing game | guidare una macchina in 3d
 ask: macchina che sterza | pista 3d | kart game | come faccio un gioco di corse
 ask: guida corse 3d | auto in 3d | driving game
@@ -745,6 +1089,15 @@ macchina avanza di v lungo (sin a, cos a).
 
 3. La camera sta dietro (guida della telecamera in terza persona); la
 pista sono pezzi di pavimento o un modello di bm Studio.
+text_en:
+1. Start from 3D scene (Ctrl+N). The car has a position, a direction a
+and a speed v.
+
+2. Left/right change a, A accelerates, B brakes; every frame the car
+moves forward by v along (sin a, cos a).
+
+3. The camera stays behind (the guide to the third-person camera); the
+track is made of pieces of floor or a bm Studio model.
 code:
 if btn(0) then a = a - 0.04 end
 if btn(1) then a = a + 0.04 end
@@ -754,6 +1107,7 @@ px, pz = px + math.sin(a) * v, pz + math.cos(a) * v
 == guide.assistant
 kind: guide
 title: Guida: farsi aiutare dall'assistente
+title_en: Guide: getting help from the assistant
 ask: come uso l'assistente | cosa sa fare l'assistente | help from the assistant
 ask: l'assistente mi scrive il codice | chiedere all'ai | ask the ai for help
 ask: guida assistente | f6 nell'sdk | assistente per creare giochi
@@ -766,3 +1120,10 @@ modello con lo scheletro.
 
 Scrivi la domanda (italiano o inglese), su/giù sceglie, Invio prende il
 codice, lo sprite o il modello. Tab cambia il tipo di risposta.
+text_en:
+F6 in the SDK: on the project page the guides (like this one), in the
+code the functions and the examples, on the sprites a base of pixel art,
+in 3D a model with its skeleton.
+
+Write the question (Italian or English), up/down chooses, Enter takes
+the code, the sprite or the model. Tab changes the kind of answer.

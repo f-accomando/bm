@@ -1,4 +1,8 @@
-Lua 5.4.7, unmodified sources from https://github.com/lua/lua (tag v5.4.7).
+Lua 5.4.7, sources from https://github.com/lua/lua (tag v5.4.7), with two
+changes marked "bm:": lvm.c counts the count hook down without
+luaG_traceexec (the console's watchdog costs less), ldo.c calls luai_cprof
+around every C function when it is set (the dev kit's profiler of
+functions, src/bm/profile.c).
 Only the library files are included: the standalone interpreter (lua.c),
 compiler (luac.c) and test files are not used. License: MIT (see LICENSE).
 bm builds it with newlib; the integration lives in src/script/.

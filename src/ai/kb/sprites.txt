@@ -7,289 +7,375 @@
 kind: sprite
 gen: ship
 title: Astronave vista dall'alto
+title_en: Spaceship seen from above
 ask: crea uno sprite di un'astronave | disegna una navicella spaziale | spaceship sprite
 ask: nave spaziale per uno shooter | caccia spaziale | astronave del giocatore | jet
 ask: aereo da combattimento visto dall'alto | space ship for a shoot'em up
 text: Fusoliera, ali, cabina e motori, simmetrica, con la punta in alto.
+text_en: Fuselage, wings, cockpit and engines, symmetrical, with the nose at
+the top.
 
 == sprite.alien
 kind: sprite
 gen: alien
 title: Alieno in stile space invaders
+title_en: Alien in the style of space invaders
 ask: crea un alieno | invasore spaziale | space invader | alien sprite
 ask: nemico alieno a quadretti | mostriciattolo pixelato | marziano | ufo nemico
 text: Celle a caso rese simmetriche, con gli occhi: ogni variante è diversa.
+text_en: Random cells made symmetrical, with eyes: each variant is
+different.
 
 == sprite.monster
 kind: sprite
 gen: monster
 title: Mostro con corna e denti
+title_en: Monster with horns and teeth
 ask: disegna un mostro | crea una creatura | monster sprite | nemico mostruoso
 ask: mostriciattolo con le corna | demone | orco | goblin | creatura con la bocca
 text: Corpo tondo, a volte corna, braccia e piedi, bocca con i denti, uno o due occhi.
+text_en: Round body, sometimes horns, arms and feet, a mouth with teeth, one
+or two eyes.
 
 == sprite.robot
 kind: sprite
 gen: robot
 title: Robot
+title_en: Robot
 ask: crea un robot | disegna un androide | robot sprite | automa | mech | cyborg
 ask: robotico | nemico meccanico
 text: Testa con antenna e visore, corpo, braccia e gambe di metallo.
+text_en: Head with antenna and visor, body, metal arms and legs.
 
 == sprite.hero
 kind: sprite
 gen: hero
 title: Personaggio (omino di fronte)
+title_en: Character (little figure seen from the front)
 ask: crea il personaggio del giocatore | disegna un omino | player character sprite
 ask: eroe | ragazzo | ragazza | persona | protagonista | avventuriero | npc | abitante
 ask: cavaliere | un bambino | sprite di una persona | the hero
 text: Capelli, viso, maglia, pantaloni e scarpe; colori di pelle, capelli e
 vestiti diversi a ogni variante. Il colore chiesto è quello della maglia.
+text_en: Hair, face, shirt, trousers and shoes; the colours of skin, hair
+and clothes change with every variant. The colour asked for is that of the
+shirt.
 
 == sprite.slime
 kind: sprite
 gen: slime
 title: Slime (gelatina)
+title_en: Slime (jelly)
 ask: crea uno slime | disegna una gelatina | slime sprite | blob | melma
 ask: nemico gelatinoso | goccia con gli occhi | budino che salta
 keys: slime, gelatina, melma
 text: Una cupola lucida con gli occhi: il nemico più semplice dei giochi di ruolo.
+text_en: A shiny dome with eyes: the simplest enemy of role-playing games.
 
 == sprite.ghost
 kind: sprite
 gen: ghost
 title: Fantasma
+title_en: Ghost
 ask: crea un fantasma | disegna uno spettro | ghost sprite | fantasmino | spirito
 text: Testa tonda, orlo ondulato, occhi e bocca a "oh".
+text_en: Round head, wavy hem, eyes and an "oh" mouth.
 
 == sprite.bat
 kind: sprite
 gen: bat
 title: Pipistrello
+title_en: Bat
 ask: crea un pipistrello | disegna un pipistrello | bat sprite | vampiro volante
 text: Ali spiegate, orecchie, occhi rossi. Le varianti alzano e abbassano le ali:
 due varianti fanno un'animazione.
+text_en: Spread wings, ears, red eyes. The variants raise and lower the
+wings: two variants make an animation.
 
 == sprite.skull
 kind: sprite
 gen: skull
 title: Teschio
+title_en: Skull
 ask: crea un teschio | disegna un cranio | skull sprite | scheletro | pericolo morte
 ask: nemico scheletro | ossa
 text: Cranio, orbite, naso e denti.
+text_en: Cranium, eye sockets, nose and teeth.
 
 == sprite.coin
 kind: sprite
 gen: coin
 title: Moneta
+title_en: Coin
 ask: crea una moneta | disegna una moneta d'oro | coin sprite | gettone | denaro
 ask: soldi da raccogliere | moneta che gira | gold coin | punti da prendere
 text: Oro o argento con il bordo e un riflesso. Alcune varianti sono strette
 (la moneta di taglio): insieme fanno la moneta che gira.
+text_en: Gold or silver with a rim and a highlight. Some variants are narrow
+(the coin seen edge-on): together they make the spinning coin.
 
 == sprite.gem
 kind: sprite
 gen: gem
 title: Gemma
+title_en: Gem
 ask: crea una gemma | disegna un diamante | gem sprite | cristallo | rubino | smeraldo
 ask: pietra preziosa | gioiello | diamond | crystal
 text: Taglio a diamante con le facce chiare e scure.
+text_en: Diamond cut with light and dark facets.
 
 == sprite.heart
 kind: sprite
 gen: heart
 title: Cuore (vita)
+title_en: Heart (life)
 ask: crea un cuore | disegna un cuore | heart sprite | icona della vita | vite del giocatore
 ask: salute | health | cuoricino
 text: Il cuore delle vite, con un riflesso.
+text_en: The heart of the lives, with a highlight.
 
 == sprite.star
 kind: sprite
 gen: star
 title: Stella
+title_en: Star
 ask: crea una stella | disegna una stella | star sprite | stellina | bonus stella
 text: Stella a cinque punte.
+text_en: A five-pointed star.
 
 == sprite.key
 kind: sprite
 gen: key
 title: Chiave
+title_en: Key
 ask: crea una chiave | disegna una chiave | key sprite | chiave della porta | oggetto chiave
 text: Chiave d'oro o d'argento in diagonale.
+text_en: A gold or silver key on the diagonal.
 
 == sprite.sword
 kind: sprite
 gen: sword
 title: Spada
+title_en: Sword
 ask: crea una spada | disegna una spada | sword sprite | arma | lama | coltello | pugnale
 text: Lama, guardia, impugnatura e pomolo, in diagonale.
+text_en: Blade, guard, grip and pommel, on the diagonal.
 
 == sprite.potion
 kind: sprite
 gen: potion
 title: Pozione
+title_en: Potion
 ask: crea una pozione | disegna una pozione | potion sprite | ampolla | boccetta | elisir
 ask: bottiglia magica | flask
 text: Ampolla di vetro col tappo; il liquido è del colore chiesto.
+text_en: A glass flask with a stopper; the liquid is the colour asked for.
 
 == sprite.chest
 kind: sprite
 gen: chest
 title: Forziere del tesoro
+title_en: Treasure chest
 ask: crea un forziere | disegna uno scrigno | treasure chest sprite | baule | tesoro
 text: Legno con bande di metallo e serratura.
+text_en: Wood with metal bands and a lock.
 
 == sprite.crate
 kind: sprite
 gen: crate
 title: Cassa di legno
+title_en: Wooden crate
 ask: crea una cassa | disegna una cassa di legno | crate sprite | scatola | box di legno
 ask: cassa da spingere | wooden box
 text: Cornice chiara, rinforzo in diagonale, assi.
+text_en: Light frame, diagonal brace, planks.
 
 == sprite.tree
 kind: sprite
 gen: tree
 title: Albero
+title_en: Tree
 ask: crea un albero | disegna un albero | tree sprite | pino | abete | quercia | foresta
 text: Chioma tonda (a volte un pino, a volte con i frutti) e tronco.
+text_en: Round crown (sometimes a pine, sometimes with fruit) and trunk.
 
 == sprite.flower
 kind: sprite
 gen: flower
 title: Fiore
+title_en: Flower
 ask: crea un fiore | disegna un fiore | flower sprite | margherita | pianta fiorita
 text: Petali intorno al centro giallo, stelo e foglie.
+text_en: Petals around a yellow centre, stem and leaves.
 
 == sprite.mushroom
 kind: sprite
 gen: mushroom
 title: Fungo
+title_en: Mushroom
 ask: crea un fungo | disegna un fungo | mushroom sprite | funghetto | power up fungo
 text: Cappello a pois e gambo.
+text_en: Polka-dot cap and stem.
 
 == sprite.rock
 kind: sprite
 gen: rock
 title: Roccia
+title_en: Rock
 ask: crea una roccia | disegna un sasso | rock sprite | pietra | masso | ostacolo di pietra
 text: Un sasso irregolare con una crepa.
+text_en: An irregular stone with a crack.
 
 == sprite.bomb
 kind: sprite
 gen: bomb
 title: Bomba
+title_en: Bomb
 ask: crea una bomba | disegna una bomba | bomb sprite | esplosivo | dinamite
 text: Bomba nera con la miccia accesa.
+text_en: A black bomb with a lit fuse.
 
 == sprite.fire
 kind: sprite
 gen: fire
 title: Fiamma
+title_en: Flame
 ask: crea una fiamma | disegna il fuoco | fire sprite | fiammella | falo' | torcia | flame
 text: Fiamma a goccia, rossa fuori e chiara al centro.
+text_en: A drop-shaped flame, red outside and light in the centre.
 
 == sprite.bullet
 kind: sprite
 gen: bullet
 title: Proiettile
+title_en: Bullet
 ask: crea un proiettile | disegna un colpo | bullet sprite | laser | sparo | missile
 ask: palla di energia | projectile
 text: Un colpo tondo o un raggio laser luminoso.
+text_en: A round shot or a glowing laser beam.
 
 == sprite.explosion
 kind: sprite
 gen: explosion
 title: Esplosione
+title_en: Explosion
 ask: crea un'esplosione | disegna uno scoppio | explosion sprite | boom | botto
 text: Una stella di fuoco con i detriti; più varianti fanno un'animazione.
+text_en: A star of fire with debris; several variants make an animation.
 
 == sprite.apple
 kind: sprite
 gen: apple
 title: Mela
+title_en: Apple
 ask: crea una mela | disegna una mela | apple sprite | frutto | frutta da raccogliere
 text: Mela rossa o verde con picciolo e foglia.
+text_en: A red or green apple with a stalk and a leaf.
 
 == sprite.cloud
 kind: sprite
 gen: cloud
 title: Nuvola
+title_en: Cloud
 ask: crea una nuvola | disegna una nuvola | cloud sprite | nuvoletta | cielo
 text: Nuvola bianca per lo sfondo.
+text_en: A white cloud for the background.
 
 == sprite.grass
 kind: sprite
 gen: grass
 title: Tile di erba
+title_en: Grass tile
 ask: crea una tile di erba | disegna l'erba | grass tile | prato | terreno erboso
 text: Si ripete senza bordi: per riempire la mappa.
+text_en: It repeats without seams: for filling the map.
 
 == sprite.brick
 kind: sprite
 gen: brick
 title: Tile di mattoni
+title_en: Brick tile
 ask: crea un muro di mattoni | disegna dei mattoni | brick tile | parete | muro
 text: Mattoni sfalsati con la malta; si ripete senza bordi.
+text_en: Staggered bricks with mortar; it repeats without seams.
 
 == sprite.stone
 kind: sprite
 gen: stone
 title: Tile di pietra
+title_en: Stone tile
 ask: crea un pavimento di pietra | disegna un selciato | stone tile | lastricato | ciottoli
 ask: muro di pietra | dungeon floor
 text: Pietre irregolari; si ripete senza bordi.
+text_en: Irregular stones; it repeats without seams.
 
 == sprite.water
 kind: sprite
 gen: water
 title: Tile d'acqua
+title_en: Water tile
 ask: crea una tile d'acqua | disegna l'acqua | water tile | mare | lago | fiume | onde
 text: Acqua con le creste delle onde; si ripete senza bordi.
+text_en: Water with the crests of the waves; it repeats without seams.
 
 == sprite.wood
 kind: sprite
 gen: wood
 title: Tile di legno (assi)
+title_en: Wood tile (planks)
 ask: crea un pavimento di legno | disegna delle assi | wood tile | parquet | tavole
 text: Assi con le venature; si ripete senza bordi.
+text_en: Planks with the grain; it repeats without seams.
 
 == sprite.sand
 kind: sprite
 gen: sand
 title: Tile di sabbia o terra
+title_en: Sand or dirt tile
 ask: crea una tile di sabbia | disegna la terra | sand tile | deserto | spiaggia | sterrato
 text: Granelli sparsi; si ripete senza bordi.
+text_en: Scattered grains; it repeats without seams.
 
 == sprite.lava
 kind: sprite
 gen: lava
 title: Tile di lava
+title_en: Lava tile
 ask: crea una tile di lava | disegna la lava | lava tile | magma | vulcano
 text: Lava con le chiazze incandescenti; si ripete senza bordi.
+text_en: Lava with glowing patches; it repeats without seams.
 
 == sprite.ground
 kind: sprite
 gen: ground
 title: Tile di terreno con l'erba (piattaforma)
+title_en: Ground tile with grass (platform)
 ask: crea il terreno di un platform | disegna una piattaforma | ground tile | suolo
 ask: terra con l'erba sopra | pavimento del livello | neve sul terreno
 text: Erba (o neve) sopra e terra sotto: si ripete da sinistra a destra.
+text_en: Grass (or snow) on top and earth below: it repeats from left to
+right.
 
 == sprite.hero_side
 kind: sprite
 gen: hero_side
 title: Personaggio di profilo (platform)
+title_en: Character in profile (platformer)
 ask: personaggio di profilo | omino visto di lato | player side view sprite | platform hero
 ask: personaggio per un platform | camminata di lato | eroe che cammina verso destra
 ask: sprite del giocatore di lato | walking animation side
 text: Guarda a destra (spr con flip_x per la sinistra). Le varianti 1, 2 e 3 sono i
 passi: insieme fanno la camminata.
+text_en: It faces right (spr with flip_x for the left). Variants 1, 2 and 3
+are the steps: together they make the walk.
 
 == sprite.car
 kind: sprite
 gen: car
 title: Automobile vista dall'alto
+title_en: Car seen from above
 ask: crea una macchina | disegna un'auto | car sprite | macchina da corsa vista dall'alto
 ask: automobile per un gioco di corse | veicolo | racing car | top down car
 text: Carrozzeria, vetri, ruote e fari, con il muso in alto; a volte le strisce.
+text_en: Body, windows, wheels and headlights, with the front at the top;
+sometimes stripes.

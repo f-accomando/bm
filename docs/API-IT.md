@@ -305,7 +305,8 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | `time()` | secondi dall'avvio della cartuccia (con decimali) |
 | `stat(n)` | 0 KiB usati da Lua, 1 ms dell'ultimo fotogramma (`_update` + `_draw`, con il 3D della GPU), 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D (0 con la GPU), 6 ms passati nel disegno 3D (da `zclear`; con la GPU la parte dell'ARM), 7 vertici 3D trasformati, 8 ms dall'inizio di questo fotogramma (per misurare le fasi), 9 `1` se il 3D lo disegna la GPU, 10 istruzioni Lua dell'ultimo fotogramma (`_update` + `_draw`, alle migliaia); il **dev kit** (2026-10-04): 11 token del codice della cartuccia (`code_tokens`), 12 i KiB di Lua più alti di questa partita, 13 KiB dei dati della cartuccia in memoria (sprite sheet, mappa, modelli e scheletri, banco di suoni, z-buffer del 3D), 14 le istruzioni Lua del fotogramma più pesante di questa partita; 15 quanti `_update` sono girati prima di questo `_draw` (1; di più con `frameskip`) |
 | `frameskip([n])` | il tempo del gioco a 60 `_update` al secondo qualunque sia il costo di `_draw` (2026-10-05): quando un fotogramma dura più di 1/60 s, prima del `_draw` dopo girano fino a `n` `_update` (i fotogrammi in mezzo non si disegnano), così un gioco che avanza di 1/60 s a ogni `_update` non rallenta; oltre `n` il tempo si lascia andare (il gioco rallenta piuttosto che non disegnare mai). `1` (il default) è un `_update` per fotogramma, come prima; al massimo 8. Restituisce il valore di prima. Un tasto premuto conta una volta in `btnp()` (e `mousep()`, la rotella) per quanti `_update` lo vedano; `btn()` resta tenuto. Overbit usa `frameskip(4)` (il suo benchmark `1`) |
-| `devkit([modo])` | l'overlay del dev kit: `0` spento, `1` semplice, `2` dettagliato; con un modo mostra quella pagina (un tasto del gioco per lui, per esempio Select sul pad: F11 è della tastiera), solo in questa partita: ogni gioco parte come dice Settings. Restituisce il modo di prima |
+| `devkit([modo])` | l'overlay del dev kit: `0` spento, `1` semplice, `2` dettagliato, `3` funzioni; con un modo mostra quella pagina (un tasto del gioco per lui, per esempio Select sul pad: F11 è della tastiera), solo in questa partita: ogni gioco parte come dice Settings. Restituisce il modo di prima |
+| `profile([acceso])` | il profiler delle funzioni (R14): le funzioni che costano di più nell'ultimo secondo intero (60 fotogrammi), la più cara per prima, fino a 32: `{name, where, c, self, total, calls}` (`where` `"main.lua:120"` o `"[C]"`; `c` vero per le funzioni della console e di Lua scritte in C; `self` e `total` ms per fotogramma, il suo tempo e con quelle che chiama; `calls` le chiamate per fotogramma, solo per quelle in C), e i fotogrammi misurati (0 durante il primo secondo). `profile(true)` lo accende per la partita anche senza la pagina del dev kit, `profile(false)` lo spegne (e dimentica). Es. `for _, f in ipairs(profile()) do log(f.name, f.self) end` |
 | `devinfo(riga, ...)` | fino a 4 righe del gioco nella pagina dettagliata del dev kit (la sua qualità, i suoi attori...), di 18 caratteri; `devinfo()` nessuna. Va chiamata di nuovo quando cambiano (Overbit a ogni fotogramma mentre la pagina dettagliata è aperta) |
 | `code_tokens(testo)` | i **token** di un pezzo di codice Lua, contati come `stat(11)`, l'overlay e il dev kit dell'SDK (`src/bm/tokens.c`): ogni nome, parola chiave, numero, stringa e operatore vale uno; commenti, spazi, `,` `.` `:` `;` `::`, le parentesi che si chiudono (`)` `]` `}`), `end` e `local` non contano, e nemmeno il segno meno davanti a un numero (`-1` è un token). Un'informazione, non un limite: bm non mette un tetto ai token (e nemmeno il `.b16`, [B16.md](B16.md) §2.4) |
 | `log(...)` | scrive nel log del kernel (seriale e console), non sullo schermo del gioco |
@@ -340,12 +341,18 @@ al secondo).
 
 | Funzione | Descrizione |
 |---|---|
-| `save(t)` | salva la tabella `t` sulla SD; `true`, oppure `false` e il motivo (niente SD, scheda piena...) |
-| `saved()` | la tabella salvata l'ultima volta, oppure `nil` |
+| `save(t, [slot])` | salva la tabella `t` sulla SD, nello slot 1–8 (predefinito 1); `true`, oppure `false` e il motivo (niente SD, scheda piena...) |
+| `saved([slot])` | la tabella salvata l'ultima volta in quello slot (predefinito 1), oppure `nil` |
+| `saves()` | gli slot usati, `{[slot] = byte}` (es. `{[1] = 40, [3] = 212}`), e quanti ce ne sono (8): per la pagina "carica partita" |
+| `delsave([slot])` | svuota lo slot (predefinito 1); `true`, oppure `false` e il motivo (`"nothing saved in slot 3"`) |
 
-Ogni cartuccia ha **un** salvataggio, in `/bm/save/XXXXXXXX.SAV` sulla SD (il nome
-dipende da titolo e autore: cambiandoli si riparte da zero). La tabella può contenere
-numeri, stringhe, booleani e altre tabelle (niente funzioni, al massimo 32 KiB).
+Ogni cartuccia ha **8 slot** di salvataggio, ognuno una tabella fino a 32 KiB, in
+`/bm/save/` sulla SD: lo slot 1 è `XXXXXXXX.SAV` (quello di sempre: `save(t)` e `saved()`
+senza slot), gli altri `XXXXXXXX.S02` ... `.S08`. Il nome dipende da titolo e autore:
+cambiandoli si riparte da zero. Un uso comune: lo slot 1 per impostazioni e record (lo usa
+anche `lib.store`), gli altri per le partite. Una tabella può contenere numeri, stringhe,
+booleani e altre tabelle (niente funzioni). Le opzioni del gioco nel menu (X sulla
+copertina) mostrano i byte di tutti gli slot e *Delete the save data* li cancella tutti.
 Scrivere sulla SD richiede qualche millisecondo: chiama `save()` in momenti come la fine
 della partita, non a ogni fotogramma (`lib.store` e `lib.best` di [bmlib](#bmlib-la-libreria-comune-dei-giochi)
 scrivono solo quando un valore cambia). Esempio (record di Snake):
@@ -357,6 +364,21 @@ function _init()
 end
 -- a fine partita
 if score > best then best = score; save({ best = best }) end
+```
+
+Tre partite, con la pagina per scegliere (gli slot 2, 3 e 4):
+
+```lua
+local function slots()                  -- le righe della pagina "carica partita"
+  local used, rows = saves(), {}
+  for i = 1, 3 do
+    local p = used[i + 1] and saved(i + 1)
+    rows[i] = p and ("Partita " .. i .. ": livello " .. p.level) or ("Partita " .. i .. ": vuota")
+  end
+  return rows
+end
+function save_game(i) save({ level = level, hp = hp }, i + 1) end
+function load_game(i) local p = saved(i + 1) if p then level, hp = p.level, p.hp end end
 ```
 
 ### Documenti
@@ -493,7 +515,9 @@ SONG=0` lo ascolta in un WAV.
 | `cart_put_audio(percorso, banco, [titolo, lua])` | mette il banco (stringa; `nil` lo toglie) in un `.bm`, il resto del file come prima; se il file non c'è lo crea con quel titolo e quel codice. `true`, o `false` e un messaggio |
 | `audio_bank(banco)` | da ora suona questo banco (per gli editor: musica ed effetti che suonano vanno avanti); `nil`: nessuno |
 | `audio_pattern(p, bpm, swing)` / `audio_play(v, suono, nota, [vol], [fx], [ms])` | un pattern in loop, un suono del banco su una voce (anteprime degli editor) |
-| `cart_run(percorso)` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=, back=true, run=}` (dal menu, "Open in the SDK", "... Sound editor", "... bm Studio", "... bm Animator", "... bm Mesh" o "... bm Pixel": `back=false`). `run` (2026-10-04, il dev kit) sono i numeri della partita provata: `{frames, secs, fps, ms, ms_max, slow, lua_kb, lua_peak_kb, data_kb, instr_max, tokens, tris, gpu}` (ms medi e massimi di `_update` + `_draw`, `slow` i fotogrammi oltre 16,7 ms, la memoria di Lua alla fine e al massimo, quella dei dati, le istruzioni del fotogramma più pesante, i token, i triangoli dell'ultimo fotogramma, se il 3D lo faceva la GPU); l'SDK li mostra nel suo dev kit |
+| `cart_run(percorso, [opzioni])` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=, back=true, run=}` (dal menu, "Open in the SDK", "... Sound editor", "... bm Studio", "... bm Animator", "... bm Mesh" o "... bm Pixel": `back=false`). `run` (2026-10-04, il dev kit) sono i numeri della partita provata: `{frames, secs, fps, ms, ms_max, slow, lua_kb, lua_peak_kb, data_kb, instr_max, tokens, tris, gpu}` (ms medi e massimi di `_update` + `_draw`, `slow` i fotogrammi oltre 16,7 ms, la memoria di Lua alla fine e al massimo, quella dei dati, le istruzioni del fotogramma più pesante, i token, i triangoli dell'ultimo fotogramma, se il 3D lo faceva la GPU); l'SDK li mostra nel suo dev kit |
+| `cart_run(percorso, {breaks = {righe}, stop = true})` | il gioco provato è una sessione del **debugger** (R13, bm Code: F8 e F5): si ferma alle righe `breaks` del suo `main.lua`, a `breakpoint()` e, con `stop`, alla sua prima riga. Fermo, il debugger copre lo schermo: il codice attorno alla riga, le variabili della funzione (le locali, poi le upvalue in azzurro), la pila; F10 o A la riga dopo (sopra le chiamate), F8 o X dentro la chiamata, Shift+F8 o Y fuori dalla funzione, F5 o Start continua, Esc o Select ferma il gioco (che finisce con `main.lua:N: stopped in the debugger`: lo strumento torna sulla riga); le frecce scorrono le variabili e scelgono la funzione della pila. Ogni gioco provato da uno strumento con `cart_run` è una sessione: senza righe non costa niente finché non arriva a `breakpoint()` |
+| `breakpoint([perché])` | in un gioco provato da uno strumento (`cart_run`) il debugger si ferma qui, con il motivo nel titolo; negli altri giochi non fa niente |
 | `cart_tool(nome, [percorso])` | esce e apre un altro strumento della console sullo stesso file: `"studio"`, `"animator"`, `"mesh"`, `"pixel"`, `"code"`, `"sdk"`, `"sound"` (bm Studio → *Open in bm Animator*, e ritorno); lo strumento lo trova in `cart_arg()` come dal menu, con `from` = il nome dello strumento che l'ha aperto (`"sdk"`: i menu della suite offrono *Back to bm SDK*) |
 | `cart_data(tipo, [byte])` | le sezioni **MESH** (`tipo` 8) e **ANIM** (9) del progetto, come stringhe nel formato di `src/bm/bm.h`: senza `byte` le restituisce (`nil` se non ci sono), con `byte` le sostituisce (`nil` o `""` le toglie) → `true`, oppure `false` e il motivo. Il kernel le controlla prima; `model()`, `animate()` e `bone3d()` usano subito quelle nuove e `cart_save` le scrive. Così bm Studio e bm Animator della console modificano modelli e scheletri (con `string.pack` / `string.unpack`, nella libreria `require "bm3d"`) |
 
@@ -509,9 +533,10 @@ Si prova da **Dev > Assistant** (o `I` dal monitor).
 
 | Funzione | Descrizione |
 |---|---|
-| `ai.ask(domanda, [{n=5, ctx=parola, kinds="api,howto"}])` | le voci migliori, la prima è la più probabile: `{ {id=, title=, kind=, score=}, … }`, e come secondo valore i microsecondi impiegati. `ctx`: la parola sotto il cursore (se è una funzione delle API, la sua voce va in cima). `kinds`: `api`, `howto`, `error`, `tip`, `sprite` |
+| `ai.ask(domanda, [{n=5, ctx=parola, kinds="api,howto"}])` | le voci migliori, la prima è la più probabile: `{ {id=, title=, kind=, score=}, … }`, e come secondo valore i microsecondi impiegati. Titoli e testi sono nella lingua delle risposte (`ai.lang()`), che segue quella della domanda. `ctx`: la parola sotto il cursore (se è una funzione delle API, la sua voce va in cima). `kinds`: `api`, `howto`, `error`, `tip`, `sprite` |
 | `ai.entry(id)` | una voce: `{id, kind, title, name, text, code, gen, see = {id, …}}` |
 | `ai.list([kinds])` | tutte le voci `{id, title, kind}` (per sfogliarle col pad) |
+| `ai.lang([lingua])` | la lingua delle risposte (R18): `"it"` o `"en"`, e se segue le domande (`true`); `"it"`/`"en"` la fissano, `"auto"` la fa seguire di nuovo la lingua di ogni domanda. Si parte da `assist_lang` di `bm/config.txt` (`it`, `en`, `auto`: il predefinito, dalla lingua usata per ultima). Nel pannello Ctrl+E la cambia; la lingua è nella barra del titolo |
 | `ai.near(parola)` | il nome delle API più vicino a una parola scritta male (`"sprr"` → `"spr"`, 1), o `nil` |
 | `ai.sprite(richiesta, [{gen=, size=16, seed=1, outline=true, palette={…}}])` | la base di uno sprite: `{w, h, gen, name, seed, px = {0xRRGGBB o -1 (trasparente), …}}` riga per riga. La ricetta viene dalle parole (`"slime"`, `"astronave"`, `"moneta"`, `"erba"`…) o da `gen`; i colori (`"rosso"`, `"blue"`…) e la misura (`"8x8"`, `"32x32"`, `"piccolo"`, `"grande"`) dalle parole; un altro `seed` è una variante; con `palette` ogni pixel diventa il colore più vicino della tavolozza |
 | `ai.recipes()` | le ricette degli sprite `{id, name}`; `ai.recipes("mesh")` quelle 3D `{id, name, rigged}` |
@@ -1131,10 +1156,11 @@ console, un giocatore che esce; sulla LAN e attraverso il relay.
 - 60 fps = **16,7 ms** per fotogramma per `_update` + `_draw` + la copia sullo schermo.
   In alto a sinistra nella demo, `stat(1)` mostra quanto ne usa la cartuccia.
 - Il **dev kit**: l'overlay delle prestazioni sopra qualsiasi gioco, in alto a destra.
-  Si accende da Settings > Screen and sound > "Performance overlay" (Off, Simple, Detailed:
-  resta salvato), con F11 sulla tastiera (tasto di sistema, anche negli strumenti; era F3),
-  con `p` dalla seriale o con `devkit(modo)` dal gioco: una volta la pagina semplice, di
-  nuovo quella dettagliata, di nuovo spento. F11, `p` e `devkit()` valgono per la partita:
+  Si accende da Settings > Screen and sound > "Performance overlay" (Off, Simple, Detailed,
+  Functions: resta salvato), con F11 sulla tastiera (tasto di sistema, anche negli
+  strumenti; era F3), con `p` dalla seriale o con `devkit(modo)` dal gioco: una volta la
+  pagina semplice, di nuovo quella dettagliata, di nuovo quella delle funzioni, di nuovo
+  spento. F11, `p` e `devkit()` valgono per la partita:
   ogni gioco parte (e riprende) come dice Settings. La pagina semplice:
 
       60fps 6.1ms ^7.5      fotogrammi al secondo; ms di _update + _draw: media e,
@@ -1156,8 +1182,23 @@ console, un giocatore che esce; sulla LAN e attraverso il relay.
       bm3d 2.1 GPU          il driver 3D (ARM, GPU, GPU+AA)
       quality HIGH          le righe del gioco (devinfo)
 
+  La pagina delle **funzioni** (R14) mostra sotto quella semplice le dieci funzioni che
+  costano di più, in ms per fotogramma, la media dell'ultimo secondo (60 fotogrammi):
+
+      function        self   all
+      draw_scene      2.28  6.43    una funzione Lua: il suo tempo e con quelle che chiama
+      map             0.94  0.94    in azzurro le funzioni della console (spr, map, il 3D...)
+      _draw           0.03  7.70    le callback hanno il loro nome
+
+  `self` è il tempo della funzione stessa, `all` quello con le funzioni che chiama: una
+  funzione con `all` grande e `self` piccolo passa il tempo nelle altre. Le funzioni della
+  console sono misurate esattamente, quelle Lua a pezzi di 1000 istruzioni (abbastanza
+  per vedere dove va il tempo). Il profiler gira solo con questa pagina o `profile(true)`;
+  spento non costa niente. Dal codice: `profile()` (sotto).
+
   Sugli schermi grandi è più grande (×2 da 1280 di larghezza, ×3 a 1920). Dal codice:
-  `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`, `devkit()`. Il
+  `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`, `devkit()`,
+  `profile()`. Il
   limite è di 20 milioni di istruzioni per chiamata. Il **dev kit dell'SDK** (F1 due volte) ha gli stessi
   numeri per il progetto: token, le funzioni più grandi, la memoria dei dati, il file
   contro gli 8 MiB di un `.b16` e i numeri dell'ultima prova (F5). A fine partita la

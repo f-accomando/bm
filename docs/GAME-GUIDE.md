@@ -444,6 +444,16 @@ save({ record = record })
 Numbers, strings, booleans and tables, up to 32 KiB, in `/bm/save/` on the SD card. With
 bmlib: `lib.best("record", score)` keeps the record and writes only when it is beaten.
 
+More games in progress: the **slots** from 1 to 8, each a table of its own. Without a slot
+it is 1 (records and settings there); `saves()` says which are in use, `delsave(slot)`
+empties one:
+
+```lua
+save({ level = level, hp = hp }, 2)              -- the game in slot 2
+local p = saved(2)                                -- and loaded back (nil if empty)
+if saves()[3] then print("slot 3: game saved", 8, 8, 7) end
+```
+
 An app that makes files for the player (texts, drawings, exports) writes them in `/docs`,
 shared by all the apps: `doc_write("NOTES.TXT", text)`, `doc_read`, `doc_list`,
 `doc_delete` (8.3 names; the first time the console asks the player). bm Write keeps its
@@ -708,7 +718,14 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
 - **Performance:** the cost is almost all in the Lua of `_update`/`_draw`; the drawing is
   in C. Avoid creating new tables in every frame in hot loops; update only the enemies near
   the camera; draw only the part of the map that shows. F11 twice shows the dev kit's
-  detailed page: how long `_update`, `_draw` and the 3D took in the last frame.
+  detailed page: how long `_update`, `_draw` and the 3D took in the last frame. F11 three
+  times, the **functions** page: the ten that cost the most (ms a frame: their own time and
+  with what they call); start optimising from the first.
+- **Debugger** (bm Code): F8 puts a breakpoint on the line, F5 tries the game, which stops
+  there and shows the variables and the stack; F10 the next line, F8 into a call, Shift+F8
+  out, F5 goes on, Esc stops (back on the line). From the code `breakpoint("why")` stops the
+  game when you try it from bm Code or the SDK; `log()` writes values on the serial line
+  without stopping it.
 - **Heavy frames:** a game that moves 1/60 s per `_update` slows down when a frame costs
   more than 16.7 ms. `frameskip(4)` in `_init` keeps its time: up to 4 `_update` before each
   `_draw`, the frames in between not drawn (a heavy 3D game, like Overbit).

@@ -3,6 +3,7 @@
 == anim_frames
 kind: howto
 title: Animare uno sprite (cambiare fotogramma)
+title_en: Animating a sprite (changing frame)
 ask: animare uno sprite | animazione della camminata | animate a sprite | fotogrammi
 ask: sprite che si muove a scatti | cambiare immagine ogni tot | walk cycle | frames
 ask: animazione con più celle | far battere le ali
@@ -11,6 +12,9 @@ see: spr, face_direction, lib.frame, named_sprites
 text:
 Ogni tot fotogrammi passa alla cella successiva. Qui due fotogrammi 16x16
 (celle 2 e 4), 8 fotogrammi l'uno, solo mentre cammina.
+text_en:
+Every so many frames, move on to the next cell. Here two 16x16 frames
+(cells 2 and 4), 8 frames each, only while walking.
 code:
 local frame = 0
 if moving then frame = (stat(3) // 8) % 2 end
@@ -19,12 +23,15 @@ spr(2 + frame * 2, x, y, 2, 2, facing_left)
 == face_direction
 kind: howto
 title: Girare lo sprite nella direzione in cui cammina
+title_en: Turning the sprite the way it walks
 ask: girare lo sprite a sinistra | lo sprite guarda dalla parte sbagliata | flip direction
 ask: specchiare il personaggio quando va a sinistra | facing direction
 keys: girare, specchiare, direzione
 see: spr, anim_frames
 text:
 Ricorda l'ultima direzione e passa flip_x a spr().
+text_en:
+Remember the last direction and pass flip_x to spr().
 code:
 if btn(0) then facing_left = true end
 if btn(1) then facing_left = false end
@@ -33,6 +40,7 @@ spr(2, x, y, 2, 2, facing_left)
 == sprite_from_string
 kind: howto
 title: Disegnare uno sprite nel codice (senza PNG)
+title_en: Drawing a sprite in the code (without a PNG)
 ask: disegnare uno sprite nel codice | sprite senza png | sprite da stringhe
 ask: pixel art nel codice | create a sprite in code | sprite fatto di lettere
 keys: stringhe, codice, senza png
@@ -40,6 +48,9 @@ see: sset, spr
 text:
 Ogni lettera è un colore, il punto è trasparente; sset scrive i pixel
 nella cella (qui la cella 0, in alto a sinistra dello sheet).
+text_en:
+Each letter is a colour, the dot is transparent; sset writes the pixels
+into the cell (here cell 0, at the top left of the sheet).
 code:
 local pal = { r = 0xE04040, w = 0xFFFFFF, k = 0x202020 }
 local art = {
@@ -59,6 +70,7 @@ end
 == sprite_sheet
 kind: howto
 title: Come è fatto lo sprite sheet (numeri delle celle)
+title_en: How the sprite sheet is laid out (cell numbers)
 ask: come sono numerate le celle | numero della cella dello sprite | sprite sheet layout
 ask: dove sta lo sprite numero n | celle 8x8 | che numero ha il mio sprite
 keys: celle, numerate, sheet
@@ -68,6 +80,11 @@ Lo sheet è diviso in celle 8x8 da sinistra a destra e dall'alto in basso:
 con uno sheet largo 256 ci sono 32 celle per riga; la cella n sta in
 colonna n % 32 e riga n // 32. Uno sprite 16x16 alla cella n usa anche
 n+1, n+32 e n+33.
+text_en:
+The sheet is divided into 8x8 cells from left to right and from top to
+bottom: with a sheet 256 wide there are 32 cells per row; cell n is at
+column n % 32 and row n // 32. A 16x16 sprite at cell n also uses n+1,
+n+32 and n+33.
 code:
 local per_row = 256 // 8
 local n = 3 * per_row + 5          -- riga 3, colonna 5
@@ -76,6 +93,7 @@ spr(n, x, y)
 == draw_order
 kind: howto
 title: Ordine di disegno (chi sta davanti)
+title_en: Drawing order (who is in front)
 ask: chi sta davanti | ordine di disegno | gli sprite si coprono male | draw order
 ask: ordinare per y | profondità 2d | depth sorting | z order
 ask: cosa viene disegnato sopra | sprite sopra o sotto
@@ -84,6 +102,9 @@ see: enemies_list
 text:
 Si vede davanti quello disegnato per ultimo. In una vista dall'alto ordina
 per y: chi è più in basso è più vicino.
+text_en:
+What is drawn last is seen in front. In a view from above sort by y:
+whoever is lower down is closer.
 code:
 table.sort(actors, function(a, b) return a.y < b.y end)
 for _, a in ipairs(actors) do spr(a.n, a.x, a.y, 2, 2) end
@@ -91,6 +112,7 @@ for _, a in ipairs(actors) do spr(a.n, a.x, a.y, 2, 2) end
 == palette_swap
 kind: howto
 title: Lo stesso sprite con un altro colore
+title_en: The same sprite in another colour
 ask: cambiare colore a uno sprite | nemico rosso e blu con lo stesso sprite | palette swap
 ask: sprite di un altro colore | ricolorare
 keys: ricolorare, colore
@@ -98,6 +120,9 @@ see: sget, sset
 text:
 Copia la cella in un'altra cambiando un colore con sget e sset (una volta,
 in _init: non a ogni fotogramma).
+text_en:
+Copy the cell into another one, changing a colour with sget and sset
+(once, in _init: not every frame).
 code:
 for y = 0, 15 do
   for x = 0, 15 do
@@ -110,6 +135,7 @@ end
 == big_sprite
 kind: howto
 title: Sprite grandi (16x16, 32x32)
+title_en: Big sprites (16x16, 32x32)
 ask: sprite più grande | sprite 32x32 | personaggio grande | big sprite | sprite 16x16
 ask: usare più celle insieme
 keys: grande, 32x32, celle
@@ -117,6 +143,9 @@ see: spr, sprite_sheet
 text:
 spr() disegna w x h celle insieme: 2, 2 per 16x16, 4, 4 per 32x32. Le
 celle stanno nello sheet una accanto all'altra.
+text_en:
+spr() draws w x h cells together: 2, 2 for 16x16, 4, 4 for 32x32. The
+cells sit next to each other in the sheet.
 code:
 spr(0, x, y, 2, 2)       -- 16x16: celle 0, 1, 32, 33
 spr(4, x, y, 4, 4)       -- 32x32
@@ -124,6 +153,7 @@ spr(4, x, y, 4, 4)       -- 32x32
 == named_sprites
 kind: howto
 title: Sprite e animazioni per nome (le zone dello sheet)
+title_en: Sprites and animations by name (the zones of the sheet)
 ask: chiamare gli sprite per nome | animazione con un nome | named sprites
 ask: non voglio ricordare le coordinate degli sprite | sprite atlas con i nomi
 ask: animazione della moneta che gira | sprite animati senza contare i frame
@@ -133,6 +163,10 @@ text:
 Scrivi le zone in un file (nome x y w h fotogrammi fps, una per riga) e
 passalo a mkbm.py --sprites (nella build: sprites.txt). Poi zspr le
 disegna per nome, animate da sole.
+text_en:
+Write the zones in a file (name x y w h frames fps, one per line) and pass
+it to mkbm.py --sprites (in the build: sprites.txt). Then zspr draws them
+by name, animated by themselves.
 code:
 -- sprites.txt:  moneta 0 48 8 8 6 12
 function _draw()

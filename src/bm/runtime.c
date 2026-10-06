@@ -39,12 +39,14 @@
 #include "kernel/reports.h"
 #include "kernel/syskeys.h"
 #include "n8lua.h"
+#include "ai/assist.h"
 #include "ai/lua_ai.h"
 #include "ai/net.h"
 #include "net/cartnet.h"
 #include "require.h"
 #include "meshcap.h"
 #include "tokens.h"
+#include "profile.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -111,6 +113,7 @@ static struct {
     uint32_t slow_frames;       /* frames over 16.7 ms (_update + _draw) */
     int perf_key;               /* 'p' on the serial line: the dev kit's overlay on or off */
     int f11_held;
+    int prof_want;              /* profile(true): the profiler of functions on without its page */
     int keyhelp;                /* keyhelp(): the registry's reference of the cartridge's keys, or 0 */
     int help_page;              /* the page of the keys shown while F12 is held */
     int esc;
@@ -2805,17 +2808,28 @@ static int l_net_resolve(lua_State *L)
     return 1;
 }
 
-/* ---- save() / saved(): one table per cartridge in /bm/save, as Lua
- * source ("return {...}") read back in an empty environment: data only. */
+/* ---- save() / saved(): tables of a cartridge in /bm/save, as Lua source
+ * ("return {...}") read back in an empty environment: data only. Up to
+ * SAVE_SLOTS slots (R12): slot 1 is the file of before ("1A2B3C4D.SAV"),
+ * the others "1A2B3C4D.S02" ... ".S08". */
 
 #define SAVE_DIR   "/bm/save"
 #define SAVE_MAX   (32 * 1024)
+#define SAVE_SLOTS BM_SAVE_SLOTS
 
 void bm_save_path(const char *title, const char *author, char *out, size_t n)
 {
     char id[96];
     int len = ksnprintf(id, sizeof id, "%s\n%s", title, author);
     ksnprintf(out, n, "%s/%08lX.SAV", SAVE_DIR, crc32(id, (uint32_t)len));
+}
+
+void bm_save_slot(const char *path, int slot, char *out, size_t n)
+{
+    ksnprintf(out, n, "%s", path);
+    char *dot = strrchr(out, '.');
+    if (slot > 1 && dot && (size_t)(dot - out) + 5 <= n - 1)
+        ksnprintf(dot, 5, ".S%02d", slot);
 }
 
 /* The text is built in a fixed buffer: a luaL_Buffer cannot be used here,
@@ -2911,15 +2925,41 @@ static void ser(lua_State *L, int idx, int depth)
     sb_chr(L, '}');
 }
 
-/* save(t): true, or false and a message (no SD card, card full...) */
+/* the slot argument at idx (1 when absent) */
+static int save_slot(lua_State *L, int idx)
+{
+    lua_Integer slot = luaL_optinteger(L, idx, 1);
+    luaL_argcheck(L, slot >= 1 && slot <= SAVE_SLOTS, idx, "a save slot is 1 to 8");
+    return (int)slot;
+}
+
+/* the file of a slot in SAVE_DIR: "1A2B3C4D.SAV", "1A2B3C4D.S02"... */
+static void slot_name(int slot, char out[16])
+{
+    bm_save_slot(rt.save_name, slot, out, 16);
+}
+
+/* the slot's file on the card (in /bm, or the folder of before the rename) */
+static int slot_find(int slot, fat_entry_t *e)
+{
+    char name[16], path[40];
+    slot_name(slot, name);
+    ksnprintf(path, sizeof path, "save/%s", name);
+    return config_find_file(path, e);
+}
+
+/* save(t, [slot]): true, or false and a message (no SD card, card full...) */
 static int l_save(lua_State *L)
 {
     luaL_checktype(L, 1, LUA_TTABLE);
+    int slot = save_slot(L, 2);
     lua_settop(L, 1);
     sb.n = 0;
     sb_str(L, "return ");
     ser(L, 1, 0);
-    if (fat_mkdirs(SAVE_DIR) != 0 || fat_write_file(SAVE_DIR, rt.save_name, sb.p, sb.n) != 0) {
+    char name[16];
+    slot_name(slot, name);
+    if (fat_mkdirs(SAVE_DIR) != 0 || fat_write_file(SAVE_DIR, name, sb.p, sb.n) != 0) {
         lua_pushboolean(L, 0);
         lua_pushstring(L, fat_error());
         return 2;
@@ -2928,16 +2968,15 @@ static int l_save(lua_State *L)
     return 1;
 }
 
-/* saved(): the saved table, or nil. (Not "load": that is Lua's code loader,
- * which the sandbox removes.) */
+/* saved([slot]): the saved table, or nil. (Not "load": that is Lua's code
+ * loader, which the sandbox removes.) */
 static int l_saved(lua_State *L)
 {
-    char path[40];
+    int slot = save_slot(L, 1);
     fat_entry_t e;
     uint8_t *data;
     size_t len;
-    ksnprintf(path, sizeof path, "save/%s", rt.save_name);
-    if (config_find_file(path, &e) != 0 || e.size > SAVE_MAX || fat_load(&e, &data, &len) != 0) {
+    if (slot_find(slot, &e) != 0 || e.size > SAVE_MAX || fat_load(&e, &data, &len) != 0) {
         lua_pushnil(L);
         return 1;
     }
@@ -2953,6 +2992,44 @@ static int l_saved(lua_State *L)
         lua_pushnil(L);
         return 1;
     }
+    return 1;
+}
+
+/* saves(): {[slot] = bytes} of the slots in use, and how many slots there
+ * are (8): for a "load game" page */
+static int l_saves(lua_State *L)
+{
+    lua_newtable(L);
+    for (int slot = 1; slot <= SAVE_SLOTS; slot++) {
+        fat_entry_t e;
+        if (slot_find(slot, &e) == 0 && !e.is_dir) {
+            lua_pushinteger(L, (lua_Integer)e.size);
+            lua_rawseti(L, -2, slot);
+        }
+    }
+    lua_pushinteger(L, SAVE_SLOTS);
+    return 2;
+}
+
+/* delsave([slot]): true when the slot was emptied, or false and why */
+static int l_delsave(lua_State *L)
+{
+    int slot = save_slot(L, 1);
+    char name[16], path[48];
+    slot_name(slot, name);
+    ksnprintf(path, sizeof path, "%s/%s", SAVE_DIR, name);
+    fat_entry_t e;
+    if (fat_find(path, &e) != 0) {
+        lua_pushboolean(L, 0);
+        lua_pushfstring(L, "nothing saved in slot %d", slot);
+        return 2;
+    }
+    if (fat_delete(path) != 0) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, fat_error());
+        return 2;
+    }
+    lua_pushboolean(L, 1);
     return 1;
 }
 
@@ -3622,6 +3699,8 @@ static int l_timeslice(lua_State *L)
 
 /* the dev kit's overlay (defined with it) */
 static int l_devkit(lua_State *L);
+static int l_profile(lua_State *L);
+static int l_breakpoint(lua_State *L);
 static int l_devinfo(lua_State *L);
 
 /* cartridge files, for the editor (defined after the asset loader) */
@@ -3801,7 +3880,7 @@ static const luaL_Reg api[] = {
     { "prompt", l_prompt }, { "lastinput", l_lastinput },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
-    { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit },
+    { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
     { "devinfo", l_devinfo }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
     { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
@@ -3817,7 +3896,7 @@ static const luaL_Reg api[] = {
     { "keymap", l_keymap }, { "controller", l_controller }, { "online", l_online },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
-    { "save", l_save }, { "saved", l_saved },
+    { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
     { "doc_list", l_doc_list }, { "doc_read", l_doc_read }, { "doc_write", l_doc_write }, { "doc_delete", l_doc_delete },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
     { "keys", l_keys }, { "pad", l_pad }, { "mouse", l_mouse }, { "mousep", l_mousep }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
@@ -3844,10 +3923,33 @@ static const luaL_Reg api[] = {
  * finds the cartridge; not in the kernel (a weak symbol left undefined) */
 extern void bm_lua_sample(lua_State *L, lua_Debug *ar) __attribute__((weak));
 
+/* the debugger's state (R13; its code is further down, by the questions
+ * over the game) */
+#define DBG_LINES   65536               /* breakpoints on lines 1..65535 of main.lua */
+#define DBG_FRAMES  12
+enum { DBG_RUN, DBG_INTO, DBG_OVER, DBG_OUT };
+
+static struct {
+    int session;                        /* a game tried from a tool */
+    int n;                              /* breakpoints */
+    int mode, depth;                    /* the step asked, and the stack's depth then */
+    int stop;                           /* stopped in the debugger: the run ends */
+    const char *cb;                     /* the callback running (_update...) */
+    uint8_t bits[DBG_LINES / 8];
+} dbg;
+
+static void dbg_line(lua_State *L, lua_Debug *ar);
+
 static void hook(lua_State *L, lua_Debug *ar)
 {
+    if (ar->event == LUA_HOOKLINE) {    /* the debugger's (R13), only in a debug session */
+        dbg_line(L, ar);
+        return;
+    }
     if (bm_lua_sample)
         bm_lua_sample(L, ar);
+    if (prof_enabled())
+        prof_sample(L);                 /* the dev kit's functions page, profile() */
     ++rt.hook_count;
     if (loading_active())
         loading_tick();                 /* _init: the loading screen goes on */
@@ -3914,6 +4016,15 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     luaL_requiref(L, "n8", luaopen_n8, 1);      /* the nano8 machine (carts/nano8) */
     lua_pop(L, 1);
     ai_lua_open(L);             /* the assistant (M30): idle until asked */
+    {
+        /* its language (R18): assist_lang=it or en fixes it; auto (the
+         * default) follows the questions, from the language last used */
+        const char *al = config_get("assist_lang");
+        if (al && (!strcmp(al, "it") || !strcmp(al, "en")))
+            ai_set_lang(!strcmp(al, "en") ? AI_LANG_EN : AI_LANG_IT, 0);
+        else if (!ai_lang_follows())
+            ai_set_lang(ai_lang(), 1);
+    }
     nnet_lua_open(L);           /* small INT8 networks of the carts (M38.4) */
     bm_require_open(L);         /* require "assist": libraries in the kernel */
     static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL" };
@@ -3952,7 +4063,10 @@ static int call(lua_State *L, const char *name)
     }
     rt.hook_count = 0;
     rt.slice_at = rt.slice_len;
+    prof_begin(name);
+    dbg.cb = name;
     int r = lua_pcall(L, 0, 0, -2);
+    prof_end();
     rt.frame_instr_k += rt.hook_count;
     if (r != LUA_OK) {
         lua_remove(L, -2);
@@ -4346,6 +4460,10 @@ static int extras_keep(const uint8_t *d)
     return 0;
 }
 static char run_request[64], tool_request[16];
+static struct {
+    int set, stop, n;
+    uint16_t lines[64];
+} dbg_next;                             /* cart_run's options, for the run it asks (the debugger) */
 static char arg_path[64], arg_error[512], last_error[512];
 static int arg_back = 1;
 
@@ -5482,11 +5600,33 @@ static int l_cart_write(lua_State *L)
     return 2;
 }
 
-/* cart_run(path): leaves the editor, plays the cartridge, then comes back
- * to the editor with cart_arg() = { path =, error = } */
+/* cart_run(path, [{breaks = {lines}, stop = true}]): leaves the editor,
+ * plays the cartridge, then comes back to the editor with cart_arg() =
+ * { path =, error = }. The game is a debug session (R13): it stops at the
+ * breakpoints (lines of its main.lua), at breakpoint() and, with stop, at
+ * its first line. */
 static int l_cart_run(lua_State *L)
 {
     ksnprintf(run_request, sizeof run_request, "%s", luaL_checkstring(L, 1));
+    memset(&dbg_next, 0, sizeof dbg_next);
+    dbg_next.set = 1;
+    if (lua_istable(L, 2)) {
+        lua_getfield(L, 2, "stop");
+        dbg_next.stop = lua_toboolean(L, -1);
+        lua_pop(L, 1);
+        if (lua_getfield(L, 2, "breaks") == LUA_TTABLE)
+            for (int i = 1; dbg_next.n < (int)(sizeof dbg_next.lines / sizeof dbg_next.lines[0]); i++) {
+                lua_rawgeti(L, -1, i);
+                const int ok = lua_isinteger(L, -1);
+                const lua_Integer line = lua_tointeger(L, -1);
+                lua_pop(L, 1);
+                if (!ok)
+                    break;
+                if (line > 0 && line < 65536)
+                    dbg_next.lines[dbg_next.n++] = (uint16_t)line;
+            }
+        lua_pop(L, 1);
+    }
     rt.quit = 1;
     return 0;
 }
@@ -6028,7 +6168,8 @@ static int vol_start;                   /* the volume when the cartridge started
 
 /* The performance overlay, over any game (Settings > Performance overlay,
  * F11 on a keyboard, a system key, 'p' on the serial line, devkit() from the
- * game): F11 once the simple page, again the detailed one, again off.
+ * game): F11 once the simple page, again the detailed one, again the
+ * functions (R14: profile.c, the costliest of the last second), again off.
  * Simple: its frames a second, the CPU time of _update + _draw and the Lua
  * instructions of a frame (the mean and, after ^, the most of the last
  * second), and the time of the last 64 frames against the 16.7 ms of a frame
@@ -6049,9 +6190,17 @@ static int vol_start;                   /* the volume when the cartridge started
  *   3D     2.5ms
  *   gpu 1.9ms 1 job
  *   tri 3620 vtx 5699
- *   bm3d 2.1 GPU       */
+ *   bm3d 2.1 GPU
+ * Functions, below the simple page, wider (26 columns): the ten costliest
+ * functions of the last second, ms a frame of their own and with what they
+ * call (Lua functions in white, the console's and Lua's C ones in blue):
+ *   function        self   all
+ *   draw_map        0.42  2.10
+ *   map             1.68  1.68  */
 #define PERF_N 64
-static int perf_on;                     /* 0 off, 1 simple, 2 detailed: now */
+#define PERF_PAGES 4                    /* off, simple, detailed, functions */
+#define PERF_FUNCS 10
+static int perf_on;                     /* 0 off, 1 simple, 2 detailed, 3 functions: now */
 static int perf_user;                   /* the same in Settings (config perf): each run starts with it */
 static struct { uint16_t us10[PERF_N], k[PERF_N]; uint32_t at; } perf;
 static gpu3d_stats_t perf_gpu;          /* the GPU's totals at the last frame (the detailed page) */
@@ -6081,7 +6230,7 @@ static void kib_text(char *out, size_t n, uint32_t kb)
         ksnprintf(out, n, "%luM", (unsigned long)(kb / 1024));
 }
 
-static int perf_level(int level) { return level < 0 ? 0 : level > 2 ? 2 : level; }
+static int perf_level(int level) { return level < 0 ? 0 : level >= PERF_PAGES ? PERF_PAGES - 1 : level; }
 
 /* Settings' choice: every game and tool starts (or resumes) with it. F11,
  * 'p' and devkit() change the overlay of the run only: one game that turned
@@ -6089,9 +6238,9 @@ static int perf_level(int level) { return level < 0 ? 0 : level > 2 ? 2 : level;
 void bm_set_perf(int level) { perf_on = perf_user = perf_level(level); }
 int bm_perf(void) { return perf_user; }
 
-/* devkit([mode]) -> the dev kit's overlay: 0 off, 1 simple, 2 detailed; a
- * mode shows that page in this run (a game's own key for it, e.g. Select on
- * a pad: F11 is the keyboard's) */
+/* devkit([mode]) -> the dev kit's overlay: 0 off, 1 simple, 2 detailed, 3
+ * functions; a mode shows that page in this run (a game's own key for it,
+ * e.g. Select on a pad: F11 is the keyboard's) */
 static int l_devkit(lua_State *L)
 {
     const int old = perf_on;
@@ -6115,6 +6264,52 @@ static int l_devinfo(lua_State *L)
         lua_pop(L, 1);
     }
     return 0;
+}
+
+/* The profiler of functions on while its page is shown or the game asked
+ * (profile(true)); from the frame loop */
+static void prof_update(void)
+{
+    const int want = perf_on == 3 || rt.prof_want;
+    if (want != prof_enabled())
+        prof_enable(want, timer_ticks);
+}
+
+/* profile([on]) -> the functions that cost most in the last whole second
+ * (60 frames), the costliest first: {name, where ("main.lua:120", "[C]"),
+ * c (a C function), self and total (ms a frame: its own time, and with the
+ * functions it calls), calls (a frame, C functions only)}, and the frames
+ * measured (0 while the first second goes by). true starts the profiler
+ * of functions for this run (also on while the dev kit shows its
+ * functions page), false stops it. */
+static int l_profile(lua_State *L)
+{
+    if (lua_isboolean(L, 1)) {
+        rt.prof_want = lua_toboolean(L, 1);
+        prof_update();
+    }
+    prof_row_t r[32];
+    uint32_t frames = 0;
+    const int n = prof_rows(r, 32, &frames);
+    lua_createtable(L, n, 0);
+    for (int i = 0; i < n; i++) {
+        lua_createtable(L, 0, 6);
+        lua_pushstring(L, r[i].name);
+        lua_setfield(L, -2, "name");
+        lua_pushstring(L, r[i].where);
+        lua_setfield(L, -2, "where");
+        lua_pushboolean(L, r[i].c);
+        lua_setfield(L, -2, "c");
+        lua_pushnumber(L, r[i].self_us / 1000.0);
+        lua_setfield(L, -2, "self");
+        lua_pushnumber(L, r[i].total_us / 1000.0);
+        lua_setfield(L, -2, "total");
+        lua_pushinteger(L, (lua_Integer)r[i].calls);
+        lua_setfield(L, -2, "calls");
+        lua_rawseti(L, -2, i + 1);
+    }
+    lua_pushinteger(L, (lua_Integer)frames);
+    return 2;
 }
 
 /* ---------------------------------------------------------------- F12: the keys */
@@ -6430,6 +6625,419 @@ static int perm_allowed(int what)
     return s;
 }
 
+/* ---------------------------------------------------------------- the debugger (R13) */
+
+/* A game tried from a tool (bm Code's F5: cart_run(path, {breaks =, stop =}))
+ * is a debug session: at a breakpoint of main.lua (the line hook, on only
+ * while there are breakpoints or a step to make), at breakpoint() in its
+ * code or, with stop, at its first line, the game stops inside the hook
+ * and the debugger covers its screen: the code round the line, the
+ * variables (locals, then upvalues) of a function of the stack, the stack.
+ * Then: continue (F5, Start), the next line (F10, A: over the calls),
+ * into the call (F8, X), out of the function (Shift+F8, Y), stop (Esc,
+ * Select: the game ends with "main.lua:N: stopped in the debugger", so the
+ * tool comes back on the line). The arrows scroll the variables and
+ * choose the function of the stack. The screen of the game comes back as
+ * it was. */
+static const char *cart_src;            /* main.lua of the run, and its size */
+static size_t cart_src_len;
+
+static void dbg_hook(lua_State *L)
+{
+    const int line = dbg.n > 0 || dbg.mode != DBG_RUN;
+    lua_sethook(L, hook, LUA_MASKCOUNT | (line ? LUA_MASKLINE : 0), HOOK_EVERY);
+}
+
+/* the start of a run: the options cart_run left for it (not for a tool) */
+static void dbg_begin(lua_State *L, const char *src, size_t len)
+{
+    memset(&dbg, 0, sizeof dbg);
+    cart_src = src;
+    cart_src_len = len;
+    if (dbg_next.set && !tool_mode) {
+        dbg.session = 1;
+        for (int i = 0; i < dbg_next.n; i++) {
+            const int l = dbg_next.lines[i];
+            if (l > 0 && l < DBG_LINES && !(dbg.bits[l >> 3] & (1u << (l & 7)))) {
+                dbg.bits[l >> 3] |= (uint8_t)(1u << (l & 7));
+                dbg.n++;
+            }
+        }
+        dbg.mode = dbg_next.stop ? DBG_INTO : DBG_RUN;
+        kprintf("debug: %d breakpoint%s%s\n", dbg.n, dbg.n == 1 ? "" : "s",
+                dbg_next.stop ? ", stops at the first line" : "");
+    }
+    memset(&dbg_next, 0, sizeof dbg_next);
+    dbg_hook(L);
+}
+
+static int dbg_depth(lua_State *L)
+{
+    lua_Debug ar;
+    int d = 0;
+    while (lua_getstack(L, d, &ar))
+        d++;
+    return d;
+}
+
+/* line n of main.lua (1-based) into out, tabs as spaces */
+static void src_line(int n, char *out, size_t size)
+{
+    const char *p = cart_src, *end = cart_src + cart_src_len;
+    for (int i = 1; p && p < end && i < n; i++) {
+        const char *nl = memchr(p, '\n', (size_t)(end - p));
+        p = nl ? nl + 1 : end;
+    }
+    size_t k = 0;
+    for (; p && p < end && *p != '\n' && k + 1 < size; p++)
+        if (*p == '\t') {
+            for (int s = 0; s < 2 && k + 1 < size; s++)
+                out[k++] = ' ';
+        } else if (*p != '\r') {
+            out[k++] = *p;
+        }
+    out[k] = 0;
+}
+
+/* the value at the top of the stack, in a few words (no metamethods) */
+static void dbg_value(lua_State *L, char *out, size_t n)
+{
+    switch (lua_type(L, -1)) {
+    case LUA_TNIL: ksnprintf(out, n, "nil"); break;
+    case LUA_TBOOLEAN: ksnprintf(out, n, "%s", lua_toboolean(L, -1) ? "true" : "false"); break;
+    case LUA_TNUMBER:
+        if (lua_isinteger(L, -1))
+            snprintf(out, n, "%lld", (long long)lua_tointeger(L, -1));
+        else
+            snprintf(out, n, "%.6g", lua_tonumber(L, -1));
+        break;
+    case LUA_TSTRING: {
+        size_t len;
+        const char *s = lua_tolstring(L, -1, &len);
+        size_t k = 0;
+        out[k++] = '"';
+        for (size_t i = 0; i < len && k + 5 < n; i++)
+            out[k++] = (s[i] >= 32 && s[i] < 127) ? s[i] : '.';
+        if (len + 5 > n && k + 4 < n) { out[k++] = '.'; out[k++] = '.'; }
+        out[k++] = '"';
+        out[k] = 0;
+        break;
+    }
+    case LUA_TTABLE: {
+        /* {x=1, y=2, 3 more}: the first fields, raw */
+        int shown = 0, more = 0;
+        size_t k = ksnprintf(out, n, "{");
+        lua_pushnil(L);
+        while (lua_next(L, -2)) {
+            if (shown < 3 && k + 16 < n) {
+                char key[24], val[24];
+                if (lua_type(L, -2) == LUA_TSTRING)
+                    ksnprintf(key, sizeof key, "%s=", lua_tostring(L, -2));
+                else if (lua_isinteger(L, -2))
+                    snprintf(key, sizeof key, "[%lld]=", (long long)lua_tointeger(L, -2));
+                else
+                    ksnprintf(key, sizeof key, "[%s]=", luaL_typename(L, -2));
+                if (lua_type(L, -1) == LUA_TTABLE)
+                    ksnprintf(val, sizeof val, "{...}");
+                else
+                    dbg_value(L, val, sizeof val);
+                k += ksnprintf(out + k, n - k, "%s%s%s", shown ? ", " : "", key, val);
+                shown++;
+            } else {
+                more++;
+            }
+            lua_pop(L, 1);
+        }
+        if (more)
+            k += ksnprintf(out + k, n - k, "%s%d more", shown ? ", " : "", more);
+        if (k < n - 1)
+            ksnprintf(out + k, n - k, "}");
+        break;
+    }
+    case LUA_TFUNCTION: {
+        lua_Debug ar;
+        lua_pushvalue(L, -1);
+        if (lua_getinfo(L, ">S", &ar) && ar.linedefined > 0)
+            ksnprintf(out, n, "function %s:%d", ar.short_src, ar.linedefined);
+        else
+            ksnprintf(out, n, "function");
+        break;
+    }
+    default:
+        ksnprintf(out, n, "%s", luaL_typename(L, -1));
+    }
+}
+
+#define DBG_VARS 48
+typedef struct {
+    char name[20], value[64];
+    int up;                             /* an upvalue */
+} dbg_var_t;
+
+/* the variables of the function at level: its locals, then its upvalues */
+static int dbg_vars(lua_State *L, int level, dbg_var_t *v, int max)
+{
+    lua_Debug ar;
+    int n = 0;
+    if (!lua_getstack(L, level, &ar))
+        return 0;
+    for (int i = 1; n < max; i++) {
+        const char *name = lua_getlocal(L, &ar, i);
+        if (!name)
+            break;
+        if (name[0] != '(') {
+            ksnprintf(v[n].name, sizeof v[n].name, "%s", name);
+            dbg_value(L, v[n].value, sizeof v[n].value);
+            v[n++].up = 0;
+        }
+        lua_pop(L, 1);
+    }
+    if (lua_getinfo(L, "f", &ar)) {
+        for (int i = 1; n < max; i++) {
+            const char *name = lua_getupvalue(L, -1, i);
+            if (!name)
+                break;
+            if (name[0] && strcmp(name, "_ENV")) {
+                ksnprintf(v[n].name, sizeof v[n].name, "%s", name);
+                dbg_value(L, v[n].value, sizeof v[n].value);
+                v[n++].up = 1;
+            }
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+    }
+    return n;
+}
+
+typedef struct {
+    char name[24], where[24];
+    int line, game;                     /* its line; a function of main.lua */
+} dbg_frame_t;
+
+static int dbg_frames(lua_State *L, int from, dbg_frame_t *f, int max)
+{
+    lua_Debug ar;
+    int n = 0;
+    for (int lv = from; n < max && lua_getstack(L, lv, &ar); lv++) {
+        if (!lua_getinfo(L, "Sln", &ar))
+            continue;
+        dbg_frame_t *x = &f[n++];
+        x->line = ar.currentline;
+        x->game = !strcmp(ar.source, "=main.lua");
+        if (ar.what && !strcmp(ar.what, "C"))
+            ksnprintf(x->where, sizeof x->where, "[C]");
+        else
+            ksnprintf(x->where, sizeof x->where, "%s:%d", ar.short_src, ar.currentline);
+        const char *nm = ar.name ? ar.name : ar.what && !strcmp(ar.what, "main") ? "(main chunk)"
+                       : !lua_getstack(L, lv + 1, &ar) && dbg.cb ? dbg.cb : "?";
+        ksnprintf(x->name, sizeof x->name, "%s", nm);
+    }
+    return n;
+}
+
+static void dbg_draw(const dbg_frame_t *fr, int nfr, int sel, const dbg_var_t *var, int nvar, int vtop,
+                     const char *why)
+{
+    g16_t *g = &rt.g;
+    const g16_t keep = *g;
+    g16_camera(g, 0, 0);
+    g16_clip(g, 0, 0, 0, 0);
+    const int small = g->h < 270, sc = g->h >= 540 ? g->h / 270 : 1;
+    g->font = small ? &font_console_6x12 : &font_console_8x16;
+    const int fw = g->font->width * sc, rh = g->font->height * sc;
+    const int cols = g->w / fw, rows = g->h / rh;
+    const uint16_t bg = g16_rgb(12, 14, 22), ink = g16_rgb(232, 232, 236), dim = g16_rgb(130, 130, 150),
+                   head = g16_rgb(255, 176, 64), cur = g16_rgb(64, 56, 16), brk = g16_rgb(232, 72, 64),
+                   up = g16_rgb(150, 190, 232), sel_bg = g16_rgb(36, 40, 64);
+    g16_rectfill(g, 0, 0, g->w, g->h, bg);
+    char line[160], code[140];
+    const dbg_frame_t *f = &fr[sel];
+    /* the title */
+    ksnprintf(line, sizeof line, "DEBUG  %s  %s  (%s)", f->where, f->name, why);
+    line[cols < (int)sizeof line ? cols : (int)sizeof line - 1] = 0;
+    g16_text_scaled(g, 0, 0, line, head, sc);
+    /* the code round the line of the function chosen */
+    const int ncode = (rows - 3) / 2 > 3 ? (rows - 3) / 2 : 3;
+    const int digits = 4;
+    for (int r = 0; r < ncode; r++) {
+        const int n = f->line - ncode / 2 + r;
+        const int y = (1 + r) * rh;
+        if (n < 1 || !f->game)
+            continue;
+        src_line(n, code, sizeof code);
+        if (n == f->line)
+            g16_rectfill(g, 0, y, g->w, rh, cur);
+        const int bp = n < DBG_LINES && (dbg.bits[n >> 3] & (1u << (n & 7)));
+        snprintf(line, sizeof line, "%c %*d %s", n == f->line ? '>' : ' ', digits, n, code);
+        line[cols < (int)sizeof line ? cols : (int)sizeof line - 1] = 0;
+        g16_text_scaled(g, 0, y, line, n == f->line ? ink : dim, sc);
+        if (bp)
+            g16_text_scaled(g, fw, y, "*", brk, sc);      /* (column 1: the > of the line stays) */
+    }
+    /* the variables (left) and the stack (right) */
+    const int y0 = (1 + ncode) * rh, vrows = rows - 2 - ncode - 1;
+    const int vcols = cols * 3 / 5, sx = vcols * fw;
+    g16_rectfill(g, 0, y0, g->w, rh, g16_rgb(28, 30, 44));
+    ksnprintf(line, sizeof line, "variables of %s", f->name);
+    line[vcols - 1 > 0 ? vcols - 1 : 0] = 0;
+    g16_text_scaled(g, 0, y0, line, head, sc);
+    g16_text_scaled(g, sx, y0, "stack", head, sc);
+    if (!nvar)
+        g16_text_scaled(g, fw, y0 + rh, "(none)", dim, sc);
+    for (int i = 0; i < vrows && vtop + i < nvar; i++) {
+        const dbg_var_t *v = &var[vtop + i];
+        ksnprintf(line, sizeof line, "%s = %s", v->name, v->value);
+        line[vcols - 2 > 0 ? vcols - 2 : 0] = 0;
+        g16_text_scaled(g, fw, y0 + (1 + i) * rh, line, v->up ? up : ink, sc);
+    }
+    if (vtop + vrows < nvar)
+        g16_text_scaled(g, 0, y0 + vrows * rh, "+", dim, sc);
+    for (int i = 0; i < nfr && i < vrows; i++) {
+        const int y = y0 + (1 + i) * rh;
+        if (i == sel)
+            g16_rectfill(g, sx, y, g->w - sx, rh, sel_bg);
+        if (fr[i].game)
+            ksnprintf(line, sizeof line, "%s  %d", fr[i].name, fr[i].line);
+        else
+            ksnprintf(line, sizeof line, "%s  %s", fr[i].name, fr[i].where);
+        line[cols - vcols - 1 > 0 ? cols - vcols - 1 : 0] = 0;
+        g16_text_scaled(g, sx + fw, y, line, fr[i].game ? ink : dim, sc);
+    }
+    /* the keys */
+    const int kb = hid_last_source() == HID_SOURCE_KEYBOARD;
+    ksnprintf(line, sizeof line, "%s", kb ? "F5 go  F10 next  F8 into  Shift+F8 out  Esc stop"
+                                          : "Start go  A next  X into  Y out  Select stop");
+    line[cols < (int)sizeof line ? cols : (int)sizeof line - 1] = 0;
+    g16_rectfill(g, 0, (rows - 1) * rh, g->w, rh, g16_rgb(28, 30, 44));
+    g16_text_scaled(g, 0, (rows - 1) * rh, line, dim, sc);
+    *g = keep;
+}
+
+/* stopped at the function of `level` (0 in the line hook, 1 in
+ * breakpoint()): the debugger until a key says what next */
+static void dbg_pause(lua_State *L, int level, const char *why)
+{
+    static dbg_frame_t fr[DBG_FRAMES];
+    static dbg_var_t var[DBG_VARS];
+    const int nfr = dbg_frames(L, level, fr, DBG_FRAMES);
+    if (!nfr)
+        return;
+    int sel = 0, nvar = dbg_vars(L, level, var, DBG_VARS), vtop = 0;
+    kprintf("debug: %s at %s in %s\n", why, fr[0].where, fr[0].name);
+    for (int i = 0; i < nvar; i++)
+        kprintf("debug:   %s%s = %s\n", var[i].up ? "^" : "", var[i].name, var[i].value);
+    sync3d();                               /* nothing of the GPU's left to land on the page */
+    const size_t bytes = (size_t)rt.g.stride * (size_t)rt.g.h * 2;
+    uint16_t *keep = malloc(bytes);
+    if (keep)
+        memcpy(keep, rt.g.px, bytes);
+    audio_pause(1);
+    const int text = rt.text_mode;
+    rt.text_mode = 0;                       /* the serial keys are buttons here */
+    rt.leave_ask = 1;                       /* Esc: rt.leave_no (stop), not Start */
+    rt.leave_no = 0;
+    static const uint8_t usage[] = { 0x3E, 0x43, 0x41, 0x29, 0x52, 0x51, 0x50, 0x4F, 0x4B, 0x4E };
+    enum { K_F5, K_F10, K_F8, K_ESC, K_UP, K_DOWN, K_LEFT, K_RIGHT, K_PGUP, K_PGDN };
+    uint32_t prev = ~0u, kprev = ~0u;       /* what is held now is not an answer */
+    int act = -1;
+    while (act < 0) {
+        const int q = poll_keys();
+        uint32_t held = rt.raw_all, keys = 0;
+        for (int p = 0; p < INPUT_PLAYERS; p++)
+            held |= rt.praw[p];
+        for (unsigned i = 0; i < sizeof usage; i++)
+            if (hid_usage_held(usage[i]))
+                keys |= 1u << i;
+        const uint32_t hit = held & ~prev, khit = keys & ~kprev;
+        const int shift = hid_usage_held(0xE1) || hid_usage_held(0xE5);
+        if ((q & QUIT_FORCE) || rt.leave_no || (khit & (1u << K_ESC)) || (hit & HID_SELECT))
+            act = 4;
+        else if ((khit & (1u << K_F5)) || (hit & HID_START))
+            act = DBG_RUN;
+        else if ((khit & (1u << K_F10)) || (hit & HID_A))
+            act = DBG_OVER;
+        else if (((khit & (1u << K_F8)) && shift) || (hit & HID_Y))
+            act = DBG_OUT;
+        else if ((khit & (1u << K_F8)) || (hit & HID_X))
+            act = DBG_INTO;
+        int vstep = 0;
+        if ((khit & (1u << K_UP)) || (hit & (1u << 2))) vstep = -1;
+        if ((khit & (1u << K_DOWN)) || (hit & (1u << 3))) vstep = 1;
+        if (khit & (1u << K_PGUP)) vstep = -8;
+        if (khit & (1u << K_PGDN)) vstep = 8;
+        vtop += vstep;
+        if (vtop > nvar - 1) vtop = nvar - 1;
+        if (vtop < 0) vtop = 0;
+        int fstep = ((khit & (1u << K_RIGHT)) || (hit & (1u << 1))) ? 1
+                  : ((khit & (1u << K_LEFT)) || (hit & 1u)) ? -1 : 0;
+        if (fstep && sel + fstep >= 0 && sel + fstep < nfr) {
+            sel += fstep;
+            nvar = dbg_vars(L, level + sel, var, DBG_VARS);
+            vtop = 0;
+        }
+        prev = held;
+        kprev = keys;
+        dbg_draw(fr, nfr, sel, var, nvar, vtop, why);
+        if (perm_fb)
+            bm_video_present(perm_fb, &rt.g);
+        audio_idle();
+        timer_delay_ms(16);
+        rt.leave_held = held;               /* the button of the answer is not the game's */
+    }
+    rt.leave_ask = 0;
+    rt.leave_no = 0;
+    rt.text_mode = text;
+    if (text)
+        while (hid_getc() >= 0)
+            ;                               /* F5, F10... were not typed for the game */
+    if (keep) {
+        memcpy(rt.g.px, keep, bytes);
+        free(keep);
+    }
+    audio_pause(0);
+    rt.hook_count = 0;                      /* the time stopped is not the frame's */
+    if (act == 4) {
+        dbg.stop = 1;
+        dbg.mode = DBG_RUN;
+        rt.quit = 1;
+        kprintf("debug: stopped at %s\n", fr[0].where);
+        lua_pushfstring(L, "%s: stopped in the debugger", fr[0].where);
+        lua_error(L);
+    }
+    dbg.mode = act;
+    dbg.depth = dbg_depth(L) - level;
+    kprintf("debug: %s\n", act == DBG_RUN ? "go on" : act == DBG_OVER ? "next line" :
+                           act == DBG_INTO ? "into" : "out");
+    dbg_hook(L);
+}
+
+/* the line hook: a breakpoint, or the step asked */
+static void dbg_line(lua_State *L, lua_Debug *ar)
+{
+    const int line = ar->currentline;
+    int hit = 0;
+    if (dbg.mode == DBG_INTO)
+        hit = 1;
+    else if (dbg.mode == DBG_OVER || dbg.mode == DBG_OUT) {
+        const int d = dbg_depth(L);
+        hit = dbg.mode == DBG_OVER ? d <= dbg.depth : d < dbg.depth;
+    }
+    const int bp = line > 0 && line < DBG_LINES && (dbg.bits[line >> 3] & (1u << (line & 7)));
+    if (!hit && !bp)
+        return;
+    if (!lua_getinfo(L, "S", ar) || strcmp(ar->source, "=main.lua"))
+        return;                             /* the kernel's libraries: on to the game's code */
+    dbg_pause(L, 0, bp ? "breakpoint" : "step");
+}
+
+/* breakpoint([why]): in a game tried from a tool, the debugger stops here */
+static int l_breakpoint(lua_State *L)
+{
+    if (dbg.session)
+        dbg_pause(L, 1, luaL_optstring(L, 1, "breakpoint()"));
+    return 0;
+}
+
 /* the system's notice over the game (a kernel arriving, the restart
  * counted down): from the kernel (bm_set_notice) */
 static int (*notice_fn)(char *title, char *detail, int *progress);
@@ -6675,11 +7283,46 @@ static int perf_detail(char lines[][24])
     return n;
 }
 
+/* "0.42", "12.5": ms in the functions page's 5 columns */
+static void ms_cols(char *out, size_t n, uint32_t us)
+{
+    if (us < 10000)
+        ksnprintf(out, n, "%lu.%02lu", (unsigned long)(us / 1000), (unsigned long)(us / 10 % 100));
+    else
+        ksnprintf(out, n, "%lu.%lu", (unsigned long)(us / 1000), (unsigned long)(us / 100 % 10));
+}
+
+/* the functions page: under the simple one, from the row y (on the grid) */
+static void perf_funcs(g16_t *g, int x, int y, int z)
+{
+    prof_row_t r[PERF_FUNCS];
+    uint32_t frames = 0;
+    const int n = prof_rows(r, PERF_FUNCS, &frames);
+    char line[40], a[12], b[12];
+    ksnprintf(line, sizeof line, "%-14s%6s%6s", "function", "self", "all");
+    g16_text_scaled(g, x, y, line, g16_rgb(150, 150, 170), z);
+    if (!frames) {
+        g16_text_scaled(g, x, y + 16 * z, "measuring...", g16_rgb(232, 232, 216), z);
+        return;
+    }
+    for (int i = 0; i < n; i++) {
+        ms_cols(a, sizeof a, r[i].self_us);
+        ms_cols(b, sizeof b, r[i].total_us);
+        char name[15];
+        ksnprintf(name, sizeof name, "%s", r[i].name);  /* 14 columns (no %.14s here) */
+        ksnprintf(line, sizeof line, "%-14s%6s%6s", name, a, b);
+        g16_text_scaled(g, x, y + 16 * (i + 1) * z, line,
+                        r[i].c ? g16_rgb(120, 200, 232) : g16_rgb(232, 232, 216), z);
+    }
+}
+
 static void perf_frame(void)
 {
     uint32_t i = perf.at++ % PERF_N;
     perf.us10[i] = (uint16_t)(rt.last_cpu_us / 10 > 65535 ? 65535 : rt.last_cpu_us / 10);
     perf.k[i] = (uint16_t)(rt.last_instr_k > 65535 ? 65535 : rt.last_instr_k);
+    prof_update();
+    prof_frame();
     if (!perf_on)
         return;
     uint32_t n = perf.at < 60 ? perf.at : 60, sum = 0, most = 0, ksum = 0, kmost = 0;
@@ -6701,7 +7344,15 @@ static void perf_frame(void)
     /* x2 from 1280 wide, x3 at 1920: the same size on a TV as at 640 */
     const int z = g->w >= 1280 ? g->w / 640 : 1;
     const int x = g->w - 144 * z;                 /* the text on the 8 x 16 grid (read by the tests) */
-    g16_rectfill(g, x - 4 * z, 0, 148 * z, (nmore ? 98 + 16 * nmore : 82) * z, g16_rgb(8, 8, 16));
+    if (perf_on == 3) {                           /* the functions: 26 columns, a header and 10 rows */
+        int fx = g->w - 208 * z;
+        if (fx < 4 * z)
+            fx = 4 * z;
+        g16_rectfill(g, fx - 4 * z, 0, g->w - fx + 4 * z, (98 + 16 * (PERF_FUNCS + 1)) * z, g16_rgb(8, 8, 16));
+        perf_funcs(g, fx, 96 * z, z);
+    } else {
+        g16_rectfill(g, x - 4 * z, 0, 148 * z, (nmore ? 98 + 16 * nmore : 82) * z, g16_rgb(8, 8, 16));
+    }
     char line[32], now[12], top[12];
     ksnprintf(line, sizeof line, "%lufps %lu.%lums ^%lu.%lu", rt.fps, mean / 100, mean / 10 % 10,
               most / 100, most / 10 % 10);
@@ -6808,6 +7459,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     uint32_t played_at = start;
     uint32_t lag = 0, lag_at = start;       /* frameskip(): the time not yet run by an _update */
     int fresh = 0;                          /* the keys read and not yet seen by an _update */
+    prof_enable(0, NULL);                   /* the functions page starts from nothing */
     while (!error) {
         uint32_t now_us = timer_ticks();
         played_us += now_us - played_at;
@@ -6825,7 +7477,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
          * key: also while typing) */
         int f11 = hid_usage_held(0x44);
         if ((f11 && !rt.f11_held) || rt.perf_key)
-            perf_on = (perf_on + 1) % 3;    /* simple, detailed, off */
+            perf_on = (perf_on + 1) % PERF_PAGES;   /* simple, detailed, functions, off */
         rt.f11_held = f11;
         rt.perf_key = 0;
         /* frameskip(n): the 1/60 s that went by since the last frame, each
@@ -6940,6 +7592,9 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
 
     if (audio_volume() != vol_start)
         config_save();                      /* the volume chosen in the game stays */
+    prof_enable(0, NULL);                   /* not over the menu nor the next game */
+    memset(&dbg, 0, sizeof dbg);            /* nor the debugger (R13) */
+    cart_src = NULL;
     st->frames = (uint32_t)rt.frame;
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);
@@ -7015,6 +7670,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     memset(st, 0, sizeof *st);
     memset(&rt, 0, sizeof rt);
     n_made = 0;
+    rt.prof_want = 0;
     free(proj_cover);                  /* no project open yet (cart_load) */
     proj_cover = NULL;
     extras_free();
@@ -7071,6 +7727,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     rt.tokens = lua_tokens(cart.lua, cart.lua_size);
     perf.at = 0;                        /* the overlay: this cartridge's frames only */
     perf_on = perf_user;                /* and as Settings has it */
+    dbg_begin(L, cart.lua, cart.lua_size);  /* a game tried from a tool: the debugger (R13) */
     chunk_reader_t rd = { cart.lua, cart.lua_size };
     if (lua_load(L, read_chunk, &rd, "=main.lua", NULL) != LUA_OK ||
         (lua_pushcfunction(L, traceback), lua_insert(L, -2), lua_pcall(L, 0, 0, -2)) != LUA_OK ||

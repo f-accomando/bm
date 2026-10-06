@@ -3,12 +3,15 @@
 == hud
 kind: howto
 title: Punteggio e vite sullo schermo (HUD)
+title_en: Score and lives on the screen (HUD)
 ask: mostrare punteggio e vite | hud | interfaccia di gioco | show score and lives
 ask: scrivere i punti in alto | contatore delle vite | punteggio a schermo
 keys: punteggio, vite, hud
 see: print, health_bar
 text:
 Disegnalo per ultimo, con camera() azzerata, così non scorre con il mondo.
+text_en:
+Draw it last, with camera() reset, so it does not scroll with the world.
 code:
 camera()
 print("PUNTI " .. score, 8, 8, 0xFFFFFF)
@@ -19,6 +22,7 @@ end
 == center_text
 kind: howto
 title: Scrivere un testo centrato
+title_en: Writing centred text
 ask: centrare un testo | scritta al centro dello schermo | center text
 ask: allineare il testo al centro | titolo centrato
 ask: scritta in mezzo allo schermo | testo nel mezzo
@@ -27,6 +31,9 @@ see: print
 text:
 Ogni carattere è largo 8 pixel (per la scala): la x è metà schermo meno
 metà della larghezza del testo.
+text_en:
+Each character is 8 pixels wide (times the scale): x is half the screen
+minus half the width of the text.
 code:
 local function center(s, y, c, scale)
   scale = scale or 1
@@ -37,12 +44,15 @@ center("GAME OVER", 160, 0xFF4040, 2)
 == title_menu
 kind: howto
 title: Menu con le voci da scegliere
+title_en: A menu with items to choose from
 ask: menu del titolo | scegliere una voce con le frecce | menu with options
 ask: menu iniziale con gioca e opzioni | cursore nel menu | select menu item
 keys: menu, voci, scegliere
 see: game_states, btnp, lib.menu
 text:
 Un indice della voce scelta: su e giù lo cambiano, A conferma.
+text_en:
+An index of the chosen item: up and down change it, A confirms.
 code:
 local items, sel = { "Gioca", "Opzioni", "Esci" }, 1
 
@@ -62,12 +72,15 @@ end
 == game_over_screen
 kind: howto
 title: Schermata di game over con il punteggio
+title_en: Game over screen with the score
 ask: schermata di game over | fine partita | game over screen | hai perso
 ask: mostrare il punteggio finale | premi per ricominciare
 keys: gameover, fine, perso
 see: game_states, high_score, restart
 text:
 Scritta grande, punteggio e record, e un tasto per ricominciare.
+text_en:
+Big text, score and high score, and a key to start again.
 code:
 function draw_game_over()
   cls(0)
@@ -80,12 +93,15 @@ end
 == dialog_box
 kind: howto
 title: Finestra di dialogo con il testo che appare a poco a poco
+title_en: Dialogue box with text that appears little by little
 ask: finestra di dialogo | il personaggio parla | dialog box | testo che appare lettera per lettera
 ask: fumetto con il testo | typewriter text | dialoghi rpg
 keys: dialogo, parla, fumetto
 see: print
 text:
 Un riquadro in basso e una parte del testo che cresce a ogni fotogramma.
+text_en:
+A box at the bottom and a part of the text that grows every frame.
 code:
 local msg, shown = "Ciao, viaggiatore! La grotta e' a nord.", 0
 
@@ -99,12 +115,15 @@ end
 == name_input
 kind: howto
 title: Scrivere il nome del giocatore
+title_en: Typing the player's name
 ask: inserire il nome | campo di testo | scrivere il nome per la classifica | text input
 ask: tastiera per il nome | entry of initials
 keys: nome, scrivere, testo
 see: keyp
 text:
 keyp() dà i tasti scritti; Backspace cancella, Invio conferma.
+text_en:
+keyp() gives the keys typed; Backspace deletes, Enter confirms.
 code:
 name = name or ""
 local k = keyp()
@@ -119,6 +138,7 @@ print("nome: " .. name .. "_", 200, 160)
 == fade
 kind: howto
 title: Dissolvenza tra due schermate
+title_en: Fading between two screens
 ask: dissolvenza | fade out | schermo che diventa nero | transizione tra livelli
 ask: fade in | sfumare al nero
 keys: dissolvenza, fade, transizione
@@ -126,6 +146,9 @@ see: game_states
 text:
 Lo schermo è a 16 bit e non c'è trasparenza: una tendina nera che si
 chiude a righe fa da transizione.
+text_en:
+The screen is 16-bit and there is no transparency: a black curtain that
+closes row by row works as the transition.
 code:
 -- fade da 0 a 1
 local h = math.floor(SCREEN_H / 2 * fade)

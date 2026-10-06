@@ -22,7 +22,7 @@ function _update()
   Input.read()
   -- the dev kit is the system's overlay (F11): Select, Tab or F1 go round it
   -- too (simple, detailed, off); the dev keys work while it is shown
-  if Input.cmd.dev_p or Input.cmd.f1_p then devkit((devkit() + 1) % 3) end
+  if Input.cmd.dev_p or Input.cmd.f1_p then devkit((devkit() + 1) % 4) end   -- simple, detailed, functions, off
   G.dev = devkit() > 0
   Dev.update()
   if G.dev and Input.cmd.f2_p then G.qauto = false Quality.set((G.quality + 1) % 5) end

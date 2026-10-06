@@ -517,6 +517,9 @@ void n8lua_set_io(const n8lua_io_t *io) { (void)io; }
 int luaopen_n8(lua_State *L) { lua_newtable(L); return 1; }
 void n8lua_close(void) { }
 void ai_lua_open(lua_State *L) { (void)L; }
+void ai_set_lang(int lang, int follow) { (void)lang; (void)follow; }
+int ai_lang(void) { return 0; }
+int ai_lang_follows(void) { return 1; }
 void n8snd_pause(int on) { (void)on; }
 
 /* No sound output on the PC (src/audio/audio_out.h): audio_idle() moves

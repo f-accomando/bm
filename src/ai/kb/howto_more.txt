@@ -3,6 +3,7 @@
 == sfx_examples
 kind: howto
 title: Effetti sonori pronti (salto, moneta, colpo, laser, esplosione)
+title_en: Ready-made sound effects (jump, coin, hit, laser, explosion)
 ask: effetti sonori | suono del salto | suono della moneta | sound effects
 ask: suono quando colpisco | suono del laser | rumore di esplosione | sfx
 ask: che suono metto quando | effetto audio per il gioco
@@ -13,6 +14,10 @@ text:
 Effetti fatti con le note, una voce per tipo di suono: un effetto non
 taglia l'altro. Se la cartuccia ha un banco di suoni (Sound editor),
 basta sfx(n).
+text_en:
+Effects made with notes, one voice per kind of sound: one effect does not
+cut off another. If the cartridge has a sound bank (Sound editor), sfx(n)
+is enough.
 code:
 function sfx_jump() note(0, 440, 80, SQUARE, 90); jump_t = 6 end
 function sfx_coin()
@@ -37,6 +42,7 @@ end
 == jingle
 kind: howto
 title: Una piccola melodia (jingle)
+title_en: A little melody (jingle)
 ask: suonare una melodia | musichetta | jingle | play a tune | sequenza di note
 ask: musica di vittoria | motivetto quando vinci | melody
 keys: melodia, jingle, musichetta
@@ -44,6 +50,9 @@ see: note, playing, music_loop, lib.jingle
 text:
 Una tabella di note (Hz e durata): quando la voce ha finito, parte la
 successiva.
+text_en:
+A table of notes (Hz and duration): when the voice has finished, the next
+one starts.
 code:
 local tune = { {523, 120}, {659, 120}, {784, 120}, {1047, 300} }
 local step = 0
@@ -65,6 +74,7 @@ end
 == music_loop
 kind: howto
 title: Musica di sottofondo in loop
+title_en: Looping background music
 ask: musica di sottofondo | musica in loop | background music | colonna sonora
 ask: melodia che si ripete | basso e melodia
 keys: musica, sottofondo, loop
@@ -72,6 +82,9 @@ see: music, jingle, note
 text:
 Con un banco di suoni (Sound editor) basta music(0). Con le note: un passo
 ogni 8 fotogrammi, due voci (melodia e basso), 0 = pausa.
+text_en:
+With a sound bank (Sound editor) music(0) is enough. With notes: one step
+every 8 frames, two voices (melody and bass), 0 = rest.
 code:
 local mel = { 659, 0, 784, 659, 587, 0, 523, 0 }
 local bass = { 131, 131, 196, 196, 175, 175, 196, 196 }
@@ -89,6 +102,7 @@ end
 == high_score
 kind: howto
 title: Salvare il record (punteggio migliore)
+title_en: Saving the high score (best score)
 ask: salvare il record | high score | punteggio migliore che resta | best score
 ask: ricordare il record anche dopo aver spento | classifica salvata
 keys: record, highscore, migliore
@@ -96,6 +110,9 @@ see: save, saved
 text:
 Leggi il record in _init; a fine partita, se è battuto, salvalo (una volta,
 non a ogni fotogramma).
+text_en:
+Read the high score in _init; at the end of the game, if it is beaten,
+save it (once, not every frame).
 code:
 function _init()
   local d = saved()
@@ -112,13 +129,17 @@ end
 == save_progress
 kind: howto
 title: Salvare i progressi (livello, oggetti)
+title_en: Saving progress (level, items)
 ask: salvare il livello raggiunto | salvare la partita | save progress | continuare la partita
 ask: salvare gli oggetti raccolti | checkpoint
 keys: progressi, livello, continuare
-see: save, saved, lib.store
+see: save, saved, saves, lib.store
 text:
 Una tabella con quello che serve per ripartire; save() accetta tabelle
-dentro tabelle.
+dentro tabelle. Per più partite usa gli slot: save(t, 2), saved(2).
+text_en:
+A table with what you need to carry on; save() accepts tables inside
+tables. For more than one saved game use the slots: save(t, 2), saved(2).
 code:
 save({ level = level, hp = hp,
        items = { key = has_key, coins = coins } })
@@ -129,6 +150,7 @@ if d then level, hp = d.level, d.hp end
 == two_players
 kind: howto
 title: Due giocatori, ognuno con il suo controller
+title_en: Two players, each with their own controller
 ask: due giocatori | gioco in due | multiplayer locale | two players
 ask: secondo controller | giocatore 2 | ognuno con il suo pad | coop
 keys: giocatori, multiplayer, due
@@ -136,6 +158,9 @@ see: btn, players, lib.party, lib.split
 text:
 btn(i, p) legge solo il controller del giocatore p. Abbina i pad dal
 monitor con T (o Settings > Controllers).
+text_en:
+btn(i, p) reads only the controller of player p. Pair the pads from the
+monitor with T (or Settings > Controllers).
 code:
 local p = { { x = 100, y = 180 }, { x = 540, y = 180 } }
 
@@ -149,6 +174,7 @@ end
 == night_scene
 kind: howto
 title: Scena notturna con le luci
+title_en: A night scene with lights
 ask: scena di notte | gioco al buio | torcia del personaggio | night scene
 ask: lampioni accesi | dungeon buio | atmosfera notturna
 keys: notte, buio, luci
@@ -156,6 +182,9 @@ see: light_begin, light
 text:
 Disegna la scena, poi light_begin con una luce di fondo scura, una light
 per ogni lampada, light_end. L'HUD dopo, a piena luce.
+text_en:
+Draw the scene, then light_begin with a dark background light, one light
+for each lamp, light_end. The HUD after that, in full light.
 code:
 function _draw()
   cls(0)
@@ -171,6 +200,7 @@ end
 == cube_3d
 kind: howto
 title: Un cubo 3D che gira
+title_en: A spinning 3D cube
 ask: cubo 3d che gira | primo esempio 3d | rotating cube | modello 3d che ruota
 ask: come si fa il 3d | grafica 3d | hello world 3d
 keys: cubo, 3d, ruota
@@ -178,6 +208,9 @@ see: draw3d, mesh_cube, camera3d
 text:
 Una mesh pronta, la camera, la luce, e draw3d con una rotazione che
 cresce con il tempo.
+text_en:
+A ready-made mesh, the camera, the light, and draw3d with a rotation that
+grows with time.
 code:
 function _init()
   cube = mesh_cube(0x40A0FF)
@@ -194,6 +227,7 @@ end
 == fps_camera
 kind: howto
 title: Camminare in prima persona in 3D
+title_en: Walking in first person in 3D
 ask: prima persona 3d | camminare in un mondo 3d | first person camera | fps
 ask: muovere la camera con le frecce in 3d | girare la visuale
 keys: prima persona, camminare, 3d
@@ -201,6 +235,9 @@ see: camera3d, draw3d
 text:
 Sinistra e destra girano (yaw), su e giù avanzano nella direzione in cui
 guardi.
+text_en:
+Left and right turn (yaw), up and down move along the direction you are
+looking.
 code:
 if btn(0) then yaw = yaw - 0.04 end
 if btn(1) then yaw = yaw + 0.04 end

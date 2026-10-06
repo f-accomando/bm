@@ -4,6 +4,7 @@
 kind: api
 name: _update
 title: _init, _update, _draw - la struttura di un gioco
+title_en: _init, _update, _draw - the structure of a game
 ask: come è fatto un gioco | struttura di una cartuccia | game loop | ciclo del gioco
 ask: dove metto la logica | dove disegno | funzioni principali | main loop
 ask: quante volte al secondo | 60 fps | skeleton of a game | scheletro del gioco
@@ -12,6 +13,10 @@ text:
 _init() una volta all'avvio; poi 60 volte al secondo _update() (la logica:
 input, movimento, collisioni) e _draw() (il disegno). Lua fa la logica, il
 disegno è in C. Budget: 16,7 ms per fotogramma in tutto.
+text_en:
+_init() once at the start; then 60 times a second _update() (the logic:
+input, movement, collisions) and _draw() (the drawing). Lua does the logic,
+the drawing is in C. Budget: 16.7 ms per frame in all.
 code:
 function _init()
   x, y = 320, 180
@@ -30,12 +35,16 @@ end
 kind: api
 name: time
 title: time() - secondi dall'avvio del gioco
+title_en: time() - seconds since the game started
 ask: quanto tempo è passato | secondi dall'inizio | elapsed time | orologio del gioco
 ask: misurare il tempo | cronometro | time since start | durata della partita
 see: timer, stat
 text:
 I secondi (con i decimali) da quando è partita la cartuccia. Per contare il
 tempo di una partita salva time() all'inizio e fai la differenza.
+text_en:
+The seconds (with decimals) since the cartridge started. To time a match,
+save time() at the start and take the difference.
 code:
 local start = time()
 -- piu' tardi:
@@ -46,6 +55,7 @@ print(string.format("tempo %.1f s", s), 8, 8)
 kind: api
 name: stat
 title: stat(n) - memoria, fps e tempi
+title_en: stat(n) - memory, fps and timings
 ask: quanti fps fa il gioco | quanta memoria uso | frame rate | performance counters
 ask: millisecondi per fotogramma | numero del fotogramma | memory used | cpu time
 see: perf_measure, time, guide.devkit
@@ -56,6 +66,13 @@ fotogramma, 4 triangoli 3D, 5 pixel 3D, 6 ms del disegno 3D, 7 vertici 3D,
 dell'ultimo fotogramma. Il dev kit: 11 token del codice, 12 KiB di Lua al
 massimo, 13 KiB dei dati (sheet, mappa, modelli, suoni), 14 istruzioni del
 fotogramma più pesante, 15 quanti _update prima di questo _draw.
+text_en:
+0 KiB used by Lua, 1 ms of the last frame, 2 fps, 3 frame number, 4 3D
+triangles, 5 3D pixels, 6 ms of 3D drawing, 7 3D vertices, 8 ms since the
+start of the frame, 9 1 if the GPU does the 3D, 10 Lua instructions of the
+last frame. The dev kit: 11 tokens of the code, 12 the most KiB of Lua,
+13 KiB of the data (sheet, map, models, sounds), 14 instructions of the
+busiest frame, 15 how many _update ran before this _draw.
 code:
 print(stat(2) .. " fps  " .. stat(1) .. " ms", 8, 8, 0x80FF80)
 print(stat(0) .. " KiB", 8, 24, 0x80FF80)
@@ -64,6 +81,7 @@ print(stat(0) .. " KiB", 8, 24, 0x80FF80)
 kind: api
 name: frameskip
 title: frameskip(n) - il tempo del gioco anche quando il disegno è lento
+title_en: frameskip(n) - the game's time even when drawing is slow
 ask: il gioco rallenta quando gli fps scendono | il gioco va al rallentatore | frame skip
 ask: saltare fotogrammi | update più volte del draw | game slows down when fps drop
 ask: tempo del gioco costante | fixed timestep
@@ -74,6 +92,12 @@ costa più di 16,7 ms. frameskip(n): prima di ogni _draw girano fino a n
 _update, quanti ne servono per il tempo passato (i fotogrammi in mezzo non
 si disegnano). 1 è il default (uno per fotogramma). btnp() conta un tasto
 una volta sola; stat(15) dice quanti _update sono girati.
+text_en:
+A game that moves on 1/60 s at every _update slows down when a frame
+costs more than 16.7 ms. frameskip(n): before each _draw up to n
+_update run, as many as the time passed needs (the frames in between are
+not drawn). 1 is the default (one per frame). btnp() counts a button only
+once; stat(15) says how many _update ran.
 code:
 function _init()
   frameskip(4)   -- fino a 4 _update per ogni _draw
@@ -83,23 +107,62 @@ end
 kind: api
 name: devkit
 title: devkit(modo) e devinfo(...) - l'overlay delle prestazioni dal gioco
+title_en: devkit(mode) and devinfo(...) - the performance overlay from the game
 ask: accendere il dev kit dal gioco | overlay delle prestazioni con il pad | show the performance overlay
 ask: righe mie nel dev kit | aggiungere informazioni al dev kit | devinfo
 see: guide.devkit, stat, frameskip
 text:
 devkit() dà il modo dell'overlay: 0 spento, 1 semplice, 2 dettagliato
-(ogni fase del fotogramma, la GPU, i triangoli); devkit(modo) lo cambia,
-per esempio con Select sul pad (F11 è della tastiera). devinfo(riga, ...)
-mette fino a 4 righe del gioco nella pagina dettagliata.
+(ogni fase del fotogramma, la GPU, i triangoli), 3 funzioni (le dieci che
+costano di più); devkit(modo) lo cambia, per esempio con Select sul pad
+(F11 è della tastiera). devinfo(riga, ...) mette fino a 4 righe del gioco
+nella pagina dettagliata.
+text_en:
+devkit() gives the overlay's mode: 0 off, 1 simple, 2 detailed
+(every phase of the frame, the GPU, the triangles), 3 functions (the ten
+that cost the most); devkit(mode) changes it, for example with Select on
+the pad (F11 is the keyboard's). devinfo(line, ...) puts up to 4 lines of
+the game on the detailed page.
 code:
 local enemies = {}
-if btnp(9) then devkit((devkit() + 1) % 3) end   -- Select
+if btnp(9) then devkit((devkit() + 1) % 4) end   -- Select
 if devkit() == 2 then devinfo("nemici " .. #enemies) end
+
+== profile
+kind: api
+name: profile
+title: profile() - le funzioni che costano di più
+title_en: profile() - the functions that cost the most
+ask: quale funzione è lenta | dove va il tempo del fotogramma | profiler
+ask: le funzioni più pesanti del gioco | cosa rallenta il gioco | profiling per funzione
+ask: which function is slow | where does the frame time go | function profiler
+see: devkit, guide.devkit, stat
+text:
+Il profiler delle funzioni: F11 tre volte (la pagina delle funzioni del
+dev kit) o profile(true) dal gioco. profile() dà le funzioni dell'ultimo
+secondo, la più cara per prima: name, where ("main.lua:120" o "[C]"),
+self (ms per fotogramma, il suo tempo), total (con quelle che chiama),
+calls (solo per le funzioni in C). profile(false) lo spegne.
+text_en:
+The profiler of functions: F11 three times (the functions page of the
+dev kit) or profile(true) from the game. profile() gives the functions of
+the last second, the costliest first: name, where ("main.lua:120" or
+"[C]"), self (ms per frame, its own time), total (with the ones it
+calls), calls (only for the functions in C). profile(false) turns it off.
+code:
+function _init() profile(true) end
+function _draw()
+  for i, f in ipairs(profile()) do
+    if i > 5 then break end
+    print(f.name .. " " .. f.self, 4, i * 8, 7)
+  end
+end
 
 == code_tokens
 kind: api
 name: code_tokens
 title: code_tokens(testo) - i token di un pezzo di codice
+title_en: code_tokens(text) - the tokens of a piece of code
 ask: contare i token di un testo | token di una funzione | count tokens in code
 ask: quanti token è questo codice
 see: stat, guide.tokens
@@ -107,13 +170,44 @@ text:
 I token di un pezzo di codice Lua, contati come stat(11) e il dev kit
 dell'SDK: nomi, parole chiave, numeri, stringhe e operatori; virgole,
 punti, parentesi chiuse, end e local no.
+text_en:
+The tokens of a piece of Lua code, counted as stat(11) and the SDK's dev
+kit count them: names, keywords, numbers, strings and operators; commas,
+dots, closing brackets, end and local do not count.
 code:
 log(code_tokens("x = x + 1") .. " token")    -- 5
+
+== breakpoint
+kind: api
+name: breakpoint
+title: breakpoint() e F8 - il debugger di bm Code
+title_en: breakpoint() and F8 - the debugger of bm Code
+ask: debugger | fermare il gioco su una riga | punto di interruzione | breakpoint
+ask: vedere le variabili mentre il gioco gira | eseguire passo passo | step by step
+ask: stop the game on a line | inspect variables | debug step by step
+see: log, cart_run
+text:
+In bm Code F8 mette un punto di interruzione sulla riga e F5 prova il
+gioco: si ferma lì e mostra il codice, le variabili e la pila. F10 la riga
+dopo, F8 dentro una chiamata, Shift+F8 fuori dalla funzione, F5 continua,
+Esc ferma il gioco e torna sulla riga (pad: A, X, Y, Start, Select).
+breakpoint("perché") nel codice ferma il gioco provato da bm Code o
+dall'SDK; negli altri casi non fa niente.
+text_en:
+In bm Code F8 puts a breakpoint on the line and F5 tries the game: it
+stops there and shows the code, the variables and the stack. F10 the next
+line, F8 into a call, Shift+F8 out of the function, F5 goes on, Esc stops
+the game and goes back to the line (pad: A, X, Y, Start, Select).
+breakpoint("why") in the code stops the game tried from bm Code or from
+the SDK; in the other cases it does nothing.
+code:
+if hp < 0 then breakpoint("vita sotto zero") end
 
 == log
 kind: api
 name: log
 title: log(...) - scrive nel registro (debug)
+title_en: log(...) - writes to the log (debug)
 ask: stampare un messaggio di debug | scrivere nella console | debug print
 ask: vedere il valore di una variabile | registro del kernel | print to the log
 ask: come faccio il debug | trace
@@ -121,6 +215,9 @@ see: print, stat
 text:
 Scrive nel registro del kernel (seriale, console di rete, Dev > Log), non
 sullo schermo del gioco: per seguire valori senza sporcare il disegno.
+text_en:
+Writes to the kernel's log (serial line, network console, Dev > Log), not
+on the game's screen: to follow values without cluttering the drawing.
 code:
 log("x=", x, "y=", y)
 log(string.format("vita %d", hp))
@@ -129,26 +226,36 @@ log(string.format("vita %d", hp))
 kind: api
 name: quit
 title: quit() - chiude il gioco
+title_en: quit() - closes the game
 ask: uscire dal gioco | chiudere la cartuccia | exit the game | tornare al menu
 ask: terminare il programma | quit
 see: callbacks
 text:
 Chiude la cartuccia alla fine del fotogramma. Esc, Start+Select o PS
 invece la sospendono (resta in memoria e si riprende dal menu).
+text_en:
+Closes the cartridge at the end of the frame. Esc, Start+Select or PS
+suspend it instead (it stays in memory and resumes from the menu).
 code:
 if btnp(8) and game_over then quit() end    -- Start
 
 == save
 kind: api
 name: save
-title: save(t) - salva una tabella sulla SD
+title: save(t, [slot]) - salva una tabella sulla SD
+title_en: save(t, [slot]) - saves a table on the SD card
 ask: salvare sulla sd | salvare i dati | save data | salvare il record
 ask: memorizzare il punteggio | salvare le impostazioni | persist | savegame
-see: saved, high_score
+ask: salvare la partita nello slot 2 | save the game in a slot
+see: saved, saves, high_score
 text:
-Salva la tabella t (numeri, stringhe, booleani, tabelle; fino a 32 KiB):
-true, oppure false e il motivo. Un salvataggio per cartuccia. Scrivere sulla
-SD richiede qualche ms: salva a fine partita, non a ogni fotogramma.
+Salva la tabella t (numeri, stringhe, booleani, tabelle; fino a 32 KiB)
+nello slot 1-8 (senza slot: l'1): true, oppure false e il motivo. Scrivere
+sulla SD richiede qualche ms: salva a fine partita, non a ogni fotogramma.
+text_en:
+Saves the table t (numbers, strings, booleans, tables; up to 32 KiB)
+in slot 1-8 (without slot: 1): true, or false and the reason. Writing to
+the SD card takes a few ms: save at the end of a match, not every frame.
 code:
 local ok, why = save({ best = best, level = level })
 if not ok then log("salvataggio fallito: " .. why) end
@@ -156,31 +263,87 @@ if not ok then log("salvataggio fallito: " .. why) end
 == saved
 kind: api
 name: saved
-title: saved() - la tabella salvata l'ultima volta
+title: saved([slot]) - la tabella salvata l'ultima volta
+title_en: saved([slot]) - the table saved last time
 ask: caricare il salvataggio | leggere i dati salvati | load saved data
 ask: recuperare il record | load game | caricare la partita
-see: save, high_score
+see: save, saves, high_score
 text:
-La tabella salvata l'ultima volta con save(), oppure nil se non c'è.
+La tabella salvata l'ultima volta con save() in quello slot (senza slot:
+l'1), oppure nil se non c'è.
+text_en:
+The table saved last time with save() in that slot (without slot: 1), or
+nil if there is none.
 code:
 function _init()
   local d = saved()
   best = d and d.best or 0
 end
 
+== saves
+kind: api
+name: saves
+title: saves() - gli slot di salvataggio usati
+title_en: saves() - the save slots in use
+ask: più salvataggi | più partite salvate | slot di salvataggio
+ask: pagina carica partita | quali slot sono usati | save slots
+ask: scegliere quale partita continuare | partite salvate da scegliere
+ask: multiple save files | load game menu | list the saves | pick a saved game
+see: save, saved, delsave
+text:
+Ogni cartuccia ha 8 slot. saves() dà {[slot] = byte} degli slot usati, e
+quanti slot ci sono (8): per la pagina che sceglie la partita. Lo slot 1 è
+quello di save(t) senza slot (record e impostazioni).
+text_en:
+Every cartridge has 8 save slots. saves() gives {[slot] = bytes} of the
+slots in use, and how many slots there are (8): for the page that picks
+the saved game. Slot 1 is the one of save(t) without slot (high score and
+settings).
+code:
+local used = saves()
+for i = 2, 4 do
+  local p = used[i] and saved(i)
+  print(p and ("livello " .. p.level) or "vuoto", 8, i * 10, 7)
+end
+
+== delsave
+kind: api
+name: delsave
+title: delsave([slot]) - svuota uno slot di salvataggio
+title_en: delsave([slot]) - empties a save slot
+ask: cancellare un salvataggio | cancellare la partita salvata
+ask: svuotare lo slot | togliere un salvataggio dallo slot | eliminare i dati salvati
+ask: delete a save | erase the saved game | clear a save slot
+see: saves, save
+text:
+Svuota lo slot (senza slot: l'1): true, oppure false e il motivo ("nothing
+saved in slot 3"). Le opzioni del gioco nel menu cancellano tutti gli slot.
+text_en:
+Empties the slot (without slot: 1): true, or false and the reason
+("nothing saved in slot 3"). The game's options in the menu delete all
+the slots.
+code:
+if btnp("x") then delsave(slot) end
+
 == doc_write
 kind: api
 name: doc_write
 title: doc_write(nome, byte) - scrive un documento in /docs
-ask: scrivere un file di testo | salvare un documento | write a document
-ask: esportare un file per il giocatore | save a text file | creare un file in docs
-keys: documento, docs, file
+title_en: doc_write(name, bytes) - writes a document in /docs
+ask: scrivere un documento | scrivere in /docs | write a document
+ask: esportare un documento per il giocatore | write a text document | creare un documento in docs
+keys: documento, docs
 see: doc_read, doc_list, save
 text:
 Scrive un documento in /docs sulla SD, la cartella dei file del giocatore
 comune a tutte le app (bm Write ci tiene i suoi): nome 8.3 senza cartelle,
 al massimo 4 MiB; true, oppure nil e il motivo. La prima volta la console
 chiede al giocatore se l'app può usare i documenti.
+text_en:
+Writes a document in /docs on the SD card, the folder of the player's
+files shared by all the apps (bm Write keeps its own there): an 8.3 name
+without folders, at most 4 MiB; true, or nil and the reason. The first
+time the console asks the player whether the app may use the documents.
 code:
 local ok, why = doc_write("NOTES.TXT", "pane\nlatte\n")
 if not ok then log("non scritto: " .. why) end
@@ -189,13 +352,17 @@ if not ok then log("non scritto: " .. why) end
 kind: api
 name: doc_read
 title: doc_read(nome) - legge un documento di /docs
-ask: leggere un file di testo | aprire un documento | read a document
-ask: caricare un file da docs | open a text file | leggere un file della sd
-keys: documento, docs, file
+title_en: doc_read(name) - reads a document of /docs
+ask: leggere un documento | aprire un documento di docs | read a document
+ask: caricare un documento da docs | open a document | leggere un testo di docs
+keys: documento, docs
 see: doc_write, doc_list
 text:
 I byte di un documento di /docs (una stringa), oppure nil e il motivo.
 Il nome è 8.3, come "LETTER.BMD"; le minuscole vanno bene.
+text_en:
+The bytes of a document of /docs (a string), or nil and the reason.
+The name is 8.3, like "LETTER.BMD"; lower case is fine.
 code:
 local text, why = doc_read("NOTES.TXT")
 if text then lines = #text end
@@ -204,13 +371,17 @@ if text then lines = #text end
 kind: api
 name: doc_list
 title: doc_list() - i documenti di /docs
-ask: elencare i documenti | quali file ci sono | list the documents
-ask: lista dei file | files in docs | cartella docs
+title_en: doc_list() - the documents of /docs
+ask: elencare i documenti | quali documenti ci sono | list the documents
+ask: lista dei documenti | documents in docs | cartella docs
 keys: documenti, docs, elenco
 see: doc_read, doc_delete
 text:
 I file di /docs: una tabella di {name =, size =} (vuota se non ce ne
 sono), oppure nil e il motivo se il giocatore non l'ha permesso.
+text_en:
+The files of /docs: a table of {name =, size =} (empty if there are
+none), or nil and the reason if the player did not allow it.
 code:
 for _, d in ipairs(doc_list() or {}) do
   log(d.name .. " " .. d.size .. " byte")
@@ -220,12 +391,15 @@ end
 kind: api
 name: doc_delete
 title: doc_delete(nome) - cancella un documento
-ask: cancellare un documento | eliminare un file | delete a document
-ask: togliere un file da docs | remove a file
+title_en: doc_delete(name) - deletes a document
+ask: cancellare un documento | eliminare un documento | delete a document
+ask: togliere un documento da docs | remove a document
 keys: cancellare, documento
 see: doc_list, doc_write
 text:
 Cancella un documento di /docs: true, oppure nil e il motivo.
+text_en:
+Deletes a document of /docs: true, or nil and the reason.
 code:
 doc_delete("OLD.TXT")
 
@@ -233,6 +407,7 @@ doc_delete("OLD.TXT")
 kind: api
 name: math.random
 title: math.random - numeri casuali
+title_en: math.random - random numbers
 ask: numero casuale | numero a caso | random number | tirare un dado
 ask: posizione casuale | scegliere a caso | random seed | casualità diversa ogni partita
 see: rgb, lib.rnd
@@ -240,6 +415,10 @@ text:
 math.random() da 0 a 1, math.random(n) da 1 a n, math.random(a, b) da a a
 b. Per partite diverse inizializza il generatore quando il giocatore preme
 un tasto (il fotogramma cambia ogni volta).
+text_en:
+math.random() from 0 to 1, math.random(n) from 1 to n, math.random(a, b)
+from a to b. For different matches seed the generator when the player
+presses a key (the frame changes every time).
 code:
 local dado = math.random(6)
 local x = math.random(0, SCREEN_W - 16)
@@ -249,12 +428,16 @@ if btnp(4) then math.randomseed(stat(3)) end   -- al primo tasto
 kind: api
 name: ls
 title: ls([cartella]) - i file della SD
+title_en: ls([folder]) - the files of the SD card
 ask: elencare i file della sd | leggere una cartella | list files | directory
 ask: quali file ci sono sulla scheda | file browser
 see: cart_load
 text:
 { {name=, size=, dir=}, ... }: i file della cartella (la radice se manca).
 Per strumenti come l'editor.
+text_en:
+{ {name=, size=, dir=}, ... }: the files of the folder (the root if it is
+missing). For tools like the editor.
 code:
 for _, f in ipairs(ls("/carts")) do
   log(f.name, f.size)
@@ -264,12 +447,17 @@ end
 kind: api
 name: cart_load
 title: cart_load(percorso) - apre un .bm (per gli strumenti)
+title_en: cart_load(path) - opens a .bm (for the tools)
 ask: aprire una cartuccia dal codice | caricare un file bm | load a cartridge file
 ask: leggere il codice di un altro gioco | editor apre un file
 see: cart_save, cart_new, ls
 text:
 Apre un .bm: il suo sprite sheet e la sua mappa sostituiscono quelli della
 cartuccia che chiama. Restituisce {title, author, res, lua, sheet_w,
+sheet_h, map_w, map_h}.
+text_en:
+Opens a .bm: its sprite sheet and its map take the place of those of the
+calling cartridge. Returns {title, author, res, lua, sheet_w,
 sheet_h, map_w, map_h}.
 code:
 local c = cart_load("/carts/PONG.BM")
@@ -279,10 +467,13 @@ log(c.title, #c.lua .. " byte di codice")
 kind: api
 name: cart_new
 title: cart_new() - sprite sheet e mappa vuoti
+title_en: cart_new() - empty sprite sheet and map
 ask: nuovo progetto | svuotare lo sheet e la mappa | new empty cartridge
 see: cart_load, cart_save
 text:
 Sprite sheet e mappa vuoti (256x256), per un progetto nuovo.
+text_en:
+An empty sprite sheet and map (256x256), for a new project.
 code:
 cart_new()
 
@@ -290,11 +481,15 @@ cart_new()
 kind: api
 name: cart_save
 title: cart_save(percorso, {title, author, res, lua}) - scrive un .bm
+title_en: cart_save(path, {title, author, res, lua}) - writes a .bm
 ask: salvare una cartuccia | scrivere un file bm | save a cartridge | esportare il gioco
 see: cart_load, cart_run
 text:
 Scrive un .bm con il codice dato e lo sprite sheet, la mappa e la
 copertina correnti. Nome 8.3, per esempio "/carts/GIOCO.BM".
+text_en:
+Writes a .bm with the code given and the current sprite sheet, map and
+cover. An 8.3 name, for example "/carts/GIOCO.BM".
 code:
 cart_save("/carts/GIOCO.BM", { title = "Gioco", author = "io",
   res = "640x360", lua = code })
@@ -303,6 +498,7 @@ cart_save("/carts/GIOCO.BM", { title = "Gioco", author = "io",
 kind: api
 name: cart_run
 title: cart_run(percorso) e cart_arg() - prova un gioco e torna
+title_en: cart_run(path) and cart_arg() - tries a game and comes back
 ask: provare il gioco dall'editor | lanciare una cartuccia | run a cartridge
 ask: tornare all'editor dopo la prova | errore del gioco provato
 see: cart_save
@@ -310,6 +506,10 @@ text:
 cart_run esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto,
 con cart_arg() = {path=, error=, back=true}: così l'editor sa se il gioco
 si è fermato con un errore e su che riga.
+text_en:
+cart_run leaves, plays that file and then opens again the cartridge that
+asked, with cart_arg() = {path=, error=, back=true}: so the editor knows
+whether the game stopped with an error and on which line.
 code:
 local a = cart_arg()
 if a and a.error then
@@ -320,12 +520,16 @@ end
 kind: api
 name: require
 title: require(nome) - le librerie incluse nel kernel
+title_en: require(name) - the libraries built into the kernel
 ask: usare una libreria | require | importare un modulo | include a library
 ask: come uso l'assistente nel mio strumento | assist library
 see: ai_ask
 text:
 Le librerie Lua incluse nel kernel, per ora "assist" (il pannello
 dell'assistente). Niente file esterni: la sandbox non carica codice.
+text_en:
+The Lua libraries built into the kernel, for now "assist" (the
+assistant's panel). No external files: the sandbox does not load code.
 code:
 local assist = require "assist"
 assist.open{ mode = "code", on_insert = function(c) log(c) end }
@@ -334,6 +538,7 @@ assist.open{ mode = "code", on_insert = function(c) log(c) end }
 kind: api
 name: ai.ask
 title: ai.ask, ai.sprite - l'assistente dal codice
+title_en: ai.ask, ai.sprite - the assistant from the code
 ask: usare l'assistente dal codice | chiedere all'assistente | ai ask | ai sprite
 ask: generare uno sprite dal codice | intelligenza artificiale | assistant api
 see: require
@@ -341,6 +546,10 @@ text:
 ai.ask(domanda, {n=5, ctx=, kinds="api,howto"}) le voci migliori e il tempo
 in microsecondi; ai.entry(id) testo e codice; ai.sprite("slime rosso",
 {size=16, seed=1}) uno sprite {w, h, px}. Lavora solo quando lo chiami.
+text_en:
+ai.ask(question, {n=5, ctx=, kinds="api,howto"}) the best entries and the
+time in microseconds; ai.entry(id) text and code; ai.sprite("red slime",
+{size=16, seed=1}) a sprite {w, h, px}. It works only when you call it.
 code:
 local hits, us = ai.ask("come salto")
 log(hits[1].title, us .. " us")
@@ -350,11 +559,14 @@ local s = ai.sprite("moneta", { size = 16 })
 kind: api
 name: cart_read
 title: cart_read(percorso) - legge il codice di un .bm (senza toccare altro)
+title_en: cart_read(path) - reads the code of a .bm (without touching anything else)
 ask: leggere il codice di un altro gioco | cart_read | read a cartridge's code
 ask: aprire un bm senza cambiare lo sprite sheet
 see: cart_write, cart_load
 text: {title, author, res, lua, size} di un .bm, senza cambiare lo sheet e la
 mappa di chi chiama (al contrario di cart_load). Per editor con più file aperti.
+text_en: {title, author, res, lua, size} of a .bm, without changing the sheet
+and map of the caller (unlike cart_load). For editors with several files open.
 code:
 local c = cart_read("/carts/PONG.BM")
 if c then log(c.title, #c.lua) end
@@ -363,6 +575,7 @@ if c then log(c.title, #c.lua) end
 kind: api
 name: cart_write
 title: cart_write(percorso, {lua, title, author, res, from}) - scrive solo il codice
+title_en: cart_write(path, {lua, title, author, res, from}) - writes only the code
 ask: salvare solo il codice di un bm | cart_write | write the code of a cartridge
 ask: cambiare il codice senza perdere gli sprite | salvare con un altro nome
 see: cart_read, cart_save
@@ -370,6 +583,10 @@ text: Cambia il codice (e titolo, autore, risoluzione se ci sono) di un .bm:
 sprite sheet, mappa, copertina e ogni altra sezione restano com'erano. Un file
 nuovo diventa una cartuccia con solo il codice (nome 8.3). from: le altre
 sezioni vengono da un altro file ("salva come").
+text_en: Changes the code (and title, author, resolution if given) of a .bm:
+sprite sheet, map, cover and every other section stay as they were. A new
+file becomes a cartridge with only the code (an 8.3 name). from: the other
+sections come from another file ("save as").
 code:
 local ok, err = cart_write("/carts/PONG.BM", { lua = code })
 if not ok then log("non salvato: " .. err) end
@@ -378,6 +595,7 @@ if not ok then log("non salvato: " .. err) end
 kind: api
 name: nnet
 title: nnet(blob) - una piccola rete neurale INT8 (bot, scelte del gioco)
+title_en: nnet(blob) - a small INT8 neural network (bots, game choices)
 ask: rete neurale nel gioco | nnet | far decidere un bot con una rete
 ask: intelligenza artificiale per i nemici | small neural network for a game
 ask: usare una rete addestrata sul pc | run a trained network in a cartridge
@@ -388,6 +606,11 @@ text: La rete di una stringa "BMNN" scritta da uno script di addestramento
 dà le uscite, net:pick(ingressi) l'indice della più grande (le tattiche dei
 bot di Overbit), net:size() quanti ingressi e uscite. Pochi strati densi:
 qualche microsecondo a chiamata.
+text_en: The network of a "BMNN" string written by a training script
+(scripts/nnetlib.py: it quantises a numpy network to INT8). net:run(inputs)
+gives the outputs, net:pick(inputs) the index of the largest (the tactics of
+Overbit's bots), net:size() how many inputs and outputs. A few dense layers:
+a few microseconds per call.
 code:
 local net = nnet(BRAIN)
 local k = net:pick({ hp, dist, enemies })
@@ -396,6 +619,7 @@ local k = net:pick({ hp, dist, enemies })
 kind: api
 name: udp_send
 title: udp_open / udp_send / udp_recv - pacchetti UDP per giocare in rete
+title_en: udp_open / udp_send / udp_recv - UDP packets for network play
 ask: pacchetti udp | socket udp | mandare dati grezzi a un'altra console
 ask: udp | send a raw packet on the network | udp socket | broadcast sulla lan
 keys: udp, pacchetto, socket
@@ -406,6 +630,12 @@ porta, dati) manda una stringa (al massimo 1024 byte, "*" = tutta la LAN);
 udp_recv(s) dà il prossimo pacchetto e chi l'ha mandato, o nil. net_ip()
 l'indirizzo della console. Overbit gioca in lockstep: viaggiano solo i
 comandi dei giocatori.
+text_en: s = udp_open(port) opens a socket (nil without a network, or if the
+player does not allow it: the first time the console asks them);
+udp_send(s, address, port, data) sends a string (at most 1024 bytes,
+"*" = the whole LAN); udp_recv(s) gives the next packet and who sent it,
+or nil. net_ip() the console's address. Overbit plays in lockstep: only
+the players' commands travel.
 code:
 local s = udp_open(47310)
 if s then udp_send(s, "*", 47310, "ciao") end

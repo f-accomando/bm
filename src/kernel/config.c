@@ -96,7 +96,7 @@ static void apply(void)
     if ((v = config_get("draw")))
         bm_set_via_ram(strcmp(v, "ram") == 0);
     if ((v = config_get("perf")))
-        bm_set_perf(atoi(v));             /* 0 off, 1 simple, 2 detailed */
+        bm_set_perf(atoi(v));             /* 0 off, 1 simple, 2 detailed, 3 functions */
     if ((v = config_get("volume")) && v[0] >= '0' && v[0] <= '9')
         audio_set_volume(atoi(v));
     pointer_config();
@@ -122,7 +122,10 @@ void config_save(void)
 {
     config_set("layout", hid_layout());
     config_set("draw", bm_via_ram() ? "ram" : "direct");
-    config_set("perf", bm_perf() == 2 ? "2" : bm_perf() ? "1" : "0");
+    {
+        char v[4] = { (char)('0' + bm_perf()), 0 };
+        config_set("perf", v);
+    }
     char vol[8];
     ksnprintf(vol, sizeof vol, "%d", audio_volume());
     config_set("volume", vol);

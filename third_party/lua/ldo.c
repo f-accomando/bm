@@ -513,6 +513,9 @@ l_sinline CallInfo *prepCallInfo (lua_State *L, StkId func, int nret,
 /*
 ** precall for C functions
 */
+/* bm: see precallC */
+void (*luai_cprof) (lua_State *L, int leave) = NULL;
+
 l_sinline int precallC (lua_State *L, StkId func, int nresults,
                                             lua_CFunction f) {
   int n;  /* number of returns */
@@ -526,7 +529,11 @@ l_sinline int precallC (lua_State *L, StkId func, int nresults,
     luaD_hook(L, LUA_HOOKCALL, -1, 1, narg);
   }
   lua_unlock(L);
+  /* bm: the dev kit's profiler of functions (src/bm/profile.c) times every
+  ** C function while luai_cprof is set; NULL, the default, costs a test */
+  if (l_unlikely(luai_cprof != NULL)) luai_cprof(L, 0);
   n = (*f)(L);  /* do the actual call */
+  if (l_unlikely(luai_cprof != NULL)) luai_cprof(L, 1);
   lua_lock(L);
   api_checknelems(L, n);
   luaD_poscall(L, ci, n);

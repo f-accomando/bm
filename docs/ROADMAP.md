@@ -1176,7 +1176,7 @@ Sotto-milestone:
 - **22.6 Da 3D a sprite**: come `carts/titan/mkrobot.py` ma sul Pi. Si parte da un
   modello con scheletro e pose, si scelgono viste e dimensione; poi cel shading, contorni,
   riduzione della tavolozza, fotogrammi nello sheet con hitbox e hurtbox.
-- ~~**22.7 Sprite stacking**~~: spostato tra gli spunti (R24, 2026-10-05).
+- ~~**22.7 Sprite stacking**~~: spostato tra gli spunti (R24, 2026-10-05), poi la milestone M43.
 
 Considerazioni:
 - **Contenitore unico: il `.bm` stesso** (come le cartucce PICO-8): codice, sheet,
@@ -3139,6 +3139,74 @@ niente file, `rnd()` con seme; 8 MiB; nessun limite di token.
 - **Fatto quando:** Yharnam `.b16` gira uguale sul Pi e sulla RGB30 nel profilo, con la CPU
   che scende a 30 fps negli stessi punti sulle due console.
 
+## M43 — Sprite stacking (L)
+Dallo spunto R24 (richiesta dell'utente, 2026-10-06; era 22.7 di M22). Un oggetto è una
+pila di fette 2D (una per altezza, come i layer di Aseprite) disegnate una sopra l'altra con
+un piccolo scarto e ruotate: l'illusione di un volume 3D con il costo del 2D (auto viste
+dall'alto, case, alberi, personaggi in giochi top-down). Due costi: solo la rotazione
+attorno a z (lo stacking classico, N fette ruotate) e x, y, z libere (un volume di voxel,
+più caro).
+1. **Lo stacking classico nel runtime**: `stack(sx, sy, w, h, n, x, y, [rz, scala, passo])`,
+   le `n` fette in fila nello sheet a partire da `(sx, sy)` (a destra, poi sotto), ruotate di
+   `rz` attorno al centro e alzate di `passo` pixel l'una sull'altra; in C (`gfx16.c`: una
+   fetta ruotata è un `sspr` campionato all'indietro, il colore 0 trasparente), anche nella
+   coda del 2D (`draw2d()`) e in bmhost. Misura sul Pi: quante pile da 16 fette 16×16 in un
+   fotogramma a 60 fps (report con un test del dev kit).
+2. **Le pile dello sheet con il nome**: una zona di SPRITES con il tipo `stack` e il numero
+   di fette (`sprites.txt`, `mkbm.py --sprites`, `bmres.py`), dai giochi `zstack(nome, x, y,
+   [rz, scala])`; le pile nella scheda Lib (l'anteprima che gira) e nei `.bmi`.
+3. **L'editor in bm Pixel**: una pagina *Stack* con le fette in griglia e sovrapposte, la
+   fetta sotto e quella sopra in trasparenza (onion skin), l'anteprima che gira (tasti per
+   l'angolo e il passo), copia di una fetta nella successiva, nuova pila da una zona.
+4. **x, y, z libere**: `stackv(...)` con `rx`, `ry`, `rz` disegna la pila come un volume di
+   voxel (fette rifatte lungo l'asse più vicino alla camera, ordinate da dietro in avanti);
+   più caro, la misura come al passo 1.
+5. **Verso gli altri strumenti**: una pila diventa MESH (le facce visibili dei voxel unite,
+   con i colori dello sheet) per bm Studio e bm Mesh, e fotogrammi in 8 direzioni (bm
+   Animator, pagina sprites) per chi non vuole ruotare nel gioco.
+6. **Documentazione e esempi**: i quattro file delle API e la base dell'assistente; un
+   modello dell'SDK *Top-down stack* (un'auto che gira e qualche casa); bmlib senza
+   novità se non servono.
+- Prove: bmhost (fotogrammi confrontati con un riferimento in Python), `make test-res` per le
+  zone `stack`, QEMU con un gioco di prova e bm Pixel.
+- **Fatto quando:** un gioco top-down con decine di pile che girano va a 60 fps sul Pi, le
+  pile si disegnano e si modificano in bm Pixel e diventano modelli 3D e fotogrammi.
+
+## M44 — La GPU come coprocessore: programmi sulle QPU (L/XL)
+Dallo spunto R23 (richiesta dell'utente, 2026-10-06). Le 12 QPU della V3D fanno la stessa
+operazione su 16 numeri alla volta: non il Lua né il codice pieno di scelte, ma i calcoli
+uguali su tanti dati, quando il 3D non le usa (nei giochi 2D, nel menu) o con alcune QPU
+riservate a questi programmi nei giochi 3D. Il più utile all'ARM lo fa già M36 (vertici e
+ossa nel vertex shader).
+1. **Il driver**: il lancio di un programma QPU "utente" fuori dal disegno (le richieste
+   di programma della V3D: indirizzo del codice, uniform, numero di QPU, contatore dei
+   completati; oggi `v3d.c` dà tutta la VPM ai vertici, come Linux), una coda di lavori,
+   l'attesa con il timeout, la prova all'avvio che lo spegne se non torna e l'ARM come
+   riserva per ogni programma; l'emulatore `tests/gpu/v3d_emu.c` che li esegue (interprete
+   QPU di M36), un passo del test `g` del monitor e un profilo del 3D Bench.
+2. **Particelle sulla GPU**: una funzione di sistema per emetterle (`particles()`: posizione,
+   velocità, gravità, durata, colori), la GPU le muove e le disegna senza l'ARM; oggi sono
+   in Lua e contate (Yharnam ne lascia 40 alle fiamme, Overbit le ha ottimizzate a mano):
+   migliaia invece di centinaia, per tutti i giochi. Poi in bmlib (`lib.particles` sopra la
+   funzione di sistema quando c'è).
+3. **Effetti a schermo intero dei giochi 2D**: il buio a livelli e i bagliori di Yharnam
+   (oggi `g16_fade_*`, pixel per pixel sull'ARM), dissolvenze, sfocature, un filtro CRT.
+4. **Effetti audio** sul sintetizzatore (riverbero, eco, filtri) calcolati a blocchi, anche
+   per nano8.
+5. **Tanti raggi insieme** (i colpi contro le mesh degli eroi, `hit3d`; la visibilità dei
+   bot): solo se servirà, oggi costano poco.
+
+Non conviene per il Lua, CRC, SHA-256 e decompressione (sequenziali), il riduttore di
+poligoni (pieno di scelte), la rete dei bot (24 ingressi, già in C), il menu a 1080p (meglio
+lo scaler video HVS o M37). I programmi si scrivono con `tools/qpuasm.py` e si provano sul
+PC con l'emulatore che esegue gli shader, come quelli di M36. Esempi esterni dello stesso
+uso: GPU_FFT tra gli esempi del Raspberry Pi, QPULib, py-videocore (reti neurali sul Pi
+Zero), VC4CL. Sulla RGB30 (Mali) gli stessi lavori aspettano il suo driver (M41): fino ad
+allora l'ARM.
+- **Fatto quando:** sul Pi le particelle di Yharnam e il suo buio a livelli li fa la GPU,
+  con le misure del 3D Bench e di Yharnam prima e dopo nel report, e senza GPU (QEMU,
+  `gpu3d=0`) tutto va come oggi sull'ARM.
+
 ## M45 — bm Write: i documenti, come Word e Pages (M) — in corso
 Richiesta dell'utente (2026-10-06): uno strumento per scrivere. Decisioni: un'app del Market
 (`carts/write`, nella scheda Games), un formato nostro più le esportazioni, stili e
@@ -3270,8 +3338,14 @@ tastiera).
   Da fare, se servono: portare Hunter's Night dai numeri 32–63 ai flag; più nomi per una
   voce dell'assistente (oggi `lib.printr` porta a `lib.printc` al secondo posto); import
   delle mappe di Tiled (`.tmj`) con i livelli e le proprietà delle tile.
-- **R12 — Più salvataggi per cartuccia.** Oggi uno, da 32 KiB (`/bm/save/XXXXXXXX.SAV`):
+- ✅ **R12 — Più salvataggi per cartuccia.** Oggi uno, da 32 KiB (`/bm/save/XXXXXXXX.SAV`):
   `save(t, slot)` / `saved(slot)`.
+  **Fatto** (2026-10-06, branch `claude/dev-tools`): 8 slot da 32 KiB, lo slot 1 è il file di
+  prima (`save(t)` e `saved()` senza slot non cambiano), gli altri `XXXXXXXX.S02` ... `.S08`
+  (`bm_save_slot` in `runtime.c`); `saves()` dà `{[slot] = byte}` e il numero degli slot,
+  `delsave(slot)` ne svuota uno. Le opzioni del gioco nel menu mostrano i byte di tutti gli
+  slot ("N bytes in K slots") e *Delete the save data* li cancella tutti. Prove: `make
+  test-gameapi`, QEMU `test_home_ui` (due slot, cancellati dal menu).
 - ✅ **Hitbox e hurtbox** (richiesta dell'utente, 2026-10-04, branch `game-api`; erano
   rimaste da fare in M22.6 e nei giochi ognuno le scriveva da sé, come Titan Clash). Sezione
   **BOXES** (14) del `.bm`: i riquadri dei fotogrammi delle zone di SPRITES (`hurt`, `hit`,
@@ -3300,10 +3374,28 @@ tastiera).
   protocollo).
 
 ### Strumenti di sviluppo
-- **R13 — Debugger Lua in bm Code.** Punti di interruzione, passo passo, variabili
+- ✅ **R13 — Debugger Lua in bm Code.** Punti di interruzione, passo passo, variabili
   locali, con l'hook di debug di Lua.
-- **R14 — Profiler per funzione.** L'overlay delle prestazioni dà il totale del
+  **Fatto** (2026-10-06, branch `claude/dev-tools`): in bm Code F8 mette o toglie un punto
+  di interruzione (il numero della riga in rosso; seguono le righe quando se ne aggiungono o
+  tolgono; salvati nella sessione), F5 prova il gioco con `cart_run(path, {breaks =, stop
+  =})`, il menu ha *Debug from the start* e *Clear breakpoints*. Il debugger è nel runtime
+  (il gioco gira in uno stato Lua suo): l'hook delle righe solo nelle sessioni con righe o un
+  passo da fare, la pausa dentro l'hook sopra lo schermo del gioco (rimesso com'era dopo):
+  il codice attorno alla riga, le variabili (locali, poi upvalue), la pila; F10/A la riga
+  dopo, F8/X dentro, Shift+F8/Y fuori, F5/Start continua, Esc/Select ferma (bm Code torna
+  sulla riga). `breakpoint([perché])` dal codice. Prove: QEMU `test_debugger`.
+- ✅ **R14 — Profiler per funzione.** L'overlay delle prestazioni dà il totale del
   fotogramma; questo le 10 funzioni che costano di più.
+  **Fatto** (2026-10-06, branch `claude/dev-tools`): la terza pagina del dev kit (F11 tre
+  volte, *Performance overlay* "Functions", `devkit(3)`): le dieci funzioni più care
+  dell'ultimo secondo, ms per fotogramma, il loro tempo (`self`) e con quelle che chiamano
+  (`all`); in azzurro le funzioni in C (`spr`, `map`, il 3D). `src/bm/profile.c`: il tempo
+  tra due eventi va alla funzione che gira e a tutte quelle sulla pila (CallInfo di Lua,
+  la chiave è il Proto); eventi sono l'hook di conteggio (ogni 1000 istruzioni) e ogni
+  chiamata di una funzione C (`luai_cprof` in `precallC` di `ldo.c`: spento è un test).
+  `profile([acceso])` dà le righe al gioco. Prove: `make test-profile` (bmhost, il gioco
+  controlla da sé), QEMU `test_square_lights`, `test_yharnam`, `test_home_ui`.
 - **R15 — Ricarica dal PC.** `bm_net.py --watch`: a ogni salvataggio di `main.lua` sul PC
   la cartuccia torna sulla console e riparte.
 - **R16 — Modelli di gioco.** "New game" parte da uno scheletro vuoto (`TEMPLATE` in bm
@@ -3313,19 +3405,19 @@ tastiera).
   dà Empty 2D, Platform 2D, Top-down 2D, Shooter 2D (con bmlib e i flag delle tile), Versus
   2D (due giocatori, hitbox), Online 2D (bmnet), 3D scene, 3D with models; resta bm Code.
 - **R17 — Import MIDI nel Sound editor.** Un file MIDI diventa i pattern del banco.
-- **R18 — Documentazione API in inglese.** Il README è in inglese, ma `docs/API.md`,
+- ✅ **R18 — Documentazione API in inglese.** Il README è in inglese, ma `docs/API.md`,
   `docs/GUIDA-GIOCHI.md` e la base dell'assistente sono solo in italiano. **In gran parte
   fatto** (2026-10-04, con R10 e R11): `docs/API.md` (era `docs/API-EN.md`, allineato a quello
   italiano e rinominato) e `docs/GAME-GUIDE.md` (le versioni italiane sono `docs/API-IT.md` e
   `docs/GUIDA-GIOCHI.md`); manca la base dell'assistente,
   che ha le domande anche in inglese ma le spiegazioni in italiano.
-- **R24 — Sprite stacking** (era 22.7 di M22, 2026-10-05). Un oggetto è una pila di fette 2D
-  (un layer per altezza, come in Aseprite) sovrapposte con un piccolo scarto e ruotate:
-  l'illusione di un volume 3D. Editor con le fette in griglia e sovrapposte, onion skin,
-  anteprima che gira. In gioco due costi: solo rotazione z (lo stacking classico, N fette
-  ruotate) o x, y, z libere (un volume di voxel, più caro). API `stack(sx, sy, w, h, n, x, y,
-  [rz, rx, ry, scala])`; le fette sono sprite dello sheet, un volume può diventare MESH o
-  fotogrammi (bm Animator, sprites).
+  **Fatto** (2026-10-06, branch `claude/dev-tools`): ogni voce di `src/ai/kb` ha `title_en:`
+  e `text_en:` (BMAI versione 2; la rete si addestra come prima sulle `ask:`, già nelle due
+  lingue: con i titoli inglesi tra le frasi le domande di prova andavano peggio);
+  il pannello risponde nella lingua della domanda (`ai_lang_of` in `assist.c`), Ctrl+E la
+  cambia, la lingua è nella barra del titolo; `assist_lang=it|en|auto` in `bm/config.txt`,
+  `ai.lang()` dal Lua. `make test-ai` controlla che ogni voce abbia il suo inglese.
+- **R24 — Sprite stacking** (era 22.7 di M22): diventato la milestone **M43** (2026-10-06).
 - **R25 — Suoni da e verso il PC** (era in 22.4 e 22.5 di M22, 2026-10-05). Nel Sound editor:
   WAV (campioni brevi) e MIDI (note di un brano) importati ed esportati, l'uscita stereo e un
   editor delle forme d'onda.
@@ -3344,26 +3436,5 @@ tastiera).
   (pad sui GPIO, LCD DPI o SPI): una strada diversa dall'RGB30.
 
 ### La GPU come coprocessore
-- **R23 — Programmi sulle QPU fuori dal disegno 3D** (2026-10-04). Le 12 QPU della V3D fanno
-  la stessa operazione su 16 numeri alla volta: non il Lua né il codice pieno di scelte, ma i
-  calcoli uguali su tanti dati, quando il 3D non le usa (nei giochi 2D, nel menu) o con
-  alcune QPU riservate a questi programmi nei giochi 3D. Il più utile all'ARM lo fa già M36
-  (vertici e ossa nel vertex shader). In ordine:
-  1. **Particelle sulla GPU**: una funzione di sistema per emetterle, la GPU le muove
-     (velocità, gravità, durata) e le disegna senza l'ARM; oggi sono in Lua e contate
-     (Yharnam ne lascia 40 alle fiamme, Overbit le ha ottimizzate a mano): migliaia invece
-     di centinaia, per tutti i giochi.
-  2. **Effetti a schermo intero dei giochi 2D**: il buio a livelli e i bagliori di Yharnam
-     (oggi `g16_fade_*`, pixel per pixel sull'ARM), dissolvenze, sfocature, un filtro CRT.
-  3. **Effetti audio** sul sintetizzatore (riverbero, eco, filtri) calcolati a blocchi, anche
-     per nano8.
-  4. **Tanti raggi insieme** (i colpi contro le mesh degli eroi, `hit3d`; la visibilità dei
-     bot): solo se servirà, oggi costano poco.
-
-  Non conviene per il Lua, CRC, SHA-256 e decompressione (sequenziali), il riduttore di
-  poligoni (pieno di scelte), la rete dei bot (24 ingressi, già in C), il menu a 1080p
-  (meglio lo scaler video HVS o M37). Serve nel driver il lancio di un programma QPU
-  "utente" (le code della V3D per i programmi delle QPU, fuori dal disegno); i programmi si
-  scrivono con `tools/qpuasm.py` e si provano sul PC con l'emulatore che esegue gli shader
-  (`tests/gpu/v3d_emu.c`), come quelli di M36. Esempi esterni dello stesso uso: GPU_FFT tra
-  gli esempi del Raspberry Pi, QPULib, py-videocore (reti neurali sul Pi Zero), VC4CL.
+- **R23 — Programmi sulle QPU fuori dal disegno 3D** (2026-10-04): diventato la
+  milestone **M44** (2026-10-06).
