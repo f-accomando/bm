@@ -160,12 +160,14 @@ static const char *aa_choice(void)
 }
 
 /* gpu3d_vs=1: the GPU's vertex shader places the corners of the scenery
- * (models unlit or with baked light), 2: of every model (M36); the ARM
- * only sends them */
+ * (models unlit or with baked light), 2: of every model (M36; the default
+ * from bm3d 6.6), 0: the ARM places them */
 static int vs_on(void)
 {
     const char *on = config_get("gpu3d_vs");
-    return on && on[0] >= '1' && on[0] <= '2' ? on[0] - '0' : 0;
+    if (!on || !on[0])
+        return 2;
+    return on[0] >= '1' && on[0] <= '2' ? on[0] - '0' : 0;
 }
 
 static const char *vs_choice(void)

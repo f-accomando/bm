@@ -1745,7 +1745,8 @@ static void gpu3d_maybe(void)
         const char *aa = config_get("gpu3d_aa");
         gpu3d_set_msaa(aa && strcmp(aa, "1") == 0);     /* anti-aliasing: Settings */
         const char *vs = config_get("gpu3d_vs");
-        gpu3d_set_vshader(vs ? atoi(vs) : 0);           /* vertex shader: Settings (0, 1, 2) */
+        gpu3d_set_vshader(vs ? atoi(vs) : 2);           /* vertex shader: Settings (0, 1, 2; every model
+                                                         * from bm3d 6.6, where the boot's probes saw it) */
         const char *q = config_get("gpu3d_queue");
         gpu3d_set_queue(q && (q[0] == '1' || q[0] == '2') ? q[0] - '0' : 0);  /* the frame in the queue (M35),
                                                                                  two jobs in flight (M39) */

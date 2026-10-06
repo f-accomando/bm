@@ -50,7 +50,8 @@ static g16_t *g;
 
 /* ---------------------------------------------------------------- profiles */
 
-enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2, PF_T16, PF_FS2, PF_VSS, NPROF };
+enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2, PF_T16, PF_FS2, PF_VSS, PF_VSF,
+       NPROF };
 #define M_ARM (1u << PF_ARM)
 #define M_GPU (1u << PF_GPU)
 #define M_AA  (1u << PF_AA)
@@ -76,11 +77,12 @@ static const struct { const char *name; int gpu, aa, vs, queue, wc, two_d, t16, 
     { "GPU+WC", 1, 0, 0, 0, 1, 0, 0, 0, 0 }, { "GPU+2D", 1, 0, 0, 0, 0, 1, 0, 0, 0 },
     { "GPU+VS+Q2", 1, 0, 2, 2, 0, 0, 0, 0, 0 }, { "GPU+T16", 1, 0, 0, 0, 0, 0, 1, 0, 0 },
     { "GPU+FS2", 1, 0, 0, 0, 0, 0, 0, 1, 0 }, { "GPU+VS+S", 1, 0, 2, 0, 0, 0, 0, 0, 1 },
+    { "GPU+VS+FS2", 1, 0, 2, 0, 0, 0, 0, 1, 0 },
 };
 
 static const char *prof_version(int p)
 {
-    return prof[p].sort ? "5.4" : prof[p].fs2 ? "5.3" : prof[p].t16 ? "5.2" : prof[p].queue == 2 ? "5.1" : prof[p].two_d ? "4.8" : prof[p].wc ? "4.5"
+    return prof[p].vs && prof[p].fs2 ? "6.6" : prof[p].sort ? "5.4" : prof[p].fs2 ? "5.3" : prof[p].t16 ? "5.2" : prof[p].queue == 2 ? "5.1" : prof[p].two_d ? "4.8" : prof[p].wc ? "4.5"
          : bm3d_mode_q(prof[p].gpu, prof[p].vs, prof[p].queue);
 }
 
@@ -1038,19 +1040,23 @@ static float ref_of(int ti)
     return 0;
 }
 
-/* the drivers scored: as the games get them in this version (bm3d 6.4:
- * the GPU, its textured shaders with two threads), bm3d 2.1, bm3d 0.2 */
+/* the drivers scored: as the games get them in this version (bm3d 6.6:
+ * the GPU, its vertex shader, its textured shaders with two threads),
+ * bm3d 2.1, bm3d 0.2 */
 enum { DRV_GAMES, DRV_GPU, DRV_ARM, NDRV };
 static const char *const drv_id[NDRV] = { "games", "GPU", "ARM" };
 
 /* the profile whose row stands for a driver in a test: for the games',
+ * GPU+VS+FS2 (it runs wherever the GPU does); without its row (the boot's
+ * probe did not see the vertex shader: the games do not get it either)
  * GPU+FS2 where it ran (the textured tests; elsewhere the shaders are the
  * GPU's), else the GPU, and the ARM where the GPU did not run (as a game
  * falls back to it); -1 if none ran */
 static int drv_row(int drv, int ti)
 {
-    static const int chain[NDRV][3] = { { PF_FS2, PF_GPU, PF_ARM }, { PF_GPU, -1, -1 }, { PF_ARM, -1, -1 } };
-    for (int k = 0; k < 3 && chain[drv][k] >= 0; k++)
+    static const int chain[NDRV][4] = { { PF_VSF, PF_FS2, PF_GPU, PF_ARM }, { PF_GPU, -1, -1, -1 },
+                                        { PF_ARM, -1, -1, -1 } };
+    for (int k = 0; k < 4 && chain[drv][k] >= 0; k++)
         if (res[ti][chain[drv][k]].ran)
             return chain[drv][k];
     return -1;
@@ -1295,7 +1301,7 @@ static void read_prev(void)
 #define C_HW    g16_rgb(255, 90, 90)
 
 static const uint16_t prof_col[NPROF] = { 0xFC00 /* orange */, 0x2D7F, 0x8C1F, 0x07F0, 0x07E0, 0xFFE0, 0xF81F, 0x7BEF,
-                                         0xFD20, 0xAFE5, 0x5D7F, 0xB5B6, 0x4FFF };
+                                         0xFD20, 0xAFE5, 0x5D7F, 0xB5B6, 0x4FFF, 0xFFFF };
 
 static void text(int x, int y, uint16_t c, const char *fmt, ...) __attribute__((format(printf, 4, 5)));
 static void text(int x, int y, uint16_t c, const char *fmt, ...)
@@ -1352,8 +1358,8 @@ static int pages(void) { return 4 + NTESTS; }     /* the score, the summary in t
 
 /* the profiles' short names, for the summary's columns (a legend under it) */
 static const char *const prof_short[NPROF] = { "ARM", "GPU", "AA", "VS1", "VS", "VSQ", "Q", "WC", "2D", "VSQ2", "T16",
-                                               "FS2", "VSS" };
-#define SX 96                           /* the summary: the profiles' columns from x SX, SW pixels each */
+                                               "FS2", "VSS", "VSF" };
+#define SX 90                           /* the summary: the profiles' columns from x SX, SW pixels each */
 #define SW 30
 #define S_BEST (SX + SW * NPROF + 6)
 #define S_ROWS 15                       /* tests on the summary's first page */
@@ -1365,7 +1371,7 @@ static void page_summary(int part)
     text(0, 34, C_DIM, "test");
     for (int pf = 0; pf < NPROF; pf++)
         text(SX + SW * pf, 34, prof_col[pf], "%5s", prof_short[pf]);
-    text(S_BEST, 34, C_DIM, "best  x ARM x last fits");
+    text(S_BEST, 34, C_DIM, "best  x ARM x last");
     int y = 48;
     float gsum[NPROF] = { 0 };
     int gn[NPROF] = { 0 };
@@ -1416,7 +1422,6 @@ static void page_summary(int part)
                 const float k = b / prev[ti][best].n60;
                 text(S_BEST + 72, y, k >= 0.97f ? C_GOOD : C_BAD, "%2d.%02dx", (int)k, (int)(k * 100) % 100);
             }
-            text(S_BEST + 114, y, b >= 1 ? C_GOOD : C_BAD, "%s", b >= 1 ? "yes" : "no");
         }
         y += LH;
     }
@@ -1427,15 +1432,16 @@ static void page_summary(int part)
     }
     /* six a line */
     text(0, y, C_HEAD, "mean against ARM:");
-    for (int pf = 1, k = 0; pf < NPROF; pf++)
+    int k = 0;
+    for (int pf = 1; pf < NPROF; pf++)
         if (gn[pf]) {
             const float m = expf(gsum[pf] / (float)gn[pf]);
             text(108 + 88 * (k % 6), y + LH * (k / 6), prof_col[pf], "%-4s %d.%dx", prof_short[pf], (int)m,
                  (int)(m * 10) % 10);
             k++;
         }
-    y += 2 * LH + 6;
-    text(0, y, C_DIM, "AA VS1 VS VSQ Q WC 2D VSQ2 T16 FS2 VSS: GPU+AA, GPU+VS1... (the profiles: the next page)");
+    y += LH * ((k + 5) / 6 > 1 ? (k + 5) / 6 : 1) + 6;
+    text(0, y, C_DIM, "AA VS1 VS VSQ Q WC 2D VSQ2 T16 FS2 VSS VSF: GPU+AA, GPU+VS1... (the profiles: the next page)");
     y += LH;
     if (fut[0])
         text(0, y, C_DIM, "later: %s; %s%s", fut, prev_name[0] ? "against " : "the first report", prev_name);
@@ -1468,7 +1474,7 @@ static void page_score(void)
     g16_text_scaled(g, 0, 36, b, col, 4);
     const int x = 24 * (int)strlen(b) + 18;
     int y = 36;
-    text(x, y, C_TEXT, "bm3d %s as the games get it: the GPU, its textured shaders with two threads", BM3D_VERSION);
+    text(x, y, C_TEXT, "bm3d %s as the games get it: the GPU, its vertex shader, two-thread shaders", BM3D_VERSION);
     y += LH;
     if (partial())
         text(x, y, C_BAD, "a part of the bench (%d of %d tests): not to compare", nt, NREF);
@@ -1529,8 +1535,8 @@ static void page_info(const char *saved)
     const bm3d_version_t *v = bm3d_versions(&n);
     text(0, 18, C_HEAD, "Drivers: bm3d %s (%s); kernel %s", BM3D_VERSION, BM3D_BLOCK, P->kernel ? P->kernel : "?");
     int y = 34;
-    /* the last five versions (the page holds no more), the older in a line */
-    const int i0 = n > 5 ? n - 5 : 0;
+    /* the last four versions (the page holds no more), the older in a line */
+    const int i0 = n > 4 ? n - 4 : 0;
     if (i0) {
         text(0, y, C_DIM, "%s to %s: docs/DRIVERS.md", v[0].version, v[i0 - 1].version);
         y += LH;
@@ -1552,6 +1558,8 @@ static void page_info(const char *saved)
     y += LH;
     text(0, y, C_TEXT, "GPU+FS2: textured faces' pixel shaders with two threads (M39, 5.3); GPU+VS+S: meshes "
                        "nearest first (5.4)");
+    y += LH;
+    text(0, y, C_TEXT, "GPU+VS+FS2: the vertex shader and the two-thread shaders, the driver as the games get it (6.6)");
     y += LH;
     text(0, y, C_DIM, "0.1 and 1.0 no longer run: their bars are the numbers the Pi gave then (docs/M33-PRIMA-DOPO.md)");
     y += LH + 6;
@@ -1703,6 +1711,16 @@ static int listed(const char *list, const char *name)
     return 0;
 }
 
+/* the test runs the profile: its list, and GPU+VS+FS2 (the driver as the
+ * games get it, for the score) wherever the GPU runs but with an option
+ * of its own (bilinear) */
+static int runs(const test_t *t, int pf)
+{
+    if (pf == PF_VSF)
+        return (t->profiles & M_GPU) && strcmp(t->id, "bilinear") != 0;
+    return t->profiles >> pf & 1;
+}
+
 static int prof_listed(int pf)
 {
     return listed(P->only_profiles, prof[pf].name) || listed(P->only_profiles, prof_short[pf]);
@@ -1724,8 +1742,7 @@ int b3d_run(const b3d_platform_t *plat)
     const uint32_t t0 = P->us();
     for (int ti = 0; ti < NTESTS; ti++)
         for (int pf = 0; pf < NPROF; pf++)
-            if (!tests[ti].future && (tests[ti].profiles >> pf & 1) && listed(P->only_tests, tests[ti].id) &&
-                prof_listed(pf))
+            if (!tests[ti].future && runs(&tests[ti], pf) && listed(P->only_tests, tests[ti].id) && prof_listed(pf))
                 ramp(ti, pf);
     R.backend = NULL;
     meshes_free();

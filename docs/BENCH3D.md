@@ -19,6 +19,9 @@ riprodurre (`docs/DRIVERS.md`):
 - **GPU+FS2**: gli shader dei pixel con texture a due thread (bm3d 5.3, tutti quelli del 3D dalla
   6.3), nei test con texture; dalla 6.4 sono il default, e la riga GPU li riproduce a un thread.
   Quelli a colore restano a un thread (a due il Pi li ha misurati più lenti del 4–5%).
+- **GPU+VS+FS2**: il driver come lo hanno i giochi dalla 6.6 (vertex shader per tutti i modelli e
+  shader con texture a due thread); gira in ogni test della GPU (non in `bilinear`, che prova
+  un'opzione) e lo score usa lui.
 
 Un profilo che la GPU non sa fare (le prove all'avvio lo hanno spento) non ha la riga.
 A ogni passo `n` cresce di un terzo finché un fotogramma supera i **40 ms**; i carichi a
@@ -93,9 +96,10 @@ La prima pagina alla fine (richiesta dell'utente, 2026-10-06). Due numeri:
   nel resto). Un carico sotto il primo passo vale la parte di quel passo che sta in 16,7 ms (un
   eroe in 20 ms: 0,83). Fuori dallo score: i test con la logica (`queue`, `big_logic`), le
   opzioni spente di default (`bilinear`) e `mix` (ha l'altro numero). Lo score grande è del driver
-  **come lo hanno i giochi** in questa versione: in bm3d 6.4 la GPU con gli shader con texture a
-  due thread (la riga GPU+FS2 dove c'è, la GPU negli altri test, dove gli shader sono gli stessi;
-  l'ARM se la GPU non c'è, come la RGB30). Accanto, gli score di bm3d 2.1 (GPU) e 0.2 (ARM) negli
+  **come lo hanno i giochi** in questa versione: dalla 6.6 la riga GPU+VS+FS2 (in bm3d 6.4 e 6.5
+  era la GPU con gli shader con texture a due thread: la riga GPU+FS2 dove c'è, la GPU negli altri
+  test); senza quella riga (la prova del vertex shader non è passata, e i giochi non lo hanno)
+  GPU+FS2, poi la GPU, e l'ARM se la GPU non c'è, come la RGB30. Accanto, gli score di bm3d 2.1 (GPU) e 0.2 (ARM) negli
   stessi test e quello del report di prima (verde se non è sceso più del 3%). Un giro con
   `tests=` o `profiles=` dice "a part of the bench": non si confronta.
 - **Triangoli a fotogramma a 60 fps** (640×360): quelli della scena `mix` con il driver dei

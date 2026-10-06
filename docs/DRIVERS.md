@@ -228,6 +228,14 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   a 60 fps della scena `mix` del `-50`, 6053, non avevano le ombre). Il 3D Bench scrive a ogni
   passo il clock misurato di core e V3D: la 6.4 non ha tolto i quad lenti (`quad_flat` 91 nel
   `-50`, 175 nel `-46`).
+- **6.6** (2026-10-06, M36): sul Pi la prova del vertex shader disegna solo con il clipper acceso
+  (senza, `ERRSTAT` dice *VPM write range*: il front end vuole allora un vertice più corto da
+  shader di coordinate), quindi i disegni GL lo tengono sempre acceso come Mesa. Il passo 14 del
+  test `g` dà lo 0,0% di pixel diversi; nel 3D Bench GPU+VS fa le sfere 4×, gli eroi 11×, la scena
+  `mix` 9× (79 071 triangoli a 60 fps). Il vertex shader è **acceso di default** (`gpu3d_vs`
+  vale 2 se manca; `gpu3d_vs=0` lo spegne); il 3D Bench ha il profilo **GPU+VS+FS2** (il driver
+  dei giochi della 6.6: vertex shader e shader con texture a due thread) in ogni test della GPU, e
+  lo score usa quello.
 
 ## Le modalità: versioni vecchie sul codice di oggi
 
@@ -236,7 +244,8 @@ Le impostazioni riproducono le versioni precedenti, così si confrontano sullo s
 - 3D sull'ARM (`gpu3d=0`): **0.2**;
 - GPU senza vertex shader (`gpu3d_vs=0`): **2.1** (con `gpu3d_aa=1` anche l'MSAA);
 - GPU con il vertex shader per lo scenario (`gpu3d_vs=1`): **3.0**;
-- GPU con il vertex shader per tutto (`gpu3d_vs=2`): **3.4**;
+- GPU con il vertex shader per tutto (`gpu3d_vs=2`): **3.4** (il default dalla 6.6, con gli shader
+  con texture a due thread: GPU+VS+FS2 nel 3D Bench);
 - con il fotogramma in coda (`gpu3d_queue=1`): **4.1** (con o senza vertex shader);
 - con la memoria dei lavori senza cache (`gpu3d_wc=1`): **4.5**;
 - con il 2D sopra il 3D nel lavoro (`gpu3d_2d=1`): **4.8**;

@@ -2545,6 +2545,24 @@ che le prove facoltative vedono va nel report del test `g` (riga "the probes") e
 Bench (riga `probes`). **Da provare sul Pi:** la riga di stato (`vertex shader yes`), il
 passo 14 del test `g`, i profili GPU+VS1/GPU+VS/GPU+VS+Q del 3D Bench, Overbit con GPU+VS.
 
+**Sul Pi il vertex shader disegna (2026-10-06, bm3d 6.5, kernel `v0.2.3-51`).** Anche in byte la
+prova non disegnava niente; i registri d'errore della V3D dopo il disegno dicevano `ERRSTAT`
+0x3010: il bit 4 è un errore di scrittura fuori dalla VPM (*VPM write range*). Con il clipper
+spento il front end vuole dallo shader di coordinate un vertice senza Xc, Yc, Zc, Wc, mentre i
+nostri li scrivono sempre: Mesa tiene il clipper **sempre acceso**, e così (`gl_clip_all`) la
+prova disegna (`vertex shader yes (clipper always on), clipping yes, lit models yes`), il passo
+14 del test `g` dà lo 0,0% di pixel diversi dall'ARM (8640 µs dell'ARM senza, 3731 con). Il 3D
+Bench, carico a 60 fps, GPU (2.1) → GPU+VS (3.4): sfere 205 → 833, Gouraud 159 → 1032, con cielo,
+lampade e nebbia 113 → 988, eroi 6,1 → 67,5, eroi con la texture 6,5 → 73,7, pelli 6,5 → 42,4,
+eroi con le ombre 3,3 → 36,5, facce piccole 19 → 189, la partita sintetica da meno di 1 a 31
+eroi, la scena `mix` 2,8 → 24,8 fette (triangoli a 60 fps 10 205 → 79 071), le mesh grandi da
+meno di 1 a 9,3 (13,6 con GPU+VS+S); il riempimento resta com'era. Score con il vertex shader:
+circa 3280 (986 senza). **bm3d 6.6**: il vertex shader è acceso di default (livello 2, tutti i
+modelli; `gpu3d_vs=0` lo spegne, *Settings > Screen and sound > 3D vertices*), e il 3D Bench ha
+il profilo GPU+VS+FS2, il driver dei giochi, per lo score. Il criterio di "fatto" (eroi e sfere
+almeno 2× a 60 fps) è passato nel 3D Bench (11× e 4×); manca il benchmark di Overbit con GPU+VS
+sul Pi per chiudere M36.
+
 ## M37 — 2D e qualità sulla GPU (M, se serve) — fatta sul PC (2026-10-05), da provare sul Pi
 - Sprite, tile e testo come quad della GPU, per i giochi con molto 2D sopra il 3D.
 - Il **menu a 1080p** con la GPU attiva (decisione del 2026-10-04): sfondo, copertine, barre e

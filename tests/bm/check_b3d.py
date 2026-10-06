@@ -43,6 +43,8 @@ def main():
             need |= {"GPU+FS2"}             # bm3d 6.3: every textured shader with two threads
         if t in ("spheres", "heroes", "match", "big", "big_logic"):
             need |= {"GPU+VS+S"}
+        if t != "bilinear":
+            need |= {"GPU+VS+FS2"}          # bm3d 6.6: the driver as the games get it, wherever the GPU runs
         check(need <= profs, f"{t}: {' '.join(sorted(profs))}")
     for t in FUTURE:
         check(any(l.startswith(f"F,{t},") for l in lines), f"{t}: shown as not developed yet")
