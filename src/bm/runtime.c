@@ -1756,7 +1756,7 @@ static void gpu3d_maybe(void)
         const char *t16 = config_get("gpu3d_tex16");
         gpu3d_set_tex16(t16 && strcmp(t16, "1") == 0);  /* opaque textures in 16 bits (M39): Settings */
         const char *fs2 = config_get("gpu3d_fs2");
-        gpu3d_set_fs2(fs2 && strcmp(fs2, "1") == 0);    /* two-thread pixel shaders (M39): Settings */
+        gpu3d_set_fs2(!fs2 || strcmp(fs2, "0") != 0);   /* two-thread pixel shaders (M39; on from 6.4) */
         const char *so = config_get("gpu3d_sort");
         gpu3d_set_sort(so && strcmp(so, "1") == 0);     /* opaque meshes nearest first (M39): Settings */
         const char *g2 = config_get("gpu3d_2d");

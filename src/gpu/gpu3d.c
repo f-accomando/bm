@@ -55,7 +55,7 @@ typedef struct {
 
 enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_ZCLEAR, SH_TEX_SCREEN,
        SH_TEX_RGB_SCREEN, SH_TEX2D, SH_TEXT, SH_TEX_T, SH_TEX_RGB_T,
-       SH_COLOUR_T, SH_SCREEN_T, SH_TEX_ALPHA_T, SH_TEX_SCREEN_T, SH_TEX_RGB_ALPHA_T, SH_TEX_RGB_SCREEN_T, SH_COUNT };
+       SH_TEX_ALPHA_T, SH_TEX_SCREEN_T, SH_TEX_RGB_ALPHA_T, SH_TEX_RGB_SCREEN_T, SH_COUNT };
 #define DEPTH_ZCLEAR 3                  /* after R3D_DEPTH_*: always passes, writes (fs_zclear) */
 /* the vertex shaders of meshes (M36); GV_LIT_TEX2: faces on two bones (a skin) */
 enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_COUNT };
@@ -87,9 +87,7 @@ static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyi
     { fs_text, sizeof fs_text, 2, 5, 1, 1 },                    /* M37: text */
     { fs_tex_lit_t, sizeof fs_tex_lit_t, 2, 3, 0, 0 },          /* M39: SH_TEX, SH_TEX_RGB with two threads */
     { fs_tex_rgb_t, sizeof fs_tex_rgb_t, 2, 8, 0, 0 },
-    { fs_colour_t, sizeof fs_colour_t, 0, 3, 0, 0 },          /* bm3d 6.3: the others with two threads */
-    { fs_colour_screen_t, sizeof fs_colour_screen_t, 0, 3, 1, 0 },
-    { fs_tex_lit_alpha_t, sizeof fs_tex_lit_alpha_t, 2, 3, 1, 0 },
+    { fs_tex_lit_alpha_t, sizeof fs_tex_lit_alpha_t, 2, 3, 1, 0 },  /* bm3d 6.3: the other textured ones */
     { fs_tex_lit_screen_t, sizeof fs_tex_lit_screen_t, 2, 3, 1, 0 },
     { fs_tex_rgb_alpha_t, sizeof fs_tex_rgb_alpha_t, 2, 8, 1, 0 },
     { fs_tex_rgb_screen_t, sizeof fs_tex_rgb_screen_t, 2, 8, 1, 0 },
@@ -674,13 +672,11 @@ static inline int fs_code(int shader)
     switch (shader) {
     case SH_TEX: return SH_TEX_T;
     case SH_TEX_RGB: return SH_TEX_RGB_T;
-    case SH_COLOUR: return SH_COLOUR_T;         /* bm3d 6.3 */
-    case SH_SCREEN: return SH_SCREEN_T;
-    case SH_TEX_ALPHA: return SH_TEX_ALPHA_T;
+    case SH_TEX_ALPHA: return SH_TEX_ALPHA_T;   /* bm3d 6.3 */
     case SH_TEX_SCREEN: return SH_TEX_SCREEN_T;
     case SH_TEX_RGB_ALPHA: return SH_TEX_RGB_ALPHA_T;
     case SH_TEX_RGB_SCREEN: return SH_TEX_RGB_SCREEN_T;
-    default: return shader;                     /* zclear, 2D: one thread */
+    default: return shader;                     /* colour (6.4: faster with one), zclear, 2D */
     }
 }
 
@@ -3114,8 +3110,8 @@ static int probe_fs2(const g16_t *pg, const tex_t *pt)
             memset(G.probe, 0, JOB_PROBE);
             add_tri(pg, a, kind, pt, 0, sh, 0);
             /* every shader FS2 changes (bm3d 6.3), mixed in one job as in a
-             * game, and one that stays single-threaded (the Pi hung on such
-             * a mix when the records said them all threaded) */
+             * game with ones that stay single-threaded (the Pi hung on such a
+             * mix when the records said them all threaded) */
             add_tri(pg, b, kind, pt, 0, rgb ? SH_TEX_RGB_ALPHA : SH_TEX_ALPHA, 0);
             add_tri(pg, a, R3D_KIND_COLOUR, NULL, R3D_DEPTH_TEST, SH_COLOUR, 0);
             add_tri(pg, b, R3D_KIND_SCREEN, NULL, R3D_DEPTH_TEST, SH_SCREEN, 0);
@@ -3137,7 +3133,7 @@ static int probe_fs2(const g16_t *pg, const tex_t *pt)
                 char line[120];
                 ksnprintf(line, sizeof line, "the two-thread shaders: %d pixels differ with %s (they stay off)", differ,
                           rgb ? "fs_tex_rgb and its alpha and screen-door shaders"
-                              : "fs_tex_lit, fs_colour and their alpha and screen-door shaders");
+                              : "fs_tex_lit and its alpha and screen-door shaders");
                 plog(line);
                 return 0;
             }

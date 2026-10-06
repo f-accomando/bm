@@ -20,7 +20,7 @@
  * and 1.0 no longer run: the 3D Bench shows the numbers measured on the Pi
  * with them.
  */
-#define BM3D_VERSION "6.3"
+#define BM3D_VERSION "6.4"
 #define BM3D_BLOCK   "M41"
 
 typedef struct {
@@ -62,6 +62,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "6.1", "M41", "2026-10-05", "RGB30: a Mali fragment job clears tiles into a surface and on the screen" },
         { "6.2", "M39", "2026-10-05", "V3D: shaders without thread switches said single-threaded (GPU+FS2 hung)" },
         { "6.3", "M39", "2026-10-05", "two threads for every 3D shader (GPU+FS2); early z kept in MSAA jobs that clear" },
+        { "6.4", "M39", "2026-10-06", "textured shaders with two threads by default; the colour ones lock the scoreboard last" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;

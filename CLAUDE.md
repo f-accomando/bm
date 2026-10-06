@@ -908,14 +908,15 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4, coda 4.1,
   memoria senza cache 4.5, 2D nel lavoro 4.8, due lavori in volo 5.1, texture a 16 bit 5.2,
   shader a due thread 5.3, mesh dalla più vicina 5.4): così i benchmark le confrontano.
-  Branch `bm3d-driver` (2026-10-05): bm3d 6.3 (M39, M41).
+  Branch `bm3d-driver` (2026-10-06): bm3d 6.4 (M39, M41).
 - **M39 (bm3d 5.x, branch `bm3d-driver`)**: mesh fino a 65535 vertici e indicizzate
   (`INDEXED_PRIMITIVE_LIST`, `probe_index`); due blocchi di memoria dei lavori
   (`gpu3d_queue=2`: l'emulatore esegue un lavoro avviato solo quando lo si aspetta); texture
   opache RGB565 (`gpu3d_tex16`, layout imparato da `tformat16_learn`); shader dei pixel a due
   thread (`fs_*_t` in `qpuasm.py`, che controlla le regole di Mesa e li fa girare pixel per pixel
-  accanto agli originali, `fs_run`: stesse scritture; dalla 6.3 tutti gli shader del 3D, perché a
-  un thread il riempimento perdeva l'8–14%; `gpu3d_fs2`, `probe_fs2`);
+  accanto agli originali, `fs_run`: stesse scritture; dalla 6.3 tutti gli shader con texture,
+  **di default dalla 6.4** (+20–33% sul Pi; `gpu3d_fs2=0` li spegne); quelli a colore restano a
+  un thread, più veloci così, e prendono lo scoreboard per ultimo come Mesa; `probe_fs2`);
   le mesh che scrivono lo z messe da parte e scritte dalla più vicina (`gpu3d_sort`,
   `sort_flush` prima di ogni altro pacchetto), con i triangoli nell'ordine della cache dei
   vertici (`vcache_order`, l'emulatore ha una cache FIFO di 16); `visible3d`/`pvs3d` (Overbit: gli eroi dietro i

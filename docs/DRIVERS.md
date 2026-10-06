@@ -205,6 +205,16 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   lavori che puliscono la pagina (HW-2905 riguarda solo un lavoro che la carica: la 6.2 lo
   toglieva sempre, v0.2.3 mai). Il resto è come la 6.2: senza FS2 gli shader restano a un
   thread.
+- **6.4** (2026-10-06, M39): il Pi ha misurato GPU+FS2 in ogni test. Con le texture le due
+  thread vincono sempre (`quad_tex` 111 → 148, `quad_alpha` 105 → 136, `quad_texscreen` 102
+  → 122; Overbit a 1920×1080 da 62,6 a 56,0 ms); a colore perdono il 4–5% (non c'è un texel da
+  aspettare). Quindi gli shader con texture hanno **due thread di default** (`gpu3d_fs2=0` li
+  rimette a uno, *Settings > Screen and sound > 3D pixel shaders*; la riga GPU del 3D Bench è
+  la 2.1 a un thread) e `fs_colour_t`/`fs_colour_screen_t` sono tolti. E `fs_colour`,
+  `fs_colour_screen` aspettano lo scoreboard per ultimo, subito prima di scrivere, come Mesa
+  (prima lo prendevano al quinto passo e lo tenevano mentre calcolavano il colore: i pixel
+  sovrapposti si mettevano in fila, e in alcuni giri del 3D Bench i quad a colore andavano da
+  2 a 4 volte più piano per tutto un test).
 
 ## Le modalità: versioni vecchie sul codice di oggi
 

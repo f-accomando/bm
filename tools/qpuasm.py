@@ -274,13 +274,13 @@ SHADERS = {
         mov r3, ra15        ; nop                       # W
         mov r0, vary        ; nop
         fmul r0, r0, r3     ; nop
-        fadd r0, r0, r5     ; mov r1, vary  ; sbwait
+        fadd r0, r0, r5     ; mov r1, vary
         fmul r1, r1, r3     ; nop
         fadd r1, r1, r5     ; mov r2, vary
         fmul r2, r2, r3     ; nop
         fadd r2, r2, r5     ; mov r3.8a, r0
         nop                 ; mov r3.8b, r1
-        nop                 ; mov r3.8c, r2
+        nop                 ; mov r3.8c, r2 ; sbwait    # bm3d 6.4: the scoreboard last, as Mesa
         nop                 ; mov r3.8d, 1.0
         mov tlb_z, rb15     ; nop
         mov tlbc, r3        ; nop           ; thrend
@@ -370,7 +370,7 @@ SHADERS = {
         mov r3, ra15        ; nop                       # W
         mov r0, vary        ; nop
         fmul r0, r0, r3     ; nop
-        fadd r0, r0, r5     ; mov r1, vary  ; sbwait
+        fadd r0, r0, r5     ; mov r1, vary
         fmul r1, r1, r3     ; nop
         fadd r1, r1, r5     ; mov r2, vary
         fmul r2, r2, r3     ; nop
@@ -378,7 +378,7 @@ SHADERS = {
         nop                 ; mov r3.8b, r1
         nop                 ; mov r3.8c, r2
         nop                 ; mov r3.8d, 1.0
-        add r0, x_coord, y_coord ; nop
+        add r0, x_coord, y_coord ; nop      ; sbwait    # the scoreboard last (6.4)
         and.setf nop, r0, 1 ; nop                       # Z: x + y even
         mov.ifz tlb_z, rb15 ; nop
         mov.ifz tlbc, r3    ; nop           ; thrend
@@ -684,61 +684,12 @@ SHADERS["fs_tex_rgb_t"] = """
 """
 
 
-# bm3d 6.3: the other 3D shaders with two threads too (fill rate: bm3d 6.2
-# made the ones without a switch single-threaded, as Mesa does, and the
-# quads lost 8-14% on the Pi). Without a texture the switch comes once the
-# colour is in the register file (rb1), before the scoreboard; with one, as
-# fs_tex_lit_t and fs_tex_rgb_t. A small immediate takes raddr b: never in
-# the instruction that reads rb1.
-SHADERS["fs_colour_t"] = """
-        nop                 ; nop
-        nop                 ; nop
-        mov r3, ra15        ; nop                       # W
-        mov r0, vary        ; nop
-        fmul r0, r0, r3     ; nop
-        fadd r0, r0, r5     ; mov r1, vary
-        fmul r1, r1, r3     ; nop
-        fadd r1, r1, r5     ; mov r2, vary
-        fmul r2, r2, r3     ; nop
-        fadd r2, r2, r5     ; mov r3.8a, r0
-        nop                 ; mov r3.8b, r1
-        nop                 ; mov r3.8c, r2
-        nop                 ; mov r3.8d, 1.0
-        mov rb1, r3         ; nop           ; lthrsw    # the colour, kept; the other thread after two more
-        nop                 ; nop
-        nop                 ; nop
-        nop                 ; nop           ; sbwait
-        mov tlb_z, rb15     ; nop
-        mov tlbc, rb1       ; nop           ; thrend
-        nop                 ; nop
-        nop                 ; nop           ; sbdone
-"""
+# bm3d 6.3: the other textured 3D shaders with two threads too, as
+# fs_tex_lit_t and fs_tex_rgb_t (the Pi: +20-33% in the fill tests). The
+# colour ones without a texture were 4-5% slower with two threads (no
+# fetch to hide), so they stay single (6.4). A small immediate takes raddr
+# b: never in the instruction that reads rb1.
 
-SHADERS["fs_colour_screen_t"] = """
-        nop                 ; nop
-        nop                 ; nop
-        mov r3, ra15        ; nop                       # W
-        mov r0, vary        ; nop
-        fmul r0, r0, r3     ; nop
-        fadd r0, r0, r5     ; mov r1, vary
-        fmul r1, r1, r3     ; nop
-        fadd r1, r1, r5     ; mov r2, vary
-        fmul r2, r2, r3     ; nop
-        fadd r2, r2, r5     ; mov r3.8a, r0
-        nop                 ; mov r3.8b, r1
-        nop                 ; mov r3.8c, r2
-        nop                 ; mov r3.8d, 1.0
-        mov rb1, r3         ; nop           ; lthrsw
-        nop                 ; nop
-        nop                 ; nop
-        add r0, x_coord, y_coord ; nop
-        and.setf nop, r0, 1 ; nop                       # Z: x + y even
-        nop                 ; nop           ; sbwait
-        mov.ifz tlb_z, rb15 ; nop
-        mov.ifz tlbc, rb1   ; nop           ; thrend
-        nop                 ; nop
-        nop                 ; nop           ; sbdone
-"""
 
 SHADERS["fs_tex_lit_alpha_t"] = """
         nop                 ; nop

@@ -58,7 +58,7 @@ enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2
 #define M_2D  (1u << PF_2D)             /* the GPU with the 2D over the 3D in its job (M37, bm3d 4.8) */
 #define M_VSQ2 (1u << PF_VSQ2)          /* GPU+VS+Q with two jobs in flight (M39, bm3d 5.1) */
 #define M_T16 (1u << PF_T16)            /* the GPU with opaque textures in 16 bits (M39, bm3d 5.2) */
-#define M_FS2 (1u << PF_FS2)            /* the GPU with two-thread pixel shaders (M39, bm3d 5.3; every 3D shader 6.3) */
+#define M_FS2 (1u << PF_FS2)            /* the GPU with two-thread pixel shaders (M39, bm3d 5.3; every textured one 6.3) */
 #define M_VSS (1u << PF_VSS)            /* GPU+VS with the meshes nearest first (M39, bm3d 5.4) */
 #define M_ALL (M_ARM | M_GPU | M_VS1 | M_VS)
 #define M_LIT (M_ARM | M_GPU | M_VS)    /* models lit by the sun: VS1 is the GPU for them */
@@ -643,30 +643,30 @@ typedef struct {
 } test_t;
 
 static const test_t tests[] = {
-    { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA | M_WC | M_VSS | M_FS2, sp_flat, spheres, sp_undo, NULL, 0, 0 },
-    { "spheres_smooth", "spheres, Gouraud", "spheres", 1, 8000, M_LIT | M_FS2, sp_smooth, spheres, sp_undo, NULL, 0, 0 },
+    { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA | M_WC | M_VSS, sp_flat, spheres, sp_undo, NULL, 0, 0 },
+    { "spheres_smooth", "spheres, Gouraud", "spheres", 1, 8000, M_LIT, sp_smooth, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU | M_T16 | M_FS2, sp_tex, spheres, sp_undo, NULL, 0,
       0 },
     { "spheres_unlit", "spheres, unlit", "spheres", 1, 8000, M_ALL, sp_unlit, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_baked", "spheres, baked light", "spheres", 1, 8000, M_ALL, sp_baked, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_shine", "spheres, sky, rim, gloss, 4 lamps, fog", "spheres", 1, 8000, M_LIT, sp_shine,
       spheres_shine, sp_undo, NULL, 0, 0 },
-    { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT | M_WC | M_VSS | M_FS2, NULL, heroes, NULL, NULL, 0, 0 },
+    { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT | M_WC | M_VSS, NULL, heroes, NULL, NULL, 0, 0 },
     { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT | M_T16 | M_FS2, NULL, heroes_tex, NULL, NULL, 0, 0 },
     { "heroes_skin", "heroes, textured skins (as the Meshy ones)", "heroes", 1, 512, M_LIT | M_FS2, NULL, heroes_skin, NULL,
       NULL, 0, 0 },
-    { "heroes_shadow", "heroes with shadows on a floor", "heroes", 1, 512, M_LIT | M_FS2, NULL, heroes_shadow, NULL, NULL,
+    { "heroes_shadow", "heroes with shadows on a floor", "heroes", 1, 512, M_LIT, NULL, heroes_shadow, NULL, NULL,
       0, 0 },
     { "clip", "map pieces through the near plane", "pieces", 1, 4000, M_ALL, NULL, clip_scene, NULL, NULL, 0, 0 },
     { "tiny", "small faces (about 4 pixels)", "grids", 1, 2000, M_LIT, NULL, tiny, NULL, NULL, 0, 0 },
     { "draws", "draw calls: a cube each", "draws", 1, 40000, M_LIT | M_WC, NULL, draws, NULL, NULL, 0, 0 },
-    { "quad_flat", "fill: quads 320x180, flat", "quads", 1, 4000, M_LIT | M_AA | M_FS2, q_flat, quads, q_free, NULL, 1, 0 },
-    { "quad_smooth", "fill: quads, Gouraud", "quads", 1, 4000, M_LIT | M_FS2, q_smooth, quads, q_free, NULL, 1, 0 },
+    { "quad_flat", "fill: quads 320x180, flat", "quads", 1, 4000, M_LIT | M_AA, q_flat, quads, q_free, NULL, 1, 0 },
+    { "quad_smooth", "fill: quads, Gouraud", "quads", 1, 4000, M_LIT, q_smooth, quads, q_free, NULL, 1, 0 },
     { "quad_tex", "fill: quads, textured", "quads", 1, 4000, M_ARM | M_GPU | M_WC | M_T16 | M_FS2, q_tex, quads, q_free, NULL, 1,
       0 },
     { "quad_alpha", "fill: quads, texels with holes", "quads", 1, 4000, M_ARM | M_GPU | M_FS2, q_alpha, quads, q_free, NULL,
       1, 0 },
-    { "quad_screen", "fill: quads, screen-door", "quads", 1, 4000, M_ARM | M_GPU | M_FS2, q_screen, quads, q_free, NULL, 1, 0 },
+    { "quad_screen", "fill: quads, screen-door", "quads", 1, 4000, M_ARM | M_GPU, q_screen, quads, q_free, NULL, 1, 0 },
     { "quad_texscreen", "fill: quads, textured screen-door", "quads", 1, 4000, M_ARM | M_GPU | M_FS2, q_texscreen, quads, q_free,
       NULL, 1, 0 },
     { "texswap", "three textures in turn", "quads", 1, 8000, M_ARM | M_GPU, q_tex, texswap, q_free, NULL, 0, 0 },

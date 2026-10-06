@@ -1252,7 +1252,7 @@ def test_home_ui(b, opts):
         keys("s")
         screen(["3D job memory", "< Cached >"])
         keys("s")
-        screen(["3D pixel shaders", "< One thread >"])  # M39
+        screen(["3D pixel shaders", "< Two threads >"])  # M39; on from bm3d 6.4
         keys("s")
         screen(["3D draw order", "< As the game >"])
         keys("s")

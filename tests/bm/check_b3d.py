@@ -39,9 +39,8 @@ def main():
             need |= {"GPU+2D"}
         if t in ("spheres_tex", "heroes_tex", "quad_tex", "match"):
             need |= {"GPU+T16", "GPU+FS2"}
-        if t in ("spheres", "spheres_smooth", "heroes", "heroes_skin", "heroes_shadow", "quad_flat", "quad_smooth",
-                 "quad_alpha", "quad_screen", "quad_texscreen"):
-            need |= {"GPU+FS2"}             # bm3d 6.3: every 3D shader with two threads
+        if t in ("heroes_skin", "quad_alpha", "quad_texscreen"):
+            need |= {"GPU+FS2"}             # bm3d 6.3: every textured shader with two threads
         if t in ("spheres", "heroes", "match", "big", "big_logic"):
             need |= {"GPU+VS+S"}
         check(need <= profs, f"{t}: {' '.join(sorted(profs))}")

@@ -595,9 +595,7 @@ static int shader_of(const uint8_t *code)
     if (!memcmp(code, fs_text, sizeof fs_text)) return SH_TEXT;
     if (!memcmp(code, fs_tex_lit_t, sizeof fs_tex_lit_t)) return SH_TEX;       /* M39: two threads */
     if (!memcmp(code, fs_tex_rgb_t, sizeof fs_tex_rgb_t)) return SH_TEX_RGB;
-    if (!memcmp(code, fs_colour_t, sizeof fs_colour_t)) return SH_COLOUR;      /* bm3d 6.3 */
-    if (!memcmp(code, fs_colour_screen_t, sizeof fs_colour_screen_t)) return SH_SCREEN;
-    if (!memcmp(code, fs_tex_lit_alpha_t, sizeof fs_tex_lit_alpha_t)) return SH_TEX_ALPHA;
+    if (!memcmp(code, fs_tex_lit_alpha_t, sizeof fs_tex_lit_alpha_t)) return SH_TEX_ALPHA;    /* bm3d 6.3 */
     if (!memcmp(code, fs_tex_lit_screen_t, sizeof fs_tex_lit_screen_t)) return SH_TEX_SCREEN;
     if (!memcmp(code, fs_tex_rgb_alpha_t, sizeof fs_tex_rgb_alpha_t)) return SH_TEX_RGB_ALPHA;
     if (!memcmp(code, fs_tex_rgb_screen_t, sizeof fs_tex_rgb_screen_t)) return SH_TEX_RGB_SCREEN;
@@ -609,7 +607,6 @@ static int switches_threads(const uint8_t *code)
 {
     static const struct { const uint32_t *code; size_t size; } t[] = {
         { fs_tex_lit_t, sizeof fs_tex_lit_t }, { fs_tex_rgb_t, sizeof fs_tex_rgb_t },
-        { fs_colour_t, sizeof fs_colour_t }, { fs_colour_screen_t, sizeof fs_colour_screen_t },
         { fs_tex_lit_alpha_t, sizeof fs_tex_lit_alpha_t }, { fs_tex_lit_screen_t, sizeof fs_tex_lit_screen_t },
         { fs_tex_rgb_alpha_t, sizeof fs_tex_rgb_alpha_t }, { fs_tex_rgb_screen_t, sizeof fs_tex_rgb_screen_t },
     };

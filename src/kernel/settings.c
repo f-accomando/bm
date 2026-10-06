@@ -216,6 +216,14 @@ static int wc_on(void)
     return on && strcmp(on, "1") == 0;
 }
 
+/* two-thread pixel shaders: on unless gpu3d_fs2=0 (bm3d 6.4: the Pi's
+ * reports, +20-33% in the textured fill tests) */
+static int fs2_on(void)
+{
+    const char *on = config_get("gpu3d_fs2");
+    return !on || strcmp(on, "0") != 0;
+}
+
 static const char *gpu3d_choice(void)
 {
     if (!gpu3d_on())
@@ -443,7 +451,7 @@ void home_panel(int id, home_panel_t *p)
                  wc_on() ? "Uncached" : "Cached");
         home_row(p, MENU_ROW_CHOICE, R_FS2, "3D pixel shaders",
                  "Two threads: a QPU shades while the other waits for its texel", "%s",
-                 config_on("gpu3d_fs2") ? "Two threads" : "One thread");
+                 fs2_on() ? "Two threads" : "One thread");
         home_row(p, MENU_ROW_CHOICE, R_SORT, "3D draw order",
                  "Nearest first, triangles in cache order: the GPU skips work (vertex shader)", "%s",
                  config_on("gpu3d_sort") ? "Nearest first" : "As the game");
@@ -936,10 +944,10 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "3D job memory of the next game: %s", wc_on() ? "uncached" : "cached");
         break;
     case R_FS2:
-        config_set("gpu3d_fs2", config_on("gpu3d_fs2") ? "0" : "1");
+        config_set("gpu3d_fs2", fs2_on() ? "0" : "1");
         config_save();
         ksnprintf(d->note, sizeof d->note, "3D pixel shaders of the next game: %s",
-                  config_on("gpu3d_fs2") ? "two threads" : "one thread");
+                  fs2_on() ? "two threads" : "one thread");
         break;
     case R_SORT:
         config_set("gpu3d_sort", config_on("gpu3d_sort") ? "0" : "1");

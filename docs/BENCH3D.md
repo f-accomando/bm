@@ -16,9 +16,9 @@ riprodurre (`docs/DRIVERS.md`):
 - **GPU+VS1**: bm3d 3.0, il vertex shader per lo scenario;
 - **GPU+VS**: bm3d 3.4, il vertex shader per tutto;
 - **GPU+VS+Q**: bm3d 4.1, lo stesso con il fotogramma in coda (M35; solo nel test `queue`);
-- **GPU+FS2**: gli shader dei pixel a due thread (bm3d 5.3 per quelli con texture, 6.3 per tutti
-  quelli del 3D): nei test con texture, nei quad a colore, a retino e con i buchi, nelle sfere e
-  negli eroi (dove decide il riempimento).
+- **GPU+FS2**: gli shader dei pixel con texture a due thread (bm3d 5.3, tutti quelli del 3D dalla
+  6.3), nei test con texture; dalla 6.4 sono il default, e la riga GPU li riproduce a un thread.
+  Quelli a colore restano a un thread (a due il Pi li ha misurati più lenti del 4–5%).
 
 Un profilo che la GPU non sa fare (le prove all'avvio lo hanno spento) non ha la riga.
 A ogni passo `n` cresce di un terzo finché un fotogramma supera i **40 ms**; i carichi a
