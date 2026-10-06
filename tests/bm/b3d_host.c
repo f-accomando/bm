@@ -61,7 +61,16 @@ static uint32_t us(void)
     return (uint32_t)(t.tv_sec * 1000000 + t.tv_nsec / 1000);
 }
 
-static uint32_t present(void) { return 0; }
+static int frames;                      /* --frames: every frame shown as DIR/frame-NNNN.ppm */
+static void shown(int i);
+
+static uint32_t present(void)
+{
+    static int k;
+    if (frames)
+        shown(10000 + k++);
+    return 0;
+}
 
 static int key(void) { return B3D_KEY_BACK; }
 
@@ -131,7 +140,10 @@ static int load_last(char **text, char *name, size_t n)
 static void shown(int i)
 {
     char path[512];
-    snprintf(path, sizeof path, "%s/page-%02d.ppm", dir, i + 1);
+    if (i >= 10000)
+        snprintf(path, sizeof path, "%s/frame-%04d.ppm", dir, i - 10000);
+    else
+        snprintf(path, sizeof path, "%s/page-%02d.ppm", dir, i + 1);
     FILE *f = fopen(path, "wb");
     if (!f)
         return;
@@ -181,14 +193,18 @@ int main(int argc, char **argv)
     if (argc == 2 && !strcmp(argv[1], "--selftest"))
         return selftest();
     if (argc < 2) {
-        fprintf(stderr, "usage: b3d_host DIR [--full] [-v]\n");
+        fprintf(stderr, "usage: b3d_host DIR [--full] [-v] [--tests=a,b] [--profiles=P,Q] [--frames]\n");
         return 2;
     }
     dir = argv[1];
     int full = 0;
+    const char *only_tests = NULL, *only_profiles = NULL;
     for (int i = 2; i < argc; i++) {
         if (!strcmp(argv[i], "--full")) full = 1;
         if (!strcmp(argv[i], "-v")) verbose = 1;
+        if (!strcmp(argv[i], "--frames")) frames = 1;
+        if (!strncmp(argv[i], "--tests=", 8)) only_tests = argv[i] + 8;
+        if (!strncmp(argv[i], "--profiles=", 11)) only_profiles = argv[i] + 11;
     }
     uint16_t *px = test_aligned_alloc(64, 640 * 360 * 2);     /* where the emulated V3D can draw */
     g16_target(&page, px, 640, 640, 360, &font_console_8x16);
@@ -201,7 +217,7 @@ int main(int argc, char **argv)
     b3d_platform_t p = {
         .g = &page, .us = us, .present = present, .count = NULL, .counting = 0, .key = key, .log = log_line,
         .save = save, .load_last = load_last, .kernel = "host", .machine = "PC, the V3D emulated",
-        .date = "", .quick = !full, .page_shown = shown,
+        .date = "", .quick = !full, .page_shown = shown, .only_tests = only_tests, .only_profiles = only_profiles,
     };
     if (b3d_run(&p) != 0) {
         fprintf(stderr, "b3d: the report was not saved\n");

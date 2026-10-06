@@ -56,10 +56,17 @@ i numeri del Pi con i driver di prima sono le barre storiche.
   z conservato);
 - `match`: una partita sintetica, mappa di 100 pezzi, eroi con le ombre, un modello in
   prima persona e un HUD;
+- `mix`: tutto insieme, come un gioco (M41, per lo score): n fette di una strada, ognuna un pezzo
+  di mappa con la luce cotta sotto un eroe (a turno Gouraud con i riflessi, con la texture, con la
+  pelle su due ossa) con la sua ombra, un recinto di texel con buchi, un vetro a retino e una
+  cassa; il suolo sotto la camera attraverso il piano vicino, cielo, bordo, 4 lampade e nebbia, un
+  modello in prima persona in basso a destra e un HUD di sprite e testo sopra il 3D;
 - `queue`: sfere Gouraud più un lavoro fisso dell'ARM dopo il 3D (4 milioni di istruzioni,
   la logica di un gioco), con GPU+VS e GPU+VS+Q: in coda l'ARM lavora mentre la GPU disegna;
-- da sviluppare (pagina "non ancora"): `gpu2d` (M37, sprite e testo sulla GPU), `bilinear`
-  (M37, texture filtrate).
+- `gpu2d`: sprite e testo sopra il 3D (M37; con GPU+2D nel lavoro della GPU, altrimenti l'ARM);
+  `bilinear`: quad con le texture filtrate (M37, un'opzione spenta di default);
+- `big`, `big_logic`: modelli di 10 080 triangoli su una mappa di 14 112 (M39), il secondo con la
+  logica di `queue`.
 
 I carichi massimi sono molto oltre quello che i driver fanno oggi (fino a 8000 sfere, 512
 eroi, 40 000 chiamate): restano margine per i driver che verranno.
@@ -73,8 +80,37 @@ spese ad aspettare la GPU (e quelle a parte), istruzioni per triangolo e per ele
 **cache miss** dei dati. Le istruzioni e i miss vengono dai contatori dell'ARM1176
 (`src/kernel/pmu.c`), solo sul Pi vero (QEMU non li ha).
 
+## Lo score
+
+La prima pagina alla fine (richiesta dell'utente, 2026-10-06). Due numeri:
+
+- **Score**: per ogni test che è una tecnologia (24: sfere piatte, Gouraud, texture, spente, luce
+  cotta, luci; eroi, texture, pelli, ombre; clip, facce piccole, chiamate; i riempimenti; tre
+  texture; 3D e 2D; partita; mesh grandi; 2D sopra il 3D) il carico a 60 fps diviso per quello
+  che **bm3d 2.1** (il profilo GPU) ha dato al suo meglio sul Pi Zero W (report del 5 e 6 ottobre,
+  `score_ref` in `b3d.c`); lo score è la media geometrica dei rapporti per 1000. Quindi 1000 è
+  bm3d 2.1 sul Pi, 2000 un driver due volte più veloce in ogni test (o 4 volte in metà e uguale
+  nel resto). Un carico sotto il primo passo vale la parte di quel passo che sta in 16,7 ms (un
+  eroe in 20 ms: 0,83). Fuori dallo score: i test con la logica (`queue`, `big_logic`), le
+  opzioni spente di default (`bilinear`) e `mix` (ha l'altro numero). Lo score grande è del driver
+  **come lo hanno i giochi** in questa versione: in bm3d 6.4 la GPU con gli shader con texture a
+  due thread (la riga GPU+FS2 dove c'è, la GPU negli altri test, dove gli shader sono gli stessi;
+  l'ARM se la GPU non c'è, come la RGB30). Accanto, gli score di bm3d 2.1 (GPU) e 0.2 (ARM) negli
+  stessi test e quello del report di prima (verde se non è sceso più del 3%). Un giro con
+  `tests=` o `profiles=` dice "a part of the bench": non si confronta.
+- **Triangoli a fotogramma a 60 fps** (640×360): quelli della scena `mix` con il driver dei
+  giochi, interpolati come il carico, e quanti la GPU ne ha disegnati davvero (gli altri sono
+  facce girate o fuori dallo schermo); sotto, il test con più triangoli a 60 fps e quanti al
+  secondo.
+
+Sotto, una barra per test: il suo rapporto contro bm3d 2.1 (la tacca è 1×) e il profilo che
+è il driver lì. Il report ha le righe `score ...`, `S,driver,versione,score,test,intero` (il
+giro dopo legge `S,games`) e `triangles at 60 fps ...`; ogni riga `R` ha in fondo `tris60` e
+`drawn60`.
+
 ## Le pagine alla fine
 
+- **Score** (sopra);
 - **Riepilogo**: per ogni test il carico a 60 fps di ogni profilo, il migliore, quante
   volte l'ARM, quante volte il report di prima, se sta nei 60 fps; la media (geometrica)
   di ogni profilo contro l'ARM; i test non ancora sviluppati.
@@ -120,5 +156,7 @@ monitor).
 ## Sul PC
 
 `make test-b3d` fa due giri brevi sull'emulatore della V3D (pochi passi, un fotogramma
-l'uno: i ms del PC non contano) e controlla report, profili, confronto e pagine
-(`build/b3d/page-NN.ppm`). `build/host/b3d_host DIR --full -v` fa il giro intero.
+l'uno: i ms del PC non contano) e controlla report, profili, score, confronto e pagine
+(`build/b3d/page-NN.ppm`). `build/host/b3d_host DIR --full -v` fa il giro intero;
+`--tests=mix --profiles=GPU,ARM` una parte, `--frames` salva ogni fotogramma
+(`DIR/frame-NNNN.ppm`) per guardare le scene.

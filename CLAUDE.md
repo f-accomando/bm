@@ -960,7 +960,12 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   dell'ARM1176, `src/kernel/pmu.c`, solo sul Pi), grafico a barre con le misure di prima,
   report in `bm/bench` sulla SD confrontato col giro dopo. Un test nuovo per ogni
   capacità nuova dei driver; quelle future stanno nella lista come "non ancora".
-  `make test-b3d` lo prova sul PC.
+  **Score** (prima pagina, richiesta dell'utente 2026-10-06; 1080p non prioritario, il bench
+  resta a 640×360): media geometrica dei carichi a 60 fps di 24 test contro bm3d 2.1 al meglio
+  sul Pi Zero W (`score_ref`, 1000), del driver come lo hanno i giochi (`drv_row`: GPU+FS2,
+  GPU, ARM; cambiarla quando cambia il default), e i triangoli a fotogramma a 60 fps della
+  scena `mix` (tutto insieme). Un test nuovo entra nello score con la sua riga in `score_ref`
+  dopo il primo numero del Pi. `make test-b3d` lo prova sul PC (`b3d_host --tests= --frames`).
 - Overbit va sulla GPU (menu "3D": GPU, GPU+AA, ARM; benchmark dei bot con `--start
   bench`, `84_bench.lua`). bmhost ha gli stub della GPU; `make bmhost-gpu` usa `gpu3d.c`
   sull'emulatore della V3D (`BMHOST_EMU_SKIP=1`: i lavori non si eseguono). Quanto costa

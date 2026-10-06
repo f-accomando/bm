@@ -10,6 +10,10 @@
  * at 60 and 30 fps are interpolated from the last step under them (a slow
  * step before a heavier one that fits was slowed by something else), and
  * the work of the last step under 60 fps is kept for the report.
+ * The score (the first page): each test's load at 60 fps with the driver
+ * as the games get it against bm3d 2.1 on the Pi, a geometric mean times
+ * 1000; and the triangles a frame at 60 fps of a scene with everything
+ * at once (the mix).
  *
  * The sphere and quad scenes are those of the stress test (src/bm/
  * stress.c), at the same 640x360: the numbers the Pi gave with the drivers
@@ -616,6 +620,65 @@ static void match(int n, int f)
     text2d(12, H - 28, "HUD 250/250", 0xFFFF);
 }
 
+/* everything a game uses at once, n slices of a street: under each hero
+ * (in turn plain with gloss, textured, a textured skin) a piece of lit map,
+ * its shadow, a fence of texels with holes, a pane of screen-door glass and
+ * a crate; the ground under the camera through the near plane, the sky,
+ * rim, gloss, 4 lamps and fog, a model in first person, a HUD of sprites
+ * and text over the 3D. Its triangles at 60 fps are the score's "how many
+ * in a frame" */
+static r3d_mesh_t patch, fence, glass;
+
+static void mix_setup(void)
+{
+    make_tile(&patch, 4, 0x80A060);
+    for (int i = 0; i < patch.nverts; i++) {
+        patch.verts[i].x *= 1.2f;       /* the heroes' rows: 1.2 apart, 1.5 between rows */
+        patch.verts[i].z *= 1.5f;
+    }
+    textured(&patch, &sheet[0]);
+    bake(&patch, 120);
+    make_quad(&fence, 0, &sheet[1]);
+    make_quad(&glass, 0x80C0FF | R3D_SCREEN, NULL);
+}
+
+static void mix_free(void)
+{
+    r3d_mesh_free(&patch);
+    r3d_mesh_free(&fence);
+    r3d_mesh_free(&glass);
+}
+
+static void mix(int n, int f)
+{
+    static const r3d_mesh_t *const kind[3] = { &hero, &hero_tex, &hero_skin };
+    cls3d();
+    r3d_camera(&R, 0.3f * sinf((float)f * 0.02f), 1.7f, -5, 0.05f, -0.12f, 70);
+    shine_light();
+    R.shadow_style = 1;
+    for (int k = 0; k < 2; k++)
+        r3d_draw_flags(&R, &tile, (v3_t){ k ? 3.0f : -3.0f, 0, -4 }, 0, 0, 0, 6, 0);
+    const int row = 8;
+    for (int i = 0; i < n; i++) {
+        const float x = -4.2f + 1.2f * (float)(i % row) + 0.6f * (float)((i / row) % 2),
+                    z = 1.0f + 1.5f * (float)(i / row);
+        r3d_draw_flags(&R, &patch, (v3_t){ x, 0, z }, 0, 0, 0, 1, 0);
+        pose((float)f * 0.05f + (float)i);
+        r3d_draw_flags(&R, kind[i % 3], (v3_t){ x, 0, z }, 0, (float)i, 0, 1, R3D_SHADOW);
+        r3d_draw_flags(&R, kind[i % 3], (v3_t){ x, 0, z }, 0, (float)i, 0, 1, R3D_SMOOTH);
+        r3d_draw_flags(&R, &fence, (v3_t){ x + 0.45f, 0.34f, z + 0.5f }, 0, 0.6f, 0, 0.3f, 0);
+        r3d_draw_flags(&R, &glass, (v3_t){ x - 0.45f, 0.5f, z - 0.3f }, 0, -0.4f, 0, 0.25f, 0);
+        r3d_draw_flags(&R, &cube, (v3_t){ x + 0.4f, 0.12f, z - 0.4f }, 0, (float)i, 0, 0.12f, 0);
+    }
+    pose((float)f * 0.05f);             /* in the lower right corner, as a weapon */
+    r3d_draw_flags(&R, &hero_tex, (v3_t){ 0.6f, 0.9f, -4.3f }, 0, 3.0f, 0, 0.4f, R3D_SMOOTH | R3D_FRONT);
+    scene_light();
+    rect2d(8, H - 30, 180, 20, g16_rgb(20, 30, 40));
+    text2d(12, H - 28, "HUD 250/250", 0xFFFF);
+    for (int k = 0; k < 8; k++)
+        spr2d(&sheet[1], k * 16, 0, 16, 16, W - 140 + 16 * k, H - 28);
+}
+
 /* ---------------------------------------------------------------- tests */
 
 /* a game's logic between two frames: k thousand steps of a random
@@ -674,6 +737,8 @@ static const test_t tests[] = {
       NULL, 0, 0 },
     { "match", "a match: map, heroes, shadows, HUD", "heroes", 1, 256, M_ALL | M_AA | M_Q | M_WC | M_2D | M_T16 | M_FS2 | M_VSS, NULL, match, NULL, NULL, 0,
       0 },
+    { "mix", "everything at once: map, heroes, skins, shadows, holes, glass, lamps, HUD", "slices", 1, 512,
+      M_LIT | M_AA | M_T16 | M_FS2, mix_setup, mix, mix_free, NULL, 0, 0 },
     { "queue", "spheres and 4M instructions of logic", "spheres", 1, 8000, M_GPU | M_Q | M_VS | M_VSQ | M_VSQ2, sp_smooth,
       spheres,
       sp_undo,
@@ -749,6 +814,7 @@ typedef struct {
     int last_n;                         /* its last load: with over, n60 or n30 may be more */
     sample_t at;                        /* the last step at 60 fps or better (else the first) */
     float secs;
+    float tris60, drawn60;              /* the triangles a frame at 60 fps: given, drawn */
 } result_t;
 
 static result_t res[NTESTS][NPROF];
@@ -917,18 +983,139 @@ static void ramp(int ti, int pf)
         return;
     r->over = s[ns - 1].ms <= LIMIT_MS;
     r->last_n = s[ns - 1].n;
-    float sn[64], sms[64];
+    float sn[64], sms[64], stri[64], sdrawn[64];
     for (int i = 0; i < ns; i++) {
         sn[i] = (float)s[i].n;
         sms[i] = s[i].ms;
+        stri[i] = s[i].tris_in;
+        sdrawn[i] = s[i].tris;
     }
     r->n60 = b3d_load_at(sn, sms, ns, MS60);
     r->n30 = b3d_load_at(sn, sms, ns, MS30);
+    /* the triangles as the load (they grow with it); under the lightest
+     * step, the part of it a frame of 60 fps holds */
+    r->tris60 = b3d_load_at(stri, sms, ns, MS60);
+    r->drawn60 = b3d_load_at(sdrawn, sms, ns, MS60);
+    if (r->n60 < 0) {
+        const float k = s[0].ms > 0 ? MS60 / s[0].ms : 0;
+        r->tris60 = s[0].tris_in * k;
+        r->drawn60 = s[0].tris * k;
+    }
     r->at = s[0];
     for (int i = 0; i < ns; i++)
         if (s[i].ms <= MS60)
             r->at = s[i];
 }
+
+/* ---------------------------------------------------------------- the score */
+
+/* The score: every technology's load at 60 fps against the load bm3d 2.1
+ * (the GPU profile) gave at its best on the Pi Zero W (reports of
+ * 2026-10-05 and 06, 640x360), the geometric mean of the ratios times
+ * 1000: 1000 is bm3d 2.1 on the Pi, 2000 a driver twice as fast in every
+ * test (or 4x in half and 1x in the rest). A test not here is not in it:
+ * the logic ones (queue, big_logic), an option off by default (bilinear),
+ * the mix (its triangles at 60 fps are the other number). */
+static const struct { const char *test; float n60; } score_ref[] = {
+    { "spheres", 208 }, { "spheres_smooth", 163 }, { "spheres_tex", 165 }, { "spheres_unlit", 244 },
+    { "spheres_baked", 195 }, { "spheres_shine", 112 }, { "heroes", 6.4f }, { "heroes_tex", 6.9f },
+    { "heroes_skin", 6.8f }, { "heroes_shadow", 3.4f }, { "clip", 826 }, { "tiny", 19.7f }, { "draws", 1238 },
+    { "quad_flat", 203 }, { "quad_smooth", 199 }, { "quad_tex", 120 }, { "quad_alpha", 114 },
+    { "quad_screen", 184 }, { "quad_texscreen", 111 }, { "texswap", 1482 }, { "split", 5.6f },
+    { "match", 0.98f }, { "big", 0.29f }, { "gpu2d", 1949 },
+};
+#define NREF ((int)(sizeof score_ref / sizeof score_ref[0]))
+
+static float ref_of(int ti)
+{
+    for (int i = 0; i < NREF; i++)
+        if (!strcmp(score_ref[i].test, tests[ti].id))
+            return score_ref[i].n60;
+    return 0;
+}
+
+/* the drivers scored: as the games get them in this version (bm3d 6.4:
+ * the GPU, its textured shaders with two threads), bm3d 2.1, bm3d 0.2 */
+enum { DRV_GAMES, DRV_GPU, DRV_ARM, NDRV };
+static const char *const drv_id[NDRV] = { "games", "GPU", "ARM" };
+
+/* the profile whose row stands for a driver in a test: for the games',
+ * GPU+FS2 where it ran (the textured tests; elsewhere the shaders are the
+ * GPU's), else the GPU, and the ARM where the GPU did not run (as a game
+ * falls back to it); -1 if none ran */
+static int drv_row(int drv, int ti)
+{
+    static const int chain[NDRV][3] = { { PF_FS2, PF_GPU, PF_ARM }, { PF_GPU, -1, -1 }, { PF_ARM, -1, -1 } };
+    for (int k = 0; k < 3 && chain[drv][k] >= 0; k++)
+        if (res[ti][chain[drv][k]].ran)
+            return chain[drv][k];
+    return -1;
+}
+
+/* a test's load at 60 fps for the score: under its first step, the part of
+ * that step a frame holds (1 hero in 20 ms: 0.83) */
+static float load60(const result_t *r)
+{
+    if (r->n60 > 0)
+        return r->n60;
+    return r->at.ms > 0 ? (float)r->at.n * MS60 / r->at.ms : 0;
+}
+
+/* the score of a driver; how many tests are in it */
+static int score_of(int drv, int *ntests)
+{
+    float sum = 0;
+    int k = 0;
+    for (int ti = 0; ti < NTESTS; ti++) {
+        const float ref = ref_of(ti);
+        const int pf = ref > 0 ? drv_row(drv, ti) : -1;
+        const float v = pf >= 0 ? load60(&res[ti][pf]) : 0;
+        if (v > 0) {
+            sum += logf(v / ref);
+            k++;
+        }
+    }
+    *ntests = k;
+    return k ? (int)(1000.0f * expf(sum / (float)k) + 0.5f) : 0;
+}
+
+static int partial(void)
+{
+    return P->only_tests || P->only_profiles;
+}
+
+static int test_index(const char *id)
+{
+    for (int ti = 0; ti < NTESTS; ti++)
+        if (!strcmp(tests[ti].id, id))
+            return ti;
+    return -1;
+}
+
+/* the triangles a frame at 60 fps of the games' driver: in the mix, and
+ * the most of any test (which in *most) */
+static float tris_mix(float *drawn)
+{
+    const int ti = test_index("mix"), pf = ti >= 0 ? drv_row(DRV_GAMES, ti) : -1;
+    *drawn = pf >= 0 ? res[ti][pf].drawn60 : 0;
+    return pf >= 0 ? res[ti][pf].tris60 : 0;
+}
+
+static float tris_most(int *most)
+{
+    float best = 0;
+    *most = -1;
+    for (int ti = 0; ti < NTESTS; ti++) {
+        const int pf = drv_row(DRV_GAMES, ti);
+        if (pf >= 0 && res[ti][pf].tris60 > best) {
+            best = res[ti][pf].tris60;
+            *most = ti;
+        }
+    }
+    return best;
+}
+
+static int prev_score;                  /* the last report's (0: none, or a part of the bench) */
 
 /* ---------------------------------------------------------------- the report */
 
@@ -1010,7 +1197,7 @@ static void report(void)
         put("only tests %s, profiles %s\n", P->only_tests ? P->only_tests : "all",
             P->only_profiles ? P->only_profiles : "all");
     put("columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,"
-        "instr,wait_instr,dmiss,cycles,secs\n");
+        "instr,wait_instr,dmiss,cycles,secs,tris60,drawn60\n");
     char a[16], b[16], c[16], d[16], e[16], f[16];
     for (int ti = 0; ti < NTESTS; ti++) {
         const test_t *t = &tests[ti];
@@ -1023,13 +1210,29 @@ static void report(void)
             if (!r->ran)
                 continue;
             const sample_t *s = &r->at;
-            put("R,%s,%s,%s,%s,%s,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,%lu,%lu,%lu,%lu,%d\n", t->id, prof[pf].name,
+            put("R,%s,%s,%s,%s,%s,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,%lu,%lu,%lu,%lu,%d,%d,%d\n", t->id, prof[pf].name,
                 prof_version(pf), f1(a, r->n60), f1(b, r->n30), r->over, f1(c, s->ms), f1(d, s->worst),
                 (int)s->tris_in, (int)s->tris, (int)s->verts, (int)s->pixels, (int)s->gltris, f1(e, s->jobs),
                 f1(f, s->gpu_ms), (unsigned long)s->instr, (unsigned long)s->wait_instr, (unsigned long)s->dmiss,
-                (unsigned long)s->cycles, (int)r->secs);
+                (unsigned long)s->cycles, (int)r->secs, (int)(r->tris60 + 0.5f), (int)(r->drawn60 + 0.5f));
         }
     }
+    /* the score (its S lines read by the next run) and the triangles at 60 fps */
+    int sc[NDRV], nt[NDRV];
+    for (int d = 0; d < NDRV; d++)
+        sc[d] = score_of(d, &nt[d]);
+    put("score %d (bm3d %s as the games get it, %d of %d tests%s), GPU bm3d 2.1 %d, ARM bm3d 0.2 %d; "
+        "1000: bm3d 2.1 at its best on the Pi Zero W\n", sc[DRV_GAMES], BM3D_VERSION, nt[DRV_GAMES], NREF,
+        partial() ? ", a part of the bench" : "", sc[DRV_GPU], sc[DRV_ARM]);
+    put("columns S,driver,version,score,tests,full\n");
+    for (int d = 0; d < NDRV; d++)
+        put("S,%s,%s,%d,%d,%d\n", drv_id[d], d == DRV_GAMES ? BM3D_VERSION : d == DRV_GPU ? "2.1" : "0.2", sc[d],
+            nt[d], !partial() && nt[d] == NREF);
+    float drawn;
+    int most;
+    const float mixed = tris_mix(&drawn), top = tris_most(&most);
+    put("triangles at 60 fps %d in the mix (%d drawn), the most %d (%s)\n", (int)(mixed + 0.5f),
+        (int)(drawn + 0.5f), (int)(top + 0.5f), most >= 0 ? tests[most].id : "none");
 }
 
 /* the loads of the report before (its R lines) */
@@ -1042,6 +1245,13 @@ static void read_prev(void)
         char *nl = strchr(l, '\n');
         if (nl)
             *nl = 0;
+        if (!strncmp(l, "S,games,", 8)) {
+            /* S,games,version,score,tests,full: a whole bench's only */
+            const char *f = strrchr(l, ',');
+            const char *sc = strchr(l + 8, ',');
+            if (f && sc && f[1] == '1')
+                prev_score = atoi(sc + 1);
+        }
         if (l[0] == 'R' && l[1] == ',') {
             char *fld[8] = { 0 };
             int k = 0;
@@ -1133,7 +1343,7 @@ static void bar(int y, const char *label, uint16_t col, float n60, float n30, fl
          n30 < 0 && n60 >= 0 ? "?" : num(b, n30, over, last), c);
 }
 
-static int pages(void) { return 3 + NTESTS; }     /* the summary in two, the drivers, one a test */
+static int pages(void) { return 4 + NTESTS; }     /* the score, the summary in two, the drivers, one a test */
 
 /* the profiles' short names, for the summary's columns (a legend under it) */
 static const char *const prof_short[NPROF] = { "ARM", "GPU", "AA", "VS1", "VS", "VSQ", "Q", "WC", "2D", "VSQ2", "T16",
@@ -1226,6 +1436,86 @@ static void page_summary(int part)
         text(0, y, C_DIM, "later: %s; %s%s", fut, prev_name[0] ? "against " : "the first report", prev_name);
     else
         text(0, y, C_DIM, "%s%s", prev_name[0] ? "against " : "the first report", prev_name);
+}
+
+/* "1 234 567" */
+static const char *thousands(char *b, float v)
+{
+    const int n = v > 0 ? (int)(v + 0.5f) : 0;
+    if (n >= 1000000)
+        ksnprintf(b, 16, "%d %03d %03d", n / 1000000, n / 1000 % 1000, n % 1000);
+    else if (n >= 1000)
+        ksnprintf(b, 16, "%d %03d", n / 1000, n % 1000);
+    else
+        ksnprintf(b, 16, "%d", n);
+    return b;
+}
+
+/* the first page: the score, the triangles at 60 fps, every test's part */
+static void page_score(void)
+{
+    int nt, ng, na;
+    const int sc = score_of(DRV_GAMES, &nt), s21 = score_of(DRV_GPU, &ng), s02 = score_of(DRV_ARM, &na);
+    text(0, 18, C_HEAD, "Score: each technology's load at 60 fps against bm3d 2.1 at its best on the Pi Zero W (1000)");
+    char b[32], c[16];
+    ksnprintf(b, sizeof b, "%d", sc);
+    const uint16_t col = !prev_score || partial() ? C_TEXT : sc * 100 >= prev_score * 97 ? C_GOOD : C_BAD;
+    g16_text_scaled(g, 0, 36, b, col, 4);
+    const int x = 24 * (int)strlen(b) + 18;
+    int y = 36;
+    text(x, y, C_TEXT, "bm3d %s as the games get it: the GPU, its textured shaders with two threads", BM3D_VERSION);
+    y += LH;
+    if (partial())
+        text(x, y, C_BAD, "a part of the bench (%d of %d tests): not to compare", nt, NREF);
+    else if (prev_score)
+        text(x, y, col, "the last report %d (%s), %d of %d tests", prev_score, prev_name, nt, NREF);
+    else
+        text(x, y, C_DIM, "%d of %d tests; no report with a score before", nt, NREF);
+    y += LH;
+    text(x, y, C_DIM, "GPU, bm3d 2.1: %d   ARM, bm3d 0.2: %d   (the same tests, today's code)", s21, s02);
+    y += LH;
+    text(x, y, C_DIM, "geometric mean: 2000 is twice as fast in every test");
+    /* the triangles a frame at 60 fps */
+    y = 98;
+    float drawn;
+    int most;
+    const float mixed = tris_mix(&drawn), top = tris_most(&most);
+    text(0, y, C_HEAD, "Triangles a frame at 60 fps (640x360)");
+    y += 16;
+    g16_text_scaled(g, 0, y, thousands(b, mixed), mixed > 0 ? C_GOOD : C_DIM, 2);
+    const int x2 = 12 * (int)strlen(b) + 14;
+    text(x2, y, C_TEXT, "everything at once (mix): map, heroes plain, textured and skins, shadows, holes,");
+    text(x2, y + LH, C_TEXT, "glass, sky, lamps, fog, first person, HUD; %s of them drawn (the rest back faces)",
+         thousands(c, drawn));
+    y += 2 * LH + 4;
+    if (most >= 0)
+        text(0, y, C_DIM, "the most in a test: %s (%s), %s a second", thousands(b, top), tests[most].id,
+             thousands(c, top * 60.0f));
+    /* each test's part: its load against bm3d 2.1, the profile that is the driver there */
+    y = 162;
+    text(0, y, C_HEAD, "each test against bm3d 2.1 (the bar's tick: 1x)");
+    y += LH + 2;
+    int k = 0;
+    for (int ti = 0; ti < NTESTS; ti++) {
+        const float ref = ref_of(ti);
+        if (ref <= 0)
+            continue;
+        const int cx = (k & 1) * 320, cy = y + (k / 2) * LH;
+        k++;
+        char id[24];
+        text(cx, cy, C_TEXT, "%s", cut(id, tests[ti].id, 14));
+        const int pf = drv_row(DRV_GAMES, ti);
+        const float v = pf >= 0 ? load60(&res[ti][pf]) / ref : 0;
+        g16_rectfill(g, cx + 90, cy + 2, 140, 8, g16_rgb(30, 34, 44));
+        if (v > 0)
+            g16_rectfill(g, cx + 90, cy + 2, (int)fminf(140, v * 70), 8, prof_col[pf]);
+        g16_rectfill(g, cx + 160, cy, 1, 12, 0xFFFF);
+        if (pf >= 0)
+            text(cx + 236, cy, v >= 0.97f ? C_GOOD : C_BAD, "%2d.%02dx %s", (int)v, (int)(v * 100) % 100,
+                 prof_short[pf]);
+        else
+            text(cx + 236, cy, C_DIM, "  -");
+    }
 }
 
 static void page_info(const char *saved)
@@ -1375,12 +1665,14 @@ static void draw_page(int i, const char *saved)
     g16_cls(g, g16_rgb(10, 14, 20));
     text(0, 2, C_HEAD, "bm 3D Bench  bm3d %s (%s)", BM3D_VERSION, BM3D_BLOCK);
     text(W - 11 * CW, 2, C_DIM, "page %2d/%d", i + 1, pages());
-    if (i < 2)
-        page_summary(i);
-    else if (i == 2)
+    if (i == 0)
+        page_score();
+    else if (i < 3)
+        page_summary(i - 1);
+    else if (i == 3)
         page_info(saved);
     else
-        page_test(i - 3);
+        page_test(i - 4);
     const char *back = P->back ? P->back : "B";
     text(W - (26 + (int)strlen(back)) * CW, H - LH, C_DIM, "left/right: pages, %s: back", back);
     g->font = f;
@@ -1418,6 +1710,7 @@ int b3d_run(const b3d_platform_t *plat)
     memset(res, 0, sizeof res);
     memset(prev, 0, sizeof prev);
     prev_name[0] = 0;
+    prev_score = 0;
     if (r3d_init(&R, g) != 0)
         return -1;
     meshes_make();

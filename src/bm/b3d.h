@@ -7,7 +7,9 @@
  * shader), the load raised until a frame takes more than 40 ms; the loads
  * that still fit 60 fps and 30 fps, with the work behind them (triangles,
  * vertices, pixels, ARM instructions and cache misses, GPU time, jobs).
- * At the end a bar chart a test, against the numbers measured on the Pi
+ * At the end the score (every test against bm3d 2.1 on the Pi Zero W:
+ * 1000) and the triangles a frame at 60 fps of a scene with everything at
+ * once, then a bar chart a test, against the numbers measured on the Pi
  * with the drivers before (docs/DRIVERS.md), the last saved report and
  * the limits of the hardware; the report is saved for the next time.
  *
