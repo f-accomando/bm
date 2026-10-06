@@ -28,7 +28,7 @@
    * it is). The first files of bm Studio had MESH 6 and ANIM 7: still read. */
   const SEC = { LUA: 1, SHEET: 2, MAP: 3, COVER: 4, SHEET8: 5, AUDIO: 6, MESH: 8, ANIM: 9, OLD_ANIM: 7 };
   const TEXTURED = 0x80000000;
-  const LIMITS = { verts: 4096, faces: 16384, models: 256, name: 15, sheet: 4096, tris60: 1200, bones: 64, clips: 255, keys: 1024 };
+  const LIMITS = { verts: 65535, faces: 65535, models: 256, name: 15, sheet: 4096, tris60: 1200, bones: 64, clips: 255, keys: 1024 };
   const MODES = ['linear', 'smooth', 'step'];
 
   // ------------------------------------------------------------ bytes

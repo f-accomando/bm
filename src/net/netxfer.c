@@ -6,6 +6,7 @@
  */
 #include "netxfer.h"
 #include "netcon.h"
+#include "net.h"
 #include "kernel/config.h"
 #include "drivers/timer.h"
 #include "drivers/watchdog.h"
@@ -23,7 +24,7 @@
 #define CONFIG_REPLY (8u << 10)         /* the settings after it: under TCP_SND_BUF */
 
 static struct tcp_pcb *listener, *peer;
-static enum { IDLE, HEADER, DATA, DONE, REPLIED } st;
+static enum { IDLE, HEADER, DATA, DONE, WRITING, REPLIED } st;
 static uint8_t hdr[4 + 1 + 1 + 64 + 1 + 64 + 8];
 static unsigned hdr_len, need;
 static char op, path[65];
@@ -227,6 +228,16 @@ int netxfer_start(void)
     return 0;
 }
 
+/* After each piece of a file written: the network goes on meanwhile (the
+ * RGB30 took more than a minute for a kernel, its WiFi then thought the
+ * network gone and the PC never had its answer). netxfer_poll, called
+ * again from inside, has nothing to do while the state is WRITING. */
+static int keep_net(void)
+{
+    net_poll();
+    return 0;
+}
+
 /* "carts/pong.bm" -> "/carts", "pong.bm" */
 static int save(const char *p, const uint8_t *data, uint32_t len)
 {
@@ -280,7 +291,7 @@ int netxfer_kernel_state(uint32_t *done, uint32_t *total, int *secs)
         }
         return NETXFER_K_RESTART;
     }
-    if (op == 'K' && (st == DATA || st == DONE)) {
+    if (op == 'K' && (st == DATA || st == DONE || st == WRITING)) {
         if (done)
             *done = got;
         if (total)
@@ -342,7 +353,11 @@ void netxfer_poll(void)
             reset();
         } else {
             const char *where = op == 'K' ? KERNEL_FILE : path;
+            int (*was)(void) = fat_write_tick;
+            st = WRITING;
+            fat_write_tick = keep_net;
             int r = save(where, buf, size);
+            fat_write_tick = was;
             reply(r == 0 ? "OK" : "WE");
             if (r == 0) {
                 saves++;

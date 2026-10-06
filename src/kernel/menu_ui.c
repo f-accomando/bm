@@ -9,6 +9,7 @@
 #include "gfx/console.h"
 #include "gfx/font.h"
 #include "lib/printf.h"
+#include "gpu/gpu3d.h"
 #ifdef BM_RGB30
 #include "rgb30/display.h"
 #endif
@@ -30,6 +31,7 @@ static int sw = 640, sh = 360, cols = MENU_COLS;
  * 1920x1080), drawn in `frame` and enlarged at the flip */
 static int scale = 1;
 static uint16_t *frame;
+static int gpu_big;                     /* M37: the GPU enlarges it (else the ARM) */
 #define FRAME_US 16667
 
 /* layout: text sits on the 8x16 grid, on solid colours (the QEMU tests
@@ -1156,8 +1158,19 @@ static int screen_open(framebuffer_t *fb)
         frame = malloc(MAX_W * MAX_H * 2);
     if (scale > 1 && (!frame || fb_init_depth(fb, (uint32_t)(sw * scale), (uint32_t)(sh * scale), 3, 16) != 0))
         scale = 1;
-    if (scale > 1)
+    if (scale > 1) {
+        /* M37: the GPU enlarges the layout (a job a frame: the ARM's 4 MB
+         * of writes gone), where there is one; else the ARM, as before */
+        const int was = gpu_big;
+        gpu_big = fb->pitch == fb->width * 2 && gpu3d_init() == 0;
+        if (gpu_big) {
+            gpu3d_set_fb(fb->mem, fb->size, fb->bus);
+            gpu3d_set_size((int)fb->width, (int)fb->height);
+        }
+        if (gpu_big != was)
+            kprintf("menu: %lux%lu, the layout enlarged by the %s\n", fb->width, fb->height, gpu_big ? "GPU" : "ARM");
         return 0;
+    }
     return fb_init_depth(fb, (uint32_t)sw, (uint32_t)sh, 3, 16);
 #endif
 }
@@ -1470,8 +1483,16 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     if (v->keys_help)
         keys_help();
     pointer_draw(g.px, g.stride, SW, SH);       /* the arrow over everything */
-    if (scale > 1)
-        enlarge(fb);
+    if (scale > 1) {
+        g16_t page;
+        g16_target(&page, (uint16_t *)fb->base, fb->pitch / 2, SW * scale, SH * scale, &font_console_8x16);
+        if (!gpu_big || gpu3d_enlarge(frame, SW, SH, scale, &page) != 0) {
+            if (gpu_big)
+                kprintf("menu: the GPU did not enlarge the layout (%s): the ARM does\n", gpu3d_status());
+            gpu_big = 0;
+            enlarge(fb);
+        }
+    }
     fb_flip(fb);
     /* what is left of the frame: the Market's work, if any (a little
      * margin for the flip), then the wait */

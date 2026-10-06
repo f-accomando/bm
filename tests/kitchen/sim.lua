@@ -74,8 +74,8 @@ local mesh_mt = {}
 env.mesh = function(v, f, uv)
   chk(type(v) == "table" and type(f) == "table", "mesh: tables expected")
   local nv, nf = #v // 3, #f // 4
-  chk(nv > 0 and nv <= 4096, "mesh: 1 to 4096 vertices, got " .. nv)
-  chk(nf > 0 and nf <= 16384, "mesh: 1 to 16384 faces, got " .. nf)
+  chk(nv > 0 and nv <= 65535, "mesh: 1 to 65535 vertices, got " .. nv)
+  chk(nf > 0 and nf <= 65535, "mesh: 1 to 65535 faces, got " .. nf)
   for i = 1, nv * 3 do chk(type(v[i]) == "number", "mesh: vertex " .. i .. " not a number") end
   for i = 1, nf do
     for k = 1, 3 do

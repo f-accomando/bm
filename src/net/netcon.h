@@ -21,5 +21,11 @@ int  netcon_pending(void);
 const char *netcon_password(void);
 /* A client is logged in. */
 int  netcon_active(void);
+/* What takes the client's keys now (the menu, the monitor, a game), told
+ * to the client at login and whenever it changes: the menu takes them
+ * without echo, so typing there looked like nothing happened. A string
+ * that lives on (compared by pointer); NULL: not said. prompt (or NULL):
+ * printed after the login's line, as the monitor's "> ". */
+void netcon_focus(const char *what, const char *prompt);
 
 #endif

@@ -35,6 +35,8 @@
 #define IRQ_TIMER_PPI   30              /* EL1 physical timer (PPI 14) */
 
 #define PLAT_FB_END     PLAT_RAM_END
+/* M41: the last 4 MiB of it are the GPU's (page tables, jobs: mali.c) */
+#define PLAT_GPU_START  (PLAT_FB_END - (4u << 20))
 
 /* serial console: UART2 on the RGB30 (1500000 8N1, as U-Boot), the PL011 in QEMU */
 void plat_uart_init(void);

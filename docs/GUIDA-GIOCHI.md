@@ -329,6 +329,10 @@ end
 - **Nebbia:** `fog3d(colore, vicino, lontano)` sfuma gli oggetti lontani.
 - **Proiezione:** `project3d(x, y, z)` dà la posizione sullo schermo di un punto 3D, per
   disegnarci sopra in 2D (orizzonte, mirini, nomi).
+- **Cosa si vede:** `visible3d(x, y, z, r)` dice se una sfera può stare sullo schermo; con la
+  visibilità della mappa data una volta da `pvs3d{...}` (celle sul terreno e i pezzi visti da
+  ognuna, come la mappa di Overbit) anche se un muro la nasconde. I personaggi saltati così
+  non costano niente: `if visible3d(e.x, e.y + 1, e.z, 1.5) then draw3d(e.mesh, ...) end`.
 - 2D e 3D si mescolano: sfondo con `rectfill`/`map`, modelli con `draw3d`, HUD con
   `print` alla fine.
 

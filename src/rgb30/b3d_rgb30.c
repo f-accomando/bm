@@ -3,9 +3,11 @@
  * the 640x360 video mode (made as big as the panel), the Cortex-A55's
  * counters (cycles, instructions, L1 data cache refills), the reports in
  * /bm/bench on the SD card, the console's buttons. The 3D is the ARM's
- * (no Mali driver yet), so every GPU row is skipped.
+ * (the Mali runs jobs but does not draw yet, M41), so every GPU row is
+ * skipped.
  */
 #include "b3d_rgb30.h"
+#include "gputest_rgb30.h"
 #include "pad.h"
 #include "bm/b3d.h"
 #include "bm/runtime.h"
@@ -146,8 +148,15 @@ void rgb30_bench3d(framebuffer_t *fb)
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
     static char machine[96];
-    ksnprintf(machine, sizeof machine, "%s, Cortex-A55, the 3D on the ARM (no Mali driver yet)",
-              PLAT_NAME);
+    const int mali = rgb30_gpu_result(NULL);       /* M41: what Dev > GPU test found */
+    char ms[40];
+    if (mali == 1)
+        ksnprintf(ms, sizeof ms, "not tested (Dev > GPU test)");
+    else if (mali == MALI_OK)
+        ksnprintf(ms, sizeof ms, "runs jobs, no drawing yet");
+    else
+        ksnprintf(ms, sizeof ms, "stopped at step %d", -mali);
+    ksnprintf(machine, sizeof machine, "%s, Cortex-A55, the 3D on the ARM (Mali: %s)", PLAT_NAME, ms);
     fbp = fb;
     if (bm_video_enter(fb, 640, 360, &page) != 0) {
         kprintf("3D Bench: cannot set the video mode\n");

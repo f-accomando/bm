@@ -5,6 +5,9 @@ transfer port as src/net/netxfer.c does (C: "key=value" lines, the answer
 OK, the length, the settings after them; KV for a wrong line; BH from a
 kernel that does not know C). The kernel's side of the same bytes is in
 tests/net/test_netcon.c, its merge in tests/kernel/test_config.c.
+Also --line against the network console's port (src/net/netcon.c): the
+login's line saying what takes the keys, ':' + the line, its output shown
+until "the line is done".
 """
 import contextlib
 import io
@@ -14,6 +17,7 @@ import socket
 import struct
 import sys
 import threading
+import time
 import zlib
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "tools"))
@@ -32,8 +36,9 @@ def check(ok, what):
 class Console:
     """The transfer port of a console: settings in a dict, as config.c keeps them"""
 
-    def __init__(self, knows_c=True):
+    def __init__(self, knows_c=True, lose_answer=None):
         self.knows_c = knows_c
+        self.lose_answer = lose_answer      # a NetConsole: the kernel written, its answer lost
         self.settings = {"layout": "it", "wifi_ssid": "Casa", "github_token": "ghp_" + "x" * 36}
         self.got = []
         self.srv = socket.socket()
@@ -78,6 +83,9 @@ class Console:
             c.sendall(b"CE")
             return
         self.got.append((op, path, data))
+        if op == b"K" and self.lose_answer:
+            self.lose_answer.version = "v0.0.1-new"     # written, restarted: no answer reached the PC
+            return
         if op != b"C":
             c.sendall(b"OK")
             return
@@ -99,6 +107,60 @@ class Console:
         text = "".join(f"{k}=(hidden, {len(v)} characters)\n" if re.search(r"(_token|_psk|_password|_key)$", k)
                        else f"{k}={v}\n" for k, v in self.settings.items()).encode()
         c.sendall(b"OK" + struct.pack("<I", len(text)) + text)
+
+
+class NetConsole:
+    """The network console's port as netcon.c speaks it: the greeting, the
+    password, the login's line (what takes the keys, or a kernel's from
+    before: the monitor's prompt), then the keys; a ':' line answered as the
+    monitor does"""
+
+    def __init__(self, focus):
+        self.focus = focus
+        self.version = "v0.0.0-test"
+        self.keys = b""
+        self.srv = socket.socket()
+        self.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.srv.bind(("127.0.0.1", 0))
+        self.srv.listen(4)
+        self.port = self.srv.getsockname()[1]
+        threading.Thread(target=self.serve, daemon=True).start()
+
+    def serve(self):
+        while True:
+            c, _ = self.srv.accept()
+            try:
+                self.one(c)
+            except (EOFError, OSError):
+                pass
+            c.close()
+
+    def one(self, c):
+        c.sendall(b"bm " + self.version.encode() + b" network console\r\npassword: ")
+        got = b""
+        while b"\r\n" not in got:
+            chunk = c.recv(64)
+            if not chunk:
+                raise EOFError
+            got += chunk
+        if got.split(b"\r\n")[0].decode() != PASSWORD:
+            c.sendall(b"\r\nwrong password, bye\r\n")
+            return
+        if self.focus:
+            c.sendall(b"\r\nok - Ctrl-Q leaves; the keys go to " + self.focus.encode() + b"\r\n")
+        else:
+            c.sendall(b"\r\nok - bm monitor, 'h' for help, Ctrl-Q to leave\r\n> ")
+        while True:
+            chunk = c.recv(256)
+            if not chunk:
+                return
+            self.keys += chunk
+            if self.keys.startswith(b":") and self.keys.endswith(b"\r"):
+                line = self.keys[1:-1].decode()
+                c.sendall(b"back to the monitor\r\n> :" + line.encode() + b"\r\n")
+                for cmd in line.split(";"):
+                    c.sendall(f"[{cmd.strip()}] done\r\n".encode())
+                c.sendall(b"the line is done\r\n> ")
 
 
 def run(console, *args, password=PASSWORD, job=("--config",)):
@@ -147,10 +209,35 @@ def main():
     rc, out = run(old, "volume=3")
     check(rc == 1 and "newer kernel" in out, "a kernel without C: send it a newer one")
 
+    # --line: a monitor line from the menu, the output until it is done
+    menu = NetConsole("the menu (w a s d, Enter, Esc, 1-5 the tabs; q the monitor, or a line for it: :gpu; b3d; send)")
+    t0 = time.time()
+    rc, out = run(menu, job=("-P", str(menu.port), "--line", "gpu; b3d; send"))
+    check(rc == 0 and menu.keys == b":gpu; b3d; send\r", "--line sends ':' + the line + Enter")
+    check("[gpu] done" in out and "[send] done" in out and "the line is done" in out, "  its output shown")
+    check(time.time() - t0 < 3, "  the login ends at the line saying what takes the keys (no 5 s wait)")
+    app = NetConsole("the application (Ctrl-\\ back to the menu)")
+    rc, out = run(app, job=("-P", str(app.port), "--line", "gpu"))
+    check(rc == 2 and "back to the menu first" in out and app.keys == b"", "--line in a game: nothing sent")
+    # a kernel whose answer is lost (the RGB30 dropped its WiFi after a long
+    # SD write): what the console runs afterwards says whether it went
+    net = NetConsole("the menu (test)")
+    lost = Console(lose_answer=net)
+    bm_net.PORT = net.port
+    rc, out = run(lost, job=("--kernel", __file__))
+    check(rc == 0 and "the answer was lost" in out and "running bm v0.0.1-new" in out,
+          "--kernel without an answer: the console's new version found")
+    bm_net.PORT = 3333
+
+    before = NetConsole(None)
+    rc, out = run(before, job=("-P", str(before.port), "--line", "send"))
+    check(rc == 0 and "does not say where the keys go" in out and "the line is done" in out,
+          "--line on a kernel from before: said, still sent")
+
     if fails:
-        print(f"bm_net --config: {fails} FAILED")
+        print(f"bm_net --config, --line: {fails} FAILED")
         return 1
-    print("bm_net --config: all passed")
+    print("bm_net --config, --line: all passed")
     return 0
 
 

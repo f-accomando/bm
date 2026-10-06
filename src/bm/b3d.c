@@ -6,8 +6,14 @@
  * drivers (src/gpu/version3d.h): the ARM (0.2), the GPU (2.1), with MSAA,
  * with the vertex shader for the scenery (3.0) and for every model (3.4).
  * For each test and profile n grows by about a third until a frame takes
- * more than LIMIT_MS; the loads at 60 and 30 fps are interpolated, and the
- * work of the last step under 60 fps is kept for the report.
+ * more than LIMIT_MS (a step's time: the middle of its 6 frames); the loads
+ * at 60 and 30 fps are interpolated from the last step under them (a slow
+ * step before a heavier one that fits was slowed by something else), and
+ * the work of the last step under 60 fps is kept for the report.
+ * The score (the first page): each test's load at 60 fps with the driver
+ * as the games get it against bm3d 2.1 on the Pi, a geometric mean times
+ * 1000; and the triangles a frame at 60 fps of a scene with everything
+ * at once (the mix).
  *
  * The sphere and quad scenes are those of the stress test (src/bm/
  * stress.c), at the same 640x360: the numbers the Pi gave with the drivers
@@ -44,24 +50,77 @@ static g16_t *g;
 
 /* ---------------------------------------------------------------- profiles */
 
-enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, NPROF };
+enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2, PF_T16, PF_FS2, PF_VSS, PF_VSF,
+       NPROF };
 #define M_ARM (1u << PF_ARM)
 #define M_GPU (1u << PF_GPU)
 #define M_AA  (1u << PF_AA)
 #define M_VS1 (1u << PF_VS1)
 #define M_VS  (1u << PF_VS)
 #define M_VSQ (1u << PF_VSQ)
+#define M_Q   (1u << PF_Q)              /* the queue without the vertex shader (M35, bm3d 4.4) */
+#define M_WC  (1u << PF_WC)             /* the GPU with the jobs' memory uncached (M35, bm3d 4.5) */
+#define M_2D  (1u << PF_2D)             /* the GPU with the 2D over the 3D in its job (M37, bm3d 4.8) */
+#define M_VSQ2 (1u << PF_VSQ2)          /* GPU+VS+Q with two jobs in flight (M39, bm3d 5.1) */
+#define M_T16 (1u << PF_T16)            /* the GPU with opaque textures in 16 bits (M39, bm3d 5.2) */
+#define M_FS2 (1u << PF_FS2)            /* the GPU with two-thread pixel shaders (M39, bm3d 5.3; every textured one 6.3) */
+#define M_VSS (1u << PF_VSS)            /* GPU+VS with the meshes nearest first (M39, bm3d 5.4) */
 #define M_ALL (M_ARM | M_GPU | M_VS1 | M_VS)
 #define M_LIT (M_ARM | M_GPU | M_VS)    /* models lit by the sun: VS1 is the GPU for them */
 
 /* queue (M35): the end of each frame started on the GPU, the ARM's work of
  * the frame (the test's `work`) done meanwhile */
-static const struct { const char *name; int gpu, aa, vs, queue; } prof[NPROF] = {
-    { "ARM", 0, 0, 0, 0 }, { "GPU", 1, 0, 0, 0 }, { "GPU+AA", 1, 1, 0, 0 }, { "GPU+VS1", 1, 0, 1, 0 },
-    { "GPU+VS", 1, 0, 2, 0 }, { "GPU+VS+Q", 1, 0, 2, 1 },
+static const struct { const char *name; int gpu, aa, vs, queue, wc, two_d, t16, fs2, sort; } prof[NPROF] = {
+    { "ARM", 0, 0, 0, 0, 0, 0, 0, 0, 0 }, { "GPU", 1, 0, 0, 0, 0, 0, 0, 0, 0 }, { "GPU+AA", 1, 1, 0, 0, 0, 0, 0, 0, 0 },
+    { "GPU+VS1", 1, 0, 1, 0, 0, 0, 0, 0, 0 }, { "GPU+VS", 1, 0, 2, 0, 0, 0, 0, 0, 0 },
+    { "GPU+VS+Q", 1, 0, 2, 1, 0, 0, 0, 0, 0 }, { "GPU+Q", 1, 0, 0, 1, 0, 0, 0, 0, 0 },
+    { "GPU+WC", 1, 0, 0, 0, 1, 0, 0, 0, 0 }, { "GPU+2D", 1, 0, 0, 0, 0, 1, 0, 0, 0 },
+    { "GPU+VS+Q2", 1, 0, 2, 2, 0, 0, 0, 0, 0 }, { "GPU+T16", 1, 0, 0, 0, 0, 0, 1, 0, 0 },
+    { "GPU+FS2", 1, 0, 0, 0, 0, 0, 0, 1, 0 }, { "GPU+VS+S", 1, 0, 2, 0, 0, 0, 0, 0, 1 },
+    { "GPU+VS+FS2", 1, 0, 2, 0, 0, 0, 0, 1, 0 },
 };
 
-static const char *prof_version(int p) { return bm3d_mode_q(prof[p].gpu, prof[p].vs, prof[p].queue); }
+static const char *prof_version(int p)
+{
+    return prof[p].vs && prof[p].fs2 ? "6.6" : prof[p].sort ? "5.4" : prof[p].fs2 ? "5.3" : prof[p].t16 ? "5.2" : prof[p].queue == 2 ? "5.1" : prof[p].two_d ? "4.8" : prof[p].wc ? "4.5"
+         : bm3d_mode_q(prof[p].gpu, prof[p].vs, prof[p].queue);
+}
+
+/* M37: the profile draws the 2D over the 3D on the GPU, in its job */
+static int cur_2d;
+static int keep2d;                      /* the scene draws 3D after its 2D (the depth is kept) */
+
+/* 2D over the 3D: into the GPU's job (GPU+2D), or by the ARM after the
+ * 3D so far (the job ends) */
+static void flush2d(void)
+{
+    if (R.backend && gpu3d_pending())
+        gpu3d_flush(g, keep2d);
+}
+
+static void rect2d(int x, int y, int w, int h, uint16_t c)
+{
+    if (cur_2d && R.backend && gpu3d_rect2d(g, x, y, x + w, y + h, c))
+        return;
+    flush2d();
+    g16_rectfill(g, x, y, w, h, c);
+}
+
+static void text2d(int x, int y, const char *t, uint16_t c)
+{
+    if (cur_2d && R.backend && gpu3d_text2d(g, x, y, t, c, 1))
+        return;
+    flush2d();
+    g16_text(g, x, y, t, c);
+}
+
+static void spr2d(const g16_sheet_t *s, int sx, int sy, int sw, int sh, int x, int y)
+{
+    if (cur_2d && R.backend && gpu3d_blit2d(g, s, sx, sy, sw, sh, x, y, 1, 0, 0))
+        return;
+    flush2d();
+    g16_sspr(g, s, sx, sy, sw, sh, x, y, 0, 0);
+}
 
 /* ---------------------------------------------------------------- meshes */
 
@@ -313,6 +372,46 @@ static void spheres_shine(int n, int f)
 }
 
 /* the sphere back as made */
+/* M39: big meshes: a model of 10 080 triangles (a smooth sphere, 5112
+ * vertices: more than the 4096 of a mesh before bm3d 5.0) and a "lit" map
+ * of 14 112 (a textured grid, its light baked at each vertex, the same for
+ * every face on it, as a real map's) */
+static r3d_mesh_t bigm, bigmap;
+
+static void big_setup(void)
+{
+    r3d_mesh_sphere(&bigm, 70, 72, 0x4080FF, 0xFFC040);
+    make_tile(&bigmap, 84, 0x80A060);
+    textured(&bigmap, &sheet[0]);
+    bigmap.clight = malloc((size_t)bigmap.nfaces * 9);
+    if (bigmap.clight)
+        for (int t = 0; t < bigmap.nfaces; t++)
+            for (int k = 0; k < 3; k++) {
+                const int v = bigmap.faces[t * 3 + k];
+                for (int c = 0; c < 3; c++)
+                    bigmap.clight[t * 9 + k * 3 + c] = (uint8_t)(100 + (v * 37 + c * 11) % 80);
+            }
+    r3d_mesh_normals(&bigmap);
+}
+
+static void big_free(void)
+{
+    r3d_mesh_free(&bigm);
+    r3d_mesh_free(&bigmap);
+}
+
+/* the map under n big models (2 is the question: "34 000 triangles?") */
+static void big(int n, int f)
+{
+    cls3d();
+    r3d_camera(&R, 0, 3, -9, 0, -0.25f, 60);
+    scene_light();
+    r3d_draw_flags(&R, &bigmap, (v3_t){ 0, -1.2f, 6 }, 0, 0.1f, 0, 24, 0);
+    for (int i = 0; i < n; i++)
+        r3d_draw_flags(&R, &bigm, (v3_t){ -3.0f + 2.0f * (float)(i % 4), 0.4f * (float)(i / 4), (float)(i / 4) * 1.5f },
+                       (float)f * 0.02f, (float)f * 0.03f + (float)i, 0, 1.0f, R3D_SMOOTH);
+}
+
 static void sp_undo(void)
 {
     r3d_mesh_free(&sphere);
@@ -343,7 +442,17 @@ static void q_smooth(void) { flags = R3D_SMOOTH; make_quad(&quad, 0x80C0FF, NULL
 static void q_tex(void) { flags = 0; make_quad(&quad, 0, &sheet[0]); }
 static void q_alpha(void) { flags = 0; make_quad(&quad, 0, &sheet[1]); }
 static void q_screen(void) { flags = 0; make_quad(&quad, 0x80C0FF | R3D_SCREEN, NULL); }
+/* M34: textured screen-door faces (on the ARM before bm3d 4.7, a frame each) */
+static void q_texscreen(void)
+{
+    flags = 0;
+    make_quad(&quad, 0, &sheet[1]);
+    quad.colors[0] = quad.colors[1] = R3D_TEXTURED | R3D_SCREEN;
+}
 static void q_free(void) { r3d_mesh_free(&quad); flags = 0; }
+/* M37: textured quads filtered by the TMU (bilinear: four texels a pixel) */
+static void q_bilinear(void) { q_tex(); gpu3d_set_bilinear(1); }
+static void q_bilinear_free(void) { q_free(); gpu3d_set_bilinear(0); }
 
 /* n grids of 512 small faces (about 4 pixels each) */
 static void tiny(int n, int f)
@@ -456,10 +565,25 @@ static void split(int n, int f)
         for (int k = 0; k < 4; k++)
             r3d_draw_flags(&R, &sphere, (v3_t){ -4.0f + (float)((i * 4 + k) % 9), 2.0f - (float)((i * 4 + k) / 9 % 5), 1 },
                            (float)f * 0.03f + (float)k, 0, 0, 0.6f, 0);
-        if (R.backend)
-            gpu3d_flush(g, 1);
-        g16_rectfill(g, (i * 37) % (W - 40), (i * 23) % (H - 10), 40, 10, g16_rgb(200, 200, 40));
+        keep2d = 1;
+        rect2d((i * 37) % (W - 40), (i * 23) % (H - 10), 40, 10, g16_rgb(200, 200, 40));
+        keep2d = 0;
     }
+}
+
+/* M37: n sprites of 16 x 16 and n / 4 lines of text over a few spheres:
+ * a HUD, a radar of a game; with GPU+2D in the job, else the ARM after it */
+static void gpu2d_scene(int n, int f)
+{
+    cls3d();
+    r3d_camera(&R, 0, 0, -8, 0, 0, 60);
+    for (int k = 0; k < 6; k++)
+        r3d_draw_flags(&R, &sphere, (v3_t){ -4.0f + 1.6f * (float)k, 0.5f * (float)(k % 2), 1 },
+                       (float)f * 0.03f + (float)k, 0, 0, 0.8f, 0);
+    for (int i = 0; i < n; i++)
+        spr2d(&sheet[1], (i % 8) * 16, (i / 8 % 8) * 16, 16, 16, (i * 53 + f) % (W - 16), (i * 29) % (H - 16));
+    for (int i = 0; i < n / 4; i++)
+        text2d((i * 71) % (W - 96), (i * 17) % (H - 16), "SCORE 12345", 0xFFE0);
 }
 
 /* textured quads on three sheets in turn (the GPU keeps two) */
@@ -493,11 +617,68 @@ static void match(int n, int f)
     pose((float)f * 0.05f);
     r3d_draw_flags(&R, &hero, (v3_t){ 0.5f, 0.2f, -4.2f }, 0, 3.0f, 0, 0.5f, R3D_SMOOTH | R3D_FRONT);
     scene_light();
-    if (R.backend)
-        gpu3d_flush(g, 0);
-    g16_rectfill(g, 8, H - 30, 180, 20, g16_rgb(20, 30, 40));
-    g16_rectfill(g, W - 120, H - 30, 110, 20, g16_rgb(20, 30, 40));
-    g16_text(g, 12, H - 28, "HUD 250/250", 0xFFFF);
+    rect2d(8, H - 30, 180, 20, g16_rgb(20, 30, 40));
+    rect2d(W - 120, H - 30, 110, 20, g16_rgb(20, 30, 40));
+    text2d(12, H - 28, "HUD 250/250", 0xFFFF);
+}
+
+/* everything a game uses at once, n slices of a street: under each hero
+ * (in turn plain with gloss, textured, a textured skin) a piece of lit map,
+ * its shadow, a fence of texels with holes, a pane of screen-door glass and
+ * a crate; the ground under the camera through the near plane, the sky,
+ * rim, gloss, 4 lamps and fog, a model in first person, a HUD of sprites
+ * and text over the 3D. Its triangles at 60 fps are the score's "how many
+ * in a frame" */
+static r3d_mesh_t patch, fence, glass;
+
+static void mix_setup(void)
+{
+    make_tile(&patch, 4, 0x80A060);
+    for (int i = 0; i < patch.nverts; i++) {
+        patch.verts[i].x *= 1.2f;       /* the heroes' rows: 1.2 apart, 1.5 between rows */
+        patch.verts[i].z *= 1.5f;
+    }
+    textured(&patch, &sheet[0]);
+    bake(&patch, 120);
+    make_quad(&fence, 0, &sheet[1]);
+    make_quad(&glass, 0x80C0FF | R3D_SCREEN, NULL);
+}
+
+static void mix_free(void)
+{
+    r3d_mesh_free(&patch);
+    r3d_mesh_free(&fence);
+    r3d_mesh_free(&glass);
+}
+
+static void mix(int n, int f)
+{
+    static const r3d_mesh_t *const kind[3] = { &hero, &hero_tex, &hero_skin };
+    cls3d();
+    r3d_camera(&R, 0.3f * sinf((float)f * 0.02f), 1.7f, -5, 0.05f, -0.12f, 70);
+    shine_light();
+    R.shadow_style = 1;
+    for (int k = 0; k < 2; k++)
+        r3d_draw_flags(&R, &tile, (v3_t){ k ? 3.0f : -3.0f, 0, -4 }, 0, 0, 0, 6, 0);
+    const int row = 8;
+    for (int i = 0; i < n; i++) {
+        const float x = -4.2f + 1.2f * (float)(i % row) + 0.6f * (float)((i / row) % 2),
+                    z = 1.0f + 1.5f * (float)(i / row);
+        r3d_draw_flags(&R, &patch, (v3_t){ x, 0, z }, 0, 0, 0, 1, 0);
+        pose((float)f * 0.05f + (float)i);
+        r3d_draw_flags(&R, kind[i % 3], (v3_t){ x, 0, z }, 0, (float)i, 0, 1, R3D_SHADOW);
+        r3d_draw_flags(&R, kind[i % 3], (v3_t){ x, 0, z }, 0, (float)i, 0, 1, R3D_SMOOTH);
+        r3d_draw_flags(&R, &fence, (v3_t){ x + 0.45f, 0.34f, z + 0.5f }, 0, 0.6f, 0, 0.3f, 0);
+        r3d_draw_flags(&R, &glass, (v3_t){ x - 0.45f, 0.5f, z - 0.3f }, 0, -0.4f, 0, 0.25f, 0);
+        r3d_draw_flags(&R, &cube, (v3_t){ x + 0.4f, 0.12f, z - 0.4f }, 0, (float)i, 0, 0.12f, 0);
+    }
+    pose((float)f * 0.05f);             /* in the lower right corner, as a weapon */
+    r3d_draw_flags(&R, &hero_tex, (v3_t){ 0.6f, 0.9f, -4.3f }, 0, 3.0f, 0, 0.4f, R3D_SMOOTH | R3D_FRONT);
+    scene_light();
+    rect2d(8, H - 30, 180, 20, g16_rgb(20, 30, 40));
+    text2d(12, H - 28, "HUD 250/250", 0xFFFF);
+    for (int k = 0; k < 8; k++)
+        spr2d(&sheet[1], k * 16, 0, 16, 16, W - 140 + 16 * k, H - 28);
 }
 
 /* ---------------------------------------------------------------- tests */
@@ -527,35 +708,51 @@ typedef struct {
 } test_t;
 
 static const test_t tests[] = {
-    { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA, sp_flat, spheres, sp_undo, NULL, 0, 0 },
+    { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA | M_WC | M_VSS, sp_flat, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_smooth", "spheres, Gouraud", "spheres", 1, 8000, M_LIT, sp_smooth, spheres, sp_undo, NULL, 0, 0 },
-    { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU, sp_tex, spheres, sp_undo, NULL, 0, 0 },
+    { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU | M_T16 | M_FS2, sp_tex, spheres, sp_undo, NULL, 0,
+      0 },
     { "spheres_unlit", "spheres, unlit", "spheres", 1, 8000, M_ALL, sp_unlit, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_baked", "spheres, baked light", "spheres", 1, 8000, M_ALL, sp_baked, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_shine", "spheres, sky, rim, gloss, 4 lamps, fog", "spheres", 1, 8000, M_LIT, sp_shine,
       spheres_shine, sp_undo, NULL, 0, 0 },
-    { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT, NULL, heroes, NULL, NULL, 0, 0 },
-    { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT, NULL, heroes_tex, NULL, NULL, 0, 0 },
-    { "heroes_skin", "heroes, textured skins (as the Meshy ones)", "heroes", 1, 512, M_LIT, NULL, heroes_skin, NULL,
+    { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT | M_WC | M_VSS, NULL, heroes, NULL, NULL, 0, 0 },
+    { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT | M_T16 | M_FS2, NULL, heroes_tex, NULL, NULL, 0, 0 },
+    { "heroes_skin", "heroes, textured skins (as the Meshy ones)", "heroes", 1, 512, M_LIT | M_FS2, NULL, heroes_skin, NULL,
       NULL, 0, 0 },
     { "heroes_shadow", "heroes with shadows on a floor", "heroes", 1, 512, M_LIT, NULL, heroes_shadow, NULL, NULL,
       0, 0 },
     { "clip", "map pieces through the near plane", "pieces", 1, 4000, M_ALL, NULL, clip_scene, NULL, NULL, 0, 0 },
     { "tiny", "small faces (about 4 pixels)", "grids", 1, 2000, M_LIT, NULL, tiny, NULL, NULL, 0, 0 },
-    { "draws", "draw calls: a cube each", "draws", 1, 40000, M_LIT, NULL, draws, NULL, NULL, 0, 0 },
+    { "draws", "draw calls: a cube each", "draws", 1, 40000, M_LIT | M_WC, NULL, draws, NULL, NULL, 0, 0 },
     { "quad_flat", "fill: quads 320x180, flat", "quads", 1, 4000, M_LIT | M_AA, q_flat, quads, q_free, NULL, 1, 0 },
     { "quad_smooth", "fill: quads, Gouraud", "quads", 1, 4000, M_LIT, q_smooth, quads, q_free, NULL, 1, 0 },
-    { "quad_tex", "fill: quads, textured", "quads", 1, 4000, M_ARM | M_GPU, q_tex, quads, q_free, NULL, 1, 0 },
-    { "quad_alpha", "fill: quads, texels with holes", "quads", 1, 4000, M_ARM | M_GPU, q_alpha, quads, q_free, NULL,
+    { "quad_tex", "fill: quads, textured", "quads", 1, 4000, M_ARM | M_GPU | M_WC | M_T16 | M_FS2, q_tex, quads, q_free, NULL, 1,
+      0 },
+    { "quad_alpha", "fill: quads, texels with holes", "quads", 1, 4000, M_ARM | M_GPU | M_FS2, q_alpha, quads, q_free, NULL,
       1, 0 },
     { "quad_screen", "fill: quads, screen-door", "quads", 1, 4000, M_ARM | M_GPU, q_screen, quads, q_free, NULL, 1, 0 },
+    { "quad_texscreen", "fill: quads, textured screen-door", "quads", 1, 4000, M_ARM | M_GPU | M_FS2, q_texscreen, quads, q_free,
+      NULL, 1, 0 },
     { "texswap", "three textures in turn", "quads", 1, 8000, M_ARM | M_GPU, q_tex, texswap, q_free, NULL, 0, 0 },
-    { "split", "3D then 2D, again and again", "rounds", 1, 400, M_LIT, NULL, split, NULL, NULL, 0, 0 },
-    { "match", "a match: map, heroes, shadows, HUD", "heroes", 1, 256, M_ALL | M_AA, NULL, match, NULL, NULL, 0, 0 },
-    { "queue", "spheres and 4M instructions of logic", "spheres", 1, 8000, M_VS | M_VSQ, sp_smooth, spheres, sp_undo,
+    { "split", "3D then 2D, again and again", "rounds", 1, 400, M_LIT | M_Q | M_2D | M_VSQ | M_VSQ2, NULL, split, NULL,
+      NULL, 0, 0 },
+    { "match", "a match: map, heroes, shadows, HUD", "heroes", 1, 256, M_ALL | M_AA | M_Q | M_WC | M_2D | M_T16 | M_FS2 | M_VSS, NULL, match, NULL, NULL, 0,
+      0 },
+    { "mix", "everything at once: map, heroes, skins, shadows, holes, glass, lamps, HUD", "slices", 1, 512,
+      M_LIT | M_AA | M_T16 | M_FS2, mix_setup, mix, mix_free, NULL, 0, 0 },
+    { "queue", "spheres and 4M instructions of logic", "spheres", 1, 8000, M_GPU | M_Q | M_VS | M_VSQ | M_VSQ2, sp_smooth,
+      spheres,
+      sp_undo,
       NULL, 0, 1300 },
-    { "gpu2d", "sprites and text on the GPU", "", 0, 0, 0, NULL, NULL, NULL, "M37: 2D on the GPU", 0, 0 },
-    { "bilinear", "filtered textures", "", 0, 0, 0, NULL, NULL, NULL, "M37: quality options", 0, 0 },
+    { "big", "big meshes: models of 10 080 triangles on a map of 14 112", "models", 1, 64, M_ALL | M_VSQ | M_Q | M_VSS,
+      big_setup, big, big_free, NULL, 0, 0 },
+    { "big_logic", "the same and 4M instructions of logic", "models", 1, 64, M_ALL | M_VSQ | M_Q | M_VSS, big_setup, big,
+      big_free, NULL, 0, 1300 },
+    { "gpu2d", "sprites and text over the 3D", "sprites", 4, 8000, M_ARM | M_GPU | M_2D, NULL, gpu2d_scene, NULL, NULL,
+      0, 0 },
+    { "bilinear", "fill: quads, textures filtered (bilinear)", "quads", 1, 4000, M_GPU, q_bilinear, quads,
+      q_bilinear_free, NULL, 1, 0 },
 };
 #define NTESTS ((int)(sizeof tests / sizeof tests[0]))
 
@@ -610,6 +807,7 @@ typedef struct {
     float jobs;
     float instr, wait_instr, dmiss, cycles;  /* the ARM's counters, a frame */
     float tris_in, tris, verts, pixels, gltris;
+    uint32_t core_mhz, gpu_mhz;         /* measured after the step's frames (0: unknown) */
 } sample_t;
 
 typedef struct {
@@ -619,6 +817,7 @@ typedef struct {
     int last_n;                         /* its last load: with over, n60 or n30 may be more */
     sample_t at;                        /* the last step at 60 fps or better (else the first) */
     float secs;
+    float tris60, drawn60;              /* the triangles a frame at 60 fps: given, drawn */
 } result_t;
 
 static result_t res[NTESTS][NPROF];
@@ -642,11 +841,33 @@ static void overlay(const test_t *t, int pf, int n, float ms, int i)
     g16_text(g, 0, 0, line, 0xFFFF);
 }
 
-static float lerp_n(const sample_t *a, const sample_t *b, float limit)
+float b3d_median(float *v, int count)
 {
-    if (b->ms <= a->ms)
-        return (float)a->n;
-    return (float)a->n + (limit - a->ms) / (b->ms - a->ms) * (float)(b->n - a->n);
+    for (int i = 1; i < count; i++)
+        for (int j = i; j > 0 && v[j - 1] > v[j]; j--) {
+            const float t = v[j];
+            v[j] = v[j - 1];
+            v[j - 1] = t;
+        }
+    if (count <= 0)
+        return 0;
+    return count & 1 ? v[count / 2] : 0.5f * (v[count / 2 - 1] + v[count / 2]);
+}
+
+float b3d_load_at(const float *n, const float *ms, int count, float limit)
+{
+    int last = -1;
+    for (int i = 0; i < count; i++)
+        if (ms[i] <= limit)
+            last = i;
+    if (last < 0)
+        return -1;                      /* even the lightest step is too slow */
+    if (last == count - 1)
+        return n[last];                 /* never over it: at least the last */
+    const int i = last;
+    if (ms[i + 1] <= ms[i])
+        return n[i];
+    return n[i] + (limit - ms[i]) / (ms[i + 1] - ms[i]) * (n[i + 1] - n[i]);
 }
 
 static void ramp(int ti, int pf)
@@ -665,9 +886,20 @@ static void ramp(int ti, int pf)
         gpu3d_drop();
         gpu3d_set_msaa(prof[pf].aa);
         gpu3d_set_vshader(prof[pf].vs);
+        gpu3d_set_wc(prof[pf].wc);
+        if (prof[pf].wc && !gpu3d_wc())
+            return;                     /* the MMU did not change it: no row */
+        gpu3d_set_tex16(prof[pf].t16);
+        if (prof[pf].t16 && !gpu3d_tex16())
+            return;                     /* the probe did not learn the layout: no row */
+        gpu3d_set_fs2(prof[pf].fs2);
+        if (prof[pf].fs2 && !gpu3d_fs2())
+            return;                     /* the probe saw them differ: no row */
+        gpu3d_set_sort(prof[pf].sort);
     } else {
         R.backend = NULL;
     }
+    cur_2d = prof[pf].two_d;
     if (t->setup)
         t->setup();
     const int frames = P->quick ? 1 : 6, max = P->quick ? (t->start + 3 > 8 ? t->start + 3 : 8) : t->max;
@@ -683,6 +915,7 @@ static void ramp(int ti, int pf)
             gpu3d_flush(g, 0);
         gpu3d_set_queue(prof[pf].queue);
         gpu3d_take_stats(&st);
+        float fms[8];
         for (int f = 1; f <= frames; f++) {
             b3d_count_t c0, c1;
             counts(&c0);
@@ -707,6 +940,7 @@ static void ramp(int ti, int pf)
             const uint32_t show = P->present();
             const float ms = (float)(u1 - u0 + show) / 1000.0f;
             a.ms += ms;
+            fms[f - 1] = ms;
             if (ms > a.worst)
                 a.worst = ms;
             a.instr += (float)(c1.instr - c0.instr);
@@ -717,18 +951,22 @@ static void ramp(int ti, int pf)
         gpu3d_set_queue(0);
         gpu3d_take_stats(&st);
         const float k = 1.0f / (float)frames;
-        a.ms *= k; a.instr *= k; a.wait_instr *= k; a.dmiss *= k; a.cycles *= k;
+        a.ms = b3d_median(fms, frames);     /* the counters below: the mean */
+        a.instr *= k; a.wait_instr *= k; a.dmiss *= k; a.cycles *= k;
         a.tris_in *= k; a.tris *= k; a.verts *= k; a.pixels *= k;
         a.gpu_ms = (float)(st.bin_us + st.render_us) * k / 1000.0f;
         a.wait_ms = a.gpu_ms;           /* the ARM waits for every job (with the queue: at most) */
         a.jobs = (float)st.jobs * k;
         a.gltris = (float)st.gltris * k;
+        if (P->clocks)
+            P->clocks(&a.core_mhz, &a.gpu_mhz);
         s[ns++] = a;
-        char line[160];
+        char line[192];
         ksnprintf(line, sizeof line, "b3d %s %s n=%d %d.%02d ms worst %d.%02d, %d tri, %d vtx, %lu instr, "
-                  "GPU %d.%02d ms, %d jobs", t->id, prof[pf].name, n, (int)a.ms, (int)(a.ms * 100) % 100,
-                  (int)a.worst, (int)(a.worst * 100) % 100, (int)a.tris, (int)a.verts, (unsigned long)a.instr,
-                  (int)a.gpu_ms, (int)(a.gpu_ms * 100) % 100, (int)a.jobs);
+                  "GPU %d.%02d ms, %d jobs, core %lu GPU %lu MHz", t->id, prof[pf].name, n, (int)a.ms,
+                  (int)(a.ms * 100) % 100, (int)a.worst, (int)(a.worst * 100) % 100, (int)a.tris, (int)a.verts,
+                  (unsigned long)a.instr, (int)a.gpu_ms, (int)(a.gpu_ms * 100) % 100, (int)a.jobs,
+                  (unsigned long)a.core_mhz, (unsigned long)a.gpu_mhz);
         if (P->log)
             P->log(line);
         if (a.ms > LIMIT_MS || P->us() - t0 > RAMP_US || (R.backend && gpu3d_failed()))
@@ -739,6 +977,11 @@ static void ramp(int ti, int pf)
         t->teardown();
     gpu3d_set_msaa(0);
     gpu3d_set_vshader(0);
+    gpu3d_set_wc(0);
+    gpu3d_set_tex16(0);
+    gpu3d_set_fs2(0);
+    gpu3d_set_sort(0);
+    cur_2d = 0;
     r->ran = ns > 0;
     r->nsamples = ns;
     r->secs = (float)(P->us() - t0) / 1e6f;
@@ -746,25 +989,143 @@ static void ramp(int ti, int pf)
         return;
     r->over = s[ns - 1].ms <= LIMIT_MS;
     r->last_n = s[ns - 1].n;
-    const float lim[2] = { MS60, MS30 };
-    float *out[2] = { &r->n60, &r->n30 };
-    for (int k = 0; k < 2; k++) {
-        if (s[0].ms > lim[k]) {
-            *out[k] = -1;               /* even the first step is too slow */
-            continue;
-        }
-        *out[k] = (float)s[ns - 1].n;   /* never reached: at least the last */
-        for (int i = 1; i < ns; i++)
-            if (s[i].ms > lim[k]) {
-                *out[k] = lerp_n(&s[i - 1], &s[i], lim[k]);
-                break;
-            }
+    float sn[64], sms[64], stri[64], sdrawn[64];
+    for (int i = 0; i < ns; i++) {
+        sn[i] = (float)s[i].n;
+        sms[i] = s[i].ms;
+        stri[i] = s[i].tris_in;
+        sdrawn[i] = s[i].tris;
+    }
+    r->n60 = b3d_load_at(sn, sms, ns, MS60);
+    r->n30 = b3d_load_at(sn, sms, ns, MS30);
+    /* the triangles as the load (they grow with it); under the lightest
+     * step, the part of it a frame of 60 fps holds */
+    r->tris60 = b3d_load_at(stri, sms, ns, MS60);
+    r->drawn60 = b3d_load_at(sdrawn, sms, ns, MS60);
+    if (r->n60 < 0) {
+        const float k = s[0].ms > 0 ? MS60 / s[0].ms : 0;
+        r->tris60 = s[0].tris_in * k;
+        r->drawn60 = s[0].tris * k;
     }
     r->at = s[0];
     for (int i = 0; i < ns; i++)
         if (s[i].ms <= MS60)
             r->at = s[i];
 }
+
+/* ---------------------------------------------------------------- the score */
+
+/* The score: every technology's load at 60 fps against the load bm3d 2.1
+ * (the GPU profile) gave at its best on the Pi Zero W (reports of
+ * 2026-10-05 and 06, 640x360), the geometric mean of the ratios times
+ * 1000: 1000 is bm3d 2.1 on the Pi, 2000 a driver twice as fast in every
+ * test (or 4x in half and 1x in the rest). A test not here is not in it:
+ * the logic ones (queue, big_logic), an option off by default (bilinear),
+ * the mix (its triangles at 60 fps are the other number). */
+static const struct { const char *test; float n60; } score_ref[] = {
+    { "spheres", 208 }, { "spheres_smooth", 163 }, { "spheres_tex", 165 }, { "spheres_unlit", 244 },
+    { "spheres_baked", 195 }, { "spheres_shine", 112 }, { "heroes", 6.4f }, { "heroes_tex", 6.9f },
+    { "heroes_skin", 6.8f }, { "heroes_shadow", 3.4f }, { "clip", 826 }, { "tiny", 19.7f }, { "draws", 1238 },
+    { "quad_flat", 203 }, { "quad_smooth", 199 }, { "quad_tex", 120 }, { "quad_alpha", 114 },
+    { "quad_screen", 184 }, { "quad_texscreen", 111 }, { "texswap", 1482 }, { "split", 5.6f },
+    { "match", 0.98f }, { "big", 0.29f }, { "gpu2d", 1949 },
+};
+#define NREF ((int)(sizeof score_ref / sizeof score_ref[0]))
+
+static float ref_of(int ti)
+{
+    for (int i = 0; i < NREF; i++)
+        if (!strcmp(score_ref[i].test, tests[ti].id))
+            return score_ref[i].n60;
+    return 0;
+}
+
+/* the drivers scored: as the games get them in this version (bm3d 6.6:
+ * the GPU, its vertex shader, its textured shaders with two threads),
+ * bm3d 2.1, bm3d 0.2 */
+enum { DRV_GAMES, DRV_GPU, DRV_ARM, NDRV };
+static const char *const drv_id[NDRV] = { "games", "GPU", "ARM" };
+
+/* the profile whose row stands for a driver in a test: for the games',
+ * GPU+VS+FS2 (it runs wherever the GPU does); without its row (the boot's
+ * probe did not see the vertex shader: the games do not get it either)
+ * GPU+FS2 where it ran (the textured tests; elsewhere the shaders are the
+ * GPU's), else the GPU, and the ARM where the GPU did not run (as a game
+ * falls back to it); -1 if none ran */
+static int drv_row(int drv, int ti)
+{
+    static const int chain[NDRV][4] = { { PF_VSF, PF_FS2, PF_GPU, PF_ARM }, { PF_GPU, -1, -1, -1 },
+                                        { PF_ARM, -1, -1, -1 } };
+    for (int k = 0; k < 4 && chain[drv][k] >= 0; k++)
+        if (res[ti][chain[drv][k]].ran)
+            return chain[drv][k];
+    return -1;
+}
+
+/* a test's load at 60 fps for the score: under its first step, the part of
+ * that step a frame holds (1 hero in 20 ms: 0.83) */
+static float load60(const result_t *r)
+{
+    if (r->n60 > 0)
+        return r->n60;
+    return r->at.ms > 0 ? (float)r->at.n * MS60 / r->at.ms : 0;
+}
+
+/* the score of a driver; how many tests are in it */
+static int score_of(int drv, int *ntests)
+{
+    float sum = 0;
+    int k = 0;
+    for (int ti = 0; ti < NTESTS; ti++) {
+        const float ref = ref_of(ti);
+        const int pf = ref > 0 ? drv_row(drv, ti) : -1;
+        const float v = pf >= 0 ? load60(&res[ti][pf]) : 0;
+        if (v > 0) {
+            sum += logf(v / ref);
+            k++;
+        }
+    }
+    *ntests = k;
+    return k ? (int)(1000.0f * expf(sum / (float)k) + 0.5f) : 0;
+}
+
+static int partial(void)
+{
+    return P->only_tests || P->only_profiles;
+}
+
+static int test_index(const char *id)
+{
+    for (int ti = 0; ti < NTESTS; ti++)
+        if (!strcmp(tests[ti].id, id))
+            return ti;
+    return -1;
+}
+
+/* the triangles a frame at 60 fps of the games' driver: in the mix, and
+ * the most of any test (which in *most) */
+static float tris_mix(float *drawn)
+{
+    const int ti = test_index("mix"), pf = ti >= 0 ? drv_row(DRV_GAMES, ti) : -1;
+    *drawn = pf >= 0 ? res[ti][pf].drawn60 : 0;
+    return pf >= 0 ? res[ti][pf].tris60 : 0;
+}
+
+static float tris_most(int *most)
+{
+    float best = 0;
+    *most = -1;
+    for (int ti = 0; ti < NTESTS; ti++) {
+        const int pf = drv_row(DRV_GAMES, ti);
+        if (pf >= 0 && res[ti][pf].tris60 > best) {
+            best = res[ti][pf].tris60;
+            *most = ti;
+        }
+    }
+    return best;
+}
+
+static int prev_score;                  /* the last report's (0: none, or a part of the bench) */
 
 /* ---------------------------------------------------------------- the report */
 
@@ -839,10 +1200,14 @@ static void report(void)
     put("date %s\n", P->date && P->date[0] ? P->date : "unknown (no network time)");
     put("machine %s\n", P->machine ? P->machine : "?");
     put("gpu %s\n", gpu3d_status());
+    put("probes %s\n", gpu3d_probe_log()[0] ? gpu3d_probe_log() : "none");
     put("counters %s\n", P->counting ? pmu_name() : "none");
     put("previous %s\n", prev_name[0] ? prev_name : "none");
+    if (P->only_tests || P->only_profiles)      /* a part of the bench, from the monitor's line */
+        put("only tests %s, profiles %s\n", P->only_tests ? P->only_tests : "all",
+            P->only_profiles ? P->only_profiles : "all");
     put("columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,"
-        "instr,wait_instr,dmiss,cycles,secs\n");
+        "instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz\n");
     char a[16], b[16], c[16], d[16], e[16], f[16];
     for (int ti = 0; ti < NTESTS; ti++) {
         const test_t *t = &tests[ti];
@@ -855,13 +1220,30 @@ static void report(void)
             if (!r->ran)
                 continue;
             const sample_t *s = &r->at;
-            put("R,%s,%s,%s,%s,%s,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,%lu,%lu,%lu,%lu,%d\n", t->id, prof[pf].name,
+            put("R,%s,%s,%s,%s,%s,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,%lu,%lu,%lu,%lu,%d,%d,%d,%lu,%lu\n", t->id, prof[pf].name,
                 prof_version(pf), f1(a, r->n60), f1(b, r->n30), r->over, f1(c, s->ms), f1(d, s->worst),
                 (int)s->tris_in, (int)s->tris, (int)s->verts, (int)s->pixels, (int)s->gltris, f1(e, s->jobs),
                 f1(f, s->gpu_ms), (unsigned long)s->instr, (unsigned long)s->wait_instr, (unsigned long)s->dmiss,
-                (unsigned long)s->cycles, (int)r->secs);
+                (unsigned long)s->cycles, (int)r->secs, (int)(r->tris60 + 0.5f), (int)(r->drawn60 + 0.5f),
+                (unsigned long)s->core_mhz, (unsigned long)s->gpu_mhz);
         }
     }
+    /* the score (its S lines read by the next run) and the triangles at 60 fps */
+    int sc[NDRV], nt[NDRV];
+    for (int d = 0; d < NDRV; d++)
+        sc[d] = score_of(d, &nt[d]);
+    put("score %d (bm3d %s as the games get it, %d of %d tests%s), GPU bm3d 2.1 %d, ARM bm3d 0.2 %d; "
+        "1000: bm3d 2.1 at its best on the Pi Zero W\n", sc[DRV_GAMES], BM3D_VERSION, nt[DRV_GAMES], NREF,
+        partial() ? ", a part of the bench" : "", sc[DRV_GPU], sc[DRV_ARM]);
+    put("columns S,driver,version,score,tests,full\n");
+    for (int d = 0; d < NDRV; d++)
+        put("S,%s,%s,%d,%d,%d\n", drv_id[d], d == DRV_GAMES ? BM3D_VERSION : d == DRV_GPU ? "2.1" : "0.2", sc[d],
+            nt[d], !partial() && nt[d] == NREF);
+    float drawn;
+    int most;
+    const float mixed = tris_mix(&drawn), top = tris_most(&most);
+    put("triangles at 60 fps %d in the mix (%d drawn), the most %d (%s)\n", (int)(mixed + 0.5f),
+        (int)(drawn + 0.5f), (int)(top + 0.5f), most >= 0 ? tests[most].id : "none");
 }
 
 /* the loads of the report before (its R lines) */
@@ -874,6 +1256,13 @@ static void read_prev(void)
         char *nl = strchr(l, '\n');
         if (nl)
             *nl = 0;
+        if (!strncmp(l, "S,games,", 8)) {
+            /* S,games,version,score,tests,full: a whole bench's only */
+            const char *f = strrchr(l, ',');
+            const char *sc = strchr(l + 8, ',');
+            if (f && sc && f[1] == '1')
+                prev_score = atoi(sc + 1);
+        }
         if (l[0] == 'R' && l[1] == ',') {
             char *fld[8] = { 0 };
             int k = 0;
@@ -911,7 +1300,8 @@ static void read_prev(void)
 #define C_HIST  g16_rgb(150, 150, 160)
 #define C_HW    g16_rgb(255, 90, 90)
 
-static const uint16_t prof_col[NPROF] = { 0xFC00 /* orange */, 0x2D7F, 0x8C1F, 0x07F0, 0x07E0, 0xFFE0 };
+static const uint16_t prof_col[NPROF] = { 0xFC00 /* orange */, 0x2D7F, 0x8C1F, 0x07F0, 0x07E0, 0xFFE0, 0xF81F, 0x7BEF,
+                                         0xFD20, 0xAFE5, 0x5D7F, 0xB5B6, 0x4FFF, 0xFFFF };
 
 static void text(int x, int y, uint16_t c, const char *fmt, ...) __attribute__((format(printf, 4, 5)));
 static void text(int x, int y, uint16_t c, const char *fmt, ...)
@@ -964,16 +1354,24 @@ static void bar(int y, const char *label, uint16_t col, float n60, float n30, fl
          n30 < 0 && n60 >= 0 ? "?" : num(b, n30, over, last), c);
 }
 
-static int pages(void) { return 2 + NTESTS; }
+static int pages(void) { return 4 + NTESTS; }     /* the score, the summary in two, the drivers, one a test */
 
-static void page_summary(void)
+/* the profiles' short names, for the summary's columns (a legend under it) */
+static const char *const prof_short[NPROF] = { "ARM", "GPU", "AA", "VS1", "VS", "VSQ", "Q", "WC", "2D", "VSQ2", "T16",
+                                               "FS2", "VSS", "VSF" };
+#define SX 90                           /* the summary: the profiles' columns from x SX, SW pixels each */
+#define SW 30
+#define S_BEST (SX + SW * NPROF + 6)
+#define S_ROWS 15                       /* tests on the summary's first page */
+
+static void page_summary(int part)
 {
-    text(0, 18, C_HEAD, "Summary: the loads at 60 fps of each driver; the best against the ARM (bm3d 0.2) and the "
-                        "last report");
+    text(0, 18, C_HEAD, "Summary%s: the loads at 60 fps of each driver; the best against the ARM (bm3d 0.2) and "
+                        "the last report", part ? " (2)" : "");
     text(0, 34, C_DIM, "test");
     for (int pf = 0; pf < NPROF; pf++)
-        text(100 + 46 * pf, 34, prof_col[pf], "%7s", prof[pf].name);
-    text(380, 34, C_DIM, "best      x ARM  x last fits 60");
+        text(SX + SW * pf, 34, prof_col[pf], "%5s", prof_short[pf]);
+    text(S_BEST, 34, C_DIM, "best  x ARM x last");
     int y = 48;
     float gsum[NPROF] = { 0 };
     int gn[NPROF] = { 0 };
@@ -987,52 +1385,148 @@ static void page_summary(void)
                 strcat(fut, b);
             continue;
         }
-        char id[24];
-        text(0, y, C_TEXT, "%s", cut(id, t->id, 16));
+        /* the mean against the ARM: every test */
+        const result_t *arm = &res[ti][PF_ARM];
         int best = -1;
         for (int pf = 0; pf < NPROF; pf++) {
             const result_t *r = &res[ti][pf];
-            char b[16];
-            if (r->ran) {
-                text(100 + 46 * pf, y, r->n60 >= 1 ? prof_col[pf] : C_BAD, "%7s", num(b, r->n60, r->over, r->last_n));
-                if (best < 0 || r->n60 > res[ti][best].n60)
-                    best = pf;
-            } else {
-                text(100 + 46 * pf, y, C_DIM, "      -");
+            if (!r->ran)
+                continue;
+            if (best < 0 || r->n60 > res[ti][best].n60)
+                best = pf;
+            if (pf && arm->ran && arm->n60 > 0 && r->n60 > 0) {
+                gsum[pf] += logf(r->n60 / arm->n60);
+                gn[pf]++;
             }
         }
-        const result_t *arm = &res[ti][PF_ARM];
+        if (part ? ti < S_ROWS : ti >= S_ROWS)
+            continue;                   /* a row of the other page */
+        char id[24];
+        text(0, y, C_TEXT, "%s", cut(id, t->id, 15));
+        for (int pf = 0; pf < NPROF; pf++) {
+            const result_t *r = &res[ti][pf];
+            char b[16];
+            if (r->ran)
+                text(SX + SW * pf, y, r->n60 >= 1 ? prof_col[pf] : C_BAD, "%5s", num(b, r->n60, r->over, r->last_n));
+            else
+                text(SX + SW * pf, y, C_DIM, "    -");
+        }
         if (best >= 0) {
             const float b = res[ti][best].n60;
-            text(380, y, prof_col[best], "%s", prof[best].name);
+            text(S_BEST, y, prof_col[best], "%s", prof_short[best]);
             if (arm->ran && arm->n60 > 0 && b > 0) {
                 const float k = b / arm->n60;
-                text(432, y, C_GOOD, "%4d.%dx", (int)k, (int)(k * 10) % 10);
-                for (int pf = 1; pf < NPROF; pf++)
-                    if (res[ti][pf].ran && res[ti][pf].n60 > 0) {
-                        gsum[pf] += logf(res[ti][pf].n60 / arm->n60);
-                        gn[pf]++;
-                    }
+                text(S_BEST + 24, y, C_GOOD, "%4d.%dx", (int)k, (int)(k * 10) % 10);
             }
             if (prev[ti][best].have && prev[ti][best].n60 > 0 && b > 0) {
                 const float k = b / prev[ti][best].n60;
-                text(486, y, k >= 0.97f ? C_GOOD : C_BAD, "%2d.%02dx", (int)k, (int)(k * 100) % 100);
+                text(S_BEST + 72, y, k >= 0.97f ? C_GOOD : C_BAD, "%2d.%02dx", (int)k, (int)(k * 100) % 100);
             }
-            text(546, y, b >= 1 ? C_GOOD : C_BAD, "%s", b >= 1 ? "yes" : "no");
         }
         y += LH;
     }
-    text(0, y, C_HEAD, "mean against the ARM:");
+    y += 6;
+    if (!part) {
+        text(0, y, C_DIM, "more on the next page; then the drivers and a page for each test");
+        return;
+    }
+    /* six a line */
+    text(0, y, C_HEAD, "mean against ARM:");
+    int k = 0;
     for (int pf = 1; pf < NPROF; pf++)
         if (gn[pf]) {
-            const float k = expf(gsum[pf] / (float)gn[pf]);
-            text(138 + 102 * (pf - 1), y, prof_col[pf], "%s %d.%dx", prof[pf].name, (int)k, (int)(k * 10) % 10);
+            const float m = expf(gsum[pf] / (float)gn[pf]);
+            text(108 + 88 * (k % 6), y + LH * (k / 6), prof_col[pf], "%-4s %d.%dx", prof_short[pf], (int)m,
+                 (int)(m * 10) % 10);
+            k++;
         }
+    y += LH * ((k + 5) / 6 > 1 ? (k + 5) / 6 : 1) + 6;
+    text(0, y, C_DIM, "AA VS1 VS VSQ Q WC 2D VSQ2 T16 FS2 VSS VSF: GPU+AA, GPU+VS1... (the profiles: the next page)");
     y += LH;
-    if (prev_name[0])
-        text(0, y, C_DIM, "later: %s; against %s", fut, prev_name);
+    if (fut[0])
+        text(0, y, C_DIM, "later: %s; %s%s", fut, prev_name[0] ? "against " : "the first report", prev_name);
     else
-        text(0, y, C_DIM, "later: %s; the first report", fut);
+        text(0, y, C_DIM, "%s%s", prev_name[0] ? "against " : "the first report", prev_name);
+}
+
+/* "1 234 567" */
+static const char *thousands(char *b, float v)
+{
+    const int n = v > 0 ? (int)(v + 0.5f) : 0;
+    if (n >= 1000000)
+        ksnprintf(b, 16, "%d %03d %03d", n / 1000000, n / 1000 % 1000, n % 1000);
+    else if (n >= 1000)
+        ksnprintf(b, 16, "%d %03d", n / 1000, n % 1000);
+    else
+        ksnprintf(b, 16, "%d", n);
+    return b;
+}
+
+/* the first page: the score, the triangles at 60 fps, every test's part */
+static void page_score(void)
+{
+    int nt, ng, na;
+    const int sc = score_of(DRV_GAMES, &nt), s21 = score_of(DRV_GPU, &ng), s02 = score_of(DRV_ARM, &na);
+    text(0, 18, C_HEAD, "Score: each technology's load at 60 fps against bm3d 2.1 at its best on the Pi Zero W (1000)");
+    char b[32], c[16];
+    ksnprintf(b, sizeof b, "%d", sc);
+    const uint16_t col = !prev_score || partial() ? C_TEXT : sc * 100 >= prev_score * 97 ? C_GOOD : C_BAD;
+    g16_text_scaled(g, 0, 36, b, col, 4);
+    const int x = 24 * (int)strlen(b) + 18;
+    int y = 36;
+    text(x, y, C_TEXT, "bm3d %s as the games get it: the GPU, its vertex shader, two-thread shaders", BM3D_VERSION);
+    y += LH;
+    if (partial())
+        text(x, y, C_BAD, "a part of the bench (%d of %d tests): not to compare", nt, NREF);
+    else if (prev_score)
+        text(x, y, col, "the last report %d (%s), %d of %d tests", prev_score, prev_name, nt, NREF);
+    else
+        text(x, y, C_DIM, "%d of %d tests; no report with a score before", nt, NREF);
+    y += LH;
+    text(x, y, C_DIM, "GPU, bm3d 2.1: %d   ARM, bm3d 0.2: %d   (the same tests, today's code)", s21, s02);
+    y += LH;
+    text(x, y, C_DIM, "geometric mean: 2000 is twice as fast in every test");
+    /* the triangles a frame at 60 fps */
+    y = 98;
+    float drawn;
+    int most;
+    const float mixed = tris_mix(&drawn), top = tris_most(&most);
+    text(0, y, C_HEAD, "Triangles a frame at 60 fps (640x360)");
+    y += 16;
+    g16_text_scaled(g, 0, y, thousands(b, mixed), mixed > 0 ? C_GOOD : C_DIM, 2);
+    const int x2 = 12 * (int)strlen(b) + 14;
+    text(x2, y, C_TEXT, "everything at once (mix): map, heroes plain, textured and skins, shadows, holes,");
+    text(x2, y + LH, C_TEXT, "glass, sky, lamps, fog, first person, HUD; %s of them drawn (the rest back faces)",
+         thousands(c, drawn));
+    y += 2 * LH + 4;
+    if (most >= 0)
+        text(0, y, C_DIM, "the most in a test: %s (%s), %s a second", thousands(b, top), tests[most].id,
+             thousands(c, top * 60.0f));
+    /* each test's part: its load against bm3d 2.1, the profile that is the driver there */
+    y = 162;
+    text(0, y, C_HEAD, "each test against bm3d 2.1 (the bar's tick: 1x)");
+    y += LH + 2;
+    int k = 0;
+    for (int ti = 0; ti < NTESTS; ti++) {
+        const float ref = ref_of(ti);
+        if (ref <= 0)
+            continue;
+        const int cx = (k & 1) * 320, cy = y + (k / 2) * LH;
+        k++;
+        char id[24];
+        text(cx, cy, C_TEXT, "%s", cut(id, tests[ti].id, 14));
+        const int pf = drv_row(DRV_GAMES, ti);
+        const float v = pf >= 0 ? load60(&res[ti][pf]) / ref : 0;
+        g16_rectfill(g, cx + 90, cy + 2, 140, 8, g16_rgb(30, 34, 44));
+        if (v > 0)
+            g16_rectfill(g, cx + 90, cy + 2, (int)fminf(140, v * 70), 8, prof_col[pf]);
+        g16_rectfill(g, cx + 160, cy, 1, 12, 0xFFFF);
+        if (pf >= 0)
+            text(cx + 236, cy, v >= 0.97f ? C_GOOD : C_BAD, "%2d.%02dx %s", (int)v, (int)(v * 100) % 100,
+                 prof_short[pf]);
+        else
+            text(cx + 236, cy, C_DIM, "  -");
+    }
 }
 
 static void page_info(const char *saved)
@@ -1041,7 +1535,13 @@ static void page_info(const char *saved)
     const bm3d_version_t *v = bm3d_versions(&n);
     text(0, 18, C_HEAD, "Drivers: bm3d %s (%s); kernel %s", BM3D_VERSION, BM3D_BLOCK, P->kernel ? P->kernel : "?");
     int y = 34;
-    for (int i = 0; i < n; i++, y += LH)
+    /* the last four versions (the page holds no more), the older in a line */
+    const int i0 = n > 4 ? n - 4 : 0;
+    if (i0) {
+        text(0, y, C_DIM, "%s to %s: docs/DRIVERS.md", v[0].version, v[i0 - 1].version);
+        y += LH;
+    }
+    for (int i = i0; i < n; i++, y += LH)
         text(0, y, !strcmp(v[i].version, BM3D_VERSION) ? C_GOOD : C_TEXT, "%s %-6s %-10s %s", v[i].version,
              v[i].block, v[i].date, v[i].what);
     y += 6;
@@ -1049,8 +1549,17 @@ static void page_info(const char *saved)
          prof_version(PF_ARM), prof_version(PF_GPU), prof_version(PF_AA), prof_version(PF_VS1),
          prof_version(PF_VS));
     y += LH;
-    text(0, y, gpu3d_queue_ok() ? C_TEXT : C_DIM, "GPU+VS+Q: the same with the frame in the queue (M35: the ARM goes "
-         "on while the GPU draws)%s", gpu3d_queue_ok() ? "" : ", not on this GPU");
+    text(0, y, gpu3d_queue_ok() ? C_TEXT : C_DIM, "GPU+Q, GPU+VS+Q: GPU and GPU+VS with the frame in the queue (M35: "
+         "the ARM goes on while the GPU draws)%s", gpu3d_queue_ok() ? "" : ", not on this GPU");
+    y += LH;
+    text(0, y, C_TEXT, "GPU+WC: jobs' memory uncached (M35, 4.5); GPU+2D: the 2D over the 3D in its job (M37, 4.8)");
+    y += LH;
+    text(0, y, C_TEXT, "GPU+VS+Q2: two jobs in flight (M39, 5.1); GPU+T16: opaque textures in 16 bits (M39, 5.2)");
+    y += LH;
+    text(0, y, C_TEXT, "GPU+FS2: textured faces' pixel shaders with two threads (M39, 5.3); GPU+VS+S: meshes "
+                       "nearest first (5.4)");
+    y += LH;
+    text(0, y, C_TEXT, "GPU+VS+FS2: the vertex shader and the two-thread shaders, the driver as the games get it (6.6)");
     y += LH;
     text(0, y, C_DIM, "0.1 and 1.0 no longer run: their bars are the numbers the Pi gave then (docs/M33-PRIMA-DOPO.md)");
     y += LH + 6;
@@ -1060,18 +1569,18 @@ static void page_info(const char *saved)
     text(0, y, C_DIM, "date: %s", P->date && P->date[0] ? P->date : "unknown (no network time)");
     y += LH;
     {
-        /* the GPU's status: on two lines where it is long (after a comma) */
+        /* the GPU's status: on more lines where it is long (after a comma) */
         const char *st = gpu3d_status();
-        size_t n = strlen(st), at = n;
-        if (n > 105)
-            for (at = 104; at > 40 && !(st[at] == ' ' && st[at - 1] == ','); at--)
-                ;
-        ksnprintf(w, sizeof w, "%.*s", (int)(at < sizeof w ? at : sizeof w - 1), st);
-        text(0, y, C_DIM, "%s", w);
-        y += LH;
-        if (at < n) {
-            text(0, y, C_DIM, "  %s", cut(w, st + at + 1, 103));
+        for (int line = 0; *st && line < 3; line++) {
+            const size_t room = line ? 103 : 105, n = strlen(st);
+            size_t at = n;
+            if (n > room)
+                for (at = room - 1; at > 40 && !(st[at] == ' ' && st[at - 1] == ','); at--)
+                    ;
+            ksnprintf(w, sizeof w, "%s%.*s", line ? "  " : "", (int)(at < sizeof w - 3 ? at : sizeof w - 3), st);
+            text(0, y, C_DIM, "%s", w);
             y += LH;
+            st += at < n ? at + 1 : n;
         }
     }
     if (P->counting)
@@ -1170,17 +1679,52 @@ static void draw_page(int i, const char *saved)
     text(0, 2, C_HEAD, "bm 3D Bench  bm3d %s (%s)", BM3D_VERSION, BM3D_BLOCK);
     text(W - 11 * CW, 2, C_DIM, "page %2d/%d", i + 1, pages());
     if (i == 0)
-        page_summary();
-    else if (i == 1)
+        page_score();
+    else if (i < 3)
+        page_summary(i - 1);
+    else if (i == 3)
         page_info(saved);
     else
-        page_test(i - 2);
+        page_test(i - 4);
     const char *back = P->back ? P->back : "B";
     text(W - (26 + (int)strlen(back)) * CW, H - LH, C_DIM, "left/right: pages, %s: back", back);
     g->font = f;
 }
 
 /* ---------------------------------------------------------------- run */
+
+/* name is in the comma list (NULL: everything is) */
+static int listed(const char *list, const char *name)
+{
+    if (!list || !*list)
+        return 1;
+    const size_t n = strlen(name);
+    for (const char *s = list; *s;) {
+        const char *e = strchr(s, ',');
+        const size_t len = e ? (size_t)(e - s) : strlen(s);
+        if (len == n && !strncmp(s, name, n))
+            return 1;
+        if (!e)
+            break;
+        s = e + 1;
+    }
+    return 0;
+}
+
+/* the test runs the profile: its list, and GPU+VS+FS2 (the driver as the
+ * games get it, for the score) wherever the GPU runs but with an option
+ * of its own (bilinear) */
+static int runs(const test_t *t, int pf)
+{
+    if (pf == PF_VSF)
+        return (t->profiles & M_GPU) && strcmp(t->id, "bilinear") != 0;
+    return t->profiles >> pf & 1;
+}
+
+static int prof_listed(int pf)
+{
+    return listed(P->only_profiles, prof[pf].name) || listed(P->only_profiles, prof_short[pf]);
+}
 
 int b3d_run(const b3d_platform_t *plat)
 {
@@ -1189,6 +1733,7 @@ int b3d_run(const b3d_platform_t *plat)
     memset(res, 0, sizeof res);
     memset(prev, 0, sizeof prev);
     prev_name[0] = 0;
+    prev_score = 0;
     if (r3d_init(&R, g) != 0)
         return -1;
     meshes_make();
@@ -1197,7 +1742,7 @@ int b3d_run(const b3d_platform_t *plat)
     const uint32_t t0 = P->us();
     for (int ti = 0; ti < NTESTS; ti++)
         for (int pf = 0; pf < NPROF; pf++)
-            if (!tests[ti].future && (tests[ti].profiles >> pf & 1))
+            if (!tests[ti].future && runs(&tests[ti], pf) && listed(P->only_tests, tests[ti].id) && prof_listed(pf))
                 ramp(ti, pf);
     R.backend = NULL;
     meshes_free();
@@ -1233,6 +1778,12 @@ int b3d_run(const b3d_platform_t *plat)
             if (++page == pages())
                 break;
             continue;
+        }
+        if (P->no_wait) {                       /* from a script: the summary a moment, then on */
+            const uint32_t t1 = P->us();
+            while (P->us() - t1 < 3000000u && P->key() != B3D_KEY_BACK)
+                ;
+            break;
         }
         int k;
         while ((k = P->key()) == B3D_KEY_NONE)

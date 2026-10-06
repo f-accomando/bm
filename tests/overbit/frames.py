@@ -5,7 +5,7 @@ on the PC: bmhost built for ARM Linux (the ARM1176's flags) runs the
 benchmark's fight under qemu-arm, and tests/overbit/framecount.c counts
 the instructions of every frame, by function.
 
-  frames.py [--root DIR] [--gpu] [--tag NAME] [--shim] CONFIG...
+  frames.py [--root DIR] [--gpu] [--tag NAME] [--shim] [--res WxH] CONFIG...
 
 CONFIG is a phase of the benchmark (84_bench), "arm:2" or "gpu:3"
 (renderer:quality): the two teams face to face on the point
@@ -88,12 +88,16 @@ def build_host(root, gpu, out):
                         "-Dfree=test_free", "-c", "src/gpu/gpu3d.c", "-o", g], cwd=root)
         extra = [g, "src/gpu/v3d_cl.c", "tests/gpu/v3d_emu.c"]
         defs = ["-DBMHOST_GPU", "-Itests/gpu"]
-    # libs.S's GNU-stack note is written for the PC's assembler
+    # libs.S's GNU-stack note is written for the PC's assembler; what it
+    # embeds from the build (words.lua) is made in that checkout first
     s = open(os.path.join(root, "tests/host/libs.S")).read().replace("@progbits", "%progbits")
+    if '"words.lua"' in s:
+        sh(["make", "-s", "-C", root, "build/words.lua"])
     libs = os.path.join(objs_dir, "libs.S")
     open(libs, "w").write(s)
-    sh([CC] + CF + ["-c", "-o", libs[:-2] + ".o", libs], cwd=root)
-    sh([CC] + CF + ["-D_DEFAULT_SOURCE", "-w", "-Itests/host/shim", "-Isrc", "-Isrc/bm", "-Ithird_party/lua"]
+    inc = os.path.join(root, "build")
+    sh([CC] + CF + ["-Wa,-I" + inc, "-c", "-o", libs[:-2] + ".o", libs], cwd=root)
+    sh([CC] + CF + ["-D_DEFAULT_SOURCE", "-w", "-Itests/host/shim", "-Isrc", "-Isrc/bm", "-Ithird_party/lua", "-I" + inc]
        + defs + ["-o", out, "tests/host/bmhost.c", "tests/host/stubs.c", "tests/host/hostnet.c", libs[:-2] + ".o"]
        + objs + extra + ["-lm"], cwd=root, stderr=subprocess.DEVNULL)
 
@@ -130,16 +134,24 @@ def framecount():
     return fc
 
 
-def cart(cfg, shim, headless, secs):
+def cart(cfg, shim, headless, secs, res=None):
     """the benchmark's fight, one phase: secs / 2 in a bot's eyes, secs / 2 from above"""
     lua = os.path.join(OUT, f"hot{secs:g}-{cfg.replace(':', '')}{'-shim' if shim else ''}"
-                            f"{'-nodraw' if headless else ''}.lua")
+                            f"{'-nodraw' if headless else ''}{'-' + res if res else ''}.lua")
     bm = lua[:-4] + ".bm"
     sh(["make", "-s", "-C", TOP, "build/overbit/models.bm", "build/overbit/sounds.json", "build/overbit/21_map.lua"])
     d = ["--define", f"OVERBIT_BENCH_HOT={secs:g}", "--define", f'OVERBIT_BENCH_ONE="{cfg}"',
          "--define", f"OVERBIT_BENCH_STOP={SETTLE + secs:g}"]
     if shim:
         d += ["--define", "gpu3d=gpu3d or function() return false, false end"]
+    # a runtime from before (--root): what it does not have yet does nothing
+    # (visible3d: everything seen; frameskip, devkit, devinfo: the dev kit)
+    d += ["--define", "visible3d=visible3d or function() return true end",
+          "--define", "frameskip=frameskip or function() return 1 end",
+          "--define", "devkit=devkit or function() return 0 end",
+          "--define", "devinfo=devinfo or function() end"]
+    if res:
+        d += ["--define", f'OVERBIT_RES="{res}"']
     if headless:
         d += ["--define", "OVERBIT_HEADLESS=true"]
     sh([sys.executable, os.path.join(TOP, "carts/overbit/build.py"), lua, "--start", "bench",
@@ -242,6 +254,7 @@ def main():
     ap.add_argument("--shim", action="store_true")
     ap.add_argument("--headless", action="store_true", help="without _draw: the match's own cost")
     ap.add_argument("--tag", default="now")
+    ap.add_argument("--res", help="the screen the match starts with (OVERBIT_RES, e.g. 1920x1080)")
     ap.add_argument("--top", type=int, default=0, help="also the N hottest functions")
     ap.add_argument("--blocks", type=int, default=0, help="also the N hottest blocks, with their lines")
     ap.add_argument("--secs", type=float, default=4, help="seconds measured (half and half)")
@@ -252,9 +265,9 @@ def main():
     if not a.again:
         build_host(os.path.abspath(a.root), a.gpu, host)
     for cfg in a.configs:
-        path = os.path.join(OUT, f"{a.tag}-{cfg.replace(':', '')}.csv")
+        path = os.path.join(OUT, f"{a.tag}-{cfg.replace(':', '')}{'-' + a.res if a.res else ''}.csv")
         if not a.again:
-            count(host, cart(cfg, a.shim, a.headless, a.secs), path, a.gpu)
+            count(host, cart(cfg, a.shim, a.headless, a.secs, a.res), path, a.gpu)
         r = report(path, a.secs, files_of(host))
         for w, v in r.items():
             ms = v["avg"] * NS / 1e6

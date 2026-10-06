@@ -82,6 +82,7 @@ static struct {
     int nzones;
     uint8_t *boxes;                 /* a copy of its BOXES section (zboxes), or NULL */
     int nboxes;
+    struct pvs *pvs;                /* M39: the map's visibility given by pvs3d(), or NULL */
     uint8_t *cell_dirty;
     int sheet_dirty;
     uint8_t hold[SER_COUNT];
@@ -150,6 +151,7 @@ static struct {
     int want_w, want_h;         /* screen(w, h): the resolution from the next frame */
     int cls_pending;            /* a cls() left to the GPU's next job (cls_settle) */
     uint16_t cls_colour;
+    int gpu2d;                  /* M37: the 2D over the 3D drawn by the GPU in its job (gpu3d_2d=1) */
     int online;                 /* online(true): played over the network, PS asks first */
     char online_note[64];       /* online()'s line under the question */
     int leave_ask;              /* "Leave the match?" is open (leave_step) */
@@ -292,7 +294,8 @@ static void flush3d(int keep)
 {
     /* (a frame started on the GPU, M35: waited for, the page has it) */
     if (rt.r3d.backend &&
-        (((gpu3d_pending() || !keep) && gpu3d_flush(&rt.g, keep) != 0) || gpu3d_sync() != 0 || gpu3d_failed()))
+        (((gpu3d_pending() || !keep) && gpu3d_flush(&rt.g, keep) != 0) || gpu3d_sync_page(rt.g.px) != 0 ||
+         gpu3d_failed()))
         rt.r3d.backend = NULL;          /* the GPU failed: the ARM draws the 3D again */
     if (!d2.on)
         return;
@@ -363,6 +366,119 @@ static void d2_early(int begin)
     } else {
         d2.cut = D2_NONE;
     }
+}
+
+/* M37: the 2D over the 3D drawn by the GPU in the frame's job, where it
+ * draws it as the ARM does (gpu3d_2d=1): while the job is open (3D waits
+ * in it) and nothing is recorded for after it. Then no job ends for a HUD
+ * and a frame of 3D, 2D, 3D, 2D is one job. 1 if the GPU took op (its
+ * arguments v as the records keep them), else 0: the ARM draws it as
+ * before (draw2d), after the job. */
+static int gpu2d_open(void)
+{
+    return rt.gpu2d && rt.r3d.backend && !d2.on && !rt.early && gpu3d_pending();
+}
+
+/* sspr's source rectangle inside the sheet, as gfx16 cuts it */
+static int sheet_rect(int *sx, int *sy, int *sw, int *sh)
+{
+    if (*sx < 0 || *sy < 0 || *sw <= 0 || *sh <= 0 || !rt.sheet.px)
+        return 0;
+    if (*sx + *sw > rt.sheet.w) *sw = rt.sheet.w - *sx;
+    if (*sy + *sh > rt.sheet.h) *sh = rt.sheet.h - *sy;
+    return *sw > 0 && *sh > 0;
+}
+
+static int gpu2d(int op, const int32_t *v)
+{
+    if (!gpu2d_open())
+        return 0;
+    const g16_t *g = &rt.g;
+    const int cx = g->cam_x, cy = g->cam_y;
+    switch (op) {
+    case D2_RECTFILL:
+        if (v[2] <= 0 || v[3] <= 0)
+            return 1;
+        return gpu3d_rect2d(g, v[0] - cx, v[1] - cy, v[0] - cx + v[2], v[1] - cy + v[3], (uint16_t)v[4]);
+    case D2_RECT: {
+        if (v[2] <= 0 || v[3] <= 0)
+            return 1;
+        const int x = v[0] - cx, y = v[1] - cy, w = v[2], h = v[3];
+        const uint16_t c = (uint16_t)v[4];
+        return gpu3d_rect2d(g, x, y, x + w, y + 1, c) && gpu3d_rect2d(g, x, y + h - 1, x + w, y + h, c) &&
+               gpu3d_rect2d(g, x, y + 1, x + 1, y + h - 1, c) && gpu3d_rect2d(g, x + w - 1, y + 1, x + w, y + h - 1, c);
+    }
+    case D2_PSET:
+        return gpu3d_rect2d(g, v[0] - cx, v[1] - cy, v[0] - cx + 1, v[1] - cy + 1, (uint16_t)v[2]);
+    case D2_LINE:
+        if (v[1] == v[3]) {             /* a row, both ends in */
+            const int a = v[0] < v[2] ? v[0] : v[2], b = v[0] < v[2] ? v[2] : v[0];
+            return gpu3d_rect2d(g, a - cx, v[1] - cy, b - cx + 1, v[1] - cy + 1, (uint16_t)v[4]);
+        }
+        if (v[0] == v[2]) {             /* a column: Bresenham plots each row once */
+            const int a = v[1] < v[3] ? v[1] : v[3], b = v[1] < v[3] ? v[3] : v[1];
+            return gpu3d_rect2d(g, v[0] - cx, a - cy, v[0] - cx + 1, b - cy + 1, (uint16_t)v[4]);
+        }
+        return 0;
+    case D2_SPR: {
+        if (!rt.sheet.px || v[0] < 0)
+            return 1;
+        const int per_row = rt.sheet.w / G16_CELL;
+        int sx = v[0] % per_row * G16_CELL, sy = v[0] / per_row * G16_CELL, sw = v[3] * G16_CELL,
+            sh = v[4] * G16_CELL;
+        if (!sheet_rect(&sx, &sy, &sw, &sh))
+            return 1;
+        return gpu3d_blit2d(g, &rt.sheet, sx, sy, sw, sh, v[1] - cx, v[2] - cy, 1, v[5], v[6]);
+    }
+    case D2_SSPR: {
+        int sx = v[0], sy = v[1], sw = v[2], sh = v[3];
+        if (!sheet_rect(&sx, &sy, &sw, &sh))
+            return 1;
+        return gpu3d_blit2d(g, &rt.sheet, sx, sy, sw, sh, v[4] - cx, v[5] - cy, 1, v[6], v[7]);
+    }
+    case D2_SSPR_ZOOM: {
+        float zoom;
+        memcpy(&zoom, v + 8, sizeof zoom);
+        int sx = v[0], sy = v[1], sw = v[2], sh = v[3];
+        if (!(zoom > 0.0f) || zoom > 4096.0f || !sheet_rect(&sx, &sy, &sw, &sh))
+            return 1;
+        /* whole zooms only: the GPU's texel at a pixel's middle is gfx16's
+         * then (other zooms round their steps another way) */
+        const int dw = (int)((float)sw * zoom + 0.5f), dh = (int)((float)sh * zoom + 0.5f), k = dw / sw;
+        if (dw <= 0 || dh <= 0)
+            return 1;
+        if (k < 1 || dw != k * sw || dh != k * sh)
+            return 0;
+        return gpu3d_blit2d(g, &rt.sheet, sx, sy, sw, sh, v[4] - cx, v[5] - cy, k, v[6], v[7]);
+    }
+    case D2_MAP: {
+        /* g16_map_mask's cells, each a sprite */
+        const uint16_t *cells = rt.layer[v[6]];
+        const uint8_t mask = rt.flags ? (uint8_t)v[7] : 0;
+        if (!rt.sheet.px || !cells)
+            return 1;
+        const int per_row = rt.sheet.w / G16_CELL, ncells = per_row * (rt.sheet.h / G16_CELL);
+        const int x = v[2] - cx, y = v[3] - cy;
+        for (int my = 0; my < v[5]; my++) {
+            const int row = v[1] + my, py = y + my * G16_CELL;
+            if (row < 0 || row >= rt.map.h || py >= g->cy1 || py + G16_CELL <= g->cy0)
+                continue;
+            for (int mx = 0; mx < v[4]; mx++) {
+                const int c = v[0] + mx, px = x + mx * G16_CELL;
+                if (c < 0 || c >= rt.map.w || px >= g->cx1 || px + G16_CELL <= g->cx0)
+                    continue;
+                const int n = cells[row * rt.map.w + c];
+                if (n == 0 || n >= ncells || (mask && !(rt.flags[n] & mask)))
+                    continue;
+                if (!gpu3d_blit2d(g, &rt.sheet, n % per_row * G16_CELL, n / per_row * G16_CELL, G16_CELL, G16_CELL,
+                                  px, py, 1, 0, 0))
+                    return 0;           /* the ARM draws it all again after the job: the same pixels */
+            }
+        }
+        return 1;
+    }
+    }
+    return 0;
 }
 
 /* Before 2D on the page: 1 if it is to be recorded (n words of arguments
@@ -469,6 +585,8 @@ static void shape2d(lua_State *L, int op, int n)
     for (int i = 0; i < n - 1; i++)
         v[i] = ival(L, i + 1);
     v[n - 1] = col(L, n, 0xFFFFFF);
+    if (gpu2d(op, v))
+        return;
     if (draw2d(op, (uint32_t)n, &a)) {
         memcpy(a, v, (size_t)n * sizeof *v);
         return;
@@ -507,6 +625,8 @@ static int l_spr(lua_State *L)
                            lua_toboolean(L, 7) };
     int32_t *a;
     sheet_commit();
+    if (gpu2d(D2_SPR, v))
+        return 0;
     if (draw2d(D2_SPR, 7, &a))
         memcpy(a, v, sizeof v);
     else
@@ -523,6 +643,11 @@ static int l_sspr(lua_State *L)
     const float zoom = (float)luaL_optnumber(L, 9, 1);
     int32_t *a;
     sheet_commit();
+    int32_t z[9];
+    memcpy(z, v, sizeof v);
+    memcpy(z + 8, &zoom, sizeof zoom);
+    if (gpu2d(zoom == 1 ? D2_SSPR : D2_SSPR_ZOOM, z))
+        return 0;
     if (zoom == 1) {
         if (draw2d(D2_SSPR, 8, &a))
             memcpy(a, v, sizeof v);
@@ -574,6 +699,8 @@ static int l_map(lua_State *L)
                            oval(L, 6, rt.map.h), layer_arg(L, 7), oval(L, 8, 0) & 255 };
     int32_t *a;
     sheet_commit();
+    if (gpu2d(D2_MAP, v))
+        return 0;
     if (draw2d(D2_MAP, 8, &a)) {
         memcpy(a, v, sizeof v);
     } else {
@@ -968,6 +1095,13 @@ static int l_print(lua_State *L)
     size_t len;
     const char *s = luaL_tolstring(L, 1, &len);
     int32_t *a;
+    if (gpu2d_open() && gpu3d_text2d(&rt.g, x, y, s, c, scale)) {
+        g16_t m = rt.g;                 /* where it ends, as drawn (M37: the GPU drew it) */
+        m.cx0 = m.cy0 = 0x40000000;
+        m.cx1 = m.cy1 = -0x40000000;
+        lua_pushinteger(L, g16_text_scaled(&m, x, y, s, c, scale));
+        return 1;
+    }
     if (draw2d(D2_TEXT, 4 + (uint32_t)(len + 4) / 4, &a)) {
         a[0] = x; a[1] = y; a[2] = c; a[3] = scale;
         memcpy(a + 4, s, len + 1);
@@ -1614,9 +1748,23 @@ static void gpu3d_maybe(void)
         const char *aa = config_get("gpu3d_aa");
         gpu3d_set_msaa(aa && strcmp(aa, "1") == 0);     /* anti-aliasing: Settings */
         const char *vs = config_get("gpu3d_vs");
-        gpu3d_set_vshader(vs ? atoi(vs) : 0);           /* vertex shader: Settings (0, 1, 2) */
+        gpu3d_set_vshader(vs ? atoi(vs) : 2);           /* vertex shader: Settings (0, 1, 2; every model
+                                                         * from bm3d 6.6, where the boot's probes saw it) */
         const char *q = config_get("gpu3d_queue");
-        gpu3d_set_queue(q && strcmp(q, "1") == 0);      /* the frame in the queue (M35): Settings */
+        gpu3d_set_queue(q && (q[0] == '1' || q[0] == '2') ? q[0] - '0' : 0);  /* the frame in the queue (M35),
+                                                                                 two jobs in flight (M39) */
+        const char *wc = config_get("gpu3d_wc");
+        gpu3d_set_wc(wc && strcmp(wc, "1") == 0);       /* the jobs' memory uncached (M35): Settings */
+        const char *bf = config_get("gpu3d_filter");
+        gpu3d_set_bilinear(bf && strcmp(bf, "1") == 0); /* textures filtered (M37): Settings */
+        const char *t16 = config_get("gpu3d_tex16");
+        gpu3d_set_tex16(t16 && strcmp(t16, "1") == 0);  /* opaque textures in 16 bits (M39): Settings */
+        const char *fs2 = config_get("gpu3d_fs2");
+        gpu3d_set_fs2(!fs2 || strcmp(fs2, "0") != 0);   /* two-thread pixel shaders (M39; on from 6.4) */
+        const char *so = config_get("gpu3d_sort");
+        gpu3d_set_sort(so && strcmp(so, "1") == 0);     /* opaque meshes nearest first (M39): Settings */
+        const char *g2 = config_get("gpu3d_2d");
+        rt.gpu2d = g2 && strcmp(g2, "1") == 0;          /* the 2D over the 3D in the job (M37): Settings */
         rt.r3d.backend = gpu3d_backend();
         rt.r3d.arm_hook = gpu3d_to_arm;
         if (!cur.bench)                 /* a benchmark has its own report */
@@ -1633,6 +1781,8 @@ static r3d_t *r3d(lua_State *L)
         if (r3d_init(&rt.r3d, &rt.g) != 0)
             luaL_error(L, "not enough memory for the z-buffer");
         rt.r3d_ready = 1;
+        const char *fast = config_get("r3d_fast");
+        rt.r3d.fast = fast && strcmp(fast, "1") == 0;   /* M37: one matrix, light in the object's axes */
         gpu3d_maybe();
     }
     if (rt.cls_pending && !rt.r3d.backend)
@@ -1733,8 +1883,8 @@ static int l_mesh(lua_State *L)
     luaL_checktype(L, 1, LUA_TTABLE);
     luaL_checktype(L, 2, LUA_TTABLE);
     int nv = (int)(luaL_len(L, 1) / 3), nf = (int)(luaL_len(L, 2) / 4);
-    luaL_argcheck(L, nv > 0 && nv <= 4096, 1, "1 to 4096 vertices");
-    luaL_argcheck(L, nf > 0 && nf <= 16384, 2, "1 to 16384 faces");
+    luaL_argcheck(L, nv > 0 && nv <= 65535, 1, "1 to 65535 vertices");
+    luaL_argcheck(L, nf > 0 && nf <= 65535, 2, "1 to 65535 faces");
     r3d_mesh_t *m = new_mesh(L);
     if (r3d_mesh_alloc(m, nv, nf) != 0)
         return luaL_error(L, "not enough memory for the mesh");
@@ -2443,6 +2593,123 @@ static int l_fog3d(lua_State *L)
     return 0;
 }
 
+/* M39: the precomputed visibility of a map (pvs3d): a grid of cells on
+ * the ground, for each the pieces of the map seen from it (their numbers,
+ * from 1), and the pieces' boxes on the ground; one block of memory */
+struct pvs {
+    float x0, z0, cell, max_y;
+    int nx, nz, npieces;
+    float *box;                         /* x0 z0 x1 z1 a piece */
+    uint32_t *at;                       /* nx * nz + 1: where each cell's pieces start in ids */
+    uint8_t *ids;
+};
+
+/* pvs3d{x0 =, z0 =, cell =, nx =, nz =, max_y =, sets = {...}, boxes = {...}}:
+ * sets has a string a cell (row by row along x), each byte a piece seen from
+ * it; boxes six numbers a piece (x0 y0 z0 x1 y1 z1). pvs3d() forgets it. */
+static int l_pvs3d(lua_State *L)
+{
+    free(rt.pvs);
+    rt.pvs = NULL;
+    if (lua_isnoneornil(L, 1))
+        return 0;
+    luaL_checktype(L, 1, LUA_TTABLE);
+    float f[4];
+    int n[2];
+    static const char *const fk[4] = { "x0", "z0", "cell", "max_y" }, *const nk[2] = { "nx", "nz" };
+    for (int i = 0; i < 4; i++) {
+        lua_getfield(L, 1, fk[i]);
+        f[i] = (float)luaL_checknumber(L, -1);
+        lua_pop(L, 1);
+    }
+    for (int i = 0; i < 2; i++) {
+        lua_getfield(L, 1, nk[i]);
+        n[i] = (int)luaL_checkinteger(L, -1);
+        lua_pop(L, 1);
+    }
+    if (n[0] <= 0 || n[1] <= 0 || n[0] > 4096 || n[1] > 4096 || n[0] * n[1] > 1 << 16 || !(f[2] > 0))
+        return luaL_error(L, "pvs3d: a grid of %d x %d cells of %f", n[0], n[1], (double)f[2]);
+    lua_getfield(L, 1, "sets");
+    lua_getfield(L, 1, "boxes");
+    luaL_checktype(L, -2, LUA_TTABLE);
+    luaL_checktype(L, -1, LUA_TTABLE);
+    const int cells = n[0] * n[1], np = (int)(lua_rawlen(L, -1) / 6);
+    size_t ids = 0;
+    for (int i = 0; i < cells; i++) {
+        lua_rawgeti(L, -2, i + 1);
+        size_t len = 0;
+        if (lua_type(L, -1) == LUA_TSTRING)
+            lua_tolstring(L, -1, &len);
+        ids += len;
+        lua_pop(L, 1);
+    }
+    struct pvs *p = malloc(sizeof *p + (size_t)np * 4 * sizeof(float) + (size_t)(cells + 1) * 4 + ids);
+    if (!p)
+        return luaL_error(L, "pvs3d: no memory");
+    p->x0 = f[0]; p->z0 = f[1]; p->cell = f[2]; p->max_y = f[3];
+    p->nx = n[0]; p->nz = n[1]; p->npieces = np;
+    p->box = (float *)(p + 1);
+    p->at = (uint32_t *)(p->box + 4 * np);
+    p->ids = (uint8_t *)(p->at + cells + 1);
+    for (int i = 0; i < np; i++) {
+        static const int k[4] = { 1, 3, 4, 6 };     /* x0 z0 x1 z1 of x0 y0 z0 x1 y1 z1 */
+        for (int j = 0; j < 4; j++) {
+            lua_rawgeti(L, -1, i * 6 + k[j]);
+            p->box[i * 4 + j] = (float)lua_tonumber(L, -1);
+            lua_pop(L, 1);
+        }
+    }
+    uint32_t at = 0;
+    for (int i = 0; i < cells; i++) {
+        p->at[i] = at;
+        lua_rawgeti(L, -2, i + 1);
+        size_t len = 0;
+        const char *str = lua_type(L, -1) == LUA_TSTRING ? lua_tolstring(L, -1, &len) : NULL;
+        if (str)
+            memcpy(p->ids + at, str, len);
+        at += (uint32_t)len;
+        lua_pop(L, 1);
+    }
+    p->at[cells] = at;
+    lua_pop(L, 2);
+    rt.pvs = p;
+    return 0;
+}
+
+/* piece i's box on the ground reaches the disc (x, z, r) */
+static int pvs_touches(const struct pvs *p, int i, float x, float z, float r)
+{
+    const float *b = p->box + 4 * i;
+    const float dx = x < b[0] ? b[0] - x : x > b[2] ? x - b[2] : 0, dz = z < b[1] ? b[1] - z : z > b[3] ? z - b[3] : 0;
+    return dx * dx + dz * dz <= r * r;
+}
+
+/* visible3d(x, y, z, r) -> false if a sphere cannot be seen: out of the
+ * camera's view, or (with pvs3d) on pieces of the map the camera's cell
+ * does not see. Off the map's pieces: seen. */
+static int l_visible3d(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    const v3_t c = { fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) };
+    const float rad = fnum(L, 4, 1);
+    int seen = r3d_visible(r, c, rad);
+    const struct pvs *p = rt.pvs;
+    if (seen && p && r->cam_pos.y < p->max_y) {
+        const int i = (int)floorf((r->cam_pos.x - p->x0) / p->cell), j = (int)floorf((r->cam_pos.z - p->z0) / p->cell);
+        if (i >= 0 && i < p->nx && j >= 0 && j < p->nz) {
+            const uint32_t a = p->at[j * p->nx + i], b = p->at[j * p->nx + i + 1];
+            int in_seen = 0, on_map = 0;
+            for (uint32_t k = a; k < b && !in_seen; k++)
+                in_seen = p->ids[k] >= 1 && p->ids[k] <= p->npieces && pvs_touches(p, p->ids[k] - 1, c.x, c.z, rad);
+            for (int k = 0; k < p->npieces && !in_seen && !on_map; k++)
+                on_map = pvs_touches(p, k, c.x, c.z, rad);
+            seen = in_seen || !on_map;
+        }
+    }
+    lua_pushboolean(L, seen);
+    return 1;
+}
+
 /* project3d(x, y, z) -> screen x, y and depth, or nil behind the camera */
 static int l_project3d(lua_State *L)
 {
@@ -2533,7 +2800,7 @@ static int l_gpu3d(lua_State *L)
         if (!lua_isnoneornil(L, 3))
             gpu3d_set_vshader(lua_isboolean(L, 3) ? 2 * lua_toboolean(L, 3) : (int)luaL_checkinteger(L, 3));
         if (!lua_isnoneornil(L, 4))
-            gpu3d_set_queue(lua_toboolean(L, 4));
+            gpu3d_set_queue(lua_isinteger(L, 4) ? (int)lua_tointeger(L, 4) : lua_toboolean(L, 4));
     }
     lua_pushboolean(L, r->backend != NULL);
     lua_pushboolean(L, r->backend != NULL && gpu3d_msaa_on());
@@ -3891,7 +4158,7 @@ static const luaL_Reg api[] = {
     { "bone_turn", l_bone_turn }, { "bones3d", l_bones3d }, { "hit3d", l_hit3d },
     { "world3d", l_world3d }, { "world_box", l_world_box }, { "world_ray", l_world_ray },
     { "world_move", l_world_move }, { "world_floor", l_world_floor },
-    { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
+    { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "visible3d", l_visible3d }, { "pvs3d", l_pvs3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "quit", l_quit },
     { "keymap", l_keymap }, { "controller", l_controller }, { "online", l_online },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
@@ -4388,6 +4655,8 @@ static void free_assets(void)
     free(rt.anim);
     rt.anim = NULL;
     rt.anim_size = 0;
+    free(rt.pvs);
+    rt.pvs = NULL;
 }
 
 /* ---------------------------------------------------------------- editor */

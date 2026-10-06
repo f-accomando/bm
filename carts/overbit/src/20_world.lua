@@ -235,6 +235,17 @@ local function load_map()
     end
   end
   w.pvs = M.pvs
+  -- the same visibility for the actors (visible3d, bm3d 5.5): the pieces'
+  -- boxes in the order of the sets' numbers
+  if M.pvs and pvs3d then
+    local boxes = {}
+    for _, ch in ipairs(w.chunks) do
+      for _, v in ipairs({ ch.x0, ch.y0, ch.z0, ch.x1, ch.y1, ch.z1 }) do boxes[#boxes + 1] = v end
+    end
+    local pv = M.pvs
+    pvs3d({ x0 = pv.x0, z0 = pv.z0, cell = pv.cell, nx = pv.nx, nz = pv.nz, max_y = pv.max_y, sets = pv.sets,
+            boxes = boxes })
+  end
   w.cw = world3d()
   local b = M.boxes
   for i = 1, #b, 6 do world_box(w.cw, b[i], b[i + 1], b[i + 2], b[i + 3], b[i + 4], b[i + 5]) end

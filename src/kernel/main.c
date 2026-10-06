@@ -261,6 +261,14 @@ void kernel_main(uint32_t atags)
     usb_print();
     carts_init();
     config_load();
+    {
+        /* v3d_clock=max in bm/config.txt: the GPU at the highest clock the
+         * firmware allows (enable_uart=1 holds the core at 250 MHz, and the
+         * V3D was seen at 250 too); a trial until the Pi's bench says */
+        const char *vc = config_get("v3d_clock");
+        if (vc && vc[0] == 'm')
+            kprintf("v3d: clock %lu MHz (v3d_clock=max)\n", prop_clock_set_max(CLOCK_V3D) / 1000000);
+    }
     if (bt_paired() && board()->wireless)
         bt_start();             /* a paired pad can come back with its PS button */
     wifi_boot();

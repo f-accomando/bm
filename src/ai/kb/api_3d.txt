@@ -217,6 +217,51 @@ code:
 local sx, sy = project3d(ex, ey + 1.5, ez)
 if sx then print("nemico", sx - 24, sy) end
 
+== visible3d
+kind: api
+name: visible3d
+title: visible3d(x, y, z, r) - una sfera si può vedere?
+title_en: visible3d(x, y, z, r) - can a sphere be seen?
+ask: saltare i nemici fuori dallo schermo | non disegnare quello che non si vede
+ask: nemico dietro un muro | culling 3d | is it on screen 3d | skip hidden enemies
+see: pvs3d, draw3d
+text:
+false se la sfera (centro x y z, raggio r) è dietro la camera, oltre un bordo
+dello schermo o, dopo pvs3d, su pezzi della mappa che la camera non vede.
+Prima di draw3d: quello che non si vede non costa niente.
+text_en:
+false if the sphere (centre x y z, radius r) is behind the camera, past an
+edge of the screen or, after pvs3d, on pieces of the map the camera cannot see.
+Before draw3d: what cannot be seen costs nothing.
+code:
+for _, e in ipairs(nemici) do
+  if visible3d(e.x, e.y + 1, e.z, 1.5) then
+    draw3d(e.mesh, e.x, e.y, e.z, 0, e.yaw, 0, 1)
+  end
+end
+
+== pvs3d
+kind: api
+name: pvs3d
+title: pvs3d(t) - la visibilità della mappa per visible3d
+title_en: pvs3d(t) - the map's visibility for visible3d
+ask: visibilita precalcolata della mappa | pvs | muri che nascondono i nemici
+ask: precomputed visibility | occlusion culling
+see: visible3d
+text:
+Una griglia di celle sul terreno: per ogni cella una stringa con i numeri
+(da 1, un byte ciascuno) dei pezzi della mappa visti da lì, e le scatole dei
+pezzi (sei numeri: x0 y0 z0 x1 y1 z1). Con la camera sopra max_y conta solo
+l'inquadratura. pvs3d() la dimentica.
+text_en:
+A grid of cells on the ground: for each cell a string with the numbers
+(from 1, one byte each) of the map's pieces seen from there, and the pieces'
+boxes (six numbers: x0 y0 z0 x1 y1 z1). With the camera above max_y only the
+framing counts. pvs3d() forgets it.
+code:
+pvs3d({ x0 = -40, z0 = -40, cell = 8, nx = 10, nz = 10, max_y = 20,
+        sets = celle, boxes = scatole })
+
 
 == model
 kind: api

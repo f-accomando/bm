@@ -84,6 +84,35 @@ void mmu_init(uint32_t arm_mem_end, uint32_t ram_end)
     arm_isb();
 }
 
+int mmu_set_cached(const void *start, uint32_t size, int cached)
+{
+    const uint32_t a = (uint32_t)(uintptr_t)start, first = (a + 0xFFFFFu) >> 20, end = (a + size) >> 20;
+    if (end <= first)
+        return 0;
+    /* no dirty line of the range may be written back over what is written
+     * uncached from now on, and no stale line read after */
+    dcache_clean_invalidate_range(start, size);
+    arm_dsb();
+    int n = 0;
+    for (uint32_t i = first; i < end; i++) {
+        const uint32_t attr = ttb[i] & ~0xFFF00000u;
+        if (attr != MEM_CACHED && attr != MEM_UNCACHED)
+            continue;                   /* not ARM memory */
+        ttb[i] = i << 20 | (cached ? MEM_CACHED : MEM_UNCACHED);
+        n++;
+    }
+    dcache_clean_range(&ttb[first], (end - first) * 4u);    /* the walks read memory */
+    arm_dsb();
+    const uint32_t r = 0;
+#if __ARM_ARCH >= 7
+    __asm__ volatile("mcr p15, 0, %0, c8, c7, 0\n" "dsb\n" "isb\n" : : "r"(r) : "memory");  /* TLBIALL */
+#else
+    __asm__ volatile("mcr p15, 0, %0, c8, c7, 0\n" "mcr p15, 0, %0, c7, c10, 4\n" : : "r"(r) : "memory");
+#endif
+    arm_isb();
+    return n;
+}
+
 int mmu_enabled(void)
 {
     uint32_t sctlr;

@@ -38,7 +38,8 @@
  *            of each face that far inwards, so the next tile of the sheet
  *            never shows along the edges), u32 reserved (0), then per model:
  *              char[16] name (UTF-8, zero padded; unique in the section),
- *              u16 vertices (1..4096), u16 faces (1..16384), u32 flags (bit 0
+ *              u16 vertices (1..65535; 4096 before 2026-10-05, M39), u16 faces
+ *              (1..65535; 16384 before), u32 flags (bit 0
  *              "lit": the light is baked in the faces, see below; else 0),
  *              vertices x { f32 x, y, z }: y up, like mesh();
  *              faces x { u16 a, b, c: 0-based vertex indices, clockwise
@@ -170,8 +171,8 @@ enum { BM_RES_CART, BM_RES_MODEL, BM_RES_IMAGE, BM_RES_SOUND, BM_RES_MAP, BM_RES
  * menu fits any shape (menu_load_cover) */
 #define BM_COVER_SIZE      88
 #define BM_MODEL_NAME      16              /* bytes of a model name in MESH */
-#define BM_MODEL_VERTS     4096
-#define BM_MODEL_FACES     16384
+#define BM_MODEL_VERTS     65535           /* M39 (bm3d 5.0): 4096 and 16384 before */
+#define BM_MODEL_FACES     65535
 #define BM_MODELS_MAX      256
 #define BM_MESH_FACE       24              /* bytes of a face in MESH */
 #define BM_BONES_MAX       64

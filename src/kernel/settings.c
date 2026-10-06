@@ -85,7 +85,7 @@ enum {
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
-    R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF,
+    R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
 };
 
 static int popcount(unsigned v)
@@ -160,12 +160,14 @@ static const char *aa_choice(void)
 }
 
 /* gpu3d_vs=1: the GPU's vertex shader places the corners of the scenery
- * (models unlit or with baked light), 2: of every model (M36); the ARM
- * only sends them */
+ * (models unlit or with baked light), 2: of every model (M36; the default
+ * from bm3d 6.6), 0: the ARM places them */
 static int vs_on(void)
 {
     const char *on = config_get("gpu3d_vs");
-    return on && on[0] >= '1' && on[0] <= '2' ? on[0] - '0' : 0;
+    if (!on || !on[0])
+        return 2;
+    return on[0] >= '1' && on[0] <= '2' ? on[0] - '0' : 0;
 }
 
 static const char *vs_choice(void)
@@ -178,11 +180,11 @@ static const char *vs_choice(void)
 }
 
 /* gpu3d_queue=1 (M35): the end of a frame's 3D starts on the GPU and the
- * game's next _update runs meanwhile */
+ * game's next _update runs meanwhile; 2 (M39): and two jobs in flight */
 static int queue_on(void)
 {
     const char *on = config_get("gpu3d_queue");
-    return on && strcmp(on, "1") == 0;
+    return on && (on[0] == '1' || on[0] == '2') ? on[0] - '0' : 0;
 }
 
 static const char *queue_choice(void)
@@ -191,7 +193,37 @@ static const char *queue_choice(void)
         return "Off";
     if (gpu3d_ready() && !gpu3d_queue_ok())
         return "On: not on this GPU";
-    return "On";
+    return queue_on() == 2 ? "On, 2 jobs" : "On";
+}
+
+/* gpu3d_2d=1 (M37): the 2D over the 3D drawn by the GPU in its job */
+static int gpu2d_on(void)
+{
+    const char *on = config_get("gpu3d_2d");
+    return on && strcmp(on, "1") == 0;
+}
+
+/* gpu3d_filter=1 (M37): the GPU's textures filtered (bilinear) */
+static int filter_on(void)
+{
+    const char *on = config_get("gpu3d_filter");
+    return on && strcmp(on, "1") == 0;
+}
+
+/* gpu3d_wc=1 (M35): the memory of the GPU's jobs uncached, the ARM's
+ * writes merged */
+static int wc_on(void)
+{
+    const char *on = config_get("gpu3d_wc");
+    return on && strcmp(on, "1") == 0;
+}
+
+/* two-thread pixel shaders: on unless gpu3d_fs2=0 (bm3d 6.4: the Pi's
+ * reports, +20-33% in the textured fill tests) */
+static int fs2_on(void)
+{
+    const char *on = config_get("gpu3d_fs2");
+    return !on || strcmp(on, "0") != 0;
 }
 
 static const char *gpu3d_choice(void)
@@ -203,6 +235,13 @@ static const char *gpu3d_choice(void)
     return gpu3d_failed() ? "GPU: failed" : "GPU";
 }
 #endif
+
+/* a key of bm/config.txt set to 1 */
+static int config_on(const char *key)
+{
+    const char *v = config_get(key);
+    return v && strcmp(v, "1") == 0;
+}
 
 /* the network's state in a word or an address */
 static const char *net_word(void)
@@ -402,7 +441,26 @@ void home_panel(int id, home_panel_t *p)
                  "Who places the corners: ARM, or the GPU for the scenery or all", "%s", vs_choice());
         home_row(p, MENU_ROW_CHOICE, R_QUEUE, "3D frame queue",
                  "The game goes on while the GPU draws the frame before", "%s", queue_choice());
+        home_row(p, MENU_ROW_CHOICE, R_2D, "2D over the 3D",
+                 "Drawn by the ARM after the GPU, or by the GPU in the same job", "%s",
+                 gpu2d_on() ? "GPU" : "ARM");
+        home_row(p, MENU_ROW_CHOICE, R_FILTER, "3D textures",
+                 "Nearest texel or filtered (smoother); 16-bit: opaque ones in half the memory", "%s",
+                 filter_on() ? (config_on("gpu3d_tex16") ? "Bilinear, 16-bit" : "Bilinear")
+                             : (config_on("gpu3d_tex16") ? "Nearest, 16-bit" : "Nearest"));
+        home_row(p, MENU_ROW_CHOICE, R_WC, "3D job memory",
+                 "Cached, or uncached with the ARM's writes merged (compare: 3D Bench)", "%s",
+                 wc_on() ? "Uncached" : "Cached");
+        home_row(p, MENU_ROW_CHOICE, R_FS2, "3D pixel shaders",
+                 "Two threads: a QPU shades while the other waits for its texel", "%s",
+                 fs2_on() ? "Two threads" : "One thread");
+        home_row(p, MENU_ROW_CHOICE, R_SORT, "3D draw order",
+                 "Nearest first, triangles in cache order: the GPU skips work (vertex shader)", "%s",
+                 config_on("gpu3d_sort") ? "Nearest first" : "As the game");
 #endif
+        home_row(p, MENU_ROW_CHOICE, R_FAST3D, "3D on the ARM",
+                 "Exact as before, or fast: one matrix a model, light in its axes", "%s",
+                 config_on("r3d_fast") ? "Fast" : "Exact");
         home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
                  "fps, ms, Lua, costliest functions (F11 too)", "%s",
                  perf_name());
@@ -870,10 +928,44 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "3D vertices of the next game: %s", vs_choice());
         break;
     }
-    case R_QUEUE:
-        config_set("gpu3d_queue", queue_on() ? "0" : "1");
+    case R_QUEUE: {
+        static const char *const next[3] = { "1", "2", "0" };
+        config_set("gpu3d_queue", next[queue_on()]);
         config_save();
         ksnprintf(d->note, sizeof d->note, "3D frame queue of the next game: %s", queue_choice());
+        break;
+    }
+    case R_2D:
+        config_set("gpu3d_2d", gpu2d_on() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "2D over the 3D of the next game: %s", gpu2d_on() ? "GPU" : "ARM");
+        break;
+    case R_FILTER: {
+        /* nearest, bilinear, nearest 16-bit, bilinear 16-bit (M37, M39) */
+        const int k = (filter_on() + 2 * config_on("gpu3d_tex16") + 1) & 3;
+        config_set("gpu3d_filter", k & 1 ? "1" : "0");
+        config_set("gpu3d_tex16", k & 2 ? "1" : "0");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D textures of the next game: %s%s", k & 1 ? "bilinear" : "nearest",
+                  k & 2 ? ", 16-bit" : "");
+        break;
+    }
+    case R_WC:
+        config_set("gpu3d_wc", wc_on() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D job memory of the next game: %s", wc_on() ? "uncached" : "cached");
+        break;
+    case R_FS2:
+        config_set("gpu3d_fs2", fs2_on() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D pixel shaders of the next game: %s",
+                  fs2_on() ? "two threads" : "one thread");
+        break;
+    case R_SORT:
+        config_set("gpu3d_sort", config_on("gpu3d_sort") ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D draw order of the next game: %s",
+                  config_on("gpu3d_sort") ? "nearest first" : "as the game");
         break;
     case R_USB:
         if (how == 0) text(d, x_usb, 1, 0);
@@ -888,5 +980,11 @@ void home_act(int id, int row, int how, home_do_t *d)
         if (how == 0) d->what = HOME_MONITOR;
         break;
 #endif
+    case R_FAST3D:
+        config_set("r3d_fast", config_on("r3d_fast") ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D on the ARM of the next game: %s",
+                  config_on("r3d_fast") ? "fast" : "exact");
+        break;
     }
 }

@@ -28,6 +28,7 @@ static unsigned out_head, out_tail, in_head, in_tail;
 static char line[72];
 static int line_len, tries, last_cr, closing;
 static char password[40];
+static const char *focus, *focus_prompt;   /* what takes the keys (netcon_focus) */
 
 static void out_put(char c)
 {
@@ -86,7 +87,15 @@ static void got_byte(char c)
                 /* the \n of the password's \r\n is no key: in the menu it
                  * was an Enter and started the first game */
                 last_cr = c == '\r';
-                out_str("\r\nok - bm monitor, 'h' for help, Ctrl-Q to leave\r\n> ");
+                if (focus) {
+                    out_str("\r\nok - Ctrl-Q leaves; the keys go to ");
+                    out_str(focus);
+                    out_str("\r\n");
+                    if (focus_prompt)
+                        out_str(focus_prompt);
+                } else {
+                    out_str("\r\nok - bm monitor, 'h' for help, Ctrl-Q to leave\r\n> ");
+                }
             } else if (++tries >= MAX_TRIES) {
                 out_str("\r\nwrong password, bye\r\n");
                 kprintf("\n\x1b[91mnet: console: wrong password from %s\x1b[0m\n",
@@ -233,4 +242,17 @@ const char *netcon_password(void)
 int netcon_active(void)
 {
     return state == OPEN;
+}
+
+void netcon_focus(const char *what, const char *prompt)
+{
+    focus_prompt = prompt;
+    if (what == focus)
+        return;
+    focus = what;
+    if (state == OPEN && what) {
+        out_str("\r\n[the keys go to ");
+        out_str(what);
+        out_str("]\r\n");
+    }
 }

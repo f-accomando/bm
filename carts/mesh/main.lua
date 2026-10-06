@@ -24,7 +24,7 @@ local KIND_ORDER = { model = 1, code = 2, game = 3 }
 local AXIS = { "x", "y", "z" }
 local SEC_MESH, SEC_ANIM = 8, 9                  -- section types (src/bm/bm.h)
 local TEXTURED = 0x80000000
-local LIMIT_V, LIMIT_F, LIMIT_MODELS = 4096, 16384, 256
+local LIMIT_V, LIMIT_F, LIMIT_MODELS = 65535, 65535, 256
 local PANEL_W = 208                              -- the list on the left
 local HINT_Y, STATUS_Y = H - 40, H - 24          -- text on rows of 16 pixels
 local INFO_X = PANEL_W + 16

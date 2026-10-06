@@ -23,6 +23,12 @@ static void update_uptime(void)
 
 static int pad_keys;
 static uint32_t pad_prev;
+static int given_back = -1;             /* input_unget */
+
+void input_unget(int c)
+{
+    given_back = c;
+}
 
 void input_pad_keys(int mode)
 {
@@ -47,6 +53,11 @@ static int pad_key(void)
 
 int input_key(void)
 {
+    if (given_back >= 0) {
+        int c = given_back;
+        given_back = -1;
+        return c;
+    }
     if (uart_rx_ready())
         return (unsigned char)uart_getc();
     usb_poll();
@@ -65,7 +76,7 @@ int input_key(void)
 
 int input_remote_ready(void)
 {
-    if (uart_rx_ready())
+    if (given_back >= 0 || uart_rx_ready())
         return 1;
     net_poll();
     return netcon_pending();
@@ -73,6 +84,11 @@ int input_remote_ready(void)
 
 int input_remote_getc(void)
 {
+    if (given_back >= 0) {
+        int c = given_back;
+        given_back = -1;
+        return c;
+    }
     if (uart_rx_ready())
         return (unsigned char)uart_getc();
     net_poll();

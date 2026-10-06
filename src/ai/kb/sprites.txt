@@ -68,6 +68,7 @@ title: Slime (gelatina)
 title_en: Slime (jelly)
 ask: crea uno slime | disegna una gelatina | slime sprite | blob | melma
 ask: nemico gelatinoso | goccia con gli occhi | budino che salta
+ask: slime rosso | slime verde 32x32 | red slime | green slime 16x16 | a jelly enemy
 keys: slime, gelatina, melma
 text: Una cupola lucida con gli occhi: il nemico più semplice dei giochi di ruolo.
 text_en: A shiny dome with eyes: the simplest enemy of role-playing games.

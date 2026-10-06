@@ -507,8 +507,37 @@ void gpu3d_peek_stats(gpu3d_stats_t *s) { memset(s, 0, sizeof *s); }
 int gpu3d_submit(const g16_t *g, int keep) { (void)g; (void)keep; return 0; }
 int gpu3d_inflight(void) { return 0; }
 int gpu3d_sync(void) { return 0; }
+int gpu3d_sync_page(const void *px) { (void)px; return 0; }
+int gpu3d_queue2(void) { return 0; }
 void gpu3d_set_queue(int on) { (void)on; }
 int gpu3d_queue(void) { return 0; }
+void gpu3d_set_wc(int on) { (void)on; }
+void gpu3d_set_bilinear(int on) { (void)on; }
+void gpu3d_set_tex16(int on) { (void)on; }
+int gpu3d_tex16(void) { return 0; }
+void gpu3d_set_fs2(int on) { (void)on; }
+int gpu3d_fs2(void) { return 0; }
+void gpu3d_set_sort(int on) { (void)on; }
+int gpu3d_sort(void) { return 0; }
+int gpu3d_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c)
+{
+    (void)g; (void)x0; (void)y0; (void)x1; (void)y1; (void)c;
+    return 0;
+}
+int gpu3d_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh, int dx, int dy, int zoom,
+                 int flip_x, int flip_y)
+{
+    (void)g; (void)s; (void)sx; (void)sy; (void)sw; (void)sh; (void)dx; (void)dy; (void)zoom; (void)flip_x;
+    (void)flip_y;
+    return 0;
+}
+int gpu3d_text2d(const g16_t *g, int x, int y, const char *str, uint16_t c, int scale)
+{
+    (void)g; (void)x; (void)y; (void)str; (void)c; (void)scale;
+    return 0;
+}
+int gpu3d_bilinear(void) { return 0; }
+int gpu3d_wc(void) { return 0; }
 int gpu3d_queue_ok(void) { return 0; }
 #endif
 

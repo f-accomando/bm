@@ -20,7 +20,9 @@
 #                           a resource (.bmm .bmi .bms ..., into /bm/lib) or any
 #                           file to a console's SD card (tools/bm_net.py --send)
 #   6  [NET] monitor        a console's monitor on this PC (tools/bm_net.py): its
-#                           keys and commands; Ctrl-Q leaves
+#                           keys and commands (the console says what takes them:
+#                           the menu, without echo, or the monitor; in the menu a
+#                           monitor line starts with ':'); Ctrl-Q leaves
 #   7  [NET] config         a console's bm/config.txt (bm_net.py --config): the
 #                           settings shown (tokens and passwords hidden), keys set
 #                           (github_token for the reports, WiFi...) or removed
@@ -35,7 +37,8 @@
 #   b  branch              change it, or bring it up to date (git pull)
 #   p  paths               the repository's folder, the card's drive letter
 # The same as an argument: ./easy_install.sh kernel | install | image | net [profile]
-# | send FILE [profile] | monitor [profile] | config [profile] | config-sd | release [vX.Y.Z]
+# | send FILE [profile] | monitor [profile] | line "gpu; b3d; send" [profile] (a monitor
+# line run, its output shown: bm_net.py --line) | config [profile] | config-sd | release [vX.Y.Z]
 # | market.
 # sudo is asked for when needed (packages, mounting the card); the card is
 # mounted, synced and unmounted (and ejected) by the script. At the end:
@@ -266,17 +269,41 @@ up_to_date() {                                  # before a build: the branch as 
 
 change_branch() {
     say "Branch"
-    git fetch -q origin 2>/dev/null || true
-    echo "on GitHub:"
-    git branch -r --format='  %(refname:lstrip=3)' | grep -v '^  HEAD$' | head -20
-    local b
-    read -r -p "Branch to use (Enter: stay on $BRANCH and update it): " b || b=
-    if [ -z "$b" ] || [ "$b" = "$BRANCH" ]; then
-        git pull --ff-only || warn "git pull failed"
-        return
+    local was
+    was=$(git hash-object "$SCRIPT" 2>/dev/null)
+    # every branch on GitHub (whatever the clone's refspec), the ones deleted
+    # there gone here too: without --prune they stayed in the list for ever
+    git fetch -q --prune origin '+refs/heads/*:refs/remotes/origin/*' 2>/dev/null ||
+        warn "GitHub not reached: the list may be old"
+    echo "on GitHub, the most recent first:"
+    local names=() name date subject b
+    while IFS='|' read -r name date subject; do
+        [ "$name" != HEAD ] || continue
+        names+=("$name")
+        printf '  %2d %s %-26s %s  %.44s\n' "${#names[@]}" "$([ "$name" = "$BRANCH" ] && echo '*' || echo ' ')" \
+            "$name" "$date" "$subject"
+        [ "${#names[@]}" -lt 15 ] || break
+    done < <(git for-each-ref --sort=-committerdate \
+                 --format='%(refname:lstrip=3)|%(committerdate:short)|%(subject)' refs/remotes/origin)
+    read -r -p "Branch to use (number or name; Enter: stay on $BRANCH and update it): " b || b=
+    if [[ $b =~ ^[0-9]+$ ]] && [ "$b" -ge 1 ] && [ "$b" -le "${#names[@]}" ]; then
+        b=${names[$((b - 1))]}
     fi
-    [ -z "$(git status --porcelain --untracked-files=no)" ] || die "there are changes not committed: commit or git stash them first"
-    git checkout "$b" && git pull --ff-only || warn "could not move to $b"
+    b=${b:-$BRANCH}
+    if [ "$b" != "$BRANCH" ]; then
+        [ -z "$(git status --porcelain --untracked-files=no)" ] ||
+            die "there are changes not committed: commit or git stash them first"
+        git checkout -q "$b" || { warn "could not move to $b"; return; }
+    fi
+    # from GitHub's branch of the same name, also for a local branch made
+    # without tracking (a plain git pull refused it)
+    git branch -q --set-upstream-to="origin/$b" 2>/dev/null || true
+    git pull -q --ff-only origin "$b" || warn "git pull failed: $b is not where GitHub has it"
+    # this script came with the branch: the new one at once, not the copy in memory
+    if [ "$(git hash-object "$SCRIPT" 2>/dev/null)" != "$was" ]; then
+        ok "easy_install.sh changed with $b: starting the new one"
+        exec bash "$SCRIPT"
+    fi
 }
 
 change_paths() {
@@ -544,19 +571,25 @@ job_send() {
 }
 
 # a console's monitor on this PC (tools/bm_net.py): its keys and the
-# commands of its monitor; Ctrl-Q (or Enter ~ .) leaves
+# commands of its monitor; Ctrl-Q (or Enter ~ .) leaves. With a line (the
+# second argument): that monitor line run, its output shown (--line)
 job_monitor() {
     PICK_Q="Which one to open"
     pick_profile "${1:-}" || return 0
-    local p=${PROFILES[$PICK]} name ip code board old x rc
+    local p=${PROFILES[$PICK]} name ip code board old x rc line=${2:-}
     name=$(profile_field "$p" 0); ip=$(profile_field "$p" 1)
     code=$(profile_field "$p" 2); board=$(profile_field "$p" 3)
     reach_console
     while :; do
-        say "The monitor of $name ($ip, bm $old): Ctrl-Q leaves"
         rc=0
-        python3 tools/bm_net.py "$ip" -p "$code" || rc=$?
-        [ "$rc" != 0 ] || break
+        if [ -n "$line" ]; then
+            say "The line on $name ($ip, bm $old): $line"
+            python3 tools/bm_net.py "$ip" -p "$code" --line "$line" || rc=$?
+        else
+            say "The monitor of $name ($ip, bm $old): Ctrl-Q leaves; in the menu a monitor line starts with ':'"
+            python3 tools/bm_net.py "$ip" -p "$code" || rc=$?
+        fi
+        [ "$rc" = 1 ] || break                  # 1: not let in (2: the console in a game)
         read -r -p "It did not let you in? The Console password now (6 digits, Enter: stop): " x || x=
         [[ $x =~ ^[0-9]{6}$ ]] || break
         code=$x
@@ -991,13 +1024,15 @@ case ${1:-} in
     net) job_net "${2:-}" ;;
     send) job_send "${2:-}" "${3:-}"; exit 0 ;;
     monitor) job_monitor "${2:-}"; exit 0 ;;
+    line) [ -n "${2:-}" ] || die "line \"gpu; b3d; send\" [profile]: the line is missing"
+          job_monitor "${3:-}" "$2"; exit 0 ;;
     config) job_config "${2:-}"; exit 0 ;;
     config-sd) job_config_sd; exit 0 ;;
     release) job_release "${2:-}"; exit 0 ;;
     market) job_market; exit 0 ;;
     "") ;;
     *) die "unknown: $1 (kernel, install, image, net [profile], send FILE [profile], monitor [profile], \
-config [profile], config-sd, release [vX.Y.Z], market, or nothing for the menu)" ;;
+line \"LINE\" [profile], config [profile], config-sd, release [vX.Y.Z], market, or nothing for the menu)" ;;
 esac
 
 while :; do

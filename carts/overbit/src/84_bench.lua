@@ -45,15 +45,15 @@ local function config()
 end
 local STEPS_A_FRAME = 40                         -- match frames simulated a frame while warming up
 
-local RNAME = { arm = "ARM", gpu = "GPU", aa = "GPU+AA", vs1 = "GPU+VS1", vs = "GPU+VS", q = "GPU+VS+Q" }
+local RNAME = { arm = "ARM", gpu = "GPU", aa = "GPU+AA", gq = "GPU+Q", vs1 = "GPU+VS1", vs = "GPU+VS", q = "GPU+VS+Q" }
 local VS = { vs1 = 1, vs = 2, q = 2 }            -- the vertex shader: the scenery, every model
 
 -- ---------------------------------------------------------------- phases
 
--- the ARM, the GPU, the GPU with anti-aliasing, the GPU with its vertex
--- shader for the scenery and for every model, and that with the frame
--- queue (M35: the GPU draws while the next frame's _update runs) (where
--- this GPU has them)
+-- the ARM, the GPU, the GPU with anti-aliasing, the GPU with the frame
+-- queue (M35: the GPU draws while the next frame's _update runs), the GPU
+-- with its vertex shader for the scenery and for every model, and that
+-- with the queue (where this GPU has them)
 local function renderers()
   local on0, aa0, vs0, _, q0 = gpu3d()
   -- the ARM only up to 640x360: its pixels cost it (seconds a frame at 1080p)
@@ -62,6 +62,7 @@ local function renderers()
     list[#list + 1] = "gpu"
     local _, aa = gpu3d(true, true, 0)
     if aa then list[#list + 1] = "aa" end
+    if select(5, gpu3d(true, false, 0, true)) then list[#list + 1] = "gq" end
     local _, _, vs = gpu3d(true, false, 2)
     if vs then
       list[#list + 1] = "vs1"
@@ -75,7 +76,7 @@ local function renderers()
 end
 
 local function use_renderer(r)
-  gpu3d(r ~= "arm", r == "aa", VS[r] or 0, r == "q")
+  gpu3d(r ~= "arm", r == "aa", VS[r] or 0, r == "q" or r == "gq")
 end
 
 function Bench.start()

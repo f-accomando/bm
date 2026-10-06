@@ -143,8 +143,19 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   fisico (`fb->bus`). Il controller video ingrandisce l'immagine sul pannello: un gioco può
   disegnare a 720×720 o a 360×360 mostrato ×2 (un quarto dei pixel per la GPU), nitido o
   sfumato; il menu è 360×360 ×2. Pagina **Display** nel menu: le modalità una dopo l'altra
-  con un'immagine di prova (bordi, griglia delle tessere, barre di colore). La GPU stessa (driver
-  Mali) non c'è ancora.
+  con un'immagine di prova (bordi, griglia delle tessere, barre di colore).
+- **GPU Mali-G52, primo passo del driver** (M41, bm3d 6.0; `src/rgb30/mali.c`, *Dev > GPU test*):
+  solo quando lo si chiede (l'avvio non tocca la GPU), un passo alla volta con una riga a schermo e
+  un report `gpu`: vdd_gpu acceso (RK817 DCDC2, altrimenti si ferma subito), orologi del dominio
+  PD_GPU (CRU) e dominio acceso (PMU, come i domini di Linux), GPU_ID e parti presenti, reset,
+  accensione di L2, core e tiler, spazio di indirizzi 0 con le tabelle "Mali LPAE" (64 MiB della
+  memoria video e GPU visti 1:1), un lavoro WRITE_VALUE sullo slot 1 e una catena di due. Ogni
+  attesa ha un limite; il primo passo che non torna ferma la prova e dice perché (lo stato del
+  lavoro, un errore dell'MMU con il suo indirizzo). Poi (bm3d 6.1) un lavoro di frammenti senza
+  disegni che pulisce una superficie di 64×64 (controllata pixel per pixel) e un **quadrato verde
+  in alto a destra** dello schermo: se si vede, la GPU ha scritto i pixel. Niente triangoli ancora. **Provato sul PC** con una GPU, un CRU e un PMU
+  simulati (`make TARGET=rgb30 test-mali`); in QEMU la pagina dice che la GPU non c'è
+  (`test_gpu_test`); **da provare sulla console.**
 - Cartucce del Pi (`.bm`) nel menu e avviabili, per le prove: Yharnam nell'immagine SD (vedi
   sotto).
 - Menu 360×360 ingrandito ×2 (riempie il pannello): dal 2026-10-04 è **lo stesso del Pi**
@@ -154,7 +165,7 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   `.b16` del catalogo; B chiede e scarica, il gioco va in `bm/` e si gioca da lì, X i dettagli:
   gioca, scarica di nuovo, cancella), **Games** (giochi `.b16` e i `.bm`, con la loro
   copertina; con `show_bm=0` dice quante cartucce sono nascoste), **Dev** (3D Bench, Render bench,
-  Display, Input test, Boot log, Lua sulla seriale) e **Settings**, l'ultima, una pagina a sé:
+  Display, Input test, Boot log, Lua sulla seriale, GPU test) e **Settings**, l'ultima, una pagina a sé:
   dal 2026-10-04 le stesse sezioni del Pi (`src/kernel/settings.c`): Controllers
   (Bluetooth, abbinare pad, tastiere e mouse, prova dei tasti, *Confirm button*, layout della
   tastiera, icone), WiFi and network (rete salvata, indirizzo, console di rete, collegarsi,
@@ -282,7 +293,8 @@ branch e scheda: `reports/<branch>/<data>_<tipo>_rgb30_<kernel>.txt`.
   `rk_sd.c`, `rk_pmic.c`; Bluetooth: `rk_wlbt.c` (alimentazione del modulo), `rk_btuart.c`,
   `rk_bt.c`; WiFi: `rk_sdio.c`, `rtw_io.c`, `rtw_mac.c` (accensione, firmware, efuse),
   `rtw_init.c` + `rtw8821c_table.c` (MAC e radio, CAM, comandi al firmware), `rtw_frame.c`
-  (pacchetti, 802.11), `wpa.c` (WPA2), `rtw_sta.c` (le funzioni di `wifi/wifi.h`).
+  (pacchetti, 802.11), `wpa.c` (WPA2), `rtw_sta.c` (le funzioni di `wifi/wifi.h`); GPU: `mali.c`
+  (il driver, portabile), `gputest_rgb30.c` (la pagina *GPU test*).
 - Codice in comune con il Pi: `gfx/`, `lib/printf.c`, `script/luavm.c` e `lib_bm.c`, `fs/fat.c`,
   `kernel/config.c`, `crumbs.c`, `version.c`, Lua.
 - `tests/rgb30/qemu_test.py` — test in QEMU (avvio, EL2 e spostamento, schermo letto dai pixel,
@@ -290,6 +302,9 @@ branch e scheda: `reports/<branch>/<data>_<tipo>_rgb30_<kernel>.txt`.
 - `tests/rgb30/rtw_frame_test.c`, `wpa_test.c` (vettori pubblicati e un handshake calcolato a
   parte da `wpa_vectors.py`), `wifi_sim_test.c` (tutta la stazione su un RTL8821C e due access
   point simulati): `make TARGET=rgb30 test-wifi`.
+- `tests/rgb30/mali_test.c` — la prova della GPU su un Mali-G52, un CRU e un PMU simulati (tabelle
+  delle pagine percorse come fa la GPU, lavori eseguiti, varianti che non tornano):
+  `make TARGET=rgb30 test-mali`.
 - `boot/rgb30/` — `extlinux.conf` e `LEGGIMI.txt` della scheda.
 - `scripts/fetch-rgb30.sh` — bootloader e firmware; `scripts/mksd.py --start-mib --raw --active`.
 
@@ -300,7 +315,8 @@ branch e scheda: `reports/<branch>/<data>_<tipo>_rgb30_<kernel>.txt`.
 | 0x00000000 | 0x00200000 | TF-A (BL31): non mappato |
 | 0x02000000 | | dove U-Boot carica `kernel8.img` (poi si sposta) |
 | 0x10000000 | | kernel (testo, dati, bss, stack 1 MiB, tabelle MMU), poi l'heap |
-| 0x3c000000 | 0x40000000 | memoria video e GPU, 64 MiB (non-cacheable): framebuffer, poi ciò che legge e scrive la GPU Mali |
+| 0x3c000000 | 0x3fc00000 | memoria video, 60 MiB (non-cacheable): i framebuffer |
+| 0x3fc00000 | 0x40000000 | memoria della GPU Mali, 4 MiB (non-cacheable): tabelle delle pagine, lavori (`PLAT_GPU_START`) |
 | 0xfc000000 | 0xffffffff | periferiche (GIC 0xfd400000, CRU 0xfdd20000, VOP2 0xfe040000, DSI0 0xfe060000, SDMMC0 0xfe2b0000, UART2 0xfe660000, …) |
 
 ## Licenze dei file scaricati

@@ -15,6 +15,7 @@
 #include "bt/bt.h"
 #include "net/net.h"
 #include "net/netxfer.h"
+#include "net/netcon.h"
 #include "bm/runtime.h"
 #include "drivers/sd.h"
 #include "drivers/timer.h"
@@ -1010,6 +1011,12 @@ enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO, GO_ANIMATOR, GO_M
 
 #define DEPTH_MAX 4
 
+/* what the network console is told takes its keys (netcon_focus) */
+static const char FOCUS_MENU[] = "the menu (w a s d, Enter, Esc, 1-5 the tabs; q the monitor, "
+                                 "or a line for it: :gpu; b3d; send)";
+static const char FOCUS_APP[] = "the application (Ctrl-\\ back to the menu)";
+static const char FOCUS_PAGE[] = "a page of the menu (Esc back)";
+
 void carts_menu(framebuffer_t *fb)
 {
     uint32_t cols, rows;
@@ -1042,6 +1049,7 @@ void carts_menu(framebuffer_t *fb)
     if (gfx)
         home_init();
     for (;;) {
+        netcon_focus(FOCUS_MENU, NULL);
         /* the Market works only while its tab is shown */
         int on_market = gfx && tab == TAB_MARKET && !on_gear;
         market_set_active(on_market);
@@ -1262,7 +1270,8 @@ void carts_menu(framebuffer_t *fb)
         int cur = on_gear ? TAB_SETTINGS : tab, tabto = -1;    /* the tab to go to */
 
         /* serial */
-        for (int k; (k = input_remote_getc()) >= 0; ) {
+        int to_line = 0;
+        for (int k; !to_line && (k = input_remote_getc()) >= 0; ) {
             char c = (char)k;
             if (esc == 1) { esc = c == '[' ? 2 : 0; continue; }
             if (esc == 2) {
@@ -1296,8 +1305,14 @@ void carts_menu(framebuffer_t *fb)
             case 'q': case 'Q': quit = HID_QUIT_MONITOR; break;
             case 'r': case 'R': action = 2; break;
             case 'U': action = 3; break;         /* bm_load.py --cart */
+            case ':':                           /* a monitor line (":gpu; b3d; send"), from */
+                input_unget(':');               /* wherever the menu is: the monitor reads */
+                to_line = 1;                    /* the rest of it */
+                break;
             }
         }
+        if (to_line)
+            break;
 
         /* USB keyboard / gamepads: edges plus auto repeat */
         const uint32_t DIRS = HID_UP | HID_DOWN | HID_LEFT | HID_RIGHT;
@@ -1749,6 +1764,7 @@ void carts_menu(framebuffer_t *fb)
             /* the file of a tool: a cartridge of the menu, or one of the Lib tab */
             const char *gpath = go_cart >= 0 ? carts[go_cart].path : lib_path;
             const char *gname = go_cart >= 0 ? carts[go_cart].name : lib_name;
+            netcon_focus(go == GO_TEXT ? FOCUS_PAGE : FOCUS_APP, NULL);
             switch (go) {
             case GO_PLAY:
                 play(fb, &carts[go_cart]);

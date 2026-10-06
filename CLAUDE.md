@@ -42,7 +42,9 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   prima volta chiave, secret `BM_MARKET_KEY`, chiave pubblica su `bm-core` e Pages; ogni volta
   `make market-seed` nel clone `../bm-market`, commit, push, il workflow e il catalogo riletto;
   comando `market`), o il monitor
-  di una console (6, `bm_net.py`; `monitor [profilo]`), o il suo `bm/config.txt` (7 dalla rete, `bm_net.py
+  di una console (6, `bm_net.py`; `monitor [profilo]`; dopo la password la console dice dove vanno
+  i tasti, `netcon_focus`: il menu non li ripete, un `:` nel menu porta la riga al monitor; `line
+  "gpu; b3d; send" [profilo]` la manda con `bm_net.py --line` e ne mostra l'uscita), o il suo `bm/config.txt` (7 dalla rete, `bm_net.py
   --config`: le chiavi coi segreti nascosti, `chiave=valore` cambia, `chiave=` toglie; il comando `C` di
   `netxfer.c`, `config_merge` in `config.c`, valori fino a 127 caratteri; 8 sulla SD; `config [profilo]`,
   `config-sd`; prove in `make test-net`). Alla fine scrive "kernel: vecchio -> nuovo": la versione sta in `kernel.img`
@@ -292,13 +294,34 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Tasti: **B conferma, A torna indietro** (decisione dell'utente; `confirm=a` li scambia):
   nell'interfaccia si usano `pad_ok` / `pad_back` e `pad_ok_name()` / `pad_back_name()` (`pad.h`),
   mai `PAD_A` / `PAD_B` per conferma e indietro.
+- **GPU Mali-G52** (M41, bm3d 6.0): `src/rgb30/mali.c` (portabile: registri e orologio da
+  `mali_hw_t`), *Dev > GPU test* (`gputest_rgb30.c`, report `gpu`), solo quando lo si chiede:
+  vdd_gpu (RK817 DCDC2) prima di tutto, poi CRU/PMU del dominio PD_GPU (offset del PMU come
+  `pd_vo_on` in `rk_display.c`), reset, core, MMU con tabelle Mali LPAE (foglie di tipo 1 anche al
+  livello 3, permessi a 6-7, MEMATTR 0x888d88, TRANSCFG 0) sui 64 MiB da 0x3c000000; la memoria
+  della GPU sono gli ultimi 4 MiB (`PLAT_GPU_START`, fuori dai framebuffer). Lavori: intestazione di
+  32 byte (parola 4: bit 0 descrittori a 64 bit, tipo ai bit 1-7, indice ai 16-31; parola 5 le
+  dipendenze; 6-7 il prossimo), WRITE_VALUE con indirizzo, tipo 6 (32 bit) e valore. bm3d 6.1: un
+  lavoro di frammenti (slot 0) senza tiler né shader pulisce una superficie e il quadrato verde in
+  alto a destra della pagina (`mali_square`, ridisegnato per ultimo); il descrittore del
+  framebuffer v7 (128 byte, poi il render target di 64) e il puntatore con il bit 0 a 1. Niente
+  triangoli ancora. Prova sul PC `make TARGET=rgb30 test-mali` (GPU simulata), QEMU `test_gpu_test`.
+  Riferimenti: i sorgenti di Linux (panfrost, pm-domains, clk-rk3568, rk808-regulator, dts
+  rk356x) letti con un clone parziale, mai copiarne il codice (GPL); le strutture della GPU da
+  Mesa (`src/panfrost/genxml/v7.xml`, MIT), dal sorgente nell'archivio di Ubuntu (gitlab di
+  freedesktop non è raggiungibile da qui).
 - Schermo: modalità pronte per la GPU Mali (`src/rgb30/display.h`, `fb_init_mode`): righe a 64
   byte, tessere da 16, pagine su 64 KiB nella memoria video e GPU (0x3c000000, 64 MiB), il
   controller video ingrandisce sul pannello 720×720. Pagina *Display* nel menu.
 - WiFi: port di rtw88 (`src/rgb30/rtw*.c`, BSD-3-Clause), WPA2 in software (`wpa.c`), lwIP di
   M18. `make TARGET=rgb30 test-wifi`: frame, WPA2 contro `tests/rgb30/wpa_vectors.h` (scritto da
   `wpa_vectors.py`, Python + `cryptography`) e tutta la stazione su un chip e access point simulati
-  (`wifi_sim_test.c`, `-v` mostra la console).
+  (`wifi_sim_test.c`, `-v` mostra la console). I beacon persi mentre nessuno chiamava `wifi_poll`
+  (una scrittura lunga) non contano come rete sparita (`last_poll`). Un file dalla rete
+  (`netxfer.c`, stato `WRITING`) tiene viva la rete mentre la SD scrive (`fat_write_tick` →
+  `net_poll`); la FAT scrive fino a 32 KiB di cluster vicini in un comando, riletti e confrontati
+  (`fat_write_runs`: acceso sulla RGB30, dove un kernel a settori richiedeva più di un minuto;
+  spento sul Pi); `bm_net.py --kernel` senza risposta guarda comunque che versione gira dopo.
 - Aggiornamenti come sul Pi: *Settings > Updates* (le righe in `settings.c`, `src/kernel/update.c`
   con `BM_RGB30`: `manifest-rgb30`, `kernel8.img` riconosciuto dall'intestazione arm64 `ARM\x64` a
   +56), HTTPS e `release.c` nella build; nelle fibre del Market la rete cede il
@@ -925,15 +948,51 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   agli angoli, `clight`); livello 2: anche i modelli illuminati dal sole, con le ossa
   (gli eroi: `light_fast` di r3d in `vs_lit`, che va cambiato insieme). La GPU taglia
   quelle che passano il piano vicino (flag 4 del record, `CLIPPER_*`, `VIEWPORT_OFFSET`
-  al centro). Spento di default: chiave `gpu3d_vs` (0/1/2), *Graphics > 3D vertices*,
-  renderer "GPU+VS1"/"GPU+VS" di Overbit; le prove all'avvio (`probe_gl`, `probe_clip`,
-  `probe_lit`) lo spengono se il Pi non disegna come l'emulatore, che esegue gli shader
-  (interprete QPU) e taglia come GL; passo 14 del test `g`.
+  al centro). **Acceso di default dalla 6.6** (livello 2: chiave `gpu3d_vs` 0/1/2, se manca 2;
+  *Settings > Screen and sound > 3D vertices*), renderer "GPU+VS1"/"GPU+VS" di Overbit; le prove
+  all'avvio (`probe_gl`, `probe_clip`, `probe_lit`) lo spengono se il Pi non disegna come
+  l'emulatore, che esegue gli shader (interprete QPU) e taglia come GL; passo 14 del test `g`.
+  Sul Pi disegna solo con il clipper **sempre acceso** come Mesa (`gl_clip_all`, 6.5: senza,
+  `ERRSTAT` dava *VPM write range*); la prova scrive i registri d'errore della V3D
+  (`v3d_errors`) nel log delle prove (riga `probes` dei report). Sul Pi (2026-10-06): sfere 4×,
+  eroi 11×, scena `mix` 9× rispetto a bm3d 2.1.
 - **Versioni dei driver 3D**: `bm3d X.Y` (X il blocco/milestone, Y il passo) in
   `src/gpu/version3d.h` e `docs/DRIVERS.md`; ogni passo che cambia quello che r3d o
   gpu3d sanno fare alza la versione e aggiunge una riga alla tabella. Le impostazioni
-  riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4, coda 4.1): così i
-  benchmark le confrontano.
+  riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4, coda 4.1,
+  memoria senza cache 4.5, 2D nel lavoro 4.8, due lavori in volo 5.1, texture a 16 bit 5.2,
+  shader a due thread 5.3, mesh dalla più vicina 5.4): così i benchmark le confrontano.
+  Branch `bm3d-driver` (2026-10-06): bm3d 6.6 (M36, M39, M41).
+- **M39 (bm3d 5.x, branch `bm3d-driver`)**: mesh fino a 65535 vertici e indicizzate
+  (`INDEXED_PRIMITIVE_LIST`, `probe_index`); due blocchi di memoria dei lavori
+  (`gpu3d_queue=2`: l'emulatore esegue un lavoro avviato solo quando lo si aspetta); texture
+  opache RGB565 (`gpu3d_tex16`, layout imparato da `tformat16_learn`); shader dei pixel a due
+  thread (`fs_*_t` in `qpuasm.py`, che controlla le regole di Mesa e li fa girare pixel per pixel
+  accanto agli originali, `fs_run`: stesse scritture; dalla 6.3 tutti gli shader con texture,
+  **di default dalla 6.4** (+20–33% sul Pi; `gpu3d_fs2=0` li spegne); quelli a colore restano a
+  un thread, più veloci così, e prendono lo scoreboard per ultimo come Mesa; `probe_fs2`);
+  le mesh che scrivono lo z messe da parte e scritte dalla più vicina (`gpu3d_sort`,
+  `sort_flush` prima di ogni altro pacchetto), con i triangoli nell'ordine della cache dei
+  vertici (`vcache_order`, l'emulatore ha una cache FIFO di 16); `visible3d`/`pvs3d` (Overbit: gli eroi dietro i
+  muri). Ogni opzione ha una riga in *Settings > Screen and sound* e un profilo nel 3D Bench
+  (il riassunto è su due pagine con i nomi brevi dei profili).
+- **Cose della V3D imparate dal Pi** (branch `bm3d-driver`, 2026-10-05): nel record GL la
+  dimensione degli attributi e gli offset nella VPM sono in **byte** (come Mesa; in parole il
+  Pi non disegnava niente: la prova li impara, l'emulatore li legge in byte e vuole che lo
+  shader legga ogni parola caricata); l'**early z** ha una sua profondità che solo le
+  primitive con *early z updates* scrivono, quindi dopo uno `zclear()` nel lavoro niente early
+  z, e con l'MSAA solo nei lavori che puliscono la pagina (HW-2905 riguarda un lavoro che la
+  carica; la 6.2 lo toglieva sempre e Overbit con AA a 1080p perdeva un terzo; l'emulatore
+  rifiuta l'early z in un lavoro MSAA che carica). Quello che le prove
+  facoltative vedono (`gpu3d_probe_log()`) va nel report del test `g` e del 3D Bench.
+- **Opzioni del branch `bm3d-driver`** (spente finché il Pi non le prova): `gpu3d_wc=1` la
+  memoria dei lavori senza cache (`v3d_uncached`, `mmu_set_cached`), `gpu3d_2d=1` il 2D sopra
+  il 3D come quad nel lavoro della GPU (`gpu3d_rect2d`, `gpu3d_blit2d`, `gpu3d_text2d`,
+  `gpu2d()` in `runtime.c`: solo quello che la GPU fa pixel per pixel come gfx16, il resto
+  chiude il lavoro come prima), `gpu3d_filter=1` texture bilineari, `r3d_fast=1` (l'ARM: una
+  matrice e la luce nel modello). Profili del 3D Bench GPU+Q, GPU+WC, GPU+2D; passo 16 del
+  test `g`; le facce con texture e retino le fa la GPU (`tex_screen`); 8 texture in un
+  lavoro; il menu con `menu_scale=3` lo ingrandisce la GPU (`gpu3d_enlarge`).
 - **Fotogramma in coda (M35, `gpu3d_queue`, spento di default)**: il lavoro della GPU parte e
   l'ARM va avanti (il `_update` dopo). Il 2D disegnato mentre la GPU ha un lavoro sulla
   pagina si registra (`draw2d()`/`d2` in `runtime.c`) e va sulla pagina dopo, nello stesso
@@ -941,13 +1000,29 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `sync3d()` se legge la pagina), una che cambia ciò che il 2D registrato legge (sheet,
   mappa) chiama prima `flush3d(1)`/`sync3d()`. `zclear()` resta nel lavoro (`fs_zclear`).
   `make test-queue2d` confronta i fotogrammi con la coda accesa e spenta.
+- **Riga di comandi del monitor** (`:` in `monitor.c`, richiesta dell'utente 2026-10-05: una
+  stringa da mandargli invece di tante impostazioni): comandi separati da `;`, `gpu` (test `g`),
+  `b3d tests=a,b profiles=P,Q` (una parte del 3D Bench, senza aspettare le pagine:
+  `bm_bench3d_part`, `only_tests`/`only_profiles`/`no_wait` di `b3d_platform_t`; i profili col
+  nome o quello breve), `set chiave=valore` (fino al riavvio; `save` li tiene), `render`, `room`,
+  `log`, `send`, `reboot`; una parola sconosciuta ferma la riga; anche dal menu (il `:` porta la
+  riga al monitor, `input_unget`). Prova QEMU `test_monitor_line` (dal menu). Dal PC:
+  `./easy_install.sh line "gpu; b3d; send"` o il monitor della console (6) e incollare `:...`.
 - **3D Bench** (`src/bm/b3d.c`, *Dev > 3D Bench*, monitor `j`, `docs/BENCH3D.md`): ogni
   test 3D con ogni profilo (ARM 0.2, GPU 2.1, GPU+AA, GPU+VS1 3.0, GPU+VS 3.4), carico
   fino a 40 ms, 60/30 fps, statistiche (istruzioni e cache miss dai contatori
   dell'ARM1176, `src/kernel/pmu.c`, solo sul Pi), grafico a barre con le misure di prima,
   report in `bm/bench` sulla SD confrontato col giro dopo. Un test nuovo per ogni
   capacità nuova dei driver; quelle future stanno nella lista come "non ancora".
-  `make test-b3d` lo prova sul PC.
+  **Score** (prima pagina, richiesta dell'utente 2026-10-06; 1080p non prioritario, il bench
+  resta a 640×360): media geometrica dei carichi a 60 fps di 24 test contro bm3d 2.1 al meglio
+  sul Pi Zero W (`score_ref`, 1000), del driver come lo hanno i giochi (`drv_row`: il profilo
+  GPU+VS+FS2, che gira in ogni test della GPU, poi GPU+FS2, GPU, ARM; cambiarli quando cambia il
+  default), e i triangoli a fotogramma a 60 fps della
+  scena `mix` (tutto insieme; le ombre contano come triangoli). Un test nuovo entra nello score
+  con la sua riga in `score_ref` dopo il primo numero del Pi. A ogni passo il clock misurato di
+  core e V3D (`clocks` di `b3d_platform_t`, `prop_clock_measured`); `v3d_clock=max` in
+  `bm/config.txt` alza la V3D all'avvio (prova: `enable_uart=1` tiene il core a 250). `make test-b3d` lo prova sul PC (`b3d_host --tests= --frames`).
 - Overbit va sulla GPU (menu "3D": GPU, GPU+AA, ARM; benchmark dei bot con `--start
   bench`, `84_bench.lua`). bmhost ha gli stub della GPU; `make bmhost-gpu` usa `gpu3d.c`
   sull'emulatore della V3D (`BMHOST_EMU_SKIP=1`: i lavori non si eseguono). Quanto costa

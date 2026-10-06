@@ -73,11 +73,11 @@ end
 """
 
 
-def run(host, cart, shots, queue):
+def run(host, cart, shots, queue, gpu2d=0):
     os.makedirs(shots, exist_ok=True)
     for f in os.listdir(shots):
         os.remove(os.path.join(shots, f))
-    env = dict(os.environ, BMHOST_CONFIG=f"gpu3d_vs=2,gpu3d_queue={queue}", BMHOST_NONET="1")
+    env = dict(os.environ, BMHOST_CONFIG=f"gpu3d_vs=2,gpu3d_queue={queue},gpu3d_2d={gpu2d}", BMHOST_NONET="1")
     r = subprocess.run([host, cart, "--seconds", "1", "--shots", shots, "--every", "3"], capture_output=True,
                        text=True, env=env)
     return r.returncode, r.stdout + r.stderr
@@ -128,6 +128,23 @@ def main():
                 differ.append(s)
         check(len(shots) >= 15 and not differ, f"{mode}: {len(shots)} frames, the same with the queue "
               f"({len(differ)} differ: {' '.join(differ[:5])})", logs[0][-500:] + log[-500:])
+        if mode != "draw":
+            continue
+        # M37: the 2D over the 3D drawn by the GPU in its job (gpu3d_2d=1),
+        # without and with the queue: the same frames, fewer jobs
+        for q in (0, 1):
+            d = os.path.join(out, f"{mode}-2d-q{q}")
+            code, log2 = run(host, cart, d, q, 1)
+            check(code == 0 and "Lua error" not in log2, f"{mode}, 2D on the GPU, queue {q}: runs", log2)
+            check("2D on the GPU:" in log2, f"{mode}, 2D on the GPU, queue {q}: quads in the job", log2)
+            differ = []
+            for s in shots:
+                a = Image.open(os.path.join(dirs[0], s)).convert("RGB")
+                b = Image.open(os.path.join(d, s)).convert("RGB")
+                if ImageChops.difference(a, b).getbbox():
+                    differ.append(s)
+            check(not differ, f"{mode}, 2D on the GPU, queue {q}: the same frames ({len(differ)} differ: "
+                  f"{' '.join(differ[:5])})", log2[-800:])
     print(f"\nqueue2d: {'all ok' if not fails else f'{fails} failed'}")
     return 1 if fails else 0
 

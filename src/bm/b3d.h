@@ -7,7 +7,9 @@
  * shader), the load raised until a frame takes more than 40 ms; the loads
  * that still fit 60 fps and 30 fps, with the work behind them (triangles,
  * vertices, pixels, ARM instructions and cache misses, GPU time, jobs).
- * At the end a bar chart a test, against the numbers measured on the Pi
+ * At the end the score (every test against bm3d 2.1 on the Pi Zero W:
+ * 1000) and the triangles a frame at 60 fps of a scene with everything at
+ * once, then a bar chart a test, against the numbers measured on the Pi
  * with the drivers before (docs/DRIVERS.md), the last saved report and
  * the limits of the hardware; the report is saved for the next time.
  *
@@ -45,10 +47,25 @@ typedef struct {
     const char *date;                   /* the network's time, or "" */
     int quick;                          /* a few steps, one frame each (the PC's test) */
     void (*page_shown)(int page);       /* a page of results is on the screen (the PC's test) */
+    const char *only_tests;             /* NULL, or the tests to run: ids, commas between */
+    const char *only_profiles;          /* NULL, or the profiles: names (GPU+FS2) or short (FS2) */
+    int no_wait;                        /* the summary shown 3 s, no key waited for (a script) */
+    /* the core's and the GPU's clocks now, measured, in MHz (NULL: unknown):
+     * after each step, out of its time */
+    void (*clocks)(uint32_t *core_mhz, uint32_t *gpu_mhz);
 } b3d_platform_t;
 
 /* runs the bench, then shows the pages until B3D_KEY_BACK (in quick mode,
  * each page once); 0, or -1 if the report could not be saved */
 int b3d_run(const b3d_platform_t *p);
+
+/* how a ramp's steps become a load (here for the PC's test): the middle of
+ * a step's frame times (v sorted in place), so one frame slowed by
+ * something else (the network printing, a report) does not move the step;
+ * and the load that fits `limit` ms, from the last step that fits (a slow
+ * step before it was slowed by something else, as the heavier step that
+ * fits after it shows) towards the step after it; -1 if none fits */
+float b3d_median(float *v, int count);
+float b3d_load_at(const float *n, const float *ms, int count, float limit);
 
 #endif

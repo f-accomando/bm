@@ -106,6 +106,9 @@ static void key_in(int c, uint32_t now)
 static void serial_poll(uint32_t now)
 {
     int c;
+    /* the network console's keys are the buttons, everywhere (netcon_focus) */
+    netcon_focus("the buttons (w a s d, Enter, Backspace, x y, l r the tabs, Tab Select, "
+                 "space Start)", NULL);
     while ((c = plat_uart_getc()) >= 0)
         key_in(c, now);
     while ((c = netcon_getc()) >= 0)

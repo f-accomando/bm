@@ -66,7 +66,7 @@ SLOW = {
     "test_home_ui": 56, "test_stress_monitor": 48, "test_pad_typing": 48, "test_lib_tab": 46,
     "test_kitchen": 45, "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_titan": 36, "test_games": 34, "test_picture_model": 32, "test_menu_tabs": 31,
-    "test_sdk_suite": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
+    "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
     "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_bm_boot_demo": 22,
     "test_nano8": 20, "test_meshy2mesh": 20,
 }
@@ -1246,7 +1246,19 @@ def test_home_ui(b, opts):
         screen(["Settings > Screen and sound", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
                 "3D anti-aliasing", "Off",      # QEMU has no V3D; no anti-aliasing unless asked
                 "3D vertices"])                 # nor the vertex shader (M36)
-        keys("sssss")                           # the dev kit's overlay: simple, detailed, functions, off again
+        keys("sssss")                           # the GPU's options of bm3d 4.5-5.3 (M35, M37, M39): off
+        screen(["2D over the 3D", "< ARM >"])
+        keys("s")
+        screen(["3D textures", "< Nearest >"])
+        keys("s")
+        screen(["3D job memory", "< Cached >"])
+        keys("s")
+        screen(["3D pixel shaders", "< Two threads >"])  # M39; on from bm3d 6.4
+        keys("s")
+        screen(["3D draw order", "< As the game >"])
+        keys("s")
+        screen(["3D on the ARM", "< Exact >"])
+        keys("s")                               # the dev kit's overlay: simple, detailed, functions, off again
         screen(["< Off >", "fps, ms, Lua, costliest functions (F11 too)"])
         keys("\r")
         screen(["< Simple >", "performance overlay: Simple"])
@@ -5576,6 +5588,40 @@ function _draw()
   print("SCREEN " .. SCREEN_W .. "X" .. SCREEN_H, 0, 0, 0xFFFFFF)
 end
 """
+
+
+def test_monitor_line(b, opts):
+    """The monitor's ':' line (2026-10-05): commands one after the other,
+    ';' between them; set changes a key until a restart, b3d runs a part of
+    the 3D Bench without waiting on its pages, a word not known stops the
+    line and says so. Typed in the menu (as bm_net.py --line does it, or a
+    paste in easy_install's monitor), the ':' takes the line to the monitor."""
+    tmp = tempfile.mkdtemp(prefix="bm-line-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        q.send(":set gpu3d_fs2=1 gpu3d_sort=1; b3d tests=spheres,quad_flat profiles=ARM; nope; send\r")
+        q.expect("back to the monitor", timeout=10)
+        q.expect("set gpu3d_fs2=1 (until a restart", timeout=10)
+        q.expect("set gpu3d_sort=1", timeout=10)
+        out = q.expect("3D Bench: done", timeout=240).decode(errors="replace")
+        assert "only tests spheres,quad_flat, profiles ARM" in out, out[-2000:]
+        assert "R,spheres,ARM" in out and "R,quad_flat,ARM" in out, out[-2000:]
+        assert "R,heroes," not in out and "R,match," not in out, out[-2000:]
+        out = q.expect("the line is done", timeout=30).decode(errors="replace")
+        assert "'nope': not a command of the line" in out, out
+        assert ": send" not in out, out             # the line stopped at the unknown word
+        q.expect("> ")
+        q.send("l")                             # the key is set for now
+        q.expect("lua> ")
+    finally:
+        q.close()
 
 
 def test_reports(b, opts):

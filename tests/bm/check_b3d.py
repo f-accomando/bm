@@ -7,8 +7,8 @@ import sys
 
 TESTS = ["spheres", "spheres_smooth", "spheres_tex", "spheres_unlit", "spheres_baked", "spheres_shine", "heroes",
          "heroes_tex", "heroes_skin", "heroes_shadow", "clip", "tiny", "draws", "quad_flat", "quad_smooth", "quad_tex", "quad_alpha",
-         "quad_screen", "texswap", "split", "match", "queue"]
-FUTURE = ["gpu2d", "bilinear"]
+         "quad_screen", "quad_texscreen", "texswap", "split", "match", "mix", "queue", "bilinear", "gpu2d", "big", "big_logic"]
+FUTURE = []
 
 
 def main():
@@ -32,7 +32,19 @@ def main():
     got = {(r[1], r[2]) for r in rows}
     for t in TESTS:
         profs = {p for (tt, p) in got if tt == t}
-        need = {"GPU+VS", "GPU+VS+Q"} if t == "queue" else {"ARM", "GPU"}
+        need = {"GPU", "GPU+Q", "GPU+VS", "GPU+VS+Q"} if t == "queue" else {"GPU"} if t == "bilinear" else {"ARM", "GPU"}
+        if t in ("split", "match"):
+            need |= {"GPU+Q", "GPU+2D"}
+        if t == "gpu2d":
+            need |= {"GPU+2D"}
+        if t in ("spheres_tex", "heroes_tex", "quad_tex", "match", "mix"):
+            need |= {"GPU+T16", "GPU+FS2"}
+        if t in ("heroes_skin", "quad_alpha", "quad_texscreen"):
+            need |= {"GPU+FS2"}             # bm3d 6.3: every textured shader with two threads
+        if t in ("spheres", "heroes", "match", "big", "big_logic"):
+            need |= {"GPU+VS+S"}
+        if t != "bilinear":
+            need |= {"GPU+VS+FS2"}          # bm3d 6.6: the driver as the games get it, wherever the GPU runs
         check(need <= profs, f"{t}: {' '.join(sorted(profs))}")
     for t in FUTURE:
         check(any(l.startswith(f"F,{t},") for l in lines), f"{t}: shown as not developed yet")
@@ -43,8 +55,15 @@ def main():
     check(all(int(vs[t][11]) < int(gpu[t][11]) or int(gpu[t][11]) == 0 for t in ("spheres", "heroes", "heroes_tex", "heroes_skin") if t in vs),
           "GPU+VS: r3d places fewer vertices than GPU")
     check(all(float(r[4]) >= 0 or r[4] == "-1" for r in rows), "loads at 60 fps")
+    check(all(len(r) == 25 and int(r[21]) >= int(r[22]) >= 0 for r in rows), "triangles at 60 fps: given, drawn")
+    # the score: the three drivers, every test of the score in it (the emulator runs them all)
+    score = {r[1]: r for r in (l.split(",") for l in lines if l.startswith("S,"))}
+    check(set(score) == {"games", "GPU", "ARM"} and all(int(r[3]) > 0 and r[5] == "1" for r in score.values()),
+          f"the score: {' '.join(f'{k} {v[3]} ({v[4]} tests)' for k, v in score.items())}")
+    mix = [l for l in lines if l.startswith("triangles at 60 fps ")]
+    check(len(mix) == 1 and int(mix[0].split()[4]) > 0, mix[0] if mix else "triangles at 60 fps: missing")
     pages = sorted(f for f in os.listdir(d) if f.startswith("page-"))
-    check(len(pages) == 2 + len(TESTS) + len(FUTURE), f"{len(pages)} pages drawn")
+    check(len(pages) == 4 + len(TESTS) + len(FUTURE), f"{len(pages)} pages drawn")
     print(f"b3d: {'all ok' if not fails else f'{fails} failed'}")
     return 1 if fails else 0
 

@@ -307,6 +307,7 @@ static struct {
     uint64_t pn;                    /* our next CCMP packet number */
     uint16_t seq;                   /* our next data sequence number */
     uint32_t last_beacon, last_igi;
+    uint32_t last_poll;             /* wifi_poll's last call: beacons count only while we listen */
     int rssi;
     wpa_t wpa;
     int eapol_msgs, eapol_err;
@@ -593,7 +594,7 @@ static int join(const wl_bss_t *b, const char *psk)
     if (lk.status)
         return join_failed("association refused, status %u", lk.status, status_text(lk.status));
     lk.associated = 1;
-    lk.last_beacon = lk.last_igi = timer_ticks();
+    lk.last_beacon = lk.last_igi = lk.last_poll = timer_ticks();
     rtw_set_link(RTW_NET_LINKED, lk.aid);
     rtw_ra_info(lk.rate_id, rates);
     rtw_media_status(1);
@@ -670,8 +671,14 @@ void wifi_poll(void)
 {
     if (!started || !lk.associated)
         return;
-    rx_poll(on_link_packet, 0);
+    /* a long job that did not poll (an SD write, a cartridge loading): the
+     * beacons missed meanwhile are ours, not the network's */
     uint32_t now = timer_ticks();
+    if (now - lk.last_poll > 1000000u)
+        lk.last_beacon = now;
+    lk.last_poll = now;
+    rx_poll(on_link_packet, 0);
+    now = timer_ticks();
     if (lk.deauth) {
         char m[100];
         ksnprintf(m, sizeof m, "link lost: the network sent us away (reason %u%s%s)", lk.reason,

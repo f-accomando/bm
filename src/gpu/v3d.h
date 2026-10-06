@@ -52,8 +52,21 @@ int v3d_start(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end);
 int v3d_busy(void);
 int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us);
 
+/* M35: the 1 MiB sections wholly inside [p, p + size) of ARM memory made
+ * uncached (on: the ARM's writes go out through the write buffer, merged,
+ * with no line read first and no line of other data pushed out of the
+ * cache) or cached again; the number of sections changed (0: none, as on
+ * the PC). For the memory of the jobs, which the ARM writes and the V3D
+ * reads. */
+int v3d_uncached(void *p, uint32_t size, int on);
+
 /* Registers of the last failed job (or now), one line each. */
 void v3d_dump(char *buf, size_t n);
+
+/* The error and debug registers now, as "ERRSTAT x DBGE x FDBGO x FDBGB x
+ * FDBGR x FDBGS x" (the VPM's and the front end's errors: what a vertex
+ * shader that draws nothing left behind) */
+void v3d_errors(char *buf, size_t n);
 
 /* ---------------------------------------------------------------- lists */
 
@@ -81,6 +94,8 @@ void v3d_cl_f32(v3d_cl_t *cl, float v);
 #define V3D_STORE_MS_TILE_BUFFER_EOF    25
 #define V3D_STORE_TILE_BUFFER_GENERAL   28
 #define V3D_LOAD_TILE_BUFFER_GENERAL    29
+#define V3D_INDEXED_PRIMITIVE_LIST      32      /* mode | type, count, indices' address, max index */
+#define V3D_INDEX_U16                   0x10    /* its type: 16-bit indices */
 #define V3D_VERTEX_ARRAY_PRIMITIVES     33
 #define V3D_NV_SHADER_STATE             65
 #define V3D_GL_SHADER_STATE             64      /* the record's address | its number of attributes */

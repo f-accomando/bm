@@ -682,7 +682,7 @@ Esempio completo: `carts/yharnam`; uno piccolo: `SQUARE_CART` in `tests/qemu_tes
 
 | Funzione | Descrizione |
 |---|---|
-| `mesh(v, f, [uv])` | mesh da tabelle: `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colore, …} (indici da 1; una faccia si vede dal lato da cui i suoi vertici appaiono in senso **orario**). Con `uv` (6 numeri per faccia: u,v dei tre vertici in pixel dello sprite sheet) le facce con colore `-1` hanno la **texture** dello sprite sheet (prospettiva corretta, i pixel trasparenti restano vuoti). Il colore può avere i **bit di materiale** (tabella sotto) |
+| `mesh(v, f, [uv])` | mesh da tabelle (fino a 65535 vertici e 65535 facce: 4096 e 16384 prima di bm3d 5.0): `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colore, …} (indici da 1; una faccia si vede dal lato da cui i suoi vertici appaiono in senso **orario**). Con `uv` (6 numeri per faccia: u,v dei tre vertici in pixel dello sprite sheet) le facce con colore `-1` hanno la **texture** dello sprite sheet (prospettiva corretta, i pixel trasparenti restano vuoti). Il colore può avere i **bit di materiale** (tabella sotto) |
 | `mesh_sphere([r, segmenti, c1, c2])`, `mesh_cube([c])` | mesh pronte |
 | `model(nome)` / `model(n)` | un **modello 3D della cartuccia** (fatto con [bm Studio](../sdk/README.md), sezione MESH) come mesh, con la texture dello sprite sheet; `n` conta dall'1; `nil` se non c'è. Ogni chiamata costruisce una mesh nuova: va fatta in `_init`. Un modello con la **luce precalcolata** (il bit "lit" di MESH, `src/bm/bm.h`: la luce di ogni angolo delle facce, fatta da uno script, come la mappa di Overbit) si disegna liscio con quella luce, senza sole né cielo ma con le lampade (`lamp3d`) e la nebbia: costa meno della luce calcolata; le sue facce con la texture (finestre, insegne) hanno una luce sola per faccia, colorata, e la nebbia |
 | `models()` | i nomi dei modelli della cartuccia, in ordine (`{}` se non ne ha) |
@@ -707,6 +707,8 @@ Esempio completo: `carts/yharnam`; uno piccolo: `SQUARE_CART` in `tests/qemu_tes
 | `fog3d(colore, vicino, lontano)` | nebbia: le facce sfumano nel colore tra le due distanze; `fog3d()` la toglie |
 | `lamp3d(i, x, y, z, raggio, [k, colore])` | luce puntiforme `i` (1–4): le facce con il centro entro `raggio` diventano più chiare, fino a `k` in più (predefinito 1) al centro, del `colore` dato (bianco se manca); `lamp3d(i)` la spegne, `lamp3d()` le spegne tutte. Con `light3d` ad ambiente basso fa scene al buio con lanterne |
 | `project3d(x, y, z)` | punto del mondo → `sx, sy, profondità` sullo schermo (`nil` se è dietro la camera): per disegnare in 2D cose allineate al 3D (orizzonte, mirini, etichette) |
+| `visible3d(x, y, z, r)` | `false` se una sfera (centro, raggio) non si può vedere: dietro la camera, oltre un bordo dello schermo o (dopo `pvs3d`) su pezzi della mappa che la cella della camera non vede. Per saltare i personaggi e gli effetti nascosti dai muri prima di disegnarli (bm3d 5.5) |
+| `pvs3d(t)` | la visibilità precalcolata della mappa per `visible3d`: `t = { x0, z0, cell, nx, nz, max_y, sets, boxes }`, una griglia di `nx`×`nz` celle di lato `cell` sul terreno da (`x0`, `z0`); `sets` una stringa per cella (riga per riga lungo x), ogni byte il numero (da 1) di un pezzo visto da lì; `boxes` sei numeri per pezzo (`x0 y0 z0 x1 y1 z1`). Con la camera sopra `max_y` o fuori dalla griglia conta solo l'inquadratura; una sfera fuori da tutti i pezzi si vede. `pvs3d()` la dimentica |
 
 **Bit di materiale** nel colore di una faccia (di `mesh()` e dei modelli; 0 = la faccia di
 sempre):

@@ -995,6 +995,17 @@ int main(int argc, char **argv)
     run_ms(60000);
     CHECK(wifi_linked() && rx_dropped == 0);
 
+    /* a long job that does not poll (the RGB30 wrote a kernel on its SD card
+     * for more than a minute): the beacons missed are not a lost network */
+    mark = loglen;
+    now_us += 70000000u;
+    net_poll();                                 /* before any beacon comes in */
+    run_ms(200);
+    CHECK(wifi_linked() && !logged("no beacon", mark));
+    ping(&ap[0]);
+    run_ms(200);
+    CHECK(echo_replies == 3);
+
     /* the AP sends us away */
     mark = loglen;
     ap_deauth(&ap[0], 3);

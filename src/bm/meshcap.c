@@ -122,8 +122,8 @@ static int cap_mesh(lua_State *G)
     luaL_checktype(G, 1, LUA_TTABLE);
     luaL_checktype(G, 2, LUA_TTABLE);
     int nv = (int)(luaL_len(G, 1) / 3), nf = (int)(luaL_len(G, 2) / 4);
-    luaL_argcheck(G, nv > 0 && nv <= 4096, 1, "1 to 4096 vertices");
-    luaL_argcheck(G, nf > 0 && nf <= 16384, 2, "1 to 16384 faces");
+    luaL_argcheck(G, nv > 0 && nv <= 65535, 1, "1 to 65535 vertices");
+    luaL_argcheck(G, nf > 0 && nf <= 65535, 2, "1 to 65535 faces");
     int has_uv = lua_istable(G, 3);
     if (has_uv)
         luaL_argcheck(G, luaL_len(G, 3) >= (lua_Integer)nf * 6, 3, "6 texture coordinates per face");

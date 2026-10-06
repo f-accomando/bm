@@ -12,6 +12,7 @@
 #define PROP_GET_MAX_CLOCK_RATE 0x00030004u
 #define PROP_SET_CLOCK_RATE     0x00038002u
 #define PROP_GET_THROTTLED      0x00030046u
+#define PROP_GET_CLOCK_MEASURED 0x00030047u
 
 #define CLOCK_UART  2
 #define CLOCK_ARM   3
@@ -27,6 +28,9 @@ int prop_query(uint32_t tag, uint32_t *vals, unsigned n);
 uint32_t prop_clock_rate(uint32_t clock_id);
 /* The highest rate the firmware allows for the clock, 0 on failure. */
 uint32_t prop_clock_max(uint32_t clock_id);
+/* The rate the clock really has now, measured by the firmware (the rate it
+ * was set to if the firmware cannot measure it), 0 on failure */
+uint32_t prop_clock_measured(uint32_t clock_id);
 
 /* Raises a clock to the maximum the firmware allows (arm_freq in
  * config.txt); returns the new rate in Hz, 0 on failure. The firmware boots

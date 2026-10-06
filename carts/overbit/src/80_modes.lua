@@ -164,11 +164,13 @@ local ITEMS = { "PLAY: CONTROL", "PLAY ONLINE", "TRAINING RANGE", "HERO", "BOTS"
                 "3D", "RESOLUTION", "BENCHMARK" }
 
 -- the 3D renderer: the GPU, with its vertex shader placing every model
--- (VS), with anti-aliasing, both, the GPU+VS with the frame queue (Q: it
--- draws while the next frame's _update runs), the ARM (a console without a
--- GPU, QEMU: the ARM only; a choice this GPU cannot do is skipped)
+-- (VS), with anti-aliasing, both, the GPU and the GPU+VS with the frame
+-- queue (Q: it draws while the next frame's _update runs), the ARM (a
+-- console without a GPU, QEMU: the ARM only; a choice this GPU cannot do
+-- is skipped)
 local RENDERERS = { { true, false, 0, false }, { true, false, 2, false }, { true, true, 0, false },
-                    { true, true, 2, false }, { true, false, 2, true }, { false, false, 0, false } }
+                    { true, true, 2, false }, { true, false, 0, true }, { true, false, 2, true },
+                    { false, false, 0, false } }
 
 local function renderer_name()
   local on, aa, vs, _, q = gpu3d()

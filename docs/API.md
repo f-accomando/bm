@@ -676,7 +676,7 @@ Complete example: `carts/yharnam`; a small one: `SQUARE_CART` in `tests/qemu_tes
 
 | Function | Description |
 |---|---|
-| `mesh(v, f, [uv])` | a mesh from tables: `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colour, …} (indices from 1; a face shows from the side where its vertices appear **clockwise**). With `uv` (6 numbers per face: u,v of the three vertices in sprite sheet pixels) the faces with colour `-1` have the sprite sheet's **texture** (perspective correct, transparent pixels stay empty). The colour can have the **material bits** (table below) |
+| `mesh(v, f, [uv])` | a mesh from tables (up to 65535 vertices and 65535 faces: 4096 and 16384 before bm3d 5.0): `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colour, …} (indices from 1; a face shows from the side where its vertices appear **clockwise**). With `uv` (6 numbers per face: u,v of the three vertices in sprite sheet pixels) the faces with colour `-1` have the sprite sheet's **texture** (perspective correct, transparent pixels stay empty). The colour can have the **material bits** (table below) |
 | `mesh_sphere([r, segments, c1, c2])`, `mesh_cube([c])` | ready-made meshes |
 | `model(name)` / `model(n)` | a **3D model of the cartridge** (made with [bm Studio](../sdk/README.md), MESH section) as a mesh, with the sprite sheet's texture; `n` counts from 1; `nil` if it is not there. Every call builds a new mesh: do it in `_init`. A model with **baked light** (MESH's "lit" bit, `src/bm/bm.h`: the light of each corner of the faces, made by a script, as Overbit's map) is drawn smooth with that light, without sun or sky but with the lamps (`lamp3d`) and the fog: it costs less than computed light; its textured faces (windows, signs) have one light per face, coloured, and the fog |
 | `models()` | the names of the cartridge's models, in order (`{}` if it has none) |
@@ -701,6 +701,8 @@ Complete example: `carts/yharnam`; a small one: `SQUARE_CART` in `tests/qemu_tes
 | `fog3d(colour, near, far)` | fog: the faces fade into the colour between the two distances; `fog3d()` takes it away |
 | `lamp3d(i, x, y, z, radius, [k, colour])` | point light `i` (1–4): the faces with their centre within `radius` get brighter, up to `k` more (default 1) in the middle, of the `colour` given (white if missing); `lamp3d(i)` turns it off, `lamp3d()` all. With `light3d` at a low ambient it makes dark scenes with lanterns |
 | `project3d(x, y, z)` | a point of the world → `sx, sy, depth` on the screen (`nil` if it is behind the camera): to draw in 2D things lined up with the 3D (horizon, sights, labels) |
+| `visible3d(x, y, z, r)` | `false` if a sphere (centre, radius) cannot be seen: behind the camera, beyond an edge of the screen, or (after `pvs3d`) on pieces of the map that the camera's cell does not see. To skip the characters and effects hidden by the walls before drawing them (bm3d 5.5) |
+| `pvs3d(t)` | the map's precomputed visibility for `visible3d`: `t = { x0, z0, cell, nx, nz, max_y, sets, boxes }`, a grid of `nx`×`nz` cells of side `cell` on the ground from (`x0`, `z0`); `sets` a string a cell (row by row along x), each byte the number (from 1) of a piece seen from it; `boxes` six numbers a piece (`x0 y0 z0 x1 y1 z1`). With the camera above `max_y` or out of the grid only the view counts; a sphere off every piece is seen. `pvs3d()` forgets it |
 
 **Material bits** in a face's colour (of `mesh()` and of the models; 0 = the usual face):
 
