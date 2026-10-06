@@ -3007,17 +3007,24 @@ def test_menu_tabs(b, opts):
 
         # Settings > Controllers > Button icons: the DS4's face buttons of the
         # hints in their colours (the circle of Back red), then white again
-        def red_hint():
-            img_ = q.screendump()
-            return any(r > 220 and g < 140 and b_ < 140 for x in range(640)
-                       for y in range(21 * 16, 22 * 16) for r, g, b_ in [pixel(img_, x, y)])
+        def red_hint(want=True):
+            # the hints' row for up to a second: a screendump can fall while the
+            # row is drawn again (CI, 2026-10-06: once no circle after the change)
+            for _ in range(10):
+                img_ = q.screendump()
+                red = any(r > 220 and g < 140 and b_ < 140 for x in range(640)
+                          for y in range(21 * 16, 22 * 16) for r, g, b_ in [pixel(img_, x, y)])
+                if red == want:
+                    break
+                time.sleep(0.1)
+            return red
         press(buttons=0x08 | 0x20)          # A (cross): Controllers
         state(["Settings"], ["Settings > Controllers"])
         press(buttons=0x00)                 # up three times: round to Button icons
         press(buttons=0x00)
         press(buttons=0x00)
         state(["Settings"], ["Button icons", "< White >"])
-        assert not red_hint(), "white button icons drawn red"
+        assert not red_hint(False), "white button icons drawn red"
         press(buttons=0x02)                 # right: Colour
         state(["Settings"], ["< Colour >", "button icons: colour"])
         assert red_hint(), "no red circle for Back"
@@ -3025,7 +3032,7 @@ def test_menu_tabs(b, opts):
             _save_png(q.screendump(), os.path.join(opts.shots, "home-button-icons.png"))
         press(buttons=0x06)                 # left: White
         state(["Settings"], ["< White >", "button icons: white"])
-        assert not red_hint(), "the circle stayed red"
+        assert not red_hint(False), "the circle stayed red"
         press(buttons=0x08 | 0x40)          # B: back to Settings
         state(["Settings"], ["Controllers", "WiFi and network"], gone=["Button icons"])
         press(shoulders=2)                  # R1 on the last tab: nothing
