@@ -55,7 +55,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   richiesta dell'utente: quello di Overbit è tolto): F11 una volta la pagina semplice, di nuovo
   quella **dettagliata** (ms di tutti gli `_update` e quanti, `_draw`, 3D, GPU e lavori o pixel
   dell'ARM, triangoli e vertici, driver bm3d, le righe del gioco con `devinfo()`), di nuovo
-  spento; ×2 da 1280 di larghezza, ×3 a 1920. `devkit([modo])` lo legge e lo cambia dal gioco
+  quella delle **funzioni** (R14, 2026-10-06: le dieci più care dell'ultimo secondo, ms per
+  fotogramma `self` e `all`; `src/bm/profile.c`: l'hook di conteggio e `luai_cprof`, un test
+  in `precallC` di `third_party/lua/ldo.c` attorno a ogni funzione C; `profile()` dal gioco;
+  prove `make test-profile`, QEMU `test_square_lights`), di nuovo spento; ×2 da 1280 di larghezza, ×3 a 1920. `devkit([modo])` lo legge e lo cambia dal gioco
   (Overbit: Select, Tab, F1); F11, `p` e `devkit()` valgono per la partita, ogni gioco parte e
   riprende come dice Settings (`perf_user`, prova QEMU `test_devkit_per_run`). Settings > Screen and sound > "Performance overlay" Off / Simple /
   Detailed (config `perf` 0/1/2), F11 (tasto di sistema, anche nelle app; era F3), `p` dalla

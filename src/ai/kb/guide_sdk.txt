@@ -601,7 +601,8 @@ text:
 _update + _draw, istruzioni Lua, RAM (adesso e il massimo) e token del
 codice, con il grafico degli ultimi fotogrammi. F11 di nuovo: la pagina
 dettagliata, con i ms di _update, _draw e 3D, la GPU, i triangoli e le
-righe del gioco (devinfo).
+righe del gioco (devinfo). F11 la terza volta: le dieci funzioni che
+costano di più, il loro tempo e con quelle che chiamano (profile()).
 
 2. Nell'SDK F5 prova il gioco: tornando, il dev kit (F1 F1) mostra i
 numeri della prova: fps, ms medi e massimi, fotogrammi oltre 16,7 ms, RAM

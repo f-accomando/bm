@@ -303,7 +303,8 @@ reads the keyboard key by key and the controllers button by button:
 | `time()` | seconds since the cartridge started (with decimals) |
 | `stat(n)` | 0 KiB used by Lua, 1 ms of the last frame (`_update` + `_draw`, with the GPU's 3D), 2 fps, 3 frame number, 4 3D triangles, 5 3D pixels (0 with the GPU), 6 ms spent in 3D drawing (since `zclear`; with the GPU the ARM's part), 7 3D vertices transformed, 8 ms since the start of this frame (to measure the phases), 9 `1` if the GPU draws the 3D, 10 Lua instructions of the last frame (`_update` + `_draw`, in thousands); the **dev kit** (2026-10-04): 11 tokens of the cartridge's code (`code_tokens`), 12 the most KiB of Lua of this run, 13 KiB of the cartridge's data in memory (sprite sheet, map, models and skeletons, sound bank, the 3D z-buffer), 14 the Lua instructions of the busiest frame of this run; 15 how many `_update` ran before this `_draw` (1; more with `frameskip`) |
 | `frameskip([n])` | the game's time at 60 `_update` a second whatever `_draw` costs (2026-10-05): when a frame takes longer than 1/60 s, up to `n` `_update` run before the next `_draw` (the frames in between are not drawn), so a game that moves 1/60 s per `_update` does not slow down; past `n` the time is let go (the game slows rather than never drawing). `1` (the default) is one `_update` a frame, as before; at most 8. Returns the old value. A button pressed counts once in `btnp()` (and `mousep()`, the wheel) however many `_update` see it; `btn()` stays held. Overbit uses `frameskip(4)` (its benchmark `1`) |
-| `devkit([mode])` | the dev kit's overlay: `0` off, `1` simple, `2` detailed; with a mode it shows that page (a game's own key for it, e.g. Select on a pad: F11 is the keyboard's), in this run only: every game starts as Settings says. Returns the old mode |
+| `devkit([mode])` | the dev kit's overlay: `0` off, `1` simple, `2` detailed, `3` functions; with a mode it shows that page (a game's own key for it, e.g. Select on a pad: F11 is the keyboard's), in this run only: every game starts as Settings says. Returns the old mode |
+| `profile([on])` | the profiler of functions (R14): the functions that cost the most in the last whole second (60 frames), the costliest first, up to 32: `{name, where, c, self, total, calls}` (`where` `"main.lua:120"` or `"[C]"`; `c` true for the console's functions and Lua's written in C; `self` and `total` ms a frame, its own time and with what it calls; `calls` the calls a frame, C ones only), and the frames measured (0 during the first second). `profile(true)` turns it on for the run even without the dev kit's page, `profile(false)` turns it off (and forgets). E.g. `for _, f in ipairs(profile()) do log(f.name, f.self) end` |
 | `devinfo(line, ...)` | up to 4 lines of the game on the dev kit's detailed page (its quality, its actors...), 18 characters each; `devinfo()` none. Call it again when they change (Overbit every frame while the detailed page is shown) |
 | `code_tokens(text)` | the **tokens** of a piece of Lua code, counted as `stat(11)`, the overlay and the SDK's dev kit do (`src/bm/tokens.c`): each name, keyword, number, string and operator is one; comments, spaces, `,` `.` `:` `;` `::`, closing brackets (`)` `]` `}`), `end` and `local` do not count, nor the minus sign in front of a number (`-1` is one token). Information, not a limit: bm puts no ceiling on tokens (nor does the `.b16`, [B16.md](B16.md) §2.4) |
 | `log(...)` | writes in the kernel's log (serial line and console), not on the game's screen |
@@ -1120,10 +1121,10 @@ consoles, a player leaving; on the LAN and through the relay.
 - 60 fps = **16.7 ms** per frame for `_update` + `_draw` + the copy to the screen. At the
   top left of the demo, `stat(1)` shows how much the cartridge uses.
 - The **dev kit**: the performance overlay over any game, at the top right. It is turned on
-  from Settings > Screen and sound > "Performance overlay" (Off, Simple, Detailed: it stays
-  saved), with F11 on the keyboard (a system key, also in the tools; it was F3), with `p`
-  from the serial line or with `devkit(mode)` from the game: once the simple page, again
-  the detailed one, again off. F11, `p` and `devkit()` last one run: every game starts (and
+  from Settings > Screen and sound > "Performance overlay" (Off, Simple, Detailed,
+  Functions: it stays saved), with F11 on the keyboard (a system key, also in the tools; it
+  was F3), with `p` from the serial line or with `devkit(mode)` from the game: once the
+  simple page, again the detailed one, again the functions page, again off. F11, `p` and `devkit()` last one run: every game starts (and
   resumes) as Settings says. The simple page:
 
       60fps 6.1ms ^7.5      frames a second; ms of _update + _draw: average and,
@@ -1145,8 +1146,23 @@ consoles, a player leaving; on the LAN and through the relay.
       bm3d 2.1 GPU          the 3D driver (ARM, GPU, GPU+AA)
       quality HIGH          the game's lines (devinfo)
 
+  The **functions** page (R14) shows, under the simple one, the ten functions that cost
+  the most, in ms a frame, the average of the last second (60 frames):
+
+      function        self   all
+      draw_scene      2.28  6.43    a Lua function: its own time and with what it calls
+      map             0.94  0.94    in light blue the console's functions (spr, map, the 3D...)
+      _draw           0.03  7.70    the callbacks have their names
+
+  `self` is the function's own time, `all` the time with the functions it calls: a
+  function with a big `all` and a small `self` spends its time in the others. The console's
+  functions are measured exactly, the Lua ones in pieces of 1000 instructions (enough to see
+  where the time goes). The profiler runs only with this page or `profile(true)`; off it
+  costs nothing. From the code: `profile()` (below).
+
   On the big screens it is bigger (x2 from 1280 wide, x3 at 1920). From the code:
-  `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`, `devkit()`. The
+  `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`, `devkit()`,
+  `profile()`. The
   limit is 20 million instructions per call. The
   **SDK's dev kit** (F1 twice) has the same numbers for the project: tokens, the biggest
   functions, the data's memory, the file against the 8 MiB of a `.b16` and the numbers of

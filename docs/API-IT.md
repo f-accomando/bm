@@ -305,7 +305,8 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | `time()` | secondi dall'avvio della cartuccia (con decimali) |
 | `stat(n)` | 0 KiB usati da Lua, 1 ms dell'ultimo fotogramma (`_update` + `_draw`, con il 3D della GPU), 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D (0 con la GPU), 6 ms passati nel disegno 3D (da `zclear`; con la GPU la parte dell'ARM), 7 vertici 3D trasformati, 8 ms dall'inizio di questo fotogramma (per misurare le fasi), 9 `1` se il 3D lo disegna la GPU, 10 istruzioni Lua dell'ultimo fotogramma (`_update` + `_draw`, alle migliaia); il **dev kit** (2026-10-04): 11 token del codice della cartuccia (`code_tokens`), 12 i KiB di Lua più alti di questa partita, 13 KiB dei dati della cartuccia in memoria (sprite sheet, mappa, modelli e scheletri, banco di suoni, z-buffer del 3D), 14 le istruzioni Lua del fotogramma più pesante di questa partita; 15 quanti `_update` sono girati prima di questo `_draw` (1; di più con `frameskip`) |
 | `frameskip([n])` | il tempo del gioco a 60 `_update` al secondo qualunque sia il costo di `_draw` (2026-10-05): quando un fotogramma dura più di 1/60 s, prima del `_draw` dopo girano fino a `n` `_update` (i fotogrammi in mezzo non si disegnano), così un gioco che avanza di 1/60 s a ogni `_update` non rallenta; oltre `n` il tempo si lascia andare (il gioco rallenta piuttosto che non disegnare mai). `1` (il default) è un `_update` per fotogramma, come prima; al massimo 8. Restituisce il valore di prima. Un tasto premuto conta una volta in `btnp()` (e `mousep()`, la rotella) per quanti `_update` lo vedano; `btn()` resta tenuto. Overbit usa `frameskip(4)` (il suo benchmark `1`) |
-| `devkit([modo])` | l'overlay del dev kit: `0` spento, `1` semplice, `2` dettagliato; con un modo mostra quella pagina (un tasto del gioco per lui, per esempio Select sul pad: F11 è della tastiera), solo in questa partita: ogni gioco parte come dice Settings. Restituisce il modo di prima |
+| `devkit([modo])` | l'overlay del dev kit: `0` spento, `1` semplice, `2` dettagliato, `3` funzioni; con un modo mostra quella pagina (un tasto del gioco per lui, per esempio Select sul pad: F11 è della tastiera), solo in questa partita: ogni gioco parte come dice Settings. Restituisce il modo di prima |
+| `profile([acceso])` | il profiler delle funzioni (R14): le funzioni che costano di più nell'ultimo secondo intero (60 fotogrammi), la più cara per prima, fino a 32: `{name, where, c, self, total, calls}` (`where` `"main.lua:120"` o `"[C]"`; `c` vero per le funzioni della console e di Lua scritte in C; `self` e `total` ms per fotogramma, il suo tempo e con quelle che chiama; `calls` le chiamate per fotogramma, solo per quelle in C), e i fotogrammi misurati (0 durante il primo secondo). `profile(true)` lo accende per la partita anche senza la pagina del dev kit, `profile(false)` lo spegne (e dimentica). Es. `for _, f in ipairs(profile()) do log(f.name, f.self) end` |
 | `devinfo(riga, ...)` | fino a 4 righe del gioco nella pagina dettagliata del dev kit (la sua qualità, i suoi attori...), di 18 caratteri; `devinfo()` nessuna. Va chiamata di nuovo quando cambiano (Overbit a ogni fotogramma mentre la pagina dettagliata è aperta) |
 | `code_tokens(testo)` | i **token** di un pezzo di codice Lua, contati come `stat(11)`, l'overlay e il dev kit dell'SDK (`src/bm/tokens.c`): ogni nome, parola chiave, numero, stringa e operatore vale uno; commenti, spazi, `,` `.` `:` `;` `::`, le parentesi che si chiudono (`)` `]` `}`), `end` e `local` non contano, e nemmeno il segno meno davanti a un numero (`-1` è un token). Un'informazione, non un limite: bm non mette un tetto ai token (e nemmeno il `.b16`, [B16.md](B16.md) §2.4) |
 | `log(...)` | scrive nel log del kernel (seriale e console), non sullo schermo del gioco |
@@ -1130,10 +1131,11 @@ console, un giocatore che esce; sulla LAN e attraverso il relay.
 - 60 fps = **16,7 ms** per fotogramma per `_update` + `_draw` + la copia sullo schermo.
   In alto a sinistra nella demo, `stat(1)` mostra quanto ne usa la cartuccia.
 - Il **dev kit**: l'overlay delle prestazioni sopra qualsiasi gioco, in alto a destra.
-  Si accende da Settings > Screen and sound > "Performance overlay" (Off, Simple, Detailed:
-  resta salvato), con F11 sulla tastiera (tasto di sistema, anche negli strumenti; era F3),
-  con `p` dalla seriale o con `devkit(modo)` dal gioco: una volta la pagina semplice, di
-  nuovo quella dettagliata, di nuovo spento. F11, `p` e `devkit()` valgono per la partita:
+  Si accende da Settings > Screen and sound > "Performance overlay" (Off, Simple, Detailed,
+  Functions: resta salvato), con F11 sulla tastiera (tasto di sistema, anche negli
+  strumenti; era F3), con `p` dalla seriale o con `devkit(modo)` dal gioco: una volta la
+  pagina semplice, di nuovo quella dettagliata, di nuovo quella delle funzioni, di nuovo
+  spento. F11, `p` e `devkit()` valgono per la partita:
   ogni gioco parte (e riprende) come dice Settings. La pagina semplice:
 
       60fps 6.1ms ^7.5      fotogrammi al secondo; ms di _update + _draw: media e,
@@ -1155,8 +1157,23 @@ console, un giocatore che esce; sulla LAN e attraverso il relay.
       bm3d 2.1 GPU          il driver 3D (ARM, GPU, GPU+AA)
       quality HIGH          le righe del gioco (devinfo)
 
+  La pagina delle **funzioni** (R14) mostra sotto quella semplice le dieci funzioni che
+  costano di più, in ms per fotogramma, la media dell'ultimo secondo (60 fotogrammi):
+
+      function        self   all
+      draw_scene      2.28  6.43    una funzione Lua: il suo tempo e con quelle che chiama
+      map             0.94  0.94    in azzurro le funzioni della console (spr, map, il 3D...)
+      _draw           0.03  7.70    le callback hanno il loro nome
+
+  `self` è il tempo della funzione stessa, `all` quello con le funzioni che chiama: una
+  funzione con `all` grande e `self` piccolo passa il tempo nelle altre. Le funzioni della
+  console sono misurate esattamente, quelle Lua a pezzi di 1000 istruzioni (abbastanza
+  per vedere dove va il tempo). Il profiler gira solo con questa pagina o `profile(true)`;
+  spento non costa niente. Dal codice: `profile()` (sotto).
+
   Sugli schermi grandi è più grande (×2 da 1280 di larghezza, ×3 a 1920). Dal codice:
-  `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`, `devkit()`. Il
+  `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`, `devkit()`,
+  `profile()`. Il
   limite è di 20 milioni di istruzioni per chiamata. Il **dev kit dell'SDK** (F1 due volte) ha gli stessi
   numeri per il progetto: token, le funzioni più grandi, la memoria dei dati, il file
   contro gli 8 MiB di un `.b16` e i numeri dell'ultima prova (F5). A fine partita la

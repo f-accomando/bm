@@ -88,13 +88,37 @@ ask: righe mie nel dev kit | aggiungere informazioni al dev kit | devinfo
 see: guide.devkit, stat, frameskip
 text:
 devkit() dà il modo dell'overlay: 0 spento, 1 semplice, 2 dettagliato
-(ogni fase del fotogramma, la GPU, i triangoli); devkit(modo) lo cambia,
-per esempio con Select sul pad (F11 è della tastiera). devinfo(riga, ...)
-mette fino a 4 righe del gioco nella pagina dettagliata.
+(ogni fase del fotogramma, la GPU, i triangoli), 3 funzioni (le dieci che
+costano di più); devkit(modo) lo cambia, per esempio con Select sul pad
+(F11 è della tastiera). devinfo(riga, ...) mette fino a 4 righe del gioco
+nella pagina dettagliata.
 code:
 local enemies = {}
-if btnp(9) then devkit((devkit() + 1) % 3) end   -- Select
+if btnp(9) then devkit((devkit() + 1) % 4) end   -- Select
 if devkit() == 2 then devinfo("nemici " .. #enemies) end
+
+== profile
+kind: api
+name: profile
+title: profile() - le funzioni che costano di più
+ask: quale funzione è lenta | dove va il tempo del fotogramma | profiler
+ask: le funzioni più pesanti del gioco | cosa rallenta il gioco | profiling per funzione
+ask: which function is slow | where does the frame time go | function profiler
+see: devkit, guide.devkit, stat
+text:
+Il profiler delle funzioni: F11 tre volte (la pagina delle funzioni del
+dev kit) o profile(true) dal gioco. profile() dà le funzioni dell'ultimo
+secondo, la più cara per prima: name, where ("main.lua:120" o "[C]"),
+self (ms per fotogramma, il suo tempo), total (con quelle che chiama),
+calls (solo per le funzioni in C). profile(false) lo spegne.
+code:
+function _init() profile(true) end
+function _draw()
+  for i, f in ipairs(profile()) do
+    if i > 5 then break end
+    print(f.name .. " " .. f.self, 4, i * 8, 7)
+  end
+end
 
 == code_tokens
 kind: api

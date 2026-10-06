@@ -45,6 +45,7 @@
 #include "require.h"
 #include "meshcap.h"
 #include "tokens.h"
+#include "profile.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -111,6 +112,7 @@ static struct {
     uint32_t slow_frames;       /* frames over 16.7 ms (_update + _draw) */
     int perf_key;               /* 'p' on the serial line: the dev kit's overlay on or off */
     int f11_held;
+    int prof_want;              /* profile(true): the profiler of functions on without its page */
     int keyhelp;                /* keyhelp(): the registry's reference of the cartridge's keys, or 0 */
     int help_page;              /* the page of the keys shown while F12 is held */
     int esc;
@@ -3550,6 +3552,7 @@ static int l_timeslice(lua_State *L)
 
 /* the dev kit's overlay (defined with it) */
 static int l_devkit(lua_State *L);
+static int l_profile(lua_State *L);
 static int l_devinfo(lua_State *L);
 
 /* cartridge files, for the editor (defined after the asset loader) */
@@ -3729,7 +3732,7 @@ static const luaL_Reg api[] = {
     { "prompt", l_prompt }, { "lastinput", l_lastinput },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
-    { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit },
+    { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "profile", l_profile },
     { "devinfo", l_devinfo }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
     { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
@@ -3775,6 +3778,8 @@ static void hook(lua_State *L, lua_Debug *ar)
 {
     if (bm_lua_sample)
         bm_lua_sample(L, ar);
+    if (prof_enabled())
+        prof_sample(L);                 /* the dev kit's functions page, profile() */
     ++rt.hook_count;
     if (loading_active())
         loading_tick();                 /* _init: the loading screen goes on */
@@ -3879,7 +3884,9 @@ static int call(lua_State *L, const char *name)
     }
     rt.hook_count = 0;
     rt.slice_at = rt.slice_len;
+    prof_begin(name);
     int r = lua_pcall(L, 0, 0, -2);
+    prof_end();
     rt.frame_instr_k += rt.hook_count;
     if (r != LUA_OK) {
         lua_remove(L, -2);
@@ -5954,7 +5961,8 @@ static int vol_start;                   /* the volume when the cartridge started
 
 /* The performance overlay, over any game (Settings > Performance overlay,
  * F11 on a keyboard, a system key, 'p' on the serial line, devkit() from the
- * game): F11 once the simple page, again the detailed one, again off.
+ * game): F11 once the simple page, again the detailed one, again the
+ * functions (R14: profile.c, the costliest of the last second), again off.
  * Simple: its frames a second, the CPU time of _update + _draw and the Lua
  * instructions of a frame (the mean and, after ^, the most of the last
  * second), and the time of the last 64 frames against the 16.7 ms of a frame
@@ -5975,9 +5983,17 @@ static int vol_start;                   /* the volume when the cartridge started
  *   3D     2.5ms
  *   gpu 1.9ms 1 job
  *   tri 3620 vtx 5699
- *   bm3d 2.1 GPU       */
+ *   bm3d 2.1 GPU
+ * Functions, below the simple page, wider (26 columns): the ten costliest
+ * functions of the last second, ms a frame of their own and with what they
+ * call (Lua functions in white, the console's and Lua's C ones in blue):
+ *   function        self   all
+ *   draw_map        0.42  2.10
+ *   map             1.68  1.68  */
 #define PERF_N 64
-static int perf_on;                     /* 0 off, 1 simple, 2 detailed: now */
+#define PERF_PAGES 4                    /* off, simple, detailed, functions */
+#define PERF_FUNCS 10
+static int perf_on;                     /* 0 off, 1 simple, 2 detailed, 3 functions: now */
 static int perf_user;                   /* the same in Settings (config perf): each run starts with it */
 static struct { uint16_t us10[PERF_N], k[PERF_N]; uint32_t at; } perf;
 static gpu3d_stats_t perf_gpu;          /* the GPU's totals at the last frame (the detailed page) */
@@ -6007,7 +6023,7 @@ static void kib_text(char *out, size_t n, uint32_t kb)
         ksnprintf(out, n, "%luM", (unsigned long)(kb / 1024));
 }
 
-static int perf_level(int level) { return level < 0 ? 0 : level > 2 ? 2 : level; }
+static int perf_level(int level) { return level < 0 ? 0 : level >= PERF_PAGES ? PERF_PAGES - 1 : level; }
 
 /* Settings' choice: every game and tool starts (or resumes) with it. F11,
  * 'p' and devkit() change the overlay of the run only: one game that turned
@@ -6015,9 +6031,9 @@ static int perf_level(int level) { return level < 0 ? 0 : level > 2 ? 2 : level;
 void bm_set_perf(int level) { perf_on = perf_user = perf_level(level); }
 int bm_perf(void) { return perf_user; }
 
-/* devkit([mode]) -> the dev kit's overlay: 0 off, 1 simple, 2 detailed; a
- * mode shows that page in this run (a game's own key for it, e.g. Select on
- * a pad: F11 is the keyboard's) */
+/* devkit([mode]) -> the dev kit's overlay: 0 off, 1 simple, 2 detailed, 3
+ * functions; a mode shows that page in this run (a game's own key for it,
+ * e.g. Select on a pad: F11 is the keyboard's) */
 static int l_devkit(lua_State *L)
 {
     const int old = perf_on;
@@ -6041,6 +6057,52 @@ static int l_devinfo(lua_State *L)
         lua_pop(L, 1);
     }
     return 0;
+}
+
+/* The profiler of functions on while its page is shown or the game asked
+ * (profile(true)); from the frame loop */
+static void prof_update(void)
+{
+    const int want = perf_on == 3 || rt.prof_want;
+    if (want != prof_enabled())
+        prof_enable(want, timer_ticks);
+}
+
+/* profile([on]) -> the functions that cost most in the last whole second
+ * (60 frames), the costliest first: {name, where ("main.lua:120", "[C]"),
+ * c (a C function), self and total (ms a frame: its own time, and with the
+ * functions it calls), calls (a frame, C functions only)}, and the frames
+ * measured (0 while the first second goes by). true starts the profiler
+ * of functions for this run (also on while the dev kit shows its
+ * functions page), false stops it. */
+static int l_profile(lua_State *L)
+{
+    if (lua_isboolean(L, 1)) {
+        rt.prof_want = lua_toboolean(L, 1);
+        prof_update();
+    }
+    prof_row_t r[32];
+    uint32_t frames = 0;
+    const int n = prof_rows(r, 32, &frames);
+    lua_createtable(L, n, 0);
+    for (int i = 0; i < n; i++) {
+        lua_createtable(L, 0, 6);
+        lua_pushstring(L, r[i].name);
+        lua_setfield(L, -2, "name");
+        lua_pushstring(L, r[i].where);
+        lua_setfield(L, -2, "where");
+        lua_pushboolean(L, r[i].c);
+        lua_setfield(L, -2, "c");
+        lua_pushnumber(L, r[i].self_us / 1000.0);
+        lua_setfield(L, -2, "self");
+        lua_pushnumber(L, r[i].total_us / 1000.0);
+        lua_setfield(L, -2, "total");
+        lua_pushinteger(L, (lua_Integer)r[i].calls);
+        lua_setfield(L, -2, "calls");
+        lua_rawseti(L, -2, i + 1);
+    }
+    lua_pushinteger(L, (lua_Integer)frames);
+    return 2;
 }
 
 /* ---------------------------------------------------------------- F12: the keys */
@@ -6578,11 +6640,46 @@ static int perf_detail(char lines[][24])
     return n;
 }
 
+/* "0.42", "12.5": ms in the functions page's 5 columns */
+static void ms_cols(char *out, size_t n, uint32_t us)
+{
+    if (us < 10000)
+        ksnprintf(out, n, "%lu.%02lu", (unsigned long)(us / 1000), (unsigned long)(us / 10 % 100));
+    else
+        ksnprintf(out, n, "%lu.%lu", (unsigned long)(us / 1000), (unsigned long)(us / 100 % 10));
+}
+
+/* the functions page: under the simple one, from the row y (on the grid) */
+static void perf_funcs(g16_t *g, int x, int y, int z)
+{
+    prof_row_t r[PERF_FUNCS];
+    uint32_t frames = 0;
+    const int n = prof_rows(r, PERF_FUNCS, &frames);
+    char line[40], a[12], b[12];
+    ksnprintf(line, sizeof line, "%-14s%6s%6s", "function", "self", "all");
+    g16_text_scaled(g, x, y, line, g16_rgb(150, 150, 170), z);
+    if (!frames) {
+        g16_text_scaled(g, x, y + 16 * z, "measuring...", g16_rgb(232, 232, 216), z);
+        return;
+    }
+    for (int i = 0; i < n; i++) {
+        ms_cols(a, sizeof a, r[i].self_us);
+        ms_cols(b, sizeof b, r[i].total_us);
+        char name[15];
+        ksnprintf(name, sizeof name, "%s", r[i].name);  /* 14 columns (no %.14s here) */
+        ksnprintf(line, sizeof line, "%-14s%6s%6s", name, a, b);
+        g16_text_scaled(g, x, y + 16 * (i + 1) * z, line,
+                        r[i].c ? g16_rgb(120, 200, 232) : g16_rgb(232, 232, 216), z);
+    }
+}
+
 static void perf_frame(void)
 {
     uint32_t i = perf.at++ % PERF_N;
     perf.us10[i] = (uint16_t)(rt.last_cpu_us / 10 > 65535 ? 65535 : rt.last_cpu_us / 10);
     perf.k[i] = (uint16_t)(rt.last_instr_k > 65535 ? 65535 : rt.last_instr_k);
+    prof_update();
+    prof_frame();
     if (!perf_on)
         return;
     uint32_t n = perf.at < 60 ? perf.at : 60, sum = 0, most = 0, ksum = 0, kmost = 0;
@@ -6604,7 +6701,15 @@ static void perf_frame(void)
     /* x2 from 1280 wide, x3 at 1920: the same size on a TV as at 640 */
     const int z = g->w >= 1280 ? g->w / 640 : 1;
     const int x = g->w - 144 * z;                 /* the text on the 8 x 16 grid (read by the tests) */
-    g16_rectfill(g, x - 4 * z, 0, 148 * z, (nmore ? 98 + 16 * nmore : 82) * z, g16_rgb(8, 8, 16));
+    if (perf_on == 3) {                           /* the functions: 26 columns, a header and 10 rows */
+        int fx = g->w - 208 * z;
+        if (fx < 4 * z)
+            fx = 4 * z;
+        g16_rectfill(g, fx - 4 * z, 0, g->w - fx + 4 * z, (98 + 16 * (PERF_FUNCS + 1)) * z, g16_rgb(8, 8, 16));
+        perf_funcs(g, fx, 96 * z, z);
+    } else {
+        g16_rectfill(g, x - 4 * z, 0, 148 * z, (nmore ? 98 + 16 * nmore : 82) * z, g16_rgb(8, 8, 16));
+    }
     char line[32], now[12], top[12];
     ksnprintf(line, sizeof line, "%lufps %lu.%lums ^%lu.%lu", rt.fps, mean / 100, mean / 10 % 10,
               most / 100, most / 10 % 10);
@@ -6711,6 +6816,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     uint32_t played_at = start;
     uint32_t lag = 0, lag_at = start;       /* frameskip(): the time not yet run by an _update */
     int fresh = 0;                          /* the keys read and not yet seen by an _update */
+    prof_enable(0, NULL);                   /* the functions page starts from nothing */
     while (!error) {
         uint32_t now_us = timer_ticks();
         played_us += now_us - played_at;
@@ -6728,7 +6834,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
          * key: also while typing) */
         int f11 = hid_usage_held(0x44);
         if ((f11 && !rt.f11_held) || rt.perf_key)
-            perf_on = (perf_on + 1) % 3;    /* simple, detailed, off */
+            perf_on = (perf_on + 1) % PERF_PAGES;   /* simple, detailed, functions, off */
         rt.f11_held = f11;
         rt.perf_key = 0;
         /* frameskip(n): the 1/60 s that went by since the last frame, each
@@ -6843,6 +6949,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
 
     if (audio_volume() != vol_start)
         config_save();                      /* the volume chosen in the game stays */
+    prof_enable(0, NULL);                   /* not over the menu nor the next game */
     st->frames = (uint32_t)rt.frame;
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);
@@ -6918,6 +7025,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     memset(st, 0, sizeof *st);
     memset(&rt, 0, sizeof rt);
     n_made = 0;
+    rt.prof_want = 0;
     free(proj_cover);                  /* no project open yet (cart_load) */
     proj_cover = NULL;
     extras_free();

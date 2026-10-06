@@ -719,7 +719,9 @@ con `BMHOST_NET_ID=0` e `1` sono due console (`make test-bmnet`).
   in C. Evitare di creare tabelle nuove a ogni fotogramma nei cicli caldi; aggiornare
   solo i nemici vicini alla camera; disegnare solo la parte visibile della mappa. F11 due
   volte mostra la pagina dettagliata del dev kit: quanto sono durati `_update`, `_draw` e
-  il 3D nell'ultimo fotogramma.
+  il 3D nell'ultimo fotogramma. F11 tre volte, la pagina delle **funzioni**: le dieci che
+  costano di più (ms per fotogramma: il loro tempo e con quelle che chiamano); si
+  comincia a ottimizzare dalla prima.
 - **Fotogrammi pesanti:** un gioco che avanza di 1/60 s a ogni `_update` rallenta quando
   un fotogramma costa più di 16,7 ms. `frameskip(4)` in `_init` gli tiene il tempo: fino a
   4 `_update` prima di ogni `_draw`, i fotogrammi in mezzo non disegnati (un gioco 3D

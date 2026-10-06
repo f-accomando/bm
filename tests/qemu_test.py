@@ -1246,12 +1246,14 @@ def test_home_ui(b, opts):
         screen(["Settings > Screen and sound", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
                 "3D anti-aliasing", "Off",      # QEMU has no V3D; no anti-aliasing unless asked
                 "3D vertices"])                 # nor the vertex shader (M36)
-        keys("sssss")                           # the dev kit's overlay: simple, detailed, off again
-        screen(["< Off >", "fps, ms, Lua instructions"])
+        keys("sssss")                           # the dev kit's overlay: simple, detailed, functions, off again
+        screen(["< Off >", "fps, ms, Lua, costliest functions (F11 too)"])
         keys("\r")
         screen(["< Simple >", "performance overlay: Simple"])
         keys("\r")
         screen(["< Detailed >", "performance overlay: Detailed"])
+        keys("\r")
+        screen(["< Functions >", "performance overlay: Function"])   # (the note ends at the hints)
         keys("\r")
         screen(["< Off >", "performance overlay: Off"])
         keys("s")                               # the volume: left/right, saved
@@ -4245,7 +4247,7 @@ def test_yharnam(b, opts):
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-controls.png"))
         # the dev kit: the performance overlay ('p' from the serial line, F11 on a
-        # keyboard): simple, detailed (the frame's phases), off
+        # keyboard): simple, detailed (the frame's phases), functions, off
         q.send("p")
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
@@ -4259,6 +4261,16 @@ def test_yharnam(b, opts):
         assert any("update" in l and "ms" in l for l in text) and any("draw" in l for l in text), "\n".join(text)
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-perf-detailed.png"))
+        q.send("p")                             # functions (R14): its map() is always among them
+        for _ in range(12):
+            time.sleep(0.5)
+            text = screen_text(box(q.screendump()))
+            if any(re.search(r"\bmap +\d+\.\d+ +\d+\.\d+", l) for l in text):
+                break
+        assert any("function" in l and "self" in l for l in text), "\n".join(text)
+        assert any(re.search(r"\bmap +\d+\.\d+ +\d+\.\d+", l) for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-perf-functions.png"))
         q.send("p")
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
@@ -5469,7 +5481,8 @@ def test_square_lights(b, opts):
     """A 256x256 cartridge: shown in the middle of a 480x270 screen, black
     round it; the light by levels (fades, dark_begin, glow, dark_end): the
     lamp's middle as drawn, its edge dark; L1 from the serial line ('u');
-    the dev kit's performance overlay ('p' from the serial line, F3)"""
+    the dev kit's performance overlay ('p' from the serial line, F11): simple,
+    detailed, functions, off"""
     BX, BY = 112, 7                             # the 256x256 box in the 480x270 screen
 
     def box(img):
@@ -5512,6 +5525,16 @@ def test_square_lights(b, opts):
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
         assert any("update" in l for l in text) and any("draw" in l for l in text), "\n".join(text)
+        q.send("p")                             # functions (R14): the costliest of the last second
+        for _ in range(12):
+            time.sleep(0.5)
+            text = screen_text(box(q.screendump()))
+            if any("_draw" in l for l in text):
+                break
+        assert any("function" in l and "self" in l and "all" in l for l in text), "\n".join(text)
+        assert any("_draw" in l for l in text) and any("glow" in l for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "square-functions.png"))
         q.send("p")                             # off
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))

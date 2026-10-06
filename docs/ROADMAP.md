@@ -3349,8 +3349,17 @@ tastiera).
 ### Strumenti di sviluppo
 - **R13 — Debugger Lua in bm Code.** Punti di interruzione, passo passo, variabili
   locali, con l'hook di debug di Lua.
-- **R14 — Profiler per funzione.** L'overlay delle prestazioni dà il totale del
+- ✅ **R14 — Profiler per funzione.** L'overlay delle prestazioni dà il totale del
   fotogramma; questo le 10 funzioni che costano di più.
+  **Fatto** (2026-10-06, branch `claude/dev-tools`): la terza pagina del dev kit (F11 tre
+  volte, *Performance overlay* "Functions", `devkit(3)`): le dieci funzioni più care
+  dell'ultimo secondo, ms per fotogramma, il loro tempo (`self`) e con quelle che chiamano
+  (`all`); in azzurro le funzioni in C (`spr`, `map`, il 3D). `src/bm/profile.c`: il tempo
+  tra due eventi va alla funzione che gira e a tutte quelle sulla pila (CallInfo di Lua,
+  la chiave è il Proto); eventi sono l'hook di conteggio (ogni 1000 istruzioni) e ogni
+  chiamata di una funzione C (`luai_cprof` in `precallC` di `ldo.c`: spento è un test).
+  `profile([acceso])` dà le righe al gioco. Prove: `make test-profile` (bmhost, il gioco
+  controlla da sé), QEMU `test_square_lights`, `test_yharnam`, `test_home_ui`.
 - **R15 — Ricarica dal PC.** `bm_net.py --watch`: a ogni salvataggio di `main.lua` sul PC
   la cartuccia torna sulla console e riparte.
 - **R16 — Modelli di gioco.** "New game" parte da uno scheletro vuoto (`TEMPLATE` in bm

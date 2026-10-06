@@ -480,6 +480,15 @@ test-gameapi: $(BUILD)/host/bmhost-bin $(BUILD)/gameapi-test.bm tests/gameapi/in
 	    | tee $(BUILD)/gameapi-test.log | grep "^gameapi"
 	grep -q "^gameapi: \([0-9]*\)/\1 checks passed" $(BUILD)/gameapi-test.log
 
+# The dev kit's profiler of functions (R14, src/bm/profile.c): profile()
+# read by the game itself, on the PC's real time (--clock-scale 1)
+$(BUILD)/profile-test.bm: tests/profile/cart.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "profile test" --author tests
+
+test-profile: $(BUILD)/host/bmhost-bin $(BUILD)/profile-test.bm
+	$< $(BUILD)/profile-test.bm --seconds 10 --clock-scale 1 2>&1 | tee $(BUILD)/profile-test.log | grep "^profile"
+	grep -q "^profile: \([0-9]*\)/\1 checks passed" $(BUILD)/profile-test.log
+
 # PS in a game played online (online(), 2026-10-04): the question to the
 # player leaving over the game that goes on, back and Esc stay, PS again
 # leaves through _leave(); the screen of the question in build/online/
@@ -539,7 +548,8 @@ BMHOST_RT := src/bm/runtime.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c \
              src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c src/audio/audio.c src/audio/synth.c \
              src/audio/player.c src/ai/net.c src/ai/nn.c src/bm/decimate.c src/bm/cutout.c \
-             src/bm/glb.c src/bm/json.c src/bm/png.c src/bm/jpeg.c src/bm/loading.c src/bm/loading_logo.c
+             src/bm/glb.c src/bm/json.c src/bm/png.c src/bm/jpeg.c src/bm/loading.c src/bm/loading_logo.c \
+             src/bm/profile.c
 BMHOST_LUA := $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS))
 BMHOST_OBJS := $(patsubst %,$(BUILD)/host/bmhost/%.o,$(BMHOST_RT) $(BMHOST_LUA))
 $(BUILD)/host/bmhost/%.c.o: %.c
@@ -573,7 +583,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-keymap test-gameapi test-online test-bmnet test-loading test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-keymap test-gameapi test-profile test-online test-bmnet test-loading test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
@@ -761,7 +771,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-keymap test-gameapi test-online test-bmnet test-loading \
+      test-catalog test-github test-lan test-keymap test-gameapi test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-overbit $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
