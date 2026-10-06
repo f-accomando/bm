@@ -302,6 +302,21 @@ $(BUILD)/carts/overbit.bm: $(BUILD)/overbit/main.lua $(BUILD)/overbit/models.bm 
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json \
 	    $(if $(wildcard carts/overbit/cover.png),--cover carts/overbit/cover.png)
 
+# the optimized release, the .b16 of the Market (the same container, docs/B16.md
+# §0; under its 8 MiB): the script without comment and blank lines. The game
+# sets its own screen, quality and renderer (85_quality): 1080p on the GPU,
+# 640x360 where the ARM draws, saved as the default; BENCHMARK recalibrates.
+$(BUILD)/overbit/main.min.lua: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm
+	$(PYTHON) carts/overbit/build.py $@ --minify --extra $(BUILD)/overbit/21_map.lua
+
+$(BUILD)/carts/overbit.b16: $(BUILD)/overbit/main.min.lua $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json \
+                            scripts/mkbm.py scripts/bmaudio.py $(wildcard carts/overbit/cover.png)
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_overbit)" --author bm --res $(OVERBIT_RES) \
+	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json \
+	    $(if $(wildcard carts/overbit/cover.png),--cover carts/overbit/cover.png)
+	@test `wc -c < $@` -le 8388608 || { echo "overbit.b16 is over a .b16's 8 MiB"; exit 1; }
+
 # variants that start in a mode: the reel (for docs/img) and the benchmark
 $(BUILD)/overbit/%.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/$*.lua --start $* --extra $(BUILD)/overbit/21_map.lua
@@ -332,8 +347,16 @@ $(BUILD)/overbit/match-fast.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/o
 # the benchmark in short (tests): one quality, short phases, a small ring
 $(BUILD)/overbit/bench-fast.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/bench-fast.lua --start bench --extra $(BUILD)/overbit/21_map.lua \
-	    --define 'OVERBIT_BENCH_FAST=true'
+	    --define 'OVERBIT_BENCH_FAST=true' \
+	    --define 'OVERBIT_BENCH_FLAGS="res:640/gpu:arm+gpu+aa+gq+vs1+vs+q/q:2/ring:1/save:0"'
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/bench-fast.lua --title "Overbit bench" --author bm \
+	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+
+# the calibration (tests): from the heaviest step down, the first that holds becomes the default
+$(BUILD)/overbit/bench-cal.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
+	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/bench-cal.lua --start bench --extra $(BUILD)/overbit/21_map.lua \
+	    --define 'OVERBIT_BENCH_FLAGS="auto"'
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/bench-cal.lua --title "Overbit" --author bm \
 	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
 # two consoles on the network (tests): on the LAN, and through a relay on this PC
@@ -348,7 +371,7 @@ $(BUILD)/overbit/net-relay.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/ov
 	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
 test-overbit: $(BUILD)/host/bmhost-bin $(BUILD)/host/bmhost-gpu $(BUILD)/carts/overbit.bm $(BUILD)/overbit/reel.bm \
-              $(BUILD)/overbit/bench.bm $(BUILD)/overbit/bench-fast.bm \
+              $(BUILD)/overbit/bench.bm $(BUILD)/overbit/bench-fast.bm $(BUILD)/overbit/bench-cal.bm \
               $(BUILD)/overbit/match-fast.bm $(BUILD)/overbit/net-test.bm $(BUILD)/overbit/net-relay.bm \
               $(BUILD)/overbit/range-1080.bm \
               $(foreach h,$(OVERBIT_HEROES),$(BUILD)/overbit/range-$(h).bm)
@@ -933,13 +956,16 @@ $(BUILD)/host/test_github: tests/net/test_github.c src/net/github.c src/net/gith
 # A game's version is the day its bytes changed.
 MARKET ?= ../bm-market
 MARKET_VERSION := $(shell date -u +%Y.%m.%d)
-market-seed: $(GAME_CARTS)
+# the games that go to the Market as .b16 (the optimized release, if there is a rule)
+MARKET_B16 := overbit
+market-seed: $(GAME_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
 	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
 	mkdir -p $(MARKET)/.github/workflows
 	cp market/README.md market/.gitignore $(MARKET)/
 	cp market/.github/workflows/market.yml $(MARKET)/.github/workflows/
 	for g in $(GAMES); do \
-		$(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/carts/$$g.bm --id $$g \
+		c=$(BUILD)/carts/$$g.bm; case " $(MARKET_B16) " in *" $$g "*) c=$(BUILD)/carts/$$g.b16;; esac; \
+		$(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $$c --id $$g \
 			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1; \
 	done
 	$(PYTHON) scripts/mkmarket.py $(MARKET)/games --check

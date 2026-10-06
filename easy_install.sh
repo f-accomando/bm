@@ -37,9 +37,16 @@
 #   b  branch              change it, or bring it up to date (git pull)
 #   p  paths               the repository's folder, the card's drive letter
 # The same as an argument: ./easy_install.sh kernel | install | image | net [profile]
-# | send FILE [profile] | monitor [profile] | line "gpu; b3d; send" [profile] (a monitor
+# | bench [FLAGS] [profile] (the Overbit benchmark on a console, see below) | send FILE [profile] | monitor [profile] | line "gpu; b3d; send" [profile] (a monitor
 # line run, its output shown: bm_net.py --line) | config [profile] | config-sd | release [vX.Y.Z]
 # | market.
+# bench: Overbit's benchmark (about a minute) on a console, its report sent to the reports'
+# branch: ./easy_install.sh bench              the calibration (the best screen and quality at
+#                                              60 fps, saved as the game's default)
+#                 ./easy_install.sh bench "res:1080+640/gpu:vs+gpu/q:4+3/secs:4/ring:1"
+#                                              every combination (res: 1080 640; gpu: arm gpu aa gq
+#                                              vs1 vs q; q 0..4; secs, warm, ring, save:1, stay:1)
+# It is "set overbit_bench=FLAGS; play overbit; send" as a monitor line (bm_net.py --line).
 # sudo is asked for when needed (packages, mounting the card); the card is
 # mounted, synced and unmounted (and ejected) by the script. At the end:
 # the kernel the card had -> the one it has now.
@@ -1026,12 +1033,13 @@ case ${1:-} in
     monitor) job_monitor "${2:-}"; exit 0 ;;
     line) [ -n "${2:-}" ] || die "line \"gpu; b3d; send\" [profile]: the line is missing"
           job_monitor "${3:-}" "$2"; exit 0 ;;
+    bench) job_monitor "${3:-}" "set overbit_bench=${2:-auto}; play overbit; send"; exit 0 ;;
     config) job_config "${2:-}"; exit 0 ;;
     config-sd) job_config_sd; exit 0 ;;
     release) job_release "${2:-}"; exit 0 ;;
     market) job_market; exit 0 ;;
     "") ;;
-    *) die "unknown: $1 (kernel, install, image, net [profile], send FILE [profile], monitor [profile], \
+    *) die "unknown: $1 (kernel, install, image, net [profile], bench [FLAGS] [profile], send FILE [profile], monitor [profile], \
 line \"LINE\" [profile], config [profile], config-sd, release [vX.Y.Z], market, or nothing for the menu)" ;;
 esac
 

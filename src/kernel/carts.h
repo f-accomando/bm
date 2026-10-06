@@ -21,6 +21,9 @@ const char *carts_find_title(const char *title, const char *author);
 /* 1 if a cartridge on the SD card has this path (case ignored). */
 int carts_has_path(const char *path);
 
+/* Plays the cartridge with this title or file name (a start of it); -1 if none. */
+int carts_play_title(framebuffer_t *fb, const char *name);
+
 /* Prints the list on the console. */
 void carts_list(void);
 

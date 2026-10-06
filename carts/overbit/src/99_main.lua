@@ -4,9 +4,11 @@ function _init()
   if OVERBIT_SEED then math.randomseed(OVERBIT_SEED) grandom_seed(OVERBIT_SEED) end   -- the trainer's matches
   Input.init()
   World.init()
+  Quality.load()
   Quality.set(G.quality)
   if OVERBIT_HERO and H[OVERBIT_HERO] then G.hero_id = OVERBIT_HERO end     -- (the reel takes a list too)
   if OVERBIT_QUALITY then G.qauto = false Quality.set(OVERBIT_QUALITY) end
+  if OVERBIT_BENCH_FLAGS then Modes.list.bench.flags = OVERBIT_BENCH_FLAGS end     -- (tests)
   Modes.start(OVERBIT_START or "menu")
   log("overbit build " .. (OVERBIT_BUILD or "dev"))
 end
@@ -15,10 +17,22 @@ function _update()
   G.frame = G.frame + 1
   G.gpu = stat(9) == 1          -- the GPU draws the 3D: some things cost less (40_actor)
   if SCREEN_W ~= SW or SCREEN_H ~= SH then screen_size() end      -- screen() took effect
-  if G.frame == 2 then Modes.saved_res() end     -- (the GPU has started by now: stat(9))
-  -- the ARM draws (3D in the menu, or the GPU stopped): not above 640x360,
-  -- its pixels cost it (the choice saved stays for the GPU)
-  if not G.gpu and SW * SH > 640 * 360 and screen(640, 360) then log("overbit resolution 640x360 (the ARM draws)") end
+  if G.frame == 2 and G.mode ~= "bench" then      -- (the GPU has started by now: stat(9))
+    Quality.start()
+    -- the benchmark asked for with flags (the monitor line, easy_install bench)
+    local flags = cart_config and cart_config("overbit_bench")
+    if flags and flags ~= "" then
+      cart_config("overbit_bench", "")           -- once
+      Modes.list.bench.flags = flags
+      Modes.start("bench")
+    end
+  end
+  -- the ARM draws (the GPU stopped): not above 640x360, its pixels cost it
+  -- (the choice saved stays for the GPU)
+  if not G.gpu and SW * SH > 640 * 360 then
+    local m = Quality.modes()[1]
+    if m and Quality.set_screen(m[1], m[2]) then log("overbit resolution 640x360 (the ARM draws)") end
+  end
   Input.read()
   -- the dev kit is the system's overlay (F11): Select, Tab or F1 go round it
   -- too (simple, detailed, off); the dev keys work while it is shown
