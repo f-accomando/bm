@@ -2752,7 +2752,15 @@ end
 local function fire()
   local fr = HUNT[P.anim].d[P.dir + 1][P.f]
   local mx, my = P.x + fr[9], P.y + fr[10]
-  local v = DIRV[P.dir + 1]
+  -- when locked on, shoot exactly toward the target (not the nearest 8-dir snap)
+  local v
+  if P.lock then
+    local dx, dy = P.lock.x - P.x, P.lock.y - P.y
+    local d = math.sqrt(dx * dx + dy * dy)
+    if d > 0 then v = { dx / d, dy / d } else v = DIRV[P.dir + 1] end
+  else
+    v = DIRV[P.dir + 1]
+  end
   -- its way over the street, from the hunter's feet (the muzzle is high and
   -- ahead of him: a creature at arm's length is on the way too) to a wall
   local gx, gy = P.x, P.y
