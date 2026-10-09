@@ -1,5 +1,6 @@
 #include "lib.h"
 #include "fiber.h"
+#include "audio/player.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
 #include "lib/printf.h"
@@ -107,11 +108,12 @@ static void audio_items(int src, const uint8_t *a, uint32_t size)
     if (size < 16 || memcmp(a, "BMAU", 4))
         return;
     unsigned ns = a[5], nx = a[6], np = a[7], ng = a[8];
+    const uint32_t sb = a[4] >= 2 ? AU_SOUND_BYTES : 24;     /* version 1: 24 */
     uint32_t off = 16, sfx_off[64], song_off[8];
-    if (off + ns * 24 > size)
+    if (off + ns * sb > size)
         return;
     uint32_t snd_off = off;
-    off += ns * 24;
+    off += ns * sb;
     for (unsigned i = 0; i < nx && i < 64; i++) {
         if (off + 16 > size) return;
         sfx_off[i] = off;
@@ -149,7 +151,7 @@ static void audio_items(int src, const uint8_t *a, uint32_t size)
         it->n[0] = p[10];
     }
     for (unsigned i = 0; i < ns; i++) {
-        const uint8_t *p = a + snd_off + i * 24;
+        const uint8_t *p = a + snd_off + i * sb;
         int n = name_len(p, 8);
         if (!n) n = ksnprintf(buf, sizeof buf, "sound %u", i);
         lib_item_t *it = add(src, LIB_SOUNDS, LIB_W_SOUND, (int)i, p[0] ? (const char *)p : buf, n);

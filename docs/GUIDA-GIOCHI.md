@@ -21,6 +21,7 @@ centro della bm Suite. Con una tastiera USB (e se vuoi un gamepad):
 | **F12** (tenuto premuto) | l'elenco dei tasti della pagina |
 | **Esc** | il menu: nuovo, apri, salva, salva come, prova, esci |
 | **Ctrl+S** | salva |
+| **Ctrl+B** | fa il gioco: il `.bm` del progetto in Games |
 
 **bm Code**: nella scheda Dev c'è anche **Code**, l'editor solo del codice: più cartucce
 in tab, due pagine affiancate (F4), un font piccolo e nitido (6x12: tante righe), F5 prova
@@ -34,8 +35,16 @@ codice pronto, e disegna la base di uno sprite ("slime rosso", "moneta", "tile d
 erba"). Nell'SDK, in bm Studio e in bm Animator si apre con F6.
 
 Se il gioco si ferma con un errore, l'SDK torna sulla riga in rosso (Ctrl+G la
-ritrova). I giochi si salvano in `/carts` con un nome 8.3 (es. `MIOGIOCO.BM`) e
-compaiono nel menu. Tutto il resto di questa guida vale anche per l'SDK.
+ritrova). Tutto il resto di questa guida vale anche per l'SDK.
+
+**Progetti e giochi**: quello che gli strumenti cambiano è un **progetto**, un `.bme` in
+`/carts` con un nome 8.3 (es. `MIOGIOCO.BME`), nella scheda Dev con l'etichetta "Project" (A lo
+apre nell'SDK, *Try it* lo gioca). Un `.bm` è un **gioco**, in Games: gli strumenti lo aprono
+per leggerlo e prenderne codice, sprite, modelli e suoni, ma non lo cambiano. Salvandolo
+chiedono di farne la **copia modificabile** (`NOME.BME`, accanto); la copia c'è anche nelle
+opzioni di un gioco (X), *Make an editable copy*. Quando il progetto è pronto, **Ctrl+B**
+nell'SDK (o *Build the game (.bm)* nelle sue opzioni) fa il suo gioco: `MIOGIOCO.BM` in Games,
+sostituito a ogni build.
 
 **Sul PC**, per i modelli 3D e la pixel art: **bm Studio**; per scheletri, animazioni e
 sprite pre-renderizzati: **bm Animator** ([sdk/README.md](../sdk/README.md)). Sono pagine

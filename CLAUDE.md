@@ -156,6 +156,26 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   tengono i loro 24 bit. Attenzione in Lua: `cond and nil or x` dà sempre `x`. Prove:
   `tests/studio/pixel_host.lua`, `check_pixel.js` (in `make test-studio`), QEMU `test_pixel`.
 
+## Progetti e giochi (M47, branch `claude/bm-projects`, 2026-10-06)
+
+- Decisione dell'utente: un `.bm` (e un `.b16`) è un **gioco**, in sola lettura per gli
+  strumenti (leggono codice, asset ed elementi, mai lo cambiano); un **progetto** è un `.bme`:
+  lo stesso contenitore con il bit 0 dell'u16 all'offset 18 (`BM_FLAG_PROJECT`); il gioco fatto
+  da un progetto ne tiene il nome 8.3 all'offset 104 (`BM_BUILT_FROM`; l'intestazione è fuori dal
+  CRC). `src/bm/project.c`: `bm_copy_name` (NOME.BME accanto, poi NOME1.BME...), `bm_make_copy`,
+  `bm_build` (sostituisce il gioco fatto prima dallo stesso progetto, se no il primo nome libero).
+- Runtime: `write_target` in `runtime.c` (gli strumenti: un gioco che c'è → `copy_question`, una
+  domanda di sistema come i permessi, `sys_ask`; un `.bm` nuovo → `.BME`); `cart_save`,
+  `cart_write`, `cart_put_audio` restituiscono `true` e il file scritto quando non è quello
+  chiesto (gli strumenti continuano con quello); `cart_build` solo dagli strumenti. Le altre
+  cartucce scrivono `.bm` e `.bme` nuovi in `/carts`, come prima.
+- Menu (`carts.c`): i progetti in Dev dopo gli strumenti con l'etichetta "Project", A li apre
+  nell'SDK; opzioni *Make an editable copy* (giochi) e *Build the game (.bm)* (progetti). Market e
+  `mkbm.py` restano sui `.bm` (`mkmarket.py` rifiuta un progetto).
+- Le controfigure dei test sul PC usano `tests/studio/project_rules.lua`. Dalla seriale la
+  domanda si risponde con `j` (sì) e `k` (no). Prove: QEMU `test_projects`, `test_cart_write_limits`,
+  i test degli strumenti; `make test-studio`, `make test-res`.
+
 ## Risorse e scheda Lib (`docs/RISORSE.md`)
 
 - File di risorsa: lo stesso contenitore del `.bm` con la firma `BMRES`, il tipo all'offset 12

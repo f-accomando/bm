@@ -3389,6 +3389,33 @@ bm Sound e un assistente che scriva ritmi, basi, arpeggi, melodie ed effetti cla
 - **Fatto quando:** i giochi suonano puliti sulle due console, quelli vecchi possono
   restare 8 bit, e il linguaggio di pattern suona da un gioco e da bm Code.
 
+## M47 — Progetti e giochi: `.bme` modificabili, `.bm` in sola lettura (M) — in corso
+Richiesta dell'utente (2026-10-06, branch `claude/bm-projects`): distinguere i `.bm` che si
+modificano da quelli finiti. Decisioni: l'estensione `.bme` per il progetto; un `.bm` si legge
+(codice, asset, elementi) ma non si cambia, se ne fanno copie; gli strumenti aprono un gioco in
+sola lettura e al primo salvataggio chiedono la copia; *Make an editable copy* nelle opzioni;
+i progetti in Dev, provabili; *Build .bm* dall'SDK e dal menu, che sostituisce il gioco fatto
+prima dallo stesso progetto; Market e `mkbm.py` restano sui `.bm`.
+1. ✅ **Il formato** (`src/bm/project.h`, `project.c`): lo stesso contenitore, il bit 0
+   dell'u16 all'offset 18 per il progetto; il gioco fatto da un progetto ne tiene il nome
+   all'offset 104 (fuori dal CRC). `bm_copy_name`, `bm_make_copy`, `bm_build`.
+2. ✅ **Il runtime**: le regole di scrittura degli strumenti (`write_target` in `runtime.c`),
+   la domanda di sistema sopra lo strumento (*Save an editable copy: NOME.BME?*, come i
+   permessi), il file scritto come secondo valore di `cart_save`, `cart_write`,
+   `cart_put_audio`; `cart_build(progetto)`.
+3. ✅ **Gli strumenti**: SDK (Ctrl+B, *Build the game .bm*), bm Code (*New project*), bm
+   Studio, bm Animator, bm Mesh, bm Pixel e Sound seguono il file scritto e propongono nomi
+   `.BME`; i programmi del PC (`mkbm.py`, `bmres.py`, bm Studio e bm Animator web) segnano i
+   `.bme`; `mkmarket.py` rifiuta un progetto.
+4. ✅ **Il menu**: i progetti in Dev dopo gli strumenti, con l'etichetta "Project" (A li apre
+   nell'SDK, *Try it* li gioca), *Make an editable copy* nelle opzioni di un gioco, *Build the
+   game (.bm)* in quelle di un progetto; la Lib legge anche i `.bme`. Prova QEMU
+   `test_projects`.
+5. **Sul Pi**: aprire un gioco in bm Code e salvare (la domanda), fare la copia dal menu,
+   provarla, costruirne il gioco due volte (lo stesso `PONG1.BM`).
+- **Fatto quando:** sul Pi nessuno strumento cambia un `.bm`, le copie si fanno dal menu e
+  dagli strumenti e il build di un progetto finisce in Games.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

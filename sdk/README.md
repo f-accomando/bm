@@ -80,7 +80,8 @@ Annulla e rifai: Ctrl+Z, Ctrl+Y. Salva: Ctrl+S. Tutti i tasti: F1.
 
 | File | Cosa |
 |---|---|
-| **`.bm`** | il formato di lavoro: i modelli stanno nella sezione **MESH** della cartuccia (`src/bm/bm.h`), con lo sprite sheet come texture. Si apre, si modifica e si salva al suo posto |
+| **`.bme`** | il formato di lavoro, il **progetto**: i modelli stanno nella sezione **MESH** della cartuccia (`src/bm/bm.h`), con lo sprite sheet come texture. Si apre, si modifica e si salva al suo posto |
+| **`.bm`** | un **gioco**: si apre per leggerlo e prenderne i pezzi, ma Save scrive la sua copia modificabile (`NOME.bme`), mai il gioco. Il gioco di un progetto lo fa la console (*Build the game (.bm)*, Ctrl+B nell'SDK) |
 | **`.glb`** (glTF) | per scambiare modelli con altri programmi (Blender, il visualizzatore 3D di Windows). *Export* scrive i modelli con lo sheet come texture; *Add models from a .glb* importa anche modelli altrui: le loro texture finiscono nello sheet (rimpicciolite, se si vuole), i colori delle facce restano colori |
 | **`.png`** | lo sheet (o una parte) in entrata e in uscita; un'immagine può diventare lo sheet intero, un pezzo dello sheet o la copertina |
 | **`.lua`** | *Export this model as Lua code*: il modello come tabelle per `mesh()`, per chi costruisce le mesh nel codice |
@@ -272,8 +273,17 @@ con i tasti F (Y + sinistra/destra sul gamepad), Esc il menu, **F12** tenuto i t
   entra nel progetto (sezioni MESH e ANIM, salvate con il resto).
 
 Il **menu** (Esc): Continue, New project (i modelli), Open, Save, Save as (nome 8.3 in
-`/carts`), Try the game, Exit. Il salvataggio usa `cart_save`: codice, sheet, mappa,
-copertina, suoni, modelli e scheletri. Prove: `tests/studio/sdk_host.lua` (in `make
+`/carts`), Build the game .bm (Ctrl+B), Try the game, Exit. Il salvataggio usa `cart_save`:
+codice, sheet, mappa, copertina, suoni, modelli e scheletri.
+
+**Progetti e giochi** (`src/bm/project.h`, `docs/API-IT.md`): tutti gli strumenti della suite
+(SDK, bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel, Sound) cambiano solo i **progetti**
+(`.bme`); un **gioco** (`.bm`, `.b16`) lo leggono e basta. Aperto un gioco, il primo
+salvataggio chiede *Save an editable copy: NOME.BME?* e da lì lo strumento lavora sulla copia
+(il secondo valore di `cart_save`/`cart_write`/`cart_put_audio`); un progetto nuovo è
+`GIOCO.BME`. *Build the game .bm* (`cart_build`) scrive il gioco del progetto in `/carts` e lo
+sostituisce a ogni build. Nel menu di bm i progetti stanno in Dev con l'etichetta "Project".
+Le controfigure dei test sul PC seguono le stesse regole (`tests/studio/project_rules.lua`). Prove: `tests/studio/sdk_host.lua` (in `make
 test-studio`: ogni modello di gioco gira 400 fotogrammi sulle controfigure), QEMU
 `test_editor` e `test_sdk_suite` (Studio Village: la pagina 3D, il modello
 dell'assistente salvato, bm Studio e ritorno).

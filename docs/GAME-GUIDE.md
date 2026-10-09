@@ -22,6 +22,7 @@ monitor), the hub of the bm Suite. With a USB keyboard (and, if you like, a game
 | **F12** (held) | the list of the page's keys |
 | **Esc** | the menu: new, open, save, save as, try, exit |
 | **Ctrl+S** | save |
+| **Ctrl+B** | build the game: the project's `.bm` in Games |
 
 **bm Code**: in the Dev tab there is also **Code**, the editor of the code alone: more
 cartridges in tabs, two pages side by side (F4), a small sharp font (6x12: many lines), F5
@@ -35,8 +36,15 @@ ready, and draws the base of a sprite ("red slime", "coin", "grass tile"). In th
 Studio and bm Animator it opens with F6.
 
 If the game stops with an error, the SDK goes back to the line in red (Ctrl+G finds it
-again). Games are saved in `/carts` with an 8.3 name (e.g. `MYGAME.BM`) and appear in the
-menu. Everything else in this guide holds for the SDK too.
+again). Everything else in this guide holds for the SDK too.
+
+**Projects and games**: what the tools change is a **project**, a `.bme` in `/carts` with an
+8.3 name (e.g. `MYGAME.BME`), in the Dev tab with a "Project" badge (A opens it in the SDK,
+*Try it* plays it). A `.bm` is a **game**, in Games: the tools open it to read it and take its
+code, sprites, models and sounds, but do not change it. Saving one, they ask to make its
+**editable copy** (`NAME.BME`, next to it); the copy is also in a game's options (X), *Make an
+editable copy*. When the project is ready, **Ctrl+B** in the SDK (or *Build the game (.bm)*
+in its options) makes its game: `MYGAME.BM` in Games, replaced at every build.
 
 **On the PC**, for 3D models and pixel art: **bm Studio**; for skeletons, animations and
 pre-rendered sprites: **bm Animator** ([sdk/README.md](../sdk/README.md)). They are web
