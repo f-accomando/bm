@@ -33,18 +33,31 @@ static const char *intro = NULL;
 const char *config_get(const char *key) { return strcmp(key, "game_intro") == 0 ? intro : NULL; }
 static int suspended;
 void console_suspend(int s) { suspended = s; }
-static int notes, landing_note_at = -1, wave_seen[SYNTH_WAVES];
+static int notes, landing_note_at = -1, wave_seen[SYNTH_WAVES], slides, retro;
+static uint8_t vregs[SYNTH_VOICES][SYNTH_VOICE_BYTES];
 void audio_note(unsigned ch, float freq, uint32_t ms, int wave, int vol)
 {
-    (void)ch; (void)freq; (void)ms; (void)vol;
+    (void)freq; (void)ms; (void)vol;
     if (landing_note_at < 0)
         landing_note_at = (int)(now_us / 1000);
     notes++;
+    if (wave < 0)
+        wave = vregs[ch % SYNTH_VOICES][SYNTH_WAVEFORM];   /* the voice's sound */
     if (wave >= 0 && wave < SYNTH_WAVES)
         wave_seen[wave]++;
 }
 void audio_envelope(unsigned ch, int a, int d, int s, int r) { (void)ch; (void)a; (void)d; (void)s; (void)r; }
 void audio_duty(unsigned ch, int duty) { (void)ch; (void)duty; }
+void audio_slide(unsigned ch, float hz, uint32_t ms) { (void)ch; (void)hz; (void)ms; slides++; }
+int audio_retro_on(void) { return retro; }
+void audio_tone(unsigned ch, const uint8_t *r) { memcpy(vregs[ch % SYNTH_VOICES], r, SYNTH_VOICE_BYTES); }
+void audio_tone_get(unsigned ch, uint8_t *r) { memcpy(r, vregs[ch % SYNTH_VOICES], SYNTH_VOICE_BYTES); }
+void au_voice_default(volatile uint8_t *r)
+{
+    for (int i = 0; i < SYNTH_VOICE_BYTES; i++)
+        r[i] = 0;
+    r[SYNTH_VOLUME] = 128;
+}
 void audio_idle(void) { now_us += 1000; }       /* loading_end's wait: time goes on */
 static int presents;
 uint32_t bm_video_present(framebuffer_t *fb, g16_t *g) { (void)fb; (void)g; presents++; return 0; }
@@ -148,9 +161,10 @@ int main(int argc, char **argv)
     save_con(dir, "landed");
     check(at_rest > 2000, "landed: the logo in the middle of the screen");
     check(landing_note_at >= 500 && landing_note_at <= 560, "the jingle starts when it lands (500 ms)");
-    run_until(800);                             /* its last notes at 725 ms */
-    check(notes == 6 && wave_seen[SYNTH_SQUARE] == 4 && wave_seen[SYNTH_NOISE] == 1 &&
-          wave_seen[SYNTH_TRIANGLE] == 1, "the jingle: a thud, four square notes, a triangle");
+    run_until(800);                             /* its last notes at 770 ms */
+    check(notes == 6 && wave_seen[SYNTH_SINE] == 1 && slides == 1 && wave_seen[SYNTH_PLUCK] == 3 &&
+          wave_seen[SYNTH_FM] == 1 && wave_seen[SYNTH_TRIANGLE] == 1 && wave_seen[SYNTH_SQUARE] == 0,
+          "the jingle: a soft thud, a harp going up, a piano over a warm pad");
 
     /* no title (the system's splash), a circle of dots turning under the logo */
     run_until(1200);
@@ -191,6 +205,30 @@ int main(int argc, char **argv)
     loading_end();
     check(!loading_active() && now_us / 1000 >= 1800, "a fast game: the whole intro, then the game");
     check(notes == 6, "  with its jingle");
+    int back = 1;
+    for (int ch = 5; ch < 8; ch++)
+        back &= vregs[ch][SYNTH_WAVEFORM] == 0 && vregs[ch][SYNTH_VOLUME] == 128;
+    check(back, "  its voices back as a game finds them");
+
+    /* a game's sound on one of its voices meanwhile: it stays */
+    now_us = 0;
+    loading_begin(&fb);
+    run_until(1500);
+    vregs[6][SYNTH_WAVEFORM] = SYNTH_SAW;
+    loading_end();
+    check(vregs[6][SYNTH_WAVEFORM] == SYNTH_SAW && vregs[5][SYNTH_WAVEFORM] == 0, "  but not one the game changed");
+
+    /* the 8-bit sound (Settings): the chip's jingle */
+    retro = 1;
+    memset(wave_seen, 0, sizeof wave_seen);
+    notes = 0;
+    now_us = 0;
+    loading_begin(&fb);
+    run_until(800);
+    check(notes == 6 && wave_seen[SYNTH_SQUARE] == 4 && wave_seen[SYNTH_NOISE] == 1 &&
+          wave_seen[SYNTH_TRIANGLE] == 1, "8-bit sound: the chip's jingle, four square notes");
+    loading_stop();
+    retro = 0;
 
     /* a long load: it goes on until the end */
     now_us = 0;

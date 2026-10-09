@@ -3383,6 +3383,10 @@ bm Sound e un assistente che scriva ritmi, basi, arpeggi, melodie ed effetti cla
    banco per nome; in bm Code Ctrl+Invio suona e accende le parole delle note, Ctrl+.
    ferma; in bm Sound F7 la suona e la mette nel banco come brano; `R.piece` suona i pezzi
    dell'assistente.
+6. ✅ **Il jingle dello splash** (richiesta dell'utente, 2026-10-06: troppo 8 bit): un colpo
+   morbido, l'arpa che sale, il piano elettrico sopra un pad (`loading.c`, gli strumenti di
+   `presets.c`); 2 dB più piano, quasi niente sopra i 4 kHz (21% prima); con il suono 8-bit
+   quello di prima.
 - **Da verificare sul Pi e sulla RGB30**: Dev → *Audio test* (la battuta di strumenti), bm
   Sound → brano HIFI, F6 → "ritmo rock", Settings → *Sound style* 8-bit e ritorno; bm Code
   → Ctrl+T, un riff, Ctrl+Invio (tempo stabile, parole accese), bm Sound → F7.

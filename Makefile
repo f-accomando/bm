@@ -473,10 +473,10 @@ $(BUILD)/keymap-test.bm: tests/keymap/cart.lua scripts/mkbm.py
 # The games' loading screen (src/bm/loading.c, 2026-10-04): the retro intro,
 # its jingle, the console's page then the game's; the frames in build/loading/
 $(BUILD)/host/test_loading: tests/bm/test_loading.c src/bm/loading.c src/bm/loading_logo.c src/bm/loading.h \
-                            src/bm/gfx16.c src/gfx/font6x12.c src/lib/printf.c
+                            src/bm/gfx16.c src/gfx/font6x12.c src/lib/printf.c src/audio/presets.c
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Isrc/bm -o $@ tests/bm/test_loading.c src/bm/loading.c \
-	    src/bm/loading_logo.c src/bm/gfx16.c src/gfx/font6x12.c src/lib/printf.c -lm
+	    src/bm/loading_logo.c src/bm/gfx16.c src/gfx/font6x12.c src/lib/printf.c src/audio/presets.c -lm
 
 test-loading: $(BUILD)/host/test_loading
 	@mkdir -p $(BUILD)/loading

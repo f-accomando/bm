@@ -418,7 +418,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   sistema al posto del log, lo stesso per ogni gioco e strumento (niente titolo, decisione
   dell'utente): un'animazione retro su una tela di 160×90 ingrandita (il "bm" in pixel art di
   `loading_logo.c`, da `mklogo.py`, con la gamba sinistra della m lunga come le altre, che cade e
-  atterra, un jingle nostro sulle voci 5-7, poi un circolino di punti che gira) finché file, asset
+  atterra, un jingle nostro sulle voci 5-7 con gli strumenti di `presets.c`, un colpo morbido, l'arpa
+che sale, il piano elettrico sopra un pad, perché quello a onde quadre era troppo 8 bit (richiesta
+dell'utente, 2026-10-06; con *Sound style* 8-bit quello di prima, le voci rimesse come le trova un
+gioco se lui non le ha cambiate), poi un circolino di punti che gira) finché file, asset
   e `_init` non sono pronti, e almeno l'intro (1,8 s). La comincia il menu per ogni applicazione
   (giochi, SDK, Sound, bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel; dalla scheda Games, Dev
   o Lib; non per un gioco sospeso che riprende): `loading_begin` nel passaggio `GO_*` di

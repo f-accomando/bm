@@ -1,6 +1,7 @@
 #include "loading.h"
 #include "runtime.h"
 #include "audio/audio.h"
+#include "audio/presets.h"
 #include "audio/synth.h"
 #include "drivers/timer.h"
 #include "gfx/console.h"
@@ -18,6 +19,8 @@
 #define MIN_MS 1800             /* at least this much: the intro, the jingle, a moment */
 #define LOGO_Y 22               /* where it rests on the canvas */
 #define SPIN_R 7                /* the spinner under it: its radius */
+#define J_FIRST 5               /* the voices the jingle takes */
+#define J_VOICES 3
 
 /* the colours: the splash's background, the spinner's dots */
 #define BG      0x0042u         /* RGB565 of #000810 */
@@ -33,15 +36,36 @@ static struct {
     g16_t *page;                /* the game's page, or NULL: the console's page (32 bits) */
     int borders;                /* pages whose border around the canvas is still to fill */
     unsigned note;              /* the jingle's next note */
+    int retro;                  /* the chip's jingle */
+    uint8_t used[J_VOICES];     /* the voices it took, */
+    uint8_t regs[J_VOICES][SYNTH_VOICE_BYTES]; /* as it left them */
 } ld;
 
 /* The jingle (ours: C major up, then the high C over the low one), from the
- * landing: a thud, four square notes, a triangle under the last one. The
- * last voices, which a game rarely starts with. */
+ * landing, with bm's instruments (presets.c, 2026-10-06: the user found the
+ * square one too 8-bit): a soft thud, a harp going up, an electric piano on
+ * the last note over a warm pad; quieter than the chip's, with almost
+ * nothing over 4 kHz. The last voices, which a game rarely starts with. */
+static const struct {
+    uint16_t at, hz, ms, to;    /* to: the pitch slides there (Hz), or 0 */
+    uint8_t ch, vol;
+    const char *inst;
+} jingle[] = {
+    { 0, 150, 140, 55, 5, 50, "kick" },
+    { 0, 523, 420, 0, 6, 70, "harp" },
+    { 90, 659, 420, 0, 7, 70, "harp" },
+    { 180, 784, 420, 0, 6, 70, "harp" },
+    { 270, 1047, 900, 0, 7, 75, "epiano" },
+    { 270, 262, 900, 0, 5, 70, "warm" },
+};
+
+/* With the 8-bit sound (Settings > Sound style, a game's retro()) the
+ * chip's version, the first one: a noise thud, four square notes, a
+ * triangle under the last one. */
 static const struct {
     uint16_t at, hz, ms;
     uint8_t ch, wave, vol;
-} jingle[] = {
+} chip[] = {
     { 0, 140, 60, 5, SYNTH_NOISE, 60 },
     { 0, 1047, 80, 6, SYNTH_SQUARE, 80 },
     { 75, 1319, 80, 6, SYNTH_SQUARE, 80 },
@@ -65,20 +89,63 @@ static uint16_t darker(uint16_t c)              /* three quarters: the screen's 
     return (uint16_t)(((c >> 1) & 0x7BEFu) + ((c >> 2) & 0x39E7u));
 }
 
-static void play_jingle(uint32_t t)
+static void play_chip(uint32_t t)
 {
-    while (ld.note < sizeof jingle / sizeof jingle[0] && t >= (uint32_t)(LAND_MS + jingle[ld.note].at)) {
+    while (ld.note < sizeof chip / sizeof chip[0] && t >= (uint32_t)(LAND_MS + chip[ld.note].at)) {
         const unsigned i = ld.note++;
-        const unsigned ch = jingle[i].ch;
-        if (jingle[i].wave == SYNTH_SQUARE) {
+        const unsigned ch = chip[i].ch;
+        if (chip[i].wave == SYNTH_SQUARE) {
             audio_envelope(ch, 1, 40, 150, 50);
             audio_duty(ch, 64);                 /* 25%: the old consoles' pulse */
-        } else if (jingle[i].wave == SYNTH_NOISE) {
+        } else if (chip[i].wave == SYNTH_NOISE) {
             audio_envelope(ch, 0, 12, 0, 8);
         } else {
             audio_envelope(ch, 1, 80, 170, 60);
         }
-        audio_note(ch, jingle[i].hz, jingle[i].ms, jingle[i].wave, jingle[i].vol);
+        audio_note(ch, chip[i].hz, chip[i].ms, chip[i].wave, chip[i].vol);
+    }
+}
+
+static void play_jingle(uint32_t t)
+{
+    if (ld.note == 0 && t >= LAND_MS)
+        ld.retro = audio_retro_on();
+    if (ld.retro) {
+        play_chip(t);
+        return;
+    }
+    while (ld.note < sizeof jingle / sizeof jingle[0] && t >= (uint32_t)(LAND_MS + jingle[ld.note].at)) {
+        const unsigned i = ld.note++;
+        const unsigned ch = jingle[i].ch;
+        const int p = au_preset_find(jingle[i].inst);
+        uint8_t *r = ld.regs[ch - J_FIRST];
+        audio_tone_get(ch, r);
+        if (p >= 0)
+            au_sound_regs(&au_presets[p].s, r);
+        r[SYNTH_VOLUME] = jingle[i].vol;
+        audio_tone(ch, r);
+        ld.used[ch - J_FIRST] = 1;
+        audio_note(ch, jingle[i].hz, jingle[i].ms, -1, -1);
+        if (jingle[i].to)
+            audio_slide(ch, jingle[i].to, jingle[i].ms);
+    }
+}
+
+/* The voices it took back as a game finds them (audio_reset), unless the
+ * game gave them a sound of its own meanwhile. */
+static void free_voices(void)
+{
+    for (unsigned k = 0; k < J_VOICES; k++) {
+        if (!ld.used[k])
+            continue;
+        uint8_t now[SYNTH_VOICE_BYTES], def[SYNTH_VOICE_BYTES];
+        audio_tone_get(J_FIRST + k, now);
+        if (memcmp(now + SYNTH_WAVEFORM, ld.regs[k] + SYNTH_WAVEFORM, SYNTH_RELEASE + 1 - SYNTH_WAVEFORM) ||
+            memcmp(now + SYNTH_CUTOFF, ld.regs[k] + SYNTH_CUTOFF, SYNTH_VOICE_BYTES - SYNTH_CUTOFF))
+            continue;
+        au_voice_default(def);
+        audio_tone(J_FIRST + k, def);
+        ld.used[k] = 0;
     }
 }
 
@@ -262,11 +329,14 @@ void loading_end(void)
         audio_idle();
     }
     ld.on = 0;
+    free_voices();
     /* the game's first frame comes next: the tests wait for this line */
     kprintf("bm: loaded in %lu ms, the splash over at %lu ms\n", (unsigned long)loaded, (unsigned long)now_ms());
 }
 
 void loading_stop(void)
 {
+    if (ld.on)
+        free_voices();
     ld.on = 0;
 }
