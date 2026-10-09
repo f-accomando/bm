@@ -143,3 +143,40 @@ Future synthesis improvements and optimizations follow a strict hierarchy of imp
   * VFPv2 hardware floating-point executes `fadds`, `fsubs`, `fmuls`, and `fmacs` efficiently (1–2 cycles), but `fdivs` takes 15–20 cycles.
   * Precalculate all reciprocal values (e.g., `1.0f / rate`, `1.0f / n`, `idt = 1.0f / dt`) outside the per-sample rendering loops.
 
+---
+
+## 7. Retrospective: What Worked, What Failed, Discarded Paths & Next Steps
+
+This section details the evolutionary history of bm's audio architecture, documenting trials, failure post-mortems, and discarded ideas:
+
+### 1. Naive Oscillators vs Band-Limited PolyBLEP
+* **Considered**: Audio 1 (M10) generated pure digital steps (0 and 1 for square, linear slopes for saw).
+* **What Failed**: Audible high-frequency aliasing foldback above 1.5 kHz (−22 dB on square waves, −16 dB on sawtooth), sounding harsh and metallic on modern speakers.
+* **Positive Outcome (Audio 2 / M46)**: Implemented PolyBLEP (step correction) and PolyBLAMP (slope correction). Suppressed aliasing down to **−60 dB** for square and **−57 dB** for saw with negligible CPU cost on ARM1176.
+* **Why Wavetables Were Deferred**: Large multi-octave band-limited wavetables consume precious L1 data cache lines (only 16 KiB total on ARM1176). PolyBLEP polynomial math executes purely in registers.
+
+### 2. Linear ADSR vs Exponential RC Envelopes
+* **Considered**: Linear delta additions per sample.
+* **What Failed**: Produced abrupt step discontinuities and audible clicking/popping during fast attack transients and release cutoffs.
+* **Positive Outcome**: Replaced with natural exponential curves modeled after analog RC circuits (`env_coefs`). Added minimum stage bounds (`MIN_ATTACK_S = 0.7 ms`, `MIN_RELEASE_S = 3.0 ms`) to guarantee click-free transitions.
+
+### 3. Full-Rate vs Half-Rate FDN Reverb
+* **Considered**: Running the 8-line Feedback Delay Network (FDN) reverberator at the full 48 kHz output rate.
+* **What Failed**: Pushed total audio CPU utilization above 8%, leaving less headroom for the 60 fps game loop.
+* **Positive Outcome**: Reverberation tails contain little spectral energy above 10 kHz. Running the FDN at half-rate (24 kHz) with linear interpolation between output pairs **halved reverb CPU load** while preserving spatial warmth. Total audio budget dropped to just **4.2% of CPU**.
+
+### 4. Dynamic Range Management & Limiting
+* **Considered**: Hard integer clipping at $\pm 32767$ or simple scalar volume division.
+* **What Failed**: 8 polyphonic voices playing simultaneous chords caused harsh digital clipping distortion.
+* **Positive Outcome**: 32-bit floating-point mixing headroom + master DC-blocking filter (~4 Hz) + lookahead compressor (`COMP_T = -4.4 dB`) + smooth knee limiter (`synth_limit`). Multiple simultaneous loud voices are attenuated transparently before the limiter engages.
+
+### 5. Discarded Architectural Paths
+* **Neural Speech / Voice Synthesis (AI.md)**: Discarded. The Pi Zero lacks analog microphone inputs, and real-time neural vocoding requires tens of GFLOPS. Formant synthesis using existing filter oscillators remains the viable path if speech is needed.
+* **WAV-Only Soundbanks in Early Versions**: Discarded. Relying on recorded audio samples would bloat `.bm` cartridges and stress the ~100 MB/s SDRAM bus. Procedural synthesis models (FM, Karplus-Strong, Supersaw) provide rich sound with zero memory bandwidth overhead.
+
+### 6. Pending & Alternatives to Explore
+* **Short PCM Sample Playback (R9/R25)**: Adding short uncompressed WAV/PCM sample playback for punchy acoustic drums and vocal one-shots.
+* **TPDF Dithering**: Adding triangular dither noise prior to 16-bit DAC quantization to eliminate harmonic truncation on low-level reverb tails.
+* **In-Block Modulation Interpolation**: Linearly interpolating filter cutoff and LFO depths within 64-sample blocks to eliminate zipper noise during aggressive filter sweeps.
+
+

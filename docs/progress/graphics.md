@@ -131,3 +131,57 @@ Measured on physical **Raspberry Pi Zero W** (1 GHz, 448 MiB RAM, 640×360 RGB56
 ### Key Bottleneck Findings
 1. **Memory Bandwidth**: The BCM2835 SDRAM bus reaches ~100 MB/s on sequential reads and ~430 MB/s on writes. Minimizing full-screen frame reads is critical; the GPU TBDR pipeline avoids main RAM roundtrips during tile composition.
 2. **Instruction Pipeline**: Moving skeletal transforms and vertex lighting from ARM to QPU vertex shaders reduces per-frame ARM load by **23% to 32%** in heavy combat scenes.
+
+---
+
+## 7. Retrospective: What Worked, What Failed, Discarded Paths & Next Steps
+
+This section documents engineering iterations, failure post-mortems, and trade-offs discovered during graphics development:
+
+### 1. Software 3D on ARM (`r3d`) vs Hardware GPU
+* **Considered**: Pure CPU rasterization avoids reverse-engineering Broadcom GPU hardware.
+* **Positive Outcome**: `bm3d 0.1` achieved working 3D; `bm3d 0.2` doubled performance via fixed-point edge arithmetic and DMA z-buffer clears (2,700 triangles/frame @ 60 fps).
+* **Limitations**: Saturated the single 1 GHz core in complex scenes (e.g., *Texture Room* took 25.5 ms, *Overbit* stalled at 14.1 ms). Memory bandwidth (~100 MB/s read) made software z-buffering an inescapable wall.
+* **Resolution**: Hardware offloading to VideoCore IV V3D engine (`bm3d 1.0+`), relegating `r3d` to a reliable fallback.
+
+### 2. QPU Programmable Vertex Shaders
+* **Considered**: Transforming vertices, bone skinning, and lighting on QPUs to free ARM CPU cycles.
+* **What Failed (Failure 1 - bm3d 4.3)**: Rendered completely black on physical Pi Zero W (probe returned `0000 0000 0000 0000`).
+  * *Root Cause*: Broadcom VPM attribute offsets and total sizes were passed in 32-bit words. Hardware requires offsets strictly in **bytes** (as done in Mesa `vc4`).
+* **What Failed (Failure 2 - bm3d 6.5)**: Even with byte offsets, hardware reported `ERRSTAT: VPM write range` and froze.
+  * *Root Cause*: Coordinate shaders expect a compact vertex unless the hardware clipper is **always active** (`gl_clip_all`).
+* **Positive Outcome (bm3d 6.6)**: Keeping the clipper always on unlocked hardware vertex shading: 4× spheres, 11× hero meshes, and 9× in mixed scenes (79,071 triangles @ 60 fps; 3D score jumped to 2,601).
+
+### 3. Early-Z Rejection vs In-Job Depth Clears
+* **Considered**: Skipping pixel shading for occluded surfaces using VideoCore hardware early-Z.
+* **What Failed (bm3d 4.4)**: Clearing depth between world and first-person weapon models (`zclear()`) via a full-screen quad (`fs_zclear`) caused subsequent geometry to vanish.
+  * *Root Cause*: VideoCore early-Z tracking is updated exclusively by primitives with *early-z updates*. The quad shader bypassed this tracker, desynchronizing it. Furthermore, hardware erratum HW-2905 corrupts early-Z after tile reloads under 4x MSAA.
+* **Resolution**: Primitives following `zclear()` run without early-Z (falling back to tile-buffer depth test). Early-Z is disabled during MSAA tile reloads but preserved during tile clears.
+
+### 4. Dual-Thread Fragment Shaders (`fs2`)
+* **Considered**: Running pixel shaders in 2-thread mode (`lthrsw`) to interleave instruction execution during TMU texture memory read stalls.
+* **What Failed (bm3d 6.2–6.3)**: Flat-color shaders and untextured meshes suffered a 4–5% performance drop due to thread-switching overhead without texture latency to hide.
+* **Positive Outcome (bm3d 6.4)**: Texture shaders default to 2 threads (+20% to +33% fillrate improvement); flat color shaders remain single-threaded and delay scoreboard locking until writeback.
+
+### 5. Mesh Caching & Texture Swapping
+* **Considered**: Caching GPU-transformed mesh data in arena memory to avoid regenerating vertex lists.
+* **What Failed (bm3d 6.7)**: Cycling through 3 textures on a single mesh (`texswap` bench) caused throughput to collapse from 1,436 quads to 6.6 quads!
+  * *Root Cause*: Cache only indexed by `mesh_id`. Switching textures invalidated the mesh copy, forcing the open GPU job to flush prematurely (one job per quad).
+* **Resolution**: Keyed mesh cache by compound `(mesh_id, sheet_id)`. Restored throughput to 1,302 quads.
+
+### 6. Indexed Meshes & Heap Overruns
+* **Considered**: `INDEXED_PRIMITIVE_LIST` for models up to 65,535 vertices.
+* **What Failed (bm3d 6.8)**: *Overbit* crashed intermittently with a Data Abort inside `free()` (heap corruption).
+  * *Root Cause*: Indexed vertex copy routines aligned bone groups to 16-byte boundaries, but the buffer allocation did not account for padding. Multi-bone flat meshes wrote up to 12 bytes past the arena buffer directly into adjacent heap headers.
+* **Resolution**: Group size allocations padded to 16 bytes. Added 16-byte guard zones to the emulator.
+
+### 7. Discarded Architectural Paths
+* **Real-Time Neural Graphics / Upscaling (AI.md)**: Discarded. A full-screen pass reads and writes 0.46 MB (~5 ms on the bus before compute). The VideoCore hardware scaler already enlarges 640×360 to 1080p for free.
+* **Pure Software 1080p Rendering**: Discarded. Software clearing and drawing at 1920×1080 requires 4 MB per buffer, choking ARM bandwidth. 1080p is exclusive to GPU modes.
+* **Full 2D Pipeline on QPU**: Discarded. Quads and fonts run in GPU jobs (`gpu3d_2d=1`), but complex 2D primitives (circles, non-integer scaling, lines) remain on ARM because QPU curve math and clipping logic exceed the 16.6 ms frame budget.
+
+### 8. Pending & Alternatives to Explore
+* **Mali-G52 GPU on RGB30 (M41)**: Surface clears and job manager functional; triangle rasterization and vertex shading pending.
+* **QPU Compute Outside 3D (M44)**: Offloading particle systems and 2D dynamic lighting to QPUs when 3D is idle.
+* **Sprite Stacking (M43)**: Pseudo-3D volume rendering via rotated 2D slices in `gfx16.c`.
+
