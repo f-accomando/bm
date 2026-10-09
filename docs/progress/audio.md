@@ -105,3 +105,41 @@ An expressive musical sequencing engine embedded in the kernel:
 Integrated with the console's creative suite:
 * **87 Procedural Accompaniment Recipes**: Automatically constructs basslines, chord progressions, arpeggios, and drum grooves matching user-specified styles (Rock, Synthwave, Lo-Fi, Gothic, Chiptune).
 * **Trained INT8 Melody Neural Network**: A lightweight neural network (116 inputs → 64 hidden → 24 outputs) trained via [`scripts/trainmusic.py`](../../scripts/trainmusic.py) that evaluates existing chord structures to generate contextually fitting lead melodies.
+
+---
+
+## 6. Audio Engineering Principles & Hardware Constraints
+
+Future synthesis improvements and optimizations follow a strict hierarchy of impact-to-cost, calibrated specifically for the ARM1176 architecture:
+
+### Priority Interventions (Ordered by Yield / Impact)
+1. **Waveform Anti-Aliasing (PolyBLEP / Band-Limited Wavetables)**:
+   * Essential to avoid foldback distortion above Nyquist. PolyBLEP remains the optimal choice for ARM1176 due to low polynomial arithmetic overhead, with band-limited wavetables as a scalable alternative for complex waveforms.
+2. **High-Precision Mixing & Master-Stage Limiting**:
+   * Voices mixed internally in 32-bit floating-point with ample dynamic headroom. Master stage employs soft-knee saturation, DC blocking, and lookahead compression before final quantization.
+3. **Per-Voice Resonant Low-Pass Filtering (TPT/ZDF)**:
+   * State-variable zero-delay feedback filter providing smooth resonance, filter sweeps, and warmth without digital explosion or instability near Nyquist.
+4. **Wavetable & Glide Pitch Interpolation**:
+   * Continuous linear or Hermite interpolation on frequency increments across buffer boundaries to eliminate audible pitch stair-stepping during glides and vibrato.
+5. **Fluid Envelopes (ADSR) & LFO Modulation**:
+   * Sample-accurate or linearly ramped envelope stages and modulation curves across audio blocks (64 samples), preventing zipper noise during rapid filter sweeps and amplitude changes.
+6. **Quantization Dithering**:
+   * Triangular Probability Density Function (TPDF) dithering applied during final 32-bit float to 16-bit PCM conversion to preserve subtle reverb tails and avoid harmonic truncation noise at low amplitudes.
+7. **Richer Synthesis Models**:
+   * 2-Operator FM synthesis with feedback modulation.
+   * Multi-oscillator detuning (supersaw cluster).
+   * LFO-modulated Pulse Width Modulation (PWM).
+   * Short PCM/WAV sample playback (drum hits, acoustic samples, vocal clips).
+
+### Real Hardware Budget & Constraints (BCM2835 / ARM1176JZF-S)
+* **Cycle Budget**: On a single 1.0 GHz core at 48 kHz stereo:
+  $$\frac{1\,000\,000\,000\text{ cycles/s}}{48\,000\text{ samples/s}} \approx 20\,833\text{ cycles per sample}$$
+  Across 8 polyphonic voices, the theoretical budget is approximately **~2,600 cycles per voice per sample**.
+* **No Hardware Integer Division**:
+  * The ARMv6 architecture (ARM1176) lacks hardware integer division (`sdiv`/`udiv` instructions were introduced in ARMv7-R/M and ARMv7-A extensions).
+  * Every integer `/` or `%` triggers a software subroutine call (`__aeabi_idiv`), consuming 20–80 cycles per invocation.
+  * *Design Rule*: Per-sample integer divisions are strictly prohibited in the audio loop. Use precomputed reciprocal multiplication, bit shifts, or fractional phase accumulators.
+* **Floating-Point & Fixed-Point Strategy**:
+  * VFPv2 hardware floating-point executes `fadds`, `fsubs`, `fmuls`, and `fmacs` efficiently (1–2 cycles), but `fdivs` takes 15–20 cycles.
+  * Precalculate all reciprocal values (e.g., `1.0f / rate`, `1.0f / n`, `idt = 1.0f / dt`) outside the per-sample rendering loops.
+
