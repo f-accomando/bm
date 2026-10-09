@@ -3420,6 +3420,25 @@ prima dallo stesso progetto; Market e `mkbm.py` restano sui `.bm`.
 - **Fatto quando:** sul Pi nessuno strumento cambia un `.bm`, le copie si fanno dal menu e
   dagli strumenti e il build di un progetto finisce in Games.
 
+## M48 — Il mouse nella bm Suite (M) — in corso
+Richiesta dell'utente (2026-10-06, branch `claude/bm-projects`): ottimizzare tutta la suite di
+editor per il mouse: menu, liste e pulsanti; viste e tele; il testo di bm Code; il menu
+contestuale. Regola: il mouse fa quello che fanno i tasti.
+1. ✅ **bmui** (`require "bmui"`): stato dei tasti, doppio clic, trascinamento, rotella, zone
+   registrate mentre si disegna, chip che premono il loro tasto, tasti messi davanti a
+   `keyp()`, menu contestuale sulla griglia 8x16.
+2. ✅ **Gli strumenti**: SDK (schede, progetto, codice, sprite, mappa, 3D), bm Code (cursore,
+   selezione, parola, rotella, schede, breakpoint), bm Studio (lista, strumenti, puntatore come
+   cursore, scelta di facce e angoli, pittura, tessere), bm Animator (liste, ossa trascinate,
+   linea del tempo, sprite), bm Mesh (lista, puntatore, strumenti trascinati, tavolozza), bm
+   Pixel (tela, forme trascinate, colori, foglio, tavolozza), Sound (schede, liste, barre,
+   celle, menu), il pannello dell'assistente; viste 3D: destro gira, centrale sposta, rotella.
+3. ✅ **Prove**: `bmui_host.lua`, le controfigure col mouse, QEMU `test_editor_mouse`.
+4. **Sul Pi**: provare con un mouse USB o Bluetooth ogni strumento; poi, se serve, il
+   cursore a I nel testo e il trascinamento dei pannelli.
+- **Fatto quando:** sul Pi ogni strumento della suite si usa col solo mouse per le cose che
+  si indicano (scegliere, disegnare, girare la vista) e i tasti per il resto.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

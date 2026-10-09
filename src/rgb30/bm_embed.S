@@ -52,6 +52,13 @@ bm_lib_riff_end:
     .byte 0
 
     .balign 4
+    .globl bm_lib_bmui, bm_lib_bmui_end
+bm_lib_bmui:
+    .incbin "src/script/bmui.lua"
+bm_lib_bmui_end:
+    .byte 0
+
+    .balign 4
     .globl bm_lib_words, bm_lib_words_end, bm_texroom_cart, bm_texroom_cart_end
 bm_lib_words:
 bm_lib_words_end:

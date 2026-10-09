@@ -138,6 +138,16 @@ E.btn = function(i) return pad[i] == true end
 E.btnp = function(i) return pad[i] == true and not padprev[i] end
 E.keyp = function() return table.remove(keyq, 1) end
 E.keyheld = function(n) return n == "space" and space_held end
+-- the mouse (bmui): MS as a USB mouse would give it
+local MS = { x = 0, y = 0, b = 0, w = 0, p = 0 }
+E.mouse = function(on) if on ~= nil then return true end; return MS.x, MS.y, MS.b, MS.w, true end
+E.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
+local bmui
+E.require = function(name)
+  assert(name == "bmui", "require: only bmui here")
+  bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()   -- the mouse (it takes keyp over)
+  return bmui
+end
 local keyhelp_list, keyhelp_title
 E.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
 E.save = function(t) saved_t = t; return true end
@@ -599,6 +609,63 @@ check(keyhelp_title == "bm Pixel" and in_help("b / e / g / i", "pencil, eraser, 
 key("f3")
 check(in_help("e", "edit: R G B") and not in_help("p", "play"), "keyhelp: the palette's")
 check(E._exit() == true, "_exit: nothing to save, it leaves")
+
+
+-- the mouse (bmui, 2026-10-06): the same things by clicking
+local function at(str, x, y)
+  for _, t in ipairs(texts) do
+    if t[1] == str and (not x or t[2] == x) and (not y or t[3] == y) then return t[2] + 4, t[3] + 8 end
+  end
+end
+local function mouse(x, y, b, w)
+  local was = MS.b
+  MS.x, MS.y, MS.b, MS.w = x, y, b or 0, w or 0
+  MS.p = MS.b & ~was
+  frames(1)
+  MS.p, MS.w = 0, 0
+end
+local function click(x, y, b)
+  mouse(x, y, 0); mouse(x, y, b or 1); mouse(x, y, 0); frames(1)
+end
+
+frames(400)                              -- (the message of the save goes)
+local mx, my = at("draw", nil, 0)
+click(mx, my)
+check(sees("COLOURS"), "mouse: the draw tab")
+click(312 + 3 * 16 + 4, 32 + 4)
+check(status():find("colour", 1, true), "mouse: a click on a colour takes it: " .. status())
+local edits0 = writes
+key("b")
+mouse(40, 60, 1); mouse(80, 60, 1); mouse(120, 90, 1); mouse(120, 90, 0); frames(2)
+check(sees("pencil"), "mouse: the pencil drawn with the left button held")
+key("u")
+mouse(40, 40, 0); mouse(40, 40, 1); mouse(100, 100, 1); mouse(100, 100, 0); frames(2)
+check(not sees("anchor"), "mouse: a rectangle from a press to a release")
+mouse(60, 60, 4); mouse(60, 60, 0); frames(1)
+mouse(60, 60, 0, 1)
+click(100, 100, 2)
+check(sees("Pencil") and sees("Filled rectangle"), "mouse: the draw page's context menu")
+mx, my = at("Pencil")
+click(mx, my)
+check(sees("pencil"), "mouse: Pencil from the context menu")
+mx, my = at("sheet", nil, 0)
+click(mx, my)
+check(sees("sheet") and sees("zoom"), "mouse: the sheet tab")
+click(8 + 40, 32 + 40)
+mouse(100, 100, 0, 1)
+mx, my = at("palette", nil, 0)
+click(mx, my)
+check(sees("PALETTE"), "mouse: the palette tab")
+click(16 + 2 * 16 + 4, 48 + 4)
+click(304 + 10, 128 + 6)
+mouse(310, 134, 1); mouse(330, 134, 1); mouse(330, 134, 0); frames(1)
+key("esc")
+mx, my = at("menu", nil, 0)
+click(mx, my)
+check(sees("Exit bm Pixel"), "mouse: the menu tab")
+mx, my = at("Continue", 32)
+click(mx, my)
+check(not sees("Exit bm Pixel"), "mouse: a click on Continue")
 
 io.write(string.format("bm Pixel: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)

@@ -132,8 +132,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (`require "bm3d"`); salvano con `cart_write` (`sections`, `sheet` solo se dipinto,
   `from = false` per un progetto nuovo). `tile_face`/`place_faces` sono il port di
   `edit.js` (le facce devono restare identiche, `check_studio3d.js`). Una pagina è un
-  blocco `do ... end` (meno di 200 locali). Il puntatore di sistema (M32) c'è, ma non
-  lo chiedono ancora (`mouse(true)`): per ora tastiera e pad. Scritte sulle righe di 16 pixel (i test in QEMU leggono lo
+  blocco `do ... end` (meno di 200 locali). Il mouse c'è (M48, `require "bmui"`, sezione
+  *Il mouse nella bm Suite*). Scritte sulle righe di 16 pixel (i test in QEMU leggono lo
   schermo). Stessa estetica delle altre app (richiesta dell'utente): pannello a sinistra
   di 168 px con liste a intestazione grigia (niente barre di icone), due righe sopra la
   vista (nome in arancio), colori di bm Mesh (`C.PT` giallo per le cose scelte, `C.HOT`
@@ -985,6 +985,35 @@ gioco se lui non le ha cambiate), poi un circolino di punti che gira) finché fi
   accetta `\xNN`; `tests/write/check.py` legge `.BMD`, `.MD`, `.HTM`, `.TXT` e il PDF anche
   con `pdftotext`), QEMU `test_bm_write` (il permesso, il salvataggio, il PDF, i file nella
   FAT).
+
+## Il mouse nella bm Suite (M48, branch `claude/bm-projects`, 2026-10-06)
+
+- Richiesta dell'utente: tutta la suite col mouse (menu, liste, pulsanti; viste e tele; il testo
+  di bm Code; il menu contestuale). La libreria del kernel `src/script/bmui.lua` (`require
+  "bmui"`, incorporata come bmlib: `embed.S`, `require.c`, `tests/host/libs.S`,
+  `src/rgb30/bm_embed.S`), regola: **il mouse fa quello che fanno i tasti**. Le app registrano
+  le zone mentre disegnano (`U.zone`, `U.begin()` per primo in `_draw`, l'ultima disegnata
+  vince), un clic sceglie o preme il tasto dietro (`U.key_zone`/`U.keys()`: i chip dei
+  suggerimenti, le schede, i dialoghi), `U.press(k)` mette un tasto davanti a `keyp()` (bmui
+  sostituisce il `keyp` globale quando lo si carica), il tasto destro senza trascinare apre il
+  menu contestuale (`U.menu`, voci = tasti, righe e separatori sulla griglia 8x16: i test lo
+  leggono; `U.menu_update()` prima di tutto, `U.menu_draw()` per ultimo). Doppio clic entro
+  0,5 s (QEMU è lento: 0,4 non bastava).
+- Convenzioni in tutte le app: un clic sceglie una riga, il doppio clic (o nei dialoghi un clic
+  su quella scelta) la prende, la rotella si muove o cambia il valore; nelle viste 3D destro
+  trascinato gira, centrale sposta, rotella avvicina (`T.mouse_cam`, `T.face_at`,
+  `T.point_at`, `T.ray_level` in bm3d); sulle tele sinistro disegna (tenuto continua; le forme
+  dal premere al lasciare), centrale preleva; bm Code: clic = cursore, trascinare = selezione,
+  doppio clic = parola, clic sui numeri = breakpoint, centrale su una scheda la chiude; bm
+  Studio: il puntatore è il cursore (block/tile sulla faccia sotto, o sul pavimento del suo
+  livello; la camera non lo insegue mentre il mouse lavora, `bd.mouse`); bm Mesh: il puntatore
+  è quello della pagina edit, con uno strumento (g r t) trascinare = frecce (`U.drag_arrows`).
+- Attenzione: una funzione del mouse fuori dal blocco `do ... end` di una pagina non vede i
+  suoi locali (è successo con `COMMANDS` di bm Mesh): esportarli (`ed.commands`).
+- Prove: `tests/studio/bmui_host.lua` (in `make test-studio`), le controfigure col mouse
+  (`MS` in `tools3d_host.lua`, `mesh_host.lua`, `pixel_host.lua`, `sdk_host.lua`,
+  `tests/sound/sim.lua`, che lo usa anche nell'input a caso), QEMU `test_editor_mouse` (bm Code
+  e SDK col tablet).
 
 ## Mouse e puntatore (M32)
 

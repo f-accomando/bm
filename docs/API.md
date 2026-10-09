@@ -255,6 +255,27 @@ function _update()
 end
 ```
 
+**bmui, the mouse of bm's tools** (`require "bmui"`, `src/script/bmui.lua`, 2026-10-06): the
+editors (SDK, bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel, Sound, the assistant's
+panel) use it, and a game or a tool of your own can too. Its rule: the mouse does what the
+keys do. Things are made clickable as they are drawn, and a click presses the key behind
+them or chooses what they show; the right button opens a context menu whose entries are keys.
+
+| Function | Description |
+|---|---|
+| `U.update()` / `U.begin()` | in `_update` first (reads `mouse()` once a frame), in `_draw` first (forgets the zones of the frame before) |
+| `U.zone(x, y, w, h, kind, a, b)` | something clickable, as it is drawn (the last one drawn wins: a dialog over the page); `U.at()` the zone under the pointer, `U.click([b])` the zone pressed this frame (0 left, 1 right, 2 middle), `U.clicked(b)` a button let go without a drag (the zone where it went down, or `true`) |
+| `U.key_zone(x, y, w, h, keys)` / `U.keys()` | a chip (`"ctrl s"`, `{"shift", "l"}`, `"f5"`) that presses its key when clicked; `U.keys()` does it for the click of the frame |
+| `U.press(key)` | a key as if typed: the next `keyp()` gives it (bmui puts its own `keyp` first) |
+| `U.menu(items, [x, y])` / `U.menu_update()` / `U.menu_draw()` | the context menu at the pointer: `{ {"Copy", "^c"}, "-", {"Run", function() ... end} }` (the key shown on the right, "Ctrl+C"); `U.menu_update()` in `_update` (true: it took the input), `U.menu_draw()` last in `_draw`; rows on the 8x16 grid |
+| `U.x`, `U.y`, `U.on`, `U.moved`, `U.wheel`, `U.double`, `U.drag` | the pointer (`U.on`: a mouse moved it and it shows), whether it moved, the wheel's clicks of the frame, a double click, the drag `{b, x0, y0, dx, dy}` (past 3 pixels; `dx, dy` the frame's move); `U.pressed(b)`, `U.released(b)`, `U.down(b)`, `U.shift()`, `U.drag_arrows(step)` (a drag as arrow keys) |
+
+In the editors: a click chooses a row, a double click (or a click on the chosen one in the
+dialogs) takes it, the wheel moves or changes a value; in the 3D views the right button
+dragged turns, the middle one moves, the wheel zooms; on canvases the left button draws and
+the middle one picks the colour; in bm Code a click places the cursor, a drag selects, a double
+click takes the word, a click in the numbers is a breakpoint.
+
 **More players (M16).** Bluetooth controller *n* is player *n* (paired from the monitor
 with `T`, one at a time: each takes the first free place and its light the player's colour:
 1 blue, 2 red, 3 green, 4 pink). The USB keyboard or gamepad and the serial line are the

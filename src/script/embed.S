@@ -155,6 +155,14 @@ bm_lib_riff:
     .incbin "src/script/riff.lua"
 bm_lib_riff_end:
 
+/* the mouse in bm's tools (require "bmui") */
+    .section .rodata
+    .balign 4
+    .globl bm_lib_bmui, bm_lib_bmui_end
+bm_lib_bmui:
+    .incbin "src/script/bmui.lua"
+bm_lib_bmui_end:
+
     .section .rodata
     .balign 4
     .globl bm_mesh_cart, bm_mesh_cart_end

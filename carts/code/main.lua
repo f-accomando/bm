@@ -10,6 +10,7 @@
 local assist = require "assist"
 local predict = require "predict"
 local pt = require "padtype"
+local U = require "bmui"                 -- the mouse: what the keys do
 
 local W, H = SCREEN_W, SCREEN_H
 local key_chip = prompt                  -- the kernel's prompt(): prompt() here is the text dialog
@@ -55,6 +56,8 @@ local overlay                 -- menu, files, prompt, help, confirm
 local frame = 0
 local find_text
 local held, rep = {}, {}
+local geo = {}                -- each pane as last drawn: where its text is (the mouse)
+local mdrag                   -- a selection the mouse is drawing: {p =, cy =, cx =}
 
 local function say(s, c, t)
   status, status_c, status_t = s, c or C_TEXT, t or 240
@@ -1165,10 +1168,143 @@ local function pad()
   if btnp(8) then open_menu() end
 end
 
+------------------------------------------------------------------ the mouse
+
+-- the line and column under the pointer in pane p (the nearest boundary
+-- between two characters), clamped to the text
+local function text_pos(p, x, y)
+  local g, t = geo[p], view_of(p)
+  local cy = g.top + (y - g.y0) // CH
+  cy = math.max(1, math.min(#t.lines, cy))
+  local cx = g.left + (x - g.tx + CW // 2) // CW
+  return cy, math.max(0, math.min(#t.lines[cy], cx))
+end
+
+-- the word around a column: its start and end
+local function word_bounds(l, cx)
+  local a, b = cx, cx
+  while a > 0 and l:sub(a, a):match("[%w_]") do a = a - 1 end
+  while b < #l and l:sub(b + 1, b + 1):match("[%w_]") do b = b + 1 end
+  return a, b
+end
+
+local function context_menu(t, v)
+  local items = {
+    { "Cut", "^x" }, { "Copy", "^c" }, { "Paste", "^v" }, "-",
+    { "Undo", "^z" }, { "Redo", "^y" }, "-",
+    { "Find...", "^f" }, { "Go to line...", "^l" }, { "Breakpoint", "f8" }, "-",
+    { "Run the game", "f5" },
+  }
+  if t.err then items[#items + 1] = { "Explain the error", "f9" } end
+  items[#items + 1] = { "Assistant", "f6" }
+  items[#items + 1] = { "Menu", "esc" }
+  U.menu(items)
+end
+
+-- the mouse does what the keys do: a click places the cursor (in the
+-- numbers: a breakpoint, F8), a drag selects, a double click takes the
+-- word, the wheel scrolls; tabs, menu, lists and dialogs by clicking; the
+-- right button the context menu
+local function mouse_frame()
+  U.update()
+  if U.menu_update() then return end
+  if assist.is_open() or not U.on then mdrag = nil; return end
+  local o = overlay
+  if o then
+    mdrag = nil
+    if (o.kind == "menu" or o.kind == "files") and U.wheel ~= 0 then
+      local n = o.kind == "menu" and #MENU or #o.items
+      o.sel = math.max(1, math.min(n, o.sel - U.wheel * 3))
+    end
+    local z = U.click(0) or U.click(1)
+    if not z then return end
+    if z.kind == "item" then
+      o.sel = z.a
+      if o.kind == "menu" or U.double then U.press("\n") end   -- a list of files: a double click opens
+    elseif z.kind == "choice" then
+      o.sel = z.a
+      U.press("\n")
+    elseif z.kind == "shade" or o.kind == "help" or o.kind == "text" then
+      U.press("esc")
+    end
+    return
+  end
+  -- the wheel: the page under the pointer scrolls, the cursor stays
+  local z = U.at()
+  if U.wheel ~= 0 and z and z.kind == "pane" then
+    local t, v = view_of(z.a)
+    v.free = true
+    v.top = math.max(1, math.min(#t.lines - geo[z.a].nrows + 1, v.top - U.wheel * 3))
+  end
+  -- a selection being drawn
+  if mdrag then
+    if not U.down(0) then mdrag = nil
+    else
+      local t, v = view_of(mdrag.p)
+      local g = geo[mdrag.p]
+      local cy, cx = text_pos(mdrag.p, U.x, U.y)
+      if U.y < g.y0 then cy = math.max(1, g.top - 1) end          -- past the edge: it scrolls
+      if U.y >= g.y0 + g.h then cy = math.min(#t.lines, g.top + g.nrows) end
+      v.free = nil
+      v.cy, v.cx = cy, math.min(cx, #t.lines[cy])
+      if v.cy ~= mdrag.cy or v.cx ~= mdrag.cx then v.mark = { cy = mdrag.cy, cx = mdrag.cx } else v.mark = nil end
+      return
+    end
+  end
+  local left = U.click(0)
+  if left then
+    if left.kind == "tab" then
+      panes[focus].tab = left.a
+    elseif left.kind == "keys" then
+      overlay = { kind = "help" }
+    elseif left.kind == "pane" then
+      local p = left.a
+      focus = p
+      local t, v = view_of(p)
+      local cy, cx = text_pos(p, U.x, U.y)
+      v.free = nil
+      comp, comp_flash = nil, nil
+      if U.x < geo[p].gx then                  -- the line numbers: a breakpoint there
+        v.cy, v.cx, v.mark = cy, 0, nil
+        toggle_break(t, v)
+      elseif U.double then                     -- the word
+        local a, b = word_bounds(t.lines[cy], cx)
+        v.cy, v.cx = cy, b
+        v.mark = b > a and { cy = cy, cx = a } or nil
+      else
+        v.cy, v.cx, v.mark = cy, cx, nil
+        mdrag = { p = p, cy = cy, cx = cx }
+      end
+    end
+  end
+  local mid = U.click(2)
+  if mid and mid.kind == "tab" then ask_close(mid.a) end
+  local right = U.clicked(1)
+  if right then
+    if type(right) == "table" and right.kind == "tab" then
+      panes[focus].tab = right.a
+      U.menu({ { "New tab", "^t" }, { "Save", "^s" }, { "Save as...", "^S" }, { "Close tab", "^w" }, "-",
+               { "Open...", "^o" }, { "Split screen", "f4" } })
+    elseif type(right) == "table" and right.kind == "pane" then
+      local p = right.a
+      focus = p
+      local t, v = view_of(p)
+      local cy, cx = text_pos(p, U.x, U.y)
+      -- outside the selection: the cursor goes there first
+      local y0, x0, y1, x1 = sel_range(v)
+      local inside = y0 and (cy > y0 or (cy == y0 and cx >= x0)) and (cy < y1 or (cy == y1 and cx <= x1))
+      if not inside then v.cy, v.cx, v.mark = cy, cx, nil end
+      v.free = nil
+      context_menu(t, v)
+    end
+  end
+end
+
 ------------------------------------------------------------------ frame
 
 function _init()
   keyp()                                 -- typing on
+  mouse(true)
   if keyhelp then keyhelp(KEYHELP, "bm Code") end
   pt.set({ fallback = "off" })            -- Share: compose, then the pad moves again
   set_font(1)
@@ -1207,11 +1343,14 @@ function _update()
   frame = frame + 1
   if status_t > 0 then status_t = status_t - 1 end
   riff_frame()
+  mouse_frame()
   if assist.update() then return end
+  if U.menu_open() then return end
   local k = keyp()
   local typed
   while k do
     local t, v = current()
+    v.free = nil                         -- a key: the page follows the cursor again
     typed, comp_flash = false, nil
     if overlay then overlay_key(k)
     elseif k == "\t" and accept(t, v) then
@@ -1326,11 +1465,17 @@ local function draw_pane(p, c0, ncols, r0, nrows)
   local digits = math.max(3, #tostring(#t.lines))
   local gut = digits + 1
   local tcols = ncols - gut - 1
-  -- keep the cursor in sight
-  if v.cy < v.top then v.top = v.cy end
-  if v.cy >= v.top + nrows then v.top = v.cy - nrows + 1 end
+  -- keep the cursor in sight (not while the wheel scrolls the page)
+  if not v.free then
+    if v.cy < v.top then v.top = v.cy end
+    if v.cy >= v.top + nrows then v.top = v.cy - nrows + 1 end
+  end
+  v.top = math.max(1, math.min(v.top, #t.lines - nrows + 1))
   if v.cx < v.left then v.left = v.cx end
   if v.cx >= v.left + tcols then v.left = v.cx - tcols + 1 end
+  geo[p] = { x0 = x0, y0 = y0, w = ncols * CW, h = nrows * CH, tx = x0 + gut * CW, gx = x0 + digits * CW,
+             top = v.top, left = v.left, tcols = tcols, nrows = nrows }
+  U.zone(x0, y0, ncols * CW, nrows * CH, "pane", p)
   local active = p == focus and not overlay and not assist.is_open()
   rectfill(x0, y0, ncols * CW, nrows * CH, C_PANE)
   local tx = x0 + gut * CW
@@ -1453,11 +1598,13 @@ local function draw_tabs()
       break
     end
     local on = panes[focus].tab == i
+    U.zone(x * CW, 0, #label * CW, CH, "tab", i)
     if on then rectfill(x * CW, 0, #label * CW, CH, C_LINE) end
     print(label, x * CW, 0, on and 0xFFFFFF or C_DIM)
     x = x + #label + 1
   end
   local lx = (COLS - 11) * CW                        -- "held: keys" on the last columns, F12 before
+  U.zone(lx - 3 - key_chip("f12", CH < 16), 0, W - lx, CH, "keys")
   key_chip("f12", lx - 3 - key_chip("f12", CH < 16), 0, CH < 16)
   print("held: keys", lx, 0, C_DIM)
 end
@@ -1549,6 +1696,7 @@ end
 
 local function draw_overlay()
   local o = overlay
+  U.zone(0, 0, W, H, "shade")             -- a click outside the box: Esc
   if o.kind == "text" then
     local cols = math.min(COLS - 4, 80)
     local rows = math.min(ROWS - 4, #o.lines + 3)
@@ -1577,6 +1725,7 @@ local function draw_overlay()
     local cols = math.min(COLS - 4, 70)
     local c0, r0 = (COLS - cols) // 2, ROWS // 2 - 2
     draw_box(c0, r0, cols, 3, o.label)
+    U.zone(c0 * CW, r0 * CH, cols * CW, 3 * CH, "box")
     local cur = (frame // 30) % 2 == 0 and "_" or " "
     local shown = o.text:sub(-(cols - 4 - (o.comp and #o.comp.rest or 0)))
     local tx, ty = (c0 + 1) * CW, (r0 + 1) * CH
@@ -1589,10 +1738,12 @@ local function draw_overlay()
     local cols = math.min(COLS - 4, math.max(#o.question + 4, 50))
     local c0, r0 = (COLS - cols) // 2, ROWS // 2 - 2
     draw_box(c0, r0, cols, 4, "bm Code")
+    U.zone(c0 * CW, r0 * CH, cols * CW, 4 * CH, "box")
     print(o.question:sub(1, cols - 2), (c0 + 1) * CW, (r0 + 1) * CH, C_TEXT)
     local x = c0 + 1
     for i, c in ipairs(o.choices) do
       local on = i == (o.sel or 1)
+      U.zone(x * CW, (r0 + 2) * CH, (#c + 2) * CW, CH, "choice", i)
       if on then rectfill(x * CW, (r0 + 2) * CH, (#c + 2) * CW, CH, C_SEL) end
       print(" " .. c .. " ", x * CW, (r0 + 2) * CH, on and 0xFFFFFF or C_TEXT)
       x = x + #c + 4
@@ -1606,13 +1757,16 @@ local function draw_overlay()
     local rows = math.min(n, ROWS - 6) + 2
     local c0, r0 = (COLS - cols) // 2, 2
     draw_box(c0, r0, cols, rows, menu and "bm Code" or "Open a cartridge (Enter)")
+    U.zone(c0 * CW, r0 * CH, cols * CW, rows * CH, "box")
     local vis = rows - 2
+    o.vis = vis
     if o.sel < (o.top or 1) then o.top = o.sel end
     if o.sel >= (o.top or 1) + vis then o.top = o.sel - vis + 1 end
     for r = 0, vis - 1 do
       local i = (o.top or 1) + r
       if i > n then break end
       local y = (r0 + 1 + r) * CH
+      U.zone((c0 + 1) * CW, y, (cols - 2) * CW, CH, "item", i)
       if i == o.sel then rectfill((c0 + 1) * CW, y, (cols - 2) * CW, CH, C_SEL) end
       local label, right
       if menu then label, right = MENU[i][1], MENU[i][2]
@@ -1637,6 +1791,7 @@ local function draw_overlay()
 end
 
 function _draw()
+  U.begin()
   font(FONTS[font_i])
   cls(C_BG)
   draw_tabs()
@@ -1663,4 +1818,7 @@ function _draw()
   draw_status(t, v)
   if overlay then draw_overlay() end
   assist.draw()
+  font("8x16")
+  U.menu_draw()                          -- the context menu, over everything
+  font(FONTS[font_i])
 end

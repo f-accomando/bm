@@ -17,6 +17,7 @@
 -- clears, the two rows Z S X D C... and Q 2 W 3 E... are a piano, hold
 -- F12 for every key.
 
+local U = require "bmui"                 -- the mouse: what the keys do, by clicking
 local W, H = SCREEN_W, SCREEN_H
 
 ----------------------------------------------------------------- look
@@ -434,6 +435,7 @@ local function slot_list(title, n, sel, label, used, c)
     if i >= n then break end
     local y = TOP + 26 + r * 21
     local s = i == sel
+    U.zone(4, y - 2, 144, 21, "slot", i)
     if s then ui.box(4, y - 2, 144, 20, c) end
     print(string.format("%02d", i), 8, y, s and C.dark or C.faint)
     local l = label(i)
@@ -751,6 +753,7 @@ P[1] = {
               function(i) return not B.sound_empty(bank.sounds[i + 1]) end, C.blue)
     -- the name
     local nsel = sp.row == 0
+    U.zone(160, TOP + 2, 472, 38, "sname")
     if nsel then ui.box(160, TOP + 2, 472, 38, C.panel2) ui.frame2(160, TOP + 2, 472, 38, C.blue) end
     print(s.name ~= "" and s.name or "NO NAME", 172, TOP + 5, s.name ~= "" and C.text or C.faint, 2)
     ui.textr(string.format("sound %02d", cur.sound), 620, TOP + 14, C.dim)
@@ -763,6 +766,7 @@ P[1] = {
       for row = 1, #grp.cols[col] do
         local d = grp.cols[col][row]
         local v = d.get(s)
+        U.zone(SCOL_X[col] - 4, by + (row - 1) * 38 - 3, 144, 36, "bar", col, row)
         ui.bar(SCOL_X[col], by + (row - 1) * 38, 136, plabel(d, s), d.fmt(v, s), (v - d.lo) / (d.hi - d.lo),
                grp.c, sp.row == row and sp.col == col)
       end
@@ -771,6 +775,7 @@ P[1] = {
       -- the third column of the last group: the groups, and the presets
       local x = SCOL_X[3]
       for i, gg in ipairs(SGROUPS) do
+        U.zone(x, by + 2 + (i - 1) * 20, 144, 20, "group", i)
         print((i == g and "> " or "  ") .. gg.name, x, by + 4 + (i - 1) * 20, i == g and gg.c or C.dim)
       end
       print("MENU: INSTRUMENT", x, by + 84, C.faint)
@@ -918,6 +923,7 @@ P[2] = {
       local label, val = SFX_FIELDS[f + 1], sfx_field_text(x, f)
       local w = f == 0 and 120 or 82
       local sel = xp.field == f
+      U.zone(fx0, TOP + 2, w, 38, "field", f)
       ui.box(fx0, TOP + 2, w, 38, sel and C.panel2 or C.panel)
       if sel then ui.frame2(fx0, TOP + 2, w, 38, C.green) end
       print(label, fx0 + 6, TOP + 4, C.dim)
@@ -950,6 +956,7 @@ P[2] = {
       local st = x.steps[k] or 0
       local cx = x0 + (k - 1) * cw
       local inside = k <= x.len
+      if inside then U.zone(cx, ly - 4, cw, 196, "step", k - 1) end
       if playing and playing == k - 1 then rectfill(cx, ly - 2, cw - 1, lh + 4, C.panel2) end
       if (k - 1) % 4 == 0 then rectfill(cx, ly + lh, 1, 4, C.faint) end
       local n = s_note(st)
@@ -1143,6 +1150,7 @@ P[3] = {
     local vals = { tostring(p.len), song.bpm .. " BPM", song.swing .. "%" }
     for f = 0, 2 do
       local sel = pp.field == f
+      U.zone(fx0, TOP + 2, 96, 38, "field", f)
       ui.box(fx0, TOP + 2, 96, 38, sel and C.panel2 or C.panel)
       if sel then ui.frame2(fx0, TOP + 2, 96, 38, C.orange) end
       print(PAT_FIELDS[f + 1], fx0 + 6, TOP + 4, C.dim)
@@ -1165,6 +1173,7 @@ P[3] = {
       local tc = TRACK_C[t + 1]
       local hsel = pp.field < 0 and pp.track == t and pp.step < 0
       local m = muted[t]
+      U.zone(8, y + 1, 108, CH - 3, "track", t)
       ui.box(8, y + 1, 108, CH - 3, hsel and C.panel2 or C.panel)
       ui.box(10, y + 3, 20, CH - 7, m and C.faint or tc)
       print(tostring(t + 1), 16, y + 6, C.dark)
@@ -1175,6 +1184,7 @@ P[3] = {
         local k = page * 16 + c
         local x = cell_x(k)
         if k < p.len then
+          U.zone(x, y + 1, CW - 3, CH - 3, "cell", k, t)
           local st = pat_get(p, t, k)
           local n = s_note(st)
           local bg = (c // 4) % 2 == 0 and C.cell or C.panel
@@ -1334,6 +1344,7 @@ P[4] = {
     for f = 0, NSF do
       local w = f == 0 and 112 or 64
       local sel = gp.field == f
+      U.zone(fx0, TOP + 2, w, 38, "field", f)
       ui.box(fx0, TOP + 2, w, 38, sel and C.panel2 or C.panel)
       if sel then ui.frame2(fx0, TOP + 2, w, 38, C.purple) end
       print(SONG_FIELDS[f + 1], fx0 + 6, TOP + 4, C.dim)
@@ -1345,6 +1356,7 @@ P[4] = {
     local playing = ms == cur.song and morder or nil
     for i = 0, 63 do
       local x, y = OX + (i % 16) * OW, OY + (i // 16) * OH
+      if i <= #s.order then U.zone(x, y, OW - 3, OH - 4, "order", i) end
       if i < #s.order then
         local n = s.order[i + 1]
         local used = not B.pat_empty(bank.pats[n + 1])
@@ -1564,10 +1576,12 @@ end
 
 local function draw_overlay()
   local o = overlay
+  U.zone(0, 0, W, H, "shade")              -- a click outside: Esc
   -- darken what is behind: a grid of dots is cheap and reads as a shadow
   for yy = TOP, BOTTOM, 4 do rectfill(0, yy, W, 2, C.dark) end
   if o.kind == "name" then
     local x, y = draw_panel(360, 150, o.label, C.yellow)
+    U.zone(x, y, 360, 150, "box")
     for i = 1, 8 do
       local cx = x + 30 + (i - 1) * 38
       ui.box(cx, y + 50, 32, 44, i == o.pos and C.yellow or C.panel2)
@@ -1582,6 +1596,7 @@ local function draw_overlay()
     ui.hint(hx, y + 122, "B", nil, "cancel")
   elseif o.kind == "ask" then
     local x, y = draw_panel(420, 130, o.q, C.orange)
+    U.zone(x, y, 420, 130, "box")
     print(o.detail or "", x + 16, y + 44, C.text)
     local hx = ui.hint(x + 16, y + 92, "A", nil, o.yes)
     ui.hint(hx + 8, y + 92, "B", nil, "cancel")
@@ -1595,10 +1610,12 @@ local function draw_overlay()
     local n = #o.items
     local rows = math.min(n, 13)
     local x, y = draw_panel(440, rows * 20 + (o.footer and 60 or 44), o.title, PAGE_C[cur.page])
+    U.zone(x, y, 440, rows * 20 + (o.footer and 60 or 44), "box")
     local first = clamp(o.sel - rows // 2, 1, math.max(1, n - rows + 1))
     for i = first, math.min(n, first + rows - 1) do
       local it = o.items[i]
       local yy = y + 34 + (i - first) * 20
+      U.zone(x + 6, yy - 2, 428, 20, "orow", i)
       if i == o.sel then ui.box(x + 6, yy - 2, 428, 20, PAGE_C[cur.page]) end
       local c = i == o.sel and C.dark or (it.off and C.faint or C.text)
       print(it.label, x + 14, yy, c)
@@ -2450,6 +2467,7 @@ local function draw_top()
     local lx = snap(x + 4 + prompt(fk) + 2)
     local w = lx + #t * 8 + 6 - x
     local on = cur.page == i
+    U.zone(x, 5, w, 22, "tab", i)
     ui.box(x, 5, w, 22, on and PAGE_C[i] or C.panel)
     prompt(fk, x + 4, 8)
     print(t, lx, 8, on and C.dark or C.dim)
@@ -2487,6 +2505,7 @@ local function draw_bottom()
     x = ui.hint(x, y, h[1], h[2], h[3])
   end
   ui.hint(W - 104, y, "SELECT", nil, "menu")
+  U.zone(W - 104, y, 104, H - y, "menu")
 end
 
 ----------------------------------------------------------------- input
@@ -2582,6 +2601,109 @@ local function global_key(k)
   end
 end
 
+----------------------------------------------------------------- the mouse
+
+-- The mouse does what the keys do. The tabs, the lists of the left, the
+-- fields and the cells: a click chooses (a cell of the pattern: it is
+-- toggled, as A); a double click does what A does; the wheel changes the
+-- value under the pointer (as A + up/down) or moves in a list; a value bar
+-- dragged left or right changes it; in a list of the menu a click chooses
+-- (on the chosen one, or double: takes it), outside it is Esc; the right
+-- button the context menu.
+local wheel_acc = 0
+local function edit_here(d)
+  if d == 0 then return end
+  begin_edit()
+  P[cur.page].edit("A", 0, -d)
+end
+
+local function sound_mouse()
+  if not U.on then return end
+  local o = overlay
+  if o then
+    if o.kind == "riff" or o.kind == "name" then return end
+    if o.items and U.wheel ~= 0 then overlay_key(U.wheel > 0 and "up" or "down") end
+    local z = U.click(0)
+    if not z then return end
+    if z.kind == "orow" and o.items then
+      if z.a == o.sel or U.double then overlay_key("\n")
+      else
+        local d = z.a > o.sel and "down" or "up"
+        for _ = 1, math.abs(z.a - o.sel) do overlay_key(d) end
+      end
+    elseif z.kind == "shade" or o.kind == "help" then
+      overlay_key("esc")
+    end
+    return
+  end
+  local page = P[cur.page]
+  local z = U.at()
+  local kind = z and z.kind
+  -- the wheel
+  if U.wheel ~= 0 and z then
+    if kind == "slot" then page.item(-U.wheel)
+    elseif kind == "bar" then sp.col, sp.row = z.a, z.b; edit_here(U.wheel)
+    elseif kind == "field" then
+      if cur.page == 2 then xp.field = z.a elseif cur.page == 3 then pp.field = z.a elseif cur.page == 4 then gp.field = z.a end
+      edit_here(U.wheel)
+    elseif kind == "step" then xp.field, xp.step = -1, z.a; edit_here(U.wheel)
+    elseif kind == "cell" then pp.field, pp.track, pp.step = -1, z.b, z.a; edit_here(U.wheel)
+    elseif kind == "order" then gp.field, gp.slot = -1, z.a; edit_here(U.wheel) end
+  end
+  -- a value bar dragged: a step every 4 pixels
+  local d = U.drag
+  if d and d.b == 0 and cur.page == 1 and sp.row > 0 then
+    wheel_acc = wheel_acc + d.dx
+    while math.abs(wheel_acc) >= 4 do
+      local s1 = wheel_acc > 0 and 1 or -1
+      edit_here(s1)
+      wheel_acc = wheel_acc - s1 * 4
+    end
+    return
+  end
+  wheel_acc = 0
+  local c = U.click(0)
+  if c then
+    local k = c.kind
+    if k == "tab" then goto_page(c.a)
+    elseif k == "menu" then open_menu()
+    elseif k == "slot" then
+      local now = cur.page == 1 and cur.sound or cur.page == 2 and cur.sfx or cur.song
+      page.item(c.a - now)
+    elseif k == "sname" then
+      sp.row = 0
+      if U.double then begin_edit(); page.tap("A") end
+    elseif k == "bar" then sp.col, sp.row = c.a, c.b
+    elseif k == "group" then sp.group, sp.col, sp.row = c.a, 1, 1
+    elseif k == "field" then
+      if cur.page == 2 then xp.field = c.a elseif cur.page == 3 then pp.field = c.a else gp.field = c.a end
+      if U.double then begin_edit(); page.tap("A") end
+    elseif k == "step" then
+      local again = xp.field < 0 and xp.step == c.a
+      xp.field, xp.step = -1, c.a
+      if again or U.double then begin_edit(); page.tap("A") end
+    elseif k == "track" then
+      pp.field, pp.track, pp.step = -1, c.a, -1
+      if U.double then begin_edit(); page.tap("A") end
+    elseif k == "cell" then                -- the step sequencer: a click toggles the note
+      pp.field, pp.track, pp.step = -1, c.b, c.a
+      begin_edit()
+      page.tap("A")
+    elseif k == "order" then
+      local again = gp.field < 0 and gp.slot == c.a
+      gp.field, gp.slot = -1, c.a
+      if again or U.double then begin_edit(); page.tap("A") end
+    end
+    return
+  end
+  if U.clicked(1) then
+    U.menu({ { "Play / stop", " " }, { "Play the note (Y)", "i" }, { "A (enter)", "\n" }, { "Clear", "\b" },
+             { "Copy", "^c" }, { "Paste", "^v" }, { "Undo", "^z" }, "-",
+             { "Compose with the assistant", "f6" }, { "Riff...", "f7" }, "-", { "Save", "^s" },
+             { "Try it in the game", "f5" }, { "Menu", "esc" } })
+  end
+end
+
 ----------------------------------------------------------------- main
 
 -- Ctrl+Esc or PS (the system's keys): back to bm's menu; with unsaved
@@ -2595,6 +2717,7 @@ end
 
 function _init()
   keyp()                                  -- the keyboard types (piano, names)
+  U.wants()                               -- the pointer, when there is a mouse
   if keyhelp then keyhelp(KEYHELP, "Sound") end
   local a = cart_arg()
   from_sdk = a and a.from == "sdk"
@@ -2615,6 +2738,7 @@ end
 function _update()
   frame = frame + 1
   if msg_t > 0 then msg_t = msg_t - 1 end
+  U.update()                              -- the mouse, for the assistant's panel too
   local a = assist_lib or nil
   if a and a.is_open() then
     if preview_due then
@@ -2629,6 +2753,8 @@ function _update()
   end
   read_pad()
   riff_frame()
+  if U.menu_update() then return end      -- the context menu has the input
+  sound_mouse()
   while true do
     local k = keyp()
     if not k then break end
@@ -2643,10 +2769,12 @@ function _update()
 end
 
 function _draw()
+  U.begin()
   cls(C.bg)
   P[cur.page].draw()
   draw_top()
   draw_bottom()
   if overlay then draw_overlay() end
   if assist_lib and assist_lib.is_open() then assist_lib.draw() end
+  U.menu_draw()                          -- the context menu over everything
 end

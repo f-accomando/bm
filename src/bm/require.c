@@ -19,6 +19,7 @@ extern const uint8_t bm_lib_predict[], bm_lib_predict_end[];
 extern const uint8_t bm_lib_words[], bm_lib_words_end[];
 extern const uint8_t bm_lib_padtype[], bm_lib_padtype_end[];
 extern const uint8_t bm_lib_riff[], bm_lib_riff_end[];
+extern const uint8_t bm_lib_bmui[], bm_lib_bmui_end[];
 
 static const struct {
     const char *name;
@@ -32,6 +33,7 @@ static const struct {
     { "words", bm_lib_words, bm_lib_words_end },        /* its dictionaries */
     { "padtype", bm_lib_padtype, bm_lib_padtype_end },  /* typing with the pad */
     { "riff", bm_lib_riff, bm_lib_riff_end },           /* the language of patterns (music) */
+    { "bmui", bm_lib_bmui, bm_lib_bmui_end },           /* the mouse in bm's tools */
 };
 
 #define LOADED "bm.loaded"
@@ -88,7 +90,7 @@ static int l_require(lua_State *L)
         lua_setfield(L, -3, name);
         return 1;
     }
-    return luaL_error(L, "module '%s' not found (built in: assist, bm3d, bmlib, bmnet, predict, words, padtype, riff)", name);
+    return luaL_error(L, "module '%s' not found (built in: assist, bm3d, bmlib, bmnet, predict, words, padtype, riff, bmui)", name);
 }
 
 void bm_require_open(lua_State *L)

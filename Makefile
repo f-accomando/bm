@@ -608,7 +608,7 @@ $(BUILD)/host/bmhost/runtime-deps: $(wildcard src/bm/*.h src/audio/*.h src/kerne
 $(BMHOST_OBJS): $(BUILD)/host/bmhost/runtime-deps
 $(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
                           $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua src/ai/predict.lua $(BUILD)/words.lua src/ai/padtype.lua \
-                          src/script/riff.lua
+                          src/script/riff.lua src/script/bmui.lua
 	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) \
 	    -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/libs.S $(BMHOST_OBJS) -lm
 bmhost: $(BUILD)/host/bmhost-bin
@@ -1220,6 +1220,7 @@ test-img2mesh: $(BUILD)/host/meshview
 # and by the kernel's parser. Skipped without Node.
 test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm \
              $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap
+	$(BUILD)/host/luahost tests/studio/bmui_host.lua .
 	rm -rf $(BUILD)/studio3d-sd && mkdir -p $(BUILD)/studio3d-sd/carts
 	cp $(BUILD)/carts/village.bm $(BUILD)/studio3d-sd/carts/
 	$(BUILD)/host/luahost tests/studio/tools3d_host.lua . $(BUILD)/studio3d-sd

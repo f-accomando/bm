@@ -15,6 +15,7 @@ local HINT_Y = T.HINT_Y
 local floor, abs, sqrt, max, min, pi = math.floor, math.abs, math.sqrt, math.max, math.min, math.pi
 local clamp, round = T.clamp, T.round
 local M, say = T.M, T.say
+local U = T.U                            -- the mouse (bmui)
 
 -- the Lua of a new project: the viewer of bm Studio (the same text, so the
 -- PC tools know it is theirs to replace)
@@ -188,6 +189,7 @@ local function draw_picker()
     print(string.format("colours: #%06X", T.PALETTE[p.pal]), 0, 16, C.TEXT)
     for i, c in ipairs(T.PALETTE) do
       local x, y = 16 + ((i - 1) % 6) * 40, 56 + ((i - 1) // 6) * 40
+      U.zone(x - 4, y - 4, 40, 40, "swatch", i)
       rectfill(x, y, 32, 32, c)
       if i == p.pal then rect(x - 3, y - 3, 38, 38, C.CUR) end
     end
@@ -200,6 +202,7 @@ local function draw_picker()
   print(string.format("tiles: sheet %dx%d  at %d,%d  %dx%d", sheet_w, sheet_h, p.x, p.y, p.size, p.size), 0, 16, C.TEXT)
   local ox, oy = 16, 32
   local vw, vh = min(288, sheet_w - p.left), min(272, sheet_h - p.top)
+  U.zone(ox, oy, vw, vh, "sheet")
   clip(ox, oy, 288, 272)
   rectfill(ox, oy, vw, vh, CHK1)
   -- a checker shows the transparent pixels (as bm Pixel's)
@@ -1001,6 +1004,7 @@ local function draw_paint_panel(x, y)
   print("PAINT", x, y, C.DIM)
   print(string.format("%dx%d at %d,%d", pp.w, pp.h, pp.x, pp.y), x, y + 16, C.TEXT)
   local oy = y + 36
+  U.zone(x, oy, pp.w * z, pp.h * z, "paint", z, { x = x, y = oy })
   rectfill(x, oy, pp.w * z, pp.h * z, CHK1)
   for j = 0, pp.h - 1 do
     for i = 0, pp.w - 1 do
@@ -1079,11 +1083,13 @@ local function draw_panel()
   print("TOOLS", 16, 32, C.DIM)
   for i, name in ipairs(TOOLS) do
     local y = 32 + i * 16
+    U.key_zone(0, y, PANEL_W, 16, tostring(i))     -- a click: the tool
     if i == bd.tool then rectfill(0, y, PANEL_W, 16, C.SEL) end
     print(tostring(i), 8, y, TOOL_C[i])
     print(name, 24, y, i == bd.tool and 0xFFFFFF or C.TEXT)
   end
   print(brush.c and "COLOUR" or "TILE", 16, 144, C.DIM)
+  U.key_zone(16, 160, PANEL_W - 32, 90, "tab")       -- the brush and the sheet: the tiles
   draw_brush(18, 162, 28)
   if brush.c then
     print(string.format("#%06X", brush.c), 56, 160, C.TEXT)
@@ -1212,6 +1218,7 @@ function build.refresh()
 end
 
 function build.key(k)
+  bd.mouse = nil                             -- the keys: the camera follows the cursor again
   if picker.open then picker_key(k); return end
   if bd.move then move_key(k); return end
   if bd.paint then paint_key(k); return end
@@ -1326,10 +1333,121 @@ function build.update()
     else local f = hot_face(); p = f and T.face_center(f) end
     if p then tx, ty, tz = p[1], p[2], p[3] end
   end
-  cam.tx = cam.tx + (tx - cam.tx) * 0.2
-  cam.ty = cam.ty + (ty - cam.ty) * 0.2
-  cam.tz = cam.tz + (tz - cam.tz) * 0.2
+  if not bd.mouse then                       -- the mouse's cursor: the view stays put
+    cam.tx = cam.tx + (tx - cam.tx) * 0.2
+    cam.ty = cam.ty + (ty - cam.ty) * 0.2
+    cam.tz = cam.tz + (tz - cam.tz) * 0.2
+  end
   cam.yaw = cam.yaw + (bd.yaw_to - cam.yaw) * 0.25
+end
+
+-- the mouse: in the view the right button turns, the middle one moves, the
+-- wheel zooms; the pointer is the cursor: block and tile go on the face
+-- under it (or on the floor of the cursor's level), select, vertex and
+-- paint take what is under it, and the left button does what space does.
+-- In the tiles the left button chooses (a double click takes it), in the
+-- paint panel it paints.
+local function picker_mouse()
+  local p = picker
+  local z = U.click(0)
+  if not z then return end
+  if z.kind == "swatch" then
+    p.pal = z.a
+    picker_key("\n")
+  elseif z.kind == "sheet" then
+    local x = (p.left + U.x - 16) // p.size * p.size
+    local y = (p.top + U.y - 32) // p.size * p.size
+    if U.double and x == p.x and y == p.y then picker_key("\n"); return end
+    p.x, p.y = clamp(x, 0, sheet_w - p.size), clamp(y, 0, sheet_h - p.size)
+    picker_clamp()
+  end
+end
+
+local function cell_of(p) return { floor(p[1] + 1e-6), floor(p[2] + 1e-6), floor(p[3] + 1e-6) } end
+
+-- the cursor's cell (and side) from what is under the pointer
+local function hover_cell()
+  local m = M()
+  local i = m and T.face_at(m.faces, U.x, U.y)
+  if i then
+    local f = m.faces[i]
+    local ctr, n = T.face_center(f), T.face_normal(f)
+    local c = cell_of(V.add(ctr, V.scale(n, 0.5)))
+    bd.cell, bd.behind = c, cell_of(V.sub(ctr, V.scale(n, 0.5)))
+    if bd.tool == 2 then
+      for sd = 1, 6 do
+        local a, l = side_plane(c, sd)
+        if on_square(f, c, a, l) then bd.side = sd; break end
+      end
+    end
+    return
+  end
+  local hit = T.ray_level(bd.cam, U.x, U.y, bd.cell[2])
+  if hit then
+    bd.cell = { clamp(floor(hit[1]), -64, 63), bd.cell[2], clamp(floor(hit[3]), -64, 63) }
+    bd.behind = nil
+  end
+end
+
+function build.mouse()
+  if picker.open then picker_mouse(); return end
+  local view = U.inside(168, 48, W - 168, HINT_Y - 48)
+  if T.mouse_cam(bd.cam, 168, 48, W - 168, HINT_Y - 48, {
+        lo = 2, hi = 80, pmax = 0.3, yaw = function(d) bd.yaw_to = bd.yaw_to + d; bd.cam.yaw = bd.cam.yaw + d end }) then
+    bd.mouse = true
+  end
+  if bd.paint then
+    local z = U.at()
+    if z and z.kind == "paint" and U.down(0) then        -- held: it paints as it goes
+      local pp = bd.paint
+      pp.cx = clamp((U.x - z.b.x) // z.a, 0, pp.w - 1)
+      pp.cy = clamp((U.y - z.b.y) // z.a, 0, pp.h - 1)
+      paint_key(" ")
+    end
+    return
+  end
+  if bd.move or not view then return end
+  if U.moved then
+    bd.mouse = true
+    if bd.tool <= 2 then hover_cell()
+    elseif bd.tool == 4 then bd.hotp = T.point_at(points(), U.x, U.y, 10) or bd.hotp
+    else bd.hot = T.face_at(faces(), U.x, U.y) or bd.hot end
+  end
+  if U.click(0) then
+    if bd.tool <= 2 then build_action(false) else build.key(" "); bd.mouse = true end
+  end
+end
+
+-- the context menu of the view: the page's keys
+function build.menu_items()
+  if picker.open or bd.move or bd.paint then return {} end
+  local t = bd.tool
+  local list
+  if t == 1 or t == 2 then
+    list = { { t == 1 and "Put a block" or "Put a tile", " " },
+             { t == 1 and "Remove the block" or "Remove the tile",
+               function()
+                 if t == 1 and bd.behind then bd.cell = bd.behind end
+                 build.key("\b")
+                 bd.mouse = true
+               end },
+             { "Pick the tile", "x" }, { "Turn the brush", "r" }, { "Mirror the brush", "h" },
+             { "Tiles and colours...", "\t" } }
+    if t == 2 then list[#list + 1] = { "Next side", "f" } end
+  elseif t == 3 then
+    list = { { "Choose", " " }, { "All / none", "a" }, { "All joined", "c" }, { "Move", "g" }, { "Copy", "d" },
+             { "Turn", "r" }, { "Mirror", "m" }, { "New texture", "\n" }, { "Delete", "\b" } }
+  elseif t == 4 then
+    list = { { "Choose", " " }, { "All / none", "a" }, { "Move", "g" }, { "Join", "m" } }
+  else
+    list = { { "Paint this face", " " } }
+  end
+  list[#list + 1] = "-"
+  for i, name in ipairs(TOOLS) do list[#list + 1] = { "Tool: " .. name, tostring(i) } end
+  list[#list + 1] = "-"
+  list[#list + 1] = { "Frame the model", "z" }
+  list[#list + 1] = { "View: " .. VIEWS[bd.view % #VIEWS + 1], "v" }
+  return list
 end
 
 function build.status()
@@ -1571,7 +1689,20 @@ function models_page.pad()
   if T.tap[6] then models_page.key("n") end
 end
 
-function models_page.update() mp.cam.yaw = mp.cam.yaw + 0.01 end
+function models_page.update()
+  if not mp.held then mp.cam.yaw = mp.cam.yaw + 0.01 end
+end
+
+-- the mouse: right drag turns (and stops the turning), middle moves, wheel zooms
+function models_page.mouse()
+  if T.mouse_cam(mp.cam, PANEL_W, 64, W - PANEL_W, HINT_Y - 64) and U.drag then mp.held = true end
+end
+
+function models_page.menu_items()
+  return { { "Build it", "\n" }, { "New model", "n" }, { "Rename...", "r" }, { "Duplicate", "d" },
+           { "Delete (twice)", "del" }, { "Fewer triangles...", "-" }, { "Model from a picture...", "m" },
+           { "Texture margin", "i" } }
+end
 
 function models_page.draw()
   local m = M()
@@ -1589,6 +1720,9 @@ function models_page.draw()
   for i, mm in ipairs(S.models) do names[i] = mm.name end
   T.draw_list("MODELS " .. #S.models, names, S.cur, 0, 32, 16, PANEL_W, function(i)
     return S.models[i].rig and 0x80C8FF or C.GRID0
+  end, function(i, again)                        -- the mouse: a click chooses, a double click builds it
+    if i ~= S.cur then choose_model(i) end
+    if again then T.go("build") end
   end)
   -- what it is: three lines over the view
   local x = PANEL_W + 16

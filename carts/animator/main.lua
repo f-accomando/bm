@@ -15,6 +15,7 @@ local floor, abs, sqrt, max, min, pi = math.floor, math.abs, math.sqrt, math.max
 local sin, cos = math.sin, math.cos
 local clamp, round = T.clamp, T.round
 local M, say = T.M, T.say
+local U = T.U                                    -- the mouse (bmui)
 local PANEL_W = 168                              -- the lists on the left
 local INFO_X = PANEL_W + 16
 
@@ -187,6 +188,18 @@ function play.pad()
   if T.tap[6] then pl.spin = not pl.spin end
 end
 
+-- the mouse: right drag turns (no more spinning), middle moves, wheel zooms
+function play.mouse()
+  if T.mouse_cam(pl.cam, PANEL_W, 80, W - PANEL_W, HINT_Y - 80) and U.drag then pl.spin = false end
+  if U.click(0) and U.inside(PANEL_W, 80, W - PANEL_W, HINT_Y - 80) then play.key(" ") end
+end
+
+function play.menu_items()
+  return { { pl.playing and "Stop" or "Play", " " }, { "Bones", "k" }, { "Light", "l" }, { "Spin", "o" },
+           { "Blend with the next", "b" }, { "Frame before", "," }, { "Frame after", "." }, { "Slower", "<" },
+           { "Faster", ">" }, { "Frame the model", "z" } }
+end
+
 function play.update(dt)
   if pl.spin then pl.cam.yaw = pl.cam.yaw + 0.008 end
   if pl.playing then pl.t = pl.t + dt * pl.speed end
@@ -226,12 +239,18 @@ function play.draw()
   local names = {}
   for i, mm in ipairs(S.models) do names[i] = mm.name end
   local rows = #pl_clips > 0 and min(8, max(1, #names)) or 16
-  T.draw_list("MODELS", names, S.cur, 0, 32, rows)
+  T.draw_list("MODELS", names, S.cur, 0, 32, rows, nil, nil, function(i)
+    if i ~= S.cur then T.select_model(i); T.refresh(); play.reset() end
+  end)
   if #pl_clips > 0 then
     local cn = {}
     for i, cc in ipairs(pl_clips) do cn[i] = cc.name end
     local y = 32 + (rows + 2) * 16
-    T.draw_list("ANIMATIONS", cn, pl.clip, 0, y, max(1, min(#cn, (HINT_Y - y - 16) // 16)))
+    T.draw_list("ANIMATIONS", cn, pl.clip, 0, y, max(1, min(#cn, (HINT_Y - y - 16) // 16)), nil, nil,
+                function(i, again)                -- a click: that animation; a double click plays it
+      if i ~= pl.clip then pl.clip, pl.t = i, 0 end
+      if again then pl.playing = true end
+    end)
   end
   -- what it is
   local x = INFO_X
@@ -606,6 +625,58 @@ function rig_page.key(k)
   end
 end
 
+-- the mouse: right drag turns, middle moves, wheel zooms. Bones: a click
+-- on a bone's end chooses it, the left button dragged moves it (steps of
+-- 1/8 across the screen and up). Skin: the face under the pointer, a click
+-- chooses it.
+function rig_page.mouse()
+  local view = U.inside(PANEL_W, 48, W - PANEL_W, HINT_Y - 48)
+  T.mouse_cam(rg.cam, PANEL_W, 48, W - PANEL_W, HINT_Y - 48, { lo = 0.5, hi = 100 })
+  local m, r = M(), rig()
+  if not m or not view then rg.acc = nil; return end
+  if rg.skin then
+    if U.moved then rg.hot = T.face_at(m.faces, U.x, U.y) or rg.hot end
+    if U.click(0) then skin_key(" ") end
+    return
+  end
+  if not r then return end
+  if U.click(0) then
+    local ends = {}
+    for i, b in ipairs(r.bones) do ends[#ends + 1] = { p = b.head, i = i, tail = false }; ends[#ends + 1] = { p = b.tail, i = i, tail = true } end
+    local k = T.point_at(ends, U.x, U.y, 10)
+    if k then rg.bone, rg.tail = ends[k].i, ends[k].tail end
+    rg.acc = k and { 0, 0 } or nil
+  end
+  local d = U.drag
+  if rg.acc and d and d.b == 0 then
+    local pps = (1 / 8) * T.FOCAL / max(rg.cam.dist, 0.1)      -- pixels of a step
+    rg.acc[1], rg.acc[2] = rg.acc[1] + d.dx, rg.acc[2] - d.dy
+    while abs(rg.acc[1]) >= pps do
+      local sx = rg.acc[1] > 0 and 1 or -1
+      rig_move(sx, 0, 0, 1 / 8)
+      rg.acc[1] = rg.acc[1] - sx * pps
+    end
+    while abs(rg.acc[2]) >= pps do
+      local sy = rg.acc[2] > 0 and 1 or -1
+      rig_move(0, sy, 0, 1 / 8)
+      rg.acc[2] = rg.acc[2] - sy * pps
+    end
+  elseif not U.down(0) then
+    rg.acc = nil
+  end
+end
+
+function rig_page.menu_items()
+  if not rig() then return { { "New skeleton", "n" } } end
+  if rg.skin then
+    return { { "Choose", " " }, { "Give to the bone", "a" }, { "All joined", "c" }, { "None", "\b" },
+             { "Auto skin", "k" }, { "Auto skin, smooth", "K" }, { "Bones", "v" } }
+  end
+  return { { "New bone", "n" }, { "Rename...", "\n" }, { "Head / tail", "\t" }, { "Parent...", "p" },
+           { "Mirror the bones", "m" }, { "Delete the bone", "x" }, "-", { "Skin", "v" }, { "Auto skin", "k" },
+           { "Frame the model", "z" } }
+end
+
 function rig_page.pad()
   local r, rp = rig(), T.rp
   if rg.skin then
@@ -666,7 +737,10 @@ function rig_page.draw()
   local ex, ey = T.scr(rg.tail and b.tail or b.head)
   if ex and not rg.skin then circ(ex, ey, 6, C.HOT) end
   T.gizmo(cam, PANEL_W + 40, HINT_Y - 40)
-  T.draw_list("BONES " .. #r.bones, bone_names(r), rg.bone, 0, 32, 16, PANEL_W, T.bone_colour)
+  T.draw_list("BONES " .. #r.bones, bone_names(r), rg.bone, 0, 32, 16, PANEL_W, T.bone_colour, function(i, again)
+    rg.bone = i
+    if again and not rg.skin then rig_page.key("\n") end      -- a double click: its name
+  end)
   local e = rg.tail and b.tail or b.head
   info_strip(2)
   if rg.skin then
@@ -1013,6 +1087,7 @@ end
 
 local function draw_timeline(c)
   local x0, y0, w = PANEL_W + 16, HINT_Y - 48, W - PANEL_W - 32
+  U.zone(PANEL_W, y0, W - PANEL_W, 48, "time", x0, w)
   rectfill(PANEL_W, y0, W - PANEL_W, 48, C.PANEL)
   local L = max(c.length, 1e-3)
   local nf = round(L * FPS)
@@ -1031,6 +1106,59 @@ local function draw_timeline(c)
   local x = x0 + floor(tt / L * w)
   line(x, y0 + 16, x, y0 + 46, 0xFFFFFF)
   return tt
+end
+
+-- the mouse: the timeline (a click or a drag puts the time there), the
+-- bones (a click on one chooses it; the left button dragged turns it, across
+-- the screen round y, up and down round x: a keyframe), right drag turns
+-- the view, middle moves it, the wheel zooms
+function anim_page.mouse()
+  local r, c = rig(), clip_obj()
+  local z = U.at()
+  if c and z and z.kind == "time" and U.down(0) and not an.turning then
+    local L = max(c.length, 1e-3)
+    stop_play(c)
+    an.t = clamp(snap_t((U.x - z.a) / z.b * L), 0, c.length)
+    return
+  end
+  local view = U.inside(PANEL_W, 48, W - PANEL_W, HINT_Y - 96)
+  T.mouse_cam(an.cam, PANEL_W, 48, W - PANEL_W, HINT_Y - 96, { lo = 0.5, hi = 100 })
+  if not r or not S.view then return end
+  if view and U.click(0) then
+    local ends = {}
+    for i = 1, #r.bones do
+      local hx, hy, hz, tx, ty, tz = bone3d(S.view, i)
+      ends[#ends + 1] = { p = { (hx + tx) / 2, (hy + ty) / 2, (hz + tz) / 2 }, i = i }
+      ends[#ends + 1] = { p = { tx, ty, tz }, i = i }
+    end
+    local k = T.point_at(ends, U.x, U.y, 12)
+    if k then an.bone = ends[k].i end
+    an.turning = k and c and { 0, 0 } or nil
+  end
+  local d = U.drag
+  if an.turning and d and d.b == 0 then
+    an.turning[1], an.turning[2] = an.turning[1] + d.dx, an.turning[2] + d.dy
+    while abs(an.turning[1]) >= 8 do
+      local sx = an.turning[1] > 0 and 1 or -1
+      turn(2, sx * 5)
+      an.turning[1] = an.turning[1] - sx * 8
+    end
+    while abs(an.turning[2]) >= 8 do
+      local sy = an.turning[2] > 0 and 1 or -1
+      turn(1, sy * 5)
+      an.turning[2] = an.turning[2] - sy * 8
+    end
+  elseif not U.down(0) then
+    an.turning = nil
+  end
+end
+
+function anim_page.menu_items()
+  if not rig() then return { { "New animation", "n" } } end
+  return { { an.playing and "Stop" or "Play", " " }, { "Keyframe", "k" }, { "Delete the keyframe", "x" },
+           { "Copy the pose", "^c" }, { "Paste the pose", "^v" }, { "Rest the bone", "r" }, { "Mirror the pose", "m" },
+           "-", { "Move / turn", "g" }, { "Loop", "l" }, { "Ease", "i" }, { "Onion skin", "o" }, "-",
+           { "New animation", "n" }, { "Duplicate", "^d" }, { "Rename...", "\n" }, { "Frame the model", "z" } }
 end
 
 function anim_page.draw()
@@ -1086,9 +1214,13 @@ function anim_page.draw()
   local cn = {}
   for i, cc in ipairs(r.clips) do cn[i] = cc.name end
   local rows = clamp(#cn, 1, 4)
-  T.draw_list("ANIMATIONS", cn, an.clip, 0, 32, rows, PANEL_W)
+  T.draw_list("ANIMATIONS", cn, an.clip, 0, 32, rows, PANEL_W, nil, function(i, again)
+    if i ~= an.clip then an.clip, an.t, an.playing = i, 0, false end
+    if again then anim_page.key("\n") end                  -- a double click: its name
+  end)
   local by = 32 + (rows + 2) * 16
-  T.draw_list("BONES", bone_names(r), an.bone, 0, by, (HINT_Y - by - 16) // 16, PANEL_W, T.bone_colour)
+  T.draw_list("BONES", bone_names(r), an.bone, 0, by, (HINT_Y - by - 16) // 16, PANEL_W, T.bone_colour,
+              function(i) an.bone = i end)
   local x = INFO_X
   info_strip(c and 2 or 1)
   if not c then
@@ -1340,6 +1472,24 @@ function sprites_page.key(k)
   end
 end
 
+-- the mouse: a click chooses a row, the wheel changes its value (a click
+-- on the value's right half: more, left half: less)
+function sprites_page.mouse()
+  if sp.job then return end
+  local z = U.at()
+  if not z or z.kind ~= "sprow" then return end
+  if U.wheel ~= 0 then sp.row = z.a; ROWS[sp.row][2](U.wheel > 0 and 1 or -1) end
+  if U.click(0) then
+    if sp.row == z.a and U.x >= 128 then ROWS[sp.row][2](U.x >= 224 and 1 or -1) end
+    sp.row = z.a
+  end
+end
+
+function sprites_page.menu_items()
+  if sp.job then return {} end
+  return { { "Draw the sprites", "\n" } }
+end
+
 function sprites_page.pad()
   local rp = T.rp
   if rp[2] then sprites_page.key("up") end
@@ -1388,6 +1538,7 @@ function sprites_page.draw()
   print(m and m.name or "-", 96, 32, C.ACC)
   for i, row in ipairs(ROWS) do
     local y = 64 + (i - 1) * 16
+    U.zone(0, y, 320, 16, "sprow", i)
     if i == sp.row then rectfill(0, y, 320, 16, C.SEL) end
     print(row[1], 16, y, C.DIM)
     print(row[3](), 128, y, i == sp.row and 0xFFFFFF or C.TEXT)

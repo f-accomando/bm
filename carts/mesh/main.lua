@@ -15,6 +15,7 @@
 -- press ?) for the keys. Gamepad: X tap = the commands, Y + left/right page.
 
 local W, H = SCREEN_W, SCREEN_H
+local U = require "bmui"                 -- the mouse: what the keys do, by clicking
 local C_BG, C_PANEL, C_BAR = 0x14161E, 0x1C2030, 0x2A3048
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x707890, 0xFFC050, 0xFF6060, 0x3050A0
 local C_SKY, C_GRID, C_WIRE, C_PT, C_HOT = 0x262C3E, 0x3A4258, 0x7A88B0, 0xFFE070, 0x60E0FF
@@ -641,8 +642,11 @@ local function hint(list)
     local kx = x
     for _, k in ipairs(h[1]) do kx = kx + prompt(k) + 1 end
     if snap(kx + 2) + #h[2] * 8 > W then break end
+    local x0 = x
     for _, k in ipairs(h[1]) do x = prompt(k, x, HINT_Y) + 1 end
-    x = print(h[2], snap(x + 2), HINT_Y, C_DIM) + 12
+    x = print(h[2], snap(x + 2), HINT_Y, C_DIM)
+    U.key_zone(x0, HINT_Y, x - x0, 16, h[1])        -- a click: the key
+    x = x + 12
   end
 end
 
@@ -650,8 +654,11 @@ end
 -- action has one; then its label. Returns the x after it.
 local function chip_hint(key, pad, label, x, y, c)
   local li = lastinput()
+  local x0 = x
   x = prompt(pad and (li == "ds4" or li == "pad") and pad or key, x, y)
-  return print(label, snap(x + 3), y, c or C_DIM) + 12
+  x = print(label, snap(x + 3), y, c or C_DIM)
+  U.key_zone(x0, y, x - x0, 16, key)
+  return x + 12
 end
 
 local function choose(title, rows, sel) pick = { title = title, rows = rows, sel = sel or 1 } end
@@ -690,6 +697,8 @@ local function draw_pick()
   local rows = min(#p.rows, 14)
   local h = (rows + 2) * 16
   local y0 = max(32, (H - h) // 32 * 16)
+  U.zone(0, 0, W, H, "shade")                    -- a click outside: Esc
+  U.zone(40, y0, 560, h, "box")
   rectfill(40, y0, 560, h, C_PANEL)
   rect(40, y0, 560, h, C_ACC)
   local tx = print(p.title, 56, y0, C_ACC) + 16
@@ -697,6 +706,7 @@ local function draw_pick()
   local first = clamp(p.sel - rows // 2, 1, max(1, #p.rows - rows + 1))
   for i = first, min(#p.rows, first + rows - 1) do
     local y = y0 + 16 + (i - first) * 16
+    U.zone(48, y, 544, 16, "pick", i)
     if i == p.sel then rectfill(48, y, 544, 16, C_SEL) end
     print(p.rows[i][1]:sub(1, 66), 56, y, i == p.sel and 0xFFFFFF or C_TEXT)
   end
@@ -704,11 +714,28 @@ local function draw_pick()
 end
 
 local function draw_input()
+  U.zone(0, 0, W, H, "shade")
+  U.zone(80, 144, 480, 64, "box")
   rectfill(80, 144, 480, 64, C_PANEL)
   rect(80, 144, 480, 64, C_ACC)
   print(input.label, 96, 160, C_DIM)
   print(input.text .. ((frame // 20) % 2 == 0 and "_" or ""), 96, 176, C_TEXT)
   chip_hint("esc", nil, "cancel", chip_hint("enter", nil, "ok", 336, 144), 144)
+end
+
+-- the mouse in the dialogs: a click chooses a row (on the chosen one, or a
+-- double click: takes it), the wheel moves, a click outside is Esc. True
+-- when a dialog is open (it has the mouse).
+local function dialog_mouse()
+  if not pick and not input then return false end
+  if pick and U.wheel ~= 0 then pick.sel = clamp(pick.sel - U.wheel, 1, #pick.rows) end
+  local z = U.click(0)
+  if z and z.kind == "pick" and pick then
+    if z.a == pick.sel or U.double then U.press("\n") else pick.sel = z.a end
+  elseif z and z.kind == "shade" then
+    U.press("esc")
+  end
+  return true
 end
 
 ----------------------------------------------------------------- 3D helpers
@@ -726,6 +753,30 @@ local function look(cam, dx, dy)
   camera3d(cam.tx - f[1] * d + r[1] * a + u[1] * b, cam.ty - f[2] * d + u[2] * b,
            cam.tz - f[3] * d + r[3] * a + u[3] * b, cam.yaw, cam.pitch, 60)
   cam.f, cam.r, cam.u = f, r, u
+end
+
+-- the camera with the mouse in the view (x, y, w, h): the right button
+-- dragged turns and tilts, the middle one moves the target, the wheel zooms
+local function cam_mouse(cam, x, y, w, h, lo, hi)
+  local d, used = U.drag, false
+  if d and d.x0 >= x and d.x0 < x + w and d.y0 >= y and d.y0 < y + h then
+    if d.b == 1 then
+      cam.yaw = cam.yaw - d.dx * 0.01
+      cam.pitch = clamp(cam.pitch - d.dy * 0.01, -1.45, 1.2)
+      used = true
+    elseif d.b == 2 and cam.r then
+      local k = cam.dist / FOCAL
+      cam.tx = cam.tx - (cam.r[1] * d.dx - cam.u[1] * d.dy) * k
+      cam.ty = cam.ty + cam.u[2] * d.dy * k
+      cam.tz = cam.tz - (cam.r[3] * d.dx - cam.u[3] * d.dy) * k
+      used = true
+    end
+  end
+  if U.wheel ~= 0 and U.inside(x, y, w, h) then
+    cam.dist = clamp(cam.dist * 0.85 ^ U.wheel, lo or 0.05, hi or 500)
+    used = true
+  end
+  return used
 end
 
 local function scr(p)
@@ -801,6 +852,7 @@ local function draw_list(x, y, rows)
   for i = first, min(#items, first + rows - 1) do
     local it = items[i]
     local yy = y + 16 + (i - first) * 16
+    U.zone(x, yy, PANEL_W, 16, "mrow", i)
     if i == cur then rectfill(x, yy, PANEL_W, 16, C_SEL) end
     print(KIND_L[it.kind], x + 8, yy, KIND_C[it.kind])
     print(it.name:sub(1, 22) .. (it.dirty and "*" or ""), x + 24, yy, i == cur and 0xFFFFFF or C_TEXT)
@@ -811,8 +863,8 @@ end
 
 
 -- the pages: what each one gives the others (the rest stays inside its block)
-local lp, list_reset, list_key, list_pad, list_actions, draw_list_page
-local ed, edit_reset, edit_key, edit_pad, edit_actions, draw_edit
+local lp, list_reset, list_key, list_pad, list_actions, draw_list_page, list_mouse
+local ed, edit_reset, edit_key, edit_pad, edit_actions, draw_edit, edit_mouse
 
 ----------------------------------------------------------------- list page
 do
@@ -961,6 +1013,21 @@ function list_actions()
   }
   if not it then rows = { rows[7], rows[8], rows[9] } end
   choose("the mesh" .. (it and (": " .. it.name) or ""), rows)
+end
+
+-- the mouse: a click chooses a mesh, a double click edits it, the wheel
+-- moves in the list; right drag turns the view, middle moves, wheel zooms
+function list_mouse()
+  local z = U.at()
+  if z and z.kind == "mrow" then
+    if U.wheel ~= 0 then select_item(clamp(cur - U.wheel, 1, #items)) end
+    if U.click(0) then
+      if z.a ~= cur then select_item(z.a) end
+      if U.double then go("edit") end
+    end
+    return
+  end
+  if cam_mouse(lp.cam, PANEL_W, 96, W - PANEL_W, HINT_Y - 96, 0.1, 500) and U.drag then lp.spin = false end
 end
 
 function list_key(k)
@@ -1766,11 +1833,44 @@ local COMMANDS = {
   { "All / none (a)", "a" }, { "Linked (l)", "l" }, { "Vertices / faces (Tab)", "\t" },
   { "Next element (n)", "n" }, { "Frame the choice (f)", "f" }, { "Finer step (,)", "," }, { "Coarser step (.)", "." },
 }
+ed.commands = COMMANDS                   -- (the context menu, outside this block)
 
 function edit_actions()
   local rows = {}
   for _, c in ipairs(COMMANDS) do rows[#rows + 1] = { c[1], function() edit_key(c[2]) end } end
   choose("commands" .. (I() and (": " .. I().name) or ""), rows)
+end
+
+-- the mouse: the pointer is the mouse's (what is under it lights up); a
+-- click keeps only that (Shift + click adds or takes away, as space); with
+-- a tool (g r t) the left button dragged moves as the arrows, a click puts
+-- it (Enter); the right button dragged turns the view, the middle one
+-- moves it, the wheel zooms; in the palette a click takes the colour
+function edit_mouse()
+  if ed.mouse_pick then                       -- the click of before: what the drawing found under it
+    local k = ed.mouse_pick
+    ed.mouse_pick = nil
+    edit_key(k)
+  end
+  if ed.pal then
+    local z = U.click(0)
+    if z and z.kind == "swatch" then ed.pal = z.a; edit_key("\n")
+    elseif z and z.kind == "shade" then edit_key("esc") end
+    return
+  end
+  cam_mouse(ed.cam, 0, 48, W, HINT_Y - 48)
+  local view = U.inside(0, 48, W, HINT_Y - 48)
+  if ed.tool then
+    if U.drag_arrows(12) then return end
+    if U.released(0) and view and not U.drag then edit_key("\n") end
+    return
+  end
+  if not view then return end
+  if U.moved then ed.px, ed.py, ed.force = U.x, clamp(U.y, 16, HINT_Y - 1), nil end
+  if U.click(0) then
+    ed.px, ed.py, ed.force = U.x, U.y, nil
+    ed.mouse_pick = U.shift() and " " or "\n"     -- after the drawing finds what is under it
+  end
 end
 
 function edit_key(k)
@@ -1862,11 +1962,13 @@ end
 
 local function draw_palette()
   local x0, y0 = 120, 112
+  U.zone(0, 16, W, HINT_Y - 16, "shade")
   rectfill(x0 - 16, y0 - 32, 432, 160, C_PANEL)
   rect(x0 - 16, y0 - 32, 432, 160, C_ACC)
   print("colour: arrows, Enter (A)", x0, y0 - 16, C_ACC)
   for i, c in ipairs(PALETTE) do
     local x, y = x0 + ((i - 1) % 10) * 40, y0 + ((i - 1) // 10) * 32
+    U.zone(x - 4, y - 4, 40, 32, "swatch", i)
     rectfill(x, y, 32, 24, c)
     if i == ed.pal then rect(x - 3, y - 3, 38, 30, 0xFFFFFF) end
   end
@@ -2139,6 +2241,7 @@ local function draw_menu()
   print((proj.path or "(no file open)") .. (dirty and "  *modified*" or ""), 128, 32, C_DIM)
   for i, it in ipairs(MENU) do
     local y = 64 + (i - 1) * 16
+    U.zone(24, y, 272, 16, "menuitem", i)
     if i == msel and not pick and not input then rectfill(24, y, 272, 16, C_SEL) end
     print(it[1], 32, y, C_TEXT)
   end
@@ -2161,6 +2264,7 @@ end
 
 function _init()
   keyp()                                 -- typing on: the keyboard types
+  U.wants()                              -- the pointer, when there is a mouse
   local a = cart_arg()
   if a and a.from == "sdk" then table.insert(MENU, #MENU, { "Back to bm SDK", back_to_sdk }) end
   if a and a.path and open_file(a.path) then
@@ -2216,12 +2320,46 @@ function _exit()
   return not dirty or confirmed("exit", "unsaved changes: Ctrl+Esc again leaves without saving")
 end
 
+-- the mouse, each frame: the chips and the tabs press their keys, the
+-- dialogs choose, the page does its own, the right button opens the
+-- context menu (the page's keys)
+local function mouse_frame()
+  if not U.on then return end
+  if U.keys() then return end
+  if dialog_mouse() then return end
+  if page == "list" then list_mouse()
+  elseif page == "edit" then edit_mouse()
+  else
+    if U.wheel ~= 0 then msel = clamp(msel - U.wheel, 1, #MENU) end
+    local z = U.click(0)
+    if z and z.kind == "menuitem" then msel = z.a; U.press("\n") end
+  end
+  if not U.clicked(1) or page == "menu" then return end
+  local list = {}
+  if page == "list" then
+    list = { { "Edit", "\n" }, { "Copy as a model", "m" }, { "Copy as code", "c" }, { "Rename...", "r" },
+             { "Duplicate", "d" }, { "Delete (twice)", "del" }, { "New cube", "n" } }
+  elseif ed.tool then
+    list = { { "Put it", "\n" }, { "Cancel", "esc" }, { "Along x", "x" }, { "Along y", "y" }, { "Along z", "z" },
+             { "Finer step", "," }, { "Coarser step", "." } }
+  elseif not ed.pal then
+    for _, c in ipairs(ed.commands) do list[#list + 1] = { (c[1]:gsub(" %(.-%)$", "")), c[2] } end
+  end
+  if #list > 0 then list[#list + 1] = "-" end
+  for _, it in ipairs({ { "Undo", "^z" }, { "Save", "^s" }, { "Try the game", "f5" }, { "Assistant", "f6" },
+                        { "Menu", "esc" } }) do list[#list + 1] = it end
+  U.menu(list)
+end
+
 function _update()
   frame = frame + 1
   if msg_t > 0 then msg_t = msg_t - 1 end
   if confirm_t > 0 then confirm_t = confirm_t - 1 end
   read_pad()
+  U.update()
   if ok_assist and assist.update() then return end   -- the assistant has the keys
+  if U.menu_update() then return end                -- the context menu has the input
+  mouse_frame()
 
   while true do
     local k = keyp()
@@ -2263,6 +2401,7 @@ function _update()
 end
 
 function _draw()
+  U.begin()
   if page == "list" then draw_list_page()
   elseif page == "edit" then draw_edit()
   else draw_menu() end
@@ -2275,6 +2414,7 @@ function _draw()
     local lx = snap(x + prompt(t[2]) + 3)
     local w = lx + #t[3] * 8 - x
     if t[1] == page then rectfill(x - 4, 0, w + 8, 16, C_SEL) end
+    U.key_zone(x - 4, 0, w + 8, 16, t[2])          -- a click: the page
     prompt(t[2], x, 0)
     print(t[3], lx, 0, t[1] == page and 0xFFFFFF or C_DIM)
     x = x + w + 20
@@ -2296,4 +2436,5 @@ function _draw()
   if pick then draw_pick() end
   if input then draw_input() end
   if ok_assist then assist.draw() end    -- the assistant's panel on top, if open
+  U.menu_draw()                          -- the context menu over everything
 end

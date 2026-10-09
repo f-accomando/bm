@@ -252,3 +252,44 @@ code:
 function _leave()
   net.close()                         -- avvisa gli altri
 end
+
+== bmui
+kind: api
+name: bmui
+title: require "bmui" - il mouse negli strumenti: zone, clic, menu contestuale
+title_en: require "bmui" - the mouse in tools: zones, clicks, context menu
+ask: mouse nel mio strumento | menu contestuale | tasto destro | doppio clic | trascinare col mouse
+ask: context menu | right click menu | double click | drag with the mouse | clickable buttons
+keys: bmui, mouse, clic, click, zone, menu, destro, right
+see: mouse, mousep
+text: La libreria del mouse degli strumenti di bm: in _draw si registrano le
+zone mentre si disegnano (U.zone, U.key_zone per un tasto), in _update
+U.click() dice cosa è stato premuto, U.press(tasto) fa arrivare un tasto a
+keyp() (il mouse fa quello che fanno i tasti), U.menu{...} apre il menu
+contestuale. U.update() per primo in _update, U.begin() per primo in _draw,
+U.menu_update() e U.menu_draw().
+text_en: The mouse library of bm's tools: in _draw the zones are registered as
+they are drawn (U.zone, U.key_zone for a key), in _update U.click() tells
+what was pressed, U.press(key) makes a key reach keyp() (the mouse does what
+the keys do), U.menu{...} opens the context menu. U.update() first in
+_update, U.begin() first in _draw, U.menu_update() and U.menu_draw().
+code:
+local U = require "bmui"
+function _init() U.wants() end
+function _update()
+  U.update()
+  if U.menu_update() then return end
+  local z = U.click()
+  if z and z.kind == "button" then log("clicked") end
+  if U.clicked(1) then
+    U.menu({ { "Save", "^s" }, { "Quit", "esc" } })
+  end
+end
+function _draw()
+  U.begin()
+  cls(0)
+  rectfill(20, 20, 80, 16, 0x3050A0)
+  U.zone(20, 20, 80, 16, "button")
+  U.menu_draw()
+end
+

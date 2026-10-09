@@ -11,6 +11,7 @@
 -- most 256 colours; the SDK, bm Studio and bm Animator read it as theirs.
 
 local W, H = SCREEN_W, SCREEN_H
+local U = require "bmui"                 -- the mouse: what the keys do, by clicking
 local C_BG, C_PANEL, C_BAR = 0x14161E, 0x1C2030, 0x2A3048
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x707890, 0xFFC050, 0xFF6060, 0x3050A0
 local C_CHK1, C_CHK2, C_GRID, C_GRID8, C_PT = 0x2A2E3A, 0x343846, 0x3C4254, 0x5A6280, 0xFFE070
@@ -297,8 +298,11 @@ local function hint(list)
     local kx = x
     for _, k in ipairs(h[1]) do kx = kx + prompt(k) + 1 end
     if snap(kx + 2) + #h[2] * 8 > W then break end
+    local x0 = x
     for _, k in ipairs(h[1]) do x = prompt(k, x, HINT_Y) + 1 end
-    x = print(h[2], snap(x + 2), HINT_Y, C_DIM) + 12
+    x = print(h[2], snap(x + 2), HINT_Y, C_DIM)
+    U.key_zone(x0, HINT_Y, x - x0, 16, h[1])        -- a click: the key
+    x = x + 12
   end
 end
 
@@ -306,8 +310,11 @@ end
 -- action has one; then its label. Returns the x after it.
 local function chip_hint(key, pad, label, x, y, c)
   local li = lastinput()
+  local x0 = x
   x = prompt(pad and (li == "ds4" or li == "pad") and pad or key, x, y)
-  return print(label, snap(x + 3), y, c or C_DIM) + 12
+  x = print(label, snap(x + 3), y, c or C_DIM)
+  U.key_zone(x0, y, x - x0, 16, key)
+  return x + 12
 end
 
 local function choose(title, rows, sel) pick = { title = title, rows = rows, sel = sel or 1 } end
@@ -345,6 +352,8 @@ local function draw_pick()
   local rows = min(#p.rows, 14)
   local h = (rows + 2) * 16
   local y0 = max(32, (H - h) // 32 * 16)
+  U.zone(0, 0, W, H, "shade")                    -- a click outside: Esc
+  U.zone(40, y0, 560, h, "box")
   rectfill(40, y0, 560, h, C_PANEL)
   rect(40, y0, 560, h, C_ACC)
   local tx = print(p.title, 56, y0, C_ACC) + 16
@@ -352,6 +361,7 @@ local function draw_pick()
   local first = clamp(p.sel - rows // 2, 1, max(1, #p.rows - rows + 1))
   for i = first, min(#p.rows, first + rows - 1) do
     local y = y0 + 16 + (i - first) * 16
+    U.zone(48, y, 544, 16, "pick", i)
     if i == p.sel then rectfill(48, y, 544, 16, C_SEL) end
     print(p.rows[i][1]:sub(1, 66), 56, y, i == p.sel and 0xFFFFFF or C_TEXT)
   end
@@ -359,11 +369,28 @@ local function draw_pick()
 end
 
 local function draw_input()
+  U.zone(0, 0, W, H, "shade")
+  U.zone(80, 144, 480, 64, "box")
   rectfill(80, 144, 480, 64, C_PANEL)
   rect(80, 144, 480, 64, C_ACC)
   print(input.label, 96, 160, C_DIM)
   print(input.text .. ((frame // 20) % 2 == 0 and "_" or ""), 96, 176, C_TEXT)
   chip_hint("esc", nil, "cancel", chip_hint("enter", nil, "ok", 336, 144), 144)
+end
+
+-- the mouse in the dialogs: a click chooses a row (on the chosen one, or a
+-- double click: takes it), the wheel moves, a click outside is Esc. True
+-- when a dialog is open (it has the mouse).
+local function dialog_mouse()
+  if not pick and not input then return false end
+  if pick and U.wheel ~= 0 then pick.sel = clamp(pick.sel - U.wheel, 1, #pick.rows) end
+  local z = U.click(0)
+  if z and z.kind == "pick" and pick then
+    if z.a == pick.sel or U.double then U.press("\n") else pick.sel = z.a end
+  elseif z and z.kind == "shade" then
+    U.press("esc")
+  end
+  return true
 end
 
 -- a checkerboard under the transparent pixels
@@ -383,9 +410,9 @@ end
 
 
 -- the pages: what each one gives the others
-local dp, draw_reset, draw_key, draw_pad, draw_update, draw_actions, draw_draw
-local shp, sheet_reset, sheet_key, sheet_pad, sheet_actions, draw_sheet
-local pp, pal_reset, pal_key, pal_pad, pal_actions, draw_palette
+local dp, draw_reset, draw_key, draw_pad, draw_update, draw_actions, draw_draw, draw_mouse
+local shp, sheet_reset, sheet_key, sheet_pad, sheet_actions, draw_sheet, sheet_mouse
+local pp, pal_reset, pal_key, pal_pad, pal_actions, draw_palette, pal_mouse
 
 ----------------------------------------------------------------- blocks of pixels
 
@@ -833,12 +860,41 @@ end
 
 -- every frame: the pencil held down (space or A), the animation's clock
 function draw_update(dt)
-  if dp.stroke and (tool == "pencil" or tool == "eraser") and (keyheld("space") or btn(4)) then
+  if dp.stroke and (tool == "pencil" or tool == "eraser") and (keyheld("space") or btn(4) or U.down(0)) then
     stroke_to()
   else
     dp.stroke = nil
   end
   if anim.play then anim.t = anim.t + dt end
+end
+
+-- the mouse: over the canvas the pointer is the mouse's; the left button
+-- uses the tool (the pencil goes on while held; a shape or a selection:
+-- pressed at one corner, let go at the other), the middle one picks the
+-- colour, the wheel changes it; a click on a colour of the panel takes it
+local shaping                          -- a shape begun by the mouse's press
+function draw_mouse()
+  local z = U.at()
+  if z and z.kind == "swatch" and U.pressed(0) then ci = z.a; return end
+  local zc = z and z.kind == "canvas" and z
+  if zc and (U.moved or U.pressed(0) or U.pressed(2)) and not dp.float then
+    px, py = clamp((U.x - CANVAS_X) // zc.a, 0, rs - 1), clamp((U.y - CANVAS_Y) // zc.a, 0, rs - 1)
+  end
+  if not zc then
+    if shaping and U.released(0) and dp.anchor then draw_key(" ") end
+    if not U.down(0) then shaping = nil end
+    return
+  end
+  if U.wheel ~= 0 then draw_key(U.wheel > 0 and "," or ".") end
+  if U.pressed(2) then pick_at(px, py) end
+  if U.pressed(0) then
+    local had = dp.anchor ~= nil
+    draw_key(" ")
+    shaping = TWO_STEP[tool] and not had and dp.anchor ~= nil
+  elseif U.released(0) and shaping then
+    if dp.anchor and (px ~= dp.anchor[1] or py ~= dp.anchor[2]) then draw_key(" ") end   -- the other corner
+    shaping = nil
+  end
 end
 
 -- the frame before, as dots under the transparent pixels (cached)
@@ -873,6 +929,7 @@ function draw_draw()
   local z = zoom()
   local cw = rs * z
   checker(CANVAS_X, CANVAS_Y, cw, cw, max(8, z))
+  U.zone(CANVAS_X, CANVAS_Y, cw, cw, "canvas", z)
   if anim.onion and anim.frames > 1 then
     local d = max(2, z // 3)
     for _, g in ipairs(ghost()) do
@@ -936,6 +993,7 @@ function draw_draw()
   local first = clamp(row - 1, 0, max(0, (cells - 1) // per - 3))
   for i = first * per, min(cells - 1, (first + 4) * per - 1) do
     local sx, sy = x + (i % per) * 16, 32 + (i // per - first) * 16
+    U.zone(sx, sy, 16, 16, "swatch", i)
     swatch(sx + 1, sy + 1, 14, i > 0 and pal()[i] or nil)
     if i == ci then rect(sx, sy, 16, 16, 0xFFFFFF) end
   end
@@ -1082,12 +1140,29 @@ function sheet_pad()
   if tap[6] then sheet_actions() end
 end
 
+-- the mouse: a click chooses the sprite under it, a double click draws it,
+-- the wheel zooms
+function sheet_mouse()
+  local z = U.at()
+  if not z or z.kind ~= "sheetview" then return end
+  if U.wheel ~= 0 then sheet_key(U.wheel > 0 and "+" or "-") end
+  if U.click(0) then
+    local x = clamp(floor(shp.vx + (U.x - VIEW_X) / z.a), 0, sw - 1)
+    local y = clamp(floor(shp.vy + (U.y - VIEW_Y) / z.a), 0, sh - 1)
+    local nx, ny = x // rs * rs, y // rs * rs
+    if U.double and nx == rx and ny == ry then sheet_key("\n"); return end
+    rx, ry = nx, ny
+    sheet_key("none")                    -- (it follows the sprite and resets the drawing page)
+  end
+end
+
 function draw_sheet()
   cls(C_BG)
   follow()
   local z = shp.zoom
   local vw, vh = min(sw - shp.vx, floor(VIEW_W / z)), min(sh - shp.vy, floor(VIEW_H / z))
   checker(VIEW_X, VIEW_Y, floor(vw * z), floor(vh * z), 16)
+  U.zone(VIEW_X, VIEW_Y, floor(vw * z), floor(vh * z), "sheetview", z)
   sspr(shp.vx, shp.vy, vw, vh, VIEW_X, VIEW_Y, false, false, z)
   -- the sprite chosen
   local x, y = VIEW_X + (rx - shp.vx) * z, VIEW_Y + (ry - shp.vy) * z
@@ -1253,12 +1328,29 @@ function pal_pad()
   if tap[6] then pal_actions() end
 end
 
+-- the mouse: a click chooses a colour, a double click draws with it; on
+-- R, G or B a click edits that one and dragging left or right changes it
+-- (as the arrows)
+function pal_mouse()
+  local z = U.at()
+  if pp.edit and U.drag_arrows(4) then return end
+  if not z then return end
+  if z.kind == "pcol" and U.pressed(0) then
+    if pp.edit then pal_key("esc") end
+    if U.double and z.a == pp.sel then pal_key("\n") else pp.sel = z.a end
+  elseif z.kind == "channel" and U.pressed(0) then
+    if not pp.edit then pal_key("e") end
+    pp.edit = z.a
+  end
+end
+
 function draw_palette()
   cls(C_BG)
   local p = pal()
   print("PALETTE " .. #p .. " colours (at most 256: saved with the sheet)", 16, 16, C_DIM)
   for i, c in ipairs(p) do
     local x, y = GX + ((i - 1) % 16) * CELL, GY + ((i - 1) // 16) * CELL
+    U.zone(x, y, CELL, CELL, "pcol", i)
     rectfill(x + 1, y + 1, CELL - 2, CELL - 2, c)
     if i == ci then rectfill(x + 6, y + 6, 4, 4, (c >> 8 & 255) > 128 and 0x000000 or 0xFFFFFF) end
     if i == pp.sel then rect(x, y, CELL, CELL, (frame // 10) % 2 == 0 and 0xFFFFFF or C_ACC) end
@@ -1274,6 +1366,7 @@ function draw_palette()
     for k = 1, 3 do
       local v = c >> ({ 16, 8, 0 })[k] & 255
       local y = 128 + (k - 1) * 16
+      U.zone(x - 4, y, 320, 16, "channel", k)
       if pp.edit == k then rectfill(x - 4, y, 320, 16, C_SEL) end
       print(names[k] .. string.format(" %3d", v), x, y, C_TEXT)
       rectfill(x + 64, y + 4, 200, 8, C_PANEL)
@@ -1457,6 +1550,7 @@ local function draw_menu()
   print((proj.path or "(a new sheet, not saved yet)") .. (dirty and "  *modified*" or ""), 128, 32, C_DIM)
   for i, it in ipairs(MENU) do
     local y = 64 + (i - 1) * 16
+    U.zone(24, y, 272, 16, "menuitem", i)
     if i == msel and not pick and not input then rectfill(24, y, 272, 16, C_SEL) end
     print(it[1], 32, y, C_TEXT)
   end
@@ -1479,6 +1573,7 @@ local last_t = 0
 
 function _init()
   keyp()                                 -- typing on: the keyboard types
+  U.wants()                              -- the pointer, when there is a mouse
   local s = saved()
   files_seen = s and s.files or {}
   last_t = time()
@@ -1538,6 +1633,43 @@ function _exit()
   return true
 end
 
+-- the mouse, each frame: the chips and the tabs press their keys, the
+-- dialogs choose, the page does its own, the right button opens the
+-- context menu (the page's keys)
+local function mouse_frame()
+  if not U.on then return end
+  if U.keys() then return end
+  if dialog_mouse() then return end
+  if page == "draw" then draw_mouse()
+  elseif page == "sheet" then sheet_mouse()
+  elseif page == "palette" then pal_mouse()
+  else
+    if U.wheel ~= 0 then msel = clamp(msel - U.wheel, 1, #MENU) end
+    local z = U.click(0)
+    if z and z.kind == "menuitem" then msel = z.a; U.press("\n") end
+  end
+  if not U.clicked(1) or page == "menu" then return end
+  local list
+  if page == "draw" then
+    list = { { "Pencil", "b" }, { "Eraser", "e" }, { "Fill", "g" }, { "Pick", "i" }, { "Line", "l" }, { "Rectangle", "u" },
+             { "Filled rectangle", "U" }, { "Oval", "o" }, { "Filled oval", "O" }, { "Select", "m" }, "-",
+             { "Copy", "^c" }, { "Cut", "^x" }, { "Paste", "^v" }, { "Mirror", "h" }, { "Upside down", "v" },
+             { "Turn", "r" }, { "Clear", "del" }, "-", { "Mirror drawing", "y" }, { "Grid", "t" }, { "Onion skin", "k" },
+             { "Play", "p" }, { "Size", "z" } }
+  elseif page == "sheet" then
+    list = { { "Draw it", "\n" }, { "Size", "z" }, { "Zoom in", "+" }, { "Zoom out", "-" }, { "Copy", "^c" },
+             { "Paste", "^v" }, { "Clear", "del" }, { "Sheet size...", "R" } }
+  else
+    list = { { "Draw with it", "\n" }, { "Edit", "e" }, { "Add", "a" }, { "Remove", "del" }, { "Sort", "s" },
+             { "From the sheet", "f" } }
+  end
+  list[#list + 1] = "-"
+  for _, it in ipairs({ { "Undo", "^z" }, { "Save", "^s" }, { "Try the game", "f5" }, { "Menu", "esc" } }) do
+    list[#list + 1] = it
+  end
+  U.menu(list)
+end
+
 function _update()
   frame = frame + 1
   if busy then                          -- nothing else until the save is done
@@ -1556,6 +1688,9 @@ function _update()
   local dt = clamp(now - last_t, 0, 0.1)
   last_t = now
   read_pad()
+  U.update()
+  if U.menu_update() then return end      -- the context menu has the input
+  mouse_frame()
 
   while true do
     local k = keyp()
@@ -1597,6 +1732,7 @@ function _update()
 end
 
 function _draw()
+  U.begin()
   if page == "draw" then draw_draw()
   elseif page == "sheet" then draw_sheet()
   elseif page == "palette" then draw_palette()
@@ -1610,6 +1746,7 @@ function _draw()
     local lx = snap(x + prompt(t[2]) + 3)
     local w = lx + #t[3] * 8 - x
     if t[1] == page then rectfill(x - 4, 0, w + 8, 16, C_SEL) end
+    U.key_zone(x - 4, 0, w + 8, 16, t[2])          -- a click: the page
     prompt(t[2], x, 0)
     print(t[3], lx, 0, t[1] == page and 0xFFFFFF or C_DIM)
     x = x + w + 20
@@ -1636,4 +1773,5 @@ function _draw()
     rect(x, 160, w, 48, C_ACC)
     print(busy.text, x + 16, 176, C_ACC)
   end
+  U.menu_draw()                          -- the context menu over everything
 end

@@ -193,6 +193,7 @@ local clipbox, drawn_box = nil, nil
 local MESH_MT = {}
 local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
 
+local MS
 local function new_env(arg_path)
   E = {}
   texts, sel_rows, keyq, pad, padprev, frame, saved_t, quitted, draws = {}, {}, {}, {}, {}, 0, saved_t, false, 0
@@ -235,6 +236,10 @@ local function new_env(arg_path)
   E.keyp = function() return table.remove(keyq, 1) end
   E.keyheld = function() return false end
   E.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
+  -- the mouse (bmui): MS as a USB mouse would give it
+  MS = { x = 0, y = 0, b = 0, w = 0, p = 0 }
+  E.mouse = function(on) if on ~= nil then return true end; return MS.x, MS.y, MS.b, MS.w, true end
+  E.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
   E.save = function(t) saved_t = t; return true end
   E.saved = function() return saved_t end
   E.cart_arg = function() return arg_path and { path = arg_path } or nil end
@@ -533,9 +538,14 @@ local function new_env(arg_path)
                                     { t = 0.5, pose = { { q = { 0, 0, 0, 1 }, t = { 0, 0.1, 0 } } } } } } } }
     end,
   }
+  local bmui
   E.require = function(name)
     if name == "assist" then return assert(loadfile(ROOT .. "/src/ai/assist.lua", "t", E))() end
-    assert(name == "bm3d", "require: only bm3d and assist here")
+    if name == "bmui" then                 -- the mouse: once (it takes keyp over)
+      bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()
+      return bmui
+    end
+    assert(name == "bm3d", "require: only bm3d, bmui and assist here")
     return assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
   end
 end
@@ -1063,6 +1073,101 @@ key("f3")
 check(sees("ANIMATIONS") and sees("BONES") and sees("idle  1/3"), "animate: the villager's animations")
 menu_pick("Open in bm Studio", EXIT_A)
 check(tooled and tooled[1] == "studio" and tooled[2] == "/carts/village.bm", "Open in bm Studio: cart_tool")
+
+-- the mouse (bmui, 2026-10-06): the same things by clicking
+local function at(str, x, y)
+  for _, t in ipairs(texts) do
+    if t[1] == str and (not x or t[2] == x) and (not y or t[3] == y) then return t[2] + 4, t[3] + 8 end
+  end
+end
+local function chosen_at(x)
+  for _, y in ipairs(sel_rows) do
+    for _, t in ipairs(texts) do if t[3] == y and t[2] == x then return t[1] end end
+  end
+end
+local function mouse(x, y, b, w)
+  local was = MS.b
+  MS.x, MS.y, MS.b, MS.w = x, y, b or 0, w or 0
+  MS.p = MS.b & ~was
+  frames(1)
+  MS.p, MS.w = 0, 0
+end
+local function click(x, y, b)
+  mouse(x, y, 0); mouse(x, y, b or 1); mouse(x, y, 0); frames(1)
+end
+
+run_cart("/carts/studio/main.lua", "/carts/village.bm")
+E._init()
+frames(3)
+local mx, my = at("models", nil, 0)
+check(mx, "mouse: the models tab is drawn")
+click(mx, my)
+check(sees("MODELS"), "mouse: a click on the tab: the models page")
+local n2 = cur_models()[2] and cur_models()[2].name
+mx, my = at(n2, 16)
+click(mx, my)
+check(chosen_at(16) == n2, "mouse: a click on a row chooses the model: " .. tostring(chosen_at(16)))
+click(mx, my)
+check(sees("TOOLS"), "mouse: a double click builds it")
+click(420, 200, 2)
+check(sees("Put a block") and sees("Ctrl+Z"), "mouse: the right button, the context menu of the build page")
+mx, my = at("Tool: select")
+click(mx, my)
+check(sees("SELECT") and not sees("Put a block"), "mouse: a click in the menu: the select tool")
+for i = 0, 8 do mouse(380 + i * 8, 180 + i * 6) end
+click(420, 220)
+check(sees("faces chosen"), "mouse: the pointer and a click choose (select tool)")
+mouse(420, 220, 0, 1)
+mouse(420, 220, 2); mouse(440, 230, 2); mouse(470, 240, 2); mouse(470, 240, 0); frames(1)
+check(not sees("Choose") or not sees("All / none"), "mouse: a drag with the right button turns, no menu")
+mx, my = at("1", 8)
+click(mx, my)
+for i = 0, 6 do mouse(380 + i * 10, 200) end
+local before = cur_models()[2].nf
+click(430, 200)
+frames(2)
+check(status() ~= "" , "mouse: the block tool clicks (" .. tostring(before) .. " faces before)")
+key("^o")
+check(sees("open a cartridge"), "the chooser (Ctrl+O)")
+click(620, 340)
+check(not sees("open a cartridge"), "mouse: a click outside the chooser closes it")
+mx, my = at("menu", nil, 0)
+click(mx, my)
+check(sees("Exit bm Studio"), "mouse: the menu tab")
+mx, my = at("Continue", 32)
+click(mx, my)
+check(not sees("Exit bm Studio"), "mouse: a click on Continue")
+
+run_cart("/carts/animator/main.lua", "/carts/village.bm")
+E._init()
+frames(3)
+mx, my = at("villager", 16)
+check(mx, "mouse: the villager in the list")
+click(mx, my)
+check(chosen_at(16) == "villager", "mouse: a click chooses the villager")
+mx, my = at("animate", nil, 0)
+click(mx, my)
+check(sees("BONES") and sees("ANIMATIONS"), "mouse: the animate tab, the villager's bones")
+mx, my = at("wave", 16)
+if mx then click(mx, my) end
+check(chosen_at(16) == "wave" or not mx, "mouse: a click on an animation")
+mouse(300, 296, 1); mouse(400, 296, 1); mouse(400, 296, 0); frames(1)
+check(status() ~= nil, "mouse: the timeline, clicked and dragged")
+for i = 0, 5 do mouse(380 + i * 4, 200) end
+mouse(400, 200, 1); mouse(420, 200, 1); mouse(440, 212, 1); mouse(460, 224, 1); mouse(460, 224, 0); frames(1)
+click(420, 200, 2)
+check(sees("Keyframe") and sees("Copy the pose"), "mouse: the animate page's context menu")
+click(10, 340)
+mx, my = at("rig", nil, 0)
+click(mx, my)
+click(400, 200)
+click(400, 200, 2)
+check(sees("New bone") or sees("New skeleton"), "mouse: the rig page's context menu")
+click(10, 340)
+mx, my = at("sprites", nil, 0)
+click(mx, my)
+mouse(100, 80, 0, 1)
+check(sees("SPRITES"), "mouse: the sprites page, the wheel on a row")
 
 io.write(string.format("bm Studio and bm Animator host: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)

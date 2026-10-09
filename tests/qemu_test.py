@@ -68,7 +68,7 @@ SLOW = {
     "test_titan": 36, "test_games": 34, "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_overbit_flags": 60, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
     "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_bm_boot_demo": 22,
-    "test_nano8": 20, "test_meshy2mesh": 20, "test_projects": 45,
+    "test_nano8": 20, "test_meshy2mesh": 20, "test_projects": 45, "test_editor_mouse": 40,
 }
 
 
@@ -6846,6 +6846,125 @@ def test_debugger(b, opts):
         time.sleep(0.5)
         k("q")
         expect("code: ready", timeout=30)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_editor_mouse(b, opts):
+    """The mouse in the editor suite (bmui, 2026-10-06; QEMU's USB tablet):
+    in bm Code a click puts the cursor on the line and column under it, a
+    double click takes the word (typing replaces it), the wheel scrolls the
+    page, a click in the numbers is a breakpoint, a click on a tab shows it,
+    the right button opens the context menu with the keys of its entries and
+    a click on one does it (Undo); in the bm SDK a click on a tab changes
+    page, the right button opens its menu and a click outside closes it."""
+    tmp = tempfile.mkdtemp(prefix="bm-emouse-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/pong.bm"), "carts/pong.bm")])
+    args = ["-drive", f"if=sd,format=raw,file={img}", "-device", "usb-tablet,port=1"]
+
+    def run(q, s, gap=0.05):
+        for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
+            q.send(c)
+            time.sleep(gap)
+
+    def look(q, words, cw=6, ch=12, tries=40, gone=()):
+        text = []
+        for _ in range(tries):
+            text = screen_text(q.screendump(), cw, ch)
+            joined = "\n".join(text)
+            if all(w in joined for w in words) and not any(g in joined for g in gone):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {words} (gone: {gone})\n" + "\n".join(text))
+
+    def click(q, x, y, button="left", times=1):
+        q.pointer(x + 1, y)                 # a move first: the arrow shows (keys hide it)
+        time.sleep(0.15)
+        q.pointer(x, y)
+        time.sleep(0.25)
+        for _ in range(times):            # (a double click: quick, as a hand does it)
+            for down in (True, False):
+                q.input_events([{"type": "btn", "data": {"down": down, "button": button}}])
+                time.sleep(0.05 if times > 1 else 0.1)
+        time.sleep(0.3)
+
+    def find(text, word, cw, ch):
+        for r, line in enumerate(text):
+            c = line.find(word)
+            if c >= 0:
+                return c * cw + cw // 2, r * ch + ch // 2
+        raise AssertionError(f"{word!r} not on screen:\n" + "\n".join(text))
+
+    def shot(q, name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"emouse-{name}.png"))
+
+    q = Qemu(b("kernel.img"), args)
+    try:
+        q.boot()
+        run(q, "C")
+        q.expect("code: ready", timeout=30)
+        run(q, "\x0f", 0.5)                 # Ctrl+O, the first file
+        look(q, ["/carts/pong.bm"])
+        run(q, "\r")
+        q.expect("code: opened /carts/pong.bm", timeout=15)
+        # a click on line 3, between columns 5 and 6 (6x12: the text from x 24)
+        click(q, 24 + 5 * 6, 12 + 2 * 12 + 6)
+        look(q, ["ln 3/", "col 6"])
+        # a double click on "local" of line 5, then a letter replaces it
+        click(q, 24 + 2 * 6 + 3, 12 + 4 * 12 + 6, times=2)
+        run(q, "X")
+        look(q, ["  5 X", "W, H = SCREEN_W"])        # (the completion's grey rest after the X)
+        shot(q, "word")
+        # the context menu (8x16, on its grid): Undo takes the X away
+        click(q, 300, 120, "right")
+        shot(q, "context")
+        text = look(q, ["Paste", "Ctrl+V", "Undo", "Ctrl+Z"], 8, 16)
+        ux, uy = find(text, "Undo", 8, 16)
+        click(q, ux, uy)
+        look(q, ["W, H = SCREEN_W"], gone=["  5 X", "Ctrl+V"])
+        # a click in the numbers: a breakpoint on line 7
+        click(q, 6, 12 + 6 * 12 + 6)
+        look(q, ["breakpoint on line 7"])
+        # the wheel: three lines a click, the cursor stays
+        click(q, 300, 200, "wheel-down")
+        text = look(q, ["ln 7/"])
+        assert text[1].lstrip().startswith("4"), text[1]
+        # a new tab (Ctrl+T), then a click on pong's tab shows it again
+        run(q, "\x14", 0.5)
+        look(q, ["untitled"])
+        text = screen_text(q.screendump(), 6, 12)
+        tx, ty = find(text[:1], "pong.bm", 6, 12)
+        click(q, tx, ty)
+        look(q, ["/carts/pong.bm"])
+        shot(q, "code")
+    finally:
+        q.close()
+
+    # the SDK: the tabs by clicking, its context menu
+    q = Qemu(b("kernel.img"), args)
+    try:
+        q.boot()
+        run(q, "e")
+        look(q, ["OPEN IN"], 8, 16)
+        text = screen_text(q.screendump())
+        cx, cy = find(text[:1], "code", 8, 16)
+        click(q, cx, cy)                    # the F2 tab: the code page
+        look(q, ["line 1/"], 8, 16, gone=["OPEN IN"])
+        click(q, 320, 200, "right")
+        text = look(q, ["Cut the line", "Build the game .bm", "Ctrl+B"], 8, 16)
+        shot(q, "sdk-context")
+        click(q, 600, 40)                   # outside: it closes, nothing else
+        look(q, [], 8, 16, gone=["Cut the line"])
+        text = screen_text(q.screendump())
+        mx, my = find(text[:1], "menu", 8, 16)
+        click(q, mx, my)                    # the Esc tab: the menu page
+        text = look(q, ["Continue", "Exit bm SDK"], 8, 16)
+        ex, ey = find(text, "Continue", 8, 16)
+        click(q, ex, ey)                    # a click on an entry does it
+        look(q, ["line 1/"], 8, 16, gone=["Exit bm SDK"])
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)

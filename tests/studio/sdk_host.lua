@@ -217,6 +217,7 @@ local function entries_of(kinds)
   return out
 end
 
+local MS
 local function new_env(arg)
   E = {}
   texts, sel_rows, keyq, pad, padprev, frame, quitted, draws = {}, {}, {}, {}, {}, 0, false, 0
@@ -259,6 +260,10 @@ local function new_env(arg)
   E.btnp = function(i) return pad[i] == true and not padprev[i] end
   E.keyp = function() return table.remove(keyq, 1) end
   E.keyheld = function() return false end
+  -- the mouse (bmui): MS as a USB mouse would give it
+  MS = { x = 0, y = 0, b = 0, w = 0, p = 0 }
+  E.mouse = function(on) if on ~= nil then return true end; return MS.x, MS.y, MS.b, MS.w, true end
+  E.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
   E.keyhelp = function(list, title)
     for _, e in ipairs(list) do
       if type(e) == "table" then
@@ -532,7 +537,8 @@ local function new_env(arg)
   E.require = function(name)
     if loaded[name] then return loaded[name] end
     local file = name == "assist" and "/src/ai/assist.lua" or name == "bm3d" and "/src/script/bm3d.lua" or
-                 name == "bmlib" and "/src/script/bmlib.lua" or name == "bmnet" and "/src/script/bmnet.lua"
+                 name == "bmlib" and "/src/script/bmlib.lua" or name == "bmnet" and "/src/script/bmnet.lua" or
+                 name == "bmui" and "/src/script/bmui.lua"
     if not file then error("require: no " .. name .. " here") end
     loaded[name] = assert(loadfile(ROOT .. file, "t", E))()
     return loaded[name]
@@ -778,6 +784,66 @@ key("esc")
 check(sees("Exit bm SDK") and sees("New project"), "Esc: the menu")
 key("up", "\n")
 check(quitted, "Exit bm SDK leaves")
+
+-- the mouse (bmui, 2026-10-06): the same things by clicking
+local function at(str, x, y)
+  for _, t in ipairs(texts) do
+    if t[1] == str and (not x or t[2] == x) and (not y or t[3] == y) then return t[2] + 4, t[3] + 8 end
+  end
+end
+local function mouse(x, y, b, w)
+  local was = MS.b
+  MS.x, MS.y, MS.b, MS.w = x, y, b or 0, w or 0
+  MS.p = MS.b & ~was
+  frames(1)
+  MS.p, MS.w = 0, 0
+end
+local function click(x, y, b)
+  mouse(x, y, 0); mouse(x, y, b or 1); mouse(x, y, 0); frames(1)
+end
+
+run_sdk({ path = "/carts/village.bm" })
+frames(400)
+-- the project page: a click chooses a row, a second click does it (target)
+click(40, 16 + 12 * 16 + 8)
+click(40, 16 + 12 * 16 + 8)
+check(sees("target .b16"), "mouse: the project page, the target by clicking twice")
+click(40, 16 + 12 * 16 + 8)
+-- the tabs: 2D (sprites), drawing, a colour, a flag, the sheet
+local mx, my = at("2D", nil, 0)
+click(mx, my)
+check(sees("SPRITES"), "mouse: the 2D tab")
+click(336 + 5 * 16 + 4, 244)
+mouse(40, 80, 1); mouse(80, 120, 1); mouse(80, 120, 0); frames(1)
+mouse(60, 60, 4); mouse(60, 60, 0)
+mouse(60, 60, 0, 1)
+click(336 + 40, 56 + 20)
+click(380 + 2 * 24, 292)
+check(sees("flag 2"), "mouse: a click on a flag: " .. status())
+click(100, 100, 2)
+check(sees("Pick the colour") and sees("Ctrl+B"), "mouse: the sprite page's context menu")
+click(620, 340)
+-- the map: paint, pick, pan, the wheel, the tiles
+key("f3")
+check(sees("MAP"), "the map page")
+mouse(100, 100, 1); mouse(140, 100, 1); mouse(140, 100, 0); frames(1)
+mouse(100, 100, 4); mouse(100, 100, 0)
+mouse(300, 200, 2); mouse(260, 180, 2); mouse(200, 150, 2); mouse(200, 150, 0); frames(1)
+mouse(300, 200, 0, -2)
+key("\t")
+click(420, 100)
+check(not sees("choosing the tile"), "mouse: a click in the tiles takes one")
+-- the 3D page: a model by clicking, the view turned and zoomed, its menu
+key("f4")
+check(sees("MODELS"), "the 3D page")
+mx, my = at("house", 16)
+if mx then click(mx, my) end
+mouse(400, 200, 2); mouse(430, 210, 2); mouse(460, 220, 2); mouse(460, 220, 0); frames(1)
+mouse(400, 200, 0, 1)
+click(400, 200, 2)
+check(sees("Open in bm Studio") and sees("Spin"), "mouse: the 3D page's context menu")
+mx, my = at("Spin")
+click(mx, my)
 
 io.write(string.format("sdk_host: %d checks, %d failed\n", checks, fails))
 os.exit(fails == 0 and 0 or 1)

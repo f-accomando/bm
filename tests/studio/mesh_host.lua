@@ -154,6 +154,16 @@ E.btn = function(i) return pad[i] == true end
 E.btnp = function(i) return pad[i] == true and not padprev[i] end
 E.keyp = function() return table.remove(keyq, 1) end
 E.keyheld = function() return false end
+-- the mouse (bmui): MS as a USB mouse would give it
+local MS = { x = 0, y = 0, b = 0, w = 0, p = 0 }
+E.mouse = function(on) if on ~= nil then return true end; return MS.x, MS.y, MS.b, MS.w, true end
+E.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
+local bmui
+E.require = function(name)
+  assert(name == "bmui", "require: only bmui here")      -- (no assistant: F6 says so)
+  bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()   -- the mouse (it takes keyp over)
+  return bmui
+end
 local keyhelp_list, keyhelp_title
 E.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
 E.save = function(t) saved_t = t; return true end
@@ -699,6 +709,57 @@ local asked = E._exit() == false
 frames(1)
 check(asked and sees("Ctrl+Esc again"), "_exit: unsaved changes, it asks")
 check(E._exit() == true, "_exit: again, it leaves")
+
+
+-- the mouse (bmui, 2026-10-06): the same things by clicking
+local function at(str, x, y)
+  for _, t in ipairs(texts) do
+    if t[1] == str and (not x or t[2] == x) and (not y or t[3] == y) then return t[2] + 4, t[3] + 8 end
+  end
+end
+local function mouse(x, y, b, w)
+  local was = MS.b
+  MS.x, MS.y, MS.b, MS.w = x, y, b or 0, w or 0
+  MS.p = MS.b & ~was
+  frames(1)
+  MS.p, MS.w = 0, 0
+end
+local function click(x, y, b)
+  mouse(x, y, 0); mouse(x, y, b or 1); mouse(x, y, 0); frames(1)
+end
+
+key("f1")
+local mx, my = at("list", nil, 0)
+click(mx, my)
+check(sees("MESHES"), "mouse: the list tab")
+local rows = {}
+for _, t in ipairs(texts) do if t[2] == 24 and t[3] >= 48 and t[3] < 304 then rows[#rows + 1] = t end end
+check(#rows >= 2, "mouse: the list's rows")
+click(rows[2][2] + 4, rows[2][3] + 8)
+check(chosen() and chosen():find(rows[2][1]:gsub("%*$", ""), 1, true), "mouse: a click chooses a mesh: " .. tostring(chosen()))
+mouse(100, rows[1][3] + 8, 0, -1)
+click(rows[2][2] + 4, rows[2][3] + 8)
+click(rows[2][2] + 4, rows[2][3] + 8)
+check(sees("VERTICES") or sees("FACES"), "mouse: a double click edits it")
+for i = 0, 10 do mouse(300 + i * 4, 180 + i * 3) end
+click(330, 200)
+frames(2)
+check(sees("chosen"), "mouse: the pointer follows, a click chooses")
+mouse(330, 200, 0, 1)
+mouse(330, 200, 2); mouse(350, 210, 2); mouse(370, 220, 2); mouse(370, 220, 0); frames(1)
+click(330, 200, 2)
+check(sees("Move") and sees("Extrude faces"), "mouse: the edit page's context menu")
+mx, my = at("Palette")
+click(mx, my)
+check(sees("colour: arrows"), "mouse: Palette from the context menu")
+click(124, 116)
+check(not sees("colour: arrows"), "mouse: a click on a colour takes it")
+mx, my = at("menu", nil, 0)
+click(mx, my)
+check(sees("Exit bm Mesh"), "mouse: the menu tab")
+mx, my = at("Continue", 32)
+click(mx, my)
+check(not sees("Exit bm Mesh"), "mouse: a click on Continue")
 
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)

@@ -28,6 +28,11 @@
 -- (require "predict") shows the rest in grey-blue: Tab writes it.
 
 local M = {}
+-- the mouse (bmui): a click on an answer chooses it, on the chosen one (or a
+-- double click) takes it, the wheel moves in the answers or scrolls the
+-- details, a click outside the panel closes it
+local ok_ui, U = pcall(require, "bmui")
+if not ok_ui then U = nil end
 
 local C_PANEL, C_BAR, C_LINE = 0x1C2030, 0x2A3048, 0x3A4060
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x8088A0, 0xFFC050, 0xFF6060, 0x3050A0
@@ -416,6 +421,21 @@ function M.update()
     k = st and keyp()
   end
   if not st then return true end
+  if U and U.on then
+    local z = U.at()
+    if U.wheel ~= 0 and z then
+      if z.kind == "adetail" then
+        st.scroll = math.max(0, math.min(math.max(0, #st.lines - st.detail_rows), (st.scroll or 0) - U.wheel * 3))
+      else choose(st.sel - U.wheel) end
+    end
+    local c = U.click(0)
+    if c and c.kind == "ahit" then
+      if c.a == st.sel or U.double then act() else choose(c.a) end
+    elseif c and c.kind == "ashade" then
+      M.close()
+    end
+    if not st then return true end
+  end
   if pressed(2) then choose(st.sel - 1) end
   if pressed(3) then choose(st.sel + 1) end
   if pressed(0) then variant(-1) end
@@ -558,6 +578,10 @@ function M.draw()
   if fw ~= tw or fh ~= th then font(fw == 6 and "6x12" or fh == 14 and "8x14" or "8x16") end
   local x, y, w, h = st.x, st.y, st.w, st.h
   local tx = x + fw
+  if U then
+    U.zone(0, 0, SCREEN_W, SCREEN_H, "ashade")
+    U.zone(x, y, w, h, "apanel")
+  end
   rectfill(x, y, w, h, C_PANEL)
   rect(x, y, w, h, C_LINE)
   -- title
@@ -603,6 +627,7 @@ function M.draw()
     local hit = st.hits[i]
     if not hit then break end
     local ry = ly + r * fh
+    if U then U.zone(x + 4, ry, w - 8, fh, "ahit", i) end
     if i == st.sel then rectfill(x + 4, ry, w - 8, fh, C_SEL) end
     local tag = (hit.related and "see " or "") .. (TAG[hit.kind] or hit.kind)
     print(hit.title:sub(1, st.cols - 12), tx, ry, i == st.sel and 0xFFFFFF or hit.related and C_DIM or C_TEXT)
@@ -616,6 +641,7 @@ function M.draw()
   end
   -- details
   local dy = ly + st.list_rows * fh
+  if U then U.zone(x, dy, w, st.detail_rows * fh, "adetail") end
   line(x + 4, dy - 1, x + w - 5, dy - 1, C_LINE)
   local e = st.entry
   if e and e.kind == "music" then

@@ -13,6 +13,7 @@
 -- assistant.
 
 local B = require "bm3d"                 -- the suite's colours, lists, 3D view, MESH and ANIM
+local U = require "bmui"                 -- the mouse: what the keys do, by clicking
 local ok_assist, assist = pcall(require, "assist")
 if not ok_assist then assist = nil end
 
@@ -40,8 +41,11 @@ local function chips(keys, x, y)
 end
 
 local function chip_hint(key, pad, label, x, y, c)
+  local x0 = x
   x = chips(pad and pad_used() and pad or key, x, y)
-  return print(label, snap(x + 2), y, c or C.DIM) + 12
+  x = print(label, snap(x + 2), y, c or C.DIM)
+  U.key_zone(x0, y, x - x0, 16, key)          -- a click: the key
+  return x + 12
 end
 
 -- the hint row: { {keys, pad or nil, label}, ... } while it fits
@@ -956,6 +960,19 @@ do
     return false
   end
 
+  -- the mouse: a click chooses a row (on the chosen one, or a double
+  -- click: takes it), the wheel moves, a click outside is Esc
+  function D.mouse()
+    if pick and U.wheel ~= 0 then pick.sel = clamp(pick.sel - U.wheel, 1, #pick.rows) end
+    local z = U.click(0)
+    if not z then return end
+    if z.kind == "pick" and pick then
+      if z.a == pick.sel or U.double then U.press("\n") else pick.sel = z.a end
+    elseif z.kind == "shade" then
+      U.press("esc")
+    end
+  end
+
   function D.draw()
     if pick then
       local p = pick
@@ -963,6 +980,8 @@ do
       local info = p.rows[p.sel][3]
       local h = (rows + (info and 4 or 2)) * 16
       local y0 = max(32, (H - h) // 32 * 16)
+      U.zone(0, 0, W, H, "shade")                  -- a click outside: Esc
+      U.zone(40, y0 - 8, 560, h + 8, "box")
       rectfill(40, y0 - 8, 560, h + 8, C.PANEL)        -- (the frame clear of the title's row)
       rect(40, y0 - 8, 560, h + 8, C.ACC)
       local tx = print(p.title, 56, y0, C.ACC) + 16
@@ -970,12 +989,15 @@ do
       local first = clamp(p.sel - rows // 2, 1, max(1, #p.rows - rows + 1))
       for i = first, min(#p.rows, first + rows - 1) do
         local y = y0 + 16 + (i - first) * 16
+        U.zone(48, y, 544, 16, "pick", i)
         if i == p.sel then rectfill(48, y, 544, 16, C.SEL) end
         print(p.rows[i][1]:sub(1, 66), 56, y, i == p.sel and 0xFFFFFF or C.TEXT)
       end
       if info then print(info:sub(1, 66), 56, y0 + (rows + 2) * 16, C.DIM) end
     end
     if input then
+      U.zone(0, 0, W, H, "shade")
+      U.zone(80, 144, 480, 64, "box")
       rectfill(80, 144, 480, 64, C.PANEL)
       rect(80, 144, 480, 64, C.ACC)
       print(input.label, 96, 160, C.DIM)
@@ -1224,7 +1246,34 @@ do
     return string.format("line %d/%d  col %d", cy, #S.lines, cx + 1) .. (t and ("   " .. t .. " tokens") or "")
   end
 
-  P.code = { key = key, draw = draw, status = status, insert = insert, word_at = word_at,
+  -- the mouse: a click puts the cursor there, the wheel scrolls (the
+  -- cursor goes with the page); the context menu has the line's keys
+  local function mouse()
+    if U.wheel ~= 0 and U.inside(0, 16, W, ROWS * 16) then
+      local d = clamp(-U.wheel * 3, 1 - top, max(0, #S.lines - ROWS) - top + 1)
+      top, cy = top + d, cy + d
+      clamp_cursor()
+    end
+    if U.click(0) and U.inside(0, 16, W, ROWS * 16) then
+      cy = top + (U.y - 16) // 16
+      cx = left + (U.x + 4) // 8 - GUTTER
+      last_edit = nil
+      clamp_cursor()
+    end
+  end
+
+  local function menu_items()
+    local list = { { "Cut the line", "^x" }, { "Copy the line", "^c" }, { "Paste", "^v" }, { "Duplicate", "^d" },
+                   { "Undo", "^z" } }
+    if S.err_line then
+      list[#list + 1] = { "Go to the error", "^g" }
+      list[#list + 1] = { "Explain the error", "f9" }
+    end
+    return list
+  end
+
+  P.code = { key = key, draw = draw, status = status, insert = insert, word_at = word_at, mouse = mouse,
+             menu_items = menu_items,
              goto_line = function(n) cy, cx = clamp(n, 1, #S.lines), 0; clamp_cursor() end,
              cursor = function() return cy, cx end,
              reset = function() cx, cy, top, left, undo, last_edit = 0, 1, 1, 0, {}, nil end }
@@ -1417,6 +1466,7 @@ do
           focus == "sheet" and "choosing on the sheet: arrows, then Enter" or
           "F3 again: the map   2 on the project page: bm Pixel, every tool")
     checker(CX, CY, n * z, n * z, z)
+    U.zone(CX, CY, n * z, n * z, "canvas", z)
     for j = 0, n - 1 do
       for i = 0, n - 1 do
         local c = sget(sx + i, sy + j)
@@ -1431,6 +1481,7 @@ do
     local scx = clamp(sx - vw // 2, 0, S.sheet_w - vw) // 8 * 8
     local scy = clamp(sy - vh // 2, 0, S.sheet_h - vh) // 8 * 8
     checker(SX, SY, vw, vh, 4)
+    U.zone(SX, SY, vw, vh, "sheet", scx, scy)
     sspr(scx, scy, vw, vh, SX, SY)
     clip(SX, SY, vw, vh)
     rect(SX + sx - scx - 1, SY + sy - scy - 1, n + 2, n + 2, focus == "sheet" and C.ACC or 0xFFFFFF)
@@ -1438,10 +1489,12 @@ do
     -- the palette, the transparent swatch, the colour
     for i, c in ipairs(PALETTE) do
       local x, y = SX + ((i - 1) % 16) * 16, 240 + ((i - 1) // 16) * 14
+      U.zone(x, y, 16, 14, "colour", i)
       rectfill(x, y, 15, 13, c)
       if c == color and not transparent then rect(x - 1, y - 1, 17, 15, 0xFFFFFF) end
     end
     checker(SX + 264, 240, 28, 27, 4)
+    U.zone(SX + 264, 240, 28, 27, "colour", 0)
     if transparent then rect(SX + 263, 239, 30, 29, 0xFFFFFF) end
     rectfill(SX, 272, 20, 16, 0x000000)
     if transparent then checker(SX + 1, 273, 18, 14, 4) else rectfill(SX + 1, 273, 18, 14, color) end
@@ -1450,6 +1503,7 @@ do
     print("FLAGS", SX, 288, C.DIM)
     for f = 0, 7 do
       local x = SX + 48 + f * 24
+      U.key_zone(x - 4, 288, 16, 16, tostring(f))   -- a click: the flag on / off
       if fget(sel, f) then rectfill(x - 4, 288, 16, 16, FLAG_C[f]) else rect(x - 4, 288, 16, 16, C.BAR) end
       print(tostring(f), x, 288, fget(sel, f) and 0x000000 or C.DIM)
     end
@@ -1463,9 +1517,40 @@ do
                          transparent and "transparent" or string.format("#%06X", color), flags_text())
   end
 
-  P.sprite = { act = act, draw = draw, status = status, put_sprite = put_sprite,
+  -- the mouse: on the canvas the left button draws (held: it goes on), the
+  -- middle one picks the colour, the wheel changes it; a click on the sheet
+  -- chooses the cell, on a colour takes it
+  local function mouse()
+    local z = U.at()
+    if not z then return end
+    if z.kind == "canvas" then
+      focus = "canvas"
+      local n = size * 8
+      if U.down(0) or U.pressed(2) then
+        px, py = clamp((U.x - CX) // z.a, 0, n - 1), clamp((U.y - CY) // z.a, 0, n - 1)
+        act(U.pressed(2) and "pick" or "paint")
+      end
+      if U.wheel ~= 0 then act(U.wheel > 0 and "prev" or "next") end
+    elseif z.kind == "sheet" and U.pressed(0) then
+      local cols = cells_per_row()
+      local cx, cy = (z.a + U.x - SX) // 8, (z.b + U.y - SY) // 8
+      sel = cy * cols + cx
+      move_sel(0, 0)
+      focus = "canvas"
+    elseif z.kind == "colour" and U.pressed(0) then
+      if z.a == 0 then transparent = true else color, transparent = PALETTE[z.a], false end
+    end
+  end
+
+  local function menu_items()
+    return { { "Pick the colour", "x" }, { "Fill", "f" }, { "Erase", "\b" }, { "8x8 / 16x16", "z" },
+             { "Mirror", "h" }, { "Upside down", "v" }, { "Copy", "^c" }, { "Paste", "^v" }, { "Undo", "u" } }
+  end
+
+  P.sprite = { act = act, draw = draw, status = status, put_sprite = put_sprite, mouse = mouse,
+               menu_items = menu_items,
                size = function() return size * 8 end,
-               lift = function() stroke = stroke and (btn(4) or false) end,
+               lift = function() stroke = stroke and (btn(4) or U.down(0) or false) end,
                stop = function() stroke = false end,
                state = function() return { sel = sel, size = size } end,
                restore = function(t) if t then sel, size = t.sel or 0, t.size or 2 end end,
@@ -1565,6 +1650,7 @@ do
 
   local function draw()
     rectfill(0, VIEW_Y, W, HINT_Y - VIEW_Y, 0x000000)
+    U.zone(0, VIEW_Y, W, HINT_Y - VIEW_Y, "mapview")
     clip(0, VIEW_Y, W, HINT_Y - VIEW_Y)
     local names = mlayers()
     if layer > #names then layer = 1 end
@@ -1602,6 +1688,8 @@ do
       local scx = clamp(tx - vw // 2, 0, S.sheet_w - vw) // 8 * 8
       local scy = clamp(ty - vh // 2, 0, S.sheet_h - vh) // 8 * 8
       local ox, oy = W - vw - 24, 64
+      U.zone(0, VIEW_Y, W, HINT_Y - VIEW_Y, "shade")
+      U.zone(ox, oy, vw, vh, "tiles", { scx = scx, scy = scy, ox = ox, oy = oy })
       rectfill(ox - 8, oy - 8, vw + 16, vh + 16, C.PANEL)
       checker(ox, oy, vw, vh, 4)
       sspr(scx, scy, vw, vh, ox, oy)
@@ -1618,7 +1706,50 @@ do
                                                           mget(mx, my, layer), tile, layer, #names, names[layer] or "")
   end
 
-  P.map = { act = act, draw = draw, status = status, end_stroke = end_stroke,
+  -- the mouse: the left button places the tile (held: it goes on), the
+  -- middle one picks it; the right or the middle button dragged moves the
+  -- view, the wheel scrolls it; the tiles (Tab): a click takes one
+  local pan = { 0, 0 }
+  local function mouse()
+    local z = U.at()
+    if picking then
+      if U.pressed(0) then
+        if z and z.kind == "tiles" then
+          local t = z.a
+          local cols = S.sheet_w // 8
+          tile = clamp(((t.scy + U.y - t.oy) // 8) * cols + (t.scx + U.x - t.ox) // 8, 0, cols * (S.sheet_h // 8) - 1)
+        end
+        picking = false
+      end
+      return
+    end
+    local d = U.drag
+    if d and (d.b == 1 or d.b == 2) and d.y0 >= VIEW_Y and d.y0 < HINT_Y then
+      pan[1], pan[2] = pan[1] - d.dx, pan[2] - d.dy
+      local sx, sy = pan[1] // 8, pan[2] // 8
+      if sx ~= 0 or sy ~= 0 then
+        vx0 = clamp(vx0 + sx, 0, max(0, S.map_w - VIEW_CW))
+        vy0 = clamp(vy0 + sy, 0, max(0, S.map_h - VIEW_CH))
+        pan[1], pan[2] = pan[1] - sx * 8, pan[2] - sy * 8
+      end
+      return
+    end
+    if not z or z.kind ~= "mapview" then return end
+    if U.wheel ~= 0 then vy0 = clamp(vy0 - U.wheel * 4, 0, max(0, S.map_h - VIEW_CH)) end
+    if U.down(0) or U.pressed(2) then
+      mx = clamp(vx0 + U.x // 8, 0, S.map_w - 1)
+      my = clamp(vy0 + (U.y - VIEW_Y) // 8, 0, S.map_h - 1)
+      act(U.pressed(2) and "pick" or "paint")
+    end
+  end
+
+  local function menu_items()
+    return { { "Pick the tile", "x" }, { "Clear", "\b" }, { "Fill", "f" }, { "Tiles...", "\t" }, "-",
+             { "Next layer", "l" }, { "New layer", "L" }, { "This layer only", "o" }, { "Flags", "c" }, "-",
+             { "Undo", "u" } }
+  end
+
+  P.map = { act = act, draw = draw, status = status, end_stroke = end_stroke, mouse = mouse, menu_items = menu_items,
             new_layer = function() next_layer(true) end,
             stroking = function() return m_stroke ~= nil end,
             state = function() return { mx = mx, my = my } end,
@@ -1795,11 +1926,18 @@ do
     clip()
     -- the panel: models, then the animations of the chosen one
     rectfill(0, 16, PANEL_W, HINT_Y - 16, C.PANEL)
-    B.draw_list("MODELS " .. #names, names, sel, 0, 32, 9, PANEL_W)
+    B.draw_list("MODELS " .. #names, names, sel, 0, 32, 9, PANEL_W, nil, function(i, again)
+      if i ~= sel then pick(i) end
+      if again then open_in(TOOLS[3]) end          -- a double click: bm Studio on it
+    end)
     local cn = { "(rest pose)" }
     for _, c in ipairs(cl) do cn[#cn + 1] = c.name .. (c.loop and "" or " (once)") end
-    if #cl > 0 then B.draw_list("ANIMATIONS " .. #cl, cn, clip_i + 1, 0, 208, 5, PANEL_W)
+    if #cl > 0 then
+      B.draw_list("ANIMATIONS " .. #cl, cn, clip_i + 1, 0, 208, 5, PANEL_W, nil, function(i)
+        if i - 1 ~= clip_i then clip_i, t = i - 1, 0 end
+      end)
     elseif m then print("no skeleton: 4 on the", 8, 208, C.DIM); print("project page: bm Animator", 8, 224, C.DIM) end
+    U.zone(PANEL_W, VY, W - PANEL_W, HINT_Y - VY, "view3d")
     local n = names[sel]
     local f = n and nfo[n]
     if n then
@@ -1824,7 +1962,21 @@ do
                          sel, #names, tris, B.TRIS_60FPS)
   end
 
-  P.d3 = { key = key, pad = pad, update = update, draw = draw, status = status, refresh = refresh,
+  -- the mouse: right drag turns (and stops the spinning), middle moves, the
+  -- wheel zooms; a click in the view plays or stops
+  local function mouse()
+    if B.mouse_cam(cam, PANEL_W, VY, W - PANEL_W, HINT_Y - VY, { lo = 0.3, hi = 400 }) and U.drag then spin = false end
+    local z = U.click(0)
+    if z and z.kind == "view3d" then play = not play end
+  end
+
+  local function menu_items()
+    return { { play and "Stop" or "Play", " " }, { "Spin", "r" }, { "The code to draw it", "i" }, "-",
+             { "Open in bm Studio", "\n" }, { "Open in bm Animator", "a" }, { "Open in bm Mesh", "m" } }
+  end
+
+  P.d3 = { key = key, pad = pad, update = update, draw = draw, status = status, refresh = refresh, mouse = mouse,
+           menu_items = menu_items,
            add_model = add_model, selected = function() return sel end }
 end
 
@@ -1902,12 +2054,22 @@ do
     if btnp(4) then key("ok") end
   end
 
+  -- the mouse: a click chooses a row, a click on the chosen one (or a
+  -- double click) does it
+  local function mouse()
+    local z = U.click(0)
+    if z and z.kind == "hub" then
+      if z.a == row or U.double then row = z.a; U.press("\n") else row = z.a end
+    end
+  end
+
   local function draw_panel()
     rectfill(0, 16, PANEL_W, HINT_Y - 16, C.PANEL)
     for i, h in ipairs(HUB) do
       local y = 16 + i * 16
       if h.head then print(h.head, 16, y, C.DIM)
       else
+        U.zone(0, y, PANEL_W, 16, "hub", i)
         if i == row then rectfill(0, y, PANEL_W, 16, C.SEL) end
         print(h.key, 8, y, C_KEY)
         print(label(h):sub(1, 17), 24, y, i == row and 0xFFFFFF or C.TEXT)
@@ -2037,7 +2199,16 @@ do
     return "1-6: open the project in the suite   n: from a template   Esc: the menu"
   end
 
-  P.project = { key = key, pad = pad, draw = draw, status = status }
+  P.project = { key = key, pad = pad, draw = draw, status = status, mouse = mouse,
+                menu_items = function()
+                  local list = {}
+                  for _, h in ipairs(HUB) do
+                    if h.key and not h.head then list[#list + 1] = { label(h), h.key } end
+                  end
+                  list[#list + 1] = "-"
+                  list[#list + 1] = { S.hubview == "devkit" and "The project" or "The dev kit", "f1" }
+                  return list
+                end }
 end
 
 ----------------------------------------------------------------- menu page
@@ -2083,6 +2254,14 @@ do
     elseif btnp(4) then key("ok") elseif btnp(5) then key("back") end
   end
 
+  -- the mouse: a click on an entry does it, the wheel moves
+  local function mouse()
+    build()
+    if U.wheel ~= 0 then msel = clamp(msel - U.wheel, 1, #items) end
+    local z = U.click(0)
+    if z and z.kind == "menuitem" then msel = z.a; U.press("\n") end
+  end
+
   local function draw()
     build()
     rectfill(0, 16, W, HINT_Y - 16, C.BG)
@@ -2090,6 +2269,7 @@ do
     print((S.proj.save or "(not saved yet)") .. (S.dirty and "  *modified*" or ""), 96, 32, C.DIM)
     for i, it in ipairs(items) do
       local y = 64 + (i - 1) * 16
+      U.zone(24, y, 272, 16, "menuitem", i)
       if i == msel then rectfill(24, y, 272, 16, C.SEL) end
       print(it[1], 32, y, i == msel and 0xFFFFFF or C.TEXT)
     end
@@ -2105,7 +2285,7 @@ do
     hint({ { "up", "UPDOWN", "choose" }, { "enter", "A", "select" }, { "esc", "B", "back" } })
   end
 
-  P.menu = { key = key, pad = pad, draw = draw, status = function() return "up/down choose, Enter select" end }
+  P.menu = { key = key, pad = pad, draw = draw, mouse = mouse, status = function() return "up/down choose, Enter select" end }
 end
 
 ----------------------------------------------------------------- the assistant
@@ -2292,6 +2472,7 @@ local TOOL_NAMES = { code = "bm Code", pixel = "bm Pixel", studio = "bm Studio",
 
 function _init()
   keyp()                                -- typing on: the keyboard types text
+  U.wants()                             -- the pointer, when there is a mouse
   local a = cart_arg()
   if a and a.path and load_project(a.path) then
     local t = saved() or {}
@@ -2342,16 +2523,49 @@ end
 
 local ytap = { was = false, tap = false, combo = false }
 
+-- the mouse, each frame: the chips and the tabs press their keys, the
+-- dialogs and the lists choose, the page does its own, the right button
+-- opens the context menu (the page's keys, then save, try, menu)
+local function page_of()
+  if S.page == "d2" then return S.d2view == "sprite" and P.sprite or P.map end
+  return P[S.page]
+end
+
+local function mouse_frame()
+  if not U.on then return end
+  if U.keys() then return end
+  if D.open() then D.mouse(); return end
+  local z = U.at()
+  if z and (z.kind == "row" or z.kind == "list") and U.wheel ~= 0 then
+    local L = z.b
+    L.pick(clamp(L.sel - U.wheel, 1, max(1, L.n)), false)
+  end
+  local c = U.click(0)
+  if c and c.kind == "row" then c.b.pick(c.a, U.double); return end
+  local pg = page_of()
+  if pg and pg.mouse then pg.mouse() end
+  if U.clicked(1) then
+    local list = pg and pg.menu_items and pg.menu_items() or {}
+    if #list > 0 then list[#list + 1] = "-" end
+    for _, it in ipairs({ { "Save", "^s" }, { "Build the game .bm", "^b" }, { "Try the game", "f5" },
+                          { "Assistant", "f6" }, { "Menu", "esc" } }) do list[#list + 1] = it end
+    U.menu(list)
+  end
+end
+
 function _update()
   S.frame = S.frame + 1
   if S.msg_t > 0 then S.msg_t = S.msg_t - 1 end
   if confirm.t > 0 then confirm.t = confirm.t - 1 end
   read_pad()
+  U.update()
   local hp = S.page == "d2" and S.d2view or S.page
   if help_page ~= hp then help_page = hp; sdk_keyhelp(hp) end
   if assist and assist.update() then return end   -- the assistant has the keys
+  if U.menu_update() then return end              -- the context menu has the input
+  mouse_frame()
   P.sprite.lift()
-  if P.map.stroking() and not btn(4) then P.map.end_stroke() end
+  if P.map.stroking() and not btn(4) and not U.down(0) then P.map.end_stroke() end
 
   -- keyboard
   while true do
@@ -2403,6 +2617,7 @@ function _update()
 end
 
 function _draw()
+  U.begin()
   local y = btn(7)                        -- Y: a press and release without a direction
   if ytap.was and not y then ytap.tap = true end
   ytap.was = y
@@ -2422,6 +2637,7 @@ function _draw()
     local lx = snap(x + prompt(t[2]) + 3)            -- the label on its column
     local w = lx + #t[3] * 8 - x
     if t[1] == S.page then rectfill(x - 4, 0, w + 8, 16, C.SEL) end
+    U.key_zone(x - 4, 0, w + 8, 16, t[2])            -- a click: the page
     prompt(t[2], x, 0)
     print(t[3], lx, 0, t[1] == S.page and 0xFFFFFF or C.DIM)
     x = x + w + 20
@@ -2440,4 +2656,5 @@ function _draw()
   if #status <= 62 then chip_hint("f12", nil, "held: keys", 528, STATUS_Y) end
   D.draw()
   if assist then assist.draw() end       -- the assistant's panel on top, if open
+  U.menu_draw()                          -- the context menu over everything
 end

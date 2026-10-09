@@ -11,6 +11,9 @@
 -- update(dt), draw(), refresh(), status() and its help lines (keys).
 
 local T = {}
+-- the mouse (require "bmui"): what the keys do, by clicking
+local U = require "bmui"
+T.U = U
 -- the assistant's panel (F6, Y + X): the base of a model from a 3D recipe
 local ok_assist, assist = pcall(require, "assist")
 if not ok_assist then assist = { update = function() return false end, draw = function() end } end
@@ -715,9 +718,28 @@ function T.look(cam, dx, dy)
   local u = { -sp * sy, cp, -sp * cy }
   local d = cam.dist
   local a, b = -(dx or 0) * d / T.FOCAL, (dy or 0) * d / T.FOCAL
-  camera3d(cam.tx - f[1] * d + r[1] * a + u[1] * b, cam.ty - f[2] * d + u[2] * b,
-           cam.tz - f[3] * d + r[3] * a + u[3] * b, cam.yaw, cam.pitch, 60)
-  cam.f, cam.r, cam.u = f, r, u
+  local eye = { cam.tx - f[1] * d + r[1] * a + u[1] * b, cam.ty - f[2] * d + u[2] * b,
+                cam.tz - f[3] * d + r[3] * a + u[3] * b }
+  camera3d(eye[1], eye[2], eye[3], cam.yaw, cam.pitch, 60)
+  cam.f, cam.r, cam.u, cam.eye = f, r, u, eye
+end
+
+-- the ray of a pixel of the screen from the camera (as last looked):
+-- origin and direction, nil before the first look
+function T.ray(cam, px, py)
+  if not cam.eye then return nil end
+  local a, b = (px - W / 2) / T.FOCAL, (H / 2 - py) / T.FOCAL
+  local f, r, u = cam.f, cam.r, cam.u
+  return cam.eye, { f[1] + r[1] * a + u[1] * b, f[2] + r[2] * a + u[2] * b, f[3] + r[3] * a + u[3] * b }
+end
+
+-- where that ray meets the plane y = level (nil if it does not)
+function T.ray_level(cam, px, py, level)
+  local o, d = T.ray(cam, px, py)
+  if not o or abs(d[2]) < 1e-6 then return nil end
+  local t = (level - o[2]) / d[2]
+  if t <= 0 then return nil end
+  return { o[1] + d[1] * t, level, o[3] + d[3] * t }
 end
 
 -- the three axes as the camera sees them, at (x, y) of the screen (bm Mesh)
@@ -781,6 +803,83 @@ function T.cam_key(cam, k, lo, hi)
     if k == "down" then cam.pitch = clamp(cam.pitch + 0.1, -1.45, 1.2); return true end
   end
   return false
+end
+
+-- the camera with the mouse, in the view (x, y, w, h): the right button
+-- dragged (or the left one, with o.left) turns and tilts, the middle one
+-- moves the target (not with o.no_pan), the wheel zooms. o.yaw(d): the
+-- page turns its own way (bm Studio's build page eases its yaw). True
+-- when the mouse moved the camera.
+function T.mouse_cam(cam, x, y, w, h, o)
+  o = o or {}
+  if not U.on then return false end
+  local d = U.drag
+  local used = false
+  if d and d.x0 >= x and d.x0 < x + w and d.y0 >= y and d.y0 < y + h then
+    if d.b == 1 or (d.b == 0 and o.left) then
+      if o.yaw then o.yaw(-d.dx * 0.01) else cam.yaw = cam.yaw - d.dx * 0.01 end
+      cam.pitch = clamp(cam.pitch - d.dy * 0.01, o.pmin or -1.45, o.pmax or 1.2)
+      used = true
+    elseif d.b == 2 and not o.no_pan and cam.r then
+      local k = cam.dist / T.FOCAL
+      cam.tx = cam.tx - (cam.r[1] * d.dx - cam.u[1] * d.dy) * k
+      cam.ty = cam.ty + cam.u[2] * d.dy * k
+      cam.tz = cam.tz - (cam.r[3] * d.dx - cam.u[3] * d.dy) * k
+      used = true
+    end
+  end
+  if U.wheel ~= 0 and U.inside(x, y, w, h) then
+    cam.dist = clamp(cam.dist * 0.85 ^ U.wheel, o.lo or 0.3, o.hi or 200)
+    used = true
+  end
+  return used
+end
+
+-- the face under the pointer: the index of the nearest face whose corners,
+-- as the camera sees them, hold (px, py); front faces first
+function T.face_at(faces, px, py)
+  local best, bz, back, bbz
+  for i, f in ipairs(faces) do
+    local p = f.p
+    local xs, ys, zs, n = {}, {}, 0, #p
+    local ok = true
+    for k = 1, n do
+      local x, y, z = scr(p[k])
+      if not x then ok = false; break end
+      xs[k], ys[k], zs = x, y, zs + z
+    end
+    if ok then
+      local pos, neg, area = false, false, 0
+      for k = 1, n do
+        local k2 = k % n + 1
+        local c = (xs[k2] - xs[k]) * (py - ys[k]) - (ys[k2] - ys[k]) * (px - xs[k])
+        if c > 0 then pos = true elseif c < 0 then neg = true end
+        area = area + xs[k] * ys[k2] - xs[k2] * ys[k]
+      end
+      if not (pos and neg) then
+        local z = zs / n
+        if area > 0 then
+          if not bz or z < bz then best, bz = i, z end
+        elseif not bbz or z < bbz then back, bbz = i, z end
+      end
+    end
+  end
+  return best or back
+end
+
+-- the point under the pointer: the index of the nearest of `points` (each
+-- a position {x, y, z}, or a table with .p) within r pixels
+function T.point_at(points, px, py, r)
+  r = r or 8
+  local best, bd
+  for i, q in ipairs(points) do
+    local x, y, z = scr(q.p or q)
+    if x then
+      local d = (x - px) ^ 2 + (y - py) ^ 2
+      if d <= r * r and (not bd or d + z * 0.01 < bd) then best, bd = i, d + z * 0.01 end
+    end
+  end
+  return best
 end
 
 function T.cam_pad(cam, lo, hi)
@@ -906,8 +1005,11 @@ function T.hint(list, y)
     local kx = x
     for _, k in ipairs(h[1]) do kx = kx + prompt(k) + 1 end
     if snap(kx + 2) + #h[2] * 8 > W then break end
+    local x0 = x
     for _, k in ipairs(h[1]) do x = prompt(k, x, y) + 1 end
-    x = print(h[2], snap(x + 2), y, C.DIM) + 12
+    x = print(h[2], snap(x + 2), y, C.DIM)
+    U.key_zone(x0, y, x - x0, 16, h[1])          -- a click: the key
+    x = x + 12
   end
 end
 
@@ -915,18 +1017,25 @@ end
 -- action has one; then its label. Returns the x after it.
 function T.chip_hint(key, pad, label, x, y, c)
   local li = lastinput()
+  local x0 = x
   x = prompt(pad and (li == "ds4" or li == "pad") and pad or key, x, y)
-  return print(label, snap(x + 3), y, c or C.DIM) + 12
+  x = print(label, snap(x + 3), y, c or C.DIM)
+  U.key_zone(x0, y, x - x0, 16, key)
+  return x + 12
 end
 
 -- a list with a title (as the lists of bm Mesh): items[i] is a string;
--- `colour_of(i)` a dot before it
-function T.draw_list(title, items, sel, x, y, rows, w, colour_of)
+-- `colour_of(i)` a dot before it; `pick(i, again)` makes it a list of the
+-- mouse: a click chooses row i (again: a double click), the wheel moves
+function T.draw_list(title, items, sel, x, y, rows, w, colour_of, pick)
   w = w or 168
   print(title, x + 16, y, C.DIM)
   local first = clamp(sel - rows // 2, 1, max(1, #items - rows + 1))
+  local L = pick and { pick = pick, sel = sel, n = #items }
+  if L then U.zone(x, y, w, (rows + 1) * 16, "list", 0, L) end
   for i = first, min(#items, first + rows - 1) do
     local yy = y + 16 + (i - first) * 16
+    if L then U.zone(x, yy, w, 16, "row", i, L) end
     if i == sel then rectfill(x, yy, w, 16, C.SEL) end
     if colour_of then rectfill(x + 4, yy + 4, 6, 8, colour_of(i)) end
     print(items[i]:sub(1, (w - 24) // 8), x + 16, yy, i == sel and 0xFFFFFF or C.TEXT)
@@ -1191,6 +1300,8 @@ end
 
 -- the dialogs: the same as bm Mesh's and bm Pixel's
 local function draw_input()
+  U.zone(0, 0, W, H, "shade")                  -- a click outside: Esc
+  U.zone(80, 144, 480, 64, "box")
   rectfill(80, 144, 480, 64, C.PANEL)
   rect(80, 144, 480, 64, C.ACC)
   print(input.label, 96, 160, C.DIM)
@@ -1203,6 +1314,8 @@ local function draw_choose()
   local rows = min(#p.rows, 14)
   local h = (rows + 2) * 16
   local y0 = max(32, (H - h) // 32 * 16)
+  U.zone(0, 0, W, H, "shade")
+  U.zone(40, y0, 560, h, "box")
   rectfill(40, y0, 560, h, C.PANEL)
   rect(40, y0, 560, h, C.ACC)
   local tx = print(p.title, 56, y0, C.ACC) + 16
@@ -1210,6 +1323,7 @@ local function draw_choose()
   local first = clamp(p.sel - rows // 2, 1, max(1, #p.rows - rows + 1))
   for i = first, min(#p.rows, first + rows - 1) do
     local y = y0 + 16 + (i - first) * 16
+    U.zone(48, y, 544, 16, "choose", i)
     if i == p.sel then rectfill(48, y, 544, 16, C.SEL) end
     print(p.rows[i][1]:sub(1, 66), 56, y, i == p.sel and 0xFFFFFF or C.TEXT)
   end
@@ -1325,6 +1439,7 @@ local function draw_menu()
         C.DIM)
   for i, it in ipairs(items) do
     local y = 64 + (i - 1) * 16
+    U.zone(24, y, 272, 16, "menuitem", i)
     if i == msel and not choosing and not input then rectfill(24, y, 272, 16, C.SEL) end
     print(it[1], 32, y, C.TEXT)
   end
@@ -1427,6 +1542,63 @@ function T.take_model(m)
       C.ACC, 300)
 end
 
+-- The mouse, each frame (bmui: it does what the keys do). The chips and
+-- the tabs press their keys; in the dialogs a click chooses (a click on the
+-- chosen row, or a double click, acts), outside them it is Esc; in the menu
+-- a click acts; a list of the panel chooses its row (double: acts) and its
+-- wheel moves; then the page's own (pg.mouse), and the right button the
+-- context menu (pg.menu_items(), plus undo, save and the menu)
+function T.mouse_frame()
+  if not U.on then return end
+  if U.keys() then return end
+  if input then
+    local z = U.click(0)
+    if z and z.kind == "shade" then U.press("esc") end
+    return
+  end
+  if choosing then
+    local c = choosing
+    if U.wheel ~= 0 then c.sel = clamp(c.sel - U.wheel, 1, #c.rows) end
+    local z = U.click(0)
+    if z and z.kind == "choose" then
+      if z.a == c.sel or U.double then U.press("\n") else c.sel = z.a end
+    elseif z and z.kind == "shade" then
+      U.press("esc")
+    end
+    return
+  end
+  if S.page == "menu" then
+    if U.wheel ~= 0 and #items > 0 then msel = clamp(msel - U.wheel, 1, #items) end
+    local z = U.click(0)
+    if z and z.kind == "menuitem" then msel = z.a; U.press("\n") end
+    return
+  end
+  local pg = A.pages[S.page]
+  local z = U.at()
+  if z and (z.kind == "row" or z.kind == "list") and U.wheel ~= 0 then
+    local L = z.b
+    L.pick(clamp(L.sel - U.wheel, 1, max(1, L.n)), false)
+  end
+  local c = U.click(0)
+  if c and c.kind == "row" then
+    c.b.pick(c.a, U.double)
+    return
+  end
+  if pg and pg.mouse then pg.mouse() end
+  local r = U.clicked(1)
+  if r and not (pg and pg.modal and pg.modal()) then
+    local list = pg and pg.menu_items and pg.menu_items() or {}
+    if #list > 0 then list[#list + 1] = "-" end
+    list[#list + 1] = { "Undo", "^z" }
+    list[#list + 1] = { "Redo", "^y" }
+    list[#list + 1] = { "Save", "^s" }
+    list[#list + 1] = { "Try the game", "f5" }
+    list[#list + 1] = { "Assistant", "f6" }
+    list[#list + 1] = { "Menu", "esc" }
+    U.menu(list)
+  end
+end
+
 function T.run(app)
   A = app
   A.pages = {}
@@ -1438,6 +1610,7 @@ function T.run(app)
 
   function _init()
     keyp()                                 -- typing on: the keyboard types
+    U.wants()                              -- the pointer, when there is a mouse
     if A.init then A.init() end
     last_t = time()
     local a = cart_arg()
@@ -1479,8 +1652,11 @@ function T.run(app)
     local dt = clamp(now - last_t, 0, 0.1)
     last_t = now
     read_pad()
+    U.update()
     if assist.update() then return end          -- the assistant has the keys
     T.picture_update()                          -- a model on its way from a picture
+    if U.menu_update() then return end          -- the context menu has the input
+    T.mouse_frame()
 
     while true do
       local k = keyp()
@@ -1524,6 +1700,7 @@ function T.run(app)
   end
 
   function _draw()
+    U.begin()
     local pg = A.pages[S.page]
     if pg then pg.draw() else draw_menu() end
 
@@ -1537,6 +1714,7 @@ function T.run(app)
       local lx = snap(x + prompt(t[2]) + 3)            -- the label on its column
       local w = lx + #t[3] * 8 - x
       if t[1] == S.page then rectfill(x - 4, 0, w + 8, 16, C.SEL) end
+      U.key_zone(x - 4, 0, w + 8, 16, t[2])        -- a click: the page
       prompt(t[2], x, 0)
       print(t[3], lx, 0, t[1] == S.page and 0xFFFFFF or C.DIM)
       x = x + w + 20
@@ -1560,6 +1738,7 @@ function T.run(app)
     if choosing then draw_choose() end
     if input then draw_input() end
     assist.draw()                                -- the assistant's panel on top, if open
+    U.menu_draw()                                -- the context menu over everything
   end
 end
 

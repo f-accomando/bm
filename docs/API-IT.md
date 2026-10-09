@@ -256,6 +256,28 @@ function _update()
 end
 ```
 
+**bmui, il mouse degli strumenti di bm** (`require "bmui"`, `src/script/bmui.lua`, 2026-10-06):
+lo usano gli editor (SDK, bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel, Sound, il pannello
+dell'assistente) e può usarlo anche un gioco o uno strumento tuo. La regola: il mouse fa quello
+che fanno i tasti. Le cose diventano cliccabili mentre si disegnano, e un clic preme il tasto che
+c'è dietro o sceglie quello che mostrano; il tasto destro apre un menu contestuale le cui voci
+sono tasti.
+
+| Funzione | Descrizione |
+|---|---|
+| `U.update()` / `U.begin()` | in `_update` per prima (legge `mouse()` una volta a fotogramma), in `_draw` per prima (dimentica le zone del fotogramma prima) |
+| `U.zone(x, y, l, a, tipo, a, b)` | qualcosa di cliccabile, mentre si disegna (vince l'ultima disegnata: un dialogo sopra la pagina); `U.at()` la zona sotto il puntatore, `U.click([b])` la zona premuta in questo fotogramma (0 sinistro, 1 destro, 2 centrale), `U.clicked(b)` un tasto lasciato senza trascinare (la zona dove era sceso, o `true`) |
+| `U.key_zone(x, y, l, a, tasti)` / `U.keys()` | un chip (`"ctrl s"`, `{"shift", "l"}`, `"f5"`) che premuto preme il suo tasto; `U.keys()` lo fa per il clic del fotogramma |
+| `U.press(tasto)` | un tasto come se fosse scritto: il prossimo `keyp()` lo dà (bmui mette il suo `keyp` per primo) |
+| `U.menu(voci, [x, y])` / `U.menu_update()` / `U.menu_draw()` | il menu contestuale al puntatore: `{ {"Copy", "^c"}, "-", {"Run", function() ... end} }` (il tasto scritto a destra, "Ctrl+C"); `U.menu_update()` in `_update` (true: ha preso l'input), `U.menu_draw()` per ultimo in `_draw`; righe sulla griglia 8x16 |
+| `U.x`, `U.y`, `U.on`, `U.moved`, `U.wheel`, `U.double`, `U.drag` | il puntatore (`U.on`: un mouse l'ha mosso e si vede), se si è mosso, gli scatti della rotella del fotogramma, un doppio clic, il trascinamento `{b, x0, y0, dx, dy}` (oltre 3 pixel; `dx, dy` lo spostamento del fotogramma); `U.pressed(b)`, `U.released(b)`, `U.down(b)`, `U.shift()`, `U.drag_arrows(passo)` (un trascinamento come frecce) |
+
+Negli editor: un clic sceglie una riga, un doppio clic (o nei dialoghi un clic su quella scelta)
+la prende, la rotella si muove o cambia un valore; nelle viste 3D il tasto destro trascinato
+gira, il centrale sposta, la rotella avvicina; sulle tele il sinistro disegna e il centrale
+preleva il colore; in bm Code un clic mette il cursore, un trascinamento seleziona, un doppio
+clic prende la parola, un clic sui numeri è un breakpoint.
+
 **Più giocatori (M16).** Il controller Bluetooth *n* è il giocatore *n* (abbinati dal monitor
 con `T`, uno alla volta: ognuno prende il primo posto libero e la sua luce il colore del
 giocatore: 1 blu, 2 rosso, 3 verde, 4 rosa). La tastiera o il gamepad USB e la seriale sono

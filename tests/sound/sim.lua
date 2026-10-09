@@ -179,7 +179,20 @@ local fake_assist = {
   end,
   draw = function() end,
 }
-env.require = function(name) if name == "assist" then return fake_assist end error("no module " .. name) end
+local bmui
+env.require = function(name)
+  if name == "assist" then return fake_assist end
+  if name == "bmui" then                   -- the mouse, the real one (it takes keyp over)
+    bmui = bmui or assert(loadfile((SRC:match("^(.-)carts/") or "./") .. "src/script/bmui.lua", "t", env))()
+    return bmui
+  end
+  error("no module " .. name)
+end
+
+-- the mouse (bmui): MS as a USB mouse would give it
+local MS = { x = 0, y = 0, b = 0, w = 0, p = 0 }
+env.mouse = function(on) if on ~= nil then return true end; return MS.x, MS.y, MS.b, MS.w, true end
+env.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
 
 local api = {}
 for k in pairs(env) do api[k] = true end
@@ -434,6 +447,39 @@ b = parse(last_bank)
 local coin = b.sfx[#b.sfx]
 check(coin and coin.name == "COIN" and coin.steps[1][1] == 83 and coin.steps[3][1] == 128, "the coin into a free sound effect")
 
+-- 9b. the mouse (bmui, 2026-10-06): tabs, lists, bars, cells, the menu by clicking
+local function mouse(x, y, b, w)
+  local was = MS.b
+  MS.x, MS.y, MS.b, MS.w = x, y, b or 0, w or 0
+  MS.p = MS.b & ~was
+  frame()
+  MS.p, MS.w = 0, 0
+end
+local function click(x, y, b) mouse(x, y, 0); mouse(x, y, b or 1); mouse(x, y, 0); frame() end
+run(300)
+click(110, 15)                             -- the first tab: SOUNDS
+click(60, 60 + 3 * 21)                     -- the fourth sound in the list
+mouse(200, 230, 0, 1)                      -- the wheel on a bar: +1
+mouse(200, 230, 1); mouse(240, 230, 1); mouse(260, 230, 1); mouse(260, 230, 0)
+run(2)
+check(true, "mouse: SOUNDS, a sound clicked, a bar wheeled and dragged")
+local before = last_bank
+click(300, 15)                             -- the PATTERN tab (the third)
+run(2)
+mouse(124 + 2 * 30 + 10, 78 + 10)
+click(124 + 2 * 30 + 10, 78 + 10)          -- a cell: a note toggled
+run(3)
+check(last_bank ~= before, "mouse: a click on a cell of the pattern changes the bank")
+mouse(124 + 3 * 30 + 10, 78 + 10, 0, 1)    -- the wheel on a cell
+click(400, 200, 2)                         -- the right button: the context menu
+run(1)
+click(10, 345)                             -- outside: closed
+click(560, 348)                            -- the SELECT menu at the bottom right
+run(2)
+click(320, 20)                             -- outside the menu: Esc
+run(2)
+check(true, "mouse: the context menu and the menu")
+
 -- 10. random input: nothing stops the editor
 math.randomseed(7)
 local K = { "up", "down", "left", "right", "\n", "\b", " ", "f1", "f2", "f3", "f4", "\t", "z", "q", "x", "-", "=",
@@ -442,6 +488,15 @@ local K = { "up", "down", "left", "right", "\n", "\b", " ", "f1", "f2", "f3", "f
 for i = 1, 6000 do
   for b2 = 0, 9 do pad[b2] = math.random() < (b2 == 9 and 0.03 or 0.12) end
   if math.random() < 0.2 then keys[#keys + 1] = K[math.random(#K)] end
+  if math.random() < 0.1 then                -- and the mouse, anywhere
+    local was = MS.b
+    MS.x, MS.y = math.random(0, 639), math.random(0, 359)
+    MS.b = math.random() < 0.3 and ({ 1, 2, 4 })[math.random(3)] or 0
+    MS.w = math.random() < 0.1 and math.random(-2, 2) or 0
+    MS.p = MS.b & ~was
+  else
+    MS.p, MS.w = 0, 0
+  end
   f12 = math.random() < 0.01
   frame()
   if quitted then quitted = false; env._init() end
