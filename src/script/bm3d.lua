@@ -533,20 +533,29 @@ end
 
 ----------------------------------------------------------------- files
 
+-- a project (.bme) is what the tools change; a game (.bm, .b16) is read
+-- only: saving it makes its editable copy (the console asks first)
+function T.is_game(path)
+  local p = path and path:lower() or ""
+  return p:match("%.bm$") ~= nil or p:match("%.b16$") ~= nil
+end
+
+-- "/carts/my 3d.bme" -> "/carts/MY3D.BME" (8.3)
 function T.short_path(path)
   local dir, base = path:match("^(.*)/([^/]+)$")
   dir = dir or "/carts"
   if dir == "" then dir = "/" end
   local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
   if stem == "" then stem = "GAME" end
-  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BM"
+  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BME"
 end
 
 function T.list_files()
   local out = {}
   for _, dir in ipairs({ "/carts", "/" }) do
     for _, f in ipairs(ls(dir)) do
-      if not f.dir and f.name:lower():match("%.bm$") then
+      local n = f.name:lower()
+      if not f.dir and (n:match("%.bm$") or n:match("%.bme$")) then
         out[#out + 1] = (dir == "/" and "" or dir) .. "/" .. f.name
       end
     end
@@ -585,7 +594,7 @@ function T.load_project(path)
   if not ok then say("broken models: " .. tostring(err), C.ERR) end
   T.select_model(1)
   reset_pages()
-  say("opened " .. path .. "  (" .. #parts .. " models)", C.ACC)
+  say("opened " .. path .. "  (" .. #parts .. " models" .. (T.is_game(path) and "; a game: saving makes its copy" or "") .. ")", C.ACC)
   return true
 end
 
@@ -617,6 +626,7 @@ function T.save_to(path, from)
   if new or S.sheet_dirty then t.sheet, t.palette = true, S.proj.palette end
   ok, e = cart_write(path, t)
   if not ok then say("save failed: " .. tostring(e), C.ERR); return false end
+  if type(e) == "string" then path = e end      -- the editable copy of a game, or a new project
   S.proj.path = path
   S.dirty, S.sheet_dirty = false, false
   say("saved " .. path, C.ACC)
@@ -627,9 +637,8 @@ local ask
 
 function T.save_as(after)
   local p = S.proj.path
-  ask("file name (8.3, in /carts)", p and p:match("([^/]+)$") or "MY3D.BM", function(t)
+  ask("file name (8.3, in /carts)", p and T.short_path(p):match("([^/]+)$") or "MY3D.BME", function(t)
     if t == "" then return end
-    if not t:upper():match("%.BM$") then t = t .. ".BM" end
     if T.save_to(T.short_path("/carts/" .. t), p) and after then after() end
   end)
 end

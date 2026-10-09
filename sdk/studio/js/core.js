@@ -1080,7 +1080,19 @@ end
     return lines.join('\n') + '\n';
   }
 
+  /* A .bm (and a .b16) is a game: the console's tools read it, never change
+   * it. What they change is a project, a .bme: the same container with bit 0
+   * of the u16 at 18 set (src/bm/project.h). The programs on the PC save
+   * projects too: a game opened here is saved as its .bme. */
+  function isGame(name) { return /\.(bm|b16)$/i.test(name || ''); }
+  function projectName(name) { return name.replace(/\.(bm|b16)$/i, '.bme'); }
+  function markProject(bytes, name) {
+    if (/\.bme$/i.test(name || '')) bytes[18] |= 1;
+    return bytes;
+  }
+
   Object.assign(BM, {
+    isGame, projectName, markProject,
     SEC, TEXTURED, LIMITS, crc32, Writer, utf8, fromUtf8, inflate, deflate,
     newImage, binarizeAlpha, isPNG, decodePNG, encodePNG, makeCover, countColours, imageIsEmpty, freeSpot, resizeImage,
     placeInSheet,

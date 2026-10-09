@@ -1032,12 +1032,12 @@
     async openFile() {
       if (window.showOpenFilePicker) {
         let h;
-        try { [h] = await window.showOpenFilePicker({ types: [{ description: 'bm cartridge', accept: { 'application/octet-stream': ['.bm'] } }] }); } catch (e) { return; }
+        try { [h] = await window.showOpenFilePicker({ types: [{ description: 'bm project or game', accept: { 'application/octet-stream': ['.bme', '.bm'] } }] }); } catch (e) { return; }
         const file = await h.getFile();
         await this.openBytes(new Uint8Array(await file.arrayBuffer()), file.name, h);
         return;
       }
-      this.pick('.bm', (b, name) => this.openBytes(b, name, null));
+      this.pick('.bm,.bme', (b, name) => this.openBytes(b, name, null));
     }
 
     async openBytes(b, name, handle, fromStudio) {
@@ -1047,32 +1047,40 @@
       }
       const { project, warnings } = BM.parseCart(b);
       this.loadProject(project, handle, name, warnings);
-      this.status(`opened ${name}: ${project.models.length} models`);
+      if (BM.isGame(name)) {               // a game: Save writes its editable copy, never the game
+        this.fileName = BM.projectName(name);
+        this.handle = null;
+        this.refreshDoc();
+        this.status(`opened ${name}: a game, read only: Save writes its editable copy ${this.fileName}`);
+      } else {
+        this.status(`opened ${name}: ${project.models.length} models`);
+      }
     }
 
     async save(as) {
       const problems = BM.checkProject(this.project);
       if (problems.length) { await this.alert('The cartridge cannot be saved like this', problems.map(esc).join('<br>')); return; }
-      const bytes = BM.buildCart(this.project), suggested = this.fileName || slug(this.project.title) + '.bm';
+      const bytes = BM.buildCart(this.project);
+      const suggested = this.fileName ? BM.projectName(this.fileName) : slug(this.project.title) + '.bme';
       if (!as && this.handle) {
         try {
           const w = await this.handle.createWritable();
-          await w.write(bytes); await w.close();
+          await w.write(BM.markProject(bytes, this.handle.name)); await w.close();
           this.saved(this.handle.name, bytes);
           return;
         } catch (e) { if (e.name === 'AbortError') return; this.status('cannot write the file there: ' + e.message, 'bad'); }
       }
       if (window.showSaveFilePicker) {
         try {
-          const h = await window.showSaveFilePicker({ suggestedName: suggested, types: [{ description: 'bm cartridge', accept: { 'application/octet-stream': ['.bm'] } }] });
+          const h = await window.showSaveFilePicker({ suggestedName: suggested, types: [{ description: 'bm project', accept: { 'application/octet-stream': ['.bme', '.bm'] } }] });
           const w = await h.createWritable();
-          await w.write(bytes); await w.close();
+          await w.write(BM.markProject(bytes, h.name)); await w.close();
           this.handle = h;
           this.saved(h.name, bytes);
         } catch (e) { if (e.name !== 'AbortError') throw e; }
         return;
       }
-      this.download(bytes, suggested);
+      this.download(BM.markProject(bytes, suggested), suggested);
       this.saved(suggested, bytes);
     }
 
@@ -1105,7 +1113,7 @@
       const problems = BM.checkProject(this.project);
       if (problems.length) { await this.alert('First fix this', problems.map(esc).join('<br>')); return; }
       this.leaving = true;
-      await BM.handoff.go('../studio/index.html', { bytes: BM.buildCart(this.project), name: this.fileName || slug(this.project.title) + '.bm', handle: this.handle, dirty: this.dirty });
+      await BM.handoff.go('../studio/index.html', { bytes: BM.buildCart(this.project), name: this.fileName || slug(this.project.title) + '.bme', handle: this.handle, dirty: this.dirty });
     }
 
     async exportGlb() {
@@ -1329,7 +1337,7 @@ end</pre>
     }
 
     refreshDoc() {
-      $('#docName').textContent = this.fileName || (this.project.title ? slug(this.project.title) + '.bm' : 'no file');
+      $('#docName').textContent = this.fileName || (this.project.title ? slug(this.project.title) + '.bme' : 'no file');
       document.title = (this.fileName || this.project.title || 'bm') + ' — bm Animator';
     }
 

@@ -7,7 +7,7 @@
 --
 --   luahost tests/studio/mesh_host.lua ROOT SDDIR     (make test-studio)
 --
--- SDDIR/carts/astrowing.bm and village.bm must be there.
+-- SDDIR/carts/astrowing.bm and village.bm must be there (games: the saves go into their .bme copies).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/mesh-sd"
 local checks, fails = 0, 0
@@ -226,7 +226,22 @@ E.cart_load = function(path)
 end
 
 local writes = 0
+local function listed(path)
+  local dir, name = path:match("^(.*)/([^/]+)$")
+  local list = on_sd[dir] or {}
+  on_sd[dir] = list
+  for _, n in ipairs(list) do if n == name:lower() then return end end
+  list[#list + 1] = name:lower()
+end
+local project_target = dofile(ROOT .. "/tests/studio/project_rules.lua")
 E.cart_write = function(path, t)
+  local moved
+  path, moved = project_target(path, function(p) return read_file(host(p)) ~= nil end, function(a, b)
+    local f = io.open(host(b), "wb")
+    f:write(read_file(host(a)))
+    f:close()
+    listed(b)
+  end)
   local old = read_file(host(t.from or path))
   assert(old or t.lua, "a new cartridge needs its code")
   local secs = old and norm_sections(old) or {}
@@ -258,12 +273,8 @@ E.cart_write = function(path, t)
                     old and string.unpack("<I2", old, 13) or 640, secs))
   f:close()
   writes = writes + 1
-  local dir, name = path:match("^(.*)/([^/]+)$")
-  local list = on_sd[dir] or {}
-  on_sd[dir] = list
-  local seen = false
-  for _, n in ipairs(list) do if n == name:lower() then seen = true end end
-  if not seen then list[#list + 1] = name:lower() end
+  listed(path)
+  if moved then return true, path end
   return true
 end
 
@@ -467,8 +478,8 @@ check(sees("30 vertices, 32 triangles"), "the ship: 30 vertices, 32 triangles")
 key("m")
 check(chosen() == "M ship" and status():find('model("ship")', 1, true), "m: a copy as the model ship: " .. status())
 key("^s")
-check(status():find("saved /carts/astrowing.bm", 1, true), "Ctrl+S: " .. status())
-local ship = model_of("astrowing.bm", "ship")
+check(status():find("saved /carts/ASTROWIN.BME", 1, true), "Ctrl+S: " .. status())
+local ship = model_of("astrowin.bme", "ship")
 check(ship and ship.nv == 30 and ship.nf == 32, "the file has the model ship, 30 vertices and 32 triangles")
 local cap_ship = captured[1]
 local same = ship and true
@@ -485,7 +496,7 @@ for i = 1, 32 do
   end
 end
 check(same, "the model's vertices and faces are the ones the game's code gives mesh()")
-local astro1 = file("astrowing.bm")
+local astro1 = file("astrowin.bme")
 check(section(astro1, 1) == lua0 and section(astro1, 2) == section(astro0, 2) and section(astro1, 9) == nil,
       "the code and the sheet stay as they were")
 
@@ -494,7 +505,7 @@ goto_item("G ship")
 key("c")
 check(chosen() == "C ship" and status():find("mesh_ship()", 1, true), "c: a copy as code: " .. status())
 key("^s")
-local lua1 = section(file("astrowing.bm"), 1)
+local lua1 = section(file("astrowin.bme"), 1)
 check(lua1:sub(1, #lua0) == lua0 and lua1:find("function mesh_ship()", 1, true) and lua1:find("-- [bm Mesh end]", 1, true),
       "the code: the game's, then mesh_ship() in the bm Mesh block")
 do
@@ -526,12 +537,12 @@ check(sees("VERTICES: 30 chosen"), "a: all 30 vertices")
 key("g", "up", "up")
 check(sees("MOVE") and sees("y 0.2"), "g, up, up: moving 0.2 up")
 key("\n", "^s")
-local up = model_of("astrowing.bm", "ship")
+local up = model_of("astrowin.bme", "ship")
 local moved = up and up.nv == 30
 for i = 1, 30 do if moved and math.abs(up.verts[i][2] - ship.verts[i][2] - 0.2) > 1e-5 then moved = false end end
 check(moved, "saved: every vertex of the ship 0.2 higher")
 key("^z", "^s")
-check(section(file("astrowing.bm"), 8) == section(astro1, 8), "Ctrl+Z: the ship as before, byte for byte")
+check(section(file("astrowin.bme"), 8) == section(astro1, 8), "Ctrl+Z: the ship as before, byte for byte")
 key("^y")
 check(sees("redo"), "Ctrl+Y: redo")
 key("g", "pgup", "\b", "esc")
@@ -546,27 +557,27 @@ key("u")
 key("K")
 check(status():find("0 vertices welded", 1, true), "K: nothing to weld after the subdivision: " .. status())
 key("^s")
-local cube = model_of("astrowing.bm", "cube")
+local cube = model_of("astrowin.bme", "cube")
 check(cube and cube.nf == 48 and cube.nv == 26, "u: 48 faces, 26 vertices (" .. (cube and cube.nf .. ", " .. cube.nv or "-") .. ")")
 check(cube and outward(cube), "the faces of the cube still look out")
 key("\t")
 check(sees("VERTICES: 26 chosen"), "Tab: the corners of the chosen faces")
 key("m", "^s")
-cube = model_of("astrowing.bm", "cube")
+cube = model_of("astrowin.bme", "cube")
 check(cube and outward(cube), "m: mirrored, the faces still look out")
 key("\t", "a", "n", " ", "del", "^s")
-cube = model_of("astrowing.bm", "cube")
+cube = model_of("astrowin.bme", "cube")
 check(cube and cube.nf == 47 and cube.nv == 26, "a face deleted: 47 (" .. (cube and cube.nf or "-") .. ")")
 key("\t", "n", " ", "n", " ", "n", " ")
 check(sees("VERTICES: 3 chosen"), "n and space: three vertices")
 key("j", "^s")
-cube = model_of("astrowing.bm", "cube")
+cube = model_of("astrowin.bme", "cube")
 check(cube and cube.nf == 48, "j: a new face on them (" .. (cube and cube.nf or "-") .. ")")
 key("a", "n", " ", "n", " ", "k", "^s")
-cube = model_of("astrowing.bm", "cube")
+cube = model_of("astrowin.bme", "cube")
 check(cube and cube.nv == 25, "k: two vertices merged into one (" .. (cube and cube.nv or "-") .. ")")
 key("\t", "a", "a", "c", "right", "\n", "p", "^s")
-cube = model_of("astrowing.bm", "cube")
+cube = model_of("astrowin.bme", "cube")
 local pink = cube ~= nil
 for _, f in ipairs(cube and cube.faces or {}) do if f[4] ~= 0xE890B0 then pink = false end end
 check(pink, "c, right, Enter, p: every face painted #E890B0")
@@ -581,7 +592,7 @@ key("f2", "\t", "a", "x")
 for _ = 1, 5 do key("up") end
 check(sees("along the normal") and sees("y 0.5"), "x: extruding along the normal, 0.5")
 key("\n", "^s")
-local plane = model_of("astrowing.bm", "plane")
+local plane = model_of("astrowin.bme", "plane")
 local top = 0
 for _, p in ipairs(plane and plane.verts or {}) do if math.abs(p[2] - 0.5) < 1e-6 then top = top + 1 end end
 check(plane and plane.nf == 10 and plane.nv == 8 and top == 4, "the plane extruded: 10 faces, 4 corners up")
@@ -589,10 +600,10 @@ check(plane and outward(plane), "its sides look out")
 
 -- duplicate and mirror copy
 key("a", "a", "d", "right", "\n", "^s")
-plane = model_of("astrowing.bm", "plane")
+plane = model_of("astrowin.bme", "plane")
 check(plane and plane.nf == 20 and plane.nv == 16, "d: a copy of the faces (" .. (plane and plane.nf or "-") .. ")")
 key("a", "a", "M", "^s")
-plane = model_of("astrowing.bm", "plane")
+plane = model_of("astrowin.bme", "plane")
 check(plane and plane.nf == 40, "M: copied across x = 0 (" .. (plane and plane.nf or "-") .. ")")
 
 -- rename, model -> code, delete
@@ -605,22 +616,23 @@ check(chosen() == "M hero", "renamed: hero")
 key("c")
 check(chosen() == "C hero", "model -> code: mesh_hero()")
 key("^s")
-local lua2 = section(file("astrowing.bm"), 1)
+local lua2 = section(file("astrowin.bme"), 1)
 check(lua2:find("function mesh_hero()", 1, true) and lua2:find("function mesh_ship()", 1, true), "two code meshes")
-check(model_of("astrowing.bm", "hero") and not model_of("astrowing.bm", "ship"), "the model is now hero")
+check(model_of("astrowin.bme", "hero") and not model_of("astrowin.bme", "ship"), "the model is now hero")
 goto_item("C hero")
 key("del")
 check(status():find("again", 1, true), "Del asks again")
 key("del")
 goto_item("C ship")
 key("del", "del", "^s")
-check(section(file("astrowing.bm"), 1) == lua0, "no code meshes left: the code is the game's again, byte for byte")
+check(section(file("astrowin.bme"), 1) == lua0, "no code meshes left: the code is the game's again, byte for byte")
 key("f5")
-check(ran == "/carts/astrowing.bm", "F5: the game runs")
+check(ran and ran:upper() == "/CARTS/ASTROWIN.BME", "F5: the project runs: " .. tostring(ran))
 
--- the village: a model with a skeleton keeps it
+-- the village: a model with a skeleton keeps it (the list: astrowin.bme,
+-- astrowing.bm, village.bm)
 key("esc", "down", "\n")
-for _ = 1, 3 do key("down") end
+for _ = 1, 5 do key("down") end
 key("\n")
 check(status():find("8 models", 1, true), "the village: " .. status())
 goto_item("M villager")
@@ -628,12 +640,12 @@ check(sees("skeleton: 7 bones, 3 animations"), "the villager has its skeleton")
 local rig0 = anim_rigs(section(village0, 9)).villager
 local vil0 = model_of("village.bm", "villager")
 key("f2", "a", "g", "up", "\n", "^s")
-local rig1 = anim_rigs(section(file("village.bm"), 9)).villager
+local rig1 = anim_rigs(section(file("village.bme"), 9)).villager
 check(rig1 and rig1.nv == 112 and rig1.bones == rig0.bones and rig1.clips == rig0.clips and
       table.concat(rig1.vb, ",") == table.concat(rig0.vb, ","), "moved: the skeleton is the same")
 key("a", "n", " ", "del", "^s")
-local vil = model_of("village.bm", "villager")
-local rig2 = anim_rigs(section(file("village.bm"), 9)).villager
+local vil = model_of("village.bme", "villager")
+local rig2 = anim_rigs(section(file("village.bme"), 9)).villager
 check(vil and rig2 and vil.nv < 112 and rig2.nv == vil.nv, "a vertex deleted: the skeleton has the new vertices (" ..
       (vil and vil.nv or "-") .. ")")
 local bones_ok = vil ~= nil
@@ -647,11 +659,11 @@ for i, p in ipairs(vil and vil.verts or {}) do
 end
 check(bones_ok, "every vertex left follows the same bone as before")
 for _, n in ipairs({ "ground", "house", "tree", "well" }) do
-  local a, b = model_of("village.bm", n), nil
+  local a, b = model_of("village.bme", n), nil
   for _, x in ipairs(mesh_models(section(village0, 8))) do if x.name == n then b = x end end
   check(a and b and a.nv == b.nv and a.nf == b.nf, "the other models stay: " .. n)
 end
-local v1 = file("village.bm")
+local v1 = file("village.bme")
 check(section(v1, 1) == section(village0, 1) and section(v1, 5) == section(village0, 5) and
       section(v1, 4) == section(village0, 4), "the code, the sheet and the cover stay")
 
@@ -661,10 +673,12 @@ for _ = 1, 3 do key("down") end
 key("\n")
 check(sees("file name"), "Save as asks a name")
 type_text("MESHCOPY")
-check(status():find("saved /carts/MESHCOPY.BM", 1, true), "saved as: " .. status())
-local cp = file("meshcopy.bm")
+check(status():find("saved /carts/MESHCOPY.BME", 1, true), "saved as: " .. status())
+local cp = file("meshcopy.bme")
 check(cp and section(cp, 8) == section(v1, 8) and section(cp, 9) == section(v1, 9) and section(cp, 5) == section(v1, 5),
       "the copy has the same models, skeletons and sheet")
+check(file("astrowing.bm") == astro0 and file("village.bm") == village0,
+      "the games stay as they were: the saves went into their editable copies (.bme)")
 
 -- F12 held: the keys of the page (keyhelp(), the kernel draws them)
 local function in_help(keys, what)

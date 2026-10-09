@@ -415,6 +415,14 @@ def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=
     return bytes(header) + after
 
 
+def mark_project(data):
+    """a project (.bme), the file the tools change: bit 0 of the u16 at 18
+    (a .bm is a game, read only for them; src/bm/project.h)"""
+    out = bytearray(data)
+    struct.pack_into("<H", out, 18, struct.unpack_from("<H", out, 18)[0] | 1)
+    return bytes(out)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("-o", "--output", required=True)
@@ -472,6 +480,8 @@ def main():
         else (None, None)
     data = pack(lua, sheet, None, a.title, a.author, res, cover, a.sheet8, audio, mesh, extra, layers, flags,
                 sprites, boxes)
+    if a.output.lower().endswith(".bme"):
+        data = mark_project(data)
     open(a.output, "wb").write(data)
     print(f"{a.output}: {len(data)} bytes ({a.title or 'untitled'}, {a.res})")
 

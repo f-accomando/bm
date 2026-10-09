@@ -1636,7 +1636,7 @@ function _draw()
 end
 ]]
 
-local function is_bm(name) return name:lower():match("%.bm$") ~= nil end
+local function is_bm(name) local n = name:lower() return n:match("%.bm$") ~= nil or n:match("%.bme$") ~= nil end
 
 local function list_files()
   local out = {}
@@ -1715,6 +1715,8 @@ local function open_file(path)
   return true
 end
 
+-- true and the file written: a game (.bm) is read only, so its sounds go
+-- into its editable copy (a .bme, the console asks first)
 local function write_to(path, title)
   local data = B.pack(bank)
   local ok, err = cart_put_audio(path, data, title, PACK_LUA)
@@ -1723,14 +1725,17 @@ local function write_to(path, title)
     note_log("cannot save " .. path .. ": " .. tostring(err))
     return false
   end
+  if type(err) == "string" then path = err end
   note_log("saved " .. path .. ", " .. #data .. " bytes")
-  return true
+  return true, path
 end
 
 local function save_as_pack(name)
   if name == "" then say("a pack needs a name", C.red) return end
-  local path = PACK_DIR .. "/" .. name .. ".BM"
-  if write_to(path, name) then
+  local path = PACK_DIR .. "/" .. name .. ".BME"
+  local ok, to = write_to(path, name)
+  if ok then
+    path = to
     proj.path, proj.title, proj.is_game, proj.dirty = path, name, false, false
     say("saved the sound pack " .. path, C.green, 300)
   end
@@ -1743,7 +1748,9 @@ end
 
 local function save()
   if not proj.path then ask_pack_name() return end
-  if write_to(proj.path, proj.title) then
+  local ok, to = write_to(proj.path, proj.title)
+  if ok then
+    proj.path = to
     proj.dirty = false
     say("saved " .. short_name(proj.path) .. (proj.is_game and ": the game plays the new sounds" or ""), C.green, 300)
   end
@@ -1900,10 +1907,11 @@ local function export_to(e)
   ui.ask("Put the sounds into " .. short_name(e.path) .. "?",
          info.bank and "Its sounds and music are replaced by these." or "It gets these sounds and music.",
          "Export", function()
-           if write_to(e.path, info.title) then
+           local ok, to = write_to(e.path, info.title)
+           if ok then
              e.info = nil
-             if proj.path == e.path then proj.dirty = false end
-             say("exported to " .. short_name(e.path), C.green, 300)
+             if proj.path == e.path then proj.path, proj.dirty = to, false end
+             say("exported to " .. short_name(to), C.green, 300)
            end
          end)
 end

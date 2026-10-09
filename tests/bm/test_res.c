@@ -123,7 +123,7 @@ int main(int argc, char **argv)
         CHECK(!bm_info_get(&c, "model", "nobody", "origin", v, sizeof v), "INFO: no such part");
         free(d);
     }
-    if (open_any(dir, "cli.bm", &c, &d, &len) == 0) {
+    if (open_any(dir, "cli.bme", &c, &d, &len) == 0) {     /* the project bmres add made of cli.bm */
         CHECK(bm_info_get(&c, "model", "well", "license", v, sizeof v) && !strcmp(v, "CC0-1.0"),
               "INFO: the licence of the well (%s)", v);
         CHECK(bm_info_get(&c, "model", "well", "author", v, 3) && !strcmp(v, "bm"), "INFO: cut to the buffer");

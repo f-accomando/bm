@@ -608,21 +608,30 @@ end
 
 ----------------------------------------------------------------- project
 
--- "/carts/pong.bm" -> "/carts/PONG.BM"; longer names are cut to 8 characters
+-- a project (.bme) is what the tools change; a game (.bm, .b16) is read
+-- only: saving it makes its editable copy (the console asks), and a project
+-- builds its game (cart_build)
+local function is_project(path) return path and path:lower():match("%.bme$") ~= nil end
+local function is_game(path) return path and (path:lower():match("%.bm$") or path:lower():match("%.b16$")) ~= nil end
+
+-- "/carts/pong.bme" -> "/carts/PONG.BME"; longer names are cut to 8
+-- characters. A game stays as it is: the console makes its copy.
 local function short_path(path)
+  if is_game(path) then return path end
   local dir, base = path:match("^(.*)/([^/]+)$")
   dir = dir or "/carts"
   if dir == "" then dir = "/" end
   local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
   if stem == "" then stem = "GAME" end
-  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BM"
+  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BME"
 end
 
 local function list_files()
   local out = {}
   for _, dir in ipairs({ "/carts", "/" }) do
     for _, f in ipairs(ls(dir)) do
-      if not f.dir and f.name:lower():match("%.bm$") then
+      local n = f.name:lower()
+      if not f.dir and (n:match("%.bm$") or n:match("%.bme$")) then
         out[#out + 1] = (dir == "/" and "" or dir) .. "/" .. f.name
       end
     end
@@ -649,7 +658,11 @@ local function load_project(path)
   S.dirty, S.edits, S.info, S.measuring = false, S.edits + 1, nil, nil
   S.err_text, S.err_line = nil, nil
   reset_pages()
-  say("opened " .. path .. "  (saves as " .. S.proj.save .. ")", C.ACC)
+  if is_game(path) then
+    say("opened " .. path .. "  (a game: saving makes its editable copy)", C.ACC)
+  else
+    say("opened " .. path .. "  (saves as " .. S.proj.save .. ")", C.ACC)
+  end
   return true
 end
 
@@ -669,12 +682,18 @@ local function new_project(tp)
   say("new project (" .. tp.name .. "): Esc > Save as gives it a name, F5 tries it", C.ACC)
 end
 
+local store_target
+
 local function save_project()
   if not S.proj.save then return false, "no name yet: use Save as" end
   local ok, e = cart_save(S.proj.save, { title = S.proj.title, author = S.proj.author, res = S.proj.res,
                                          lua = code_text() })
   if ok then
     S.dirty, S.info, S.measuring = false, nil, nil
+    if type(e) == "string" then          -- the editable copy of a game, or a new project
+      S.proj.save, S.proj.path = e, e
+      store_target()
+    end
     S.proj.path = S.proj.path or S.proj.save
     say("saved " .. S.proj.save, C.ACC)
   else
@@ -686,7 +705,7 @@ end
 local D = {}                             -- the dialogs: ask (a line of text), choose (a list)
 
 -- the project's target, remembered for its file (the SDK's saved())
-local function store_target()
+function store_target()
   if not S.proj.save then return end
   local sv = saved() or {}
   sv.targets = sv.targets or {}
@@ -695,9 +714,10 @@ local function store_target()
 end
 
 local function save_as(after)
-  D.ask("file name (8.3, in /carts)", S.proj.save and S.proj.save:match("([^/]+)$") or "MYGAME.BM", function(t)
+  local def = S.proj.save and S.proj.save:match("([^/]+)$"):gsub("%.[Bb][Mm]$", ".BME") or "MYGAME.BME"
+  D.ask("file name (8.3, in /carts)", def, function(t)
     if t == "" then return end
-    if not t:upper():match("%.BM$") then t = t .. ".BM" end
+    if not t:upper():match("%.BME$") then t = t:gsub("%.[Bb][Mm]$", "") .. ".BME" end
     S.proj.save = short_path("/carts/" .. t)
     S.proj.path = nil                    -- (the new file, once written)
     if save_project() then
@@ -710,6 +730,24 @@ end
 local function save_then(after)
   if not S.proj.save then save_as(after)
   elseif not S.dirty or save_project() then after() end
+end
+
+-- Build .bm (Ctrl+B): the game of the project, next to it, in Games; a
+-- game opened here is saved first (its editable copy)
+local function build_project()
+  local function go()
+    if not is_project(S.proj.save) then
+      say("build: a game is built from its project (save it first)", C.ERR)
+      return
+    end
+    local ok, e = cart_build(S.proj.save)
+    if ok then say("built " .. e .. ": it is in Games", C.ACC) else say("build failed: " .. tostring(e), C.ERR) end
+  end
+  if S.proj.save and not is_project(S.proj.save) then
+    if save_project() then go() end
+  else
+    save_then(go)
+  end
 end
 
 -- tries the game: saved first; the SDK comes back to the same page with the
@@ -983,7 +1021,7 @@ do
     zspr zone zones zboxes sget sset print font
     camera prompt lastinput clip rgb btn btnp players stick time stat code_tokens tri screen log report keyhelp
     quit keymap controller online udp_open udp_send udp_recv udp_close net_ip net_resolve save saved keyp keyheld
-    rawkeys keydown keys pad mouse mousep timeslice ls cart_load cart_new cart_save cart_run cart_tool cart_arg
+    rawkeys keydown keys pad mouse mousep timeslice ls cart_load cart_new cart_save cart_build cart_run cart_tool cart_arg
     cart_read cart_write cart_sheet cart_audio cart_put_audio light_begin light light_end fades dark_begin glow
     dark_end note noteoff freq envelope duty playing apu hz slide vibrato arp sfx sfxpos music tempo mute volume
     audio_bank audio_pattern audio_play nnet require SCREEN_W SCREEN_H SQUARE TRIANGLE SAW NOISE SINE METAL math
@@ -2013,7 +2051,7 @@ do
     for _, f in ipairs(list_files()) do
       rows[#rows + 1] = { f, function() if load_project(f) then show("project") end end }
     end
-    if #rows == 0 then say("no .bm files on the SD card", C.ERR); return end
+    if #rows == 0 then say("no .bm or .bme files on the SD card", C.ERR); return end
     D.choose("open a cartridge", rows)
   end
   P.menu_open = open_other
@@ -2025,6 +2063,7 @@ do
       { "Open...   (Ctrl+O)", open_other },
       { "Save   (Ctrl+S)", function() if S.proj.save then save_project() else save_as() end end },
       { "Save as...   (Ctrl+Shift+S)", function() save_as() end },
+      { "Build the game .bm   (Ctrl+B)", build_project },
       { "Try the game (F5)", run_project },
       { "New map layer (" .. #mlayers() .. "/8)", function() S.d2view = "map"; show("d2"); P.map.new_layer() end },
       { "Exit bm SDK", function() if not needs_confirm("exit") then quit() end end },
@@ -2116,6 +2155,7 @@ local function global_key(k)
   -- the system's keys (the kernel's syskeys.c)
   elseif k == "^s" then if S.proj.save then save_project() else save_as() end
   elseif k == "^S" then save_as()
+  elseif k == "^b" then build_project()
   elseif k == "^o" then P.menu_open()
   elseif k == "^n" then choose_template()
   elseif k == "^r" or k == "f5" then run_project()
@@ -2158,6 +2198,7 @@ local HELP = {
     { "f4", "3D: models and animations" },
     { "esc", "the menu" },
     { "ctrl n", "a new project from a template" },
+    { "ctrl b", "build the game (.bm) of the project" },
     { "f5 / ctrl r", "try the game" },
     { "f6", "the assistant" },
   },

@@ -27,7 +27,7 @@ function check(ok, msg) {
 const sd = process.argv[2], village0 = process.argv[3];
 const open = p => BM.parseCart(new Uint8Array(fs.readFileSync(p)));   // not a Buffer: its slice() is a view
 
-for (const name of ['astrowing.bm', 'village.bm', 'meshcopy.bm']) {
+for (const name of ['astrowin.bme', 'village.bme', 'meshcopy.bme']) {
   const { project, warnings } = open(path.join(sd, 'carts', name));
   check(!warnings.length, name + ' reads with no warnings: ' + warnings.join('; '));
   const problems = BM.checkProject(project);
@@ -35,7 +35,7 @@ for (const name of ['astrowing.bm', 'village.bm', 'meshcopy.bm']) {
 }
 
 {
-  const { project } = open(path.join(sd, 'carts', 'astrowing.bm'));
+  const { project } = open(path.join(sd, 'carts', 'astrowin.bme'));
   check(project.models.map(m => m.name).join() === 'hero,cube,plane', 'ASTROWING.BM: hero, cube and plane: ' +
         project.models.map(m => m.name).join());
   check(project.models.every(m => !m.rig), 'no skeletons there');
@@ -43,13 +43,13 @@ for (const name of ['astrowing.bm', 'village.bm', 'meshcopy.bm']) {
 }
 
 {
-  const a = open(path.join(sd, 'carts', 'village.bm')).project, b = open(village0).project;
+  const a = open(path.join(sd, 'carts', 'village.bme')).project, b = open(village0).project;
   const v = a.models.find(m => m.name === 'villager'), w = b.models.find(m => m.name === 'villager');
   check(v && v.rig && v.rig.bones.length === 7 && v.rig.clips.length === 3, 'the villager keeps 7 bones and 3 animations');
   check(v && JSON.stringify(v.rig.clips) === JSON.stringify(w.rig.clips), 'the animations are the same');
   check(v && v.faces.every(f => f.b && f.b.every(x => x >= 0 && x < 7)), 'every corner follows a bone');
   check(a.models.map(m => m.name).join() === b.models.map(m => m.name).join(), 'the village has its 8 models');
-  const c = open(path.join(sd, 'carts', 'meshcopy.bm')).project;
+  const c = open(path.join(sd, 'carts', 'meshcopy.bme')).project;
   check(JSON.stringify(c.models) === JSON.stringify(a.models) && c.lua === a.lua, 'MESHCOPY.BM is the village as saved');
 }
 

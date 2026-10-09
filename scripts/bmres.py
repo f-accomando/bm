@@ -256,6 +256,10 @@ def read(path):
 
 def write(path, f):
     data = dump(f)
+    if path.lower().endswith(".bme") and data[:8] == b"BMCART\0\0":
+        data = bytearray(data)              # a project: bit 0 of the u16 at 18 (src/bm/project.h)
+        struct.pack_into("<H", data, 18, struct.unpack_from("<H", data, 18)[0] | 1)
+        data = bytes(data)
     open(path, "wb").write(data)
     return data
 
@@ -1632,6 +1636,10 @@ def main(argv=None):
                 for what in integrate(cart, res, hashlib.sha256(data).hexdigest()):
                     print(f"{path}: {what}")
             out = a.output or a.cart
+            if not a.output and os.path.splitext(a.cart)[1].lower() in (".bm", ".b16"):
+                # a game is read only: the resources go into its editable copy
+                out = os.path.splitext(a.cart)[0] + ".bme"
+                print(f"{a.cart} is a game, read only: its editable copy is {out}")
             data = write(out, cart)
             print(f"{out}: {len(data)} bytes")
         elif a.cmd == "convert":

@@ -2,7 +2,7 @@
 -- on the PC: stand-ins for the bm API (a folder is the SD card, the
 -- sections are strings, nothing is drawn but the text is kept), keys typed
 -- into them, and checks on what they show and write. bm Studio builds and
--- saves BLOCKS.BM, bm Animator gives it a skeleton and an animation; the
+-- saves BLOCKS.BME (a project), bm Animator gives it a skeleton and an animation; the
 -- files are read again by bm Studio's parser (check_studio3d.js) and the
 -- kernel's (test_bm).
 --
@@ -453,7 +453,15 @@ local function new_env(arg_path)
   end
   -- cart_write as the kernel's: the sections of the file (or of `from`; none
   -- with from = false), MESH and ANIM replaced, the sheet (as SHEET) if asked
+  local project_target = dofile(ROOT .. "/tests/studio/project_rules.lua")
   E.cart_write = function(path, t)
+    local moved
+    path, moved = project_target(path, function(p) return read_file(host(p)) ~= nil end, function(a, b)
+      local f = io.open(host(b), "wb")
+      f:write(read_file(host(a)))
+      f:close()
+      add_file(b)
+    end)
     local base = t.from == nil and path or t.from
     local old = base and read_file(host(base))
     if not old and not t.lua then return false, "a new cartridge needs its code (lua)" end
@@ -495,6 +503,7 @@ local function new_env(arg_path)
     f:write(pack_cart(t.title or title, t.author or author, t.res or "640x360", secs))
     f:close()
     add_file(path)
+    if moved then return true, path end
     return true
   end
   -- the assistant's panel (src/ai/assist.lua) with a stand-in for the
@@ -726,8 +735,8 @@ check(#cur_models() == 8, "deleted again")
 menu_pick("Save as", EXIT_S)
 check(sees("file name"), "Save as asks a name")
 type_text("COPY3D")
-check(status():find("saved /carts/COPY3D.BM", 1, true), "saved: " .. status())
-local copy = read_file(SD .. "/carts/copy3d.bm")
+check(status():find("saved /carts/COPY3D.BME", 1, true), "saved: " .. status())
+local copy = read_file(SD .. "/carts/copy3d.bme")
 local got = {}
 for _, s in ipairs(sections_of(copy)) do got[s[1]] = s[2] end
 local vil = {}
@@ -880,13 +889,13 @@ check(#cur_models() == 1, "deleted again")
 -- save, then open it again
 menu_pick("Save as", EXIT_S)
 type_text("BLOCKS")
-check(status():find("saved /carts/BLOCKS.BM", 1, true), "saved: " .. status())
-local blocks = read_file(SD .. "/carts/blocks.bm")
+check(status():find("saved /carts/BLOCKS.BME", 1, true), "saved: " .. status())
+local blocks = read_file(SD .. "/carts/blocks.bme")
 check(blocks and blocks:sub(25, 38) == "New 3D project", "the title of a new project")
 local b8 = sec[8]
 menu_pick("Open...", EXIT_S)
-open_file("blocks.bm")
-check(sees("opened /carts/blocks.bm"), "opened again: " .. status())
+open_file("blocks.bme")
+check(sees("opened /carts/blocks.bme"), "opened again: " .. status())
 check(sec[8] == b8, "the same models as saved")
 check(E.sget(8, 8) == 0xE84A5A or true, "the painted pixel saved with the sheet")
 
@@ -908,15 +917,15 @@ check(sees("MODELS 1"), "pad B: back where it was")
 
 -- bm Animator, on this file
 menu_pick("Open in bm Animator", EXIT_S)
-check(tooled and tooled[1] == "animator" and tooled[2]:lower() == "/carts/blocks.bm", "Open in bm Animator: cart_tool")
+check(tooled and tooled[1] == "animator" and tooled[2]:lower() == "/carts/blocks.bme", "Open in bm Animator: cart_tool")
 
 ----------------------------------------------------------------- bm Animator
 
 local ANIMATOR, EXIT_A = "/carts/animator/main.lua", "Exit bm Animator"
-run_cart(ANIMATOR, "/carts/blocks.bm")
+run_cart(ANIMATOR, "/carts/blocks.bme")
 E._init()
 frames(2)
-check(sees("MODELS") and sees("model") and sees("no skeleton yet"), "bm Animator on BLOCKS.BM: the player")
+check(sees("MODELS") and sees("model") and sees("no skeleton yet"), "bm Animator on BLOCKS.BME: the player")
 
 -- a skeleton: root, then a child; its tail moves; auto skin
 key("f2")
@@ -1029,7 +1038,7 @@ key("^y")
 
 -- save; the player shows the animation
 key("^s")
-check(status():find("saved /carts/blocks.bm", 1, true), "Ctrl+S: " .. status())
+check(status():find("saved /carts/blocks.bme", 1, true), "Ctrl+S: " .. status())
 key("f1")
 check(sees("anim1"), "the player: the new animation")
 

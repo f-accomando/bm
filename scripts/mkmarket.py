@@ -88,6 +88,8 @@ def check_cart(data):
     """-> (title bytes, author bytes, cover RGBA or None); raises ValueError"""
     if len(data) < 128 or data[:8] not in (b"BMCART\0\0", b"BM33CART"):
         raise ValueError("not a .bm cartridge")
+    if struct.unpack_from("<H", data, 18)[0] & 1:
+        raise ValueError("a project (.bme), not a game: build its .bm first (Build .bm on the console)")
     if len(data) > MAX_CART:
         raise ValueError(f"{len(data)} bytes, more than GitHub takes in a file ({MAX_CART})")
     crc = struct.unpack_from("<I", data, 20)[0]
@@ -193,6 +195,8 @@ def read_game(games, gid):
         raise ValueError("the folder name is the id: a-z, 0-9 and '-', at most 23")
     d = os.path.join(games, gid)
     carts = [n for n in sorted(os.listdir(d)) if n.lower().endswith(CART_EXT)]
+    if any(n.lower().endswith(".bme") for n in os.listdir(d)):
+        raise ValueError("a project (.bme) is not a game of the Market: build its .bm first")
     if len(carts) != 1:
         raise ValueError(f"exactly one cartridge (.bm or .b16), found {len(carts)}")
     name = carts[0]

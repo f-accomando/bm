@@ -37,7 +37,7 @@ function sections(b) {
 const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
 
 {
-  const file = path.join(sd, 'carts', 'village.bm');
+  const file = path.join(sd, 'carts', 'village.bme');
   const { project, warnings } = open(file);
   const before = open(village0).project;
   check(!warnings.length, 'VILLAGE.BM reads with no warnings: ' + warnings.join('; '));
@@ -80,7 +80,7 @@ const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
 }
 
 {
-  const { project, warnings } = open(path.join(sd, 'carts', 'newspr.bm'));
+  const { project, warnings } = open(path.join(sd, 'carts', 'newspr.bme'));
   check(!warnings.length, 'NEWSPR.BM reads with no warnings: ' + warnings.join('; '));
   check(project.lua.includes('bm Pixel: a new sprite sheet') && project.sheet.w === 256 && project.sheet.h === 256,
         'a new cartridge: the viewer and a 256x256 sheet');

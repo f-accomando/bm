@@ -30,7 +30,7 @@ const faceKey = f => JSON.stringify({ p: f.p.map(p => p.map(r4)), uv: f.c == nul
 
 // the new project
 {
-  const { project, warnings } = open(path.join(sd, 'carts', 'blocks.bm'));
+  const { project, warnings } = open(path.join(sd, 'carts', 'blocks.bme'));
   check(!warnings.length, 'BLOCKS.BM reads with no warnings: ' + warnings.join('; '));
   check(project.models.length === 1 && project.models[0].name === 'model', 'one model, "model"');
   const m = project.models[0];
@@ -57,7 +57,7 @@ const faceKey = f => JSON.stringify({ p: f.p.map(p => p.map(r4)), uv: f.c == nul
 
 // the village, saved as a copy with no edits
 {
-  const a = open(path.join(sd, 'carts', 'copy3d.bm')).project, b = open(village).project;
+  const a = open(path.join(sd, 'carts', 'copy3d.bme')).project, b = open(village).project;
   check(a.models.map(m => m.name + ':' + m.faces.length).join() === b.models.map(m => m.name + ':' + m.faces.length).join(),
     'COPY3D.BM has the models of the village');
   check(JSON.stringify(a.models.map(m => m.rig)) === JSON.stringify(b.models.map(m => m.rig)), 'and the same skeletons');

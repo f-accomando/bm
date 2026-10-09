@@ -7,7 +7,7 @@
 --
 --   luahost tests/studio/pixel_host.lua ROOT SDDIR     (make test-studio)
 --
--- SDDIR/carts/village.bm and demo.bm must be there.
+-- SDDIR/carts/village.bm and demo.bm must be there (games: the saves go into their .bme copies).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/pixel-sd"
 local checks, fails = 0, 0
@@ -275,7 +275,22 @@ local function sheet_section(palette, old)
 end
 
 local writes = 0
+local function listed(path)
+  local dir, name = path:match("^(.*)/([^/]+)$")
+  local list = on_sd[dir] or {}
+  on_sd[dir] = list
+  for _, n in ipairs(list) do if n == name:lower() then return end end
+  list[#list + 1] = name:lower()
+end
+local project_target = dofile(ROOT .. "/tests/studio/project_rules.lua")
 E.cart_write = function(path, t)
+  local moved
+  path, moved = project_target(path, function(p) return read_file(host(p)) ~= nil end, function(a, b)
+    local f = io.open(host(b), "wb")
+    f:write(read_file(host(a)))
+    f:close()
+    listed(b)
+  end)
   local old = read_file(host(t.from or path))
   assert(old or t.lua, "a new cartridge needs its code")
   local secs = old and sections_of(old) or {}
@@ -303,12 +318,8 @@ E.cart_write = function(path, t)
                     old and string.unpack("<I2", old, 13) or 640, secs))
   f:close()
   writes = writes + 1
-  local dir, name = path:match("^(.*)/([^/]+)$")
-  local list = on_sd[dir] or {}
-  on_sd[dir] = list
-  local seen = false
-  for _, n in ipairs(list) do if n == name:lower() then seen = true end end
-  if not seen then list[#list + 1] = name:lower() end
+  listed(path)
+  if moved then return true, path end
   return true
 end
 
@@ -525,8 +536,9 @@ keyq[#keyq + 1] = "^s"
 frames(1)
 check(sees("saving /carts/village.bm ..."), "Ctrl+S: saving first")
 key()
-check(status():find("saved /carts/village.bm", 1, true), "Ctrl+S: " .. status())
-local v1 = file("village.bm")
+check(status():find("saved /carts/VILLAGE.BME", 1, true), "Ctrl+S: " .. status())
+check(file("village.bm") == village0, "the game stays as it was: the save went into its copy, VILLAGE.BME")
+local v1 = file("village.bme")
 for _, t in ipairs({ 1, 4, 8, 9 }) do
   check(section(v1, t) == section(village0, t), "section " .. t .. " stays as it was")
 end
@@ -546,9 +558,9 @@ local exact = 0
 for i = 0, 255 do if opal[i] and spal[i - 1 + 1] then exact = exact + 1 end end
 check(exact > 0, "colours kept with their 24 bits")
 
--- open it again: the palette comes back from the file
+-- open it again (the copy: the chooser starts on the file open): the
+-- palette comes back from the file
 key("esc", "down", "\n")
-for _ = 1, 2 do key("down") end
 key("\n")
 local st = status()
 check(sees("zoom"), "it opens on the page it was saved from (the sheet)")
@@ -564,15 +576,15 @@ key("1", "b", " ")
 key("^s")
 check(sees("file name"), "Ctrl+S on a new sheet: Save as")
 type_text("NEWSPR")
-check(status():find("saved /carts/NEWSPR.BM", 1, true), "saved: " .. status())
-local n1 = file("newspr.bm")
+check(status():find("saved /carts/NEWSPR.BME", 1, true), "saved: " .. status())
+local n1 = file("newspr.bme")
 check(n1 and section(n1, 1):find("bm Pixel: a new sprite sheet", 1, true) and section(n1, 5), "the new cartridge: the viewer and a SHEET8")
 local ok, err = pcall(load, section(n1, 1))
 check(ok and err, "the viewer is Lua")
 
 -- try the game
 key("f5")
-check(ran == "/carts/NEWSPR.BM", "F5: the game runs")
+check(ran == "/carts/NEWSPR.BME", "F5: the project runs")
 
 -- F12 held: the keys of the page (keyhelp(), the kernel draws them)
 local function in_help(keys, what)

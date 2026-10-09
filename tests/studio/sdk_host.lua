@@ -175,7 +175,7 @@ local sec = {}                -- the project's MESH (8) and ANIM (9)
 local sheet = { w = 256, h = 256, px = {} }
 local mapc = {}               -- the map: [y * 4096 + x] = cell (layer 1)
 local lnames, mlay, flg = { "main" }, {}, {}   -- the layers' names, layers 2.., the tiles' flags
-local ran, tooled, saves, last_save = nil, nil, 0, nil
+local ran, tooled, saves, last_save, built = nil, nil, 0, nil, nil
 
 local function add_file(path)
   local dir, name = path:match("^(.*)/([^/]+)$")
@@ -454,10 +454,21 @@ local function new_env(arg)
   E.cart_new = function()
     sec, mapc, sheet, lnames, mlay, flg = {}, {}, { w = 256, h = 256, px = {} }, { "main" }, {}, {}
   end
-  -- cart_save as the kernel's: the code, the sheet, the map, the models
+  -- cart_save as the kernel's: the code, the sheet, the map, the models; a
+  -- game (.bm) is read only, the save goes into its editable copy (.BME)
+  local project_target = dofile(ROOT .. "/tests/studio/project_rules.lua")
+  local function exists(p) local f = io.open(host(p), "rb") if f then f:close() end return f ~= nil end
   E.cart_save = function(path, t)
     assert(type(t.lua) == "string", "cart_save: the code")
-    assert(path:match("^/carts/[%u%d_]+%.BM$"), "cart_save: an 8.3 name in /carts: " .. path)
+    local moved
+    path, moved = project_target(path, exists, function(a, b)
+      local fi, fo = assert(io.open(host(a), "rb")), assert(io.open(host(b), "wb"))
+      fo:write(fi:read("a"))
+      fi:close()
+      fo:close()
+      add_file(b)
+    end)
+    assert(path:match("^/carts/[%u%d_]+%.BME$"), "cart_save: a project's 8.3 name in /carts: " .. path)
     local px = {}
     for i = 0, sheet.w * sheet.h - 1 do
       local c = sheet.px[i]
@@ -474,7 +485,20 @@ local function new_env(arg)
     f:close()
     add_file(path)
     saves, last_save = saves + 1, { path = path, t = t }
+    if moved then return true, path end
     return true
+  end
+  -- cart_build: the project's game next to it
+  E.cart_build = function(path)
+    if not path:match("%.BME$") then return false, "only a project (.bme) is built" end
+    local game = path:gsub("%.BME$", ".BM")
+    local fi, fo = assert(io.open(host(path), "rb")), assert(io.open(host(game), "wb"))
+    fo:write(fi:read("a"))
+    fi:close()
+    fo:close()
+    add_file(game)
+    built = game
+    return true, game
   end
   E.cart_audio = function() return false end
   E.ai = {
@@ -615,10 +639,10 @@ for i, nm in ipairs(names) do
   -- its code, as Save would write it
   key("^S")
   check(sees("file name"), nm .. ": Save as asks the name")
-  for _ = 1, 9 do key("\b") end
-  typed("T" .. i .. ".BM")
+  for _ = 1, 10 do key("\b") end            -- "MYGAME.BME"
+  typed("T" .. i)
   key("\n")
-  check(last_save and last_save.path == "/carts/T" .. i .. ".BM", nm .. ": saved as T" .. i .. ".BM")
+  check(last_save and last_save.path == "/carts/T" .. i .. ".BME", nm .. ": saved as T" .. i .. ".BME, a project")
   play_template(last_save.t.lua, nm)
   if nm == "Shooter 2D" then
     local inked = 0
@@ -674,7 +698,7 @@ check(sees("SPRITES"), "F3 again: the sprites")
 key("f2", "f5")
 check(sees("file name"), "F5 on a project with no name: Save as first")
 key("\n")
-check(ran == "/carts/MYGAME.BM", "F5 saves and tries the game: " .. tostring(ran))
+check(ran == "/carts/MYGAME.BME", "F5 saves and tries the project: " .. tostring(ran))
 check(saved_t and saved_t.page == "code", "the page remembered for the way back")
 local tried = ran
 
@@ -691,7 +715,7 @@ check(sees("59.9 fps") and sees("RAM 510k peak"), "the dev kit: the last try")
 
 -- the target .b16: the cap and what the format will not have (the shooter
 -- uses math.random)
-run_sdk({ path = "/carts/T4.BM" })
+run_sdk({ path = "/carts/T4.BME" })
 frames(10)
 check(sees("Shooter 2D"), "the shooter opened")
 key("b")
@@ -699,13 +723,17 @@ check(status():find("target .b16", 1, true), "b: the target .b16")
 key("f1")
 frames(5)
 check(sees("of 8M (.b16)") and sees("math.random"), "the dev kit for a .b16: the cap, math.random")
-check(saved_t.targets and saved_t.targets["/CARTS/T4.BM"] == "b16", "the target remembered for the file")
+check(saved_t.targets and saved_t.targets["/CARTS/T4.BME"] == "b16", "the target remembered for the file")
 
 -- an error in the game: the code page on its line
-run_sdk({ path = "/carts/T1.BM", back = true, error = "main.lua:3: boom" })
+run_sdk({ path = "/carts/T1.BME", back = true, error = "main.lua:3: boom" })
 frames(2)
 check(sees("main.lua:3: boom") or status():find("the game stopped", 1, true), "the error shown")
 check(status():find("the game stopped", 1, true) or status():find("boom", 1, true), "back from an error: " .. status())
+
+-- Ctrl+B: the game of the project (cart_build), next to it
+key("^b")
+check(built == "/carts/T1.BM" and status():find("built /carts/T1.BM", 1, true), "Ctrl+B builds the game: " .. status())
 
 -- the models of a project (village.bm): the 3D page, the code for one,
 -- the assistant's model joining them
@@ -740,6 +768,7 @@ key("f1", "3")
 frames(1)
 if sees("file name") then key("\n") end
 check(tooled and tooled[1] == "studio", "3: bm Studio on the project: " .. tostring(tooled and tooled[1]))
+check(tooled[2] == "/carts/VILLAGE.BME", "the game was saved first: its editable copy " .. tostring(tooled[2]))
 run_sdk({ path = "/carts/village.bm", from = "pixel" })
 frames(2)
 check(status():find("back from bm Pixel", 1, true), "back from bm Pixel: " .. status())

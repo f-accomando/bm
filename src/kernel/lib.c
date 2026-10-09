@@ -251,7 +251,7 @@ static void scan_dir(const char *dir, int res)
     while (fat_readdir(&d, &e)) {
         if (e.is_dir || e.name[0] == '.')
             continue;
-        if (res ? !res_file(e.name) : !ends_with(e.name, ".bm"))
+        if (res ? !res_file(e.name) : !ends_with(e.name, ".bm") && !ends_with(e.name, ".bme"))
             continue;
         add_source(dir, &e);
         fiber_slice();

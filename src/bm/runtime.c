@@ -49,6 +49,7 @@
 #include "meshcap.h"
 #include "tokens.h"
 #include "profile.h"
+#include "project.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -4178,6 +4179,7 @@ static int l_ls(lua_State *L);
 static int l_cart_load(lua_State *L);
 static int l_cart_new(lua_State *L);
 static int l_cart_save(lua_State *L);
+static int l_cart_build(lua_State *L);
 static int l_cart_run(lua_State *L);
 static int l_cart_tool(lua_State *L);
 static int l_cart_arg(lua_State *L);
@@ -4370,7 +4372,7 @@ static const luaL_Reg api[] = {
     { "doc_list", l_doc_list }, { "doc_read", l_doc_read }, { "doc_write", l_doc_write }, { "doc_delete", l_doc_delete },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
     { "keys", l_keys }, { "pad", l_pad }, { "mouse", l_mouse }, { "mousep", l_mousep }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
-    { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg }, { "cart_config", l_cart_config },
+    { "cart_save", l_cart_save }, { "cart_build", l_cart_build }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg }, { "cart_config", l_cart_config },
     { "cart_data", l_cart_data },
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
     { "mesh_reduce", l_mesh_reduce }, { "picture3d", l_picture3d }, { "cutout3d", l_cutout3d },
@@ -4980,27 +4982,68 @@ void bm_set_tool(int on)
     tool_mode = on;
 }
 
-/* Where a cartridge may write a cartridge file: anywhere for the tools
- * built into the kernel; for the others (SD card, Market) only .bm files in
- * /carts, never the kernel, the settings or another folder. Returns 0, or
- * -1 with a message on the Lua stack (false, message). */
+/* Where a cartridge may write a cartridge file. The tools built into the
+ * kernel: projects (.bme) and any other file, but never a game (.bm, .b16:
+ * read only, project.h): saving one asks to make its editable copy and
+ * writes that, and a new one becomes a project (a game is made by building
+ * one, cart_build). The others (SD card, Market): only .bm and .bme files in
+ * /carts, new ones or the ones they made in this run, never the kernel, the
+ * settings or another folder. 0 and the file to write in `to`, or -1 with a
+ * message on the Lua stack (false, message). */
 #define MADE_MAX 16
-static char made[MADE_MAX][16];         /* the .bm files this run made (names in /carts) */
+static char made[MADE_MAX][16];         /* the files this run made (names in /carts) */
 static int n_made;
+static int copy_question(const char *game, const char *copy);
 
-static int write_refused(lua_State *L, const char *path)
+static int write_target(lua_State *L, const char *path, char *to, size_t tn)
 {
-    if (tool_mode)
+    ksnprintf(to, tn, "%s", path);
+    if (tool_mode) {
+        if (!bm_is_game(path))
+            return 0;
+        fat_entry_t e;
+        if (fat_find(path, &e) != 0) {
+            /* a new game: its project ("/carts/NEW.BM" -> "/carts/NEW.BME") */
+            const char *dot = strrchr(path, '.');
+            const size_t k = (size_t)(dot - path);
+            if (k + 5 >= tn)
+                goto long_name;
+            memcpy(to, path, k);
+            ksnprintf(to + k, tn - k, dot[1] == 'b' ? ".bme" : ".BME");
+            return 0;
+        }
+        char copy[96], err[64];
+        if (bm_copy_name(path, copy, sizeof copy) != 0) {
+            lua_pushboolean(L, 0);
+            lua_pushfstring(L, "%s is a game, read only, and its copy has no free name", path);
+            return -1;
+        }
+        if (!copy_question(path, copy)) {
+            lua_pushboolean(L, 0);
+            lua_pushfstring(L, "%s is a game, read only: no editable copy made", path);
+            return -1;
+        }
+        if (bm_make_copy(path, copy, err, sizeof err) != 0) {
+            lua_pushboolean(L, 0);
+            lua_pushfstring(L, "%s: %s", copy, err);
+            return -1;
+        }
+        ksnprintf(to, tn, "%s", copy);
         return 0;
+    long_name:
+        lua_pushboolean(L, 0);
+        lua_pushfstring(L, "%s: the name is too long", path);
+        return -1;
+    }
     const char *name = path;
     if (strncmp(path, "/carts/", 7) == 0)
         name = path + 7;
     size_t n = strlen(name);
     int ok = name[0] && name[0] != '.' && !strchr(name, '/') && !strchr(name, '\\') &&
-             n > 3 && (name[n - 3] == '.') && (name[n - 2] | 32) == 'b' && (name[n - 1] | 32) == 'm';
+             (bm_is_project(name) || (n > 3 && name[n - 3] == '.' && (name[n - 2] | 32) == 'b' && (name[n - 1] | 32) == 'm'));
     if (!ok) {
         lua_pushboolean(L, 0);
-        lua_pushfstring(L, "%s: a cartridge writes only .bm files in /carts", path);
+        lua_pushfstring(L, "%s: a cartridge writes only .bm and .bme files in /carts", path);
         return -1;
     }
     /* and only new ones, or the ones it made in this run: a game does not
@@ -5014,12 +5057,23 @@ static int write_refused(lua_State *L, const char *path)
             if (strcasecmp(made[i], name) == 0)
                 return 0;
         lua_pushboolean(L, 0);
-        lua_pushfstring(L, "%s: a cartridge cannot change a .bm that is there already (bm's tools can)", path);
+        lua_pushfstring(L, "%s: a cartridge cannot change a file that is there already (bm's tools can)", path);
         return -1;
     }
     if (n_made < MADE_MAX && n < sizeof made[0])
         ksnprintf(made[n_made++], sizeof made[0], "%s", name);
     return 0;
+}
+
+/* true, and the file written when it is not the one asked (the editable
+ * copy of a game, the project of a new one) */
+static int wrote(lua_State *L, const char *path, const char *to)
+{
+    lua_pushboolean(L, 1);
+    if (!strcmp(path, to))
+        return 1;
+    lua_pushstring(L, to);
+    return 2;
 }
 
 int bm_take_tool(char *name, size_t n)
@@ -5449,7 +5503,8 @@ static int l_cart_save(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     luaL_checktype(L, 2, LUA_TTABLE);
-    if (write_refused(L, path))
+    char to[96];
+    if (write_target(L, path, to, sizeof to))
         return 2;
     const char *title = field(L, 2, "title", ""), *author = field(L, 2, "author", "");
     const char *res = field(L, 2, "res", "640x360");
@@ -5459,7 +5514,7 @@ static int l_cart_save(lua_State *L)
     int w = res_width(res), h = w == 256 ? 256 : w * 9 / 16;
 
     char dir[64], name[16];
-    split_path(path, dir, sizeof dir, name, sizeof name);
+    split_path(to, dir, sizeof dir, name, sizeof name);
 
     const uint32_t sw = (uint32_t)rt.sheet.w, sh = (uint32_t)rt.sheet.h;
     const uint32_t mw = (uint32_t)rt.map.w, mh = (uint32_t)rt.map.h;
@@ -5549,13 +5604,38 @@ static int l_cart_save(lua_State *L)
     buf[17] = (uint8_t)count;
     strncpy((char *)buf + 24, title, 47);
     strncpy((char *)buf + 72, author, 31);
+    if (bm_is_project(to))
+        buf[18] |= BM_FLAG_PROJECT;
     put32(buf + 20, crc32(buf + BM_HEADER_SIZE, total - BM_HEADER_SIZE));
     int ok = fat_mkdirs(dir) == 0 && fat_write_file(dir, name, buf, total) == 0;
     free(buf);
-    lua_pushboolean(L, ok);
     if (ok)
-        return 1;
+        return wrote(L, path, to);
+    lua_pushboolean(L, 0);
     lua_pushstring(L, fat_error());
+    return 2;
+}
+
+/* cart_build(project) -> true and the game's path, or false and a message:
+ * the .bm of a project (.bme), next to it, the game it built before replaced
+ * (project.h). bm's tools only (the SDK's "Build .bm"). */
+static int l_cart_build(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    char out[96], err[64];
+    if (!tool_mode) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "only bm's tools build a game");
+        return 2;
+    }
+    if (bm_build(path, out, sizeof out, err, sizeof err) != 0) {
+        lua_pushboolean(L, 0);
+        lua_pushfstring(L, "%s: %s", path, err);
+        return 2;
+    }
+    kprintf("bm: built %s from %s\n", out, path);
+    lua_pushboolean(L, 1);
+    lua_pushstring(L, out);
     return 2;
 }
 
@@ -5952,7 +6032,8 @@ static int l_cart_write(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     luaL_checktype(L, 2, LUA_TTABLE);
-    if (write_refused(L, path))
+    char to[96];
+    if (write_target(L, path, to, sizeof to))
         return 2;
     lua_getfield(L, 2, "lua");
     size_t lua_len = 0;
@@ -5992,9 +6073,9 @@ static int l_cart_write(lua_State *L)
     lua_getfield(L, 2, "from");
     int fresh = lua_isboolean(L, -1) && !lua_toboolean(L, -1);    /* from = false: a new cartridge */
     lua_pop(L, 1);
-    const char *base = fresh ? NULL : field(L, 2, "from", path);
+    const char *base = fresh ? NULL : field(L, 2, "from", to);
     char dir[64], name[FAT_NAME_MAX];
-    split_path(path, dir, sizeof dir, name, sizeof name);
+    split_path(to, dir, sizeof dir, name, sizeof name);
 
     fat_entry_t e;
     uint8_t *old = NULL;
@@ -6064,17 +6145,19 @@ static int l_cart_write(lua_State *L)
     free(flags);
     if (!out)
         return luaL_error(L, "not enough memory to save");
+    if (bm_is_project(to))
+        out[18] |= BM_FLAG_PROJECT;
     /* an existing file keeps its entry (and its long name); a new one is 8.3 */
     fat_entry_t te;
     int ok;
-    if (fat_find(path, &te) == 0 && !te.is_dir)
-        ok = fat_replace(path, out, out_len) == 0;
+    if (fat_find(to, &te) == 0 && !te.is_dir)
+        ok = fat_replace(to, out, out_len) == 0;
     else
         ok = fat_mkdirs(dir) == 0 && fat_write_file(dir, name, out, out_len) == 0;
     free(out);
-    lua_pushboolean(L, ok);
     if (ok)
-        return 1;
+        return wrote(L, path, to);
+    lua_pushboolean(L, 0);
     lua_pushstring(L, fat_error());
     return 2;
 }
@@ -6266,7 +6349,8 @@ static int is_bank(const uint8_t *data, const uint8_t *t)
 static int l_cart_put_audio(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
-    if (write_refused(L, path))
+    char to[96];
+    if (write_target(L, path, to, sizeof to))
         return 2;
     size_t alen = 0;
     const char *audio = lua_isnoneornil(L, 2) ? NULL : luaL_checklstring(L, 2, &alen);
@@ -6288,7 +6372,7 @@ static int l_cart_put_audio(lua_State *L)
     size_t len;
     uint32_t total;
     int ok;
-    if (fat_find(path, &e) != 0) {
+    if (fat_find(to, &e) != 0) {
         size_t lua_len;
         const char *title = luaL_optstring(L, 3, "Sound pack");
         const char *lua = luaL_optlstring(L, 4, NULL, &lua_len);
@@ -6298,9 +6382,11 @@ static int l_cart_put_audio(lua_State *L)
             return 2;
         }
         char dir[64], name[16];
-        split_path(path, dir, sizeof dir, name, sizeof name);
+        split_path(to, dir, sizeof dir, name, sizeof name);
         if (!(buf = new_pack(title, lua, lua_len, audio, alen, &total)))
             return luaL_error(L, "not enough memory to save");
+        if (bm_is_project(to))
+            buf[18] |= BM_FLAG_PROJECT;
         ok = fat_mkdirs(dir) == 0 && fat_write_file(dir, name, buf, total) == 0;
         free(buf);
     } else {
@@ -6363,12 +6449,12 @@ static int l_cart_put_audio(lua_State *L)
         buf[17] = (uint8_t)count;
         put32(buf + 20, crc32(buf + BM_HEADER_SIZE, total - BM_HEADER_SIZE));
         free(data);
-        ok = fat_replace(path, buf, total) == 0;
+        ok = fat_replace(to, buf, total) == 0;
         free(buf);
     }
-    lua_pushboolean(L, ok);
     if (ok)
-        return 1;
+        return wrote(L, path, to);
+    lua_pushboolean(L, 0);
     lua_pushstring(L, fat_error());
     return 2;
 }
@@ -7011,28 +7097,12 @@ static void perm_set(int what, int yes)
     config_save();
 }
 
-/* The question, over the game stopped in its call: 1 allowed */
-static int perm_question(int what)
+/* A question of the system over the game, stopped in its call (a
+ * permission, the editable copy of a game): the lines in a box, the first
+ * the title and the last one dim, with the hints of the yes and of the back
+ * in their words. 1 yes, 0 no. */
+static int sys_ask(const char *const *lines, int n, const char *yes, const char *no)
 {
-    const char *lines[5];
-    lines[0] = perm_title[0] ? perm_title : "This game";
-    if (what == PERM_NET) {
-        lines[1] = "wants to use the network:";
-        lines[2] = "online games, with other consoles";
-        lines[3] = "or a server on the internet.";
-    } else if (what == PERM_DOCS) {
-        lines[1] = "wants to read and write your";
-        lines[2] = "documents: the files in /docs on";
-        lines[3] = "the SD card, shared by the apps.";
-    } else {
-        lines[1] = "wants to send a report to your";
-        lines[2] = "GitHub repository, with the";
-        lines[3] = "console's github_token.";
-    }
-    lines[4] = "The answer stays in bm/config.txt";
-    kprintf("bm: %s %s (ok: allow, back: no)\n", lines[0],
-            what == PERM_NET ? "asks for the network" : what == PERM_DOCS ? "asks for the documents"
-                                                                         : "asks to send a report");
     sync3d();                               /* nothing of the GPU's left to land on the page */
     static const uint8_t usage[4] = { 0x28, 0x2C, 0x29, 0x2A };   /* Enter, Space; Esc, Backspace */
     uint32_t prev = ~0u;                    /* what is held now is not an answer */
@@ -7059,9 +7129,9 @@ static int perm_question(int what)
             answer = -1;
         prev = held;
         kprev = keys;
-        box_yes = "Allow";
-        box_no = "No";
-        sys_box(lines, 5, 1, 1, -1);
+        box_yes = yes;
+        box_no = no;
+        sys_box(lines, n, 1, 1, -1);
         if (perm_fb)
             bm_video_present(perm_fb, &rt.g);
         audio_idle();
@@ -7087,8 +7157,34 @@ static int perm_question(int what)
     if (text)
         while (hid_getc() >= 0)
             ;                               /* Enter or Esc of the answer: not typed for the app */
-    kprintf("bm: %s\n", answer > 0 ? "allowed" : "not allowed");
     return answer > 0;
+}
+
+/* The question of a permission: 1 allowed */
+static int perm_question(int what)
+{
+    const char *lines[5];
+    lines[0] = perm_title[0] ? perm_title : "This game";
+    if (what == PERM_NET) {
+        lines[1] = "wants to use the network:";
+        lines[2] = "online games, with other consoles";
+        lines[3] = "or a server on the internet.";
+    } else if (what == PERM_DOCS) {
+        lines[1] = "wants to read and write your";
+        lines[2] = "documents: the files in /docs on";
+        lines[3] = "the SD card, shared by the apps.";
+    } else {
+        lines[1] = "wants to send a report to your";
+        lines[2] = "GitHub repository, with the";
+        lines[3] = "console's github_token.";
+    }
+    lines[4] = "The answer stays in bm/config.txt";
+    kprintf("bm: %s %s (ok: allow, back: no)\n", lines[0],
+            what == PERM_NET ? "asks for the network" : what == PERM_DOCS ? "asks for the documents"
+                                                                         : "asks to send a report");
+    const int answer = sys_ask(lines, 5, "Allow", "No");
+    kprintf("bm: %s\n", answer ? "allowed" : "not allowed");
+    return answer;
 }
 
 static int perm_allowed(int what)
@@ -7101,6 +7197,22 @@ static int perm_allowed(int what)
         perm_set(what, s);
     }
     return s;
+}
+
+/* A tool saving a game (a .bm): games are read only (project.h), so the
+ * question of its editable copy, a project in Dev. 1 yes */
+static int copy_question(const char *game, const char *copy)
+{
+    const char *g = strrchr(game, '/'), *c = strrchr(copy, '/');
+    char title[48], last[48];
+    ksnprintf(title, sizeof title, "%s is a game", g ? g + 1 : game);
+    ksnprintf(last, sizeof last, "Save an editable copy: %s?", c ? c + 1 : copy);
+    const char *lines[5] = { title, "A game is read only: the tools", "read it and take its parts, they",
+                             "do not change it.", last };
+    kprintf("bm: %s is read only: save an editable copy as %s? (ok: copy, back: no)\n", game, copy);
+    const int answer = sys_ask(lines, 5, "Copy", "No");
+    kprintf("bm: %s\n", answer ? "copied" : "not copied");
+    return answer;
 }
 
 /* ---------------------------------------------------------------- the debugger (R13) */

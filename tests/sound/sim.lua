@@ -77,14 +77,21 @@ env.cart_audio = function(path)
   return f.bank, f.title
 end
 local puts = {}
+-- a game (.bm) is read only: the sounds go into its editable copy (.BME)
+local project_target = dofile("tests/studio/project_rules.lua")
 env.cart_put_audio = function(path, data, title, lua)
   assert(type(data) == "string" and data:sub(1, 4) == "BMAU", "cart_put_audio: a bank")
+  local moved
+  path, moved = project_target(path, function(p) return files[p] ~= nil end, function(a, b)
+    files[b] = { title = files[a].title, bank = files[a].bank }
+  end)
   if not files[path] then
     assert(type(lua) == "string" and #lua > 0, "a new pack needs its Lua")
     files[path] = { title = title }
   end
   files[path].bank = data
   puts[#puts + 1] = path
+  if moved then return true, path end
   return true
 end
 local arg_ = nil
@@ -371,15 +378,16 @@ type_keys("\n")                           -- yes
 type_keys("down", "\n")                   -- pong.bm
 type_keys("f3", "\n")
 type_keys("^s")
-check(puts[#puts] == "/carts/pong.bm", "Save writes into the game opened")
-b = parse(files["/carts/pong.bm"].bank)
+check(puts[#puts] == "/carts/PONG.BME", "Save writes into the editable copy of the game opened")
+check(files["/carts/pong.bm"].bank == false, "the game stays as it was")
+b = parse(files["/carts/PONG.BME"].bank)
 check(#b.pats >= 1 and b.pats[1].tracks[0], "the game got the pattern")
-check(logs[#logs]:find("saved /carts/pong.bm", 1, true), "the save is in the log")
+check(logs[#logs]:find("saved /carts/PONG.BME", 1, true), "the save is in the log")
 
 -- 8. import a song (with its patterns and sounds) from the pack
 menu_item(6)
 type_keys("\n")                           -- Import from...
-type_keys("down", "down", "\n")           -- OTHER.BM
+type_keys("down", "down", "down", "\n")   -- OTHER.BM (after astrowing.bm, pong.bm, PONG.BME)
 type_keys("down", "down", "down", "\n")   -- a song
 type_keys("\n")                           -- song 0 (DEMO)
 b = parse(last_bank)
@@ -389,7 +397,7 @@ check(#b.songs >= 2 and #b.pats >= 10 and #b.sounds >= 6, "the song came with it
 menu_item(4)
 type_keys("\n")                           -- Save as a new sound pack...
 type_keys("\b", "\b", "\b", "\b", "\b", "\b", "\b", "\b", "M", "I", "N", "E", "\n")
-check(files["/bm/sounds/MINE.BM"] and files["/bm/sounds/MINE.BM"].bank, "a new sound pack is written")
+check(files["/bm/sounds/MINE.BME"] and files["/bm/sounds/MINE.BME"].bank, "a new sound pack is written (a project)")
 
 -- 9b. the assistant (F6): a backing track into new patterns and a song of its
 -- own, a melody over the pattern on the page, a sound effect into a free slot

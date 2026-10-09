@@ -213,6 +213,8 @@ local function save_tab(t, path)
   local ok, err = cart_write(target, { lua = text_of(t), title = t.title, author = t.author,
                                        res = t.res, from = t.path })
   if not ok then return false, err end
+  -- a game is read only: the console wrote its editable copy (a .bme)
+  if type(err) == "string" then path, target = err, err end
   if path then t.path, t.name = path, base_name(path) end
   t.dirty = false
   log("code: saved " .. target)
@@ -717,17 +719,26 @@ local function confirm(question, choices, done)
   overlay = { kind = "confirm", question = question, choices = choices, done = done }
 end
 
+-- a project's 8.3 name: "game" -> "GAME.BME"; nil if it cannot be one
+local function project_name(name)
+  name = name:upper():gsub("%.BM$", ".BME")
+  if not name:match("%.") then name = name .. ".BME" end
+  if not name:match("^[%w_%-]+%.BME$") or #name:match("^[^.]*") > 8 then return nil end
+  return name
+end
+
 local function new_cart()
   local n = 1
-  while find_tab("/carts/GAME" .. n .. ".BM") or cart_read("/carts/GAME" .. n .. ".BM") do n = n + 1 end
-  prompt("New cartridge, file name (8.3 in /carts):", "GAME" .. n .. ".BM", function(name)
-    if not name:match("^[%w_%-]+%.[bB][mM]$") or #name:match("^[^.]*") > 8 then
-      say("8.3 name, like MYGAME.BM", C_ERR)
+  while find_tab("/carts/GAME" .. n .. ".BME") or cart_read("/carts/GAME" .. n .. ".BME") do n = n + 1 end
+  prompt("New project, file name (8.3 in /carts):", "GAME" .. n .. ".BME", function(name)
+    name = project_name(name)
+    if not name then
+      say("8.3 name, like MYGAME.BME", C_ERR)
       return
     end
-    local path = "/carts/" .. name:upper()
+    local path = "/carts/" .. name
     if cart_read(path) then say(path .. " exists: Ctrl+O opens it", C_ERR); return end
-    local i = new_tab(path, TEMPLATE, { title = name:gsub("%.[bB][mM]$", "") })
+    local i = new_tab(path, TEMPLATE, { title = name:gsub("%.BME$", "") })
     tabs[i].dirty = true
     show_tab(i)
     say("new: Ctrl+S writes " .. path, C_OK)
@@ -735,13 +746,14 @@ local function new_cart()
 end
 
 local function save_as(t)
-  local suggest = t.path and base_name(t.path) or "GAME.BM"
+  local suggest = t.path and project_name(base_name(t.path)) or "GAME.BME"
   prompt("Save as (8.3 in /carts):", suggest, function(name)
-    if not name:match("^[%w_%-]+%.[bB][mM]$") or #name:match("^[^.]*") > 8 then
-      say("8.3 name, like MYGAME.BM", C_ERR)
+    name = project_name(name)
+    if not name then
+      say("8.3 name, like MYGAME.BME", C_ERR)
       return
     end
-    local ok, err = save_tab(t, "/carts/" .. name:upper())
+    local ok, err = save_tab(t, "/carts/" .. name)
     say(ok and "saved " .. t.path or "cannot save: " .. tostring(err), ok and C_OK or C_ERR)
   end)
 end
@@ -810,10 +822,11 @@ function _exit()
 end
 
 local function open_files()
-  local items = { { label = "+ New cartridge...", new = true } }
+  local items = { { label = "+ New project...", new = true } }
   for _, dir in ipairs({ "/carts", "/" }) do
     for _, f in ipairs(ls(dir)) do
-      if not f.dir and f.name:lower():match("%.bm$") then
+      local n = f.name:lower()
+      if not f.dir and (n:match("%.bm$") or n:match("%.bme$")) then
         local path = (dir == "/" and "" or dir) .. "/" .. f.name
         items[#items + 1] = { label = path, size = f.size, path = path }
       end
@@ -823,7 +836,7 @@ local function open_files()
 end
 
 local MENU = {
-  { "New cartridge", "Ctrl+N" }, { "Open...", "Ctrl+O" }, { "Save", "Ctrl+S" },
+  { "New project", "Ctrl+N" }, { "Open...", "Ctrl+O" }, { "Save", "Ctrl+S" },
   { "Save as...", "Ctrl+Shift+S" }, { "Close tab", "Ctrl+W" }, { "Run the game", "F5" },
   { "Breakpoint", "F8" }, { "Debug from the start", "" }, { "Clear breakpoints", "" },
   { "Split screen", "F4" }, { "Font size", "F10" }, { "Find", "Ctrl+F" },
@@ -847,7 +860,7 @@ local do_command
 local function menu_choose(name)
   overlay = nil
   local t, v = current()
-  if name == "New cartridge" then new_cart()
+  if name == "New project" then new_cart()
   elseif name == "Open..." then open_files()
   elseif name == "Save" then save_current()
   elseif name == "Save as..." then save_as(t)

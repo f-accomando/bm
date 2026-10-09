@@ -391,7 +391,8 @@ local function list_files()
   local out = {}
   for _, dir in ipairs({ "/carts", "/" }) do
     for _, f in ipairs(ls(dir) or {}) do
-      if not f.dir and f.name:lower():match("%.bm$") then out[#out + 1] = (dir == "/" and "" or dir) .. "/" .. f.name end
+      local n = f.name:lower()
+      if not f.dir and (n:match("%.bm$") or n:match("%.bme$")) then out[#out + 1] = (dir == "/" and "" or dir) .. "/" .. f.name end
     end
   end
   table.sort(out)
@@ -404,7 +405,13 @@ local function short_path(path)
   if dir == "" then dir = "/" end
   local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
   if stem == "" then stem = "GAME" end
-  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BM"
+  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BME"
+end
+
+-- a game (.bm, .b16) is read only: saving it makes its editable copy
+local function is_game(path)
+  local p = path and path:lower() or ""
+  return p:match("%.bm$") ~= nil or p:match("%.b16$") ~= nil
 end
 
 local reset_pages, go       -- defined with the pages
@@ -434,7 +441,8 @@ local function open_file(path)
   proj.warn = berr or (cerr and "the game's code stopped while read: " .. cerr)
   dirty, code_dirty, cur = false, false, 1
   reset_pages()
-  say(string.format("%s: %d models, %d code meshes, %d from the game's code", path, #parts, #codes, ngame), C_ACC)
+  say(string.format("%s: %d models, %d code meshes, %d from the game's code%s", path, #parts, #codes, ngame,
+                    is_game(path) and "; a game: saving makes its copy" or ""), C_ACC)
   return true
 end
 
@@ -467,7 +475,7 @@ local function full_lua()
 end
 
 local function save_to(path, from)
-  if not proj.path then say("open a .bm first: Esc > Open", C_ERR); return false end
+  if not proj.path then say("open a .bm or .bme first: Esc > Open", C_ERR); return false end
   local mesh, anim, skipped = build_sections()
   if mesh == nil then say("cannot save: " .. anim, C_ERR); return false end
   local t = { sections = { [SEC_MESH] = mesh, [SEC_ANIM] = anim }, from = from }
@@ -475,6 +483,7 @@ local function save_to(path, from)
   t.lua = lua
   local ok, err = cart_write(path, t)
   if not ok then say("save failed: " .. tostring(err), C_ERR); return false end
+  if type(err) == "string" then path = err end  -- the editable copy of a game
   if lua then proj.lua = lua end
   for _, it in ipairs(items) do
     if it.kind == "model" and it.new_mc then
@@ -2069,8 +2078,7 @@ end
 
 local function save_as()
   if not proj.path then say("open a .bm first", C_ERR); return end
-  ask("file name (8.3, in /carts)", proj.path:match("([^/]+)$") or "MESHES.BM", function(t)
-    if not t:upper():match("%.BM$") then t = t .. ".BM" end
+  ask("file name (8.3, in /carts)", short_path(proj.path):match("([^/]+)$") or "MESHES.BME", function(t)
     local to = short_path("/carts/" .. t)
     local from = proj.path
     code_dirty = true                    -- the new file gets all the code

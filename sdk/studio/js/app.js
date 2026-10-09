@@ -90,7 +90,7 @@
       if (problems.length) { await this.alert('First fix this', problems.map(esc).join('<br>')); return; }
       this.leaving = true;
       await BM.handoff.go('../animator/index.html', {
-        bytes: BM.buildCart(this.project), name: this.fileName || slug(this.project.title) + '.bm', handle: this.handle, dirty: this.dirty,
+        bytes: BM.buildCart(this.project), name: this.fileName || slug(this.project.title) + '.bme', handle: this.handle, dirty: this.dirty,
       });
     }
 
@@ -858,13 +858,13 @@
       if (window.showOpenFilePicker) {
         let h;
         try {
-          [h] = await window.showOpenFilePicker({ types: [{ description: 'bm cartridge, glTF model, picture', accept: { 'application/octet-stream': ['.bm', '.glb'], 'image/png': ['.png'] } }] });
+          [h] = await window.showOpenFilePicker({ types: [{ description: 'bm cartridge, glTF model, picture', accept: { 'application/octet-stream': ['.bm', '.bme', '.glb'], 'image/png': ['.png'] } }] });
         } catch (e) { return; }
         const file = await h.getFile();
         await this.openBytes(new Uint8Array(await file.arrayBuffer()), file.name, h);
         return;
       }
-      this.pick('.bm,.glb,.png', (b, name) => this.openBytes(b, name, null));
+      this.pick('.bm,.bme,.glb,.png', (b, name) => this.openBytes(b, name, null));
     }
 
     async openBytes(b, name, handle) {
@@ -894,11 +894,18 @@
         this.setWorkspace('pixel');
         return;
       }
-      if (ext !== '.bm' && !(b.length > 8 && String.fromCharCode(...b.subarray(0, 6)) === 'BMCART')) throw new Error(`${name}: not a .bm, .glb or .png file`);
+      if (ext !== '.bm' && ext !== '.bme' && !(b.length > 8 && String.fromCharCode(...b.subarray(0, 6)) === 'BMCART')) throw new Error(`${name}: not a .bm, .bme, .glb or .png file`);
       if (!(await this.confirmLose())) return;
       const { project, warnings } = BM.parseCart(b);
       this.loadProject(project, handle, name, warnings);
-      this.status(`opened ${name}: ${project.models.length} models, sheet ${project.sheet.w}×${project.sheet.h}`);
+      if (BM.isGame(name)) {               // a game: Save writes its editable copy, never the game
+        this.fileName = BM.projectName(name);
+        this.handle = null;
+        this.refreshDoc();
+        this.status(`opened ${name}: a game, read only: Save writes its editable copy ${this.fileName}`);
+      } else {
+        this.status(`opened ${name}: ${project.models.length} models, sheet ${project.sheet.w}×${project.sheet.h}`);
+      }
     }
 
     async save(as) {
@@ -907,11 +914,11 @@
       const problems = BM.checkProject(this.project);
       if (problems.length) { await this.alert('The cartridge cannot be saved like this', problems.map(esc).join('<br>')); return; }
       const bytes = BM.buildCart(this.project);
-      const suggested = this.fileName || slug(this.project.title) + '.bm';
+      const suggested = this.fileName ? BM.projectName(this.fileName) : slug(this.project.title) + '.bme';
       if (!as && this.handle) {
         try {
           const w = await this.handle.createWritable();
-          await w.write(bytes);
+          await w.write(BM.markProject(bytes, this.handle.name));
           await w.close();
           this.saved(this.handle.name, bytes);
           return;
@@ -922,16 +929,16 @@
       }
       if (window.showSaveFilePicker) {
         try {
-          const h = await window.showSaveFilePicker({ suggestedName: suggested, types: [{ description: 'bm cartridge', accept: { 'application/octet-stream': ['.bm'] } }] });
+          const h = await window.showSaveFilePicker({ suggestedName: suggested, types: [{ description: 'bm project', accept: { 'application/octet-stream': ['.bme', '.bm'] } }] });
           const w = await h.createWritable();
-          await w.write(bytes);
+          await w.write(BM.markProject(bytes, h.name));
           await w.close();
           this.handle = h;
           this.saved(h.name, bytes);
         } catch (e) { if (e.name !== 'AbortError') throw e; }
         return;
       }
-      this.download(bytes, suggested);
+      this.download(BM.markProject(bytes, suggested), suggested);
       this.fileName = suggested;
       this.saved(suggested, bytes);
     }
@@ -1267,7 +1274,7 @@ end</pre>
         document.title = this.pngFile.name + ' — bm Studio';
         return;
       }
-      $('#docName').textContent = this.fileName || (this.project.title ? slug(this.project.title) + '.bm' : 'new project');
+      $('#docName').textContent = this.fileName || (this.project.title ? slug(this.project.title) + '.bme' : 'new project');
       document.title = (this.fileName || this.project.title || 'new project') + ' — bm Studio';
     }
 

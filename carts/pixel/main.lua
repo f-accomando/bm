@@ -157,14 +157,21 @@ local function short_path(path)
   if dir == "" then dir = "/" end
   local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
   if stem == "" then stem = "SPRITES" end
-  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BM"
+  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BME"
+end
+
+-- a game (.bm, .b16) is read only: saving it makes its editable copy
+local function is_game(path)
+  local p = path and path:lower() or ""
+  return p:match("%.bm$") ~= nil or p:match("%.b16$") ~= nil
 end
 
 local function list_files()
   local out = {}
   for _, dir in ipairs({ "/carts", "/" }) do
     for _, f in ipairs(ls(dir) or {}) do
-      if not f.dir and f.name:lower():match("%.bm$") then out[#out + 1] = (dir == "/" and "" or dir) .. "/" .. f.name end
+      local n = f.name:lower()
+      if not f.dir and (n:match("%.bm$") or n:match("%.bme$")) then out[#out + 1] = (dir == "/" and "" or dir) .. "/" .. f.name end
     end
   end
   table.sort(out)
@@ -182,7 +189,7 @@ end
 -- what is kept for each file, in this cartridge's save()
 local function remember()
   if not proj.path then return end
-  files_seen[proj.path] = { rx = rx, ry = ry, rs = rs, frames = anim.frames, fps = anim.fps, ci = ci,
+  files_seen[proj.path:lower()] = { rx = rx, ry = ry, rs = rs, frames = anim.frames, fps = anim.fps, ci = ci,
                             palette = pal(), page = page ~= "menu" and page or "draw", t = frame }
   local n, oldest, ot = 0, nil, nil
   for p, v in pairs(files_seen) do
@@ -200,7 +207,7 @@ local function open_file(path)
   if not p then say("cannot open " .. path .. ": " .. tostring(e), C_ERR); return false end
   proj = { path = path, title = p.title or "", palette = {} }
   sw, sh = cart_sheet()
-  local seen = files_seen[path] or {}
+  local seen = files_seen[path:lower()] or {}
   local from
   if p.palette and #p.palette > 0 then
     for i, c in ipairs(p.palette) do proj.palette[i] = c end
@@ -218,7 +225,8 @@ local function open_file(path)
   undo, redo, dirty = {}, {}, false
   fit_region()
   reset_pages()
-  say(string.format("%s: sheet %dx%d, %d colours (%s palette)", path, sw, sh, #proj.palette, from), C_ACC)
+  say(string.format("%s: sheet %dx%d, %d colours (%s palette)%s", path, sw, sh, #proj.palette, from,
+                    is_game(path) and "; a game: saving makes its copy" or ""), C_ACC)
   return true
 end
 
@@ -247,6 +255,7 @@ local function save_to(path, from, after)
   busy = { text = "saving " .. path .. " ...", wait = 3, fn = function()
     local ok, e = cart_write(path, t)
     if not ok then say("save failed: " .. tostring(e), C_ERR); return end
+    if type(e) == "string" then path = e end    -- the editable copy of a game, or a new project
     proj.path = path
     dirty = false
     remember()
@@ -1385,16 +1394,15 @@ local function open_chooser()
   if #files == 0 then say("no .bm files on the SD card", C_ERR); return end
   local rows, sel = {}, 1
   for i, f in ipairs(files) do
-    rows[i] = { f, function() if open_file(f) then go(files_seen[f] and files_seen[f].page or "draw") end end }
-    if f == proj.path then sel = i end
+    rows[i] = { f, function() if open_file(f) then go(files_seen[f:lower()] and files_seen[f:lower()].page or "draw") end end }
+    if proj.path and f:lower() == proj.path:lower() then sel = i end
   end
   choose("open a cartridge", rows, sel)
 end
 
 local function save_as()
-  ask("file name (8.3, in /carts)", proj.path and proj.path:match("([^/]+)$") or "SPRITES.BM", function(t)
+  ask("file name (8.3, in /carts)", proj.path and short_path(proj.path):match("([^/]+)$") or "SPRITES.BME", function(t)
     if t == "" then return end
-    if not t:upper():match("%.BM$") then t = t .. ".BM" end
     local to = short_path("/carts/" .. t)
     save_to(to, proj.path, function() go(last_page) end)
   end)
@@ -1477,7 +1485,7 @@ function _init()
   local a = cart_arg()
   if a and a.from == "sdk" then table.insert(MENU, #MENU, { "Back to bm SDK", back_to_sdk }) end
   if a and a.path and open_file(a.path) then
-    local back = a.back and files_seen[a.path]
+    local back = a.back and files_seen[a.path:lower()]
     if a.error then
       go("menu")
       say("the game stopped: " .. a.error:sub(1, 60), C_ERR, 400)

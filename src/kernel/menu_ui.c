@@ -1423,7 +1423,8 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             hint(v, col, 21, BTN_MONITOR, "Monitor");
     } else {
         const char *a = v->a_label ? v->a_label
-                      : cur && cur->kind && strcmp(cur->kind, "tool") == 0 ? "Open" : "Play";
+                      : cur && cur->kind && (!strcmp(cur->kind, "tool") || !strcmp(cur->kind, "bme")) ? "Open"
+                                                                                                         : "Play";
         col = hc;
         if (a[0])
             col = hint(v, col, 21, BTN_A, a);
