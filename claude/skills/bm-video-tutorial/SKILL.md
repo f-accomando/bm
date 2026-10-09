@@ -3,12 +3,47 @@ name: bm-video-tutorial
 description: Genera video tutorial YouTube (storyboard, copione, registrazione in QEMU, montaggio) che mostrano come usare gli strumenti della console bm (SDK, bm Code, Pixel, Sound, Mesh, Studio, Animator, assistente AI) per creare giochi e app .bm e .b16. Usa questa skill ogni volta che l'utente parla di video, tutorial, YouTube, showreel, registrazione di QEMU, screenshot della console o di "mostrare come si usa" un editor di bm, anche senza nominare la skill. Mostra sempre quali tab, tasti e pulsanti vengono premuti.
 ---
 
-# bm: video tutorial con QEMU
+# bm: video tutorial (bmhost o QEMU)
 
 Questa skill produce video YouTube che insegnano a usare la piattaforma bm
-(console bare-metal su Raspberry Pi Zero W) registrando la console reale in QEMU,
-non mockup. Ogni video mostra **cosa succede sullo schermo e quale tasto, tab o
-pulsante lo provoca**.
+(console bare-metal su Raspberry Pi Zero W) registrando la console reale, non
+mockup: il runtime della console (`bmhost`, sul PC) o il kernel in QEMU. Ogni
+video mostra **cosa succede sullo schermo e quale tasto, tab o pulsante lo provoca**.
+
+## Quale registratore
+
+- **`bmhost`** (`make bmhost build/<editor>.bm`): il runtime vero della console (Lua,
+  gfx16, suono) sul PC, orologio virtuale (frame n = n/60 s: stesso copione, stesso
+  video). Serve solo `gcc` e `ffmpeg`; è quello che funziona nelle sessioni cloud, dove
+  **QEMU e `arm-none-eabi-gcc` non ci sono**. Opzioni: `--input FILE --video FILE
+  --shots DIR --wav FILE --sd DIR --seconds S`. Non ha il menu del kernel (schede
+  Market/Games/Dev), la GPU, l'assistente AI (`F6` in bm Pixel dice "the assistant is not
+  here"): quelle parti si dicono a voce, o si registrano con QEMU dove c'è.
+- **QEMU** `-M raspi0` (`tests/qemu_test.py`): il kernel intero, schede comprese. Va
+  preferito quando c'è e il video deve mostrare il menu.
+- `tools/bmplay/video.sh`: un gioco giocato da un bot, con suono (per gli episodi sul
+  gioco finito).
+- Libreria pronta: **`video/lib/bmvideo.py`** (copione di tasti → file `--input`, tastiera
+  in sovrimpressione, pagina 1920×1080 con pannello laterale, ffmpeg). Un episodio è
+  `video/NN-nome/{record.py,art.py,storyboard.md,copione.md}`; vedi `video/01-pixel/`.
+  `out/` non va nel repo (`.gitignore`).
+
+### Cose imparate (non rifarle)
+
+- Tasti per bmhost: riga `FRAME type CODICI`, con `\xNN` per i codici di `keyp()`:
+  frecce `\xf0 su, \xf1 giù, \xf2 sin, \xf3 des`, `\xf6` PgUp, `\xf7` PgDn, `\xf8` Canc,
+  F1–F5 `\xf9…\xfd`, F6 `\xe6`, Esc `\x1b`, Tab `\x09`, **spazio `\x20`** (uno spazio
+  nudo in `type` si perde), Ctrl+lettera = codice 1–26 (`\x13` Ctrl+S), Ctrl+Shift+S =
+  `\xee\x13`. Le righe vanno in **ordine di frame**: una riga fuori posto blocca le altre.
+- Un editor ricorda sulla SD la pagina e il file aperti: per un video ripetibile
+  **SD pulita a ogni registrazione** (`record.py` la cancella).
+- bm Pixel: un incolla (`Ctrl+V`) parte da dove sta il puntatore: portarlo in (0,0) prima;
+  lo sprite 16×16 ha numero pari (celle da 8). `Esc` fuori da una lista apre il menu.
+- `bmhost --video` scrive raw rgb24 640×360: ~700 KB a frame, non tenerlo su disco per
+  episodi lunghi senza spazio (usa una fifo).
+- Il nome di un file salvato da bm Pixel passa per FAT 8.3 (maiuscole, tagliato).
+- Personaggi, nomi e grafica di un gioco "alla maniera di" un classico sono **originali**:
+  stile e meccaniche sì, personaggi, loghi, musiche e sprite del gioco ispiratore no.
 
 ## Regole fisse
 
@@ -125,6 +160,19 @@ inizio. Dopo il copione, aggiungi:
 2. Se l'ambiente lo permette, anche il video renderizzato; altrimenti i comandi
    esatti per generarlo (`make video-<NN>`).
 3. Elenco dei dubbi aperti (tasti non trovati, `.b16`, funzioni non emulate).
+
+## La serie in corso: Skyvale World (platform 2D, solo 2D)
+
+Gioco originale nello stile dei platform a 16 bit dei primi anni '90 (mondi a
+scorrimento, salto a rimbalzo sui nemici, monete, bandiera di fine livello, mappa dei
+livelli), per mostrare le capacità di bm. L'eroe è **Kip**, una volpe: personaggio
+originale. Solo strumenti 2D (niente bm Mesh, Animator 3D, `picture3d`, GPU). Ordine
+cronologico d'uso: 1 bm Pixel (eroe, nemici), 2 bm Studio (tessere, flag, primo livello),
+3 Sound (effetti e musica), 4 bm Code (movimento e salto, `bmlib`), 5 bm Code +
+assistente (nemici, oggetti, HUD), 6 bm Studio (layer, sfondi, scatole di collisione) e
+rifinitura, 7 il gioco giocato. Un episodio alla volta, ~3 minuti, e ci si ferma dove
+l'utente ha detto di fermarsi. La struttura completa e lo stato sono in
+`video/SERIE.md`.
 
 ## Proporre la struttura della serie
 

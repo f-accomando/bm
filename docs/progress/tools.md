@@ -117,6 +117,11 @@ An interactive bash setup utility for Linux/WSL:
 * Transfers cartridges and kernels over WiFi using [`tools/bm_net.py`](../../tools/bm_net.py).
 * Publishes cartridges directly to the official game store.
 
+### Tutorial videos ([`video/`](../../video/), skill `claude/skills/bm-video-tutorial`)
+* `video/lib/bmvideo.py`: a key script for `bmhost` (the console's runtime on the PC, virtual clock, same run every time) and ffmpeg/libass for the page: console 2x, side panel with the place, the key pressed and the keys of the scene, narrator's line, hook, title and closing cards. Storyboard and script are generated from the same key script.
+* `video/SERIE.md`: *Skyvale World*, a 2D platformer (original hero Kip) built only with the console's 2D tools, one episode per tool. Episode 1 (`video/01-pixel/`, bm Pixel) is done.
+* On the PC there is no kernel menu and no assistant (`F6` in bm Pixel); QEMU is not in the cloud sessions.
+
 ### Continuous Integration (`.github/workflows/ci.yml`)
 The GitHub Actions workflow distributes test execution across **6 concurrent virtual runners**:
 1. Host unit tests (`make test-host`).

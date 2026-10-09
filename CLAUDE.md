@@ -36,6 +36,31 @@ a `docs/ROADMAP.md` e non sono ancora decisi.
   quelle chiuse nell'ultima sessione, barrate. Poi una riga **In corso**. Una sola
   milestone chiesta ("com'è M36?") va in dettaglio.
 
+## Subagent
+
+Le definizioni sono in `claude/agents/` (da copiare in `.claude/agents/` se la sessione non
+le vede). Si delega con lo `Agent` giusto per tipo di task; il contesto passato deve bastare
+da solo (file, scopo, cosa è già stato provato).
+
+- `light` (Sonnet, medio): domande, fix piccoli di 1–2 file, typo, rename, doc già
+  decisa. Default per un task semplice.
+- `standard` (Opus, medio): feature intera, modulo nuovo, test, giochi e strumenti con
+  design già deciso, modifiche coordinate su più file.
+- `deep` (Opus, xhigh): architettura, refactoring pesante, bug la cui causa non è chiara
+  (GPU, lockstep, audio), scelte con compromessi. Ultimo livello.
+- `tracker` (Haiku, basso): solo spunte, spostamenti e righe già decise in roadmap/progress.
+- Un agente che risponde `ESCALATION: <livello>` passa il lavoro a quel livello, con
+  quello che ha già provato.
+- Ricerche larghe nel repo: `Explore`. Task indipendenti: più agenti nello stesso messaggio.
+- **API nuova o cambiata**: dopo il codice, un subagent (`light`, `standard` se tocca più
+  doc) aggiorna la documentazione: i quattro doc API, `src/ai/kb/` (poi `make ai-model`),
+  gli esempi, `sdk/README.md` se serve e il file giusto di `docs/progress/` (indice
+  `docs/progress.md`). I progressi della repo vanno lì, mai in questo file.
+- **Roadmap**: lo stesso passo guarda se la novità rende possibile qualcosa di nuovo nelle
+  `.bm` / `.b16` esistenti (giochi, strumenti, Market) o per l'assistente AI (kb, esempi,
+  Predict), e lo scrive in `docs/ROADMAP.md` come spunto R… (non come decisione) con
+  `tracker`.
+
 ## Non fare
 
 - Sorgenti Linux (panfrost e simili) si leggono, non si copiano (GPL). Strutture GPU da
