@@ -1,17 +1,17 @@
 # bm — BareMetal
 
 <p align="center">
-  <img src="docs/showreel.gif" width="720" alt="Showreel: a villager drawn and built from blocks in bm Studio, rigged and animated in bm Animator; on the console the map in the SDK, the code in bm Code with the AI assistant, and the game">
+  <img src="docs/showreel.gif" width="720" alt="Showreel: on the console, a map painted in the SDK, the code written in bm Code with the AI assistant, and the game with an animated villager">
 </p>
-<p align="center"><sub><b>A game from scratch, with bm alone</b> (30 s): pixel art and a 3D model in bm Studio, skeleton
-and walk in bm Animator, then on the console the map in the SDK, the code in bm Code with the AI assistant,
-and the game. The console scenes are recorded in QEMU (<code>-M raspi0</code>) with the same kernel as the Pi.
+<p align="center"><sub><b>A game from scratch, with bm alone</b> (16 s): on the console, the map in the SDK, the code in
+bm Code with the AI assistant, and the game, with the villager of Studio Village. Recorded in QEMU
+(<code>-M raspi0</code>) with the same kernel as the Pi.
 <a href="docs/showreel.mp4">MP4 1280×720</a> · rebuilt by <code>make showreel</code></sub></p>
 
 **bm** is a games console that runs on a **Raspberry Pi Zero W** (and Zero 2 W) with no operating system.
 The kernel boots straight from the SD card into a menu of games. Games are written in
 Lua, with 2D and 3D graphics, sound and up to four controllers. The tools to make them
-are part of bm: some run on the PC, others on the console itself.
+are part of bm and run on the console itself.
 
 ## 1. What bm is
 
@@ -103,26 +103,6 @@ and [docs/HARDWARE.md](docs/HARDWARE.md).
 Everything a cartridge contains is made with bm's own tools. They read and write the
 `.bm` file directly, even on the SD card.
 
-**On the PC:** web pages with no install. Open `sdk/studio/index.html` or
-`sdk/animator/index.html`, or run `make studio`. Guide: [sdk/README.md](sdk/README.md).
-
-- **bm Studio**:
-  - 3D models built from tiles: lay tiles of the sprite
-    sheet on a grid, stack blocks, drag corners into roofs and ramps, paint on the model;
-  - the pixel art of the sprite sheet;
-  - import and export of `.glb` and `.png`.
-- **bm Animator**:
-  - skeletons and skinning;
-  - keyframe animations on a timeline, played on the console by `animate(m, "walk", t)`;
-  - 3D animations rendered into sprites, in 1 to 8 directions.
-
-<p align="center">
-  <img src="docs/img/studio-pixel.png" width="49%" alt="bm Studio: pixel art of the villager's textures">
-  <img src="docs/img/studio-3d.png" width="49%" alt="bm Studio: a tile-built house with its vertices">
-  <img src="docs/img/animator.png" width="49%" alt="bm Animator: the villager's skeleton and the walk on the timeline">
-  <img src="docs/img/animator-sprites.png" width="49%" alt="bm Animator: the walk rendered into sprites in 4 directions">
-</p>
-
 **On the console**, in the Dev tab, with a keyboard or a gamepad:
 
 - **bm SDK**: the hub of a project. A new game from a template (platformer, top-down,
@@ -151,7 +131,7 @@ Everything a cartridge contains is made with bm's own tools. They read and write
   lines, texture seams and the skeleton.
 - **Sound editor**: an 8-voice synthesizer, sound effects and music patterns for the
   cartridge's sound bank.
-- **bm Studio** and **bm Animator**: the PC programs' twins, on the same files. bm Studio
+- **bm Studio** and **bm Animator**: 3D models and their animations. bm Studio
   builds models with blocks and tiles, chooses, moves, turns and copies faces, moves
   corners and paints the tiles right on the model. bm Animator plays the models, makes
   their skeletons and skin, animates them on a timeline and draws an animation into the
@@ -252,8 +232,8 @@ published with a pull request there, also from the console with a GitHub token, 
 between consoles on the home network. The games of the project are all in it (details in
 Italian in [README_OLD.md](README_OLD.md#market-m25)).
 
-The console screenshots come from QEMU (`tests/qemu_test.py --shots DIR`). The bm Studio
-and bm Animator ones come from `make test-studio-ui` and `make showreel`.
+The screenshots come from QEMU (`tests/qemu_test.py --shots DIR`), the showreel from
+`make showreel`.
 
 To write a game, see the guide [docs/GAME-GUIDE.md](docs/GAME-GUIDE.md) and the reference
 [docs/API.md](docs/API.md), with the shared game library `require "bmlib"` and the network

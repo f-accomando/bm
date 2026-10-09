@@ -2069,7 +2069,7 @@ static int l_model(lua_State *L)
 }
 
 /* ---- skeletal animation (bm Animator): the same arithmetic as
- * sdk/studio/js/rig.js */
+ * carts/animator/main.lua (its pose of a clip) */
 
 static void quat_norm(float q[4])
 {

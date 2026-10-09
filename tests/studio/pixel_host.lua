@@ -2,8 +2,8 @@
 -- the SD card; the sheet is a table of RGB565 colours as the kernel keeps
 -- them; cart_write writes the sheet as the kernel does, SHEET8 with the
 -- palette first when it fits), keys typed into it, and checks on what it
--- draws in the sheet and writes. The files are read again by bm Studio's
--- parser (check_pixel.js) and the kernel's (test_bm).
+-- draws in the sheet and writes. The files are read again by the build's
+-- Python (check_files.py) and the kernel (test_meshcap).
 --
 --   luahost tests/studio/pixel_host.lua ROOT SDDIR     (make test-studio)
 --

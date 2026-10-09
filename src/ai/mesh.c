@@ -486,7 +486,7 @@ static void qaxis(float x, float y, float z, float deg, float *o)
     o[3] = cosf(a / 2);
 }
 
-/* degrees around x, then y, then z (R = Rz Ry Rx, as rig.js fromEuler) */
+/* degrees around x, then y, then z (R = Rz Ry Rx, as bm Animator's angles) */
 void turn(mesh_key_t *k, int b, float rx, float ry, float rz)
 {
     if (b < 0 || b >= MESH_MAX_BONES)

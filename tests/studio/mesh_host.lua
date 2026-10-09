@@ -3,7 +3,7 @@
 -- the game's code with Lua's load as the kernel does with meshcap.c;
 -- cart_write() rewrites the sections as bm_rewrite_with), keys typed into
 -- it, and checks on what it shows and writes. The files it saves are read
--- again by bm Studio's parser (check_mesh.js) and the kernel's (test_bm).
+-- again by the build's Python (check_files.py) and the kernel (test_meshcap).
 --
 --   luahost tests/studio/mesh_host.lua ROOT SDDIR     (make test-studio)
 --

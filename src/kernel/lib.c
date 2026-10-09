@@ -1,6 +1,6 @@
 #include "lib.h"
-#include "fiber.h"
 #include "audio/player.h"
+#include "fiber.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
 #include "lib/printf.h"
@@ -108,7 +108,8 @@ static void audio_items(int src, const uint8_t *a, uint32_t size)
     if (size < 16 || memcmp(a, "BMAU", 4))
         return;
     unsigned ns = a[5], nx = a[6], np = a[7], ng = a[8];
-    const uint32_t sb = a[4] >= 2 ? AU_SOUND_BYTES : 24;     /* version 1: 24 */
+    /* a sound is 48 bytes from version 2 (Audio 2: its tone), 24 before */
+    const uint32_t sb = a[4] == 1 ? 24 : AU_SOUND_BYTES;
     uint32_t off = 16, sfx_off[64], song_off[8];
     if (off + ns * sb > size)
         return;
@@ -253,7 +254,7 @@ static void scan_dir(const char *dir, int res)
     while (fat_readdir(&d, &e)) {
         if (e.is_dir || e.name[0] == '.')
             continue;
-        if (res ? !res_file(e.name) : !ends_with(e.name, ".bm") && !ends_with(e.name, ".bme"))
+        if (res ? !res_file(e.name) : !ends_with(e.name, ".bm"))
             continue;
         add_source(dir, &e);
         fiber_slice();

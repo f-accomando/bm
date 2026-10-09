@@ -28,5 +28,8 @@ const char *klog_text(void);
  * how much. For the reports (src/kernel/reports.c). */
 void klog_capture(char *buf, size_t size);
 size_t klog_captured(void);
+/* Each byte of the log, without colours and '\r', also to ring (NULL:
+ * none): the last lines kept for after a crash (src/kernel/crumbs.c). */
+void klog_set_ring(void (*ring)(char c));
 
 #endif

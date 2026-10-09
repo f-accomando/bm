@@ -15,6 +15,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "drivers/dma.h"
 #include "gpu/gpu3d.h"
@@ -414,8 +415,29 @@ void console_suspend(int suspend) { (void)suspend; }
 
 static uint8_t *pages;
 
+#ifdef BMHOST_GPU
+/* at the end: a block of the driver written past its end (the guard of
+ * v3d_emu.c) fails the run (bm3d 6.8: flat meshes on more groups were
+ * written past their copy) */
+static void arena_check(void)
+{
+    const int n = test_arena_overruns();
+    if (n) {
+        fprintf(stderr, "bmhost-gpu: %d blocks of the GPU's driver written past their end\n", n);
+        _exit(3);
+    }
+}
+#endif
+
 int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers, uint32_t depth)
 {
+#ifdef BMHOST_GPU
+    static int checked;
+    if (!checked++) {
+        atexit(arena_check);
+        emu_need_clip = getenv("EMU_NEED_CLIP") != NULL;    /* the V3D of the Pi: GL needs the clipper */
+    }
+#endif
 #ifndef BMHOST_GPU
     free(pages);
 #endif

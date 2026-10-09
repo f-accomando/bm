@@ -3,8 +3,8 @@
 -- sections are strings, nothing is drawn but the text is kept), keys typed
 -- into them, and checks on what they show and write. bm Studio builds and
 -- saves BLOCKS.BME (a project), bm Animator gives it a skeleton and an animation; the
--- files are read again by bm Studio's parser (check_studio3d.js) and the
--- kernel's (test_bm).
+-- files are read again by the build's Python (check_files.py) and the
+-- kernel's parser (test_bm).
 --
 --   luahost tests/studio/tools3d_host.lua ROOT SDDIR     (make test-studio)
 --

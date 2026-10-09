@@ -510,6 +510,54 @@ static void s_sheets(r3d_t *r, g16_t *g, int gpu)
 }
 static void s_full(r3d_t *r, g16_t *g, int gpu) { many(r, g, gpu, 700); }
 
+/* bm3d 6.8: four flat triangles, each on its own bone: four groups whose
+ * corners are all different (no corner kept once), 56 bytes each. Each
+ * group of the indexed copy starts on 16 bytes; the copy was made for
+ * the corners without that room, and the last groups were written past
+ * its end (on the Pi: Overbit, the heap broken, a data abort in free) */
+static r3d_mesh_t tri4;
+static float tri4_bones[4][12];
+static uint8_t tri4_vbone[12];
+static void s_vshader_groups(r3d_t *r, g16_t *g, int gpu)
+{
+    if (!tri4.nverts) {
+        r3d_mesh_alloc(&tri4, 12, 4);
+        for (int t = 0; t < 4; t++) {
+            const float x = -2.2f + 1.2f * (float)t;
+            tri4.verts[t * 3] = (v3_t){ x, 0.8f, 0 };             /* top left, top right, bottom left: */
+            tri4.verts[t * 3 + 1] = (v3_t){ x + 1.0f, 0.8f, 0 };  /* clockwise seen from the camera */
+            tri4.verts[t * 3 + 2] = (v3_t){ x, -0.8f, 0 };
+            for (int k = 0; k < 3; k++) {
+                tri4.faces[t * 3 + k] = (uint16_t)(t * 3 + k);
+                tri4_vbone[t * 3 + k] = (uint8_t)t;
+            }
+            tri4.colors[t] = 0x3060C0u + 0x302010u * (uint32_t)t;
+            const float B[12] = { 1, 0, 0, 0, 0, 1, 0, 0.1f * (float)t, 0, 0, 1, 0 };
+            memcpy(tri4_bones[t], B, sizeof B);
+        }
+        tri4.bones = (const float (*)[12])tri4_bones;
+        tri4.vbone = tri4_vbone;
+        tri4.nbones = 4;
+        r3d_mesh_normals(&tri4);
+    }
+    r3d_camera(r, 0, 0, -5, 0, 0, 60);
+    r3d_light(r, 0, 0.3f, -1, 0.5f);
+    gpu3d_set_vshader(gpu ? 2 : 0);
+    r3d_draw_flags(r, &tri4, (v3_t){ 0, 0, 0 }, 0, 0, 0, 1, 0);
+    flush(r, g, gpu);
+    gpu3d_set_vshader(0);
+}
+
+/* bm3d 6.7: the same, the vertex shader placing the quad: a copy of its
+ * corners for each sheet (one copy made again at each sheet drew the job
+ * before every quad: the 3D Bench's texswap 1436 -> 6.6 quads on the Pi) */
+static void s_vshader_sheets(r3d_t *r, g16_t *g, int gpu)
+{
+    gpu3d_set_vshader(gpu ? 2 : 0);
+    s_sheets(r, g, gpu);
+    gpu3d_set_vshader(0);
+}
+
 /* ten sheets in turn: more than a job keeps (8), so two jobs */
 static void s_sheets10(r3d_t *r, g16_t *g, int gpu)
 {
@@ -688,6 +736,8 @@ static const struct { const char *name; scene_fn fn; int w, h; float limit; int 
     { "vshader textured", s_vshader_heroes_tex, 640, 360, 0.04f, 1 },
     { "vshader skin", s_vshader_skin, 640, 360, 0.04f, 1 },
     { "10 sheets", s_sheets10, 640, 360, 0.02f, 0 },
+    { "vshader sheets", s_vshader_sheets, 640, 360, 0.02f, 0 },
+    { "vshader groups", s_vshader_groups, 640, 360, 0.02f, 0 },
     { "tex screen", s_tex_screen, 640, 360, 0.03f, 0 },
     { "2D on GPU", s_2d, 640, 360, 0.02f, 0 },
 };
@@ -786,6 +836,15 @@ static void run_scene(int s)
                 CHECK(emu_stats.jobs - jobs == 1, "3 sheets: %u jobs (8 sheets fit in one)", emu_stats.jobs - jobs);
             if (scenes[s].fn == s_sheets10)
                 CHECK(emu_stats.jobs - jobs >= 2, "10 sheets: one job");
+            if (scenes[s].fn == s_vshader_groups) {
+                CHECK(test_arena_overruns() == 0, "vshader groups: the corners' copy written past its end");
+                if (emu_clip != 1)      /* (the models lit by the sun need the clipper) */
+                    CHECK(emu_stats.glverts > glverts, "vshader groups: no mesh placed by the vertex shader");
+            }
+            if (scenes[s].fn == s_vshader_sheets)
+                CHECK(emu_stats.jobs - jobs == 1 && emu_stats.glverts > glverts,
+                      "vshader sheets: %u jobs (one), %u corners by the vertex shader", emu_stats.jobs - jobs,
+                      emu_stats.glverts - glverts);
             if (s == 5) {
                 CHECK(emu_stats.jobs - jobs >= 2, "full job: one job");
                 CHECK(emu_stats.zstores > zstores, "full job: the depth was not kept between jobs");
@@ -1174,6 +1233,8 @@ int main(int argc, char **argv)
     printf("  vertex shader: %u corners shaded for %u indexed (M39)\n", emu_stats.glverts, emu_stats.glindexed);
     CHECK(emu_stats.glindexed > 0 && emu_stats.glverts < emu_stats.glindexed, "indexed meshes: %u shaded for %u",
           emu_stats.glverts, emu_stats.glindexed);
+    const int over = test_arena_overruns();
+    CHECK(over == 0, "%d blocks of the driver written past their end", over);
     printf("gpu3d: %u jobs, %u triangles; %d/%d checks passed\n", st.jobs, st.tris, checks - failures, checks);
     return failures ? 1 : 0;
 }

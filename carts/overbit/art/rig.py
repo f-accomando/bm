@@ -3,7 +3,7 @@ rig.py - skeletons and animations of Overbit's heroes, written as the ANIM
 section of a .bm (src/bm/bm.h, the format of bm Animator).
 
 A bone turns around its head: M = M_parent * T(head + t) * R(q) * T(-head),
-with q relative to the parent (runtime.c animate(), sdk/studio/js/rig.js).
+with q relative to the parent (runtime.c animate()).
 Poses are written in degrees: {bone: (rx, ry, rz)} or (rx, ry, rz, tx, ty,
 tz); the angles turn x, then y, then z, in the parent's frame. With y up and
 the character facing +z: rx > 0 swings a hanging arm or leg backwards, ry

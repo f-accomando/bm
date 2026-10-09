@@ -11,8 +11,12 @@
 #include "gfx/console.h"
 #include "drivers/led.h"
 #include "lib/printf.h"
+#include "lib/heap.h"
+#include "drivers/timer.h"
 
 #include <stdarg.h>
+
+extern char __text_end[];
 
 static framebuffer_t *panic_fb;
 static uint32_t panic_w, panic_h;       /* the console's mode */
@@ -56,9 +60,52 @@ static void panic_screen(void)
                      fb_color(panic_fb, 170, 0, 0));
 }
 
+/* The words on the stack that are return addresses (the instruction before
+ * them a BL or BLX): who called what crashed, for addr2line on the kernel's
+ * ELF. A guess, but without frame pointers it is what there is. */
+static void callers(uint32_t sp)
+{
+    if (sp & 3 || sp < 0x8000 || sp >= heap_end())
+        return;
+    int n = 0;
+    kprintf("called from:");
+    for (const uint32_t *w = (const uint32_t *)sp; n < 16 && (uintptr_t)(w + 1) <= heap_end() &&
+                                                   w < (const uint32_t *)sp + 2048; w++) {
+        const uint32_t a = *w;
+        if (a & 3 || a < 0x8004 || a > (uint32_t)__text_end)
+            continue;
+        const uint32_t insn = *(const uint32_t *)(a - 4);
+        if ((insn & 0x0F000000u) == 0x0B000000u || (insn & 0xFE000000u) == 0xFA000000u ||
+            (insn & 0x0FFFFFF0u) == 0x012FFF30u) {
+            kprintf("%s%08lx", n == 8 ? "\n  " : " ", a);
+            n++;
+        }
+    }
+    kprintf("\n");
+}
+
 static void __attribute__((noreturn)) die(uint32_t code)
 {
     kprintf("System halted. LED blink code: %lu\n", code);
+    crumbs_crashed();
+    /* after a minute the watchdog restarts the Pi, which keeps its memory:
+     * the next boot sends this screen as a report (2026-10-06, the crashes
+     * seen without a serial cable); not in the first 20 s of a boot, where
+     * it would come again and again */
+    if (crumbs_uptime_ms() >= 20000) {
+        kprintf("Restarting in 60 s: this screen goes out as a report\n");
+        const uint32_t t0 = timer_ticks();
+        while (timer_ticks() - t0 < 60u * 1000000u) {
+            for (unsigned i = 0; i < code; i++) {
+                led_set(1);
+                timer_delay_ms(200);
+                led_set(0);
+                timer_delay_ms(300);
+            }
+            timer_delay_ms(1500);
+        }
+        watchdog_reboot();
+    }
     led_blink_code(code);
 }
 
@@ -81,6 +128,7 @@ void exception_handler(uint32_t type, exc_frame_t *f)
         kprintf("IFSR=%08lx\n", read_ifsr());
     if (!(f->pc & 3) && f->pc < PERIPHERAL_BASE)
         kprintf("insn @PC = %08lx\n", *(volatile uint32_t *)f->pc);
+    callers(f->sp);
 
     die(type);
 }
@@ -95,5 +143,8 @@ void panic(const char *fmt, ...)
     va_end(ap);
     kprintf("\n");
     crumbs_print();
+    uint32_t sp;
+    __asm__ volatile("mov %0, sp" : "=r"(sp));
+    callers(sp);
     die(9);
 }

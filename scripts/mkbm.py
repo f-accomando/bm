@@ -28,11 +28,11 @@ map.csv:   one row of comma-separated sprite indices per line (0 = empty).
            top-left corner (they may stick out).
 --audio:   the sound bank (sounds, sound effects, music): JSON or binary,
            see scripts/bmaudio.py; sfx() and music() play it.
---models:  3D models for model(): a .glb exported by bm Studio (sdk/studio;
-           its texture is the sprite sheet, used as the sheet when there is
-           no --sheet) or a .bm made with bm Studio / bm Animator: its models,
-           their skeletons and animations (ANIM), and its sheet when there is
-           no --sheet.
+--models:  3D models for model(): a .glb (its texture is the sprite
+           sheet, used as the sheet when there is no --sheet) or a .bm made
+           with bm Studio / bm Animator on the console: its models, their
+           skeletons and animations (ANIM), and its sheet when there is no
+           --sheet.
 Format: see src/bm/bm.h.
 """
 import argparse

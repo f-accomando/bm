@@ -693,9 +693,7 @@ static void test_mesh(void)
     }
 }
 
-/* A cartridge written by bm Studio (tests/studio/test_core.js): the
- * kernel's parser takes its models. */
-/* bm Pixel: the SHEET8 packer of the kernel (the runs of bm Studio's
+/* bm Pixel: the SHEET8 packer of the kernel (the runs of mkbm.py's
  * encoder), the sheet put by bm_rewrite_with, the zoomed blit */
 static uint8_t big_idx[64 * 40];
 static const uint8_t *big_pal;
@@ -792,34 +790,8 @@ static void test_pixel(void)
     g16_sheet_free(&s);
 }
 
-static void test_studio_cart(const char *path)
-{
-    size_t n;
-    uint8_t *d = read_file(path, &n);
-    CHECK(d != NULL, "read %s", path);
-    if (!d) return;
-    bm_cart_t c;
-    char err[64] = "";
-    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "parse the bm Studio cartridge: %s", err);
-    CHECK(c.width == 320 && c.sheet8 && c.sheet_w == 256 && c.cover_rgba && c.map_cells, "its sections");
-    CHECK(c.models == 2 && bm_mesh_inset(c.mesh) == 0.5f, "its models (%d)", c.models);
-    bm_model_t m;
-    CHECK(bm_mesh_model(c.mesh, c.mesh_size, 0, &m) == 0 && strcmp(m.name, "house") == 0 && m.nfaces == 21,
-          "house: %u triangles", m.nfaces);
-    int textured = 0;
-    for (int f = 0; f < m.nfaces; f++) {
-        uint16_t idx[3];
-        uint32_t col;
-        float uv[6];
-        bm_model_face(&m, f, idx, &col, uv);
-        textured += (col & 0x80000000u) != 0;
-    }
-    CHECK(textured == 20, "textured faces: %d", textured);
-    free(d);
-}
-
-/* A cartridge with a skeleton written by bm Studio's core (test_core.js):
- * the kernel reads the rig, its clips and keys; broken rigs are refused. */
+/* A cartridge with a skeleton (tests/studio/anim_figure.py): the kernel
+ * reads the rig, its clips and keys; broken rigs are refused. */
 static void test_anim_cart(const char *path)
 {
     size_t n;
@@ -898,11 +870,9 @@ int main(int argc, char **argv)
     test_mesh();
     test_pixel();
     if (argc > 2)
-        test_studio_cart(argv[2]);
+        test_anim_cart(argv[2]);
     if (argc > 3)
-        test_anim_cart(argv[3]);
-    if (argc > 4)
-        test_console_cart(argv[4]);
+        test_console_cart(argv[3]);
     printf("bm: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

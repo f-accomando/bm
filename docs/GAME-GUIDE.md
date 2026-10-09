@@ -46,14 +46,12 @@ code, sprites, models and sounds, but do not change it. Saving one, they ask to 
 editable copy*. When the project is ready, **Ctrl+B** in the SDK (or *Build the game (.bm)*
 in its options) makes its game: `MYGAME.BM` in Games, replaced at every build.
 
-**On the PC**, for 3D models and pixel art: **bm Studio**; for skeletons, animations and
-pre-rendered sprites: **bm Animator** ([sdk/README.md](../sdk/README.md)). They are web
-pages that open and save `.bm` files (also right on the SD card). The console's SDK,
-when it saves, keeps the models and the animations. **On the console**, in the Dev tab,
-there are **bm Studio** and **bm Animator** with the same names (X on a game's cover,
-*Open in bm Studio* / *Open in bm Animator*): they build with blocks and tiles, choose and
-move faces and corners, paint on the model, make skeletons, animations and sprites, save
-and try the game, with the keyboard or the gamepad.
+For 3D models: **bm Studio**; for skeletons, animations and pre-rendered sprites: **bm
+Animator** ([sdk/README.md](../sdk/README.md)). They are on the console, in the Dev tab (X on
+a game's cover, *Open in bm Studio* / *Open in bm Animator*): they build with blocks and
+tiles, choose and move faces and corners, paint on the model, make skeletons, animations
+and sprites, save and try the game, with the keyboard or the gamepad. The SDK, when it
+saves, keeps the models and the animations; **bm Pixel** draws the sprite sheet.
 
 ## 1. What a cartridge is made of
 
@@ -341,8 +339,8 @@ end
 - 2D and 3D mix: a background with `rectfill`/`map`, models with `draw3d`, the HUD with
   `print` at the end.
 
-**With bm Studio** ([sdk/README.md](../sdk/README.md)): models are made on the PC placing
-the sprite sheet's tiles on a grid, and they live in the `.bm` itself; in the game
+**With bm Studio** ([sdk/README.md](../sdk/README.md)): models are made on the console
+placing the sprite sheet's tiles on a grid, and they live in the `.bm` itself; in the game
 `model("name")` gives them as meshes:
 
 ```lua
@@ -357,8 +355,8 @@ end
 
 `models()` gives the names, `bounds3d(m)` the box round the model.
 
-**Animated with bm Animator**: the skeleton and the animations (made on the PC, in the
-`.bm`) come with the model; `animate(m, "walk", t)` puts the model in the pose of "walk" at
+**Animated with bm Animator**: the skeleton and the animations (made on the console, in
+the `.bm`) come with the model; `animate(m, "walk", t)` puts the model in the pose of "walk" at
 time `t` (in seconds), before `draw3d`:
 
 ```lua
