@@ -185,3 +185,53 @@ This section documents engineering iterations, failure post-mortems, and trade-o
 * **QPU Compute Outside 3D (M44)**: Offloading particle systems and 2D dynamic lighting to QPUs when 3D is idle.
 * **Sprite Stacking (M43)**: Pseudo-3D volume rendering via rotated 2D slices in `gfx16.c`.
 
+---
+
+## 8. Resolution Scaling & Upscaling Strategies (Nearest, Bilinear, Bicubic, FSR vs. DLSS)
+
+Scaling low-resolution internal render targets (320×180, 480×270, 640×360) up to HD/FHD display outputs (720p, 1080p) involves distinct quality-versus-bandwidth trade-offs on the BCM2835:
+
+### 1. Comparison of Scaling Techniques
+
+| Technique | Computational Cost | Visual Quality Profile | Feasibility on Pi Zero W / BCM2835 |
+|---|---|---|---|
+| **Nearest-Neighbor** | Extremely cheap (coordinate stepping only) | Sharp integer pixels, but heavily pixelated/aliased on 3D geometry | **Ideal for 2D retro pixel art** (integer 2×/3× scale); unsuitable for 3D camera rotation. |
+| **Bilinear** | Cheap (4-tap linear interpolation) | Smoother than nearest, but causes noticeable edge and texture blur | **Free in Hardware**: Handled natively by the VideoCore Hardware Video Scaler (HVS) during scanout. |
+| **Bicubic / Catmull-Rom** | Moderate/High (16-tap cubic kernel) | Noticeably sharper edges than bilinear, preserves gradients | Feasible on QPUs as a post-processing pass or offline for asset scaling; costly for CPU. |
+| **FSR-Style Spatial (EASU + RCAS)** | Moderate (12-tap edge-adaptive kernel + contrast sharpening) | Reconstructs geometric edges cleanly along gradient directions; near-native visual sharpness | **Practical analytical approach**: Operates without AI/temporal vectors; can run on QPUs or for asset scaling. |
+| **DLSS (Deep Learning Super Sampling)** | Extremely high (Tensor Cores / NPU + Temporal vectors) | Temporal reconstruction with deep neural network inference | **Unfeasible on ARM1176**: Requires motion vectors, jitter buffers, and tensor accelerators absent on the SoC. |
+
+### 2. Deep Dive: FSR-Style Spatial Upscaling vs. DLSS
+
+Modern game upscalers fall into two broad architectures:
+1. **Temporal Neural Reconstruction (DLSS)**:
+   * Requires per-pixel motion vectors, previous frame history reprojection, camera jitter, and dense deep neural network evaluation (Tensor Core MAC operations).
+   * *Verdict on BCM2835*: Discarded. The Pi Zero W lacks an NPU, and evaluating a neural network per pixel would consume dozens of frames per second just for inference.
+2. **Edge-Adaptive Spatial Upsampling (FSR 1.0 Style)**:
+   * **EASU (Edge-Adaptive Spatial Upsampling)**: Evaluates a 12-tap spatial neighborhood (cross-stencil) to detect the direction and magnitude of luminance gradients, interpolating along edges rather than across them.
+   * **RCAS (Robust Contrast-Adaptive Sharpening)**: Follows EASU with a local contrast-preserving unsharp mask that restores micro-contrast without creating ringing halos around dark/light boundaries.
+   * *Verdict on BCM2835*: **Computationally viable**. Because it is a purely analytical spatial filter with no temporal state and no neural weights, its math fits within QPU SIMD instruction sets.
+
+### 3. The Real Hardware Bottleneck: HVS Hardware vs. Shader Passes
+
+When evaluating modern shader-based upscaling (Bicubic or FSR) on the Raspberry Pi Zero W, the true constraint is **memory bus bandwidth**:
+
+1. **Broadcom Hardware Video Scaler (HVS)**:
+   * The VideoCore display controller reads the 640×360 or 480×270 framebuffer during HDMI scanout and resamples it on-the-fly to 720p/1080p.
+   * **Cost**: **0 ms CPU/GPU time, 0 MB/s extra SDRAM writes**.
+2. **Shader-Based Upscaling (QPU FSR/Bicubic Pass)**:
+   * To apply a custom spatial upscaler, the pipeline must:
+     1. Render the game at 480×270 or 640×360.
+     2. Run a full-screen post-processing shader pass.
+     3. Write the resulting 1920×1080 framebuffer to physical SDRAM.
+   * A 1920×1080 RGB565 frame requires **~4.15 MB**. At 60 fps, writing this buffer consumes **~249 MB/s of bandwidth** (or ~41.5 MB/s at 10 fps). On a memory bus delivering ~430 MB/s fill rate, this memory traffic directly starves CPU and GPU rendering.
+
+### 4. Optimal Roles for FSR-Style Spatial Upscaling in bm
+
+Given these hardware realities, FSR-style edge-adaptive scaling is most effectively deployed in two specific domains:
+* **Asset & Cover Upscaling (Offline / Semi-Static)**:
+  * Enhancing imported low-res 2D textures, game cover art for the Market, and sprite sheets (the "3D→sprite" pipeline in M22 / AI.md) without real-time 16.6 ms deadlines.
+* **Low-Resolution Intermediate Passes**:
+  * Scaling ultra-low-resolution 3D targets (e.g., 320×180 or 480×270 up to the native 640×360 system buffer). Because 640×360 RGB565 is only **0.46 MB**, writing the output consumes negligible bandwidth (~27.6 MB/s at 60 fps), after which the HVS hardware scales the 640×360 image to 1080p cleanly.
+
+
