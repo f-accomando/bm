@@ -3508,7 +3508,7 @@ def test_publish(b, opts):
             time.sleep(0.5)
             keys("x")                               # the options of My Game
             screen(["My Game", "Play"])
-            keys("ssssssss")                        # after the seven "Open in"
+            keys("sssssssss")                       # after the seven "Open in" and the copy
             screen(["Publish to the Market", "A pull request with your GitHub token"])
             keys("\r")
             screen(["Publish > My Game", "games/my-game", "License", "MIT", "GitHub token", "set",

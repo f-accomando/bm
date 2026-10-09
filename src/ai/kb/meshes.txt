@@ -144,6 +144,7 @@ title_en: House (cottage with a roof)
 ask: crea una casa | house | una casetta | cottage | make a house | casa col tetto
 ask: casa del villaggio | abitazione | capanna | hut | home | casa 3d
 ask: casa blu | casa verde | casetta gialla | blue house | green house | casa di mattoni
+ask: casa rossa | una casa rossa | red house | a red house
 text: Muri, tetto a due falde, porta e finestre; le varianti hanno il camino.
 Il colore chiesto è quello dei muri, il secondo quello del tetto.
 text_en: Walls, gabled roof, door and windows; the variants have a chimney.
