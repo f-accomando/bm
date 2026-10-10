@@ -21,6 +21,22 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 (rimossa) ─┬─ M7 ─┬─ M9
 
 ---
 
+## Da fare (aggiornato 2026-10-10)
+
+Controlli su Yharnam, senza milestone propria. Sono solo da verificare: nessuna correzione
+in questa passata, nessuna cosa già decisa.
+
+- [ ] **Prestazioni di Yharnam**: misurare il costo di un fotogramma sul Pi Zero W e sulla
+  RGB30 (generazione dei chunk in sottofondo, `stream()`, buio a livelli, particelle) con il
+  report di sessione del dev kit e le righe `devinfo()` a fine partita. Il confronto è con il
+  budget di 60 fps di M42.
+- [ ] **Glitch grafico all'avvio di Yharnam**: un piccolo difetto visibile nei primi fotogrammi.
+  Da descrivere sul Pi: quando compare, quanto dura, in quale schermata (titolo o gioco dopo
+  i primi chunk). Punti da guardare, come ipotesi: `_init` (le tabelle di fade prima del primo
+  disegno) e `visible_chunks` (i chunk non ancora pronti non si disegnano).
+
+---
+
 ## M0 — Boot e test pattern HDMI ✅ verificato su Pi Zero W (S)
 - `start.S`, linker a 0x8000, mailbox, framebuffer 32 bpp, LED ACT, barre colore.
 - **Fatto quando:** pattern visibile su HDMI; `make qemu-screenshot` produce l'immagine.
@@ -1415,9 +1431,6 @@ e si giocano; la RGB30 ha la sua scheda Market con i soli `.b16`; i giochi giran
 fuori: sul Pi la pubblicazione con una pull request, le copertine e i 60 fps durante i
 download, lo scambio fra due console (M24); sulla RGB30 il catalogo vero con i primi `.b16`
 (M42).
-
-## M26 — unita a M25 (2026-10-01)
-Il "market gratuito legato allo store" e lo store su GitHub sono la stessa cosa: vedi M25.
 
 ## M27 — BareMetal UI (menu giochi/dev) (L) — ✅ chiusa (2026-09-30: task 1–4)
 Chiusa dall'autore il 2026-09-30 con i task 1–4 verificati sul Pi e le icone della barra
