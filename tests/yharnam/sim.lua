@@ -470,6 +470,7 @@ end
 -- the hunt: a map of 4 areas, mist only round it, a boss in each, two lamps
 local M = Y.MAP
 local SZ = M.size
+check(Y.district(0, 0).kind == "square", "the start is a square")
 check(Y.blocked(-12, 100) and Y.blocked(100, -12), "mist to the west and north of the start")
 check(Y.blocked(SZ * 256 + 8, 300) and Y.blocked(300, SZ * 256 + 8), "mist to the east and south of the map")
 check(not Y.blocked(2 * 256 + 100, 5 * 256 + 100) or true, "no mist inside the map")
@@ -779,16 +780,22 @@ F.quiet = false
 local R = Y.REGION
 local kinds_of = {}
 for a = 1, 4 do
-  local n, mine, ar = 0, {}, M.areas[a]
-  for _, m in ipairs(R[a].mix) do mine[m[1]] = true end
+  local n, ar = 0, M.areas[a]
   for cy = ar.y0, ar.y1 do
     for cx = ar.x0, ar.x1 do
       local d = Y.district(cx, cy)
-      if mine[d.kind] or d.boss or (cx == 0 and cy == 0) then n = n + 1 end
+      local c = ar.layout[cy - ar.y0 + 1]:sub(cx - ar.x0 + 1, cx - ar.x0 + 1)
+      if d.kind == (c == "B" and R[a].boss or M.kinds[c]) and (c == "B") == d.boss then n = n + 1 end
       kinds_of[a - 1] = (kinds_of[a - 1] or "") .. d.kind:sub(1, 2) .. " "
     end
   end
-  check(n == 16, "area " .. a .. ": only the districts of its region")
+  check(n == 16, "area " .. a .. ": its districts are its layout's")
+  local bcx, bcy = M.boss_chunk(a)
+  check(ar.layout[bcy - ar.y0 + 1]:sub(bcx - ar.x0 + 1, bcx - ar.x0 + 1) == "B", "area " .. a .. ": its layout marks the arena")
+  for k = 1, 2 do
+    local lx, ly = M.lamp_chunk(a, k)
+    check(not (lx == bcx and ly == bcy), "area " .. a .. ": lamp " .. k .. " is not in the boss's arena")
+  end
   local bx2, by2 = M.boss_chunk(a)
   local bd = Y.district(bx2, by2)
   check(bd.boss and bd.kind == R[a].boss, "area " .. a .. ": its boss's arena is a " .. R[a].boss)
@@ -967,6 +974,32 @@ do
   F.quiet = true
   clear()
   Y.G.gates, Y.G.bosses = {}, {}
+
+  -- the boss's arenas: room to fight, a few things to hide behind (not so many that the boss is
+  -- caught, nor the hunter): the ground within 96 px of the middle, tried every 12 px
+  for a = 1, 4 do
+    local bx2, by2 = M.boss_chunk(a)
+    local ch = Y.ensure(bx2, by2)
+    local x0, y0 = bx2 * 256 + 128, by2 * 256 + 128
+    local free, total = 0, 0
+    for dy = -96, 96, 12 do
+      for dx = -96, 96, 12 do
+        if dx * dx + dy * dy <= 96 * 96 then
+          total = total + 1
+          if not Y.blocked(x0 + dx, y0 + dy) then free = free + 1 end
+        end
+      end
+    end
+    local cover = 0
+    for _, c in ipairs(ch.cols) do
+      local dx, dy = c.x - x0, c.y - y0
+      if not c.off and dx * dx + dy * dy < 128 * 128 and dx * dx + dy * dy > 40 * 40 then cover = cover + 1 end
+    end
+    io.write(string.format("arena %d (%s): %d%% of its middle open, %d things to take cover behind\n", a,
+                           R[a].boss, free * 100 // total, cover))
+    check(free * 100 // total >= 88, "area " .. a .. ": the arena's middle is open (" .. free * 100 // total .. "%)")
+    check(cover <= 14, "area " .. a .. ": few things to hide behind (" .. cover .. ")")
+  end
 end
 
 io.write(string.format("frames: %d; Lua instructions per frame: median %d, 99%% %d, heaviest %d (%s); " ..

@@ -1360,19 +1360,16 @@ local function fdiv(a, b) return floor(a) // b end   -- an integer, from pixels 
 
 local PV_COBBLE, PV_SETTS, PV_FLAGS, PV_ALLEY, PV_WARM, PV_MARBLE, PV_DARK, PV_WET, PV_EARTH = 1, 2, 3, 4, 5, 6, 7, 8, 9
 -- The four regions of the hunt, one to an area (the user's wish: each its
--- own place): the districts it is made of (weights, in order), the paving
--- of its quarters, the kind of its boss's arena. Central Yharnam, the
+-- own place): how thick its things grow (dens: the further, the barer), the
+-- paving of its quarters, the kind of its boss's arena. Its districts are the
+-- layout of its area (MAP.areas). Central Yharnam, the
 -- Forest (woods and clearings, earth paths, a little moonlight), Cathedral
 -- Ward, the forbidden quarter. There is no fifth: the fourth boss ends it.
 local REGION = {
-  { mix = { { "town", 70 }, { "square", 12 }, { "pyre", 8 }, { "park", 5 }, { "cemetery", 5 } },
-    pave = { PV_COBBLE, PV_COBBLE, PV_WARM, PV_SETTS, PV_WET }, boss = "pyre" },
-  { mix = { { "woods", 78 }, { "clearing", 12 }, { "cemetery", 10 } }, pave = { PV_EARTH }, boss = "clearing",
-    wild = true },
-  { mix = { { "town", 40 }, { "cemetery", 28 }, { "square", 14 }, { "chapel", 10 }, { "park", 8 } },
-    pave = { PV_SETTS, PV_DARK, PV_COBBLE, PV_DARK }, boss = "cemetery" },
-  { mix = { { "town", 45 }, { "chapel", 22 }, { "cemetery", 15 }, { "square", 10 }, { "pyre", 8 } },
-    pave = { PV_DARK, PV_WET, PV_DARK, PV_SETTS }, boss = "chapel" },
+  { dens = 0.85, pave = { PV_COBBLE, PV_COBBLE, PV_WARM, PV_SETTS, PV_WET }, boss = "pyre" },
+  { dens = 0.7, pave = { PV_EARTH }, boss = "clearing", wild = true },
+  { dens = 0.6, pave = { PV_SETTS, PV_DARK, PV_COBBLE, PV_DARK }, boss = "cemetery" },
+  { dens = 0.55, pave = { PV_DARK, PV_WET, PV_DARK, PV_SETTS }, boss = "chapel" },
 }
 
 local corners, edges, districts = {}, {}, {}
@@ -1400,13 +1397,22 @@ local MAP = {
   size = 8,
   areas = {
     { id = "central", name = "Central Yharnam", x0 = 0, y0 = 0, x1 = 3, y1 = 3, boss = "butcher",
-      bc = { 2, 2 }, lamps = { { 1, 1 }, { 2, 1 } } },
+      bc = { 2, 2 }, lamps = { { 1, 1 }, { 2, 1 } },
+      -- the old town: squares along the way up to the pyre (the start, the lamp, the Butcher's),
+      -- a park by the cathedral's gate, a graveyard in the corner
+      layout = { "sttc", "tstt", "ttBp", "pttt" } },
     { id = "forest", name = "Forest", x0 = 0, y0 = 4, x1 = 3, y1 = 7, boss = "hound",
-      bc = { 1, 6 }, lamps = { { 2, 5 }, { 1, 5 } } },
+      bc = { 1, 6 }, lamps = { { 2, 5 }, { 1, 5 } },
+      -- woods with two clearings, the Hound's in the south, and two old graveyards in the trees
+      layout = { "wwww", "wwlw", "cBww", "wwwc" } },
     { id = "cathedral", name = "Cathedral Ward", x0 = 4, y0 = 0, x1 = 7, y1 = 3, boss = "father",
-      bc = { 6, 1 }, lamps = { { 5, 1 }, { 6, 0 } } },
+      bc = { 6, 1 }, lamps = { { 5, 1 }, { 6, 0 } },
+      -- the ward: chapels and graveyards round the Father's, a square between the lamps
+      layout = { "tthc", "tcBc", "tsct", "tttt" } },
     { id = "forbidden", name = "Forbidden Quarter", x0 = 4, y0 = 4, x1 = 7, y1 = 7, boss = "watcher",
-      bc = { 5, 6 }, lamps = { { 6, 5 }, { 5, 5 } } },
+      bc = { 5, 6 }, lamps = { { 6, 5 }, { 5, 5 } },
+      -- the forbidden quarter: chapels in a ring, graveyards, one more pyre
+      layout = { "tccy", "chhc", "tBcy", "ctht" } },
   },
   -- a, b: the two areas; edge: the chunks (of either side) it is in; type: "breakable", "oneway",
   -- "horde+breakable"; requires: the boss to slay first; from: the area a oneway gate opens from
@@ -1426,6 +1432,9 @@ local MAP = {
       from = "forbidden", edge = { { 4, 4 } } },
   },
   lamp = {}, horde = {},
+  -- the letters of a layout (rows north to south, one to a chunk); B is the boss's arena
+  kinds = { t = "town", s = "square", p = "park", c = "cemetery", y = "pyre", w = "woods", l = "clearing",
+            h = "chapel" },
 }
 -- the area (its number) a chunk is in; nil outside the map
 function MAP.area_of(cx, cy)
@@ -1563,27 +1572,23 @@ local function district(cx, cy)
   local d = districts[k]
   if d then return d end
   local h = hash(cx, cy, 7)
-  local v = (h % 1000) / 10
   local reg = REGION.of(cx, cy)
-  local kind = "town"
-  if cx == 0 and cy == 0 then kind = "square"
-  else
-    for _, m in ipairs(reg.mix) do
-      if v < m[2] then kind = m[1]; break end
-      v = v - m[2]
-    end
-  end
-  -- the arena at the end of an area: the boss's kind of district
-  local bossy = false
+  -- what the layout of its area says (outside the map, where only the mist is: the area's own ground)
+  local kind, bossy = reg.wild and "woods" or "town", false
   local ai = MAP.area_of(cx, cy)
   if ai then
-    local bx, by = MAP.boss_chunk(ai)
-    if cx == bx and cy == by then kind, bossy = reg.boss, true end
+    local a = MAP.areas[ai]
+    local c = a.layout[cy - a.y0 + 1]:sub(cx - a.x0 + 1, cx - a.x0 + 1)
+    kind = c == "B" and reg.boss or MAP.kinds[c]
+    bossy = c == "B"
   end
   d = { kind = kind, boss = bossy, wild = reg.wild }
   if kind == "square" then d.plaza, d.prx, d.pry, d.pcy = PV_FLAGS, 5.6, 5.0, 8
   elseif kind == "pyre" then d.plaza, d.prx, d.pry, d.pcy = PV_FLAGS, 5.2, 4.6, 8
-  elseif kind == "chapel" then d.plaza, d.prx, d.pry, d.pcy = PV_MARBLE, 5.4, 2.4, 13.0 end
+  elseif kind == "chapel" then
+    d.plaza, d.prx, d.pry, d.pcy = PV_MARBLE, 5.4, 2.4, 13.0
+    if bossy then d.prx, d.pry, d.pcy = 6.6, 3.4, 11.8 end        -- the Watcher's: the chapel at the back, a wide floor
+  end
   if kind == "town" and (h >> 12) % 100 < 40 then
     d.alley = { dir = (h >> 20) % 2, p = 5 + (h >> 22) % 6, k = 1 + (h >> 25) % 2, ph = (h >> 27) % 6 }
   end
@@ -1812,9 +1817,10 @@ local function gen(ch)
     end
   end
 
-  local function place_buildings(big)
+  local function place_buildings(big, lone)
     if big then
-      for yb = CS - 4, 7, -1 do
+      -- (the chapel of an arena stands at the back, north, and nothing else is built)
+      for yb = lone and 7 or CS - 4, lone and CS - 4 or 7, lone and 1 or -1 do
         for w = 11, 8, -1 do
           for x = 0, CS - w do
             if rect_free(x, yb - 7, w, 8) then
@@ -1825,6 +1831,7 @@ local function gen(ch)
         end
       end
       ::placed::
+      if lone then return end
     end
     -- rows of houses (terraces): one height and one roof to a row, two
     -- fronts in turn, the free length split into houses of about one width
@@ -1864,11 +1871,12 @@ local function gen(ch)
     { "crate", 0.01, { 6, 3 } }, { "well", 0.004, { 10, 5 } } }
 
   -- (dens: how thick they grow here, round 1)
+  local thin = REGION.of(cx, cy).dens                 -- the further in the hunt, the barer
   local function scatter(list, k, dens)
     for ly = 0, CS - 1 do
       for lx = 0, CS - 1 do
         if freecell(lx, ly, k) then
-          local m = dens and dens(lx, ly) or 1
+          local m = (dens and dens(lx, ly) or 1) * thin
           for _, p in ipairs(list) do
             if r() < p[2] * m then
               take(lx, ly)
@@ -1890,9 +1898,9 @@ local function gen(ch)
 
   local kd = d.kind
   if kd == "town" or kd == "chapel" then
-    place_buildings(kd == "chapel")
+    place_buildings(kd == "chapel", d.boss)
     for i = 1, CS * CS do if kind[i] == K_FREE then kind[i] = K_YARD end end
-    scatter(yard_props, K_YARD)
+    scatter(yard_props, K_YARD, d.boss and function() return 0.25 end)
   elseif kd == "cemetery" then
     for i = 1, CS * CS do if kind[i] == K_FREE then kind[i] = K_GRASS end end
     -- gravel paths across, then the fence along the street
@@ -1901,10 +1909,11 @@ local function gen(ch)
         if K(lx, ly) == K_GRASS and (lx == 7 or lx == 8 or ly == 8) then kind[ly * CS + lx + 1] = K_PATH end
       end
     end
-    -- a mausoleum
-    if r() < 0.7 then
-      for t = 1, 20 do
+    -- a mausoleum (the Father's arena: at the back, the middle left bare)
+    if r() < 0.7 or d.boss then
+      for t = 1, d.boss and 80 or 20 do
         local x, y = irange(r, 1, CS - 6), irange(r, 1, CS - 5)
+        if d.boss then x, y = (t - 1) % 9 + 1, (t - 1) // 9 end              -- the first place that fits, northmost
         local ok = true
         for yy = y, y + 3 do for xx = x, x + 4 do if not freecell(xx, yy, K_GRASS) then ok = false end end end
         if ok then
@@ -1918,7 +1927,9 @@ local function gen(ch)
     end
     for ly = 1, CS - 2, 3 do
       for lx = 1, CS - 2, 3 do
-        if freecell(lx, ly, K_GRASS) and r() < 0.75 then
+        -- (the Father's arena: graves only towards the rim, and fewer)
+        local far = not d.boss or (lx - 7.5) ^ 2 + (ly - 7.5) ^ 2 > 4.2 ^ 2
+        if freecell(lx, ly, K_GRASS) and far and r() < (d.boss and 0.45 or 0.75) then
           take(lx, ly)
           local g = pick(r, GRAVES)
           add_obj(ch, g, wx(lx), wy(ly) + 4, nil, { 7, 3 })
@@ -1931,9 +1942,11 @@ local function gen(ch)
     end
     for k = 1, irange(r, 1, 2) do
       local lx, ly = irange(r, 1, 14), irange(r, 1, 14)
+      if d.boss then lx, ly = k == 1 and 3 or 12, 12 end            -- (a statue at each side, to cover behind)
       if freecell(lx, ly, K_GRASS) then take(lx, ly); add_obj(ch, "angel", wx(lx), wy(ly) + 6, nil, { 9, 5 }) end
     end
-    scatter({ { "tree3", 0.03, { 5, 3 } }, { "tree", 0.02, { 6, 3 } }, { "bush2", 0.02, { 8, 4 } } }, K_GRASS, grove)
+    scatter({ { "tree3", 0.03, { 5, 3 } }, { "tree", 0.02, { 6, 3 } }, { "bush2", 0.02, { 8, 4 } } }, K_GRASS,
+            d.boss and function(lx, ly) return (lx - 7.5) ^ 2 + (ly - 7.5) ^ 2 > 7 ^ 2 and grove(lx, ly) or 0 end or grove)
     -- railings where the cemetery meets the pavement, a gap for the paths
     for ly = 0, CS - 1 do
       for lx = 0, CS - 1 do
@@ -1943,7 +1956,9 @@ local function gen(ch)
           local s = ly < CS - 1 and K(lx, ly + 1) == K_WALK
           local w = lx > 0 and K(lx - 1, ly) == K_WALK
           local e = lx < CS - 1 and K(lx + 1, ly) == K_WALK
-          if n or s then
+          if d.boss then
+            -- (the Father's arena has no railings: the ground is open from the street to the graves)
+          elseif n or s then
             add_obj(ch, "fence_x", wx(lx), py0 + ly * TS + (n and 3 or 15), nil, { 9, 3 })
           elseif w or e then
             add_obj(ch, "fence_y", px0 + lx * TS + (w and 2 or 14), wy(ly) + 8, nil, { 3, 9 })
@@ -1984,6 +1999,7 @@ local function gen(ch)
       dens = function(lx, ly)
         local dx, dy = (lx - 7.5) / 7, (ly - 7.5) / 7
         local q = dx * dx + dy * dy
+        if d.boss then return q < 0.85 and 0 or q < 1.2 and 0.3 or 1.4 end      -- the Hound: room to run and pounce
         return q < 0.45 and 0 or q < 0.8 and 0.4 or 1.4
       end
       if not d.boss then
@@ -2042,7 +2058,7 @@ local function gen(ch)
       local a = a0 + k * 2 * PI / 3 + (k >= 3 and PI / 3 or 0)
       local dd = 60
       local ox, oy = cxp + cos(a) * dd, cyp + 14 + sin(a) * dd * 0.7
-      local ok = road_at(fdiv(ox, TS), fdiv(oy, TS), ne) > 0 and #spots < 3
+      local ok = road_at(fdiv(ox, TS), fdiv(oy, TS), ne) > 0 and #spots < (d.boss and 2 or 3)
       for _, q in ipairs(spots) do
         if abs(q[1] - ox) < 40 and abs(q[2] - oy) < 22 then ok = false end
       end
@@ -2062,7 +2078,7 @@ local function gen(ch)
       end
     end
     local ax, ay = px0 + 8 * TS, py0 + 13.2 * TS
-    if road_at(fdiv(ax, TS), fdiv(ay, TS), ne) > 0 then add_obj(ch, "angel", ax, ay + 8, nil, { 9, 5 }) end
+    if road_at(fdiv(ax, TS), fdiv(ay, TS), ne) > 0 and not d.boss then add_obj(ch, "angel", ax, ay + 8, nil, { 9, 5 }) end
   end
 
   ------------------------------------------------- street furniture
@@ -2292,6 +2308,8 @@ local function gen(ch)
         local o = add_obj(ch, "crates", x, y, nil, d[1] == 1 and { 6, 12 } or { 14, 3 })
         o.gate, o.sealed = g, not g
         if g and MAP.G.gates[g.id] then BRK.wreck(o) end      -- (G is the ground here)
+        -- a faint light along it (the night is dark: a wall must be seen coming), warmer at a gate
+        if k % 3 == 1 and not (g and MAP.G.gates[g.id]) then add_light(ch, x, y - 10, g and 56 or 44, g and 4 or 3, 0, 0.7) end
       end
     end
   end

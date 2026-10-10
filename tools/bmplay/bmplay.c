@@ -162,6 +162,9 @@ static int l_prompt(lua_State *L)
 
 static int l_lastinput(lua_State *L) { lua_pushstring(L, "pad"); return 1; }
 
+/* no typed keys on the PC's bot */
+static int l_keyp(lua_State *L) { lua_pushnil(L); return 1; }
+
 static int btn_index(lua_State *L) { return (int)luaL_checkinteger(L, 1); }
 
 static int l_btn(lua_State *L)
@@ -369,7 +372,7 @@ static const luaL_Reg api[] = {
     { "rectfill", l_rectfill }, { "circ", l_circ }, { "circfill", l_circfill }, { "camera", l_camera },
     { "clip", l_clip }, { "spr", l_spr }, { "sspr", l_sspr }, { "map", l_map }, { "mget", l_mget },
     { "mset", l_mset }, { "print", l_print }, { "font", l_font }, { "prompt", l_prompt },
-    { "lastinput", l_lastinput }, { "btn", l_btn }, { "btnp", l_btnp }, { "pad", l_pad }, { "time", l_time },
+    { "lastinput", l_lastinput }, { "keyp", l_keyp }, { "btn", l_btn }, { "btnp", l_btnp }, { "pad", l_pad }, { "time", l_time },
     { "stat", l_stat }, { "log", l_log }, { "quit", l_quit }, { "timeslice", l_nothing },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq }, { "envelope", l_envelope },
     { "duty", l_duty }, { "tone", l_tone }, { "play", l_play }, { "instruments", au_lua_instruments },

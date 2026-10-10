@@ -293,10 +293,10 @@ end
 ------------------------------------------------------------------ the hunt
 
 local function goals()
-  local l1x, l1y = Y.lamp_chunk(0, 1)
-  local l2x, l2y = Y.lamp_chunk(0, 2)
+  local l1x, l1y = Y.MAP.lamp_chunk(1, 1)
+  local l2x, l2y = Y.MAP.lamp_chunk(1, 2)
   local s1, s2 = Y.ensure(l1x, l1y).shrine, Y.ensure(l2x, l2y).shrine
-  local bx, by = Y.boss_chunk(0)
+  local bx, by = Y.MAP.boss_chunk(1)
   return { { kind = "lamp", x = s1.x, y = s1.y + 16, sh = s1 }, { kind = "lamp", x = s2.x, y = s2.y + 16, sh = s2 },
            { kind = "boss", x = bx * CPX + 128, y = by * CPX + 128 } }
 end

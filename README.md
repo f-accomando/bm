@@ -210,8 +210,10 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
   townsfolk, beasts, hunters, eldritch horrors) and four bosses wait in theirs, each with
   two special attacks and two combos. The fight is Bloodborne's: stamina, quickstep and roll
   with i-frames, lock-on, charged blows, the trick weapon transformed mid-combo, the gun
-  parry and the visceral attack, the rally. The town is walked area by area, each closed by
-  mist and ended by its boss, with two hunter's lamps to light; blood echoes from the slain
+  parry and the visceral attack, the rally. The hunt is a map of four areas (`docs/img/yharnam-map.png`): the way is not a
+  line, the borders are barricades that give way to a blow once the right boss has fallen (or at
+  once, with a horde to face), some only from one side, all of them for good once broken; each
+  area ends with its boss in an open arena, with two hunter's lamps to light; blood echoes from the slain
   are dear: a little healing, a death, and at most four paths taken at the lamps, which shape
   how the hunter fights.
 - **Pad Typing**: practice writing Italian, English or Lua with the controller alone. The
