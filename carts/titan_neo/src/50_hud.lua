@@ -1,15 +1,19 @@
 Hud = {}
 function Hud.draw(f1, f2)
-  -- Clean NeoGeo style bars
   local function bar(x, y, w, k, col)
-    rectfill(x-1, y-1, w+2, 10, 0x000000)
-    rectfill(x, y, w, 8, 0x202028)
-    rectfill(x, y, floor(w * k), 8, col)
+    rectfill(x-1, y-1, w+2, 8, 0x000000)
+    rectfill(x, y, w, 6, 0x202028)
+    rectfill(x, y, floor(w * clamp(k,0,1)), 6, col)
   end
-  bar(20, 10, 140, f1.life / 1000, 0xFFD040)
-  bar(20, 22, 140, f1.armor / f1.A.armor, 0x58B4FF)
-  bar(W-160, 10, 140, f2.life / 1000, 0xFFD040)
-  bar(W-160, 22, 140, f2.armor / f2.A.armor, 0x58B4FF)
-  -- clock
-  print("99", W/2 - 8, 12, 0xFFFFFF)
+  -- multi armor bars
+  for i = 1, 3 do
+    local k = (i == 1 and f1.armor / f1.A.armor) or 1
+    bar(20, 8 + (i-1)*10, 120, k, 0x58B4FF)
+    bar(W-140, 8 + (i-1)*10, 120, k, 0x58B4FF)
+  end
+  -- boost
+  bar(20, 40, 80, f1.boost / 100, 0x40E8A0)
+  bar(W-100, 40, 80, f2.boost / 100, 0x40E8A0)
+  print("BOOST", 20, 50, 0x80FFC0)
+  print("99", W/2-8, 12, 0xFFFFFF)
 end

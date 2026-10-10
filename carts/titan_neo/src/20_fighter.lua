@@ -5,7 +5,7 @@ function Fighter.new(p, pad, cfg, x, face)
   return {
     p = p, pad = pad, cfg = cfg, A = A,
     x = x, y = 0, vx = 0, vy = 0, face = face,
-    state = "stand", anim = "idle", life = 1000, armor = A.armor,
+    state = "stand", anim = "idle", life = 1000, armor = A.armor, armor_bars = 3, boost = 100,
     energy = 100, heat = 0, overheat = 0,
     stun = 0, hitstop = 0
   }
@@ -75,4 +75,62 @@ function Fighter.draw(f)
   if f.armor < 150 then
     if random(6) == 1 then circfill(x + random(-20,20), y - 80 + random(-20,20), 2, 0xFF6020) end
   end
+end
+
+-- Enhanced update with thrusters (Gundam BA style)
+function Fighter.update(f, o)
+  local p = f.pad
+  local l, r, u, d = btn(0, p), btn(1, p), btn(2, p), btn(3, p)
+  local punch, kick = btnp(6, p), btnp(4, p)
+  local special = btnp(5, p)
+  local boost_btn = btn(8, p) or btn(9, p)  -- L/R for boost
+
+  if f.stun > 0 then f.stun = f.stun - 1; return end
+
+  f.boost = min(100, f.boost + 0.8)
+
+  if f.state == "stand" or f.state == "walk" then
+    if l or r then
+      f.vx = (r and 1 or -1) * f.A.walk * (f.face > 0 and 1 or -1)
+      f.anim = "dash"
+      f.state = "walk"
+    else
+      f.vx = 0
+      f.anim = "idle"
+      f.state = "stand"
+    end
+    if u and f.boost > 15 then
+      f.vy = f.A.jump * 1.2
+      f.boost = f.boost - 15
+      f.state = "jump"
+      f.anim = "jump"
+      Snd.boost()
+    end
+    if punch or kick then
+      f.state = "attack"
+      f.anim = "punch"
+      f.stun = 10
+    end
+    if special and f.energy > 25 then
+      f.energy = f.energy - 25
+      f.state = "special"
+      f.anim = "dash"
+      f.stun = 15
+    end
+  elseif f.state == "jump" then
+    if boost_btn and f.boost > 5 then
+      f.vy = f.vy * 0.8 + 1.5  -- hover/boost
+      f.boost = f.boost - 0.5
+    end
+    f.vy = f.vy - 0.4
+    f.y = f.y + f.vy
+    if f.y <= 0 then
+      f.y, f.vy = 0, 0
+      f.state = "stand"
+      f.anim = "idle"
+    end
+  end
+
+  f.x = clamp(f.x + f.vx, 50, ARENA_W - 50)
+  f.energy = min(100, f.energy + 0.25)
 end

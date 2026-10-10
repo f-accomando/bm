@@ -7,3 +7,7 @@ Data.WEAPON = {
   sword = { name = "SWORD", energy = 25 },
   guns = { name = "CANNON", heat = 8 },
 }
+
+-- Gundam Battle Assault inspired
+Data.BOOST = { max = 100, regen = 0.8, cost = 15, hover_time = 20 }
+Data.ARMOR_BARS = 3
