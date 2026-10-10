@@ -34,6 +34,7 @@
 #include "bt/bt.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
+#include "net/netxfer.h"
 #include "bm/bm.h"
 #include "bm/runtime.h"
 #include "kernel/home.h"
@@ -587,6 +588,7 @@ static void menu_reopen(void)
 static void run_page(void (*run)(void))
 {
     market_set_active(0);                           /* its work stops first, as on the Pi */
+    netxfer_write_pause();                          /* a file from the PC: written later */
     menu_ui_close_quiet(fb);                        /* (not the console flashing: the pages draw themselves) */
     console_suspend(1);
     run();
@@ -605,6 +607,10 @@ static void play_market(int i, char *note, size_t n)
     const int g = game_of_path(market_path(i));
     if (g < 0) {
         ksnprintf(note, n, "%s is not on the SD card", market_path(i));
+        return;
+    }
+    if (netxfer_updating(market_path(i))) {
+        ksnprintf(note, n, "Updating, wait for the end of the download");
         return;
     }
     play_index = g;
@@ -633,6 +639,18 @@ static void text_page(void)
 }
 
 #define DEPTH_MAX 4
+
+/* the menu's free time in a frame: a file from the PC (bm_net.py --send)
+ * written first, alone on the card (2026-10-10); then the Market's work */
+static int idle_market;
+
+static void menu_idle(uint32_t until)
+{
+    if (netxfer_write_tick(until))
+        return;
+    if (idle_market)
+        market_tick(until);
+}
 
 void ui_home(framebuffer_t *f)
 {
@@ -690,10 +708,17 @@ void ui_home(framebuffer_t *f)
             scan_games();
             market_carts_changed();
         }
+        /* a game written from the network: its title, cover and size again */
+        static unsigned seen_saves;
+        if (netxfer_saves() != seen_saves) {
+            seen_saves = netxfer_saves();
+            scan_games();
+            market_carts_changed();
+        }
         /* the tests' reports waiting on the SD card go once the console is
          * on the network (reports_auto_due; no fibers here: a moment's wait,
          * from the covers only, not in Settings) */
-        if (!on_gear && !asking && !on_market && reports_auto_due()) {
+        if (!on_gear && !asking && !on_market && !netxfer_write_pending() && reports_auto_due()) {
             reports_send_pending();
             ksnprintf(note, sizeof note, "report %s", reports_last());
         }
@@ -704,17 +729,23 @@ void ui_home(framebuffer_t *f)
         if (shown == TAB_MARKET)
             market_select(*s);
         for (int i = 0; i < n && shown != TAB_MARKET; i++) {
-            if (shown == TAB_GAMES)
+            if (shown == TAB_GAMES) {
+                char gp[80];
+                ksnprintf(gp, sizeof gp, "/bm/%s", games[i].name);
+                const int up = netxfer_updating(gp);        /* a file from the PC on its way */
                 items[i] = (menu_item_t){ .title = games[i].title, .kind = games[i].is_bm ? "bm" : "b16",
-                                          .size = games[i].size, .cover = &games[i].cover };
-            else
+                                          .size = games[i].size, .cover = &games[i].cover,
+                                          .badge = !up ? NULL : up == NETXFER_QUEUED ? "Queued" : "Updating" };
+            } else {
                 items[i] = (menu_item_t){ .title = dev_items[i].name, .kind = "tool", .cover = &dev_covers[i] };
+            }
         }
+        idle_market = on_market;
         menu_view_t v = {
             .tabs = tab_names, .ntabs = 3, .tab = shown, .on_gear = on_gear, .peek_first = 1,
             .items = items, .n = n, .sel = *s,
             .prompts = MENU_PROMPTS_PAD, .confirm_b = pad_ok == PAD_B, .no_monitor = 1,
-            .idle = on_market ? market_tick : NULL,
+            .idle = menu_idle,
         };
         /* the bar: the WiFi and the battery only; no icons of the
          * controllers, mice and keyboards (the user, 2026-10-05) */
@@ -788,6 +819,10 @@ void ui_home(framebuffer_t *f)
         v.battery_pct = batt_pct;
         v.charging = batt_charging;
         menu_ui_frame(fb, &v);
+        /* a file from the PC goes on even when the frame left no time for
+         * it (menu_idle): a piece a frame */
+        if (netxfer_write_pending())
+            netxfer_write_tick(timer_ticks() + 2000);
 
         uint32_t p = pad_pressed();
         if (pad_serial_char() == '`') {
@@ -903,7 +938,12 @@ void ui_home(framebuffer_t *f)
                     play_market(*s, note, sizeof note);
                 }
             } else if (p & pad_ok) {
-                if (shown == TAB_GAMES) {
+                char gp[80] = "";
+                if (shown == TAB_GAMES)
+                    ksnprintf(gp, sizeof gp, "/bm/%s", games[*s].name);
+                if (shown == TAB_GAMES && netxfer_updating(gp)) {
+                    ksnprintf(note, sizeof note, "Updating, wait for the end of the download");
+                } else if (shown == TAB_GAMES) {
                     play_index = *s;
                     run_page(play_selected);
                 } else {

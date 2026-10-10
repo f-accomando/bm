@@ -69,6 +69,8 @@
 #define ST_GEN_CMD_FULL     (1u << 1)
 #define ST_GEN_PLD_W_EMPTY  (1u << 2)
 #define ST_GEN_PLD_W_FULL   (1u << 3)
+#define ST_GEN_PLD_R_EMPTY  (1u << 4)
+#define ST_GEN_RD_CMD_BUSY  (1u << 6)
 
 #define PANEL_RESET         rk_pin(4, 'A', 0)
 #define PANEL_POWER         rk_pin(0, 'C', 2)
@@ -168,6 +170,25 @@ static int dcs_write(const uint8_t *b, unsigned len)
     return dsi_send(0x39, b, len, 1);
 }
 
+/* One byte back from the panel (DCS read in LP, the turnaround on, as
+ * dw_mipi_dsi_read): 0, or < 0 if nothing came back. */
+static int dcs_read1(uint8_t cmd, uint8_t *out)
+{
+    for (int i = 0; i < 16 && !(dsi_r(DSI_CMD_PKT_STATUS) & ST_GEN_PLD_R_EMPTY); i++)
+        (void)dsi_r(DSI_GEN_PLD_DATA);          /* nothing old in the read FIFO */
+    static const uint8_t max1[2] = { 1, 0 };
+    if (dsi_send(0x37, max1, 2, 0))             /* set maximum return packet size */
+        return -1;
+    if (dsi_send(0x06, &cmd, 1, 0))             /* DCS read, no parameters */
+        return -2;
+    if (wait_status(ST_GEN_RD_CMD_BUSY, 0, 50))
+        return -3;
+    if (wait_status(ST_GEN_PLD_R_EMPTY, 0, 20))
+        return -4;
+    *out = (uint8_t)dsi_r(DSI_GEN_PLD_DATA);
+    return 0;
+}
+
 /* panel-sitronix-st7703.c rgb30panel_init_sequence + the st7703_enable
  * tail; len, bytes...; len 0: the next byte is a delay in units of 10 ms */
 static const uint8_t rgb30_init[] = {
@@ -252,10 +273,39 @@ static int poll_phy(uint32_t bit)
     return 0;
 }
 
+/* The panel off for real: reset low, the supply off. After a restart of
+ * the chip alone it may still be lit from the run before (2026-10-10: a
+ * black screen after a kernel update, fine after a power off and on). */
+static void panel_power_off(void)
+{
+    rk_gpio_output(PANEL_RESET, 0);
+    rk_gpio_output(PANEL_POWER, 0);
+}
+
+/* On again after at least min_off_ms off: supply, 20 ms, reset released,
+ * then the 120 ms the ST7703 wants before sleep out. */
+static void panel_power_on(uint32_t off_since, uint32_t min_off_ms)
+{
+    while (timer_ticks() - off_since < min_off_ms * 1000)
+        ;
+    rk_gpio_output(PANEL_POWER, 1);
+    timer_delay_ms(20);
+    rk_gpio_set(PANEL_RESET, 1);
+    timer_delay_ms(120);
+}
+
+/* ST7703 power mode (DCS 0x0a): sleep out (bit 4) and display on (bit 2) */
+#define PM_ALIVE    0x14u
+
 int rk_dsi_init(char *log, unsigned size)
 {
     int pos = 0;
 #define LOG(...) do { if (pos < (int)size) pos += ksnprintf(log + pos, size - pos, __VA_ARGS__); } while (0)
+
+    /* the panel off first, whatever the run before left: it drains while
+     * the host and the PHY start */
+    panel_power_off();
+    uint32_t off_since = timer_ticks();
 
     /* clocks: pclk_dsitx_0 (CLKGATE_CON21 bit 6), pclk_mipidsiphy0
      * (CLKGATE_CON33 bit 14); PHY reference = the 24 MHz crystal
@@ -319,32 +369,64 @@ int rk_dsi_init(char *log, unsigned size)
     timer_delay_ms(34);
     set_mode(0);
 
-    /* panel power and reset */
-    rk_gpio_output(PANEL_RESET, 0);
-    rk_gpio_output(PANEL_POWER, 1);
-    timer_delay_ms(20);
-    rk_gpio_set(PANEL_RESET, 1);
-    timer_delay_ms(20);
+    int bad = 0;
+    for (int attempt = 0; attempt < 2; attempt++) {
+        /* panel power and reset: at least 200 ms off (the first time,
+         * counted from the top), then on */
+        if (attempt) {
+            set_mode(0);
+            panel_power_off();
+            off_since = timer_ticks();
+        }
+        panel_power_on(off_since, 200);
+        rgb30_display_stage(attempt ? "panel power cycled again" : "panel power cycled");
 
-    /* video on, then the commands in the blanking (as Linux) */
-    set_mode(1);
-    dsi_w(DSI_DPI_LP_CMD_TIM, 0x00100004u);
-    dsi_w(DSI_CMD_MODE_CFG, CMD_MODE_ALL_LP);
-    dsi_w(DSI_VID_MODE_CFG, dsi_r(DSI_VID_MODE_CFG) | VID_MODE_LP_CMD_EN);
-    int err = 0, bad = panel_init(&err);
-    if (bad) {
-        LOG(", panel command %d failed (%d)", bad, err);
-        /* second chance: the whole sequence in command mode */
-        set_mode(0);
-        rk_gpio_set(PANEL_RESET, 0);
-        timer_delay_ms(20);
-        rk_gpio_set(PANEL_RESET, 1);
-        timer_delay_ms(20);
-        bad = panel_init(&err);
-        LOG(bad ? ", in command mode too (%d)" : ", ok in command mode", bad);
+        /* video on, then the commands in the blanking (as Linux) */
         set_mode(1);
-    } else {
-        LOG(", panel on");
+        dsi_w(DSI_DPI_LP_CMD_TIM, 0x00100004u);
+        dsi_w(DSI_CMD_MODE_CFG, CMD_MODE_ALL_LP);
+        dsi_w(DSI_VID_MODE_CFG, dsi_r(DSI_VID_MODE_CFG) | VID_MODE_LP_CMD_EN);
+        int err = 0;
+        bad = panel_init(&err);
+        if (bad) {
+            LOG(", panel command %d failed (%d)", bad, err);
+            /* second chance: the whole sequence in command mode */
+            set_mode(0);
+            rk_gpio_set(PANEL_RESET, 0);
+            timer_delay_ms(20);
+            rk_gpio_set(PANEL_RESET, 1);
+            timer_delay_ms(120);
+            bad = panel_init(&err);
+            LOG(bad ? ", in command mode too (%d)" : ", ok in command mode", bad);
+            set_mode(1);
+        } else {
+            LOG(", panel on");
+        }
+
+        /* is it on? its power mode, read in command mode (a read in the
+         * video's blanking may not fit); no answer is not a verdict */
+        set_mode(0);
+        uint8_t pm = 0;
+        int rd = dcs_read1(0x0a, &pm);
+        set_mode(1);
+        dsi_w(DSI_VID_MODE_CFG, dsi_r(DSI_VID_MODE_CFG) | VID_MODE_LP_CMD_EN);
+        int dead;
+        if (rd) {
+            LOG(", readback none (%d)", rd);
+            rgb30_display_stage("panel readback: no answer");
+            dead = bad;
+        } else {
+            LOG(", power mode %02x", pm);
+            dead = bad || (pm & PM_ALIVE) != PM_ALIVE;
+            rgb30_display_stage(dead ? "panel readback: not on" : "panel readback: on");
+        }
+        if (!dead) {
+            bad = 0;
+            break;
+        }
+        bad = bad ? bad : -1;
+        if (!attempt)
+            LOG(", power cycle again");
     }
     uint32_t st0 = dsi_r(DSI_INT_ST0), st1 = dsi_r(DSI_INT_ST1);
     if (st0 || st1)
@@ -355,10 +437,19 @@ int rk_dsi_init(char *log, unsigned size)
 #undef LOG
 }
 
-void rk_dsi_off(void)
+/* Before a restart or power off: with the link up, display off and sleep
+ * in first (as st7703_disable/unprepare), then reset, supply off, and the
+ * time for the supply to drain, so the next start finds the panel cold. */
+void rk_dsi_off(int link_up)
 {
-    rk_gpio_output(PANEL_RESET, 0);
-    timer_delay_ms(10);
-    rk_gpio_output(PANEL_POWER, 0);
+    if (link_up) {
+        static const uint8_t display_off[] = { 0x28 }, sleep_in[] = { 0x10 };
+        dcs_write(display_off, 1);
+        timer_delay_ms(20);
+        dcs_write(sleep_in, 1);
+        timer_delay_ms(120);
+    }
+    panel_power_off();
+    timer_delay_ms(300);
 }
 #endif

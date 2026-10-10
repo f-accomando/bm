@@ -36,8 +36,10 @@ def check(ok, what):
 class Console:
     """The transfer port of a console: settings in a dict, as config.c keeps them"""
 
-    def __init__(self, knows_c=True, lose_answer=None):
+    def __init__(self, knows_c=True, lose_answer=None, queues=False, busy=False):
         self.knows_c = knows_c
+        self.queues = queues                # S answered QD (written later, from the menu)
+        self.busy = busy                    # S refused with BY after the header
         self.lose_answer = lose_answer      # a NetConsole: the kernel written, its answer lost
         self.settings = {"layout": "it", "wifi_ssid": "Casa", "github_token": "ghp_" + "x" * 36}
         self.got = []
@@ -77,6 +79,9 @@ class Console:
         if pw != PASSWORD:
             c.sendall(b"PW")
             return
+        if op == b"S" and self.busy:
+            c.sendall(b"BY")            # a file sent before still waits to be written
+            return
         c.sendall(b"OK")
         data = self.recv(c, size)
         if zlib.crc32(data) & 0xFFFFFFFF != crc:
@@ -85,6 +90,9 @@ class Console:
         self.got.append((op, path, data))
         if op == b"K" and self.lose_answer:
             self.lose_answer.version = "v0.0.1-new"     # written, restarted: no answer reached the PC
+            return
+        if op == b"S" and self.queues:
+            c.sendall(b"QD")            # kernels from 2026-10-10: written later, from the menu
             return
         if op != b"C":
             c.sendall(b"OK")
@@ -204,6 +212,14 @@ def main():
     rc, out = run(con, job=("--send", __file__, "--name", "CHECK.PY", "--to", "/bm"))
     check(rc == 0 and con.got[-1][:2] == (b"S", "bm/CHECK.PY") and con.got[-1][2] == open(__file__, "rb").read(),
           "--send still the same (bm/CHECK.PY)")
+
+    new = Console(queues=True)
+    rc, out = run(new, job=("--send", __file__, "--name", "CHECK.PY", "--to", "/carts"))
+    check(rc == 0 and "writes it from its menu" in out and new.got[-1][:2] == (b"S", "carts/CHECK.PY"),
+          "--send to a newer kernel: QD, received, written from its menu")
+    busy = Console(busy=True)
+    rc, out = run(busy, job=("--send", __file__, "--name", "CHECK.PY"))
+    check(rc == 1 and "busy" in out and not busy.got, "--send while a file still waits: BY, nothing sent")
 
     old = Console(knows_c=False)
     rc, out = run(old, "volume=3")

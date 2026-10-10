@@ -115,6 +115,7 @@ An interactive bash setup utility for Linux/WSL:
 * Installs ARM toolchain packages (`arm-none-eabi-gcc`).
 * Automatically formats and installs kernel images onto target SD cards.
 * Transfers cartridges and kernels over WiFi using [`tools/bm_net.py`](../../tools/bm_net.py).
+  * A file (`--send`, op S) is answered `QD` as soon as it arrived whole and checked; the console keeps it in memory and writes it from its menu in a fiber (`netxfer_write_tick`, a slice a frame, `src/net/netxfer.c`), so the console never stops (a 6 MB game used to freeze it for minutes). The game shows *Updating* (or *Queued*) and does not start until written; a box shows the KiB written. A game that is open (or suspended on the Pi) is replaced when it is closed: the suspended copy is closed so the old one never comes back. One file waits at a time: another one gets `BY` (busy). On the RGB30 a `.bm` / `.b16` for `carts/` goes to `bm/`, the folder its menu lists. Tests: `test_netcon` (queue, BY, pause), `check_bm_net_config.py` (QD, BY on the PC).
 * Publishes cartridges directly to the official game store.
 
 ### Tutorial videos ([`video/`](../../video/), skill `claude/skills/bm-video-tutorial`)

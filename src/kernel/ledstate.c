@@ -15,8 +15,11 @@ void ledstate_set(unsigned reason, int on)
 
 unsigned ledstate(void)
 {
-    /* a kernel coming over the network (netxfer.c), then its restart */
-    return reasons | (netxfer_kernel_state(0, 0, 0) ? LED_BUSY : 0);
+    /* a kernel coming over the network (netxfer.c), then its restart; a
+     * file arriving or being written */
+    const int f = netxfer_file_state(0, 0, 0, 0);
+    return reasons | (netxfer_kernel_state(0, 0, 0) || f == NETXFER_RECEIVING || f == NETXFER_WRITING ?
+                      LED_BUSY : 0);
 }
 
 void ledstate_tick(uint32_t ms)

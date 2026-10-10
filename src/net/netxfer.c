@@ -3,6 +3,11 @@
  * buffer; the SD card is written from netxfer_poll, outside lwIP.
  * S saves a file, P plays a cartridge, K writes the kernel, C changes
  * bm/config.txt ("key=value" lines; the answer has the settings after).
+ *
+ * S (2026-10-10): the file checked, it waits in memory (QD to the PC at
+ * once) and a fiber writes it from the menu's free time (netxfer_write_tick),
+ * a slice a frame: a 6 MB game used to stop the console for minutes. While
+ * a game runs nothing is written; back in the menu it goes on the card.
  */
 #include "netxfer.h"
 #include "netcon.h"
@@ -11,6 +16,8 @@
 #include "drivers/timer.h"
 #include "drivers/watchdog.h"
 #include "fs/fat.h"
+#include "kernel/fiber.h"
+#include "kernel/notice.h"
 #include "lib/crc32.h"
 #include "lib/printf.h"
 
@@ -18,6 +25,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #define MAX_SIZE (100u << 20)           /* a .bm has no limit: as the Market's files (catalog.h) */
 #define CONFIG_MAX (16u << 10)          /* the lines of a C */
@@ -38,6 +46,17 @@ static int said;                        /* the tenth of a kernel, or the second,
 static uint8_t *play_buf;
 static size_t play_len;
 static unsigned saves;
+
+/* S: the file received and checked, waiting to be written (one at a time:
+ * the memory is the temporary copy, the card is written once) */
+static struct {
+    char path[72];              /* "/carts/PONG.BM" */
+    uint8_t *data;              /* NULL: none */
+    uint32_t len;
+} q;
+static fiber_job_t write_job;
+static int write_rc, write_stopped;
+#define WRITE_STACK (64u << 10)
 
 static void reply(const char *two)
 {
@@ -122,6 +141,31 @@ static int parse_header(void)
     return 0;
 }
 
+/* "carts/pong.bm" and "/CARTS/PONG.BM" are the same file */
+static int same_path(const char *a, const char *b)
+{
+    while (*a == '/') a++;
+    while (*b == '/') b++;
+    return strcasecmp(a, b) == 0;
+}
+
+/* The RGB30's menu lists bm/ (src/rgb30/ui.c): a game sent to carts/ (what
+ * bm_net.py and easy_install.sh say by default) goes there. */
+static void to_menu_folder(void)
+{
+#ifdef BM_RGB30
+    const char *p = path[0] == '/' ? path + 1 : path;
+    const char *dot = strrchr(p, '.');
+    if (strncasecmp(p, "carts/", 6) == 0 && !strchr(p + 6, '/') && dot &&
+        (strcasecmp(dot, ".bm") == 0 || strcasecmp(dot, ".b16") == 0)) {
+        char name[sizeof path];
+        strcpy(name, p + 6);
+        memcpy(path, "bm/", 3);
+        strcpy(path + 3, name);         /* shorter than it was */
+    }
+#endif
+}
+
 static void feed(const uint8_t *p, unsigned len)
 {
     while (len && (st == HEADER || st == DATA)) {
@@ -140,6 +184,16 @@ static void feed(const uint8_t *p, unsigned len)
                     kprintf("\x1b[91mnet: transfer with a wrong password from %s\x1b[0m\n",
                             ipaddr_ntoa(&peer->remote_ip));
                 fail(r == -2 ? "PW" : "BH");
+                return;
+            }
+            if (op == 'S')
+                to_menu_folder();
+            /* a file still to be written: another one waits (BY, busy), the
+             * same one again replaces it while it is not being written; no
+             * kernel (its restart would lose it) nor settings meanwhile */
+            if ((op == 'S' && q.data && (write_job.busy || !same_path(q.path, path))) ||
+                (op == 'K' && q.data) || (op == 'C' && write_job.busy)) {
+                fail("BY");
                 return;
             }
             if (size == 0 || size > (op == 'C' ? CONFIG_MAX : MAX_SIZE) || !(buf = malloc(size))) {
@@ -282,6 +336,12 @@ static int kernel_fits(const uint8_t *img, uint32_t len)
     return img[7] == KERNEL_MARK;
 }
 
+static const char *file_name(const char *p)
+{
+    const char *slash = strrchr(p, '/');
+    return slash ? slash + 1 : p;
+}
+
 int netxfer_kernel_state(uint32_t *done, uint32_t *total, int *secs)
 {
     if (reboot_after) {
@@ -346,6 +406,23 @@ void netxfer_poll(void)
             }
             free(list);
             reset();
+        } else if (op == 'S') {
+            /* to the queue: written by netxfer_write_tick (the menu); the
+             * same file still waiting is replaced */
+            if (q.data && (write_job.busy || !same_path(q.path, path))) {
+                reply("BY");
+            } else {
+                free(q.data);
+                q.path[0] = '/';
+                strcpy(q.path + 1, path[0] == '/' ? path + 1 : path);
+                q.data = buf;
+                q.len = size;
+                buf = NULL;
+                reply("QD");
+                kprintf("net: %s received (%lu bytes): written on the SD card from the menu\n", q.path, size);
+                notice_flash("Update received", file_name(q.path), -1, 4000);
+            }
+            reset();
         } else if (op == 'K' && !kernel_fits(buf, size)) {
             reply("KA");
             kprintf("\x1b[91mnet: not a kernel for this console, nothing written (the Pi Zero 2 W "
@@ -394,6 +471,114 @@ void netxfer_poll(void)
             watchdog_reboot();
         }
     }
+}
+
+/* ---- S: the write, in a fiber of the menu */
+
+/* after each piece written: the menu's frame goes on; nonzero (the job
+ * stopped) leaves the old file as it was */
+static int write_tick(void)
+{
+    fiber_slice();
+    return fiber_cancelled();
+}
+
+static void write_main(void *arg)
+{
+    (void)arg;
+    int (*was)(void) = fat_write_tick;
+    fat_write_tick = write_tick;
+    write_rc = save(q.path, q.data, q.len);
+    fat_write_tick = was;
+    write_stopped = write_rc != 0 && fiber_cancelled();
+}
+
+/* the job is over: written, failed (dropped), or stopped (tried again) */
+static void write_over(void)
+{
+    if (write_stopped) {
+        kprintf("net: writing %s paused, it starts again later\n", q.path);
+        return;
+    }
+    if (write_rc == 0) {
+        saves++;
+        kprintf("\x1b[92mnet: saved %s on the SD card (%lu bytes)\x1b[0m\n", q.path, q.len);
+        notice_flash("Updated", file_name(q.path), -1, 3000);
+    } else {
+        kprintf("\x1b[91mnet: could not write %s (%s)\x1b[0m\n", q.path, fat_error());
+        notice_flash("Could not write", file_name(q.path), -1, 5000);
+    }
+    free(q.data);
+    q.data = NULL;
+    q.path[0] = 0;
+}
+
+int netxfer_write_tick(uint32_t until)
+{
+    if (!q.data)
+        return 0;
+    if (!write_job.busy) {
+        write_rc = -1;
+        write_stopped = 0;
+        if (fiber_job_start(&write_job, WRITE_STACK, write_main, NULL) != 0)
+            return 1;                   /* no memory for the stack now: later */
+    }
+    if (!fiber_job_run(&write_job, until))
+        write_over();
+    return q.data != NULL;
+}
+
+void netxfer_write_pause(void)
+{
+    if (!write_job.busy)
+        return;
+    fiber_job_stop(&write_job);
+    write_over();
+}
+
+int netxfer_write_pending(void)
+{
+    return q.data != NULL;
+}
+
+int netxfer_updating(const char *p)
+{
+    if (!p || !p[0])
+        return 0;
+    if (q.data && same_path(q.path, p))
+        return write_job.busy ? NETXFER_WRITING : NETXFER_QUEUED;
+    if (op == 'S' && (st == DATA || st == DONE) && same_path(path, p))
+        return NETXFER_RECEIVING;
+    return 0;
+}
+
+int netxfer_file_state(char *name, size_t n, uint32_t *done, uint32_t *total)
+{
+    int s = 0;
+    const char *p = NULL;
+    uint32_t d = 0, t = 0;
+    if (op == 'S' && (st == DATA || st == DONE)) {
+        s = NETXFER_RECEIVING;
+        p = path;
+        d = got;
+        t = size;
+    } else if (q.data) {
+        s = write_job.busy ? NETXFER_WRITING : NETXFER_QUEUED;
+        p = q.path;
+        d = write_job.busy ? (uint32_t)(fat_write_done < q.len ? fat_write_done : q.len) : 0;
+        t = q.len;
+    }
+    if (name && n) {
+        const char *f = p ? file_name(p) : "";
+        size_t k = strlen(f) < n - 1 ? strlen(f) : n - 1;
+        memcpy(name, f, k);
+        name[k] = 0;
+    }
+    if (done)
+        *done = d;
+    if (total)
+        *total = t;
+    return s;
 }
 
 int netxfer_play_announce(void)
