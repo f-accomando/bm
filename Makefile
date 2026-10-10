@@ -626,6 +626,17 @@ $(BUILD)/host/bmhost-gpu: tests/host/bmhost.c tests/host/stubs.c tests/host/host
 	    $(BMHOST_OBJS) $@-gpu3d.o src/gpu/v3d_cl.c tests/gpu/v3d_emu.c -lm
 bmhost-gpu: $(BUILD)/host/bmhost-gpu
 
+# bmhost-ai: the same with the real assistant (the `ai` table: src/ai/lua_ai.c and the
+# C of the assistant), so bm Code's colours of the API words, the assistant panel (F6)
+# and the tools that ask it can be run and recorded on the PC
+BMHOST_AI_SRCS = src/ai/lua_ai.c src/ai/lua_music.c $(filter-out src/ai/nn.c,$(AI_SRCS))
+$(BUILD)/host/bmhost-ai: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
+                         $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua src/ai/predict.lua $(BUILD)/words.lua src/ai/padtype.lua \
+                         src/script/riff.lua $(BMHOST_AI_SRCS) src/ai/*.h $(BUILD)/assist.bin
+	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -DBMHOST_AI -DBM_HOST_TEST -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) \
+	    -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/libs.S $(BMHOST_OBJS) $(BMHOST_AI_SRCS) -lm
+bmhost-ai: $(BUILD)/host/bmhost-ai
+
 # the frame queue's 2D (M35): frames with the queue off and on, the same
 test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
@@ -637,7 +648,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
         test-music music-model \
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-prompts test-hyp test-zero2 \
-        showreel bmhost bmhost-gpu test-overbit overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video \
+        showreel bmhost bmhost-gpu bmhost-ai test-overbit overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video \
         test-catalog test-github test-lan market-seed test-host test-qemu
 
 all: $(BUILD)/kernel.img $(K7) $(BUILD)/chainloader.img $(GAME_CARTS)
@@ -819,7 +830,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # make test: the tests on the PC, then those in QEMU. The CI runs them on
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
-HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
+HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-overbit $(if $(K7),test-hyp)

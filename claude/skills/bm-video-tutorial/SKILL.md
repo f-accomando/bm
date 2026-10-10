@@ -3,12 +3,68 @@ name: bm-video-tutorial
 description: Genera video tutorial YouTube (storyboard, copione, registrazione in QEMU, montaggio) che mostrano come usare gli strumenti della console bm (SDK, bm Code, Pixel, Sound, Mesh, Studio, Animator, assistente AI) per creare giochi e app .bm e .b16. Usa questa skill ogni volta che l'utente parla di video, tutorial, YouTube, showreel, registrazione di QEMU, screenshot della console o di "mostrare come si usa" un editor di bm, anche senza nominare la skill. Mostra sempre quali tab, tasti e pulsanti vengono premuti.
 ---
 
-# bm: video tutorial con QEMU
+# bm: video tutorial (bmhost o QEMU)
 
 Questa skill produce video YouTube che insegnano a usare la piattaforma bm
-(console bare-metal su Raspberry Pi Zero W) registrando la console reale in QEMU,
-non mockup. Ogni video mostra **cosa succede sullo schermo e quale tasto, tab o
-pulsante lo provoca**.
+(console bare-metal su Raspberry Pi Zero W) registrando la console reale, non
+mockup: il runtime della console (`bmhost`, sul PC) o il kernel in QEMU. Ogni
+video mostra **cosa succede sullo schermo e quale tasto, tab o pulsante lo provoca**.
+
+## Quale registratore
+
+- **`bmhost`** (`make bmhost build/<editor>.bm`): il runtime vero della console (Lua,
+  gfx16, suono) sul PC, orologio virtuale (frame n = n/60 s: stesso copione, stesso
+  video). Serve solo `gcc` e `ffmpeg`; è quello che funziona nelle sessioni cloud, dove
+  **QEMU e `arm-none-eabi-gcc` non ci sono**. Opzioni: `--input FILE --video FILE
+  --shots DIR --wav FILE --sd DIR --seconds S --tool` (`--tool`: la cartuccia è uno strumento
+  di bm, come nel kernel, e può salvare su un `.bm` già presente: senza, l'SDK dice "a cartridge
+  cannot change a .bm that is there already"). Non ha il menu del kernel (schede
+  Market/Games/Dev) né la GPU. L'assistente AI (la tabella `ai`: F6, e bm Code ne ha bisogno per partire) c'è solo in
+  **`build/host/bmhost-ai`** (`make bmhost-ai`; carica `build/assist.bin`, da lanciare dalla radice del repo o con
+  `BMHOST_AI_WEIGHTS`): con `bmhost` normale bm Code non parte (`attempt to index a nil value (global 'ai')`).
+- **QEMU** `-M raspi0` (`tests/qemu_test.py`): il kernel intero, schede comprese. Va
+  preferito quando c'è e il video deve mostrare il menu.
+- `tools/bmplay/video.sh`: un gioco giocato da un bot, con suono (per gli episodi sul
+  gioco finito).
+- Libreria pronta: **`video/lib/bmvideo.py`** (copione di tasti → file `--input`, tastiera
+  in sovrimpressione, pagina 1920×1080 con pannello laterale, ffmpeg). Un episodio è
+  `video/NN-nome/{record.py,art.py,storyboard.md,copione.md}`; vedi `video/01-pixel/`.
+  `out/` non va nel repo (`.gitignore`).
+
+### Cose imparate (non rifarle)
+
+- Tasti per bmhost: riga `FRAME type CODICI`, con `\xNN` per i codici di `keyp()`:
+  frecce `\xf0 su, \xf1 giù, \xf2 sin, \xf3 des`, `\xf6` PgUp, `\xf7` PgDn, `\xf8` Canc,
+  F1–F5 `\xf9…\xfd`, F6 `\xe6`, Esc `\x1b`, Tab `\x09`, **spazio `\x20`** (uno spazio
+  nudo in `type` si perde), Ctrl+lettera = codice 1–26 (`\x13` Ctrl+S), Ctrl+Shift+S =
+  `\xee\x13`. Le righe vanno in **ordine di frame**: una riga fuori posto blocca le altre.
+- Un editor ricorda sulla SD la pagina e il file aperti: per un video ripetibile
+  **SD pulita a ogni registrazione** (`record.py` la cancella).
+- bm Pixel: un incolla (`Ctrl+V`) parte da dove sta il puntatore: portarlo in (0,0) prima;
+  lo sprite 16×16 ha numero pari (celle da 8). `Esc` fuori da una lista apre il menu.
+- `bmhost --video` scrive raw rgb24 640×360: ~700 KB a frame, non tenerlo su disco per
+  episodi lunghi senza spazio (usa una fifo).
+- "Save as" di bm Pixel chiede un nome **già riempito** ("SPRITES.BM"): il testo scritto si
+  accoda e poi il nome FAT 8.3 viene tagliato (`SPRITESB.BM`). Prima 10 Backspace (`\\x7f`).
+- Verificare senza guardare immagini: `video/01-pixel/verify.py` legge la cartuccia salvata
+  (`scripts/bmres.py`, `sheet_get`) e confronta ogni sprite pixel per pixel con `art.py`;
+  poi `ffprobe` per la durata. Se l'utente chiede "niente screenshot", si lavora così.
+- Per sapere cosa fa un editor senza immagini: copia dell'editor con `log(...)` in `_update` (stato di pagina, `S.msg`), compilata con `scripts/mkbm.py`, e `bmhost` senza `--quiet`: il log arriva sul terminale. F5 dentro `bmhost` termina la corsa (la cartuccia provata è un'altra registrazione, accodata con `cat` dei raw).
+- Un editor di codice: scrivere senza indentazione (bm Code rientra da solo), Ctrl+K taglia una riga per pulire; la prova (F5) chiude la registrazione, quindi la partita è una seconda registrazione con uno script di tasti (`pad 1 right a`), il suo wav accodato al primo (`wave`); i tempi dei salti si calcolano con un log (copia della cartuccia con un `_update` avvolto) finché la partita fa quello che dice il narratore; `video/04-code/verify.py` lo controlla.
+- Più editor nella stessa puntata: stessa SD, uno dopo l'altro (`input-pixel.txt`, `input-code.txt`: `split_input` per frame), poi la partita; raw e wav accodati. Replace di bm Code: Ctrl+H = Backspace sulla seriale, quindi menu Esc → 12× Giù → Invio. Tagliare tutte le righe vecchie con Ctrl+K (conteggio esatto). Un blocco inserito dall'assistente (F6, Invio) lascia il cursore in fondo al blocco: Invio prima di scrivere la riga dopo.
+- Per tarare una partita: log in una copia della cartuccia, poi ricerca per tentativi (frame di salto × durata) con `bmhost` senza video; un nemico che pattuglia si schiaccia solo in una finestra stretta, quindi si cerca il tempo invece di indovinarlo.
+- Partita "giocata": un robot in Lua aggiunto a una copia della cartuccia (`video/07-play/bot.py`) che registra i tasti come script `bmhost`; riprodurla (`replay.py`) e confrontare il risultato. Zone con nome e scatole di collisione non si fanno con un editor della console (`bmres.py`/`mkbm.py`): non usarle in una serie "solo strumenti della console". Un episodio riassuntivo può riusare i ganci già fatti (`ffmpeg -t`, `anullsrc` dove manca l'audio).
+- Gli sprite di un platform sono **di profilo** e le animazioni sono fotogrammi davvero
+  diversi (gambe, coda, rimbalzo di un pixel), non lo stesso sprite ripetuto: `art.py`
+  controlla che ogni coppia di fotogrammi differisca (`art.check()`). Mostrare il ciclo
+  completo che gira a lungo (pannello animazione di bm Pixel) e la pagina F2 con tutti.
+- Campi di testo a caselle fisse (nomi di bm Sound: 8 caselle, si **sovrascrive**): riempire con spazi (`"JUMP    "`) per cancellare il nome proposto. Il cursore dei passi di un effetto resta dov'era quando si cambia effetto: tornare a sinistra prima di scrivere note. Audio: `bmhost --wav` + `encode(audio=wav)`; per verificarlo senza ascoltare, RMS del wav a finestre di 5 s (`video/03-sound/verify.py`).
+- Il riempimento (`g`) è a 4 vicini: funziona solo su un contorno chiuso; `art.regions()`
+  trova le regioni e i punti di partenza. Con un contorno aperto riempie lo sfondo.
+- Prima di Ctrl+V il puntatore va in (0,0); i tasti ripetuti a 1 frame di distanza vanno
+  bene (time-lapse); un `shot` consuma un frame (i tasti nello stesso frame finiscono nello scatto).
+- Personaggi, nomi e grafica di un gioco "alla maniera di" un classico sono **originali**:
+  stile e meccaniche sì, personaggi, loghi, musiche e sprite del gioco ispiratore no.
 
 ## Regole fisse
 
@@ -125,6 +181,19 @@ inizio. Dopo il copione, aggiungi:
 2. Se l'ambiente lo permette, anche il video renderizzato; altrimenti i comandi
    esatti per generarlo (`make video-<NN>`).
 3. Elenco dei dubbi aperti (tasti non trovati, `.b16`, funzioni non emulate).
+
+## La serie in corso: Skyvale World (platform 2D, solo 2D)
+
+Gioco originale nello stile dei platform a 16 bit dei primi anni '90 (mondi a
+scorrimento, salto a rimbalzo sui nemici, monete, bandiera di fine livello, mappa dei
+livelli), per mostrare le capacità di bm. L'eroe è **Kip**, una volpe: personaggio
+originale. Solo strumenti 2D (niente bm Mesh, Animator 3D, `picture3d`, GPU). Ordine
+cronologico d'uso: 1 bm Pixel (eroe, nemici), 2 SDK 2D (tessere, flag, mappa a layer, primo livello; **bm Studio è 3D, non si usa**),
+3 Sound (effetti e musica), 4 bm Code (movimento e salto, `bmlib`), 5 bm Code +
+assistente (nemici, oggetti, HUD), 6 bm Pixel + SDK + bm Code (bandiera, livello lungo, parallasse) e
+rifinitura, 7 il gioco giocato. (Fatti tutti e sette: vedi `video/SERIE.md`.) Un episodio alla volta, ~3 minuti, e ci si ferma dove
+l'utente ha detto di fermarsi. La struttura completa e lo stato sono in
+`video/SERIE.md`.
 
 ## Proporre la struttura della serie
 
