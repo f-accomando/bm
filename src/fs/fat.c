@@ -674,6 +674,7 @@ int fat_mkdirs(const char *path)
 }
 
 int (*fat_write_tick)(void);
+size_t fat_write_done;
 #ifdef BM_RGB30
 static int runs = 1;
 #else
@@ -722,6 +723,7 @@ static int store(const fat_entry_t *old, uint32_t dc, const uint8_t n83[11], con
         return -1;
     }
     int rc = -1;
+    fat_write_done = 0;
     if (fsinfo_unknown() || (n && pick_free(list, n)))
         goto out;
 
@@ -747,6 +749,7 @@ static int store(const fat_entry_t *old, uint32_t dc, const uint8_t n83[11], con
                     goto out;
             }
         }
+        fat_write_done = (size_t)(i + k) * csize < len ? (size_t)(i + k) * csize : len;
         if (fat_write_tick && fat_write_tick()) {
             err = "stopped";                    /* nothing points at the clusters yet */
             goto out;

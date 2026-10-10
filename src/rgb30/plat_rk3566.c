@@ -9,6 +9,7 @@
 #include "rk_pmic.h"
 #include "rk_wlbt.h"
 #include "rk_audio.h"
+#include "rk_display.h"
 
 #define CRU             0xfdd20000u
 #define CRU_GLB_SRST_FST 0xd4           /* the chip's first global soft reset (0xfdb9) */
@@ -74,6 +75,7 @@ static void quiet(void)
 
 void plat_reset(void)
 {
+    rgb30_save_lastrun();       /* the SD still idle, before anything goes off */
     quiet();
     psci(0x84000009u);          /* SYSTEM_RESET */
     /* still here: the firmware did not restart; the chip's own global
@@ -85,6 +87,7 @@ void plat_reset(void)
 
 void plat_poweroff(void)
 {
+    rgb30_save_lastrun();
     quiet();
     rk817_power_off();          /* the PMIC cuts the power */
     psci(0x84000008u);          /* SYSTEM_OFF, if it did not */

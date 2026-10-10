@@ -84,6 +84,39 @@ void crumbs_boot(void)
     klog_set_ring(ring_putc);
 }
 
+/* The ring as it stands, oldest first, characters that are not text as
+ * '?'. Before crumbs_boot() it is the run before's (RGB30's BOOTPREV.TXT). */
+size_t crumbs_ring_copy(char *out, size_t size)
+{
+    if (!size)
+        return 0;
+    size_t len = 0;
+    if (ring.magic == RING_MAGIC) {
+        uint32_t n = ring.at < RING ? ring.at : RING;
+        for (uint32_t i = 0; i < n && len + 1 < size; i++) {
+            char c = ring.text[(ring.at - n + i) & (RING - 1)];
+            out[len++] = (c == '\n' || c == '\t' || ((unsigned char)c >= 32 && c != 127)) ? c : '?';
+        }
+    }
+    out[len] = 0;
+    return len;
+}
+
+const char *crumbs_prev_state(void)
+{
+    static char s[120];
+    if (cr.magic != MAGIC)
+        return "ended cleanly, or the power went (no record in RAM)";
+    cr.what[sizeof cr.what - 1] = 0;
+    for (char *p = cr.what; *p; p++)
+        if ((unsigned char)*p < 32 || *p == 127)
+            *p = '?';
+    ksnprintf(s, sizeof s, "%s while: %s, %lu s after boot",
+              cr.crashed ? "ended in a crash" : "ended without a clean exit (a freeze, or a restart)",
+              cr.what, cr.up_ms / 1000);
+    return s;
+}
+
 const char *crumbs_last(const char **kind, size_t *len)
 {
     if (!last_kind)

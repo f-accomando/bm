@@ -37,6 +37,17 @@ int notice_now(char *title, char *detail, int *progress)
         *progress = -1;
         return 1;
     }
+    /* a file from the PC (bm_net.py --send): arriving, then written from
+     * the menu (2026-10-10); waiting while a game runs: a flash said so */
+    char name[24];
+    const int f = netxfer_file_state(name, sizeof name, &got, &size);
+    if (f == NETXFER_RECEIVING || f == NETXFER_WRITING) {
+        ksnprintf(title, NOTICE_LEN, "%s %s", f == NETXFER_WRITING ? "Updating" : "Receiving", name);
+        ksnprintf(detail, NOTICE_LEN, "%lu of %lu KiB%s", got / 1024, size / 1024,
+                  f == NETXFER_WRITING ? " on the SD card" : "");
+        *progress = size ? (int)((uint64_t)got * 1000 / size) : 0;
+        return 1;
+    }
     if (flash_until && (int32_t)(flash_until - timer_ticks()) > 0) {
         ksnprintf(title, NOTICE_LEN, "%s", flash_title);
         ksnprintf(detail, NOTICE_LEN, "%s", flash_detail);

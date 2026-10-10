@@ -5,13 +5,17 @@
  * its keys come out of netcon_getc; a second client takes over (a lost
  * connection must not lock the console).
  * Then the transfers (src/net/netxfer.c): a file saved on the "SD card",
- * a wrong password, a damaged file, a cartridge to play, a kernel.
+ * a wrong password, a damaged file, a cartridge to play, a kernel. A file
+ * (S) is answered QD once checked and written later by netxfer_write_tick
+ * (the menu's fiber, run straight through here): one waits at a time.
  */
 #include "net/netcon.h"
 #include "net/netxfer.h"
 #include "net/stream.h"
 #include "lib/crc32.h"
 #include "lib/printf.h"
+#include "kernel/fiber.h"
+#include "kernel/notice.h"
 
 #include "lwip/init.h"
 #include "lwip/tcp.h"
@@ -53,13 +57,19 @@ static size_t w_len;
 static int reboots;
 static int writing, write_again, polls_in_write;
 int (*fat_write_tick)(void);
+size_t fat_write_done;
 int fat_mkdirs(const char *path) { (void)path; return 0; }
 int fat_write_file(const char *dir, const char *name, const void *data, size_t len)
 {
     write_again |= writing;
     writing = 1;
-    for (int i = 0; i < 4 && fat_write_tick; i++)     /* the clusters of a long write */
-        fat_write_tick();
+    for (int i = 0; i < 4 && fat_write_tick; i++) {   /* the clusters of a long write */
+        fat_write_done = len * (size_t)(i + 1) / 4;
+        if (fat_write_tick()) {
+            writing = 0;
+            return -1;                  /* stopped: nothing written */
+        }
+    }
     writing = 0;
     snprintf(w_dir, sizeof w_dir, "%s", dir);
     snprintf(w_name, sizeof w_name, "%s", name);
@@ -70,6 +80,43 @@ int fat_write_file(const char *dir, const char *name, const void *data, size_t l
     return 0;
 }
 const char *fat_error(void) { return "test"; }
+
+/* the menu's fiber, run straight through (kernel/fiber.c needs the ARM):
+ * fiber_job_stop runs it with fiber_cancelled() 1, as the real one */
+static int stub_cancel;
+int fiber_job_start(fiber_job_t *j, size_t stack, void (*fn)(void *), void *arg)
+{
+    (void)stack;
+    j->f.fn = fn;
+    j->f.arg = arg;
+    j->busy = 1;
+    return 0;
+}
+int fiber_job_run(fiber_job_t *j, uint32_t until)
+{
+    (void)until;
+    if (j->busy)
+        j->f.fn(j->f.arg);
+    j->busy = 0;
+    return 0;
+}
+void fiber_job_stop(fiber_job_t *j)
+{
+    if (!j->busy)
+        return;
+    stub_cancel = 1;
+    j->f.fn(j->f.arg);
+    stub_cancel = 0;
+    j->busy = 0;
+}
+void fiber_slice(void) {}
+int fiber_cancelled(void) { return stub_cancel; }
+static char flashed[64];
+void notice_flash(const char *title, const char *detail, int progress, uint32_t ms)
+{
+    (void)progress; (void)ms;
+    snprintf(flashed, sizeof flashed, "%s %s", title, detail ? detail : "");
+}
 /* net.c's poll from inside a write (fat_write_tick): the servers run
  * again, and must not start the write a second time */
 void net_poll(void)
@@ -185,6 +232,46 @@ static void check(int ok, const char *what)
 {
     printf("%s %s\n", ok ? "ok  " : "FAIL", what);
     fails += !ok;
+}
+
+/* one transfer as bm_net.py does it: the header, the data after OK, the
+ * answers in `got` (closed once `want` bytes of them are in) */
+static void xfer(client_t *x, char op, const char *pw, const char *path, const uint8_t *data, uint32_t sz,
+                 uint32_t crc_xor, size_t want)
+{
+    connect_port(x, NETXFER_PORT);
+    uint8_t h[200];
+    unsigned n = 0;
+    memcpy(h, "BMXF", 4); n = 4;
+    h[n++] = (uint8_t)op;
+    h[n++] = (uint8_t)strlen(pw);
+    memcpy(h + n, pw, strlen(pw)); n += strlen(pw);
+    h[n++] = (uint8_t)strlen(path);
+    memcpy(h + n, path, strlen(path)); n += strlen(path);
+    uint32_t c = crc32(data, sz) ^ crc_xor;
+    memcpy(h + n, &sz, 4); n += 4;
+    memcpy(h + n, &c, 4); n += 4;
+    tcp_write(x->pcb, h, (u16_t)n, TCP_WRITE_FLAG_COPY);
+    tcp_output(x->pcb);
+    spin(50);
+    if (strcmp(x->got, "OK") == 0)
+        for (unsigned off = 0; off < sz && x->pcb; ) {
+            u16_t room = tcp_sndbuf(x->pcb);
+            unsigned k = sz - off < room ? sz - off : room;
+            if (k && tcp_write(x->pcb, data + off, (u16_t)k, TCP_WRITE_FLAG_COPY) == ERR_OK)
+                off += k;
+            tcp_output(x->pcb);
+            spin(5);
+        }
+    for (int i = 0; i < 600 && x->len < want && !x->closed; i++)
+        spin(1);
+    if (x->pcb && !x->closed) {
+        tcp_recv(x->pcb, NULL);
+        tcp_err(x->pcb, NULL);
+        tcp_arg(x->pcb, NULL);
+        tcp_close(x->pcb);
+    }
+    spin(600);
 }
 
 int main(void)
@@ -341,11 +428,50 @@ int main(void)
         spin(600);
     }
 
+    /* S: QD at once, written from the menu (netxfer_write_tick); one file
+     * waits at a time: another is busy (BY), the same one replaces it */
+    {
+        static uint8_t a[5000], b[7000];
+        memset(a, 'a', sizeof a);
+        memset(b, 'b', sizeof b);
+        client_t x;
+        w_name[0] = 0;
+        xfer(&x, 'S', "secret", "carts/game.bm", a, sizeof a, 0, 4);
+        check(strcmp(x.got, "OKQD") == 0 && w_name[0] == 0, "file: QD once checked, nothing written yet");
+        check(netxfer_write_pending() && netxfer_updating("/CARTS/GAME.BM") == NETXFER_QUEUED &&
+              !netxfer_updating("/carts/other.bm"), "  queued: the menu tags that game only");
+        char nm[16];
+        uint32_t d = 1, t = 0;
+        check(netxfer_file_state(nm, sizeof nm, &d, &t) == NETXFER_QUEUED && strcmp(nm, "game.bm") == 0 &&
+              d == 0 && t == sizeof a, "  its name and size");
+        xfer(&x, 'S', "secret", "carts/other.bm", b, sizeof b, 0, 2);
+        check(strcmp(x.got, "BY") == 0, "  another file meanwhile: BY, refused after the header");
+        xfer(&x, 'K', "secret", "kernel.img", b, sizeof b, 0, 2);
+        check(strcmp(x.got, "BY") == 0, "  a kernel meanwhile: BY");
+        xfer(&x, 'S', "secret", "/carts/GAME.BM", b, sizeof b, 0, 4);
+        check(strcmp(x.got, "OKQD") == 0 && w_name[0] == 0, "  the same game again: QD, it replaces the copy waiting");
+        netxfer_write_pause();
+        check(w_name[0] == 0 && netxfer_write_pending(), "  a pause before the write started: still waiting");
+        /* a write stopped half way (an application starts): the old file
+         * stays, it starts again later */
+        stub_cancel = 1;
+        netxfer_write_tick(0);
+        stub_cancel = 0;
+        check(w_name[0] == 0 && netxfer_write_pending(), "  a write stopped half way: nothing written, still waiting");
+        const unsigned before = netxfer_saves();
+        netxfer_write_tick(0);
+        check(strcmp(w_dir, "/carts") == 0 && strcmp(w_name, "GAME.BM") == 0 && w_len == sizeof b &&
+              memcmp(w_data, b, sizeof b) == 0 && netxfer_saves() == before + 1 && !netxfer_write_pending() &&
+              !netxfer_updating("/carts/game.bm") && !fat_write_tick,
+              "  written from the menu: the newer copy, counted, the tag gone");
+        check(strncmp(flashed, "Updated", 7) == 0, "  a notice says so");
+    }
+
     /* mark: what start.S puts at +4 of a kernel image (kernel.img or the
      * Pi Zero 2 W's kernel7.img); this is kernel.img's build. arm64: the
      * RGB30's kernel8.img, "ARM\x64" at +56 (no bmK mark) */
     struct { char op; const char *pw, *path; uint32_t crc_xor; const char *answer, *what, *mark; int arm64; } cases[] = {
-        { 'S', "secret", "carts/pong.bm", 0, "OKOK", "file saved on the SD card", NULL, 0 },
+        { 'S', "secret", "carts/pong.bm", 0, "OKQD", "file saved on the SD card", NULL, 0 },
         { 'S', "nope", "carts/pong.bm", 0, "PW", "wrong password refused", NULL, 0 },
         { 'S', "secret", "carts/bad.bm", 1, "OKCE", "damaged file refused", NULL, 0 },
         { 'P', "secret", "x.bm", 0, "OKOK", "cartridge to play received", NULL, 0 },
@@ -405,8 +531,10 @@ int main(void)
             printf("  got \"%s\"\n", x.got);
         check(strcmp(x.got, cases[t].answer) == 0, cases[t].what);
         if (t == 0)
+            netxfer_write_tick(0);      /* the menu's next frame */
+        if (t == 0)
             check(strcmp(w_dir, "/carts") == 0 && strcmp(w_name, "pong.bm") == 0 &&
-                  w_len == sizeof file && memcmp(w_data, file, w_len) == 0 && netxfer_saves() == 1,
+                  w_len == sizeof file && memcmp(w_data, file, w_len) == 0 && netxfer_saves() == 2,
                   "  in /carts/pong.bm, same bytes");
         if (t == 1 || t == 2 || t == 4)
             check(w_name[0] == 0, "  nothing written");

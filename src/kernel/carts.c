@@ -316,6 +316,15 @@ static void reports_tick(uint32_t until)
  * shown first */
 static void menu_idle(uint32_t until)
 {
+    /* a file from the PC (bm_net.py --send) first, alone on the SD card:
+     * the rest waits for it (2026-10-10) */
+    if (netxfer_write_pending()) {
+        fiber_job_stop(&cover_job);
+        lib_job_stop();
+        fiber_job_stop(&report_job);
+        netxfer_write_tick(until);
+        return;
+    }
     if (!reports_free)                  /* before the Market's fiber: one at a time on the network */
         fiber_job_stop(&report_job);    /* (cancelled: it goes again later) */
     if (cover_tab == TAB_LIB) {
@@ -335,6 +344,7 @@ static void menu_idle(uint32_t until)
  * later from where it was. */
 static void background_stop(void)
 {
+    netxfer_write_pause();              /* a file from the PC: again later */
     fiber_job_stop(&cover_job);
     lib_job_stop();
     fiber_job_stop(&report_job);
@@ -993,6 +1003,8 @@ static void cart_act(int row, int how, home_do_t *d)
             ksnprintf(d->ask, sizeof d->ask, "Delete %s?", c->title);
             ksnprintf(d->ask_detail, sizeof d->ask_detail, "The file leaves the SD card for good.");
             ksnprintf(d->ask_yes, sizeof d->ask_yes, "Delete");
+        } else if (how == HOME_YES && netxfer_updating(c->path)) {
+            ksnprintf(d->note, sizeof d->note, "Updating, wait for the end of the download");
         } else if (how == HOME_YES) {
             if (is_suspended(c)) {
                 bm_close_suspended();
@@ -1197,6 +1209,12 @@ void carts_menu(framebuffer_t *fb)
                                           .size = c->size, .cover = c->cover.px ? &c->cover : NULL,
                                           .loading = !c->cover_read, .running = is_suspended(c),
                                           .badge = is_project(c) ? "Project" : NULL };
+                /* a file from the PC on its way (bm_net.py --send) */
+                const int up = netxfer_updating(c->path);
+                if (up) {
+                    items[i].badge = up == NETXFER_QUEUED ? "Queued" : "Updating";
+                    items[i].running = 0;
+                }
             }
             /* the covers still to read: the tab's, from the selection */
             cover_tab = on_gear ? TAB_SETTINGS : tab;
@@ -1352,6 +1370,11 @@ void carts_menu(framebuffer_t *fb)
                 redraw = 0;
             }
         }
+
+        /* a file from the PC goes on even when the frame left no time for
+         * it (menu_idle), and in the text list too: a piece a frame */
+        if (netxfer_write_pending())
+            menu_idle(timer_ticks() + 2000);
 
         int dx = 0, dy = 0, action = 0, quit = 0, back = 0, opts = 0, ybtn = 0;
         int cur = on_gear ? TAB_SETTINGS : tab, tabto = -1;    /* the tab to go to */
@@ -1555,6 +1578,9 @@ void carts_menu(framebuffer_t *fb)
             } else if (yes && ask == ASK_OFFER) {
                 ask = ASK_NONE;
                 market_offer_answer(1);
+            } else if (yes && ask == ASK_SWITCH && ask_cart >= 0 && netxfer_updating(carts[ask_cart].path)) {
+                ask = ASK_NONE;                 /* the game stays frozen: nothing to start yet */
+                ksnprintf(last_msg, sizeof last_msg, "Updating, wait for the end of the download");
             } else if (yes && ask == ASK_SWITCH) {
                 ask = ASK_NONE;
                 bm_close_suspended();
@@ -1763,6 +1789,13 @@ void carts_menu(framebuffer_t *fb)
         static unsigned seen_saves;
         uint8_t *net_buf = NULL;
         size_t net_len = 0;
+        /* a new copy of the game frozen in memory arrived: the old one
+         * never comes back (the new one is written next) */
+        if (susp_path[0] && netxfer_updating(susp_path) >= NETXFER_QUEUED && bm_suspended(NULL, 0)) {
+            kprintf("menu: %s closed, its new copy from the network replaces it\n", susp_path);
+            bm_close_suspended();
+            susp_path[0] = 0;
+        }
         if (netxfer_saves() != seen_saves) {
             seen_saves = netxfer_saves();
             if (!action)
@@ -1832,6 +1865,10 @@ void carts_menu(framebuffer_t *fb)
             }
         }
 
+        if (go != GO_NONE && go_cart >= 0 && netxfer_updating(carts[go_cart].path)) {
+            ksnprintf(last_msg, sizeof last_msg, "Updating, wait for the end of the download");
+            go = GO_NONE;
+        }
         if (go != GO_NONE) {
             ask = ASK_NONE;
             market_set_active(0);               /* nothing loads behind a game */

@@ -73,6 +73,9 @@ int fat_replace(const char *path, const void *data, size_t len);
  * network alive (a kernel from the PC). Nonzero stops the write before
  * anything points at the new data (it fails, fat_error() "stopped"). */
 extern int (*fat_write_tick)(void);
+/* The bytes of the file being written that are on the card so far (set
+ * before each fat_write_tick: a progress bar). */
+extern size_t fat_write_done;
 /* Whole clusters (up to 32 KiB of them next to each other) in one SD
  * command, read back and compared, instead of one sector at a time (a kernel took the RGB30 more than a minute); a
  * cluster that comes back different turns it off for good. On by default
