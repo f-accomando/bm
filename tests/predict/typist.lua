@@ -3,15 +3,17 @@
 -- (o.autoindent: Lua), and Tab when the grey-blue suggestion is the word
 -- in the text, or its start, and writes at least two letters.
 --   local typist = dofile("tests/predict/typist.lua")
---   local keys, tabs, steps = typist(text, { lang = "it" })
+--   local keys, tabs, steps, wrong = typist(text, { lang = "it" })
 -- steps: { key = "Tab" or the character, out = what it wrote }
+-- wrong: ghosts of two or more letters that were not the word in the text
+-- (a Tab a distracted finger would accept)
 
 local predict = require "predict"
 
 return function(text, o)
   o = o or {}
   local lang = o.lang or "it"
-  local written, keys, tabs, steps = "", 0, 0, {}
+  local written, keys, tabs, steps, wrong = "", 0, 0, {}, 0
   local i = 1
   while i <= #text do
     local before = written:sub(-80)
@@ -25,6 +27,7 @@ return function(text, o)
       keys, tabs = keys + 1, tabs + 1
       steps[#steps + 1] = { key = "Tab", out = c.rest }
     else
+      if c and #c.rest >= 2 then wrong = wrong + 1 end
       local ch = text:sub(i, i)
       written = written .. ch
       keys = keys + 1
@@ -38,5 +41,5 @@ return function(text, o)
     end
   end
   assert(written == text, "typed again: " .. written)
-  return keys, tabs, steps
+  return keys, tabs, steps, wrong
 end
