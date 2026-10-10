@@ -16,7 +16,9 @@ video mostra **cosa succede sullo schermo e quale tasto, tab o pulsante lo provo
   gfx16, suono) sul PC, orologio virtuale (frame n = n/60 s: stesso copione, stesso
   video). Serve solo `gcc` e `ffmpeg`; è quello che funziona nelle sessioni cloud, dove
   **QEMU e `arm-none-eabi-gcc` non ci sono**. Opzioni: `--input FILE --video FILE
-  --shots DIR --wav FILE --sd DIR --seconds S`. Non ha il menu del kernel (schede
+  --shots DIR --wav FILE --sd DIR --seconds S --tool` (`--tool`: la cartuccia è uno strumento
+  di bm, come nel kernel, e può salvare su un `.bm` già presente: senza, l'SDK dice "a cartridge
+  cannot change a .bm that is there already"). Non ha il menu del kernel (schede
   Market/Games/Dev), la GPU, l'assistente AI (`F6` in bm Pixel dice "the assistant is not
   here"): quelle parti si dicono a voce, o si registrano con QEMU dove c'è.
 - **QEMU** `-M raspi0` (`tests/qemu_test.py`): il kernel intero, schede comprese. Va
@@ -46,6 +48,7 @@ video mostra **cosa succede sullo schermo e quale tasto, tab o pulsante lo provo
 - Verificare senza guardare immagini: `video/01-pixel/verify.py` legge la cartuccia salvata
   (`scripts/bmres.py`, `sheet_get`) e confronta ogni sprite pixel per pixel con `art.py`;
   poi `ffprobe` per la durata. Se l'utente chiede "niente screenshot", si lavora così.
+- Per sapere cosa fa un editor senza immagini: copia dell'editor con `log(...)` in `_update` (stato di pagina, `S.msg`), compilata con `scripts/mkbm.py`, e `bmhost` senza `--quiet`: il log arriva sul terminale. F5 dentro `bmhost` termina la corsa (la cartuccia provata è un'altra registrazione, accodata con `cat` dei raw).
 - Gli sprite di un platform sono **di profilo** e le animazioni sono fotogrammi davvero
   diversi (gambe, coda, rimbalzo di un pixel), non lo stesso sprite ripetuto: `art.py`
   controlla che ogni coppia di fotogrammi differisca (`art.check()`). Mostrare il ciclo
@@ -179,9 +182,9 @@ Gioco originale nello stile dei platform a 16 bit dei primi anni '90 (mondi a
 scorrimento, salto a rimbalzo sui nemici, monete, bandiera di fine livello, mappa dei
 livelli), per mostrare le capacità di bm. L'eroe è **Kip**, una volpe: personaggio
 originale. Solo strumenti 2D (niente bm Mesh, Animator 3D, `picture3d`, GPU). Ordine
-cronologico d'uso: 1 bm Pixel (eroe, nemici), 2 bm Studio (tessere, flag, primo livello),
+cronologico d'uso: 1 bm Pixel (eroe, nemici), 2 SDK 2D (tessere, flag, mappa a layer, primo livello; **bm Studio è 3D, non si usa**),
 3 Sound (effetti e musica), 4 bm Code (movimento e salto, `bmlib`), 5 bm Code +
-assistente (nemici, oggetti, HUD), 6 bm Studio (layer, sfondi, scatole di collisione) e
+assistente (nemici, oggetti, HUD), 6 SDK + bm Pixel (zone, scatole di collisione, parallasse, bandiera) e
 rifinitura, 7 il gioco giocato. Un episodio alla volta, ~3 minuti, e ci si ferma dove
 l'utente ha detto di fermarsi. La struttura completa e lo stato sono in
 `video/SERIE.md`.

@@ -111,6 +111,12 @@ class Script:
         self.t += 2
         return self
 
+    def mark(self, cap, what=""):
+        """A keycap on the overlay with no input (the key that ends the run:
+        F5 leaves the tool, the next part is another recording)."""
+        self.caps.append((self.t, cap, what))
+        return self
+
     def shot(self, name):
         self.lines.append("%d shot %s" % (self.t, name))
         self.t += 1                 # the picture is the frame after: keys at the same frame would be in it

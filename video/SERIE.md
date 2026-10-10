@@ -15,11 +15,11 @@ Libreria: `video/lib/bmvideo.py`. Un episodio = `video/NN-nome/` (`record.py`, `
 | # | Strumento | Cosa si fa | Stato |
 |---|-----------|------------|-------|
 | 1 | bm Pixel | Kip di profilo: ciclo di corsa a 6 fotogrammi, salto, moneta; matita, riempimento, annulla, animazione, ovali e linee, specchio, tavolozza, salva `skyvale.bm` | fatto |
-| 2 | bm Studio | tessere (terra, nuvole, tubi, acqua), flag (solido, piattaforma, scala, acqua, fa male), il primo livello | da fare |
+| 2 | SDK (2D) | tessere 8×8 nello sheet, flag (solido, piattaforma, scala, acqua, fa male), mappa a layer, il primo livello; codice di cinque righe e prova (F5) | fatto |
 | 3 | Sound | effetti (salto, moneta, rimbalzo) e musica del livello | da fare |
 | 4 | bm Code | movimento, salto a pressione variabile, collisioni con la mappa (`bmlib`) | da fare |
 | 5 | bm Code + assistente | nemici, monete, blocchi, HUD; domande all'assistente | da fare |
-| 6 | bm Studio | layer a scorrimento parallasse, scatole di collisione, bandiera, mappa dei livelli | da fare |
+| 6 | SDK + bm Pixel | zone con nome e scatole di collisione (SPRITES/BOXES), layer a parallasse, bandiera di fine livello, più livelli | da fare |
 | 7 | il gioco | Skyvale World giocato dall'inizio alla bandiera | da fare |
 
 Note per chi continua:
@@ -31,3 +31,6 @@ Note per chi continua:
   episodi in ordine, `record.py` di ogni puntata deve ripartire dal file lasciato dalla
   puntata prima (da tenere nel repo quando sarà pronto: `carts/skyvale/`).
 - Non si usano personaggi, sprite o musiche di giochi esistenti.
+- **bm Studio e bm Animator della console sono 3D**: non si usano. Le tessere e la mappa 2D stanno nell'SDK (pagina F3, di nuovo F3 la mappa).
+- Gli strumenti si registrano con `bmhost --tool` (come gli strumenti incorporati nel kernel: possono salvare su un `.bm` già presente); F5 dentro `bmhost` chiude la registrazione, quindi la prova del gioco è una seconda registrazione accodata.
+- Ogni episodio riparte dal `.bm` lasciato dal precedente: l'episodio 2 parte da `video/02-sdk/start.bm` (la cartuccia salvata nell'episodio 1).

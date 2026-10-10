@@ -16,6 +16,8 @@
  *     --wav FILE        the sound, 48 kHz mono
  *     --input FILE      the input script (see below)
  *     --quiet           no kernel log
+ *     --tool            the cartridge is one of bm's tools (SDK, bm Pixel...): it may
+ *                       change a .bm that is already on the card
  *     --realtime        60 frames a second, as the console (two bmhost
  *                       playing a match on the network: BMHOST_NET_ID)
  *     --clock-scale K   the clock runs at the PC's real time x K inside a
@@ -400,6 +402,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--wav") && v) run.wav_path = v, i++;
         else if (!strcmp(a, "--input") && v) input = v, i++;
         else if (!strcmp(a, "--quiet")) host.quiet = 1;
+        else if (!strcmp(a, "--tool")) bm_set_tool(1);      /* as bm's own tools in the kernel: saves where it is told */
         else if (!strcmp(a, "--clock-scale") && v) host.clock_scale = atof(v), i++;
         else if (!strcmp(a, "--realtime")) run.realtime = 1;
         else if (a[0] != '-') cart = a;
