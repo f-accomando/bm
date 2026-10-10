@@ -25,6 +25,22 @@ static const uint16_t room_ap_len[2] = { 71, 190 };     /* at half the rate */
 #define COMP_RELEASE 0.012f             /* ... and how fast it lets go: 110 ms in blocks of 64 */
 #define COMP_MAKEUP 1.25f               /* +2 dB back: the loud parts end near 0.75 ... */
 #define COMP_TOP    (0.8f / COMP_MAKEUP)  /* ... and never past 0.8 */
+#define CHORUS_BASE 0.014f              /* the chorus's delay, seconds, around which it swings */
+#define CHORUS_OUT  0.7f                /* a full send: the chorus a little under the dry sound */
+#define DUCK_RELEASE 0.989f             /* the ducking lets go: ~120 ms in blocks of 64 at 48 kHz */
+#define PINK_K      0.293f              /* pink and brown noise as loud as each other (0.5 rms, -6 dB from the noise wave) */
+#define BROWN_K     8.7f
+#define VOWEL_GAIN  2.2f                /* the formants: about as loud as the sound was */
+
+/* The formants of the vowels (a bass voice: the classic measured table,
+ * the first three, a little wider): Hz, bandwidth Hz, dB */
+static const float vowel_f[SYNTH_VOWELS - 1][3][3] = {
+    { { 600, 90, 0 }, { 1040, 105, -7 }, { 2250, 165, -9 } },      /* a */
+    { { 400, 60, 0 }, { 1620, 120, -12 }, { 2400, 150, -9 } },     /* e */
+    { { 250, 90, 0 }, { 1750, 135, -30 }, { 2600, 150, -16 } },    /* i */
+    { { 400, 60, 0 }, { 750, 120, -11 }, { 2400, 150, -21 } },     /* o */
+    { { 350, 60, 0 }, { 600, 120, -20 }, { 2400, 150, -32 } },     /* u */
+};
 
 void synth_room(synth_t *s, float size, float damp, float wet)
 {
@@ -60,6 +76,16 @@ void synth_echo(synth_t *s, float ms, float feedback, float wet)
     s->echo_wet = wet < 0 ? 0 : wet > 1 ? 1 : wet;
 }
 
+void synth_chorus(synth_t *s, float rate_hz, float depth_ms, float wet)
+{
+    rate_hz = rate_hz < 0.05f ? 0.05f : rate_hz > 5.0f ? 5.0f : rate_hz;
+    depth_ms = depth_ms < 0 ? 0 : depth_ms > 8.0f ? 8.0f : depth_ms;
+    s->chorus_inc = (uint32_t)(rate_hz / (float)s->rate * 4294967296.0f);
+    s->chorus_delay = CHORUS_BASE * (float)s->rate;
+    s->chorus_depth = depth_ms * 0.001f * (float)s->rate;
+    s->chorus_wet = wet < 0 ? 0 : wet > 1 ? 1 : wet;
+}
+
 static int kit_made;
 static void kit_make(void);
 
@@ -85,7 +111,19 @@ void synth_init(synth_t *s, uint32_t rate)
     }
     synth_room(s, 0.45f, 0.45f, 1.0f);
     synth_echo(s, 330.0f, 0.35f, 1.0f);
-    s->room_quiet = s->echo_quiet = rate;   /* empty: quiet from the start (no work, no dither) */
+    synth_chorus(s, 0.8f, 2.5f, 1.0f);
+    s->room_quiet = s->echo_quiet = s->chorus_quiet = rate;   /* empty: quiet from the start (no work, no dither) */
+    /* the vowels' band passes (state variable filters, 0 dB at their peak) */
+    for (int vw = 1; vw < SYNTH_VOWELS; vw++)
+        for (int j = 0; j < 3; j++) {
+            const float *f = vowel_f[vw - 1][j];
+            float g = tanf(3.14159265f * f[0] / (float)rate), k = f[1] / f[0];
+            float *c = s->vowel[vw][j];
+            c[0] = 1.0f / (1.0f + g * (g + k));
+            c[1] = g * c[0];
+            c[2] = g * c[1];
+            c[3] = k * powf(10.0f, f[2] / 20.0f) * VOWEL_GAIN;
+        }
 }
 
 float synth_rate_increment(uint8_t rate, uint32_t sample_rate)
@@ -199,6 +237,69 @@ static inline float soft(float x)
         return -1.0f;
     float x2 = x * x;
     return x * (27.0f + x2) / (27.0f + 9.0f * x2);
+}
+
+/* the coloured noises: pink (Kellet's three filters, -3 dB an octave
+ * within 0.5 dB from 10 Hz up), brown (white integrated, a little leak) */
+static inline float pink_of(synth_t *s, float *b)
+{
+    float w = white(s);
+    b[0] = 0.99765f * b[0] + w * 0.0990460f;
+    b[1] = 0.96300f * b[1] + w * 0.2965164f;
+    b[2] = 0.57000f * b[2] + w * 1.0526913f;
+    return (b[0] + b[1] + b[2] + w * 0.1848f) * PINK_K;
+}
+
+static inline float brown_of(synth_t *s, float *b)
+{
+    *b = (*b + 0.02f * white(s)) * (1.0f / 1.02f);
+    return *b * BROWN_K;
+}
+
+/* crackle: a click (of any height) where a random number falls under th */
+static uint32_t crackle_th(const synth_t *s, uint8_t density)
+{
+    float per_s = density ? density * 8.0f : 100.0f;    /* clicks a second */
+    return (uint32_t)(per_s / (float)s->rate * 4294967296.0f);
+}
+
+static inline float crackle_of(synth_t *s, uint32_t th)
+{
+    return xorshift(&s->rng) < th ? white(s) : 0.0f;
+}
+
+static inline float colored(synth_t *s, float *pk, float *br, int color, uint32_t th)
+{
+    switch (color) {
+    case SYNTH_COLOR_PINK: return pink_of(s, pk);
+    case SYNTH_COLOR_BROWN: return brown_of(s, br);
+    case SYNTH_COLOR_CRACKLE: return crackle_of(s, th);
+    default: return white(s);
+    }
+}
+
+/* the drive's curves past the soft one (render_voice keeps that one's own
+ * loop): each 1 at 1 but the asymmetric one, which render_voice scales */
+static inline float shape(int curve, float x)
+{
+    float t;
+    switch (curve) {
+    case SYNTH_CURVE_HARD:
+        return x > 1.0f ? 1.0f : x < -1.0f ? -1.0f : x;
+    case SYNTH_CURVE_FOLD:              /* reflected at +-1, again and again */
+        t = (x + 1.0f) * 0.25f + 64.0f;
+        t -= (float)(int)t;
+        t -= 0.5f;
+        return 1.0f - 4.0f * (t < 0 ? -t : t);
+    case SYNTH_CURVE_SINE:              /* sin(pi x / 2) */
+        t = x * 0.25f + 64.0f;
+        return sine(t - (float)(int)t);
+    case SYNTH_CURVE_ASYM:              /* soft with a bias: the two halves bend apart */
+        return soft(x + 0.4f) - 0.381997f;
+    default:                            /* cubic */
+        x = x > 1.0f ? 1.0f : x < -1.0f ? -1.0f : x;
+        return x * (1.5f - 0.5f * x * x);
+    }
 }
 
 /* the coefficient that moves an exponential this close (k: ln of 1/left)
@@ -1005,6 +1106,20 @@ static void wave_clean(synth_t *s, synth_voice_t *v, unsigned ch, uint8_t wave, 
         }
         break;
     }
+    case SYNTH_PINK:
+        for (unsigned i = 0; i < n; i++)
+            out[i] = pink_of(s, v->pink);
+        break;
+    case SYNTH_BROWN:
+        for (unsigned i = 0; i < n; i++)
+            out[i] = brown_of(s, &v->brown);
+        break;
+    case SYNTH_CRACKLE: {
+        uint32_t th = crackle_th(s, a->mod1);
+        for (unsigned i = 0; i < n; i++)
+            out[i] = crackle_of(s, th);
+        break;
+    }
     default:
         for (unsigned i = 0; i < n; i++)
             out[i] = 0;
@@ -1133,6 +1248,78 @@ static inline __attribute__((always_inline)) void env_run(synth_voice_t *v, floa
     v->stage = stage;
 }
 
+/* A vowel: three band passes side by side (its formants), summed with
+ * their gains; st: their states */
+static void vowel_run(float (*f)[4], float *buf, unsigned n, float *st)
+{
+    float a0 = f[0][0], b0 = f[0][1], c0 = f[0][2], g0 = f[0][3];
+    float a1 = f[1][0], b1 = f[1][1], c1 = f[1][2], g1 = f[1][3];
+    float a2 = f[2][0], b2 = f[2][1], c2 = f[2][2], g2 = f[2][3];
+    float p0 = st[0], q0 = st[1], p1 = st[2], q1 = st[3], p2 = st[4], q2 = st[5];
+    for (unsigned i = 0; i < n; i++) {
+        float x = buf[i], v1, v2, w;
+        w = x - q0;
+        v1 = a0 * p0 + b0 * w;
+        v2 = q0 + b0 * p0 + c0 * w;
+        p0 = 2.0f * v1 - p0;
+        q0 = 2.0f * v2 - q0;
+        float y = g0 * v1;
+        w = x - q1;
+        v1 = a1 * p1 + b1 * w;
+        v2 = q1 + b1 * p1 + c1 * w;
+        p1 = 2.0f * v1 - p1;
+        q1 = 2.0f * v2 - q1;
+        y += g1 * v1;
+        w = x - q2;
+        v1 = a2 * p2 + b2 * w;
+        v2 = q2 + b2 * p2 + c2 * w;
+        p2 = 2.0f * v1 - p2;
+        q2 = 2.0f * v2 - q2;
+        buf[i] = y + g2 * v1;
+    }
+    float s6[6] = { p0, q0, p1, q1, p2, q2 };
+    for (int k = 0; k < 6; k++)
+        st[k] = (s6[k] > 1e-15f || s6[k] < -1e-15f) ? s6[k] : 0;
+}
+
+/* coarse (every value held n + 1 samples: the rate down) and crush (the
+ * bits kept: round(x 2^(b-1)) / 2^(b-1), as superdough's), on the voice's
+ * output; r: a stereo sample's right, or NULL */
+static void crush_run(synth_voice_t *v, uint8_t reg, float *l, float *r, unsigned n)
+{
+    unsigned hold = reg >> 4, bits = reg & 15;
+    if (hold) {
+        unsigned left = v->hold;
+        float hl = v->held[0], hr = v->held[1];
+        for (unsigned i = 0; i < n; i++) {
+            if (!left) {
+                hl = l[i];
+                if (r)
+                    hr = r[i];
+                left = hold + 1;
+            }
+            left--;
+            l[i] = hl;
+            if (r)
+                r[i] = hr;
+        }
+        v->hold = (uint8_t)left;
+        v->held[0] = hl;
+        v->held[1] = hr;
+    }
+    if (bits) {
+        /* the rounding as the floor of a positive number: a truncation (no libm) */
+        float q = (float)(1u << (bits - 1)), iq = 1.0f / q;
+        for (int c = 0; c < (r ? 2 : 1); c++) {
+            float *x = c ? r : l;
+            for (unsigned i = 0; i < n; i++) {
+                float y = x[i] > 2.0f ? 2.0f : x[i] < -2.0f ? -2.0f : x[i];
+                x[i] = (float)((int32_t)(y * q + 65536.5f) - 65536) * iq;
+            }
+        }
+    }
+}
+
 /* One voice added into the mix and the sends (n <= SYNTH_BLOCK). The
  * registers are read once: everything derived from them is computed once
  * per block, the volume and the pitch ramp across it. */
@@ -1159,6 +1346,8 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
             v->phase2 = 0;
             v->f1 = v->f2 = 0;
             v->f1b = v->f2b = 0;
+            memset(v->vow, 0, sizeof v->vow);
+            v->hold = 0;
             v->fg = 0;                  /* the filter and the width start where they are: no ramp */
             v->pw = -1.0f;
             v->fm_fb = 0;
@@ -1193,7 +1382,8 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
         if (wave == SYNTH_SAMPLE)
             wave_sample_raw(s, v, inc, buf, n);
         else
-            wave_raw(v, wave > SYNTH_METAL ? SYNTH_SQUARE : wave, duty, inc, fast_noise, buf, n);
+            wave_raw(v, wave >= SYNTH_PINK ? SYNTH_NOISE : wave > SYNTH_METAL ? SYNTH_SQUARE : wave, duty, inc,
+                     fast_noise, buf, n);
         float atk = synth_rate_increment(r[SYNTH_ATTACK], s->rate);
         float dec = synth_rate_increment(r[SYNTH_DECAY], s->rate);
         float sus = r[SYNTH_SUSTAIN];
@@ -1238,7 +1428,6 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
         /* -------- the clean voice */
         env_coefs(s, v, r);
         uint32_t inc0 = v->fresh ? inc : v->inc;
-        float vol0 = v->fresh ? vol : v->vol;
         float inv_n = n == SYNTH_BLOCK ? 1.0f / SYNTH_BLOCK : 1.0f / (float)n;
         wave_args_t a;
         a.inc = inc0;
@@ -1261,6 +1450,15 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
         a.pw0 = v->pw >= 0.0f ? v->pw : a.pw;
         v->pw = a.pw;
 
+        /* tremolo (the LFO on the volume) and the ducking: both ride the
+         * volume's own ramp */
+        uint8_t tm = r[SYNTH_TREMOLO];
+        if ((tm & 15) && r[SYNTH_LFO_RATE])
+            vol *= 1.0f - (float)(tm & 15) * (0.5f / 15.0f) * (1.0f - lfo);
+        if (!(tm >> 4) && s->duck > 0.0f)
+            vol *= 1.0f - s->duck;
+        float vol0 = v->fresh ? vol : v->vol;
+
         /* FM depth: fades with MODDECAY */
         float depth = (a.mod2 ? a.mod2 : 40) * (1.0f / 32.0f);
         a.depth0 = depth * v->menv;
@@ -1282,25 +1480,38 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
         uint8_t nm = r[SYNTH_NOISEMIX];
         if (nm) {
             float k = nm / 255.0f;
-            if (!buf2) {
+            int color = (r[SYNTH_FLAGS] & SYNTH_FLAG_COLOR) >> SYNTH_COLOR_SHIFT;
+            if (!buf2 && !color) {
                 for (unsigned i = 0; i < n; i++)
                     buf[i] += k * white(s);
             } else {
+                uint32_t th = crackle_th(s, 0);
                 for (unsigned i = 0; i < n; i++) {
-                    float w = k * white(s);
+                    float w = k * colored(s, v->mpink, &v->mbrown, color, th);
                     buf[i] += w;
-                    buf2[i] += w;
+                    if (buf2)
+                        buf2[i] += w;
                 }
             }
         }
         uint8_t drive = r[SYNTH_DRIVE];
-        if (drive) {
+        int curve = (r[SYNTH_FLAGS] & SYNTH_FLAG_CURVE) >> SYNTH_CURVE_SHIFT;
+        if (drive && (curve == SYNTH_CURVE_SOFT || curve >= SYNTH_CURVES)) {
             float pre = 1.0f + drive * (12.0f / 255.0f), post = 1.0f / soft(pre);
             for (unsigned i = 0; i < n; i++)
                 buf[i] = soft(buf[i] * pre) * post;
             if (buf2)
                 for (unsigned i = 0; i < n; i++)
                     buf2[i] = soft(buf2[i] * pre) * post;
+        } else if (drive) {
+            /* the other curves: hard, folded, a sine, asymmetric, cubic */
+            float pre = 1.0f + drive * (12.0f / 255.0f);
+            float post = curve == SYNTH_CURVE_ASYM ? 1.0f / shape(curve, pre) : 1.0f;
+            for (unsigned i = 0; i < n; i++)
+                buf[i] = shape(curve, buf[i] * pre) * post;
+            if (buf2)
+                for (unsigned i = 0; i < n; i++)
+                    buf2[i] = shape(curve, buf2[i] * pre) * post;
         }
         uint8_t cut = r[SYNTH_CUTOFF];
         /* the filter envelope: up with the attack, down with its decay */
@@ -1364,12 +1575,21 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
         } else {
             v->fg = 0;                  /* no filter: the next one starts without a ramp */
         }
+        int vowel = (r[SYNTH_FILTER] & SYNTH_VOWEL) >> SYNTH_VOWEL_SHIFT;
+        if (vowel && vowel < SYNTH_VOWELS) {
+            vowel_run(s->vowel[vowel], buf, n, v->vow[0]);
+            if (buf2)
+                vowel_run(s->vowel[vowel], buf2, n, v->vow[1]);
+        }
 
         /* the envelope and the volume */
         if (buf2)
             env_run(v, buf, buf2, n, r[SYNTH_SUSTAIN], vol0, vol);
         else
             env_run(v, buf, NULL, n, r[SYNTH_SUSTAIN], vol0, vol);
+        uint8_t cr = r[SYNTH_CRUSH];
+        if (cr)
+            crush_run(v, cr, buf, buf2, n);
         v->inc = inc;
         v->vol = vol;
         v->fresh = 0;
@@ -1416,6 +1636,17 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
                 se[i] += x * ke;
             }
         }
+    }
+    uint8_t cs = s->retro ? 0 : r[SYNTH_CHORUS];
+    if (cs) {
+        float kc = cs / 255.0f, *sc = s->send_chorus;
+        if (buf2)
+            for (unsigned i = 0; i < n; i++)
+                sc[i] += (buf[i] + buf2[i]) * (0.5f * kc);
+        else
+            for (unsigned i = 0; i < n; i++)
+                sc[i] += buf[i] * kc;
+        s->chorus_quiet = 0;
     }
     if (rs)
         s->room_quiet = 0;
@@ -1516,6 +1747,70 @@ static void echo_render(synth_t *s, unsigned n)
         s->echo_quiet += n;
 }
 
+/* a tap of the chorus's line d samples back (a straight line between two) */
+static inline float chorus_tap(const float *line, uint32_t w, float d)
+{
+    uint32_t di = (uint32_t)d;
+    float f = d - (float)di;
+    float a = line[(w - di) & (SYNTH_CHORUS_LEN - 1)], b = line[(w - di - 1) & (SYNTH_CHORUS_LEN - 1)];
+    return a + (b - a) * f;
+}
+
+/* The chorus: the send into one line, read twice (left, right) a little
+ * later, each tap swinging with an LFO a quarter turn from the other's: the
+ * pitch wavers a little and the two sides differ, a wider sound. The swing
+ * ramps across the block from the LFO at its two ends. */
+static void chorus_render(synth_t *s, unsigned n)
+{
+    if (s->chorus_quiet > s->rate / 10u || s->chorus_wet <= 0.0f)
+        return;
+    uint32_t p0 = s->chorus_lfo, p1 = p0 + s->chorus_inc * n;
+    float base = s->chorus_delay, dep = s->chorus_depth, inv_n = 1.0f / (float)n;
+    float l = base + dep * sine((float)p0 * TO_UNIT), r = base + dep * sine((float)(p0 + 0x40000000u) * TO_UNIT);
+    float dl = (base + dep * sine((float)p1 * TO_UNIT) - l) * inv_n;
+    float dr = (base + dep * sine((float)(p1 + 0x40000000u) * TO_UNIT) - r) * inv_n;
+    float wet = s->chorus_wet * CHORUS_OUT, energy = 0;
+    float *line = s->chorus;
+    uint32_t w = s->chorus_i;
+    for (unsigned i = 0; i < n; i++) {
+        float x = s->send_chorus[i];
+        line[w] = x;
+        float yl = chorus_tap(line, w, l), yr = chorus_tap(line, w, r);
+        s->mix[0][i] += yl * wet;
+        s->mix[1][i] += yr * wet;
+        energy += (yl < 0 ? -yl : yl) + (yr < 0 ? -yr : yr) + (x < 0 ? -x : x);
+        w = (w + 1) & (SYNTH_CHORUS_LEN - 1);
+        l += dl;
+        r += dr;
+    }
+    s->chorus_i = w;
+    s->chorus_lfo = p1;
+    if (energy < QUIET * (float)n)
+        s->chorus_quiet += n;
+}
+
+/* How far the voices that duck others (TREMOLO's high nibble) push the
+ * rest down: the loudest of them now (its envelope times its amount), or
+ * what is left of it, letting go in about 120 ms */
+static void duck_update(synth_t *s, const volatile uint8_t *regs)
+{
+    float d = 0;
+    for (unsigned ch = 0; ch < SYNTH_VOICES; ch++) {
+        uint8_t dk = regs[ch * SYNTH_VOICE_BYTES + SYNTH_TREMOLO] >> 4;
+        if (dk && s->v[ch].stage != SYNTH_IDLE) {
+            float e = (float)dk * (1.0f / 15.0f) * s->v[ch].level * (1.0f / 255.0f);
+            if (e > d)
+                d = e;
+        }
+    }
+    if (d > 1.0f)
+        d = 1.0f;
+    if (d >= s->duck)
+        s->duck = d;
+    else if ((s->duck *= DUCK_RELEASE) < 1e-4f)
+        s->duck = 0;
+}
+
 int synth_mix(synth_t *s, const volatile uint8_t *regs, float *out, unsigned n)
 {
     int kind = SYNTH_MIX_SILENT;
@@ -1523,9 +1818,11 @@ int synth_mix(synth_t *s, const volatile uint8_t *regs, float *out, unsigned n)
         unsigned m = n < SYNTH_BLOCK ? n : SYNTH_BLOCK;
         for (unsigned i = 0; i < m; i++) {
             s->mix[0][i] = s->mix[1][i] = s->mix_c[i] = 0;
-            s->send_room[i] = s->send_echo[i] = 0;
+            s->send_room[i] = s->send_echo[i] = s->send_chorus[i] = 0;
         }
         s->center_used = 0;
+        if (!s->retro)
+            duck_update(s, regs);
         for (unsigned ch = 0; ch < SYNTH_VOICES; ch++)
             render_voice(s, ch, regs + ch * SYNTH_VOICE_BYTES, m);
         if (s->center_used)
@@ -1535,7 +1832,7 @@ int synth_mix(synth_t *s, const volatile uint8_t *regs, float *out, unsigned n)
             }
         float g = s->gain;
         if (!synth_active(s) && s->room_quiet > s->rate / 10u && s->echo_quiet > s->rate / 10u &&
-            s->dc_y[0] == 0 && s->dc_y[1] == 0) {
+            s->chorus_quiet > s->rate / 10u && s->dc_y[0] == 0 && s->dc_y[1] == 0) {
             for (unsigned i = 0; i < 2 * m; i++)
                 out[i] = 0;             /* all quiet: nothing to mix (and no dither) */
             s->comp_env = 0;
@@ -1556,6 +1853,7 @@ int synth_mix(synth_t *s, const volatile uint8_t *regs, float *out, unsigned n)
         } else {
             room_render(s, m);
             echo_render(s, m);
+            chorus_render(s, m);
             float peak = 0;
             for (int c = 0; c < 2; c++) {
                 float x1 = s->dc_x[c], y1 = s->dc_y[c];

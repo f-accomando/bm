@@ -1515,6 +1515,270 @@ static void test_samples(void)
     CHECK(syn.smp == NULL && syn.nsmp == 0);
 }
 
+/* ---------------------------------------------------------------- the effects */
+
+/* the power at hz in the left floats (Hann window) */
+static double fpower_at(const float *x, int from, int n, double hz)
+{
+    double re = 0, im = 0;
+    for (int i = 0; i < n; i++) {
+        double w = 0.5 - 0.5 * cos(2 * M_PI * i / (n - 1));
+        re += x[2 * (from + i)] * w * cos(2 * M_PI * hz * i / RATE);
+        im -= x[2 * (from + i)] * w * sin(2 * M_PI * hz * i / RATE);
+    }
+    return re * re + im * im;
+}
+
+/* the left floats' power in [lo, hi) Hz, from FFT_N samples */
+static double fband(const float *x, int from, double lo, double hi)
+{
+    for (int i = 0; i < FFT_N; i++) {
+        fre[i] = x[2 * (from + i)] * (0.5 - 0.5 * cos(2 * M_PI * i / (FFT_N - 1)));
+        fim[i] = 0;
+    }
+    fft(fre, fim, FFT_N);
+    double p = 0;
+    for (int i = (int)(lo * FFT_N / RATE); i < (int)(hi * FFT_N / RATE); i++)
+        p += fre[i] * fre[i] + fim[i] * fim[i];
+    return p;
+}
+
+static double frms(const float *x, int stride, int from, int n)
+{
+    double p = 0;
+    for (int i = from; i < from + n; i++)
+        p += (double)x[stride * i] * x[stride * i];
+    return sqrt(p / n);
+}
+
+static float smix2[2 * 2 * RATE];
+
+static void test_effects(void)
+{
+    static synth_t s, s2;
+
+    /* ---- crush: the difference from the clean sound is the steps' noise,
+     * 2^(1-b)/sqrt(12) (x 1.25: the compressor's make-up, the signal quiet) */
+    for (int bits = 3; bits <= 8; bits += 5) {
+        synth_init(&s, RATE);
+        synth_init(&s2, RATE);
+        memset(regs, 0, sizeof regs);
+        clean_voice(0, 441, SYNTH_SINE, 100, 0, 0, 255, 0, 1);
+        mix_floats(&s2, 9600);
+        memcpy(smix2, smix, sizeof(float) * 2 * 9600);
+        tone(0, SYNTH_CRUSH, bits);
+        mix_floats(&s, 9600);
+        double d = 0;
+        for (int i = 2400; i < 9600; i++)
+            d += (double)(smix[2 * i] - smix2[2 * i]) * (smix[2 * i] - smix2[2 * i]);
+        d = sqrt(d / 7200);
+        double want = 1.25 * pow(2, 1 - bits) / sqrt(12.0);
+        CHECK(d > 0.7 * want && d < 1.3 * want);
+        if (!(d > 0.7 * want && d < 1.3 * want))
+            printf("  crush %d: %.5f rms, %.5f expected\n", bits, d, want);
+    }
+    /* coarse 4: three samples of every four held (after the DC blocker: each a
+     * little less than the one before, by its 0.9995) */
+    synth_init(&s, RATE);
+    clean_voice(0, 441, SYNTH_SINE, 100, 0, 0, 255, 0, 1);
+    tone(0, SYNTH_CRUSH, 3 << 4);
+    mix_floats(&s, 9600);
+    int held = 0;
+    for (int i = 2401; i < 9600; i++)
+        held += fabsf(smix[2 * i] - 0.9995f * smix[2 * (i - 1)]) < 1e-5f;
+    CHECK(held > 7199 * 74 / 100 && held < 7199 * 76 / 100);
+
+    /* ---- the drive's curves: odd harmonics for the symmetric ones, the
+     * second for the asymmetric one; each its own sound */
+    double h2[SYNTH_CURVES], h3[SYNTH_CURVES];
+    static float curves[SYNTH_CURVES][2 * 8192];
+    for (int c = 0; c < SYNTH_CURVES; c++) {
+        synth_init(&s, RATE);
+        clean_voice(0, 375, SYNTH_SINE, 120, 0, 0, 255, 0, 1);
+        tone(0, SYNTH_DRIVE, 200);
+        tone(0, SYNTH_FLAGS, c << SYNTH_CURVE_SHIFT);
+        mix_floats(&s, 4800 + 8192);
+        memcpy(curves[c], smix + 2 * 4800, sizeof curves[c]);
+        double h1 = fpower_at(smix, 4800, 8192, 375);
+        h2[c] = 10 * log10(fpower_at(smix, 4800, 8192, 750) / h1);
+        h3[c] = 10 * log10(fpower_at(smix, 4800, 8192, 1125) / h1);
+        CHECK(c == SYNTH_CURVE_ASYM ? h2[c] > -30 : h2[c] < -60);
+        CHECK(h3[c] > -40);
+    }
+    int alike = 0;
+    for (int c = 0; c < SYNTH_CURVES; c++)
+        for (int d = c + 1; d < SYNTH_CURVES; d++)
+            alike += !memcmp(curves[c], curves[d], sizeof curves[c]);
+    CHECK(alike == 0);
+    printf("  drive 200, its 3rd harmonic: soft %.0f, hard %.0f, fold %.0f, sine %.0f, asym %.0f (2nd %.0f), "
+           "cubic %.0f dBc\n", h3[0], h3[1], h3[2], h3[3], h3[4], h2[4], h3[5]);
+
+    /* ---- the noises: white rises 12 dB from 250-500 Hz to 4-8 kHz (four
+     * octaves, sixteen times the band), pink stays level, brown falls 12 */
+    static const int noise_wave[3] = { SYNTH_NOISE, SYNTH_PINK, SYNTH_BROWN };
+    double tilt[3];
+    for (int k = 0; k < 3; k++) {
+        synth_init(&s, RATE);
+        clean_voice(0, k ? 440 : RATE, noise_wave[k], 100, 0, 0, 255, 0, 1);
+        mix_floats(&s, 4800 + FFT_N);
+        tilt[k] = 10 * log10(fband(smix, 4800, 4000, 8000) / fband(smix, 4800, 250, 500));
+    }
+    CHECK(fabs(tilt[0] - 12) < 2 && fabs(tilt[1]) < 2 && fabs(tilt[2] + 12) < 2.5);
+    printf("  noise from 250-500 Hz to 4-8 kHz: white %+.1f dB, pink %+.1f, brown %+.1f\n", tilt[0], tilt[1], tilt[2]);
+    /* pink as the noise mix: the same tilt; the noises as loud as each other */
+    synth_init(&s, RATE);
+    clean_voice(0, 20, SYNTH_SINE, 100, 0, 0, 255, 0, 1);     /* 20 Hz: out of both bands */
+    tone(0, SYNTH_NOISEMIX, 255);
+    tone(0, SYNTH_FLAGS, SYNTH_COLOR_PINK << SYNTH_COLOR_SHIFT);
+    mix_floats(&s, 4800 + FFT_N);
+    double mixtilt = 10 * log10(fband(smix, 4800, 4000, 8000) / fband(smix, 4800, 250, 500));
+    CHECK(fabs(mixtilt) < 3);
+    double lw = 0, lp = 0, lb = 0;
+    for (int k = 0; k < 3; k++) {
+        synth_init(&s, RATE);
+        clean_voice(0, k ? 440 : RATE, noise_wave[k], 100, 0, 0, 255, 0, 1);
+        mix_floats(&s, 9600);
+        double r = frms(smix, 2, 2400, 7200);
+        if (k == 0) lw = r; else if (k == 1) lp = r; else lb = r;
+    }
+    CHECK(lp > 0.4 * lw && lp < 1.2 * lw && lb > 0.4 * lw && lb < 1.6 * lw);
+    printf("  the noises' rms against the noise wave's: pink %.2f, brown %.2f\n", lp / lw, lb / lw);
+    /* crackle: 100 clicks a second (MOD1 0), 400 (MOD1 50); each a step up and back */
+    for (int dens = 0; dens <= 50; dens += 50) {
+        synth_init(&s, RATE);
+        clean_voice(0, 440, SYNTH_CRACKLE, 60, 0, 0, 255, 0, 1);  /* quiet: the compressor rests */
+        tone(0, SYNTH_MOD1, dens);
+        mix_floats(&s, RATE + 2400);
+        int steps = 0;
+        for (int i = 2401; i < RATE + 2400; i++)
+            steps += fabsf(smix[2 * i] - 0.9995f * smix[2 * (i - 1)]) > 1e-4f;
+        int want = dens ? 2 * 400 : 2 * 100;
+        CHECK(steps > want * 7 / 10 && steps < want * 13 / 10);
+        if (!(steps > want * 7 / 10 && steps < want * 13 / 10))
+            printf("  crackle %d: %d steps, about %d wanted\n", dens, steps, want);
+    }
+
+    /* ---- tremolo: the LFO (5 Hz) on the volume, all the way down at 15; no LFO, no tremolo */
+    for (int depth = 0; depth <= 15; depth += 15) {
+        synth_init(&s, RATE);
+        clean_voice(0, 500, SYNTH_SINE, 120, 0, 0, 255, 0, 1);  /* five cycles in 10 ms */
+        tone(0, SYNTH_LFO_RATE, 1 + (int)(log2(5.0 / 0.1) * 254 / 7.64 + 0.5));
+        tone(0, SYNTH_TREMOLO, depth);
+        mix_floats(&s, RATE);
+        double lo = 1e9, hi = 0;
+        for (int b = 4800; b + 480 <= RATE; b += 480) {
+            double r = frms(smix, 2, b, 480);
+            if (r < lo) lo = r;
+            if (r > hi) hi = r;
+        }
+        CHECK(depth ? hi > 10 * lo : hi < 1.02 * lo);
+    }
+    synth_init(&s, RATE);
+    synth_init(&s2, RATE);
+    clean_voice(0, 441, SYNTH_SINE, 120, 0, 0, 255, 0, 1);
+    mix_floats(&s2, 4800);
+    memcpy(smix2, smix, sizeof(float) * 2 * 4800);
+    tone(0, SYNTH_TREMOLO, 15);
+    mix_floats(&s, 4800);
+    CHECK(!memcmp(smix, smix2, sizeof(float) * 2 * 4800));
+
+    /* ---- the chorus: the two sides differ, the pitch wavers a little;
+     * when the voice stops, the chorus empties and the mix is silent again */
+    synth_init(&s, RATE);
+    clean_voice(0, 440, SYNTH_SINE, 120, 0, 0, 255, 0, 1);
+    tone(0, SYNTH_CHORUS, 255);
+    mix_floats(&s, RATE);
+    double side = 0;
+    for (int i = 4800; i < RATE; i++)
+        side += fabsf(smix[2 * i] - smix[2 * i + 1]);
+    CHECK(side / (RATE - 4800) > 0.02);
+    tone(0, SYNTH_CHORUS, 0);
+    synth_init(&s, RATE);
+    mix_floats(&s, 4800);
+    side = 0;
+    for (int i = 0; i < 4800; i++)
+        side += fabsf(smix[2 * i] - smix[2 * i + 1]);
+    CHECK(side == 0);
+    synth_init(&s, RATE);
+    clean_voice(0, 440, SYNTH_SINE, 120, 0, 0, 255, 2, 1);
+    tone(0, SYNTH_CHORUS, 255);
+    tone(0, SYNTH_REVERB, 0);
+    mix_floats(&s, 9600);
+    tone(0, SYNTH_CONTROL, 0);
+    int silent_at = -1;
+    for (int b = 0; b < 400 && silent_at < 0; b++) {
+        float o[128];
+        if (synth_mix(&s, regs, o, 64) == SYNTH_MIX_SILENT)
+            silent_at = b;
+    }
+    CHECK(silent_at > 0 && s.chorus_quiet > RATE / 10);
+
+    /* ---- ducking: a 220 Hz note, and a source (duck 15) for 200 ms at 1
+     * kHz: the note falls by more than 12 dB while it sounds, and is back
+     * within half a second; the source itself is not ducked */
+    synth_init(&s, RATE);
+    memset(regs, 0, sizeof regs);
+    clean_voice(0, 220, SYNTH_SINE, 120, 0, 0, 255, 0, 1);
+    clean_voice(1, 1000, SYNTH_SINE, 120, 0, 0, 255, 2, 0);
+    tone(1, SYNTH_TREMOLO, 15 << 4);
+    mix_floats(&s, 9600);
+    double before = fpower_at(smix, 4800, 4800, 220);
+    CHECK(s.duck == 0);
+    tone(1, SYNTH_CONTROL, SYNTH_GATE);
+    mix_floats(&s, 9600);
+    double during = fpower_at(smix, 4800, 4800, 220), src = fpower_at(smix, 4800, 4800, 1000);
+    tone(1, SYNTH_CONTROL, 0);
+    mix_floats(&s, RATE);
+    double after = fpower_at(smix, 24000, 4800, 220);
+    CHECK(10 * log10(during / before) < -12);
+    CHECK(fabs(10 * log10(after / before)) < 1);
+    CHECK(src > before * 0.5);
+    printf("  ducking: the music %.1f dB while the source sounds, %+.2f dB half a second after\n",
+           10 * log10(during / before), 10 * log10(after / before));
+
+    /* ---- the vowels: a saw at 110 Hz has its energy near 600 Hz with "a",
+     * near 250 with "i"; about as loud as without */
+    double ratio[SYNTH_VOWELS], dry = 0;
+    for (int vw = 0; vw < SYNTH_VOWELS; vw++) {
+        synth_init(&s, RATE);
+        clean_voice(0, 110, SYNTH_SAW, 120, 0, 0, 255, 0, 1);
+        tone(0, SYNTH_FILTER, vw << SYNTH_VOWEL_SHIFT);
+        mix_floats(&s, 4800 + FFT_N);
+        ratio[vw] = 10 * log10(fband(smix, 4800, 500, 700) / fband(smix, 4800, 200, 300));
+        double r = frms(smix, 2, 4800, 9600);
+        if (!vw)
+            dry = r;
+        else
+            CHECK(r > dry * 0.35 && r < dry * 1.4);
+    }
+    CHECK(ratio[SYNTH_VOWEL_A] > ratio[SYNTH_VOWEL_I] + 15 && ratio[SYNTH_VOWEL_A] > ratio[0] + 5);
+    printf("  vowels, 500-700 Hz against 200-300 Hz: none %+.0f, a %+.0f, e %+.0f, i %+.0f, o %+.0f, u %+.0f dB\n",
+           ratio[0], ratio[1], ratio[2], ratio[3], ratio[4], ratio[5]);
+
+    /* ---- the chip: every new register ignored, sample for sample */
+    for (int w = 0; w < SYNTH_WAVES; w++) {
+        if (w == SYNTH_SAMPLE)
+            continue;
+        init_retro(&s);
+        init_retro(&s2);
+        memset(regs, 0, sizeof regs);
+        voice(0, w == SYNTH_NOISE || w >= SYNTH_PINK ? 4000 : 440, w, 128, 200, 0, 30, 100, 10, 1);
+        static int16_t a[4800], b[4800];
+        int mapped = w >= SYNTH_PINK ? SYNTH_NOISE : w;
+        regs[SYNTH_WAVEFORM] = (uint8_t)mapped;
+        mono(&s2, regs, b, 4800);
+        regs[SYNTH_WAVEFORM] = (uint8_t)w;
+        tone(0, SYNTH_CRUSH, 0x53);
+        tone(0, SYNTH_TREMOLO, 0xFF);
+        tone(0, SYNTH_CHORUS, 255);
+        tone(0, SYNTH_FILTER, SYNTH_VOWEL_A << SYNTH_VOWEL_SHIFT);
+        tone(0, SYNTH_FLAGS, SYNTH_COLOR_BROWN << SYNTH_COLOR_SHIFT | SYNTH_CURVE_FOLD << SYNTH_CURVE_SHIFT);
+        tone(0, SYNTH_LFO_RATE, 100);
+        mono(&s, regs, a, 4800);
+        CHECK(!memcmp(a, b, sizeof a));
+    }
+}
+
 int main(void)
 {
     test_synth();
@@ -1526,6 +1790,7 @@ int main(void)
     test_depth();
     test_ramps();
     test_samples();
+    test_effects();
     printf("audio: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

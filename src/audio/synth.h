@@ -2,12 +2,15 @@
  * 8-voice synthesizer. Each voice: a wave (square with duty, triangle,
  * saw, sine, two noises, two-operator FM, a plucked string, a supersaw,
  * an organ of four harmonics, a sample: a recorded sound of the bank or of
- * the console's own drum kit), white noise mixed in, a soft drive, a
- * resonant filter (low, band, high pass, notch) with its envelope and an
- * LFO, an ADSR envelope, a place left to right and two sends: the room (a
- * reverb) and the echo. The voices are summed in stereo in 32-bit floats,
- * the room and the echo added, softly limited, and only at the very end
- * rounded to the output's depth: 16 or 24 bits with TPDF dither, or 32.
+ * the console's own drum kit, pink, brown noise, crackle), noise mixed in,
+ * a drive of six curves, a resonant filter (low, band, high pass, notch)
+ * with its envelope and an LFO, the formants of a vowel, an ADSR envelope,
+ * tremolo, a bit crusher and a sample-rate reducer, a place left to right
+ * and three sends: the room (a reverb), the echo and the chorus. A voice
+ * can duck the others (a sidechain). The voices are summed in stereo in
+ * 32-bit floats, the room, the echo and the chorus added, softly limited,
+ * and only at the very end rounded to the output's depth: 16 or 24 bits
+ * with TPDF dither, or 32.
  *
  * The waves are band-limited (PolyBLEP: no aliasing whistles on the high
  * notes), the envelopes exponential like an analog synth's, volume and
@@ -47,7 +50,8 @@
 /* the tone: every one 0 is the plain wave in the middle, dry */
 #define SYNTH_CUTOFF    11      /* filter: 0 none; 1..255 = 20 Hz .. 20 kHz */
 #define SYNTH_RESONANCE 12      /* 0..255: flat .. ringing           */
-#define SYNTH_FILTER    13      /* bits 0-1 SYNTH_LOWPASS..SYNTH_NOTCH, bit 2 SYNTH_KEYTRACK */
+#define SYNTH_FILTER    13      /* bits 0-1 SYNTH_LOWPASS..SYNTH_NOTCH, bit 2 SYNTH_KEYTRACK,
+                                   bits 3-5 a vowel's formants after it (SYNTH_VOWEL_*) */
 #define SYNTH_FENV      14      /* s8: the filter envelope opens it 1/16 octave per unit */
 #define SYNTH_FDECAY    15      /* the filter envelope's decay (as ADSR times) */
 #define SYNTH_PAN       16      /* s8: -127 left .. 0 middle .. 127 right */
@@ -56,27 +60,49 @@
 #define SYNTH_MOD2      18      /* FM depth x/32 rad, PLUCK sustain, ORGAN bars 3-4,
                                    SAMPLE where it starts, x/256 of its length */
 #define SYNTH_MODDECAY  19      /* FM: the depth fades in this time (0: it stays) */
-#define SYNTH_NOISEMIX  20      /* white noise added to the wave, 0..255 */
-#define SYNTH_DRIVE     21      /* soft saturation before the filter, 0..255 */
+#define SYNTH_NOISEMIX  20      /* noise added to the wave (its colour: FLAGS), 0..255 */
+#define SYNTH_DRIVE     21      /* saturation before the filter (its curve: FLAGS), 0..255 */
 #define SYNTH_REVERB    22      /* send to the room, 0..255          */
 #define SYNTH_ECHO      23      /* send to the echo, 0..255          */
 #define SYNTH_LFO_RATE  24      /* 0 off; 1..255 = 0.1 .. 20 Hz      */
 #define SYNTH_LFO_CUT   25      /* the LFO moves the cutoff, 0..255 = 0..4 octaves */
 #define SYNTH_LFO_PWM   26      /* the LFO moves the square's duty, 0..255 */
 #define SYNTH_FMFB      27      /* FM: the modulator's feedback, 0..255 */
-#define SYNTH_FLAGS     28      /* SYNTH_FLAG_RAW: a sound that is the chip voice; SYNTH_FLAG_REVERSE */
-/* 29..31: reserved, read as 0 */
+#define SYNTH_FLAGS     28      /* SYNTH_FLAG_*: the chip voice, the noise's colour, the drive's
+                                   curve, a sample backwards */
+#define SYNTH_CRUSH     29      /* low nibble: bits 1..15 kept of every sample (0: all); high
+                                   nibble n: every value held n + 1 samples (coarse; 0: none) */
+#define SYNTH_TREMOLO   30      /* low nibble: the LFO moves the volume n/15 (tremolo); high
+                                   nibble: the voice ducks the others n/15 (sidechain) */
+#define SYNTH_CHORUS    31      /* send to the chorus, 0..255 */
 
 #define SYNTH_GATE      0x01    /* control: key down                 */
 #define SYNTH_RAW       0x02    /* control: the 8-bit chip voice     */
 #define SYNTH_FLAG_RAW  0x01    /* flags: the same, kept with the sound's tone */
+#define SYNTH_FLAG_COLOR 0x06   /* flags bits 1-2: the noise mix's colour, SYNTH_COLOR_* */
+#define SYNTH_FLAG_CURVE 0x38   /* flags bits 3-5: the drive's curve, SYNTH_CURVE_* */
 #define SYNTH_FLAG_REVERSE 0x40 /* flags: a sample plays backwards, from its end */
+#define SYNTH_COLOR_SHIFT 1
+#define SYNTH_CURVE_SHIFT 3
+enum { SYNTH_COLOR_WHITE, SYNTH_COLOR_PINK, SYNTH_COLOR_BROWN, SYNTH_COLOR_CRACKLE };
+enum {
+    SYNTH_CURVE_SOFT,       /* a rational tanh (the drive of the first clean voice) */
+    SYNTH_CURVE_HARD,       /* clipped flat at +-1 */
+    SYNTH_CURVE_FOLD,       /* folded back at +-1 (a triangle wavefolder) */
+    SYNTH_CURVE_SINE,       /* a sine of the signal: soft, then folding */
+    SYNTH_CURVE_ASYM,       /* bent more on one side (a diode, a tube): even harmonics */
+    SYNTH_CURVE_CUBIC,      /* 1.5x - 0.5x^3: the gentlest */
+    SYNTH_CURVES
+};
 
 #define SYNTH_LOWPASS   0
 #define SYNTH_BANDPASS  1
 #define SYNTH_HIGHPASS  2
 #define SYNTH_NOTCH     3
 #define SYNTH_KEYTRACK  0x04    /* the cutoff follows the note (C4 = as set) */
+#define SYNTH_VOWEL     0x38    /* bits 3-5: 0 none, SYNTH_VOWEL_A .. SYNTH_VOWEL_U */
+#define SYNTH_VOWEL_SHIFT 3
+enum { SYNTH_VOWEL_NONE, SYNTH_VOWEL_A, SYNTH_VOWEL_E, SYNTH_VOWEL_I, SYNTH_VOWEL_O, SYNTH_VOWEL_U, SYNTH_VOWELS };
 
 #define SYNTH_SQUARE    0
 #define SYNTH_TRIANGLE  1
@@ -90,7 +116,10 @@
 #define SYNTH_ORGAN     9       /* four harmonics (drawbars): organs, flutes, soft leads */
 #define SYNTH_SAMPLE    10      /* a sample (MOD1, MOD2): the note against its root note sets its
                                    speed (frequency 0: its own speed); a one-shot ends the note */
-#define SYNTH_WAVES     11
+#define SYNTH_PINK      11      /* pink noise, -3 dB an octave (the note does not matter): rain, surf */
+#define SYNTH_BROWN     12      /* brown noise, -6 dB an octave: rumble, wind, waves */
+#define SYNTH_CRACKLE   13      /* random clicks, MOD1 how many (0: 100 a second): vinyl, fire */
+#define SYNTH_WAVES     14
 
 /* A sample: 16-bit frames (interleaved if stereo) at its own rate. The
  * buffer holds one guard frame before frame 0 and three after the last
@@ -118,6 +147,7 @@ typedef struct {
 #define SYNTH_ROOM_LEN      1700        /* at half the rate */
 #define SYNTH_ECHO_LEN      32768       /* 0.68 s at 48 kHz */
 #define SYNTH_PLUCK_LEN     2048        /* the lowest string: 23 Hz at 48 kHz */
+#define SYNTH_CHORUS_LEN    2048        /* 42 ms at 48 kHz */
 #define SYNTH_BLOCK         64          /* samples between updates of the tone */
 
 enum { SYNTH_IDLE, SYNTH_ATTACK_ST, SYNTH_DECAY_ST, SYNTH_SUSTAIN_ST, SYNTH_RELEASE_ST };
@@ -149,6 +179,11 @@ typedef struct {
     uint8_t sdone;          /* sample: it ended (the voice too, at the block's end) */
     int8_t sdir;            /* sample: +1 forwards, -1 backwards (ping-pong) */
     float f1b, f2b;         /* the filter's state for a stereo sample's right */
+    float pink[3], brown;   /* the coloured noise of the wave ... */
+    float mpink[3], mbrown; /* ... and of the noise mix */
+    float vow[2][6];        /* the vowel's three formant filters, left and right */
+    float held[2];          /* coarse: the value held, left and right ... */
+    uint8_t hold;           /* ... and for how many more samples */
 } synth_voice_t;
 
 typedef struct {
@@ -176,6 +211,15 @@ typedef struct {
     float echo[2][SYNTH_ECHO_LEN];
     uint32_t echo_quiet;
 
+    /* the chorus: one delay line, two taps moved by an LFO a quarter turn
+     * apart, left and right (synth_chorus) */
+    float chorus_delay, chorus_depth, chorus_wet;   /* samples, samples, 0..1 */
+    uint32_t chorus_lfo, chorus_inc, chorus_i, chorus_quiet;
+    float chorus[SYNTH_CHORUS_LEN];
+
+    float duck;                             /* how far the others are ducked, 0..1 */
+    float vowel[SYNTH_VOWELS][3][4];        /* each vowel's formants: a1, a2, a3 and gain */
+
     float dc_x[2], dc_y[2];                 /* the output's DC blocker */
     float comp_env, comp_gain;              /* the output's compressor */
     uint32_t dither;                        /* the dither's random numbers (xorshift, never 0) */
@@ -188,6 +232,7 @@ typedef struct {
      * the mix and the sends */
     float vbuf[SYNTH_BLOCK], vbuf2[SYNTH_BLOCK];
     float mix[2][SYNTH_BLOCK], mix_c[SYNTH_BLOCK], send_room[SYNTH_BLOCK], send_echo[SYNTH_BLOCK];
+    float send_chorus[SYNTH_BLOCK];
     uint8_t center_used;                    /* a voice in the middle went into mix_c */
     float out[2 * SYNTH_BLOCK];             /* synth_render's block, before the rounding */
     float pluck[SYNTH_VOICES][SYNTH_PLUCK_LEN];
@@ -220,6 +265,10 @@ int synth_kit_find(const char *name);       /* SYNTH_KIT + k, or -1 */
  * between repeats (at most 680 ms), feedback 0..0.95, wet 0..1. */
 void synth_room(synth_t *s, float size, float damp, float wet);
 void synth_echo(synth_t *s, float ms, float feedback, float wet);
+/* The chorus: its LFO's rate (0.05..5 Hz, 0.8 after synth_init), how far
+ * the delay swings (0..8 ms around 14 ms, 2.5) and how much of it is heard
+ * (0..1, 1). */
+void synth_chorus(synth_t *s, float rate_hz, float depth_ms, float wet);
 
 /* Level increment per sample for an ADSR rate register of a raw voice: 0
  * is immediate, 255 crosses the whole 0..255 ramp in 2 s. */
@@ -239,9 +288,10 @@ void synth_render32(synth_t *s, const volatile uint8_t *regs, int32_t *out, unsi
 
 /* The two halves of a render, for a caller that adds its own sound in
  * between (audio.c: nano8). synth_mix: n frames as floats (2n, left
- * first), 1.0 = full scale, after the room, the echo, the DC blocker, the
- * compressor, the limiter and the master volume; it says what they are: */
-#define SYNTH_MIX_SILENT    0       /* all 0: no voice, the room and the echo quiet (no dither) */
+ * first), 1.0 = full scale, after the room, the echo, the chorus, the DC
+ * blocker, the compressor, the limiter and the master volume; it says
+ * what they are: */
+#define SYNTH_MIX_SILENT    0       /* all 0: no voice, the room, echo and chorus quiet (no dither) */
 #define SYNTH_MIX_SOUND     1       /* the clean sound: rounded with dither */
 #define SYNTH_MIX_RETRO     2       /* the chip (retro): truncated to 16 bits, as always */
 int  synth_mix(synth_t *s, const volatile uint8_t *regs, float *out, unsigned n);

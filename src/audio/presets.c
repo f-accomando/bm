@@ -3,9 +3,11 @@
 #include <math.h>
 #include <string.h>
 
-const char *const au_wave_names[SYNTH_WAVES] = {
-    "square", "triangle", "saw", "noise", "sine", "metal", "fm", "pluck", "supersaw", "organ", "sample"
+const char *const au_wave_names[] = {
+    "square", "triangle", "saw", "noise", "sine", "metal", "fm", "pluck", "supersaw", "organ", "sample",
+    "pink", "brown", "crackle"
 };
+_Static_assert(sizeof au_wave_names / sizeof au_wave_names[0] == SYNTH_WAVES, "a name for every wave");
 
 /* register values: times 0..2 s in 255 steps (100 ms = 13), cutoff
  * 20 Hz..20 kHz in 254 steps of half a semitone (synth_cutoff_hz):
@@ -206,6 +208,24 @@ static uint8_t cutoff8(double hz)
     return (uint8_t)(x < 1 ? 1 : x > 255 ? 255 : x);
 }
 
+static uint8_t nib(double v)
+{
+    long x = lround(v * 15.0);
+    return (uint8_t)(x < 0 ? 0 : x > 15 ? 15 : x);
+}
+
+const char *const au_vowel_names[SYNTH_VOWELS] = { "", "a", "e", "i", "o", "u" };
+const char *const au_curve_names[SYNTH_CURVES] = { "soft", "hard", "fold", "sine", "asym", "cubic" };
+const char *const au_color_names[4] = { "white", "pink", "brown", "crackle" };
+
+static int name_of(const char *const *names, int n, const char *v)
+{
+    for (int i = 0; i < n; i++)
+        if (same(v, names[i]))
+            return i;
+    return -1;
+}
+
 static uint8_t bar(double v)
 {
     long x = lround(v);
@@ -223,7 +243,7 @@ int au_tone_num(volatile uint8_t *r, const char *k, double v)
     else if (same(k, "release"))    r[SYNTH_RELEASE] = ms8(v);
     else if (same(k, "cutoff"))     r[SYNTH_CUTOFF] = cutoff8(v);
     else if (same(k, "res"))        r[SYNTH_RESONANCE] = unit8(v);
-    else if (same(k, "keytrack"))   r[SYNTH_FILTER] = (uint8_t)((r[SYNTH_FILTER] & 3) | (v != 0 ? SYNTH_KEYTRACK : 0));
+    else if (same(k, "keytrack"))   r[SYNTH_FILTER] = (uint8_t)((r[SYNTH_FILTER] & ~SYNTH_KEYTRACK) | (v != 0 ? SYNTH_KEYTRACK : 0));
     else if (same(k, "fenv"))       r[SYNTH_FENV] = s8(v * 16.0);
     else if (same(k, "fdecay"))     r[SYNTH_FDECAY] = ms8(v);
     else if (same(k, "pan"))        r[SYNTH_PAN] = s8(v * 127.0);
@@ -253,6 +273,15 @@ int au_tone_num(volatile uint8_t *r, const char *k, double v)
     else if (same(k, "sample"))     r[SYNTH_MOD1] = (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v);
     else if (same(k, "begin"))      r[SYNTH_MOD2] = (uint8_t)(v <= 0 ? 0 : v >= 1 ? 255 : v * 256.0);
     else if (same(k, "reverse"))    r[SYNTH_FLAGS] = (uint8_t)((r[SYNTH_FLAGS] & ~SYNTH_FLAG_REVERSE) | (v != 0 ? SYNTH_FLAG_REVERSE : 0));
+    else if (same(k, "crush"))      r[SYNTH_CRUSH] = (uint8_t)((r[SYNTH_CRUSH] & 0xF0) | (v >= 1 && v < 15.5 ? (int)(v + 0.5) : 0));
+    else if (same(k, "coarse"))     r[SYNTH_CRUSH] = (uint8_t)((r[SYNTH_CRUSH] & 0x0F) | (v >= 1.5 ? (v >= 16 ? 15 : (int)(v + 0.5) - 1) : 0) << 4);
+    else if (same(k, "trem"))       r[SYNTH_TREMOLO] = (uint8_t)((r[SYNTH_TREMOLO] & 0xF0) | nib(v));
+    else if (same(k, "duck"))       r[SYNTH_TREMOLO] = (uint8_t)((r[SYNTH_TREMOLO] & 0x0F) | nib(v) << 4);
+    else if (same(k, "chorus"))     r[SYNTH_CHORUS] = unit8(v);
+    else if (same(k, "density"))    r[SYNTH_MOD1] = unit8(v);
+    else if (same(k, "vowel"))      r[SYNTH_FILTER] = (uint8_t)((r[SYNTH_FILTER] & ~SYNTH_VOWEL) | (v >= 0 && v < SYNTH_VOWELS ? (int)v : 0) << SYNTH_VOWEL_SHIFT);
+    else if (same(k, "curve"))      r[SYNTH_FLAGS] = (uint8_t)((r[SYNTH_FLAGS] & ~SYNTH_FLAG_CURVE) | (v >= 0 && v < SYNTH_CURVES ? (int)v : 0) << SYNTH_CURVE_SHIFT);
+    else if (same(k, "color"))      r[SYNTH_FLAGS] = (uint8_t)((r[SYNTH_FLAGS] & ~SYNTH_FLAG_COLOR) | (v >= 0 && v < 4 ? (int)v : 0) << SYNTH_COLOR_SHIFT);
     else
         return -1;
     return 0;
@@ -285,10 +314,15 @@ int au_tone_str(volatile uint8_t *r, const char *k, const char *v)
         static const char *const modes[4] = { "lp", "bp", "hp", "notch" };
         for (int m = 0; m < 4; m++)
             if (same(v, modes[m])) {
-                r[SYNTH_FILTER] = (uint8_t)((r[SYNTH_FILTER] & SYNTH_KEYTRACK) | m);
+                r[SYNTH_FILTER] = (uint8_t)((r[SYNTH_FILTER] & ~3) | m);
                 return 0;
             }
         return -1;
+    }
+    if (same(k, "vowel") || same(k, "curve") || same(k, "color")) {
+        int n = same(k, "vowel") ? name_of(au_vowel_names, SYNTH_VOWELS, same(v, "none") ? "" : v)
+              : same(k, "curve") ? name_of(au_curve_names, SYNTH_CURVES, v) : name_of(au_color_names, 4, v);
+        return n < 0 ? -1 : au_tone_num(r, k, n);
     }
     return -1;
 }

@@ -4504,8 +4504,9 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     nnet_lua_open(L);           /* small INT8 networks of the carts (M38.4) */
     bm_require_open(L);         /* require "assist": libraries in the kernel */
     au_lua_bank = audio_bank_now;       /* play("lead"): the bank's sounds by name */
-    static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL",
-                                                    "FM", "PLUCK", "SUPERSAW", "ORGAN", "SAMPLE" };
+    static const char *const waves[] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL", "FM", "PLUCK",
+                                         "SUPERSAW", "ORGAN", "SAMPLE", "PINK", "BROWN", "CRACKLE" };
+    _Static_assert(sizeof waves / sizeof waves[0] == SYNTH_WAVES, "a name for every wave");
     for (int w = 0; w < SYNTH_WAVES; w++) {
         lua_pushinteger(L, w);
         lua_setglobal(L, waves[w]);

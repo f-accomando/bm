@@ -141,6 +141,16 @@ def main():
     # ---- a bank without samples stays version 2; limits
     plain = bmaudio.pack({"sounds": [{"name": "A"}]})
     check(plain[4] == 2 and plain[9] == 0, "no samples: version 2")
+    # the effects' keys: into registers 13, 28..31 (src/audio/synth.h) and back
+    fx = {"name": "FX", "wave": "pink", "filter": "bp", "keytrack": True, "vowel": "o", "curve": "fold",
+          "color": "brown", "raw": True, "crush": 4, "coarse": 8, "trem": 9, "duck": 15, "chorus": 200}
+    fb = bmaudio.pack({"sounds": [fx]})
+    t = fb[16 + 24:16 + 24 + 21]
+    check(fb[16 + 8] == 11 and t[2] == (1 | 4 | 4 << 3) and t[17] == (1 | 2 << 1 | 2 << 3) and
+          t[18] == (4 | 7 << 4) and t[19] == (9 | 15 << 4) and t[20] == 200, "the effects in their registers")
+    back = bmaudio.unpack(fb)["sounds"][0]
+    check(all(back[k] == v for k, v in fx.items()) and bmaudio.pack(bmaudio.unpack(fb)) == fb,
+          "the effects' keys back, the same bytes")
     try:
         bmaudio.pack({"samples": [{"name": "BIG", "pcm": "AAAA" * 700000, "format": "s16", "rate": 48000}]})
         check(False, "too long: refused")

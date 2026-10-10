@@ -44,7 +44,12 @@ every key optional, 0 if missing, the room 40):
   "mod1", "mod2", "moddecay", "feedback" 0..255: the wave's own settings
   (fm: ratio x/16, depth x/32, its fade, feedback; pluck: brightness,
   sustain; supersaw: spread; organ: four drawbars, a nibble each)
-  "raw" true: the 8-bit chip voice
+  "raw" true: the 8-bit chip voice          "vowel" "a" "e" "i" "o" "u": formants
+  "curve" the drive's: "soft" "hard" "fold" "sine" "asym" "cubic"
+  "color" the noise mix's: "white" "pink" "brown" "crackle"
+  "crush" 1..15 bits (0 none)                "coarse" 1..16: each value held that long
+  "trem" 0..15 the LFO on the volume         "duck" 0..15: this sound ducks the others
+  "chorus" 0..255 the send to the chorus     "density" 0..255: crackle's clicks (x 8 a second)
 A sound with "wave": "sample" plays "sample": a sample of the bank (its
 name or number), or of the console's kit ("bd" "sd" "hh" "oh" "cp" "rim"
 "tom" "cb", or "kit:N"); "begin" 0..255 where it starts (x/256 of it),
@@ -80,7 +85,8 @@ import sys
 MAGIC, VERSION = b"BMAU", 3
 VERSION_PLAIN = 2           # a bank without samples: what every console reads
 SEC_AUDIO = 6
-WAVES = ["square", "triangle", "saw", "noise", "sine", "metal", "fm", "pluck", "supersaw", "organ", "sample"]
+WAVES = ["square", "triangle", "saw", "noise", "sine", "metal", "fm", "pluck", "supersaw", "organ", "sample",
+         "pink", "brown", "crackle"]
 FILTERS = ["lp", "bp", "hp", "notch"]
 TONE = 21                   # registers 11..31
 ROOM_SEND = 40              # the room of a sound with no tone of its own (AU_ROOM_SEND)
@@ -90,6 +96,9 @@ TONE_KEYS = [("cutoff", 0, False), ("resonance", 1, False), ("fenv", 3, True), (
              ("noise", 9, False), ("drive", 10, False), ("reverb", 11, False), ("echo", 12, False),
              ("feedback", 16, False)]
 FLAG_RAW, FLAG_REVERSE = 0x01, 0x40
+VOWELS = ["", "a", "e", "i", "o", "u"]                          # FILTER bits 3-5
+CURVES = ["soft", "hard", "fold", "sine", "asym", "cubic"]      # FLAGS bits 3-5: the drive's
+COLORS = ["white", "pink", "brown", "crackle"]                  # FLAGS bits 1-2: the noise mix's
 FX = ["-", "glide", "bend+", "bend-", "vib", "trem", "chord", "arp", "fadeout", "fadein",
       "retrig", "delay", "cut"]
 NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
@@ -206,18 +215,29 @@ def tone_bytes(s, samples=()):
             if not (-128 <= v <= 127 if signed else 0 <= v <= 255):
                 raise ValueError(f"{key} out of range: {v}")
             t[i] = v & 255
+    def pick(key, names):
+        v = s.get(key, 0)
+        return names.index(v) if isinstance(v, str) else int(v)
     f = s.get("filter", "lp")
     t[2] = (FILTERS.index(f) if isinstance(f, str) else int(f) & 3) | (4 if s.get("keytrack") else 0)
+    t[2] |= (pick("vowel", VOWELS) & 7) << 3 | (int(s.get("filter_bits", 0)) & 0xC0)
     lfo = s.get("lfo", [0, 0, 0])
     t[13:16] = bytes(int(x) for x in lfo[:3])
     if "sample" in s:
         t[6] = sample_ref(s["sample"], samples)
     if "begin" in s:
         t[7] = int(s["begin"]) & 255
-    flags = int(s.get("flags", 0)) & ~(FLAG_RAW | FLAG_REVERSE)
-    t[17] = flags | (FLAG_RAW if s.get("raw") else 0) | (FLAG_REVERSE if s.get("reverse") else 0)
-    for r in (29, 30, 31):
-        t[r - 11] = int(s.get(f"r{r}", 0)) & 255
+    if "density" in s:
+        t[6] = int(s["density"]) & 255
+    t[17] = (int(s.get("flags", 0)) & 0x80) | (FLAG_RAW if s.get("raw") else 0) | (FLAG_REVERSE if s.get("reverse") else 0)
+    t[17] |= (pick("color", COLORS) & 3) << 1 | (pick("curve", CURVES) & 7) << 3
+    crush, coarse = int(s.get("crush", 0)), int(s.get("coarse", 1))
+    trem, duck, chorus = int(s.get("trem", 0)), int(s.get("duck", 0)), int(s.get("chorus", 0))
+    if not (0 <= crush <= 15 and 1 <= coarse <= 16 and 0 <= trem <= 15 and 0 <= duck <= 15 and 0 <= chorus <= 255):
+        raise ValueError(f"crush 0..15, coarse 1..16, trem and duck 0..15, chorus 0..255: {s.get('name', '')!r}")
+    t[18] = crush | (coarse - 1) << 4
+    t[19] = trem | duck << 4
+    t[20] = chorus
     return bytes(t)
 
 
@@ -235,6 +255,10 @@ def tone_keys(t, wave=None, names=()):
         out["filter"] = FILTERS[t[2] & 3]
     if t[2] & 4:
         out["keytrack"] = True
+    if t[2] >> 3 & 7:
+        out["vowel"] = VOWELS[t[2] >> 3 & 7] if (t[2] >> 3 & 7) < len(VOWELS) else t[2] >> 3 & 7
+    if t[2] & 0xC0:
+        out["filter_bits"] = t[2] & 0xC0        # not used (yet): kept as they are
     if any(t[13:16]):
         out["lfo"] = list(t[13:16])
     if sample:
@@ -251,11 +275,22 @@ def tone_keys(t, wave=None, names=()):
         out["raw"] = True
     if t[17] & FLAG_REVERSE:
         out["reverse"] = True
-    if t[17] & ~(FLAG_RAW | FLAG_REVERSE):
-        out["flags"] = t[17] & ~(FLAG_RAW | FLAG_REVERSE)
-    for r in (29, 30, 31):
-        if t[r - 11]:
-            out[f"r{r}"] = t[r - 11]
+    if t[17] >> 1 & 3:
+        out["color"] = COLORS[t[17] >> 1 & 3]
+    if t[17] >> 3 & 7:
+        out["curve"] = CURVES[t[17] >> 3 & 7] if (t[17] >> 3 & 7) < len(CURVES) else t[17] >> 3 & 7
+    if t[17] & 0x80:
+        out["flags"] = 0x80
+    if t[18] & 15:
+        out["crush"] = t[18] & 15
+    if t[18] >> 4:
+        out["coarse"] = (t[18] >> 4) + 1
+    if t[19] & 15:
+        out["trem"] = t[19] & 15
+    if t[19] >> 4:
+        out["duck"] = t[19] >> 4
+    if t[20]:
+        out["chorus"] = t[20]
     return out
 
 
