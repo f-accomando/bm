@@ -119,7 +119,7 @@ An interactive bash setup utility for Linux/WSL:
 
 ### Tutorial videos ([`video/`](../../video/), skill `claude/skills/bm-video-tutorial`)
 * `video/lib/bmvideo.py`: a key script for `bmhost` (the console's runtime on the PC, virtual clock, same run every time) and ffmpeg/libass for the page: console 2x, side panel with the place, the key pressed and the keys of the scene, narrator's line, hook, title and closing cards. Storyboard and script are generated from the same key script.
-* `video/SERIE.md`: *Skyvale World*, a 2D platformer (original hero Kip) built only with the console's 2D tools, one episode per tool. Episode 1 (`video/01-pixel/`, bm Pixel) is done.
+* `video/SERIE.md`: *Skyvale World*, a 2D platformer (original hero Kip) built only with the console's 2D tools, one episode per tool. Episode 1 (`video/01-pixel/`, bm Pixel) is done: Kip seen from the side, a six-frame run cycle, a jump and a coin; `verify.py` checks the saved cartridge pixel by pixel.
 * On the PC there is no kernel menu and no assistant (`F6` in bm Pixel); QEMU is not in the cloud sessions.
 
 ### Continuous Integration (`.github/workflows/ci.yml`)

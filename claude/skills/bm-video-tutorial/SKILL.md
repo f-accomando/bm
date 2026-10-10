@@ -41,7 +41,19 @@ video mostra **cosa succede sullo schermo e quale tasto, tab o pulsante lo provo
   lo sprite 16×16 ha numero pari (celle da 8). `Esc` fuori da una lista apre il menu.
 - `bmhost --video` scrive raw rgb24 640×360: ~700 KB a frame, non tenerlo su disco per
   episodi lunghi senza spazio (usa una fifo).
-- Il nome di un file salvato da bm Pixel passa per FAT 8.3 (maiuscole, tagliato).
+- "Save as" di bm Pixel chiede un nome **già riempito** ("SPRITES.BM"): il testo scritto si
+  accoda e poi il nome FAT 8.3 viene tagliato (`SPRITESB.BM`). Prima 10 Backspace (`\\x7f`).
+- Verificare senza guardare immagini: `video/01-pixel/verify.py` legge la cartuccia salvata
+  (`scripts/bmres.py`, `sheet_get`) e confronta ogni sprite pixel per pixel con `art.py`;
+  poi `ffprobe` per la durata. Se l'utente chiede "niente screenshot", si lavora così.
+- Gli sprite di un platform sono **di profilo** e le animazioni sono fotogrammi davvero
+  diversi (gambe, coda, rimbalzo di un pixel), non lo stesso sprite ripetuto: `art.py`
+  controlla che ogni coppia di fotogrammi differisca (`art.check()`). Mostrare il ciclo
+  completo che gira a lungo (pannello animazione di bm Pixel) e la pagina F2 con tutti.
+- Il riempimento (`g`) è a 4 vicini: funziona solo su un contorno chiuso; `art.regions()`
+  trova le regioni e i punti di partenza. Con un contorno aperto riempie lo sfondo.
+- Prima di Ctrl+V il puntatore va in (0,0); i tasti ripetuti a 1 frame di distanza vanno
+  bene (time-lapse); un `shot` consuma un frame (i tasti nello stesso frame finiscono nello scatto).
 - Personaggi, nomi e grafica di un gioco "alla maniera di" un classico sono **originali**:
   stile e meccaniche sì, personaggi, loghi, musiche e sprite del gioco ispiratore no.
 

@@ -14,7 +14,7 @@ Libreria: `video/lib/bmvideo.py`. Un episodio = `video/NN-nome/` (`record.py`, `
 
 | # | Strumento | Cosa si fa | Stato |
 |---|-----------|------------|-------|
-| 1 | bm Pixel | Kip e i suoi 4 fotogrammi di corsa: matita, specchio, riempimento, annulla, animazione, tavolozza, salva `.bm` | fatto |
+| 1 | bm Pixel | Kip di profilo: ciclo di corsa a 6 fotogrammi, salto, moneta; matita, riempimento, annulla, animazione, ovali e linee, specchio, tavolozza, salva `skyvale.bm` | fatto |
 | 2 | bm Studio | tessere (terra, nuvole, tubi, acqua), flag (solido, piattaforma, scala, acqua, fa male), il primo livello | da fare |
 | 3 | Sound | effetti (salto, moneta, rimbalzo) e musica del livello | da fare |
 | 4 | bm Code | movimento, salto a pressione variabile, collisioni con la mappa (`bmlib`) | da fare |
