@@ -437,6 +437,20 @@ void audio_echo(float ms, float feedback, float wet)
     irq_restore(s);
 }
 
+void audio_chorus(float rate_hz, float depth_ms, float wet)
+{
+    uint32_t s = irq_save();
+    synth_chorus(&synth, rate_hz, depth_ms, wet);
+    irq_restore(s);
+}
+
+void audio_chorus_get(float chorus[3])
+{
+    chorus[0] = (float)synth.chorus_inc * (float)AUDIO_RATE / 4294967296.0f;
+    chorus[1] = synth.chorus_depth * 1000.0f / AUDIO_RATE;
+    chorus[2] = synth.chorus_wet;
+}
+
 void audio_fx_get(float room[3], float echo[3])
 {
     room[0] = synth.room_size;

@@ -605,7 +605,7 @@ $(BUILD)/host/bmhost/%.c.o: %.c
 $(BUILD)/host/bmhost/runtime-deps: $(wildcard src/bm/*.h src/audio/*.h src/kernel/*.h src/usb/hid.h)
 	@mkdir -p $(dir $@) && touch $@
 $(BMHOST_OBJS): $(BUILD)/host/bmhost/runtime-deps
-$(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
+$(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/audio/wavout.h tests/host/libs.S \
                           $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua src/ai/predict.lua $(BUILD)/words.lua src/ai/padtype.lua \
                           src/script/riff.lua src/script/bmui.lua
 	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) \
@@ -615,7 +615,7 @@ bmhost: $(BUILD)/host/bmhost-bin
 # bmhost-gpu: the same with the GPU's 3D (src/gpu/gpu3d.c) on the V3D
 # emulator of the tests (tests/gpu/v3d_emu.c): the frames as the GPU draws
 # them, to set them beside the ARM's (slower: the emulator is plain C)
-$(BUILD)/host/bmhost-gpu: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
+$(BUILD)/host/bmhost-gpu: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/audio/wavout.h tests/host/libs.S \
                           $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua src/ai/predict.lua $(BUILD)/words.lua src/ai/padtype.lua \
                           src/gpu/gpu3d.c src/gpu/v3d_cl.c \
                           src/gpu/shaders.h tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h
@@ -630,7 +630,7 @@ bmhost-gpu: $(BUILD)/host/bmhost-gpu
 # C of the assistant), so bm Code's colours of the API words, the assistant panel (F6)
 # and the tools that ask it can be run and recorded on the PC
 BMHOST_AI_SRCS = src/ai/lua_ai.c src/ai/lua_music.c $(filter-out src/ai/nn.c,$(AI_SRCS))
-$(BUILD)/host/bmhost-ai: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
+$(BUILD)/host/bmhost-ai: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/audio/wavout.h tests/host/libs.S \
                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua src/ai/predict.lua $(BUILD)/words.lua src/ai/padtype.lua \
                          src/script/riff.lua $(BMHOST_AI_SRCS) src/ai/*.h $(BUILD)/assist.bin
 	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -DBMHOST_AI -DBM_HOST_TEST -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) \
@@ -1048,13 +1048,15 @@ $(BUILD)/host/test_audio: tests/audio/test_audio.c src/audio/synth.c src/audio/p
 
 # A song (or SFX=n) of a sound bank as a WAV file, made on the PC by the
 # console's synthesizer: make wav BANK=carts/sound/demo.json SONG=0
+# BITS=24 (or 32, f32: IEEE floats) for a deeper file than the 16 bits
 BANK ?= carts/sound/demo.json
 SONG ?= 0
 wav: $(BUILD)/host/bmrender
 	$(PYTHON) scripts/bmaudio.py pack $(BANK) -o $(BUILD)/wav.bmau
-	$< $(BUILD)/wav.bmau $(BUILD)/$(if $(SFX),sfx$(SFX),song$(SONG)).wav $(if $(SFX),sfx $(SFX),song $(SONG)) $(SECONDS)
+	$< $(if $(BITS),--bits $(BITS)) $(BUILD)/wav.bmau $(BUILD)/$(if $(SFX),sfx$(SFX),song$(SONG)).wav \
+	    $(if $(SFX),sfx $(SFX),song $(SONG)) $(SECONDS)
 
-$(BUILD)/host/bmrender: tests/audio/render.c src/audio/synth.c src/audio/player.c src/audio/*.h
+$(BUILD)/host/bmrender: tests/audio/render.c tests/audio/wavout.h src/audio/synth.c src/audio/player.c src/audio/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/audio/render.c src/audio/synth.c src/audio/player.c -lm
 

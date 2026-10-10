@@ -93,6 +93,10 @@ void audio_tone_get(unsigned ch, uint8_t *regs);
 void audio_room(float size, float damp, float wet);
 void audio_echo(float ms, float feedback, float wet);
 void audio_fx_get(float room[3], float echo[3]);
+/* The chorus (synth_chorus: LFO Hz 0.05..5, swing ms 0..8, level 0..1):
+ * set, and read back as it is */
+void audio_chorus(float rate_hz, float depth_ms, float wet);
+void audio_chorus_get(float chorus[3]);
 
 /* Every voice the 8-bit chip of the first versions, no room nor echo:
  * asked by the game (until audio_reset) or by the player (Settings). */

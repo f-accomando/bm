@@ -10,7 +10,8 @@ version 2), unpacks them (in base64, or as WAV files beside the JSON) and
 packs them back byte for byte; the console's own parser and synthesizer
 (BMRENDER, tests/audio/render.c: au_parse_pcm, the SAMPLE wave) read the
 same bank and play every sample at the pitch, in the channels and for the
-time it should."""
+time it should; and BMRENDER --bits 24, 32 and f32 write the same sound as
+its 16 bits, deeper (R28)."""
 import json
 import math
 import os
@@ -67,6 +68,21 @@ def read_out(path):
     pcm = data[44:]
     v = struct.unpack(f"<{len(pcm) // 2}h", pcm)
     return v[0::2], v[1::2]
+
+
+def read_wav_any(path):
+    """a WAV of bmrender's at any depth -> (format, bits, frames, the left channel in floats)"""
+    data = open(path, "rb").read()
+    fmt, ch, _rate, _bps, _align, bits = struct.unpack("<HHIIHH", data[20:36])
+    pcm = data[44:44 + struct.unpack("<I", data[40:44])[0]]
+    if fmt == 3:
+        v = struct.unpack(f"<{len(pcm) // 4}f", pcm)
+    elif bits == 24:
+        v = [int.from_bytes(pcm[i:i + 3], "little", signed=True) / 8388608 for i in range(0, len(pcm), 3)]
+    else:
+        code = "h" if bits == 16 else "i"
+        v = [x / 2 ** (bits - 1) for x in struct.unpack(f"<{len(pcm) * 8 // bits}{code}", pcm)]
+    return fmt, bits, len(v) // ch, list(v[0::ch])
 
 
 def crossings_hz(x, a, b):
@@ -206,6 +222,27 @@ def main():
     subprocess.run([render, bmau, wav, "sfx", str(kick), "1.0"], check=True, stdout=subprocess.DEVNULL)
     left, _ = read_out(wav)
     check(peak(left, 0, 4800) > 1000 and peak(left, 24000, 48000) < 40, "the kit's kick backwards, then over")
+
+    # ---- the depths of the file (R28): --bits 24, 32 and f32 against the 16 bits of the default
+    deep = {}
+    for bits in ("16", "24", "32", "f32"):
+        wav = os.path.join(out, f"depth{bits}.wav")
+        args = [render] + ([] if bits == "16" else ["--bits", bits]) + [bmau, wav, "sfx", "1", "0.5"]
+        subprocess.run(args, check=True, stdout=subprocess.DEVNULL)
+        deep[bits] = read_wav_any(wav)
+    for bits, want in (("16", (1, 16)), ("24", (1, 24)), ("32", (1, 32)), ("f32", (3, 32))):
+        fmt, nbits, frames, _ = deep[bits]
+        check((fmt, nbits) == want and frames == 24000, f"{bits}: format {fmt}, {nbits} bits, {frames} frames")
+    ref = deep["16"][3]
+    for bits in ("24", "32", "f32"):
+        x = deep[bits][3]
+        err = max(abs(x[k] - ref[k]) for k in range(len(ref)))
+        check(err <= 2.5 / 32768, f"{bits}: the same sound as the 16 bits (within the dither: {err * 32768:.2f} LSB)")
+    # the 24 bits really are deeper: their low byte is not always 0, and the float is the mix as it is
+    low = [v for v in deep["24"][3][4800:9600] if v != 0]
+    check(any(round(v * 8388608) % 256 for v in low), "24 bits: the low byte carries sound")
+    err = max(abs(deep["f32"][3][k] - deep["32"][3][k]) for k in range(len(ref)))
+    check(err < 1e-6, f"f32 and 32 bits: the same mix ({err:.2g})")
 
     print(f"bmaudio: {checks - fails}/{checks} checks passed")
     return 1 if fails else 0

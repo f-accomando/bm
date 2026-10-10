@@ -169,6 +169,16 @@ local function test_values()
           "instrument() knows kit:3 and sd")
     check(not pcall(play, 7, "kit:x", 60, 50) and not pcall(play, 7, "nothing:2", 60, 50), "no such sample")
   end
+  if chorus then
+    -- the chorus every voice sends to: set, read back, clamped, then as it was
+    local r0, d0, w0 = chorus()
+    check(math.abs(r0 - 0.8) < 0.01 and math.abs(d0 - 2.5) < 0.01 and w0 == 1, "chorus(): 0.8 Hz, 2.5 ms, 1")
+    local r, d, w = chorus(2, 5, 0.5)
+    check(math.abs(r - 2) < 0.01 and math.abs(d - 5) < 0.01 and w == 0.5, "chorus(2, 5, .5)")
+    r, d, w = chorus(9, 20, 3)
+    check(math.abs(r - 5) < 0.01 and math.abs(d - 8) < 0.01 and w == 1, "chorus(): clamped to 5 Hz, 8 ms, 1")
+    chorus(r0, d0, w0)
+  end
   local v = R.s("kick*2"):gain(0.5):lpf(800):events(0, 1)[1].v
   check(v.s == "kick" and v.gain == 0.5 and v.lpf == 800, "controls on the events")
   local snd = R.sound_of(v)

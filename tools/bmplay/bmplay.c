@@ -291,6 +291,15 @@ static int l_echo(lua_State *L)
     return 0;
 }
 
+static int l_chorus(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1))
+        synth_chorus(&rt.synth, (float)luaL_checknumber(L, 1),
+                     (float)luaL_optnumber(L, 2, rt.synth.chorus_depth * 1000.0f / (float)rt.synth.rate),
+                     (float)luaL_optnumber(L, 3, rt.synth.chorus_wet));
+    return 0;
+}
+
 static int l_retro(lua_State *L)
 {
     if (!lua_isnoneornil(L, 1)) rt.synth.retro = (uint8_t)lua_toboolean(L, 1);
@@ -377,7 +386,7 @@ static const luaL_Reg api[] = {
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq }, { "envelope", l_envelope },
     { "duty", l_duty }, { "tone", l_tone }, { "play", l_play }, { "instruments", au_lua_instruments },
     { "instrument", au_lua_instrument },
-    { "reverb", l_reverb }, { "echo", l_echo }, { "retro", l_retro }, { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow },
+    { "reverb", l_reverb }, { "echo", l_echo }, { "chorus", l_chorus }, { "retro", l_retro }, { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow },
     { "dark_end", l_dark_end }, { NULL, NULL },
 };
 

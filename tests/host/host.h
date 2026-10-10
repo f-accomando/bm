@@ -26,7 +26,7 @@ extern host_t host;
 double host_real_us(void);
 /* a frame is on screen (called by fb_flip) */
 void host_frame(const uint16_t *px, int w, int h, int stride);
-/* samples of the synthesizer, 48 kHz mono */
-void host_audio(const int16_t *s, unsigned n);
+/* n stereo frames of the mix, 48 kHz, floats (1.0 full scale) */
+void host_audio(const float *s, unsigned n);
 
 #endif

@@ -29,10 +29,14 @@ local C = {
   red = 0xE8463A, yellow = 0xF2C230, purple = 0xA472F2, cyan = 0x2EC8D2, pink = 0xF0609E,
 }
 local TRACK_C = { C.orange, C.yellow, C.green, C.cyan, C.blue, C.purple, C.pink, C.white }
-local WAVE_C = { C.blue, C.green, C.orange, C.white, C.cyan, C.yellow, C.pink, C.purple, C.red, C.green }
+local WAVE_C = { C.blue, C.green, C.orange, C.white, C.cyan, C.yellow, C.pink, C.purple, C.red, C.green,
+                 C.yellow, C.pink, C.orange, C.white }
 local PAGE_C = { C.blue, C.green, C.orange, C.purple }
 
-local WAVES = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL", "FM", "PLUCK", "SUPERSAW", "ORGAN" }
+-- the synthesizer's waves (src/audio/synth.h): SAMPLE plays a sample of the
+-- bank (or of the console's kit), the last three are noises
+local WAVES = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL", "FM", "PLUCK", "SUPERSAW", "ORGAN",
+                "SAMPLE", "PINK", "BROWN", "CRACKLE" }
 local NOTE = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }
 local CHORDS = { "OCTAVE", "MAJOR", "MINOR", "SUS2", "SUS4", "MAJ7", "MIN7", "DOM7", "DIM", "AUG",
                  "POWER", "POWER+8", "MAJOR+8", "MINOR+8", "OCT DOWN", "2 OCTAVES" }
@@ -100,7 +104,9 @@ function B.pat() return { len = 16, tracks = {} } end
 function B.song() return { name = "", bpm = 120, swing = 0, loop = 0, echo = 0, room = 0, order = {} } end
 
 function B.new()
-  local b = { sounds = {}, sfx = {}, pats = {}, songs = {} }
+  -- samples: what a bank of version 3 holds after its songs, kept as it is
+  -- (the editor plays them, shows them, and writes them back unchanged)
+  local b = { sounds = {}, sfx = {}, pats = {}, songs = {}, samples = {}, sraw = "" }
   for i = 1, B.NSOUND do b.sounds[i] = B.sound() end
   for i = 1, B.NSFX do b.sfx[i] = B.sfx() end
   for i = 1, B.NPAT do b.pats[i] = B.pat() end
@@ -160,7 +166,8 @@ function B.pack(b)
   local nx = last_used(b.sfx, B.sfx_empty)
   local np = last_used(b.pats, B.pat_empty)
   local ng = last_used(b.songs, B.song_empty)
-  local out = { "BMAU", string.pack("<BBBBBxxxxxxx", 2, ns, nx, np, ng) }
+  local nsm = #b.samples                  -- with samples version 3, without 2 (as bmaudio.py)
+  local out = { "BMAU", string.pack("<BBBBBBxxxxxx", nsm > 0 and 3 or 2, ns, nx, np, ng, nsm) }
   for i = 1, ns do
     local s = b.sounds[i]
     out[#out + 1] = string.pack(PSOUND, name8(s.name), s.wave, s.duty, s.vol, s.a, s.d, s.s, s.r,
@@ -195,13 +202,14 @@ function B.pack(b)
     out[#out + 1] = string.pack(PSONG, name8(s.name), s.bpm, s.swing, #order, loop, s.echo or 0, s.room or 0)
     for k = 1, #order do out[#out + 1] = string.char(order[k]) end
   end
+  if nsm > 0 then out[#out + 1] = b.sraw end
   return table.concat(out)
 end
 
 function B.parse(data)
   if type(data) ~= "string" or #data < 16 or data:sub(1, 4) ~= "BMAU" then return nil, "not a sound bank" end
   local ver, ns, nx, np, ng = data:byte(5, 9)
-  if ver ~= 1 and ver ~= 2 then return nil, "unsupported sound bank version" end
+  if ver < 1 or ver > 3 then return nil, "unsupported sound bank version" end
   local b = B.new()
   local ok, err = pcall(function()
     local pos = 17
@@ -246,6 +254,20 @@ function B.parse(data)
       for k = 1, n do s.order[k] = data:byte(pos + k - 1) end
       pos = pos + n
     end
+    -- the samples (player.h): 32 bytes each, then their frames
+    local from = pos
+    for i = 1, ver >= 3 and data:byte(10) or 0 do
+      local x = {}
+      local name, fmt
+      name, x.frames, x.rate, fmt, x.channels, x.root, x.fine, x.loop, x.loop_start, x.loop_end, pos =
+        string.unpack("<c8I4I4BBBbBxxxI4I4", data, pos)
+      assert(fmt <= 4 and (x.channels == 1 or x.channels == 2) and x.frames > 0)
+      x.name, x.format = unname(name), fmt
+      pos = pos + x.frames * x.channels * ({ 1, 2, 3, 4, 4 })[fmt + 1]
+      assert(pos <= #data + 1)
+      b.samples[i] = x
+    end
+    b.sraw = data:sub(from, pos - 1)
   end)
   if not ok then return nil, "the sound bank is broken" end
   return b
@@ -478,7 +500,7 @@ local function cutoff_hz(v) return 20 * 2 ^ ((v - 1) * 9.9658 / 254) end
 local function lfo_hz(v) return 0.1 * 2 ^ ((v - 1) * 7.64 / 254) end
 -- the wave's own settings: what they mean depends on the wave (synth.h)
 local MOD_LABEL = { [6] = { "FM RATIO", "FM DEPTH" }, [7] = { "BRIGHT", "RING" }, [8] = { "SPREAD", "-" },
-                    [9] = { "BARS 1 2", "BARS 3 4" } }
+                    [9] = { "BARS 1 2", "BARS 3 4" }, [10] = { "SAMPLE", "START" } }
 local function mod_text(n)
   return function(v, s)
     local w = s.wave
@@ -490,6 +512,7 @@ local function mod_text(n)
     elseif w == 9 then
       if s.tone[7] == 0 and s.tone[8] == 0 then return "AUTO" end
       return (v >> 4) .. " " .. (v & 15)
+    elseif w == 10 then return n == 1 and ui.sample_name(v) or pct(v)
     end
     return "-"
   end
@@ -702,7 +725,101 @@ local function draw_space_graph(s, x, y, w, h, c)
   circfill(px, my, 5, c)
 end
 
+-- The samples (R30): the bank's (version 3) and the console's kit, with
+-- their length and peak, a meter of each (audio_samples(), from the bank the
+-- console plays) and the output's depth (audio_depth()). A sound with the
+-- SAMPLE wave shows its sample in place of the wave; the menu's Samples...
+-- lists them all and puts the one chosen into the sound.
+do
+  local KIT = { "bd", "sd", "hh", "oh", "cp", "rim", "tom", "cb" }
+  local cache = {}                      -- audio_samples()' tables, while the samples stay the same
+
+  local function list(kit)
+    if kit then
+      cache.kit = cache.kit or (audio_samples and audio_samples("kit")) or {}
+      return cache.kit
+    end
+    if cache.raw ~= bank.sraw or cache.sent ~= ui.sent_raw then
+      -- the console's view of them (with the peaks) once it plays these samples
+      -- (_update: ui.sent_raw), else what the bank says
+      local c = audio_samples and ui.sent_raw == bank.sraw and audio_samples() or nil
+      cache.bank = c and #c == #bank.samples and c or bank.samples
+      cache.raw, cache.sent = bank.sraw, ui.sent_raw
+    end
+    return cache.bank
+  end
+
+  -- MOD1 v of a SAMPLE sound: its sample, or nil
+  local function info(v)
+    if v >= 128 then return list(true)[v - 127] or { name = KIT[v - 127] } end
+    return list()[v + 1]
+  end
+
+  function ui.sample_name(v)
+    if v >= 128 then return KIT[v - 127] and "KIT " .. KIT[v - 127]:upper() or "-" end
+    local x = info(v)
+    return x and x.name ~= "" and x.name or string.format("%02d NONE", v)
+  end
+
+  local function db(p) return p and p > 0 and string.format("%.1f dB", 20 * math.log(p, 10)) or "" end
+  -- its length, stereo, its peak (short: for the graph)
+  local function about(x, short)
+    local t = x.frames and x.rate and string.format("%.2f s", x.frames / x.rate) or ""
+    if short then return t .. (x.peak and " " .. db(x.peak) or "") end
+    return t .. (x.channels == 2 and "  STEREO" or "") .. (x.peak and "  peak " .. db(x.peak) or "")
+  end
+
+  function ui.depth_text()
+    if not audio_depth then return "" end
+    local asked, out = audio_depth()
+    return string.format("output %d-bit", asked) .. (out > 0 and out ~= asked and " (" .. out .. " sent)" or "")
+  end
+
+  -- in place of the wave: the sample's meter, its start (MOD2), length and peak
+  function ui.sample_graph(s, x, y, w, h, c)
+    ui.box(x, y, w, h, C.panel)
+    print("SAMPLE", x + 6, y + 4, C.dim)
+    local name = ui.sample_name(s.tone[7])
+    print(name, x + w - #name * 8 - 6, y + 4, c)
+    local smp = info(s.tone[7])
+    local cy, half = y + 44, 20
+    rectfill(x + 6, cy, w - 12, 1, C.line)
+    local m = smp and smp.meter
+    if m then
+      local bw = (w - 12) / #m
+      for i, p in ipairs(m) do
+        local hh = math.floor(p * half + 0.5)
+        if hh > 0 then rectfill(math.floor(x + 6 + (i - 1) * bw), cy - hh, math.max(1, math.floor(bw) - 1), 2 * hh, c) end
+      end
+    end
+    rectfill(x + 6 + (w - 12) * s.tone[8] // 256, cy - half, 1, 2 * half, C.yellow)     -- where it starts
+    print(smp and about(smp, true) or "not in the bank", x + 6, y + 68, smp and C.dim or C.faint)
+  end
+
+  -- the menu's Samples...: the bank's, then the kit's; A puts one into the sound
+  function ui.samples_menu()
+    local items = {}
+    for i, x in ipairs(list()) do
+      items[#items + 1] = { label = string.format("%02d  %s", i - 1, x.name), note = about(x), mod1 = i - 1 }
+    end
+    for k = 1, #KIT do
+      local x = list(true)[k] or {}
+      items[#items + 1] = { label = "KIT " .. KIT[k]:upper(), note = about(x), mod1 = 127 + k }
+    end
+    local s = bank.sounds[cur.sound + 1]
+    ui.choose(string.format("samples: into sound %02d", cur.sound), items, function(it)
+      begin_edit()
+      set(s, "wave", 10)
+      set(s.tone, 7, it.mod1)
+      cur.page, sp.group, sp.col, sp.row = 1, 3, 1, 1
+      say("sound " .. string.format("%02d", cur.sound) .. " plays " .. it.label:gsub("^%d+%s+", ""), C.green, 200)
+    end)
+    overlay.footer = string.format("%d of the bank, %d of the kit   %s", #list(), #KIT, ui.depth_text())
+  end
+end
+
 local function draw_param_graphs(s, g, gy)
+  local draw_wave_graph = s.wave == 10 and ui.sample_graph or draw_wave_graph
   if g == 1 then
     draw_wave_graph(s, 160, gy, 152, 92, WAVE_C[s.wave + 1])
     draw_env_graph(s, 316, gy, 152, 92, C.green)
@@ -1685,7 +1802,8 @@ local function file_info(e)
       info.bank = b
       local c = function(l, f) local n = 0; for _, x in ipairs(l) do if not f(x) then n = n + 1 end end return n end
       info.text = string.format("%d sounds, %d sfx, %d patterns, %d songs", c(b.sounds, B.sound_empty),
-                                c(b.sfx, B.sfx_empty), c(b.pats, B.pat_empty), c(b.songs, B.song_empty))
+                                c(b.sfx, B.sfx_empty), c(b.pats, B.pat_empty), c(b.songs, B.song_empty)) ..
+                  (#b.samples > 0 and ", " .. #b.samples .. " samples" or "")
     else info.text = "a sound bank this version cannot read" end
   end
   e.info = info
@@ -2421,6 +2539,7 @@ local function open_menu()
   if cur.page == 1 and instruments then
     items[#items + 1] = { label = "Instrument...", note = "a ready-made sound", act = choose_preset }
   end
+  items[#items + 1] = { label = "Samples...", note = "the bank's and the kit's", act = ui.samples_menu }
   items[#items + 1] = { label = "Compose with the assistant...", note = "F6: beats, melodies, sfx", act = compose }
   items[#items + 1] = { label = "Riff...", note = "F7: a pattern in a line", act = riff_open }
   if proj.path and proj.is_game then
@@ -2449,7 +2568,7 @@ local function open_menu()
   end }
   local title = "bm SOUND  -  " .. (proj.path and short_name(proj.path) or (proj.title ~= "" and proj.title or "new project"))
   ui.choose(title, items, function(x) x.act() end)
-  overlay.footer = proj.dirty and "changes not saved yet" or "everything saved"
+  overlay.footer = (proj.dirty and "changes not saved yet" or "everything saved") .. "   " .. ui.depth_text()
 end
 
 ----------------------------------------------------------------- top bar and help line
@@ -2764,7 +2883,7 @@ function _update()
   if bank_changed then
     bank_changed = false
     local ok, err = audio_bank(B.pack(bank))
-    if not ok then say("the sounds cannot play: " .. tostring(err), C.red) end
+    if not ok then say("the sounds cannot play: " .. tostring(err), C.red) else ui.sent_raw = bank.sraw end
   end
 end
 
