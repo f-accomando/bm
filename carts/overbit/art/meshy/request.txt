@@ -18,5 +18,5 @@
 # The two mechs' pilots from their pictures (ref/): D.Va for Rally, D.Mon
 # for Kaiju. Then: a rig= line each with the task of out/NAME.task.txt,
 # and pack.py out rally_pilot kaiju_pilot; pack.py --rig out rally_pilot kaiju_pilot.
-rally_pilot image=carts/overbit/art/meshy/ref/rally_pilot.png
-kaiju_pilot image=carts/overbit/art/meshy/ref/kaiju_pilot.png
+rally_pilot rig=01a12771-6545-730b-a1de-7b94d99ac755
+kaiju_pilot rig=01a12771-5dfc-723e-ae24-3983ad68c193
