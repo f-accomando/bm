@@ -72,8 +72,8 @@ layer(1, 1)
 camera(cam, -88)
 for _, c in ipairs(coins) do spr(14, c.x - 3, c.y - 3, 2, 2) end
 for _, s in ipairs(slimes) do spr(16, s.x - 2, s.y - 6, 2, 2, s.vx > 0) end
-spr(10, flag_x - 3, 144, 2, 2)
-for y = 160, 208, 16 do spr(11, flag_x - 3, y, 2, 2) end
+spr(20, flag_x - 3, 144, 2, 2)
+for y = 160, 208, 16 do spr(22, flag_x - 3, y, 2, 2) end
 local f = 12
 if kip.ground then f = kip.vx ~= 0 and t // 4 % 6 * 2 or 0 end
 if hurt_t == 0 or hurt_t % 4 < 2 then spr(f, kip.x - 3, kip.y - 2, 2, 2, face < 0) end

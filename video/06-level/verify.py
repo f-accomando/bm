@@ -77,7 +77,7 @@ report("the pole (sprite 11)", s11[0] == 32 and s11[1] == 32, s11)
 
 lua = f.get(bmres.SEC_LUA).decode()
 for needle in ('local cam, state, flag_x = 0, "title", 1200', 'if state == "title" then', "cam = math.max(0, math.min(kip.x - 240, 640))",
-               "local function layer(l, s)", "layer(2, 0.25)", "layer(3, 0.5)", "layer(1, 1)", "spr(10, flag_x - 3, 144, 2, 2)",
+               "local function layer(l, s)", "layer(2, 0.25)", "layer(3, 0.5)", "layer(1, 1)", "spr(20, flag_x - 3, 144, 2, 2)", "spr(22, flag_x - 3, y, 2, 2)",
                'print("COURSE CLEAR"', "200, 560, 680, 960"):
     report("code has: " + needle[:36], needle in lua)
 
