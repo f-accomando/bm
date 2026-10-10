@@ -41,7 +41,10 @@ void au_sound_regs(const au_sound_t *s, volatile uint8_t *voice_regs);
  *   bright, ring, spread 0..1;  attack, decay, release, fdecay, mdecay ms;
  *   cutoff Hz (0: no filter);  fenv, wah octaves;  pan -1..1;  lfo Hz;
  *   ratio (FM, 1/16..16);  depth (FM, radians 0..8);  keytrack, raw 0/1;
- *   bar1..bar4 (the organ's drawbars, 0..15)
+ *   bar1..bar4 (the organ's drawbars, 0..15);  sample (wave "sample": a
+ *   number, 0.. the bank's, 128.. the kit's; au_tone_str: a kit name, "bd"
+ *   .. "cb", or "kit:N"; lua_tone.c: the bank's names too);  begin 0..1
+ *   (where it starts);  reverse 0/1
  * Returns 0, or -1 for a key it does not know. */
 int au_tone_num(volatile uint8_t *voice_regs, const char *key, double value);
 int au_tone_str(volatile uint8_t *voice_regs, const char *key, const char *value);

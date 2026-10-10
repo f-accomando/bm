@@ -42,7 +42,14 @@ static void table_regs(lua_State *L, int idx, uint8_t *regs)
             }
             ok = 1;
         } else if (lua_type(L, -1) == LUA_TSTRING && !lua_isnumber(L, -1)) {
-            ok = au_tone_str(regs, k, lua_tostring(L, -1)) == 0;
+            const au_bank_t *b = au_lua_bank ? au_lua_bank() : 0;
+            int smp = !strcmp(k, "sample") && b ? au_sample_find(b, lua_tostring(L, -1)) : -1;
+            if (smp >= 0) {
+                regs[SYNTH_MOD1] = (uint8_t)smp;        /* a sample of the cartridge's bank */
+                ok = 1;
+            } else {
+                ok = au_tone_str(regs, k, lua_tostring(L, -1)) == 0;
+            }
         } else if (lua_isboolean(L, -1)) {
             ok = au_tone_num(regs, k, lua_toboolean(L, -1)) == 0;
         } else if (lua_isnumber(L, -1)) {

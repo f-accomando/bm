@@ -522,7 +522,7 @@ int main(int argc, char **argv)
     lua_pushinteger(L, w); lua_setglobal(L, "SCREEN_W");
     lua_pushinteger(L, h); lua_setglobal(L, "SCREEN_H");
     const char *waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL",
-                                       "FM", "PLUCK", "SUPERSAW", "ORGAN" };
+                                       "FM", "PLUCK", "SUPERSAW", "ORGAN", "SAMPLE" };
     for (int i = 0; i < SYNTH_WAVES; i++) { lua_pushinteger(L, i); lua_setglobal(L, waves[i]); }
     lua_getglobal(L, "math");
     lua_getfield(L, -1, "randomseed");

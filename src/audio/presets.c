@@ -4,7 +4,7 @@
 #include <string.h>
 
 const char *const au_wave_names[SYNTH_WAVES] = {
-    "square", "triangle", "saw", "noise", "sine", "metal", "fm", "pluck", "supersaw", "organ"
+    "square", "triangle", "saw", "noise", "sine", "metal", "fm", "pluck", "supersaw", "organ", "sample"
 };
 
 /* register values: times 0..2 s in 255 steps (100 ms = 13), cutoff
@@ -250,6 +250,9 @@ int au_tone_num(volatile uint8_t *r, const char *k, double v)
     else if (same(k, "bar3"))       r[SYNTH_MOD2] = (uint8_t)((r[SYNTH_MOD2] & 0x0F) | bar(v) << 4);
     else if (same(k, "bar4"))       r[SYNTH_MOD2] = (uint8_t)((r[SYNTH_MOD2] & 0xF0) | bar(v));
     else if (same(k, "raw"))        r[SYNTH_FLAGS] = (uint8_t)((r[SYNTH_FLAGS] & ~SYNTH_FLAG_RAW) | (v != 0 ? SYNTH_FLAG_RAW : 0));
+    else if (same(k, "sample"))     r[SYNTH_MOD1] = (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v);
+    else if (same(k, "begin"))      r[SYNTH_MOD2] = (uint8_t)(v <= 0 ? 0 : v >= 1 ? 255 : v * 256.0);
+    else if (same(k, "reverse"))    r[SYNTH_FLAGS] = (uint8_t)((r[SYNTH_FLAGS] & ~SYNTH_FLAG_REVERSE) | (v != 0 ? SYNTH_FLAG_REVERSE : 0));
     else
         return -1;
     return 0;
@@ -262,6 +265,20 @@ int au_tone_str(volatile uint8_t *r, const char *k, const char *v)
         if (w < 0)
             return -1;
         r[SYNTH_WAVEFORM] = (uint8_t)w;
+        return 0;
+    }
+    if (same(k, "sample")) {
+        /* the kit's: "bd", "sd"... or "kit:3" (the bank's names: lua_tone.c) */
+        int n = synth_kit_find(v);
+        if (n < 0 && v[0] == 'k' && v[1] == 'i' && v[2] == 't' && v[3] == ':' && v[4] >= '0' && v[4] <= '9') {
+            int k = 0;
+            for (const char *c = v + 4; *c >= '0' && *c <= '9' && k < 1000; c++)
+                k = k * 10 + (*c - '0');
+            n = SYNTH_KIT + k % SYNTH_KIT_SIZE;
+        }
+        if (n < 0)
+            return -1;
+        r[SYNTH_MOD1] = (uint8_t)n;
         return 0;
     }
     if (same(k, "filter")) {

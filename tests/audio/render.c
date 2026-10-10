@@ -1,5 +1,6 @@
 /* Renders a song or a sound effect of a sound bank to a WAV file on the
- * PC, with the console's own synthesizer and player:
+ * PC, with the console's own synthesizer and player (and the bank's
+ * samples, listed as they are read):
  *   bmrender BANK.bmau OUT.wav [song|sfx N] [seconds]
  * `make wav BANK=carts/sound/demo.json SONG=0` does the conversion first. */
 #include "audio/synth.h"
@@ -22,8 +23,11 @@ int main(int argc, char **argv)
     }
     FILE *f = fopen(argv[1], "rb");
     if (!f) { perror(argv[1]); return 1; }
-    static uint8_t data[1 << 20];
-    size_t len = fread(data, 1, sizeof data, f);
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint8_t *data = malloc(size > 0 ? (size_t)size : 1);
+    size_t len = fread(data, 1, size > 0 ? (size_t)size : 0, f);
     fclose(f);
     static au_bank_t bank;
     char err[64];
@@ -31,6 +35,14 @@ int main(int argc, char **argv)
         fprintf(stderr, "%s: %s\n", argv[1], err);
         return 1;
     }
+    /* the samples: converted into a buffer of the size they need */
+    int16_t *pool = malloc(bank.pcm_need * sizeof(int16_t) + 2);
+    au_parse_pcm(data, len, &bank, pool, bank.pcm_need, err, sizeof err);
+    for (int i = 0; i < bank.nsamples; i++)
+        printf("sample %d %s: %u frames, %u Hz, %u channels, root %u, loop %u [%u, %u)\n", i, bank.sample_name[i],
+               (unsigned)bank.sample[i].len, (unsigned)bank.sample[i].rate, bank.sample[i].channels,
+               bank.sample[i].root, bank.sample[i].loop, (unsigned)bank.sample[i].loop_start,
+               (unsigned)bank.sample[i].loop_end);
     int is_sfx = argc > 3 && !strcmp(argv[3], "sfx");
     int n = argc > 4 ? atoi(argv[4]) : 0;
     double secs = argc > 5 ? atof(argv[5]) : is_sfx ? 2 : 20;
@@ -66,5 +78,7 @@ int main(int argc, char **argv)
     printf("%s: %.1f s, peak %d%%, %.2f%% of samples in the limiter\n", argv[2], secs, peak * 100 / 32767,
            clipped * 100.0 / (total * 2));
     free(pcm);
+    free(pool);
+    free(data);
     return 0;
 }

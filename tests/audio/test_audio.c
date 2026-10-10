@@ -1211,6 +1211,310 @@ static void test_at(void)
     CHECK(player_at_waiting(&pl, 0) == 0 && pl.at_next == UINT64_MAX);
 }
 
+/* ---------------------------------------------------------------- samples */
+
+/* a sample of n frames (mono or stereo) at rate, made 16-bit with its guards */
+static int16_t smp_pcm[8][200000];
+static synth_sample_t smp_tab[8];
+static void make_sample(int k, const float *l, const float *r, uint32_t n, uint32_t rate, int root, int loop,
+                        uint32_t ls, uint32_t le)
+{
+    synth_sample_t *x = &smp_tab[k];
+    memset(x, 0, sizeof *x);
+    int c = r ? 2 : 1;
+    int16_t *pcm = smp_pcm[k] + c;
+    for (uint32_t i = 0; i < n; i++) {
+        pcm[c * i] = (int16_t)lrintf(l[i] * 32767.0f);
+        if (r)
+            pcm[c * i + 1] = (int16_t)lrintf(r[i] * 32767.0f);
+    }
+    x->len = n;
+    x->rate = rate;
+    x->channels = (uint8_t)c;
+    x->root = (uint8_t)root;
+    x->loop = (uint8_t)loop;
+    x->loop_start = ls;
+    x->loop_end = le;
+    synth_sample_ready(x, pcm);
+}
+
+/* a voice playing sample k (MOD1) at hz (0: its own speed) */
+static void sample_voice(int ch, int k, int hz, int vol, int gate)
+{
+    clean_voice(ch, hz, SYNTH_SAMPLE, vol, 0, 0, 255, 2, gate);
+    tone(ch, SYNTH_FREQ_FRAC, 0);
+    tone(ch, SYNTH_MOD1, k);
+}
+
+static float smix[2 * 2 * RATE];
+static void mix_floats(synth_t *s, int n)
+{
+    for (int k = 0; k < n; k += 64)
+        synth_mix(s, regs, smix + 2 * k, (unsigned)(n - k < 64 ? n - k : 64));
+}
+
+/* signal to noise of a sine of hz in the floats (left, every other), from a fit */
+static double fit_snr(const float *x, int stride, int from, int n, double hz)
+{
+    double ss = 0, sc = 0, cc = 0, xs = 0, xc = 0;
+    for (int i = from; i < from + n; i++) {
+        double si = sin(2 * M_PI * hz * i / RATE), co = cos(2 * M_PI * hz * i / RATE);
+        ss += si * si; sc += si * co; cc += co * co;
+        xs += x[stride * i] * si; xc += x[stride * i] * co;
+    }
+    double det = ss * cc - sc * sc, a = (xs * cc - xc * sc) / det, b = (xc * ss - xs * sc) / det;
+    double sig = 0, err = 0;
+    for (int i = from; i < from + n; i++) {
+        double y = a * sin(2 * M_PI * hz * i / RATE) + b * cos(2 * M_PI * hz * i / RATE);
+        sig += y * y;
+        err += (x[stride * i] - y) * (x[stride * i] - y);
+    }
+    return 10 * log10(sig / (err + 1e-30));
+}
+
+static int crossings_f(const float *x, int stride, int from, int n)
+{
+    int e = 0;
+    for (int i = from + 1; i < from + n; i++)
+        e += x[stride * (i - 1)] < 0 && x[stride * i] >= 0;
+    return e;
+}
+
+static float fpeak(const float *x, int stride, int from, int n)
+{
+    float p = 0;
+    for (int i = from; i < from + n; i++)
+        if (fabsf(x[stride * i]) > p) p = fabsf(x[stride * i]);
+    return p;
+}
+
+/* a bank of version 3 under construction */
+static uint8_t big[1 << 16];
+static size_t big_len;
+static void bput(int v) { big[big_len++] = (uint8_t)v; }
+static void bput32(uint32_t v) { bput(v & 255); bput(v >> 8 & 255); bput(v >> 16 & 255); bput(v >> 24); }
+static void bput_sample(const char *name, uint32_t frames, uint32_t rate, int format, int ch, int root, int loop,
+                        uint32_t ls, uint32_t le)
+{
+    for (int i = 0; i < 8; i++) bput(*name ? *name++ : 0);
+    bput32(frames); bput32(rate); bput(format); bput(ch); bput(root); bput(0); bput(loop);
+    bput(0); bput(0); bput(0); bput32(ls); bput32(le);
+}
+
+static void test_samples(void)
+{
+    static synth_t s;
+    char err[64];
+
+    /* ---- the bank: every format into 16 bits, rounded and clamped */
+    big_len = 0;
+    bput('B'); bput('M'); bput('A'); bput('U'); bput(3);
+    bput(1); bput(0); bput(0); bput(0); bput(5);
+    while (big_len < 16) bput(0);
+    for (int i = 0; i < 8; i++) bput("SMP\0\0\0\0\0"[i]);
+    bput(SYNTH_SAMPLE); bput(128); bput(255); bput(0); bput(0); bput(255); bput(2);
+    for (int i = 0; i < 9; i++) bput(0);
+    for (int i = 0; i < AU_TONE + 3; i++) bput(i == SYNTH_MOD1 - SYNTH_CUTOFF ? 3 : 0);
+    bput_sample("U8", 4, 22050, AU_PCM_U8, 1, 0, SYNTH_LOOP_OFF, 0, 0);
+    bput(0); bput(255); bput(128); bput(129);
+    bput_sample("S24", 4, 44100, AU_PCM_S24, 1, 69, SYNTH_LOOP_FWD, 1, 0);
+    bput32(0x7FFFFF); big_len--; bput32(0x800000); big_len--; bput32(0x000080); big_len--; bput32(0xFFFF7F); big_len--;
+    bput_sample("S32", 2, 48000, AU_PCM_S32, 2, 60, SYNTH_LOOP_PINGPONG, 0, 0);
+    bput32(0x7FFFFFFF); bput32(0x80000000); bput32(0x00008000); bput32(0xFFFF7FFF);
+    bput_sample("F32", 4, 96000, AU_PCM_F32, 1, 60, 0, 0, 0);
+    union { float f; uint32_t u; } fu;
+    float fv[4] = { 1.5f, -1.0f, 0.25f, NAN };
+    for (int i = 0; i < 4; i++) { fu.f = fv[i]; bput32(fu.u); }
+    bput_sample("S16", 3, 8000, AU_PCM_S16, 1, 60, 0, 0, 0);
+    bput(0x34); bput(0x12); bput(0xFF); bput(0xFF); bput(0); bput(0x80);
+    static au_bank_t b;
+    CHECK(au_parse(big, big_len, &b, err, sizeof err) == 0 && b.nsamples == 5);
+    CHECK(b.sample[0].pcm == NULL && b.pcm_need == (4 + 4) + (4 + 4) + (2 + 4) * 2 + (4 + 4) + (3 + 4));
+    CHECK(au_sample_find(&b, "s24") == 1 && au_sample_find(&b, "nope") == -1);
+    static int16_t pool[64];
+    CHECK(au_parse_pcm(big, big_len, &b, pool, b.pcm_need - 1, err, sizeof err) == 0 && b.sample[2].pcm == NULL);
+    CHECK(au_parse_pcm(big, big_len, &b, pool, sizeof pool / 2, err, sizeof err) == 0);
+    const int16_t *p = b.sample[0].pcm;
+    CHECK(p && p[0] == -32768 && p[1] == 32512 && p[2] == 0 && p[3] == 256 && p[-1] == 0 && p[4] == 0);
+    p = b.sample[1].pcm;
+    CHECK(p && p[0] == 32767 && p[1] == -32768 && p[2] == 1 && p[3] == -1);
+    CHECK(b.sample[1].root == 69 && b.sample[1].loop == SYNTH_LOOP_FWD && b.sample[1].loop_end == 4 &&
+          p[4] == p[1] && p[5] == p[2]);                  /* the loop's start after its end */
+    p = b.sample[2].pcm;
+    CHECK(p && b.sample[2].channels == 2 && p[0] == 32767 && p[1] == -32768 && p[2] == 1 && p[3] == -1);
+    CHECK(b.sample[2].loop == SYNTH_LOOP_PINGPONG && b.sample[2].loop_end == 2);  /* end 0: the last frame */
+    p = b.sample[3].pcm;
+    CHECK(p && p[0] == 32767 && p[1] == -32768 && p[2] == 8192 && p[3] == 0 && b.sample[3].rate == 96000);
+    p = b.sample[4].pcm;
+    CHECK(p && p[0] == 0x1234 && p[1] == -1 && p[2] == -32768 && b.sample[4].root == 60);
+    CHECK(b.sound[0].wave == SYNTH_SAMPLE && b.sound[0].tone[SYNTH_MOD1 - SYNTH_CUTOFF] == 3);
+    /* broken banks */
+    CHECK(au_parse(big, big_len - 1, &b, err, sizeof err) == -1);
+    big[9] = AU_SAMPLES + 1;
+    CHECK(au_parse(big, big_len, &b, err, sizeof err) == -1);
+    big[4] = 2;                                          /* version 2: byte 9 is not read */
+    CHECK(au_parse(big, big_len, &b, err, sizeof err) == 0 && b.nsamples == 0);
+    big[4] = 4;
+    CHECK(au_parse(big, big_len, &b, err, sizeof err) == -1);
+
+    /* ---- Hermite: a 1 kHz sine recorded at 22.05 kHz, played at its own speed */
+    static float src[44100], src2[44100];
+    for (int i = 0; i < 44100; i++) {
+        src[i] = 0.5f * sinf(2 * (float)M_PI * 1000.0f * i / 22050.0f);
+        src2[i] = 0.5f * sinf(2 * (float)M_PI * 1500.0f * i / 44100.0f);
+    }
+    make_sample(0, src, NULL, 22050, 22050, 60, SYNTH_LOOP_OFF, 0, 0);
+    synth_init(&s, RATE);
+    synth_samples(&s, smp_tab, 8);
+    memset(regs, 0, sizeof regs);
+    sample_voice(0, 0, 0, 128, 1);
+    mix_floats(&s, RATE + 4800);
+    double snr = fit_snr(smix, 2, 4800, 32768, 1000.0);
+    CHECK(snr > 60);
+    CHECK(abs(crossings_f(smix, 2, 4800, 38400) - 800) <= 1);
+    CHECK(fpeak(smix, 2, 49000, 4000) < 1e-3f && synth_active(&s) == 0);  /* one second, then over */
+    /* the chip's (nearest frame, 8 bits), for comparison */
+    synth_init(&s, RATE);
+    synth_samples(&s, smp_tab, 8);
+    sample_voice(0, 0, 0, 128, 1);
+    tone(0, SYNTH_FLAGS, SYNTH_FLAG_RAW);
+    mix_floats(&s, 9600);
+    double snr_raw = fit_snr(smix, 2, 4800, 4800, 1000.0);
+    CHECK(snr_raw < snr - 15);
+    printf("  a 1 kHz sine at 22.05 kHz played at 48 kHz: %.1f dB SNR (Hermite), %.1f dB (the chip's)\n", snr,
+           snr_raw);
+    tone(0, SYNTH_FLAGS, 0);
+
+    /* the note against the root: an octave up from C4 is twice as fast */
+    synth_init(&s, RATE);
+    synth_samples(&s, smp_tab, 8);
+    sample_voice(0, 0, 523, 128, 1);
+    tone(0, SYNTH_FREQ_FRAC, (int)(0.2511 * 256));
+    mix_floats(&s, RATE);
+    CHECK(abs(crossings_f(smix, 2, 2400, 19200) - 800) <= 2);
+    CHECK(fpeak(smix, 2, 26000, 4000) < 1e-3f);          /* half a second */
+
+    /* where it starts (MOD2 128: the second half, at 2 kHz after 500 Hz) and backwards */
+    for (int i = 0; i < 22050; i++)
+        src[i] = 0.4f * sinf(2 * (float)M_PI * (i < 11025 ? 500.0f : 2000.0f) * i / 22050.0f);
+    make_sample(1, src, NULL, 22050, 22050, 60, SYNTH_LOOP_OFF, 0, 0);
+    synth_init(&s, RATE);
+    synth_samples(&s, smp_tab, 8);
+    sample_voice(0, 1, 0, 255, 1);
+    tone(0, SYNTH_MOD2, 128);
+    mix_floats(&s, RATE);
+    CHECK(abs(crossings_f(smix, 2, 480, 19200) - 800) <= 2 && fpeak(smix, 2, 26000, 4000) < 1e-3f);
+    synth_init(&s, RATE);
+    synth_samples(&s, smp_tab, 8);
+    sample_voice(0, 1, 0, 255, 1);
+    tone(0, SYNTH_MOD2, 0);
+    tone(0, SYNTH_FLAGS, SYNTH_FLAG_REVERSE);
+    mix_floats(&s, RATE + 4800);
+    CHECK(abs(crossings_f(smix, 2, 480, 19200) - 800) <= 2 && abs(crossings_f(smix, 2, 26400, 19200) - 200) <= 2);
+    CHECK(synth_active(&s) == 0);
+    tone(0, SYNTH_FLAGS, 0);
+
+    /* loops: one cycle of 1 kHz at 48 kHz (48 frames) goes on seamlessly */
+    for (int i = 0; i < 48; i++)
+        src[i] = 0.5f * sinf(2 * (float)M_PI * i / 48.0f);
+    make_sample(2, src, NULL, 48, 48000, 60, SYNTH_LOOP_FWD, 0, 0);
+    synth_init(&s, RATE);
+    synth_samples(&s, smp_tab, 8);
+    sample_voice(0, 2, 0, 128, 1);
+    mix_floats(&s, RATE);
+    double snr_loop = fit_snr(smix, 2, 4800, 32768, 1000.0);
+    CHECK(snr_loop > 80 && synth_active(&s) == 1);
+    /* ping-pong over half a cycle (frames 12..36: down from the top to the bottom), down and up
+     * again: 1 kHz, never stuck */
+    make_sample(3, src, NULL, 48, 48000, 60, SYNTH_LOOP_PINGPONG, 12, 37);
+    synth_init(&s, RATE);
+    synth_samples(&s, smp_tab, 8);
+    sample_voice(0, 3, 0, 128, 1);
+    mix_floats(&s, RATE);
+    int pp = crossings_f(smix, 2, 4800, 38400);
+    CHECK(pp >= 38400 / 48 - 2 && pp <= 38400 / 48 + 2 && fpeak(smix, 2, 40000, 4800) > 0.3f);
+    printf("  loops: a cycle of 48 frames again and again %.1f dB SNR; ping-pong over half of it %d Hz\n",
+           snr_loop, pp * 48000 / 38400);
+    /* a pitch far up a short loop wraps many times a sample: no hang, no reading outside */
+    sample_voice(0, 3, 12000, 128, 1);
+    mix_floats(&s, 4800);
+    CHECK(synth_active(&s) == 1);
+
+    /* stereo: its two channels where they are, the place as a balance */
+    for (int i = 0; i < 44100; i++)
+        src[i] = 0.4f * sinf(2 * (float)M_PI * 1000.0f * i / 44100.0f);
+    make_sample(4, src, src2, 44100, 44100, 60, SYNTH_LOOP_OFF, 0, 0);
+    synth_init(&s, RATE);
+    synth_samples(&s, smp_tab, 8);
+    sample_voice(0, 4, 0, 255, 1);
+    mix_floats(&s, 9600);
+    CHECK(abs(crossings_f(smix, 2, 2400, 4800) - 100) <= 1 && abs(crossings_f(smix + 1, 2, 2400, 4800) - 150) <= 1);
+    tone(0, SYNTH_PAN, (uint8_t)-127);
+    mix_floats(&s, 9600);
+    CHECK(fpeak(smix, 2, 2400, 4800) > 0.2f && fpeak(smix + 1, 2, 2400, 4800) < 0.01f);
+    tone(0, SYNTH_PAN, 0);
+    tone(0, SYNTH_CUTOFF, 120);                         /* both channels through the filter */
+    mix_floats(&s, 9600);
+    CHECK(fpeak(smix, 2, 2400, 4800) < 0.2f && fpeak(smix + 1, 2, 2400, 4800) < 0.15f &&
+          fpeak(smix + 1, 2, 2400, 4800) > 0.01f);
+
+    /* no sample (a bank without it, a kit number past the kit): silent, and the voice frees itself */
+    synth_init(&s, RATE);
+    sample_voice(0, 7, 0, 255, 1);
+    mix_floats(&s, 640);
+    CHECK(fpeak(smix, 2, 0, 640) == 0 && synth_active(&s) == 0);
+    sample_voice(0, SYNTH_KIT + SYNTH_KIT_SIZE, 0, 255, 1);
+    synth_retrigger(&s, 0);
+    mix_floats(&s, 640);
+    CHECK(fpeak(smix, 2, 0, 640) == 0 && synth_active(&s) == 0);
+
+    /* ---- the kit: eight drums under -1 dB, each where its sound is */
+    CHECK(synth_kit_find("bd") == SYNTH_KIT && synth_kit_find("CB") == SYNTH_KIT + 7 && synth_kit_find("x") == -1);
+    static const int lo_hz[SYNTH_KIT_SIZE] = { 30, 150, 6000, 6000, 600, 400, 60, 400 };
+    static const int hi_hz[SYNTH_KIT_SIZE] = { 200, 6000, 16000, 16000, 3000, 3000, 250, 2000 };
+    for (unsigned k = 0; k < SYNTH_KIT_SIZE; k++) {
+        const synth_sample_t *x = synth_kit(k);
+        int pk = 0;
+        double num = 0, den = 0;
+        for (uint32_t i = 0; i < x->len; i++)
+            if (abs(x->pcm[i]) > pk) pk = abs(x->pcm[i]);
+        /* the spectral centroid of its first 8192 frames */
+        int n = x->len < FFT_N ? (int)x->len : FFT_N;
+        for (int i = 0; i < FFT_N; i++) { fre[i] = i < n ? x->pcm[i] : 0; fim[i] = 0; }
+        fft(fre, fim, FFT_N);
+        for (int i = 1; i < FFT_N / 2; i++) {
+            double m = fre[i] * fre[i] + fim[i] * fim[i];
+            num += m * i * 48000.0 / FFT_N;
+            den += m;
+        }
+        double c = num / den;
+        CHECK(x->len > 3000 && pk < 29205 && pk > 23000 && x->root == 60 && x->channels == 1);
+        CHECK(c > lo_hz[k] && c < hi_hz[k]);
+        if (c <= lo_hz[k] || c >= hi_hz[k])
+            printf("  kit %s: centroid %.0f Hz\n", synth_kit_name(k), c);
+        CHECK(x->pcm[x->len - 1] < 200 && x->pcm[x->len - 1] > -200);   /* faded out */
+    }
+    /* played from the kit (MOD1 128..), it is over when its frames are */
+    synth_init(&s, RATE);
+    sample_voice(0, SYNTH_KIT + 2, 0, 255, 1);
+    mix_floats(&s, 9600);
+    CHECK(fpeak(smix, 2, 0, 2400) > 0.1f && synth_active(&s) == 0);
+
+    /* ---- the player: a bank's samples to the synthesizer, and away with it */
+    static au_bank_t b2;
+    memset(pregs, 0, sizeof pregs);
+    synth_init(&syn, RATE);
+    player_init(&pl, RATE, pregs, &syn);
+    CHECK(au_parse_pcm(big, big_len - 0, &b2, pool, sizeof pool / 2, err, sizeof err) == -1);
+    big[4] = 3;
+    big[9] = 5;
+    CHECK(au_parse_pcm(big, big_len, &b2, pool, sizeof pool / 2, err, sizeof err) == 0);
+    player_set_bank(&pl, &b2);
+    CHECK(syn.smp == b2.sample && syn.nsmp == 5);
+    player_set_bank(&pl, NULL);
+    CHECK(syn.smp == NULL && syn.nsmp == 0);
+}
+
 int main(void)
 {
     test_synth();
@@ -1221,6 +1525,7 @@ int main(void)
     test_iec958();
     test_depth();
     test_ramps();
+    test_samples();
     printf("audio: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

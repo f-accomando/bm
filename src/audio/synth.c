@@ -60,8 +60,13 @@ void synth_echo(synth_t *s, float ms, float feedback, float wet)
     s->echo_wet = wet < 0 ? 0 : wet > 1 ? 1 : wet;
 }
 
+static int kit_made;
+static void kit_make(void);
+
 void synth_init(synth_t *s, uint32_t rate)
 {
+    if (!kit_made)
+        kit_make();
     memset(s, 0, sizeof *s);
     s->rate = rate;
     s->gain = 1.0f;
@@ -74,6 +79,7 @@ void synth_init(synth_t *s, uint32_t rate)
         v->lfsr = 1;
         v->pw = -1.0f;
         v->noise = v->noise0 = -1.0f;
+        v->sdir = 1;
         v->env_r[0] = v->env_r[1] = v->env_r[2] = v->env_r[3] = 0xFF;
         v->env_c[0] = v->env_c[1] = v->env_c[2] = v->env_c[3] = -1.0f;
     }
@@ -174,9 +180,14 @@ static inline uint32_t xorshift(uint32_t *r)
     return *r = x;
 }
 
+static inline float white_of(uint32_t *r)
+{
+    return (float)(int32_t)xorshift(r) * (1.0f / 2147483648.0f);
+}
+
 static inline float white(synth_t *s)
 {
-    return (float)(int32_t)xorshift(&s->rng) * (1.0f / 2147483648.0f);
+    return white_of(&s->rng);
 }
 
 /* soft saturation (a rational tanh), flat at +-1 past +-3 */
@@ -266,6 +277,484 @@ static void pluck_excite(synth_t *s, synth_voice_t *v, unsigned ch, uint32_t inc
             buf[i] *= 1.0f / peak;
     v->ks_w = (uint16_t)n;
     v->ks_lp = v->ks_ax = v->ks_ay = 0;
+}
+
+/* ---------------------------------------------------------------- samples */
+
+void synth_samples(synth_t *s, const synth_sample_t *tab, unsigned n)
+{
+    s->smp = tab;
+    s->nsmp = tab ? n : 0;
+}
+
+void synth_sample_ready(synth_sample_t *x, int16_t *pcm)
+{
+    unsigned c = x->channels == 2 ? 2 : 1;
+    x->channels = (uint8_t)c;
+    if (x->loop) {
+        if (!x->loop_end || x->loop_end > x->len)
+            x->loop_end = x->len;
+        uint32_t least = x->loop == SYNTH_LOOP_PINGPONG ? 2 : 1;
+        if (x->loop > SYNTH_LOOP_PINGPONG || x->loop_start >= x->loop_end || x->loop_end - x->loop_start < least)
+            x->loop = SYNTH_LOOP_OFF;
+        else
+            x->len = x->loop_end;       /* what follows the loop is never heard */
+    }
+    if (!x->loop)
+        x->loop_start = x->loop_end = 0;
+    uint32_t len = x->len, ls = x->loop_start;
+    /* the guards: what the interpolation reads around the frames */
+    for (unsigned ch = 0; ch < c; ch++) {
+        int16_t before = 0;
+        if (x->loop == SYNTH_LOOP_FWD && ls == 0)
+            before = pcm[(len - 1) * c + ch];
+        else if (x->loop == SYNTH_LOOP_PINGPONG && ls == 0)
+            before = pcm[c + ch];
+        else if (len)
+            before = 0;
+        pcm[-(int)c + (int)ch] = before;
+        for (uint32_t g = 0; g < 3; g++) {
+            int16_t after = 0;
+            if (x->loop == SYNTH_LOOP_FWD) {
+                after = pcm[(ls + g % (len - ls)) * c + ch];
+            } else if (x->loop == SYNTH_LOOP_PINGPONG) {
+                uint32_t m = len - 2 - g;               /* mirrored about the last frame */
+                after = pcm[(m < ls || m >= len ? ls : m) * c + ch];
+            }
+            pcm[(len + g) * c + ch] = after;
+        }
+    }
+    x->pcm = pcm;
+    float root = 440.0f * exp2f(((float)(x->root ? x->root : 60) - 69.0f + x->fine * 0.01f) * (1.0f / 12.0f));
+    x->rk = (float)x->rate / root;
+}
+
+static const synth_sample_t *sample_of(const synth_t *s, unsigned k);
+
+/* frames a sample of output, in 32.32 (inc 0: the sample's own speed) */
+static int64_t sample_step(const synth_t *s, const synth_sample_t *x, uint32_t inc)
+{
+    float f = inc ? (float)inc * x->rk : (float)x->rate / (float)s->rate * 4294967296.0f;
+    if (f > 64.0f * 4294967296.0f)
+        f = 64.0f * 4294967296.0f;      /* 64 frames a sample at most */
+    return (int64_t)f;
+}
+
+/* the whole frames a voice may read going this way: past them,
+ * sample_wrap */
+static inline void sample_range(const synth_sample_t *x, int back, uint32_t *lo, uint32_t *hi)
+{
+    *lo = back && x->loop ? x->loop_start : 0;
+    *hi = x->loop == SYNTH_LOOP_PINGPONG && !back ? x->len - 1 : x->len;
+}
+
+/* past the end (or the start, backwards): the loop, or 0 (the end) */
+static int sample_wrap(const synth_sample_t *x, synth_voice_t *v, int64_t *pos, int64_t *st, int64_t *dst)
+{
+    int64_t p = *pos;
+    int64_t ls = (int64_t)x->loop_start << 32, le = (int64_t)x->len << 32;
+    if (x->loop == SYNTH_LOOP_FWD) {
+        int64_t span = le - ls;
+        if (p >= le) {
+            p = ls + (p - le) % span;
+        } else {
+            int64_t d = (ls - p) % span;
+            p = d ? le - d : ls;
+        }
+    } else if (x->loop == SYNTH_LOOP_PINGPONG) {
+        /* between the loop's start and its last frame, turning at both */
+        int64_t top = le - ((int64_t)1 << 32), l2 = 2 * (top - ls);
+        int dir;
+        if (p >= top) {
+            int64_t u = (p - top) % l2;
+            if (u < l2 / 2) { p = top - u; dir = -1; } else { p = top - l2 + u; dir = 1; }
+        } else {
+            int64_t u = (ls - p) % l2;
+            if (u < l2 / 2) { p = ls + u; dir = 1; } else { p = ls + l2 - u; dir = -1; }
+        }
+        if (dir != v->sdir) {
+            v->sdir = (int8_t)dir;
+            *st = -*st;
+            *dst = -*dst;
+        }
+    } else {
+        return 0;
+    }
+    *pos = p;
+    return 1;
+}
+
+/* 4-point, 3rd-order Hermite between x0 and x1 (x-form, Niemitalo) */
+static inline float hermite(float xm1, float x0, float x1, float x2, float t)
+{
+    float c = (x1 - xm1) * 0.5f;
+    float v = x0 - x1;
+    float w = c + v;
+    float a = w + v + (x2 - x0) * 0.5f;
+    float b = w + a;
+    return ((a * t - b) * t + c) * t + x0;
+}
+
+/* n samples of a sample's voice (both channels if stereo); returns how
+ * many there were before it ended (n: it goes on) */
+static inline __attribute__((always_inline)) unsigned
+sample_run(const synth_sample_t *x, synth_voice_t *v, int64_t st, int64_t dst, float *l, float *r, unsigned n,
+           int stereo)
+{
+    const int16_t *pcm = x->pcm;
+    int64_t pos = v->spos;
+    uint32_t lo, hi;
+    sample_range(x, st < 0, &lo, &hi);
+    unsigned i;
+    for (i = 0; i < n; i++) {
+        uint32_t ip = (uint32_t)(pos >> 32);
+        if (ip - lo >= hi - lo) {
+            /* copies: the loop's own stay in registers */
+            int64_t p2 = pos, s2 = st, d2 = dst;
+            if (!sample_wrap(x, v, &p2, &s2, &d2))
+                break;
+            pos = p2;
+            st = s2;
+            dst = d2;
+            sample_range(x, st < 0, &lo, &hi);
+            ip = (uint32_t)(pos >> 32);
+        }
+        float t = (float)(uint32_t)pos * TO_UNIT;
+        if (stereo) {
+            const int16_t *p = pcm + 2 * ip;
+            l[i] = hermite(p[-2], p[0], p[2], p[4], t) * (1.0f / 32768.0f);
+            r[i] = hermite(p[-1], p[1], p[3], p[5], t) * (1.0f / 32768.0f);
+        } else {
+            const int16_t *p = pcm + ip;
+            l[i] = hermite(p[-1], p[0], p[1], p[2], t) * (1.0f / 32768.0f);
+        }
+        pos += st;
+        st += dst;
+    }
+    v->spos = pos;
+    return i;
+}
+
+/* The steps of a sample's voice for this block, from the pitch's ramp */
+static const synth_sample_t *sample_steps(const synth_t *s, synth_voice_t *v, uint32_t inc0, int32_t dinc,
+                                          unsigned n, int64_t *st, int64_t *dst)
+{
+    const synth_sample_t *x = sample_of(s, v->smp);
+    if (!x || !x->pcm || v->sdone)
+        return NULL;
+    int64_t s0 = sample_step(s, x, inc0), s1 = sample_step(s, x, (uint32_t)((int32_t)inc0 + dinc * (int32_t)n));
+    int64_t d = n == SYNTH_BLOCK ? (s1 - s0) / SYNTH_BLOCK : (s1 - s0) / (int64_t)n;
+    *st = v->sdir < 0 ? -s0 : s0;
+    *dst = v->sdir < 0 ? -d : d;
+    return x;
+}
+
+/* The clean voice of a sample: Hermite between its frames. Returns 1 if
+ * it is stereo (r has the right). */
+static int wave_sample(synth_t *s, synth_voice_t *v, uint32_t inc0, int32_t dinc, float *l, float *r, unsigned n)
+{
+    int64_t st, dst;
+    const synth_sample_t *x = sample_steps(s, v, inc0, dinc, n, &st, &dst);
+    int stereo = x && x->channels == 2;
+    unsigned got = 0;
+    if (x)
+        got = stereo ? sample_run(x, v, st, dst, l, r, n, 1) : sample_run(x, v, st, dst, l, r, n, 0);
+    if (got < n)
+        v->sdone = 1;
+    for (unsigned i = got; i < n; i++) {
+        l[i] = 0;
+        if (stereo)
+            r[i] = 0;
+    }
+    return stereo;
+}
+
+/* The chip's sample: the nearest frame, 8 bits, in the middle */
+static void wave_sample_raw(synth_t *s, synth_voice_t *v, uint32_t inc, float *out, unsigned n)
+{
+    int64_t st, dst;
+    const synth_sample_t *x = sample_steps(s, v, inc, 0, n, &st, &dst);
+    unsigned i = 0;
+    if (x) {
+        const int16_t *pcm = x->pcm;
+        unsigned c = x->channels;
+        int64_t pos = v->spos;
+        uint32_t lo, hi;
+        sample_range(x, st < 0, &lo, &hi);
+        for (; i < n; i++) {
+            uint32_t ip = (uint32_t)(pos >> 32);
+            if (ip - lo >= hi - lo) {
+                int64_t p2 = pos, s2 = st, d2 = dst;
+                if (!sample_wrap(x, v, &p2, &s2, &d2))
+                    break;
+                pos = p2;
+                st = s2;
+                sample_range(x, st < 0, &lo, &hi);
+                ip = (uint32_t)(pos >> 32);
+            }
+            const int16_t *p = pcm + c * ip;
+            int y = c == 2 ? (p[0] + p[1]) >> 1 : p[0];
+            out[i] = (float)(y >> 8) * (1.0f / 128.0f);
+            pos += st;
+        }
+        v->spos = pos;
+    }
+    if (i < n)
+        v->sdone = 1;
+    for (; i < n; i++)
+        out[i] = 0;
+}
+
+/* a note starts on a sample's voice: which, and where */
+static void sample_start(synth_t *s, synth_voice_t *v, const volatile uint8_t *r)
+{
+    v->smp = r[SYNTH_MOD1];
+    v->sdone = 0;
+    const synth_sample_t *x = sample_of(s, v->smp);
+    if (!x || !x->pcm || !x->len) {
+        v->sdone = 1;
+        return;
+    }
+    uint32_t b = (uint32_t)(((uint64_t)x->len * r[SYNTH_MOD2]) >> 8);
+    if (r[SYNTH_FLAGS] & SYNTH_FLAG_REVERSE) {
+        v->spos = (int64_t)(x->len - 1 - b) << 32;
+        v->sdir = -1;
+    } else {
+        v->spos = (int64_t)b << 32;
+        v->sdir = 1;
+    }
+}
+
+/* ---------------------------------------------------------------- the kit */
+
+/* The console's drum kit, made once from oscillators, noise and filters
+ * (the classic analog drum machines' recipes): nothing recorded, so
+ * nothing to license. 48 kHz, mono, root C4. */
+#define KIT_RATE    48000
+static const char *const kit_names[SYNTH_KIT_SIZE] = { "bd", "sd", "hh", "oh", "cp", "rim", "tom", "cb" };
+static const uint16_t kit_ms[SYNTH_KIT_SIZE] = { 480, 300, 110, 480, 340, 70, 440, 300 };
+#define KIT_FRAMES  (2520 * KIT_RATE / 1000 + SYNTH_KIT_SIZE * SYNTH_SAMPLE_GUARD)
+static int16_t kit_pcm[KIT_FRAMES];
+static synth_sample_t kit[SYNTH_KIT_SIZE];
+
+/* a state variable filter of fixed tuning, for the kit */
+typedef struct { float g, k, a1, a2, a3, ic1, ic2; } kit_svf_t;
+static void kit_svf(kit_svf_t *f, float hz, float q)
+{
+    f->g = tanf(3.14159265f * hz / KIT_RATE);
+    f->k = 1.0f / q;
+    f->a1 = 1.0f / (1.0f + f->g * (f->g + f->k));
+    f->a2 = f->g * f->a1;
+    f->a3 = f->g * f->a2;
+    f->ic1 = f->ic2 = 0;
+}
+/* band (peak 1) and high pass of x */
+static float kit_step(kit_svf_t *f, float x, float *hp)
+{
+    float v3 = x - f->ic2;
+    float v1 = f->a1 * f->ic1 + f->a2 * v3;
+    float v2 = f->ic2 + f->a2 * f->ic1 + f->a3 * v3;
+    f->ic1 = 2.0f * v1 - f->ic1;
+    f->ic2 = 2.0f * v2 - f->ic2;
+    if (hp)
+        *hp = x - f->k * v1 - v2;
+    return v1 * f->k;
+}
+
+/* the six square waves of the 808's cymbals and hi-hats (Hz x 2^32 / 48000) */
+static const uint32_t kit_metal_inc[6] = { 18369933u, 27237251u, 33071248u, 46770404u, 48318382u, 71582788u };
+static float kit_metal(uint32_t *ph)
+{
+    float y = 0;
+    for (int i = 0; i < 6; i++) {
+        ph[i] += kit_metal_inc[i];
+        y += ph[i] < 0x80000000u ? 1.0f : -1.0f;
+    }
+    return y * (1.0f / 6.0f);
+}
+
+/* one frame of the kit: through a soft clip (the drum machines' own
+ * saturation: never past -1 dB), the last 10 ms faded out */
+static int16_t kit_q(float y, unsigned i, unsigned n)
+{
+    unsigned fade = KIT_RATE / 100;
+    y = 0.89f * 32767.0f * soft(y);
+    if (i + fade > n)
+        y *= (float)(n - i) / (float)fade;
+    return (int16_t)(y < 0 ? y - 0.5f : y + 0.5f);
+}
+
+/* each drum's level into the clip (its peak lands near the knee) */
+static const float kit_gain[SYNTH_KIT_SIZE] = { 1.6f, 1.6f, 7.0f, 5.5f, 4.7f, 1.6f, 1.6f, 1.9f };
+
+static void kit_make(void)
+{
+    uint32_t rng = 0x2545F491u;
+    int16_t *at = kit_pcm;
+    for (unsigned k = 0; k < SYNTH_KIT_SIZE; k++) {
+        unsigned n = kit_ms[k] * (KIT_RATE / 1000);
+        int16_t *pcm = at + 1;
+        float G = kit_gain[k];
+        float ph = 0, ph2 = 0, lp = 0;
+        uint32_t mph[6] = { 0 };
+        kit_svf_t f1, f2;
+        float d = 1.0f / KIT_RATE;
+        /* decays as factors a sample: e^(-t/tau) */
+#define DEC(tau) expf(-d / (tau))
+        float e1 = 1, e2 = 1, e3 = 1;
+        switch (k) {
+        case 0: {       /* kick: a sine falling from 155 to 45 Hz and a click */
+            float c1 = DEC(0.035f), c2 = DEC(0.24f), c3 = DEC(0.0015f), sweep = 110;
+            for (unsigned i = 0; i < n; i++) {
+                ph += (45.0f + sweep) * d;
+                ph -= (float)(int)ph;
+                sweep *= c1;
+                lp += 0.35f * (white_of(&rng) - lp);
+                pcm[i] = kit_q(G * (sine(ph) * e2 + 0.45f * lp * e3), i, n);
+                e2 *= c2;
+                e3 *= c3;
+            }
+            break;
+        }
+        case 1: {       /* snare: two tones and a burst of noise (the wires) */
+            float c1 = DEC(0.05f), c2 = DEC(0.085f), c3 = DEC(0.01f);
+            kit_svf(&f1, 1200.0f, 0.7f);
+            kit_svf(&f2, 3800.0f, 0.9f);
+            for (unsigned i = 0; i < n; i++) {
+                float bend = 1.0f + 0.25f * e3;
+                ph += 185.0f * bend * d;
+                ph2 += 330.0f * bend * d;
+                ph -= (float)(int)ph;
+                ph2 -= (float)(int)ph2;
+                float tone = 0.6f * sine(ph) + 0.4f * sine(ph2);
+                float w = white_of(&rng), hp;
+                kit_step(&f1, w, &hp);
+                lp += 0.6f * (hp - lp);         /* the highs softened */
+                float noise = 0.7f * lp + 0.6f * kit_step(&f2, w, NULL);
+                float atk = i < 96 ? (float)i / 96.0f : 1.0f;
+                pcm[i] = kit_q(G * (0.8f * tone * e1 + 0.55f * noise * e2 * atk), i, n);
+                e1 *= c1;
+                e2 *= c2;
+                e3 *= c3;
+            }
+            break;
+        }
+        case 2:         /* hi-hats: the six squares through a bright band */
+        case 3: {
+            float c1 = DEC(k == 2 ? 0.02f : 0.17f);
+            kit_svf(&f1, 10000.0f, 0.9f);
+            kit_svf(&f2, 7000.0f, 0.7f);
+            for (unsigned i = 0; i < n; i++) {
+                float m = kit_metal(mph) + 0.25f * white_of(&rng), hp;
+                kit_step(&f2, kit_step(&f1, m, NULL), &hp);
+                float atk = i < 24 ? (float)i / 24.0f : 1.0f;
+                pcm[i] = kit_q(G * hp * e1 * atk, i, n);
+                e1 *= c1;
+            }
+            break;
+        }
+        case 4: {       /* clap: three quick bursts of noise in a band, then a tail */
+            float c3 = DEC(0.004f), c2 = DEC(0.1f);
+            kit_svf(&f1, 1150.0f, 1.6f);
+            unsigned burst = 9 * (KIT_RATE / 1000), tail = 3 * burst;
+            for (unsigned i = 0; i < n; i++) {
+                if (i % burst == 0 && i <= tail)
+                    e3 = 1;
+                float env = i < tail ? e3 : 0.7f * e2 + e3;
+                pcm[i] = kit_q(G * kit_step(&f1, white_of(&rng), NULL) * env, i, n);
+                e3 *= c3;
+                if (i >= tail)
+                    e2 *= c2;
+            }
+            break;
+        }
+        case 5: {       /* rim: a high ring, a low knock, a tick of noise */
+            float c1 = DEC(0.01f), c2 = DEC(0.012f), c3 = DEC(0.003f);
+            kit_svf(&f1, 2400.0f, 3.0f);
+            for (unsigned i = 0; i < n; i++) {
+                ph += 1650.0f * d;
+                ph2 += 480.0f * d;
+                ph -= (float)(int)ph;
+                ph2 -= (float)(int)ph2;
+                float y = 0.6f * sine(ph) * e1 + 0.5f * sine(ph2) * e2 + 0.5f * kit_step(&f1, white_of(&rng), NULL) * e3;
+                pcm[i] = kit_q(G * y, i, n);
+                e1 *= c1;
+                e2 *= c2;
+                e3 *= c3;
+            }
+            break;
+        }
+        case 6: {       /* tom: a sine falling from 155 to 95 Hz */
+            float c1 = DEC(0.06f), c2 = DEC(0.18f), c3 = DEC(0.008f), sweep = 60;
+            for (unsigned i = 0; i < n; i++) {
+                ph += (95.0f + sweep) * d;
+                ph -= (float)(int)ph;
+                sweep *= c1;
+                lp += 0.2f * (white_of(&rng) - lp);
+                pcm[i] = kit_q(G * (sine(ph) * e2 + 0.3f * lp * e3), i, n);
+                e2 *= c2;
+                e3 *= c3;
+            }
+            break;
+        }
+        default: {      /* cowbell: two squares through a band, a fast and a slow decay */
+            float c1 = DEC(0.015f), c2 = DEC(0.13f);
+            kit_svf(&f1, 820.0f, 2.2f);
+            uint32_t p1 = 0, p2 = 0;
+            for (unsigned i = 0; i < n; i++) {
+                p1 += (uint32_t)(540.0f * (4294967296.0f / KIT_RATE));
+                p2 += (uint32_t)(800.0f * (4294967296.0f / KIT_RATE));
+                float sq = 0.6f * (p1 < 0x80000000u ? 1.0f : -1.0f) + 0.4f * (p2 < 0x80000000u ? 1.0f : -1.0f);
+                float atk = i < 48 ? (float)i / 48.0f : 1.0f;
+                pcm[i] = kit_q(G * kit_step(&f1, sq, NULL) * (0.7f * e1 + 0.3f * e2) * atk, i, n);
+                e1 *= c1;
+                e2 *= c2;
+            }
+            break;
+        }
+        }
+#undef DEC
+        synth_sample_t *x = &kit[k];
+        memset(x, 0, sizeof *x);
+        x->len = n;
+        x->rate = KIT_RATE;
+        x->channels = 1;
+        x->root = 60;
+        synth_sample_ready(x, pcm);
+        at += n + SYNTH_SAMPLE_GUARD;
+    }
+    kit_made = 1;
+}
+
+const synth_sample_t *synth_kit(unsigned k)
+{
+    return k < SYNTH_KIT_SIZE && kit_made ? &kit[k] : NULL;
+}
+
+const char *synth_kit_name(unsigned k)
+{
+    return k < SYNTH_KIT_SIZE ? kit_names[k] : NULL;
+}
+
+int synth_kit_find(const char *name)
+{
+    for (unsigned k = 0; k < SYNTH_KIT_SIZE; k++) {
+        const char *a = name, *b = kit_names[k];
+        while (*a && (*a | 32) == *b) {
+            a++;
+            b++;
+        }
+        if (!*a && !*b)
+            return SYNTH_KIT + (int)k;
+    }
+    return -1;
+}
+
+static const synth_sample_t *sample_of(const synth_t *s, unsigned k)
+{
+    if (k >= SYNTH_KIT)
+        return synth_kit(k - SYNTH_KIT);
+    return s->smp && k < s->nsmp ? &s->smp[k] : NULL;
 }
 
 /* ---------------------------------------------------------------- waves */
@@ -531,6 +1020,119 @@ static float lfo_hz(uint8_t r)
     return 0.1f * exp2f((float)(r - 1) * (7.64f / 254.0f));    /* 0.1 .. 20 Hz */
 }
 
+/* The filter of one block (render_voice works out g and k), run on a
+ * channel: a stereo sample's two go through the same coefficients. */
+typedef struct {
+    float g, k;             /* still: the block's; a sweep: the last block's end */
+    float rg, dk;           /* a sweep: g's ratio and k's step a sample */
+    int still, exact, mode;
+} svf_t;
+
+static inline __attribute__((always_inline)) void svf_run(const svf_t *f, float *buf, unsigned n, float *s1,
+                                                          float *s2)
+{
+    float ic1 = *s1, ic2 = *s2;
+    int mode = f->mode;
+    float g = f->g, k = f->k;
+    if (f->still) {
+        float a1 = 1.0f / (1.0f + g * (g + k)), a2 = g * a1, a3 = g * a2;
+        for (unsigned i = 0; i < n; i++) {
+            float v0 = buf[i];
+            float v3 = v0 - ic2;
+            float v1 = a1 * ic1 + a2 * v3;
+            float v2 = ic2 + a2 * ic1 + a3 * v3;
+            ic1 = 2.0f * v1 - ic1;
+            ic2 = 2.0f * v2 - ic2;
+            float y;
+            switch (mode) {
+            case SYNTH_LOWPASS: y = v2; break;
+            case SYNTH_BANDPASS: y = v1 * k; break;     /* 0 dB at the peak */
+            case SYNTH_HIGHPASS: y = v0 - k * v1 - v2; break;
+            default: y = v0 - k * v1; break;            /* notch */
+            }
+            buf[i] = y;
+        }
+    } else {
+        float rg = f->rg, dk = f->dk;
+        int exact = f->exact;
+        float a1 = 1.0f / (1.0f + g * (g + k));
+        for (unsigned i = 0; i < n; i++) {
+            g *= rg;
+            k += dk;
+            float d = 1.0f + g * (g + k);
+            a1 = exact ? 1.0f / d : a1 * (2.0f - d * a1);
+            float a2 = g * a1, a3 = g * a2;
+            float v0 = buf[i];
+            float v3 = v0 - ic2;
+            float v1 = a1 * ic1 + a2 * v3;
+            float v2 = ic2 + a2 * ic1 + a3 * v3;
+            ic1 = 2.0f * v1 - ic1;
+            ic2 = 2.0f * v2 - ic2;
+            float y;
+            switch (mode) {
+            case SYNTH_LOWPASS: y = v2; break;
+            case SYNTH_BANDPASS: y = v1 * k; break;
+            case SYNTH_HIGHPASS: y = v0 - k * v1 - v2; break;
+            default: y = v0 - k * v1; break;
+            }
+            buf[i] = y;
+        }
+    }
+    /* a denormal is slow on some FPUs: the state flushed to 0 */
+    *s1 = (ic1 > 1e-15f || ic1 < -1e-15f) ? ic1 : 0;
+    *s2 = (ic2 > 1e-15f || ic2 < -1e-15f) ? ic2 : 0;
+}
+
+/* The clean envelope and the volume (a ramp from vol0 to vol) on the
+ * block; r: a stereo sample's right, or NULL */
+static inline __attribute__((always_inline)) void env_run(synth_voice_t *v, float *buf, float *r, unsigned n,
+                                                          float sus, float vol0, float vol)
+{
+    float ca = v->env_c[0], cd = v->env_c[1], cr = v->env_c[2];
+    float level = v->level;
+    uint8_t stage = v->stage;
+    float dvol = (vol - vol0) / (float)n, vv = vol0;
+    unsigned i;
+    for (i = 0; i < n; i++) {
+        switch (stage) {
+        case SYNTH_ATTACK_ST:
+            level += (331.5f - level) * ca;
+            if (level >= 255.0f) { level = 255.0f; stage = SYNTH_DECAY_ST; }
+            break;
+        case SYNTH_DECAY_ST:
+            level = sus + (level - sus) * cd;
+            if (level - sus < 0.0255f) { level = sus; stage = SYNTH_SUSTAIN_ST; }
+            break;
+        case SYNTH_SUSTAIN_ST:
+            level += (sus - level) * 0.01f;
+            break;
+        case SYNTH_RELEASE_ST:
+            level *= cr;
+            if (level < ENV_DONE) { level = 0.0f; stage = SYNTH_IDLE; }
+            break;
+        }
+        vv += dvol;
+        if (r) {
+            float e = level * vv;
+            buf[i] *= e;
+            r[i] *= e;
+        } else {
+            buf[i] *= level * vv;
+        }
+        if (stage == SYNTH_IDLE) {
+            i++;
+            break;
+        }
+    }
+    for (; i < n; i++) {
+        buf[i] = 0;
+        if (r)
+            r[i] = 0;
+    }
+    v->level = level;
+    v->stage = stage;
+}
+
 /* One voice added into the mix and the sends (n <= SYNTH_BLOCK). The
  * registers are read once: everything derived from them is computed once
  * per block, the volume and the pitch ramp across it. */
@@ -556,6 +1158,7 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
             v->phase = 0;               /* a silent voice starts the wave from 0 */
             v->phase2 = 0;
             v->f1 = v->f2 = 0;
+            v->f1b = v->f2b = 0;
             v->fg = 0;                  /* the filter and the width start where they are: no ramp */
             v->pw = -1.0f;
             v->fm_fb = 0;
@@ -571,6 +1174,8 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
         v->menv = 1.0f;
         if (wave == SYNTH_PLUCK && !raw)
             pluck_excite(s, v, ch, inc, r[SYNTH_MOD1] ? r[SYNTH_MOD1] : 140);
+        if (wave == SYNTH_SAMPLE)
+            sample_start(s, v, r);      /* every note from its start */
     } else if (!gate && v->gated && v->stage != SYNTH_IDLE) {
         v->stage = SYNTH_RELEASE_ST;
     }
@@ -578,14 +1183,17 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
     if (v->stage == SYNTH_IDLE)
         return;                 /* silent: no oscillator work at all */
 
-    float *buf = s->vbuf;
+    float *buf = s->vbuf, *buf2 = NULL;
     float vol = r[SYNTH_VOLUME] / 255.0f * (1.0f / 255.0f);    /* level is 0..255 */
 
     if (raw) {
         /* -------- the chip: naive wave, straight envelope */
         uint32_t duty = r[SYNTH_DUTY] * 0x01010101u;
         int fast_noise = (f88 >> 8) >= s->rate;     /* at least one step per sample */
-        wave_raw(v, wave > SYNTH_METAL ? SYNTH_SQUARE : wave, duty, inc, fast_noise, buf, n);
+        if (wave == SYNTH_SAMPLE)
+            wave_sample_raw(s, v, inc, buf, n);
+        else
+            wave_raw(v, wave > SYNTH_METAL ? SYNTH_SQUARE : wave, duty, inc, fast_noise, buf, n);
         float atk = synth_rate_increment(r[SYNTH_ATTACK], s->rate);
         float dec = synth_rate_increment(r[SYNTH_DECAY], s->rate);
         float sus = r[SYNTH_SUSTAIN];
@@ -663,20 +1271,36 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
         a.depth1 = depth * v->menv;
         a.fb = r[SYNTH_FMFB] * (1.6f / 255.0f);
 
-        wave_clean(s, v, ch, wave, &a, buf, n);
+        if (wave == SYNTH_SAMPLE) {
+            if (wave_sample(s, v, a.inc, a.dinc, buf, s->vbuf2, n))
+                buf2 = s->vbuf2;        /* stereo: the right goes the same way */
+        } else {
+            wave_clean(s, v, ch, wave, &a, buf, n);
+        }
 
         /* noise, drive, filter */
         uint8_t nm = r[SYNTH_NOISEMIX];
         if (nm) {
             float k = nm / 255.0f;
-            for (unsigned i = 0; i < n; i++)
-                buf[i] += k * white(s);
+            if (!buf2) {
+                for (unsigned i = 0; i < n; i++)
+                    buf[i] += k * white(s);
+            } else {
+                for (unsigned i = 0; i < n; i++) {
+                    float w = k * white(s);
+                    buf[i] += w;
+                    buf2[i] += w;
+                }
+            }
         }
         uint8_t drive = r[SYNTH_DRIVE];
         if (drive) {
             float pre = 1.0f + drive * (12.0f / 255.0f), post = 1.0f / soft(pre);
             for (unsigned i = 0; i < n; i++)
                 buf[i] = soft(buf[i] * pre) * post;
+            if (buf2)
+                for (unsigned i = 0; i < n; i++)
+                    buf2[i] = soft(buf2[i] * pre) * post;
         }
         uint8_t cut = r[SYNTH_CUTOFF];
         /* the filter envelope: up with the attack, down with its decay */
@@ -704,30 +1328,17 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
             float g = v->fg > 0.0f ? v->fg : g1, k = v->fg > 0.0f ? v->fk : k1;
             v->fg = g1;
             v->fk = k1;
-            float ic1 = v->f1, ic2 = v->f2;
-            int mode = fm & 3;
+            svf_t f;
+            f.mode = fm & 3;
             float dg = g1 - g;
             if ((dg < 0 ? -dg : dg) <= 1e-5f * g1 && k == k1) {
                 /* still (a change under a 50th of a cent: the end of a
                  * filter envelope's decay is no sweep) */
-                g = g1;
-                float a1 = 1.0f / (1.0f + g * (g + k)), a2 = g * a1, a3 = g * a2;
-                for (unsigned i = 0; i < n; i++) {
-                    float v0 = buf[i];
-                    float v3 = v0 - ic2;
-                    float v1 = a1 * ic1 + a2 * v3;
-                    float v2 = ic2 + a2 * ic1 + a3 * v3;
-                    ic1 = 2.0f * v1 - ic1;
-                    ic2 = 2.0f * v2 - ic2;
-                    float y;
-                    switch (mode) {
-                    case SYNTH_LOWPASS: y = v2; break;
-                    case SYNTH_BANDPASS: y = v1 * k; break;     /* 0 dB at the peak */
-                    case SYNTH_HIGHPASS: y = v0 - k * v1 - v2; break;
-                    default: y = v0 - k * v1; break;            /* notch */
-                    }
-                    buf[i] = y;
-                }
+                f.still = 1;
+                f.g = g1;
+                f.k = k;
+                f.rg = f.dk = 0;
+                f.exact = 0;
             } else {
                 /* a sweep (the envelope, the LFO, a new cutoff or
                  * resonance): g and k move sample by sample, no steps every
@@ -740,77 +1351,32 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
                  * 1 + g(g + k) less than doubles in a sample. In a whole
                  * block it does (g from 0.0006 to 6.4 at most: a ratio
                  * under 1.16 a sample); a short one that jumps divides */
-                float rg = powf(g1 / g, inv_n), dk = (k1 - k) * inv_n;
-                int exact = rg > 1.3f || dk > 0.04f;
-                float a1 = 1.0f / (1.0f + g * (g + k));
-                for (unsigned i = 0; i < n; i++) {
-                    g *= rg;
-                    k += dk;
-                    float d = 1.0f + g * (g + k);
-                    a1 = exact ? 1.0f / d : a1 * (2.0f - d * a1);
-                    float a2 = g * a1, a3 = g * a2;
-                    float v0 = buf[i];
-                    float v3 = v0 - ic2;
-                    float v1 = a1 * ic1 + a2 * v3;
-                    float v2 = ic2 + a2 * ic1 + a3 * v3;
-                    ic1 = 2.0f * v1 - ic1;
-                    ic2 = 2.0f * v2 - ic2;
-                    float y;
-                    switch (mode) {
-                    case SYNTH_LOWPASS: y = v2; break;
-                    case SYNTH_BANDPASS: y = v1 * k; break;
-                    case SYNTH_HIGHPASS: y = v0 - k * v1 - v2; break;
-                    default: y = v0 - k * v1; break;
-                    }
-                    buf[i] = y;
-                }
+                f.still = 0;
+                f.g = g;
+                f.k = k;
+                f.rg = powf(g1 / g, inv_n);
+                f.dk = (k1 - k) * inv_n;
+                f.exact = f.rg > 1.3f || f.dk > 0.04f;
             }
-            /* a denormal is slow on some FPUs: the state flushed to 0 */
-            v->f1 = (ic1 > 1e-15f || ic1 < -1e-15f) ? ic1 : 0;
-            v->f2 = (ic2 > 1e-15f || ic2 < -1e-15f) ? ic2 : 0;
+            svf_run(&f, buf, n, &v->f1, &v->f2);
+            if (buf2)
+                svf_run(&f, buf2, n, &v->f1b, &v->f2b);
         } else {
             v->fg = 0;                  /* no filter: the next one starts without a ramp */
         }
 
         /* the envelope and the volume */
-        float ca = v->env_c[0], cd = v->env_c[1], cr = v->env_c[2];
-        float sus = r[SYNTH_SUSTAIN];
-        float level = v->level;
-        uint8_t stage = v->stage;
-        float dvol = (vol - vol0) / (float)n, vv = vol0;
-        unsigned i;
-        for (i = 0; i < n; i++) {
-            switch (stage) {
-            case SYNTH_ATTACK_ST:
-                level += (331.5f - level) * ca;
-                if (level >= 255.0f) { level = 255.0f; stage = SYNTH_DECAY_ST; }
-                break;
-            case SYNTH_DECAY_ST:
-                level = sus + (level - sus) * cd;
-                if (level - sus < 0.0255f) { level = sus; stage = SYNTH_SUSTAIN_ST; }
-                break;
-            case SYNTH_SUSTAIN_ST:
-                level += (sus - level) * 0.01f;
-                break;
-            case SYNTH_RELEASE_ST:
-                level *= cr;
-                if (level < ENV_DONE) { level = 0.0f; stage = SYNTH_IDLE; }
-                break;
-            }
-            vv += dvol;
-            buf[i] *= level * vv;
-            if (stage == SYNTH_IDLE) {
-                i++;
-                break;
-            }
-        }
-        for (; i < n; i++)
-            buf[i] = 0;
-        v->level = level;
-        v->stage = stage;
+        if (buf2)
+            env_run(v, buf, buf2, n, r[SYNTH_SUSTAIN], vol0, vol);
+        else
+            env_run(v, buf, NULL, n, r[SYNTH_SUSTAIN], vol0, vol);
         v->inc = inc;
         v->vol = vol;
         v->fresh = 0;
+    }
+    if (wave == SYNTH_SAMPLE && v->sdone) {
+        v->stage = SYNTH_IDLE;          /* a one-shot sample ended: so does the note */
+        v->level = 0;
     }
 
     /* into the mix: the place, the room, the echo, in one pass */
@@ -820,22 +1386,35 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
     uint8_t rs = s->retro ? 0 : r[SYNTH_REVERB], es = s->retro ? 0 : r[SYNTH_ECHO];
     float kr = rs / 255.0f, ke = es / 255.0f;
     float *sr = s->send_room, *se = s->send_echo;
-    s->center_used |= !pan;
-    if (!pan && rs && !es) {            /* the usual voice: in the middle, a little room */
+    if (buf2) {
+        /* a stereo sample: the place moves its balance; the sends hear both */
+        kr *= 0.5f;
+        ke *= 0.5f;
         for (unsigned i = 0; i < n; i++) {
-            mc[i] += buf[i];
-            sr[i] += buf[i] * kr;
-        }
-    } else if (!pan && !rs && !es) {
-        for (unsigned i = 0; i < n; i++)
-            mc[i] += buf[i];
-    } else {
-        for (unsigned i = 0; i < n; i++) {
-            float x = buf[i];
+            float x = buf[i], y = buf2[i];
             ml[i] += x * gl;
-            mr[i] += x * gr;
-            sr[i] += x * kr;
-            se[i] += x * ke;
+            mr[i] += y * gr;
+            sr[i] += (x + y) * kr;
+            se[i] += (x + y) * ke;
+        }
+    } else {
+        s->center_used |= !pan;
+        if (!pan && rs && !es) {            /* the usual voice: in the middle, a little room */
+            for (unsigned i = 0; i < n; i++) {
+                mc[i] += buf[i];
+                sr[i] += buf[i] * kr;
+            }
+        } else if (!pan && !rs && !es) {
+            for (unsigned i = 0; i < n; i++)
+                mc[i] += buf[i];
+        } else {
+            for (unsigned i = 0; i < n; i++) {
+                float x = buf[i];
+                ml[i] += x * gl;
+                mr[i] += x * gr;
+                sr[i] += x * kr;
+                se[i] += x * ke;
+            }
         }
     }
     if (rs)

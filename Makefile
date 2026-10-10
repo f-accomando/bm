@@ -1018,8 +1018,9 @@ $(BUILD)/host/test_http: tests/net/test_http.c src/net/http.c src/net/http.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -Wall -Wextra -Isrc -DHTTP_USER_AGENT='"test"' -o $@ tests/net/test_http.c src/net/http.c
 
-test-audio: $(BUILD)/host/test_audio
+test-audio: $(BUILD)/host/test_audio $(BUILD)/host/bmrender tests/audio/test_bmaudio.py scripts/bmaudio.py
 	$<
+	$(PYTHON) tests/audio/test_bmaudio.py $(BUILD)/host/bmrender $(BUILD)/audio
 
 # The music assistant (src/ai/music.c): the melody network against the
 # Python reference, every recipe, the words of the requests. `make

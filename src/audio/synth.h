@@ -1,7 +1,8 @@
 /*
  * 8-voice synthesizer. Each voice: a wave (square with duty, triangle,
  * saw, sine, two noises, two-operator FM, a plucked string, a supersaw,
- * an organ of four harmonics), white noise mixed in, a soft drive, a
+ * an organ of four harmonics, a sample: a recorded sound of the bank or of
+ * the console's own drum kit), white noise mixed in, a soft drive, a
  * resonant filter (low, band, high pass, notch) with its envelope and an
  * LFO, an ADSR envelope, a place left to right and two sends: the room (a
  * reverb) and the echo. The voices are summed in stereo in 32-bit floats,
@@ -50,8 +51,10 @@
 #define SYNTH_FENV      14      /* s8: the filter envelope opens it 1/16 octave per unit */
 #define SYNTH_FDECAY    15      /* the filter envelope's decay (as ADSR times) */
 #define SYNTH_PAN       16      /* s8: -127 left .. 0 middle .. 127 right */
-#define SYNTH_MOD1      17      /* FM ratio x/16, PLUCK brightness, SUPERSAW spread, ORGAN bars 1-2 */
-#define SYNTH_MOD2      18      /* FM depth x/32 rad, PLUCK sustain, ORGAN bars 3-4 */
+#define SYNTH_MOD1      17      /* FM ratio x/16, PLUCK brightness, SUPERSAW spread, ORGAN bars 1-2,
+                                   SAMPLE which one (0..127 the bank's, SYNTH_KIT.. the kit's) */
+#define SYNTH_MOD2      18      /* FM depth x/32 rad, PLUCK sustain, ORGAN bars 3-4,
+                                   SAMPLE where it starts, x/256 of its length */
 #define SYNTH_MODDECAY  19      /* FM: the depth fades in this time (0: it stays) */
 #define SYNTH_NOISEMIX  20      /* white noise added to the wave, 0..255 */
 #define SYNTH_DRIVE     21      /* soft saturation before the filter, 0..255 */
@@ -61,12 +64,13 @@
 #define SYNTH_LFO_CUT   25      /* the LFO moves the cutoff, 0..255 = 0..4 octaves */
 #define SYNTH_LFO_PWM   26      /* the LFO moves the square's duty, 0..255 */
 #define SYNTH_FMFB      27      /* FM: the modulator's feedback, 0..255 */
-#define SYNTH_FLAGS     28      /* SYNTH_FLAG_RAW: a sound that is the chip voice */
+#define SYNTH_FLAGS     28      /* SYNTH_FLAG_RAW: a sound that is the chip voice; SYNTH_FLAG_REVERSE */
 /* 29..31: reserved, read as 0 */
 
 #define SYNTH_GATE      0x01    /* control: key down                 */
 #define SYNTH_RAW       0x02    /* control: the 8-bit chip voice     */
 #define SYNTH_FLAG_RAW  0x01    /* flags: the same, kept with the sound's tone */
+#define SYNTH_FLAG_REVERSE 0x40 /* flags: a sample plays backwards, from its end */
 
 #define SYNTH_LOWPASS   0
 #define SYNTH_BANDPASS  1
@@ -84,7 +88,30 @@
 #define SYNTH_PLUCK     7       /* a plucked string (Karplus-Strong): guitars, harps, plucks */
 #define SYNTH_SUPERSAW  8       /* three saws a little out of tune: pads, big leads */
 #define SYNTH_ORGAN     9       /* four harmonics (drawbars): organs, flutes, soft leads */
-#define SYNTH_WAVES     10
+#define SYNTH_SAMPLE    10      /* a sample (MOD1, MOD2): the note against its root note sets its
+                                   speed (frequency 0: its own speed); a one-shot ends the note */
+#define SYNTH_WAVES     11
+
+/* A sample: 16-bit frames (interleaved if stereo) at its own rate. The
+ * buffer holds one guard frame before frame 0 and three after the last
+ * (synth_sample_ready writes them), so the interpolation never reads
+ * outside it. */
+#define SYNTH_LOOP_OFF      0       /* plays once: the voice ends with it */
+#define SYNTH_LOOP_FWD      1       /* [loop_start, loop_end) again and again */
+#define SYNTH_LOOP_PINGPONG 2       /* forwards and backwards in it */
+#define SYNTH_SAMPLE_GUARD  4       /* frames around a sample's own: one before, three after */
+#define SYNTH_KIT           128     /* MOD1 from here: the console's drum kit */
+typedef struct {
+    const int16_t *pcm;     /* frame 0; NULL: silent */
+    uint32_t len;           /* frames (a looped sample: up to its loop's end) */
+    uint32_t loop_start, loop_end;
+    uint32_t rate;          /* Hz */
+    uint8_t channels;       /* 1, 2 */
+    uint8_t loop;           /* SYNTH_LOOP_* */
+    uint8_t root;           /* the MIDI note at which it plays at its own speed (60 = C4) */
+    int8_t fine;            /* ... and cents */
+    float rk;               /* rate / the root's Hz (synth_sample_ready) */
+} synth_sample_t;
 
 /* the reverb's delay lines and the echo's, in samples */
 #define SYNTH_ROOM_LINES    8
@@ -117,6 +144,11 @@ typedef struct {
     float ks_lp, ks_ax, ks_ay;  /* pluck: the damping and allpass filters' state */
     uint8_t env_r[4];       /* the ADSR registers the coefficients are for */
     float env_c[4];         /* attack, decay, release and filter decay per sample */
+    int64_t spos;           /* sample: where it plays, frames in 32.32 fixed point */
+    uint8_t smp;            /* sample: which (MOD1 when the note started) */
+    uint8_t sdone;          /* sample: it ended (the voice too, at the block's end) */
+    int8_t sdir;            /* sample: +1 forwards, -1 backwards (ping-pong) */
+    float f1b, f2b;         /* the filter's state for a stereo sample's right */
 } synth_voice_t;
 
 typedef struct {
@@ -148,15 +180,40 @@ typedef struct {
     float comp_env, comp_gain;              /* the output's compressor */
     uint32_t dither;                        /* the dither's random numbers (xorshift, never 0) */
 
-    /* one block: a voice's samples, then the mix and the sends */
-    float vbuf[SYNTH_BLOCK];
+    /* the bank's samples (MOD1 0..127 of a SYNTH_SAMPLE voice) */
+    const synth_sample_t *smp;
+    unsigned nsmp;
+
+    /* one block: a voice's samples (vbuf2: a stereo sample's right), then
+     * the mix and the sends */
+    float vbuf[SYNTH_BLOCK], vbuf2[SYNTH_BLOCK];
     float mix[2][SYNTH_BLOCK], mix_c[SYNTH_BLOCK], send_room[SYNTH_BLOCK], send_echo[SYNTH_BLOCK];
     uint8_t center_used;                    /* a voice in the middle went into mix_c */
     float out[2 * SYNTH_BLOCK];             /* synth_render's block, before the rounding */
     float pluck[SYNTH_VOICES][SYNTH_PLUCK_LEN];
 } synth_t;
 
+/* The first call also makes the console's drum kit (a few ms, once). */
 void synth_init(synth_t *s, uint32_t rate);
+
+/* The bank's samples (NULL: none): MOD1 n < n plays tab[n]. synth_init
+ * forgets them: set them again after it. */
+void synth_samples(synth_t *s, const synth_sample_t *tab, unsigned n);
+
+/* A sample's frames written at pcm (frame 0; the buffer holds
+ * SYNTH_SAMPLE_GUARD more frames around them: pcm - channels is its
+ * start): its loop checked (a looped sample ends with its loop: what
+ * follows is never heard), the guard frames written, its tuning set. */
+void synth_sample_ready(synth_sample_t *x, int16_t *pcm);
+
+/* The console's drum kit, made by the synthesizer (no recording, nothing
+ * to license): MOD1 SYNTH_KIT + k plays sample k. Its names: "bd" kick,
+ * "sd" snare, "hh" closed hi-hat, "oh" open hi-hat, "cp" clap, "rim",
+ * "tom", "cb" cowbell; all mono, 48 kHz, root C4 (60). */
+#define SYNTH_KIT_SIZE  8
+const synth_sample_t *synth_kit(unsigned k);
+const char *synth_kit_name(unsigned k);
+int synth_kit_find(const char *name);       /* SYNTH_KIT + k, or -1 */
 
 /* The room: size 0..1 (a small room .. a hall), damping 0..1 (bright ..
  * dull), wet 0..1 (how much of the sends is heard). The echo: the time

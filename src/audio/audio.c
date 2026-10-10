@@ -17,12 +17,15 @@
 #include "kernel/irq.h"
 #include "lib/printf.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 static synth_t synth;
 static player_t player;
 static au_bank_t banks[2];          /* the one playing, and the one a new bank is parsed into */
 static int bank_now = -1;           /* -1: no bank */
+static int16_t *pools[2];           /* their samples (malloc, as big as the largest bank yet) */
+static uint32_t pool_cap[2];
 static volatile uint8_t own_regs[SYNTH_REG_BYTES];
 static int volume = AUDIO_VOLUME_MAX;
 static int retro;                   /* AUDIO_RETRO_* */
@@ -161,6 +164,8 @@ void audio_reset(void)
     float gain = synth.gain;
     synth_init(&synth, AUDIO_RATE);
     synth.gain = gain;
+    if (bank_now >= 0)                  /* the bank stays: its samples too */
+        synth_samples(&synth, banks[bank_now].sample, banks[bank_now].nsamples);
     retro &= ~AUDIO_RETRO_GAME;
     synth.retro = retro != 0;
     irq_restore(s);
@@ -252,8 +257,24 @@ int audio_bank(const uint8_t *data, size_t len, char *err, size_t errlen)
         return 0;
     }
     int next = bank_now == 0 ? 1 : 0;   /* the interrupt never reads this one */
-    if (au_parse(data, len, &banks[next], err, errlen) != 0)
+    au_bank_t *b = &banks[next];
+    if (au_parse_pcm(data, len, b, pools[next], pool_cap[next], err, errlen) != 0)
         return -1;
+    if (b->pcm_need > pool_cap[next]) {
+        /* samples: room for them, and their frames converted into it */
+        free(pools[next]);
+        pools[next] = malloc(b->pcm_need * sizeof(int16_t));
+        pool_cap[next] = pools[next] ? b->pcm_need : 0;
+        if (!pools[next]) {
+            if (err && errlen) {
+                strncpy(err, "no memory for the bank's samples", errlen - 1);
+                err[errlen - 1] = 0;
+            }
+            return -1;
+        }
+        if (au_parse_pcm(data, len, b, pools[next], pool_cap[next], err, errlen) != 0)
+            return -1;
+    }
     uint32_t s = irq_save();
     player_set_bank(&player, &banks[next]);
     bank_now = next;
@@ -511,7 +532,14 @@ void audio_test(void)
         kprintf("  %-8s ", au_wave_names[w]);
         for (int i = 0; i < 4; i++) {
             uint32_t f = w == SYNTH_NOISE || w == SYNTH_METAL ? tune[i] * 16u : tune[i];
-            audio_note(0, (float)f, 180, w, 160);
+            if (w == SYNTH_SAMPLE) {
+                uint32_t s = irq_save();
+                audio_note(0, 0.0f, 180, w, 160);                   /* at their own speed */
+                voice(0)[SYNTH_MOD1] = (uint8_t)(SYNTH_KIT + i);    /* the kit: kick, snare, hi-hats */
+                irq_restore(s);
+            } else {
+                audio_note(0, (float)f, 180, w, 160);
+            }
             kprintf(".");
             timer_delay_ms(250);
         }

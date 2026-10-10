@@ -4505,7 +4505,7 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     bm_require_open(L);         /* require "assist": libraries in the kernel */
     au_lua_bank = audio_bank_now;       /* play("lead"): the bank's sounds by name */
     static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL",
-                                                    "FM", "PLUCK", "SUPERSAW", "ORGAN" };
+                                                    "FM", "PLUCK", "SUPERSAW", "ORGAN", "SAMPLE" };
     for (int w = 0; w < SYNTH_WAVES; w++) {
         lua_pushinteger(L, w);
         lua_setglobal(L, waves[w]);
