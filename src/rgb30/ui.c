@@ -34,6 +34,7 @@
 #include "bt/bt.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
+#include "net/wifi_auto.h"
 #include "bm/bm.h"
 #include "bm/runtime.h"
 #include "kernel/home.h"
@@ -42,11 +43,13 @@
 #include "bm/loading.h"
 #include "kernel/ledstate.h"
 #include "kernel/reports.h"
+#include "kernel/syskeys.h"
 #include "kernel/carts.h"
 #include "audio/audio.h"
 #include "kernel/market.h"
 #include "net/catalog.h"
 #include "b3d_rgb30.h"
+#include "battery.h"
 #include "gputest_rgb30.h"
 
 #include <stdlib.h>
@@ -77,26 +80,8 @@ static uint32_t rgb(uint32_t c)
     return fb_color(fb, (uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
 }
 
-/* the battery low (under 3.45 V, not charging): the LED blinks (ledstate.h);
- * read every 10 s */
-/* the battery, read every 10 s: the LED (low: under 3.45 V off the
- * charger) and the icon of the bar */
-static int batt_known, batt_pct, batt_charging;
-
-static void battery_check(void)
-{
-    static uint32_t at;
-    if (at && timer_ticks() - at < 10000000u)
-        return;
-    at = timer_ticks() | 1;
-    int mv, charge;
-    batt_known = plat_battery(&mv, &charge) == 0 && mv > 0;
-    if (!batt_known)
-        return;
-    ledstate_set(LED_POWER, mv < 3450 && charge == 0);
-    batt_pct = charge == 2 ? 100 : battery_percent(mv);      /* full: four bars */
-    batt_charging = charge == 1;
-}
+/* the battery (battery.c): the icon of the bar, the LED (low: under 3.45 V
+ * off the charger); the bolt as soon as the cable goes in */
 
 static void text(int x, int y, const char *s, uint32_t fg, uint32_t bg)
 {
@@ -343,6 +328,7 @@ static void play_bm(int i)
     fat_entry_t e;
     uint8_t *data = NULL;
     size_t len = 0;
+    wifi_auto_stop();                              /* a WiFi try of the menu's: not under a game */
     loading_begin(fb);                             /* the retro intro while it loads */
     fat_load_tick = load_tick;
     bm_parse_tick = load_tick;
@@ -534,10 +520,17 @@ static void page_render(void)
     console_suspend(0);
     reports_begin("render");
     kprintf("\n\x1b[1mRender bench\x1b[0m: map, 256 sprites and text at 640x360 RGB565\n");
-    bm_bench_report(fb, 120);
-    reports_end();
-    kprintf("\n\x1b[96m%s\x1b[0m back\n", pad_back_name());
-    wait_back();
+    bm_bench_report(fb, 120);               /* Start+Select stops it: no report (syskeys.h) */
+    if (syskeys_test_stopped()) {
+        reports_drop();
+        while (pad_state())                 /* straight back to the menu, the buttons let go */
+            timer_delay_ms(10);
+        pad_pressed();
+    } else {
+        reports_end();
+        kprintf("\n\x1b[96m%s\x1b[0m back\n", pad_back_name());
+        wait_back();
+    }
     console_suspend(1);
 }
 
@@ -713,8 +706,10 @@ void ui_home(framebuffer_t *f)
         menu_view_t v = {
             .tabs = tab_names, .ntabs = 3, .tab = shown, .on_gear = on_gear, .peek_first = 1,
             .items = items, .n = n, .sel = *s,
-            .prompts = MENU_PROMPTS_PAD, .confirm_b = pad_ok == PAD_B, .no_monitor = 1,
-            .idle = on_market ? market_tick : NULL,
+            .prompts = MENU_PROMPTS_RGB30, .confirm_b = pad_ok == PAD_B, .no_monitor = 1,
+            /* the Market's fibers; elsewhere the saved WiFi network
+             * joined again while the link is down (net/wifi_auto.c) */
+            .idle = on_market ? market_tick : wifi_auto_idle,
         };
         /* the bar: the WiFi and the battery only; no icons of the
          * controllers, mice and keyboards (the user, 2026-10-05) */
@@ -783,10 +778,7 @@ void ui_home(framebuffer_t *f)
             v.notice_detail = nd;
         }
         audio_idle();                           /* the output's news (QEMU's sink: what it heard) */
-        battery_check();
-        v.battery = batt_known;
-        v.battery_pct = batt_pct;
-        v.charging = batt_charging;
+        v.battery = battery_state(&v.battery_pct, &v.charging, NULL);
         menu_ui_frame(fb, &v);
 
         uint32_t p = pad_pressed();

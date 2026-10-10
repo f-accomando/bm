@@ -80,10 +80,13 @@ void net_poll(void)
 }
 static int fails;
 static void check(int ok, const char *what);
+static int wifi_left;
+void wifi_leave(void) { wifi_left++; }
 /* the kernel transfer is the last case: the reboot ends the test */
 void watchdog_reboot(void)
 {
     reboots++;
+    check(wifi_left == 1, "the access point told we leave before the restart");
     check(polls_in_write >= 4 && !write_again && !fat_write_tick,
           "the network polled while the files were written, no write started again from inside");
     check(strcmp(w_dir, "/") == 0 && strcmp(w_name, "kernel.img") == 0 && w_len == 100000,

@@ -41,7 +41,7 @@ flowchart LR
 * **Console Infrastructure (M10–M32)**: SD FAT32 read/write, Bluetooth stack with DS4 support, BCM43438 WiFi with WPA2-PSK and HTTPS updates, on-console market client (`bm-market`), system-wide performance overlay, and input prompts.
 * **VideoCore IV 3D Acceleration (M33–M37, bm3d 6.8)**: Full hardware 3D driver running on the VideoCore IV V3D engine via mailbox setup. Supports programmable QPU vertex and dual-thread fragment shaders, indexed primitives, depth testing, early-Z, MSAA, and texture caching.
 * **Overbit & 3D Showcase (M38)**: First-person 3D shooter cartridge testing the hardware limits, featuring dynamic scaling between 1080p GPU and 640×360 ARM, automated bot training via INT8 neural networks, and UDP lockstep networking.
-* **Handheld Portability (M40)**: Port to PowKiddy RGB30 (RK3566, AArch64) with unified UI, I2S audio via RK817, battery monitoring, and initial Mali-G52 GPU driver bring-up (bm3d 6.0–6.1).
+* **Handheld Portability (M40)**: Port to PowKiddy RGB30 (RK3566, AArch64) with unified UI, I2S audio via RK817, battery monitoring (the charger seen at once; a low-battery icon over games and tools, `battery()` / `battery_low()` in Lua: [platforms](progress/platforms.md)), and initial Mali-G52 GPU driver bring-up (bm3d 6.0–6.1).
 * **Developer Tooling (R10–R14)**: Built-in `bmlib` utility library, up to 8 map layers and tile flags, 8 save slots per cartridge (`.SAV`, `.S02`–`.S08`), interactive Lua breakpoint debugger, and function-level profiler (F11 devkit mode 3).
 
 ### Active & In-Progress Tracks

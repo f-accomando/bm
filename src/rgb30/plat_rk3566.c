@@ -47,6 +47,11 @@ int plat_battery(int *mv, int *charge)
     return *mv < 0 ? -1 : 0;
 }
 
+int plat_power_in(void)
+{
+    return rk817_plugged();                 /* SYS_STS bit 6: PLUG_IN_STS */
+}
+
 static void psci(uint32_t fn)
 {
     register uint64_t x0 __asm__("x0") = fn;

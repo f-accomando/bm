@@ -196,6 +196,15 @@ int plat_battery(int *mv, int *charge)
     return 0;
 }
 
+/* the cable: in when test_battery gives a charger state (1 charging, 2 full) */
+int plat_power_in(void)
+{
+    int mv, charge;
+    if (plat_battery(&mv, &charge) != 0)
+        return -1;
+    return charge >= 1;
+}
+
 /* --- PSCI --- */
 
 static void psci(uint32_t fn)
@@ -255,6 +264,8 @@ int wifi_scan(void)                         { return -1; }
 int wifi_connect(void)                      { return -1; }
 int wifi_connect_saved(void)                { return -1; }
 int wifi_linked(void)                       { return 0; }
+int wifi_up(void)                           { return 0; }
+void wifi_leave(void)                       { }
 const unsigned char *wifi_mac(void)         { return no_mac; }
 void wifi_poll(void)                        { }
 int wifi_recv(void *buf, int max)           { (void)buf; (void)max; return 0; }

@@ -20,6 +20,7 @@
 #include "drivers/timer.h"
 #include "fs/fat.h"
 #include "kernel/config.h"
+#include "kernel/fiber.h"
 #include "kernel/input.h"
 #include "lib/printf.h"
 
@@ -77,6 +78,7 @@
 /* ioctls */
 #define WLC_UP          2
 #define WLC_SET_INFRA   20
+#define WLC_DISASSOC    52
 #define WLC_SET_AUTH    22
 #define WLC_SET_SSID    26
 #define WLC_SET_WSEC_PMK 268
@@ -396,6 +398,9 @@ static uint16_t rxq_len[RXQ_SLOTS];
 static unsigned rxq_head, rxq_tail;
 static int joined;
 static char joined_ssid[33];
+/* a scan or a join under way: it may be paused in a fiber (wifi_auto.c,
+ * the menu goes on meanwhile), and wifi_poll must not take its events */
+static int busy;
 
 static int parse_event(int n, uint32_t *status, const uint8_t **data, uint32_t *dlen);
 
@@ -872,7 +877,17 @@ static int cmp_rssi(const void *a, const void *b)
     return ((const net_t *)b)->rssi - ((const net_t *)a)->rssi;
 }
 
+static int scan_(void);
+
 int wifi_scan(void)
+{
+    busy++;
+    int r = scan_();
+    busy--;
+    return r;
+}
+
+static int scan_(void)
 {
     if (!w.up) {
         kprintf("wifi: not started (W first)\n");
@@ -904,6 +919,9 @@ int wifi_scan(void)
         int n = read_frame();
         if (n <= 0) {
             timer_delay_us(500);
+            fiber_slice();                      /* in a fiber: the menu goes on */
+            if (fiber_cancelled())
+                break;
             continue;
         }
         if ((frame[5] & 0xF) != 1) {
@@ -943,7 +961,17 @@ int wifi_scan(void)
 
 /* Joins `ssid`: open, or WPA/WPA2 with `psk` (8-63 characters); the
  * firmware does the 4-way handshake ("sup_wpa"). Waits for the events. */
+static int join_(const char *ssid, const char *psk, const char *security);
+
 static int join(const char *ssid, const char *psk, const char *security)
+{
+    busy++;
+    int r = join_(ssid, psk, security);
+    busy--;
+    return r;
+}
+
+static int join_(const char *ssid, const char *psk, const char *security)
 {
     int open_net = strcmp(security, "open") == 0;
     int wpa2 = strcmp(security, "WPA2") == 0;
@@ -996,6 +1024,11 @@ static int join(const char *ssid, const char *psk, const char *security)
         int n = read_frame();
         if (n <= 0) {
             timer_delay_us(500);
+            fiber_slice();                      /* in a fiber: the menu goes on */
+            if (fiber_cancelled()) {
+                kprintf("wifi: joining stopped\n");
+                return -1;
+            }
             continue;
         }
         if ((frame[5] & 0xF) != 1)
@@ -1104,6 +1137,26 @@ int wifi_linked(void)
     return w.up && joined;
 }
 
+int wifi_up(void)
+{
+    return w.up;
+}
+
+/* Before a restart: the access point is told we leave (a disassociation
+ * from the firmware). Without it the AP keeps the old association until
+ * it times out, and the console's first join after the restart met it. */
+void wifi_leave(void)
+{
+    if (!w.up || !joined || busy)
+        return;
+    uint8_t scb[12];                            /* reason 3 (leaving), the BSS's address: any */
+    memset(scb, 0, sizeof scb);
+    scb[0] = 3;
+    ioctl_(WLC_DISASSOC, 1, scb, sizeof scb, NULL, 0, 300);
+    joined = 0;
+    kprintf("wifi: left \"%s\"\n", joined_ssid);
+}
+
 const unsigned char *wifi_mac(void)
 {
     return w.mac;
@@ -1111,7 +1164,7 @@ const unsigned char *wifi_mac(void)
 
 void wifi_poll(void)
 {
-    if (!w.up)
+    if (!w.up || busy)
         return;
     for (int k = 0; k < 8; k++) {
         int n = read_frame();
@@ -1171,7 +1224,10 @@ int wifi_connect_saved(void)
      * the network at boot (status 3) on the Pi, while a scan always did
      * (2026-10-05). The network seen gives its security too; one not seen
      * (hidden, or the scan missed it) is joined straight away. */
-    if (wifi_scan() > 0)
+    int found = wifi_scan();
+    if (fiber_cancelled())                      /* wifi_auto_stop: no join started */
+        return -1;
+    if (found > 0)
         for (int i = 0; i < nnets; i++)
             if (strcmp(nets[i].ssid, ssid) == 0) {
                 kprintf("wifi: saved network \"%s\" is in range\n", ssid);

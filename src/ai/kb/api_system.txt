@@ -132,6 +132,39 @@ local enemies = {}
 if btnp(9) then devkit((devkit() + 1) % 4) end   -- Select
 if devkit() == 2 then devinfo("nemici " .. #enemies) end
 
+== battery
+kind: api
+name: battery
+title: battery() e battery_low() - la batteria della console
+title_en: battery() and battery_low() - the console's battery
+ask: quanta batteria resta | batteria scarica | carica della batteria | è sul caricatore
+ask: battery level | low battery | is it charging | icona della batteria nel gioco
+see: save, stat
+text:
+battery() dà la carica (0-100) e true sul caricatore; nil senza batteria
+(il Pi). battery_low() è true al 20% o meno fuori dal caricatore. Allora il
+sistema disegna da sé una piccola batteria rossa in alto a destra, in ogni
+gioco (Settings > Screen and sound > Low battery icon la spegne). Solo
+informazione: in un gioco in lockstep non cambia mai ciò che si simula,
+ogni console ha la sua batteria. Serve per salvare in tempo.
+text_en:
+battery() gives the charge (0-100) and true on the charger; nil without a
+battery (the Pi). battery_low() is true at 20% or less off the charger.
+Then the system draws by itself a small red battery top right, in every
+game (Settings > Screen and sound > Low battery icon turns it off).
+Information only: in a lockstep game it never changes what is simulated,
+each console has its own battery. Use it to save in time.
+code:
+local warned = false
+function _update()
+  if battery_low() and not warned then save(G) warned = true end
+end
+function _draw()
+  local pct, plugged = battery()
+  if not pct then return end              -- il Pi: niente batteria
+  print(pct .. (plugged and "% +" or "%"), 8, 8, 0xFFFFFF)
+end
+
 == profile
 kind: api
 name: profile

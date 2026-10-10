@@ -709,15 +709,18 @@ static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[3], con
             return 3;
         }
     }
-    int ds = v->prompts != MENU_PROMPTS_PAD;
+    const int rgb30 = v->prompts == MENU_PROMPTS_RGB30;  /* the console's own A B X Y */
+    int ds = v->prompts != MENU_PROMPTS_PAD && !rgb30;
     if (!ds && v->confirm_b && (b == BTN_A || b == BTN_B))
         b = b == BTN_A ? BTN_B : BTN_A;         /* confirm on B, back on A */
     switch (b) {
     case BTN_A: case BTN_B: case BTN_X:
-        p[0] = ds ? prompt_get(ds4[b], v->prompts_colour) : prompt_get(pad[b], 0);
+        p[0] = ds ? prompt_get(ds4[b], v->prompts_colour)
+                  : prompt_get(rgb30 ? prompt_rgb30(pad[b]) : pad[b], 0);
         return 1;
     case BTN_Y:
-        p[0] = ds ? prompt_get(PROMPT_TRIANGLE, v->prompts_colour) : prompt_get(PROMPT_PAD_Y, 0);
+        p[0] = ds ? prompt_get(PROMPT_TRIANGLE, v->prompts_colour)
+                  : prompt_get(rgb30 ? PROMPT_RGB30_Y : PROMPT_PAD_Y, 0);
         return 1;
     case BTN_CHANGE:
         p[0] = prompt_get(PROMPT_DPAD_LEFTRIGHT, 0);
@@ -971,8 +974,8 @@ static void put_icon(const icon_mask_t *m, int x0, int y0, uint32_t ink, uint32_
     }
 }
 
-/* right-aligned: a keyboard or a controller with its number for each
- * player, the mice (M32: no number, a blue dot on Bluetooth), then WiFi or
+/* right-aligned: a keyboard or a controller for each player, then the
+ * mice, all without a number (a blue dot on Bluetooth), then WiFi or
  * Ethernet when the console is on a network, and the battery (the RGB30:
  * four bars, the last from 75%; red under 10%, unless on the charger) */
 #define C_LOW       0xFF5A5A
@@ -986,7 +989,8 @@ static int status_icons(const menu_view_t *v)
         if (v->dev[p] != MENU_DEV_NONE) {
             icon[n] = v->dev[p] == MENU_DEV_KEYBOARD ? ICON_KEYBOARD : ICON_PAD;
             bt[n] = v->bt >> p & 1;
-            num[n++] = p + 1;
+            num[n] = bt[n] ? ICON_DOT : 0;      /* no number: Bluetooth only its blue dot */
+            n++;
         }
     if (v->mice & POINTER_USB) {
         icon[n] = ICON_MOUSE;
@@ -1019,7 +1023,7 @@ static int status_icons(const menu_view_t *v)
                      x, y0, low ? C_LOW : C_TEXT, C_TEXT, C_BAR);
         else {
             const icon_mask_t *m = icon_mask(icon[i], num[i]);
-            if (m)                  /* white number for USB, blue for Bluetooth */
+            if (m)                  /* USB: the icon alone; Bluetooth: its blue dot */
                 put_icon(m, x, y0, i >= players && v->net_wait ? C_DIM : C_TEXT,
                          bt[i] ? C_BT : C_TEXT, bt[i] ? C_TEXT : C_BAR);
         }

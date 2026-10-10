@@ -32,6 +32,7 @@ static const char *const names[PROMPT_COUNT] = {
     "up", "down", "left", "right", "Enter", "Esc", "Space", "Tab", "Backspace", "Shift",
     "Ctrl", "Alt", "Del", "Home", "End", "PgUp", "PgDn",
     "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+    "RGB30 A", "RGB30 B", "RGB30 X", "RGB30 Y",
 };
 
 /* a raised button: transparent corners, a light face, a lip on the last rows */
@@ -94,11 +95,46 @@ static void check_chip(const prompt_t *p, int small, uint32_t rgb, const char *n
     CHECK(cut >= 1, "%s: nothing cut out", name);
 }
 
+/* the RGB30's A B X Y: a dark button, the letter in its colour (A green,
+ * B blue, X red, Y yellow), the same in the menu (on a lip) and the apps */
+static void check_rgb30(const prompt_t *p, int h, uint32_t rgb, const char *name)
+{
+    CHECK(p, "%s: no prompt", name);
+    if (!p)
+        return;
+    CHECK(p->h == h && p->w == (h == PROMPT_SMALL_H ? 12 : 16), "%s: %dx%d", name, p->w, p->h);
+    CHECK((at(p, 0, 0) >> 24) < 128 && (at(p, p->w - 1, 0) >> 24) < 128, "%s: corners not clear", name);
+    int letter = 0, dark = 0;
+    for (int y = 0; y < p->h; y++)
+        for (int x = 0; x < p->w; x++) {
+            uint32_t c = at(p, x, y);
+            letter += c == (0xFF000000u | rgb);
+            dark += (c >> 24) == 255 && (c >> 16 & 255) < 0x40 && (c >> 8 & 255) < 0x40 && (c & 255) < 0x40;
+        }
+    CHECK(letter >= (h == PROMPT_SMALL_H ? 6 : 10), "%s: %d pixels of %06X", name, letter, (unsigned)rgb);
+    CHECK(dark >= (h == PROMPT_SMALL_H ? 12 : 40), "%s: %d dark pixels", name, dark);
+}
+
+static int is_rgb30(int id) { return id >= PROMPT_RGB30_A && id <= PROMPT_RGB30_Y; }
+
 static void checks(void)
 {
+    static const uint32_t rgb30[4] = { 0x5BD47E, 0x5FA8FF, 0xFF6B6B, 0xFFD54A };
+    for (int i = 0; i < 4; i++) {
+        char name[32];
+        check_rgb30(prompt_get(PROMPT_RGB30_A + i, 0), PROMPT_H, rgb30[i], names[PROMPT_RGB30_A + i]);
+        for (int small = 0; small < 2; small++) {
+            snprintf(name, sizeof name, "chip %s%s", names[PROMPT_RGB30_A + i], small ? " (12)" : "");
+            check_rgb30(prompt_chip(PROMPT_RGB30_A + i, small), small ? PROMPT_SMALL_H : PROMPT_H, rgb30[i], name);
+        }
+        CHECK(prompt_rgb30(PROMPT_PAD_A + i) == PROMPT_RGB30_A + i, "prompt_rgb30 %d", i);
+    }
+    CHECK(prompt_rgb30(PROMPT_PAD_START) == PROMPT_PAD_START && prompt_rgb30(PROMPT_CROSS) == PROMPT_CROSS,
+          "prompt_rgb30: other prompts");
     for (int id = 0; id < PROMPT_COUNT; id++) {
         const prompt_t *p = prompt_get(id, 0);
-        check_shape(p, names[id]);
+        if (!is_rgb30(id))
+            check_shape(p, names[id]);
         CHECK(prompt_get(id, 0) == p, "%s: made twice", names[id]);
         if (id > PROMPT_TRIANGLE)
             CHECK(prompt_get(id, 1) == p, "%s: has a colour version", names[id]);
@@ -150,6 +186,10 @@ static void checks(void)
         for (int id = 0; id < PROMPT_COUNT; id++) {
             snprintf(name, sizeof name, "chip %s%s", names[id], small ? " (12)" : "");
             const prompt_t *p = prompt_chip(id, small);
+            if (is_rgb30(id)) {
+                CHECK(prompt_chip(id, small) == p && p != prompt_get(id, 0), "%s: made twice", name);
+                continue;
+            }
             check_chip(p, small, id == PROMPT_DPAD_UP || id == PROMPT_DPAD_DOWN || id == PROMPT_DPAD_LEFT ||
                        id == PROMPT_DPAD_RIGHT || id == PROMPT_DPAD_UPDOWN || id == PROMPT_DPAD_LEFTRIGHT
                        ? 0x5A6380 : chip_colour(id), name);
@@ -267,6 +307,8 @@ static void draw_sheet(void)
     for (int i = PROMPT_OPTIONS; i <= PROMPT_TOUCHPAD; i++) item(prompt_get(i, 0));
     heading("Other pads");
     for (int i = PROMPT_PAD_A; i <= PROMPT_PAD_SELECT; i++) item(prompt_get(i, 0));
+    heading("RGB30");
+    for (int i = PROMPT_RGB30_A; i <= PROMPT_RGB30_Y; i++) item(prompt_get(i, 0));
     heading("Keyboard");
     for (int i = PROMPT_KEY_UP; i <= PROMPT_KEY_RIGHT; i++) item(prompt_get(i, 0));
     gap();
@@ -306,6 +348,14 @@ static void draw_sheet(void)
             hint(x, y, prompt_get(PROMPT_CIRCLE, 1), "Back");
         }
     }
+    /* the RGB30's menu: B confirms, A goes back */
+    for (int x = 0; x < SW; x++)
+        for (int j = -4; j < 20; j++)
+            sheet[y + j][x] = C_BAR;
+    int x = hint(8, y, prompt_get(PROMPT_RGB30_B, 0), "Play");
+    x = hint(x, y, prompt_get(PROMPT_RGB30_X, 0), "Options");
+    hint(x, y, prompt_get(PROMPT_RGB30_A, 0), "Back");
+    y += 24;
     cy = y;
 }
 
@@ -351,6 +401,8 @@ static void draw_chips(void)
         snprintf(h, sizeof h, "Other pads, keyboard%s", size);
         heading(h);
         for (int i = PROMPT_PAD_A; i <= PROMPT_PAD_SELECT; i++) item(prompt_chip(i, small));
+        gap();
+        for (int i = PROMPT_RGB30_A; i <= PROMPT_RGB30_Y; i++) item(prompt_chip(i, small));
         gap();
         for (int i = PROMPT_KEY_UP; i <= PROMPT_KEY_PGDN; i++) item(prompt_chip(i, small));
         gap();
@@ -482,7 +534,7 @@ int main(int argc, char **argv)
         printf("prompts: %d failures\n", fails);
         return 1;
     }
-    printf("prompts: %d prompts, 4 in colour, %d keys; the apps' chips, 16 and 12 px: ok; sheets in %s\n",
+    printf("prompts: %d prompts (4 of the RGB30), 4 in colour, %d keys; the apps' chips, 16 and 12 px: ok; sheets in %s\n",
            PROMPT_COUNT, 126 - 33 + 1, dir);
     return 0;
 }

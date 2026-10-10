@@ -26,6 +26,8 @@ typedef struct {
     uint32_t instr_k_max;       /* Lua instructions (thousands) of the busiest frame */
     uint32_t slow;              /* frames over 16.7 ms of _update + _draw */
     uint32_t tokens;            /* of the code (src/bm/tokens.h) */
+    int left;                   /* the player left it (Esc's menu, PS, Start+Select, 'q'), not
+                                 * its time nor quit() nor an error (the kernel's tests: stopped) */
 } bm_stats_t;
 
 /*
@@ -51,6 +53,12 @@ enum { BM_ENDED = 0, BM_SUSPENDED = 1 };
  * bytes each) and progress (0..1000, -1) while there is one. The kernel
  * gives it at boot; without one (bmhost) there is none. */
 void bm_set_notice(int (*fn)(char *title, char *detail, int *progress));
+/* The console's battery (the RGB30: src/rgb30/battery.c; none on the Pi):
+ * 1 and its charge (0..100), on the charger, low (20% or less off the
+ * charger); 0 if unknown. Called every frame: it must be cheap. It gives
+ * battery() / battery_low() to the games, and while it is low a small red
+ * battery over the frame (bm/config.txt battery_icon=0: not). */
+void bm_set_battery(int (*fn)(int *pct, int *charging, int *low));
 /* The first time a game uses the network or report(), the player is asked
  * (the answer kept in bm/config.txt): the kernel turns it on; off, every
  * game may (bmhost, the tests on the PC). */

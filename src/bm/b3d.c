@@ -870,6 +870,16 @@ float b3d_load_at(const float *n, const float *ms, int count, float limit)
     return n[i] + (limit - ms[i]) / (ms[i + 1] - ms[i]) * (n[i + 1] - n[i]);
 }
 
+/* the user stopped the run (P->stop): the ramps end, nothing is saved */
+static int halted;
+
+static int stopping(void)
+{
+    if (!halted && P->stop && P->stop())
+        halted = 1;
+    return halted;
+}
+
 static void ramp(int ti, int pf)
 {
     const test_t *t = &tests[ti];
@@ -947,8 +957,14 @@ static void ramp(int ti, int pf)
             a.wait_instr += (float)(c1.wait_instr - c0.wait_instr);
             a.dmiss += (float)(c1.dmiss - c0.dmiss);
             a.cycles += (float)(c1.cycles - c0.cycles);
+            /* the frame's GPU work is done (flushed or synced): a stop here
+             * leaves nothing in flight */
+            if (stopping())
+                break;
         }
         gpu3d_set_queue(0);
+        if (halted)
+            break;                      /* a step not finished: not a sample */
         gpu3d_take_stats(&st);
         const float k = 1.0f / (float)frames;
         a.ms = b3d_median(fms, frames);     /* the counters below: the mean */
@@ -1734,19 +1750,28 @@ int b3d_run(const b3d_platform_t *plat)
     memset(prev, 0, sizeof prev);
     prev_name[0] = 0;
     prev_score = 0;
+    halted = 0;
     if (r3d_init(&R, g) != 0)
         return -1;
     meshes_make();
     scene_light();
     read_prev();
     const uint32_t t0 = P->us();
-    for (int ti = 0; ti < NTESTS; ti++)
-        for (int pf = 0; pf < NPROF; pf++)
+    for (int ti = 0; ti < NTESTS && !stopping(); ti++)
+        for (int pf = 0; pf < NPROF && !stopping(); pf++)
             if (!tests[ti].future && runs(&tests[ti], pf) && listed(P->only_tests, tests[ti].id) && prof_listed(pf))
                 ramp(ti, pf);
     R.backend = NULL;
     meshes_free();
     r3d_free(&R);
+    if (stopping()) {                   /* stopped (or the key came with the last frame): no report */
+        if (P->log)
+            P->log("b3d stopped by the user: no report");
+        free(rep);
+        rep = NULL;
+        rep_cap = rep_len = 0;
+        return B3D_STOPPED;
+    }
     report();
     put("total %d s\n", (int)((P->us() - t0) / 1000000u));
     char saved[40] = "!";

@@ -54,11 +54,13 @@ A dedicated port adapting bm to a modern portable form factor ([`docs/RGB30.md`]
   * System menu runs at native 360×360 and scales 2× onto the 720×720 screen.
 * **Integrated Controls**:
   * Digital D-pad, face buttons (B confirms, A cancels), shoulder buttons (L1/R1, L2/R2) read via GPIO.
+  * Button icons of its own (2026-10-10): the menu's hints, the system's dialogs and the apps' `prompt()` show the console's A B X Y as dark buttons with the letter in its colour (A green, B blue, X red, Y yellow; `PROMPT_RGB30_*` in [`prompts.c`](../../src/kernel/prompts.c), `"RGB30_A"`…`"RGB30_Y"` from Lua on any console); the confirm icon follows `confirm=a`.
   * Dual analog sticks read via SARADC and analog multiplexer.
 * **Audio & Power**:
   * Sound driven via RK3566 I2S1 to Rockchip RK817 audio codec and headphone amplifier.
   * Hardware volume buttons (+ / −) with instant onscreen indicators.
   * Battery percentage and charging status read directly from RK817 PMIC registers.
+  * Battery (2026-10-10, [`battery.c`](../../src/rgb30/battery.c)): the bolt on the bar now follows the cable at once (the RK817's plug bit polled 4 times a second; before, everything was read every 10 s and the bolt waited for the charger's state); the voltage every 10 s and again 2 s after a plug change. One state for the bar, the low-battery LED (now also during games) and the games: `battery()` / `battery_low()` in Lua (`nil` / `false` on the Pi), and while low (≤ 20% off the charger, until 23%) a small red battery drawn by the runtime over every game and tool, top right, left of the dev kit's overlay, blinking under 5% (`battery_draw()` in [`runtime.c`](../../src/bm/runtime.c), after `flush3d`, never touching lockstep). *Settings > Screen and sound > Low battery icon* (`battery_icon=0`) turns the icon off. QEMU test: `test_battery_low_game` (`tests/rgb30/qemu_test.py`).
 * **Wireless**: Realtek RTL8821CS SDIO WiFi and UART Bluetooth.
 * **Boot Flow**: Boots as an uncompressed AArch64 Image via U-Boot extlinux configuration (`kernel8.img`).
 * **Build Command**: `make TARGET=rgb30` produces `build/kernel8.img`.

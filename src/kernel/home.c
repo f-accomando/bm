@@ -13,6 +13,7 @@
 #include "pointer.h"
 #include "reports.h"
 #include "sysinfo.h"
+#include "syskeys.h"
 #include "testpattern.h"
 #include "update.h"
 #include "version.h"
@@ -137,11 +138,24 @@ static void t_render(framebuffer_t *fb)
 static void t_stress(framebuffer_t *fb)
 {
     heading("Stress test: sprites, triangles, 3D");
+    home_stress(fb);
+}
+
+/* the stress test: the C part, then the Lua one; stopped in either
+ * (Start+Select, Ctrl+Esc, PS: syskeys.h), the rest is not run */
+void home_stress(framebuffer_t *fb)
+{
     extern const uint8_t bm_stress_cart[], bm_stress_cart_end[];
     bm_stress_run(fb);
+    if (syskeys_test_stopped())
+        return;
     kprintf("Lua part (cartridge API):\n");
     bm_stats_t bs;
     bm_play(fb, bm_stress_cart, (size_t)(bm_stress_cart_end - bm_stress_cart), 600, &bs);
+    if (bs.left) {
+        syskeys_test_set_stopped();
+        kprintf("stress test stopped in the Lua part\n");
+    }
 }
 
 static void t_dma(framebuffer_t *fb)
@@ -270,9 +284,25 @@ static int reported;
 
 static void run_reported(framebuffer_t *fb)
 {
-    reports_begin(tools[reported].report);
+    home_report_begin(tools[reported].report);
     tools[reported].run(fb);
-    reports_end();
+    home_report_end();
+}
+
+void home_report_begin(const char *kind)
+{
+    syskeys_test_begin();               /* not stopped yet: this tool's own */
+    reports_begin(kind);
+}
+
+void home_report_end(void)
+{
+    /* a rendering test stopped by the user (syskeys.h): its report, made
+     * so far, is thrown away, never on the SD card nor sent */
+    if (syskeys_test_stopped())
+        reports_drop();
+    else
+        reports_end();
 }
 
 void home_tool_start(int i, home_do_t *d)

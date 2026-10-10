@@ -116,6 +116,19 @@ memory (A on its cover resumes it). `quit()` instead really closes the cartridge
 game calls `online(true)`: there PS asks the player whether to leave the match and
 disconnect, and if so it calls `_leave()` (see `docs/API.md`).
 
+**Button icons.** To say which button does what, `prompt()` draws it as a small chip in the
+look of the controller in use: the DS4's symbols, a pad's letters, the keyboard's keys, and
+on the RGB30 its own A B X Y (a dark button, the letter in its colour: A green, B blue, X
+red, Y yellow). `"ok"` and `"back"` are the system's confirm and back buttons: on the RGB30
+B and A, swapped by `confirm=a` in `bm/config.txt`, and the icon follows the button really
+pressed.
+
+```lua
+local x = prompt("ok", 16, 200)            -- the chip; returns the x after it
+print("start", x + 4, 200, 0xFFFFFF)
+prompt("RGB30_X", 16, 220)                 -- the RGB30's red X, on any console
+```
+
 **More players.** With two or more Bluetooth controllers (paired from the monitor with `T`:
 the first is player 1, the second player 2...) each player has their own buttons:
 
@@ -804,6 +817,11 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
   number changes every match).
 - **Debugging:** `log(...)` writes on the serial console; `stat(1)` is the last frame's time
   in ms, `stat(2)` the fps.
+- **Battery (handhelds):** the system already draws a small red battery over the game when
+  it is at 20% or less off the charger; you do not have to. `battery()` gives the charge and
+  the charger (`nil` on the Pi), `battery_low()` whether it is low, e.g. to save in time:
+  `if battery_low() and not warned then save(G) warned = true end`. Never use them in what
+  a game played in lockstep simulates: each console has its own battery.
 - **Do not write again what is there:** before writing a helper function look in bmlib
   (chapter 11); the assistant (F6) knows it.
 

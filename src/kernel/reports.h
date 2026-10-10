@@ -20,6 +20,9 @@
 void reports_begin(const char *kind);
 /* ...until here: saved on the SD card and, if it can, sent. */
 void reports_end(void);
+/* ...or until here, thrown away: the test was stopped by the user
+ * (syskeys.h), nothing goes to the SD card nor to GitHub (2026-10-10). */
+void reports_drop(void);
 
 /* A report with its own text (the 3D Bench's, a cartridge's report()):
  * 0 saved (and sent if it could), -1 not even saved. */

@@ -1300,6 +1300,8 @@ $(BUILD)/host/b3d_host: tests/bm/b3d_host.c src/bm/b3d.c src/bm/b3d.h tests/gpu/
 
 test-b3d: $(BUILD)/host/b3d_host
 	$< --selftest
+	rm -rf $(BUILD)/b3d-stop && mkdir -p $(BUILD)/b3d-stop
+	$< $(BUILD)/b3d-stop --stop=5
 	rm -rf $(BUILD)/b3d && mkdir -p $(BUILD)/b3d
 	$< $(BUILD)/b3d
 	$< $(BUILD)/b3d

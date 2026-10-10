@@ -10,6 +10,7 @@
 #include "kernel/config.h"
 #include "drivers/timer.h"
 #include "drivers/watchdog.h"
+#include "wifi/wifi.h"
 #include "fs/fat.h"
 #include "lib/crc32.h"
 #include "lib/printf.h"
@@ -391,6 +392,7 @@ void netxfer_poll(void)
         if (!secs && st == IDLE) {
             kprintf("net: restarting with the new kernel...\n");
             timer_delay_ms(200);
+            wifi_leave();               /* the AP told: it does not hold the old association */
             watchdog_reboot();
         }
     }

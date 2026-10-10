@@ -173,12 +173,20 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   suono: Sound, Volume, *Test the sound*), Updates, Reports, System (versione, memoria, SD, batteria, il log, riavvio,
   spegnimento). Solo il controller: L1/R1 le schede (senza fare il giro, come sul Pi), la croce
   le copertine e le righe, **B** apre e **A** torna indietro (`confirm=a` li scambia, anche nei
-  suggerimenti). A destra della barra solo la rete e la **batteria** (dal 2026-10-05; niente icone
+  suggerimenti). Le icone dei tasti, nel menu, nei suggerimenti, nei dialoghi del sistema e nelle
+  app (`prompt()`), sono quelle della console (2026-10-10): un tasto scuro con la lettera nel suo
+  colore, A verde, B blu, X rosso, Y giallo (`PROMPT_RGB30_*` in `src/kernel/prompts.c`; da Lua
+  anche `"RGB30_A"`…`"RGB30_Y"`). L'icona del tasto che conferma è quella del tasto fisico
+  (B, o A con `confirm=a`); dopo un pad Bluetooth le app mostrano il suo. A destra della barra solo la rete e la **batteria** (dal 2026-10-05; niente icone
   di controller, mouse e tastiere, decisione dell'utente): quattro
   tacche dal 75% in su, una in meno ogni 25%, vuota e rossa sotto il 10%, un fulmine sul
   caricatore; la carica viene dalla tensione (0% a 3,45 V, quando il LED avvisa, 100% a 4,18 V),
   scritta anche in *Settings > System > Battery*. Sul caricatore la tensione sale: lì la
-  percentuale è solo un'indicazione. Le righe che lavorano (abbinare, collegarsi, aggiornare, bench, log) scrivono
+  percentuale è solo un'indicazione. Il fulmine segue il cavo subito (2026-10-10: il bit
+  del RK817 letto 4 volte al secondo, `src/rgb30/battery.c`; prima tutto ogni 10 s). Al 20% o
+  meno, fuori dal caricatore, una piccola batteria rossa compare anche sopra giochi e strumenti
+  (in alto a destra; *Settings > Screen and sound > Low battery icon* la spegne); in Lua
+  `battery()` e `battery_low()`. Le righe che lavorano (abbinare, collegarsi, aggiornare, bench, log) scrivono
   ancora sulla console di testo.
 - **3D Bench** (scheda Dev, `src/rgb30/b3d_rgb30.c`): lo stesso banco di prova del Pi
   (`src/bm/b3d.c`), a 640×360 ingrandito sul pannello; tutte le prove 3D disegnate dall'ARM (la GPU

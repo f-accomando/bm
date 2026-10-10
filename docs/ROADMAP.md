@@ -3548,6 +3548,10 @@ tastiera).
   `test_sdk_layers`. **Da provare sul Pi**: due console in rete con *Online 2D* (e con il
   relay), due pad con *Versus 2D*. Da fare: Overbit sopra bmnet (oggi ha la sua copia del
   protocollo).
+- **R27 — La batteria nei giochi** (2026-10-10, spunto): con `battery()` / `battery_low()`
+  (RGB30) i giochi lunghi (Yharnam, Overbit in solitario) potrebbero salvare da soli quando la
+  batteria diventa scarica, e bmlib offrire un aiuto (`lib.autosave` al primo `battery_low()`);
+  l'assistente potrebbe suggerirlo (kb `battery`). In rete resta solo informazione (lockstep).
 
 ### Strumenti di sviluppo
 - ✅ **R13 — Debugger Lua in bm Code.** Punti di interruzione, passo passo, variabili

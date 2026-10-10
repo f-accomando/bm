@@ -19,6 +19,7 @@
 #include "rk_wlbt.h"
 #include "fs/fat.h"
 #include "kernel/config.h"
+#include "kernel/fiber.h"
 #include "lib/printf.h"
 #include "drivers/timer.h"
 #include "drivers/rng.h"
@@ -28,6 +29,9 @@
 #include <string.h>
 
 static int started;
+/* a scan or a join under way: it may be paused in a fiber (wifi_auto.c,
+ * the menu goes on meanwhile), and wifi_poll must not cut in */
+static int busy;
 
 static void say(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 static void say(const char *fmt, ...)
@@ -247,9 +251,11 @@ static void scan(int verbose)
         if (tx_mgmt(probe, plen) != 0)
             tx_fail++;
         uint32_t t0 = timer_ticks();
-        while (timer_ticks() - t0 < DWELL_US)
-            if (rx_poll(on_scan_packet, &s) == 0)
+        while (timer_ticks() - t0 < DWELL_US && !fiber_cancelled())
+            if (rx_poll(on_scan_packet, &s) == 0) {
                 timer_delay_us(500);
+                fiber_slice();                      /* in a fiber: the menu goes on */
+            }
         per_ch[ch] = s.frames - before;
     }
     rtw_rx_all_bss(0);
@@ -280,7 +286,9 @@ int wifi_scan(void)
     }
     leave("scanning");
     kprintf("wifi: scanning channels 1-%d...\n", SCAN_CHANNELS);
+    busy++;
     scan(1);
+    busy--;
     kprintf("wifi: %d network%s\n", nnets, nnets == 1 ? "" : "s");
     for (int i = 0; i < nnets; i++)
         kprintf("  %2d  %4d dBm  ch %2u  %-4s  %s\n", i + 1, nets[i].rssi, nets[i].channel,
@@ -459,9 +467,11 @@ static void leave(const char *why)
 static int wait_for(int *flag, uint32_t ms)
 {
     uint32_t t0 = timer_ticks();
-    while (!*flag && !lk.deauth && timer_ticks() - t0 < ms * 1000u)
-        if (rx_poll(on_link_packet, 0) == 0)
+    while (!*flag && !lk.deauth && timer_ticks() - t0 < ms * 1000u && !fiber_cancelled())
+        if (rx_poll(on_link_packet, 0) == 0) {
             timer_delay_us(300);
+            fiber_slice();                          /* in a fiber: the menu goes on */
+        }
     return *flag;
 }
 
@@ -517,8 +527,18 @@ static wl_bss_t *find_net(const char *ssid)
     return NULL;
 }
 
+static int join_(const wl_bss_t *b, const char *psk);
+
 /* Joins b: open, or WPA2-PSK with psk (8-63 characters). */
 static int join(const wl_bss_t *b, const char *psk)
+{
+    busy++;
+    int r = join_(b, psk);
+    busy--;
+    return r;
+}
+
+static int join_(const wl_bss_t *b, const char *psk)
 {
     const char *why = wl_unsupported(b);
     if (why) {
@@ -634,7 +654,9 @@ int wifi_connect(void)
         if (nnets == 0) {
             kprintf("wifi: looking for \"%s\"...\n", ssid);
             leave("scanning");
+            busy++;
             scan(0);
+            busy--;
             b = find_net(ssid);
         }
         if (!b) {
@@ -653,13 +675,30 @@ int wifi_connect_saved(void)
     if (!started || !ssid || !ssid[0])
         return -1;
     leave("scanning");
+    busy++;
     scan(0);
+    busy--;
+    if (fiber_cancelled())                          /* wifi_auto_stop: no join started */
+        return -1;
     return wifi_connect();
 }
 
 int wifi_linked(void)
 {
     return started && lk.linked;
+}
+
+int wifi_up(void)
+{
+    return started;
+}
+
+/* before a restart: a deauthentication to the AP, so that it does not hold
+ * the old association when the console comes back */
+void wifi_leave(void)
+{
+    if (started && !busy)
+        leave("restarting");
 }
 
 const unsigned char *wifi_mac(void)
@@ -669,7 +708,7 @@ const unsigned char *wifi_mac(void)
 
 void wifi_poll(void)
 {
-    if (!started || !lk.associated)
+    if (!started || !lk.associated || busy)
         return;
     /* a long job that did not poll (an SD write, a cartridge loading): the
      * beacons missed meanwhile are ours, not the network's */
