@@ -1,0 +1,295 @@
+bm report
+kind: log
+kernel: v0.2.5-73-gf95fa7a
+branch: bm-core
+board: RGB30
+date: 2026-10-10 18:58:23
+file: 20261010-185823_log_rgb30_v0.2.5-73-gf95fa7a.txt
+
+
+bm kernel v0.2.5-73-gf95fa7a - RGB30 (AArch64)
+CPU: Cortex-A55 r2p0, EL1, counter 24000000 Hz
+RAM: kernel at 10000000, heap 692 MiB, framebuffers at 3c000000; device tree at 3cf17000
+SD: FAT32, 240 MiB, label BM (sdmmc0)
+config: /bm/config.txt, layout it, .bm drawing direct, volume 2/10
+display: starting
+display: DSI link and panel starting
+display: panel on
+display: VPLL set, dclk 36562 kHz, VOP 40158023; DSI version 3133302a, PHY locked, panel on, errors 0 80
+IRQ on: timer 1000 Hz (measured 1000 Hz)
+audio: RK817 codec, 48 kHz
+Lua: Lua 5.4, 2^10 = 1024.0
+Lua: fib(25) = 75025 in 53 ms
+ready
+boot log saved to bm/bootlog.txt
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: powering the RTL8821CS (GPIO0_A0, 32 kHz from the RK817, WL_REG_ON GPIO4_A2)
+wifi: SDIO card ready (sdmmc2, 4-bit, function 1, 512-byte blocks)
+wifi: chip cut 14, firmware 24.11.0 running, RFE 2, package 0
+wifi: MAC address 98:03:cf:e5:60:a1
+wifi: radio tables loaded (2907 writes, RFE 2, antenna shared with Bluetooth)
+wifi: radio on (2.4 GHz, channel 1)
+wifi: joining "FASTWEB-36AB12" (WPA2, channel 11, -86 dBm)...
+wifi: PMK computed (33 ms)
+wifi: IQ calibration done (140 ms, fail mask 00)
+wifi: authenticated
+wifi: associated, AID 30
+wifi: WPA2 keys in (pairwise CCMP, group CCMP, key 1)
+net: asking for an address (DHCP)...
+cartridge menu: 4 games
+net: IP 192.168.1.233 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.233
+net: time 2026-10-10 18:43 UTC
+menu probe: idle time in 299/300 frames, slack -3943 us, paced 1
+menu probe: idle time in 300/300 frames, slack -6395 us, paced 1
+market: nearby consoles: listening as bm-233
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+tls: 21 root certificates
+market: catalog 20261010184242, 2 games
+market: downloading games/overbit/overbit.b16 (6453388 bytes)
+menu probe: idle time in 298/300 frames, slack 6823 us, paced 1
+menu probe: idle time in 300/300 frames, slack 9955 us, paced 1
+menu probe: idle time in 300/300 frames, slack 7504 us, paced 1
+menu probe: idle time in 300/300 frames, slack 10130 us, paced 1
+menu probe: idle time in 300/300 frames, slack 7678 us, paced 1
+market: games/overbit/overbit.b16 -> /bm/OVERBIT.B16
+market: Overbit installed
+wifi: link lost: the network sent us away (reason 7, not authenticated or associated)
+net: address lost
+menu probe: idle time in 299/300 frames, slack -3370 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5822 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8274 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10725 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13177 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15629 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18081 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3455 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13262 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15714 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+play: /bm/OVERBIT.B16 (6453388 bytes)
+bm: the 3D is drawn by the ARM as bm3d 0.2: the page is a square inside the screen
+overbit build 99b0016
+bm: loaded in 8397 ms, the splash over at 8397 ms
+overbit screen 720x720 arm
+bm: screen 720x720
+overbit quality down to 720x720 2 (17.2 ms)
+overbit bench start: calibration, 9 steps, flags auto, screen 720x720, ARM, renderers arm
+overbit map pt: 96 chunks, 131 boxes
+bm: "Overbit" stopped with an error:
+main.lua:6114: attempt to call a table value (global 'nnet')
+stack traceback:
+	main.lua:6114: in field 'start'
+	main.lua:7642: in field 'next'
+	main.lua:7612: in field 'setup'
+	main.lua:7774: in field 'update'
+	main.lua:5892: in field 'update'
+	main.lua:8366: in function '_update'
+bm: "Overbit" 148 frames, 44.6 fps, 28 dropped
+     update+draw avg 15.32 ms (91% of frame), max 19.86 ms, Lua 1657 KiB
+     dev kit: Lua peak 1657 KiB, data 6063 KiB, busiest frame 4k instructions, 28 frames over 16.7 ms, 70459 tokens
+report: session_overbit_RGB30.txt saved as bm/reports/RPT00001.TXT
+wifi: joining "FASTWEB-36AB12" again (try 1)
+play: /bm/OVERBIT.B16 (6453388 bytes)
+bm: the 3D is drawn by the ARM as bm3d 0.2: the page is a square inside the screen
+overbit build 99b0016
+bm: loaded in 8386 ms, the splash over at 8386 ms
+overbit screen 720x720 arm
+bm: screen 720x720
+overbit quality down to 720x720 2 (17.2 ms)
+overbit map pt: 96 chunks, 131 boxes
+bm: "Overbit" stopped with an error:
+main.lua:6114: attempt to call a table value (global 'nnet')
+stack traceback:
+	main.lua:6114: in field 'start'
+	main.lua:5889: in field 'start'
+	main.lua:5810: in field 'update'
+	main.lua:5892: in field 'update'
+	main.lua:8366: in function '_update'
+bm: "Overbit" 209 frames, 48.4 fps, 29 dropped
+     update+draw avg 15.27 ms (91% of frame), max 19.95 ms, Lua 1739 KiB
+     dev kit: Lua peak 1739 KiB, data 6063 KiB, busiest frame 4k instructions, 29 frames over 16.7 ms, 70459 tokens
+report: session_overbit_RGB30.txt saved as bm/reports/RPT00002.TXT
+menu probe: idle time in 296/300 frames, slack -1737 us, paced 1
+play: /bm/OVERBIT.B16 (6453388 bytes)
+bm: the 3D is drawn by the ARM as bm3d 0.2: the page is a square inside the screen
+overbit build 99b0016
+bm: loaded in 8385 ms, the splash over at 8385 ms
+overbit screen 720x720 arm
+bm: screen 720x720
+overbit quality down to 720x720 2 (17.3 ms)
+overbit default 360x360 quality 2 arm
+bm: screen 360x360
+overbit quality down to 360x360 1 (19.0 ms)
+overbit map pt: 96 chunks, 131 boxes
+bm: "Overbit" stopped with an error:
+main.lua:6114: attempt to call a table value (global 'nnet')
+stack traceback:
+	main.lua:6114: in field 'start'
+	main.lua:5889: in field 'start'
+	main.lua:5810: in field 'update'
+	main.lua:5892: in field 'update'
+	main.lua:8366: in function '_update'
+bm: "Overbit" 337 frames, 51.3 fps, 30 dropped
+     update+draw avg 10.11 ms (60% of frame), max 130.01 ms, Lua 1928 KiB
+     dev kit: Lua peak 1928 KiB, data 5304 KiB, busiest frame 5k instructions, 30 frames over 16.7 ms, 70459 tokens
+report: session_overbit_RGB30.txt saved as bm/reports/RPT00003.TXT
+wifi: joining "FASTWEB-36AB12" again (try 1)
+wifi: joining "FASTWEB-36AB12" (WPA2, channel 11, -82 dBm)...
+wifi: PMK computed (33 ms)
+wifi: IQ calibration done (20 ms, fail mask 00)
+wifi: no answer to authentication (3 tries)
+play: /bm/OVERBIT.B16 (6453388 bytes)
+bm: the 3D is drawn by the ARM as bm3d 0.2: the page is a square inside the screen
+overbit build 99b0016
+bm: loaded in 8389 ms, the splash over at 8389 ms
+overbit screen 360x360 arm
+reel 1 RALLY @2.60 TANK - A RACING PILOT IN A WHITE MECH
+overbit quality up to 3 (9.1 ms)
+reel 2 WALK AND RUN @7.12 LEGS BY INVERSE KINEMATICS
+overbit quality down to 360x360 2 (25.4 ms)
+overbit quality down to 360x360 1 (16.8 ms)
+overbit quality down to 360x360 0 (16.3 ms)
+reel 3 ROTARY GUNS @12.13 PRIMARY FIRE - THE FOREARMS, 11 ROUNDS 6.7 TIMES A SECOND
+overbit quality up to 1 (7.4 ms)
+reel 4 NULL FIELD @15.65 SECONDARY - EATS THE PROJECTILES IN FRONT
+overbit quality down to 360x360 0 (16.8 ms)
+reel 5 AFTERBURNERS @19.67 ABILITY 1 - FLIGHT ALONG THE AIM
+overbit quality up to 1 (6.4 ms)
+overbit quality down to 360x360 0 (17.6 ms)
+reel 6 SWARM ROCKETS @23.18 ABILITY 2 - 18 ROCKETS, 1.5 SECONDS
+overbit quality up to 1 (8.1 ms)
+reel 7 JUMP @26.70 TAKE-OFF, AIR, LANDING
+overbit quality down to 360x360 0 (17.9 ms)
+overbit quality up to 1 (11.5 ms)
+overbit quality down to 360x360 0 (31.7 ms)
+overbit default 360x360 quality 0 arm
+overbit eject Strafer (mech destroyed)
+overbit quality up to 1 (11.2 ms)
+overbit quality down to 360x360 0 (29.0 ms)
+overbit quality up to 1 (11.4 ms)
+overbit quality down to 360x360 0 (17.5 ms)
+overbit quality up to 1 (11.1 ms)
+overbit eject You (redline)
+overbit quality down to 360x360 0 (29.9 ms)
+overbit eject Dummy (mech destroyed)
+overbit redline boom
+overbit eject Jumper (mech destroyed)
+overbit quality up to 1 (10.9 ms)
+overbit quality down to 360x360 0 (27.0 ms)
+overbit kill You > Jumper
+overbit quality up to 1 (8.8 ms)
+overbit quality down to 360x360 0 (30.4 ms)
+overbit pit stop You
+overbit quality up to 1 (10.9 ms)
+overbit quality down to 360x360 0 (27.5 ms)
+overbit bench start: calibration, 9 steps, flags auto, screen 360x360, ARM, renderers arm
+overbit map pt: 96 chunks, 131 boxes
+bm: "Overbit" stopped with an error:
+main.lua:6114: attempt to call a table value (global 'nnet')
+stack traceback:
+	main.lua:6114: in field 'start'
+	main.lua:7642: in field 'next'
+	main.lua:7612: in field 'setup'
+	main.lua:7774: in field 'update'
+	main.lua:5892: in field 'update'
+	main.lua:8366: in function '_update'
+bm: "Overbit" 5751 frames, 52.7 fps, 333 dropped
+     update+draw avg 12.47 ms (74% of frame), max 448.89 ms, Lua 1447 KiB
+     dev kit: Lua peak 2071 KiB, data 5304 KiB, busiest frame 104k instructions, 327 frames over 16.7 ms, 70459 tokens
+report: session_overbit_RGB30.txt saved as bm/reports/RPT00004.TXT
+menu probe: idle time in 298/300 frames, slack -2553 us, paced 1
+wifi: joining "FASTWEB-36AB12" again (try 1)
+wifi: joining "FASTWEB-36AB12" (WPA2, channel 11, -78 dBm)...
+wifi: PMK computed (33 ms)
+wifi: IQ calibration done (20 ms, fail mask 00)
+wifi: authenticated
+wifi: associated, AID 16
+wifi: WPA2 keys in (pairwise CCMP, group CCMP, key 1)
+net: asking for an address (DHCP)...
+menu probe: idle time in 300/300 frames, slack 10655 us, paced 1
+net: IP 192.168.1.233 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.233
+report: sending session_overbit_RGB30.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_overbit_RGB30.txt
+report: sending session_overbit_RGB30.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_overbit_RGB30.txt
+report: sending session_overbit_RGB30.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_overbit_RGB30.txt
+report: sending session_overbit_RGB30.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_overbit_RGB30.txt
+menu probe: idle time in 299/300 frames, slack -3281 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5733 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8184 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10636 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13088 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15540 us, paced 1
+menu probe: idle time in 300/300 frames, slack -17992 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13261 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5905 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13261 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3455 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13262 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3456 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5908 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8360 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10812 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13263 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15715 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18167 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3452 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5903 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8355 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10807 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13259 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15711 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18162 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3421 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5873 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8325 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10777 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13228 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15680 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18132 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3453 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5905 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8356 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10808 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13260 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15712 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18164 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3452 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5904 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8356 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10808 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13260 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15711 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18163 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3456 us, paced 1
+menu probe: idle time in 299/300 frames, slack -2611 us, paced 1
+menu probe: idle time in 296/300 frames, slack -18421 us, paced 1
+bm > Report the log
+
