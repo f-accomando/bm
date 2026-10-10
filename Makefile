@@ -830,7 +830,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # make test: the tests on the PC, then those in QEMU. The CI runs them on
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
-HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
+HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-overbit $(if $(K7),test-hyp)

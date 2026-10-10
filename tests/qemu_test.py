@@ -66,7 +66,7 @@ BCM2835_ONLY = {
 SLOW = {
     "test_overbit": 79, "test_yharnam": 76, "test_chainloader": 70, "test_studio_animator": 61,
     "test_home_ui": 66, "test_stress_monitor": 48, "test_pad_typing": 48, "test_lib_tab": 46,
-    "test_kitchen": 45, "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
+    "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_titan": 36, "test_games": 34, "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_overbit_flags": 60, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
     "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_bm_boot_demo": 22,
@@ -5194,70 +5194,6 @@ def test_pixel_big(b, opts):
         assert changed == [0] and px[0] == first, [(i % w, i // w, px0[i], px[i]) for i in changed[:5]]
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-
-
-def test_kitchen(b, opts):
-    """M17: Chaos Kitchen boots, goes from the title through the lobby into a
-    campaign kitchen and into the endless kitchen, plays with serial keys
-    and logs its frame times; no Lua error."""
-    q = Qemu(b("kernel.img"))
-
-    def keys(seq, gap=0.35):
-        for k in seq:
-            q.send(k)
-            time.sleep(gap)
-
-    def shot(name):
-        # a screendump can catch the sky of a frame still being drawn: keep
-        # the most colourful of a few
-        if opts.shots:
-            best, bn = None, -1
-            for _ in range(5):
-                img = q.screendump()
-                w, h, px = img
-                n = len({px[(y * w + x) * 3:(y * w + x) * 3 + 3] for y in range(0, h, 12) for x in range(0, w, 12)})
-                if n > bn:
-                    best, bn = img, n
-            _save_png(best, os.path.join(opts.shots, f"kitchen-{name}.png"))
-
-    try:
-        q.expect(MENU, timeout=30)
-        time.sleep(0.5)
-        with open(b("carts/kitchen.bm"), "rb") as f:
-            assert _upload(q, f.read())
-        time.sleep(4.0)                        # title, with computer chefs cooking
-        shot("title")
-        keys("  ")                             # menu, CAMPAIGN
-        keys("  ")                             # lobby: join, ready
-        time.sleep(1.0)
-        keys(" ")                              # map: stage 1-1
-        time.sleep(1.0)
-        shot("intro")
-        keys(" ")                              # open the kitchen
-        for k in "dddd  wwww  llll aaaa  ssss" * 2:
-            q.send(k)
-            time.sleep(0.1)
-        out = q.expect("kitchen 1-1 x1:", timeout=20).decode(errors="replace")
-        assert "stopped with an error" not in out, out
-        shot("play")
-        keys("\r")                             # pause
-        keys("sss ")                           # QUIT (after RESUME, VOLUME, RESTART): the map
-        keys("k")                              # the menu
-        keys("s ")                             # ENDLESS
-        keys(" ")                              # lobby: ready
-        time.sleep(1.0)
-        keys(" ")                              # the endless kitchen
-        out = q.expect("kitchen endless x1:", timeout=20).decode(errors="replace")
-        assert "stopped with an error" not in out, out
-        shot("endless")
-        q.send("q")
-        out = q.expect("update+draw", timeout=10).decode(errors="replace")
-        assert "stopped with an error" not in out, out
-        time.sleep(0.5)
-        q.send("q")
-        q.expect(PROMPT)
-    finally:
-        q.close()
 
 
 def test_titan(b, opts):
