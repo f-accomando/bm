@@ -1,0 +1,41 @@
+bm report
+kind: session
+kernel: v0.2.5-30-gaeb0a14
+branch: claude/system-fix
+board: RGB30
+date: 2026-10-10 12:27:55
+file: session_yharnam_RGB30.txt
+
+session of "Yharnam" (the last one: the next run of this game replaces this file)
+screen 360x360, 11645 frames in 245.6 s, 47.4 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 15.0 ms, max 1025.3 ms, 493 frames over 16.7 ms
+memory: Lua peak 3999 KiB, data 41256 KiB; code 98785 tokens; busiest frame 1765k Lua instructions
+frames that were shown after more than 1.5 frames: 2547
+the game says: on the spot 17
+the game says: in time 57
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    9098
+  <= 25 ms             0
+  <= 34 ms (30 fps)    2500
+  <= 50 ms             0
+  <= 100 ms            15
+  > 100 ms (a freeze)  31
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
+    862    17.4  1033.8 1025.3 1013.1   12.1   0.0   1.2     7.2       56     2172        1
+  11520   243.9   566.9  558.4 547.1   11.3   0.0   1.2     7.1     1765     3490        1
+  11197   234.1   516.9  508.9 496.8   12.0   0.0   1.2     6.7       24     3140        1
+  10703   224.3   500.2  485.9   0.6  485.2   0.0   1.2    13.0       21     3136        1
+  10253   215.1   466.9  459.9   0.9  459.0   0.0   1.2     5.6       22     3126        1
+   9350   197.9   433.5  430.4 419.3   11.1   0.0   1.2     1.8       52     3082        1
+   8261   172.9   416.8  406.6   0.5  406.0   0.0   1.2     8.9       19     2996        1
+   9791   205.7   416.8  405.4   0.2  405.1   0.0   1.2    10.1       16     3112        1
+   7864   163.3   416.8  402.4   0.6  401.7   0.0   1.2    13.0       17     3005        1
+   7083   145.0   400.2  391.6   0.7  390.9   0.0   1.2     7.2       18     2996        1
+   7470   154.2   400.1  383.2   0.7  382.5   0.0   1.2    15.6       17     2997        1
+   8623   181.9   350.1  344.0   0.8  343.2   0.0   1.2     4.7       22     2997        1
