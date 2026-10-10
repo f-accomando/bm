@@ -4,6 +4,10 @@ and writes where everything is into main.lua, between the lines
 "-- [atlas begin]" and "-- [atlas end]".
 
     python3 carts/yharnam/mkassets.py        (needs numpy and Pillow)
+    python3 carts/yharnam/mkassets.py --places
+        only the placeholders of the drawn map (art/places.py), into the
+        sheet.png and the atlas there are: what the whole run makes of them,
+        without drawing the frames again
 
 The frames of the hunter and of the creatures take long to render (about
 5000 of them, a few seconds each): they are kept in build/yharnam-frames/
@@ -12,7 +16,8 @@ and only the ones whose pose or model changed are drawn again.
 The sheet (4096 wide, at most 256 colours: packed as SHEET8):
   - 16x16 tiles at the top: ground, kerbs, grass edges, decals, building
     fronts and roofs (art/tiles.py, art/buildings.py), so their map cells
-    stay small numbers;
+    stay small numbers; then the placeholders of the map's "objects" layer
+    (art/places.py: never drawn by the game, seen in the SDK);
   - props: lamps, braziers, graves, statues... (art/props.py);
   - the hunter: every animation of art/anims.py in the 8 directions (S SE E
     NE N NW W SW), each frame cut to its own box, with the point between
@@ -44,6 +49,7 @@ import foe_villagers  # noqa: E402,F401,I100
 import foe_beasts  # noqa: E402,F401
 import foe_hunters  # noqa: E402,F401
 import foe_horrors  # noqa: E402,F401
+import places  # noqa: E402
 import props  # noqa: E402
 import rig  # noqa: E402
 import sdf  # noqa: E402
@@ -131,6 +137,44 @@ class Skyline:
         return int(self.h.max())
 
 
+def place_line(place):
+    """the atlas' line of the placeholders: kind = its first map cell"""
+    return 'local PLACE = { %s }' % ', '.join('%s = %d' % (k, v) for k, v in place.items())
+
+
+def places_only():
+    """the placeholders into the sheet.png and the atlas there are, where the whole run puts them: the tiles
+    after the roofs (the same numbering as tile() in main()), the frames and the palette untouched"""
+    n0 = (1 + sum(len(v) for v in tiles.GROUND.values()) + len(tiles.CURBS) + len(tiles.GRASS_EDGES)
+          + sum(len(v) for v in tiles.DECALS.values()) + len(buildings.facade_tiles()) + len(buildings.roof_tiles()))
+    path = os.path.join(HERE, 'sheet.png')
+    sheet = np.array(Image.open(path).convert('RGBA'))
+    known = {tuple(int(v) for v in c) for c in sheet[sheet[:, :, 3] > 0][:, :3]}
+    place = {}
+    for i, (k, t) in enumerate(places.TILES.items()):
+        n = n0 + i
+        x, y = (n % (SW // 16)) * 16, (n // (SW // 16)) * 16
+        if y + 16 > 2 * 16 or y + 16 > sheet.shape[0]:
+            raise SystemExit('the placeholders go past the tiles\' rows: run the whole mkassets.py')
+        old = sheet[y:y + 16, x:x + 16]
+        if old[:, :, 3].any() and not np.array_equal(old, t):
+            raise SystemExit('tile %d (%d, %d) is not free' % (n, x, y))
+        new = {tuple(int(v) for v in c) for c in t[t[:, :, 3] > 0][:, :3]}
+        if not new <= known:
+            raise SystemExit('%s: colours the sheet has not (the palette would change): %s' % (k, new - known))
+        sheet[y:y + 16, x:x + 16] = t
+        place[k] = (y // 8) * (SW // 8) + x // 8
+    Image.fromarray(sheet, 'RGBA').save(path)
+    src = open(os.path.join(HERE, 'main.lua')).read()
+    a, b = src.index('-- [atlas begin]'), src.index('-- [atlas end]')
+    atlas = src[a:b].split('\n')
+    atlas = [l for l in atlas if not l.startswith('local PLACE = ')]
+    at = next(i for i, l in enumerate(atlas) if l.startswith('local FIRE_ANIM = {'))
+    atlas.insert(at, place_line(place))
+    open(os.path.join(HERE, 'main.lua'), 'w').write(src[:a] + '\n'.join(atlas) + src[b:])
+    print('sheet.png and main.lua: %d placeholders from tile %d (cell %d)' % (len(place), n0, min(place.values())))
+
+
 def foe_jobs():
     """every frame of every creature: (name, pose, direction 0..4)"""
     return [(name, p, d) for name, cr in rig.CREATURES.items() for an in cr.anims.values()
@@ -170,6 +214,7 @@ def main():
     roof = {}
     for (r, row, side), t in buildings.roof_tiles().items():
         roof.setdefault(r, {}).setdefault(row, {})[side] = tile(t)
+    place = {k: tile(t) for k, t in places.TILES.items()}
     tiles_end = ((len(tiles_list) + SW // 16 - 1) // (SW // 16)) * 16
 
     # props, the hunter's frames and the creatures', tallest first on a
@@ -248,6 +293,7 @@ def main():
         out.append('  %s = { %s },' % (r, ', '.join('%s = { l = %d, m = %d, r = %d }' % (row, s['l'], s['m'], s['r'])
                                                     for row, s in rows.items())))
     out.append('}')
+    out.append(place_line(place))
     # the flames of braziers (small) and pyres (big): a loop of frames
     # { sx, sy, w, h, ax, ay } (the anchor: the middle of their base)
     out.append('local FIRE_ANIM = {')
@@ -325,4 +371,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if '--places' in sys.argv[1:]:
+        places_only()
+    else:
+        main()
