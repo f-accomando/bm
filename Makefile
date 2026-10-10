@@ -206,6 +206,9 @@ title_typing := Pad Typing
 title_write := bm Write
 res_yharnam := 360x360
 sheet8_yharnam := 1
+# Yharnam's map drawn by hand (the SDK's map page): carts/yharnam/map_ground.csv and map_overlay.csv
+# (carts/yharnam/mkmap.py makes the first one, and takes it back from the console)
+layers_yharnam := ground overlay
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
 # menu, scripts/mkcovers.py), sheet.png, map.csv, models.bm or models.glb (3D
 # models from bm Studio / bm Animator, sdk/: with their skeletons and
@@ -470,11 +473,18 @@ yharnam-video: $(BUILD)/host/bmplay $(BUILD)/carts/yharnam.bm tools/bmplay/yharn
 # Yharnam (a game of the Pi's, and rgb30.mk packs it for the RGB30): the
 # street plan, the chunks, a long walk, the cost of a frame; then the fight
 # measured, with the paths of the lamps (balance.lua), and the ways of the
-# creatures and the phases of the bosses (foes.lua)
-test-yharnam: $(BUILD)/host/luahost carts/yharnam/main.lua
+# creatures and the phases of the bosses (foes.lua); the map drawn by hand
+# read instead of the ground made (drawn.lua)
+test-yharnam: $(BUILD)/host/luahost carts/yharnam/main.lua carts/yharnam/map_ground.csv carts/yharnam/map_overlay.csv
 	$< tests/yharnam/sim.lua carts/yharnam/main.lua
 	$< tests/yharnam/balance.lua carts/yharnam/main.lua
 	$< tests/yharnam/foes.lua carts/yharnam/main.lua
+	$< tests/yharnam/drawn.lua carts/yharnam/main.lua carts/yharnam
+
+# Yharnam's first drawn map, from its street plan (carts/yharnam/mkmap.py: it
+# overwrites map_ground.csv and map_overlay.csv, the map drawn by hand)
+yharnam-map: $(BUILD)/host/luahost
+	$(PYTHON) carts/yharnam/mkmap.py --luahost $<
 
 # The Sound editor in a fake bm: its banks are the console's format, byte for byte
 $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py
@@ -666,7 +676,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
         test-music music-model \
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-prompts test-hyp test-zero2 \
-        showreel bmhost bmhost-gpu bmhost-ai test-overbit overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video \
+        showreel bmhost bmhost-gpu bmhost-ai test-overbit overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
         test-catalog test-github test-lan market-seed test-host test-qemu
 
 all: $(BUILD)/kernel.img $(K7) $(BUILD)/chainloader.img $(GAME_CARTS)

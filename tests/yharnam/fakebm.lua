@@ -2,15 +2,19 @@
 -- API as the console, no pixels. Its state is in the table it returns:
 -- B.held / B.prev (the buttons of this frame and of the one before, bits as
 -- btn(); bits 10 and 11 are L1 and R1 for pad()), B.now (time()), B.px
--- (sprite pixels drawn), B.levels (light levels set by fades), B.logs.
+-- (sprite pixels drawn), B.levels (light levels set by fades), B.logs,
+-- B.writes (mset calls by layer), B.on_map (called with every map() call).
+-- The map is the console's: 256 x 256 cells, layers with names (mlayers),
+-- one empty layer "main" unless B.load_map gives the cartridge's.
 --
 --   local B = dofile("tests/yharnam/fakebm.lua")
+--   B.load_map({ { "ground", "carts/yharnam/map_ground.csv" }, ... })   -- (a drawn map: before B.load)
 --   local Y = B.load("carts/yharnam/main.lua")    -- the cartridge's YHARNAM table
 
-local B = { held = 0, prev = 0, now = 0, logs = {}, px = 0, SHEET_W = 4096, SHEET_H = 4096 }
+local B = { held = 0, prev = 0, now = 0, logs = {}, px = 0, SHEET_W = 4096, SHEET_H = 4096, writes = {} }
 local SHEET_W, SHEET_H = B.SHEET_W, B.SHEET_H
 local MAPW, MAPH = 256, 256
-local map = {}
+local names, layers = { "main" }, { {} }   -- the map's layers: their names, their cells ([y * MAPW + x])
 local env = {}
 B.env = env
 
@@ -34,14 +38,88 @@ env.spr = function(n, x, y, w, h)
   chk(math.type(n) == "integer" and n > 0 and n < (SHEET_W // 8) * (SHEET_H // 8), "spr: bad cell " .. tostring(n))
   B.px = B.px + 64 * (w or 1) * (h or 1)
 end
-env.map = function(mx, my, x, y, mw, mh)
+-- the layer of an argument, as the console's: absent the first, a number from 1 or a name
+local function layer(l)
+  if l == nil then return 1 end
+  if type(l) == "string" then
+    for i, n in ipairs(names) do if n == l then return i end end
+    error("the map has no layer \"" .. l .. "\"", 3)
+  end
+  chk(math.type(l) == "integer" and l >= 1 and l <= #names, "the map has " .. #names .. " layers, not " .. tostring(l))
+  return l
+end
+env.map = function(mx, my, x, y, mw, mh, l)
   num(mx); num(my); num(x); num(y); num(mw); num(mh)
   chk(mx >= 0 and my >= 0 and mx + mw <= MAPW and my + mh <= MAPH, "map: outside the map")
+  local i = layer(l)
+  if B.on_map then B.on_map(mx, my, x, y, mw, mh, i) end
 end
-env.mset = function(x, y, n)
+-- (lean: sim.lua counts the instructions run in here as the cartridge's)
+local writes = B.writes
+env.mset = function(x, y, n, l)
   chk(math.type(x) == "integer" and math.type(y) == "integer" and math.type(n) == "integer", "mset: integers")
-  chk(x >= 0 and y >= 0 and x < MAPW and y < MAPH, "mset outside the map")
-  map[y * MAPW + x] = n
+  chk(x >= 0 and y >= 0 and x < MAPW and y < MAPH and n >= 0 and n < 65536, "mset outside the map, or not a cell")
+  local i = (l == nil or l == 1) and 1 or layer(l)
+  layers[i][y * MAPW + x] = n
+  writes[i] = (writes[i] or 0) + 1
+end
+env.mget = function(x, y, l)
+  local i = layer(l)
+  if x < 0 or y < 0 or x >= MAPW or y >= MAPH then return 0 end
+  return layers[i][y * MAPW + x] or 0
+end
+env.msize = function(w)
+  chk(w == nil, "msize(w, h): not in the fake bm")
+  return MAPW, MAPH, #names
+end
+-- mlayers(list): a name keeps the layer of that name (or a new empty one), {name, from} copies `from`
+env.mlayers = function(list)
+  if list then
+    chk(#list >= 1 and #list <= 8, "mlayers: 1 to 8 layers")
+    local old, seen, nn, nl = {}, {}, {}, {}
+    for i, n in ipairs(names) do old[n] = layers[i] end
+    for i, e in ipairs(list) do
+      local name, from = e, e
+      if type(e) == "table" then name, from = e[1], e[2] end
+      chk(type(name) == "string" and #name >= 1 and #name <= 16, "mlayers: a layer's name is 1 to 16 bytes")
+      chk(not seen[name], "mlayers: two layers called \"" .. name .. "\"")
+      seen[name] = true
+      local src = type(from) == "string" and old[from] or math.type(from) == "integer" and layers[from] or nil
+      if type(e) == "table" and src then
+        local c = {}
+        for k, v in pairs(src) do c[k] = v end
+        src = c
+      end
+      nn[i], nl[i] = name, src or {}
+    end
+    names, layers = nn, nl
+  end
+  return table.move(names, 1, #names, 1, {})
+end
+
+-- the cartridge's map (mkbm.py --map name=file.csv for each layer, the first one first): its layers from
+-- CSV files, before B.load; every layer is MAPW x MAPH here, as Yharnam's
+function B.load_map(list)
+  names, layers = {}, {}
+  for i, e in ipairs(list) do
+    local cells, y = {}, 0
+    for line in io.lines(e[2]) do
+      line = line:gsub("[\r\n]", "")
+      if line:find("%S") and not line:match("^#") then
+        local x = 0
+        for v in (line .. ","):gmatch("([^,]*),") do
+          local n = math.tointeger(tonumber(v))
+          chk(n and n >= 0 and n < 65536, e[2] .. ": not a cell at row " .. y .. ": " .. v)
+          if n ~= 0 then cells[y * MAPW + x] = n end
+          x = x + 1
+        end
+        chk(x == MAPW, e[2] .. ": row " .. y .. " has " .. x .. " cells, not " .. MAPW)
+        y = y + 1
+      end
+    end
+    chk(y == MAPH, e[2] .. ": " .. y .. " rows, not " .. MAPH)
+    names[i], layers[i] = e[1], cells
+  end
 end
 env.glow = function(x, y, r, lv, d)
   num(x, "glow x"); num(y, "glow y"); num(r, "glow radius")

@@ -12,7 +12,10 @@
 -- Fire burns: hurt, knocked down, killed (back at the last lamp lit). On
 -- the title, G (a keyboard's key) shows every animation of the hunter in the 8 directions.
 -- Sprites and tiles: mkassets.py (the hunter, the props and the town are
--- drawn there in code; art/anims.py has the hunter's animations).
+-- drawn there in code; art/anims.py has the hunter's animations). The
+-- ground of the hunt is the cartridge's map, drawn by hand in the SDK
+-- (map_ground.csv, map_overlay.csv, mkmap.py: MAP.drawn); the chunks make
+-- the rest (houses, trees, lamps, creatures, gates).
 
 -- [atlas begin] written by mkassets.py: do not edit by hand
 local SHEET_W = 4096
@@ -1469,6 +1472,32 @@ do
     end
   end
 end
+-- The map drawn by hand (the SDK's map page, F3 F3; in the repository carts/yharnam/map_ground.csv and
+-- map_overlay.csv, the first ones made by carts/yharnam/mkmap.py from the streets below): the whole hunt,
+-- MAP.size x MAP.size chunks of CS x CS tiles of 2 x 2 cells (256 x 256 cells). Its first layer is "ground", then
+-- what lies on it ("overlay": kerbs, grass edges, puddles, leaves) and any layer added in the SDK, all drawn under
+-- the objects. There the ground is what is drawn: the chunks still make their houses, trees, lamps, colliders and
+-- lights from the plan below, not their ground. Beyond the map (behind the mist, never walked) and without a
+-- drawn map (a cartridge built without one, the PC tests) the ground is made with the chunks, into a ring of
+-- RING x RING chunks, a layer of its own after the drawn ones. MAP.drawn: how many layers are drawn (nil: none);
+-- MAP.ring: the ring's layer (nil: no room for it, 8 drawn layers). (A player with no layers, tools/bmplay,
+-- has no msize: the ring.)
+do
+  local w, h = 0, 0
+  local names = { "main" }
+  if msize and mlayers then w, h = msize(); names = mlayers() end
+  if names[1] == "ground" and w >= MAP.size * CS * 2 and h >= MAP.size * CS * 2 then
+    MAP.drawn = #names
+    if #names < 8 then
+      names[#names + 1] = "_ring"
+      mlayers(names)
+      MAP.ring = #names
+    end
+  else
+    MAP.ring = 1
+  end
+end
+
 -- the gate on the border between chunks (ax, ay) and (bx, by) (two areas): nil, sealed
 function MAP.gate_at(ax, ay, bx, by)
   local ia, ib = MAP.area_of(ax, ay), MAP.area_of(bx, by)
@@ -2279,20 +2308,24 @@ local function gen(ch)
     end
   end
 
-  -- into the map (layer 1: cells 0-127, layer 2: 128-255)
-  local rx0, ry0 = (cx % RING) * CS * 2, (cy % RING) * CS * 2
-  for ly = 0, CS - 1 do
-    local my = ry0 + ly * 2
-    for lx = 0, CS - 1 do
-      local i = ly * CS + lx + 1
-      local mx = rx0 + lx * 2
-      local a, b = A[i] or G.cobble[1], B[i] or 0
-      mset(mx, my, a); mset(mx + 1, my, a + 1); mset(mx, my + 1, a + SW8); mset(mx + 1, my + 1, a + SW8 + 1)
-      if b > 0 then
-        mset(128 + mx, my, b); mset(129 + mx, my, b + 1); mset(128 + mx, my + 1, b + SW8)
-        mset(129 + mx, my + 1, b + SW8 + 1)
-      else
-        mset(128 + mx, my, 0); mset(129 + mx, my, 0); mset(128 + mx, my + 1, 0); mset(129 + mx, my + 1, 0)
+  -- into the ring (its layer MAP.ring: cells 0-127 the ground, 128-255 what lies on it); on the drawn map the
+  -- ground is the one drawn
+  if MAP.ring and not (MAP.drawn and inside(cx, cy)) then
+    local R = MAP.ring
+    local rx0, ry0 = (cx % RING) * CS * 2, (cy % RING) * CS * 2
+    for ly = 0, CS - 1 do
+      local my = ry0 + ly * 2
+      for lx = 0, CS - 1 do
+        local i = ly * CS + lx + 1
+        local mx = rx0 + lx * 2
+        local a, b = A[i] or G.cobble[1], B[i] or 0
+        mset(mx, my, a, R); mset(mx + 1, my, a + 1, R); mset(mx, my + 1, a + SW8, R); mset(mx + 1, my + 1, a + SW8 + 1, R)
+        if b > 0 then
+          mset(128 + mx, my, b, R); mset(129 + mx, my, b + 1, R); mset(128 + mx, my + 1, b + SW8, R)
+          mset(129 + mx, my + 1, b + SW8 + 1, R)
+        else
+          mset(128 + mx, my, 0, R); mset(129 + mx, my, 0, R); mset(128 + mx, my + 1, 0, R); mset(129 + mx, my + 1, 0, R)
+        end
       end
     end
   end
@@ -4670,22 +4703,45 @@ end
 
 ----------------------------------------------------------------- drawing
 
-local function draw_map()
-  local tx0, ty0 = fdiv(cam_x, TS), fdiv(cam_y, TS)
-  local tx1, ty1 = fdiv(cam_x + W - 1, TS), fdiv(cam_y + H - 1, TS)
-  local ty = ty0
-  while ty <= ty1 do
-    local ry = ty % RT
-    local nty = min(ty1 - ty + 1, RT - ry)
-    local tx = tx0
-    while tx <= tx1 do
-      local rx = tx % RT
-      local ntx = min(tx1 - tx + 1, RT - rx)
-      map(rx * 2, ry * 2, tx * TS, ty * TS, ntx * 2, nty * 2)
-      map(128 + rx * 2, ry * 2, tx * TS, ty * TS, ntx * 2, nty * 2)
-      tx = tx + ntx
+local draw_map
+do
+  -- the ground made with the chunks, from the ring: world tiles tx0..tx1, ty0..ty1
+  local function ring(tx0, ty0, tx1, ty1)
+    local R = MAP.ring
+    if not R then return end
+    local ty = ty0
+    while ty <= ty1 do
+      local ry = ty % RT
+      local nty = min(ty1 - ty + 1, RT - ry)
+      local tx = tx0
+      while tx <= tx1 do
+        local rx = tx % RT
+        local ntx = min(tx1 - tx + 1, RT - rx)
+        map(rx * 2, ry * 2, tx * TS, ty * TS, ntx * 2, nty * 2, R)
+        map(128 + rx * 2, ry * 2, tx * TS, ty * TS, ntx * 2, nty * 2, R)
+        tx = tx + ntx
+      end
+      ty = ty + nty
     end
-    ty = ty + nty
+  end
+
+  function draw_map()
+    local tx0, ty0 = fdiv(cam_x, TS), fdiv(cam_y, TS)
+    local tx1, ty1 = fdiv(cam_x + W - 1, TS), fdiv(cam_y + H - 1, TS)
+    if not MAP.drawn then return ring(tx0, ty0, tx1, ty1) end
+    -- the drawn map, where the view is on it (its cells are the world's: tile tx is cells 2tx, 2tx + 1)
+    local n = MAP.size * CS - 1
+    local ax, ay, bx, by = max(tx0, 0), max(ty0, 0), min(tx1, n), min(ty1, n)
+    if ax <= bx and ay <= by then
+      for l = 1, MAP.drawn do map(ax * 2, ay * 2, ax * TS, ay * TS, (bx - ax + 1) * 2, (by - ay + 1) * 2, l) end
+    end
+    -- beyond its edge, behind the mist: the ground of the chunks there, as without a drawn map
+    if ty0 < 0 then ring(tx0, ty0, tx1, min(ty1, -1)) end
+    if ty1 > n then ring(tx0, max(ty0, n + 1), tx1, ty1) end
+    if ay <= by then
+      if tx0 < 0 then ring(tx0, ay, min(tx1, -1), by) end
+      if tx1 > n then ring(max(tx0, n + 1), ay, tx1, by) end
+    end
   end
 end
 
