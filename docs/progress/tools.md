@@ -122,6 +122,7 @@ An interactive bash setup utility for Linux/WSL:
 * `video/SERIE.md`: *Skyvale World*, a 2D platformer (original hero Kip) built only with the console's 2D tools, one episode per tool. Episode 1 (`video/01-pixel/`, bm Pixel) is done: Kip seen from the side, a six-frame run cycle, a jump and a coin; `verify.py` checks the saved cartridge pixel by pixel.
 * `bmhost --tool` runs a cartridge as one of bm's tools (it may save over a `.bm` already on the card), so the SDK and the editors can be recorded; episode 2 (`video/02-sdk/`, the SDK's 2D side: tiles with flags, a two-layer map, the first level) is done and `verify.py` checks the saved cartridge.
 * Episode 3 (`video/03-sound/`, bm Sound: three sounds, three effects played on the piano keys, level music written with riff and put in the bank as a song) is done, with sound in the video (`bmhost --wav`); `verify.py` checks the saved bank and the wav.
+* Episode 4 (`video/04-code/`, bm Code: Kip runs and jumps with bmlib, the game played by a button script, with its sound) is done. `make bmhost-ai` builds `bmhost` with the real `ai` table (bm Code and the assistant need it).
 * On the PC there is no kernel menu and no assistant (`F6` in bm Pixel); QEMU is not in the cloud sessions.
 
 ### Continuous Integration (`.github/workflows/ci.yml`)

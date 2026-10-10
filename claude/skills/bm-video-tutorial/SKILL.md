@@ -19,8 +19,9 @@ video mostra **cosa succede sullo schermo e quale tasto, tab o pulsante lo provo
   --shots DIR --wav FILE --sd DIR --seconds S --tool` (`--tool`: la cartuccia è uno strumento
   di bm, come nel kernel, e può salvare su un `.bm` già presente: senza, l'SDK dice "a cartridge
   cannot change a .bm that is there already"). Non ha il menu del kernel (schede
-  Market/Games/Dev), la GPU, l'assistente AI (`F6` in bm Pixel dice "the assistant is not
-  here"): quelle parti si dicono a voce, o si registrano con QEMU dove c'è.
+  Market/Games/Dev) né la GPU. L'assistente AI (la tabella `ai`: F6, e bm Code ne ha bisogno per partire) c'è solo in
+  **`build/host/bmhost-ai`** (`make bmhost-ai`; carica `build/assist.bin`, da lanciare dalla radice del repo o con
+  `BMHOST_AI_WEIGHTS`): con `bmhost` normale bm Code non parte (`attempt to index a nil value (global 'ai')`).
 - **QEMU** `-M raspi0` (`tests/qemu_test.py`): il kernel intero, schede comprese. Va
   preferito quando c'è e il video deve mostrare il menu.
 - `tools/bmplay/video.sh`: un gioco giocato da un bot, con suono (per gli episodi sul
@@ -49,6 +50,7 @@ video mostra **cosa succede sullo schermo e quale tasto, tab o pulsante lo provo
   (`scripts/bmres.py`, `sheet_get`) e confronta ogni sprite pixel per pixel con `art.py`;
   poi `ffprobe` per la durata. Se l'utente chiede "niente screenshot", si lavora così.
 - Per sapere cosa fa un editor senza immagini: copia dell'editor con `log(...)` in `_update` (stato di pagina, `S.msg`), compilata con `scripts/mkbm.py`, e `bmhost` senza `--quiet`: il log arriva sul terminale. F5 dentro `bmhost` termina la corsa (la cartuccia provata è un'altra registrazione, accodata con `cat` dei raw).
+- Un editor di codice: scrivere senza indentazione (bm Code rientra da solo), Ctrl+K taglia una riga per pulire; la prova (F5) chiude la registrazione, quindi la partita è una seconda registrazione con uno script di tasti (`pad 1 right a`), il suo wav accodato al primo (`wave`); i tempi dei salti si calcolano con un log (copia della cartuccia con un `_update` avvolto) finché la partita fa quello che dice il narratore; `video/04-code/verify.py` lo controlla.
 - Gli sprite di un platform sono **di profilo** e le animazioni sono fotogrammi davvero
   diversi (gambe, coda, rimbalzo di un pixel), non lo stesso sprite ripetuto: `art.py`
   controlla che ogni coppia di fotogrammi differisca (`art.check()`). Mostrare il ciclo

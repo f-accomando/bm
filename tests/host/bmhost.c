@@ -411,6 +411,27 @@ int main(int argc, char **argv)
             return 2;
         }
     }
+#ifdef BMHOST_AI
+    {   /* the assistant (build/assist.bin, or BMHOST_AI_WEIGHTS) for the `ai` table */
+        extern const uint8_t *ai_host_blob;
+        extern uint32_t ai_host_len;
+        const char *wp = getenv("BMHOST_AI_WEIGHTS");
+        FILE *wf = fopen(wp ? wp : "build/assist.bin", "rb");
+        if (wf) {
+            fseek(wf, 0, SEEK_END);
+            long wl = ftell(wf);
+            fseek(wf, 0, SEEK_SET);
+            uint8_t *blob = aligned_alloc(4, ((size_t)wl + 4) & ~(size_t)3);
+            if (blob && fread(blob, 1, (size_t)wl, wf) == (size_t)wl) {
+                ai_host_blob = blob;
+                ai_host_len = (uint32_t)wl;
+            }
+            fclose(wf);
+        } else {
+            fprintf(stderr, "bmhost-ai: no assistant (make build/assist.bin, run from the repo root, or set BMHOST_AI_WEIGHTS)\n");
+        }
+    }
+#endif
     if (!cart) {
         fprintf(stderr, "usage: bmhost CART.bm [--sd DIR] [--seconds S] [--shots DIR [--every K] [--from F]]\n"
                         "              [--video FILE] [--wav FILE] [--input SCRIPT] [--quiet]\n");

@@ -17,7 +17,7 @@ Libreria: `video/lib/bmvideo.py`. Un episodio = `video/NN-nome/` (`record.py`, `
 | 1 | bm Pixel | Kip di profilo: ciclo di corsa a 6 fotogrammi, salto, moneta; matita, riempimento, annulla, animazione, ovali e linee, specchio, tavolozza, salva `skyvale.bm` | fatto |
 | 2 | SDK (2D) | tessere 8×8 nello sheet, flag (solido, piattaforma, scala, acqua, fa male), mappa a layer, il primo livello; codice di cinque righe e prova (F5) | fatto |
 | 3 | Sound | suoni (salto con bend, moneta, rimbalzo), tre effetti con il piano, musica del livello scritta con riff (F7) e messa nel banco come canzone, pagine pattern e song | fatto |
-| 4 | bm Code | movimento, salto a pressione variabile, collisioni con la mappa (`bmlib`) | da fare |
+| 4 | bm Code | Kip corre e salta: `lib.tiles`, `lib.step`, salto a pressione variabile, spuntoni (flag 4), suoni e musica dell'episodio 3; la partita giocata da uno script di tasti | fatto |
 | 5 | bm Code + assistente | nemici, monete, blocchi, HUD; domande all'assistente | da fare |
 | 6 | SDK + bm Pixel | zone con nome e scatole di collisione (SPRITES/BOXES), layer a parallasse, bandiera di fine livello, più livelli | da fare |
 | 7 | il gioco | Skyvale World giocato dall'inizio alla bandiera | da fare |
@@ -36,3 +36,5 @@ Note per chi continua:
 - Ogni episodio riparte dal `.bm` lasciato dal precedente: l'episodio 2 parte da `video/02-sdk/start.bm` (la cartuccia salvata nell'episodio 1).
 - Audio: `bmhost --wav` e `encode(..., audio=wav)` mettono il suono nel video; le schede e il gancio hanno una traccia muta. Verifica: `video/03-sound/verify.py` legge il banco salvato (`scripts/bmaudio.py`) e controlla che il wav non sia silenzio.
 - Tasti: F6–F10 e Ctrl+Invio arrivano a `bmhost` solo come sequenze ESC (`\x1b[18~` è F7, `\x1b[28~` Ctrl+Invio): i byte grezzi 0xE5–0xEF vengono scartati.
+- bm Code (e l'assistente F6, episodio 5) hanno bisogno della tabella `ai`: si registrano con `build/host/bmhost-ai` (`make bmhost-ai`: collega `src/ai/lua_ai.c` e carica `build/assist.bin`); `bmhost` normale non ce l'ha.
+- La cartuccia di ogni episodio parte da quella lasciata dal precedente (`video/NN-nome/start.bm`); il codice nuovo si scrive **senza indentazione**: bm Code rientra da solo con Invio e `end`.
