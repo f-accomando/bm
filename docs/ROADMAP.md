@@ -32,9 +32,10 @@ in questa passata, nessuna cosa già decisa.
   report di sessione del dev kit e le righe `devinfo()` a fine partita. Il confronto è con il
   budget di 60 fps di M42.
 - [ ] **Mappa disegnata di Yharnam sul Pi**: aprire `yharnam.bm` nell'SDK, F3 F3, `z`, piazzare
-  qualche tile, Ctrl+S (la copia `YHARNAM.BME`, circa 6 MB: lo sheet resta SHEET8), F5: il
-  terreno cambiato si vede nel gioco. Poi `python3 carts/yharnam/mkmap.py --from` sul file
-  copiato dalla SD e commit dei CSV.
+  qualche tile di terreno e, sul livello `objects` (`l`), qualche segnaposto (un albero, una casa:
+  angolo H7 e tile di tetto a destra), Ctrl+S (la copia `YHARNAM.BME`, circa 6 MB: lo sheet resta
+  SHEET8), F5: terreno e cose cambiati si vedono nel gioco. Poi `python3
+  carts/yharnam/mkmap.py --from` sul file copiato dalla SD e commit dei CSV.
 - [ ] **Glitch grafico all'avvio di Yharnam**: un piccolo difetto visibile nei primi fotogrammi.
   Da descrivere sul Pi: quando compare, quanto dura, in quale schermata (titolo o gioco dopo
   i primi chunk). Punti da guardare, come ipotesi: `_init` (le tabelle di fade prima del primo
@@ -317,8 +318,8 @@ usabile col mouse. Regola: il mouse fa quello che fanno i tasti. Fatto sul PC: `
 ## Spunti R1, R2, … (da riprendere)
 Cose utili che a bm mancano. Nessuno è deciso: l'utente li richiama per nome ("facciamo
 R7"), e allora si chiede il branch come per ogni sviluppo. Gli spunti diventati milestone o
-già fatti sono tolti (R5 in M19; R10–R14, R18, R28–R30, hitbox, più giocatori fatti; R23 → M44, R24 →
-M43): quello che ne resta da fare è sotto. Suggeriti per primi: R3, R1 con R2, R7 (sul Pi si
+già fatti sono tolti (R5 in M19; R10–R14, R18, R28–R30, R36, hitbox, più giocatori fatti; R23 → M44,
+R24 → M43): quello che ne resta da fare è sotto. Suggeriti per primi: R3, R1 con R2, R7 (sul Pi si
 prova senza seriale e spesso senza tastiera).
 
 ### Usare la console senza PC né seriale
@@ -368,12 +369,11 @@ prova senza seriale e spesso senza tastiera).
 - **R26 — Il mouse vero in nano8.** Le cartucce `.p8` che chiedono il mouse (`poke(0x5f2d,
   1)`) oggi hanno un cursore mosso da levetta, croce o frecce: con `mouse(true)` il mouse USB
   o Bluetooth, i tasti e la rotella (`stat(32)`–`stat(36)`).
-- **R36 — Yharnam: gli oggetti dalla mappa disegnata** (2026-10-10). Oggi a mano si disegna solo
-  il terreno (`map_ground.csv`, `map_overlay.csv`); case, alberi, lampioni, collisioni, porte,
-  lampade del cacciatore e boss li fa ancora il codice dal piano delle strade (una casa
-  ridipinta come strada resta una casa). Un livello in più di segnaposti (tile "casa", "albero",
-  "lampione"...) letto da `gen()`, o le case come tile di un livello davanti, li renderebbe
-  disegnabili; con `MAP.areas` e i cancelli come dati, anche la forma della caccia.
+- **Resti di R36 (Yharnam disegnata).** Lampade del cacciatore, barricate e cancelli, arene dei
+  boss e aree stanno ancora in `MAP` (main.lua): come dati (segnaposti con un nome, o un file)
+  anche la forma della caccia si disegnerebbe. Una casa sta dentro il suo blocco di 16×16 tile;
+  il tipo del terreno (strada, marciapiede, prato), da cui nascono le creature, è ancora quello del
+  piano delle strade.
 - **R37 — Panoramica e tavolozza delle mappe grandi nell'SDK.** Sulla pagina mappa una vista
   rimpicciolita (256×256 celle in uno schermo) per spostarsi, e con Tab le sole tile 16×16 già
   usate nella mappa (lo sheet di Yharnam è largo 4096 px: le sue tile sono le prime due righe).

@@ -49,13 +49,18 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   `scripts/bmmesh.py`, `bmdecimate.py`, `tools/bmreduce.py` (quadric collapse, same code as
   `src/bm/decimate.c`).
 - `tools/qpuasm.py` → `src/gpu/shaders.h` ([graphics](graphics.md)).
-- Yharnam's drawn map: `carts/yharnam/map_ground.csv` + `map_overlay.csv` (`layers_yharnam`,
-  256×256 cells: the ground and its kerbs/edges/decals). `carts/yharnam/mkmap.py` makes the first
-  one from the street plan (`make yharnam-map`, `tests/yharnam/mapgen.lua`: it overwrites the
-  drawn one), takes it back from a project saved on the console (`--from YHARNAM.BME`), draws
-  it (`--png`). The game draws it (`MAP.drawn`); houses, trees, lamps, creatures, gates and
-  bosses are still the code's; beyond the edge the ring of chunks (`MAP.ring`). Test
-  `tests/yharnam/drawn.lua`.
+- Yharnam's drawn map: `carts/yharnam/map_ground.csv`, `map_overlay.csv` (drawn: `MAP.drawn`)
+  and `map_objects.csv` (`layers_yharnam`, 256×256 cells). `objects` is not drawn: its
+  placeholders (`art/places.py`, `PLACE` in the atlas, `mkassets.py --places` without rendering
+  the frames) place the units `gen()` makes (houses: corner H7/H8/CH + roof tiles = width, body
+  tiles only shown; trees, bushes, lamps, braziers, pyres, graves, mausoleums, statues,
+  fountains, wells, benches, fences, crates, coffins, cages, bollards, carriages, each with its
+  collider and lights): a unit stays where its placeholder is, goes without it, a placeholder no
+  unit took makes one (hash of its tile). Still `MAP`'s: hunter's lamps, barricades/gates, boss
+  arenas, areas; beyond the edge the ring (`MAP.ring`). `carts/yharnam/mkmap.py` makes the first
+  map from the plan (`make yharnam-map`, `tests/yharnam/mapgen.lua`: it overwrites the drawn
+  one), takes it back (`--from YHARNAM.BME`), draws it (`--png`). Test `tests/yharnam/drawn.lua`
+  (the generated map = the plan's town, chunk by chunk; edits; the repository's map).
 - `tools/bm_net.py`: kernels, cartridges and files over WiFi (protocol in
   [system](system.md)); `tools/bm_load.py`: serial chainloader and terminal;
   `tools/overbit_relay.py`: the internet relay for `bmnet`.
@@ -87,9 +92,9 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
 - **M43 step 3**: a *Stack* page in bm Pixel. **M42 step 4**: the SDK saves a real `.b16`.
-- Yharnam's map on the Pi: open `yharnam.bm` in the SDK, F3 F3, edit, Ctrl+S (`YHARNAM.BME`,
-  about 6 MB), F5; then `mkmap.py --from` and commit the CSVs. Still the code's: the objects
-  (a house painted over stays a house).
+- Yharnam's map on the Pi: open `yharnam.bm` in the SDK, F3 F3, edit ground and `objects`,
+  Ctrl+S (`YHARNAM.BME`, about 6 MB), F5; then `mkmap.py --from` and commit the CSVs. A house
+  stays in its 16×16-tile block; creatures still spawn by the plan's kind of ground.
 
 ## Rules (do not break)
 

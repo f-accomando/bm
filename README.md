@@ -203,9 +203,9 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
 - **Studio Village**: bm Studio models and a villager animated with bm Animator.
 - **Texture Room**: a 3D room, all textured.
 - **Hunter's Night**: gothic 2D at 320×180, with lights.
-- **Yharnam**: an endless gothic town at night, at 360×360 (the `.b16` screen): its ground is a map drawn by hand
-  in the SDK (the first one made from its street plan), its houses, trees and lamps are made while you
-  walk, lit as in Dank Tomb (light levels and fade tables), with fires and warm lamps. The
+- **Yharnam**: an endless gothic town at night, at 360×360 (the `.b16` screen): its ground and where its houses,
+  trees and lamps stand are a map drawn by hand in the SDK (the first one made from its street plan), built
+  while you walk, lit as in Dank Tomb (light levels and fade tables), with fires and warm lamps. The
   hunter has 27 animations in 8 directions: saw cleaver combos (folded and opened), the
   pistol, backstep, hurt, knocked down, death. Twelve creatures roam the districts (mad
   townsfolk, beasts, hunters, eldritch horrors) and four bosses wait in theirs, each with

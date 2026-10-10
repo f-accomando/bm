@@ -110,7 +110,11 @@ with the F keys (Y + left/right on the gamepad), Esc the menu, **F12** held the 
   PgUp/PgDn and Home/End a page). For all the tools: bm Pixel (2).
   A big map of 16×16 tiles is made by a script and retouched here: Yharnam's
   (`carts/yharnam/mkmap.py`: the first map from its street plan, and `--from` the
-  project saved on the console back into the repository's CSV files).
+  project saved on the console back into the repository's CSV files). Its layer
+  `objects` holds placeholders, labelled tags the game does not draw: where they are,
+  it builds houses (the corner H7, H8 or CH, the roof tiles to its right give the width), trees,
+  lamps, graves and the other things; taking one away takes its thing away. `x` on a
+  placeholder picks it.
 - **F4, the 3D**: the project's models in a list and the animations of the chosen one;
   the model turns on the grid with the animation playing (up/down the model,
   left/right the animation, space pauses, q/e/w/s the camera, + − zoom); **i**
