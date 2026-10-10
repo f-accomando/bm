@@ -1,0 +1,30 @@
+bm report
+kind: session
+kernel: v0.2.5-34-g9268e60
+branch: claude/system-fix-merge
+board: RGB30
+date: 2026-10-10 12:42:01
+file: session_yharnam_RGB30.txt
+
+session of "Yharnam" (the last one: the next run of this game replaces this file)
+screen 360x360, 544 frames in 9.2 s, 59.0 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 11.7 ms, max 142.6 ms, 2 frames over 16.7 ms
+memory: Lua peak 2964 KiB, data 41256 KiB; code 98785 tokens; busiest frame 1612k Lua instructions
+frames that were shown after more than 1.5 frames: 2
+the game says: on the spot 8
+the game says: in time 0
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    542
+  <= 25 ms             0
+  <= 34 ms (30 fps)    1
+  <= 50 ms             0
+  <= 100 ms            0
+  > 100 ms (a freeze)  0
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
+      8     0.6    33.3   29.9   0.1   29.7   0.0   1.2     2.1        9     2017        1
