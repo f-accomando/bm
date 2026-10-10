@@ -1723,7 +1723,7 @@ do
     strip(0, "MAP", string.format("(%d,%d) = %d   tile %d%s   layer %d/%d %s", mx, my, mget(mx, my, layer), tile,
                                   big and " 16x16" or "", layer, #names, names[layer]),
           picking and "choosing the tile: arrows, then Enter" or
-          "F3 again: the sprites   tab: the tile   z: 8/16   l / L: next / new layer   c: flags")
+          "F3 again: the sprites   tab: the tile   z: 8/16   l / L: a layer   c: flags")
     rectfill(W - 20 - n, 20, n, n, 0x000000)
     spr(tile, W - 20 - n, 20, n // 8, n // 8)
     if picking then
@@ -1741,8 +1741,8 @@ do
       rect(ox + tx - scx - 1, oy + ty - scy - 1, n + 2, n + 2, C.ACC)
     end
     hint({ { "space", "A", "place" }, { "backspace", nil, "clear" }, { "x", "B", "pick" }, { "f", nil, "fill" },
-           { "tab", "Y", "tiles" }, { ",", "X", "tile" }, { "z", nil, "8/16" }, { "l", nil, "layer" },
-           { "c", nil, "flags" }, { "u", nil, "undo" } })
+           { "tab", "Y", "tiles" }, { ",", "X", "tile" }, { "l", nil, "layer" }, { "c", nil, "flags" },
+           { "u", nil, "undo" } })
   end
 
   local function status()

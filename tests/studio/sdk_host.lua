@@ -700,7 +700,7 @@ check(status():find("flags of the tiles", 1, true) or sees("flags of the tiles")
 key("c")
 -- the 16x16 brush (z): a tile of 2 x 2 cells (n, n + 1 and the two under them: the sheet has 32 cells a row),
 -- the cursor and the tile on even cells; Home / End: a page left / right
-check(sees("8/16"), "the map's hints: z, the brush")
+check(sees("z: 8/16"), "the map's strip: z, the brush")
 key("z")
 check(status():find("16x16", 1, true), "z: the 16x16 brush: " .. status())
 key(".", "down", " ")                    -- the next tile (2: steps of 2), down a tile (row 2)

@@ -1081,6 +1081,10 @@ static int l_sget(lua_State *L)
     return 1;
 }
 
+/* the sheet was drawn on since cart_load (sset, cart_sheet): cart_save
+ * writes it whole, not the section the file had (proj_sheet8, below) */
+static int proj_sheet_drawn;
+
 /* sset(x, y, colour) - nil colour = transparent */
 static int l_sset(lua_State *L)
 {
@@ -1092,6 +1096,7 @@ static int l_sset(lua_State *L)
     g16_sheet_set(&rt.sheet, x, y, opaque ? col(L, 3, 0) : 0, opaque);
     rt.cell_dirty[(y / G16_CELL) * (rt.sheet.w / G16_CELL) + x / G16_CELL] = 1;
     rt.sheet_dirty = 1;
+    proj_sheet_drawn = 1;
     return 0;
 }
 
@@ -5017,6 +5022,12 @@ static uint16_t proj_cover_w, proj_cover_h;
  * cartridge playing (a copy: its bytes are freed while it is suspended) */
 static uint8_t *proj_audio, *own_audio;
 static uint32_t proj_audio_len, own_audio_len;
+/* the project's sheet as its file had it, when that is a SHEET8 section
+ * (cart_load): cart_save writes that section back as it was while nothing
+ * is drawn on the sheet (proj_sheet_drawn), so a big sheet stays small (a
+ * 4096x3392 sheet: 5.5 MB as SHEET8, 55 MB as the SHEET it would become) */
+static uint8_t *proj_sheet8;
+static uint32_t proj_sheet8_len;
 
 static void set_copy(uint8_t **dst, uint32_t *dlen, const void *src, uint32_t len)
 {
@@ -5333,6 +5344,8 @@ static int l_cart_load(lua_State *L)
         proj_cover_h = c.cover_h;
     }
     set_copy(&proj_audio, &proj_audio_len, c.audio, c.audio_size);
+    set_copy(&proj_sheet8, &proj_sheet8_len, c.sheet8, c.sheet8 ? c.sheet8_size : 0);
+    proj_sheet_drawn = 0;
     char title[49], author[33];
     memcpy(title, c.title, sizeof title);
     memcpy(author, c.author, sizeof author);
@@ -5391,6 +5404,7 @@ static int l_cart_sheet(lua_State *L)
             rt.cell_dirty = dirty;
             memset(rt.cell_dirty, 1, (size_t)(w / G16_CELL) * (h / G16_CELL));
             rt.sheet_dirty = 1;
+            proj_sheet_drawn = 1;
             sheet_commit();
         }
     }
@@ -5596,6 +5610,8 @@ static int l_cart_new(lua_State *L)
     free(proj_cover);
     proj_cover = NULL;
     set_copy(&proj_audio, &proj_audio_len, NULL, 0);
+    set_copy(&proj_sheet8, &proj_sheet8_len, NULL, 0);
+    proj_sheet_drawn = 0;
     extras_free();
     return 0;
 }
@@ -5660,18 +5676,25 @@ static int l_cart_save(lua_State *L)
     for (uint32_t i = 0; rt.flags && i < (uint32_t)sheet_cells(); i++)
         if (rt.flags[i])
             frows = i / per + 1;
+    /* the sheet as the file had it (SHEET8, byte for byte) while nothing is
+     * drawn on it, else whole as SHEET */
+    const int keep8 = proj_sheet8 && !proj_sheet_drawn && proj_sheet8_len >= 8 &&
+                      (uint32_t)(proj_sheet8[0] | proj_sheet8[1] << 8) == sw &&
+                      (uint32_t)(proj_sheet8[2] | proj_sheet8[3] << 8) == sh;
     /* cover (first: the menu reads only the start), code, sheet, map, its
      * layers, the sound bank, the flags, the sheet's named zones and their
      * boxes, then the sections kept from the file (3D models...) */
     enum { FIXED = 9 };
     const int nsec = FIXED + proj_extras;
     uint32_t sizes[FIXED + PROJ_EXTRA_MAX] = {
-        proj_cover ? 4u + (uint32_t)proj_cover_w * proj_cover_h * 4 : 0, (uint32_t)lua_len, 4 + sw * sh * 4,
+        proj_cover ? 4u + (uint32_t)proj_cover_w * proj_cover_h * 4 : 0, (uint32_t)lua_len,
+        keep8 ? proj_sheet8_len : 4 + sw * sh * 4,
         4 + mw * mh * 2, named ? 8u + (uint32_t)rt.nlayers * BM_LAYER_NAME + (uint32_t)(rt.nlayers - 1) * mw * mh * 2 : 0,
         proj_audio_len, frows ? 4 + per * frows : 0, rt.nzones ? 4u + (uint32_t)rt.nzones * BM_SPRITE_SIZE : 0,
         rt.nzones && rt.nboxes ? 4u + (uint32_t)rt.nboxes * BM_BOX_SIZE : 0 };
-    uint32_t types[FIXED + PROJ_EXTRA_MAX] = { BM_SEC_COVER, BM_SEC_LUA, BM_SEC_SHEET, BM_SEC_MAP, BM_SEC_LAYERS,
-                                               BM_SEC_AUDIO, BM_SEC_FLAGS, BM_SEC_SPRITES, BM_SEC_BOXES };
+    uint32_t types[FIXED + PROJ_EXTRA_MAX] = { BM_SEC_COVER, BM_SEC_LUA, keep8 ? BM_SEC_SHEET8 : BM_SEC_SHEET,
+                                               BM_SEC_MAP, BM_SEC_LAYERS, BM_SEC_AUDIO, BM_SEC_FLAGS, BM_SEC_SPRITES,
+                                               BM_SEC_BOXES };
     for (int i = 0; i < proj_extras; i++) {
         types[FIXED + i] = proj_extra[i].type;
         sizes[FIXED + i] = proj_extra[i].size;
@@ -5694,6 +5717,8 @@ static int l_cart_save(lua_State *L)
             memcpy(p + 4, proj_cover, sizes[i] - 4);
         } else if (i == 1) {
             memcpy(p, lua, lua_len);
+        } else if (i == 2 && keep8) {
+            memcpy(p, proj_sheet8, proj_sheet8_len);
         } else if (i == 2) {
             sheet_commit();
             put16(p, sw); put16(p + 2, sh);
@@ -8713,6 +8738,8 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     proj_cover = NULL;
     extras_free();
     set_copy(&proj_audio, &proj_audio_len, NULL, 0);
+    set_copy(&proj_sheet8, &proj_sheet8_len, NULL, 0);
+    proj_sheet_drawn = 0;
     cur = next;                         /* the options of this run, then none */
     bm_next_run(0, 0, -1, 0);
     if (bm_parse(data, len, &cart, err, sizeof err) != 0) {

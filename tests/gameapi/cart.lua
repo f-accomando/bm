@@ -167,6 +167,17 @@ local function save_checks()
   fset(6, 0)
   cart_load("/carts/GAPI.BM")
   check(fget(6) == 4 and fget(5, 7), "cart_write: the flags")
+  -- cart_save writes a sheet nothing was drawn on as the file had it (GAPI.BM's is a SHEET8 since
+  -- cart_write(sheet = true): cart_load gives its palette), one drawn on whole (a SHEET: no palette)
+  local code = { title = "game api", author = "tests", res = "640x360", lua = "function _draw() end" }
+  check(cart_load("/carts/GAPI.BM").palette, "cart_write(sheet = true): a SHEET8")
+  check(cart_save("/carts/GAPI2.BM", code), "cart_save, the sheet untouched")
+  check(cart_load("/carts/GAPI2.BM").palette and fget(6) == 4, "cart_save: the sheet as the file had it (SHEET8)")
+  sset(0, 0, 0xFF0000)
+  check(cart_save("/carts/GAPI2.BM", code), "cart_save, the sheet drawn on")
+  local drawn = cart_load("/carts/GAPI2.BM")
+  check(not drawn.palette and sget(0, 0) == 0xFF0000, "cart_save: a sheet drawn on goes whole (SHEET)")
+  cart_load("/carts/GAPI.BM")
   -- cart_sheet: a wider sheet keeps the flags on their cell (cell 9 is
   -- column 1 of row 1: 17 when there are 16 cells a row)
   fset(9, 1)
