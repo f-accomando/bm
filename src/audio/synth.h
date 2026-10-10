@@ -72,8 +72,9 @@
                                    curve, a sample backwards */
 #define SYNTH_CRUSH     29      /* low nibble: bits 1..15 kept of every sample (0: all); high
                                    nibble n: every value held n + 1 samples (coarse; 0: none) */
-#define SYNTH_TREMOLO   30      /* low nibble: the LFO moves the volume n/15 (tremolo); high
-                                   nibble: the voice ducks the others n/15 (sidechain) */
+#define SYNTH_TREMOLO   30      /* low nibble: the LFO (at LFO_RATE; none without it) moves the
+                                   volume n/15 (tremolo); high nibble: the voice ducks the
+                                   others n/15 of its envelope (sidechain) */
 #define SYNTH_CHORUS    31      /* send to the chorus, 0..255 */
 
 #define SYNTH_GATE      0x01    /* control: key down                 */

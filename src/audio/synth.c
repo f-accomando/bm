@@ -406,13 +406,11 @@ void synth_sample_ready(synth_sample_t *x, int16_t *pcm)
     uint32_t len = x->len, ls = x->loop_start;
     /* the guards: what the interpolation reads around the frames */
     for (unsigned ch = 0; ch < c; ch++) {
-        int16_t before = 0;
+        int16_t before = 0;             /* a loop from frame 0: what comes before it when it repeats */
         if (x->loop == SYNTH_LOOP_FWD && ls == 0)
             before = pcm[(len - 1) * c + ch];
         else if (x->loop == SYNTH_LOOP_PINGPONG && ls == 0)
             before = pcm[c + ch];
-        else if (len)
-            before = 0;
         pcm[-(int)c + (int)ch] = before;
         for (uint32_t g = 0; g < 3; g++) {
             int16_t after = 0;
@@ -543,7 +541,7 @@ static const synth_sample_t *sample_steps(const synth_t *s, synth_voice_t *v, ui
     const synth_sample_t *x = sample_of(s, v->smp);
     if (!x || !x->pcm || v->sdone)
         return NULL;
-    int64_t s0 = sample_step(s, x, inc0), s1 = sample_step(s, x, (uint32_t)((int32_t)inc0 + dinc * (int32_t)n));
+    int64_t s0 = sample_step(s, x, inc0), s1 = sample_step(s, x, inc0 + (uint32_t)dinc * n);
     int64_t d = n == SYNTH_BLOCK ? (s1 - s0) / SYNTH_BLOCK : (s1 - s0) / (int64_t)n;
     *st = v->sdir < 0 ? -s0 : s0;
     *dst = v->sdir < 0 ? -d : d;
