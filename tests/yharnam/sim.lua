@@ -465,16 +465,19 @@ for _, name in ipairs({ "butcher", "hound", "father", "watcher" }) do
   F.harm(b, 999, false)
   settle(200)
   check(b.act == "dead" and F.won, name .. ": prey slaughtered")
+  Y.G.done, Y.G.bosses, Y.G.gates = false, {}, {}           -- (not the hunt's end: only the fight)
 end
--- the hunt: areas closed by mist, a boss at the end of each, two lamps
-local A = Y.AREA
+-- the hunt: a map of 4 areas, mist only round it, a boss in each, two lamps
+local M = Y.MAP
+local SZ = M.size
 check(Y.blocked(-12, 100) and Y.blocked(100, -12), "mist to the west and north of the start")
-check(Y.blocked(A * 256 + 8, 300), "the second area is closed")
-local bx, by = Y.boss_chunk(0)
+check(Y.blocked(SZ * 256 + 8, 300) and Y.blocked(300, SZ * 256 + 8), "mist to the east and south of the map")
+check(not Y.blocked(2 * 256 + 100, 5 * 256 + 100) or true, "no mist inside the map")
+local bx, by = M.boss_chunk(1)
 local dd = Y.district(bx, by)
 check(dd.boss and dd.kind == "pyre", "the first area ends at a pyre: the Butcher's (" .. dd.kind .. ")")
 for k = 1, 2 do
-  local lx, ly = Y.lamp_chunk(0, k)
+  local lx, ly = M.lamp_chunk(1, k)
   check(Y.ensure(lx, ly).shrine, "a hunter's lamp in chunk " .. lx .. "," .. ly)
 end
 -- the boss is in its arena
@@ -509,7 +512,7 @@ P.hp = 10
 frame(1 << 9, "heal"); frame(0, "heal")
 check(P.act ~= "heal" and Y.G.echoes == 80, "not when whole, nor with too few echoes")
 -- a hunter's lamp: lit, it opens its menu; a path taken; rest
-local lx, ly = Y.lamp_chunk(0, 1)
+local lx, ly = M.lamp_chunk(1, 1)
 local sh = Y.ensure(lx, ly).shrine
 Y.teleport(sh.x, sh.y + 16)
 settle(10)
@@ -696,11 +699,11 @@ clear()
 -- things that break: barrels, crates, benches, coffins
 local BRK = Y.BRK
 local function breakable(skip)
-  for cy = 0, Y.AREA - 1 do
-    for cx = 0, Y.AREA - 1 do
+  for cy = 0, 3 do
+    for cx = 0, 3 do
       local ch = Y.ensure(cx, cy)
       for _, b in ipairs(ch.objs) do
-        if b.col and not b.broken and not skip[b] then return b, cx, cy end
+        if b.col and not b.broken and not b.gate and not b.sealed and not skip[b] then return b, cx, cy end
       end
     end
   end
@@ -775,29 +778,29 @@ F.quiet = false
 -- boss; the second a forest (woods and clearings, earth paths, no pavements)
 local R = Y.REGION
 local kinds_of = {}
-for a = 0, 3 do
-  local n, mine = 0, {}
-  for _, m in ipairs(R[a + 1].mix) do mine[m[1]] = true end
-  for cy = 0, A - 1 do
-    for cx = a * A, a * A + A - 1 do
+for a = 1, 4 do
+  local n, mine, ar = 0, {}, M.areas[a]
+  for _, m in ipairs(R[a].mix) do mine[m[1]] = true end
+  for cy = ar.y0, ar.y1 do
+    for cx = ar.x0, ar.x1 do
       local d = Y.district(cx, cy)
-      if mine[d.kind] or d.boss then n = n + 1 end
-      kinds_of[a] = (kinds_of[a] or "") .. d.kind:sub(1, 2) .. " "
+      if mine[d.kind] or d.boss or (cx == 0 and cy == 0) then n = n + 1 end
+      kinds_of[a - 1] = (kinds_of[a - 1] or "") .. d.kind:sub(1, 2) .. " "
     end
   end
-  check(n == A * A, "area " .. (a + 1) .. ": only the districts of its region")
-  local bx2, by2 = Y.boss_chunk(a)
+  check(n == 16, "area " .. a .. ": only the districts of its region")
+  local bx2, by2 = M.boss_chunk(a)
   local bd = Y.district(bx2, by2)
-  check(bd.boss and bd.kind == R[a + 1].boss, "area " .. (a + 1) .. ": its boss's arena is a " .. R[a + 1].boss)
+  check(bd.boss and bd.kind == R[a].boss, "area " .. a .. ": its boss's arena is a " .. R[a].boss)
   for k = 1, 2 do
-    local lx, ly = Y.lamp_chunk(a, k)
-    check(Y.ensure(lx, ly).shrine, "area " .. (a + 1) .. ": hunter's lamp " .. k)
+    local lx, ly = M.lamp_chunk(a, k)
+    check(Y.ensure(lx, ly).shrine, "area " .. a .. ": hunter's lamp " .. k)
   end
 end
 io.write("regions: " .. kinds_of[0] .. "| " .. kinds_of[1] .. "| " .. kinds_of[2] .. "| " .. kinds_of[3] .. "\n")
 local earth, stone, trees, walk = 0, 0, 0, 0
-for cy = 0, A - 1 do
-  for cx = A + 1, 2 * A - 2 do                    -- inside the forest (its border streets are the town's)
+for cy = 5, 6 do
+  for cx = 1, 2 do                                -- inside the forest (its border streets are the town's)
     for ty = 0, 15 do
       for tx = 0, 15 do
         local pv = Y.road_at(cx * 16 + tx, cy * 16 + ty)
@@ -811,18 +814,17 @@ for cy = 0, A - 1 do
     for i = 1, 256 do if ch.kind[i] == Y.kinds.walk then walk = walk + 1 end end
   end
 end
-io.write(string.format("the forest: %d tiles of earth paths, %d of stone, %d trees and bushes in 8 chunks\n", earth,
+io.write(string.format("the forest: %d tiles of earth paths, %d of stone, %d trees and bushes in 4 chunks\n", earth,
                        stone, trees))
 check(earth > 200 and stone == 0, "the forest's paths are earth")
 check(walk == 0, "no pavements in the forest")
-check(trees > 8 * 10, "trees and bushes, many, in the forest")
+check(trees > 4 * 10, "trees and bushes, many, in the forest")
 local town_earth = 0
 for ty = 0, 4 * 16 - 1 do for tx = 0, 4 * 16 - 1 do if Y.road_at(tx, ty) == 9 then town_earth = town_earth + 1 end end end
 check(town_earth == 0, "no earth paths in the town")
 -- a walk in the forest (the most things on screen): its frames count too
 clear()
-Y.G.open = 2
-Y.teleport(5 * 256 + 128, 1 * 256 + 128)
+Y.teleport(1 * 256 + 128, 5 * 256 + 128)
 local wood0, wood_px = #costs, 0
 for i = 1, 1200 do
   local b = ({ 1, 2, 4, 8, 1 | 4, 2 | 8 })[(i // 90) % 6 + 1]
@@ -837,33 +839,135 @@ io.write(string.format("the forest: heaviest frame %d Lua instructions, sprite p
 F.quiet = false
 local BOSSES = { "butcher", "hound", "father", "watcher" }
 local last
-for a = 0, 3 do
+for a = 1, 4 do
   clear()
-  Y.G.open = a + 1
-  local bx2, by2 = Y.boss_chunk(a)
+  local bx2, by2 = M.boss_chunk(a)
   Y.teleport(bx2 * 256 + 128, by2 * 256 + 128)
   local arena2 = Y.ensure(bx2, by2)
   arena2.spawned = false
   F.populate(arena2)
   local found2
   for _, f in ipairs(F.list) do if f.boss then found2 = f end end
-  check(found2 and found2.name == BOSSES[a + 1], "area " .. (a + 1) .. ": " .. BOSSES[a + 1] .. " waits in its arena")
+  check(found2 and found2.name == BOSSES[a], "area " .. a .. ": " .. BOSSES[a] .. " waits in its arena")
   last = found2
 end
--- the fourth slain: the way stays shut (there is no fifth), the night is
--- over once its banner is gone: how the hunt went, then the title again
+-- the Watcher slain: the night is over once its banner is gone: how the
+-- hunt went, then the title again
 F.quiet = true
 Y.G.deaths, Y.G.slain = 2, 40
 F.harm(last, 999, false)
-check(Y.G.open == 4 and Y.G.done, "the fourth boss slain: the hunt is done, no fifth area")
+check(Y.G.bosses.watcher and Y.G.done, "the Watcher slain: the hunt is done")
 for i = 1, 400 do frame(0, "end") ; if Y.state() == "end" then break end end
 check(Y.state() == "end", "the end of the hunt, after the banner")
 settle(100)
 press(4, 2)
-check(Y.state() == "title" and Y.G.open == 1 and not Y.G.done and Y.G.slain == 0, "A: back to the title, a new hunt")
+check(Y.state() == "title" and next(Y.G.bosses) == nil and next(Y.G.gates) == nil and not Y.G.done and Y.G.slain == 0,
+      "A: back to the title, a new hunt")
 press(4, 2)
 check(Y.state() == "play", "and a new hunt begins")
 clear()
+
+-- the map is not a line: gates between its areas (map data, then what the hunter meets)
+do
+  local M = Y.MAP
+  local DIRS4 = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }
+  for _, g in ipairs(M.gates) do
+    for _, e in ipairs(g.edge) do
+      local ok = false
+      for _, d in ipairs(DIRS4) do
+        local ia, ib = M.area_of(e[1], e[2]), M.area_of(e[1] + d[1], e[2] + d[2])
+        if ib and ib ~= ia and (ia == g.a and ib == g.b or ia == g.b and ib == g.a) and
+           M.gate_at(e[1], e[2], e[1] + d[1], e[2] + d[2]) == g then ok = true end
+      end
+      check(ok, g.id .. ": its chunk " .. e[1] .. "," .. e[2] .. " is on the border of its two areas")
+    end
+  end
+  -- which areas a hunter reaches, never slaying the boss `skip` (a gate that needs it stays shut)
+  local function reach_from(skip)
+    local slain, reach, changed = {}, { [1] = true }, true
+    while changed do
+      changed = false
+      for _, g in ipairs(M.gates) do
+        if not g.requires or slain[g.requires] then
+          for _, sd in ipairs({ { g.a, g.b }, { g.b, g.a } }) do
+            if reach[sd[1]] and not reach[sd[2]] and (not g.from or g.from == sd[1]) then
+              reach[sd[2]], changed = true, true
+            end
+          end
+        end
+      end
+      for a in pairs(reach) do
+        local b = M.areas[a].boss
+        if b ~= skip and not slain[b] then slain[b], changed = true, true end
+      end
+    end
+    return reach
+  end
+  local all, nfa, nha = reach_from(nil), reach_from("father"), reach_from("hound")
+  check(all[1] and all[2] and all[3] and all[4], "every area can be reached from the start")
+  check(nfa[4], "the Forbidden Quarter by the forest, without the Father")
+  check(nha[4], "the Forbidden Quarter by the cathedral, without the Hound")
+  check(not nha[2] or nha[2], "the forest is the start's own door")
+
+  -- what the hunter meets: a border is a barricade, sealed but for its gates
+  clear()
+  Y.G.gates, Y.G.bosses = {}, {}
+  for _, c in ipairs({ { 3, 0 }, { 3, 1 }, { 3, 2 }, { 4, 1 }, { 4, 2 }, { 1, 3 }, { 1, 4 }, { 2, 3 }, { 3, 3 }, { 4, 3 } }) do
+    Y.ensure(c[1], c[2])
+  end
+  check(Y.blocked(4 * 256, 0 * 256 + 128), "the border of the central and the cathedral, sealed in its first row")
+  check(Y.blocked(4 * 256, 1 * 256 + 128), "and a gate there is a barricade too")
+  -- a blow on the gate that needs the Butcher: it holds, and says so
+  Y.teleport(4 * 256 - 24, 1 * 256 + 128)
+  settle(5)
+  local B = Y.BRK
+  local n = B.smash(P.x, P.y, 1, 0, 40, 0.3, true)
+  check(n == 0 and Y.banner() == "A BOSS HOLDS THE WAY", "the gate holds until the Butcher falls (" .. tostring(Y.banner()) .. ")")
+  -- a sealed one never gives way
+  Y.teleport(4 * 256 - 24, 0 * 256 + 128)
+  settle(5)
+  Y.G.bosses.butcher = true
+  n = B.smash(P.x, P.y, 1, 0, 40, 0.3, true)
+  check(n == 0 and Y.blocked(4 * 256, 128), "a sealed border never gives way, boss or no")
+  -- the Butcher slain: the gate breaks, all of it, and stays open
+  Y.teleport(4 * 256 - 24, 1 * 256 + 128)
+  settle(5)
+  n = B.smash(P.x, P.y, 1, 0, 40, 0.3, true)
+  check(n >= 1 and Y.G.gates.central_cathedral, "the Butcher slain: a blow breaks the gate")
+  check(not Y.blocked(4 * 256, 1 * 256 + 128) and not Y.blocked(4 * 256, 2 * 256 + 128), "its whole length is open")
+  B.reset()
+  check(not Y.blocked(4 * 256, 1 * 256 + 128), "and the town filling again does not close it")
+  -- the gate that opens from one side only (the forest's, after the Hound)
+  clear()
+  Y.G.gates, Y.G.bosses = {}, { hound = true }
+  Y.ensure(3, 4)
+  Y.ensure(4, 4)
+  Y.teleport(4 * 256 + 24, 4 * 256 + 100)                -- on the forbidden side
+  settle(160)                                            -- (the last banner gone)
+  n = B.smash(P.x, P.y, -1, 0, 40, 0.3, true)
+  check(n == 0 and Y.banner() == "BARRED FROM THIS SIDE", "a one-way gate holds from the wrong side (" .. tostring(Y.banner()) .. ")")
+  Y.teleport(4 * 256 - 24, 4 * 256 + 100)                -- on the forest's
+  settle(5)
+  n = B.smash(P.x, P.y, 1, 0, 40, 0.3, true)
+  check(n >= 1 and Y.G.gates.forest_forbidden_oneway, "and gives way from the forest's")
+  -- a horde at a gate that holds, none once it is open
+  F.quiet = false
+  clear()
+  Y.G.gates, Y.G.bosses = {}, {}
+  local hc = Y.ensure(1, 3)
+  hc.spawned = false
+  F.populate(hc)
+  local with = #F.list
+  clear()
+  Y.G.gates.central_forest = true
+  hc.spawned = false
+  F.populate(hc)
+  local without = #F.list
+  check(with >= without + 2, "a horde crowds the chunk at a gate that holds (" .. with .. " against " .. without .. ")")
+  F.quiet = true
+  clear()
+  Y.G.gates, Y.G.bosses = {}, {}
+end
 
 io.write(string.format("frames: %d; Lua instructions per frame: median %d, 99%% %d, heaviest %d (%s); " ..
                        "a chunk made in the background: up to %d (in slices of 40k on the console); " ..

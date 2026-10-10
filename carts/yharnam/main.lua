@@ -1359,8 +1359,6 @@ local function fdiv(a, b) return floor(a) // b end   -- an integer, from pixels 
 -- coordinates, so neighbouring chunks agree on the streets they share.
 
 local PV_COBBLE, PV_SETTS, PV_FLAGS, PV_ALLEY, PV_WARM, PV_MARBLE, PV_DARK, PV_WET, PV_EARTH = 1, 2, 3, 4, 5, 6, 7, 8, 9
-local AREA = 4                           -- chunks to an area of the hunt (see below)
-
 -- The four regions of the hunt, one to an area (the user's wish: each its
 -- own place): the districts it is made of (weights, in order), the paving
 -- of its quarters, the kind of its boss's arena. Central Yharnam, the
@@ -1376,8 +1374,6 @@ local REGION = {
   { mix = { { "town", 45 }, { "chapel", 22 }, { "cemetery", 15 }, { "square", 10 }, { "pyre", 8 } },
     pave = { PV_DARK, PV_WET, PV_DARK, PV_SETTS }, boss = "chapel" },
 }
--- the region of chunk column cx (west of the start: the first; east of the last: the last)
-function REGION.of(cx) return REGION[min(#REGION, max(1, cx // AREA + 1))] end
 
 local corners, edges, districts = {}, {}, {}
 -- The paving of a quarter (3 x 3 blocks): all its streets have the same,
@@ -1388,22 +1384,98 @@ local function quarter_pave(i, j, reg)
   return P[hash(i // 3, j // 3, 41) % #P + 1]
 end
 
--- The hunt: areas of AREA x AREA chunks in a row eastwards (and AREA chunks
--- tall), each ending with its boss in a district of its kind; the next area
--- opens when the boss falls, so the hunter cannot just walk on for ever.
--- Each area has two hunter's lamps to light: one half way, one before the
--- boss. Echoes: what the slain leave; they heal, they buy strength at a
+-- The hunt (2026-10-10, the user's map): the map is 8 x 8 chunks in four quarters, the
+-- areas, each with its boss in a district of its kind and two hunter's lamps (one half
+-- way, one before the boss). No hub and no mist inside: the mist is only round the map.
+-- A border between two areas is a barricade of crates all along it: a gate where a few
+-- of its chunks are listed (edge), sealed everywhere else. A gate gives way to a blow
+-- once its boss is slain (requires), at once if it needs none; "oneway" only to a hunter
+-- on the side it opens from; "horde" crowds its chunks with prey until it has given
+-- way. Once broken a gate stays open (G.gates) for the whole hunt, whatever else the
+-- town does again. Echoes: what the slain leave; they heal, they buy strength at a
 -- lamp, a death costs some, and without them the hunt is lost.
-local G = { open = 1, echoes = 0, lit = {}, spawn = nil, lost = false, popups = {}, slots = {}, time = 0, deaths = 0,
-            slain = 0, done = false }
-local function boss_chunk(a) return a * AREA + AREA - 1, a % 2 == 0 and AREA - 1 or 0 end
-local function lamp_chunk(a, k)             -- k = 1 half way, 2 before the boss
-  local bx, by = boss_chunk(a)
-  if k == 2 then return bx - 1, by end
-  return a * AREA + 1, a % 2 == 0 and 2 or 1
+-- (carts/yharnam/map_schema.lua of the branch yharnam-nonlinear-map-schema, with its geometry
+-- put right: the forest and the cathedral do not touch, nor are two gates to share a border chunk.)
+local MAP = {
+  size = 8,
+  areas = {
+    { id = "central", name = "Central Yharnam", x0 = 0, y0 = 0, x1 = 3, y1 = 3, boss = "butcher",
+      bc = { 2, 2 }, lamps = { { 1, 1 }, { 2, 1 } } },
+    { id = "forest", name = "Forest", x0 = 0, y0 = 4, x1 = 3, y1 = 7, boss = "hound",
+      bc = { 1, 6 }, lamps = { { 2, 5 }, { 1, 5 } } },
+    { id = "cathedral", name = "Cathedral Ward", x0 = 4, y0 = 0, x1 = 7, y1 = 3, boss = "father",
+      bc = { 6, 1 }, lamps = { { 5, 1 }, { 6, 0 } } },
+    { id = "forbidden", name = "Forbidden Quarter", x0 = 4, y0 = 4, x1 = 7, y1 = 7, boss = "watcher",
+      bc = { 5, 6 }, lamps = { { 6, 5 }, { 5, 5 } } },
+  },
+  -- a, b: the two areas; edge: the chunks (of either side) it is in; type: "breakable", "oneway",
+  -- "horde+breakable"; requires: the boss to slay first; from: the area a oneway gate opens from
+  gates = {
+    { id = "central_forest", a = "central", b = "forest", type = "horde+breakable", edge = { { 1, 3 }, { 2, 3 } } },
+    { id = "central_cathedral", a = "central", b = "cathedral", type = "breakable", requires = "butcher",
+      edge = { { 3, 1 }, { 3, 2 } } },
+    { id = "forest_forbidden_oneway", a = "forest", b = "forbidden", type = "oneway", requires = "hound",
+      from = "forest", edge = { { 3, 4 }, { 3, 5 } } },
+    { id = "forest_forbidden", a = "forest", b = "forbidden", type = "breakable", requires = "hound",
+      edge = { { 3, 6 }, { 3, 7 } } },
+    { id = "cathedral_forbidden", a = "cathedral", b = "forbidden", type = "horde+breakable", requires = "father",
+      edge = { { 5, 3 }, { 6, 3 } } },
+    { id = "cathedral_central", a = "central", b = "cathedral", type = "oneway", from = "cathedral",
+      edge = { { 4, 3 } } },
+    { id = "forbidden_cathedral", a = "cathedral", b = "forbidden", type = "oneway", requires = "watcher",
+      from = "forbidden", edge = { { 4, 4 } } },
+  },
+  lamp = {}, horde = {},
+}
+-- the area (its number) a chunk is in; nil outside the map
+function MAP.area_of(cx, cy)
+  for i, a in ipairs(MAP.areas) do
+    if cx >= a.x0 and cx <= a.x1 and cy >= a.y0 and cy <= a.y1 then return i end
+  end
 end
--- chunks the hunter may walk: the areas open so far
-local function inside(cx, cy) return cy >= 0 and cy < AREA and cx >= 0 and cx < G.open * AREA end
+-- the region of a chunk (outside the map: of the nearest)
+function REGION.of(cx, cy)
+  return REGION[MAP.area_of(min(MAP.size - 1, max(0, cx)), min(MAP.size - 1, max(0, cy))) or 1]
+end
+function MAP.boss_chunk(a) return MAP.areas[a].bc[1], MAP.areas[a].bc[2] end
+function MAP.lamp_chunk(a, k) return MAP.areas[a].lamps[k][1], MAP.areas[a].lamps[k][2] end
+do
+  local ix = {}
+  for i, a in ipairs(MAP.areas) do
+    ix[a.id] = i
+    for k, l in ipairs(a.lamps) do MAP.lamp[key2(l[1], l[2])] = { a = i, k = k } end
+  end
+  for _, g in ipairs(MAP.gates) do
+    g.a, g.b, g.from = ix[g.a], ix[g.b], g.from and ix[g.from]
+    if g.type:find("horde", 1, true) then            -- its chunks, and the ones across the border
+      for _, e in ipairs(g.edge) do
+        MAP.horde[key2(e[1], e[2])] = g
+        for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+          local ia, ib = MAP.area_of(e[1], e[2]), MAP.area_of(e[1] + d[1], e[2] + d[2])
+          if ib and ib ~= ia and (ia == g.a and ib == g.b or ia == g.b and ib == g.a) then
+            MAP.horde[key2(e[1] + d[1], e[2] + d[2])] = g
+          end
+        end
+      end
+    end
+  end
+end
+-- the gate on the border between chunks (ax, ay) and (bx, by) (two areas): nil, sealed
+function MAP.gate_at(ax, ay, bx, by)
+  local ia, ib = MAP.area_of(ax, ay), MAP.area_of(bx, by)
+  for _, g in ipairs(MAP.gates) do
+    if g.a == ia and g.b == ib or g.a == ib and g.b == ia then
+      for _, e in ipairs(g.edge) do
+        if e[1] == ax and e[2] == ay or e[1] == bx and e[2] == by then return g end
+      end
+    end
+  end
+end
+local G = { echoes = 0, lit = {}, spawn = nil, lost = false, popups = {}, slots = {}, time = 0, deaths = 0,
+            slain = 0, done = false, bosses = {}, gates = {} }
+MAP.G = G
+-- chunks the hunter may walk: the map
+local function inside(cx, cy) return cx >= 0 and cx < MAP.size and cy >= 0 and cy < MAP.size end
 
 -- The town has an order (the user's wish): where the blocks round a corner
 -- are all town (houses, squares, pyres, chapels: not parks, cemeteries,
@@ -1421,7 +1493,7 @@ local function corner(i, j)
     local h = hash(i, j, 1)
     c = { x = i * CS + (h % 5) - 2, y = j * CS + ((h >> 3) % 5) - 2,
           plaza = (h >> 6) % 100 < 28, r = 3.6 + ((h >> 13) % 4) * 0.6,
-          pv = REGION.of(i - 1).wild and PV_EARTH or PV_FLAGS }
+          pv = REGION.of(i - 1, j - 1).wild and PV_EARTH or PV_FLAGS }
     if urban(i - 1, j - 1) and urban(i, j - 1) and urban(i - 1, j) and urban(i, j) then
       c.x, c.y, c.grid = i * CS, j * CS, true
     end
@@ -1440,7 +1512,7 @@ local function edge(i, j, dir)
     -- never missing, with lamps on both pavements; else lamps on one side
     local town = dir == 0 and urban(i, j - 1) and urban(i, j) or dir == 1 and urban(i - 1, j) and urban(i, j)
     local avenue = town and (dir == 0 and j or i) % 3 == 0
-    local reg = REGION.of(dir == 1 and i - 1 or i)
+    local reg = REGION.of(dir == 1 and i - 1 or i, dir == 1 and j or j - 1)
     if h % 100 < (reg.wild and 20 or 12) and not avenue and not (abs(i) <= 1 and abs(j) <= 1) then
       e = false
     else
@@ -1492,7 +1564,7 @@ local function district(cx, cy)
   if d then return d end
   local h = hash(cx, cy, 7)
   local v = (h % 1000) / 10
-  local reg = REGION.of(cx)
+  local reg = REGION.of(cx, cy)
   local kind = "town"
   if cx == 0 and cy == 0 then kind = "square"
   else
@@ -1503,8 +1575,9 @@ local function district(cx, cy)
   end
   -- the arena at the end of an area: the boss's kind of district
   local bossy = false
-  if cx >= 0 and cy >= 0 and cy < AREA and cx < #REGION * AREA then
-    local bx, by = boss_chunk(cx // AREA)
+  local ai = MAP.area_of(cx, cy)
+  if ai then
+    local bx, by = MAP.boss_chunk(ai)
     if cx == bx and cy == by then kind, bossy = reg.boss, true end
   end
   d = { kind = kind, boss = bossy, wild = reg.wild }
@@ -1599,6 +1672,7 @@ local chunks, slots = {}, {}
 -- run into them, a creature's blow or slam, a shot breaks them: they stop
 -- blocking the way. Broken, they stay so (gone: by chunk and object) until
 -- the town fills again (FOE.reset: a lamp, a death)
+local banner, banner_t = nil, 0
 local BRK = { kinds = { barrel = "barrel_broken", crate = "crate_broken", crates = "crates_broken",
                         bench = "bench_broken", coffin = "coffin_broken", coffin_up = "coffin_up_broken" },
               gone = {}, count = 0 }
@@ -2205,12 +2279,28 @@ local function gen(ch)
       end
     end
   end
+  -- the borders with another area, east and south of this chunk: a barricade of crates all
+  -- along (a gate, or sealed: MAP). Its colliders overlap: no gap to slip through
+  for _, d in ipairs({ { 1, 0 }, { 0, 1 } }) do
+    local nx, ny = cx + d[1], cy + d[2]
+    local ia, ib = MAP.area_of(cx, cy), MAP.area_of(nx, ny)
+    if ia and ib and ia ~= ib then
+      local g = MAP.gate_at(cx, cy, nx, ny)
+      for k = 0, 12 do
+        local x, y = (cx + d[1]) * CPX, (cy + d[2]) * CPX
+        if d[1] == 1 then y = py0 + 10 + k * 20 else x = px0 + 10 + k * 20 end
+        local o = add_obj(ch, "crates", x, y, nil, d[1] == 1 and { 6, 12 } or { 14, 3 })
+        o.gate, o.sealed = g, not g
+        if g and MAP.G.gates[g.id] then BRK.wreck(o) end      -- (G is the ground here)
+      end
+    end
+  end
   -- a hunter's lamp in the chunks that have one: on the street nearest the middle
-  if cx >= 0 and cy >= 0 and cy < AREA and cx < #REGION * AREA then
-    local a = cx // AREA
-    for k = 1, 2 do
-      local lx0, ly0 = lamp_chunk(a, k)
-      if lx0 == cx and ly0 == cy then
+  do
+    local lamp = MAP.lamp[key2(cx, cy)]
+    if lamp then
+      local a, k = lamp.a, lamp.k
+      do
         local best, bd
         for ly = 2, CS - 3 do
           for lx = 2, CS - 3 do
@@ -2234,7 +2324,7 @@ local function gen(ch)
         end
         if best then
           local x, y = wx(best[1]), wy(best[2]) + 4
-          local key = a * 10 + k
+          local key = (a - 1) * 10 + k
           local o = add_obj(ch, "shrine", x, y, nil, { 8, 4 })
           o.shrine = key
           ch.shrine = { x = x, y = y, key = key, area = a, k = k }
@@ -2418,6 +2508,7 @@ function BRK.smash_one(o, ux, uy)
   BRK.wreck(o)
   BRK.gone[o.key] = true
   BRK.count = BRK.count + 1
+  if o.gate then MAP.open(o.gate) end
   for _ = 1, 14 do
     local p = spawn(o.x + math.random(-5, 5), o.y - math.random(2, 12), ux * 1.3 + (math.random() - 0.5) * 2.2,
                     uy * 0.6 - 0.8 - math.random() * 1.6, 80 + math.random(70), 8)
@@ -2440,7 +2531,7 @@ function BRK.near(x, y, fn)
       local ch = chunk(cx, cy)
       if ch and ch.ready then
         for _, o in ipairs(ch.objs) do
-          if o.col and not o.broken and fn(o) then return o end
+          if o.col and not o.broken and not o.sealed and (not o.gate or MAP.can(o.gate)) and fn(o) then return o end
         end
       end
     end
@@ -2448,7 +2539,7 @@ function BRK.near(x, y, fn)
 end
 -- a blow from (x, y) towards (vx, vy): within reach, ahead (cone: the
 -- cosine; below -1 all round). Returns how many broke
-function BRK.smash(x, y, vx, vy, reach, cone)
+function BRK.smash(x, y, vx, vy, reach, cone, feel)
   local n = 0
   BRK.near(x, y, function(o)
     local dx, dy = o.x - x, o.y - y
@@ -2458,7 +2549,52 @@ function BRK.smash(x, y, vx, vy, reach, cone)
       n = n + 1
     end
   end)
+  -- the hunter's blow on a barricade that holds: it says why (feel)
+  if feel and n == 0 and banner_t < 60 then
+    local why
+    BRK.each_barred(x, y, function(o)
+      local dx, dy = o.x - x, o.y - y
+      local dd = sqrt(dx * dx + dy * dy)
+      if dd < reach + o.col.rx and (dd < 8 or (dx * vx + dy * vy) / dd > cone) then
+        why = o.sealed and "NO WAY THROUGH" or select(2, MAP.can(o.gate))
+        return true
+      end
+    end)
+    if why then banner, banner_t = why, 90; note(2, 110, 90, SQUARE, 50); note(1, 640, 60, METAL, 30) end
+  end
   return n
+end
+-- every barricade that holds (sealed, or a gate not yet to be broken) near (x, y)
+function BRK.each_barred(x, y, fn)
+  local pcx, pcy = fdiv(x, CPX), fdiv(y, CPX)
+  for cy = pcy - 1, pcy + 1 do
+    for cx = pcx - 1, pcx + 1 do
+      local ch = chunk(cx, cy)
+      if ch and ch.ready then
+        for _, o in ipairs(ch.objs) do
+          if o.col and not o.broken and (o.sealed or o.gate and not MAP.can(o.gate)) and fn(o) then return o end
+        end
+      end
+    end
+  end
+end
+-- a gate: true when a blow may break it; else false and why. A gate broken stays so.
+function MAP.can(g)
+  if G.gates[g.id] then return true end
+  if g.requires and not G.bosses[g.requires] then return false, "A BOSS HOLDS THE WAY" end
+  if g.from and MAP.area_of(fdiv(P.x, CPX), fdiv(P.y, CPX)) ~= g.from then return false, "BARRED FROM THIS SIDE" end
+  return true
+end
+-- broken: the whole gate is open, in every chunk, for the rest of the hunt
+function MAP.open(g)
+  if G.gates[g.id] then return end
+  G.gates[g.id] = true
+  for _, ch in pairs(chunks) do
+    for _, o in ipairs(ch.objs) do
+      if o.gate == g and not o.broken then BRK.wreck(o) end
+    end
+  end
+  banner, banner_t = "A WAY IS OPEN", 150
 end
 -- something (r wide) running into one at (x, y) moving (vx, vy) breaks it
 function BRK.touch(x, y, vx, vy, r)
@@ -2492,7 +2628,7 @@ function BRK.reset()
   BRK.gone = {}
   for _, ch in pairs(chunks) do
     for _, o in ipairs(ch.objs) do
-      if o.broken then o.broken, o.s, o.z, o.col.off = nil, SPR[o.name], o.y, nil end
+      if o.broken and not (o.gate and G.gates[o.gate.id]) then o.broken, o.s, o.z, o.col.off = nil, SPR[o.name], o.y, nil end
     end
   end
 end
@@ -2584,7 +2720,6 @@ end
 
 local state = "title"
 local t = 0
-local banner, banner_t = nil, 0
 local near_lamp
 
 local function lamp_at(key) return lamp_state[key] end
@@ -2999,10 +3134,12 @@ do
     local cx, cy = ch.cx, ch.cy
     if abs(cx) + abs(cy) <= 1 or not inside(cx, cy) then return end     -- the first streets are quiet
     local d = district(cx, cy)
-    local area = cx // AREA
+    local area = (MAP.area_of(cx, cy) or 1) - 1
     local r = newrng(hash(cx, cy, 23 + FOE.respawns))
     local pool = POOL[d.kind .. (area + 1)] or POOL[d.kind] or POOL.town
     local n = (d.kind == "town" or d.kind == "woods") and irange(r, 0, 2) or irange(r, 1, 3)
+    local horde = MAP.horde[key2(cx, cy)]
+    if horde and not G.gates[horde.id] then n = n + irange(r, 3, 4) end     -- a horde at a gate that holds
     if ch.shrine then n = min(n, 1) end                 -- a little peace by a hunter's lamp
     local function spot()
       for _ = 1, 16 do
@@ -3112,8 +3249,11 @@ do
         FOE.slain[o.home] = true
         FOE.won, FOE.won_t = o.def.title, 0
         if FOE.boss == o then FOE.boss = nil end
-        G.open = min(#REGION, max(G.open, o.area + 2))   -- the way on, to the next area
-        if o.area + 1 >= #REGION then G.done = true end   -- the last: the night is over
+        G.bosses[o.name] = true                           -- the gates that wait for it give way to a blow
+        for _, g in ipairs(MAP.gates) do
+          if g.requires == o.name and not G.gates[g.id] then banner, banner_t = "A WAY GIVES", 200 end
+        end
+        if o.name == "watcher" then G.done = true end     -- the last: the night is over
         sfx_roar()
       end
     elseif flinch and not reeling then
@@ -3140,7 +3280,7 @@ do
   -- A charged blow in the back staggers (then comes the visceral attack)
   function FOE.strike(dmg, reach, cone, charged)
     local v = DIRV[P.dir + 1]
-    BRK.smash(P.x, P.y, v[1], v[2], reach, cone)
+    BRK.smash(P.x, P.y, v[1], v[2], reach, cone, true)
     local n = 0
     for _, o in ipairs(list) do
       if o.act ~= "dead" and o.act ~= "held" then
@@ -4013,7 +4153,8 @@ end
 
 -- a new hunt: no echoes, no lamps lit, the first area only, from the start
 local function new_hunt()
-  G.open, G.echoes, G.lit, G.spawn, G.lost, G.popups, G.slots = 1, 0, {}, nil, false, {}, {}
+  G.echoes, G.lit, G.spawn, G.lost, G.popups, G.slots = 0, {}, nil, false, {}, {}
+  G.bosses, G.gates = {}, {}
   G.time, G.deaths, G.slain, G.done = 0, 0, 0, false
   apply_paths()
   for k in pairs(FOE.slain) do FOE.slain[k] = nil end
@@ -4330,9 +4471,9 @@ YHARNAM = { road_at = road_at, district = district, chunk = chunk, ensure = ensu
             blocked = blocked, lamps = lamp_state, kinds = { road = K_ROAD, walk = K_WALK, house = K_HOUSE },
             camera = function() return cam_x, cam_y end, CS = CS, TS = TS, SPR = SPR, FACADE = FACADE,
             HUNT = HUNT, STA = STA, FOES = FOES, FOE = FOE, hurt = hurt, flash = function() return flash end, dirs = DIRS,
-            G = G, AREA = AREA, boss_chunk = boss_chunk, lamp_chunk = lamp_chunk, PATHS = PATHS, menu = menu,
+            G = G, MAP = MAP, PATHS = PATHS, menu = menu,
             apply_paths = apply_paths, path_weights = path_weights, BLADE = BLADE, parts = parts, BRK = BRK,
-            REGION = REGION, state = function() return state end,
+            REGION = REGION, state = function() return state end, banner = function() return banner end,
             teleport = function(x, y)
               P.x, P.y = x, y
               cam_x, cam_y = x - W / 2, y - H * 0.62
@@ -4535,10 +4676,10 @@ local function visible_chunks(margin)
   return out
 end
 
--- the edge of the hunt (the areas open so far): a drifting wall of mist
+-- the edge of the map: a drifting wall of mist
 local MIST = { 0xC8D0D8, 0x8890A0, 0x585C68 }
 local function draw_edge()
-  local x1, y1 = G.open * AREA * CPX, AREA * CPX
+  local x1, y1 = MAP.size * CPX, MAP.size * CPX
   local ya, yb = max(0, cam_y - 4), min(y1, cam_y + H + 4)
   local xa, xb = max(0, cam_x - 4), min(x1, cam_x + W + 4)
   for _, e in ipairs({ { 0, 1 }, { x1, -1 } }) do
@@ -4636,7 +4777,7 @@ local function draw_scene()
     end
   end
   -- the lights
-  dark_begin(AMBIENT + (REGION.of(fdiv(cam_x + W / 2, CPX)).wild and 1 or 0))   -- moonlight in the forest
+  dark_begin(AMBIENT + (REGION.of(fdiv(cam_x + W / 2, CPX), fdiv(cam_y + H / 2, CPX)).wild and 1 or 0))   -- moonlight in the forest
   local fire_near
   for _, ch in ipairs(near) do
     for _, l in ipairs(ch.lights) do

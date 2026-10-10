@@ -4217,7 +4217,7 @@ def test_yharnam(b, opts):
                 if any("YHARNAM" in l for l in text):
                     break
         assert img[0] == 640 and img[1] == 360, img[:2]
-        assert any("YHARNAM" in l for l in text) and any("A: START" in l for l in text), "\n".join(text)
+        assert any("YHARNAM" in l for l in text) and any("START" in l for l in text), "\n".join(text)
         w, h, px = img
         for x, y in ((0, 0), (639, 359), (BX - 1, 180), (BX + 360, 180)):
             assert px[(y * w + x) * 3:(y * w + x) * 3 + 3] == b"\0\0\0", ("border", x, y)
@@ -4262,13 +4262,13 @@ def test_yharnam(b, opts):
             cols = [tuple(img[2][i:i + 3]) for i in range(0, len(img[2]), 3)]
             dark = sum(r + g + b < 120 for r, g, b in cols)
             warm = sum(r > 200 and g > 120 and b < 150 for r, g, b in cols)
-            if not any("A: START" in l for l in text) and warm > 20:
+            if not any("START" in l for l in text) and warm > 20:
                 break
             time.sleep(0.4)
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-play.png"))
         print(f"     yharnam: {dark} dark pixels of 129600, {warm} warm (lamps, fires)")
-        assert not any("A: START" in l for l in text), "\n".join(text)
+        assert not any("START" in l for l in text), "\n".join(text)
         assert not any(w in l for l in text for w in ("Square", "lamps")), "\n".join(text)
         assert dark > 60000, dark               # a night, nearly dark
         assert warm > 20, warm                  # warm lamps and fires
