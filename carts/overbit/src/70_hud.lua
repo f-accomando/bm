@@ -15,7 +15,9 @@ local KEYS = {
   pad = { fire = "R2", fire2 = "L2", ab1 = "L1", ab2 = "R1", ult = "Y", jump = "A", melee = "R3", reload = "X" },
   kbd = { fire = "j", fire2 = "k", ab1 = "shift", ab2 = "e", ult = "q", jump = "space", melee = "v", reload = "r" },
 }
+local NINTENDO = { ult = "X", jump = "B", reload = "Y" }     -- the RGB30's .b16 (10_input)
 function Hud.key(action)
+  if Input.cmd.pad and Input.nintendo and NINTENDO[action] then return NINTENDO[action] end
   local set = Input.cmd.pad and KEYS.pad or KEYS.kbd
   return set[action]
 end

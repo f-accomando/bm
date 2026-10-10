@@ -68,6 +68,8 @@ static int gpu_big;                     /* M37: the GPU enlarges it (else the AR
 static g16_t g;
 static int ready;
 static uint32_t con_w, con_h, t0, deadline;
+static uint32_t frame_end;          /* when the last frame was over: the drawing's start */
+static int probe_frames, probe_gave;    /* PROBE: see the end of menu_ui_frame */
 static float scroll;                /* first visible row, eased */
 static float tab_shift;             /* the tabs' x, eased: < 0 while the first one hides */
 static int first_row;
@@ -1206,6 +1208,7 @@ int menu_ui_open(framebuffer_t *fb)
     pointer_env(1, SW, SH);
     t0 = timer_ticks();
     deadline = t0 + FRAME_US;
+    frame_end = t0;
     return 0;
 }
 
@@ -1498,15 +1501,47 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             enlarge(fb);
         }
     }
-    fb_flip(fb);
-    /* what is left of the frame: the Market's work, if any (a little
-     * margin for the flip), then the wait */
-    if (v->idle && (int32_t)(deadline - 1500 - timer_ticks()) > 0)
-        v->idle(deadline - 1500);
-    while ((int32_t)(timer_ticks() - deadline) < 0)
-        ;
+    const uint32_t drawn = timer_ticks();
+    int paced = fb_flip(fb);
+#ifndef BM_RGB30
+    paced = 0;                          /* the Pi keeps its timer pacing, as it was */
+#endif
+    const uint32_t flipped = timer_ticks();
+    const int32_t slack = (int32_t)(deadline - 1500 - flipped);
+    int gave = 0;
+    if (paced) {
+        /* RGB30: the flip waited for the panel's frame start (16,675 us, a
+         * hair longer than FRAME_US), so deadline falls behind it and the
+         * slack below never comes: the Market never loaded. The frame is the
+         * panel's: free time up to the next flip, less this frame's drawing
+         * (from the end of the last one to the flip) and the margin; no wait */
+        const int32_t work = (int32_t)(drawn - frame_end);
+        const uint32_t until = flipped + FRAME_US - (uint32_t)work - 1500;
+        if (v->idle && work >= 0 && (int32_t)(until - flipped) > 0) {
+            v->idle(until);
+            gave = 1;
+        }
+    } else {
+        /* what is left of the frame: the Market's work, if any (a little
+         * margin for the flip), then the wait */
+        if (v->idle && (int32_t)(deadline - 1500 - timer_ticks()) > 0) {
+            v->idle(deadline - 1500);
+            gave = 1;
+        }
+        while ((int32_t)(timer_ticks() - deadline) < 0)
+            ;
+    }
+    /* PROBE (2026-10-10, the RGB30 Market that never loads): of 300 frames,
+     * how many gave the background work time, and the slack of the timer
+     * path after the flip; to remove with its two statics once confirmed */
+    probe_gave += gave;
+    if (++probe_frames >= 300) {
+        kprintf("menu probe: idle time in %d/300 frames, slack %d us, paced %d\n", probe_gave, (int)slack, paced);
+        probe_frames = probe_gave = 0;
+    }
     uint32_t now = timer_ticks();
     deadline += FRAME_US;
     if ((int32_t)(now - deadline) > 0)
         deadline = now + FRAME_US;
+    frame_end = now;
 }

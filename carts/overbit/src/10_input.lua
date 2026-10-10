@@ -17,6 +17,11 @@
 -- dev kit    Share (Select)      Tab
 -- hero       down (in spawn)     H
 --
+-- The .b16 on the RGB30 (Nintendo layout: X top, A right, B bottom, Y left, and
+-- the game gets the letters printed on the console): the four face buttons
+-- sit where the DS4's do, so jump is B (bottom), crouch A (right), reload Y
+-- (left) and the ultimate X (top). The .bm keeps the DS4's bits.
+--
 -- The menus (title, hero select, lobby, benchmark) confirm and go back with
 -- the system's buttons, btn("ok") and btn("back"): cross and circle on the
 -- DS4, B and A on the RGB30 (confirm=a swaps them), never the A and B bits
@@ -45,6 +50,9 @@ Input.sens = 1.0                  -- look speed (dev menu)
 
 local function held(name) return cmd[name] end
 
+local nintendo = false            -- the .b16 on the console's own buttons: the face buttons by position
+Input.nintendo = false
+
 local named = false               -- btn("ok") exists (a runtime from before 2026-10-04: frames.py --root)
 
 function Input.init()
@@ -52,10 +60,20 @@ function Input.init()
   named = pcall(btn, "ok")
 end
 
+local function layout_check()
+  local ok, c = pcall(controller, 1)
+  nintendo = not OVERBIT_TV_BM and ok and type(c) == "table" and c.layout == "nintendo"
+  Input.nintendo = nintendo
+end
+
 -- one frame: fills cmd (and cmd.pressed_* for the edges)
 function Input.read()
   local p = pad(1) | pad()
   local kd = keydown
+  Input.frames = (Input.frames or 0) + 1
+  if Input.frames % 30 == 1 then layout_check() end      -- a Bluetooth pad can come and go
+  local pj, pc, pu, pr = PB.A, PB.B, PB.Y, PB.X          -- jump, crouch, ultimate, reload
+  if nintendo then pj, pc, pu, pr = PB.B, PB.A, PB.X, PB.Y end
   local function b(bit) return p & bit ~= 0 end
   -- movement: left stick, or WASD
   local sx, sy = stick(1)
@@ -79,10 +97,10 @@ function Input.read()
     fire2 = b(PB.L2) or kd(K.K) or kd(K.X),
     ab1 = b(PB.L1) or kd(K.LSHIFT) or kd(K.RSHIFT),
     ab2 = b(PB.R1) or kd(K.E),
-    ult = b(PB.Y) or kd(K.Q),
-    jump = b(PB.A) or kd(K.SPACE),
-    crouch = b(PB.B) or kd(K.C) or kd(K.LCTRL),
-    reload = b(PB.X) or kd(K.R),
+    ult = b(pu) or kd(K.Q),
+    jump = b(pj) or kd(K.SPACE),
+    crouch = b(pc) or kd(K.C) or kd(K.LCTRL),
+    reload = b(pr) or kd(K.R),
     melee = b(PB.R3) or kd(K.V),
     menu = b(PB.START) or kd(K.ENTER),
     dev = b(PB.SELECT) or kd(K.TAB),
