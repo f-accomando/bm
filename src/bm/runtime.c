@@ -968,13 +968,20 @@ static int l_zone(lua_State *L)
     return 6;
 }
 
+/* strnlen (POSIX, not C11: bmhost builds this file as C11) */
+static size_t name_len(const char *s, size_t max)
+{
+    const char *end = memchr(s, 0, max);
+    return end ? (size_t)(end - s) : max;
+}
+
 /* zones() -> the names of the zones, in their order */
 static int l_zones(lua_State *L)
 {
     lua_createtable(L, rt.nzones, 0);
     for (int i = 0; i < rt.nzones; i++) {
         lua_pushlstring(L, (const char *)rt.zones + 4 + i * BM_SPRITE_SIZE,
-                        strnlen((const char *)rt.zones + 4 + i * BM_SPRITE_SIZE, BM_MODEL_NAME));
+                        name_len((const char *)rt.zones + 4 + i * BM_SPRITE_SIZE, BM_MODEL_NAME));
         lua_rawseti(L, -2, i + 1);
     }
     return 1;
@@ -5578,7 +5585,7 @@ static int l_cart_save(lua_State *L)
             put16(p, mw); put16(p + 2, mh); put16(p + 4, (uint32_t)rt.nlayers);
             uint8_t *q = p + 8;
             for (int l = 0; l < rt.nlayers; l++, q += BM_LAYER_NAME)
-                memcpy(q, rt.layer_name[l], strnlen(rt.layer_name[l], BM_LAYER_NAME));
+                memcpy(q, rt.layer_name[l], name_len(rt.layer_name[l], BM_LAYER_NAME));
             for (int l = 1; l < rt.nlayers; l++)
                 for (uint32_t k = 0; k < mw * mh; k++, q += 2)
                     put16(q, rt.layer[l][k]);

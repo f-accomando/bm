@@ -733,6 +733,7 @@ local CONTROLS = {
   "attack", "decay", "sustain", "release", "shape", "drive", "noise", "fenv", "fdecay",
   "lfo", "wah", "pwm", "duty", "wave", "vib", "vibhz", "detune", "pitch", "ptime",
   "fm", "fmh", "raw", "scale",
+  "crush", "coarse", "vowel", "chorus", "trem", "duck", "begin",
 }
 local ALIAS = { sound = "s", clip = "legato", resonance = "res", lpq = "res", ctf = "cutoff" }
 
@@ -1316,7 +1317,12 @@ end
 local DRUM_NOTE = {
   kick = 36, punch = 36, chipkick = 36, snare = 50, clap = 50, rim = 50, chipsnr = 50,
   hat = 72, openhat = 72, chiphat = 72, shaker = 72, tom = 45, crash = 60, cowbell = 60,
+  -- the console's kit by its drums' names: samples, at their own speed on C4
+  bd = 60, sd = 60, hh = 60, oh = 60, cp = 60, cb = 60,
 }
+-- the kits: n ("kit:2") picks the drum, played at its own speed (play()
+-- and instrument() know "kit:2" too)
+local KIT = { kit = true, pump = true }
 local DEFAULT = "triangle"         -- the instrument of a pattern that names none
 
 -- riff's names -> the keys of tone() / play()
@@ -1327,6 +1333,8 @@ local TONE = {
   noise = "noise", fenv = "fenv", fdecay = "fdecay", lfo = "lfo", wah = "wah", pwm = "pwm",
   duty = "duty", wave = "wave", vib = "vib", vibhz = "vibhz", detune = "detune",
   pitch = "pitch", ptime = "ptime", fm = "depth", fmh = "ratio", raw = "raw",
+  crush = "crush", coarse = "coarse", vowel = "vowel", chorus = "chorus", trem = "trem", duck = "duck",
+  begin = "begin",
 }
 local FILTER = { lpf = "lp", hpf = "hp", bpf = "bp" }
 
@@ -1345,6 +1353,7 @@ local function sound_of(v)
   if v.tone then for k, x in pairs(v.tone) do st[k] = x; has = true end end
   local s = v.s
   if s == nil then s = DEFAULT end
+  if KIT[s] and v.n then s = s .. ":" .. floor(v.n + 0.5) end       -- "kit:2": the kit's drum 2
   if not has then return s end
   st.s = s
   return st
@@ -1352,10 +1361,12 @@ end
 R.sound_of = sound_of
 
 -- the notes of a value (a list): note, n on its scale (a drum's n moves
--- it in semitones: "kick:2"), or the instrument's own note
+-- it in semitones: "kick:2"; a kit's picks the drum: "kit:2"), or the
+-- instrument's own note
 local function notes_of(v)
   if v.notes then return v.notes end
   if v.note then return { note_num(v.note) } end
+  if KIT[v.s] then return { 60 } end
   local d = DRUM_NOTE[v.s]
   if v.n and (v.scale or not d) then return { degree(v.scale or "C:major", v.n) } end
   return { (d or 48) + (v.n or 0) }
@@ -1613,6 +1624,7 @@ function R.bake(pat, opt)
   local function inst_index(v)
     local s = v.s
     if s == nil then s = DEFAULT end
+    if KIT[s] and v.n then s = s .. ":" .. floor(v.n + 0.5) end
     s = tostring(s)
     if not inst_of[s] then
       inst[#inst + 1] = s

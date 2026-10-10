@@ -96,8 +96,70 @@ static int same_name(const char *a, const char *b)
     return !*a && !*b;
 }
 
+/* the bank's sound of that name, else the preset's, or NULL */
+static const au_sound_t *find_sound(const au_bank_t *b, const char *name)
+{
+    for (int i = 0; b && i < b->nsounds; i++)
+        if (same_name(b->sound[i].name, name))
+            return &b->sound[i];
+    int p = au_preset_find(name);
+    return p < 0 ? NULL : &au_presets[p].s;
+}
+
+/* A sound of samples (the "kit" preset, a sound of the bank on a sample)
+ * as "NAME:N": the same on its N-th sample after (riff's "kit:2"), within
+ * the kit or the bank's samples; a drum of the kit by its name ("bd",
+ * "sd"...): the "kit" preset on it. The copy is the caller's until the
+ * next call. NULL: none. */
+static const au_sound_t *sample_sound(const au_bank_t *b, const char *name)
+{
+    static au_sound_t one;
+    const au_sound_t *base = NULL;
+    int n = 0, k = synth_kit_find(name);
+    if (k >= 0) {
+        base = find_sound(NULL, "kit");
+        n = k - SYNTH_KIT;
+    } else {
+        const char *colon = strchr(name, ':');
+        char head[12];
+        size_t len = colon ? (size_t)(colon - name) : 0;
+        if (!colon || !len || len >= sizeof head)
+            return NULL;
+        memcpy(head, name, len);
+        head[len] = 0;
+        const char *c = colon + 1;
+        int neg = *c == '-';
+        c += neg;
+        if (*c < '0' || *c > '9')
+            return NULL;
+        for (; *c; c++) {
+            if (*c < '0' || *c > '9' || n > 1000)
+                return NULL;
+            n = n * 10 + (*c - '0');
+        }
+        n = neg ? -n : n;
+        base = find_sound(b, head);
+    }
+    if (!base || base->wave != SYNTH_SAMPLE)
+        return NULL;
+    one = *base;
+    int m = one.tone[SYNTH_MOD1 - SYNTH_CUTOFF];
+    int first = k >= 0 || m >= SYNTH_KIT ? SYNTH_KIT : 0;
+    int count = first ? SYNTH_KIT_SIZE : b ? b->nsamples : 0;
+    if (count > 0) {
+        int r = k >= 0 ? n : (m - first + n) % count;
+        one.tone[SYNTH_MOD1 - SYNTH_CUTOFF] = (uint8_t)(first + (r < 0 ? r + count : r));
+    }
+    if (k >= 0) {
+        memset(one.name, 0, sizeof one.name);
+        strncpy(one.name, name, sizeof one.name - 1);
+    }
+    return &one;
+}
+
 /* the sound called (or numbered) as the value at idx: the bank's, else a
- * preset; raises an error if there is none */
+ * preset, else a sample's sound ("kit:2", "bd"); raises an error if there
+ * is none */
 static const au_sound_t *named_sound(lua_State *L, int idx)
 {
     const au_bank_t *b = au_lua_bank ? au_lua_bank() : 0;
@@ -110,13 +172,12 @@ static const au_sound_t *named_sound(lua_State *L, int idx)
     const char *name = lua_tostring(L, idx);
     if (!name)
         luaL_error(L, "a sound's name or number");
-    for (int i = 0; b && i < b->nsounds; i++)
-        if (same_name(b->sound[i].name, name))
-            return &b->sound[i];
-    int p = au_preset_find(name);
-    if (p < 0)
+    const au_sound_t *s = find_sound(b, name);
+    if (!s)
+        s = sample_sound(b, name);
+    if (!s)
         luaL_error(L, "no instrument called \"%s\" (instruments() lists them)", name);
-    return &au_presets[p].s;
+    return s;
 }
 
 void au_lua_sound(lua_State *L, int idx, au_sound_t *s)
@@ -161,17 +222,18 @@ void au_lua_sound(lua_State *L, int idx, au_sound_t *s)
 
 int au_lua_instrument(lua_State *L)
 {
-    int i = au_preset_find(luaL_checkstring(L, 1));
-    if (i < 0) {
+    const char *name = luaL_checkstring(L, 1);
+    int i = au_preset_find(name);
+    const au_sound_t *s = i >= 0 ? &au_presets[i].s : sample_sound(NULL, name);   /* "kit:2", "sd" */
+    if (!s) {
         lua_pushnil(L);
         return 1;
     }
-    const au_preset_t *p = &au_presets[i];
-    const au_sound_t *s = &p->s;
     lua_createtable(L, 0, 16);
-    lua_pushstring(L, s->name); lua_setfield(L, -2, "name");
-    lua_pushstring(L, p->kind); lua_setfield(L, -2, "kind");
-    lua_pushstring(L, p->about); lua_setfield(L, -2, "about");
+    lua_pushstring(L, i >= 0 ? s->name : name); lua_setfield(L, -2, "name");
+    lua_pushstring(L, i >= 0 ? au_presets[i].kind : "drum"); lua_setfield(L, -2, "kind");
+    lua_pushstring(L, i >= 0 ? au_presets[i].about : "a drum of the console's kit (a sample)");
+    lua_setfield(L, -2, "about");
     static const char *const keys[] = { "wave", "duty", "vol", "a", "d", "s", "r", "ptime", "vdepth", "vrate" };
     const int vals[] = { s->wave, s->duty, s->vol, s->attack, s->decay, s->sustain, s->release, s->pitch_time,
                          s->vib_depth, s->vib_rate };

@@ -291,6 +291,12 @@ The player and the 48-byte sound needed nothing new: the sound's tone is registe
 * `bitbass` (bass): a resonant saw bass crushed to 4 bits at a quarter of the rate.
 * `vinyl` (fx): crackle (80 clicks a second), a little pink hiss, the highs rounded.
 
+### riff (`src/script/riff.lua`)
+* New controls, as superdough's names: `:crush(bits)`, `:coarse(n)`, `:vowel("a")`, `:chorus(x)`, `:trem(x)`, `:duck(x)`, `:begin(x)` (tone()'s units: `crush` 1..15, `coarse` 1..16, the others 0..1). The rest goes through `:tone{curve = "fold", color = "pink", density = .2, reverse = true}`.
+* **The kit**: `s "kit:2"` (or `s "kit" :n "<0 2>"`) picks the kit's drum, at its own speed (the note C4 when none is given); `pump` too. The drums by their names, as in Strudel: `s "bd sd hh oh cp cb"` (with `:2` two semitones up, as for every drum); `rim` and `tom` stay the synthesizer's presets (the kit's are `kit:5`, `kit:6`). `R.bake` keeps `kit:0`, `kit:1`... as instruments of their own.
+* In C (`src/audio/lua_tone.c`): `play()`, `play_at()`, `tone{s = ...}` and `instrument()` know a sample's sound as `"NAME:N"`, the same on its N-th sample after (wrapping; the kit's eight, or the bank's samples for a sound of the bank), and the kit's drums by name (after the bank's sounds and the presets).
+* `make test-riff`: the kit's notes, `kit:2`, the new controls into a voice's registers (read back with `apu()`), `instrument("kit:3")`, bake, and a live-code example with all of them. bmhost did not compile with GCC 15 (`strnlen` is POSIX, not C11): two uses in `src/bm/runtime.c` now go through a local `name_len()`.
+
 ### Cost
 Host (x86, the same C), 8 voices, ns a block of 64 frames, against 8 saws through a resonant filter with a little room (the old sound, 4.2% of the Pi's CPU measured before): mono samples ×1.12, stereo samples ×1.69, pink noise ×1.11, a folding drive ×1.11, the vowel ×1.58, crush and coarse ×1.14, the chorus send ×1.01, **all of it at once on all 8 (and a ducking voice) ×2.14**. Scaled to the Pi: about +0.5 points for samples, +2.4 for vowels on every voice, **≈ +5 points (≈ 9% of the CPU) for everything at once**, under the budget of +8. ARM1176 code (kernel flags): Hermite mono 41 instructions a sample, stereo 70; the vowel's three filters 39 (36 of them float, three independent chains). The Pi's number is to be read on the console: Settings > Screen and sound > Test the sound prints "synth N us per 256 samples".
 
