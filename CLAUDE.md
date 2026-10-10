@@ -159,7 +159,7 @@ Non ricopiare qui la cronaca. Prima di modificare un'area, leggere il doc o i fi
 
 - SDK, Studio, Animator, Mesh, Pixel: `sdk/README.md`, `carts/{editor,studio,animator,mesh,pixel}/`, `src/script/bm3d.lua`.
 - API giochi, bmlib, bmnet, salvataggi a 8 slot: `docs/API.md`, `src/script/bmlib.lua`, `src/script/bmnet.lua`.
-- Overbit: `carts/overbit/` (`build.py`, `art/`). Qualità: solo 1080p (GPU) e 640×360 (ARM); il gioco sceglie il resto (`src/85_quality.lua`). Bench a flag: `cart_config("overbit_bench")`, `./easy_install.sh bench`.
+- Overbit: `carts/overbit/` (`build.py`, `art/`). Qualità: il `.bm` 320×180 (ARM), 720p e 1080p (GPU), con `OVERBIT_TV_BM` dal Makefile; il `.b16` sulla TV 640×360 (ARM) e 1080p (GPU); il gioco sceglie il resto (`src/85_quality.lua`). Bench a flag: `cart_config("overbit_bench")`, `./easy_install.sh bench`.
 - Yharnam: `carts/yharnam/`. Grafica da `mkassets.py`; dopo un cambio, rieseguirlo e commit di `sheet.png`. Non fare commit di uno sheet `YH_DRAFT=1`.
 - Audio, riff, assistente musica: `src/audio/`, `docs/RIFF.md`. Assistente, mesh da immagine, riduttore: `src/ai/`, `src/ai/kb/README.md`. Predict e pad: `docs/PREDICT.md`, `docs/PADTYPE.md` (le tabelle `CROSS`/`FACE`/`KB` si cambiano in `padtype.lua`).
 - bm Write e `/docs`: `carts/write/`, `docs/API.md` (*Documents*). Ctrl+I / Ctrl+M arrivano come `"^i"` / `"^m"`.

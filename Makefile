@@ -276,8 +276,13 @@ OVERBIT_MODELS_FLAGS := $(if $(OVERBIT_CLASSIC),--classic)
 title_overbit := Overbit
 # its screen: 480x270, each pixel 4x4 on a 1080p TV (it was 320x180)
 OVERBIT_RES := 480x270
+# the .bm (the Pi's, in the Market next to the .b16): three screens on a TV,
+# 320x180 on the ARM, 1280x720 and 1920x1080 on the GPU (85_quality); the
+# .b16 has not the flag and keeps its own (640x360 and 1080p)
+OVERBIT_BM_DEFS := --define OVERBIT_TV_BM=true
 $(BUILD)/overbit/main.lua: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm
-	$(PYTHON) carts/overbit/build.py $@ --map $(BUILD)/overbit/main.map --extra $(BUILD)/overbit/21_map.lua
+	$(PYTHON) carts/overbit/build.py $@ --map $(BUILD)/overbit/main.map --extra $(BUILD)/overbit/21_map.lua \
+	    $(OVERBIT_BM_DEFS)
 
 $(BUILD)/overbit/models.bm: $(OVERBIT_ART) scripts/bmmesh.py scripts/mkbm.py $(BUILD)/host/mappvs
 	@mkdir -p $(dir $@)
@@ -363,10 +368,11 @@ $(BUILD)/overbit/bench-fast.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/o
 	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
 # the calibration (tests): up from the lightest step, the heaviest that holds 60 fps becomes the default
+# (the .bm's screens, as overbit.bm: the test starts that after it)
 # (tests/overbit/run.py builds its other variants: the frame times given, the RGB30's square screens)
 $(BUILD)/overbit/bench-cal.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/bench-cal.lua --start bench --extra $(BUILD)/overbit/21_map.lua \
-	    --define 'OVERBIT_BENCH_FLAGS="auto"'
+	    --define 'OVERBIT_BENCH_FLAGS="auto"' $(OVERBIT_BM_DEFS)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/bench-cal.lua --title "Overbit" --author bm \
 	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 

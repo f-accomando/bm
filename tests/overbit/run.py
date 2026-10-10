@@ -159,7 +159,8 @@ def main():
     # the calibration (BENCHMARK, or the flags): it climbs the scale from the
     # lightest step, each with the ARM and the GPU, and saves the heaviest
     # that holds 60 fps (else 30) on the SD card: the default of the next
-    # start. On the ARM (bmhost has no GPU) the scale is 640x360 only; the
+    # start. On the ARM (bmhost has no GPU) the .bm's scale is 320x180 only
+    # (OVERBIT_TV_BM: 320x180 on the ARM, 720p and 1080p on the GPU); the
     # PC's virtual clock holds 60 fps everywhere: the top, EXTREME.
     sd = os.path.join(build, "overbit", "test-cal-sd")
     shutil.rmtree(sd, ignore_errors=True)
@@ -167,15 +168,18 @@ def main():
     code, log = run(build, os.path.join(build, "overbit", "bench-cal.bm"), 60, "", "cal", "bmhost-bin", ["--sd", sd])
     check(code == 0 and "stopped with an error" not in log and "overbit bench done" in log, "calibration: runs to the end", log)
     climb = re.findall(r"overbit bench (\S+) (\d+x\d+) (\w+): ", log)
-    check(climb == [("ARM", "640x360", q) for q in ("LOW", "MEDIUM", "HIGH", "ULTRA", "EXTREME")],
-          "calibration: up from the lightest step (640x360 LOW to EXTREME, the ARM)", log)
-    check("overbit default 640x360 quality 4 arm" in log and "climb end: the end of the scale" in log,
+    check(climb == [("ARM", "320x180", q) for q in ("LOW", "MEDIUM", "HIGH", "ULTRA", "EXTREME")],
+          "calibration: up from the lightest step (320x180 LOW to EXTREME, the ARM)", log)
+    check("overbit default 320x180 quality 4 arm" in log and "climb end: the end of the scale" in log,
           "calibration: the heaviest that holds 60 fps saved, with its renderer", log)
     check("bm: screen 480x270" not in log.split("overbit bench done")[-1], "calibration: the screen is not put back over the default", log)
     code, log = run(build, cart, 1, "", "cal-again", "bmhost-bin", ["--sd", sd])
-    check("overbit screen 640x360" in log and "bm: screen 640x360" in log, "calibration: the default is set again at the start", log)
+    check("overbit screen 320x180" in log and "bm: screen 320x180" in log, "calibration: the default is set again at the start", log)
     code, log = run(build, cart, 1, "", "no-save", "bmhost-bin")
-    check("overbit screen 640x360" in log, "defaults: the best screen of the console when none is saved", log)
+    check("overbit screen 320x180" in log, "defaults: the best screen of the console when none is saved", log)
+    code, log = run(build, cart, 2, "", "bm-gpu", "bmhost-gpu")
+    check(code == 0 and "stopped with an error" not in log and "overbit screen 1920x1080" in log,
+          "the .bm on the GPU: 1080p when none is saved (720p and 1080p its GPU screens)", log)
     code, log = run(build, os.path.join(build, "overbit", "range-1080.bm"), 3,
                     f"30 keys {keys('J')}\n150 keys none\n", "range-1080", "bmhost-gpu")
     check(code == 0 and "stopped with an error" not in log and "bm: screen 1920x1080" in log,

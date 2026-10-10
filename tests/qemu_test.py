@@ -5615,11 +5615,11 @@ def test_overbit_flags(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        q.send(":set overbit_bench=res:640/gpu:arm/q:0/secs:1/warm:2/save:0 ; play overbit ; play nonexistent\r")
+        q.send(":set overbit_bench=res:320x180/gpu:arm/q:0/secs:1/warm:2/save:0 ; play overbit ; play nonexistent\r")
         q.expect("set overbit_bench=", timeout=10)
         out = q.expect("overbit bench start: 1 phases (matrix)", timeout=120).decode(errors="replace")
         out = q.expect("overbit bench done", timeout=300).decode(errors="replace")
-        assert "overbit bench ARM 640x360 LOW" in out, out[-1500:]
+        assert "overbit bench ARM 320x180 LOW" in out, out[-1500:]
         out = q.expect("the line is done", timeout=60).decode(errors="replace")
         assert "play: no game 'nonexistent'" in out, out[-1500:]
     finally:
