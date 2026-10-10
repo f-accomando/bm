@@ -53,6 +53,7 @@ video mostra **cosa succede sullo schermo e quale tasto, tab o pulsante lo provo
 - Un editor di codice: scrivere senza indentazione (bm Code rientra da solo), Ctrl+K taglia una riga per pulire; la prova (F5) chiude la registrazione, quindi la partita è una seconda registrazione con uno script di tasti (`pad 1 right a`), il suo wav accodato al primo (`wave`); i tempi dei salti si calcolano con un log (copia della cartuccia con un `_update` avvolto) finché la partita fa quello che dice il narratore; `video/04-code/verify.py` lo controlla.
 - Più editor nella stessa puntata: stessa SD, uno dopo l'altro (`input-pixel.txt`, `input-code.txt`: `split_input` per frame), poi la partita; raw e wav accodati. Replace di bm Code: Ctrl+H = Backspace sulla seriale, quindi menu Esc → 12× Giù → Invio. Tagliare tutte le righe vecchie con Ctrl+K (conteggio esatto). Un blocco inserito dall'assistente (F6, Invio) lascia il cursore in fondo al blocco: Invio prima di scrivere la riga dopo.
 - Per tarare una partita: log in una copia della cartuccia, poi ricerca per tentativi (frame di salto × durata) con `bmhost` senza video; un nemico che pattuglia si schiaccia solo in una finestra stretta, quindi si cerca il tempo invece di indovinarlo.
+- Partita "giocata": un robot in Lua aggiunto a una copia della cartuccia (`video/07-play/bot.py`) che registra i tasti come script `bmhost`; riprodurla (`replay.py`) e confrontare il risultato. Zone con nome e scatole di collisione non si fanno con un editor della console (`bmres.py`/`mkbm.py`): non usarle in una serie "solo strumenti della console". Un episodio riassuntivo può riusare i ganci già fatti (`ffmpeg -t`, `anullsrc` dove manca l'audio).
 - Gli sprite di un platform sono **di profilo** e le animazioni sono fotogrammi davvero
   diversi (gambe, coda, rimbalzo di un pixel), non lo stesso sprite ripetuto: `art.py`
   controlla che ogni coppia di fotogrammi differisca (`art.check()`). Mostrare il ciclo
@@ -189,8 +190,8 @@ livelli), per mostrare le capacità di bm. L'eroe è **Kip**, una volpe: persona
 originale. Solo strumenti 2D (niente bm Mesh, Animator 3D, `picture3d`, GPU). Ordine
 cronologico d'uso: 1 bm Pixel (eroe, nemici), 2 SDK 2D (tessere, flag, mappa a layer, primo livello; **bm Studio è 3D, non si usa**),
 3 Sound (effetti e musica), 4 bm Code (movimento e salto, `bmlib`), 5 bm Code +
-assistente (nemici, oggetti, HUD), 6 SDK + bm Pixel (zone, scatole di collisione, parallasse, bandiera) e
-rifinitura, 7 il gioco giocato. Un episodio alla volta, ~3 minuti, e ci si ferma dove
+assistente (nemici, oggetti, HUD), 6 bm Pixel + SDK + bm Code (bandiera, livello lungo, parallasse) e
+rifinitura, 7 il gioco giocato. (Fatti tutti e sette: vedi `video/SERIE.md`.) Un episodio alla volta, ~3 minuti, e ci si ferma dove
 l'utente ha detto di fermarsi. La struttura completa e lo stato sono in
 `video/SERIE.md`.
 

@@ -124,6 +124,7 @@ An interactive bash setup utility for Linux/WSL:
 * Episode 3 (`video/03-sound/`, bm Sound: three sounds, three effects played on the piano keys, level music written with riff and put in the bank as a song) is done, with sound in the video (`bmhost --wav`); `verify.py` checks the saved bank and the wav.
 * Episode 4 (`video/04-code/`, bm Code: Kip runs and jumps with bmlib, the game played by a button script, with its sound) is done. `make bmhost-ai` builds `bmhost` with the real `ai` table (bm Code and the assistant need it).
 * Episode 5 (`video/05-assistant/`: the assistant draws a slime in bm Pixel, bm Code adds coins, stompable slimes, score and lives, and the HUD is an answer of the assistant inserted with F6 and adapted with Replace) is done; `verify.py` replays the game with a log.
+* Episodes 6 and 7 (`video/06-level/`, `video/07-play/`): the last level (flag and trees in bm Pixel, a 160-cell map with a third layer in the SDK, camera, parallax and screens in bm Code) and the game played from the title to the flag by a button script a bot made (`bot.py`, replayed and checked by `replay.py`), with a reel of the six episodes and the SDK's dev kit on the finished file. The series is complete.
 * On the PC there is no kernel menu and no assistant (`F6` in bm Pixel); QEMU is not in the cloud sessions.
 
 ### Continuous Integration (`.github/workflows/ci.yml`)
