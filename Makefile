@@ -884,7 +884,8 @@ $(BUILD)/host/test_ethnet: tests/net/test_ethnet.c src/net/net.c src/net/net.h s
 	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/lwip/src/include -o $@ \
 		tests/net/test_ethnet.c src/net/net.c src/net/cartnet.c src/usb/smsc95xx.c tests/usb/lan9512_sim.c $(LWIP_SRCS)
 
-$(BUILD)/host/test_netcon: tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/net/stream.c src/net/*.h src/lib/crc32.c $(LWIP_SRCS)
+$(BUILD)/host/test_netcon: tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/net/stream.c src/net/*.h src/lib/crc32.c \
+                          src/kernel/fiber.h src/kernel/notice.h $(LWIP_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/lwip/src/include -o $@ \
 		tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/net/stream.c src/lib/crc32.c $(LWIP_SRCS)
@@ -1303,6 +1304,8 @@ $(BUILD)/host/b3d_host: tests/bm/b3d_host.c src/bm/b3d.c src/bm/b3d.h tests/gpu/
 
 test-b3d: $(BUILD)/host/b3d_host
 	$< --selftest
+	rm -rf $(BUILD)/b3d-stop && mkdir -p $(BUILD)/b3d-stop
+	$< $(BUILD)/b3d-stop --stop=5
 	rm -rf $(BUILD)/b3d && mkdir -p $(BUILD)/b3d
 	$< $(BUILD)/b3d
 	$< $(BUILD)/b3d

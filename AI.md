@@ -1,104 +1,107 @@
-# bm — AI sul Pi Zero W: cosa si può fare e cosa no
+# bm — AI on the Pi Zero W: what can and cannot be done
 
-Considerazioni del 2026-09-30. Sostituiscono le vecchie milestone AI-01…AI-12, che **non**
-sono una roadmap: qui c'è solo cosa ha senso per bm, in ordine di utilità.
-Numeri di riferimento: [docs/HARDWARE.md](docs/HARDWARE.md), [docs/PRESTAZIONI.md](docs/PRESTAZIONI.md).
+Italian version: [AI-IT.md](AI-IT.md).
 
-## Decisione 2026-10-01: il primo passo è l'assistente per lo sviluppo (M30)
+Notes from 2026-09-30. They replace the old milestones AI-01…AI-12, which are **not** a
+roadmap: here is only what makes sense for bm, in order of usefulness.
+Reference numbers: [docs/HARDWARE.md](docs/HARDWARE.md), [docs/PRESTAZIONI.md](docs/PRESTAZIONI.md).
 
-La prima AI di bm aiuta a **fare** i giochi: un assistente che gli strumenti di sviluppo
-aprono con un tasto (come si scrive uno snippet, cosa vuol dire un errore, la base di uno
-sprite). Si richiama solo direttamente, non lavora in background e non occupa RAM finché
-non si chiede. È fatto con i pezzi qui sotto: motore INT8 in C con le SIMD dell'ARMv6,
-addestramento sul PC e solo inferenza sul Pi, test bit per bit dentro `make test`, e
-l'approccio ibrido (la rete sceglie tra le voci di una base di conoscenza e tra le
-ricette di sprite, il codice classico fa il resto). Dettagli, numeri e cosa provare sul
-Pi: [docs/ROADMAP.md](docs/ROADMAP.md), M30; API in [docs/API-IT.md](docs/API-IT.md) ([docs/API.md](docs/API.md) in inglese). Lo stesso
-motore servirà poi ai giochi (l'avversario CPU di Titan Clash, sotto).
+## Decision 2026-10-01: the first step is the development assistant (M30)
 
-## Più sensate e utili per bm
+bm's first AI helps **make** games: an assistant that the development tools open with a key
+(how to write a snippet, what an error means, the base of a sprite). It is only called
+directly, does not work in the background and takes no RAM until asked. It is built from the
+pieces below: an INT8 engine in C with the ARMv6 SIMD, training on the PC and inference only
+on the Pi, bit-exact tests inside `make test`, and the hybrid approach (the network chooses
+among the entries of a knowledge base and among the sprite recipes, classic code does the
+rest). Details, numbers and what to try on the Pi: [docs/ROADMAP.md](docs/ROADMAP.md), M30;
+API in [docs/API-IT.md](docs/API-IT.md) ([docs/API.md](docs/API.md) in English). The same
+engine will later serve the games (the Titan Clash CPU opponent, below).
 
-**Nei giochi: è qui che l'AI serve davvero.** Avversario CPU di Titan Clash, riconoscimento di
-combo e gesti dal gamepad, riconoscimento dei disegni nell'editor, piccoli generatori di sprite o
-livelli. Costano pochissimo per frame e sono il caso d'uso più concreto.
+## Most sensible and useful for bm
 
-**Motore di inferenza in C, con funzioni Lua: sì.** Poche centinaia di righe (dense, conv2d,
-depthwise, ReLU, pooling, softmax) più `ai.load` / `ai.run` per le cartucce. In Lua puro no:
-~100 ns per operazione, ~140 000 operazioni per frame.
+**In games: this is where AI really helps.** Titan Clash CPU opponent, recognition of combos
+and gestures from the gamepad, recognition of drawings in the editor, small sprite or level
+generators. They cost very little per frame and are the most concrete use case.
 
-**Tiny ML (MLP, INT8, fixed point): sì, è il punto forte.** Niente NEON, ma l'ARMv6 ha le SIMD
-(SMLAD: 2 moltiplicazioni-accumulo a 16 bit per istruzione): un MLP da ~10 000 parametri gira in
-decine di µs. Il limite vero è la banda RAM (~100–200 MB/s): pesi INT8 e reti piccole.
+**Inference engine in C, with Lua functions: yes.** A few hundred lines (dense, conv2d,
+depthwise, ReLU, pooling, softmax) plus `ai.load` / `ai.run` for cartridges. In pure Lua no:
+~100 ns per operation, ~140 000 operations per frame.
 
-**Addestrare sul PC, eseguire sul Pi: sì.** Si addestra e quantizza sul PC (PyTorch), uno script
-in `tools/` esporta, il Pi fa solo inferenza, senza PC né cloud mentre gira.
+**Tiny ML (MLP, INT8, fixed point): yes, it is the strong point.** No NEON, but ARMv6 has SIMD
+(SMLAD: 2 16-bit multiply-accumulates per instruction): an MLP of ~10 000 parameters runs in
+tens of µs. The real limit is RAM bandwidth (~100–200 MB/s): INT8 weights and small networks.
 
-**Formato del modello: sì, semplice.** Intestazione + strati + pesi INT8 + scale, CRC come le
-`.bm`; meglio come sezione dentro la cartuccia `.bm` (il gioco porta il suo modello). Niente
-versioning o metadati elaborati finché c'è un solo consumatore.
+**Train on the PC, run on the Pi: yes.** Training and quantization on the PC (PyTorch), a
+script in `tools/` exports, the Pi only does inference, with no PC or cloud while running.
 
-**Nessun task AI separato: non serve.** bm non ha scheduler (un core, loop a 60 fps, interrupt).
-Si spezza l'inferenza in passi con un budget per frame (es. 2 ms), nel tempo che il gioco lascia
-libero; si misura e si mostra sullo schermo.
+**Model format: yes, simple.** Header + layers + INT8 weights + scales, CRC like the `.bm`
+files; better as a section inside the `.bm` cartridge (the game carries its model). No
+elaborate versioning or metadata while there is only one consumer.
 
-**Strumenti: pochi, sul PC.** Script (addestra → quantizza → esporta) e un test che confronta
-bit per bit le uscite del motore con il modello di riferimento dentro `make test`. Emulatore
-inutile: il C gira già sul PC e in QEMU; il profiler è una voce del monitor.
+**No separate AI task: not needed.** bm has no scheduler (one core, 60 fps loop, interrupts).
+Inference is split into steps with a per-frame budget (e.g. 2 ms), in the time the game
+leaves free; it is measured and shown on screen.
 
-**Approccio ibrido: sì, da preferire.** Algoritmo classico che fa il grosso + rete minuscola che
-sceglie i parametri (quanto affilare, quale palette) invece di calcolare ogni pixel: l'unico modo
-di usarla nella grafica senza uscire dal budget del frame.
+**Tools: few, on the PC.** Scripts (train → quantize → export) and a test that compares the
+engine's outputs bit for bit with the reference model inside `make test`. An emulator is
+useless: the C already runs on the PC and in QEMU; the profiler is a monitor item.
 
-## Possibili, ma dopo
+**Hybrid approach: yes, preferred.** A classic algorithm does the bulk + a tiny network
+chooses the parameters (how much to sharpen, which palette) instead of computing every pixel:
+the only way to use it in graphics without going over the frame budget.
 
-**Apprendimento durante il gioco: in piccolo.** Tabelle Q o un MLP minuscolo che si adatta al
-giocatore nella partita; l'addestramento vero resta sul PC.
+## Possible, but later
 
-**Downscaling "1080p → ~244p": solo come import degli asset.** Sul Pi non c'è una sorgente a
-1080p e bm usa 640×360 e 320×180. Utile per foto/render → sprite (il "3D→sprite" di M22), sul
-PC o sul Pi in qualche secondo; prima va verificato contro media + nitidezza + dithering classici.
+**Learning during play: on a small scale.** Q tables or a tiny MLP that adapts to the player
+during the match; real training stays on the PC.
 
-**Super-resolution: solo su immagini ferme.** In tempo reale no, e non serve: la GPU scala già
-gratis 640×360 → 1080p. Su copertine e sprite sì, anche come SR-LUT (la rete addestrata diventa
-una tabella), ma in secondi, non per frame.
+**"1080p → ~244p" downscaling: only as asset import.** On the Pi there is no 1080p source and
+bm uses 640×360 and 320×180. Useful for photos/renders → sprites (the "3D→sprite" of M22), on
+the PC or on the Pi in a few seconds; first it must be checked against classic averaging +
+sharpening + dithering.
 
-**Tiny CNN: la rete sì, la sorgente manca.** Una MobileNet ridotta a 96×96 in grigi gira in
-qualche decina di ms (pochi fps). Immagini solo da SD o dalla rete (vedi fotocamera sotto).
+**Super-resolution: only on still images.** Not in real time, and not needed: the GPU already
+scales 640×360 → 1080p for free. On covers and sprites yes, also as SR-LUT (the trained
+network becomes a table), but in seconds, not per frame.
 
-**GPU VideoCore IV (QPU): progetto a sé.** Unica accelerazione disponibile (~24 GFLOPS teorici),
-avviabile senza Linux con la mailbox del firmware, come GPU_FFT; richiede assembly QPU. È ciò che
-renderebbe fattibile la grafica neurale, non un primo passo.
+**Tiny CNN: the network yes, the source is missing.** A MobileNet reduced to 96×96 greyscale
+runs in a few tens of ms (a few fps). Images only from SD or the network (see camera below).
 
-**Modello linguistico minuscolo: solo demo.** ~15M parametri (stile llama2.c "stories") farebbero,
-a stima, qualche token al secondo: favolette in inglese, non un assistente.
+**VideoCore IV GPU (QPU): a project of its own.** The only acceleration available (~24 GFLOPS
+theoretical), startable without Linux through the firmware mailbox, like GPU_FFT; it needs
+QPU assembly. It is what would make neural graphics feasible, not a first step.
 
-**Libreria e condivisione dei modelli: quando servirà.** Solo quando due o tre giochi usano davvero
-un modello; allora passa dallo store su GitHub (M25), non da un canale a parte.
+**Tiny language model: demo only.** ~15M parameters (llama2.c "stories" style) would produce,
+by estimate, a few tokens per second: little fables in English, not an assistant.
 
-## Da scartare o fuori portata
+**Model library and sharing: when needed.** Only when two or three games really use a model;
+then it goes through the GitHub store (M25), not a separate channel.
 
-**Grafica neurale in tempo reale (denoising, bordi, texture): no.** Una passata a schermo intero
-legge e riscrive 0,46 MB, ~5 ms prima di calcolare; il rasterizzatore di bm non produce rumore da
-togliere. Solo offline, sugli asset.
+## To discard or out of reach
 
-**Compressione neurale delle immagini: no.** RAM (448 MiB) e SD non sono un limite, e decodificare
-con una rete costa molto più di RLE o PNG.
+**Real-time neural graphics (denoising, edges, textures): no.** A full-screen pass reads and
+rewrites 0.46 MB, ~5 ms before computing anything; bm's rasterizer produces no noise to
+remove. Offline only, on assets.
 
-**Sensori, segnali, anomalie: oggi no.** bm non ha I2C/SPI, microfono né ingressi analogici; i dati
-disponibili sono controller, tastiera, rete e temperatura della CPU.
+**Neural image compression: no.** RAM (448 MiB) and SD are not a limit, and decoding with a
+network costs much more than RLE or PNG.
 
-**Fotocamera: no.** La CSI senza Linux dipende dallo stack chiuso della GPU; una webcam USB
-occuperebbe l'unica porta del Zero (un dispositivo alla volta, niente hub).
+**Sensors, signals, anomalies: not today.** bm has no I2C/SPI, microphone or analog inputs;
+the available data are controllers, keyboard, network and CPU temperature.
 
-**Voce: no.** Niente microfono (servirebbe un microfono I2S sui GPIO e il suo driver); sintesi
-vocale solo a formanti col synth esistente, non neurale.
+**Camera: no.** CSI without Linux depends on the GPU's closed stack; a USB webcam would take
+the Zero's only port (one device at a time, no hub).
 
-**Altri Pi e acceleratori (Zero 2 W, Pi 3/4/5, NPU): fuori portata.** bm gira solo sul BCM2835
-(Zero W, Pi 1); un ARMv8 multicore è un kernel nuovo, l'AI del Pi 5 è una scheda PCIe esterna.
-Basta tenere il formato portabile (INT8 + scale).
+**Voice: no.** No microphone (it would need an I2S microphone on the GPIOs and its driver);
+speech synthesis only with formants on the existing synth, not neural.
 
-## Primo passo sensato
+**Other Pis and accelerators (Zero 2 W, Pi 3/4/5, NPU): out of reach.** bm runs only on the
+BCM2835 (Zero W, Pi 1); a multicore ARMv8 is a new kernel, the Pi 5's AI is an external PCIe
+board. It is enough to keep the format portable (INT8 + scales).
 
-Motore INT8 in C + funzioni Lua + script di esportazione, provati su un caso vero (l'avversario
-CPU di Titan Clash) con il tempo misurato mostrato sullo schermo. Visione, scaling e grafica
-neurale vengono dopo, e solo se si affronta la GPU.
+## A sensible first step
+
+INT8 engine in C + Lua functions + export script, tried on a real case (the Titan Clash CPU
+opponent) with the measured time shown on screen. Vision, scaling and neural graphics come
+later, and only if the GPU is tackled.

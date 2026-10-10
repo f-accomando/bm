@@ -274,6 +274,17 @@ void reports_end(void)
     capture = NULL;
 }
 
+void reports_drop(void)
+{
+    if (!capture)
+        return;
+    klog_capture(NULL, 0);
+    free(capture);
+    capture = NULL;
+    ksnprintf(last, sizeof last, "%s: stopped, not saved", cap_kind);
+    kprintf("report: %s stopped by the user, not saved nor sent\n", cap_kind);
+}
+
 int reports_send_pending(void)
 {
     int left = 0;

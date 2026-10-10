@@ -37,7 +37,7 @@
 static struct {
     int up, failed, problem;
     uint32_t w, h, depth, out_w, out_h;     /* out: on the panel */
-    char info[320];
+    char info[384];
     int pos;
 } d;
 
@@ -263,9 +263,11 @@ int plat_display_init(const plat_mode_t *m, uintptr_t addr)
         plat_led(0, 0);
         timer_delay_ms(20);
         LOG("; ");
-        char dsi[160];
+        char dsi[200];
+        rgb30_display_stage("DSI link and panel starting");
         r = rk_dsi_init(dsi, sizeof dsi);
         LOG("%s", dsi);
+        rgb30_display_stage(r ? "panel failed" : "panel on");
         plat_led(0, 1);
         d.up = 1;
         window(m, addr);
@@ -320,7 +322,7 @@ void plat_display_off(void)
         writel(PWM4 + 0x0c, 0);                     /* (its clock is on) */
     writel(PMUGRF + 0x10, 0xf0000000u);             /* GPIO0_C3 = gpio */
     rk_gpio_output(rk_pin(0, 'C', 3), 0);
-    rk_dsi_off();
+    rk_dsi_off(d.up);
     d.up = 0;
 }
 #endif

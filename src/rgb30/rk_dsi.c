@@ -252,6 +252,13 @@ static int poll_phy(uint32_t bit)
     return 0;
 }
 
+/* The panel off: reset low, the supply off (before a restart, rk_dsi_off). */
+static void panel_power_off(void)
+{
+    rk_gpio_output(PANEL_RESET, 0);
+    rk_gpio_output(PANEL_POWER, 0);
+}
+
 int rk_dsi_init(char *log, unsigned size)
 {
     int pos = 0;
@@ -319,12 +326,20 @@ int rk_dsi_init(char *log, unsigned size)
     timer_delay_ms(34);
     set_mode(0);
 
-    /* panel power and reset */
+    /* panel power and reset, as the kernels before 2026-10-10 that start
+     * this panel (aeb0a14): the supply is not cut here. The power cycle
+     * at this point (supply off at the top, on again once the PHY was
+     * driving the lanes), the power mode read back and a second power
+     * cycle with the link live left the screen black on every start,
+     * cold ones too (the chime heard, red + green LED: this function's
+     * -1), 2026-10-10. The supply goes off only before a restart
+     * (rk_dsi_off). 120 ms after the reset, as the ST7703 wants before
+     * sleep out (20 ms before). */
     rk_gpio_output(PANEL_RESET, 0);
     rk_gpio_output(PANEL_POWER, 1);
     timer_delay_ms(20);
     rk_gpio_set(PANEL_RESET, 1);
-    timer_delay_ms(20);
+    timer_delay_ms(120);
 
     /* video on, then the commands in the blanking (as Linux) */
     set_mode(1);
@@ -339,7 +354,7 @@ int rk_dsi_init(char *log, unsigned size)
         rk_gpio_set(PANEL_RESET, 0);
         timer_delay_ms(20);
         rk_gpio_set(PANEL_RESET, 1);
-        timer_delay_ms(20);
+        timer_delay_ms(120);
         bad = panel_init(&err);
         LOG(bad ? ", in command mode too (%d)" : ", ok in command mode", bad);
         set_mode(1);
@@ -355,10 +370,19 @@ int rk_dsi_init(char *log, unsigned size)
 #undef LOG
 }
 
-void rk_dsi_off(void)
+/* Before a restart or power off: with the link up, display off and sleep
+ * in first (as st7703_disable/unprepare), then reset, supply off, and the
+ * time for the supply to drain, so the next start finds the panel cold. */
+void rk_dsi_off(int link_up)
 {
-    rk_gpio_output(PANEL_RESET, 0);
-    timer_delay_ms(10);
-    rk_gpio_output(PANEL_POWER, 0);
+    if (link_up) {
+        static const uint8_t display_off[] = { 0x28 }, sleep_in[] = { 0x10 };
+        dcs_write(display_off, 1);
+        timer_delay_ms(20);
+        dcs_write(sleep_in, 1);
+        timer_delay_ms(120);
+    }
+    panel_power_off();
+    timer_delay_ms(300);
 }
 #endif

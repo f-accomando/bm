@@ -15,6 +15,9 @@
  *   buttons in their colours, the lettered pads' A B X Y in theirs (green,
  *   red, blue, yellow), the pad's other buttons light grey, the keyboard's
  *   keys amber (the apps' accent).
+ * The RGB30's A B X Y have one look in both sets: a dark button with the
+ * letter in its colour, as on the console (A green, B blue, X red, Y
+ * yellow); raised on its lip in the menu, flat in the apps.
  * Labels use the console fonts: one character 8x16 bold (6x12 bold at 12
  * px), words 6x12.
  *
@@ -48,8 +51,19 @@ enum {
     PROMPT_KEY_BACKSPACE, PROMPT_KEY_SHIFT, PROMPT_KEY_CTRL, PROMPT_KEY_ALT,
     PROMPT_KEY_DEL, PROMPT_KEY_HOME, PROMPT_KEY_END, PROMPT_KEY_PGUP, PROMPT_KEY_PGDN,
     PROMPT_KEY_F1,                          /* .. F12: PROMPT_KEY_F1 + 11 */
-    PROMPT_COUNT = PROMPT_KEY_F1 + 12
+    /* the RGB30's own face buttons (Nintendo layout: X top, A right, B
+     * bottom, Y left): a dark button, the letter in its colour (A green,
+     * B blue, X red, Y yellow), in both sets */
+    PROMPT_RGB30_A = PROMPT_KEY_F1 + 12, PROMPT_RGB30_B, PROMPT_RGB30_X, PROMPT_RGB30_Y,
+    PROMPT_COUNT
 };
+
+/* The RGB30's button for a lettered pad's (PROMPT_PAD_A..PROMPT_PAD_Y);
+ * any other prompt as it is. */
+static inline int prompt_rgb30(int id)
+{
+    return id >= PROMPT_PAD_A && id <= PROMPT_PAD_Y ? id - PROMPT_PAD_A + PROMPT_RGB30_A : id;
+}
 
 /* A prompt: w x h pixels, 0xAARRGGBB, not premultiplied (the caller
  * blends them over its background). */

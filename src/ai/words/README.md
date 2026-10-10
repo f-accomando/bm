@@ -1,22 +1,24 @@
-# Testi del completamento delle parole (M30)
+# Word completion texts (M30)
 
-I testi da cui `scripts/mkwords.py` conta le parole per il completamento
-(`src/ai/predict.lua`, guida in `docs/PREDICT.md`) e da cui `scripts/syllables.py`
-conta le sillabe. Sono **scritti apposta per bm** (2026-10-01), in italiano moderno: nessun
-testo preso da libri, siti o raccolte con licenze altrui.
+Italian version: [README-IT.md](README-IT.md).
 
-| File | Cosa |
+The texts from which `scripts/mkwords.py` counts the words for completion
+(`src/ai/predict.lua`, guide in `docs/PREDICT.md`) and from which `scripts/syllables.py`
+counts the syllables. They are **written specifically for bm** (2026-10-01), in modern
+Italian: no text taken from books, websites or collections under other people's licences.
+
+| File | What |
 |---|---|
-| `it_narrativa*.txt` | racconti brevi con dialoghi |
-| `it_quotidiano*.txt` | messaggi, email, inviti, telefonate |
-| `it_giochi*.txt` | dialoghi e testi dei videogiochi, tutorial, recensioni |
-| `it_tecnica*.txt` | programmazione e tecnologia spiegate ai principianti |
-| `it_informativi*.txt` | notizie, ricette, viaggi, scuola, sport |
-| `it_lettere*.txt` | diario, lettere, cartoline |
-| `it_lessico.txt` | ~6 500 forme comuni (una per riga), per le parole che i testi non hanno |
-| `en_testi*.txt` | inglese: commenti del codice, giochi, messaggi |
+| `it_narrativa*.txt` | short stories with dialogue |
+| `it_quotidiano*.txt` | messages, emails, invitations, phone calls |
+| `it_giochi*.txt` | video game dialogue and texts, tutorials, reviews |
+| `it_tecnica*.txt` | programming and technology explained to beginners |
+| `it_informativi*.txt` | news, recipes, travel, school, sport |
+| `it_lettere*.txt` | diary, letters, postcards |
+| `it_lessico.txt` | ~6 500 common forms (one per line), for the words the texts lack |
+| `en_testi*.txt` | English: code comments, games, messages |
 
-Il nome del file prima di `_2`, `_3` è il gruppo: `make predict-bench` toglie un gruppo
-alla volta dal dizionario e misura il completamento sui suoi testi. I testi di prova del
-benchmark (`tests/predict/texts.lua`) non sono qui. Per migliorare la predizione si aggiungono
-testi (UTF-8, accenti veri; il codice li porta in CP437), poi `make`.
+The file name before `_2`, `_3` is the group: `make predict-bench` removes one group at a
+time from the dictionary and measures completion on its texts. The benchmark's test texts
+(`tests/predict/texts.lua`) are not here. To improve prediction, add texts (UTF-8, real
+accents; the code converts them to CP437), then `make`.

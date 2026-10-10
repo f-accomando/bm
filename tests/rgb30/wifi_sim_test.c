@@ -10,7 +10,9 @@
  * Checked: the scan; a wrong password (deauthentication, reason 15); the
  * 4-way handshake, the keys in the CAM, the firmware told; DHCP, ARP and a
  * ping over "CCMP" (descriptor SEC_TYPE, CCMP header, packet numbers); a
- * group rekey; a deauthentication; an open network; beacon loss.
+ * group rekey; a deauthentication; an open network; beacon loss; the
+ * saved network joined again by itself (net/wifi_auto.c): after a
+ * deauthentication, and an AP out of range then back.
  *
  * build/rgb30-host/wifi_sim_test [-v] (-v: the console output too)
  */
@@ -20,7 +22,9 @@
 #include "wpa.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
+#include "net/wifi_auto.h"
 #include "kernel/config.h"
+#include "kernel/fiber.h"
 #include "fs/fat.h"
 #include "drivers/timer.h"
 #include "drivers/rng.h"
@@ -149,6 +153,19 @@ struct fiber;
 struct fiber *fiber_current(void) { return 0; }
 void fiber_yield(void) {}
 int fiber_cancelled(void) { return 0; }
+void fiber_slice(void) {}
+/* wifi_auto.c's job: run straight through when it starts */
+static int jobs;
+int fiber_job_start(fiber_job_t *j, size_t stack, void (*fn)(void *), void *arg)
+{
+    (void)stack;
+    jobs++;
+    j->busy = 0;
+    fn(arg);
+    return 0;
+}
+int fiber_job_run(fiber_job_t *j, uint32_t until) { (void)j; (void)until; return 0; }
+void fiber_job_stop(fiber_job_t *j) { j->busy = 0; }
 
 /* ---------------------------------------------------------------- the chip */
 
@@ -424,6 +441,7 @@ typedef struct {
     uint8_t bssid[6];
     unsigned ch;
     int wpa2, beaconing, rssi;
+    int away;                                       /* out of range: hears nothing, sends nothing */
     char pass[64];
     uint64_t next_beacon;
     enum { IDLE, AUTHED, ASSOCED, M1_SENT, M3_SENT, KEYS } state;
@@ -843,7 +861,7 @@ static void ap_hear(ap_t *a, const uint8_t *f, unsigned len, const txinfo_t *t)
 static void air(const uint8_t *f, unsigned len, const txinfo_t *t)
 {
     for (int i = 0; i < 2; i++)
-        if (sta_channel() == ap[i].ch)
+        if (sta_channel() == ap[i].ch && !ap[i].away)
             ap_hear(&ap[i], f, len, t);
 }
 
@@ -852,7 +870,7 @@ static void sim_tick(void)
     for (int i = 0; i < 2; i++) {
         ap_t *a = &ap[i];
         while (a->next_beacon <= now_us) {
-            if (a->beaconing && now_us - a->next_beacon < 200000) {
+            if (a->beaconing && !a->away && now_us - a->next_beacon < 200000) {
                 uint8_t f[256];
                 unsigned n = beacon_body(a, f, WL_FC_BEACON, bcast);
                 ap_send(a, f, n, 0);
@@ -876,6 +894,23 @@ static void run_ms(unsigned ms)
         timer_delay_us(1000);
         net_poll();
     }
+}
+
+/* the menu's frames: its free time goes to wifi_auto_idle */
+static void menu_ms(unsigned ms)
+{
+    for (unsigned i = 0; i < ms; i += 10) {
+        wifi_auto_idle(timer_ticks() + 5000);
+        run_ms(10);
+    }
+}
+
+static int count_logged(const char *s, size_t from)
+{
+    int n = 0;
+    for (const char *p = logbuf + from; (p = strstr(p, s)) != NULL; p++)
+        n++;
+    return n;
 }
 
 static const uint32_t *find_h2c(uint8_t id, int last)
@@ -1015,6 +1050,25 @@ int main(int argc, char **argv)
     ms = find_h2c(0x01, 1);
     CHECK(ms && ((ms[0] >> 8) & 1) == 0);
 
+    /* the saved network again by itself (net/wifi_auto.c): not at once, 5 s
+     * after the link was lost; DHCP again, the ping goes */
+    CHECK(wifi_auto_delay(0) == 5 && wifi_auto_delay(1) == 15 && wifi_auto_delay(3) == 60 &&
+          wifi_auto_delay(40) == 120);
+    mark = loglen;
+    jobs = 0;
+    menu_ms(4000);
+    CHECK(jobs == 0 && !wifi_linked());
+    menu_ms(2000);
+    CHECK(jobs == 1 && wifi_linked() && logged("joining \"CasaRossi\" again (try 1)", mark));
+    for (int i = 0; i < 100 && !net_ip(); i++)
+        menu_ms(100);
+    CHECK(net_ip() != 0 && logged("net: IP 192.168.1.50", mark));
+    ping(&ap[0]);
+    run_ms(200);
+    CHECK(echo_replies == 4);
+    menu_ms(30000);                                 /* linked: no more tries */
+    CHECK(jobs == 1 && wifi_linked());
+
     /* an open network; then it goes quiet (beacon loss) */
     config_set("wifi_ssid", "Ospiti");
     mark = loglen;
@@ -1033,6 +1087,27 @@ int main(int argc, char **argv)
     run_ms(9000);
     CHECK(!wifi_linked() && logged("no beacon from the network for 8 s", mark));
     CHECK(bad_desc == 0);
+
+    /* out of range: the menu's tries space out (5 s, 15 s, 30 s); back in
+     * range, the next one joins */
+    ap[1].beaconing = 1;
+    ap[1].away = 1;
+    mark = loglen;
+    jobs = 0;
+    menu_ms(40000);
+    CHECK(jobs == 2 && !wifi_linked() && count_logged("\"Ospiti\" is not in range", mark) == 2);
+    CHECK(logged("again (try 2)", mark) && !logged("again (try 3)", mark));
+    ap[1].away = 0;
+    menu_ms(25000);
+    CHECK(jobs == 3 && wifi_linked() && logged("again (try 3)", mark));
+    for (int i = 0; i < 100 && !net_ip(); i++)
+        menu_ms(100);
+    CHECK(net_ip() != 0);
+
+    /* before a restart the AP is told we leave (no old association held) */
+    mark = loglen;
+    wifi_leave();
+    CHECK(!wifi_linked() && logged("left \"Ospiti\" (restarting)", mark));
 
     if (fails) {
         printf("wifi_sim_test: %d failures (-v: the console)\n", fails);

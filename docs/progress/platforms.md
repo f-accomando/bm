@@ -1,81 +1,87 @@
-# Supported Platforms & Hardware Targets
+# Platforms
 
-This document outlines the hardware specifications, architectural configurations, peripheral layouts, and development status across all supported platforms in **bm**.
+The boards bm builds for and the PC/QEMU targets used to test it. Hardware detail:
+[`docs/HARDWARE.md`](../HARDWARE.md); RGB30 setup: [`docs/RGB30.md`](../RGB30.md).
 
----
+## How it is today
 
-## 1. Platform Comparison Matrix
+| Target | SoC / CPU | Image | Build | State |
+|---|---|---|---|---|
+| Pi Zero W, Pi 1 (A/B/A+/B+, CM1) | BCM2835, ARM1176 (ARMv6) | `kernel.img` | `make` | main target |
+| Pi Zero 2 W | BCM2710A1, Cortex-A53 in 32-bit ARMv7 | `kernel7.img` | `make ZERO2=1` | off |
+| PowKiddy RGB30 | RK3566, Cortex-A55 (AArch64) | `kernel8.img` | `make TARGET=rgb30` | second target |
+| PC | host | `bmhost` | `make` host targets | tests, videos |
+| QEMU | `-M raspi0` / RGB30 `virt` | — | `make test-qemu`, `make TARGET=rgb30 test` | CI |
 
-| Platform | SoC | Architecture / CPU | RAM (ARM / Total) | GPU | Primary Display | Audio Output | Binary Target |
-|---|---|---|---|---|---|---|---|
-| **Raspberry Pi Zero W** | BCM2835 | ARM1176JZF-S (ARMv6) @ 1.0 GHz | 448 MiB / 512 MiB | VideoCore IV | 640×360 / 1080p HDMI | HDMI IEC958 | `kernel.img` |
-| **Raspberry Pi 1 (A/B/+)** | BCM2835 | ARM1176JZF-S (ARMv6) @ 1.0 GHz | 448 MiB / 512 MiB | VideoCore IV | 640×360 / 1080p HDMI | HDMI IEC958 | `kernel.img` |
-| **Raspberry Pi Zero 2 W** | BCM2710A1| Cortex-A53 (ARMv7 32-bit) @ 1.0 GHz| 448 MiB / 512 MiB | VideoCore IV | 640×360 / 1080p HDMI | HDMI IEC958 | `kernel7.img` |
-| **PowKiddy RGB30** | RK3566 | Quad Cortex-A55 (AArch64) @ 1.8 GHz | 1–2 GiB | Mali-G52 | 720×720 DSI IPS | I2S RK817 Codec | `kernel8.img` |
-| **PC Host (`bmhost`)** | Native x86_64 | Host CPU execution | Host RAM | Software / Emu | Windowed / Headless | WAV / Virtual Sink | `build/host/bmhost` |
-| **QEMU Simulation** | Emulated | `-M raspi0` / `-M virt` | Configured RAM | Software / V3D Emu | Framebuffer Dump | Headless Capture | CI runners |
+### Pi Zero W / Pi 1 (`src/`, `linker.ld`)
+- Board detection in `src/drivers/board.c` (revision code: Pi 1 A/B/A+/B+, CM1, Zero, Zero W,
+  Zero 2 W; LED GPIO per board in `led.c`). ARM clock raised to the firmware's maximum
+  (`prop_clock_set_max(CLOCK_ARM)`).
+- Boot, memory, drivers: [system](system.md). Network kernel tag `bmK6` at offset 4
+  (`src/boot/start.S`).
 
----
+### Pi Zero 2 W (`-DBM_ZERO2`)
+- Off in `make`, `test`, `install`, `image`, `release` and CI; the `BM_ZERO2` code stays
+  and must compile. Not built nor tested unless `ZERO2=1` is asked.
+- Differences handled: peripheral base (`src/drivers/mmio.h`), core 0 leaves HYP for SVC and
+  the other cores stay in the firmware stub (`start.S`), LED GPIO 29, CYW43436 WiFi/BT.
+  Network kernel tag `bmK7`.
 
-## 2. Raspberry Pi Zero W & Pi 1 (Primary Target)
+### PowKiddy RGB30 (`src/rgb30/`, `rgb30.mk`)
+- Toolchain `aarch64-linux-gnu-gcc` + picolibc. U-Boot (mainline) boots `kernel8.img`;
+  updates read `manifest-rgb30` (`src/kernel/update.c`).
+- Display: 720×720 DSI panel (ST7703) through VOP2 (`rk_display.c`, `rk_dsi.c`); the menu
+  is the Pi's `menu_ui.c` at 360×360 shown ×2 (`ui.c`).
+- Controls (`pad.c`, `rk_input.c`, SARADC sticks): B confirms, A goes back (`confirm=a`
+  swaps them; code uses `pad_ok`/`pad_back`). Button icons of its own: `PROMPT_RGB30_*` in
+  `src/kernel/prompts.c` (A green, B blue, X red, Y yellow; `"RGB30_A"`… from Lua on any
+  console).
+- Audio: I2S1 + RK817 codec ([audio](audio.md)). Volume keys `volume.c`.
+- Battery (`battery.c`): plug bit polled every 250 ms (the bolt), voltage every 10 s and 2 s
+  after a plug change. One state for the bar, the low-battery LED and the games:
+  `battery()` / `battery_low()` in Lua (`nil`/`false` on the Pi). Low from 20% off the
+  charger until 23%: a red icon drawn by the runtime over games and tools (`battery_draw()`
+  in `runtime.c`, after `flush3d`, outside lockstep); `battery_icon=0` turns it off. QEMU:
+  `test_battery_low_game` (`tests/rgb30/qemu_test.py`).
+- WiFi RTL8821CS over SDIO (`rtw_*.c`, `wpa.c`), Bluetooth RTL8821CS on UART1 (`rk_bt.c`,
+  H5).
+- Logs on the SD for the run before: `bm/bootprev.txt` (its boot log + last 4 KiB printed),
+  `bm/lastrun.txt` (whole log of a run ended through `plat_reset`/`plat_poweroff`),
+  `display: ...` lines in `bm/bootlog.txt` around the panel start.
+- Panel start (`rk_dsi_init`): reset low, supply on, 20 ms, reset released, 120 ms before
+  the commands; no supply cut at boot, no power-mode readback. `rk_dsi_off(link_up)` runs
+  before a restart.
+- Market and Games show `.b16`; `.bm` are visible for tests (`show_bm=0` hides them); the
+  Market downloads only `.b16`. Bar: only WiFi and battery.
 
-The primary reference hardware for bm:
-* **Processor Core**: Broadcom BCM2835 featuring an ARM1176JZF-S core with 16 KiB instruction cache, 16 KiB data cache, and VFPv2 hardware floating point.
-* **Overclocking**: The bootloader queries the mailbox interface to elevate core clock from 700 MHz to **1000 MHz (1 GHz)**.
-* **Memory Map**: MMIO registers reside at base address `0x20000000`. Memory split gives 448 MiB to ARM and 64 MiB to GPU.
-* **Storage**: Arasan EMMC controller operates in PIO mode over a 4-bit bus clocked at 25 MHz.
-* **USB Host**: Single OTG micro-USB port connected to the DWC2 host controller. On the Pi 1 Model B/B+, an SMSC LAN9512/LAN9514 USB hub/Ethernet controller is supported.
-* **Wireless**: Broadcom BCM43438 providing 2.4 GHz 802.11n WiFi and Bluetooth 4.1.
-* **Boot Image**: Standard single-stage bare-metal binary: [`build/kernel.img`](../../build/kernel.img).
+### PC and QEMU
+- `bmhost` (`tests/host/bmhost.c`): the console's runtime with kernel services stubbed;
+  virtual clock (frame n at n/60 s, same run every time), `--shots`, `--video`, `--wav`,
+  `--input` scripts, `--tool`, `--realtime`, `--clock-scale K` (≈21 to estimate the Pi).
+  Variants: `bmhost-gpu` (V3D emulator `tests/gpu/v3d_emu.c`), `bmhost-ai`.
+- QEMU: `tests/qemu_test.py` (`-M raspi0`, `--kernel7` for raspi2b),
+  `tests/rgb30/qemu_test.py` (`virt,gic-version=3`, PLAT=virt build: PL011, ramfb, GICv3).
+  No GPU in QEMU: 3D is software there.
 
----
+## Open work
 
-## 3. Raspberry Pi Zero 2 W (Secondary Target)
+- **M41** (RGB30): Overbit in `.b16` at 360×360 and 720×720, its benchmark with the ARM,
+  then the Mali driver (see [graphics](graphics.md)).
+- **M42**: one `.b16` profile identical on Pi and RGB30.
+- RGB30 panel after a warm restart (to watch, `src/rgb30/rk_dsi.c`):
+  1. The black screen after a restart or an update may come back now that the boot power
+     cycle is withdrawn (power off/on recovers it). If it does: cut and restore the supply
+     **before** `dphy_power_on`, never with the PHY or the link up; a power-mode readback
+     only as an opt-in log line, tried on the console first.
+  2. Once, on the first start after kernels of the other build, horizontal lines shifted
+     and repeated (menu stacked in copies), gone at the next start. Probably the panel state
+     left by the previous shutdown. If it returns, note when and read the `display:` lines
+     of `bm/bootlog.txt`.
 
-Maintained as a dual-build companion target sharing the same unified codebase:
-* **SoC**: Broadcom BCM2710A1 containing four ARM Cortex-A53 cores.
-* **Execution Mode**: Compiled in ARMv7 32-bit mode (`-DBM_ZERO2`, `ARCH7` flags in Makefile).
-* **Multi-Core Boot Handling**: Boots into HYP mode. Core 0 drops to SVC mode and runs the kernel; secondary cores 1–3 are preserved in firmware parking stubs at physical address `0x00000000`.
-* **Hardware Differences**:
-  * MMIO peripheral base address shifts to `0x3F000000`.
-  * Status ACT LED mapped to **GPIO 29** (GPIO 47 is dedicated to I2C power regulator).
-  * Wireless chip updated to Cypress CYW43436.
-* **Dual-Boot SD Architecture**: Both `kernel.img` (for Pi Zero W) and `kernel7.img` (for Pi Zero 2 W) live side-by-side on the root partition. The Raspberry Pi firmware automatically launches the matching kernel for the detected board revision.
-* **Build Command**: `make ZERO2=1` produces `build/kernel7.img`.
+## Rules (do not break)
 
----
-
-## 4. PowKiddy RGB30 (Handheld Target)
-
-A dedicated port adapting bm to a modern portable form factor ([`docs/RGB30.md`](../RGB30.md)):
-* **SoC & Toolchain**: Rockchip RK3566 (quad Cortex-A55) compiled with `aarch64-linux-gnu-gcc` and **picolibc**.
-* **Display**:
-  * 4.0-inch 720×720 square IPS panel driven via Rockchip VOP2 display processor through DSI0 and an ST7703 driver chip.
-  * System menu runs at native 360×360 and scales 2× onto the 720×720 screen.
-* **Integrated Controls**:
-  * Digital D-pad, face buttons (B confirms, A cancels), shoulder buttons (L1/R1, L2/R2) read via GPIO.
-  * Dual analog sticks read via SARADC and analog multiplexer.
-* **Audio & Power**:
-  * Sound driven via RK3566 I2S1 to Rockchip RK817 audio codec and headphone amplifier.
-  * Hardware volume buttons (+ / −) with instant onscreen indicators.
-  * Battery percentage and charging status read directly from RK817 PMIC registers.
-* **Wireless**: Realtek RTL8821CS SDIO WiFi and UART Bluetooth.
-* **Boot Flow**: Boots as an uncompressed AArch64 Image via U-Boot extlinux configuration (`kernel8.img`).
-* **Build Command**: `make TARGET=rgb30` produces `build/kernel8.img`.
-
----
-
-## 5. Host Simulation & Automated Testing
-
-To ensure rapid test iteration without physical SD card swapping:
-
-### 1. `bmhost` Native PC Runtime ([`tests/host/`](../../tests/host/))
-* Compiles the cartridge runtime, graphics engine, and sound synthesizer natively for Linux / WSL / macOS.
-* Runs `.bm` cartridges headlessly or windowed.
-* Supports scripted inputs, deterministic snapshot dumps (`--shots`), and video/WAV recording.
-* Includes cycle-scaled clock emulation (`--clock-scale 21`) to accurately estimate Pi Zero frame times directly on a PC.
-
-### 2. QEMU Automated CI Testsuite
-* **Raspberry Pi Zero W**: Tested using `qemu-system-arm -M raspi0 -kernel build/kernel.elf`.
-* **PowKiddy RGB30**: Tested using `qemu-system-aarch64 -M virt -cpu cortex-a55`.
-* Runs comprehensive end-to-end regression suites including filesystem reads, menu navigation, cartridge launches, audio synthesis, and framebuffer verification.
+- One menu (`src/kernel/menu_ui.c`) and one Settings (`src/kernel/settings.c`) for Pi and
+  RGB30: a new row goes there for both.
+- A kernel from the network must match the board (`bmK6`/`bmK7` at offset 4).
+- Numbers on the Pi or RGB30 come from the console's reports (`reports` branch,
+  `reports/<branch>/…`): ask the user to run them.

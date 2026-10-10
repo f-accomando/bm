@@ -1,129 +1,134 @@
-# Scrittura col pad (assistive typing)
+# Typing with the pad (assistive typing)
 
-Scrivere **italiano, inglese e Lua col solo controller**, in due modi:
+Italian version: [PADTYPE-IT.md](PADTYPE-IT.md).
 
-- **Composizione rapida** (*compose*): la croce scrive le consonanti e la predizione finisce
-  la sillaba (↑ = "t", e il dizionario propone "te", "ta", "tr"...); □ e △ girano la
-  sillaba sulle altre; tre parole intere sono sempre a portata di R2.
-- **Tastiera su schermo** (*keyboard*): una griglia di tasti, un carattere alla volta con
-  la croce, come sulle console.
+Write **Italian, English and Lua with the controller alone**, in two ways:
 
-**Share** passa dall'una all'altra (in bm Code accende e spegne la scrittura). Mentre la
-composizione è accesa, un **overlay del controller** mostra cosa scriverebbero le quattro
-frecce e i quattro tasti; tenendo L2, R2 o tutti e due mostra le loro proposte.
+- **Quick composition** (*compose*): the d-pad writes the consonants and the prediction finishes
+  the syllable (↑ = "t", and the dictionary proposes "te", "ta", "tr"...); □ and △ rotate the
+  syllable through the others; three whole words are always within reach of R2.
+- **On-screen keyboard** (*keyboard*): a grid of keys, one character at a time with
+  the d-pad, as on consoles.
 
-- **Dove**: in **bm Code** (scheda Dev), Share; nella cartuccia **Pad Typing** (scheda
-  Games), che serve per esercitarsi e misurarsi; in ogni cartuccia con
-  `require "padtype"` (`src/ai/padtype.lua`, nel kernel).
-- **Numeri** (sezione 6): sui testi dell'esercizio, con i suggerimenti di parola, **1,09
-  pressioni per carattere** in italiano, 1,06 in inglese, 1,33 in Lua; con la tastiera su
-  schermo 3,8–4,0.
+**Share** switches from one to the other (in bm Code it turns typing on and off). While
+composition is on, a **controller overlay** shows what the four
+arrows and the four buttons would write; holding L2, R2 or both shows their proposals.
 
-Riprende l'idea del branch `archive/pad-typing` (accordi di croce e tasti), con regole
-nuove decise dall'utente il 2026-10-04: solo quattro direzioni, la doppia pressione, la
-rotazione delle sillabe, L1/R1 per muoversi. Le regole qui sotto sono quelle di partenza:
-le tabelle stanno in cima a `padtype.lua` (`CROSS`, `FACE`, `KB`) e si cambiano lì.
+The examples on this page are mostly Italian words ("ciao", "che", "domani"...), since
+Italian is the main language of the rules; they are kept as they are.
 
-## 1. La composizione rapida
+- **Where**: in **bm Code** (Dev tab), Share; in the **Pad Typing** cartridge (Games
+  tab), which is for practising and measuring yourself; in every cartridge with
+  `require "padtype"` (`src/ai/padtype.lua`, in the kernel).
+- **Numbers** (section 6): on the exercise texts, with word suggestions, **1.09
+  presses per character** in Italian, 1.06 in English, 1.33 in Lua; with the on-screen
+  keyboard 3.8–4.0.
 
-### Le regole
+It takes up the idea of the `archive/pad-typing` branch (chords of d-pad and buttons), with new
+rules decided by the user on 2026-10-04: only four directions, the double press, the
+rotation of syllables, L1/R1 to move. The rules below are the starting ones:
+the tables are at the top of `padtype.lua` (`CROSS`, `FACE`, `KB`) and are changed there.
 
-- **Solo su, giù, destra, sinistra.** Le diagonali non scrivono: una pressione conta quando
-  la croce si ferma su una direzione sola (passare da ↑ a → scrive la →).
-- **La pressione aspetta la sua doppia.** Una freccia scrive dopo **X ms** (250 di
-  default; nella cartuccia da 150 a 600): se nel frattempo la stessa freccia torna giù,
-  è la **doppia**, che dà la consonante *alternativa*, mai la stessa due volte (↑ = t,
-  ↑↑ veloce = d). Qualunque altro tasto non aspetta: fa partire subito la prima. Per due
-  "t" di fila si aspetta un attimo tra l'una e l'altra (ma "tt" di solito lo propone già
-  la sillaba: "tu" + ↑ = "tutto" → "tto").
-- **La predizione completa la sillaba.** Una consonante scrive anche quello che il
-  dizionario si aspetta dopo: la sua doppia, una h, le vocali fino alla consonante
-  successiva ("c" in "ciao" diventa "ciao", in "che" "che", "t" dopo "tu" "tto"). Se
-  il dizionario si aspetta un'altra consonante, resta la consonante sola ("t" di "tre").
-- **□ e △ girano la sillaba** appena scritta (□ la prossima, △ la precedente): prima le
-  proposte del dizionario, dalla più probabile, poi la consonante da sola e le vocali in
-  ordine (a e i o u), in italiano per ultime le accentate non proposte (ù ì ò é à è: △
-  dall'inizio dà è). La sillaba che gira è azzurra; l'overlay ne mostra le vicine.
-- **Una vocale a inizio parola**: □ (o △) quando non c'è una sillaba aperta; R1 chiude
-  quella aperta se serve una vocale nuova.
-- **○ cancella l'ultima cosa scritta**: una sillaba, una parola presa da R2, lo spazio, la
-  punteggiatura (e rimette quello che c'era prima); se non sa cosa, un carattere. Tenuto,
-  continua un carattere alla volta.
-- **✕ è lo spazio, ✕✕ il punto** (". " con la maiuscola dopo; nel codice "." attaccato:
+## 1. Quick composition
+
+### The rules
+
+- **Only up, down, right, left.** Diagonals do not write: a press counts when
+  the d-pad settles on a single direction (going from ↑ to → writes the →).
+- **The press waits for its double.** An arrow writes after **X ms** (250 by
+  default; in the cartridge from 150 to 600): if in the meantime the same arrow goes down again,
+  it is the **double**, which gives the *alternative* consonant, never the same one twice (↑ = t,
+  quick ↑↑ = d). Any other button does not wait: it fires the first one immediately. For two
+  "t" in a row, wait a moment between one and the other (but "tt" is usually already proposed by
+  the syllable: "tu" + ↑ = "tutto" → "tto").
+- **The prediction completes the syllable.** A consonant also writes what the
+  dictionary expects after it: its double, an h, the vowels up to the next
+  consonant ("c" in "ciao" becomes "ciao", in "che" "che", "t" after "tu" "tto"). If
+  the dictionary expects another consonant, the consonant stays alone ("t" of "tre").
+- **□ and △ rotate the syllable** just written (□ the next one, △ the previous one): first the
+  dictionary's proposals, from the most likely, then the consonant alone and the vowels in
+  order (a e i o u), in Italian last the accented ones not proposed (ù ì ò é à è: △
+  from the start gives è). The rotating syllable is light blue; the overlay shows its neighbours.
+- **A vowel at the start of a word**: □ (or △) when there is no open syllable; R1 closes
+  the open one if a new vowel is needed.
+- **○ deletes the last thing written**: a syllable, a word taken from R2, the space, the
+  punctuation (and puts back what was there before); if it does not know what, one character. Held,
+  it goes on one character at a time.
+- **✕ is space, ✕✕ the full stop** (". " with a capital after it; in code "." attached:
   "math" ✕✕ "floor").
 
-### La croce
+### The d-pad
 
-| Croce | sola | doppia | L2 | L2 doppia | R2 | R2 doppia | L2+R2 | L2+R2 doppia |
+| D-pad | single | double | L2 | L2 double | R2 | R2 double | L2+R2 | L2+R2 double |
 |---|---|---|---|---|---|---|---|---|
 | ↑ | **t** | d | p | b | k | q | 1 | 5 |
 | → | **n** | m | f | v | w | y | 2 | 6 |
 | ↓ | **r** | l | g | h | j | _ | 3 | 7 |
 | ← | **s** | c | z | x | [ | ] | 4 | 8 |
 
-### I quattro tasti
+### The four buttons
 
-| Tasto | solo | doppio | L2 | L2 doppio | R2 | L2+R2 | L2+R2 doppio |
+| Button | single | double | L2 | L2 double | R2 | L2+R2 | L2+R2 double |
 |---|---|---|---|---|---|---|---|
-| ✕ | spazio | punto | , | ; | 1ª parola | ( | ) |
-| ○ | cancella | | ? | ! | cancella la parola | 0 | |
-| □ | sillaba dopo | | ' | " | 2ª parola | = | + |
-| △ | sillaba prima | | : | - | 3ª parola | { | } |
+| ✕ | space | full stop | , | ; | 1st word | ( | ) |
+| ○ | delete | | ? | ! | delete the word | 0 | |
+| □ | next syllable | | ' | " | 2nd word | = | + |
+| △ | previous syllable | | : | - | 3rd word | { | } |
 
-Lo 0 è ○ con L2+R2 (si ripete: 100 = 1, ○, ○); il 9 è l'8 girato con □ (o lo 0 con △):
-anche le cifre girano.
+The 0 is ○ with L2+R2 (it repeats: 100 = 1, ○, ○); the 9 is the 8 rotated with □ (or the 0 with △):
+digits rotate too.
 
-### Gli altri tasti
+### The other buttons
 
-| Tasto | Fa |
+| Button | Does |
 |---|---|
-| L1 | indietro di un carattere (tenuto: continua) |
-| R1 | avanti; con una sillaba aperta la accetta così com'è |
-| L1 o R1 tenuto + croce | il cursore nelle quattro direzioni (su e giù le righe) |
-| L1 + R1 tenuti | a capo (nel codice con il rientro: due spazi in più dopo `then`, `do`, `function(...)`, `{`; `end`, `else`, `until` tornano indietro da soli) |
-| L3 | maiuscola per la prossima lettera (su una sillaba aperta la cambia); a inizio frase è automatica |
-| R3 | la tastiera su schermo per **un** carattere (simboli rari: `* / < > # % ~`...), poi torna la composizione |
-| Share | la tastiera su schermo (in bm Code: spegne) |
-| Start | resta all'applicazione (pausa, menu) |
+| L1 | back one character (held: continues) |
+| R1 | forward; with an open syllable it accepts it as it is |
+| L1 or R1 held + d-pad | the cursor in the four directions (up and down the lines) |
+| L1 + R1 held | new line (in code with indentation: two more spaces after `then`, `do`, `function(...)`, `{`; `end`, `else`, `until` go back by themselves) |
+| L3 | capital for the next letter (on an open syllable it changes it); at the start of a sentence it is automatic |
+| R3 | the on-screen keyboard for **one** character (rare symbols: `* / < > # % ~`...), then composition comes back |
+| Share | the on-screen keyboard (in bm Code: turns off) |
+| Start | left to the application (pause, menu) |
 
-### Perché queste consonanti
+### Why these consonants
 
-Contate come inizio di sillaba (consonante + doppia + h + vocali, la regola della
-composizione) sui testi di `src/ai/words` e sul Lua dei giochi, con peso ½ italiano, ¼
-inglese, ¼ Lua:
+Counted as syllable starts (consonant + double + h + vowels, the composition
+rule) on the texts of `src/ai/words` and on the games' Lua, weighted ½ Italian, ¼
+English, ¼ Lua:
 
-n 12,1% · t 11,7 · r 10,1 · s 8,7 · l 8,4 · c 7,0 · d 5,9 · p 4,8 · m 4,6 · f 3,0 · g 2,8 ·
-v 2,5 · b 2,1 · w 1,2 · k 0,9 · x 0,9 · h 0,8 · z 0,6 · y 0,5 · q 0,5 · j 0,1 (una vocale
-a inizio sillaba il 10,6%).
+n 12.1% · t 11.7 · r 10.1 · s 8.7 · l 8.4 · c 7.0 · d 5.9 · p 4.8 · m 4.6 · f 3.0 · g 2.8 ·
+v 2.5 · b 2.1 · w 1.2 · k 0.9 · x 0.9 · h 0.8 · z 0.6 · y 0.5 · q 0.5 · j 0.1 (a vowel
+at the start of a syllable 10.6%).
 
-- **Frequenza**: le otto più scritte (n t r s l c d p: il 69% delle sillabe) non hanno
-  grilletto; le quattro prime con una pressione sola, quattro con la doppia.
-- **Intuitività**: la doppia è la *gemella* della singola: t/d (la stessa con la voce),
-  n/m (nasali), r/l (liquide), s/c (il suono "s": *city*, "sc"). Ogni direzione tiene la
-  sua famiglia nei livelli: ↑ le occlusive (t d · p b · k q), → le nasali e i suoni
-  morbidi (n m · f v · w y), ↓ r l · g h · j, ← le sibilanti (s c · z x). L2 sono le
-  otto seguenti, R2 le lettere rare dell'inglese e del codice, L2+R2 i numeri in senso
-  orario da ↑ (1 2 3 4, doppi 5 6 7 8).
-- **Comodità**: L2 con la croce si fa con una mano sola (indice e pollice sinistri); le
-  parole (R2 + ✕ □ △) con la destra. La h quasi non serve da sola: viene con la sillaba
-  (che, chi, the, she). Le doppie dell'italiano vengono con la sillaba (tto, zza, lla).
+- **Frequency**: the eight most written (n t r s l c d p: 69% of syllables) have no
+  trigger; the first four with a single press, four with the double.
+- **Intuitiveness**: the double is the *twin* of the single: t/d (the same one voiced),
+  n/m (nasals), r/l (liquids), s/c (the "s" sound: *city*, "sc"). Each direction keeps
+  its family across the levels: ↑ the plosives (t d · p b · k q), → the nasals and the soft
+  sounds (n m · f v · w y), ↓ r l · g h · j, ← the sibilants (s c · z x). L2 are the
+  next eight, R2 the rare letters of English and code, L2+R2 the numbers clockwise
+  from ↑ (1 2 3 4, doubles 5 6 7 8).
+- **Comfort**: L2 with the d-pad is done with one hand (left index finger and thumb); the
+  words (R2 + ✕ □ △) with the right. The h is hardly needed alone: it comes with the syllable
+  (che, chi, the, she). Italian double consonants come with the syllable (tto, zza, lla).
 
-### Le parole (R2)
+### The words (R2)
 
-Tenendo R2, ✕ □ △ scrivono la **1ª, 2ª, 3ª parola proposta** (le stesse sono sempre al
-centro dell'overlay, e il resto della prima si vede in blu-grigio dopo il cursore):
-quelle che finiscono la parola scritta o, dopo uno spazio, quelle che la seguono più
-spesso ("Ciao Marco, doma" → domani). La parola ha il suo accento e la sua maiuscola, e
-uno **spazio "morbido"**: la punteggiatura che segue si attacca alla parola ("domani" +
-L2 ✕ = "domani, "), ✕ dopo non ne aggiunge un altro. Nel codice le funzioni portano la
-loro parentesi (`cl` → `cls(`), le parole chiave lo spazio. R2 + ○ cancella la parola
-prima del cursore.
+Holding R2, ✕ □ △ write the **1st, 2nd, 3rd proposed word** (the same ones are always in the
+centre of the overlay, and the rest of the first one shows in blue-grey after the cursor):
+those that finish the word being written or, after a space, those that most often
+follow it ("Ciao Marco, doma" → domani). The word has its accent and its capital, and
+a **"soft" space**: the punctuation that follows attaches to the word ("domani" +
+L2 ✕ = "domani, "), ✕ after it does not add another one. In code, functions bring their
+parenthesis (`cl` → `cls(`), keywords the space. R2 + ○ deletes the word
+before the cursor.
 
-Le parole vengono dal completamento di bm Code (`require "predict"`, guida in
-[PREDICT.md](PREDICT.md)) e seguono il posto del cursore: nel codice Lua, dopo `--` e
-nelle stringhe l'italiano o l'inglese, nelle righe `#entry:` le domande all'assistente.
+The words come from bm Code's completion (`require "predict"`, guide in
+[PREDICT.md](PREDICT.md)) and follow where the cursor is: in Lua code, after `--` and
+in strings Italian or English, in `#entry:` lines the questions to the assistant.
 
-## 2. La tastiera su schermo
+## 2. The on-screen keyboard
 
 ```
 1 2 3 4 5 6 7 8 9 0          ! " # $ % & / ( ) =
@@ -133,72 +138,72 @@ z x c v b n m , . ?          | ^ ~ ` « » ° £ ± ß
 shift  #+  space  del enter
 ```
 
-La croce sposta il tasto acceso (tenuta, continua; ai bordi si gira), **✕** lo scrive,
-**□** spazio, **○** cancella, **△** cambia pagina (lettere / simboli), **L2** (o L3)
-maiuscola, R2 + ✕ □ △ le parole come nella composizione, L1 / R1 e L1 + R1 come sopra.
-La maiuscola a inizio frase è automatica. Share torna alla composizione (R3 anche).
+The d-pad moves the lit key (held, it continues; at the edges it wraps), **✕** writes it,
+**□** space, **○** deletes, **△** changes page (letters / symbols), **L2** (or L3)
+capital, R2 + ✕ □ △ the words as in composition, L1 / R1 and L1 + R1 as above.
+The capital at the start of a sentence is automatic. Share goes back to composition (R3 too).
 
-## 3. L'overlay
+## 3. The overlay
 
-Largo 340 pixel e alto 132 (`pt.size()`), disegnato dall'applicazione dove vuole
+340 pixels wide and 132 high (`pt.size()`), drawn by the application wherever it wants
 (`pt.draw(x, y)`):
 
-- in alto L2, L1, R1, R2 (accesi quando sono tenuti) e il livello (abc, L2, R2 words,
+- at the top L2, L1, R1, R2 (lit when held) and the level (abc, L2, R2 words,
   123 code);
-- a sinistra la **croce**: per ogni freccia la sillaba che scriverebbe adesso ("to", "sa":
-  la predizione) e, piccola, la doppia; la freccia che aspetta la doppia è gialla;
-- a destra i **quattro tasti** nei colori dei simboli del DS4 (△ verde, ○ rosso, ✕ blu,
-  □ rosa), con quello che fanno nel livello tenuto e, piccolo, il doppio;
-- al centro le **tre parole** di R2;
-- in basso la **sillaba che gira** con le vicine (□ avanti, △ indietro), oppure i tasti
+- on the left the **d-pad**: for each arrow the syllable it would write now ("to", "sa":
+  the prediction) and, small, the double; the arrow waiting for the double is yellow;
+- on the right the **four buttons** in the colours of the DS4 symbols (△ green, ○ red, ✕ blue,
+  □ pink), with what they do in the held level and, small, the double;
+- in the centre the **three words** of R2;
+- at the bottom the **rotating syllable** with its neighbours (□ forward, △ back), or the buttons
   L3, R3, L1+R1, Share.
 
-Con la tastiera su schermo l'overlay è la tastiera, con le parole sotto.
+With the on-screen keyboard the overlay is the keyboard, with the words below.
 
 ## 4. bm Code
 
-**Share** accende la scrittura col pad (o il menu, *Pad typing*): l'overlay compare sotto
-il codice, la riga di stato dice `PAD compose lua` (o `it`, `en`, `ask` secondo il posto),
-al cursore si vedono la pressione che aspetta (gialla), il resto della parola (blu-grigio),
-la sillaba che gira (azzurra) e quello che una parola ha appena scritto (verde). Start
-apre il menu; Share spegne e la croce torna a muovere il cursore. La tastiera del PC
-continua a funzionare insieme.
+**Share** turns on typing with the pad (or the menu, *Pad typing*): the overlay appears below
+the code, the status line says `PAD compose lua` (or `it`, `en`, `ask` depending on the place),
+at the cursor you see the press that is waiting (yellow), the rest of the word (blue-grey),
+the rotating syllable (light blue) and what a word has just written (green). Start
+opens the menu; Share turns it off and the d-pad goes back to moving the cursor. The PC keyboard
+keeps working at the same time.
 
-## 5. Pad Typing (la cartuccia)
+## 5. Pad Typing (the cartridge)
 
-`carts/typing`, nella scheda Games: esercizio e prova di scrittura.
+`carts/typing`, in the Games tab: typing practice and test.
 
-- **Menu**: lingua (Italiano, English, Lua), modo iniziale (compose o keyboard), attesa
-  della doppia (150–600 ms), testo (otto per lingua, scritti per bm, o *free writing*),
-  il prossimo tasto mostrato sì / no; sotto i record di ogni lingua. Start comincia.
-- **Esercizio**: il testo da ricopiare; quello scritto bene diventa bianco, un errore
-  rosso su fondo scuro, la sillaba che gira azzurra, il resto della parola proposta
-  blu-grigio. Sotto, **next:** il prossimo tasto (le icone del pad, ×2 per la doppia),
-  calcolato da `pt.coach`. A sinistra modo, tempo, caratteri al minuto, pressioni (e per
-  carattere); a destra i tasti principali.
-- **Fine**: tempo, caratteri al minuto, pressioni, pressioni per carattere, quante volte ○
-  ha cancellato, con "best!" sui record (salvati con `save()`). ✕ testo dopo, △ di nuovo,
-  ○ menu. Start durante l'esercizio è la pausa (Continua, Ricomincia, Testo dopo, Menu).
+- **Menu**: language (Italiano, English, Lua), initial mode (compose or keyboard), wait
+  for the double (150–600 ms), text (eight per language, written for bm, or *free writing*),
+  next key shown yes / no; below, the records of each language. Start begins.
+- **Exercise**: the text to copy; what is written correctly turns white, an error
+  red on a dark background, the rotating syllable light blue, the rest of the proposed word
+  blue-grey. Below, **next:** the next key (the pad icons, ×2 for the double),
+  computed by `pt.coach`. On the left mode, time, characters per minute, presses (and per
+  character); on the right the main buttons.
+- **End**: time, characters per minute, presses, presses per character, how many times ○
+  deleted, with "best!" on the records (saved with `save()`). ✕ next text, △ again,
+  ○ menu. Start during the exercise is the pause (Continue, Start again, Next text, Menu).
 
-## 6. Numeri
+## 6. Numbers
 
-`make test-padtype`: un dattilografo simulato preme quello che dice `pt.coach`
-fotogramma per fotogramma (pressione di due fotogrammi, grilletto lasciato tra un tasto
-e l'altro: ogni grilletto conta), su tutti gli otto testi di ogni lingua:
+`make test-padtype`: a simulated typist presses what `pt.coach` says
+frame by frame (a two-frame press, trigger released between one button
+and the next: every trigger counts), on all eight texts of each language:
 
-| Lingua | Caratteri | Composizione | Tastiera su schermo |
+| Language | Characters | Composition | On-screen keyboard |
 |---|---|---|---|
-| italiano | 837 | 909 pressioni, **1,09** a carattere | 3 202, 3,83 |
-| inglese | 806 | 851, **1,06** | 2 968, 3,68 |
-| Lua | 717 | 955, **1,33** | 2 887, 4,03 |
+| Italian | 837 | 909 presses, **1.09** per character | 3 202, 3.83 |
+| English | 806 | 851, **1.06** | 2 968, 3.68 |
+| Lua | 717 | 955, **1.33** | 2 887, 4.03 |
 
-Senza le parole di R2 la composizione fa 1,27 in italiano: le parole tolgono il 15%.
-Dove vanno le pressioni in italiano: un terzo a girare le sillabe (□ △), un terzo alle
-consonanti (doppie e grilletti compresi), il resto a parole di R2, spazi e punteggiatura.
-Pad Typing in bmhost, col primo testo di ogni lingua: 1,04 (it), 1,18 (en), 1,08 (Lua)
-pressioni a carattere.
+Without the R2 words composition does 1.27 in Italian: the words remove 15%.
+Where the presses go in Italian: a third to rotating syllables (□ △), a third to
+consonants (doubles and triggers included), the rest to R2 words, spaces and punctuation.
+Pad Typing in bmhost, with the first text of each language: 1.04 (it), 1.18 (en), 1.08 (Lua)
+presses per character.
 
-## 7. Da Lua
+## 7. From Lua
 
 ```lua
 local pt = require "padtype"
@@ -222,37 +227,37 @@ function _draw()
 end
 ```
 
-Altre funzioni: `pt.mode()`, `pt.presses()` / `pt.reset_count()`, `pt.clear()` (un testo
-nuovo), `pt.idle(host)` (i fotogrammi in cui un menu ha il pad), `pt.commit()` (la
-pressione che aspetta, subito), `pt.suggestions()`, `pt.syllables(host, prima, consonante)`,
-`pt.coach(host, testo)` (il prossimo tasto: `{hold, tap, double, both, wait, label}`),
-`pt.align(scritto, testo)` (il Lua confrontato come se `end` fosse già rientrato),
-`pt.preload(lingue)`, `pt.TEXTS` (i testi dell'esercizio), `pt.CROSS`, `pt.FACE`, `pt.KB`.
+Other functions: `pt.mode()`, `pt.presses()` / `pt.reset_count()`, `pt.clear()` (a new
+text), `pt.idle(host)` (the frames in which a menu has the pad), `pt.commit()` (the
+waiting press, right away), `pt.suggestions()`, `pt.syllables(host, prima, consonante)`,
+`pt.coach(host, testo)` (the next key: `{hold, tap, double, both, wait, label}`),
+`pt.align(scritto, testo)` (the Lua compared as if `end` were already dedented),
+`pt.preload(lingue)`, `pt.TEXTS` (the exercise texts), `pt.CROSS`, `pt.FACE`, `pt.KB`.
 
-## 8. File e test
+## 8. Files and tests
 
-- `src/ai/padtype.lua` (`require "padtype"`, nel kernel, in bmhost e nell'immagine della
-  RGB30): regole, sillabe, tastiera, overlay, `coach`, `text_host`, i testi.
-- `carts/typing/main.lua` (Pad Typing, copertina da `scripts/mkcovers.py`);
+- `src/ai/padtype.lua` (`require "padtype"`, in the kernel, in bmhost and in the RGB30
+  image): rules, syllables, keyboard, overlay, `coach`, `text_host`, the texts.
+- `carts/typing/main.lua` (Pad Typing, cover from `scripts/mkcovers.py`);
   `carts/code/main.lua` (bm Code: `pad_host`, Share).
-- `tests/padtype/pad_test.lua` (`make test-padtype`, in `make test`): le regole una per
-  una (attesa e doppia, livelli, sillabe e rotazione, ○, parole, punteggiatura, L1/R1,
-  L1+R1, L3, Share, R3, diagonali) e tutti i testi scritti fino in fondo nei due modi,
-  con i limiti di pressioni a carattere.
-- `tests/padtype/script.lua`: lo stesso dattilografo scrive lo script d'ingresso di
-  bmhost; `make test-padtype` fa copiare a Pad Typing il primo testo di ogni lingua fino
-  al risultato (fotogrammi in `build/padtype/`).
-- `tests/qemu_test.py`, `test_pad_typing`: un DS4 simulato in QEMU, Pad Typing dalla
-  scheda Games (sillaba, doppia, ○, numeri, punto, tastiera su schermo, parola, a capo,
-  pausa, esercizio) e Share in bm Code.
+- `tests/padtype/pad_test.lua` (`make test-padtype`, in `make test`): the rules one by
+  one (wait and double, levels, syllables and rotation, ○, words, punctuation, L1/R1,
+  L1+R1, L3, Share, R3, diagonals) and all the texts written to the end in both modes,
+  with the limits on presses per character.
+- `tests/padtype/script.lua`: the same typist writes bmhost's input
+  script; `make test-padtype` makes Pad Typing copy the first text of each language up
+  to the result (frames in `build/padtype/`).
+- `tests/qemu_test.py`, `test_pad_typing`: a simulated DS4 in QEMU, Pad Typing from the
+  Games tab (syllable, double, ○, numbers, full stop, on-screen keyboard, word, new line,
+  pause, exercise) and Share in bm Code.
 
-## 9. Limiti e passi successivi
+## 9. Limits and next steps
 
-- Da provare sul Pi con un DS4: l'attesa giusta per la doppia (250 ms è un'ipotesi), il
-  peso delle rotazioni, se le doppie s/c e r/l vengono naturali.
-- La RGB30: i bit di `pad()` sono le posizioni dei tasti, l'overlay usa i colori del DS4;
-  non è ancora provata lì.
-- Un servizio del kernel per scrivere da qualunque schermo (password del WiFi, nomi dei
-  file: lo spunto R2 della roadmap) potrebbe usare questa tastiera e la composizione.
-- Le parole nuove dell'utente nel dizionario; il pannello dell'assistente e i prompt di
-  bm Code (Trova, Vai alla riga) ancora senza la scrittura col pad.
+- To be tried on the Pi with a DS4: the right wait for the double (250 ms is a guess), the
+  weight of rotations, whether the s/c and r/l doubles come naturally.
+- The RGB30: the bits of `pad()` are the button positions, the overlay uses the DS4 colours;
+  it has not been tried there yet.
+- A kernel service to type from any screen (WiFi password, file
+  names: roadmap idea R2) could use this keyboard and composition.
+- The user's new words in the dictionary; the assistant panel and bm Code's
+  prompts (Find, Go to line) still without typing with the pad.

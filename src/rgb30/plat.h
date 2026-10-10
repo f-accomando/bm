@@ -77,6 +77,9 @@ void plat_sticks(int16_t axes[4]);
 /* battery voltage in mV (-1: unknown) and charger state (-1 unknown,
  * 0 not charging, 1 charging, 2 full) */
 int plat_battery(int *mv, int *charge);
+/* the charger's cable: 1 in, 0 out, -1 unknown (one byte from the PMIC:
+ * cheap enough to ask a few times a second, src/rgb30/battery.c) */
+int plat_power_in(void);
 
 /* the charge (0..100) of the RGB30's Li-ion cell from its voltage: a
  * table, linear in between, 0 at 3.45 V (the LED's low battery); on the

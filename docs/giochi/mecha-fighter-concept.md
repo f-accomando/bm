@@ -1,420 +1,408 @@
-# Picchiaduro a robot giganti — concept (M20)
+# Giant robot fighting game — concept (M20)
 
-Brief originale dell'autore (2026-09-28), riportato senza modifiche di contenuto.
-La progettazione tecnica (punto 25) sarà in `docs/giochi/mecha-fighter-design.md`,
-da scrivere all'avvio di M20.
+Italian version: [mecha-fighter-concept-IT.md](mecha-fighter-concept-IT.md).
+
+The author's original brief (2026-09-28), reproduced with no changes to its content.
+The technical design (point 25) will be in `docs/giochi/mecha-fighter-design.md`,
+to be written when M20 starts.
 
 ---
 
-Voglio sviluppare un picchiaduro 2D a incontri con robot giganti, fortemente ispirato
-alla struttura e al feeling di Street Fighter II Turbo su SNES, ma evoluto dove
-tecnicamente e visivamente possibile prendendo ispirazione anche dai picchiaduro 2D
-successivi, in particolare dalla filosofia di Marvel Super Heroes vs. Street Fighter:
-combattimento molto dinamico, combo più elaborate, verticalità, dash, air combat,
-juggle, tag team e maggiore libertà di movimento.
+I want to develop a 2D one-on-one fighting game with giant robots, strongly inspired
+by the structure and feel of Street Fighter II Turbo on SNES, but evolved wherever
+technically and visually possible, also taking inspiration from later 2D fighting
+games, in particular from the philosophy of Marvel Super Heroes vs. Street Fighter:
+very dynamic combat, more elaborate combos, verticality, dashes, air combat,
+juggles, tag team and greater freedom of movement.
 
-Il progetto deve però mantenere una forte identità 16-bit / SNES-like, evitando che
-"retro" venga interpretato come "minimalista".
+The project must, however, keep a strong 16-bit / SNES-like identity, avoiding
+"retro" being interpreted as "minimalist".
 
-## 1. Scala visiva — vincolo fondamentale
+## 1. Visual scale — fundamental constraint
 
-Questo è un punto fondamentale: i robot NON devono essere rappresentati con piccoli
-sprite da gioco indie minimalista. La dimensione e la presenza dei personaggi sullo
-schermo devono essere comparabili, come ordine di grandezza e importanza visiva, agli
-sprite dei personaggi di Street Fighter II Turbo su SNES.
+This is a fundamental point: the robots must NOT be represented with small
+minimalist indie-game sprites. The size and presence of the characters on screen
+must be comparable, in order of magnitude and visual importance, to the character
+sprites of Street Fighter II Turbo on SNES.
 
-Voglio quindi:
+So I want:
 
-- sprite grandi e chiaramente leggibili;
-- personaggi che occupino una parte consistente dello schermo;
-- animazioni composte da molti frame quando possibile;
-- silhouette molto leggibili;
-- dettagli visibili nell'armatura;
-- effetti di impatto ben evidenti;
-- deformazioni, danni e distacchi di parti chiaramente visibili;
-- fondali con grande profondità;
-- nessuna rappresentazione "micro-sprite" o eccessivamente semplificata.
+- large, clearly readable sprites;
+- characters that take up a substantial part of the screen;
+- animations made of many frames when possible;
+- very readable silhouettes;
+- visible details in the armor;
+- clearly noticeable impact effects;
+- clearly visible deformations, damage and parts breaking off;
+- backgrounds with great depth;
+- no "micro-sprite" or overly simplified representation.
 
-Il riferimento deve essere: "Street Fighter II Turbo / Marvel Super Heroes vs. Street
-Fighter, ma con robot giganti e tecnologia più avanzata" e NON: "un piccolo gioco
-pixel-art con robot minuscoli". Quando devi fare compromessi tecnici, privilegia la
-leggibilità e la presenza dei robot sullo schermo.
+The reference must be: "Street Fighter II Turbo / Marvel Super Heroes vs. Street
+Fighter, but with giant robots and more advanced technology" and NOT: "a small
+pixel-art game with tiny robots". When you have to make technical compromises, favor
+the readability and the presence of the robots on screen.
 
 ## 2. Concept
 
-Il gioco è un fighting game 2D nel quale combattono robot da combattimento
-giganteschi, alti come grattacieli. Non sono semplicemente robot umanoidi standard.
-Sono vere e proprie macchine da guerra modulari.
+The game is a 2D fighting game in which gigantic combat robots, as tall as
+skyscrapers, fight. They are not simply standard humanoid robots. They are true
+modular war machines.
 
-Ogni robot può essere personalizzato sia:
+Each robot can be customized:
 
-1. visivamente;
-2. nelle statistiche;
-3. nelle armi;
-4. nei movimenti;
-5. nelle abilità;
-6. nelle mosse speciali.
+1. visually;
+2. in its stats;
+3. in its weapons;
+4. in its movement;
+5. in its abilities;
+6. in its special moves.
 
-Il giocatore costruisce il proprio robot prima del combattimento. L'obiettivo è creare
-un sistema nel quale la configurazione del robot influenzi realmente il gameplay, non
-sia soltanto cosmetica.
+The player builds their own robot before the fight. The goal is to create a system in
+which the robot's configuration really affects the gameplay, rather than being merely
+cosmetic.
 
-## 3. Modalità di gioco
+## 3. Game modes
 
-Il gioco deve supportare almeno:
+The game must support at least:
 
-**Single player** — modalità arcade/campagna nella quale il giocatore affronta una
-serie di avversari. Possibili elementi: incontri normali; boss; robot particolarmente
-configurati; combattimenti con regole speciali; progressione attraverso diverse
-ambientazioni.
+**Single player** — arcade/campaign mode in which the player faces a series of
+opponents. Possible elements: normal matches; bosses; specially configured robots;
+fights with special rules; progression through different settings.
 
-**Versus 1v1** — due robot combattono direttamente.
+**Versus 1v1** — two robots fight directly.
 
-**Tag team** — due robot per squadra. Il giocatore può passare da un robot all'altro
-durante il combattimento.
+**Tag team** — two robots per team. The player can switch from one robot to the other
+during the fight.
 
-**2v2 tag** — due robot contro due robot.
+**2v2 tag** — two robots against two robots.
 
-Il sistema deve essere progettato fin dall'inizio per supportare il combattimento
-tag, evitando di costruirlo come aggiunta successiva.
+The system must be designed from the start to support tag combat, rather than
+building it as a later addition.
 
-## 4. Sistema tag
+## 4. Tag system
 
-Il sistema tag deve essere importante e tattico. All'inizio della partita la squadra
-dispone di **2 slot di cambio**. Ogni cambio consuma uno slot. Gli slot non sono
-semplicemente consumabili per tutta la partita: si rigenerano lentamente nel tempo.
-Quindi il giocatore deve decidere quando utilizzare il tag.
+The tag system must be important and tactical. At the start of the match the team has
+**2 switch slots**. Each switch consumes a slot. The slots are not simply consumables
+for the whole match: they slowly regenerate over time. So the player has to decide
+when to use the tag.
 
-Questo permette di creare: tag offensivi; tag difensivi; salvataggi quando il robot è
-in difficoltà; combo che terminano con cambio; strategie di alternanza; pressione
-continua.
+This makes it possible to create: offensive tags; defensive tags; rescues when the
+robot is in trouble; combos that end with a switch; alternation strategies;
+continuous pressure.
 
-La barra/risorsa del tag deve essere chiaramente visibile nell'interfaccia.
+The tag bar/resource must be clearly visible in the interface.
 
-## 5. Robot personalizzabili
+## 5. Customizable robots
 
-La personalizzazione è una delle caratteristiche principali del gioco. Durante la
-selezione del robot il giocatore non deve scegliere semplicemente un personaggio.
-Deve costruire/configurare una macchina da combattimento. La selezione dovrebbe
-permettere di scegliere elementi come:
+Customization is one of the main features of the game. During robot selection the
+player must not simply choose a character. They must build/configure a combat
+machine. The selection should allow choosing elements such as:
 
-**Struttura base** — corpo; peso; altezza; telaio; distribuzione della massa.
+**Base structure** — body; weight; height; frame; mass distribution.
 
-**Armatura** — differenti configurazioni di armatura. L'armatura deve avere
-conseguenze sia estetiche che gameplay.
+**Armor** — different armor configurations. Armor must have both aesthetic and
+gameplay consequences.
 
-- Più armatura: maggiore resistenza; maggiore peso; minore accelerazione; minore
-  agilità.
-- Meno armatura: maggiore velocità; maggiore agilità; maggiore capacità di movimento;
-  minore protezione.
+- More armor: greater resistance; greater weight; lower acceleration; lower
+  agility.
+- Less armor: greater speed; greater agility; greater movement capability;
+  less protection.
 
-**Armi** — possibili equipaggiamenti: spadoni; martelli; lame; cannoni montati sulle
-braccia; mitragliatori; lanciarazzi; micromissili; armi sulle spalle; armi integrate
-nel corpo; eventuali armi energetiche.
+**Weapons** — possible equipment: greatswords; hammers; blades; arm-mounted cannons;
+machine guns; rocket launchers; micro-missiles; shoulder weapons; weapons built into
+the body; possibly energy weapons.
 
-**Booster** — installati sotto i piedi; sulla schiena; sulle gambe; sulle spalle.
-Possono influenzare: dash; salto; velocità; movimento aereo; recupero; possibilità di
-effettuare scatti aerei. I booster consumano energia.
+**Boosters** — installed under the feet; on the back; on the legs; on the shoulders.
+They can affect: dash; jump; speed; air movement; recovery; the ability to perform
+air dashes. Boosters consume energy.
 
-## 6. Peso ed equipaggiamento
+## 6. Weight and equipment
 
-Questo deve essere uno dei principi fondamentali del gioco. Più equipaggiamento = più
-peso.
+This must be one of the fundamental principles of the game. More equipment = more
+weight.
 
-- Più peso significa: minore velocità; minore accelerazione; salto più basso; dash
-  più lento; maggiore inerzia.
-- Meno equipaggiamento significa: maggiore agilità; maggiore velocità; salto
-  migliore; dash più rapido; maggiore mobilità aerea.
+- More weight means: lower speed; lower acceleration; lower jump; slower dash;
+  greater inertia.
+- Less equipment means: greater agility; greater speed; better jump; faster dash;
+  greater air mobility.
 
-Quindi non deve esistere una configurazione semplicemente "migliore". Il giocatore
-deve scegliere tra: potenza / protezione / mobilità / energia / capacità offensiva.
+So there must not be a configuration that is simply "the best". The player must
+choose between: power / protection / mobility / energy / offensive capability.
 
-## 7. Combattimento base
+## 7. Basic combat
 
-Il combattimento deve partire dalla filosofia di Street Fighter II Turbo. I robot
-devono poter effettuare: pugni; calci; attacchi pesanti; attacchi leggeri; attacchi
-accovacciati; attacchi in salto; attacchi aerei; prese; proiezioni; parate; dash;
-salto; doppio salto quando consentito dalla configurazione; attacchi speciali; super;
-combo.
+Combat must start from the philosophy of Street Fighter II Turbo. The robots must be
+able to perform: punches; kicks; heavy attacks; light attacks; crouching attacks;
+jumping attacks; air attacks; grabs; throws; blocks; dashes; jumps; double jump when
+allowed by the configuration; special attacks; supers; combos.
 
-Ma il sistema deve poter evolvere verso la maggiore spettacolarità dei fighting game
-successivi. Prendere quindi ispirazione anche da: air combos; juggle; launch; dash
-aereo; combo estese; cancellazioni; chain combo; special cancel; super; tag combo.
+But the system must be able to evolve toward the greater spectacle of later fighting
+games. So also take inspiration from: air combos; juggles; launches; air dash;
+extended combos; cancels; chain combos; special cancels; supers; tag combos.
 
-Non copiare direttamente mosse o personaggi esistenti: utilizzare queste idee come
-riferimento per il tipo di profondità del combattimento.
+Do not directly copy existing moves or characters: use these ideas as a reference
+for the kind of depth of the combat.
 
-## 8. Verticalità
+## 8. Verticality
 
-La verticalità deve essere molto importante. I robot sono enormi e devono poter
-sfruttare lo spazio verticale. Possibili meccaniche: salti normali; salti potenziati;
-boost verticali; dash aerei; attacchi dall'alto; launcher; juggle; combattimenti
-temporaneamente sospesi in aria; atterraggio pesante; attacchi verso il basso.
+Verticality must be very important. The robots are huge and must be able to exploit
+vertical space. Possible mechanics: normal jumps; powered jumps; vertical boosts; air
+dashes; attacks from above; launchers; juggles; fights temporarily suspended in the
+air; heavy landing; downward attacks.
 
-La configurazione del robot deve influenzare queste possibilità. Un robot molto
-pesante potrebbe avere un salto corto ma un enorme impatto all'atterraggio. Un robot
-leggero potrebbe avere un salto molto più alto e maggiore controllo aereo.
+The robot's configuration must affect these possibilities. A very heavy robot could
+have a short jump but an enormous impact on landing. A light robot could have a much
+higher jump and greater air control.
 
-## 9. Sistema armatura
+## 9. Armor system
 
-Questa è una delle caratteristiche più importanti del gioco. Ogni robot deve avere una
-**barra vita** e sopra di essa una **barra armatura**.
+This is one of the most important features of the game. Each robot must have a
+**health bar** and above it an **armor bar**.
 
-L'armatura non è semplicemente una seconda barra vita astratta. Deve essere
-rappresentata fisicamente sul robot. Quando l'armatura subisce danni: la barra
-armatura diminuisce; la parte corrispondente dello sprite si danneggia; l'armatura può
-deformarsi; pannelli possono rompersi; pezzi possono staccarsi; componenti interni
-possono diventare visibili.
+Armor is not simply a second, abstract health bar. It must be physically represented
+on the robot. When the armor takes damage: the armor bar decreases; the corresponding
+part of the sprite gets damaged; the armor can deform; panels can break; pieces can
+come off; internal components can become visible.
 
-E soprattutto: la distruzione dell'armatura deve essere sincronizzata tra barra e
+And above all: the destruction of the armor must be synchronized between bar and
 sprite.
 
-Esempio: un robot ha una grossa corazza sulla spalla destra. Quando quella parte
-subisce abbastanza danni:
+Example: a robot has a large plate on its right shoulder. When that part takes enough
+damage:
 
-1. la porzione corrispondente della barra armatura diminuisce;
-2. la corazza mostra danni;
-3. eventualmente si stacca;
-4. lo sprite cambia mostrando il componente sottostante;
-5. il robot rimane visivamente danneggiato per il resto dello scontro.
+1. the corresponding portion of the armor bar decreases;
+2. the plate shows damage;
+3. it eventually comes off;
+4. the sprite changes, showing the underlying component;
+5. the robot remains visibly damaged for the rest of the fight.
 
-Questo deve creare un senso di progressiva distruzione.
+This must create a sense of progressive destruction.
 
-## 10. Danni localizzati
+## 10. Localized damage
 
-Quando possibile, considera un sistema di danno localizzato. Possibili sezioni: testa;
-torso; braccio destro; braccio sinistro; gamba destra; gamba sinistra; spalle;
-componenti esterni.
+When possible, consider a localized damage system. Possible sections: head; torso;
+right arm; left arm; right leg; left leg; shoulders; external components.
 
-Non è necessario simulare fisicamente ogni componente. L'obiettivo è ottenere feedback
-visivo e gameplay leggibile.
+It is not necessary to physically simulate every component. The goal is to get
+readable visual and gameplay feedback.
 
-Esempio: se viene distrutto un cannone sul braccio: il cannone scompare dallo sprite;
-quell'arma non è più utilizzabile; il robot deve continuare il combattimento con le
-altre capacità.
+Example: if a cannon on the arm is destroyed: the cannon disappears from the sprite;
+that weapon can no longer be used; the robot has to keep fighting with its other
+capabilities.
 
-## 11. Scudi olografici
+## 11. Holographic shields
 
-Alcune configurazioni possono utilizzare scudi energetici/olografici. Gli scudi devono
-avere una propria condizione. Quando subiscono danni: diventano instabili;
-lampeggiano; mostrano distorsioni; presentano "glitch"; possono perdere sezioni;
-infine collassano.
+Some configurations can use energy/holographic shields. Shields must have their own
+condition. When they take damage: they become unstable; they flicker; they show
+distortions; they "glitch"; they can lose sections; finally they collapse.
 
-Quindi uno scudo perfettamente integro deve avere un aspetto diverso da uno quasi
-distrutto. Gli scudi possono eventualmente rigenerarsi lentamente, ma questo deve
-dipendere dalla configurazione scelta.
+So a perfectly intact shield must look different from an almost destroyed one.
+Shields can possibly regenerate slowly, but this must depend on the chosen
+configuration.
 
-## 12. Surriscaldamento delle armi
+## 12. Weapon overheating
 
-Le armi da fuoco non devono essere infinite. I cannoni, mitragliatori e sistemi
-missilistici devono avere una risorsa di **heat / surriscaldamento**. Dopo un certo
-numero di colpi: l'arma si surriscalda; aumenta il rischio di malfunzionamento; l'arma
-diventa temporaneamente inutilizzabile; il giocatore deve aspettare il raffreddamento.
+Firearms must not be infinite. Cannons, machine guns and missile systems must have a
+**heat / overheating** resource. After a certain number of shots: the weapon
+overheats; the risk of malfunction increases; the weapon becomes temporarily
+unusable; the player must wait for it to cool down.
 
-Il surriscaldamento deve essere chiaramente visibile attraverso: barra; effetti sul
-modello/sprite; fumo; bagliori; animazioni; eventuali segnali sonori.
+Overheating must be clearly visible through: a bar; effects on the model/sprite;
+smoke; glows; animations; possibly sound cues.
 
-Questo evita che il combattimento a distanza diventi semplicemente "spam di
-proiettili".
+This keeps ranged combat from simply becoming "projectile spam".
 
-## 13. Energia
+## 13. Energy
 
-Il robot deve avere anche una riserva energetica. L'energia può essere utilizzata da:
-booster; scudi; alcune armi; armi energetiche; abilità speciali.
+The robot must also have an energy reserve. Energy can be used by: boosters; shields;
+some weapons; energy weapons; special abilities.
 
-Quindi il giocatore deve gestire più risorse contemporaneamente: **vita, armatura,
-energia, calore, tag**. Ma l'interfaccia deve rimanere leggibile. Non voglio un HUD
-complicato da simulatore. Deve sembrare un fighting game arcade.
+So the player has to manage several resources at the same time: **health, armor,
+energy, heat, tag**. But the interface must stay readable. I don't want a complicated
+simulator HUD. It must feel like an arcade fighting game.
 
-## 14. Effetto della distruzione
+## 14. Destruction effect
 
-Quando un robot subisce danni importanti deve apparire progressivamente distrutto.
-Possibili effetti: pannelli che saltano; scintille; fumo; componenti esposti; cavi;
-parti incandescenti; parti meccaniche danneggiate; armi distrutte; vetri/sensori
-rotti.
+When a robot takes heavy damage it must look progressively destroyed. Possible
+effects: panels blowing off; sparks; smoke; exposed components; cables; glowing
+parts; damaged mechanical parts; destroyed weapons; broken glass/sensors.
 
-Questo deve essere soprattutto leggibile durante il combattimento, non soltanto una
-sequenza cinematica.
+Above all, this must be readable during combat, not just a cinematic sequence.
 
-## 15. Selezione del robot — hangar
+## 15. Robot selection — hangar
 
-La schermata di selezione deve essere una delle caratteristiche estetiche distintive
-del gioco. Non voglio una normale schermata "SELECT YOUR FIGHTER" con semplici
-riquadri.
+The selection screen must be one of the distinctive aesthetic features of the game. I
+don't want a normal "SELECT YOUR FIGHTER" screen with simple boxes.
 
-Il giocatore deve trovarsi dentro un enorme hangar industriale. Il robot selezionato è
-al centro. Intorno al robot ci sono: ingegneri; operai; piattaforme; gru; bracci
-robotici; impalcature; ascensori; strumenti; saldatrici; cavi; container; macchinari.
+The player must be inside a huge industrial hangar. The selected robot is in the
+center. Around the robot there are: engineers; workers; platforms; cranes; robotic
+arms; scaffolding; elevators; tools; welders; cables; containers; machinery.
 
-Gli esseri umani devono essere minuscoli rispetto al robot, in modo da rendere
-evidente la scala gigantesca.
+The humans must be tiny compared to the robot, so as to make the gigantic scale
+evident.
 
-Gli operai possono: saldare; trasportare materiali; lavorare sui piedi; lavorare sulle
-gambe; controllare pannelli; utilizzare piattaforme mobili.
+The workers can: weld; carry materials; work on the feet; work on the legs; check
+panels; use moving platforms.
 
-I bracci meccanici possono: montare armatura; spostare componenti; installare armi;
-sollevare pannelli.
+The mechanical arms can: mount armor; move components; install weapons; lift panels.
 
-Questi elementi sono principalmente estetici, ma devono rendere l'hangar vivo.
+These elements are mainly aesthetic, but they must make the hangar feel alive.
 
-## 16. Animazione dell'hangar
+## 16. Hangar animation
 
-L'hangar non deve essere completamente statico. Devono esserci piccoli eventi
-ambientali continui: saldature; scintille; bracci meccanici che si muovono;
-piattaforme che salgono; operai che camminano; luci che lampeggiano; pannelli che si
-aprono; componenti trasportati.
+The hangar must not be completely static. There must be small, continuous
+environmental events: welding; sparks; mechanical arms moving; platforms rising;
+workers walking; lights flashing; panels opening; components being carried.
 
-Questi elementi possono essere in loop e non devono necessariamente avere una funzione
-gameplay. Lo scopo è dare la sensazione che il robot venga realmente preparato prima
-della battaglia.
+These elements can loop and do not necessarily need a gameplay function. The purpose
+is to give the feeling that the robot is really being prepared before the battle.
 
-## 17. Selezione dell'equipaggiamento
+## 17. Equipment selection
 
-Mentre il giocatore è nell'hangar deve poter modificare il robot. La schermata può
-permettere di selezionare: chassis; armatura; braccia; armi; spalle; booster; scudo;
-sistema energetico; sistema di movimento.
+While in the hangar, the player must be able to modify the robot. The screen can
+allow selecting: chassis; armor; arms; weapons; shoulders; boosters; shield; energy
+system; movement system.
 
-Quando il giocatore cambia un equipaggiamento il robot visualizzato nell'hangar deve
-cambiare realmente. Esempio:
+When the player changes a piece of equipment, the robot displayed in the hangar must
+really change. Example:
 
-- se equipaggio un enorme martello, il martello compare nella mano del robot;
-- se cambio armatura, il modello/sprite cambia;
-- se aggiungo booster ai piedi, compaiono fisicamente;
-- se rimuovo un cannone, il cannone scompare.
+- if I equip a huge hammer, the hammer appears in the robot's hand;
+- if I change armor, the model/sprite changes;
+- if I add boosters to the feet, they physically appear;
+- if I remove a cannon, the cannon disappears.
 
-Questo deve rendere la personalizzazione visivamente soddisfacente.
+This must make customization visually satisfying.
 
-## 18. Arene
+## 18. Arenas
 
-I combattimenti devono avvenire in ambientazioni dove la scala dei robot sia evidente.
-Esempi:
+Fights must take place in settings where the scale of the robots is evident.
+Examples:
 
-- **Città abbandonata**: grattacieli distrutti; strade; automobili; palazzi; ponti;
-  detriti.
-- **Zona industriale**: fabbriche; serbatoi; condutture; gru; strutture metalliche.
-- **Foresta**: alberi giganteschi; terreno; rovine; vegetazione.
-- **Terre aride**: deserto; canyon; rocce; strutture abbandonate.
-- **Zona costiera / porto**: navi; container; gru; edifici industriali.
+- **Abandoned city**: destroyed skyscrapers; streets; cars; buildings; bridges;
+  debris.
+- **Industrial zone**: factories; tanks; pipelines; cranes; metal structures.
+- **Forest**: gigantic trees; terrain; ruins; vegetation.
+- **Badlands**: desert; canyons; rocks; abandoned structures.
+- **Coastal zone / port**: ships; containers; cranes; industrial buildings.
 
-Le ambientazioni devono aiutare a comunicare: "questi robot sono giganteschi".
+The settings must help communicate: "these robots are gigantic".
 
-## 19. Profondità dei fondali
+## 19. Background depth
 
-Anche se il gioco è 2D, voglio una forte sensazione di profondità. Utilizzare, quando
-possibile: parallasse; più livelli di fondale; elementi davanti ai robot; elementi
-dietro; particelle; fumo; detriti; oggetti ambientali animati.
+Even though the game is 2D, I want a strong feeling of depth. Use, when possible:
+parallax; multiple background layers; elements in front of the robots; elements
+behind; particles; smoke; debris; animated environmental objects.
 
-Il fondale deve sembrare un vero luogo, non una semplice immagine statica.
+The background must feel like a real place, not a simple static image.
 
-## 20. Stile grafico
+## 20. Graphic style
 
-Direzione artistica: SNES / 16-bit evoluto. Il riferimento estetico è la generazione
-SNES, ma il progetto deve cercare di spingersi oltre i limiti classici dove possibile.
-Quindi: pixel art dettagliata; sprite grandi; animazioni fluide; palette ricche ma
-coerenti; effetti particellari; esplosioni; scie; lampi; distorsioni energetiche;
-grandi effetti di impatto.
+Art direction: evolved SNES / 16-bit. The aesthetic reference is the SNES generation,
+but the project must try to push beyond the classic limits where possible. So:
+detailed pixel art; large sprites; smooth animations; rich but consistent palettes;
+particle effects; explosions; trails; flashes; energy distortions; large impact
+effects.
 
-Non trasformare il gioco in 3D semplicemente perché sarebbe più facile rappresentare i
-robot. Il combattimento deve rimanere principalmente: 2D side-view fighting game.
+Do not turn the game into 3D simply because it would be easier to represent the
+robots. The combat must remain primarily: a 2D side-view fighting game.
 
-## 21. Filosofia del design
+## 21. Design philosophy
 
-Il gioco deve essere facile da capire ma difficile da padroneggiare.
+The game must be easy to understand but hard to master.
 
-Un nuovo giocatore deve poter: muoversi; colpire; saltare; parare; usare un'arma; fare
-un semplice combo.
+A new player must be able to: move; hit; jump; block; use a weapon; do a simple
+combo.
 
-Un giocatore esperto deve poter sfruttare: combo; juggle; air combo; dash; gestione
-dell'energia; gestione del calore; gestione dell'armatura; gestione degli scudi; tag;
-configurazione del robot; timing.
+An expert player must be able to exploit: combos; juggles; air combos; dashes; energy
+management; heat management; armor management; shield management; tag; robot
+configuration; timing.
 
-La complessità deve emergere progressivamente, senza rendere il gioco immediatamente
-simile a un simulatore.
+Complexity must emerge progressively, without making the game immediately feel like
+a simulator.
 
-## 22. Priorità
+## 22. Priorities
 
-Quando devi prendere decisioni progettuali, usa questa gerarchia:
+When you have to make design decisions, use this hierarchy:
 
-1. Feeling da fighting game arcade
-2. Robot grandi e visivamente imponenti
-3. Combattimento fluido
-4. Leggibilità
-5. Personalizzazione significativa
-6. Sistema di danno/armatura
+1. Arcade fighting game feel
+2. Large, visually imposing robots
+3. Fluid combat
+4. Readability
+5. Meaningful customization
+6. Damage/armor system
 7. Tag team
-8. Verticalità
-9. Effetti spettacolari
-10. Dettagli estetici
+8. Verticality
+9. Spectacular effects
+10. Aesthetic details
 
-Non sacrificare la giocabilità per aggiungere sistemi inutilmente complessi.
+Do not sacrifice playability to add needlessly complex systems.
 
-## 23. Importante: evitare il minimalismo
+## 23. Important: avoid minimalism
 
-Non interpretare il progetto come: "SNES = pochi pixel = pochi elementi". L'obiettivo
-è invece: "Come sarebbe un fighting game SNES estremamente ambizioso, progettato con
-alcune idee evolute dei fighting game successivi?"
+Do not interpret the project as: "SNES = few pixels = few elements". The goal is
+instead: "What would an extremely ambitious SNES fighting game look like, designed
+with some of the evolved ideas of later fighting games?"
 
-Quindi voglio vedere: sprite grandi; robot dettagliati; molte animazioni; fondali
-ricchi; effetti; distruzione progressiva; personalizzazione; combattimento verticale;
-combo; tag; armi; gestione delle risorse.
+So I want to see: large sprites; detailed robots; many animations; rich backgrounds;
+effects; progressive destruction; customization; vertical combat; combos; tag;
+weapons; resource management.
 
-Quando una funzionalità non è possibile nella stessa misura dell'hardware SNES reale,
-implementa una versione compatibile con lo stile retro ma non ridurre automaticamente
-la scala o la complessità del concept.
+When a feature is not possible to the same extent as on real SNES hardware, implement
+a version compatible with the retro style, but do not automatically reduce the scale
+or the complexity of the concept.
 
-## 24. Obiettivo finale
+## 24. Final goal
 
-Il risultato dovrebbe dare questa impressione: "Street Fighter II Turbo incontra
-Marvel Super Heroes vs. Street Fighter, ma tutti i combattenti sono giganteschi robot
-modulari costruiti in un enorme hangar."
+The result should give this impression: "Street Fighter II Turbo meets Marvel Super
+Heroes vs. Street Fighter, but all the fighters are gigantic modular robots built in
+a huge hangar."
 
-Il giocatore deve percepire immediatamente: peso; scala; potenza; distruzione;
-personalizzazione; velocità; tecnologia; spettacolarità. E contemporaneamente deve
-rimanere chiaramente riconoscibile come: un fighting game 2D arcade.
+The player must immediately perceive: weight; scale; power; destruction;
+customization; speed; technology; spectacle. And at the same time it must remain
+clearly recognizable as: a 2D arcade fighting game.
 
-## 25. Cosa voglio da te
+## 25. What I want from you
 
-Prima di implementare qualsiasi cosa:
+Before implementing anything:
 
-1. analizza il concept;
-2. individua eventuali conflitti tra le meccaniche;
-3. proponi una struttura tecnica realizzabile;
-4. definisci il core gameplay loop;
-5. definisci le risorse del combattimento;
-6. definisci il sistema di movimento;
-7. definisci il sistema combo;
-8. definisci il sistema tag;
-9. definisci il sistema armatura/danni;
-10. definisci il sistema di equipaggiamento;
-11. definisci come la configurazione influenza statistiche e mosse;
-12. definisci la struttura delle arene;
-13. definisci l'HUD;
-14. definisci la schermata hangar;
-15. definisci un primo vertical slice giocabile.
+1. analyze the concept;
+2. identify any conflicts between the mechanics;
+3. propose a feasible technical structure;
+4. define the core gameplay loop;
+5. define the combat resources;
+6. define the movement system;
+7. define the combo system;
+8. define the tag system;
+9. define the armor/damage system;
+10. define the equipment system;
+11. define how the configuration affects stats and moves;
+12. define the structure of the arenas;
+13. define the HUD;
+14. define the hangar screen;
+15. define a first playable vertical slice.
 
-Non partire immediatamente costruendo tutto il gioco. Prima voglio una progettazione
-tecnica concreta e modulare. Dopo la progettazione, procedi per incrementi, mantenendo
-sempre una build giocabile. Ogni nuova funzionalità deve poter essere testata senza
-rompere quelle precedenti.
+Do not start by immediately building the whole game. First I want a concrete, modular
+technical design. After the design, proceed in increments, always keeping a playable
+build. Each new feature must be testable without breaking the previous ones.
 
-La priorità iniziale è creare un vertical slice 1v1 completo e giocabile, con:
+The initial priority is to create a complete, playable 1v1 vertical slice, with:
 
-- 2 robot;
-- movimento;
-- salto;
+- 2 robots;
+- movement;
+- jump;
 - dash;
-- pugni;
-- calci;
-- parata;
-- combo;
-- almeno un'arma;
-- energia;
-- calore;
-- barra vita;
-- barra armatura;
-- almeno un pezzo di armatura distruttibile;
-- una piccola arena;
-- sprite sufficientemente grandi da comunicare immediatamente la scala dei robot.
+- punches;
+- kicks;
+- block;
+- combos;
+- at least one weapon;
+- energy;
+- heat;
+- health bar;
+- armor bar;
+- at least one destructible armor piece;
+- a small arena;
+- sprites large enough to immediately communicate the scale of the robots.
 
-Solo dopo che questo core funziona bene, espandere il progetto con personalizzazione
-completa, tag team, ulteriori armi, altre arene e contenuti.
+Only after this core works well, expand the project with full customization, tag
+team, more weapons, other arenas and content.

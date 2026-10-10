@@ -69,7 +69,7 @@ MBEDTLS_SRCS := $(wildcard third_party/mbedtls/library/*.c)
 # transfer) over the WiFi (src/rgb30/rtw_sta.c)
 LWIP_SRCS := $(wildcard third_party/lwip/src/core/*.c third_party/lwip/src/core/ipv4/*.c) \
              third_party/lwip/src/netif/ethernet.c third_party/lwip/src/apps/sntp/sntp.c
-NET_SRCS := src/net/net.c src/net/netcon.c src/net/netxfer.c src/net/cartnet.c
+NET_SRCS := src/net/net.c src/net/netcon.c src/net/netxfer.c src/net/cartnet.c src/net/wifi_auto.c
 # updates from GitHub (System > Updates): HTTPS, the signed manifest
 # (manifest-rgb30.txt: kernel8.img and bm/ca.pem), the Pi's update code
 NET_SRCS += src/net/stream.c src/net/tls.c src/net/http.c src/net/http_kernel.c src/net/release.c \
@@ -218,7 +218,7 @@ build/rgb30-host/wpa_test: tests/rgb30/wpa_test.c tests/rgb30/wpa_vectors.h src/
 # the whole station (scan, WPA2, keys, lwIP's DHCP and a ping) on a
 # simulated chip and access points
 WIFI_SIM_SRCS := $(addprefix src/rgb30/,rtw_sta.c rtw_init.c rtw_io.c rtw_frame.c rtw8821c_table.c) \
-                 src/lib/printf.c src/net/net.c $(WPA_HOST_SRCS) $(LWIP_SRCS)
+                 src/lib/printf.c src/net/net.c src/net/wifi_auto.c $(WPA_HOST_SRCS) $(LWIP_SRCS)
 build/rgb30-host/wifi_sim_test: tests/rgb30/wifi_sim_test.c $(WIFI_SIM_SRCS) src/rgb30/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -g -w -fsanitize=address,undefined -DPLAT_RK3566 -DBM_HOST_TEST -Isrc -Isrc/rgb30 \

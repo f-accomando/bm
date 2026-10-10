@@ -1,189 +1,68 @@
-# Audio Engine & Hardware Output Subsystem
+# Audio
 
-This document details the audio architecture, the Audio 2 hi-fi synthesis engine, sound bank formats, live-coding pattern processing, AI musical generation, and hardware audio drivers in **bm**.
+Synthesizer, sound bank and player, ready-made instruments, outputs, `riff` and the music
+assistant. API: [`docs/API.md`](../API.md) (*Sound*, *Riff*); pattern language:
+[`docs/RIFF.md`](../RIFF.md).
 
----
+## How it is today
 
-## 1. Architectural Evolution: Audio 1 to Audio 2
+### Synthesizer (`src/audio/synth.c`, `synth.h`)
+- 8 voices, 48 kHz stereo, mixed in float, then a compressor (`COMP_T`, once per 64-sample
+  block) and the soft limiter `synth_limit` to 16 bits.
+- Each voice is 32 bytes of registers (layout in `synth.h`; a register at 0 is the plain
+  sound), so C, Lua (`apu()`, `tone()`) and the player drive the same sound.
+- Waves (`SYNTH_SQUARE` … `SYNTH_ORGAN`, 10): square with duty, triangle, saw, noise, sine,
+  metal noise, two-operator FM with feedback, plucked string (Karplus-Strong with a Thiran
+  allpass), supersaw (three saws), organ (four drawbars). PolyBLEP/BLAMP band limiting.
+- Per voice: white noise mix, drive, TPT state-variable filter (low/band/high pass, notch,
+  key tracking) with its own envelope, LFO (cutoff and PWM), exponential ADSR with minimum
+  attack/release (`MIN_ATTACK_S`, `MIN_RELEASE_S`: no clicks), pan, sends to the room and
+  the echo.
+- Room: 8-line FDN reverb run at half the rate (`SYNTH_ROOM_LINES`, `SYNTH_ROOM_LEN`). Echo:
+  ping-pong delay up to `SYNTH_ECHO_LEN` samples.
+- Retro mode: `SYNTH_RAW` per voice, or every voice with `synth_t.retro` (naive waves, held
+  noise, straight envelopes, no room or echo). Turned on by `retro(true)` in a game, by
+  `sound=8bit` in `bm/config.txt` or by *Settings > Sound style* (`audio_retro()` in
+  `src/audio/audio.c`, two owners: game and user).
 
-* **Audio 1 (M10 Baseline)**: A classic 8-bit retro synthesizer featuring 8 voices, naive waveform generation, linear envelope slopes, and raw digital clipping.
-* **Audio 2 (M46 Modernization)**: A complete overhaul ([`src/audio/synth.c`](../../src/audio/synth.c)) introducing anti-aliased oscillators, zero-delay feedback resonant filters, physical string modeling, stereo spatialization, studio effects, and live-coding pattern integration while retaining exact cycle-accurate 8-bit backward compatibility via `sound=8bit` or `retro(true)`.
+### Mixer and player (`src/audio/audio.c`, `player.c`, `player.h`)
+- `audio.c` owns the synth, the player, nano8's channels (`n8snd.c`) and the volume; the
+  output's interrupt calls `audio_render()`.
+- The player runs inside the audio interrupt every 64 samples (a 1.3 ms grid): music and
+  effects keep time whatever the frame rate. Notes queued with `play_at()` start there too.
+- Sound bank = AUDIO section 6 with signature `BMAU`, version 2 (version 1 still read).
+  Format in the comment at the top of `player.h`: 48-byte sounds (up to 32), sound effects
+  (64), patterns (64, one track per voice), songs (8). A section 6 without `BMAU` is an old
+  MESH (`src/bm/bm.h`).
+- A sound effect started without a voice takes a free one, preferring voices the song leaves
+  silent, and mutes that music track while it plays.
 
----
+### Instruments (`src/audio/presets.c`)
+42 presets (`P(...)` lines; groups drum, bass, keys, pad, pluck, lead, fx, plus the `chip*`
+8-bit ones). `instruments()` lists them; riff and the bank refer to them by name.
 
-## 2. Audio 2 Hi-Fi Synthesis Engine (`src/audio/synth.c`)
+### Outputs (`src/audio/audio_out.h`)
+- Pi: HDMI audio (`hdmi_audio.c`, `iec958.c`): IEC 958 subframes into the MAI FIFO, a DMA
+  channel paced by the HDMI DREQ plays two buffers in a ring.
+- RGB30: I2S1 to the RK817 codec (`src/rgb30/rk_audio.c`), 48 kHz 16-bit, no DMA (FIFO
+  threshold interrupt); jack/speaker switched by the codec, headphones mono. Volume keys:
+  `src/rgb30/volume.c` (bar via `notice.c`, `volume=` saved after 2 s).
+- QEMU virt (RGB30 tests): `src/rgb30/virt_audio.c`. `bmhost --wav`: 48 kHz mono.
 
-The synthesis engine renders 8 independent polyphonic voices mixed into a high-fidelity 48 kHz stereo stream:
+### riff (`src/script/riff.lua`, `require "riff"`)
+TidalCycles/Strudel-style patterns in Lua: mini-notation, chained functions, cycles of 2 s by
+default. `R.update()` looks a little ahead and queues notes with `play_at()`. `R.code(text)`
+is live code (bm Code: Ctrl+Enter plays and lights the sounding words, Ctrl+. stops);
+`R.bake()` turns a pattern into a song for the bank (bm Sound).
 
-### Anti-Aliased Oscillators
-Naive digital oscillators produce harsh high-frequency foldback aliasing. Audio 2 implements band-limiting algorithms directly in C:
-* **PolyBLEP (Polynomial Band-Limited Step)**: Smooths discontinuities in square, pulse, and sawtooth waveforms.
-  * Square wave aliasing at 1760 Hz reduced from **−22 dB to −60 dB**.
-  * Sawtooth wave aliasing at 3520 Hz reduced from **−16 dB to −57 dB**.
-* **PolyBLAMP (Polynomial Band-Limited Ramp)**: Band-limits triangular and discontinuous derivative waveforms.
+### Music assistant (`src/ai/music.c`, `music_net.c`, `lua_music.c`)
+87 recipes (`RECIPES`: `beat.*`, `base.*`, `bass.*`, `arp.*`, `melody.*`, `sfx.*`); the words
+of a request choose key, mode, tempo, length and instrument, the seed the variant. Melodies
+come from a small INT8 network (`MUS_NFEAT` 116 inputs, `MUS_NOUT` 24 outputs, `BMNN` blob in
+`music_net.c`) trained by `scripts/trainmusic.py` on `src/ai/melodies.txt`. Lua: `ai.music`
+(`lua_music.c`), used by bm Sound's assistant panel (F6).
 
-### Advanced Synthesis Algorithms
-1. **2-Operator FM Synthesis**: Modulator and carrier operators with variable frequency multipliers and feedback loops for bells, electric pianos, and metallic percussion.
-2. **Karplus-Strong Plucked String Modeling**: Digital waveguide synthesis utilizing delay lines and Thiran allpass dispersion filters for expressive acoustic guitars, harps, and bass strings.
-3. **Supersaw Generation**: Multi-oscillator detuned saw cluster for rich trance leads and brass pads.
-4. **Drawbar Organ Model**: Additive harmonic overtone generator simulating classic tonewheel organs.
-
-### Topology-Preserving Transform (TPT) Resonant Filter
-Implements zero-delay feedback (ZDF) state-variable filtering:
-* Modes: Low-pass (LPF), Band-pass (BPF), High-pass (HPF), and Notch filtering.
-* Modulation sources: Dedicated exponential envelope generator, keyboard tracking (pitch scaling), and low-frequency oscillators (LFO).
-
-### Spatial Effects & Master Dynamics
-* **Per-Voice Stereo Panning**: Full stereo field placement (`pan = -1.0` to `+1.0`).
-* **8-Line Feedback Delay Network (FDN) Reverb**: Simulates rich acoustic room reflections and decay characteristics.
-* **Ping-Pong Echo**: Stereo cross-feedback delay synchronized to tempo beats.
-* **Master Limiter / Compressor**: Transparent lookahead limiter preventing digital inter-sample clipping on dense polyphonic chords.
-* **CPU Consumption**: Highly optimized integer/fixed-point code consumes only **4.2% of the Pi Zero W CPU** with all 8 voices active alongside full FDN reverberation.
-
----
-
-## 3. Presets & Sound Bank Architecture
-
-### Standard Preset Library (`src/audio/presets.c`)
-bm bundles **42 production-ready instrument presets** categorized for immediate use in games:
-* **Basses**: Synth Bass, Slap Bass, Acid 303, Sub Bass, Pluck Bass.
-* **Leads**: Poly Lead, Chip Lead, Supersaw, Square Lead, Flute.
-* **Pads & Keys**: Warm Pad, FM EPiano, Organ, Ambient Strings, Glass Bells.
-* **Percussion**: Kick, Snare, Hi-Hat, Tom, Crash, Noise Zap.
-
-### Sound Bank Format (Version 2)
-Cartridges store sounds in a structured binary chunk (AUDIO section 6, signature `BMAU`):
-* **48-byte Instrument Chunks**: Store oscillator mode, FM parameters, filter cutoff/resonance, envelope times (attack, decay, sustain, release), LFO speed, and effect send levels (reverb, echo).
-* **Track Patterns**: Step sequencer patterns specifying note pitch, duration, volume, and instrument IDs.
-
----
-
-## 4. Hardware Output Drivers
-
-Audio output is abstracted through [`src/audio/audio_out.h`](../../src/audio/audio_out.h):
-
-```
-                     ┌──────────────────────────────┐
-                     │   8-Voice Synth & Effects    │
-                     │ (48 kHz stereo, float mix →  │
-                     │  16/24/32-bit, TPDF dither)  │
-                     └──────────────┬───────────────┘
-                                    │
-            ┌───────────────────────┴───────────────────────┐
-            ▼                                               ▼
-┌──────────────────────────────┐                ┌──────────────────────────────┐
-│     Raspberry Pi (HDMI)      │                │    PowKiddy RGB30 (I2S)      │
-│  src/audio/hdmi_audio.c      │                │    src/rgb30/rk_audio.c      │
-│  - IEC958 subframe packing   │                │  - RK3566 I2S1 TDM interface │
-│  - BCM2835 DMA channel FIFO  │                │  - RK817 Audio Codec / Amp   │
-│  - HDMI video-audio sync     │                │  - Headphone jack / Speakers │
-└──────────────────────────────┘                └──────────────────────────────┘
-```
-
-### 1. Raspberry Pi HDMI Audio (`src/audio/hdmi_audio.c`, `src/audio/iec958.c`)
-* The BCM2835 transmits digital audio packets interleaved within the HDMI video signal.
-* PCM samples are formatted into standard IEC958 / S/PDIF subframes with parity bits and preamble flags: 24-bit words (`iec958_encode32`), so `sound_depth=24` reaches the TV whole (§8).
-* BCM2835 DMA feeds circular audio buffers directly into the HDMI audio FIFO at 48,000 Hz stereo.
-
-### 2. PowKiddy RGB30 Audio (`src/rgb30/rk_audio.c`)
-* Configures the Rockchip RK3566 I2S1 controller in TDM master mode (12.288 MHz MCLK from GPLL), 16-, 24- or 32-bit samples in 32-bit slots (§8).
-* Communicates directly with the onboard Rockchip RK817 power-management and audio codec chip.
-* Handles dynamic output routing between internal stereo speakers and the 3.5mm headphone jack.
-* Hardware volume keys (+ and −) trigger onscreen feedback overlays (`notice_flash`) and persist settings to `bm/config.txt`.
-
----
-
-## 5. Live-Coding & AI Music Generation
-
-### `riff` Pattern Language ([`docs/RIFF.md`](../RIFF.md))
-An expressive musical sequencing engine embedded in the kernel:
-* Inspired by Strudel and TidalCycles, written in Lua for `.bm` cartridges.
-* Miniature string notation for rhythmic division (`"bd [sd cp] bd bd"`), note sequences, and euclidean polyrhythms.
-* Queues events into the hardware audio ring buffer with sub-millisecond precision (within 1.3 ms).
-* Interactive controls: in bm Code, `Ctrl+Enter` plays a pattern and visually highlights active notes in real-time.
-
-### On-Console AI Music Generation (`src/ai/music.c`)
-Integrated with the console's creative suite:
-* **87 Procedural Accompaniment Recipes**: Automatically constructs basslines, chord progressions, arpeggios, and drum grooves matching user-specified styles (Rock, Synthwave, Lo-Fi, Gothic, Chiptune).
-* **Trained INT8 Melody Neural Network**: A lightweight neural network (116 inputs → 64 hidden → 24 outputs) trained via [`scripts/trainmusic.py`](../../scripts/trainmusic.py) that evaluates existing chord structures to generate contextually fitting lead melodies.
-
----
-
-## 6. Audio Engineering Principles & Hardware Constraints
-
-Future synthesis improvements and optimizations follow a strict hierarchy of impact-to-cost, calibrated specifically for the ARM1176 architecture:
-
-### Priority Interventions (Ordered by Yield / Impact)
-1. **Waveform Anti-Aliasing (PolyBLEP / Band-Limited Wavetables)**:
-   * Essential to avoid foldback distortion above Nyquist. PolyBLEP remains the optimal choice for ARM1176 due to low polynomial arithmetic overhead, with band-limited wavetables as a scalable alternative for complex waveforms.
-2. **High-Precision Mixing & Master-Stage Limiting**:
-   * Voices mixed internally in 32-bit floating-point with ample dynamic headroom. Master stage employs soft-knee saturation, DC blocking, and lookahead compression before final quantization.
-3. **Per-Voice Resonant Low-Pass Filtering (TPT/ZDF)**:
-   * State-variable zero-delay feedback filter providing smooth resonance, filter sweeps, and warmth without digital explosion or instability near Nyquist.
-4. **Wavetable & Glide Pitch Interpolation**:
-   * Continuous linear or Hermite interpolation on frequency increments across buffer boundaries to eliminate audible pitch stair-stepping during glides and vibrato.
-5. **Fluid Envelopes (ADSR) & LFO Modulation**:
-   * Sample-accurate or linearly ramped envelope stages and modulation curves across audio blocks (64 samples), preventing zipper noise during rapid filter sweeps and amplitude changes.
-6. **Quantization Dithering** (done, §8):
-   * Triangular Probability Density Function (TPDF) dithering applied during the final float to 16- or 24-bit PCM conversion to preserve subtle reverb tails and avoid harmonic truncation noise at low amplitudes.
-7. **Richer Synthesis Models**:
-   * 2-Operator FM synthesis with feedback modulation.
-   * Multi-oscillator detuning (supersaw cluster).
-   * LFO-modulated Pulse Width Modulation (PWM).
-   * Short PCM/WAV sample playback (drum hits, acoustic samples, vocal clips).
-
-### Real Hardware Budget & Constraints (BCM2835 / ARM1176JZF-S)
-* **Cycle Budget**: On a single 1.0 GHz core at 48 kHz stereo:
-  $$\frac{1\,000\,000\,000\text{ cycles/s}}{48\,000\text{ samples/s}} \approx 20\,833\text{ cycles per sample}$$
-  Across 8 polyphonic voices, the theoretical budget is approximately **~2,600 cycles per voice per sample**.
-* **No Hardware Integer Division**:
-  * The ARMv6 architecture (ARM1176) lacks hardware integer division (`sdiv`/`udiv` instructions were introduced in ARMv7-R/M and ARMv7-A extensions).
-  * Every integer `/` or `%` triggers a software subroutine call (`__aeabi_idiv`), consuming 20–80 cycles per invocation.
-  * *Design Rule*: Per-sample integer divisions are strictly prohibited in the audio loop. Use precomputed reciprocal multiplication, bit shifts, or fractional phase accumulators.
-* **Floating-Point & Fixed-Point Strategy**:
-  * VFPv2 hardware floating-point executes `fadds`, `fsubs`, `fmuls`, and `fmacs` efficiently (1–2 cycles), but `fdivs` takes 15–20 cycles.
-  * Precalculate all reciprocal values (e.g., `1.0f / rate`, `1.0f / n`, `idt = 1.0f / dt`) outside the per-sample rendering loops.
-
----
-
-## 7. Retrospective: What Worked, What Failed, Discarded Paths & Next Steps
-
-This section details the evolutionary history of bm's audio architecture, documenting trials, failure post-mortems, and discarded ideas:
-
-### 1. Naive Oscillators vs Band-Limited PolyBLEP
-* **Considered**: Audio 1 (M10) generated pure digital steps (0 and 1 for square, linear slopes for saw).
-* **What Failed**: Audible high-frequency aliasing foldback above 1.5 kHz (−22 dB on square waves, −16 dB on sawtooth), sounding harsh and metallic on modern speakers.
-* **Positive Outcome (Audio 2 / M46)**: Implemented PolyBLEP (step correction) and PolyBLAMP (slope correction). Suppressed aliasing down to **−60 dB** for square and **−57 dB** for saw with negligible CPU cost on ARM1176.
-* **Why Wavetables Were Deferred**: Large multi-octave band-limited wavetables consume precious L1 data cache lines (only 16 KiB total on ARM1176). PolyBLEP polynomial math executes purely in registers.
-
-### 2. Linear ADSR vs Exponential RC Envelopes
-* **Considered**: Linear delta additions per sample.
-* **What Failed**: Produced abrupt step discontinuities and audible clicking/popping during fast attack transients and release cutoffs.
-* **Positive Outcome**: Replaced with natural exponential curves modeled after analog RC circuits (`env_coefs`). Added minimum stage bounds (`MIN_ATTACK_S = 0.7 ms`, `MIN_RELEASE_S = 3.0 ms`) to guarantee click-free transitions.
-
-### 3. Full-Rate vs Half-Rate FDN Reverb
-* **Considered**: Running the 8-line Feedback Delay Network (FDN) reverberator at the full 48 kHz output rate.
-* **What Failed**: Pushed total audio CPU utilization above 8%, leaving less headroom for the 60 fps game loop.
-* **Positive Outcome**: Reverberation tails contain little spectral energy above 10 kHz. Running the FDN at half-rate (24 kHz) with linear interpolation between output pairs **halved reverb CPU load** while preserving spatial warmth. Total audio budget dropped to just **4.2% of CPU**.
-
-### 4. Dynamic Range Management & Limiting
-* **Considered**: Hard integer clipping at $\pm 32767$ or simple scalar volume division.
-* **What Failed**: 8 polyphonic voices playing simultaneous chords caused harsh digital clipping distortion.
-* **Positive Outcome**: 32-bit floating-point mixing headroom + master DC-blocking filter (~4 Hz) + lookahead compressor (`COMP_T = -4.4 dB`) + smooth knee limiter (`synth_limit`). Multiple simultaneous loud voices are attenuated transparently before the limiter engages.
-
-### 5. Discarded Architectural Paths
-* **Neural Speech / Voice Synthesis (AI.md)**: Discarded. The Pi Zero lacks analog microphone inputs, and real-time neural vocoding requires tens of GFLOPS. Formant synthesis using existing filter oscillators remains the viable path if speech is needed.
-* **WAV-Only Soundbanks in Early Versions**: Discarded. Relying on recorded audio samples would bloat `.bm` cartridges and stress the ~100 MB/s SDRAM bus. Procedural synthesis models (FM, Karplus-Strong, Supersaw) provide rich sound with zero memory bandwidth overhead.
-
-### 6. Pending & Alternatives to Explore
-* ~~**Short PCM Sample Playback (R9/R25)**~~: done (2026-10-10), §9: the SAMPLE wave, samples in the bank (version 3), the console's drum kit.
-* ~~**TPDF Dithering**~~: done (2026-10-10), §8: TPDF at 16 and 24 bits, silence stays exact zeros.
-* ~~**In-Block Modulation Interpolation**~~: done (2026-10-10), §8: the filter's g and k and the square's width ramp sample by sample.
-* Still open after §8: the release ends at `ENV_DONE` (−60 dB of the voice) with a step; the fast `sine()` (≈0.1% error) puts harmonics near −60 dB (the chip uses it too: a second, finer one would be needed); drive and noise-mix amounts step once a block when their registers change; the LFO itself is evaluated once a block (the ramps make its path piecewise in octaves); `QUIET` stops the room near −126 dBFS (12 dB over 24 bits' step).
-
----
-
-## 8. Output Depth, Dither & In-Block Ramps (2026-10-10)
+## Output depth, Dither & In-Block Ramps (2026-10-10)
 
 The mix was already 32-bit float; until now it left the synthesizer as `int16_t` and the Pi's IEC958 packer got `int16 × 256` (24-bit words, 16 bits of information). Now the float goes all the way to the output and is rounded once, at the very end, to the depth the output carries.
 
@@ -228,7 +107,7 @@ The mix was already 32-bit float; until now it left the synthesizer as `int16_t`
 
 ---
 
-## 9. Pass 2: Samples and Strudel's Effects (2026-10-10)
+## Pass 2: Samples and Strudel's Effects (2026-10-10)
 
 What superdough (Strudel's sound engine) has and the console lacked, where it makes sense on an ARM1176: recorded samples first, then its effects on a voice's path. Everything new is off when its register is 0: the old sounds render **bit for bit** as before (checked: every preset at three notes, clean and chip, the demo bank's songs and 22,000 blocks of random registers of the old layout, through `synth_mix` and the 24-bit rounding, against the synthesizer of `a4d79c1`: 100 MB identical).
 
@@ -304,4 +183,27 @@ Host (x86, the same C), 8 voices, ns a block of 64 frames, against 8 saws throug
 * `make test-audio`: the C tests (every format converted, rounded and clamped; the guards; broken banks; version 2 with a byte 9; Hermite's SNR; the octave; where it starts and backwards; forward and ping-pong loops; a pitch far up a tiny loop; stereo in its channels, the balance, the filter on both; no sample: silent and free; the kit's peaks, spectral centroids and fades; the player's bank to the synthesizer and away; the effects: crush's noise against `2^(1−b)/√12` at 3 and 8 bits, coarse's held samples (3 of 4), each curve's harmonics (odd for the symmetric ones, a second at −28 dBc for the asymmetric, every curve a different sound), the noises' tilt from 250–500 Hz to 4–8 kHz (white +12.0 dB, pink −0.2, brown −11.2; the pink noise mix the same), their loudness, crackle's clicks a second, tremolo all the way down at 15 and nothing without the LFO, the chorus's two sides apart and its silence after, the ducking (−122 dB under a full source, −0.09 dB half a second after), the vowels' formants ("a" against "i": 32 dB apart between 500–700 and 200–300 Hz), the chip deaf to all of it; every preset without a NaN and under 1.0, the new ones heard and under the limiter's bend, the kit's voices free when their sample ends; the tone's keys) and `tests/audio/test_bmaudio.py` (WAV files of every format into a bank, unpack → pack byte for byte both ways, version 2 without samples, the limits, then `bmrender` reads the same bank with the console's parser and plays each sample: its pitch at the root, an octave up, both channels, the loops going on, a one-shot ending, the kit's kick backwards; the effects' keys into their registers and back).
 * `make test-music` (the presets by name in the assistant's pieces): passes with the 50. It did not compile with GCC 15 (glibc's new `fdiv()` in `math.h` against `src/ai/music.c`'s own): renamed `floordiv`, nothing else.
 
+## Open work
 
+- **M46 (Audio 2)**: done on the PC; to verify on the Pi and on the RGB30 (Dev > *Audio
+  test*, bm Sound HIFI song, F6 "rock beat", *Sound style* 8-bit and back, riff in bm Code,
+  bm Sound F7). Checklist in `docs/ROADMAP.md`.
+- **M44 step 4**: block audio effects (reverb, echo, filters) on the QPUs, also for nano8.
+- Ideas not decided (spunti in `docs/ROADMAP.md`): R28 24-bit WAV, R29 audio entries in the kb
+  (to do with the API docs), R30 bit depth and sample meter in bm Sound. Short PCM samples,
+  TPDF dither and in-block ramps are done (above).
+
+## Rules (do not break)
+
+- **The bank format lives in three places**, changed together: C `au_parse`
+  (`src/audio/player.c`), Lua (`carts/sound/main.lua`, test double `tests/sound/sim.lua`),
+  Python `scripts/bmaudio.py` (also read by `scripts/bmres.py`, `scripts/bmmesh.py`). Always
+  write version 2; keep reading version 1.
+- A new synth register changes `synth.h`, the tone bytes of a sound (24..44 = registers
+  11..31) and the three encoders above.
+- `synth.c`, `player.c`, `music.c` are portable C (no hardware): the PC tests build them
+  as they are. Keep them free of kernel includes.
+- ARM1176 has no integer divide and VFP divides are slow: no per-sample `/` or `%` in the
+  render loop; precompute reciprocals per block.
+- Tests: `make test-audio`, `test-sound`, `test-riff`, `test-music`; RGB30
+  `make TARGET=rgb30 test-audio`.

@@ -1,159 +1,163 @@
-# Titan Clash — progettazione (M20)
+# Titan Clash — design (M20)
 
-Risposta al punto 25 del [concept](mecha-fighter-concept.md). Il 2026-09-29 l'autore ha
-chiesto di partire subito con una base giocabile (MVP): **un solo robot** per tutti i
-giocatori, poche opzioni (**armatura leggera o pesante**, **spada o mitragliatori sulle
-braccia**), sprite di alta qualità, libertà sulle scelte di dettaglio. Questo documento
-fissa le decisioni prese per l'MVP e come si estendono verso il concept completo.
+Italian version: [mecha-fighter-design-IT.md](mecha-fighter-design-IT.md).
 
-Codice: `carts/titan/` (cartuccia *Titan Clash*). Test: `make test-titan` (host) e
+Answer to point 25 of the [concept](mecha-fighter-concept.md). On 2026-09-29 the author
+asked to start right away with a playable base (MVP): **a single robot** for all
+players, few options (**light or heavy armor**, **sword or arm-mounted machine
+guns**), high-quality sprites, freedom on the detail choices. This document records
+the decisions made for the MVP and how they extend toward the full concept.
+
+Code: `carts/titan/` (cartridge *Titan Clash*). Tests: `make test-titan` (host) and
 `test_titan` in `tests/qemu_test.py`.
 
-## 1. Conflitti tra le meccaniche e come si risolvono
+## 1. Conflicts between the mechanics and how they are resolved
 
-| Conflitto | Decisione |
+| Conflict | Decision |
 |---|---|
-| Robot "alti come grattacieli" ma leggibili come SF2 | Scala dello sprite di SF2 (robot ~190 px su 360, metà schermo); la scala gigantesca la raccontano il fondale (auto da 16 px, lampioni, palazzi alla stessa altezza) e l'hangar (operai da 11 px) |
-| Tante combinazioni di equipaggiamento vs tanti frame | Robot **a strati**: ogni frame ha un'immagine base e strati sovrapposti (armatura pesante, spallaccio integro/crepato, cannoni, spada) resi dallo stesso scheletro; una combinazione costa zero frame in più |
-| Pixel art ricca vs budget di memoria | Sprite **pre-renderizzati** (modello 3D procedurale → cel shading con rampe di 6 toni e contorni) e sheet con palette e RLE (sezione SHEET8, fino a 2048×4096) |
-| Armatura come "seconda barra" vs armatura fisica | Una sola barra armatura, sincronizzata con lo spallaccio: integro, **crepato a metà**, **staccato a zero** (il pezzo vola via, rimbalza e resta in strada) |
-| Armi a distanza vs "spam di proiettili" | Il calore: 6 colpi per raffica, surriscaldamento a 100 (2,5 s fermo, fumo); la spada costa energia, che serve anche agli scatti |
-| Molte risorse vs HUD da arcade | In alto vita e armatura (le due che decidono il round), in basso energia e calore; il calore solo per chi ha i cannoni |
-| Tag team fin dall'inizio vs MVP 1v1 | Rinviato (sotto): la logica dei lottatori non tiene stato globale, una squadra sarà una lista di lottatori con uno attivo |
+| Robots "as tall as skyscrapers" but readable like SF2 | SF2 sprite scale (robot ~190 px out of 360, half the screen); the gigantic scale is told by the background (16 px cars, street lamps, buildings at the same height) and by the hangar (11 px workers) |
+| Many equipment combinations vs many frames | **Layered** robot: each frame has a base image and overlaid layers (heavy armor, intact/cracked pauldron, cannons, sword) rendered from the same skeleton; a combination costs zero extra frames |
+| Rich pixel art vs memory budget | **Pre-rendered** sprites (procedural 3D model → cel shading with 6-tone ramps and outlines) and sheets with palette and RLE (SHEET8 section, up to 2048×4096) |
+| Armor as a "second bar" vs physical armor | A single armor bar, synchronized with the pauldron: intact, **cracked at half**, **torn off at zero** (the piece flies off, bounces and stays in the street) |
+| Ranged weapons vs "projectile spam" | Heat: 6 shots per burst, overheating at 100 (2.5 s locked, smoke); the sword costs energy, which is also needed for dashes |
+| Many resources vs arcade HUD | At the top health and armor (the two that decide the round), at the bottom energy and heat; heat only for those with cannons |
+| Tag team from the start vs 1v1 MVP | Postponed (below): the fighter logic keeps no global state, a team will be a list of fighters with one active |
 
-## 2. Struttura tecnica
+## 2. Technical structure
 
-- **Arte** (Python, in git anche i risultati, `make` non li rigenera):
-  `mkrobot.py` (modello del robot VANGUARD: solidi su uno scheletro di 16 ossa, 63 pose
-  in 24 animazioni, render ortografico in vista 3/4, hurtbox e hitbox per frame dalle
-  ossa), `art.py` (città in 4 piani di parallasse, hangar, effetti, testi),
-  `mkassets.py` (impacchetta tutto in `sheet.png` e scrive `src/05_sprites.lua`).
-  Gli strati sparsi sono spezzati in blocchi 8×8 e i pezzi uguali condivisi.
-  P2 ha una **seconda livrea** (cremisi e oro, visore verde), ricolorando le rampe.
-- **Kernel**: sezione `SHEET8` del formato `.bm` (palette ≤256 colori + RLE,
-  decodificata al caricamento), `BM_SHEET_MAX` 4096; `mkbm.py --sheet8`.
-- **Gioco** (Lua, file in `src/` uniti da `build.py`): `20_fighter` (controlli, stati,
-  colpi), `30_fx` (particelle e proiettili), `40_stage` (arena), `50_hud`, `60_cpu`,
-  `70_screens` (titolo, modalità, hangar, incontro, pausa), `80_audio`.
-- Logica a 60 Hz fissi; il combattimento usa solo interi di frame (tick delle mosse,
-  hitstop, stun), niente dipendenze dal frame rate.
+- **Art** (Python, the outputs are in git too, `make` does not regenerate them):
+  `mkrobot.py` (model of the VANGUARD robot: solids on a 16-bone skeleton, 63 poses
+  in 24 animations, orthographic render in 3/4 view, per-frame hurtboxes and hitboxes
+  from the bones), `art.py` (city in 4 parallax planes, hangar, effects, text),
+  `mkassets.py` (packs everything into `sheet.png` and writes `src/05_sprites.lua`).
+  Sparse layers are split into 8×8 blocks and identical pieces are shared.
+  P2 has a **second livery** (crimson and gold, green visor), recoloring the ramps.
+- **Kernel**: `SHEET8` section of the `.bm` format (palette ≤256 colors + RLE,
+  decoded at load time), `BM_SHEET_MAX` 4096; `mkbm.py --sheet8`.
+- **Game** (Lua, files in `src/` joined by `build.py`): `20_fighter` (controls, states,
+  hits), `30_fx` (particles and projectiles), `40_stage` (arena), `50_hud`, `60_cpu`,
+  `70_screens` (title, mode, hangar, match, pause), `80_audio`.
+- Logic at a fixed 60 Hz; combat uses only integer frames (move ticks, hitstop,
+  stun), no dependency on the frame rate.
 
 ## 3. Core gameplay loop
 
-Titolo → modalità (1P contro CPU, 2 giocatori, CPU contro CPU; livello della CPU) →
-hangar (ognuno configura il suo robot e dà READY) → incontro al meglio di 3 round da 99 s
-(ROUND n, FIGHT!, K.O. o TIME OVER) → risultato (rivincita, hangar, titolo). Senza
-giocatori il titolo mostra una demo CPU contro CPU.
+Title → mode (1P vs CPU, 2 players, CPU vs CPU; CPU level) → hangar (each player
+configures their robot and gives READY) → best-of-3 match of 99 s rounds (ROUND n,
+FIGHT!, K.O. or TIME OVER) → result (rematch, hangar, title). With no players, the
+title shows a CPU vs CPU demo.
 
-## 4. Risorse
+## 4. Resources
 
-| Risorsa | MVP |
+| Resource | MVP |
 |---|---|
-| Vita | 1000; a zero K.O. |
-| Armatura | leggera 240, pesante 400; assorbe il 64% / 75% del danno finché dura; la parata la consuma un po' (12%) |
-| Energia | 100, si ricarica (0,40 / 0,26 al frame); scatto 16 / 22, scatto aereo 20, fendente 30 |
-| Calore | solo cannoni: +9 a colpo, −0,3 al frame; a 100 surriscaldato per 150 frame |
-| Tag | rinviato (vedi 8) |
+| Health | 1000; K.O. at zero |
+| Armor | light 240, heavy 400; absorbs 64% / 75% of the damage while it lasts; blocking wears it down a little (12%) |
+| Energy | 100, recharges (0.40 / 0.26 per frame); dash 16 / 22, air dash 20, slash 30 |
+| Heat | cannons only: +9 per shot, −0.3 per frame; at 100 overheated for 150 frames |
+| Tag | postponed (see 8) |
 
-## 5. Movimento
+## 5. Movement
 
-Camminata avanti/indietro, accovacciamento, salto (verticale, avanti, indietro) con
-controllo del peso: leggera salto 10,6 e **doppio salto**, pesante 8,7 e nessuno.
-**Scatto** con doppio tocco avanti/indietro, anche **in aria**. Atterraggio pesante
-con polvere e scossa dello schermo. I robot non si compenetrano (spinta a 88 px) e la
-camera segue il punto medio in un'arena larga 1024 px.
+Walk forward/backward, crouch, jump (vertical, forward, backward) with weight
+control: light jumps 10.6 with a **double jump**, heavy 8.7 and none. **Dash** with a
+double tap forward/backward, also **in the air**. Heavy landing with dust and screen
+shake. The robots do not overlap (push at 88 px) and the camera follows the midpoint
+in an arena 1024 px wide.
 
-## 6. Combo
+## 6. Combos
 
-Sei pulsanti ridotti a quattro (pad SNES/DS4): X pugno leggero, Y pugno pesante,
-A calcio leggero, B calcio pesante; versioni accovacciate e in aria.
-- **Chain/cancel**: una mossa che colpisce (o viene parata) si annulla in una di
-  rango più alto (leggero → medio → pesante → arma).
-- **Launcher**: il pugno pesante accovacciato lancia in aria; il robot in aria si può
-  colpire ancora (**juggle**, al massimo 4 colpi).
-- **Knockdown**: calcio pesante, spazzata, fendente.
-- Danno scalato nelle combo (−12% a colpo, minimo 40%), contatore "N HITS".
-- Arma: mezzaluna avanti (↓↘→) + pugno, oppure Y+B insieme (per chi inizia).
+Six buttons reduced to four (SNES/DS4 pad): X light punch, Y heavy punch,
+A light kick, B heavy kick; crouching and air versions.
+- **Chain/cancel**: a move that hits (or is blocked) can be canceled into one of
+  higher rank (light → medium → heavy → weapon).
+- **Launcher**: the crouching heavy punch launches into the air; the airborne robot
+  can be hit again (**juggle**, at most 4 hits).
+- **Knockdown**: heavy kick, sweep, slash.
+- Damage scaled in combos (−12% per hit, minimum 40%), "N HITS" counter.
+- Weapon: forward quarter-circle (↓↘→) + punch, or Y+B together (for beginners).
 
-## 7. Parata
+## 7. Blocking
 
-Indietro = parata alta, basso-indietro = parata bassa; le spazzate vanno parate basse,
-gli attacchi in salto alti. La parata ferma il danno alla vita ma consuma armatura.
+Back = high block, down-back = low block; sweeps must be blocked low, jumping attacks
+high. Blocking stops the damage to health but consumes armor.
 
-## 8. Tag (dopo l'MVP)
+## 8. Tag (after the MVP)
 
-Come nel concept: 2 slot di cambio che si rigenerano lentamente, barra visibile sotto
-la vita; il compagno entra con un attacco (tag offensivo) o per salvare. Nell'MVP:
-struttura pronta (lottatori indipendenti, HUD con spazio sotto le barre), nessun tag.
+As in the concept: 2 switch slots that slowly regenerate, a visible bar under the
+health; the partner comes in with an attack (offensive tag) or to rescue. In the MVP:
+structure ready (independent fighters, HUD with space under the bars), no tag.
 
-## 9. Armatura e danni
+## 9. Armor and damage
 
-MVP: una zona (lo **spallaccio**), 3 stati sincronizzati con la barra (tacca a metà):
-integro → crepato (scintille azzurre, suono) → staccato (il pezzo vola via con
-un'esplosione, resta a terra e poi sparisce). La scritta ARMOR BROKEN lampeggia nel
-nome. Dopo: altre zone (testa, braccia con le armi, gambe), armi distruggibili, scudi
-olografici (strato semitrasparente con stati di glitch).
+MVP: one zone (the **pauldron**), 3 states synchronized with the bar (notch at half):
+intact → cracked (blue sparks, sound) → torn off (the piece flies off with an
+explosion, stays on the ground and then disappears). The text ARMOR BROKEN flashes in
+the name. Later: other zones (head, arms with the weapons, legs), destructible
+weapons, holographic shields (semi-transparent layer with glitch states).
 
-## 10. Equipaggiamento
+## 10. Equipment
 
-MVP: **armatura** (leggera / pesante: strati `hv` e spallaccio grande) e **arma**
-(spada sulla schiena che passa in mano nel fendente / due cannoni sugli avambracci).
-Cambiare nell'hangar cambia davvero lo sprite. Dopo: booster, scudo, altri chassis,
-martello, missili (ogni pezzo = uno strato + statistiche).
+MVP: **armor** (light / heavy: `hv` layers and large pauldron) and **weapon**
+(sword on the back that moves to the hand during the slash / two cannons on the
+forearms). Changing in the hangar really changes the sprite. Later: boosters, shield,
+other chassis, hammer, missiles (each piece = one layer + stats).
 
-## 11. Statistiche e mosse dalla configurazione
+## 11. Stats and moves from the configuration
 
-| | Leggera | Pesante |
+| | Light | Heavy |
 |---|---|---|
-| Camminata / indietro | 2,8 / 2,2 | 1,9 / 1,5 |
-| Salto | 10,6 + doppio salto | 8,7 |
-| Scatto | 9,5 per 15 frame | 7,2 per 12 frame |
-| Armatura / assorbimento | 240 / 64% | 400 / 75% |
-| Danno | ×1,05 | ×1,1 |
+| Walk / backward | 2.8 / 2.2 | 1.9 / 1.5 |
+| Jump | 10.6 + double jump | 8.7 |
+| Dash | 9.5 for 15 frames | 7.2 for 12 frames |
+| Armor / absorption | 240 / 64% | 400 / 75% |
+| Damage | ×1.05 | ×1.1 |
 
-La spada dà il **fendente** (175, knockdown, ×1,5 contro l'armatura); i cannoni la
-**raffica** (6 colpi da 24, anche a distanza). Nei test CPU contro CPU le quattro
-combinazioni vincono tra il 44% e il 59% dei round.
+The sword gives the **slash** (175, knockdown, ×1.5 against armor); the cannons the
+**burst** (6 shots of 24, also at range). In CPU vs CPU tests the four combinations
+win between 44% and 59% of the rounds.
 
-## 12. Arene
+## 12. Arenas
 
-MVP: **città abbandonata al tramonto**: cielo a bande con sole basso, skyline lontano
-(parallasse 0,25) con esplosioni lontane, torri distrutte alla scala dei robot (0,55)
-con colonne di fumo dietro, strada con auto e lampioni in miniatura (1,0) e piccoli
-incendi, macerie davanti a tutto (1,3). Dopo: zona industriale, porto, canyon, foresta.
+MVP: **abandoned city at sunset**: banded sky with a low sun, distant skyline
+(parallax 0.25) with distant explosions, destroyed towers at the robots' scale (0.55)
+with columns of smoke behind, street with miniature cars and street lamps (1.0) and
+small fires, rubble in front of everything (1.3). Later: industrial zone, port,
+canyon, forest.
 
 ## 13. HUD
 
-In alto: vita (con scia rossa del danno) e sotto l'armatura (lunga quanto l'armatura
-del robot, tacca a metà), orologio a cifre grandi al centro, round vinti, nome e
-configurazione. In basso: energia (tacca del fendente) e calore (lampeggia HOT! quando
-surriscaldato). Etichetta P1/P2/CPU sopra la testa. Select mostra il tempo di frame.
+At the top: health (with a red damage trail) and below it the armor (as long as the
+robot's armor, notch at half), large-digit clock in the center, rounds won, name and
+configuration. At the bottom: energy (slash notch) and heat (flashes HOT! when
+overheated). P1/P2/CPU label above the head. Select shows the frame time.
 
 ## 14. Hangar
 
-Schermo diviso: metà sinistra il giocatore 1 nel suo box, metà destra il giocatore 2
-o la CPU nel suo (per ora lo stesso box specchiato; in futuro un luogo diverso). Vista
-di tre quarti in profondità, stile diorama Gunpla (riferimento dell'autore, 2026-09-30;
-la foto non è nel repository per i diritti di terzi, se ne ricavano solo inquadratura
-e stile): struttura nera/antracite, tralicci, ponte gru e braccio di servizio gialli,
-strisce di pericolo giallo-nere sui bordi della piazzola e della passerella, luci basse
-sulla parete di fondo. Il robot è in primo piano sul lato esterno, sulla piazzola, fermo in piedi con le braccia a riposo (posa
-`stand`) e agganciato alla schiena dai due ponti della torre di attracco;
-sul fondo la **gabbia di manutenzione** con due ponti a grata, dove andrà il compagno
-del tag team (per ora vuota, con operai sui ponti). Ogni metà ha la sua gru che va sul
-robot modificato (che vibra tra le scintille) e un saldatore ai suoi piedi; tra le metà
-una barra scura con tacche gialle. In alto, verso il centro, un pannello compatto per
-lato: armatura, arma, READY e le 5 statistiche a tacche. Nessun titolo sullo schermo.
-Arte: `bay()` in `art.py` (320×360, la metà del giocatore 1).
+Split screen: the left half has player 1 in their bay, the right half player 2 or the
+CPU in theirs (for now the same bay mirrored; in the future a different place).
+Three-quarter view in depth, Gunpla diorama style (the author's reference,
+2026-09-30; the photo is not in the repository because of third-party rights, only
+the framing and style are taken from it): black/anthracite structure, trusses, yellow
+gantry crane and service arm, yellow-and-black hazard stripes on the edges of the
+platform and the walkway, low lights on the back wall. The robot is in the foreground
+on the outer side, on the platform, standing still with its arms at rest (`stand`
+pose) and hooked at the back by the two bridges of the docking tower;
+at the back the **maintenance cage** with two grated bridges, where the tag team
+partner will go (empty for now, with workers on the bridges). Each half has its own
+crane that moves onto the modified robot (which shakes among the sparks) and a welder
+at its feet; between the halves a dark bar with yellow notches. At the top, toward the
+center, a compact panel per side: armor, weapon, READY and the 5 stats as notches. No
+title on screen. Art: `bay()` in `art.py` (320×360, player 1's half).
 
-## 15. Vertical slice (questa base) e passi successivi
+## 15. Vertical slice (this base) and next steps
 
-Fatto: 1v1 contro CPU (3 livelli) o 2 giocatori, lo stesso robot con 2×2
-configurazioni, movimento, salto e doppio salto, scatti anche aerei, pugni, calci,
-parate alta/bassa, combo con cancel, launcher e juggle, due armi (spada con energia,
-cannoni con calore), vita, armatura con spallaccio distruttibile, arena in parallasse,
-hangar animato, musica e suoni, pausa con la lista delle mosse, demo.
+Done: 1v1 against the CPU (3 levels) or 2 players, the same robot with 2×2
+configurations, movement, jump and double jump, dashes including air dashes, punches,
+kicks, high/low blocks, combos with cancels, launcher and juggle, two weapons (sword
+with energy, cannons with heat), health, armor with a destructible pauldron, parallax
+arena, animated hangar, music and sounds, pause with the move list, demo.
 
-Prossimi passi, nell'ordine del concept: prova sul Pi e ritocco del feeling →
-prese/proiezioni e super → danni localizzati (armi distruggibili) e scudi → altri
-robot/chassis e booster → tag team e 2v2 → arcade con boss e altre arene.
+Next steps, in the order of the concept: test on the Pi and feel tuning →
+grabs/throws and supers → localized damage (destructible weapons) and shields → other
+robots/chassis and boosters → tag team and 2v2 → arcade with bosses and other arenas.

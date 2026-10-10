@@ -74,6 +74,10 @@ static uint32_t present(void)
 
 static int key(void) { return B3D_KEY_BACK; }
 
+/* --stop=N: the user stops the run at the Nth frame (Start+Select, PS) */
+static int stop_at, stop_calls;
+static int stop(void) { return ++stop_calls >= stop_at; }
+
 static void log_line(const char *s)
 {
     if (verbose)
@@ -205,6 +209,7 @@ int main(int argc, char **argv)
         if (!strcmp(argv[i], "--frames")) frames = 1;
         if (!strncmp(argv[i], "--tests=", 8)) only_tests = argv[i] + 8;
         if (!strncmp(argv[i], "--profiles=", 11)) only_profiles = argv[i] + 11;
+        if (!strncmp(argv[i], "--stop=", 7)) stop_at = atoi(argv[i] + 7);
     }
     uint16_t *px = test_aligned_alloc(64, 640 * 360 * 2);     /* where the emulated V3D can draw */
     g16_target(&page, px, 640, 640, 360, &font_console_8x16);
@@ -218,7 +223,25 @@ int main(int argc, char **argv)
         .g = &page, .us = us, .present = present, .count = NULL, .counting = 0, .key = key, .log = log_line,
         .save = save, .load_last = load_last, .kernel = "host", .machine = "PC, the V3D emulated",
         .date = "", .quick = !full, .page_shown = shown, .only_tests = only_tests, .only_profiles = only_profiles,
+        .stop = stop_at > 0 ? stop : NULL,
     };
+    if (stop_at > 0) {
+        /* stopped halfway: B3D_STOPPED, no report saved, no page shown */
+        const int before = last_number(), rc = b3d_run(&p);
+        FILE *f;
+        char path[512];
+        snprintf(path, sizeof path, "%s/page-01.ppm", dir);
+        const int paged = (f = fopen(path, "rb")) != NULL;
+        if (f)
+            fclose(f);
+        if (rc != B3D_STOPPED || last_number() != before || paged || stop_calls != stop_at) {
+            fprintf(stderr, "b3d --stop=%d: rc %d, reports %d -> %d, pages %d, asked %d times\n", stop_at, rc,
+                    before, last_number(), paged, stop_calls);
+            return 1;
+        }
+        printf("b3d: stopped at frame %d, no report, no pages\n", stop_at);
+        return 0;
+    }
     if (b3d_run(&p) != 0) {
         fprintf(stderr, "b3d: the report was not saved\n");
         return 1;

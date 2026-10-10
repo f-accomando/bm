@@ -26,6 +26,8 @@
 static const uint32_t symbol_rgb[4] = { 0x7EA6FF, 0xFF6B6B, 0xF28AE0, 0x3DDBB0 };
 /* the lettered pads': A, B, X, Y */
 static const uint32_t letter_rgb[4] = { 0x5BD47E, 0xFF6B6B, 0x5FA8FF, 0xFFD54A };
+/* the RGB30's letters: A green, B blue, X red, Y yellow */
+static const uint32_t rgb30_rgb[4] = { 0x5BD47E, 0x5FA8FF, 0xFF6B6B, 0xFFD54A };
 
 /* ---------------------------------------------------------------- shapes */
 
@@ -404,6 +406,23 @@ static void round_button(const char *text, uint32_t rgb)
     label(label_font(one), text, one, cw * 0.5f, face_cy(), CUT_OUT);
 }
 
+/* the RGB30's face button: dark, a grey rim, the letter in its colour;
+ * raised on the rim's lip in the menu, flat in the apps */
+static void rgb30_button(int which)
+{
+    static const char *const letter[4] = { "A", "B", "X", "Y" };
+    cw = BIG ? 16 : 12;
+    float cx = cw * 0.5f, cy = face_cy();
+    const shape_t *disc = DISC(cx, cy, BIG ? 7 : 5);
+    if (st.chip) {
+        paint(disc, RIM);
+        paint(GROW(disc, -1), CAP);
+    } else {
+        raised_dark(disc);
+    }
+    label(label_font(1), letter[which], 1, cx, cy, rgb30_rgb[which]);
+}
+
 static void arrow_key(int d)
 {
     cw = BIG ? 16 : 12;
@@ -433,6 +452,8 @@ static uint32_t chip_rgb(int id)
         return symbol_rgb[id - PROMPT_CROSS];
     if (id >= PROMPT_PAD_A && id <= PROMPT_PAD_Y)
         return letter_rgb[id - PROMPT_PAD_A];
+    if (id >= PROMPT_RGB30_A)
+        return rgb30_rgb[id - PROMPT_RGB30_A];
     return id >= PROMPT_KEY_UP ? AMBER : NEUTRAL;
 }
 
@@ -523,7 +544,10 @@ static void make(int id)
     case PROMPT_KEY_END:   key_label("End", 0); break;
     case PROMPT_KEY_PGUP:  key_label("PgUp", 0); break;
     case PROMPT_KEY_PGDN:  key_label("PgDn", 0); break;
-    default:               key_label(fkeys[id - PROMPT_KEY_F1], 0); break;
+    case PROMPT_RGB30_A: case PROMPT_RGB30_B: case PROMPT_RGB30_X: case PROMPT_RGB30_Y:
+        rgb30_button(id - PROMPT_RGB30_A);
+        break;
+    default:              key_label(fkeys[id - PROMPT_KEY_F1], 0); break;
     }
 }
 

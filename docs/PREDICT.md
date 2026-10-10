@@ -1,204 +1,205 @@
-# Completamento delle parole (M30)
+# Word completion (M30)
 
-Mentre scrivi una parola con la tastiera, bm propone la più probabile e ne mostra **il resto
-in blu-grigio**, dopo il cursore; **Tab** la scrive, e la parte scritta resta **verde** fino
-al tasto successivo. Se non serve, si continua a scrivere: il suggerimento cambia a ogni
-lettera e sparisce da solo.
+Italian version: [PREDICT-IT.md](PREDICT-IT.md).
 
-- **Dove**: in **bm Code** (scheda Dev) nel codice, nei commenti, nelle stringhe e nelle
-  righe `#entry:`; in **Trova** e **Sostituisci**; nella domanda del **pannello
-  dell'assistente** (F6).
-- **Riga di stato** di bm Code: `Tab: parola  (also: altre, due)`, la parola che Tab
-  scriverebbe e le altre che il dizionario aveva in mente (si ottengono scrivendo un'altra
-  lettera).
-- **Tab prima di una parola** (inizio riga, dopo uno spazio) indenta come prima; nel
-  pannello dell'assistente, senza suggerimento, cambia modo (code, sprite, any).
-- **Menu** di bm Code (Esc): **Word completion** on/off, **Words in comments** it/en (le
-  parole dei commenti e delle stringhe). Le due scelte restano nella sessione.
-- **Modulo**: `require "predict"` (`src/ai/predict.lua`), qualsiasi cartuccia può usarlo;
-  i dizionari sono `require "words"`, fatti da `scripts/mkwords.py`.
+While you type a word on the keyboard, bm suggests the most likely one and shows **the rest
+of it in blue-grey** after the cursor; **Tab** types it, and the typed part stays **green**
+until the next key. If you don't need it, just keep typing: the suggestion changes with every
+letter and disappears on its own.
 
-Su un testo italiano di 100 caratteri (100 tasti, una maiuscola con Shift conta uno) il
-completamento ne fa risparmiare **17**, sul codice Lua **19%**, sulle domande
-all'assistente **26%** (i numeri completi più sotto).
+- **Where**: in **bm Code** (Dev tab) in code, comments, strings and `#entry:` lines; in
+  **Find** and **Replace**; in the question of the **assistant panel** (F6).
+- **Status line** of bm Code: `Tab: word  (also: other, two)`, the word Tab would type and
+  the others the dictionary had in mind (you get them by typing another letter).
+- **Tab before a word** (start of line, after a space) indents as before; in the assistant
+  panel, with no suggestion, it switches mode (code, sprite, any).
+- **Menu** of bm Code (Esc): **Word completion** on/off, **Words in comments** it/en (the
+  words of comments and strings). Both choices last for the session.
+- **Module**: `require "predict"` (`src/ai/predict.lua`), any cartridge can use it; the
+  dictionaries are `require "words"`, built by `scripts/mkwords.py`.
 
-## 1. Dove scrivi, quali parole
+On an Italian text of 100 characters (100 keys, a capital letter with Shift counts as one)
+completion saves **17**, on Lua code **19%**, on questions to the assistant **26%** (full
+numbers below).
 
-Il dizionario cambia da solo con il punto in cui si trova il cursore:
+## 1. Where you type, which words
 
-| Dove | Parole | Esempi |
+The examples of words below are kept in Italian, the main language of the dictionaries.
+The dictionary changes by itself with the place where the cursor is:
+
+| Where | Words | Examples |
 |---|---|---|
-| codice in bm Code | Lua: parole chiave, API della base di conoscenza dell'assistente, nomi dei giochi di bm, nomi della scheda aperta | `f` → `function` su una riga non indentata, `for` su una indentata; `if bt` → `btnp`; `x = ma` → `math.random`; `string.fo` → `string.format` |
-| dopo `--` (commento) | italiano (o inglese, dal menu), un po' dei nomi della scheda | `-- muovi il gioc` → gioco |
-| in una stringa | italiano (o inglese) | |
-| riga `#entry:` | italiano + le domande della base di conoscenza | `#entry: come faccio a sal` → salvare |
-| pannello dell'assistente | italiano + le domande della base di conoscenza | `co` → come |
-| Trova, Sostituisci | Lua e nomi della scheda | `_up` → `_update` |
-| Vai alla riga, nomi dei file | nessuna | |
+| code in bm Code | Lua: keywords, API of the assistant's knowledge base, names from bm's games, names in the open tab | `f` → `function` on a non-indented line, `for` on an indented one; `if bt` → `btnp`; `x = ma` → `math.random`; `string.fo` → `string.format` |
+| after `--` (comment) | Italian (or English, from the menu), some of the tab's names | `-- muovi il gioc` → gioco |
+| in a string | Italian (or English) | |
+| `#entry:` line | Italian + the knowledge base questions | `#entry: come faccio a sal` → salvare |
+| assistant panel | Italian + the knowledge base questions | `co` → come |
+| Find, Replace | Lua and the tab's names | `_up` → `_update` |
+| Go to line, file names | none | |
 
-Nel commento e nella stringa il contesto parte dal segno (`--`, `"`): la prima parola non
-dipende dal codice che c'è prima. Le **domande all'assistente** hanno un dizionario loro:
-le righe `ask:`, i titoli e le parole chiave della base di conoscenza (`src/ai/kb`, non
-`tests.txt`), mescolati con l'italiano con peso 2 a 1.
+In comments and strings the context starts at the mark (`--`, `"`): the first word does not
+depend on the code before it. **Questions to the assistant** have their own dictionary: the
+`ask:` lines, titles and keywords of the knowledge base (`src/ai/kb`, not `tests.txt`), mixed
+with Italian at a 2 to 1 weight.
 
-Regole della parola scritta:
+Rules for the typed word:
 
-- **Accenti**: non servono per trovarla, Tab li mette: `perch` → perché, `citt` → città.
-- **Maiuscole**: una maiuscola all'inizio resta (`Con` → Console); tutta maiuscola resta
-  tutta maiuscola (`CA` → CASA). I nomi propri del dizionario hanno la loro maiuscola
-  (`marc` → Marco). Nel codice conta il dizionario (Lua distingue le maiuscole).
-- **Tab scrive solo la parola**: niente spazio né parentesi dopo, così il tasto
-  successivo è sempre quello che ci si aspetta.
-- `end`, `else`, `until` scritti con Tab tornano all'indentazione del loro blocco, come
-  scritti a mano; Tab e la parola scritta prima sono un passo solo di Ctrl+Z.
+- **Accents**: not needed to find it, Tab adds them: `perch` → perché, `citt` → città.
+- **Capitals**: a capital at the start stays (`Con` → Console); all caps stays all caps
+  (`CA` → CASA). Proper names in the dictionary have their own capital (`marc` → Marco). In
+  code the dictionary decides (Lua is case-sensitive).
+- **Tab types only the word**: no space or parenthesis after it, so the next key is always
+  the one you expect.
+- `end`, `else`, `until` typed with Tab go back to their block's indentation, as when typed
+  by hand; Tab and the word typed before it are a single Ctrl+Z step.
 
-## 2. Il modello
+## 2. The model
 
-Un **n-gramma**: quante volte ogni parola è scritta e quali parole la seguono, contate da
-`scripts/mkwords.py` (`make` lo rifà quando cambiano i testi) su:
+An **n-gram**: how many times each word is written and which words follow it, counted by
+`scripts/mkwords.py` (`make` redoes it when the texts change) on:
 
-- **it**: i testi di `src/ai/words` scritti per bm (racconti, messaggi, giochi, tecnica,
-  lettere, informativi: 23 000 parole) e il lessico `it_lessico.txt` (6 500 forme che ai
-  testi mancano): 8 450 parole;
-- **en**: i testi inglesi di `src/ai/words` (4 500 parole): 1 140 parole;
-- **lua**: il Lua dei giochi di bm (senza commenti e stringhe), il codice della base di
-  conoscenza e tutti i nomi delle sue API con la firma: 3 350 parole;
-- **ask**: le domande della base di conoscenza: 1 770 parole.
+- **it**: the texts in `src/ai/words` written for bm (stories, messages, games, technical,
+  letters, informative: 23 000 words) and the lexicon `it_lessico.txt` (6 500 forms missing
+  from the texts): 8 450 words;
+- **en**: the English texts in `src/ai/words` (4 500 words): 1 140 words;
+- **lua**: the Lua of bm's games (without comments and strings), the knowledge base code and
+  all the names of its APIs with their signature: 3 350 words;
+- **ask**: the knowledge base questions: 1 770 words.
 
-Il punteggio di una parola che inizia come quella scritta è `0,4 × frequenza + quante volte
-segue la parola prima`; nel codice "la parola prima" di una riga che comincia è `^` se la
-riga è indentata, `^0` se non lo è (lì si scrivono `function` e `local`, dentro `for`,
-`if`, `local`). Nel codice si aggiungono i nomi della scheda aperta, contati ogni 30
-suggerimenti.
+The score of a word that starts like the typed one is `0.4 × frequency + how many times it
+follows the previous word`; in code, "the previous word" of a line that is starting is `^`
+if the line is indented, `^0` if it is not (there one types `function` and `local`, inside
+`for`, `if`, `local`). In code the names of the open tab are added, counted every 30
+suggestions.
 
-Sul Pi: il dizionario si legge **un pezzo per fotogramma** dall'apertura di bm Code
-(`predict.preload`), così la prima parola lo trova pronto; un suggerimento è una ricerca
-binaria nella tabella ordinata, e per i prefissi di una o due lettere (che valgono mille
-parole) si tengono le otto più scritte più quelle che seguono la parola prima. Sul PC:
-0,02 ms per suggerimento, 14 ms per leggere il dizionario Lua (sul Pi Zero una ventina di
-volte di più, distribuiti sui fotogrammi).
+On the Pi: the dictionary is read **one piece per frame** from when bm Code opens
+(`predict.preload`), so the first word finds it ready; a suggestion is a binary search in the
+sorted table, and for one- or two-letter prefixes (which match a thousand words) the eight
+most written are kept plus those following the previous word. On the PC: 0.02 ms per
+suggestion, 14 ms to read the Lua dictionary (on the Pi Zero about twenty times more, spread
+over the frames).
 
-Il formato di `build/words.lua` (testo in code page 437, come la console):
+The format of `build/words.lua` (text in code page 437, like the console):
 
-- `uni`: `parola conteggio[ f]` per riga, ordinate per chiave (minuscola, senza accenti);
-  ` f` = una funzione;
-- `big`: `prima totale dopo n dopo n ...` per riga, le 24 parole più frequenti dopo `prima`;
-- `api` (solo lua): `nome firma` per riga.
+- `uni`: `word count[ f]` per line, sorted by key (lowercase, without accents); ` f` = a
+  function;
+- `big`: `prev total next n next n ...` per line, the 24 most frequent words after `prev`;
+- `api` (lua only): `name signature` per line.
 
-### Da Lua
+### From Lua
 
 ```lua
 local predict = require "predict"
 local c = predict.complete(testo_prima_del_cursore, { lang = "lua", words = predict.count_words(righe) })
 if c then
-  print(c.rest, x, y, predict.C_GHOST)      -- il resto, in blu-grigio
-  -- Tab: c.prefix (quello che è scritto) diventa c.word
+  print(c.rest, x, y, predict.C_GHOST)      -- the rest, in blue-grey
+  -- Tab: c.prefix (what is typed) becomes c.word
 end
 ```
 
-`lang` è un dizionario (`"it"`, `"en"`, `"lua"`, `"ask"`), una miscela con i pesi
-(`{it = 1, ask = 2}`) o `"none"`; `words` e `words_weight` i nomi del codice; `min` il
-prefisso più corto (1). Il risultato ha anche `list` (le prime tre) ed `ending` (`(` dopo
-una funzione, uno spazio dopo una parola chiave o una parola di testo), per chi li vuole.
-Altre funzioni: `candidates`, `word_at`, `count_words`, `preload`, `plain`, `from_utf8`.
+`lang` is a dictionary (`"it"`, `"en"`, `"lua"`, `"ask"`), a mix with weights
+(`{it = 1, ask = 2}`) or `"none"`; `words` and `words_weight` the code's names; `min` the
+shortest prefix (1). The result also has `list` (the first three) and `ending` (`(` after a
+function, a space after a keyword or a text word), for those who want them. Other
+functions: `candidates`, `word_at`, `count_words`, `preload`, `plain`, `from_utf8`.
 
 ## 3. Benchmark
 
-`make predict-bench` (`tests/predict/bench.lua`): i tasti per scrivere i testi di
-`tests/predict/texts.lua` con la tastiera di bm Code, prima senza e poi con Tab (premuto
-quando il suggerimento è la parola del testo, o il suo inizio, e scrive almeno due
-lettere). Nel codice Invio tiene l'indentazione.
+`make predict-bench` (`tests/predict/bench.lua`): the keys to type the texts of
+`tests/predict/texts.lua` with the bm Code keyboard, first without and then with Tab (pressed
+when the suggestion is the word of the text, or its start, and types at least two letters).
+In code Enter keeps the indentation.
 
-| Testo | Caratteri | Tasti | Tasti con Tab | Tab | Risparmio |
+| Text | Characters | Keys | Keys with Tab | Tab | Saving |
 |---|---|---|---|---|---|
 | italiano | 100 | 100 | 83 | 7 | 17% |
 | english | 100 | 100 | 88 | 7 | 12% |
 | lua | 100 | 94 | 76 | 7 | 19% |
 
-- Le **155 domande all'assistente mai viste** (`src/ai/kb/tests.txt`, 5 332 caratteri):
-  1 tasto per carattere senza completamento, **0,885** con il dizionario italiano,
-  **0,738** con italiano + domande (il 26% in meno).
-- I **testi di `src/ai/words` che il dizionario non ha visto** (ogni gruppo tolto a turno
-  dal dizionario, 136 245 caratteri): **0,868** tasti per carattere, il 13% in meno.
-  Sui testi visti il risparmio è più alto, ma non conta.
+- The **155 never-seen questions to the assistant** (`src/ai/kb/tests.txt`, 5 332
+  characters): 1 key per character without completion, **0.885** with the Italian
+  dictionary, **0.738** with Italian + questions (26% fewer).
+- The **texts in `src/ai/words` the dictionary has not seen** (each group removed in turn
+  from the dictionary, 136 245 characters): **0.868** keys per character, 13% fewer. On seen
+  texts the saving is higher, but it does not count.
 
-Le prime 10 parole del testo italiano (57 caratteri, 47 tasti, 4 Tab):
+The first 10 words of the Italian text (57 characters, 47 keys, 4 Tab):
 
-| Parola | Tasti | Quanti |
+| Word | Keys | How many |
 |---|---|---|
-| Ciao | C i a o | 4 su 4 |
-| Marco, | M a r c o , | 6 su 6 |
-| domani | d o m Tab (ani) | 4 su 6 |
-| sera | s e Tab (ra) | 3 su 4 |
-| giochiamo | g i o c h i Tab (amo) | 7 su 9 |
-| da | d a | 2 su 2 |
-| me? | m e ? | 3 su 3 |
-| La | L a | 2 su 2 |
-| console | c Tab (onsole) | 2 su 7 |
-| nuova | n u o v a | 5 su 5 |
+| Ciao | C i a o | 4 of 4 |
+| Marco, | M a r c o , | 6 of 6 |
+| domani | d o m Tab (ani) | 4 of 6 |
+| sera | s e Tab (ra) | 3 of 4 |
+| giochiamo | g i o c h i Tab (amo) | 7 of 9 |
+| da | d a | 2 of 2 |
+| me? | m e ? | 3 of 3 |
+| La | L a | 2 of 2 |
+| console | c Tab (onsole) | 2 of 7 |
+| nuova | n u o v a | 5 of 5 |
 
-Lo spazio dopo ogni parola è un tasto.
+The space after each word is one key.
 
-## 4. Le sillabe dell'italiano
+## 4. Italian syllables
 
-`make syllables` (`scripts/syllables.py`) le conta, accenti esclusi, sugli stessi testi
-(23 118 parole) e sul lessico (8 523 parole diverse), tagliate con le regole
-dell'ortografia (ca-sa, piz-za, can-to, pa-dre, pa-e-se, pia-no):
+`make syllables` (`scripts/syllables.py`) counts them, accents excluded, on the same texts
+(23 118 words) and on the lexicon (8 523 distinct words), split with the spelling rules
+(ca-sa, piz-za, can-to, pa-dre, pa-e-se, pia-no):
 
-- **In teoria**: 16 consonanti italiane (b c d f g h l m n p q r s t v z) per 5 vocali
-  fanno **80 sillabe consonante + vocale**, **85** con le vocali da sole; più **31** che si
-  scrivono con due o tre lettere per un suono (che chi ghe ghi; gna gne gni gno gnu;
+- **In theory**: 16 Italian consonants (b c d f g h l m n p q r s t v z) times 5 vowels make
+  **80 consonant + vowel syllables**, **85** with the vowels alone; plus **31** written with
+  two or three letters for one sound (che chi ghe ghi; gna gne gni gno gnu;
   glia glie gli glio gliu; sce sci scia scio sciu sche schi; cia cio ciu gia gio giu;
   qua que qui quo).
-- **Nei testi**: 46 251 sillabe (2 per parola), **1 078 diverse** (1 277 con il lessico).
-- **Poche fanno quasi tutto**: le **35** più frequenti sono **metà** delle sillabe
-  scritte, le 130 l'80%, le 247 il 90%, le 382 il 95%, le 727 il 99%.
-- **Consonante + vocale** è il **52,8%** delle sillabe, una vocale sola il 6,4%.
-- Vocali: a 25%, e 24%, o 22%, i 18%, u 5%, poi i dittonghi ia, io, ie, uo. Fine della
-  sillaba: aperta 75%, n 8%, l 5%, r 4,5%.
+- **In the texts**: 46 251 syllables (2 per word), **1 078 distinct** (1 277 with the
+  lexicon).
+- **A few do almost everything**: the **35** most frequent are **half** of the written
+  syllables, 130 are 80%, 247 are 90%, 382 are 95%, 727 are 99%.
+- **Consonant + vowel** is **52.8%** of syllables, a lone vowel 6.4%.
+- Vowels: a 25%, e 24%, o 22%, i 18%, u 5%, then the diphthongs ia, io, ie, uo. End of the
+  syllable: open 75%, n 8%, l 5%, r 4.5%.
 
-A gruppi di quattro, per frequenza:
+In groups of four, by frequency:
 
-| Gruppo | Sillabe | Insieme | In tutto |
+| Group | Syllables | Together | Total |
 |---|---|---|---|
-| 1 | e 2,8%, la 2,7%, to 2,6%, re 2,3% | 10,4% | 10,4% |
-| 2 | di 2,3%, no 2,0%, ti 1,9%, ta 1,9% | 8,1% | 18,4% |
-| 3 | na 1,7%, le 1,6%, co 1,5%, a 1,5% | 6,4% | 24,8% |
-| 4 | che 1,5%, si 1,5%, te 1,3%, ra 1,3% | 5,6% | 30,4% |
+| 1 | e 2.8%, la 2.7%, to 2.6%, re 2.3% | 10.4% | 10.4% |
+| 2 | di 2.3%, no 2.0%, ti 1.9%, ta 1.9% | 8.1% | 18.4% |
+| 3 | na 1.7%, le 1.6%, co 1.5%, a 1.5% | 6.4% | 24.8% |
+| 4 | che 1.5%, si 1.5%, te 1.3%, ra 1.3% | 5.6% | 30.4% |
 
-| Gruppo | Consonante iniziale | Insieme | In tutto |
+| Group | Initial consonant | Together | Total |
 |---|---|---|---|
-| 1 | s 12,4%, t 12,1%, c 10,3%, n 9,0% | 43,9% | 43,9% |
-| 2 | l 8,3%, r 7,8%, d 7,8%, p 7,5% | 31,3% | 75,2% |
-| 3 | m 6,7%, v 4,8%, g 4,5%, f 2,5% | 18,5% | 93,7% |
-| 4 | b 2,3%, z 1,5%, q 1,2%, h 0,9% | 6,0% | 99,7% |
+| 1 | s 12.4%, t 12.1%, c 10.3%, n 9.0% | 43.9% | 43.9% |
+| 2 | l 8.3%, r 7.8%, d 7.8%, p 7.5% | 31.3% | 75.2% |
+| 3 | m 6.7%, v 4.8%, g 4.5%, f 2.5% | 18.5% | 93.7% |
+| 4 | b 2.3%, z 1.5%, q 1.2%, h 0.9% | 6.0% | 99.7% |
 
-(lo script dà anche i gruppi delle sole sillabe consonante + vocale, e gli inizi e le fini
-di sillaba più frequenti).
+(the script also gives the groups of consonant + vowel syllables only, and the most frequent
+syllable starts and ends).
 
-## 5. File e test
+## 5. Files and tests
 
-- `src/ai/predict.lua` (`require "predict"`): parole, dizionari, suggerimenti.
-- `src/ai/words/`: i testi italiani e inglesi scritti per bm e il lessico italiano
-  (`README.md`); `scripts/mkwords.py` → `build/words.lua` (`require "words"`, nel kernel,
-  ~360 KB di testo).
-- `carts/code/main.lua`: il completamento in bm Code (`place_at` sceglie codice, commento,
-  stringa o `#entry:`); `src/ai/assist.lua`: quello della domanda.
-- `tests/predict/predict_test.lua` (`make test-predict`, dentro `make test`): parole prima
-  del cursore, dizionari, accenti e maiuscole, nomi della scheda, i tre testi riscritti con
-  Tab (`tests/predict/typist.lua`) con meno tasti.
-- `tests/predict/bench.lua` (`make predict-bench`): la tabella, le domande, le prime 10
-  parole e il corpus con i gruppi tolti a turno.
-- `tests/ai/panel_test.lua` (`make test-ai`): la domanda completata con Tab nel pannello.
-- `tests/qemu_test.py`, `test_code_completion`: bm Code in QEMU (codice, commento,
-  `#entry:`, Tab che indenta, Trova, pannello dell'assistente; i colori sullo schermo).
+- `src/ai/predict.lua` (`require "predict"`): words, dictionaries, suggestions.
+- `src/ai/words/`: the Italian and English texts written for bm and the Italian lexicon
+  (`README.md`); `scripts/mkwords.py` → `build/words.lua` (`require "words"`, in the kernel,
+  ~360 KB of text).
+- `carts/code/main.lua`: completion in bm Code (`place_at` picks code, comment, string or
+  `#entry:`); `src/ai/assist.lua`: the question's one.
+- `tests/predict/predict_test.lua` (`make test-predict`, inside `make test`): words before
+  the cursor, dictionaries, accents and capitals, the tab's names, the three texts retyped
+  with Tab (`tests/predict/typist.lua`) with fewer keys.
+- `tests/predict/bench.lua` (`make predict-bench`): the table, the questions, the first 10
+  words and the corpus with the groups removed in turn.
+- `tests/ai/panel_test.lua` (`make test-ai`): the question completed with Tab in the panel.
+- `tests/qemu_test.py`, `test_code_completion`: bm Code in QEMU (code, comment, `#entry:`,
+  Tab that indents, Find, assistant panel; the colours on screen).
 
-## 6. Limiti e passi successivi
+## 6. Limits and next steps
 
-- Il dizionario viene da ~28 000 parole: va bene per i messaggi, i commenti e i giochi,
-  meno per testi tecnici lunghi. Si arricchisce aggiungendo testi in `src/ai/words` (poi
-  `make`).
-- Una parola che differisce solo per l'accento finale (`e` → è) non si completa: è della
-  stessa lunghezza, non c'è un resto da mostrare.
-- Dopo: le parole nuove scritte dall'utente nel dizionario (salvate), il completamento nel
-  Sound editor e nello studio 3D (nomi, testi).
+- The dictionary comes from ~28 000 words: good for messages, comments and games, less so
+  for long technical texts. It grows by adding texts to `src/ai/words` (then `make`).
+- A word that differs only by its final accent (`e` → è) is not completed: it has the same
+  length, there is no rest to show.
+- Next: new words typed by the user in the dictionary (saved), completion in the Sound
+  editor and in the 3D studio (names, texts).

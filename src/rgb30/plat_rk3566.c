@@ -9,6 +9,7 @@
 #include "rk_pmic.h"
 #include "rk_wlbt.h"
 #include "rk_audio.h"
+#include "rk_display.h"
 
 #define CRU             0xfdd20000u
 #define CRU_GLB_SRST_FST 0xd4           /* the chip's first global soft reset (0xfdb9) */
@@ -47,6 +48,11 @@ int plat_battery(int *mv, int *charge)
     return *mv < 0 ? -1 : 0;
 }
 
+int plat_power_in(void)
+{
+    return rk817_plugged();                 /* SYS_STS bit 6: PLUG_IN_STS */
+}
+
 static void psci(uint32_t fn)
 {
     register uint64_t x0 __asm__("x0") = fn;
@@ -69,6 +75,7 @@ static void quiet(void)
 
 void plat_reset(void)
 {
+    rgb30_save_lastrun();       /* the SD still idle, before anything goes off */
     quiet();
     psci(0x84000009u);          /* SYSTEM_RESET */
     /* still here: the firmware did not restart; the chip's own global
@@ -80,6 +87,7 @@ void plat_reset(void)
 
 void plat_poweroff(void)
 {
+    rgb30_save_lastrun();
     quiet();
     rk817_power_off();          /* the PMIC cuts the power */
     psci(0x84000008u);          /* SYSTEM_OFF, if it did not */

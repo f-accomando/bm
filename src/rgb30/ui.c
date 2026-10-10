@@ -34,6 +34,8 @@
 #include "bt/bt.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
+#include "net/wifi_auto.h"
+#include "net/netxfer.h"
 #include "bm/bm.h"
 #include "bm/runtime.h"
 #include "kernel/home.h"
@@ -42,11 +44,13 @@
 #include "bm/loading.h"
 #include "kernel/ledstate.h"
 #include "kernel/reports.h"
+#include "kernel/syskeys.h"
 #include "kernel/carts.h"
 #include "audio/audio.h"
 #include "kernel/market.h"
 #include "net/catalog.h"
 #include "b3d_rgb30.h"
+#include "battery.h"
 #include "gputest_rgb30.h"
 
 #include <stdlib.h>
@@ -77,26 +81,8 @@ static uint32_t rgb(uint32_t c)
     return fb_color(fb, (uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
 }
 
-/* the battery low (under 3.45 V, not charging): the LED blinks (ledstate.h);
- * read every 10 s */
-/* the battery, read every 10 s: the LED (low: under 3.45 V off the
- * charger) and the icon of the bar */
-static int batt_known, batt_pct, batt_charging;
-
-static void battery_check(void)
-{
-    static uint32_t at;
-    if (at && timer_ticks() - at < 10000000u)
-        return;
-    at = timer_ticks() | 1;
-    int mv, charge;
-    batt_known = plat_battery(&mv, &charge) == 0 && mv > 0;
-    if (!batt_known)
-        return;
-    ledstate_set(LED_POWER, mv < 3450 && charge == 0);
-    batt_pct = charge == 2 ? 100 : battery_percent(mv);      /* full: four bars */
-    batt_charging = charge == 1;
-}
+/* the battery (battery.c): the icon of the bar, the LED (low: under 3.45 V
+ * off the charger); the bolt as soon as the cable goes in */
 
 static void text(int x, int y, const char *s, uint32_t fg, uint32_t bg)
 {
@@ -343,6 +329,7 @@ static void play_bm(int i)
     fat_entry_t e;
     uint8_t *data = NULL;
     size_t len = 0;
+    wifi_auto_stop();                              /* a WiFi try of the menu's: not under a game */
     loading_begin(fb);                             /* the retro intro while it loads */
     fat_load_tick = load_tick;
     bm_parse_tick = load_tick;
@@ -534,10 +521,17 @@ static void page_render(void)
     console_suspend(0);
     reports_begin("render");
     kprintf("\n\x1b[1mRender bench\x1b[0m: map, 256 sprites and text at 640x360 RGB565\n");
-    bm_bench_report(fb, 120);
-    reports_end();
-    kprintf("\n\x1b[96m%s\x1b[0m back\n", pad_back_name());
-    wait_back();
+    bm_bench_report(fb, 120);               /* Start+Select stops it: no report (syskeys.h) */
+    if (syskeys_test_stopped()) {
+        reports_drop();
+        while (pad_state())                 /* straight back to the menu, the buttons let go */
+            timer_delay_ms(10);
+        pad_pressed();
+    } else {
+        reports_end();
+        kprintf("\n\x1b[96m%s\x1b[0m back\n", pad_back_name());
+        wait_back();
+    }
     console_suspend(1);
 }
 
@@ -587,6 +581,7 @@ static void menu_reopen(void)
 static void run_page(void (*run)(void))
 {
     market_set_active(0);                           /* its work stops first, as on the Pi */
+    netxfer_write_pause();                          /* a file from the PC: written later */
     menu_ui_close_quiet(fb);                        /* (not the console flashing: the pages draw themselves) */
     console_suspend(1);
     run();
@@ -605,6 +600,10 @@ static void play_market(int i, char *note, size_t n)
     const int g = game_of_path(market_path(i));
     if (g < 0) {
         ksnprintf(note, n, "%s is not on the SD card", market_path(i));
+        return;
+    }
+    if (netxfer_updating(market_path(i))) {
+        ksnprintf(note, n, "Updating, wait for the end of the download");
         return;
     }
     play_index = g;
@@ -633,6 +632,22 @@ static void text_page(void)
 }
 
 #define DEPTH_MAX 4
+
+/* the menu's free time in a frame: a file from the PC (bm_net.py --send)
+ * written first, alone on the card (2026-10-10); then the Market's work */
+static int idle_market;
+
+static void menu_idle(uint32_t until)
+{
+    if (netxfer_write_tick(until))
+        return;
+    if (idle_market) {
+        market_tick(until);
+        return;
+    }
+    /* elsewhere the saved WiFi network is joined again while the link is down */
+    wifi_auto_idle(until);
+}
 
 void ui_home(framebuffer_t *f)
 {
@@ -690,10 +705,17 @@ void ui_home(framebuffer_t *f)
             scan_games();
             market_carts_changed();
         }
+        /* a game written from the network: its title, cover and size again */
+        static unsigned seen_saves;
+        if (netxfer_saves() != seen_saves) {
+            seen_saves = netxfer_saves();
+            scan_games();
+            market_carts_changed();
+        }
         /* the tests' reports waiting on the SD card go once the console is
          * on the network (reports_auto_due; no fibers here: a moment's wait,
          * from the covers only, not in Settings) */
-        if (!on_gear && !asking && !on_market && reports_auto_due()) {
+        if (!on_gear && !asking && !on_market && !netxfer_write_pending() && reports_auto_due()) {
             reports_send_pending();
             ksnprintf(note, sizeof note, "report %s", reports_last());
         }
@@ -704,17 +726,23 @@ void ui_home(framebuffer_t *f)
         if (shown == TAB_MARKET)
             market_select(*s);
         for (int i = 0; i < n && shown != TAB_MARKET; i++) {
-            if (shown == TAB_GAMES)
+            if (shown == TAB_GAMES) {
+                char gp[80];
+                ksnprintf(gp, sizeof gp, "/bm/%s", games[i].name);
+                const int up = netxfer_updating(gp);        /* a file from the PC on its way */
                 items[i] = (menu_item_t){ .title = games[i].title, .kind = games[i].is_bm ? "bm" : "b16",
-                                          .size = games[i].size, .cover = &games[i].cover };
-            else
+                                          .size = games[i].size, .cover = &games[i].cover,
+                                          .badge = !up ? NULL : up == NETXFER_QUEUED ? "Queued" : "Updating" };
+            } else {
                 items[i] = (menu_item_t){ .title = dev_items[i].name, .kind = "tool", .cover = &dev_covers[i] };
+            }
         }
+        idle_market = on_market;
         menu_view_t v = {
             .tabs = tab_names, .ntabs = 3, .tab = shown, .on_gear = on_gear, .peek_first = 1,
             .items = items, .n = n, .sel = *s,
-            .prompts = MENU_PROMPTS_PAD, .confirm_b = pad_ok == PAD_B, .no_monitor = 1,
-            .idle = on_market ? market_tick : NULL,
+            .prompts = MENU_PROMPTS_RGB30, .confirm_b = pad_ok == PAD_B, .no_monitor = 1,
+            .idle = menu_idle,
         };
         /* the bar: the WiFi and the battery only; no icons of the
          * controllers, mice and keyboards (the user, 2026-10-05) */
@@ -783,11 +811,12 @@ void ui_home(framebuffer_t *f)
             v.notice_detail = nd;
         }
         audio_idle();                           /* the output's news (QEMU's sink: what it heard) */
-        battery_check();
-        v.battery = batt_known;
-        v.battery_pct = batt_pct;
-        v.charging = batt_charging;
+        v.battery = battery_state(&v.battery_pct, &v.charging, NULL);
         menu_ui_frame(fb, &v);
+        /* a file from the PC goes on even when the frame left no time for
+         * it (menu_idle): a piece a frame */
+        if (netxfer_write_pending())
+            netxfer_write_tick(timer_ticks() + 2000);
 
         uint32_t p = pad_pressed();
         if (pad_serial_char() == '`') {
@@ -903,7 +932,12 @@ void ui_home(framebuffer_t *f)
                     play_market(*s, note, sizeof note);
                 }
             } else if (p & pad_ok) {
-                if (shown == TAB_GAMES) {
+                char gp[80] = "";
+                if (shown == TAB_GAMES)
+                    ksnprintf(gp, sizeof gp, "/bm/%s", games[*s].name);
+                if (shown == TAB_GAMES && netxfer_updating(gp)) {
+                    ksnprintf(note, sizeof note, "Updating, wait for the end of the download");
+                } else if (shown == TAB_GAMES) {
                     play_index = *s;
                     run_page(play_selected);
                 } else {

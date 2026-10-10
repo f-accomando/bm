@@ -8,6 +8,9 @@ Standard library only (Linux / macOS / WSL).
   bm_net.py 192.168.1.108 -p 123456   (or BM_PASSWORD=123456)
 
   bm_net.py IP --send build/carts/pong.bm   saved on the SD card in /carts
+                                        (the RGB30: a game goes to bm/); the console
+                                        answers once it arrived and writes it from its
+                                        menu (a game that is open: when it is closed)
   bm_net.py IP --send x.bm --to /bm   (another folder)
   bm_net.py IP --play game.bm           played at once, not saved
   bm_net.py IP --kernel build/kernel.img written as kernel.img, then reboot
@@ -43,6 +46,10 @@ XFER_PORT = 3334
 ANSWERS = {b"OK": "ok", b"PW": "wrong password", b"SZ": "file too big (or no memory)",
            b"BH": "bad request", b"CE": "damaged in transit (crc)",
            b"WE": "could not write on the SD card",
+           b"QD": "received: the console writes it from its menu (a game that is open is "
+                  "replaced when it is closed)",
+           b"BY": "busy: the console is still writing a file sent before (back to its menu, "
+                  "wait for it, then send again)",
            b"KV": "not key=value lines: nothing changed",
            b"KA": "not a kernel for this console (the Pi Zero 2 W takes build/kernel7.img, "
                   "the RGB30 build/rgb30/kernel8.img, the other boards build/kernel.img)"}
@@ -127,7 +134,9 @@ def transfer(args, op, path, name, password):
         sock.sendall(data[off:off + step])
         print(f"\r{min(off + step, len(data)) * 100 // len(data):3d}%  {len(data)} bytes", end="", flush=True)
     # the answer comes once the file is written: a console that writes its SD
-    # card slowly (the RGB30) needs more than a minute for a kernel
+    # card slowly (the RGB30) needs more than a minute for a kernel. A file
+    # (S) is answered QD as soon as it is checked (kernels from 2026-10-10):
+    # the console writes it from its menu, an older one still answers OK later
     a = recv_answer(sock, 60 + len(data) // 8192)
     dt = time.time() - t0
     print(f"\r{len(data)} bytes in {dt:.1f} s ({len(data) / 1024 / max(dt, 1e-3):.0f} KiB/s): "
@@ -140,7 +149,7 @@ def transfer(args, op, path, name, password):
         # (the RGB30 used to drop its WiFi after a long write): what it runs says
         print("the answer was lost: the console may have written the kernel all the same")
         return wait_reboot(args.host, before)
-    return 0 if a == b"OK" else 1
+    return 0 if a in (b"OK", b"QD") else 1
 
 
 def recv_exact(sock, n, timeout):

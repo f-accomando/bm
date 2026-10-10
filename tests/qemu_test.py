@@ -69,7 +69,7 @@ SLOW = {
     "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_titan": 36, "test_games": 34, "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_overbit_flags": 60, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
-    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_bm_boot_demo": 22,
+    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_bench_stop": 35, "test_bm_boot_demo": 22,
     "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100, "test_projects": 45, "test_editor_mouse": 40,
 }
 
@@ -6344,6 +6344,41 @@ def test_room_bench(b, opts):
         assert re.search(r"ARM 320x180\s+(<8|\d+ \(\d+\))\s+(<8|\d+ \(\d+\))", plain), plain
         assert "GPU 320x180" not in plain and "error" not in plain, plain
         q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
+def test_bench_stop(b, opts):
+    """2026-10-10: the rendering tests stop on the keys that leave a game
+    (src/kernel/syskeys.h: Start+Select, Ctrl+Esc, PS), here Ctrl+Esc on
+    the USB keyboard: the stress test in its C part (no table, no Lua part,
+    its report thrown away) and the 3D Bench in its ramps (no report, no
+    pages); the monitor goes on after each, the PS not taken as its own."""
+    q = Qemu(b("kernel.img"), USB_KBD)
+    try:
+        q.boot()
+        time.sleep(0.5)
+        q.send("s")
+        q.expect("stress test: 640x360", timeout=10)
+        q.expect("sprites 16x16 (C):", timeout=10)     # (the serial port's per-step lines)
+        time.sleep(1.0)
+        sendkeys(q, "ctrl-esc")
+        out = q.expect("stress test stopped", timeout=15).decode(errors="replace")
+        out += q.expect("report: stress stopped by the user, not saved nor sent", timeout=10).decode(errors="replace")
+        out += q.expect("> ", timeout=10).decode(errors="replace")
+        assert "Lua part" not in out and "test (max per frame)" not in out, out
+        assert "saved as bm/reports" not in out and "could not be saved" not in out, out
+        time.sleep(1.0)
+        q.buf += q.port.read(0.3)
+        assert MENU not in q.buf, q.buf.decode(errors="replace")    # still the monitor
+
+        q.send("j")
+        q.expect("b3d spheres ARM n=", timeout=60)       # past the boot's settling: a ramp
+        sendkeys(q, "ctrl-esc")
+        out = q.expect("3D Bench: stopped; no report saved or sent", timeout=20).decode(errors="replace")
+        out += q.expect("> ", timeout=10).decode(errors="replace")
+        assert "b3d stopped by the user" in out and "3D Bench: done" not in out, out
+        assert "report:" not in out, out
     finally:
         q.close()
 

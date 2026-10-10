@@ -9,6 +9,7 @@
  */
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "a64.h"
@@ -32,13 +33,16 @@
 #include "kernel/config.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
+#include "net/wifi_auto.h"
 #include "ui.h"
+#include "battery.h"
 #include "pad.h"
 #include "kernel/ledstate.h"
 #include "kernel/splash.h"
 #include "kernel/notice.h"
 #include "bm/runtime.h"
 #include "audio/audio.h"
+#include "rk_display.h"
 
 #include "lua.h"
 #include "lauxlib.h"
@@ -133,6 +137,8 @@ void ui_serial_repl(void)
     kprintf("back to the menu\n");
 }
 
+static void save_prev(void);
+
 static void sd_boot(void)
 {
     ledstate_set(LED_NO_SD, 1);         /* until it is read */
@@ -148,6 +154,55 @@ static void sd_boot(void)
     kprintf("SD: %s (%s)\n", fat_describe(), sd_controller());
     config_load();
     pad_config();                       /* confirm= */
+    save_prev();
+}
+
+static int booting = 1;                 /* until "ready" */
+
+/* The run before, kept for a post-mortem (2026-10-10, a black screen after
+ * an update): bm/bootprev.txt = its bm/bootlog.txt (about to be written
+ * again) and the last 4 KiB it printed, as the RAM kept them through the
+ * restart (crumbs.c; gone after a power cut). */
+static void save_prev(void)
+{
+    fat_entry_t e;
+    uint8_t *old = NULL;
+    size_t n = 0;
+    if (fat_find("/bm/BOOTLOG.TXT", &e) == 0 && fat_load(&e, &old, &n) != 0) {
+        old = NULL;
+        n = 0;
+    }
+    static char tail[4096 + 1];
+    size_t tn = crumbs_ring_copy(tail, sizeof tail);
+    char head[200];
+    int hn = ksnprintf(head, sizeof head, "\n--- the run before %s; the last lines it printed (RAM) ---\n",
+                       crumbs_prev_state());
+    if (hn < 0 || hn >= (int)sizeof head)
+        hn = (int)strlen(head);
+    char *buf = malloc(n + (size_t)hn + tn + 64);
+    if (!buf) {
+        free(old);
+        return;
+    }
+    size_t len = 0;
+    if (old) {
+        memcpy(buf, old, n);
+        len = n;
+    } else {
+        len = (size_t)ksnprintf(buf, 64, "(no bm/bootlog.txt)\n");
+    }
+    free(old);
+    memcpy(buf + len, head, (size_t)hn);
+    len += (size_t)hn;
+    if (tn) {
+        memcpy(buf + len, tail, tn);
+        len += tn;
+    } else {
+        len += (size_t)ksnprintf(buf + len, 32, "(nothing in RAM)\n");
+    }
+    if (fat_mkdirs("/bm") != 0 || fat_write_file("/bm", "BOOTPREV.TXT", buf, len) != 0)
+        kprintf("boot log: cannot write bm/bootprev.txt (%s)\n", fat_error());
+    free(buf);
 }
 
 /* Everything printed so far goes to bm/bootlog.txt: if the screen stays
@@ -166,17 +221,51 @@ static void save_bootlog(int say)
     }
 }
 
+void rgb30_display_stage(const char *what)
+{
+    if (!booting)
+        return;
+    kprintf("display: %s\n", what);
+    save_bootlog(0);
+}
+
+/* Before a restart or a power off (plat_reset, plat_poweroff, before the
+ * hardware goes quiet): this run's log as bm/lastrun.txt. Not from an
+ * interrupt, nor while another fiber is half way through a write of its
+ * own (fat_write_tick set: a kernel from the PC). */
+void rgb30_save_lastrun(void)
+{
+    uint64_t daif;
+    __asm__ volatile("mrs %0, daif" : "=r"(daif));
+    if ((daif & (1u << 7)) || fat_write_tick || !sd_blocks())
+        return;
+    kprintf("restarting: this run's log in bm/lastrun.txt\n");
+    const char *log = klog_text();
+    size_t n = strlen(log);
+    char *buf = NULL;
+    if (n >= 60 * 1024) {                       /* the log is full: its end from the ring */
+        static const char cut[] = "\n--- (the log is full) the last lines printed ---\n";
+        buf = malloc(n + sizeof cut + 4096 + 1);
+        if (buf) {
+            memcpy(buf, log, n);
+            memcpy(buf + n, cut, sizeof cut - 1);
+            n += sizeof cut - 1;
+            n += crumbs_ring_copy(buf + n, 4096 + 1);
+            log = buf;
+        }
+    }
+    if (fat_mkdirs("/bm") != 0 || fat_write_file("/bm", "LASTRUN.TXT", log, n) != 0)
+        kprintf("cannot write bm/lastrun.txt (%s)\n", fat_error());
+    free(buf);
+}
+
 /* The saved WiFi network is joined at boot, as on the Pi (wifi_boot=0 in
  * bm/config.txt turns it off, 2026-10-04: it used to wait for wifi_boot=1);
- * the address comes later, in the background. */
+ * the address comes later, in the background. Two tries; if it fails the
+ * menu tries again by itself (net/wifi_auto.c, 2026-10-10). */
 static void wifi_boot(void)
 {
-    const char *on = config_get("wifi_boot"), *ssid = config_get("wifi_ssid");
-    if ((on && strcmp(on, "0") == 0) || !ssid || !ssid[0])
-        return;
-    kprintf("wifi: joining \"%s\" (wifi_boot=0 in bm/config.txt: off)\n", ssid);
-    if (wifi_start() == 0 && wifi_connect_saved() == 0)
-        net_start(&net_wifi);
+    wifi_auto_boot();
 }
 
 void kernel_main(uintptr_t dtb)
@@ -236,8 +325,10 @@ void kernel_main(uintptr_t dtb)
     }
     kprintf("ready\n");
     save_bootlog(1);
+    booting = 0;
     wifi_boot();
     bm_set_notice(notice_now);              /* the games show a kernel arriving */
+    bm_set_battery(battery_state);          /* battery(), and its icon over them when low */
     bm_permissions(1);                      /* a game's network and reports: the player says */
     ledstate_set(LED_BOOT, 0);              /* started: green stays on if all is well */
     if (err == 0)

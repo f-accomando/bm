@@ -1162,6 +1162,9 @@ static const struct { const char *name; uint8_t ds4, pad; } pad_prompts[] = {
     { "CROSS", PROMPT_CROSS, PROMPT_CROSS }, { "CIRCLE", PROMPT_CIRCLE, PROMPT_CIRCLE },
     { "SQUARE", PROMPT_SQUARE, PROMPT_SQUARE }, { "TRIANGLE", PROMPT_TRIANGLE, PROMPT_TRIANGLE },
     { "OPTIONS", PROMPT_OPTIONS, PROMPT_OPTIONS }, { "SHARE", PROMPT_SHARE, PROMPT_SHARE },
+    /* the RGB30's own A B X Y on any console (what "A"... are on the RGB30) */
+    { "RGB30_A", PROMPT_RGB30_A, PROMPT_RGB30_A }, { "RGB30_B", PROMPT_RGB30_B, PROMPT_RGB30_B },
+    { "RGB30_X", PROMPT_RGB30_X, PROMPT_RGB30_X }, { "RGB30_Y", PROMPT_RGB30_Y, PROMPT_RGB30_Y },
 };
 
 /* the keyboard's keys with a name, lower case (the names of keyp()) */
@@ -1174,17 +1177,29 @@ static const struct { const char *name; uint8_t id; } key_prompts[] = {
     { "pgup", PROMPT_KEY_PGUP }, { "pgdn", PROMPT_KEY_PGDN },
 };
 
-/* the pad the prompts show: the one pressed last, a DS4 until then */
-static int prompt_lettered;
+/* the pad the prompts show: the one pressed last; until then a DS4, on
+ * the RGB30 its own buttons (A B X Y, the letters in their colours) */
+enum { PROMPTS_DS4, PROMPTS_LETTERED, PROMPTS_RGB30 };
+#ifdef BM_RGB30
+static int prompt_style = PROMPTS_RGB30;
+#else
+static int prompt_style = PROMPTS_DS4;
+#endif
+
+static int pad_prompt_id(size_t i, int style)
+{
+    return style == PROMPTS_DS4 ? pad_prompts[i].ds4
+         : style == PROMPTS_LETTERED ? pad_prompts[i].pad : prompt_rgb30(pad_prompts[i].pad);
+}
 
 static const prompt_t *find_prompt(const char *n, int small)
 {
     int src = hid_last_source();
     if (src == HID_SOURCE_DS4 || src == HID_SOURCE_PAD)
-        prompt_lettered = src == HID_SOURCE_PAD;
+        prompt_style = src == HID_SOURCE_PAD ? PROMPTS_LETTERED : PROMPTS_DS4;
     for (size_t i = 0; i < sizeof pad_prompts / sizeof *pad_prompts; i++)
         if (!strcmp(n, pad_prompts[i].name))
-            return prompt_chip(prompt_lettered ? pad_prompts[i].pad : pad_prompts[i].ds4, small);
+            return prompt_chip(pad_prompt_id(i, prompt_style), small);
     for (size_t i = 0; i < sizeof key_prompts / sizeof *key_prompts; i++)
         if (!strcmp(n, key_prompts[i].name))
             return prompt_chip(key_prompts[i].id, small);
@@ -1235,7 +1250,8 @@ static const prompt_t *prompt_for(const char *n, int small, int player);
  * scale, player]) only measures: the width and height.
  * Upper case the pad's buttons ("A", "B", "X", "Y", "START", "L1",
  * "UPDOWN"...), shown as on the pad pressed last: a DS4 (cross, circle...)
- * until another pad is used. Lower case the keyboard's keys, with the
+ * until another pad is used; on the RGB30 its own A B X Y (the letters in
+ * their colours), "RGB30_A".."RGB30_Y" on any console. Lower case the keyboard's keys, with the
  * names of keyp() ("enter", "esc", "f1", "up") or one character ("s").
  * "ok", "back" and the actions of keymap() are their buttons. With player
  * (1-4) a button as that player's controller shows it: a DS4's symbol,
@@ -1491,11 +1507,11 @@ static int l_controller(lua_State *L)
 
 /* a pad's button as a chip: the DS4's symbol or the letter (find_prompt
  * chooses by the pad pressed last; here the caller does) */
-static const prompt_t *pad_chip(const char *chip, int lettered, int small)
+static const prompt_t *pad_chip(const char *chip, int style, int small)
 {
     for (size_t i = 0; i < sizeof pad_prompts / sizeof *pad_prompts; i++)
         if (!strcmp(chip, pad_prompts[i].name))
-            return prompt_chip(lettered ? pad_prompts[i].pad : pad_prompts[i].ds4, small);
+            return prompt_chip(pad_prompt_id(i, style), small);
     return NULL;
 }
 
@@ -1503,8 +1519,13 @@ static const prompt_t *pad_chip(const char *chip, int lettered, int small)
  * -1 for the one pressed last */
 static const prompt_t *button_chip(int b, int dev, int small)
 {
+#ifdef BM_RGB30
+    /* nothing pressed yet: the console's own buttons, not the keyboard */
+    int kb = dev < 0 ? hid_last_source() == HID_SOURCE_KEYBOARD : (dev & INPUT_DEV_KIND) == INPUT_DEV_KEYBOARD;
+#else
     int kb = dev < 0 ? hid_last_source() == HID_SOURCE_KEYBOARD || hid_last_source() == HID_SOURCE_NONE
                      : (dev & INPUT_DEV_KIND) == INPUT_DEV_KEYBOARD;
+#endif
     if (kb && button_names[b].key)
         return find_prompt(button_names[b].key, small);
     /* a pad with letters shows the letter the game's button is under */
@@ -1512,9 +1533,11 @@ static const prompt_t *button_chip(int b, int dev, int small)
     for (int i = 0; i < NBUTTONS; i++)
         if (button_names[i].hid == shown)
             b = i;
-    if (dev < 0 || (dev & INPUT_DEV_KIND) != INPUT_DEV_PAD)
+    /* the RGB30's own controls (a Bluetooth pad may be pressing them):
+     * as the pad pressed last, its own A B X Y until another one is used */
+    if (dev < 0 || (dev & INPUT_DEV_KIND) != INPUT_DEV_PAD || (dev & INPUT_DEV_BUILTIN))
         return find_prompt(button_names[b].chip, small);
-    return pad_chip(button_names[b].chip, !(dev & INPUT_DEV_DS4), small);
+    return pad_chip(button_names[b].chip, dev & INPUT_DEV_DS4 ? PROMPTS_DS4 : PROMPTS_LETTERED, small);
 }
 
 static const prompt_t *prompt_for(const char *n, int small, int player)
@@ -4180,6 +4203,9 @@ static int l_devkit(lua_State *L);
 static int l_profile(lua_State *L);
 static int l_breakpoint(lua_State *L);
 static int l_devinfo(lua_State *L);
+/* the console's battery (defined with the system's notice) */
+static int l_battery(lua_State *L);
+static int l_battery_low(lua_State *L);
 
 /* cartridge files, for the editor (defined after the asset loader) */
 static int l_ls(lua_State *L);
@@ -4361,6 +4387,7 @@ static const luaL_Reg api[] = {
     { "players", l_players }, { "stick", l_stick },
     { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit }, { "profile", l_profile }, { "breakpoint", l_breakpoint },
     { "devinfo", l_devinfo }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
+    { "battery", l_battery }, { "battery_low", l_battery_low },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
     { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
     { "animate", l_animate }, { "clips", l_clips }, { "bone3d", l_bone3d },
@@ -7669,6 +7696,75 @@ static void notice_draw(void)
     sys_box(lines, 2, 0, 0, progress);
 }
 
+/* The console's battery (2026-10-10, a handheld's habit): from the kernel
+ * (bm_set_battery, the RGB30); the Pi has none. Information only: each
+ * console has its own, so a game played in lockstep never lets it change
+ * what it simulates. */
+static int (*battery_fn)(int *pct, int *charging, int *low);
+
+void bm_set_battery(int (*fn)(int *pct, int *charging, int *low))
+{
+    battery_fn = fn;
+}
+
+/* battery() -> its charge (0..100) and true on the charger; nil without a
+ * battery (the Pi) */
+static int l_battery(lua_State *L)
+{
+    int pct, charging, low;
+    if (!battery_fn || !battery_fn(&pct, &charging, &low)) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushinteger(L, pct);
+    lua_pushboolean(L, charging);
+    return 2;
+}
+
+/* battery_low() -> true while the system shows its low battery (20% or
+ * less off the charger, until 23%), whether or not the icon is on */
+static int l_battery_low(lua_State *L)
+{
+    int pct, charging, low = 0;
+    lua_pushboolean(L, battery_fn && battery_fn(&pct, &charging, &low) && low);
+    return 1;
+}
+
+/* While it is low: a small red battery over the frame, top right (left of
+ * the dev kit's overlay when that is on), its charge inside, blinking under
+ * 5%. After the frame is drawn (the 3D finished: flush3d), as the overlay:
+ * the game's own drawing and state are not touched. Settings > Screen and
+ * sound > Low battery icon (battery_icon=0) turns it off. */
+static void battery_draw(void)
+{
+    int pct, charging, low = 0;
+    if (!battery_fn || !battery_fn(&pct, &charging, &low) || !low)
+        return;
+    const char *off = config_get("battery_icon");
+    if (off && strcmp(off, "0") == 0)
+        return;
+    if (pct <= 5 && timer_ticks() / 500000u % 2)
+        return;
+    g16_t *g = &rt.g;
+    const g16_t keep = *g;
+    g16_camera(g, 0, 0);
+    g16_clip(g, 0, 0, 0, 0);
+    const int z = g->w >= 1280 ? g->w / 640 : 1;
+    int right = g->w - 4 * z;                   /* the overlay: 148 (functions 212) wide, from the right */
+    if (perf_on)
+        right = g->w - (perf_on == 3 ? 216 : 152) * z;
+    const int w = 16 * z, h = 8 * z, x = right - w - 2 * z, y = 4 * z;
+    const uint16_t red = g16_rgb(255, 72, 64), dark = g16_rgb(8, 8, 16);
+    g16_rectfill(g, x - z, y - z, w + 4 * z, h + 2 * z, dark);     /* a border, for any picture */
+    g16_rectfill(g, x, y, w, h, red);                               /* the outline... */
+    g16_rectfill(g, x + z, y + z, w - 2 * z, h - 2 * z, dark);
+    g16_rectfill(g, x + w, y + 2 * z, 2 * z, h - 4 * z, red);       /* ...its terminal */
+    const int fill = (w - 4 * z) * (pct < 0 ? 0 : pct > 20 ? 20 : pct) / 20;
+    if (fill > 0)
+        g16_rectfill(g, x + 2 * z, y + 2 * z, fill, h - 4 * z, red);
+    *g = keep;
+}
+
 /* keys ("ctrl shift s", "f5 / ctrl r", "f1 - f4") as the keys' pictures
  * from x on the row at y; the x after them (measured only, draw 0) */
 static int keys_chips(const char *keys, int x, int y, int small, int draw, uint16_t ink)
@@ -8228,6 +8324,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
                 rt.lua_peak = lua;
         }
         perf_frame();
+        battery_draw();
         leave_draw();
         notice_draw();
         keys_help(L);
@@ -8266,6 +8363,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     st->slow = rt.slow_frames;
     st->tokens = (uint32_t)rt.tokens;
     st->gpu3d = rt.r3d_ready && rt.r3d.backend != NULL;
+    st->left = left;
     sess.w = rt.g.w;
     sess.h = rt.g.h;
     sess.ninfo = rt.ndevinfo;
@@ -8600,8 +8698,8 @@ uint32_t bm_bench(framebuffer_t *fb, uint32_t frames)
     for (int i = 0; i < 80 * 45; i++)
         rt.map.cells[i] = (uint16_t)(1 + (i * 7) % 255);
 
-    uint32_t total = 0, deadline = timer_ticks() + FRAME_US, prev = 0;
-    for (uint32_t f = 0; f < frames; f++) {
+    uint32_t total = 0, deadline = timer_ticks() + FRAME_US, prev = 0, done = 0;
+    for (uint32_t f = 0; f < frames && !syskeys_test_stop(); f++, done++) {   /* (Start+Select, PS) */
         uint32_t t0 = timer_ticks();
         g16_cls(&rt.g, 0);
         g16_map(&rt.g, &rt.sheet, &rt.map, 0, 0, -(int)(f % 8), 0, 81, 45);
@@ -8619,7 +8717,7 @@ uint32_t bm_bench(framebuffer_t *fb, uint32_t frames)
     g16_sheet_free(&rt.sheet);
     free(rt.map.cells);
     rt.map.cells = NULL;
-    return frames ? total / frames : 0;
+    return done ? total / done : 0;
 }
 
 /* The benchmark both ways (direct and via RAM), one line; the faster one
@@ -8634,11 +8732,16 @@ void bm_set_dma_frames(int on) { dma_frames = on; }
 void bm_bench_report(framebuffer_t *fb, uint32_t frames)
 {
     int saved = via_ram;
+    syskeys_test_begin();               /* Start+Select, Ctrl+Esc, PS stop it (syskeys.h) */
     via_ram = 0;
     uint32_t direct = bm_bench(fb, frames);
     via_ram = 1;
-    uint32_t ram = bm_bench(fb, frames);
+    uint32_t ram = syskeys_test_stopped() ? 0 : bm_bench(fb, frames);
     via_ram = saved;
+    if (syskeys_test_stopped()) {
+        kprintf("bm bench stopped (Start+Select, Ctrl+Esc or PS)\n");
+        return;
+    }
     kprintf("bm bench (map + 256 sprites):");
     ms2(" direct", direct);
     ms2(", via RAM", ram);
