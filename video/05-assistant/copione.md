@@ -1,7 +1,5 @@
 # SKYVALE WORLD  ·  Episode 5: the assistant — narrator's script
 
-Italian version: [copione-IT.md](copione-IT.md).
-
 Each line starts at the time shown (final video).
 
 - **0:12** Episode 5: enemies, coins, and a score. The assistant of the console helps: it knows the API, how-tos and sprite recipes, and runs on the console itself.

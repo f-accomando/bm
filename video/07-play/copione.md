@@ -1,7 +1,5 @@
 # SKYVALE WORLD  ·  Episode 7: the game — narrator's script
 
-Italian version: [copione-IT.md](copione-IT.md).
-
 Each line starts at the time shown (final video).
 
 - **0:12** Skyvale World, made with nothing but the tools of the console: bm Pixel, the SDK, bm Sound and bm Code.

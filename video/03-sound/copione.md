@@ -1,7 +1,5 @@
 # SKYVALE WORLD  ·  Episode 3: bm Sound — narrator's script
 
-Italian version: [copione-IT.md](copione-IT.md).
-
 Each line starts at the time shown (final video).
 
 - **0:12** bm Sound makes the sounds, the sound effects and the music of a cartridge: the AUDIO section of the .bm, the same bank the games play with sfx and music.

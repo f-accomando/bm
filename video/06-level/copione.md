@@ -1,7 +1,5 @@
 # SKYVALE WORLD  ·  Episode 6: the last level — narrator's script
 
-Italian version: [copione-IT.md](copione-IT.md).
-
 Each line starts at the time shown (final video).
 
 - **0:12** The last level. First the pieces it needs, in bm Pixel: trees for the far background, and a flag to end the level.

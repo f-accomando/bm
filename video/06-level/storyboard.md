@@ -1,7 +1,5 @@
 # SKYVALE WORLD  ·  Episode 6: the last level — storyboard
 
-Italian version: [storyboard-IT.md](storyboard-IT.md).
-
 Time is in the final video (hook and title card included: +12 s).
 
 | # | Time | Where | Key / button | What you see | Narrator |

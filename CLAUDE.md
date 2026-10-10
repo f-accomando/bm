@@ -10,10 +10,11 @@ compatibilità (cartelle SD e header vecchi, tag di rete in `tools/bm_net.py`).
 ## File: cosa tracciare, cosa è storico, cosa ignorare
 
 - **Comunicazione** (per chi usa o sviluppa bm): `README.md`, `docs/*.md`, `docs/giochi/`,
-  `sdk/README.md`, `AI.md`, `market/README.md`, `video/`, `src/ai/kb/README.md`,
+  `sdk/README.md`, `AI.md`, `market/README.md`, `src/ai/kb/README.md`,
   `src/ai/words/README.md`. Si scrivono e si aggiornano in **inglese**. La versione
   italiana ha il suffisso `-IT` (es. `docs/API-IT.md`) e non si tocca. Un file di
   comunicazione senza versione inglese: prima si scrive quella.
+- `video/` resta in italiano, con i nomi originali: non si traduce.
 - **Tracciamento** (per lavorare con Claude Code): `CLAUDE.md`, `docs/ROADMAP.md`,
   `docs/progress.md` e `docs/progress/*.md`. Dicono solo lo stato attuale e cosa resta da
   fare. Niente cronaca: quando una cosa è chiusa, si toglie. Ogni argomento sta in un solo

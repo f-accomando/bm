@@ -1,7 +1,5 @@
 # SKYVALE WORLD  ·  Episode 1: bm Pixel — narrator's script
 
-Italian version: [copione-IT.md](copione-IT.md).
-
 Each line starts at the time shown (final video).
 
 - **0:12** bm Pixel is the pixel-art editor inside the console. Open it from the Dev tab; it works on the sprite sheet of a .bm.

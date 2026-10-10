@@ -231,8 +231,7 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
 [f-accomando/bm-market](https://github.com/f-accomando/bm-market): a catalog signed with the
 market's key, every file checked with its SHA-256 before it touches the SD card. Games are
 published with a pull request there, also from the console with a GitHub token, and sent
-between consoles on the home network. The games of the project are all in it (details in
-Italian in [README_OLD.md](README_OLD.md#market-m25)).
+between consoles on the home network. The games of the project are all in it.
 
 The screenshots come from QEMU (`tests/qemu_test.py --shots DIR`), the showreel from
 `make showreel`.
@@ -258,9 +257,6 @@ make test                        # tests on the PC and end to end in QEMU
 
 Needs `arm-none-eabi-gcc`, Python 3, `dosfstools` and `mtools`, plus QEMU for the tests.
 
-- The full documentation, in Italian: [README_OLD.md](README_OLD.md). It covers the
-  monitor, keys, network, releases, the Pi 1, the Pi Zero 2 W, the source layout and
-  technical notes.
 - The plan: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## License
@@ -275,5 +271,4 @@ bm is by F. Accomando and is released under the **BM Community License 1.0**
 - Organisations need a separate commercial license.
 
 Third-party components keep their own licenses: Lua (MIT), lwIP (BSD), mbedTLS
-(Apache 2.0) and the Mozilla root certificates. They are listed in
-[README_OLD.md](README_OLD.md#licenza).
+(Apache 2.0) and the Mozilla root certificates.

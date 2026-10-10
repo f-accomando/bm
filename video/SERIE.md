@@ -1,48 +1,46 @@
-# Skyvale World — the video series
+# Skyvale World — la serie di video
 
-Italian version: [SERIE-IT.md](SERIE-IT.md).
+Un platform 2D a scorrimento, originale, nello stile dei giochi a 16 bit dei primi anni '90,
+fatto **solo con gli strumenti della console bm** (2D: niente bm Mesh, Animator 3D,
+`picture3d`, GPU). Lo scopo dei video è mostrare cosa sa fare bm, gli editor uno per uno,
+e alla fine il gioco giocabile in una `.bm`. Eroe: **Kip**, una volpe (personaggio
+originale: nessun personaggio, sprite o musica di giochi esistenti).
 
-An original 2D side-scrolling platformer in the style of the early-'90s 16-bit games,
-made **only with the tools of the bm console** (2D: no bm Mesh, 3D Animator,
-`picture3d`, GPU). The purpose of the videos is to show what bm can do, the editors one
-by one, and in the end the game playable in a `.bm`. Hero: **Kip**, a fox (an original
-character: no characters, sprites or music from existing games).
+Ogni episodio: ~3 minuti, un editor protagonista, tasti sempre in sovrimpressione
+(pannello a destra: dove siamo, tasto premuto, tasti della scena), sottotitoli del
+narratore, gancio col risultato in apertura. Skill: `claude/skills/bm-video-tutorial`.
+Libreria: `video/lib/bmvideo.py`. Un episodio = `video/NN-nome/` (`record.py`, `art.py`,
+`storyboard.md`, `copione.md`); i file generati vanno in `out/` (non nel repo).
 
-Every episode: ~3 minutes, one editor as the protagonist, keys always overlaid
-(panel on the right: where we are, key pressed, keys of the scene), narrator subtitles,
-a hook with the result at the opening. Skill: `claude/skills/bm-video-tutorial`.
-Library: `video/lib/bmvideo.py`. One episode = `video/NN-name/` (`record.py`, `art.py`,
-`storyboard.md`, `copione.md`); generated files go in `out/` (not in the repo).
+| # | Strumento | Cosa si fa | Stato |
+|---|-----------|------------|-------|
+| 1 | bm Pixel | Kip di profilo: ciclo di corsa a 6 fotogrammi, salto, moneta; matita, riempimento, annulla, animazione, ovali e linee, specchio, tavolozza, salva `skyvale.bm` | fatto |
+| 2 | SDK (2D) | tessere 8×8 nello sheet, flag (solido, piattaforma, scala, acqua, fa male), mappa a layer, il primo livello; codice di cinque righe e prova (F5) | fatto |
+| 3 | Sound | suoni (salto con bend, moneta, rimbalzo), tre effetti con il piano, musica del livello scritta con riff (F7) e messa nel banco come canzone, pagine pattern e song | fatto |
+| 4 | bm Code | Kip corre e salta: `lib.tiles`, `lib.step`, salto a pressione variabile, spuntoni (flag 4), suoni e musica dell'episodio 3; la partita giocata da uno script di tasti | fatto |
+| 5 | bm Pixel + bm Code + assistente | lo slime disegnato dall'assistente (F6 in bm Pixel), monete e slime che si schiacciano, punteggio e vite; l'HUD è una risposta dell'assistente (F6 in bm Code) adattata con Replace; domanda sull'invincibilità | fatto |
+| 6 | bm Pixel + SDK + bm Code | l'ultimo livello: albero (assistente) e bandiera (rettangoli) in bm Pixel, livello di 160 celle con tre buche e un terzo layer di alberi nell'SDK, camera che segue Kip, parallasse a tre velocità, bandiera, schermate titolo e fine in bm Code | fatto |
+| 7 | il gioco | Skyvale World giocato dal titolo alla bandiera da uno script di tasti (fatto da un robot), riepilogo delle sei puntate, e cosa c'è nel `.bm` (pagina progetto e dev kit dell'SDK) | fatto |
 
-| # | Tool | What is done | Status |
-|---|------|--------------|--------|
-| 1 | bm Pixel | Kip in profile: 6-frame run cycle, jump, coin; pencil, fill, undo, animation, ovals and lines, mirror, palette, save `skyvale.bm` | done |
-| 2 | SDK (2D) | 8×8 tiles in the sheet, flags (solid, platform, ladder, water, hurts), layered map, the first level; five-line code and a try (F5) | done |
-| 3 | Sound | sounds (jump with bend, coin, bounce), three effects with the piano, level music written with riff (F7) and put in the bank as a song, pattern and song pages | done |
-| 4 | bm Code | Kip runs and jumps: `lib.tiles`, `lib.step`, variable-pressure jump, spikes (flag 4), sounds and music from episode 3; the game played by a key script | done |
-| 5 | bm Pixel + bm Code + assistant | the slime drawn by the assistant (F6 in bm Pixel), coins and slimes that can be stomped, score and lives; the HUD is an answer of the assistant (F6 in bm Code) adapted with Replace; question about invincibility | done |
-| 6 | bm Pixel + SDK + bm Code | the last level: tree (assistant) and flag (rectangles) in bm Pixel, a 160-cell level with three pits and a third layer of trees in the SDK, camera following Kip, three-speed parallax, flag, title and end screens in bm Code | done |
-| 7 | the game | Skyvale World played from the title to the flag by a key script (made by a robot), recap of the six episodes, and what is in the `.bm` (project page and SDK dev kit) | done |
+Note per chi continua:
 
-Notes for whoever continues:
-
-- Recording on the PC with `bmhost` (QEMU is not available in cloud sessions): it has no
-  kernel menu and no AI assistant; for those parts QEMU or the real console is needed.
-- Kip's sheet is created in bm Pixel and saved as a `.bm`; episodes 2–6 pick up that
-  cartridge (`out/sd/carts/`) and add map, sounds and code to it. To repeat the episodes
-  in order, the `record.py` of each episode must start from the file left by the previous
-  one (to be kept in the repo when ready: `carts/skyvale/`).
-- No characters, sprites or music from existing games are used.
-- **bm Studio and bm Animator of the console are 3D**: they are not used. The 2D tiles and map live in the SDK (page F3, F3 again for the map).
-- The tools are recorded with `bmhost --tool` (like the tools built into the kernel: they can save to an existing `.bm`); F5 inside `bmhost` ends the recording, so the game try is a second, appended recording.
-- Every episode starts from the `.bm` left by the previous one: episode 2 starts from `video/02-sdk/start.bm` (the cartridge saved in episode 1).
-- Audio: `bmhost --wav` and `encode(..., audio=wav)` put the sound in the video; the cards and the hook have a silent track. Check: `video/03-sound/verify.py` reads the saved bank (`scripts/bmaudio.py`) and checks that the wav is not silence.
-- Keys: F6–F10 and Ctrl+Enter reach `bmhost` only as ESC sequences (`\x1b[18~` is F7, `\x1b[28~` is Ctrl+Enter): the raw bytes 0xE5–0xEF are discarded.
-- bm Code (and the F6 assistant, episode 5) need the `ai` table: they are recorded with `build/host/bmhost-ai` (`make bmhost-ai`: links `src/ai/lua_ai.c` and loads `build/assist.bin`); the normal `bmhost` does not have it.
-- The cartridge of each episode starts from the one left by the previous one (`video/NN-name/start.bm`); new code is written **without indentation**: bm Code indents by itself with Enter and `end`.
-- Ctrl+H is the same byte as Backspace on the serial line: in `bmhost` Replace is opened from the menu (Esc, 12 times Down, Enter). New code is written after cutting **all** the old lines (Ctrl+K once per line: count them).
-- A recording can have several editors in a row on the same SD (episode 5: bm Pixel, then bm Code, then the game): `record.py` splits the key script by frame (`split_input`) and appends raw and wav.
-- The game played by a key script is tuned with a log (a debug cartridge with `_update` wrapped) and a trial-and-error search of the jump frames (`scratchpad/search.py` of episode 5: jump time and press duration), then `verify.py` checks it (coins, stomps, lives).
-- Named zones and collision boxes (SPRITES and BOXES sections) are made only with `scripts/bmres.py` / `mkbm.py`: they have no editor on the console, so the series does not use them.
-- The final game is played by a robot (`video/07-play/bot.py`): it overrides `btn`/`btnp` in a copy of the cartridge, decides from the game state (pit ahead, slime, coin, only if there is ground to land on) and records the keys as a script for `bmhost --input`; `replay.py` replays it with a log and gives the same result (flag frame, score, lives). Two mistakes not to repeat: the ground ahead is checked at ground level (not under the feet) and taking the platforms into account (`mflags & 3`).
-- A recap episode reuses the first seconds of the videos already made (`ep0N.mp4`, which open with the hook): missing audio tracks → silence, everything brought back to 1920×1080, 60 fps, stereo 48 kHz.
+- Registrazione sul PC con `bmhost` (QEMU non c'è nelle sessioni cloud): non ha il menu del
+  kernel né l'assistente AI; per quelle parti serve QEMU o la console vera.
+- Lo sheet di Kip è creato in bm Pixel e salvato come `.bm`; gli episodi 2–6 riprendono
+  quella cartuccia (`out/sd/carts/`) e ci aggiungono mappa, suoni e codice. Per ripetere gli
+  episodi in ordine, `record.py` di ogni puntata deve ripartire dal file lasciato dalla
+  puntata prima (da tenere nel repo quando sarà pronto: `carts/skyvale/`).
+- Non si usano personaggi, sprite o musiche di giochi esistenti.
+- **bm Studio e bm Animator della console sono 3D**: non si usano. Le tessere e la mappa 2D stanno nell'SDK (pagina F3, di nuovo F3 la mappa).
+- Gli strumenti si registrano con `bmhost --tool` (come gli strumenti incorporati nel kernel: possono salvare su un `.bm` già presente); F5 dentro `bmhost` chiude la registrazione, quindi la prova del gioco è una seconda registrazione accodata.
+- Ogni episodio riparte dal `.bm` lasciato dal precedente: l'episodio 2 parte da `video/02-sdk/start.bm` (la cartuccia salvata nell'episodio 1).
+- Audio: `bmhost --wav` e `encode(..., audio=wav)` mettono il suono nel video; le schede e il gancio hanno una traccia muta. Verifica: `video/03-sound/verify.py` legge il banco salvato (`scripts/bmaudio.py`) e controlla che il wav non sia silenzio.
+- Tasti: F6–F10 e Ctrl+Invio arrivano a `bmhost` solo come sequenze ESC (`\x1b[18~` è F7, `\x1b[28~` Ctrl+Invio): i byte grezzi 0xE5–0xEF vengono scartati.
+- bm Code (e l'assistente F6, episodio 5) hanno bisogno della tabella `ai`: si registrano con `build/host/bmhost-ai` (`make bmhost-ai`: collega `src/ai/lua_ai.c` e carica `build/assist.bin`); `bmhost` normale non ce l'ha.
+- La cartuccia di ogni episodio parte da quella lasciata dal precedente (`video/NN-nome/start.bm`); il codice nuovo si scrive **senza indentazione**: bm Code rientra da solo con Invio e `end`.
+- Ctrl+H è lo stesso byte di Backspace sulla linea seriale: in `bmhost` Replace si apre dal menu (Esc, 12 volte Giù, Invio). Il codice nuovo si scrive dopo aver tagliato **tutte** le righe vecchie (Ctrl+K una volta per riga: contarle).
+- Una registrazione può avere più editor in fila sulla stessa SD (episodio 5: bm Pixel, poi bm Code, poi la partita): `record.py` divide lo script dei tasti per frame (`split_input`) e accoda raw e wav.
+- La partita giocata da uno script di tasti si tara con un log (cartuccia di debug con `_update` avvolto) e una ricerca per tentativi dei frame di salto (`scratchpad/search.py` dell'episodio 5: tempo di salto e durata della pressione), poi `verify.py` la controlla (monete, schiacciamenti, vite).
+- Zone con nome e scatole di collisione (sezioni SPRITES e BOXES) si fanno solo con `scripts/bmres.py` / `mkbm.py`: non hanno un editor sulla console, quindi la serie non le usa.
+- La partita finale è giocata da un robot (`video/07-play/bot.py`): sovrascrive `btn`/`btnp` in una copia della cartuccia, decide dallo stato del gioco (buca davanti, slime, moneta, solo se c'è terreno dove atterrare) e registra i tasti come script per `bmhost --input`; `replay.py` la riproduce con un log e dà lo stesso risultato (frame della bandiera, punteggio, vite). Due errori da non rifare: il suolo davanti si controlla alla quota del suolo (non sotto i piedi) e tenendo conto delle piattaforme (`mflags & 3`).
+- Un episodio riassuntivo riusa i primi secondi dei video già fatti (`ep0N.mp4`, che aprono con il gancio): tracce audio mancanti → silenzio, tutto riportato a 1920×1080, 60 fps, stereo 48 kHz.

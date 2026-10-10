@@ -1,7 +1,5 @@
 # SKYVALE WORLD  ·  Episode 2: bm SDK, tiles and the map — narrator's script
 
-Italian version: [copione-IT.md](copione-IT.md).
-
 Each line starts at the time shown (final video).
 
 - **0:12** The SDK is the hub of a .bm project: the project, the code, the 2D sprites and the map, the 3D. In this series we only use its 2D side.
