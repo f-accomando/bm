@@ -1,296 +1,298 @@
-# I driver 3D di bm: le versioni
+# bm's 3D drivers: the versions
 
-Il 3D di bm passa da due driver: **r3d** (`src/bm/r3d.c`: scena, trasformazioni, luce,
-il rasterizzatore dell'ARM) e **gpu3d** (`src/gpu/gpu3d.c` con gli shader di
-`tools/qpuasm.py`: il backend della V3D). Hanno una versione sola, **bm3d X.Y**: X è il
-blocco di sviluppo (una milestone), Y il passo dentro il blocco. La versione è in
-`src/gpu/version3d.h` (`BM3D_VERSION`, la tabella `bm3d_versions()`).
+Italian version: [DRIVERS-IT.md](DRIVERS-IT.md).
 
-Dove si vede: la riga di stato della GPU (test `g`, log), *Impostazioni > System > 3D
-driver*, il log all'avvio di un gioco ("the 3D is drawn by the GPU as bm3d 3.0"), lo
-stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()`.
+bm's 3D goes through two drivers: **r3d** (`src/bm/r3d.c`: scene, transforms, light,
+the ARM rasterizer) and **gpu3d** (`src/gpu/gpu3d.c` with the shaders from
+`tools/qpuasm.py`: the V3D backend). They have a single version, **bm3d X.Y**: X is the
+development block (a milestone), Y the step within the block. The version is in
+`src/gpu/version3d.h` (`BM3D_VERSION`, the `bm3d_versions()` table).
 
-## Le versioni
+Where it shows: the GPU status line (test `g`, log), *Settings > System > 3D
+driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), the
+stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d()`.
 
-- **0.1** (fino a settembre 2026, M7–M32): solo ARM, il primo rasterizzatore di r3d (lo
-  stress test di settembre: 31 sfere a 60 fps).
-- **0.2** (2026-10-01, M33): solo ARM, bordi in virgola fissa, cicli delle texture
-  specializzati, z azzerato con il DMA (69 sfere a 60 fps sul Pi).
-- **1.0** (2026-10-01, M33): la GPU disegna i triangoli (shader NV), l'ARM li mette e li
-  illumina; lo z conservato tra un lavoro e l'altro.
-- **2.0** (2026-10-01, M34): pagine pulite senza load, texture in T-format, MSAA 4×, meno
-  istruzioni dell'ARM per triangolo (182 sfere a 60 fps sul Pi).
-- **2.1** (2026-10-03, M34): Overbit sulla GPU: facce a retino, luce RGB precalcolata e
-  nebbia sugli angoli, ombre, effetti 3D.
-- **3.0** (2026-10-03, M36): il vertex shader della GPU mette lo scenario (modelli spenti
-  o con la luce agli angoli); la GPU taglia sul piano vicino e sulla guard band.
-- **3.1** (2026-10-03, M36): il vertex shader anche per i modelli illuminati dal sole, con
-  le ossa (gli eroi).
-- **3.2** (2026-10-03, M36): il vertex shader anche per le ombre e il primo piano.
-- **3.3** (2026-10-03, M36): i modelli con texture illuminati dal sole (gli eroi di Meshy):
-  la luce di ogni angolo (Gouraud, grigia) anche sulle texture, sull'ARM e sulla GPU; il
-  vertex shader `vs_lit_tex` li mette con le ossa.
-- **3.4** (2026-10-03, M36): le pelli sul vertex shader: le facce a cavallo di due ossa (i
-  modelli Meshy sono una superficie unica) in gruppi per coppia di ossa, ogni angolo messo
-  dalla matrice del suo osso come fa r3d (`vs_lit_tex2`, `cs_colour2`, le ombre
+## The versions
+
+- **0.1** (until September 2026, M7–M32): ARM only, the first r3d rasterizer (the
+  September stress test: 31 spheres at 60 fps).
+- **0.2** (2026-10-01, M33): ARM only, fixed-point edges, specialized texture
+  loops, z cleared with DMA (69 spheres at 60 fps on the Pi).
+- **1.0** (2026-10-01, M33): the GPU draws the triangles (NV shaders), the ARM sets them up and
+  lights them; z preserved from one job to the next.
+- **2.0** (2026-10-01, M34): clean pages without load, T-format textures, 4× MSAA, fewer
+  ARM instructions per triangle (182 spheres at 60 fps on the Pi).
+- **2.1** (2026-10-03, M34): Overbit on the GPU: screen-door faces, precomputed RGB light and
+  fog on the vertices, shadows, 3D effects.
+- **3.0** (2026-10-03, M36): the GPU's vertex shader sets up the scenery (unlit models
+  or with the light on the vertices); the GPU clips on the near plane and on the guard band.
+- **3.1** (2026-10-03, M36): the vertex shader also for the sunlit models, with
+  bones (the heroes).
+- **3.2** (2026-10-03, M36): the vertex shader also for shadows and the foreground.
+- **3.3** (2026-10-03, M36): the sunlit textured models (Meshy's heroes):
+  the light of each vertex (Gouraud, grey) on textures too, on the ARM and on the GPU; the
+  vertex shader `vs_lit_tex` sets them up with the bones.
+- **3.4** (2026-10-03, M36): skins on the vertex shader: the faces straddling two bones (the
+  Meshy models are a single surface) in groups per pair of bones, each vertex set up
+  by the matrix of its bone as r3d does (`vs_lit_tex2`, `cs_colour2`, the shadows
   `vs_shadow2`/`cs_shadow2`).
-- **4.0** (2026-10-03, M35): il fotogramma in coda: alla fine del fotogramma il lavoro della
-  GPU parte e non si aspetta (il binning incrementa un semaforo che il rendering aspetta,
-  come il driver vc4 di Linux: i due thread partono insieme); intanto gira il `_update`
-  del fotogramma dopo, e si aspetta la GPU solo prima di toccare la pagina o la memoria
-  che il lavoro legge. Una prova all'avvio (`probe_queue`) la spegne se la V3D non finisce
-  il lavoro come deve. Opzione `gpu3d_queue`.
-- **4.1** (2026-10-03, M35): un solo lavoro della GPU a fotogramma anche con l'HUD e le
-  braccia in prima persona. Il 2D disegnato dopo il 3D mentre la GPU disegna (l'HUD) non
-  la aspetta più: il lavoro parte e il 2D si registra (`d2` in `runtime.c`: rettangoli,
-  testo, sprite, mappa, prompt...), poi va sulla pagina nello stesso ordine quando la GPU ha
-  finito (prima di altro 3D, di leggere la pagina, di mostrarla). Lo `zclear()` tra il
-  mondo e le braccia (`R3D_FRONT`) resta nello stesso lavoro: un quadrato su tutta la
-  pagina con `fs_zclear` scrive la profondità più lontana e rimette a ogni pixel il suo
-  colore (il segnale *colour load* legge il tile buffer, come fa Mesa per il blending);
-  la prova all'avvio `probe_zclear` lo spegne se la V3D non lo fa. Il 2D che il `_update`
-  disegna mentre la GPU lavora va sulla pagina del fotogramma dopo, come senza la coda; un
-  `_update` che disegna 3D o legge la pagina torna a girare dopo il fotogramma (una riga
-  nel log). Tutto con `gpu3d_queue=1`.
-- **4.2** (2026-10-04, M38): schermi fino a 1920×1080 (`screen()`, la risoluzione cambiata
-  dalla cartuccia tra un fotogramma e l'altro): stato dei tile, lista di rendering e
-  profondità tra i lavori dimensionati per 1080p anche con l'MSAA; la guard band degli
-  angoli in 12.4 (±2048 pixel) si stringe sugli schermi larghi (120 pixel a 1920, prima
-  1000 fissi), i triangoli che la passano li taglia l'ARM. Un `cls()` con la GPU non lo
-  disegna più l'ARM (4 MB a 1080p): il lavoro della GPU pulisce i suoi tile a quel colore;
-  l'ARM riempie la pagina solo se prima del 3D arriva del 2D, una lettura o la pagina va
-  mostrata senza 3D. Vale per tutte le modalità della GPU.
-- **4.3** (2026-10-05, M36): il vertex shader che sul Pi non disegnava niente (prova
-  all'avvio `0000 0000 0000 0000`). Nel record GL la dimensione degli attributi e la loro
-  posizione nella VPM sono in **byte**, come le scrive Mesa ("byte offsets for the start of
-  the vertex attributes 0-7, and the total size", `vc4_context.h`); 3.0–4.2 le scrivevano in
-  parole da 32 bit, e anche l'emulatore le leggeva così. Ora l'emulatore le legge in byte e
-  controlla, come il simulatore di Broadcom, che lo shader legga ogni parola caricata; la
-  prova all'avvio prova i byte e poi le parole (un lavoro che non finisce esclude solo quella
-  strada) e dice quale ha disegnato. Quello che le prove facoltative vedono finisce nel
-  report del test `g` e del 3D Bench (`gpu3d_probe_log()`).
-- **4.4** (2026-10-05, M35): lo `zclear()` nel lavoro, che sul Pi lasciava il colore ma
-  perdeva il 3D dopo (`07e0 07e0`). Lo z anticipato (*early z*) della V3D tiene una sua idea
-  della profondità, scritta solo dalle primitive con *early z updates*: il quadrato di
-  `fs_zclear` riporta la profondità lontana dallo shader, l'early z non lo sa e scarta quello
-  che viene dopo. Dopo uno `zclear()` nel lavoro le primitive vanno senza early z (la prova
-  dello z resta, nel tile buffer, in ordine); l'emulatore ora fa l'early z così e ripete
-  esattamente i pixel del Pi. Niente early z neanche con l'MSAA (Mesa, HW-2905: dopo un load
-  il tracciamento dell'early z può tenere i valori del tile prima). Il quadrato scrive una
-  profondità appena sotto 1 (0xFFFFF0). La coda anche senza vertex shader: profilo GPU+Q
-  del 3D Bench, renderer GPU+Q di Overbit.
-- **4.5** (2026-10-05, M35): la memoria dei lavori (liste, record, uniform, vertici) senza
-  cache: l'ARM la scrive una volta e non la rilegge, e con la cache *write-allocate* ogni
-  riga scritta veniva prima letta dalla memoria e spingeva fuori le righe del Lua e di r3d.
-  Senza cache le scritture escono unite dal write buffer. Il blocco è allocato a sezioni
-  intere da 1 MiB che l'MMU rimappa (`mmu_set_cached`, `v3d_uncached`). Opzione
-  `gpu3d_wc=1` (*Settings > Screen and sound > 3D job memory*), spenta finché il Pi non
-  mostra che conviene: il 3D Bench la confronta con il profilo GPU+WC.
-- **4.6** (2026-10-05, M35): fino a 8 texture in un lavoro (prima 2: con la terza il lavoro
-  si chiudeva, e il test `texswap` del 3D Bench andava più piano sulla GPU che sull'ARM);
-  le copie delle texture si rimpiazzano dalla meno usata, mai una che il lavoro aperto
-  legge se ce n'è un'altra.
-- **4.7** (2026-10-05, M34): le facce con texture *e* retino sulla GPU (`fs_tex_lit_screen`,
-  `fs_tex_rgb_screen`: il texel sui pixel con x + y pari, dove non è trasparente), anche
-  nelle mesh del vertex shader: era l'ultimo caso che passava il fotogramma all'ARM
-  (`r3d_t.arm_hook`, il backend ora dichiara `tex_screen`). Test `quad_texscreen` del 3D
-  Bench, scena `tex screen` di `make test-gpu3d`.
-- **4.8** (2026-10-05, M37): il **2D sopra il 3D nel lavoro della GPU** (`gpu3d_2d=1`,
-  *Settings > Screen and sound > 2D over the 3D*): rettangoli, `rect`, `pset`, righe
-  orizzontali e verticali, sprite (`spr`, `sspr`, anche girati e ingranditi di un numero
-  intero), le celle di `map()` e il testo di `print` (glifi da una texture del font,
-  `fs_text`) diventano quad nello stesso lavoro, senza prova né scrittura dello z: il 3D
-  dopo li copre dove è più vicino del 3D di prima, come sull'ARM. Pixel per pixel come
-  gfx16 (il texel al centro del pixel, il colore RGB565 che torna uguale dal tile buffer;
-  `make test-gpu3d` scena `2D on GPU`, `make test-queue2d` con l'opzione: gli stessi
-  fotogrammi). Quello che la GPU non fa uguale (cerchi, righe oblique, triangoli,
-  `prompt`, zoom non interi) chiude il lavoro e lo disegna l'ARM come prima. Un HUD tra il
-  3D e il 3D non chiude più il lavoro: profilo GPU+2D del 3D Bench (`split`, `match`,
-  `gpu2d`), passo 16 del test `g` (lo stesso HUD dall'ARM e dalla GPU, i pixel uguali).
-  Poi le **texture filtrate** (bilineare, `gpu3d_filter=1`, *3D textures*): cambia
-  l'aspetto rispetto all'ARM (e sui bordi delle zone di uno sheet il colore della zona
-  accanto); il 2D resta al texel più vicino. Test `bilinear` del 3D Bench.
-- **4.9** (2026-10-05, M37): il 3D dell'**ARM** con una matrice sola oggetto→camera e la
-  luce nello spazio del modello (sole, alto, V e H girati una volta per modello senza
-  ossa, le normali non girate): `r3d_fast=1`, *3D on the ARM: Fast*; anche sulla RGB30.
-  I pixel non sono più identici al bit (in `bench3d` cambiano solo le scene con la
-  mappa); `count_insns`: −2,2% sfere, −3,6% Gouraud, −2,6% stanza nel lavoro per
-  triangolo dell'ARM. Spento, il percorso è quello di prima (stessi checksum).
-- **5.0** (2026-10-05, M39): **mesh più grandi e indicizzate**. Un modello, una `mesh()` e
-  r3d arrivano a 65535 vertici e 65535 facce (prima 4096 e 16384: un modello da 10 000
-  triangoli andava spezzato; `bm.h`, `mkbm`/`bmmesh.py`, bm Studio, bm Mesh). Sulla GPU i
-  gruppi di una mesh tengono una volta sola gli angoli uguali parola per parola e li
-  disegnano con indici a 16 bit (`INDEXED_PRIMITIVE_LIST`): la V3D mette una volta un
-  angolo che sta su più facce (le figure lisce, le mappe con la luce per vertice). Una
-  prova all'avvio (`probe_index`, un quadrato di due triangoli con due angoli in comune)
-  lo spegne se non torna (`indexed no` nella riga di stato). Test `big` e `big_logic` del
-  3D Bench: modelli da 10 080 triangoli su una mappa da 14 112.
-- **5.1** (2026-10-05, M39): **due lavori in volo** (`gpu3d_queue=2`, *3D frame queue: On, 2
-  jobs*): la memoria di un lavoro in due blocchi, il lavoro dopo si riempie nell'altro
-  mentre la GPU disegna quello di prima (una volta sola si aspetta, quando parte). La
-  profondità tra i lavori, gli shader e la prova restano nel primo blocco. L'ARM aspetta la
-  GPU prima di toccare una pagina solo se è quella del lavoro in volo (`gpu3d_sync_page`).
-  L'emulatore ora esegue un lavoro avviato quando lo si aspetta, come la V3D: memoria
-  riusata sotto un lavoro o una pagina toccata prima di aspettarlo darebbero un'immagine
-  sbagliata. Profilo GPU+VS+Q2 del 3D Bench (`queue`, `split`).
-- **5.2** (2026-10-05, M39): **texture a 16 bit**: uno sheet tutto opaco va alla GPU come
-  RGB565 in T-format (`gpu3d_tex16=1`, *3D textures: ..., 16-bit*): metà memoria e metà
-  letture della TMU, gli stessi colori. Il layout (tile da 4 KiB di 64×32 texel) lo impara
-  la prova all'avvio come per le texture a 32 bit: una texture 128×64 dove la parola *i*
-  vale *i* e torna sulla pagina come sé stessa (o con rosso e blu scambiati). Gli sheet con
-  pixel trasparenti restano a 32 bit. Profilo GPU+T16 del 3D Bench.
-- **5.3** (2026-10-05, M39): **shader dei pixel a due thread** (`gpu3d_fs2=1`, *3D pixel
-  shaders: Two threads*): le facce con texture opache (`fs_tex_lit`, `fs_tex_rgb`) hanno una
-  versione `_t` che chiede il texel, passa la QPU all'altro thread (`lthrsw`) e lo legge al
-  ritorno: mentre la TMU legge, la QPU colora i pixel dell'altro thread invece di aspettare.
-  `qpuasm.py` controlla le regole di Mesa (`vc4_qpu_validate`: nessun cambio col
-  scoreboard preso, accumulatori persi dopo il cambio, texel letti dopo un cambio). La
-  prova all'avvio (`probe_fs2`) disegna gli stessi quadrati con i due shader e li tiene
-  solo se i pixel sono identici (`two-thread shaders yes` nella riga di stato); un lavoro
-  che non finisce li spegne e il resto va avanti. Profilo GPU+FS2 del 3D Bench
+- **4.0** (2026-10-03, M35): the queued frame: at the end of the frame the GPU job
+  starts and is not waited for (binning increments a semaphore that rendering waits on,
+  like Linux's vc4 driver: the two threads start together); meanwhile the `_update`
+  of the next frame runs, and the GPU is waited for only before touching the page or the memory
+  the job reads. A boot probe (`probe_queue`) turns it off if the V3D does not finish
+  the job as it should. Option `gpu3d_queue`.
+- **4.1** (2026-10-03, M35): a single GPU job per frame even with the HUD and the
+  first-person arms. The 2D drawn after the 3D while the GPU draws (the HUD) no longer
+  waits for it: the job starts and the 2D is recorded (`d2` in `runtime.c`: rectangles,
+  text, sprites, map, prompt...), then goes onto the page in the same order when the GPU has
+  finished (before more 3D, reading the page, showing it). The `zclear()` between the
+  world and the arms (`R3D_FRONT`) stays in the same job: a quad over the whole
+  page with `fs_zclear` writes the farthest depth and gives each pixel back its
+  colour (the *colour load* signal reads the tile buffer, as Mesa does for blending);
+  the boot probe `probe_zclear` turns it off if the V3D does not do it. The 2D that `_update`
+  draws while the GPU works goes onto the next frame's page, as without the queue; an
+  `_update` that draws 3D or reads the page goes back to running after the frame (a line
+  in the log). All with `gpu3d_queue=1`.
+- **4.2** (2026-10-04, M38): screens up to 1920×1080 (`screen()`, the resolution changed
+  by the cartridge between one frame and the next): tile state, render list and
+  depth between jobs sized for 1080p even with MSAA; the vertex guard band
+  in 12.4 (±2048 pixels) narrows on wide screens (120 pixels at 1920, previously
+  a fixed 1000), the triangles that cross it are clipped by the ARM. A `cls()` with the GPU is no longer
+  drawn by the ARM (4 MB at 1080p): the GPU job clears its tiles to that colour;
+  the ARM fills the page only if 2D or a read arrives before the 3D, or the page must be
+  shown without 3D. It holds for all GPU modes.
+- **4.3** (2026-10-05, M36): the vertex shader that drew nothing on the Pi (boot
+  probe `0000 0000 0000 0000`). In the GL record the size of the attributes and their
+  position in the VPM are in **bytes**, as Mesa writes them ("byte offsets for the start of
+  the vertex attributes 0-7, and the total size", `vc4_context.h`); 3.0–4.2 wrote them in
+  32-bit words, and the emulator read them that way too. Now the emulator reads them in bytes and
+  checks, like Broadcom's simulator, that the shader reads every word loaded; the
+  boot probe tries bytes and then words (a job that does not finish rules out only that
+  path) and says which one drew. What the optional probes see ends up in the
+  report of the `g` test and of the 3D Bench (`gpu3d_probe_log()`).
+- **4.4** (2026-10-05, M35): the `zclear()` in the job, which on the Pi kept the colour but
+  lost the 3D after it (`07e0 07e0`). The V3D's *early z* keeps its own idea
+  of the depth, written only by primitives with *early z updates*: the
+  `fs_zclear` quad brings back the far depth from the shader, early z does not know it and discards what
+  comes after. After a `zclear()` in the job the primitives go without early z (the z
+  test stays, in the tile buffer, in order); the emulator now does early z this way and repeats
+  the Pi's pixels exactly. No early z with MSAA either (Mesa, HW-2905: after a load
+  early z tracking can keep the values of the tile from before). The quad writes a
+  depth just below 1 (0xFFFFF0). The queue also without vertex shader: GPU+Q profile
+  of the 3D Bench, Overbit's GPU+Q renderer.
+- **4.5** (2026-10-05, M35): the job memory (lists, records, uniforms, vertices) uncached:
+  the ARM writes it once and does not read it back, and with the *write-allocate* cache every
+  line written was first read from memory and pushed out the lines of Lua and r3d.
+  Without the cache the writes leave merged by the write buffer. The block is allocated in whole
+  1 MiB sections that the MMU remaps (`mmu_set_cached`, `v3d_uncached`). Option
+  `gpu3d_wc=1` (*Settings > Screen and sound > 3D job memory*), off until the Pi
+  shows it pays off: the 3D Bench compares it with the GPU+WC profile.
+- **4.6** (2026-10-05, M35): up to 8 textures in a job (previously 2: with the third the job
+  was closed, and the 3D Bench's `texswap` test was slower on the GPU than on the ARM);
+  the texture copies are replaced starting from the least used, never one the open job
+  reads if there is another.
+- **4.7** (2026-10-05, M34): faces with texture *and* screen-door on the GPU (`fs_tex_lit_screen`,
+  `fs_tex_rgb_screen`: the texel on the pixels with even x + y, where it is not transparent), also
+  in the vertex shader meshes: it was the last case that passed the frame to the ARM
+  (`r3d_t.arm_hook`, the backend now declares `tex_screen`). 3D Bench test `quad_texscreen`,
+  scene `tex screen` of `make test-gpu3d`.
+- **4.8** (2026-10-05, M37): the **2D over the 3D in the GPU job** (`gpu3d_2d=1`,
+  *Settings > Screen and sound > 2D over the 3D*): rectangles, `rect`, `pset`, horizontal
+  and vertical lines, sprites (`spr`, `sspr`, also flipped and enlarged by an integer
+  factor), the cells of `map()` and the text of `print` (glyphs from a font texture,
+  `fs_text`) become quads in the same job, without z test or write: the 3D
+  after them covers them where it is closer than the earlier 3D, as on the ARM. Pixel for pixel like
+  gfx16 (the texel at the centre of the pixel, the RGB565 colour that comes back unchanged from the tile buffer;
+  `make test-gpu3d` scene `2D on GPU`, `make test-queue2d` with the option: the same
+  frames). What the GPU does not do identically (circles, oblique lines, triangles,
+  `prompt`, non-integer zoom) closes the job and the ARM draws it as before. A HUD between the
+  3D and the 3D no longer closes the job: the 3D Bench's GPU+2D profile (`split`, `match`,
+  `gpu2d`), step 16 of the `g` test (the same HUD from the ARM and from the GPU, the pixels equal).
+  Then **filtered textures** (bilinear, `gpu3d_filter=1`, *3D textures*): the
+  look changes compared with the ARM (and on the edges of a sheet's regions, the colour of the neighbouring
+  region); the 2D stays at the nearest texel. 3D Bench test `bilinear`.
+- **4.9** (2026-10-05, M37): the **ARM**'s 3D with a single object→camera matrix and the
+  light in model space (sun, high, V and H rotated once per model without
+  bones, the normals not rotated): `r3d_fast=1`, *3D on the ARM: Fast*; also on the RGB30.
+  The pixels are no longer bit-identical (in `bench3d` only the scenes with the
+  map change); `count_insns`: −2.2% spheres, −3.6% Gouraud, −2.6% room in the ARM's per-triangle
+  work. Off, the path is the one from before (same checksums).
+- **5.0** (2026-10-05, M39): **larger, indexed meshes**. A model, a `mesh()` and
+  r3d reach 65535 vertices and 65535 faces (previously 4096 and 16384: a 10 000-triangle
+  model had to be split; `bm.h`, `mkbm`/`bmmesh.py`, bm Studio, bm Mesh). On the GPU the
+  groups of a mesh keep vertices that are equal word for word only once and
+  draw them with 16-bit indices (`INDEXED_PRIMITIVE_LIST`): the V3D sets up once a
+  vertex that lies on several faces (smooth shapes, maps with per-vertex light). A
+  boot probe (`probe_index`, a quad of two triangles with two shared vertices)
+  turns it off if it does not match (`indexed no` in the status line). 3D Bench tests `big` and `big_logic`:
+  models of 10 080 triangles on a map of 14 112.
+- **5.1** (2026-10-05, M39): **two jobs in flight** (`gpu3d_queue=2`, *3D frame queue: On, 2
+  jobs*): a job's memory in two blocks, the next job is filled in the other
+  while the GPU draws the previous one (it is waited for only once, when it starts). The
+  depth between jobs, the shaders and the probe stay in the first block. The ARM waits for the
+  GPU before touching a page only if it is the one of the job in flight (`gpu3d_sync_page`).
+  The emulator now runs a started job when it is waited for, like the V3D: memory
+  reused under a job or a page touched before waiting for it would give a wrong
+  image. 3D Bench profile GPU+VS+Q2 (`queue`, `split`).
+- **5.2** (2026-10-05, M39): **16-bit textures**: a fully opaque sheet goes to the GPU as
+  RGB565 in T-format (`gpu3d_tex16=1`, *3D textures: ..., 16-bit*): half the memory and half the
+  TMU reads, the same colours. The layout (4 KiB tiles of 64×32 texels) is learnt by
+  the boot probe as for 32-bit textures: a 128×64 texture where word *i*
+  is *i* and comes back on the page as itself (or with red and blue swapped). Sheets with
+  transparent pixels stay at 32 bits. 3D Bench profile GPU+T16.
+- **5.3** (2026-10-05, M39): **two-thread pixel shaders** (`gpu3d_fs2=1`, *3D pixel
+  shaders: Two threads*): faces with opaque textures (`fs_tex_lit`, `fs_tex_rgb`) have a
+  `_t` version that requests the texel, hands the QPU to the other thread (`lthrsw`) and reads it on
+  return: while the TMU reads, the QPU shades the other thread's pixels instead of waiting.
+  `qpuasm.py` checks Mesa's rules (`vc4_qpu_validate`: no switch with the
+  scoreboard held, accumulators lost after the switch, texels read after a switch). The
+  boot probe (`probe_fs2`) draws the same quads with both shaders and keeps them
+  only if the pixels are identical (`two-thread shaders yes` in the status line); a job
+  that does not finish turns them off and the rest goes on. 3D Bench profile GPU+FS2
   (`spheres_tex`, `heroes_tex`, `quad_tex`, `match`).
-- **5.4** (2026-10-05, M39): **ordine di disegno** (`gpu3d_sort=1`, *3D draw order: Nearest
-  first*): i disegni delle mesh del vertex shader che provano e scrivono lo z si mettono da
-  parte (ognuno con tutto il suo stato) e vanno nel lavoro dal più vicino al più lontano
-  (la profondità dell'origine dell'osso) al primo disegno di un altro tipo (triangoli di
-  r3d, ombre, 2D, `zclear()`) o alla fine del lavoro: lo z anticipato della V3D scarta i
-  pixel nascosti invece di colorarli. Stessa immagine (tranne dove due facce hanno la
-  stessa profondità; i gruppi di una mesh restano nel loro ordine). Nell'emulatore otto
-  scatole dal lontano al vicino: 99 960 pixel colorati invece di 416 546, 0 pixel diversi.
-  Profilo GPU+VS+S del 3D Bench (`spheres`, `heroes`, `match`, `big`, `big_logic`).
-- **5.5** (2026-10-05, M39): **cosa si vede, anche per gli attori**: `visible3d(x, y, z, r)`
-  dice se una sfera può stare sullo schermo (la prova di r3d sui modelli, `r3d_visible`) e,
-  con la visibilità precalcolata della mappa data da `pvs3d{...}` (celle sul terreno, i
-  pezzi visti da ognuna, le scatole dei pezzi), se la cella della camera vede un pezzo su
-  cui sta. Overbit la dà alla partenza della mappa e non disegna gli eroi dietro i muri
-  (prima solo quelli fuori dall'inquadratura); le ombre restano (al tramonto escono dai
-  muri). Vale anche sull'ARM e sulla RGB30. Prove in `make test-gameapi`.
-- **5.6** (2026-10-05, M39): con la stessa opzione (*3D draw order: Nearest first*) i triangoli di
-  ogni gruppo di una mesh indicizzata vanno nell'ordine che riusa di più la cache degli angoli
-  già colorati della V3D (l'ottimizzazione lineare di Tom Forsyth per una cache di 32), e gli
-  angoli si rinumerano nell'ordine del primo uso (la VCD li legge di fila). Nell'emulatore, che
-  ora ha un modello della cache (16, FIFO): una griglia di 1800 triangoli in ordine sparso passa
-  da 2,96 a 0,69 angoli colorati per triangolo, stessi pixel. Cambiare l'opzione rifà le copie
-  delle mesh.
-- **6.0** (2026-10-05, M41): **la GPU Mali-G52 della RGB30**, primo passo (`src/rgb30/mali.c`,
-  *Dev > GPU test*): vdd_gpu, orologi e dominio di alimentazione PD_GPU, identità, reset,
-  accensione dei core, MMU (spazio 0, tabelle Mali LPAE come panfrost sull'RK3568) e lavori del job
-  manager (WRITE_VALUE e una catena di due). Non disegna ancora: il 3D della RGB30 resta dell'ARM
-  e il 3D Bench lo dice nella riga della macchina. Prove sul PC con una GPU simulata
+- **5.4** (2026-10-05, M39): **draw order** (`gpu3d_sort=1`, *3D draw order: Nearest
+  first*): the vertex shader mesh draws that test and write z are set
+  aside (each with all its state) and go into the job from nearest to farthest
+  (the depth of the bone's origin) at the first draw of another kind (r3d
+  triangles, shadows, 2D, `zclear()`) or at the end of the job: the V3D's early z discards the
+  hidden pixels instead of shading them. Same image (except where two faces have the
+  same depth; the groups of a mesh stay in their order). In the emulator eight
+  boxes from far to near: 99 960 pixels shaded instead of 416 546, 0 pixels different.
+  3D Bench profile GPU+VS+S (`spheres`, `heroes`, `match`, `big`, `big_logic`).
+- **5.5** (2026-10-05, M39): **what is visible, for actors too**: `visible3d(x, y, z, r)`
+  says whether a sphere can be on screen (r3d's test on models, `r3d_visible`) and,
+  with the map's precomputed visibility given by `pvs3d{...}` (cells on the ground, the
+  pieces seen from each one, the pieces' boxes), whether the camera's cell sees a piece it
+  stands on. Overbit gives it at map start and does not draw the heroes behind walls
+  (previously only those outside the view); shadows stay (at sunset they come out from the
+  walls). It also holds on the ARM and on the RGB30. Tests in `make test-gameapi`.
+- **5.6** (2026-10-05, M39): with the same option (*3D draw order: Nearest first*) the triangles of
+  each group of an indexed mesh go in the order that best reuses the V3D's cache of already
+  shaded vertices (Tom Forsyth's linear-speed optimization for a cache of 32), and the
+  vertices are renumbered in order of first use (the VCD reads them in sequence). In the emulator, which
+  now has a model of the cache (16, FIFO): a grid of 1800 triangles in scattered order goes
+  from 2.96 to 0.69 shaded vertices per triangle, same pixels. Changing the option redoes the copies
+  of the meshes.
+- **6.0** (2026-10-05, M41): **the RGB30's Mali-G52 GPU**, first step (`src/rgb30/mali.c`,
+  *Dev > GPU test*): vdd_gpu, clocks and the PD_GPU power domain, identity, reset,
+  powering up the cores, MMU (address space 0, Mali LPAE tables as panfrost on the RK3568) and job
+  manager jobs (WRITE_VALUE and a chain of two). It does not draw yet: the RGB30's 3D stays on the ARM
+  and the 3D Bench says so in the machine line. Tests on the PC with a simulated GPU
   (`make TARGET=rgb30 test-mali`).
-- **6.1** (2026-10-05, M41): **la Mali scrive pixel**: un lavoro di frammenti sullo slot 0 senza
-  disegni (niente tiler, niente shader) pulisce le tessere di 16×16 e le scrive attraverso il
-  render target: il descrittore del framebuffer di Bifrost (v7) com'è in Mesa (parametri,
-  posizioni dei campioni, un render target R8G8B8A8 scritto lineare con i canali girati per
-  l'XRGB8888 dello schermo, i pixel "puliti" scritti). Prima una superficie di 64×64 controllata
-  pixel per pixel, poi un quadrato verde in alto a destra dello schermo della pagina *GPU test*,
-  ridisegnato per ultimo sopra il testo: se si vede, la GPU ha disegnato.
-- **6.2** (2026-10-05, M39): sul Pi il 3D Bench si è fermato nel test `match` con GPU+FS2 (la
-  GPU non ha finito il lavoro): gli shader che non cambiano thread erano detti "a più thread"
-  nel record (bm3d 2.0–5.3, innocuo finché nessuno cambiava thread), mentre uno shader a più
-  thread deve fare LTHRSW una volta prima di finire (Mesa, `vc4_program.c`). Ora il bit 0 del
-  record ("single-threaded") è acceso per tutti tranne `fs_tex_lit_t` e `fs_tex_rgb_t`, come in
-  Mesa; l'emulatore rifiuta un record che dica a più thread uno shader senza cambi, e la prova
-  all'avvio degli shader a due thread mette nello stesso lavoro anche shader a un thread. Sul
-  Pi GPU+FS2 aveva dato +22% in `quad_tex` (148 quad contro 121).
-- **6.3** (2026-10-05, M39): i report del Pi hanno mostrato che la 6.2 costa: i test di
-  riempimento senza texture hanno perso l'8–14% (`quad_smooth` 198 → 171, `quad_screen`
-  184 → 160), e Overbit a 1920×1080 andava più piano che con v0.2.3 (3D 22,0 → 29,9 ms; con
-  l'MSAA 22,9 → 42,4). Due cose: con **GPU+FS2** ora hanno due thread anche gli altri shader del
-  3D (`fs_colour_t`, `fs_colour_screen_t`, `fs_tex_lit_alpha_t`, `fs_tex_lit_screen_t`,
-  `fs_tex_rgb_alpha_t`, `fs_tex_rgb_screen_t`: il colore nel register file, poi `lthrsw` prima
-  dello scoreboard), controllati da `qpuasm.py`, che li fa girare pixel per pixel accanto agli
-  originali (stesse scritture di colore e profondità, qualunque cosa l'altro thread lasci) e
-  dalla prova all'avvio, che li mette tutti in un lavoro; e con l'**MSAA** l'early z resta nei
-  lavori che puliscono la pagina (HW-2905 riguarda solo un lavoro che la carica: la 6.2 lo
-  toglieva sempre, v0.2.3 mai). Il resto è come la 6.2: senza FS2 gli shader restano a un
-  thread.
-- **6.4** (2026-10-06, M39): il Pi ha misurato GPU+FS2 in ogni test. Con le texture le due
-  thread vincono sempre (`quad_tex` 111 → 148, `quad_alpha` 105 → 136, `quad_texscreen` 102
-  → 122; Overbit a 1920×1080 da 62,6 a 56,0 ms); a colore perdono il 4–5% (non c'è un texel da
-  aspettare). Quindi gli shader con texture hanno **due thread di default** (`gpu3d_fs2=0` li
-  rimette a uno, *Settings > Screen and sound > 3D pixel shaders*; la riga GPU del 3D Bench è
-  la 2.1 a un thread) e `fs_colour_t`/`fs_colour_screen_t` sono tolti. E `fs_colour`,
-  `fs_colour_screen` aspettano lo scoreboard per ultimo, subito prima di scrivere, come Mesa
-  (prima lo prendevano al quinto passo e lo tenevano mentre calcolavano il colore: i pixel
-  sovrapposti si mettevano in fila, e in alcuni giri del 3D Bench i quad a colore andavano da
-  2 a 4 volte più piano per tutto un test).
-- **6.5** (2026-10-06, M36): il primo report con lo score (`v0.2.3-50`) dice che con il driver
-  di default il limite è l'ARM (negli eroi la GPU lavora 1,2 ms su 16,5; nella scena `mix` 1–2 ms
-  su 13,5), quindi la leva è il **vertex shader**, che sul Pi non ha mai disegnato. La prova
-  all'avvio ora, dopo i due modi di prima (VPM in byte e in parole), prova anche **come Mesa**: il
-  clipper acceso in ogni disegno e la sua scala scritta (Mesa non lo spegne mai; noi solo per le
-  mesh dentro la guard band). Se così disegna, i disegni GL restano così (`gl_clip_all`, "vertex
-  shader yes (clipper always on)" nello stato). In ogni caso scrive nel log della prova i registri
-  d'errore della V3D (`ERRSTAT`, `DBGE`, `FDBGO`, `FDBGB`, `FDBGR`, `FDBGS`, `v3d_errors`) prima
-  della prova e dopo il primo disegno di ogni modo che non lascia niente: gli errori della VPM e
-  del front end dicono dove si ferma. E r3d conta le ombre tra i triangoli (prima no: i triangoli
-  a 60 fps della scena `mix` del `-50`, 6053, non avevano le ombre). Il 3D Bench scrive a ogni
-  passo il clock misurato di core e V3D: la 6.4 non ha tolto i quad lenti (`quad_flat` 91 nel
-  `-50`, 175 nel `-46`).
-- **6.6** (2026-10-06, M36): sul Pi la prova del vertex shader disegna solo con il clipper acceso
-  (senza, `ERRSTAT` dice *VPM write range*: il front end vuole allora un vertice più corto da
-  shader di coordinate), quindi i disegni GL lo tengono sempre acceso come Mesa. Il passo 14 del
-  test `g` dà lo 0,0% di pixel diversi; nel 3D Bench GPU+VS fa le sfere 4×, gli eroi 11×, la scena
-  `mix` 9× (79 071 triangoli a 60 fps). Il vertex shader è **acceso di default** (`gpu3d_vs`
-  vale 2 se manca; `gpu3d_vs=0` lo spegne); il 3D Bench ha il profilo **GPU+VS+FS2** (il driver
-  dei giochi della 6.6: vertex shader e shader con texture a due thread) in ogni test della GPU, e
-  lo score usa quello.
-- **6.7** (2026-10-06, M36): il primo 3D Bench con il vertex shader di default (`v0.2.3-52`, score
-  2601, 78 412 triangoli a 60 fps nella `mix`) ha mostrato due cose che costavano. `texswap` (tre
-  texture a turno) da 1436 a 6,6 quad: la cache delle mesh della GPU aveva un posto per mesh, e la
-  stessa mesh con un'altra texture rifaceva la sua copia degli angoli, disegnando prima il lavoro
-  aperto: un lavoro a quad. Ora un posto per mesh **e** sheet (`mesh_is`): una copia per texture,
-  un lavoro a fotogramma (prova `vshader sheets` di `make test-gpu3d`). E i quad con texture a
-  metà (`quad_tex` 148 → 76): `vs_lit_tex` e `vs_lit_tex2` calcolano la luce grigia come l'ARM ma
-  la mandavano come tre colori uguali e tre zeri di nebbia, gli otto varying di `fs_tex_rgb`; ora
-  mandano s, t, k a `fs_tex_lit` (`SH_TEX`, `SH_TEX_ALPHA`, `SH_TEX_SCREEN`), come il percorso
-  NV. Le mesh con la luce agli angoli e la nebbia (le mappe) restano su `fs_tex_rgb`. Sul Pi
+- **6.1** (2026-10-05, M41): **the Mali writes pixels**: a fragment job on slot 0 without
+  draws (no tiler, no shaders) clears the 16×16 tiles and writes them through the
+  render target: Bifrost's (v7) framebuffer descriptor as it is in Mesa (parameters,
+  sample positions, an R8G8B8A8 render target written linear with the channels swizzled for
+  the screen's XRGB8888, the "clean" pixels written). First a 64×64 surface checked
+  pixel by pixel, then a green square at the top right of the screen of the *GPU test* page,
+  redrawn last over the text: if it shows, the GPU has drawn.
+- **6.2** (2026-10-05, M39): on the Pi the 3D Bench stopped in the `match` test with GPU+FS2 (the
+  GPU did not finish the job): the shaders that do not switch threads were declared "multi-threaded"
+  in the record (bm3d 2.0–5.3, harmless as long as nobody switched threads), while a multi-threaded
+  shader must do LTHRSW once before finishing (Mesa, `vc4_program.c`). Now bit 0 of the
+  record ("single-threaded") is set for all except `fs_tex_lit_t` and `fs_tex_rgb_t`, as in
+  Mesa; the emulator rejects a record that declares multi-threaded a shader without switches, and the boot
+  probe of the two-thread shaders also puts single-thread shaders in the same job. On the
+  Pi GPU+FS2 had given +22% in `quad_tex` (148 quads against 121).
+- **6.3** (2026-10-05, M39): the Pi's reports showed that 6.2 costs: the fill tests
+  without textures lost 8–14% (`quad_smooth` 198 → 171, `quad_screen`
+  184 → 160), and Overbit at 1920×1080 ran slower than with v0.2.3 (3D 22.0 → 29.9 ms; with
+  MSAA 22.9 → 42.4). Two things: with **GPU+FS2** the other 3D shaders now have two threads too
+  (`fs_colour_t`, `fs_colour_screen_t`, `fs_tex_lit_alpha_t`, `fs_tex_lit_screen_t`,
+  `fs_tex_rgb_alpha_t`, `fs_tex_rgb_screen_t`: the colour in the register file, then `lthrsw` before
+  the scoreboard), checked by `qpuasm.py`, which runs them pixel by pixel alongside the
+  originals (same colour and depth writes, whatever the other thread leaves) and
+  by the boot probe, which puts them all in one job; and with **MSAA** early z stays in
+  the jobs that clear the page (HW-2905 concerns only a job that loads it: 6.2
+  always removed it, v0.2.3 never). The rest is as in 6.2: without FS2 the shaders stay
+  single-threaded.
+- **6.4** (2026-10-06, M39): the Pi measured GPU+FS2 in every test. With textures the two
+  threads always win (`quad_tex` 111 → 148, `quad_alpha` 105 → 136, `quad_texscreen` 102
+  → 122; Overbit at 1920×1080 from 62.6 to 56.0 ms); with colour they lose 4–5% (there is no texel to
+  wait for). So the textured shaders have **two threads by default** (`gpu3d_fs2=0` puts them
+  back to one, *Settings > Screen and sound > 3D pixel shaders*; the 3D Bench's GPU row is
+  2.1 single-threaded) and `fs_colour_t`/`fs_colour_screen_t` are removed. And `fs_colour`,
+  `fs_colour_screen` wait for the scoreboard last, just before writing, like Mesa
+  (previously they took it at the fifth step and held it while computing the colour: overlapping
+  pixels queued up, and in some 3D Bench runs the colour quads ran from
+  2 to 4 times slower for a whole test).
+- **6.5** (2026-10-06, M36): the first report with the score (`v0.2.3-50`) says that with the default
+  driver the limit is the ARM (in the heroes the GPU works 1.2 ms out of 16.5; in the `mix` scene 1–2 ms
+  out of 13.5), so the lever is the **vertex shader**, which has never drawn on the Pi. The boot
+  probe now, after the two earlier modes (VPM in bytes and in words), also tries **the Mesa way**: the
+  clipper on in every draw and its scale written (Mesa never turns it off; we only did for the
+  meshes inside the guard band). If it draws this way, GL draws stay this way (`gl_clip_all`, "vertex
+  shader yes (clipper always on)" in the status). In any case it writes in the probe log the V3D's error
+  registers (`ERRSTAT`, `DBGE`, `FDBGO`, `FDBGB`, `FDBGR`, `FDBGS`, `v3d_errors`) before
+  the probe and after the first draw of each mode that leaves nothing: the errors of the VPM and
+  of the front end say where it stops. And r3d counts shadows among the triangles (previously not: the triangles
+  at 60 fps of the `mix` scene of `-50`, 6053, did not include shadows). The 3D Bench writes at each
+  step the measured clock of core and V3D: 6.4 did not remove the slow quads (`quad_flat` 91 in
+  `-50`, 175 in `-46`).
+- **6.6** (2026-10-06, M36): on the Pi the vertex shader probe draws only with the clipper on
+  (without it, `ERRSTAT` says *VPM write range*: the front end then wants a shorter vertex from a
+  coordinate shader), so GL draws always keep it on, like Mesa. Step 14 of the
+  `g` test gives 0.0% different pixels; in the 3D Bench GPU+VS does spheres 4×, heroes 11×, the
+  `mix` scene 9× (79 071 triangles at 60 fps). The vertex shader is **on by default** (`gpu3d_vs`
+  is 2 if missing; `gpu3d_vs=0` turns it off); the 3D Bench has the **GPU+VS+FS2** profile (the games'
+  driver of 6.6: vertex shader and textured shaders on two threads) in every GPU test, and
+  the score uses that.
+- **6.7** (2026-10-06, M36): the first 3D Bench with the vertex shader by default (`v0.2.3-52`, score
+  2601, 78 412 triangles at 60 fps in `mix`) showed two things that cost. `texswap` (three
+  textures in turn) from 1436 to 6.6 quads: the GPU's mesh cache had one slot per mesh, and the
+  same mesh with another texture redid its copy of the vertices, drawing the open job
+  first: one job per quad. Now one slot per mesh **and** sheet (`mesh_is`): one copy per texture,
+  one job per frame (`vshader sheets` test of `make test-gpu3d`). And the textured quads at
+  half speed (`quad_tex` 148 → 76): `vs_lit_tex` and `vs_lit_tex2` computed the grey light like the ARM but
+  sent it as three equal colours and three fog zeros, the eight varyings of `fs_tex_rgb`; now they
+  send s, t, k to `fs_tex_lit` (`SH_TEX`, `SH_TEX_ALPHA`, `SH_TEX_SCREEN`), like the
+  NV path. Meshes with light on the vertices and fog (the maps) stay on `fs_tex_rgb`. On the Pi
   (`v0.2.3-79`): score **3506**, `texswap` 1302, `quad_tex` 132.
-- **6.8** (2026-10-06, M36): con la 6.7 (`v0.2.3-79`, il primo kernel di `bm3d-driver` anche con
-  Audio 2, R12-R14 e bm Write) Overbit si è fermato con un *data abort* dentro `free()` (al
-  fotogramma 245), e a volte un gioco non partiva o tutto rallentava: l'heap era rotto (nella
-  dimensione del blocco letta da `free()` c'era un float, 0,16). Cercandone la causa: la copia
-  indicizzata degli angoli di una mesh
-  comincia ogni gruppo su 16 byte, ma lo spazio era quello degli angoli soli: una mesh di facce
-  piatte (nessun angolo uguale a un altro) su più gruppi (ossa, livelli di dettaglio) scriveva fino
-  a 12 byte a gruppo oltre la fine, sopra l'intestazione del blocco dopo o sugli indici (lavori
-  della GPU rotti, che finiscono per tempo scaduto). Sul Pi poteva capitare solo da quando il vertex
-  shader disegna (6.5) ed è acceso (6.6). Ora lo spazio di ogni gruppo è arrotondato come quando lo
-  si scrive. L'emulatore mette 16 byte di guardia dopo ogni blocco (`test_arena_overruns`) e la
-  scena `vshader groups` (quattro triangoli piatti, uno per osso) lo prova: prima scriveva oltre un
-  blocco di 672 byte e la GPU leggeva l'indice 34953. Overbit nell'emulatore (`bmhost-gpu`, che ora
-  controlla le guardie alla fine) non sfora, nemmeno prima della correzione: se fosse la causa del
-  Pi resta da vedere. Per saperlo, da questo kernel un crash diventa un report (`crash`, con le
-  ultime righe stampate e gli indirizzi di ritorno sullo stack) e così un blocco del Pi (`freeze`).
+- **6.8** (2026-10-06, M36): with 6.7 (`v0.2.3-79`, the first `bm3d-driver` kernel also with
+  Audio 2, R12-R14 and bm Write) Overbit stopped with a *data abort* inside `free()` (at
+  frame 245), and sometimes a game did not start or everything slowed down: the heap was corrupted (in the
+  block size read by `free()` there was a float, 0.16). Looking for the cause: the indexed
+  copy of a mesh's vertices
+  starts each group on 16 bytes, but the space was that of the vertices alone: a mesh of flat
+  faces (no vertex equal to another) over several groups (bones, levels of detail) wrote up
+  to 12 bytes per group past the end, over the header of the next block or over the indices (broken
+  GPU jobs, which end in a timeout). On the Pi it could happen only since the vertex
+  shader draws (6.5) and is on (6.6). Now the space of each group is rounded as when it
+  is written. The emulator puts 16 guard bytes after each block (`test_arena_overruns`) and the
+  `vshader groups` scene (four flat triangles, one per bone) tests it: before, it wrote past a
+  672-byte block and the GPU read index 34953. Overbit in the emulator (`bmhost-gpu`, which now
+  checks the guards at the end) does not overrun, not even before the fix: whether it was the cause on the
+  Pi remains to be seen. To find out, from this kernel a crash becomes a report (`crash`, with the
+  last lines printed and the return addresses on the stack) and so does a hang of the Pi (`freeze`).
 
-## Le modalità: versioni vecchie sul codice di oggi
+## The modes: old versions on today's code
 
-Le impostazioni riproducono le versioni precedenti, così si confrontano sullo stesso Pi:
+The settings reproduce the earlier versions, so they can be compared on the same Pi:
 
-- 3D sull'ARM (`gpu3d=0`): **0.2**;
-- GPU senza vertex shader (`gpu3d_vs=0`): **2.1** (con `gpu3d_aa=1` anche l'MSAA);
-- GPU con il vertex shader per lo scenario (`gpu3d_vs=1`): **3.0**;
-- GPU con il vertex shader per tutto (`gpu3d_vs=2`): **3.4** (il default dalla 6.6, con gli shader
-  con texture a due thread: GPU+VS+FS2 nel 3D Bench);
-- con il fotogramma in coda (`gpu3d_queue=1`): **4.1** (con o senza vertex shader);
-- con la memoria dei lavori senza cache (`gpu3d_wc=1`): **4.5**;
-- con il 2D sopra il 3D nel lavoro (`gpu3d_2d=1`): **4.8**;
-- con due lavori in volo (`gpu3d_queue=2`): **5.1**;
-- con le texture a 16 bit (`gpu3d_tex16=1`): **5.2**;
-- con gli shader dei pixel a due thread (`gpu3d_fs2=1`): **5.3**;
-- con le mesh dalla più vicina e i triangoli nell'ordine della cache (`gpu3d_sort=1`, con il
-  vertex shader): **5.4** e **5.6**.
+- 3D on the ARM (`gpu3d=0`): **0.2**;
+- GPU without vertex shader (`gpu3d_vs=0`): **2.1** (with `gpu3d_aa=1` also MSAA);
+- GPU with the vertex shader for the scenery (`gpu3d_vs=1`): **3.0**;
+- GPU with the vertex shader for everything (`gpu3d_vs=2`): **3.4** (the default from 6.6, with the
+  textured shaders on two threads: GPU+VS+FS2 in the 3D Bench);
+- with the queued frame (`gpu3d_queue=1`): **4.1** (with or without vertex shader);
+- with uncached job memory (`gpu3d_wc=1`): **4.5**;
+- with the 2D over the 3D in the job (`gpu3d_2d=1`): **4.8**;
+- with two jobs in flight (`gpu3d_queue=2`): **5.1**;
+- with 16-bit textures (`gpu3d_tex16=1`): **5.2**;
+- with two-thread pixel shaders (`gpu3d_fs2=1`): **5.3**;
+- with meshes from the nearest and triangles in cache order (`gpu3d_sort=1`, with the
+  vertex shader): **5.4** and **5.6**.
 
-Quello che 4.2, 4.3, 4.4 e 4.6 hanno aggiunto (schermi fino a 1080p, `cls()` della GPU, il
-record GL in byte, niente early z dopo uno `zclear()` nel lavoro, 8 texture in un lavoro)
-vale in tutte le modalità della GPU: non si spegne.
+What 4.2, 4.3, 4.4 and 4.6 added (screens up to 1080p, the GPU's `cls()`, the
+GL record in bytes, no early z after a `zclear()` in the job, 8 textures in a job)
+holds in all GPU modes: it cannot be turned off.
 
-0.1 e 1.0 non girano più: i loro numeri sono quelli misurati sul Pi allora
+0.1 and 1.0 no longer run: their numbers are the ones measured on the Pi at the time
 (`docs/M33-PRIMA-DOPO.md`).
 
-## La regola
+## The rule
 
-Ogni blocco nuovo (una milestone del 3D) alza X, ogni passo che cambia quello che il
-driver sa fare alza Y: si cambia `BM3D_VERSION`, si aggiunge una riga alla tabella di
-`version3d.h` e a questa pagina, e se il passo si può spegnere, una modalità.
+Each new block (a 3D milestone) raises X, each step that changes what the
+driver can do raises Y: change `BM3D_VERSION`, add a line to the table in
+`version3d.h` and to this page, and if the step can be turned off, a mode.

@@ -1,390 +1,382 @@
-# bm su PowKiddy RGB30
+# bm on the PowKiddy RGB30
 
-Versione bare metal di bm per la **PowKiddy RGB30**: SoC Rockchip **RK3566** (4 × Cortex-A55 a
-64 bit, 1 GiB LPDDR4), schermo IPS **720×720** su MIPI-DSI (pannello Sitronix ST7703), due slot
-microSD, WiFi + Bluetooth Realtek **RTL8821CS**, PMIC Rockchip RK817. Il codice vive nel branch
-`rgb30-powkiddy`; la build del Pi non cambia.
+Italian version: [RGB30-IT.md](RGB30-IT.md).
 
-Decisioni (2026-10-01, utente):
+Bare metal version of bm for the **PowKiddy RGB30**: Rockchip **RK3566** SoC (4 × 64-bit
+Cortex-A55, 1 GiB LPDDR4), **720×720** IPS screen over MIPI-DSI (Sitronix ST7703 panel), two
+microSD slots, Realtek **RTL8821CS** WiFi + Bluetooth, Rockchip RK817 PMIC. The code lives in the
+`rgb30-powkiddy` branch; the Pi build does not change.
 
-- **bare metal vero**, come sul Pi: niente Linux; U-Boot avvia il kernel dalla SD;
-- **formato 1:1**: il menu era **512×512**, al centro del pannello senza ingrandimento; dal
-  2026-10-03 (utente) è **360×360 ingrandito ×2** e riempie i 720×720 del pannello;
-- giochi e app dell'RGB30 useranno un formato nuovo, **`.b16`** (prima `.s16`: la cartuccia a risorse limitate per le
-  console portatili, `docs/B16.md`), ancora da definire: il menu li
-  elenca ma non li avvia;
-- le cartucce **`.bm` del Pi erano nascoste** (`show_bm=1` le elencava soltanto); dal 2026-10-03
-  (utente), per le prove, il menu le mostra e le avvia (`show_bm=0` in `bm/config.txt` le
-  nasconde);
-- prima milestone: base + **Bluetooth + WiFi** (audio e salvataggi dopo).
+Decisions (2026-10-01, user):
 
-## Compilare
+- **true bare metal**, as on the Pi: no Linux; U-Boot boots the kernel from the SD;
+- **1:1 format**: the menu was **512×512**, centred on the panel with no scaling; since
+  2026-10-03 (user) it is **360×360 scaled ×2** and fills the panel's 720×720;
+- RGB30 games and apps will use a new format, **`.b16`** (formerly `.s16`: the limited-resource cartridge for
+  handheld consoles, `docs/B16.md`), still to be defined: the menu
+  lists them but does not launch them;
+- the Pi's **`.bm` cartridges were hidden** (`show_bm=1` only listed them); since 2026-10-03
+  (user), for testing, the menu shows and launches them (`show_bm=0` in `bm/config.txt`
+  hides them);
+- first milestone: base + **Bluetooth + WiFi** (audio and saves later).
+
+## Building
 
 In WSL/Ubuntu:
 
 ```sh
 sudo apt install gcc-aarch64-linux-gnu picolibc-aarch64-linux-gnu mtools dosfstools \
                  qemu-system-arm python3
-make TARGET=rgb30              # build/rgb30/kernel8.img, copiato in dist/rgb30/
-make TARGET=rgb30 test         # lo stesso kernel per la macchina virt di QEMU, con i test
-make TARGET=rgb30 firmware     # una volta: bootloader e firmware Realtek (firmware/rgb30/)
-make TARGET=rgb30 image        # dist/rgb30/bm-rgb30.img (+ .img.gz): l'immagine della SD
+make TARGET=rgb30              # build/rgb30/kernel8.img, copied to dist/rgb30/
+make TARGET=rgb30 test         # the same kernel for QEMU's virt machine, with the tests
+make TARGET=rgb30 firmware     # once: bootloader and Realtek firmware (firmware/rgb30/)
+make TARGET=rgb30 image        # dist/rgb30/bm-rgb30.img (+ .img.gz): the SD image
 ```
 
-- Compilatore: `aarch64-linux-gnu-gcc` (quello di Ubuntu) con **picolibc** al posto di newlib
-  (Ubuntu non ha newlib per aarch64). Le opzioni "da Linux" di Ubuntu (PIE, stack protector,
-  fortify, branch protection, outline atomics) sono spente in `rgb30.mk`.
-- `PLAT=rk3566` (predefinito) è la console; `PLAT=virt` è QEMU (`-M virt,gic-version=3 -cpu
-  cortex-a55`, seriale PL011, schermo ramfb, SD come disco in RAM). Le due build differiscono solo
-  per i file `plat_*.c` / `rk_*.c` e per l'indirizzo di link.
+- Compiler: `aarch64-linux-gnu-gcc` (Ubuntu's) with **picolibc** instead of newlib
+  (Ubuntu has no newlib for aarch64). Ubuntu's "Linux" options (PIE, stack protector,
+  fortify, branch protection, outline atomics) are turned off in `rgb30.mk`.
+- `PLAT=rk3566` (default) is the console; `PLAT=virt` is QEMU (`-M virt,gic-version=3 -cpu
+  cortex-a55`, PL011 serial, ramfb screen, SD as a RAM disk). The two builds differ only
+  in the `plat_*.c` / `rk_*.c` files and in the link address.
 
-## La scheda SD
+## The SD card
 
-1. `make TARGET=rgb30 firmware` scarica:
-   - il **bootloader** dall'immagine ufficiale ROCKNIX per RK3566 (release `20260901`): solo il
-     primo MiB del `.img.gz` (richiesta HTTP con range), da cui vengono ritagliati `idbloader.img`
-     (settore 64) e `u-boot.itb` (settore 16384). Contengono l'inizializzazione della DDR di
-     Rockchip, **U-Boot 2026.01** (mainline, `anbernic-rgxx3-rk3566_defconfig` + 3 patch ROCKNIX)
-     e il BL31 di Rockchip. È lo stesso bootloader che la console usa già con ROCKNIX;
-   - il firmware Bluetooth `rtl8821cs_fw.bin` / `rtl8821cs_config.bin` da linux-firmware.
+1. `make TARGET=rgb30 firmware` downloads:
+   - the **bootloader** from the official ROCKNIX image for RK3566 (release `20260901`): only the
+     first MiB of the `.img.gz` (HTTP range request), from which `idbloader.img`
+     (sector 64) and `u-boot.itb` (sector 16384) are cut out. They contain Rockchip's DDR
+     initialisation, **U-Boot 2026.01** (mainline, `anbernic-rgxx3-rk3566_defconfig` + 3 ROCKNIX patches)
+     and Rockchip's BL31. It is the same bootloader the console already uses with ROCKNIX;
+   - the Bluetooth firmware `rtl8821cs_fw.bin` / `rtl8821cs_config.bin` from linux-firmware.
 
-   Ogni file è controllato con il suo SHA-256 (`scripts/fetch-rgb30.sh`).
-2. `make TARGET=rgb30 image` crea `dist/rgb30/bm-rgb30.img` (256 MiB; 1,1 MB compressa): MBR con
-   una partizione FAT32 "BM" da 16 MiB, attiva, che contiene `extlinux/extlinux.conf`,
-   `kernel8.img`, `LEGGIMI.txt` e `bm/` con il firmware Bluetooth.
-3. Scrivere l'immagine su una microSD **libera** con balenaEtcher, Raspberry Pi Imager ("Usa
-   personalizzato") o Rufus. WSL non scrive direttamente sulle schede.
-4. La scheda va nello slot **TF1** (quello da cui si avvia ROCKNIX); per tornare a ROCKNIX basta
-   rimettere la sua scheda. Accendere con il **tasto di accensione** (collegando il caricatore
-   U-Boot si spegne di nuovo).
-5. Aggiornare bm: Windows vede la partizione "BM" come un'unità con quel nome; basta copiarci
-   sopra `dist/rgb30/sd/` (`make TARGET=rgb30 sdcard`). Da WSL `make TARGET=rgb30 sdcard
-   SD=/mnt/<lettera>` copia da solo (`scripts/copy-sd-rgb30.sh`) e, se non può, dice perché:
-   unità non montata in WSL (con il comando `mount -t drvfs` per montarla), montata solo per
-   root, adattatore SD bloccato, oppure non è la scheda dell'RGB30. `bm/config.txt` sulla scheda
-   resta com'è (si sostituisce solo con `RGB30_CONFIG=file`).
+   Every file is checked against its SHA-256 (`scripts/fetch-rgb30.sh`).
+2. `make TARGET=rgb30 image` creates `dist/rgb30/bm-rgb30.img` (256 MiB; 1.1 MB compressed): MBR with
+   one 16 MiB FAT32 partition "BM", active, containing `extlinux/extlinux.conf`,
+   `kernel8.img`, `LEGGIMI.txt` and `bm/` with the Bluetooth firmware.
+3. Write the image to a **spare** microSD with balenaEtcher, Raspberry Pi Imager ("Use
+   custom") or Rufus. WSL does not write to cards directly.
+4. The card goes in slot **TF1** (the one ROCKNIX boots from); to go back to ROCKNIX just
+   put its card back. Power on with the **power button** (plugging in the charger,
+   U-Boot shuts down again).
+5. Updating bm: Windows sees the "BM" partition as a drive with that name; just copy
+   `dist/rgb30/sd/` onto it (`make TARGET=rgb30 sdcard`). From WSL `make TARGET=rgb30 sdcard
+   SD=/mnt/<letter>` copies by itself (`scripts/copy-sd-rgb30.sh`) and, if it cannot, says why:
+   drive not mounted in WSL (with the `mount -t drvfs` command to mount it), mounted for
+   root only, SD adapter locked, or it is not the RGB30's card. `bm/config.txt` on the card
+   stays as it is (it is replaced only with `RGB30_CONFIG=file`).
 
-Non formattare né ripartizionare la scheda: il bootloader sta prima della partizione.
+Do not format or repartition the card: the bootloader sits before the partition.
 
-### Come parte
+### How it boots
 
-ROM di avvio → `idbloader.img` (DDR, SPL) → `u-boot.itb` (BL31, U-Boot) → `bootflow scan` →
-`/extlinux/extlinux.conf` della prima partizione della SD in TF1 → `booti kernel8.img`. Il
-kernel ha l'intestazione delle Image arm64 (`src/rgb30/start.S`): U-Boot lo carica a
-0x02000000 e lo avvia a **EL2**, MMU e cache spente, `x0` = device tree. `start.S` si sposta al
-suo indirizzo di link (0x10000000), scende a EL1 e chiama `kernel_main`.
+Boot ROM → `idbloader.img` (DDR, SPL) → `u-boot.itb` (BL31, U-Boot) → `bootflow scan` →
+`/extlinux/extlinux.conf` on the first partition of the SD in TF1 → `booti kernel8.img`. The
+kernel has the arm64 Image header (`src/rgb30/start.S`): U-Boot loads it at
+0x02000000 and starts it at **EL2**, MMU and caches off, `x0` = device tree. `start.S` moves itself to
+its link address (0x10000000), drops to EL1 and calls `kernel_main`.
 
-## Durante l'avvio, senza cavo seriale
+## During boot, without a serial cable
 
-| LED | Significato |
+| LED | Meaning |
 |---|---|
-| rosso acceso | avvio in corso (fermo così: il kernel si è bloccato presto) |
-| verde fisso | bm funziona e non c'è niente che non va (dal 2026-10-04: `src/kernel/ledstate.c`) |
-| verde che lampeggia lento (1 s acceso, 1 s spento) | altro: l'avvio non è finito, la SD manca o non si legge, la batteria è scarica (sotto 3,45 V, senza caricatore), arriva un kernel o si installa un aggiornamento |
-| rosso fisso + verde che lampeggia | lo schermo ha avuto problemi: leggere `bm/bootlog.txt` |
-| rosso che lampeggia N volte, pausa | eccezione fatale N (1 sincrona, 4 SError, 9 panic) |
+| red on | booting (stuck like this: the kernel hung early) |
+| solid green | bm is running and nothing is wrong (since 2026-10-04: `src/kernel/ledstate.c`) |
+| green blinking slowly (1 s on, 1 s off) | something else: boot not finished, the SD is missing or unreadable, the battery is low (below 3.45 V, without charger), a kernel is arriving or an update is being installed |
+| solid red + green blinking | the screen had problems: read `bm/bootlog.txt` |
+| red blinking N times, pause | fatal exception N (1 synchronous, 4 SError, 9 panic) |
 
-All'avvio lo schermo mostra il logo di bm (`src/kernel/splash.c`); quello che il kernel scrive
-va nella console (dietro), sulla seriale, in `bm/bootlog.txt` e in *Settings > System > Log since
+At boot the screen shows the bm logo (`src/kernel/splash.c`); what the kernel writes
+goes to the console (behind), the serial port, `bm/bootlog.txt` and *Settings > System > Log since
 boot*.
 
-Se si ferma mentre accende lo schermo (`bm/bootlog.txt` finisce con `display: starting`), i LED
-fermi dicono dove:
+If it stops while turning on the screen (`bm/bootlog.txt` ends with `display: starting`), the steady
+LEDs say where:
 
-| LED fermi | Bloccato in |
+| Steady LEDs | Stuck in |
 |---|---|
-| rosso e verde | clock del video (VPLL, `clocks_on`) |
-| solo verde | controller video (VOP2, `vop_init`) |
-| nessuno | collegamento DSI, D-PHY o comandi al pannello (`rk_dsi_init`) |
-| solo rosso | dominio di alimentazione del video, oppure finestra e retroilluminazione |
+| red and green | video clock (VPLL, `clocks_on`) |
+| green only | video controller (VOP2, `vop_init`) |
+| none | DSI link, D-PHY or panel commands (`rk_dsi_init`) |
+| red only | video power domain, or window and backlight |
 
-**Dopo un riavvio** (un aggiornamento, *Restart*, un kernel dalla rete; 2026-10-05): prima di
-riavviare bm spegne retroilluminazione, pannello e modulo WiFi e i due LED (`quiet()` in
-`plat_rk3566.c`), poi chiede il riavvio al firmware (PSCI SYSTEM_RESET) e, se il firmware torna
-indietro, fa il reset globale del chip (`CRU_GLB_SRST_FST`, come Linux). Un riavvio del solo chip
-lascia i binari del PMIC e i GPIO del PMU come erano: spenti prima, il pannello riparte come
-dall'accensione. Dal 2026-10-10 (schermo nero dopo un aggiornamento, a posto spegnendo e
-riaccendendo), allo spegnimento il pannello, se il collegamento è su, riceve *display off*
-(DCS 0x28) e *sleep in* (0x10), poi reset basso, alimentazione (GPIO0_C2) spenta e 300 ms per
-scaricarsi. All'avvio `rk_dsi_init` fa come prima: reset basso, alimentazione accesa, 20 ms,
-reset rilasciato, 120 ms, comandi. **Non** spegne più il pannello all'avvio e non rilegge il
-*power mode* (DCS 0x0A): quella versione (stesso giorno: alimentazione tolta all'inizio e ridata
-con il D-PHY già acceso, rilettura, secondo ciclo a collegamento acceso) lasciava lo schermo nero
-a ogni avvio, anche a freddo (suono di avvio sì, LED rosso fisso + verde che lampeggia). Se lo
-schermo resta nero dopo il riavvio:
-- LED spenti: bm non è ripartito (fermo nel firmware o in U-Boot), oppure è fermo nel DSI
-  (tabella qui sopra): lo dice `bm/bootlog.txt`, da leggere sul PC **prima** di riaccendere (ogni
-  avvio lo riscrive). La prima riga è la versione dell'avvio che l'ha scritto: se è ancora quella
-  di prima, bm non è ripartito;
-- rosso acceso, o le altre combinazioni della tabella: bm è ripartito e si è fermato lì.
+**After a restart** (an update, *Restart*, a kernel from the network; 2026-10-05): before
+restarting, bm turns off backlight, panel, WiFi module and the two LEDs (`quiet()` in
+`plat_rk3566.c`), then asks the firmware for a reset (PSCI SYSTEM_RESET) and, if the firmware comes
+back, does the chip's global reset (`CRU_GLB_SRST_FST`, like Linux). A reset of the chip alone
+leaves the PMIC rails and the PMU GPIOs as they were: turned off beforehand, the panel restarts as
+from power-on. Since 2026-10-10 (black screen after an update, fixed by turning off and
+on again), at shutdown the panel, if the link is up, receives *display off*
+(DCS 0x28) and *sleep in* (0x10), then reset low, power (GPIO0_C2) off and 300 ms to
+discharge. At boot `rk_dsi_init` does as before: reset low, power on, 20 ms,
+reset released, 120 ms, commands. It **no longer** turns off the panel at boot and does not read back the
+*power mode* (DCS 0x0A): that version (same day: power removed at the start and restored
+with the D-PHY already on, read-back, second cycle with the link up) left the screen black
+at every boot, even cold (boot sound yes, solid red LED + green blinking). If the
+screen stays black after the restart:
+- LEDs off: bm did not restart (stuck in the firmware or in U-Boot), or it is stuck in the DSI
+  (table above): `bm/bootlog.txt` says so, to be read on the PC **before** powering on again (every
+  boot rewrites it). The first line is the version of the boot that wrote it: if it is still the
+  previous one, bm did not restart;
+- red on, or the other combinations in the table: bm restarted and stopped there.
 
-Lo schermo: il bordo intorno a un'immagine più piccola del pannello (un gioco con `bm_scale=int`)
-è il colore di sfondo del controller video (lo stesso blu-grigio scuro del menu). Tutto uniforme blu-grigio = pannello acceso ma finestra non
-funzionante; nero = collegamento DSI o pannello; niente del tutto = retroilluminazione.
+The screen: the border around an image smaller than the panel (a game with `bm_scale=int`)
+is the video controller's background colour (the same dark blue-grey as the menu). All uniform blue-grey = panel on but window not
+working; black = DSI link or panel; nothing at all = backlight.
 
-**`bm/bootlog.txt`**: a ogni avvio il kernel scrive sulla SD tutto quello che ha stampato
-(versione, CPU, SD, cosa ha fatto il driver dello schermo passo per passo, menu). La SD si legge
-prima di accendere lo schermo e il registro si scrive tre volte (prima dello schermo, dopo, e a
-`ready`): anche se lo schermo blocca tutto, dal PC si vede fin dove è arrivato. Lo stesso registro
-è nel menu, alla voce *Boot log*.
+**`bm/bootlog.txt`**: at every boot the kernel writes to the SD everything it printed
+(version, CPU, SD, what the screen driver did step by step, menu). The SD is read
+before turning on the screen and the log is written three times (before the screen, after, and at
+`ready`): even if the screen locks everything up, from the PC you can see how far it got. The same log
+is in the menu, under *Boot log*.
 
-Mentre lo schermo parte, `bm/bootlog.txt` si riscrive a ogni passo, con righe `display: ...`:
-`display: starting`, `display: DSI link and panel starting`, poi `display: panel on` o
-`display: panel failed`. L'ultima riga presente dice dove si è fermato.
+While the screen starts, `bm/bootlog.txt` is rewritten at every step, with `display: ...` lines:
+`display: starting`, `display: DSI link and panel starting`, then `display: panel on` or
+`display: panel failed`. The last line present says where it stopped.
 
-**I registri della volta prima** (per capire dopo cosa è successo; FAT, nomi 8.3, tutti in `bm/`):
+**The logs from the previous time** (to understand afterwards what happened; FAT, 8.3 names, all in `bm/`):
 
-| File | Quando si scrive | Cosa contiene |
+| File | When it is written | What it contains |
 |---|---|---|
-| `bootlog.txt` | a ogni avvio, più volte (vedi sopra) | il registro di questo avvio fino a `ready` |
-| `bootprev.txt` | a ogni avvio, appena letta la SD (prima dello schermo) | il `bootlog.txt` dell'avvio prima, poi una riga su come è finito (dal record in RAM di `crumbs.c`) e le sue ultime righe stampate (4 KiB tenuti in RAM attraverso il riavvio; dopo uno spegnimento non ci sono: `(nothing in RAM)`) |
-| `lastrun.txt` | prima di un riavvio o di uno spegnimento fatto da bm (*Restart*, *Shut down*, aggiornamento, kernel dalla rete: tutti passano da `plat_reset` / `plat_poweroff`), prima di spegnere schermo e audio | tutto quello che quella sessione ha stampato (i primi 64 KiB; se è pieno, in fondo le ultime righe) |
+| `bootlog.txt` | at every boot, several times (see above) | the log of this boot up to `ready` |
+| `bootprev.txt` | at every boot, as soon as the SD is read (before the screen) | the `bootlog.txt` of the previous boot, then a line on how it ended (from the RAM record in `crumbs.c`) and its last printed lines (4 KiB kept in RAM across the restart; after a power-off they are not there: `(nothing in RAM)`) |
+| `lastrun.txt` | before a restart or a shutdown done by bm (*Restart*, *Shut down*, update, kernel from the network: all go through `plat_reset` / `plat_poweroff`), before turning off screen and audio | everything that session printed (the first 64 KiB; if full, the last lines at the end) |
 
-Non si scrive `lastrun.txt` da un'interruzione né mentre un altro trasferimento sta scrivendo
-sulla SD (un kernel dal PC): in quel caso resta quello di prima. Non c'è (ancora) una copia
-periodica dal menu: un blocco senza riavvio lascia solo `bootprev.txt` all'avvio dopo.
+`lastrun.txt` is not written from an interrupt nor while another transfer is writing
+to the SD (a kernel from the PC): in that case the previous one stays. There is no (yet) periodic
+copy from the menu: a hang without a restart leaves only `bootprev.txt` at the next boot.
 
-Per leggerli: spegnere la console, togliere la SD, metterla nel PC e aprire la cartella `bm/`
-(con un editor di testo qualsiasi). Dopo uno schermo nero: `lastrun.txt` dice come è finita la
-sessione prima del riavvio (deve finire con `restarting: this run's log in bm/lastrun.txt`),
-`bootlog.txt` come è andato l'avvio nero (le righe `display: ...`), e se nel frattempo la console
-è stata riaccesa `bootprev.txt` ha il registro dell'avvio nero.
+To read them: turn off the console, take out the SD, put it in the PC and open the `bm/` folder
+(with any text editor). After a black screen: `lastrun.txt` says how the session
+before the restart ended (it must end with `restarting: this run's log in bm/lastrun.txt`),
+`bootlog.txt` how the black boot went (the `display: ...` lines), and if in the meantime the console
+was powered on again `bootprev.txt` has the log of the black boot.
 
-## Cosa c'è (stato)
+## What is there (status)
 
-- Base a 64 bit: avvio da U-Boot (EL2 → EL1), MMU (RAM cache WB, framebuffer non-cacheable,
-  periferiche Device), GICv3, timer generico a 1 kHz, eccezioni con registri a schermo, picolibc,
-  Lua 5.4. **Provata in QEMU** (`make TARGET=rgb30 test`), anche attraverso U-Boot 2026.01.
-- Schermo: VOP2 (video port 1, finestra Esmart0) → MIPI DSI0 → D-PHY Innosilicon → pannello
-  ST7703, retroilluminazione PWM4. Valori di Linux (`rockchip_drm_vop2.c`, `dw-mipi-dsi.c`,
-  `phy-rockchip-inno-dsidphy.c`, `panel-sitronix-st7703.c`). **Da provare sulla console.**
-- Comandi: 18 tasti su GPIO3, levette su SARADC canale 3 con commutatore; pagina *Input test*.
-  **Provati sulla console** (2026-10-03): tasti a posto; l'asse verticale delle levette era al
-  contrario (il dts lo dà diverso), corretto.
-- Conferma e indietro (decisione dell'utente, 2026-10-03): **B** (il tasto in basso) conferma e
-  **A** torna indietro, come sull'RGB30; `confirm=a` in `bm/config.txt` li scambia. Dalla seriale e
-  dalla console di rete Invio è conferma, Backspace/Esc indietro; i pad e le tastiere Bluetooth
-  premono il tasto nella stessa posizione (la croce del DS4 è B, lo spazio della tastiera anche).
-- SD: controller SDMMC0 (DesignWare MSHC) in PIO, 4 bit, 12 MHz; FAT dal codice del Pi.
-- PMIC RK817 su I2C0: spegnimento, tensione della batteria, stato di carica.
-- Modalità video pronte per la GPU (`src/rgb30/display.h`): ogni framebuffer ha la forma che la
-  GPU Mali-G52 vuole per disegnarci (righe allineate a 64 byte, altezza a tessere da 16 pixel,
-  pagine su confini di 64 KiB, fino a 3 pagine) nella memoria video e GPU, con il suo indirizzo
-  fisico (`fb->bus`). Il controller video ingrandisce l'immagine sul pannello: un gioco può
-  disegnare a 720×720 o a 360×360 mostrato ×2 (un quarto dei pixel per la GPU), nitido o
-  sfumato; il menu è 360×360 ×2. Pagina **Display** nel menu: le modalità una dopo l'altra
-  con un'immagine di prova (bordi, griglia delle tessere, barre di colore).
-- **GPU Mali-G52, primo passo del driver** (M41, bm3d 6.0; `src/rgb30/mali.c`, *Dev > GPU test*):
-  solo quando lo si chiede (l'avvio non tocca la GPU), un passo alla volta con una riga a schermo e
-  un report `gpu`: vdd_gpu acceso (RK817 DCDC2, altrimenti si ferma subito), orologi del dominio
-  PD_GPU (CRU) e dominio acceso (PMU, come i domini di Linux), GPU_ID e parti presenti, reset,
-  accensione di L2, core e tiler, spazio di indirizzi 0 con le tabelle "Mali LPAE" (64 MiB della
-  memoria video e GPU visti 1:1), un lavoro WRITE_VALUE sullo slot 1 e una catena di due. Ogni
-  attesa ha un limite; il primo passo che non torna ferma la prova e dice perché (lo stato del
-  lavoro, un errore dell'MMU con il suo indirizzo). Poi (bm3d 6.1) un lavoro di frammenti senza
-  disegni che pulisce una superficie di 64×64 (controllata pixel per pixel) e un **quadrato verde
-  in alto a destra** dello schermo: se si vede, la GPU ha scritto i pixel. Niente triangoli ancora. **Provato sul PC** con una GPU, un CRU e un PMU
-  simulati (`make TARGET=rgb30 test-mali`); in QEMU la pagina dice che la GPU non c'è
-  (`test_gpu_test`); **da provare sulla console.**
-- Cartucce del Pi (`.bm`) nel menu e avviabili, per le prove: Yharnam nell'immagine SD (vedi
-  sotto).
-- Menu 360×360 ingrandito ×2 (riempie il pannello): dal 2026-10-04 è **lo stesso del Pi**
-  (`src/kernel/menu_ui.c`: barra con le schede a pillola e le icone, copertine quadrate 88×88, tre per
-  riga, pannelli, suggerimenti dei tasti). Schede **Market** (dal 2026-10-05, la prima, fuori
-  dallo schermo a sinistra finché non è la scheda: lo stesso Market del Pi, ma solo i giochi
-  `.b16` del catalogo; B chiede e scarica, il gioco va in `bm/` e si gioca da lì, X i dettagli:
-  gioca, scarica di nuovo, cancella), **Games** (giochi `.b16` e i `.bm`, con la loro
-  copertina; con `show_bm=0` dice quante cartucce sono nascoste), **Dev** (3D Bench, Render bench,
-  Display, Input test, Boot log, Lua sulla seriale, GPU test) e **Settings**, l'ultima, una pagina a sé:
-  dal 2026-10-04 le stesse sezioni del Pi (`src/kernel/settings.c`): Controllers
-  (Bluetooth, abbinare pad, tastiere e mouse, prova dei tasti, *Confirm button*, layout della
-  tastiera, icone), WiFi and network (rete salvata, indirizzo, console di rete, collegarsi,
-  *Test the connection*), Screen and sound (i modi dello schermo, l'overlay delle prestazioni, il
-  suono: Sound, Volume, *Test the sound*), Updates, Reports, System (versione, memoria, SD, batteria, il log, riavvio,
-  spegnimento). Solo il controller: L1/R1 le schede (senza fare il giro, come sul Pi), la croce
-  le copertine e le righe, **B** apre e **A** torna indietro (`confirm=a` li scambia, anche nei
-  suggerimenti). Le icone dei tasti, nel menu, nei suggerimenti, nei dialoghi del sistema e nelle
-  app (`prompt()`), sono quelle della console (2026-10-10): un tasto scuro con la lettera nel suo
-  colore, A verde, B blu, X rosso, Y giallo (`PROMPT_RGB30_*` in `src/kernel/prompts.c`; da Lua
-  anche `"RGB30_A"`…`"RGB30_Y"`). L'icona del tasto che conferma è quella del tasto fisico
-  (B, o A con `confirm=a`); dopo un pad Bluetooth le app mostrano il suo. A destra della barra solo la rete e la **batteria** (dal 2026-10-05; niente icone
-  di controller, mouse e tastiere, decisione dell'utente): quattro
-  tacche dal 75% in su, una in meno ogni 25%, vuota e rossa sotto il 10%, un fulmine sul
-  caricatore; la carica viene dalla tensione (0% a 3,45 V, quando il LED avvisa, 100% a 4,18 V),
-  scritta anche in *Settings > System > Battery*. Sul caricatore la tensione sale: lì la
-  percentuale è solo un'indicazione. Il fulmine segue il cavo subito (2026-10-10: il bit
-  del RK817 letto 4 volte al secondo, `src/rgb30/battery.c`; prima tutto ogni 10 s). Al 20% o
-  meno, fuori dal caricatore, una piccola batteria rossa compare anche sopra giochi e strumenti
-  (in alto a destra; *Settings > Screen and sound > Low battery icon* la spegne); in Lua
-  `battery()` e `battery_low()`. Le righe che lavorano (abbinare, collegarsi, aggiornare, bench, log) scrivono
-  ancora sulla console di testo.
-- **3D Bench** (scheda Dev, `src/rgb30/b3d_rgb30.c`): lo stesso banco di prova del Pi
-  (`src/bm/b3d.c`), a 640×360 ingrandito sul pannello; tutte le prove 3D disegnate dall'ARM (la GPU
-  Mali non ha ancora un driver: le colonne GPU restano vuote), i contatori del Cortex-A55
-  (istruzioni, miss della cache dati L1, cicli; `start.S` li lascia a EL1 con `MDCR_EL2.HPMN`), il
-  rapporto in `bm/bench/3DNNNN.TXT` sulla SD e sulla seriale. Sinistra/destra sfogliano le pagine
-  dei risultati, il tasto indietro (A) torna al menu. In QEMU dura circa 40 s
+- 64-bit base: boot from U-Boot (EL2 → EL1), MMU (WB cached RAM, non-cacheable framebuffer,
+  Device peripherals), GICv3, generic timer at 1 kHz, exceptions with registers on screen, picolibc,
+  Lua 5.4. **Tested in QEMU** (`make TARGET=rgb30 test`), also through U-Boot 2026.01.
+- Screen: VOP2 (video port 1, Esmart0 window) → MIPI DSI0 → Innosilicon D-PHY → ST7703
+  panel, PWM4 backlight. Values from Linux (`rockchip_drm_vop2.c`, `dw-mipi-dsi.c`,
+  `phy-rockchip-inno-dsidphy.c`, `panel-sitronix-st7703.c`). **To be tested on the console.**
+- Controls: 18 buttons on GPIO3, sticks on SARADC channel 3 with a switch; *Input test* page.
+  **Tested on the console** (2026-10-03): buttons fine; the vertical axis of the sticks was
+  inverted (the dts gives it differently), fixed.
+- Confirm and back (user decision, 2026-10-03): **B** (the bottom button) confirms and
+  **A** goes back, as on the RGB30; `confirm=a` in `bm/config.txt` swaps them. From the serial port and
+  from the network console Enter is confirm, Backspace/Esc back; Bluetooth pads and keyboards
+  press the button in the same position (the DS4's cross is B, the keyboard's space too).
+- SD: SDMMC0 controller (DesignWare MSHC) in PIO, 4 bit, 12 MHz; FAT from the Pi code.
+- RK817 PMIC on I2C0: power-off, battery voltage, charge status.
+- Video modes ready for the GPU (`src/rgb30/display.h`): every framebuffer has the shape the
+  Mali-G52 GPU wants in order to draw into it (rows aligned to 64 bytes, height in 16-pixel tiles,
+  pages on 64 KiB boundaries, up to 3 pages) in video and GPU memory, with its physical
+  address (`fb->bus`). The video controller scales the image onto the panel: a game can
+  draw at 720×720 or at 360×360 shown ×2 (a quarter of the pixels for the GPU), sharp or
+  smoothed; the menu is 360×360 ×2. **Display** page in the menu: the modes one after another
+  with a test image (borders, tile grid, colour bars).
+- **Mali-G52 GPU, first step of the driver** (M41, bm3d 6.0; `src/rgb30/mali.c`, *Dev > GPU test*):
+  only when asked for (boot does not touch the GPU), one step at a time with a line on screen and
+  a `gpu` report: vdd_gpu on (RK817 DCDC2, otherwise it stops at once), clocks of the
+  PD_GPU domain (CRU) and domain on (PMU, like Linux's domains), GPU_ID and present parts, reset,
+  power-up of L2, cores and tiler, address space 0 with the "Mali LPAE" tables (64 MiB of
+  video and GPU memory seen 1:1), a WRITE_VALUE job on slot 1 and a chain of two. Every
+  wait has a limit; the first step that does not come back stops the test and says why (the job
+  status, an MMU fault with its address). Then (bm3d 6.1) a fragment job with no
+  draws that clears a 64×64 surface (checked pixel by pixel) and a **green square
+  at the top right** of the screen: if it shows, the GPU wrote the pixels. No triangles yet. **Tested on the PC** with a simulated GPU, CRU and
+  PMU (`make TARGET=rgb30 test-mali`); in QEMU the page says there is no GPU
+  (`test_gpu_test`); **to be tested on the console.**
+- Pi cartridges (`.bm`) in the menu and launchable, for testing: Yharnam in the SD image (see
+  below).
+- 360×360 menu scaled ×2 (fills the panel): since 2026-10-04 it is **the same as the Pi's**
+  (`src/kernel/menu_ui.c`: bar with pill tabs and icons, square 88×88 covers, three per
+  row, panels, button hints). Tabs **Market** (since 2026-10-05, the first, off
+  screen to the left until it is the current tab: the same Market as the Pi, but only the
+  catalogue's `.b16` games; B asks and downloads, the game goes into `bm/` and is played from there, X the details:
+  play, download again, delete), **Games** (`.b16` games and the `.bm` ones, with their
+  cover; with `show_bm=0` it says how many cartridges are hidden), **Dev** (3D Bench, Render bench,
+  Display, Input test, Boot log, Lua on the serial port, GPU test) and **Settings**, the last, a page of its own:
+  since 2026-10-04 the same sections as the Pi (`src/kernel/settings.c`): Controllers
+  (Bluetooth, pairing pads, keyboards and mice, button test, *Confirm button*, keyboard
+  layout, icons), WiFi and network (saved network, address, network console, connecting,
+  *Test the connection*), Screen and sound (the screen modes, the performance overlay, the
+  sound: Sound, Volume, *Test the sound*), Updates, Reports, System (version, memory, SD, battery, the log, restart,
+  shutdown). Controller only: L1/R1 the tabs (without wrapping around, as on the Pi), the D-pad
+  the covers and rows, **B** opens and **A** goes back (`confirm=a` swaps them, in the
+  hints too). The button icons, in the menu, in the hints, in the system dialogs and in
+  apps (`prompt()`), are the console's (2026-10-10): a dark button with the letter in its
+  colour, A green, B blue, X red, Y yellow (`PROMPT_RGB30_*` in `src/kernel/prompts.c`; from Lua
+  also `"RGB30_A"`…`"RGB30_Y"`). The icon of the confirm button is that of the physical button
+  (B, or A with `confirm=a`); after a Bluetooth pad the apps show its own. On the right of the bar only the network and the **battery** (since 2026-10-05; no icons
+  for controllers, mice and keyboards, user decision): four
+  notches from 75% up, one fewer every 25%, empty and red below 10%, a lightning bolt on the
+  charger; the charge comes from the voltage (0% at 3.45 V, when the LED warns, 100% at 4.18 V),
+  also shown in *Settings > System > Battery*. On the charger the voltage rises: there the
+  percentage is only an indication. The lightning bolt follows the cable at once (2026-10-10: the RK817
+  bit read 4 times a second, `src/rgb30/battery.c`; before, everything every 10 s). At 20% or
+  less, off the charger, a small red battery also appears over games and tools
+  (top right; *Settings > Screen and sound > Low battery icon* turns it off); in Lua
+  `battery()` and `battery_low()`. The lines that do work (pairing, connecting, updating, bench, log) still write
+  to the text console.
+- **3D Bench** (Dev tab, `src/rgb30/b3d_rgb30.c`): the same test bench as the Pi
+  (`src/bm/b3d.c`), at 640×360 scaled onto the panel; all 3D tests drawn by the ARM (the Mali
+  GPU has no driver yet: the GPU columns stay empty), the Cortex-A55 counters
+  (instructions, L1 data cache misses, cycles; `start.S` leaves them to EL1 with `MDCR_EL2.HPMN`), the
+  report in `bm/bench/3DNNNN.TXT` on the SD and on the serial port. Left/right page through the
+  result pages, the back button (A) returns to the menu. In QEMU it takes about 40 s
   (`test_bench3d`).
-- Bluetooth: RTL8821CS su UART1, protocollo H5 (`src/bt/h5.c`) e firmware Realtek
-  (`src/bt/rtlbt.c`), poi lo stesso stack del Pi (controller e tastiere). H5 e firmware **provati
-  sul PC** contro un chip simulato (`make TARGET=rgb30 test-bt`); **da provare sulla console.**
-- WiFi (RTL8821CS su SDIO, port di rtw88): accensione, firmware, MAC dall'efuse, tabelle MAC/BB/RF,
-  canali e potenza, calibrazione IQK; **scansione** (probe request e ascolto sui canali 1-13; a
-  schermo i pacchetti per canale e le risposte al nostro MAC, che provano la trasmissione);
-  **collegamento** a reti aperte e WPA2-PSK (autenticazione, associazione, handshake a 4 vie e
-  rinnovo della chiave di gruppo in software, `src/rgb30/wpa.c`; le chiavi nella CAM del chip, che
-  cifra e decifra in CCMP); dati 802.11 ↔ Ethernet per **lwIP** (DHCP, console di rete, invio di
-  file: le stesse di M18); il collegamento è controllato dai beacon (8 s senza: perso) e dai
-  deauth. 2,4 GHz, fino a 54 Mbit/s (niente 802.11n per ora). **Provato sul PC** con un chip e due
-  access point simulati, DHCP e ping compresi (`make TARGET=rgb30 test-wifi`); **da provare sulla
+- Bluetooth: RTL8821CS on UART1, H5 protocol (`src/bt/h5.c`) and Realtek firmware
+  (`src/bt/rtlbt.c`), then the same stack as the Pi (controllers and keyboards). H5 and firmware **tested
+  on the PC** against a simulated chip (`make TARGET=rgb30 test-bt`); **to be tested on the console.**
+- WiFi (RTL8821CS over SDIO, port of rtw88): power-up, firmware, MAC from the efuse, MAC/BB/RF tables,
+  channels and power, IQK calibration; **scan** (probe requests and listening on channels 1-13; on
+  screen the packets per channel and the replies to our MAC, which prove transmission);
+  **connection** to open and WPA2-PSK networks (authentication, association, 4-way handshake and
+  group key renewal in software, `src/rgb30/wpa.c`; the keys in the chip's CAM, which
+  encrypts and decrypts in CCMP); 802.11 ↔ Ethernet data for **lwIP** (DHCP, network console, sending
+  files: the same as M18); the connection is monitored through beacons (8 s without: lost) and
+  deauths. 2.4 GHz, up to 54 Mbit/s (no 802.11n for now). **Tested on the PC** with a simulated chip and two
+  access points, DHCP and ping included (`make TARGET=rgb30 test-wifi`); **to be tested on the
   console.**
 
-## Il suono
+## Sound
 
-Dal 2026-10-05 (branch `claude/rgb30-audio`, verificato sulla console e unito il 2026-10-06) la
-RGB30 suona come il Pi: lo stesso sintetizzatore
-a 8 voci, i banchi dei giochi, la musica, gli effetti e nano8 (`src/audio/audio.c`). L'uscita è
-`src/rgb30/rk_audio.c`: l'I2S1 del RK3566 manda 48 kHz a 16 bit al codec dentro il RK817 (il
-chip della batteria), che suona dalle **cuffie** o dall'**altoparlante**: quando si infilano le
-cuffie la console passa a loro da sola, e le cuffie sono mono. I valori vengono da Linux
-(device tree `rk3566-powkiddy-rk2023.dtsi`, driver `rockchip_i2s_tdm.c` e `rk817_codec.c`).
+Since 2026-10-05 (branch `claude/rgb30-audio`, verified on the console and merged on 2026-10-06) the
+RGB30 plays like the Pi: the same 8-voice
+synthesiser, the games' banks, music, effects and nano8 (`src/audio/audio.c`). The output is
+`src/rgb30/rk_audio.c`: the RK3566's I2S1 sends 48 kHz 16-bit to the codec inside the RK817 (the
+battery chip), which plays through the **headphones** or the **speaker**: when the headphones
+are plugged in the console switches to them by itself, and the headphones are mono. The values come from Linux
+(device tree `rk3566-powkiddy-rk2023.dtsi`, drivers `rockchip_i2s_tdm.c` and `rk817_codec.c`).
 
-- **Volume**: i tasti **+** e **−** sul lato, ovunque (menu, pagine, giochi): una barra
-  "Volume" sopra lo schermo per un momento; tenuti continuano. Il livello si salva in
-  `bm/config.txt` (`volume=`, 0–10, come sul Pi) quando i tasti restano fermi per 2 s. Anche
+- **Volume**: the **+** and **−** buttons on the side, everywhere (menu, pages, games): a "Volume"
+  bar over the screen for a moment; held, they keep going. The level is saved in
+  `bm/config.txt` (`volume=`, 0–10, as on the Pi) when the buttons stay still for 2 s. Also
   *Settings > Screen and sound > Volume*.
-- **All'avvio** un suonino di due note, come sul Pi: se si sente, il suono va.
-- **Se non si sente niente**: *Settings > Screen and sound*: la riga *Sound* dice `on` o `off`
-  e, scelta, il perché sotto; *Test the sound* scrive lo stato, i contatori dell'I2S
-  (interrupt, pezzi, buchi) e il MCLK (deve essere 12288000 Hz), poi suona la melodia di prova
-  (le sei forme d'onda, un accordo, glissando, vibrato, arpeggio). Una foto di quella pagina
-  basta per capire dove si ferma.
-- Prove sul PC: `make TARGET=rgb30 test-audio` (il driver su un chip simulato) e
-  `test_sound` in QEMU (una sink che prende i 48 kHz al posto dell'I2S e dice che nota sente).
+- **At boot** a little two-note sound, as on the Pi: if you hear it, sound works.
+- **If you hear nothing**: *Settings > Screen and sound*: the *Sound* line says `on` or `off`
+  and, when selected, why below; *Test the sound* writes the status, the I2S counters
+  (interrupts, chunks, gaps) and the MCLK (must be 12288000 Hz), then plays the test melody
+  (the six waveforms, a chord, glissando, vibrato, arpeggio). A photo of that page
+  is enough to see where it stops.
+- Tests on the PC: `make TARGET=rgb30 test-audio` (the driver on a simulated chip) and
+  `test_sound` in QEMU (a sink that takes the 48 kHz in place of the I2S and says which note it hears).
 
-## Cartucce del Pi (`.bm`) per le prove
+## Pi cartridges (`.bm`) for testing
 
-Per le prove (decisione dell'utente, 2026-10-03: "per il momento") la scheda Games elenca le
-cartucce `.bm` di `bm/` e le **avvia**, senza impostazioni; `show_bm=0` in `bm/config.txt` le
-nasconde. Il runtime è quello del Pi (`src/bm`), lo stesso codice compilato a
-64 bit; quello che del Pi non c'è lo sostituiscono `src/rgb30/bm_port.c` (il 3D disegnato
-dall'ARM, niente DMA) e `src/rgb30/bm_input.c` (i comandi); il suono è quello del Pi (sotto). Nell'immagine SD c'è
-**Yharnam** (360×360 dal 2026-10-10, prima 256×256; dal branch `claude/yharnam`).
+For testing (user decision, 2026-10-03: "for the time being") the Games tab lists the
+`.bm` cartridges in `bm/` and **launches** them, without settings; `show_bm=0` in `bm/config.txt`
+hides them. The runtime is the Pi's (`src/bm`), the same code compiled for
+64 bit; what the Pi has and this does not is replaced by `src/rgb30/bm_port.c` (3D drawn
+by the ARM, no DMA) and `src/rgb30/bm_input.c` (the controls); the sound is the Pi's (above). In the SD image there is
+**Yharnam** (360×360 since 2026-10-10, before 256×256; from the `claude/yharnam` branch).
 
-- Schermo: la cartuccia disegna alla sua risoluzione e il controller video la ingrandisce fino a
-  riempire il pannello (256×256 → 720×720), nitida. `bm_scale=int`: solo multipli interi (256 ×2 =
-  512×512, i pixel tutti uguali, con il bordo); `bm_smooth=1`: sfumata.
-- Tasti: nei giochi valgono le lettere stampate sulla console (un gioco che scrive "A: start" vuole
-  il tasto A); `game_buttons=position` li mette per posizione, come un DS4 sul Pi (il tasto in basso,
-  B, diventa la A del gioco). Le levette sono la levetta sinistra e destra del gioco; Start +
-  Select esce e torna al menu.
-- In QEMU il gioco gira (test `test_bm_cartridge`), mostrato 1:1 (QEMU non ingrandisce e non ha il
-  formato a 16 bit: lo converte `plat_virt.c`).
+- Screen: the cartridge draws at its resolution and the video controller scales it up to
+  fill the panel (256×256 → 720×720), sharp. `bm_scale=int`: integer multiples only (256 ×2 =
+  512×512, all pixels equal, with the border); `bm_smooth=1`: smoothed.
+- Buttons: in games the letters printed on the console count (a game that writes "A: start" wants
+  the A button); `game_buttons=position` maps them by position, like a DS4 on the Pi (the bottom button,
+  B, becomes the game's A). The sticks are the game's left and right stick; Start +
+  Select exits and returns to the menu.
+- In QEMU the game runs (test `test_bm_cartridge`), shown 1:1 (QEMU does not scale and has no
+  16-bit format: `plat_virt.c` converts it).
 
-**Overbit** (`overbit.b16` dal Market, lo stesso file del Pi; 2026-10-10): sulla RGB30 `screen()`
-offre le due misure del `.b16`, e il gioco disegna a **360×360** (×2 sul pannello) o **720×720**.
-Nel titolo solo RESOLUTION (360×360 / 720×720) e RENDERER (ARM; GPU quando il driver Mali
-disegnerà i triangoli, oggi "NO GPU"), salvati. BENCHMARK sale dal passo più leggero (360×360
-LOW) al più pesante (720×720 EXTREME), si ferma al primo sotto i 30 fps o dopo circa 60 s e salva
-il più pesante che tiene 60 fps (se nessuno, il più pesante a 30). I menu del gioco confermano
-con **B** e tornano indietro con **A** (`btn("ok")` / `btn("back")`: `confirm=a` li scambia);
-nel gioco i tasti restano quelli di Overbit per lettera (il salto è A). Le prove sul PC usano
-`bmhost --square` (gli schermi della RGB30). **Da provare sulla console.**
+## WiFi: how to use it
 
-## WiFi: come si usa
-
-In `bm/config.txt` sulla SD (dal PC):
+In `bm/config.txt` on the SD (from the PC):
 
 ```
 wifi_ssid=NomeDellaRete
 wifi_psk=password
 ```
 
-Oppure già nell'immagine: `make TARGET=rgb30 image RGB30_CONFIG=$HOME/rgb30-config.txt` mette quel
-file come `bm/config.txt` (tienilo fuori dal repository: contiene la password).
+Or already in the image: `make TARGET=rgb30 image RGB30_CONFIG=$HOME/rgb30-config.txt` puts that
+file as `bm/config.txt` (keep it outside the repository: it contains the password).
 
-Nel menu, *WiFi*: **B** cerca le reti (elenco con segnale, canale, sicurezza), **X** entra nella
-rete di `wifi_ssid`; poi DHCP e l'indirizzo IP sullo schermo, con la password della console di
-rete (`python3 tools/bm_net.py <ip>`: i tasti w/a/s/d, Invio, Esc arrivano al menu come dalla
-seriale). All'avvio la console entra da sola nella rete salvata, come il Pi (`wifi_boot=0` lo
-spegne, anche da *Settings > WiFi and network*). Reti supportate: aperte e WPA2-PSK (anche
-WPA2/WPA3 miste); non WPA3 sola, WPA1, WEP, enterprise.
+In the menu, *WiFi*: **B** scans for networks (list with signal, channel, security), **X** joins the
+`wifi_ssid` network; then DHCP and the IP address on screen, with the password of the network
+console (`python3 tools/bm_net.py <ip>`: the w/a/s/d keys, Enter, Esc reach the menu as from the
+serial port). At boot the console joins the saved network by itself, like the Pi (`wifi_boot=0` turns it
+off, also from *Settings > WiFi and network*). Supported networks: open and WPA2-PSK (also
+mixed WPA2/WPA3); not WPA3 only, WPA1, WEP, enterprise.
 
-## Report dei test
+## Test reports
 
-*Settings > Reports*: i report dei test (3D Bench, Render bench, il log) aspettano in
-`bm/reports` sulla SD e vanno nel branch `reports` di `f-accomando/bm` con `github_token` in
-`bm/config.txt` e il WiFi; *Send the reports* li manda, *Report the log* fa un report del log. Il nome dice kernel,
-branch e scheda: `reports/<branch>/<data>_<tipo>_rgb30_<kernel>.txt`.
+*Settings > Reports*: the test reports (3D Bench, Render bench, the log) wait in
+`bm/reports` on the SD and go to the `reports` branch of `f-accomando/bm` with `github_token` in
+`bm/config.txt` and WiFi; *Send the reports* sends them, *Report the log* makes a report of the log. The name gives kernel,
+branch and board: `reports/<branch>/<data>_<tipo>_rgb30_<kernel>.txt`.
 
-## Aggiornare bm
+## Updating bm
 
-- **Dalla console** (WiFi collegato): *Settings > Updates* legge l'ultima release di GitHub
-  (`manifest-rgb30.txt`, firmato con la chiave delle release che sta nel kernel), dice se è più
-  nuova e quali file cambiano (`kernel8.img`, `bm/ca.pem`); *Install the update* la installa: scarica e
-  controlla tutto prima di scrivere, tiene il kernel di prima in `bm/backup/kernel8.img`,
-  scrive `kernel8.img` per ultimo e riavvia. `update_url=sd:/cartella/` in `bm/config.txt` per
-  una release copiata sulla SD (le prove).
-- **Dalla rete**: `python3 tools/bm_net.py <ip> --kernel build/rgb30/kernel8.img` (la password è
-  quella che *WiFi* mostra quando la console entra nella rete), oppure `./easy_install.sh`, voce
-  1 ([NET] update kernel), con un profilo di scheda RGB30.
-- **Dal PC**: copiare `kernel8.img` sulla SD.
+- **From the console** (WiFi connected): *Settings > Updates* reads the latest GitHub release
+  (`manifest-rgb30.txt`, signed with the release key that is in the kernel), says whether it is
+  newer and which files change (`kernel8.img`, `bm/ca.pem`); *Install the update* installs it: it downloads and
+  checks everything before writing, keeps the previous kernel in `bm/backup/kernel8.img`,
+  writes `kernel8.img` last and restarts. `update_url=sd:/cartella/` in `bm/config.txt` for
+  a release copied onto the SD (testing).
+- **From the network**: `python3 tools/bm_net.py <ip> --kernel build/rgb30/kernel8.img` (the password is
+  the one *WiFi* shows when the console joins the network), or `./easy_install.sh`, item
+  1 ([NET] update kernel), with an RGB30 board profile.
+- **From the PC**: copy `kernel8.img` onto the SD.
 
-## Giochi dalla rete
+## Games from the network
 
-`python3 tools/bm_net.py <ip> --send gioco.b16` (o `./easy_install.sh`, voce 5): un `.bm` /
-`.b16` per `/carts` (il default) finisce in `bm/`, la cartella che il menu elenca. La console
-risponde appena il file è arrivato intero (`QD`) e lo scrive sulla SD dal menu, un pezzo per
-frame in una fibra: il gioco ha l'etichetta *Updating* e non parte finché non è scritto; la
-barra in alto dice i KiB scritti. Se un gioco è aperto il file aspetta in memoria e va sulla SD
-al ritorno nel menu. Un secondo file mentre il primo aspetta: `BY` (occupata), si rimanda dopo.
+`python3 tools/bm_net.py <ip> --send gioco.b16` (or `./easy_install.sh`, item 5): a `.bm` /
+`.b16` for `/carts` (the default) ends up in `bm/`, the folder the menu lists. The console
+replies as soon as the file has arrived whole (`QD`) and writes it to the SD from the menu, one chunk per
+frame in a fiber: the game has the *Updating* label and does not start until it is written; the
+top bar shows the KiB written. If a game is open the file waits in memory and goes to the SD
+on return to the menu. A second file while the first is waiting: `BY` (busy), resend later.
 
-## File
+## Files
 
-- `rgb30.mk` — la build (incluso dal Makefile con `TARGET=rgb30`).
-- `src/rgb30/` — tutto ciò che è specifico: `start.S`, `vectors.S`, `mmu.c`, `cache.c`, `gic.c`,
-  `timer.c`, `exc.c`, `syscalls.c` (picolibc), `fb.c`, `glue.c` (le API dei driver del Pi),
-  `pad.c` (comandi, anche dalla seriale), `ui.c` (menu), `main.c`;
+- `rgb30.mk` — the build (included by the Makefile with `TARGET=rgb30`).
+- `src/rgb30/` — everything specific: `start.S`, `vectors.S`, `mmu.c`, `cache.c`, `gic.c`,
+  `timer.c`, `exc.c`, `syscalls.c` (picolibc), `fb.c`, `glue.c` (the Pi driver APIs),
+  `pad.c` (controls, also from the serial port), `ui.c` (menu), `main.c`;
   `plat_virt.c` + `sd_virt.c` (QEMU); `plat_rk3566.c`, `rk_gpio.c`, `rk_input.c`, `rk_board.c`
-  (LED), `rk_display.c` (VOP2), `rk_dsi.c` (DSI, D-PHY, pannello), `rk_mmc.c` (DesignWare MSHC),
-  `rk_sd.c`, `rk_pmic.c`; Bluetooth: `rk_wlbt.c` (alimentazione del modulo), `rk_btuart.c`,
-  `rk_bt.c`; WiFi: `rk_sdio.c`, `rtw_io.c`, `rtw_mac.c` (accensione, firmware, efuse),
-  `rtw_init.c` + `rtw8821c_table.c` (MAC e radio, CAM, comandi al firmware), `rtw_frame.c`
-  (pacchetti, 802.11), `wpa.c` (WPA2), `rtw_sta.c` (le funzioni di `wifi/wifi.h`); GPU: `mali.c`
-  (il driver, portabile), `gputest_rgb30.c` (la pagina *GPU test*).
-- Codice in comune con il Pi: `gfx/`, `lib/printf.c`, `script/luavm.c` e `lib_bm.c`, `fs/fat.c`,
+  (LEDs), `rk_display.c` (VOP2), `rk_dsi.c` (DSI, D-PHY, panel), `rk_mmc.c` (DesignWare MSHC),
+  `rk_sd.c`, `rk_pmic.c`; Bluetooth: `rk_wlbt.c` (module power), `rk_btuart.c`,
+  `rk_bt.c`; WiFi: `rk_sdio.c`, `rtw_io.c`, `rtw_mac.c` (power-up, firmware, efuse),
+  `rtw_init.c` + `rtw8821c_table.c` (MAC and radio, CAM, firmware commands), `rtw_frame.c`
+  (packets, 802.11), `wpa.c` (WPA2), `rtw_sta.c` (the functions of `wifi/wifi.h`); GPU: `mali.c`
+  (the driver, portable), `gputest_rgb30.c` (the *GPU test* page).
+- Code shared with the Pi: `gfx/`, `lib/printf.c`, `script/luavm.c` and `lib_bm.c`, `fs/fat.c`,
   `kernel/config.c`, `crumbs.c`, `version.c`, Lua.
-- `tests/rgb30/qemu_test.py` — test in QEMU (avvio, EL2 e spostamento, schermo letto dai pixel,
-  Lua, menu, `.bm` nascosti, input test, bootlog sulla SD).
-- `tests/rgb30/rtw_frame_test.c`, `wpa_test.c` (vettori pubblicati e un handshake calcolato a
-  parte da `wpa_vectors.py`), `wifi_sim_test.c` (tutta la stazione su un RTL8821C e due access
-  point simulati): `make TARGET=rgb30 test-wifi`.
-- `tests/rgb30/mali_test.c` — la prova della GPU su un Mali-G52, un CRU e un PMU simulati (tabelle
-  delle pagine percorse come fa la GPU, lavori eseguiti, varianti che non tornano):
+- `tests/rgb30/qemu_test.py` — tests in QEMU (boot, EL2 and relocation, screen read from pixels,
+  Lua, menu, hidden `.bm`, input test, bootlog on the SD).
+- `tests/rgb30/rtw_frame_test.c`, `wpa_test.c` (published vectors and a handshake computed
+  separately by `wpa_vectors.py`), `wifi_sim_test.c` (the whole station on a simulated RTL8821C and two access
+  points): `make TARGET=rgb30 test-wifi`.
+- `tests/rgb30/mali_test.c` — the GPU test on a simulated Mali-G52, CRU and PMU (page
+  tables walked as the GPU does, jobs executed, variants that do not add up):
   `make TARGET=rgb30 test-mali`.
-- `boot/rgb30/` — `extlinux.conf` e `LEGGIMI.txt` della scheda.
-- `scripts/fetch-rgb30.sh` — bootloader e firmware; `scripts/mksd.py --start-mib --raw --active`.
+- `boot/rgb30/` — the card's `extlinux.conf` and `LEGGIMI.txt`.
+- `scripts/fetch-rgb30.sh` — bootloader and firmware; `scripts/mksd.py --start-mib --raw --active`.
 
-## Mappa della memoria (RK3566)
+## Memory map (RK3566)
 
-| Da | A | Uso |
+| From | To | Use |
 |---|---|---|
-| 0x00000000 | 0x00200000 | TF-A (BL31): non mappato |
-| 0x02000000 | | dove U-Boot carica `kernel8.img` (poi si sposta) |
-| 0x10000000 | | kernel (testo, dati, bss, stack 1 MiB, tabelle MMU), poi l'heap |
-| 0x3c000000 | 0x3fc00000 | memoria video, 60 MiB (non-cacheable): i framebuffer |
-| 0x3fc00000 | 0x40000000 | memoria della GPU Mali, 4 MiB (non-cacheable): tabelle delle pagine, lavori (`PLAT_GPU_START`) |
-| 0xfc000000 | 0xffffffff | periferiche (GIC 0xfd400000, CRU 0xfdd20000, VOP2 0xfe040000, DSI0 0xfe060000, SDMMC0 0xfe2b0000, UART2 0xfe660000, …) |
+| 0x00000000 | 0x00200000 | TF-A (BL31): not mapped |
+| 0x02000000 | | where U-Boot loads `kernel8.img` (then it moves) |
+| 0x10000000 | | kernel (text, data, bss, 1 MiB stack, MMU tables), then the heap |
+| 0x3c000000 | 0x3fc00000 | video memory, 60 MiB (non-cacheable): the framebuffers |
+| 0x3fc00000 | 0x40000000 | Mali GPU memory, 4 MiB (non-cacheable): page tables, jobs (`PLAT_GPU_START`) |
+| 0xfc000000 | 0xffffffff | peripherals (GIC 0xfd400000, CRU 0xfdd20000, VOP2 0xfe040000, DSI0 0xfe060000, SDMMC0 0xfe2b0000, UART2 0xfe660000, …) |
 
-## Licenze dei file scaricati
+## Licences of the downloaded files
 
-- U-Boot: GPL-2.0+ (tag `v2026.01` + le patch ROCKNIX in
-  `projects/ROCKNIX/devices/RK3566/packages/u-boot-Generic/patches` della release `20260901`).
-- Inizializzazione DDR `rk3568_ddr_1056MHz_v1.23.bin` e BL31 `rk3568_bl31_v1.45.elf`: licenza
-  rkbin di Rockchip (ridistribuzione permessa, niente reverse engineering).
-- Firmware Realtek: `LICENCE.rtlwifi_firmware.txt` (ridistribuibile senza modifiche), copiata
-  in `bm/` sulla scheda.
-- Il driver WiFi (`src/rgb30/rtw*.c`, tabelle in `rtw8821c_table.c`) è un port di rtw88 di Linux,
-  GPL-2.0 OR BSD-3-Clause, usato con la licenza BSD-3-Clause (Copyright Realtek Corporation).
+- U-Boot: GPL-2.0+ (tag `v2026.01` + the ROCKNIX patches in
+  `projects/ROCKNIX/devices/RK3566/packages/u-boot-Generic/patches` of release `20260901`).
+- DDR initialisation `rk3568_ddr_1056MHz_v1.23.bin` and BL31 `rk3568_bl31_v1.45.elf`: Rockchip's
+  rkbin licence (redistribution allowed, no reverse engineering).
+- Realtek firmware: `LICENCE.rtlwifi_firmware.txt` (redistributable without modification), copied
+  into `bm/` on the card.
+- The WiFi driver (`src/rgb30/rtw*.c`, tables in `rtw8821c_table.c`) is a port of Linux's rtw88,
+  GPL-2.0 OR BSD-3-Clause, used under the BSD-3-Clause licence (Copyright Realtek Corporation).
 
-Nessuno di questi file è nel repository: li scarica `make TARGET=rgb30 firmware`.
+None of these files is in the repository: `make TARGET=rgb30 firmware` downloads them.
