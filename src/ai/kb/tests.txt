@@ -112,6 +112,12 @@ voglio scrivere la musica a pattern come in strudel => riff, riff_code
 una nota esattamente in tempo anche se il gioco rallenta => play_at
 cosa significa <c e g> nella stringa del ritmo => riff_mini
 come sento la musica mentre la scrivo in bm code => riff_live, riff_code
+voglio un pad più largo con il chorus => chorus, tone_fx
+l'audio esce a 16 o a 24 bit? => audio_depth
+suonare il rullante campionato della console => sample_kit, play
+un basso sporco a pochi bit come un vecchio campionatore => tone_fx
+how long is each sample in my bank => audio_samples
+in riff voglio la batteria bd sd hh come strudel => riff_kit
 
 # saves, players, system
 salvare il punteggio più alto => high_score, save
