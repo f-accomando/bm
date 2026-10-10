@@ -70,7 +70,10 @@ env.log = function(...)
 end
 env.time = function() return B.now end
 env.stat = function() return 0 end
-env.btn = function(b) return (B.held >> b) & 1 == 1 end
+-- "ok" and "back" (the system's yes and back) are A and B, as on the Pi with a pad
+local NAMED = { ok = 4, back = 5, a = 4, b = 5, x = 6, y = 7 }
+local function bit(b) return type(b) == "string" and assert(NAMED[b], "unknown button " .. b) or b end
+env.btn = function(b) return (B.held >> bit(b)) & 1 == 1 end
 env.prompt = function(name, x, y)
   if type(x) ~= "number" then return 16, 16 end          -- prompt(name, small, scale, player): its size
   num(x, "prompt x"); num(y, "prompt y"); return x + 16
@@ -79,7 +82,7 @@ env.keyp = function() return nil end
 env.lastinput = function() return nil end
 -- pad(): bits 1024 L1, 2048 R1 from the held mask's bits 10 and 11
 env.pad = function() return B.held & (1024 | 2048) end
-env.btnp = function(b) return (B.held >> b) & 1 == 1 and (B.prev >> b) & 1 == 0 end
+env.btnp = function(b) b = bit(b); return (B.held >> b) & 1 == 1 and (B.prev >> b) & 1 == 0 end
 for _, lib in ipairs({ "string", "table", "math", "utf8", "coroutine" }) do env[lib] = _G[lib] end
 for _, f in ipairs({ "assert", "error", "ipairs", "next", "pairs", "pcall", "rawequal", "rawget", "rawlen",
                      "rawset", "select", "setmetatable", "getmetatable", "tonumber", "tostring", "type", "xpcall" }) do

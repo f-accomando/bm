@@ -39,7 +39,8 @@ void volume_keys(uint32_t held, int beep)
         notice_flash("Volume", line, v * 1000 / AUDIO_VOLUME_MAX, 1200);
         kprintf("volume: %s\n", line);
         if (beep && v)
-            audio_note(0, 880, 70, 4, 140);     /* a beep at the new volume (the menu only) */
+            audio_note(0, 880, 70, 4, 36);      /* a soft beep at the new volume (the menu only):
+                                                   a quarter of a note's level, under the music */
         dirty = 1;
         changed_ms = now;
     }

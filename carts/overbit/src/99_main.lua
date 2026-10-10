@@ -17,21 +17,24 @@ function _update()
   G.frame = G.frame + 1
   G.gpu = stat(9) == 1          -- the GPU draws the 3D: some things cost less (40_actor)
   if SCREEN_W ~= SW or SCREEN_H ~= SH then screen_size() end      -- screen() took effect
-  if G.frame == 2 and G.mode ~= "bench" then      -- (the GPU has started by now: stat(9))
-    Quality.start()
+  -- the saved screen and renderer, from the second frame (the GPU has started
+  -- by now: stat(9); a frame or two more for a .b16's square page on a TV)
+  if not Quality.started and G.frame >= 2 and G.mode ~= "bench" then
+    Quality.started = Quality.start()
     -- the benchmark asked for with flags (the monitor line, easy_install bench)
-    local flags = cart_config and cart_config("overbit_bench")
+    local flags = Quality.started and cart_config and cart_config("overbit_bench")
     if flags and flags ~= "" then
       cart_config("overbit_bench", "")           -- once
       Modes.list.bench.flags = flags
       Modes.start("bench")
     end
   end
-  -- the ARM draws (the GPU stopped): not above 640x360, its pixels cost it
-  -- (the choice saved stays for the GPU)
-  if not G.gpu and SW * SH > 640 * 360 then
-    local m = Quality.modes()[1]
-    if m and Quality.set_screen(m[1], m[2]) then log("overbit resolution 640x360 (the ARM draws)") end
+  -- the ARM draws (the GPU stopped) on a TV: not above 640x360, its pixels
+  -- cost it (the choice saved stays for the GPU)
+  if not G.gpu and not Quality.arm_ok(SW, SH) then
+    local m = Quality.modes("arm")
+    m = m[#m]
+    if m and Quality.set_screen(m[1], m[2]) then log(string.format("overbit resolution %dx%d (the ARM draws)", m[1], m[2])) end
   end
   Input.read()
   -- the dev kit is the system's overlay (F11): Select, Tab or F1 go round it

@@ -184,8 +184,9 @@ def test_screen_console(b, opts):
         for needle in ("Games", "Dev", "Settings", "No games yet"):
             assert needle in text, f"{needle!r} not on screen:\n{text}"
         # the Dev tab: three square covers a row, the selected one's name on the pill
-        for k, name in (("r", "3D Bench"), ("s", "Input test"), ("d", "Boot log"), ("d", "Lua"),
-                        ("w", "Display"), ("s", "Lua")):
+        # (no Lua on the RGB30's Dev tab: the Pi's only; ` on the serial port opens it)
+        for k, name in (("r", "3D Bench"), ("s", "Input test"), ("d", "Boot log"), ("d", "GPU test"),
+                        ("w", "Display"), ("s", "GPU test")):
             keys(q, k)
             text = screen_all(q.screendump())
             assert name in text and in_menu(text), f"{name!r} not selected on the Dev tab:\n{text}"
@@ -212,7 +213,7 @@ def test_screen_console(b, opts):
         assert "Version, memory, the log" in screen_all(q.screendump())
         keys(q, "\x7f")                        # back: out of Settings, to Dev
         text = screen_all(q.screendump())
-        assert "Lua" in text and "Screen and sound" not in text, text
+        assert "GPU test" in text and "Screen and sound" not in text, text
         keys(q, "l")                            # L1: Games
         assert "No games yet" in screen_all(q.screendump())
     finally:
@@ -436,7 +437,7 @@ def test_wifi_page_without_chip(b, opts):
         keys(q, "rrs")                          # Settings: Controllers, WiFi and network
         q.send("\r")
         time.sleep(0.5)
-        keys(q, "ssssss")                       # Connect to a network
+        keys(q, "ss")                           # Connect to a network, after State
         q.send("\r")
         q.expect("no WiFi chip in QEMU", timeout=10)
         time.sleep(0.5)
@@ -603,7 +604,7 @@ def test_gpu_test(b, opts):
     try:
         boot(q)
         keys(q, "r")                            # Dev tab: 3D Bench
-        keys(q, "ss")                           # the third row: GPU test
+        keys(q, "sdd")                          # the second row's last: GPU test
         text = screen_all(q.screendump())
         assert "GPU test" in text and in_menu(text), text
         q.send("\r")

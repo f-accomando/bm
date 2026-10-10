@@ -16,6 +16,11 @@
 -- menu       Options (Start)     Enter
 -- dev kit    Share (Select)      Tab
 -- hero       down (in spawn)     H
+--
+-- The menus (title, hero select, lobby, benchmark) confirm and go back with
+-- the system's buttons, btn("ok") and btn("back"): cross and circle on the
+-- DS4, B and A on the RGB30 (confirm=a swaps them), never the A and B bits
+-- of the game; on the keyboard Space and Backspace.
 
 Input = {}
 
@@ -24,7 +29,7 @@ local K = {
   Q = 0x14, R = 0x15, C = 0x06, V = 0x19, SPACE = 0x2C, LSHIFT = 0xE1, RSHIFT = 0xE5,
   LCTRL = 0xE0, RIGHT = 0x4F, LEFT = 0x50, DOWN = 0x51, UP = 0x52, ENTER = 0x28, TAB = 0x2B,
   F1 = 0x3A, F2 = 0x3B, F3 = 0x3C, F4 = 0x3D, F5 = 0x3E, P = 0x13, N1 = 0x1E, N2 = 0x1F, N3 = 0x20, N4 = 0x21,
-  H = 0x0B, F6 = 0x3F,
+  H = 0x0B, F6 = 0x3F, BKSP = 0x2A,
 }
 Input.K = K
 
@@ -40,8 +45,11 @@ Input.sens = 1.0                  -- look speed (dev menu)
 
 local function held(name) return cmd[name] end
 
+local named = false               -- btn("ok") exists (a runtime from before 2026-10-04: frames.py --root)
+
 function Input.init()
   rawkeys(true)                   -- the keyboard is read key by key (keydown)
+  named = pcall(btn, "ok")
 end
 
 -- one frame: fills cmd (and cmd.pressed_* for the edges)
@@ -82,6 +90,8 @@ function Input.read()
     left = b(PB.L) or kd(K.LEFT), right = b(PB.R) or kd(K.RIGHT),
     f1 = kd(K.F1), f2 = kd(K.F2), f3 = kd(K.F3), f4 = kd(K.F4), f5 = kd(K.F5), f6 = kd(K.F6),
     hero = kd(K.H),
+    ok = (named and btn("ok")) or kd(K.SPACE) or (not named and b(PB.A)),          -- the menus' yes
+    back = (named and btn("back")) or kd(K.BKSP) or (not named and b(PB.B)),       -- and back
   }
   for k, v in pairs(now) do
     cmd[k] = v

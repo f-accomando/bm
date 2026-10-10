@@ -309,6 +309,7 @@ void monitor_run(void)
     kprintf("\ntype 'h' for help\n");
 
     for (;;) {
+        console_suspend(0);                     /* (a stopped test left it hidden: bm_video_leave) */
         netcon_focus("the monitor ('h' for help, M the menu)", "> ");
         kprintf("> ");
         crumb("monitor, waiting for a key", NULL);
