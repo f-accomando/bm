@@ -135,11 +135,12 @@ SD_FILES64 = $(BUILD)/kernel8.img=kernel8.img boot/rgb30/extlinux.conf=extlinux/
 # the SD card for testing (in the Games tab) and in the QEMU tests
 YHARNAM := $(BUILD)/carts/yharnam.bm
 $(YHARNAM): carts/yharnam/main.lua carts/yharnam/sheet.png carts/yharnam/cover.png scripts/mkbm.py \
-            carts/yharnam/map_ground.csv carts/yharnam/map_overlay.csv
+            carts/yharnam/map_ground.csv carts/yharnam/map_overlay.csv carts/yharnam/map_objects.csv
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title Yharnam --author bm --res 360x360 \
 	    --cover carts/yharnam/cover.png --sheet carts/yharnam/sheet.png --sheet8 \
-	    --map ground=carts/yharnam/map_ground.csv --map overlay=carts/yharnam/map_overlay.csv
+	    --map ground=carts/yharnam/map_ground.csv --map overlay=carts/yharnam/map_overlay.csv \
+	    --map objects=carts/yharnam/map_objects.csv
 SD_FILES64 += $(YHARNAM)=bm/yharnam.bm
 
 # RGB30_CONFIG=file: your own bm/config.txt in the image (wifi_ssid, wifi_psk:

@@ -206,9 +206,10 @@ title_typing := Pad Typing
 title_write := bm Write
 res_yharnam := 360x360
 sheet8_yharnam := 1
-# Yharnam's map drawn by hand (the SDK's map page): carts/yharnam/map_ground.csv and map_overlay.csv
+# Yharnam's map drawn by hand (the SDK's map page): carts/yharnam/map_ground.csv, map_overlay.csv and
+# map_objects.csv (the placeholders of the houses, trees, lamps... it places)
 # (carts/yharnam/mkmap.py makes the first one, and takes it back from the console)
-layers_yharnam := ground overlay
+layers_yharnam := ground overlay objects
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
 # menu, scripts/mkcovers.py), sheet.png, map.csv, models.bm or models.glb (3D
 # models from bm Studio / bm Animator, sdk/: with their skeletons and
@@ -474,15 +475,20 @@ yharnam-video: $(BUILD)/host/bmplay $(BUILD)/carts/yharnam.bm tools/bmplay/yharn
 # street plan, the chunks, a long walk, the cost of a frame; then the fight
 # measured, with the paths of the lamps (balance.lua), and the ways of the
 # creatures and the phases of the bosses (foes.lua); the map drawn by hand
-# read instead of the ground made (drawn.lua)
-test-yharnam: $(BUILD)/host/luahost carts/yharnam/main.lua carts/yharnam/map_ground.csv carts/yharnam/map_overlay.csv
+# (drawn.lua): the one its street plan makes (mapgen.lua, in build/) gives
+# the same town as no map, its objects layer places the things, the
+# repository's map is read instead of the ground made
+test-yharnam: $(BUILD)/host/luahost carts/yharnam/main.lua $(foreach l,$(layers_yharnam),carts/yharnam/map_$(l).csv)
 	$< tests/yharnam/sim.lua carts/yharnam/main.lua
 	$< tests/yharnam/balance.lua carts/yharnam/main.lua
 	$< tests/yharnam/foes.lua carts/yharnam/main.lua
-	$< tests/yharnam/drawn.lua carts/yharnam/main.lua carts/yharnam
+	@mkdir -p $(BUILD)/yharnam-map
+	$< tests/yharnam/mapgen.lua carts/yharnam/main.lua $(BUILD)/yharnam-map > /dev/null
+	$< tests/yharnam/drawn.lua carts/yharnam/main.lua carts/yharnam $(BUILD)/yharnam-map
 
 # Yharnam's first drawn map, from its street plan (carts/yharnam/mkmap.py: it
-# overwrites map_ground.csv and map_overlay.csv, the map drawn by hand)
+# overwrites map_ground.csv, map_overlay.csv and map_objects.csv, the map
+# drawn by hand)
 yharnam-map: $(BUILD)/host/luahost
 	$(PYTHON) carts/yharnam/mkmap.py --luahost $<
 

@@ -13,9 +13,10 @@
 -- the title, G (a keyboard's key) shows every animation of the hunter in the 8 directions.
 -- Sprites and tiles: mkassets.py (the hunter, the props and the town are
 -- drawn there in code; art/anims.py has the hunter's animations). The
--- ground of the hunt is the cartridge's map, drawn by hand in the SDK
--- (map_ground.csv, map_overlay.csv, mkmap.py: MAP.drawn); the chunks make
--- the rest (houses, trees, lamps, creatures, gates).
+-- ground of the hunt and where its houses, trees, lamps and things stand
+-- are the cartridge's map, drawn by hand in the SDK (map_ground.csv,
+-- map_overlay.csv, map_objects.csv, mkmap.py: MAP.drawn, MAP.objects); the
+-- chunks build them, and the creatures, the hunter's lamps and the gates.
 
 -- [atlas begin] written by mkassets.py: do not edit by hand
 local SHEET_W = 4096
@@ -100,6 +101,7 @@ local ROOF = {
   lead = { ridge = { l = 1092, m = 1098, r = 1104 }, slope = { l = 1094, m = 1100, r = 1106 }, eaves = { l = 1096, m = 1102, r = 1108 }, slope2 = { l = 1110, m = 1112, r = 1114 } },
   copper = { ridge = { l = 1116, m = 1122, r = 1128 }, slope = { l = 1118, m = 1124, r = 1130 }, eaves = { l = 1120, m = 1126, r = 1132 }, slope2 = { l = 1134, m = 1136, r = 1138 } },
 }
+local PLACE = { house7 = 1140, house8 = 1142, chapel = 1144, body = 1146, tree = 1148, bush = 1150, lamp = 1152, brazier = 1154, pyre = 1156, grave = 1158, mausoleum = 1160, angel = 1162, fountain = 1164, well = 1166, bench = 1168, fence_h = 1170, fence_v = 1172, crates = 1174, coffin = 1176, cage = 1178, bollard = 1180, carriage = 1182, roof = 1184 }
 local FIRE_ANIM = {
   big = { { 3775, 1403, 56, 64, 28, 58 }, { 3832, 1403, 56, 64, 28, 58 }, { 3889, 1403, 56, 64, 28, 58 }, { 3946, 1403, 56, 64, 28, 58 }, { 4003, 1403, 56, 64, 28, 58 }, { 35, 1404, 56, 64, 28, 58 }, { 92, 1404, 56, 64, 28, 58 }, { 149, 1404, 56, 64, 28, 58 } },
   small = { { 3980, 3314, 24, 30, 12, 26 }, { 4005, 3314, 24, 30, 12, 26 }, { 4030, 3314, 24, 30, 12, 26 }, { 4055, 3314, 24, 30, 12, 26 }, { 0, 3315, 24, 30, 12, 26 }, { 25, 3315, 24, 30, 12, 26 }, { 1201, 3315, 24, 30, 12, 26 }, { 1226, 3315, 24, 30, 12, 26 } },
@@ -1472,22 +1474,26 @@ do
     end
   end
 end
--- The map drawn by hand (the SDK's map page, F3 F3; in the repository carts/yharnam/map_ground.csv and
--- map_overlay.csv, the first ones made by carts/yharnam/mkmap.py from the streets below): the whole hunt,
--- MAP.size x MAP.size chunks of CS x CS tiles of 2 x 2 cells (256 x 256 cells). Its first layer is "ground", then
--- what lies on it ("overlay": kerbs, grass edges, puddles, leaves) and any layer added in the SDK, all drawn under
--- the objects. There the ground is what is drawn: the chunks still make their houses, trees, lamps, colliders and
--- lights from the plan below, not their ground. Beyond the map (behind the mist, never walked) and without a
--- drawn map (a cartridge built without one, the PC tests) the ground is made with the chunks, into a ring of
--- RING x RING chunks, a layer of its own after the drawn ones. MAP.drawn: how many layers are drawn (nil: none);
--- MAP.ring: the ring's layer (nil: no room for it, 8 drawn layers). (A player with no layers, tools/bmplay,
--- has no msize: the ring.)
+-- The map drawn by hand (the SDK's map page, F3 F3; in the repository carts/yharnam/map_ground.csv,
+-- map_overlay.csv and map_objects.csv, the first ones made by carts/yharnam/mkmap.py from the streets below): the
+-- whole hunt, MAP.size x MAP.size chunks of CS x CS tiles of 2 x 2 cells (256 x 256 cells). Its first layer is
+-- "ground", then what lies on it ("overlay": kerbs, grass edges, puddles, leaves) and any layer added in the SDK,
+-- all drawn under the objects (MAP.drawn: their numbers). "objects" is not drawn: its placeholders (PLACE, a
+-- 16x16 tile each, art/places.py) say where the houses, trees, lamps, graves and things stand (MAP.objects; gen
+-- makes them there). The hunter's lamps, the barricades and their gates, the bosses' arenas and the areas stay
+-- MAP's. Beyond the map (behind the mist, never walked) and without a drawn map (a cartridge built without one,
+-- the PC tests) the ground is made with the chunks, into a ring of RING x RING chunks, a layer of its own after
+-- the others (MAP.ring: nil if there is no room, 8 layers); without "objects" the things are the plan's. (A
+-- player with no layers, tools/bmplay, has no msize: the ring.)
 do
   local w, h = 0, 0
   local names = { "main" }
   if msize and mlayers then w, h = msize(); names = mlayers() end
   if names[1] == "ground" and w >= MAP.size * CS * 2 and h >= MAP.size * CS * 2 then
-    MAP.drawn = #names
+    MAP.drawn = {}
+    for i, n in ipairs(names) do
+      if n == "objects" then MAP.objects = i else MAP.drawn[#MAP.drawn + 1] = i end
+    end
     if #names < 8 then
       names[#names + 1] = "_ring"
       mlayers(names)
@@ -1496,6 +1502,12 @@ do
   else
     MAP.ring = 1
   end
+  -- the placeholder of a cell (its first: the top left of the tile), and the kind of the units of each sprite
+  MAP.kind_at = {}
+  for k, c in pairs(PLACE) do MAP.kind_at[c] = k end
+  MAP.KIND = { tree = "tree", tree2 = "tree", tree3 = "tree", bush = "bush", bush2 = "bush", barrel = "crates",
+               crate = "crates", crates = "crates", well = "well", bench = "bench", cage = "cage", coffin = "coffin",
+               coffin_up = "coffin", grave_cross = "grave", grave_broken = "grave", grave_round = "grave" }
 end
 
 -- the gate on the border between chunks (ax, ay) and (bx, by) (two areas): nil, sealed
@@ -1712,17 +1724,19 @@ local BRK = { kinds = { barrel = "barrel_broken", crate = "crate_broken", crates
                         bench = "bench_broken", coffin = "coffin_broken", coffin_up = "coffin_up_broken" },
               gone = {}, count = 0 }
 
--- objects: { s = sprite, x, y (the base, world pixels), z = sort key, ... }
+-- objects: { s = sprite, x, y (the base, world pixels), z = sort key, ... }; u: the unit being made (ch.unit,
+-- gen); key: what breaks is known by it (BRK.gone): its place among the chunk's objects, or BRK.key (a thing of
+-- the drawn map's)
 local function add_obj(ch, name, x, y, z, col)
   local s = SPR[name]
-  local o = { s = s, x = x, y = y, z = z or y, name = name }
+  local o = { s = s, x = x, y = y, z = z or y, name = name, u = ch.unit }
   ch.objs[#ch.objs + 1] = o
   if col then
     local c = { x = x, y = y + (col.dy or 0), rx = col[1], ry = col[2] }
     ch.cols[#ch.cols + 1] = c
     o.c = c
     if BRK.kinds[name] then
-      o.col, o.key = c, key2(ch.cx, ch.cy) * 512 + #ch.objs
+      o.col, o.key = c, BRK.key or key2(ch.cx, ch.cy) * 512 + #ch.objs
       if BRK.gone[o.key] then BRK.wreck(o) end
     end
   end
@@ -1731,7 +1745,7 @@ end
 
 local function add_light(ch, x, y, r, lv, fl, dither)
   ch.lights[#ch.lights + 1] = { x = x, y = y, r = r, lv = lv, fl = fl or 0, d = dither or 0.5,
-    seed = (x * 7 + y * 13) % 97 }
+    seed = (x * 7 + y * 13) % 97, u = ch.unit }
 end
 
 local function gen(ch)
@@ -1741,6 +1755,20 @@ local function gen(ch)
   local d = district(cx, cy)
   local r = newrng(hash(cx, cy, 11))
   local ne = near_edges(cx, cy)
+
+  -- the units: every house, tree, lamp, grave, thing made here (the placeholders of the drawn map's "objects"
+  -- layer: MAP.objects), its kind (art/places.py) and its tile in the chunk (lx, ly); what it adds carries it
+  -- (.u: objects, lights, fires, smokes, lamps)
+  ch.units = {}
+  local function unit(k, lx, ly)
+    local u = { k = k, lx = lx, ly = ly }
+    ch.units[#ch.units + 1] = u
+    ch.unit = u
+    return u
+  end
+  local function unit_at(k, x, y)                -- a unit at a point of the world: its tile
+    return unit(k, min(CS - 1, max(0, fdiv(x, TS) - tx0)), min(CS - 1, max(0, fdiv(y, TS) - ty0)))
+  end
 
   -- the streets over the chunk and one tile around it
   local road = {}
@@ -1791,6 +1819,8 @@ local function gen(ch)
   end
 
   local function building(x0, y0, w, h, mat, roof, big)
+    local u = unit(big and "chapel" or h == 7 and "house7" or "house8", x0, y0)
+    u.w, u.h = w, h
     local cells = {}
     for y = y0, y0 + h - 1 do
       for x = x0, x0 + w - 1 do
@@ -1833,18 +1863,19 @@ local function gen(ch)
       if fk == "door_lit" then add_light(ch, fx, fb - 6, 24, 3, 0, 0.7) end
     end
     local bottom = py0 + (y0 + h) * TS
-    local o = { bld = cells, x = px0 + x0 * TS, y = bottom, top = py0 + y0 * TS, w = w, h = h, z = bottom }
+    local o = { bld = cells, x = px0 + x0 * TS, y = bottom, top = py0 + y0 * TS, w = w, h = h, z = bottom, u = u }
     ch.objs[#ch.objs + 1] = o
     -- chimneys on the ridge, a pair at the ends or one in the middle, some smoking
     local n = big and 0 or irange(r, 0, 2)
     local at = n == 2 and { 0, w - 1 } or n == 1 and { door } or {}
     for _, i in ipairs(at) do
       local c = add_obj(ch, r() < 0.5 and "chimney" or "chimney1", wx(x0 + i), py0 + y0 * TS + 14, bottom + 0.5)
-      if r() < 0.45 then ch.smokes[#ch.smokes + 1] = { x = c.x, y = c.y - 30 } end
+      if r() < 0.45 then ch.smokes[#ch.smokes + 1] = { x = c.x, y = c.y - 30, u = u } end
     end
     if big then
       add_obj(ch, "spire", px0 + (x0 + w / 2) * TS, py0 + (y0 + 1) * TS + 6, bottom + 0.5)
     end
+    ch.unit = nil
   end
 
   local function place_buildings(big, lone)
@@ -1910,7 +1941,9 @@ local function gen(ch)
           for _, p in ipairs(list) do
             if r() < p[2] * m then
               take(lx, ly)
+              unit(MAP.KIND[p[1]], lx, ly)
               add_obj(ch, p[1], wx(lx) + irange(r, -3, 3), wy(ly) + irange(r, -2, 4), nil, p[3])
+              ch.unit = nil
               break
             end
           end
@@ -1948,9 +1981,11 @@ local function gen(ch)
         for yy = y, y + 3 do for xx = x, x + 4 do if not freecell(xx, yy, K_GRASS) then ok = false end end end
         if ok then
           for yy = y, y + 3 do for xx = x, x + 4 do take(xx, yy); solid[yy * CS + xx + 1] = yy >= y + 1 end end
+          unit("mausoleum", x + 2, y + 3)               -- (its tile: the middle of its front)
           add_obj(ch, "mausoleum", px0 + (x + 2.5) * TS, py0 + (y + 4) * TS - 2)
           add_light(ch, px0 + (x + 2.5) * TS, py0 + (y + 4) * TS + 4, 26, 3, 0.2)
           add_obj(ch, "candles2", px0 + (x + 1) * TS, py0 + (y + 4) * TS + 6)
+          ch.unit = nil
           break
         end
       end
@@ -1962,18 +1997,25 @@ local function gen(ch)
         if freecell(lx, ly, K_GRASS) and far and r() < (d.boss and 0.45 or 0.75) then
           take(lx, ly)
           local g = pick(r, GRAVES)
+          unit("grave", lx, ly)
           add_obj(ch, g, wx(lx), wy(ly) + 4, nil, { 7, 3 })
           if r() < 0.18 then
             add_obj(ch, r() < 0.5 and "candles" or "candles2", wx(lx) + 8, wy(ly) + 9)
             add_light(ch, wx(lx) + 8, wy(ly) + 6, 30, 4, 0.25, 0.8)
           end
+          ch.unit = nil
         end
       end
     end
     for k = 1, irange(r, 1, 2) do
       local lx, ly = irange(r, 1, 14), irange(r, 1, 14)
       if d.boss then lx, ly = k == 1 and 3 or 12, 12 end            -- (a statue at each side, to cover behind)
-      if freecell(lx, ly, K_GRASS) then take(lx, ly); add_obj(ch, "angel", wx(lx), wy(ly) + 6, nil, { 9, 5 }) end
+      if freecell(lx, ly, K_GRASS) then
+        take(lx, ly)
+        unit("angel", lx, ly)
+        add_obj(ch, "angel", wx(lx), wy(ly) + 6, nil, { 9, 5 })
+        ch.unit = nil
+      end
     end
     scatter({ { "tree3", 0.03, { 5, 3 } }, { "tree", 0.02, { 6, 3 } }, { "bush2", 0.02, { 8, 4 } } }, K_GRASS,
             d.boss and function(lx, ly) return (lx - 7.5) ^ 2 + (ly - 7.5) ^ 2 > 7 ^ 2 and grove(lx, ly) or 0 end or grove)
@@ -1989,9 +2031,13 @@ local function gen(ch)
           if d.boss then
             -- (the Father's arena has no railings: the ground is open from the street to the graves)
           elseif n or s then
+            unit("fence_h", lx, ly)
             add_obj(ch, "fence_x", wx(lx), py0 + ly * TS + (n and 3 or 15), nil, { 9, 3 })
+            ch.unit = nil
           elseif w or e then
+            unit("fence_v", lx, ly)
             add_obj(ch, "fence_y", px0 + lx * TS + (w and 2 or 14), wy(ly) + 8, nil, { 3, 9 })
+            ch.unit = nil
           end
         end
       end
@@ -2007,10 +2053,13 @@ local function gen(ch)
     end
     local cxp, cyp = px0 + 8 * TS, py0 + 8 * TS
     if r() < 0.5 then
+      unit("fountain", 8, 8)
       add_obj(ch, "fountain", cxp, cyp + 12, nil, { 34, 10 })
     else
+      unit("well", 8, 8)
       add_obj(ch, "well", cxp, cyp + 8, nil, { 12, 5 })
     end
+    ch.unit = nil
     for y = 6, 9 do for x = 5, 10 do take(x, y) end end
     for _, p in ipairs({ { 7, 4 }, { 9, 11 } }) do
       if freecell(p[1], p[2], K_PATH) then take(p[1], p[2]); ch.lampspots[#ch.lampspots + 1] = p end
@@ -2033,10 +2082,15 @@ local function gen(ch)
         return q < 0.45 and 0 or q < 0.8 and 0.4 or 1.4
       end
       if not d.boss then
+        local u = unit_at("brazier", cxp, cyp + 8)
         add_obj(ch, "brazier", cxp, cyp + 8, nil, { 8, 4 })
-        ch.fires[#ch.fires + 1] = { x = cxp, y = cyp - 17, w = 7, rate = 1.2 }
+        ch.fires[#ch.fires + 1] = { x = cxp, y = cyp - 17, w = 7, rate = 1.2, u = u }
         add_light(ch, cxp, cyp, 70, 6, 1.0)
-        for _, sx in ipairs({ -1, 1 }) do add_obj(ch, "bench", cxp + sx * 40, cyp + 10, nil, { 12, 3 }) end
+        for _, sx in ipairs({ -1, 1 }) do
+          unit_at("bench", cxp + sx * 40, cyp + 10)
+          add_obj(ch, "bench", cxp + sx * 40, cyp + 10, nil, { 12, 3 })
+        end
+        ch.unit = nil
       end
     else
       -- now and then something left among the trees
@@ -2046,7 +2100,9 @@ local function gen(ch)
           take(lx, ly)
           local nm = pick(r, { "grave_cross", "grave_broken", "grave_round", "well", "crates", "barrel", "cage", "coffin" })
           local cl = nm == "well" and { 12, 5 } or nm == "coffin" and { 14, 4 } or nm == "cage" and { 8, 4 } or { 7, 3 }
+          unit(MAP.KIND[nm], lx, ly)
           add_obj(ch, nm, wx(lx), wy(ly) + 4, nil, cl)
+          ch.unit = nil
         end
       end
     end
@@ -2060,28 +2116,37 @@ local function gen(ch)
   if kd == "square" then
     local cxp, cyp = px0 + 8 * TS, py0 + 8 * TS
     if r() < 0.6 or (cx == 0 and cy == 0) then
+      unit_at("fountain", cxp, cyp + 12)
       add_obj(ch, "fountain", cxp, cyp + 12, nil, { 34, 10 })
     else
+      unit_at("angel", cxp, cyp + 8)
       add_obj(ch, "angel", cxp, cyp + 8, nil, { 10, 5 })
     end
     -- a pair of braziers before it and a pair of benches behind, mirrored
     for _, sx in ipairs({ -1, 1 }) do
       local bx, by = cxp + sx * 44, cyp + 45
       if road_at((fdiv(bx, TS)), (fdiv(by, TS)), ne) > 0 then
+        local u = unit_at("brazier", bx, by)
         add_obj(ch, "brazier", bx, by, nil, { 8, 4 })
-        ch.fires[#ch.fires + 1] = { x = bx, y = by - 25, w = 7, rate = 1.2, big = false }
+        ch.fires[#ch.fires + 1] = { x = bx, y = by - 25, w = 7, rate = 1.2, big = false, u = u }
         add_light(ch, bx, by - 8, 62, 6, 1.0)
       end
     end
     if r() < 0.6 then
-      for _, sx in ipairs({ -1, 1 }) do add_obj(ch, "bench", cxp + sx * 48, cyp - 40, nil, { 12, 3 }) end
+      for _, sx in ipairs({ -1, 1 }) do
+        unit_at("bench", cxp + sx * 48, cyp - 40)
+        add_obj(ch, "bench", cxp + sx * 48, cyp - 40, nil, { 12, 3 })
+      end
     end
+    ch.unit = nil
   elseif kd == "pyre" then
     local cxp, cyp = px0 + 8 * TS, py0 + 8 * TS
+    local u = unit_at("pyre", cxp, cyp + 14)
     add_obj(ch, "pyre", cxp, cyp + 14, nil, { 16, 7 })
-    ch.fires[#ch.fires + 1] = { x = cxp, y = cyp + 4, w = 14, rate = 4.0, big = true }
+    ch.fires[#ch.fires + 1] = { x = cxp, y = cyp + 4, w = 14, rate = 4.0, big = true, u = u }
     add_light(ch, cxp, cyp + 4, 112, 7, 1.0, 0.6)
     add_light(ch, cxp, cyp, 72, 7, 1.0, 0.3)
+    ch.unit = nil
     local spots = {}
     local a0 = irange(r, 0, 5) * PI / 3 + PI / 6
     for k = 0, 5 do
@@ -2095,20 +2160,28 @@ local function gen(ch)
       if ok then
         spots[#spots + 1] = { ox, oy }
         local name = pick(r, { "coffin", "coffin", "coffin_up", "cage", "barrel" })
+        unit_at(MAP.KIND[name], ox, oy)
         add_obj(ch, name, ox, oy, nil, name == "coffin" and { 14, 4 } or { 8, 4 })
+        ch.unit = nil
       end
     end
   elseif kd == "chapel" then
     for k = -1, 1, 2 do
       local bx, by = px0 + (8 + k * 3.6) * TS, py0 + 13.6 * TS
       if road_at(fdiv(bx, TS), fdiv(by, TS), ne) > 0 then
+        local u = unit_at("brazier", bx, by)
         add_obj(ch, "brazier", bx, by, nil, { 8, 4 })
-        ch.fires[#ch.fires + 1] = { x = bx, y = by - 25, w = 7, rate = 1.2 }
+        ch.fires[#ch.fires + 1] = { x = bx, y = by - 25, w = 7, rate = 1.2, u = u }
         add_light(ch, bx, by - 8, 60, 6, 1.0)
+        ch.unit = nil
       end
     end
     local ax, ay = px0 + 8 * TS, py0 + 13.2 * TS
-    if road_at(fdiv(ax, TS), fdiv(ay, TS), ne) > 0 and not d.boss then add_obj(ch, "angel", ax, ay + 8, nil, { 9, 5 }) end
+    if road_at(fdiv(ax, TS), fdiv(ay, TS), ne) > 0 and not d.boss then
+      unit_at("angel", ax, ay + 8)
+      add_obj(ch, "angel", ax, ay + 8, nil, { 9, 5 })
+      ch.unit = nil
+    end
   end
 
   ------------------------------------------------- street furniture
@@ -2158,10 +2231,12 @@ local function gen(ch)
       take(p[1], p[2])
       local x, y = wx(p[1]), wy(p[2]) + 4
       local key = key2(tx0 + p[1], ty0 + p[2])
+      local u = unit("lamp", p[1], p[2])
       local o = add_obj(ch, "lamp", x, y, nil, { 4, 2 })
       o.lamp = key
       if lamp_state[key] == nil then lamp_state[key] = h01(tx0 + p[1], ty0 + p[2], 33) < 0.85 end
-      ch.lamps[#ch.lamps + 1] = { x = x, y = y, key = key }
+      ch.lamps[#ch.lamps + 1] = { x = x, y = y, key = key, u = u }
+      ch.unit = nil
     end
   end
   -- odds and ends on the pavements and in the street
@@ -2171,12 +2246,14 @@ local function gen(ch)
         local v = r()
         local below = ly > 0 and K(lx, ly - 1) == K_HOUSE
         if v < 0.012 and below then
-          take(lx, ly); add_obj(ch, pick(r, { "barrel", "crate", "crates" }), wx(lx), wy(ly), nil, { 6, 3 })
+          take(lx, ly); unit("crates", lx, ly)
+          add_obj(ch, pick(r, { "barrel", "crate", "crates" }), wx(lx), wy(ly), nil, { 6, 3 })
         elseif v < 0.016 and not d.wild then
-          take(lx, ly); add_obj(ch, "bollard", wx(lx), wy(ly) + 4, nil, { 3, 2 })
+          take(lx, ly); unit("bollard", lx, ly); add_obj(ch, "bollard", wx(lx), wy(ly) + 4, nil, { 3, 2 })
         elseif v < 0.022 then
-          take(lx, ly); add_obj(ch, "coffin_up", wx(lx), wy(ly), nil, { 7, 3 })
+          take(lx, ly); unit("coffin", lx, ly); add_obj(ch, "coffin_up", wx(lx), wy(ly), nil, { 7, 3 })
         end
+        ch.unit = nil
       end
     end
   end
@@ -2188,7 +2265,9 @@ local function gen(ch)
       for yy = ly - 1, ly + 1 do for xx = lx, lx + 3 do if not freecell(xx, yy, K_ROAD) then ok = false end end end
       if ok then
         for yy = ly - 1, ly + 1 do for xx = lx, lx + 3 do take(xx, yy) end end
+        unit("carriage", lx + 1, ly)
         add_obj(ch, "carriage", px0 + (lx + 1.6) * TS, wy(ly) + 4, nil, { 34, 6 })
+        ch.unit = nil
         break
       end
     end
@@ -2196,7 +2275,12 @@ local function gen(ch)
   if kd == "town" and r() < 0.1 then
     for t = 1, 12 do
       local lx, ly = irange(r, 0, CS - 1), irange(r, 0, CS - 1)
-      if freecell(lx, ly, K_ROAD) then take(lx, ly); add_obj(ch, "coffin", wx(lx), wy(ly) + 4, nil, { 14, 4 }); break end
+      if freecell(lx, ly, K_ROAD) then
+        take(lx, ly); unit("coffin", lx, ly)
+        add_obj(ch, "coffin", wx(lx), wy(ly) + 4, nil, { 14, 4 })
+        ch.unit = nil
+        break
+      end
     end
   end
 
@@ -2217,6 +2301,136 @@ local function gen(ch)
     for _, o in ipairs(ch.objs) do if not gone[o] then objs[#objs + 1] = o end end
     for _, c in ipairs(ch.cols) do if not gone[c] then cols[#cols + 1] = c end end
     ch.objs, ch.cols = objs, cols
+  end
+
+  ------------------------------------------------- the things of the drawn map
+  -- (its "objects" layer, MAP.objects: placeholders, art/places.py) What it holds is what stands here. A unit
+  -- made above stays if its placeholder is on its tile (a house: its corner, as tall, and as wide as the roof
+  -- tiles right of it), else it goes with all it brought (lights, fires, smokes, lamps, its collider, the ground
+  -- it made solid). A placeholder no unit took makes its thing there, its looks from its tile (as the plan
+  -- would make one). With the map mkmap.py makes from this plan every unit stays: the same town.
+  if MAP.objects and inside(cx, cy) then
+    local P = {}
+    for ly = 0, CS - 1 do
+      for lx = 0, CS - 1 do P[ly * CS + lx + 1] = MAP.kind_at[mget(2 * (tx0 + lx), 2 * (ty0 + ly), MAP.objects)] end
+    end
+    -- a house on the map: its corner (top left) says how tall, the roof tiles right of it how wide (the body
+    -- tiles under them are only to be seen); in the chunk
+    local function house_at(lx, ly)
+      local k = P[ly * CS + lx + 1]
+      local h = k == "house7" and 7 or (k == "house8" or k == "chapel") and 8 or nil
+      if not h or ly + h > CS then return nil end
+      local w = 1
+      while lx + w < CS and P[ly * CS + lx + w + 1] == "roof" do w = w + 1 end
+      return w, h
+    end
+    local alive, took, gone = {}, {}, false
+    for _, o in ipairs(ch.objs) do if o.u then alive[o.u] = true end end
+    for _, l in ipairs(ch.lights) do if l.u then alive[l.u] = true end end
+    for _, u in ipairs(ch.units) do
+      local i = u.ly * CS + u.lx + 1
+      local ok = alive[u] and not took[i] and P[i] == u.k
+      if ok and u.w then
+        local w, h = house_at(u.lx, u.ly)
+        ok = w == u.w and h == u.h
+      end
+      if ok then took[i] = true elseif alive[u] then u.gone, gone = true, true end
+    end
+    if gone then
+      local function left(list)
+        local out = {}
+        for _, e in ipairs(list) do if not (e.u and e.u.gone) then out[#out + 1] = e end end
+        return out
+      end
+      local dead = {}
+      for _, o in ipairs(ch.objs) do if o.u and o.u.gone and o.c then dead[o.c] = true end end
+      local cols = {}
+      for _, c in ipairs(ch.cols) do if not dead[c] then cols[#cols + 1] = c end end
+      ch.objs, ch.cols, ch.lights, ch.fires, ch.smokes, ch.lamps =
+        left(ch.objs), cols, left(ch.lights), left(ch.fires), left(ch.smokes), left(ch.lamps)
+      -- the ground a house or a mausoleum gone made solid: walkable again (a yard)
+      for _, u in ipairs(ch.units) do
+        if u.gone and u.w then
+          for y = u.ly, u.ly + u.h - 1 do
+            for x = u.lx, u.lx + u.w - 1 do kind[y * CS + x + 1], solid[y * CS + x + 1] = K_YARD, false end
+          end
+        elseif u.gone and u.k == "mausoleum" then
+          for y = u.ly - 2, u.ly do for x = u.lx - 2, u.lx + 2 do solid[y * CS + x + 1] = false end end
+        end
+      end
+    end
+    -- the placeholders no unit took: their things, each from its own numbers (not the plan's)
+    local function make(k, lx, ly)
+      local x, y = wx(lx), wy(ly)
+      if k == "house7" or k == "house8" or k == "chapel" then
+        local w, h = house_at(lx, ly)
+        if w and k == "chapel" then building(lx, ly, w, h, "dark", "lead", true)
+        elseif w then building(lx, ly, w, h, pick(r, FMATS), pick(r, RMATS)) end
+        return
+      end
+      local u = unit(k, lx, ly)
+      take(lx, ly)
+      if k == "tree" or k == "bush" or k == "crates" then
+        local n = pick(r, k == "tree" and { "tree", "tree2", "tree3" } or k == "bush" and { "bush", "bush2" }
+                          or { "barrel", "crate", "crates" })
+        add_obj(ch, n, x + irange(r, -3, 3), y + irange(r, -2, 4), nil,
+                (n == "tree" or n == "barrel" or n == "crate" or n == "crates") and { 6, 3 } or n == "bush" and { 9, 4 }
+                or n == "bush2" and { 8, 4 } or { 5, 3 })
+      elseif k == "lamp" then
+        local key = key2(tx0 + lx, ty0 + ly)
+        local o = add_obj(ch, "lamp", x, y + 4, nil, { 4, 2 })
+        o.lamp = key
+        if lamp_state[key] == nil then lamp_state[key] = h01(tx0 + lx, ty0 + ly, 33) < 0.85 end
+        ch.lamps[#ch.lamps + 1] = { x = x, y = y + 4, key = key, u = u }
+      elseif k == "grave" then
+        add_obj(ch, pick(r, GRAVES), x, y + 4, nil, { 7, 3 })
+        if r() < 0.18 then
+          add_obj(ch, r() < 0.5 and "candles" or "candles2", x + 8, y + 9)
+          add_light(ch, x + 8, y + 6, 30, 4, 0.25, 0.8)
+        end
+      elseif k == "mausoleum" then                 -- (its tile: the middle of its front, as above)
+        local mx, my = px0 + (lx + 0.5) * TS, py0 + (ly + 1) * TS
+        add_obj(ch, "mausoleum", mx, my - 2)
+        add_light(ch, mx, my + 4, 26, 3, 0.2)
+        add_obj(ch, "candles2", px0 + (lx - 1) * TS, my + 6)
+        for yy = max(0, ly - 2), ly do
+          for xx = max(0, lx - 2), min(CS - 1, lx + 2) do solid[yy * CS + xx + 1] = true end
+        end
+      elseif k == "brazier" then
+        add_obj(ch, "brazier", x, y + 4, nil, { 8, 4 })
+        ch.fires[#ch.fires + 1] = { x = x, y = y - 21, w = 7, rate = 1.2, u = u }
+        add_light(ch, x, y - 4, 62, 6, 1.0)
+      elseif k == "pyre" then
+        local bx, by = px0 + lx * TS, py0 + ly * TS + 14
+        add_obj(ch, "pyre", bx, by, nil, { 16, 7 })
+        ch.fires[#ch.fires + 1] = { x = bx, y = by - 10, w = 14, rate = 4.0, big = true, u = u }
+        add_light(ch, bx, by - 10, 112, 7, 1.0, 0.6)
+        add_light(ch, bx, by - 14, 72, 7, 1.0, 0.3)
+      elseif k == "coffin" then
+        if r() < 0.5 then add_obj(ch, "coffin", x, y + 4, nil, { 14, 4 }) else add_obj(ch, "coffin_up", x, y, nil, { 7, 3 }) end
+      elseif k == "angel" then add_obj(ch, "angel", x, y + 6, nil, { 9, 5 })
+      elseif k == "fence_h" then add_obj(ch, "fence_x", x, py0 + ly * TS + 15, nil, { 9, 3 })
+      elseif k == "fence_v" then add_obj(ch, "fence_y", px0 + lx * TS + 2, y + 8, nil, { 3, 9 })
+      elseif k == "fountain" then add_obj(ch, "fountain", px0 + lx * TS, py0 + ly * TS + 12, nil, { 34, 10 })
+      elseif k == "well" then add_obj(ch, "well", x, y + 4, nil, { 12, 5 })
+      elseif k == "bench" then add_obj(ch, "bench", x, y + 2, nil, { 12, 3 })
+      elseif k == "cage" then add_obj(ch, "cage", x, y + 4, nil, { 8, 4 })
+      elseif k == "bollard" then add_obj(ch, "bollard", x, y + 4, nil, { 3, 2 })
+      elseif k == "carriage" then add_obj(ch, "carriage", px0 + (lx + 0.6) * TS, y + 4, nil, { 34, 6 })
+      end
+    end
+    local plan_r = r
+    for ly = 0, CS - 1 do
+      for lx = 0, CS - 1 do
+        local i = ly * CS + lx + 1
+        if P[i] and P[i] ~= "body" and P[i] ~= "roof" and not took[i] then
+          r, BRK.key = newrng(hash(tx0 + lx, ty0 + ly, 71)), -(key2(cx, cy) * 512 + i)
+          make(P[i], lx, ly)
+          BRK.key, ch.unit = nil, nil
+        end
+      end
+    end
+    r = plan_r
   end
 
   ------------------------------------------------- the ground, overlays
@@ -4733,7 +4947,7 @@ do
     local n = MAP.size * CS - 1
     local ax, ay, bx, by = max(tx0, 0), max(ty0, 0), min(tx1, n), min(ty1, n)
     if ax <= bx and ay <= by then
-      for l = 1, MAP.drawn do map(ax * 2, ay * 2, ax * TS, ay * TS, (bx - ax + 1) * 2, (by - ay + 1) * 2, l) end
+      for _, l in ipairs(MAP.drawn) do map(ax * 2, ay * 2, ax * TS, ay * TS, (bx - ax + 1) * 2, (by - ay + 1) * 2, l) end
     end
     -- beyond its edge, behind the mist: the ground of the chunks there, as without a drawn map
     if ty0 < 0 then ring(tx0, ty0, tx1, min(ty1, -1)) end

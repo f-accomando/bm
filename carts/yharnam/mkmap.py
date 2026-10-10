@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Yharnam's drawn map: carts/yharnam/map_ground.csv and map_overlay.csv, the cartridge's two map layers
-(`layers_yharnam` in the Makefile; 256 x 256 cells of 8 x 8, the whole hunt: 8 x 8 chunks of 16 x 16 tiles of
-2 x 2 cells). "ground" is the ground, "overlay" what lies on it (kerbs, grass edges, puddles, leaves). The game
-draws them instead of making the ground (MAP.drawn in main.lua); houses, trees, lamps, creatures, gates and
-bosses are still made by the code.
+"""Yharnam's drawn map: carts/yharnam/map_ground.csv, map_overlay.csv and map_objects.csv, the cartridge's
+map layers (`layers_yharnam` in the Makefile; 256 x 256 cells of 8 x 8, the whole hunt: 8 x 8 chunks of 16 x 16
+tiles of 2 x 2 cells). "ground" is the ground, "overlay" what lies on it (kerbs, grass edges, puddles, leaves):
+the game draws them (MAP.drawn in main.lua). "objects" is not drawn: its placeholders (art/places.py, a 16x16
+tile each) say where the houses, trees, lamps, graves and things stand, and the game makes them there
+(MAP.objects). The hunter's lamps, the barricades and their gates, the bosses, the creatures and the areas are
+still the code's (MAP in main.lua).
 
     python3 carts/yharnam/mkmap.py [--luahost build/host/luahost]
         the map made from the street plan of main.lua (the first one, or to start again):
         tests/yharnam/mapgen.lua in luahost (make build/host/luahost)
     python3 carts/yharnam/mkmap.py --from /mnt/d/carts/YHARNAM.BME
         the map of a project (or a game) saved on the console: the SDK's map page, then Ctrl+S
-    python3 carts/yharnam/mkmap.py --png map.png [--scale 0.5]
-        a picture of the map (with sheet.png; needs Pillow and numpy)
+    python3 carts/yharnam/mkmap.py --png map.png [--scale 0.5] [--no-objects]
+        a picture of the map (with sheet.png, the placeholders over it; needs Pillow and numpy)
 
 --out DIR writes the CSV files elsewhere (default: this folder). The map's other layers, if the SDK added
 some, are written as map_<name>.csv too: the build takes them once their names are in `layers_yharnam`.
@@ -24,7 +26,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 SIZE = 256                                   # cells a side: MAP.size * CS * 2 (main.lua)
-LAYERS = ("ground", "overlay")
+LAYERS = ("ground", "overlay", "objects")
 
 
 def write_csv(path, name, w, cells, what):
@@ -45,16 +47,19 @@ def take(src, out):
     w, h, _ = bmres.map_get(f)
     layers = [(n, c) for n, c in bmres.layers_get(f) if not n.startswith("_")]
     names = [n for n, _ in layers]
-    if (w, h) != (SIZE, SIZE) or names[:2] != list(LAYERS):
+    if (w, h) != (SIZE, SIZE) or names[:2] != list(LAYERS[:2]):
         raise SystemExit(f"{src}: a {w}x{h} map with the layers {names}, not Yharnam's ({SIZE}x{SIZE}: "
-                         f"{', '.join(LAYERS)} first)")
+                         f"{', '.join(LAYERS[:2])} first)")
     for name, cells in layers:
         path = os.path.join(out, f"map_{name}.csv")
         write_csv(path, name, w, cells, "the ground" if name == "ground" else
                   "what lies on the ground (kerbs, grass edges, puddles, leaves)" if name == "overlay" else
-                  "a layer added in the SDK, drawn over the others")
+                  "where the houses, trees, lamps, graves and things stand (placeholders, not drawn)"
+                  if name == "objects" else "a layer added in the SDK, drawn over the others")
         print(path)
-    extra = names[2:]
+    if "objects" not in names:
+        print("no objects layer: the game would make the plan's things (keep map_objects.csv as it is)")
+    extra = [n for n in names if n not in LAYERS]
     if extra:
         print("more layers than the build takes: add " + " ".join(extra) + " to layers_yharnam in the Makefile")
 
@@ -72,14 +77,14 @@ def read_csv(path):
     return rows
 
 
-def picture(out_png, scale, src_dir):
+def picture(out_png, scale, src_dir, objects=True):
     import numpy as np
     from PIL import Image
     sheet = np.asarray(Image.open(os.path.join(HERE, "sheet.png")).convert("RGBA"))
     per = sheet.shape[1] // 8
     img = np.zeros((SIZE * 8, SIZE * 8, 4), np.uint8)
     img[..., 3] = 255
-    for name in LAYERS:
+    for name in LAYERS if objects else LAYERS[:2]:
         cells = np.array(read_csv(os.path.join(src_dir, f"map_{name}.csv")), np.int64)
         used = np.unique(cells[cells > 0])
         for n in used:
@@ -102,10 +107,11 @@ def main():
     ap.add_argument("--luahost", default=os.path.join(ROOT, "build", "host", "luahost"))
     ap.add_argument("--png", help="a picture of the map instead")
     ap.add_argument("--scale", type=float, default=0.5)
+    ap.add_argument("--no-objects", action="store_true", help="the picture without the placeholders")
     ap.add_argument("--out", default=HERE, help="the folder of the CSV files (default: carts/yharnam)")
     a = ap.parse_args()
     if a.png:
-        picture(a.png, a.scale, a.out)
+        picture(a.png, a.scale, a.out, not a.no_objects)
     elif a.src:
         take(a.src, a.out)
     else:
