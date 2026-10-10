@@ -156,16 +156,21 @@ def main():
     check("overbit hero You kaiju" in log, "match: Kaiju chosen in the spawn room", log)
     check("overbit point open" in log, "match: the point opens", log)
 
-    # no graphics options in the title; the calibration (BENCHMARK, or the
-    # flags): the first step of the ladder that holds 60 fps is saved on the
-    # SD card and is the default of the next start. On the ARM (bmhost has no
-    # GPU) the ladder is 640x360 only.
+    # the calibration (BENCHMARK, or the flags): it climbs the scale from the
+    # lightest step, each with the ARM and the GPU, and saves the heaviest
+    # that holds 60 fps (else 30) on the SD card: the default of the next
+    # start. On the ARM (bmhost has no GPU) the scale is 640x360 only; the
+    # PC's virtual clock holds 60 fps everywhere: the top, EXTREME.
     sd = os.path.join(build, "overbit", "test-cal-sd")
     shutil.rmtree(sd, ignore_errors=True)
     os.makedirs(sd)
     code, log = run(build, os.path.join(build, "overbit", "bench-cal.bm"), 60, "", "cal", "bmhost-bin", ["--sd", sd])
     check(code == 0 and "stopped with an error" not in log and "overbit bench done" in log, "calibration: runs to the end", log)
-    check("calibration" in log and "overbit default 640x360 quality" in log, "calibration: the default saved (640x360 on the ARM)", log)
+    climb = re.findall(r"overbit bench (\S+) (\d+x\d+) (\w+): ", log)
+    check(climb == [("ARM", "640x360", q) for q in ("LOW", "MEDIUM", "HIGH", "ULTRA", "EXTREME")],
+          "calibration: up from the lightest step (640x360 LOW to EXTREME, the ARM)", log)
+    check("overbit default 640x360 quality 4 arm" in log and "climb end: the end of the scale" in log,
+          "calibration: the heaviest that holds 60 fps saved, with its renderer", log)
     check("bm: screen 480x270" not in log.split("overbit bench done")[-1], "calibration: the screen is not put back over the default", log)
     code, log = run(build, cart, 1, "", "cal-again", "bmhost-bin", ["--sd", sd])
     check("overbit screen 640x360" in log and "bm: screen 640x360" in log, "calibration: the default is set again at the start", log)
@@ -176,6 +181,89 @@ def main():
     check(code == 0 and "stopped with an error" not in log and "bm: screen 1920x1080" in log,
           "resolution: the range at 1920x1080 on the GPU", log)
     check("the 3D is drawn by the ARM from here" not in log, "resolution: 1920x1080 without falling back to the ARM", log)
+
+    # the calibration's choices, with frame times given by the test
+    # (OVERBIT_BENCH_FAKE) on the GPU's emulator, nothing drawn (the times are
+    # given; the emulated V3D at 1080p would take minutes): the ARM and the
+    # GPU climb until each falls under 30 fps; the heaviest step that holds
+    # 60 wins (the GPU at 1080p LOW), or, if none does, the heaviest at 30
+    def variant(name, defines, res="480x270"):
+        lua = os.path.join(build, "overbit", f"{name}.lua")
+        bm = os.path.join(build, "overbit", f"{name}.bm")
+        d = []
+        for v in defines:
+            d += ["--define", v]
+        subprocess.run([sys.executable, os.path.join(ROOT, "carts", "overbit", "build.py"), lua, "--start", "bench",
+                        "--extra", os.path.join(build, "overbit", "21_map.lua")] + d, check=True)
+        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "mkbm.py"), "-o", bm, "--lua", lua, "--title",
+                        "Overbit", "--author", "bm", "--res", res, "--models", os.path.join(build, "overbit", "models.bm"),
+                        "--audio", os.path.join(build, "overbit", "sounds.json")], check=True, stdout=subprocess.DEVNULL)
+        return bm
+
+    # (and with 8 s phases the time: no phase ends after about 60 s)
+    FAKES = {
+        "fake60": ('function(r, w, h, q) if r ~= "arm" then if w * h > 640 * 360 then return ({ 14, 20, 36, 40 })[q] end '
+                   'return 8 + q end return ({ [0] = 10, 14, 25, 40, 45 })[q] end',
+                   [("ARM", "640x360 ULTRA"), ("GPU+VS", "1920x1080 ULTRA")], "every renderer under 30 fps",
+                   "overbit default 1920x1080 quality 1 vs", "holds 60 fps", 12, 1),
+        "fake30": ('function(r, w, h, q) if r ~= "arm" then if w * h > 640 * 360 then return 23 + 2 * q end '
+                   'return 20 + q end return 25 + 5 * q end',
+                   [("ARM", "640x360 HIGH")], "the end of the scale",
+                   "overbit default 1920x1080 quality 4 vs 30 fps", "holds 30 fps (nothing held 60)", 12, 1),
+        "faketime": ('function(r, w, h, q) return 10 end', [], "time (",
+                     "overbit default 640x360 quality 3 vs", "holds 60 fps", 7, 8),
+    }
+    for name, (fake, stops, why, default, how, nphases, secs) in FAKES.items():
+        bm = variant("bench-" + name, [f'OVERBIT_BENCH_FLAGS="auto/secs:{secs}"', "OVERBIT_HEADLESS=true",
+                                       "OVERBIT_BENCH_FAKE=" + fake])
+        sdf = os.path.join(build, "overbit", f"test-{name}-sd")
+        shutil.rmtree(sdf, ignore_errors=True)
+        os.makedirs(sdf)
+        code, log = run(build, bm, 75, "", name, "bmhost-gpu", ["--sd", sdf])
+        check(code == 0 and "stopped with an error" not in log and "overbit bench done" in log, f"{name}: runs to the end", log)
+        got = re.findall(r"overbit bench stop (\S+) at (\d+x\d+ \w+): under 30 fps", log)
+        check(got == stops, f"{name}: each renderer stops at its first step under 30 fps ({got})", log)
+        phases = re.findall(r"overbit bench \S+ \d+x\d+ \w+ match (\d+)", log)
+        check(len(phases) == nphases and len(set(phases)) == 1, f"{name}: {len(phases)} phases, the same match", log)
+        check("climb end: " + why in log, f"{name}: the climb ends ({why})", log)
+        check(default in log and how in log, f"{name}: the default saved ({default[16:]})", log)
+        done = re.search(r"overbit bench done in (\d+) s", log)
+        check(done and int(done.group(1)) <= 62, f"{name}: done within about 60 s ({done and done.group(1)} s)", log)
+
+    # the RGB30's screens (bmhost --square): 360x360, then 720x720, both for
+    # the ARM; the calibration climbs to 720x720 EXTREME and the next start
+    # takes it again
+    sq = variant("bench-cal-sq", ['OVERBIT_BENCH_FLAGS="auto"'], "360x360")
+    sds = os.path.join(build, "overbit", "test-sq-sd")
+    shutil.rmtree(sds, ignore_errors=True)
+    os.makedirs(sds)
+    code, log = run(build, sq, 60, "", "cal-sq", "bmhost-bin", ["--sd", sds, "--square"])
+    climb = re.findall(r"overbit bench (\S+) (\d+x\d+) (\w+): ", log)
+    want = [("ARM", "360x360", q) for q in ("LOW", "MEDIUM", "HIGH", "ULTRA", "EXTREME")] + \
+           [("ARM", "720x720", q) for q in ("MEDIUM", "HIGH", "ULTRA", "EXTREME")]
+    check(code == 0 and "stopped with an error" not in log and climb == want,
+          "square: the calibration climbs 360x360 LOW..EXTREME, then 720x720 MEDIUM..EXTREME", log)
+    check("overbit default 720x720 quality 4 arm" in log, "square: 720x720 EXTREME saved", log)
+    b16 = os.path.join(build, "carts", "overbit.b16")
+    if os.path.exists(b16):
+        code, log = run(build, b16, 1, "", "b16-sq-again", "bmhost-bin", ["--sd", sds, "--square"])
+        check(code == 0 and "overbit screen 720x720 arm" in log, "square: the .b16 starts at the saved 720x720", log)
+        # the title's RESOLUTION (down five rows, right): 360x360, saved
+        menu = "".join(f"{f} keys {keys('DOWN')}\n{f + 2} keys none\n" for f in (20, 24, 28, 32, 36))
+        menu += f"44 keys {keys('RIGHT')}\n46 keys none\n"
+        code, log = run(build, b16, 2, menu, "b16-menu", "bmhost-bin", ["--sd", sds, "--square"])
+        check(code == 0 and "stopped with an error" not in log and "overbit default 360x360" in log
+              and "bm: screen 360x360" in log, "square: RESOLUTION in the title chooses 360x360", log)
+        # the .b16 on the Pi's TV (bmhost-gpu): its 360x360 page left for a
+        # whole 16:9 one, the GPU as Settings say, 1080p
+        code, log = run(build, b16, 2, "", "b16-tv", "bmhost-gpu")
+        check(code == 0 and "stopped with an error" not in log and "bm: screen 640x360" in log
+              and "overbit screen 1920x1080" in log and "bm: screen 1920x1080" in log,
+              "b16 on a TV: from its square page to 640x360, then 1080p on the GPU", log)
+        check("the 3D is drawn by the GPU" in log and "the 3D is drawn by the ARM from here" not in log,
+              "b16 on a TV: the GPU starts once the page is whole", log)
+    else:
+        check(False, f"{b16}: missing (make {b16})")
 
     # a whole match with quick rules: the bots fight over the point until a
     # team wins two rounds

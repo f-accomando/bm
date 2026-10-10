@@ -30,6 +30,11 @@
 #   r  release              a new version on GitHub (scripts/release.sh --no-sd:
 #                           the tag, the CI tests it and publishes it); the
 #                           consoles take it from Settings > Updates
+#   o  older release        an older release on the card (also: rollback [vX.Y.Z]):
+#                           the signed manifest checked with keys/release-pub.pem,
+#                           every file downloaded and checked (size, SHA-256) before
+#                           the card is touched, the old kernels in bm/backup, the
+#                           card's own kernel last
 #   m  market               the project's games in the bm Market (scripts/market.sh):
 #                           the first time also the key, the secret, the public
 #                           key on bm-core and GitHub Pages; the market's clone
@@ -38,14 +43,15 @@
 #   p  paths               the repository's folder, the card's drive letter
 # The same as an argument: ./easy_install.sh kernel | install | image | net [profile]
 # | bench [FLAGS] [profile] (the Overbit benchmark on a console, see below) | send FILE [profile] | monitor [profile] | line "gpu; b3d; send" [profile] (a monitor
-# line run, its output shown: bm_net.py --line) | config [profile] | config-sd | release [vX.Y.Z]
+# line run, its output shown: bm_net.py --line) | config [profile] | config-sd | release [vX.Y.Z] | rollback [vX.Y.Z]
 # | market.
 # bench: Overbit's benchmark (about a minute) on a console, its report sent to the reports'
-# branch: ./easy_install.sh bench              the calibration (the best screen and quality at
-#                                              60 fps, saved as the game's default)
+# branch: ./easy_install.sh bench              the calibration (up the scale from the lightest
+#                                              step, ARM and GPU, at most ~60 s: the heaviest at
+#                                              60 fps, else at 30, saved with its renderer)
 #                 ./easy_install.sh bench "res:1080+640/gpu:vs+gpu/q:4+3/secs:4/ring:1"
-#                                              every combination (res: 1080 640; gpu: arm gpu aa gq
-#                                              vs1 vs q; q 0..4; secs, warm, ring, save:1, stay:1)
+#                                              every combination (res: 1080 640 360 720; gpu: arm gpu
+#                                              aa gq vs1 vs q; q 0..4; secs, warm, ring, save:1, stay:1)
 # It is "set overbit_bench=FLAGS; play overbit; send" as a monitor line (bm_net.py --line).
 # sudo is asked for when needed (packages, mounting the card); the card is
 # mounted, synced and unmounted (and ejected) by the script. At the end:
@@ -805,6 +811,77 @@ job_release() {
     exit 0
 }
 
+# an older release on the card: the signed manifest of a release on GitHub
+# (the same files the consoles' Settings > Updates fetch: manifest.txt +
+# manifest.sig, checked with keys/release-pub.pem), every file downloaded and
+# checked (size, SHA-256) BEFORE the card is touched; then the other files, the
+# old kernels in bm/backup, the card's own kernel last
+job_rollback() {
+    local v=${1:-} rel=${BM_RELEASES:-https://github.com/f-accomando/bm} man=manifest base tmp i
+    local -a tags=()
+    command -v openssl >/dev/null && command -v curl >/dev/null || die "openssl and curl are needed"
+    [ -f keys/release-pub.pem ] || die "keys/release-pub.pem is missing: the signature cannot be checked"
+    say "An older release on the card"
+    mount_sd
+    local kimg=kernel.img
+    if rgb30_card; then kimg=kernel8.img; man=manifest-rgb30; fi
+    if [ -z "$v" ]; then
+        mapfile -t tags < <(git ls-remote --tags --refs "$rel" 'v*' 2>/dev/null | sed 's|.*refs/tags/||' | sort -Vr)
+        [ ${#tags[@]} -gt 0 ] || die "no release found at $rel"
+        echo "  now on the card: $(kernel_version "$SD/$kimg")"
+        for i in "${!tags[@]}"; do printf '  %2d  %s\n' $((i + 1)) "${tags[$i]}"; done
+        read -r -p "Which release (number or vX.Y.Z, empty to stop): " v || v=
+        [ -n "$v" ] || return 0
+        if [[ $v =~ ^[0-9]+$ ]] && [ "$v" -ge 1 ] && [ "$v" -le ${#tags[@]} ]; then v=${tags[$((v - 1))]}; fi
+    fi
+    [[ $v =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "a version is vX.Y.Z (e.g. v0.1.0)"
+    base=$rel/releases/download/$v
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' RETURN
+    curl -fsSL "$base/$man.txt" -o "$tmp/$man.txt" && curl -fsSL "$base/$man.sig" -o "$tmp/$man.sig" \
+        || die "$v has no $man.txt/.sig on GitHub (a release from before this card's board?)"
+    openssl dgst -sha256 -verify keys/release-pub.pem -signature "$tmp/$man.sig" "$tmp/$man.txt" 2>/dev/null \
+        | grep -q 'Verified OK' || die "the signature of $v does not match keys/release-pub.pem: nothing written"
+    ok "$v: manifest signed, good"
+    local kind name path size sha got
+    local -a names=() paths=()
+    while read -r kind name path size sha _; do
+        [ "$kind" = file ] || continue
+        [[ $name =~ ^[A-Za-z0-9._-]+$ && $path == /* && $path != *..* && $size =~ ^[0-9]+$ && $sha =~ ^[0-9a-f]{64}$ ]] \
+            || die "the manifest has a bad line for ${name:-?}: nothing written"
+        curl -fsSL "$base/$name" -o "$tmp/$name" || die "$name: download failed: nothing written"
+        got=$(stat -c %s "$tmp/$name")
+        [ "$got" = "$size" ] && [ "$(sha256sum "$tmp/$name" | cut -d' ' -f1)" = "$sha" ] \
+            || die "$name: not the file of the manifest (size or SHA-256): nothing written"
+        names+=("$name"); paths+=("$path")
+    done < "$tmp/$man.txt"
+    [ ${#names[@]} -gt 0 ] || die "the manifest of $v has no files"
+    ok "all ${#names[@]} files downloaded and checked"
+    looks_like_bm || ask "$SD does not look like bm's card: write $v on it anyway?" || die "stopped"
+    ask "Write $v on the card ($SD)? The old kernels stay in bm/backup." y || { warn "stopped, nothing written"; return 0; }
+    local old pass
+    old=$(kernel_version "$SD/$kimg")
+    for pass in rest kernels card; do               # the card's own kernel last
+        for i in "${!names[@]}"; do
+            name=${names[$i]} path=${paths[$i]}
+            case $pass in
+                rest)    [[ $name == kernel*.img ]] && continue ;;
+                kernels) [[ $name == kernel*.img && $name != "$kimg" ]] || continue ;;
+                card)    [ "$name" = "$kimg" ] || continue ;;
+            esac
+            if [[ $name == kernel*.img && -f "$SD$path" ]]; then
+                mkdir -p "$SD/bm/backup"
+                cp "$SD$path" "$SD/bm/backup/$name"
+            fi
+            mkdir -p "$(dirname "$SD$path")"
+            cp "$tmp/$name" "$SD$path"
+            sync
+            cmp -s "$tmp/$name" "$SD$path" || die "$name on the card is not the downloaded one: try again"
+        done
+    done
+    finish rollback "$old" "$(kernel_version "$SD/$kimg")"
+}
+
 # the bm Market: scripts/market.sh sets it up the first time (the key, the
 # secret, GitHub Pages) and puts the project's games in it, every time
 job_market() {
@@ -1043,10 +1120,11 @@ case ${1:-} in
     config) job_config "${2:-}"; exit 0 ;;
     config-sd) job_config_sd; exit 0 ;;
     release) job_release "${2:-}"; exit 0 ;;
+    rollback) job_rollback "${2:-}" ;;
     market) job_market; exit 0 ;;
     "") ;;
     *) die "unknown: $1 (kernel, install, image, net [profile], bench [FLAGS] [profile], send FILE [profile], monitor [profile], \
-line \"LINE\" [profile], config [profile], config-sd, release [vX.Y.Z], market, or nothing for the menu)" ;;
+line \"LINE\" [profile], config [profile], config-sd, release [vX.Y.Z], rollback [vX.Y.Z], market, or nothing for the menu)" ;;
 esac
 
 while :; do
@@ -1061,6 +1139,7 @@ while :; do
   7  [NET] config          (a console's bm/config.txt: shown, keys set or removed)
   8   [SD] config          (bm/config.txt on the card in the reader)
   r  release               (a new version on GitHub: release.sh --no-sd; the consoles update)
+  o  older release         (an older signed release on the card: checked first, old kernels in bm/backup)
   m  market                (the games in the bm Market: market.sh; the first time its setup)
   b  branch                (now $BRANCH: change it or update it)
   p  paths                 (repository folder, SD card letter)
@@ -1077,10 +1156,11 @@ MENU
         7) job_config ;;
         8) job_config_sd ;;
         r|R) job_release ;;
+        o|O) job_rollback ;;
         m|M) job_market ;;
         b|B) change_branch; BRANCH=$(git rev-parse --abbrev-ref HEAD); echo "  branch      $(branch_line)" ;;
         p|P) change_paths ;;
         q|Q|"") exit 0 ;;
-        *) warn "1 to 8, r, m, b, p or q" ;;
+        *) warn "1 to 8, r, o, m, b, p or q" ;;
     esac
 done

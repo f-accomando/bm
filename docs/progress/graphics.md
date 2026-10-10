@@ -14,8 +14,9 @@ bm uses direct framebuffers requested from the Raspberry Pi VideoCore GPU via pr
 * **Direct 1080p Mode**: When running with hardware 3D (`gpu3d=1`), cartridges can render directly to native 1920×1080 without software upscaling.
 * **Alternative Aspect Ratios**:
   * `320×180`: Low-resolution mode for retro pixel aesthetics.
-  * `480×270`: Intermediate widescreen format used by *Overbit*.
+  * `480×270`: Intermediate widescreen format used by *Overbit*'s `.bm`.
   * `256×256`: Centered square viewport with black letterbox pillars, utilized by *Yharnam* and `.p8` carts.
+  * `360×360` / `720×720` (the `.b16` sizes, 2026-10-10): on the RGB30's square panel `screen()` offers exactly these two, shown whole (360 at ×2). A square cartridge may switch to the 16:9 modes on the Pi; the GPU, which cannot draw a boxed square page, then starts as Settings say. *Overbit*'s single `overbit.b16` (360×360 header) uses this: RESOLUTION and RENDERER (ARM / GPU) in its title, and a BENCHMARK that climbs from the lightest step (smallest screen, LOW) to the heaviest, stops each renderer at its first step under 30 fps or after ~60 s, and saves the heaviest step holding 60 fps (else 30) with its renderer (`carts/overbit/src/84_bench.lua`, `85_quality.lua`).
 * **Double Buffering**: Configured by allocating a virtual framebuffer twice the physical height. Swapping front and back buffers is performed by changing the virtual Y offset via mailbox tag `0x00048009` (`SET_VIRTUAL_OFFSET`), fully synchronized with the 60 Hz frame cycle to eliminate screen tearing.
 * **Bandwidth Optimization**: The 16-bit RGB565 format halves frame traffic compared to 32-bit RGBA (0.46 MB per frame vs 0.92 MB), fitting within the tight memory bandwidth limits of the BCM2835 (~100 MB/s memcpy, ~430 MB/s fill).
 

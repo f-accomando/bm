@@ -4585,15 +4585,16 @@ function _update()
     local n = #PATHS + 2
     if btnp(2) then menu.i = (menu.i - 2) % n + 1 end
     if btnp(3) then menu.i = menu.i % n + 1 end
-    if btnp(5) or (btnp(4) and menu.i == n) then
+    -- the menus answer to the system's yes and back ("ok" / "back": on the RGB30 B and A)
+    if btnp("back") or (btnp("ok") and menu.i == n) then
       state = "play"
-    elseif btnp(4) and menu.i == 1 then
+    elseif btnp("ok") and menu.i == 1 then
       -- rest: whole again, and the town fills again
       FOE.reset()
       P.hp, P.st, P.rally = P.hpmax, P.stmax, 0
       state = "play"
       note(1, 392, 500, TRIANGLE, 60); note(2, 523, 500, TRIANGLE, 40)
-    elseif btnp(4) then
+    elseif btnp("ok") then
       local k = #G.slots + 1
       if k <= #SLOT_COST and G.echoes >= SLOT_COST[k] then
         G.echoes = G.echoes - SLOT_COST[k]
@@ -4614,15 +4615,15 @@ function _update()
   elseif state == "pause" then
     -- the pause: resume, the controls, or give the hunt up
     if menu.page then
-      if btnp(4) or btnp(5) or btnp(8) then menu.page = nil end
+      if btnp("ok") or btnp("back") or btnp(8) then menu.page = nil end
     else
       if btnp(2) then menu.i = (menu.i - 2) % 3 + 1 end
       if btnp(3) then menu.i = menu.i % 3 + 1 end
-      if btnp(5) or btnp(8) or (btnp(4) and menu.i == 1) then
+      if btnp("back") or btnp(8) or (btnp("ok") and menu.i == 1) then
         state = "play"
-      elseif btnp(4) and menu.i == 2 then
+      elseif btnp("ok") and menu.i == 2 then
         menu.page = "controls"
-      elseif btnp(4) and menu.i == 3 then
+      elseif btnp("ok") and menu.i == 3 then
         state, t = "title", 0
         new_hunt()
       end
@@ -5082,7 +5083,7 @@ local function draw_lost()
   print("OVER", 96, 120, 0xA01818, 2)
   print("no echoes left to pay", 40, 168, 0x786850)
   if t > 90 then
-    UI.hint("A", "begin again", (256 - UI.hint_w("A", "begin again")) // 2, 208, (t // 30) % 2 == 0 and 0xE8E0D0 or 0x988870)
+    UI.hint("ok", "begin again", (256 - UI.hint_w("ok", "begin again")) // 2, 208, (t // 30) % 2 == 0 and 0xE8E0D0 or 0x988870)
   end
   camera()
 end
@@ -5102,7 +5103,7 @@ local function draw_end()
                   "deaths " .. G.deaths, "echoes " .. G.echoes }
   for k, l in ipairs(lines) do print(l, 72, 112 + k * 16, 0xC8B898) end
   if t > 90 then
-    UI.hint("A", "a new hunt", (256 - UI.hint_w("A", "a new hunt")) // 2, 224, (t // 30) % 2 == 0 and 0xF8F0E0 or 0x281008)
+    UI.hint("ok", "a new hunt", (256 - UI.hint_w("ok", "a new hunt")) // 2, 224, (t // 30) % 2 == 0 and 0xF8F0E0 or 0x281008)
   end
   camera()
 end
@@ -5129,7 +5130,7 @@ function _draw()
     end
     UI.f()
     rectfill(-UI.x, 208, W, 16, 0x000000)
-    UI.hint("A", "START", (256 - UI.hint_w("A", "START")) // 2, 208, (t // 30) % 2 == 0 and 0xE8E0D0 or 0x988870)
+    UI.hint("ok", "START", (256 - UI.hint_w("ok", "START")) // 2, 208, (t // 30) % 2 == 0 and 0xE8E0D0 or 0x988870)
     camera()
   elseif state == "gallery" then
     -- drawn by draw_gallery

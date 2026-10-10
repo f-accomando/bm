@@ -48,6 +48,10 @@ Scritto per scegliere la risoluzione del menu (M27, BareMetal UI).
   irregolari con `scaling_kernel=8`). Il framebuffer in tripla pagina a 1920×1080 è
   12,4 MB della memoria della GPU (64 MiB). Sopra 640×360 serve la GPU: il rasterizzatore
   dell'ARM paga ogni pixel. Overbit la offre nel menu (RESOLUTION) e la salva.
+- **Sulla RGB30** (pannello quadrato 720×720, 2026-10-10) `screen()` offre invece le due
+  misure del `.b16`: 360×360 (mostrato ×2) e 720×720, entrambe a pixel interi, senza
+  riquadro. Una cartuccia quadrata sul Pi può passare ai modi 16:9 (Overbit `.b16`: dal suo
+  360×360 a 640×360 o 1080p, dove la GPU disegna il 3D).
 
 ## 3. Risoluzioni possibili per il menu
 

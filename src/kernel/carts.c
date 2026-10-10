@@ -1956,6 +1956,8 @@ void carts_menu(framebuffer_t *fb)
                 go_text(fb);
                 if (go_wait && !syskeys_test_stopped())  /* a test stopped (PS...): the menu at once */
                     home_wait_back();
+                if (!gfx)
+                    console_suspend(0);         /* the text menu: a stopped test left it hidden */
                 crumb("cartridge menu", NULL);
                 break;
             case GO_UPLOAD:

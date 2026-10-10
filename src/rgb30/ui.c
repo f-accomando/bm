@@ -417,6 +417,7 @@ void ui_show_log(void)
     console_suspend(1);
 }
 
+/* the Lua prompt on the serial port: ` typed there (not in the Dev tab: the Pi's only) */
 static void serial_lua(void)
 {
     frame_begin("Lua");
@@ -551,7 +552,6 @@ static const item_t dev_items[] = {
     { "Display", "the screen modes for games and the GPU", ui_screen_modes, MENU_ICON_BARS, 0x404050 },
     { "Input test", "every button and both sticks, live", ui_input_test, MENU_ICON_PAD, 0x8A3A8A },
     { "Boot log", "everything printed since boot", ui_show_log, MENU_ICON_LOG, 0x6A6A7A },
-    { "Lua", "a Lua prompt on the serial port", serial_lua, MENU_ICON_LUA, 0x2A3A9A },
     { "GPU test", "the Mali-G52 step by step: power, MMU, jobs", page_gputest, MENU_ICON_CHIP, 0x8A5A2A },
 };
 #define N_DEV ((int)(sizeof dev_items / sizeof dev_items[0]))

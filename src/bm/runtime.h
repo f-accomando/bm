@@ -128,6 +128,12 @@ void bm_set_arg_from(const char *tool);
  * /carts. */
 void bm_set_tool(int on);
 
+/* The console's screen is square (the RGB30's panel; on by itself there):
+ * screen() offers 360x360 and 720x720 instead of the 16:9 modes, and a
+ * square page is shown whole, not in the middle of a 16:9 one. bmhost
+ * --square sets it on the PC. */
+void bm_set_square_panel(int on);
+
 /* The save file of a cartridge ("/bm/save/1A2B3C4D.SAV", CRC-32 of its
  * title and author as in the header): its slot 1. */
 void bm_save_path(const char *title, const char *author, char *out, size_t n);

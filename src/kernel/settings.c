@@ -403,6 +403,12 @@ void home_panel(int id, home_panel_t *p)
                      "%s", ssid && ssid[0] ? ssid : "none saved");
             home_row(p, MENU_ROW_INFO, R_STATE, "State", "The link to the access point",
                      "%s", wifi_linked() || net_link_kind() == NET_LINK_WIFI ? "connected" : "not connected");
+            home_row(p, MENU_ROW_ACTION, R_CONNECT, "Connect to a network",
+#ifdef BM_RGB30
+                     "Lists the networks, joins wifi_ssid of bm/config.txt", NULL);
+#else
+                     "Lists the networks; the USB keyboard types the password", NULL);
+#endif
         }
 #ifndef BM_RGB30
         else {
@@ -418,12 +424,6 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_INFO, R_PASSWORD, "Console password",
                  "net_password in bm/config.txt", "%s", pw && pw[0] ? pw : "made when the network starts");
         if (wl) {
-            home_row(p, MENU_ROW_ACTION, R_CONNECT, "Connect to a network",
-#ifdef BM_RGB30
-                     "Lists the networks, joins wifi_ssid of bm/config.txt", NULL);
-#else
-                     "Lists the networks; the USB keyboard types the password", NULL);
-#endif
             home_row(p, MENU_ROW_CHOICE, R_BOOT, "Connect at boot",
                      "Join the saved network when the console starts", "%s",
                      wifi_at_boot() ? "On" : "Off");
@@ -916,7 +916,7 @@ void home_act(int id, int row, int how, home_do_t *d)
             v = 0;                              /* A goes round */
         audio_set_volume(v);
         config_save();
-        audio_note(0, 880, 70, 4, 140);         /* a beep at the new volume */
+        audio_note(0, 880, 70, 4, 36);          /* a soft beep at the new volume */
         ksnprintf(d->note, sizeof d->note, "volume: %d / %d", audio_volume(), AUDIO_VOLUME_MAX);
         break;
     }

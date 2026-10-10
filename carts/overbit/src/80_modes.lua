@@ -160,11 +160,15 @@ end
 -- ---------------------------------------------------------------- the title menu
 
 local Menu = { sel = 1, t = 0 }
-local ITEMS = { "PLAY: CONTROL", "PLAY ONLINE", "TRAINING RANGE", "HERO", "BOTS", "ANIMATION REEL", "BENCHMARK" }
+local ITEMS = { "PLAY: CONTROL", "PLAY ONLINE", "TRAINING RANGE", "HERO", "BOTS", "RESOLUTION", "RENDERER",
+                "ANIMATION REEL", "BENCHMARK" }
 
--- There are no graphics options here: the screen (1080p, or 640x360 where
--- the ARM draws), the quality and the renderer are the game's own (85_quality:
--- the governor keeps 60 fps and saves what holds; BENCHMARK finds them again).
+-- Two graphics options only (2026-10-10, the user's choice): RESOLUTION, the
+-- console's two screens (360x360 and 720x720 on the RGB30, 640x360 and 1080p
+-- on a TV; the ARM there only 640x360), and RENDERER, the ARM or the GPU (as
+-- the console's Settings start it; "NO GPU" where it does not start). Both
+-- are saved and the governor keeps them; the quality level is the game's own
+-- (85_quality). BENCHMARK chooses all three again.
 
 G.hero_id = "rally"          -- OVERBIT_HERO (tests) in _init
 G.bot_diff = 2               -- the bots: 1 easy, 2 normal, 3 hard (Bots.SKILL)
@@ -193,6 +197,26 @@ function Menu.start()
   Menu.t = 0
 end
 
+-- RESOLUTION: the next screen of those the renderer drawing now has (k = 1 or -1)
+local function next_screen(k)
+  local modes = Quality.modes(Quality.renderer())
+  local n = #modes
+  if n < 2 then return false end
+  local cur = n
+  for i, m in ipairs(modes) do if m[1] == SCREEN_W and m[2] == SCREEN_H then cur = i end end
+  local m = modes[(cur - 1 + k) % n + 1]
+  Quality.choose(m[1], m[2])
+  return true
+end
+
+-- RENDERER: the ARM or the GPU (the screen follows: the ARM on a TV 640x360)
+local function next_renderer()
+  if not Quality.has_gpu then return false end
+  local gpu = Quality.renderer() == "arm"
+  Quality.choose(SCREEN_W, SCREEN_H, gpu and Quality.gpu_name() or "arm")
+  return true
+end
+
 function Menu.update()
   Menu.t = Menu.t + DT
   local c = Input.cmd
@@ -206,6 +230,12 @@ function Menu.update()
     G.bot_diff = (G.bot_diff - 1 + (c.right_p and 1 or -1)) % 3 + 1
     Snd.play("ui")
   end
+  if ITEMS[Menu.sel] == "RESOLUTION" and (c.left_p or c.right_p) then
+    if next_screen(c.right_p and 1 or -1) then Snd.play("ui") end
+  end
+  if ITEMS[Menu.sel] == "RENDERER" and (c.left_p or c.right_p) then
+    if next_renderer() then Snd.play("ui") end
+  end
   local a = Menu.hero
   -- the hero on the title: idle, now and then its victory pose
   Menu.vt = Menu.vt + DT
@@ -213,7 +243,7 @@ function Menu.update()
   a.override = ph > 6 and "victory" or nil
   if ph > 6 and ph - DT <= 6 then a.anim.base, a.anim.bt = "victory", 0 end
   Actors.animate(a)
-  if c.jump_p or c.menu_p or c.fire_p then
+  if c.ok_p or c.menu_p or c.fire_p then
     local it = ITEMS[Menu.sel]
     Snd.play("ui")
     if it == "PLAY: CONTROL" then Modes.start("match")
@@ -221,6 +251,8 @@ function Menu.update()
     elseif it == "TRAINING RANGE" then Modes.start("range")
     elseif it == "HERO" then next_hero(1)
     elseif it == "BOTS" then G.bot_diff = G.bot_diff % 3 + 1
+    elseif it == "RESOLUTION" then next_screen(1)
+    elseif it == "RENDERER" then next_renderer()
     elseif it == "ANIMATION REEL" then Modes.start("reel")
     elseif it == "BENCHMARK" then Modes.start("bench") end
   end
@@ -229,6 +261,11 @@ end
 function Menu.draw()
   local a = Menu.hero
   local t = Menu.t
+  if OVERBIT_COVER then                  -- carts/overbit/tools/mkcover.py: the hero alone (a number: the camera's yaw)
+    Cam.orbit(a.x, 1.8, a.z, type(OVERBIT_COVER) == "number" and OVERBIT_COVER or 0.35, -0.1, 6.0, 50)
+    draw_scene(nil)
+    return
+  end
   Cam.orbit(a.x, 1.7, a.z, pi + 0.5 + sin(t * 0.15) * 0.5, -0.06, 8.5, 55)
   draw_scene(nil)
   -- the title (smaller layout on a screen of 180 or 216 lines)
@@ -242,10 +279,19 @@ function Menu.draw()
   font("6x12")
   uprint("a hero shooter for bm", cx - 21 * 3, small and 38 or 54, 0xFFE070)
   local top, step = small and 54 or 80, small and 12 or 15
+  if small then top, step = 50, 11 end            -- (nine rows on 180 lines)
   for i, it in ipairs(ITEMS) do
     local s = it
     if it == "HERO" then s = "HERO: < " .. H[G.hero_id].name:upper() .. " >" end
     if it == "BOTS" then s = "BOTS: < " .. Bots.SKILL[G.bot_diff].name .. " >" end
+    if it == "RESOLUTION" then
+      local more = #Quality.modes(Quality.renderer()) > 1
+      s = string.format(more and "RESOLUTION: < %dX%d >" or "RESOLUTION: %dX%d", SCREEN_W, SCREEN_H)
+    end
+    if it == "RENDERER" then
+      local r = Quality.renderer() == "arm" and "ARM" or "GPU"
+      s = Quality.has_gpu and "RENDERER: < " .. r .. " >" or "RENDERER: ARM (NO GPU)"
+    end
     local y = top + (i - 1) * step
     local sel = i == Menu.sel
     if sel then urectfill(10, y - 2, #s * 6 + 12, step, 0xF26A21) end

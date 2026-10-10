@@ -281,6 +281,16 @@ dall'ARM, niente DMA) e `src/rgb30/bm_input.c` (i comandi); il suono è quello d
 - In QEMU il gioco gira (test `test_bm_cartridge`), mostrato 1:1 (QEMU non ingrandisce e non ha il
   formato a 16 bit: lo converte `plat_virt.c`).
 
+**Overbit** (`overbit.b16` dal Market, lo stesso file del Pi; 2026-10-10): sulla RGB30 `screen()`
+offre le due misure del `.b16`, e il gioco disegna a **360×360** (×2 sul pannello) o **720×720**.
+Nel titolo solo RESOLUTION (360×360 / 720×720) e RENDERER (ARM; GPU quando il driver Mali
+disegnerà i triangoli, oggi "NO GPU"), salvati. BENCHMARK sale dal passo più leggero (360×360
+LOW) al più pesante (720×720 EXTREME), si ferma al primo sotto i 30 fps o dopo circa 60 s e salva
+il più pesante che tiene 60 fps (se nessuno, il più pesante a 30). I menu del gioco confermano
+con **B** e tornano indietro con **A** (`btn("ok")` / `btn("back")`: `confirm=a` li scambia);
+nel gioco i tasti restano quelli di Overbit per lettera (il salto è A). Le prove sul PC usano
+`bmhost --square` (gli schermi della RGB30). **Da provare sulla console.**
+
 ## WiFi: come si usa
 
 In `bm/config.txt` sulla SD (dal PC):
