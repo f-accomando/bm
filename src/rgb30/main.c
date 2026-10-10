@@ -33,7 +33,9 @@
 #include "kernel/config.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
+#include "net/wifi_auto.h"
 #include "ui.h"
+#include "battery.h"
 #include "pad.h"
 #include "kernel/ledstate.h"
 #include "kernel/splash.h"
@@ -259,15 +261,11 @@ void rgb30_save_lastrun(void)
 
 /* The saved WiFi network is joined at boot, as on the Pi (wifi_boot=0 in
  * bm/config.txt turns it off, 2026-10-04: it used to wait for wifi_boot=1);
- * the address comes later, in the background. */
+ * the address comes later, in the background. Two tries; if it fails the
+ * menu tries again by itself (net/wifi_auto.c, 2026-10-10). */
 static void wifi_boot(void)
 {
-    const char *on = config_get("wifi_boot"), *ssid = config_get("wifi_ssid");
-    if ((on && strcmp(on, "0") == 0) || !ssid || !ssid[0])
-        return;
-    kprintf("wifi: joining \"%s\" (wifi_boot=0 in bm/config.txt: off)\n", ssid);
-    if (wifi_start() == 0 && wifi_connect_saved() == 0)
-        net_start(&net_wifi);
+    wifi_auto_boot();
 }
 
 void kernel_main(uintptr_t dtb)
@@ -330,6 +328,7 @@ void kernel_main(uintptr_t dtb)
     booting = 0;
     wifi_boot();
     bm_set_notice(notice_now);              /* the games show a kernel arriving */
+    bm_set_battery(battery_state);          /* battery(), and its icon over them when low */
     bm_permissions(1);                      /* a game's network and reports: the player says */
     ledstate_set(LED_BOOT, 0);              /* started: green stays on if all is well */
     if (err == 0)

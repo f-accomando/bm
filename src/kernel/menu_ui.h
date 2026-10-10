@@ -96,8 +96,9 @@ typedef struct {
 /* What each player plays with, and the network, for the icons of the bar */
 enum { MENU_DEV_NONE, MENU_DEV_KEYBOARD, MENU_DEV_PAD };
 enum { MENU_NET_NONE, MENU_NET_WIFI, MENU_NET_ETHERNET };
-/* Whose buttons the hints at the bottom show (prompts.c) */
-enum { MENU_PROMPTS_DS4, MENU_PROMPTS_KEYBOARD, MENU_PROMPTS_PAD };
+/* Whose buttons the hints at the bottom show (prompts.c); RGB30: the
+ * console's own A B X Y, the letters in their colours */
+enum { MENU_PROMPTS_DS4, MENU_PROMPTS_KEYBOARD, MENU_PROMPTS_PAD, MENU_PROMPTS_RGB30 };
 
 typedef struct {
     const char *const *tabs;    /* tab names */
@@ -107,8 +108,8 @@ typedef struct {
     int on_gear;                /* Settings is the tab (its panel is open): Games and Dev off */
     const menu_item_t *items;   /* of the current tab */
     int n, sel;
-    int dev[4];                 /* players 1-4: MENU_DEV_*, an icon with the number */
-    unsigned bt;                /* bit p: player p+1 is on Bluetooth (a blue number) */
+    int dev[4];                 /* players 1-4: MENU_DEV_*, an icon each (no number) */
+    unsigned bt;                /* bit p: player p+1 is on Bluetooth (a blue dot) */
     unsigned mice;              /* POINTER_USB / POINTER_BLUETOOTH: a mouse icon each */
     int net;                    /* MENU_NET_*: the link's icon... */
     int net_wait;               /* ...dimmed while there is no address yet */
@@ -117,7 +118,7 @@ typedef struct {
     int charging;               /* ...and the bolt on the charger */
     int prompts;                /* MENU_PROMPTS_*: the device pressed last... */
     int prompts_colour;         /* ...the DS4's face buttons in their colours */
-    int confirm_b;              /* MENU_PROMPTS_PAD: confirm is B, back A (the RGB30) */
+    int confirm_b;              /* MENU_PROMPTS_PAD, _RGB30: confirm is B, back A (the RGB30) */
     int no_monitor;             /* no monitor to go to (the RGB30): no hint for it */
     int keys_help;              /* F12 is held: the keys over everything (the system's, the menu's) */
     const char *details;        /* line under the grid (path, size) */

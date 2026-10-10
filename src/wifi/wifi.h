@@ -22,9 +22,16 @@ int wifi_scan(void);
  * saves them. WPA2-PSK, WPA-PSK or open; the firmware does the handshake. */
 int wifi_connect(void);
 
-/* Joins the network saved in bm/config.txt without scanning (at boot);
- * -1 if none is saved or the join fails. */
+/* Joins the network saved in bm/config.txt (a scan first, for its
+ * security; at boot and from wifi_auto.c); -1 if none is saved or the join
+ * fails. Inside a fiber its waits give the CPU back (fiber_slice). */
 int wifi_connect_saved(void);
+
+/* 1 once wifi_start has brought the radio up (not again until a restart). */
+int  wifi_up(void);
+/* Before a restart: the network is told we leave, so that the access point
+ * does not hold the old association when the console comes back. */
+void wifi_leave(void);
 
 /* The data path, for the network stack (src/net). */
 int  wifi_linked(void);                 /* joined, link up */

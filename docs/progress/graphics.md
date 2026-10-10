@@ -235,3 +235,4 @@ Given these hardware realities, FSR-style edge-adaptive scaling is most effectiv
   * Scaling ultra-low-resolution 3D targets (e.g., 320×180 or 480×270 up to the native 640×360 system buffer). Because 640×360 RGB565 is only **0.46 MB**, writing the output consumes negligible bandwidth (~27.6 MB/s at 60 fps), after which the HVS hardware scales the 640×360 image to 1080p cleanly.
 
 
+- Rendering tests stoppable (2026-10-10): 3D Bench, Render bench, Stress test (C and Lua parts) and Texture Room stop on Start+Select, Ctrl+Esc or PS after the frame on screen (no GPU job in flight); a stopped test leaves no report (the capture dropped with `reports_drop`, nothing in `bm/bench` or `bm/reports`, nothing sent), the Dev tab goes straight back to the menu and a monitor line ends there (`syskeys_test_*` in `src/kernel/syskeys.c`, `b3d_platform_t.stop`, `bm_stats_t.left`; tests: `make test-b3d` `--stop`, QEMU `test_bench_stop`).

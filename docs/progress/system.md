@@ -121,3 +121,7 @@ Built from scratch without third-party dependencies (no USPi):
   * SNTP client for real-time clock synchronization.
   * HTTPS client powering OTA firmware updates and the official game market.
   * UDP lockstep network engine for multiplayer gaming ([`bmnet`](../../src/script/bmnet.lua)).
+
+- Splash: the bm suite (editor, Sound, Studio, Animator, Mesh, Pixel, projects, Lib openings) opens with no splash; only games show it (`src/kernel/carts.c`, `suite`).
+- Menu bar (2026-10-10): the controller, keyboard and mouse icons have no player number any more, on USB and on Bluetooth (Bluetooth keeps only its blue dot, `ICON_DOT`; `status_icons()` in `src/kernel/menu_ui.c`).
+- WiFi (2026-10-10): the console now retries the connection by itself. Two tries at boot, then in the menu's idle time after 5 s, 15 s, 30 s, 1 min and every 2 min while the link is down (`src/net/wifi_auto.c`, Pi and RGB30); `wifi_boot=0` turns it off. Before every reboot (update, Settings, network kernel, monitor) the console now says goodbye to the access point with `wifi_leave()`. The cause of the missing connection was a single try at boot; the stale association after a reboot is a hypothesis, to confirm from the boot log on the device.

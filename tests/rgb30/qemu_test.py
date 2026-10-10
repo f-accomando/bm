@@ -779,6 +779,52 @@ def test_battery_icon(b, opts):
     assert "Battery" in mid[3] and "61%, 3.88 V" in mid[3], mid[3]
 
 
+LOW_CART = r"""
+local t = 0
+function _init()
+  local p, c = battery()
+  log("battery " .. tostring(p) .. " " .. tostring(c) .. " " .. tostring(battery_low()))
+end
+function _update() t = t + 1 if t == 40 then log("battery drawn") end end
+function _draw() cls(1) end
+"""
+
+
+def test_battery_low_game(b, opts):
+    """The low battery over the games (2026-10-10): battery() gives the
+    charge and the charger, battery_low() 20% or less off the charger; while
+    low a small red battery top right over the frame, none on the charger,
+    none with battery_icon=0 (Settings > Screen and sound > Low battery
+    icon), battery_low() still true."""
+
+    def run(config):
+        tmp = tempfile.mkdtemp(prefix="bm64low-")
+        sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n" + config,
+                           "bm/low.bm": mkbm.pack(LOW_CART.encode(), title="Low", author="tests")})
+        q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+        try:
+            boot(q)
+            time.sleep(0.5)
+            q.send("\r")                        # Games: the only one
+            out = q.expect("battery drawn", timeout=30).decode(errors="replace")
+            line = out.split("battery ")[1].split("\n")[0].strip()
+            time.sleep(0.3)
+            img = q.screendump()
+            w = img[0]
+            red = sum(1 for y in range(0, 16) for x in range(w - 40, w)
+                      if (lambda p: p[0] > 200 and p[1] < 120 and p[2] < 120)(pixel(img, x, y)))
+            return line, red
+        finally:
+            q.close()
+
+    low = run(b"test_battery=3650\n")                   # 7%
+    plug = run(b"test_battery=3650,1\n")
+    off = run(b"test_battery=3650\nbattery_icon=0\n")
+    assert low[0] == "7 false true" and low[1] > 20, low
+    assert plug[0] == "7 true false" and plug[1] == 0, plug
+    assert off[0] == "7 false true" and off[1] == 0, off
+
+
 TONE_CART = r"""
 local t = 0
 function _init() note(0, 440, 0, 4, 200) end    -- a sine, held

@@ -2,6 +2,7 @@
 #include "runtime.h"
 #include "gpu/gpu3d.h"
 #include "gpu/v3d.h"
+#include "kernel/syskeys.h"
 #include "lib/printf.h"
 
 #include <string.h>
@@ -46,9 +47,10 @@ static int run_case(framebuffer_t *fb, int w, int h, int gpu, result_t *r)
             kprintf("%-13s %6d  %s\n", label, n, r->why);
             return 0;
         }
-        if (st.elapsed_us + 300000u < STEP_S * 1000000u) {
+        if (st.left || st.elapsed_us + 300000u < STEP_S * 1000000u) {
             kprintf("%-13s %6d  stopped\n", label, n);
-            return -1;                  /* Esc, PS, Start+Select */
+            syskeys_test_set_stopped();     /* PS, Ctrl+Esc, Start+Select: no report (syskeys.h) */
+            return -1;
         }
         if (gpu && !st.gpu3d) {
             r->why = gpu3d_status();
@@ -75,6 +77,7 @@ void bm_room_bench(framebuffer_t *fb)
     result_t sum[2][2];
     memset(sum, 0, sizeof sum);
     const int gpu = v3d_init() == 0;
+    syskeys_test_begin();
     kprintf("Texture Room: crates doubled from %d while it keeps 30 fps, %d s each\n", FIRST, STEP_S);
     kprintf("(ms: update + draw of a frame, the GPU's work included)\n");
     kprintf("%-13s %6s %10s\n", "", "crates", "triangles");

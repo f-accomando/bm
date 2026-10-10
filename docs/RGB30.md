@@ -104,13 +104,14 @@ riavviare bm spegne retroilluminazione, pannello e modulo WiFi e i due LED (`qui
 indietro, fa il reset globale del chip (`CRU_GLB_SRST_FST`, come Linux). Un riavvio del solo chip
 lascia i binari del PMIC e i GPIO del PMU come erano: spenti prima, il pannello riparte come
 dall'accensione. Dal 2026-10-10 (schermo nero dopo un aggiornamento, a posto spegnendo e
-riaccendendo) il pannello ha un vero ciclo di alimentazione: allo spegnimento, se il collegamento
-è su, riceve *display off* (DCS 0x28) e *sleep in* (0x10), poi reset basso, alimentazione
-(GPIO0_C2) spenta e 300 ms per scaricarsi; all'avvio `rk_dsi_init` lo rimette comunque in reset e
-spento per almeno 200 ms, lo riaccende, rilascia il reset e aspetta 120 ms prima dei comandi.
-Dopo i comandi rilegge il *power mode* del pannello (DCS 0x0A): se non è acceso (o i comandi sono
-falliti) rifà una volta tutto il ciclo. Il risultato è nel registro (`power mode 9c`,
-`readback none`, `power cycle again`). Se lo schermo resta nero dopo il riavvio:
+riaccendendo), allo spegnimento il pannello, se il collegamento è su, riceve *display off*
+(DCS 0x28) e *sleep in* (0x10), poi reset basso, alimentazione (GPIO0_C2) spenta e 300 ms per
+scaricarsi. All'avvio `rk_dsi_init` fa come prima: reset basso, alimentazione accesa, 20 ms,
+reset rilasciato, 120 ms, comandi. **Non** spegne più il pannello all'avvio e non rilegge il
+*power mode* (DCS 0x0A): quella versione (stesso giorno: alimentazione tolta all'inizio e ridata
+con il D-PHY già acceso, rilettura, secondo ciclo a collegamento acceso) lasciava lo schermo nero
+a ogni avvio, anche a freddo (suono di avvio sì, LED rosso fisso + verde che lampeggia). Se lo
+schermo resta nero dopo il riavvio:
 - LED spenti: bm non è ripartito (fermo nel firmware o in U-Boot), oppure è fermo nel DSI
   (tabella qui sopra): lo dice `bm/bootlog.txt`, da leggere sul PC **prima** di riaccendere (ogni
   avvio lo riscrive). La prima riga è la versione dell'avvio che l'ha scritto: se è ancora quella
@@ -128,9 +129,8 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
 è nel menu, alla voce *Boot log*.
 
 Mentre lo schermo parte, `bm/bootlog.txt` si riscrive a ogni passo, con righe `display: ...`:
-`display: starting`, `display: DSI link and panel starting`, `display: panel power cycled`
-(`... again` al secondo giro), `display: panel readback: on` / `not on` / `no answer`, poi
-`display: panel on` o `display: panel failed`. L'ultima riga presente dice dove si è fermato.
+`display: starting`, `display: DSI link and panel starting`, poi `display: panel on` o
+`display: panel failed`. L'ultima riga presente dice dove si è fermato.
 
 **I registri della volta prima** (per capire dopo cosa è successo; FAT, nomi 8.3, tutti in `bm/`):
 
@@ -203,12 +203,20 @@ sessione prima del riavvio (deve finire con `restarting: this run's log in bm/la
   suono: Sound, Volume, *Test the sound*), Updates, Reports, System (versione, memoria, SD, batteria, il log, riavvio,
   spegnimento). Solo il controller: L1/R1 le schede (senza fare il giro, come sul Pi), la croce
   le copertine e le righe, **B** apre e **A** torna indietro (`confirm=a` li scambia, anche nei
-  suggerimenti). A destra della barra solo la rete e la **batteria** (dal 2026-10-05; niente icone
+  suggerimenti). Le icone dei tasti, nel menu, nei suggerimenti, nei dialoghi del sistema e nelle
+  app (`prompt()`), sono quelle della console (2026-10-10): un tasto scuro con la lettera nel suo
+  colore, A verde, B blu, X rosso, Y giallo (`PROMPT_RGB30_*` in `src/kernel/prompts.c`; da Lua
+  anche `"RGB30_A"`…`"RGB30_Y"`). L'icona del tasto che conferma è quella del tasto fisico
+  (B, o A con `confirm=a`); dopo un pad Bluetooth le app mostrano il suo. A destra della barra solo la rete e la **batteria** (dal 2026-10-05; niente icone
   di controller, mouse e tastiere, decisione dell'utente): quattro
   tacche dal 75% in su, una in meno ogni 25%, vuota e rossa sotto il 10%, un fulmine sul
   caricatore; la carica viene dalla tensione (0% a 3,45 V, quando il LED avvisa, 100% a 4,18 V),
   scritta anche in *Settings > System > Battery*. Sul caricatore la tensione sale: lì la
-  percentuale è solo un'indicazione. Le righe che lavorano (abbinare, collegarsi, aggiornare, bench, log) scrivono
+  percentuale è solo un'indicazione. Il fulmine segue il cavo subito (2026-10-10: il bit
+  del RK817 letto 4 volte al secondo, `src/rgb30/battery.c`; prima tutto ogni 10 s). Al 20% o
+  meno, fuori dal caricatore, una piccola batteria rossa compare anche sopra giochi e strumenti
+  (in alto a destra; *Settings > Screen and sound > Low battery icon* la spegne); in Lua
+  `battery()` e `battery_low()`. Le righe che lavorano (abbinare, collegarsi, aggiornare, bench, log) scrivono
   ancora sulla console di testo.
 - **3D Bench** (scheda Dev, `src/rgb30/b3d_rgb30.c`): lo stesso banco di prova del Pi
   (`src/bm/b3d.c`), a 640×360 ingrandito sul pannello; tutte le prove 3D disegnate dall'ARM (la GPU

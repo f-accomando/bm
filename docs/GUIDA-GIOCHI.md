@@ -118,6 +118,19 @@ Esc, Start+Select o il tasto PS tornano al menu, e il gioco resta **sospeso** in
 rete chiama `online(true)`: lì PS chiede al giocatore se vuole uscire dalla partita e
 disconnettersi, e se sì chiama `_leave()` (vedi `docs/API-IT.md`).
 
+**Icone dei tasti.** Per dire quale tasto fa che cosa, `prompt()` lo disegna come un piccolo
+chip nell'aspetto del controller in uso: i simboli del DS4, le lettere di un pad, i tasti
+della tastiera, e sulla RGB30 i suoi A B X Y (un tasto scuro, la lettera nel suo colore: A
+verde, B blu, X rosso, Y giallo). `"ok"` e `"back"` sono i tasti di conferma e di ritorno del
+sistema: sulla RGB30 B e A, scambiati da `confirm=a` in `bm/config.txt`, e l'icona segue il
+tasto premuto davvero.
+
+```lua
+local x = prompt("ok", 16, 200)            -- il chip; restituisce la x dopo
+print("start", x + 4, 200, 0xFFFFFF)
+prompt("RGB30_X", 16, 220)                 -- la X rossa della RGB30, su ogni console
+```
+
 **Più giocatori.** Con due o più controller Bluetooth (abbinati dal monitor con `T`: il
 primo è il giocatore 1, il secondo il giocatore 2...) ogni giocatore ha i suoi tasti:
 
@@ -811,6 +824,11 @@ con `BMHOST_NET_ID=0` e `1` sono due console (`make test-bmnet`).
   (il numero del fotogramma cambia a ogni partita).
 - **Debug:** `log(...)` scrive sulla console seriale; `stat(1)` è il tempo dell'ultimo
   fotogramma in ms, `stat(2)` gli fps.
+- **Batteria (console portatili):** il sistema disegna già una piccola batteria rossa sopra
+  il gioco quando è al 20% o meno fuori dal caricatore; non serve farlo. `battery()` dà la
+  carica e il caricatore (`nil` sul Pi), `battery_low()` se è scarica, per esempio per
+  salvare in tempo: `if battery_low() and not warned then save(G) warned = true end`. Mai
+  usarle in ciò che simula un gioco in lockstep: ogni console ha la sua batteria.
 - **Non riscrivere quello che c'è:** prima di scrivere una funzione di utilità guarda in
   bmlib (capitolo 11); l'assistente (F6) la conosce.
 

@@ -8,6 +8,7 @@
 #include "input.h"
 #include "pmu.h"
 #include "reports.h"
+#include "syskeys.h"
 #include "version.h"
 #include "bm/b3d.h"
 #include "bm/runtime.h"
@@ -150,10 +151,15 @@ void bm_bench3d(framebuffer_t *fb)
     bm_bench3d_part(fb, NULL, NULL, 0);
 }
 
-void bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles, int no_wait)
+int bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles, int no_wait)
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
+    syskeys_test_begin();
     bm_stress_settle(20000);            /* as the stress test: the boot's work done */
+    if (syskeys_test_stopped()) {       /* stopped while it waited */
+        kprintf("3D Bench: stopped; no report saved or sent\n");
+        return 1;
+    }
     static char machine[200];
     uint32_t temp[2] = { 0, 0 }, thr[1] = { 0 };
     prop_query(PROP_GET_TEMPERATURE, temp, 2);
@@ -167,7 +173,7 @@ void bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles,
     fbp = fb;
     if (bm_video_enter(fb, 640, 360, &page) != 0) {
         kprintf("3D Bench: cannot set the video mode\n");
-        return;
+        return 0;
     }
     const int real = v3d_init() == 0;   /* a real Pi (QEMU has no V3D, nor the counters) */
     if (real)
@@ -179,11 +185,22 @@ void bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles,
         .log = log_line, .save = save, .load_last = load_last, .kernel = bm_version, .machine = machine,
         .date = net_time() ? net_time_text() : "",
         .only_tests = tests, .only_profiles = profiles, .no_wait = no_wait, .clocks = real ? clocks : NULL,
+        .stop = syskeys_test_stop,
     };
+    free(sent);                         /* (nothing left from a run before) */
+    sent = NULL;
     const int err = b3d_run(&p);
     input_pad_keys(0);
     pmu_stop();
-    bm_video_leave(fb, con_w, con_h);
+    bm_video_leave(fb, con_w, con_h);   /* (b3d_run left no GPU job in flight) */
+    if (err == B3D_STOPPED) {
+        /* Start+Select, Ctrl+Esc or PS during the run: no report in
+         * bm/bench, none in bm/reports, none sent */
+        kprintf("3D Bench: stopped; no report saved or sent\n");
+        free(sent);
+        sent = NULL;
+        return 1;
+    }
     kprintf("3D Bench: done (%s); the report is in bm/bench on the SD card%s\n", machine,
             err ? " (could not be saved)" : "");
     if (sent) {                         /* and to GitHub, if it can (reports.h) */
@@ -191,4 +208,5 @@ void bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles,
         free(sent);
         sent = NULL;
     }
+    return 0;
 }

@@ -231,6 +231,36 @@ code:
 keymap({ jump = "a", fire = { "x", "r1" }, pause = "start" })
 if btnp("jump") then vy = -5 end
 
+== prompt
+kind: api
+name: prompt
+title: prompt(nome, x, y) - l'icona di un tasto (DS4, pad, tastiera, RGB30)
+title_en: prompt(name, x, y) - a button's icon (DS4, pad, keyboard, RGB30)
+ask: disegnare l'icona di un tasto | mostrare quale tasto premere | icona del pulsante a
+ask: draw a button icon | show which button to press | button prompt | tasti colorati rgb30
+ask: icona del tasto conferma | ok e back | icone dei tasti della rgb30
+keys: prompt, icona, tasto, rgb30
+see: controller, keymap
+text:
+prompt("A", x, y) disegna il tasto come chip nell'aspetto del controller
+in uso: simboli del DS4, lettere di un pad, tasti della tastiera
+(minuscolo: "enter", "esc"). Sulla RGB30 "A" "B" "X" "Y" sono i suoi tasti:
+scuri, la lettera colorata (A verde, B blu, X rosso, Y giallo);
+"RGB30_A".."RGB30_Y" li disegnano ovunque. "ok" e "back" sono conferma e
+indietro del sistema (sulla RGB30 B e A, scambiati da confirm=a).
+Restituisce la x dopo il chip.
+text_en:
+prompt("A", x, y) draws the button as a chip in the look of the
+controller in use: the DS4's symbols, a pad's letters, the keyboard's keys
+(lower case: "enter", "esc"). On the RGB30 "A" "B" "X" "Y" are its own
+buttons: dark, the letter in colour (A green, B blue, X red, Y yellow);
+"RGB30_A".."RGB30_Y" draw them anywhere. "ok" and "back" are the system's
+confirm and back (on the RGB30 B and A, swapped by confirm=a). Returns
+the x after the chip.
+code:
+local x = prompt("ok", 8, 200)
+print("start", x + 4, 200, 0xFFFFFF)
+
 == online
 kind: api
 name: online

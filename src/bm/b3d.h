@@ -53,10 +53,16 @@ typedef struct {
     /* the core's and the GPU's clocks now, measured, in MHz (NULL: unknown):
      * after each step, out of its time */
     void (*clocks)(uint32_t *core_mhz, uint32_t *gpu_mhz);
+    /* 1 once the user stopped the run (the system's keys: Start+Select,
+     * Ctrl+Esc, PS; src/kernel/syskeys.h), asked after every frame of the
+     * ramps; NULL: it cannot be stopped */
+    int (*stop)(void);
 } b3d_platform_t;
 
 /* runs the bench, then shows the pages until B3D_KEY_BACK (in quick mode,
- * each page once); 0, or -1 if the report could not be saved */
+ * each page once); 0, -1 if the report could not be saved, B3D_STOPPED if
+ * p->stop said so before the end: no report saved, no pages shown */
+#define B3D_STOPPED 1
 int b3d_run(const b3d_platform_t *p);
 
 /* how a ramp's steps become a load (here for the PC's test): the middle of

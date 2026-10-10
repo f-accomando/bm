@@ -8,7 +8,9 @@
 void bm_bench3d(framebuffer_t *fb);
 
 /* a part of it (the monitor's ":b3d"): only these tests and profiles
- * (comma lists, NULL all), without waiting on the pages if no_wait */
-void bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles, int no_wait);
+ * (comma lists, NULL all), without waiting on the pages if no_wait.
+ * 1 if the user stopped it (Start+Select, Ctrl+Esc, PS: syskeys.h), with
+ * no report saved nor sent; else 0 */
+int bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles, int no_wait);
 
 #endif

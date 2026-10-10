@@ -43,6 +43,7 @@
 #include "version.h"
 #include "net/net.h"
 #include "wifi/wifi.h"
+#include "net/wifi_auto.h"
 #include "usb/smsc95xx.h"
 #include "drivers/board.h"
 #include "ledstate.h"
@@ -168,16 +169,12 @@ void diagnostics_run(void)
 
 
 /* The saved WiFi network is joined at boot (wifi_boot=0 in
- * bm/config.txt turns it off); the address comes later, in the
+ * bm/config.txt turns it off), two tries; if it fails the menu tries
+ * again by itself (net/wifi_auto.c). The address comes later, in the
  * background, and shows in the status line. */
 static void wifi_boot(void)
 {
-    const char *ssid = config_get("wifi_ssid"), *on = config_get("wifi_boot");
-    if (!board()->wireless || !ssid || !ssid[0] || (on && strcmp(on, "0") == 0))
-        return;
-    kprintf("wifi: joining the saved network (wifi_boot=0 in bm/config.txt: off)\n");
-    if (wifi_start() == 0 && wifi_connect_saved() == 0)
-        net_start(&net_wifi);
+    wifi_auto_boot();
 }
 
 /* The Ethernet of the Pi 1 B / B+ (found on the USB hub) starts at boot;

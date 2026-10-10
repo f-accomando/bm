@@ -12,6 +12,7 @@
 #include "net/http.h"
 #include "net/net.h"
 #include "net/release.h"
+#include "wifi/wifi.h"
 
 #include "mbedtls/sha256.h"
 
@@ -385,6 +386,9 @@ void update_install(framebuffer_t *fb)
         kprintf("\x1b[1;93mRestarting in %d...\x1b[0m\n", s);
         timer_delay_ms(1000);
     }
+    /* the access point told we leave: without it, it held the old
+     * association and the first join after the restart could fail */
+    wifi_leave();
     crumbs_clean_exit();
     uart_flush();
     watchdog_reboot();

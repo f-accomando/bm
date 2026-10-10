@@ -2,6 +2,8 @@
  * The system's keys (syskeys.h). Portable.
  */
 #include "syskeys.h"
+#include "input.h"
+#include "usb/hid.h"
 
 #include <string.h>
 
@@ -89,4 +91,39 @@ int syskeys_reserved(const char *k)
             return 0;
         k = bar + 3;
     }
+}
+
+/* ---- the rendering tests stopped (syskeys.h) */
+
+static int test_stopped;
+
+void syskeys_test_begin(void)
+{
+    test_stopped = 0;
+}
+
+int syskeys_test_stop(void)
+{
+    if (test_stopped)
+        return 1;
+    uint32_t out[INPUT_PLAYERS];
+    int quit = 0, local;
+    input_players(out, 1, &quit, &local);   /* (polls USB, Bluetooth, the network) */
+    /* Start+Select and Ctrl+Shift+Esc give QUIT_KEY, Ctrl+Esc and PS give
+     * QUIT_PS; Esc alone (QUIT_ESC) is a tool's back, not a stop */
+    if (quit & (HID_QUIT_KEY | HID_QUIT_PS)) {
+        test_stopped = 1;
+        input_flush();                      /* the keys typed meanwhile are not the menu's */
+    }
+    return test_stopped;
+}
+
+int syskeys_test_stopped(void)
+{
+    return test_stopped;
+}
+
+void syskeys_test_set_stopped(void)
+{
+    test_stopped = 1;
 }

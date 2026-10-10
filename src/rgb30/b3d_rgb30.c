@@ -14,6 +14,7 @@
 #include "drivers/timer.h"
 #include "fs/fat.h"
 #include "kernel/reports.h"
+#include "kernel/syskeys.h"
 #include "kernel/version.h"
 #include "lib/printf.h"
 #include "net/net.h"
@@ -171,11 +172,19 @@ void rgb30_bench3d(framebuffer_t *fb)
         .pmu = "Cortex-A55 PMU", .key = key, .back = pad_back_name(), .log = log_line,
         .save = save, .load_last = load_last, .kernel = bm_version, .machine = machine,
         .date = net_time() ? net_time_text() : "",
+        .stop = syskeys_test_stop,          /* Start+Select (syskeys.h) */
     };
+    syskeys_test_begin();
+    free(sent);
+    sent = NULL;
     const int err = b3d_run(&p);
     if (counting)
         pmu_stop();
     bm_video_leave(fb, con_w, con_h);
+    if (err == B3D_STOPPED) {               /* no report in bm/bench nor bm/reports, none sent */
+        kprintf("3D Bench: stopped; no report saved or sent\n");
+        return;
+    }
     kprintf("3D Bench: done (%s); the report is in bm/bench on the SD card%s\n", machine,
             err ? " (could not be saved)" : "");
     if (sent) {                         /* and to GitHub, if it can (reports.h) */

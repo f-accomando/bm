@@ -90,4 +90,13 @@ void home_assistant(framebuffer_t *fb);
 /* everything printed since boot, in the pager (Dev > Log, Settings > System) */
 void home_show_log(framebuffer_t *fb);
 
+/* A tool's printout as a report (reports.h), for the Dev tab and the
+ * monitor: _end saves and sends it, or drops it if the user stopped the
+ * rendering test (Start+Select, Ctrl+Esc, PS: syskeys.h). */
+void home_report_begin(const char *kind);
+void home_report_end(void);
+/* The stress test, its C part and then its Lua part (Dev, monitor s);
+ * stopped in either, the rest is not run (syskeys_test_stopped). */
+void home_stress(framebuffer_t *fb);
+
 #endif

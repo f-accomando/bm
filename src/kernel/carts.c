@@ -4,6 +4,7 @@
 #include "carts.h"
 #include "crumbs.h"
 #include "home.h"
+#include "syskeys.h"
 #include "market.h"
 #include "publish.h"
 #include "lib.h"
@@ -16,6 +17,7 @@
 #include "net/net.h"
 #include "net/netxfer.h"
 #include "net/netcon.h"
+#include "net/wifi_auto.h"
 #include "bm/runtime.h"
 #include "drivers/sd.h"
 #include "drivers/timer.h"
@@ -334,6 +336,7 @@ static void menu_idle(uint32_t until)
     }
     if (reports_free)
         reports_tick(until);
+    wifi_auto_idle(until);              /* the saved network again, while the link is down */
 }
 
 /* Before the list changes, an application runs or the card is written:
@@ -345,6 +348,7 @@ static void background_stop(void)
     fiber_job_stop(&cover_job);
     lib_job_stop();
     fiber_job_stop(&report_job);
+    wifi_auto_stop();
 }
 
 static void rescan(void)
@@ -1881,7 +1885,11 @@ void carts_menu(framebuffer_t *fb)
                 menu_ui_close_quiet(fb);
             else if (gfx)
                 menu_ui_close(fb);
-            if (app && !resume)
+            /* the bm suite (editor, Studio, Animator, Mesh, Pixel, Sound, a project) opens
+             * with no splash; the splash is for games */
+            const int suite = (go >= GO_SDK && go <= GO_PIXEL) ||
+                              (go == GO_PLAY && go_cart >= 0 && is_dev(&carts[go_cart]));
+            if (app && !resume && !suite)
                 loading_begin(fb);
             /* the file of a tool: a cartridge of the menu, or one of the Lib tab */
             const char *gpath = go_cart >= 0 ? carts[go_cart].path : lib_path;
@@ -1944,8 +1952,9 @@ void carts_menu(framebuffer_t *fb)
                 rescan();
                 break;
             case GO_TEXT:
+                syskeys_test_begin();
                 go_text(fb);
-                if (go_wait)
+                if (go_wait && !syskeys_test_stopped())  /* a test stopped (PS...): the menu at once */
                     home_wait_back();
                 crumb("cartridge menu", NULL);
                 break;

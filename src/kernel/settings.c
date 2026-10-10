@@ -24,6 +24,7 @@
 #include "net/net.h"
 #include "usb/hid.h"
 #include "wifi/wifi.h"
+#include "net/wifi_auto.h"
 #include "audio/audio.h"
 #include "audio/presets.h"
 #ifdef BM_RGB30
@@ -87,7 +88,7 @@ enum {
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
     R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
-    R_STYLE,
+    R_STYLE, R_BATTERY_ICON,
 };
 
 static int popcount(unsigned v)
@@ -127,6 +128,16 @@ static const char *perf_name(void)
     static const char *const n[4] = { "Off", "Simple", "Detailed", "Functions" };
     return n[bm_perf()];
 }
+
+#ifdef BM_RGB30
+/* the low battery over the games and tools (runtime.c battery_draw): on
+ * unless battery_icon=0 */
+static int battery_icon_on(void)
+{
+    const char *v = config_get("battery_icon");
+    return !(v && strcmp(v, "0") == 0);
+}
+#endif
 
 #ifndef BM_RGB30
 /* what plays as the first player without a pad (the USB one) */
@@ -476,6 +487,9 @@ void home_panel(int id, home_panel_t *p)
                  "Hi-fi, or the 8-bit chip of the first versions", "%s", audio_retro_on() ? "8-bit" : "Hi-fi");
         home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
                  "The sound's state and a test tune", NULL);
+        home_row(p, MENU_ROW_CHOICE, R_BATTERY_ICON, "Low battery icon",
+                 "A small red battery over games and tools at 20% or less", "%s",
+                 battery_icon_on() ? "On" : "Off");
 #else
         home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
                  "Sound of the games and tools (games can change it in their pause menu)",
@@ -650,6 +664,7 @@ static void x_connect(framebuffer_t *fb)
 #ifndef BM_RGB30
     input_pad_keys(INPUT_PAD_ESC);
 #endif
+    wifi_auto_stop();                   /* a try of the menu's under way: not two at once */
     if (wifi_start() == 0 && wifi_scan() > 0 && wifi_connect() == 0 && net_start(&net_wifi) == 0)
         net_wait_ip(15000);
 #ifndef BM_RGB30
@@ -793,6 +808,13 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_save();
         ksnprintf(d->note, sizeof d->note, "performance overlay: %s", perf_name());
         break;
+#ifdef BM_RGB30
+    case R_BATTERY_ICON:
+        config_set("battery_icon", battery_icon_on() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "low battery icon: %s", battery_icon_on() ? "on" : "off");
+        break;
+#endif
     case R_PROMPTS:
         config_set("prompts", home_prompts_colour() ? "white" : "colour");
         config_save();
@@ -839,6 +861,8 @@ void home_act(int id, int row, int how, home_do_t *d)
     case R_RESTART:
         if (how == HOME_YES) {
             kprintf("rebooting...\n");
+            wifi_auto_stop();
+            wifi_leave();               /* the AP told: it does not hold the old association */
 #ifdef BM_RGB30
             plat_reset();
 #else

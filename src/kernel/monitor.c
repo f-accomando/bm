@@ -10,6 +10,7 @@
 #include "input.h"
 #include "script/repl.h"
 #include "sysinfo.h"
+#include "syskeys.h"
 #include "testpattern.h"
 #include "drivers/fb.h"
 #include "gfx/console.h"
@@ -25,6 +26,7 @@
 #include "bt/bt.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
+#include "net/wifi_auto.h"
 #include "net/http.h"
 #include "net/netxfer.h"
 #include "net/netcon.h"
@@ -224,7 +226,10 @@ static int line_command(char *c)
         static char tests[160], profiles[160];
         const char *t = argv_copy(rest, "tests", tests, sizeof tests);
         const char *p = argv_copy(rest, "profiles", profiles, sizeof profiles);
-        bm_bench3d_part(console_framebuffer(), t, p, 1);
+        if (bm_bench3d_part(console_framebuffer(), t, p, 1) != 0) {
+            kprintf("b3d: stopped; the rest of the line is not run\n");
+            return -1;
+        }
     } else if (!strcmp(c, "play")) {
         /* a game by name, after the set of its flags (overbit_bench=...) */
         if (!*rest || carts_play_title(console_framebuffer(), rest) != 0) {
@@ -252,14 +257,17 @@ static int line_command(char *c)
     } else if (!strcmp(c, "save")) {
         config_save();
         kprintf("bm/config.txt saved\n");
-    } else if (!strcmp(c, "render")) {
-        reports_begin("render");
-        bm_bench_report(console_framebuffer(), 120);
-        reports_end();
-    } else if (!strcmp(c, "room")) {
-        reports_begin("room");
-        bm_room_bench(console_framebuffer());
-        reports_end();
+    } else if (!strcmp(c, "render") || !strcmp(c, "room")) {
+        home_report_begin(c);
+        if (c[1] == 'e')
+            bm_bench_report(console_framebuffer(), 120);
+        else
+            bm_room_bench(console_framebuffer());
+        home_report_end();
+        if (syskeys_test_stopped()) {   /* Start+Select, Ctrl+Esc, PS: the line ends too */
+            kprintf("%s: stopped; the rest of the line is not run\n", c);
+            return -1;
+        }
     } else if (!strcmp(c, "log")) {
         reports_text("log", klog_text(), strlen(klog_text()));
     } else if (!strcmp(c, "send")) {
@@ -267,6 +275,7 @@ static int line_command(char *c)
         kprintf("%s; %d waiting on the SD card\n", reports_last(), left);
     } else if (!strcmp(c, "reboot")) {
         kprintf("rebooting...\n");
+        wifi_leave();
         crumbs_clean_exit();
         uart_flush();
         watchdog_reboot();
@@ -331,21 +340,15 @@ void monitor_run(void)
             break;
         }
         case 'U': upload_and_play(console_framebuffer()); break;
-        case 'S': case 's': {
-            extern const uint8_t bm_stress_cart[], bm_stress_cart_end[];
-            reports_begin("stress");
-            bm_stress_run(console_framebuffer());
-            kprintf("Lua part (cartridge API):\n");
-            bm_stats_t bs;
-            bm_play(console_framebuffer(), bm_stress_cart,
-                     (size_t)(bm_stress_cart_end - bm_stress_cart), 600, &bs);
-            reports_end();
+        case 'S': case 's':                     /* (Start+Select, Ctrl+Esc, PS stop them: no report) */
+            home_report_begin("stress");
+            home_stress(console_framebuffer());
+            home_report_end();
             break;
-        }
         case 'p':
-            reports_begin("render");
+            home_report_begin("render");
             bm_bench_report(console_framebuffer(), 120);
-            reports_end();
+            home_report_end();
             break;
         case 'V':
             bm_set_via_ram(!bm_via_ram());
@@ -377,6 +380,7 @@ void monitor_run(void)
         case 'K': bt_pair_keyboard(15); break;
         case 'O': bt_pair_mouse(10); break;
         case 'W':
+            wifi_auto_stop();               /* a try of the menu's left paused: not two at once */
             if (wifi_start() == 0 && wifi_scan() > 0 && wifi_connect() == 0 &&
                 net_start(&net_wifi) == 0)
                 net_wait_ip(15000);
@@ -413,7 +417,7 @@ void monitor_run(void)
         case 'D': reports_begin("dma"); dma_test(console_framebuffer()); reports_end(); break;
         case 'g': reports_begin("gpu"); gpu_test(console_framebuffer()); reports_end(); break;
         case 'j': case 'J': bm_bench3d(console_framebuffer()); break;
-        case 'R': reports_begin("room"); bm_room_bench(console_framebuffer()); reports_end(); break;
+        case 'R': home_report_begin("room"); bm_room_bench(console_framebuffer()); home_report_end(); break;
         case 'z': {
             int left = reports_send_pending();
             kprintf("%s; %d waiting on the SD card\n", reports_last(), left);
@@ -428,6 +432,7 @@ void monitor_run(void)
         case 'u': update_monitor(); break;
         case 'r':
             kprintf("rebooting...\n");
+            wifi_leave();
             crumbs_clean_exit();
             uart_flush();
             watchdog_reboot();

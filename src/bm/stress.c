@@ -3,6 +3,7 @@
 #include "r3d.h"
 #include "runtime.h"
 #include "kernel/irq.h"
+#include "kernel/syskeys.h"
 #include "kernel/tick.h"
 #include "drivers/prop.h"
 #include "drivers/timer.h"
@@ -357,7 +358,7 @@ static void machine_line(const char *when)
 void bm_stress_settle(uint32_t ms)
 {
     uint32_t shown = 0;
-    while (tick_ms() < ms) {
+    while (tick_ms() < ms && !syskeys_test_stop()) {
         uint32_t left = (ms - tick_ms() + 999) / 1000;
         if (left != shown) {
             kprintf("\rstress: waiting %2lu s for the boot to settle (WiFi, Bluetooth)", left);
@@ -378,6 +379,7 @@ void bm_stress_run(framebuffer_t *fb)
 
     int skip[NTESTS];
     memset(skip, 0, sizeof skip);
+    syskeys_test_begin();               /* Start+Select, Ctrl+Esc, PS: stopped (syskeys.h) */
 
     kprintf("stress test: 640x360 RGB565, %d frames per step, draw + copy to screen\n", FRAMES_PER_STEP);
     machine_line("before");
@@ -388,9 +390,14 @@ void bm_stress_run(framebuffer_t *fb)
     }
     const int gpu = gpu3d_init() == 0;      /* after the video mode: its pages are known */
 
+    int stopped = 0;
     for (size_t t = 0; t < sizeof tests / sizeof *tests; t++) {
         const test_t *T = &tests[t];
         int count = 0;
+        if (stopped) {
+            skip[t] = 1;                    /* not run: not in the table */
+            continue;
+        }
         if (T->gpu && !gpu3d_ready()) {
             skip[t] = 1;
             continue;
@@ -425,7 +432,13 @@ void bm_stress_run(framebuffer_t *fb)
                 uint32_t draw = timer_ticks() - t0;
                 overlay(T->name, n, (total + draw) / 1000.0f / (f + 1));
                 total += draw + bm_video_present(fb, &g);  /* the copy is part of the frame */
+                if (syskeys_test_stop()) {          /* the GPU's frame flushed above: none in flight */
+                    stopped = 1;
+                    break;
+                }
             }
+            if (stopped)
+                break;                      /* a step not finished: not a sample */
             float ms = total / 1000.0f / FRAMES_PER_STEP;
             samples[count++] = (sample_t){ n, ms, (float)tris_last };
             char line[96];
@@ -443,6 +456,8 @@ void bm_stress_run(framebuffer_t *fb)
             skip[t] = 2;                    /* failed during the test */
         if (T->teardown) T->teardown();
         tris_last = 0;
+        if (stopped)
+            skip[t] = 1;                    /* stopped halfway: not in the table either */
         results[t][0] = threshold(samples, count, MS60);
         results[t][1] = threshold(samples, count, MS30);
         /* cost per item: slope between the first and last sample */
@@ -454,6 +469,10 @@ void bm_stress_run(framebuffer_t *fb)
         gpu3d_set_vshader(0);
     }
     bm_video_leave(fb, con_w, con_h);
+    if (stopped) {
+        kprintf("stress test stopped (Start+Select, Ctrl+Esc or PS)\n");
+        return;
+    }
     machine_line("after C part");
 
     kprintf("3D rows: ARM as bm3d %s, GPU as %s, GPU+VS as %s (drivers bm3d %s, %s)\n", bm3d_mode(0, 0),
