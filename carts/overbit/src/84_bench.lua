@@ -7,7 +7,7 @@
 -- BENCHMARK in the title: the calibration (2026-10-10, the user's choice).
 -- It climbs the scale of 85_quality from the lightest step (the smallest
 -- screen at level 0) to the heaviest (on a TV 640x360 at levels 0..4, then
--- 1080p at 1..4; the .bm 320x180 on the ARM, 720p and 1080p on the GPU; on
+-- 1080p at 1..4; the .bm 640x360 on the ARM, 720p and 1080p on the GPU; on
 -- the RGB30's square panel 360x360, then 720x720), each
 -- step with the ARM and with the GPU (as the console's Settings start it;
 -- if there is one, and the ARM only where it draws: 85_quality.arm_ok). A
@@ -188,7 +188,7 @@ local function plan(opt)
     for _, m in ipairs(reslist) do
       for _, q in ipairs(opt.q or { 4, 3, 2, 1 }) do
         -- the ARM does not draw above 640x360 on a TV (seconds a frame at 1080p;
-        -- the .bm: 320x180, and its GPU from 720p)
+        -- the .bm: 640x360, and its GPU from 720p)
         if (r ~= "arm" or Quality.arm_ok(m[1], m[2])) and (r == "arm" or Quality.gpu_ok(m[1], m[2])) then
           phases[#phases + 1] = { kind = "match", r = r, w = m[1], h = m[2], q = q }
         end

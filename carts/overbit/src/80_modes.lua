@@ -165,7 +165,7 @@ local ITEMS = { "PLAY: CONTROL", "PLAY ONLINE", "TRAINING RANGE", "HERO", "BOTS"
 
 -- Two graphics options only (2026-10-10, the user's choice): RESOLUTION, the
 -- console's two screens (360x360 and 720x720 on the RGB30, 640x360 and 1080p
--- on a TV; the ARM there only 640x360; the .bm 320x180 on the ARM, 720p and
+-- on a TV; the ARM there only 640x360; the .bm 640x360 on the ARM, 720p and
 -- 1080p on the GPU: 85_quality), and RENDERER, the ARM or the GPU (as
 -- the console's Settings start it; "NO GPU" where it does not start). Both
 -- are saved and the governor keeps them; the quality level is the game's own

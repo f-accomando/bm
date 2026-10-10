@@ -277,7 +277,7 @@ title_overbit := Overbit
 # its screen: 480x270, each pixel 4x4 on a 1080p TV (it was 320x180)
 OVERBIT_RES := 480x270
 # the .bm (the Pi's, in the Market next to the .b16): three screens on a TV,
-# 320x180 on the ARM, 1280x720 and 1920x1080 on the GPU (85_quality); the
+# 640x360 on the ARM, 1280x720 and 1920x1080 on the GPU (85_quality); the
 # .b16 has not the flag and keeps its own (640x360 and 1080p)
 OVERBIT_BM_DEFS := --define OVERBIT_TV_BM=true
 $(BUILD)/overbit/main.lua: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm

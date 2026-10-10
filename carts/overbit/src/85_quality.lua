@@ -18,7 +18,7 @@
 --   a TV (the Pi)                640x360 and 1920x1080: the GPU draws both,
 --                                the ARM only 640x360 (its pixels cost it);
 --                                the .bm (OVERBIT_TV_BM, set by the Makefile):
---                                320x180 on the ARM, 1280x720 and 1920x1080
+--                                640x360 on the ARM, 1280x720 and 1920x1080
 --                                on the GPU;
 --   a square panel (the RGB30)   360x360 (shown twice as big) and 720x720,
 --                                both for the ARM too (the Cortex-A55; no GPU
@@ -65,11 +65,11 @@ end
 -- ---------------------------------------------------------------- screens
 
 -- the ARM draws this screen? On a TV not above 640x360 (the Pi Zero's
--- ARM1176: seconds a frame at 1080p), the .bm not above 320x180; on the
--- square panel both
+-- ARM1176: seconds a frame at 1080p), the .bm not above 640x360 either; on
+-- the square panel both
 function Quality.arm_ok(w, h)
   if w == h then return true end
-  if OVERBIT_TV_BM then return w * h <= 320 * 180 end
+  if OVERBIT_TV_BM then return w * h <= 640 * 360 end
   return w * h <= 640 * 360
 end
 
@@ -82,7 +82,7 @@ end
 -- the screens of a TV this game offers (the .bm has three)
 local function tv_mode(w, h)
   if OVERBIT_TV_BM then
-    return (w == 320 and h == 180) or (w == 1280 and h == 720) or (w == 1920 and h == 1080)
+    return (w == 640 and h == 360) or (w == 1280 and h == 720) or (w == 1920 and h == 1080)
   end
   return (w == 640 and h == 360) or (w == 1920 and h == 1080)
 end
@@ -97,7 +97,7 @@ end
 
 -- the screens this console offers, the smallest first, for renderer r
 -- ("arm", a GPU's name; nil: the one drawing now; "all": whoever draws):
--- 640x360 and 1080p on a TV (the .bm: 320x180, 720p and 1080p), 360x360 and
+-- 640x360 and 1080p on a TV (the .bm: 640x360, 720p and 1080p), 360x360 and
 -- 720x720 on a square panel. A
 -- console with other modes only gets its two largest, by the same rule.
 function Quality.modes(r)
@@ -191,7 +191,7 @@ end
 
 -- the menu (RESOLUTION, RENDERER): the screen w x h and the renderer r (nil:
 -- the one drawing) the player chose, set and saved; the ARM on a TV goes to
--- 640x360 (the .bm: 320x180, and its GPU to 1080p from there). Returns what
+-- 640x360 (the .bm: the same, and its GPU to 720p and 1080p). Returns what
 -- was set (the GPU may not start: the ARM).
 function Quality.choose(w, h, r)
   local B = Modes.list.bench
