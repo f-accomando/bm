@@ -154,3 +154,13 @@ Accessible via F11 DevKit mode 3 or programmatically with `profile(true)`:
 * Tracks the top 10 most expensive functions over rolling 1-second windows.
 * Separates **Self Time** (execution within the function body) from **All Time** (including sub-calls).
 * Highlights native C calls (`spr`, `map`, `draw3d`) in cyan to distinguish script logic from engine rendering.
+
+### Session Report (dev kit, 2026-10-10)
+At the end of a run the dev kit saves one report per game, `reports/<branch>/session_<game>_<board>.txt`, replaced by the next run of the same game (`reports_session`, `github_put` with `replace`):
+* The real time from one picture to the next in six classes (up to 18 ms ... over 100 ms) and the 12 longest frames with their parts (`cpu`, `upd`, `draw`, 3D, copy, `outside`: the SD card, the GPU or the machine), so a freeze outlives the overlay's 64 frames.
+* The game's own `devinfo()` lines as the run ended (Yharnam: the chunks the view waited for).
+* `bm/config.txt` `session_report=0|1`; without it, only with a `github_token`. Sent from the menu, not while the game closes.
+
+### Screens and the console
+* `360x360` is a cartridge resolution (the `.b16` screen); a square one is boxed in the middle of a 16:9 screen on the Pi (256x256 in 480x270, 360x360 in 640x360).
+* `bm_video_enter` / `bm_video_leave` give the console back as it was: a game started from the menu no longer shows the monitor between the game and the menu (`console_suspended()`).
