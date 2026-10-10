@@ -2326,6 +2326,7 @@ local HP_MAX = 10
 -- ticks ft, played backwards when rev), the action under way (nil: free to
 -- walk), the saw cleaver out (ext), health, invulnerable ticks
 local ST_MAX = 100
+local STA = { regen = 1.0, out = 20 }   -- stamina a tick once the breath is back; winded until it is back to `out`
 -- rally: health just lost, won back by striking soon (it fades in a while);
 -- st: stamina (st_wait: ticks before it comes back); lock: the creature the
 -- hunter keeps facing; bt: ticks B is held (a tap dodges, holding runs)
@@ -2661,7 +2662,11 @@ end
 -- (wait ticks; a light blow of the folded blade lets the breath come sooner)
 local function spend(n, wait)
   P.st, P.st_wait = max(-20, P.st - n * P.mods.st_cost), wait or 30
+  if P.st <= 0 then P.tired = true end
 end
+-- a blow, the heavy one, the trick and a combo going on need a breath: none
+-- while winded. (The dodge and the run need only some stamina left.)
+function STA.strike() return P.st > 0 and not P.tired end
 
 -- the rally: blood taken back from what the blade cuts
 local function rally(n)
@@ -2678,10 +2683,10 @@ end
 -- before the breath comes back, their pace; tests/yharnam/balance.lua
 -- measures them.
 local BLADE = {
-  fold = { light = { 1.5, 1.5, 2.5 }, heavy = 3, charged = 3, trick = 2.5, visceral = 14, cost = 12, heavy_cost = 22,
-           trick_cost = 16, breath = 20, rate = 1, reach = 26 },
-  open = { light = { 2.5, 2.5, 3.5 }, heavy = 5, charged = 4, trick = 3.5, visceral = 14, cost = 26, heavy_cost = 30,
-           trick_cost = 22, breath = 30, rate = 0.95, reach = 34 },
+  fold = { light = { 1.5, 1.5, 2.5 }, heavy = 3, charged = 3, trick = 2.5, visceral = 14, cost = 17, heavy_cost = 28,
+           trick_cost = 21, breath = 20, rate = 1, reach = 26 },
+  open = { light = { 2.5, 2.5, 3.5 }, heavy = 5, charged = 4, trick = 3.5, visceral = 14, cost = 32, heavy_cost = 38,
+           trick_cost = 28, breath = 30, rate = 0.95, reach = 34 },
 }
 -- the form in hand; what its blows do (the open saw: Serrated Oath), cost
 -- and how quick they are (the folded blade: Hunter's Path)
@@ -2689,19 +2694,28 @@ function BLADE.form() return P.ext and BLADE.open or BLADE.fold end
 function BLADE.dmg(n) return n * (P.ext and P.mods.ext_dmg or 1) end
 function BLADE.cost(n) return n * (P.ext and 1 or P.mods.fold_cost) end
 function BLADE.rate() return P.ext and BLADE.open.rate or BLADE.fold.rate * P.mods.fold_rate end
+-- the breath comes back `breath` ticks after the blow is over, not after it began
+-- (a blow lasts longer than the breath of a light one did: it came back as it was
+-- spent, and the bar never moved)
+function STA.after(anim, breath)
+  local d = 0
+  for _, t in ipairs(HUNT[anim].t) do d = d + t end
+  return (d + breath) / BLADE.rate()
+end
 
 local function attack(stage, dx, dy)
   if dx ~= 0 or dy ~= 0 then P.dir = DIRS[dy][dx] else aim_at(44) end
-  spend(BLADE.cost(BLADE.form().cost), BLADE.form().breath / BLADE.rate())
+  local name = (P.ext and "xslash" or "slash") .. stage
+  spend(BLADE.cost(BLADE.form().cost), STA.after(name, BLADE.form().breath))
   P.act, P.combo, P.queued = "attack", stage, false
   P.trail = {}
-  play((P.ext and "xslash" or "slash") .. stage)
+  play(name)
 end
 
 -- the heavy blow: held at the top while R1 is held, it charges
 local function heavy(dx, dy)
   if dx ~= 0 or dy ~= 0 then P.dir = DIRS[dy][dx] else aim_at(44) end
-  spend(BLADE.cost(BLADE.form().heavy_cost))
+  spend(BLADE.cost(BLADE.form().heavy_cost), STA.after(xname("heavy"), BLADE.form().breath))
   P.act, P.charge, P.charged, P.queued = "heavy", 0, false, false
   P.trail = {}
   play(xname("heavy"))
@@ -2709,7 +2723,7 @@ end
 
 -- the trick: the saw cleaver transformed in a blow, the combo goes on
 local function trick()
-  spend(BLADE.cost(BLADE.form().trick_cost))
+  spend(BLADE.cost(BLADE.form().trick_cost), STA.after(P.ext and "trick_x" or "trick", BLADE.form().breath))
   P.act, P.combo, P.queued = "trick", min(P.combo + 1, 3), false
   P.trail = {}
   play(P.ext and "trick_x" or "trick")
@@ -4038,7 +4052,8 @@ local function update_play()
   P.l1, P.r1 = l1, r1
   if btn(5) then P.bt, P.brel = P.bt + 1, 0 else P.brel, P.bt = P.bt, 0 end
   if P.st_wait > 0 then P.st_wait = P.st_wait - 1
-  elseif P.st < P.stmax then P.st = min(P.stmax, P.st + 1.4 * P.mods.st_regen) end
+  elseif P.st < P.stmax then P.st = min(P.stmax, P.st + STA.regen * P.mods.st_regen) end
+  if P.tired and P.st >= STA.out then P.tired = false end
   if l1p then
     P.lock = not P.lock and FOE.nearest(150) or nil
     note(2, P.lock and 1600 or 800, 60, TRIANGLE, 40)
@@ -4105,9 +4120,9 @@ local function update_play()
       end
     elseif btnp(4) and FOE.visceral_target() then
       visceral(FOE.visceral_target())
-    elseif btnp(4) and P.st > 0 then
+    elseif btnp(4) and STA.strike() then
       attack(1, dx, dy)
-    elseif r1p and P.st > 0 then
+    elseif r1p and STA.strike() then
       heavy(dx, dy)
     elseif btnp(6) then
       -- locked on: the shot goes to the target whatever the arrows say
@@ -4151,7 +4166,7 @@ local function update_play()
     if btnp(4) and P.f >= a.hit - 1 and P.combo < 3 then P.queued = "a" end
     if btnp(7) and P.f >= a.hit - 1 then P.queued = "y" end
     if r1p and P.f >= a.hit - 1 then P.queued = "r" end
-    if P.queued and P.f > a.hit + ((not P.ext and P.mods.fold_chain) and 0 or 1) and P.st > 0 then
+    if P.queued and P.f > a.hit + ((not P.ext and P.mods.fold_chain) and 0 or 1) and STA.strike() then
       local q = P.queued
       if q == "y" then trick() elseif q == "r" then heavy(dx, dy) else attack(P.combo + 1, dx, dy) end
     elseif done then
@@ -4193,7 +4208,7 @@ local function update_play()
       P.trail[#P.trail + 1] = { P.x + fr[7], P.y + fr[8], 10 }
     end
     if btnp(4) and P.f >= a.hit - 1 then P.queued = "a" end
-    if P.queued and P.f > a.lock and P.st > 0 then
+    if P.queued and P.f > a.lock and STA.strike() then
       attack(min(P.combo + 1, 3), dx, dy)               -- the combo goes on, in the other form
     elseif done then
       P.act, P.combo = nil, 0
@@ -4308,7 +4323,7 @@ end
 YHARNAM = { road_at = road_at, district = district, chunk = chunk, ensure = ensure, player = P,
             blocked = blocked, lamps = lamp_state, kinds = { road = K_ROAD, walk = K_WALK, house = K_HOUSE },
             camera = function() return cam_x, cam_y end, CS = CS, TS = TS, SPR = SPR, FACADE = FACADE,
-            HUNT = HUNT, FOES = FOES, FOE = FOE, hurt = hurt, flash = function() return flash end, dirs = DIRS,
+            HUNT = HUNT, STA = STA, FOES = FOES, FOE = FOE, hurt = hurt, flash = function() return flash end, dirs = DIRS,
             G = G, AREA = AREA, boss_chunk = boss_chunk, lamp_chunk = lamp_chunk, PATHS = PATHS, menu = menu,
             apply_paths = apply_paths, path_weights = path_weights, BLADE = BLADE, parts = parts, BRK = BRK,
             REGION = REGION, state = function() return state end,
@@ -4981,7 +4996,9 @@ function _draw()
     if P.rally > 0 and P.hp > 0 then rectfill(8 + P.hp * 7, 8, min(P.rally, P.hpmax - P.hp) * 7, 4, 0xC87028) end
     -- stamina, green, under it
     rectfill(7, 14, P.stmax * 0.7 + 2, 4, 0x081008)
-    if P.st > 0 then rectfill(8, 15, floor(P.st * 0.7), 2, P.st_wait > 0 and 0x488838 or 0x68B050) end
+    if P.st > 0 then
+      rectfill(8, 15, floor(P.st * 0.7), 2, P.tired and 0x884028 or P.st_wait > 0 and 0x488838 or 0x68B050)
+    end
     if state == "lamp" then draw_menu() elseif state == "pause" then draw_pause() end
     if P.act == "dead" and died_t > 0 then
       local k = min(died_t, 40)

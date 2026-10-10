@@ -196,6 +196,15 @@ local function measure(slots)
     _, d = mash(dummy("pitchfork", 0, 1e6), 600)
     r["dps10_" .. k] = d / 10
   end
+  -- stamina in the long run: the blows of the last 10 s of 30 s of mashing A
+  -- (what a hunter can keep up, against the first 4 s he can burst)
+  for _, ext in ipairs({ false, true }) do
+    hunter(slots, ext)
+    local h20 = mash(dummy("pitchfork", 0, 1e6), 1200)
+    hunter(slots, ext)
+    local h30 = mash(dummy("pitchfork", 0, 1e6), 1800)
+    r[ext and "keep_o" or "keep_f"] = h30 - h20
+  end
   hunter(slots, false)
   r.die2, r.die3 = to_die(2), to_die(3)
   -- folded blows from full stamina to none (none of it coming back)
@@ -260,16 +269,17 @@ io.write("the paths: " .. table.concat(NAMES, ", ") .. "\n")
 io.write("                 townsman (5 hp)      the Butcher (60 hp)     the Watcher (133 hp)  die   in 4 s" ..
          "                          10 s       stamina   combo      pistol\n")
 io.write("build            blows f/o  s f/o     blows f/o  s f/o        blows f/o  s f/o     of 2/3  " ..
-         "blows f/o  a blow f/o  DPS f/o   DPS f/o    full      s f/o      shots parry reel\n")
+         "blows f/o  a blow f/o  DPS f/o   DPS f/o    full      s f/o      shots parry reel  kept/10s f/o\n")
 local R = {}
 for _, b in ipairs(builds) do
   local r = measure(b)
   R[label(b)] = r
   io.write(string.format("%-16s %3d/%-3d %4.2f/%-5.2f %3d/%-3d %4.1f/%-6.1f %3d/%-3d %4.1f/%-5.1f %2d/%-3d " ..
-                         "%3d/%-3d %4.2f/%-4.2f %4.1f/%-4.1f %4.1f/%-4.1f %4d   %4.2f/%-4.2f %5d %5.2f %5.2f\n",
+                         "%3d/%-3d %4.2f/%-4.2f %4.1f/%-4.1f %4.1f/%-4.1f %4d   %4.2f/%-4.2f %5d %5.2f %5.2f  %3d/%-3d\n",
                          label(b), r.town_f, r.town_o, r.towns_f, r.towns_o, r.b1_f, r.b1_o, r.b1s_f, r.b1s_o,
                          r.b4_f, r.b4_o, r.b4s_f, r.b4s_o, r.die2, r.die3, r.n4_f, r.n4_o, r.blow_f, r.blow_o,
-                         r.dps_f, r.dps_o, r.dps10_f, r.dps10_o, r.full, r.combo, r.combo_o, r.shots, r.parry, r.reel))
+                         r.dps_f, r.dps_o, r.dps10_f, r.dps10_o, r.full, r.combo, r.combo_o, r.shots, r.parry, r.reel,
+                         r.keep_f, r.keep_o))
 end
 
 -- each path, taken again, does more of what it does
@@ -284,7 +294,8 @@ for n = 1, 4 do
   check(b.die2 >= a.die2 and b.die3 >= a.die3 and b.die2 + b.die3 > a.die2 + a.die3,
         "Feral Affinity: every taking, a blow more to take")
   a, b = line(2, n - 1), line(2, n)
-  check(b.full > a.full, "Moonlit Breath: every taking, more blows on a breath")
+  check(b.full >= a.full and b.keep_f >= a.keep_f and b.mods.st_cost < a.mods.st_cost and
+        b.mods.st_regen > a.mods.st_regen, "Moonlit Breath: every taking, dearer blows less and the breath back sooner")
   a, b = line(3, n - 1), line(3, n)
   check(b.parry > a.parry and b.reel > a.reel and b.shots <= a.shots, "Quicksilver Rite: every taking, the pistol")
   a, b = line(4, n - 1), line(4, n)
@@ -313,6 +324,23 @@ check(r0.combo < r0.combo_o and r0.combo > 0.6 * r0.combo_o, "the folded blade: 
 check(r0.blow_o > 1.3 * r0.blow_f, "the open saw: heavier blows")
 check(r0.dps_f > r0.dps_o and r0.dps10_f > r0.dps10_o, "the folded blade: more damage per second")
 check(r0.town_o < r0.town_f, "the open saw: a townsman in fewer blows")
+-- stamina matters (the user's wish, 2026-10-10): with no path a hunter who only
+-- mashes A cannot keep up what he bursts (his 4 s, or the full bar: six blows
+-- folded), and the breath of Moonlit Breath is felt in both forms
+check(r0.keep_f <= 0.7 * 2.5 * r0.n4_f and r0.keep_o <= 0.7 * 2.5 * r0.n4_o, "no path: mashing A does not keep up the burst")
+check(r0.full >= 5 and r0.full <= 7, "no path: about six folded blows on a full bar")
+check(line(2, 4).keep_f >= 1.3 * r0.keep_f and line(2, 4).keep_o >= 1.3 * r0.keep_o,
+      "Moonlit Breath x4: at least a third more blows kept up")
+-- winded (the bar at 0): no blow, no heavy one, until the breath is back to 20
+hunter({}, false)
+P.st, P.tired, P.st_wait = -5, true, 99
+for t = 1, 12 do B.frame(t % 2 == 0 and (1 << 4) or 0) end
+check(P.act == nil and P.tired, "winded: no blow")
+B.frame(0)
+P.st, P.st_wait = Y.STA.out + 1, 0
+B.frame(1 << 4)
+check(not P.tired and P.act == "attack", "breath back: a blow")
+clear()
 -- and nothing turns the fight upside down
 for name, r in pairs(R) do
   check(r.town_f >= 2 and r.town_o >= 2, name .. ": a townsman takes more than one blow")
