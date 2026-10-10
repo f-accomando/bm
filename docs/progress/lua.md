@@ -1,166 +1,79 @@
-# Lua & Runtime Subsystem
+# Lua and runtime
 
-This document covers the Lua 5.4 virtual machine integration, cartridge execution lifecycle, core API surface, built-in system libraries, and developer debugging facilities in **bm**.
+The Lua 5.4 VM, the cartridge runtime, the libraries built into the kernel and the dev kit.
+The API itself (every function, arguments, examples) is in [`docs/API.md`](../API.md) and
+its copies (`docs/API-IT.md`, `docs/GAME-GUIDE.md`, `docs/GUIDA-GIOCHI.md`): not repeated
+here.
 
----
+## How it is today
 
-## 1. Lua 5.4 Virtual Machine Integration
+### VM (`third_party/lua/`, `src/script/luavm.c`)
+- Stock Lua 5.4 with one patch: `luai_cprof` in `third_party/lua/ldo.c` (a hook on C calls
+  for the function profiler; NULL costs one test).
+- `luavm.c` is the kernel's own state (boot script, REPL), capped at `LUA_MEM_LIMIT` 64 MiB.
+- Each cartridge gets a fresh state in `src/bm/runtime.c`: generational GC (`LUA_GCGEN`),
+  an instruction-count hook, globals `SCREEN_W`/`SCREEN_H`, wave constants, the API table.
 
-bm embeds the standard Lua 5.4 interpreter ([`third_party/lua/`](../../third_party/lua/)) directly into the bare-metal kernel:
-* **Architecture & Compilation**: Compiled using the GNU ARM toolchain with VFP hard-float ABI (`-mfloat-abi=hard -mfpu=vfp`) and Newlib libc integration.
-* **Deterministic Memory Management**:
-  * Uses a dedicated custom memory allocator that allocates from the kernel heap via Newlib's `_sbrk`.
-  * Generational garbage collection is enabled by default to minimize GC pause times during active gameplay.
-* **Execution Performance on Pi Zero W (1.0 GHz ARM1176)**:
-  * `fib(25)`: 83 ms
-  * 1,000,000 arithmetic additions: 104 ms
-  * Quicksort of 100,000 integers: 657 ms
-  * Average opcode cost: **~100 ns** per basic Lua instruction, providing a budget of **~140,000 to 150,000 Lua instructions per 16.7 ms frame** at 60 fps.
+### Runtime (`src/bm/runtime.c`, `runtime.h`)
+- One file holds the cartridge loop and almost every Lua binding (`l_*`). Loop: input,
+  `_update` (fixed 1/60 s), `_draw`, 3D flush, page flip; `_init` once.
+- `frameskip(n)`: up to `n` `_update` before a `_draw` when a frame is late (`stat(15)` how
+  many ran). `stat()` indices are documented above `l_stat`.
+- `bm_stats_t` (`runtime.h`) is what a run returns: times, slow frames, Lua peak, assets,
+  tokens, `left` (the player left, not an error).
+- Tokens (`src/bm/tokens.c`, `stat(11)`, `code_tokens()`): information only, never a limit
+  (`docs/B16.md` §2.4).
+- Square cartridges (256×256, 360×360) are boxed on the 16:9 screen; `bm_video_enter` /
+  `bm_video_leave` give the console's screen back as it was (`console_suspended()`).
+- Projects and games (M47): `.bme` projects in `src/bm/project.c`; in `runtime.c`
+  `write_target`, `copy_question`, `cart_build`; `cart_save`/`cart_write`/`cart_put_audio`
+  return the file written. Rules in `CLAUDE.md`; test doubles
+  `tests/studio/project_rules.lua`.
+- nano8 (`src/bm/n8*.c`, `carts/nano8`): a PICO-8-compatible machine for `.p8` carts, its
+  own Lua bindings in `n8lua.c` and sound in `src/audio/n8snd.c`.
 
----
+### Libraries built in (`src/bm/require.c`, sources in `src/script/`, `src/ai/`)
+`require` serves, once per cartridge: `bmlib` (games' shared kit: maths, collisions with map
+flags, `lib.move`/`lib.step`/`lib.ray`, `lib.hits`, tweens and timers, particles, camera,
+states, menus, `lib.split`/`lib.party`, saves), `bmnet` (lockstep over LAN or relay
+`tools/overbit_relay.py`: `net.input`, `net.frames`, `net.check`), `bm3d` (Studio/Animator
+toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
+[audio](audio.md)), `predict`, `padtype`, `assist` (see [tools](tools.md)).
 
-## 2. Cartridge Runtime Lifecycle (`src/bm/runtime.c`)
+### Dev kit (`runtime.c`, `src/bm/profile.c`)
+- Overlay: F11 cycles; `devkit(mode)` 0 off, 1 simple, 2 detailed, 3 functions. Settings
+  sets the starting mode; F11/`devkit()` change only the current run.
+- Function profiler (mode 3 or `profile(true)`): self and total ms per frame over the last
+  second, C functions marked; uses the instruction hook plus `luai_cprof`.
+- Debugger: `breakpoint([why])` and F8 in bm Code, in a game tried from a tool.
+- Session report: at the end of a run one file per game,
+  `reports/<branch>/session_<game>_<board>.txt`, replaced by the next run (`session_report`,
+  `reports_session`): frame-time classes, the 12 longest frames with their parts, the game's
+  `devinfo()` lines. `session_report=0|1` in `bm/config.txt` (default: only with a
+  `github_token`). Sent from the menu.
 
-Each `.bm` cartridge runs in an isolated `lua_State`. When a cartridge is launched from the system menu or another tool, the runtime creates a fresh state, injects the system API table, compiles the cartridge's Lua code, and invokes its lifecycle callbacks:
+## Open work (`docs/ROADMAP.md`)
 
-```
-[System Menu / Tool]
-        │
-        ▼ (cart_run / loading screen)
-   [lua_newstate] ───► Inject bm APIs & Sandbox
-        │
-        ▼
-    [_init()] ────────► Setup game state & load assets
-        │
- ┌──────┴──────────────────────────┐
- │ 60 Hz Game Loop                 │
- │                                 │
- │  1. Poll Input (USB, BT, GPIO)  │
- │  2. _update() (Fixed time step) │
- │  3. _draw()   (Graphics blit)   │
- │  4. V3D / Render Flush          │
- │  5. Wait for VSync / 16.6 ms    │
- └──────┬──────────────────────────┘
-        ▼ (Ctrl+Esc / Exit)
-   [lua_close] ───────► Free RAM & return to menu
-```
+- **M42** `.b16` profile: profile field and `mkbm.py --b16` (not there yet), fixed screen,
+  palette, memory and sandbox, CPU budget 60 → 30 fps, SDK target, Yharnam then Overbit.
+- **M39 step 10**: hot Lua of the games in C (rays, bot paths, particles), fewer allocations.
+- **M47** projects: done on the PC, to verify on the Pi.
+- Yharnam checks without a milestone ("Da fare" in the roadmap): frame cost on Pi and RGB30
+  via the session report and `devinfo()`, a glitch in the first frames.
 
-### Frame Pacing & Frameskip
-* The main loop targets a rigid 60.0 fps tick derived from the 1 MHz hardware timer.
-* **Adaptive Frameskip (`frameskip(n)`)**: When heavy scenes cause frame computation to exceed 16.6 ms, the runtime can invoke up to `n` consecutive `_update()` calls while skipping intermediate `_draw()` passes to preserve gameplay physics and synchronization.
-* **Resource Monitoring**:
-  * `stat(10)`: Lua instructions executed during the current frame.
-  * `stat(11)`: Total token count of the cartridge script.
-  * `stat(12)`: Peak Lua memory allocation in KiB.
-  * `stat(13)`: Total asset memory in KiB.
-  * `stat(14)`: Execution time of the heaviest recorded frame.
+## Rules (do not break)
 
----
-
-## 3. Global Core Lua API Surface
-
-The system exports a comprehensive suite of C-bound functions to the global Lua environment:
-
-### 2D Graphics & Display
-| API Call | Description |
-|---|---|
-| `cls(c)` | Clears the active screen or clipping rectangle to color `c` |
-| `pset(x, y, c)` / `pget(x, y)` | Sets or retrieves a single pixel |
-| `line(x0, y0, x1, y1, c)` | Draws a line between two points |
-| `rect(x, y, w, h, c)` / `rectfill(...)` | Draws hollow or filled rectangles |
-| `circ(x, y, r, c)` / `circfill(...)` | Draws hollow or filled circles |
-| `spr(n, x, y, [w, h, fx, fy])` | Blits a sprite from the 1024×1024 spritesheet |
-| `sspr(sx, sy, sw, sh, dx, dy, [dw, dh, fx, fy])` | Scaled and clipped sub-rectangle sprite blitter |
-| `map(cx, cy, sx, sy, w, h, [layer, mask])` | Renders multi-layer tilemaps with collision flags |
-| `camera([x, y])` / `clip([x, y, w, h])` | Configures global camera offsets and clipping rects |
-
-### 3D Graphics & Models
-| API Call | Description |
-|---|---|
-| `draw3d(mesh, [x, y, z, rx, ry, rz, sx, sy, sz])` | Submits a 3D mesh for software or GPU rasterization |
-| `clear3d([color])` / `zclear()` | Clears depth buffer and 3D screen canvas |
-| `camera3d(x, y, z, tx, ty, tz, [fov])` | Configures perspective 3D camera matrices |
-| `light3d(dx, dy, dz, [col, ambient])` | Configures directional sun lighting and ambient intensity |
-| `animate(model, anim_id, frame)` | Calculates skeletal bone transforms for mesh skinning |
-| `gpu3d([on, aa, vs])` | Inspects or toggles VideoCore IV hardware acceleration modes |
-
-### Input & Controllers
-| API Call | Description |
-|---|---|
-| `btn([b, player])` | Queries current state of buttons (0–7 or symbolic names `"ok"`, `"back"`) |
-| `btnp([b, player])` | Queries button state with initial press edge-detection |
-| `pad([player])` | Queries full analog stick, trigger, and D-pad states |
-| `mouse([visible])` | Reads mouse coordinates, relative deltas, and wheel state |
-| `controller(player)` | Returns connected controller type, capabilities, and lightbar color |
-| `prompt(action, [player])` | Renders contextual controller or keyboard button icon chips |
-
-### Sound & Audio
-| API Call | Description |
-|---|---|
-| `sfx(id, [channel, offset, length])` | Plays a sound effect from the cartridge sound bank |
-| `music(track, [fade_ms, loop])` | Plays or stops background music patterns |
-| `play(note, [instrument, pan, volume])`| Directly plays notes using Audio 2 synthesis presets |
-| `tone(freq, [wave, env, mod])` | Emits raw waveforms through the hardware synthesizer |
-
-### Storage & Files
-| API Call | Description |
-|---|---|
-| `save(table, [slot])` / `saved([slot])` | Reads or writes persistent data across 8 slots (`.SAV`, `.S02`–`.S08`)|
-| `saves()` / `delsave([slot])` | Queries byte counts and deletes saved slot files |
-| `doc_read(path)` / `doc_write(path, data)` | Reads and writes user documents in `/docs/` |
-
----
-
-## 4. Built-in Shared Libraries
-
-To prevent code duplication across cartridges, bm embeds standard libraries directly into kernel flash:
-
-### `bmlib` (`require "bmlib"`, [`src/script/bmlib.lua`](../../src/script/bmlib.lua))
-The standard game development utility kit:
-* **Math & Random**: `clamp`, `lerp`, `approach`, `sign`, `rnd`, `choose`, `shuffle`, deterministic `rng(seed)` (xorshift).
-* **Collision & Physics**: AABB rectangle overlaps, circle collisions, tilemap raycasts (`lib.ray`), sliding wall movement (`lib.move`), and platformer physics with one-way jump-through platforms (`lib.step`).
-* **Combat Hitboxes (`lib.hits()`)**: Structured hurtboxes and hitboxes with team filtering, multi-part bodies, lane depth (`z`/`depth`), and weapon clash resolution.
-* **Tweening & Timers**: Smooth interpolation curves (quad, cubic, bounce, elastic) and timed execution blocks (`lib.wait`).
-* **Cameras & Effects**: Smooth tracking cameras with deadzones, screenshake, and 2D particle systems.
-* **Multiplayer Support**: Splitscreen viewport manager (`lib.split(n)`), local party join lobby (`lib.party()`), and per-player color palettes.
-
-### `bmnet` (`require "bmnet"`, [`src/script/bmnet.lua`](../../src/script/bmnet.lua))
-The universal multiplayer networking library derived from *Overbit*:
-* Works across local LAN (UDP broadcast) or via internet relay servers ([`tools/overbit_relay.py`](../../tools/overbit_relay.py)).
-* **Deterministic Lockstep Engine**: Gathers 32-bit player input masks at 60 Hz, synchronizes frame turns (`net.input`, `net.frames`), and checks desync hashes (`net.check`).
-* Reliable ordered messaging alongside fast unreliable packet streams.
-
-### `bm3d` (`require "bm3d"`, [`src/script/bm3d.lua`](../../src/script/bm3d.lua))
-Shared 3D toolkit powering the console's creative suite (bm SDK, bm Studio, bm Animator):
-* Color palettes, 3D transform gizmos, wireframe rendering, face picking, and `.bm` mesh serialization (`split_mesh`, `encode_mesh`).
-
-### `riff` (`require "riff"`, [`docs/RIFF.md`](../RIFF.md))
-Live-coding musical pattern library inspired by Strudel and TidalCycles:
-* Miniature notation for rhythmic beat slicing, euclidean rhythms, and polyphonic note sequencing triggered at deterministic sub-frame audio timestamps.
-
----
-
-## 5. Developer Debugging & Profiling Tools
-
-### Lua Breakpoint Debugger (R13)
-Integrated directly into bm Code and the kernel runtime:
-* **Breakpoints**: Set in bm Code (F8) or via code with `breakpoint([reason])`.
-* **Step Control**: Step over (F10 / A), step into (F8 / X), step out (Shift+F8 / Y), continue (F5 / Start), or stop (Esc / Select).
-* **Interactive Inspection**: Overlays source code context, local variables, upvalues, and call stack directly over the frozen game screen without corrupting video memory.
-
-### Function-Level Sampling Profiler (R14, [`src/bm/profile.c`](../../src/bm/profile.c))
-Accessible via F11 DevKit mode 3 or programmatically with `profile(true)`:
-* Combines Lua VM instruction hook counters (sampled every 1000 instructions) with C function intercept hooks (`luai_cprof` in `ldo.c`).
-* Tracks the top 10 most expensive functions over rolling 1-second windows.
-* Separates **Self Time** (execution within the function body) from **All Time** (including sub-calls).
-* Highlights native C calls (`spr`, `map`, `draw3d`) in cyan to distinguish script logic from engine rendering.
-
-### Session Report (dev kit, 2026-10-10)
-At the end of a run the dev kit saves one report per game, `reports/<branch>/session_<game>_<board>.txt`, replaced by the next run of the same game (`reports_session`, `github_put` with `replace`):
-* The real time from one picture to the next in six classes (up to 18 ms ... over 100 ms) and the 12 longest frames with their parts (`cpu`, `upd`, `draw`, 3D, copy, `outside`: the SD card, the GPU or the machine), so a freeze outlives the overlay's 64 frames.
-* The game's own `devinfo()` lines as the run ended (Yharnam: the chunks the view waited for).
-* `bm/config.txt` `session_report=0|1`; without it, only with a `github_token`. Sent from the menu, not while the game closes.
-
-### Screens and the console
-* `360x360` is a cartridge resolution (the `.b16` screen); a square one is boxed in the middle of a 16:9 screen on the Pi (256x256 in 480x270, 360x360 in 640x360).
-* `bm_video_enter` / `bm_video_leave` give the console back as it was: a game started from the menu no longer shows the monitor between the game and the menu (`console_suspended()`).
+- New or changed API: all four API docs (same tables and examples) and `src/ai/kb/` (entries
+  with `title_en:`/`text_en:`), then `make ai-model` and commit `assist.weights`; examples
+  and `sdk/README.md` if needed.
+- A new built-in library: an entry in `src/script/embed.S` and in `libs[]` of
+  `src/bm/require.c`.
+- In Lua `cond and nil or x` is always `x`.
+- Tool pages: one `do … end` exporting into `P`, under 200 locals; a mouse function outside
+  it does not see its locals (export them).
+- Lockstep games (`bmnet`, Overbit): randomness with `grandom()`; no `G.frame`, camera,
+  quality or state changed in `_draw`.
+- System keys belong to `src/kernel/syskeys.c` (F12, Esc, Ctrl+Esc, F11, F6, F5/Ctrl+R): apps
+  do not reuse them.
+- Tests: `make test-gameapi`, `test-bm`, `test-profile`, `test-bmnet`, `test-online`,
+  `test-loading`; QEMU `-k <name>` for the piece touched.

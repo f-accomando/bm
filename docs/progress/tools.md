@@ -1,135 +1,92 @@
-# Tools, SDK & Development Utilities
+# Tools and SDK
 
-This document details the on-console creative suite, host-side packaging utilities, 3D asset decimation pipelines, AI assistants, and CI build automation in **bm**.
+The on-console suite (bm SDK and editors), the assistant, the PC scripts, the Market, the
+tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); resources:
+[`docs/RISORSE.md`](../RISORSE.md).
 
----
+## How it is today
 
-## 1. On-Console Creative Suite (`carts/`)
+### The suite (`carts/`, opened from the Dev tab; tools live in the kernel, not the Market)
+- **bm SDK** (`carts/editor`): projects, templates (Empty 2D, Platform 2D, Top-down 2D,
+  Shooter 2D, Versus 2D, Online 2D, 3D scene, 3D with models), budgets (tokens, Lua, assets),
+  the dev kit report of a test run, jumps to the other tools (`cart_tool`).
+- **bm Code** (`carts/code`): tabs, two pages, 6×12/8×14/8×16 fonts; completion
+  (`predict`, [`docs/PREDICT.md`](../PREDICT.md)), pad typing (`padtype`,
+  [`docs/PADTYPE.md`](../PADTYPE.md)), F6 assistant and `#entry: … #` lines, F8
+  breakpoints, Ctrl+Enter plays riff.
+- **bm Pixel** (`carts/pixel`): F1 draw, F2 sheet, F3 palette.
+- **bm Studio** (`carts/studio`): models from tiles and blocks (block, tile, select, vertex,
+  paint), reduce. **bm Animator** (`carts/animator`): rig, keyframes, sprites from an
+  animation. **bm Mesh** (`carts/mesh`): vertices and faces of MESH models and of meshes the
+  game builds (`cart_meshes()`).
+- **bm Sound** (`carts/sound`): SOUNDS, SFX, PATTERN, SONG pages; music assistant on F6
+  ([audio](audio.md)).
+- **bm Write** (`carts/write`, a Market app in Games): `.BMD` documents in `/docs`, A4 pages,
+  exports `.TXT`/`.MD`/`.HTM`/`.PDF`.
+- **Lib tab** (`src/kernel/lib.c`, `libview.c`): resources `.bmm .bmi .bms .bmt .bmc .bmk`,
+  hidden until `lib_tab=1`.
+- Shared Lua: `bm3d` (Studio/Animator/Mesh), `bmui` (mouse: zones registered while drawing,
+  chips that press keys, `U.press` before `keyp()`, a context menu of keys).
+- Projects (M47): tools edit `.bme`, never a `.bm`/`.b16`; saving a game asks for a copy.
+  Runtime side in [lua](lua.md).
 
-bm is designed as a self-contained creative environment. Developers can create entire 2D and 3D games directly on the console without a PC:
+### Assistant (`src/ai/`, F6 in every tool, `carts/assistant` in Dev)
+- Q&A over the knowledge base `src/ai/kb/` (`BMAI` file, `assist.c`, small INT8 network,
+  `assist.weights` built by `make ai-model`; format in `src/ai/kb/README.md`).
+- Recipes: sprites (`sprite.c`), low-poly models with skeletons (`mesh.c`), music
+  (`music.c`). Panel shared by the tools (`require "assist"`).
+- Mesh from images: `cutout3d` / `picture3d` in the runtime (`src/bm/cutout.c`), PC tools
+  `tools/img2mesh.py`, `cutout2mesh.py`, `local2mesh.py`, `meshy*.py` (`MESHY_API_KEY`
+  only in the environment).
 
-```
-┌────────────────────────────────────────────────────────┐
-│                        bm SDK                          │
-│        Project Hub, Templates, Resource Budgets        │
-└───────┬──────────┬──────────┬──────────┬──────────┬────┘
-        │          │          │          │          │
-        ▼          ▼          ▼          ▼          ▼
-   ┌─────────┐┌─────────┐┌─────────┐┌─────────┐┌─────────┐
-   │ bm Code ││bm Pixel ││bm Studio││bm Sound ││ bm Mesh │
-   │ Lua IDE ││ 2D Art  ││3D Models││  Audio  ││ Geometry│
-   └─────────┘└─────────┘└────┬────┘└─────────┘└─────────┘
-                              │
-                              ▼
-                       ┌─────────────┐
-                       │ bm Animator │
-                       │Skeletons/Rig│
-                       └─────────────┘
-```
+### PC scripts and tools
+- `scripts/mkbm.py`: builds a `.bm` (`--lua --sheet --sheet8 --map --flags --sprites --audio
+  --cover --models --res`…); header `BMCART` with CRC-32 (`src/bm/bm.h`). No `--b16` yet
+  (M42).
+- `scripts/bmres.py`: extract/convert `BMRES` resources. `scripts/bmaudio.py`: sound banks.
+  `scripts/bmmesh.py`, `bmdecimate.py`, `tools/bmreduce.py` (quadric collapse, same code as
+  `src/bm/decimate.c`).
+- `tools/qpuasm.py` → `src/gpu/shaders.h` ([graphics](graphics.md)).
+- `tools/bm_net.py`: kernels, cartridges and files over WiFi (protocol in
+  [system](system.md)); `tools/bm_load.py`: serial chainloader and terminal;
+  `tools/overbit_relay.py`: the internet relay for `bmnet`.
+- `easy_install.sh` (WSL, SD on `/mnt/d`): kernel, `make install`, image, network kernel or
+  files, release, Market, monitor, `bm/config.txt`.
+- Releases: `scripts/release.sh vX.Y.Z` (signed manifests, `src/net/release.c`).
 
-### 1. bm SDK (`carts/editor/main.lua`)
-The project nerve center:
-* **Project Templates**: Launches new projects from proven starter kits (Empty 2D, Platformer, Top-down, Shooter, Versus 2D, Online 2D, 3D Scene, 3D with Models).
-* **Resource Tracker**: Monitors script token count, Lua RAM usage, asset memory, and file size relative to the future 8 MiB `.b16` limit.
-* **One-Key Navigation**: Seamlessly jumps to specialized editors (bm Code, Pixel, Studio, Animator, Mesh, Sound) with automated state persistence.
+### Market (`market/`, repo `f-accomando/bm-market`)
+Apps in `GAMES` (Makefile) reach the consoles from `bm-market`; copies here are for tests.
+`make market-seed MARKET=<clone>` then commit and push there (`scripts/market.sh` from WSL).
+A new app: a line in `market/about.txt` (licence required) and a place in `GAMES`.
 
-### 2. bm Code (`carts/code/main.lua`)
-The console's dedicated code editor:
-* **Dual-Page Layout**: Displays two code pages side-by-side using a clean 6×12 bitmap font.
-* **Predictive Typing ([`docs/PREDICT.md`](../PREDICT.md))**: Contextual inline word completion for Lua syntax, bm APIs, and comments in English or Italian.
-* **Controller Typing ([`docs/PADTYPE.md`](../PADTYPE.md))**: Write code and text entirely using gamepad buttons and syllabic prediction.
-* **Integrated Debugger (F8)**: Breakpoints, single-step execution, and variable inspection directly over the running game screen.
+### Tutorial videos (`video/`, skill `claude/skills/bm-video-tutorial`)
+`video/lib/bmvideo.py` drives `bmhost` from a key script and lays out the page with
+ffmpeg/libass; storyboard and script come from the same key script. Series *Skyvale World*
+(`video/SERIE.md`), episodes 01–07 complete, each with a `verify.py`. `bmhost --tool` runs a
+tool; `make bmhost-ai` builds `bmhost` with the real `ai` table. On the PC: no kernel menu.
 
-### 3. bm Pixel (`carts/pixel/main.lua`)
-Sprite and 2D pixel art editor:
-* Edits 1024×1024 cartridge spritesheets.
-* Color palettes with up to 256 colors, transparency masking, and custom color remapping.
-* Frame animation with configurable onion skinning.
+### CI (`.github/workflows/ci.yml`)
+Build; host tests on two machines (`make test-host` with `HOST_SKIP=test-overbit`, and
+`test-overbit`); QEMU in four shards (`make test-qemu SHARD=K/4`); RGB30 build and QEMU
+tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes in `SLOW`.
 
-### 4. bm Studio & bm Animator (`carts/studio/`, [`carts/animator/`](../../carts/animator/))
-Console-native 3D modeling and skeletal animation:
-* **bm Studio**: Builds low-poly 3D models using blocks, polygonal faces, vertex deformation, and direct surface tile painting.
-* **bm Animator**: Constructs bone skeletons, skinning weights, and keyframe timeline clips; can bake 3D animations directly into 2D sprite frames.
+## Open work (`docs/ROADMAP.md`)
 
-### 5. Sound Editor (`carts/sound/main.lua`)
-* 8-voice polyphonic tracker and sound effect designer.
-* Audio 2 parameter control: PolyBLEP oscillator selection, resonant TPT filter sweeps, exponential envelopes, and FDN reverb / ping-pong echo sends.
+- **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, then publish in
+  the Market.
+- **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
+- **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
+  I-beam cursor and dragging panels.
+- **M43 step 3**: a *Stack* page in bm Pixel. **M42 step 4**: the SDK saves a real `.b16`.
 
-### 6. Embedded AI Assistant (`src/ai/`)
-* Runs a local INT8 neural inference engine directly on the ARM processor.
-* Accessible via F6 in editors to answer API questions, diagnose syntax errors, sketch sprites, or generate low-poly 3D models from natural language descriptions.
+## Rules (do not break)
 
----
-
-## 2. Packaging & Asset Processing Utilities
-
-For workstation workflows, the `scripts/` and `tools/` directories provide command-line utilities:
-
-### `scripts/mkbm.py` (Cartridge Compiler)
-Compiles game assets into binary `.bm` and `.b16` cartridges:
-```sh
-python3 scripts/mkbm.py main.lua \
-    --sheet sheet.png \
-    --map main=map.csv \
-    --flags flags.csv \
-    --models models.bm \
-    --audio sound.bm \
-    --cover cover.png \
-    -o game.bm
-```
-* Generates standard chunked containers (`BMCART` / `B16` headers, CRC-32 integrity checks).
-* Automatically encodes sprite sheets into compressed 8-bit paletted `SHEET8` sections.
-
-### `scripts/bmres.py` (Resource Packager)
-Extracts, converts, and manages standalone `.BMRES` resource libraries:
-* `.bmm` (3D Models)
-* `.bmi` (Images / Spritesheets)
-* `.bms` (Sound banks)
-* `.bmt` (Tilemaps & Layers)
-* `.bmc` (Color palettes)
-* `.bmk` (Asset kits)
-
-### `tools/bmreduce.py` (3D Polygon Reducer)
-An automated quadric edge collapse polygon decimation engine:
-* Reduces high-poly meshes down to the Pi Zero's target 1,200 triangle budget.
-* Preserves UV texture seams, material boundaries, and skeletal bone weights.
-
-### `tools/qpuasm.py` (VideoCore IV QPU Assembler)
-* Compiles SIMD assembly code into binary machine instructions executed by the 12 VideoCore IV QPUs.
-* Assembles vertex shaders (`vs_baked`, `vs_tex_rgb`, `vs_lit`) and fragment shaders (`fs_*`).
-
----
-
-## 3. Build Automation, Distribution & CI
-
-### Master Build System ([`Makefile`](../../Makefile))
-Key build targets:
-* `make`: Compiles `build/kernel.img` (Pi Zero W) and `build/chainloader.img`.
-* `make ZERO2=1`: Compiles `build/kernel7.img` for the Raspberry Pi Zero 2 W.
-* `make TARGET=rgb30`: Builds `build/kernel8.img` for the PowKiddy RGB30.
-* `make image`: Constructs raw bootable FAT32 SD card images (`dist/bm.img`).
-* `make test`: Runs PC unit tests and QEMU regression tests.
-
-### Workstation Tool (`easy_install.sh`)
-An interactive bash setup utility for Linux/WSL:
-* Installs ARM toolchain packages (`arm-none-eabi-gcc`).
-* Automatically formats and installs kernel images onto target SD cards.
-* Transfers cartridges and kernels over WiFi using [`tools/bm_net.py`](../../tools/bm_net.py).
-  * A file (`--send`, op S) is answered `QD` as soon as it arrived whole and checked; the console keeps it in memory and writes it from its menu in a fiber (`netxfer_write_tick`, a slice a frame, `src/net/netxfer.c`), so the console never stops (a 6 MB game used to freeze it for minutes). The game shows *Updating* (or *Queued*) and does not start until written; a box shows the KiB written. A game that is open (or suspended on the Pi) is replaced when it is closed: the suspended copy is closed so the old one never comes back. One file waits at a time: another one gets `BY` (busy). On the RGB30 a `.bm` / `.b16` for `carts/` goes to `bm/`, the folder its menu lists. Tests: `test_netcon` (queue, BY, pause), `check_bm_net_config.py` (QD, BY on the PC).
-* Publishes cartridges directly to the official game store.
-
-### Tutorial videos ([`video/`](../../video/), skill `claude/skills/bm-video-tutorial`)
-* `video/lib/bmvideo.py`: a key script for `bmhost` (the console's runtime on the PC, virtual clock, same run every time) and ffmpeg/libass for the page: console 2x, side panel with the place, the key pressed and the keys of the scene, narrator's line, hook, title and closing cards. Storyboard and script are generated from the same key script.
-* `video/SERIE.md`: *Skyvale World*, a 2D platformer (original hero Kip) built only with the console's 2D tools, one episode per tool. Episode 1 (`video/01-pixel/`, bm Pixel) is done: Kip seen from the side, a six-frame run cycle, a jump and a coin; `verify.py` checks the saved cartridge pixel by pixel.
-* `bmhost --tool` runs a cartridge as one of bm's tools (it may save over a `.bm` already on the card), so the SDK and the editors can be recorded; episode 2 (`video/02-sdk/`, the SDK's 2D side: tiles with flags, a two-layer map, the first level) is done and `verify.py` checks the saved cartridge.
-* Episode 3 (`video/03-sound/`, bm Sound: three sounds, three effects played on the piano keys, level music written with riff and put in the bank as a song) is done, with sound in the video (`bmhost --wav`); `verify.py` checks the saved bank and the wav.
-* Episode 4 (`video/04-code/`, bm Code: Kip runs and jumps with bmlib, the game played by a button script, with its sound) is done. `make bmhost-ai` builds `bmhost` with the real `ai` table (bm Code and the assistant need it).
-* Episode 5 (`video/05-assistant/`: the assistant draws a slime in bm Pixel, bm Code adds coins, stompable slimes, score and lives, and the HUD is an answer of the assistant inserted with F6 and adapted with Replace) is done; `verify.py` replays the game with a log.
-* Episodes 6 and 7 (`video/06-level/`, `video/07-play/`): the last level (flag and trees in bm Pixel, a 160-cell map with a third layer in the SDK, camera, parallax and screens in bm Code) and the game played from the title to the flag by a button script a bot made (`bot.py`, replayed and checked by `replay.py`), with a reel of the six episodes and the SDK's dev kit on the finished file. The series is complete.
-* On the PC there is no kernel menu and no assistant (`F6` in bm Pixel); QEMU is not in the cloud sessions.
-
-### Continuous Integration (`.github/workflows/ci.yml`)
-The GitHub Actions workflow distributes test execution across **6 concurrent virtual runners**:
-1. Host unit tests (`make test-host`).
-2. Overbit isolated test runner (`HOST_SKIP=test-overbit`).
-3. 4 parallel QEMU shards running headless end-to-end integration tests (`make test-qemu SHARD=K/4`).
+- Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a
+  dialog frame never crosses the title row (QEMU tests read it).
+- bm Mesh rewrites only the lines between `-- [bm Mesh begin]` and `-- [bm Mesh end]`.
+- Mouse: the mouse does what the keys do. Tests `bmui_host.lua`, `MS` in the test doubles,
+  QEMU `test_editor_mouse`.
+- Predict/pad tables `CROSS`/`FACE`/`KB` change in `src/ai/padtype.lua`.
+- kb comments `#` only at the top of a file; every entry has `title_en:` and `text_en:`.
+- Tests: `make test-studio`, `test-write`, `test-res`, `test-ai`, `test-predict`,
+  `test-padtype`, `test-img2mesh`; QEMU `test_projects`, `test_bm_write`.
