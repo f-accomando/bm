@@ -7,12 +7,22 @@ Repo `f-accomando/bm`. Il branch principale è `bm-core`: "main" vuol dire quell
 branch `main` non esiste). Il vecchio nome del progetto resta solo dove serve alla
 compatibilità (cartelle SD e header vecchi, tag di rete in `tools/bm_net.py`).
 
-Documenti, non questo file: `README.md`, `README_OLD.md`, `docs/ROADMAP.md`,
-`docs/HARDWARE.md`, `docs/API.md` + `docs/GAME-GUIDE.md` e le copie italiane
-`docs/API-IT.md` + `docs/GUIDA-GIOCHI.md`, `docs/RGB30.md`, `docs/B16.md`,
-`docs/RISORSE.md`, `docs/DRIVERS.md`, `docs/BENCH3D.md`, `docs/PREDICT.md`,
-`docs/PADTYPE.md`, `docs/RIFF.md`, `sdk/README.md`. Gli spunti R1, R2, … sono in fondo
-a `docs/ROADMAP.md` e non sono ancora decisi.
+## File: cosa tracciare, cosa è storico, cosa ignorare
+
+- **Comunicazione** (per chi usa o sviluppa bm): `README.md`, `docs/*.md`, `docs/giochi/`,
+  `sdk/README.md`, `AI.md`, `market/README.md`, `video/`, `src/ai/kb/README.md`,
+  `src/ai/words/README.md`. Si scrivono e si aggiornano in **inglese**. La versione
+  italiana ha il suffisso `-IT` (es. `docs/API-IT.md`) e non si tocca. Un file di
+  comunicazione senza versione inglese: prima si scrive quella.
+- **Tracciamento** (per lavorare con Claude Code): `CLAUDE.md`, `docs/ROADMAP.md`,
+  `docs/progress.md` e `docs/progress/*.md`. Dicono solo lo stato attuale e cosa resta da
+  fare. Niente cronaca: quando una cosa è chiusa, si toglie. Ogni argomento sta in un solo
+  file, gli altri rimandano. Si tengono piccoli.
+- **Storico** (non si aggiorna, si legge solo se chiesto): `docs/PRESTAZIONI.md`,
+  `docs/STRESS.md`, `docs/M33-PRIMA-DOPO.md`. La storia vera è in git.
+- **Da ignorare a livello globale** (Claude non li legge, non li aggiorna, non li
+  traduce): `OLDCLAUDE.md`, `OLDREADME.md` e tutti i file `*-IT.md`.
+- Gli spunti R1, R2, … sono in fondo a `docs/ROADMAP.md` e non sono ancora decisi.
 
 ## Come si lavora
 
@@ -53,9 +63,10 @@ da solo (file, scopo, cosa è già stato provato).
   quello che ha già provato.
 - Ricerche larghe nel repo: `Explore`. Task indipendenti: più agenti nello stesso messaggio.
 - **API nuova o cambiata**: dopo il codice, un subagent (`light`, `standard` se tocca più
-  doc) aggiorna la documentazione: i quattro doc API, `src/ai/kb/` (poi `make ai-model`),
-  gli esempi, `sdk/README.md` se serve e il file giusto di `docs/progress/` (indice
-  `docs/progress.md`). I progressi della repo vanno lì, mai in questo file.
+  doc) aggiorna la documentazione: `docs/API.md` e `docs/GAME-GUIDE.md` (in inglese; i `-IT`
+  no), `src/ai/kb/` (poi `make ai-model`), gli esempi, `sdk/README.md` se serve e il file
+  giusto di `docs/progress/` (indice `docs/progress.md`). I progressi della repo vanno lì,
+  mai in questo file.
 - **Roadmap**: lo stesso passo guarda se la novità rende possibile qualcosa di nuovo nelle
   `.bm` / `.b16` esistenti (giochi, strumenti, Market) o per l'assistente AI (kb, esempi,
   Predict), e lo scrive in `docs/ROADMAP.md` come spunto R… (non come decisione) con
@@ -98,8 +109,8 @@ da solo (file, scopo, cosa è già stato provato).
   Scritte sulle righe di 16 px; la cornice di un dialogo non passa sulla riga del titolo
   (i test QEMU la leggono). In Lua `cond and nil or x` dà sempre `x`. bm Mesh riscrive
   solo le righe tra `-- [bm Mesh begin]` e `-- [bm Mesh end]`.
-- API nuova o cambiata in tutti e quattro i doc (stesse tabelle e esempi) e in
-  `src/ai/kb/`, poi `make ai-model` e commit di `assist.weights`. Voce nuova con
+- API nuova o cambiata in `docs/API.md` e `docs/GAME-GUIDE.md` (stesse tabelle e esempi) e
+  in `src/ai/kb/`, poi `make ai-model` e commit di `assist.weights`. Voce nuova con
   `title_en:` e `text_en:`. Commenti `#` della kb solo in cima al file.
 - Flag tile (bmlib): 0 solido, 1 piattaforma, 2 scala, 3 acqua, 4 fa male. Token del
   codice (`stat(11)`): informazione, mai un limite (`docs/B16.md` §2.4).
@@ -146,9 +157,9 @@ da solo (file, scopo, cosa è già stato provato).
 Non ricopiare qui la cronaca. Prima di modificare un'area, leggere il doc o i file:
 
 - SDK, Studio, Animator, Mesh, Pixel: `sdk/README.md`, `carts/{editor,studio,animator,mesh,pixel}/`, `src/script/bm3d.lua`.
-- API giochi, bmlib, bmnet, salvataggi a 8 slot: `docs/API-IT.md`, `src/script/bmlib.lua`, `src/script/bmnet.lua`.
+- API giochi, bmlib, bmnet, salvataggi a 8 slot: `docs/API.md`, `src/script/bmlib.lua`, `src/script/bmnet.lua`.
 - Overbit: `carts/overbit/` (`build.py`, `art/`). Qualità: solo 1080p (GPU) e 640×360 (ARM); il gioco sceglie il resto (`src/85_quality.lua`). Bench a flag: `cart_config("overbit_bench")`, `./easy_install.sh bench`.
 - Yharnam: `carts/yharnam/`. Grafica da `mkassets.py`; dopo un cambio, rieseguirlo e commit di `sheet.png`. Non fare commit di uno sheet `YH_DRAFT=1`.
 - Audio, riff, assistente musica: `src/audio/`, `docs/RIFF.md`. Assistente, mesh da immagine, riduttore: `src/ai/`, `src/ai/kb/README.md`. Predict e pad: `docs/PREDICT.md`, `docs/PADTYPE.md` (le tabelle `CROSS`/`FACE`/`KB` si cambiano in `padtype.lua`).
-- bm Write e `/docs`: `carts/write/`, `docs/API-IT.md` (*Documenti*). Ctrl+I / Ctrl+M arrivano come `"^i"` / `"^m"`.
+- bm Write e `/docs`: `carts/write/`, `docs/API.md` (*Documents*). Ctrl+I / Ctrl+M arrivano come `"^i"` / `"^m"`.
 - Menu, splash, LED, report, aggiornamenti, Market: `src/kernel/{menu_ui,settings,loading,ledstate,reports,update,market}.c`. RGB30: `docs/RGB30.md`, `src/rgb30/`.
