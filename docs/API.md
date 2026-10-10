@@ -1,5 +1,7 @@
 # Native `.bm` cartridges: API and first cartridge
 
+Italian version: [API-IT.md](API-IT.md).
+
 > A step-by-step practical guide (sprites, maps, 3D models, sound, lights, saves):
 > [GAME-GUIDE.md](GAME-GUIDE.md). In Italian: [API-IT.md](API-IT.md) and
 > [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md).
