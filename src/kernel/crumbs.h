@@ -23,5 +23,10 @@ uint32_t crumbs_uptime_ms(void);    /* of this boot, as the timer last said */
  * "freeze") and text with the last lines printed, once, for a report;
  * NULL if it ended well (or the power went). */
 const char *crumbs_last(const char **kind, size_t *len);
+/* The last lines printed kept in RAM (4 KiB), oldest first, into out;
+ * returns the length. Before crumbs_boot(): the run before's. */
+size_t crumbs_ring_copy(char *out, size_t size);
+/* Before crumbs_boot(): how the run before ended, one line. */
+const char *crumbs_prev_state(void);
 
 #endif

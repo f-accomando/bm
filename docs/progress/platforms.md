@@ -62,6 +62,7 @@ A dedicated port adapting bm to a modern portable form factor ([`docs/RGB30.md`]
 * **Wireless**: Realtek RTL8821CS SDIO WiFi and UART Bluetooth.
 * **Boot Flow**: Boots as an uncompressed AArch64 Image via U-Boot extlinux configuration (`kernel8.img`).
 * **Build Command**: `make TARGET=rgb30` produces `build/kernel8.img`.
+* **Warm restart & post-mortem logs (2026-10-10)**: after a kernel update the console came back with a black screen (LED on, chime heard). The panel now gets a real power cycle: `rk_dsi_init` starts with the ST7703 in reset and unpowered (at least 200 ms), powers it, releases reset and waits 120 ms before sleep-out; it reads the panel's power mode back (DCS 0x0A, command mode) and power-cycles once more if it is not on (or if the init commands failed). `rk_dsi_off(link_up)` sends display-off and sleep-in before cutting reset and supply, then leaves 300 ms to drain. Logs on the SD for the run before: `bm/bootprev.txt` (its boot log + the last 4 KiB it printed, from RAM), `bm/lastrun.txt` (the whole log of a run that ended through `plat_reset`/`plat_poweroff`), and `display: ...` stage lines in `bm/bootlog.txt` around the panel start.
 
 ---
 

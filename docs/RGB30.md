@@ -103,7 +103,14 @@ riavviare bm spegne retroilluminazione, pannello e modulo WiFi e i due LED (`qui
 `plat_rk3566.c`), poi chiede il riavvio al firmware (PSCI SYSTEM_RESET) e, se il firmware torna
 indietro, fa il reset globale del chip (`CRU_GLB_SRST_FST`, come Linux). Un riavvio del solo chip
 lascia i binari del PMIC e i GPIO del PMU come erano: spenti prima, il pannello riparte come
-dall'accensione. Se lo schermo resta nero dopo il riavvio:
+dall'accensione. Dal 2026-10-10 (schermo nero dopo un aggiornamento, a posto spegnendo e
+riaccendendo) il pannello ha un vero ciclo di alimentazione: allo spegnimento, se il collegamento
+è su, riceve *display off* (DCS 0x28) e *sleep in* (0x10), poi reset basso, alimentazione
+(GPIO0_C2) spenta e 300 ms per scaricarsi; all'avvio `rk_dsi_init` lo rimette comunque in reset e
+spento per almeno 200 ms, lo riaccende, rilascia il reset e aspetta 120 ms prima dei comandi.
+Dopo i comandi rilegge il *power mode* del pannello (DCS 0x0A): se non è acceso (o i comandi sono
+falliti) rifà una volta tutto il ciclo. Il risultato è nel registro (`power mode 9c`,
+`readback none`, `power cycle again`). Se lo schermo resta nero dopo il riavvio:
 - LED spenti: bm non è ripartito (fermo nel firmware o in U-Boot), oppure è fermo nel DSI
   (tabella qui sopra): lo dice `bm/bootlog.txt`, da leggere sul PC **prima** di riaccendere (ogni
   avvio lo riscrive). La prima riga è la versione dell'avvio che l'ha scritto: se è ancora quella
@@ -119,6 +126,29 @@ funzionante; nero = collegamento DSI o pannello; niente del tutto = retroillumin
 prima di accendere lo schermo e il registro si scrive tre volte (prima dello schermo, dopo, e a
 `ready`): anche se lo schermo blocca tutto, dal PC si vede fin dove è arrivato. Lo stesso registro
 è nel menu, alla voce *Boot log*.
+
+Mentre lo schermo parte, `bm/bootlog.txt` si riscrive a ogni passo, con righe `display: ...`:
+`display: starting`, `display: DSI link and panel starting`, `display: panel power cycled`
+(`... again` al secondo giro), `display: panel readback: on` / `not on` / `no answer`, poi
+`display: panel on` o `display: panel failed`. L'ultima riga presente dice dove si è fermato.
+
+**I registri della volta prima** (per capire dopo cosa è successo; FAT, nomi 8.3, tutti in `bm/`):
+
+| File | Quando si scrive | Cosa contiene |
+|---|---|---|
+| `bootlog.txt` | a ogni avvio, più volte (vedi sopra) | il registro di questo avvio fino a `ready` |
+| `bootprev.txt` | a ogni avvio, appena letta la SD (prima dello schermo) | il `bootlog.txt` dell'avvio prima, poi una riga su come è finito (dal record in RAM di `crumbs.c`) e le sue ultime righe stampate (4 KiB tenuti in RAM attraverso il riavvio; dopo uno spegnimento non ci sono: `(nothing in RAM)`) |
+| `lastrun.txt` | prima di un riavvio o di uno spegnimento fatto da bm (*Restart*, *Shut down*, aggiornamento, kernel dalla rete: tutti passano da `plat_reset` / `plat_poweroff`), prima di spegnere schermo e audio | tutto quello che quella sessione ha stampato (i primi 64 KiB; se è pieno, in fondo le ultime righe) |
+
+Non si scrive `lastrun.txt` da un'interruzione né mentre un altro trasferimento sta scrivendo
+sulla SD (un kernel dal PC): in quel caso resta quello di prima. Non c'è (ancora) una copia
+periodica dal menu: un blocco senza riavvio lascia solo `bootprev.txt` all'avvio dopo.
+
+Per leggerli: spegnere la console, togliere la SD, metterla nel PC e aprire la cartella `bm/`
+(con un editor di testo qualsiasi). Dopo uno schermo nero: `lastrun.txt` dice come è finita la
+sessione prima del riavvio (deve finire con `restarting: this run's log in bm/lastrun.txt`),
+`bootlog.txt` come è andato l'avvio nero (le righe `display: ...`), e se nel frattempo la console
+è stata riaccesa `bootprev.txt` ha il registro dell'avvio nero.
 
 ## Cosa c'è (stato)
 
@@ -281,6 +311,15 @@ branch e scheda: `reports/<branch>/<data>_<tipo>_rgb30_<kernel>.txt`.
   quella che *WiFi* mostra quando la console entra nella rete), oppure `./easy_install.sh`, voce
   1 ([NET] update kernel), con un profilo di scheda RGB30.
 - **Dal PC**: copiare `kernel8.img` sulla SD.
+
+## Giochi dalla rete
+
+`python3 tools/bm_net.py <ip> --send gioco.b16` (o `./easy_install.sh`, voce 5): un `.bm` /
+`.b16` per `/carts` (il default) finisce in `bm/`, la cartella che il menu elenca. La console
+risponde appena il file è arrivato intero (`QD`) e lo scrive sulla SD dal menu, un pezzo per
+frame in una fibra: il gioco ha l'etichetta *Updating* e non parte finché non è scritto; la
+barra in alto dice i KiB scritti. Se un gioco è aperto il file aspetta in memoria e va sulla SD
+al ritorno nel menu. Un secondo file mentre il primo aspetta: `BY` (occupata), si rimanda dopo.
 
 ## File
 
