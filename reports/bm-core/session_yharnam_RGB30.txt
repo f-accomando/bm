@@ -1,0 +1,28 @@
+bm report
+kind: session
+kernel: v0.2.5-29-ge015908
+branch: bm-core
+board: RGB30
+date: 2026-10-10 10:53:33
+file: session_yharnam_RGB30.txt
+
+session of "Yharnam" (the last one: the next run of this game replaces this file)
+screen 256x256, 281 frames in 4.7 s, 59.0 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 7.2 ms, max 57.6 ms, 2 frames over 16.7 ms
+memory: Lua peak 2713 KiB, data 41256 KiB; code 96789 tokens; busiest frame 629k Lua instructions
+frames that were shown after more than 1.5 frames: 2
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    279
+  <= 25 ms             0
+  <= 34 ms (30 fps)    1
+  <= 50 ms             0
+  <= 100 ms            0
+  > 100 ms (a freeze)  0
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
+     27     0.8    33.3   30.8  24.8    6.0   0.0   0.6     1.8       49     2016        1
