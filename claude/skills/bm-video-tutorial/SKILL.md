@@ -53,6 +53,7 @@ video mostra **cosa succede sullo schermo e quale tasto, tab o pulsante lo provo
   diversi (gambe, coda, rimbalzo di un pixel), non lo stesso sprite ripetuto: `art.py`
   controlla che ogni coppia di fotogrammi differisca (`art.check()`). Mostrare il ciclo
   completo che gira a lungo (pannello animazione di bm Pixel) e la pagina F2 con tutti.
+- Campi di testo a caselle fisse (nomi di bm Sound: 8 caselle, si **sovrascrive**): riempire con spazi (`"JUMP    "`) per cancellare il nome proposto. Il cursore dei passi di un effetto resta dov'era quando si cambia effetto: tornare a sinistra prima di scrivere note. Audio: `bmhost --wav` + `encode(audio=wav)`; per verificarlo senza ascoltare, RMS del wav a finestre di 5 s (`video/03-sound/verify.py`).
 - Il riempimento (`g`) è a 4 vicini: funziona solo su un contorno chiuso; `art.regions()`
   trova le regioni e i punti di partenza. Con un contorno aperto riempie lo sfondo.
 - Prima di Ctrl+V il puntatore va in (0,0); i tasti ripetuti a 1 frame di distanza vanno

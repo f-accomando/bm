@@ -27,7 +27,9 @@ KEYS = {
     "up": "\\xf0", "down": "\\xf1", "left": "\\xf2", "right": "\\xf3",
     "home": "\\xf4", "end": "\\xf5", "pgup": "\\xf6", "pgdn": "\\xf7", "del": "\\xf8",
     "f1": "\\xf9", "f2": "\\xfa", "f3": "\\xfb", "f4": "\\xfc", "f5": "\\xfd",
-    "f6": "\\xe6", "f7": "\\xe7", "f8": "\\xe8", "f9": "\\xe9", "f10": "\\xea",
+    # F6-F10 and Ctrl+Enter only as the serial terminal's escape sequences: the raw bytes 0xE5-0xEF are dropped
+    "f6": "\\x1b[17~", "f7": "\\x1b[18~", "f8": "\\x1b[19~", "f9": "\\x1b[20~", "f10": "\\x1b[21~",
+    "ctrl+enter": "\\x1b[28~", "ctrl+.": "\\x1b[29~",
     "esc": "\\x1b", "enter": "\\n", "tab": "\\x09", "space": "\\x20", "bksp": "\\x7f",
 }
 # the name on the keycap
@@ -36,6 +38,7 @@ CAPS = {
     "del": "Del", "esc": "Esc", "enter": "Enter", "tab": "Tab", "space": "Space", "bksp": "⌫",
     "f1": "F1", "f2": "F2", "f3": "F3", "f4": "F4", "f5": "F5", "f6": "F6", "f7": "F7",
     "f8": "F8", "f9": "F9", "f10": "F10", "home": "Home", "end": "End",
+    "ctrl+enter": "Ctrl+Enter", "ctrl+.": "Ctrl+.",
 }
 
 
@@ -277,8 +280,8 @@ def encode(raw_path, ass_path, out_path, frames_every=1, fps=FPS, audio=None):
     vf = filter_chain(ass_path)
     cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
            "-s", "%dx%d" % (GAME_W, GAME_H), "-r", str(fps), "-i", raw_path]
-    if audio:
-        cmd += ["-f", "s16le", "-ar", "48000", "-ac", "1", "-i", audio]
+    if audio:                                    # bmhost --wav gives a .wav; a raw file is 48 kHz mono s16le
+        cmd += ["-i", audio] if audio.endswith(".wav") else ["-f", "s16le", "-ar", "48000", "-ac", "1", "-i", audio]
     cmd += ["-vf", vf, "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p"]
     if audio:
         cmd += ["-c:a", "aac", "-b:a", "128k", "-shortest"]
@@ -364,7 +367,7 @@ FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 FONT_R = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
 
-def card_cmd(out, seconds, lines, fps=FPS):
+def card_cmd(out, seconds, lines, fps=FPS, silent=False):
     """A title card: lines = [(text, size, colour, y)], centred, with a fade."""
     vf = []
     for text, size, colour, y in lines:
@@ -372,9 +375,11 @@ def card_cmd(out, seconds, lines, fps=FPS):
         vf.append("drawtext=fontfile=%s:text='%s':fontsize=%d:fontcolor=%s:x=(w-text_w)/2:y=%d" %
                   (FONT if size > 40 else FONT_R, t, size, colour, y))
     vf.append("fade=t=in:st=0:d=0.5,fade=t=out:st=%.2f:d=0.5" % (seconds - 0.5))
-    return ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
-            "color=c=0x0b0d13:s=1920x1080:r=%d:d=%.2f" % (fps, seconds), "-vf", ",".join(vf),
-            "-c:v", "libx264", "-crf", "19", "-pix_fmt", "yuv420p", out]
+    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+           "color=c=0x0b0d13:s=1920x1080:r=%d:d=%.2f" % (fps, seconds)]
+    if silent:
+        cmd += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono", "-shortest", "-c:a", "aac"]
+    return cmd + ["-vf", ",".join(vf), "-c:v", "libx264", "-crf", "19", "-pix_fmt", "yuv420p", out]
 
 
 def hook_cmd(main, out, start, seconds, text):
@@ -387,12 +392,18 @@ def hook_cmd(main, out, start, seconds, text):
             "-i", main, "-vf", vf, "-c:v", "libx264", "-crf", "19", "-pix_fmt", "yuv420p", "-r", str(FPS), out]
 
 
-def concat_cmd(parts, out):
+def concat_cmd(parts, out, audio=False):
+    """The parts one after the other. With audio=True the first, second and last
+    parts are silent cards/cuts and the main one has sound: all get an audio track."""
     n = len(parts)
     cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"]
     for p in parts:
         cmd += ["-i", p]
-    fc = "".join("[%d:v]" % i for i in range(n)) + "concat=n=%d:v=1:a=0[v]" % n
-    cmd += ["-filter_complex", fc, "-map", "[v]", "-c:v", "libx264", "-crf", "19", "-preset", "medium",
-            "-pix_fmt", "yuv420p", "-movflags", "+faststart", out]
+    if not audio:
+        fc = "".join("[%d:v]" % i for i in range(n)) + "concat=n=%d:v=1:a=0[v]" % n
+        cmd += ["-filter_complex", fc, "-map", "[v]"]
+    else:
+        fc = "".join("[%d:v][%d:a]" % (i, i) for i in range(n)) + "concat=n=%d:v=1:a=1[v][a]" % n
+        cmd += ["-filter_complex", fc, "-map", "[v]", "-map", "[a]", "-c:a", "aac", "-b:a", "160k"]
+    cmd += ["-c:v", "libx264", "-crf", "19", "-preset", "medium", "-pix_fmt", "yuv420p", "-movflags", "+faststart", out]
     return cmd
