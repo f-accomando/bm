@@ -1,0 +1,16 @@
+bm report
+kind: overbit-bench
+kernel: v0.2.5-90-gd120b16
+branch: bm-core
+board: RGB30
+date: 2026-10-10 20:48:35
+file: 20261010-204835_overbit-bench_rgb30_v0.2.5-90-gd120b16.txt
+
+overbit bench start: calibration, 9 steps, flags auto, screen 360x360, ARM, renderers arm
+overbit bench ARM 360x360 LOW match 74122
+overbit bench ARM 360x360 LOW: 19 fps, 46.4 ms (1% 285.5, worst 287.6, 100% over 16.7), update 19.3, 3D 18.4, 3259 tri (max 4889), 5471 vtx, 247750 px, 40k instr, 2097 KiB Lua, bm3d 0.2
+overbit bench stop ARM at 360x360 LOW: under 30 fps (46.4 ms)
+overbit bench climb end: every renderer under 30 fps
+overbit bench best ARM 360x360: none at 60 fps
+overbit bench default 360x360 LOW ARM: the fastest (nothing held 30 fps)
+overbit bench done in 13 s
