@@ -63,6 +63,9 @@ function Net.open()
   if not s then return false, err end
   sock = s
   build4 = ((OVERBIT_BUILD or "dev") .. "    "):sub(1, 4)
+  -- a console without nnet() (75_bots) plays the bots by the rules: it meets
+  -- only its like (lockstep: every console simulates the same bots)
+  if not Bots.has_nnet then build4 = build4:sub(1, 3) .. "~" end
   Net.set_id(false)
   return true
 end

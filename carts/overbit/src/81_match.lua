@@ -270,7 +270,8 @@ function Match.start()
   Bots.log = OVERBIT_AI_LOG and true or false
   Bots.explore = OVERBIT_AI_EXPLORE or 0
   local brain = OVERBIT_AI_NET or Bots.BRAIN
-  Bots.net = brain and nnet(brain) or nil
+  if brain and not Bots.has_nnet then log("overbit bots: no nnet() on this kernel, the rules choose") end
+  Bots.net = brain and Bots.has_nnet and nnet(brain) or nil
   Bots.net_team = OVERBIT_AI_NET_TEAM
   Bots.diff = M.net and M.net.diff or G.bot_diff or 2
   if M.net then Bots.log, Bots.explore, Bots.net_team = false, 0, nil end

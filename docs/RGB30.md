@@ -270,7 +270,8 @@ For testing (user decision, 2026-10-03: "for the time being") the Games tab list
 `.bm` cartridges in `bm/` and **launches** them, without settings; `show_bm=0` in `bm/config.txt`
 hides them. The runtime is the Pi's (`src/bm`), the same code compiled for
 64 bit; what the Pi has and this does not is replaced by `src/rgb30/bm_port.c` (3D drawn
-by the ARM, no DMA) and `src/rgb30/bm_input.c` (the controls); the sound is the Pi's (above). In the SD image there is
+by the ARM, no DMA) and `src/rgb30/bm_input.c` (the controls); the sound is the Pi's (above), and so is
+`nnet()` (`src/ai/net.c`, Overbit's bots: the same integers as the Pi, a lockstep need). In the SD image there is
 **Yharnam** (360×360 since 2026-10-10, before 256×256; from the `claude/yharnam` branch).
 
 - Screen: the cartridge draws at its resolution and the video controller scales it up to

@@ -111,7 +111,8 @@ uint32_t prop_clock_rate(uint32_t clock_id)             { (void)clock_id; return
 uint32_t prop_clock_max(uint32_t clock_id)              { (void)clock_id; return 0; }
 
 /* --- image to 3D (Meshy), the assistant's networks: not on the RGB30 (its
- * music is: ai.music, src/ai/lua_music.c) --- */
+ * music is: ai.music, src/ai/lua_music.c; the cartridges' nnet() too, the
+ * real one of src/ai/net.c: Overbit's bots call it) --- */
 
 const img3d_provider_t *img3d_provider(const char *name) { (void)name; return NULL; }
 const char *img3d_provider_name(int i)                  { (void)i; return NULL; }
@@ -166,7 +167,6 @@ void ai_lua_open(lua_State *L)
     lua_setfield(L, -2, "music_recipes");
     lua_pop(L, 1);
 }
-void nnet_lua_open(lua_State *L)                        { module(L, "nnet"); }
 
 /* --- USB: the RGB30's port is not driven (no USB mouse or pad) --- */
 
