@@ -979,17 +979,20 @@ $(BUILD)/host/test_github: tests/net/test_github.c src/net/github.c src/net/gith
 # A game's version is the day its bytes changed.
 MARKET ?= ../bm-market
 MARKET_VERSION := $(shell date -u +%Y.%m.%d)
-# the games that go to the Market as .b16 (the optimized release, if there is a rule)
+# the games that go to the Market as .b16 (the optimized release, if there is a rule);
+# Overbit has a .bm too (the Pi's), Yharnam only its .b16 (MARKET_NO_BM: no .bm in the Market)
 MARKET_B16 := overbit yharnam
+MARKET_NO_BM := yharnam
 market-seed: $(GAME_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
 	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
 	mkdir -p $(MARKET)/.github/workflows
 	cp market/README.md market/.gitignore $(MARKET)/
 	cp market/.github/workflows/market.yml $(MARKET)/.github/workflows/
 	for g in $(GAMES); do \
-		c=$(BUILD)/carts/$$g.bm; case " $(MARKET_B16) " in *" $$g "*) c=$(BUILD)/carts/$$g.b16;; esac; \
-		$(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $$c --id $$g \
-			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1; \
+		case " $(MARKET_NO_BM) " in *" $$g "*) ;; *) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/carts/$$g.bm --id $$g \
+			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1;; esac; \
+		case " $(MARKET_B16) " in *" $$g "*) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/carts/$$g.b16 --id $$g \
+			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1;; esac; \
 	done
 	$(PYTHON) scripts/mkmarket.py $(MARKET)/games --check
 # kernel7.img's start in Hyp mode, as the Pi Zero 2 W's firmware does it:

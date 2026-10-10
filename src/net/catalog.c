@@ -133,12 +133,24 @@ static int text(char *dst, size_t cap, const char *s)
     return 0;
 }
 
-static const char *finish(const catalog_game_t *g)
+/* a .b16 by its path: the handhelds' cartridge, the rest are .bm */
+static int is_b16_path(const char *p)
+{
+    size_t n = strlen(p);
+    return n > 4 && p[n - 4] == '.' && (p[n - 3] | 32) == 'b' && p[n - 2] == '1' && p[n - 1] == '6';
+}
+
+/* g is the last game of c (already added): the same id is allowed once per
+ * kind, a .bm for the Pi and a .b16 for the handhelds (Overbit has both) */
+static const char *finish(const catalog_t *c, const catalog_game_t *g)
 {
     if (!g->title[0]) return "without a title";
     if (!g->version[0]) return "without a version";
     if (!g->license[0]) return "without a license";
     if (!g->file.size) return "without its file";
+    for (int i = 0; i < c->n - 1; i++)
+        if (strcmp(c->games[i].id, g->id) == 0 && is_b16_path(c->games[i].file.path) == is_b16_path(g->file.path))
+            return "twice (the same kind)";
     return NULL;
 }
 
@@ -179,7 +191,7 @@ int catalog_parse(const uint8_t *m, size_t len, catalog_t *c, char *err, size_t 
             if (!bad_line)
                 strcpy(c->serial, s);
         } else if (strncmp(line, "game ", 5) == 0) {
-            const char *why = g ? finish(g) : NULL;
+            const char *why = g ? finish(c, g) : NULL;
             if (why) {
                 snprintf(err, err_len, "catalog: %s %s", g->id, why);
                 goto bad;
@@ -192,11 +204,6 @@ int catalog_parse(const uint8_t *m, size_t len, catalog_t *c, char *err, size_t 
                 snprintf(err, err_len, "catalog line %d: bad id", no);
                 goto bad;
             }
-            for (int i = 0; i < c->n; i++)
-                if (strcmp(c->games[i].id, line + 5) == 0) {
-                    snprintf(err, err_len, "catalog: %s twice", line + 5);
-                    goto bad;
-                }
             if (c->n == cap) {
                 int ncap = cap ? cap * 2 : 16;
                 catalog_game_t *ng = realloc(c->games, (size_t)ncap * sizeof *ng);
@@ -239,7 +246,7 @@ int catalog_parse(const uint8_t *m, size_t len, catalog_t *c, char *err, size_t 
         snprintf(err, err_len, no ? "catalog without a serial" : "empty catalog");
         goto bad;
     }
-    const char *why = g ? finish(g) : NULL;
+    const char *why = g ? finish(c, g) : NULL;
     if (why) {
         snprintf(err, err_len, "catalog: %s %s", g->id, why);
         goto bad;

@@ -15,9 +15,13 @@ Everything is free: no accounts, no payments.
 Open a pull request that adds one folder to `games/`:
 
 ```
-games/my-game/my-game.bm     the cartridge (exactly one .bm)
+games/my-game/my-game.bm     the cartridge (a .bm for the Pi)
+games/my-game/my-game.b16    optional: a .b16 for the RGB30 (the same game, a second version)
 games/my-game/info.txt       version, license, about
 ```
+
+At most one `.bm` and one `.b16` per folder. The Pi lists the `.bm` games, the
+RGB30 the `.b16` ones.
 
 - **The folder's name is the game's id**: `a-z`, `0-9` and `-`, at most 23
   characters. It never changes: the console recognises updates by it.
