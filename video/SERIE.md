@@ -18,7 +18,7 @@ Libreria: `video/lib/bmvideo.py`. Un episodio = `video/NN-nome/` (`record.py`, `
 | 2 | SDK (2D) | tessere 8×8 nello sheet, flag (solido, piattaforma, scala, acqua, fa male), mappa a layer, il primo livello; codice di cinque righe e prova (F5) | fatto |
 | 3 | Sound | suoni (salto con bend, moneta, rimbalzo), tre effetti con il piano, musica del livello scritta con riff (F7) e messa nel banco come canzone, pagine pattern e song | fatto |
 | 4 | bm Code | Kip corre e salta: `lib.tiles`, `lib.step`, salto a pressione variabile, spuntoni (flag 4), suoni e musica dell'episodio 3; la partita giocata da uno script di tasti | fatto |
-| 5 | bm Code + assistente | nemici, monete, blocchi, HUD; domande all'assistente | da fare |
+| 5 | bm Pixel + bm Code + assistente | lo slime disegnato dall'assistente (F6 in bm Pixel), monete e slime che si schiacciano, punteggio e vite; l'HUD è una risposta dell'assistente (F6 in bm Code) adattata con Replace; domanda sull'invincibilità | fatto |
 | 6 | SDK + bm Pixel | zone con nome e scatole di collisione (SPRITES/BOXES), layer a parallasse, bandiera di fine livello, più livelli | da fare |
 | 7 | il gioco | Skyvale World giocato dall'inizio alla bandiera | da fare |
 
@@ -38,3 +38,6 @@ Note per chi continua:
 - Tasti: F6–F10 e Ctrl+Invio arrivano a `bmhost` solo come sequenze ESC (`\x1b[18~` è F7, `\x1b[28~` Ctrl+Invio): i byte grezzi 0xE5–0xEF vengono scartati.
 - bm Code (e l'assistente F6, episodio 5) hanno bisogno della tabella `ai`: si registrano con `build/host/bmhost-ai` (`make bmhost-ai`: collega `src/ai/lua_ai.c` e carica `build/assist.bin`); `bmhost` normale non ce l'ha.
 - La cartuccia di ogni episodio parte da quella lasciata dal precedente (`video/NN-nome/start.bm`); il codice nuovo si scrive **senza indentazione**: bm Code rientra da solo con Invio e `end`.
+- Ctrl+H è lo stesso byte di Backspace sulla linea seriale: in `bmhost` Replace si apre dal menu (Esc, 12 volte Giù, Invio). Il codice nuovo si scrive dopo aver tagliato **tutte** le righe vecchie (Ctrl+K una volta per riga: contarle).
+- Una registrazione può avere più editor in fila sulla stessa SD (episodio 5: bm Pixel, poi bm Code, poi la partita): `record.py` divide lo script dei tasti per frame (`split_input`) e accoda raw e wav.
+- La partita giocata da uno script di tasti si tara con un log (cartuccia di debug con `_update` avvolto) e una ricerca per tentativi dei frame di salto (`scratchpad/search.py` dell'episodio 5: tempo di salto e durata della pressione), poi `verify.py` la controlla (monete, schiacciamenti, vite).
