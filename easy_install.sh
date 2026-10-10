@@ -529,7 +529,8 @@ short_name() {                                  # an 8.3 name for the SD card (P
 }
 
 # a file on a console's SD card (tools/bm_net.py --send): a game goes into
-# /carts and the console's menu shows it at once, a resource into /bm/lib
+# /carts (bm/ on the RGB30) and the console's menu shows it once written, a
+# resource into /bm/lib
 job_send() {
     local file=${1:-} base n83 to x p name ip code board out old rc
     if [ -z "$file" ]; then
@@ -571,7 +572,12 @@ job_send() {
         LAST_RUN="$(now) sent $n83 to $name"
         save_conf
         ok "sent: $to/$n83 on $name"
-        [[ ${n83,,} != *.bm ]] || [ "$to" != /carts ] || ok "the game is in its menu now (Games, or Dev for a tool)"
+        # the console answers as soon as the file arrived whole and writes it
+        # from its menu ("Updating" on the game meanwhile); a game that is
+        # open is replaced when it is closed. The RGB30 puts a game for
+        # /carts in bm/, the folder its menu lists.
+        [[ ${n83,,} != *.bm && ${n83,,} != *.b16 ]] || [ "$to" != /carts ] ||
+            ok "the game is in its menu once written (Games, or Dev for a tool; if it is open: when you close it)"
     else
         warn "not sent: see above"
     fi
