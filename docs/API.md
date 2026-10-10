@@ -84,7 +84,8 @@ error, the cartridge stops and the error, with its line, appears on the console.
 | `_leave()` | (optional) in a network match (`online(true)`), when the player confirms leaving: the game tells the server (or the host), then the cartridge closes without being suspended |
 
 Globals: `SCREEN_W` and `SCREEN_H` (640 and 360; 480 and 270 with `--res 480x270`; 320 and
-180 with `--res 320x180`; 256 and 256 with `--res 256x256`). The cartridge can change its
+180 with `--res 320x180`; 256 and 256 with `--res 256x256`; 360 and 360 with `--res 360x360`, the
+`.b16`'s screen). The cartridge can change its
 resolution while it runs with `screen(w, h)` (below): from the next frame the new sizes hold.
 The screen is **not** cleared by itself: `_draw` usually starts with `cls()`.
 

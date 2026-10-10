@@ -69,8 +69,10 @@ Una cartuccia `.bm` è un unico file che contiene:
 La crea `scripts/mkbm.py` (solo libreria standard di Python, nessuna dipendenza).
 Risoluzione: **640×360** (predefinita), **480×270** con `--res 480x270` (il compromesso
 per il 3D con texture), **320×180** con `--res 320x180` (pixel più grossi, stile 16
-bit, e più tempo per fotogramma) oppure **256×256** quadrata con `--res 256x256` (al centro
-dello schermo, ingrandita 4× su 1080p, bordi neri). Colori: `0xRRGGBB`, lo schermo è a
+bit, e più tempo per fotogramma) **256×256** quadrata con `--res 256x256` (al centro
+dello schermo, ingrandita 4× su 1080p, bordi neri) oppure **360×360** quadrata con
+`--res 360x360` (lo schermo del `.b16`: ×2 esatto sul pannello 720×720 della RGB30, al
+centro di uno schermo 640×360 sul Pi). Colori: `0xRRGGBB`, lo schermo è a
 16 bit (RGB565).
 
 ## 2. Il gioco più piccolo

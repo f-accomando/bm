@@ -204,7 +204,7 @@ res_village := 320x180
 title_yharnam := Yharnam
 title_typing := Pad Typing
 title_write := bm Write
-res_yharnam := 256x256
+res_yharnam := 360x360
 sheet8_yharnam := 1
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
 # menu, scripts/mkcovers.py), sheet.png, map.csv, models.bm or models.glb (3D

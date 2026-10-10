@@ -6,7 +6,7 @@ mkbm.py - packs a native bm cartridge (.bm). Standard library only.
            [--map [name=]map.csv ...] [--flags flags.csv] [--sprites zones.txt]
            [--audio bank.json|bank.bmau] [--models models.glb|pack.bm]
            [--title "My game"] [--author me]
-           [--res 640x360|480x270|320x180|256x256]
+           [--res 640x360|480x270|320x180|256x256|360x360]
 
 sheet.png: 8-bit RGB or RGBA PNG (non-interlaced); size multiple of 8 recommended.
 --sheet8:  store the sheet with a palette and runs (at most 256 colours): big
@@ -440,7 +440,7 @@ def main():
     ap.add_argument("--uv-inset", type=float, help="texture inset of the models, sheet pixels (default 0.25)")
     ap.add_argument("--title", default="")
     ap.add_argument("--author", default="")
-    ap.add_argument("--res", default="640x360", choices=["640x360", "480x270", "320x180", "256x256"])
+    ap.add_argument("--res", default="640x360", choices=["640x360", "480x270", "320x180", "256x256", "360x360"])
     a = ap.parse_args()
     lua = open(a.lua, "rb").read()
     sheet = read_png(a.sheet) if a.sheet else None

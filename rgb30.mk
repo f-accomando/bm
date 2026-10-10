@@ -131,12 +131,12 @@ SD_FILES64 = $(BUILD)/kernel8.img=kernel8.img boot/rgb30/extlinux.conf=extlinux/
              $(FW64)/rtl8821cs_fw.bin=bm/rtl8821cs_fw.bin $(FW64)/rtl8821cs_config.bin=bm/rtl8821cs_config.bin \
              $(FW64)/rtw8821c_fw.bin=bm/rtw8821c_fw.bin \
              $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt)$(if $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt),=bm/LICENCE.rtlwifi_firmware.txt)
-# Yharnam (the Pi's cartridge, from the claude/yharnam branch, 256x256): on
+# Yharnam (the Pi's cartridge, from the claude/yharnam branch, 360x360): on
 # the SD card for testing (in the Games tab) and in the QEMU tests
 YHARNAM := $(BUILD)/carts/yharnam.bm
 $(YHARNAM): carts/yharnam/main.lua carts/yharnam/sheet.png carts/yharnam/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title Yharnam --author bm --res 256x256 \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title Yharnam --author bm --res 360x360 \
 	    --cover carts/yharnam/cover.png --sheet carts/yharnam/sheet.png --sheet8
 SD_FILES64 += $(YHARNAM)=bm/yharnam.bm
 

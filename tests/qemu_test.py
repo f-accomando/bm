@@ -4188,19 +4188,19 @@ def test_village(b, opts):
 
 
 def test_yharnam(b, opts):
-    """Yharnam: a 256x256 cartridge, shown in the middle of a 480x270
-    screen with black around it; the town made while you walk, lit by
+    """Yharnam: a 360x360 cartridge (the .b16's screen), shown in the middle of
+    a 640x360 screen with black around it; the town made while you walk, lit by
     levels (fades, glow). Title, the animations (the hunter's, a creature's,
     a boss's), start (no area's name on screen, the user's wish), a dark
     night with warm lamps and fires, no Lua error."""
-    BX, BY = 112, 7                             # the 256x256 box in the 480x270 screen
+    BX, BY = 140, 0                             # the 360x360 box in the 640x360 screen
 
     def box(img):
         w, h, px = img
         out = bytearray()
-        for y in range(BY, BY + 256):
-            out += px[(y * w + BX) * 3:(y * w + BX + 256) * 3]
-        return 256, 256, bytes(out)
+        for y in range(BY, BY + 360):
+            out += px[(y * w + BX) * 3:(y * w + BX + 360) * 3]
+        return 360, 360, bytes(out)
 
     q = Qemu(b("kernel.img"))
     try:
@@ -4212,14 +4212,14 @@ def test_yharnam(b, opts):
         for _ in range(20):
             time.sleep(0.25)
             img = q.screendump()
-            if img[0] == 480:
+            if img[0] == 640:
                 text = screen_text(box(img))
                 if any("YHARNAM" in l for l in text):
                     break
-        assert img[0] == 480 and img[1] == 270, img[:2]
+        assert img[0] == 640 and img[1] == 360, img[:2]
         assert any("YHARNAM" in l for l in text) and any("A: START" in l for l in text), "\n".join(text)
         w, h, px = img
-        for x, y in ((0, 0), (479, 269), (BX - 1, 128), (BX + 256, 128), (240, BY - 1), (240, BY + 256)):
+        for x, y in ((0, 0), (639, 359), (BX - 1, 180), (BX + 360, 180)):
             assert px[(y * w + x) * 3:(y * w + x) * 3 + 3] == b"\0\0\0", ("border", x, y)
         if opts.shots:
             _save_png(img, os.path.join(opts.shots, "yharnam-title.png"))
@@ -4267,10 +4267,10 @@ def test_yharnam(b, opts):
             time.sleep(0.4)
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-play.png"))
-        print(f"     yharnam: {dark} dark pixels of 65536, {warm} warm (lamps, fires)")
+        print(f"     yharnam: {dark} dark pixels of 129600, {warm} warm (lamps, fires)")
         assert not any("A: START" in l for l in text), "\n".join(text)
         assert not any(w in l for l in text for w in ("Square", "lamps")), "\n".join(text)
-        assert dark > 30000, dark               # a night, nearly dark
+        assert dark > 60000, dark               # a night, nearly dark
         assert warm > 20, warm                  # warm lamps and fires
         q.send("\r")                            # Start: the pause, then its controls
         time.sleep(0.5)

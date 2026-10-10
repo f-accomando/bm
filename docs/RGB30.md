@@ -231,7 +231,7 @@ cartucce `.bm` di `bm/` e le **avvia**, senza impostazioni; `show_bm=0` in `bm/c
 nasconde. Il runtime è quello del Pi (`src/bm`), lo stesso codice compilato a
 64 bit; quello che del Pi non c'è lo sostituiscono `src/rgb30/bm_port.c` (il 3D disegnato
 dall'ARM, niente DMA) e `src/rgb30/bm_input.c` (i comandi); il suono è quello del Pi (sotto). Nell'immagine SD c'è
-**Yharnam** (256×256, dal branch `claude/yharnam`).
+**Yharnam** (360×360 dal 2026-10-10, prima 256×256; dal branch `claude/yharnam`).
 
 - Schermo: la cartuccia disegna alla sua risoluzione e il controller video la ingrandisce fino a
   riempire il pannello (256×256 → 720×720), nitida. `bm_scale=int`: solo multipli interi (256 ×2 =

@@ -84,7 +84,8 @@ Se c'è un errore Lua, la cartuccia si ferma e l'errore, con la riga, appare sul
 | `_leave()` | (facoltativa) in una partita in rete (`online(true)`), quando il giocatore conferma l'uscita: il gioco lo dice al server (o all'host), poi la cartuccia si chiude senza sospendersi |
 
 Globali: `SCREEN_W` e `SCREEN_H` (640 e 360; 480 e 270 con `--res 480x270`; 320 e 180 con
-`--res 320x180`; 256 e 256 con `--res 256x256`). La cartuccia può cambiare risoluzione
+`--res 320x180`; 256 e 256 con `--res 256x256`; 360 e 360 con `--res 360x360`, lo schermo
+del `.b16`). La cartuccia può cambiare risoluzione
 mentre gira con `screen(w, h)` (sotto): dal fotogramma dopo valgono le misure nuove.
 Lo schermo **non** viene cancellato da solo: di solito `_draw` comincia con `cls()`.
 

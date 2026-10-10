@@ -57,7 +57,7 @@ env.fades = function(t)
   B.levels = levels
   return levels
 end
-env.SCREEN_W, env.SCREEN_H = 256, 256
+env.SCREEN_W, env.SCREEN_H = 360, 360
 env.SQUARE, env.TRIANGLE, env.SAW, env.NOISE, env.SINE, env.METAL = 0, 1, 2, 3, 4, 5
 env.print = function(s, x, y, c)
   num(x, "print x"); num(y, "print y")

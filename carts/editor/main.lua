@@ -2012,7 +2012,7 @@ do
   HUB[#HUB + 1] = { key = "b", act = "target" }
   HUB[#HUB + 1] = { key = "n", act = "new" }
   local row = 2
-  local RES_NEXT = { ["640x360"] = "480x270", ["480x270"] = "320x180", ["320x180"] = "256x256", ["256x256"] = "640x360" }
+  local RES_NEXT = { ["640x360"] = "480x270", ["480x270"] = "320x180", ["320x180"] = "256x256", ["256x256"] = "360x360", ["360x360"] = "640x360" }
 
   local function label(h)
     if h.tool then return h.label end

@@ -401,6 +401,15 @@ static void test_format(const char *path)
             CHECK(bm_parse(r, n4, &c4, err, sizeof err) != 0, "256x180 refused");
         }
         free(r);
+        /* the .b16's square, 360x360 (docs/B16.md section 0) */
+        r = bm_rewrite(d, n, code, sizeof code - 1, "Square", "", 360, &n4);
+        CHECK(r && bm_parse(r, n4, &c4, err, sizeof err) == 0, "360x360 parses: %s", err);
+        CHECK(c4.width == 360 && c4.height == 360, "360x360 header %ux%u", c4.width, c4.height);
+        if (r) {
+            r[14] = 180;
+            CHECK(bm_parse(r, n4, &c4, err, sizeof err) != 0, "360x180 refused");
+        }
+        free(r);
     }
 
     /* new code, the rest kept: sheet, map, an unknown section (appended) */

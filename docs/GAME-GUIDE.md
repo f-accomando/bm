@@ -69,8 +69,9 @@ A `.bm` cartridge is one file that holds:
 `scripts/mkbm.py` makes it (Python's standard library only, no dependencies).
 Resolution: **640×360** (default), **480×270** with `--res 480x270` (the compromise for
 textured 3D), **320×180** with `--res 320x180` (bigger pixels, 16-bit style, and more time
-per frame) or **256×256** square with `--res 256x256` (in the middle of the screen, 4×
-bigger on 1080p, black borders). Colours: `0xRRGGBB`, the screen is 16-bit (RGB565).
+per frame) **256×256** square with `--res 256x256` (in the middle of the screen, 4×
+bigger on 1080p, black borders) or **360×360** square with `--res 360x360` (the `.b16`'s
+screen: ×2 exactly on the RGB30's 720×720 panel, in the middle of a 640×360 screen on the Pi). Colours: `0xRRGGBB`, the screen is 16-bit (RGB565).
 
 ## 2. The smallest game
 

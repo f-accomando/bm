@@ -2828,7 +2828,7 @@ static const uint16_t screen_modes[][2] = {
  * next frame (SCREEN_W and SCREEN_H then say it; if the console cannot
  * set it they stay); false: not one of the modes. screen() -> w, h now.
  * screen(i) -> the i-th mode w, h (1 = 320x180 ... 7 = 1920x1080), or nil.
- * A square 256x256 cartridge keeps its screen. */
+ * A square cartridge (256x256, 360x360) keeps its screen. */
 static int l_screen(lua_State *L)
 {
     if (lua_isnoneornil(L, 1)) {
@@ -2845,7 +2845,7 @@ static int l_screen(lua_State *L)
         return 2;
     }
     const int h = ival(L, 2);
-    int ok = !(rt.g.w == 256 && rt.g.h == 256);
+    int ok = rt.g.w != rt.g.h;                  /* a square cartridge keeps its screen */
     int known = 0;
     for (int i = 0; i < SCREEN_MODES; i++)
         known |= screen_modes[i][0] == w && screen_modes[i][1] == h;
@@ -5127,13 +5127,13 @@ static int l_ls(lua_State *L)
 /* The resolutions of a cartridge, as the Lua side names them */
 static const char *res_name(int w)
 {
-    return w == 320 ? "320x180" : w == 256 ? "256x256" : w == 480 ? "480x270" : "640x360";
+    return w == 320 ? "320x180" : w == 256 ? "256x256" : w == 360 ? "360x360" : w == 480 ? "480x270" : "640x360";
 }
 
 static int res_width(const char *res)
 {
     return strcmp(res, "320x180") == 0 ? 320 : strcmp(res, "256x256") == 0 ? 256
-         : strcmp(res, "480x270") == 0 ? 480 : 640;
+         : strcmp(res, "360x360") == 0 ? 360 : strcmp(res, "480x270") == 0 ? 480 : 640;
 }
 
 static void push_project(lua_State *L, const char *title, const char *author, int w, const char *lua,
@@ -5511,7 +5511,7 @@ static int l_cart_save(lua_State *L)
     lua_getfield(L, 2, "lua");
     size_t lua_len;
     const char *lua = luaL_checklstring(L, -1, &lua_len);
-    int w = res_width(res), h = w == 256 ? 256 : w * 9 / 16;
+    int w = res_width(res), h = w == 256 || w == 360 ? w : w * 9 / 16;
 
     char dir[64], name[16];
     split_path(to, dir, sizeof dir, name, sizeof name);
@@ -6559,7 +6559,7 @@ static int video_to_ram(g16_t *g)
 int bm_via_ram(void) { return via_ram; }
 int bm_video_uses_ram(void) { return shadow != NULL; }
 
-/* A square 256x256 cartridge is drawn in the middle of a 480x270 screen
+/* A square 256x256 cartridge is drawn in the middle of a 480x270 screen (a 360x360 one in a 640x360)
  * (1920x1080 / 4: whole pixels on a 1080p TV), black around it: `box` is
  * the byte offset of its top left corner in a page, 0 for the 16:9 sizes. */
 static uint32_t box;
@@ -6582,8 +6582,11 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
     if (fb_init_game(fb, w, h) != 0)
         return -1;
 #else
-    const int boxed = w == 256 && h == 256;
-    const uint32_t fw = boxed ? 480u : (uint32_t)w, fh = boxed ? 270u : (uint32_t)h;
+    /* a square cartridge sits in the middle of a 16:9 screen with black around it:
+     * 256x256 in 480x270, the .b16's 360x360 in 640x360 */
+    const int boxed = w == h && h <= 360;
+    const uint32_t bh = h <= 270 ? 270u : 360u;
+    const uint32_t fw = boxed ? bh * 16 / 9 : (uint32_t)w, fh = boxed ? bh : (uint32_t)h;
     box = 0;
     if (fb_init_depth(fb, fw, fh, 3, 16) != 0)
         return -1;

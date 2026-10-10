@@ -182,7 +182,7 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
   <img src="docs/img/village.png" width="49%" alt="Studio Village: bm Studio models and an animated villager">
   <img src="docs/img/texroom.png" width="49%" alt="Texture Room: a textured 3D room">
   <img src="docs/img/hunt.png" width="49%" alt="Hunter's Night: gothic 2D with lights">
-  <img src="docs/img/yharnam.png" width="49%" alt="Yharnam: an endless gothic town at night, 256x256">
+  <img src="docs/img/yharnam.png" width="49%" alt="Yharnam: an endless gothic town at night, 360x360">
   <img src="docs/img/yharnam-boss.png" width="49%" alt="Yharnam: the Butcher, one of the four bosses, in the animation viewer">
 </p>
 
@@ -203,7 +203,7 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
 - **Studio Village**: bm Studio models and a villager animated with bm Animator.
 - **Texture Room**: a 3D room, all textured.
 - **Hunter's Night**: gothic 2D at 320×180, with lights.
-- **Yharnam**: an endless gothic town at night, at 256×256: the streets are made while you
+- **Yharnam**: an endless gothic town at night, at 360×360 (the `.b16` screen): the streets are made while you
   walk, lit as in Dank Tomb (light levels and fade tables), with fires and warm lamps. The
   hunter has 27 animations in 8 directions: saw cleaver combos (folded and opened), the
   pistol, backstep, hurt, knocked down, death. Twelve creatures roam the districts (mad
