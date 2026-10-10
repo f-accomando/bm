@@ -108,6 +108,16 @@ void audio_pause(int on);
 void audio_set_volume(int level);
 int  audio_volume(void);
 
+/* The output's depth (sound_depth in bm/config.txt): 16, 24 or 32 bits a
+ * sample, rounded from the float mix with TPDF dither (32: none). Any
+ * other value is the default. HDMI carries 24 at most (32 goes out as 24);
+ * the RGB30's I2S sends 32-bit words, its codec (RK817) converts 24.
+ * audio_depth_out(): what the output asks for now (0 without one). */
+#define AUDIO_DEPTH_DEFAULT 24
+void     audio_set_depth(unsigned bits);
+unsigned audio_depth(void);
+unsigned audio_depth_out(void);
+
 /* Call once per frame: without HDMI audio the player still moves, silent. */
 void audio_idle(void);
 

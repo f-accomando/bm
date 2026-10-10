@@ -66,17 +66,20 @@ void synth_init(synth_t *s, uint32_t rate)
     s->rate = rate;
     s->gain = 1.0f;
     s->rng = 0x9E3779B9u;
+    s->dither = 0x6C8E9CF5u;
     s->comp_gain = COMP_MAKEUP;
     for (unsigned i = 0; i < SYNTH_VOICES; i++) {
         synth_voice_t *v = &s->v[i];
         v->stage = SYNTH_IDLE;
         v->lfsr = 1;
+        v->pw = -1.0f;
         v->noise = v->noise0 = -1.0f;
         v->env_r[0] = v->env_r[1] = v->env_r[2] = v->env_r[3] = 0xFF;
         v->env_c[0] = v->env_c[1] = v->env_c[2] = v->env_c[3] = -1.0f;
     }
     synth_room(s, 0.45f, 0.45f, 1.0f);
     synth_echo(s, 330.0f, 0.35f, 1.0f);
+    s->room_quiet = s->echo_quiet = rate;   /* empty: quiet from the start (no work, no dither) */
 }
 
 float synth_rate_increment(uint8_t rate, uint32_t sample_rate)
@@ -304,7 +307,8 @@ static void wave_raw(synth_voice_t *v, uint8_t wave, uint32_t duty, uint32_t inc
 typedef struct {
     uint32_t inc;           /* phase step at the start of the block ... */
     int32_t dinc;           /* ... and its change per sample */
-    float pw;               /* square: the high part, 0..1 */
+    float pw0, pw;          /* square: the high part, 0..1, at the start and the end of the block */
+    float inv_n;            /* 1 / the block's samples */
     uint8_t mod1, mod2;
     uint8_t fast;           /* noise: a step every sample */
     float depth0, depth1;   /* FM depth at the start and end of the block (rad) */
@@ -324,16 +328,18 @@ static void wave_clean(synth_t *s, synth_voice_t *v, unsigned ch, uint8_t wave, 
 
     switch (wave) {
     case SYNTH_SQUARE: {
-        float pw = a->pw;
-        if (dt >= 0.5f || pw <= 0.0f) {    /* above the Nyquist frequency, or duty 0: nothing to hear */               /* above the Nyquist frequency: nothing to hear */
+        float pw1 = a->pw, pw = a->pw0;
+        if (dt >= 0.5f || pw1 <= 0.0f) {    /* above the Nyquist frequency, or duty 0: nothing to hear */
             for (unsigned i = 0; i < n; i++)
                 out[i] = 0;
             break;
         }
-        if (pw < dt)
-            pw = dt;
-        if (pw > 1.0f - dt)
-            pw = 1.0f - dt;
+        if (pw <= 0.0f)
+            pw = pw1;                       /* from duty 0: no ramp */
+        /* both ends inside [dt, 1 - dt]: so is every width between them */
+        pw = pw < dt ? dt : pw > 1.0f - dt ? 1.0f - dt : pw;
+        pw1 = pw1 < dt ? dt : pw1 > 1.0f - dt ? 1.0f - dt : pw1;
+        float dpw = (pw1 - pw) * a->inv_n;  /* the LFO's PWM: a ramp, not a step a block */
         for (unsigned i = 0; i < n; i++) {
             float t = (float)phase * TO_UNIT;
             float y = t < pw ? 1.0f : -1.0f;
@@ -345,6 +351,7 @@ static void wave_clean(synth_t *s, synth_voice_t *v, unsigned ch, uint8_t wave, 
             out[i] = y;
             phase += inc;
             inc += dinc;
+            pw += dpw;
         }
         break;
     }
@@ -549,6 +556,8 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
             v->phase = 0;               /* a silent voice starts the wave from 0 */
             v->phase2 = 0;
             v->f1 = v->f2 = 0;
+            v->fg = 0;                  /* the filter and the width start where they are: no ramp */
+            v->pw = -1.0f;
             v->fm_fb = 0;
             v->fresh = 1;
             if (wave == SYNTH_SUPERSAW && !raw) {
@@ -615,27 +624,34 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
         v->inc = inc;
         v->vol = vol;
         v->fresh = 0;
+        v->fg = 0;                      /* back to the clean voice: no ramp from old values */
+        v->pw = -1.0f;
     } else {
         /* -------- the clean voice */
         env_coefs(s, v, r);
         uint32_t inc0 = v->fresh ? inc : v->inc;
         float vol0 = v->fresh ? vol : v->vol;
+        float inv_n = n == SYNTH_BLOCK ? 1.0f / SYNTH_BLOCK : 1.0f / (float)n;
         wave_args_t a;
         a.inc = inc0;
         a.dinc = n == SYNTH_BLOCK ? (int32_t)(inc - inc0) / SYNTH_BLOCK : (int32_t)(inc - inc0) / (int32_t)n;
         a.mod1 = r[SYNTH_MOD1];
         a.mod2 = r[SYNTH_MOD2];
         a.fast = (f88 >> 8) >= s->rate;
+        a.inv_n = inv_n;
 
-        /* the LFO, once a block */
+        /* the LFO, once a block, at the block's end: what it moves (the
+         * width, the cutoff) ramps there from where the last block left it */
         float lfo = 0;
         if (r[SYNTH_LFO_RATE]) {
-            lfo = sine((float)v->lfo * TO_UNIT);
             v->lfo += (uint32_t)(lfo_hz(r[SYNTH_LFO_RATE]) * (float)n / (float)s->rate * 4294967296.0f);
+            lfo = sine((float)v->lfo * TO_UNIT);
         }
         a.pw = r[SYNTH_DUTY] / 256.0f + lfo * r[SYNTH_LFO_PWM] * (0.45f / 255.0f);
         if (a.pw < 0.02f) a.pw = r[SYNTH_DUTY] ? 0.02f : 0.0f;
         if (a.pw > 0.98f) a.pw = 0.98f;
+        a.pw0 = v->pw >= 0.0f ? v->pw : a.pw;
+        v->pw = a.pw;
 
         /* FM depth: fades with MODDECAY */
         float depth = (a.mod2 ? a.mod2 : 40) * (1.0f / 32.0f);
@@ -681,31 +697,79 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
                 hz = top;
             if (hz < 10.0f)
                 hz = 10.0f;
-            /* the state variable filter of Zavalishin and Simper (TPT) */
-            float g = tanf(3.14159265f * hz / (float)s->rate);
-            float k = 2.0f - 1.94f * (r[SYNTH_RESONANCE] / 255.0f);
-            float a1 = 1.0f / (1.0f + g * (g + k)), a2 = g * a1, a3 = g * a2;
+            /* the state variable filter of Zavalishin and Simper (TPT):
+             * g and k for the block's end, from the last block's end */
+            float g1 = tanf(3.14159265f * hz / (float)s->rate);
+            float k1 = 2.0f - 1.94f * (r[SYNTH_RESONANCE] / 255.0f);
+            float g = v->fg > 0.0f ? v->fg : g1, k = v->fg > 0.0f ? v->fk : k1;
+            v->fg = g1;
+            v->fk = k1;
             float ic1 = v->f1, ic2 = v->f2;
             int mode = fm & 3;
-            for (unsigned i = 0; i < n; i++) {
-                float v0 = buf[i];
-                float v3 = v0 - ic2;
-                float v1 = a1 * ic1 + a2 * v3;
-                float v2 = ic2 + a2 * ic1 + a3 * v3;
-                ic1 = 2.0f * v1 - ic1;
-                ic2 = 2.0f * v2 - ic2;
-                float y;
-                switch (mode) {
-                case SYNTH_LOWPASS: y = v2; break;
-                case SYNTH_BANDPASS: y = v1 * k; break;     /* 0 dB at the peak */
-                case SYNTH_HIGHPASS: y = v0 - k * v1 - v2; break;
-                default: y = v0 - k * v1; break;            /* notch */
+            float dg = g1 - g;
+            if ((dg < 0 ? -dg : dg) <= 1e-5f * g1 && k == k1) {
+                /* still (a change under a 50th of a cent: the end of a
+                 * filter envelope's decay is no sweep) */
+                g = g1;
+                float a1 = 1.0f / (1.0f + g * (g + k)), a2 = g * a1, a3 = g * a2;
+                for (unsigned i = 0; i < n; i++) {
+                    float v0 = buf[i];
+                    float v3 = v0 - ic2;
+                    float v1 = a1 * ic1 + a2 * v3;
+                    float v2 = ic2 + a2 * ic1 + a3 * v3;
+                    ic1 = 2.0f * v1 - ic1;
+                    ic2 = 2.0f * v2 - ic2;
+                    float y;
+                    switch (mode) {
+                    case SYNTH_LOWPASS: y = v2; break;
+                    case SYNTH_BANDPASS: y = v1 * k; break;     /* 0 dB at the peak */
+                    case SYNTH_HIGHPASS: y = v0 - k * v1 - v2; break;
+                    default: y = v0 - k * v1; break;            /* notch */
+                    }
+                    buf[i] = y;
                 }
-                buf[i] = y;
+            } else {
+                /* a sweep (the envelope, the LFO, a new cutoff or
+                 * resonance): g and k move sample by sample, no steps every
+                 * 64 (zipper); g by a constant ratio, so the cutoff glides
+                 * in octaves as the envelope and the LFO move it, k in a
+                 * straight line. a1 = 1/(1 + g(g + k)) follows them with
+                 * one Newton step a sample from the last one, no division:
+                 * it comes from below, so the filter is at most a little
+                 * more damped than asked, never unstable, as long as
+                 * 1 + g(g + k) less than doubles in a sample. In a whole
+                 * block it does (g from 0.0006 to 6.4 at most: a ratio
+                 * under 1.16 a sample); a short one that jumps divides */
+                float rg = powf(g1 / g, inv_n), dk = (k1 - k) * inv_n;
+                int exact = rg > 1.3f || dk > 0.04f;
+                float a1 = 1.0f / (1.0f + g * (g + k));
+                for (unsigned i = 0; i < n; i++) {
+                    g *= rg;
+                    k += dk;
+                    float d = 1.0f + g * (g + k);
+                    a1 = exact ? 1.0f / d : a1 * (2.0f - d * a1);
+                    float a2 = g * a1, a3 = g * a2;
+                    float v0 = buf[i];
+                    float v3 = v0 - ic2;
+                    float v1 = a1 * ic1 + a2 * v3;
+                    float v2 = ic2 + a2 * ic1 + a3 * v3;
+                    ic1 = 2.0f * v1 - ic1;
+                    ic2 = 2.0f * v2 - ic2;
+                    float y;
+                    switch (mode) {
+                    case SYNTH_LOWPASS: y = v2; break;
+                    case SYNTH_BANDPASS: y = v1 * k; break;
+                    case SYNTH_HIGHPASS: y = v0 - k * v1 - v2; break;
+                    default: y = v0 - k * v1; break;
+                    }
+                    buf[i] = y;
+                }
             }
             /* a denormal is slow on some FPUs: the state flushed to 0 */
             v->f1 = (ic1 > 1e-15f || ic1 < -1e-15f) ? ic1 : 0;
             v->f2 = (ic2 > 1e-15f || ic2 < -1e-15f) ? ic2 : 0;
+        } else {
+            v->fg = 0;                  /* no filter: the next one starts without a ramp */
         }
 
         /* the envelope and the volume */
@@ -873,8 +937,9 @@ static void echo_render(synth_t *s, unsigned n)
         s->echo_quiet += n;
 }
 
-void synth_render(synth_t *s, const volatile uint8_t *regs, int16_t *out, unsigned n)
+int synth_mix(synth_t *s, const volatile uint8_t *regs, float *out, unsigned n)
 {
+    int kind = SYNTH_MIX_SILENT;
     while (n) {
         unsigned m = n < SYNTH_BLOCK ? n : SYNTH_BLOCK;
         for (unsigned i = 0; i < m; i++) {
@@ -893,7 +958,7 @@ void synth_render(synth_t *s, const volatile uint8_t *regs, int16_t *out, unsign
         if (!synth_active(s) && s->room_quiet > s->rate / 10u && s->echo_quiet > s->rate / 10u &&
             s->dc_y[0] == 0 && s->dc_y[1] == 0) {
             for (unsigned i = 0; i < 2 * m; i++)
-                out[i] = 0;             /* all quiet: nothing to mix */
+                out[i] = 0;             /* all quiet: nothing to mix (and no dither) */
             s->comp_env = 0;
             s->comp_gain = COMP_MAKEUP;
             s->dc_x[0] = s->dc_x[1] = 0;
@@ -902,10 +967,13 @@ void synth_render(synth_t *s, const volatile uint8_t *regs, int16_t *out, unsign
             continue;
         }
         if (s->retro) {
+            /* the chip: the volume before the limiter, as it always was */
             for (unsigned i = 0; i < m; i++) {
-                out[2 * i] = (int16_t)(synth_limit(s->mix[0][i] * g) * 32767.0f);
-                out[2 * i + 1] = (int16_t)(synth_limit(s->mix[1][i] * g) * 32767.0f);
+                out[2 * i] = synth_limit(s->mix[0][i] * g);
+                out[2 * i + 1] = synth_limit(s->mix[1][i] * g);
             }
+            if (kind == SYNTH_MIX_SILENT)
+                kind = SYNTH_MIX_RETRO;
         } else {
             room_render(s, m);
             echo_render(s, m);
@@ -939,14 +1007,125 @@ void synth_render(synth_t *s, const volatile uint8_t *regs, int16_t *out, unsign
             want *= COMP_MAKEUP;
             /* the master volume last, like the knob of the headphones: the
              * compressor hears the game's own mix whatever the volume */
-            float k = s->comp_gain, dk = (want - k) / (float)m, out_g = g * 32767.0f;
+            float k = s->comp_gain, dk = (want - k) / (float)m;
             for (unsigned i = 0; i < m; i++) {
                 k += dk;
-                out[2 * i] = (int16_t)(synth_limit(s->mix[0][i] * k) * out_g);
-                out[2 * i + 1] = (int16_t)(synth_limit(s->mix[1][i] * k) * out_g);
+                out[2 * i] = synth_limit(s->mix[0][i] * k) * g;
+                out[2 * i + 1] = synth_limit(s->mix[1][i] * k) * g;
             }
             s->comp_gain = want;
+            kind = SYNTH_MIX_SOUND;
         }
+        out += 2 * m;
+        n -= m;
+    }
+    return kind;
+}
+
+/* ---------------------------------------------------------------- the rounding */
+
+static inline float clip1(float x)
+{
+    return x > 1.0f ? 1.0f : x < -1.0f ? -1.0f : x;
+}
+
+/* the chip's 16 bits: truncated towards 0, sample for sample the first versions' */
+static inline int32_t retro16(float x)
+{
+    return (int32_t)(clip1(x) * 32767.0f);
+}
+
+/* One sample rounded to 16 or 24 bits with TPDF dither. v is the sample in
+ * units of 1/2^15 (1/2^7) of an LSB: (2^15 - 1) 2^15 and (2^23 - 1) 2^7 are
+ * exact in a float and under 2^30, room for the dither and the half. The
+ * dither is the difference of two uniform numbers in [0, 1) LSB, the low
+ * and the high half of one xorshift step (three shift-xors: no division,
+ * no multiply); the arithmetic shift is the floor, so + half is the nearest;
+ * the clamp is one SSAT on the ARM1176. */
+#if defined(__ARM_FEATURE_SAT)
+#include <arm_acle.h>
+#define SAT16(q)    __ssat((q), 16)
+#define SAT24(q)    __ssat((q), 24)
+#else
+#define SAT16(q)    ((q) > 32767 ? 32767 : (q) < -32768 ? -32768 : (q))
+#define SAT24(q)    ((q) > 8388607 ? 8388607 : (q) < -8388608 ? -8388608 : (q))
+#endif
+
+static inline int32_t round16(uint32_t *rng, float x)
+{
+    int32_t v = (int32_t)(clip1(x) * (32767.0f * 32768.0f));
+    uint32_t r = xorshift(rng);
+    int32_t q = (v + (int32_t)(r & 0x7fff) - (int32_t)(r >> 16 & 0x7fff) + 0x4000) >> 15;
+    return SAT16(q);
+}
+
+static inline int32_t round24(uint32_t *rng, float x)
+{
+    int32_t v = (int32_t)(clip1(x) * (8388607.0f * 128.0f));
+    uint32_t r = xorshift(rng);
+    int32_t q = (v + (int32_t)(r & 0x7f) - (int32_t)(r >> 16 & 0x7f) + 0x40) >> 7;
+    return SAT24(q);
+}
+
+void synth_quantize(synth_t *s, const float *in, int32_t *out, unsigned n, unsigned bits, int kind)
+{
+    unsigned m = 2 * n;
+    uint32_t rng = s->dither;
+    if (kind == SYNTH_MIX_SILENT) {
+        for (unsigned i = 0; i < m; i++)
+            out[i] = 0;
+    } else if (kind == SYNTH_MIX_RETRO) {
+        for (unsigned i = 0; i < m; i++)
+            out[i] = (int32_t)((uint32_t)retro16(in[i]) << 16);
+    } else if (bits <= 16) {
+        for (unsigned i = 0; i < m; i++)
+            out[i] = (int32_t)((uint32_t)round16(&rng, in[i]) << 16);
+    } else if (bits <= 24) {
+        for (unsigned i = 0; i < m; i++)
+            out[i] = (int32_t)((uint32_t)round24(&rng, in[i]) << 8);
+    } else {
+        /* the float as it is: 24 bits of mantissa, nothing to round */
+        for (unsigned i = 0; i < m; i++) {
+            float x = in[i];
+            x = x > 0.99999994f ? 0.99999994f : x < -1.0f ? -1.0f : x;
+            out[i] = (int32_t)(x * 2147483648.0f);
+        }
+    }
+    s->dither = rng;
+}
+
+void synth_quantize16(synth_t *s, const float *in, int16_t *out, unsigned n, int kind)
+{
+    unsigned m = 2 * n;
+    uint32_t rng = s->dither;
+    if (kind == SYNTH_MIX_SILENT) {
+        for (unsigned i = 0; i < m; i++)
+            out[i] = 0;
+    } else if (kind == SYNTH_MIX_RETRO) {
+        for (unsigned i = 0; i < m; i++)
+            out[i] = (int16_t)retro16(in[i]);
+    } else {
+        for (unsigned i = 0; i < m; i++)
+            out[i] = (int16_t)round16(&rng, in[i]);
+    }
+    s->dither = rng;
+}
+
+void synth_render(synth_t *s, const volatile uint8_t *regs, int16_t *out, unsigned n)
+{
+    while (n) {
+        unsigned m = n < SYNTH_BLOCK ? n : SYNTH_BLOCK;
+        synth_quantize16(s, s->out, out, m, synth_mix(s, regs, s->out, m));
+        out += 2 * m;
+        n -= m;
+    }
+}
+
+void synth_render32(synth_t *s, const volatile uint8_t *regs, int32_t *out, unsigned n, unsigned bits)
+{
+    while (n) {
+        unsigned m = n < SYNTH_BLOCK ? n : SYNTH_BLOCK;
+        synth_quantize(s, s->out, out, m, bits, synth_mix(s, regs, s->out, m));
         out += 2 * m;
         n -= m;
     }

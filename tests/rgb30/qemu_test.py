@@ -836,8 +836,8 @@ def test_sound(b, opts):
     keys (+ and -, here from the serial port) show their bar, bring it to
     5/10 and the same tone comes out at a quarter of the peak (the gain is
     the square of the level); the level is saved in bm/config.txt;
-    Settings > Screen and sound has the Sound, Volume and Test the sound
-    rows."""
+    Settings > Screen and sound has the Sound, Volume, Bit depth (24-bit by
+    default) and Test the sound rows."""
     tmp = tempfile.mkdtemp(prefix="bm64snd-")
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
                        "bm/tone.bm": mkbm.pack(TONE_CART.encode(), title="Tone", author="tests")})
@@ -872,10 +872,11 @@ def test_sound(b, opts):
         keys(q, "rr")                           # Settings; down to Screen and sound
         keys(q, "ss\r")
         # its rows longer than the screen since Sound style and 3D on the ARM:
-        # six down to the last, Test the sound, the list scrolling with it
-        keys(q, "ssssss")
+        # seven down to the last (Bit depth before it), Test the sound, the
+        # list scrolling with it
+        keys(q, "sssssss")
         text = screen_all(q.screendump())
-        for want in ("Sound", "Volume", "5 / 10", "Sound style", "Test the sound"):
+        for want in ("Sound", "Volume", "5 / 10", "Sound style", "Bit depth", "24-bit", "Test the sound"):
             assert want in text, f"{want!r} not in Screen and sound:\n{text}"
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
                   until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)

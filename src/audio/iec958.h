@@ -24,7 +24,11 @@ void iec958_init(iec958_t *e, uint32_t rate);
 uint32_t iec958_subframe(const iec958_t *e, int32_t sample24, unsigned frame);
 
 /* n stereo frames (2n samples, left first) -> 2n subframes, continuing
- * the block position. */
+ * the block position. 16-bit samples (the low 8 bits of the word 0) ... */
 void iec958_encode(iec958_t *e, const int16_t *in, uint32_t *out, unsigned n);
+/* ... or 32-bit words aligned to the left (audio_render32): their top 24
+ * bits, all the subframe carries (round them to 24 first: the low byte is
+ * dropped). */
+void iec958_encode32(iec958_t *e, const int32_t *in, uint32_t *out, unsigned n);
 
 #endif

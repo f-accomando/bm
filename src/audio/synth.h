@@ -4,14 +4,18 @@
  * an organ of four harmonics), white noise mixed in, a soft drive, a
  * resonant filter (low, band, high pass, notch) with its envelope and an
  * LFO, an ADSR envelope, a place left to right and two sends: the room (a
- * reverb) and the echo. The voices are summed in stereo, the room and the
- * echo added, and softly limited to 16 bits.
+ * reverb) and the echo. The voices are summed in stereo in 32-bit floats,
+ * the room and the echo added, softly limited, and only at the very end
+ * rounded to the output's depth: 16 or 24 bits with TPDF dither, or 32.
  *
  * The waves are band-limited (PolyBLEP: no aliasing whistles on the high
  * notes), the envelopes exponential like an analog synth's, volume and
  * pitch move smoothly within a block. A voice with SYNTH_RAW in its
  * control register (or every voice, with synth_t.retro) is the chip of
- * the first versions: naive waves, held noise, straight envelopes.
+ * the first versions: naive waves, held noise, straight envelopes, and its
+ * 16 bits truncated as they always were (no dither), whatever the depth.
+ * The tone moves smoothly within a block too: the filter's coefficients
+ * and the square's width ramp sample by sample from the last block's.
  *
  * Every voice is driven by 32 bytes of registers (the layout below; a
  * register left at 0 is the plain sound), so the same sound can be set
@@ -105,6 +109,8 @@ typedef struct {
     float vol;              /* the volume at the end of the last block */
     float fenv, menv;       /* filter envelope 0..1, FM depth envelope 1..0 */
     float f1, f2;           /* the filter's state */
+    float fg, fk;           /* its g and k at the end of the last block (fg 0: none, no ramp) */
+    float pw;               /* the square's width at the end of the last block (< 0: none) */
     float fm_fb;            /* the modulator's last value */
     uint32_t lfo;           /* the LFO's phase */
     uint16_t ks_w;          /* pluck: where the string is written */
@@ -140,11 +146,13 @@ typedef struct {
 
     float dc_x[2], dc_y[2];                 /* the output's DC blocker */
     float comp_env, comp_gain;              /* the output's compressor */
+    uint32_t dither;                        /* the dither's random numbers (xorshift, never 0) */
 
     /* one block: a voice's samples, then the mix and the sends */
     float vbuf[SYNTH_BLOCK];
     float mix[2][SYNTH_BLOCK], mix_c[SYNTH_BLOCK], send_room[SYNTH_BLOCK], send_echo[SYNTH_BLOCK];
     uint8_t center_used;                    /* a voice in the middle went into mix_c */
+    float out[2 * SYNTH_BLOCK];             /* synth_render's block, before the rounding */
     float pluck[SYNTH_VOICES][SYNTH_PLUCK_LEN];
 } synth_t;
 
@@ -167,6 +175,27 @@ float synth_rate_increment(uint8_t rate, uint32_t sample_rate);
  * again); a voice that was silent starts its waveform from the beginning,
  * so drums sound the same every time. */
 void synth_render(synth_t *s, const volatile uint8_t *regs, int16_t *out, unsigned n);
+
+/* The same at a depth of 16, 24 or 32 bits, in words aligned to the left
+ * (bit 31 the sign; at 16 bits the low half 0, at 24 the low byte). */
+void synth_render32(synth_t *s, const volatile uint8_t *regs, int32_t *out, unsigned n, unsigned bits);
+
+/* The two halves of a render, for a caller that adds its own sound in
+ * between (audio.c: nano8). synth_mix: n frames as floats (2n, left
+ * first), 1.0 = full scale, after the room, the echo, the DC blocker, the
+ * compressor, the limiter and the master volume; it says what they are: */
+#define SYNTH_MIX_SILENT    0       /* all 0: no voice, the room and the echo quiet (no dither) */
+#define SYNTH_MIX_SOUND     1       /* the clean sound: rounded with dither */
+#define SYNTH_MIX_RETRO     2       /* the chip (retro): truncated to 16 bits, as always */
+int  synth_mix(synth_t *s, const volatile uint8_t *regs, float *out, unsigned n);
+
+/* The floats (2n) rounded to `bits` (16, 24; 32 is the float as it is):
+ * TPDF dither, two uniform random numbers of one step each, so the error
+ * is +-1 LSB, triangular, never following the sound (the quiet tails of
+ * the room fade into noise instead of breaking into steps). A sample past
+ * +-1.0 is clipped. `kind` is synth_mix's (SILENT: zeros, no noise). */
+void synth_quantize(synth_t *s, const float *in, int32_t *out, unsigned n, unsigned bits, int kind);
+void synth_quantize16(synth_t *s, const float *in, int16_t *out, unsigned n, int kind);
 
 /* The next render sees a rising gate edge on voice ch even if the gate
  * bit stayed 1 (a note played again before its release). */

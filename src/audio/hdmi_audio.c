@@ -91,7 +91,7 @@ typedef struct {
 
 static dma_cb_t cbs[2] __attribute__((aligned(32)));
 static uint32_t bufs[2][AUDIO_CHUNK * 2] __attribute__((aligned(32)));
-static int16_t pcm[AUDIO_CHUNK * 2];      /* left, right */
+static int32_t pcm[AUDIO_CHUNK * 2];      /* left, right: words aligned to the left */
 
 static iec958_t iec;
 static unsigned dma_ch;
@@ -161,8 +161,11 @@ static int wait_bit(uint32_t reg, uint32_t mask, int set, uint32_t ms)
 
 static void fill(unsigned b)
 {
-    audio_render(pcm, AUDIO_CHUNK);
-    iec958_encode(&iec, pcm, bufs[b], AUDIO_CHUNK);
+    /* the subframe carries 24 bits: sound_depth=32 is rounded to 24 here,
+     * with the dither, rather than cut */
+    unsigned bits = audio_depth();
+    audio_render32(pcm, AUDIO_CHUNK, bits > 24 ? 24 : bits);
+    iec958_encode32(&iec, pcm, bufs[b], AUDIO_CHUNK);
     dcache_clean_range(bufs[b], sizeof bufs[b]);
 }
 

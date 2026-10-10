@@ -87,8 +87,17 @@ enum {
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
     R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
-    R_STYLE,
+    R_STYLE, R_DEPTH,
 };
+
+/* sound_depth: the bits of each sample at the output (what the output
+ * really carries is in the row's help) */
+static const char *depth_choice(void)
+{
+    static char t[12];
+    ksnprintf(t, sizeof t, "%u-bit", audio_depth());
+    return t;
+}
 
 static int popcount(unsigned v)
 {
@@ -474,6 +483,8 @@ void home_panel(int id, home_panel_t *p)
                  "%d / %d", audio_volume(), AUDIO_VOLUME_MAX);
         home_row(p, MENU_ROW_CHOICE, R_STYLE, "Sound style",
                  "Hi-fi, or the 8-bit chip of the first versions", "%s", audio_retro_on() ? "8-bit" : "Hi-fi");
+        home_row(p, MENU_ROW_CHOICE, R_DEPTH, "Bit depth",
+                 "Each sample: 16, 24 or 32 bits (the codec converts 24)", "%s", depth_choice());
         home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
                  "The sound's state and a test tune", NULL);
 #else
@@ -483,6 +494,8 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_STYLE, "Sound style",
                  "Hi-fi (stereo, room), or the 8-bit chip of the first versions", "%s",
                  audio_retro_on() ? "8-bit" : "Hi-fi");
+        home_row(p, MENU_ROW_CHOICE, R_DEPTH, "Bit depth",
+                 "Each sample: 16, 24 or 32 bits (HDMI carries 24)", "%s", depth_choice());
         home_row(p, MENU_ROW_ACTION, R_PATTERN, "Test pattern",
                  "HDMI colour bars; any button returns", NULL);
         home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
@@ -906,6 +919,21 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_save();
         audio_play_sound(0, &au_presets[au_preset_find(retro ? "chip" : "epiano")].s, 72, 220, 300);
         ksnprintf(d->note, sizeof d->note, "sound: %s", retro ? "8-bit" : "hi-fi");
+        break;
+    }
+    case R_DEPTH: {
+        unsigned b = audio_depth();             /* 16 -> 24 -> 32 -> 16 (left: the other way) */
+        if (how < 0)
+            b = b == 16 ? 32 : b == 24 ? 16 : 24;
+        else
+            b = b == 16 ? 24 : b == 24 ? 32 : 16;
+        audio_set_depth(b);
+        char v[4];
+        ksnprintf(v, sizeof v, "%u", b);
+        config_set("sound_depth", v);
+        config_save();
+        audio_play_sound(0, &au_presets[au_preset_find("epiano")].s, 72, 220, 300);
+        ksnprintf(d->note, sizeof d->note, "depth: %u bits", b);
         break;
     }
 #ifdef BM_RGB30

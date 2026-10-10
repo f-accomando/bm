@@ -65,7 +65,8 @@ Audio output is abstracted through [`src/audio/audio_out.h`](../../src/audio/aud
 ```
                      ┌──────────────────────────────┐
                      │   8-Voice Synth & Effects    │
-                     │  (48 kHz 16-bit Stereo PCM)  │
+                     │ (48 kHz stereo, float mix →  │
+                     │  16/24/32-bit, TPDF dither)  │
                      └──────────────┬───────────────┘
                                     │
             ┌───────────────────────┴───────────────────────┐
@@ -81,11 +82,11 @@ Audio output is abstracted through [`src/audio/audio_out.h`](../../src/audio/aud
 
 ### 1. Raspberry Pi HDMI Audio (`src/audio/hdmi_audio.c`, `src/audio/iec958.c`)
 * The BCM2835 transmits digital audio packets interleaved within the HDMI video signal.
-* PCM samples are formatted into standard IEC958 / S/PDIF subframes with parity bits and preamble flags.
+* PCM samples are formatted into standard IEC958 / S/PDIF subframes with parity bits and preamble flags: 24-bit words (`iec958_encode32`), so `sound_depth=24` reaches the TV whole (§8).
 * BCM2835 DMA feeds circular audio buffers directly into the HDMI audio FIFO at 48,000 Hz stereo.
 
 ### 2. PowKiddy RGB30 Audio (`src/rgb30/rk_audio.c`)
-* Configures the Rockchip RK3566 I2S1 controller in TDM master mode (12.288 MHz MCLK from GPLL).
+* Configures the Rockchip RK3566 I2S1 controller in TDM master mode (12.288 MHz MCLK from GPLL), 16-, 24- or 32-bit samples in 32-bit slots (§8).
 * Communicates directly with the onboard Rockchip RK817 power-management and audio codec chip.
 * Handles dynamic output routing between internal stereo speakers and the 3.5mm headphone jack.
 * Hardware volume keys (+ and −) trigger onscreen feedback overlays (`notice_flash`) and persist settings to `bm/config.txt`.
@@ -123,8 +124,8 @@ Future synthesis improvements and optimizations follow a strict hierarchy of imp
    * Continuous linear or Hermite interpolation on frequency increments across buffer boundaries to eliminate audible pitch stair-stepping during glides and vibrato.
 5. **Fluid Envelopes (ADSR) & LFO Modulation**:
    * Sample-accurate or linearly ramped envelope stages and modulation curves across audio blocks (64 samples), preventing zipper noise during rapid filter sweeps and amplitude changes.
-6. **Quantization Dithering**:
-   * Triangular Probability Density Function (TPDF) dithering applied during final 32-bit float to 16-bit PCM conversion to preserve subtle reverb tails and avoid harmonic truncation noise at low amplitudes.
+6. **Quantization Dithering** (done, §8):
+   * Triangular Probability Density Function (TPDF) dithering applied during the final float to 16- or 24-bit PCM conversion to preserve subtle reverb tails and avoid harmonic truncation noise at low amplitudes.
 7. **Richer Synthesis Models**:
    * 2-Operator FM synthesis with feedback modulation.
    * Multi-oscillator detuning (supersaw cluster).
@@ -176,7 +177,53 @@ This section details the evolutionary history of bm's audio architecture, docume
 
 ### 6. Pending & Alternatives to Explore
 * **Short PCM Sample Playback (R9/R25)**: Adding short uncompressed WAV/PCM sample playback for punchy acoustic drums and vocal one-shots.
-* **TPDF Dithering**: Adding triangular dither noise prior to 16-bit DAC quantization to eliminate harmonic truncation on low-level reverb tails.
-* **In-Block Modulation Interpolation**: Linearly interpolating filter cutoff and LFO depths within 64-sample blocks to eliminate zipper noise during aggressive filter sweeps.
+* ~~**TPDF Dithering**~~: done (2026-10-10), §8: TPDF at 16 and 24 bits, silence stays exact zeros.
+* ~~**In-Block Modulation Interpolation**~~: done (2026-10-10), §8: the filter's g and k and the square's width ramp sample by sample.
+* Still open after §8: the release ends at `ENV_DONE` (−60 dB of the voice) with a step; the fast `sine()` (≈0.1% error) puts harmonics near −60 dB (the chip uses it too: a second, finer one would be needed); drive and noise-mix amounts step once a block when their registers change; the LFO itself is evaluated once a block (the ramps make its path piecewise in octaves); `QUIET` stops the room near −126 dBFS (12 dB over 24 bits' step).
+
+---
+
+## 8. Output Depth, Dither & In-Block Ramps (2026-10-10)
+
+The mix was already 32-bit float; until now it left the synthesizer as `int16_t` and the Pi's IEC958 packer got `int16 × 256` (24-bit words, 16 bits of information). Now the float goes all the way to the output and is rounded once, at the very end, to the depth the output carries.
+
+### The path
+* `synth_mix()` (`src/audio/synth.c`): n frames as floats, 1.0 = full scale, after the room, the echo, the DC blocker, the compressor, the limiter and the master volume. It says what the block is: `SYNTH_MIX_SILENT` (all zeros: voices idle, room and echo quiet, DC blocker settled), `SYNTH_MIX_SOUND`, `SYNTH_MIX_RETRO`.
+* `n8snd_mix_float()` (`src/audio/n8snd.c`): nano8 adds its channels into the same floats (returns 1 when it added a sound). `n8snd_mix()` (int16) is unchanged, bit for bit (checked against the old file on a pseudo-random RAM).
+* `synth_quantize()` / `synth_quantize16()`: the rounding. `audio_render32(out, n, bits)` (`src/audio/audio.c`, `audio_out.h`) gives words aligned to the left (bit 31 the sign, the bits under the depth 0); `audio_render(int16)` stays as the 16-bit wrapper (QEMU's sink). `synth_render()` (int16) and the new `synth_render32()` are the two halves together. `audio_idle()` without an output only mixes (no rounding).
+* The depth: `sound_depth=16|24|32` in `bm/config.txt`, default **24**; Settings > Screen and sound > **Bit depth** on both consoles (`src/kernel/settings.c`, read in `src/kernel/config.c`). `audio_set_depth()`, `audio_depth()`, `audio_depth_out()` (`audio.h`). The monitor's / Settings' sound test prints the depth and the dither.
+
+### The outputs (what each really carries)
+* **Pi, HDMI** (`hdmi_audio.c`): IEC958 subframes hold 24 bits. 16 → the low byte 0; 24 → whole; 32 → rounded to 24 *with* the dither rather than cut. `iec958_encode32()` takes the top 24 bits of the words.
+* **RGB30, I2S1 → RK817** (`src/rgb30/rk_audio.c`): the slots were already 32 bit clocks wide (BCLK = 64 fs). 16: VDW 16, one FIFO word a frame (left low, right high: as before); 24: VDW 24, a word a sample in its low 24 bits; 32: VDW 32, a whole word. These are Linux's settings for S16_LE / S24_LE / S32_LE (`rockchip_i2s_tdm.c`: `I2S_TXCR_VDW(16/24/32)`, SJM left right-justified), and the codec's `DI2S_RXCR2/TXCR2` 0x0f for 16 bits, **0x17 for both 24 and 32** (`rk817_codec.c`, `rk808.h`): the RK817's DAC converts at most 24 bits. So on neither console does anything convert more than 24 bits: `32` is the float mix on the wire (RGB30) or rounded to 24 (HDMI). **Not tried on the console yet** (no hardware here): only the simulator (`tests/rgb30/audio_sim_test.c`) checks the words, the codec's registers and the timing. If 24 sounds wrong on the RGB30, `sound_depth=16` is the old path exactly.
+* At 24 and 32 bits a frame takes two FIFO words: the FIFO (32 words) holds 16 frames instead of 32 and the I2S interrupt comes 6000 times a second instead of 3000. The driver now keeps two chunks: the next one is rendered right after the FIFO was topped up (32 words of margin, 333 µs at 24 bits) instead of when it runs dry (as little as 8 frames, 167 µs). The simulator renders a chunk in 250 µs at 24 and 32 bits with no underrun.
+* A new `sound_depth` on the RGB30 changes the I2S and the codec from `audio_out_idle()` (the main loop, once a frame), the DAC muted for those few ms.
+
+### The dither
+* TPDF, ±1 LSB of the depth (two uniform numbers in [0, 1) LSB subtracted): the low and the high half of one xorshift32 step a sample (three shift-xors; no division, no multiply in the integer part); the sample is scaled to 1/2^15 (1/2^7) of an LSB in an int32, the dither and the half added, an arithmetic shift is the floor. The clamp is one `SSAT` with the shift folded in on the ARM1176: **24 instructions a sample** for the 16-bit loop (≈0.3% of the Pi Zero's CPU for 48 kHz stereo).
+* Silence is exact zeros at every depth: a `SYNTH_MIX_SILENT` block gets no dither. `synth_init()` now starts with the room and the echo already quiet (before, every `audio_reset()` was followed by 100 ms of a "not quiet" room: with the dither, 100 ms of noise at −93 dBFS).
+* The chip (`sound=8bit`, `retro(true)`) is untouched: its 16 bits truncated as before, no dither, the same words at every depth.
+
+### In-block ramps (zipper)
+* The filter's g (= tan(π fc / fs)) moves from the last block's value to this one's by a constant ratio a sample (the cutoff glides in octaves, as the envelope and the LFO move it), k (resonance) in a straight line. a1 = 1/(1 + g(g + k)) follows with one Newton step a sample from the last one: it approaches from below, so the filter is at most a little more damped than asked and never unstable while 1 + g(g + k) less than doubles in a sample (always true in a whole block: g ∈ [0.0006, 6.4], ratio ≤ 1.16 a sample); a short block that jumps further divides. A change under 1e-5 (a 50th of a cent: the end of a filter envelope's decay) counts as still and uses the old loop.
+* The square's width (the LFO's PWM, a new duty) ramps across the block; the LFO is evaluated at the block's end so both ends of every ramp are known.
+* ARM1176 (kernel flags, instruction count): the SVF loop is 14 instructions a sample still, 24 while sweeping, plus one `powf` a sweeping voice a block. Host (x86, WSL, noisy): the whole synth +5–10% with 8 voices sweeping. **The Pi's number is to be read on the console**: Settings > Screen and sound > Test the sound prints "synth N us per 256 samples".
+
+### Measured (`make test-audio`, tests/audio/test_audio.c)
+| | before | after |
+|---|---|---|
+| SNR, sine at −1 dBFS, 16 bits (theory with TPDF 92.3) | 16-bit truncation | 92.3 dB |
+| SNR, 24 bits (theory 140.5) | 16 bits at most | 140.2 dB |
+| SNR, 32 bits (the float as it is) | — | 216 dB |
+| a 0.6 LSB sine: the note / its 3rd harmonic | plain rounding 0.71 / 0.42 LSB | 0.60 / 0.005 LSB |
+| dither noise, mean | — | 0.5 LSB rms, mean < 0.01 LSB |
+| DC after the blocker, a 25% square | — | 1.1e-6 of full scale |
+| room tail at 24 bits vs the float | — | ≤ 0.60 LSB rms down to −126 dBFS; 0 after 7.6 s |
+| block-rate sidebands, 3 kHz sine, resonant LPF, LFO 8 Hz 4 oct | −36 dBc | −77 dBc |
+| the same, LFO 14 Hz, res 200 / res 0 (bench) | −23 / −29 dBc | −53 / −67 dBc |
+| filter envelope sweeping over the carrier (FDECAY 40 / acid 15) | −33 / −25 dBc | −75 / −62 dBc |
+| duty 25% → 75%: high samples in the next block | 48 of 64 (a step) | 33 of 64 (a ramp) |
+
+`make TARGET=rgb30 test-audio` runs the I2S simulator three times (started at 16, 24 and 32 bits, each changing to the other two and back, a 250 µs render at 24 and 32; the last with an odd FIFO of 31 words, which the driver uses as 30 so frames stay whole). The QEMU tests touched (`tests/qemu_test.py` `test_home_ui`, the Pi's new Bit depth row; `tests/rgb30/qemu_test.py` `test_sound`, one row more to the last) were updated but not run: no working QEMU on the machine of this session.
 
 

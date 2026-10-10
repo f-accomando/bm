@@ -1,6 +1,8 @@
 /* Host tests for the synthesizer (the chip voice of the first versions,
- * sample for sample, and the clean one), the player of the sound banks and
- * the IEC 958 subframes sent to the HDMI audio FIFO. */
+ * sample for sample, and the clean one), the player of the sound banks,
+ * the output's depth (16, 24, 32 bits: the dither's noise and SNR, no DC,
+ * no noise in silence), the tone moving within a block without zipper,
+ * and the IEC 958 subframes sent to the HDMI audio FIFO. */
 #include "audio/synth.h"
 #include "audio/player.h"
 #include "audio/iec958.h"
@@ -765,6 +767,382 @@ static void test_iec958(void)
     CHECK(out[2 * 2] & 0x40000000u);            /* status bit 2: PCM consumer */
     CHECK(out[2 * 25] & 0x40000000u);           /* byte 3 bit 1: 48 kHz */
     CHECK(!(out[2 * 24] & 0x40000000u));
+
+    /* 24 bits (audio_render32's words, aligned to the left): all 24 in
+     * bits 4..27, the low byte too (not a 16-bit sample times 256) */
+    static int32_t in32[800];
+    uint32_t r = 12345;
+    for (int i = 0; i < 800; i++) {
+        r = r * 1664525u + 1013904223u;
+        in32[i] = (int32_t)(r & 0xFFFFFF00u);
+    }
+    in32[0] = (int32_t)0x80000000u;             /* the extremes */
+    in32[1] = 0x7FFFFF00;
+    iec958_init(&e, 48000);
+    iec958_encode32(&e, in32, out, 400);
+    int low = 0, good = 1;
+    for (int i = 0; i < 800; i++) {
+        uint32_t w = out[i];
+        int frame = (i / 2) % 192;
+        int status = frame < 40 && (e.status[frame / 8] >> (frame % 8) & 1);
+        good &= __builtin_parity(w & ~0xFu) == 0;
+        good &= (w & 0xF) == (frame == 0 ? 0xFu : 0);
+        good &= !!(w & 0x40000000u) == status;
+        good &= (w >> 4 & 0xFFFFFF) == ((uint32_t)in32[i] >> 8);
+        low += (w >> 4 & 0xFF) != 0;
+    }
+    CHECK(good);
+    CHECK(low > 700);                           /* the low byte reaches the subframe */
+    CHECK((out[0] >> 4 & 0xFFFFFF) == 0x800000 && (out[1] >> 4 & 0xFFFFFF) == 0x7FFFFF);
+}
+
+/* ---------------------------------------------------------------- the output's depth */
+
+#define FFT_N 32768
+static double fre[FFT_N], fim[FFT_N];
+
+static void fft(double *xr, double *xi, int n)
+{
+    for (int i = 1, j = 0; i < n; i++) {
+        int bit = n >> 1;
+        for (; j & bit; bit >>= 1)
+            j ^= bit;
+        j ^= bit;
+        if (i < j) {
+            double t = xr[i]; xr[i] = xr[j]; xr[j] = t;
+            t = xi[i]; xi[i] = xi[j]; xi[j] = t;
+        }
+    }
+    for (int len = 2; len <= n; len <<= 1) {
+        double a = -2 * M_PI / len;
+        for (int i = 0; i < n; i += len)
+            for (int k = 0; k < len / 2; k++) {
+                double wr = cos(a * k), wi = sin(a * k);
+                double *ar = &xr[i + k], *ai = &xi[i + k], *br = &xr[i + k + len / 2], *bi = &xi[i + k + len / 2];
+                double vr = *br * wr - *bi * wi, vi = *br * wi + *bi * wr;
+                *br = *ar - vr; *bi = *ai - vi;
+                *ar += vr; *ai += vi;
+            }
+    }
+}
+
+/* n frames of the left channel from `from`, Hann-windowed (and padded with
+ * 0 to FFT_N), into fre/fim */
+static void spectrum16(const int16_t *st, int from, int n)
+{
+    for (int i = 0; i < FFT_N; i++) {
+        fre[i] = i < n ? st[2 * (from + i)] * (0.5 - 0.5 * cos(2 * M_PI * i / (n - 1))) : 0;
+        fim[i] = 0;
+    }
+    fft(fre, fim, FFT_N);
+}
+
+static double band(double lo, double hi)
+{
+    double p = 0;
+    for (int b = (int)(lo * FFT_N / RATE); b <= (int)(hi * FFT_N / RATE); b++)
+        p += fre[b] * fre[b] + fim[b] * fim[b];
+    return p;
+}
+
+/* the sidebands at the block rate (750 Hz x k, k = 1..k_max, each +-w Hz)
+ * around a carrier at hz, in dB under it */
+static double sidebands(double hz, int k_max, double w)
+{
+    double car = band(hz - 250, hz + 250), side = 0;
+    for (int k = 1; k <= k_max; k++) {
+        side += band(hz + 750 * k - w, hz + 750 * k + w);
+        if (hz - 750 * k - w > 50)
+            side += band(hz - 750 * k - w, hz - 750 * k + w);
+    }
+    return 10 * log10(side / car);
+}
+
+/* the amplitude of a component at hz with whole cycles in n samples */
+static double amp_at(const double *x, int n, double hz)
+{
+    double re = 0, im = 0;
+    for (int i = 0; i < n; i++) {
+        re += x[i] * cos(2 * M_PI * hz * i / RATE);
+        im += x[i] * sin(2 * M_PI * hz * i / RATE);
+    }
+    return 2 * sqrt(re * re + im * im) / n;
+}
+
+static float fin[RATE * 2];
+static int32_t q32[RATE * 2];
+static int16_t q16[RATE * 2];
+static double dy[RATE], dx[RATE];
+
+/* the left samples of q32 at `bits`, in LSBs of that depth */
+static double lsb_of(int32_t w, unsigned bits)
+{
+    return bits == 32 ? (double)w : (double)(w >> (32 - bits));
+}
+
+/* sine of `amp` (1.0 full scale) at hz, quantized: the SNR in dB */
+static double snr(synth_t *s, unsigned bits, double amp, double hz)
+{
+    double full = bits == 32 ? 2147483648.0 : (double)((1u << (bits - 1)) - 1);
+    for (int i = 0; i < RATE; i++)
+        fin[2 * i] = fin[2 * i + 1] = (float)(amp * sin(2 * M_PI * hz * i / RATE));
+    synth_quantize(s, fin, q32, RATE, bits, SYNTH_MIX_SOUND);
+    double sig = 0, err = 0;
+    for (int i = 0; i < 2 * RATE; i++) {
+        double x = fin[i], e = lsb_of(q32[i], bits) / full - x;
+        sig += x * x;
+        err += e * e;
+    }
+    return 10 * log10(sig / err);
+}
+
+static void test_depth(void)
+{
+    static synth_t s;
+    synth_init(&s, RATE);
+
+    /* a sine at -1 dBFS: 16 bits with TPDF dither 92.3 dB in theory (the
+     * rounding's 1/12 LSB^2 and the dither's 1/6), 24 bits 140.5, 32 the
+     * float's own (more than 150) */
+    double s16 = snr(&s, 16, 0.891, 997), s24 = snr(&s, 24, 0.891, 997), s32 = snr(&s, 32, 0.891, 997);
+    printf("  SNR of a 997 Hz sine at -1 dBFS: %.1f dB (16 bits), %.1f dB (24), %.1f dB (32)\n", s16, s24, s32);
+    CHECK(s16 > 90.5 && s16 < 94.0);
+    CHECK(s24 > 136.0 && s24 < 142.0);
+    CHECK(s32 > 150.0);
+
+    /* below one step: a 1 kHz sine of 0.6 LSB. Rounded plainly it is a
+     * pulse (its third harmonic 0.42 LSB, the note itself 0.70); with the
+     * dither the note is there as it is, 0.6, and no harmonic: noise
+     * instead of distortion, at 16 and at 24 bits (the room's tails) */
+    for (unsigned bits = 16; bits <= 24; bits += 8) {
+        double full = (double)((1u << (bits - 1)) - 1);
+        for (int i = 0; i < RATE; i++)
+            fin[2 * i] = fin[2 * i + 1] = (float)(0.6 / full * sin(2 * M_PI * 1000.0 * i / RATE));
+        synth_quantize(&s, fin, q32, RATE, bits, SYNTH_MIX_SOUND);
+        for (int i = 0; i < RATE; i++) {
+            dy[i] = lsb_of(q32[2 * i], bits);
+            dx[i] = floor(fin[2 * i] * full + 0.5);     /* plain rounding */
+        }
+        double d1 = amp_at(dy, RATE, 1000), d3 = amp_at(dy, RATE, 3000);
+        double p1 = amp_at(dx, RATE, 1000), p3 = amp_at(dx, RATE, 3000);
+        printf("  0.6 LSB at %u bits: dithered %.3f / 3rd %.4f LSB, plainly rounded %.3f / 3rd %.3f LSB\n",
+               bits, d1, d3, p1, p3);
+        CHECK(fabs(d1 - 0.6) < 0.03 && d3 < 0.02);
+        CHECK(p3 > 0.3);
+    }
+
+    /* the dither's noise: 0.5 LSB rms (1/4 LSB^2), no DC */
+    for (unsigned bits = 16; bits <= 24; bits += 8) {
+        for (int i = 0; i < 2 * RATE; i++)
+            fin[i] = 0;
+        synth_quantize(&s, fin, q32, RATE, bits, SYNTH_MIX_SOUND);
+        double sum = 0, sq = 0;
+        int most = 0;
+        for (int i = 0; i < 2 * RATE; i++) {
+            double v = lsb_of(q32[i], bits);
+            sum += v;
+            sq += v * v;
+            most = abs((int)v) > most ? abs((int)v) : most;
+        }
+        double mean = sum / (2 * RATE), rms = sqrt(sq / (2 * RATE));
+        CHECK(fabs(mean) < 0.01 && rms > 0.45 && rms < 0.55 && most == 1);
+        CHECK((q32[0] & ((1 << (32 - bits)) - 1)) == 0);      /* the bits under the depth 0 */
+    }
+
+    /* past full scale: clipped, not wrapped (1.0 is 32767, give or take
+     * the dither's step) */
+    int clipped = 1;
+    for (int t = 0; t < 200; t++) {
+        fin[0] = 1.5f; fin[1] = -1.5f; fin[2] = 1.0f; fin[3] = -1.0f;
+        synth_quantize(&s, fin, q32, 2, 16, SYNTH_MIX_SOUND);
+        clipped &= q32[0] >> 16 >= 32766 && q32[1] >> 16 <= -32766 && q32[2] >> 16 >= 32766 && q32[3] >> 16 <= -32766;
+        synth_quantize(&s, fin, q32, 2, 24, SYNTH_MIX_SOUND);
+        clipped &= q32[0] >> 8 >= 8388606 && q32[1] >> 8 <= -8388606;
+        synth_quantize16(&s, fin, q16, 2, SYNTH_MIX_SOUND);
+        clipped &= q16[0] >= 32766 && q16[1] <= -32766;
+    }
+    synth_quantize(&s, fin, q32, 2, 32, SYNTH_MIX_SOUND);
+    CHECK(clipped && q32[0] > 0x7FFFFF00 && q32[1] == (int32_t)0x80000000u);
+
+    /* silence: nothing at any depth, not even the dither's noise */
+    memset(regs, 0, sizeof regs);
+    synth_init(&s, RATE);
+    int quiet = 1;
+    for (unsigned bits = 16; bits <= 32; bits += 8) {
+        synth_render32(&s, regs, q32, 4800, bits);
+        for (int i = 0; i < 9600; i++)
+            quiet &= q32[i] == 0;
+    }
+    synth_render(&s, regs, q16, 4800);
+    for (int i = 0; i < 9600; i++)
+        quiet &= q16[i] == 0;
+    CHECK(quiet);
+
+    /* a note in a big room at 24 bits: the tail follows the float mix
+     * within the dither (0.5 LSB rms) all the way down, below 16 bits'
+     * step, then the room goes quiet and the output is 0 again */
+    synth_init(&s, RATE);
+    synth_room(&s, 1.0f, 0.3f, 1.0f);
+    clean_voice(0, 440, SYNTH_SAW, 200, 0, 0, 255, 10, 1);
+    tone(0, SYNTH_REVERB, 255);
+    double worst = 0, under16 = 0;
+    int blocks = 0, zeros_after = -1;
+    for (int b = 0; b < 12 * RATE / 64; b++) {
+        if (b == RATE / 4 / 64)
+            tone(0, SYNTH_CONTROL, 0);                  /* released after 250 ms */
+        int kind = synth_mix(&s, regs, fin, 64);
+        synth_quantize(&s, fin, q32, 64, 24, kind);
+        double err = 0, lvl = 0;
+        int nz = 0;
+        for (int i = 0; i < 128; i++) {
+            double e = lsb_of(q32[i], 24) - fin[i] * 8388607.0;
+            err += e * e;
+            lvl += fin[i] * fin[i];
+            nz += q32[i] != 0;
+        }
+        err = sqrt(err / 128);
+        lvl = sqrt(lvl / 128) * 32767.0;                /* in LSBs of 16 bits */
+        if (kind != SYNTH_MIX_SILENT && err > worst)
+            worst = err;
+        if (kind != SYNTH_MIX_SILENT && lvl < 0.5 && lvl > 0.01) {
+            under16 += 1;                               /* a block under half a 16-bit step, still there */
+            CHECK(nz > 64);
+        }
+        if (kind == SYNTH_MIX_SILENT) {
+            CHECK(nz == 0);
+            if (zeros_after < 0)
+                zeros_after = b;
+        }
+        blocks++;
+    }
+    printf("  the room's tail at 24 bits: %.2f LSB rms from the float at worst, %d blocks under half a "
+           "16-bit step, quiet after %.2f s\n", worst, (int)under16, zeros_after * 64.0 / RATE);
+    CHECK(worst < 0.75);                                /* 16 bits would be 256 */
+    CHECK(under16 > 20);
+    CHECK(zeros_after > 0 && zeros_after < 11 * RATE / 64);
+
+    /* the DC blocker: a square a quarter high (its mean half way down)
+     * comes out around 0 */
+    synth_init(&s, RATE);
+    clean_voice(0, 1000, SYNTH_SQUARE, 100, 0, 0, 255, 0, 1);  /* under the compressor: no bending */
+    tone(0, SYNTH_DUTY, 64);
+    synth_render32(&s, regs, q32, RATE, 24);
+    synth_render32(&s, regs, q32, RATE / 2, 24);
+    double dc = 0, peak24 = 0;
+    for (int i = 0; i < RATE; i++) {
+        dc += lsb_of(q32[i], 24);
+        peak24 = fabs(lsb_of(q32[i], 24)) > peak24 ? fabs(lsb_of(q32[i], 24)) : peak24;
+    }
+    dc /= RATE * 8388607.0;
+    printf("  DC of a 25%% square after the blocker: %.2e of full scale (peak %.2f)\n", dc, peak24 / 8388607.0);
+    CHECK(fabs(dc) < 1e-5 && peak24 > 0.3 * 8388607.0);
+
+    /* the chip (retro): its 16 bits truncated as always, at any depth */
+    static synth_t s2;
+    init_retro(&s);
+    init_retro(&s2);
+    clean_voice(0, 330, SYNTH_SAW, 180, 20, 30, 120, 40, 1);
+    synth_render(&s, regs, q16, 4800);
+    synth_render32(&s2, regs, q32, 4800, 24);
+    int same = 1;
+    for (int i = 0; i < 9600; i++)
+        same &= q32[i] == (int32_t)((uint32_t)(uint16_t)q16[i] << 16);
+    CHECK(same && peak(q16, 9600) > 10000);
+
+    /* 32 bits is the 24 without the rounding: the same sound within 2 steps of 24 bits */
+    synth_init(&s, RATE);
+    synth_init(&s2, RATE);
+    clean_voice(0, 330, SYNTH_FM, 200, 0, 30, 120, 40, 1);
+    tone(0, SYNTH_REVERB, 120);
+    static int32_t q24[9600];
+    synth_render32(&s, regs, q32, 4800, 32);
+    synth_render32(&s2, regs, q24, 4800, 24);
+    int near = 1;
+    for (int i = 0; i < 9600; i++)
+        near &= abs((q32[i] >> 8) - (q24[i] >> 8)) <= 2;
+    CHECK(near);
+}
+
+/* ---------------------------------------------------------------- the tone within a block */
+
+static void test_ramps(void)
+{
+    static synth_t s;
+    static int16_t st[RATE * 2 * 2];
+
+    /* a 3 kHz sine through a resonant low pass whose cutoff an 8 Hz LFO
+     * moves 4 octaves: with the coefficients updated once a block (64
+     * samples) the gain stepped 750 times a second, sidebands at 3 kHz
+     * +- 750 Hz x k at -36 dBc; ramped sample by sample they are gone */
+    memset(regs, 0, sizeof regs);
+    clean_voice(0, 3000, SYNTH_SINE, 200, 0, 0, 255, 0, 1);
+    tone(0, SYNTH_CUTOFF, 200);
+    tone(0, SYNTH_RESONANCE, 200);
+    tone(0, SYNTH_LFO_RATE, 140);
+    tone(0, SYNTH_LFO_CUT, 255);
+    synth_init(&s, RATE);
+    synth_render(&s, regs, st, RATE * 2);
+    spectrum16(st, RATE / 2, FFT_N);
+    double dbc = sidebands(3000, 4, 100);
+    printf("  a cutoff swept by the LFO: block-rate sidebands at %.1f dBc (once a block: -36)\n", dbc);
+    CHECK(dbc < -65);
+
+    /* the filter envelope sweeping the same sine's cutoff down from 21 kHz
+     * to 300 Hz, over the carrier: 85 ms around the crossing. Once a block
+     * the sidebands were at -33 dBc (-25 for an acid decay of 120 ms) */
+    tone(0, SYNTH_LFO_RATE, 0);
+    tone(0, SYNTH_LFO_CUT, 0);
+    tone(0, SYNTH_CUTOFF, 100);
+    tone(0, SYNTH_FENV, 127);
+    tone(0, SYNTH_FDECAY, 40);
+    synth_init(&s, RATE);
+    synth_render(&s, regs, st, RATE / 4);
+    spectrum16(st, 2048, 4096);
+    double env = sidebands(3000, 3, 120);
+    tone(0, SYNTH_FDECAY, 15);
+    synth_init(&s, RATE);
+    synth_render(&s, regs, st, RATE / 4);
+    spectrum16(st, 0, 4096);
+    double acid = sidebands(3000, 3, 120);
+    printf("  the filter envelope's sweep: block-rate sidebands at %.1f dBc, an acid one %.1f dBc\n", env, acid);
+    CHECK(env < -60 && acid < -52);
+
+    /* the square's width: a new duty ramps over a block, not at once. A
+     * 750 Hz square is 64 samples a cycle: the block after duty 64 -> 192
+     * (25% -> 75% high) is about half high, the next one 75% */
+    clean_voice(0, 750, SYNTH_SQUARE, 200, 0, 0, 255, 0, 1);
+    tone(0, SYNTH_DUTY, 64);
+    synth_init(&s, RATE);
+    synth_render(&s, regs, st, 640);
+    tone(0, SYNTH_DUTY, 192);
+    synth_render(&s, regs, st, 128);
+    int high1 = 0, high2 = 0;
+    for (int i = 0; i < 64; i++) {
+        high1 += st[2 * i] > 0;
+        high2 += st[2 * (64 + i)] > 0;
+    }
+    printf("  duty 25%% -> 75%%: %d of 64 high in the block after, %d in the next\n", high1, high2);
+    CHECK(high1 > 24 && high1 < 40 && abs(high2 - 48) <= 3);
+
+    /* the ramps are stable whatever they do: the cutoff jumping from the
+     * bottom to the top every block with the most resonance, in whole
+     * blocks and in odd sizes (the division instead of the Newton step) */
+    for (int odd = 0; odd < 2; odd++) {
+        clean_voice(0, 220, SYNTH_SAW, 255, 0, 0, 255, 0, 1);
+        tone(0, SYNTH_RESONANCE, 255);
+        synth_init(&s, RATE);
+        int ok = 1, top = 0;
+        for (int b = 0; b < 400; b++) {
+            tone(0, SYNTH_CUTOFF, b & 1 ? 255 : 1);
+            tone(0, SYNTH_FILTER, b % 7 == 3 ? SYNTH_BANDPASS : SYNTH_LOWPASS);
+            unsigned n = odd ? 1 + (unsigned)(b * 7 % 13) : 64;
+            synth_render(&s, regs, st, n);
+            for (unsigned i = 0; i < 2 * n; i++)
+                top = abs(st[i]) > top ? abs(st[i]) : top;
+            ok &= s.v[0].f1 == s.v[0].f1 && s.v[0].f2 == s.v[0].f2 && fabsf(s.v[0].f1) < 100 && fabsf(s.v[0].f2) < 100;
+        }
+        CHECK(ok && top > 1000);
+    }
 }
 
 /* notes at a time (player_at, the pattern language): on time within a
@@ -841,6 +1219,8 @@ int main(void)
     test_at();
     test_bank2();
     test_iec958();
+    test_depth();
+    test_ramps();
     printf("audio: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

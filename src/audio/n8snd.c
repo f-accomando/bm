@@ -516,38 +516,62 @@ static void take_requests(void)
     }
 }
 
+/* One frame of the four channels (the same on both sides), the music
+ * moving on by a sample */
+static float frame(void)
+{
+    float s = 0;
+    for (int c = 0; c < CHANS; c++) {
+        float m = voice_sample(&ch[c].music) * mfade;
+        float g = voice_sample(&ch[c].game);
+        s += ch[c].game.sfx >= 0 ? g : m;
+    }
+    if (mpat >= 0) {
+        mt += 1;
+        if (mt >= mlen)
+            music_next();
+        if (mfade_step) {
+            mfade += mfade_step;
+            if (mfade >= 1) { mfade = 1; mfade_step = 0; }
+            if (mfade <= 0) {
+                mfade = 0;
+                mfade_step = 0;
+                if (mstop_after_fade) pattern_start(-1);
+            }
+        }
+    }
+    return s;
+}
+
 void n8snd_mix(int16_t *out, unsigned n, float gain)
 {
     take_requests();
     if (!ram || paused)
         return;
     for (unsigned i = 0; i < n; i++) {
-        float s = 0;
-        for (int c = 0; c < CHANS; c++) {
-            float m = voice_sample(&ch[c].music) * mfade;
-            float g = voice_sample(&ch[c].game);
-            s += ch[c].game.sfx >= 0 ? g : m;
-        }
-        if (mpat >= 0) {
-            mt += 1;
-            if (mt >= mlen)
-                music_next();
-            if (mfade_step) {
-                mfade += mfade_step;
-                if (mfade >= 1) { mfade = 1; mfade_step = 0; }
-                if (mfade <= 0) {
-                    mfade = 0;
-                    mfade_step = 0;
-                    if (mstop_after_fade) pattern_start(-1);
-                }
-            }
-        }
+        float s = frame();
         int add = (int)(s * gain * 0.55f * 32767.0f);
         for (int c = 0; c < 2; c++) {
             int v = out[2 * i + c] + add;
             out[2 * i + c] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
         }
     }
+}
+
+int n8snd_mix_float(float *out, unsigned n, float gain)
+{
+    take_requests();
+    if (!ram || paused)
+        return 0;
+    int sound = 0;
+    for (unsigned i = 0; i < n; i++) {
+        float s = frame();
+        sound |= s != 0.0f;
+        float add = s * gain * 0.55f;
+        out[2 * i] += add;
+        out[2 * i + 1] += add;
+    }
+    return sound;
 }
 
 int n8snd_stat(int n)
