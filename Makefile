@@ -222,7 +222,7 @@ layers_yharnam := ground overlay
 $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
                       $$(wildcard carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv carts/$$*/models.glb \
                                   carts/$$*/models.bm carts/$$*/flags.csv carts/$$*/sprites.txt) \
-                      $$(patsubst %,carts/$$*/map_%.csv,$$(layers_$$*))
+                      $$(foreach l,$$(layers_$$*),carts/$$*/map_$$(l).csv)
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_$*)" --author bm \
 	    --res $(or $(res_$*),640x360) \
