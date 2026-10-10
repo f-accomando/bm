@@ -1,39 +1,42 @@
 bm report
 kind: session
-kernel: v0.2.5-73-gf95fa7a
+kernel: v0.2.5-90-gd120b16
 branch: bm-core
 board: RGB30
-date: 2026-10-10 18:52:32
+date: 2026-10-10 20:50:15
 file: session_overbit_RGB30.txt
 
 session of "Overbit" (the last one: the next run of this game replaces this file)
-screen 360x360, 5751 frames in 109.0 s, 52.7 fps
+screen 360x360, 15093 frames in 430.1 s, 35.0 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 12.4 ms, max 448.8 ms, 327 frames over 16.7 ms
-memory: Lua peak 2071 KiB, data 5304 KiB; code 70459 tokens; busiest frame 104k Lua instructions
-frames that were shown after more than 1.5 frames: 333
+time of _update + _draw (+ the 3D's wait): avg 18.7 ms, max 39784.8 ms, 4144 frames over 16.7 ms
+memory: Lua peak 2097 KiB, data 5278 KiB; code 70494 tokens; busiest frame 927k Lua instructions
+frames that were shown after more than 1.5 frames: 4219
+the game says: quality MEDIUM
+the game says: auto avg 17.6ms
+the game says: actors 1
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    5417
+  <= 18 ms (60 fps)    10873
   <= 25 ms             0
-  <= 34 ms (30 fps)    255
-  <= 50 ms             1
-  <= 100 ms            16
-  > 100 ms (a freeze)  61
+  <= 34 ms (30 fps)    2988
+  <= 50 ms             15
+  <= 100 ms            983
+  > 100 ms (a freeze)  233
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
-    439     8.5   450.2  448.8 441.1    7.7   6.3   0.0     1.3        5     1057        1
-   4974    94.9   150.0  134.7 127.3    7.4   4.8   0.0    15.3       21     1199        1
-   5049    96.3   150.0  137.1 130.3    6.8   4.3   0.0    12.9       13     1198        1
-   5123    97.7   150.0  135.8   2.6  133.1   4.3   0.0    14.2        9     1196        1
-   5197    99.0   150.0  136.7   2.5  134.2   4.0   0.0    13.2        8     1198        1
-   5353   101.9   150.0  133.4 125.1    8.2   5.8   0.0    16.6       20     1209        1
-   5484   104.6   150.0  136.9 128.3    8.5   6.4   0.0    13.1       14     1209        1
-   4220    80.8   150.0  135.7 124.9   10.8   8.2   0.0    14.2       13     1176        1
-   5277   100.5   150.0  139.5 133.4    6.0   4.0   0.0    10.5        8     1200        1
-   5415   103.3   150.0  137.2 126.2   10.9   8.6   0.0    12.8       20     1210        1
-   5624   107.2   150.0  137.8   2.4  135.3   7.1   0.0    12.2        8     1206        1
-   3966    75.7   133.4  126.4 117.9    8.4   6.1   0.0     7.0       15     1164        1
+   5078   231.5 39786.9 39784.8 39778.0    6.8  14.9   0.0     2.1       19     1516        1
+  10125   319.1   917.1  908.1 907.8    0.2  12.8   0.0     8.9      927     1510        1
+   4866   179.9   833.7  822.9 822.4    0.4   9.4   0.0    10.8      927     1504        1
+    642    12.0   565.7  560.0 553.2    6.8   5.2   0.0     5.7        2     1044        1
+   4867   180.5   533.6  521.7 494.2   27.5  20.1   0.0    11.8      586     1439        1
+    733    14.0   466.9  456.3 397.4   58.8   5.2   0.0    10.5      312     1176        1
+  10126   319.4   300.1  298.3 268.8   29.4  20.2   0.0     1.8      587     1721        1
+  10132   320.0   300.1  292.8 267.4   25.3  20.8   0.0     7.2       43     1505        1
+  10176   322.6   300.1  285.4  13.8  271.5  21.0   0.0    14.6       41     1505        1
+  10222   325.4   300.1  287.6 259.4   28.1  23.8   0.0    12.5       41     1511        1
+  10326   330.6   300.1  283.9  12.0  271.8  14.3   0.0    16.2       36     1519        1
+  10299   329.3   283.6  281.5 263.4   18.1  14.0   0.0     2.0       37     1526        1
