@@ -440,7 +440,7 @@ function Lobby.update()
     local k = Lobby.edit
     if k == "relay" then Lobby.relay_name = edit_text(Lobby.relay_name, c)
     else Lobby.room = edit_text(Lobby.room:lower(), c):upper():sub(1, 4) end
-    if enter or (c.pad and c.jump_p) then
+    if enter or (c.pad and c.ok_p) then
       Lobby.edit = nil
       if k == "relay" then Lobby.use_relay = Lobby.relay_name ~= "" end
       Lobby.apply_relay()
@@ -448,8 +448,8 @@ function Lobby.update()
     end
     return
   end
-  -- back: B on the pad (or Start), C on the keyboard
-  if c.crouch_p or (c.pad and c.menu_p) then Net.close() Modes.start("menu") return end
+  -- back: the system's back on the pad (circle, the RGB30's A) or Start; C or Backspace on the keyboard
+  if c.back_p or (c.crouch_p and not c.pad) or (c.pad and c.menu_p) then Net.close() Modes.start("menu") return end
   if Lobby.err then return end
   -- the relay's address, looked up
   if Net.relay and not Net.relay_ip then
@@ -492,7 +492,7 @@ function Lobby.update()
     if floor(Lobby.t * 2) ~= floor((Lobby.t - DT) * 2) then
       send("H", string.pack("<Bs1", #Lobby.players, (Net.relay and "room " .. Net.room or net_ip() or "?")))
     end
-    if c.jump_p or c.fire_p or enter then host_start() end
+    if c.ok_p or c.fire_p or enter then host_start() end
   elseif Lobby.state == "joining" or Lobby.state == "waiting" then
     if Lobby.state == "joining" and floor(Lobby.t * 4) ~= floor((Lobby.t - DT) * 4) then
       send("J", string.pack("<s1", "Player"))
@@ -508,7 +508,7 @@ function Lobby.update()
     if c.up_p then Lobby.sel = (Lobby.sel - 2) % #list + 1 Snd.play("ui") end
     if c.down_p then Lobby.sel = Lobby.sel % #list + 1 Snd.play("ui") end
     Lobby.sel = min(Lobby.sel, #list)
-    if c.jump_p or c.fire_p or enter then
+    if c.ok_p or c.fire_p or enter then
       Snd.play("ui")
       local it = list[Lobby.sel]
       if it == "HOST A MATCH" then
@@ -560,7 +560,7 @@ function Lobby.draw()
       uprint((i == 1 and "you" or "player " .. i) .. "  " .. (blue and "BLUE" or "RED"), 16, 44 + i * 12,
             blue and 0x46B4FF or 0xFF4646)
     end
-    local x = uprompt(Input.cmd.pad and "A" or "space", 8, LH - 15, true)
+    local x = uprompt(Input.cmd.pad and "ok" or "space", 8, LH - 15, true)
     uprint("START (bots in the empty seats)", x + 3, LH - 15, 0x7A8290)
   else
     uprint(Lobby.state == "waiting" and "IN: waiting for the host to start" or "JOINING...", 8, 44, 0xD8DCE2)

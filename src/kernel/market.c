@@ -302,31 +302,6 @@ static void owned_drop(const char *id)
         *o = owned[--nowned];
 }
 
-/* which games are on the SD card: installed from the Market (and still
- * there), or the same title and author put there another way */
-static void refresh_slots(void)
-{
-    for (int i = 0; i < cat.n; i++) {
-        slot_t *s = &slots[i];
-        const catalog_game_t *g = &cat.games[i];
-        const owned_t *o = owned_find(g->id);
-        s->path[0] = 0;
-        s->update = 0;
-        if (o && carts_has_path(o->path)) {
-            ksnprintf(s->path, sizeof s->path, "%s", o->path);
-            s->update = memcmp(o->sha, g->file.sha256, 32) != 0;
-        } else {
-            const char *p = carts_find_title(g->title, g->author);
-            if (p)
-                ksnprintf(s->path, sizeof s->path, "%s", p);
-        }
-    }
-}
-
-/* ---------------------------------------------------------------- the catalog */
-
-/* A new catalog replaces the one in memory; covers that did not change
- * are kept. */
 /* a .b16, the handhelds' cartridge (docs/B16.md), by its file's name */
 static int is_b16(const char *path)
 {
@@ -339,6 +314,35 @@ static const char *kind_of(const catalog_game_t *g)
     return is_b16(g->file.path) ? "b16" : "bm";
 }
 
+/* which games are on the SD card: installed from the Market (and still
+ * there), or the same title and author put there another way; only a file
+ * of the catalog's kind: a game that became a .b16 (Yharnam, Overbit) is not
+ * its old .bm (on the RGB30 the .bm of the SD image would play instead, and
+ * an update would write the .b16's bytes under a .BM name) */
+static void refresh_slots(void)
+{
+    for (int i = 0; i < cat.n; i++) {
+        slot_t *s = &slots[i];
+        const catalog_game_t *g = &cat.games[i];
+        const owned_t *o = owned_find(g->id);
+        const int b16 = is_b16(g->file.path);
+        s->path[0] = 0;
+        s->update = 0;
+        if (o && carts_has_path(o->path) && is_b16(o->path) == b16) {
+            ksnprintf(s->path, sizeof s->path, "%s", o->path);
+            s->update = memcmp(o->sha, g->file.sha256, 32) != 0;
+        } else {
+            const char *p = carts_find_title(g->title, g->author);
+            if (p && is_b16(p) == b16)
+                ksnprintf(s->path, sizeof s->path, "%s", p);
+        }
+    }
+}
+
+/* ---------------------------------------------------------------- the catalog */
+
+/* A new catalog replaces the one in memory; covers that did not change
+ * are kept. */
 static void adopt(catalog_t *nc)
 {
 #ifdef BM_RGB30

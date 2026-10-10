@@ -24,6 +24,8 @@
  *     --clock-scale K   the clock runs at the PC's real time x K inside a
  *                       frame (stat(1) estimates the Pi's cost with K ~ 21;
  *                       the run is not the same every time any more)
+ *     --square          a square screen, as the RGB30's: screen() offers
+ *                       360x360 and 720x720, a square page is shown whole
  *
  * Input script, one event per line, "frame command arguments":
  *     0 pad 1 r2 left       buttons held by player 1 (exactly these; "none")
@@ -419,6 +421,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--tool")) bm_set_tool(1);      /* as bm's own tools in the kernel: saves where it is told */
         else if (!strcmp(a, "--clock-scale") && v) host.clock_scale = atof(v), i++;
         else if (!strcmp(a, "--realtime")) run.realtime = 1;
+        else if (!strcmp(a, "--square")) bm_set_square_panel(1);   /* the RGB30's screen modes */
         else if (a[0] != '-') cart = a;
         else {
             fprintf(stderr, "bmhost: unknown option %s\n", a);

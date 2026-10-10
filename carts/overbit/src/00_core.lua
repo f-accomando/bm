@@ -27,15 +27,17 @@ end
 local function grandom_seed(s) rng = (s % 4294967295) + 1 end
 local DT = 1 / 60
 
--- The screen: the cartridge's resolution (480x270 from its header; the
--- RESOLUTION of the menu changes it with screen(), 320x180 to 1920x1080).
+-- The screen: the cartridge's resolution (480x270 from the .bm's header,
+-- 360x360 from the .b16's; then the game's own with screen(), 85_quality:
+-- 640x360 or 1920x1080 on a TV, 360x360 or 720x720 on the RGB30).
 --  SW, SH    its pixels
 --  ZOOM      how many of them make one of the 320x180 the game was first
 --            drawn at: the things of the world drawn in 2D (sun, flashes)
---  UI        how many make a pixel of the HUD and the menus: 1 up to 640x360,
---            2 at 960x540 and 1280x720, 4 at 1920x1080 (the same size on the
---            TV as at 480x270), drawn on a screen of LW x LH with the
---            functions below (urectfill, uprint... in its coordinates)
+--  UI        how many make a pixel of the HUD and the menus: 1 up to 640x360
+--            (and 360x360), 2 at 960x540, 1280x720 and 720x720, 4 at
+--            1920x1080 (the same size on the TV as at 480x270), drawn on a
+--            screen of LW x LH with the functions below (urectfill, uprint...
+--            in its coordinates)
 local SW, SH, ZOOM, UI, LW, LH
 local urectfill, urect, upset, uline, ucirc, ucircfill, utri, uprint, uprompt
 

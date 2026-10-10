@@ -1114,6 +1114,66 @@ def test_online_leave(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+CLOSER_CART = r"""
+local n = 0
+function _init() log("closer start") end
+function _update()
+  n = n + 1
+  if n % 60 == 0 then log("frame " .. n) end
+  if n > 60 and btn(4) then log("closer quits") quit() end
+end
+function _draw() cls(0x203040) print("frame " .. n, 16, 16, 0xFFFFFF) end
+"""
+
+
+def test_closing_banner(b, opts):
+    """An application that closes (quit(), a tool, an online game left: not
+    suspended; 2026-10-10) keeps its last frame on the screen with "Closing"
+    and three dots that light up in turn over it, until its memory is free
+    and the button that left it is let go; then the menu. Never the black
+    screen of the console's mode in between."""
+    tmp = tempfile.mkdtemp(prefix="bm-closing-")
+    img = os.path.join(tmp, "sd.img")
+    cart = os.path.join(tmp, "closer.bm")
+    with open(cart, "wb") as f:
+        f.write(mkbm.pack(CLOSER_CART.encode(), title="AAA closer"))
+    mksd.build(img, [(cart, "carts/closer.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}", *USB_KBD])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        q.send("\r")
+        q.expect("closer start", timeout=10)
+        q.expect("frame 120", timeout=10)
+        q.key("z", True)                        # Z is A: the game quits, Z still held
+        q.expect("closer quits", timeout=10)
+        # (the banner waits at most 3 s for the button: two looks, then let go)
+        img = q.screendump()
+        text = screen_text(img)
+        assert any("Closing" in l for l in text), "\n".join(text)
+        assert any("frame " in l for l in text), "\n".join(text)   # its last frame, not black
+        # the dots move: two looks half a second apart differ (a lap in 1.2
+        # s). 640x360: the banner's middle row at y 160, its dots after
+        # "Closing" from x 336
+        dots = []
+        for w, h, px in (img, q.screendump()):
+            dots.append(b"".join(px[((160 + y) * w + 336) * 3:((160 + y) * w + 368) * 3] for y in range(16)))
+        assert dots[0] != dots[1], "the dots do not move"
+        q.buf += q.port.read(0.1)
+        assert b'"AAA closer" ' not in q.buf, q.buf.decode(errors="replace")   # not back yet
+        q.key("z", False)                       # let go: the menu
+        out = q.expect('"AAA closer" ', timeout=10) + q.expect("frames", timeout=10)
+        out = out.decode(errors="replace")
+        assert "suspended" not in out, out
+        _, text = settled_screen(q, lambda i, t: any("AAA closer" in l for l in t)
+                                 and not any("Closing" in l for l in t))
+        assert any("AAA closer" in l for l in text), "\n".join(text)
+        assert not any("Closing" in l for l in text), "\n".join(text)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 SAVER_CART = r"""
 local n = 0
 function _init() save({ n = 1 }) save({ level = 2 }, 2) log("saver start") end
@@ -1247,9 +1307,10 @@ def test_home_ui(b, opts):
         if KERNEL7:
             screen(["Settings > Network", "Ethernet", "no cable", "port 3333"])
         else:
-            screen(["Settings > WiFi and network", "Network", "none saved", "port 3333"])
+            screen(["Settings > WiFi and network", "Network", "none saved", "Connect to a network",
+                    "port 3333"])               # Connect right after State
             keys("w")                           # the list scrolls to its last row
-            screen(["Connect to a network", "Connect at boot", "Test the connection"])
+            screen(["Connect at boot", "Test the connection"])
             keys("w")
             screen(["Connect at boot", "< On >"])
         keys("q")

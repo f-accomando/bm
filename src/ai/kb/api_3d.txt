@@ -657,14 +657,17 @@ title: screen(w, h) - la risoluzione del gioco
 title_en: screen(w, h) - the resolution of the game
 ask: cambiare la risoluzione | schermo più grande | change the screen resolution
 ask: gioco a 1080p | risoluzione del gioco | 320x180 o 640x360
+ask: risoluzione sulla RGB30 | 360x360 o 720x720 | resolution on the RGB30
 see: screen_size, resolution
 text:
 Cambia la risoluzione dal prossimo fotogramma (modi 16:9 da 320x180 a
-1920x1080): SCREEN_W e SCREEN_H cambiano. screen() dà quella di adesso.
-Sopra 640x360 serve la GPU.
+1920x1080; sulla RGB30 360x360 e 720x720): SCREEN_W e SCREEN_H cambiano.
+screen() dà quella di adesso, screen(i) la i-esima della lista. Sul Pi
+sopra 640x360 serve la GPU.
 text_en:
 Changes the resolution from the next frame (16:9 modes from 320x180 to
-1920x1080): SCREEN_W and SCREEN_H change. screen() gives the current
-one. Above 640x360 the GPU is needed.
+1920x1080; on the RGB30 360x360 and 720x720): SCREEN_W and SCREEN_H
+change. screen() gives the current one, screen(i) the i-th of the list.
+On the Pi above 640x360 the GPU is needed.
 code:
 if screen(960, 540) then log("ora " .. SCREEN_W .. "x" .. SCREEN_H) end

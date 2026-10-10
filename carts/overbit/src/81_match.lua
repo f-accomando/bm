@@ -307,13 +307,14 @@ local function select_update()
   local n = #HERO_ORDER
   if c.up_p or c.left_p then S.sel = (S.sel - 2) % n + 1 Snd.play("ui") end
   if c.down_p or c.right_p then S.sel = S.sel % n + 1 Snd.play("ui") end
-  if c.jump_p or c.fire_p then
+  -- yes and back: the system's (btn "ok" / "back", 10_input); C on the keyboard closes too
+  if c.ok_p or c.fire_p then
     if M.net then Net.hero_req = S.sel                -- for everyone, when its frame runs
     else Match.choose(HERO_ORDER[S.sel]) end
     G.hero_id = HERO_ORDER[S.sel]
     S.open = false
     Snd.play("ui")
-  elseif (c.menu_p and S.can_close) or c.crouch_p then
+  elseif (c.menu_p and S.can_close) or c.back_p or (c.crouch_p and not c.pad) then
     S.open = false
     Snd.play("ui_back")
   end
@@ -612,7 +613,7 @@ local function select_draw()
   end
   local px = uprompt(Input.cmd.pad and "UPDOWN" or "up", 10, LH - 17, true)
   uprint("HERO", px + 3, LH - 17, 0x7A8290)
-  px = uprompt(Input.cmd.pad and "A" or "space", px + 36, LH - 17, true)
+  px = uprompt(Input.cmd.pad and "ok" or "space", px + 36, LH - 17, true)
   uprint("PLAY", px + 3, LH - 17, 0x7A8290)
   font()
 end
