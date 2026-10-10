@@ -412,6 +412,7 @@ int img3d_download(const char *url, size_t max, uint8_t **data, size_t *len, cha
 /* ---------------------------------------------------------------- video */
 
 void console_suspend(int suspend) { (void)suspend; }
+int console_suspended(void) { return 0; }
 
 static uint8_t *pages;
 

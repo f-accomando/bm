@@ -1481,7 +1481,8 @@ function MAP.gate_at(ax, ay, bx, by)
   end
 end
 local G = { echoes = 0, lit = {}, spawn = nil, lost = false, popups = {}, slots = {}, time = 0, deaths = 0,
-            slain = 0, done = false, bosses = {}, gates = {} }
+            slain = 0, done = false, bosses = {}, gates = {},
+            sync = 0, bg = 0 }         -- chunks made on the spot (the view waited for them) and in time (dev kit)
 MAP.G = G
 -- chunks the hunter may walk: the map
 local function inside(cx, cy) return cx >= 0 and cx < MAP.size and cy >= 0 and cy < MAP.size end
@@ -2397,13 +2398,17 @@ local cam_x, cam_y = 0, 0
 local function stream()
   -- what is on screen has to be there now
   for cy = fdiv(cam_y, CPX), fdiv(cam_y + H - 1, CPX) do
-    for cx = fdiv(cam_x, CPX), fdiv(cam_x + W - 1, CPX) do ensure(cx, cy) end
+    for cx = fdiv(cam_x, CPX), fdiv(cam_x + W - 1, CPX) do
+      local c = chunk(cx, cy)
+      if not (c and c.ready) then G.sync = G.sync + 1 end
+      ensure(cx, cy)
+    end
   end
   if job then
     local ok, err = coroutine.resume(job)
     if not ok then error(err) end
     gen_frames = gen_frames + 1
-    if coroutine.status(job) == "dead" then job, job_ch = nil, nil end
+    if coroutine.status(job) == "dead" then job, job_ch = nil, nil; G.bg = G.bg + 1 end
     return
   end
   -- the next one around the view, nearest first
@@ -4657,6 +4662,8 @@ function _update()
   end
   stream()
   if t % 15 == 0 then FOE.spawn_around() end
+  -- the dev kit's page and the session report: how often the view waited for a chunk
+  if t % 30 == 0 and devinfo then devinfo("on the spot " .. G.sync, "in time " .. G.bg) end
   update_parts()
 end
 

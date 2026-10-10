@@ -1367,7 +1367,7 @@ consoles, a player leaving; on the LAN and through the relay.
   of `_update` + `_draw`, memory, and the time **from one picture to the next** in six
   classes (up to 18 ms, 25, 34, 50, 100, more) with the 12 longest frames and their parts
   (`cpu`, `upd`, `draw`, 3D, copy and `outside`: the time that is none of them, the SD
-  card, the GPU, the machine). A half-second freeze is no longer lost after the overlay's 64
+  card, the GPU, the machine), and the game's own `devinfo()` lines as the run ended ("the game says:"; Yharnam: the chunks the view waited for). A half-second freeze is no longer lost after the overlay's 64
   frames. It goes from the menu when there is a network. `bm/config.txt`:
   `session_report=0` never, `=1` always; without the line, only with a `github_token`.
 

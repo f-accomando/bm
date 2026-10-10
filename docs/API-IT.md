@@ -1378,7 +1378,7 @@ console, un giocatore che esce; sulla LAN e attraverso il relay.
   medio e massimo di `_update` + `_draw`, memoria, e il tempo **da un'immagine alla
   successiva** in sei classi (fino a 18 ms, 25, 34, 50, 100, oltre) più i 12 fotogrammi più
   lunghi con le loro parti (`cpu`, `upd`, `draw`, 3D, copia e `outside`: il tempo che non è di
-  nessuno di loro, la scheda SD, la GPU, la macchina). Così un blocco di mezzo secondo non
+  nessuno di loro, la scheda SD, la GPU, la macchina) e le righe `devinfo()` del gioco com'erano a fine partita ("the game says:"; Yharnam: i chunk che la vista ha dovuto aspettare). Così un blocco di mezzo secondo non
   si perde più dopo i 64 fotogrammi dell'overlay. Parte dal menu quando c'è rete. In
   `bm/config.txt`: `session_report=0` mai, `=1` sempre; senza la riga, solo se c'è
   `github_token`.

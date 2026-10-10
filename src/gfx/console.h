@@ -36,6 +36,8 @@ void console_set_status(const char *left, const char *right);
 /* While suspended the console keeps its text but does not touch the
  * framebuffer; resuming redraws the whole screen. */
 void console_suspend(int suspend);
+/* 1 while it is suspended (a game or the menu has the screen). */
+int console_suspended(void);
 
 /* White on red, cleared: used by the exception handler before its dump. */
 void console_panic(void);

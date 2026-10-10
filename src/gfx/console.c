@@ -353,6 +353,11 @@ void console_suspend(int suspend)
     }
 }
 
+int console_suspended(void)
+{
+    return con.active && con.suspended;
+}
+
 void console_panic(void)
 {
     if (!con.active)

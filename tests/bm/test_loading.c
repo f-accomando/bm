@@ -33,6 +33,7 @@ static const char *intro = NULL;
 const char *config_get(const char *key) { return strcmp(key, "game_intro") == 0 ? intro : NULL; }
 static int suspended;
 void console_suspend(int s) { suspended = s; }
+int console_suspended(void) { return suspended; }
 static int notes, landing_note_at = -1, wave_seen[SYNTH_WAVES], slides, retro;
 static uint8_t vregs[SYNTH_VOICES][SYNTH_VOICE_BYTES];
 void audio_note(unsigned ch, float freq, uint32_t ms, int wave, int vol)

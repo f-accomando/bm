@@ -6569,8 +6569,18 @@ static uint16_t *page_px(const framebuffer_t *fb)
     return (uint16_t *)(fb->base + box);
 }
 
+/* The console (the monitor) is hidden for a game and comes back as it was: a game
+ * started from the menu leaves the menu to draw itself, not the log flashing for
+ * the frames between (2026-10-10). A mode changed in the middle of a game
+ * (screen()) does not save it again. */
+static int con_in_video, con_was;
+
 int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
 {
+    if (!con_in_video) {
+        con_in_video = 1;
+        con_was = console_suspended();
+    }
     console_suspend(1);
     free(shadow);
     shadow = NULL;
@@ -6650,7 +6660,8 @@ void bm_video_leave(framebuffer_t *fb, uint32_t w, uint32_t h)
     shadow = NULL;
     box = 0;
     fb_init(fb, w, h, 2);
-    console_suspend(0);
+    console_suspend(con_was);           /* hidden still, if the menu had it so: it draws itself next */
+    con_in_video = 0;
 }
 
 static int enter_mode(framebuffer_t *fb, int w, int h)
@@ -7928,6 +7939,8 @@ static struct {
     sess_frame_t worst[SESS_WORST];     /* the longest first */
     int n;
     int w, h;                           /* the screen of the run */
+    char info[4][19];                   /* the game's own lines (devinfo) as the run ended */
+    int ninfo;
 } sess;
 static const uint32_t sess_limit_us[SESS_CLASSES - 1] = { 18000, 25000, 34000, 50000, 100000 };
 
@@ -8247,6 +8260,8 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     st->gpu3d = rt.r3d_ready && rt.r3d.backend != NULL;
     sess.w = rt.g.w;
     sess.h = rt.g.h;
+    sess.ninfo = rt.ndevinfo;
+    memcpy(sess.info, rt.devinfo, sizeof sess.info);
     st->d2_ops = d2.ops;
     st->ok = error == NULL;
 
@@ -8487,6 +8502,8 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
         (unsigned long)st->lua_peak_kb, (unsigned long)st->assets_kb, (unsigned long)st->tokens,
         (unsigned long)st->instr_k_max);
     PUT("frames that were shown after more than 1.5 frames: %lu\n", (unsigned long)st->dropped);
+    for (int i = 0; i < sess.ninfo; i++)
+        PUT("the game says: %s\n", sess.info[i]);
     static const char *const cls[SESS_CLASSES] = { "<= 18 ms (60 fps)", "<= 25 ms", "<= 34 ms (30 fps)",
                                                    "<= 50 ms", "<= 100 ms", "> 100 ms (a freeze)" };
     PUT("\ntime from one picture to the next:\n");

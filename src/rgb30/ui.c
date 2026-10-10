@@ -587,8 +587,8 @@ static void menu_reopen(void)
 static void run_page(void (*run)(void))
 {
     market_set_active(0);                           /* its work stops first, as on the Pi */
-    menu_ui_close(fb);
-    console_suspend(1);                             /* the pages draw themselves */
+    menu_ui_close_quiet(fb);                        /* (not the console flashing: the pages draw themselves) */
+    console_suspend(1);
     run();
     while (pad_state())                             /* the button that left, released */
         timer_delay_ms(10);
