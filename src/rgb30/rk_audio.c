@@ -1,10 +1,19 @@
 /*
  * The RGB30's sound, the output of audio.c (audio_out.h): the RK3566's
  * I2S1 (the 8-channel TDM controller used as plain I2S, 2 channels) sends
- * 48 kHz 16-bit stereo to the codec inside the RK817 PMIC, whose
- * headphone amplifier drives the jack and the speaker: the console moves
- * the sound between them by itself when headphones go in, and the
- * headphones are mono (Linux's rk3566-powkiddy-rk2023.dtsi).
+ * 48 kHz stereo to the codec inside the RK817 PMIC, whose headphone
+ * amplifier drives the jack and the speaker: the console moves the sound
+ * between them by itself when headphones go in, and the headphones are
+ * mono (Linux's rk3566-powkiddy-rk2023.dtsi).
+ *
+ * The samples are sound_depth's (audio_depth()): 16 bits, a FIFO word a
+ * frame (left low, right high); 24, a word a sample in its low 24 bits;
+ * or 32, a whole word a sample. The slots are 32 bit clocks wide (64 a
+ * frame) whatever the width, and the codec reads 16 or 24 of them: as
+ * Linux sets them for S16_LE, S24_LE and S32_LE (rockchip_i2s_tdm.c:
+ * VDW(16/24/32), SJM left at its reset, right-justified; rk817_codec.c:
+ * VDW_RX 0x0f for 16 bits, 0x17 for both 24 and 32). So 32 is 32 on the
+ * wire, of which the RK817 converts the top 24.
  *
  * The values are Linux's: rockchip_i2s_tdm.c (the I2S, clocks shared with
  * TX: "rockchip,trcm-sync-tx-only"), rk817_codec.c and rk8xx-core.c (the
@@ -49,7 +58,8 @@
 #define I2S_TXDR    0x24
 #define I2S_CLKDIV  0x38
 
-#define TXCR_I2S16  0x7200000fu         /* reset value: I2S, 16 bits, 2 channels, HWT 0 (a word = L | R) */
+#define TXCR_I2S    0x72000000u         /* the reset value but the width: I2S, 2 channels, paths 0-3, HWT 0, SJM right */
+#define TXCR_VDW(b) ((uint32_t)(b) - 1u)    /* the sample's width: 0x0f the reset's 16 bits (a word = L | R) */
 #define CKR_TXONLY  (1u << 28)          /* RX on TX's clocks (TRCM) */
 #define INTCR_TXEIE (1u << 0)
 #define INTCR_TXUIC (1u << 2)
@@ -62,8 +72,12 @@
 #define FIFO_MAX    63                  /* probed at start: the words the TX FIFO takes (6-bit level) */
 #define THRESHOLD   16
 
-static int16_t pcm[AUDIO_CHUNK * 2];   /* left, right */
-static unsigned pos = AUDIO_CHUNK;      /* next frame of pcm[] to send */
+/* two chunks: the one going out and the next, made while the FIFO is full
+ * (the most time before it runs dry: 32 words) */
+static int32_t pcm[2][AUDIO_CHUNK * 2];    /* left, right: words aligned to the left */
+static unsigned cur, pos;               /* the chunk going out, and its next FIFO word */
+static unsigned bits = 16;              /* the I2S's sample width now: 16, 24 or 32 */
+static int pending;                     /* the chunk not going out is to be made */
 static unsigned fifo_words;
 static volatile uint32_t irqs, chunks, underruns, words;
 static uint32_t gpll_hz, mclk_hz, frac_n, frac_d;
@@ -196,8 +210,15 @@ static void codec_start(void)
     cw(0x46, 0xa5);
     /* set_fmt, hw_params: the SoC gives the clocks; 16-bit words */
     cupd(0x48, 0x01, 0x00);     /* DI2S_CKM: slave */
-    cw(0x4b, 0x0f);             /* DI2S_RXCR2 */
-    cw(0x4e, 0x0f);             /* DI2S_TXCR2 */
+}
+
+/* the codec's word: 16 bits, or 24 (for 24- and 32-bit samples alike:
+ * it takes the top 24 bits of the slot) */
+static void codec_width(unsigned b)
+{
+    uint8_t vdw = b == 16 ? 0x0f : 0x17;
+    cw(0x4b, vdw);              /* DI2S_RXCR2: the words it receives (the DAC's) */
+    cw(0x4e, vdw);              /* DI2S_TXCR2 */
 }
 
 /* the headphone path up, supplies first as DAPM does */
@@ -218,20 +239,37 @@ static void codec_play(void)
 
 /* ---- the FIFO ---------------------------------------------------------- */
 
+/* Whole frames into the FIFO (left and right never trade places), then,
+ * the FIFO full, the next chunk if one went out */
 static void feed(void)
 {
     uint32_t level = r(I2S_TXFIFOLR) & 0x3f;
-    while (level < fifo_words) {
-        if (pos >= AUDIO_CHUNK) {
-            audio_render(pcm, AUDIO_CHUNK);
+    unsigned per = bits == 16 ? 1 : 2;          /* FIFO words a frame */
+    while (level + per <= fifo_words) {
+        if (pos >= AUDIO_CHUNK * per) {
+            cur ^= 1;
             pos = 0;
+            pending = 1;
             chunks++;
         }
-        uint16_t left = (uint16_t)pcm[2 * pos], right = (uint16_t)pcm[2 * pos + 1];
-        pos++;
-        w(I2S_TXDR, (uint32_t)right << 16 | left);      /* left low, right high */
-        level++;
-        words++;
+        const int32_t *p = pcm[cur];
+        if (bits == 16) {
+            uint32_t left = (uint32_t)p[2 * pos] >> 16, right = (uint32_t)p[2 * pos + 1] >> 16;
+            w(I2S_TXDR, right << 16 | left);    /* left low, right high */
+        } else if (bits == 24) {
+            w(I2S_TXDR, (uint32_t)(p[pos] >> 8));       /* in the low 24 bits */
+            w(I2S_TXDR, (uint32_t)(p[pos + 1] >> 8));
+        } else {
+            w(I2S_TXDR, (uint32_t)p[pos]);
+            w(I2S_TXDR, (uint32_t)p[pos + 1]);
+        }
+        pos += per;
+        level += per;
+        words += per;
+    }
+    if (pending) {
+        pending = 0;
+        audio_render32(pcm[cur ^ 1], AUDIO_CHUNK, bits);
     }
 }
 
@@ -254,6 +292,45 @@ static int fail(const char *why)
     return -1;
 }
 
+/* The I2S stopped and cleared, then master, I2S, b-bit samples; its FIFO
+ * measured with silence (it does not move yet), the first two chunks made
+ * at that width, its interrupt asked for. Not started. */
+static int i2s_setup(unsigned b)
+{
+    w(I2S_XFER, 0);
+    w(I2S_CLR, 3);
+    for (int i = 0; i < 100 && (r(I2S_CLR) & 3); i++)
+        timer_delay_us(15);
+    w(I2S_DMACR, 0);
+    w(I2S_TXCR, TXCR_I2S | TXCR_VDW(b));
+    w(I2S_CKR, CKR_TXONLY | (LRCK_DIV - 1u) << 8 | (LRCK_DIV - 1u));
+    w(I2S_CLKDIV, (BCLK_DIV - 1u) << 8 | (BCLK_DIV - 1u));
+
+    /* the FIFO's size: silence until it takes no more */
+    for (int i = 0; i < FIFO_MAX; i++)
+        w(I2S_TXDR, 0);
+    fifo_words = r(I2S_TXFIFOLR) & 0x3f;
+    if (fifo_words < THRESHOLD + 4)
+        return -1;
+    if (b != 16 && (fifo_words & 1)) {
+        /* a word a sample: whole frames only (an odd number of words of
+         * silence would start the sound on the right) */
+        w(I2S_CLR, 1);
+        for (int i = 0; i < 100 && (r(I2S_CLR) & 1); i++)
+            timer_delay_us(15);
+        fifo_words--;
+        for (unsigned i = 0; i < fifo_words; i++)
+            w(I2S_TXDR, 0);
+    }
+    bits = b;
+    audio_render32(pcm[0], AUDIO_CHUNK, b);
+    audio_render32(pcm[1], AUDIO_CHUNK, b);
+    cur = pos = 0;
+    pending = 0;
+    w(I2S_INTCR, INTCR_TFT(THRESHOLD) | INTCR_TXUIC | INTCR_TXEIE);
+    return 0;
+}
+
 int audio_out_start(const char **status)
 {
     out_status = status;
@@ -263,25 +340,12 @@ int audio_out_start(const char **status)
         return fail("cannot make the 12.288 MHz MCLK (GPLL)");
     pins();
     timer_delay_us(100);                    /* MCLK running before the codec */
+    unsigned b = audio_depth();
     codec_start();
+    codec_width(b);
 
-    /* the I2S: stopped and cleared, then master, I2S, 16 bits */
-    w(I2S_XFER, 0);
-    w(I2S_CLR, 3);
-    for (int i = 0; i < 100 && (r(I2S_CLR) & 3); i++)
-        timer_delay_us(15);
-    w(I2S_DMACR, 0);
-    w(I2S_TXCR, TXCR_I2S16);
-    w(I2S_CKR, CKR_TXONLY | (LRCK_DIV - 1u) << 8 | (LRCK_DIV - 1u));
-    w(I2S_CLKDIV, (BCLK_DIV - 1u) << 8 | (BCLK_DIV - 1u));
-
-    /* the FIFO's size: silence until it takes no more (it does not move yet) */
-    for (int i = 0; i < FIFO_MAX; i++)
-        w(I2S_TXDR, 0);
-    fifo_words = r(I2S_TXFIFOLR) & 0x3f;
-    if (fifo_words < THRESHOLD + 4)
+    if (i2s_setup(b) != 0)
         return fail("the I2S FIFO does not take data");
-    w(I2S_INTCR, INTCR_TFT(THRESHOLD) | INTCR_TXUIC | INTCR_TXEIE);
     irq_register(IRQ_I2S1, i2s_irq, 0);
     irq_enable(IRQ_I2S1);
     w(I2S_XFER, 3);                         /* TX and RX (on TX's clocks), as Linux */
@@ -304,14 +368,32 @@ int audio_out_start(const char **status)
 
 void audio_out_print(void)
 {
-    kprintf("       I2S1: %lu interrupts, %lu chunks, %lu underruns, FIFO %u words\n",
-            irqs, chunks, underruns, fifo_words);
+    kprintf("       I2S1: %u-bit samples, %lu interrupts, %lu chunks, %lu underruns, FIFO %u words\n",
+            bits, irqs, chunks, underruns, fifo_words);
     kprintf("       MCLK %lu Hz (GPLL %lu Hz x %lu/%lu), codec I2C errors %d\n",
             mclk_hz, gpll_hz, frac_n, frac_d, codec_errors);
 }
 
+/* Once a frame from the main loop: a new sound_depth (Settings) changes
+ * the I2S's words and the codec's, the DAC muted meanwhile (a few ms) */
 void audio_out_idle(void)
 {
+    unsigned b = audio_depth();
+    if (!running || b == bits)
+        return;
+    cupd(0x38, 0x01, 0x01);                 /* DDAC_MUTE_MIXCTL: muted */
+    irq_disable(IRQ_I2S1);
+    w(I2S_INTCR, 0);
+    int ok = i2s_setup(b) == 0;
+    codec_width(b);
+    if (ok) {
+        irq_enable(IRQ_I2S1);
+        w(I2S_XFER, 3);
+        cupd(0x38, 0x01, 0x00);             /* not muted */
+    } else {
+        bits = b;                           /* not again every frame: silent, muted */
+        *out_status = "the I2S FIFO does not take data";
+    }
 }
 
 /* Before a restart or the power off: the headphone amplifier off first

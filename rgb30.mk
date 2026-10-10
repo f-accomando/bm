@@ -234,7 +234,8 @@ build/rgb30-host/audio_sim_test: tests/rgb30/audio_sim_test.c src/rgb30/rk_audio
 
 test-audio: build/rgb30-host/audio_sim_test
 	build/rgb30-host/audio_sim_test 1188
-	build/rgb30-host/audio_sim_test 1200
+	build/rgb30-host/audio_sim_test 1200 24
+	build/rgb30-host/audio_sim_test 1188 32 31
 
 # M41: the Mali probe (mali.c) on a simulated G52, CRU and PMU
 build/rgb30-host/mali_test: tests/rgb30/mali_test.c src/rgb30/mali.c src/rgb30/mali.h

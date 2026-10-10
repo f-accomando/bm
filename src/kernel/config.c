@@ -101,6 +101,8 @@ static void apply(void)
         audio_set_volume(atoi(v));
     if ((v = config_get("sound")))
         audio_retro(AUDIO_RETRO_USER, strcmp(v, "8bit") == 0);    /* hifi (the default) or 8bit */
+    if ((v = config_get("sound_depth")))
+        audio_set_depth((unsigned)atoi(v));     /* 16, 24 (the default) or 32 bits */
     pointer_config();
 }
 

@@ -3,9 +3,11 @@
 #include <math.h>
 #include <string.h>
 
-const char *const au_wave_names[SYNTH_WAVES] = {
-    "square", "triangle", "saw", "noise", "sine", "metal", "fm", "pluck", "supersaw", "organ"
+const char *const au_wave_names[] = {
+    "square", "triangle", "saw", "noise", "sine", "metal", "fm", "pluck", "supersaw", "organ", "sample",
+    "pink", "brown", "crackle"
 };
+_Static_assert(sizeof au_wave_names / sizeof au_wave_names[0] == SYNTH_WAVES, "a name for every wave");
 
 /* register values: times 0..2 s in 255 steps (100 ms = 13), cutoff
  * 20 Hz..20 kHz in 254 steps of half a semitone (synth_cutoff_hz):
@@ -131,6 +133,30 @@ const au_preset_t au_presets[] = {
     P("wind", "fx", "wind: noise through a slowly moving band",
       SYNTH_NOISE, 128, 90, 150, 0, 255, 150, 0, 0, 0, 0, T(CUTOFF) = 137, T(RESONANCE) = 120,
       T(FILTER) = SYNTH_BANDPASS, T(LFO_RATE) = 20, T(LFO_CUT) = 100, T(REVERB) = 120),
+    /* the samples and the effects of the second pass (docs/progress/audio.md 9) */
+    P("kit", "drum", "the console's drum kit (samples): kit:0 kick, 1 snare, 2 hat, 3 open hat, 4 clap, 5 rim, "
+      "6 tom, 7 cowbell",
+      SYNTH_SAMPLE, 128, 230, 0, 0, 255, 6, 0, 0, 0, 0, T(MOD1) = SYNTH_KIT, T(REVERB) = 30),
+    P("pump", "drum", "the kit's kick ducking everything else (sidechain)",
+      SYNTH_SAMPLE, 128, 230, 0, 0, 255, 6, 0, 0, 0, 0, T(MOD1) = SYNTH_KIT, T(TREMOLO) = 12 << 4, T(REVERB) = 10),
+    P("lush", "pad", "a wide pad: three saws through a chorus",
+      SYNTH_SUPERSAW, 128, 90, 80, 60, 230, 120, 0, 0, 0, 0, T(CUTOFF) = 170, T(RESONANCE) = 30,
+      T(CHORUS) = 220, T(REVERB) = 140),
+    P("choir", "pad", "voices singing aah: a saw through the formants of a, a chorus",
+      SYNTH_SAW, 128, 150, 90, 0, 255, 110, 0, 0, 10, 50, T(FILTER) = SYNTH_VOWEL_A << SYNTH_VOWEL_SHIFT,
+      T(CHORUS) = 200, T(REVERB) = 160),
+    P("solo", "lead", "a singing lead: a saw warmed like a tube, vibrato, an echo",
+      SYNTH_SAW, 128, 120, 4, 40, 200, 40, 0, 0, 25, 55, T(CUTOFF) = 190, T(RESONANCE) = 50, T(DRIVE) = 90,
+      T(FLAGS) = SYNTH_CURVE_ASYM << SYNTH_CURVE_SHIFT, T(ECHO) = 100, T(REVERB) = 70),
+    P("rhodes", "keys", "electric piano with a tremolo and a little chorus",
+      SYNTH_FM, 128, 140, 0, 150, 70, 60, 0, 0, 0, 0, T(MOD1) = 16, T(MOD2) = 70, T(MODDECAY) = 70,
+      T(LFO_RATE) = 184, T(TREMOLO) = 6, T(CHORUS) = 80, T(REVERB) = 80),
+    P("bitbass", "bass", "a crushed bass: 4 bits at a quarter of the rate",
+      SYNTH_SAW, 128, 200, 0, 50, 160, 10, 0, 0, 0, 0, T(CUTOFF) = 120, T(RESONANCE) = 80,
+      T(CRUSH) = 4 | 3 << 4, T(REVERB) = 10),
+    P("vinyl", "fx", "an old record: crackle and a little hiss",
+      SYNTH_CRACKLE, 128, 150, 0, 0, 255, 50, 0, 0, 0, 0, T(MOD1) = 10, T(NOISEMIX) = 12,
+      T(FLAGS) = SYNTH_COLOR_PINK << SYNTH_COLOR_SHIFT, T(CUTOFF) = 200, T(REVERB) = 20),
 };
 const int au_preset_count = sizeof au_presets / sizeof au_presets[0];
 
@@ -206,6 +232,24 @@ static uint8_t cutoff8(double hz)
     return (uint8_t)(x < 1 ? 1 : x > 255 ? 255 : x);
 }
 
+static uint8_t nib(double v)
+{
+    long x = lround(v * 15.0);
+    return (uint8_t)(x < 0 ? 0 : x > 15 ? 15 : x);
+}
+
+const char *const au_vowel_names[SYNTH_VOWELS] = { "", "a", "e", "i", "o", "u" };
+const char *const au_curve_names[SYNTH_CURVES] = { "soft", "hard", "fold", "sine", "asym", "cubic" };
+const char *const au_color_names[4] = { "white", "pink", "brown", "crackle" };
+
+static int name_of(const char *const *names, int n, const char *v)
+{
+    for (int i = 0; i < n; i++)
+        if (same(v, names[i]))
+            return i;
+    return -1;
+}
+
 static uint8_t bar(double v)
 {
     long x = lround(v);
@@ -223,7 +267,7 @@ int au_tone_num(volatile uint8_t *r, const char *k, double v)
     else if (same(k, "release"))    r[SYNTH_RELEASE] = ms8(v);
     else if (same(k, "cutoff"))     r[SYNTH_CUTOFF] = cutoff8(v);
     else if (same(k, "res"))        r[SYNTH_RESONANCE] = unit8(v);
-    else if (same(k, "keytrack"))   r[SYNTH_FILTER] = (uint8_t)((r[SYNTH_FILTER] & 3) | (v != 0 ? SYNTH_KEYTRACK : 0));
+    else if (same(k, "keytrack"))   r[SYNTH_FILTER] = (uint8_t)((r[SYNTH_FILTER] & ~SYNTH_KEYTRACK) | (v != 0 ? SYNTH_KEYTRACK : 0));
     else if (same(k, "fenv"))       r[SYNTH_FENV] = s8(v * 16.0);
     else if (same(k, "fdecay"))     r[SYNTH_FDECAY] = ms8(v);
     else if (same(k, "pan"))        r[SYNTH_PAN] = s8(v * 127.0);
@@ -250,6 +294,18 @@ int au_tone_num(volatile uint8_t *r, const char *k, double v)
     else if (same(k, "bar3"))       r[SYNTH_MOD2] = (uint8_t)((r[SYNTH_MOD2] & 0x0F) | bar(v) << 4);
     else if (same(k, "bar4"))       r[SYNTH_MOD2] = (uint8_t)((r[SYNTH_MOD2] & 0xF0) | bar(v));
     else if (same(k, "raw"))        r[SYNTH_FLAGS] = (uint8_t)((r[SYNTH_FLAGS] & ~SYNTH_FLAG_RAW) | (v != 0 ? SYNTH_FLAG_RAW : 0));
+    else if (same(k, "sample"))     r[SYNTH_MOD1] = (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v);
+    else if (same(k, "begin"))      r[SYNTH_MOD2] = (uint8_t)(v <= 0 ? 0 : v >= 1 ? 255 : v * 256.0);
+    else if (same(k, "reverse"))    r[SYNTH_FLAGS] = (uint8_t)((r[SYNTH_FLAGS] & ~SYNTH_FLAG_REVERSE) | (v != 0 ? SYNTH_FLAG_REVERSE : 0));
+    else if (same(k, "crush"))      r[SYNTH_CRUSH] = (uint8_t)((r[SYNTH_CRUSH] & 0xF0) | (v >= 1 && v < 15.5 ? (int)(v + 0.5) : 0));
+    else if (same(k, "coarse"))     r[SYNTH_CRUSH] = (uint8_t)((r[SYNTH_CRUSH] & 0x0F) | (v >= 1.5 ? (v >= 16 ? 15 : (int)(v + 0.5) - 1) : 0) << 4);
+    else if (same(k, "trem"))       r[SYNTH_TREMOLO] = (uint8_t)((r[SYNTH_TREMOLO] & 0xF0) | nib(v));
+    else if (same(k, "duck"))       r[SYNTH_TREMOLO] = (uint8_t)((r[SYNTH_TREMOLO] & 0x0F) | nib(v) << 4);
+    else if (same(k, "chorus"))     r[SYNTH_CHORUS] = unit8(v);
+    else if (same(k, "density"))    r[SYNTH_MOD1] = unit8(v);
+    else if (same(k, "vowel"))      r[SYNTH_FILTER] = (uint8_t)((r[SYNTH_FILTER] & ~SYNTH_VOWEL) | (v >= 0 && v < SYNTH_VOWELS ? (int)v : 0) << SYNTH_VOWEL_SHIFT);
+    else if (same(k, "curve"))      r[SYNTH_FLAGS] = (uint8_t)((r[SYNTH_FLAGS] & ~SYNTH_FLAG_CURVE) | (v >= 0 && v < SYNTH_CURVES ? (int)v : 0) << SYNTH_CURVE_SHIFT);
+    else if (same(k, "color"))      r[SYNTH_FLAGS] = (uint8_t)((r[SYNTH_FLAGS] & ~SYNTH_FLAG_COLOR) | (v >= 0 && v < 4 ? (int)v : 0) << SYNTH_COLOR_SHIFT);
     else
         return -1;
     return 0;
@@ -264,14 +320,33 @@ int au_tone_str(volatile uint8_t *r, const char *k, const char *v)
         r[SYNTH_WAVEFORM] = (uint8_t)w;
         return 0;
     }
+    if (same(k, "sample")) {
+        /* the kit's: "bd", "sd"... or "kit:3" (the bank's names: lua_tone.c) */
+        int n = synth_kit_find(v);
+        if (n < 0 && v[0] == 'k' && v[1] == 'i' && v[2] == 't' && v[3] == ':' && v[4] >= '0' && v[4] <= '9') {
+            int k = 0;
+            for (const char *c = v + 4; *c >= '0' && *c <= '9' && k < 1000; c++)
+                k = k * 10 + (*c - '0');
+            n = SYNTH_KIT + k % SYNTH_KIT_SIZE;
+        }
+        if (n < 0)
+            return -1;
+        r[SYNTH_MOD1] = (uint8_t)n;
+        return 0;
+    }
     if (same(k, "filter")) {
         static const char *const modes[4] = { "lp", "bp", "hp", "notch" };
         for (int m = 0; m < 4; m++)
             if (same(v, modes[m])) {
-                r[SYNTH_FILTER] = (uint8_t)((r[SYNTH_FILTER] & SYNTH_KEYTRACK) | m);
+                r[SYNTH_FILTER] = (uint8_t)((r[SYNTH_FILTER] & ~3) | m);
                 return 0;
             }
         return -1;
+    }
+    if (same(k, "vowel") || same(k, "curve") || same(k, "color")) {
+        int n = same(k, "vowel") ? name_of(au_vowel_names, SYNTH_VOWELS, same(v, "none") ? "" : v)
+              : same(k, "curve") ? name_of(au_curve_names, SYNTH_CURVES, v) : name_of(au_color_names, 4, v);
+        return n < 0 ? -1 : au_tone_num(r, k, n);
     }
     return -1;
 }

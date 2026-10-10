@@ -969,13 +969,20 @@ static int l_zone(lua_State *L)
     return 6;
 }
 
+/* strnlen (POSIX, not C11: bmhost builds this file as C11) */
+static size_t name_len(const char *s, size_t max)
+{
+    const char *end = memchr(s, 0, max);
+    return end ? (size_t)(end - s) : max;
+}
+
 /* zones() -> the names of the zones, in their order */
 static int l_zones(lua_State *L)
 {
     lua_createtable(L, rt.nzones, 0);
     for (int i = 0; i < rt.nzones; i++) {
         lua_pushlstring(L, (const char *)rt.zones + 4 + i * BM_SPRITE_SIZE,
-                        strnlen((const char *)rt.zones + 4 + i * BM_SPRITE_SIZE, BM_MODEL_NAME));
+                        name_len((const char *)rt.zones + 4 + i * BM_SPRITE_SIZE, BM_MODEL_NAME));
         lua_rawseti(L, -2, i + 1);
     }
     return 1;
@@ -3807,6 +3814,67 @@ static int l_audio_bank(lua_State *L)
     return 1;
 }
 
+/* audio_samples(["kit"]): the samples of the bank playing (entry n + 1 is
+ * the one a sound's MOD1 n plays), or the console's drum kit (MOD1 128 +
+ * k): each { name, frames, rate (Hz), channels, root (MIDI note), fine
+ * (cents), loop (0 off, 1 forward, 2 ping-pong), loop_start, loop_end
+ * (frames), peak (0..1 of full scale), meter (AUDIO_METER peaks, 0..1,
+ * from its start to its end) }. For bm Sound's meter. */
+#define AUDIO_METER 32
+static int l_audio_samples(lua_State *L)
+{
+    const int kit = !lua_isnoneornil(L, 1) && !strcmp(luaL_checkstring(L, 1), "kit");
+    const au_bank_t *b = kit ? NULL : audio_bank_now();
+    const unsigned n = kit ? SYNTH_KIT_SIZE : b ? b->nsamples : 0;
+    lua_createtable(L, (int)n, 0);
+    for (unsigned i = 0; i < n; i++) {
+        const synth_sample_t *x = kit ? synth_kit(i) : &b->sample[i];
+        lua_createtable(L, 0, 12);
+        lua_pushstring(L, kit ? synth_kit_name(i) : b->sample_name[i]);
+        lua_setfield(L, -2, "name");
+        static const char *const keys[] = { "frames", "rate", "channels", "root", "fine", "loop", "loop_start",
+                                            "loop_end" };
+        const lua_Integer v[] = { x->len, x->rate, x->channels, x->root, x->fine, x->loop, x->loop_start,
+                                  x->loop_end };
+        for (unsigned k = 0; k < sizeof keys / sizeof keys[0]; k++) {
+            lua_pushinteger(L, v[k]);
+            lua_setfield(L, -2, keys[k]);
+        }
+        /* the peaks: the whole sample, and AUDIO_METER parts of it */
+        int peak = 0, part[AUDIO_METER] = { 0 };
+        const unsigned ch = x->channels ? x->channels : 1;
+        for (uint32_t f = 0; x->pcm && f < x->len; f++) {
+            const unsigned m = (unsigned)((uint64_t)f * AUDIO_METER / x->len);
+            for (unsigned c = 0; c < ch; c++) {
+                int a = x->pcm[f * ch + c];
+                a = a < 0 ? -a : a;
+                if (a > part[m]) part[m] = a;
+            }
+        }
+        lua_createtable(L, AUDIO_METER, 0);
+        for (unsigned m = 0; m < AUDIO_METER; m++) {
+            if (part[m] > peak) peak = part[m];
+            lua_pushnumber(L, part[m] / 32768.0);
+            lua_rawseti(L, -2, (lua_Integer)m + 1);
+        }
+        lua_setfield(L, -2, "meter");
+        lua_pushnumber(L, peak / 32768.0);
+        lua_setfield(L, -2, "peak");
+        lua_rawseti(L, -2, (lua_Integer)i + 1);
+    }
+    return 1;
+}
+
+/* audio_depth() -> the bits of each sample at the output asked for
+ * (sound_depth: 16, 24 or 32; Settings > Bit depth), and what the output
+ * asks for now (0: none, as in QEMU). The game cannot change it. */
+static int l_audio_depth(lua_State *L)
+{
+    lua_pushinteger(L, audio_depth());
+    lua_pushinteger(L, audio_depth_out());
+    return 2;
+}
+
 /* audio_pattern(p, bpm, swing, [step]): pattern p of the bank, looping;
  * audio_pattern(-1) stops. For the editor. */
 static int l_audio_pattern(lua_State *L)
@@ -3984,6 +4052,23 @@ static int l_echo(lua_State *L)
     lua_pushnumber(L, echo[0]);
     lua_pushnumber(L, echo[1]);
     lua_pushnumber(L, echo[2]);
+    return 3;
+}
+
+/* chorus([rate_hz], [depth_ms], [wet]): the chorus every voice sends to
+ * (tone{chorus = x}): its LFO's rate (0.05..5 Hz), how far the delay swings
+ * (0..8 ms) and how much is heard (0..1); returns the three as they are */
+static int l_chorus(lua_State *L)
+{
+    float c[3];
+    audio_chorus_get(c);
+    if (!lua_isnoneornil(L, 1))
+        audio_chorus((float)luaL_checknumber(L, 1), (float)luaL_optnumber(L, 2, c[1]),
+                     (float)luaL_optnumber(L, 3, c[2]));
+    audio_chorus_get(c);
+    lua_pushnumber(L, c[0]);
+    lua_pushnumber(L, c[1]);
+    lua_pushnumber(L, c[2]);
     return 3;
 }
 
@@ -4432,10 +4517,11 @@ static const luaL_Reg api[] = {
     { "sfx", l_sfx }, { "sfxpos", l_sfxpos }, { "music", l_music }, { "tempo", l_tempo },
     { "mute", l_mute }, { "volume", l_volume },
     { "tone", l_tone }, { "play", l_play }, { "instruments", au_lua_instruments }, { "instrument", au_lua_instrument },
-    { "reverb", l_reverb }, { "echo", l_echo }, { "retro", l_retro },
+    { "reverb", l_reverb }, { "echo", l_echo }, { "chorus", l_chorus }, { "retro", l_retro },
     { "audio_time", l_audio_time }, { "play_at", l_play_at }, { "play_cancel", l_play_cancel },
     { "play_voices", l_play_voices },
     { "audio_bank", l_audio_bank }, { "audio_pattern", l_audio_pattern }, { "audio_play", l_audio_play },
+    { "audio_samples", l_audio_samples }, { "audio_depth", l_audio_depth },
     { "cart_audio", l_cart_audio }, { "cart_put_audio", l_cart_put_audio },
     { NULL, NULL },
 };
@@ -4551,8 +4637,9 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     nnet_lua_open(L);           /* small INT8 networks of the carts (M38.4) */
     bm_require_open(L);         /* require "assist": libraries in the kernel */
     au_lua_bank = audio_bank_now;       /* play("lead"): the bank's sounds by name */
-    static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL",
-                                                    "FM", "PLUCK", "SUPERSAW", "ORGAN" };
+    static const char *const waves[] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL", "FM", "PLUCK",
+                                         "SUPERSAW", "ORGAN", "SAMPLE", "PINK", "BROWN", "CRACKLE" };
+    _Static_assert(sizeof waves / sizeof waves[0] == SYNTH_WAVES, "a name for every wave");
     for (int w = 0; w < SYNTH_WAVES; w++) {
         lua_pushinteger(L, w);
         lua_setglobal(L, waves[w]);
@@ -5624,7 +5711,7 @@ static int l_cart_save(lua_State *L)
             put16(p, mw); put16(p + 2, mh); put16(p + 4, (uint32_t)rt.nlayers);
             uint8_t *q = p + 8;
             for (int l = 0; l < rt.nlayers; l++, q += BM_LAYER_NAME)
-                memcpy(q, rt.layer_name[l], strnlen(rt.layer_name[l], BM_LAYER_NAME));
+                memcpy(q, rt.layer_name[l], name_len(rt.layer_name[l], BM_LAYER_NAME));
             for (int l = 1; l < rt.nlayers; l++)
                 for (uint32_t k = 0; k < mw * mh; k++, q += 2)
                     put16(q, rt.layer[l][k]);

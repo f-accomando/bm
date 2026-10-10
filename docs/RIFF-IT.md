@@ -148,12 +148,27 @@ Le funzioni da passare a `every`, `sometimes`, `off`... sono funzioni Lua
 | `:vib(cent)`, `:vibhz(hz)`, `:detune(cent)`, `:pitch(semitoni)`, `:ptime(ms)` | vibrato e inviluppo dell'altezza |
 | `:fm(x)`, `:fmh(x)` | profondità e rapporto della FM |
 | `:raw(true)` | la voce 8-bit |
-| `:tone{...}` | qualunque chiave di `tone()` |
+| `:crush(bit)`, `:coarse(n)` | bit crush (1..15 bit tenuti), la frequenza divisa (1..16) |
+| `:vowel("a")` | le formanti di una vocale: `"a"`, `"e"`, `"i"`, `"o"`, `"u"` |
+| `:chorus(x)`, `:trem(x)`, `:duck(x)` | quanto va nel chorus, il tremolo (sull'`:lfo`), quanto abbassa le altre voci (0..1) |
+| `:begin(x)` | da dove parte un campione (0..1 della sua lunghezza) |
+| `:tone{...}` | qualunque chiave di `tone()`: `:tone{curve = "fold", color = "pink", density = .2, reverse = true}` |
 
 Le unità sono quelle di `tone()` (millisecondi, pan −1..1, risonanza 0..1): non sono quelle
 di Strudel, dove l'attacco è in secondi e il pan va da 0 a 1. Uno strumento senza nome è
 `"triangle"`; la batteria senza nota suona alla sua (kick 36, snare 50, hat 72), il resto
 al C3.
+
+**Il kit.** `s "kit:2"` (o `s "kit" :n "<0 2>"`) sceglie un tamburo del kit della console,
+suonato alla sua velocità (C4 se non c'è una nota); anche `pump` (la cassa del kit che
+abbassa il resto). I tamburi per nome, come in Strudel: `s "bd sd hh oh cp cb"` (`sd:2` due
+semitoni sopra, come per ogni tamburo); `rim` e `tom` sono i preset del sintetizzatore (quelli
+del kit sono `kit:5`, `kit:6`). `R.bake` tiene `kit:0`, `kit:1`... come strumenti a sé.
+
+```lua
+beat = s "bd [~ bd] ~ bd, ~ cp, hh*8?" :crush(8)
+pad  = chord "<Am F>" :s "choir" :vowel("<a o>") :chorus(.5) :trem(.3)
+```
 
 ## Suonare
 

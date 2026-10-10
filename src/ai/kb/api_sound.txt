@@ -183,13 +183,15 @@ ask: frequenza in hertz | onda quadra | volume del suono
 see: noteoff, envelope, sfx, sfx_examples
 text:
 Suona sulla voce v (0-7) una nota di hz Hertz (o un nome: "C4", "F#3");
-con ms si spegne da sola. Forme: SQUARE, TRIANGLE, SAW, NOISE, SINE, METAL.
+con ms si spegne da sola. Forme: SQUARE, TRIANGLE, SAW, NOISE, SINE, METAL,
+FM, PLUCK, SUPERSAW, ORGAN, SAMPLE (un campione), PINK, BROWN, CRACKLE.
 vol 0-255 (128). Una voce per tipo di suono, così un effetto non
 interrompe l'altro. Gli effetti fatti con il Sound editor: sfx(n).
 text_en:
 Plays on voice v (0-7) a note of hz Hertz (or a name: "C4", "F#3");
 with ms it stops by itself. Waveforms: SQUARE, TRIANGLE, SAW, NOISE, SINE,
-METAL. vol 0-255 (128). One voice per kind of sound, so an effect does
+METAL, FM, PLUCK, SUPERSAW, ORGAN, SAMPLE (a sample), PINK, BROWN,
+CRACKLE. vol 0-255 (128). One voice per kind of sound, so an effect does
 not cut off the other. The effects made with the Sound editor: sfx(n).
 code:
 note(0, 880, 60, SQUARE, 100)      -- blip
@@ -319,21 +321,23 @@ ask: un suono meno 8 bit | suono più morbido | filtro passa basso | cutoff
 ask: strumento pronto per note | electric piano sound | change the instrument
 ask: basso con il filtro risonante | suono a destra o a sinistra | pan stereo
 keys: timbro, strumento, filtro, cutoff, risonanza, pan, stereo
-see: play, instruments, reverb, note
+see: play, instruments, reverb, note, tone_fx, sample_kit
 text:
 Il timbro della voce v per le note() che seguono: il nome di uno strumento
 pronto ("epiano", "pluck", "pad", "bass", "kick"...: instruments()) o una
 tabella con le chiavi che cambiano: preset, wave, attack, decay, sustain,
 release (ms), cutoff (Hz), res, filter ("lp", "bp", "hp"), fenv, fdecay,
-pan (-1 sinistra, 1 destra), reverb, echo, drive, lfo, wah, raw (8 bit).
-tone(v) torna alla voce di partenza.
+pan (-1 sinistra, 1 destra), reverb, echo, chorus, drive, curve, noise,
+color, lfo, wah, trem, duck, crush, coarse, vowel, sample, begin, reverse,
+raw (8 bit). tone(v) torna alla voce di partenza.
 text_en:
 The tone of voice v for the note()s that follow: the name of a ready-made
 instrument ("epiano", "pluck", "pad", "bass", "kick"...: instruments()) or a
 table with the keys that change: preset, wave, attack, decay, sustain,
 release (ms), cutoff (Hz), res, filter ("lp", "bp", "hp"), fenv, fdecay,
-pan (-1 left, 1 right), reverb, echo, drive, lfo, wah, raw (8-bit).
-tone(v) goes back to a fresh voice.
+pan (-1 left, 1 right), reverb, echo, chorus, drive, curve, noise, color,
+lfo, wah, trem, duck, crush, coarse, vowel, sample, begin, reverse, raw
+(8-bit). tone(v) goes back to a fresh voice.
 code:
 tone(0, "epiano")
 note(0, "E4", 400)
@@ -349,22 +353,25 @@ ask: suonare uno strumento pronto | suonare la cassa della batteria
 ask: play an instrument | suono di batteria dal codice | rullante e charleston
 ask: suonare un suono del banco con un'altra nota | colpo di cassa
 keys: strumento, batteria, cassa, rullante
-see: tone, instruments, sfx
+see: tone, instruments, sfx, sample_kit
 text:
 Suona uno strumento come lo suona la musica, con il suo inviluppo
 dell'altezza e il vibrato (la cassa che scende, il laser): un nome, una
 tabella come quella di tone() (più pitch, ptime, vib) o un suono del banco
-(un numero). nota: MIDI o nome ("C4"), ms 0 = tenuta fino a noteoff, vol
-0-1. Senza v sceglie una voce libera; restituisce la voce.
+(un numero). Anche i tamburi del kit ("bd", "sd", "hh"...) e "kit:2".
+nota: MIDI o nome ("C4"), ms 0 = tenuta fino a noteoff, vol 0-1. Senza v
+sceglie una voce libera; restituisce la voce.
 text_en:
 Plays an instrument as the music plays it, with its pitch envelope and
 vibrato (the kick that falls, the laser): a name, a table like tone()'s
-(plus pitch, ptime, vib) or a sound of the bank (a number). note: MIDI or
-a name ("C4"), ms 0 = held until noteoff, vol 0-1. Without v it chooses a
-free voice; returns the voice.
+(plus pitch, ptime, vib) or a sound of the bank (a number). The kit's
+drums too ("bd", "sd", "hh"...) and "kit:2". note: MIDI or a name ("C4"),
+ms 0 = held until noteoff, vol 0-1. Without v it chooses a free voice;
+returns the voice.
 code:
 play(nil, "kick", "C2")
 play(nil, "snare", "D3", 0, 0.8)
+play(nil, "sd")                    -- il rullante del kit
 local v = play(nil, "pad", "A3", 0)
 -- dopo: noteoff(v)
 
@@ -378,13 +385,17 @@ ask: strumenti di batteria disponibili | i preset del sintetizzatore
 keys: strumenti, preset, elenco
 see: tone, play
 text:
-instruments() gli strumenti pronti {name, kind, about}; tipo: "drum",
-"bass", "keys", "pad", "pluck", "lead", "fx". instrument(nome) tutti i
-valori di uno (wave, a, d, s, r, pitch, tone...), come bm Sound li tiene.
+instruments() i 50 strumenti pronti {name, kind, about}; tipo: "drum",
+"bass", "keys", "pad", "pluck", "lead", "fx". Tra i nuovi: kit, pump,
+lush, choir, solo, rhodes, bitbass, vinyl. instrument(nome) tutti i
+valori di uno (wave, a, d, s, r, pitch, tone...), come bm Sound li tiene;
+anche "kit:3" o "sd".
 text_en:
-instruments() the ready-made instruments {name, kind, about}; kind: "drum",
-"bass", "keys", "pad", "pluck", "lead", "fx". instrument(name) all the
-values of one (wave, a, d, s, r, pitch, tone...), as bm Sound keeps them.
+instruments() the 50 ready-made instruments {name, kind, about}; kind:
+"drum", "bass", "keys", "pad", "pluck", "lead", "fx". Among the new ones:
+kit, pump, lush, choir, solo, rhodes, bitbass, vinyl. instrument(name)
+all the values of one (wave, a, d, s, r, pitch, tone...), as bm Sound
+keeps them; also "kit:3" or "sd".
 code:
 for _, i in ipairs(instruments("drum")) do
   log(i.name, i.about)
@@ -399,7 +410,7 @@ ask: aggiungere il riverbero | suono in una cattedrale | ambiente della musica
 ask: add reverb | eco del suono | echo delay | eco a tempo con la musica
 ask: suono in una grotta | suono che rimbomba in una sala
 keys: riverbero, ambiente, eco, sala, grotta
-see: tone, retro
+see: tone, retro, chorus
 text:
 reverb: l'ambiente delle voci (0-1: da una stanza piccola a una sala,
 da brillante a sordo, quanto si sente). echo: l'eco a ping-pong, ms tra
@@ -567,3 +578,170 @@ F7 puts a riff into the bank as a song.
 code:
 drums = s "kick*4, ~ snare, hat*8"
 bass = note "<c2 eb2 g1 bb1>" :s "acid" :lpf(sine:range(300, 1800))
+
+== chorus
+kind: api
+name: chorus
+title: chorus([velocita_hz, profondita_ms, livello]) - il chorus delle voci
+title_en: chorus([rate_hz, depth_ms, wet]) - the voices' chorus
+ask: aggiungere il chorus | suono piu' largo e stereo | pad piu' ampio
+ask: add chorus to the pad | effetto chorus | wider stereo sound
+ask: velocita' del chorus | chorus piu' lento e profondo
+keys: chorus, largo, ampio, stereo
+see: reverb, tone, tone_fx
+text:
+Il chorus dove ogni voce manda quanto dice il suo chorus di tone() (0-1):
+due ritardi che oscillano, a sinistra e a destra, danno larghezza a pad
+e tastiere. velocita_hz 0.05-5 (0.8), profondita_ms 0-8 (2.5), livello
+0-1 (1); restituisce i tre valori. Senza argomenti li legge.
+text_en:
+The chorus every voice sends to as much as its tone() chorus says (0-1):
+two delays that swing, left and right, give width to pads and keys.
+rate_hz 0.05-5 (0.8), depth_ms 0-8 (2.5), wet 0-1 (1); returns the three.
+Without arguments it reads them.
+code:
+chorus(0.5, 4, 1)                  -- piu' lento e largo
+tone(0, { preset = "pad", chorus = 0.7 })
+note(0, "A3", 1500)
+
+== audio_depth
+kind: api
+name: audio_depth
+title: audio_depth() - i bit dell'uscita audio (sound_depth)
+title_en: audio_depth() - the bits of the audio output (sound_depth)
+ask: profondita' di bit dell'audio | audio a 24 bit | sound_depth
+ask: audio bit depth | quanti bit ha l'uscita audio | audio a 16 o 24 bit
+ask: cambiare la profondita' di bit del suono | hi-res audio
+keys: bit, profondita, sound_depth, depth, 24
+see: audio_samples, retro
+text:
+Restituisce bit, uscita: i bit di ogni campione che la console manda
+(16, 24 o 32: sound_depth in bm/config.txt, Settings > Screen and
+sound > Bit depth, 24 se non detto) e quelli che l'uscita chiede ora (0
+nessuna). Il mix e' in float, arrotondato una volta con il dither; HDMI
+e RGB30 convertono al piu' 24 bit. Un gioco la legge, non la cambia.
+text_en:
+Returns bits, out: the bits of each sample the console sends (16, 24 or
+32: sound_depth in bm/config.txt, Settings > Screen and sound > Bit
+depth, 24 by default) and what the output asks for now (0 none). The mix
+is in floats, rounded once with dither; HDMI and the RGB30 convert at
+most 24 bits. A game reads it, it does not change it.
+code:
+local bits, out = audio_depth()
+print("audio " .. bits .. " bit", 4, 4, 7)
+
+== audio_samples
+kind: api
+name: audio_samples
+title: audio_samples(["kit"]) - i campioni del banco o del kit
+title_en: audio_samples(["kit"]) - the samples of the bank or of the kit
+ask: elenco dei campioni del banco | quanto dura un campione
+ask: list the samples in the bank | i tamburi del kit della console
+ask: picco di un campione | disegnare la forma di un campione
+keys: campioni, samples, kit, picco, meter
+see: sample_kit, audio_depth
+text:
+I campioni del banco della cartuccia (la voce n + 1 e' quella che suona
+sample = n) o, con "kit", gli otto tamburi del kit: tabelle con name,
+frames, rate (Hz), channels, root (nota MIDI), fine (cent), loop (0, 1
+avanti, 2 ping-pong), loop_start, loop_end, peak (0-1) e meter (32
+picchi 0-1, dall'inizio alla fine).
+text_en:
+The samples of the cartridge's bank (entry n + 1 is the one sample = n
+plays) or, with "kit", the kit's eight drums: tables with name, frames,
+rate (Hz), channels, root (MIDI note), fine (cents), loop (0, 1 forward,
+2 ping-pong), loop_start, loop_end, peak (0-1) and meter (32 peaks 0-1,
+from its start to its end).
+code:
+for i, s in ipairs(audio_samples("kit")) do
+  print(s.name .. " " .. s.frames / s.rate .. " s", 4, i * 8, 7)
+end
+
+== sample_kit
+kind: howto
+title: Suonare campioni: il kit della console e i WAV nel banco
+title_en: Playing samples: the console's kit and WAV files in the bank
+ask: suonare un campione | batteria campionata | usare un file wav nel gioco
+ask: play a sample | drum kit samples | put a wav file in the bank
+ask: suonare un suono al contrario | il kit bd sd hh | suono registrato
+ask: onda sample | campione da un punto a meta' | reverse sample
+keys: campione, sample, wav, kit, bd, sd, hh, reverse
+see: audio_samples, play, tone, riff_kit
+text:
+L'onda SAMPLE suona un campione: il kit della console ha otto tamburi
+fatti dal sintetizzatore (bd, sd, hh, oh, cp, rim, tom, cb; "kit:0".."kit:7").
+play(nil, "sd") ne suona uno; in tone() sample sceglie il campione, begin
+da dove parte (0-1), reverse al contrario. La nota rispetto a quella del
+campione ne decide la velocita'. Un WAV entra nel banco dal PC con
+scripts/bmaudio.py ("samples" nel JSON); in bm Sound Samples... lo
+mette in un suono.
+text_en:
+The SAMPLE wave plays a sample: the console's kit has eight drums made by
+the synthesizer (bd, sd, hh, oh, cp, rim, tom, cb; "kit:0".."kit:7").
+play(nil, "sd") plays one; in tone() sample chooses the sample, begin
+where it starts (0-1), reverse backwards. The note against the sample's
+root sets its speed. A WAV file goes into the bank from the PC with
+scripts/bmaudio.py ("samples" in the JSON); in bm Sound Samples... puts
+it into a sound.
+code:
+play(nil, "sd")                    -- il rullante del kit
+play(nil, "kit:2")                 -- il charleston
+play(nil, { preset = "kit", sample = "cp", reverse = true })
+tone(1, { wave = "sample", sample = "bd", begin = 0.1 })
+note(1, "C3", 300)                 -- un'ottava sotto: piu' lenta
+
+== tone_fx
+kind: howto
+title: Effetti sul suono: crush, coarse, vowel, curve, trem, duck
+title_en: Sound effects on a voice: crush, coarse, vowel, curve, trem, duck
+ask: suono bitcrush | suono a pochi bit | effetto vocale sul pad | voci che cantano
+ask: bitcrusher | lofi sound effect | make the bass dirty | distorsione
+ask: sidechain che pompa | la cassa abbassa la musica | ducking
+ask: rumore rosa | crepitio del vinile | tremolo sul volume | wavefolder
+keys: crush, coarse, vowel, curve, color, trem, duck, bitcrush, sidechain
+see: tone, chorus, instruments
+text:
+Chiavi di tone(), play() e play_at() (a 0 il suono di prima): crush
+1-15 bit tenuti, coarse 1-16 (la frequenza divisa), vowel "a".."u"
+(formanti), curve della saturazione ("soft", "hard", "fold", "sine",
+"asym", "cubic", con drive), color del rumore aggiunto ("white",
+"pink", "brown", "crackle"), trem 0-1 (tremolo sull'lfo), duck 0-1
+(abbassa le altre voci), chorus 0-1. Onde PINK, BROWN, CRACKLE
+(density). Preset che li usano: bitbass, choir, pump, vinyl, rhodes.
+text_en:
+Keys of tone(), play() and play_at() (at 0 the sound as before): crush
+1-15 bits kept, coarse 1-16 (the rate divided), vowel "a".."u"
+(formants), curve of the drive ("soft", "hard", "fold", "sine", "asym",
+"cubic"), color of the noise mixed in ("white", "pink", "brown",
+"crackle"), trem 0-1 (tremolo on the lfo), duck 0-1 (lowers the other
+voices), chorus 0-1. Waves PINK, BROWN, CRACKLE (density). Presets that
+use them: bitbass, choir, pump, vinyl, rhodes.
+code:
+tone(0, { preset = "bass", crush = 4, coarse = 4 })
+tone(1, { preset = "pad", vowel = "a", chorus = 0.5 })
+tone(2, { preset = "lead", drive = 0.6, curve = "fold" })
+play(nil, { preset = "kick", duck = 0.8 }, "C2")
+play(nil, "vinyl", "C4", 0)        -- il crepitio di un disco
+
+== riff_kit
+kind: howto
+title: riff: il kit e gli effetti nuovi (kit:2, bd sd hh, :crush, :vowel)
+title_en: riff: the kit and the new effects (kit:2, bd sd hh, :crush, :vowel)
+ask: batteria campionata in riff | s bd sd hh come strudel | kit:2 in riff
+ask: riff drum samples like strudel | crush in riff | vowel in un pattern
+ask: effetti nel pattern di riff | riff chorus e tremolo
+keys: riff, kit, crush, coarse, vowel, duck, begin
+see: riff, sample_kit, tone_fx
+text:
+In riff s "kit:2" (o s "kit" :n "<0 2>") suona un tamburo del kit alla
+sua velocita'; i nomi come in Strudel: s "bd sd hh oh cp cb". Controlli
+nuovi: :crush(bit), :coarse(n), :vowel("a"), :chorus(x), :trem(x),
+:duck(x), :begin(x); il resto con :tone{curve = "fold", color = "pink"}.
+text_en:
+In riff s "kit:2" (or s "kit" :n "<0 2>") plays a drum of the kit at its
+own speed; the names as in Strudel: s "bd sd hh oh cp cb". New controls:
+:crush(bits), :coarse(n), :vowel("a"), :chorus(x), :trem(x), :duck(x),
+:begin(x); the rest with :tone{curve = "fold", color = "pink"}.
+code:
+beat = s "bd [~ bd] ~ bd, ~ cp, hh*8?" :crush(8)
+pad = chord "<Am F>" :s "choir" :vowel("<a o>") :chorus(.5)

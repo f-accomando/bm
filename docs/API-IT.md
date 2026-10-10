@@ -445,9 +445,13 @@ Otto voci (0–7). Forme d'onda: `SQUARE` (quadra, con `duty`), `TRIANGLE`, `SAW
 di sega), `NOISE` (rumore), `SINE` (seno), `METAL` (rumore corto e metallico: piatti,
 campanelli), `FM` (due seni, uno piega l'altro: piano elettrico, campane, bassi, ottoni),
 `PLUCK` (una corda pizzicata: chitarre, arpe), `SUPERSAW` (tre denti di sega un po'
-stonati: pad, lead larghi), `ORGAN` (quattro armoniche: organi, flauti). Ogni voce ha un
-inviluppo ADSR, un filtro, un posto tra sinistra e destra e quanto va nell'ambiente e
-nell'eco (`tone()`). Le altezze sono in **Hz** (anche con la
+stonati: pad, lead larghi), `ORGAN` (quattro armoniche: organi, flauti), `SAMPLE` (un
+campione registrato: del banco o uno degli otto tamburi della console, sotto), `PINK`,
+`BROWN` (rumori più morbidi: vento, mare, fruscio) e `CRACKLE` (scatti a caso: un vecchio
+disco, un fuoco). Ogni voce ha un inviluppo ADSR, un filtro, un posto tra sinistra e destra,
+quanto va nell'ambiente, nell'eco e nel chorus, e gli effetti del superdough di Strudel (bit
+crush, una frequenza più bassa, vocali, curve di saturazione, tremolo, ducking: `tone()`).
+Le altezze sono in **Hz** (anche con la
 virgola: `261.63`) oppure un **nome di nota**: `"C4"` (do centrale), `"A4"` (440 Hz),
 `"F#3"`, `"Bb2"`.
 
@@ -523,11 +527,14 @@ voci nuove).
 | Funzione | Descrizione |
 |---|---|
 | `tone(v, suono)` | il timbro della voce per le `note()` che seguono: il nome di uno **strumento pronto** (`"epiano"`, `"pluck"`, `"pad"`, `"kick"`… `instruments()` li elenca) o una tabella in unità semplici (sotto). `tone(v)` torna alla quadra di una voce nuova |
-| `play([v], suono, [nota], [ms], [vol])` | suona uno strumento come lo suona la musica, con il suo inviluppo dell'altezza e il vibrato (la cassa che scende, il laser): un nome, una tabella come quella di `tone()` (più `pitch` semitoni da cui partire, `ptime` ms per arrivare, `vib` cent, `vibhz`, `detune` cent) o un suono del banco (un numero; un nome è prima un suono del banco con quel nome, poi uno strumento pronto). `nota`: numero MIDI o nome (`"C4"`, predefinito 60), `ms` 0 = tenuta fino a `noteoff`, `vol` 0–1; senza `v` una voce libera. Restituisce la voce |
+| `play([v], suono, [nota], [ms], [vol])` | suona uno strumento come lo suona la musica, con il suo inviluppo dell'altezza e il vibrato (la cassa che scende, il laser): un nome, una tabella come quella di `tone()` (più `pitch` semitoni da cui partire, `ptime` ms per arrivare, `vib` cent, `vibhz`, `detune` cent) o un suono del banco (un numero; un nome è prima un suono del banco con quel nome, poi uno strumento pronto, poi un tamburo del kit: `"bd"`, `"sd"`, `"hh"`, `"oh"`, `"cp"`, `"cb"`). `"NOME:N"` è un suono di campioni sul suo N-esimo campione dopo il proprio (`"kit:2"` il terzo tamburo del kit, il charleston; per un suono del banco i campioni del banco; ricomincia dal primo). `nota`: numero MIDI o nome (`"C4"`, predefinito 60), `ms` 0 = tenuta fino a `noteoff`, `vol` 0–1; senza `v` una voce libera. Restituisce la voce |
 | `instruments([tipo])` | gli strumenti pronti: `{ {name=, kind=, about=}, … }`; `tipo`: `"drum"`, `"bass"`, `"keys"`, `"pad"`, `"pluck"`, `"lead"`, `"fx"` |
-| `instrument(nome)` | uno strumento con tutti i suoi valori, come bm Sound tiene un suono (`wave`, `a`, `d`, `s`, `r`, `pitch`, `tone` = i 21 byte del timbro…), o `nil` |
+| `instrument(nome)` | uno strumento con tutti i suoi valori, come bm Sound tiene un suono (`wave`, `a`, `d`, `s`, `r`, `pitch`, `tone` = i 21 byte del timbro…), o `nil`; anche un tamburo del kit (`"sd"`) o `"kit:3"` |
 | `reverb([grandezza], [smorzo], [livello])` | l'ambiente dove suonano le voci (0–1: da una stanza piccola a una sala, da brillante a sordo, quanto si sente); restituisce i tre valori. Ogni voce ci manda quanto dice il suo `reverb` (predefinito poco: 0.16) |
 | `echo([ms], [ritorno], [livello])` | l'eco a ping-pong (sinistra, destra): il tempo tra le ripetizioni (al più 680 ms), quanto torna (0–0.95), quanto si sente; restituisce i tre valori. Ci va quanto dice l'`echo` di ogni voce |
+| `chorus([velocità_hz], [profondità_ms], [livello])` | il chorus (due ritardi che oscillano, sinistra e destra: larghezza per pad e tastiere): quanto veloce oscilla (0.05–5 Hz, predefinito 0.8), quanto (0–8 ms, predefinito 2.5), quanto si sente (0–1, predefinito 1); restituisce i tre valori. Ci va quanto dice il `chorus` di ogni voce |
+| `audio_depth()` | `bit, uscita`: i bit di ogni campione che la console manda (16, 24 o 32: `sound_depth` in `bm/config.txt`, *Settings > Screen and sound > Bit depth*, 24 se non detto) e quelli che l'uscita chiede ora (0: nessuna). Un gioco la legge, non la cambia |
+| `audio_samples(["kit"])` | i campioni del banco della cartuccia (la voce `n + 1` è quella che suona `sample = n`) o, con `"kit"`, gli otto tamburi del kit: `{ {name=, frames=, rate=, channels=, root=, fine=, loop=, loop_start=, loop_end=, peak=, meter=}, … }`. `rate` Hz, `root` nota MIDI, `fine` cent, `loop` 0 nessuno, 1 in avanti, 2 ping-pong (`loop_start`, `loop_end` in frame), `peak` 0–1 del massimo, `meter` 32 picchi 0–1 dall'inizio alla fine |
 | `retro([on])` | tutte le voci **8-bit** come nelle prime versioni (onde ingenue, inviluppi dritti, niente ambiente né eco) finché il gioco gira; restituisce se lo sono (anche le Settings lo possono chiedere) |
 | `audio_time()` | l'orologio del suono in secondi (va avanti con i campioni suonati) |
 | `play_at(t, suono, [nota], [ms], [vol], [tag])` | una nota al tempo `t` di `audio_time()`: la fa partire l'interrupt del suono, entro 1,3 ms, qualunque sia il frame rate. `suono` come quello di `play()`, `ms` quanto è tenuta (predefinito 250), `vol` 0–1, `tag` 1–255 (un gruppo per `play_cancel`, predefinito 1). La voce si sceglie quando parte (una libera, una coda, la nota più vecchia di `play_at`; mai quelle di un brano o di un effetto). `true`, o `false` se la coda (160 note) è piena. È quello che usa riff |
@@ -539,7 +546,7 @@ Le chiavi di `tone()` (tutte facoltative; quelle che mancano restano come sono):
 | Chiave | Valore |
 |---|---|
 | `preset` | uno strumento pronto da cui partire |
-| `wave` | `"square"`, `"triangle"`, `"saw"`, `"noise"`, `"sine"`, `"metal"`, `"fm"`, `"pluck"`, `"supersaw"`, `"organ"` |
+| `wave` | `"square"`, `"triangle"`, `"saw"`, `"noise"`, `"sine"`, `"metal"`, `"fm"`, `"pluck"`, `"supersaw"`, `"organ"`, `"sample"`, `"pink"`, `"brown"`, `"crackle"` |
 | `vol`, `duty`, `sustain` | 0–1 |
 | `attack`, `decay`, `release` | ms (fino a 2000) |
 | `cutoff` | il **filtro**: Hz (0 = nessun filtro) |
@@ -554,7 +561,19 @@ Le chiavi di `tone()` (tutte facoltative; quelle che mancano restano come sono):
 | `bright`, `ring` | PLUCK: brillantezza della corda e quanto suona (0–1) |
 | `spread` | SUPERSAW: quanto sono stonati i tre denti di sega (0–1) |
 | `bars` | ORGAN: i quattro registri `{8, 6, 3, 2}` (0–15) |
-| `raw` | `true`: questa voce è 8-bit |
+| `sample`, `begin`, `reverse` | SAMPLE: quale campione (un numero del banco, un nome del banco, un tamburo del kit `"bd"` `"sd"` `"hh"` `"oh"` `"cp"` `"rim"` `"tom"` `"cb"`, o `"kit:N"`), da dove parte (0–1 della sua lunghezza), `true` al contrario. La nota rispetto a quella del campione ne decide la velocità |
+| `density` | CRACKLE: quanti scatti (0–1) |
+| `color` | il colore del `noise` aggiunto: `"white"`, `"pink"`, `"brown"`, `"crackle"` |
+| `curve` | la curva del `drive`: `"soft"` (come prima), `"hard"`, `"fold"`, `"sine"`, `"asym"` (armoniche pari, una valvola), `"cubic"` |
+| `vowel` | le formanti di una vocale dopo il filtro: `"a"`, `"e"`, `"i"`, `"o"`, `"u"`, `""` nessuna |
+| `crush`, `coarse` | bit crush: i bit tenuti (1–15; 0 nessuno); la frequenza divisa (1–16: ogni valore tenuto per tanti campioni) |
+| `trem` | tremolo: l'`lfo` sul volume, quanto profondo (0–1) |
+| `duck` | ducking: questa voce abbassa le altre mentre suona (0–1): una cassa che fa pompare un pad, un effetto che abbassa la musica |
+| `chorus` | quanto la voce manda nel chorus (0–1; lo regola `chorus()`) |
+| `raw` | `true`: questa voce è 8-bit (gli effetti sopra sono ignorati, come in `retro`) |
+
+Ogni chiave nuova a 0 (o assente) è il suono com'era. `play()` e `play_at()` prendono le
+stesse chiavi nella loro tabella.
 
 ```lua
 tone(0, "epiano")                                   -- un piano elettrico per note()
@@ -562,28 +581,59 @@ note(0, "E4", 400)
 tone(1, { preset = "bass", cutoff = 300, res = 0.7 })   -- un basso più cupo e risonante
 play(nil, "kick", "C2")                             -- la cassa, su una voce libera
 play(nil, { wave = "noise", cutoff = 900, fenv = -2, fdecay = 300, decay = 400, sustain = 0 }, "C3")
+play(nil, "sd")                                     -- il rullante del kit (un campione)
+play(nil, { preset = "kit", sample = "hh", reverse = true })  -- il charleston al contrario
+tone(2, { preset = "lead", crush = 4, coarse = 3 }) -- un lead rotto, 4 bit
+tone(3, { preset = "pad", vowel = "o", chorus = 0.6 })  -- un coro che canta "oh"
+play(nil, { preset = "kick", duck = 0.8 }, "C2")    -- la cassa abbassa tutto il resto
 reverb(0.8, 0.5, 1)                                 -- una cattedrale (Yharnam)
 echo(375, 0.4, 1)                                   -- un'eco a tempo a 80 BPM
+chorus(0.5, 4, 1)                                   -- un chorus più lento e largo
 retro(true)                                         -- il suono 8-bit di una volta
 ```
 
-**Strumenti pronti** (`src/audio/presets.c`): batteria `kick`, `punch`, `snare`, `clap`,
+**Strumenti pronti** (`src/audio/presets.c`, 50): batteria `kick`, `punch`, `snare`, `clap`,
 `hat`, `openhat`, `tom`, `rim`, `crash`, `cowbell`, `shaker` (e `chipkick`, `chipsnr`,
-`chiphat` a 8 bit); bassi `bass`, `acid`, `sub`, `fmbass`, `pickbass`; tastiere `epiano`,
-`organ`, `bell`, `marimba`, `glock`; pad `pad`, `strings`, `warm`, `glass`; corde
-`pluck`, `guitar`, `harp`; lead `lead`, `sawlead`, `flute`, `brass`, `triangle`, `chip`, `chiptri`;
-effetti `laser`, `blip`, `boom`, `wind`. Gli stessi nel menu *Instrument...* di bm Sound.
+`chiphat` a 8 bit), `kit` (i tamburi del kit come campioni: `"kit:0"`…`"kit:7"`), `pump` (la
+cassa del kit che abbassa il resto: il pompare del sidechain); bassi `bass`, `acid`, `sub`,
+`fmbass`, `pickbass`, `bitbass` (ridotto a 4 bit); tastiere `epiano`, `organ`, `bell`,
+`marimba`, `glock`, `rhodes` (con tremolo e chorus); pad `pad`, `strings`, `warm`, `glass`,
+`lush` (supersaw nel chorus), `choir` (un coro che canta "aah"); corde `pluck`, `guitar`,
+`harp`; lead `lead`, `sawlead`, `flute`, `brass`, `triangle`, `chip`, `chiptri`, `solo`
+(saturazione calda, vibrato, eco); effetti `laser`, `blip`, `boom`, `wind`, `vinyl` (il
+crepitio di un disco). Gli stessi nel menu *Instrument...* di bm Sound.
+
+**Il kit della console**: otto tamburi fatti dal sintetizzatore all'avvio della console
+(niente di registrato), suonati come campioni: `bd` cassa, `sd` rullante, `hh` charleston
+chiuso e `oh` aperto, `cp` battito di mani, `rim`, `tom`, `cb` campanaccio (`"kit:0"`…`"kit:7"`
+in quest'ordine). `play(nil, "cp")`, `tone(v, { wave = "sample", sample = "oh" })`; `rim` e
+`tom` per nome sono gli strumenti del sintetizzatore (quelli del kit: `"kit:5"`, `"kit:6"`).
+Nel modo 8-bit suonano ancora come tamburi (8 bit, il frame più vicino).
 
 #### Il banco: formato e strumenti
 
-Il banco è la sezione **AUDIO** del `.bm` (formato in `src/audio/player.h`, versione 2;
-la 1 si legge ancora): fino a 32 suoni (strumenti, ciascuno con il suo timbro: filtro,
-posto, ambiente, eco, LFO), 64 effetti sonori, 64 pattern e 8 brani (ciascuno con l'eco a
-tempo, in passi, e la grandezza dell'ambiente). Si crea con il **Sound
-editor** (scheda Dev), che apre un gioco e ne salva i suoni direttamente dentro.
-Sul PC: `scripts/bmaudio.py unpack gioco.bm -o suoni.json` lo estrae in JSON leggibile,
-`mkbm.py --audio suoni.json` lo rimette in una cartuccia, `make wav BANK=suoni.json
-SONG=0` lo ascolta in un WAV.
+Il banco è la sezione **AUDIO** del `.bm` (formato in `src/audio/player.h`, versione 2, o 3
+con i campioni; la 1 si legge ancora): fino a 32 suoni (strumenti, ciascuno con il suo
+timbro: filtro, posto, ambiente, eco, LFO, effetti), 64 effetti sonori, 64 pattern, 8 brani
+(ciascuno con l'eco a tempo, in passi, e la grandezza dell'ambiente) e fino a 64 **campioni**
+(8, 16, 24, 32 bit o float, mono o stereo, a qualunque frequenza, con una nota di base e un
+loop: in avanti o ping-pong; 2 MiB a banco, circa 22 s di mono a 48 kHz). Si crea con il
+**Sound editor** (scheda Dev), che apre un gioco e ne salva i suoni direttamente dentro; il
+suo *Samples...* nel menu elenca i campioni del banco e del kit con lunghezza e picco e ne
+mette uno nel suono (l'onda SAMPLE, con SAMPLE e START tra le regolazioni), e il piede del
+menu dice la profondità dell'uscita (`output 24-bit`). Sul PC: `scripts/bmaudio.py unpack
+gioco.bm -o suoni.json` lo estrae in JSON leggibile (i campioni come file WAV accanto),
+`mkbm.py --audio suoni.json` lo rimette in una cartuccia, `make wav BANK=suoni.json SONG=0`
+lo ascolta in un WAV (`BITS=24`, `32` o `f32` per un file più profondo; 16 se non detto). Un
+file WAV entra in un banco dal JSON: `"samples": [{"name": "voce", "wav": "voce.wav",
+"root": "C4", "loop": "fwd"}]`, e un suono lo suona con `"wave": "sample", "sample":
+"voce"`. `bmhost --wav-bits 24` registra il suono di un gioco a 24 bit.
+
+**Profondità di bit.** Il mix è in float ed è arrotondato una volta sola, con il dither,
+alla profondità che porta l'uscita: `sound_depth=16|24|32` in `bm/config.txt` (*Settings >
+Screen and sound > Bit depth*, 24 se non detto). L'HDMI del Pi e il codec della RGB30
+convertono al più 24 bit; `16` è esattamente la strada di prima. `audio_depth()` dice a un
+gioco qual è.
 
 ### Tastiera e file (per strumenti come gli editor)
 
@@ -1226,6 +1276,7 @@ end
 | `{a b c}%4` | polimetro |
 | `a \| b` | una delle due, ogni ciclo |
 | `kick:2` | variante (due semitoni sopra) |
+| `kit:2`, `bd sd hh` | il tamburo 2 del kit (campioni, alla loro velocità); i tamburi del kit per nome, come in Strudel |
 
 | Funzione | Descrizione |
 |---|---|
@@ -1237,7 +1288,7 @@ end
 | `:euclid(k, n, r)`, `:struct(p)`, `:mask(p)`, `:segment(n)`, `:chunk(n, f)`, `:linger(x)`, `:swing(n)` | struttura |
 | `:off(t, f)`, `:superimpose(f)`, `:layer(…)`, `:jux(f)` | strati, sinistra e destra |
 | `:add`, `:sub`, `:mul`, `+`, `:transpose`, `:scale("C:minor")`, `:arp("updown")`, `:range(a, b)` | note e numeri |
-| `:s`, `:gain`, `:legato`, `:lpf`, `:hpf`, `:bpf`, `:res`, `:pan`, `:room`, `:delay`, `:attack`, `:decay`, `:sustain`, `:release`, `:shape`, `:vib`, `:fm`, `:raw`, `:tone{…}` | il suono di ogni nota (unità di `tone()`) |
+| `:s`, `:gain`, `:legato`, `:lpf`, `:hpf`, `:bpf`, `:res`, `:pan`, `:room`, `:delay`, `:attack`, `:decay`, `:sustain`, `:release`, `:shape`, `:vib`, `:fm`, `:raw`, `:crush`, `:coarse`, `:vowel`, `:chorus`, `:trem`, `:duck`, `:begin`, `:tone{…}` | il suono di ogni nota (unità di `tone()`; `:tone{curve = "fold", color = "pink"}` per il resto) |
 | `R.play(nome, p)`, `R.stop(nome)`, `R.hush()`, `R.update()` | suonare (con un nome), fermare, da chiamare in `_update` |
 | `R.setcps(x)`, `R.setcpm(x)`, `R.bpm(x)` | la velocità |
 | `R.code(testo)` | codice dal vivo: le funzioni di riff sono globali, ogni globale con un pattern suona con quel nome, quelli di prima non più nominati si fermano; `true` o `nil` e l'errore |
@@ -1251,6 +1302,13 @@ local verse = chord "<Am F C G>"
 pad   = verse :s "pad" :room(.6) :gain(.7)
 arp   = verse :s "pluck" :arp("updown") :fast(4)
 drums = s "kick ~ ~ kick, ~ snare, hat*8?" :every(4, fast(2))
+]]
+```
+
+```lua
+R.code [[
+beat  = s "bd ~ [~ bd] ~, ~ cp, hh*8" :crush(8)        -- i campioni del kit, 8 bit
+vox   = note "<a3 f3>" :s "choir" :vowel("o") :chorus(.5)
 ]]
 ```
 

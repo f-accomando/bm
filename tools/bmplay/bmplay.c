@@ -291,6 +291,15 @@ static int l_echo(lua_State *L)
     return 0;
 }
 
+static int l_chorus(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1))
+        synth_chorus(&rt.synth, (float)luaL_checknumber(L, 1),
+                     (float)luaL_optnumber(L, 2, rt.synth.chorus_depth * 1000.0f / (float)rt.synth.rate),
+                     (float)luaL_optnumber(L, 3, rt.synth.chorus_wet));
+    return 0;
+}
+
 static int l_retro(lua_State *L)
 {
     if (!lua_isnoneornil(L, 1)) rt.synth.retro = (uint8_t)lua_toboolean(L, 1);
@@ -377,7 +386,7 @@ static const luaL_Reg api[] = {
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq }, { "envelope", l_envelope },
     { "duty", l_duty }, { "tone", l_tone }, { "play", l_play }, { "instruments", au_lua_instruments },
     { "instrument", au_lua_instrument },
-    { "reverb", l_reverb }, { "echo", l_echo }, { "retro", l_retro }, { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow },
+    { "reverb", l_reverb }, { "echo", l_echo }, { "chorus", l_chorus }, { "retro", l_retro }, { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow },
     { "dark_end", l_dark_end }, { NULL, NULL },
 };
 
@@ -521,8 +530,9 @@ int main(int argc, char **argv)
     }
     lua_pushinteger(L, w); lua_setglobal(L, "SCREEN_W");
     lua_pushinteger(L, h); lua_setglobal(L, "SCREEN_H");
-    const char *waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL",
-                                       "FM", "PLUCK", "SUPERSAW", "ORGAN" };
+    const char *waves[] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL", "FM", "PLUCK",
+                            "SUPERSAW", "ORGAN", "SAMPLE", "PINK", "BROWN", "CRACKLE" };
+    _Static_assert(sizeof waves / sizeof waves[0] == SYNTH_WAVES, "a name for every wave");
     for (int i = 0; i < SYNTH_WAVES; i++) { lua_pushinteger(L, i); lua_setglobal(L, waves[i]); }
     lua_getglobal(L, "math");
     lua_getfield(L, -1, "randomseed");

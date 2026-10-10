@@ -80,20 +80,136 @@ static void get_step(au_step_t *s, const uint8_t *p)
     s->fx = p[3];
 }
 
+static uint32_t get32(const uint8_t *p)
+{
+    return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
+}
+
+/* one value of a sample's format as 16 bits, rounded */
+static int16_t pcm16(const uint8_t *p, int format)
+{
+    int32_t v;
+    switch (format) {
+    case AU_PCM_U8:
+        return (int16_t)((p[0] - 128) * 256);
+    case AU_PCM_S16:
+        return (int16_t)(p[0] | p[1] << 8);
+    case AU_PCM_S24:
+        v = (int32_t)((uint32_t)p[0] << 8 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 24) >> 8;
+        v = (v + 128) >> 8;
+        break;
+    case AU_PCM_S32:
+        v = (int32_t)(((int64_t)(int32_t)get32(p) + 32768) >> 16);
+        break;
+    default: {
+        union { uint32_t u; float f; } x = { get32(p) };
+        float f = x.f * 32768.0f;
+        if (!(f == f))
+            return 0;                   /* NaN */
+        if (f >= 32767.0f)
+            return 32767;
+        if (f <= -32768.0f)
+            return -32768;
+        return (int16_t)(f < 0 ? f - 0.5f : f + 0.5f);
+    }
+    }
+    return (int16_t)(v > 32767 ? 32767 : v);
+}
+
+static const uint8_t pcm_bytes[5] = { 1, 2, 3, 4, 4 };
+
+/* the samples of a version 3 bank, from off */
+static int parse_samples(const uint8_t *d, size_t len, size_t off, au_bank_t *b, char *err, size_t errlen)
+{
+    size_t start = off;
+    uint32_t need = 0;
+    /* first their headers and the room they need */
+    for (int i = 0; i < b->nsamples; i++) {
+        if (off + 32 > len)
+            return fail(err, errlen, "sound bank truncated (samples)");
+        const uint8_t *p = d + off;
+        uint32_t frames = get32(p + 8), rate = get32(p + 12);
+        uint8_t format = p[16], ch = p[17];
+        if (format > AU_PCM_F32 || (ch != 1 && ch != 2) || !frames || frames > AU_PCM_MAX || rate < 1000 ||
+            rate > 192000)
+            return fail(err, errlen, "bad sample in the bank");
+        uint64_t bytes = (uint64_t)frames * ch * pcm_bytes[format];
+        if (off + 32 + bytes > len)
+            return fail(err, errlen, "sound bank truncated (sample data)");
+        need += (frames + SYNTH_SAMPLE_GUARD) * ch;
+        if (need > AU_PCM_MAX)
+            return fail(err, errlen, "the bank's samples are too long");
+        off += 32 + (size_t)bytes;
+    }
+    b->pcm_need = need;
+    int16_t *pool = b->pcm && b->pcm_cap >= need ? b->pcm : NULL;
+    off = start;
+    for (int i = 0; i < b->nsamples; i++) {
+        const uint8_t *p = d + off;
+        synth_sample_t *x = &b->sample[i];
+        get_name(b->sample_name[i], p);
+        x->len = get32(p + 8);
+        x->rate = get32(p + 12);
+        int format = p[16];
+        x->channels = p[17];
+        x->root = p[18] && p[18] < 128 ? p[18] : 60;
+        x->fine = (int8_t)p[19];
+        x->loop = p[20] <= SYNTH_LOOP_PINGPONG ? p[20] : SYNTH_LOOP_OFF;
+        x->loop_start = get32(p + 24);
+        x->loop_end = get32(p + 28);
+        unsigned n = x->len * x->channels, size = pcm_bytes[format];
+        const uint8_t *src = p + 32;
+        if (pool) {
+            int16_t *dst = pool + x->channels;  /* frame 0, after the guard */
+            for (unsigned k = 0; k < n; k++)
+                dst[k] = pcm16(src + k * size, format);
+            synth_sample_ready(x, dst);
+            pool += (x->len + SYNTH_SAMPLE_GUARD) * x->channels;
+        } else {
+            x->pcm = NULL;              /* described, silent: no room for its frames */
+        }
+        off += 32 + (size_t)n * size;
+    }
+    return 0;
+}
+
+int au_sample_find(const au_bank_t *b, const char *name)
+{
+    for (int i = 0; i < b->nsamples; i++) {
+        const char *a = b->sample_name[i], *c = name;
+        while (*a && *c && (*a | 32) == (*c | 32)) {
+            a++;
+            c++;
+        }
+        if (!*a && !*c)
+            return i;
+    }
+    return -1;
+}
+
 int au_parse(const uint8_t *d, size_t len, au_bank_t *b, char *err, size_t errlen)
 {
+    return au_parse_pcm(d, len, b, NULL, 0, err, errlen);
+}
+
+int au_parse_pcm(const uint8_t *d, size_t len, au_bank_t *b, int16_t *pcm, uint32_t cap, char *err, size_t errlen)
+{
     memset(b, 0, sizeof *b);
+    b->pcm = pcm;
+    b->pcm_cap = cap;
     if (len < 16 || memcmp(d, AU_MAGIC, 4) != 0)
         return fail(err, errlen, "not a sound bank");
-    if (d[4] != 1 && d[4] != AU_VERSION)
+    if (d[4] < 1 || d[4] > AU_VERSION)
         return fail(err, errlen, "unsupported sound bank version");
     size_t sound_bytes = d[4] == 1 ? 24 : AU_SOUND_BYTES;
-    if (d[5] > AU_SOUNDS || d[6] > AU_SFX || d[7] > AU_PATTERNS || d[8] > AU_SONGS)
+    uint8_t nsamples = d[4] >= 3 ? d[9] : 0;
+    if (d[5] > AU_SOUNDS || d[6] > AU_SFX || d[7] > AU_PATTERNS || d[8] > AU_SONGS || nsamples > AU_SAMPLES)
         return fail(err, errlen, "too many items in the sound bank");
     b->nsounds = d[5];
     b->nsfx = d[6];
     b->npatterns = d[7];
     b->nsongs = d[8];
+    b->nsamples = nsamples;
     size_t off = 16;
 
     for (int i = 0; i < b->nsounds; i++, off += sound_bytes) {
@@ -193,7 +309,7 @@ int au_parse(const uint8_t *d, size_t len, au_bank_t *b, char *err, size_t errle
                         s->tracks |= (uint8_t)(1u << t);
         }
     }
-    return 0;
+    return b->nsamples ? parse_samples(d, len, off, b, err, errlen) : 0;
 }
 
 /* ---------------------------------------------------------------- pitch */
@@ -656,9 +772,11 @@ void player_set_bank(player_t *p, au_bank_t *b)
             music_end(p);
         p->bank = NULL;
         p->m.song = -1;
+        synth_samples(p->synth, NULL, 0);
         return;
     }
     p->bank = b;
+    synth_samples(p->synth, b->sample, b->nsamples);
     for (int ch = 0; ch < AU_TRACKS; ch++)
         if (p->sfx[ch].n >= b->nsfx)
             player_sfx_stop(p, ch);

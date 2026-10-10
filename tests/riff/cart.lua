@@ -144,6 +144,41 @@ local function test_values()
   check(notes(R.chord("C"):arp("updown")) == "48 52 55 52", "arp updown")
   check(notes(R.s("kick snare hat")) == "36 50 72", "the drums' own notes")
   check(notes(R.s("kick:2 epiano")) == "38 48", "kick:2 two semitones up; others C3")
+  check(notes(R.s("kit kit:2 pump:1 bd sd:2")) == "60 60 60 60 62", "the kit at its own speed; its drums by name")
+  check(R.sound_of({ s = "kit", n = 2 }) == "kit:2" and R.sound_of({ s = "bd" }) == "bd", "kit:2 picks the drum")
+  local sk = R.sound_of(R.s("kit:1"):crush(4):events(0, 1)[1].v)
+  check(type(sk) == "table" and sk.s == "kit:1" and sk.crush == 4, "a drum of the kit with a control")
+  local sx = R.sound_of({ s = "pad", crush = 4, coarse = 8, vowel = "a", chorus = 0.5, trem = 0.3, duck = 1,
+                          begin = 0.25 })
+  check(sx.crush == 4 and sx.coarse == 8 and sx.vowel == "a" and sx.chorus == 0.5 and sx.trem == 0.3 and
+        sx.duck == 1 and sx.begin == 0.25, "crush, coarse, vowel, chorus, trem, duck, begin")
+  if play and apu then
+    -- into a voice's registers (src/audio/synth.h): the sample, the effects
+    play(7, "kit:2", 60, 50, 0.1)
+    check(apu(7, 2) == SAMPLE and apu(7, 17) == 130, "kit:2 on a voice: the kit's hi-hat")
+    play(7, "bd", 60, 50, 0.1)
+    check(apu(7, 17) == 128, "bd: the kit's kick")
+    play(7, "kit:9", 60, 50, 0.1)
+    check(apu(7, 17) == 129, "kit:9: around the kit")
+    play(7, R.sound_of({ s = "pad", crush = 4, coarse = 8, vowel = "o", chorus = 0.5, trem = 0.4, duck = 1 }), 60, 50,
+         0.1)
+    check(apu(7, 29) == 4 | 7 << 4 and apu(7, 13) & 0x38 == 4 << 3 and apu(7, 31) == 128 and apu(7, 30) == 6 | 15 << 4,
+          "the controls in the registers")
+    noteoff(7)
+    check(instrument("kit:3") and instrument("kit:3").tone[7] == 131 and instrument("sd").tone[7] == 129,
+          "instrument() knows kit:3 and sd")
+    check(not pcall(play, 7, "kit:x", 60, 50) and not pcall(play, 7, "nothing:2", 60, 50), "no such sample")
+  end
+  if chorus then
+    -- the chorus every voice sends to: set, read back, clamped, then as it was
+    local r0, d0, w0 = chorus()
+    check(math.abs(r0 - 0.8) < 0.01 and math.abs(d0 - 2.5) < 0.01 and w0 == 1, "chorus(): 0.8 Hz, 2.5 ms, 1")
+    local r, d, w = chorus(2, 5, 0.5)
+    check(math.abs(r - 2) < 0.01 and math.abs(d - 5) < 0.01 and w == 0.5, "chorus(2, 5, .5)")
+    r, d, w = chorus(9, 20, 3)
+    check(math.abs(r - 5) < 0.01 and math.abs(d - 8) < 0.01 and w == 1, "chorus(): clamped to 5 Hz, 8 ms, 1")
+    chorus(r0, d0, w0)
+  end
   local v = R.s("kick*2"):gain(0.5):lpf(800):events(0, 1)[1].v
   check(v.s == "kick" and v.gain == 0.5 and v.lpf == 800, "controls on the events")
   local snd = R.sound_of(v)
@@ -186,6 +221,12 @@ drums = s "kick*4, ~ snare, hat*8"
 bass  = note "<c2 a1 f1 g1>*2" :s "acid" :lpf(800)
 lead  = n "0 2 4 <7 6>" :scale("A:minor") :s "pluck" :sometimes(add(12))
 ]],
+    [[
+setcpm(30)
+drums = s "bd sd [~ bd] sd, hh*8, kit:3(3,8)" :crush(8)
+pad   = chord "<Am F>" :s "choir" :vowel("<a o>") :chorus(.5) :trem(.3)
+bass  = note "<a1 f1>*4" :s "bitbass" :coarse(4)
+]],
   }
   for i, src in ipairs(examples) do
     local ok, err = R.code(src, "doc")
@@ -227,6 +268,8 @@ local function test_bake()
     end
   end
   check(hats == 16 and kicks == 8, "bake: 16 hats and 8 kicks: " .. hats .. " " .. kicks)
+  local kb = R.bake(R.s("kit:0 kit:1 kit:0 bd"), { cycles = 1 })
+  check(table.concat(kb.instruments, ",") == "kit:0,kit:1,bd", "bake: the kit's drums as instruments of their own")
   local long = R.bake(R.note("c d e f"):s("pluck"), { cycles = 8 })
   check(#long.patterns == 2 and long.patterns[2].len == 64, "bake: 128 steps in two patterns")
   -- and back: the piece as a pattern again

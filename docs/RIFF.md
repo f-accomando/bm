@@ -68,6 +68,7 @@ A string is one cycle divided into equal parts:
 | `a \| b` | one of the two at random, every cycle | `"[snare \| clap]"` |
 | `a . b c` | groups separated by a dot (`[a] [b c]`) | `"kick . hat hat hat"` |
 | `kick:2` | a variant: two semitones up (for drums) | `"kick:2 kick"` |
+| `kit:2` | a drum of the console's kit (samples): 0 `bd` … 7 `cb`, at its own speed | `"kit:0 kit:2"`, `"bd sd hh"` |
 
 Words are notes (`c`, `eb4`, `f#2`: octave 3 if missing, `c3` = 48, `c4` = 60 middle C, as in
 Strudel), numbers (`0 2 -1 0.5`) or instrument names. An error says where:
@@ -153,12 +154,27 @@ The functions to pass to `every`, `sometimes`, `off`... are Lua functions
 | `:vib(cent)`, `:vibhz(hz)`, `:detune(cent)`, `:pitch(semitones)`, `:ptime(ms)` | vibrato and pitch envelope |
 | `:fm(x)`, `:fmh(x)` | FM depth and ratio |
 | `:raw(true)` | the 8-bit voice |
-| `:tone{...}` | any key of `tone()` |
+| `:crush(bits)`, `:coarse(n)` | bit crush (1..15 bits kept), the rate divided (1..16) |
+| `:vowel("a")` | the formants of a vowel: `"a"`, `"e"`, `"i"`, `"o"`, `"u"` |
+| `:chorus(x)`, `:trem(x)`, `:duck(x)` | the chorus send, the tremolo (on `:lfo`), the ducking of the other voices (0..1) |
+| `:begin(x)` | where a sample starts (0..1 of its length) |
+| `:tone{...}` | any key of `tone()`: `:tone{curve = "fold", color = "pink", density = .2, reverse = true}` |
 
 The units are those of `tone()` (milliseconds, pan −1..1, resonance 0..1): they are not
 Strudel's, where attack is in seconds and pan goes from 0 to 1. An instrument without a name
 is `"triangle"`; drums without a note play at their own (kick 36, snare 50, hat 72), the rest
 at C3.
+
+**The kit.** `s "kit:2"` (or `s "kit" :n "<0 2>"`) picks a drum of the console's kit, played
+at its own speed (C4 when no note is given); `pump` (the kit's kick that ducks the rest)
+too. The drums by name, as in Strudel: `s "bd sd hh oh cp cb"` (`sd:2` two semitones up, as
+for every drum); `rim` and `tom` are the synthesizer's presets (the kit's are `kit:5`,
+`kit:6`). `R.bake` keeps `kit:0`, `kit:1`... as instruments of their own.
+
+```lua
+beat = s "bd [~ bd] ~ bd, ~ cp, hh*8?" :crush(8)
+pad  = chord "<Am F>" :s "choir" :vowel("<a o>") :chorus(.5) :trem(.3)
+```
 
 ## Playing
 

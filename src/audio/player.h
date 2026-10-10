@@ -9,9 +9,12 @@
  * little endian:
  *
  *   0   char[4] "BMAU"
- *   4   u8      version (2; 1 is read too: its sounds have no tone)
+ *   4   u8      version: 3 (a bank with samples), 2 (none: written so,
+ *               what every version since reads); 1 is read too (its
+ *               sounds have no tone)
  *   5   u8      sounds (0..32), 6 u8 sfx (0..64), 7 u8 patterns (0..64),
- *   8   u8      songs (0..8), 9..15 reserved (0)
+ *   8   u8      songs (0..8), 9 u8 samples (version 3, 0..64; else 0),
+ *   10..15      reserved (0)
  *   16  sounds, 48 bytes each (24 in version 1):
  *         0 char[8] name (ASCII, zero-padded)
  *         8 wave, 9 duty, 10 volume, 11 attack, 12 decay, 13 sustain,
@@ -39,6 +42,20 @@
  *        played after the last one; 255: the song stops), 12 u8 the echo's
  *        time in steps (0: as it is), 13 u8 the room's size (0: as it is),
  *        14..15 reserved, 16 the pattern of each position
+ *   then (version 3) the samples, 32 + data bytes each:
+ *         0 char[8] name, 8 u32 frames (1..), 12 u32 rate (Hz, 1000..
+ *        192000), 16 u8 format (AU_PCM_U8 0, S16 1, S24 2, S32 3: signed
+ *        integers; F32 4: IEEE floats, +-1.0 full scale), 17 u8 channels
+ *        (1, 2: interleaved), 18 u8 root (the MIDI note at which it plays
+ *        at its own speed; 0: 60), 19 s8 fine tune (cents), 20 u8 loop
+ *        (SYNTH_LOOP_OFF 0, FWD 1, PINGPONG 2), 21..23 reserved, 24 u32
+ *        loop start, 28 u32 loop end (frames; 0: the end), 32 the frames,
+ *        little endian, no padding
+ *   A sound plays sample n with wave SYNTH_SAMPLE and MOD1 n (the tone's
+ *   register 17; 128.. the console's kit, synth.h), MOD2 where it starts.
+ *   The samples are made 16-bit mono or stereo when the bank is read: at
+ *   most AU_PCM_MAX values (frames x channels, SYNTH_SAMPLE_GUARD frames
+ *   more each) in a bank: 22 s of mono at 48 kHz, 47 s at 22 kHz.
  *
  *   A step is 4 bytes: note (0 nothing new, the note goes on; 1..127 a
  *   MIDI note, 60 = C4, 69 = A4 440 Hz; 128 off: the note is released),
@@ -59,7 +76,10 @@
 #include "synth.h"
 
 #define AU_MAGIC        "BMAU"
-#define AU_VERSION      2
+#define AU_VERSION      3           /* with samples; without, 2 is written */
+#define AU_SAMPLES      64
+#define AU_PCM_MAX      (1u << 20)  /* 16-bit values of a bank's samples: 2 MiB */
+enum { AU_PCM_U8, AU_PCM_S16, AU_PCM_S24, AU_PCM_S32, AU_PCM_F32 };
 #define AU_SOUND_BYTES  48          /* 24 in version 1 */
 #define AU_TONE         (SYNTH_VOICE_BYTES - SYNTH_CUTOFF)    /* registers 11..31 */
 #define AU_ROOM_SEND    40          /* the room of a sound with no tone of its own */
@@ -130,15 +150,28 @@ typedef struct {
 } au_song_t;
 
 typedef struct {
-    uint8_t nsounds, nsfx, npatterns, nsongs;
+    uint8_t nsounds, nsfx, npatterns, nsongs, nsamples;
     au_sound_t sound[AU_SOUNDS];
     au_sfx_t sfx[AU_SFX];
     au_pattern_t pat[AU_PATTERNS];
     au_song_t song[AU_SONGS];
+    char sample_name[AU_SAMPLES][9];
+    synth_sample_t sample[AU_SAMPLES];
+    int16_t *pcm;               /* where their frames are (au_parse_pcm's buffer) */
+    uint32_t pcm_cap;           /* its size, 16-bit values */
+    uint32_t pcm_need;          /* what the bank's samples need */
 } au_bank_t;
 
-/* Parses a bank (the AUDIO section). Returns 0, or -1 with a message. */
+/* Parses a bank (the AUDIO section). Returns 0, or -1 with a message.
+ * au_parse describes the samples but leaves them silent; au_parse_pcm
+ * converts them into pcm if it holds b->pcm_need values (else they are
+ * silent too: parse again with a buffer that size). */
 int au_parse(const uint8_t *data, size_t len, au_bank_t *b, char *err, size_t errlen);
+int au_parse_pcm(const uint8_t *data, size_t len, au_bank_t *b, int16_t *pcm, uint32_t cap, char *err,
+                 size_t errlen);
+
+/* The bank's sample of that name (case does not matter), or -1. */
+int au_sample_find(const au_bank_t *b, const char *name);
 
 /* who drives a voice */
 enum { AU_OWN_NONE, AU_OWN_LUA, AU_OWN_SFX, AU_OWN_MUSIC };
@@ -223,8 +256,9 @@ typedef struct {
 
 void player_init(player_t *p, uint32_t rate, volatile uint8_t *regs, synth_t *synth);
 
-/* The bank to play (NULL: none). Music and effects keep their place if
- * they still exist in the new bank (the editor swaps banks while it plays). */
+/* The bank to play (NULL: none), its samples to the synthesizer. Music
+ * and effects keep their place if they still exist in the new bank (the
+ * editor swaps banks while it plays). */
 void player_set_bank(player_t *p, au_bank_t *b);
 
 /* Advances everything by n samples: steps that fall due, effects, the

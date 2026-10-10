@@ -239,6 +239,13 @@ local function parse(d)
                    order = { d:byte(pos, pos + n - 1) } }
     pos = pos + n
   end
+  b.samples = {}
+  for i = 1, ver >= 3 and d:byte(10) or 0 do           -- the samples: 32 bytes, then the frames
+    local name, frames, _, fmt, ch
+    name, frames, _, fmt, ch = string.unpack("<c8I4I4BB", d, pos)
+    b.samples[i] = name:match("^[^%z]*")
+    pos = pos + 32 + frames * ch * ({ 1, 2, 3, 4, 4 })[fmt + 1]
+  end
   check(pos == #d + 1, "the bank has no bytes left over")
   return b
 end
@@ -479,6 +486,37 @@ run(2)
 click(320, 20)                             -- outside the menu: Esc
 run(2)
 check(true, "mouse: the context menu and the menu")
+
+-- 9c. a bank with samples (version 3, src/audio/player.h): opened, played and
+-- written back byte for byte; the menu's Samples... puts the kit's kick into
+-- the sound, which then shows its sample in place of the wave
+do
+  local pcm = {}
+  for i = 0, 99 do pcm[#pcm + 1] = string.pack("<i2", math.floor(16000 * math.sin(i / 8))) end
+  local v3 = "BMAU" .. string.char(3) .. demo:sub(6, 9) .. string.char(2) .. demo:sub(11) ..
+             string.pack("<c8I4I4BBBbBxxxI4I4", "TONE", 100, 22050, 1, 1, 60, 0, 1, 0, 100) .. table.concat(pcm) ..
+             string.pack("<c8I4I4BBBbBxxxI4I4", "ST8", 3, 8000, 0, 2, 72, -5, 0, 0, 0) .. "\1\2\3\4\5\6"
+  click(320, 5)                             -- above the menu 9b left open: closed (else a tab)
+  files["/bm/sounds/SMP.BME"] = { title = "SMP", bank = v3 }
+  arg_ = { path = "/bm/sounds/SMP.BME" }
+  env._init()
+  arg_ = nil
+  run(3)
+  check(last_bank == v3, "a bank with samples comes back byte for byte (version 3)")
+  b = parse(last_bank)
+  check(#b.samples == 2 and b.samples[1] == "TONE" and b.samples[2] == "ST8", "its two samples")
+  menu_item(8)                              -- on the SONG page: Samples... (after Export)
+  type_keys("\n")
+  type_keys("down", "down", "\n")           -- TONE, ST8, then the kit's BD
+  b = parse(last_bank)
+  check(b.waves[1] == 10 and b.tones[1][7] == 128, "Samples...: the kit's kick into sound 00 (SAMPLE, MOD1 128)")
+  check(last_bank:sub(-6) == "\1\2\3\4\5\6" and b.samples[2] == "ST8", "the samples stay as they were")
+  type_keys("f1")
+  run(3)
+  type_keys("^z")
+  b = parse(last_bank)
+  check(b.waves[1] ~= 10, "undo takes the sample back")
+end
 
 -- 10. random input: nothing stops the editor
 math.randomseed(7)

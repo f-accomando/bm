@@ -13,7 +13,8 @@
  *     --every K         one frame in K (default: only "shot" lines)
  *     --from F          the first frame for --every
  *     --video FILE      every frame as raw rgb24 (ffmpeg -f rawvideo)
- *     --wav FILE        the sound, 48 kHz mono
+ *     --wav FILE        the sound, 48 kHz stereo
+ *     --wav-bits B      its depth: 16 (default), 24, 32 or f32 (IEEE floats)
  *     --input FILE      the input script (see below)
  *     --quiet           no kernel log
  *     --tool            the cartridge is one of bm's tools (SDK, bm Pixel...): it may
@@ -55,6 +56,7 @@
 #include "drivers/fb.h"
 #include "lib/crc32.h"
 #include "usb/hid.h"
+#include "../audio/wavout.h"
 
 /* ---------------------------------------------------------------- PNG */
 
@@ -129,7 +131,7 @@ static int write_png(const char *path, const uint8_t *rgb, int w, int h)
 
 static struct {
     const char *shots, *video_path, *wav_path;
-    int every, from, realtime;
+    int every, from, realtime, wav_bits;
     FILE *video, *wav;
     uint32_t wav_samples;
     long frame;                 /* frames shown so far */
@@ -341,33 +343,37 @@ void host_frame(const uint16_t *px, int w, int h, int stride)
     t_flip = host_real_us();
 }
 
-void host_audio(const int16_t *s, unsigned n)
+/* the mix to the WAV file at --wav-bits: the integers truncated (no dither,
+ * the same file every run; 16 bits as it always was), f32 as it is */
+void host_audio(const float *s, unsigned n)
 {
-    if (run.wav) {
-        fwrite(s, 4, n, run.wav);           /* stereo frames */
-        run.wav_samples += n;
+    if (!run.wav)
+        return;
+    run.wav_samples += n;
+    if (run.wav_bits == WAV_F32) {
+        wav_put_floats(run.wav, s, n);
+        return;
     }
-}
-
-static void wav_header(FILE *f, uint32_t samples)
-{
-    uint8_t h[44];
-    const uint32_t rate = AUDIO_RATE, bytes = samples * 4;
-    memcpy(h, "RIFF", 4);
-    uint32_t v = 36 + bytes;
-    memcpy(h + 4, &v, 4);
-    memcpy(h + 8, "WAVEfmt ", 8);
-    v = 16; memcpy(h + 16, &v, 4);
-    uint16_t s = 1; memcpy(h + 20, &s, 2);              /* PCM */
-    s = 2; memcpy(h + 22, &s, 2);                       /* stereo */
-    memcpy(h + 24, &rate, 4);
-    v = rate * 4; memcpy(h + 28, &v, 4);
-    s = 4; memcpy(h + 32, &s, 2);
-    s = 16; memcpy(h + 34, &s, 2);
-    memcpy(h + 36, "data", 4);
-    memcpy(h + 40, &bytes, 4);
-    fseek(f, 0, SEEK_SET);
-    fwrite(h, 1, 44, f);
+    int32_t w[2 * 64];
+    const double full = run.wav_bits == 16 ? 32767.0 : run.wav_bits == 24 ? 8388607.0 : 2147483647.0;
+    const int shift = 32 - run.wav_bits;
+    while (n) {
+        unsigned m = n < 64 ? n : 64;
+        for (unsigned i = 0; i < 2 * m; i++) {
+            int32_t v;
+            if (shift == 16) {          /* in floats, as before: the same 16-bit files */
+                float x = s[i] * 32767.0f;
+                v = (int16_t)(x > 32767.0f ? 32767.0f : x < -32768.0f ? -32768.0f : x);
+            } else {
+                double x = s[i] * full;
+                v = (int32_t)(x > full ? full : x < -full - 1 ? -full - 1 : x);
+            }
+            w[i] = (int32_t)((uint32_t)v << shift);
+        }
+        wav_put_words(run.wav, w, m, run.wav_bits);
+        s += 2 * m;
+        n -= m;
+    }
 }
 
 static char *read_file(const char *path, size_t *len)
@@ -391,6 +397,7 @@ int main(int argc, char **argv)
     double seconds = 10;
     char tmp_sd[] = "/tmp/bmhost-sd-XXXXXX";
     host.source = HID_SOURCE_KEYBOARD;
+    run.wav_bits = 16;
     for (int p = 0; p < 4; p++)
         host.dev[p] = -1;
     for (int i = 1; i < argc; i++) {
@@ -402,6 +409,13 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--from") && v) run.from = atoi(v), i++;
         else if (!strcmp(a, "--video") && v) run.video_path = v, i++;
         else if (!strcmp(a, "--wav") && v) run.wav_path = v, i++;
+        else if (!strcmp(a, "--wav-bits") && v) {
+            if (!(run.wav_bits = wav_bits(v))) {
+                fprintf(stderr, "bmhost: --wav-bits is 16, 24, 32 or f32\n");
+                return 2;
+            }
+            i++;
+        }
         else if (!strcmp(a, "--input") && v) input = v, i++;
         else if (!strcmp(a, "--quiet")) host.quiet = 1;
         else if (!strcmp(a, "--tool")) bm_set_tool(1);      /* as bm's own tools in the kernel: saves where it is told */
@@ -437,7 +451,7 @@ int main(int argc, char **argv)
 #endif
     if (!cart) {
         fprintf(stderr, "usage: bmhost CART.bm [--sd DIR] [--seconds S] [--shots DIR [--every K] [--from F]]\n"
-                        "              [--video FILE] [--wav FILE] [--input SCRIPT] [--quiet]\n");
+                        "              [--video FILE] [--wav FILE [--wav-bits 16|24|32|f32]] [--input SCRIPT] [--quiet]\n");
         return 2;
     }
     if (!host.sd) {
@@ -470,7 +484,8 @@ int main(int argc, char **argv)
             perror(run.wav_path);
             return 1;
         }
-        wav_header(run.wav, 0);
+        wav_header(run.wav, AUDIO_RATE, run.wav_bits, 0);
+        fseek(run.wav, 0, SEEK_END);
     }
     size_t len;
     uint8_t *data = (uint8_t *)read_file(cart, &len);
@@ -489,7 +504,7 @@ int main(int argc, char **argv)
     double cpu = (double)(clock() - c0) / CLOCKS_PER_SEC;
 
     if (run.wav) {
-        wav_header(run.wav, run.wav_samples);
+        wav_header(run.wav, AUDIO_RATE, run.wav_bits, run.wav_samples);
         fclose(run.wav);
     }
     if (run.video)

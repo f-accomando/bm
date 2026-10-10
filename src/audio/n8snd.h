@@ -24,6 +24,9 @@ int  n8snd_stat(int n);
 /* Adds n frames to out (stereo, 16 bits, left first: the same on both),
  * scaled by gain (0..1). */
 void n8snd_mix(int16_t *out, unsigned n, float gain);
+/* The same into the console's float mix (1.0 = full scale), before it is
+ * rounded to the output's depth (audio.c): 1 when it added a sound. */
+int  n8snd_mix_float(float *out, unsigned n, float gain);
 /* A paused game: no sound, positions kept. */
 void n8snd_pause(int on);
 

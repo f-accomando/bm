@@ -93,6 +93,10 @@ void audio_tone_get(unsigned ch, uint8_t *regs);
 void audio_room(float size, float damp, float wet);
 void audio_echo(float ms, float feedback, float wet);
 void audio_fx_get(float room[3], float echo[3]);
+/* The chorus (synth_chorus: LFO Hz 0.05..5, swing ms 0..8, level 0..1):
+ * set, and read back as it is */
+void audio_chorus(float rate_hz, float depth_ms, float wet);
+void audio_chorus_get(float chorus[3]);
 
 /* Every voice the 8-bit chip of the first versions, no room nor echo:
  * asked by the game (until audio_reset) or by the player (Settings). */
@@ -107,6 +111,16 @@ void audio_pause(int on);
 /* Master volume 0..AUDIO_VOLUME_MAX (10 = full). */
 void audio_set_volume(int level);
 int  audio_volume(void);
+
+/* The output's depth (sound_depth in bm/config.txt): 16, 24 or 32 bits a
+ * sample, rounded from the float mix with TPDF dither (32: none). Any
+ * other value is the default. HDMI carries 24 at most (32 goes out as 24);
+ * the RGB30's I2S sends 32-bit words, its codec (RK817) converts 24.
+ * audio_depth_out(): what the output asks for now (0 without one). */
+#define AUDIO_DEPTH_DEFAULT 24
+void     audio_set_depth(unsigned bits);
+unsigned audio_depth(void);
+unsigned audio_depth_out(void);
 
 /* Call once per frame: without HDMI audio the player still moves, silent. */
 void audio_idle(void);

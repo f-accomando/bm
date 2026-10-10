@@ -21,7 +21,12 @@ void audio_out_idle(void);
 
 /* n stereo frames at AUDIO_RATE (2n samples, left first): the player and
  * the voices move by n. For the outputs' interrupts (it is IRQ-safe with
- * the rest of audio.h). */
+ * the rest of audio.h). The mix is in floats; audio_render32 rounds it to
+ * `bits` (16 or 24 with TPDF dither, 32 as the float) in words aligned to
+ * the left (bit 31 the sign, the bits under the depth 0): each output asks
+ * for audio_depth() or less, what it carries (HDMI: 24 at most).
+ * audio_render is the same at 16 bits (QEMU's sink). */
+void audio_render32(int32_t *out, unsigned n, unsigned bits);
 void audio_render(int16_t *out, unsigned n);
 
 #endif

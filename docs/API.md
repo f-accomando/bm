@@ -444,8 +444,12 @@ Eight voices (0–7). Waveforms: `SQUARE` (with `duty`), `TRIANGLE`, `SAW`, `NOI
 `METAL` (short metallic noise: cymbals, bells), `FM` (two sines, one bending the other:
 electric piano, bells, basses, brass), `PLUCK` (a plucked string: guitars, harps),
 `SUPERSAW` (three saws a little out of tune: pads, wide leads), `ORGAN` (four harmonics:
-organs, flutes). Each voice has an ADSR envelope, a filter, a place between left and right
-and how much goes to the room and the echo (`tone()`). Pitches
+organs, flutes), `SAMPLE` (a recorded sample: the bank's or one of the console's eight
+drums, below), `PINK`, `BROWN` (softer noises: wind, sea, hiss) and `CRACKLE` (random
+clicks: an old record, a fire). Each voice has an ADSR envelope, a filter, a place between
+left and right, how much goes to the room, the echo and the chorus, and the effects of
+Strudel's superdough (bit crush, a lower rate, vowels, drive curves, tremolo, ducking:
+`tone()`). Pitches
 are in **Hz** (with decimals too: `261.63`) or a **note name**: `"C4"` (middle C), `"A4"`
 (440 Hz), `"F#3"`, `"Bb2"`.
 
@@ -521,11 +525,14 @@ uses the new voices).
 | Function | Description |
 |---|---|
 | `tone(v, sound)` | the voice's tone for the `note()`s that follow: the name of a **ready-made instrument** (`"epiano"`, `"pluck"`, `"pad"`, `"kick"`… `instruments()` lists them) or a table in plain units (below). `tone(v)` goes back to the square of a fresh voice |
-| `play([v], sound, [note], [ms], [vol])` | plays an instrument as the music plays it, with its pitch envelope and vibrato (the kick that falls, the laser): a name, a table as `tone()`'s (plus `pitch` semitones to start from, `ptime` ms to get there, `vib` cents, `vibhz`, `detune` cents) or a sound of the bank (a number; a name is first a sound of the bank with that name, then a ready-made instrument). `note`: a MIDI number or a name (`"C4"`, default 60), `ms` 0 = held until `noteoff`, `vol` 0–1; without `v` a free voice. Returns the voice |
+| `play([v], sound, [note], [ms], [vol])` | plays an instrument as the music plays it, with its pitch envelope and vibrato (the kick that falls, the laser): a name, a table as `tone()`'s (plus `pitch` semitones to start from, `ptime` ms to get there, `vib` cents, `vibhz`, `detune` cents) or a sound of the bank (a number; a name is first a sound of the bank with that name, then a ready-made instrument, then a drum of the kit: `"bd"`, `"sd"`, `"hh"`, `"oh"`, `"cp"`, `"cb"`). `"NAME:N"` is a sample's sound on its N-th sample after its own (`"kit:2"` the kit's third drum, the hi-hat; for a sound of the bank the bank's samples; wrapping). `note`: a MIDI number or a name (`"C4"`, default 60), `ms` 0 = held until `noteoff`, `vol` 0–1; without `v` a free voice. Returns the voice |
 | `instruments([kind])` | the ready-made instruments: `{ {name=, kind=, about=}, … }`; `kind`: `"drum"`, `"bass"`, `"keys"`, `"pad"`, `"pluck"`, `"lead"`, `"fx"` |
-| `instrument(name)` | an instrument with all its values, as bm Sound keeps a sound (`wave`, `a`, `d`, `s`, `r`, `pitch`, `tone` = the tone's 21 bytes…), or `nil` |
+| `instrument(name)` | an instrument with all its values, as bm Sound keeps a sound (`wave`, `a`, `d`, `s`, `r`, `pitch`, `tone` = the tone's 21 bytes…), or `nil`; also a drum of the kit (`"sd"`) or `"kit:3"` |
 | `reverb([size], [damp], [wet])` | the room the voices play in (0–1: a small room to a hall, bright to dull, how much is heard); returns the three. Each voice sends to it what its `reverb` says (a little by default: 0.16) |
 | `echo([ms], [feedback], [wet])` | the ping-pong echo (left, right): the time between repeats (680 ms at most), how much comes back (0–0.95), how much is heard; returns the three. What goes in is each voice's `echo` |
+| `chorus([rate_hz], [depth_ms], [wet])` | the chorus (two delays that swing, left and right: width for pads and keys): how fast it swings (0.05–5 Hz, default 0.8), how far (0–8 ms, default 2.5), how much is heard (0–1, default 1); returns the three. What goes in is each voice's `chorus` |
+| `audio_depth()` | `bits, out`: the bits of each sample the console sends (16, 24 or 32: `sound_depth` in `bm/config.txt`, *Settings > Screen and sound > Bit depth*, 24 by default) and what the output asks for now (0: none). A game reads it, it does not change it |
+| `audio_samples(["kit"])` | the samples of the cartridge's bank (entry `n + 1` is the one `sample = n` plays) or, with `"kit"`, the kit's eight drums: `{ {name=, frames=, rate=, channels=, root=, fine=, loop=, loop_start=, loop_end=, peak=, meter=}, … }`. `rate` Hz, `root` MIDI note, `fine` cents, `loop` 0 none, 1 forward, 2 ping-pong (`loop_start`, `loop_end` in frames), `peak` 0–1 of full scale, `meter` 32 peaks 0–1 from its start to its end |
 | `retro([on])` | every voice **8-bit** as in the first versions (naive waves, straight envelopes, no room nor echo) while the game runs; returns whether they are (Settings can ask for it too) |
 | `audio_time()` | the sound's clock in seconds (it moves with the samples played) |
 | `play_at(t, sound, [note], [ms], [vol], [tag])` | a note at the time `t` of `audio_time()`: the sound's interrupt starts it, within 1.3 ms, whatever the frame rate. `sound` as `play()`'s, `ms` how long it is held (250 by default), `vol` 0–1, `tag` 1–255 (a group for `play_cancel`, 1 by default). The voice is chosen when it starts (a free one, a tail, the oldest note of `play_at`; never one of a song or of an effect). `true`, or `false` when the queue (160 notes) is full. riff uses it |
@@ -537,7 +544,7 @@ The keys of `tone()` (all optional; the missing ones stay as they are):
 | Key | Value |
 |---|---|
 | `preset` | a ready-made instrument to start from |
-| `wave` | `"square"`, `"triangle"`, `"saw"`, `"noise"`, `"sine"`, `"metal"`, `"fm"`, `"pluck"`, `"supersaw"`, `"organ"` |
+| `wave` | `"square"`, `"triangle"`, `"saw"`, `"noise"`, `"sine"`, `"metal"`, `"fm"`, `"pluck"`, `"supersaw"`, `"organ"`, `"sample"`, `"pink"`, `"brown"`, `"crackle"` |
 | `vol`, `duty`, `sustain` | 0–1 |
 | `attack`, `decay`, `release` | ms (up to 2000) |
 | `cutoff` | the **filter**: Hz (0 = no filter) |
@@ -552,7 +559,19 @@ The keys of `tone()` (all optional; the missing ones stay as they are):
 | `bright`, `ring` | PLUCK: how bright the string is and how long it rings (0–1) |
 | `spread` | SUPERSAW: how out of tune the three saws are (0–1) |
 | `bars` | ORGAN: the four drawbars `{8, 6, 3, 2}` (0–15) |
-| `raw` | `true`: this voice is 8-bit |
+| `sample`, `begin`, `reverse` | SAMPLE: which sample (a number of the bank's, a name of the bank's, a drum of the kit `"bd"` `"sd"` `"hh"` `"oh"` `"cp"` `"rim"` `"tom"` `"cb"`, or `"kit:N"`), where it starts (0–1 of its length), `true` backwards. The note against the sample's root sets its speed |
+| `density` | CRACKLE: how many clicks (0–1) |
+| `color` | the colour of the `noise` mixed in: `"white"`, `"pink"`, `"brown"`, `"crackle"` |
+| `curve` | the `drive`'s curve: `"soft"` (as before), `"hard"`, `"fold"`, `"sine"`, `"asym"` (even harmonics, a tube), `"cubic"` |
+| `vowel` | the formants of a vowel after the filter: `"a"`, `"e"`, `"i"`, `"o"`, `"u"`, `""` none |
+| `crush`, `coarse` | bit crush: the bits kept (1–15; 0 none); the rate divided (1–16: each value held that many samples) |
+| `trem` | tremolo: the `lfo` on the volume, how deep (0–1) |
+| `duck` | ducking: this voice pushes the others down while it sounds (0–1): a kick that pumps a pad, an effect that lowers the music |
+| `chorus` | how much the voice sends to the chorus (0–1; `chorus()` sets it) |
+| `raw` | `true`: this voice is 8-bit (the effects above are ignored, as in `retro`) |
+
+Every new key at 0 (or missing) is the sound as it was. `play()` and `play_at()` take the
+same keys in their table.
 
 ```lua
 tone(0, "epiano")                                   -- an electric piano for note()
@@ -560,28 +579,58 @@ note(0, "E4", 400)
 tone(1, { preset = "bass", cutoff = 300, res = 0.7 })   -- a darker, ringing bass
 play(nil, "kick", "C2")                             -- the kick, on a free voice
 play(nil, { wave = "noise", cutoff = 900, fenv = -2, fdecay = 300, decay = 400, sustain = 0 }, "C3")
+play(nil, "sd")                                     -- the kit's snare (a sample)
+play(nil, { preset = "kit", sample = "hh", reverse = true })  -- the hi-hat backwards
+tone(2, { preset = "lead", crush = 4, coarse = 3 }) -- a broken lead, 4 bits
+tone(3, { preset = "pad", vowel = "o", chorus = 0.6 })  -- a choir singing "oh"
+play(nil, { preset = "kick", duck = 0.8 }, "C2")    -- the kick lowers everything else
 reverb(0.8, 0.5, 1)                                 -- a cathedral (Yharnam)
 echo(375, 0.4, 1)                                   -- an echo on the beat at 80 BPM
+chorus(0.5, 4, 1)                                   -- a slower, wider chorus
 retro(true)                                         -- the 8-bit sound of before
 ```
 
-**Ready-made instruments** (`src/audio/presets.c`): drums `kick`, `punch`, `snare`, `clap`,
+**Ready-made instruments** (`src/audio/presets.c`, 50): drums `kick`, `punch`, `snare`, `clap`,
 `hat`, `openhat`, `tom`, `rim`, `crash`, `cowbell`, `shaker` (and `chipkick`, `chipsnr`,
-`chiphat` in 8 bits); basses `bass`, `acid`, `sub`, `fmbass`, `pickbass`; keys `epiano`,
-`organ`, `bell`, `marimba`, `glock`; pads `pad`, `strings`, `warm`, `glass`; strings
-`pluck`, `guitar`, `harp`; leads `lead`, `sawlead`, `flute`, `brass`, `triangle`, `chip`, `chiptri`;
-effects `laser`, `blip`, `boom`, `wind`. The same in bm Sound's *Instrument...* menu.
+`chiphat` in 8 bits), `kit` (the kit's drums as samples: `"kit:0"`…`"kit:7"`), `pump` (the
+kit's kick ducking the rest: a sidechain pump); basses `bass`, `acid`, `sub`, `fmbass`,
+`pickbass`, `bitbass` (crushed to 4 bits); keys `epiano`, `organ`, `bell`, `marimba`,
+`glock`, `rhodes` (with tremolo and chorus); pads `pad`, `strings`, `warm`, `glass`, `lush`
+(supersaw in the chorus), `choir` (singing "aah"); strings `pluck`, `guitar`, `harp`; leads
+`lead`, `sawlead`, `flute`, `brass`, `triangle`, `chip`, `chiptri`, `solo` (warm drive,
+vibrato, echo); effects `laser`, `blip`, `boom`, `wind`, `vinyl` (a record's crackle). The
+same in bm Sound's *Instrument...* menu.
+
+**The console's kit**: eight drums made by the synthesizer when the console starts (nothing
+recorded), played as samples: `bd` kick, `sd` snare, `hh` closed and `oh` open hi-hat, `cp`
+clap, `rim`, `tom`, `cb` cowbell (`"kit:0"`…`"kit:7"` in this order). `play(nil, "cp")`,
+`tone(v, { wave = "sample", sample = "oh" })`; `rim` and `tom` by name are the synthesizer's
+instruments (the kit's: `"kit:5"`, `"kit:6"`). In the 8-bit mode they still sound like
+drums (8 bits, the nearest frame).
 
 #### The bank: format and tools
 
-The bank is the **AUDIO** section of the `.bm` (format in `src/audio/player.h`, version 2;
-version 1 is still read): up to 32 sounds (instruments, each with its tone: filter, place,
-room, echo, LFO), 64 sound effects, 64 patterns and 8 songs (each with the echo on the
-beat, in steps, and the room's size). It is made with the
-**Sound editor** (Dev tab), which opens a game and saves its sounds right inside it. On the
-PC: `scripts/bmaudio.py unpack game.bm -o sounds.json` extracts it as readable JSON,
-`mkbm.py --audio sounds.json` puts it back in a cartridge, `make wav BANK=sounds.json
-SONG=0` plays it into a WAV.
+The bank is the **AUDIO** section of the `.bm` (format in `src/audio/player.h`, version 2,
+or 3 with samples; version 1 is still read): up to 32 sounds (instruments, each with its
+tone: filter, place, room, echo, LFO, effects), 64 sound effects, 64 patterns, 8 songs (each
+with the echo on the beat, in steps, and the room's size) and up to 64 **samples** (8, 16,
+24, 32-bit or float, mono or stereo, any rate, with a root note and a loop: forward or
+ping-pong; 2 MiB a bank, about 22 s of mono at 48 kHz). It is made with the
+**Sound editor** (Dev tab), which opens a game and saves its sounds right inside it; its
+menu's *Samples...* lists the bank's samples and the kit's with their length and peak and
+puts one into the sound (the SAMPLE wave, with SAMPLE and START among its settings), and the
+menu's footer shows the output's depth (`output 24-bit`). On the PC: `scripts/bmaudio.py
+unpack game.bm -o sounds.json` extracts it as readable JSON (the samples as WAV files beside
+it), `mkbm.py --audio sounds.json` puts it back in a cartridge, `make wav BANK=sounds.json
+SONG=0` plays it into a WAV (`BITS=24`, `32` or `f32` for a deeper file; 16 by default). A
+WAV file goes into a bank from the JSON: `"samples": [{"name": "voice", "wav": "voice.wav",
+"root": "C4", "loop": "fwd"}]`, and a sound plays it with `"wave": "sample", "sample":
+"voice"`. `bmhost --wav-bits 24` records a game's sound at 24 bits.
+
+**Bit depth.** The mix is in floats and is rounded once, with dither, to the depth the
+output carries: `sound_depth=16|24|32` in `bm/config.txt` (*Settings > Screen and sound >
+Bit depth*, 24 by default). The Pi's HDMI and the RGB30's codec convert at most 24 bits;
+`16` is the old path exactly. `audio_depth()` tells a game which it is.
 
 ### Keyboard and files (for tools such as the editors)
 
@@ -1218,6 +1267,7 @@ end
 | `{a b c}%4` | polymeter |
 | `a \| b` | one of the two, each cycle |
 | `kick:2` | a variant (two semitones up) |
+| `kit:2`, `bd sd hh` | the kit's drum 2 (samples, at their own speed); the kit's drums by name, as in Strudel |
 
 | Function | Description |
 |---|---|
@@ -1229,7 +1279,7 @@ end
 | `:euclid(k, n, r)`, `:struct(p)`, `:mask(p)`, `:segment(n)`, `:chunk(n, f)`, `:linger(x)`, `:swing(n)` | structure |
 | `:off(t, f)`, `:superimpose(f)`, `:layer(…)`, `:jux(f)` | layers, left and right |
 | `:add`, `:sub`, `:mul`, `+`, `:transpose`, `:scale("C:minor")`, `:arp("updown")`, `:range(a, b)` | notes and numbers |
-| `:s`, `:gain`, `:legato`, `:lpf`, `:hpf`, `:bpf`, `:res`, `:pan`, `:room`, `:delay`, `:attack`, `:decay`, `:sustain`, `:release`, `:shape`, `:vib`, `:fm`, `:raw`, `:tone{…}` | the sound of each note (the units of `tone()`) |
+| `:s`, `:gain`, `:legato`, `:lpf`, `:hpf`, `:bpf`, `:res`, `:pan`, `:room`, `:delay`, `:attack`, `:decay`, `:sustain`, `:release`, `:shape`, `:vib`, `:fm`, `:raw`, `:crush`, `:coarse`, `:vowel`, `:chorus`, `:trem`, `:duck`, `:begin`, `:tone{…}` | the sound of each note (the units of `tone()`; `:tone{curve = "fold", color = "pink"}` for the rest) |
 | `R.play(name, p)`, `R.stop(name)`, `R.hush()`, `R.update()` | play (with a name), stop, to call in `_update` |
 | `R.setcps(x)`, `R.setcpm(x)`, `R.bpm(x)` | the speed |
 | `R.code(text)` | live code: riff's functions are globals, every global given a pattern plays under its name, the earlier ones not named again stop; `true` or `nil` and the error |
@@ -1243,6 +1293,13 @@ local verse = chord "<Am F C G>"
 pad   = verse :s "pad" :room(.6) :gain(.7)
 arp   = verse :s "pluck" :arp("updown") :fast(4)
 drums = s "kick ~ ~ kick, ~ snare, hat*8?" :every(4, fast(2))
+]]
+```
+
+```lua
+R.code [[
+beat  = s "bd ~ [~ bd] ~, ~ cp, hh*8" :crush(8)        -- the kit's samples, 8 bits
+vox   = note "<a3 f3>" :s "choir" :vowel("o") :chorus(.5)
 ]]
 ```
 

@@ -3,7 +3,9 @@
  * (synth.h), the player of the cartridges' banks (player.h), nano8's
  * channels (n8snd.h), the notes and the volume. The samples go out through
  * the console's output (audio_out.h: HDMI on the Pi, I2S and the RK817's
- * codec on the RGB30), which calls audio_render() from its interrupt.
+ * codec on the RGB30), which calls audio_render32() from its interrupt:
+ * everything is mixed in floats and rounded once, at the end, to the
+ * depth the output carries (sound_depth: 16, 24 or 32 bits).
  */
 #include "audio.h"
 #include "audio_out.h"
@@ -15,12 +17,15 @@
 #include "kernel/irq.h"
 #include "lib/printf.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 static synth_t synth;
 static player_t player;
 static au_bank_t banks[2];          /* the one playing, and the one a new bank is parsed into */
 static int bank_now = -1;           /* -1: no bank */
+static int16_t *pools[2];           /* their samples (malloc, as big as the largest bank yet) */
+static uint32_t pool_cap[2];
 static volatile uint8_t own_regs[SYNTH_REG_BYTES];
 static int volume = AUDIO_VOLUME_MAX;
 static int retro;                   /* AUDIO_RETRO_* */
@@ -36,25 +41,65 @@ static volatile uint32_t max_us, max_n;
  * grid, whatever the output asks for. */
 #define BLOCK 64
 
-static void render(int16_t *out, unsigned n)
+static unsigned depth = AUDIO_DEPTH_DEFAULT;    /* asked (sound_depth) */
+static volatile unsigned depth_out;             /* what the output last rendered at */
+static float fmix[2 * BLOCK];                   /* a block of the mix, before the rounding */
+
+/* A block of the sound in floats: the player, the voices, nano8's
+ * channels; what it is (SYNTH_MIX_*: silent blocks get no dither) */
+static int mix_block(unsigned m)
 {
-    for (unsigned k = 0; k < n; k += BLOCK) {
-        unsigned m = n - k < BLOCK ? n - k : BLOCK;
-        player_advance(&player, m);
-        synth_render(&synth, own_regs, out + 2 * k, m);
-        n8snd_mix(out + 2 * k, m, synth.gain);
-    }
+    player_advance(&player, m);
+    int kind = synth_mix(&synth, own_regs, fmix, m);
+    if (n8snd_mix_float(fmix, m, synth.gain) && kind == SYNTH_MIX_SILENT)
+        kind = SYNTH_MIX_SOUND;
+    return kind;
 }
 
-void audio_render(int16_t *out, unsigned n)
+static void timed(uint32_t t0, unsigned n)
 {
-    uint32_t t0 = timer_ticks();
-    render(out, n);
     uint32_t us = timer_ticks() - t0;
     if (us > max_us) {
         max_us = us;
         max_n = n;
     }
+}
+
+void audio_render32(int32_t *out, unsigned n, unsigned bits)
+{
+    uint32_t t0 = timer_ticks();
+    depth_out = bits;
+    for (unsigned k = 0; k < n; k += BLOCK) {
+        unsigned m = n - k < BLOCK ? n - k : BLOCK;
+        synth_quantize(&synth, fmix, out + 2 * k, m, bits, mix_block(m));
+    }
+    timed(t0, n);
+}
+
+void audio_render(int16_t *out, unsigned n)
+{
+    uint32_t t0 = timer_ticks();
+    depth_out = 16;
+    for (unsigned k = 0; k < n; k += BLOCK) {
+        unsigned m = n - k < BLOCK ? n - k : BLOCK;
+        synth_quantize16(&synth, fmix, out + 2 * k, m, mix_block(m));
+    }
+    timed(t0, n);
+}
+
+void audio_set_depth(unsigned bits)
+{
+    depth = bits == 16 || bits == 24 || bits == 32 ? bits : AUDIO_DEPTH_DEFAULT;
+}
+
+unsigned audio_depth(void)
+{
+    return depth;
+}
+
+unsigned audio_depth_out(void)
+{
+    return ready ? depth_out : 0;
 }
 
 /* ---- start ------------------------------------------------------------ */
@@ -91,6 +136,8 @@ void audio_print(void)
     }
     kprintf("audio: %s\n", status);
     audio_out_print();
+    kprintf("       %u-bit samples (sound_depth=%u), %s\n", depth_out, depth,
+            depth_out == 32 ? "the float as it is" : "TPDF dither");
     kprintf("       synth %lu us per %lu samples (max; %lu us of sound), %u voices on\n",
             max_us, max_n, max_n * 1000000u / AUDIO_RATE, synth_active(&synth));
 }
@@ -117,6 +164,8 @@ void audio_reset(void)
     float gain = synth.gain;
     synth_init(&synth, AUDIO_RATE);
     synth.gain = gain;
+    if (bank_now >= 0)                  /* the bank stays: its samples too */
+        synth_samples(&synth, banks[bank_now].sample, banks[bank_now].nsamples);
     retro &= ~AUDIO_RETRO_GAME;
     synth.retro = retro != 0;
     irq_restore(s);
@@ -208,8 +257,24 @@ int audio_bank(const uint8_t *data, size_t len, char *err, size_t errlen)
         return 0;
     }
     int next = bank_now == 0 ? 1 : 0;   /* the interrupt never reads this one */
-    if (au_parse(data, len, &banks[next], err, errlen) != 0)
+    au_bank_t *b = &banks[next];
+    if (au_parse_pcm(data, len, b, pools[next], pool_cap[next], err, errlen) != 0)
         return -1;
+    if (b->pcm_need > pool_cap[next]) {
+        /* samples: room for them, and their frames converted into it */
+        free(pools[next]);
+        pools[next] = malloc(b->pcm_need * sizeof(int16_t));
+        pool_cap[next] = pools[next] ? b->pcm_need : 0;
+        if (!pools[next]) {
+            if (err && errlen) {
+                strncpy(err, "no memory for the bank's samples", errlen - 1);
+                err[errlen - 1] = 0;
+            }
+            return -1;
+        }
+        if (au_parse_pcm(data, len, b, pools[next], pool_cap[next], err, errlen) != 0)
+            return -1;
+    }
     uint32_t s = irq_save();
     player_set_bank(&player, &banks[next]);
     bank_now = next;
@@ -372,6 +437,20 @@ void audio_echo(float ms, float feedback, float wet)
     irq_restore(s);
 }
 
+void audio_chorus(float rate_hz, float depth_ms, float wet)
+{
+    uint32_t s = irq_save();
+    synth_chorus(&synth, rate_hz, depth_ms, wet);
+    irq_restore(s);
+}
+
+void audio_chorus_get(float chorus[3])
+{
+    chorus[0] = (float)synth.chorus_inc * (float)AUDIO_RATE / 4294967296.0f;
+    chorus[1] = synth.chorus_depth * 1000.0f / AUDIO_RATE;
+    chorus[2] = synth.chorus_wet;
+}
+
 void audio_fx_get(float room[3], float echo[3])
 {
     room[0] = synth.room_size;
@@ -431,7 +510,6 @@ int audio_volume(void)
  * with the sound. */
 void audio_idle(void)
 {
-    static int16_t scratch[1024];      /* 512 stereo frames */
     if (ready) {
         audio_out_idle();
         return;
@@ -447,9 +525,9 @@ void audio_idle(void)
     idle_t += (uint32_t)((uint64_t)n * 1000000u / AUDIO_RATE);
     if (n > AUDIO_RATE / 10)
         n = AUDIO_RATE / 10;            /* a long pause is not caught up */
-    while (n) {
-        uint32_t m = n < sizeof scratch / 4 ? n : sizeof scratch / 4;
-        render(scratch, m);
+    while (n) {                         /* the mix only: nobody hears it rounded */
+        uint32_t m = n < BLOCK ? n : BLOCK;
+        mix_block(m);
         n -= m;
     }
 }
@@ -468,7 +546,14 @@ void audio_test(void)
         kprintf("  %-8s ", au_wave_names[w]);
         for (int i = 0; i < 4; i++) {
             uint32_t f = w == SYNTH_NOISE || w == SYNTH_METAL ? tune[i] * 16u : tune[i];
-            audio_note(0, (float)f, 180, w, 160);
+            if (w == SYNTH_SAMPLE) {
+                uint32_t s = irq_save();
+                audio_note(0, 0.0f, 180, w, 160);                   /* at their own speed */
+                voice(0)[SYNTH_MOD1] = (uint8_t)(SYNTH_KIT + i);    /* the kit: kick, snare, hi-hats */
+                irq_restore(s);
+            } else {
+                audio_note(0, (float)f, 180, w, 160);
+            }
             kprintf(".");
             timer_delay_ms(250);
         }

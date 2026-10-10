@@ -587,12 +587,14 @@ int audio_out_start(const char **status)
 void audio_out_print(void) { }
 void audio_out_idle(void) { }
 
-/* The last stage of the console's audio render (src/audio/audio.c): the
- * mixed stereo frames of the synthesizer, which go to the WAV file. */
-void n8snd_mix(int16_t *out, unsigned n, float gain)
+/* The last stage of the console's audio mix (src/audio/audio.c): the
+ * synthesizer's stereo frames in floats, which go to the WAV file (bmhost.c
+ * --wav, --wav-bits: truncated, no dither, the same file every run). */
+int n8snd_mix_float(float *out, unsigned n, float gain)
 {
     (void)gain;
     host_audio(out, n);
+    return 0;
 }
 
 /* ---------------------------------------------------------------- Lua */
