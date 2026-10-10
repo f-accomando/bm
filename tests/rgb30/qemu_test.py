@@ -875,6 +875,82 @@ def test_riff(b, opts):
         q.close()
 
 
+# nnet() (src/ai/net.c): a network of two layers (3 inputs, 4 hidden with
+# relu, 3 outputs), integer weights so the reference below is exact
+NNET_LAYERS = [
+    # outputs x inputs, biases, relu, shift, mult
+    ([[3, -2, 1], [-1, 4, 2], [2, 2, -3], [5, -1, 0]], [4, -3, 10, 0], 1, 8, 200),
+    ([[2, -1, 1, 3], [-2, 3, 1, -1], [1, 1, -2, 2]], [-5, 7, 0], 0, 0, 0),
+]
+NNET_INPUTS = [(1, 2, 3), (-4, 5, 0), (7, -3, 2), (0, 0, 0), (-2, -6, 9), (30, 40, -50), (1, 1, 5)]
+
+
+def nnet_blob(layers, nin, in_scale=1.0, out_scale=0.5):
+    """the "BMNN" blob of src/ai/net.h"""
+    import struct
+    b = b"BMNN" + struct.pack("<BBHff", 1, len(layers), nin, in_scale, out_scale)
+    width = nin
+    for w, bias, relu, shift, mult in layers:
+        nin4 = (width + 3) & ~3
+        b += struct.pack("<HBBi", len(w), relu, shift, mult)
+        b += struct.pack(f"<{len(bias)}i", *bias)
+        for row in w:
+            b += struct.pack(f"<{nin4}b", *(list(row) + [0] * (nin4 - len(row))))
+        width = len(w)
+    return b
+
+
+def nnet_ref(layers, x, out_scale=0.5):
+    """the outputs and pick (1-based, the first of the largest) of src/ai/net.c
+    for integer inputs (input scale 1)"""
+    v = [max(-127, min(127, a)) for a in x]
+    for w, bias, relu, shift, mult in layers:
+        acc = [bk + sum(wi * xi for wi, xi in zip(row, v)) for row, bk in zip(w, bias)]
+        if relu:
+            v = [0 if a <= 0 else min(127, (a * mult + (1 << (shift - 1))) >> shift) for a in acc]
+    out = [a * out_scale for a in acc]
+    return out, out.index(max(out)) + 1
+
+
+def test_nnet(b, opts):
+    """nnet() on the RGB30 (2026-10-10: it was a placeholder table there, and
+    Overbit's match and benchmark stopped at the bots' network with "attempt
+    to call a table value (global 'nnet')"): the network of a blob runs, and
+    its outputs and picks are the Pi's (nn.c's plain loops, the same integers
+    as the ARMv6 SIMD)."""
+    blob = nnet_blob(NNET_LAYERS, 3)
+    lua = ['log("nnet is a " .. type(nnet))',
+           'local net = nnet("' + "".join(f"\\{c:03d}" for c in blob) + '")',
+           "local t = 0", "function _init()"]
+    for i, x in enumerate(NNET_INPUTS):
+        args = ",".join(str(a) for a in x)
+        lua.append(f"  do local o, k = net:run({{{args}}}), net:pick({{{args}}})")
+        lua.append(f"    log(string.format('nnet {i} %d %.2f %.2f %.2f', k, o[1], o[2], o[3])) end")
+    lua += ["  log('nnet size ' .. table.concat({net:size()}, ' '))", "end",
+            "function _update() t = t + 1 if t == 20 then log('nnet done') quit() end end",
+            "function _draw() cls(1) end"]
+    tmp = tempfile.mkdtemp(prefix="bm64nnet-")
+    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
+                       "bm/nnet.bm": mkbm.pack("\n".join(lua).encode(), title="Nnet", author="tests")})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.5)
+        q.send("\r")                            # Games: the only one
+        out = q.expect("nnet is a ", timeout=30).decode(errors="replace")
+        out += q.expect("\n", timeout=5).decode(errors="replace")
+        assert "nnet is a function" in out, out[-2000:]
+        out += q.expect("nnet done", timeout=30).decode(errors="replace")
+    finally:
+        q.close()
+    assert "stopped with an error" not in out, out[-2000:]
+    assert "nnet size 3 3" in out, out[-2000:]
+    for i, x in enumerate(NNET_INPUTS):
+        o, k = nnet_ref(NNET_LAYERS, x)
+        want = f"nnet {i} {k} " + " ".join(f"{a:.2f}" for a in o)
+        assert want in out, (want, out[-2000:])
+
+
 def test_sound(b, opts):
     """The RGB30's sound (the user, 2026-10-05): the Pi's synthesizer and
     player (src/audio/audio.c) through the console's output; in QEMU the

@@ -13,6 +13,9 @@
 -- events that tell the trainer how it went.
 
 Bots = { diff = 2, net = nil, log = false, explore = 0 }
+-- nnet() is the kernel's (src/ai/net.c); the RGB30's kernels before it had a
+-- placeholder table there: on those the bots choose by the rules alone
+Bots.has_nnet = type(nnet) == "function"
 
 local TACTICS = { "point", "fight", "retreat", "flank", "guard", "hold" }
 Bots.TACTICS = TACTICS
