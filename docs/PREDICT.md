@@ -71,6 +71,13 @@ riga è indentata, `^0` se non lo è (lì si scrivono `function` e `local`, dent
 `if`, `local`). Nel codice si aggiungono i nomi della scheda aperta, contati ogni 30
 suggerimenti.
 
+Un prefisso di una o due lettere mostra il ghost solo se la prima parola supera la seconda
+di un margine (1,25; 1,15 nel codice, dove `^` e `^0` separano già `function` da `for`).
+Altrimenti non c'è suggerimento: Tab indenta, come quando il dizionario non ha nulla.
+Da tre lettere il margine non si applica. I punteggi escono anche da `candidates`, come
+secondo valore.
+
+
 Sul Pi: il dizionario si legge **un pezzo per fotogramma** dall'apertura di bm Code
 (`predict.preload`), così la prima parola lo trova pronto; un suggerimento è una ricerca
 binaria nella tabella ordinata, e per i prefissi di una o due lettere (che valgono mille
@@ -100,7 +107,7 @@ end
 (`{it = 1, ask = 2}`) o `"none"`; `words` e `words_weight` i nomi del codice; `min` il
 prefisso più corto (1). Il risultato ha anche `list` (le prime tre) ed `ending` (`(` dopo
 una funzione, uno spazio dopo una parola chiave o una parola di testo), per chi li vuole.
-Altre funzioni: `candidates`, `word_at`, `count_words`, `preload`, `plain`, `from_utf8`.
+Altre funzioni: `candidates` (le parole e, come secondo valore, i punteggi), `word_at`, `count_words`, `preload`, `plain`, `from_utf8`.
 
 ## 3. Benchmark
 
@@ -202,3 +209,6 @@ di sillaba più frequenti).
   stessa lunghezza, non c'è un resto da mostrare.
 - Dopo: le parole nuove scritte dall'utente nel dizionario (salvate), il completamento nel
   Sound editor e nello studio 3D (nomi, testi).
+- Il bench conta i ghost diversi dalla parola del testo (`wrong` in `typist.lua`): sono i Tab
+  che un dito distratto accetterebbe. Il margine esiste per far scendere quel numero senza
+  togliere più di due punti al risparmio di tasti.

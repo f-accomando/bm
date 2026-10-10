@@ -61,6 +61,13 @@ local words = P.count_words({ "local player_speed = 3", "-- a comment: commented
 check(words.player_speed == 2 and not words.commented_out, "the names of the code, not its comments")
 check(first("lua", "x = player_sp", words) == "player_speed", "a name of the tab: player_sp -> player_speed")
 
+-- scores come with the candidates; a short prefix with a clear winner still completes
+local list, scores = P.candidates("lua", "f", "^0", 3)
+check(list[1] == "function" and scores[list[1]] and (not list[2] or scores[list[2]]),
+      "candidates return the scores")
+check(not list[2] or scores[list[1]] >= scores[list[2]] * 1.15,
+      "f on a new line beats the next word by the Lua margin")
+
 -- the texts of 100 characters, typed again: fewer keys
 for _, t in ipairs(TEXTS) do
   local keys, tabs = typist(t.text, { lang = t.lang, autoindent = t.lang == "lua" })

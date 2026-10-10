@@ -16,6 +16,10 @@
 -- the names of the code being written (predict.count_words), added with
 -- weight words_weight. Text in code page 437, like the console's; accents
 -- do not count ("perche" finds "perch\138"). Guide: docs/PREDICT.md.
+--
+-- A prefix of one or two letters shows a ghost only when the first word
+-- beats the second by a margin (1.25, 1.15 in Lua). Otherwise there is no
+-- suggestion, and Tab indents as when the dictionary has nothing.
 
 local P = {}
 
@@ -209,9 +213,9 @@ local function score_dict(d, key, same, prev, w, add)
   end
 end
 
--- The words for a prefix after prev: up to n, best first. lang: a
--- dictionary or a mix of them with their weights; buf: the names of the
--- code being written ({name = count, [1] = total}), with weight bufw.
+-- The words for a prefix after prev: up to n, best first, and their scores.
+-- lang: a dictionary or a mix of them with their weights; buf: the names of
+-- the code being written ({name = count, [1] = total}), with weight bufw.
 local function candidates(lang, prefix, prev, n, buf, bufw)
   local key = plain(prefix)
   local score, list = {}, {}
@@ -242,7 +246,7 @@ local function candidates(lang, prefix, prev, n, buf, bufw)
   end)
   local out = {}
   for k = 1, math.min(n or 3, #list) do out[k] = list[k] end
-  return out
+  return out, score
 end
 P.candidates = candidates
 
@@ -280,9 +284,14 @@ P.shaped = shaped
 
 -- the text before the cursor ends a sentence (or there is none)
 function P.sentence_start(before)
-  local t = before:gsub("[%s\"%(]+$", "")
+  local t = before:gsub("[%s\\\"%(]+$", "")
   return t == "" or t:find("[%.%?!]$") ~= nil
 end
+
+-- first word beats the second by this much, or the ghost stays hidden.
+-- Lua already separates function/for with ^ and ^0, so its margin is lower.
+local MARGIN = 1.25
+local MARGIN_LUA = 1.15
 
 -- The suggestion for the word that ends the text before the cursor, or nil:
 --   { prefix = what is typed, word = the word, rest = what is missing,
@@ -295,14 +304,26 @@ function P.complete(before, o)
   if lang == "none" then return nil end
   local prefix, prev = word_at(before, lang)
   if not prefix or #prefix < (o.min or 1) then return nil end
-  local ok, list = pcall(candidates, lang, prefix, prev, o.n or 3, o.words, o.words_weight)
+  local ok, list, scores = pcall(candidates, lang, prefix, prev, o.n or 3, o.words, o.words_weight)
   if not ok then return nil end
-  for _, w in ipairs(list) do
+  local chosen, at
+  for i, w in ipairs(list) do
     local word, ending = shaped(w, prefix, lang)
     if #word > #prefix then
-      return { prefix = prefix, word = word, rest = word:sub(#prefix + 1), ending = ending, list = list }
+      chosen = { prefix = prefix, word = word, rest = word:sub(#prefix + 1), ending = ending, list = list }
+      at = i
+      break
     end
   end
+  if not chosen then return nil end
+  -- one or two letters match a thousand words: hide the ghost when the
+  -- next candidate is close, so Tab is not a guess
+  if #plain(prefix) <= 2 and scores and list[at + 1] then
+    local s1, s2 = scores[list[at]], scores[list[at + 1]]
+    local margin = lang == "lua" and MARGIN_LUA or MARGIN
+    if s1 and s2 and s2 > 0 and s1 < s2 * margin then return nil end
+  end
+  return chosen
 end
 
 return P
