@@ -207,6 +207,9 @@ int main(int argc, char **argv)
     check(parse_text(buf) == -1 && strstr(last_err, "license"), "a game without a license: refused");
     snprintf(buf, sizeof buf, "bm market\nserial 1\n" GAME("a", "") GAME("a", ""), sha, sha);
     check(parse_text(buf) == -1 && strstr(last_err, "twice"), "the same id twice: refused");
+    snprintf(buf, sizeof buf, "bm market\nserial 1\n" GAME("a", "")
+             "game a\ntitle T\nversion 1\nlicense MIT\nfile games/a/a.b16 10 %s\n", sha, sha);
+    check(parse_text(buf) == 0, "the same id once as .bm and once as .b16: accepted");
     snprintf(buf, sizeof buf, "bm market\nserial 1\n" GAME("A", ""), sha);
     check(parse_text(buf) == -1, "id with capitals: refused");
     snprintf(buf, sizeof buf, "bm market\nserial 1\n" GAME("../x", ""), sha);

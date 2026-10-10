@@ -17,6 +17,9 @@
 -- The screens, the console's own (screen(i), the runtime's list):
 --   a TV (the Pi)                640x360 and 1920x1080: the GPU draws both,
 --                                the ARM only 640x360 (its pixels cost it);
+--                                the .bm (OVERBIT_TV_BM, set by the Makefile):
+--                                320x180 on the ARM, 1280x720 and 1920x1080
+--                                on the GPU;
 --   a square panel (the RGB30)   360x360 (shown twice as big) and 720x720,
 --                                both for the ARM too (the Cortex-A55; no GPU
 --                                driver there yet).
@@ -62,9 +65,26 @@ end
 -- ---------------------------------------------------------------- screens
 
 -- the ARM draws this screen? On a TV not above 640x360 (the Pi Zero's
--- ARM1176: seconds a frame at 1080p); on the square panel both
+-- ARM1176: seconds a frame at 1080p), the .bm not above 320x180; on the
+-- square panel both
 function Quality.arm_ok(w, h)
-  return w == h or w * h <= 640 * 360
+  if w == h then return true end
+  if OVERBIT_TV_BM then return w * h <= 320 * 180 end
+  return w * h <= 640 * 360
+end
+
+-- the GPU draws this screen? The .bm on a TV: 1280x720 and up; else all
+function Quality.gpu_ok(w, h)
+  if w == h or not OVERBIT_TV_BM then return true end
+  return w * h >= 1280 * 720
+end
+
+-- the screens of a TV this game offers (the .bm has three)
+local function tv_mode(w, h)
+  if OVERBIT_TV_BM then
+    return (w == 320 and h == 180) or (w == 1280 and h == 720) or (w == 1920 and h == 1080)
+  end
+  return (w == 640 and h == 360) or (w == 1920 and h == 1080)
 end
 
 -- the console's screen is square (the RGB30's panel: screen() offers only
@@ -77,20 +97,22 @@ end
 
 -- the screens this console offers, the smallest first, for renderer r
 -- ("arm", a GPU's name; nil: the one drawing now; "all": whoever draws):
--- 640x360 and 1080p on a TV, 360x360 and 720x720 on a square panel. A
+-- 640x360 and 1080p on a TV (the .bm: 320x180, 720p and 1080p), 360x360 and
+-- 720x720 on a square panel. A
 -- console with other modes only gets its two largest, by the same rule.
 function Quality.modes(r)
   local all, list = {}, {}
   if not screen then return list end
   local arm = r == "arm" or (r == nil and not G.gpu)
+  local gpu = not arm and r ~= "all"
   for i = 1, 16 do
     local w, h = screen(i)
     if not w then break end
-    if not arm or Quality.arm_ok(w, h) then all[#all + 1] = { w, h } end
+    if (not arm or Quality.arm_ok(w, h)) and (not gpu or Quality.gpu_ok(w, h)) then all[#all + 1] = { w, h } end
   end
   for _, m in ipairs(all) do
     local w, h = m[1], m[2]
-    if (w == h and (w == 360 or w == 720)) or (w == 640 and h == 360) or (w == 1920 and h == 1080) then
+    if (w == h and (w == 360 or w == 720)) or tv_mode(w, h) then
       list[#list + 1] = m
     end
   end
@@ -169,13 +191,14 @@ end
 
 -- the menu (RESOLUTION, RENDERER): the screen w x h and the renderer r (nil:
 -- the one drawing) the player chose, set and saved; the ARM on a TV goes to
--- 640x360. Returns what was set (the GPU may not start: the ARM).
+-- 640x360 (the .bm: 320x180, and its GPU to 1080p from there). Returns what
+-- was set (the GPU may not start: the ARM).
 function Quality.choose(w, h, r)
   local B = Modes.list.bench
   if r then B.use_renderer(r) end
   r = B.current_name()
-  if r == "arm" and not Quality.arm_ok(w, h) then
-    local m = Quality.modes("arm")
+  if (r == "arm" and not Quality.arm_ok(w, h)) or (r ~= "arm" and not Quality.gpu_ok(w, h)) then
+    local m = Quality.modes(r)
     if #m > 0 then w, h = m[#m][1], m[#m][2] end
   end
   Quality.set_screen(w, h)

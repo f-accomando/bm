@@ -276,8 +276,13 @@ OVERBIT_MODELS_FLAGS := $(if $(OVERBIT_CLASSIC),--classic)
 title_overbit := Overbit
 # its screen: 480x270, each pixel 4x4 on a 1080p TV (it was 320x180)
 OVERBIT_RES := 480x270
+# the .bm (the Pi's, in the Market next to the .b16): three screens on a TV,
+# 320x180 on the ARM, 1280x720 and 1920x1080 on the GPU (85_quality); the
+# .b16 has not the flag and keeps its own (640x360 and 1080p)
+OVERBIT_BM_DEFS := --define OVERBIT_TV_BM=true
 $(BUILD)/overbit/main.lua: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm
-	$(PYTHON) carts/overbit/build.py $@ --map $(BUILD)/overbit/main.map --extra $(BUILD)/overbit/21_map.lua
+	$(PYTHON) carts/overbit/build.py $@ --map $(BUILD)/overbit/main.map --extra $(BUILD)/overbit/21_map.lua \
+	    $(OVERBIT_BM_DEFS)
 
 $(BUILD)/overbit/models.bm: $(OVERBIT_ART) scripts/bmmesh.py scripts/mkbm.py $(BUILD)/host/mappvs
 	@mkdir -p $(dir $@)
@@ -363,10 +368,11 @@ $(BUILD)/overbit/bench-fast.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/o
 	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
 # the calibration (tests): up from the lightest step, the heaviest that holds 60 fps becomes the default
+# (the .bm's screens, as overbit.bm: the test starts that after it)
 # (tests/overbit/run.py builds its other variants: the frame times given, the RGB30's square screens)
 $(BUILD)/overbit/bench-cal.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/bench-cal.lua --start bench --extra $(BUILD)/overbit/21_map.lua \
-	    --define 'OVERBIT_BENCH_FLAGS="auto"'
+	    --define 'OVERBIT_BENCH_FLAGS="auto"' $(OVERBIT_BM_DEFS)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/bench-cal.lua --title "Overbit" --author bm \
 	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
@@ -979,17 +985,20 @@ $(BUILD)/host/test_github: tests/net/test_github.c src/net/github.c src/net/gith
 # A game's version is the day its bytes changed.
 MARKET ?= ../bm-market
 MARKET_VERSION := $(shell date -u +%Y.%m.%d)
-# the games that go to the Market as .b16 (the optimized release, if there is a rule)
+# the games that go to the Market as .b16 (the optimized release, if there is a rule);
+# Overbit has a .bm too (the Pi's), Yharnam only its .b16 (MARKET_NO_BM: no .bm in the Market)
 MARKET_B16 := overbit yharnam
+MARKET_NO_BM := yharnam
 market-seed: $(GAME_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
 	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
 	mkdir -p $(MARKET)/.github/workflows
 	cp market/README.md market/.gitignore $(MARKET)/
 	cp market/.github/workflows/market.yml $(MARKET)/.github/workflows/
 	for g in $(GAMES); do \
-		c=$(BUILD)/carts/$$g.bm; case " $(MARKET_B16) " in *" $$g "*) c=$(BUILD)/carts/$$g.b16;; esac; \
-		$(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $$c --id $$g \
-			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1; \
+		case " $(MARKET_NO_BM) " in *" $$g "*) ;; *) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/carts/$$g.bm --id $$g \
+			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1;; esac; \
+		case " $(MARKET_B16) " in *" $$g "*) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/carts/$$g.b16 --id $$g \
+			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1;; esac; \
 	done
 	$(PYTHON) scripts/mkmarket.py $(MARKET)/games --check
 # kernel7.img's start in Hyp mode, as the Pi Zero 2 W's firmware does it:

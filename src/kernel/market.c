@@ -353,6 +353,14 @@ static void adopt(catalog_t *nc)
         if (is_b16(nc->games[i].file.path))
             nc->games[k++] = nc->games[i];
     nc->n = k;
+#else
+    /* the Pi lists the .bm games; a game with a .b16 too (Overbit) is listed
+     * twice in the catalog, its .b16 is the handhelds' */
+    int k = 0;
+    for (int i = 0; i < nc->n; i++)
+        if (!is_b16(nc->games[i].file.path))
+            nc->games[k++] = nc->games[i];
+    nc->n = k;
 #endif
     slot_t *ns = calloc(nc->n ? (size_t)nc->n : 1, sizeof *ns);
     if (!ns) {

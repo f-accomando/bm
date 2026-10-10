@@ -89,7 +89,7 @@ with tempfile.TemporaryDirectory() as tmp:
     if r.returncode:
         print(r.stdout + r.stderr)
     check(os.listdir(keytmp) == [], "mkmarket: no copy of the key left behind")
-    files = sorted(os.path.relpath(os.path.join(dp, f), out) for dp, _, fs in os.walk(out) for f in fs)
+    files = sorted(os.path.relpath(os.path.join(dp, f), out).replace(os.sep, "/") for dp, _, fs in os.walk(out) for f in fs)
     check(files == ["games/plain/plain.bm", "games/pocket/pocket.b16", "games/pong-2/Pong_2.bm",
                     "games/pong-2/cover.png", "games/snake/cover.png", "games/snake/snake.bm", "index.html",
                     "index.sig", "index.txt"],
@@ -101,6 +101,20 @@ with tempfile.TemporaryDirectory() as tmp:
           "index.html: the games, with the accents of info.txt")
     sizes = [os.path.getsize(os.path.join(out, "games", g, "cover.png")) for g in ("snake", "pong-2")]
     check(all(s < 128 * 80 * 3 // 2 for s in sizes), f"covers compressed ({sizes} bytes)")
+
+    # a game with a .bm and a .b16 (Overbit): two records with one id, the Pi's and the RGB30's
+    both = os.path.join(tmp, "both")
+    shutil.copytree(games, both)
+    dual_info = "version: 1\nlicense: MIT\n"
+    game(both, "dual", "dual.bm", mkbm.pack(code, title="Dual", author="x"), dual_info)
+    game(both, "dual", "dual.b16", mkbm.pack(code, title="Dual", author="x"), dual_info)
+    r = mkmarket(both, "--check")
+    check(r.returncode == 0 and "6 games, all right" in r.stdout, "--check: a .bm and a .b16 of one game: both listed")
+    r = mkmarket(both, "-o", os.path.join(tmp, "s4"), "--key", key, "--pub", pub)
+    index4 = open(os.path.join(tmp, "s4", "index.txt"), encoding="cp437").read()
+    check(index4.count("game dual\n") == 2 and "file games/dual/dual.bm " in index4
+          and "file games/dual/dual.b16 " in index4, "index.txt: the game twice, one record per kind")
+    shutil.rmtree(both)
 
     # the refusals
     def refused(gid, name, data, info, why, what):
@@ -129,7 +143,7 @@ with tempfile.TemporaryDirectory() as tmp:
     refused("x", "x.bm", bytes(damaged), ok_info, "damaged", "damaged cartridge: refused")
     refused("x", "x.bm", b"PNG...", ok_info, "not a .bm", "not a cartridge: refused")
     refused("x", "x y.bm", good, ok_info, "file names", "a space in the file name: refused")
-    refused("x", "", None, None, "exactly one cartridge", "a folder without a cartridge: refused")
+    refused("x", "", None, None, "no cartridge", "a folder without a cartridge: refused")
     refused("x", "x.b16", mkbm.pack(code + b"--" + os.urandom(9 << 20).hex().encode()[:9 << 20], title="Huge"),
             ok_info, "more than a .b16's 8 MiB", "a .b16 over 8 MiB: refused")
     refused("x", "x.bm", mkbm.pack(code), ok_info, "no title", "no title: refused")

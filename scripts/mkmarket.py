@@ -16,7 +16,8 @@ half, keys/market-pub.pem, is built into the kernel).
                                        games, make market-seed)
 
 GAMES has one folder per game, named by its id (a-z, 0-9 and '-', at most
-23 characters), with exactly one cartridge and info.txt:
+23 characters), with its cartridges (one .bm, one .b16, or both: Overbit has
+both, the Pi lists the .bm and the RGB30 the .b16) and info.txt:
   games/snake/snake.bm
   games/snake/info.txt      version: 1.2
                             license: MIT            (required)
@@ -27,7 +28,8 @@ shows and what names the save file, so two games cannot share both.
 OUT gets:
   index.txt, index.sig     the catalog and its signature (DER)
   games/<id>/<name>.bm     the cartridges (or <name>.b16: the handhelds' ones,
-                           the same container, at most 8 MiB; the RGB30 lists only these)
+                           the same container, at most 8 MiB; the RGB30 lists only these,
+                           the Pi only the .bm; a game with both is two records with one id)
   games/<id>/cover.png     the cover (88x88; 128x80 in older cartridges), when it has one
   index.html               the same catalog for a browser
 
@@ -190,18 +192,18 @@ def console_text(s, what, limit):
 
 
 def read_game(games, gid):
-    """-> dict, or raises ValueError with what is wrong"""
+    """-> a list of dicts (one per cartridge: a .bm, a .b16, or both), or
+    raises ValueError with what is wrong"""
     if not ID_RE.match(gid):
         raise ValueError("the folder name is the id: a-z, 0-9 and '-', at most 23")
     d = os.path.join(games, gid)
     carts = [n for n in sorted(os.listdir(d)) if n.lower().endswith(CART_EXT)]
     if any(n.lower().endswith(".bme") for n in os.listdir(d)):
         raise ValueError("a project (.bme) is not a game of the Market: build its .bm first")
-    if len(carts) != 1:
-        raise ValueError(f"exactly one cartridge (.bm or .b16), found {len(carts)}")
-    name = carts[0]
-    if not FILE_RE.match(name):
-        raise ValueError(f"{name}: file names with A-Z, a-z, 0-9, '.', '_' and '-', at most 43")
+    if not carts:
+        raise ValueError("no cartridge (.bm or .b16)")
+    if len({n.lower().endswith(".b16") for n in carts}) != len(carts):
+        raise ValueError("two cartridges of the same kind: at most one .bm and one .b16")
     if not os.path.exists(os.path.join(d, "info.txt")):
         raise ValueError("no info.txt")
     info = read_info(os.path.join(d, "info.txt"))
@@ -210,18 +212,23 @@ def read_game(games, gid):
         raise ValueError(f"version {version!r}: 1-15 of A-Z, a-z, 0-9, '.', '_', '-'")
     if not lic:
         raise ValueError("license: required (MIT, CC-BY-4.0, BM Community License 1.0...)")
-    data = open(os.path.join(d, name), "rb").read()
-    try:
-        title, author, cover = check_cart(data)
-        check_b16(name, data)
-    except ValueError as e:
-        raise ValueError(f"{name}: {e}")
-    return {
-        "id": gid, "name": name, "data": data, "title": title, "author": author, "cover": cover,
-        "version": version.encode(), "license": console_text(lic, "license", LIMITS["license"]),
-        "about": console_text(info.get("about", ""), "about", LIMITS["about"]),
-        "info": info,
-    }
+    out = []
+    for name in carts:
+        if not FILE_RE.match(name):
+            raise ValueError(f"{name}: file names with A-Z, a-z, 0-9, '.', '_' and '-', at most 43")
+        data = open(os.path.join(d, name), "rb").read()
+        try:
+            title, author, cover = check_cart(data)
+            check_b16(name, data)
+        except ValueError as e:
+            raise ValueError(f"{name}: {e}")
+        out.append({
+            "id": gid, "name": name, "data": data, "title": title, "author": author, "cover": cover,
+            "version": version.encode(), "license": console_text(lic, "license", LIMITS["license"]),
+            "about": console_text(info.get("about", ""), "about", LIMITS["about"]),
+            "info": info,
+        })
+    return out
 
 
 def read_games(games):
@@ -232,16 +239,17 @@ def read_games(games):
         if gid.startswith(".") or not os.path.isdir(os.path.join(games, gid)):
             continue
         try:
-            g = read_game(games, gid)
+            gs = read_game(games, gid)
         except (ValueError, OSError, UnicodeDecodeError) as e:
             errors.append(f"{gid}: {e}")
             continue
-        who = (g["title"].lower(), g["author"].lower())
-        if who in seen:
-            errors.append(f"{gid}: same title and author as {seen[who]} (the save files would mix)")
-            continue
-        seen[who] = gid
-        out.append(g)
+        for g in gs:
+            who = (g["title"].lower(), g["author"].lower())
+            if who in seen and seen[who] != gid:
+                errors.append(f"{gid}: same title and author as {seen[who]} (the save files would mix)")
+                continue
+            seen[who] = gid
+            out.append(g)
     if len(out) > MAX_GAMES:
         errors.append(f"{len(out)} games, the console reads at most {MAX_GAMES}")
     if errors:
@@ -327,7 +335,9 @@ def add(games, path, gid, version, lic, about):
     d = os.path.join(games, gid)
     os.makedirs(d, exist_ok=True)
     name = os.path.basename(path)
-    old = [n for n in os.listdir(d) if n.lower().endswith(CART_EXT)]
+    # the other kind (a .bm next to a .b16, Overbit) stays
+    b16 = name.lower().endswith(".b16")
+    old = [n for n in os.listdir(d) if n.lower().endswith(CART_EXT) and n.lower().endswith(".b16") == b16]
     info_path = os.path.join(d, "info.txt")
     info = read_info(info_path) if os.path.exists(info_path) else {}
     same = old == [name] and open(os.path.join(d, name), "rb").read() == data
