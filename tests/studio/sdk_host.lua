@@ -697,6 +697,38 @@ key("l")
 check(status():find("map layer 1/2: main", 1, true), "l: the next layer: " .. status())
 key("c")
 check(status():find("flags of the tiles", 1, true) or sees("flags of the tiles"), "c: the flags over the map")
+key("c")
+-- the 16x16 brush (z): a tile of 2 x 2 cells (n, n + 1 and the two under them: the sheet has 32 cells a row),
+-- the cursor and the tile on even cells; Home / End: a page left / right
+check(sees("8/16"), "the map's hints: z, the brush")
+key("z")
+check(status():find("16x16", 1, true), "z: the 16x16 brush: " .. status())
+key(".", "down", " ")                    -- the next tile (2: steps of 2), down a tile (row 2)
+check(E.mget(0, 2) == 2 and E.mget(1, 2) == 3 and E.mget(0, 3) == 34 and E.mget(1, 3) == 35,
+      "space: a 16x16 tile, 2 x 2 cells: " .. E.mget(0, 2) .. " " .. E.mget(1, 2) .. " " .. E.mget(0, 3) .. " " .. E.mget(1, 3))
+key("end")
+check(sees("(80,2)"), "End: a page to the right, on an even cell")
+local function count(v) local n = 0 for _, c in pairs(mapc) do if c == v then n = n + 1 end end return n end
+local empty, before = E.mget(80, 2) == 0 and E.mget(81, 3) == 0, count(35)
+key("f")
+check(empty and E.mget(80, 2) == 2 and E.mget(81, 2) == 3 and E.mget(80, 3) == 34 and E.mget(81, 3) == 35,
+      "f: the empty area filled with 16x16 tiles: " .. tostring(empty) .. " " .. E.mget(80, 2) .. " " ..
+      E.mget(81, 2) .. " " .. E.mget(80, 3) .. " " .. E.mget(81, 3))
+local filled = count(35) - before          -- (a fill stops at 20000 cells: 5000 tiles of 2 x 2)
+check(filled > 1000 and filled <= 5000, "the fill goes far, on whole tiles: " .. filled .. " tiles")
+local odd = 0
+for k, c in pairs(mapc) do
+  if c == 35 and ((k % 4096) % 2 == 0 or (k // 4096) % 2 == 0) then odd = odd + 1 end
+end
+check(odd == 0, "the fill's tiles on even cells (" .. odd .. " corners elsewhere)")
+key("u")
+check(E.mget(80, 2) == 0 and E.mget(81, 3) == 0 and count(35) == before, "u: the fill undone")
+key("home", "x")
+check(status():find("tile 2 16x16", 1, true) or sees("tile 2 16x16"), "Home, x: back, the tile picked: " .. status())
+key("\b")
+check(E.mget(0, 2) == 0 and E.mget(1, 3) == 0, "Backspace: the 2 x 2 cells cleared")
+key("z")
+check(status():find("8x8", 1, true), "z again: 8x8: " .. status())
 key("f3")
 check(sees("SPRITES"), "F3 again: the sprites")
 

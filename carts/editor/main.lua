@@ -1562,16 +1562,35 @@ do
   local mx, my, vx0, vy0 = 0, 0, 0, 0    -- cursor cell, top-left cell of the view
   local tile, picking = 1, false
   local layer, only, show_flags = 1, false, false   -- the layer edited; drawn alone; the flags over it
+  -- big (z): the 16x16 brush, a tile of 2 x 2 cells (n, n + 1 and the two under them on the sheet), as the
+  -- 16x16 tiles of a big world (Yharnam's): the cursor and the tile on even cells
+  local big = false
   local m_undo, m_stroke = {}, nil
   local VIEW_Y = 48
   local VIEW_CW, VIEW_CH = W // 8, (HINT_Y - VIEW_Y) // 8
 
   local function set_cell(x, y, v)
+    if x < 0 or y < 0 or x >= S.map_w or y >= S.map_h then return end
     local old = mget(x, y, layer)
     if old == v then return end
     if m_stroke then m_stroke[#m_stroke + 1] = { x, y, old, layer } end
     mset(x, y, v, layer)
     touched()
+  end
+
+  -- the cells the brush puts for tile t: { dx, dy, cell }
+  local function brush(t)
+    if not big then return { { 0, 0, t } } end
+    local c = S.sheet_w // 8
+    return { { 0, 0, t }, { 1, 0, t + 1 }, { 0, 1, t + c }, { 1, 1, t + c + 1 } }
+  end
+
+  -- with the 16x16 brush, the cursor and the tile on even cells
+  local function even()
+    if not big then return end
+    local c = S.sheet_w // 8
+    mx, my = mx - mx % 2, my - my % 2
+    tile = (tile // c) // 2 * 2 * c + (tile % c) // 2 * 2
   end
 
   -- the next layer; add: a new one after the last (up to 8)
@@ -1593,18 +1612,29 @@ do
     say(string.format("map layer %d/%d: %s   (map(..., \"%s\"))", layer, #names, names[layer], names[layer]), C.ACC)
   end
 
+  -- the fill: the brush's cells over the area of what is under it (with the 16x16 brush, the 2 x 2 tiles
+  -- equal to the one under the cursor)
   local function map_fill(x0, y0)
-    local target = mget(x0, y0, layer)
-    if target == tile then return end
+    local b, s = brush(tile), big and 2 or 1
+    local target, same = {}, true
+    for i, e in ipairs(b) do
+      target[i] = mget(x0 + e[1], y0 + e[2], layer)
+      if target[i] ~= e[3] then same = false end
+    end
+    if same then return end
     local stack, count = { { x0, y0 } }, 0
     while #stack > 0 and count < 20000 do
       local p = table.remove(stack)
       local x, y = p[1], p[2]
-      if x >= 0 and y >= 0 and x < S.map_w and y < S.map_h and mget(x, y, layer) == target then
-        set_cell(x, y, tile)
-        count = count + 1
-        stack[#stack + 1] = { x + 1, y }; stack[#stack + 1] = { x - 1, y }
-        stack[#stack + 1] = { x, y + 1 }; stack[#stack + 1] = { x, y - 1 }
+      local ok = x >= 0 and y >= 0 and x + s <= S.map_w and y + s <= S.map_h
+      for i, e in ipairs(b) do
+        if ok and mget(x + e[1], y + e[2], layer) ~= target[i] then ok = false end
+      end
+      if ok then
+        for _, e in ipairs(b) do set_cell(x + e[1], y + e[2], e[3]) end
+        count = count + #b
+        stack[#stack + 1] = { x + s, y }; stack[#stack + 1] = { x - s, y }
+        stack[#stack + 1] = { x, y + s }; stack[#stack + 1] = { x, y - s }
       end
     end
   end
@@ -1617,36 +1647,49 @@ do
   end
 
   local function act(a)
+    local s = big and 2 or 1               -- a step of the cursor: a cell, or a 16x16 tile
+    local cols = S.sheet_w // 8
     if picking then
-      local cols = S.sheet_w // 8
-      if a == "left" then tile = max(0, tile - 1)
-      elseif a == "right" then tile = tile + 1
-      elseif a == "up" then tile = max(0, tile - cols)
-      elseif a == "down" then tile = tile + cols
+      if a == "left" then tile = max(0, tile - s)
+      elseif a == "right" then tile = tile + s
+      elseif a == "up" then tile = max(0, tile - cols * s)
+      elseif a == "down" then tile = tile + cols * s
       elseif a == "paint" or a == "ok" or a == "focus" then picking = false end
       tile = min(tile, cols * (S.sheet_h // 8) - 1)
+      even()
       return
     end
-    if a == "left" then mx = mx - 1 elseif a == "right" then mx = mx + 1
-    elseif a == "up" then my = my - 1 elseif a == "down" then my = my + 1
+    if a == "left" then mx = mx - s elseif a == "right" then mx = mx + s
+    elseif a == "up" then my = my - s elseif a == "down" then my = my + s
     elseif a == "pgup" then my = my - VIEW_CH elseif a == "pgdn" then my = my + VIEW_CH
-    elseif a == "paint" then m_stroke = m_stroke or {}; set_cell(mx, my, tile)
-    elseif a == "erase" then m_stroke = {}; set_cell(mx, my, 0); end_stroke()
+    elseif a == "pgleft" then mx = mx - VIEW_CW elseif a == "pgright" then mx = mx + VIEW_CW
+    elseif a == "paint" then
+      m_stroke = m_stroke or {}
+      for _, e in ipairs(brush(tile)) do set_cell(mx + e[1], my + e[2], e[3]) end
+    elseif a == "erase" then
+      m_stroke = {}
+      for _, e in ipairs(brush(tile)) do set_cell(mx + e[1], my + e[2], 0) end
+      end_stroke()
     elseif a == "pick" then tile = mget(mx, my, layer)
     elseif a == "fill" then m_stroke = {}; map_fill(mx, my); end_stroke()
+    elseif a == "size" then
+      big = not big
+      say(big and "16x16: a tile of 2 x 2 cells, on even cells" or "8x8: one cell")
     elseif a == "layer" then next_layer()
     elseif a == "newlayer" then next_layer(true)
     elseif a == "only" then only = not only; say(only and "this layer only" or "every layer")
     elseif a == "flags" then show_flags = not show_flags; say(show_flags and "the flags of the tiles (fget)" or "flags hidden")
-    elseif a == "next" then tile = tile + 1 elseif a == "prev" then tile = max(0, tile - 1)
+    elseif a == "next" then tile = tile + s elseif a == "prev" then tile = max(0, tile - s)
     elseif a == "undo" then
       local u = table.remove(m_undo)
       if u then for i = #u, 1, -1 do mset(u[i][1], u[i][2], u[i][3], u[i][4]) end; touched(); say("undo") end
     elseif a == "focus" then picking = true end
-    mx = clamp(mx, 0, S.map_w - 1)
-    my = clamp(my, 0, S.map_h - 1)
-    if mx < vx0 then vx0 = mx elseif mx >= vx0 + VIEW_CW then vx0 = mx - VIEW_CW + 1 end
-    if my < vy0 then vy0 = my elseif my >= vy0 + VIEW_CH then vy0 = my - VIEW_CH + 1 end
+    s = big and 2 or 1
+    mx = clamp(mx, 0, max(0, S.map_w - s))
+    my = clamp(my, 0, max(0, S.map_h - s))
+    even()
+    if mx < vx0 then vx0 = mx elseif mx + s > vx0 + VIEW_CW then vx0 = mx + s - VIEW_CW end
+    if my < vy0 then vy0 = my elseif my + s > vy0 + VIEW_CH then vy0 = my + s - VIEW_CH end
   end
 
   local function draw()
@@ -1673,15 +1716,16 @@ do
         end
       end
     end
+    local n = big and 16 or 8                -- the brush, in pixels
     local x, y = (mx - vx0) * 8, VIEW_Y + (my - vy0) * 8
-    rect(x - 1, y - 1, 10, 10, (S.frame // 10) % 2 == 0 and 0xFFFFFF or C.ACC)
+    rect(x - 1, y - 1, n + 2, n + 2, (S.frame // 10) % 2 == 0 and 0xFFFFFF or C.ACC)
     clip()
-    strip(0, "MAP", string.format("(%d,%d) = %d   tile %d   layer %d/%d %s", mx, my, mget(mx, my, layer), tile, layer,
-                                  #names, names[layer]),
+    strip(0, "MAP", string.format("(%d,%d) = %d   tile %d%s   layer %d/%d %s", mx, my, mget(mx, my, layer), tile,
+                                  big and " 16x16" or "", layer, #names, names[layer]),
           picking and "choosing the tile: arrows, then Enter" or
-          "F3 again: the sprites   tab: the tile   l / L: next / new layer   c: flags")
-    rectfill(W - 28, 20, 8, 8, 0x000000)
-    spr(tile, W - 28, 20)
+          "F3 again: the sprites   tab: the tile   z: 8/16   l / L: next / new layer   c: flags")
+    rectfill(W - 20 - n, 20, n, n, 0x000000)
+    spr(tile, W - 20 - n, 20, n // 8, n // 8)
     if picking then
       local cols = S.sheet_w // 8
       local vw, vh = min(256, S.sheet_w), min(224, S.sheet_h)
@@ -1694,17 +1738,18 @@ do
       rectfill(ox - 8, oy - 8, vw + 16, vh + 16, C.PANEL)
       checker(ox, oy, vw, vh, 4)
       sspr(scx, scy, vw, vh, ox, oy)
-      rect(ox + tx - scx - 1, oy + ty - scy - 1, 10, 10, C.ACC)
+      rect(ox + tx - scx - 1, oy + ty - scy - 1, n + 2, n + 2, C.ACC)
     end
     hint({ { "space", "A", "place" }, { "backspace", nil, "clear" }, { "x", "B", "pick" }, { "f", nil, "fill" },
-           { "tab", "Y", "tiles" }, { ",", "X", "tile" }, { "l", nil, "layer" }, { "c", nil, "flags" },
-           { "u", nil, "undo" } })
+           { "tab", "Y", "tiles" }, { ",", "X", "tile" }, { "z", nil, "8/16" }, { "l", nil, "layer" },
+           { "c", nil, "flags" }, { "u", nil, "undo" } })
   end
 
   local function status()
     local names = mlayers()
-    return picking and "choosing a tile" or string.format("(%d,%d) = %d  tile %d  layer %d/%d %s", mx, my,
-                                                          mget(mx, my, layer), tile, layer, #names, names[layer] or "")
+    return picking and "choosing a tile" or string.format("(%d,%d) = %d  tile %d%s  layer %d/%d %s", mx, my,
+                                                          mget(mx, my, layer), tile, big and " 16x16" or "", layer,
+                                                          #names, names[layer] or "")
   end
 
   -- the mouse: the left button places the tile (held: it goes on), the
@@ -1719,6 +1764,7 @@ do
           local t = z.a
           local cols = S.sheet_w // 8
           tile = clamp(((t.scy + U.y - t.oy) // 8) * cols + (t.scx + U.x - t.ox) // 8, 0, cols * (S.sheet_h // 8) - 1)
+          even()
         end
         picking = false
       end
@@ -1740,24 +1786,25 @@ do
     if U.down(0) or U.pressed(2) then
       mx = clamp(vx0 + U.x // 8, 0, S.map_w - 1)
       my = clamp(vy0 + (U.y - VIEW_Y) // 8, 0, S.map_h - 1)
+      even()
       act(U.pressed(2) and "pick" or "paint")
     end
   end
 
   local function menu_items()
-    return { { "Pick the tile", "x" }, { "Clear", "\b" }, { "Fill", "f" }, { "Tiles...", "\t" }, "-",
-             { "Next layer", "l" }, { "New layer", "L" }, { "This layer only", "o" }, { "Flags", "c" }, "-",
-             { "Undo", "u" } }
+    return { { "Pick the tile", "x" }, { "Clear", "\b" }, { "Fill", "f" }, { "Tiles...", "\t" },
+             { "8x8 / 16x16", "z" }, "-", { "Next layer", "l" }, { "New layer", "L" }, { "This layer only", "o" },
+             { "Flags", "c" }, "-", { "Undo", "u" } }
   end
 
   P.map = { act = act, draw = draw, status = status, end_stroke = end_stroke, mouse = mouse, menu_items = menu_items,
             new_layer = function() next_layer(true) end,
             stroking = function() return m_stroke ~= nil end,
-            state = function() return { mx = mx, my = my } end,
-            restore = function(t) if t then mx, my = t.mx or 0, t.my or 0; act("none") end end,
+            state = function() return { mx = mx, my = my, big = big } end,
+            restore = function(t) if t then mx, my, big = t.mx or 0, t.my or 0, t.big or false; act("none") end end,
             reset = function()
               mx, my, vx0, vy0, m_undo, m_stroke, picking = 0, 0, 0, 0, {}, nil, false
-              layer, only, show_flags = 1, false, false
+              layer, only, show_flags, big = 1, false, false, false
             end }
 end
 
@@ -2363,7 +2410,8 @@ local function page_key(k)
     if a and a ~= "pgup" and a ~= "pgdn" then P.sprite.act(a) end
     if k ~= " " then P.sprite.stop() end
   else
-    local a = SPRITE_KEYS[k] or ({ l = "layer", L = "newlayer", o = "only", c = "flags" })[k]
+    local a = SPRITE_KEYS[k] or ({ l = "layer", L = "newlayer", o = "only", c = "flags", home = "pgleft",
+                                   ["end"] = "pgright" })[k]
     if a then P.map.act(a) end
     if k ~= " " then P.map.end_stroke() end
   end
@@ -2418,12 +2466,14 @@ local HELP = {
   },
   map = {
     { "up down left right", "move" },
-    { "pgup / pgdn", "move a page" },
+    { "pgup / pgdn", "move a page up / down" },
+    { "home / end", "move a page left / right" },
     { "space / backspace", "place the tile / clear the cell" },
     { "x", "pick the tile" },
     { "f", "fill" },
     { ", / .", "tile before / after" },
     { "tab", "choose the tile" },
+    { "z", "8x8 / 16x16: a tile of 2 x 2 cells" },
     { "u", "undo" },
     { "l / shift l", "the next layer / a new one" },
     { "o", "this layer only / every layer" },
