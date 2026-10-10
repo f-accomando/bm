@@ -791,6 +791,9 @@ con `BMHOST_NET_ID=0` e `1` sono due console (`make test-bmnet`).
   il 3D nell'ultimo fotogramma. F11 tre volte, la pagina delle **funzioni**: le dieci che
   costano di più (ms per fotogramma: il loro tempo e con quelle che chiamano); si
   comincia a ottimizzare dalla prima.
+  Per i blocchi che non si vedono in tempo, il dev kit scrive a fine partita il report
+  dell'ultima sessione nei reports (`session_<gioco>_<scheda>.txt`, sostituito a ogni nuova
+  partita): i fotogrammi più lunghi, con quanto è di `_update`, di `_draw` e quanto no.
 - **Debugger** (bm Code): F8 mette un punto di interruzione sulla riga, F5 prova il gioco
   che si ferma lì e mostra le variabili e la pila; F10 la riga dopo, F8 dentro una
   chiamata, Shift+F8 fuori, F5 continua, Esc ferma (si torna sulla riga). Dal codice

@@ -1371,6 +1371,17 @@ console, un giocatore che esce; sulla LAN e attraverso il relay.
   per vedere dove va il tempo). Il profiler gira solo con questa pagina o `profile(true)`;
   spento non costa niente. Dal codice: `profile()` (sotto).
 
+- Il **report dell'ultima sessione** (2026-10-10): a fine partita il dev kit scrive nei
+  reports un file solo per gioco, `reports/<branch>/session_<gioco>_<scheda>.txt`, che la
+  partita dopo dello stesso gioco **sostituisce**. Dentro: schermo, fotogrammi e fps, tempo
+  medio e massimo di `_update` + `_draw`, memoria, e il tempo **da un'immagine alla
+  successiva** in sei classi (fino a 18 ms, 25, 34, 50, 100, oltre) più i 12 fotogrammi più
+  lunghi con le loro parti (`cpu`, `upd`, `draw`, 3D, copia e `outside`: il tempo che non è di
+  nessuno di loro, la scheda SD, la GPU, la macchina). Così un blocco di mezzo secondo non
+  si perde più dopo i 64 fotogrammi dell'overlay. Parte dal menu quando c'è rete. In
+  `bm/config.txt`: `session_report=0` mai, `=1` sempre; senza la riga, solo se c'è
+  `github_token`.
+
   Sugli schermi grandi è più grande (×2 da 1280 di larghezza, ×3 a 1920). Dal codice:
   `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`, `devkit()`,
   `profile()`. Il

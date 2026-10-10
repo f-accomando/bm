@@ -786,6 +786,9 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
   detailed page: how long `_update`, `_draw` and the 3D took in the last frame. F11 three
   times, the **functions** page: the ten that cost the most (ms a frame: their own time and
   with what they call); start optimising from the first.
+  For stalls you cannot catch in time, at the end of a run the dev kit writes the last
+  session's report into the reports (`session_<game>_<board>.txt`, replaced by every new run):
+  the longest frames, and how much of each is `_update`, `_draw` and how much neither.
 - **Debugger** (bm Code): F8 puts a breakpoint on the line, F5 tries the game, which stops
   there and shows the variables and the stack; F10 the next line, F8 into a call, Shift+F8
   out, F5 goes on, Esc stops (back on the line). From the code `breakpoint("why")` stops the

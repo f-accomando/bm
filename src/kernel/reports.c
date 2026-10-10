@@ -144,6 +144,7 @@ static int send_one(const char *path, int quiet)
         .api = cfg("github_api", "https://api.github.com"), .token = token,
         .repo = cfg("report_repo", "f-accomando/bm"), .branch = cfg("report_branch", "reports"),
         .path = repo_path, .data = data, .len = len, .message = msg, .progress = quiet ? NULL : progress,
+        .replace = !strcmp(r.kind, "session"),
     };
     put_tried = 1;
     int rc = github_put(&p, url, sizeof url, err, sizeof err);
@@ -188,7 +189,7 @@ static void mask_secrets(char *text, size_t len)
     mask(text, len, netcon_password());
 }
 
-int reports_text(const char *kind, const char *text, size_t len)
+static int save_report(const char *kind, const char *fixed, const char *text, size_t len)
 {
     report_info_t r;
     memset(&r, 0, sizeof r);
@@ -203,6 +204,8 @@ int reports_text(const char *kind, const char *text, size_t len)
     rng_read(&rnd, sizeof rnd);
     ksnprintf(tag, sizeof tag, "%06lx", (unsigned long)(rnd & 0xFFFFFF));
     report_file_name(&r, tag);
+    if (fixed)                          /* the last session's: the same name every time, replaced */
+        ksnprintf(r.file, sizeof r.file, "%s.txt", fixed);
 
     char head[512];
     size_t hl = report_header(head, sizeof head, &r);
@@ -230,9 +233,25 @@ int reports_text(const char *kind, const char *text, size_t len)
     const char *up = config_get("report_upload");
     if (up && !strcmp(up, "0"))
         ksnprintf(last, sizeof last, "on the SD card (report_upload=0)");
-    else if (send(path, 0) != 0)
+    else if (fixed) {                   /* a game has just ended: the menu sends it, without a wait here */
+        ksnprintf(last, sizeof last, "on the SD card: goes from the menu");
+        auto_check = 1;
+    } else if (send(path, 0) != 0)
         kprintf("report: %s\n", last);
     return 0;
+}
+
+int reports_text(const char *kind, const char *text, size_t len)
+{
+    return save_report(kind, NULL, text, len);
+}
+
+int reports_session(const char *game, const char *text, size_t len)
+{
+    char slug[40], fixed[96];
+    report_slug(slug, sizeof slug, game);
+    ksnprintf(fixed, sizeof fixed, "session_%s_%s", slug, board_name());
+    return save_report("session", fixed, text, len);
 }
 
 void reports_begin(const char *kind)

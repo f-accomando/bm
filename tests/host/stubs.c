@@ -630,6 +630,12 @@ lua_State *luavm_newstate(void)
 
 size_t luavm_mem(void) { return mem_used; }
 
+int reports_session(const char *game, const char *text, size_t len)
+{
+    (void)game;
+    return reports_text("session", text, len);
+}
+
 /* the reports (src/kernel/reports.c): BMHOST_REPORTS=dir keeps them there as
  * <kind>.txt; the log says so either way */
 int reports_text(const char *kind, const char *text, size_t len)

@@ -122,7 +122,8 @@ local function watch(name, ticks, swing, ph)
       r.moves = r.moves + 1
       r.seen[act] = true
       if t_end then r.gaps[#r.gaps + 1] = t - t_end end
-      if last and t_end and t - t_end <= 13 then r.pats[last .. "+" .. act] = true end   -- a pattern: 4-12 ticks
+      -- a pattern: 4-12 ticks after the move before; a boss's, 24-40 (AI.BOSS_LINK: a pause to read it)
+      if last and t_end and t - t_end <= (o.boss and 41 or 13) then r.pats[last .. "+" .. act] = true end
       t_start, last = t, act
     end
     if o.back > 0 and bk == 0 and o.backsp == 1 then r.backs = r.backs + 1 end
@@ -217,8 +218,9 @@ for _, f in ipairs(Y.FOES) do
   if f.boss then
     local prev
     for ph = 1, 3 do
-      local r = watch(f.name, 1800, false, ph)
-      local b = watch(f.name, 1800, true, ph)
+      -- a boss rests longer between its moves (AI.BOSS_REST): a longer watch for the same patterns
+      local r = watch(f.name, 3600, false, ph)
+      local b = watch(f.name, 3600, true, ph)
       r.dodges, r.counters = b.dodges, b.counters
       local mv, pt = {}, {}
       for k in pairs(r.seen) do mv[#mv + 1] = k end

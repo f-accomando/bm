@@ -116,13 +116,17 @@ devkit() dà il modo dell'overlay: 0 spento, 1 semplice, 2 dettagliato
 (ogni fase del fotogramma, la GPU, i triangoli), 3 funzioni (le dieci che
 costano di più); devkit(modo) lo cambia, per esempio con Select sul pad
 (F11 è della tastiera). devinfo(riga, ...) mette fino a 4 righe del gioco
-nella pagina dettagliata.
+nella pagina dettagliata. A fine partita il dev kit scrive nei reports
+l'ultima sessione (session_gioco_scheda.txt, sostituito a ogni nuova
+partita): i fotogrammi più lunghi e le loro parti, per trovare i blocchi.
 text_en:
 devkit() gives the overlay's mode: 0 off, 1 simple, 2 detailed
 (every phase of the frame, the GPU, the triangles), 3 functions (the ten
 that cost the most); devkit(mode) changes it, for example with Select on
 the pad (F11 is the keyboard's). devinfo(line, ...) puts up to 4 lines of
-the game on the detailed page.
+the game on the detailed page. At the end of a run the dev kit writes the
+last session to the reports (session_game_board.txt, replaced by every new
+run): the longest frames and their parts, to find the freezes.
 code:
 local enemies = {}
 if btnp(9) then devkit((devkit() + 1) % 4) end   -- Select

@@ -468,6 +468,8 @@ int main(int argc, char **argv)
     if (run.video)
         fclose(run.video);
     prof_report();
+    if (getenv("BMHOST_REPORTS"))       /* the session report (BMHOST_CONFIG=session_report=1) */
+        bm_print_stats(&st);
     fprintf(stderr, "bmhost: \"%s\" %ld frames, %s, a frame takes %.3f ms on this PC "
                     "(max %.3f), %u KiB of Lua, %.1f s\n",
             st.title, run.frame, st.ok ? "ok" : "ERROR",

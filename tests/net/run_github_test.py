@@ -254,10 +254,10 @@ W.fail_put = False
 # the reports: github_put on the reports branch of the bm repository
 
 
-def put(token, branch, path, data):
+def put(token, branch, path, data, replace=False):
     with tempfile.NamedTemporaryFile(delete=False) as f:
         f.write(data)
-    r = subprocess.run([sys.argv[1], "put", port, token, BM, branch, path, f.name],
+    r = subprocess.run([sys.argv[1], "put", port, token, BM, branch, path, f.name] + (["replace"] if replace else []),
                        capture_output=True, text=True, timeout=60)
     os.remove(f.name)
     m = re.search(r"^(url|error) (.*)$", r.stdout, re.M)
@@ -285,6 +285,12 @@ kind, what, out = put("tok-owner", "reports", path, report)
 check(kind == "url" and what == f"https://github.com/{BM}/blob/reports/{path}" and "was there already" in out
       and bm["reports"][path] == report and len(W.messages) == n_msgs,
       f"report: sent again, already there ({kind} {what})")
+# the last session's report: the same file every run, the new one in its place
+spath = "reports/bm-core/session_yharnam_pi-zero-w.txt"
+kind, what, _ = put("tok-owner", "reports", spath, b"run 1", True)
+check(kind == "url" and bm["reports"].get(spath) == b"run 1", f"session report: the first run ({what})")
+kind, what, _ = put("tok-owner", "reports", spath, b"run 2", True)
+check(kind == "url" and bm["reports"].get(spath) == b"run 2", f"session report: the next run replaces it ({what})")
 kind, what, _ = put("tok-nobody", "reports", "reports/x/y.txt", b"x")
 check(kind == "error" and "the token is not valid" in what, f"report: bad token ({what})")
 srv.shutdown()

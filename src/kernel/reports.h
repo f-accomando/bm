@@ -25,6 +25,11 @@ void reports_end(void);
  * 0 saved (and sent if it could), -1 not even saved. */
 int reports_text(const char *kind, const char *text, size_t len);
 
+/* The dev kit's report of the last session of a game or tool (2026-10-10):
+ * always the same file, reports/<branch>/session_<game>_<board>.txt, which
+ * a new run of the same game replaces. 0 saved, -1 not even saved. */
+int reports_session(const char *game, const char *text, size_t len);
+
 /* The reports still on the SD card sent now: how many are left. */
 int reports_send_pending(void);
 /* How many wait on the SD card. */

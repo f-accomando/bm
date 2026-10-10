@@ -34,7 +34,7 @@ int github_publish(const gh_publish_t *p, char *url, size_t url_len, char *err, 
 
 /* A file put on a branch of a repository (the console's reports): the
  * branch is made from the repository's main one if it is not there; the
- * file must be new. */
+ * file must be new, unless `replace`. */
 typedef struct {
     const char *api, *token;
     const char *repo;           /* "f-accomando/bm" */
@@ -44,6 +44,7 @@ typedef struct {
     size_t len;
     const char *message;        /* the commit's */
     void (*progress)(const char *step);     /* a line for the screen, or NULL */
+    int replace;                /* 1: a file there already is replaced (the last session's report) */
 } gh_put_t;
 
 /* 0 and the file's address on GitHub in url, or -1 with err. */

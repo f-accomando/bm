@@ -3311,6 +3311,9 @@ do
   -- its moves by weight, "a+b" a pattern (b at once after a; it comes after
   -- the hunter for b), "" a few steps closer. A new phase begins with a
   -- roar (the hound howls): a moment to strike
+  -- the rest between a boss's moves (BOSS_REST times its wait) and between
+  -- the two moves of a pattern (BOSS_LINK ticks): time to read it and answer
+  AI.BOSS_REST, AI.BOSS_LINK = 1.8, { 24, 40 }
   AI.BOSS = {
     butcher = {
       { rate = 0.9, wait = { 70, 110 }, hold = { 0.5, 12, 22 }, keep = 36,
@@ -3505,7 +3508,9 @@ do
         local nxt = o.queue and table.remove(o.queue, 1)
         if o.queue and #o.queue == 0 then o.queue = nil end
         if nxt then
-          o.next, o.cd, o.chase = nxt, 4 + math.random(8), 0          -- the pattern goes on
+          -- the pattern goes on: a boss pauses between the blows of a pattern (a moment to read it and step away)
+          o.next, o.cd, o.chase = nxt, o.boss and AI.BOSS_LINK[1] + math.random(0, AI.BOSS_LINK[2] - AI.BOSS_LINK[1])
+                                           or 4 + math.random(8), 0
         elseif was == "hurt" then
           o.cd = max(o.cd, 20 + math.random(20))
         elseif S.chain and was == "attack" and o.chained < (S.chains or 1) and dd < st.reach + 10 and
@@ -3515,7 +3520,8 @@ do
         else
           local tired = S.tired and o.chained >= (S.chains or 1)
           o.chained = 0
-          o.cd = (S.wait[1] + math.random(0, S.wait[2] - S.wait[1])) / o.agg + (tired and S.tired or 0)
+          o.cd = (S.wait[1] + math.random(0, S.wait[2] - S.wait[1])) * (o.boss and AI.BOSS_REST or 1) / o.agg +
+                 (tired and S.tired or 0)
           if S.back then o.back, o.backsp = S.back, 1 end
         end
       end
@@ -4090,7 +4096,8 @@ local function update_play()
     elseif r1p and P.st > 0 then
       heavy(dx, dy)
     elseif btnp(6) then
-      if P.moving then P.dir = DIRS[dy][dx] end
+      -- locked on: the shot goes to the target whatever the arrows say
+      if P.lock then aim_at(0) elseif P.moving then P.dir = DIRS[dy][dx] end
       if P.moving then P.act = "shoot"; play(xname("shoot")) else shoot() end
     elseif btnp(7) then
       P.act = P.ext and "close" or "open"
@@ -4201,6 +4208,7 @@ local function update_play()
     if done then P.act, P.vic, P.inv = nil, nil, 0 end
   elseif act == "shoot" then
     local done = step_anim()
+    if P.lock then P.dir = FOE.dir_to(P.lock.x - P.x, P.lock.y - P.y) end   -- the muzzle stays on the target
     if P.newf and P.f == HUNT[P.anim].fire then fire() end
     if done then P.act = nil end
   elseif act == "open" or act == "close" then

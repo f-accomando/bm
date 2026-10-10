@@ -1360,6 +1360,16 @@ consoles, a player leaving; on the LAN and through the relay.
   where the time goes). The profiler runs only with this page or `profile(true)`; off it
   costs nothing. From the code: `profile()` (below).
 
+- The **last session's report** (2026-10-10): when a game ends the dev kit writes one file
+  per game into the reports, `reports/<branch>/session_<game>_<board>.txt`, which the next
+  run of the same game **replaces**. In it: screen, frames and fps, the mean and most time
+  of `_update` + `_draw`, memory, and the time **from one picture to the next** in six
+  classes (up to 18 ms, 25, 34, 50, 100, more) with the 12 longest frames and their parts
+  (`cpu`, `upd`, `draw`, 3D, copy and `outside`: the time that is none of them, the SD
+  card, the GPU, the machine). A half-second freeze is no longer lost after the overlay's 64
+  frames. It goes from the menu when there is a network. `bm/config.txt`:
+  `session_report=0` never, `=1` always; without the line, only with a `github_token`.
+
   On the big screens it is bigger (x2 from 1280 wide, x3 at 1920). From the code:
   `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`, `devkit()`,
   `profile()`. The

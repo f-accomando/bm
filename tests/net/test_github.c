@@ -97,6 +97,7 @@ static int put(char **argv)
     gh_put_t p = {
         .api = api, .token = argv[3], .repo = argv[4], .branch = argv[5], .path = argv[6],
         .data = data, .len = len, .message = "report gpu from Pi Zero W (v1, bm-core)", .progress = progress,
+        .replace = argv[8] && !strcmp(argv[8], "replace"),
     };
     if (github_put(&p, url, sizeof url, err, sizeof err) == 0)
         printf("url %s\n", url);
@@ -107,7 +108,7 @@ static int put(char **argv)
 
 int main(int argc, char **argv)
 {
-    if (argc == 8 && !strcmp(argv[1], "put"))
+    if (argc >= 8 && !strcmp(argv[1], "put"))
         return put(argv);
     if (argc < 9)
         return 2;

@@ -7906,6 +7906,51 @@ static void perf_funcs(g16_t *g, int x, int y, int z)
     }
 }
 
+/* The session report (2026-10-10, the user's request: the freezes on the
+ * RGB30 had no trace once the overlay's 64 frames had gone by). The dev kit
+ * keeps, for the run of a game or tool, how long each frame really lasted
+ * (from one picture on screen to the next, so a stall OUTSIDE _update and
+ * _draw shows too: the card, the GPU, the machine) in a few classes, and
+ * the worst frames with their parts. At the end of the run it goes to the
+ * reports as one file that the next run of the same game replaces:
+ * reports/<branch>/session_<game>_<board>.txt. bm/config.txt session_report:
+ * 0 never, 1 always; without it, when there is a github_token. */
+#define SESS_WORST 12
+#define SESS_CLASSES 6
+typedef struct {
+    uint32_t frame, at_ms, wall_us, cpu_us, upd_us, draw_us, us3d, copy_us, instr_k, lua_kb, updates;
+} sess_frame_t;
+static struct {
+    uint32_t hist[SESS_CLASSES];        /* <= 18, 25, 34, 50, 100 ms, more */
+    sess_frame_t worst[SESS_WORST];     /* the longest first */
+    int n;
+    int w, h;                           /* the screen of the run */
+} sess;
+static const uint32_t sess_limit_us[SESS_CLASSES - 1] = { 18000, 25000, 34000, 50000, 100000 };
+
+static void sess_frame(uint32_t wall_us)
+{
+    int c = 0;
+    while (c < SESS_CLASSES - 1 && wall_us > sess_limit_us[c])
+        c++;
+    sess.hist[c]++;
+    if (wall_us <= 18000 || (sess.n == SESS_WORST && wall_us <= sess.worst[SESS_WORST - 1].wall_us))
+        return;
+    int i = sess.n < SESS_WORST ? sess.n++ : SESS_WORST - 1;
+    while (i > 0 && sess.worst[i - 1].wall_us < wall_us) {
+        sess.worst[i] = sess.worst[i - 1];
+        i--;
+    }
+    sess.worst[i] = (sess_frame_t){
+        .frame = (uint32_t)rt.frame, .at_ms = (timer_ticks() - rt.start_us) / 1000, .wall_us = wall_us,
+        .cpu_us = rt.last_cpu_us, .upd_us = rt.update_us, .draw_us = rt.draw_us, .us3d = rt.us3d,
+        .copy_us = rt.present_us, .instr_k = rt.last_instr_k, .lua_kb = (uint32_t)(luavm_mem() / 1024),
+        .updates = rt.updates,
+    };
+}
+
+static void sess_reset(void) { memset(&sess, 0, sizeof sess); }
+
 static void perf_frame(void)
 {
     uint32_t i = perf.at++ % PERF_N;
@@ -8167,7 +8212,10 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
             st->cpu_us_max = rt.last_cpu_us;
         st->tris3d = rt.r3d_ready ? rt.r3d.tris_drawn : 0;
         crumb_frame(rt.frame);
+        const uint32_t shown_before = prev;
         present(fb, &deadline, &prev, &st->dropped);
+        if (rt.frame > 1)
+            sess_frame(prev - shown_before);
         st->copy_us_total += rt.present_us;
         if (rt.want_w && screen_apply(fb, L) != 0) {
             error = "not enough memory for the screen";
@@ -8194,6 +8242,8 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     st->slow = rt.slow_frames;
     st->tokens = (uint32_t)rt.tokens;
     st->gpu3d = rt.r3d_ready && rt.r3d.backend != NULL;
+    sess.w = rt.g.w;
+    sess.h = rt.g.h;
     st->d2_ops = d2.ops;
     st->ok = error == NULL;
 
@@ -8316,6 +8366,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     rt.hook_count = 0;
     rt.tokens = lua_tokens(cart.lua, cart.lua_size);
     perf.at = 0;                        /* the overlay: this cartridge's frames only */
+    sess_reset();                       /* and the session report's */
     perf_on = perf_user;                /* and as Settings has it */
     dbg_begin(L, cart.lua, cart.lua_size);  /* a game tried from a tool: the debugger (R13) */
     chunk_reader_t rd = { cart.lua, cart.lua_size };
@@ -8398,6 +8449,70 @@ void bm_close_suspended(void)
     susp.L = NULL;
 }
 
+/* ms with one decimal, from microseconds ("16.7") */
+#define MS1(us) (unsigned long)((us) / 1000), (unsigned long)((us) % 1000 / 100)
+
+static int session_wanted(void)
+{
+    const char *v = config_get("session_report");
+    if (v && v[0])
+        return v[0] != '0';
+    const char *t = config_get("github_token");
+    return t && t[0];
+}
+
+/* the run just ended: its frames, as a text for the reports */
+static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
+{
+    if (st->frames < 30 || !session_wanted())
+        return;
+    char *t = malloc(6144);
+    if (!t)
+        return;
+    size_t n = 0;
+#define PUT(...) do { if (n < 6144) n += (size_t)ksnprintf(t + n, 6144 - n, __VA_ARGS__); } while (0)
+    const uint32_t ms = st->elapsed_us / 1000, fps10 = ms ? st->frames * 10000u / ms : 0;
+    const uint32_t avg = st->cpu_us_total / st->frames;
+    PUT("session of \"%s\" (the last one: the next run of this game replaces this file)\n", st->title);
+    PUT("screen %dx%d, %lu frames in %lu.%lu s, %lu.%lu fps\n", sess.w, sess.h, (unsigned long)st->frames,
+        (unsigned long)(ms / 1000), (unsigned long)(ms % 1000 / 100), (unsigned long)(fps10 / 10),
+        (unsigned long)(fps10 % 10));
+    PUT("3D: %s\n", st->gpu3d ? "GPU" : "ARM or none");
+    PUT("\ntime of _update + _draw (+ the 3D's wait): avg %lu.%lu ms, max %lu.%lu ms, %lu frames over 16.7 ms\n",
+        MS1(avg), MS1(st->cpu_us_max), (unsigned long)st->slow);
+    PUT("memory: Lua peak %lu KiB, data %lu KiB; code %lu tokens; busiest frame %luk Lua instructions\n",
+        (unsigned long)st->lua_peak_kb, (unsigned long)st->assets_kb, (unsigned long)st->tokens,
+        (unsigned long)st->instr_k_max);
+    PUT("frames that were shown after more than 1.5 frames: %lu\n", (unsigned long)st->dropped);
+    static const char *const cls[SESS_CLASSES] = { "<= 18 ms (60 fps)", "<= 25 ms", "<= 34 ms (30 fps)",
+                                                   "<= 50 ms", "<= 100 ms", "> 100 ms (a freeze)" };
+    PUT("\ntime from one picture to the next:\n");
+    for (int i = 0; i < SESS_CLASSES; i++)
+        PUT("  %-20s %lu\n", cls[i], (unsigned long)sess.hist[i]);
+    if (sess.n) {
+        PUT("\nthe longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:\n"
+            "time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):\n");
+        PUT("  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates\n");
+        for (int i = 0; i < sess.n; i++) {
+            const sess_frame_t *f = &sess.worst[i];
+            const uint32_t used = f->cpu_us + f->copy_us;
+            const uint32_t out = f->wall_us > used ? f->wall_us - used : 0;
+            PUT("  %5lu %5lu.%lu %5lu.%lu %4lu.%lu %3lu.%lu %4lu.%lu %3lu.%lu %3lu.%lu %5lu.%lu %8lu %8lu %8lu\n",
+                (unsigned long)f->frame, (unsigned long)(f->at_ms / 1000), (unsigned long)(f->at_ms % 1000 / 100),
+                MS1(f->wall_us), MS1(f->cpu_us), MS1(f->upd_us), MS1(f->draw_us), MS1(f->us3d), MS1(f->copy_us),
+                MS1(out), (unsigned long)f->instr_k, (unsigned long)f->lua_kb, (unsigned long)f->updates);
+        }
+    }
+    if (g && g->jobs) {
+        const uint32_t per = (g->bin_us + g->render_us) / st->frames;
+        PUT("\nGPU 3D: %lu jobs, %lu triangles a frame, %lu.%lu ms a frame, longest job %lu.%lu ms\n",
+            (unsigned long)g->jobs, (unsigned long)(g->tris / st->frames), MS1(per), MS1(g->max_us));
+    }
+#undef PUT
+    reports_session(st->title, t, n);
+    free(t);
+}
+
 void bm_print_stats(const bm_stats_t *st)
 {
     if (!st->frames)
@@ -8423,6 +8538,7 @@ void bm_print_stats(const bm_stats_t *st)
                 g.jobs, g.tris / st->frames, per / 1000, per % 1000 / 10,
                 g.bin_us + g.render_us ? g.bin_us * 100 / (g.bin_us + g.render_us) : 0, g.max_us);
     }
+    session_report(st, &g);
 }
 
 /* ---------------------------------------------------------------- C bench */

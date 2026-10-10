@@ -476,7 +476,16 @@ int github_put(const gh_put_t *p, char *url, size_t url_len, char *err, size_t e
         if (st >= 0) fail(&g, "the branch", st);
         goto out;
     }
-    if (put_contents(&g, p->repo, p->branch, p->path, p->data, p->len, "", p->message) != 0) {
+    if (p->replace) {
+        /* the file of the last time, if there is one: its blob is the "sha" it replaces */
+        char path[384], old[48] = "";
+        snprintf(path, sizeof path, "/repos/%s/contents/%s?ref=%s", p->repo, p->path, p->branch);
+        if (call(&g, "GET", path, NULL, 0) == 200 &&
+            json_get(g.body.buf, g.body.buf + g.body.len, "sha", old, sizeof old))
+            old[0] = 0;
+        if (put_contents(&g, p->repo, p->branch, p->path, p->data, p->len, old, p->message) != 0)
+            goto out;
+    } else if (put_contents(&g, p->repo, p->branch, p->path, p->data, p->len, "", p->message) != 0) {
         /* 422 ("sha" wasn't supplied): the file is there already. A send
          * that reached GitHub but whose answer did not reach the console
          * (the connection dropped, the menu stopped the work): it kept the
