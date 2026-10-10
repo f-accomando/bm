@@ -232,10 +232,11 @@ local function frame(buttons, label)
   if B.px > worst.px then worst.px, worst.pxat = B.px, label .. " " .. frames end
 end
 
--- the title: the camera drifts over the town for a minute
+-- the title: the camera stays where the hunter is (it used to drift over the town)
+local cx0, cy0 = Y.camera()
 for i = 1, 3600 do frame(0, "title") end
 local cx, cy = Y.camera()
-check(cx > 2500 and cy > 1200, "the camera drifted over the town")
+check(cx == cx0 and cy == cy0, "the camera stays on the hunter at the title")
 -- A: a hunt begins at the start, whatever the camera showed
 frame(1 << 4, "start")
 frame(0, "start")

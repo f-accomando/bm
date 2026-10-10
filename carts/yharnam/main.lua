@@ -10,7 +10,7 @@
 -- saw cleaver, up to three blows in a row (or light a dark street lamp).
 -- X: the pistol. Y: open the saw cleaver (a longer reach), or close it.
 -- Fire burns: hurt, knocked down, killed (back at the last lamp lit). On
--- the title, X shows every animation of the hunter in the 8 directions.
+-- the title, G (a keyboard's key) shows every animation of the hunter in the 8 directions.
 -- Sprites and tiles: mkassets.py (the hunter, the props and the town are
 -- drawn there in code; art/anims.py has the hunter's animations).
 
@@ -1297,14 +1297,20 @@ local GLOWING = { [0xA04818] = true, [0xB0F0F8] = true, [0xC84810] = true, [0xD8
 -- [atlas end]
 
 local W, H = SCREEN_W, SCREEN_H          -- 360 x 360 (the .b16's screen, docs/B16.md section 0)
--- The texts and panels are laid out on 256 x 256: UX, UY centre that square on the
--- screen (camera(-UX, -UY)), UB sets it at the foot (camera(-UX, -UB)); a bar that
--- spans the screen starts at -UX. The offsets are whole 8 x 16 cells (the texts stay
--- on the grid the tests read) and the foot has BP pixels more below the square.
-local UX, UY, UB = (W - 256) // 16 * 8, (H - 256) // 32 * 16, (H - 256) // 16 * 16
-local BP = H - 256 - UB
-local function ui_c() camera(-UX, -UY) end
-local function ui_b() camera(-UX, -UB) end
+-- The texts and panels are laid out on 256 x 256: UI.x, UI.y centre that square on the
+-- screen (camera(-UI.x, -UI.y)), UI.b sets it at the foot (camera(-UI.x, -UI.b)); a bar that
+-- spans the screen starts at -UI.x. The offsets are whole 8 x 16 cells (the texts stay
+-- on the grid the tests read) and the foot has UI.p pixels more below the square.
+local UI = { x = (W - 256) // 16 * 8, y = (H - 256) // 32 * 16, b = (H - 256) // 16 * 16 }
+UI.p = H - 256 - UI.b
+function UI.c() camera(-UI.x, -UI.y) end
+function UI.f() camera(-UI.x, -UI.b) end
+-- a button as the controller in use shows it (prompt(): the DS4's symbol, a pad's letter or the
+-- keyboard's key), then its words; hint_w is the width of both
+function UI.hint(btn, words, x, y, col)
+  print(words, prompt(btn, x, y, false, 1, 1) + 4, y, col)
+end
+function UI.hint_w(btn, words) return (prompt(btn, false, 1, 1)) + 4 + #words * 8 end
 local TS, CS = 16, 16                    -- tile pixels; chunk tiles (a chunk is one screen)
 local CPX = TS * CS
 local RING = 4                           -- the map holds 4 x 4 chunks
@@ -3921,8 +3927,8 @@ do
   function FOE.hud()
     local o = FOE.boss
     if o and o.awake and o.act ~= "dead" then
-      ui_b()
-      rectfill(-UX, 224, W, 32 + BP, 0x000000)
+      UI.f()
+      rectfill(-UI.x, 224, W, 32 + UI.p, 0x000000)
       local name = o.def.title
       print(name, (256 - #name * 8) // 2 // 8 * 8, 224, 0xD8C8A0)
       rectfill(23, 243, 210, 6, 0x180808)
@@ -3931,8 +3937,8 @@ do
     end
     if FOE.won then
       local k = FOE.won_t
-      ui_c()
-      rectfill(-UX, 104, W, 48, 0x080604)
+      UI.c()
+      rectfill(-UI.x, 104, W, 48, 0x080604)
       print("PREY SLAUGHTERED", 0, 112, k > 20 and 0xE8C878 or 0x786040, 2)
       camera()
     end
@@ -4398,15 +4404,11 @@ end
 function _update()
   t = t + 1
   if state == "title" then
-    -- after a moment the camera drifts over the town: the hunter starts
-    -- wherever it is when A is pressed
-    if t > 150 then
-      cam_x, cam_y = cam_x + 0.9, cam_y + 0.45
-    end
+    -- the camera stays where the hunter is: the hunt begins when A is pressed
     if btnp(4) or btnp(5) then
       state = "play"
       new_hunt()
-    elseif btnp(6) then
+    elseif keyp() == "g" then              -- the animation viewer: a keyboard's key, for whoever draws
       state, gal.i = "gallery", 1
       P.dir = 0
       gal_start()
@@ -4795,12 +4797,12 @@ local GDIR = { "S", "SE", "E", "NE", "N", "NW", "W", "SW" }
 
 local function draw_gallery()
   cls(0x101018)
-  ui_c()
+  UI.c()
   circfill(128, 186, 30, 0x1C1C28)
   rectfill(98, 182, 61, 9, 0x1C1C28)
   local g = GALLERY[gal.i]
   local name
-  rectfill(-UX, 16, W, 32, 0x000000)
+  rectfill(-UI.x, 16, W, 32, 0x000000)
   if g.def then
     local o, z = gal.o, g.def.zoom
     local fr, flip = FOE.frame(o)
@@ -4816,7 +4818,7 @@ local function draw_gallery()
     name = g.anim .. "  " .. GDIR[P.dir + 1] .. "  " .. P.f .. "/" .. #HUNT[P.anim].t
     print(name, (256 - #name * 8) // 2 // 8 * 8, 16, 0xE8C878)
   end
-  rectfill(-UX, 224, W, 32 + BP, 0x000000)
+  rectfill(-UI.x, 224, W, 32 + UI.p, 0x000000)
   print("left right: turn  Y: next", 24, 224, 0x8890A0)
   print("up down: animation  B: back", 16, 240, 0x8890A0)
   camera()
@@ -4824,7 +4826,7 @@ end
 
 -- the lamp's menu: rest, the paths (with what the next one costs), leave
 local function draw_menu()
-  ui_c()
+  UI.c()
   rectfill(16, 40, 224, 208, 0x080608)
   rect(16, 40, 224, 208, 0x786040)
   print("HUNTER'S LAMP", 72, 48, 0xE8C878)
@@ -4882,18 +4884,17 @@ local CONTROLS = {
   { "START", "enter", "this menu" },
 }
 local function draw_pause()
-  ui_c()
+  UI.c()
   rectfill(16, 32, 224, 208, 0x080608)
   rect(16, 32, 224, 208, 0x786040)
   if menu.page == "controls" then
     print("CONTROLS", 96, 48, 0xE8C878)
-    local kb = lastinput() == "keyboard"
     for i, c in ipairs(CONTROLS) do
       local y = 64 + (i - 1) * 16
-      prompt(kb and c[2] or c[1], 24, y)
+      prompt(c[1], 24, y, false, 1, 1)               -- as the controller in use shows it
       print(c[3], 80, y, 0xB0A890)
     end
-    print("reeling, then A: visceral", 24, 208, 0x686878)
+    UI.hint("A", "visceral, when it reels", 24, 208, 0x686878)
     camera()
     return
   end
@@ -4910,11 +4911,13 @@ end
 -- the end of a hunt with no echoes left
 local function draw_lost()
   cls(0x040202)
-  ui_c()
+  UI.c()
   print("THE HUNT IS", 40, 88, 0xA01818, 2)
   print("OVER", 96, 120, 0xA01818, 2)
   print("no echoes left to pay", 40, 168, 0x786850)
-  if t > 90 then print("A: begin again", 72, 208, (t // 30) % 2 == 0 and 0xE8E0D0 or 0x988870) end
+  if t > 90 then
+    UI.hint("A", "begin again", (256 - UI.hint_w("A", "begin again")) // 2, 208, (t // 30) % 2 == 0 and 0xE8E0D0 or 0x988870)
+  end
   camera()
 end
 
@@ -4922,9 +4925,9 @@ end
 local function draw_end()
   cls(0x040202)
   local SUN = { 0x100408, 0x200810, 0x381018, 0x581818, 0x782818, 0x983818, 0xB85020, 0xD06828, 0xE08838 }
-  ui_b()                              -- the dawn at the foot of the screen
-  for k = 1, #SUN do rectfill(-UX, 184 + (k - 1) * 8, W, k == #SUN and 8 + BP or 8, SUN[k]) end
-  ui_c()
+  UI.f()                              -- the dawn at the foot of the screen
+  for k = 1, #SUN do rectfill(-UI.x, 184 + (k - 1) * 8, W, k == #SUN and 8 + UI.p or 8, SUN[k]) end
+  UI.c()
   print("THE NIGHT", 56, 32, 0xE8C878, 2)
   print("IS OVER", 72, 56, 0xE8C878, 2)
   print("the hunt is done", 64, 96, 0x8890A0)
@@ -4932,7 +4935,9 @@ local function draw_end()
   local lines = { string.format("time   %d:%02d", s // 60, s % 60), "slain  " .. G.slain,
                   "deaths " .. G.deaths, "echoes " .. G.echoes }
   for k, l in ipairs(lines) do print(l, 72, 112 + k * 16, 0xC8B898) end
-  if t > 90 then print("A: a new hunt", 72, 224, (t // 30) % 2 == 0 and 0xF8F0E0 or 0x281008) end
+  if t > 90 then
+    UI.hint("A", "a new hunt", (256 - UI.hint_w("A", "a new hunt")) // 2, 224, (t // 30) % 2 == 0 and 0xF8F0E0 or 0x281008)
+  end
   camera()
 end
 
@@ -4951,15 +4956,14 @@ function _draw()
   local fire_near = draw_scene()
   if state == "title" then
     if t <= 150 then
-      ui_c()
-      rectfill(-UX, 16, W, 48, 0x000000)
+      UI.c()
+      rectfill(-UI.x, 16, W, 48, 0x000000)
       print("YHARNAM", 96, 16, 0xE8C878)
       print("a town of endless night", 40, 32, 0x8890A0)
-      print("X: animations", 72, 48, 0x686878)
     end
-    ui_b()
-    rectfill(-UX, 208, W, 16, 0x000000)
-    print("A: START", 96, 208, (t // 30) % 2 == 0 and 0xE8E0D0 or 0x988870)
+    UI.f()
+    rectfill(-UI.x, 208, W, 16, 0x000000)
+    UI.hint("A", "START", (256 - UI.hint_w("A", "START")) // 2, 208, (t // 30) % 2 == 0 and 0xE8E0D0 or 0x988870)
     camera()
   elseif state == "gallery" then
     -- drawn by draw_gallery
@@ -4972,13 +4976,16 @@ function _draw()
       print(banner, x, 16, banner_t > 30 and 0xD8C8A0 or 0x786850)
     end
     local sh = P.shrine
-    ui_b()
+    UI.f()
     if sh and state == "play" then
-      rectfill(40, 224, 176, 16, 0x000000)
-      print(G.lit[sh.key] and "A: rest at the lamp" or "A: light the lamp", 48, 224, 0xE8C878)
+      local words = G.lit[sh.key] and "rest at the lamp" or "light the lamp"
+      local x = (256 - UI.hint_w("A", words)) // 2
+      rectfill(x - 8, 224, UI.hint_w("A", words) + 16, 16, 0x000000)
+      UI.hint("A", words, x, 224, 0xE8C878)
     elseif near_lamp then
-      rectfill(48, 224, 160, 16, 0x000000)
-      print("A: light the lamp", 56, 224, 0xE8C878)
+      local x = (256 - UI.hint_w("A", "light the lamp")) // 2
+      rectfill(x - 8, 224, UI.hint_w("A", "light the lamp") + 16, 16, 0x000000)
+      UI.hint("A", "light the lamp", x, 224, 0xE8C878)
     end
     camera()
     -- the echoes
@@ -5002,8 +5009,8 @@ function _draw()
     if state == "lamp" then draw_menu() elseif state == "pause" then draw_pause() end
     if P.act == "dead" and died_t > 0 then
       local k = min(died_t, 40)
-      ui_c()
-      rectfill(-UX, 104, W, 48, 0x080404)
+      UI.c()
+      rectfill(-UI.x, 104, W, 48, 0x080404)
       print("YOU DIED", 64, 112, k > 20 and 0xA01818 or 0x501010, 2)
       camera()
     end

@@ -71,7 +71,11 @@ end
 env.time = function() return B.now end
 env.stat = function() return 0 end
 env.btn = function(b) return (B.held >> b) & 1 == 1 end
-env.prompt = function(name, x, y) num(x, "prompt x"); num(y, "prompt y"); return x + 16 end
+env.prompt = function(name, x, y)
+  if type(x) ~= "number" then return 16, 16 end          -- prompt(name, small, scale, player): its size
+  num(x, "prompt x"); num(y, "prompt y"); return x + 16
+end
+env.keyp = function() return nil end
 env.lastinput = function() return nil end
 -- pad(): bits 1024 L1, 2048 R1 from the held mask's bits 10 and 11
 env.pad = function() return B.held & (1024 | 2048) end

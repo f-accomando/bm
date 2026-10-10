@@ -4223,7 +4223,7 @@ def test_yharnam(b, opts):
             assert px[(y * w + x) * 3:(y * w + x) * 3 + 3] == b"\0\0\0", ("border", x, y)
         if opts.shots:
             _save_png(img, os.path.join(opts.shots, "yharnam-title.png"))
-        q.send("c")                             # X: the animations of the hunter
+        q.send("g")                             # G: the animations of the hunter
         for _ in range(12):
             time.sleep(0.25)
             text = screen_text(box(q.screendump()))
