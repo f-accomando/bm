@@ -1,3 +1,5 @@
+# In the game: the image-to-3D figure 'sojourn' of meshy-out (pack.py SOURCES); the
+# description below is the text-to-3D one, kept for the height and a new text model.
 # Rail (damage): a commander with a rail rifle
 name = rail
 height = 1.82

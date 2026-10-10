@@ -1,3 +1,5 @@
+# In the game: the image-to-3D figure 'junkrat' of meshy-out (pack.py SOURCES); the
+# description below is the text-to-3D one, kept for the height and a new text model.
 # Fuse (damage): a demolitions artist, post-modern and colourful
 name = fuse
 height = 1.85

@@ -40,6 +40,12 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
 - Mesh from images: `cutout3d` / `picture3d` in the runtime (`src/bm/cutout.c`), PC tools
   `tools/img2mesh.py`, `cutout2mesh.py`, `local2mesh.py`, `meshy*.py` (`MESHY_API_KEY`
   only in the environment).
+- Overbit's figures (`carts/overbit/art/meshy/`): `pack.py` packs the models of the branch
+  `meshy-out` (`SOURCES`: the image-to-3D soldier, mei, junkrat, sojourn, juno, kiriko, dva,
+  beast for sarge, frost, fuse, rail, orbit, akari and the two mechs; reduced to 1200 + 450
+  when missing); `meshyrig.py` fits them on the skeletons (Meshy's `.rig` if any, `OWN_GUN`
+  drops the old gun). `request.txt` + `meshy-overbit.yml` (push to `bm-core` or Run workflow):
+  text-to-3D, `rig=`, `image=` (image-to-3D from `ref/`).
 
 ### PC scripts and tools
 - `scripts/mkbm.py`: builds a `.bm` (`--lua --sheet --sheet8 --map --flags --sprites --audio
@@ -95,6 +101,10 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - Yharnam's map on the Pi: open `yharnam.bm` in the SDK, F3 F3, edit ground and `objects`,
   Ctrl+S (`YHARNAM.BME`, about 6 MB), F5; then `mkmap.py --from` and commit the CSVs. A house
   stays in its 16×16-tile block; creatures still spawn by the plan's kind of ground.
+- Overbit's mech pilots from pictures (D.Va `ref/rally_pilot.png`, D.Mon `ref/kaiju_pilot.png`):
+  run `meshy-overbit` (its `request.txt` lines), then `pack.py out rally_pilot kaiju_pilot`;
+  optionally `rig=` lines with the ids of `out/NAME.task.txt` and `pack.py --rig`. Until then
+  the text-to-3D pilots stay. The image-to-3D heroes are not rigged (no task ids kept).
 
 ## Rules (do not break)
 

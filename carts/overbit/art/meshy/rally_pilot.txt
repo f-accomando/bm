@@ -1,3 +1,5 @@
+# To be made from the picture ref/rally_pilot.png (D.Va; image-to-3D, request.txt image=);
+# the description below is the text-to-3D one in the game until then, kept for the height.
 # Rally (tank): the pilot out of the mech, a young racing driver
 name = rally_pilot
 height = 1.62

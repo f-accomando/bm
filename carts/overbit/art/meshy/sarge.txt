@@ -1,3 +1,5 @@
+# In the game: the image-to-3D figure 'soldier' of meshy-out (pack.py SOURCES); the
+# description below is the text-to-3D one, kept for the height and a new text model.
 # Sarge (damage): a veteran with a pulse rifle, in a modern city look. Meshy text-to-3D, tools/meshy_text.py
 name = sarge
 height = 1.86

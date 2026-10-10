@@ -1,3 +1,5 @@
+# In the game: the image-to-3D figure 'mei' of meshy-out (pack.py SOURCES); the
+# description below is the text-to-3D one, kept for the height and a new text model.
 # Frost (damage): a climate scientist with a cryo blaster
 name = frost
 height = 1.62

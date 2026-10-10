@@ -1,3 +1,5 @@
+# To be made from the picture ref/kaiju_pilot.png (D.Mon; image-to-3D, request.txt image=);
+# the description below is the text-to-3D one in the game until then, kept for the height.
 # Kaiju (tank): the pilot out of the mech, a young mech pilot
 name = kaiju_pilot
 height = 1.6

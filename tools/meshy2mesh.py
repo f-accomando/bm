@@ -18,7 +18,8 @@ OUT.bm: a new cartridge with bm Studio's viewer (textured, its own sheet)
 or an existing one with the model added or replaced (flat colours: the
 cartridge keeps its sheet). The key: MESHY_API_KEY in the environment.
 The .glb Meshy made stays next to the output (OUT.glb) to redo the
-conversion offline with --glb.
+conversion offline with --glb; a new task's id goes to OUT.task.txt (for
+tools/meshy_rig.py --task).
 """
 import argparse
 import base64
@@ -150,10 +151,11 @@ def fetch_image(url, tries=3):
     return None
 
 
-def meshy_image_to_3d(image, key, polycount, texture=True, symmetry="auto", minutes=40):
+def meshy_image_to_3d(image, key, polycount, texture=True, symmetry="auto", minutes=40, log=None):
     """-> the task's result: model_urls, texture_urls... (SUCCEEDED).
     image: a file, or an https URL (fetched from here when it can be, so
-    the picture goes to Meshy as data; else Meshy fetches it itself)"""
+    the picture goes to Meshy as data; else Meshy fetches it itself).
+    log: a file for the task's id (to rig the model: tools/meshy_rig.py)"""
     if re.match(r"^https?://", image):
         got = fetch_image(image)
         if got:
@@ -178,6 +180,9 @@ def meshy_image_to_3d(image, key, polycount, texture=True, symmetry="auto", minu
     if not task:
         raise SystemExit(f"meshy: no task id in {r}")
     print(f"meshy: task {task} (to pick it up again: --task {task})", flush=True)
+    if log:
+        with open(log, "w") as f:
+            f.write(f"image-to-3d {task}\n")
     return meshy_wait(task, key, minutes)
 
 
@@ -510,7 +515,7 @@ def main():
             task = meshy_wait(a.task, key, a.wait)
         else:
             task = meshy_image_to_3d(a.image, key, a.polycount, texture=not a.no_texture, symmetry=a.symmetry,
-                                     minutes=a.wait)
+                                     minutes=a.wait, log=os.path.splitext(a.out)[0] + ".task.txt")
         url = (task.get("model_urls") or {}).get("glb")
         if not url:
             raise SystemExit(f"meshy: no glb in {task.get('model_urls')}")

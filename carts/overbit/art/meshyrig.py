@@ -1,10 +1,12 @@
 """
 meshyrig.py - the Meshy models of Overbit's heroes (art/meshy: NAME.mesh and
-NAME.png, made from our descriptions by tools/meshy_text.py) on the heroes'
+NAME.png, packed by meshy/pack.py: image-to-3D figures made from pictures,
+or text-to-3D ones of our descriptions, tools/meshy_text.py) on the heroes'
 skeletons, in place of the bodies made of primitives.
 
 Meshy makes a figure standing in A-pose (arms down and out, or straight out
-in T-pose); the hero's skeleton rests with the arms hanging. For a figure:
+in T-pose), or, from a picture, in the picture's pose (a weapon in the
+hands); the hero's skeleton rests with the arms hanging. For a figure:
  1. its own joints are measured on the mesh, at the heights of the
     skeleton's (hips, knees, ankles and toes; waist, chest, neck and the
     top of the head; shoulders, elbows, wrists and finger tips) from
@@ -18,7 +20,8 @@ in T-pose); the hero's skeleton rests with the arms hanging. For a figure:
 The faces keep their texture corners, moved to the model's place on the
 sheet (slot()); 1200 triangles at the levels of detail 2 and 3, 450 at 0
 and 1. The parts of the old model on bones that are not the body's (the
-weapon, a drone, a tail...) stay.
+weapon, a drone, a tail...) stay, but the gun of a figure that holds its
+own (OWN_GUN).
 """
 import math
 import os
@@ -53,10 +56,14 @@ def available(name):
     return os.path.exists(os.path.join(MESHY, name + ".mesh"))
 
 
-# textures made brighter on the sheet: Rally's mech came out of Meshy grey
-# where it is meant white (its greys lifted towards white, the orange of
-# its stripes stronger)
-WHITEN = {"rally_mech": 0.55}
+# textures made brighter on the sheet ({name: lift}: the greys lifted
+# towards white, the other colours stronger); none since the figures come
+# from pictures (meshy/pack.py SOURCES)
+WHITEN = {}
+
+# figures made from pictures with the weapon in their hands: the old
+# model's gun (its bone "gun") is left out, not drawn twice
+OWN_GUN = {"sarge", "frost", "fuse", "rail"}
 
 
 def texture(name):
@@ -548,7 +555,7 @@ def dress(old, sk, name, keep_extra=()):
                             tuple(uv[i] + (ox if i % 2 == 0 else oy) for i in range(6))))
         two_bones(m, len(m.faces) - len(model["faces"]), base)
     # what the old model has on other bones: the weapon, the props
-    body = BODY_BONES | set(keep_extra)
+    body = BODY_BONES | set(keep_extra) | ({"gun"} if name in OWN_GUN else set())
     names = {i: n for n, i in sk.index.items()}
     used = {}
     for a, b, c, col in old.faces:

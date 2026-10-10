@@ -1,3 +1,5 @@
+# In the game: the image-to-3D figure 'beast' of meshy-out (pack.py SOURCES); the
+# description below is the text-to-3D one, kept for the height and a new text model.
 # Kaiju (tank): a big red mech with a sword and a shield (made in models: the
 # figure has empty fists). The pilot: kaiju_pilot
 name = kaiju_mech

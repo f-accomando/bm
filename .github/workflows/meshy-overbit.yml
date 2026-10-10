@@ -7,12 +7,16 @@ name: meshy-overbit
 # task=ID to download a refine already paid for instead of a new one,
 # or rig=ID to have Meshy rig that model (tools/meshy_rig.py: NAME_rig.glb,
 # the skeleton and the weights art/meshyrig.py puts the model on its hero
-# with).
+# with), or image=PATH to make it from that picture instead (image-to-3D,
+# tools/meshy2mesh.py; the task's id in NAME.task.txt, for a later rig=).
+# Also from Actions > meshy-overbit > Run workflow (the file of the branch
+# chosen there).
 # Each model: Meshy's .glb and picture, the .bm (tools/meshy2mesh.py:
 # textured on a 256x256 sheet), the same reduced to 1200 triangles (_1200,
 # tools/bmreduce.py), the renders (tools/bmrender.py); everything as
 # artifacts and onto the branch meshy-out (out/).
 on:
+  workflow_dispatch:
   push:
     branches: [bm-core]
     paths: [carts/overbit/art/meshy/request.txt]
@@ -32,12 +36,14 @@ jobs:
           for line in open("carts/overbit/art/meshy/request.txt"):
               words = line.split("#", 1)[0].split()
               if words:
-                  m = {"name": words[0], "task": "", "rig": ""}
+                  m = {"name": words[0], "task": "", "rig": "", "image": ""}
                   for w in words[1:]:
                       if w.startswith("task="):
                           m["task"] = w[5:]
                       if w.startswith("rig="):
                           m["rig"] = w[4:]
+                      if w.startswith("image="):
+                          m["image"] = w[6:]
                   out.append(m)
           print("models=" + json.dumps(out))
           EOF
@@ -57,6 +63,7 @@ jobs:
       NAME: ${{ matrix.m.name }}
       TASK: ${{ matrix.m.task }}
       RIG: ${{ matrix.m.rig }}
+      IMAGE: ${{ matrix.m.image }}
     steps:
       - uses: actions/checkout@v5
 
@@ -73,6 +80,12 @@ jobs:
           if [ -n "$RIG" ]; then
             H="$(sed -n 's/^height *= *//p' "$spec")"
             python3 tools/meshy_rig.py --task "$RIG" --height "${H:-1.8}" -o "out/${NAME}_rig.glb"
+          elif [ -n "$IMAGE" ]; then
+            # image-to-3D: Meshy's .glb and the task's id to out/ (the
+            # conversion below makes the .bm again from the .glb)
+            mkdir -p img
+            python3 tools/meshy2mesh.py "$IMAGE" -o "img/$NAME.bm" --name "$NAME" --polycount 3000
+            cp "img/$NAME.glb" "img/$NAME.task.txt" out/
           elif [ -n "$TASK" ]; then
             python3 tools/meshy_text.py "$spec" -o "out/$NAME.glb" --task "$TASK"
           else
@@ -123,5 +136,5 @@ jobs:
           cp ../new/* out/
           git add -f out
           names="$(cd ../new && ls *.glb 2>/dev/null | sed 's/\.glb$//' | tr '\n' ' ')"
-          git commit -qm "meshy: Overbit's ${names}from carts/overbit/art/meshy (text-to-3D)" || echo "nothing new"
+          git commit -qm "meshy: Overbit's ${names}from carts/overbit/art/meshy" || echo "nothing new"
           git push origin meshy-out

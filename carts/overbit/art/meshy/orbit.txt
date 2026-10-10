@@ -1,3 +1,5 @@
+# In the game: the image-to-3D figure 'juno' of meshy-out (pack.py SOURCES); the
+# description below is the text-to-3D one, kept for the height and a new text model.
 # Orbit (support): a young explorer born on a space station
 name = orbit
 height = 1.66

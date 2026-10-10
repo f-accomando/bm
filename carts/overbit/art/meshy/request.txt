@@ -1,20 +1,22 @@
 # The models .github/workflows/meshy-overbit.yml makes when this file
-# changes (a push to bm-core): one per line, the name of a
-# spec in this folder, optionally task=ID (a refine already made: no new
-# task) or rig=ID (Meshy rigs the model that task made: NAME_rig.glb).
-# Packed here by pack.py (NAME.mesh, NAME.png, NAME.rig). Made before and
-# kept: frost rig=01a101e0-2c27-7493-9c7d-c21cbd09178d,
-# rail rig=01a101e0-0bc3-7568-84ec-4ee9c9f0f79d,
-# orbit rig=01a101e7-1fd3-70fe-8c43-6dbbb4c847ca,
-# akari rig=01a101e2-1204-76f3-8496-d47103535ccd.
-# Made again (2026-10-03: Sarge and Fuse modern and colourful, the mechs'
-# pilots two young women, Rally's machine guns, Kaiju's fists for its sword
-# and shield, the mechs bigger):
-# sarge rig=01a1025d-4e9d-724b-8de7-39543b165898
-# fuse rig=01a1025d-4357-7554-891c-5763c14f50fa
-# rally_pilot rig=01a1025d-4c1e-7670-92ff-4e8ab8afd57c
-# kaiju_pilot rig=01a1025d-5c1c-7691-b51c-959965d35be9
-# kaiju_mech rig=01a1025f-2c52-74d0-95e1-161139d481b4
-# the first rally_mech (01a1025f-2a76-708e-82a2-0d9ea60898c0) came out grey and spiky: again
-# rally_mech
-# (nothing to make now: every line is a comment)
+# changes (a push to bm-core, or Actions > meshy-overbit > Run workflow):
+# one per line, the name of a spec in this folder (its height), optionally
+# task=ID (a refine already made: no new task), rig=ID (Meshy rigs the
+# model that task made: NAME_rig.glb) or image=PATH (image-to-3D from that
+# picture instead of the spec's description; the task's id lands in
+# NAME.task.txt on meshy-out, for a rig= line after it).
+# Packed here by pack.py (NAME.mesh, NAME.png, NAME.rig).
+# The heroes and the mechs are the image-to-3D figures of meshy-out
+# (pack.py SOURCES: soldier, mei, junkrat, sojourn, juno, kiriko, dva,
+# beast; not rigged: made by .github/workflows/meshy.yml, no task ids kept).
+# The text-to-3D figures of the specs, made before (rig= the refine):
+# frost 01a101e0-2c27-7493-9c7d-c21cbd09178d, rail 01a101e0-0bc3-7568-84ec-4ee9c9f0f79d,
+# orbit 01a101e7-1fd3-70fe-8c43-6dbbb4c847ca, akari 01a101e2-1204-76f3-8496-d47103535ccd,
+# sarge 01a1025d-4e9d-724b-8de7-39543b165898, fuse 01a1025d-4357-7554-891c-5763c14f50fa,
+# rally_pilot 01a1025d-4c1e-7670-92ff-4e8ab8afd57c, kaiju_pilot 01a1025d-5c1c-7691-b51c-959965d35be9,
+# kaiju_mech 01a1025f-2c52-74d0-95e1-161139d481b4.
+# The two mechs' pilots from their pictures (ref/): D.Va for Rally, D.Mon
+# for Kaiju. Then: a rig= line each with the task of out/NAME.task.txt,
+# and pack.py out rally_pilot kaiju_pilot; pack.py --rig out rally_pilot kaiju_pilot.
+rally_pilot image=carts/overbit/art/meshy/ref/rally_pilot.png
+kaiju_pilot image=carts/overbit/art/meshy/ref/kaiju_pilot.png
