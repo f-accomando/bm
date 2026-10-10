@@ -3,28 +3,39 @@ kind: session
 kernel: v0.2.5-34-g9268e60
 branch: claude/system-fix-merge
 board: RGB30
-date: 2026-10-10 12:42:01
+date: 2026-10-10 13:13:56
 file: session_yharnam_RGB30.txt
 
 session of "Yharnam" (the last one: the next run of this game replaces this file)
-screen 360x360, 544 frames in 9.2 s, 59.0 fps
+screen 360x360, 5337 frames in 133.7 s, 39.8 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 11.7 ms, max 142.6 ms, 2 frames over 16.7 ms
-memory: Lua peak 2964 KiB, data 41256 KiB; code 98785 tokens; busiest frame 1612k Lua instructions
-frames that were shown after more than 1.5 frames: 2
+time of _update + _draw (+ the 3D's wait): avg 15.8 ms, max 1409.9 ms, 815 frames over 16.7 ms
+memory: Lua peak 4008 KiB, data 41256 KiB; code 98785 tokens; busiest frame 1612k Lua instructions
+frames that were shown after more than 1.5 frames: 2404
 the game says: on the spot 8
-the game says: in time 0
+the game says: in time 38
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    542
+  <= 18 ms (60 fps)    2933
   <= 25 ms             0
-  <= 34 ms (30 fps)    1
+  <= 34 ms (30 fps)    2378
   <= 50 ms             0
-  <= 100 ms            0
-  > 100 ms (a freeze)  0
+  <= 100 ms            11
+  > 100 ms (a freeze)  14
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
-      8     0.6    33.3   29.9   0.1   29.7   0.0   1.2     2.1        9     2017        1
+    920    19.9  1417.3 1409.9   0.6 1409.3   0.0   1.2     6.1       20     2157        1
+   3625    84.9   366.9  354.3   0.5  353.8   0.0   1.2    11.2       17     2674        1
+   4940   123.0   366.8  360.3 346.8   13.5   0.0   1.2     5.2       58     2837        1
+   4320   105.3   333.5  331.4 317.8   13.5   0.0   1.2     0.7       59     2762        1
+   3915    93.6   283.4  273.4   0.6  272.7   0.0   1.2     8.7       17     2730        1
+   5207   131.8   283.4  266.5   0.8  265.7   0.0   1.2    15.6       23     2882        1
+   4587   113.0   266.8  253.0   0.7  252.2   0.0   1.2    12.4       21     2826        1
+   2671    54.0   250.1  243.8   0.7  243.0   0.0   1.2     5.0       22     2513        1
+   3206    71.0   233.4  229.3   0.8  228.4   0.0   1.4     2.6       19     2670        1
+   1766    35.2   216.7  211.2   0.8  210.3   0.0   1.5     4.0       20     2401        1
+   2315    45.3   216.7  205.4   0.5  204.8   0.0   1.2     9.9       17     2483        1
+   2931    62.5   200.1  189.7   0.6  189.0   0.0   1.2     9.0       20     2588        1
