@@ -1,0 +1,10 @@
+30 pad 1 right
+76 pad 1 right a
+80 pad 1 right
+116 pad 1 right a
+130 pad 1 right
+356 pad 1 right a
+396 pad 1 right
+420 pad 1 right a
+434 pad 1 right
+490 pad 1 none

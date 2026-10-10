@@ -117,6 +117,16 @@ An interactive bash setup utility for Linux/WSL:
 * Transfers cartridges and kernels over WiFi using [`tools/bm_net.py`](../../tools/bm_net.py).
 * Publishes cartridges directly to the official game store.
 
+### Tutorial videos ([`video/`](../../video/), skill `claude/skills/bm-video-tutorial`)
+* `video/lib/bmvideo.py`: a key script for `bmhost` (the console's runtime on the PC, virtual clock, same run every time) and ffmpeg/libass for the page: console 2x, side panel with the place, the key pressed and the keys of the scene, narrator's line, hook, title and closing cards. Storyboard and script are generated from the same key script.
+* `video/SERIE.md`: *Skyvale World*, a 2D platformer (original hero Kip) built only with the console's 2D tools, one episode per tool. Episode 1 (`video/01-pixel/`, bm Pixel) is done: Kip seen from the side, a six-frame run cycle, a jump and a coin; `verify.py` checks the saved cartridge pixel by pixel.
+* `bmhost --tool` runs a cartridge as one of bm's tools (it may save over a `.bm` already on the card), so the SDK and the editors can be recorded; episode 2 (`video/02-sdk/`, the SDK's 2D side: tiles with flags, a two-layer map, the first level) is done and `verify.py` checks the saved cartridge.
+* Episode 3 (`video/03-sound/`, bm Sound: three sounds, three effects played on the piano keys, level music written with riff and put in the bank as a song) is done, with sound in the video (`bmhost --wav`); `verify.py` checks the saved bank and the wav.
+* Episode 4 (`video/04-code/`, bm Code: Kip runs and jumps with bmlib, the game played by a button script, with its sound) is done. `make bmhost-ai` builds `bmhost` with the real `ai` table (bm Code and the assistant need it).
+* Episode 5 (`video/05-assistant/`: the assistant draws a slime in bm Pixel, bm Code adds coins, stompable slimes, score and lives, and the HUD is an answer of the assistant inserted with F6 and adapted with Replace) is done; `verify.py` replays the game with a log.
+* Episodes 6 and 7 (`video/06-level/`, `video/07-play/`): the last level (flag and trees in bm Pixel, a 160-cell map with a third layer in the SDK, camera, parallax and screens in bm Code) and the game played from the title to the flag by a button script a bot made (`bot.py`, replayed and checked by `replay.py`), with a reel of the six episodes and the SDK's dev kit on the finished file. The series is complete.
+* On the PC there is no kernel menu and no assistant (`F6` in bm Pixel); QEMU is not in the cloud sessions.
+
 ### Continuous Integration (`.github/workflows/ci.yml`)
 The GitHub Actions workflow distributes test execution across **6 concurrent virtual runners**:
 1. Host unit tests (`make test-host`).
