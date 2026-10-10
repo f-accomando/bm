@@ -1200,7 +1200,7 @@ scheda Games (`carts/nano8`, Lua), con la macchina in C nel kernel (`src/bm/n8*.
 tabella `n8` di ogni cartuccia) e il suono nell'interrupt audio (`src/audio/n8snd.c`).
 I tasti si mappano su tastiera e controller.
 
-Stato (2026-10-01): tutto nel PC e in QEMU, **da provare sul Pi**.
+Stato (2026-10-01): tutto nel PC e in QEMU.
 1. **Caricatore** ✅ (`src/bm/n8cart.c`):
    - `.p8.png`: PNG con inflate (nostro), 32 KiB nascosti nei 2 bit bassi dei colori,
      codice in chiaro o compresso nei formati `:c:` e `pxa`;
@@ -1228,7 +1228,7 @@ Stato (2026-10-01): tutto nel PC e in QEMU, **da provare sul Pi**.
    l'originale) per 8 giocatori, i controller di M16 ai giocatori 1–4.
    Mappatura dei tasti (nella lista e nel menu di pausa, "Controls"): tastiera 1 e 2 e
    controller, salvata in `bm/save`.
-5. **Audio** ✅ da provare sul Pi (`src/audio/n8snd.c`): 4 canali, 8 forme d'onda, strumenti
+5. **Audio** ✅ (`src/audio/n8snd.c`): 4 canali, 8 forme d'onda, strumenti
    personalizzati (sfx 0–7), effetti delle note (slide, vibrato, drop, fade, arpeggi),
    loop, musica a pattern con loop e stop, dissolvenze, filtri buzz e dampen.
 6. **Numeri a virgola fissa 16.16** (Lua modificato): **non fatto**. I numeri sono double di
@@ -1259,15 +1259,10 @@ Stato (2026-10-01): tutto nel PC e in QEMU, **da provare sul Pi**.
 - **Chiusura (2026-10-05, decisione dell'utente).** I numeri 16.16 escono dal criterio: restano
   un limite noto (i double di Lua arrotondati come l'originale; diverso solo l'overflow oltre
   ±32767). Il mouse vero per le cartucce che lo chiedono (`poke(0x5f2d, 1)`, ora che c'è il
-  puntatore di M32) è lo spunto R26. Si chiude con la prova sul Pi, a schermo: la lista di
-  nano8 con le anteprime; Comet Catcher con pad e tastiera, con il suono; una delle cartucce
-  incluse con il menu di pausa (ingrandimento 2× o a tutta altezza, *Controls*); un gioco che
-  salva (`cartdata`) ritrovato dopo l'uscita; con F11 due volte il peso di un fotogramma della
-  cartuccia più pesante.
+  puntatore di M32) è lo spunto R26.
 
 **Chiusa il 2026-10-05** (decisione dell'utente): nano8 gira sul PC e in QEMU (caricatore,
-dialetto, macchina, grafica, input, audio, salvataggi). Restano fuori: la prova sul Pi
-descritta sopra, i numeri 16.16 (un limite noto) e il mouse delle cartucce (spunto R26).
+dialetto, macchina, grafica, input, audio, salvataggi). Restano fuori: i numeri 16.16 (un limite noto) e il mouse delle cartucce (spunto R26).
 
 ## M24 — Scambio in rete locale tra console (M) — parte del Market (M25) — ✅ chiusa (2026-10-05)
 Decisione 2026-09-30: M24 originale diviso in tre (M24 rete locale, M25 store su
@@ -3614,3 +3609,8 @@ tastiera).
 ### La GPU come coprocessore
 - **R23 — Programmi sulle QPU fuori dal disegno 3D** (2026-10-04): diventato la
   milestone **M44** (2026-10-06).
+
+### Audio
+- **R27 — WAV a 24 bit.** Audio: WAV a 24 bit da `make wav` / `bmrender` / `bmhost` con `synth_render32`.
+- **R28 — Kb dell'audio.** Audio: voce nella kb per `sound_depth` e per i nuovi parametri (campioni, crush, coarse).
+- **R29 — Profondità di bit in bm Sound.** bm Sound: mostrare la profondità di bit e il meter dei campioni.
