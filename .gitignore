@@ -5,3 +5,6 @@ __pycache__/
 build-stress/
 .easy_install.conf
 video/*/out/
+video/07-play/bot-sd/
+video/07-play/replay-sd/
+video/07-play/out-input.txt
