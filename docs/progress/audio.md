@@ -38,8 +38,8 @@ assistant. API: [`docs/API.md`](../API.md) (*Sound*, *Riff*); pattern language:
   silent, and mutes that music track while it plays.
 
 ### Instruments (`src/audio/presets.c`)
-42 presets (`P(...)` lines; groups drum, bass, keys, pad, pluck, lead, fx, plus the `chip*`
-8-bit ones). `instruments()` lists them; riff and the bank refer to them by name.
+50 presets (`P(...)` lines; groups drum, bass, keys, pad, pluck, lead, fx, plus the `chip*`
+8-bit ones; the last 8 from Pass 2 below). `instruments()` lists them; riff and the bank refer to them by name.
 
 ### Outputs (`src/audio/audio_out.h`)
 - Pi: HDMI audio (`hdmi_audio.c`, `iec958.c`): IEC 958 subframes into the MAI FIFO, a DMA
@@ -47,7 +47,8 @@ assistant. API: [`docs/API.md`](../API.md) (*Sound*, *Riff*); pattern language:
 - RGB30: I2S1 to the RK817 codec (`src/rgb30/rk_audio.c`), 48 kHz 16-bit, no DMA (FIFO
   threshold interrupt); jack/speaker switched by the codec, headphones mono. Volume keys:
   `src/rgb30/volume.c` (bar via `notice.c`, `volume=` saved after 2 s).
-- QEMU virt (RGB30 tests): `src/rgb30/virt_audio.c`. `bmhost --wav`: 48 kHz mono.
+- QEMU virt (RGB30 tests): `src/rgb30/virt_audio.c`. `bmhost --wav`: 48 kHz mono
+  (`--wav-bits 16|24|32|f32`, below).
 
 ### riff (`src/script/riff.lua`, `require "riff"`)
 TidalCycles/Strudel-style patterns in Lua: mini-notation, chained functions, cycles of 2 s by
@@ -134,7 +135,7 @@ What superdough (Strudel's sound engine) has and the console lacked, where it ma
 * Lua: the global `SAMPLE` (10); `tone()`/`play()` keys `sample` (a number, a kit name, `"kit:N"`, or a name of the cartridge's bank), `begin` (0..1), `reverse`. The Settings' sound test plays four drums of the kit as the SAMPLE wave.
 
 ### The effects (superdough's, on a voice's path)
-The registers 29..31 were reserved; `FLAGS` used one bit of eight, `FILTER` three. That was room enough for everything below: **no second table of registers**, the 32 bytes and the 48-byte sound unchanged (the sound's tone already held registers 11..31: a version 2 bank and bm Sound keep the new values as they are; **bm Sound's own list of waves still ends at organ**: it opens a sound of the four new waves as a square, and reads no version 3 bank, until it learns them).
+The registers 29..31 were reserved; `FLAGS` used one bit of eight, `FILTER` three. That was room enough for everything below: **no second table of registers**, the 32 bytes and the 48-byte sound unchanged (the sound's tone already held registers 11..31: a version 2 bank and bm Sound keep the new values as they are; bm Sound knows the four new waves and version 3 banks since R30, below).
 
 | register | bits | what | 0 |
 |---|---|---|---|
@@ -151,7 +152,7 @@ The registers 29..31 were reserved; `FLAGS` used one bit of eight, `FILTER` thre
 And three waves: `SYNTH_PINK` (11, −3 dB an octave, Kellet's filters), `SYNTH_BROWN` (12, −6 dB, white integrated with a little leak), `SYNTH_CRACKLE` (13, random clicks: `MOD1` × 8 a second, 0: 100). The note does not change them (the filter with `keytrack` can). `SYNTH_WAVES` is 14.
 
 * **Where**: wave → noise mix (its colour) → drive (its curve) → filter → vowel → envelope and volume (× tremolo × ducking, on the volume's own ramp: no zipper, no extra work a sample) → coarse → crush → the place and the sends (room, echo, chorus). Crush after the envelope, as in superdough: a fading note breaks into fewer and fewer steps.
-* **The chorus**: one delay line of 2048 samples fed by the sends, read twice (left, right) around 14 ms, each tap swinging ±2.5 ms with an LFO (0.8 Hz) a quarter turn from the other's, a straight line between samples; as loud as 0.7 of the send. It sleeps when quiet, as the room and the echo (and the mix is exact zeros again). `synth_chorus(s, rate_hz, depth_ms, wet)` sets it (C only for now). Chosen over a phaser: one line for every voice, two taps a sample, and the pads it is for want width more than a sweep.
+* **The chorus**: one delay line of 2048 samples fed by the sends, read twice (left, right) around 14 ms, each tap swinging ±2.5 ms with an LFO (0.8 Hz) a quarter turn from the other's, a straight line between samples; as loud as 0.7 of the send. It sleeps when quiet, as the room and the echo (and the mix is exact zeros again). `synth_chorus(s, rate_hz, depth_ms, wet)` sets it (Lua: `chorus()`, below). Chosen over a phaser: one line for every voice, two taps a sample, and the pads it is for want width more than a sweep.
 * **The ducking**: once a block the loudest source (its envelope × its amount) pushes every other clean voice down; it lets go in about 120 ms. One block late (1.3 ms): nobody hears it. Neither the chip voices nor the room's tail are ducked. A sound effect with `duck` lowers the music under it, a kick with `duck` pumps a pad.
 * **The vowels**: three band passes side by side (state variable filters, 0 dB at their peak), at the first three formants of a bass voice (the classic measured table: frequencies, bandwidths ×1.5, levels), summed with their levels; as loud as the sound was (±6 dB).
 * **The curves**: hard (flat at ±1), fold (reflected at ±1, again and again), sine (`sin(πx/2)`: soft, then folding), asym (the soft curve with a bias: even harmonics, a tube or a diode), cubic (`1.5x − 0.5x³`). Each scaled so 1 stays 1 (the asymmetric one by its own value at the drive).
@@ -183,14 +184,37 @@ Host (x86, the same C), 8 voices, ns a block of 64 frames, against 8 saws throug
 * `make test-audio`: the C tests (every format converted, rounded and clamped; the guards; broken banks; version 2 with a byte 9; Hermite's SNR; the octave; where it starts and backwards; forward and ping-pong loops; a pitch far up a tiny loop; stereo in its channels, the balance, the filter on both; no sample: silent and free; the kit's peaks, spectral centroids and fades; the player's bank to the synthesizer and away; the effects: crush's noise against `2^(1−b)/√12` at 3 and 8 bits, coarse's held samples (3 of 4), each curve's harmonics (odd for the symmetric ones, a second at −28 dBc for the asymmetric, every curve a different sound), the noises' tilt from 250–500 Hz to 4–8 kHz (white +12.0 dB, pink −0.2, brown −11.2; the pink noise mix the same), their loudness, crackle's clicks a second, tremolo all the way down at 15 and nothing without the LFO, the chorus's two sides apart and its silence after, the ducking (−122 dB under a full source, −0.09 dB half a second after), the vowels' formants ("a" against "i": 32 dB apart between 500–700 and 200–300 Hz), the chip deaf to all of it; every preset without a NaN and under 1.0, the new ones heard and under the limiter's bend, the kit's voices free when their sample ends; the tone's keys) and `tests/audio/test_bmaudio.py` (WAV files of every format into a bank, unpack → pack byte for byte both ways, version 2 without samples, the limits, then `bmrender` reads the same bank with the console's parser and plays each sample: its pitch at the root, an octave up, both channels, the loops going on, a one-shot ending, the kit's kick backwards; the effects' keys into their registers and back).
 * `make test-music` (the presets by name in the assistant's pieces): passes with the 50. It did not compile with GCC 15 (glibc's new `fdiv()` in `math.h` against `src/ai/music.c`'s own): renamed `floordiv`, nothing else.
 
+## Deep WAV files, bm Sound's samples, the Lua API (2026-10-10)
+
+* **R28, WAV files at 24 and 32 bits and in floats**: `bmrender --bits 16|24|32|f32` (`make
+  wav BITS=24`), 24 and 32 from `synth_render32`, `f32` the mix itself; `bmhost --wav-bits
+  16|24|32|f32`. 16 stays the default, the same files as before. `tests/audio/wavout.h`
+  writes the headers for both; `test_bmaudio.py` checks each depth.
+* **R30, samples and bit depth in bm Sound**: it reads version 3 banks and writes their
+  samples back unchanged (version 2 without samples); knows SAMPLE, PINK, BROWN, CRACKLE; a
+  SAMPLE sound shows its sample's meter, start, length and peak in place of the wave (its
+  settings SAMPLE and START); the menu's *Samples...* lists the bank's and the kit's and puts
+  one into the sound; the menu's footer shows `output N-bit`. `tests/sound/sim.lua`: a
+  version 3 bank byte for byte, *Samples...*, undo. Its HELP is 20 lines (it fits the 360-px
+  screen again: it was 25 and overflowed).
+* **Lua**: `chorus([rate_hz], [depth_ms], [wet])` (`audio_chorus`/`audio_chorus_get`;
+  `test-riff` checks it), `audio_depth()` → `bits, out`, `audio_samples(["kit"])` → name,
+  frames, rate, channels, root, fine, loop, loop_start, loop_end, peak, meter[32].
+* **Docs and kb (R29)**: the four API docs, `docs/RIFF*.md`, kb entries `chorus`,
+  `audio_depth`, `audio_samples`, `sample_kit`, `tone_fx`, `riff_kit` (and `tone`, `play`,
+  `instruments`, `note` updated), `make ai-model`.
+* **Known limit**: importing a single SAMPLE sound from another bank does not bring its
+  sample: `MOD1` points into the current
+  bank's samples (or the kit, 128+), so it plays whatever sample has that number there, or
+  is silent.
+
 ## Open work
 
 - **M46 (Audio 2)**: done on the PC; to verify on the Pi and on the RGB30 (Dev > *Audio
   test*, bm Sound HIFI song, F6 "rock beat", *Sound style* 8-bit and back, riff in bm Code,
-  bm Sound F7). Checklist in `docs/ROADMAP.md`.
+  bm Sound F7, *Samples...*, *Bit depth* 16/24/32). Checklist in `docs/ROADMAP.md`.
 - **M44 step 4**: block audio effects (reverb, echo, filters) on the QPUs, also for nano8.
-- Ideas not decided (spunti in `docs/ROADMAP.md`): R28 24-bit WAV, R29 audio entries in the kb
-  (to do with the API docs), R30 bit depth and sample meter in bm Sound. Short PCM samples,
+- Ideas not decided (spunti in `docs/ROADMAP.md`, R31 on). R28, R29, R30, short PCM samples,
   TPDF dither and in-block ramps are done (above).
 
 ## Rules (do not break)

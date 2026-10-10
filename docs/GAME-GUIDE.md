@@ -397,10 +397,11 @@ up in the sprite sheet) and from there into the `.bm`; for a game of the reposit
 ## 7. Sound
 
 Audio goes out in stereo (over HDMI on the Pi, from the headphones or the speaker on the
-RGB30): eight synth voices (0–7), ten waveforms (`SQUARE`, `TRIANGLE`, `SAW`, `NOISE`,
-`SINE`, `METAL`, and the new `FM`, `PLUCK`, `SUPERSAW`, `ORGAN`) with an ADSR envelope, a
-filter, a room and an echo; the 8-bit sound of before with `retro(true)`. Two ways, also
-together.
+RGB30): eight synth voices (0–7), fourteen waveforms (`SQUARE`, `TRIANGLE`, `SAW`, `NOISE`,
+`SINE`, `METAL`, `FM`, `PLUCK`, `SUPERSAW`, `ORGAN`, and the new `SAMPLE` for recorded
+samples, `PINK`, `BROWN`, `CRACKLE` for softer noises and a record's clicks) with an ADSR
+envelope, a filter, a room, an echo and a chorus, plus Strudel's effects (bit crush, vowels,
+tremolo, ducking...); the 8-bit sound of before with `retro(true)`. Two ways, also together.
 
 **Effects and music made with the Sound editor** (**Dev** tab of the menu). It is the
 easiest way: you compose with the pad or the keyboard and save inside the game.
@@ -411,7 +412,10 @@ easiest way: you compose with the pad or the keyboard and save inside the game.
    Going down past the last row: **FILTER** (cutoff, resonance, its envelope, LFO, drive)
    and **WAVE & SPACE** (the settings of FM, string, supersaw and organ; place, room,
    echo). From the menu, *Instrument...* puts a ready-made instrument in a sound (electric
-   piano, string, pad, 808 kick...), heard while you choose it.
+   piano, string, pad, 808 kick...), heard while you choose it; *Samples...* puts in a
+   sample of the bank or a drum of the console's kit (its shape, length and peak in place
+   of the wave; START says where it begins). The menu's footer shows the output's bit
+   depth (`output 24-bit`).
 3. **SFX** page: the game's effects, one note per step (A adds, A + up/down changes the
    note, START plays).
 4. **PATTERN** page: 8 tracks × 16 steps, like a drum machine; **SONG**: the patterns'
@@ -469,6 +473,21 @@ play(nil, { wave = "noise", cutoff = 600, fenv = -2, fdecay = 400, decay = 500, 
 reverb(0.9, 0.6, 1)                  -- a huge nave
 ```
 
+**Samples and effects.** The console has a drum kit of eight samples (`bd` `sd` `hh` `oh`
+`cp` `rim` `tom` `cb`, made by the synthesizer: `play(nil, "sd")`, `"kit:2"`); a WAV of
+your own goes into the bank with `scripts/bmaudio.py` (see the API, *The bank*). The keys of
+`tone()` add Strudel's effects: `crush` (bits), `coarse` (a lower rate), `vowel` (`"a"` …
+`"u"`), `curve` (the drive's shape), `color` (pink, brown noise), `trem`, `duck` (a kick
+that lowers the rest), `chorus` (with `chorus()` for its speed and depth). The new presets
+use them: `kit`, `pump`, `lush`, `choir`, `solo`, `rhodes`, `bitbass`, `vinyl`.
+
+```lua
+play(nil, "sd")                                       -- the kit's snare
+tone(1, { preset = "bass", crush = 5, coarse = 2 })   -- a gritty 5-bit bass
+play(nil, "choir", "A3", 800)                         -- voices singing aah
+play(nil, { preset = "kick", duck = 0.7 }, "C2")      -- the music dips on the kick
+```
+
 A good habit: one voice per kind of sound (weapon, hits, music), so an effect does not cut
 another; with `sfx(n)` the console chooses the voice, leaving the music alone. The
 **volume** is the console's: it changes in Settings or in the game's pause menu (`volume()`
@@ -486,6 +505,7 @@ setcpm(30)
 drums = s "kick*4, ~ snare, hat*8"
 bass  = note "<c2 a1 f1 g1>*2" :s "acid" :lpf(800)
 lead  = n "0 2 4 <7 6>" :scale("A:minor") :s "pluck" :sometimes(add(12))
+beat  = s "bd ~ sd ~, hh*8" :crush(8)       -- the console's kit, 8 bits
 ]]
 function _update() R.update() end      -- every frame
 ```

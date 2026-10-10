@@ -251,12 +251,15 @@ test-write`, QEMU `test_bm_write`).
 ## M46 — Audio 2: suono hi-fi, strumenti e musica dall'assistente (L) — in corso
 Richiesta dell'utente (2026-10-06, branch `claude/audio-synth`). Fatto sul PC: sintetizzatore
 stereo (`src/audio/synth.c`; il suono di prima resta con `retro`, *Sound style*,
-`sound=8bit`), 42 strumenti (`src/audio/presets.c`) e banco versione 2 in C, Lua e Python, bm
-Sound (FILTER, WAVE & SPACE, ECHO, ROOM, brano HIFI), l'assistente della musica
-(`src/ai/music.c`), riff (`docs/RIFF.md`), il jingle dello splash nuovo.
+`sound=8bit`), 50 strumenti (`src/audio/presets.c`) e banco versione 2 (3 con i campioni) in
+C, Lua e Python, bm Sound (FILTER, WAVE & SPACE, ECHO, ROOM, brano HIFI, *Samples...*),
+l'assistente della musica (`src/ai/music.c`), riff (`docs/RIFF.md`), il jingle dello splash
+nuovo; poi (branch `claude/audio-hifi`) profondità 16/24/32 bit col dither, campioni e kit
+della console, gli effetti di superdough, `chorus()`, `audio_depth()`, `audio_samples()`, WAV a
+24/32 bit, doc e kb (`docs/progress/audio.md`).
 - **Da verificare sul Pi e sulla RGB30:** Dev → *Audio test*, bm Sound → brano HIFI, F6 →
-  "ritmo rock", Settings → *Sound style* 8-bit e ritorno; bm Code → Ctrl+T, un riff,
-  Ctrl+Invio (tempo stabile, parole accese), bm Sound → F7.
+  "ritmo rock", Settings → *Sound style* 8-bit e ritorno, *Bit depth* 16/24/32; bm Code →
+  Ctrl+T, un riff, Ctrl+Invio (tempo stabile, parole accese), bm Sound → F7 e *Samples...*.
 - **Fatto quando:** i giochi suonano puliti sulle due console, quelli vecchi possono restare
   8 bit, e il linguaggio di pattern suona da un gioco e da bm Code.
 
@@ -310,7 +313,7 @@ usabile col mouse. Regola: il mouse fa quello che fanno i tasti. Fatto sul PC: `
 ## Spunti R1, R2, … (da riprendere)
 Cose utili che a bm mancano. Nessuno è deciso: l'utente li richiama per nome ("facciamo
 R7"), e allora si chiede il branch come per ogni sviluppo. Gli spunti diventati milestone o
-già fatti sono tolti (R5 in M19; R10–R14, R18, hitbox, più giocatori fatti; R23 → M44, R24 →
+già fatti sono tolti (R5 in M19; R10–R14, R18, R28–R30, hitbox, più giocatori fatti; R23 → M44, R24 →
 M43): quello che ne resta da fare è sotto. Suggeriti per primi: R3, R1 con R2, R7 (sul Pi si
 prova senza seriale e spesso senza tastiera).
 
@@ -336,8 +339,8 @@ prova senza seriale e spesso senza tastiera).
   poi, se serve, font dallo sheet.
 - **R8 — Vibrazione e luce del DS4.** `rumble(p, forte, debole, ms)` e `padlight(p, colore)`:
   il report d'uscita del DS4 (0x11, `bt.c`) parte già, oggi solo per il colore del giocatore.
-- **R9 — Suoni campionati (PCM/WAV)** nel banco, accanto alla sintesi; import WAV in bm Sound.
-  Il formato del banco cambia nei tre posti (`au_parse`, Lua, `scripts/bmaudio.py`).
+- **R9 — Suoni campionati (PCM/WAV).** Nel banco ci sono (versione 3, M46; WAV da
+  `scripts/bmaudio.py`); resta l'import di un WAV dalla SD in bm Sound.
 - **Resti di R11 (mappe).** Hunter's Night dai numeri 32–63 ai flag delle tile; import delle
   mappe di Tiled (`.tmj`) con livelli e proprietà; più nomi per una voce dell'assistente.
 - **Resti delle hitbox (BOXES).** bm Animator (Sprites) e bm Pixel che disegnano i
@@ -363,9 +366,17 @@ prova senza seriale e spesso senza tastiera).
   o Bluetooth, i tasti e la rotella (`stat(32)`–`stat(36)`).
 
 ### Audio
-- **R28 — WAV a 24 bit.** Audio: WAV a 24 bit da `make wav` / `bmrender` / `bmhost` con `synth_render32`.
-- **R29 — Kb dell'audio.** Audio: voce nella kb per `sound_depth` e per i nuovi parametri (campioni, crush, coarse).
-- **R30 — Profondità di bit in bm Sound.** bm Sound: mostrare la profondità di bit e il meter dei campioni.
+- **R31 — Import di un suono SAMPLE col suo campione.** Oggi un suono SAMPLE preso da un altro
+  banco non porta il campione (`MOD1` punta nel banco corrente): copiarlo e rinumerarlo.
+- **R32 — Editor e registrazione di campioni.** In bm Sound tagliare, normalizzare, mettere i
+  loop di un campione; registrare dal microfono USB o dal mix (`audio_samples()` già dà il meter).
+- **R33 — Campioni nel Market.** Banchi di campioni (`.bmau` versione 3) da scaricare e
+  mettere in un gioco, con licenza come le app.
+- **R34 — Kit di più campioni in riff.** `s "mykit:3"` su un banco di campioni proprio, come
+  `kit:N`, e più kit per cartuccia (`sound_of` in `riff.lua`).
+- **R35 — L'assistente musicale e gli effetti nuovi.** `ai.music` / Predict / kb che scelgono i
+  preset nuovi (`kit`, `choir`, `lush`, `bitbass`...) e `crush`, `vowel`, `duck` dalle parole
+  ("lofi", "coro", "sidechain").
 
 ### Hardware
 - **R19 — Altri controller Bluetooth.** Oggi via Bluetooth solo il DS4 (più tastiere e

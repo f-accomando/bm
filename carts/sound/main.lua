@@ -6,7 +6,13 @@
 -- PATTERN (an 8-track step sequencer, one track per voice) and SONG (the
 -- order of the patterns, the echo on the beat, the room). What it edits is
 -- the AUDIO section of a .bm, the same bank sfx() and music() play in the
--- games.
+-- games: version 2, or 3 with samples (kept as they are, written back
+-- unchanged). Fourteen waves: the ten synth ones, SAMPLE (a sample of the
+-- bank or a drum of the console's kit: SAMPLE and START among the wave's
+-- settings, its meter in place of the wave), PINK, BROWN, CRACKLE. The
+-- menu's Samples... lists the bank's and the kit's samples and puts one
+-- into the sound; the menu's footer shows the output's depth (output
+-- 24-bit, audio_depth()).
 --
 -- Gamepad: d-pad moves; A tap adds / removes, A + up/down / left/right
 -- changes the note (or the value); Y + up/down / left/right sound and
@@ -2099,17 +2105,13 @@ local HELP = {
   "Y          listen, insert a copy      i          listen, insert",
   "START      play / stop                Space      play / stop",
   "SELECT + l/r  page                    F1-F4 Tab  page",
-  "SELECT + up/dn  the next sound,       PgUp PgDn  next sound, pattern...",
-  "                pattern, song...      Z S X.. Q 2 W..  piano  , . octave",
-  "SELECT     this menu                  Ctrl+S save  Ctrl+O open  F5 try",
-  "START + SELECT together leave the     Ctrl+C Ctrl+V copy, paste",
-  "editor (as Ctrl+Esc)                  F12 held: all the keys",
-  "F6 (or the menu): the assistant writes beats, backing tracks, bass lines,",
-  "arpeggios, melodies and sound effects for the words (\"base lofi in re\").",
-  "SOUNDS: down past the last row goes to FILTER, then WAVE & SPACE;",
-  "the menu's Instrument... puts a ready-made sound in (it plays as you choose).",
-  "F7 Riff...: a pattern in a line (s \"kick*4, ~ snare\"), Enter plays it,",
-  "Ctrl+Enter puts its bars into the bank as a song (docs/RIFF.md).",
+  "SELECT + up/dn  next sound, song...   PgUp PgDn  next sound, pattern...",
+  "SELECT     this menu                  Z S X.. Q 2 W..  piano  , . octave",
+  "START + SELECT  leave (as Ctrl+Esc)   Ctrl+S save  Ctrl+O open  F5 try",
+  "F6 the assistant: beats, melodies...  Ctrl+C Ctrl+V copy  F12 held: keys",
+  "SOUNDS: past the last row FILTER, then WAVE & SPACE. Instrument... puts a",
+  "ready-made sound in; Samples... a sample (the bank's, the kit's: SAMPLE).",
+  "F7 Riff...: s \"bd*4, ~ sd\", Enter plays, Ctrl+Enter into the bank.",
 }
 
 -- the keys while F12 is held, under the system's (keyhelp(), the kernel
@@ -2145,7 +2147,7 @@ local KEYHELP = {
   { "START", "play / stop" },
   { "SELECT LEFTRIGHT", "page" },
   { "SELECT UPDOWN", "the next sound, pattern, song" },
-  { "SELECT", "the menu" },
+  { "SELECT", "the menu: instrument..., samples..., riff..." },
 }
 
 ----------------------------------------------------------------- the assistant (F6)

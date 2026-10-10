@@ -403,10 +403,12 @@ da lì nel `.bm`; per un gioco del repository basta mettere `models.glb` nella s
 ## 7. Suono
 
 L'audio esce in stereo (dall'HDMI sul Pi, dalle cuffie o dall'altoparlante sulla RGB30):
-otto voci di sintesi (0–7), dieci forme d'onda (`SQUARE`, `TRIANGLE`, `SAW`, `NOISE`,
-`SINE`, `METAL`, e le nuove `FM`, `PLUCK`, `SUPERSAW`, `ORGAN`) con inviluppo ADSR, filtro,
-ambiente ed eco; il suono 8-bit di una volta con `retro(true)`. Due strade, anche
-insieme.
+otto voci di sintesi (0–7), quattordici forme d'onda (`SQUARE`, `TRIANGLE`, `SAW`, `NOISE`,
+`SINE`, `METAL`, `FM`, `PLUCK`, `SUPERSAW`, `ORGAN`, e le nuove `SAMPLE` per i campioni
+registrati, `PINK`, `BROWN`, `CRACKLE` per rumori più morbidi e gli scatti di un disco) con
+inviluppo ADSR, filtro, ambiente, eco e chorus, più gli effetti di Strudel (bit crush,
+vocali, tremolo, ducking...); il suono 8-bit di una volta con `retro(true)`. Due strade,
+anche insieme.
 
 **Effetti e musica fatti con il Sound editor** (scheda **Dev** del menu). È il modo più
 comodo: si compongono col pad o con la tastiera e si salvano dentro il gioco.
@@ -417,7 +419,10 @@ comodo: si compongono col pad o con la tastiera e si salvano dentro il gioco.
    Scendendo oltre l'ultima riga: **FILTER** (taglio, risonanza, il suo inviluppo, LFO,
    drive) e **WAVE & SPACE** (le regolazioni di FM, corda, supersaw e organo; posto,
    ambiente, eco). Dal menu, *Instrument...* mette in un suono uno strumento pronto
-   (piano elettrico, corda, pad, cassa 808...), che si sente mentre lo scegli.
+   (piano elettrico, corda, pad, cassa 808...), che si sente mentre lo scegli;
+   *Samples...* ci mette un campione del banco o un tamburo del kit della console (la sua
+   forma, la lunghezza e il picco al posto dell'onda; START dice da dove parte). Il piede
+   del menu dice la profondità di bit dell'uscita (`output 24-bit`).
 3. Pagina **SFX**: gli effetti per il gioco, una nota per passo (A aggiunge, A + su/giù
    cambia la nota, START ascolta).
 4. Pagina **PATTERN**: 8 tracce × 16 passi, come una drum machine; **SONG**: l'ordine
@@ -474,6 +479,22 @@ play(nil, { wave = "noise", cutoff = 600, fenv = -2, fdecay = 400, decay = 500, 
 reverb(0.9, 0.6, 1)                  -- una navata enorme
 ```
 
+**Campioni ed effetti.** La console ha un kit di otto tamburi campionati (`bd` `sd` `hh`
+`oh` `cp` `rim` `tom` `cb`, fatti dal sintetizzatore: `play(nil, "sd")`, `"kit:2"`); un tuo
+WAV entra nel banco con `scripts/bmaudio.py` (vedi l'API, *Il banco*). Le chiavi di `tone()`
+aggiungono gli effetti di Strudel: `crush` (i bit), `coarse` (una frequenza più bassa),
+`vowel` (`"a"` … `"u"`), `curve` (la forma della saturazione), `color` (rumore rosa,
+marrone), `trem`, `duck` (una cassa che abbassa il resto), `chorus` (con `chorus()` per
+velocità e profondità). Gli strumenti pronti nuovi li usano: `kit`, `pump`, `lush`, `choir`,
+`solo`, `rhodes`, `bitbass`, `vinyl`.
+
+```lua
+play(nil, "sd")                                       -- il rullante del kit
+tone(1, { preset = "bass", crush = 5, coarse = 2 })   -- un basso sporco a 5 bit
+play(nil, "choir", "A3", 800)                         -- voci che cantano aah
+play(nil, { preset = "kick", duck = 0.7 }, "C2")      -- la musica si abbassa sulla cassa
+```
+
 Buona abitudine: una voce per tipo di suono (arma, colpi, musica), così un effetto non
 interrompe l'altro; con `sfx(n)` la voce la sceglie la console, lasciando stare la
 musica. Il **volume** è della console: si cambia in Settings o nel menu di pausa del
@@ -491,6 +512,7 @@ setcpm(30)
 drums = s "kick*4, ~ snare, hat*8"
 bass  = note "<c2 a1 f1 g1>*2" :s "acid" :lpf(800)
 lead  = n "0 2 4 <7 6>" :scale("A:minor") :s "pluck" :sometimes(add(12))
+beat  = s "bd ~ sd ~, hh*8" :crush(8)       -- il kit della console, 8 bit
 ]]
 function _update() R.update() end      -- ogni fotogramma
 ```
