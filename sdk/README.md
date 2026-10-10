@@ -106,7 +106,11 @@ with the F keys (Y + left/right on the gamepad), Esc the menu, **F12** held the 
 - **F3, the sprites**: the chosen sprite enlarged, the sheet, the palette (space
   draws, x picks the color, f fills, z 8×8/16×16, Tab chooses on the sheet, h/v
   mirror, u undoes); **F3 again, the map** (space places the tile, Backspace
-  clears, f fills, Tab chooses the tile). For all the tools: bm Pixel (2).
+  clears, f fills, Tab chooses the tile, z a 16×16 tile of 2×2 cells on even cells,
+  PgUp/PgDn and Home/End a page). For all the tools: bm Pixel (2).
+  A big map of 16×16 tiles is made by a script and retouched here: Yharnam's
+  (`carts/yharnam/mkmap.py`: the first map from its street plan, and `--from` the
+  project saved on the console back into the repository's CSV files).
 - **F4, the 3D**: the project's models in a list and the animations of the chosen one;
   the model turns on the grid with the animation playing (up/down the model,
   left/right the animation, space pauses, q/e/w/s the camera, + − zoom); **i**
@@ -125,7 +129,8 @@ with the F keys (Y + left/right on the gamepad), Esc the menu, **F12** held the 
 
 The **menu** (Esc): Continue, New project (the templates), Open, Save, Save as (8.3 name in
 `/carts`), Build the game .bm (Ctrl+B), Try the game, Exit. Saving uses `cart_save`:
-code, sheet, map, cover, sounds, models and skeletons.
+code, sheet, map, cover, sounds, models and skeletons (a SHEET8 sheet nothing was drawn on
+goes back as it was: a big sheet stays small).
 
 **Projects and games** (`src/bm/project.h`, `docs/API.md`): all the tools of the suite
 (SDK, bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel, Sound) change only **projects**

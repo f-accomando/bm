@@ -14,7 +14,7 @@ monitor), the hub of the bm Suite. With a USB keyboard (and, if you like, a game
 |---|---|
 | **F1** | the project: title, author, screen, target (`.bm` or `.b16`), what the file holds (code and tokens, sprites, flags, zones, map layers, models, sounds) and the suite's other programs (`1`–`6`: bm Code, bm Pixel, bm Studio, bm Animator, bm Mesh, bm Sound). **F1 again**: the dev kit (fps, ms, RAM and tokens of the last try) |
 | **F2** | the code (Ctrl+X or Ctrl+K cuts the line, Ctrl+C / Ctrl+V, Ctrl+D duplicates, Ctrl+G goes to the error, F9 the assistant explains it) |
-| **F3** | the sprites: arrows, space draws, `x` picks the colour, `f` fills, `,` `.` colour, Tab chooses on the sheet, `z` 8×8/16×16, `h`/`v` mirror, `u` undoes, `0`–`7` turn the tile's **flags** on and off (below: wall, platform...). **F3 again**: the map: space places the tile, `x` picks it, `f` fills, Tab chooses the tile, `l` the next **layer**, Shift+L adds one (also *New map layer* in the menu), `o` that layer alone, `c` shows the flags |
+| **F3** | the sprites: arrows, space draws, `x` picks the colour, `f` fills, `,` `.` colour, Tab chooses on the sheet, `z` 8×8/16×16, `h`/`v` mirror, `u` undoes, `0`–`7` turn the tile's **flags** on and off (below: wall, platform...). **F3 again**: the map: space places the tile, `x` picks it, `f` fills, Tab chooses the tile, `z` 8×8/16×16 (a tile of 2×2 cells, on even cells), PgUp/PgDn and Home/End a page, `l` the next **layer**, Shift+L adds one (also *New map layer* in the menu), `o` that layer alone, `c` shows the flags |
 | **F4** | 3D: the project's models and animations, turning; `i` writes the code that draws them, Enter opens them in bm Studio |
 | **Ctrl+N** | a new project from a template: Empty 2D, Platform 2D, Top-down 2D, Shooter 2D, Versus 2D (two players on one console, punches with hitboxes), Online 2D (a lobby and a match over the network), 3D scene, 3D with models |
 | **F5** / **Ctrl+R** | try the game (Esc or Ctrl+Esc back to the SDK; the try's numbers go to the dev kit) |
@@ -265,7 +265,9 @@ mset(cx, cy, 5)                                       -- changing a cell (doors,
 
 Without `--map` the map is 256×256 empty and is filled with `mset` (`msize(w, h)` gives it
 another size). A big map (Hunter's Night: 256×256 cells, 2048×2048 pixels) is better made
-by a script: see `carts/hunt/mkassets.py`, which writes `sheet.png` and `map.csv`.
+by a script: see `carts/hunt/mkassets.py`, which writes `sheet.png` and `map.csv`. Or a
+script makes the first one and the SDK's map page retouches it by hand: Yharnam's two
+layers (`carts/yharnam/mkmap.py`), 16×16 tiles placed with `z`.
 
 **Flags: what each tile is.** Every tile of the sheet has 8 flags (0–7), on or off.
 Collisions look at the flags, not at the tiles' numbers: new tiles (a stone wall, a wooden

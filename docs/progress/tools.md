@@ -9,7 +9,9 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
 ### The suite (`carts/`, opened from the Dev tab; tools live in the kernel, not the Market)
 - **bm SDK** (`carts/editor`): projects, templates (Empty 2D, Platform 2D, Top-down 2D,
   Shooter 2D, Versus 2D, Online 2D, 3D scene, 3D with models), budgets (tokens, Lua, assets),
-  the dev kit report of a test run, jumps to the other tools (`cart_tool`).
+  the dev kit report of a test run, jumps to the other tools (`cart_tool`). Map page (`P.map`):
+  layers, flags, `z` a 16×16 brush (2×2 cells, cursor and tile on even cells; fill on whole
+  tiles), Home/End and PgUp/PgDn a page.
 - **bm Code** (`carts/code`): tabs, two pages, 6×12/8×14/8×16 fonts; completion
   (`predict`, [`docs/PREDICT.md`](../PREDICT.md)), pad typing (`padtype`,
   [`docs/PADTYPE.md`](../PADTYPE.md)), F6 assistant and `#entry: … #` lines, F8
@@ -47,6 +49,13 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   `scripts/bmmesh.py`, `bmdecimate.py`, `tools/bmreduce.py` (quadric collapse, same code as
   `src/bm/decimate.c`).
 - `tools/qpuasm.py` → `src/gpu/shaders.h` ([graphics](graphics.md)).
+- Yharnam's drawn map: `carts/yharnam/map_ground.csv` + `map_overlay.csv` (`layers_yharnam`,
+  256×256 cells: the ground and its kerbs/edges/decals). `carts/yharnam/mkmap.py` makes the first
+  one from the street plan (`make yharnam-map`, `tests/yharnam/mapgen.lua`: it overwrites the
+  drawn one), takes it back from a project saved on the console (`--from YHARNAM.BME`), draws
+  it (`--png`). The game draws it (`MAP.drawn`); houses, trees, lamps, creatures, gates and
+  bosses are still the code's; beyond the edge the ring of chunks (`MAP.ring`). Test
+  `tests/yharnam/drawn.lua`.
 - `tools/bm_net.py`: kernels, cartridges and files over WiFi (protocol in
   [system](system.md)); `tools/bm_load.py`: serial chainloader and terminal;
   `tools/overbit_relay.py`: the internet relay for `bmnet`.
@@ -78,6 +87,9 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
 - **M43 step 3**: a *Stack* page in bm Pixel. **M42 step 4**: the SDK saves a real `.b16`.
+- Yharnam's map on the Pi: open `yharnam.bm` in the SDK, F3 F3, edit, Ctrl+S (`YHARNAM.BME`,
+  about 6 MB), F5; then `mkmap.py --from` and commit the CSVs. Still the code's: the objects
+  (a house painted over stays a house).
 
 ## Rules (do not break)
 

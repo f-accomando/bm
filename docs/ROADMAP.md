@@ -31,6 +31,10 @@ in questa passata, nessuna cosa già decisa.
   RGB30 (generazione dei chunk in sottofondo, `stream()`, buio a livelli, particelle) con il
   report di sessione del dev kit e le righe `devinfo()` a fine partita. Il confronto è con il
   budget di 60 fps di M42.
+- [ ] **Mappa disegnata di Yharnam sul Pi**: aprire `yharnam.bm` nell'SDK, F3 F3, `z`, piazzare
+  qualche tile, Ctrl+S (la copia `YHARNAM.BME`, circa 6 MB: lo sheet resta SHEET8), F5: il
+  terreno cambiato si vede nel gioco. Poi `python3 carts/yharnam/mkmap.py --from` sul file
+  copiato dalla SD e commit dei CSV.
 - [ ] **Glitch grafico all'avvio di Yharnam**: un piccolo difetto visibile nei primi fotogrammi.
   Da descrivere sul Pi: quando compare, quanto dura, in quale schermata (titolo o gioco dopo
   i primi chunk). Punti da guardare, come ipotesi: `_init` (le tabelle di fade prima del primo
@@ -364,6 +368,18 @@ prova senza seriale e spesso senza tastiera).
 - **R26 — Il mouse vero in nano8.** Le cartucce `.p8` che chiedono il mouse (`poke(0x5f2d,
   1)`) oggi hanno un cursore mosso da levetta, croce o frecce: con `mouse(true)` il mouse USB
   o Bluetooth, i tasti e la rotella (`stat(32)`–`stat(36)`).
+- **R36 — Yharnam: gli oggetti dalla mappa disegnata** (2026-10-10). Oggi a mano si disegna solo
+  il terreno (`map_ground.csv`, `map_overlay.csv`); case, alberi, lampioni, collisioni, porte,
+  lampade del cacciatore e boss li fa ancora il codice dal piano delle strade (una casa
+  ridipinta come strada resta una casa). Un livello in più di segnaposti (tile "casa", "albero",
+  "lampione"...) letto da `gen()`, o le case come tile di un livello davanti, li renderebbe
+  disegnabili; con `MAP.areas` e i cancelli come dati, anche la forma della caccia.
+- **R37 — Panoramica e tavolozza delle mappe grandi nell'SDK.** Sulla pagina mappa una vista
+  rimpicciolita (256×256 celle in uno schermo) per spostarsi, e con Tab le sole tile 16×16 già
+  usate nella mappa (lo sheet di Yharnam è largo 4096 px: le sue tile sono le prime due righe).
+- **R38 — L'assistente e il pennello 16×16.** Una voce della kb ("come disegno una mappa grande
+  con tile 16x16?", `z` sulla pagina mappa, `mkmap.py` come esempio) e la guida del platform che
+  lo cita.
 
 ### Audio
 - **R31 — Import di un suono SAMPLE col suo campione.** Oggi un suono SAMPLE preso da un altro

@@ -29,6 +29,9 @@ here.
   `write_target`, `copy_question`, `cart_build`; `cart_save`/`cart_write`/`cart_put_audio`
   return the file written. Rules in `CLAUDE.md`; test doubles
   `tests/studio/project_rules.lua`.
+- `cart_save` writes back the file's SHEET8 section byte for byte (`proj_sheet8`, kept by
+  `cart_load`) until `sset`/`cart_sheet` draw on the sheet (`proj_sheet_drawn`), then the whole
+  sheet as SHEET: a big SHEET8 (Yharnam's) stays small. Test: `tests/gameapi/cart.lua`.
 - nano8 (`src/bm/n8*.c`, `carts/nano8`): a PICO-8-compatible machine for `.p8` carts, its
   own Lua bindings in `n8lua.c` and sound in `src/audio/n8snd.c`.
 
@@ -59,7 +62,8 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
 - **M39 step 10**: hot Lua of the games in C (rays, bot paths, particles), fewer allocations.
 - **M47** projects: done on the PC, to verify on the Pi.
 - Yharnam checks without a milestone ("Da fare" in the roadmap): frame cost on Pi and RGB30
-  via the session report and `devinfo()`, a glitch in the first frames.
+  via the session report and `devinfo()`, a glitch in the first frames; its drawn map edited in
+  the SDK on the Pi ([tools](tools.md)).
 
 ## Rules (do not break)
 
