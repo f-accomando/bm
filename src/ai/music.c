@@ -37,7 +37,7 @@ static uint32_t hash(const char *s)
 }
 
 /* Python's // and % (the network's features are written in Python) */
-static int fdiv(int a, int b) { int q = a / b; return (a % b != 0 && (a < 0) != (b < 0)) ? q - 1 : q; }
+static int floordiv(int a, int b) { int q = a / b; return (a % b != 0 && (a < 0) != (b < 0)) ? q - 1 : q; }
 static int fmod_(int a, int b) { int m = a % b; return m < 0 ? m + b : m; }
 
 /* ---------------------------------------------------------------- theory */
@@ -48,7 +48,7 @@ static const char *const NOTE_NAME[12] = { "C", "C#", "D", "Eb", "E", "F", "F#",
 /* semitones above the tonic of a step of the scale (any octave) */
 static int semis(int deg, int minor)
 {
-    int o = fdiv(deg, 7);
+    int o = floordiv(deg, 7);
     return 12 * o + SCALE[minor][deg - 7 * o];
 }
 
@@ -141,7 +141,7 @@ void mus_features(const mus_ev_t *hist, int n, int pos, int meter, int root, int
     if (last >= 0) {
         int d = hist[last].deg;
         f[69 + fmod_(d, 7)] = 1;
-        int o = fdiv(d, 7);
+        int o = floordiv(d, 7);
         f[76 + (o < -1 ? -1 : o > 2 ? 2 : o) + 1] = 1;
         int t = fmod_(d - root, 7);
         f[112] = t == 0 || t == 2 || t == 4;

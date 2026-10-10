@@ -133,6 +133,30 @@ const au_preset_t au_presets[] = {
     P("wind", "fx", "wind: noise through a slowly moving band",
       SYNTH_NOISE, 128, 90, 150, 0, 255, 150, 0, 0, 0, 0, T(CUTOFF) = 137, T(RESONANCE) = 120,
       T(FILTER) = SYNTH_BANDPASS, T(LFO_RATE) = 20, T(LFO_CUT) = 100, T(REVERB) = 120),
+    /* the samples and the effects of the second pass (docs/progress/audio.md 9) */
+    P("kit", "drum", "the console's drum kit (samples): kit:0 kick, 1 snare, 2 hat, 3 open hat, 4 clap, 5 rim, "
+      "6 tom, 7 cowbell",
+      SYNTH_SAMPLE, 128, 230, 0, 0, 255, 6, 0, 0, 0, 0, T(MOD1) = SYNTH_KIT, T(REVERB) = 30),
+    P("pump", "drum", "the kit's kick ducking everything else (sidechain)",
+      SYNTH_SAMPLE, 128, 230, 0, 0, 255, 6, 0, 0, 0, 0, T(MOD1) = SYNTH_KIT, T(TREMOLO) = 12 << 4, T(REVERB) = 10),
+    P("lush", "pad", "a wide pad: three saws through a chorus",
+      SYNTH_SUPERSAW, 128, 90, 80, 60, 230, 120, 0, 0, 0, 0, T(CUTOFF) = 170, T(RESONANCE) = 30,
+      T(CHORUS) = 220, T(REVERB) = 140),
+    P("choir", "pad", "voices singing aah: a saw through the formants of a, a chorus",
+      SYNTH_SAW, 128, 150, 90, 0, 255, 110, 0, 0, 10, 50, T(FILTER) = SYNTH_VOWEL_A << SYNTH_VOWEL_SHIFT,
+      T(CHORUS) = 200, T(REVERB) = 160),
+    P("solo", "lead", "a singing lead: a saw warmed like a tube, vibrato, an echo",
+      SYNTH_SAW, 128, 120, 4, 40, 200, 40, 0, 0, 25, 55, T(CUTOFF) = 190, T(RESONANCE) = 50, T(DRIVE) = 90,
+      T(FLAGS) = SYNTH_CURVE_ASYM << SYNTH_CURVE_SHIFT, T(ECHO) = 100, T(REVERB) = 70),
+    P("rhodes", "keys", "electric piano with a tremolo and a little chorus",
+      SYNTH_FM, 128, 140, 0, 150, 70, 60, 0, 0, 0, 0, T(MOD1) = 16, T(MOD2) = 70, T(MODDECAY) = 70,
+      T(LFO_RATE) = 184, T(TREMOLO) = 6, T(CHORUS) = 80, T(REVERB) = 80),
+    P("bitbass", "bass", "a crushed bass: 4 bits at a quarter of the rate",
+      SYNTH_SAW, 128, 200, 0, 50, 160, 10, 0, 0, 0, 0, T(CUTOFF) = 120, T(RESONANCE) = 80,
+      T(CRUSH) = 4 | 3 << 4, T(REVERB) = 10),
+    P("vinyl", "fx", "an old record: crackle and a little hiss",
+      SYNTH_CRACKLE, 128, 150, 0, 0, 255, 50, 0, 0, 0, 0, T(MOD1) = 10, T(NOISEMIX) = 12,
+      T(FLAGS) = SYNTH_COLOR_PINK << SYNTH_COLOR_SHIFT, T(CUTOFF) = 200, T(REVERB) = 20),
 };
 const int au_preset_count = sizeof au_presets / sizeof au_presets[0];
 

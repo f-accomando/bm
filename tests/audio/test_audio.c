@@ -2,9 +2,11 @@
  * sample for sample, and the clean one), the player of the sound banks,
  * the output's depth (16, 24, 32 bits: the dither's noise and SNR, no DC,
  * no noise in silence), the tone moving within a block without zipper,
- * and the IEC 958 subframes sent to the HDMI audio FIFO. */
+ * the IEC 958 subframes sent to the HDMI audio FIFO, the samples (the
+ * bank's and the kit's), the effects of the second pass and the presets. */
 #include "audio/synth.h"
 #include "audio/player.h"
+#include "audio/presets.h"
 #include "audio/iec958.h"
 
 #include <math.h>
@@ -1779,6 +1781,63 @@ static void test_effects(void)
     }
 }
 
+/* ---------------------------------------------------------------- presets */
+
+static void test_presets(void)
+{
+    /* every preset sounds, under the limiter's bend, no NaN; the kit's free
+     * their voice when their sample ends */
+    static float o[2 * 64];
+    for (int p = 0; p < au_preset_count; p++) {
+        const au_sound_t *snd = &au_presets[p].s;
+        memset(pregs, 0, sizeof pregs);
+        synth_init(&syn, RATE);
+        player_init(&pl, RATE, pregs, &syn);
+        int drum = !strcmp(au_presets[p].kind, "drum");
+        player_play_sound(&pl, 0, snd, drum ? 60 : 48, 220, 600);
+        float pk = 0;
+        int bad = 0;
+        for (int b = 0; b < RATE * 3 / 2 / 64; b++) {
+            player_advance(&pl, 64);
+            synth_mix(&syn, pregs, o, 64);
+            for (int i = 0; i < 128; i++) {
+                bad += !(o[i] == o[i]);
+                if (fabsf(o[i]) > pk) pk = fabsf(o[i]);
+            }
+        }
+        int fresh_one = p >= 42;                /* the new ones: heard, under the limiter's bend */
+        CHECK(!bad && pk < 1.0f && (!fresh_one || (pk > 0.05f && pk < 0.9f)));
+        if (bad || (fresh_one && (pk <= 0.05f || pk >= 0.9f)))
+            printf("  preset %s: peak %.3f, %d NaN\n", snd->name, pk, bad);
+        if (snd->wave == SYNTH_SAMPLE)
+            CHECK(synth_active(&syn) == 0);
+    }
+    CHECK(au_preset_count == 50 && au_preset_find("kit") >= 42 && au_preset_find("vinyl") == 49);
+    CHECK(au_wave_find("sample") == SYNTH_SAMPLE && au_wave_find("crackle") == SYNTH_CRACKLE &&
+          au_wave_find("13") == -1);
+
+    /* the tone's keys in plain units */
+    uint8_t r[SYNTH_VOICE_BYTES] = { 0 };
+    r[SYNTH_FILTER] = SYNTH_BANDPASS | SYNTH_KEYTRACK;
+    CHECK(au_tone_str(r, "vowel", "o") == 0 && r[SYNTH_FILTER] == (SYNTH_BANDPASS | SYNTH_KEYTRACK | 4 << 3));
+    CHECK(au_tone_str(r, "filter", "hp") == 0 && au_tone_num(r, "keytrack", 0) == 0 &&
+          r[SYNTH_FILTER] == (SYNTH_HIGHPASS | 4 << 3));        /* the vowel stays */
+    CHECK(au_tone_num(r, "crush", 4) == 0 && au_tone_num(r, "coarse", 8) == 0 && r[SYNTH_CRUSH] == (4 | 7 << 4));
+    CHECK(au_tone_num(r, "crush", 16) == 0 && au_tone_num(r, "coarse", 1) == 0 && r[SYNTH_CRUSH] == 0);
+    CHECK(au_tone_num(r, "trem", 0.4) == 0 && au_tone_num(r, "duck", 1) == 0 && r[SYNTH_TREMOLO] == (6 | 15 << 4));
+    CHECK(au_tone_num(r, "chorus", 0.5) == 0 && r[SYNTH_CHORUS] == 128);
+    CHECK(au_tone_str(r, "curve", "fold") == 0 && au_tone_str(r, "color", "brown") == 0 &&
+          au_tone_num(r, "raw", 1) == 0 && au_tone_num(r, "reverse", 1) == 0 &&
+          r[SYNTH_FLAGS] == (SYNTH_FLAG_RAW | 2 << 1 | 2 << 3 | SYNTH_FLAG_REVERSE));
+    CHECK(au_tone_str(r, "curve", "nope") == -1 && au_tone_str(r, "vowel", "none") == 0 &&
+          (r[SYNTH_FILTER] & SYNTH_VOWEL) == 0);
+    CHECK(au_tone_str(r, "sample", "hh") == 0 && r[SYNTH_MOD1] == SYNTH_KIT + 2 &&
+          au_tone_str(r, "sample", "kit:9") == 0 && r[SYNTH_MOD1] == SYNTH_KIT + 1 &&
+          au_tone_str(r, "sample", "nothing") == -1);
+    CHECK(au_tone_num(r, "begin", 0.5) == 0 && r[SYNTH_MOD2] == 128 && au_tone_num(r, "sample", 3) == 0 &&
+          r[SYNTH_MOD1] == 3);
+}
+
 int main(void)
 {
     test_synth();
@@ -1791,6 +1850,7 @@ int main(void)
     test_ramps();
     test_samples();
     test_effects();
+    test_presets();
     printf("audio: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

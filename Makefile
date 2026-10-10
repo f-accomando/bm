@@ -1039,9 +1039,11 @@ $(BUILD)/host/test_music: tests/ai/test_music.c src/ai/music.c src/ai/music_net.
 music-model:
 	$(PYTHON) scripts/trainmusic.py
 
-$(BUILD)/host/test_audio: tests/audio/test_audio.c src/audio/synth.c src/audio/player.c src/audio/iec958.c src/audio/*.h
+$(BUILD)/host/test_audio: tests/audio/test_audio.c src/audio/synth.c src/audio/player.c src/audio/presets.c \
+                          src/audio/iec958.c src/audio/*.h
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/audio/test_audio.c src/audio/synth.c src/audio/player.c src/audio/iec958.c -lm
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/audio/test_audio.c src/audio/synth.c src/audio/player.c \
+	    src/audio/presets.c src/audio/iec958.c -lm
 
 # A song (or SFX=n) of a sound bank as a WAV file, made on the PC by the
 # console's synthesizer: make wav BANK=carts/sound/demo.json SONG=0
