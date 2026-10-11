@@ -46,6 +46,11 @@ Delega con `tracker` se le righe sono già decise.
 
 ## File grossi di codice (mai interi)
 
+**Indice sempre fresco**: `python3 scripts/cindex.py <file> [parola]` stampa i banner di sezione e le
+funzioni con la riga (C e Lua); con la parola, solo le righe che la contengono. Poi `Read` con
+`offset`/`limit`. Per una funzione Lua esposta ai giochi cerca `l_<nome>` (la tabella `api[]`
+in `runtime.c` collega nome → `l_…`).
+
 - `src/bm/runtime.c` (350 KB): `Grep -n 'static int l_<nome>\|"<nome>"'` per una funzione
   Lua esposta; `Grep -n '^[a-z].*(' ` limitato con `head_limit` per l'elenco funzioni.
 - `src/kernel/menu_ui.c`, `settings.c`: cerca la riga/stringa visibile a schermo, poi leggi

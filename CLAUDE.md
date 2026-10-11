@@ -30,7 +30,7 @@ compatibilità (cartelle SD e header vecchi, tag di rete in `tools/bm_net.py`).
 - **Mai per intero**: `src/bm/runtime.c` (350 KB), `src/kernel/menu_ui.c`, `src/kernel/settings.c`,
   `src/script/bm3d.lua`, `src/script/bmlib.lua`, `docs/GAME-GUIDE.md`, `docs/B16.md`,
   `sdk/README.md`, `docs/ROADMAP.md`. Prima `Grep -n` sul simbolo o sul titolo (`^#`), poi `Read`
-  con `offset`/`limit` solo su quel tratto. Un file già letto in sessione non si rilegge.
+  con `offset`/`limit` solo su quel tratto. Indice di un file grosso: `python3 scripts/cindex.py <file> [parola]`. Un file già letto in sessione non si rilegge.
 - **API**: `docs/API.md` è solo indice e basi; il resto è in `docs/api/<area>.md` (draw, input,
   system, sound, tools, light3d, bmlib, riff, bmnet). Si apre solo il file dell'area.
 - **Progressi**: lo stato di un'area sta in un solo `docs/progress/<area>.md` (indice e mappa
