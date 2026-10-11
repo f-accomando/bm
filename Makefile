@@ -267,17 +267,13 @@ $(BUILD)/carts/titanex.bm: $(BUILD)/titan_ex/main.lua carts/titan/sheet.png cart
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "Titan Clash EX" --author bm \
 	    --sheet carts/titan/sheet.png --sheet8 --cover carts/titan/cover.png --res 360x360
 
-# bm SDK (RGB30, .b16 only, id sdkb16): the SDK's second edition, 360x360 and the
-# pad, with its own sources in carts/sdk_b16/ (layout.lua + main.lua, joined by its
-# build.py); the Pi's SDK stays carts/editor, built into the kernel
+# bm SDK (RGB30): the SDK's second edition, 360x360 and the pad, with its own
+# sources in carts/sdk_b16/ (layout.lua + main.lua, joined by its build.py). A tool
+# built into the RGB30's kernel (rgb30.mk, its Dev tab), not into the Pi's: here
+# only its script, for test-sdk-b16. The Pi's SDK stays carts/editor.
 SDK_B16_SRC := carts/sdk_b16/layout.lua carts/sdk_b16/main.lua carts/sdk_b16/build.py
 $(BUILD)/sdk_b16/main.lua: $(SDK_B16_SRC)
 	$(PYTHON) carts/sdk_b16/build.py $@
-
-$(BUILD)/carts/sdkb16.bm: $(BUILD)/sdk_b16/main.lua carts/editor/icon.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/editor/icon.png \
-	    --title "bm SDK (RGB30)" --author bm --res 360x360
 
 # nano8: plays .p8 / .p8.png carts (machine in src/bm/n8*.c); several Lua
 # files too. The carts it ships with (carts/nano8/roms, licenses in
@@ -354,7 +350,7 @@ $(BUILD)/carts/overbit.b16: $(BUILD)/overbit/main.min.lua $(BUILD)/overbit/model
 # the .b16 that is the .bm's very bytes (docs/B16.md §0: the same container): a
 # 360x360 or 720x720 game within the 8 MiB, built as its .bm (Yharnam: 360x360,
 # its menus on "ok" / "back", the RGB30's B and A)
-B16_AS_BM := yharnam titanex sdkb16
+B16_AS_BM := yharnam titanex
 $(patsubst %,$(BUILD)/carts/%.b16,$(B16_AS_BM)): $(BUILD)/carts/%.b16: $(BUILD)/carts/%.bm
 	cp $< $@
 	@test `wc -c < $@` -le 8388608 || { echo "$@ is over a .b16's 8 MiB"; rm -f $@; exit 1; }
@@ -1025,12 +1021,12 @@ $(BUILD)/host/test_github: tests/net/test_github.c src/net/github.c src/net/gith
 MARKET ?= ../bm-market
 MARKET_VERSION := $(shell date -u +%Y.%m.%d)
 # the games that go to the Market as .b16 (the optimized release, if there is a rule);
-# Overbit has a .bm too (the Pi's), Yharnam, Titan Clash EX and bm SDK (RGB30) only
-# their .b16 (MARKET_NO_BM: no .bm in the Market); the last two are not in GAMES (no
-# .bm for the Pi's card): MARKET_ONLY
-MARKET_B16 := overbit yharnam titanex sdkb16
-MARKET_NO_BM := yharnam titanex sdkb16
-MARKET_ONLY := titanex sdkb16
+# Overbit has a .bm too (the Pi's), Yharnam and Titan Clash EX only their .b16
+# (MARKET_NO_BM: no .bm in the Market); the last one is not in GAMES (no .bm for the
+# Pi's card): MARKET_ONLY. The tools are in the kernels, not here.
+MARKET_B16 := overbit yharnam titanex
+MARKET_NO_BM := yharnam titanex
+MARKET_ONLY := titanex
 market-seed: $(GAME_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
 	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
 	mkdir -p $(MARKET)/.github/workflows
