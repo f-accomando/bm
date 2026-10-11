@@ -26,9 +26,10 @@ const char *sd_error(void);
 /* "sdhost" or "emmc": the controller in use. */
 const char *sd_controller(void);
 
-/* Since boot (2026-10-11, a one-off +502 ms stall seen on the Pi): the
- * transfers tried again after a failure, and the waits that ran out (each
- * one 0.5 s or more of the card stopping everything). The SDHOST driver's;
+/* Since boot (2026-10-11, +500 ms stalls seen on the Pi): the transfers
+ * tried again after a failure, and the waits that ran out (each one up to
+ * 0.5 s of the card stopping everything; 0.1 s for a read's first try).
+ * The SDHOST driver's, with a line in the log for each failed transfer;
  * 0 on the other drivers. */
 void sd_counters(uint32_t *retries, uint32_t *timeouts);
 

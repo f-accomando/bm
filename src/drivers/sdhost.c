@@ -75,10 +75,21 @@
 #define R_SHORT 1
 #define R_LONG  2
 
-#define WAIT_US         500000  /* a wait for the controller or the card */
+#define WAIT_MS         500     /* the controller's own data timeout (SDTOUT), as Linux */
+#define WAIT_US         500000  /* our waits for the controller or the card */
 #define SLOW_READ_US    50000   /* a read that waited longer has a line in the log (64 blocks: ~3 ms) */
 
-static uint32_t core_clock;
+/* A read's first try (2026-10-11). The SD spec's read timeout for an SDHC
+ * card is 100 ms, not half a second, and on the Pi a read that ran out its
+ * 500 ms worked at once when tried again: the stall was the wait. The first
+ * try's controller gives up at 100 ms, our waits a little after it (its own
+ * timeout ends the transfer, as it did at 500 ms); then the two tries of
+ * before, half a second each (a slow card still gets its time). */
+#define FIRST_READ_MS   100
+#define FIRST_READ_US   150000
+#define READ_TRIES      3
+
+static uint32_t core_clock, clk_hz;
 static uint32_t rca, blocks;
 static int hc, ready;
 static uint32_t hcfg;
@@ -101,6 +112,13 @@ typedef struct {
 static fail_t fail;
 static uint32_t n_lines;        /* lines in the log so far */
 
+/* the controller's own wait for data or for the card's busy (SDTOUT, in
+ * card clocks), set before each command with data */
+static void set_data_timeout(uint32_t ms)
+{
+    mmio_write(SDTOUT, clk_hz / 1000 * ms);
+}
+
 static void set_clock(uint32_t hz)
 {
     /* f = core / (div + 2) */
@@ -108,8 +126,8 @@ static void set_clock(uint32_t hz)
     div = div < 2 ? 0 : div - 2;
     if (div > 0x7FF) div = 0x7FF;
     mmio_write(SDCDIV, div);
-    uint32_t actual = core_clock / (div + 2);
-    mmio_write(SDTOUT, actual / 2);             /* about half a second */
+    clk_hz = core_clock / (div + 2);
+    set_data_timeout(WAIT_MS);                  /* half a second */
 }
 
 /* Sends a command; resp gets the response in the Arasan layout (long
@@ -286,7 +304,7 @@ int sdhost_init(void)
 /* The controller's state machine back to idle after a transfer (Linux
  * bcm2835_wait_transfer_complete): only then may CMD12 be sent, or the
  * last block of a write would be cut. */
-static int wait_transfer_complete(int write)
+static int wait_transfer_complete(int write, uint32_t wait_us)
 {
     const uint32_t alt_idle = write ? FSM_WRITESTART1 : FSM_READWAIT;
     uint32_t t0 = timer_ticks();
@@ -298,7 +316,7 @@ static int wait_transfer_complete(int write)
             mmio_write(SDEDM, edm | EDM_FORCE_DATA);
             return 0;
         }
-        if (timer_ticks() - t0 > WAIT_US) {
+        if (timer_ticks() - t0 > wait_us) {
             err = write ? "write not completed" : "read not completed";
             n_timeouts++;
             return -1;
@@ -444,15 +462,17 @@ static void log_fail(const char *op, uint32_t lba, uint32_t count, const fail_t 
 
 /* ---------------------------------------------------------------- transfers */
 
-static int read_blocks(uint32_t lba, uint32_t count, uint8_t *buf)
+/* wait_us: our waits; hw_ms: the controller's (FIRST_READ_*, then WAIT_*) */
+static int read_blocks(uint32_t lba, uint32_t count, uint8_t *buf, uint32_t wait_us, uint32_t hw_ms)
 {
     const uint32_t start = timer_ticks(), words = count * 128;
     uint32_t done = 0, waited = 0, r[4];        /* waited: the longest wait for data */
     r[0] = ~0u;
     drop_stale("read", lba);
+    set_data_timeout(hw_ms);
     mmio_write(SDHBCT, 512);
     mmio_write(SDHBLC, count);
-    if (cmd_x(count > 1 ? 18 : 17, R_SHORT, CMD_READ, hc ? lba : lba * 512, r, WAIT_US))
+    if (cmd_x(count > 1 ? 18 : 17, R_SHORT, CMD_READ, hc ? lba : lba * 512, r, wait_us))
         goto fail;
     uint32_t t0 = timer_ticks();
     while (done < words) {
@@ -465,7 +485,7 @@ static int read_blocks(uint32_t lba, uint32_t count, uint8_t *buf)
                 goto fail;
             }
             const uint32_t w = timer_ticks() - t0;
-            if (w > WAIT_US) {
+            if (w > wait_us) {
                 err = "read timeout";
                 n_timeouts++;
                 goto fail;
@@ -483,7 +503,7 @@ static int read_blocks(uint32_t lba, uint32_t count, uint8_t *buf)
         t0 = timer_ticks();
     }
     const uint32_t data_end = timer_ticks();
-    if (wait_transfer_complete(0))
+    if (wait_transfer_complete(0, wait_us))
         goto fail;
     /* the last block's CRC is checked after its data: seen only here (the
      * loop looks at the flags while it waits). A line for now, the data
@@ -515,6 +535,7 @@ static int write_blocks(uint32_t lba, uint32_t count, const uint8_t *buf)
     uint32_t done = 0, r[4];
     r[0] = ~0u;
     drop_stale("write", lba);
+    set_data_timeout(WAIT_MS);                  /* a read may have left it shorter */
     mmio_write(SDHBCT, 512);
     mmio_write(SDHBLC, count);
     if (cmd_x(count > 1 ? 25 : 24, R_SHORT, CMD_WRITE, hc ? lba : lba * 512, r, WAIT_US))
@@ -554,7 +575,7 @@ static int write_blocks(uint32_t lba, uint32_t count, const uint8_t *buf)
             n_timeouts++;
             goto fail;
         }
-    if (wait_transfer_complete(1))
+    if (wait_transfer_complete(1, WAIT_US))
         goto fail;
     if (mmio_read(SDHSTS) & (HSTS_CRC16 | HSTS_FIFO_ERR)) {
         err = "write error";
@@ -579,12 +600,16 @@ int sdhost_read(uint32_t lba, uint32_t count, void *buf)
     uint8_t *p = buf;
     while (count) {
         uint32_t n = count > 128 ? 128 : count;
-        if (read_blocks(lba, n, p)) {
+        if (read_blocks(lba, n, p, FIRST_READ_US, FIRST_READ_MS)) {
             const fail_t first = fail;
             const uint32_t t0 = timer_ticks();
-            n_retries++;                                        /* one retry */
-            const int ok = read_blocks(lba, n, p) == 0;
-            log_fail("read", lba, n, &first, ok, 2, timer_ticks() - t0);
+            int tries = 1, ok = 0;
+            while (!ok && tries < READ_TRIES) {                 /* the two tries of before */
+                n_retries++;
+                tries++;
+                ok = read_blocks(lba, n, p, WAIT_US, WAIT_MS) == 0;
+            }
+            log_fail("read", lba, n, &first, ok, tries, timer_ticks() - t0);
             if (!ok)
                 return -1;
         }

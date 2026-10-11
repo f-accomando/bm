@@ -1559,7 +1559,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
      * line's own (9-15 ms of UART): it no longer brings the next one every
      * 5 s with nothing running (2026-10-11). The SD card's retries and
      * timeouts of the window (sd_counters), when there were some, end it
-     * (and print it: each timeout is half a second of the card). */
+     * (and print it: each timeout is up to half a second of the card). */
     idle_gave += gave;
     if (idle_first)
         idle_first = 0;
