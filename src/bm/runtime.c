@@ -1815,6 +1815,12 @@ static void gpu3d_maybe(void)
     }
 }
 
+/* r3d_impostor / gpu3d()'s fifth: 0 off, else pixels (2..64) */
+static int impostor_px(int px)
+{
+    return px <= 0 ? 0 : px < 2 ? 2 : px > 64 ? 64 : px;
+}
+
 static r3d_t *r3d(lua_State *L)
 {
     if (!rt.r3d_ready) {
@@ -1823,6 +1829,8 @@ static r3d_t *r3d(lua_State *L)
         rt.r3d_ready = 1;
         const char *fast = config_get("r3d_fast");
         rt.r3d.fast = fast && strcmp(fast, "1") == 0;   /* M37: one matrix, light in the object's axes */
+        const char *imp = config_get("r3d_impostor");
+        rt.r3d.impostor = imp ? impostor_px(atoi(imp)) : 0;   /* far small meshes as one quad: Settings */
         gpu3d_maybe();
     }
     if (rt.cls_pending && !rt.r3d.backend)
@@ -2799,15 +2807,15 @@ static int l_zclear(lua_State *L)
     rt.us3d = 0;
     if (rt.zclear_dma) {
         zclear_dma_wait(1);
-        r->tris_in = r->tris_drawn = r->pixels = r->verts = 0;
+        r->tris_in = r->tris_drawn = r->pixels = r->verts = r->impostors = 0;
         return 0;
     }
     r3d_zclear(r);
     return 0;
 }
 
-/* gpu3d([on, [aa, [vs, [queue]]]]) -> on, aa, vs, version, queue: whether the GPU draws the 3D,
- * whether with anti-aliasing (MSAA 4x, where the GPU allows it) and whether
+/* gpu3d([on, [aa, [vs, [queue, [impostor]]]]]) -> on, aa, vs, version, queue, impostor:
+ * whether the GPU draws the 3D, whether with anti-aliasing (MSAA 4x, where the GPU allows it) and whether
  * its vertex shader places the corners of the models (M36, where the GPU's
  * probe drew with it): false, 1 the scenery (meshes unlit or with baked
  * light), 2 (or true) every model; version: the bm3d version that reproduces
@@ -2816,7 +2824,10 @@ static int l_zclear(lua_State *L)
  * here, whatever Settings > Graphics says: for benchmarks; switch between
  * frames (what was drawn so far in a frame is not in the other's depth).
  * queue (M35): the end of a frame's 3D started on the GPU while the next
- * _update runs (where the GPU's probe saw it work). */
+ * _update runs (where the GPU's probe saw it work). impostor: a mesh whose
+ * box on the screen is at most that many pixels (2..64) is drawn as one quad
+ * in its average colour, by the GPU or the ARM; false or 0 off (the
+ * default, or r3d_impostor in bm/config.txt); returned sixth. */
 static int l_gpu3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
@@ -2842,6 +2853,8 @@ static int l_gpu3d(lua_State *L)
         if (!lua_isnoneornil(L, 4))
             gpu3d_set_queue(lua_isinteger(L, 4) ? (int)lua_tointeger(L, 4) : lua_toboolean(L, 4));
     }
+    if (!lua_isnoneornil(L, 5))         /* also with on nil: only the impostors */
+        r->impostor = lua_isboolean(L, 5) ? 0 : impostor_px((int)luaL_checkinteger(L, 5));
     lua_pushboolean(L, r->backend != NULL);
     lua_pushboolean(L, r->backend != NULL && gpu3d_msaa_on());
     const int vs = r->backend != NULL ? gpu3d_vshader_on() : 0;
@@ -2851,7 +2864,8 @@ static int l_gpu3d(lua_State *L)
         lua_pushboolean(L, 0);
     lua_pushstring(L, bm3d_mode_q(r->backend != NULL, vs, r->backend != NULL && gpu3d_queue()));  /* reproduced */
     lua_pushboolean(L, r->backend != NULL && gpu3d_queue());
-    return 5;
+    lua_pushinteger(L, r->impostor);
+    return 6;
 }
 
 /* The resolutions screen() can change to: 16:9, whole pixels on a 1080p

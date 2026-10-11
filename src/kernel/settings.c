@@ -88,7 +88,7 @@ enum {
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
     R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
-    R_STYLE, R_DEPTH, R_BATTERY_ICON,
+    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_IMPOSTOR,
 };
 
 /* sound_depth: the bits of each sample at the output (what the output
@@ -264,6 +264,26 @@ static int config_on(const char *key)
     const char *v = config_get(key);
     return v && strcmp(v, "1") == 0;
 }
+
+#ifndef BM_RGB30
+/* r3d_impostor: far small meshes as one quad, at most that many pixels;
+ * 0 off (the default). The row's steps: Off, 2, 4, 8, 16 */
+static int impostor_px(void)
+{
+    const char *v = config_get("r3d_impostor");
+    return v ? atoi(v) : 0;
+}
+
+static const char *impostor_choice(void)
+{
+    static char t[24];
+    const int px = impostor_px();
+    if (px <= 0)
+        return "Off";
+    ksnprintf(t, sizeof t, "Up to %d px", px);
+    return t;
+}
+#endif
 
 /* the network's state in a word or an address */
 static const char *net_word(void)
@@ -479,6 +499,8 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_SORT, "3D draw order",
                  "Nearest first, triangles in cache order: the GPU skips work (vertex shader)", "%s",
                  config_on("gpu3d_sort") ? "Nearest first" : "As the game");
+        home_row(p, MENU_ROW_CHOICE, R_IMPOSTOR, "3D impostors",
+                 "Far small models drawn as one quad of their colour (GPU and ARM)", "%s", impostor_choice());
 #endif
         home_row(p, MENU_ROW_CHOICE, R_FAST3D, "3D on the ARM",
                  "Exact as before, or fast: one matrix a model, light in its axes", "%s",
@@ -1035,6 +1057,14 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "3D draw order of the next game: %s",
                   config_on("gpu3d_sort") ? "nearest first" : "as the game");
         break;
+    case R_IMPOSTOR: {
+        const int px = impostor_px();
+        const char *next = px <= 0 ? "2" : px < 4 ? "4" : px < 8 ? "8" : px < 16 ? "16" : "0";
+        config_set("r3d_impostor", next);
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D impostors of the next game: %s", impostor_choice());
+        break;
+    }
     case R_USB:
         if (how == 0) text(d, x_usb, 1, 0);
         break;

@@ -44,6 +44,16 @@ typedef struct {
                                  * skipped before their vertices are transformed */
     v3_t centre;                /* the middle of the vertices' box (a map's piece in world
                                  * coordinates is far from (0,0,0)) */
+    /* what an impostor (r3d_t.impostor) needs, made by the first draw that
+     * wants one, again after r3d_mesh_normals or a change of the texture:
+     * the vertices' box, the average colour (0..255, by area) of the lit
+     * and of the emissive faces, the emissive share, the baked light */
+    struct {
+        uint32_t key, tver;
+        const g16_sheet_t *tex;
+        float lo[3], hi[3], lit[3], emit[3], bake[3], we;
+        int baked;
+    } imp;
 } r3d_mesh_t;
 
 /* Face colours: 0xRRGGBB in the low 24 bits; the high bits are the
@@ -160,9 +170,14 @@ typedef struct {
     int fast;                   /* M37: object -> camera in one matrix and a model without bones lit
                                  * in its own axes, also on the ARM (fewer instructions a vertex;
                                  * the pixels not bit for bit as before): r3d_fast=1 */
+    int impostor;               /* impostors: a mesh whose box on the screen is at most this many
+                                 * pixels wide and high is drawn as one quad facing the camera in
+                                 * its average colour (2 triangles, by the ARM or the backend);
+                                 * 0 off (default): r3d_impostor in bm/config.txt, gpu3d() */
     /* statistics of the last frame (reset by r3d_zclear); pixels are
      * counted by the software rasterizer only */
     uint32_t tris_in, tris_drawn, pixels, verts;
+    uint32_t impostors;         /* meshes drawn as an impostor */
     const r3d_backend_t *backend;   /* NULL: the software rasterizer */
     /* called (with arm_ctx) when a draw needs the software rasterizer
      * while a backend is set (textured screen-door faces for a backend

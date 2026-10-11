@@ -354,6 +354,11 @@ end
   the map's visibility given once by `pvs3d{...}` (cells on the ground and the pieces seen
   from each, as Overbit's map) also if a wall hides it. Characters skipped this way cost
   nothing: `if visible3d(e.x, e.y + 1, e.z, 1.5) then draw3d(e.mesh, ...) end`.
+- **Far small models (impostors, off by default):** `gpu3d(nil, nil, nil, nil, 6)` draws a
+  model whose box on the screen is at most 6 pixels as one quad of its average colour (2
+  triangles instead of all its faces), on the GPU and on the ARM alike; `gpu3d(nil, nil,
+  nil, nil, 0)` turns it off. The player can turn it on for every game in *Settings > Screen
+  and sound > 3D impostors* (`r3d_impostor` in `bm/config.txt`).
 - 2D and 3D mix: a background with `rectfill`/`map`, models with `draw3d`, the HUD with
   `print` at the end.
 

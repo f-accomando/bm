@@ -24,8 +24,7 @@ From the v3d-async-proposal review (branch `origin/v3d-async-proposal`,
 - Interrupts `FLDONE` / `FRDONE`: skip. Polling costs only the final wait, the ARM is the
   bottleneck, there is no scheduler to give time to.
 - Triple buffering: skip until a measurement shows GPU time > ARM time.
-- Impostors (1–2 big triangles for far small meshes): allowed only as a flag (config key,
-  Settings row, `gpu3d()` argument), off by default; after the Pi run, with Animator bake.
+- Impostors (far small meshes as one quad): only as a flag, off by default (see To do 5).
 - `v3d_async.c/.h` from the proposal are not adopted (`v3d.c` already does it).
 
 ## To do, in order
@@ -38,7 +37,11 @@ From the v3d-async-proposal review (branch `origin/v3d-async-proposal`,
    (`runtime.c` `submit3d` / `flush3d` / `draw2d`).
 4. Only if 2 shows a gain: chain two jobs in hardware (CT0/CT1 queue); needs removing
    `job_wait` before `v3d_start`.
-5. Impostor flag (see Decisions), after 2.
+5. Impostor flag: code done (r3d, before the backend: ARM and GPU alike). `r3d_impostor=N`
+   (0 off; N px of the mesh's box on screen, 2..64), *Settings > Screen and sound > 3D
+   impostors* (Off/2/4/8/16), `gpu3d(nil, nil, nil, nil, N)`; `make test-impostor`. Not a
+   3D Bench profile (the summary has no room for a 15th column). Left: the Pi numbers
+   below; then decide whether Animator bake (an atlas colour per mesh) is worth it.
 6. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
 
 ## To measure on the Pi
@@ -49,3 +52,5 @@ Last Pi numbers: 2026-10-06, bm3d 6.7. Ask the user to run them; reports go in b
 - Overbit benchmark: GPU+VS, GPU+VS+Q, Q2.
 - `queue=1` vs `2` in real games (bench3d split rows Q/Q2 showed no gain).
 - 2D on GPU, tex16, WC, `g` test steps 15-16, `menu_scale=3`.
+- Impostors: Overbit benchmark (GPU+VS and ARM) with `r3d_impostor` 0, 4, 8: fps, tris,
+  and a photo of the far heroes / pickups (does the quad pop or show?).

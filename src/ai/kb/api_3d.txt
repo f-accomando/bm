@@ -547,7 +547,7 @@ title: gpu3d([on, aa, vs]) - il 3D sulla GPU
 title_en: gpu3d([on, aa, vs]) - the 3D on the GPU
 ask: usare la gpu | il 3d lo fa la gpu | gpu or arm | anti aliasing
 ask: accendere la gpu | 3d più veloce con la gpu
-see: stat, guide.3d_perf
+see: stat, guide.3d_perf, impostor3d
 text:
 Dice (e cambia, con gli argomenti) se il 3D lo disegna la GPU del Pi, con
 l'MSAA e con il vertex shader. In QEMU e con gpu3d=0 lo fa l'ARM. stat(9)
@@ -559,6 +559,27 @@ ARM does it. stat(9) is 1 when the GPU does it.
 code:
 local on, aa = gpu3d()
 print(on and "GPU" or "ARM", 8, 8)
+
+== impostor3d
+kind: tip
+title: gpu3d(nil, nil, nil, nil, px) - modelli lontani come un quadrato
+title_en: gpu3d(nil, nil, nil, nil, px) - far models as one quad
+ask: modelli lontani più veloci | impostor | billboard dei modelli lontani
+ask: far models faster | lod automatico | tanti oggetti lontani
+keys: impostor, billboard, lontani
+see: gpu3d, guide.3d_perf
+text:
+Il quinto argomento di gpu3d (spento di default) disegna un modello che
+sullo schermo sta in px pixel (2..64) come un quadrato del suo colore
+medio: 2 triangoli invece di tutte le facce, sulla GPU e sull'ARM. 0
+lo spegne. Dipende solo dalla camera e dal modello: va bene in rete.
+text_en:
+gpu3d's fifth argument (off by default) draws a model that fits in px
+pixels on the screen (2..64) as one quad of its average colour: 2
+triangles instead of all its faces, on the GPU and on the ARM. 0 turns
+it off. It depends only on the camera and the model: fine online.
+code:
+function _init() gpu3d(nil, nil, nil, nil, 6) end
 
 == world3d
 kind: api
