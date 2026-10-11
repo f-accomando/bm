@@ -514,7 +514,7 @@ def test_confirm_button(b, opts):
 
 
 def test_bm_cartridge(b, opts):
-    """A Pi cartridge on the RGB30 (listed with no config): Yharnam, 256x256 RGB565,
+    """A Pi cartridge on the RGB30 (listed with no config): Yharnam, 360x360 RGB565,
     runs on the AArch64 kernel (QEMU shows its screen 1:1, widened to
     32 bits); the title, then the game after A; 'q' leaves and the menu's
     360x360 comes back."""
@@ -534,7 +534,7 @@ def test_bm_cartridge(b, opts):
         q.expect("bm: loaded", timeout=30)      # the system's splash, then the game
         time.sleep(4)
         img = q.screendump()
-        assert img[0] == 256 and img[1] == 256, f"screen {img[0]}x{img[1]}"
+        assert img[0] == 360 and img[1] == 360, f"screen {img[0]}x{img[1]}"
         colours = {img[2][i:i + 3] for i in range(0, len(img[2]), 3 * 97)}
         assert len(colours) > 20, f"{len(colours)} colours: not the town"
         q.send(" ")                              # the game's A: start
