@@ -1,41 +1,41 @@
 bm report
 kind: session
-kernel: v0.2.5-73-gf95fa7a
+kernel: v0.2.5-90-gd120b16
 branch: bm-core
 board: RGB30
-date: 2026-10-10 18:21:52
+date: 2026-10-11 10:28:32
 file: session_yharnam_RGB30.txt
 
 session of "Yharnam" (the last one: the next run of this game replaces this file)
-screen 360x360, 1827 frames in 34.9 s, 52.2 fps
+screen 360x360, 342 frames in 7.4 s, 45.6 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 14.8 ms, max 1285.9 ms, 76 frames over 16.7 ms
-memory: Lua peak 4009 KiB, data 41256 KiB; code 98785 tokens; busiest frame 1612k Lua instructions
-frames that were shown after more than 1.5 frames: 166
+time of _update + _draw (+ the 3D's wait): avg 14.1 ms, max 169.9 ms, 38 frames over 16.7 ms
+memory: Lua peak 3011 KiB, data 41256 KiB; code 100972 tokens; busiest frame 1599k Lua instructions
+frames that were shown after more than 1.5 frames: 98
 the game says: on the spot 8
-the game says: in time 11
+the game says: in time 7
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    1661
+  <= 18 ms (60 fps)    244
   <= 25 ms             0
-  <= 34 ms (30 fps)    159
+  <= 34 ms (30 fps)    96
   <= 50 ms             0
-  <= 100 ms            2
-  > 100 ms (a freeze)  4
+  <= 100 ms            1
+  > 100 ms (a freeze)  0
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
-    866    18.9  1300.6 1285.9   0.7 1285.1   0.0   1.3    13.4       22     2170        1
-   1532    30.3   133.4  122.9   0.6  122.3   0.0   1.5     8.9       16     2204        1
-   1788    34.7   133.4  131.3   0.0  131.3   0.0   1.3     0.7       11     2209        1
-   1295    26.2   116.7  109.0   0.6  108.3   0.0   1.3     6.4       16     2201        1
-   1081    22.6    83.3   76.7   0.7   75.9   0.0   1.3     5.3       20     2200        1
-      9     0.7    50.0   35.0   0.1   34.9   0.0   1.3    13.6       10     2018        1
-    404     7.5    33.5   15.5   0.8   14.6   0.0   1.3    16.7       16     2729        1
-    438     8.5    33.5   27.2  13.0   14.2   0.0   1.5     4.7       54     2905        1
-    442     8.6    33.5   15.3   1.0   14.3   0.0   1.3    16.8       18     2921        1
-    452     8.9    33.3   15.4   1.0   14.3   0.0   1.3    16.6       18     2939        1
-    425     8.1    33.3   21.1   6.4   14.7   0.0   1.3    10.9       53     2791        1
-    475     9.5    33.3   15.1   1.0   14.1   0.0   1.6    16.5       18     2981        1
+      8     0.7    50.0   39.4   0.1   39.2   0.0   1.3     9.3       10     2047        1
+    323     7.4    33.5   15.5   0.6   14.9   0.0   1.3    16.6       18     2981        1
+    327     7.6    33.5   15.3   0.5   14.7   0.0   1.2    16.8       18     2989        1
+    331     7.7    33.5   15.8   0.5   15.3   0.0   1.3    16.3       19     2997        1
+    337     7.8    33.4   15.0   0.0   15.0   0.0   1.2    17.0       13     3005        1
+    217     4.4    33.3   21.0   8.2   12.8   0.0   1.5    10.6       56     2548        1
+    265     5.5    33.3   17.7   3.1   14.5   0.0   1.2    14.2       32     2727        1
+    206     4.1    33.3   16.2   3.3   12.8   0.0   1.3    15.8       55     2442        1
+    209     4.2    33.3   18.8   6.1   12.7   0.0   1.3    13.1       56     2475        1
+    212     4.3    33.3   16.4   3.5   12.8   0.0   1.6    15.2       55     2499        1
+    215     4.4    33.3   20.2   6.9   13.2   0.0   1.2    11.8       56     2530        1
+    220     4.5    33.3   21.3   8.5   12.7   0.0   1.3    10.7       56     2581        1
