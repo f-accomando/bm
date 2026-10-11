@@ -1,0 +1,31 @@
+bm report
+kind: overbit-bench
+kernel: v0.2.5-107-g5fecedd
+branch: claude/fiber-quote
+board: Pi Zero W
+date: 2026-10-11 11:59:41
+file: 20261011-115941_overbit-bench_pi-zero-w_v0.2.5-107-g5fecedd.txt
+
+overbit bench start: calibration, 9 steps, flags auto, screen 1920x1080, GPU, renderers q arm
+overbit bench GPU+VS+Q 640x360 LOW match 206204
+overbit bench GPU+VS+Q 640x360 LOW: 49 fps, 16.1 ms (1% 35.0, worst 41.7, 40% over 16.7), update 9.2, 3D 2.5, 12318 tri (max 22633), 0 vtx, 0 px, 41k instr, 2037 KiB Lua, bm3d 4.1
+overbit bench ARM 640x360 LOW match 206204
+overbit bench ARM 640x360 LOW: 17 fps, 58.8 ms (1% 76.9, worst 76.9, 100% over 16.7), update 8.0, 3D 45.0, 3390 tri (max 4994), 5772 vtx, 488469 px, 41k instr, 2037 KiB Lua, bm3d 0.2
+overbit bench stop ARM at 640x360 LOW: under 30 fps (58.8 ms)
+overbit bench GPU+VS+Q 640x360 MEDIUM match 206204
+overbit bench GPU+VS+Q 640x360 MEDIUM: 48 fps, 16.9 ms (1% 37.2, worst 43.0, 53% over 16.7), update 9.5, 3D 2.7, 12297 tri (max 22633), 0 vtx, 0 px, 45k instr, 2037 KiB Lua, bm3d 4.1
+overbit bench GPU+VS+Q 640x360 HIGH match 206204
+overbit bench GPU+VS+Q 640x360 HIGH: 42 fps, 20.6 ms (1% 28.7, worst 36.1, 88% over 16.7), update 9.5, 3D 5.7, 30196 tri (max 41656), 0 vtx, 0 px, 50k instr, 2068 KiB Lua, bm3d 4.1
+overbit bench GPU+VS+Q 640x360 ULTRA match 206204
+overbit bench GPU+VS+Q 640x360 ULTRA: 42 fps, 21.3 ms (1% 36.9, worst 38.3, 97% over 16.7), update 9.8, 3D 5.8, 30176 tri (max 41656), 0 vtx, 0 px, 53k instr, 2134 KiB Lua, bm3d 4.1
+overbit bench GPU+VS+Q 640x360 EXTREME match 206204
+overbit bench GPU+VS+Q 640x360 EXTREME: 40 fps, 21.5 ms (1% 30.1, worst 37.8, 97% over 16.7), update 9.7, 3D 6.0, 30176 tri (max 41656), 0 vtx, 0 px, 53k instr, 2132 KiB Lua, bm3d 4.1
+overbit bench GPU+VS+Q 1920x1080 MEDIUM match 206204
+overbit bench GPU+VS+Q 1920x1080 MEDIUM: 29 fps, 32.2 ms (1% 55.4, worst 57.5, 100% over 16.7), update 10.0, 3D 3.1, 12318 tri (max 22633), 0 vtx, 0 px, 46k instr, 2132 KiB Lua, bm3d 4.1
+overbit bench stop GPU+VS+Q at 1920x1080 MEDIUM: under 30 fps (32.2 ms)
+overbit bench climb end: every renderer under 30 fps
+overbit bench best GPU+VS+Q 1920x1080: none at 60 fps
+overbit bench best GPU+VS+Q 640x360: none at 60 fps
+overbit bench best ARM 640x360: none at 60 fps
+overbit bench default 640x360 EXTREME GPU+VS+Q: holds 30 fps (nothing held 60)
+overbit bench done in 47 s
