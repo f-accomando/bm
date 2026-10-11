@@ -1,0 +1,64 @@
+bm report
+kind: freeze
+kernel: v0.2.5-107-g5fecedd
+branch: claude/fiber-quote
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-6c77bc_freeze_pi-zero-w_v0.2.5-107-g5fecedd.txt
+
+the Pi froze (the watchdog restarted it) while: cartridge menu, frame 0, 276 s after boot
+--- the last lines printed ---
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+ 1710 ms taken, 0.0 ms past a frame; no job; slack -1470 us, paced 0
+menu idle: 290/300 frames, 3 of 1713 ms taken, 0.0 ms past a frame; no job; slack -1314 us, paced 0
+menu idle: 290/300 frames, 3 of 1738 ms taken, 0.0 ms past a frame; no job; slack -1294 us, paced 0
+menu idle: 290/300 frames, 3 of 1763 ms taken, 0.0 ms past a frame; no job; slack -1144 us, paced 0
+menu idle: 290/300 frames, 3 of 1696 ms taken, 0.0 ms past a frame; no job; slack -1118 us, paced 0
+menu idle: 290/300 frames, 3 of 1714 ms taken, 0.0 ms past a frame; no job; slack -975 us, paced 0
+menu idle: 290/300 frames, 3 of 1739 ms taken, 0.0 ms past a frame; no job; slack -947 us, paced 0
+menu idle: 290/300 frames, 3 of 1757 ms taken, 0.0 ms past a frame; no job; slack -1823 us, paced 0
+menu idle: 289/300 frames, 3 of 1691 ms taken, 0.0 ms past a frame; no job; slack -1775 us, paced 0
+menu idle: 289/300 frames, 3 of 1717 ms taken, 0.0 ms past a frame; no job; slack -1616 us, paced 0
+menu idle: 289/300 frames, 3 of 1743 ms taken, 0.0 ms past a frame; no job; slack -1600 us, paced 0
+menu idle: 289/300 frames, 4 of 1739 ms taken, 0.0 ms past a frame; no job; slack -1435 us, paced 0
+menu idle: 290/300 frames, 4 of 1702 ms taken, 0.0 ms past a frame; no job; slack -1418 us, paced 0
+menu idle: 290/300 frames, 3 of 1727 ms taken, 0.0 ms past a frame; no job; slack -1272 us, paced 0
+menu idle: 290/300 frames, 3 of 1753 ms taken, 0.0 ms past a frame; no job; slack -1270 us, paced 0
+menu idle: 290/300 frames, 3 of 1731 ms taken, 0.0 ms past a frame; no job; slack -1100 us, paced 0
+menu idle: 290/300 frames, 3 of 1703 ms taken, 0.0 ms past a frame; no job; slack -1070 us, paced 0
+menu idle: 290/300 frames, 3 of 1728 ms taken, 0.0 ms past a frame; no job; slack -921 us, paced 0
+menu idle: 290/300 frames, 3 of 1754 ms taken, 0.0 ms past a frame; no job; slack -912 us, paced 0
+menu idle: 290/300 frames, 3 of 1716 ms taken, 0.0 ms past a frame; no job; slack -1747 us, paced 0
+menu idle: 289/300 frames, 3 of 1710 ms taken, 0.0 ms past a frame; no job; slack -1718 us, paced 0
+menu idle: 289/300 frames, 3 of 1734 ms taken, 0.0 ms past a frame; no job; slack -1578 us, paced 0
+menu idle: 289/300 frames, 3 of 1760 ms taken, 0.0 ms past a frame; no job; slack -1539 us, paced 0
+menu idle: 289/300 frames, 3 of 1704 ms taken, 0.0 ms past a frame; no job; slack -1396 us, paced 0
+menu idle: 290/300 frames, 3 of 1715 ms taken, 0.0 ms past a frame; no job; slack -1369 us, paced 0
+menu idle: 290/300 frames, 3 of 1740 ms taken, 0.0 ms past a frame; no job; slack -1220 us, paced 0
+menu idle: 290/300 frames, 3 of 1765 ms taken, 0.0 ms past a frame; no job; slack -1187 us, paced 0
+menu idle: 290/300 frames, 3 of 1691 ms taken, 0.0 ms past a frame; no job; slack -1045 us, paced 0
+menu idle: 290/300 frames, 3 of 1716 ms taken, 0.0 ms past a frame; no job; slack -1025 us, paced 0
+net: receiving a new kernel (4196484 bytes)...
+net: kernel 0% (0 of 4098 KiB)
+menu idle: 290/300 frames, 3 of 1625 ms taken, 0.0 ms past a frame; no job; slack -3860 us, paced 0
+net: kernel 10% (418 of 4098 KiB)
+net: kernel 20% (824 of 4098 KiB)
+net: kernel 30% (1232 of 4098 KiB)
+net: kernel 40% (1643 of 4098 KiB)
+net: kernel 50% (2051 of 4098 KiB)
+net: kernel 60% (2462 of 4098 KiB)
+net: kernel 70% (2873 of 4098 KiB)
+menu idle: 287/300 frames, 3 of 963 ms taken, 0.0 ms past a frame; no job; slack -3722 us, paced 0
+net: kernel 80% (3284 of 4098 KiB)
+net: kernel 90% (3692 of 4098 KiB)
+net: kernel received (4196484 bytes): written on the SD card from the menu
+net: writing /kernel.img paused, it starts again later
+net: saved kernel.img on the SD card (4196484 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MiB, label BOOTFS; 14 cartridges
+net: restarting with the new kernel in 2 s
+report: sending session_yharnam_Pi Zero W.txt
+net: restarting with the new kernel in 1 s
+report: not sent (session_yharnam_Pi Zero W.txt: HTTP 400): it waits in bm/reports
+report: on the SD card: session_yharnam_Pi Zero W.txt: HTTP 400
