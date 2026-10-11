@@ -66,22 +66,17 @@ fotogramma; tutto il disegno in C, Lua solo logica. Il profilo `.b16` ha le sue 
 - Impostor per gli oggetti lontani: solo come opzione (flag, spenta di default), da valutare
   dopo le misure sul Pi. Escluso (decisione dell'utente): risoluzione che cambia
   da sola per guadagnare fotogrammi, overclock della GPU e dell'ARM.
+- Overlay unico (FPS | ms | barre CPU e GPU, F11: spento/alto/basso) al posto delle tre
+  pagine: in corso, branch `bm3d-overlay`.
 
 ---
 
 ## M35 — ARM e GPU insieme (M) — sul PC, da provare sul Pi
 Obiettivo: il tempo in cui l'ARM aspetta la V3D a fine fotogramma (2,1 ms su 9,1 nella scena
 di prova) fuori dal fotogramma, e meno lavori per fotogramma.
-- Fatti sul PC (branch `bm3d-driver`): la coda del fotogramma (bm3d 4.0, `gpu3d_queue`,
-  *Graphics > 3D frame queue*, quarto argomento di `gpu3d()`), il 2D dopo il 3D registrato e
-  messo sulla pagina dopo (4.1, `d2` in `runtime.c`), lo `zclear()` nel lavoro senza early z
-  dopo di lui (4.4, `fs_zclear`), la coda senza vertex shader (profilo GPU+Q nel 3D Bench,
-  renderer GPU+Q in Overbit), la memoria dei lavori senza cache (4.5, `gpu3d_wc=1`, *3D job
-  memory*, `mmu_set_cached`, profilo GPU+WC), 8 texture in un lavoro e il 2D nel lavoro della
-  GPU (4.6, 4.8, `gpu3d_2d=1`, M37). Prove sul PC: `make test-queue2d`, test `queue` del 3D
-  Bench.
-- Sul Pi (v0.2.0): `queue yes`, il passo 15 del test `g` disegna come l'ARM; lo `zclear()`
-  nel lavoro allora dava `no` (corretto in 4.4, da riprovare).
+- Fatto sul PC (opzioni spente finché il Pi non le verifica): `gpu3d_queue`, 2D dopo il 3D,
+  `zclear()` nel lavoro (da riprovare: sul Pi v0.2.0 dava `no`), `gpu3d_wc`, `gpu3d_2d`.
+  Prove: `make test-queue2d`, test `queue` del 3D Bench.
 - **Da provare sul Pi:** test `g` (passo 15: `zclear in job yes`; passo 16: il 2D nel
   lavoro); 3D Bench con i profili GPU+Q, GPU+WC, GPU+2D e il test `texswap`; il benchmark di
   Overbit con GPU+Q e GPU+VS+Q.
@@ -94,31 +89,16 @@ luci e ossa; le QPU trasformano e illuminano (shader `vs_baked`, `vs_tex_rgb`, `
 `vs_lit_tex`, `vs_lit_tex2`, ombre `vs_shadow*`/`cs_shadow*`), la V3D scarta e taglia.
 Opzione `gpu3d_vs` (0 ARM, 1 lo scenario, 2 tutti i modelli), *3D vertices*, terzo
 argomento di `gpu3d()`.
-- Stato (2026-10-06, bm3d 6.5–6.6, kernel `v0.2.3-51`): sul Pi il vertex shader disegna con
-  il clipper sempre acceso (`gl_clip_all`; riga di stato `vertex shader yes (clipper always
-  on), clipping yes, lit models yes`), il passo 14 del test `g` dà lo 0,0% di pixel diversi
-  dall'ARM. Nel 3D Bench, a 60 fps, GPU → GPU+VS: sfere 205 → 833, eroi 6,1 → 67,5 (score
-  circa 3280 contro 986). Il vertex shader è acceso di default (livello 2); il profilo
-  GPU+VS+FS2 è quello dello score.
+- Sul Pi il vertex shader è già acceso di default (livello 2) e il passo 14 del test `g` dà
+  lo 0,0% di pixel diversi dall'ARM.
 - **Da fare sul Pi:** il benchmark di Overbit con GPU+VS (e GPU+VS1) per chiudere.
 - **Fatto quando:** sul Pi l'anello di eroi di Overbit e le sfere dello stress test crescono
   di almeno 2× rispetto alla GPU senza vertex shader a 60 fps (nel 3D Bench passato: 11× e
   4×; manca Overbit).
 
 ## M37 — 2D e qualità sulla GPU (M, se serve) — fatta sul PC (2026-10-05), da provare sul Pi
-Fatto sul PC (branch `bm3d-driver`, bm3d 4.8–4.9):
-- **2D sulla GPU** (`gpu3d_2d=1`, *2D over the 3D*): `rectfill`, `rect`, `pset`, righe
-  dritte, `spr`, `sspr` (girati, zoom interi), `map()` e `print` come quad nel lavoro del 3D,
-  pixel per pixel come gfx16; il resto (cerchi, righe oblique, triangoli, `prompt`, zoom non
-  interi) chiude il lavoro come prima. Prove: `make test-gpu3d` scena `2D on GPU`, `make
-  test-queue2d`, 3D Bench profilo GPU+2D e test `gpu2d`, test `g` passo 16.
-- **Menu a 1080p** (`menu_scale=3`): il layout 640×360 ingrandito ×3 dalla GPU
-  (`gpu3d_enlarge`), senza GPU dall'ARM. Quad nativi a 1080p (copertine più nitide) sono un
-  passo dopo, se serve (`docs/RISOLUZIONI.md`, sezione 6).
-- **Texture filtrate** (`gpu3d_filter=1`, *3D textures: Bilinear*), test `bilinear`; il 2D
-  resta al texel più vicino.
-- **Matrice unica e luce nel modello sull'ARM** (`r3d_fast=1`, *3D on the ARM: Fast*), anche
-  sulla RGB30; spento, i checksum di `bench3d` restano quelli di prima.
+Fatto sul PC: `gpu3d_2d`, `menu_scale=3`, `gpu3d_filter`, `r3d_fast`. Quad nativi a 1080p
+nel menu: un passo dopo, se serve (`docs/RISOLUZIONI.md`, sezione 6).
 - **Da provare sul Pi:** il passo 16 del test `g` (lo stesso HUD dall'ARM e dalla GPU, pixel
   uguali), il 3D Bench (GPU+2D, `gpu2d`, `bilinear`), il menu con `menu_scale=3` (riga `menu:
   1920x1080, the layout enlarged by the GPU` nel log, e l'overlay).
@@ -137,9 +117,7 @@ Passi aperti o da provare (branch `bm3d-driver`):
    **restano** gli attributi a 16 e 8 bit (posizioni scalate, normali e colori a 8, uv a 16;
    posizioni separate per lo shader di coordinate).
 3. Fatto: 65535 vertici e facce in `.bm`, r3d, `mesh()`, bm Studio, bm Mesh.
-4. **Due lavori in volo** (`gpu3d_queue=2`) fatto nel driver; fatto sul PC anche il runtime,
-   come opzione spenta (`gpu3d_later=1`, bm3d 6.9): il fotogramma mostrato uno dopo, il
-   `_draw` insieme alla GPU (`make test-queue2d`); **resta** la misura sul Pi.
+4. **Due lavori in volo**: fatto (`gpu3d_queue=2`, `gpu3d_later=1`); **resta** la misura sul Pi.
 5. **Texture più leggere**: fatto RGB565 per gli sheet opachi (`gpu3d_tex16`); **restano**
    RGBA5551/4444 per i ritagli, ETC1 (al build) e le mipmap; la prova all'avvio controlla come
    la TMU legge ogni formato.
@@ -360,10 +338,6 @@ prova senza seriale e spesso senza tastiera).
   giochi lunghi (Yharnam, Overbit in solitario) potrebbero salvare da soli a batteria
   scarica, e bmlib offrire `lib.autosave` al primo `battery_low()`; l'assistente potrebbe
   suggerirlo (kb `battery`). In rete resta solo informazione (lockstep).
-- **R39 — Overbit e il fotogramma uno dopo** (2026-10-11). Con il quinto argomento di `gpu3d()`
-  (bm3d 6.9) il benchmark di Overbit potrebbe avere un renderer GPU+VS+Q2 con il fotogramma uno
-  dopo (`gpu3d(true, false, 2, 2, true)`), e la scelta RENDERER tenere la coda a 2 (oggi `q` la
-  rimette a 1, e il fotogramma uno dopo si spegne); nel gioco in solitario, mai online.
 
 ### Strumenti di sviluppo
 - **R15 — Ricarica dal PC.** `bm_net.py --watch`: a ogni salvataggio di `main.lua` sul PC la

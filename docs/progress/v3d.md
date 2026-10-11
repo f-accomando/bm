@@ -31,20 +31,18 @@ From the v3d-async-proposal review (branch `origin/v3d-async-proposal`,
 
 ## To do, in order
 
-1. Measurement counters (done, bm3d 6.8 code; read them on the Pi): cycles of the 4 cache calls per job; binner tile-list and overflow
-   use, count of overflow jobs. See `docs/BENCH3D.md` columns.
-2. Pi run to read them (bench3d and Overbit with GPU+VS+Q and Q2, GPU+WC); then decide: range
-   clean instead of whole-cache clean, bigger or dynamic overflow.
-3. M39 step 4, runtime: done as an option (`gpu3d_later`, bm3d 6.9 code); left: the Pi
-   run below, then decide whether it becomes the default.
-4. Only if 2 (or 3 on the Pi) shows a gain: chain two jobs in hardware (CT0/CT1 queue);
-   needs removing `job_wait` before `v3d_start`.
-5. Impostor flag: code done (r3d, before the backend: ARM and GPU alike). `r3d_impostor=N`
-   (0 off; N px of the mesh's box on screen, 2..64), *Settings > Screen and sound > 3D
-   impostors* (Off/2/4/8/16), `gpu3d(nil, nil, nil, nil, N)`; `make test-impostor`. Not a
-   3D Bench profile (the summary has no room for a 15th column). Left: the Pi numbers
-   below; then decide whether Animator bake (an atlas colour per mesh) is worth it.
-6. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
+1. Read on the Pi the per-job counters (cache calls cycles, binner tile-list and overflow
+   use, overflow jobs; `docs/BENCH3D.md`); then decide: range clean instead of whole-cache
+   clean, bigger or dynamic overflow.
+2. Decide from the Pi run whether `gpu3d_later` becomes the default.
+3. Only if 1 or 2 shows a gain: chain two jobs in hardware (CT0/CT1 queue); needs removing
+   `job_wait` before `v3d_start`.
+4. `r3d_impostor=N` (0 off; 2..64 px, before the backend; *3D impostors*; fifth argument of
+   `gpu3d()`; `make test-impostor`) is an option, off. After the Pi numbers, decide on
+   Animator bake (an atlas colour per mesh).
+5. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
+6. Overlay rework (one overlay FPS | ms | CPU/GPU bars, F11 off/top/bottom): branch
+   `bm3d-overlay`, not merged.
 
 ## To measure on the Pi
 
