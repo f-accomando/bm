@@ -482,6 +482,8 @@ def main():
                 sprites, boxes)
     if a.output.lower().endswith(".bme"):
         data = mark_project(data)
+    if a.output and os.path.dirname(a.output):
+        os.makedirs(os.path.dirname(os.path.abspath(a.output)), exist_ok=True)
     open(a.output, "wb").write(data)
     print(f"{a.output}: {len(data)} bytes ({a.title or 'untitled'}, {a.res})")
 
