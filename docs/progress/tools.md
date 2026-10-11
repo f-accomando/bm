@@ -111,8 +111,10 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a
   dialog frame never crosses the title row (QEMU tests read it).
 - bm Mesh rewrites only the lines between `-- [bm Mesh begin]` and `-- [bm Mesh end]`.
-- Mouse: the mouse does what the keys do. Tests `bmui_host.lua`, `MS` in the test doubles,
-  QEMU `test_editor_mouse`.
+- Mouse (`require "bmui"`, `src/script/bmui.lua`): the mouse does what the keys do: zones
+  registered while drawing, chips that press the key, `U.press` before `keyp()`, a context menu
+  of keys on the 8x16 grid. A mouse function outside a page's `do … end` does not see its
+  locals: export them. Tests `bmui_host.lua`, `MS` in the test doubles, QEMU `test_editor_mouse`.
 - Predict/pad tables `CROSS`/`FACE`/`KB` change in `src/ai/padtype.lua`.
 - kb comments `#` only at the top of a file; every entry has `title_en:` and `text_en:`.
 - Tests: `make test-studio`, `test-write`, `test-res`, `test-ai`, `test-predict`,
