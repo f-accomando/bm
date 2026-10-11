@@ -16,12 +16,13 @@
  * flight 5.1 (gpu3d_queue=2: GPU+VS+Q2), with 16-bit textures 5.2
  * (gpu3d_tex16: GPU+T16), with two-thread pixel shaders 5.3 (gpu3d_fs2:
  * GPU+FS2), with the meshes nearest first 5.4 and their
- * triangles in the vertex cache's order 5.6 (gpu3d_sort: GPU+VS+S). 0.1
- * and 1.0 no longer run: the 3D Bench shows the numbers measured on the Pi
- * with them.
+ * triangles in the vertex cache's order 5.6 (gpu3d_sort: GPU+VS+S), with
+ * each frame shown a frame later 6.9 (gpu3d_later, with the two jobs of
+ * 5.1). 0.1 and 1.0 no longer run: the 3D Bench shows the numbers measured
+ * on the Pi with them.
  */
-#define BM3D_VERSION "6.8"
-#define BM3D_BLOCK   "M36"
+#define BM3D_VERSION "6.9"
+#define BM3D_BLOCK   "M39"
 
 typedef struct {
     const char *version, *block, *date, *what;
@@ -67,6 +68,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "6.6", "M36", "2026-10-06", "the vertex shader on by default (every model), as the Pi drew it with the clipper on" },
         { "6.7", "M36", "2026-10-06", "vertex shader: a mesh's copy for each texture; sun-lit textures with three varyings" },
         { "6.8", "M36", "2026-10-06", "vertex shader: a mesh's corners no longer written past their copy (the heap broken)" },
+        { "6.9", "M39", "2026-10-11", "each frame shown a frame later: the next _draw runs while the GPU draws it (option)" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;
@@ -87,6 +89,12 @@ static inline const char *bm3d_mode_q(int gpu, int vs, int queue)
 static inline const char *bm3d_mode(int gpu, int vs)
 {
     return bm3d_mode_q(gpu, vs, 0);
+}
+
+/* the same, later: each frame shown a frame later (M39, gpu3d_later) */
+static inline const char *bm3d_mode_l(int gpu, int vs, int queue, int later)
+{
+    return gpu && later ? "6.9" : bm3d_mode_q(gpu, vs, queue);
 }
 
 #endif

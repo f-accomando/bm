@@ -156,6 +156,8 @@ static struct {
     int cls_pending;            /* a cls() left to the GPU's next job (cls_settle) */
     uint16_t cls_colour;
     int gpu2d;                  /* M37: the 2D over the 3D drawn by the GPU in its job (gpu3d_2d=1) */
+    int later;                  /* M39: each frame shown a frame later asked for (gpu3d_later=1,
+                                 * gpu3d()): later_on() says when it is */
     int online;                 /* online(true): played over the network, PS asks first */
     char online_note[64];       /* online()'s line under the question */
     int leave_ask;              /* "Leave the match?" is open (leave_step) */
@@ -225,17 +227,33 @@ static struct {
     uint32_t ops;                       /* drawn after the GPU (for the log and the bench) */
 } d2 = { .cut = D2_NONE };
 
+/* M39 (bm3d 6.9): the frame shown a frame later (gpu3d_later=1, with two
+ * jobs in flight). At the end of a frame its 3D is started on the GPU and
+ * the frame is held: its page, and the 2D recorded after its job started
+ * (d2's records, moved here). The next _update and _draw run meanwhile on
+ * the next page (three pages: one shown, one held, one drawn); at the end
+ * of that frame the held one gets its 2D and is shown (later_show). The
+ * cartridge sees nothing else: the same frames, each one a frame later. */
+static struct {
+    int on;                             /* a frame is held */
+    int now;                            /* the frames are held (the last frame was: the overlay) */
+    uint16_t *px;                       /* its page */
+    int32_t *w;                         /* its 2D, recorded while its job draws (as d2's) */
+    uint32_t n, cap;                    /* words */
+    framebuffer_t *fb;                  /* the run's screen */
+    uint32_t frames;                    /* frames shown a frame later in this run */
+} held;
+
 static void draw_prompt(const prompt_t *p, int x, int y, int scale);
 
-/* the 2D recorded before word upto, on the page (the GPU's job has
- * ended); what follows stays recorded (the next frame's) */
-static void d2_replay(uint32_t upto)
+/* the 2D records w[0..upto) on the page of rt.g (its job has ended) */
+static void d2_play(const int32_t *w, uint32_t upto)
 {
     const g16_t live = rt.g;
     for (uint32_t i = 0; i < upto;) {
-        const int32_t *a = &d2.w[i + 1];
-        const int op = d2.w[i] & 255;
-        i += 1 + ((uint32_t)d2.w[i] >> 8);
+        const int32_t *a = &w[i + 1];
+        const int op = w[i] & 255;
+        i += 1 + ((uint32_t)w[i] >> 8);
         switch (op) {
         case D2_STATE:
             rt.g.cx0 = a[0]; rt.g.cy0 = a[1]; rt.g.cx1 = a[2]; rt.g.cy1 = a[3];
@@ -282,6 +300,13 @@ static void d2_replay(uint32_t upto)
     rt.g.cx0 = live.cx0; rt.g.cy0 = live.cy0; rt.g.cx1 = live.cx1; rt.g.cy1 = live.cy1;
     rt.g.cam_x = live.cam_x; rt.g.cam_y = live.cam_y;
     rt.g.font = live.font;
+}
+
+/* the 2D recorded before word upto, on the page (the GPU's job has
+ * ended); what follows stays recorded (the next frame's) */
+static void d2_replay(uint32_t upto)
+{
+    d2_play(d2.w, upto);
     memmove(d2.w, d2.w + upto, (d2.n - upto) * sizeof *d2.w);
     d2.n -= upto;
     d2.on = d2.n > 0;
@@ -310,6 +335,38 @@ static void flush3d(int keep)
         d2.cut = D2_NONE;
     }
     d2_replay(d2.cut == D2_NONE || rt.early ? d2.n : d2.cut);
+}
+
+/* M39: the job of the frame held (later_hold) waited for, if it is still
+ * drawing: only that one (its page is not the one being drawn) */
+static void later_wait(void)
+{
+    if (held.on && (gpu3d_sync_page(held.px) != 0 || (rt.r3d.backend && gpu3d_failed())))
+        rt.r3d.backend = NULL;          /* the GPU failed: the ARM draws the 3D again */
+}
+
+/* the 2D recorded for the frame held on its page, after its job: before it
+ * is shown, and before anything that 2D reads changes (settle_reads: the
+ * sheet, the map, the flags). Nothing recorded: no wait. */
+static void later_paint(void)
+{
+    if (!held.on || !held.n)
+        return;
+    later_wait();
+    uint16_t *const px = rt.g.px;
+    rt.g.px = held.px;
+    d2_play(held.w, held.n);
+    rt.g.px = px;
+    held.n = 0;
+}
+
+/* before changing what recorded 2D reads (the map, the flags, the sheet):
+ * the 2D recorded so far goes on its page first, the frame held's too */
+static void settle_reads(void)
+{
+    later_paint();
+    if (d2.on)
+        flush3d(1);
 }
 
 /* A cls() with the GPU drawing the 3D is not drawn by the ARM (at 1080p it
@@ -725,8 +782,7 @@ static int l_mset(lua_State *L)
 {
     int x = ival(L, 1), y = ival(L, 2), n = ival(L, 3), l = layer_arg(L, 4);
     if (x >= 0 && y >= 0 && x < rt.map.w && y < rt.map.h) {
-        if (d2.on)
-            flush3d(1);                 /* a map() recorded draws the map as it was */
+        settle_reads();                 /* a map() recorded draws the map as it was */
         rt.layer[l][y * rt.map.w + x] = (uint16_t)n;
     }
     return 0;
@@ -763,8 +819,7 @@ static int l_fset(lua_State *L)
     }
     if (!rt.flags || n < 0 || n >= sheet_cells())
         return 0;
-    if (d2.on)
-        flush3d(1);                     /* a map() recorded with a mask draws them as they were */
+    settle_reads();                     /* a map() recorded with a mask draws them as they were */
     if (v < 0) {
         uint8_t bit = (uint8_t)(1u << (-1 - v));
         if (lua_toboolean(L, 3)) rt.flags[n] |= bit;
@@ -824,8 +879,7 @@ static int l_msize(lua_State *L)
                         free(nl[k]);
                     return luaL_error(L, "not enough memory for a %dx%d map", (int)w, (int)h);
                 }
-            if (d2.on)
-                flush3d(1);
+            settle_reads();
             int cw = w < rt.map.w ? (int)w : rt.map.w, ch = h < rt.map.h ? (int)h : rt.map.h;
             for (int i = 0; i < rt.nlayers; i++) {
                 for (int y = 0; y < ch; y++)
@@ -901,8 +955,7 @@ static int l_mlayers(lua_State *L)
             if (from[i] >= 0)
                 memcpy(nl[i], rt.layer[from[i]], cells * 2);
         }
-        if (d2.on)
-            flush3d(1);
+        settle_reads();
         for (int k = 0; k < rt.nlayers; k++)
             if (!taken[k])
                 free(rt.layer[k]);
@@ -1092,6 +1145,7 @@ static int l_sset(lua_State *L)
     if (x < 0 || y < 0 || x >= rt.sheet.w || y >= rt.sheet.h)
         return 0;
     int opaque = !lua_isnoneornil(L, 3);
+    later_paint();                      /* the frame held's sprites as they were (M39) */
     sync3d();                           /* the waiting 3D may use the sheet as texture */
     g16_sheet_set(&rt.sheet, x, y, opaque ? col(L, 3, 0) : 0, opaque);
     rt.cell_dirty[(y / G16_CELL) * (rt.sheet.w / G16_CELL) + x / G16_CELL] = 1;
@@ -1805,11 +1859,15 @@ static void gpu3d_maybe(void)
         gpu3d_set_sort(so && strcmp(so, "1") == 0);     /* opaque meshes nearest first (M39): Settings */
         const char *g2 = config_get("gpu3d_2d");
         rt.gpu2d = g2 && strcmp(g2, "1") == 0;          /* the 2D over the 3D in the job (M37): Settings */
+        const char *lt = config_get("gpu3d_later");
+        rt.later = lt && strcmp(lt, "1") == 0;          /* each frame shown a frame later (M39): Settings */
         rt.r3d.backend = gpu3d_backend();
         rt.r3d.arm_hook = gpu3d_to_arm;
         if (!cur.bench)                 /* a benchmark has its own report */
-            kprintf("bm: the 3D is drawn by the GPU as bm3d %s (%s)\n", bm3d_mode_q(1, gpu3d_vshader_on(), gpu3d_queue()),
-                    gpu3d_status());
+            kprintf("bm: the 3D is drawn by the GPU as bm3d %s (%s)\n",
+                    bm3d_mode_l(1, gpu3d_vshader_on(), gpu3d_queue(), rt.later && gpu3d_queue2()), gpu3d_status());
+        if (rt.later && !gpu3d_queue2())
+            kprintf("bm: gpu3d_later needs the frame queue with two jobs (gpu3d_queue=2): each frame shown at once\n");
     } else {
         kprintf("bm: the 3D is drawn by the ARM as bm3d %s: %s\n", bm3d_mode(0, 0), gpu3d_status());
     }
@@ -2814,7 +2872,7 @@ static int l_zclear(lua_State *L)
     return 0;
 }
 
-/* gpu3d([on, [aa, [vs, [queue, [impostor]]]]]) -> on, aa, vs, version, queue, impostor:
+/* gpu3d([on, [aa, [vs, [queue, [impostor, [later]]]]]]) -> on, aa, vs, version, queue, impostor, later:
  * whether the GPU draws the 3D, whether with anti-aliasing (MSAA 4x, where the GPU allows it) and whether
  * its vertex shader places the corners of the models (M36, where the GPU's
  * probe drew with it): false, 1 the scenery (meshes unlit or with baked
@@ -2824,10 +2882,13 @@ static int l_zclear(lua_State *L)
  * here, whatever Settings > Graphics says: for benchmarks; switch between
  * frames (what was drawn so far in a frame is not in the other's depth).
  * queue (M35): the end of a frame's 3D started on the GPU while the next
- * _update runs (where the GPU's probe saw it work). impostor: a mesh whose
- * box on the screen is at most that many pixels (2..64) is drawn as one quad
- * in its average colour, by the GPU or the ARM; false or 0 off (the
- * default, or r3d_impostor in bm/config.txt); returned sixth. */
+ * _update runs (where the GPU's probe saw it work); 2: two jobs in flight
+ * (M39). impostor: a mesh whose box on the screen is at most that many
+ * pixels (2..64) is drawn as one quad in its average colour, by the GPU or
+ * the ARM; false or 0 off (the default, or r3d_impostor in bm/config.txt);
+ * returned sixth. later (M39, bm3d 6.9): each frame shown a frame later, so
+ * the next _update and _draw run while the GPU draws it (with queue 2; not
+ * online); returned seventh. */
 static int l_gpu3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
@@ -2852,20 +2913,24 @@ static int l_gpu3d(lua_State *L)
             gpu3d_set_vshader(lua_isboolean(L, 3) ? 2 * lua_toboolean(L, 3) : (int)luaL_checkinteger(L, 3));
         if (!lua_isnoneornil(L, 4))
             gpu3d_set_queue(lua_isinteger(L, 4) ? (int)lua_tointeger(L, 4) : lua_toboolean(L, 4));
+        if (!lua_isnoneornil(L, 6))
+            rt.later = lua_toboolean(L, 6);
     }
     if (!lua_isnoneornil(L, 5))         /* also with on nil: only the impostors */
         r->impostor = lua_isboolean(L, 5) ? 0 : impostor_px((int)luaL_checkinteger(L, 5));
-    lua_pushboolean(L, r->backend != NULL);
-    lua_pushboolean(L, r->backend != NULL && gpu3d_msaa_on());
-    const int vs = r->backend != NULL ? gpu3d_vshader_on() : 0;
+    const int gpu = r->backend != NULL, later = gpu && rt.later && gpu3d_queue2();
+    lua_pushboolean(L, gpu);
+    lua_pushboolean(L, gpu && gpu3d_msaa_on());
+    const int vs = gpu ? gpu3d_vshader_on() : 0;
     if (vs)
         lua_pushinteger(L, vs);
     else
         lua_pushboolean(L, 0);
-    lua_pushstring(L, bm3d_mode_q(r->backend != NULL, vs, r->backend != NULL && gpu3d_queue()));  /* reproduced */
-    lua_pushboolean(L, r->backend != NULL && gpu3d_queue());
+    lua_pushstring(L, bm3d_mode_l(gpu, vs, gpu && gpu3d_queue(), later));     /* reproduced */
+    lua_pushboolean(L, gpu && gpu3d_queue());
     lua_pushinteger(L, r->impostor);
-    return 6;
+    lua_pushboolean(L, later);
+    return 7;
 }
 
 /* The resolutions screen() can change to: 16:9, whole pixels on a 1080p
@@ -5344,6 +5409,7 @@ static int l_cart_load(lua_State *L)
         lua_pushstring(L, err);
         return 2;
     }
+    later_paint();                      /* the frame held's 2D with the sheet and map it had (M39) */
     sync3d();                           /* the waiting 3D may use the sheet as texture */
     free_assets();
     if (load_assets(&c) != 0 || extras_keep(data) != 0) {
@@ -5392,6 +5458,7 @@ static int l_cart_sheet(lua_State *L)
         luaL_argcheck(L, w >= G16_CELL && w <= BM_SHEET_MAX && w % G16_CELL == 0, 1, "8 to 4096, a multiple of 8");
         luaL_argcheck(L, h >= G16_CELL && h <= BM_SHEET_MAX && h % G16_CELL == 0, 2, "8 to 4096, a multiple of 8");
         if (w != rt.sheet.w || h != rt.sheet.h) {
+            later_paint();              /* the frame held's sprites as they were (M39) */
             sync3d();                   /* the waiting 3D may use the sheet as texture */
             g16_sheet_t ns;
             const int nper = w / G16_CELL, nrows = h / G16_CELL, oper = rt.sheet.w / G16_CELL;
@@ -5617,6 +5684,7 @@ static int l_cart_new(lua_State *L)
 {
     bm_cart_t c;
     memset(&c, 0, sizeof c);
+    later_paint();                      /* the frame held's 2D with the sheet and map it had (M39) */
     sync3d();
     free_assets();
     if (load_assets(&c) != 0)
@@ -6874,6 +6942,21 @@ static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
     input_flush();              /* keys typed in the game stay in the game */
 }
 
+/* after a frame went to the screen: the wait for its time (60 a second) */
+static void pace(uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
+{
+    zclear_dma_start();
+    while ((int32_t)(timer_ticks() - *deadline) < 0)
+        ;
+    uint32_t now = timer_ticks();
+    if (dropped && now - *prev > FRAME_US * 3 / 2)
+        (*dropped)++;
+    *prev = now;
+    *deadline += FRAME_US;
+    if ((int32_t)(now - *deadline) > 0)
+        *deadline = now + FRAME_US;
+}
+
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
     flush3d(0);
@@ -6887,16 +6970,102 @@ static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint3
     d2_early(0);                        /* what the early _update drew: this page's */
     if (rt.r3d.backend)
         gpu3d_page(0, 0);               /* another page: what it holds is not known */
-    zclear_dma_start();
-    while ((int32_t)(timer_ticks() - *deadline) < 0)
-        ;
-    uint32_t now = timer_ticks();
-    if (dropped && now - *prev > FRAME_US * 3 / 2)
-        (*dropped)++;
-    *prev = now;
-    *deadline += FRAME_US;
-    if ((int32_t)(now - *deadline) > 0)
-        *deadline = now + FRAME_US;
+    pace(deadline, prev, dropped);
+}
+
+/* M39: the frame held (later_hold) on the screen: its job waited for, its
+ * 2D on its page, with the overlays drawn after a frame (the dev kit's,
+ * the battery, the leave question, the notice, F12's keys) when L is
+ * given, and its page shown. Then nothing is held. Its page is the
+ * framebuffer's next (later_hold leaves it there): no copy, a flip. */
+static void perf_frame(void);
+static void battery_draw(void);
+static void leave_draw(void);
+static void notice_draw(void);
+static void keys_help(lua_State *L);
+
+static void later_show(lua_State *L)
+{
+    if (!held.on)
+        return;
+    later_wait();
+    later_paint();
+    framebuffer_t *fb = held.fb;
+    held.on = 0;
+    rt.present_us = 0;
+    if (page_px(fb) != held.px) {       /* (should not be: the pages turned without it) */
+        kprintf("bm: the frame held was not the next page to show\n");
+        fb->base = (uint8_t *)held.px - box;    /* shown all the same; the one drawn is the next */
+    }
+    const g16_t live = rt.g;            /* the page being drawn (or the buffer in RAM) */
+    rt.g.px = held.px;
+    if (L) {
+        perf_frame();
+        battery_draw();
+        leave_draw();
+        notice_draw();
+        keys_help(L);
+    }
+    if (rt.mouse && rt.mouse_arrow)
+        pointer_draw(held.px, fb->pitch / 2, rt.g.w, rt.g.h);
+    page_shown(fb->base);
+    fb_flip(fb);
+    rt.g = live;
+}
+
+/* the frame held shown now, before the screen changes hands (a question of
+ * the system, the debugger, the end of the run) */
+static void later_flush(void)
+{
+    later_show(NULL);
+}
+
+/* M39: this frame is shown a frame later: the option asked for (gpu3d_later,
+ * gpu3d()), the GPU drawing the 3D with two jobs in flight, straight on the
+ * screen's pages (three of them, whole: not via RAM nor a square inside the
+ * screen), not online (lockstep: the option is left out), no screen() to
+ * apply, the frame to be shown */
+static int later_on(const framebuffer_t *fb)
+{
+    return rt.later && rt.r3d_ready && rt.r3d.backend && gpu3d_queue2() && !bm_video_uses_ram() && !box &&
+           fb->buffers >= 3 && rt.g.stride == (uint32_t)rt.g.w && !rt.online && !rt.want_w && !rt.hold_frame;
+}
+
+/* the frame's 3D started on the GPU and not waited for; 0 if the GPU
+ * failed (the ARM draws the 3D again) */
+static int later_submit(void)
+{
+    if (gpu3d_submit(&rt.g, 0) != 0 || gpu3d_failed()) {
+        rt.r3d.backend = NULL;
+        return 0;
+    }
+    return 1;
+}
+
+/* the frame drawn is held: its page (the framebuffer's next to show) and
+ * the 2D recorded for it; the next frame is drawn on the page after */
+static void later_hold(framebuffer_t *fb)
+{
+    held.fb = fb;
+    held.px = rt.g.px;
+    int32_t *w = held.w;
+    const uint32_t cap = held.cap;
+    held.w = d2.w;                      /* the records go with their page */
+    held.cap = d2.cap;
+    held.n = d2.n;
+    d2.w = w;
+    d2.cap = cap;
+    d2.n = 0;
+    d2.on = 0;
+    d2.font = NULL;
+    d2.cut = D2_NONE;
+    held.on = 1;
+    if (!held.frames++)
+        kprintf("bm: each frame shown a frame later (gpu3d_later): the next _draw runs while the GPU draws it\n");
+    const uint32_t page = fb->height * fb->pitch;
+    const uint32_t i = (uint32_t)((const uint8_t *)held.px - box - fb->mem) / page;
+    rt.g.px = (uint16_t *)(fb->mem + (i + 1) % fb->buffers * page + box);
+    gpu3d_page(0, 0);                   /* another page: what it holds is not known */
 }
 
 /* ---------------------------------------------------------------- closing
@@ -7064,6 +7233,10 @@ static void release(lua_State *L)
     d2.n = d2.cap = d2.ops = 0;
     d2.on = 0;
     d2.cut = D2_NONE;
+    free(held.w);               /* ... and for a frame held (M39) */
+    held.w = NULL;
+    held.n = held.cap = 0;
+    held.on = 0;
     g16_light_free(&rt.light);
     zclear_dma_wait(1);         /* the DMA may still be clearing it */
     rt.zclear_seen = 0;
@@ -7451,6 +7624,7 @@ static void perm_set(int what, int yes)
  * in their words. 1 yes, 0 no. */
 static int sys_ask(const char *const *lines, int n, const char *yes, const char *no)
 {
+    later_flush();                          /* the frame held first: the question turns the pages */
     sync3d();                               /* nothing of the GPU's left to land on the page */
     static const uint8_t usage[4] = { 0x28, 0x2C, 0x29, 0x2A };   /* Enter, Space; Esc, Backspace */
     uint32_t prev = ~0u;                    /* what is held now is not an answer */
@@ -7864,6 +8038,7 @@ static void dbg_pause(lua_State *L, int level, const char *why)
     kprintf("debug: %s at %s in %s\n", why, fr[0].where, fr[0].name);
     for (int i = 0; i < nvar; i++)
         kprintf("debug:   %s%s = %s\n", var[i].up ? "^" : "", var[i].name, var[i].value);
+    later_flush();                          /* the frame held first: the debugger turns the pages */
     sync3d();                               /* nothing of the GPU's left to land on the page */
     const size_t bytes = (size_t)rt.g.stride * (size_t)rt.g.h * 2;
     uint16_t *keep = malloc(bytes);
@@ -8283,7 +8458,7 @@ static int perf_detail(char lines[][24])
     }
     if (rt.r3d_ready)
         ksnprintf(lines[n++], 24, "bm3d %s %s",
-                  bm3d_mode_q(gpu, gpu ? gpu3d_vshader_on() : 0, gpu && gpu3d_queue()),
+                  bm3d_mode_l(gpu, gpu ? gpu3d_vshader_on() : 0, gpu && gpu3d_queue(), gpu && held.now),
                   !gpu ? "ARM" : gpu3d_msaa_on() ? "GPU+AA" : "GPU");
     for (int i = 0; i < rt.ndevinfo; i++)
         ksnprintf(lines[n++], 24, "%s", rt.devinfo[i]);
@@ -8520,6 +8695,10 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     uint32_t lag = 0, lag_at = start;       /* frameskip(): the time not yet run by an _update */
     int fresh = 0;                          /* the keys read and not yet seen by an _update */
     prof_enable(0, NULL);                   /* the functions page starts from nothing */
+    held.on = held.now = 0;                 /* nothing held (M39), this run's count */
+    held.n = 0;
+    held.frames = 0;
+    held.fb = fb;
     while (!error) {
         uint32_t now_us = timer_ticks();
         played_us += now_us - played_at;
@@ -8590,7 +8769,14 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         updated = 0;
         rt.frame++;                         /* (before the next _update, if it runs early) */
         const uint32_t instr_k = rt.frame_instr_k;
-        if (submit3d()) {
+        /* M39 (bm3d 6.9): this frame shown a frame later: its 3D started on
+         * the GPU, the frame held before shown meanwhile, then this one held
+         * while the next _update and _draw run on the next page */
+        const int hold = later_on(fb) && later_submit();
+        held.now = hold;
+        if (!hold)
+            later_flush();                  /* (the option just went off: the frame held first) */
+        if (!hold && submit3d()) {
             /* the frame in the queue (M35): the GPU draws it while the next
              * frame's _update runs; flush3d waits for it before the page
              * is shown */
@@ -8615,7 +8801,8 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
                 kprintf("bm: _update draws 3D or reads the page: it runs after the frame again (frame queue)\n");
             }
         }
-        flush3d(0);                         /* the GPU's 3D counts in the frame's time */
+        if (!hold)
+            flush3d(0);                     /* the GPU's 3D counts in the frame's time */
         cls_settle();
         rt.last_cpu_us = timer_ticks() - t0 - early_us;
         rt.last_instr_k = instr_k;
@@ -8628,19 +8815,30 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
             if (lua > rt.lua_peak)
                 rt.lua_peak = lua;
         }
-        perf_frame();
-        battery_draw();
-        leave_draw();
-        notice_draw();
-        keys_help(L);
         st->cpu_us_total += rt.last_cpu_us;
         if (rt.last_cpu_us > st->cpu_us_max)
             st->cpu_us_max = rt.last_cpu_us;
         st->tris3d = rt.r3d_ready ? rt.r3d.tris_drawn : 0;
         crumb_frame(rt.frame);
         const uint32_t shown_before = prev;
-        present(fb, &deadline, &prev, &st->dropped);
-        if (rt.frame > 1)
+        int shown = 1;
+        if (hold) {
+            shown = held.on;                /* (the first frame held: nothing shown yet) */
+            rt.present_us = 0;              /* (a flip, no copy) */
+            if (shown) {
+                later_show(L);              /* the frame before, with the overlays */
+                pace(&deadline, &prev, &st->dropped);
+            }
+            later_hold(fb);
+        } else {
+            perf_frame();
+            battery_draw();
+            leave_draw();
+            notice_draw();
+            keys_help(L);
+            present(fb, &deadline, &prev, &st->dropped);
+        }
+        if (shown && rt.frame > 1)
             sess_frame(prev - shown_before);
         st->copy_us_total += rt.present_us;
         if (rt.want_w && screen_apply(fb, L) != 0) {
@@ -8654,6 +8852,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         }
     }
 
+    later_flush();                          /* the frame held, shown: its job done, its page the last */
     const int suspend = !error && left && suspendable && !rt.online_left;
     if (!suspend)
         closing_begin(fb);                  /* its last frame stays, "Closing" over it */
@@ -8677,6 +8876,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     sess.ninfo = rt.ndevinfo;
     memcpy(sess.info, rt.devinfo, sizeof sess.info);
     st->d2_ops = d2.ops;
+    st->later = held.frames;
     st->ok = error == NULL;
 
     if (suspend) {
@@ -8954,6 +9154,10 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
         if (g->clean_cyc || g->inval_cyc)
             PUT("ARM cache upkeep: %lu k cycles a frame before the jobs, %lu k after\n",
                 (unsigned long)(g->clean_cyc / st->frames / 1000), (unsigned long)(g->inval_cyc / st->frames / 1000));
+        if (g->queued || st->later)
+            PUT("frame queue: %lu jobs started and waited for later, %lu filled while the GPU drew the one before, "
+                "%lu frames shown a frame later (gpu3d_later)\n", (unsigned long)g->queued,
+                (unsigned long)g->overlapped, (unsigned long)st->later);
     }
 #undef PUT
     reports_session(st->title, t, n);

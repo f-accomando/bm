@@ -19,6 +19,7 @@ typedef struct {
     uint32_t tris3d;            /* 3D triangles drawn in the last frame */
     int gpu3d;                  /* the GPU drew the 3D at the end */
     uint32_t d2_ops;            /* 2D drawn after the GPU's 3D, recorded meanwhile (M35) */
+    uint32_t later;             /* frames shown a frame later (M39, gpu3d_later) */
     int ok;                     /* 0 = error (message printed), 1 = ran */
     /* the dev kit (the SDK's report of a test run: cart_arg().run) */
     uint32_t lua_peak_kb;       /* the most Lua memory seen at the end of a frame */

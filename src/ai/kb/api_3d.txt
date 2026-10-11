@@ -513,6 +513,7 @@ title: line3d(x0, y0, z0, x1, y1, z1, colore, [spessore, flag]) - una linea 3D
 title_en: line3d(x0, y0, z0, x1, y1, z1, colour, [width, flags]) - a 3D line
 ask: linea nel 3d | raggio laser | tracciante | 3d line
 ask: scia di un proiettile | disegnare un segmento nel mondo
+ask: linea da un punto a un altro nel mondo | beam from the gun to the target
 see: point3d, guide.3d_effects
 text:
 Una linea nel mondo, tagliata dal piano vicino e nascosta dalle cose più
@@ -543,19 +544,22 @@ sprite3d(0, 32, 16, 16, x, y + 2, z, 1)
 == gpu3d
 kind: api
 name: gpu3d
-title: gpu3d([on, aa, vs]) - il 3D sulla GPU
-title_en: gpu3d([on, aa, vs]) - the 3D on the GPU
+title: gpu3d([on, aa, vs, queue, impostor, later]) - il 3D sulla GPU
+title_en: gpu3d([on, aa, vs, queue, impostor, later]) - the 3D on the GPU
 ask: usare la gpu | il 3d lo fa la gpu | gpu or arm | anti aliasing
 ask: accendere la gpu | 3d più veloce con la gpu
-see: stat, guide.3d_perf, impostor3d
+keys: gpu, arm, v3d
+see: stat, guide.3d_perf, impostor3d, gpu3d_later
 text:
 Dice (e cambia, con gli argomenti) se il 3D lo disegna la GPU del Pi, con
-l'MSAA e con il vertex shader. In QEMU e con gpu3d=0 lo fa l'ARM. stat(9)
-vale 1 quando lo fa la GPU.
+l'MSAA, con il vertex shader, con la coda dei fotogrammi (2: due lavori)
+e con il fotogramma mostrato uno dopo. In QEMU e con gpu3d=0 lo fa l'ARM.
+stat(9) vale 1 quando lo fa la GPU.
 text_en:
 Says (and changes, with the arguments) whether the Pi's GPU draws the
-3D, with MSAA and with the vertex shader. In QEMU and with gpu3d=0 the
-ARM does it. stat(9) is 1 when the GPU does it.
+3D, with MSAA, with the vertex shader, with the frame queue (2: two
+jobs) and with each frame shown a frame later. In QEMU and with gpu3d=0
+the ARM does it. stat(9) is 1 when the GPU does it.
 code:
 local on, aa = gpu3d()
 print(on and "GPU" or "ARM", 8, 8)
@@ -606,6 +610,8 @@ title: world_box(w, x0, y0, z0, x1, y1, z1, [tag]) - una scatola solida
 title_en: world_box(w, x0, y0, z0, x1, y1, z1, [tag]) - a solid box
 ask: aggiungere un muro | scatola solida | add a solid box | piattaforma 3d
 ask: ostacolo nel mondo 3d
+ask: cassa che blocca il giocatore | solid crate in the 3d level
+keys: cassa, scatola, crate
 see: world3d, world_move
 text:
 Una scatola solida dai due angoli; restituisce il suo numero (lo dà anche
@@ -623,6 +629,7 @@ title: world_ray(w, ox, oy, oz, dx, dy, dz, [maxd]) - un raggio nel mondo
 title_en: world_ray(w, ox, oy, oz, dx, dy, dz, [maxd]) - a ray in the world
 ask: raggio di collisione | cosa colpisco sparando | raycast | linea di vista
 ask: il nemico mi vede | distanza dal muro
+ask: c'è un muro tra il nemico e me | line of sight between two points
 see: world3d, hit3d
 text:
 t, nx, ny, nz, scatola: il primo punto colpito lungo il raggio e la
@@ -641,6 +648,8 @@ title: world_move(w, x, y, z, r, h, dx, dy, dz) - un corpo che si muove
 title_en: world_move(w, x, y, z, r, h, dx, dy, dz) - a body that moves
 ask: muovere il personaggio con le collisioni | scivolare sui muri | move with collisions
 ask: salire i gradini | il personaggio è a terra
+ask: camminare contro un muro senza attraversarlo | slide along the walls
+keys: scivolare, scivolando, muri, slide
 see: world3d, world_floor, guide.3d_world
 text:
 x, y, z, flag: un corpo (piedi in x, y, z, raggio r, altezza h) spostato di

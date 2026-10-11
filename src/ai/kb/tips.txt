@@ -26,6 +26,32 @@ for _, e in ipairs(enemies) do
   if abs(e.x - camx) < 400 then update(e) end
 end
 
+== gpu3d_later
+kind: tip
+title: Il fotogramma mostrato uno dopo (la GPU e _draw insieme)
+title_en: Each frame shown a frame later (the GPU and _draw together)
+ask: mostrare il fotogramma un frame dopo | la gpu disegna mentre gira _draw
+ask: gpu3d_later | frame shown a frame later | draw the next frame while the gpu works
+ask: un fotogramma di ritardo per andare più veloce | one frame of latency for more fps
+keys: gpu3d_later, ritardo, latency
+see: gpu3d, guide.3d_perf
+text:
+Con gpu3d_later=1 (Settings > Screen and sound > 3D frame shown) e la
+coda a due lavori (gpu3d_queue=2) ogni fotogramma si vede un fotogramma
+dopo: mentre la GPU disegna il suo 3D, _update e _draw del successivo
+girano già. Le immagini sono le stesse. Nel gioco non cambia niente:
+lo stato solo in _update, il HUD dopo il 3D. Online è ignorato.
+text_en:
+With gpu3d_later=1 (Settings > Screen and sound > 3D frame shown) and
+the queue with two jobs (gpu3d_queue=2) each frame is shown a frame
+later: while the GPU draws its 3D, the next _update and _draw already
+run. The pictures are the same. Nothing changes in the game: the state
+only in _update, the HUD after the 3D. Online it is left out.
+code:
+gpu3d(true, nil, nil, 2, nil, true)   -- due lavori, uno dopo
+local _, _, _, ver, q, imp, later = gpu3d()
+print(later and "a frame later" or "at once", 8, 8)
+
 == editor_keys
 kind: tip
 title: I tasti dell'editor (bm SDK)

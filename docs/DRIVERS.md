@@ -265,6 +265,22 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   checks the guards at the end) does not overrun, not even before the fix: whether it was the cause on the
   Pi remains to be seen. To find out, from this kernel a crash becomes a report (`crash`, with the
   last lines printed and the return addresses on the stack) and so does a hang of the Pi (`freeze`).
+- **6.9** (2026-10-11, M39): **each frame shown a frame later** (`gpu3d_later=1`, *Settings >
+  Screen and sound > 3D frame shown: A frame later*, the sixth argument of `gpu3d()`; with the two
+  jobs in flight of 5.1, `gpu3d_queue=2`). At the end of a frame its job starts and the frame is
+  held: its page and the 2D recorded after the job started (`held` in `runtime.c`). The next
+  `_update` and `_draw` run on the next page while the GPU draws it, and its 3D fills the job's
+  other block (5.1 had no runtime that did it: the queue's early `_update` cannot draw 3D); at the
+  end of that frame its job starts (the V3D still runs one job at a time: `job_wait` before
+  `v3d_start`), the held frame gets its 2D and is shown with a flip. Three pages: one shown, one
+  held, one drawn. The pictures are the same, a frame later; no `_update` runs early. Before
+  something that recorded 2D reads changes (`mset`, `fset`, `sset`, the map's size and layers,
+  `cart_load`) the held frame's 2D goes on its page first; a question of the system and the
+  debugger show it first. Left out online (lockstep), via RAM, in a square page and in the frame
+  of a `screen()` change. The page drawn left the screen at the last flip (without the option:
+  two flips before), so it counts on the flip's wait for the vertical blank. `make test-queue2d`:
+  the same pictures with the option as without the queue, and the next frame's job filled while
+  the GPU draws the one before (cartridge `held`). Off until the Pi measures it.
 
 ## The modes: old versions on today's code
 
@@ -282,7 +298,8 @@ The settings reproduce the earlier versions, so they can be compared on the same
 - with 16-bit textures (`gpu3d_tex16=1`): **5.2**;
 - with two-thread pixel shaders (`gpu3d_fs2=1`): **5.3**;
 - with meshes from the nearest and triangles in cache order (`gpu3d_sort=1`, with the
-  vertex shader): **5.4** and **5.6**.
+  vertex shader): **5.4** and **5.6**;
+- with each frame shown a frame later (`gpu3d_later=1`, with `gpu3d_queue=2`): **6.9**.
 
 What 4.2, 4.3, 4.4 and 4.6 added (screens up to 1080p, the GPU's `cls()`, the
 GL record in bytes, no early z after a `zclear()` in the job, 8 textures in a job)
