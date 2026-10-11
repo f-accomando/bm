@@ -6328,6 +6328,10 @@ static int l_cart_write(lua_State *L)
  * its first line. */
 static int l_cart_run(lua_State *L)
 {
+    if (!tool_mode) {           /* not a tool: nothing for the console to do, and no request left behind */
+        rt.quit = 1;
+        return 0;
+    }
     ksnprintf(run_request, sizeof run_request, "%s", luaL_checkstring(L, 1));
     memset(&dbg_next, 0, sizeof dbg_next);
     dbg_next.set = 1;
@@ -6357,6 +6361,10 @@ static int l_cart_run(lua_State *L)
  * file (bm Studio's "Open in bm Animator") */
 static int l_cart_tool(lua_State *L)
 {
+    if (!tool_mode) {           /* as cart_run: a request nobody takes would run in the next tool session */
+        rt.quit = 1;
+        return 0;
+    }
     ksnprintf(tool_request, sizeof tool_request, "%s", luaL_checkstring(L, 1));
     ksnprintf(run_request, sizeof run_request, "%s", luaL_optstring(L, 2, ""));
     rt.quit = 1;
