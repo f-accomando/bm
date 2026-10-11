@@ -284,6 +284,8 @@ int v3d_run(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end, uint
 static struct {
     int busy, bin;
     uint32_t t0;
+    int seen;                           /* its end seen by v3d_busy, at t_done */
+    uint32_t t_done;
 } job;
 
 int v3d_start(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end)
@@ -309,6 +311,7 @@ int v3d_start(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end)
     wr(V3D_CT1EA, rnd_end);             /* waits on the semaphore if there is binning */
     dmb();
     job.busy = 1;
+    job.seen = 0;
     job.t0 = timer_ticks();
     return 0;
 }
@@ -320,6 +323,10 @@ int v3d_busy(void)
     dmb();
     const int done = (rd(V3D_RFC) & 0xFF) != 0;
     dmb();
+    if (done && !job.seen) {
+        job.seen = 1;
+        job.t_done = timer_ticks();
+    }
     return !done;
 }
 
@@ -329,6 +336,14 @@ int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
     if (rnd_us) *rnd_us = 0;
     if (!job.busy)
         return 0;
+    /* the job's time: from its start to the end the ARM saw, polling (here
+     * or v3d_busy). One that had ended before anyone looked is not timed:
+     * *rnd_us 0 and *bin_us the time from its start to this wait, at most
+     * (it may hold a pause of the ARM's: a report, a menu) */
+    dmb();
+    const int unseen = !job.seen && (rd(V3D_RFC) & 0xFF) != 0;
+    dmb();
+    const uint32_t at = timer_ticks();
     job.busy = 0;
     int err = 0;
     uint32_t b = 0, r = 0;
@@ -336,11 +351,13 @@ int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
         err = wait_count(V3D_BFC, V3D_CT0CS, timeout_us, &b);
     if (!err)
         err = wait_count(V3D_RFC, V3D_CT1CS, timeout_us, &r);
-    /* the time from the start to the end the ARM saw (at most the job's:
-     * it may have ended while the ARM was busy) */
     (void)b;
     (void)r;
-    if (rnd_us) *rnd_us = timer_ticks() - job.t0;
+    if (unseen) {
+        if (bin_us) *bin_us = at - job.t0;
+    } else if (rnd_us) {
+        *rnd_us = (job.seen ? job.t_done : timer_ticks()) - job.t0;
+    }
     if (job.bin)
         measure_bin();
     if (err) {

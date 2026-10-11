@@ -2892,8 +2892,9 @@ static int l_zclear(lua_State *L)
  * frames (what was drawn so far in a frame is not in the other's depth).
  * queue (M35): the end of a frame's 3D started on the GPU while the next
  * _update runs (where the GPU's probe saw it work); 2: two jobs in flight
- * (M39). impostor: a mesh whose box on the screen is at most that many
- * pixels (2..64) is drawn as one quad in its average colour, by the GPU or
+ * (M39); true: the console's own level (gpu3d_queue in Settings, 1 or 2),
+ * false 0; returned fifth as the level in force (1, 2) or false.
+ * impostor: a mesh whose box on the screen is at most that many pixels (2..64) is drawn as one quad in its average colour, by the GPU or
  * the ARM; false or 0 off (the default, or r3d_impostor in bm/config.txt);
  * returned sixth. later (M39, bm3d 6.9): each frame shown a frame later, so
  * the next _update and _draw run while the GPU draws it (with queue 2; not
@@ -2920,8 +2921,11 @@ static int l_gpu3d(lua_State *L)
             gpu3d_set_msaa(lua_toboolean(L, 2));
         if (!lua_isnoneornil(L, 3))
             gpu3d_set_vshader(lua_isboolean(L, 3) ? 2 * lua_toboolean(L, 3) : (int)luaL_checkinteger(L, 3));
-        if (!lua_isnoneornil(L, 4))
-            gpu3d_set_queue(lua_isinteger(L, 4) ? (int)lua_tointeger(L, 4) : lua_toboolean(L, 4));
+        if (!lua_isnoneornil(L, 4)) {           /* true: the console's own level (Settings), not 1 */
+            const char *cq = config_get("gpu3d_queue");
+            gpu3d_set_queue(lua_isinteger(L, 4) ? (int)lua_tointeger(L, 4)
+                            : !lua_toboolean(L, 4) ? 0 : cq && cq[0] == '2' ? 2 : 1);
+        }
         if (!lua_isnoneornil(L, 6))
             rt.later = lua_toboolean(L, 6);
     }
@@ -2936,7 +2940,10 @@ static int l_gpu3d(lua_State *L)
     else
         lua_pushboolean(L, 0);
     lua_pushstring(L, bm3d_mode_l(gpu, vs, gpu && gpu3d_queue(), later));     /* reproduced */
-    lua_pushboolean(L, gpu && gpu3d_queue());
+    if (gpu && gpu3d_queue())           /* the level (1, 2), or false: as vs */
+        lua_pushinteger(L, gpu3d_queue2() ? 2 : 1);
+    else
+        lua_pushboolean(L, 0);
     lua_pushinteger(L, r->impostor);
     lua_pushboolean(L, later);
     return 7;
@@ -8461,6 +8468,7 @@ static struct {
     prof_row_t fn[SESS_FUNCS];          /* profile(true): the costliest functions as the run ended */
     int nfn;
     uint32_t fn_frames;
+    int resumed;                        /* the run is a resumed one: the report covers it only */
 } sess;
 static const uint32_t sess_limit_us[SESS_CLASSES - 1] = { 18000, 25000, 34000, 50000, 100000 };
 
@@ -8586,7 +8594,7 @@ static void perf_account(const perf_mark_t *next)
     /* a second: its means, then the next one */
     gpu3d_stats_t g;
     gpu3d_peek_stats(&g);
-    const uint32_t busy = g.bin_us + g.render_us, was = pw.g.bin_us + pw.g.render_us;
+    const uint32_t busy = gpu3d_busy_us(&g), was = gpu3d_busy_us(&pw.g);
     const uint32_t gpu = pw.gpu_seen && busy >= was ? busy - was : busy;
     for (int i = 0; i < SEG_USED; i++)
         pw.seg[i] = pw.sum[i] / pw.frames;
@@ -8817,6 +8825,8 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     uint32_t played_at = start;
     uint32_t lag = 0, lag_at = start;       /* frameskip(): the time not yet run by an _update */
     int fresh = 0;                          /* the keys read and not yet seen by an _update */
+    const uint32_t frame0 = rt.frame;       /* this run's frames: elapsed, GPU and held ones are too */
+    const uint32_t slow0 = rt.slow_frames;
     prof_enable(0, NULL);                   /* the profiler of functions starts from nothing */
     perf_reset();                           /* the overlay: this run's frames only (a resumed one's too) */
     held.on = held.now = 0;                 /* nothing held (M39), this run's count */
@@ -9004,13 +9014,13 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     prof_enable(0, NULL);                   /* not over the menu nor the next game */
     memset(&dbg, 0, sizeof dbg);            /* nor the debugger (R13) */
     cart_src = NULL;
-    st->frames = (uint32_t)rt.frame;
+    st->frames = rt.frame - frame0;
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);
     st->lua_peak_kb = (uint32_t)((rt.lua_peak > luavm_mem() ? rt.lua_peak : luavm_mem()) / 1024);
     st->assets_kb = assets_kb();
     st->instr_k_max = rt.instr_k_max;
-    st->slow = rt.slow_frames;
+    st->slow = rt.slow_frames - slow0;
     st->tokens = (uint32_t)rt.tokens;
     st->gpu3d = rt.r3d_ready && rt.r3d.backend != NULL;
     st->left = left;
@@ -9210,6 +9220,12 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     audio_pause(0);
     vol_start = audio_volume();
     perf_on = perf_user;                /* the overlay as Settings has it, as at the start */
+    sess_reset();                       /* the session report: this run's frames, as the time and GPU's */
+    sess.resumed = 1;
+    {
+        gpu3d_stats_t gs;
+        gpu3d_take_stats(&gs);          /* not the menu's jobs (its pictures enlarged by the GPU) */
+    }
     kprintf("bm: \"%s\" resumed\n", susp.title);
     return run_frames(fb, L, susp.title, con_w, con_h, seconds, st, NULL, 1);
 }
@@ -9255,7 +9271,8 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
 #define PUT(...) do { if (n < 8192) n += (size_t)ksnprintf(t + n, 8192 - n, __VA_ARGS__); } while (0)
     const uint32_t ms = st->elapsed_us / 1000, fps10 = ms ? st->frames * 10000u / ms : 0;
     const uint32_t avg = st->cpu_us_total / st->frames;
-    PUT("session of \"%s\" (the last one: the next run of this game replaces this file)\n", st->title);
+    PUT("session of \"%s\"%s (the last one: the next run of this game replaces this file)\n", st->title,
+        sess.resumed ? " since it was resumed" : "");
     PUT("options %s\n", sess.opts);
     PUT("screen %dx%d, %lu frames in %lu.%lu s, %lu.%lu fps\n", sess.w, sess.h, (unsigned long)st->frames,
         (unsigned long)(ms / 1000), (unsigned long)(ms % 1000 / 100), (unsigned long)(fps10 / 10),
@@ -9316,9 +9333,12 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
         }
     }
     if (g && g->jobs) {
-        const uint32_t per = (g->bin_us + g->render_us) / st->frames;
-        PUT("\nGPU 3D: %lu jobs, %lu triangles a frame, %lu.%lu ms a frame, longest job %lu.%lu ms\n",
+        const uint32_t per = gpu3d_busy_us(g) / st->frames;
+        PUT("\nGPU 3D: %lu jobs, %lu triangles a frame, %lu.%lu ms a frame, longest job seen to its end %lu.%lu ms\n",
             (unsigned long)g->jobs, (unsigned long)(g->tris / st->frames), MS1(per), MS1(g->max_us));
+        if (g->untimed)
+            PUT("(a job's time: from its start to the end the ARM saw; %lu jobs had ended before it looked, "
+                "counted at the others' mean)\n", (unsigned long)g->untimed);
         PUT("binner memory: at most %lu KiB of the tile lists' 4096, %lu KiB of the overflow's 2048, %lu jobs "
             "in the overflow\n", (unsigned long)((g->pool_max + 1023) / 1024),
             (unsigned long)((g->ovf_max + 1023) / 1024), (unsigned long)g->ovf_jobs);
@@ -9369,7 +9389,7 @@ void bm_print_stats(const bm_stats_t *st)
     gpu3d_stats_t g;
     gpu3d_take_stats(&g);
     if (g.jobs) {
-        uint32_t per = (g.bin_us + g.render_us) / st->frames;
+        uint32_t per = gpu3d_busy_us(&g) / st->frames;
         kprintf("     GPU 3D %lu jobs, %lu triangles a frame, %lu.%02lu ms a frame (bin %lu%%), max job %lu us\n",
                 g.jobs, g.tris / st->frames, per / 1000, per % 1000 / 10,
                 g.bin_us + g.render_us ? g.bin_us * 100 / (g.bin_us + g.render_us) : 0, g.max_us);

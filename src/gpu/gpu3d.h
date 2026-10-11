@@ -181,7 +181,24 @@ typedef struct {
     uint32_t clean_cyc, inval_cyc;  /* ARM cycles of the whole-cache clean before jobs, invalidate after (PMU on) */
     uint32_t pool_max, ovf_max;     /* the most bytes of the binner's pool (JOB_ALLOC) and overflow a job used */
     uint32_t ovf_jobs;              /* jobs whose binner went into the overflow area */
+    /* a job's time (bin_us + render_us, max_us): from its start to the end
+     * the ARM saw. Started jobs (the queue) that had ended before the ARM
+     * looked are not timed: untimed of them, late_us their start to the
+     * wait (an upper bound, it may hold a pause) */
+    uint32_t untimed, late_us;
 } gpu3d_stats_t;
+
+/* the GPU's work in s, microseconds: the jobs timed, and the untimed ones
+ * at their mean (none timed: the upper bound) */
+static inline uint32_t gpu3d_busy_us(const gpu3d_stats_t *s)
+{
+    const uint32_t t = s->bin_us + s->render_us;
+    if (!s->untimed)
+        return t;
+    if (s->jobs <= s->untimed)
+        return t + s->late_us;
+    return t + (uint32_t)((uint64_t)t * s->untimed / (s->jobs - s->untimed));
+}
 
 /* The driver's options in force, one line for the reports (so runs can be
  * compared): "bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0

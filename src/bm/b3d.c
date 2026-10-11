@@ -972,7 +972,7 @@ static void ramp(int ti, int pf)
         a.ms = b3d_median(fms, frames);     /* the counters below: the mean */
         a.instr *= k; a.wait_instr *= k; a.dmiss *= k; a.cycles *= k;
         a.tris_in *= k; a.tris *= k; a.verts *= k; a.pixels *= k;
-        a.gpu_ms = (float)(st.bin_us + st.render_us) * k / 1000.0f;
+        a.gpu_ms = (float)gpu3d_busy_us(&st) * k / 1000.0f;
         a.wait_ms = a.gpu_ms;           /* the ARM waits for every job (with the queue: at most) */
         a.jobs = (float)st.jobs * k;
         a.gltris = (float)st.gltris * k;

@@ -61,7 +61,9 @@ int v3d_run(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end, uint
  * with V3D_WAIT_ON_SEMAPHORE when there is binning): 0, or -1 (a job still
  * running, no V3D). v3d_busy: 1 while it runs. v3d_wait: waits for it as
  * v3d_run (0 at once if none was started); *rnd_us the time from its start
- * to the end the ARM saw, *bin_us 0. */
+ * to the end the ARM saw polling (the wait, or v3d_busy), *bin_us 0; a job
+ * that had ended before either looked: *rnd_us 0 (not timed), *bin_us the
+ * time from its start to the wait (an upper bound: it may hold a pause). */
 int v3d_start(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end);
 int v3d_busy(void);
 int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us);

@@ -32,7 +32,9 @@
 --   auto                      the calibration above (the same as no flags)
 --   res:1080+640              the screens: 1080, 640 (640x360), 360 (640x360 on a TV,
 --                             360x360 on a square panel), 720 (720x720 there), or WxH
---   gpu:vs+gpu+arm            the renderers: arm gpu aa gq vs1 vs q (this GPU's only)
+--   gpu:vs+gpu+arm            the renderers: arm gpu aa gq vs1 vs q ql (this GPU's only;
+--                             q: the console's queue level, ql: two jobs and each frame
+--                             shown a frame later, gpu3d_later)
 --   q:4+3+2                   the qualities, 0..4
 --   secs:4                    the seconds measured in each phase (default 3)
 --   warm:10                   the seconds of match before the measure (default 10 for
@@ -87,8 +89,11 @@ local function config(opt, matrix)
 end
 local STEPS_A_FRAME = 40                         -- match frames simulated a frame while warming up
 
-local RNAME = { arm = "ARM", gpu = "GPU", aa = "GPU+AA", gq = "GPU+Q", vs1 = "GPU+VS1", vs = "GPU+VS", q = "GPU+VS+Q" }
-local VS = { vs1 = 1, vs = 2, q = 2 }            -- the vertex shader: the scenery, every model
+local RNAME = { arm = "ARM", gpu = "GPU", aa = "GPU+AA", gq = "GPU+Q", vs1 = "GPU+VS1", vs = "GPU+VS", q = "GPU+VS+Q",
+  ql = "GPU+VS+QL" }
+local VS = { vs1 = 1, vs = 2, q = 2, ql = 2 }    -- the vertex shader: the scenery, every model
+-- the queue: true the console's own level (gpu3d_queue in Settings), 2 two jobs
+local QUEUE = { gq = true, q = true, ql = 2 }
 
 -- ---------------------------------------------------------------- the flags
 
@@ -132,35 +137,47 @@ end
 
 -- the renderer drawing now, by name
 local function current_name()
-  local on, aa, vs, _, q = gpu3d()
+  local on, aa, vs, _, q, _, later = gpu3d()
   if not on then return "arm" end
   if aa then return "aa" end
   if vs == 1 then return "vs1" end
-  if vs and vs >= 2 then return q and "q" or "vs" end
+  if vs and vs >= 2 then return later and "ql" or q and "q" or "vs" end
   return q and "gq" or "gpu"
 end
 Bench.current_name = current_name
+
+-- gpu3d_later to put back: as it was read with the GPU on (nil: untouched,
+-- the ARM's false says nothing of the console's Settings)
+local function later_of(on, l)
+  if on then return l and true or false end
+end
 
 -- the renderers this GPU has, of those asked (the ARM, the GPU, the GPU with
 -- anti-aliasing, with the frame queue (M35), with its vertex shader for the
 -- scenery and for every model, and that with the queue)
 local function available(name)
   if name == "arm" then return true end
-  local on0, aa0, vs0, _, q0 = gpu3d()
+  local on0, aa0, vs0, _, q0, _, l0 = gpu3d()
   local ok
   if name == "gpu" then ok = gpu3d(true, false, 0, false)
   elseif name == "aa" then local _, aa = gpu3d(true, true, 0, false) ok = aa
   elseif name == "gq" then ok = select(5, gpu3d(true, false, 0, true))
   elseif name == "vs1" or name == "vs" then local _, _, vs = gpu3d(true, false, 2, false) ok = vs
-  elseif name == "q" then ok = select(5, gpu3d(true, false, 2, true)) end
-  gpu3d(on0, aa0, vs0 or 0, q0 or false)
+  elseif name == "q" then ok = select(5, gpu3d(true, false, 2, true))
+  elseif name == "ql" then ok = select(7, gpu3d(true, false, 2, 2, nil, true)) end
+  -- the queue's level as read (an integer: true would be the console's own)
+  gpu3d(on0, aa0, vs0 or 0, q0 or false, nil, later_of(on0, l0))
   return ok and true or false
 end
 Bench.available = available
 
-local function use_renderer(r)
+-- exact (the bench's phases): "q" without gpu3d_later; else (the game's
+-- start, the menu) it stays as the console's Settings have it
+local function use_renderer(r, exact)
   if not RNAME[r] then return end
-  gpu3d(r ~= "arm", r == "aa", VS[r] or 0, r == "q" or r == "gq")
+  local later = r == "ql" or nil
+  if exact and r ~= "arm" then later = r == "ql" end
+  gpu3d(r ~= "arm", r == "aa", VS[r] or 0, QUEUE[r] or false, nil, later)
 end
 Bench.use_renderer = use_renderer
 
@@ -249,8 +266,8 @@ function Bench.start()
   config(opt, Bench.matrix)
   Bench.hot = OVERBIT_BENCH_HOT or not Bench.matrix     -- the fight at once
   Bench.saved = { q = G.quality, qauto = G.qauto, diff = G.bot_diff, rules = {}, w = SCREEN_W, h = SCREEN_H }
-  local on0, aa0, vs0, _, q0 = gpu3d()
-  Bench.saved.on, Bench.saved.aa, Bench.saved.vs, Bench.saved.queue = on0, aa0, vs0, q0
+  local on0, aa0, vs0, _, q0, _, l0 = gpu3d()
+  Bench.saved.on, Bench.saved.aa, Bench.saved.vs, Bench.saved.queue, Bench.saved.later = on0, aa0, vs0, q0, l0
   Bench.ready, Bench.left = false, false
   Bench.rows, Bench.rings, Bench.ver = {}, {}, {}
   Bench.i, Bench.done, Bench.page = 0, false, 1
@@ -306,7 +323,7 @@ local function restore(keep_screen)
   G.bot_diff = s.diff
   G.qauto = s.qauto
   Quality.set(s.q)
-  gpu3d(s.on, s.aa, s.vs or 0, s.queue or false)
+  gpu3d(s.on, s.aa, s.vs or 0, s.queue or false, nil, later_of(s.on, s.later))
   if not keep_screen then Quality.set_screen(s.w, s.h) end
   Match.bench = nil
 end
@@ -320,7 +337,7 @@ function Bench.next()
   if not ph then Bench.finish() return end
   Bench.i = Bench.i + 1
   Bench.ph, Bench.ph_t0 = ph, now
-  use_renderer(ph.r)
+  use_renderer(ph.r, true)
   if ph.kind == "match" and ph.w then Quality.set_screen(ph.w, ph.h) end
   Bench.ver[ph.r] = select(4, gpu3d())        -- the bm3d version (nil on a runtime before it)
   Quality.set(ph.q)

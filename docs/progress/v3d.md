@@ -43,16 +43,17 @@ From the v3d-async-proposal review (branch `origin/v3d-async-proposal`,
 5. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
 6. `gpu_ms` per step in the Overbit bench: needs a `stat()` for the GPU time (new API).
 
+Fixed, not yet on the Pi: Overbit forced queue 1 at every start (`gpu3d` queue `true` = 1);
+now `true` = the console's level, 5th value the level; bench renderer `ql`. Market reseed.
+
 ## To measure on the Pi
 
-Last Pi numbers: 2026-10-06, bm3d 6.7. Ask the user to run them; reports go in branch
-`reports`.
+Last Pi numbers: 2026-10-06, bm3d 6.7. Ask the user; reports in branch `reports`.
 
-- Overbit benchmark: GPU+VS, GPU+VS+Q, Q2.
 - `queue=1` vs `2` in real games (bench3d split rows Q/Q2 showed no gain).
-- `gpu3d_queue=2` with `gpu3d_later=0` vs `1` (bm3d 6.9): Overbit (no saved RENDERER: its
-  `q` sets the queue to 1) and a 3D game, F11 ms and fps; the session report's `frame queue`
-  line (jobs filled in overlap, frames held); no tearing on the TV.
+- Rerun with this kernel and the reseeded Overbit: `./easy_install.sh bench gpu:q+ql` with
+  `gpu3d_queue=2` (q vs ql), then a played Overbit with `gpu3d_later=1`: the session report's
+  `options` line must say `queue=2 later=1`, `frame queue` line (frames held); no tearing.
 - 2D on GPU, tex16, WC, `g` test steps 15-16, `menu_scale=3`.
 - Impostors: Overbit benchmark (GPU+VS and ARM) with `r3d_impostor` 0, 4, 8: fps, tris,
   and a photo of the far heroes / pickups (does the quad pop or show?).

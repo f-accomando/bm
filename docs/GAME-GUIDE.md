@@ -366,7 +366,10 @@ end
   *3D frame shown: A frame later* (`gpu3d_later=1`, with `gpu3d_queue=2`) each frame is shown
   a frame later and the next `_update` and `_draw` run while the GPU draws it. The pictures
   are the same; it asks only what every game should do anyway: the state changes in
-  `_update`, the HUD after the 3D (`docs/API.md`, *A frame later*).
+  `_update`, the HUD after the 3D (`docs/API.md`, *A frame later*). `queue` comes back as the
+  level in force (`1`, `2`) or `false`; asking for it with `true` (`gpu3d(true, false, 2, true)`)
+  keeps the console's own level, so a game that picks its renderer does not undo the player's
+  `gpu3d_queue=2` or `gpu3d_later`.
 
 **With bm Studio** ([sdk/README.md](../sdk/README.md)): models are made on the console
 placing the sprite sheet's tiles on a grid, and they live in the `.bm` itself; in the game

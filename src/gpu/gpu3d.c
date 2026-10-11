@@ -2283,6 +2283,10 @@ static int job_wait(void)
     G.st.render_us += rus;
     if (rus > G.st.max_us)
         G.st.max_us = rus;
+    if (!rus) {                         /* ended before the ARM looked: not timed (gpu3d_busy_us) */
+        G.st.untimed++;
+        G.st.late_us += bus_us;
+    }
     if (err) {
         static char buf[640];
         v3d_dump(buf, sizeof buf);
