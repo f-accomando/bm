@@ -26,8 +26,10 @@ peripherals as device, the rest unmapped. `mmu_set_cached` switches ranges (GPU 
 - Fibers (`src/kernel/fiber.c`, `src/arch/fiber.S`): cooperative tasks for the Market,
   WiFi retries, network writes; waits yield (`fiber_yield`, `net_wait_step`). Each menu job
   is a named `fiber_job_t`; `menu_ui_frame` logs a `menu idle:` line every 300 frames when a
-  job ran or a frame had no free time (frames with free time, ms taken of ms offered, the
-  worst overrun, then `fiber_jobs_report`: ms per job and its worst stall).
+  job ran, more than one frame had no free time (one is the line's own UART time) or the
+  SD counters moved: frames with free time, ms taken of ms offered, the worst overrun,
+  `fiber_jobs_report` (ms per job, its worst stall, the longest `fiber_job_stop` apart as
+  `stop`), the least slack of the window, `sd N retried, M timed out` if any.
 - Shares (`fiber_share_run`, `fiber.h`): the menu's free time goes through a table, a share
   in % per context (`FIBER_MENU`; `FIBER_TOOL` and `FIBER_GAME` are 0 and nothing calls
   them). Each job is sure of its share, the rest goes down the table. Pi (`menu_jobs` in
@@ -46,9 +48,17 @@ generic HID gamepads (descriptor parsed), Xbox 360 wired, mice. `smsc95xx.c`: th
 B/B+ Ethernet.
 
 ### Storage (`src/drivers/sd.c`, `src/fs/fat.c`)
-SDHOST driver by default (`sdhost.c`), Arasan EMMC (`sd_emmc.c`) as fallback if SDHOST fails
-(on the Zero W the Arasan is the WiFi's). FAT16/FAT32: reads long names, writes whole files
-and directories with 8.3 names.
+- SDHOST by default (`sdhost.c`), Arasan EMMC (`sd_emmc.c`, the Zero W's WiFi controller)
+  if SDHOST fails a transfer twice; not on a failed multi-block write. `sd_counters()`
+  (retries, waits run out) and `fat_cluster_bytes()` in the boot `sd:` line.
+- FAT16/FAT32: long names read, whole files and 8.3 directories written. `store()`: the
+  clusters marked as a chain first (`alloc_chain`), the data in runs of up to 32 KiB read
+  back (`fat_write_runs`, on; off for good on a mismatch), the last cluster only where it
+  has data, then with no tick the entry found again (`locate`) and changed in one sector;
+  the old chain released last. FAT entries change a sector per copy at a time
+  (`fat_set_list`); the free-space search starts at FSInfo's hint.
+- `fat_write_tick` = `fiber_slice_tick` from boot: a write in a menu fiber gives the CPU
+  back between pieces, never stopped by it; netxfer sets its own. `fat_writing()`.
 
 ### Bluetooth (`src/bt/`)
 Classic (`bt.c`, `hci.c`, `btuart.c`): up to four HID pads (DualShock 4 the reference, light
@@ -81,6 +91,9 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   projects) opens without it (`suite` in `carts.c`).
 - Bar icons: controllers, keyboard and mouse without a player number; Bluetooth keeps a blue
   dot (`ICON_DOT`, `status_icons()` in `menu_ui.c`).
+- Market job (`market.c`): `fiber_slice()` between the steps of the catalog (check, parse,
+  adopt, the copy on the card); a game's SHA-256 in 64 KiB pieces (`catalog_hash_tick`);
+  a game checked and being written (`finishing`) goes on off the tab, nothing else does.
 - Updates keep old kernels in `/bm/backup`; nothing is written before files are downloaded
   and checked; the board's own kernel last. Check and install run in a fiber of the menu
   (`update_start`, `update_tick`; the Updates panel lists the files, `update_notice` the
@@ -91,17 +104,21 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
 
 - To confirm from a boot log on the device: whether a stale association after a reboot was
   part of the missing WiFi (the fix that is in: retries and `wifi_leave()`).
-- To measure on the Pi and the RGB30 (`menu idle:` lines, Report the log): the stalls that
-  do not give the CPU back: a TLS handshake, the ECDSA check of a catalog or a release,
-  SHA-256 of big files (`update.c` `plan`), the first SD write of a boot (FAT free-cluster
-  scan, the Market's cache), a cover decoded.
+- To measure on the Pi and the RGB30 (`menu idle:` lines, Report the log): a Market
+  install of Overbit (the market job's stalls, the boot `sd:` line's cluster size, any `sd
+  … retried/timed out`); the stalls that still do not give the CPU back: a TLS handshake
+  (one per HTTPS request, three per report), the ECDSA check of a catalog or a release
+  (cutting it needs mbedTLS's restartable ECC), SHA-256 of a release's files (`update.c`),
+  a cover decoded. Proposed, not done: TLS session resumption in `tls.c` (sessions kept by
+  host and port, `MBEDTLS_SSL_SESSION_TICKETS`) would spare the ECDHE and the certificate
+  check to all but the first request.
 - Not possible today: a download going on inside an application, or across a game. The
   jobs stop before an app (`background_stop`, `market_set_active(0)`); a fetch starts from
   byte 0 (no HTTP `Range`), one request per connection, wall-clock read timeouts; tools and
   games never call `fiber_share_run`. It would need a pause that keeps the bytes and
   resumes with `Range` (the catalog's SHA-256 checks the whole), a call in `present()`
-  (`runtime.c`) with `FIBER_TOOL`, and the card's writers kept apart (a game saves too).
-  Games: opt-in only, never lockstep.
+  (`runtime.c`) with `FIBER_TOOL` (a game's saves and a fiber's write may already meet:
+  `store()`). Games: opt-in only, never lockstep.
 - No milestone in `docs/ROADMAP.md` is about this area today; spunti R… at its end.
 
 ## Rules (do not break)
@@ -117,6 +134,9 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   calls `_leave()`. Automatic restart: always 3 s counted.
 - Only a mouse moves the pointer (`mouse(true)` to ask, `mouse=off` turns it off).
 - Network and `report()` ask permission the first time (`allow_…` in `bm/config.txt`).
+- FAT writes may meet at a tick (a fiber's write and the menu's `config_save`): a picked
+  cluster is marked before any tick, and the directory is read and changed with no tick
+  in between (`store()` in `fat.c`). Keep both.
 - Keys and tokens only in the environment or `bm/config.txt`, never in files.
 - Tests: `make test-usb`, `test-fat`, `test-net`, `test-https`, `test-http`, `test-lan`,
   `test-github`, `test-release`, `test-catalog`, `test-hyp`; QEMU `-k <name>`.
