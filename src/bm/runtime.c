@@ -7041,7 +7041,6 @@ static void later_show(lua_State *L)
     }
     if (rt.mouse && rt.mouse_arrow)
         pointer_draw(held.px, fb->pitch / 2, rt.g.w, rt.g.h);
-    page_shown(fb->base);
     fb_flip(fb);
     rt.g = live;
 }
