@@ -24,20 +24,22 @@ From the v3d-async-proposal review (branch `origin/v3d-async-proposal`,
 - Interrupts `FLDONE` / `FRDONE`: skip. Polling costs only the final wait, the ARM is the
   bottleneck, there is no scheduler to give time to.
 - Triple buffering: skip until a measurement shows GPU time > ARM time.
-- Impostors: excluded by the user (ROADMAP).
+- Impostors (1–2 big triangles for far small meshes): allowed only as a flag (config key,
+  Settings row, `gpu3d()` argument), off by default; after the Pi run, with Animator bake.
 - `v3d_async.c/.h` from the proposal are not adopted (`v3d.c` already does it).
 
 ## To do, in order
 
-1. Measurement counters: cycles of the 4 cache calls per job; binner tile-list and overflow
-   use, count of overflow jobs. In progress.
+1. Measurement counters (done, bm3d 6.8 code; read them on the Pi): cycles of the 4 cache calls per job; binner tile-list and overflow
+   use, count of overflow jobs. See `docs/BENCH3D.md` columns.
 2. Pi run to read them (bench3d and Overbit with GPU+VS+Q and Q2, GPU+WC); then decide: range
    clean instead of whole-cache clean, bigger or dynamic overflow.
 3. M39 step 4, runtime: show the frame one later so `_draw` overlaps the GPU
    (`runtime.c` `submit3d` / `flush3d` / `draw2d`).
 4. Only if 2 shows a gain: chain two jobs in hardware (CT0/CT1 queue); needs removing
    `job_wait` before `v3d_start`.
-5. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
+5. Impostor flag (see Decisions), after 2.
+6. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
 
 ## To measure on the Pi
 

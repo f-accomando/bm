@@ -63,7 +63,8 @@ fotogramma; tutto il disegno in C, Lua solo logica. Il profilo `.b16` ha le sue 
   anello di eroi), `tests/overbit/frames.py`, `tests/bm/herobench.c`, `tests/bm/mapbench.c`,
   `tools/armprof.py`, `make bmhost-gpu`; sul Pi con il 3D Bench, il test `g` del monitor e le
   foto del report.
-- Escluso (decisione dell'utente): impostor per gli oggetti lontani, risoluzione che cambia
+- Impostor per gli oggetti lontani: solo come opzione (flag, spenta di default), da valutare
+  dopo le misure sul Pi. Escluso (decisione dell'utente): risoluzione che cambia
   da sola per guadagnare fotogrammi, overclock della GPU e dell'ARM.
 
 ---
