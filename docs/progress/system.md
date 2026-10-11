@@ -37,8 +37,9 @@ B/B+ Ethernet.
 
 ### Storage (`src/drivers/sd.c`, `src/fs/fat.c`)
 - SDHOST by default (`sdhost.c`), Arasan EMMC (`sd_emmc.c`, the Zero W's WiFi controller)
-  if SDHOST fails a transfer twice; not on a failed multi-block write. `sd_counters()`
-  (retries, waits run out) and `fat_cluster_bytes()` in the boot `sd:` line.
+  if SDHOST fails a transfer for good (a read: a 0.1 s try, then two of 0.5 s; a write: two);
+  not on a failed multi-block write. `sd_counters()` (retries, waits run out) and
+  `fat_cluster_bytes()` in the boot `sd:` line; read timeouts: [multitasking](multitasking.md).
 - FAT16/FAT32: long names read, whole files and 8.3 directories written. `store()`: the
   clusters marked as a chain first (`alloc_chain`), the data in runs of up to 32 KiB read
   back (`fat_write_runs`, on; off for good on a mismatch), the last cluster only where it
