@@ -2,7 +2,7 @@
 
 Samples in the bank, Strudel effects, presets, deep WAV files, the Lua API. Overview and rules: [audio.md](audio.md).
 
-## Pass 2: Samples and Strudel's Effects (2026-10-10)
+## Samples and Strudel's effects
 
 What superdough (Strudel's sound engine) has and the console lacked, where it makes sense on an ARM1176: recorded samples first, then its effects on a voice's path. Everything new is off when its register is 0: the old sounds render **bit for bit** as before (checked: every preset at three notes, clean and chip, the demo bank's songs and 22,000 blocks of random registers of the old layout, through `synth_mix` and the 24-bit rounding, against the synthesizer of `a4d79c1`: 100 MB identical).
 
@@ -71,14 +71,11 @@ The player and the 48-byte sound needed nothing new: the sound's tone is registe
 * In C (`src/audio/lua_tone.c`): `play()`, `play_at()`, `tone{s = ...}` and `instrument()` know a sample's sound as `"NAME:N"`, the same on its N-th sample after (wrapping; the kit's eight, or the bank's samples for a sound of the bank), and the kit's drums by name (after the bank's sounds and the presets).
 * `make test-riff`: the kit's notes, `kit:2`, the new controls into a voice's registers (read back with `apu()`), `instrument("kit:3")`, bake, and a live-code example with all of them. bmhost did not compile with GCC 15 (`strnlen` is POSIX, not C11): two uses in `src/bm/runtime.c` now go through a local `name_len()`.
 
-### Cost
-Host (x86, the same C), 8 voices, ns a block of 64 frames, against 8 saws through a resonant filter with a little room (the old sound, 4.2% of the Pi's CPU measured before): mono samples ×1.12, stereo samples ×1.69, pink noise ×1.11, a folding drive ×1.11, the vowel ×1.58, crush and coarse ×1.14, the chorus send ×1.01, **all of it at once on all 8 (and a ducking voice) ×2.14**. Scaled to the Pi: about +0.5 points for samples, +2.4 for vowels on every voice, **≈ +5 points (≈ 9% of the CPU) for everything at once**, under the budget of +8. ARM1176 code (kernel flags): Hermite mono 41 instructions a sample, stereo 70; the vowel's three filters 39 (36 of them float, three independent chains). The Pi's number is to be read on the console: Settings > Screen and sound > Test the sound prints "synth N us per 256 samples".
-
 ### Tests
-* `make test-audio`: the C tests (every format converted, rounded and clamped; the guards; broken banks; version 2 with a byte 9; Hermite's SNR; the octave; where it starts and backwards; forward and ping-pong loops; a pitch far up a tiny loop; stereo in its channels, the balance, the filter on both; no sample: silent and free; the kit's peaks, spectral centroids and fades; the player's bank to the synthesizer and away; the effects: crush's noise against `2^(1−b)/√12` at 3 and 8 bits, coarse's held samples (3 of 4), each curve's harmonics (odd for the symmetric ones, a second at −28 dBc for the asymmetric, every curve a different sound), the noises' tilt from 250–500 Hz to 4–8 kHz (white +12.0 dB, pink −0.2, brown −11.2; the pink noise mix the same), their loudness, crackle's clicks a second, tremolo all the way down at 15 and nothing without the LFO, the chorus's two sides apart and its silence after, the ducking (−122 dB under a full source, −0.09 dB half a second after), the vowels' formants ("a" against "i": 32 dB apart between 500–700 and 200–300 Hz), the chip deaf to all of it; every preset without a NaN and under 1.0, the new ones heard and under the limiter's bend, the kit's voices free when their sample ends; the tone's keys) and `tests/audio/test_bmaudio.py` (WAV files of every format into a bank, unpack → pack byte for byte both ways, version 2 without samples, the limits, then `bmrender` reads the same bank with the console's parser and plays each sample: its pitch at the root, an octave up, both channels, the loops going on, a one-shot ending, the kit's kick backwards; the effects' keys into their registers and back).
-* `make test-music` (the presets by name in the assistant's pieces): passes with the 50. It did not compile with GCC 15 (glibc's new `fdiv()` in `math.h` against `src/ai/music.c`'s own): renamed `floordiv`, nothing else.
 
-## Deep WAV files, bm Sound's samples, the Lua API (2026-10-10)
+`make test-audio` (formats, loops, stereo, kit, effects, bank to synthesizer) and `make test-music` (presets by name in the assistant's pieces).
+
+## Deep WAV files, bm Sound's samples, the Lua API
 
 * **R28, WAV files at 24 and 32 bits and in floats**: `bmrender --bits 16|24|32|f32` (`make
   wav BITS=24`), 24 and 32 from `synth_render32`, `f32` the mix itself; `bmhost --wav-bits

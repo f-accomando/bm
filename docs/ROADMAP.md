@@ -369,3 +369,6 @@ prova senza seriale e spesso senza tastiera).
   altoparlanti.
 - **R22 — Pulsanti su GPIO e schermo piccolo.** Il Pi Zero dentro un guscio portatile (pad
   sui GPIO, LCD DPI o SPI): una strada diversa dalla RGB30.
+- **R41 — Ingrandimento migliore.** Oggi 640×360 → 1080p lo fa lo scaler hardware (bilineare); un passo
+  sulle QPU in stile FSR (bordi adattivi + nitidezza) o bicubico per il 3D a bassa risoluzione. Analisi dei
+  costi e delle alternative: `docs/progress/graphics-research.md` nella storia git (commit 5461046).

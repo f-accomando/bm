@@ -2,7 +2,7 @@
 
 Output depth, dither and in-block ramps. Overview and rules: [audio.md](audio.md).
 
-## Output depth, Dither & In-Block Ramps (2026-10-10)
+## Output depth, dither and in-block ramps
 
 The mix was already 32-bit float; until now it left the synthesizer as `int16_t` and the Pi's IEC958 packer got `int16 × 256` (24-bit words, 16 bits of information). Now the float goes all the way to the output and is rounded once, at the very end, to the depth the output carries.
 
@@ -28,21 +28,6 @@ The mix was already 32-bit float; until now it left the synthesizer as `int16_t`
 * The square's width (the LFO's PWM, a new duty) ramps across the block; the LFO is evaluated at the block's end so both ends of every ramp are known.
 * ARM1176 (kernel flags, instruction count): the SVF loop is 14 instructions a sample still, 24 while sweeping, plus one `powf` a sweeping voice a block. Host (x86, WSL, noisy): the whole synth +5–10% with 8 voices sweeping. **The Pi's number is to be read on the console**: Settings > Screen and sound > Test the sound prints "synth N us per 256 samples".
 
-### Measured (`make test-audio`, tests/audio/test_audio.c)
-| | before | after |
-|---|---|---|
-| SNR, sine at −1 dBFS, 16 bits (theory with TPDF 92.3) | 16-bit truncation | 92.3 dB |
-| SNR, 24 bits (theory 140.5) | 16 bits at most | 140.2 dB |
-| SNR, 32 bits (the float as it is) | — | 216 dB |
-| a 0.6 LSB sine: the note / its 3rd harmonic | plain rounding 0.71 / 0.42 LSB | 0.60 / 0.005 LSB |
-| dither noise, mean | — | 0.5 LSB rms, mean < 0.01 LSB |
-| DC after the blocker, a 25% square | — | 1.1e-6 of full scale |
-| room tail at 24 bits vs the float | — | ≤ 0.60 LSB rms down to −126 dBFS; 0 after 7.6 s |
-| block-rate sidebands, 3 kHz sine, resonant LPF, LFO 8 Hz 4 oct | −36 dBc | −77 dBc |
-| the same, LFO 14 Hz, res 200 / res 0 (bench) | −23 / −29 dBc | −53 / −67 dBc |
-| filter envelope sweeping over the carrier (FDECAY 40 / acid 15) | −33 / −25 dBc | −75 / −62 dBc |
-| duty 25% → 75%: high samples in the next block | 48 of 64 (a step) | 33 of 64 (a ramp) |
+### Tests
 
-`make TARGET=rgb30 test-audio` runs the I2S simulator three times (started at 16, 24 and 32 bits, each changing to the other two and back, a 250 µs render at 24 and 32; the last with an odd FIFO of 31 words, which the driver uses as 30 so frames stay whole). The QEMU tests touched (`tests/qemu_test.py` `test_home_ui`, the Pi's new Bit depth row; `tests/rgb30/qemu_test.py` `test_sound`, one row more to the last) were updated but not run: no working QEMU on the machine of this session.
-
----
+`make test-audio` (`tests/audio/test_audio.c`: SNR per depth, dither noise, DC, room tail, block-rate sidebands) and `make TARGET=rgb30 test-audio` (I2S simulator at 16, 24 and 32 bits).

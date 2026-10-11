@@ -15,7 +15,7 @@ Not here: history (git log), measurements (`docs/PRESTAZIONI.md`, `docs/STRESS.m
 |---|---|---|
 | [system](progress/system.md) | boot, MMU, IRQ, fibers, crash reports, USB, SD/FAT, Bluetooth, WiFi, network, menu and kernel services | `src/boot/`, `src/arch/`, `src/kernel/`, `src/drivers/`, `src/usb/`, `src/fs/`, `src/bt/`, `src/wifi/`, `src/net/` |
 | [multitasking](progress/multitasking.md) | cooperative fibers of the menu, shares, background jobs, measurements; later multicore | `src/kernel/fiber.c`, `src/arch/fiber.S` |
-| [graphics](progress/graphics.md) (+ [research](progress/graphics-research.md)) | framebuffer, 2D, software 3D, V3D driver, Mali bring-up, rendering tests | `src/drivers/fb.c`, `src/bm/gfx16.c`, `src/bm/r3d.c`, `src/gpu/`, `src/rgb30/mali.c` |
+| [graphics](progress/graphics.md) | framebuffer, 2D, software 3D, V3D driver, Mali bring-up, rendering tests | `src/drivers/fb.c`, `src/bm/gfx16.c`, `src/bm/r3d.c`, `src/gpu/`, `src/rgb30/mali.c` |
 | [v3d](progress/v3d.md) | V3D driver on the Pi Zero W: async jobs, cache, binner memory, open work and Pi measurements | `src/gpu/v3d.c`, `src/gpu/gpu3d.c`, `src/bm/runtime.c` |
 | [lua](progress/lua.md) | Lua VM, cartridge runtime, built-in libraries, dev kit, profiler, session report | `third_party/lua/`, `src/bm/runtime.c`, `src/bm/require.c`, `src/script/`, `src/bm/profile.c` |
 | [audio](progress/audio.md) (+ [output](progress/audio-output.md), [samples](progress/audio-samples.md)) | synthesizer, sound bank and player, presets, outputs, riff, music assistant | `src/audio/`, `src/script/riff.lua`, `src/ai/music.c`, `src/rgb30/rk_audio.c` |
@@ -28,7 +28,7 @@ Open the file of the area and `Grep -n '^##'` it; read only the section you need
 file ends with *Open work* and *Rules (do not break)*.
 
 - Boot, MMU, cache, IRQ, fibers, crashes, USB, SD/FAT, Bluetooth, WiFi, menu: [system](progress/system.md).
-- Framebuffer, 2D, software 3D (`r3d`), V3D, Mali, rendering tests: [graphics](progress/graphics.md); scaling and retrospective: [graphics-research](progress/graphics-research.md) (only if asked).
+- Framebuffer, 2D, software 3D (`r3d`), V3D, Mali, rendering tests: [graphics](progress/graphics.md).
 - Menu fibers, shares, background jobs, SD/network measurements: [multitasking](progress/multitasking.md).
 - V3D driver on the Pi (async jobs, cache, binner memory, Pi measurements): [v3d](progress/v3d.md).
 - VM, runtime, built-in libraries, dev kit: [lua](progress/lua.md).

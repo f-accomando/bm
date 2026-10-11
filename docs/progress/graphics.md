@@ -1,7 +1,5 @@
 # Graphics
 
-> Background and research (retrospective, scaling strategies): [graphics-research.md](graphics-research.md). Read it only if asked.
-
 Framebuffer, 2D (`gfx16`), software 3D (`r3d`), the V3D driver (`gpu3d`) and the Mali
 bring-up. Driver versions and history: [`docs/DRIVERS.md`](../DRIVERS.md); bench and score:
 [`docs/BENCH3D.md`](../BENCH3D.md); numbers: `docs/PRESTAZIONI.md`, `docs/STRESS.md`.
