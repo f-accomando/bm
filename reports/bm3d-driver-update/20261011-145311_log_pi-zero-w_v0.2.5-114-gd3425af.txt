@@ -1,0 +1,910 @@
+bm report
+kind: log
+kernel: v0.2.5-114-gd3425af
+branch: bm3d-driver-update
+board: Pi Zero W
+date: 2026-10-11 14:53:11
+file: 20261011-145311_log_pi-zero-w_v0.2.5-114-gd3425af.txt
+
+
+bm kernel v0.2.5-114-gd3425af - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MiB (ARM+GPU), 43.8 C
+ARM1176 from SVC, MMU+caches on, heap 433 MiB, UART 48000000 Hz
+watchdog: not available, no freeze guard (loaded 196608, after 20 ms 196608)
+IRQ on: timer 1000 Hz (measured 1000 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:0267 'Magic Keyboard', full speed, layout it
+sd: SDHC card (sdhost), FAT32, 7591 MiB, label BOOTFS; 13 cartridges
+config: /bm/config.txt, layout us, .bm drawing direct, volume 10/10
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired keyboard fe:06:5e:68:3b:04: press a key on it to connect
+bt: paired mouse df:0e:42:84:a7:2d: move it or click to connect
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KiB
+wifi: firmware 389 KiB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 6 networks
+   1   -61 dBm  ch 11  WPA2  FASTWEB-36AB12
+   2   -71 dBm  ch  6  WPA2  Wind3 HUB - ED4188
+   3   -88 dBm  ch  6  WPA2  FASTWEB-5j5SAq_EXT
+   4   -89 dBm  ch  9  WPA2  FASTWEB-N72DKD
+   5   -91 dBm  ch  1  WPA2  WINDTRE - 73DE22
+   6   -91 dBm  ch 11  WPA2  TIM-64745935
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: associated
+wifi: password accepted, keys set
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu probe: idle time in 298/300 frames, slack 7625 us, paced 0
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-10-11 14:32 UTC
+menu probe: idle time in 299/300 frames, slack 7711 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7792 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7883 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7966 us, paced 0
+menu probe: idle time in 300/300 frames, slack 8051 us, paced 0
+menu probe: idle time in 300/300 frames, slack 8138 us, paced 0
+menu probe: idle time in 300/300 frames, slack 8231 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7238 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7399 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7422 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7574 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7599 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7736 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7777 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7924 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7945 us, paced 0
+menu probe: idle time in 300/300 frames, slack 8103 us, paced 0
+menu probe: idle time in 300/300 frames, slack 8119 us, paced 0
+menu probe: idle time in 300/300 frames, slack 8274 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7296 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7449 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7485 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7630 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7661 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7801 us, paced 0
+market: nearby consoles: listening as bm-108
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+market: nearby consoles: listening as bm-108
+tls: 21 root certificates
+menu probe: idle time in 290/300 frames, slack 9169 us, paced 0
+market: catalog 20261011143409, 12 games
+market: downloading games/overbit/overbit.bm (6480020 bytes)
+menu probe: idle time in 290/300 frames, slack 7810 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7819 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7972 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7997 us, paced 0
+market: games/overbit/overbit.bm -> /carts/OVERBIT.BM
+market: Overbit installed
+menu probe: idle time in 299/300 frames, slack 7400 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7424 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7567 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7595 us, paced 0
+menu probe: idle time in 300/300 frames, slack 7738 us, paced 0
+market: nearby consoles: listening as bm-108
+menu probe: idle time in 295/300 frames, slack 8035 us, paced 0
+market: nearby consoles: listening as bm-108
+
+playing OVERBIT.BM
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 6.9 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes))
+overbit build 671b89e
+bm: loaded in 1603 ms, the splash over at 1800 ms
+overbit screen 1920x1080 q
+bm: screen 1920x1080
+overbit quality up to 2 (16.5 ms)
+overbit bench start: calibration, 13 steps, flags auto, screen 1920x1080, GPU, renderers q arm
+overbit map pt: 96 chunks, 131 boxes
+overbit round 1
+overbit match start: rally
+bm: screen 640x360
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit swift step Akari > Frost
+overbit kill Rail > Akari
+overbit kill Fuse > Fuse
+overbit rail Rail 100
+overbit bench ARM 640x360 LOW match 74122
+overbit bench ARM 640x360 LOW: 17 fps, 58.4 ms (1% 81.2, worst 82.0, 100% over 16.7), update 7.4, 3D 45.4, 3259 tri (max 4889), 5461 vtx, 482610 px, 40k instr, 1917 KiB Lua, bm3d 0.2
+overbit bench stop ARM at 640x360 LOW: under 30 fps (58.4 ms)
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit mine Fuse
+overbit mine Fuse
+bm: screen 1280x720
+overbit mine Fuse
+overbit mine Fuse
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit swift step Akari > Frost
+overbit kill Rail > Akari
+overbit kill Fuse > Fuse
+overbit rail Rail 100
+overbit bench GPU+VS+Q 1280x720 MEDIUM match 74122
+overbit bench GPU+VS+Q 1280x720 MEDIUM: 43 fps, 19.2 ms (1% 26.1, worst 39.4, 62% over 16.7), update 9.7, 3D 2.6, 11842 tri (max 21870), 0 vtx, 0 px, 45k instr, 1917 KiB Lua, bm3d 4.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit swift step Akari > Frost
+overbit kill Rail > Akari
+overbit kill Fuse > Fuse
+overbit rail Rail 100
+overbit bench GPU+VS+Q 1280x720 HIGH match 74122
+overbit bench GPU+VS+Q 1280x720 HIGH: 40 fps, 22.1 ms (1% 30.5, worst 31.8, 93% over 16.7), update 10.4, 3D 3.7, 28959 tri (max 40130), 0 vtx, 0 px, 50k instr, 1917 KiB Lua, bm3d 4.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit swift step Akari > Frost
+overbit kill Rail > Akari
+overbit kill Fuse > Fuse
+overbit rail Rail 100
+overbit bench GPU+VS+Q 1280x720 ULTRA match 74122
+overbit bench GPU+VS+Q 1280x720 ULTRA: 38 fps, 22.8 ms (1% 30.7, worst 32.3, 100% over 16.7), update 10.7, 3D 3.9, 28959 tri (max 40130), 0 vtx, 0 px, 55k instr, 1917 KiB Lua, bm3d 4.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit swift step Akari > Frost
+overbit kill Rail > Akari
+overbit kill Fuse > Fuse
+overbit rail Rail 100
+overbit bench GPU+VS+Q 1280x720 EXTREME match 74122
+overbit bench GPU+VS+Q 1280x720 EXTREME: 36 fps, 23.8 ms (1% 36.2, worst 46.2, 99% over 16.7), update 10.8, 3D 4.7, 28959 tri (max 40130), 0 vtx, 0 px, 55k instr, 1917 KiB Lua, bm3d 4.1
+overbit bench stop GPU+VS+Q at 1280x720 EXTREME: under 30 fps (23.8 ms)
+overbit bench climb end: every renderer under 30 fps
+overbit bench best GPU+VS+Q 1280x720: none at 60 fps
+overbit bench best ARM 640x360: none at 60 fps
+overbit default 1280x720 quality 3 q 30 fps
+overbit bench default 1280x720 ULTRA GPU+VS+Q: holds 30 fps (nothing held 60)
+overbit bench done in 37 s
+report: 20261011-143719_overbit-bench_pi-zero-w_v0.2.5-114-gd3425af.txt saved as bm/reports/RPT00001.TXT
+report: sending 20261011-143719_overbit-bench_pi-zero-w_v0.2.5-114-gd3425af.txt
+report: sent to f-accomando/bm, branch reports: reports/bm3d-driver-update/20261011-143719_overbit-bench_pi-zero-w_v0.2.5-114-gd3425af.txt
+overbit quality up to 4 (6.1 ms)
+overbit default 640x360 quality 4 arm 30 fps
+bm: screen 640x360
+overbit default 1920x1080 quality 4 q 30 fps
+overbit quality down to 640x360 3 (40.1 ms)
+bm: screen 1920x1080
+overbit default 640x360 quality 3 arm 30 fps
+bm: screen 640x360
+overbit default 1920x1080 quality 3 q 30 fps
+bm: screen 1920x1080
+overbit quality down to 1920x1080 2 (52.8 ms)
+overbit default 640x360 quality 2 arm 30 fps
+bm: screen 640x360
+overbit quality down to 640x360 1 (51.8 ms)
+overbit quality down to 640x360 0 (39.1 ms)
+overbit default 1920x1080 quality 0 q 30 fps
+bm: screen 1920x1080
+overbit quality up to 1 (20.6 ms)
+overbit default 1280x720 quality 1 q 30 fps
+bm: screen 1280x720
+overbit default 1920x1080 quality 1 q 30 fps
+bm: screen 1920x1080
+overbit quality up to 2 (19.9 ms)
+overbit quality up to 3 (19.2 ms)
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit quality up to 4 (17.8 ms)
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit disruptor Rail
+overbit quality down to 1920x1080 3 (36.3 ms)
+overbit rail Rail 100
+overbit suzu Akari
+overbit rail Rail 100
+overbit quality down to 1920x1080 2 (56.0 ms)
+overbit quality down to 1920x1080 1 (50.3 ms)
+overbit rail Rail 100
+overbit rail Rail 100
+overbit rail Rail 100
+overbit rail Rail 100
+overbit disruptor Rail
+overbit torpedoes Orbit 3
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit rail Rail 100
+overbit rail Rail 100
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit suzu Akari
+overbit overclock Rail
+overbit kill Rail > Orbit
+overbit rail Rail 130
+overbit rail Rail 101
+overbit kill Akari > Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Rail > Akari
+overbit rail Rail 130
+overbit rail Rail 100
+overbit rail Rail 108
+overbit kill Orbit > Rail
+overbit suzu Akari
+overbit rail Rail 103
+overbit rail Rail 108
+overbit eject Kaiju (mech destroyed)
+overbit rail Rail 102
+overbit kill Akari > Kaiju
+overbit point team 1
+overbit hyper ring Orbit
+overbit rail Rail 130
+overbit torpedoes Orbit 2
+overbit torpedoes Orbit 3
+overbit disruptor Rail
+overbit disruptor Rail
+overbit hyper ring Orbit
+overbit mine Fuse
+overbit suzu Akari
+overbit rail Rail 100
+overbit kill You > Fuse
+overbit kill Rail > Fuse
+overbit suzu Akari
+overbit rail Rail 100
+overbit rail Rail 100
+overbit eject You (mech destroyed)
+overbit kill Akari > Orbit
+overbit rail Rail 100
+overbit kill Kaiju > You
+overbit quality up to 2 (21.9 ms)
+overbit kill Akari > Akari
+overbit torpedoes Orbit 4
+overbit kill Akari > Rail
+overbit quality up to 3 (21.1 ms)
+overbit point team 2
+overbit hyper ring Orbit
+overbit quality up to 4 (21.1 ms)
+overbit torpedoes Orbit 4
+overbit mine Fuse
+overbit kill Rail > Fuse
+overbit rail Rail 100
+overbit overclock Rail
+overbit quality down to 1920x1080 3 (32.6 ms)
+overbit rail Rail 130
+overbit disruptor Rail
+overbit rail Rail 103
+overbit quality down to 1920x1080 2 (51.4 ms)
+overbit kill Akari > Orbit
+overbit rail Rail 102
+overbit quality down to 1920x1080 1 (41.5 ms)
+overbit rail Rail 107
+overbit disruptor Rail
+overbit rail Rail 107
+overbit torpedoes Orbit 2
+overbit rail Rail 101
+overbit suzu Akari
+overbit rail Rail 102
+overbit rail Rail 107
+overbit rail Rail 102
+overbit suzu Akari
+overbit eject You (mech destroyed)
+overbit rail Rail 107
+overbit swift step Akari > You
+overbit mine Fuse
+overbit kill Akari > Akari
+overbit mine Fuse
+overbit kill Rail > You
+overbit rail Rail 130
+overbit rail Rail 101
+overbit hyper ring Orbit
+overbit rail Rail 100
+overbit kill Orbit > Rail
+overbit torpedoes Orbit 1
+overbit mine Fuse
+overbit mine Fuse
+overbit swift step Akari > Orbit
+overbit kitsune rush Akari
+overbit torpedoes Orbit 2
+overbit mine Fuse
+overbit disruptor Rail
+overbit limit break Kaiju
+overbit kill Kaiju > Fuse
+overbit kill Kaiju > Orbit
+overbit trap Orbit
+overbit kill Kaiju > Akari
+overbit hyper ring Orbit
+overbit disruptor Rail
+overbit rail Rail 104
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit mine Fuse
+overbit torpedoes Orbit 2
+overbit overclock Rail
+overbit kill Rail > Orbit
+overbit rail Rail 130
+overbit eject You (mech destroyed)
+overbit rail Rail 109
+overbit rail Rail 100
+overbit rail Rail 107
+overbit kill Kaiju > You
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit kill Rail > Fuse
+overbit rail Rail 108
+overbit rail Rail 102
+overbit disruptor Rail
+overbit quality up to 2 (19.3 ms)
+overbit bench start: calibration, 13 steps, flags auto, screen 1920x1080, GPU, renderers q arm
+overbit round 1
+overbit match start: rally
+bm: screen 640x360
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit disruptor Rail
+bm: "Overbit" suspended (A on its cover resumes it)
+bm: "Overbit" 5366 frames, 32.2 fps, 2675 dropped
+     update+draw avg 28.75 ms (172% of frame), max 2787.55 ms, Lua 1714 KiB
+     dev kit: Lua peak 1917 KiB, data 5475 KiB, busiest frame 1115k instructions, 4283 frames over 16.7 ms, 70497 tokens
+     GPU 3D 4073 jobs, 6001 triangles a frame, 14.29 ms a frame (bin 0%), max job 2776261 us
+report: session_overbit_pi-zero-w.txt saved as bm/reports/RPT00001.TXT
+report: sending session_overbit_pi-zero-w.txt
+menu probe: idle time in 288/300 frames, slack 9671 us, paced 0
+report: sent to f-accomando/bm, branch reports: reports/bm3d-driver-update/session_overbit_pi-zero-w.txt
+market: nearby consoles: listening as bm-108
+menu probe: idle time in 294/300 frames, slack 7771 us, paced 0
+menu probe: idle time in 297/300 frames, slack 3126 us, paced 0
+bm > Report the log
+
+report: 20261011-143939_log_pi-zero-w_v0.2.5-114-gd3425af.txt saved as bm/reports/RPT00001.TXT
+report: sending 20261011-143939_log_pi-zero-w_v0.2.5-114-gd3425af.txt
+report: sent to f-accomando/bm, branch reports: reports/bm3d-driver-update/20261011-143939_log_pi-zero-w_v0.2.5-114-gd3425af.txt
+
+A, Esc or any key: back to the menu
+menu probe: idle time in 292/300 frames, slack 8075 us, paced 0
+menu probe: idle time in 296/300 frames, slack -1135 us, paced 0
+menu probe: idle time in 299/300 frames, slack 3827 us, paced 0
+menu probe: idle time in 298/300 frames, slack 3342 us, paced 0
+menu probe: idle time in 291/300 frames, slack 3404 us, paced 0
+menu probe: idle time in 297/300 frames, slack 3326 us, paced 0
+menu probe: idle time in 300/300 frames, slack 3479 us, paced 0
+menu probe: idle time in 300/300 frames, slack 8245 us, paced 0
+market: nearby consoles: listening as bm-108
+
+resuming OVERBIT.BM
+bm: "Overbit" resumed
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+bm: screen 1920x1080
+overbit bench start: calibration, 13 steps, flags auto, screen 1920x1080, GPU, renderers q arm
+overbit round 1
+overbit match start: rally
+bm: screen 640x360
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit swift step Akari > Frost
+overbit kill Rail > Akari
+overbit kill Fuse > Fuse
+overbit rail Rail 100
+overbit bench ARM 640x360 LOW match 74122
+overbit bench ARM 640x360 LOW: 17 fps, 58.1 ms (1% 80.6, worst 80.9, 100% over 16.7), update 7.5, 3D 44.9, 3259 tri (max 4889), 5461 vtx, 482547 px, 40k instr, 2011 KiB Lua, bm3d 0.2
+overbit bench stop ARM at 640x360 LOW: under 30 fps (58.1 ms)
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit mine Fuse
+overbit mine Fuse
+bm: screen 1280x720
+overbit mine Fuse
+overbit mine Fuse
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit swift step Akari > Frost
+overbit kill Rail > Akari
+overbit kill Fuse > Fuse
+overbit rail Rail 100
+overbit bench GPU+VS+Q 1280x720 MEDIUM match 74122
+overbit bench GPU+VS+Q 1280x720 MEDIUM: 42 fps, 19.3 ms (1% 27.1, worst 30.0, 62% over 16.7), update 9.8, 3D 2.6, 11842 tri (max 21870), 0 vtx, 0 px, 45k instr, 2075 KiB Lua, bm3d 4.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit swift step Akari > Frost
+overbit kill Rail > Akari
+overbit kill Fuse > Fuse
+overbit rail Rail 100
+overbit bench GPU+VS+Q 1280x720 HIGH match 74122
+overbit bench GPU+VS+Q 1280x720 HIGH: 38 fps, 22.3 ms (1% 29.5, worst 32.0, 95% over 16.7), update 10.4, 3D 3.8, 28959 tri (max 40130), 0 vtx, 0 px, 50k instr, 2075 KiB Lua, bm3d 4.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit swift step Akari > Frost
+overbit kill Rail > Akari
+overbit kill Fuse > Fuse
+overbit rail Rail 100
+overbit bench GPU+VS+Q 1280x720 ULTRA match 74122
+overbit bench GPU+VS+Q 1280x720 ULTRA: 38 fps, 23.0 ms (1% 30.4, worst 32.8, 100% over 16.7), update 10.7, 3D 4.0, 28959 tri (max 40130), 0 vtx, 0 px, 55k instr, 2075 KiB Lua, bm3d 4.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit swift step Akari > Frost
+overbit kill Rail > Akari
+overbit kill Fuse > Fuse
+overbit rail Rail 100
+overbit bench GPU+VS+Q 1280x720 EXTREME match 74122
+overbit bench GPU+VS+Q 1280x720 EXTREME: 37 fps, 23.9 ms (1% 38.1, worst 46.7, 100% over 16.7), update 10.8, 3D 4.8, 28959 tri (max 40130), 0 vtx, 0 px, 55k instr, 2075 KiB Lua, bm3d 4.1
+overbit bench stop GPU+VS+Q at 1280x720 EXTREME: under 30 fps (23.9 ms)
+overbit bench climb end: every renderer under 30 fps
+overbit bench best GPU+VS+Q 1280x720: none at 60 fps
+overbit bench best ARM 640x360: none at 60 fps
+overbit default 1280x720 quality 3 q 30 fps
+overbit bench default 1280x720 ULTRA GPU+VS+Q: holds 30 fps (nothing held 60)
+overbit bench done in 37 s
+report: 20261011-144109_overbit-bench_pi-zero-w_v0.2.5-114-gd3425af.txt saved as bm/reports/RPT00001.TXT
+report: sending 20261011-144109_overbit-bench_pi-zero-w_v0.2.5-114-gd3425af.txt
+report: sent to f-accomando/bm, branch reports: reports/bm3d-driver-update/20261011-144109_overbit-bench_pi-zero-w_v0.2.5-114-gd3425af.txt
+overbit quality up to 4 (10.8 ms)
+overbit default 640x360 quality 4 arm 30 fps
+bm: screen 640x360
+overbit quality down to 640x360 3 (32.2 ms)
+overbit default 1920x1080 quality 3 q 30 fps
+bm: screen 1920x1080
+overbit default 640x360 quality 3 arm 30 fps
+bm: screen 640x360
+overbit quality down to 640x360 2 (32.0 ms)
+overbit default 1920x1080 quality 2 q 30 fps
+bm: screen 1920x1080
+overbit quality down to 1920x1080 1 (41.6 ms)
+overbit default 1280x720 quality 1 q 30 fps
+bm: screen 1280x720
+overbit quality up to 2 (9.6 ms)
+overbit default 1920x1080 quality 2 q 30 fps
+bm: screen 1920x1080
+overbit default 1280x720 quality 2 q 30 fps
+bm: screen 1280x720
+overbit default 1920x1080 quality 2 q 30 fps
+bm: screen 1920x1080
+overbit quality down to 1920x1080 1 (32.6 ms)
+overbit default 1280x720 quality 1 q 30 fps
+bm: screen 1280x720
+overbit quality up to 2 (10.6 ms)
+overbit round 1
+overbit match start: rally
+overbit quality up to 3 (11.2 ms)
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit disruptor Rail
+overbit hero You fuse
+overbit rail Rail 100
+overbit quality down to 1280x720 2 (32.7 ms)
+overbit rail Rail 100
+overbit rail Rail 100
+overbit quality up to 3 (19.4 ms)
+overbit rail Rail 100
+overbit rail Rail 100
+overbit rail Rail 100
+overbit rail Rail 100
+overbit quality up to 4 (22.9 ms)
+overbit disruptor Rail
+overbit torpedoes Orbit 1
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit rail Rail 100
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit overclock Rail
+overbit kill Rail > Fuse
+overbit kill Rail > Rail
+overbit rail Rail 130
+overbit quality down to 1280x720 3 (32.1 ms)
+overbit suzu Akari
+overbit kill Rail > Akari
+overbit rail Rail 101
+overbit quality down to 1280x720 2 (36.9 ms)
+overbit kill Rail > Orbit
+overbit rail Rail 130
+overbit rail Rail 104
+overbit eject Kaiju (mech destroyed)
+overbit rail Rail 100
+overbit kill Fuse > Kaiju
+overbit quality up to 3 (18.9 ms)
+overbit mine You
+overbit point team 1
+overbit torpedoes Orbit 1
+overbit quality up to 4 (15.6 ms)
+overbit hyper ring Orbit
+overbit rail Rail 130
+overbit disruptor Rail
+overbit hyper ring Orbit
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit quality down to 1280x720 3 (32.3 ms)
+overbit rail Rail 100
+overbit suzu Akari
+overbit mine Fuse
+overbit quality down to 1280x720 2 (47.1 ms)
+overbit mine Fuse
+overbit trap Akari
+overbit kill You > Akari
+overbit mine You
+overbit swift step Akari > Fuse
+overbit kill Fuse > Fuse
+overbit mine You
+overbit rail Rail 100
+overbit torpedoes Orbit 3
+overbit rail Rail 100
+overbit quality up to 3 (22.9 ms)
+overbit trap Fuse
+overbit kill Kaiju > Akari
+overbit suzu Akari
+overbit kill Rail > Orbit
+overbit kill Fuse > Rail
+overbit overclock Rail
+overbit rail Rail 130
+overbit rail Rail 103
+overbit quality up to 4 (19.6 ms)
+overbit rail Rail 103
+overbit kill Kaiju > Orbit
+overbit eject Kaiju (mech destroyed)
+overbit rail Rail 108
+overbit kill Rail > Kaiju
+overbit rail Rail 102
+overbit rail Rail 130
+overbit kill You > Akari
+overbit mine You
+overbit rail Rail 127
+overbit torpedoes Orbit 3
+overbit disruptor Rail
+overbit rail Rail 123
+overbit hyper ring Orbit
+overbit disruptor Rail
+overbit rail Rail 100
+overbit suzu Akari
+overbit rail Rail 100
+overbit mine Fuse
+overbit eject Fuse (redline)
+overbit mine Fuse
+overbit kill Fuse > Fuse
+overbit torpedoes Orbit 4
+overbit kill Fuse > Orbit
+overbit eject Kaiju (mech destroyed)
+overbit kill Fuse > Rail
+overbit redline boom
+overbit quality down to 1280x720 3 (32.1 ms)
+overbit pit stop Fuse
+overbit kill Orbit > Kaiju
+overbit hyper ring Orbit
+overbit quality up to 4 (18.5 ms)
+overbit kill Akari > Akari
+overbit mine You
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit disruptor Rail
+overbit disruptor Rail
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit swift step Akari > Rail
+overbit mine You
+overbit kill Rail > Akari
+overbit suzu Akari
+overbit limit break Kaiju
+overbit kill Kaiju > Rail
+overbit trap Rail
+overbit quality down to 1280x720 3 (32.0 ms)
+overbit kill You > Rail
+overbit mine You
+overbit quality down to 1280x720 2 (34.4 ms)
+overbit kill Kaiju > Orbit
+overbit quality up to 3 (18.1 ms)
+overbit trap Akari
+overbit torpedoes Orbit 1
+overbit kill Fuse > You
+overbit mine Fuse
+overbit hyper ring Orbit
+overbit quality up to 4 (14.1 ms)
+overbit eject Fuse (redline)
+overbit eject Kaiju (mech destroyed)
+overbit kill Fuse > Fuse
+overbit kill Fuse > Orbit
+overbit kill Fuse > Akari
+overbit redline boom
+overbit kill Kaiju > Fuse
+overbit hyper ring Orbit
+overbit torpedoes Orbit 1
+overbit disruptor Rail
+overbit kill Akari > Kaiju
+overbit disruptor Rail
+overbit overclock Rail
+overbit rail Rail 130
+overbit suzu Akari
+overbit kill Rail > Orbit
+overbit rail Rail 108
+overbit rail Rail 105
+overbit kill Akari > Rail
+overbit hyper ring Orbit
+overbit torpedoes Orbit 1
+overbit kill Akari > Akari
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit rail Rail 100
+overbit mine You
+overbit overclock Rail
+overbit kill Rail > Akari
+overbit rail Rail 130
+overbit kill Rail > Orbit
+overbit rail Rail 101
+overbit default 1280x720 quality 4 q 30 fps
+overbit quality down to 1280x720 3 (33.2 ms)
+overbit disruptor Rail
+overbit rail Rail 102
+overbit kill Rail > Fuse
+overbit rail Rail 101
+overbit mine You
+overbit rail Rail 108
+overbit rail Rail 102
+overbit rail Rail 108
+overbit kill Kaiju > Rail
+overbit torpedoes Orbit 1
+overbit disruptor Rail
+overbit quality up to 4 (20.7 ms)
+overbit rail Rail 100
+overbit orbital ray Orbit
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit suzu Akari
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit rail Rail 100
+overbit limit break Kaiju
+overbit kitsune rush Akari
+overbit round 1 team 1 (1-0)
+overbit rail Rail 100
+overbit suzu Akari
+overbit quality down to 1280x720 3 (32.1 ms)
+overbit mine You
+overbit disruptor Rail
+overbit quality down to 1280x720 2 (32.6 ms)
+overbit kill Akari > Orbit
+overbit eject Fuse (mech destroyed)
+overbit rail Rail 100
+overbit kill Kaiju > Fuse
+overbit mine You
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit kitsune rush Akari
+overbit rail Rail 100
+overbit quality up to 3 (19.7 ms)
+overbit round 2
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit quality up to 4 (19.4 ms)
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 3
+overbit disruptor Rail
+overbit disruptor Rail
+overbit rail Rail 100
+overbit rail Rail 100
+overbit default 1920x1080 quality 4 q 30 fps
+bm: screen 1920x1080
+overbit quality down to 1920x1080 3 (32.1 ms)
+overbit round 1
+overbit match start: fuse
+overbit quality down to 1920x1080 2 (35.2 ms)
+overbit quality down to 1920x1080 1 (44.5 ms)
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit mine You
+overbit swift step Akari > Kaiju
+overbit rail Rail 100
+overbit mine You
+overbit rail Rail 100
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 1
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit rail Rail 100
+overbit suzu Akari
+overbit disruptor Rail
+overbit tactical visor Sarge
+overbit biotic field Sarge
+overbit point open
+overbit rail Rail 100
+overbit swift step Akari > Fuse
+overbit default 1920x1080 quality 1 q 30 fps
+overbit mine Fuse
+overbit mine Fuse
+overbit overclock Rail
+overbit rail Rail 130
+overbit suzu Akari
+overbit rail Rail 103
+overbit kill Sarge > Fuse
+overbit rail Rail 103
+overbit mine You
+overbit rail Rail 103
+overbit mine You
+overbit rail Rail 103
+overbit point team 1
+overbit rail Rail 101
+overbit kill Sarge > Akari
+overbit trap Orbit
+overbit torpedoes Orbit 4
+overbit rail Rail 100
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit kill You > Orbit
+overbit rail Rail 116
+overbit rail Rail 106
+overbit hyper ring Orbit
+overbit eject Kaiju (mech destroyed)
+overbit rail Rail 103
+overbit kill Sarge > Kaiju
+overbit rail Rail 108
+overbit rail Rail 100
+overbit kill Kaiju > Rail
+overbit tactical visor Sarge
+overbit suzu Akari
+overbit mine Fuse
+overbit kill Akari > Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Kaiju > Akari
+overbit mine You
+overbit hyper ring Orbit
+overbit mine You
+overbit trap Kaiju
+overbit disruptor Rail
+overbit rail Rail 100
+overbit barrier broken Kaiju
+overbit kitsune rush Akari
+overbit rail Rail 100
+overbit mine You
+overbit eject Kaiju (mech destroyed)
+overbit torpedoes Orbit 1
+overbit suzu Akari
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit barrier broken Kaiju
+overbit kill Kaiju > Kaiju
+overbit tactical visor Sarge
+overbit mine Fuse
+overbit rail Rail 100
+overbit mine Fuse
+overbit eject Kaiju (mech destroyed)
+overbit kill Orbit > You
+overbit torpedoes Orbit 3
+overbit kill Orbit > Orbit
+overbit suzu Akari
+overbit orbital ray Orbit
+overbit disruptor Rail
+overbit biotic field Sarge
+overbit swift step Akari > Fuse
+bm: "Overbit" suspended (A on its cover resumes it)
+bm: "Overbit" 45043 frames, 59.7 fps, 3478 dropped
+     update+draw avg 12.22 ms (73% of frame), max 2493.76 ms, Lua 1328 KiB
+     dev kit: Lua peak 2088 KiB, data 9075 KiB, busiest frame 1115k instructions, 11213 frames over 16.7 ms, 70497 tokens
+     GPU 3D 38829 jobs, 5553 triangles a frame, 7.90 ms a frame (bin 0%), max job 2488211 us
+report: session_overbit_pi-zero-w.txt saved as bm/reports/RPT00001.TXT
+menu probe: idle time in 290/300 frames, slack 8002 us, paced 0
+report: sending session_overbit_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/bm3d-driver-update/session_overbit_pi-zero-w.txt
+menu probe: idle time in 291/300 frames, slack 3011 us, paced 0
+bm > Report the log
+
