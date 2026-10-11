@@ -58,6 +58,10 @@ int catalog_parse(const uint8_t *index, size_t len, catalog_t *c, char *err, siz
 void catalog_free(catalog_t *c);
 /* 0 if data is the file the catalog lists (size and SHA-256). */
 int catalog_check_file(const catalog_file_t *f, const uint8_t *data, size_t len);
+/* Called, if set, between the pieces (64 KiB) of catalog_check_file's
+ * hash: a 6 MB game's check (some 0.3 s on the Pi) gives the CPU back
+ * (the Market sets fiber_slice). */
+extern void (*catalog_hash_tick)(void);
 /* 1 if serial a is newer than b ("" is the oldest). */
 int catalog_newer(const char *a, const char *b);
 
