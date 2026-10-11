@@ -29,8 +29,8 @@ Cambio d'API: si aggiorna il file della sua area, `docs/GAME-GUIDE.md` (sezione 
 
 ## Progressi (stato attuale, non cronaca)
 
-Indice: `docs/progress.md` (sezione *Which section to open*). Un'area = un file in
-`docs/progress/`; ognuno ha `## How it is today` (sottosezioni `###` per modulo con i simboli
+Indice: `docs/progress.md` (sezione *Which section to open*: system, multitasking, graphics,
+v3d, lua, audio, platforms, tools). Un'area = un file in `docs/progress/`; ognuno ha `## How it is today` (sottosezioni `###` per modulo con i simboli
 da cercare), `## Open work`, `## Rules (do not break)`.
 
 Per aggiornare dopo un cambio:
