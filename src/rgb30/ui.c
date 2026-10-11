@@ -46,6 +46,7 @@
 #include "kernel/reports.h"
 #include "kernel/syskeys.h"
 #include "kernel/carts.h"
+#include "kernel/devtool.h"
 #include "audio/audio.h"
 #include "kernel/market.h"
 #include "net/catalog.h"
@@ -537,6 +538,49 @@ static void page_render(void)
     console_suspend(1);
 }
 
+/* --- bm SDK (RGB30): the Dev tab's tool --- */
+
+/* the cartridge built into this kernel (rgb30.mk, bm_embed.S: carts/sdk_b16) */
+extern const uint8_t bm_sdk_cart[], bm_sdk_cart_end[];
+
+/* the tools of this console for its tool session (src/kernel/devtool.c, the
+ * Pi's loop): the SDK alone. The Pi's others (bm Code, Pixel, Studio...)
+ * are not in this kernel: a cart_tool() to one would end the session, and
+ * the SDK does not offer them. */
+static const devtool_t rgb30_tools[] = {
+    { "sdk", "bm SDK", bm_sdk_cart, bm_sdk_cart_end },
+};
+
+/* after the tool and after each game it tries: the buttons that left
+ * (Start + Select) or started it let go, so the next one does not see them */
+static void tool_released(void)
+{
+    while (pad_state())
+        timer_delay_ms(10);
+    pad_pressed();
+}
+
+static const devtools_t rgb30_devtools = { rgb30_tools, sizeof rgb30_tools / sizeof rgb30_tools[0], tool_released };
+
+static const char *sdk_open;        /* the file it opens on (a game's options), or NULL */
+
+/* The SDK as a tool, as on the Pi: it saves where it is told, builds the
+ * game of a project (cart_build) and tries it (cart_run: the game plays,
+ * Start + Select leaves it, the SDK comes back on the file with cart_arg()
+ * = {path, error, back, run}). Then the games again: it may have built or
+ * copied one in bm/. */
+static void page_sdk(void)
+{
+    wifi_auto_stop();                               /* a WiFi try of the menu's: not under the tool */
+    const char *open = sdk_open;
+    sdk_open = NULL;
+    kprintf("bm SDK%s%s\n", open ? " on " : "", open ? open : "");
+    devtool_session(fb, &rgb30_devtools, bm_sdk_cart, (size_t)(bm_sdk_cart_end - bm_sdk_cart), "bm SDK", open);
+    console_suspend(1);                             /* the menu draws itself */
+    scan_games();
+    market_carts_changed();
+}
+
 /* --- the menu --- */
 
 typedef struct {
@@ -544,16 +588,20 @@ typedef struct {
     void (*run)(void);
     int icon;                       /* the cover, as the Pi's tools (MENU_ICON_*, colour) */
     uint32_t rgb;
+    const uint8_t *cart, *cart_end; /* a tool built in: its cartridge's COVER instead */
 } item_t;
 
-/* the Dev tab, with the covers of the same tools on the Pi (home.c) */
+/* the Dev tab, with the covers of the same tools on the Pi (home.c); the
+ * SDK last (the tests find the others by their place) */
 static const item_t dev_items[] = {
-    { "3D Bench", "every 3D test: bars, report in bm/bench", page_bench3d, MENU_ICON_GAUGE, 0x2A6A8A },
-    { "Render bench", "map, sprites and text, 640x360", page_render, MENU_ICON_TRIANGLES, 0x5A3AA0 },
-    { "Display", "the screen modes for games and the GPU", ui_screen_modes, MENU_ICON_BARS, 0x404050 },
-    { "Input test", "every button and both sticks, live", ui_input_test, MENU_ICON_PAD, 0x8A3A8A },
-    { "Boot log", "everything printed since boot", ui_show_log, MENU_ICON_LOG, 0x6A6A7A },
-    { "GPU test", "the Mali-G52 step by step: power, MMU, jobs", page_gputest, MENU_ICON_CHIP, 0x8A5A2A },
+    { "3D Bench", "every 3D test: bars, report in bm/bench", page_bench3d, MENU_ICON_GAUGE, 0x2A6A8A, NULL, NULL },
+    { "Render bench", "map, sprites and text, 640x360", page_render, MENU_ICON_TRIANGLES, 0x5A3AA0, NULL, NULL },
+    { "Display", "the screen modes for games and the GPU", ui_screen_modes, MENU_ICON_BARS, 0x404050, NULL, NULL },
+    { "Input test", "every button and both sticks, live", ui_input_test, MENU_ICON_PAD, 0x8A3A8A, NULL, NULL },
+    { "Boot log", "everything printed since boot", ui_show_log, MENU_ICON_LOG, 0x6A6A7A, NULL, NULL },
+    { "GPU test", "the Mali-G52 step by step: power, MMU, jobs", page_gputest, MENU_ICON_CHIP, 0x8A5A2A, NULL, NULL },
+    { "bm SDK", "code, sprites, map, 3D; build and try", page_sdk, MENU_ICON_CODE, 0x1E8A5A,
+      bm_sdk_cart, bm_sdk_cart_end },
 };
 #define N_DEV ((int)(sizeof dev_items / sizeof dev_items[0]))
 static g16_sheet_t dev_covers[N_DEV];
@@ -613,7 +661,7 @@ static void play_market(int i, char *note, size_t n)
 
 /* --- a game's options (X on its cover; the Pi's C): its panel over the covers --- */
 
-enum { G_PLAY = 100, G_TYPE, G_SIZE, G_AUTHOR, G_SAVE, G_DEL_SAVE, G_DELETE };
+enum { G_PLAY = 100, G_SDK, G_TYPE, G_SIZE, G_AUTHOR, G_SAVE, G_DEL_SAVE, G_DELETE };
 
 /* the save slots of game `i`: bytes in all, -1 if none */
 static long game_save_bytes(int i, int *slots)
@@ -637,6 +685,7 @@ static void game_panel(int i, home_panel_t *p)
     memset(p, 0, sizeof *p);
     ksnprintf(p->title, sizeof p->title, "%s", games[i].title);
     home_row(p, MENU_ROW_ACTION, G_PLAY, "Play", "Start the game", NULL);
+    home_row(p, MENU_ROW_ACTION, G_SDK, "Open in bm SDK", "Saving it makes its editable copy", NULL);
     home_row(p, MENU_ROW_INFO, G_TYPE, "Type", "Lua 5.4 on bm", "%s", games[i].is_bm ? "bm (Pi)" : "b16 (handheld)");
     home_row(p, MENU_ROW_INFO, G_SIZE, "Size", "The whole cartridge", "%lu KiB", (unsigned long)(games[i].size + 1023) / 1024);
     home_row(p, MENU_ROW_INFO, G_AUTHOR, "Author", "From the cartridge header", "%s",
@@ -733,8 +782,17 @@ void ui_home(framebuffer_t *f)
     fb = f;
     console_suspend(1);
     scan_games();
-    for (int i = 0; i < N_DEV; i++)
-        menu_make_tool_cover(&dev_covers[i], dev_items[i].name, dev_items[i].icon, dev_items[i].rgb);
+    for (int i = 0; i < N_DEV; i++) {
+        const uint8_t *rgba = NULL;
+        uint32_t need = 0;
+        int w = 0, h = 0;
+        if (dev_items[i].cart &&
+            bm_cover_peek(dev_items[i].cart, (size_t)(dev_items[i].cart_end - dev_items[i].cart), &need, &rgba,
+                          &w, &h) == 1)
+            menu_load_cover(&dev_covers[i], rgba, w, h);         /* the SDK's icon, as on the Pi */
+        if (!dev_covers[i].px)
+            menu_make_tool_cover(&dev_covers[i], dev_items[i].name, dev_items[i].icon, dev_items[i].rgb);
+    }
     kprintf("cartridge menu: %d games", n_games);
     if (n_hidden)
         kprintf(" (%d .bm hidden by show_bm=0 in bm/config.txt)", n_hidden);
@@ -964,12 +1022,15 @@ void ui_home(framebuffer_t *f)
                 gopt = -1;
             } else if ((p & pad_ok) && gpb.n && gpb.rows[gopt_sel].kind != MENU_ROW_INFO) {
                 const int row = gpb.ids[gopt_sel], g = gopt;
-                if (row == G_PLAY) {
+                if (row == G_PLAY || row == G_SDK) {
                     gopt = -1;
-                    char gp[80];
+                    static char gp[80];
                     ksnprintf(gp, sizeof gp, "/bm/%s", games[g].name);
                     if (netxfer_updating(gp)) {
                         ksnprintf(note, sizeof note, "Updating, wait for the end of the download");
+                    } else if (row == G_SDK) {
+                        sdk_open = gp;              /* the SDK on the game: its project next to it */
+                        run_page(page_sdk);
                     } else {
                         play_index = g;
                         run_page(play_selected);
