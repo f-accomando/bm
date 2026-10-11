@@ -1,0 +1,189 @@
+bm report
+kind: log
+kernel: v0.2.5-107-g5fecedd
+branch: claude/fiber-quote
+board: Pi Zero W
+date: 2026-10-11 12:09:25
+file: 20261011-120925_log_pi-zero-w_v0.2.5-107-g5fecedd.txt
+
+
+bm kernel v0.2.5-107-g5fecedd - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MiB (ARM+GPU), 43.3 C
+ARM1176 from SVC, MMU+caches on, heap 433 MiB, UART 48000000 Hz
+the Pi froze last time and the watchdog restarted it:
+  doing: cartridge menu, frame 0, 276 s after boot
+watchdog: not available, no freeze guard (loaded 196608, after 20 ms 196608)
+IRQ on: timer 1000 Hz (measured 999 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:0267 'Magic Keyboard', full speed, layout it
+sd: SDHC card (sdhost), FAT32, 7591 MiB, label BOOTFS; 14 cartridges
+config: /bm/config.txt, layout us, .bm drawing direct, volume 10/10
+report: nodate-6c77bc_freeze_pi-zero-w_v0.2.5-107-g5fecedd.txt saved as bm/reports/RPT00004.TXT
+report: on the SD card: no network
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired keyboard fe:06:5e:68:3b:04: press a key on it to connect
+bt: paired mouse df:0e:42:84:a7:2c: move it or click to connect
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KiB
+wifi: firmware 389 KiB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 7 networks
+   1   -53 dBm  ch 11  WPA2  FASTWEB-36AB12
+   2   -75 dBm  ch  6  WPA2  Wind3 HUB - ED4188
+   3   -83 dBm  ch 11  WPA2  LL
+   4   -84 dBm  ch  9  WPA2  FASTWEB-N72DKD
+   5   -89 dBm  ch  1  WPA2  WINDTRE - 73DE22
+   6   -90 dBm  ch  3  WPA2  FASTWEB-325YFF
+   7   -92 dBm  ch 11  WPA2  Infostrada-1AC4ED_EXT
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+tls: 21 root certificates
+net: time 2026-10-11 12:05 UTC
+report: sending session_yharnam_Pi Zero W.txt
+report: not sent (session_yharnam_Pi Zero W.txt: HTTP 400): it waits in bm/reports
+report: on the SD card: session_yharnam_Pi Zero W.txt: HTTP 400
+menu idle: 297/300 frames, 1436 of 2228 ms taken, 100.6 ms past a frame; covers 97 ms (+2.1), reports 1329 ms (+102.4); slack 8183 us, paced 0
+menu idle: 295/300 frames, 4 of 1844 ms taken, 0.0 ms past a frame; no job; slack 3223 us, paced 0
+menu idle: 295/300 frames, 3 of 1702 ms taken, 0.0 ms past a frame; no job; slack -2619 us, paced 0
+bm > Send the reports
+
+report: sending session_yharnam_Pi Zero W.txt
+report: not sent (session_yharnam_Pi Zero W.txt: HTTP 400): it waits in bm/reports
+report: on the SD card: session_yharnam_Pi Zero W.txt: HTTP 400
+on the SD card: session_yharnam_Pi Zero W.txt: HTTP 400; 4 waiting on the SD card
+
+A, Esc or any key: back to the menu
+bm > Send the reports
+
+report: sending session_yharnam_Pi Zero W.txt
+report: not sent (session_yharnam_Pi Zero W.txt: HTTP 400): it waits in bm/reports
+report: on the SD card: session_yharnam_Pi Zero W.txt: HTTP 400
+on the SD card: session_yharnam_Pi Zero W.txt: HTTP 400; 4 waiting on the SD card
+
+A, Esc or any key: back to the menu
+menu idle: 287/300 frames, 3 of 1684 ms taken, 0.0 ms past a frame; no job; slack -1658 us, paced 0
+menu idle: 297/300 frames, 3 of 1751 ms taken, 0.0 ms past a frame; no job; slack 3410 us, paced 0
+
+bm update
+  this kernel: v0.2.5-107-g5fecedd
+  releases: https://github.com/f-accomando/bm/releases
+  reading the latest release...
+  latest release: v0.2.5, commit 58a4d159d240ea4d99ebf37f02627ebae760ce16, signed: good
+  that is: this kernel is a build of the sources
+  /kernel.img              3946 KiB  changed
+  /carts/pong.bm             40 KiB  same
+  /carts/snake.bm            38 KiB  same
+  /carts/shooter.bm          43 KiB  same
+  /carts/astrowing.bm        54 KiB  same
+  /carts/hunt.bm            250 KiB  same
+  /carts/kitchen.bm         856 KiB  same
+  /carts/titan.bm          1674 KiB  same
+  /carts/village.bm          79 KiB  same
+  /carts/nano8.bm            93 KiB  changed
+  /carts/overbit.bm        6309 KiB  changed
+  /carts/yharnam.bm        5844 KiB  changed
+  /carts/typing.bm           48 KiB  same
+  /carts/write.bm            86 KiB  same
+  /bm/ca.pem                 28 KiB  same
+v0.2.5 can be installed: Settings > System > Install the update
+menu idle: 296/300 frames, 1955 of 1692 ms taken, 102.3 ms past a frame; update 1951 ms (+102.8); slack 3955 us, paced 0
+menu idle: 299/300 frames, 3 of 1738 ms taken, 0.0 ms past a frame; no job; slack 4132 us, paced 0
+bt:   mouse df:0e:42:84:a7:2c is back
+bt:   LE connection 040, interval 12
+bt:   encrypted
+bt:   connection parameters: interval 6..9, latency 44
+bt:   HID service 0021-0040
+bt:   11 characteristics
+menu idle: 294/300 frames, 3 of 1647 ms taken, 0.0 ms past a frame; no job; slack 3308 us, paced 0
+bt:   mouse link lost after 3200 ms: it closed the link (switched off, or another console) (reason 13)
+menu idle: 289/300 frames, 3 of 1624 ms taken, 0.0 ms past a frame; no job; slack 3326 us, paced 0
+bm > Pair a new controller
+
+DS4: hold Share + PS until the light flashes quickly.
+
+bt: looking for devices for 8 s (DS4: hold Share + PS until the light flashes)
+bt: 0 devices found
+
+A, Esc or any key: back to the menu
+menu idle: 296/300 frames, 102 of 1733 ms taken, 1.8 ms past a frame; covers 98 ms (+2.7); slack 8204 us, paced 0
+bm > Pair a mouse
+
+Put the mouse in pairing mode (MX mice: hold the Easy-Switch button 3 s,
+until its light blinks fast). No code is needed.
+
+bt: looking for a mouse for 10 s (MX mice: hold the Easy-Switch button 3 s,
+    until its light blinks fast)
+bt:   seen 31:68:d8:fa:04:24
+bt:   seen df:0e:42:84:a7:2d MX Master 3 (HID)
+bt: found mouse df:0e:42:84:a7:2d MX Master 3 (random address)
+bt:   seen f8:3f:51:2e:0b:da
+bt:   seen 66:a7:14:26:7b:92
+bt:   seen 61:f7:74:01:d3:f2
+bt:   seen e3:14:ab:5b:e3:78
+bt:   seen 6d:62:e6:f7:e2:83
+bt:   seen 8c:79:f5:b3:5b:e9
+bt: pairing with MX Master 3...
+bt:   LE connection 040, interval 12
+bt:   -> pairing request
+bt:   <- SMP 02 (7 bytes)
+bt: pairing, LE Secure Connections, no code (Just Works)
+bt:   <- SMP 0c (65 bytes)
+bt:   <- SMP 03 (17 bytes)
+bt:   <- SMP 04 (17 bytes)
+bt:   <- SMP 0d (17 bytes)
+bt:   encrypted
+bt:   <- SMP 08 (17 bytes)
+bt:   <- SMP 09 (8 bytes)
+bt: mouse df:0e:42:84:a7:2d paired (Secure Connections, private address)
+bt:   connection parameters: interval 6..9, latency 44
+bt:   HID service 0021-0040
+bt:   11 characteristics
+bt:   report map 140 bytes: mouse found, report ID 2
+bt: mouse MX Master 3 connected, it moves the pointer
+
+A, Esc or any key: back to the menu
+menu idle: 299/300 frames, 3 of 1677 ms taken, 0.0 ms past a frame; no job; slack 2392 us, paced 0
+menu idle: 270/300 frames, 5 of 1405 ms taken, 0.0 ms past a frame; no job; slack 2336 us, paced 0
+bm > Report the log
+
