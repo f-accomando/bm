@@ -1,0 +1,83 @@
+bm report
+kind: freeze
+kernel: v0.2.5-116-ga0073a0
+branch: bm3d-driver-update
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-6b3061_freeze_pi-zero-w_v0.2.5-116-ga0073a0.txt
+
+the Pi froze (the watchdog restarted it) while: cartridge menu, frame 0, 2291 s after boot
+--- the last lines printed ---
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+reports
+
+report: sending session_overbit_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/bm3d-driver-update/session_overbit_pi-zero-w.txt
+sent: reports/bm3d-driver-update/session_overbit_pi-zero-w.txt; 0 waiting on the SD card
+
+A, Esc or any key: back to the menu
+menu probe: idle time in 288/300 frames, slack -1176 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1168 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1021 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1860 us, paced 0
+menu probe: idle time in 290/300 frames, slack -826 us, paced 0
+menu probe: idle time in 290/300 frames, slack -813 us, paced 0
+menu probe: idle time in 290/300 frames, slack -654 us, paced 0
+menu probe: idle time in 290/300 frames, slack -636 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1553 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1487 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1380 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1281 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1204 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1107 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1031 us, paced 0
+menu probe: idle time in 290/300 frames, slack -933 us, paced 0
+menu probe: idle time in 290/300 frames, slack -854 us, paced 0
+menu probe: idle time in 290/300 frames, slack -754 us, paced 0
+menu probe: idle time in 290/300 frames, slack -682 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1547 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1504 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1350 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1334 us, paced 0
+menu probe: idle time in 290/300 frames, slack -2067 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1152 us, paced 0
+menu probe: idle time in 290/300 frames, slack -994 us, paced 0
+menu probe: idle time in 290/300 frames, slack -985 us, paced 0
+menu probe: idle time in 290/300 frames, slack -826 us, paced 0
+menu probe: idle time in 290/300 frames, slack -808 us, paced 0
+menu probe: idle time in 290/300 frames, slack -647 us, paced 0
+menu probe: idle time in 290/300 frames, slack -638 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1474 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1452 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1301 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1279 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1124 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1108 us, paced 0
+menu probe: idle time in 290/300 frames, slack -953 us, paced 0
+menu probe: idle time in 290/300 frames, slack -933 us, paced 0
+menu probe: idle time in 290/300 frames, slack -775 us, paced 0
+menu probe: idle time in 290/300 frames, slack -757 us, paced 0
+menu probe: idle time in 290/300 frames, slack -605 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1526 us, paced 0
+menu probe: idle time in 290/300 frames, slack -2360 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1340 us, paced 0
+menu probe: idle time in 290/300 frames, slack -1326 us, paced 0
+net: receiving a new kernel (4205508 bytes)...
+net: kernel 0% (0 of 4106 KiB)
+net: kernel 10% (416 of 4106 KiB)
+menu probe: idle time in 290/300 frames, slack -4198 us, paced 0
+net: kernel 20% (827 of 4106 KiB)
+net: kernel 30% (1235 of 4106 KiB)
+net: kernel 40% (1648 of 4106 KiB)
+net: kernel 50% (2062 of 4106 KiB)
+net: kernel 60% (2468 of 4106 KiB)
+net: kernel 70% (2876 of 4106 KiB)
+net: kernel 80% (3295 of 4106 KiB)
+menu probe: idle time in 287/300 frames, slack -4078 us, paced 0
+net: kernel 90% (3703 of 4106 KiB)
+net: saved kernel.img on the SD card (4205508 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MiB, label BOOTFS; 13 cartridges
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
