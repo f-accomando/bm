@@ -29,7 +29,8 @@ peripherals as device, the rest unmapped. `mmu_set_cached` switches ranges (GPU 
 ### Crashes and freezes (`exceptions.c`, `crumbs.c`, `src/drivers/watchdog.c`)
 Exceptions show a red screen with registers and the call trail. Breadcrumbs and the last 4 KiB
 printed live in `.noinit`, survive a reset and become a report at the next boot
-(`reports_text`), sent once the network is up. Watchdog armed at 3 s.
+(`reports_text`), sent once the network is up. Watchdog: meant to be armed at 3 s, but the Pi Zero W boot log
+says "not available, no freeze guard" (see Open work).
 
 ### USB (`src/usb/`)
 Own DWC2 host stack (`dwc2.c`, `usb.c`). HID (`hid.c`): boot keyboards (IT/US layout),
@@ -76,6 +77,12 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
 
 - To confirm from a boot log on the device: whether a stale association after a reboot was
   part of the missing WiFi (the fix that is in: retries and `wifi_leave()`).
+- **Freeze reports (secondary, later):** (1) `netxfer.c` ~470 reboots after a network kernel
+  without `crumbs_clean_exit()`, so the next boot reports a false freeze (4 reports so far);
+  one helper for every planned restart. (2) `watchdog.c` writes only PM_WDOG and never counts on
+  the Pi Zero W: write WDOG then RSTC, check it counts, mind >3 s with interrupts off (the
+  watchdog is reset by the 10 Hz tick). (3) the last-lines ring can tear at 32-byte lines (keep
+  a 0 after the newest char), store the freezing kernel's version, pin `.noinit` (`linker.ld`).
 - No milestone in `docs/ROADMAP.md` is about this area today; spunti R… at its end.
 
 ## Rules (do not break)
