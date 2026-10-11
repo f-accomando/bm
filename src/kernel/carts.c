@@ -424,6 +424,10 @@ void carts_init(void)
     ledstate_set(LED_NO_SD, !sd_ok);
     fat_load_tick = sd_tick;            /* the loading screen, the menu's fibers */
     bm_parse_tick = sd_tick;
+    /* a write in a fiber of the menu (the Market's game, an update) gives
+     * the CPU back between its pieces (fat.h; netxfer sets its own) */
+    if (!fat_write_tick)
+        fat_write_tick = fiber_slice_tick;
     rescan();
     if (sd_ok)
         kprintf("sd: %s card (%s), %s; %d cartridges\n", sd_is_hc() ? "SDHC" : "SD",

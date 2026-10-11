@@ -109,6 +109,12 @@ void fiber_slice(void)
         fiber_yield();
 }
 
+int fiber_slice_tick(void)
+{
+    fiber_slice();
+    return 0;
+}
+
 /* the jobs started so far, for fiber_jobs_report */
 #define JOBS_MAX 12
 static fiber_job_t *jobs[JOBS_MAX];

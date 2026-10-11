@@ -391,8 +391,11 @@ void update_install(framebuffer_t *fb)
     }
     kprintf("  all %d files downloaded and checked (%lu s)\n", up.n, (timer_ticks() - t0) / 1000000);
 
-    /* from here on it goes to the end: a file is written in one go (no other
-     * fiber writes the card half way through it), the restart follows */
+    /* from here on it goes to the end, the restart follows. Each file is
+     * written whole; in the menu's fiber the menu goes on between its
+     * pieces (fat_write_tick, 2026-10-11): fat.c marks the clusters before
+     * the data and finds the entry at the end, so a setting saved meanwhile
+     * is safe */
 
     /* 2. a copy of the kernels that are replaced: to go back from a PC */
     ksnprintf(up.doing, sizeof up.doing, "A copy of the old kernel in %s", BACKUP_DIR);

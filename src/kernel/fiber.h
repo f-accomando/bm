@@ -47,6 +47,9 @@ int  fiber_cancelled(void);
  * nothing, so the same code also runs straight through. */
 int  fiber_run(fiber_t *f, uint32_t until);
 void fiber_slice(void);
+/* fiber_slice as a FAT tick (fat_write_tick, set once at boot): a long
+ * write in a fiber gives the CPU back between its pieces; 0: it goes on */
+int  fiber_slice_tick(void);
 
 /* A job of the menu: a fiber with a stack of its own (allocated the first
  * time), started again for each piece of work. */

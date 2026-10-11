@@ -60,31 +60,45 @@ int fat_mkdirs(const char *path);
 
 /* Writes a whole file in directory `dir` (which must exist), creating it or
  * replacing its content. `name` must be a valid 8.3 name ("CONFIG.TXT";
- * lower case is stored upper case). The new data is written to free
- * clusters before the directory entry points at it, so a power cut leaves
- * either the old or the new file (plus, at worst, lost clusters). */
+ * lower case is stored upper case). The new data is written to clusters
+ * already marked as a chain before the directory entry points at it, so a
+ * power cut leaves either the old or the new file (plus, at worst, lost
+ * clusters). The directory is looked up once the data is on the card: a
+ * write that gave the CPU back half way (fat_write_tick) and another
+ * writer in between both end well, the one that ends last wins. */
 int fat_write_file(const char *dir, const char *name, const void *data, size_t len);
 
 /* Replaces the content of an existing file ("/carts/astrowing.bm", long
- * names too), as safely as fat_write_file. */
+ * names too), as safely as fat_write_file (gone by the end: it fails). */
 int fat_replace(const char *path, const void *data, size_t len);
-/* Called after each piece the two write (a cluster, or a run of them), if
- * set: a long write keeps the
- * network alive (a kernel from the PC). Nonzero stops the write before
- * anything points at the new data (it fails, fat_error() "stopped"). */
+/* Called, if set, after each piece the two write (a run of clusters, or a
+ * cluster) and between the pieces of the FAT's own work (the chain marked,
+ * the old chain released; fat_delete's too). The kernel sets it once to
+ * fiber_slice_tick: a long write in a fiber of the menu gives the CPU back
+ * when its time is over (the Market, an update); netxfer sets its own
+ * while it writes (the network polled). Nonzero, during the data or the
+ * marking, stops the write before anything points at the new data (it
+ * fails, fat_error() "stopped", the clusters released); elsewhere it is
+ * not looked at. */
 extern int (*fat_write_tick)(void);
 /* The bytes of the file being written that are on the card so far (set
  * before each fat_write_tick: a progress bar). */
 extern size_t fat_write_done;
-/* Whole clusters (up to 32 KiB of them next to each other) in one SD
- * command, read back and compared, instead of one sector at a time (a kernel took the RGB30 more than a minute); a
- * cluster that comes back different turns it off for good. On by default
- * on the RGB30, off on the Pi. Returns what it was. */
+/* Whole clusters (up to 32 KiB of them next to each other, the sectors
+ * with data of the last one too) in one SD command, read back and
+ * compared, instead of one sector at a time (a kernel took the RGB30 more
+ * than a minute, a 6 MB game froze the Pi's menu 30 s); a run that fails
+ * or comes back different turns it off for good. On by default (the Pi
+ * too since 2026-10-11). Returns what it was. */
 int fat_write_runs(int on);
+/* Writes under way (a fiber's, half way through, included): the RGB30
+ * does not write its last run's log over one before a restart. */
+int fat_writing(void);
 
 /* Deletes a file ("/carts/Il mio gioco.bm", long names too; not a
  * directory). The directory entry goes first, then the clusters are
- * released: a power cut in between only leaves lost clusters. */
+ * released (a FAT sector's worth at a time): a power cut in between only
+ * leaves lost clusters. */
 int fat_delete(const char *path);
 
 #endif

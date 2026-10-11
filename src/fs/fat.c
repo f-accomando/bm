@@ -116,7 +116,18 @@ int fat_mount(void)
         vol.label[i] = 0;
     vol.root_cluster = vol.fat32 ? rd32(s + 44) : 0;
     vol.fsinfo_lba = vol.fat32 && rd16(s + 48) ? vol.part_lba + rd16(s + 48) : 0;
+    /* the search for free clusters starts where FSInfo says (a PC's hint,
+     * or the one bm left there: fsinfo_unknown), not at cluster 2 after
+     * every boot (2026-10-11); a hint out of range is no hint */
     vol.next_free = 2;
+    if (vol.fsinfo_lba) {
+        const uint8_t *fi = sector(vol.fsinfo_lba);
+        if (fi && rd32(fi) == 0x41615252 && rd32(fi + 484) == 0x61417272) {
+            const uint32_t hint = rd32(fi + 492);
+            if (hint >= 2 && hint < vol.clusters + 2)
+                vol.next_free = hint;
+        }
+    }
     vol.fsinfo_reset = 0;
     vol.mounted = 1;
     err = "ok";
@@ -426,8 +437,9 @@ static int patch_sector(uint32_t lba, uint32_t off, const void *data, uint32_t l
     return write_sector(lba, wbuf);
 }
 
-/* The FSInfo free count and hint become "unknown" before the first change:
- * a PC recomputes them, and they are never wrong. */
+/* The FSInfo free count becomes "unknown" before the first change (a PC
+ * recomputes it: it is never wrong); its hint says where this mount's
+ * search for free clusters starts, the next boot's starts there too. */
 static int fsinfo_unknown(void)
 {
     if (vol.fsinfo_reset || !vol.fsinfo_lba)
@@ -438,7 +450,7 @@ static int fsinfo_unknown(void)
     if (rd32(s) == 0x41615252 && rd32(s + 484) == 0x61417272) {
         uint8_t v[8];
         wr32(v, 0xFFFFFFFF);
-        wr32(v + 4, 0xFFFFFFFF);
+        wr32(v + 4, vol.next_free >= 2 && vol.next_free < vol.clusters + 2 ? vol.next_free : 0xFFFFFFFF);
         if (patch_sector(vol.fsinfo_lba, 488, v, 8))
             return -1;
     }
@@ -448,24 +460,61 @@ static int fsinfo_unknown(void)
 
 static uint32_t eoc(void) { return vol.fat32 ? 0x0FFFFFFF : 0xFFFF; }
 
+/* the FAT sector (from the start of a copy) with cluster c's entry */
+static uint32_t fat_sector_of(uint32_t c)
+{
+    return (vol.fat32 ? c * 4 : c * 2) / 512;
+}
+
+static void put_entry(uint8_t *s, uint32_t c, uint32_t v)
+{
+    uint32_t off = (vol.fat32 ? c * 4 : c * 2) % 512;
+    if (vol.fat32)
+        wr32(s + off, (rd32(s + off) & 0xF0000000u) | (v & 0x0FFFFFFF));
+    else
+        wr16(s + off, v);
+}
+
+/* The FAT entries of list[0..n-1], in every copy of the FAT: link, each to
+ * the next cluster of the list and the last to `last`; else all 0 (free).
+ * Entries next to each other in the list that share a FAT sector change
+ * together: that sector of each copy is read and written once (2026-10-11:
+ * it was a read and a write per cluster and per copy, a big file's FAT
+ * took more card commands than its data). */
+static int fat_set_list(const uint32_t *list, uint32_t n, int link, uint32_t last)
+{
+    for (uint32_t i = 0, j; i < n; i = j) {
+        const uint32_t fs = fat_sector_of(list[i]);
+        for (j = i + 1; j < n && fat_sector_of(list[j]) == fs; j++)
+            ;
+        for (uint32_t f = 0; f < vol.nfats; f++) {
+            const uint32_t lba = vol.fat_lba + f * vol.fatsz + fs;
+            const uint8_t *s = sector(lba);
+            if (!s)
+                return -1;
+            memcpy(wbuf, s, 512);
+            for (uint32_t k = i; k < j; k++)
+                put_entry(wbuf, list[k], link ? (k + 1 < n ? list[k + 1] : last) : 0);
+            if (write_sector(lba, wbuf))
+                return -1;
+        }
+    }
+    return 0;
+}
+
 /* Sets FAT entry c in every copy of the FAT. */
 static int set_fat(uint32_t c, uint32_t v)
 {
-    uint32_t off = vol.fat32 ? c * 4 : c * 2;
-    for (uint32_t i = 0; i < vol.nfats; i++) {
-        uint32_t lba = vol.fat_lba + i * vol.fatsz + off / 512;
-        const uint8_t *s = sector(lba);
-        if (!s)
-            return -1;
-        memcpy(wbuf, s, 512);
-        if (vol.fat32)
-            wr32(wbuf + off % 512, (rd32(wbuf + off % 512) & 0xF0000000u) | (v & 0x0FFFFFFF));
-        else
-            wr16(wbuf + off % 512, v);
-        if (write_sector(lba, wbuf))
-            return -1;
-    }
-    return 0;
+    return fat_set_list(&c, 1, 1, v);
+}
+
+/* Between the pieces of a write's bookkeeping (the chain marked, the old
+ * one released): the CPU may go back to the menu (fat_write_tick), but
+ * this part is never stopped half way. */
+static void tick_only(void)
+{
+    if (fat_write_tick)
+        (void)fat_write_tick();
 }
 
 /* Next free cluster after `after` (wrapping), 0 if the volume is full or
@@ -488,7 +537,9 @@ static uint32_t find_free(uint32_t after)
     return 0;
 }
 
-/* Collects `n` free clusters (not yet marked). */
+/* Collects `n` free clusters (not yet marked: the caller marks them before
+ * the CPU can go anywhere else). The search goes on from where the last
+ * one stopped. */
 static int pick_free(uint32_t *list, uint32_t n)
 {
     uint32_t c = vol.next_free > 2 ? vol.next_free - 1 : vol.clusters + 1;
@@ -502,26 +553,66 @@ static int pick_free(uint32_t *list, uint32_t n)
     return 0;
 }
 
-/* Links list[0..n-1] into a chain ending with EOC. */
-static int link_chain(const uint32_t *list, uint32_t n)
+/* clusters picked and marked between two ticks: 4 FAT32 sectors (a join
+ * writes the sector at a piece's start once more) */
+#define ALLOC_PIECE 512
+
+/* n free clusters into list, already a chain in the FAT (the last EOC),
+ * before any data goes into them (2026-10-11): a cluster picked is marked
+ * at once, in the same piece, so a write that gives the CPU back half way
+ * (a fiber of the menu) never shares a cluster with another writer (the
+ * menu's settings, another fiber). Pieces of ALLOC_PIECE, each joined to
+ * the one before; a tick between them, nonzero stops (all of it released,
+ * fat_error() "stopped"). A power cut before the directory entry points at
+ * the chain leaves it as lost clusters (a PC's check gives them back). */
+static int alloc_chain(uint32_t *list, uint32_t n)
 {
-    for (uint32_t i = n; i-- > 0;)
-        if (set_fat(list[i], i + 1 < n ? list[i + 1] : eoc()))
-            return -1;
+    uint32_t done = 0, marked = 0;
+    while (done < n) {
+        const uint32_t k = n - done < ALLOC_PIECE ? n - done : ALLOC_PIECE;
+        if (pick_free(list + done, k))
+            goto fail;
+        /* the last of the piece before now points at this one: changed with it */
+        const uint32_t from = done ? done - 1 : 0;
+        marked = done + k;
+        if (fat_set_list(list + from, done + k - from, 1, eoc()))
+            goto fail;
+        done += k;
+        if (done < n && fat_write_tick && fat_write_tick()) {
+            err = "stopped";
+            goto fail;
+        }
+    }
     return 0;
+fail:
+    if (marked) {
+        const char *why = err;
+        fat_set_list(list, marked, 0, 0);
+        err = why;
+    }
+    return -1;
 }
 
+/* Releases the chain from c: walked a FAT sector's worth at a time (the
+ * next of each one read before any of them changes), each piece released
+ * in one go (fat_set_list), a tick between pieces. */
 static int free_chain(uint32_t c)
 {
-    while (c >= 2 && c < vol.clusters + 2) {
-        uint32_t next = next_cluster(c);
-        if (set_fat(c, 0))
-            return -1;
+    uint32_t piece[128], n = 0;
+    for (uint32_t guard = 0; c >= 2 && c < vol.clusters + 2 && guard < vol.clusters; guard++) {
+        const uint32_t next = next_cluster(c);
+        if (n && (n == sizeof piece / sizeof *piece || fat_sector_of(c) != fat_sector_of(piece[0]))) {
+            if (fat_set_list(piece, n, 0, 0))
+                return -1;
+            n = 0;
+            tick_only();
+        }
+        piece[n++] = c;
         if (is_eoc(next))
             break;
         c = next;
     }
-    return 0;
+    return n ? fat_set_list(piece, n, 0, 0) : 0;
 }
 
 static int zero_cluster(uint32_t c)
@@ -675,17 +766,19 @@ int fat_mkdirs(const char *path)
 
 int (*fat_write_tick)(void);
 size_t fat_write_done;
-#ifdef BM_RGB30
-static int runs = 1;
-#else
-static int runs;
-#endif
+static int runs = 1;                    /* the Pi too since 2026-10-11 (each run read back) */
+static int writing;                     /* stores under way (fat_writing) */
 
 int fat_write_runs(int on)
 {
     int was = runs;
     runs = on;
     return was;
+}
+
+int fat_writing(void)
+{
+    return writing;
 }
 
 #define RUN_SECTORS 64                  /* a run of clusters next to each other: 32 KiB */
@@ -700,81 +793,126 @@ static int write_run(uint32_t lba, uint32_t count, const uint8_t *src, uint8_t *
         memcmp(src, check, count * 512) == 0)
         return 0;
     runs = 0;
-    kprintf("\x1b[91mfat: %lu sectors in one write came back wrong: one sector at a time "
-            "from now on\x1b[0m\n", (unsigned long)count);
+    kprintf("\x1b[91mfat: %lu sectors in one write failed or came back wrong: one sector at a "
+            "time from now on\x1b[0m\n", (unsigned long)count);
     for (uint32_t s = 0; s < count; s++)
         if (write_sector(lba + s, src + s * 512))
             return -1;
     return 0;
 }
 
-/* The data into free clusters, then the directory entry: the existing
- * `old` (its clusters released last), or a new entry `n83` in `dc`. */
-static int store(const fat_entry_t *old, uint32_t dc, const uint8_t n83[11], const void *data, size_t len)
+/* Where the file goes, looked up once its data is on the card (another
+ * writer may have changed the directory meanwhile): 1 and its entry, 0
+ * and the cluster of the directory for a new one, -1 if neither. `path`:
+ * fat_replace's file; else `name` in `dir` (fat_write_file). */
+static int locate(const char *path, const char *dir, const char *name, fat_entry_t *e, uint32_t *dc)
 {
-    uint32_t csize = vol.spc * 512;
-    uint32_t n = (uint32_t)((len + csize - 1) / csize);
+    if (path) {
+        if (fat_find(path, e))
+            return -1;
+        if (e->is_dir) {
+            err = "a directory";
+            return -1;
+        }
+        return 1;
+    }
+    if (dir_cluster(dir, dc))
+        return -1;
+    fat_dir_t d;
+    dir_open_cluster(&d, *dc);
+    while (fat_readdir(&d, e))
+        if (!e->is_dir && name_eq(name, e->name, strlen(name)))
+            return 1;
+    return 0;
+}
+
+/* A whole file (2026-10-11, the Market's 6 MB game froze the menu 30 s):
+ *   1. its clusters picked and marked as a chain (alloc_chain)
+ *   2. the data into them, a tick after each piece (a run of clusters, or
+ *      one cluster without runs): the CPU may go back to the menu, nonzero
+ *      stops (the chain released, the old file as it was)
+ *   3. with no tick from here, the file looked up again (locate): its
+ *      entry points at the new chain, or a new entry `n83`
+ *   4. the old chain released last.
+ * A power cut leaves the old file or the new one, at worst lost clusters
+ * too. Another writer (the menu's settings, another fiber) may come in at
+ * a tick: no cluster is ever free in the FAT while one of the two owns it,
+ * and the directory is read and changed in one go. */
+static int store(const char *path, const char *dir, const char *name, const uint8_t n83[11],
+                 const void *data, size_t len)
+{
+    const uint32_t csize = vol.spc * 512;
+    const uint32_t n = (uint32_t)((len + csize - 1) / csize);
     uint32_t *list = n ? malloc(n * sizeof *list) : NULL;
     const uint32_t run_max = vol.spc > RUN_SECTORS ? vol.spc : RUN_SECTORS;
-    uint8_t *check = runs && n > 1 ? malloc(run_max * 512) : NULL;     /* without it: sectors */
+    const uint32_t check_sectors = (uint32_t)((len + 511) / 512 < run_max ? (len + 511) / 512 : run_max);
+    uint8_t *check = runs && check_sectors > 1 ? malloc(check_sectors * 512) : NULL;  /* none: sectors */
     if (n && !list) {
         err = "out of memory";
         free(check);
         return -1;
     }
-    int rc = -1;
+    int rc = -1, ours = 0;              /* ours: the new chain, not yet in a directory entry */
+    writing++;
     fat_write_done = 0;
-    if (fsinfo_unknown() || (n && pick_free(list, n)))
+    if (fsinfo_unknown())
         goto out;
+    if (n) {
+        if (alloc_chain(list, n))
+            goto out;
+        ours = 1;
+    }
 
-    /* 1. the data, into free clusters: full ones next to each other in one
-     * write (with runs), the rest a sector at a time */
+    /* the data: clusters next to each other in one piece, up to 32 KiB in
+     * one command (runs); else a sector at a time, a cluster a piece. Of
+     * the last cluster only the sectors with data (before: all of it,
+     * zeros past the end: 64 writes for a byte with 32 KiB clusters) */
     const uint8_t *p = data;
     for (uint32_t i = 0, k; i < n; i += k) {
-        uint32_t chunk = len - (size_t)i * csize < csize ? (uint32_t)(len - (size_t)i * csize) : csize;
+        const size_t at = (size_t)i * csize;
         k = 1;
-        if (chunk == csize && check && runs) {
-            while (i + k < n && list[i + k] == list[i] + k && (k + 1) * vol.spc <= run_max &&
-                   len - (size_t)(i + k) * csize >= csize)
+        if (check && runs)
+            while (i + k < n && list[i + k] == list[i] + k && (k + 1) * vol.spc <= run_max)
                 k++;
-            if (write_run(cluster_lba(list[i]), k * vol.spc, p + (size_t)i * csize, check))
+        const size_t bytes = len - at < (size_t)k * csize ? len - at : (size_t)k * csize;
+        const uint32_t full = (uint32_t)(bytes / 512), tail = (uint32_t)(bytes % 512);
+        const uint32_t lba = cluster_lba(list[i]);
+        if (full > 1 && check && runs) {
+            if (write_run(lba, full, p + at, check))
                 goto out;
         } else {
-            for (uint32_t s = 0; s < vol.spc; s++) {
-                uint32_t o = s * 512;
-                memset(wbuf, 0, 512);
-                if (o < chunk)
-                    memcpy(wbuf, p + (size_t)i * csize + o, chunk - o < 512 ? chunk - o : 512);
-                if (write_sector(cluster_lba(list[i]) + s, wbuf))
+            for (uint32_t s = 0; s < full; s++)
+                if (write_sector(lba + s, p + at + (size_t)s * 512))
                     goto out;
-            }
         }
-        fat_write_done = (size_t)(i + k) * csize < len ? (size_t)(i + k) * csize : len;
+        if (tail) {
+            memset(wbuf, 0, 512);
+            memcpy(wbuf, p + at + (size_t)full * 512, tail);
+            if (write_sector(lba + full, wbuf))
+                goto out;
+        }
+        fat_write_done = at + bytes;
         if (fat_write_tick && fat_write_tick()) {
             err = "stopped";                    /* nothing points at the clusters yet */
             goto out;
         }
     }
-    /* 2. the chain */
-    if (n && link_chain(list, n))
+
+    /* the directory entry points at it: found now, changed in one go */
+    fat_entry_t e;
+    uint32_t dc = 0;
+    const int found = locate(path, dir, name, &e, &dc);
+    if (found < 0)
         goto out;
-    /* 3. the directory entry points at it */
-    uint32_t first = n ? list[0] : 0;
-    if (old) {
-        uint8_t fields[4];
-        wr16(fields, vol.fat32 ? first >> 16 : 0);
-        if (patch_sector(old->dir_lba, old->dir_off + 20, fields, 2))
-            goto out;
-        wr16(fields, FAT_DATE);
-        wr16(fields + 2, first);
-        uint8_t tail[10];
-        wr16(tail, 0);                          /* write time */
-        memcpy(tail + 2, fields, 4);            /* write date, cluster low */
-        wr32(tail + 6, (uint32_t)len);
-        if (patch_sector(old->dir_lba, old->dir_off + 22, tail, 10))
-            goto out;
-        /* 4. the old data is released last */
-        if (old->cluster && free_chain(old->cluster))
+    const uint32_t first = n ? list[0] : 0;
+    if (found) {
+        uint8_t f[12];                          /* +20: one sector write */
+        wr16(f, vol.fat32 ? first >> 16 : 0);   /* cluster, high */
+        wr16(f + 2, 0);                         /* write time */
+        wr16(f + 4, FAT_DATE);                  /* write date */
+        wr16(f + 6, first);                     /* cluster, low */
+        wr32(f + 8, (uint32_t)len);
+        if (patch_sector(e.dir_lba, e.dir_off + 20, f, 12))
             goto out;
     } else {
         uint8_t de[32];
@@ -782,8 +920,16 @@ static int store(const fat_entry_t *old, uint32_t dc, const uint8_t n83[11], con
         if (add_entry(dc, de))
             goto out;
     }
-    rc = 0;
+    ours = 0;
+    /* the old data is released last */
+    rc = found && e.cluster ? free_chain(e.cluster) : 0;
 out:
+    if (ours) {                                 /* stopped or failed: nothing points at it */
+        const char *why = err;
+        fat_set_list(list, n, 0, 0);
+        err = why;
+    }
+    writing--;
     free(list);
     free(check);
     return rc;
@@ -803,18 +949,7 @@ int fat_write_file(const char *dir, const char *name, const void *data, size_t l
     uint32_t dc;
     if (dir_cluster(dir, &dc))
         return -1;
-
-    /* existing file? */
-    fat_dir_t d;
-    fat_entry_t e;
-    int exists = 0;
-    fat_opendir(&d, dir);
-    while (fat_readdir(&d, &e))
-        if (!e.is_dir && name_eq(name, e.name, strlen(name))) {
-            exists = 1;
-            break;
-        }
-    return store(exists ? &e : NULL, dc, n83, data, len);
+    return store(NULL, dir, name, n83, data, len);
 }
 
 int fat_replace(const char *path, const void *data, size_t len)
@@ -830,7 +965,7 @@ int fat_replace(const char *path, const void *data, size_t len)
         err = "a directory";
         return -1;
     }
-    return store(&e, 0, NULL, data, len);
+    return store(path, NULL, NULL, NULL, data, len);
 }
 
 int fat_delete(const char *path)
