@@ -6723,21 +6723,6 @@ int bm_video_uses_ram(void) { return shadow != NULL; }
  * the byte offset of its top left corner in a page, 0 for the 16:9 sizes. */
 static uint32_t box;
 
-/* The game's pages as they went to the screen (bm_video_present): the
- * banner of an application closing is drawn on each of them (closing_begin),
- * the one shown and the others (QEMU always shows the first page) */
-static uint8_t *pages_shown[3];
-static int npages_shown;
-
-static void page_shown(uint8_t *p)
-{
-    for (int i = 0; i < npages_shown; i++)
-        if (pages_shown[i] == p)
-            return;
-    if (npages_shown < 3)
-        pages_shown[npages_shown++] = p;
-}
-
 static uint16_t *page_px(const framebuffer_t *fb)
 {
     return (uint16_t *)(fb->base + box);
@@ -6778,8 +6763,6 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
 #endif
     gpu3d_set_fb(fb->mem, fb->size, fb->bus);   /* its pages, for the GPU's 3D */
     gpu3d_set_size((int)fb->width, (int)fb->height);
-    npages_shown = 0;
-    page_shown(fb->mem);                        /* page 0 on the screen, cleared */
     if (boxed) {
         if (fb->width < (uint32_t)w || fb->height < (uint32_t)h)
             return -1;
@@ -6803,7 +6786,6 @@ uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
     if (!shadow) {
         if (rt.mouse && rt.mouse_arrow)         /* on the page about to be shown */
             pointer_draw(page_px(fb), fb->pitch / 2, g->w, g->h);
-        page_shown(fb->base);
         fb_flip(fb);
         g->px = page_px(fb);
         return 0;
@@ -6828,7 +6810,6 @@ uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
     uint32_t us = timer_ticks() - t0;
     if (rt.mouse && rt.mouse_arrow)             /* over the copy: never in the cartridge's buffer */
         pointer_draw(page_px(fb), fb->pitch / 2, g->w, g->h);
-    page_shown(fb->base);
     fb_flip(fb);
     return us;
 }
@@ -6838,7 +6819,6 @@ void bm_video_leave(framebuffer_t *fb, uint32_t w, uint32_t h)
     free(shadow);
     shadow = NULL;
     box = 0;
-    npages_shown = 0;
     fb_init(fb, w, h, 2);
     /* hidden still, if the menu had it so: it draws itself next. A rendering test
      * stopped (Start+Select, Ctrl+Esc, PS: syskeys.h) goes straight back to the
@@ -6885,116 +6865,10 @@ static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint3
         *deadline = now + FRAME_US;
 }
 
-/* ---------------------------------------------------------------- closing
- * An application that closes (not suspended: a tool, a game on the RGB30,
- * an online game left, quit(), an error) keeps its last frame on the screen
- * with a banner over it, "Closing" and three dots that light up in turn,
- * until its memory is free and the buttons that left it are let go; then
- * the menu (the user, 2026-10-10: no black screen while it closes). The
- * close cannot go on in a fiber behind the menu: lua_close() frees
- * everything in one call with no place to stop, runs the cartridge's __gc
- * (its Lua, the meshes' frees) before the 3D and the GPU let it go, and
- * what the menu starts next (a game, the 3D Bench) uses the same globals.
- * The banner is drawn straight on the game's pages (the one shown and the
- * others), the dots again from the Lua allocator while lua_close() frees
- * (a look at the clock every 256 calls) and between the steps. */
-static struct {
-    int on;
-    g16_t g[3];                 /* on the game's pages (pages_shown) */
-    int ng;
-    int x, y, step, size;       /* the first dot's cell, the next one's distance, a dot's side */
-    uint32_t t0, at;            /* the banner up, the dots drawn last */
-    unsigned calls;
-    lua_Alloc alloc;            /* the state's allocator, under closing_alloc */
-    void *ud;
-} closing;
-
-#define CLOSING_BG   g16_rgb(12, 14, 22)
-#define CLOSING_HEAD g16_rgb(255, 176, 64)
-
-/* the dots now: a light that runs along them, each one brightening and
- * fading in turn (a lap in 1.2 s), dim between */
-static void closing_tick(void)
+/* The buttons that left a cartridge (Start+Select, a game's own "quit" on A...)
+ * let go before the menu comes back. At most 3 s. */
+static void wait_buttons_up(void)
 {
-    if (!closing.on)
-        return;
-    const uint32_t now = timer_ticks();
-    if (now - closing.at < 33000)
-        return;
-    closing.at = now;
-    const int ms = (int)((now - closing.t0) / 1000 % 1200);
-    for (int i = 0; i < 3; i++) {
-        int d = ms - i * 250;                   /* from this dot's brightest moment */
-        d = d < -600 ? d + 1200 : d > 600 ? d - 1200 : d;
-        d = d < 0 ? -d : d;
-        const int k = d >= 300 ? 0 : (300 - d) * 255 / 300;     /* 0..255 */
-        const int r = 70 + (255 - 70) * k / 255, gg = 70 + (176 - 70) * k / 255, b = 84 + (64 - 84) * k / 255;
-        const int s = closing.size, x = closing.x + i * closing.step + (closing.step - s) / 2, y = closing.y;
-        const uint16_t c = g16_rgb((uint32_t)r, (uint32_t)gg, (uint32_t)b);   /* dim grey to the system's orange */
-        for (int p = 0; p < closing.ng; p++) {
-            g16_t *g = &closing.g[p];
-            g16_rectfill(g, x - 1, y - 1, s + 2, s + 2, CLOSING_BG);
-            if (s >= 4) {                       /* a round dot: no corners */
-                g16_rectfill(g, x + 1, y, s - 2, s, c);
-                g16_rectfill(g, x, y + 1, s, s - 2, c);
-            } else {
-                g16_rectfill(g, x, y, s, s, c);
-            }
-        }
-    }
-}
-
-/* The banner over the frame on the screen (the application's last); none
- * before its first frame (the loading screen is still there) */
-static void closing_begin(framebuffer_t *fb)
-{
-    closing.on = 0;
-    closing.ng = 0;
-    if (!fb || !npages_shown || rt.frame == 0 || fb->depth != 16 || rt.g.w < 64 || rt.g.h < 48)
-        return;
-    const int small = rt.g.h < 270, sc = rt.g.h >= 540 ? rt.g.h / 270 : 1;
-    const font_t *font = small ? &font_console_6x12 : &font_console_8x16;
-    const int fw = font->width * sc, rowh = font->height * sc;
-    /* on the font's grid, as the system's other boxes: a row, the word and
-     * its three dots, a row */
-    static const char word[] = "Closing";
-    const int cols = (int)sizeof word - 1 + 3;
-    const int pw = (cols + 4) * fw, ph = 3 * rowh;
-    const int px = (rt.g.w - pw) / 2 / fw * fw, py = (rt.g.h - ph) / 2 / rowh * rowh;
-    for (int p = 0; p < npages_shown; p++) {
-        g16_t *g = &closing.g[closing.ng++];
-        g16_target(g, (uint16_t *)(pages_shown[p] + box), fb->pitch / 2, rt.g.w, rt.g.h, font);
-        g16_rectfill(g, px, py, pw, ph, CLOSING_BG);
-        g16_rect(g, px, py, pw, ph, CLOSING_HEAD);
-        closing.x = g16_text_scaled(g, px + 2 * fw, py + rowh, word, g16_rgb(232, 232, 236), sc);
-    }
-    closing.step = fw;
-    closing.size = fw / 2 > 2 ? fw / 2 : 2;
-    closing.y = py + rowh + rowh * 3 / 4 - closing.size;    /* where a full stop sits */
-    closing.t0 = timer_ticks();
-    closing.at = closing.t0 - 1000000;
-    closing.calls = 0;
-    closing.on = 1;
-    closing_tick();
-}
-
-/* the state's allocator, the dots moving every 256 calls (lua_close) */
-static void *closing_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
-{
-    (void)ud;
-    void *p = closing.alloc(closing.ud, ptr, osize, nsize);
-    if ((++closing.calls & 255) == 0)
-        closing_tick();
-    return p;
-}
-
-/* The buttons that left it (Start+Select, a game's own "quit" on A...) let
- * go with the banner still up: the RGB30's menu waits for them before it
- * comes back, and that wait was on a black screen. At most 3 s. */
-static void closing_wait_release(void)
-{
-    if (!closing.on)
-        return;
     const uint32_t t0 = timer_ticks();
     while (timer_ticks() - t0 < 3000000) {
         uint32_t per[INPUT_PLAYERS];
@@ -7004,14 +6878,8 @@ static void closing_wait_release(void)
             held |= per[p];
         if (!held)
             break;
-        closing_tick();
         timer_delay_ms(5);
     }
-}
-
-static void closing_end(void)
-{
-    closing.on = 0;
 }
 
 /* A cartridge left with Esc / PS / Start+Select (when the caller allows
@@ -7028,19 +6896,14 @@ static struct {
 } susp;
 
 /* Frees what a cartridge holds (the screen may still be in its mode: a
- * closed one is freed under the closing banner, then leave_mode). */
+ * closed one is freed with its last frame still shown, then leave_mode). */
 static void release(lua_State *L)
 {
     cartnet_reset();            /* the cartridge's sockets */
     audio_reset();
     audio_bank(NULL, 0, NULL, 0);
     set_copy(&own_audio, &own_audio_len, NULL, 0);
-    if (closing.on) {           /* the banner's dots go on while it frees */
-        closing.alloc = lua_getallocf(L, &closing.ud);
-        lua_setallocf(L, closing_alloc, NULL);
-    }
     lua_close(L);               /* frees meshes (__gc) before the z-buffer */
-    closing_tick();
     n8lua_close();
     if (rt.r3d.backend)
         gpu3d_drop();           /* an error in the middle of a frame */
@@ -8641,8 +8504,6 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     }
 
     const int suspend = !error && left && suspendable && !rt.online_left;
-    if (!suspend)
-        closing_begin(fb);                  /* its last frame stays, "Closing" over it */
     if (audio_volume() != vol_start)
         config_save();                      /* the volume chosen in the game stays */
     prof_enable(0, NULL);                   /* not over the menu nor the next game */
@@ -8690,8 +8551,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     if (error)                              /* (its text is in the state: before release) */
         kprintf("\x1b[91mbm: \"%s\" stopped with an error:\n%s\x1b[0m\n", title, error);
     release(L);
-    closing_wait_release();
-    closing_end();
+    wait_buttons_up();                      /* the one that left it, so the menu does not take it */
     leave_mode(fb, con_w, con_h);
     hid_text_mode(0);
     return BM_ENDED;

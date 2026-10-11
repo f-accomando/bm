@@ -175,7 +175,7 @@ static void frame_end(void)
 /* --- games on the SD card --- */
 
 static struct {
-    char name[56], title[48], author[33];
+    char name[56], title[48], author[33], save[32];     /* save: its save file, as the runtime names it */
     uint32_t size;
     int is_bm;
     g16_sheet_t cover;              /* 128x80: the .bm's COVER, or its title on a label */
@@ -216,6 +216,7 @@ static void load_cover(int i)
         t[32] = 0;
         ksnprintf(games[i].author, sizeof games[i].author, "%s", t);
     }
+    bm_save_path(games[i].title, games[i].author, games[i].save, sizeof games[i].save);
     if (r == 1)
         menu_load_cover(&games[i].cover, rgba, w, h);
     free(data);
@@ -564,7 +565,7 @@ static const char *const tab_names[] = { "Market", "Games", "Dev" };
 
 /* the questions over the menu: a row of Settings, a download of the
  * Market, a row of a Market game's details, a game a nearby console sends */
-enum { ASK_NONE, ASK_ROW, ASK_MARKET, ASK_MOPT, ASK_OFFER };
+enum { ASK_NONE, ASK_ROW, ASK_MARKET, ASK_MOPT, ASK_GOPT, ASK_OFFER };
 
 /* the menu's screen again after a page; if it cannot be had, the console
  * says why and a button tries again */
@@ -608,6 +609,84 @@ static void play_market(int i, char *note, size_t n)
     }
     play_index = g;
     run_page(play_selected);
+}
+
+/* --- a game's options (X on its cover; the Pi's C): its panel over the covers --- */
+
+enum { G_PLAY = 100, G_TYPE, G_SIZE, G_AUTHOR, G_SAVE, G_DEL_SAVE, G_DELETE };
+
+/* the save slots of game `i`: bytes in all, -1 if none */
+static long game_save_bytes(int i, int *slots)
+{
+    long bytes = -1;
+    *slots = 0;
+    for (int slot = 1; games[i].save[0] && slot <= BM_SAVE_SLOTS; slot++) {
+        char path[sizeof games[i].save];
+        fat_entry_t e;
+        bm_save_slot(games[i].save, slot, path, sizeof path);
+        if (fat_find(path, &e) == 0) {
+            bytes = (bytes < 0 ? 0 : bytes) + (long)e.size;
+            (*slots)++;
+        }
+    }
+    return bytes;
+}
+
+static void game_panel(int i, home_panel_t *p)
+{
+    memset(p, 0, sizeof *p);
+    ksnprintf(p->title, sizeof p->title, "%s", games[i].title);
+    home_row(p, MENU_ROW_ACTION, G_PLAY, "Play", "Start the game", NULL);
+    home_row(p, MENU_ROW_INFO, G_TYPE, "Type", "Lua 5.4 on bm", "%s", games[i].is_bm ? "bm (Pi)" : "b16 (handheld)");
+    home_row(p, MENU_ROW_INFO, G_SIZE, "Size", "The whole cartridge", "%lu KiB", (unsigned long)(games[i].size + 1023) / 1024);
+    home_row(p, MENU_ROW_INFO, G_AUTHOR, "Author", "From the cartridge header", "%s",
+             games[i].author[0] ? games[i].author : "-");
+    int slots;
+    const long save = game_save_bytes(i, &slots);
+    if (save >= 0 && slots > 1)
+        home_row(p, MENU_ROW_INFO, G_SAVE, "Save data", "Its records", "%ld bytes in %d slots", save, slots);
+    else if (save >= 0)
+        home_row(p, MENU_ROW_INFO, G_SAVE, "Save data", "Its records", "%ld bytes", save);
+    else
+        home_row(p, MENU_ROW_INFO, G_SAVE, "Save data", "Its records", "none");
+    if (save >= 0)
+        home_row(p, MENU_ROW_ACTION, G_DEL_SAVE, "Delete the save data", "Records and progress start again", NULL);
+    home_row(p, MENU_ROW_ACTION, G_DELETE, "Delete from the SD card", "Removes the file: it cannot be undone", NULL);
+}
+
+/* a row that asks first: the question in `d`, or the deed (how = HOME_YES) */
+static void game_act(int i, int row, int how, home_do_t *d, int *gone)
+{
+    memset(d, 0, sizeof *d);
+    d->what = HOME_STAY;
+    if (row == G_DEL_SAVE || row == G_DELETE) {
+        const int file = row == G_DELETE;
+        if (how != HOME_YES) {
+            d->what = HOME_ASK;
+            ksnprintf(d->ask, sizeof d->ask, file ? "Delete the game?" : "Delete the save data?");
+            ksnprintf(d->ask_detail, sizeof d->ask_detail, file ? "The file is removed from the SD card." : "Records and progress start again.");
+            ksnprintf(d->ask_yes, sizeof d->ask_yes, "Delete");
+            return;
+        }
+        char path[80];
+        int err = 0;
+        if (file) {
+            ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
+            err = fat_delete(path) != 0;
+            *gone = !err;
+        } else {
+            for (int slot = 1; slot <= BM_SAVE_SLOTS; slot++) {
+                bm_save_slot(games[i].save, slot, path, sizeof path);
+                fat_entry_t e;
+                if (fat_find(path, &e) == 0 && fat_delete(path) != 0)
+                    err = 1;
+            }
+        }
+        if (err)
+            ksnprintf(d->note, sizeof d->note, "cannot delete: %s", fat_error());
+        else
+            ksnprintf(d->note, sizeof d->note, file ? "%s deleted" : "save data deleted", games[i].title);
+    }
 }
 
 /* a row of Settings that runs on the console (settings.c: home_do_t) */
@@ -667,6 +746,9 @@ void ui_home(framebuffer_t *f)
     /* a Market game's details (X): its panel over the covers */
     static home_panel_t mpb;
     int mopt = -1, mopt_sel = 0, ask_game = 0;
+    /* a game's options (X on the Games tab): the same kind of panel */
+    static home_panel_t gpb;
+    int gopt = -1, gopt_sel = 0;
     /* Settings: its panels, as on the Pi (settings.c), one over the other */
     static home_panel_t pb;
     struct { int id, sel, top; } stack[DEPTH_MAX];
@@ -692,6 +774,8 @@ void ui_home(framebuffer_t *f)
         market_lan(on_market);
         if (!on_market)
             mopt = -1;
+        if (tab != TAB_GAMES || on_gear)
+            gopt = -1;
         if (asking == ASK_NONE && market_offer(ask_q, sizeof ask_q, ask_d, sizeof ask_d)) {
             ksnprintf(ask_y, sizeof ask_y, "Accept");
             asking = ASK_OFFER;
@@ -731,7 +815,7 @@ void ui_home(framebuffer_t *f)
                 ksnprintf(gp, sizeof gp, "/bm/%s", games[i].name);
                 const int up = netxfer_updating(gp);        /* a file from the PC on its way */
                 items[i] = (menu_item_t){ .title = games[i].title, .kind = games[i].is_bm ? "bm" : "b16",
-                                          .size = games[i].size, .cover = &games[i].cover,
+                                          .size = games[i].size, .cover = &games[i].cover, .path = games[i].name,
                                           .badge = !up ? NULL : up == NETXFER_QUEUED ? "Queued" : "Updating" };
             } else {
                 items[i] = (menu_item_t){ .title = dev_items[i].name, .kind = "tool", .cover = &dev_covers[i] };
@@ -779,6 +863,15 @@ void ui_home(framebuffer_t *f)
                                      mopt_sel >= MENU_PANEL_ROWS ? mopt_sel - MENU_PANEL_ROWS + 1 : 0,
                                      mpb.n ? mpb.help[mopt_sel] : NULL };
             v.panel = &mpanel;
+        } else if (gopt >= 0 && gopt < n_games) {
+            game_panel(gopt, &gpb);
+            if (gopt_sel >= gpb.n) gopt_sel = gpb.n ? gpb.n - 1 : 0;
+            mpanel = (menu_panel_t){ gpb.title, gpb.rows, gpb.n, gopt_sel,
+                                     gopt_sel >= MENU_PANEL_ROWS ? gopt_sel - MENU_PANEL_ROWS + 1 : 0,
+                                     gpb.n ? gpb.help[gopt_sel] : NULL };
+            v.panel = &mpanel;
+        } else {
+            gopt = -1;
         }
         menu_page_t page;
         frame++;
@@ -841,6 +934,17 @@ void ui_home(framebuffer_t *f)
                     ksnprintf(note, sizeof note, "%s", md.note);
                 if (md.what == HOME_BACK)
                     mopt = -1;
+            } else if ((p & pad_ok) && kind == ASK_GOPT && gopt >= 0) {
+                home_do_t gd;
+                int gone = 0;
+                game_act(gopt, ask_row, HOME_YES, &gd, &gone);
+                if (gd.note[0])
+                    ksnprintf(note, sizeof note, "%s", gd.note);
+                if (gone) {
+                    gopt = -1;
+                    scan_games();
+                    market_carts_changed();
+                }
             } else if (kind == ASK_OFFER && (p & (pad_ok | pad_back))) {
                 market_offer_answer((p & pad_ok) != 0);
             }
@@ -851,6 +955,38 @@ void ui_home(framebuffer_t *f)
         } else if ((p & PAD_R1) && tab < TAB_SETTINGS) {
             tab++;
             mopt = -1;
+        } else if (gopt >= 0) {
+            /* a game's options: up/down choose, confirm does, back closes */
+            int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
+            if (dy && gpb.n)
+                gopt_sel = (gopt_sel + dy + gpb.n) % gpb.n;
+            if (p & (pad_back | PAD_X)) {
+                gopt = -1;
+            } else if ((p & pad_ok) && gpb.n && gpb.rows[gopt_sel].kind != MENU_ROW_INFO) {
+                const int row = gpb.ids[gopt_sel], g = gopt;
+                if (row == G_PLAY) {
+                    gopt = -1;
+                    char gp[80];
+                    ksnprintf(gp, sizeof gp, "/bm/%s", games[g].name);
+                    if (netxfer_updating(gp)) {
+                        ksnprintf(note, sizeof note, "Updating, wait for the end of the download");
+                    } else {
+                        play_index = g;
+                        run_page(play_selected);
+                    }
+                } else {
+                    home_do_t gd;
+                    int gone = 0;
+                    game_act(g, row, 0, &gd, &gone);
+                    if (gd.what == HOME_ASK) {
+                        asking = ASK_GOPT;
+                        ask_row = row;
+                        ksnprintf(ask_q, sizeof ask_q, "%s", gd.ask);
+                        ksnprintf(ask_d, sizeof ask_d, "%s", gd.ask_detail);
+                        ksnprintf(ask_y, sizeof ask_y, "%s", gd.ask_yes);
+                    }
+                }
+            }
         } else if (mopt >= 0) {
             /* a Market game's details: up/down choose, confirm does, back closes */
             int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
@@ -931,6 +1067,9 @@ void ui_home(framebuffer_t *f)
                 } else if ((p & pad_ok) && a == MARKET_PLAY) {
                     play_market(*s, note, sizeof note);
                 }
+            } else if ((p & PAD_X) && shown == TAB_GAMES && n > 0) {
+                gopt = *s;                      /* X: the game's options (the Pi's C) */
+                gopt_sel = 0;
             } else if (p & pad_ok) {
                 char gp[80] = "";
                 if (shown == TAB_GAMES)

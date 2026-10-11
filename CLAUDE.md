@@ -75,6 +75,7 @@ da solo (file, scopo, cosa è già stato provato).
 
 ## Non fare
 
+- Un `.b16` non sostituisce mai il `.bm` (né il contrario): sono due edizioni separate, ognuna col suo Market (`.bm` Pi, `.b16` RGB30), con sorgenti, regole di build e voce nel Market proprie (come `carts/titan` e `carts/titan_ex`). Vale per ogni sviluppo futuro: mai riscrivere i sorgenti del `.bm` per fare il `.b16`.
 - Sorgenti Linux (panfrost e simili) si leggono, non si copiano (GPL). Strutture GPU da
   Mesa (`v7.xml`, MIT).
 - Chiavi (`MESHY_API_KEY`, `ANTHROPIC_API_KEY`, token) solo nell'ambiente o in
