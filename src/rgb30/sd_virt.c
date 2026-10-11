@@ -53,4 +53,9 @@ uint32_t sd_blocks(void)        { return blocks; }
 int sd_is_hc(void)              { return 1; }
 const char *sd_error(void)      { return err; }
 const char *sd_controller(void) { return "ramdisk"; }
+void sd_counters(uint32_t *retries, uint32_t *timeouts)
+{
+    if (retries) *retries = 0;
+    if (timeouts) *timeouts = 0;
+}
 #endif

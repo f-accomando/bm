@@ -47,6 +47,11 @@ int sd_write(uint32_t lba, uint32_t count, const void *buf)
         return emmc_sd_write(lba, count, buf);
     if (sdhost_write(lba, count, buf) == 0)
         return 0;
+    /* several blocks in one command (fat.c's runs, 2026-10-11): a failure
+     * does not move the card to the Arasan controller (the WiFi's) by
+     * itself; fat.c writes them again one at a time, which still may */
+    if (count > 1)
+        return -1;
     return fall_back() ? emmc_sd_write(lba, count, buf) : -1;
 }
 
@@ -54,3 +59,4 @@ uint32_t sd_blocks(void) { return use_emmc ? emmc_sd_blocks() : sdhost_blocks();
 int sd_is_hc(void) { return use_emmc ? emmc_sd_is_hc() : sdhost_is_hc(); }
 const char *sd_error(void) { return use_emmc ? emmc_sd_error() : sdhost_error(); }
 const char *sd_controller(void) { return use_emmc ? "emmc" : "sdhost"; }
+void sd_counters(uint32_t *retries, uint32_t *timeouts) { sdhost_counters(retries, timeouts); }

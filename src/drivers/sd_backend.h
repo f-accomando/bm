@@ -20,5 +20,6 @@ int sdhost_write(uint32_t lba, uint32_t count, const void *buf);
 uint32_t sdhost_blocks(void);
 int sdhost_is_hc(void);
 const char *sdhost_error(void);
+void sdhost_counters(uint32_t *retries, uint32_t *timeouts);
 
 #endif

@@ -67,11 +67,10 @@ static char note[64], banner[72];
 static char want_id[24];        /* the game to download next */
 static int delay_ms;            /* market_delay in bm/config.txt: slows a source down (tests) */
 
-static fiber_t fib;
-static uint8_t *stack;
-static int running;
+static fiber_job_t work = { .name = "market" };
 enum { JOB_CACHE, JOB_INDEX, JOB_COVER, JOB_GET };
 static int job, job_game;
+static int finishing;           /* a game checked and being written: not stopped off the tab */
 
 static void say(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 static void say(const char *fmt, ...)
@@ -181,6 +180,8 @@ static int fetch(const char *rel, size_t max, size_t expect, uint32_t *got,
             return -1;
         }
         if (fat_load(&e, data, len) != 0) {
+            if (fiber_cancelled())      /* stopped half way through the read (sd_tick) */
+                goto cancelled;
             ksnprintf(err, err_len, "%s: %s", rel, fat_error());
             return -1;
         }
@@ -394,8 +395,12 @@ static void adopt(catalog_t *nc)
 static int read_catalog(const uint8_t *idx, size_t il, const uint8_t *sig, size_t sl, catalog_t *out,
                         char *err, size_t err_len)
 {
+    /* the signature (an ECDSA check: the longest step, it cannot be cut)
+     * and the parsing each in a slice of their own */
+    fiber_slice();
     if (catalog_verify(idx, il, sig, sl, err, err_len) != 0)
         return -1;
+    fiber_slice();
     return catalog_parse(idx, il, out, err, err_len);
 }
 
@@ -419,6 +424,7 @@ static void job_cache(void)
         strcpy(base + bl, "/");
     const char *dl = config_get("market_delay");
     delay_ms = dl ? (int)strtol(dl, NULL, 10) : 0;
+    catalog_hash_tick = fiber_slice;    /* a big game's check gives the CPU back */
     fat_entry_t e;
     uint8_t *d;
     size_t len;
@@ -433,15 +439,20 @@ static void job_cache(void)
         }
         free(d);
     }
+    fiber_slice();
     owned_load();
+    fiber_slice();
     uint8_t *idx, *sig;
     size_t il, sl;
     load_file(CACHE_DIR "/INDEX.TXT", &idx, &il);
     load_file(CACHE_DIR "/INDEX.SIG", &sig, &sl);
+    fiber_slice();
     catalog_t c;
     char err[96];
-    if (idx && sig && read_catalog(idx, il, sig, sl, &c, err, sizeof err) == 0)
+    if (idx && sig && read_catalog(idx, il, sig, sl, &c, err, sizeof err) == 0) {
+        fiber_slice();
         adopt(&c);
+    }
     free(idx);
     free(sig);
     kprintf("market: %s, %s%s\n", base, have ? "catalog saved on the SD card" : "no catalog saved",
@@ -473,11 +484,19 @@ static void job_index(void)
             say("catalog %s is older than %s: kept", c.serial, cat.serial);
         catalog_free(&c);
     } else {
+        /* the tail, a step at a time (2026-10-11: it was one resume, +338 ms
+         * on the Pi): the catalog in use, then the copy on the card, each
+         * file whole (fat.c's own ticks are safe: fat.h) */
         adopt(&c);
-        if (fat_mkdirs(CACHE_DIR) != 0 || fat_write_file(CACHE_DIR, "INDEX.TXT", idx, il) != 0 ||
-            fat_write_file(CACHE_DIR, "INDEX.SIG", sig, sl) != 0)
-            kprintf("market: cannot save the catalog: %s\n", fat_error());
         kprintf("market: catalog %s, %d games\n", cat.serial, cat.n);
+        fiber_slice();
+        int ok = fat_mkdirs(CACHE_DIR) == 0;
+        fiber_slice();
+        ok = ok && fat_write_file(CACHE_DIR, "INDEX.TXT", idx, il) == 0;
+        fiber_slice();
+        ok = ok && fat_write_file(CACHE_DIR, "INDEX.SIG", sig, sl) == 0;
+        if (!ok)
+            kprintf("market: cannot save the catalog: %s\n", fat_error());
     }
     free(idx);
     free(sig);
@@ -627,6 +646,10 @@ static void job_get(int i)
         say("%s: not the file of the catalog", g->title);
         return;
     }
+    /* checked: from here the job ends even if the tab is left (the write
+     * gives the CPU back between its pieces, fat.h; stopping it would make
+     * the menu wait for the rest of it) */
+    finishing = 1;
     char path[PATH_MAX_], name[16];
     int ok;
     if (s->path[0]) {
@@ -641,6 +664,7 @@ static void job_get(int i)
     free(d);
     s->busy = 0;
     if (!ok) {
+        finishing = 0;
         s->failed = 1;
         say("cannot write %s: %s", g->title, fat_error());
         return;
@@ -648,6 +672,7 @@ static void job_get(int i)
     owned_set(g->id, g->file.sha256, path);
     if (owned_save() != 0)
         kprintf("market: cannot save the list of games: %s\n", fat_error());
+    finishing = 0;
     ksnprintf(s->path, sizeof s->path, "%s", path);
     s->update = 0;
     changed = 1;
@@ -690,11 +715,7 @@ static int start_job(void)
     } else {
         return 0;
     }
-    if (!stack && !(stack = malloc(STACK_SIZE)))
-        return 0;
-    fiber_prepare(&fib, stack, STACK_SIZE, job_main, NULL);
-    running = 1;
-    return 1;
+    return fiber_job_start(&work, STACK_SIZE, job_main, NULL) == 0;
 }
 
 void market_set_active(int on)
@@ -706,24 +727,24 @@ void market_set_active(int on)
         net_failed = 0;                 /* each visit tries the network again */
     } else if (!on && active) {
         active = 0;
-        if (running) {                  /* stop it now: it ends at its next wait */
-            fiber_cancel(&fib);
-            while (fiber_resume(&fib))
-                ;
-            running = 0;
-        }
+        if (!finishing)
+            fiber_job_stop(&work);      /* stop it now: it ends at its next wait */
     }
 }
 
 void market_tick(uint32_t until)
 {
-    if (!active)
+    if (!active) {
+        /* off the tab only a game being written goes on, to its end: no
+         * network, no new job */
+        if (work.busy && finishing)
+            fiber_job_run(&work, until);
         return;
+    }
     while ((int32_t)(until - timer_ticks()) > 0) {
-        if (!running && !start_job())
+        if (!work.busy && !start_job())
             return;
-        if (!fiber_resume(&fib))
-            running = 0;
+        fiber_job_run(&work, until);
     }
 }
 
@@ -736,7 +757,7 @@ void market_select(int i)
 
 static int loading(void)
 {
-    return !inited || (running && job == JOB_INDEX) || (!fetched && !net_failed && online());
+    return !inited || (work.busy && job == JOB_INDEX) || (!fetched && !net_failed && online());
 }
 
 int market_items(menu_item_t *items, int max)
@@ -795,7 +816,7 @@ const char *market_status(void)
         return "";
     if (!online())
         return "Offline: the saved catalog";
-    if (running && job == JOB_INDEX)
+    if (work.busy && job == JOB_INDEX)
         return "Checking for new games...";
     const char *s = cat.serial;
     int n = ksnprintf(line, sizeof line, "%d games", cat.n);

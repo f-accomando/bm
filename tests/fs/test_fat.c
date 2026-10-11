@@ -18,7 +18,12 @@
 
 static FILE *img;
 static uint32_t writes, runs;           /* sectors written; writes of more than one */
+static uint32_t cmds;                   /* write commands (one per sd_write) */
 static int corrupt;                     /* a card that gets a write of several sectors wrong */
+
+/* the volume, read from the image (fat.c keeps it to itself): FAT32 */
+static struct { uint32_t part, spc, fat, fatsz, nfats, fsinfo; } g;
+static uint32_t fat_writes;             /* sectors written in the FATs */
 
 int sd_read(uint32_t lba, uint32_t count, void *buf)
 {
@@ -28,6 +33,9 @@ int sd_read(uint32_t lba, uint32_t count, void *buf)
 int sd_write(uint32_t lba, uint32_t count, const void *buf)
 {
     writes += count;
+    cmds++;
+    for (uint32_t i = 0; i < count; i++)
+        fat_writes += g.fat && lba + i >= g.fat && lba + i < g.fat + g.nfats * g.fatsz;
     static uint8_t bad[128 * 512];
     if (count > 1) {
         runs++;
@@ -103,6 +111,92 @@ static uint8_t *slurp(const char *path, size_t *len)
     if (fread(d, 1, *len, f) != *len) { free(d); d = NULL; }
     fclose(f);
     return d;
+}
+
+static uint32_t le16(const uint8_t *p) { return p[0] | (uint32_t)p[1] << 8; }
+static uint32_t le32(const uint8_t *p) { return le16(p) | le16(p + 2) << 16; }
+
+static void geometry(void)
+{
+    uint8_t s[512];
+    if (sd_read(0, 1, s))
+        return;
+    g.part = s[0] == 0xEB || s[0] == 0xE9 ? 0 : le32(s + 446 + 8);
+    if (sd_read(g.part, 1, s))
+        return;
+    g.spc = s[13];
+    g.nfats = s[16];
+    g.fatsz = le32(s + 36);
+    g.fsinfo = g.part + le16(s + 48);
+    g.fat = g.part + le16(s + 14);
+}
+
+/* FAT entry c of copy `copy`, from the image */
+static uint32_t entry(uint32_t copy, uint32_t c)
+{
+    uint8_t s[512];
+    if (sd_read(g.fat + copy * g.fatsz + c * 4 / 512, 1, s))
+        return 0;
+    return le32(s + c * 4 % 512) & 0x0FFFFFFF;
+}
+
+/* every copy of the FAT the same as the first */
+static int fats_equal(void)
+{
+    uint8_t a[512], b[512];
+    for (uint32_t i = 0; i < g.fatsz; i++) {
+        if (sd_read(g.fat + i, 1, a))
+            return 0;
+        for (uint32_t f = 1; f < g.nfats; f++)
+            if (sd_read(g.fat + f * g.fatsz + i, 1, b) || memcmp(a, b, 512))
+                return 0;
+    }
+    return 1;
+}
+
+/* the clusters of a file's chain, followed in the first FAT (0: broken) */
+static uint32_t chain_len(const char *path)
+{
+    fat_entry_t e;
+    if (fat_find(path, &e))
+        return 0;
+    uint32_t n = 0;
+    for (uint32_t c = e.cluster; c >= 2 && c < 0x0FFFFFF8; c = entry(0, c))
+        if (++n > (1u << 24))
+            return 0;
+    return n;
+}
+
+/* another writer while a write gives the CPU back (the menu saving a
+ * setting while a fiber's write waits for its next slice): at the ticks
+ * the case asks for, it writes, replaces and deletes files */
+static int nest_case, nest_ticks, nesting;
+static uint8_t *other;
+static int nest_tick(void)
+{
+    if (nesting)
+        return 0;
+    nesting = 1;
+    nest_ticks++;
+    switch (nest_ticks < 100 ? nest_case * 100 + nest_ticks : 0) {
+    case 101:                           /* a file of its own, then one deleted */
+        CHECK(fat_write_file("/mix", "OTHER.TXT", other, 3000) == 0);
+        break;
+    case 103:
+        CHECK(fat_delete("/mix/OLD1.BIN") == 0);
+        break;
+    case 104:                           /* the same file, written by the other first */
+        CHECK(fat_write_file("/mix", "SAME.BIN", other, 2000) == 0);
+        break;
+    case 202:                           /* the file being replaced is deleted meanwhile */
+        CHECK(fat_delete("/mix/GONE.BIN") == 0);
+        break;
+    case 302:                           /* a new file made meanwhile with the same name */
+        CHECK(fat_write_file("/mix", "TWICE.BIN", other, 5000) == 0);
+        break;
+    }
+    nesting = 0;
+    return 0;
 }
 
 int main(int argc, char **argv)
@@ -249,7 +343,7 @@ int main(int argc, char **argv)
      * every cluster, a nonzero one stops the write with the old file kept;
      * a card that gets a run wrong is written a sector at a time from then
      * on, and the file is still right */
-    CHECK(fat_write_runs(1) == 0);              /* off by default (not the RGB30) */
+    CHECK(fat_write_runs(1) == 1);              /* on by default (the Pi too since 2026-10-11) */
     uint8_t *k1 = pattern(200000, 4242), *k2 = pattern(200000, 99), *k3 = pattern(150001, 7);
     fat_write_tick = tick;
     ticks = stop_at = 0;
@@ -276,6 +370,110 @@ int main(int argc, char **argv)
     free(k1);
     free(k2);
     free(k3);
+
+    /* the FAT of a big file (2026-10-11): the entries that share a FAT
+     * sector change together, each copy's sector read and written once
+     * (it was once per cluster and per copy: the old way writes 2 x 2000
+     * sectors here); the copies stay the same; the chain of a replaced
+     * file released the same way. In both ways of writing the data. */
+    geometry();
+    CHECK(g.spc >= 1 && g.nfats >= 1 && g.fatsz > 0);
+    CHECK(fat_mkdirs("/mix") == 0);
+    for (int way = 0; way < 2; way++) {
+        fat_write_runs(way);
+        const size_t big_len = (size_t)g.spc * 512 * 2000 + 100;      /* 2001 clusters */
+        const uint32_t big_n = 2001, small_n = 300;
+        uint8_t *b1 = pattern(big_len, 31337u + (uint32_t)way), *b2 = pattern((size_t)g.spc * 512 * small_n, 7u);
+        fat_writes = 0;
+        CHECK(fat_write_file("/mix", "BIG.BIN", b1, big_len) == 0);
+        /* the sectors of 2001 entries (128 a sector) and a few more: each
+         * piece of 512 marked joins the one before (its first sector again,
+         * its last one shared), the free space may wrap around */
+        printf("fat: %u clusters written, %u FAT sectors written (%s)\n", (unsigned)big_n,
+               (unsigned)fat_writes, way ? "runs" : "sectors");
+        CHECK(fat_writes <= g.nfats * (big_n / 128 + 2 * (big_n / 512 + 1) + 4));
+        CHECK(read_back("/mix/big.bin", b1, big_len) && chain_len("/mix/big.bin") == big_n);
+        CHECK(fats_equal());
+        fat_writes = 0;
+        CHECK(fat_replace("/mix/big.bin", b2, (size_t)g.spc * 512 * small_n) == 0);
+        CHECK(fat_writes <= g.nfats * (big_n / 128 + small_n / 128 + 12));
+        CHECK(read_back("/mix/big.bin", b2, (size_t)g.spc * 512 * small_n) && chain_len("/mix/big.bin") == small_n);
+        CHECK(fats_equal());
+        CHECK(fat_delete("/mix/big.bin") == 0);
+        CHECK(fats_equal());
+        free(b1);
+        free(b2);
+    }
+    fat_write_runs(1);
+
+    /* a small file: only the sectors with data of its last cluster (it was
+     * the whole cluster, zeros past the end), its FAT entry, the entry */
+    {
+        uint32_t w0 = writes;
+        CHECK(fat_write_file("/mix", "ONE.BIN", "x", 1) == 0);
+        CHECK(writes - w0 <= 1 + g.nfats + 1);
+        CHECK(read_back("/mix/one.bin", (const uint8_t *)"x", 1));
+        uint8_t *t = pattern((size_t)g.spc * 512 + 700, 5);     /* a cluster, then 700 bytes */
+        w0 = writes;
+        CHECK(fat_write_file("/mix", "TAIL.BIN", t, (size_t)g.spc * 512 + 700) == 0);
+        CHECK(writes - w0 <= g.spc + 2 + 2 * g.nfats + 1);
+        CHECK(read_back("/mix/tail.bin", t, (size_t)g.spc * 512 + 700));
+        free(t);
+    }
+
+    /* the free space hint: kept in FSInfo for the next mount (the search
+     * started at cluster 2 after every boot); the free count "unknown" */
+    {
+        uint8_t fi[512];
+        CHECK(sd_read(g.fsinfo, 1, fi) == 0 && le32(fi) == 0x41615252);
+        const uint32_t hint = le32(fi + 492);
+        CHECK(le32(fi + 488) == 0xFFFFFFFF && hint >= 2 && hint != 0xFFFFFFFF);
+    }
+
+    /* another writer at the ticks of a write that gives the CPU back: no
+     * cluster shared (fsck.vfat in run.py), the directory looked up at the
+     * end: the write that ends last wins, a file deleted meanwhile cannot
+     * be replaced (its new chain released) */
+    {
+        other = pattern(5000, 404);
+        uint8_t *mine = pattern((size_t)g.spc * 512 * 600 + 77, 505);
+        const size_t mlen = (size_t)g.spc * 512 * 600 + 77;
+        CHECK(fat_write_file("/mix", "OLD1.BIN", other, 4000) == 0);
+        fat_write_tick = nest_tick;
+        for (int way = 0; way < 2; way++) {
+            fat_write_runs(way);
+            nest_case = 1;
+            nest_ticks = 0;
+            CHECK(fat_write_file("/mix", "SAME.BIN", mine, mlen) == 0 && nest_ticks >= 4);
+            CHECK(read_back("/mix/same.bin", mine, mlen) && chain_len("/mix/same.bin") == 601);
+            CHECK(read_back("/mix/other.txt", other, 3000));
+            CHECK(fat_find("/mix/old1.bin", &fe) != 0);
+            CHECK(fat_write_file("/mix", "OLD1.BIN", other, 4000) == 0);   /* for the next way */
+            CHECK(fat_write_file("/mix", "GONE.BIN", other, 100) == 0);
+            nest_case = 2;
+            nest_ticks = 0;
+            CHECK(fat_replace("/mix/gone.bin", mine, mlen) != 0 && strcmp(fat_error(), "file not found") == 0);
+            CHECK(fat_find("/mix/gone.bin", &fe) != 0);
+            nest_case = 3;
+            nest_ticks = 0;
+            CHECK(fat_write_file("/mix", "TWICE.BIN", mine, mlen) == 0);
+            CHECK(read_back("/mix/twice.bin", mine, mlen));
+            fat_dir_t md;
+            fat_entry_t me;
+            int twice = 0;
+            CHECK(fat_opendir(&md, "/mix") == 0);
+            while (fat_readdir(&md, &me))
+                twice += strcmp(me.name, "TWICE.BIN") == 0;
+            CHECK(twice == 1);                  /* one entry, not two */
+            CHECK(fat_delete("/mix/twice.bin") == 0);
+            CHECK(fats_equal());
+        }
+        CHECK(fat_writing() == 0);
+        fat_write_tick = NULL;
+        fat_write_runs(1);
+        free(mine);
+        free(other);
+    }
 
     /* for run.py: the last save file and the config, to compare with mtools */
     FILE *f = fopen("snake.expected", "wb");

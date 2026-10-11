@@ -8,6 +8,11 @@
  * a wrong password, a damaged file, a cartridge to play, a kernel. A file
  * (S) is answered QD once checked and written later by netxfer_write_tick
  * (the menu's fiber, run straight through here): one waits at a time.
+ * The kernel (K), the last case, three ways, one per run (its restart
+ * ends the program): no menu, written at once, the network polled
+ * meanwhile; "menu": the menu's fiber writes it, the answer after;
+ * "gone": the menu was there when it arrived and then left (a game), so
+ * it is written at once all the same.
  */
 #include "net/netcon.h"
 #include "net/netxfer.h"
@@ -83,7 +88,7 @@ const char *fat_error(void) { return "test"; }
 
 /* the menu's fiber, run straight through (kernel/fiber.c needs the ARM):
  * fiber_job_stop runs it with fiber_cancelled() 1, as the real one */
-static int stub_cancel;
+static int stub_cancel, jobs_run;
 int fiber_job_start(fiber_job_t *j, size_t stack, void (*fn)(void *), void *arg)
 {
     (void)stack;
@@ -95,11 +100,14 @@ int fiber_job_start(fiber_job_t *j, size_t stack, void (*fn)(void *), void *arg)
 int fiber_job_run(fiber_job_t *j, uint32_t until)
 {
     (void)until;
-    if (j->busy)
+    if (j->busy) {
         j->f.fn(j->f.arg);
+        jobs_run++;
+    }
     j->busy = 0;
     return 0;
 }
+fiber_t *fiber_current(void) { return NULL; }
 void fiber_job_stop(fiber_job_t *j)
 {
     if (!j->busy)
@@ -129,16 +137,36 @@ static int fails;
 static void check(int ok, const char *what);
 static int wifi_left;
 void wifi_leave(void) { wifi_left++; }
+/* an intentional restart says so before it (crumbs.c): the next boot must
+ * not report a freeze */
+static int clean_exits, flushed;
+void crumbs_clean_exit(void) { clean_exits++; }
+void uart_flush(void) { flushed += clean_exits; }
+/* the kernel's way (main's argument): no menu, the menu's fiber, the menu
+ * gone before it wrote; what had run when the kernel case began */
+enum { K_AT_ONCE, K_MENU, K_GONE };
+static int k_way, menu_frames;
+static int k_jobs, k_polls;
 /* the kernel transfer is the last case: the reboot ends the test */
 void watchdog_reboot(void)
 {
     reboots++;
     check(wifi_left == 1, "the access point told we leave before the restart");
-    check(polls_in_write >= 4 && !write_again && !fat_write_tick,
-          "the network polled while the files were written, no write started again from inside");
+    check(clean_exits == 1 && flushed == 1,
+          "a clean exit marked before the restart (no freeze report at the next boot), the log flushed");
+    if (k_way == K_MENU)
+        check(jobs_run > k_jobs && polls_in_write == k_polls && !write_again && !fat_write_tick,
+              "the menu's fiber wrote it (no write at once), nothing left set");
+    else
+        check(polls_in_write >= k_polls + 4 && !write_again && !fat_write_tick,
+              "the network polled while the kernel was written, no write started again from inside");
     check(strcmp(w_dir, "/") == 0 && strcmp(w_name, "kernel.img") == 0 && w_len == 100000,
           "kernel received, written as /kernel.img, then reboot");
-    printf(fails ? "\n%d FAILED\n" : "\nnetcon: all passed\n", fails);
+    if (fails)
+        printf("\n%d FAILED\n", fails);
+    else
+        printf("\nnetcon (kernel %s): all passed\n",
+               k_way == K_MENU ? "by the menu" : k_way == K_GONE ? "after the menu left" : "at once");
     exit(fails != 0);
 }
 
@@ -197,6 +225,8 @@ static void spin(int rounds)
         sys_check_timeouts();
         netcon_poll();
         netxfer_poll();
+        if (menu_frames)
+            netxfer_write_tick(0);      /* the menu's free time, every round */
         fake_us += 1000;
     }
 }
@@ -274,8 +304,9 @@ static void xfer(client_t *x, char op, const char *pw, const char *path, const u
     spin(600);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    k_way = argc > 1 && !strcmp(argv[1], "menu") ? K_MENU : argc > 1 && !strcmp(argv[1], "gone") ? K_GONE : K_AT_ONCE;
     lwip_init();
     check(netcon_start() == 0, "listening on port 3333");
     check(strcmp(netcon_password(), "secret") == 0, "password from the config");
@@ -465,11 +496,17 @@ int main(void)
               !netxfer_updating("/carts/game.bm") && !fat_write_tick,
               "  written from the menu: the newer copy, counted, the tag gone");
         check(strncmp(flashed, "Updated", 7) == 0, "  a notice says so");
+        /* a file for the card's root (bm_net.py --to ""): "/top.bm" */
+        xfer(&x, 'S', "secret", "top.bm", a, sizeof a, 0, 4);
+        netxfer_write_tick(0);
+        check(strcmp(x.got, "OKQD") == 0 && strcmp(w_dir, "/") == 0 && strcmp(w_name, "top.bm") == 0 &&
+              w_len == sizeof a, "  a file for the root: written in /");
     }
 
     /* mark: what start.S puts at +4 of a kernel image (kernel.img or the
      * Pi Zero 2 W's kernel7.img); this is kernel.img's build. arm64: the
      * RGB30's kernel8.img, "ARM\x64" at +56 (no bmK mark) */
+    const unsigned saves0 = netxfer_saves();
     struct { char op; const char *pw, *path; uint32_t crc_xor; const char *answer, *what, *mark; int arm64; } cases[] = {
         { 'S', "secret", "carts/pong.bm", 0, "OKQD", "file saved on the SD card", NULL, 0 },
         { 'S', "nope", "carts/pong.bm", 0, "PW", "wrong password refused", NULL, 0 },
@@ -481,6 +518,14 @@ int main(void)
     };
     for (unsigned t = 0; t < sizeof cases / sizeof cases[0]; t++) {
         w_name[0] = 0;
+        if (cases[t].op == 'K' && strcmp(cases[t].answer, "OKOK") == 0) {
+            k_jobs = jobs_run;
+            k_polls = polls_in_write;
+            if (k_way == K_MENU)
+                menu_frames = 1;        /* the menu runs all along */
+            else if (k_way == K_GONE)
+                netxfer_write_tick(0);  /* the menu's last frame, before a game starts */
+        }
         if (cases[t].mark)
             memcpy(file + 4, cases[t].mark, 4);
         memcpy(file + 56, cases[t].arm64 ? "ARM\x64" : "\0\0\0\0", 4);
@@ -534,7 +579,7 @@ int main(void)
             netxfer_write_tick(0);      /* the menu's next frame */
         if (t == 0)
             check(strcmp(w_dir, "/carts") == 0 && strcmp(w_name, "pong.bm") == 0 &&
-                  w_len == sizeof file && memcmp(w_data, file, w_len) == 0 && netxfer_saves() == 2,
+                  w_len == sizeof file && memcmp(w_data, file, w_len) == 0 && netxfer_saves() == saves0 + 1,
                   "  in /carts/pong.bm, same bytes");
         if (t == 1 || t == 2 || t == 4)
             check(w_name[0] == 0, "  nothing written");
