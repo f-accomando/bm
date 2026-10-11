@@ -334,7 +334,8 @@ def test_update_from_sd(b, opts):
     (bm/release.pem); the RGB30's manifest (manifest-rgb30: kernel8.img,
     bm/ca.pem), what changes, then A installs: the old kernel kept in
     bm/backup, the new one written last (read back from the RAM disk with
-    mtools before the restart, which reloads it), and the console restarts."""
+    mtools before the restart, which reloads it), and the console restarts.
+    Both in the menu's background: the panel stays on the screen."""
     tmp = tempfile.mkdtemp(prefix="bm64up-")
     key, pub = os.path.join(tmp, "key.pem"), os.path.join(tmp, "pub.pem")
     subprocess.run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256",
@@ -369,10 +370,7 @@ def test_update_from_sd(b, opts):
         assert "newer than this kernel" in out or "a build of the sources" in out, out
         lines = {l.split()[0]: l for l in out.splitlines() if l.strip().startswith("/")}
         assert lines["/kernel8.img"].endswith("changed") and lines["/bm/ca.pem"].endswith("changed"), lines
-        q.expect("back to the menu", timeout=10)
-        time.sleep(0.3)
-        q.send("\r")                           # back to the panel: Install the update under it
-        time.sleep(0.8)
+        time.sleep(0.8)                         # the panel stayed: Install the update under Check
         keys(q, "s")
         text = screen_all(q.screendump())
         assert "Install the update" in text and "v9.9.9" in text, text

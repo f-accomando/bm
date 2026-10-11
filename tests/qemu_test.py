@@ -3411,14 +3411,16 @@ def test_market(b, opts):
 
 
 def test_update(b, opts):
-    """M19 step 4: Settings > System > Check for updates reads a release
+    """M19 step 4: Settings > Updates > Check for updates reads a release
     signed with a test key (here from the SD card: update_url=sd:/release/,
     bm/release.pem), says which files would change (a game the same, one
     changed, one not on the card, the certificates, both kernels); Install
     asks first, downloads and checks everything, keeps the old kernel in
-    /bm/backup, writes, and the console restarts. Then the card holds the
-    release's files, is a clean FAT32 volume, and the game deleted before is
-    still not there."""
+    /bm/backup, writes, and the console restarts. Both run in the menu's
+    background (2026-10-11): the panel shows the check's result and the
+    files, a box over the menu the restart counted down. Then the card holds
+    the release's files, is a clean FAT32 volume, and the game deleted
+    before is still not there."""
     tmp = tempfile.mkdtemp(prefix="bm-update-")
     try:
         key, pub = os.path.join(tmp, "key.pem"), os.path.join(tmp, "release.pem")
@@ -3488,9 +3490,8 @@ def test_update(b, opts):
             keys("s")
             screen(["Check for updates", "not checked", "The latest release on GitHub"])
             keys("\r")
-            out = q.expect("back to the menu", timeout=30).decode(errors="replace")
-            for w in ("latest release: \x1b[1mv9.9.9", "commit abc1234, signed: good",
-                      "v9.9.9 can be installed"):
+            out = q.expect("v9.9.9 can be installed", timeout=30).decode(errors="replace")
+            for w in ("latest release: \x1b[1mv9.9.9", "commit abc1234, signed: good"):
                 assert w in out, out
             # a build of the sources, or later than a tag (git describe): either may update
             assert "a build of the sources" in out or "newer than this kernel" in out, out
@@ -3499,8 +3500,8 @@ def test_update(b, opts):
             assert lines["/carts/snake.bm"].endswith("changed") and lines["/carts/pong.bm"].endswith("same"), lines
             assert lines["/carts/shooter.bm"].endswith("not on the card (Market)"), lines
             assert lines["/bm/ca.pem"].endswith("changed"), lines
-            keys("\r")                              # A: back to the panel
-            screen(["Check for updates", "v9.9.9: 4 files"])
+            # the menu stayed on the panel: the check's result, then what it would write
+            screen(["Check for updates", "v9.9.9: 4 files", "/kernel.img", "changed", "/kernel7.img", "new"])
             keys("s")                               # the row under it: install
             screen(["Install the update", "v9.9.9", "Keeps the old kernels in /bm/backup"])
             keys("\r")
@@ -3508,6 +3509,7 @@ def test_update(b, opts):
             if opts.shots:
                 _save_png(q.screendump(), os.path.join(opts.shots, "update-ask.png"))
             keys("\r")
+            screen(["Restarting in", "bm v9.9.9 is installed"], tries=40)    # the box over the menu
             out = q.expect("Restarting in 1", timeout=90).decode(errors="replace")
             assert "v9.9.9 installed" in out and "Restarting in 3" in out, out   # counted down
             for w in ("all 4 files downloaded and checked", "/kernel.img kept in /bm/backup",
@@ -3545,9 +3547,9 @@ def test_publish(b, opts):
     """M25 step 6: X on a game of the SD card, "Publish to the Market": the
     folder from the file name, today's version, the license chosen with
     left/right, the token from bm/config.txt; sending asks first, then runs
-    on the text console (here without a network: it says so) and A goes
-    back to the menu. Then "Send to a nearby console" (M24): without a
-    network, nobody to send to."""
+    in the menu's background (2026-10-11), the panel staying: its rows say
+    how it went (here without a network: not sent, and why). Then "Send to
+    a nearby console" (M24): without a network, nobody to send to."""
     tmp = tempfile.mkdtemp(prefix="bm-publish-")
     try:
         img = os.path.join(tmp, "sd.img")
@@ -3600,9 +3602,7 @@ def test_publish(b, opts):
             q.expect("bm Market: publishing My Game", timeout=10)
             q.expect("games/my-game, version 1, license CC-BY-4.0, to f-accomando/bm-market", timeout=5)
             q.expect("no network: connect in Settings > WiFi and network", timeout=5)
-            q.expect("back to the menu", timeout=5)
-            keys("\r")
-            screen(["Publish > My Game"])           # back on the panel
+            screen(["Publish > My Game", "not sent", "no network: connect in Settings"])     # the panel stayed
 
             # M24: send to a nearby console (here no network: nobody)
             keys("q")

@@ -7,6 +7,7 @@
 #include "syskeys.h"
 #include "market.h"
 #include "publish.h"
+#include "update.h"
 #include "lib.h"
 #include "menu_ui.h"
 #include "pointer.h"
@@ -187,7 +188,7 @@ static int title_cmp(const void *a, const void *b)
 /* the tabs of the graphical menu (carts_menu) */
 enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_LIB, TAB_SETTINGS };
 
-static fiber_job_t cover_job;
+static fiber_job_t cover_job = { .name = "covers" };
 static int cover_tab = TAB_GAMES, cover_sel = -1;      /* what the menu shows: its covers first */
 
 static int is_dev(const cart_t *c);
@@ -290,7 +291,7 @@ static int sd_tick(void)
  * console is on the network (reports_auto_due), in a fiber, only where
  * the network is free: Games, Dev and Lib, no panel open (the Market,
  * Settings and the options of a game use it themselves). */
-static fiber_job_t report_job;
+static fiber_job_t report_job = { .name = "reports" };
 static int reports_free;                /* the menu is where they may go (carts_menu) */
 static int reports_note;                /* the job ended: its word for the menu's note */
 
@@ -307,41 +308,61 @@ static void reports_tick(uint32_t until)
     if (!report_job.busy &&
         (!reports_auto_due() || fiber_job_start(&report_job, 128 * 1024, reports_main, NULL) != 0))
         return;
-    /* the network's waits give the CPU back at once: on until the frame's time is over */
-    while (report_job.busy && (int32_t)(until - timer_ticks()) > 0)
-        fiber_job_run(&report_job, until);
+    fiber_job_run(&report_job, until);
 }
 
-/* the menu's free time in a frame (menu_view_t.idle): the work of the tab
- * shown first */
+static void lib_idle(uint32_t until)
+{
+    if (cover_tab == TAB_LIB)           /* the tab's own work */
+        lib_tick(until);
+}
+
+static void reports_idle(uint32_t until)
+{
+    if (reports_free)
+        reports_tick(until);
+}
+
+/* The menu's jobs and their shares of its free time (fiber.h, 2026-10-11):
+ * what the user started from a panel and waits for first, then the work of
+ * the tab shown (the Market's and the Lib's work only on their tab: on
+ * another one they give their time back at once). Each is sure of its
+ * share; what is left goes down the table. Before, the covers took every
+ * frame's time first and the Market could get none. */
+static const fiber_share_t menu_jobs[] = {
+    /*                      game tool menu */
+    { update_tick,        {  0,   0,  15 } },   /* Settings > Updates: check, install */
+    { publish_tick,       {  0,   0,  15 } },   /* a game to the Market */
+    { market_tick,        {  0,   0,  30 } },   /* its tab */
+    { lib_idle,           {  0,   0,  15 } },   /* its tab */
+    { covers_tick,        {  0,   0,  15 } },   /* the tab's covers first */
+    { reports_idle,       {  0,   0,   5 } },   /* Games, Dev, Lib, no panel */
+    { wifi_auto_idle,     {  0,   0,   5 } },   /* the saved network again, while the link is down */
+};
+
+/* the menu's free time in a frame (menu_view_t.idle) */
 static void menu_idle(uint32_t until)
 {
-    /* a file from the PC (bm_net.py --send) first, alone on the SD card:
-     * the rest waits for it (2026-10-10) */
+    /* a file (or a kernel) from the PC (bm_net.py --send) first, alone on
+     * the SD card: the rest waits for it (2026-10-10). With nothing waiting
+     * the tick only notes that the menu is there. */
     if (netxfer_write_pending()) {
         fiber_job_stop(&cover_job);
         lib_job_stop();
         fiber_job_stop(&report_job);
-        netxfer_write_tick(until);
-        return;
     }
+    if (netxfer_write_tick(until))
+        return;
     if (!reports_free)                  /* before the Market's fiber: one at a time on the network */
         fiber_job_stop(&report_job);    /* (cancelled: it goes again later) */
-    if (cover_tab == TAB_LIB) {
-        lib_tick(until);
-        covers_tick(until);
-    } else {
-        covers_tick(until);
-        market_tick(until);
-    }
-    if (reports_free)
-        reports_tick(until);
-    wifi_auto_idle(until);              /* the saved network again, while the link is down */
+    fiber_share_run(menu_jobs, (int)(sizeof menu_jobs / sizeof *menu_jobs), FIBER_MENU, until);
 }
 
 /* Before the list changes, an application runs or the card is written:
  * the work in the background stops (what it held is freed) and goes on
- * later from where it was. */
+ * later from where it was. An update or a game being published goes on
+ * (they hold nothing of the list, write a file in one go): no application
+ * starts until they end (carts_menu). */
 static void background_stop(void)
 {
     netxfer_write_pause();              /* a file from the PC: again later */
@@ -403,10 +424,28 @@ void carts_init(void)
     ledstate_set(LED_NO_SD, !sd_ok);
     fat_load_tick = sd_tick;            /* the loading screen, the menu's fibers */
     bm_parse_tick = sd_tick;
+    /* a write in a fiber of the menu (the Market's game, an update) gives
+     * the CPU back between its pieces (fat.h; netxfer sets its own) */
+    if (!fat_write_tick)
+        fat_write_tick = fiber_slice_tick;
     rescan();
-    if (sd_ok)
-        kprintf("sd: %s card (%s), %s; %d cartridges\n", sd_is_hc() ? "SDHC" : "SD",
-                sd_controller(), fat_describe(), nsd);
+    if (sd_ok) {
+        /* the cluster size (a card's writes depend on it) and, if any, the
+         * transfers retried and the waits that ran out so far (sd.h) */
+        char size[24], extra[48] = "";
+        const uint32_t cb = fat_cluster_bytes();
+        if (cb >= 1024)
+            ksnprintf(size, sizeof size, "%lu KiB", (unsigned long)(cb / 1024));
+        else
+            ksnprintf(size, sizeof size, "%lu bytes", (unsigned long)cb);
+        uint32_t retries, timeouts;
+        sd_counters(&retries, &timeouts);
+        if (retries || timeouts)
+            ksnprintf(extra, sizeof extra, "; %lu retried, %lu timed out", (unsigned long)retries,
+                      (unsigned long)timeouts);
+        kprintf("sd: %s card (%s), %s; %d cartridges; clusters %s%s\n", sd_is_hc() ? "SDHC" : "SD",
+                sd_controller(), fat_describe(), nsd, size, extra);
+    }
 }
 
 int carts_count(void)
@@ -1867,6 +1906,15 @@ void carts_menu(framebuffer_t *fb)
 
         if (go != GO_NONE && go_cart >= 0 && netxfer_updating(carts[go_cart].path)) {
             ksnprintf(last_msg, sizeof last_msg, "Updating, wait for the end of the download");
+            go = GO_NONE;
+        }
+        /* an update or a game being published in the background: nothing
+         * starts before it ends (the install restarts the console) */
+        const char *busy = update_busy() ? update_busy() : publish_busy() ? "Publishing to the Market" : NULL;
+        if (go != GO_NONE && busy) {
+            ksnprintf(last_msg, sizeof last_msg, "%s: wait for it to end", busy);
+            if (go == GO_NETPLAY)
+                free(net_buf);
             go = GO_NONE;
         }
         if (go != GO_NONE) {

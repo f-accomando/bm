@@ -28,9 +28,12 @@ def tool(name):
     return path
 
 
-def build(out, files, size_mib=128, label="BMSD", start_mib=1, raw=(), active=False):
+def build(out, files, size_mib=128, label="BMSD", start_mib=1, raw=(), active=False,
+          cluster_sectors=None):
     """raw: (file, sector) pairs written before the partition; active: the
-    partition's boot flag (U-Boot's bootflow scan looks at it)."""
+    partition's boot flag (U-Boot's bootflow scan looks at it);
+    cluster_sectors: the cluster size, in sectors (the FAT tests: a card's
+    4 or 32 KiB clusters), else mkfs.vfat's choice."""
     start = start_mib * 2048                        # sectors
     total = size_mib * 2048                         # QEMU wants a power of 2
     part_sectors = total - start
@@ -39,6 +42,8 @@ def build(out, files, size_mib=128, label="BMSD", start_mib=1, raw=(), active=Fa
         with open(part, "wb") as f:
             f.truncate(part_sectors * 512)
         small = ["-s", "1"] if size_mib <= 256 else []   # FAT32 needs >= 65525 clusters
+        if cluster_sectors:
+            small = ["-s", str(cluster_sectors)]
         hidden = ["-h", str(start)] if start_mib != 1 else []
         subprocess.run([tool("mkfs.vfat"), "-F", "32", *small, *hidden, "-n", label, part],
                        check=True, stdout=subprocess.DEVNULL)

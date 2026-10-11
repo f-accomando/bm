@@ -912,6 +912,8 @@ $(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/driver
 # then lwIP on the Pi 1 B's Ethernet with a simulated LAN9512 and a DHCP peer
 test-net: $(BUILD)/host/test_netcon $(BUILD)/host/test_ethnet $(BUILD)/host/test_config
 	$(BUILD)/host/test_netcon
+	$(BUILD)/host/test_netcon menu
+	$(BUILD)/host/test_netcon gone
 	$(BUILD)/host/test_ethnet
 	$(BUILD)/host/test_config
 	$(PYTHON) tests/net/check_bm_net_config.py

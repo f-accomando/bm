@@ -88,7 +88,7 @@ enum {
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
     R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
-    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_LATER, R_IMPOSTOR,
+    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR,
 };
 
 /* sound_depth: the bits of each sample at the output (what the output
@@ -564,9 +564,19 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_INFO, R_VERSION, "Version", "The kernel build (git describe)", "%s", bm_version);
         home_row(p, MENU_ROW_ACTION, R_UPDATE, "Check for updates",
                  "The latest release on GitHub, signed: what would change", "%s", update_state());
-        if (update_ready())
+        if (update_ready()) {
             home_row(p, MENU_ROW_ACTION, R_INSTALL, "Install the update",
-                     "Keeps the old kernels in /bm/backup, restarts", "%s", update_ready());
+                     "Keeps the old kernels in /bm/backup, restarts", "%s", update_install_state());
+            /* what it would write (the check runs in the background: the
+             * text console no longer shows its list) */
+            static char sizes[HOME_ROWS_MAX][24];
+            const char *path, *what;
+            uint32_t size;
+            for (int i = 0; p->n < HOME_ROWS_MAX && update_changes(i, &path, &what, &size); i++) {
+                ksnprintf(sizes[i], sizeof sizes[i], "%lu KiB", (unsigned long)((size + 1023) / 1024));
+                home_row(p, MENU_ROW_INFO, R_CHANGE, path, sizes[i], "%s", what);
+            }
+        }
         break;
     case HOME_REPORTS:
         ksnprintf(p->title, sizeof p->title, "Settings > Reports");
@@ -821,12 +831,6 @@ static void t_report_log(framebuffer_t *fb)
     reports_text("log", t, strlen(t));
 }
 
-static void x_update_check(framebuffer_t *fb)
-{
-    heading("Check for updates");
-    update_check(fb);
-}
-
 /* a row that runs on the text console (own: it draws its own screen) */
 static void text(home_do_t *d, void (*fn)(framebuffer_t *), int wait, int own)
 {
@@ -949,7 +953,11 @@ void home_act(int id, int row, int how, home_do_t *d)
         }
         break;
     case R_UPDATE:
-        if (how == 0) text(d, x_update_check, 1, 0);
+        /* in the menu's background (update.c): the row says how it goes */
+        if (how == 0 && update_start(0) == 0)
+            ksnprintf(d->note, sizeof d->note, "checking for updates...");
+        else if (how == 0)
+            ksnprintf(d->note, sizeof d->note, "%s: wait", update_busy() ? update_busy() : "out of memory");
         break;
     case R_REPORTS:
         if (how == 0) text(d, t_send_reports, 1, 0);
@@ -959,7 +967,14 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     case R_INSTALL:
         if (how == HOME_YES) {
-            text(d, update_install, 1, 0);      /* the wait only if it fails: it restarts */
+            /* in the menu's background: a box over the menu, then the restart */
+            if (update_start(1) == 0)
+                ksnprintf(d->note, sizeof d->note, "installing bm %s: the console restarts when it is done",
+                          update_ready());
+            else
+                ksnprintf(d->note, sizeof d->note, "%s: wait", update_busy() ? update_busy() : "out of memory");
+        } else if (how == 0 && update_busy()) {
+            ksnprintf(d->note, sizeof d->note, "%s: wait", update_busy());
         } else if (how == 0 && update_ready()) {
             char q[64];
             ksnprintf(q, sizeof q, "Install bm %s?", update_ready());

@@ -31,6 +31,7 @@
 #include "drivers/sd.h"
 #include "fs/fat.h"
 #include "kernel/config.h"
+#include "kernel/fiber.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
 #include "net/wifi_auto.h"
@@ -152,6 +153,7 @@ static void sd_boot(void)
     }
     ledstate_set(LED_NO_SD, 0);
     kprintf("SD: %s (%s)\n", fat_describe(), sd_controller());
+    fat_write_tick = fiber_slice_tick;  /* a fiber's long write gives the CPU back (fat.h) */
     config_load();
     pad_config();                       /* confirm= */
     save_prev();
@@ -231,13 +233,13 @@ void rgb30_display_stage(const char *what)
 
 /* Before a restart or a power off (plat_reset, plat_poweroff, before the
  * hardware goes quiet): this run's log as bm/lastrun.txt. Not from an
- * interrupt, nor while another fiber is half way through a write of its
- * own (fat_write_tick set: a kernel from the PC). */
+ * interrupt, nor while a write is half way through (fat_writing: a kernel
+ * from the PC, a fiber's write). */
 void rgb30_save_lastrun(void)
 {
     uint64_t daif;
     __asm__ volatile("mrs %0, daif" : "=r"(daif));
-    if ((daif & (1u << 7)) || fat_write_tick || !sd_blocks())
+    if ((daif & (1u << 7)) || fat_writing() || !sd_blocks())
         return;
     kprintf("restarting: this run's log in bm/lastrun.txt\n");
     const char *log = klog_text();

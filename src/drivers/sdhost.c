@@ -79,6 +79,8 @@ static uint32_t rca, blocks;
 static int hc, ready;
 static uint32_t hcfg;
 static const char *err = "not initialised";
+/* since boot: transfers tried again, waits that ran out (sd_counters) */
+static uint32_t n_retries, n_timeouts;
 
 static void set_clock(uint32_t hz)
 {
@@ -99,6 +101,7 @@ static int cmd_x(uint32_t idx, int kind, uint32_t data_flags, uint32_t arg, uint
     while (mmio_read(SDCMD) & CMD_NEW)
         if (timer_ticks() - t0 > 500000) {
             err = "controller busy";
+            n_timeouts++;
             return -1;
         }
     uint32_t st = mmio_read(SDHSTS);
@@ -115,6 +118,7 @@ static int cmd_x(uint32_t idx, int kind, uint32_t data_flags, uint32_t arg, uint
     while ((v = mmio_read(SDCMD)) & CMD_NEW)
         if (timer_ticks() - t0 > 500000) {
             err = "command timeout";
+            n_timeouts++;
             return -1;
         }
     if (v & CMD_FAIL) {
@@ -156,6 +160,7 @@ static int wait_card_ready(uint32_t timeout_us)
             return 0;
         if (timer_ticks() - t0 > timeout_us) {
             err = "card busy";
+            n_timeouts++;
             return -1;
         }
     }
@@ -275,6 +280,7 @@ static int wait_transfer_complete(int write)
         }
         if (timer_ticks() - t0 > 500000) {
             err = write ? "write not completed" : "read not completed";
+            n_timeouts++;
             return -1;
         }
     }
@@ -300,10 +306,12 @@ static int read_blocks(uint32_t lba, uint32_t count, uint8_t *buf)
             uint32_t st = mmio_read(SDHSTS);
             if (st & (HSTS_CRC16 | HSTS_FIFO_ERR | HSTS_REW_TIMEOUT)) {
                 err = "read error";
+                n_timeouts += (st & HSTS_REW_TIMEOUT) != 0;    /* the controller's own (SDTOUT) */
                 goto fail;
             }
             if (timer_ticks() - t0 > 500000) {
                 err = "read timeout";
+                n_timeouts++;
                 goto fail;
             }
             continue;
@@ -340,12 +348,15 @@ static int write_blocks(uint32_t lba, uint32_t count, const uint8_t *buf)
         uint32_t level = EDM_FIFO_LEVEL(mmio_read(SDEDM));
         uint32_t space = level < FIFO_WORDS ? FIFO_WORDS - level : 0;
         if (!space) {
-            if (mmio_read(SDHSTS) & (HSTS_CRC16 | HSTS_FIFO_ERR | HSTS_REW_TIMEOUT)) {
+            const uint32_t st = mmio_read(SDHSTS);
+            if (st & (HSTS_CRC16 | HSTS_FIFO_ERR | HSTS_REW_TIMEOUT)) {
                 err = "write error";
+                n_timeouts += (st & HSTS_REW_TIMEOUT) != 0;
                 goto fail;
             }
             if (timer_ticks() - t0 > 500000) {
                 err = "write timeout";
+                n_timeouts++;
                 goto fail;
             }
             continue;
@@ -364,6 +375,7 @@ static int write_blocks(uint32_t lba, uint32_t count, const uint8_t *buf)
     while (EDM_FIFO_LEVEL(mmio_read(SDEDM)))
         if (timer_ticks() - t0 > 500000) {
             err = "write not completed";
+            n_timeouts++;
             goto fail;
         }
     if (wait_transfer_complete(1))
@@ -391,8 +403,11 @@ int sdhost_read(uint32_t lba, uint32_t count, void *buf)
     uint8_t *p = buf;
     while (count) {
         uint32_t n = count > 128 ? 128 : count;
-        if (read_blocks(lba, n, p) && read_blocks(lba, n, p))     /* one retry */
-            return -1;
+        if (read_blocks(lba, n, p)) {
+            n_retries++;                                        /* one retry */
+            if (read_blocks(lba, n, p))
+                return -1;
+        }
         lba += n;
         count -= n;
         p += n * 512;
@@ -409,8 +424,11 @@ int sdhost_write(uint32_t lba, uint32_t count, const void *buf)
     const uint8_t *p = buf;
     while (count) {
         uint32_t n = count > 128 ? 128 : count;
-        if (write_blocks(lba, n, p) && write_blocks(lba, n, p))
-            return -1;
+        if (write_blocks(lba, n, p)) {
+            n_retries++;
+            if (write_blocks(lba, n, p))
+                return -1;
+        }
         lba += n;
         count -= n;
         p += n * 512;
@@ -421,3 +439,11 @@ int sdhost_write(uint32_t lba, uint32_t count, const void *buf)
 uint32_t sdhost_blocks(void) { return blocks; }
 int sdhost_is_hc(void) { return hc; }
 const char *sdhost_error(void) { return err; }
+
+void sdhost_counters(uint32_t *retries, uint32_t *timeouts)
+{
+    if (retries)
+        *retries = n_retries;
+    if (timeouts)
+        *timeouts = n_timeouts;
+}
