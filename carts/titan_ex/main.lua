@@ -23,6 +23,7 @@ local BL, BR, BU, BD = 0, 1, 2, 3
 local BA, BB, BX, BY = 4, 5, 6, 7
 local BSTART, BSELECT = 8, 9
 
+local FREE = { stand = true, walk = true, crouch = true }
 -- Modules
 local Data, Fighter, Fx, Stage, Hud, Cpu, Scr, Snd = {}, {}, {}, {}, {}, {}, {}, {}
 
@@ -617,7 +618,6 @@ do -- 20_fighter.lua
 -- super jump, air dash, chain canceling, localized armor break,
 -- overheat/energy resources, and 2v2 Tag Team battle system.
 
-local FREE = { stand = true, walk = true, crouch = true }
 local GUARDING = { stand = true, walk = true, crouch = true, block = true, cblock = true }
 
 function Fighter.new(team_num, slot_num, pad, cfg, x, face)
@@ -1338,7 +1338,7 @@ function Fighter.draw(f)
 
   -- Mecha layers rendering
   pieces(fr.b, x, y, flip)
-  local front = FR[ANIM[f.anim][f.fi]].swf
+  local front = fr.swf
   if weapon == "sword" and fr.sw and not front then pieces(fr.sw, x, y, flip) end
   if heavy and fr.hv then pieces(fr.hv, x, y, flip) end
   if weapon == "guns" and fr.g then pieces(fr.g, x, y, flip) end
@@ -2947,4 +2947,4 @@ end
 TITAN = { G = G, Data = Data, Scr = Scr, Fighter = Fighter, Fx = Fx, Stage = Stage, Hud = Hud, Cpu = Cpu,
           Snd = Snd }
 end
-TITAN_BUILD = "eb51c4b"
+TITAN_BUILD = "96c345b"

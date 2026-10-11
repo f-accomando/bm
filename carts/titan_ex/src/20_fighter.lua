@@ -4,7 +4,6 @@
 -- super jump, air dash, chain canceling, localized armor break,
 -- overheat/energy resources, and 2v2 Tag Team battle system.
 
-local FREE = { stand = true, walk = true, crouch = true }
 local GUARDING = { stand = true, walk = true, crouch = true, block = true, cblock = true }
 
 function Fighter.new(team_num, slot_num, pad, cfg, x, face)
@@ -725,7 +724,7 @@ function Fighter.draw(f)
 
   -- Mecha layers rendering
   pieces(fr.b, x, y, flip)
-  local front = FR[ANIM[f.anim][f.fi]].swf
+  local front = fr.swf
   if weapon == "sword" and fr.sw and not front then pieces(fr.sw, x, y, flip) end
   if heavy and fr.hv then pieces(fr.hv, x, y, flip) end
   if weapon == "guns" and fr.g then pieces(fr.g, x, y, flip) end
