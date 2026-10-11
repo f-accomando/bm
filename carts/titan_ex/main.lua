@@ -2947,4 +2947,4 @@ end
 TITAN = { G = G, Data = Data, Scr = Scr, Fighter = Fighter, Fx = Fx, Stage = Stage, Hud = Hud, Cpu = Cpu,
           Snd = Snd }
 end
-TITAN_BUILD = "c40dc45"
+TITAN_BUILD = "9f330d4"
