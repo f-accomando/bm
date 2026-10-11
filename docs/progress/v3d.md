@@ -41,8 +41,7 @@ From the v3d-async-proposal review (branch `origin/v3d-async-proposal`,
    `gpu3d()`; `make test-impostor`) is an option, off. After the Pi numbers, decide on
    Animator bake (an atlas colour per mesh).
 5. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
-6. Overlay rework (one overlay FPS | ms | CPU/GPU bars, F11 off/top/bottom): branch
-   `bm3d-overlay`, not merged.
+6. `gpu_ms` per step in the Overbit bench: needs a `stat()` for the GPU time (new API).
 
 ## To measure on the Pi
 
