@@ -152,6 +152,25 @@ driver, date if there is a network, machine, GPU status) and one CSV line per te
 run reads the last report and compares against it (white ticks, "x last" column). To
 keep their history in the repository, copy them to `docs/bench/`.
 
+The last five columns are measurements only (they change nothing): `clean_kcyc` and
+`inval_kcyc` are the ARM cycles (thousands, a frame; 0 without the PMU) of the whole data
+cache clean + invalidate before each job and after it; `pool_kb` and `ovf_kb` the most of
+the binner's tile-list pool (4096 KiB) and of its overflow area (2048 KiB) one job used,
+from `BPCA` after the job; `ovf_jobs` the jobs whose binner went into the overflow. The
+GPU test (`g`) and the session report print the binner's figures too.
+
+A job's GPU time (`gpu_ms`, the session report's *ms a frame* and *longest job seen to its
+end*) runs from its start to the end the ARM saw polling; a queued job that had ended before
+the ARM looked is not timed and counts at the timed ones' mean (`gpu3d_busy_us`; none timed:
+its start to the wait, an upper bound). The session report after a resume covers that run only.
+
+So runs can be compared, every report says the 3D options in force on one `options` line
+(`gpu3d_options_line`): `bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1
+sort=0` (`gpu3d=off` without the V3D), plus `3d= later= 2d= impostor= fast=` in the session
+report (second line, as the run ended) and on top of a game's `report()` (the Overbit
+bench's `overbit-bench`). The 3D Bench takes it at its start (each profile then sets its
+own), the GPU test (`g`) prints it at its end.
+
 ## A part, from the monitor
 
 The monitor's command line (`:`) runs only some tests and profiles, without waiting

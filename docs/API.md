@@ -125,65 +125,60 @@ The reference is split by area. **Read only the file you need** (and grep inside
 
 - 60 fps = **16.7 ms** per frame for `_update` + `_draw` + the copy to the screen. At the
   top left of the demo, `stat(1)` shows how much the cartridge uses.
-- The **dev kit**: the performance overlay over any game, at the top right. It is turned on
-  from Settings > Screen and sound > "Performance overlay" (Off, Simple, Detailed,
-  Functions: it stays saved), with F11 on the keyboard (a system key, also in the tools; it
-  was F3), with `p` from the serial line or with `devkit(mode)` from the game: once the
-  simple page, again the detailed one, again the functions page, again off. F11, `p` and `devkit()` last one run: every game starts (and
-  resumes) as Settings says. The simple page:
+- The **dev kit**: the performance overlay over any game, **off by default**. It is turned
+  on from Settings > Screen and sound > "Performance overlay" (Off, Top, Bottom: it stays
+  saved), with F11 on the keyboard (a system key, also in the tools), with `p` from the
+  serial line or with `devkit(mode)` from the game: once at the top right, again at the
+  bottom right, again off. F11, `p` and `devkit()` last one run: every game starts (and
+  resumes) as Settings says. One small block:
 
-      60fps 6.1ms ^7.5      frames a second; ms of _update + _draw: average and,
-                            after ^, the top of the last second
-      lua 9k ^10k           Lua instructions of a frame (thousands): average, top
-      ram 612k ^700k        memory: Lua now plus the data (sheet, map, models,
-                            sounds, z-buffer) and, after ^, the top
-      1234 tokens           the code's tokens (code_tokens)
+      60fps 8.2ms           frames a second; ms of work in a frame (the parts below)
+      cpu [=====---]  49%   the CPU's frame in its parts, % of 16.7 ms
+      gpu [===-----]  31%   the GPU's busy time, % of 16.7 ms (only while the GPU draws the 3D)
 
-  under it, the time of the last 64 frames: the top is 16.7 ms; green under half, yellow up
-  to 16.7, red beyond (the frame is skipped). The detailed page adds the last frame in its
-  phases and the 3D:
+  The CPU bar's parts, each its own colour, left to right: `_update` (blue), `_draw` without
+  its 3D, with the page's clear and copy (cyan), the 3D calls (`stat(6)` without the wait
+  for the GPU, violet), the **audio** interrupt (orange), the **wait for the GPU** (dark),
+  the rest free. The audio interrupt stops whatever code runs: the console counts its time
+  and takes it out of the part it fell in, so the parts add up. The % are of the
+  **16.7 ms of a frame at 60 Hz** (not of the frame: a game at 30 fps shows over 100%), the
+  means of the last second. The % and the bar's frame are green under 50%, yellow up to
+  80%, red over 80% or when a frame was skipped in that second. On the big screens it is
+  bigger (x2 from 1280 wide, x3 at 1920). It costs a few timestamps a frame; off, nothing.
+  The low battery icon stays left of it at the top.
 
-      update 5.8ms x2       all its _update (x2: two ran, frameskip)
-      draw   17.4ms         its _draw
-      3D     13.3ms         the 3D calls (stat(6))
-      gpu 9.1ms 2 jobs      the GPU's work (with the ARM: px, the pixels it drew)
-      tri 3620 vtx 5699     triangles drawn, vertices placed
-      bm3d 2.1 GPU          the 3D driver (ARM, GPU, GPU+AA)
-      quality HIGH          the game's lines (devinfo)
-
-  The **functions** page (R14) shows, under the simple one, the ten functions that cost
-  the most, in ms a frame, the average of the last second (60 frames):
-
-      function        self   all
-      draw_scene      2.28  6.43    a Lua function: its own time and with what it calls
-      map             0.94  0.94    in light blue the console's functions (spr, map, the 3D...)
-      _draw           0.03  7.70    the callbacks have their names
-
-  `self` is the function's own time, `all` the time with the functions it calls: a
-  function with a big `all` and a small `self` spends its time in the others. The console's
-  functions are measured exactly, the Lua ones in pieces of 1000 instructions (enough to see
-  where the time goes). The profiler runs only with this page or `profile(true)`; off it
-  costs nothing. From the code: `profile()` (below).
+- The **profiler of functions** (R14): `profile(true)` measures the functions that cost the
+  most, in ms a frame, the average of the last second (60 frames); `profile()` returns
+  them (below) and the session report lists the ten costliest. `self` is the function's
+  own time, `all` the time with the functions it calls: a function with a big `all` and a
+  small `self` spends its time in the others. The console's functions are measured
+  exactly, the Lua ones in pieces of 1000 instructions (enough to see where the time goes).
+  Off, it costs nothing.
 
 - The **last session's report** (2026-10-10): when a game ends the dev kit writes one file
   per game into the reports, `reports/<branch>/session_<game>_<board>.txt`, which the next
   run of the same game **replaces**. In it: screen, frames and fps, the mean and most time
   of `_update` + `_draw`, memory, and the time **from one picture to the next** in six
-  classes (up to 18 ms, 25, 34, 50, 100, more) with the 12 longest frames and their parts
-  (`cpu`, `upd`, `draw`, 3D, copy and `outside`: the time that is none of them, the SD
-  card, the GPU, the machine), and the game's own `devinfo()` lines as the run ended ("the game says:"; Yharnam: the chunks the view waited for). A half-second freeze is no longer lost after the overlay's 64
-  frames. It goes from the menu when there is a network. `bm/config.txt`:
-  `session_report=0` never, `=1` always; without the line, only with a `github_token`.
+  classes (up to 18 ms, 25, 34, 50, 100, more); **the frame in its parts** as the overlay
+  measures them (update, draw, 3D calls, audio, GPU wait: ms a frame and % of 16.7 ms), the
+  audio interrupt's share of the CPU's time (mean, and the most in a second), the GPU
+  wait's share of the frames' work and the % of frames where **the GPU set the pace** (the
+  ARM waited more than 2 ms for it); the 12 longest frames and their parts (`cpu`, `upd`,
+  `draw`, 3D, copy and `outside`: the time that is none of them, the SD card, the GPU, the
+  machine); with the GPU its jobs, the binner's memory and the frame queue; with
+  `profile(true)` the ten costliest functions; and the game's own `devinfo()` lines as the
+  run ended ("the game says:"; Yharnam: the chunks the view waited for). It goes from the
+  menu when there is a network. `bm/config.txt`: `session_report=0` never, `=1` always;
+  without the line, only with a `github_token`.
 
-  On the big screens it is bigger (x2 from 1280 wide, x3 at 1920). From the code:
-  `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`, `devkit()`,
-  `profile()`. The
-  limit is 20 million instructions per call. The
+  From the code: `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`,
+  `devkit()`, `profile()`. The limit is 20 million instructions per call. The
   **SDK's dev kit** (F1 twice) has the same numbers for the project: tokens, the biggest
   functions, the data's memory, the file against the 8 MiB of a `.b16` and the numbers of
   the last try (F5). At the end of a run the serial line also writes the line `dev kit:
   Lua peak ... KiB, data ... KiB, busiest frame ...k instructions, ... frames over 16.7 ms,
   ... tokens`.
+
 - Drawing is in C: a `spr` or `rectfill` call costs a few microseconds, but every call from
   Lua has a fixed cost. Orders of magnitude on the Pi (docs/STRESS.md): ~1800 16×16 sprites
   called from Lua at 60 fps, ~4500 from C; ~1200 3D triangles.

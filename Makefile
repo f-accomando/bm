@@ -687,7 +687,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading test-smp test-qpu test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
@@ -877,7 +877,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading \
-      test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
+      test-release test-smp test-qpu test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-overbit $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
@@ -1342,6 +1342,17 @@ $(BUILD)/host/test_gpu3d: tests/gpu/test_gpu3d.c tests/gpu/v3d_emu.c tests/gpu/v
 	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_gpu3d.c tests/gpu/v3d_emu.c \
 	    src/gpu/v3d_cl.c src/bm/r3d.c src/bm/gfx16.c $@-gpu3d.o -lm
+
+# Impostors (far small meshes as one quad, off by default): off the picture
+# of before, on fewer triangles and a bounded difference, the same choice on
+# the ARM and the GPU (V3D emulator)
+$(BUILD)/host/test_impostor: tests/bm/test_impostor.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/gpu3d.c                              src/gpu/gpu3d.h src/gpu/v3d_cl.c src/gpu/v3d.h src/gpu/shaders.h src/bm/r3d.c                              src/bm/gfx16.c src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free 	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/bm/test_impostor.c tests/gpu/v3d_emu.c 	    src/gpu/v3d_cl.c src/bm/r3d.c src/bm/gfx16.c $@-gpu3d.o -lm
+
+test-impostor: $(BUILD)/host/test_impostor
+	$<
 
 # The 3D Bench (src/bm/b3d.c) on the PC: the V3D emulated, quick mode,
 # twice (the second run reads the first's report); pages in build/b3d

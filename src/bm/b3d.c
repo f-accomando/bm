@@ -808,6 +808,8 @@ typedef struct {
     float instr, wait_instr, dmiss, cycles;  /* the ARM's counters, a frame */
     float tris_in, tris, verts, pixels, gltris;
     uint32_t core_mhz, gpu_mhz;         /* measured after the step's frames (0: unknown) */
+    float clean_kcyc, inval_kcyc;       /* the ARM's whole-cache upkeep around the jobs, a frame */
+    uint32_t pool_kb, ovf_kb, ovf_jobs; /* the binner's memory: most a job used; jobs in the overflow */
 } sample_t;
 
 typedef struct {
@@ -970,10 +972,15 @@ static void ramp(int ti, int pf)
         a.ms = b3d_median(fms, frames);     /* the counters below: the mean */
         a.instr *= k; a.wait_instr *= k; a.dmiss *= k; a.cycles *= k;
         a.tris_in *= k; a.tris *= k; a.verts *= k; a.pixels *= k;
-        a.gpu_ms = (float)(st.bin_us + st.render_us) * k / 1000.0f;
+        a.gpu_ms = (float)gpu3d_busy_us(&st) * k / 1000.0f;
         a.wait_ms = a.gpu_ms;           /* the ARM waits for every job (with the queue: at most) */
         a.jobs = (float)st.jobs * k;
         a.gltris = (float)st.gltris * k;
+        a.clean_kcyc = (float)st.clean_cyc * k / 1000.0f;
+        a.inval_kcyc = (float)st.inval_cyc * k / 1000.0f;
+        a.pool_kb = (st.pool_max + 1023) / 1024;
+        a.ovf_kb = (st.ovf_max + 1023) / 1024;
+        a.ovf_jobs = st.ovf_jobs;
         if (P->clocks)
             P->clocks(&a.core_mhz, &a.gpu_mhz);
         s[ns++] = a;
@@ -1142,6 +1149,7 @@ static float tris_most(int *most)
 }
 
 static int prev_score;                  /* the last report's (0: none, or a part of the bench) */
+static char opts_start[160];            /* the driver's options as the bench started (gpu3d_options_line) */
 
 /* ---------------------------------------------------------------- the report */
 
@@ -1217,14 +1225,16 @@ static void report(void)
     put("machine %s\n", P->machine ? P->machine : "?");
     put("gpu %s\n", gpu3d_status());
     put("probes %s\n", gpu3d_probe_log()[0] ? gpu3d_probe_log() : "none");
-    put("counters %s\n", P->counting ? pmu_name() : "none");
+    put("options %s (at the start; each profile sets its own)\n", opts_start);
+    put("counters %s\n",P->counting ? pmu_name() : "none");
     put("previous %s\n", prev_name[0] ? prev_name : "none");
     if (P->only_tests || P->only_profiles)      /* a part of the bench, from the monitor's line */
         put("only tests %s, profiles %s\n", P->only_tests ? P->only_tests : "all",
             P->only_profiles ? P->only_profiles : "all");
     put("columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,"
-        "instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz\n");
-    char a[16], b[16], c[16], d[16], e[16], f[16];
+        "instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,"
+        "ovf_jobs\n");
+    char a[16], b[16], c[16], d[16], e[16], f[16], g1[16], g2[16];
     for (int ti = 0; ti < NTESTS; ti++) {
         const test_t *t = &tests[ti];
         if (t->future) {
@@ -1236,12 +1246,14 @@ static void report(void)
             if (!r->ran)
                 continue;
             const sample_t *s = &r->at;
-            put("R,%s,%s,%s,%s,%s,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,%lu,%lu,%lu,%lu,%d,%d,%d,%lu,%lu\n", t->id, prof[pf].name,
+            put("R,%s,%s,%s,%s,%s,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,%lu,%lu,%lu,%lu,%d,%d,%d,%lu,%lu,%s,%s,%lu,%lu,%lu\n",
+                t->id, prof[pf].name,
                 prof_version(pf), f1(a, r->n60), f1(b, r->n30), r->over, f1(c, s->ms), f1(d, s->worst),
                 (int)s->tris_in, (int)s->tris, (int)s->verts, (int)s->pixels, (int)s->gltris, f1(e, s->jobs),
                 f1(f, s->gpu_ms), (unsigned long)s->instr, (unsigned long)s->wait_instr, (unsigned long)s->dmiss,
                 (unsigned long)s->cycles, (int)r->secs, (int)(r->tris60 + 0.5f), (int)(r->drawn60 + 0.5f),
-                (unsigned long)s->core_mhz, (unsigned long)s->gpu_mhz);
+                (unsigned long)s->core_mhz, (unsigned long)s->gpu_mhz, f1(g1, s->clean_kcyc), f1(g2, s->inval_kcyc),
+                (unsigned long)s->pool_kb, (unsigned long)s->ovf_kb, (unsigned long)s->ovf_jobs);
         }
     }
     /* the score (its S lines read by the next run) and the triangles at 60 fps */
@@ -1751,6 +1763,7 @@ int b3d_run(const b3d_platform_t *plat)
     prev_name[0] = 0;
     prev_score = 0;
     halted = 0;
+    gpu3d_options_line(opts_start, sizeof opts_start);
     if (r3d_init(&R, g) != 0)
         return -1;
     meshes_make();

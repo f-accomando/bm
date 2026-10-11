@@ -828,7 +828,7 @@ void r3d_zclear(r3d_t *r)
         r->backend->zclear(r->backend->ctx, r->g);
     else
         memset(r->zbuf, 0, (size_t)r->g->w * r->g->h * 2);
-    r->tris_in = r->tris_drawn = r->pixels = r->verts = 0;
+    r->tris_in = r->tris_drawn = r->pixels = r->verts = r->impostors = 0;
 }
 
 /* What follows needs the software rasterizer (it reads the z-buffer, or a
@@ -1485,6 +1485,192 @@ static inline __attribute__((always_inline)) int face_colours(r3d_t *r, const vi
     return 1;
 }
 
+/* ---- impostors (r3d_t.impostor, off by default): a far small mesh as one
+ * quad facing the camera, in its average colour lit as a whole. Decided by
+ * the mesh's box on the screen only (the camera, the mesh, its place and
+ * the threshold): the same on every console, whatever draws it. */
+
+/* the share of the projected box an impostor fills: a ball fills pi/4 of
+ * its square, a cube seen from a corner about 3/4 */
+#define IMP_FILL 0.88f
+
+/* the mesh's box and average colours, once a version of it (and of its
+ * texture) */
+static void imp_prepare(r3d_mesh_t *m)
+{
+    const g16_sheet_t *tex = m->uv ? m->tex : NULL;
+    const uint32_t tver = tex ? tex->version : 0;
+    if (m->imp.key == m->version && m->imp.tex == tex && m->imp.tver == tver)
+        return;
+    memset(&m->imp, 0, sizeof m->imp);
+    m->imp.key = m->version;
+    m->imp.tex = tex;
+    m->imp.tver = tver;
+    for (int i = 0; i < m->nverts; i++) {
+        const float c[3] = { m->verts[i].x, m->verts[i].y, m->verts[i].z };
+        for (int k = 0; k < 3; k++) {
+            if (i == 0 || c[k] < m->imp.lo[k]) m->imp.lo[k] = c[k];
+            if (i == 0 || c[k] > m->imp.hi[k]) m->imp.hi[k] = c[k];
+        }
+    }
+    float wl = 0, we = 0, wb = 0;
+    for (int t = 0; t < m->nfaces; t++) {
+        const uint32_t rgb = m->colors[t];
+        if (!R3D_LOD_SHOWS(rgb, 3u))
+            continue;
+        const uint16_t *f = m->faces + t * 3;
+        const v3_t a = m->verts[f[0]], b = m->verts[f[1]], c = m->verts[f[2]];
+        const v3_t u = { b.x - a.x, b.y - a.y, b.z - a.z }, v = { c.x - a.x, c.y - a.y, c.z - a.z };
+        const v3_t n = { u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x };
+        float w = sqrtf(n.x * n.x + n.y * n.y + n.z * n.z);
+        if (rgb & R3D_SCREEN)
+            w *= 0.5f;                      /* every other pixel */
+        uint32_t col = rgb & 0xFFFFFF;
+        const int textured = (rgb & R3D_TEXTURED) && tex;
+        if (textured) {
+            /* the texel at the face's middle */
+            const float *uv = m->uv + t * 6;
+            int x = (int)((uv[0] + uv[2] + uv[4]) * (1.0f / 3)), y = (int)((uv[1] + uv[3] + uv[5]) * (1.0f / 3));
+            x = x < 0 ? 0 : x >= tex->w ? tex->w - 1 : x;
+            y = y < 0 ? 0 : y >= tex->h ? tex->h - 1 : y;
+            if (tex->alpha && !tex->alpha[y * tex->w + x])
+                continue;                   /* a hole */
+            col = g16_to_rgb24(tex->px[y * tex->w + x]);
+        }
+        const float rgbf3[3] = { (float)(col >> 16 & 255), (float)(col >> 8 & 255), (float)(col & 255) };
+        float *sum = (rgb & R3D_EMISSIVE) ? m->imp.emit : m->imp.lit;
+        for (int k = 0; k < 3; k++)
+            sum[k] += w * rgbf3[k];
+        if (rgb & R3D_EMISSIVE) {
+            we += w;
+        } else {
+            wl += w;
+            if (m->clight && !textured) {
+                const uint8_t *bl = m->clight + t * 9;
+                for (int k = 0; k < 3; k++)
+                    m->imp.bake[k] += w * (bl[k] + bl[3 + k] + bl[6 + k]) * (1.0f / (3 * 128));
+                wb += w;
+            }
+        }
+    }
+    for (int k = 0; k < 3; k++) {
+        m->imp.lit[k] = wl > 0 ? m->imp.lit[k] / wl : 0;
+        m->imp.emit[k] = we > 0 ? m->imp.emit[k] / we : 0;
+        m->imp.bake[k] = wb > 0 ? m->imp.bake[k] / wb : 1;
+    }
+    m->imp.we = wl + we > 0 ? we / (wl + we) : 0;
+    m->imp.baked = wb > 0;
+}
+
+/* 1 if the mesh was drawn as an impostor: its box (scale, R, p) on the
+ * screen is at most r->impostor pixels each way. (wx, wy, wz) the middle of
+ * its box relative to the camera, cz its depth, rad its sphere. */
+static int impostor(r3d_t *r, const r3d_mesh_t *m, const view_t *v, const float R[9], v3_t p, float scale,
+                    float wx, float wy, float wz, float cz, float rad, unsigned flags)
+{
+    const float thr = (float)r->impostor;
+    if (cz - rad < NEAR || v->f * rad > thr * (cz - rad))
+        return 0;                           /* near, or its sphere is more than 2x as big */
+    r3d_mesh_t *mm = (r3d_mesh_t *)m;       /* the cache of the mesh */
+    imp_prepare(mm);
+    const float *C = v->c;
+    float x0 = 1e30f, y0 = 1e30f, x1 = -1e30f, y1 = -1e30f;
+    for (int i = 0; i < 8; i++) {
+        const float o[3] = { (i & 1) ? m->imp.hi[0] : m->imp.lo[0], (i & 2) ? m->imp.hi[1] : m->imp.lo[1],
+                             (i & 4) ? m->imp.hi[2] : m->imp.lo[2] };
+        const float qx = p.x + scale * (R[0] * o[0] + R[1] * o[1] + R[2] * o[2]) - r->cam_pos.x,
+                    qy = p.y + scale * (R[3] * o[0] + R[4] * o[1] + R[5] * o[2]) - r->cam_pos.y,
+                    qz = p.z + scale * (R[6] * o[0] + R[7] * o[1] + R[8] * o[2]) - r->cam_pos.z;
+        const float x = C[0] * qx + C[1] * qy + C[2] * qz, y = C[3] * qx + C[4] * qy + C[5] * qz,
+                    z = C[6] * qx + C[7] * qy + C[8] * qz;
+        if (z < NEAR)
+            return 0;
+        const float iz = v->f / z, sx = v->hw + x * iz, sy = v->hh - y * iz;
+        if (sx < x0) x0 = sx;
+        if (sx > x1) x1 = sx;
+        if (sy < y0) y0 = sy;
+        if (sy > y1) y1 = sy;
+    }
+    {
+        /* and inside the square of its sphere (a turned box's square is
+         * up to 1.7x as wide): the two hold the whole mesh */
+        const float iz = v->f / cz, sx = v->hw + (C[0] * wx + C[1] * wy + C[2] * wz) * iz,
+                    sy = v->hh - (C[3] * wx + C[4] * wy + C[5] * wz) * iz, sr = v->f * rad / (cz - rad);
+        if (sx - sr > x0) x0 = sx - sr;
+        if (sx + sr < x1) x1 = sx + sr;
+        if (sy - sr > y0) y0 = sy - sr;
+        if (sy + sr < y1) y1 = sy + sr;
+    }
+    if (x1 - x0 > thr || y1 - y0 > thr)
+        return 0;
+    /* the light of the whole: the sun on the half seen from the camera
+     * (the mean of max(n.L, 0) there is about (1 + V.L) / 3, of n.y 2/3 V.y,
+     * of the rim (1 - n.V)^2 1/6), the lamps at its middle, the fog at its
+     * depth */
+    lit_t k = { { 1, 1, 1 }, { 0, 0, 0 } };
+    const int unlit = (flags & R3D_UNLIT) != 0;
+    if (!unlit) {
+        if (m->clight && m->imp.baked) {
+            k.l = (r3d_rgb_t){ m->imp.bake[0], m->imp.bake[1], m->imp.bake[2] };
+        } else {
+            const float l = sqrtf(wx * wx + wy * wy + wz * wz);
+            const v3_t V = l > 1e-6f ? (v3_t){ -wx / l, -wy / l, -wz / l } : (v3_t){ -C[6], -C[7], -C[8] };
+            float dd = (1.0f + V.x * r->light.x + V.y * r->light.y + V.z * r->light.z) * (1.0f / 3);
+            const float a = r->ambient, t = 0.5f + (1.0f / 3) * V.y, ka = (1.0f - a) * dd, rim = r->rim_k / 6;
+            k.l.r = a * (r->ground.r + (r->sky.r - r->ground.r) * t) + ka * r->sun.r + rim * r->sky.r;
+            k.l.g = a * (r->ground.g + (r->sky.g - r->ground.g) * t) + ka * r->sun.g + rim * r->sky.g;
+            k.l.b = a * (r->ground.b + (r->sky.b - r->ground.b) * t) + ka * r->sun.b + rim * r->sky.b;
+        }
+        for (int i = 0; i < R3D_LAMPS; i++) {
+            if (!r->lamp[i].on)
+                continue;
+            const float dx = r->cam_pos.x + wx - r->lamp[i].pos.x, dy = r->cam_pos.y + wy - r->lamp[i].pos.y,
+                        dz = r->cam_pos.z + wz - r->lamp[i].pos.z, d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 < r->lamp[i].r2) {
+                const float kk = r->lamp[i].k * (1.0f - d2 / r->lamp[i].r2);
+                k.l.r += kk * r->lamp[i].c.r;
+                k.l.g += kk * r->lamp[i].c.g;
+                k.l.b += kk * r->lamp[i].c.b;
+            }
+        }
+    }
+    float col[3];
+    const float lk[3] = { k.l.r, k.l.g, k.l.b }, we = m->imp.we;
+    float ff = 0;
+    if (r->fog_far > r->fog_near) {
+        ff = (cz - r->fog_near) / (r->fog_far - r->fog_near);
+        ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
+    }
+    for (int c = 0; c < 3; c++) {
+        float x = m->imp.lit[c] * lk[c];
+        x = (x > 255 ? 255 : x) * (1 - we) + m->imp.emit[c] * we;
+        x += ((float)(r->fog_rgb >> (16 - 8 * c) & 255) - x) * ff;
+        col[c] = x < 0 ? 0 : x > 255 ? 255 : x;
+    }
+    /* the quad: the box's square on the screen, shrunk to about the
+     * mesh's area, at the depth of its middle; clockwise on the screen */
+    const float mx = (x0 + x1) * 0.5f, my = (y0 + y1) * 0.5f, hx = (x1 - x0) * 0.5f * IMP_FILL,
+                hy = (y1 - y0) * 0.5f * IMP_FILL, iz = 1.0f / cz;
+    const sv_t q[4] = { { mx - hx, my - hy, iz }, { mx + hx, my - hy, iz }, { mx + hx, my + hy, iz },
+                        { mx - hx, my + hy, iz } };
+    uint16_t *zbuf = (flags & R3D_NOZ) ? NULL : r->zbuf;
+    if (r->backend) {
+        r3d_corner_t c[4];
+        for (int i = 0; i < 4; i++)
+            corner(&c[i], q[i].x, q[i].y, q[i].z, col[0] * (1.0f / 255), col[1] * (1.0f / 255),
+                   col[2] * (1.0f / 255));
+        emit(r, c, 4, R3D_KIND_COLOUR, NULL, zbuf ? R3D_DEPTH_WRITE : R3D_DEPTH_NONE);
+    } else {
+        const uint16_t c16 = g16_rgb((uint32_t)col[0], (uint32_t)col[1], (uint32_t)col[2]);
+        r->pixels += raster(r->g, zbuf, q[0], q[1], q[2], c16, 0);
+        r->pixels += raster(r->g, zbuf, q[0], q[2], q[3], c16, 0);
+    }
+    r->tris_in += (uint32_t)m->nfaces;
+    r->tris_drawn += 2;
+    r->impostors++;
+    return 1;
+}
+
 void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
                     float scale, unsigned flags)
 {
@@ -1519,6 +1705,9 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             r->tris_in += (uint32_t)m->nfaces;
             return;
         }
+        if (r->impostor > 0 && !(flags & R3D_FRONT) && m->nfaces > 2 &&
+            impostor(r, m, &v, R, p, scale, wx, wy, wz, cz, rad, flags))
+            return;
         /* the backend's guard band: |x| <= |cx| + rad and z >= cz - rad
          * for every point of the sphere */
         const float zmin = cz - rad, gb = r->backend ? r->backend->guard : 0;

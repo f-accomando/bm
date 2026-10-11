@@ -110,27 +110,31 @@ title: devkit(modo) e devinfo(...) - l'overlay delle prestazioni dal gioco
 title_en: devkit(mode) and devinfo(...) - the performance overlay from the game
 ask: accendere il dev kit dal gioco | overlay delle prestazioni con il pad | show the performance overlay
 ask: righe mie nel dev kit | aggiungere informazioni al dev kit | devinfo
+ask: overlay in basso | barra della cpu e della gpu | move the overlay to the bottom
+keys: devkit, overlay, cpu, gpu, barra, bar
 see: guide.devkit, stat, frameskip
 text:
-devkit() dà il modo dell'overlay: 0 spento, 1 semplice, 2 dettagliato
-(ogni fase del fotogramma, la GPU, i triangoli), 3 funzioni (le dieci che
-costano di più); devkit(modo) lo cambia, per esempio con Select sul pad
-(F11 è della tastiera). devinfo(riga, ...) mette fino a 4 righe del gioco
-nella pagina dettagliata. A fine partita il dev kit scrive nei reports
-l'ultima sessione (session_gioco_scheda.txt, sostituito a ogni nuova
-partita): i fotogrammi più lunghi e le loro parti, per trovare i blocchi.
+devkit() dà il modo dell'overlay: 0 spento, 1 in alto a destra, 2 in
+basso a destra (3 vale 1). Un blocco piccolo: fps e ms, la barra della CPU
+(update, draw, chiamate 3D, audio, attesa della GPU, libero) e quella della
+GPU, in % dei 16,7 ms di un fotogramma; verde sotto il 50%, giallo fino
+all'80%, rosso oltre. devkit(modo) lo cambia, per esempio con Select sul
+pad (F11 è della tastiera). devinfo(riga, ...) mette fino a 4 righe del
+gioco nel report di sessione, che il dev kit scrive a fine partita nei
+reports (session_gioco_scheda.txt): le parti del fotogramma, i più lunghi.
 text_en:
-devkit() gives the overlay's mode: 0 off, 1 simple, 2 detailed
-(every phase of the frame, the GPU, the triangles), 3 functions (the ten
-that cost the most); devkit(mode) changes it, for example with Select on
-the pad (F11 is the keyboard's). devinfo(line, ...) puts up to 4 lines of
-the game on the detailed page. At the end of a run the dev kit writes the
-last session to the reports (session_game_board.txt, replaced by every new
-run): the longest frames and their parts, to find the freezes.
+devkit() gives the overlay's mode: 0 off, 1 top right, 2 bottom right (3
+counts as 1). One small block: fps and ms, the CPU bar (update, draw, 3D
+calls, audio, GPU wait, free) and the GPU bar, in % of the 16.7 ms of a
+frame; green under 50%, yellow up to 80%, red over. devkit(mode) changes
+it, for example with Select on the pad (F11 is the keyboard's).
+devinfo(line, ...) puts up to 4 lines of the game in the session report,
+which the dev kit writes at the end of a run to the reports
+(session_game_board.txt): the frame's parts, the longest frames.
 code:
 local enemies = {}
-if btnp(9) then devkit((devkit() + 1) % 4) end   -- Select
-if devkit() == 2 then devinfo("nemici " .. #enemies) end
+if btnp(9) then devkit((devkit() + 1) % 3) end   -- Select
+if devkit() > 0 then devinfo("nemici " .. #enemies) end
 
 == battery
 kind: api
@@ -175,14 +179,14 @@ ask: le funzioni più pesanti del gioco | cosa rallenta il gioco | profiling per
 ask: which function is slow | where does the frame time go | function profiler
 see: devkit, guide.devkit, stat
 text:
-Il profiler delle funzioni: F11 tre volte (la pagina delle funzioni del
-dev kit) o profile(true) dal gioco. profile() dà le funzioni dell'ultimo
-secondo, la più cara per prima: name, where ("main.lua:120" o "[C]"),
-self (ms per fotogramma, il suo tempo), total (con quelle che chiama),
-calls (solo per le funzioni in C). profile(false) lo spegne.
+Il profiler delle funzioni: profile(true) dal gioco (il report di
+sessione elenca poi le dieci più care). profile() dà le funzioni
+dell'ultimo secondo, la più cara per prima: name, where ("main.lua:120" o
+"[C]"), self (ms per fotogramma, il suo tempo), total (con quelle che
+chiama), calls (solo per le funzioni in C). profile(false) lo spegne.
 text_en:
-The profiler of functions: F11 three times (the functions page of the
-dev kit) or profile(true) from the game. profile() gives the functions of
+The profiler of functions: profile(true) from the game (the session
+report then lists the ten costliest). profile() gives the functions of
 the last second, the costliest first: name, where ("main.lua:120" or
 "[C]"), self (ms per frame, its own time), total (with the ones it
 calls), calls (only for the functions in C). profile(false) turns it off.

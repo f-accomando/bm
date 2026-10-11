@@ -35,6 +35,20 @@ uint32_t v3d_bus(const void *p);
  * (written before every binning job; 0, 0: none). */
 void v3d_set_overflow(uint32_t bus, uint32_t size);
 
+/* Measurement only, no behaviour: the tile-list pool the binning list
+ * gives the binner (its TILE_BINNING_MODE_CONFIG; 0, 0: not measured).
+ * v3d_last_cost: the last job's (v3d_run, or v3d_start + v3d_wait) cycles
+ * of the ARM's whole data cache clean + invalidate before the start and
+ * after the end (0 with the PMU off), and the bytes of the pool and of the
+ * overflow the binner used, from BPCA after the job (0 without binning);
+ * ovf 1 if BPCA ended in the overflow area. */
+typedef struct {
+    uint32_t clean_cyc, inval_cyc;
+    uint32_t pool_used, ovf_used, ovf;
+} v3d_cost_t;
+void v3d_set_pool(uint32_t bus, uint32_t size);
+void v3d_last_cost(v3d_cost_t *c);
+
 /* Runs a job: the binning list [bin, bin_end) if bin_end != bin, then the
  * rendering list [rnd, rnd_end). Waits at most timeout_us for each.
  * 0, or -1 (timeout or error: the registers are kept for v3d_dump). The
@@ -47,10 +61,17 @@ int v3d_run(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end, uint
  * with V3D_WAIT_ON_SEMAPHORE when there is binning): 0, or -1 (a job still
  * running, no V3D). v3d_busy: 1 while it runs. v3d_wait: waits for it as
  * v3d_run (0 at once if none was started); *rnd_us the time from its start
- * to the end the ARM saw, *bin_us 0. */
+ * to the end the ARM saw polling (the wait, or v3d_busy), *bin_us 0; a job
+ * that had ended before either looked: *rnd_us 0 (not timed), *bin_us the
+ * time from its start to the wait (an upper bound: it may hold a pause). */
 int v3d_start(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end);
 int v3d_busy(void);
 int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us);
+
+/* The microseconds the ARM spent waiting for the V3D (v3d_run, v3d_wait)
+ * since boot, the audio interrupt's time inside the waits left out (the
+ * dev kit's "GPU wait"); it wraps */
+extern volatile uint32_t v3d_wait_us;
 
 /* M35: the 1 MiB sections wholly inside [p, p + size) of ARM memory made
  * uncached (on: the ARM's writes go out through the write buffer, merged,

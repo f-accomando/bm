@@ -354,8 +354,22 @@ end
   the map's visibility given once by `pvs3d{...}` (cells on the ground and the pieces seen
   from each, as Overbit's map) also if a wall hides it. Characters skipped this way cost
   nothing: `if visible3d(e.x, e.y + 1, e.z, 1.5) then draw3d(e.mesh, ...) end`.
+- **Far small models (impostors, off by default):** `gpu3d(nil, nil, nil, nil, 6)` draws a
+  model whose box on the screen is at most 6 pixels as one quad of its average colour (2
+  triangles instead of all its faces), on the GPU and on the ARM alike; `gpu3d(nil, nil,
+  nil, nil, 0)` turns it off. The player can turn it on for every game in *Settings > Screen
+  and sound > 3D impostors* (`r3d_impostor` in `bm/config.txt`).
 - 2D and 3D mix: a background with `rectfill`/`map`, models with `draw3d`, the HUD with
   `print` at the end.
+- **The Pi's GPU:** `gpu3d()` says whether it draws the 3D, and how (`on, aa, vs, version,
+  queue, impostor, later`). The console's options make the 3D faster without touching the game: with
+  *3D frame shown: A frame later* (`gpu3d_later=1`, with `gpu3d_queue=2`) each frame is shown
+  a frame later and the next `_update` and `_draw` run while the GPU draws it. The pictures
+  are the same; it asks only what every game should do anyway: the state changes in
+  `_update`, the HUD after the 3D (`docs/API.md`, *A frame later*). `queue` comes back as the
+  level in force (`1`, `2`) or `false`; asking for it with `true` (`gpu3d(true, false, 2, true)`)
+  keeps the console's own level, so a game that picks its renderer does not undo the player's
+  `gpu3d_queue=2` or `gpu3d_later`.
 
 **With bm Studio** ([sdk/README.md](../sdk/README.md)): models are made on the console
 placing the sprite sheet's tiles on a grid, and they live in the `.bm` itself; in the game
@@ -820,13 +834,16 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
 
 - **Performance:** the cost is almost all in the Lua of `_update`/`_draw`; the drawing is
   in C. Avoid creating new tables in every frame in hot loops; update only the enemies near
-  the camera; draw only the part of the map that shows. F11 twice shows the dev kit's
-  detailed page: how long `_update`, `_draw` and the 3D took in the last frame. F11 three
-  times, the **functions** page: the ten that cost the most (ms a frame: their own time and
-  with what they call); start optimising from the first.
+  the camera; draw only the part of the map that shows. F11 shows the dev kit's overlay
+  (again: at the bottom; again: off): fps, the ms of a frame, and a CPU bar with its parts
+  (`_update`, `_draw`, the 3D calls, the audio, the wait for the GPU) and a GPU bar, in % of
+  the 16.7 ms of a frame; the longest part is where to start. `profile(true)` measures the
+  functions: `profile()` returns the costliest (ms a frame: their own time and with what
+  they call), and the session report lists the ten first.
   For stalls you cannot catch in time, at the end of a run the dev kit writes the last
   session's report into the reports (`session_<game>_<board>.txt`, replaced by every new run):
-  the longest frames, and how much of each is `_update`, `_draw` and how much neither.
+  the frame in its parts, the longest frames, and how much of each is `_update`, `_draw` and
+  how much neither.
 - **Debugger** (bm Code): F8 puts a breakpoint on the line, F5 tries the game, which stops
   there and shows the variables and the stack; F10 the next line, F8 into a call, Shift+F8
   out, F5 goes on, Esc stops (back on the line). From the code `breakpoint("why")` stops the

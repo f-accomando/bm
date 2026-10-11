@@ -88,7 +88,7 @@ enum {
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
     R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
-    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE,
+    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR,
 };
 
 /* sound_depth: the bits of each sample at the output (what the output
@@ -134,7 +134,7 @@ static int wireless(void)
 /* the dev kit's overlay: Settings > Screen and sound */
 static const char *perf_name(void)
 {
-    static const char *const n[4] = { "Off", "Simple", "Detailed", "Functions" };
+    static const char *const n[3] = { "Off", "Top", "Bottom" };
     return n[bm_perf()];
 }
 
@@ -218,6 +218,25 @@ static const char *queue_choice(void)
     return queue_on() == 2 ? "On, 2 jobs" : "On";
 }
 
+/* gpu3d_later=1 (M39, bm3d 6.9): each frame shown a frame later, the
+ * game's next frame drawn while the GPU draws it; with gpu3d_queue=2 */
+static int later_on(void)
+{
+    const char *on = config_get("gpu3d_later");
+    return on && strcmp(on, "1") == 0;
+}
+
+static const char *later_choice(void)
+{
+    if (!later_on())
+        return "At once";
+    if (queue_on() != 2)
+        return "Later: needs 2 jobs";
+    if (gpu3d_ready() && !gpu3d_queue_ok())
+        return "Later: not on this GPU";
+    return "A frame later";
+}
+
 /* gpu3d_2d=1 (M37): the 2D over the 3D drawn by the GPU in its job */
 static int gpu2d_on(void)
 {
@@ -264,6 +283,26 @@ static int config_on(const char *key)
     const char *v = config_get(key);
     return v && strcmp(v, "1") == 0;
 }
+
+#ifndef BM_RGB30
+/* r3d_impostor: far small meshes as one quad, at most that many pixels;
+ * 0 off (the default). The row's steps: Off, 2, 4, 8, 16 */
+static int impostor_px(void)
+{
+    const char *v = config_get("r3d_impostor");
+    return v ? atoi(v) : 0;
+}
+
+static const char *impostor_choice(void)
+{
+    static char t[24];
+    const int px = impostor_px();
+    if (px <= 0)
+        return "Off";
+    ksnprintf(t, sizeof t, "Up to %d px", px);
+    return t;
+}
+#endif
 
 /* the network's state in a word or an address */
 static const char *net_word(void)
@@ -463,6 +502,8 @@ void home_panel(int id, home_panel_t *p)
                  "Who places the corners: ARM, or the GPU for the scenery or all", "%s", vs_choice());
         home_row(p, MENU_ROW_CHOICE, R_QUEUE, "3D frame queue",
                  "The game goes on while the GPU draws the frame before", "%s", queue_choice());
+        home_row(p, MENU_ROW_CHOICE, R_LATER, "3D frame shown",
+                 "A frame later: the next one is drawn while the GPU draws it (2 jobs)", "%s", later_choice());
         home_row(p, MENU_ROW_CHOICE, R_2D, "2D over the 3D",
                  "Drawn by the ARM after the GPU, or by the GPU in the same job", "%s",
                  gpu2d_on() ? "GPU" : "ARM");
@@ -479,12 +520,14 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_SORT, "3D draw order",
                  "Nearest first, triangles in cache order: the GPU skips work (vertex shader)", "%s",
                  config_on("gpu3d_sort") ? "Nearest first" : "As the game");
+        home_row(p, MENU_ROW_CHOICE, R_IMPOSTOR, "3D impostors",
+                 "Far small models drawn as one quad of their colour (GPU and ARM)", "%s", impostor_choice());
 #endif
         home_row(p, MENU_ROW_CHOICE, R_FAST3D, "3D on the ARM",
                  "Exact as before, or fast: one matrix a model, light in its axes", "%s",
                  config_on("r3d_fast") ? "Fast" : "Exact");
         home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
-                 "fps, ms, Lua, costliest functions (F11 too)", "%s",
+                 "fps, ms, CPU and GPU bars (F11 too)", "%s",
                  perf_name());
 #ifdef BM_RGB30
         /* the speaker, or the headphones (the console switches by itself) */
@@ -821,7 +864,7 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "keyboard layout: %s", hid_layout());
         break;
     case R_PERF:
-        bm_set_perf((bm_perf() + 1) % 4);       /* simple, detailed, functions, off */
+        bm_set_perf((bm_perf() + 1) % 3);       /* top, bottom, off */
         config_save();
         ksnprintf(d->note, sizeof d->note, "performance overlay: %s", perf_name());
         break;
@@ -1018,6 +1061,11 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "3D frame queue of the next game: %s", queue_choice());
         break;
     }
+    case R_LATER:
+        config_set("gpu3d_later", later_on() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D frame of the next game shown: %s", later_choice());
+        break;
     case R_2D:
         config_set("gpu3d_2d", gpu2d_on() ? "0" : "1");
         config_save();
@@ -1050,6 +1098,14 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "3D draw order of the next game: %s",
                   config_on("gpu3d_sort") ? "nearest first" : "as the game");
         break;
+    case R_IMPOSTOR: {
+        const int px = impostor_px();
+        const char *next = px <= 0 ? "2" : px < 4 ? "4" : px < 8 ? "8" : px < 16 ? "16" : "0";
+        config_set("r3d_impostor", next);
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D impostors of the next game: %s", impostor_choice());
+        break;
+    }
     case R_USB:
         if (how == 0) text(d, x_usb, 1, 0);
         break;

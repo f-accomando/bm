@@ -724,6 +724,8 @@ static int step_compare(framebuffer_t *fb, const char *what, void (*scene)(g16_t
             kprintf("ok  ARM %lu us, GPU %lu us (%lu triangles in %lu jobs%s; bin %lu, render %lu), "
                     "%d.%d%% differ\n", us[0], us[1], st.tris, st.jobs, st.zjobs ? ", depth kept" : "",
                     st.bin_us, st.render_us, permille / 10, permille % 10);
+            kprintf("    binner: at most %lu KiB of the tile lists, %lu KiB of the overflow, %lu jobs in it\n",
+                    (st.pool_max + 1023) / 1024, (st.ovf_max + 1023) / 1024, st.ovf_jobs);
             if (st.queued || st.zinjob)
                 kprintf("    %lu jobs started and waited for later, %lu zclear() inside a job\n", st.queued,
                         st.zinjob);
@@ -1253,6 +1255,9 @@ void gpu_test(framebuffer_t *fb)
     if (ok && gpu3d_ready())
         step_gpu2d(fb);
     probe_lines();
+    char opts[160];
+    gpu3d_options_line(opts, sizeof opts);
+    kprintf("    options after the test: %s\n", opts);
     if (gpu3d_ready())
         gpu3d_drop();                       /* the games start from a clean state */
     kprintf(failed ? "GPU test \x1b[91mfailed\x1b[0m: a photo of these lines helps\n" : "GPU test passed\n");

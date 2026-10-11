@@ -2231,14 +2231,30 @@ static uint32_t rcl_build(uint32_t fb, int w, int h, int bin, int load, uint32_t
     return v3d_bus(cl.p);
 }
 
+/* the last job's measurements (v3d_last_cost) into the stats */
+static void cost_add(void)
+{
+    v3d_cost_t c;
+    v3d_last_cost(&c);
+    G.st.clean_cyc += c.clean_cyc;
+    G.st.inval_cyc += c.inval_cyc;
+    if (c.pool_used > G.st.pool_max)
+        G.st.pool_max = c.pool_used;
+    if (c.ovf_used > G.st.ovf_max)
+        G.st.ovf_max = c.ovf_used;
+    G.st.ovf_jobs += c.ovf;
+}
+
 static int run(int bin, uint32_t rcl_end)
 {
     if (job_wait() != 0)                /* (a job of the other block, M39) */
         return -1;
     uint32_t bus_us = 0, rus = 0;
     v3d_set_overflow(v3d_bus(G.overflow), JOB_OVERFLOW);    /* the GPU test sets its own */
+    v3d_set_pool(v3d_bus(G.alloc), JOB_ALLOC);
     int err = v3d_run(bin ? v3d_bus(G.bcl) : 0, bin ? v3d_bus(G.cl.p) : 0, v3d_bus(G.rcl), rcl_end,
                       TIMEOUT_US, &bus_us, &rus);
+    cost_add();
     G.st.jobs++;
     G.st.bin_us += bus_us;
     G.st.render_us += rus;
@@ -2263,9 +2279,14 @@ static int job_wait(void)
     G.inflight = 0;
     uint32_t bus_us = 0, rus = 0;
     const int err = v3d_wait(TIMEOUT_US, &bus_us, &rus);
+    cost_add();
     G.st.render_us += rus;
     if (rus > G.st.max_us)
         G.st.max_us = rus;
+    if (!rus) {                         /* ended before the ARM looked: not timed (gpu3d_busy_us) */
+        G.st.untimed++;
+        G.st.late_us += bus_us;
+    }
     if (err) {
         static char buf[640];
         v3d_dump(buf, sizeof buf);
@@ -2281,6 +2302,7 @@ static int run_async(uint32_t rcl_end)
     if (job_wait() != 0)                /* the V3D runs one job at a time */
         return -1;
     v3d_set_overflow(v3d_bus(G.overflow), JOB_OVERFLOW);
+    v3d_set_pool(v3d_bus(G.alloc), JOB_ALLOC);
     if (v3d_start(v3d_bus(G.bcl), v3d_bus(G.cl.p), v3d_bus(G.rcl), rcl_end) != 0)
         return -1;
     G.inflight = 1;
@@ -2607,6 +2629,24 @@ void gpu3d_take_stats(gpu3d_stats_t *s)
 void gpu3d_peek_stats(gpu3d_stats_t *s)
 {
     *s = G.st;
+}
+
+uint32_t gpu3d_wait_us(void)
+{
+    return v3d_wait_us;
+}
+
+int gpu3d_options_line(char *buf, size_t n)
+{
+    if (!n)
+        return 0;
+    if (!gpu3d_ready())
+        ksnprintf(buf, n, "bm3d %s gpu3d=off", BM3D_VERSION);
+    else
+        ksnprintf(buf, n, "bm3d %s gpu3d=on vs=%d aa=%d queue=%d wc=%d filter=%d tex16=%d fs2=%d sort=%d",
+                  BM3D_VERSION, gpu3d_vshader_on(), gpu3d_msaa_on(), gpu3d_queue2() ? 2 : gpu3d_queue(), gpu3d_wc(),
+                  gpu3d_bilinear(), gpu3d_tex16(), gpu3d_fs2(), gpu3d_sort());
+    return (int)strlen(buf);
 }
 
 /* ---------------------------------------------------------------- init */
