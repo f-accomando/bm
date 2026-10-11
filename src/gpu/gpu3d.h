@@ -177,6 +177,9 @@ typedef struct {
     uint32_t overlapped;            /* jobs filled while the one before was drawn (M39, two blocks) */
     uint32_t sorted;                /* mesh draws moved by the nearest-first order (M39) */
     uint32_t vcached;               /* triangles put in the vertex cache's order (M39) */
+    uint32_t clean_cyc, inval_cyc;  /* ARM cycles of the whole-cache clean before jobs, invalidate after (PMU on) */
+    uint32_t pool_max, ovf_max;     /* the most bytes of the binner's pool (JOB_ALLOC) and overflow a job used */
+    uint32_t ovf_jobs;              /* jobs whose binner went into the overflow area */
 } gpu3d_stats_t;
 
 /* totals since the last call, then zeroed */

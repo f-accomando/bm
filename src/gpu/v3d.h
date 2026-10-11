@@ -35,6 +35,20 @@ uint32_t v3d_bus(const void *p);
  * (written before every binning job; 0, 0: none). */
 void v3d_set_overflow(uint32_t bus, uint32_t size);
 
+/* Measurement only, no behaviour: the tile-list pool the binning list
+ * gives the binner (its TILE_BINNING_MODE_CONFIG; 0, 0: not measured).
+ * v3d_last_cost: the last job's (v3d_run, or v3d_start + v3d_wait) cycles
+ * of the ARM's whole data cache clean + invalidate before the start and
+ * after the end (0 with the PMU off), and the bytes of the pool and of the
+ * overflow the binner used, from BPCA after the job (0 without binning);
+ * ovf 1 if BPCA ended in the overflow area. */
+typedef struct {
+    uint32_t clean_cyc, inval_cyc;
+    uint32_t pool_used, ovf_used, ovf;
+} v3d_cost_t;
+void v3d_set_pool(uint32_t bus, uint32_t size);
+void v3d_last_cost(v3d_cost_t *c);
+
 /* Runs a job: the binning list [bin, bin_end) if bin_end != bin, then the
  * rendering list [rnd, rnd_end). Waits at most timeout_us for each.
  * 0, or -1 (timeout or error: the registers are kept for v3d_dump). The

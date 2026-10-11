@@ -152,6 +152,13 @@ driver, date if there is a network, machine, GPU status) and one CSV line per te
 run reads the last report and compares against it (white ticks, "x last" column). To
 keep their history in the repository, copy them to `docs/bench/`.
 
+The last five columns are measurements only (they change nothing): `clean_kcyc` and
+`inval_kcyc` are the ARM cycles (thousands, a frame; 0 without the PMU) of the whole data
+cache clean + invalidate before each job and after it; `pool_kb` and `ovf_kb` the most of
+the binner's tile-list pool (4096 KiB) and of its overflow area (2048 KiB) one job used,
+from `BPCA` after the job; `ovf_jobs` the jobs whose binner went into the overflow. The
+GPU test (`g`) and the session report print the binner's figures too.
+
 ## A part, from the monitor
 
 The monitor's command line (`:`) runs only some tests and profiles, without waiting

@@ -174,6 +174,48 @@ void v3d_set_overflow(uint32_t bus, uint32_t size)
     overflow_size = size;
 }
 
+/* measurement only (v3d_last_cost): nothing below changes what a job does */
+static uint32_t pool_bus, pool_size;
+static v3d_cost_t cost;
+
+void v3d_set_pool(uint32_t bus, uint32_t size)
+{
+    pool_bus = bus;
+    pool_size = size;
+}
+
+void v3d_last_cost(v3d_cost_t *c)
+{
+    *c = cost;
+}
+
+/* dcache_clean_invalidate_all(), its cycles added to *cyc */
+static void cache_all(uint32_t *cyc)
+{
+    pmu_t p0, p1;
+    pmu_read(&p0);
+    dcache_clean_invalidate_all();
+    pmu_read(&p1);
+    *cyc += p1.cycles - p0.cycles;
+}
+
+/* after a binning job: where the binner's pool pointer ended (BPCA). The
+ * pool first, then the overflow (on the Pi they are contiguous) */
+static void measure_bin(void)
+{
+    dmb();
+    const uint32_t a = rd(V3D_BPCA);
+    dmb();
+    cost.pool_used = cost.ovf_used = cost.ovf = 0;
+    if (pool_size && a >= pool_bus && a < pool_bus + pool_size) {
+        cost.pool_used = a - pool_bus;
+    } else if (overflow_size && a >= overflow_bus && a <= overflow_bus + overflow_size) {
+        cost.pool_used = pool_size;
+        cost.ovf_used = a - overflow_bus;
+        cost.ovf = 1;
+    }
+}
+
 int v3d_run(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end, uint32_t timeout_us,
             uint32_t *bin_us, uint32_t *rnd_us)
 {
@@ -181,9 +223,10 @@ int v3d_run(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end, uint
         return -1;
     if (bin_us) *bin_us = 0;
     if (rnd_us) *rnd_us = 0;
+    memset(&cost, 0, sizeof cost);
     /* lists, vertices and shaders written by the ARM reach the L2, and no
      * line of a buffer the V3D writes stays in the data cache */
-    dcache_clean_invalidate_all();
+    cache_all(&cost.clean_cyc);
     dmb();
     /* the V3D's own caches (L2, and per slice: instructions, uniforms,
      * textures) may hold the data of the previous job */
@@ -207,6 +250,8 @@ int v3d_run(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end, uint
         dmb();
         err = wait_count(V3D_RFC, V3D_CT1CS, timeout_us, rnd_us);
     }
+    if (bin_end != bin)
+        measure_bin();
     if (err) {
         wr(V3D_CT0CS, CT_RESET);
         wr(V3D_CT1CS, CT_RESET);
@@ -215,7 +260,7 @@ int v3d_run(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end, uint
         dmb();
     }
     /* what the V3D wrote is read from memory, not from stale lines */
-    dcache_clean_invalidate_all();
+    cache_all(&cost.inval_cyc);
     return err;
 }
 
@@ -232,7 +277,8 @@ int v3d_start(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end)
 {
     if (!ready || job.busy)
         return -1;
-    dcache_clean_invalidate_all();
+    memset(&cost, 0, sizeof cost);
+    cache_all(&cost.clean_cyc);
     dmb();
     wr(V3D_L2CACTL, L2C_CLEAR);
     wr(V3D_SLCACTL, 0x0F0F0F0Fu);
@@ -282,6 +328,8 @@ int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
     (void)b;
     (void)r;
     if (rnd_us) *rnd_us = timer_ticks() - job.t0;
+    if (job.bin)
+        measure_bin();
     if (err) {
         wr(V3D_CT0CS, CT_RESET);
         wr(V3D_CT1CS, CT_RESET);
@@ -289,7 +337,7 @@ int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
         wr(V3D_RFC, 1);
         dmb();
     }
-    dcache_clean_invalidate_all();
+    cache_all(&cost.inval_cyc);
     return err;
 }
 

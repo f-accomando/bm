@@ -8934,6 +8934,12 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
         const uint32_t per = (g->bin_us + g->render_us) / st->frames;
         PUT("\nGPU 3D: %lu jobs, %lu triangles a frame, %lu.%lu ms a frame, longest job %lu.%lu ms\n",
             (unsigned long)g->jobs, (unsigned long)(g->tris / st->frames), MS1(per), MS1(g->max_us));
+        PUT("binner memory: at most %lu KiB of the tile lists' 4096, %lu KiB of the overflow's 2048, %lu jobs "
+            "in the overflow\n", (unsigned long)((g->pool_max + 1023) / 1024),
+            (unsigned long)((g->ovf_max + 1023) / 1024), (unsigned long)g->ovf_jobs);
+        if (g->clean_cyc || g->inval_cyc)
+            PUT("ARM cache upkeep: %lu k cycles a frame before the jobs, %lu k after\n",
+                (unsigned long)(g->clean_cyc / st->frames / 1000), (unsigned long)(g->inval_cyc / st->frames / 1000));
     }
 #undef PUT
     reports_session(st->title, t, n);

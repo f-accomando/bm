@@ -724,6 +724,8 @@ static int step_compare(framebuffer_t *fb, const char *what, void (*scene)(g16_t
             kprintf("ok  ARM %lu us, GPU %lu us (%lu triangles in %lu jobs%s; bin %lu, render %lu), "
                     "%d.%d%% differ\n", us[0], us[1], st.tris, st.jobs, st.zjobs ? ", depth kept" : "",
                     st.bin_us, st.render_us, permille / 10, permille % 10);
+            kprintf("    binner: at most %lu KiB of the tile lists, %lu KiB of the overflow, %lu jobs in it\n",
+                    (st.pool_max + 1023) / 1024, (st.ovf_max + 1023) / 1024, st.ovf_jobs);
             if (st.queued || st.zinjob)
                 kprintf("    %lu jobs started and waited for later, %lu zclear() inside a job\n", st.queued,
                         st.zinjob);
