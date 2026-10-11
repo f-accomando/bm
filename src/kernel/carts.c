@@ -3,6 +3,7 @@
  */
 #include "carts.h"
 #include "crumbs.h"
+#include "devtool.h"
 #include "home.h"
 #include "syskeys.h"
 #include "market.h"
@@ -519,10 +520,7 @@ static int is_dev(const cart_t *c)
 
 /* The tools a tool can open on its file with cart_tool(name, path) (bm
  * Studio's "Open in bm Animator" and back). */
-static const struct {
-    const char *name, *what;
-    const uint8_t *start, *end;
-} tools[] = {
+static const devtool_t tools[] = {
     { "studio", "bm Studio", bm_studio_cart, bm_studio_cart_end },
     { "animator", "bm Animator", bm_animator_cart, bm_animator_cart_end },
     { "mesh", "bm Mesh", bm_mesh_cart, bm_mesh_cart_end },
@@ -531,74 +529,20 @@ static const struct {
     { "sdk", "SDK", bm_editor_cart, bm_editor_cart_end },
     { "sound", "Sound editor", bm_sound_cart, bm_sound_cart_end },
 };
+static const devtools_t suite = { tools, sizeof tools / sizeof tools[0], NULL };
 
 /* A development tool built into the kernel (the SDK, the Sound editor,
  * bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel), and the games it
- * tries: when the tool asks to play a file (cart_run), play it, then open
- * the tool again on that file with the error the game stopped with, if
- * any; when it asks for another tool (cart_tool), that one opens on the
- * file. `open`: a file to start on (the menu's "Open in ..."), or NULL.
- * Returns the name of the last tool (for the menu's "last: ..."). */
+ * tries (devtool.c, the RGB30's too): when the tool asks to play a file
+ * (cart_run), play it, then open the tool again on that file with the
+ * error the game stopped with, if any; when it asks for another tool
+ * (cart_tool), that one opens on the file. `open`: a file to start on (the
+ * menu's "Open in ..."), or NULL. Returns the name of the last tool (for
+ * the menu's "last: ..."). */
 const char *carts_tool_session(framebuffer_t *fb, const uint8_t *cart, size_t cart_len, const char *what,
                                const char *open)
 {
-    char path[64] = "", err[512] = "", tool[16], from[16] = "";
-    int back = 0, tried = 0;
-    bm_stats_t st;
-    if (open)
-        ksnprintf(path, sizeof path, "%s", open);
-    for (;;) {
-        crumb(what, NULL);
-        bm_set_arg(path[0] ? path : NULL, err[0] ? err : NULL);
-        bm_set_arg_back(back);
-        bm_set_arg_run(tried ? &st : NULL);     /* the dev kit's numbers of the game tried */
-        bm_set_arg_from(from[0] ? from : NULL);
-        tried = 0;
-        bm_set_tool(1);                 /* the tool saves where it is told */
-        bm_play(fb, cart, cart_len, PLAY_SECS, &st);
-        bm_set_tool(0);                 /* the games it tries do not */
-        bm_set_arg(NULL, NULL);
-        bm_set_arg_run(NULL);
-        bm_set_arg_from(NULL);
-        if (bm_take_tool(tool, sizeof tool)) {
-            /* the tool that asks: the next one finds it in cart_arg().from */
-            from[0] = 0;
-            for (unsigned k = 0; k < sizeof tools / sizeof tools[0]; k++)
-                if (!strcmp(tools[k].what, what))
-                    ksnprintf(from, sizeof from, "%s", tools[k].name);
-            unsigned i = 0;
-            while (i < sizeof tools / sizeof tools[0] && strcmp(tools[i].name, tool))
-                i++;
-            path[0] = 0;
-            bm_take_run(path, sizeof path);
-            if (i == sizeof tools / sizeof tools[0])
-                break;
-            cart = tools[i].start;
-            cart_len = (size_t)(tools[i].end - tools[i].start);
-            what = tools[i].what;
-            back = 0;
-            err[0] = 0;
-            continue;
-        }
-        if (!bm_take_run(path, sizeof path))
-            break;
-        back = 1;
-        err[0] = 0;
-        fat_entry_t e;
-        uint8_t *data;
-        size_t len;
-        if (fat_find(path, &e) != 0 || fat_load(&e, &data, &len) != 0) {
-            ksnprintf(err, sizeof err, "cannot read %s: %s", path, fat_error());
-            continue;
-        }
-        crumb("trying", path);
-        bm_play(fb, data, len, PLAY_SECS, &st);
-        bm_print_stats(&st);
-        tried = st.frames > 0;
-        free(data);
-        ksnprintf(err, sizeof err, "%s", bm_last_error());
-    }
-    return what;
+    return devtool_session(fb, &suite, cart, cart_len, what, open);
 }
 
 /* the SDK or the Sound editor */
