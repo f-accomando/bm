@@ -1,0 +1,41 @@
+bm report
+kind: session
+kernel: v0.2.5-107-g5fecedd
+branch: claude/fiber-quote
+board: Pi Zero W
+date: 2026-10-11 11:50:08
+file: session_overbit_Pi Zero W.txt
+
+session of "Overbit" (the last one: the next run of this game replaces this file)
+screen 640x360, 13391 frames in 263.2 s, 50.8 fps
+3D: GPU
+
+time of _update + _draw (+ the 3D's wait): avg 14.9 ms, max 2412.1 ms, 3579 frames over 16.7 ms
+memory: Lua peak 2037 KiB, data 5501 KiB; code 70207 tokens; busiest frame 1122k Lua instructions
+frames that were shown after more than 1.5 frames: 1226
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    10243
+  <= 25 ms             1921
+  <= 34 ms (30 fps)    790
+  <= 50 ms             252
+  <= 100 ms            144
+  > 100 ms (a freeze)  40
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
+   2227    63.0  2412.6   18.2  10.4    6.8   2.2   0.0  2394.4       45     1683        1
+   1163    32.4   420.8  100.3  98.7    1.6  32.4   0.0   320.4       29     1201        1
+   2015    53.1   370.6  109.9  97.6   12.2   2.9   0.0   260.7       34     1462        1
+   1802    47.6   342.3  100.7  99.4    1.3   3.3   0.0   241.5       33     1511        1
+   1589    42.2   336.2  100.1  98.7    1.3   2.8   0.0   236.0       32     1409        1
+   1376    36.9   329.5  100.4  99.0    1.3   2.0   0.0   229.1       31     1389        1
+  13249   260.0   321.2   83.4  81.7    1.7   0.9   0.0   237.7        7     1467        1
+  13348   262.4   320.3   85.3  84.0    1.3   0.9   0.0   234.9        7     1559        1
+    737    14.3   312.4  164.4 163.1    1.3   0.4   0.0   147.9      312     1404        1
+    951    18.8   311.1  310.8 309.4    1.3   1.4   0.0     0.3      935     1282        1
+    952    19.0   245.0  244.8 177.6   67.1  60.1   0.0     0.1      582     1252        1
+   1803    47.8   207.2  340.6 339.2    1.3   3.3   0.0     0.0     1122     1418        1
+
+GPU 3D: 11600 jobs, 8697 triangles a frame, 7.1 ms a frame, longest job 2404.5 ms
