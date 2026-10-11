@@ -511,35 +511,47 @@ def test_confirm_button(b, opts):
     assert chips["B"] == chips["A"][::-1], "confirm=a does not swap the chips of Open and Back"
 
 
+PI_CART = r"""
+local started = false
+function _update()
+  if not started and (btnp(4) or btnp(5)) then started = true log("pi cart started") end
+end
+function _draw()
+  for i = 0, 35 do                        -- 36 bands of colour over the 360x360 screen
+    local c = (i * 7 % 256) * 65536 + (255 - i * 7) * 256 + (started and 200 or 40)
+    rectfill(i * 10, 0, 10, 360, c)
+  end
+end
+"""
+
+
 def test_bm_cartridge(b, opts):
-    """A Pi cartridge on the RGB30 (listed with no config): Yharnam, 256x256 RGB565,
-    runs on the AArch64 kernel (QEMU shows its screen 1:1, widened to
-    32 bits); the title, then the game after A; 'q' leaves and the menu's
-    360x360 comes back."""
-    cart = os.path.join(b, "carts", "yharnam.bm")
-    if not os.path.exists(cart):
-        raise AssertionError(f"{cart} missing (make TARGET=rgb30 test builds it)")
+    """A Pi cartridge on the RGB30 (listed with no config): a .bm at 360x360,
+    RGB565, runs on the AArch64 kernel (QEMU shows its screen 1:1, widened to
+    32 bits); its screen, then A reaches the game; 'q' leaves with the frame
+    statistics and the menu's 360x360 comes back."""
     tmp = tempfile.mkdtemp(prefix="bm64sd-")
-    with open(cart, "rb") as f:
-        sd = make_sd(tmp, {"bm/yharnam.bm": f.read()})
+    sd = make_sd(tmp, {"bm/picart.bm": mkbm.pack(PI_CART.encode(), title="Pi cart", author="tests",
+                                                 res=(360, 360))})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
         time.sleep(0.4)
-        assert "yharnam.bm" in screen_all(q.screendump())
+        assert "picart.bm" in screen_all(q.screendump())
         q.send("\r")                            # confirm: play
-        q.expect("play: /bm/yharnam.bm", timeout=10)
+        q.expect("play: /bm/picart.bm", timeout=10)
         q.expect("bm: loaded", timeout=30)      # the system's splash, then the game
-        time.sleep(4)
+        time.sleep(2)
         img = q.screendump()
-        assert img[0] == 256 and img[1] == 256, f"screen {img[0]}x{img[1]}"
+        assert img[0] == 360 and img[1] == 360, f"screen {img[0]}x{img[1]}"
         colours = {img[2][i:i + 3] for i in range(0, len(img[2]), 3 * 97)}
-        assert len(colours) > 20, f"{len(colours)} colours: not the town"
-        q.send(" ")                              # the game's A: start
-        time.sleep(3)
+        assert len(colours) > 20, f"{len(colours)} colours: not the cartridge's bands"
+        q.send(" ")                              # the game's A
+        q.expect("pi cart started", timeout=10)
+        time.sleep(2)
         q.send("q")
         out = q.expect("fps", timeout=10).decode(errors="replace")
-        frames = int(out.split('"Yharnam" ')[1].split()[0])
+        frames = int(out.split('"Pi cart" ')[1].split()[0])
         assert frames > 100, out
         time.sleep(1)
         img = q.screendump()
@@ -729,6 +741,67 @@ def test_market_b16(b, opts):
     owned = subprocess.run(["mtype", "-i", part, "::/bm/market/GAMES.TXT"], capture_output=True,
                            env=env, check=True).stdout.decode()
     assert owned.startswith("pocket ") and owned.rstrip().endswith(" /bm/POCKET.B16"), owned
+
+
+TRY_ME = r"""
+function _init() log("tryme runs") end
+function _draw() cls(1) print("try me", 8, 8, 7) end
+"""
+
+
+def test_sdk_tool(b, opts):
+    """bm SDK (RGB30) (carts/sdk_b16), the tool built into this kernel, as
+    the Pi's SDK in its own (src/kernel/devtool.c): a game's options (X)
+    open it on the game ("Open in bm SDK"); F5 tries it, the console plays
+    it ('q' stops it) and the SDK comes back with the run's numbers;
+    Ctrl+\\ (Ctrl+Esc) leaves it for the menu. The Dev tab has it last; it
+    opens on the file of the last time."""
+    tmp = tempfile.mkdtemp(prefix="bm64sdk-")
+    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
+                       "bm/tryme.b16": mkbm.pack(TRY_ME.encode(), title="Try me", author="tests", res=(360, 360))})
+
+    def screen(want, tries=80):
+        for _ in range(tries):
+            text = screen_all(q.screendump())
+            if all(w in text for w in want):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"want {want} on the screen:\n{text}")
+
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.5)
+        screen(["Try me"])                      # Games: the only one
+        keys(q, "x")                            # X: its options
+        screen(["Open in bm SDK", "Play"])
+        keys(q, "s")                            # down: Open in bm SDK
+        q.send("\r")                            # confirm
+        q.expect("bm SDK on /bm/", timeout=10)    # (the name as the card has it)
+        screen(["PROJECT", "Try me", "project", "code"])   # the SDK's project page, its tabs
+        q.send("\x1b[15~")                      # F5: try it (a game: as it is, no copy)
+        q.expect("tryme runs", timeout=30)
+        time.sleep(1.5)
+        q.send("q")                             # the game stops
+        out = q.expect('bm: "Try me"', timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        screen(["back from the game"])          # the SDK again, the run's numbers
+        q.send("\x1c")                          # Ctrl+\ (Ctrl+Esc): leave the SDK
+        text = screen(["Games", "Dev", "Settings"])
+        assert in_menu(text), text
+        keys(q, "r")                            # Dev: 3D Bench
+        keys(q, "ss")                           # the third row: bm SDK, the last
+        text = screen(["bm SDK", "Dev"])
+        assert in_menu(text), text
+        q.buf = b""
+        q.send("\r")
+        q.expect("bm SDK\r\n", timeout=10)      # on no file (page_sdk's line)
+        screen(["PROJECT", "Try me"])           # the file of the last time
+        q.send("\x1c")
+        text = screen(["Games", "Dev", "Settings"])
+        assert in_menu(text), text
+    finally:
+        q.close()
 
 
 def test_battery_icon(b, opts):

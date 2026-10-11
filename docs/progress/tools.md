@@ -12,6 +12,18 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   the dev kit report of a test run, jumps to the other tools (`cart_tool`). Map page (`P.map`):
   layers, flags, `z` a 16×16 brush (2×2 cells, cursor and tile on even cells; fill on whole
   tiles), Home/End and PgUp/PgDn a page.
+- **bm SDK (RGB30)** (`carts/sdk_b16`, built into `kernel8.img` only: `rgb30.mk` →
+  `build/rgb30*/sdk_b16.bm`, `.incbin` in `src/rgb30/bm_embed.S`): the SDK's pages at 360×360
+  (`layout.lua`: `split` on the 8×16 grid, joined before `main.lua` by `build.py`), the pad by
+  names (`ok`/`back`, L1/R1, Start, X = the page's actions as a list, L2/R2), `padtype` for code
+  and names (a `require` shim gives empty word lists where the kernel has none). A tool of the
+  RGB30's Dev tab and of a game's options (*Open in bm SDK*, `src/rgb30/ui.c`): saves where it
+  is told, builds, tries (F5) and comes back. The suite's other programs are offered only if the
+  console has them (`SUITE` in `main.lua`: none on the RGB30). `carts/editor` is not changed by it.
+- **Tool session** (`src/kernel/devtool.c`): the tool, the games it tries (`cart_run`, back with
+  `cart_arg()`), the tools it opens (`cart_tool`); each console passes its tools (the Pi's seven
+  in `carts.c`, the RGB30's SDK in `ui.c`) and the RGB30 waits for the buttons to be let go
+  between runs.
 - **bm Code** (`carts/code`): tabs, two pages, 6×12/8×14/8×16 fonts; completion
   (`predict`, [`docs/PREDICT.md`](../PREDICT.md)), pad typing (`padtype`,
   [`docs/PADTYPE.md`](../PADTYPE.md)), F6 assistant and `#entry: … #` lines, F8
@@ -65,8 +77,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   unit took makes one (hash of its tile). Still `MAP`'s: hunter's lamps, barricades/gates, boss
   arenas, areas; beyond the edge the ring (`MAP.ring`). `carts/yharnam/mkmap.py` makes the first
   map from the plan (`make yharnam-map`, `tests/yharnam/mapgen.lua`: it overwrites the drawn
-  one), takes it back (`--from YHARNAM.BME`), draws it (`--png`). Test `tests/yharnam/drawn.lua`
-  (the generated map = the plan's town, chunk by chunk; edits; the repository's map).
+  one), takes it back (`--from YHARNAM.BME`), draws it (`--png`).
 - `tools/bm_net.py`: kernels, cartridges and files over WiFi (protocol in
   [system](system.md)); `tools/bm_load.py`: serial chainloader and terminal;
   `tools/overbit_relay.py`: the internet relay for `bmnet`.
@@ -86,8 +97,7 @@ ffmpeg/libass; storyboard and script come from the same key script. Series *Skyv
 tool; `make bmhost-ai` builds `bmhost` with the real `ai` table. On the PC: no kernel menu.
 
 ### CI (`.github/workflows/ci.yml`)
-Build; host tests on two machines (`make test-host` with `HOST_SKIP=test-overbit`, and
-`test-overbit`); QEMU in four shards (`make test-qemu SHARD=K/4`); RGB30 build and QEMU
+Build; host tests (`make test-host`); QEMU in four shards (`make test-qemu SHARD=K/4`); RGB30 build and QEMU
 tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes in `SLOW`.
 
 ## Open work (`docs/ROADMAP.md`)
@@ -95,6 +105,9 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, then publish in
   the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
+- **bm SDK (RGB30)**: try it on the console (Dev > bm SDK and Open in bm SDK, pad, typing, save,
+  copy of a game, Ctrl+B, F5 and Start + Select back); the QEMU test `test_sdk_tool` runs in CI
+  (`make TARGET=rgb30 test`). A game built in `/carts` is not in Games (R41).
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
 - **M43 step 3**: a *Stack* page in bm Pixel. **M42 step 4**: the SDK saves a real `.b16`.
@@ -117,5 +130,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   locals: export them. Tests `bmui_host.lua`, `MS` in the test doubles, QEMU `test_editor_mouse`.
 - Predict/pad tables `CROSS`/`FACE`/`KB` change in `src/ai/padtype.lua`.
 - kb comments `#` only at the top of a file; every entry has `title_en:` and `text_en:`.
+- bm SDK (RGB30): never edit `carts/editor` for it (two editions); never in the Pi's kernel nor
+  in the Market. Its test `make test-sdk-b16` (not in `HOST_TESTS`); QEMU `test_sdk_tool`.
 - Tests: `make test-studio`, `test-write`, `test-res`, `test-ai`, `test-predict`,
   `test-padtype`, `test-img2mesh`; QEMU `test_projects`, `test_bm_write`.

@@ -344,6 +344,18 @@ prova senza seriale e spesso senza tastiera).
 - **R38 — L'assistente e il pennello 16×16.** Una voce della kb ("come disegno una mappa grande
   con tile 16x16?", `z` sulla pagina mappa, `mkmap.py` come esempio) e la guida del platform che
   lo cita.
+- **R39 — L'SDK della RGB30 a 720×720.** bm SDK (RGB30) (`carts/sdk_b16`) è disegnato a 360×360
+  (45×22 caratteri, tutto impilato). Con una scala logica (le regioni di `layout.lua` in unità di
+  griglia, il testo 8×16 su un 720×720) ci starebbero pannello e vista affiancati come sul Pi
+  (`layout.narrow()` c'è già). Per ora l'utente ha detto di restare a 360.
+- **R41 — Il gioco costruito sulla RGB30 nella scheda Games.** bm SDK (RGB30) è uno strumento
+  del kernel8 (Dev) e costruisce (`cart_build`), ma il gioco nasce accanto al progetto: da
+  `/carts` non si vede in Games, che legge `bm/` (lo prova F5). Un progetto in `bm/` (o un
+  `cart_build` che sulla RGB30 scriva in `bm/`, magari come `.b16`) lo mostrerebbe.
+- **R42 — Altri strumenti nel kernel8.** La sessione strumento è condivisa
+  (`src/kernel/devtool.c`, tabella `rgb30_tools` in `src/rgb30/ui.c`): un'edizione `.b16` di
+  bm Pixel, bm Code o bm Sound entrerebbe come l'SDK, e l'SDK la offrirebbe con `SUITE` in
+  `carts/sdk_b16/main.lua` (oggi vuota). Il kernel8 cresce della cartuccia (l'SDK: 164 KiB).
 
 ### Audio
 - **R31 — Import di un suono SAMPLE col suo campione.** Oggi un suono SAMPLE preso da un altro
