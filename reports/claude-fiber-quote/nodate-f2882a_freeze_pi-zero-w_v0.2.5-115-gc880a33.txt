@@ -1,0 +1,77 @@
+bm report
+kind: freeze
+kernel: v0.2.5-115-gc880a33
+branch: claude/fiber-quote
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-f2882a_freeze_pi-zero-w_v0.2.5-115-gc880a33.txt
+
+the Pi froze (the watchdog restarted it) while: cartridge menu, frame 0, 6336 s after boot
+--- the last lines printed ---
+net: saved kernel.i107-g5fecedd.txt
+report:24 bytes)
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+2fbe.txt
+menu idle: 300/300 frames, 2859 of 2336 ms taken, 98.1 ms past a frame; reports 2852 ms (+98.1); slack 7858 us, paced 0
+report: sent to f-accomando/bm, branch reports: reports/claude-fiber-quote/nodate-ca8572_freeze_pi-zero-w_v0.2.5-108-g91d2fbe.txt
+menu idle: 300/300 frames, 48 of 2326 ms taken, 23.4 ms past a frame; reports 40 ms (+23.4); slack 7829 us, paced 0
+bt:   mouse df:0e:42:84:a7:2d is back
+bt:   LE connection 040, interval 12
+bt:   encrypted
+bt:   connection parameters: interval 6..9, latency 44
+bt:   HID service 0021-0040
+bt:   11 characteristics
+bt:   report map 140 bytes: mouse found, report ID 2
+bt: mouse df:0e:42:84:a7:2d connected, it moves the pointer
+market: nearby consoles: listening as bm-108
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+menu idle: 279/300 frames, 389 of 1769 ms taken, 52.8 ms past a frame; market 382 ms (+58.6); slack 1284 us, paced 0
+market: downloading games/overbit/overbit.bm (6480008 bytes)
+menu idle: 296/300 frames, 1461 of 2110 ms taken, 48.6 ms past a frame; market 1456 ms (+54.2); slack 8235 us, paced 0
+market: download of Overbit interrupted
+menu idle: 295/300 frames, 662 of 1857 ms taken, 1.3 ms past a frame; market 658 ms (+2.0); slack 2765 us, paced 0
+market: nearby consoles: listening as bm-108
+menu idle: 283/300 frames, 101 of 1538 ms taken, 1.6 ms past a frame; covers 95 ms (+2.2); slack 7320 us, paced 0
+market: downloading games/overbit/overbit.bm (6480008 bytes)
+menu idle: 300/300 frames, 1753 of 2178 ms taken, 55.0 ms past a frame; market 1748 ms (+55.0); slack 8043 us, paced 0
+menu idle: 300/300 frames, 2247 of 2240 ms taken, 0.8 ms past a frame; market 2241 ms (+1.0); slack 8126 us, paced 0
+menu idle: 300/300 frames, 2241 of 2229 ms taken, 1.1 ms past a frame; market 2236 ms (+1.0); slack 8210 us, paced 0
+menu idle: 300/300 frames, 2262 of 2257 ms taken, 1.2 ms past a frame; market 2257 ms (+1.2); slack 8301 us, paced 0
+menu idle: 300/300 frames, 2288 of 2282 ms taken, 0.6 ms past a frame; market 2283 ms (+0.7); slack 8377 us, paced 0
+market: games/overbit/overbit.bm -> /carts/OVERBIT1.BM
+market: Overbit installed
+menu idle: 299/300 frames, 32355 of 2210 ms taken, 30359.5 ms past a frame; covers 103 ms (+2.1), market 32246 ms (+30364.7); slack 7315 us, paced 0
+menu idle: 299/300 frames, 4 of 2210 ms taken, 0.0 ms past a frame; no job; slack 7344 us, paced 0
+menu idle: 299/300 frames, 6 of 2244 ms taken, 0.0 ms past a frame; no job; slack 7507 us, paced 0
+menu idle: 298/300 frames, 4 of 1797 ms taken, 0.0 ms past a frame; no job; slack 2637 us, paced 0
+menu idle: 293/300 frames, 3 of 1676 ms taken, 0.0 ms past a frame; no job; slack -2129 us, paced 0
+bm > Report the log
+
+report: 20261011-123501_log_pi-zero-w_v0.2.5-108-g91d2fbe.txt saved as bm/reports/RPT00001.TXT
+report: sending 20261011-123501_log_pi-zero-w_v0.2.5-108-g91d2fbe.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-fiber-quote/20261011-123501_log_pi-zero-w_v0.2.5-108-g91d2fbe.txt
+
+A, Esc or any key: back to the menu
+bt: mouse disconnected after 813655 ms: it closed the link (switched off, or another console) (reason 13)
+bt:   mouse df:0e:42:84:a7:2d is back
+bt:   LE connection 040, interval 12
+bt:   encrypted
+bt:   connection parameters: interval 6..9, latency 44
+bt:   HID service 0021-0040
+bt:   11 characteristics
+bt:   mouse link lost after 614 ms: it closed the link (switched off, or another console) (reason 13)
+net: receiving a new kernel (4199124 bytes)...
+net: kernel 0% (0 of 4100 KiB)
+net: kernel 10% (412 of 4100 KiB)
+net: kernel 20% (821 of 4100 KiB)
+net: kernel 30% (1233 of 4100 KiB)
+net: kernel 40% (1645 of 4100 KiB)
+net: kernel 50% (2053 of 4100 KiB)
+net: kernel 60% (2463 of 4100 KiB)
+net: kernel 70% (2871 of 4100 KiB)
+net: kernel 80% (3282 of 4100 KiB)
+net: kernel 90% (3698 of 4100 KiB)
