@@ -103,7 +103,7 @@ nel menu: un passo dopo, se serve (`docs/RISOLUZIONI.md`, sezione 6).
   uguali), il 3D Bench (GPU+2D, `gpu2d`, `bilinear`), il menu con `menu_scale=3` (riga `menu:
   1920x1080, the layout enlarged by the GPU` nel log, e l'overlay).
 
-## M39 — GPU 3: verso il limite della V3D (L/XL) — passi bm3d 5.0–5.6 sul PC
+## M39 — GPU 3: verso il limite della V3D (L/XL) — passi bm3d 5.0–6.9 sul PC
 Obiettivo: i triangoli della GPU da ~3 milioni al secondo verso i 16 visti in un demo reale
 sulla stessa GPU (25 dichiarati), lavorando su come i vertici arrivano alla V3D e su come
 ARM e GPU si passano il lavoro. Driver **bm3d 5.x**; ogni passo è un'opzione, spenta finché
