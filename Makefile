@@ -267,6 +267,18 @@ $(BUILD)/carts/titanex.bm: $(BUILD)/titan_ex/main.lua carts/titan/sheet.png cart
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "Titan Clash EX" --author bm \
 	    --sheet carts/titan/sheet.png --sheet8 --cover carts/titan/cover.png --res 360x360
 
+# bm SDK (RGB30, .b16 only, id sdkb16): the SDK's second edition, 360x360 and the
+# pad, with its own sources in carts/sdk_b16/ (layout.lua + main.lua, joined by its
+# build.py); the Pi's SDK stays carts/editor, built into the kernel
+SDK_B16_SRC := carts/sdk_b16/layout.lua carts/sdk_b16/main.lua carts/sdk_b16/build.py
+$(BUILD)/sdk_b16/main.lua: $(SDK_B16_SRC)
+	$(PYTHON) carts/sdk_b16/build.py $@
+
+$(BUILD)/carts/sdkb16.bm: $(BUILD)/sdk_b16/main.lua carts/editor/icon.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/editor/icon.png \
+	    --title "bm SDK (RGB30)" --author bm --res 360x360
+
 # nano8: plays .p8 / .p8.png carts (machine in src/bm/n8*.c); several Lua
 # files too. The carts it ships with (carts/nano8/roms, licenses in
 # CREDITS.md) go to carts/nano8/ on the SD card.
@@ -342,7 +354,7 @@ $(BUILD)/carts/overbit.b16: $(BUILD)/overbit/main.min.lua $(BUILD)/overbit/model
 # the .b16 that is the .bm's very bytes (docs/B16.md §0: the same container): a
 # 360x360 or 720x720 game within the 8 MiB, built as its .bm (Yharnam: 360x360,
 # its menus on "ok" / "back", the RGB30's B and A)
-B16_AS_BM := yharnam titanex
+B16_AS_BM := yharnam titanex sdkb16
 $(patsubst %,$(BUILD)/carts/%.b16,$(B16_AS_BM)): $(BUILD)/carts/%.b16: $(BUILD)/carts/%.bm
 	cp $< $@
 	@test `wc -c < $@` -le 8388608 || { echo "$@ is over a .b16's 8 MiB"; rm -f $@; exit 1; }
@@ -691,7 +703,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
-        test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
+        test-fat test-kitchen test-titan test-yharnam test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-prompts test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai test-overbit overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
         test-catalog test-github test-lan market-seed test-host test-qemu
@@ -1304,6 +1316,14 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUIL
 	$(PYTHON) tests/studio/check_files.py $(BUILD)/studio3d-sd $(BUILD)/mesh-sd $(BUILD)/pixel-sd $(BUILD)/carts/village.bm
 	$(PYTHON) tests/studio/anim_figure.py $(BUILD)/anim-figure.bm
 	$(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/anim-figure.bm $(BUILD)/studio3d-sd/carts/blocks.bme
+
+# bm SDK (RGB30), the .b16 edition, on the PC: its layout, every frame inside
+# 360x360 on the 8x16 grid, the RGB30's pad on every page and action, the saves of
+# a Market cartridge. Not in HOST_TESTS (the Pi's): run it when the edition changes.
+test-sdk-b16: $(BUILD)/host/luahost $(BUILD)/sdk_b16/main.lua $(BUILD)/carts/village.bm
+	rm -rf $(BUILD)/sdk-b16-sd && mkdir -p $(BUILD)/sdk-b16-sd/carts $(BUILD)/sdk-b16-sd/bm
+	cp $(BUILD)/carts/village.bm $(BUILD)/sdk-b16-sd/bm/village.b16
+	$(BUILD)/host/luahost tests/studio/sdk_b16_host.lua . $(BUILD)/sdk-b16-sd $(BUILD)/sdk_b16/main.lua
 
 # The showreel at the top of the README (docs/showreel.gif and .mp4): the
 # villager of Studio Village in a new cartridge, the map in the SDK, the
