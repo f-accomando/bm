@@ -1,0 +1,338 @@
+bm report
+kind: log
+kernel: v0.2.5-90-gd120b16
+branch: bm-core
+board: RGB30
+date: 2026-10-11 18:43:17
+file: 20261011-184317_log_rgb30_v0.2.5-90-gd120b16.txt
+
+
+bm kernel v0.2.5-90-gd120b16 - RGB30 (AArch64)
+CPU: Cortex-A55 r2p0, EL1, counter 24000000 Hz
+RAM: kernel at 10000000, heap 692 MiB, framebuffers at 3c000000; device tree at 3cf17000
+SD: FAT32, 240 MiB, label BM (sdmmc0)
+config: /bm/config.txt, layout it, .bm drawing direct, volume 3/10
+display: starting
+display: DSI link and panel starting
+display: panel on
+display: VPLL set, dclk 36562 kHz, VOP 40158023; DSI version 3133302a, PHY locked, panel on, errors 0 80
+IRQ on: timer 1000 Hz (measured 999 Hz)
+audio: RK817 codec, 48 kHz
+Lua: Lua 5.4, 2^10 = 1024.0
+Lua: fib(25) = 75025 in 53 ms
+ready
+boot log saved to bm/bootlog.txt
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: powering the RTL8821CS (GPIO0_A0, 32 kHz from the RK817, WL_REG_ON GPIO4_A2)
+wifi: SDIO card ready (sdmmc2, 4-bit, function 1, 512-byte blocks)
+wifi: chip cut 14, firmware 24.11.0 running, RFE 2, package 0
+wifi: MAC address 98:03:cf:e5:60:a1
+wifi: radio tables loaded (2907 writes, RFE 2, antenna shared with Bluetooth)
+wifi: radio on (2.4 GHz, channel 1)
+wifi: joining "FASTWEB-36AB12" (WPA2, channel 11, -78 dBm)...
+wifi: PMK computed (33 ms)
+wifi: IQ calibration done (140 ms, fail mask 00)
+wifi: authenticated
+wifi: associated, AID 27
+wifi: WPA2 keys in (pairwise CCMP, group CCMP, key 1)
+net: asking for an address (DHCP)...
+cartridge menu: 5 games
+net: IP 192.168.1.233 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.233
+tls: 21 root certificates
+net: time 2026-10-11 18:23 UTC
+report: sending session_overbit_RGB30.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_overbit_RGB30.txt
+menu probe: idle time in 298/300 frames, slack -3909 us, paced 1
+menu probe: idle time in 300/300 frames, slack -6361 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8813 us, paced 1
+menu probe: idle time in 300/300 frames, slack -11265 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13717 us, paced 1
+menu probe: idle time in 300/300 frames, slack -16168 us, paced 1
+menu probe: idle time in 300/300 frames, slack -1949 us, paced 1
+menu probe: idle time in 300/300 frames, slack -4402 us, paced 1
+menu probe: idle time in 300/300 frames, slack -6853 us, paced 1
+market: nearby consoles: listening as bm-233
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+menu probe: idle time in 299/300 frames, slack -4494 us, paced 1
+market: catalog 20261011182335, 3 games
+market: downloading games/titanex/titanex.b16 (1723920 bytes)
+menu probe: idle time in 298/300 frames, slack -1546 us, paced 1
+market: games/titanex/titanex.b16 -> /bm/TITANEX.B16
+market: Titan Clash EX installed
+wifi: link lost: the network sent us away (reason 7, not authenticated or associated)
+net: address lost
+menu probe: idle time in 299/300 frames, slack -2381 us, paced 1
+menu probe: idle time in 300/300 frames, slack -4833 us, paced 1
+menu probe: idle time in 300/300 frames, slack -7284 us, paced 1
+menu probe: idle time in 300/300 frames, slack -9736 us, paced 1
+menu probe: idle time in 300/300 frames, slack -12188 us, paced 1
+menu probe: idle time in 300/300 frames, slack -14640 us, paced 1
+menu probe: idle time in 300/300 frames, slack -17092 us, paced 1
+menu probe: idle time in 300/300 frames, slack -2872 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5324 us, paced 1
+menu probe: idle time in 300/300 frames, slack -7776 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10228 us, paced 1
+menu probe: idle time in 300/300 frames, slack -12679 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15131 us, paced 1
+menu probe: idle time in 300/300 frames, slack -17583 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3363 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5815 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8266 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10718 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13170 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15622 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18074 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3453 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5905 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8357 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10809 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13261 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15712 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18164 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8357 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10809 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13261 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13262 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10809 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13261 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3456 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13262 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3422 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5874 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8326 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10777 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13229 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15681 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18133 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3453 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5905 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8356 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10808 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13260 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15712 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18163 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3453 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5905 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8357 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10809 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13260 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15712 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18164 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10809 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13261 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3455 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13262 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15714 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8357 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10809 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13261 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3460 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5905 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8357 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10809 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13261 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15712 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18164 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3455 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5907 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8359 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13262 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15714 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18166 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5907 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13262 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15714 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13262 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3455 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5907 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13262 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15714 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18166 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13262 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3455 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5907 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13262 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15714 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18166 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3419 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5872 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8323 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10775 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13227 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15679 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18130 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10809 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13261 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3455 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5907 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13262 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15714 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13261 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3455 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8358 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10810 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13262 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15714 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18165 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3453 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5905 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8357 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10809 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13260 us, paced 1
+menu probe: idle time in 300/300 frames, slack -15713 us, paced 1
+menu probe: idle time in 300/300 frames, slack -18164 us, paced 1
+menu probe: idle time in 300/300 frames, slack -3454 us, paced 1
+menu probe: idle time in 300/300 frames, slack -5906 us, paced 1
+menu probe: idle time in 300/300 frames, slack -8379 us, paced 1
+menu probe: idle time in 300/300 frames, slack -10809 us, paced 1
+menu probe: idle time in 300/300 frames, slack -13261 us, paced 1
+menu probe: idle time in 298/300 frames, slack -1966 us, paced 1
+wifi: joining "FASTWEB-36AB12" again (try 1)
+wifi: joining "FASTWEB-36AB12" (WPA2, channel 11, -68 dBm)...
+wifi: PMK computed (33 ms)
+wifi: IQ calibration done (20 ms, fail mask 00)
+wifi: authenticated
+wifi: associated, AID 28
+wifi: WPA2 keys in (pairwise CCMP, group CCMP, key 1)
+net: asking for an address (DHCP)...
+menu probe: idle time in 297/300 frames, slack 10909 us, paced 1
+net: IP 192.168.1.233 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.233
+menu probe: idle time in 295/300 frames, slack -1680 us, paced 1
+play: /bm/TITANEX.B16 (1723920 bytes)
+titan build eb51c4b
+bm: loaded in 2890 ms, the splash over at 2890 ms
+titan fight: 4.6 ms avg, 42.8 max, 60 fps, 0 effects
+bm: "Titan Clash EX" stopped with an error:
+main.lua:1341: attempt to index a nil value (field '?')
+stack traceback:
+	main.lua:1341: in field 'draw'
+	main.lua:2643: in field 'draw'
+	main.lua:2924: in function '_draw'
+bm: "Titan Clash EX" 1550 frames, 59.8 fps, 2 dropped
+     update+draw avg 4.25 ms (25% of frame), max 42.83 ms, Lua 721 KiB
+     dev kit: Lua peak 1207 KiB, data 21032 KiB, busiest frame 47k instructions, 2 frames over 16.7 ms, 29844 tokens
+report: session_titan-clash-ex_RGB30.txt saved as bm/reports/RPT00001.TXT
+report: sending session_titan-clash-ex_RGB30.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_titan-clash-ex_RGB30.txt
+play: /bm/TITANEX.B16 (1723920 bytes)
+titan build eb51c4b
+bm: loaded in 2907 ms, the splash over at 2907 ms
+bm: "Titan Clash EX" stopped with an error:
+main.lua:2108: attempt to index a nil value (global 'FREE')
+stack traceback:
+	main.lua:2108: in field 'update'
+	main.lua:2559: in field 'update'
+	main.lua:2910: in function '_update'
+bm: "Titan Clash EX" 962 frames, 59.8 fps, 1 dropped
+     update+draw avg 3.20 ms (19% of frame), max 19.89 ms, Lua 659 KiB
+     dev kit: Lua peak 1211 KiB, data 21032 KiB, busiest frame 47k instructions, 1 frames over 16.7 ms, 29844 tokens
+report: session_titan-clash-ex_RGB30.txt saved as bm/reports/RPT00001.TXT
+report: sending session_titan-clash-ex_RGB30.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_titan-clash-ex_RGB30.txt
+play: /bm/TITANEX.B16 (1723920 bytes)
+titan build eb51c4b
+bm: loaded in 2893 ms, the splash over at 2893 ms
+bm: "Titan Clash EX" stopped with an error:
+main.lua:1341: attempt to index a nil value (field '?')
+stack traceback:
+	main.lua:1341: in field 'draw'
+	main.lua:2643: in field 'draw'
+	main.lua:2924: in function '_draw'
+bm: "Titan Clash EX" 605 frames, 59.7 fps, 1 dropped
+     update+draw avg 3.66 ms (21% of frame), max 38.38 ms, Lua 642 KiB
+     dev kit: Lua peak 1210 KiB, data 21032 KiB, busiest frame 49k instructions, 1 frames over 16.7 ms, 29844 tokens
+report: session_titan-clash-ex_RGB30.txt saved as bm/reports/RPT00001.TXT
+report: sending session_titan-clash-ex_RGB30.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_titan-clash-ex_RGB30.txt
+menu probe: idle time in 296/300 frames, slack -2071 us, paced 1
+play: /bm/TITANEX.B16 (1723920 bytes)
+titan build eb51c4b
+bm: loaded in 2893 ms, the splash over at 2893 ms
+bm: "Titan Clash EX" stopped with an error:
+main.lua:2108: attempt to index a nil value (global 'FREE')
+stack traceback:
+	main.lua:2108: in field 'update'
+	main.lua:2559: in field 'update'
+	main.lua:2910: in function '_update'
+bm: "Titan Clash EX" 429 frames, 59.6 fps, 1 dropped
+     update+draw avg 3.35 ms (20% of frame), max 37.94 ms, Lua 643 KiB
+     dev kit: Lua peak 1213 KiB, data 21032 KiB, busiest frame 46k instructions, 1 frames over 16.7 ms, 29844 tokens
+report: session_titan-clash-ex_RGB30.txt saved as bm/reports/RPT00001.TXT
+report: sending session_titan-clash-ex_RGB30.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_titan-clash-ex_RGB30.txt
+menu probe: idle time in 298/300 frames, slack -2782 us, paced 1
+bm > Report the log
+
