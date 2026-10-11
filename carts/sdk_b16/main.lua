@@ -1,7 +1,8 @@
 -- bm SDK (RGB30): the .b16 edition of the bm SDK, for the RGB30's 360x360
 -- screen and its pad. A separate edition with its own sources (this
--- folder), build rules and Market entry: the Pi's bm SDK (carts/editor,
--- built into the kernel) does not change with it, and this one never
+-- folder) and build rules, built into the RGB30's kernel as a tool of its
+-- Dev tab (rgb30.mk, src/rgb30/ui.c): the Pi's bm SDK (carts/editor, built
+-- into the Pi's kernel) does not change with it, and this one never
 -- replaces it.
 --
 -- The pages are the editor's (project and dev kit, code, 2D sprites and
@@ -21,11 +22,12 @@
 -- turns it on, ok on the code page too). A keyboard works as in the Pi's
 -- SDK (F1-F4, Esc, Ctrl+S, F12 held: the keys).
 --
--- What a cartridge from the Market may do (src/bm/runtime.c write_target):
--- open any cartridge and save NEW projects in /carts (and the ones it
--- wrote in this run). Building a game, trying it and the other programs
--- of the suite are for bm's own tools (cart_build, cart_run, cart_tool):
--- they show only when the console runs this SDK as a tool (cart_arg()).
+-- As a tool (src/kernel/devtool.c, the Pi's loop) it saves where it is
+-- told (src/bm/runtime.c write_target: a game is read only, the console
+-- asks and makes its editable copy), builds the game of a project
+-- (cart_build) and tries it (cart_run: the console plays it, then opens the
+-- SDK again with cart_arg()). The suite's other programs (cart_tool) are
+-- offered only where the console has them: SUITE, none on the RGB30.
 
 local LY = layout                        -- carts/sdk_b16/layout.lua (build.py)
 
@@ -132,13 +134,12 @@ local S = {
   run = nil,                              -- cart_arg().run: the dev kit's numbers of the last try
   sheet_w = 256, sheet_h = 256, map_w = 256, map_h = 256,
   info = nil, measuring = nil,            -- the project's numbers, and the coroutine measuring them
-  written = {},                           -- the files saved in this run (they can be saved again)
 }
 
--- what this console lets the SDK do: bm's tools build, try and open the
--- other programs (a tool session gives cart_arg()); a cartridge from the
--- Market does not (src/bm/runtime.c: cart_build, cart_run, cart_tool)
-local CAN = { tools = false, run = false, build = false }
+-- the suite's other programs this console has, by their cart_tool() names
+-- (bm Code, Pixel, Studio... are the Pi's: none in the RGB30's kernel, whose
+-- tool session would end on one, src/rgb30/ui.c); only these are offered
+local SUITE = {}
 
 local P = {}                             -- the pages: project, code, sprite, map, d3, menu
 
@@ -703,22 +704,20 @@ end
 ----------------------------------------------------------------- project
 
 -- a project (.bme) is what the tools change; a game (.bm, .b16) is read
--- only: this SDK saves it as a new project in /carts (bm's tools: the
--- console asks and makes its copy), and a project builds its game
+-- only: saving it, the console asks and makes its editable copy (a project
+-- next to it), and a project builds its game
 local function is_project(path) return path and path:lower():match("%.bme$") ~= nil end
 local function is_game(path) return path and (path:lower():match("%.bm$") or path:lower():match("%.b16$")) ~= nil end
 local function base_name(path) return (path or ""):match("([^/]+)$") or "" end
 
 -- "/carts/pong.bme" -> "/carts/PONG.BME"; longer names are cut to 8
--- characters. A cartridge from the Market writes only in /carts: a game,
--- or a project elsewhere, gets its project there (bm's tools keep a game's
--- path: the console makes the copy).
+-- characters. A game keeps its path: saving it, the console asks and makes
+-- its editable copy next to it (write_target), as with the Pi's SDK.
 local function short_path(path)
-  if is_game(path) and CAN.tools then return path end
+  if is_game(path) then return path end
   local dir, base = path:match("^(.*)/([^/]+)$")
   dir = dir or "/carts"
   if dir == "" then dir = "/" end
-  if is_game(path) or not CAN.tools then dir = "/carts" end
   local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
   if stem == "" then stem = "GAME" end
   return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BME"
@@ -751,17 +750,6 @@ local function exists(path)
   return false
 end
 
--- the first free name like it: MYGAME.BME -> MYGAME2.BME, ... MYGAM10.BME
-local function free_name(path)
-  local dir, stem, ext = path:match("^(.*)/([^/]-)(%.[^./]*)$")
-  if not dir then return path end
-  for k = 2, 99 do
-    local p = dir .. "/" .. stem:sub(1, 8 - #tostring(k)) .. k .. ext
-    if not exists(p) then return p end
-  end
-  return path
-end
-
 local reset_pages                        -- (the pages, below)
 local go                                 -- (the keys, below)
 
@@ -792,8 +780,8 @@ local function load_project(path)
   S.err_text, S.err_line = nil, nil
   reset_pages()
   remember_last(path)
-  if is_game(path) and S.proj.save ~= path then
-    say("opened " .. base_name(path) .. ": a game; it saves as the project " .. base_name(S.proj.save), C.ACC, 400)
+  if is_game(path) then
+    say("opened " .. base_name(path) .. " (a game: saving makes its editable copy)", C.ACC, 400)
   else
     say("opened " .. base_name(path) .. " (saves as " .. base_name(S.proj.save) .. ")", C.ACC)
   end
@@ -819,25 +807,17 @@ end
 local D = {}                             -- the dialogs: ask (a line of text), choose (a list)
 local store_target, save_as
 
--- saves the project, then after(); a cartridge (not one of bm's tools)
--- writes only new files and the ones it wrote in this run: a file already
--- on the card asks for a new name
+-- saves the project, then after() (a tool: the file is written where it
+-- is, a project of an earlier session too)
 local function save_project(after)
   if not S.proj.save then save_as(after); return false end
-  if not CAN.tools and not S.written[S.proj.save:upper()] and exists(S.proj.save) then
-    say(base_name(S.proj.save) .. " is on the card already: this SDK writes new files only, give a new name",
-        C.ERR, 400)
-    save_as(after, free_name(S.proj.save))
-    return false
-  end
   local ok, e = cart_save(S.proj.save, { title = S.proj.title, author = S.proj.author, res = S.proj.res,
                                          lua = code_text() })
   if not ok then
     say("save failed: " .. tostring(e), C.ERR, 400)
     return false
   end
-  if type(e) == "string" then S.proj.save = e end   -- the editable copy of a game (bm's tools)
-  S.written[S.proj.save:upper()] = true
+  if type(e) == "string" then S.proj.save = e end   -- the editable copy of a game, made by the console
   S.dirty, S.info, S.measuring = false, nil, nil
   S.proj.path = S.proj.save
   store_target()
@@ -872,38 +852,37 @@ local function save_then(after)
   else save_project(after) end
 end
 
--- Build .bm (Ctrl+B): the game of the project, next to it (bm's tools)
+-- Build .bm (Ctrl+B): the game of the project, next to it. The RGB30's
+-- Games tab lists bm/: a project in /carts builds its game there, which F5
+-- tries (a project in bm/ builds a game the tab shows)
 local function build_project()
-  if not CAN.build then
-    say("building the game is for the Pi's bm SDK (Ctrl+B); here the project is saved", C.DIM, 300)
-    return
-  end
   local function build()
     if not is_project(S.proj.save) then
       say("build: a game is built from its project (save it first)", C.ERR)
       return
     end
     local ok, e = cart_build(S.proj.save)
-    if ok then say("built " .. e .. ": it is in Games", C.ACC) else say("build failed: " .. tostring(e), C.ERR, 400) end
+    if ok then
+      say("built " .. e .. (e:upper():find("^/BM/") and ": it is in Games" or " (the Games tab lists bm/)"), C.ACC, 400)
+    else
+      say("build failed: " .. tostring(e), C.ERR, 400)
+    end
   end
   if S.proj.save and not is_project(S.proj.save) then save_project(build) else save_then(build) end
 end
 
--- tries the game (bm's tools): saved first; the SDK comes back to the same
--- page with the dev kit's numbers of the run (cart_arg().run)
+-- tries the game: saved first; the console plays it (Start + Select
+-- leaves) and the SDK comes back to the same page with the dev kit's
+-- numbers of the run (cart_arg().run)
 local function run_project()
-  if not CAN.run then
-    say("trying the game is for the Pi's bm SDK (F5); here the project is saved", C.DIM, 300)
-    return
-  end
   save_then(function()
     remember()
     cart_run(S.proj.save)
   end)
 end
 
--- another program of the suite on this file (bm's tools); its menu brings
--- back here
+-- another program of the suite on this file, where the console has it
+-- (SUITE); its menu brings back here
 local TOOLS = {
   { key = "1", tool = "code", label = "bm Code", what = "the code, in tabs" },
   { key = "2", tool = "pixel", label = "bm Pixel", what = "the pixel art of the sheet" },
@@ -914,7 +893,7 @@ local TOOLS = {
 }
 
 local function open_in(t)
-  if not CAN.tools then say(t.label .. " is on the Pi (Dev tab); not on this console", C.DIM, 300); return end
+  if not SUITE[t.tool] then say(t.label .. " is on the Pi (Dev tab); not on this console", C.DIM, 300); return end
   if not S.proj.save then say("give the project a name to open it in " .. t.label, C.ACC) end
   save_then(function()
     remember()
@@ -2336,7 +2315,7 @@ do
       local text = { "no 3D models in this project yet", "",
                      kp("F6", "Y + X") .. ": the assistant makes one (a dog, a house...)",
                      "or in code: mesh(), mesh_cube(), mesh_sphere()" }
-      if CAN.tools then table.insert(text, 3, "Enter: bm Studio makes them from tiles") end
+      if SUITE.studio then table.insert(text, 3, "Enter: bm Studio makes them from tiles") end
       local y = V3.y + 48
       for _, s in ipairs(text) do
         for _, l in ipairs(LY.wrap(s, LY.cols(V3) - 2)) do
@@ -2399,11 +2378,14 @@ do
     local list = { { play and "Stop" or "Play", " " }, { "Spin", "r" }, { "Turn left", "q" }, { "Turn right", "e" },
                    { "Tilt up", "w" }, { "Tilt down", "s" }, { "Zoom in", "+" }, { "Zoom out", "-" },
                    { "The code to draw it", "i" } }
-    if CAN.tools then
-      list[#list + 1] = "-"
-      list[#list + 1] = { "Open in bm Studio", "\n" }
-      list[#list + 1] = { "Open in bm Animator", "a" }
-      list[#list + 1] = { "Open in bm Mesh", "m" }
+    -- the suite's 3D programs, where the console has them (SUITE)
+    local sep = false
+    for _, o in ipairs({ { "studio", "Open in bm Studio", "\n" }, { "animator", "Open in bm Animator", "a" },
+                         { "mesh", "Open in bm Mesh", "m" } }) do
+      if SUITE[o[1]] then
+        if not sep then list[#list + 1] = "-"; sep = true end
+        list[#list + 1] = { o[2], o[3] }
+      end
     end
     return list
   end
@@ -2461,7 +2443,9 @@ do
 
   local function open_tools()
     local rows = {}
-    for _, t in ipairs(TOOLS) do rows[#rows + 1] = { t.key .. " " .. t.label, function() open_in(t) end, t.what } end
+    for _, t in ipairs(TOOLS) do
+      if SUITE[t.tool] then rows[#rows + 1] = { t.key .. " " .. t.label, function() open_in(t) end, t.what } end
+    end
     D.choose("open the project in", rows)
   end
 
@@ -2537,8 +2521,7 @@ do
   local function try_lines()
     local r = S.run
     if not r then
-      if CAN.run then return kp("not tried yet: F5 saves and tries it", "not tried yet: X > Try the game"), nil end
-      return "on the Pi: bm SDK builds and tries it", nil
+      return kp("not tried yet: F5 saves and tries it", "not tried yet: X > Try the game"), nil
     end
     local a = string.format("%.1f fps  %.1f ms (max %.1f)  %d slow", r.fps, r.ms, r.ms_max, r.slow)
     local b = string.format("RAM %s (Lua %s, data %s)  %dk instr.", kib(r.lua_peak_kb + r.data_kb), kib(r.lua_peak_kb),
@@ -2649,7 +2632,7 @@ do
     end
     local list = { { "up", "UPDOWN", "choose" }, { "enter", "ok", "do it" }, { nil, "X", "more" },
                    { "f1", "Y UPDOWN", "dev kit" }, { "n", nil, "template" } }
-    if CAN.run then list[#list + 1] = { "f5", nil, "try it" } end
+    list[#list + 1] = { "f5", nil, "try it" }
     list[#list + 1] = { "f6", nil, "assistant" }
     return list
   end
@@ -2661,9 +2644,9 @@ do
   end
 
   P.project = { key = key, pad = pad, draw = draw, status = status, mouse = mouse, hints = hints,
-                -- bm's tools: the other programs of the suite, a row of its own
+                -- the other programs of the suite the console has (SUITE), a row of its own
                 tools_row = function()
-                  if CAN.tools and HUB[#HUB].act ~= "tools" then HUB[#HUB + 1] = { key = "o", act = "tools" } end
+                  if next(SUITE) and HUB[#HUB].act ~= "tools" then HUB[#HUB + 1] = { key = "o", act = "tools" } end
                 end,
                 menu_items = function()
                   local list = {}
@@ -2703,8 +2686,8 @@ do
       { "Open...", open_other, "ctrl o" },
       { "Save", function() save_project() end, "ctrl s" },
       { "Save as...", function() save_as() end, "ctrl shift s" },
-      { "Build the game .bm", build_project, "ctrl b", off = not CAN.build },
-      { "Try the game", run_project, "f5", off = not CAN.run },
+      { "Build the game .bm", build_project, "ctrl b" },
+      { "Try the game", run_project, "f5" },
       { "New map layer (" .. #mlayers() .. "/8)", function() S.d2view = "map"; show("d2"); P.map.new_layer() end },
       { "Exit bm SDK", function() if not needs_confirm("exit") then quit() end end },
     }
@@ -2879,8 +2862,8 @@ end
 -- what every page adds to its actions (X) and to the mouse's menu
 local function global_items()
   local list = { { "Save", "^s" }, { "Save as...", "^S" }, { "Open...", "^o" }, { "New from a template...", "^n" } }
-  if CAN.build then list[#list + 1] = { "Build the game .bm", "^b" } end
-  if CAN.run then list[#list + 1] = { "Try the game", "f5" } end
+  list[#list + 1] = { "Build the game .bm", "^b" }
+  list[#list + 1] = { "Try the game", "f5" }
   if assistant_here() then list[#list + 1] = { "Assistant", "f6" } end
   list[#list + 1] = { "Menu", "esc" }
   return list
@@ -2923,7 +2906,8 @@ local HELP = {
     { "f4", "3D: models and animations" },
     { "esc", "the menu" },
     { "ctrl n", "a new project from a template" },
-    { "ctrl s / ctrl shift s", "save / save as (new files in /carts)" },
+    { "ctrl s / ctrl shift s", "save / save as" },
+    { "ctrl b / f5", "build the game / try it" },
     { "f6", "the assistant" },
   },
   project = {
@@ -3018,7 +3002,6 @@ function _init()
   keyp()                                -- typing on: the keyboard types text
   U.wants()                             -- the pointer, when there is a mouse
   local a = cart_arg and cart_arg() or nil
-  CAN.tools, CAN.run, CAN.build = a ~= nil, a ~= nil, a ~= nil
   P.project.tools_row()
   if pt then pt.set({ fallback = "off" }) end
   if a and a.path and load_project(a.path) then

@@ -1317,8 +1317,9 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUIL
 	$(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/anim-figure.bm $(BUILD)/studio3d-sd/carts/blocks.bme
 
 # bm SDK (RGB30), the .b16 edition, on the PC: its layout, every frame inside
-# 360x360 on the 8x16 grid, the RGB30's pad on every page and action, the saves of
-# a Market cartridge. Not in HOST_TESTS (the Pi's): run it when the edition changes.
+# 360x360 on the 8x16 grid, the RGB30's pad on every page and action, the saves,
+# build and try of the RGB30's kernel tool, none of the Pi's other programs. Not in
+# HOST_TESTS (the Pi's): run it when the edition changes.
 test-sdk-b16: $(BUILD)/host/luahost $(BUILD)/sdk_b16/main.lua $(BUILD)/carts/village.bm
 	rm -rf $(BUILD)/sdk-b16-sd && mkdir -p $(BUILD)/sdk-b16-sd/carts $(BUILD)/sdk-b16-sd/bm
 	cp $(BUILD)/carts/village.bm $(BUILD)/sdk-b16-sd/bm/village.b16

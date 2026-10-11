@@ -6,9 +6,12 @@
 -- checked: nothing outside the 360x360 screen, the SDK's text on the 8x16
 -- grid (45 columns, 22 rows), no text or chip over another on its row. The
 -- pad reaches every page, every action of every page (X) and back; a name
--- is typed with padtype's keyboard; saving follows the runtime's rule for a
--- cartridge from the Market (new files in /carts, src/bm/runtime.c
--- write_target), which the SDK must never trip.
+-- is typed with padtype's keyboard. The SDK runs as the RGB30's kernel runs
+-- it, a tool (src/rgb30/ui.c, src/kernel/devtool.c): the stand-ins of
+-- cart_save, cart_build, cart_run and cart_tool follow the runtime's rules
+-- for a tool (src/bm/runtime.c write_target: any file but a game; saving a
+-- game, the console asks and makes its editable copy next to it), and the
+-- console has no other program of the suite, which the SDK must not offer.
 --
 --   luahost tests/studio/sdk_b16_host.lua ROOT SDDIR CART   (make test-sdk-b16)
 --
@@ -255,7 +258,7 @@ end
 
 local E, texts, keyq, held, frame, saved_t, quitted, draws, arg_t
 local sec, sheet, mapc, lnames, mlay, flg
-local made, refused, saves, last_save, built, ran, tooled
+local refused, copies, saves, last_save, built, ran, tooled
 local keyhelp_list, keyhelp_title, MS, ai_full, last_kb, numeric_btn
 local loaded, cur_font
 local CUTS = {}
@@ -293,7 +296,7 @@ local function new_env(arg, o)
   o = o or {}
   E = {}
   texts, keyq, held, frame, quitted, draws = {}, {}, {}, 0, false, 0
-  arg_t, loaded, made, refused, built, ran, tooled = arg, {}, {}, 0, nil, nil, nil
+  arg_t, loaded, refused, copies, built, ran, tooled = arg, {}, 0, 0, nil, nil, nil
   sec, sheet, mapc, lnames, mlay, flg = {}, { w = 256, h = 256, px = {} }, {}, { "main" }, {}, {}
   last_kb, numeric_btn, cur_font, prev_held = o.keyboard, nil, { 8, 16 }, {}
   for k, v in pairs(_G) do E[k] = v end
@@ -412,13 +415,14 @@ local function new_env(arg, o)
   E.save = function(t) saved_t = t; return true end
   E.saved = function() return saved_t end
   E.cart_arg = function() return arg_t end
-  -- a tool session builds, tries, opens the other tools; a cartridge from
-  -- the Market cannot (the runtime: cart_build false, cart_run leaves)
-  E.cart_run = function(p) ran = p; if not arg_t then quitted = true end end
-  E.cart_tool = function(name, p) tooled = { name, p }; if not arg_t then quitted = true end end
+  -- a tool: cart_run and cart_tool leave it (the session plays the game, or
+  -- would open the other tool: on the RGB30 none, the session would end)
+  E.cart_run = function(p) ran = p; quitted = true end
+  E.cart_tool = function(name, p) tooled = { name, p }; quitted = true end
   E.cart_build = function(path)
-    if not arg_t then built = "refused"; return false, "only bm's tools build a game" end
-    local game = path:gsub("%.BME$", ".BM")
+    if not path:upper():match("%.BME$") then return false, path .. ": only a project (.bme) is built" end
+    local dir, base = path:match("^(.*)/([^/.]+)%.[^.]*$")
+    local game = dir .. "/" .. base:upper() .. ".BM"     -- bm_build: next to it, its 8.3 name
     local d = assert(read_file(host(path)))
     local f = assert(io.open(host(game), "wb")); f:write(d); f:close()
     add_file(game)
@@ -560,22 +564,32 @@ local function new_env(arg, o)
   E.cart_new = function()
     sec, mapc, sheet, lnames, mlay, flg = {}, {}, { w = 256, h = 256, px = {} }, { "main" }, {}, {}
   end
-  -- cart_save as the runtime's for a cartridge that is not one of bm's
-  -- tools (write_target): .bm and .bme in /carts, new files or the ones
-  -- written in this run; bm's tools write their projects anywhere
+  -- cart_save as the runtime's for a tool (write_target): any file but a
+  -- game, a project of an earlier run too; a game (.bm, .b16) is read only:
+  -- the console asks (yes here) and writes its editable copy next to it
+  -- (bm_copy_name: NAME.BME, NAME1.BME...), a new one becomes its project;
+  -- true and the file written when it is not the one asked
   E.cart_save = function(path, t)
     assert(type(t.lua) == "string", "cart_save: the code")
-    if not arg_t then
-      local name = path:match("^/carts/([^/]+)$")
-      if not name or not (name:upper():match("%.BME$") or name:upper():match("%.BM$")) then
-        refused = refused + 1
-        return false, path .. ": a cartridge writes only .bm and .bme files in /carts"
+    local asked = path
+    local up = path:upper()
+    if up:match("%.BM$") or up:match("%.B16$") then
+      local dir, base = path:match("^(.*)/([^/.]+)%.[^.]*$")
+      if exists(path) then
+        local stem = base:upper():sub(1, 8)
+        path = nil
+        for k = 0, 9 do
+          local p = dir .. "/" .. (k == 0 and stem or stem:sub(1, 7) .. k) .. ".BME"
+          if not exists(p) then path = p; break end
+        end
+        if not path then
+          refused = refused + 1
+          return false, asked .. " is a game, read only, and its copy has no free name"
+        end
+        copies = copies + 1
+      else
+        path = dir .. "/" .. base .. ".BME"
       end
-      if exists(path) and not made[name:upper()] then
-        refused = refused + 1
-        return false, path .. ": a cartridge cannot change a file that is there already (bm's tools can)"
-      end
-      made[name:upper()] = true
     end
     local px = {}
     for i = 0, sheet.w * sheet.h - 1 do
@@ -593,6 +607,7 @@ local function new_env(arg, o)
     f:close()
     add_file(path)
     saves, last_save = (saves or 0) + 1, { path = path, t = t }
+    if path ~= asked then return true, path end
     return true
   end
   E.cart_audio = function() return false end
@@ -711,7 +726,7 @@ frames(30)
 check(sees("PROJECT") and sees("title") and sees("New game"), "the hub: the project's rows")
 check(sees("360x360") and sees(".b16"), "a new project: 360x360, the target .b16")
 check(sees("CONTENTS") and sees("tokens"), "the hub: the contents measured")
-check(not sees("OPEN IN") and not sees("bm Code"), "no tools of the suite on a Market cartridge")
+check(not sees("OPEN IN") and not sees("bm Code"), "no programs of the suite: the RGB30's kernel has none")
 check(tabs():find("[L1]", 1, true) and tabs():find("project", 1, true) and tabs():find("[R1]", 1, true),
       "the tabs: L1, the pages, R1 with the pad: " .. tabs())
 check(sees("[ok]") and sees("do it") and sees("[X]"), "the hints: the pad's buttons")
@@ -732,7 +747,7 @@ with("y", "down")
 tag = "devkit"
 frames(5)
 check(sees("dev kit") and sees("data") and sees("not saved yet"), "Y + down: the dev kit")
-check(sees("try") and sees("on the Pi: bm SDK builds and tries it"), "the dev kit says where the game is tried: " .. screen():gsub("\n", " | "))
+check(sees("try") and sees("not tried yet: X > Try the game"), "the dev kit: how to try it: " .. screen():gsub("\n", " | "))
 with("y", "up")
 check(sees("CONTENTS"), "Y + up: back to the project")
 
@@ -815,7 +830,8 @@ for _, pg in ipairs(pages) do
   end
   check(seen_rows["Save as..."] and seen_rows["Open..."] and seen_rows["Menu"],
         pg[1] .. ": the actions end with save, open, menu")
-  check(not seen_rows["Try the game"] and not seen_rows["Build the game .bm"], pg[1] .. ": no try, no build here")
+  check(seen_rows["Try the game"] and seen_rows["Build the game .bm"], pg[1] .. ": try and build (a tool)")
+  check(not seen_rows["Open in bm Studio"] and not seen_rows["Open in bm Mesh"], pg[1] .. ": no other program")
   press("back")
   check(not dialog_open(), pg[1] .. ": back closes the actions")
   -- each entry: X, down i times, ok, out of any dialog
@@ -973,7 +989,8 @@ for i, nm in ipairs(names) do
   if last_save then play_template(last_save.t.lua, nm) end
 end
 
--- saving again in the same run: the same file; a new run: a new name
+-- saving again in the same run: the same file; in a new run too (a tool
+-- writes its project where it is: no new name, the runtime never refuses)
 run_sdk(nil)                                     -- (the last project comes back: saved())
 frames(3)
 check(sees("8.BME") or sees("3D with models"), "the last project opens by itself: " .. tabs())
@@ -989,14 +1006,50 @@ check(last_save.path == "/carts/KEEP.BME" and refused == 0, "Ctrl+S again in the
 run_sdk(nil)
 frames(3)
 check(sees("KEEP.BME") or tabs():find("KEEP", 1, true), "a new run: KEEP.BME again: " .. tabs())
+local n_saves = saves
 key("f2", "-")
 key("^s")
-check(sees("file name") and (sees("KEEP2.BME") or sees("KEEP2.BME_")), "the file is on the card: a new name is asked (KEEP2)")
-key("\n")
-check(last_save.path == "/carts/KEEP2.BME", "saved as KEEP2.BME: " .. last_save.path)
-check(refused == 0, "the runtime never refused a save (" .. refused .. ")")
+frames(2)
+check(not sees("file name") and saves == n_saves + 1 and last_save.path == "/carts/KEEP.BME",
+      "a new run: Ctrl+S writes KEEP.BME again, no new name: " .. last_save.path)
+check(refused == 0 and copies == 0, "the runtime never refused a save, no copy of a project (" .. refused .. ")")
 
--- a game from bm/: opened, its project in /carts; the 3D page, models
+-- the build and the try: the project's game next to it (the Games tab
+-- lists bm/: the message says so); F5 leaves for the console to play it
+key("^b")
+check(built == "/carts/KEEP.BM", "Ctrl+B builds the game: " .. tostring(built))
+check(status():find("built /carts/KEEP.BM", 1, true) and status():find("lists bm/", 1, true),
+      "Ctrl+B says where the game is: " .. status())
+check(not quitted and not ran, "building does not leave the SDK")
+key("f5")
+check(ran == "/carts/KEEP.BME" and quitted, "F5 tries the project (the SDK leaves for it): " .. tostring(ran))
+
+-- the suite's other programs are not in the RGB30's kernel: not offered,
+-- and their keys say so with no cart_tool (it would end the session)
+run_sdk({ path = "/carts/KEEP.BME", back = false })
+frames(3)
+check(not sees("open in") and not sees("OPEN IN"), "no row of the suite's programs")
+key("1")
+check(not tooled and not quitted and status():find("bm Code is on the Pi", 1, true), "1: bm Code is not here: " .. status())
+key("f4")
+frames(2)
+key("\n")
+check(not tooled and not quitted and status():find("bm Studio is on the Pi", 1, true),
+      "Enter on the 3D page: bm Studio is not here: " .. status())
+press("x")
+check(sees("The code to draw it") and not sees("Open in bm Studio"), "the 3D actions: no other program")
+press("back")
+run_sdk({ path = "/carts/KEEP.BME" }, { ai = true })
+frames(3)
+key("f4", "f6")
+frames(2)
+check(sees("Cubo"), "the assistant on a console that has it (3D recipes)")
+key("esc")
+frames(2)
+
+-- a game from bm/ (Open, or the menu's "Open in bm SDK"): it opens as it
+-- is; saving it, the console makes its editable copy next to it, a project
+-- that builds a game in bm/, which the Games tab shows; the 3D page, models
 run_sdk(nil)
 frames(3)
 key("^o")
@@ -1004,7 +1057,7 @@ check(sees("/bm/VILLAGE.B16"), "Open: the games in bm/")
 press("ok")                                      -- (the first row: /bm/ comes before /carts/)
 frames(2)
 check(sees("Studio Village"), "the game opened")
-check(sees("VILLAGE.BME"), "its project: /carts/VILLAGE.BME")
+check(status():find("editable copy", 1, true), "a game: saving makes its editable copy: " .. status())
 tag = "3D village"
 press("r1"); press("r1"); press("r1")
 frames(3)
@@ -1016,31 +1069,15 @@ press("l2"); press("r2")
 press("x")
 check(sees("The code to draw it"), "the 3D actions")
 press("back")
-
--- the build, the try and the tools: not on a Market cartridge
-key("^b")
-check(built == nil or built ~= "refused", "Ctrl+B never asks the runtime (it would refuse)")
-check(status():find("Pi", 1, true), "Ctrl+B says where games are built: " .. status())
-key("f5")
-check(not ran and not quitted, "F5 does not leave the SDK for nothing")
 key("f6")
 check(status():find("assistant is not on this console", 1, true), "F6 on the RGB30: no assistant: " .. status())
-
--- in a tool session (cart_arg()), the same edition builds and tries
-run_sdk({ path = "/carts/KEEP.BME" }, { ai = true })
-frames(3)
+key("^s")
+check(copies == 1 and last_save.path == "/bm/VILLAGE.BME", "Ctrl+S: the editable copy next to the game: " ..
+      last_save.path)
+check(status():find("saved /bm/VILLAGE.BME", 1, true), "the SDK goes on with the copy: " .. status())
 key("^b")
-check(built == "/carts/KEEP.BM", "a tool session: Ctrl+B builds: " .. tostring(built))
-key("f5")
-check(ran == "/carts/KEEP.BME", "a tool session: F5 tries: " .. tostring(ran))
-run_sdk({ path = "/carts/KEEP.BME" }, { ai = true })
-frames(3)
-check(sees("open in"), "a tool session: the suite's row")
-key("f4", "f6")
-frames(2)
-check(sees("Cubo"), "the assistant on a console that has it (3D recipes)")
-key("esc")
-frames(2)
+check(built == "/bm/VILLAGE.BM" and status():find("it is in Games", 1, true), "Ctrl+B: the game in bm/: " .. status())
+check(refused == 0, "the runtime never refused a save (" .. refused .. ")")
 
 -- the keyboard: the same pages with its keys, the hints with keys
 run_sdk(nil, { keyboard = true })
@@ -1056,11 +1093,16 @@ key("esc", "f2")
 for c in ("x = 1"):gmatch(".") do key(c) end
 check(sees("x = 1") or sees("x"), "typing on the keyboard")
 
--- a long message: on two rows, over the hints
-run_sdk(nil)
+-- a long message: on two rows, over the hints (the menu's "Open in bm
+-- SDK" on a game: cart_arg() = {path, back = false})
+run_sdk({ path = "/bm/VILLAGE.B16", back = false })
 frames(2)
-key("^b")
-check(status():find("Pi", 1, true) and #status() > 0, "a long message on the status rows: " .. status())
+local r320, r336
+for _, t in ipairs(texts) do
+  if t[3] == 320 and t[1]:find("^opened VILLAGE.B16") then r320 = t[1] end
+  if t[3] == 336 and t[1]:find("copy", 1, true) then r336 = t[1] end
+end
+check(r320 and r336, "a long message on the two status rows: " .. status())
 
 -- the mouse (a Bluetooth one): the tabs, the context menu inside 360
 run_sdk(nil, { mouse = true })
