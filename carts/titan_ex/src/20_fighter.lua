@@ -74,8 +74,8 @@ function Fighter.read(f)
     i.lk, i.hk = btnp(BA, p), btnp(BB, p)
     i.up = btnp(BU, p)
     -- shoulder macros
-    i.tag = btnp(BL1, p) or (btn(BX, p) and btnp(BA, p))
-    i.assist = btnp(BR1, p)
+    i.tag = btnp("l1", p) or (btn(BX, p) and btnp(BA, p))
+    i.assist = btnp("r1", p)
   end
 
   insert(f.hist, 1, i.dir)

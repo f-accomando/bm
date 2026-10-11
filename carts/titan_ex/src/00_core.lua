@@ -21,7 +21,6 @@ local GRAV = 0.52           -- gravity acceleration
 local BL, BR, BU, BD = 0, 1, 2, 3
 local BA, BB, BX, BY = 4, 5, 6, 7
 local BSTART, BSELECT = 8, 9
-local BL1, BR1 = 10, 11
 
 -- Modules
 local Data, Fighter, Fx, Stage, Hud, Cpu, Scr, Snd = {}, {}, {}, {}, {}, {}, {}, {}

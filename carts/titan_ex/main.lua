@@ -22,7 +22,6 @@ local GRAV = 0.52           -- gravity acceleration
 local BL, BR, BU, BD = 0, 1, 2, 3
 local BA, BB, BX, BY = 4, 5, 6, 7
 local BSTART, BSELECT = 8, 9
-local BL1, BR1 = 10, 11
 
 -- Modules
 local Data, Fighter, Fx, Stage, Hud, Cpu, Scr, Snd = {}, {}, {}, {}, {}, {}, {}, {}
@@ -688,8 +687,8 @@ function Fighter.read(f)
     i.lk, i.hk = btnp(BA, p), btnp(BB, p)
     i.up = btnp(BU, p)
     -- shoulder macros
-    i.tag = btnp(BL1, p) or (btn(BX, p) and btnp(BA, p))
-    i.assist = btnp(BR1, p)
+    i.tag = btnp("l1", p) or (btn(BX, p) and btnp(BA, p))
+    i.assist = btnp("r1", p)
   end
 
   insert(f.hist, 1, i.dir)
@@ -2948,4 +2947,4 @@ end
 TITAN = { G = G, Data = Data, Scr = Scr, Fighter = Fighter, Fx = Fx, Stage = Stage, Hud = Hud, Cpu = Cpu,
           Snd = Snd }
 end
-TITAN_BUILD = "540273d"
+TITAN_BUILD = "eb51c4b"
