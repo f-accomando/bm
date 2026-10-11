@@ -19,7 +19,7 @@ time = function() return 1 end
 log = function(...) print(...) end
 ''')
 
-with open('build/titan/main.lua', 'r', encoding='utf-8') as f:
+with open('build/titan_ex/main.lua', 'r', encoding='utf-8') as f:
     lua.execute(f.read())
 
 lua.execute('_init()')

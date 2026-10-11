@@ -15,7 +15,7 @@ from lupa import LuaRuntime
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SHEET_PATH = os.path.join(ROOT, "carts", "titan", "sheet.png")
-MAIN_LUA_PATH = os.path.join(ROOT, "build", "titan", "main.lua")
+MAIN_LUA_PATH = os.path.join(ROOT, "build", "titan_ex", "main.lua")
 ARTIFACT_DIR = r"C:\Users\ROCKET\.gemini\antigravity\brain\93278b02-ffbd-42fb-8bcf-52e397034a1b"
 os.makedirs(ARTIFACT_DIR, exist_ok=True)
 

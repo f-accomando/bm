@@ -254,6 +254,17 @@ $(BUILD)/titan/main.lua: $(TITAN_SRC) carts/titan/build.py
 $(BUILD)/carts/titan.bm: $(BUILD)/titan/main.lua carts/titan/sheet.png carts/titan/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_titan)" --author bm \
+	    --sheet carts/titan/sheet.png --sheet8 --cover carts/titan/cover.png
+
+# Titan Clash EX (RGB30, .b16 only): the same game's second edition, 360x360 (1:1),
+# with its own sources in carts/titan_ex/ (the Pi's .bm stays in carts/titan/)
+TITAN_EX_SRC := $(sort $(wildcard carts/titan_ex/src/*.lua))
+$(BUILD)/titan_ex/main.lua: $(TITAN_EX_SRC) carts/titan_ex/build.py
+	$(PYTHON) carts/titan_ex/build.py $@ --map $(BUILD)/titan_ex/main.map
+
+$(BUILD)/carts/titan_ex.bm: $(BUILD)/titan_ex/main.lua carts/titan/sheet.png carts/titan/cover.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "Titan Clash EX" --author bm \
 	    --sheet carts/titan/sheet.png --sheet8 --cover carts/titan/cover.png --res 360x360
 
 # nano8: plays .p8 / .p8.png carts (machine in src/bm/n8*.c); several Lua
@@ -331,7 +342,7 @@ $(BUILD)/carts/overbit.b16: $(BUILD)/overbit/main.min.lua $(BUILD)/overbit/model
 # the .b16 that is the .bm's very bytes (docs/B16.md §0: the same container): a
 # 360x360 or 720x720 game within the 8 MiB, built as its .bm (Yharnam: 360x360,
 # its menus on "ok" / "back", the RGB30's B and A)
-B16_AS_BM := yharnam
+B16_AS_BM := yharnam titan_ex
 $(patsubst %,$(BUILD)/carts/%.b16,$(B16_AS_BM)): $(BUILD)/carts/%.b16: $(BUILD)/carts/%.bm
 	cp $< $@
 	@test `wc -c < $@` -le 8388608 || { echo "$@ is over a .b16's 8 MiB"; rm -f $@; exit 1; }
