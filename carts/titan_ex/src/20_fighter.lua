@@ -479,7 +479,7 @@ end
 
 local function check_hit(a, f)
   local m = a.move
-  if a.hit_done or not m.dmg then return end
+  if not m or a.hit_done or not m.dmg then return end
   local fr = Fighter.frame(a)
   local hb = fr.hit
   if not hb then return end

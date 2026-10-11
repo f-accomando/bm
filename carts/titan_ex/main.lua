@@ -1093,7 +1093,7 @@ end
 
 local function check_hit(a, f)
   local m = a.move
-  if a.hit_done or not m.dmg then return end
+  if not m or a.hit_done or not m.dmg then return end
   local fr = Fighter.frame(a)
   local hb = fr.hit
   if not hb then return end
@@ -2947,4 +2947,4 @@ end
 TITAN = { G = G, Data = Data, Scr = Scr, Fighter = Fighter, Fx = Fx, Stage = Stage, Hud = Hud, Cpu = Cpu,
           Snd = Snd }
 end
-TITAN_BUILD = "96c345b"
+TITAN_BUILD = "9f330d4"
