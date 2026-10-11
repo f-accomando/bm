@@ -159,6 +159,13 @@ the binner's tile-list pool (4096 KiB) and of its overflow area (2048 KiB) one j
 from `BPCA` after the job; `ovf_jobs` the jobs whose binner went into the overflow. The
 GPU test (`g`) and the session report print the binner's figures too.
 
+So runs can be compared, every report says the 3D options in force on one `options` line
+(`gpu3d_options_line`): `bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1
+sort=0` (`gpu3d=off` without the V3D), plus `3d= later= 2d= impostor= fast=` in the session
+report (second line, as the run ended) and on top of a game's `report()` (the Overbit
+bench's `overbit-bench`). The 3D Bench takes it at its start (each profile then sets its
+own), the GPU test (`g`) prints it at its end.
+
 ## A part, from the monitor
 
 The monitor's command line (`:`) runs only some tests and profiles, without waiting

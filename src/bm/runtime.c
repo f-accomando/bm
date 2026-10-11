@@ -3097,6 +3097,20 @@ static int l_log(lua_State *L)
  * board and date, then sent to the reports' git repository if it can (a
  * benchmark's numbers instead of a photo). At most 8 a run, 256 KiB each.
  * true if it was saved. */
+/* The 3D's options in force, one line for the reports (the session's,
+ * report()'s): the driver's (gpu3d_options_line), then the runtime's: who
+ * draws the 3D (none: no 3D yet), each frame shown a frame later as it is,
+ * the 2D in the GPU's job, the impostors' pixels, r3d_fast */
+static void options_line(char *b, size_t n)
+{
+    const int gpu = rt.r3d_ready && rt.r3d.backend != NULL;
+    const size_t k = (size_t)gpu3d_options_line(b, n);
+    if (k + 1 < n)
+        ksnprintf(b + k, n - k, " 3d=%s later=%d 2d=%d impostor=%d fast=%d",
+                  !rt.r3d_ready ? "none" : gpu ? "gpu" : "arm", gpu && rt.later && gpu3d_queue2(), gpu && rt.gpu2d,
+                  rt.r3d_ready ? rt.r3d.impostor : 0, rt.r3d_ready ? rt.r3d.fast : 0);
+}
+
 #define REPORTS_MAX     8
 #define REPORT_MAX_LEN  (256 * 1024)
 enum { PERM_NET, PERM_REPORT, PERM_DOCS, PERM_COUNT };
@@ -3116,7 +3130,19 @@ static int l_report(lua_State *L)
         return 1;
     }
     rt.reports++;
-    lua_pushboolean(L, reports_text(kind, text, len) == 0);
+    /* the 3D's options first (the Overbit bench's runs can be compared) */
+    char *t = malloc(len + 256);
+    if (!t) {
+        lua_pushboolean(L, reports_text(kind, text, len) == 0);
+        return 1;
+    }
+    ksnprintf(t, 256, "options ");
+    options_line(t + 8, 240);
+    size_t k = strlen(t);
+    t[k++] = '\n';
+    memcpy(t + k, text, len);
+    lua_pushboolean(L, reports_text(kind, t, k + len) == 0);
+    free(t);
     return 1;
 }
 
@@ -8426,7 +8452,8 @@ static struct {
     int w, h;                           /* the screen of the run */
     char info[4][19];                   /* the game's own lines (devinfo) as the run ended */
     int ninfo;
-    int want;                           /* the report is written (session_wanted): measure the parts */
+    char opts[192];                     /* the 3D's options as the run ended (options_line) */
+    int want;                          /* the report is written (session_wanted): measure the parts */
     uint64_t seg_us[SEG_USED];          /* the frames' parts, summed (perf_account) */
     uint64_t wall_us;                   /* the frames measured, from start to start */
     uint32_t measured, gpu_bound;       /* frames measured; those the GPU set the pace of */
@@ -8991,6 +9018,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     sess.h = rt.g.h;
     sess.ninfo = rt.ndevinfo;
     memcpy(sess.info, rt.devinfo, sizeof sess.info);
+    options_line(sess.opts, sizeof sess.opts);
     st->d2_ops = d2.ops;
     st->later = held.frames;
     st->ok = error == NULL;
@@ -9228,6 +9256,7 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
     const uint32_t ms = st->elapsed_us / 1000, fps10 = ms ? st->frames * 10000u / ms : 0;
     const uint32_t avg = st->cpu_us_total / st->frames;
     PUT("session of \"%s\" (the last one: the next run of this game replaces this file)\n", st->title);
+    PUT("options %s\n", sess.opts);
     PUT("screen %dx%d, %lu frames in %lu.%lu s, %lu.%lu fps\n", sess.w, sess.h, (unsigned long)st->frames,
         (unsigned long)(ms / 1000), (unsigned long)(ms % 1000 / 100), (unsigned long)(fps10 / 10),
         (unsigned long)(fps10 % 10));

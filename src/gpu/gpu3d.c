@@ -2632,6 +2632,19 @@ uint32_t gpu3d_wait_us(void)
     return v3d_wait_us;
 }
 
+int gpu3d_options_line(char *buf, size_t n)
+{
+    if (!n)
+        return 0;
+    if (!gpu3d_ready())
+        ksnprintf(buf, n, "bm3d %s gpu3d=off", BM3D_VERSION);
+    else
+        ksnprintf(buf, n, "bm3d %s gpu3d=on vs=%d aa=%d queue=%d wc=%d filter=%d tex16=%d fs2=%d sort=%d",
+                  BM3D_VERSION, gpu3d_vshader_on(), gpu3d_msaa_on(), gpu3d_queue2() ? 2 : gpu3d_queue(), gpu3d_wc(),
+                  gpu3d_bilinear(), gpu3d_tex16(), gpu3d_fs2(), gpu3d_sort());
+    return (int)strlen(buf);
+}
+
 /* ---------------------------------------------------------------- init */
 
 static uint8_t *block_alloc(void)

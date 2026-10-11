@@ -1149,6 +1149,7 @@ static float tris_most(int *most)
 }
 
 static int prev_score;                  /* the last report's (0: none, or a part of the bench) */
+static char opts_start[160];            /* the driver's options as the bench started (gpu3d_options_line) */
 
 /* ---------------------------------------------------------------- the report */
 
@@ -1224,7 +1225,8 @@ static void report(void)
     put("machine %s\n", P->machine ? P->machine : "?");
     put("gpu %s\n", gpu3d_status());
     put("probes %s\n", gpu3d_probe_log()[0] ? gpu3d_probe_log() : "none");
-    put("counters %s\n", P->counting ? pmu_name() : "none");
+    put("options %s (at the start; each profile sets its own)\n", opts_start);
+    put("counters %s\n",P->counting ? pmu_name() : "none");
     put("previous %s\n", prev_name[0] ? prev_name : "none");
     if (P->only_tests || P->only_profiles)      /* a part of the bench, from the monitor's line */
         put("only tests %s, profiles %s\n", P->only_tests ? P->only_tests : "all",
@@ -1761,6 +1763,7 @@ int b3d_run(const b3d_platform_t *plat)
     prev_name[0] = 0;
     prev_score = 0;
     halted = 0;
+    gpu3d_options_line(opts_start, sizeof opts_start);
     if (r3d_init(&R, g) != 0)
         return -1;
     meshes_make();

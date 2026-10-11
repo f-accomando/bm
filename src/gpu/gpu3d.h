@@ -19,6 +19,7 @@
 #ifndef GPU3D_H
 #define GPU3D_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "bm/r3d.h"
@@ -181,6 +182,14 @@ typedef struct {
     uint32_t pool_max, ovf_max;     /* the most bytes of the binner's pool (JOB_ALLOC) and overflow a job used */
     uint32_t ovf_jobs;              /* jobs whose binner went into the overflow area */
 } gpu3d_stats_t;
+
+/* The driver's options in force, one line for the reports (so runs can be
+ * compared): "bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0
+ * fs2=1 sort=0" (what is asked and possible: vs the vertex shader's level,
+ * queue 0, 1 or 2 jobs), or "bm3d 6.9 gpu3d=off" when the V3D is not
+ * running (the ARM, QEMU, the PC's stubs, the RGB30). The runtime adds its
+ * own (later, 2d, impostor, fast). The length written. */
+int gpu3d_options_line(char *buf, size_t n);
 
 /* totals since the last call, then zeroed */
 void gpu3d_take_stats(gpu3d_stats_t *s);

@@ -8,6 +8,8 @@
  */
 #include "ai/lua_music.h"
 #include "gpu/gpu3d.h"
+#include "gpu/version3d.h"
+#include "lib/printf.h"
 #include "gpu/v3d.h"
 #include "drivers/dma.h"
 #include "drivers/prop.h"
@@ -86,6 +88,13 @@ const char *gpu3d_probe_log(void)                       { return ""; }
 void gpu3d_take_stats(gpu3d_stats_t *s)                 { memset(s, 0, sizeof *s); }
 void gpu3d_peek_stats(gpu3d_stats_t *s)                 { memset(s, 0, sizeof *s); }
 uint32_t gpu3d_wait_us(void)                            { return 0; }
+int gpu3d_options_line(char *buf, size_t n)
+{
+    if (!n)
+        return 0;
+    ksnprintf(buf, n, "bm3d %s gpu3d=off", BM3D_VERSION);
+    return (int)strlen(buf);
+}
 int v3d_init(void)                                      { return -1; }
 const char *v3d_status(void)                            { return "no V3D (RGB30: Mali-G52)"; }
 

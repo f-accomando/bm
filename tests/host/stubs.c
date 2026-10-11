@@ -19,6 +19,7 @@
 
 #include "drivers/dma.h"
 #include "gpu/gpu3d.h"
+#include "gpu/version3d.h"
 #ifdef BMHOST_GPU
 #include "gpu/v3d.h"
 #include "../gpu/v3d_emu.h"
@@ -528,6 +529,13 @@ int gpu3d_vshader_on(void) { return 0; }
 void gpu3d_take_stats(gpu3d_stats_t *s) { memset(s, 0, sizeof *s); }
 void gpu3d_peek_stats(gpu3d_stats_t *s) { memset(s, 0, sizeof *s); }
 uint32_t gpu3d_wait_us(void) { return 0; }
+int gpu3d_options_line(char *buf, size_t n)
+{
+    if (!n)
+        return 0;
+    snprintf(buf, n, "bm3d %s gpu3d=off", BM3D_VERSION);
+    return (int)strlen(buf);
+}
 int gpu3d_submit(const g16_t *g, int keep) { (void)g; (void)keep; return 0; }
 int gpu3d_inflight(void) { return 0; }
 int gpu3d_sync(void) { return 0; }

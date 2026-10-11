@@ -1255,6 +1255,9 @@ void gpu_test(framebuffer_t *fb)
     if (ok && gpu3d_ready())
         step_gpu2d(fb);
     probe_lines();
+    char opts[160];
+    gpu3d_options_line(opts, sizeof opts);
+    kprintf("    options after the test: %s\n", opts);
     if (gpu3d_ready())
         gpu3d_drop();                       /* the games start from a clean state */
     kprintf(failed ? "GPU test \x1b[91mfailed\x1b[0m: a photo of these lines helps\n" : "GPU test passed\n");
