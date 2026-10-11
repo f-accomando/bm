@@ -733,6 +733,67 @@ def test_market_b16(b, opts):
     assert owned.startswith("pocket ") and owned.rstrip().endswith(" /bm/POCKET.B16"), owned
 
 
+TRY_ME = r"""
+function _init() log("tryme runs") end
+function _draw() cls(1) print("try me", 8, 8, 7) end
+"""
+
+
+def test_sdk_tool(b, opts):
+    """bm SDK (RGB30) (carts/sdk_b16), the tool built into this kernel, as
+    the Pi's SDK in its own (src/kernel/devtool.c): a game's options (X)
+    open it on the game ("Open in bm SDK"); F5 tries it, the console plays
+    it ('q' stops it) and the SDK comes back with the run's numbers;
+    Ctrl+\\ (Ctrl+Esc) leaves it for the menu. The Dev tab has it last; it
+    opens on the file of the last time."""
+    tmp = tempfile.mkdtemp(prefix="bm64sdk-")
+    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
+                       "bm/tryme.b16": mkbm.pack(TRY_ME.encode(), title="Try me", author="tests", res=(360, 360))})
+
+    def screen(want, tries=80):
+        for _ in range(tries):
+            text = screen_all(q.screendump())
+            if all(w in text for w in want):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"want {want} on the screen:\n{text}")
+
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.5)
+        screen(["Try me"])                      # Games: the only one
+        keys(q, "x")                            # X: its options
+        screen(["Open in bm SDK", "Play"])
+        keys(q, "s")                            # down: Open in bm SDK
+        q.send("\r")                            # confirm
+        q.expect("bm SDK on /bm/", timeout=10)    # (the name as the card has it)
+        screen(["PROJECT", "Try me", "project", "code"])   # the SDK's project page, its tabs
+        q.send("\x1b[15~")                      # F5: try it (a game: as it is, no copy)
+        q.expect("tryme runs", timeout=30)
+        time.sleep(1.5)
+        q.send("q")                             # the game stops
+        out = q.expect('bm: "Try me"', timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        screen(["back from the game"])          # the SDK again, the run's numbers
+        q.send("\x1c")                          # Ctrl+\ (Ctrl+Esc): leave the SDK
+        text = screen(["Games", "Dev", "Settings"])
+        assert in_menu(text), text
+        keys(q, "r")                            # Dev: 3D Bench
+        keys(q, "ss")                           # the third row: bm SDK, the last
+        text = screen(["bm SDK", "Dev"])
+        assert in_menu(text), text
+        q.buf = b""
+        q.send("\r")
+        q.expect("bm SDK\r\n", timeout=10)      # on no file (page_sdk's line)
+        screen(["PROJECT", "Try me"])           # the file of the last time
+        q.send("\x1c")
+        text = screen(["Games", "Dev", "Settings"])
+        assert in_menu(text), text
+    finally:
+        q.close()
+
+
 def test_battery_icon(b, opts):
     """The battery at the right end of the bar (the user, 2026-10-05): four
     bars from 75%, fewer below, red under 10%, a bolt on the charger (over
