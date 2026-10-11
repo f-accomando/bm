@@ -96,6 +96,7 @@ typedef struct {
     uint32_t edm, hsts;         /* SDEDM, SDHSTS then (before anything is cleared) */
     uint32_t cmd_r1;            /* the card's answer to the read or write command, ~0 if none */
     uint32_t r1;                /* its status (CMD13) right after, before the stop; ~0 if none */
+    uint32_t stale;             /* words left in the FIFO after the stop, dropped */
 } fail_t;
 static fail_t fail;
 static uint32_t n_lines;        /* lines in the log so far */
@@ -365,6 +366,7 @@ static void note_fail(uint32_t start, uint32_t done, uint32_t words, uint32_t cm
     fail.hsts = mmio_read(SDHSTS);
     fail.cmd_r1 = cmd_r1;
     fail.r1 = ~0u;
+    fail.stale = 0;
 }
 
 /* The card's own status (CMD13) for the log, before the stop: "data" or
@@ -380,6 +382,48 @@ static void note_card(void)
     n_timeouts = timeouts;
 }
 
+/* Words in the FIFO, read and dropped (a few FIFOs' worth at most). */
+static uint32_t drop_fifo(void)
+{
+    uint32_t n = 0;
+    while (n < 4 * FIFO_WORDS && EDM_FIFO_LEVEL(mmio_read(SDEDM))) {
+        (void)mmio_read(SDDATA);
+        n++;
+    }
+    return n;
+}
+
+/* Before a command with data: words already in the FIFO would come first in
+ * a read, or go to the card in a write. An earlier transfer's (it should
+ * never happen): dropped, with a line. */
+static void drop_stale(const char *op, uint32_t lba)
+{
+    if (!EDM_FIFO_LEVEL(mmio_read(SDEDM)))
+        return;
+    const uint32_t n = drop_fifo();
+    if (may_log())
+        kprintf("sd: %lu words of an earlier transfer in the FIFO before the %s at %lu: dropped\n",
+                (unsigned long)n, op, (unsigned long)lba);
+}
+
+/* After a failed try, so that the next one starts clean (2026-10-11; before,
+ * only the stop, and none after a failed command): the controller out of a
+ * wait (Linux does it after a failed command), the card's status for the
+ * log, the card stopped (CMD12: back to "tran" if it was sending or
+ * receiving, also after a command whose answer was lost but the card took),
+ * what is left in the FIFO dropped. */
+static void recover(void)
+{
+    const uint32_t edm = mmio_read(SDEDM);
+    mmio_write(SDHSTS, HSTS_CLEAR);
+    if (EDM_FSM(edm) == FSM_READWAIT || EDM_FSM(edm) == FSM_WRITESTART1)
+        mmio_write(SDEDM, edm | EDM_FORCE_DATA);
+    note_card();
+    stop();
+    fail.stale = drop_fifo();
+    mmio_write(SDHSTS, HSTS_CLEAR);
+}
+
 /* One line for a transfer that failed: what its first try saw, and how the
  * others ended (2026-10-11: which wait runs out on the Pi, and why). */
 static void log_fail(const char *op, uint32_t lba, uint32_t count, const fail_t *f, int ok, int tries, uint32_t us)
@@ -390,12 +434,12 @@ static void log_fail(const char *op, uint32_t lba, uint32_t count, const fail_t 
     if (!ok || tries > 2)
         ksnprintf(last, sizeof last, ", the last: %s", fail.what);
     kprintf("sd: %s %lu at %lu: %s after %lu.%lu ms, %lu/%lu words; controller %s, fifo %lu, hsts %03lx (%s); "
-            "card %s (%08lx, to the command %08lx); %s in %lu ms, %d tries%s\n", op, (unsigned long)count,
-            (unsigned long)lba, f->what, (unsigned long)(f->us / 1000), (unsigned long)(f->us / 100 % 10),
-            (unsigned long)f->done, (unsigned long)f->words, fsm_name(f->edm),
+            "card %s (%08lx, to the command %08lx); %lu words dropped; %s in %lu ms, %d tries%s\n", op,
+            (unsigned long)count, (unsigned long)lba, f->what, (unsigned long)(f->us / 1000),
+            (unsigned long)(f->us / 100 % 10), (unsigned long)f->done, (unsigned long)f->words, fsm_name(f->edm),
             (unsigned long)EDM_FIFO_LEVEL(f->edm), (unsigned long)(f->hsts & 0x7FF), hsts_name(f->hsts),
-            card_state(f->r1), (unsigned long)f->r1, (unsigned long)f->cmd_r1, ok ? "then ok" : "failed",
-            (unsigned long)(us / 1000), tries, last);
+            card_state(f->r1), (unsigned long)f->r1, (unsigned long)f->cmd_r1, (unsigned long)f->stale,
+            ok ? "then ok" : "failed", (unsigned long)(us / 1000), tries, last);
 }
 
 /* ---------------------------------------------------------------- transfers */
@@ -405,12 +449,11 @@ static int read_blocks(uint32_t lba, uint32_t count, uint8_t *buf)
     const uint32_t start = timer_ticks(), words = count * 128;
     uint32_t done = 0, waited = 0, r[4];        /* waited: the longest wait for data */
     r[0] = ~0u;
+    drop_stale("read", lba);
     mmio_write(SDHBCT, 512);
     mmio_write(SDHBLC, count);
-    if (cmd_x(count > 1 ? 18 : 17, R_SHORT, CMD_READ, hc ? lba : lba * 512, r, WAIT_US)) {
-        note_fail(start, 0, words, ~0u);
-        return -1;
-    }
+    if (cmd_x(count > 1 ? 18 : 17, R_SHORT, CMD_READ, hc ? lba : lba * 512, r, WAIT_US))
+        goto fail;
     uint32_t t0 = timer_ticks();
     while (done < words) {
         uint32_t level = EDM_FIFO_LEVEL(mmio_read(SDEDM));
@@ -446,10 +489,8 @@ static int read_blocks(uint32_t lba, uint32_t count, uint8_t *buf)
      * loop looks at the flags while it waits). A line for now, the data
      * kept as before: what the Pi says decides if it becomes a failure */
     const uint32_t end = mmio_read(SDHSTS);
-    if (count > 1 && stop()) {
-        note_fail(start, done, words, r[0]);
-        return -1;
-    }
+    if (count > 1 && stop())
+        goto fail;
     mmio_write(SDHSTS, HSTS_CLEAR);
     const uint32_t after = timer_ticks() - data_end;
     if ((end & (HSTS_CRC16 | HSTS_FIFO_ERR)) && may_log())
@@ -464,9 +505,7 @@ static int read_blocks(uint32_t lba, uint32_t count, uint8_t *buf)
     return 0;
 fail:
     note_fail(start, done, words, r[0]);
-    mmio_write(SDHSTS, HSTS_CLEAR);
-    note_card();
-    stop();
+    recover();
     return -1;
 }
 
@@ -475,12 +514,11 @@ static int write_blocks(uint32_t lba, uint32_t count, const uint8_t *buf)
     const uint32_t start = timer_ticks(), words = count * 128;
     uint32_t done = 0, r[4];
     r[0] = ~0u;
+    drop_stale("write", lba);
     mmio_write(SDHBCT, 512);
     mmio_write(SDHBLC, count);
-    if (cmd_x(count > 1 ? 25 : 24, R_SHORT, CMD_WRITE, hc ? lba : lba * 512, r, WAIT_US)) {
-        note_fail(start, 0, words, ~0u);
-        return -1;
-    }
+    if (cmd_x(count > 1 ? 25 : 24, R_SHORT, CMD_WRITE, hc ? lba : lba * 512, r, WAIT_US))
+        goto fail;
     uint32_t t0 = timer_ticks();
     while (done < words) {
         uint32_t level = EDM_FIFO_LEVEL(mmio_read(SDEDM));
@@ -522,17 +560,13 @@ static int write_blocks(uint32_t lba, uint32_t count, const uint8_t *buf)
         err = "write error";
         goto fail;
     }
-    if (count > 1 ? stop() : wait_card_ready(1000000)) {
-        note_fail(start, done, words, r[0]);
-        return -1;
-    }
+    if (count > 1 ? stop() : wait_card_ready(1000000))
+        goto fail;
     mmio_write(SDHSTS, HSTS_CLEAR);
     return 0;
 fail:
     note_fail(start, done, words, r[0]);
-    mmio_write(SDHSTS, HSTS_CLEAR);
-    note_card();
-    stop();
+    recover();
     return -1;
 }
 
