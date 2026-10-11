@@ -380,6 +380,18 @@ prova senza seriale e spesso senza tastiera).
 - **R38 — L'assistente e il pennello 16×16.** Una voce della kb ("come disegno una mappa grande
   con tile 16x16?", `z` sulla pagina mappa, `mkmap.py` come esempio) e la guida del platform che
   lo cita.
+- **R39 — L'SDK della RGB30 a 720×720.** bm SDK (RGB30) (`carts/sdk_b16`) è disegnato a 360×360
+  (45×22 caratteri, tutto impilato). Con una scala logica (le regioni di `layout.lua` in unità di
+  griglia, il testo 8×16 su un 720×720) ci starebbero pannello e vista affiancati come sul Pi
+  (`layout.narrow()` c'è già). Per ora l'utente ha detto di restare a 360.
+- **R40 — I diritti da strumento per l'SDK `.b16`.** Una cartuccia del Market non è uno strumento
+  (`bm_set_tool` solo in `src/kernel/carts.c`, che la RGB30 non compila): bm SDK (RGB30) salva solo
+  progetti nuovi in `/carts`, non riscrive un `.bme` di prima, non costruisce né prova il gioco.
+  Il minimo: la RGB30 lo lancia come sessione strumento (`bm_set_tool(1)`, `cart_arg()`, e
+  `cart_run` che gioca il progetto e torna, come `carts_tool_session` del Pi) quando è il `.b16`
+  del Market firmato, o incorporato nel kernel come l'SDK del Pi; in alternativa, in
+  `write_target`, una domanda di sistema prima di riscrivere un `.bme` (come i permessi `allow_…`).
+  Con il profilo `.b16` di M42 (niente file) serve comunque un'eccezione per lui.
 
 ### Audio
 - **R31 — Import di un suono SAMPLE col suo campione.** Oggi un suono SAMPLE preso da un altro

@@ -190,6 +190,10 @@ was powered on again `bootprev.txt` has the log of the black boot.
   (`test_gpu_test`); **to be tested on the console.**
 - Pi cartridges (`.bm`) in the menu and launchable, for testing: Yharnam in the SD image (see
   below).
+- **bm SDK (RGB30)** (`carts/sdk_b16`, a `.b16` in the Market, id `sdkb16`): the SDK's own edition
+  for 360×360 and the pad ([sdk/README.md](../sdk/README.md)). As a cartridge from the Market it
+  opens any cartridge and saves new projects in `/carts`, but does not build or try a game (bm's
+  tools only, `src/bm/runtime.c`). **To be tested on the console.**
 - 360×360 menu scaled ×2 (fills the panel): since 2026-10-04 it is **the same as the Pi's**
   (`src/kernel/menu_ui.c`: bar with pill tabs and icons, square 88×88 covers, three per
   row, panels, button hints). Tabs **Market** (since 2026-10-05, the first, off

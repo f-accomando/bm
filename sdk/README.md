@@ -148,6 +148,49 @@ test-studio`: every game template runs 400 frames on the stand-ins), QEMU
 `test_editor` and `test_sdk_suite` (Studio Village: the 3D page, the
 assistant's saved model, bm Studio and back).
 
+## On the RGB30: bm SDK (RGB30), the `.b16` edition
+
+**bm SDK (RGB30)** (`carts/sdk_b16/`, a `.b16` in the Market, id `sdkb16`) is a separate
+edition of the SDK for the RGB30's 360×360 screen and its pad. It has its own sources, build
+rules and Market entry: the Pi's bm SDK (`carts/editor`, built into the kernel) does not change
+with it, and neither replaces the other.
+
+- **The screen**: 360×360 (×2 on the panel), 45 columns and 22 rows of 8×16 text: the tabs on
+  top, the hint row and the status bar at the bottom (a long message takes both). The pages are
+  the Pi's, laid out again (`carts/sdk_b16/layout.lua`, the cartridge's own: regions cut with
+  `split`, on the grid): the project's rows across the screen with the contents and the last try
+  under them, the dev kit on the whole page; the code on the whole width (40 columns); the
+  sprites with a 192×192 canvas on the left and, on the right, the sheet around the cell, the
+  palette (4 rows of 8) and the colour, the flags under the canvas; the map on the whole width;
+  the 3D with the lists on the left (16 columns) and the view on the right.
+- **The pad** (the buttons by name, never by number): **L1 / R1** (or Y + left / right) the
+  pages, Y + up / down the other view (dev kit, map), **Start** the menu, **X** the actions of
+  the page (a list with every key of the page, then save, save as, open, new, menu), **ok** and
+  **back** the system's yes and back (B and A on the RGB30, `confirm=a` swaps them), **L2 / R2**
+  the previous / next colour or tile, a page of code, the zoom of the 3D view, the right stick
+  turns it; Y alone chooses on the sheet or among the tiles; Y + X the assistant. On the 2D page
+  ok held draws or places and back picks.
+- **Typing with the pad** (`require "padtype"`, [docs/PADTYPE.md](../docs/PADTYPE.md)): on the
+  code page ok or Select turns it on (the on-screen keyboard first when the console has no word
+  lists, as the RGB30; else the composition), Select goes to the other way and off, Start opens
+  the menu. A name (title, file) is typed with padtype's keyboard: Start takes it, back deletes
+  and, on an empty line, closes. A keyboard works as on the Pi (F1–F4, Esc, Ctrl+S, F12).
+- **What it can do** as a cartridge from the Market (`write_target` in `src/bm/runtime.c`): open
+  any `.bm`, `.bme` or `.b16` (in `/carts`, `bm/` and the root) and save **new** projects in
+  `/carts` (and save again the ones it wrote in that run). A file already on the card asks for a
+  new name (`MYGAME2.BME`); a game opened is saved as its project in `/carts`. Building the
+  game, trying it and the other programs of the suite are for bm's tools (`cart_build`,
+  `cart_run`, `cart_tool`): they show only when the console runs it as a tool (`cart_arg()`),
+  which today only the Pi does, and for its own SDK. The assistant answers where the kernel has
+  its knowledge (not on the RGB30).
+- A new project is 360×360 with the target `.b16`; the dev kit lists what the `.b16` profile
+  leaves out ([docs/B16.md](../docs/B16.md) §0: files, `math.random`, `screen()`...).
+
+Build: `make build/carts/sdkb16.b16` (the `.bm`'s very bytes, under 8 MiB). Test:
+`make test-sdk-b16` (`tests/studio/sdk_b16_host.lua`: the layout module, every frame inside
+360×360 on the 8×16 grid with no text over another, the pad on every page and every action, the
+saves of a Market cartridge, the templates at 360×360).
+
 ## On the console: bm Studio and bm Animator
 
 On the console there are the same two programs, with the same names: **bm Studio**
@@ -464,6 +507,7 @@ stay identical byte for byte; `test_pixel_big` does the same with the sheet of T
 
 ```
 carts/editor/main.lua        bm SDK, the hub of the project (built into the kernel, Dev tab)
+carts/sdk_b16/               bm SDK (RGB30), the .b16 edition: layout.lua, main.lua, build.py
 carts/studio/main.lua        bm Studio (built into the kernel, Dev tab)
 carts/animator/main.lua      bm Animator (built into the kernel, Dev tab)
 src/script/bm3d.lua          the code shared by the two (require "bm3d")
@@ -475,6 +519,7 @@ tests/studio/tools3d_host.lua    bm Studio and bm Animator on the PC, with bm's 
 tests/studio/mesh_host.lua       bm Mesh on the PC
 tests/studio/pixel_host.lua      bm Pixel on the PC
 tests/studio/sdk_host.lua        the bm SDK on the PC (every game template runs 400 frames)
+tests/studio/sdk_b16_host.lua    bm SDK (RGB30) on the PC: 360x360, the RGB30's pad
 tests/studio/check_files.py      their files reread by the build's Python
 tests/bm/test_meshcap.c          the capture on the real cartridges
 ```
