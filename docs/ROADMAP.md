@@ -96,7 +96,7 @@ argomento di `gpu3d()`.
   di almeno 2× rispetto alla GPU senza vertex shader a 60 fps (nel 3D Bench passato: 11× e
   4×; manca Overbit).
 
-## M37 — 2D e qualità sulla GPU (M, se serve) — fatta sul PC (2026-10-05), da provare sul Pi
+## M37 — 2D e qualità sulla GPU (M, se serve) — fatta sul PC, da provare sul Pi
 Fatto sul PC: `gpu3d_2d`, `menu_scale=3`, `gpu3d_filter`, `r3d_fast`. Quad nativi a 1080p
 nel menu: un passo dopo, se serve (`docs/RISOLUZIONI.md`, sezione 6).
 - **Da provare sul Pi:** il passo 16 del test `g` (lo stesso HUD dall'ARM e dalla GPU, pixel
@@ -109,23 +109,14 @@ sulla stessa GPU (25 dichiarati), lavorando su come i vertici arrivano alla V3D 
 ARM e GPU si passano il lavoro. Driver **bm3d 5.x**; ogni passo è un'opzione, spenta finché
 il Pi non la verifica, confrontata dai renderer di Overbit e dai profili del 3D Bench.
 Misure di partenza sul Pi (v0.2.0, ARM 0.2, GPU 2.1, GPU+AA) in `docs/bench/`.
-Passi aperti o da provare (branch `bm3d-driver`):
+Passi aperti o da provare (la numerazione resta: i passi chiusi sono tolti):
 1. **Misure sul Pi** con i profili del vertex shader e il test `big`/`big_logic` del 3D Bench
    (modelli da 10 080 triangoli su una mappa da 14 112: "regge 34 000 triangoli?").
-2. **Mesh indicizzate e attributi compatti**: fatti angoli condivisi, primitive indicizzate a
-   16 bit con la prova all'avvio, ordine della cache dei vertici (Forsyth, `gpu3d_sort`);
-   **restano** gli attributi a 16 e 8 bit (posizioni scalate, normali e colori a 8, uv a 16;
-   posizioni separate per lo shader di coordinate).
-3. Fatto: 65535 vertici e facce in `.bm`, r3d, `mesh()`, bm Studio, bm Mesh.
-4. **Due lavori in volo**: fatto (`gpu3d_queue=2`, `gpu3d_later=1`); **resta** la misura sul Pi.
-5. **Texture più leggere**: fatto RGB565 per gli sheet opachi (`gpu3d_tex16`); **restano**
-   RGBA5551/4444 per i ritagli, ETC1 (al build) e le mipmap; la prova all'avvio controlla come
-   la TMU legge ogni formato.
-6. Fatto: fragment shader a due thread (`gpu3d_fs2`, `fs_tex_lit_t`, `fs_tex_rgb_t`, regole in
-   `qpuasm.py`).
-7. Fatto: opachi dal più vicino dentro il lavoro (`gpu3d_sort`).
-8. Fatto: `visible3d`, `pvs3d`, usati da Overbit per gli eroi.
-9. Memoria senza cache: in M35 (`gpu3d_wc`).
+2. **Attributi compatti**: restano gli attributi a 16 e 8 bit (posizioni scalate, normali e
+   colori a 8, uv a 16; posizioni separate per lo shader di coordinate).
+4. **Due lavori in volo** (`gpu3d_queue=2`, `gpu3d_later=1`): resta la misura sul Pi.
+5. **Texture più leggere**: restano RGBA5551/4444 per i ritagli, ETC1 (al build) e le
+   mipmap; la prova all'avvio controlla come la TMU legge ogni formato.
 10. **Il Lua dei giochi** (fuori dal driver): in Overbit circa il 60% del tempo dell'ARM;
     parti calde in C (raggi e collisioni, strade dei bot, particelle), meno allocazioni per
     fotogramma, `frames.py` per misurare; uno studio a parte su LuaJIT (ARMv6) sul bare metal.
@@ -138,7 +129,7 @@ Passi aperti o da provare (branch `bm3d-driver`):
   nei 60 fps a HIGH nello scontro di 10 bot.
 
 ## M41 — RGB30: la GPU Mali e Overbit in `.b16` (XL) — in corso (driver)
-Richiesta dell'utente (2026-10-05): lo stesso banco di prova della GPU del Pi sulla RGB30
+Lo stesso banco di prova della GPU del Pi sulla RGB30
 (Mali-G52, Bifrost), con Overbit come gioco di misura. Oggi lì il 3D lo fa l'ARM e il 3D
 Bench ha le colonne GPU vuote.
 1. **Overbit in `.b16`** (per ora un `.bm` con l'estensione diversa, `docs/B16.md`)
@@ -150,8 +141,7 @@ Bench ha le colonne GPU vuote.
    risoluzioni, con il report come sul Pi.
 3. **Il driver Mali**, a passi: triangoli preparati dall'ARM e disegnati dalla GPU, poi
    vertex shader, poi la coda; per ogni passo una prova all'avvio, un profilo nel 3D Bench e
-   un renderer in Overbit. Fatto (bm3d 6.0–6.1, `make TARGET=rgb30 test-mali`, report `gpu`
-   della console del 2026-10-05): accensione della Mali, MMU LPAE, lavori del job manager, un
+   un renderer in Overbit. Fatto (bm3d 6.0–6.1, `make TARGET=rgb30 test-mali`): accensione della Mali, MMU LPAE, lavori del job manager, un
    lavoro di frammenti che pulisce una superficie (descrittori Bifrost v7 da Mesa, MIT).
    **Prossimo:** i triangoli preparati dall'ARM (lavoro del tiler con contesto e heap) con un
    fragment shader Bifrost minimo (`ISA.xml` di Mesa), poi il vertex shader.
@@ -159,7 +149,7 @@ Bench ha le colonne GPU vuote.
   manda il report, prima con l'ARM e poi con la Mali; il 3D Bench della RGB30 ha le righe GPU.
 
 ## M42 — Il profilo `.b16` (L) — da fare
-Decisioni dell'utente del 2026-10-05 in [B16.md](B16.md) §0: un ambiente limitato come
+Decisioni dell'utente in [B16.md](B16.md) §0: un ambiente limitato come
 PICO-8, uguale sul Pi e sulla RGB30 (stesso contenitore con il campo del profilo; schermo
 360×360 o 720×720 fisso; 256 colori; Lua 4 MiB; banchi grafici 1024×1024; 8 voci;
 salvataggio 64 KiB; CPU a budget fisso a 60 fps che scende da sola a 30; 3D con un tetto di
@@ -175,7 +165,7 @@ triangoli; pad stile SNES; niente file; `rnd()` con seme; 8 MiB; nessun limite d
   che scende a 30 fps negli stessi punti sulle due console.
 
 ## M43 — Sprite stacking (L) — da fare
-Richiesta dell'utente (2026-10-06). Un oggetto è una pila di fette 2D disegnate una sopra
+Un oggetto è una pila di fette 2D disegnate una sopra
 l'altra con un piccolo scarto e ruotate: un volume 3D al costo del 2D. Due costi: solo la
 rotazione attorno a z (classico) e x, y, z libere (volume di voxel).
 1. **Classico nel runtime**: `stack(sx, sy, w, h, n, x, y, [rz, scala, passo])`, le `n`
@@ -199,7 +189,7 @@ rotazione attorno a z (classico) e x, y, z libere (volume di voxel).
   pile si disegnano e si modificano in bm Pixel e diventano modelli 3D e fotogrammi.
 
 ## M44 — La GPU come coprocessore: programmi sulle QPU (L/XL) — da fare
-Richiesta dell'utente (2026-10-06). Le 12 QPU fanno la stessa operazione su 16 numeri alla
+Le 12 QPU fanno la stessa operazione su 16 numeri alla
 volta: calcoli uguali su tanti dati, quando il 3D non le usa (giochi 2D, menu) o con alcune
 QPU riservate nei giochi 3D.
 1. **Il driver**: il lancio di un programma QPU "utente" fuori dal disegno (richieste di
@@ -223,7 +213,7 @@ il driver Mali (M41).
   tutto va come oggi sull'ARM.
 
 ## M45 — bm Write: i documenti, come Word e Pages (M) — in corso
-Richiesta dell'utente (2026-10-06): app del Market (`carts/write`, scheda Games), formato
+App del Market (`carts/write`, scheda Games), formato
 `.BMD` più esportazioni (`.TXT`, `.MD`, `.HTM`, `.PDF`), stili e impaginazione A4,
 completamento (`predict`) e scrittura col pad (`padtype`); `/docs` comune alle app con il
 permesso `docs`. Fatto sul PC: API `doc_*`, l'app, il formato e le esportazioni (prove `make
@@ -235,14 +225,8 @@ test-write`, QEMU `test_bm_write`).
   esporta in PDF e il PDF aperto sul PC ha la stessa pagina dello schermo.
 
 ## M46 — Audio 2: suono hi-fi, strumenti e musica dall'assistente (L) — in corso
-Richiesta dell'utente (2026-10-06, branch `claude/audio-synth`). Fatto sul PC: sintetizzatore
-stereo (`src/audio/synth.c`; il suono di prima resta con `retro`, *Sound style*,
-`sound=8bit`), 50 strumenti (`src/audio/presets.c`) e banco versione 2 (3 con i campioni) in
-C, Lua e Python, bm Sound (FILTER, WAVE & SPACE, ECHO, ROOM, brano HIFI, *Samples...*),
-l'assistente della musica (`src/ai/music.c`), riff (`docs/RIFF.md`), il jingle dello splash
-nuovo; poi (branch `claude/audio-hifi`) profondità 16/24/32 bit col dither, campioni e kit
-della console, gli effetti di superdough, `chorus()`, `audio_depth()`, `audio_samples()`, WAV a
-24/32 bit, doc e kb (`docs/progress/audio.md`).
+Fatto sul PC: sintetizzatore stereo, strumenti, banco, bm Sound, assistente della musica, riff,
+profondità 16/24/32 bit, campioni e effetti (dettaglio: `docs/progress/audio.md`).
 - **Da verificare sul Pi e sulla RGB30:** Dev → *Audio test*, bm Sound → brano HIFI, F6 →
   "ritmo rock", Settings → *Sound style* 8-bit e ritorno, *Bit depth* 16/24/32; bm Code →
   Ctrl+T, un riff, Ctrl+Invio (tempo stabile, parole accese), bm Sound → F7 e *Samples...*.
@@ -250,7 +234,7 @@ della console, gli effetti di superdough, `chorus()`, `audio_depth()`, `audio_sa
   8 bit, e il linguaggio di pattern suona da un gioco e da bm Code.
 
 ## M47 — Progetti e giochi: `.bme` modificabili, `.bm` in sola lettura (M) — in corso
-Richiesta dell'utente (2026-10-06, branch `claude/bm-projects`). Decisioni: `.bme` per il
+Decisioni: `.bme` per il
 progetto; un `.bm` si legge ma non si cambia, se ne fanno copie; gli strumenti aprono un gioco
 in sola lettura e al primo salvataggio chiedono la copia; *Make an editable copy* nelle
 opzioni; i progetti in Dev, provabili; *Build .bm* dall'SDK e dal menu sostituisce il gioco
@@ -263,7 +247,7 @@ menu (prova QEMU `test_projects`).
   dagli strumenti e il build di un progetto finisce in Games.
 
 ## M48 — Il mouse nella bm Suite (M) — in corso
-Richiesta dell'utente (2026-10-06, branch `claude/bm-projects`): tutta la suite di editor
+Tutta la suite di editor
 usabile col mouse. Regola: il mouse fa quello che fanno i tasti. Fatto sul PC: `bmui`
 (`src/script/bmui.lua`), tutti gli strumenti e il pannello dell'assistente, prove
 (`bmui_host.lua`, controfigure col mouse, QEMU `test_editor_mouse`).
@@ -299,8 +283,7 @@ usabile col mouse. Regola: il mouse fa quello che fanno i tasti. Fatto sul PC: `
 ## Spunti R1, R2, … (da riprendere)
 Cose utili che a bm mancano. Nessuno è deciso: l'utente li richiama per nome ("facciamo
 R7"), e allora si chiede il branch come per ogni sviluppo. Gli spunti diventati milestone o
-già fatti sono tolti (R5 in M19; R10–R14, R18, R28–R30, R36, hitbox, più giocatori fatti; R23 → M44,
-R24 → M43): quello che ne resta da fare è sotto. Suggeriti per primi: R3, R1 con R2, R7 (sul Pi si
+già fatti sono tolti: quello che ne resta da fare è sotto. Suggeriti per primi: R3, R1 con R2, R7 (sul Pi si
 prova senza seriale e spesso senza tastiera).
 
 ### Usare la console senza PC né seriale
@@ -334,7 +317,7 @@ prova senza seriale e spesso senza tastiera).
 - **Resti di più giocatori e bmnet.** Provare sul Pi due console in rete con il modello *Online
   2D* (anche col relay) e due pad con *Versus 2D*; Overbit sopra bmnet (oggi ha la sua copia
   del protocollo).
-- **R27 — La batteria nei giochi** (2026-10-10). Con `battery()` / `battery_low()` (RGB30) i
+- **R27 — La batteria nei giochi.** Con `battery()` / `battery_low()` (RGB30) i
   giochi lunghi (Yharnam, Overbit in solitario) potrebbero salvare da soli a batteria
   scarica, e bmlib offrire `lib.autosave` al primo `battery_low()`; l'assistente potrebbe
   suggerirlo (kb `battery`). In rete resta solo informazione (lockstep).
