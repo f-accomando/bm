@@ -1,0 +1,27 @@
+bm report
+kind: overbit-bench
+kernel: v0.2.5-116-ga0073a0
+branch: bm3d-driver-update
+board: Pi Zero W
+date: 2026-10-11 15:11:59
+file: 20261011-151159_overbit-bench_pi-zero-w_v0.2.5-116-ga0073a0.txt
+
+options bm3d 6.9 gpu3d=on vs=2 aa=0 queue=1 wc=0 filter=1 tex16=1 fs2=1 sort=0 3d=gpu later=0 2d=1 impostor=0 fast=0
+overbit bench start: calibration, 13 steps, flags auto, screen 1280x720, GPU, renderers q arm
+overbit bench ARM 640x360 LOW match 74122
+overbit bench ARM 640x360 LOW: 17 fps, 58.2 ms (1% 80.7, worst 82.3, 100% over 16.7), update 7.6, 3D 45.0, 3259 tri (max 4889), 5461 vtx, 482610 px, 40k instr, 2015 KiB Lua, bm3d 0.2
+overbit bench stop ARM at 640x360 LOW: under 30 fps (58.2 ms)
+overbit bench GPU+VS+Q 1280x720 MEDIUM match 74122
+overbit bench GPU+VS+Q 1280x720 MEDIUM: 43 fps, 19.2 ms (1% 26.3, worst 38.2, 61% over 16.7), update 9.8, 3D 2.7, 11842 tri (max 21870), 0 vtx, 0 px, 45k instr, 2014 KiB Lua, bm3d 4.1
+overbit bench GPU+VS+Q 1280x720 HIGH match 74122
+overbit bench GPU+VS+Q 1280x720 HIGH: 39 fps, 22.1 ms (1% 30.6, worst 31.7, 93% over 16.7), update 10.3, 3D 3.7, 28959 tri (max 40130), 0 vtx, 0 px, 50k instr, 2014 KiB Lua, bm3d 4.1
+overbit bench GPU+VS+Q 1280x720 ULTRA match 74122
+overbit bench GPU+VS+Q 1280x720 ULTRA: 38 fps, 23.0 ms (1% 30.8, worst 32.6, 100% over 16.7), update 10.8, 3D 3.9, 28959 tri (max 40130), 0 vtx, 0 px, 55k instr, 2014 KiB Lua, bm3d 4.1
+overbit bench GPU+VS+Q 1280x720 EXTREME match 74122
+overbit bench GPU+VS+Q 1280x720 EXTREME: 36 fps, 23.8 ms (1% 35.8, worst 46.5, 100% over 16.7), update 10.8, 3D 4.7, 28959 tri (max 40130), 0 vtx, 0 px, 55k instr, 2014 KiB Lua, bm3d 4.1
+overbit bench stop GPU+VS+Q at 1280x720 EXTREME: under 30 fps (23.8 ms)
+overbit bench climb end: every renderer under 30 fps
+overbit bench best GPU+VS+Q 1280x720: none at 60 fps
+overbit bench best ARM 640x360: none at 60 fps
+overbit bench default 1280x720 ULTRA GPU+VS+Q: holds 30 fps (nothing held 60)
+overbit bench done in 37 s
