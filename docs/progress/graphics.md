@@ -309,11 +309,7 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 
 ## Open work (`docs/ROADMAP.md`)
 
-- **M35** frame queue, 2D after 3D, uncached job memory: done on the PC, to measure on the Pi.
-- **M36** vertex shader: on the Pi only Overbit's benchmark with GPU+VS is missing.
-- **M37** 2D on the GPU, menu at 1080p, bilinear textures, `r3d_fast`: to try on the Pi.
-- **M39** toward the V3D's limit: compact 16/8-bit attributes, the runtime side of two jobs
-  in flight, RGBA5551/4444, ETC1, mipmaps, hot game Lua in C.
+- **M35, M36, M37, M39** V3D on the Pi Zero W: [v3d](v3d.md).
 - **M41** Mali: next are ARM-prepared triangles (tiler job, minimal Bifrost shader), then the
   vertex shader.
 - **M43** sprite stacking (`stack()` in `gfx16.c`, bm Pixel page) — not started.
