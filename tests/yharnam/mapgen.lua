@@ -3,7 +3,7 @@
 -- and "objects" (a placeholder, art/places.py, on the tile of every house, tree, lamp, grave and thing the chunks
 -- make: their units). It is the first drawn map, the one the SDK opens to be changed by hand
 -- (carts/yharnam/mkmap.py runs it; the cartridge reads it: MAP.drawn, MAP.objects in main.lua). With it the game
--- makes the same town (tests/yharnam/drawn.lua checks it chunk by chunk).
+-- makes the same town.
 --
 --   luahost tests/yharnam/mapgen.lua carts/yharnam/main.lua OUTDIR   -> OUTDIR/map_{ground,overlay,objects}.csv
 --

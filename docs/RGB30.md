@@ -190,14 +190,23 @@ was powered on again `bootprev.txt` has the log of the black boot.
   (`test_gpu_test`); **to be tested on the console.**
 - Pi cartridges (`.bm`) in the menu and launchable, for testing: Yharnam in the SD image (see
   below).
+- **bm SDK (RGB30)** (`carts/sdk_b16`): the SDK's own edition for 360×360 and the pad
+  ([sdk/README.md](../sdk/README.md)), **built into `kernel8.img`** (`rgb30.mk`,
+  `src/rgb30/bm_embed.S`, about 164 KiB), not in the Market. The **Dev** tab opens it as a tool
+  (the Pi's tool session, `src/kernel/devtool.c`), and a game's options (X) have **Open in bm
+  SDK**: it saves its projects where they are (a game: the console asks and makes its editable
+  copy next to it), builds a project's game next to it and tries it (F5: the game plays, Start +
+  Select leaves it, the SDK comes back with the run's numbers). The Pi's other tools are not in
+  this kernel and it does not offer them. Tests: `make test-sdk-b16` (PC), `test_sdk_tool`
+  (QEMU); **to be tested on the console.**
 - 360×360 menu scaled ×2 (fills the panel): since 2026-10-04 it is **the same as the Pi's**
   (`src/kernel/menu_ui.c`: bar with pill tabs and icons, square 88×88 covers, three per
   row, panels, button hints). Tabs **Market** (since 2026-10-05, the first, off
   screen to the left until it is the current tab: the same Market as the Pi, but only the
   catalogue's `.b16` games; B asks and downloads, the game goes into `bm/` and is played from there, X the details:
   play, download again, delete), **Games** (`.b16` games and the `.bm` ones, with their
-  cover; with `show_bm=0` it says how many cartridges are hidden), **Dev** (3D Bench, Render bench,
-  Display, Input test, Boot log, Lua on the serial port, GPU test) and **Settings**, the last, a page of its own:
+  cover; **X** opens a game's options, the Pi's C: play, open in bm SDK, type, size, author, save data and deleting it, deleting the file; with `show_bm=0` it says how many cartridges are hidden), **Dev** (3D Bench, Render bench,
+  Display, Input test, Boot log, Lua on the serial port, GPU test, bm SDK) and **Settings**, the last, a page of its own:
   since 2026-10-04 the same sections as the Pi (`src/kernel/settings.c`): Controllers
   (Bluetooth, pairing pads, keyboards and mice, button test, *Confirm button*, keyboard
   layout, icons), WiFi and network (saved network, address, network console, connecting,

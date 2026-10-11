@@ -3091,8 +3091,7 @@ end
 -- slower, heavy, dear: the most in one blow (charged above all), a blow
 -- landed at the right moment and away. What their blows do (light: the
 -- three of a combo; charged: added to the heavy), their stamina, the ticks
--- before the breath comes back, their pace; tests/yharnam/balance.lua
--- measures them.
+-- before the breath comes back, their pace.
 local BLADE = {
   fold = { light = { 1.5, 1.5, 2.5 }, heavy = 3, charged = 3, trick = 2.5, visceral = 14, cost = 17, heavy_cost = 28,
            trick_cost = 21, breath = 20, rate = 1, reach = 26 },
@@ -4376,7 +4375,7 @@ local SLOT_COST = { 800, 1200, 1600, 2000 }
 -- paths, so a hunter is made by one path, with a turn of another at most.
 -- What they do is felt, never shown: no bar grows, no number is told.
 -- apply(m, w): w is the weight of the path in the hunter (1: taken once,
--- his own; tests/yharnam/balance.lua measures what it makes of a fight)
+-- his own)
 local DISCORD = { 1, 0.35, 0.2, 0.15 }
 local PATHS = {
   { name = "Feral Affinity", lore = { "blood thick as a beast's;", "blows sink in, and pass" },
@@ -4736,7 +4735,7 @@ local function update_play()
   FOE.update()
 end
 
--- for the tests on the PC (tests/yharnam/sim.lua)
+-- for the tests on the PC
 YHARNAM = { road_at = road_at, district = district, chunk = chunk, ensure = ensure, player = P,
             blocked = blocked, lamps = lamp_state, kinds = { road = K_ROAD, walk = K_WALK, house = K_HOUSE },
             camera = function() return cam_x, cam_y end, CS = CS, TS = TS, SPR = SPR, FACADE = FACADE,

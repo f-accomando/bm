@@ -1,6 +1,7 @@
 /*
  * A plain Lua 5.4 interpreter for the PC, built from third_party/lua: runs
- * the host tests of the Lua cartridges (tests/kitchen/sim.lua) with the
+ * the host tests of the Lua cartridges and tools (tests/studio/, tests/sound/,
+ * tests/padtype/, ...) with the
  * same Lua version the console has.
  *
  *   luahost script.lua [args...]      (the arguments are in the table `arg`)

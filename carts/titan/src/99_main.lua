@@ -50,6 +50,6 @@ function _draw()
   end
 end
 
--- for the host tests (tests/titan/sim.lua)
+-- for the host tests
 TITAN = { G = G, Data = Data, Scr = Scr, Fighter = Fighter, Fx = Fx, Stage = Stage, Hud = Hud, Cpu = Cpu,
           Snd = Snd }

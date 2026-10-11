@@ -45,7 +45,8 @@ COMMON  := $(ARCH) --specs=picolibc.specs $(SYSINC) -std=c11 -O2 -Wall -Wextra -
 CFLAGS   = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
            -Ithird_party/mbedtls/include -Ithird_party/lwip/src/include -Isrc/net \
            -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' $(WARN)
-ASFLAGS := $(ARCH) $(PLAT_DEF) -g -Isrc -Isrc/rgb30
+# -Wa,-I$(BUILD): the cartridges built here that bm_embed.S takes with .incbin
+ASFLAGS := $(ARCH) $(PLAT_DEF) -g -Isrc -Isrc/rgb30 -Wa,-I$(BUILD)
 LDFLAGS := $(ARCH) --specs=picolibc.specs -nostartfiles -static -no-pie -Wl,--gc-sections \
            -Wl,--defsym=KERNEL_BASE=$(KERNEL_BASE)
 LDLIBS  := -Wl,--start-group -lc -lm -lgcc -Wl,--end-group
@@ -88,6 +89,8 @@ BM_SRCS := $(filter-out src/bm/stress.c src/bm/roombench.c,$(wildcard src/bm/*.c
            src/kernel/prompts.c src/kernel/pointer.c \
            src/kernel/menu_ui.c src/kernel/icons.c src/kernel/syskeys.c src/kernel/settings.c \
            src/kernel/ledstate.c src/kernel/notice.c src/kernel/splash.c src/kernel/logo_data.c
+# the Dev tab's bm SDK (RGB30) runs as a tool, as the Pi's suite: the same loop
+BM_SRCS += src/kernel/devtool.c
 SHARED_SRCS += $(BT_SRCS) $(MBEDTLS_SRCS) $(LWIP_SRCS) $(NET_SRCS) $(BM_SRCS)
 RGB30_SRCS := $(wildcard src/rgb30/*.c src/rgb30/*.S)
 KERNEL_SRCS := $(RGB30_SRCS) $(SHARED_SRCS) $(LUA_SRCS)
@@ -104,8 +107,21 @@ $(VERSION_STAMP): FORCE
 $(BUILD)/k/src/kernel/version.c.o: $(VERSION_STAMP)
 $(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\" -DBM_BRANCH=\"$(BRANCH)\"
 $(BUILD)/k/src/rgb30/bm_embed.S.o: keys/release-pub.pem keys/market-pub.pem src/ai/assist.lua src/ai/predict.lua src/script/bm3d.lua \
-                                    src/script/bmlib.lua src/script/bmnet.lua src/ai/padtype.lua src/script/riff.lua src/script/bmui.lua
+                                    src/script/bmlib.lua src/script/bmnet.lua src/ai/padtype.lua src/script/riff.lua src/script/bmui.lua \
+                                    $(BUILD)/sdk_b16.bm
 FORCE:
+
+# bm SDK (RGB30) (carts/sdk_b16: the SDK's .b16 edition, 360x360 and the pad), built
+# into this kernel as the Pi's SDK is into its own: the Dev tab opens it as a tool
+# (src/rgb30/ui.c, src/kernel/devtool.c). Its two Lua files joined by its build.py,
+# then the cartridge, which bm_embed.S takes with .incbin. Not in the Pi's kernel.
+$(BUILD)/sdk_b16/main.lua: carts/sdk_b16/layout.lua carts/sdk_b16/main.lua carts/sdk_b16/build.py
+	$(PYTHON) carts/sdk_b16/build.py $@
+
+$(BUILD)/sdk_b16.bm: $(BUILD)/sdk_b16/main.lua carts/editor/icon.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/editor/icon.png \
+	    --title "bm SDK (RGB30)" --author bm --res 360x360
 
 .DEFAULT_GOAL := all
 .PHONY: all test test-bt test-wifi test-audio test-mali qemu clean firmware image sdcard FORCE
@@ -132,7 +148,7 @@ SD_FILES64 = $(BUILD)/kernel8.img=kernel8.img boot/rgb30/extlinux.conf=extlinux/
              $(FW64)/rtw8821c_fw.bin=bm/rtw8821c_fw.bin \
              $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt)$(if $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt),=bm/LICENCE.rtlwifi_firmware.txt)
 # Yharnam (the Pi's cartridge, from the claude/yharnam branch, 360x360): on
-# the SD card for testing (in the Games tab) and in the QEMU tests
+# the SD card for testing (in the Games tab)
 YHARNAM := $(BUILD)/carts/yharnam.bm
 $(YHARNAM): carts/yharnam/main.lua carts/yharnam/sheet.png carts/yharnam/cover.png scripts/mkbm.py \
             carts/yharnam/map_ground.csv carts/yharnam/map_overlay.csv carts/yharnam/map_objects.csv
@@ -192,7 +208,7 @@ qemu:
 	    -kernel build/rgb30-virt/kernel.elf -serial stdio -display none
 
 test: test-bt test-wifi test-audio test-mali
-	$(MAKE) -f rgb30.mk PLAT=virt all build/rgb30-virt/carts/yharnam.bm
+	$(MAKE) -f rgb30.mk PLAT=virt all
 	$(PYTHON) tests/rgb30/qemu_test.py --build build/rgb30-virt
 
 # H5 and the Realtek firmware set-up on the PC, against a simulated chip

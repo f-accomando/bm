@@ -1,4 +1,4 @@
--- A fake bm for the host tests of Yharnam (sim.lua, balance.lua): the same
+-- A fake bm for Yharnam's map tools (mapgen.lua, mapdump.lua): the same
 -- API as the console, no pixels. Its state is in the table it returns:
 -- B.held / B.prev (the buttons of this frame and of the one before, bits as
 -- btn(); bits 10 and 11 are L1 and R1 for pad()), B.now (time()), B.px
