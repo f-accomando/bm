@@ -1,5 +1,6 @@
 #include "menu_ui.h"
 #include "config.h"
+#include "fiber.h"
 #include "icons.h"
 #include "pointer.h"
 #include "prompts.h"
@@ -69,7 +70,12 @@ static g16_t g;
 static int ready;
 static uint32_t con_w, con_h, t0, deadline;
 static uint32_t frame_end;          /* when the last frame was over: the drawing's start */
-static int probe_frames, probe_gave;    /* PROBE: see the end of menu_ui_frame */
+/* the free time of the frames for the work in the background, counted over
+ * IDLE_FRAMES (the end of menu_ui_frame): frames that had some, us offered,
+ * us taken, the most a frame's work went past its end */
+#define IDLE_FRAMES 300
+static int idle_frames, idle_gave;
+static uint32_t idle_offered, idle_used, idle_over;
 static float scroll;                /* first visible row, eased */
 static float tab_shift;             /* the tabs' x, eased: < 0 while the first one hides */
 static int first_row;
@@ -1508,6 +1514,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
 #endif
     const uint32_t flipped = timer_ticks();
     const int32_t slack = (int32_t)(deadline - 1500 - flipped);
+    uint32_t until = 0;
     int gave = 0;
     if (paced) {
         /* RGB30: the flip waited for the panel's frame start (16,675 us, a
@@ -1516,28 +1523,43 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
          * panel's: free time up to the next flip, less this frame's drawing
          * (from the end of the last one to the flip) and the margin; no wait */
         const int32_t work = (int32_t)(drawn - frame_end);
-        const uint32_t until = flipped + FRAME_US - (uint32_t)work - 1500;
-        if (v->idle && work >= 0 && (int32_t)(until - flipped) > 0) {
-            v->idle(until);
-            gave = 1;
-        }
+        until = flipped + FRAME_US - (uint32_t)work - 1500;
+        gave = v->idle && work >= 0 && (int32_t)(until - flipped) > 0;
     } else {
         /* what is left of the frame: the Market's work, if any (a little
          * margin for the flip), then the wait */
-        if (v->idle && (int32_t)(deadline - 1500 - timer_ticks()) > 0) {
-            v->idle(deadline - 1500);
-            gave = 1;
-        }
+        until = deadline - 1500;
+        gave = v->idle && (int32_t)(until - timer_ticks()) > 0;
+    }
+    if (gave) {
+        const uint32_t from = timer_ticks();
+        v->idle(until);
+        const uint32_t to = timer_ticks();
+        idle_offered += until - from;
+        idle_used += to - from;
+        if ((int32_t)(to - until) > (int32_t)idle_over)
+            idle_over = to - until;
+    }
+    if (!paced)
         while ((int32_t)(timer_ticks() - deadline) < 0)
             ;
-    }
-    /* PROBE (2026-10-10, the RGB30 Market that never loads): of 300 frames,
-     * how many gave the background work time, and the slack of the timer
-     * path after the flip; to remove with its two statics once confirmed */
-    probe_gave += gave;
-    if (++probe_frames >= 300) {
-        kprintf("menu probe: idle time in %d/300 frames, slack %d us, paced %d\n", probe_gave, (int)slack, paced);
-        probe_frames = probe_gave = 0;
+    /* the background's time (fiber.h), a line in the log every IDLE_FRAMES
+     * frames when a job ran or a frame had no free time: the frames with
+     * some, the ms taken of the ms offered, the most past a frame's end,
+     * then each job (fiber_jobs_report); slack: the timer path's after the
+     * flip (it replaces the probe of the RGB30 Market that never loaded,
+     * 2026-10-10). What the device says here is what to measure. */
+    idle_gave += gave;
+    if (++idle_frames >= IDLE_FRAMES) {
+        char jobs[256];
+        const int ran = fiber_jobs_report(jobs, sizeof jobs);
+        if (ran || idle_gave < idle_frames)
+            kprintf("menu idle: %d/%d frames, %lu of %lu ms taken, %lu.%lu ms past a frame; %s; slack %d us, "
+                    "paced %d\n", idle_gave, idle_frames, (unsigned long)(idle_used / 1000),
+                    (unsigned long)(idle_offered / 1000), (unsigned long)(idle_over / 1000),
+                    (unsigned long)(idle_over / 100 % 10), ran ? jobs : "no job", (int)slack, paced);
+        idle_frames = idle_gave = 0;
+        idle_offered = idle_used = idle_over = 0;
     }
     uint32_t now = timer_ticks();
     deadline += FRAME_US;

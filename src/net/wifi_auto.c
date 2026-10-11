@@ -35,7 +35,7 @@ static int wireless(void) { return board()->wireless; }
 #define MAX_START_FAILS 3
 #define JOB_STACK       (64 * 1024)
 
-static fiber_job_t job;
+static fiber_job_t job = { .name = "wifi" };
 static int fails;               /* tries in a row that did not join */
 static int start_fails;         /* wifi_start in a row that failed */
 static int due;                 /* a try is set for `at` */

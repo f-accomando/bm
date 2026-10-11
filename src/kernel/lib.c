@@ -18,7 +18,7 @@ static lib_source_t sources[LIB_SOURCES];
 static lib_item_t items[LIB_ITEMS];
 static int nsources, nitems, ready;
 static int scan_done, scan_total;       /* while the list is read */
-static fiber_job_t job;                 /* the tab's work: the list, then the previews */
+static fiber_job_t job = { .name = "lib" };     /* the tab's work: the list, then the previews */
 
 /* the file lib_open read last */
 static int open_src = -1;

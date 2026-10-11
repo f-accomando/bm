@@ -109,26 +109,44 @@ void fiber_slice(void)
         fiber_yield();
 }
 
+/* the jobs started so far, for fiber_jobs_report */
+#define JOBS_MAX 12
+static fiber_job_t *jobs[JOBS_MAX];
+static int njobs;
+
 int fiber_job_start(fiber_job_t *j, size_t stack, void (*fn)(void *), void *arg)
 {
     if (!j->stack) {
         if (!(j->stack = malloc(stack)))
             return -1;
         j->size = stack;
+        if (njobs < JOBS_MAX)
+            jobs[njobs++] = j;
     }
     fiber_prepare(&j->f, j->stack, j->size, fn, arg);
     j->busy = 1;
     return 0;
 }
 
+/* the time a job ran from t0, and how far over `until` it went */
+static void account(fiber_job_t *j, uint32_t t0, uint32_t until)
+{
+    const uint32_t now = timer_ticks();
+    const int32_t over = (int32_t)(now - until);
+    j->took += now - t0;
+    if (over > (int32_t)j->worst)
+        j->worst = (uint32_t)over;
+    if (over > (int32_t)j->longest)
+        j->longest = (uint32_t)over;
+}
+
 int fiber_job_run(fiber_job_t *j, uint32_t until)
 {
     if (!j->busy)
         return 0;
+    const uint32_t t0 = timer_ticks();
     j->busy = fiber_run(&j->f, until);
-    const uint32_t now = timer_ticks();
-    if ((int32_t)(now - until) > (int32_t)j->longest)
-        j->longest = now - until;
+    account(j, t0, until);
     return j->busy;
 }
 
@@ -136,8 +154,34 @@ void fiber_job_stop(fiber_job_t *j)
 {
     if (!j->busy)
         return;
+    const uint32_t t0 = timer_ticks();
     fiber_cancel(&j->f);
     while (fiber_run(&j->f, 0))
         ;
     j->busy = 0;
+    /* the menu waited for all of it: over its time from the start */
+    const uint32_t waited = timer_ticks() - t0;
+    j->took += waited;
+    if (waited > j->worst)
+        j->worst = waited;
+}
+
+int fiber_jobs_report(char *buf, size_t n)
+{
+    size_t k = 0;
+    int any = 0;
+    if (n)
+        buf[0] = 0;
+    for (int i = 0; i < njobs; i++) {
+        fiber_job_t *j = jobs[i];
+        if (!j->took)
+            continue;
+        if (n > k)
+            k += (size_t)ksnprintf(buf + k, n - k, "%s%s %lu ms (+%lu.%lu)", any ? ", " : "",
+                                   j->name ? j->name : "job", (unsigned long)(j->took / 1000),
+                                   (unsigned long)(j->worst / 1000), (unsigned long)(j->worst / 100 % 10));
+        any = 1;
+        j->took = j->worst = 0;
+    }
+    return any;
 }

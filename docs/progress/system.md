@@ -24,7 +24,10 @@ peripherals as device, the rest unmapped. `mmu_set_cached` switches ranges (GPU 
 - `src/kernel/irq.c` (BCM2835 controller, 64 sources), `tick.c` (system timer channel 1),
   `src/drivers/timer.c` (1 MHz counter).
 - Fibers (`src/kernel/fiber.c`, `src/arch/fiber.S`): cooperative tasks for the Market,
-  WiFi retries, network writes; waits yield (`fiber_yield`, `net_wait_step`).
+  WiFi retries, network writes; waits yield (`fiber_yield`, `net_wait_step`). Each menu job
+  is a named `fiber_job_t`; `menu_ui_frame` logs a `menu idle:` line every 300 frames when a
+  job ran or a frame had no free time (frames with free time, ms taken of ms offered, the
+  worst overrun, then `fiber_jobs_report`: ms per job and its worst stall).
 
 ### Crashes and freezes (`exceptions.c`, `crumbs.c`, `src/drivers/watchdog.c`)
 Exceptions show a red screen with registers and the call trail. Breadcrumbs and the last 4 KiB

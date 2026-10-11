@@ -67,9 +67,7 @@ static char note[64], banner[72];
 static char want_id[24];        /* the game to download next */
 static int delay_ms;            /* market_delay in bm/config.txt: slows a source down (tests) */
 
-static fiber_t fib;
-static uint8_t *stack;
-static int running;
+static fiber_job_t work = { .name = "market" };
 enum { JOB_CACHE, JOB_INDEX, JOB_COVER, JOB_GET };
 static int job, job_game;
 
@@ -690,11 +688,7 @@ static int start_job(void)
     } else {
         return 0;
     }
-    if (!stack && !(stack = malloc(STACK_SIZE)))
-        return 0;
-    fiber_prepare(&fib, stack, STACK_SIZE, job_main, NULL);
-    running = 1;
-    return 1;
+    return fiber_job_start(&work, STACK_SIZE, job_main, NULL) == 0;
 }
 
 void market_set_active(int on)
@@ -706,12 +700,7 @@ void market_set_active(int on)
         net_failed = 0;                 /* each visit tries the network again */
     } else if (!on && active) {
         active = 0;
-        if (running) {                  /* stop it now: it ends at its next wait */
-            fiber_cancel(&fib);
-            while (fiber_resume(&fib))
-                ;
-            running = 0;
-        }
+        fiber_job_stop(&work);          /* stop it now: it ends at its next wait */
     }
 }
 
@@ -720,10 +709,9 @@ void market_tick(uint32_t until)
     if (!active)
         return;
     while ((int32_t)(until - timer_ticks()) > 0) {
-        if (!running && !start_job())
+        if (!work.busy && !start_job())
             return;
-        if (!fiber_resume(&fib))
-            running = 0;
+        fiber_job_run(&work, until);
     }
 }
 
@@ -736,7 +724,7 @@ void market_select(int i)
 
 static int loading(void)
 {
-    return !inited || (running && job == JOB_INDEX) || (!fetched && !net_failed && online());
+    return !inited || (work.busy && job == JOB_INDEX) || (!fetched && !net_failed && online());
 }
 
 int market_items(menu_item_t *items, int max)
@@ -795,7 +783,7 @@ const char *market_status(void)
         return "";
     if (!online())
         return "Offline: the saved catalog";
-    if (running && job == JOB_INDEX)
+    if (work.busy && job == JOB_INDEX)
         return "Checking for new games...";
     const char *s = cat.serial;
     int n = ksnprintf(line, sizeof line, "%d games", cat.n);

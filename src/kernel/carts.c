@@ -187,7 +187,7 @@ static int title_cmp(const void *a, const void *b)
 /* the tabs of the graphical menu (carts_menu) */
 enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_LIB, TAB_SETTINGS };
 
-static fiber_job_t cover_job;
+static fiber_job_t cover_job = { .name = "covers" };
 static int cover_tab = TAB_GAMES, cover_sel = -1;      /* what the menu shows: its covers first */
 
 static int is_dev(const cart_t *c);
@@ -290,7 +290,7 @@ static int sd_tick(void)
  * console is on the network (reports_auto_due), in a fiber, only where
  * the network is free: Games, Dev and Lib, no panel open (the Market,
  * Settings and the options of a game use it themselves). */
-static fiber_job_t report_job;
+static fiber_job_t report_job = { .name = "reports" };
 static int reports_free;                /* the menu is where they may go (carts_menu) */
 static int reports_note;                /* the job ended: its word for the menu's note */
 

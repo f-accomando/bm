@@ -55,7 +55,7 @@ static struct {
     uint8_t *data;              /* NULL: none */
     uint32_t len;
 } q;
-static fiber_job_t write_job;
+static fiber_job_t write_job = { .name = "netxfer" };
 static int write_rc, write_stopped;
 #define WRITE_STACK (64u << 10)
 

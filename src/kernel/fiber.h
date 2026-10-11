@@ -56,6 +56,8 @@ typedef struct {
     size_t size;
     int busy;                   /* started and not over */
     uint32_t longest;           /* the longest slice so far, us (over its time) */
+    const char *name;           /* in fiber_jobs_report ("covers", "market"...) */
+    uint32_t took, worst;       /* since that report: us run, and the most over its time */
 } fiber_job_t;
 
 /* Starts fn(arg) in j (it must not be busy). 0, or -1 without memory. */
@@ -64,5 +66,12 @@ int  fiber_job_start(fiber_job_t *j, size_t stack, void (*fn)(void *), void *arg
 int  fiber_job_run(fiber_job_t *j, uint32_t until);
 /* Asks it to stop and lets it end (its waits and reads fail at once). */
 void fiber_job_stop(fiber_job_t *j);
+
+/* What the jobs took since the last call, for the menu's log line: "covers
+ * 31 ms (+2.0), market 4 ms (+0.3)": the time each ran, and in brackets
+ * the most it went over a deadline, ms (a stall of the menu: a TLS
+ * handshake, a hash, a cover decoded do not give the CPU back). 0 if none
+ * ran; it starts counting again. */
+int  fiber_jobs_report(char *buf, size_t n);
 
 #endif
