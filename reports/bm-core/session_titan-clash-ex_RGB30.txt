@@ -3,19 +3,19 @@ kind: session
 kernel: v0.2.5-90-gd120b16
 branch: bm-core
 board: RGB30
-date: 2026-10-11 10:03:03
+date: 2026-10-11 10:03:40
 file: session_titan-clash-ex_RGB30.txt
 
 session of "Titan Clash EX" (the last one: the next run of this game replaces this file)
-screen 360x360, 4402 frames in 73.4 s, 59.9 fps
+screen 360x360, 1098 frames in 18.3 s, 59.8 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 1.8 ms, max 45.1 ms, 1 frames over 16.7 ms
-memory: Lua peak 1211 KiB, data 21032 KiB; code 29849 tokens; busiest frame 47k Lua instructions
+time of _update + _draw (+ the 3D's wait): avg 4.0 ms, max 36.9 ms, 1 frames over 16.7 ms
+memory: Lua peak 1214 KiB, data 21032 KiB; code 29849 tokens; busiest frame 46k Lua instructions
 frames that were shown after more than 1.5 frames: 1
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    4400
+  <= 18 ms (60 fps)    1096
   <= 25 ms             0
   <= 34 ms (30 fps)    0
   <= 50 ms             0
@@ -25,4 +25,4 @@ time from one picture to the next:
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
-   1163    19.5    50.0   45.1   0.0   45.1   0.0   0.0     4.8        1      619        1
+    441     7.4    50.0   36.9  32.5    4.4   0.0   0.0    13.0        5      630        1
