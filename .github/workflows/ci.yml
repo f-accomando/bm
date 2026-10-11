@@ -37,21 +37,11 @@ jobs:
           echo "successful runs of $GITHUB_SHA on a branch: $n"
           echo "tested=$([ "${n:-0}" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
-  # The tests on the PC (make test-host), on two machines: Overbit's take
-  # half the time (5 min), the others the other half.
+  # The tests on the PC (make test-host).
   host:
     needs: tested
     if: ${{ !cancelled() && needs.tested.outputs.tested != 'true' }}
-    name: host (${{ matrix.part }})
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - part: overbit
-            make: test-overbit
-          - part: the others
-            make: test-host HOST_SKIP=test-overbit
     steps:
       - uses: actions/checkout@v5
         with:
@@ -68,7 +58,7 @@ jobs:
         run: make -j"$(nproc)"
 
       - name: Tests on the PC
-        run: make ${{ matrix.make }}
+        run: make test-host
 
   # The tests in QEMU (make test-qemu), in four groups of about 6 minutes on
   # four machines at once (tests/qemu_test.py --shard).

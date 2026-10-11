@@ -468,8 +468,8 @@ scaled down to 1/4); writing them takes a few seconds, and meanwhile the screen 
 make test-studio      # the console's bm Studio, bm Animator, bm Mesh, bm Pixel and SDK on the PC, their files reread by Python and the kernel
 ```
 
-`make test` includes `test-studio` and, in QEMU, `test_models`, `test_sdk_keeps_models`,
-`test_village` and `test_animation` (an arm rising on the emulated console).
+`make test` includes `test-studio` and, in QEMU, `test_models`, `test_sdk_keeps_models`
+and `test_animation` (an arm rising on the emulated console).
 
 The console's bm Studio and bm Animator have a test bench on the PC
 (`tests/studio/tools3d_host.lua`, inside `make test-studio`, with the console's Lua 5.4):

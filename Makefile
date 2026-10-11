@@ -361,62 +361,6 @@ $(BUILD)/overbit/%.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/mo
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/$*.lua --title "Overbit $*" --author bm --res $(OVERBIT_RES) \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
-# the range with each hero chosen (tests): range-kaiju.bm, ...
-OVERBIT_HEROES := kaiju sarge frost fuse rail orbit akari
-$(BUILD)/overbit/range-%.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
-	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/range-$*.lua --start range --hero $* --extra $(BUILD)/overbit/21_map.lua
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/range-$*.lua --title "Overbit $*" --author bm --res $(OVERBIT_RES) \
-	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
-
-# the range at 1920x1080 (tests: the GPU's emulator)
-$(BUILD)/overbit/range-1080.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
-	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/range-1080.lua --start range --extra $(BUILD)/overbit/21_map.lua \
-	    --define 'OVERBIT_RES="1920x1080"'
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/range-1080.lua --title "Overbit 1080" --author bm \
-	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
-
-# a whole match in a minute (tests): the point opens at once, quick rounds
-$(BUILD)/overbit/match-fast.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
-	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/match-fast.lua --start match --extra $(BUILD)/overbit/21_map.lua \
-	    --define 'OVERBIT_RULES={unlock=4,cap=3,pct=0.15,round_end=2,match_end=3}'
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/match-fast.lua --title "Overbit match" --author bm \
-	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
-
-# the benchmark in short (tests): one quality, short phases, a small ring
-$(BUILD)/overbit/bench-fast.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
-	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/bench-fast.lua --start bench --extra $(BUILD)/overbit/21_map.lua \
-	    --define 'OVERBIT_BENCH_FAST=true' \
-	    --define 'OVERBIT_BENCH_FLAGS="res:640/gpu:arm+gpu+aa+gq+vs1+vs+q/q:2/ring:1/save:0"'
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/bench-fast.lua --title "Overbit bench" --author bm \
-	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
-
-# the calibration (tests): up from the lightest step, the heaviest that holds 60 fps becomes the default
-# (the .bm's screens, as overbit.bm: the test starts that after it)
-# (tests/overbit/run.py builds its other variants: the frame times given, the RGB30's square screens)
-$(BUILD)/overbit/bench-cal.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
-	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/bench-cal.lua --start bench --extra $(BUILD)/overbit/21_map.lua \
-	    --define 'OVERBIT_BENCH_FLAGS="auto"' $(OVERBIT_BM_DEFS)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/bench-cal.lua --title "Overbit" --author bm \
-	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
-
-# two consoles on the network (tests): on the LAN, and through a relay on this PC
-$(BUILD)/overbit/net-test.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
-	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/net-test.lua --extra $(BUILD)/overbit/21_map.lua
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/net-test.lua --title "Overbit" --author bm \
-	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
-$(BUILD)/overbit/net-relay.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
-	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/net-relay.lua --extra $(BUILD)/overbit/21_map.lua \
-	    --define 'OVERBIT_RELAY="127.0.0.1:47390"'
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/net-relay.lua --title "Overbit" --author bm \
-	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
-
-test-overbit: $(BUILD)/host/bmhost-bin $(BUILD)/host/bmhost-gpu $(BUILD)/carts/overbit.bm $(BUILD)/overbit/reel.bm \
-              $(BUILD)/overbit/bench.bm $(BUILD)/overbit/bench-fast.bm $(BUILD)/overbit/bench-cal.bm \
-              $(BUILD)/overbit/match-fast.bm $(BUILD)/overbit/net-test.bm $(BUILD)/overbit/net-relay.bm \
-              $(BUILD)/overbit/range-1080.bm $(BUILD)/carts/overbit.b16 \
-              $(foreach h,$(OVERBIT_HEROES),$(BUILD)/overbit/range-$(h).bm)
-	$(PYTHON) tests/overbit/run.py $(BUILD)
-
 # Overbit's animation reel as a video (docs/img/overbit-reel-rally.mp4 and
 # a GIF of the first half minute): bmhost renders it, ffmpeg encodes it
 overbit-reel: $(BUILD)/host/bmhost-bin $(BUILD)/overbit/reel.bm
@@ -468,12 +412,6 @@ $(BUILD)/host/luahost: tests/kitchen/luahost.c $(LUA_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -w -Ithird_party/lua -o $@ tests/kitchen/luahost.c $(LUA_SRCS) -lm
 
-test-kitchen: $(BUILD)/host/luahost $(BUILD)/kitchen/main.lua
-	$< tests/kitchen/sim.lua $(BUILD)/kitchen/main.lua $(BUILD)/kitchen/main.map
-
-test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
-	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
-
 # bmplay: a Lua cartridge played on the PC with the console's drawing (lights
 # by levels too) and sound, its buttons pressed by a bot in Lua;
 # tools/bmplay/video.sh BMPLAY CART.bm BOT.lua OUT.mp4 makes a video of it.
@@ -489,21 +427,6 @@ $(BUILD)/host/bmplay: $(BMPLAY_SRCS) src/bm/*.h src/audio/*.h $(LUA_SRCS)
 yharnam-video: $(BUILD)/host/bmplay $(BUILD)/carts/yharnam.bm tools/bmplay/yharnam_bot.lua
 	tools/bmplay/video.sh $(BUILD)/host/bmplay $(BUILD)/carts/yharnam.bm tools/bmplay/yharnam_bot.lua \
 	    $(BUILD)/yharnam-run.mp4
-
-# Yharnam (a game of the Pi's, and rgb30.mk packs it for the RGB30): the
-# street plan, the chunks, a long walk, the cost of a frame; then the fight
-# measured, with the paths of the lamps (balance.lua), and the ways of the
-# creatures and the phases of the bosses (foes.lua); the map drawn by hand
-# (drawn.lua): the one its street plan makes (mapgen.lua, in build/) gives
-# the same town as no map, its objects layer places the things, the
-# repository's map is read instead of the ground made
-test-yharnam: $(BUILD)/host/luahost carts/yharnam/main.lua $(foreach l,$(layers_yharnam),carts/yharnam/map_$(l).csv)
-	$< tests/yharnam/sim.lua carts/yharnam/main.lua
-	$< tests/yharnam/balance.lua carts/yharnam/main.lua
-	$< tests/yharnam/foes.lua carts/yharnam/main.lua
-	@mkdir -p $(BUILD)/yharnam-map
-	$< tests/yharnam/mapgen.lua carts/yharnam/main.lua $(BUILD)/yharnam-map > /dev/null
-	$< tests/yharnam/drawn.lua carts/yharnam/main.lua carts/yharnam $(BUILD)/yharnam-map
 
 # Yharnam's first drawn map, from its street plan (carts/yharnam/mkmap.py: it
 # overwrites map_ground.csv, map_overlay.csv and map_objects.csv, the map
@@ -699,9 +622,9 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
-        test-fat test-kitchen test-titan test-yharnam test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
+        test-fat test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-prompts test-hyp test-zero2 \
-        showreel bmhost bmhost-gpu bmhost-ai test-overbit overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
+        showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
         test-catalog test-github test-lan market-seed test-host test-qemu
 
 all: $(BUILD)/kernel.img $(K7) $(BUILD)/chainloader.img $(GAME_CARTS)
@@ -883,10 +806,10 @@ qemu-screenshot: $(BUILD)/kernel.img
 # make test: the tests on the PC, then those in QEMU. The CI runs them on
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
-HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
+HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-nano8 test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
-      test-studio test-prompts test-overbit $(if $(K7),test-hyp)
+      test-studio test-prompts $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))

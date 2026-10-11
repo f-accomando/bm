@@ -335,5 +335,5 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
   HW-2905) — see the comments in `gpu3d.c` before touching depth.
 - Shaders: edit `tools/qpuasm.py`, regenerate `shaders.h`, run `make test-qpu`.
 - Linux GPU drivers are read, never copied (GPL); GPU structures from Mesa XML (MIT).
-- In development only `make test-b3d` and Overbit (`make test-overbit`) for the GPU; also
+- In development only `make test-b3d` for the GPU; also
   `make test-gpu3d`, `test-queue2d`, `test-v3d` when the driver changes.

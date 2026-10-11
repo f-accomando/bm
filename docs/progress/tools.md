@@ -77,8 +77,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   unit took makes one (hash of its tile). Still `MAP`'s: hunter's lamps, barricades/gates, boss
   arenas, areas; beyond the edge the ring (`MAP.ring`). `carts/yharnam/mkmap.py` makes the first
   map from the plan (`make yharnam-map`, `tests/yharnam/mapgen.lua`: it overwrites the drawn
-  one), takes it back (`--from YHARNAM.BME`), draws it (`--png`). Test `tests/yharnam/drawn.lua`
-  (the generated map = the plan's town, chunk by chunk; edits; the repository's map).
+  one), takes it back (`--from YHARNAM.BME`), draws it (`--png`).
 - `tools/bm_net.py`: kernels, cartridges and files over WiFi (protocol in
   [system](system.md)); `tools/bm_load.py`: serial chainloader and terminal;
   `tools/overbit_relay.py`: the internet relay for `bmnet`.
@@ -98,8 +97,7 @@ ffmpeg/libass; storyboard and script come from the same key script. Series *Skyv
 tool; `make bmhost-ai` builds `bmhost` with the real `ai` table. On the PC: no kernel menu.
 
 ### CI (`.github/workflows/ci.yml`)
-Build; host tests on two machines (`make test-host` with `HOST_SKIP=test-overbit`, and
-`test-overbit`); QEMU in four shards (`make test-qemu SHARD=K/4`); RGB30 build and QEMU
+Build; host tests (`make test-host`); QEMU in four shards (`make test-qemu SHARD=K/4`); RGB30 build and QEMU
 tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes in `SLOW`.
 
 ## Open work (`docs/ROADMAP.md`)
