@@ -25,6 +25,25 @@ compatibilità (cartelle SD e header vecchi, tag di rete in `tools/bm_net.py`).
   traduce): `OLDCLAUDE.md`, `OLDREADME.md` e tutti i file `*-IT.md`.
 - Gli spunti R1, R2, … sono in fondo a `docs/ROADMAP.md` e non sono ancora decisi.
 
+## Leggere poco (token)
+
+- **Mai per intero**: `src/bm/runtime.c` (350 KB), `src/kernel/menu_ui.c`, `src/kernel/settings.c`,
+  `src/script/bm3d.lua`, `src/script/bmlib.lua`, `docs/GAME-GUIDE.md`, `docs/B16.md`,
+  `sdk/README.md`, `docs/ROADMAP.md`. Prima `Grep -n` sul simbolo o sul titolo (`^#`), poi `Read`
+  con `offset`/`limit` solo su quel tratto. Un file già letto in sessione non si rilegge.
+- **API**: `docs/API.md` è solo indice e basi; il resto è in `docs/api/<area>.md` (draw, input,
+  system, sound, tools, light3d, bmlib, riff, bmnet). Si apre solo il file dell'area.
+- **Progressi**: lo stato di un'area sta in un solo `docs/progress/<area>.md` (indice e mappa
+  in `docs/progress.md`); si legge e si aggiorna solo quello, in una sezione per argomento,
+  con simboli da cercare e non cronaca. Ogni file tiene circa 120 righe: se cresce, si spezza
+  in file per sotto-argomento (`docs/progress/<area>-<tema>.md`) e si aggiorna l'indice.
+  Milestone: solo la sua sezione di `docs/ROADMAP.md` (`Grep '^## M47'`), mai tutto il file.
+- **Documenti nuovi**: piccoli e per argomento (sotto ~15 KB / 300 righe), con titoli `##`
+  che si possono cercare. Un file che supera il limite si divide, non si allunga.
+- **Ricerche larghe** (dove sta X, chi usa Y) → `Explore`; letture di molti file → un
+  subagent che torna con la conclusione. La skill `bm-docs-map` (`claude/skills/`, da copiare in `.claude/skills/` se non si vede) dice quale file aprire per
+  ogni area e come cercare nei grossi.
+
 ## Come si lavora
 
 - Sviluppo nuovo (funzione, gioco, passo di milestone): prima di toccare i file chiedere
@@ -64,8 +83,8 @@ da solo (file, scopo, cosa è già stato provato).
   quello che ha già provato.
 - Ricerche larghe nel repo: `Explore`. Task indipendenti: più agenti nello stesso messaggio.
 - **API nuova o cambiata**: dopo il codice, un subagent (`light`, `standard` se tocca più
-  doc) aggiorna la documentazione: `docs/API.md` e `docs/GAME-GUIDE.md` (in inglese; i `-IT`
-  no), `src/ai/kb/` (poi `make ai-model`), gli esempi, `sdk/README.md` se serve e il file
+  doc) aggiorna la documentazione: il file giusto di `docs/api/` (indice `docs/API.md`) e
+  `docs/GAME-GUIDE.md` (in inglese; i `-IT` no), `src/ai/kb/` (poi `make ai-model`), gli esempi, `sdk/README.md` se serve e il file
   giusto di `docs/progress/` (indice `docs/progress.md`). I progressi della repo vanno lì,
   mai in questo file.
 - **Roadmap**: lo stesso passo guarda se la novità rende possibile qualcosa di nuovo nelle
@@ -110,7 +129,8 @@ da solo (file, scopo, cosa è già stato provato).
   Scritte sulle righe di 16 px; la cornice di un dialogo non passa sulla riga del titolo
   (i test QEMU la leggono). In Lua `cond and nil or x` dà sempre `x`. bm Mesh riscrive
   solo le righe tra `-- [bm Mesh begin]` e `-- [bm Mesh end]`.
-- API nuova o cambiata in `docs/API.md` e `docs/GAME-GUIDE.md` (stesse tabelle e esempi) e
+- API nuova o cambiata nel file di `docs/api/` della sua area (indice `docs/API.md`) e in
+  `docs/GAME-GUIDE.md` (stesse tabelle e esempi) e
   in `src/ai/kb/`, poi `make ai-model` e commit di `assist.weights`. Voce nuova con
   `title_en:` e `text_en:`. Commenti `#` della kb solo in cima al file.
 - Flag tile (bmlib): 0 solido, 1 piattaforma, 2 scala, 3 acqua, 4 fa male. Token del
@@ -158,9 +178,9 @@ da solo (file, scopo, cosa è già stato provato).
 Non ricopiare qui la cronaca. Prima di modificare un'area, leggere il doc o i file:
 
 - SDK, Studio, Animator, Mesh, Pixel: `sdk/README.md`, `carts/{editor,studio,animator,mesh,pixel}/`, `src/script/bm3d.lua`.
-- API giochi, bmlib, bmnet, salvataggi a 8 slot: `docs/API.md`, `src/script/bmlib.lua`, `src/script/bmnet.lua`.
+- API giochi, bmlib, bmnet, salvataggi a 8 slot: `docs/API.md` (indice) → `docs/api/{draw,input,system,sound,tools,light3d,bmlib,riff,bmnet}.md`, `src/script/bmlib.lua`, `src/script/bmnet.lua`.
 - Overbit: `carts/overbit/` (`build.py`, `art/`). Qualità: il `.bm` 640×360 (ARM), 720p e 1080p (GPU), con `OVERBIT_TV_BM` dal Makefile; il `.b16` sulla TV 640×360 (ARM) e 1080p (GPU); il gioco sceglie il resto (`src/85_quality.lua`). Bench a flag: `cart_config("overbit_bench")`, `./easy_install.sh bench`.
 - Yharnam: `carts/yharnam/`. Grafica da `mkassets.py`; dopo un cambio, rieseguirlo e commit di `sheet.png`. Non fare commit di uno sheet `YH_DRAFT=1`.
 - Audio, riff, assistente musica: `src/audio/`, `docs/RIFF.md`. Assistente, mesh da immagine, riduttore: `src/ai/`, `src/ai/kb/README.md`. Predict e pad: `docs/PREDICT.md`, `docs/PADTYPE.md` (le tabelle `CROSS`/`FACE`/`KB` si cambiano in `padtype.lua`).
-- bm Write e `/docs`: `carts/write/`, `docs/API.md` (*Documents*). Ctrl+I / Ctrl+M arrivano come `"^i"` / `"^m"`.
+- bm Write e `/docs`: `carts/write/`, `docs/api/system.md` (*Documents*). Ctrl+I / Ctrl+M arrivano come `"^i"` / `"^m"`.
 - Menu, splash, LED, report, aggiornamenti, Market: `src/kernel/{menu_ui,settings,loading,ledstate,reports,update,market}.c`. RGB30: `docs/RGB30.md`, `src/rgb30/`.

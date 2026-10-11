@@ -114,7 +114,7 @@ Buttons: `btn(i)` while it is held, `btnp(i)` only when it is pressed.
 Esc, Start+Select or the PS button go back to the menu, and the game stays **suspended** in
 memory (A on its cover resumes it). `quit()` instead really closes the cartridge. A network
 game calls `online(true)`: there PS asks the player whether to leave the match and
-disconnect, and if so it calls `_leave()` (see `docs/API.md`).
+disconnect, and if so it calls `_leave()` (see `docs/api/bmnet.md`).
 
 **Button icons.** To say which button does what, `prompt()` draws it as a small chip in the
 look of the controller in use: the DS4's symbols, a pad's letters, the keyboard's keys, and
@@ -582,7 +582,7 @@ local lib = require "bmlib"
 
 Times in seconds, positions in pixels, speeds in pixels per frame; tweens, timers and
 jingles go on with `lib.update()`, once in `_update`. The complete list is in
-[API.md](API.md#bmlib-the-games-shared-library). Here is a whole platformer, with no
+[api/bmlib.md](api/bmlib.md). Here is a whole platformer, with no
 other files (the tiles are drawn in the code and the map is built with `mset`): title,
 match, jumps, platforms, coins with sparks, camera, pause, record.
 
