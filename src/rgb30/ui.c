@@ -579,6 +579,12 @@ static void page_sdk(void)
     console_suspend(1);                             /* the menu draws itself */
     scan_games();
     market_carts_changed();
+    /* the session ends with the tool's own run: its error, if it stopped
+     * with one (a game's goes back to the SDK), as play_bm says a game's */
+    if (bm_last_error()[0]) {
+        const char *lines[] = { "bm SDK", "", "stopped with an error:", bm_last_error() };
+        page_message("bm SDK", lines, 4);
+    }
 }
 
 /* --- the menu --- */
