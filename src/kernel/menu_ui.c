@@ -72,10 +72,13 @@ static uint32_t con_w, con_h, t0, deadline;
 static uint32_t frame_end;          /* when the last frame was over: the drawing's start */
 /* the free time of the frames for the work in the background, counted over
  * IDLE_FRAMES (the end of menu_ui_frame): frames that had some, us offered,
- * us taken, the most a frame's work went past its end */
+ * us taken, the most a frame's work went past its end, the least slack */
 #define IDLE_FRAMES 300
+#define SLACK_NONE 0x7FFFFFFF
 static int idle_frames, idle_gave;
 static uint32_t idle_offered, idle_used, idle_over;
+static int32_t idle_slack = SLACK_NONE;
+static int idle_first;              /* the frame after the menu opens: its slack is the opening's */
 static float scroll;                /* first visible row, eased */
 static float tab_shift;             /* the tabs' x, eased: < 0 while the first one hides */
 static int first_row;
@@ -1215,6 +1218,7 @@ int menu_ui_open(framebuffer_t *fb)
     t0 = timer_ticks();
     deadline = t0 + FRAME_US;
     frame_end = t0;
+    idle_first = 1;
     return 0;
 }
 
@@ -1544,22 +1548,30 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         while ((int32_t)(timer_ticks() - deadline) < 0)
             ;
     /* the background's time (fiber.h), a line in the log every IDLE_FRAMES
-     * frames when a job ran or a frame had no free time: the frames with
-     * some, the ms taken of the ms offered, the most past a frame's end,
-     * then each job (fiber_jobs_report); slack: the timer path's after the
-     * flip (it replaces the probe of the RGB30 Market that never loaded,
-     * 2026-10-10). What the device says here is what to measure. */
+     * frames when a job ran or more than one frame had no free time: the
+     * frames with some, the ms taken of the ms offered, the most past a
+     * frame's end, then each job (fiber_jobs_report); min slack: the least
+     * the timer path had left after a flip, over those frames (it replaces
+     * the probe of the RGB30 Market that never loaded, 2026-10-10). What
+     * the device says here is what to measure. One frame short is the
+     * line's own (9-15 ms of UART): it no longer brings the next one every
+     * 5 s with nothing running (2026-10-11). */
     idle_gave += gave;
+    if (idle_first)
+        idle_first = 0;
+    else if (slack < idle_slack)
+        idle_slack = slack;
     if (++idle_frames >= IDLE_FRAMES) {
         char jobs[256];
         const int ran = fiber_jobs_report(jobs, sizeof jobs);
-        if (ran || idle_gave < idle_frames)
-            kprintf("menu idle: %d/%d frames, %lu of %lu ms taken, %lu.%lu ms past a frame; %s; slack %d us, "
-                    "paced %d\n", idle_gave, idle_frames, (unsigned long)(idle_used / 1000),
+        if (ran || idle_frames - idle_gave > 1)
+            kprintf("menu idle: %d/%d frames, %lu of %lu ms taken, %lu.%lu ms past a frame; %s; "
+                    "min slack %d us, paced %d\n", idle_gave, idle_frames, (unsigned long)(idle_used / 1000),
                     (unsigned long)(idle_offered / 1000), (unsigned long)(idle_over / 1000),
-                    (unsigned long)(idle_over / 100 % 10), ran ? jobs : "no job", (int)slack, paced);
+                    (unsigned long)(idle_over / 100 % 10), ran ? jobs : "no job", (int)idle_slack, paced);
         idle_frames = idle_gave = 0;
         idle_offered = idle_used = idle_over = 0;
+        idle_slack = SLACK_NONE;
     }
     uint32_t now = timer_ticks();
     deadline += FRAME_US;

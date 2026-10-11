@@ -169,11 +169,12 @@ void fiber_job_stop(fiber_job_t *j)
     while (fiber_run(&j->f, 0))
         ;
     j->busy = 0;
-    /* the menu waited for all of it: over its time from the start */
+    /* the menu waited for all of it: a stop, counted apart from the slices
+     * (it is not a slice that went over its time: leaving a tab, starting
+     * a game) */
     const uint32_t waited = timer_ticks() - t0;
-    j->took += waited;
-    if (waited > j->worst)
-        j->worst = waited;
+    if (waited > j->stopped)
+        j->stopped = waited;
 }
 
 void fiber_share_run(const fiber_share_t *t, int n, int ctx, uint32_t until)
@@ -205,14 +206,19 @@ int fiber_jobs_report(char *buf, size_t n)
         buf[0] = 0;
     for (int i = 0; i < njobs; i++) {
         fiber_job_t *j = jobs[i];
-        if (!j->took)
+        if (!j->took && !j->stopped)
             continue;
         if (n > k)
-            k += (size_t)ksnprintf(buf + k, n - k, "%s%s %lu ms (+%lu.%lu)", any ? ", " : "",
+            k += (size_t)ksnprintf(buf + k, n - k, "%s%s %lu ms (+%lu.%lu", any ? ", " : "",
                                    j->name ? j->name : "job", (unsigned long)(j->took / 1000),
                                    (unsigned long)(j->worst / 1000), (unsigned long)(j->worst / 100 % 10));
+        if (n > k && j->stopped)
+            k += (size_t)ksnprintf(buf + k, n - k, ", stop %lu.%lu", (unsigned long)(j->stopped / 1000),
+                                   (unsigned long)(j->stopped / 100 % 10));
+        if (n > k)
+            k += (size_t)ksnprintf(buf + k, n - k, ")");
         any = 1;
-        j->took = j->worst = 0;
+        j->took = j->worst = j->stopped = 0;
     }
     return any;
 }
