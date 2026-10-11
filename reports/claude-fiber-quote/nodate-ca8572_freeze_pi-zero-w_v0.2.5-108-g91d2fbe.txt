@@ -1,0 +1,78 @@
+bm report
+kind: freeze
+kernel: v0.2.5-108-g91d2fbe
+branch: claude/fiber-quote
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-ca8572_freeze_pi-zero-w_v0.2.5-108-g91d2fbe.txt
+
+the Pi froze (the watchdog restarted it) while: monitor command "?", frame 0, 689 s after boot
+--- the last lines printed ---
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+e
+  3  bm Studio: the 3D models of a .bm cartridge (tiles and blocks)
+  4  bm Mesh: the meshes of a .bm (also those its code builds) to edit
+  5  bm Pixel: the sprite sheet of a .bm: pixel art, palette, animation
+  6  bm Animator: skeletons and animations of the 3D models, sprites
+  C  bm Code: the code editor (tabs, two pages, small font)
+  I  assistant: how to write code, sprite bases (M30; F6 in the tools)
+  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)
+  K  Bluetooth: pair a keyboard (LE, e.g. MX Keys: hold an Easy-Switch key)
+  O  Bluetooth: pair a mouse (LE or classic; in pairing mode, no code)
+  P  Bluetooth: forget all paired pads, the keyboard and the mouse (asks first)
+  W  WiFi: start, list the networks, join one (M18; saved in bm/config.txt)
+-- lines 4-23 of 53: up/down, PgUp/PgDn, space; q or Esc returns --  l  Lua REPL (Esc, Ctrl-D or exit() returns here)
+  U  receive a cartridge over serial and play it
+  i  system info            m  heap usage          c  clear screen
+  y  USB: scan port and hub Y  input test: USB, then each player (10 s)
+  L  keyboard layout Italian / US
+  a  audio: HDMI sound status and a test tune
+  e  editor: code, sprites and map of a .bm cartridge
+  A  sound editor: sounds, sound effects and music of a .bm cartridge
+  3  bm Studio: the 3D models of a .bm cartridge (tiles and blocks)
+  4  bm Mesh: the meshes of a .bm (also those its code builds) to edit
+  5  bm Pixel: the sprite sheet of a .bm: pixel art, palette, animation
+  6  bm Animator: skeletons and animations of the 3D models, sprites
+  C  bm Code: the code editor (tabs, two pages, small font)
+  I  assistant: how to write code, sprite bases (M30; F6 in the tools)
+  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)
+  K  Bluetooth: pair a keyboard (LE, e.g. MX Keys: hold an Easy-Switch key)
+  O  Bluetooth: pair a mouse (LE or classic; in pairing mode, no code)
+  P  Bluetooth: forget all paired pads, the keyboard and the mouse (asks first)
+  W  WiFi: start, list the networks, join one (M18; saved in bm/config.txt)
+  E  Ethernet (Pi 1 B / B+): link, counters, chip registers
+-- lines 5-24 of 53: up/down, PgUp/PgDn, space; q or Esc returns --
+> 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu idle: 291/300 frames, 6 of 1830 ms taken, 0.0 ms past a frame; no job; slack 8426 us, paced 0
+bt:   mouse df:0e:42:84:a7:2d is back
+bt:   LE connection 040, interval 12
+bt:   encrypted
+bt:   connection parameters: interval 6..9, latency 44
+bt:   HID service 0021-0040
+bt:   mouse link lost after 1167 ms: it closed the link (switched off, or another console) (reason 13)
+menu idle: 290/300 frames, 7 of 2204 ms taken, 0.0 ms past a frame; no job; slack 7653 us, paced 0
+menu idle: 298/300 frames, 7 of 2150 ms taken, 0.0 ms past a frame; no job; slack 4592 us, paced 0
+menu idle: 299/300 frames, 7 of 2149 ms taken, 0.0 ms past a frame; no job; slack 8028 us, paced 0
+net: receiving a new kernel (4196532 bytes)...
+net: kernel 0% (0 of 4098 KiB)
+net: kernel 10% (413 of 4098 KiB)
+net: kernel 20% (821 of 4098 KiB)
+net: kernel 30% (1230 of 4098 KiB)
+net: kernel 40% (1640 of 4098 KiB)
+net: kernel 50% (2049 of 4098 KiB)
+net: kernel 60% (2462 of 4098 KiB)
+net: kernel 70% (2871 of 4098 KiB)
+net: kernel 80% (3279 of 4098 KiB)
+net: kernel 90% (3692 of 4098 KiB)
+net: kernel received (4196532 bytes): written on the SD card from the menu
+net: writing /kernel.img paused, it starts again later
+net: saved kernel.img on the SD card (4196532 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MiB, label BOOTFS; 14 cartridges
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+menu idle: 287/300 frames, 103 of 1616 ms taken, 1.8 ms past a frame; covers 95 ms (+2.2), netxfer 1762 ms (+345.6); slack 6757 us, paced 0
