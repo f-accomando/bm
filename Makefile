@@ -1025,15 +1025,18 @@ $(BUILD)/host/test_github: tests/net/test_github.c src/net/github.c src/net/gith
 MARKET ?= ../bm-market
 MARKET_VERSION := $(shell date -u +%Y.%m.%d)
 # the games that go to the Market as .b16 (the optimized release, if there is a rule);
-# Overbit has a .bm too (the Pi's), Yharnam and Titan Clash EX only their .b16 (MARKET_NO_BM: no .bm in the Market)
-MARKET_B16 := overbit yharnam titanex
-MARKET_NO_BM := yharnam titanex
+# Overbit has a .bm too (the Pi's), Yharnam, Titan Clash EX and bm SDK (RGB30) only
+# their .b16 (MARKET_NO_BM: no .bm in the Market); the last two are not in GAMES (no
+# .bm for the Pi's card): MARKET_ONLY
+MARKET_B16 := overbit yharnam titanex sdkb16
+MARKET_NO_BM := yharnam titanex sdkb16
+MARKET_ONLY := titanex sdkb16
 market-seed: $(GAME_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
 	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
 	mkdir -p $(MARKET)/.github/workflows
 	cp market/README.md market/.gitignore $(MARKET)/
 	cp market/.github/workflows/market.yml $(MARKET)/.github/workflows/
-	for g in $(GAMES) titanex; do \
+	for g in $(GAMES) $(MARKET_ONLY); do \
 		case " $(MARKET_NO_BM) " in *" $$g "*) ;; *) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/carts/$$g.bm --id $$g \
 			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1;; esac; \
 		case " $(MARKET_B16) " in *" $$g "*) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/carts/$$g.b16 --id $$g \
