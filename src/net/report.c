@@ -119,4 +119,7 @@ void report_repo_path(char *out, size_t n, const report_info_t *r)
     char branch[64];
     report_slug(branch, sizeof branch, r->branch[0] ? r->branch : "unknown");
     snprintf(out, n, "reports/%s/%s", branch, r->file);
+    for (char *c = out; *c; c++)            /* a name queued by an older kernel may hold spaces: GitHub says 400 */
+        if (*c == ' ')
+            *c = '-';
 }

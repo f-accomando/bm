@@ -248,9 +248,10 @@ int reports_text(const char *kind, const char *text, size_t len)
 
 int reports_session(const char *game, const char *text, size_t len)
 {
-    char slug[40], fixed[96];
+    char slug[40], board[40], fixed[96];
     report_slug(slug, sizeof slug, game);
-    ksnprintf(fixed, sizeof fixed, "session_%s_%s", slug, board_name());
+    report_slug(board, sizeof board, board_name());       /* "Pi Zero W" has spaces: GitHub answers 400 */
+    ksnprintf(fixed, sizeof fixed, "session_%s_%s", slug, board);
     return save_report("session", fixed, text, len);
 }
 
