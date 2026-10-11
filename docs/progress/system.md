@@ -91,6 +91,17 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
 
 - To confirm from a boot log on the device: whether a stale association after a reboot was
   part of the missing WiFi (the fix that is in: retries and `wifi_leave()`).
+- To measure on the Pi and the RGB30 (`menu idle:` lines, Report the log): the stalls that
+  do not give the CPU back: a TLS handshake, the ECDSA check of a catalog or a release,
+  SHA-256 of big files (`update.c` `plan`), the first SD write of a boot (FAT free-cluster
+  scan, the Market's cache), a cover decoded.
+- Not possible today: a download going on inside an application, or across a game. The
+  jobs stop before an app (`background_stop`, `market_set_active(0)`); a fetch starts from
+  byte 0 (no HTTP `Range`), one request per connection, wall-clock read timeouts; tools and
+  games never call `fiber_share_run`. It would need a pause that keeps the bytes and
+  resumes with `Range` (the catalog's SHA-256 checks the whole), a call in `present()`
+  (`runtime.c`) with `FIBER_TOOL`, and the card's writers kept apart (a game saves too).
+  Games: opt-in only, never lockstep.
 - No milestone in `docs/ROADMAP.md` is about this area today; spunti R… at its end.
 
 ## Rules (do not break)
