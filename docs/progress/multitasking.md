@@ -22,8 +22,9 @@ fibers probably off or used differently (job per core, real threads for download
 ## Measured on the Pi (Pi Zero W, SDHC 7.4 GiB; 2026-10-11)
 - Market download goes on in the background with ~1 ms overruns. Before the FAT work a 6.5 MB
   install froze the menu 30 s. Reports cost ~100 ms per TLS handshake (3 per report).
-- One-off +502 ms covers stall (probably sdhost 500 ms timeout + retry; counters added); first
-  Market catalog write +338 ms. QEMU only: Market first work 3.6 -> 0.3 s (56 games), install +26 -> +0.2 s.
+- Covers +500 ms = one sdhost read timeout + retry (counters; cause unknown). A 0.1 s read timeout +
+  controller reset in `sdhost.c` was tried and reverted: the Pi became unusable; one change per test.
+  First catalog write +338 ms. QEMU only: Market first work 3.6 -> 0.3 s (56 games), install +26 -> +0.2 s.
 - To re-measure after the FAT work: Overbit install (new and update) and the market job's `+x ms`;
   the `sd:` boot line (cluster size); any "sectors in one write failed or came back wrong" (CMD25);
   sd retried/timed out; leaving the Market tab during a write still installs; a kernel from the PC
@@ -43,7 +44,6 @@ fibers probably off or used differently (job per core, real threads for download
 - Synchronous menu SD writes (`config_save`) vs a paused netxfer write at card wrap-around: `netxfer.h` says pause first, Settings does not.
 - Failing tests: `test_sd_cartridges` (also on the old kernel), RGB30 `test_update_from_sd` flaky,
   `make test-net` link failure in `test_config` (pre-existing).
-
 ## Considerations
 - Quotas matter little on a 14-game card: the value is the measurement and removing the long stalls
   (FAT, handshake, SD timeout), not the share table. With real multicore the idle-slice model gives
