@@ -831,13 +831,16 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
 
 - **Performance:** the cost is almost all in the Lua of `_update`/`_draw`; the drawing is
   in C. Avoid creating new tables in every frame in hot loops; update only the enemies near
-  the camera; draw only the part of the map that shows. F11 twice shows the dev kit's
-  detailed page: how long `_update`, `_draw` and the 3D took in the last frame. F11 three
-  times, the **functions** page: the ten that cost the most (ms a frame: their own time and
-  with what they call); start optimising from the first.
+  the camera; draw only the part of the map that shows. F11 shows the dev kit's overlay
+  (again: at the bottom; again: off): fps, the ms of a frame, and a CPU bar with its parts
+  (`_update`, `_draw`, the 3D calls, the audio, the wait for the GPU) and a GPU bar, in % of
+  the 16.7 ms of a frame; the longest part is where to start. `profile(true)` measures the
+  functions: `profile()` returns the costliest (ms a frame: their own time and with what
+  they call), and the session report lists the ten first.
   For stalls you cannot catch in time, at the end of a run the dev kit writes the last
   session's report into the reports (`session_<game>_<board>.txt`, replaced by every new run):
-  the longest frames, and how much of each is `_update`, `_draw` and how much neither.
+  the frame in its parts, the longest frames, and how much of each is `_update`, `_draw` and
+  how much neither.
 - **Debugger** (bm Code): F8 puts a breakpoint on the line, F5 tries the game, which stops
   there and shows the variables and the stack; F10 the next line, F8 into a call, Shift+F8
   out, F5 goes on, Esc stops (back on the line). From the code `breakpoint("why")` stops the

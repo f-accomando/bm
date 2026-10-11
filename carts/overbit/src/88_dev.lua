@@ -1,6 +1,6 @@
--- Dev kit: the system's overlay (F11; Select, Tab or F1 here: simple,
--- detailed, off), which shows the frame in its phases, the GPU and what was
--- drawn; Overbit adds its lines to the detailed page (devinfo): the quality,
+-- Dev kit: the system's overlay (F11; Select, Tab or F1 here: top,
+-- bottom, off), which shows the frame in its parts and the GPU's time;
+-- Overbit adds its lines to the session report (devinfo): the quality,
 -- the governor and its average, the actors. While it is shown: F2 the next
 -- quality level (manual), F3 the governor on or off, F4 a full ultimate, F5
 -- lose this life (a mech breaks and its pilot ejects), F6 the free camera
@@ -40,7 +40,7 @@ function Dev.draw_cam(extra)
   return true
 end
 
--- Overbit's lines on the dev kit's detailed page
+-- Overbit's lines in the dev kit's session report
 function Dev.info()
   devinfo("quality " .. Quality.names[G.quality + 1],
           string.format("%s avg %.1fms", G.qauto and "auto" or "fixed", Quality.avg()),

@@ -98,8 +98,8 @@ with the F keys (Y + left/right on the gamepad), Esc the menu, **F12** held the 
   format won't have (`math.random`, `time()`, files...). After a test run (**F5**) its
   numbers: fps, average and maximum ms of `_update` + `_draw`, frames over 16.7 ms,
   the maximum RAM (Lua + data), the instructions of the heaviest frame, the triangles and
-  who drew the 3D (`cart_arg().run`). In games the same numbers come from F11
-  (the overlay: fps, ms, Lua, RAM, tokens) and from `stat(11)`–`stat(14)`.
+  who drew the 3D (`cart_arg().run`). In games the time of a frame comes from F11
+  (the overlay: fps, ms, the CPU and GPU bars) and the rest from `stat(11)`–`stat(14)`.
 - **F2, the code**: the quick editor (bm Code, with tabs, is one key away: 1), with
   syntax colors and the 3D functions in teal; the tokens in the status line.
   Ctrl+G goes to the error of the last test run, **F9** has the assistant explain it.

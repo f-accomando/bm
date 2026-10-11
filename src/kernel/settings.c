@@ -134,7 +134,7 @@ static int wireless(void)
 /* the dev kit's overlay: Settings > Screen and sound */
 static const char *perf_name(void)
 {
-    static const char *const n[4] = { "Off", "Simple", "Detailed", "Functions" };
+    static const char *const n[3] = { "Off", "Top", "Bottom" };
     return n[bm_perf()];
 }
 
@@ -527,7 +527,7 @@ void home_panel(int id, home_panel_t *p)
                  "Exact as before, or fast: one matrix a model, light in its axes", "%s",
                  config_on("r3d_fast") ? "Fast" : "Exact");
         home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
-                 "fps, ms, Lua, costliest functions (F11 too)", "%s",
+                 "fps, ms, CPU and GPU bars (F11 too)", "%s",
                  perf_name());
 #ifdef BM_RGB30
         /* the speaker, or the headphones (the console switches by itself) */
@@ -860,7 +860,7 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "keyboard layout: %s", hid_layout());
         break;
     case R_PERF:
-        bm_set_perf((bm_perf() + 1) % 4);       /* simple, detailed, functions, off */
+        bm_set_perf((bm_perf() + 1) % 3);       /* top, bottom, off */
         config_save();
         ksnprintf(d->note, sizeof d->note, "performance overlay: %s", perf_name());
         break;

@@ -1335,14 +1335,12 @@ def test_home_ui(b, opts):
         screen(["3D impostors", "< Off >"])     # far small models as one quad: off unless asked
         keys("s")
         screen(["3D on the ARM", "< Exact >"])
-        keys("s")                               # the dev kit's overlay: simple, detailed, functions, off again
-        screen(["< Off >", "fps, ms, Lua, costliest functions (F11 too)"])
+        keys("s")                               # the dev kit's overlay: top, bottom, off again
+        screen(["< Off >", "fps, ms, CPU and GPU bars (F11 too)"])
         keys("\r")
-        screen(["< Simple >", "performance overlay: Simple"])
+        screen(["< Top >", "performance overlay: Top"])
         keys("\r")
-        screen(["< Detailed >", "performance overlay: Detailed"])
-        keys("\r")
-        screen(["< Functions >", "performance overlay: Function"])   # (the note ends at the hints)
+        screen(["< Bottom >", "performance overlay: Bottom"])
         keys("\r")
         screen(["< Off >", "performance overlay: Off"])
         keys("s")                               # the volume: left/right, saved
@@ -4358,34 +4356,29 @@ def test_yharnam(b, opts):
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-controls.png"))
         # the dev kit: the performance overlay ('p' from the serial line, F11 on a
-        # keyboard): simple, detailed (the frame's phases), functions, off
+        # keyboard): at the top right, at the bottom right, off. One block: fps and
+        # ms, the CPU's bar and its % of a frame (no GPU in QEMU: no gpu row)
         q.send("p")
-        time.sleep(0.6)
+        time.sleep(1.5)                         # (the means of a whole second)
         text = screen_text(box(q.screendump()))
-        assert any("fps" in l and "ms" in l for l in text), "\n".join(text)
-        assert not any("update" in l for l in text), "\n".join(text)
+        top = [i for i, l in enumerate(text) if re.search(r"\d+fps \d+\.\dms", l)]
+        assert top and top[0] < 2, "\n".join(text)
+        assert re.search(r"cpu.*\d+%", text[top[0] + 1]), "\n".join(text)
+        assert not any("update" in l or "tokens" in l for l in text), "\n".join(text)
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-perf.png"))
+        q.send("p")                             # the bottom
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        low = [i for i, l in enumerate(text) if re.search(r"\d+fps \d+\.\dms", l)]
+        assert low and low[0] >= len(text) - 3, "\n".join(text)
+        assert re.search(r"cpu.*\d+%", text[low[0] + 1]), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-perf-bottom.png"))
         q.send("p")
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
-        assert any("update" in l and "ms" in l for l in text) and any("draw" in l for l in text), "\n".join(text)
-        if opts.shots:
-            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-perf-detailed.png"))
-        q.send("p")                             # functions (R14): its map() is always among them
-        for _ in range(12):
-            time.sleep(0.5)
-            text = screen_text(box(q.screendump()))
-            if any(re.search(r"\bmap +\d+\.\d+ +\d+\.\d+", l) for l in text):
-                break
-        assert any("function" in l and "self" in l for l in text), "\n".join(text)
-        assert any(re.search(r"\bmap +\d+\.\d+ +\d+\.\d+", l) for l in text), "\n".join(text)
-        if opts.shots:
-            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-perf-functions.png"))
-        q.send("p")
-        time.sleep(0.6)
-        text = screen_text(box(q.screendump()))
-        assert not any("fps" in l for l in text), "\n".join(text)
+        assert not any(re.search(r"\d+fps \d+\.\dms", l) for l in text), "\n".join(text)
         q.send("q")
         out = q.expect("update+draw", timeout=10).decode(errors="replace")
         assert "stopped with an error" not in out, out
@@ -5488,8 +5481,8 @@ def test_square_lights(b, opts):
     """A 256x256 cartridge: shown in the middle of a 480x270 screen, black
     round it; the light by levels (fades, dark_begin, glow, dark_end): the
     lamp's middle as drawn, its edge dark; L1 from the serial line ('u');
-    the dev kit's performance overlay ('p' from the serial line, F11): simple,
-    detailed, functions, off"""
+    the dev kit's performance overlay ('p' from the serial line, F11): at the
+    top right, at the bottom right, off"""
     BX, BY = 112, 7                             # the 256x256 box in the 480x270 screen
 
     def box(img):
@@ -5524,28 +5517,24 @@ def test_square_lights(b, opts):
         time.sleep(0.3)
         text = screen_text(box(q.screendump()))
         assert any("L1 HELD" in l for l in text), "\n".join(text)
-        q.send("p")                             # the performance overlay: simple
+        q.send("p")                             # the performance overlay: at the top right
+        time.sleep(1.5)
+        text = screen_text(box(q.screendump()))
+        top = [i for i, l in enumerate(text) if re.search(r"\d+fps \d+\.\dms", l)]
+        assert top == [0], "\n".join(text)
+        assert re.search(r"cpu.*\d+%", text[1]), "\n".join(text)
+        q.send("p")                             # at the bottom right: the last two rows of the box
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
-        assert any("fps" in l and "ms" in l for l in text), "\n".join(text)
-        q.send("p")                             # detailed: the frame's phases
-        time.sleep(0.6)
-        text = screen_text(box(q.screendump()))
-        assert any("update" in l for l in text) and any("draw" in l for l in text), "\n".join(text)
-        q.send("p")                             # functions (R14): the costliest of the last second
-        for _ in range(12):
-            time.sleep(0.5)
-            text = screen_text(box(q.screendump()))
-            if any("_draw" in l for l in text):
-                break
-        assert any("function" in l and "self" in l and "all" in l for l in text), "\n".join(text)
-        assert any("_draw" in l for l in text) and any("glow" in l for l in text), "\n".join(text)
+        low = [i for i, l in enumerate(text) if re.search(r"\d+fps \d+\.\dms", l)]
+        assert low == [len(text) - 2], "\n".join(text)
+        assert re.search(r"cpu.*\d+%", text[-1]), "\n".join(text)
         if opts.shots:
-            _save_png(q.screendump(), os.path.join(opts.shots, "square-functions.png"))
+            _save_png(q.screendump(), os.path.join(opts.shots, "square-perf-bottom.png"))
         q.send("p")                             # off
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
-        assert not any("fps" in l for l in text), "\n".join(text)
+        assert not any(re.search(r"\d+fps \d+\.\dms", l) for l in text), "\n".join(text)
         q.send("q")
         out = q.expect("update+draw", timeout=10).decode(errors="replace")
         assert "stopped with an error" not in out, out

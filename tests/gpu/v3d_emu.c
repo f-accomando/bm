@@ -111,6 +111,7 @@ static void *ptr(uint32_t bus)
 /* ---------------------------------------------------------------- v3d.h */
 
 static uint32_t overflow_bus, overflow_size;
+volatile uint32_t v3d_wait_us;          /* (no waits here: the emulator runs a job at once) */
 
 int v3d_init(void) { return 0; }
 const char *v3d_status(void) { return "emulated"; }

@@ -39,6 +39,10 @@ size_t config_list(char *out, size_t len);
 /* A key whose value never goes out (..._token, _psk, _password, _key) */
 int config_secret(const char *key);
 
+/* perf= (the dev kit's overlay) as bm_set_perf takes it: "off" 0, "top" 1,
+ * "bottom" 2; the old 1, 2, 3 (simple, detailed, functions) are the top */
+int config_perf(const char *v);
+
 /* A file of the console on the SD card ("config.txt", "ca.pem",
  * "save/1A2B3C4D.SAV"): in /bm, or in the folder of before the rename
  * until make install moves it. Returns 0 and fills e. */

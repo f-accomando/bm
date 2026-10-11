@@ -5,6 +5,7 @@
 #include "drivers/prop.h"
 #include "drivers/timer.h"
 #include "kernel/pmu.h"
+#include "audio/audio.h"
 #include "lib/printf.h"
 
 #include <string.h>
@@ -142,9 +143,19 @@ uint32_t v3d_bus(const void *p)
  * memory, also during a job without binning (the Pi showed it while a
  * clear was still storing its tiles). A binner really out of memory
  * stalls, and the timeout catches it with the registers. */
+volatile uint32_t v3d_wait_us;
+
+/* the time of a wait from t0 to the dev kit's count, less the audio
+ * interrupt's (a0: audio_busy_us at its start) */
+static void wait_add(uint32_t t0, uint32_t a0)
+{
+    const uint32_t us = timer_ticks() - t0, au = audio_busy_us - a0;
+    v3d_wait_us += us > au ? us - au : 0;
+}
+
 static int wait_count(uint32_t reg, uint32_t cs_reg, uint32_t timeout_us, uint32_t *us)
 {
-    uint32_t t0 = timer_ticks();
+    uint32_t t0 = timer_ticks(), a0 = audio_busy_us;
     pmu_t p0;
     pmu_read(&p0);                      /* the 3D Bench: the instructions spent waiting */
     for (;;) {
@@ -157,11 +168,13 @@ static int wait_count(uint32_t reg, uint32_t cs_reg, uint32_t timeout_us, uint32
             pmu_t p1;
             pmu_read(&p1);
             pmu_wait_instr += p1.instr - p0.instr;
-            wr(reg, 1);                 /* write 1: back to 0 */
+            wait_add(t0, a0);
+            wr(reg, 1);                /* write 1: back to 0 */
             dmb();
             return 0;
         }
         if ((cs & CT_ERROR) || timer_ticks() - t0 > timeout_us) {
+            wait_add(t0, a0);
             snapshot();
             return -1;
         }

@@ -35,6 +35,7 @@ int bm_perf(void) { return perf; }
 void audio_set_volume(int level) { volume = level < 0 ? 0 : level > 10 ? 10 : level; }
 int audio_volume(void) { return volume; }
 void audio_retro(int who, int on) { (void)who; (void)on; }
+void audio_set_depth(unsigned bits) { (void)bits; }
 void pointer_config(void) {}
 int pointer_enabled(void) { return 1; }
 
@@ -157,6 +158,18 @@ int main(void)
     check(config_secret("github_token") && config_secret("wifi_psk") && config_secret("net_password") &&
           config_secret("meshy_key") && !config_secret("wifi_ssid") && !config_secret("key"),
           "secrets by their names");
+
+    /* the dev kit's overlay: off, top, bottom; the old pages (simple,
+     * detailed, functions) are the top */
+    check(config_perf("off") == 0 && config_perf("0") == 0 && config_perf("") == 0 && config_perf("top") == 1 &&
+          config_perf("bottom") == 2, "perf: off, top, bottom");
+    check(config_perf("1") == 1 && config_perf("2") == 1 && config_perf("3") == 1, "perf: the old 1, 2, 3 are the top");
+    put_file("perf=2\n");
+    config_load();
+    check(perf == 1, "  perf=2 (detailed) read as the top");
+    perf = 2;
+    config_save();
+    check(strstr(file, "perf=bottom\n") != NULL, "  saved as a word");
 
     if (fails) {
         printf("config: %d of %d FAILED\n", fails, checks);
