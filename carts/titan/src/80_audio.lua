@@ -60,6 +60,10 @@ function Snd.boom() slide(4, 400, 40, 26, 480, NOISE, 150) end
 function Snd.draw_sword() slide(2, 600, 2400, 10, 200, SAW, 70) end
 function Snd.shot() slide(2, 1600 + random(200), 400, 3, 50, NOISE, 110) end
 function Snd.overheat() slide(2, 3000, 600, 30, 600, NOISE, 100) end
+function Snd.super_charge()
+  slide(2, 440, 1760, 16, 280, SAW, 120)
+  jingle({ { 880, 4 }, { 1175, 4 }, { 1568, 8 }, { 2093, 14 } }, SQUARE, 110)
+end
 
 -- menus and the fight's announcements
 function Snd.ui_move() play(3, 880, 30, SQUARE, 60) end

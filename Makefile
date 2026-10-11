@@ -254,7 +254,7 @@ $(BUILD)/titan/main.lua: $(TITAN_SRC) carts/titan/build.py
 $(BUILD)/carts/titan.bm: $(BUILD)/titan/main.lua carts/titan/sheet.png carts/titan/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_titan)" --author bm \
-	    --sheet carts/titan/sheet.png --sheet8 --cover carts/titan/cover.png
+	    --sheet carts/titan/sheet.png --sheet8 --cover carts/titan/cover.png --res 360x360
 
 # nano8: plays .p8 / .p8.png carts (machine in src/bm/n8*.c); several Lua
 # files too. The carts it ships with (carts/nano8/roms, licenses in
