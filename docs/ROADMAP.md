@@ -384,14 +384,14 @@ prova senza seriale e spesso senza tastiera).
   (45×22 caratteri, tutto impilato). Con una scala logica (le regioni di `layout.lua` in unità di
   griglia, il testo 8×16 su un 720×720) ci starebbero pannello e vista affiancati come sul Pi
   (`layout.narrow()` c'è già). Per ora l'utente ha detto di restare a 360.
-- **R40 — I diritti da strumento per l'SDK `.b16`.** Una cartuccia del Market non è uno strumento
-  (`bm_set_tool` solo in `src/kernel/carts.c`, che la RGB30 non compila): bm SDK (RGB30) salva solo
-  progetti nuovi in `/carts`, non riscrive un `.bme` di prima, non costruisce né prova il gioco.
-  Il minimo: la RGB30 lo lancia come sessione strumento (`bm_set_tool(1)`, `cart_arg()`, e
-  `cart_run` che gioca il progetto e torna, come `carts_tool_session` del Pi) quando è il `.b16`
-  del Market firmato, o incorporato nel kernel come l'SDK del Pi; in alternativa, in
-  `write_target`, una domanda di sistema prima di riscrivere un `.bme` (come i permessi `allow_…`).
-  Con il profilo `.b16` di M42 (niente file) serve comunque un'eccezione per lui.
+- **R41 — Il gioco costruito sulla RGB30 nella scheda Games.** bm SDK (RGB30) è uno strumento
+  del kernel8 (Dev) e costruisce (`cart_build`), ma il gioco nasce accanto al progetto: da
+  `/carts` non si vede in Games, che legge `bm/` (lo prova F5). Un progetto in `bm/` (o un
+  `cart_build` che sulla RGB30 scriva in `bm/`, magari come `.b16`) lo mostrerebbe.
+- **R42 — Altri strumenti nel kernel8.** La sessione strumento è condivisa
+  (`src/kernel/devtool.c`, tabella `rgb30_tools` in `src/rgb30/ui.c`): un'edizione `.b16` di
+  bm Pixel, bm Code o bm Sound entrerebbe come l'SDK, e l'SDK la offrirebbe con `SUITE` in
+  `carts/sdk_b16/main.lua` (oggi vuota). Il kernel8 cresce della cartuccia (l'SDK: 164 KiB).
 
 ### Audio
 - **R31 — Import di un suono SAMPLE col suo campione.** Oggi un suono SAMPLE preso da un altro

@@ -6,19 +6,24 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
 
 ## How it is today
 
-### The suite (`carts/`, opened from the Dev tab; tools live in the kernel, not the Market, except bm SDK (RGB30))
+### The suite (`carts/`, opened from the Dev tab; tools live in the kernel, not the Market)
 - **bm SDK** (`carts/editor`): projects, templates (Empty 2D, Platform 2D, Top-down 2D,
   Shooter 2D, Versus 2D, Online 2D, 3D scene, 3D with models), budgets (tokens, Lua, assets),
   the dev kit report of a test run, jumps to the other tools (`cart_tool`). Map page (`P.map`):
   layers, flags, `z` a 16×16 brush (2×2 cells, cursor and tile on even cells; fill on whole
   tiles), Home/End and PgUp/PgDn a page.
-- **bm SDK (RGB30)** (`carts/sdk_b16`, `.b16` only, Market id `sdkb16`, rules `sdkb16.bm` /
-  `B16_AS_BM`): the SDK's pages at 360×360 (`layout.lua`: `split` on the 8×16 grid, joined before
-  `main.lua` by `build.py`), the pad by names (`ok`/`back`, L1/R1, Start, X = the page's actions as a
-  list, L2/R2), `padtype` for code and names (a `require` shim gives empty word lists where the
-  kernel has none). A Market cartridge, not a tool (`bm_set_tool` only in `src/kernel/carts.c`):
-  saves new projects in `/carts`, asks a new name for a file already there; build, try and the
-  other tools show only with `cart_arg()`. `carts/editor` is not changed by it.
+- **bm SDK (RGB30)** (`carts/sdk_b16`, built into `kernel8.img` only: `rgb30.mk` →
+  `build/rgb30*/sdk_b16.bm`, `.incbin` in `src/rgb30/bm_embed.S`): the SDK's pages at 360×360
+  (`layout.lua`: `split` on the 8×16 grid, joined before `main.lua` by `build.py`), the pad by
+  names (`ok`/`back`, L1/R1, Start, X = the page's actions as a list, L2/R2), `padtype` for code
+  and names (a `require` shim gives empty word lists where the kernel has none). A tool of the
+  RGB30's Dev tab and of a game's options (*Open in bm SDK*, `src/rgb30/ui.c`): saves where it
+  is told, builds, tries (F5) and comes back. The suite's other programs are offered only if the
+  console has them (`SUITE` in `main.lua`: none on the RGB30). `carts/editor` is not changed by it.
+- **Tool session** (`src/kernel/devtool.c`): the tool, the games it tries (`cart_run`, back with
+  `cart_arg()`), the tools it opens (`cart_tool`); each console passes its tools (the Pi's seven
+  in `carts.c`, the RGB30's SDK in `ui.c`) and the RGB30 waits for the buttons to be let go
+  between runs.
 - **bm Code** (`carts/code`): tabs, two pages, 6×12/8×14/8×16 fonts; completion
   (`predict`, [`docs/PREDICT.md`](../PREDICT.md)), pad typing (`padtype`,
   [`docs/PADTYPE.md`](../PADTYPE.md)), F6 assistant and `#entry: … #` lines, F8
@@ -102,8 +107,9 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, then publish in
   the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
-- **bm SDK (RGB30)**: try it on the console (pad, typing, saving in `/carts`). It cannot build or try
-  a game nor save an existing project: tool rights for it are R40 (not decided).
+- **bm SDK (RGB30)**: try it on the console (Dev > bm SDK and Open in bm SDK, pad, typing, save,
+  copy of a game, Ctrl+B, F5 and Start + Select back); the QEMU test `test_sdk_tool` runs in CI
+  (`make TARGET=rgb30 test`). A game built in `/carts` is not in Games (R41).
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
 - **M43 step 3**: a *Stack* page in bm Pixel. **M42 step 4**: the SDK saves a real `.b16`.
@@ -124,7 +130,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   QEMU `test_editor_mouse`.
 - Predict/pad tables `CROSS`/`FACE`/`KB` change in `src/ai/padtype.lua`.
 - kb comments `#` only at the top of a file; every entry has `title_en:` and `text_en:`.
-- bm SDK (RGB30): never edit `carts/editor` for it (two editions). Its test `make test-sdk-b16`
-  (not in `HOST_TESTS`).
+- bm SDK (RGB30): never edit `carts/editor` for it (two editions); never in the Pi's kernel nor
+  in the Market. Its test `make test-sdk-b16` (not in `HOST_TESTS`); QEMU `test_sdk_tool`.
 - Tests: `make test-studio`, `test-write`, `test-res`, `test-ai`, `test-predict`,
   `test-padtype`, `test-img2mesh`; QEMU `test_projects`, `test_bm_write`.
