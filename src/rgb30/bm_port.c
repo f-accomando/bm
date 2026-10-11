@@ -85,6 +85,7 @@ int gpu3d_vshader_on(void)                              { return 0; }
 const char *gpu3d_probe_log(void)                       { return ""; }
 void gpu3d_take_stats(gpu3d_stats_t *s)                 { memset(s, 0, sizeof *s); }
 void gpu3d_peek_stats(gpu3d_stats_t *s)                 { memset(s, 0, sizeof *s); }
+uint32_t gpu3d_wait_us(void)                            { return 0; }
 int v3d_init(void)                                      { return -1; }
 const char *v3d_status(void)                            { return "no V3D (RGB30: Mali-G52)"; }
 

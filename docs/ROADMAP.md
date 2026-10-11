@@ -374,6 +374,9 @@ prova senza seriale e spesso senza tastiera).
 - **R35 — L'assistente musicale e gli effetti nuovi.** `ai.music` / Predict / kb che scelgono i
   preset nuovi (`kit`, `choir`, `lush`, `bitbass`...) e `crush`, `vowel`, `duck` dalle parole
   ("lofi", "coro", "sidechain").
+- **R40 — Le parti del fotogramma ai giochi.** L'overlay ora misura audio e attesa della GPU:
+  due `stat()` nuovi perché il governatore di qualità di Overbit e Yharnam sappia se il collo
+  di bottiglia è l'ARM o la GPU, e l'assistente (kb) lo spieghi.
 
 ### Hardware
 - **R19 — Altri controller Bluetooth.** Oggi via Bluetooth solo il DS4 (più tastiere e

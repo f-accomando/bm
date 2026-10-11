@@ -842,7 +842,7 @@ riduce (il tasto - nella pagina models).
 3. Il pavimento con draw3d(..., 1) (senza z-buffer) per primo; le cose
 lontane con meno dettaglio; la nebbia nasconde dove il mondo finisce.
 
-4. Misura con F11 in qualunque gioco: fps, ms, RAM e token.
+4. Misura con F11 in qualunque gioco: fps, ms, le barre di CPU e GPU.
 text_en:
 1. Count the triangles: stat(4) in a frame. On the ARM about 1200 at 60
 fps; the Pi's GPU many more (stat(9) says whether it is used).
@@ -853,7 +853,7 @@ reduces them (the - key on the models page).
 3. The floor first, with draw3d(..., 1) (without the z-buffer); far
 things with less detail; the fog hides where the world ends.
 
-4. Measure with F11 in any game: fps, ms, RAM and tokens.
+4. Measure with F11 in any game: fps, ms, the CPU and GPU bars.
 code:
 print(stat(4) .. " tri  " .. stat(1) .. " ms  gpu " .. stat(9), 8, 8)
 
@@ -867,12 +867,11 @@ ask: come misuro il gioco | overlay delle prestazioni | profiling del gioco
 keys: devkit, ram, token, memoria, prestazioni
 see: guide.ram, guide.tokens, stat, perf_measure
 text:
-1. In qualunque gioco F11 (o Settings > Performance overlay): fps, ms di
-_update + _draw, istruzioni Lua, RAM (adesso e il massimo) e token del
-codice, con il grafico degli ultimi fotogrammi. F11 di nuovo: la pagina
-dettagliata, con i ms di _update, _draw e 3D, la GPU, i triangoli e le
-righe del gioco (devinfo). F11 la terza volta: le dieci funzioni che
-costano di più, il loro tempo e con quelle che chiamano (profile()).
+1. In qualunque gioco F11 (o Settings > Performance overlay): in alto a
+destra fps e ms del fotogramma, la barra della CPU (update, draw, chiamate
+3D, audio, attesa della GPU, libero) e quella della GPU, in % dei 16,7 ms
+di un fotogramma. F11 di nuovo: in basso; ancora: spento. Le funzioni che
+costano di più con profile(true); a fine partita il report di sessione.
 
 2. Nell'SDK F5 prova il gioco: tornando, il dev kit (F1 F1) mostra i
 numeri della prova: fps, ms medi e massimi, fotogrammi oltre 16,7 ms, RAM
@@ -884,13 +883,11 @@ dati (sheet, mappa, modelli, suoni) e il file contro gli 8 MiB di un .b16.
 4. Dal codice: stat(1) ms, stat(2) fps, stat(11) token, stat(12) KiB di Lua
 al massimo, stat(13) KiB dei dati.
 text_en:
-1. In any game F11 (or Settings > Performance overlay): fps, ms of
-_update + _draw, Lua instructions, RAM (now and the peak) and the code's
-tokens, with the graph of the last frames. F11 again: the detailed
-page, with the ms of _update, _draw and 3D, the GPU, the triangles and
-the game's lines (devinfo). F11 a third time: the ten functions that
-cost the most, their time on their own and with the ones they call
-(profile()).
+1. In any game F11 (or Settings > Performance overlay): at the top right
+fps and the frame's ms, the CPU bar (update, draw, 3D calls, audio, GPU
+wait, free) and the GPU bar, in % of the 16.7 ms of a frame. F11 again:
+at the bottom; again: off. The functions that cost the most with
+profile(true); at the end of a run, the session report.
 
 2. In the SDK F5 tries the game: when you come back, the dev kit (F1 F1)
 shows the numbers of that try: fps, average and peak ms, frames over 16.7
@@ -963,7 +960,7 @@ chiudono, end e local non contano (come sulle console fantasy).
 Sono un'informazione, non un limite: bm non mette un tetto ai token, e
 nemmeno il .b16 lo farà (conta la memoria e il tempo per fotogramma).
 
-Li vedi nella pagina del progetto, nel dev kit, nell'overlay (F11) e con
+Li vedi nella pagina del progetto, nel dev kit dell'SDK e con
 stat(11); code_tokens(testo) li conta per un pezzo di codice.
 text_en:
 Tokens measure how much code there is: every name, keyword, number,
@@ -973,7 +970,7 @@ local do not count (as on fantasy consoles).
 They are information, not a limit: bm puts no ceiling on tokens, and
 neither will the .b16 (what counts is memory and time per frame).
 
-You see them on the project page, in the dev kit, in the overlay (F11)
+You see them on the project page, in the SDK's dev kit
 and with stat(11); code_tokens(text) counts them for a piece of code.
 code:
 print(stat(11) .. " token", 8, 8)

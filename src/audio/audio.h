@@ -125,6 +125,12 @@ unsigned audio_depth_out(void);
 /* Call once per frame: without HDMI audio the player still moves, silent. */
 void audio_idle(void);
 
+/* The microseconds the output's interrupt spent rendering the sound
+ * (audio_render32 / audio_render), since boot; it wraps. The dev kit takes
+ * the time it adds during a phase of the frame out of that phase (the
+ * interrupt stops whatever runs) and shows it as the audio's. */
+extern volatile uint32_t audio_busy_us;
+
 /* Monitor command: status plus a short tune through every waveform and
  * the effects. */
 void audio_test(void);

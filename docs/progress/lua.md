@@ -44,16 +44,18 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
 [audio](audio.md)), `predict`, `padtype`, `assist` (see [tools](tools.md)).
 
 ### Dev kit (`runtime.c`, `src/bm/profile.c`)
-- Overlay: F11 cycles; `devkit(mode)` 0 off, 1 simple, 2 detailed, 3 functions. Settings
-  sets the starting mode; F11/`devkit()` change only the current run.
-- Function profiler (mode 3 or `profile(true)`): self and total ms per frame over the last
-  second, C functions marked; uses the instruction hook plus `luai_cprof`.
+- Overlay (off by default): F11 off → top → bottom; `devkit(mode)` 0/1/2 (3 = top). One
+  block: fps + ms, CPU bar (update, draw, 3D calls, audio, GPU wait, free), GPU bar; % of
+  16.7 ms, 1 s means (`perf_begin`/`perf_account`). Audio = `audio_busy_us` (audio.c, two
+  timer reads per render), GPU wait = `v3d_wait_us` (v3d.c); both taken out of the phase
+  they fell in. RGB30: no GPU wait. To verify on the Pi: TV 640x360 and 1080p, audio % with
+  music, parts summing to the total.
+- Profiler: `profile(true)`; the session report lists the ten costliest.
 - Debugger: `breakpoint([why])` and F8 in bm Code, in a game tried from a tool.
-- Session report: at the end of a run one file per game,
-  `reports/<branch>/session_<game>_<board>.txt`, replaced by the next run (`session_report`,
-  `reports_session`): frame-time classes, the 12 longest frames with their parts, the game's
-  `devinfo()` lines. `session_report=0|1` in `bm/config.txt` (default: only with a
-  `github_token`). Sent from the menu.
+- Session report (`reports/<branch>/session_<game>_<board>.txt`, `session_report=0|1`,
+  default only with a `github_token`): frame-time classes, the frame in its parts, audio
+  share (mean, most in a second), GPU wait share and frames the GPU paced (wait > 2 ms),
+  the 12 longest frames, GPU/binner/frame queue, functions, `devinfo()` lines.
 
 ## Open work (`docs/ROADMAP.md`)
 

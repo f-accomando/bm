@@ -102,11 +102,12 @@ static struct {
     uint32_t last_cpu_us, fps;
     uint32_t present_us;        /* last copy of the frame to the framebuffer */
     uint32_t us3d;              /* time in 3D drawing since the last zclear() */
+    uint32_t us3d_all;          /* the same, never reset (the dev kit's overlay) */
     uint32_t frame_t0;          /* when this frame's _update began */
     int skip_max;               /* frameskip(n): up to n _update before a _draw (0, 1: one) */
     uint32_t updates;           /* the _update that ran before this frame's _draw (stat(15)) */
     uint32_t update_us, draw_us;    /* this frame's: all its _update, its _draw (the dev kit) */
-    char devinfo[4][19];        /* devinfo(): the game's lines on the dev kit's detailed page */
+    char devinfo[4][19];        /* devinfo(): the game's lines in the session report */
     int ndevinfo;
     uint32_t hook_count;
     uint32_t frame_instr_k, last_instr_k;   /* Lua instructions (thousands): this frame, the last */
@@ -2590,6 +2591,14 @@ static int l_mesh_cube(lua_State *L)
     return 1;
 }
 
+/* the time of a 3D call from t0: stat(6)'s (since zclear) and the dev
+ * kit's (never reset: the overlay takes its differences) */
+static void us3d_add(uint32_t t0)
+{
+    const uint32_t us = timer_ticks() - t0;
+    rt.us3d += us;
+    rt.us3d_all += us;
+}
 
 /* draw3d(mesh, x, y, z [, rx, ry, rz, scale, flags]) - flags: 1 no z-buffer
  * (floors and backdrops drawn first), 2 unlit (full colour), 4 smooth
@@ -2604,7 +2613,7 @@ static int l_draw3d(lua_State *L)
     uint32_t t0 = timer_ticks();
     r3d_draw_flags(r, m, p, fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0), fnum(L, 8, 1),
                    (unsigned)luaL_optinteger(L, 9, 0));
-    rt.us3d += timer_ticks() - t0;
+    us3d_add(t0);
     return 0;
 }
 
@@ -2642,7 +2651,7 @@ static int l_point3d(lua_State *L)
     uint32_t t0 = timer_ticks();
     uint32_t n = r3d_point(r, (v3_t){ fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) }, fnum(L, 4, 0.1f),
                            (uint32_t)luaL_optinteger(L, 5, 0xFFFFFF), (unsigned)luaL_optinteger(L, 6, 0));
-    rt.us3d += timer_ticks() - t0;
+    us3d_add(t0);
     lua_pushinteger(L, n);
     return 1;
 }
@@ -2658,7 +2667,7 @@ static int l_line3d(lua_State *L)
                           (v3_t){ fnum(L, 4, 0), fnum(L, 5, 0), fnum(L, 6, 0) },
                           (uint32_t)luaL_optinteger(L, 7, 0xFFFFFF), (int)luaL_optinteger(L, 8, 1),
                           (unsigned)luaL_optinteger(L, 9, 0));
-    rt.us3d += timer_ticks() - t0;
+    us3d_add(t0);
     lua_pushinteger(L, n);
     return 1;
 }
@@ -2675,7 +2684,7 @@ static int l_sprite3d(lua_State *L)
     uint32_t n = r3d_sprite(r, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4),
                             (v3_t){ fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0) }, fnum(L, 8, 1),
                             (unsigned)luaL_optinteger(L, 9, 0));
-    rt.us3d += timer_ticks() - t0;
+    us3d_add(t0);
     lua_pushinteger(L, n);
     return 1;
 }
@@ -4642,7 +4651,7 @@ static void hook(lua_State *L, lua_Debug *ar)
     if (bm_lua_sample)
         bm_lua_sample(L, ar);
     if (prof_enabled())
-        prof_sample(L);                 /* the dev kit's functions page, profile() */
+        prof_sample(L);                 /* profile(): the profiler of functions */
     ++rt.hook_count;
     if (loading_active())
         loading_tick();                 /* _init: the loading screen goes on */
@@ -6957,6 +6966,8 @@ static void pace(uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
         *deadline = now + FRAME_US;
 }
 
+static void perf_end(void);
+
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
     flush3d(0);
@@ -6970,6 +6981,7 @@ static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint3
     d2_early(0);                        /* what the early _update drew: this page's */
     if (rt.r3d.backend)
         gpu3d_page(0, 0);               /* another page: what it holds is not known */
+    perf_end();                         /* the dev kit: the frame's work ends here */
     pace(deadline, prev, dropped);
 }
 
@@ -7254,46 +7266,28 @@ static int vol_start;                   /* the volume when the cartridge started
 
 /* The performance overlay, over any game (Settings > Performance overlay,
  * F11 on a keyboard, a system key, 'p' on the serial line, devkit() from the
- * game): F11 once the simple page, again the detailed one, again the
- * functions (R14: profile.c, the costliest of the last second), again off.
- * Simple: its frames a second, the CPU time of _update + _draw and the Lua
- * instructions of a frame (the mean and, after ^, the most of the last
- * second), and the time of the last 64 frames against the 16.7 ms of a frame
- * at 60 Hz; the memory it uses (its Lua now and, after ^, the most of this
- * run, plus its data: stat(0), 12, 13) and the tokens of its code
- * (stat(11)). Detailed, below: the last frame in its phases (its _update,
- * how many when frameskip() skips frames, its _draw, the 3D: stat(6)), the
- * GPU's work (ms and jobs) or the pixels the ARM drew, the triangles and
- * vertices, the 3D driver, and the game's own lines (devinfo()). On the 8x16
- * grid, top right, bigger on the big screens (x2 from 1280 wide, x3 at 1920):
- *   60fps 6.1ms ^7.5
- *   lua 9k ^10k
- *   ram 612k ^700k
- *   1234 tokens
- *   (the graph)
- *   update 2.1ms
- *   draw   3.8ms
- *   3D     2.5ms
- *   gpu 1.9ms 1 job
- *   tri 3620 vtx 5699
- *   bm3d 2.1 GPU
- * Functions, below the simple page, wider (26 columns): the ten costliest
- * functions of the last second, ms a frame of their own and with what they
- * call (Lua functions in white, the console's and Lua's C ones in blue):
- *   function        self   all
- *   draw_map        0.42  2.10
- *   map             1.68  1.68  */
-#define PERF_N 64
-#define PERF_PAGES 4                    /* off, simple, detailed, functions */
-#define PERF_FUNCS 10
-static int perf_on;                     /* 0 off, 1 simple, 2 detailed, 3 functions: now */
+ * game): F11 once at the top right, again at the bottom right, again off.
+ * Off by default. One small block on the 8x16 grid, bigger on the big
+ * screens (x2 from 1280 wide, x3 at 1920):
+ *   60fps 8.2ms
+ *   cpu [=====---]  49%
+ *   gpu [===-----]  31%
+ * The frames a second and the ms of work of a frame; then the CPU's frame
+ * in its parts, each a colour: _update, _draw without its 3D (and the
+ * page's clear and copy), the 3D calls (stat(6) without the GPU wait), the
+ * audio interrupt, the wait for the GPU (darker), the rest free; the GPU's
+ * busy time (its row only while the GPU draws the 3D). The % are of the
+ * 16.7 ms of a frame at 60 Hz, not of the frame, the means of the last
+ * second; their colour: green under 50%, yellow to 80%, red over (and red
+ * when a frame was skipped). Measured with a few timestamps a frame (perf_*
+ * below); off, nothing (but the session report's, when it is on). */
+#define PERF_MODES 3                    /* off, top, bottom */
+static int perf_on;                     /* 0 off, 1 top, 2 bottom: now */
 static int perf_user;                   /* the same in Settings (config perf): each run starts with it */
-static struct { uint16_t us10[PERF_N], k[PERF_N]; uint32_t at; } perf;
-static gpu3d_stats_t perf_gpu;          /* the GPU's totals at the last frame (the detailed page) */
 
 /* KiB of the cartridge's data in memory, besides its Lua: the sprite sheet
  * (RGB565 + alpha + the cells), the map, the models and skeletons, the sound
- * bank and the z-buffer of the 3D (stat(13), the overlay's RAM) */
+ * bank and the z-buffer of the 3D (stat(13)) */
 static uint32_t assets_kb(void)
 {
     size_t b = (size_t)rt.sheet.w * rt.sheet.h * 3;
@@ -7305,18 +7299,8 @@ static uint32_t assets_kb(void)
     return (uint32_t)((b + 1023) / 1024);
 }
 
-/* "512k", "1.5M", "12M": KiB on the overlay's few columns */
-static void kib_text(char *out, size_t n, uint32_t kb)
-{
-    if (kb < 1000)
-        ksnprintf(out, n, "%luk", (unsigned long)kb);
-    else if (kb < 10240)
-        ksnprintf(out, n, "%lu.%luM", (unsigned long)(kb / 1024), (unsigned long)(kb % 1024 * 10 / 1024));
-    else
-        ksnprintf(out, n, "%luM", (unsigned long)(kb / 1024));
-}
-
-static int perf_level(int level) { return level < 0 ? 0 : level >= PERF_PAGES ? PERF_PAGES - 1 : level; }
+/* 0 off, 1 top, 2 bottom; 3 (the old functions page) and more: the top */
+static int perf_level(int level) { return level <= 0 ? 0 : level == 2 ? 2 : 1; }
 
 /* Settings' choice: every game and tool starts (or resumes) with it. F11,
  * 'p' and devkit() change the overlay of the run only: one game that turned
@@ -7324,9 +7308,9 @@ static int perf_level(int level) { return level < 0 ? 0 : level >= PERF_PAGES ? 
 void bm_set_perf(int level) { perf_on = perf_user = perf_level(level); }
 int bm_perf(void) { return perf_user; }
 
-/* devkit([mode]) -> the dev kit's overlay: 0 off, 1 simple, 2 detailed, 3
- * functions; a mode shows that page in this run (a game's own key for it,
- * e.g. Select on a pad: F11 is the keyboard's) */
+/* devkit([mode]) -> the dev kit's overlay: 0 off, 1 top right, 2 bottom
+ * right (3, the old functions page: the top); a mode shows it in this run
+ * (a game's own key for it, e.g. Select on a pad: F11 is the keyboard's) */
 static int l_devkit(lua_State *L)
 {
     const int old = perf_on;
@@ -7336,8 +7320,8 @@ static int l_devkit(lua_State *L)
     return 1;
 }
 
-/* devinfo(line, ...): up to 4 lines of the game on the dev kit's detailed
- * page (its quality, its actors...), 18 characters each; devinfo() none */
+/* devinfo(line, ...): up to 4 lines of the game in the session report
+ * (its quality, its actors...), 18 characters each; devinfo() none */
 static int l_devinfo(lua_State *L)
 {
     int n = lua_gettop(L);
@@ -7352,11 +7336,11 @@ static int l_devinfo(lua_State *L)
     return 0;
 }
 
-/* The profiler of functions on while its page is shown or the game asked
- * (profile(true)); from the frame loop */
+/* The profiler of functions on while the game asked (profile(true)); from
+ * the frame loop */
 static void prof_update(void)
 {
-    const int want = perf_on == 3 || rt.prof_want;
+    const int want = rt.prof_want;
     if (want != prof_enabled())
         prof_enable(want, timer_ticks);
 }
@@ -7366,8 +7350,8 @@ static void prof_update(void)
  * c (a C function), self and total (ms a frame: its own time, and with the
  * functions it calls), calls (a frame, C functions only)}, and the frames
  * measured (0 while the first second goes by). true starts the profiler
- * of functions for this run (also on while the dev kit shows its
- * functions page), false stops it. */
+ * of functions for this run (the session report then lists the ten
+ * costliest), false stops it. */
 static int l_profile(lua_State *L)
 {
     if (lua_isboolean(L, 1)) {
@@ -8205,7 +8189,7 @@ static int l_battery_low(lua_State *L)
 }
 
 /* While it is low: a small red battery over the frame, top right (left of
- * the dev kit's overlay when that is on), its charge inside, blinking under
+ * the dev kit's overlay when that is at the top), its charge inside, blinking under
  * 5%. After the frame is drawn (the 3D finished: flush3d), as the overlay:
  * the game's own drawing and state are not touched. Settings > Screen and
  * sound > Low battery icon (battery_icon=0) turns it off. */
@@ -8224,9 +8208,9 @@ static void battery_draw(void)
     g16_camera(g, 0, 0);
     g16_clip(g, 0, 0, 0, 0);
     const int z = g->w >= 1280 ? g->w / 640 : 1;
-    int right = g->w - 4 * z;                   /* the overlay: 148 (functions 212) wide, from the right */
-    if (perf_on)
-        right = g->w - (perf_on == 3 ? 216 : 152) * z;
+    int right = g->w - 4 * z;                   /* the overlay at the top: 148 wide, from the right */
+    if (perf_on == 1)
+        right = g->w - 152 * z;
     const int w = 16 * z, h = 8 * z, x = right - w - 2 * z, y = 4 * z;
     const uint16_t red = g16_rgb(255, 72, 64), dark = g16_rgb(8, 8, 16);
     g16_rectfill(g, x - z, y - z, w + 4 * z, h + 2 * z, dark);     /* a border, for any picture */
@@ -8407,65 +8391,7 @@ static void keys_help(lua_State *L)
     *g = keep;
 }
 
-/* "12.3ms" and the like: tenths of a millisecond from microseconds */
-static void ms_text(char *out, size_t n, uint32_t us)
-{
-    ksnprintf(out, n, "%lu.%lums", (unsigned long)(us / 1000), (unsigned long)(us / 100 % 10));
-}
-
-/* a count in a few columns: 3620, 12k */
-static void count_text(char *out, size_t n, uint32_t v)
-{
-    if (v < 10000)
-        ksnprintf(out, n, "%lu", (unsigned long)v);
-    else
-        ksnprintf(out, n, "%luk", (unsigned long)(v / 1000));
-}
-
-/* the detailed page's lines, under the simple one */
-static int perf_detail(char lines[][24])
-{
-    int n = 0;
-    char a[16], b[16];
-    ms_text(a, sizeof a, rt.update_us);
-    if (rt.updates > 1)
-        ksnprintf(lines[n++], 24, "update %s x%lu", a, (unsigned long)rt.updates);
-    else
-        ksnprintf(lines[n++], 24, "update %s", a);
-    ms_text(a, sizeof a, rt.draw_us);
-    ksnprintf(lines[n++], 24, "draw   %s", a);
-    ms_text(a, sizeof a, rt.us3d);
-    ksnprintf(lines[n++], 24, "3D     %s", a);
-    const int gpu = rt.r3d_ready && rt.r3d.backend;
-    if (gpu) {
-        gpu3d_stats_t st;
-        gpu3d_peek_stats(&st);
-        const int fresh = st.jobs >= perf_gpu.jobs && st.bin_us + st.render_us >= perf_gpu.bin_us + perf_gpu.render_us;
-        const uint32_t jobs = fresh ? st.jobs - perf_gpu.jobs : st.jobs;
-        const uint32_t us = fresh ? st.bin_us + st.render_us - perf_gpu.bin_us - perf_gpu.render_us
-                                  : st.bin_us + st.render_us;
-        perf_gpu = st;
-        ms_text(b, sizeof b, us);
-        ksnprintf(lines[n++], 24, "gpu %s %lu job%s", b, (unsigned long)jobs, jobs == 1 ? "" : "s");
-    } else if (rt.r3d_ready) {
-        count_text(a, sizeof a, rt.r3d.pixels);
-        ksnprintf(lines[n++], 24, "px %s", a);
-    }
-    if (rt.r3d_ready) {
-        count_text(a, sizeof a, rt.r3d.tris_drawn);
-        count_text(b, sizeof b, rt.r3d.verts);
-        ksnprintf(lines[n++], 24, "tri %s vtx %s", a, b);
-    }
-    if (rt.r3d_ready)
-        ksnprintf(lines[n++], 24, "bm3d %s %s",
-                  bm3d_mode_l(gpu, gpu ? gpu3d_vshader_on() : 0, gpu && gpu3d_queue(), gpu && held.now),
-                  !gpu ? "ARM" : gpu3d_msaa_on() ? "GPU+AA" : "GPU");
-    for (int i = 0; i < rt.ndevinfo; i++)
-        ksnprintf(lines[n++], 24, "%s", rt.devinfo[i]);
-    return n;
-}
-
-/* "0.42", "12.5": ms in the functions page's 5 columns */
+/* "0.42", "12.5": ms in a few columns (the session report's functions) */
 static void ms_cols(char *out, size_t n, uint32_t us)
 {
     if (us < 10000)
@@ -8474,41 +8400,22 @@ static void ms_cols(char *out, size_t n, uint32_t us)
         ksnprintf(out, n, "%lu.%lu", (unsigned long)(us / 1000), (unsigned long)(us / 100 % 10));
 }
 
-/* the functions page: under the simple one, from the row y (on the grid) */
-static void perf_funcs(g16_t *g, int x, int y, int z)
-{
-    prof_row_t r[PERF_FUNCS];
-    uint32_t frames = 0;
-    const int n = prof_rows(r, PERF_FUNCS, &frames);
-    char line[40], a[12], b[12];
-    ksnprintf(line, sizeof line, "%-14s%6s%6s", "function", "self", "all");
-    g16_text_scaled(g, x, y, line, g16_rgb(150, 150, 170), z);
-    if (!frames) {
-        g16_text_scaled(g, x, y + 16 * z, "measuring...", g16_rgb(232, 232, 216), z);
-        return;
-    }
-    for (int i = 0; i < n; i++) {
-        ms_cols(a, sizeof a, r[i].self_us);
-        ms_cols(b, sizeof b, r[i].total_us);
-        char name[15];
-        ksnprintf(name, sizeof name, "%s", r[i].name);  /* 14 columns (no %.14s here) */
-        ksnprintf(line, sizeof line, "%-14s%6s%6s", name, a, b);
-        g16_text_scaled(g, x, y + 16 * (i + 1) * z, line,
-                        r[i].c ? g16_rgb(120, 200, 232) : g16_rgb(232, 232, 216), z);
-    }
-}
-
 /* The session report (2026-10-10, the user's request: the freezes on the
  * RGB30 had no trace once the overlay's 64 frames had gone by). The dev kit
  * keeps, for the run of a game or tool, how long each frame really lasted
  * (from one picture on screen to the next, so a stall OUTSIDE _update and
  * _draw shows too: the card, the GPU, the machine) in a few classes, and
- * the worst frames with their parts. At the end of the run it goes to the
+ * the worst frames with their parts; the frame's parts as the overlay
+ * measures them (the audio interrupt, the wait for the GPU); the costliest
+ * functions when profile(true) is on. At the end of the run it goes to the
  * reports as one file that the next run of the same game replaces:
  * reports/<branch>/session_<game>_<board>.txt. bm/config.txt session_report:
  * 0 never, 1 always; without it, when there is a github_token. */
 #define SESS_WORST 12
 #define SESS_CLASSES 6
+#define SESS_FUNCS 10
+#define PERF_GPU_BOUND_US 2000          /* a frame whose ARM waited longer for the GPU: the GPU set its pace */
+enum { SEG_UPDATE, SEG_DRAW, SEG_3D, SEG_AUDIO, SEG_WAIT, SEG_USED };
 typedef struct {
     uint32_t frame, at_ms, wall_us, cpu_us, upd_us, draw_us, us3d, copy_us, instr_k, lua_kb, updates;
 } sess_frame_t;
@@ -8519,6 +8426,14 @@ static struct {
     int w, h;                           /* the screen of the run */
     char info[4][19];                   /* the game's own lines (devinfo) as the run ended */
     int ninfo;
+    int want;                           /* the report is written (session_wanted): measure the parts */
+    uint64_t seg_us[SEG_USED];          /* the frames' parts, summed (perf_account) */
+    uint64_t wall_us;                   /* the frames measured, from start to start */
+    uint32_t measured, gpu_bound;       /* frames measured; those the GPU set the pace of */
+    uint32_t audio_max10;               /* the audio's most of a second, tenths of % of the CPU's time */
+    prof_row_t fn[SESS_FUNCS];          /* profile(true): the costliest functions as the run ended */
+    int nfn;
+    uint32_t fn_frames;
 } sess;
 static const uint32_t sess_limit_us[SESS_CLASSES - 1] = { 18000, 25000, 34000, 50000, 100000 };
 
@@ -8543,28 +8458,221 @@ static void sess_frame(uint32_t wall_us)
     };
 }
 
-static void sess_reset(void) { memset(&sess, 0, sizeof sess); }
+static int session_wanted(void);
 
+/* ---- the frame in its parts (the overlay, the session report)
+ *
+ * A few marks a frame, each the time and three counters: the audio
+ * interrupt's time (audio_busy_us: it stops whatever runs, so what it adds
+ * during a phase is taken out of that phase and given to the audio), the
+ * ARM's wait for the GPU (gpu3d_wait_us), the 3D calls' time (us3d_all).
+ * m0 the frame's start, m1 after its _update, m2 after its _draw, m3
+ * before the pace (the page shown); e0..e1 the early _update of the frame
+ * queue (M35), run in this frame's time. A frame is summed at the next
+ * one's start (the audio of the whole frame, the pace's too). Nothing here
+ * changes what the game does: only times are read. */
+typedef struct { uint32_t t, au, wt, d3; } perf_mark_t;
+
+static struct {
+    int on;                             /* this frame is measured */
+    int ended, early;                   /* m3 taken; an early _update ran */
+    perf_mark_t m0, m1, m3, e0, e1;
+} pf;
+
+/* the means of the last second (the overlay shows them) */
+static struct {
+    uint32_t t0, frames, skipped;       /* the second being summed */
+    uint32_t sum[SEG_USED], wall;
+    gpu3d_stats_t g;                    /* the GPU's totals at its start */
+    int gpu_seen;
+    uint32_t seg[SEG_USED], gpu_us;     /* the last whole second: means a frame */
+    int skip, ready;                    /* a frame was skipped in it; the means exist */
+} pw;
+
+static void perf_mark(perf_mark_t *m)
+{
+    m->t = timer_ticks();
+    m->au = audio_busy_us;
+    m->wt = gpu3d_wait_us();
+    m->d3 = rt.us3d_all;
+}
+
+/* a phase from a to b, less what lay inside it from c to d (the early
+ * _update, or nothing): its own time without the audio's and the GPU
+ * wait's, and of that its 3D calls' (their time less the wait, which
+ * happens mostly inside them; the rest of the wait was in the 2D's) */
+typedef struct { uint32_t cpu, d3, au, wt; } perf_phase_t;
+
+static perf_phase_t perf_phase(const perf_mark_t *a, const perf_mark_t *b, const perf_mark_t *c, const perf_mark_t *d)
+{
+    perf_phase_t p;
+    uint32_t t = b->t - a->t;
+    p.au = b->au - a->au;
+    p.wt = b->wt - a->wt;
+    uint32_t d3 = b->d3 - a->d3;
+    if (c) {
+        t -= d->t - c->t;
+        p.au -= d->au - c->au;
+        p.wt -= d->wt - c->wt;
+        d3 -= d->d3 - c->d3;
+    }
+    const uint32_t off = p.au + p.wt;
+    p.cpu = t > off ? t - off : 0;
+    d3 = d3 > p.wt ? d3 - p.wt : 0;
+    p.d3 = d3 < p.cpu ? d3 : p.cpu;
+    p.cpu -= p.d3;
+    return p;
+}
+
+/* the frame that ended, summed; next: the start of the new one */
+static void perf_account(const perf_mark_t *next)
+{
+    perf_phase_t u = perf_phase(&pf.m0, &pf.m1, NULL, NULL);
+    perf_phase_t d = perf_phase(&pf.m1, &pf.m3, pf.early ? &pf.e0 : NULL, &pf.e1);
+    if (pf.early) {
+        const perf_phase_t e = perf_phase(&pf.e0, &pf.e1, NULL, NULL);
+        u.cpu += e.cpu;
+        u.d3 += e.d3;
+        u.wt += e.wt;
+    }
+    uint32_t seg[SEG_USED];
+    seg[SEG_UPDATE] = u.cpu;
+    seg[SEG_DRAW] = d.cpu;
+    seg[SEG_3D] = u.d3 + d.d3;
+    seg[SEG_WAIT] = u.wt + d.wt;
+    seg[SEG_AUDIO] = next->au - pf.m0.au;       /* the whole frame's, the pace's too */
+    const uint32_t wall = next->t - pf.m0.t;
+    for (int i = 0; i < SEG_USED; i++) {
+        pw.sum[i] += seg[i];
+        sess.seg_us[i] += seg[i];
+    }
+    pw.wall += wall;
+    pw.frames++;
+    if (wall > FRAME_US * 3 / 2)
+        pw.skipped++;
+    sess.wall_us += wall;
+    sess.measured++;
+    if (seg[SEG_WAIT] > PERF_GPU_BOUND_US)
+        sess.gpu_bound++;
+    if (next->t - pw.t0 < 1000000)
+        return;
+    /* a second: its means, then the next one */
+    gpu3d_stats_t g;
+    gpu3d_peek_stats(&g);
+    const uint32_t busy = g.bin_us + g.render_us, was = pw.g.bin_us + pw.g.render_us;
+    const uint32_t gpu = pw.gpu_seen && busy >= was ? busy - was : busy;
+    for (int i = 0; i < SEG_USED; i++)
+        pw.seg[i] = pw.sum[i] / pw.frames;
+    pw.gpu_us = gpu / pw.frames;
+    pw.skip = pw.skipped > 0;
+    pw.ready = 1;
+    if (pw.wall) {
+        const uint32_t a10 = (uint32_t)((uint64_t)pw.sum[SEG_AUDIO] * 1000u / pw.wall);
+        if (a10 > sess.audio_max10)
+            sess.audio_max10 = a10;
+    }
+    pw.g = g;
+    pw.gpu_seen = 1;
+    pw.t0 = next->t;
+    pw.frames = pw.skipped = pw.wall = 0;
+    memset(pw.sum, 0, sizeof pw.sum);
+}
+
+/* the start of a frame: the last one summed, this one measured if the
+ * overlay or the session report wants it (off: nothing but the test) */
+static void perf_begin(void)
+{
+    if (!perf_on && !sess.want) {
+        pf.on = 0;
+        return;
+    }
+    perf_mark_t m;
+    perf_mark(&m);
+    if (pf.on && pf.ended) {
+        perf_account(&m);
+    } else if (!pf.on) {                /* (on again: a second from now, nothing of before) */
+        pw.t0 = m.t;
+        pw.frames = pw.skipped = pw.wall = 0;
+        memset(pw.sum, 0, sizeof pw.sum);
+        gpu3d_peek_stats(&pw.g);
+        pw.gpu_seen = 1;
+    }
+    pf.on = 1;
+    pf.ended = pf.early = 0;
+    pf.m0 = m;
+}
+
+/* the frame's work done: before the pace (or at the end of a frame held) */
+static void perf_end(void)
+{
+    if (pf.on && !pf.ended) {
+        perf_mark(&pf.m3);
+        pf.ended = 1;
+    }
+}
+
+/* a new run (or a resumed one): nothing measured yet */
+static void perf_reset(void)
+{
+    memset(&pf, 0, sizeof pf);
+    memset(&pw, 0, sizeof pw);
+}
+
+static void sess_reset(void)
+{
+    memset(&sess, 0, sizeof sess);
+    sess.want = session_wanted();
+}
+
+/* green under 50% of a frame, yellow to 80%, red over (or a frame skipped) */
+static uint16_t perf_colour(uint32_t pct, int skip)
+{
+    if (skip || pct > 80)
+        return g16_rgb(232, 64, 48);
+    return pct >= 50 ? g16_rgb(232, 200, 64) : g16_rgb(72, 200, 96);
+}
+
+/* a row: its name, the bar of parts us[0..n) (of a frame's 16.7 ms) in a
+ * frame of the total's colour, the % at the right; on the 8x16 grid */
+static void perf_bar(g16_t *g, int x, int y, int z, const char *name, const uint32_t *us,
+                     const uint16_t *col, int n, int skip)
+{
+    uint32_t used = 0;
+    for (int i = 0; i < n; i++)
+        used += us[i];
+    uint32_t pct = (used * 100 + FRAME_US / 2) / FRAME_US;
+    if (pct > 999)
+        pct = 999;
+    const uint16_t c = perf_colour(pct, skip);
+    g16_text_scaled(g, x, y, name, g16_rgb(150, 150, 170), z);
+    /* the bar and its frame inside columns 4 to 12: the name and the % keep their cells */
+    const int bx = x + 4 * 8 * z + z, bw = 9 * 8 * z - 2 * z, by = y + 3 * z, bh = 10 * z;
+    g16_rectfill(g, bx - z, by - z, bw + 2 * z, bh + 2 * z, c);
+    g16_rectfill(g, bx, by, bw, bh, g16_rgb(28, 28, 40));          /* free */
+    int at = 0;
+    uint32_t sum = 0;
+    for (int i = 0; i < n && at < bw; i++) {
+        sum += us[i];
+        int to = (int)((uint64_t)sum * (uint32_t)bw / FRAME_US);
+        if (to > bw)
+            to = bw;
+        if (to > at)
+            g16_rectfill(g, bx + at, by, to - at, bh, col[i]);
+        at = to > at ? to : at;
+    }
+    char t[8];
+    ksnprintf(t, sizeof t, "%3lu%%", (unsigned long)pct);
+    g16_text_scaled(g, x + 14 * 8 * z, y, t, c, z);  /* columns 14 to 17 */
+}
+
+/* The overlay (perf_on: 1 top right, 2 bottom right), after the frame is
+ * drawn; and the profiler of functions kept in step */
 static void perf_frame(void)
 {
-    uint32_t i = perf.at++ % PERF_N;
-    perf.us10[i] = (uint16_t)(rt.last_cpu_us / 10 > 65535 ? 65535 : rt.last_cpu_us / 10);
-    perf.k[i] = (uint16_t)(rt.last_instr_k > 65535 ? 65535 : rt.last_instr_k);
     prof_update();
     prof_frame();
     if (!perf_on)
         return;
-    uint32_t n = perf.at < 60 ? perf.at : 60, sum = 0, most = 0, ksum = 0, kmost = 0;
-    for (uint32_t j = 0; j < n; j++) {
-        uint32_t k = (perf.at - 1 - j) % PERF_N;
-        sum += perf.us10[k];
-        ksum += perf.k[k];
-        if (perf.us10[k] > most) most = perf.us10[k];
-        if (perf.k[k] > kmost) kmost = perf.k[k];
-    }
-    uint32_t mean = sum / n, kmean = ksum / n;
-    char more[11][24];
-    const int nmore = perf_on == 2 ? perf_detail(more) : 0;
     g16_t *g = &rt.g;
     const g16_t keep = *g;
     g16_camera(g, 0, 0);
@@ -8573,45 +8681,33 @@ static void perf_frame(void)
     /* x2 from 1280 wide, x3 at 1920: the same size on a TV as at 640 */
     const int z = g->w >= 1280 ? g->w / 640 : 1;
     const int x = g->w - 144 * z;                 /* the text on the 8 x 16 grid (read by the tests) */
-    if (perf_on == 3) {                           /* the functions: 26 columns, a header and 10 rows */
-        int fx = g->w - 208 * z;
-        if (fx < 4 * z)
-            fx = 4 * z;
-        g16_rectfill(g, fx - 4 * z, 0, g->w - fx + 4 * z, (98 + 16 * (PERF_FUNCS + 1)) * z, g16_rgb(8, 8, 16));
-        perf_funcs(g, fx, 96 * z, z);
-    } else {
-        g16_rectfill(g, x - 4 * z, 0, 148 * z, (nmore ? 98 + 16 * nmore : 82) * z, g16_rgb(8, 8, 16));
+    const int gpu = rt.r3d_ready && rt.r3d.backend;
+    const int rows = gpu ? 3 : 2, rowh = 16 * z;
+    int y = 0;
+    if (perf_on == 2) {
+        y = (g->h / rowh - rows) * rowh;
+        if (y < 0)
+            y = 0;
     }
-    char line[32], now[12], top[12];
-    ksnprintf(line, sizeof line, "%lufps %lu.%lums ^%lu.%lu", rt.fps, mean / 100, mean / 10 % 10,
-              most / 100, most / 10 % 10);
-    g16_text_scaled(g, x, 0, line, g16_rgb(232, 232, 216), z);
-    ksnprintf(line, sizeof line, "lua %luk ^%luk", kmean, kmost);
-    g16_text_scaled(g, x, 16 * z, line, g16_rgb(200, 184, 120), z);
-    const size_t lua = luavm_mem();
-    const uint32_t data_kb = assets_kb();
-    kib_text(now, sizeof now, (uint32_t)(lua / 1024) + data_kb);
-    kib_text(top, sizeof top, (uint32_t)((lua > rt.lua_peak ? lua : rt.lua_peak) / 1024) + data_kb);
-    ksnprintf(line, sizeof line, "ram %s ^%s", now, top);
-    g16_text_scaled(g, x, 32 * z, line, g16_rgb(120, 200, 232), z);
-    ksnprintf(line, sizeof line, "%d tokens", rt.tokens);
-    g16_text_scaled(g, x, 48 * z, line, g16_rgb(184, 160, 232), z);
-    /* the last 64 frames, 2 px each; the top is 16.7 ms (a frame at 60 Hz) */
-    for (uint32_t j = 0; j < PERF_N && j < perf.at; j++) {
-        uint32_t v = perf.us10[(perf.at - 1 - j) % PERF_N];
-        int hgt = (int)(v * 14 / 1670);
-        if (hgt > 14) hgt = 14;
-        if (hgt < 1) hgt = 1;
-        uint16_t c = v < 835 ? g16_rgb(72, 200, 96) : v < 1670 ? g16_rgb(232, 200, 64) : g16_rgb(232, 64, 48);
-        g16_rectfill(g, x + (140 - (int)j * 2) * z, (80 - hgt) * z, 2 * z, hgt * z, c);
-    }
-    g16_rectfill(g, x - 2 * z, 65 * z, 144 * z, z, g16_rgb(72, 72, 96));
-    /* the detailed page: from the next row of the grid (96) */
-    for (int k = 0; k < nmore; k++) {
-        more[k][18] = 0;                            /* the box's 18 columns */
-        const uint16_t c = k < 3 ? g16_rgb(232, 232, 216) : k < nmore - rt.ndevinfo ? g16_rgb(160, 200, 160)
-                                                                                    : g16_rgb(255, 224, 112);
-        g16_text_scaled(g, x, (96 + 16 * k) * z, more[k], c, z);
+    g16_rectfill(g, x - 4 * z, y ? y - 2 * z : 0, 148 * z, rows * rowh + 2 * z, g16_rgb(8, 8, 16));
+    uint32_t used = 0;
+    for (int i = 0; i < SEG_USED; i++)
+        used += pw.seg[i];
+    char line[32];
+    ksnprintf(line, sizeof line, "%lufps %lu.%lums", (unsigned long)rt.fps, (unsigned long)(used / 1000),
+              (unsigned long)(used / 100 % 10));
+    g16_text_scaled(g, x, y, line, g16_rgb(232, 232, 216), z);
+    /* the CPU: _update, _draw, 3D calls, audio, GPU wait (darker), free */
+    static const uint8_t order[5] = { SEG_UPDATE, SEG_DRAW, SEG_3D, SEG_AUDIO, SEG_WAIT };
+    const uint16_t col[5] = { g16_rgb(90, 150, 255), g16_rgb(80, 210, 220), g16_rgb(190, 120, 255),
+                              g16_rgb(255, 150, 60), g16_rgb(84, 84, 120) };
+    uint32_t us[5];
+    for (int i = 0; i < 5; i++)
+        us[i] = pw.seg[order[i]];
+    perf_bar(g, x, y + rowh, z, "cpu", us, col, 5, pw.skip);
+    if (gpu) {
+        const uint16_t busy = g16_rgb(190, 120, 255);
+        perf_bar(g, x, y + 2 * rowh, z, "gpu", &pw.gpu_us, &busy, 1, 0);
     }
     *g = keep;
 }
@@ -8694,7 +8790,8 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     uint32_t played_at = start;
     uint32_t lag = 0, lag_at = start;       /* frameskip(): the time not yet run by an _update */
     int fresh = 0;                          /* the keys read and not yet seen by an _update */
-    prof_enable(0, NULL);                   /* the functions page starts from nothing */
+    prof_enable(0, NULL);                   /* the profiler of functions starts from nothing */
+    perf_reset();                           /* the overlay: this run's frames only (a resumed one's too) */
     held.on = held.now = 0;                 /* nothing held (M39), this run's count */
     held.n = 0;
     held.frames = 0;
@@ -8716,7 +8813,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
          * key: also while typing) */
         int f11 = hid_usage_held(0x44);
         if ((f11 && !rt.f11_held) || rt.perf_key)
-            perf_on = (perf_on + 1) % PERF_PAGES;   /* simple, detailed, functions, off */
+            perf_on = (perf_on + 1) % PERF_MODES;   /* top, bottom, off */
         rt.f11_held = f11;
         rt.perf_key = 0;
         /* frameskip(n): the 1/60 s that went by since the last frame, each
@@ -8742,6 +8839,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         }
         /* with this frame's _update, if it ran during the last (stat(8)
          * counts as if it had run just now; its Lua instructions too) */
+        perf_begin();                       /* the dev kit: the frame in its parts */
         const uint32_t t0 = timer_ticks() - early_us;
         rt.frame_t0 = t0;
         rt.update_us = early_us;
@@ -8760,6 +8858,8 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         }
         if (error)
             break;
+        if (pf.on)
+            perf_mark(&pf.m1);
         const uint32_t td = timer_ticks();
         if (call(L, "_draw") != 0) {
             error = lua_tostring(L, -1);
@@ -8780,6 +8880,8 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
             /* the frame in the queue (M35): the GPU draws it while the next
              * frame's _update runs; flush3d waits for it before the page
              * is shown */
+            if (pf.on)
+                perf_mark(&pf.e0);
             const uint32_t t1 = timer_ticks();
             rt.frame_t0 = t1;
             rt.frame_instr_k = 0;
@@ -8796,6 +8898,10 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
             }
             updated = 1;
             early_us = timer_ticks() - t1;
+            if (pf.on) {
+                perf_mark(&pf.e1);
+                pf.early = 1;
+            }
             if (rt.early_touch) {
                 rt.no_early = 1;
                 kprintf("bm: _update draws 3D or reads the page: it runs after the frame again (frame queue)\n");
@@ -8827,9 +8933,11 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
             rt.present_us = 0;              /* (a flip, no copy) */
             if (shown) {
                 later_show(L);              /* the frame before, with the overlays */
+                perf_end();
                 pace(&deadline, &prev, &st->dropped);
             }
             later_hold(fb);
+            perf_end();                     /* (nothing shown yet: no pace) */
         } else {
             perf_frame();
             battery_draw();
@@ -8858,6 +8966,14 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         closing_begin(fb);                  /* its last frame stays, "Closing" over it */
     if (audio_volume() != vol_start)
         config_save();                      /* the volume chosen in the game stays */
+    {                                       /* profile(true): its last second, for the session report */
+        uint32_t fr = 0;
+        const int nfn = prof_enabled() ? prof_rows(sess.fn, SESS_FUNCS, &fr) : 0;
+        if (nfn > 0 && fr) {
+            sess.nfn = nfn;
+            sess.fn_frames = fr;
+        }
+    }
     prof_enable(0, NULL);                   /* not over the menu nor the next game */
     memset(&dbg, 0, sizeof dbg);            /* nor the debugger (R13) */
     cart_src = NULL;
@@ -9004,9 +9120,8 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     rt.start_us = timer_ticks();
     rt.hook_count = 0;
     rt.tokens = lua_tokens(cart.lua, cart.lua_size);
-    perf.at = 0;                        /* the overlay: this cartridge's frames only */
-    sess_reset();                       /* and the session report's */
-    perf_on = perf_user;                /* and as Settings has it */
+    sess_reset();                       /* the session report: this cartridge's frames only */
+    perf_on = perf_user;                /* the overlay as Settings has it */
     dbg_begin(L, cart.lua, cart.lua_size);  /* a game tried from a tool: the debugger (R13) */
     chunk_reader_t rd = { cart.lua, cart.lua_size };
     if (lua_load(L, read_chunk, &rd, "=main.lua", NULL) != LUA_OK ||
@@ -9105,11 +9220,11 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
 {
     if (st->frames < 30 || !session_wanted())
         return;
-    char *t = malloc(6144);
+    char *t = malloc(8192);
     if (!t)
         return;
     size_t n = 0;
-#define PUT(...) do { if (n < 6144) n += (size_t)ksnprintf(t + n, 6144 - n, __VA_ARGS__); } while (0)
+#define PUT(...) do { if (n < 8192) n += (size_t)ksnprintf(t + n, 8192 - n, __VA_ARGS__); } while (0)
     const uint32_t ms = st->elapsed_us / 1000, fps10 = ms ? st->frames * 10000u / ms : 0;
     const uint32_t avg = st->cpu_us_total / st->frames;
     PUT("session of \"%s\" (the last one: the next run of this game replaces this file)\n", st->title);
@@ -9130,6 +9245,33 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
     PUT("\ntime from one picture to the next:\n");
     for (int i = 0; i < SESS_CLASSES; i++)
         PUT("  %-20s %lu\n", cls[i], (unsigned long)sess.hist[i]);
+    if (sess.measured) {
+        /* the overlay's parts: ms a frame, and % of the 16.7 ms of a frame at 60 Hz */
+        const uint32_t m = sess.measured;
+        uint32_t seg[SEG_USED], used = 0;
+        for (int i = 0; i < SEG_USED; i++) {
+            seg[i] = (uint32_t)(sess.seg_us[i] / m);
+            used += seg[i];
+        }
+        PUT("\nthe frame in its parts (as the overlay, %lu frames; ms a frame, %% of the 16.7 ms of a frame):\n",
+            (unsigned long)m);
+        static const char *const names[SEG_USED] = { "update", "draw (no 3D)", "3D calls", "audio", "GPU wait" };
+        for (int i = 0; i < SEG_USED; i++)
+            PUT("  %-14s %3lu.%lu  %3lu%%\n", names[i], MS1(seg[i]), (unsigned long)(seg[i] * 100 / FRAME_US));
+        PUT("  %-14s %3lu.%lu  %3lu%%\n", "all", MS1(used), (unsigned long)(used * 100 / FRAME_US));
+        const uint32_t a10 = sess.wall_us ? (uint32_t)(sess.seg_us[SEG_AUDIO] * 1000u / sess.wall_us) : 0;
+        PUT("audio interrupt: %lu.%lu%% of the CPU's time (mean), %lu.%lu%% at most in a second\n",
+            (unsigned long)(a10 / 10), (unsigned long)(a10 % 10), (unsigned long)(sess.audio_max10 / 10),
+            (unsigned long)(sess.audio_max10 % 10));
+        uint64_t work = 0;
+        for (int i = 0; i < SEG_USED; i++)
+            work += sess.seg_us[i];
+        const uint32_t w10 = work ? (uint32_t)(sess.seg_us[SEG_WAIT] * 1000u / work) : 0;
+        const uint32_t b10 = sess.gpu_bound * 1000u / m;
+        PUT("GPU wait: %lu.%lu%% of the frames' work; the GPU set the pace (the ARM waited more than %lu ms for "
+            "it) in %lu.%lu%% of the frames\n", (unsigned long)(w10 / 10), (unsigned long)(w10 % 10),
+            (unsigned long)(PERF_GPU_BOUND_US / 1000), (unsigned long)(b10 / 10), (unsigned long)(b10 % 10));
+    }
     if (sess.n) {
         PUT("\nthe longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:\n"
             "time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):\n");
@@ -9159,7 +9301,21 @@ static void session_report(const bm_stats_t *st, const gpu3d_stats_t *g)
                 "%lu frames shown a frame later (gpu3d_later)\n", (unsigned long)g->queued,
                 (unsigned long)g->overlapped, (unsigned long)st->later);
     }
+    if (sess.nfn) {
+        PUT("\nthe costliest functions (profile(true): the last whole second, %lu frames; ms a frame of their own "
+            "and with what they call; [C]: the console's and Lua's own):\n", (unsigned long)sess.fn_frames);
+        PUT("  %-22s %6s %6s %6s  %s\n", "function", "self", "all", "calls", "where");
+        for (int i = 0; i < sess.nfn; i++) {
+            char a[12], b[12];
+            ms_cols(a, sizeof a, sess.fn[i].self_us);
+            ms_cols(b, sizeof b, sess.fn[i].total_us);
+            PUT("  %-22s %6s %6s %6lu  %s\n", sess.fn[i].name, a, b, (unsigned long)sess.fn[i].calls,
+                sess.fn[i].where);
+        }
+    }
 #undef PUT
+    if (n > 8191)
+        n = 8191;                       /* (cut: the last line may be partial) */
     reports_session(st->title, t, n);
     free(t);
 }

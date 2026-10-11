@@ -2627,6 +2627,11 @@ void gpu3d_peek_stats(gpu3d_stats_t *s)
     *s = G.st;
 }
 
+uint32_t gpu3d_wait_us(void)
+{
+    return v3d_wait_us;
+}
+
 /* ---------------------------------------------------------------- init */
 
 static uint8_t *block_alloc(void)

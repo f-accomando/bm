@@ -38,8 +38,8 @@ function _update()
   end
   Input.read()
   -- the dev kit is the system's overlay (F11): Select, Tab or F1 go round it
-  -- too (simple, detailed, off); the dev keys work while it is shown
-  if Input.cmd.dev_p or Input.cmd.f1_p then devkit((devkit() + 1) % 4) end   -- simple, detailed, functions, off
+  -- too (top, bottom, off); the dev keys work while it is shown
+  if Input.cmd.dev_p or Input.cmd.f1_p then devkit((devkit() + 1) % 3) end   -- top, bottom, off
   G.dev = devkit() > 0
   Dev.update()
   if G.dev and Input.cmd.f2_p then G.qauto = false Quality.set((G.quality + 1) % 5) end
@@ -60,5 +60,5 @@ function _draw()
   if OVERBIT_HEADLESS then return end           -- the trainer's matches: nothing to see
   if SCREEN_W ~= SW or SCREEN_H ~= SH then screen_size() end      -- (the frame queue ran _update before)
   Modes.draw()
-  if devkit() == 2 then Dev.info() end
+  if devkit() > 0 then Dev.info() end           -- (its lines in the session report)
 end

@@ -66,6 +66,11 @@ int v3d_start(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end);
 int v3d_busy(void);
 int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us);
 
+/* The microseconds the ARM spent waiting for the V3D (v3d_run, v3d_wait)
+ * since boot, the audio interrupt's time inside the waits left out (the
+ * dev kit's "GPU wait"); it wraps */
+extern volatile uint32_t v3d_wait_us;
+
 /* M35: the 1 MiB sections wholly inside [p, p + size) of ARM memory made
  * uncached (on: the ARM's writes go out through the write buffer, merged,
  * with no line read first and no line of other data pushed out of the

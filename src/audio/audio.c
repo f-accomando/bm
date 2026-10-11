@@ -56,9 +56,13 @@ static int mix_block(unsigned m)
     return kind;
 }
 
+volatile uint32_t audio_busy_us;
+
+/* (the two reads of the timer of each render: no other cost) */
 static void timed(uint32_t t0, unsigned n)
 {
     uint32_t us = timer_ticks() - t0;
+    audio_busy_us += us;
     if (us > max_us) {
         max_us = us;
         max_n = n;

@@ -186,5 +186,8 @@ typedef struct {
 void gpu3d_take_stats(gpu3d_stats_t *s);
 /* the same totals, left as they are (the dev kit's overlay) */
 void gpu3d_peek_stats(gpu3d_stats_t *s);
+/* the microseconds the ARM has waited for the GPU since boot (it wraps;
+ * the audio interrupt's time left out): the dev kit's "GPU wait" */
+uint32_t gpu3d_wait_us(void);
 
 #endif
