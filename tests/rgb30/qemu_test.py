@@ -513,35 +513,47 @@ def test_confirm_button(b, opts):
     assert chips["B"] == chips["A"][::-1], "confirm=a does not swap the chips of Open and Back"
 
 
+PI_CART = r"""
+local started = false
+function _update()
+  if not started and (btnp(4) or btnp(5)) then started = true log("pi cart started") end
+end
+function _draw()
+  for i = 0, 35 do                        -- 36 bands of colour over the 360x360 screen
+    local c = (i * 7 % 256) * 65536 + (255 - i * 7) * 256 + (started and 200 or 40)
+    rectfill(i * 10, 0, 10, 360, c)
+  end
+end
+"""
+
+
 def test_bm_cartridge(b, opts):
-    """A Pi cartridge on the RGB30 (listed with no config): Yharnam, 360x360 RGB565,
-    runs on the AArch64 kernel (QEMU shows its screen 1:1, widened to
-    32 bits); the title, then the game after A; 'q' leaves and the menu's
-    360x360 comes back."""
-    cart = os.path.join(b, "carts", "yharnam.bm")
-    if not os.path.exists(cart):
-        raise AssertionError(f"{cart} missing (make TARGET=rgb30 test builds it)")
+    """A Pi cartridge on the RGB30 (listed with no config): a .bm at 360x360,
+    RGB565, runs on the AArch64 kernel (QEMU shows its screen 1:1, widened to
+    32 bits); its screen, then A reaches the game; 'q' leaves with the frame
+    statistics and the menu's 360x360 comes back."""
     tmp = tempfile.mkdtemp(prefix="bm64sd-")
-    with open(cart, "rb") as f:
-        sd = make_sd(tmp, {"bm/yharnam.bm": f.read()})
+    sd = make_sd(tmp, {"bm/picart.bm": mkbm.pack(PI_CART.encode(), title="Pi cart", author="tests",
+                                                 res=(360, 360))})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
         time.sleep(0.4)
-        assert "yharnam.bm" in screen_all(q.screendump())
+        assert "picart.bm" in screen_all(q.screendump())
         q.send("\r")                            # confirm: play
-        q.expect("play: /bm/yharnam.bm", timeout=10)
+        q.expect("play: /bm/picart.bm", timeout=10)
         q.expect("bm: loaded", timeout=30)      # the system's splash, then the game
-        time.sleep(4)
+        time.sleep(2)
         img = q.screendump()
         assert img[0] == 360 and img[1] == 360, f"screen {img[0]}x{img[1]}"
         colours = {img[2][i:i + 3] for i in range(0, len(img[2]), 3 * 97)}
-        assert len(colours) > 20, f"{len(colours)} colours: not the town"
-        q.send(" ")                              # the game's A: start
-        time.sleep(3)
+        assert len(colours) > 20, f"{len(colours)} colours: not the cartridge's bands"
+        q.send(" ")                              # the game's A
+        q.expect("pi cart started", timeout=10)
+        time.sleep(2)
         q.send("q")
         out = q.expect("fps", timeout=10).decode(errors="replace")
-        frames = int(out.split('"Yharnam" ')[1].split()[0])
+        frames = int(out.split('"Pi cart" ')[1].split()[0])
         assert frames > 100, out
         time.sleep(1)
         img = q.screendump()

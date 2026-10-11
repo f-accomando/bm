@@ -148,7 +148,7 @@ SD_FILES64 = $(BUILD)/kernel8.img=kernel8.img boot/rgb30/extlinux.conf=extlinux/
              $(FW64)/rtw8821c_fw.bin=bm/rtw8821c_fw.bin \
              $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt)$(if $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt),=bm/LICENCE.rtlwifi_firmware.txt)
 # Yharnam (the Pi's cartridge, from the claude/yharnam branch, 360x360): on
-# the SD card for testing (in the Games tab) and in the QEMU tests
+# the SD card for testing (in the Games tab)
 YHARNAM := $(BUILD)/carts/yharnam.bm
 $(YHARNAM): carts/yharnam/main.lua carts/yharnam/sheet.png carts/yharnam/cover.png scripts/mkbm.py \
             carts/yharnam/map_ground.csv carts/yharnam/map_overlay.csv carts/yharnam/map_objects.csv
@@ -208,7 +208,7 @@ qemu:
 	    -kernel build/rgb30-virt/kernel.elf -serial stdio -display none
 
 test: test-bt test-wifi test-audio test-mali
-	$(MAKE) -f rgb30.mk PLAT=virt all build/rgb30-virt/carts/yharnam.bm
+	$(MAKE) -f rgb30.mk PLAT=virt all
 	$(PYTHON) tests/rgb30/qemu_test.py --build build/rgb30-virt
 
 # H5 and the Realtek firmware set-up on the PC, against a simulated chip
