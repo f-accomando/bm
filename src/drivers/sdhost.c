@@ -13,6 +13,7 @@
 #include "mmio.h"
 #include "prop.h"
 #include "timer.h"
+#include "lib/printf.h"
 
 #include <string.h>
 
@@ -74,6 +75,9 @@
 #define R_SHORT 1
 #define R_LONG  2
 
+#define WAIT_US         500000  /* a wait for the controller or the card */
+#define SLOW_READ_US    50000   /* a read that waited longer has a line in the log (64 blocks: ~3 ms) */
+
 static uint32_t core_clock;
 static uint32_t rca, blocks;
 static int hc, ready;
@@ -81,6 +85,20 @@ static uint32_t hcfg;
 static const char *err = "not initialised";
 /* since boot: transfers tried again, waits that ran out (sd_counters) */
 static uint32_t n_retries, n_timeouts;
+
+/* What the last failed try saw, for its line in the log (2026-10-11: the
+ * Pi's reads time out now and then and work at the retry; the counters say
+ * how often, this says which wait and in what state). */
+typedef struct {
+    const char *what;           /* err then: the wait that ran out, or the error */
+    uint32_t us;                /* how far into the try */
+    uint32_t done, words;       /* data words moved, of */
+    uint32_t edm, hsts;         /* SDEDM, SDHSTS then (before anything is cleared) */
+    uint32_t cmd_r1;            /* the card's answer to the read or write command, ~0 if none */
+    uint32_t r1;                /* its status (CMD13) right after, before the stop; ~0 if none */
+} fail_t;
+static fail_t fail;
+static uint32_t n_lines;        /* lines in the log so far */
 
 static void set_clock(uint32_t hz)
 {
@@ -94,12 +112,13 @@ static void set_clock(uint32_t hz)
 }
 
 /* Sends a command; resp gets the response in the Arasan layout (long
- * responses: bits 127..8, shifted down by 8), so card_size() is shared. */
-static int cmd_x(uint32_t idx, int kind, uint32_t data_flags, uint32_t arg, uint32_t *resp)
+ * responses: bits 127..8, shifted down by 8), so card_size() is shared.
+ * wait_us: how long the controller may take (before and after). */
+static int cmd_x(uint32_t idx, int kind, uint32_t data_flags, uint32_t arg, uint32_t *resp, uint32_t wait_us)
 {
     uint32_t t0 = timer_ticks();
     while (mmio_read(SDCMD) & CMD_NEW)
-        if (timer_ticks() - t0 > 500000) {
+        if (timer_ticks() - t0 > wait_us) {
             err = "controller busy";
             n_timeouts++;
             return -1;
@@ -116,7 +135,7 @@ static int cmd_x(uint32_t idx, int kind, uint32_t data_flags, uint32_t arg, uint
     t0 = timer_ticks();
     uint32_t v;
     while ((v = mmio_read(SDCMD)) & CMD_NEW)
-        if (timer_ticks() - t0 > 500000) {
+        if (timer_ticks() - t0 > wait_us) {
             err = "command timeout";
             n_timeouts++;
             return -1;
@@ -140,7 +159,7 @@ static int cmd_x(uint32_t idx, int kind, uint32_t data_flags, uint32_t arg, uint
 
 static int cmd(uint32_t idx, int kind, uint32_t arg, uint32_t *resp)
 {
-    return cmd_x(idx, kind, 0, arg, resp);
+    return cmd_x(idx, kind, 0, arg, resp, WAIT_US);
 }
 
 static int acmd(uint32_t idx, int kind, uint32_t arg, uint32_t *resp)
@@ -278,7 +297,7 @@ static int wait_transfer_complete(int write)
             mmio_write(SDEDM, edm | EDM_FORCE_DATA);
             return 0;
         }
-        if (timer_ticks() - t0 > 500000) {
+        if (timer_ticks() - t0 > WAIT_US) {
             err = write ? "write not completed" : "read not completed";
             n_timeouts++;
             return -1;
@@ -292,13 +311,106 @@ static int stop(void)
     return wait_card_ready(1000000);
 }
 
+/* ---------------------------------------------------------------- the log of a failed try */
+
+/* the first 32 lines, then one in 32: each is a stall of the card already */
+static int may_log(void)
+{
+    const uint32_t n = n_lines++;
+    return n < 32 || n % 32 == 0;
+}
+
+static const char *fsm_name(uint32_t edm)
+{
+    static const char *const names[16] = {
+        "ident", "data", "readdata", "writedata", "readwait", "readcrc", "writecrc", "writewait1",
+        "powerdown", "powerup", "writestart1", "writestart2", "genpulses", "writewait2", "?", "startpowdown",
+    };
+    return names[EDM_FSM(edm)];
+}
+
+/* the card's state in an R1 status (bits 12..9) */
+static const char *card_state(uint32_t r1)
+{
+    static const char *const names[16] = { "idle", "ready", "ident", "stby", "tran", "data", "rcv", "prg", "dis" };
+    if (r1 == ~0u)
+        return "no answer";
+    const char *s = names[(r1 >> 9) & 15];
+    return s ? s : "?";
+}
+
+static const char *hsts_name(uint32_t h)
+{
+    if (h & HSTS_REW_TIMEOUT)
+        return "data timeout";
+    if (h & HSTS_CRC16)
+        return "data CRC";
+    if (h & HSTS_FIFO_ERR)
+        return "FIFO error";
+    if (h & HSTS_CMD_TIMEOUT)
+        return "command timeout";
+    if (h & HSTS_CRC7)
+        return "command CRC";
+    return "none";
+}
+
+/* A try failed: what it saw, before anything is cleared. */
+static void note_fail(uint32_t start, uint32_t done, uint32_t words, uint32_t cmd_r1)
+{
+    fail.what = err;
+    fail.us = timer_ticks() - start;
+    fail.done = done;
+    fail.words = words;
+    fail.edm = mmio_read(SDEDM);
+    fail.hsts = mmio_read(SDHSTS);
+    fail.cmd_r1 = cmd_r1;
+    fail.r1 = ~0u;
+}
+
+/* The card's own status (CMD13) for the log, before the stop: "data" or
+ * "rcv" if it is still sending or receiving, "tran" if it thinks it is
+ * done or never started. A short wait; neither err nor the counters move. */
+static void note_card(void)
+{
+    const char *const what = err;
+    const uint32_t timeouts = n_timeouts;
+    uint32_t r[4];
+    fail.r1 = cmd_x(13, R_SHORT, 0, rca << 16, r, 10000) == 0 ? r[0] : ~0u;
+    err = what;
+    n_timeouts = timeouts;
+}
+
+/* One line for a transfer that failed: what its first try saw, and how the
+ * others ended (2026-10-11: which wait runs out on the Pi, and why). */
+static void log_fail(const char *op, uint32_t lba, uint32_t count, const fail_t *f, int ok, int tries, uint32_t us)
+{
+    if (!may_log())
+        return;
+    char last[48] = "";
+    if (!ok || tries > 2)
+        ksnprintf(last, sizeof last, ", the last: %s", fail.what);
+    kprintf("sd: %s %lu at %lu: %s after %lu.%lu ms, %lu/%lu words; controller %s, fifo %lu, hsts %03lx (%s); "
+            "card %s (%08lx, to the command %08lx); %s in %lu ms, %d tries%s\n", op, (unsigned long)count,
+            (unsigned long)lba, f->what, (unsigned long)(f->us / 1000), (unsigned long)(f->us / 100 % 10),
+            (unsigned long)f->done, (unsigned long)f->words, fsm_name(f->edm),
+            (unsigned long)EDM_FIFO_LEVEL(f->edm), (unsigned long)(f->hsts & 0x7FF), hsts_name(f->hsts),
+            card_state(f->r1), (unsigned long)f->r1, (unsigned long)f->cmd_r1, ok ? "then ok" : "failed",
+            (unsigned long)(us / 1000), tries, last);
+}
+
+/* ---------------------------------------------------------------- transfers */
+
 static int read_blocks(uint32_t lba, uint32_t count, uint8_t *buf)
 {
+    const uint32_t start = timer_ticks(), words = count * 128;
+    uint32_t done = 0, waited = 0, r[4];        /* waited: the longest wait for data */
+    r[0] = ~0u;
     mmio_write(SDHBCT, 512);
     mmio_write(SDHBLC, count);
-    if (cmd_x(count > 1 ? 18 : 17, R_SHORT, CMD_READ, hc ? lba : lba * 512, NULL))
+    if (cmd_x(count > 1 ? 18 : 17, R_SHORT, CMD_READ, hc ? lba : lba * 512, r, WAIT_US)) {
+        note_fail(start, 0, words, ~0u);
         return -1;
-    uint32_t words = count * 128, done = 0;
+    }
     uint32_t t0 = timer_ticks();
     while (done < words) {
         uint32_t level = EDM_FIFO_LEVEL(mmio_read(SDEDM));
@@ -309,11 +421,14 @@ static int read_blocks(uint32_t lba, uint32_t count, uint8_t *buf)
                 n_timeouts += (st & HSTS_REW_TIMEOUT) != 0;    /* the controller's own (SDTOUT) */
                 goto fail;
             }
-            if (timer_ticks() - t0 > 500000) {
+            const uint32_t w = timer_ticks() - t0;
+            if (w > WAIT_US) {
                 err = "read timeout";
                 n_timeouts++;
                 goto fail;
             }
+            if (w > waited)
+                waited = w;
             continue;
         }
         if (level > words - done)
@@ -324,25 +439,48 @@ static int read_blocks(uint32_t lba, uint32_t count, uint8_t *buf)
         }
         t0 = timer_ticks();
     }
+    const uint32_t data_end = timer_ticks();
     if (wait_transfer_complete(0))
         goto fail;
-    if (count > 1 && stop())
+    /* the last block's CRC is checked after its data: seen only here (the
+     * loop looks at the flags while it waits). A line for now, the data
+     * kept as before: what the Pi says decides if it becomes a failure */
+    const uint32_t end = mmio_read(SDHSTS);
+    if (count > 1 && stop()) {
+        note_fail(start, done, words, r[0]);
         return -1;
+    }
     mmio_write(SDHSTS, HSTS_CLEAR);
+    const uint32_t after = timer_ticks() - data_end;
+    if ((end & (HSTS_CRC16 | HSTS_FIFO_ERR)) && may_log())
+        kprintf("sd: read %lu at %lu: hsts %03lx (%s) at its end, the data kept\n", (unsigned long)count,
+                (unsigned long)lba, (unsigned long)(end & 0x7FF), hsts_name(end));
+    /* a slow card without a failure: its waits (not the time of the copy,
+     * which in QEMU is long) */
+    if ((waited > SLOW_READ_US || after > SLOW_READ_US) && may_log())
+        kprintf("sd: read %lu at %lu ok but slow: %lu ms waiting for data, %lu ms after it\n",
+                (unsigned long)count, (unsigned long)lba, (unsigned long)(waited / 1000),
+                (unsigned long)(after / 1000));
     return 0;
 fail:
+    note_fail(start, done, words, r[0]);
     mmio_write(SDHSTS, HSTS_CLEAR);
+    note_card();
     stop();
     return -1;
 }
 
 static int write_blocks(uint32_t lba, uint32_t count, const uint8_t *buf)
 {
+    const uint32_t start = timer_ticks(), words = count * 128;
+    uint32_t done = 0, r[4];
+    r[0] = ~0u;
     mmio_write(SDHBCT, 512);
     mmio_write(SDHBLC, count);
-    if (cmd_x(count > 1 ? 25 : 24, R_SHORT, CMD_WRITE, hc ? lba : lba * 512, NULL))
+    if (cmd_x(count > 1 ? 25 : 24, R_SHORT, CMD_WRITE, hc ? lba : lba * 512, r, WAIT_US)) {
+        note_fail(start, 0, words, ~0u);
         return -1;
-    uint32_t words = count * 128, done = 0;
+    }
     uint32_t t0 = timer_ticks();
     while (done < words) {
         uint32_t level = EDM_FIFO_LEVEL(mmio_read(SDEDM));
@@ -354,7 +492,7 @@ static int write_blocks(uint32_t lba, uint32_t count, const uint8_t *buf)
                 n_timeouts += (st & HSTS_REW_TIMEOUT) != 0;
                 goto fail;
             }
-            if (timer_ticks() - t0 > 500000) {
+            if (timer_ticks() - t0 > WAIT_US) {
                 err = "write timeout";
                 n_timeouts++;
                 goto fail;
@@ -373,7 +511,7 @@ static int write_blocks(uint32_t lba, uint32_t count, const uint8_t *buf)
     /* the FIFO drains to the card, then the card programs the blocks */
     t0 = timer_ticks();
     while (EDM_FIFO_LEVEL(mmio_read(SDEDM)))
-        if (timer_ticks() - t0 > 500000) {
+        if (timer_ticks() - t0 > WAIT_US) {
             err = "write not completed";
             n_timeouts++;
             goto fail;
@@ -384,12 +522,16 @@ static int write_blocks(uint32_t lba, uint32_t count, const uint8_t *buf)
         err = "write error";
         goto fail;
     }
-    if (count > 1 ? stop() : wait_card_ready(1000000))
+    if (count > 1 ? stop() : wait_card_ready(1000000)) {
+        note_fail(start, done, words, r[0]);
         return -1;
+    }
     mmio_write(SDHSTS, HSTS_CLEAR);
     return 0;
 fail:
+    note_fail(start, done, words, r[0]);
     mmio_write(SDHSTS, HSTS_CLEAR);
+    note_card();
     stop();
     return -1;
 }
@@ -404,8 +546,12 @@ int sdhost_read(uint32_t lba, uint32_t count, void *buf)
     while (count) {
         uint32_t n = count > 128 ? 128 : count;
         if (read_blocks(lba, n, p)) {
+            const fail_t first = fail;
+            const uint32_t t0 = timer_ticks();
             n_retries++;                                        /* one retry */
-            if (read_blocks(lba, n, p))
+            const int ok = read_blocks(lba, n, p) == 0;
+            log_fail("read", lba, n, &first, ok, 2, timer_ticks() - t0);
+            if (!ok)
                 return -1;
         }
         lba += n;
@@ -425,8 +571,12 @@ int sdhost_write(uint32_t lba, uint32_t count, const void *buf)
     while (count) {
         uint32_t n = count > 128 ? 128 : count;
         if (write_blocks(lba, n, p)) {
+            const fail_t first = fail;
+            const uint32_t t0 = timer_ticks();
             n_retries++;
-            if (write_blocks(lba, n, p))
+            const int ok = write_blocks(lba, n, p) == 0;
+            log_fail("write", lba, n, &first, ok, 2, timer_ticks() - t0);
+            if (!ok)
                 return -1;
         }
         lba += n;
