@@ -429,9 +429,23 @@ void carts_init(void)
     if (!fat_write_tick)
         fat_write_tick = fiber_slice_tick;
     rescan();
-    if (sd_ok)
-        kprintf("sd: %s card (%s), %s; %d cartridges\n", sd_is_hc() ? "SDHC" : "SD",
-                sd_controller(), fat_describe(), nsd);
+    if (sd_ok) {
+        /* the cluster size (a card's writes depend on it) and, if any, the
+         * transfers retried and the waits that ran out so far (sd.h) */
+        char size[24], extra[48] = "";
+        const uint32_t cb = fat_cluster_bytes();
+        if (cb >= 1024)
+            ksnprintf(size, sizeof size, "%lu KiB", (unsigned long)(cb / 1024));
+        else
+            ksnprintf(size, sizeof size, "%lu bytes", (unsigned long)cb);
+        uint32_t retries, timeouts;
+        sd_counters(&retries, &timeouts);
+        if (retries || timeouts)
+            ksnprintf(extra, sizeof extra, "; %lu retried, %lu timed out", (unsigned long)retries,
+                      (unsigned long)timeouts);
+        kprintf("sd: %s card (%s), %s; %d cartridges; clusters %s%s\n", sd_is_hc() ? "SDHC" : "SD",
+                sd_controller(), fat_describe(), nsd, size, extra);
+    }
 }
 
 int carts_count(void)

@@ -32,6 +32,9 @@ int fat_mount(void);
 const char *fat_error(void);
 /* "FAT32, 1024 MiB, label BOOT" */
 const char *fat_describe(void);
+/* The volume's cluster size in bytes (0 if not mounted): a card's write
+ * speed depends on it (the sd: line at boot says it). */
+uint32_t fat_cluster_bytes(void);
 
 /* Opens a directory by path ("/" or "/carts", case insensitive). */
 int fat_opendir(fat_dir_t *d, const char *path);

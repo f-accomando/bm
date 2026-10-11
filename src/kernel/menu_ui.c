@@ -6,6 +6,7 @@
 #include "prompts.h"
 #include "syskeys.h"
 #include "bm/bm.h"
+#include "drivers/sd.h"
 #include "drivers/timer.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
@@ -79,6 +80,7 @@ static int idle_frames, idle_gave;
 static uint32_t idle_offered, idle_used, idle_over;
 static int32_t idle_slack = SLACK_NONE;
 static int idle_first;              /* the frame after the menu opens: its slack is the opening's */
+static uint32_t idle_sd_retries, idle_sd_timeouts;  /* sd_counters at the last line */
 static float scroll;                /* first visible row, eased */
 static float tab_shift;             /* the tabs' x, eased: < 0 while the first one hides */
 static int first_row;
@@ -1555,20 +1557,29 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
      * the probe of the RGB30 Market that never loaded, 2026-10-10). What
      * the device says here is what to measure. One frame short is the
      * line's own (9-15 ms of UART): it no longer brings the next one every
-     * 5 s with nothing running (2026-10-11). */
+     * 5 s with nothing running (2026-10-11). The SD card's retries and
+     * timeouts of the window (sd_counters), when there were some, end it
+     * (and print it: each timeout is half a second of the card). */
     idle_gave += gave;
     if (idle_first)
         idle_first = 0;
     else if (slack < idle_slack)
         idle_slack = slack;
     if (++idle_frames >= IDLE_FRAMES) {
-        char jobs[256];
+        char jobs[256], sd[48] = "";
         const int ran = fiber_jobs_report(jobs, sizeof jobs);
-        if (ran || idle_frames - idle_gave > 1)
+        uint32_t retries, timeouts;
+        sd_counters(&retries, &timeouts);
+        if (retries != idle_sd_retries || timeouts != idle_sd_timeouts)
+            ksnprintf(sd, sizeof sd, "; sd %lu retried, %lu timed out", (unsigned long)(retries - idle_sd_retries),
+                      (unsigned long)(timeouts - idle_sd_timeouts));
+        idle_sd_retries = retries;
+        idle_sd_timeouts = timeouts;
+        if (ran || idle_frames - idle_gave > 1 || sd[0])
             kprintf("menu idle: %d/%d frames, %lu of %lu ms taken, %lu.%lu ms past a frame; %s; "
-                    "min slack %d us, paced %d\n", idle_gave, idle_frames, (unsigned long)(idle_used / 1000),
+                    "min slack %d us, paced %d%s\n", idle_gave, idle_frames, (unsigned long)(idle_used / 1000),
                     (unsigned long)(idle_offered / 1000), (unsigned long)(idle_over / 1000),
-                    (unsigned long)(idle_over / 100 % 10), ran ? jobs : "no job", (int)idle_slack, paced);
+                    (unsigned long)(idle_over / 100 % 10), ran ? jobs : "no job", (int)idle_slack, paced, sd);
         idle_frames = idle_gave = 0;
         idle_offered = idle_used = idle_over = 0;
         idle_slack = SLACK_NONE;

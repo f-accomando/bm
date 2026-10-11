@@ -132,12 +132,13 @@ int fat_mount(void)
     vol.mounted = 1;
     err = "ok";
     ksnprintf(desc, sizeof desc, "FAT%d, %lu MiB, label %s", vol.fat32 ? 32 : 16,
-              total / 2048, vol.label[0] ? vol.label : "-");
+              (unsigned long)(total / 2048), vol.label[0] ? vol.label : "-");
     return 0;
 }
 
 const char *fat_error(void) { return err; }
 const char *fat_describe(void) { return vol.mounted ? desc : err; }
+uint32_t fat_cluster_bytes(void) { return vol.mounted ? vol.spc * 512 : 0; }
 
 static uint32_t next_cluster(uint32_t c)
 {
