@@ -62,7 +62,8 @@ typedef struct {
 
 /* Starts fn(arg) in j (it must not be busy). 0, or -1 without memory. */
 int  fiber_job_start(fiber_job_t *j, size_t stack, void (*fn)(void *), void *arg);
-/* Runs it until `until`; 1 while it has more to do. */
+/* Runs it until `until`, resumed again while it gives the CPU back before
+ * (the network's waits yield at once); 1 while it has more to do. */
 int  fiber_job_run(fiber_job_t *j, uint32_t until);
 /* Asks it to stop and lets it end (its waits and reads fail at once). */
 void fiber_job_stop(fiber_job_t *j);
@@ -73,5 +74,36 @@ void fiber_job_stop(fiber_job_t *j);
  * handshake, a hash, a cover decoded do not give the CPU back). 0 if none
  * ran; it starts counting again. */
 int  fiber_jobs_report(char *buf, size_t n);
+
+/* The background's share of the CPU (2026-10-11). The jobs run only in
+ * the free time of a frame, from a table: for each context (where that
+ * time comes from) each job has a share of it, in %.
+ *
+ *   FIBER_MENU  the menu on the screen: the menu's jobs (carts.c, and
+ *               src/rgb30/ui.c on the RGB30)
+ *   FIBER_TOOL  a tool of the suite (bm Write, the editors): 0 for now,
+ *               nothing calls it there (the jobs are stopped before an
+ *               application starts: background_stop)
+ *   FIBER_GAME  a game: 0, and it stays so unless a game asks for it: a
+ *               game owns the machine, a lockstep one (Overbit, bmnet)
+ *               must never lose time to the background
+ *
+ * fiber_share_run gives each job with a share in the context, in the
+ * table's order, at least that part of the time up to `until` (from when
+ * its turn comes; a job with nothing to do returns at once, and its part
+ * goes to the next), then what is left to the same jobs in the same
+ * order: the first rows are the ones the user waits for. The shares of a
+ * context add up to 100 at most. A job that does not give the CPU back in
+ * time takes more than its part (fiber_jobs_report says how much). A file
+ * from the PC being written is not in the tables: it goes first, alone on
+ * the SD card (netxfer_write_tick). */
+enum { FIBER_GAME, FIBER_TOOL, FIBER_MENU, FIBER_CONTEXTS };
+
+typedef struct {
+    void (*tick)(uint32_t until);       /* runs its job until `until`; back at once with nothing to do */
+    uint8_t share[FIBER_CONTEXTS];      /* its sure part of the free time, % (0: not in that context) */
+} fiber_share_t;
+
+void fiber_share_run(const fiber_share_t *t, int n, int ctx, uint32_t until);
 
 #endif

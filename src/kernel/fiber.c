@@ -142,11 +142,15 @@ static void account(fiber_job_t *j, uint32_t t0, uint32_t until)
 
 int fiber_job_run(fiber_job_t *j, uint32_t until)
 {
-    if (!j->busy)
-        return 0;
-    const uint32_t t0 = timer_ticks();
-    j->busy = fiber_run(&j->f, until);
-    account(j, t0, until);
+    /* a slice of its own ends at `until` (fiber_slice); a wait of the
+     * network yields at once: again while the time is not over */
+    do {
+        if (!j->busy)
+            return 0;
+        const uint32_t t0 = timer_ticks();
+        j->busy = fiber_run(&j->f, until);
+        account(j, t0, until);
+    } while (j->busy && (int32_t)(until - timer_ticks()) > 0);
     return j->busy;
 }
 
@@ -164,6 +168,27 @@ void fiber_job_stop(fiber_job_t *j)
     j->took += waited;
     if (waited > j->worst)
         j->worst = waited;
+}
+
+void fiber_share_run(const fiber_share_t *t, int n, int ctx, uint32_t until)
+{
+    const int32_t total = (int32_t)(until - timer_ticks());
+    if (ctx < 0 || ctx >= FIBER_CONTEXTS || total <= 0)
+        return;
+    /* each its part, from when its turn comes */
+    for (int i = 0; i < n; i++) {
+        if (!t[i].share[ctx])
+            continue;
+        uint32_t end = timer_ticks() + (uint32_t)total * t[i].share[ctx] / 100;
+        if ((int32_t)(end - until) > 0)
+            end = until;
+        if ((int32_t)(end - timer_ticks()) > 0)
+            t[i].tick(end);
+    }
+    /* what is left, in the table's order */
+    for (int i = 0; i < n && (int32_t)(until - timer_ticks()) > 0; i++)
+        if (t[i].share[ctx])
+            t[i].tick(until);
 }
 
 int fiber_jobs_report(char *buf, size_t n)

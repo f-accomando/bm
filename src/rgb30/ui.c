@@ -25,6 +25,7 @@
 #include "gfx/draw.h"
 #include "gfx/font.h"
 #include "kernel/config.h"
+#include "kernel/fiber.h"
 #include "kernel/tick.h"
 #include "kernel/update.h"
 #include "kernel/version.h"
@@ -639,22 +640,24 @@ static void text_page(void)
 
 #define DEPTH_MAX 4
 
-/* the menu's free time in a frame: a file from the PC (bm_net.py --send)
- * written first, alone on the card (2026-10-10); an update's check or
- * install (2026-10-11); then the Market's work */
-static int idle_market;
+/* The menu's jobs and their shares of its free time (fiber.h, 2026-10-11),
+ * as on the Pi: an update's check or install, the Market's work (on its
+ * tab only: market_set_active), the saved WiFi network joined again while
+ * the link is down. */
+static const fiber_share_t menu_jobs[] = {
+    /*                      game tool menu */
+    { update_tick,        {  0,   0,  30 } },
+    { market_tick,        {  0,   0,  60 } },
+    { wifi_auto_idle,     {  0,   0,  10 } },
+};
 
+/* the menu's free time in a frame: a file from the PC (bm_net.py --send)
+ * written first, alone on the card (2026-10-10); then the jobs */
 static void menu_idle(uint32_t until)
 {
     if (netxfer_write_tick(until))
         return;
-    update_tick(until);
-    if (idle_market) {
-        market_tick(until);
-        return;
-    }
-    /* elsewhere the saved WiFi network is joined again while the link is down */
-    wifi_auto_idle(until);
+    fiber_share_run(menu_jobs, (int)(sizeof menu_jobs / sizeof *menu_jobs), FIBER_MENU, until);
 }
 
 void ui_home(framebuffer_t *f)
@@ -745,7 +748,6 @@ void ui_home(framebuffer_t *f)
                 items[i] = (menu_item_t){ .title = dev_items[i].name, .kind = "tool", .cover = &dev_covers[i] };
             }
         }
-        idle_market = on_market;
         menu_view_t v = {
             .tabs = tab_names, .ntabs = 3, .tab = shown, .on_gear = on_gear, .peek_first = 1,
             .items = items, .n = n, .sel = *s,

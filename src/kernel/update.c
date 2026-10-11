@@ -534,9 +534,7 @@ int update_start(int install)
 
 void update_tick(uint32_t until)
 {
-    /* the network's waits give the CPU back at once: on until `until` */
-    while (task.busy && (int32_t)(until - timer_ticks()) > 0)
-        fiber_job_run(&task, until);
+    fiber_job_run(&task, until);
 }
 
 const char *update_busy(void)

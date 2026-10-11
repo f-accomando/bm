@@ -184,9 +184,7 @@ static void job_main(void *arg)
 
 void publish_tick(uint32_t until)
 {
-    /* the network's waits give the CPU back at once: on until `until` */
-    while (job.busy && (int32_t)(until - timer_ticks()) > 0)
-        fiber_job_run(&job, until);
+    fiber_job_run(&job, until);
 }
 
 const char *publish_busy(void)

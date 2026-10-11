@@ -28,6 +28,12 @@ peripherals as device, the rest unmapped. `mmu_set_cached` switches ranges (GPU 
   is a named `fiber_job_t`; `menu_ui_frame` logs a `menu idle:` line every 300 frames when a
   job ran or a frame had no free time (frames with free time, ms taken of ms offered, the
   worst overrun, then `fiber_jobs_report`: ms per job and its worst stall).
+- Shares (`fiber_share_run`, `fiber.h`): the menu's free time goes through a table, a share
+  in % per context (`FIBER_MENU`; `FIBER_TOOL` and `FIBER_GAME` are 0 and nothing calls
+  them). Each job is sure of its share, the rest goes down the table. Pi (`menu_jobs` in
+  `carts.c`): update 15, publish 15, Market 30, Lib 15, covers 15, reports 5, WiFi 5; RGB30
+  (`src/rgb30/ui.c`): update 30, Market 60, WiFi 10. A file or kernel from the PC is
+  outside the table: first and alone on the SD card.
 
 ### Crashes and freezes (`exceptions.c`, `crumbs.c`, `src/drivers/watchdog.c`)
 Exceptions show a red screen with registers and the call trail. Breadcrumbs and the last 4 KiB

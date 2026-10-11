@@ -308,13 +308,39 @@ static void reports_tick(uint32_t until)
     if (!report_job.busy &&
         (!reports_auto_due() || fiber_job_start(&report_job, 128 * 1024, reports_main, NULL) != 0))
         return;
-    /* the network's waits give the CPU back at once: on until the frame's time is over */
-    while (report_job.busy && (int32_t)(until - timer_ticks()) > 0)
-        fiber_job_run(&report_job, until);
+    fiber_job_run(&report_job, until);
 }
 
-/* the menu's free time in a frame (menu_view_t.idle): the work of the tab
- * shown first */
+static void lib_idle(uint32_t until)
+{
+    if (cover_tab == TAB_LIB)           /* the tab's own work */
+        lib_tick(until);
+}
+
+static void reports_idle(uint32_t until)
+{
+    if (reports_free)
+        reports_tick(until);
+}
+
+/* The menu's jobs and their shares of its free time (fiber.h, 2026-10-11):
+ * what the user started from a panel and waits for first, then the work of
+ * the tab shown (the Market's and the Lib's work only on their tab: on
+ * another one they give their time back at once). Each is sure of its
+ * share; what is left goes down the table. Before, the covers took every
+ * frame's time first and the Market could get none. */
+static const fiber_share_t menu_jobs[] = {
+    /*                      game tool menu */
+    { update_tick,        {  0,   0,  15 } },   /* Settings > Updates: check, install */
+    { publish_tick,       {  0,   0,  15 } },   /* a game to the Market */
+    { market_tick,        {  0,   0,  30 } },   /* its tab */
+    { lib_idle,           {  0,   0,  15 } },   /* its tab */
+    { covers_tick,        {  0,   0,  15 } },   /* the tab's covers first */
+    { reports_idle,       {  0,   0,   5 } },   /* Games, Dev, Lib, no panel */
+    { wifi_auto_idle,     {  0,   0,   5 } },   /* the saved network again, while the link is down */
+};
+
+/* the menu's free time in a frame (menu_view_t.idle) */
 static void menu_idle(uint32_t until)
 {
     /* a file (or a kernel) from the PC (bm_net.py --send) first, alone on
@@ -327,22 +353,9 @@ static void menu_idle(uint32_t until)
     }
     if (netxfer_write_tick(until))
         return;
-    /* what the user started from a panel and waits for: an update's check
-     * or install, a game published (2026-10-11) */
-    update_tick(until);
-    publish_tick(until);
     if (!reports_free)                  /* before the Market's fiber: one at a time on the network */
         fiber_job_stop(&report_job);    /* (cancelled: it goes again later) */
-    if (cover_tab == TAB_LIB) {
-        lib_tick(until);
-        covers_tick(until);
-    } else {
-        covers_tick(until);
-        market_tick(until);
-    }
-    if (reports_free)
-        reports_tick(until);
-    wifi_auto_idle(until);              /* the saved network again, while the link is down */
+    fiber_share_run(menu_jobs, (int)(sizeof menu_jobs / sizeof *menu_jobs), FIBER_MENU, until);
 }
 
 /* Before the list changes, an application runs or the card is written:

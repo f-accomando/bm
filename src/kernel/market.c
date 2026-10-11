@@ -179,6 +179,8 @@ static int fetch(const char *rel, size_t max, size_t expect, uint32_t *got,
             return -1;
         }
         if (fat_load(&e, data, len) != 0) {
+            if (fiber_cancelled())      /* stopped half way through the read (sd_tick) */
+                goto cancelled;
             ksnprintf(err, err_len, "%s: %s", rel, fat_error());
             return -1;
         }
