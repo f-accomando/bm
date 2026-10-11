@@ -1,0 +1,39 @@
+bm report
+kind: session
+kernel: v0.2.5-151-g2c974be
+branch: bm-core
+board: RGB30
+date: 2026-10-11 19:30:08
+file: session_titan-clash-ex_rgb30.txt
+
+session of "Titan Clash EX" (the last one: the next run of this game replaces this file)
+options bm3d 6.9 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
+screen 360x360, 443 frames in 7.4 s, 59.6 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 3.7 ms, max 44.5 ms, 1 frames over 16.7 ms
+memory: Lua peak 1209 KiB, data 21032 KiB; code 29844 tokens; busiest frame 47k Lua instructions
+frames that were shown after more than 1.5 frames: 1
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    441
+  <= 25 ms             0
+  <= 34 ms (30 fps)    0
+  <= 50 ms             0
+  <= 100 ms            1
+  > 100 ms (a freeze)  0
+
+the frame in its parts (as the overlay, 443 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.1    0%
+  draw (no 3D)    15.5   93%
+  3D calls         0.0    0%
+  audio            0.7    4%
+  GPU wait         0.0    0%
+  all             16.4   98%
+audio interrupt: 4.5% of the CPU's time (mean), 5.1% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
+    418     7.1    50.0   44.5   0.3   44.2   0.0   0.0     5.4        8      632        1
