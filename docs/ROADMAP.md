@@ -137,8 +137,9 @@ Passi aperti o da provare (branch `bm3d-driver`):
    **restano** gli attributi a 16 e 8 bit (posizioni scalate, normali e colori a 8, uv a 16;
    posizioni separate per lo shader di coordinate).
 3. Fatto: 65535 vertici e facce in `.bm`, r3d, `mesh()`, bm Studio, bm Mesh.
-4. **Due lavori in volo** (`gpu3d_queue=2`) fatto nel driver; **resta** il runtime: mostrare
-   il fotogramma uno dopo, perché anche il `_draw` vada insieme alla GPU.
+4. **Due lavori in volo** (`gpu3d_queue=2`) fatto nel driver; fatto sul PC anche il runtime,
+   come opzione spenta (`gpu3d_later=1`, bm3d 6.9): il fotogramma mostrato uno dopo, il
+   `_draw` insieme alla GPU (`make test-queue2d`); **resta** la misura sul Pi.
 5. **Texture più leggere**: fatto RGB565 per gli sheet opachi (`gpu3d_tex16`); **restano**
    RGBA5551/4444 per i ritagli, ETC1 (al build) e le mipmap; la prova all'avvio controlla come
    la TMU legge ogni formato.
@@ -152,7 +153,8 @@ Passi aperti o da provare (branch `bm3d-driver`):
     fotogramma, `frames.py` per misurare; uno studio a parte su LuaJIT (ARMv6) sul bare metal.
 - **Da provare sul Pi:** test `g` (la riga di stato: `indexed`, `16-bit textures`,
   `two-thread shaders`), 3D Bench con i profili GPU+VS+Q2, GPU+T16, GPU+FS2, GPU+VS+S, il
-  benchmark di Overbit con le opzioni accese.
+  benchmark di Overbit con le opzioni accese; `gpu3d_later=1` contro `0` con `gpu3d_queue=2`
+  (`docs/progress/v3d.md`).
 - **Fatto quando:** sul Pi il test `big` regge almeno il doppio dei triangoli a 60 fps di
   bm3d 4.1, il test `spheres` del 3D Bench almeno 3× quelli di 3.4, e Overbit (GPU+VS+Q) sta
   nei 60 fps a HIGH nello scontro di 10 bot.
@@ -358,6 +360,10 @@ prova senza seriale e spesso senza tastiera).
   giochi lunghi (Yharnam, Overbit in solitario) potrebbero salvare da soli a batteria
   scarica, e bmlib offrire `lib.autosave` al primo `battery_low()`; l'assistente potrebbe
   suggerirlo (kb `battery`). In rete resta solo informazione (lockstep).
+- **R39 — Overbit e il fotogramma uno dopo** (2026-10-11). Con il quinto argomento di `gpu3d()`
+  (bm3d 6.9) il benchmark di Overbit potrebbe avere un renderer GPU+VS+Q2 con il fotogramma uno
+  dopo (`gpu3d(true, false, 2, 2, true)`), e la scelta RENDERER tenere la coda a 2 (oggi `q` la
+  rimette a 1, e il fotogramma uno dopo si spegne); nel gioco in solitario, mai online.
 
 ### Strumenti di sviluppo
 - **R15 — Ricarica dal PC.** `bm_net.py --watch`: a ogni salvataggio di `main.lua` sul PC la

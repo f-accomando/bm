@@ -543,19 +543,21 @@ sprite3d(0, 32, 16, 16, x, y + 2, z, 1)
 == gpu3d
 kind: api
 name: gpu3d
-title: gpu3d([on, aa, vs]) - il 3D sulla GPU
-title_en: gpu3d([on, aa, vs]) - the 3D on the GPU
+title: gpu3d([on, aa, vs, queue, later]) - il 3D sulla GPU
+title_en: gpu3d([on, aa, vs, queue, later]) - the 3D on the GPU
 ask: usare la gpu | il 3d lo fa la gpu | gpu or arm | anti aliasing
 ask: accendere la gpu | 3d più veloce con la gpu
-see: stat, guide.3d_perf
+see: stat, guide.3d_perf, gpu3d_later
 text:
 Dice (e cambia, con gli argomenti) se il 3D lo disegna la GPU del Pi, con
-l'MSAA e con il vertex shader. In QEMU e con gpu3d=0 lo fa l'ARM. stat(9)
-vale 1 quando lo fa la GPU.
+l'MSAA, con il vertex shader, con la coda dei fotogrammi (2: due lavori)
+e con il fotogramma mostrato uno dopo. In QEMU e con gpu3d=0 lo fa l'ARM.
+stat(9) vale 1 quando lo fa la GPU.
 text_en:
 Says (and changes, with the arguments) whether the Pi's GPU draws the
-3D, with MSAA and with the vertex shader. In QEMU and with gpu3d=0 the
-ARM does it. stat(9) is 1 when the GPU does it.
+3D, with MSAA, with the vertex shader, with the frame queue (2: two
+jobs) and with each frame shown a frame later. In QEMU and with gpu3d=0
+the ARM does it. stat(9) is 1 when the GPU does it.
 code:
 local on, aa = gpu3d()
 print(on and "GPU" or "ARM", 8, 8)

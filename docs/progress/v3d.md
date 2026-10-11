@@ -11,6 +11,9 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
 - `queue=2` = two job memory blocks (`JOB_BLOCK` / `JOB2_BLOCK`, `gpu3d.c`): the ARM fills
   N+1 while the GPU renders N. But `run_async` / `gpu3d_submit` still call `job_wait()` before
   `v3d_start`, so only one GPU job runs at a time (`v3d_start` rejects a second).
+- `gpu3d_later=1` (bm3d 6.9, with `queue=2`, off by default): the frame is held one frame
+  (`held` in `runtime.c`), so the next `_update` and `_draw` fill the other block while the
+  GPU draws it. Host test: `make test-queue2d` (same pictures; jobs filled in overlap).
 - Cache: `dcache_clean_invalidate_all` 4 times per job (coarse; `dcache_clean_range` exists).
 - Binner: static 4 MiB tile allocation + 2 MiB overflow per job (`BPOA` / `BPOS`). `OUTOMEM`
   is not handled: a stall hits the 200 ms timeout, the GPU is disabled, the ARM takes over.
@@ -34,10 +37,10 @@ From the v3d-async-proposal review (branch `origin/v3d-async-proposal`,
    use, count of overflow jobs. See `docs/BENCH3D.md` columns.
 2. Pi run to read them (bench3d and Overbit with GPU+VS+Q and Q2, GPU+WC); then decide: range
    clean instead of whole-cache clean, bigger or dynamic overflow.
-3. M39 step 4, runtime: show the frame one later so `_draw` overlaps the GPU
-   (`runtime.c` `submit3d` / `flush3d` / `draw2d`).
-4. Only if 2 shows a gain: chain two jobs in hardware (CT0/CT1 queue); needs removing
-   `job_wait` before `v3d_start`.
+3. M39 step 4, runtime: done as an option (`gpu3d_later`, bm3d 6.9 code); left: the Pi
+   run below, then decide whether it becomes the default.
+4. Only if 2 (or 3 on the Pi) shows a gain: chain two jobs in hardware (CT0/CT1 queue);
+   needs removing `job_wait` before `v3d_start`.
 5. Impostor flag (see Decisions), after 2.
 6. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
 
@@ -48,4 +51,7 @@ Last Pi numbers: 2026-10-06, bm3d 6.7. Ask the user to run them; reports go in b
 
 - Overbit benchmark: GPU+VS, GPU+VS+Q, Q2.
 - `queue=1` vs `2` in real games (bench3d split rows Q/Q2 showed no gain).
+- `gpu3d_queue=2` with `gpu3d_later=0` vs `1` (bm3d 6.9): Overbit (no saved RENDERER: its
+  `q` sets the queue to 1) and a 3D game, F11 ms and fps; the session report's `frame queue`
+  line (jobs filled in overlap, frames held); no tearing on the TV.
 - 2D on GPU, tex16, WC, `g` test steps 15-16, `menu_scale=3`.

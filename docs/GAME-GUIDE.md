@@ -356,6 +356,12 @@ end
   nothing: `if visible3d(e.x, e.y + 1, e.z, 1.5) then draw3d(e.mesh, ...) end`.
 - 2D and 3D mix: a background with `rectfill`/`map`, models with `draw3d`, the HUD with
   `print` at the end.
+- **The Pi's GPU:** `gpu3d()` says whether it draws the 3D, and how (`on, aa, vs, version,
+  queue, later`). The console's options make the 3D faster without touching the game: with
+  *3D frame shown: A frame later* (`gpu3d_later=1`, with `gpu3d_queue=2`) each frame is shown
+  a frame later and the next `_update` and `_draw` run while the GPU draws it. The pictures
+  are the same; it asks only what every game should do anyway: the state changes in
+  `_update`, the HUD after the 3D (`docs/API.md`, *A frame later*).
 
 **With bm Studio** ([sdk/README.md](../sdk/README.md)): models are made on the console
 placing the sprite sheet's tiles on a grid, and they live in the `.bm` itself; in the game
