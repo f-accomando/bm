@@ -137,6 +137,11 @@ static int fails;
 static void check(int ok, const char *what);
 static int wifi_left;
 void wifi_leave(void) { wifi_left++; }
+/* an intentional restart says so before it (crumbs.c): the next boot must
+ * not report a freeze */
+static int clean_exits, flushed;
+void crumbs_clean_exit(void) { clean_exits++; }
+void uart_flush(void) { flushed += clean_exits; }
 /* the kernel's way (main's argument): no menu, the menu's fiber, the menu
  * gone before it wrote; what had run when the kernel case began */
 enum { K_AT_ONCE, K_MENU, K_GONE };
@@ -147,6 +152,8 @@ void watchdog_reboot(void)
 {
     reboots++;
     check(wifi_left == 1, "the access point told we leave before the restart");
+    check(clean_exits == 1 && flushed == 1,
+          "a clean exit marked before the restart (no freeze report at the next boot), the log flushed");
     if (k_way == K_MENU)
         check(jobs_run > k_jobs && polls_in_write == k_polls && !write_again && !fat_write_tick,
               "the menu's fiber wrote it (no write at once), nothing left set");

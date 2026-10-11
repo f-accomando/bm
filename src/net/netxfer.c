@@ -19,9 +19,11 @@
 #include "net.h"
 #include "kernel/config.h"
 #include "drivers/timer.h"
+#include "drivers/uart.h"
 #include "drivers/watchdog.h"
 #include "wifi/wifi.h"
 #include "fs/fat.h"
+#include "kernel/crumbs.h"
 #include "kernel/fiber.h"
 #include "kernel/notice.h"
 #include "lib/crc32.h"
@@ -529,6 +531,10 @@ void netxfer_poll(void)
             kprintf("net: restarting with the new kernel...\n");
             timer_delay_ms(200);
             wifi_leave();               /* the AP told: it does not hold the old association */
+            /* an intentional restart, as every other one (update.c, monitor.c):
+             * without it the next boot reported a freeze (2026-10-11) */
+            crumbs_clean_exit();
+            uart_flush();
             watchdog_reboot();
         }
     }
