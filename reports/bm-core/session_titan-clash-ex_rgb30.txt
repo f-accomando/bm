@@ -3,37 +3,48 @@ kind: session
 kernel: v0.2.5-173-g62fef70
 branch: bm-core
 board: RGB30
-date: 2026-10-11 20:02:04
+date: 2026-10-11 20:20:25
 file: session_titan-clash-ex_rgb30.txt
 
 session of "Titan Clash EX" (the last one: the next run of this game replaces this file)
 options bm3d 6.9 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
-screen 360x360, 1116 frames in 18.6 s, 59.9 fps
+screen 360x360, 24246 frames in 426.9 s, 56.7 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 3.3 ms, max 22.7 ms, 1 frames over 16.7 ms
-memory: Lua peak 1213 KiB, data 21032 KiB; code 29836 tokens; busiest frame 46k Lua instructions
-frames that were shown after more than 1.5 frames: 1
+time of _update + _draw (+ the 3D's wait): avg 5.7 ms, max 315.2 ms, 399 frames over 16.7 ms
+memory: Lua peak 1240 KiB, data 21032 KiB; code 29839 tokens; busiest frame 51k Lua instructions
+frames that were shown after more than 1.5 frames: 400
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    1114
+  <= 18 ms (60 fps)    23845
   <= 25 ms             0
-  <= 34 ms (30 fps)    1
-  <= 50 ms             0
-  <= 100 ms            0
-  > 100 ms (a freeze)  0
+  <= 34 ms (30 fps)    124
+  <= 50 ms             3
+  <= 100 ms            158
+  > 100 ms (a freeze)  115
 
-the frame in its parts (as the overlay, 1116 frames; ms a frame, % of the 16.7 ms of a frame):
-  update           0.1    0%
-  draw (no 3D)    15.8   95%
+the frame in its parts (as the overlay, 24245 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.2    1%
+  draw (no 3D)    16.4   98%
   3D calls         0.0    0%
-  audio            0.7    4%
+  audio            0.8    5%
   GPU wait         0.0    0%
-  all             16.6  100%
-audio interrupt: 4.3% of the CPU's time (mean), 5.0% at most in a second
+  all             17.5  105%
+audio interrupt: 4.7% of the CPU's time (mean), 5.5% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
-    880    14.7    33.3   22.7   0.0   22.6   0.0   0.0    10.6        2      621        1
+  10235   181.0   316.8  301.6   0.3  301.2   0.0   0.0    15.2        6      632        1
+  21133   373.9   316.8  315.2   0.3  314.8   0.0   0.0     1.5        7      631        1
+  10182   179.9   166.7  153.0   0.3  152.7   0.0   0.0    13.6        7     1030        1
+  20980   370.7   166.7  161.2   0.1  161.0   0.0   0.0     5.5        6     1024        1
+  21081   372.7   166.7  152.3   0.7  151.6   0.0   0.0    14.3        7     1041        1
+  10129   178.8   166.7  150.9   0.3  150.5   0.0   0.0    15.8        7     1029        1
+  20877   368.7   166.7  154.4   0.5  153.9   0.0   0.0    12.3        6     1019        1
+  21030   371.7   166.7  150.0   0.2  149.7   0.0   0.0    16.6        6     1038        1
+  20927   369.7   166.7  150.7   0.4  150.3   0.0   0.0    15.9        6     1025        1
+  20370   358.9   150.0  135.8   0.3  135.5   0.0   0.0    14.1        7     1000        1
+  20072   353.2   150.0  134.6   0.3  134.3   0.0   0.0    15.4        6      984        1
+  20470   360.8   150.0  141.0   0.5  140.4   0.0   0.0     9.0        6     1002        1
