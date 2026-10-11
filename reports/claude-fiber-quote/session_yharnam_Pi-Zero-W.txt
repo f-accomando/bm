@@ -1,0 +1,39 @@
+bm report
+kind: session
+kernel: v0.2.5-107-g5fecedd
+branch: claude/fiber-quote
+board: Pi Zero W
+date: 2026-10-11 12:12:05
+file: session_yharnam_Pi Zero W.txt
+
+session of "Yharnam" (the last one: the next run of this game replaces this file)
+screen 256x256, 1093 frames in 18.3 s, 59.7 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 10.5 ms, max 85.6 ms, 9 frames over 16.7 ms
+memory: Lua peak 3240 KiB, data 41256 KiB; code 96789 tokens; busiest frame 629k Lua instructions
+frames that were shown after more than 1.5 frames: 1
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    1080
+  <= 25 ms             12
+  <= 34 ms (30 fps)    0
+  <= 50 ms             0
+  <= 100 ms            0
+  > 100 ms (a freeze)  0
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
+    172     3.1    24.3   23.2   0.4   22.7   0.0   0.9     0.1        9     1742        1
+    545     9.4    19.3   16.8   7.1    9.7   0.0   1.4     0.9       53     2363        1
+    555     9.5    19.2   16.8   6.3   10.4   0.0   1.5     0.9       54     2444        1
+    551     9.5    19.0   17.8   7.2   10.5   0.0   0.9     0.3       53     2411        1
+    539     9.3    18.7   16.8   6.6   10.2   0.0   1.4     0.3       52     2318        1
+    552     9.5    18.3   17.1   6.6   10.5   0.0   0.9     0.2       54     2419        1
+    542     9.3    18.2   16.0   5.7   10.2   0.0   1.4     0.7       53     2343        1
+    548     9.4    18.1   16.1   6.3    9.7   0.0   1.5     0.5       54     2389        1
+    619    10.6    18.1   16.3   6.3    9.9   0.0   0.9     0.8       49     2583        1
+    543     9.3    18.1   16.7   6.4   10.2   0.0   0.9     0.5       53     2350        1
+    549     9.4    18.0   16.7   6.3   10.4   0.0   0.9     0.3       53     2397        1
+    553     9.5    18.0   15.5   6.0    9.4   0.0   1.5     0.9       54     2431        1
