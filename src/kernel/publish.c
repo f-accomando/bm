@@ -1,5 +1,6 @@
 #include "publish.h"
 #include "config.h"
+#include "fiber.h"
 #include "market.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
@@ -26,7 +27,18 @@ static struct {
     char path[FAT_NAME_MAX + 10], title[49], author[33];
     char id[24], version[16], license[41], about[121];
     int lic;                    /* licenses[lic], or -1: the catalog's own */
+    /* the sending: the step it is at, then how it went and the pull
+     * request, or why not */
+    char state[40], result[256];
+    int sent;
 } pub;
+
+/* The sending in a fiber of the menu (2026-10-11): the menu goes on, the
+ * Send row says how far it is. Not stopped by background_stop: no
+ * application starts while it runs (publish_busy), so no branch is left
+ * half made on GitHub. */
+static fiber_job_t job = { .name = "publish" };
+#define JOB_STACK (128 * 1024)          /* TLS, and the interrupts on top */
 
 static const char *repo(void)
 {
@@ -54,6 +66,8 @@ static void today(char *out, size_t n)
 
 void publish_setup(const char *path, const char *title, const char *author)
 {
+    if (job.busy)                       /* one at a time: the panel shows the one going */
+        return;
     memset(&pub, 0, sizeof pub);
     ksnprintf(pub.path, sizeof pub.path, "%s", path);
     ksnprintf(pub.title, sizeof pub.title, "%s", title);
@@ -93,13 +107,24 @@ void publish_panel(home_panel_t *p)
              has_token() ? "github_token in bm/config.txt" : "Put github_token=... in bm/config.txt",
              "%s", has_token() ? "set" : "missing");
     home_row(p, MENU_ROW_INFO, P_REPO, "Market", "The repository the pull request goes to", "%s", repo());
+    /* the step it is at; once over, its help line is the pull request, or why not */
     home_row(p, MENU_ROW_ACTION, P_SEND, "Send the pull request",
-             "The Market checks it; once merged, everyone can get it", NULL);
+             pub.result[0] ? pub.result : "The Market checks it; once merged, everyone can get it",
+             pub.state[0] ? "%s" : NULL, pub.state);
 }
 
 static void step(const char *s)
 {
     kprintf("  %s\n", s);
+    ksnprintf(pub.state, sizeof pub.state, "%s", s);
+}
+
+/* how it went: the Send row and its help line (the log has the rest) */
+static void over(int sent, const char *what)
+{
+    pub.sent = sent;
+    ksnprintf(pub.state, sizeof pub.state, sent ? "sent" : "not sent");
+    ksnprintf(pub.result, sizeof pub.result, "%s", what);
 }
 
 static void wait_ms(unsigned ms)
@@ -115,6 +140,7 @@ static void run(framebuffer_t *fb)
     kprintf("  games/%s, version %s, license %s, to %s\n", pub.id, pub.version, license(), repo());
     if (!net_ip()) {
         kprintf("\x1b[91mno network: connect in Settings > WiFi and network\x1b[0m\n");
+        over(0, "no network: connect in Settings > WiFi and network");
         return;
     }
     fat_entry_t e;
@@ -122,6 +148,7 @@ static void run(framebuffer_t *fb)
     size_t len;
     if (fat_find(pub.path, &e) != 0 || fat_load(&e, &cart, &len) != 0) {
         kprintf("\x1b[91mcannot read %s: %s\x1b[0m\n", pub.path, fat_error());
+        over(0, "the file cannot be read from the SD card");
         return;
     }
     char info[320], branch[48], url[256], err[256], name[64];
@@ -142,9 +169,29 @@ static void run(framebuffer_t *fb)
     if (r == 0) {
         kprintf("\x1b[92mpull request sent in %lu s:\x1b[0m\n  %s\n", (timer_ticks() - t0) / 1000000, url);
         kprintf("  The Market checks it; once it is merged, the game is in the catalog.\n");
+        over(1, url);
     } else {
         kprintf("\x1b[91mnot sent: %s\x1b[0m\n", err);
+        over(0, err);
     }
+}
+
+static void job_main(void *arg)
+{
+    (void)arg;
+    run(NULL);
+}
+
+void publish_tick(uint32_t until)
+{
+    /* the network's waits give the CPU back at once: on until `until` */
+    while (job.busy && (int32_t)(until - timer_ticks()) > 0)
+        fiber_job_run(&job, until);
+}
+
+const char *publish_busy(void)
+{
+    return job.busy ? pub.title : NULL;
 }
 
 void publish_act(int row, int how, home_do_t *d)
@@ -159,17 +206,21 @@ void publish_act(int row, int how, home_do_t *d)
             pub.lic = (pub.lic + (how < 0 ? NLIC - 1 : 1)) % NLIC;
         break;
     case P_SEND:
-        if (!has_token()) {
+        if (job.busy) {
+            ksnprintf(d->note, sizeof d->note, "publishing %s: wait", pub.title);
+        } else if (!has_token()) {
             ksnprintf(d->note, sizeof d->note, "no github_token in bm/config.txt");
         } else if (how == 0) {
             d->what = HOME_ASK;
             ksnprintf(d->ask, sizeof d->ask, "Publish %s?", pub.title);
             ksnprintf(d->ask_detail, sizeof d->ask_detail, "Pull request to the Market, license %s", license());
             ksnprintf(d->ask_yes, sizeof d->ask_yes, "Publish");
+        } else if (how == HOME_YES && fiber_job_start(&job, JOB_STACK, job_main, NULL) == 0) {
+            pub.result[0] = 0;
+            ksnprintf(pub.state, sizeof pub.state, "sending...");
+            ksnprintf(d->note, sizeof d->note, "publishing %s...", pub.title);
         } else if (how == HOME_YES) {
-            d->what = HOME_TEXT;
-            d->text = run;
-            d->wait = 1;
+            ksnprintf(d->note, sizeof d->note, "out of memory");
         }
         break;
     }

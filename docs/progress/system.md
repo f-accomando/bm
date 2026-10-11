@@ -62,7 +62,10 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
 - PC link (`netcon.c` console, `netxfer.c` files) for `tools/bm_net.py`: a file is answered
   `QD` once received and checked, written from the menu in a fiber
   (`netxfer_write_tick`); one at a time, another gets `BY`. An open or suspended game is
-  replaced when closed. Tests: `tests/net/test_netcon.c`, `check_bm_net_config.py`.
+  replaced when closed. A kernel goes the same way while the menu runs (`menu_here()`: a
+  `netxfer_write_tick` in the last 250 ms; the answer after the write), else it is written
+  at once with the network polled (`save_now`). Tests: `tests/net/test_netcon.c` (run
+  plain, `menu`, `gone`), `check_bm_net_config.py`.
 
 ### Menu and kernel services (`src/kernel/`)
 - `carts.c` (the menu loop, launches, `background_stop()`), `menu_ui.c` (the one menu, Pi
@@ -73,7 +76,10 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
 - Bar icons: controllers, keyboard and mouse without a player number; Bluetooth keeps a blue
   dot (`ICON_DOT`, `status_icons()` in `menu_ui.c`).
 - Updates keep old kernels in `/bm/backup`; nothing is written before files are downloaded
-  and checked; the board's own kernel last.
+  and checked; the board's own kernel last. Check and install run in a fiber of the menu
+  (`update_start`, `update_tick`; the Updates panel lists the files, `update_notice` the
+  install's box and its 3 s); publishing too (`publish_tick`, the Send row and its help).
+  The monitor's `u` runs `update_check`/`update_install` straight through.
 
 ## Open work
 
@@ -84,7 +90,9 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
 ## Rules (do not break)
 
 - Fibers: `background_stop()` before an app, `rescan()` and a delete; check
-  `net_wait_step` (it returns -1 when cancelled).
+  `net_wait_step` (it returns -1 when cancelled). An update or a publish is not stopped by
+  it: no app (nor page) starts while `update_busy()` / `publish_busy()`, on the Pi and the
+  RGB30 (`run_page`).
 - Tabs on the Pi: Market · Games · Dev · Lib · Settings, Lib hidden until `lib_tab=1`; the
   menu opens on Games; the Market never blocks the menu and loads only when its tab is on.
 - System keys only in `syskeys.c` (F12 held help, Esc menu, Ctrl+Esc = PS, F11 overlay,

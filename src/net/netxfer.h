@@ -33,15 +33,20 @@ int  netxfer_play_announce(void);
 /* Counts the files saved so far (the menu re-reads the SD when it changes). */
 unsigned netxfer_saves(void);
 /* A new kernel (2026-10-04): NETXFER_K_RECEIVING with the bytes in so far
- * and its size, then NETXFER_K_RESTART with the seconds left before the
- * restart (3, counted down; the kernel is on the SD card); 0: none. Any
- * pointer may be NULL. */
-enum { NETXFER_K_RECEIVING = 1, NETXFER_K_RESTART };
+ * and its size, NETXFER_K_WRITING with the bytes on the SD card so far,
+ * then NETXFER_K_RESTART with the seconds left before the restart (3,
+ * counted down; the kernel is on the SD card); 0: none. Any pointer may
+ * be NULL. With the menu on the screen its fiber writes the kernel
+ * (netxfer_write_tick), the answer to the PC after; elsewhere it is
+ * written at once. */
+enum { NETXFER_K_RECEIVING = 1, NETXFER_K_RESTART, NETXFER_K_WRITING };
 int  netxfer_kernel_state(uint32_t *done, uint32_t *total, int *secs);
 
 /* S, the files written from the menu (2026-10-10): netxfer_write_tick
  * writes the one waiting, a slice until `until` (timer_ticks), in a fiber;
- * 1 while one is still waiting or being written. Only from the menu, when
+ * 1 while one is still waiting or being written. The menu calls it in
+ * every frame's free time, also with nothing waiting: that it runs is how
+ * a kernel knows it may wait for it (K above). Only from the menu, when
  * nothing else uses the SD card (the games never: what they run is
  * replaced once they are closed). netxfer_write_pause stops a write half
  * way (the old file stays as it was; it starts again at the next tick):

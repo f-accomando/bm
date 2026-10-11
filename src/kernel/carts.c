@@ -7,6 +7,7 @@
 #include "syskeys.h"
 #include "market.h"
 #include "publish.h"
+#include "update.h"
 #include "lib.h"
 #include "menu_ui.h"
 #include "pointer.h"
@@ -316,15 +317,20 @@ static void reports_tick(uint32_t until)
  * shown first */
 static void menu_idle(uint32_t until)
 {
-    /* a file from the PC (bm_net.py --send) first, alone on the SD card:
-     * the rest waits for it (2026-10-10) */
+    /* a file (or a kernel) from the PC (bm_net.py --send) first, alone on
+     * the SD card: the rest waits for it (2026-10-10). With nothing waiting
+     * the tick only notes that the menu is there. */
     if (netxfer_write_pending()) {
         fiber_job_stop(&cover_job);
         lib_job_stop();
         fiber_job_stop(&report_job);
-        netxfer_write_tick(until);
-        return;
     }
+    if (netxfer_write_tick(until))
+        return;
+    /* what the user started from a panel and waits for: an update's check
+     * or install, a game published (2026-10-11) */
+    update_tick(until);
+    publish_tick(until);
     if (!reports_free)                  /* before the Market's fiber: one at a time on the network */
         fiber_job_stop(&report_job);    /* (cancelled: it goes again later) */
     if (cover_tab == TAB_LIB) {
@@ -341,7 +347,9 @@ static void menu_idle(uint32_t until)
 
 /* Before the list changes, an application runs or the card is written:
  * the work in the background stops (what it held is freed) and goes on
- * later from where it was. */
+ * later from where it was. An update or a game being published goes on
+ * (they hold nothing of the list, write a file in one go): no application
+ * starts until they end (carts_menu). */
 static void background_stop(void)
 {
     netxfer_write_pause();              /* a file from the PC: again later */
@@ -1867,6 +1875,15 @@ void carts_menu(framebuffer_t *fb)
 
         if (go != GO_NONE && go_cart >= 0 && netxfer_updating(carts[go_cart].path)) {
             ksnprintf(last_msg, sizeof last_msg, "Updating, wait for the end of the download");
+            go = GO_NONE;
+        }
+        /* an update or a game being published in the background: nothing
+         * starts before it ends (the install restarts the console) */
+        const char *busy = update_busy() ? update_busy() : publish_busy() ? "Publishing to the Market" : NULL;
+        if (go != GO_NONE && busy) {
+            ksnprintf(last_msg, sizeof last_msg, "%s: wait for it to end", busy);
+            if (go == GO_NETPLAY)
+                free(net_buf);
             go = GO_NONE;
         }
         if (go != GO_NONE) {

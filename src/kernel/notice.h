@@ -1,9 +1,10 @@
 /*
  * The system's notices, in a box over whatever is on the screen (the menu,
  * a game; the text console gets lines instead): a new kernel arriving over
- * the network, with its progress, then the 3 s before the restart, counted
- * down (the user's request, 2026-10-04); and short ones, gone by
- * themselves (the RGB30's volume keys).
+ * the network, or an update from GitHub being installed, with its
+ * progress, then the 3 s before the restart, counted down (the user's
+ * request, 2026-10-04); and short ones, gone by themselves (the RGB30's
+ * volume keys).
  */
 #ifndef NOTICE_H
 #define NOTICE_H

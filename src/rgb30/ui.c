@@ -577,9 +577,15 @@ static void menu_reopen(void)
     }
 }
 
-/* a page or a game: the console's screen, then the menu again */
+/* a page or a game: the console's screen, then the menu again; not while
+ * an update is checked or installed in the menu's background (the install
+ * restarts the console), as on the Pi */
 static void run_page(void (*run)(void))
 {
+    if (update_busy()) {
+        notice_flash(update_busy(), "Wait for it to end", -1, 3000);
+        return;
+    }
     market_set_active(0);                           /* its work stops first, as on the Pi */
     netxfer_write_pause();                          /* a file from the PC: written later */
     menu_ui_close_quiet(fb);                        /* (not the console flashing: the pages draw themselves) */
@@ -634,13 +640,15 @@ static void text_page(void)
 #define DEPTH_MAX 4
 
 /* the menu's free time in a frame: a file from the PC (bm_net.py --send)
- * written first, alone on the card (2026-10-10); then the Market's work */
+ * written first, alone on the card (2026-10-10); an update's check or
+ * install (2026-10-11); then the Market's work */
 static int idle_market;
 
 static void menu_idle(uint32_t until)
 {
     if (netxfer_write_tick(until))
         return;
+    update_tick(until);
     if (idle_market) {
         market_tick(until);
         return;

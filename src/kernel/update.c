@@ -1,7 +1,9 @@
 #include "update.h"
 #include "config.h"
 #include "crumbs.h"
+#include "fiber.h"
 #include "input.h"
+#include "notice.h"
 #include "version.h"
 #include "ledstate.h"
 #include "drivers/timer.h"
@@ -46,6 +48,7 @@
 #endif
 
 enum { F_SKIP, F_SAME, F_NEW, F_CHANGED, F_ABSENT_GAME };
+static const char *const words[] = { "", "same", "new", "changed", "not on the card (Market)" };
 
 static struct {
     int checked, ok;
@@ -56,7 +59,19 @@ static struct {
     int what[RELEASE_MAX_FILES];    /* F_* for each file of rel */
     int n;
     uint32_t bytes;
+    /* the install, for the box over the menu: what it does, its bar, the
+     * seconds before the restart (0: not yet); how the last one went */
+    char doing[NOTICE_LEN], istate[40];
+    uint32_t done, total;
+    int restart;
 } up;
+
+/* Check and Install in the menu's background (2026-10-11): a fiber of the
+ * menu (update_start, update_tick), the menu goes on meanwhile; the
+ * monitor's 'u' runs the same functions straight through. */
+static fiber_job_t task = { .name = "update" };
+static int task_install;                /* the task is the install, not the check */
+#define TASK_STACK (128 * 1024)         /* TLS, and the interrupts on top */
 
 static int from_sd(void)
 {
@@ -87,6 +102,7 @@ typedef struct {
     size_t len, cap;
     uint32_t next;              /* bytes at which to print the progress */
     const char *name;
+    uint32_t base;              /* up.done before this file (the install's bar) */
 } sink_t;
 
 static int sink(void *p, const uint8_t *d, size_t n)
@@ -96,9 +112,12 @@ static int sink(void *p, const uint8_t *d, size_t n)
         return 1;                       /* more than the manifest says */
     memcpy(s->buf + s->len, d, n);
     s->len += n;
-    if (s->name && s->len >= s->next) {
-        kprintf("\r  %-20s %3lu%%", s->name, (unsigned long)((uint64_t)s->len * 100 / s->cap));
-        s->next += s->cap / 10 + 1;
+    if (s->name) {
+        up.done = s->base + (uint32_t)s->len;
+        if (s->len >= s->next) {
+            kprintf("\r  %-20s %3lu%%", s->name, (unsigned long)((uint64_t)s->len * 100 / s->cap));
+            s->next += s->cap / 10 + 1;
+        }
     }
     return 0;
 }
@@ -126,7 +145,7 @@ static int fetch(const char *url_tail, const char *sd_name, size_t max, const ch
     }
     char url[sizeof up.base + 96];
     ksnprintf(url, sizeof url, "%s/%s", up.base, url_tail);
-    sink_t s = { malloc(max ? max : 1), 0, max, 0, show };
+    sink_t s = { malloc(max ? max : 1), 0, max, 0, show, up.done };
     if (!s.buf) {
         ksnprintf(err, err_len, "out of memory");
         return -1;
@@ -230,6 +249,7 @@ void update_check(framebuffer_t *fb)
     char err[192];
     memset(&up, 0, sizeof up);
     up.checked = 1;
+    ksnprintf(up.state, sizeof up.state, "checking...");
     settings();
     kprintf("\n\x1b[1;96mbm update\x1b[0m\n");
     kprintf("  this kernel: %s\n", bm_version);
@@ -246,7 +266,7 @@ void update_check(framebuffer_t *fb)
         release_parse(man, ml, &up.rel, err, sizeof err) != 0) {
         free(man);
         free(sig);
-        ksnprintf(up.state, sizeof up.state, "check failed");
+        ksnprintf(up.state, sizeof up.state, "check failed: %s", err);
         kprintf("\x1b[91m%s\x1b[0m\n", err);
         return;
     }
@@ -261,7 +281,6 @@ void update_check(framebuffer_t *fb)
         return;
     }
     plan();
-    static const char *const words[] = { "", "same", "new", "changed", "not on the card (Market)" };
     for (int i = 0; i < up.rel.nfiles; i++) {
         const release_file_t *f = &up.rel.files[i];
         kprintf("  %-22s %6lu KiB  %s\n", f->path, (unsigned long)((f->size + 1023) / 1024), words[up.what[i]]);
@@ -297,6 +316,25 @@ static int write_file(const char *path, const uint8_t *d, size_t len)
     return fat_write_file(n ? dir : "/", slash + 1, d, len);
 }
 
+/* A pause: in the menu's fiber the menu goes on meanwhile (its box counts
+ * the restart down); straight through elsewhere. */
+static void pause_ms(uint32_t ms)
+{
+    if (!fiber_current()) {
+        timer_delay_ms(ms);
+        return;
+    }
+    for (uint32_t t0 = timer_ticks(); timer_ticks() - t0 < ms * 1000u; )
+        fiber_yield();
+}
+
+/* the install stopped: why, on the Updates panel and in a box over the menu */
+static void install_failed(const char *why)
+{
+    ksnprintf(up.istate, sizeof up.istate, "failed: %s", why);
+    notice_flash("The update was not installed", why, -1, 6000);
+}
+
 void update_install(framebuffer_t *fb)
 {
     (void)fb;
@@ -307,6 +345,7 @@ void update_install(framebuffer_t *fb)
     kprintf("\n\x1b[1;96mbm update: installing %s\x1b[0m\n", up.rel.version);
     if (!from_sd() && !net_ip()) {
         kprintf("\x1b[91mno network: connect in " WHERE_NET "\x1b[0m\n");
+        install_failed("no network");
         return;
     }
     uint8_t *data[RELEASE_MAX_FILES] = { 0 };
@@ -315,6 +354,9 @@ void update_install(framebuffer_t *fb)
     int failed = 0;
     uint32_t t0 = timer_ticks();
     ledstate_set(LED_BUSY, 1);          /* the LED blinks slowly while it installs */
+    up.istate[0] = 0;
+    up.done = 0;
+    up.total = up.bytes;
 
     /* 1. everything downloaded and checked first: nothing written yet */
     for (int i = 0; i < up.rel.nfiles && !failed; i++) {
@@ -323,27 +365,37 @@ void update_install(framebuffer_t *fb)
             continue;
         char tail[96];
         ksnprintf(tail, sizeof tail, "download/%s/%s", up.rel.version, f->asset);
+        ksnprintf(up.doing, sizeof up.doing, "Downloading %s", f->asset);
+        const uint32_t before = up.done;
         if (fetch(tail, f->asset, f->size, f->asset, &data[i], &len[i], err, sizeof err) != 0) {
             kprintf("\x1b[91m%s: %s\x1b[0m\n", f->asset, err);
             failed = 1;
         } else if (release_check_file(f, data[i], len[i]) != 0) {
             kprintf("\x1b[91m%s: not the file of the manifest (size or SHA-256)\x1b[0m\n", f->asset);
+            ksnprintf(err, sizeof err, "%s is not the manifest's", f->asset);
             failed = 1;
         } else if (is_kernel(f->path) && !kernel_mark_ok(f->path, data[i], len[i])) {
             kprintf("\x1b[91m%s: not a kernel for %s\x1b[0m\n", f->asset, f->path);
+            ksnprintf(err, sizeof err, "%s is not a kernel for %s", f->asset, f->path);
             failed = 1;
         }
+        up.done = before + f->size;     /* (from the card: no sink) */
     }
     if (failed) {
         for (int i = 0; i < up.rel.nfiles; i++)
             free(data[i]);
         kprintf("\x1b[91mnothing was written; the console is as it was\x1b[0m\n");
+        install_failed(err);
         ledstate_set(LED_BUSY, 0);
         return;
     }
     kprintf("  all %d files downloaded and checked (%lu s)\n", up.n, (timer_ticks() - t0) / 1000000);
 
+    /* from here on it goes to the end: a file is written in one go (no other
+     * fiber writes the card half way through it), the restart follows */
+
     /* 2. a copy of the kernels that are replaced: to go back from a PC */
+    ksnprintf(up.doing, sizeof up.doing, "A copy of the old kernel in %s", BACKUP_DIR);
     for (int i = 0; i < up.rel.nfiles; i++) {
         const release_file_t *f = &up.rel.files[i];
         fat_entry_t e;
@@ -361,30 +413,38 @@ void update_install(framebuffer_t *fb)
     /* 3. the files: the games and the certificates, the other board's kernel,
      * then this one's */
     const char *order[3] = { "", OTHER_KERNEL, OWN_KERNEL };
+    up.done = 0;
     for (int pass = 0; pass < 3 && !failed; pass++)
         for (int i = 0; i < up.rel.nfiles && !failed; i++) {
             const release_file_t *f = &up.rel.files[i];
             if (!data[i] || (pass == 0 ? is_kernel(f->path) : strcmp(f->path, order[pass]) != 0))
                 continue;
+            ksnprintf(up.doing, sizeof up.doing, "Writing %s", f->path);
+            fiber_yield();              /* the box says it before the card is busy */
             if (write_file(f->path, data[i], len[i]) != 0) {
                 kprintf("\x1b[91mcannot write %s: %s\x1b[0m\n", f->path, fat_error());
+                ksnprintf(err, sizeof err, "cannot write %s", f->path);
                 failed = 1;
             } else {
                 kprintf("  written %s\n", f->path);
+                up.done += (uint32_t)len[i];
             }
         }
     for (int i = 0; i < up.rel.nfiles; i++)
         free(data[i]);
     if (failed) {
         kprintf("\x1b[91mthe update stopped; the kernels in %s are the ones of before\x1b[0m\n", BACKUP_DIR);
+        install_failed(err);
         ledstate_set(LED_BUSY, 0);
         return;
     }
-    /* the restart, counted down on the screen (the user's request, 2026-10-04) */
+    /* the restart, counted down on the screen (the user's request, 2026-10-04):
+     * in the menu a box over it (update_notice) */
     kprintf("\x1b[92m%s installed\x1b[0m\n", up.rel.version);
     for (int s = 3; s > 0; s--) {
+        up.restart = s;
         kprintf("\x1b[1;93mRestarting in %d...\x1b[0m\n", s);
-        timer_delay_ms(1000);
+        pause_ms(1000);
     }
     /* the access point told we leave: without it, it held the old
      * association and the first join after the restart could fail */
@@ -397,6 +457,10 @@ void update_install(framebuffer_t *fb)
 #ifndef BM_RGB30                        /* the RGB30 has no monitor */
 void update_monitor(void)
 {
+    if (task.busy) {                    /* the menu's, half way */
+        kprintf("an update is being %s in the menu: wait for it\n", task_install ? "installed" : "checked");
+        return;
+    }
     update_check(NULL);
     if (!update_ready())
         return;
@@ -417,4 +481,83 @@ const char *update_state(void)
 const char *update_ready(void)
 {
     return up.ok && up.ready[0] ? up.ready : NULL;
+}
+
+const char *update_install_state(void)
+{
+    if (task.busy && task_install)
+        return "installing...";
+    return up.istate[0] ? up.istate : update_ready();
+}
+
+int update_changes(int i, const char **path, const char **what, uint32_t *size)
+{
+    if (!up.ok || task.busy)
+        return 0;
+    for (int k = 0; k < up.rel.nfiles; k++) {
+        if (up.what[k] != F_NEW && up.what[k] != F_CHANGED)
+            continue;
+        if (i-- == 0) {
+            *path = up.rel.files[k].path;
+            *what = words[up.what[k]];
+            *size = up.rel.files[k].size;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* ---------------------------------------------------------------- in the menu's background */
+
+static void task_main(void *arg)
+{
+    (void)arg;
+    if (task_install)
+        update_install(NULL);
+    else
+        update_check(NULL);
+}
+
+int update_start(int install)
+{
+    if (task.busy || (install && !update_ready()))
+        return -1;
+    task_install = install;
+    if (fiber_job_start(&task, TASK_STACK, task_main, NULL) != 0)
+        return -1;
+    if (!install) {                     /* the row says so at once */
+        up.checked = 1;
+        ksnprintf(up.state, sizeof up.state, "checking...");
+    }
+    return 0;
+}
+
+void update_tick(uint32_t until)
+{
+    /* the network's waits give the CPU back at once: on until `until` */
+    while (task.busy && (int32_t)(until - timer_ticks()) > 0)
+        fiber_job_run(&task, until);
+}
+
+const char *update_busy(void)
+{
+    if (!task.busy)
+        return NULL;
+    return task_install ? "Installing the update" : "Checking for updates";
+}
+
+int update_notice(char *title, char *detail, int *progress)
+{
+    if (!task.busy || !task_install || !up.doing[0])
+        return 0;
+    if (up.restart) {
+        ksnprintf(title, NOTICE_LEN, "Restarting in %d", up.restart);
+        ksnprintf(detail, NOTICE_LEN, "bm %s is installed", up.rel.version);
+        *progress = -1;
+        return 1;
+    }
+    ksnprintf(title, NOTICE_LEN, "Installing bm %s", up.rel.version);
+    ksnprintf(detail, NOTICE_LEN, "%s", up.doing);
+    *progress = up.total ? (int)((uint64_t)(up.done < up.total ? up.done : up.total) * 1000 / up.total) : -1;
+    return 1;
 }

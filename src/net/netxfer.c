@@ -8,6 +8,11 @@
  * once) and a fiber writes it from the menu's free time (netxfer_write_tick),
  * a slice a frame: a 6 MB game used to stop the console for minutes. While
  * a game runs nothing is written; back in the menu it goes on the card.
+ *
+ * K (2026-10-11): with the menu on the screen, the kernel goes the same way
+ * (the menu and its box go on while it is written; the PC has its answer
+ * after the write); anywhere else (a game, the monitor) it is written at
+ * once, the network polled meanwhile, as before: the restart follows.
  */
 #include "netxfer.h"
 #include "netcon.h"
@@ -54,10 +59,21 @@ static struct {
     char path[72];              /* "/carts/PONG.BM" */
     uint8_t *data;              /* NULL: none */
     uint32_t len;
+    int kernel;                 /* K: the PC waits for the answer, then the restart */
 } q;
 static fiber_job_t write_job = { .name = "netxfer" };
 static int write_rc, write_stopped;
 #define WRITE_STACK (64u << 10)
+
+/* the last netxfer_write_tick: the menu is there to write what waits (a
+ * kernel waits for it only then) */
+static uint32_t menu_at;
+#define MENU_GONE_US 250000u
+
+static int menu_here(void)
+{
+    return menu_at && timer_ticks() - menu_at < MENU_GONE_US;
+}
 
 static void reply(const char *two)
 {
@@ -192,7 +208,7 @@ static void feed(const uint8_t *p, unsigned len)
             /* a file still to be written: another one waits (BY, busy), the
              * same one again replaces it while it is not being written; no
              * kernel (its restart would lose it) nor settings meanwhile */
-            if ((op == 'S' && q.data && (write_job.busy || !same_path(q.path, path))) ||
+            if ((op == 'S' && q.data && (write_job.busy || q.kernel || !same_path(q.path, path))) ||
                 (op == 'K' && q.data) || (op == 'C' && write_job.busy)) {
                 fail("BY");
                 return;
@@ -293,16 +309,16 @@ static int keep_net(void)
     return 0;
 }
 
-/* "carts/pong.bm" -> "/carts", "pong.bm" */
+/* "carts/pong.bm" -> "/carts", "pong.bm"; "/pong.bm" -> "/", "pong.bm" */
 static int save(const char *p, const uint8_t *data, uint32_t len)
 {
     char dir[66] = "/";
     const char *slash = strrchr(p, '/');
     const char *name = slash ? slash + 1 : p;
     if (slash) {
-        size_t n = (size_t)(slash - p);
-        if (p[0] == '/') { p++; n--; }
-        memcpy(dir + 1, p, n);
+        const char *from = p[0] == '/' ? p + 1 : p;
+        size_t n = slash > from ? (size_t)(slash - from) : 0;
+        memcpy(dir + 1, from, n);
         dir[n + 1] = 0;
         if (n && fat_mkdirs(dir) != 0)
             return -1;
@@ -353,13 +369,46 @@ int netxfer_kernel_state(uint32_t *done, uint32_t *total, int *secs)
         return NETXFER_K_RESTART;
     }
     if (op == 'K' && (st == DATA || st == DONE || st == WRITING)) {
+        /* written: at once, or by the menu's fiber once it has started */
+        const int writing = st == WRITING && !(q.kernel && !write_job.busy);
         if (done)
-            *done = got;
+            *done = writing ? (uint32_t)(fat_write_done < size ? fat_write_done : size) : got;
         if (total)
             *total = size;
-        return NETXFER_K_RECEIVING;
+        return writing ? NETXFER_K_WRITING : NETXFER_K_RECEIVING;
     }
     return 0;
+}
+
+/* A kernel written (or not): the answer to the PC and, written, the
+ * restart, not at once: 3 s, counted on the screen (the user's request,
+ * 2026-10-04) */
+static void kernel_written(int r, uint32_t len)
+{
+    reply(r == 0 ? "OK" : "WE");
+    if (r == 0) {
+        saves++;
+        kprintf("\x1b[92mnet: saved %s on the SD card (%lu bytes)\x1b[0m\n", KERNEL_FILE, len);
+        reboot_after = 1;
+        restart_at = timer_ticks() + 3000000u;
+        said = -1;
+    } else {
+        kprintf("\x1b[91mnet: could not write %s (%s)\x1b[0m\n", KERNEL_FILE, fat_error());
+    }
+    st = REPLIED;
+    close_at = timer_ticks();
+}
+
+/* A kernel written at once, outside the menu: the network polled after
+ * each piece (keep_net) */
+static int save_now(const uint8_t *data, uint32_t len)
+{
+    int (*was)(void) = fat_write_tick;
+    st = WRITING;
+    fat_write_tick = keep_net;
+    int r = save(KERNEL_FILE, data, len);
+    fat_write_tick = was;
+    return r;
 }
 
 void netxfer_poll(void)
@@ -380,7 +429,22 @@ void netxfer_poll(void)
         drop_peer();
         reset();
     }
+    /* a kernel that waits for the menu, and the menu has gone (a game
+     * started, the monitor): written here at once, as outside the menu */
+    if (q.kernel && !menu_here() && !fiber_current()) {
+        netxfer_write_pause();          /* a write half way: dropped, from the start here */
+        if (q.kernel) {
+            uint8_t *d = q.data;        /* out of the queue first: polled from inside, */
+            const uint32_t n = q.len;   /* this does not start again */
+            q.data = NULL;
+            q.path[0] = 0;
+            q.kernel = 0;
+            kernel_written(save_now(d, n), n);
+            free(d);
+        }
+    }
     if (st == DONE) {
+        int waits = 0;                  /* a kernel left to the menu's fiber: no answer yet */
         if (crc32(buf, size) != crc) {
             reply("CE");
             kprintf("\x1b[91mnet: transfer damaged (crc), nothing written\x1b[0m\n");
@@ -410,7 +474,7 @@ void netxfer_poll(void)
         } else if (op == 'S') {
             /* to the queue: written by netxfer_write_tick (the menu); the
              * same file still waiting is replaced */
-            if (q.data && (write_job.busy || !same_path(q.path, path))) {
+            if (q.data && (write_job.busy || q.kernel || !same_path(q.path, path))) {
                 reply("BY");
             } else {
                 free(q.data);
@@ -429,31 +493,26 @@ void netxfer_poll(void)
             kprintf("\x1b[91mnet: not a kernel for this console, nothing written (the Pi Zero 2 W "
                     "takes kernel7.img, the RGB30 kernel8.img, the other boards kernel.img)\x1b[0m\n");
             reset();
-        } else {
-            const char *where = op == 'K' ? KERNEL_FILE : path;
-            int (*was)(void) = fat_write_tick;
+        } else if (menu_here() && !q.data) {
+            /* the kernel: with the menu there, its fiber writes it like a
+             * file, alone on the card, and the answer goes after */
+            q.path[0] = '/';
+            strcpy(q.path + 1, KERNEL_FILE);
+            q.data = buf;
+            q.len = size;
+            q.kernel = 1;
+            buf = NULL;
             st = WRITING;
-            fat_write_tick = keep_net;
-            int r = save(where, buf, size);
-            fat_write_tick = was;
-            reply(r == 0 ? "OK" : "WE");
-            if (r == 0) {
-                saves++;
-                kprintf("\x1b[92mnet: saved %s on the SD card (%lu bytes)\x1b[0m\n", where, size);
-                if (op == 'K') {
-                    /* not at once: 3 s, counted on the screen (the user's
-                     * request, 2026-10-04) */
-                    reboot_after = 1;
-                    restart_at = timer_ticks() + 3000000u;
-                    said = -1;
-                }
-            } else {
-                kprintf("\x1b[91mnet: could not write %s (%s)\x1b[0m\n", where, fat_error());
-            }
+            waits = 1;
+            kprintf("net: kernel received (%lu bytes): written on the SD card from the menu\n", size);
+        } else {
+            kernel_written(save_now(buf, size), size);
             reset();
         }
-        st = REPLIED;
-        close_at = timer_ticks();
+        if (!waits) {
+            st = REPLIED;
+            close_at = timer_ticks();
+        }
     }
     if (st == REPLIED && timer_ticks() - close_at > 300000u) {
         drop_peer();                    /* the answer has gone out */
@@ -475,7 +534,7 @@ void netxfer_poll(void)
     }
 }
 
-/* ---- S: the write, in a fiber of the menu */
+/* ---- S (and K, from the menu): the write, in a fiber of the menu */
 
 /* after each piece written: the menu's frame goes on; nonzero (the job
  * stopped) leaves the old file as it was */
@@ -502,6 +561,14 @@ static void write_over(void)
         kprintf("net: writing %s paused, it starts again later\n", q.path);
         return;
     }
+    if (q.kernel) {                     /* the PC's answer, the restart */
+        kernel_written(write_rc, q.len);
+        free(q.data);
+        q.data = NULL;
+        q.path[0] = 0;
+        q.kernel = 0;
+        return;
+    }
     if (write_rc == 0) {
         saves++;
         kprintf("\x1b[92mnet: saved %s on the SD card (%lu bytes)\x1b[0m\n", q.path, q.len);
@@ -517,6 +584,7 @@ static void write_over(void)
 
 int netxfer_write_tick(uint32_t until)
 {
+    menu_at = timer_ticks() | 1;        /* the menu is there: a kernel waits for it */
     if (!q.data)
         return 0;
     if (!write_job.busy) {

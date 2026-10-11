@@ -1,4 +1,5 @@
 #include "notice.h"
+#include "update.h"
 #include "net/netxfer.h"
 #include "drivers/timer.h"
 #include "lib/printf.h"
@@ -28,6 +29,11 @@ int notice_now(char *title, char *detail, int *progress)
             ksnprintf(detail, NOTICE_LEN, "%lu of %lu KiB", got / 1024, size / 1024);
         *progress = size ? (int)((uint64_t)got * 1000 / size) : 0;
         return 1;
+    case NETXFER_K_WRITING:             /* by the menu's fiber: the menu goes on */
+        ksnprintf(title, NOTICE_LEN, "Receiving a new kernel");
+        ksnprintf(detail, NOTICE_LEN, "Writing it on the SD card: %lu of %lu KiB", got / 1024, size / 1024);
+        *progress = size ? (int)((uint64_t)got * 1000 / size) : 0;
+        return 1;
     case NETXFER_K_RESTART:
         if (secs)
             ksnprintf(title, NOTICE_LEN, "Restarting in %d", secs);
@@ -37,6 +43,9 @@ int notice_now(char *title, char *detail, int *progress)
         *progress = -1;
         return 1;
     }
+    /* an update from GitHub being installed (update.c), then its restart */
+    if (update_notice(title, detail, progress))
+        return 1;
     /* a file from the PC (bm_net.py --send): arriving, then written from
      * the menu (2026-10-10); waiting while a game runs: a flash said so */
     char name[24];
