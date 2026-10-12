@@ -1,0 +1,43 @@
+bm report
+kind: bench3d
+kernel: v0.2.5-207-gd42f0b3-dirty
+branch: claude/m39-attributi-texture
+board: Pi Zero W
+date: 2026-10-12 18:23:32
+file: 20261012-182332_bench3d_pi-zero-w_v0.2.5-207-gd42f0b3-dirty.txt
+
+bm 3D Bench
+kernel v0.2.5-207-gd42f0b3-dirty
+drivers bm3d 7.3 (M39)
+date 2026-10-12 18:23 UTC
+machine ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 43.8 C, throttled 00000
+gpu bm3d 7.3 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures no)
+probes ETC1 textures: no layout of the blocks drew the texels (ETC1 stays unused; params0 423d4080); ETC1 2x4 BE: 639|90/4096 right, want 1d01 d48d 01e7 dfff got 87ee b3aa 4d34 022b; ETC1 2x4 words LE: 11|5/4096 right, want 1d01 d48d 01e7 dfff got b157 6810 ccf3 c531; ETC1 2x4 LE: 0|4/4096 right, want 1d01 d48d 01e7 dfff got d73f c182 0134 0003; ETC1 2x4 halves: 4|4/4096 right, want 1d01 d48d 01e7 dfff got b7ff 3825 e62a f6ac; ETC1 4x2 BE: 9|7/4096 right, want 1d01 d48d 01e7 dfff got 87ee b3aa 4d34 022b; ETC1 4x2 words LE: 8|9/4096 right, want 1d01 d48d 01e7 dfff got b157 6810 ccf3 c531; ETC1 4x2 LE: 6|6/4096 right, want 1d01 d48d 01e7 dfff got d73f c182 0134 0003; ETC1 4x2 halves: 8|9/4096 right, want 1d01 d48d 01e7 dfff got b7ff 3825 e62a f6ac; ETC1 flat f800: BE f820 4096, words LE 3186 4096, LE 0841 2048, halves 0020 2048,; ETC1 flat 07e0: BE 07e0 4096, words LE 003f 4096, LE 0020 2048, halves 0000 2048,; ETC1 2x4 BE, block read along y=0: 00 10 20 30 40 50 60 70 80 90 a0 b0 c0 d0 e0 f0; ETC1 2x4 BE, block read along x=0: 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f; before the vertex shader probe: ERRSTAT 00003000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147; after a vertex shader draw that left nothing: ERRSTAT 00003010 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447; vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+options bm3d 7.3 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 etc1=0 (at the start; each profile sets its own)
+counters ARM1176 PMU
+previous bm/bench/3D0025.TXT
+only tests quad_alpha,quad_texscreen,quad_tex,mix, profiles GPU,T16
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms
+R,quad_tex,GPU,2.1,109.3,231.1,0,13.7,13.8,176,176,352,0,0,1.0,11.8,1804499,1266631,40823,13747711,1,219,219,400,300,2.4,2.6,18,0,0,5068800,2.26,2.38,0.30
+R,quad_tex,GPU+T16,5.2,110.7,233.4,0,13.6,13.6,176,176,352,0,0,1.0,11.6,1790091,1248246,40893,13603152,1,221,221,400,300,2.4,2.5,18,0,0,5068800,2.24,2.36,0.26
+R,quad_alpha,GPU,2.1,103.7,219.1,0,14.4,14.5,176,176,352,0,0,1.0,12.4,1880529,1341425,41736,14412416,1,207,207,400,300,2.3,2.7,18,0,0,5068800,2.39,2.51,0.29
+R,quad_alpha,GPU+T16,5.2,104.8,221.2,0,14.2,14.3,176,176,352,0,0,1.0,12.3,1862808,1323708,41321,14258471,1,210,210,400,300,2.3,2.6,18,0,0,5068800,2.37,2.49,0.25
+R,quad_texscreen,GPU,2.1,100.9,212.9,0,14.7,14.8,176,176,352,0,0,1.0,12.8,1906595,1369602,38330,14751232,1,202,202,400,300,2.5,2.6,18,0,0,5068800,2.46,2.58,0.29
+R,quad_texscreen,GPU+T16,5.2,101.9,214.9,0,14.6,14.7,176,176,352,0,0,1.0,12.6,1905799,1361114,41647,14627351,1,204,204,400,300,2.4,2.5,18,0,0,5068800,2.44,2.56,0.25
+R,mix,GPU,2.1,2.7,6.7,0,13.8,13.9,7840,3518,2816,0,0,2.0,1.9,4191343,201467,227072,13776063,1,9929,4478,400,300,4.7,3.0,18,0,0,7056,-1,-1,-1
+R,mix,GPU+T16,5.2,2.7,6.8,0,13.8,13.8,7840,3518,2816,0,0,2.0,1.9,4183598,197630,226960,13697644,1,9995,4509,400,300,4.6,4.0,18,0,0,7056,-1,-1,-1
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+P,quad_tex,GPU,2.26,2.38,0.30,0.52,2.08,4.69,0.55,2.19,4.93
+P,quad_tex,GPU+T16,2.24,2.36,0.26,0.52,2.07,4.65,0.54,2.17,4.89
+P,quad_alpha,GPU,2.39,2.51,0.29,0.55,2.21,4.96,0.58,2.31,5.20
+P,quad_alpha,GPU+T16,2.37,2.49,0.25,0.55,2.19,4.92,0.57,2.29,5.16
+P,quad_texscreen,GPU,2.46,2.58,0.29,0.57,2.27,5.11,0.59,2.38,5.35
+P,quad_texscreen,GPU+T16,2.44,2.56,0.25,0.56,2.25,5.07,0.59,2.36,5.32
+score 910 (bm3d 7.3 as the games get it, 3 of 24 tests, a part of the bench), GPU bm3d 2.1 910, ARM bm3d 0.2 0; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.3,910,3,0
+S,GPU,2.1,910,3,0
+S,ARM,0.2,0,0,0
+triangles at 60 fps 9929 in the mix (4478 drawn), the most 9929 (mix)
+total 13 s
