@@ -18,8 +18,9 @@
 --   a TV (the Pi)                640x360 and 1920x1080: the GPU draws both,
 --                                the ARM only 640x360 (its pixels cost it);
 --                                the .bm (OVERBIT_TV_BM, set by the Makefile):
---                                640x360 on the ARM, 1280x720 and 1920x1080
---                                on the GPU;
+--                                640x360 on the ARM, 640x360, 1280x720 and
+--                                1920x1080 on the GPU (its 640x360 the
+--                                spare: see gpu_spare);
 --   a square panel (the RGB30)   360x360 (shown twice as big) and 720x720,
 --                                both for the ARM too (the Cortex-A55; no GPU
 --                                driver there yet).
@@ -33,7 +34,10 @@
 -- whole 16:9 one at the start (the GPU draws only whole pages).
 --
 -- The scale of the calibration, from the lightest: the smallest screen at
--- levels 0..4, then the other at levels 1..4. The governor moves only the
+-- levels 0..4, then the other at levels 1..4 (the .bm: 720p, then 1080p;
+-- the GPU's spare 640x360 after its first step, when needed). What the
+-- calibration keeps: the heaviest step (pixels, then level) that holds the
+-- frame rate. The governor moves only the
 -- level once the screen was chosen (the menu, the benchmark); before that a
 -- step down past level 1 changes the screen too.
 
@@ -73,10 +77,18 @@ function Quality.arm_ok(w, h)
   return w * h <= 640 * 360
 end
 
--- the GPU draws this screen? The .bm on a TV: 1280x720 and up; else all
+-- the GPU draws this screen? All of them (the .bm on a TV too: 640x360 with
+-- the GPU, 2026-10-12, a few fps more than 720p where the ARM sets the pace)
 function Quality.gpu_ok(w, h)
-  if w == h or not OVERBIT_TV_BM then return true end
-  return w * h >= 1280 * 720
+  return true
+end
+
+-- the GPU's spare screen: the .bm's 640x360 on a TV. The calibration
+-- climbs the GPU from 720p and measures its 640x360 only when 720p LOW does
+-- not hold 60 fps (84_bench: the same length as before otherwise); the
+-- menu's RESOLUTION, the governor and the flags (res:640) have it always
+function Quality.gpu_spare(w, h)
+  return OVERBIT_TV_BM and w ~= h and w * h < 1280 * 720 or false
 end
 
 -- the screens of a TV this game offers (the .bm has three)
@@ -97,7 +109,8 @@ end
 
 -- the screens this console offers, the smallest first, for renderer r
 -- ("arm", a GPU's name; nil: the one drawing now; "all": whoever draws):
--- 640x360 and 1080p on a TV (the .bm: 640x360, 720p and 1080p), 360x360 and
+-- 640x360 and 1080p on a TV (the .bm: 640x360, 720p and 1080p; the ARM
+-- 640x360 only), 360x360 and
 -- 720x720 on a square panel. A
 -- console with other modes only gets its two largest, by the same rule.
 function Quality.modes(r)
@@ -191,7 +204,7 @@ end
 
 -- the menu (RESOLUTION, RENDERER): the screen w x h and the renderer r (nil:
 -- the one drawing) the player chose, set and saved; the ARM on a TV goes to
--- 640x360 (the .bm: the same, and its GPU to 720p and 1080p). Returns what
+-- 640x360 (the GPU keeps the screen it is given). Returns what
 -- was set (the GPU may not start: the ARM).
 function Quality.choose(w, h, r)
   local B = Modes.list.bench

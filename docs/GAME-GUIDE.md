@@ -857,7 +857,9 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
 - **Randomness:** `math.randomseed(stat(3))` when the player presses a button (the frame
   number changes every match).
 - **Debugging:** `log(...)` writes on the serial console; `stat(1)` is the last frame's time
-  in ms, `stat(2)` the fps.
+  in ms, `stat(2)` the fps, `stat(16)` the GPU's job time of the last frame in ms (`0` when
+  the ARM draws the 3D): `stat(16)` close to `stat(1)` means the GPU sets the pace. These
+  are measurements, different on every console: never game logic.
 - **Battery (handhelds):** the system already draws a small red battery over the game when
   it is at 20% or less off the charger; you do not have to. `battery()` gives the charge and
   the charger (`nil` on the Pi), `battery_low()` whether it is low, e.g. to save in time:

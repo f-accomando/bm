@@ -160,7 +160,7 @@ def main():
     # lightest step, each with the ARM and the GPU, and saves the heaviest
     # that holds 60 fps (else 30) on the SD card: the default of the next
     # start. On the ARM (bmhost has no GPU) the .bm's scale is 640x360 only
-    # (OVERBIT_TV_BM: 640x360 on the ARM, 720p and 1080p on the GPU); the
+    # (OVERBIT_TV_BM: 640x360 on the ARM, 640x360, 720p and 1080p on the GPU); the
     # PC's virtual clock holds 60 fps everywhere: the top, EXTREME.
     sd = os.path.join(build, "overbit", "test-cal-sd")
     shutil.rmtree(sd, ignore_errors=True)
@@ -179,7 +179,7 @@ def main():
     check("overbit screen 640x360" in log, "defaults: the best screen of the console when none is saved", log)
     code, log = run(build, cart, 2, "", "bm-gpu", "bmhost-gpu")
     check(code == 0 and "stopped with an error" not in log and "overbit screen 1920x1080" in log,
-          "the .bm on the GPU: 1080p when none is saved (720p and 1080p its GPU screens)", log)
+          "the .bm on the GPU: 1080p when none is saved (the largest of its GPU screens)", log)
     code, log = run(build, os.path.join(build, "overbit", "range-1080.bm"), 3,
                     f"30 keys {keys('J')}\n150 keys none\n", "range-1080", "bmhost-gpu")
     check(code == 0 and "stopped with an error" not in log and "bm: screen 1920x1080" in log,
@@ -233,6 +233,30 @@ def main():
         check(default in log and how in log, f"{name}: the default saved ({default[16:]})", log)
         done = re.search(r"overbit bench done in (\d+) s", log)
         check(done and int(done.group(1)) <= 62, f"{name}: done within about 60 s ({done and done.group(1)} s)", log)
+
+    # the .bm on a TV (OVERBIT_TV_BM): the GPU climbs from 720p; its first
+    # step (720p MEDIUM) misses 60 fps, so its spare 640x360 is measured
+    # next, up to its first step under 60; the ARM stops at once; the
+    # heaviest that holds 60 is the GPU's 640x360 ULTRA
+    fake = ('function(r, w, h, q) if r ~= "arm" then if w * h > 640 * 360 then return 20 + q end '
+            'return 10 + 2 * q end return 40 end')
+    bm = variant("bench-fakespare", ['OVERBIT_BENCH_FLAGS="auto/secs:1"', "OVERBIT_HEADLESS=true", "OVERBIT_TV_BM=true",
+                                     "OVERBIT_BENCH_FAKE=" + fake])
+    sdf = os.path.join(build, "overbit", "test-fakespare-sd")
+    shutil.rmtree(sdf, ignore_errors=True)
+    os.makedirs(sdf)
+    code, log = run(build, bm, 75, "", "fakespare", "bmhost-gpu", ["--sd", sdf])
+    check(code == 0 and "stopped with an error" not in log and "overbit bench done" in log, "fakespare: runs to the end", log)
+    climb = re.findall(r"overbit bench (\S+) (\d+x\d+) (\w+): ", log)
+    want = [("ARM", "640x360", "LOW"), ("GPU+VS", "1280x720", "MEDIUM")] + \
+           [("GPU+VS", "640x360", q) for q in ("LOW", "MEDIUM", "HIGH", "ULTRA", "EXTREME")] + \
+           [("GPU+VS", "1280x720", q) for q in ("HIGH", "ULTRA", "EXTREME")] + \
+           [("GPU+VS", "1920x1080", q) for q in ("MEDIUM", "HIGH", "ULTRA", "EXTREME")]
+    check(climb == want, f"fakespare: the GPU's 640x360 after its first step missed 60 fps ({climb})", log)
+    check("overbit bench spare GPU+VS: 1280x720 MEDIUM under 60 fps, 640x360 next" in log, "fakespare: the spare logged",
+          log)
+    check("overbit default 640x360 quality 3 vs" in log and "holds 60 fps" in log,
+          "fakespare: the GPU's 640x360 ULTRA saved (the heaviest at 60 fps)", log)
 
     # the RGB30's screens (bmhost --square): 360x360, then 720x720, both for
     # the ARM; the calibration climbs to 720x720 EXTREME and the next start
@@ -381,6 +405,18 @@ def main():
         check(len(re.findall(r"overbit bench ring \S+: \d+ heroes at 60 fps", log)) == len(rs),
               f"bench ({tag}): the ring on each renderer", log)
         check("the 3D is drawn by the ARM from here" not in log, f"bench ({tag}): no fall back to the ARM", log)
+        # stat(16): the GPU's job time a frame in every row, 0 on the ARM (the
+        # emulated V3D ends its jobs in no time on the virtual clock: 0 there too;
+        # the real numbers come from the Pi)
+        gpu = re.findall(r"overbit bench (\S+) \d+x\d+ HIGH: .*, gpu ([\d.]+), ", log)
+        check(len(gpu) == len(rs) and all(float(g) == 0 for r, g in gpu if r == "ARM"),
+              f"bench ({tag}): the gpu ms in every row, 0 on the ARM ({gpu})", log)
+    # the .bm's 640x360 on the GPU with the flags (res:640/gpu:q)
+    bm = variant("bench-640gpu", ['OVERBIT_BENCH_FLAGS="res:640/gpu:q/q:1/secs:1/save:0"', "OVERBIT_BENCH_FAST=true",
+                                  "OVERBIT_TV_BM=true"])
+    code, log = run(build, bm, 40, "", "bench-640gpu", "bmhost-gpu")
+    check(code == 0 and "overbit bench done" in log and re.search(r"overbit bench GPU\+VS\+Q 640x360 MEDIUM: ", log),
+          "the .bm: res:640/gpu:q measures 640x360 on the GPU", log)
     print(f"\noverbit: {'all ok' if not fails else f'{fails} failed'}")
     return 1 if fails else 0
 
