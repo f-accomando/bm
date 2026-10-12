@@ -100,15 +100,17 @@ title: draw3d(m, x, y, z, [rx, ry, rz, scala, flag]) - disegna un modello 3D
 title_en: draw3d(m, x, y, z, [rx, ry, rz, scale, flags]) - draws a 3D model
 ask: disegnare un modello 3d | ruotare un oggetto 3d | draw a 3d mesh | render 3d
 ask: oggetto che gira | posizione e rotazione 3d | scala del modello
-see: camera3d, zclear, mesh
+see: camera3d, zclear, mesh, textures3d
 text:
 Disegna la mesh m in (x, y, z) ruotata di rx, ry, rz (radianti) e scalata.
 flag: 1 senza z-buffer (pavimenti disegnati per primi), 2 senza luce, 4
-liscia (Gouraud); si sommano. Prima, a ogni fotogramma, zclear().
+liscia (Gouraud), 128 texture come colori pieni (vedi textures3d); si
+sommano. Prima, a ogni fotogramma, zclear().
 text_en:
 Draws the mesh m at (x, y, z) turned by rx, ry, rz (radians) and scaled.
 flags: 1 no z-buffer (floors drawn first), 2 no light, 4 smooth
-(Gouraud); they add up. Before that, every frame, zclear().
+(Gouraud), 128 textures as flat colours (see textures3d); they add up.
+Before that, every frame, zclear().
 code:
 function _draw()
   cls(0)
