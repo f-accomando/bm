@@ -263,6 +263,10 @@ int bm_cover_peek(const uint8_t *d, size_t len, uint32_t *need, const uint8_t **
 int bm_zone(const bm_cart_t *c, int i, bm_zone_t *z);
 /* Box i (0-based) of a parsed file's BOXES: 0, or -1 if there is none. */
 int bm_box(const bm_cart_t *c, int i, bm_box_t *b);
+/* Checks a SPRITES section: number of zones (1..1024), or -1 if broken. */
+int bm_sprites_check(const uint8_t *p, uint32_t size);
+/* Checks a BOXES section: number of boxes (1..4096), or -1 if broken. */
+int bm_boxes_check(const uint8_t *p, uint32_t size);
 /* A value of INFO: `key` in the block of the part "[type name]", else on
  * the file's own lines (type NULL: only those). 1 if found, the value in
  * out (cut to n - 1 bytes). */

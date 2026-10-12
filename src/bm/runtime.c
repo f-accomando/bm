@@ -6794,7 +6794,77 @@ static int l_cart_put_audio(lua_State *L)
 static int l_cart_data(lua_State *L)
 {
     int type = (int)luaL_checkinteger(L, 1);
-    luaL_argcheck(L, type == BM_SEC_MESH || type == BM_SEC_ANIM, 1, "8 (MESH) or 9 (ANIM)");
+    luaL_argcheck(L, type == BM_SEC_MESH || type == BM_SEC_ANIM ||
+                     type == BM_SEC_SPRITES || type == BM_SEC_BOXES, 1,
+                  "8 (MESH), 9 (ANIM), 11 (SPRITES) or 14 (BOXES)");
+    if (type == BM_SEC_SPRITES) {
+        if (lua_gettop(L) < 2) {
+            if (rt.zones && rt.nzones)
+                lua_pushlstring(L, (const char *)rt.zones, 4u + (uint32_t)rt.nzones * BM_SPRITE_SIZE);
+            else
+                lua_pushnil(L);
+            return 1;
+        }
+        size_t n = 0;
+        const uint8_t *s = lua_isnil(L, 2) ? NULL : (const uint8_t *)luaL_checklstring(L, 2, &n);
+        if (s && !n) s = NULL;
+        if (!s) {
+            free(rt.zones);
+            rt.zones = NULL;
+            rt.nzones = 0;
+            lua_pushboolean(L, 1);
+            return 1;
+        }
+        int nz = bm_sprites_check(s, (uint32_t)n);
+        if (nz < 0) {
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, "broken SPRITES section");
+            return 2;
+        }
+        uint8_t *copy = malloc(n);
+        if (!copy)
+            return luaL_error(L, "not enough memory for the section");
+        memcpy(copy, s, n);
+        free(rt.zones);
+        rt.zones = copy;
+        rt.nzones = (uint16_t)nz;
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    if (type == BM_SEC_BOXES) {
+        if (lua_gettop(L) < 2) {
+            if (rt.boxes && rt.nboxes)
+                lua_pushlstring(L, (const char *)rt.boxes, 4u + (uint32_t)rt.nboxes * BM_BOX_SIZE);
+            else
+                lua_pushnil(L);
+            return 1;
+        }
+        size_t n = 0;
+        const uint8_t *s = lua_isnil(L, 2) ? NULL : (const uint8_t *)luaL_checklstring(L, 2, &n);
+        if (s && !n) s = NULL;
+        if (!s) {
+            free(rt.boxes);
+            rt.boxes = NULL;
+            rt.nboxes = 0;
+            lua_pushboolean(L, 1);
+            return 1;
+        }
+        int nb = bm_boxes_check(s, (uint32_t)n);
+        if (nb < 0) {
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, "broken BOXES section");
+            return 2;
+        }
+        uint8_t *copy = malloc(n);
+        if (!copy)
+            return luaL_error(L, "not enough memory for the section");
+        memcpy(copy, s, n);
+        free(rt.boxes);
+        rt.boxes = copy;
+        rt.nboxes = (uint16_t)nb;
+        lua_pushboolean(L, 1);
+        return 1;
+    }
     uint8_t **cur = type == BM_SEC_MESH ? &rt.mesh : &rt.anim;
     uint32_t *cur_size = type == BM_SEC_MESH ? &rt.mesh_size : &rt.anim_size;
     if (lua_gettop(L) < 2) {
