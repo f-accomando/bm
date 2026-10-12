@@ -1,0 +1,20 @@
+bm report
+kind: overbit-bench
+kernel: v0.2.5-140-g5c31e9a
+branch: bm3d-driver-update
+board: Pi Zero W
+date: 2026-10-12 08:42:22
+file: 20261012-084222_overbit-bench_pi-zero-w_v0.2.5-140-g5c31e9a.txt
+
+options bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1 sort=0 3d=gpu later=0 2d=0 impostor=8 fast=0
+overbit bench start: 2 phases (matrix), flags res:640/gpu:arm+vs/q:4/ring:1/far:60/secs:4, screen 480x270, GPU, renderers arm
+overbit bench ARM 640x360 EXTREME match 487448
+overbit bench ARM 640x360 EXTREME: 15 fps, 70.8 ms (1% 96.7, worst 99.6, 100% over 16.7), update 7.7, 3D 56.9, 5745 tri (max 7068), 6054 vtx, 390031 px, 43k instr, 2003 KiB Lua, bm3d 0.2
+overbit bench ring ARM  1 heroes: 7.6 ms, 3D 4.9, 658 tri
+overbit bench ring ARM  2 heroes: 14.2 ms, 3D 11.2, 1636 tri
+overbit bench ring ARM  4 heroes: 19.7 ms, 3D 15.8, 3365 tri
+overbit bench ring ARM  8 heroes: 29.9 ms, 3D 24.3, 5911 tri
+overbit bench ring ARM 12 heroes: 43.6 ms, 3D 36.2, 8599 tri
+overbit bench ring ARM: 2 heroes at 60 fps, 8 at 30 fps
+overbit bench best ARM 640x360: none at 60 fps
+overbit bench done in 44 s
