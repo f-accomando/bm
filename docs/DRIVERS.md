@@ -281,6 +281,15 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   two flips before), so it counts on the flip's wait for the vertical blank. `make test-queue2d`:
   the same pictures with the option as without the queue, and the next frame's job filled while
   the GPU draws the one before (cartridge `held`). Off until the Pi measures it.
+- **7.0** (2026-10-12, M38): **textured faces as flat colours**. `draw3d` flag 128 draws a
+  mesh's textured faces each in one colour, the average of its texels (the centre and three
+  points toward the corners; transparent texels skipped, a face of holes only is grey
+  `0x808080`); the same mesh, bones and animation, lit faces keep their light, the faces
+  without texture do not change. Per draw (the flag) or for the whole game
+  (`textures3d(false)`, `r3d_t.notex`). The ARM draws them as colour faces (`flat_prepare` in
+  `r3d.c`, colours cached per mesh version and texture version); the GPU backend sends the
+  triangles of such a mesh one by one (not its copy of the mesh, which has the textures), a
+  little slower. No GPU option is needed.
 
 ## The modes: old versions on today's code
 

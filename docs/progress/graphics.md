@@ -34,6 +34,9 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   `bench3d` checksums.
 - A backend (`r3d_t.backend`, NULL = software) takes the screen triangles: that is the GPU
   path; `arm_hook` hands a draw back to the ARM when the backend cannot do it.
+- Flat textures (bm3d 7.0): `draw3d` flag 128 (`R3D_FLATTEX`) and `textures3d()` (`r3d_t.notex`)
+  draw textured faces in their average texel (`flat_prepare` in `r3d.c`); on the GPU backend
+  such a mesh goes triangle by triangle.
 
 ### V3D driver (`src/gpu/gpu3d.c`, `v3d.c`, `v3d_cl.c`, `shaders.h`)
 - Version in `src/gpu/version3d.h` (`BM3D_VERSION` "6.9"); the table there lists

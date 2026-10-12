@@ -58,8 +58,12 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   when missing); `meshyrig.py` fits them on the skeletons (Meshy's `.rig` if any, `OWN_GUN`
   drops the old gun). `request.txt` + `meshy-overbit.yml` (push to `bm-core` or Run workflow):
   text-to-3D, `rig=`, `image=` (image-to-3D from `ref/`).
-
-### PC scripts and tools
+- Overbit models: the heroes' bodies are the primitives of `carts/overbit/art/heroes/*.py` on the
+  skeletons of `art/rig.py` (guns and props on their own bones: nothing fuses in the poses). The Meshy
+  figures (`art/meshy`, `meshyrig.py`) are set aside: their arms and guns fused; `OVERBIT_MESHY=1`
+  (`models.py --meshy`) builds them again. `make overbit-heroes`: each hero as `.bmm` in
+  `build/overbit/heroes/` for bm Mesh / bm Animator. Skeletons and clips are still written by `rig.py`,
+  not made in Animator.
 - `scripts/mkbm.py`: builds a `.bm` (`--lua --sheet --sheet8 --map --flags --sprites --audio
   --cover --models --res`…); header `BMCART` with CRC-32 (`src/bm/bm.h`). No `--b16` yet
   (M42).

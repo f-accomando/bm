@@ -17,6 +17,10 @@
 -- dev kit    Share (Select)      Tab
 -- hero       down (in spawn)     H
 --
+-- The .bm (OVERBIT_TV_BM) also has the mouse: the left button fires, the right
+-- one is the secondary fire (the look stays on the arrows and the stick). The
+-- pointer is hidden while playing and shows in the pause menu (86_pause).
+--
 -- The .b16 on the RGB30 (Nintendo layout: X top, A right, B bottom, Y left, and
 -- the game gets the letters printed on the console): the four face buttons
 -- sit where the DS4's do, so jump is B (bottom), crouch A (right), reload Y
@@ -57,6 +61,7 @@ local named = false               -- btn("ok") exists (a runtime from before 202
 
 function Input.init()
   rawkeys(true)                   -- the keyboard is read key by key (keydown)
+  if OVERBIT_TV_BM then pcall(mouse, true, false) end     -- the buttons; the arrow only in the pause menu
   named = pcall(btn, "ok")
 end
 
@@ -64,6 +69,14 @@ local function layout_check()
   local ok, c = pcall(controller, 1)
   nintendo = not OVERBIT_TV_BM and ok and type(c) == "table" and c.layout == "nintendo"
   Input.nintendo = nintendo
+end
+
+-- the console's arrow over the frame: on in the pause menu, off while playing
+local arrow = false
+function Input.arrow(on)
+  if not OVERBIT_TV_BM or on == arrow then return end
+  arrow = on
+  pcall(mouse, true, on)
 end
 
 -- one frame: fills cmd (and cmd.pressed_* for the edges)
@@ -75,6 +88,15 @@ function Input.read()
   local pj, pc, pu, pr = PB.A, PB.B, PB.Y, PB.X          -- jump, crouch, ultimate, reload
   if nintendo then pj, pc, pu, pr = PB.B, PB.A, PB.X, PB.Y end
   local function b(bit) return p & bit ~= 0 end
+  -- the mouse (.bm): buttons held (1 left, 2 right) and the pointer in the HUD's pixels
+  local mb = 0
+  if OVERBIT_TV_BM then
+    local px, py, bt = mouse()
+    if px then
+      mb = bt or 0
+      cmd.ptr_x, cmd.ptr_y = px // UI, py // UI
+    end
+  end
   -- movement: left stick, or WASD
   local sx, sy = stick(1)
   local kx = (kd(K.D) and 1 or 0) - (kd(K.A) and 1 or 0)
@@ -93,8 +115,8 @@ function Input.read()
   cmd.look_x = curve(rx) * 3.4 * Input.sens * DT      -- radians this frame
   cmd.look_y = -curve(ry) * 2.4 * Input.sens * DT
   local now = {
-    fire = b(PB.R2) or kd(K.J) or kd(K.Z),
-    fire2 = b(PB.L2) or kd(K.K) or kd(K.X),
+    fire = b(PB.R2) or kd(K.J) or kd(K.Z) or mb & 1 ~= 0,
+    fire2 = b(PB.L2) or kd(K.K) or kd(K.X) or mb & 2 ~= 0,
     ab1 = b(PB.L1) or kd(K.LSHIFT) or kd(K.RSHIFT),
     ab2 = b(PB.R1) or kd(K.E),
     ult = b(pu) or kd(K.Q),
@@ -108,6 +130,7 @@ function Input.read()
     left = b(PB.L) or kd(K.LEFT), right = b(PB.R) or kd(K.RIGHT),
     f1 = kd(K.F1), f2 = kd(K.F2), f3 = kd(K.F3), f4 = kd(K.F4), f5 = kd(K.F5), f6 = kd(K.F6),
     hero = kd(K.H),
+    click = mb & 1 ~= 0,                                                          -- (the pause menu)
     ok = (named and btn("ok")) or kd(K.SPACE) or (not named and b(PB.A)),          -- the menus' yes
     back = (named and btn("back")) or kd(K.BKSP) or (not named and b(PB.B)),       -- and back
   }

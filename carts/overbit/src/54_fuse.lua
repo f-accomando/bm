@@ -363,5 +363,5 @@ function U.draw_hud(a)
   uprint(str, LW // 2 - #str * 3, 46, 0xFFC040)
   local k = Hud.key("fire")
   uprint("detonate", LW // 2 + 12, 62, 0xFFFFFF)
-  uprompt(k, LW // 2 - 10, 60, true)
+  uprompt(k, LW // 2 - 10, 60, false, true)
 end

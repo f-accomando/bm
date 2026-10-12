@@ -294,8 +294,9 @@ $(BUILD)/carts/nano8.bm: $(BUILD)/nano8/main.lua carts/nano8/cover.png scripts/m
 OVERBIT_SRC := $(sort $(wildcard carts/overbit/src/*.lua))
 OVERBIT_ART := $(wildcard carts/overbit/art/*.py carts/overbit/art/heroes/*.py carts/overbit/art/meshy/*.mesh \
                           carts/overbit/art/meshy/*.png carts/overbit/art/meshy/*.rig)
-# OVERBIT_CLASSIC=1: the heroes' bodies made of primitives, not the Meshy figures
-OVERBIT_MODELS_FLAGS := $(if $(OVERBIT_CLASSIC),--classic)
+# The heroes' bodies are made of primitives (art/heroes/*.py). OVERBIT_MESHY=1: the Meshy
+# figures of art/meshy instead (set aside: their arms and guns fused in the poses)
+OVERBIT_MODELS_FLAGS := $(if $(OVERBIT_MESHY),--meshy)
 title_overbit := Overbit
 # its screen: 480x270, each pixel 4x4 on a 1080p TV (it was 320x180)
 OVERBIT_RES := 480x270
@@ -311,6 +312,21 @@ $(BUILD)/overbit/models.bm: $(OVERBIT_ART) scripts/bmmesh.py scripts/mkbm.py $(B
 	@mkdir -p $(dir $@)
 	$(PYTHON) carts/overbit/art/models.py $@ --map $(BUILD)/overbit/21_map.lua --pvs $(BUILD)/host/mappvs \
 	    $(OVERBIT_MODELS_FLAGS)
+
+# every hero as an editable .bmm (bm Mesh, bm Animator, bm Studio open it: mesh, skeleton,
+# clips and the cells of the sheet it uses): build/overbit/heroes/
+OVERBIT_HEROES := rally:rally_mech,rally_pilot,rally_fp,rally_pfp \
+  kaiju:kaiju_mech,kaiju_pilot,kaiju_fp,kaiju_pfp \
+  sarge:sarge,sarge_fp frost:frost,frost_fp \
+  fuse:fuse,fuse_fp,fuse_wheel,fuse_mine,fuse_trap rail:rail,rail_fp \
+  orbit:orbit,orbit_fp akari:akari,akari_fp,akari_fox
+.PHONY: overbit-heroes
+overbit-heroes: $(BUILD)/overbit/models.bm
+	@mkdir -p $(BUILD)/overbit/heroes
+	@for h in $(OVERBIT_HEROES); do \
+	  $(PYTHON) scripts/bmres.py extract $< -o $(BUILD)/overbit/heroes/$${h%%:*}.bmm \
+	    $$(for m in $$(echo $${h#*:} | tr , ' '); do printf -- '--model %s ' $$m; done) || exit 1; \
+	done
 
 # what can be seen from where on the maps (carts/overbit/art/mapbake.py)
 $(BUILD)/host/mappvs: tools/mappvs.c src/bm/r3d.c src/bm/gfx16.c src/bm/format.c src/lib/crc32.c src/bm/*.h

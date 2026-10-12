@@ -17,6 +17,10 @@ local KEYS = {
 }
 local NINTENDO = { ult = "X", jump = "B", reload = "Y" }     -- the RGB30's .b16 (10_input)
 function Hud.key(action)
+  -- the .bm with a mouse in use: its buttons fire (10_input)
+  if OVERBIT_TV_BM and not Input.cmd.pad and Input.cmd.ptr_x then
+    if action == "fire" then return "mouse_l" elseif action == "fire2" then return "mouse_r" end
+  end
   if Input.cmd.pad and Input.nintendo and NINTENDO[action] then return NINTENDO[action] end
   local set = Input.cmd.pad and KEYS.pad or KEYS.kbd
   return set[action]
@@ -62,8 +66,8 @@ local function ability_box(x, y, ab, a)
   end
   local k = Hud.key(ab.key)
   if k then
-    local pw = uprompt(k, true)
-    uprompt(k, x + 11 - pw // 2, y + 19, true)
+    local pw = uprompt(k, false, true)
+    uprompt(k, x + 11 - pw // 2, y + 19, false, true)
   end
 end
 
@@ -137,8 +141,8 @@ local function ult_meter(cx, cy, a)
   ucircfill(cx, cy, r - 4, INK)
   if v >= 100 then
     local k = Hud.key("ult")
-    local pw = uprompt(k, true)
-    uprompt(k, cx - pw // 2, cy - 6, true)
+    local pw = uprompt(k, false, true)
+    uprompt(k, cx - pw // 2, cy - 6, false, true)
   else
     local s = tostring(floor(v)) .. "%"
     uprint(s, cx - #s * 3, cy - 5, 0xFFFFFF)

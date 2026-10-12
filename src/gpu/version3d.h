@@ -21,8 +21,8 @@
  * 5.1). 0.1 and 1.0 no longer run: the 3D Bench shows the numbers measured
  * on the Pi with them.
  */
-#define BM3D_VERSION "6.9"
-#define BM3D_BLOCK   "M39"
+#define BM3D_VERSION "7.0"
+#define BM3D_BLOCK   "M38"
 
 typedef struct {
     const char *version, *block, *date, *what;
@@ -69,6 +69,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "6.7", "M36", "2026-10-06", "vertex shader: a mesh's copy for each texture; sun-lit textures with three varyings" },
         { "6.8", "M36", "2026-10-06", "vertex shader: a mesh's corners no longer written past their copy (the heap broken)" },
         { "6.9", "M39", "2026-10-11", "each frame shown a frame later: the next _draw runs while the GPU draws it (option)" },
+        { "7.0", "M38", "2026-10-12", "draw3d flag 128 and textures3d(): textured faces as flat colours (their average texel)" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;

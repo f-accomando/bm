@@ -378,6 +378,10 @@ local function net_step(me, c)
 end
 
 function Match.update()
+  if Pause.on then
+    if Pause.update() == "leave" then Modes.start("menu") end
+    return
+  end
   if M.msg_t then M.msg_t = M.msg_t - DT if M.msg_t <= 0 then M.msg = nil M.msg_t = nil end end
   local me = G.local_actor
   local c = Input.cmd
@@ -409,6 +413,7 @@ function Match.update()
       return
     end
   elseif menu then
+    if Pause.enabled(M.net) then Pause.open() return end
     if M.net then Net.close() end
     Modes.start("menu")
   end
@@ -590,14 +595,14 @@ local function select_draw()
   for _, ab in ipairs(h.hud) do
     if ab.name then
       local key = Hud.key(ab.key)
-      local x = key and uprompt(key, x0, yy, true) or x0
+      local x = key and uprompt(key, x0, yy, false, true) or x0
       uprint(ab.name, max(x + 4, x0 + 30), yy, 0xD8DCE2)
       yy = yy + (small and 14 or 17)
     end
   end
   local ok, un = pcall(h.ult_name, FAKE)
   if ok and un then
-    local x = uprompt(Hud.key("ult"), x0, yy, true)
+    local x = uprompt(Hud.key("ult"), x0, yy, false, true)
     uprint(un, max(x + 4, x0 + 30), yy, 0xFFE070)
   end
   -- the team
@@ -612,15 +617,16 @@ local function select_draw()
       end
     end
   end
-  local px = uprompt(Input.cmd.pad and "UPDOWN" or "up", 10, LH - 17, true)
+  local px = uprompt(Input.cmd.pad and "UPDOWN" or "up", 10, LH - 17, false, true)
   uprint("HERO", px + 3, LH - 17, 0x7A8290)
-  px = uprompt(Input.cmd.pad and "ok" or "space", px + 36, LH - 17, true)
+  px = uprompt(Input.cmd.pad and "ok" or "space", px + 36, LH - 17, false, true)
   uprint("PLAY", px + 3, LH - 17, 0x7A8290)
   font()
 end
 
 function Match.draw()
   local me = G.local_actor
+  if Pause.on then Pause.draw() return end
   if M.select.open then
     select_draw()
     return
@@ -649,7 +655,7 @@ function Match.draw()
   hud_top()
   if (in_spawn(me) or not me.alive) and M.phase ~= "match_end" then
     font("6x12")
-    local x = uprompt(Input.cmd.pad and "DOWN" or "h", 8, 42, true)
+    local x = uprompt(Input.cmd.pad and "DOWN" or "h", 8, 42, false, true)
     uprint("CHANGE HERO", x + 3, 42, 0xD8DCE2)
     font()
   end

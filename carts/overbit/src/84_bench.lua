@@ -816,10 +816,10 @@ local function report()
     end
     uprint(line, 4, y, 0x7A8290)
   end
-  local px = uprompt(Input.cmd.pad and "LEFT" or "left", 4, LH - 15, true)
-  px = uprompt(Input.cmd.pad and "RIGHT" or "right", px + 2, LH - 15, true)
+  local px = uprompt(Input.cmd.pad and "LEFT" or "left", 4, LH - 15, false, true)
+  px = uprompt(Input.cmd.pad and "RIGHT" or "right", px + 2, LH - 15, false, true)
   uprint("PAGE", px + 3, LH - 15, 0x7A8290)
-  px = uprompt(Input.cmd.pad and "ok" or "space", px + 36, LH - 15, true)
+  px = uprompt(Input.cmd.pad and "ok" or "space", px + 36, LH - 15, false, true)
   uprint("MENU", px + 3, LH - 15, 0x7A8290)
   font()
 end

@@ -55,6 +55,8 @@ enum {
      * bottom, Y left): a dark button, the letter in its colour (A green,
      * B blue, X red, Y yellow), in both sets */
     PROMPT_RGB30_A = PROMPT_KEY_F1 + 12, PROMPT_RGB30_B, PROMPT_RGB30_X, PROMPT_RGB30_Y,
+    /* the mouse: its outline, and with the left or the right button pressed in red */
+    PROMPT_MOUSE, PROMPT_MOUSE_L, PROMPT_MOUSE_R,
     PROMPT_COUNT
 };
 

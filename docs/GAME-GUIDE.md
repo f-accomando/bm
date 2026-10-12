@@ -346,7 +346,14 @@ end
   and turns the faces by itself: `lib.builder():box(-1, 0, -1, 1, 2, 1, 0xC08040):build()`.
 - **Textures:** with the third table `uv` (6 numbers per face: u,v of the three vertices,
   in sprite sheet pixels) the faces with colour `-1` take the picture from the sheet, with
-  correct perspective.
+  correct perspective. **Flat textures:** `draw3d` flag 128 draws the textured faces as flat
+  colours, each the average of its texels (same mesh, bones and light), and
+  `textures3d(false)` does it for every `draw3d` (`textures3d(true)` goes back):
+
+  ```lua
+  draw3d(hero, x, y, z, 0, yaw, 0, 1, 128)   -- this hero in flat colours (flags add up: 4+128)
+  textures3d(not G.flat)                     -- a "flat / textured" option for the whole game
+  ```
 - **Fog:** `fog3d(colour, near, far)` fades the far objects.
 - **Projection:** `project3d(x, y, z)` gives the screen position of a 3D point, to draw on it
   in 2D (horizon, sights, names).

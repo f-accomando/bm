@@ -1776,9 +1776,57 @@ static int impostor(r3d_t *r, const r3d_mesh_t *m, const view_t *v, const float 
     return 1;
 }
 
+/* R3D_FLATTEX: the colour of every face with the textures left out, once a
+ * version of the mesh and of its texture: a textured face the average of the
+ * texel at its middle and three towards its corners (not the holes), the
+ * others as they are. NULL if the mesh has no textured face to flatten. */
+static const uint32_t *flat_prepare(const r3d_mesh_t *cm)
+{
+    r3d_mesh_t *m = (r3d_mesh_t *)cm;           /* a cache, as the impostor's */
+    const g16_sheet_t *tex = m->uv ? m->tex : NULL;
+    if (!tex)
+        return NULL;
+    if (m->flatcol && m->flat.key == m->version && m->flat.tex == tex && m->flat.tver == tex->version)
+        return m->flatcol;
+    free(m->flatcol);
+    m->flatcol = malloc((size_t)(m->nfaces ? m->nfaces : 1) * sizeof *m->flatcol);
+    if (!m->flatcol)
+        return NULL;
+    m->flat.key = m->version;
+    m->flat.tex = tex;
+    m->flat.tver = tex->version;
+    for (int t = 0; t < m->nfaces; t++) {
+        const uint32_t rgb = m->colors[t];
+        if (!(rgb & R3D_TEXTURED)) {
+            m->flatcol[t] = rgb;
+            continue;
+        }
+        const float *uv = m->uv + t * 6;
+        const float cu = (uv[0] + uv[2] + uv[4]) * (1.0f / 3), cv = (uv[1] + uv[3] + uv[5]) * (1.0f / 3);
+        int n = 0, sum[3] = { 0, 0, 0 };
+        for (int k = 0; k < 4; k++) {
+            const float u = k ? cu + (uv[2 * (k - 1)] - cu) * 0.7f : cu, v = k ? cv + (uv[2 * (k - 1) + 1] - cv) * 0.7f : cv;
+            int x = (int)u, y = (int)v;
+            x = x < 0 ? 0 : x >= tex->w ? tex->w - 1 : x;
+            y = y < 0 ? 0 : y >= tex->h ? tex->h - 1 : y;
+            if (tex->alpha && !tex->alpha[y * tex->w + x])
+                continue;
+            const uint32_t c = g16_to_rgb24(tex->px[y * tex->w + x]);
+            sum[0] += (int)(c >> 16 & 255); sum[1] += (int)(c >> 8 & 255); sum[2] += (int)(c & 255);
+            n++;
+        }
+        const uint32_t col = n ? (uint32_t)(sum[0] / n) << 16 | (uint32_t)(sum[1] / n) << 8 | (uint32_t)(sum[2] / n)
+                               : 0x808080u;
+        m->flatcol[t] = (rgb & 0x7F000000u) | col;
+    }
+    return m->flatcol;
+}
+
 void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
                     float scale, unsigned flags)
 {
+    if (r->notex)
+        flags |= R3D_FLATTEX;
     static sv_t sv[MAX_VERTS];
     static cv_t cv[MAX_VERTS];
     static v3_t vn[MAX_VERTS];          /* Gouraud: vertex normals in world axes */
@@ -1857,6 +1905,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     const int unlit = (flags & R3D_UNLIT) != 0;
     const int smooth = (flags & R3D_SMOOTH) && m->vnormals;
     const int front = (flags & R3D_FRONT) != 0;
+    const uint32_t *fcol = (flags & R3D_FLATTEX) ? flat_prepare(m) : NULL;    /* the faces' colours without the textures */
     const float zmul = front ? 0.1f : 1.0f;
     const int fog = r->fog_far > r->fog_near;
     const float fog_k = fog ? 1.0f / (r->fog_far - r->fog_near) : 0;
@@ -1925,7 +1974,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
      * bones: unlit, a "lit" model (light baked at its corners: the world of
      * a map), or lit by the sun and the sky (heroes), with the fog and the
      * lamps; the backend may say no */
-    if (r->backend && r->backend->mesh) {
+    if (r->backend && r->backend->mesh && !fcol) {     /* (the backend's copy has the textures: the triangles go one by one) */
         r3d_env_t env;
         env.f = v.f;
         env.cx = v.hw;
@@ -2034,7 +2083,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
 
     static const lit_t full = { { 1, 1, 1 }, { 0, 0, 0 } };
     for (int t = 0; t < m->nfaces; t++) {
-        const uint32_t rgb = m->colors[t];
+        const uint32_t rgb = fcol ? fcol[t] : m->colors[t];
         if (!R3D_LOD_SHOWS(rgb, detail))
             continue;
         const uint16_t *fc = m->faces + t * 3;
@@ -2544,6 +2593,7 @@ int r3d_mesh_alloc_uv(r3d_mesh_t *m)
 
 void r3d_mesh_free(r3d_mesh_t *m)
 {
+    free(m->flatcol);
     free(m->verts); free(m->faces); free(m->colors); free(m->normals); free(m->vnormals); free(m->uv);
     free(m->vlod); free(m->clight); free(m->bimp.box);
     memset(m, 0, sizeof *m);

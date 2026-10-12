@@ -446,13 +446,30 @@ static void arrow_key(int d)
               cx + q[2][0], cy + q[2][1] + oy), CUT_OUT);
 }
 
+/* the mouse: an upright capsule in the keys' amber, the line between its
+ * buttons and the wheel cut out of it; `which` 1 / 2 paints the left / right
+ * button (the top half of its side) red */
+static void mouse_chip(int which)
+{
+    cw = BIG ? 11 : 9;                        /* narrower than a key: it reads as a mouse */
+    float t = st.top, b = st.top + st.fh, cx = cw * 0.5f, mid = t + st.fh * 0.45f;
+    const shape_t *body = RRECT(0, t, cw, b, cw * 0.5f);
+    face(body, AMBER);
+    if (which)
+        paint(BOTH(body, RRECT(which == 1 ? 0 : cx, t, which == 1 ? cx : cw, mid, 0)), 0xFF3B30);
+    paint(RRECT(0, mid - 0.5f, cw, mid + 0.5f, 0), CUT_OUT);                    /* under the buttons */
+    paint(RRECT(cx - 0.5f, t, cx + 0.5f, mid, 0), CUT_OUT);                     /* between them */
+    if (BIG)
+        paint(RRECT(cx - 1.0f, t + 1.5f, cx + 1.0f, t + 4.5f, 1.0f), CUT_OUT);  /* the wheel */
+}
+
 static uint32_t chip_rgb(int id)
 {
     if (id <= PROMPT_TRIANGLE)
         return symbol_rgb[id - PROMPT_CROSS];
     if (id >= PROMPT_PAD_A && id <= PROMPT_PAD_Y)
         return letter_rgb[id - PROMPT_PAD_A];
-    if (id >= PROMPT_RGB30_A)
+    if (id >= PROMPT_RGB30_A && id <= PROMPT_RGB30_Y)
         return rgb30_rgb[id - PROMPT_RGB30_A];
     return id >= PROMPT_KEY_UP ? AMBER : NEUTRAL;
 }
@@ -546,6 +563,9 @@ static void make(int id)
     case PROMPT_KEY_PGDN:  key_label("PgDn", 0); break;
     case PROMPT_RGB30_A: case PROMPT_RGB30_B: case PROMPT_RGB30_X: case PROMPT_RGB30_Y:
         rgb30_button(id - PROMPT_RGB30_A);
+        break;
+    case PROMPT_MOUSE: case PROMPT_MOUSE_L: case PROMPT_MOUSE_R:
+        mouse_chip(id - PROMPT_MOUSE);
         break;
     default:              key_label(fkeys[id - PROMPT_KEY_F1], 0); break;
     }

@@ -563,7 +563,7 @@ function Lobby.draw()
       uprint((i == 1 and "you" or "player " .. i) .. "  " .. (blue and "BLUE" or "RED"), 16, 44 + i * 12,
             blue and 0x46B4FF or 0xFF4646)
     end
-    local x = uprompt(Input.cmd.pad and "ok" or "space", 8, LH - 15, true)
+    local x = uprompt(Input.cmd.pad and "ok" or "space", 8, LH - 15, false, true)
     uprint("START (bots in the empty seats)", x + 3, LH - 15, 0x7A8290)
   else
     uprint(Lobby.state == "waiting" and "IN: waiting for the host to start" or "JOINING...", 8, 44, 0xD8DCE2)

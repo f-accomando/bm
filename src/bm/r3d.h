@@ -44,6 +44,11 @@ typedef struct {
                                  * skipped before their vertices are transformed */
     v3_t centre;                /* the middle of the vertices' box (a map's piece in world
                                  * coordinates is far from (0,0,0)) */
+    /* R3D_FLATTEX: each face's colour with the texture left out (a textured
+     * face: the average of its texels, made by the first draw that wants it, again
+     * after r3d_mesh_normals or a change of the texture); NULL until then */
+    uint32_t *flatcol;
+    struct { uint32_t key, tver; const g16_sheet_t *tex; } flat;
     /* what an impostor (r3d_t.impostor) needs, made by the first draw that
      * wants one, again after r3d_mesh_normals or a change of the texture:
      * the vertices' box, the average colour (0..255, by area) of the lit
@@ -177,6 +182,7 @@ typedef struct {
     uint32_t fog_rgb;           /* faces fade to this colour ... */
     float fog_near, fog_far;    /* ... between these depths (off if far <= near) */
     int shadow_style;           /* 0 darken, 1 dither */
+    int notex;                  /* 1: every draw has R3D_FLATTEX (textures3d(false)) */
     int fast;                   /* M37: object -> camera in one matrix and a model without bones lit
                                  * in its own axes, also on the ARM (fewer instructions a vertex;
                                  * the pixels not bit for bit as before): r3d_fast=1 */
@@ -245,6 +251,11 @@ void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float r
 #define R3D_SHADOW 8u
 #define R3D_DETAIL(n) ((3u - (unsigned)(n)) << 4)
 #define R3D_FRONT  64u
+/* R3D_FLATTEX: the textured faces drawn as flat colours, each the average of
+ * its texels (without the texture: the same mesh, the same bones; the lit
+ * faces keep their light). Faces of the sheet's holes (transparent) are
+ * left grey. Also set for every draw by r3d_t.notex. */
+#define R3D_FLATTEX 128u
 void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
                     float scale, unsigned flags);
 
