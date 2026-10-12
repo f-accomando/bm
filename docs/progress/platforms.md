@@ -68,6 +68,10 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 - **M41** (RGB30): Overbit in `.b16` at 360×360 and 720×720, its benchmark with the ARM,
   then the Mali driver (see [graphics](graphics.md)).
 - **M42**: one `.b16` profile identical on Pi and RGB30.
+- RGB30 Start+Select freezes the game as on the Pi (`play_bm` in `src/rgb30/ui.c`,
+  `bm_run(..., 1)`, `susp_name`); the cover then says Resume. To check on the console:
+  freeze, resume, freeze and start another game (memory freed), Overbit/online not frozen.
+- RGB30 runs on one core (no PSCI `CPU_ON`), fibers in the menu only; multicore: [multitasking](multitasking.md).
 - RGB30 panel after a warm restart (to watch, `src/rgb30/rk_dsi.c`):
   1. The black screen after a restart or an update may come back now that the boot power
      cycle is withdrawn (power off/on recovers it). If it does: cut and restore the supply
