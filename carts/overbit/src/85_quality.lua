@@ -169,6 +169,8 @@ function Quality.load()
   prefs.r = type(t.r) == "string" and t.r or nil
   prefs.fps = t.fps == 30 and 30 or nil
   prefs.fixed = t.fixed == true or nil
+  prefs.flat = t.flat == true or nil
+  G.flat = prefs.flat == true
   if prefs.q then G.quality = prefs.q end
   Quality.fps = prefs.fps or 60
 end
@@ -187,6 +189,15 @@ function Quality.save(w, h, q, r, fps, fixed)
   Quality.fps = t.fps == 30 and 30 or 60
   log(string.format("overbit default %dx%d quality %d%s%s", w, h, q, prefs.r and (" " .. prefs.r) or "",
     Quality.fps == 30 and " 30 fps" or ""))
+end
+
+-- the title's MODELS: the heroes flat or textured, saved (with the rest of the table)
+function Quality.set_flat(on)
+  G.flat = on
+  local t = saved() or {}
+  t.flat = on or nil
+  save(t)
+  prefs.flat = t.flat
 end
 
 -- the menu (RESOLUTION, RENDERER): the screen w x h and the renderer r (nil:

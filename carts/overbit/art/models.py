@@ -65,6 +65,7 @@ def main():
     ap.add_argument("--define", action="append", default=[], help="NAME=lua value, set before the code")
     ap.add_argument("--map", help="also the map: its data for the Lua code goes to this file")
     ap.add_argument("--pvs", help="the tool that finds what can be seen from where (build/host/mappvs)")
+    ap.add_argument("--flat-out", help="also this file: the models with the Meshy bodies in flat colours too (NAME_flt)")
     ap.add_argument("--classic", action="store_true", help="the heroes' bodies made of primitives, not Meshy's")
     a = ap.parse_args()
     built, used = collect(meshy=not a.classic)
@@ -73,17 +74,27 @@ def main():
         # the Meshy textures next to the map's atlas: a sheet of 24 bits (too
         # many colours for SHEET8)
         sheet = meshyrig.sheet_with(sheet, used)
-    mesh = bmmesh.encode([m.model() for m, _, _ in built] + extra, inset=0)
-    anim = rig.encode([(m.name, sk, m.vbone, clips) for m, sk, clips in built])
     lua = open(a.lua, "rb").read() if a.lua else b"-- models only\n"
     lua = "".join(f"{d.split('=', 1)[0]} = {d.split('=', 1)[1]}\n" for d in a.define).encode() + lua
-    # the map's pictures are the sprite sheet (SHEET8: few colours; 24 bits
-    # with the Meshy textures)
-    data = mkbm.pack(lua, sheet, title=a.title, author="bm", res=tuple(int(v) for v in a.res.split("x")),
-                     sheet_packed=not used, mesh=mesh, extra=[(bmmesh.SEC_ANIM, anim)])
-    os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
-    with open(a.out, "wb") as f:
-        f.write(data)
+
+    def pack(models, path):
+        mesh = bmmesh.encode([m.model() for m, _, _ in models] + extra, inset=0)
+        anim = rig.encode([(m.name, sk, m.vbone, clips) for m, sk, clips in models])
+        # the map's pictures are the sprite sheet (SHEET8: few colours; 24 bits
+        # with the Meshy textures)
+        data = mkbm.pack(lua, sheet, title=a.title, author="bm", res=tuple(int(v) for v in a.res.split("x")),
+                         sheet_packed=not used, mesh=mesh, extra=[(bmmesh.SEC_ANIM, anim)])
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(data)
+        return data, mesh, anim
+
+    data, mesh, anim = pack(built, a.out)
+    if a.flat_out and used:
+        # the same bodies in flat colours (the game's Flat setting, the .bm's): NAME_flt, on the
+        # same skeleton, textures not needed (but the sheet stays: the map's)
+        flat = [(meshyrig.flatten(m, m.name), sk, clips) for m, sk, clips in built if m.name in used]
+        pack(built + flat, a.flat_out)
     if a.stats:
         for m, sk, clips in built:
             print(f"{m.name:14s} {len(m.verts):5d} verts  faces by detail {[m.stats(d)[1] for d in range(4)]}"

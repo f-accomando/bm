@@ -30,13 +30,33 @@ function Actors.spawn(hero_id, team, x, y, z, yaw, opts)
   return a
 end
 
+-- the body of a form: its Meshy model (textured) or, with the title's MODELS
+-- on FLAT, the same one painted in flat colours (NAME_flt, the .bm's: art/models.py
+-- --flat-out); a model without one stays as it is
+local flat_has = {}
+function Actors.has_flat()
+  if flat_has.any == nil then flat_has.any = model("sarge_flt") ~= nil end
+  return flat_has.any
+end
+
+function Actors.body_name(tp)
+  if not G.flat or not Actors.has_flat() then return tp end
+  local n = tp .. "_flt"
+  if flat_has[n] == nil then
+    local m = model(n)
+    flat_has[n] = m ~= nil
+  end
+  return flat_has[n] and n or tp
+end
+
 -- the actor takes a form (Rally: mech or pilot): model, pools, sizes
 function Actors.set_form(a, form, keep_pools)
   a.form = form
   a.radius, a.height, a.eye = form.radius, form.height, form.eye
   if not a.meshes then a.meshes = {} end
-  if not a.meshes[form.tp] then a.meshes[form.tp] = model(form.tp) end
-  a.mesh = a.meshes[form.tp]
+  local name = Actors.body_name(form.tp)
+  if not a.meshes[name] then a.meshes[name] = model(name) end
+  a.mesh = a.meshes[name]
   if not keep_pools then
     a.hp, a.hpmax = form.hp, form.hp
     a.armor, a.armormax = form.armor or 0, form.armor or 0

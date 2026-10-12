@@ -111,6 +111,7 @@ local G = {
   qauto = true,
   dev = false,          -- the dev overlay
   paused = false,
+  flat = false,         -- the heroes' bodies in flat colours, not textured (the title's MODELS)
 }
 
 local H = {}            -- hero definitions, by id (50_*.lua)
