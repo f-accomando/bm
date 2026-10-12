@@ -37,13 +37,13 @@ From the v3d-async-proposal review (branch `origin/v3d-async-proposal`,
 2. Decide from the Pi run whether `gpu3d_later` becomes the default.
 3. Only if 1 or 2 shows a gain: chain two jobs in hardware (CT0/CT1 queue); needs removing
    `job_wait` before `v3d_start`.
-4. `r3d_impostor=N` (0 off; 2..64 px; 5th argument of `gpu3d()`; `make test-impostor`), off.
-   After the Pi numbers, decide on Animator bake (an atlas colour per mesh).
+4. `r3d_impostor=N` (0 off; 2..64 px; `gpu3d()` 5th; `make test-impostor`), off; skinned meshes by
+   their pose's box (then also culled). After the Pi numbers: Animator bake (atlas colour a mesh)?
 5. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
 
 Fixed, not yet on the Pi: Overbit forced queue 1 at every start (`gpu3d` queue `true` = 1);
 now `true` = the console's level, 5th value the level; bench renderer `ql`; the `.bm`'s
-640x360 on the GPU. Market reseed.
+640x360 on the GPU; impostors for skinned meshes (heroes never became one). Market reseed.
 
 ## To measure on the Pi
 

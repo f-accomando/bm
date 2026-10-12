@@ -349,6 +349,10 @@ prova senza seriale e spesso senza tastiera).
   giochi lunghi (Yharnam, Overbit in solitario) potrebbero salvare da soli a batteria
   scarica, e bmlib offrire `lib.autosave` al primo `battery_low()`; l'assistente potrebbe
   suggerirlo (kb `battery`). In rete resta solo informazione (lockstep).
+- **R42 — Impostor degli eroi nei giochi** (2026-10-12). Con `r3d_impostor` ora anche i modelli
+  con le ossa diventano un quadrato da lontano, e r3d li salta fuori vista con la sfera della posa:
+  dopo i numeri del Pi, il governatore di qualità di Overbit (e Yharnam) potrebbe accendere
+  `gpu3d(nil, nil, nil, nil, 8)` ai livelli bassi e togliere il suo `Cam.sees` sugli eroi.
 
 ### Strumenti di sviluppo
 - **R15 — Ricarica dal PC.** `bm_net.py --watch`: a ogni salvataggio di `main.lua` sul PC la
