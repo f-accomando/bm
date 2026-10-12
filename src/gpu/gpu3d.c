@@ -203,8 +203,9 @@ static struct {
      * blocks wide) in the 4 KiB tiles, each utile's place in its tile as
      * RGB565's (e1_slot, [row of tiles & 1][utile row * 8 + utile column]);
      * the block's bytes in order e1_order (ETC1_...), red and blue swapped
-     * (e1_swap); asked for (gpu3d_set_etc1) */
-    int etc1_ok, etc1_on, e1_uw, e1_order, e1_swap;
+     * (e1_swap), the block's texels where the TMU shows them (e1_map,
+     * etc1_at: the Pi's rows reversed); asked for (gpu3d_set_etc1) */
+    int etc1_ok, etc1_on, e1_uw, e1_order, e1_swap, e1_map;
     uint8_t e1_slot[2][64];
     int fs2_ok, fs2_on;            /* M39: the probe saw the two-thread shaders draw as the others;
                                      * asked for (gpu3d_set_fs2) */
@@ -445,14 +446,39 @@ static void etc1_slots(void)
                 G.e1_slot[row][j * 8 + i] = (uint8_t)(G.t16_inner[row][j * 4 * 64 + i * 8] / 32);
 }
 
-/* an opaque sheet as ETC1 blocks in the layout learned */
+/* the texel of the format's block (x + 4 y, etc1.h) that the TMU shows at
+ * (x, y) of the block with map m (e1_map): bit 2 x and y swapped first,
+ * bit 0 the columns reversed, bit 1 the rows (the Pi: 2, the format's row
+ * 3 at the top) */
+static int etc1_at(int m, int x, int y)
+{
+    if (m & 4) {
+        const int t = x;
+        x = y;
+        y = t;
+    }
+    return (m & 1 ? 3 - x : x) | (m & 2 ? 3 - y : y) << 2;
+}
+
+/* an opaque sheet as ETC1 blocks in the layout learned (each block's
+ * texels first moved where the TMU reads them, e1_map) */
 static void etc1_sheet(uint32_t *texels, const g16_sheet_t *s)
 {
     const int wb = s->w / 4, hb = s->h / 4;
+    uint16_t q[16];
     for (int by = 0; by < hb; by++)
-        for (int bx = 0; bx < wb; bx++)
-            etc1_put((uint8_t *)texels, etc1_block(bx, by, wb),
-                     etc1_encode(s->px + (size_t)by * 4 * (size_t)s->w + (size_t)bx * 4, s->w, G.e1_swap));
+        for (int bx = 0; bx < wb; bx++) {
+            const uint16_t *px = s->px + (size_t)by * 4 * (size_t)s->w + (size_t)bx * 4;
+            int stride = s->w;
+            if (G.e1_map) {
+                for (int y = 0; y < 4; y++)
+                    for (int x = 0; x < 4; x++)
+                        q[etc1_at(G.e1_map, x, y)] = px[y * stride + x];
+                px = q;
+                stride = 4;
+            }
+            etc1_put((uint8_t *)texels, etc1_block(bx, by, wb), etc1_encode(px, stride, G.e1_swap));
+        }
 }
 
 /* the texture of a sheet, made again when the sheet changed: T-format
@@ -3147,7 +3173,8 @@ static int etc1_draw(const g16_t *pg, tex_t *pt)
  * pixel and how many are that colour (is type 8 ETC1, and with which
  * order). Then, with the order that gave red, blocks of 4-bit red and blue
  * bx and green by placed as utiles of 2 x 4: which block (x y, hex) the
- * TMU read along the first row and the first column (the utiles' size) */
+ * TMU read along the first row and the first column (the utiles' size).
+ * Then the texels of one block (below: where each went) */
 static void etc1_diagnose(const g16_t *pg)
 {
     enum { TW = 64, TH = 128, WB = TW / 4, HB = TH / 4 };
@@ -3199,6 +3226,37 @@ static void etc1_diagnose(const g16_t *pg)
         }
         plog(line);
     }
+    /* one grey block everywhere (individual: left/top half 4 with table 7,
+     * the other 10 with table 3: lights 7 f 1 0 and b d 9 8): texel p = x * 4
+     * + y with index p & 3, then p >> 2 (the two give p back), then p & 3
+     * split top/bottom. The 4 x 4 pixels drawn, a row of x each, as green's
+     * top 4 bits, and the format's (etc1_texel): where each texel went */
+    static const char *const nm[3] = { "p&3", "p>>2", "p&3 flip" };
+    for (int k = 0; k < 3; k++) {
+        uint64_t b = (uint64_t)0x4A4A4Au << 40 | 7ull << 37 | 3ull << 34 | (uint64_t)(k == 2) << 32;
+        for (int p = 0; p < 16; p++) {
+            const int idx = k == 1 ? p >> 2 : p & 3;
+            b |= (uint64_t)(idx >> 1) << (16 + p) | (uint64_t)(idx & 1) << p;
+        }
+        for (int i = 0; i < WB * HB; i++)
+            etc1_put((uint8_t *)pt.texels, (uint32_t)i, b);
+        if (!etc1_draw(pg, &pt))
+            return;
+        int n = ksnprintf(line, sizeof line, "ETC1 one block %s: got", nm[k]);
+        for (int w = 0; w < 2; w++) {
+            if (w)
+                n += ksnprintf(line + n, sizeof line - (size_t)n, " want");
+            for (int y = 0; y < 4; y++) {
+                n += ksnprintf(line + n, sizeof line - (size_t)n, " ");
+                for (int x = 0; x < 4; x++) {
+                    const uint32_t g = G.probe[y * PROBE_W + x] >> 5 & 63;
+                    n += ksnprintf(line + n, sizeof line - (size_t)n, "%x",
+                                   w ? (unsigned)(etc1_texel(b, x, y) >> 12 & 15) : (unsigned)((g << 2 | g >> 4) >> 4));
+                }
+            }
+        }
+        plog(line);
+    }
 }
 
 /* M39 (bm3d 7.3): ETC1 (type 8) in T-format. A 128 x 256 texture of blocks
@@ -3210,8 +3268,10 @@ static void etc1_diagnose(const g16_t *pg)
  * blocks) or 4 x 2, placed in the tile as RGB565's utiles (etc1_slots),
  * with each of the four byte orders (ETC1_...). 1 with the first where
  * every pixel is its texel as decoded (etc1_texel; as it is, or red and
- * blue swapped), a step of RGB565 allowed, learned into e1_uw, e1_order
- * and e1_swap; 0 if none gives it (ETC1 stays unused) */
+ * blue swapped; the block's texels as the format places them or moved by
+ * one of the 8 maps of etc1_at: the Pi reverses each block's rows), a step
+ * of RGB565 allowed, learned into e1_uw, e1_order, e1_swap and e1_map; 0
+ * if none gives it (ETC1 stays unused) */
 static int probe_etc1(const g16_t *pg)
 {
     enum { TW = 128, TH = 256, WB = TW / 4, HB = TH / 4 };
@@ -3263,8 +3323,10 @@ static int probe_etc1(const g16_t *pg)
         for (int by = 0; by < HB; by++)
             for (int bx = 0; bx < WB; bx++)
                 etc1_put((uint8_t *)pt.texels, etc1_block(bx, by, WB), blk[by * WB + bx]);
-        int ok[2] = { 1, 1 };
-        for (int d = 0; d < 4 && (ok[0] || ok[1]); d++) {
+        int ok[8][2], alive = 16;       /* [e1_map][red and blue swapped], how many still 1 */
+        for (int m = 0; m < 8; m++)
+            ok[m][0] = ok[m][1] = 1;
+        for (int d = 0; d < 4 && alive; d++) {
             const int ox = d & 1, oy = d;
             r3d_corner_t v[4];
             for (int i = 0; i < 4; i++)
@@ -3279,29 +3341,40 @@ static int probe_etc1(const g16_t *pg)
             for (int y = 0; y < PROBE_H; y++)
                 for (int x = 0; x < PROBE_W; x++) {
                     const int tx = 2 * x + ox, ty = 4 * y + oy;
-                    const uint32_t c = etc1_texel(blk[ty / 4 * WB + tx / 4], tx & 3, ty & 3);
                     const uint16_t got = G.probe[y * PROBE_W + x];
-                    for (int sw = 0; sw < 2; sw++) {
-                        const uint32_t hi = (sw ? c : c >> 16) & 255, lo = (sw ? c >> 16 : c) & 255;
-                        const int dr = (int)(got >> 11) - (int)(hi >> 3), dg = (int)(got >> 5 & 63) - (int)(c >> 10 & 63),
-                                  db = (int)(got & 31) - (int)(lo >> 3);
-                        if (dr < -1 || dr > 1 || dg < -1 || dg > 1 || db < -1 || db > 1)
-                            ok[sw] = 0;
-                        else if (d == 0)
-                            right[sw]++;
+                    /* each map of the block's texels (etc1_at) still
+                     * possible; the format's own (0) always, for the log */
+                    for (int m = 0; m < 8; m++) {
+                        if (m && !ok[m][0] && !ok[m][1])
+                            continue;
+                        const int at = etc1_at(m, tx & 3, ty & 3);
+                        const uint32_t c = etc1_texel(blk[ty / 4 * WB + tx / 4], at & 3, at >> 2);
+                        for (int sw = 0; sw < 2; sw++) {
+                            const uint32_t hi = (sw ? c : c >> 16) & 255, lo = (sw ? c >> 16 : c) & 255;
+                            const int dr = (int)(got >> 11) - (int)(hi >> 3),
+                                      dg = (int)(got >> 5 & 63) - (int)(c >> 10 & 63), db = (int)(got & 31) - (int)(lo >> 3);
+                            if (dr < -1 || dr > 1 || dg < -1 || dg > 1 || db < -1 || db > 1) {
+                                alive -= ok[m][sw];
+                                ok[m][sw] = 0;
+                            } else if (d == 0 && m == 0) {
+                                right[sw]++;
+                            }
+                        }
+                        if (d == 0 && m == 0 && y == 0 && x < 4)
+                            w4[x] = (uint16_t)((c >> 19 & 31) << 11 | (c >> 10 & 63) << 5 | (c >> 3 & 31));
                     }
-                    if (d == 0 && y == 0 && x < 4)
-                        w4[x] = (uint16_t)((c >> 19 & 31) << 11 | (c >> 10 & 63) << 5 | (c >> 3 & 31));
                 }
             if (d == 0)
                 ksnprintf(diag[k], sizeof diag[k], "ETC1 %dx%d %s: %d|%d/%d right, want %04x %04x %04x %04x got %04x %04x %04x %04x",
                           G.e1_uw, 8 / G.e1_uw, order[G.e1_order], right[0], right[1], PROBE_W * PROBE_H,
                           w4[0], w4[1], w4[2], w4[3], G.probe[0], G.probe[1], G.probe[2], G.probe[3]);
         }
-        if (ok[0] || ok[1]) {
-            G.e1_swap = !ok[0];
-            return 1;
-        }
+        for (int m = 0; m < 8; m++)
+            if (ok[m][0] || ok[m][1]) {
+                G.e1_map = m;
+                G.e1_swap = !ok[m][0];
+                return 1;
+            }
     }
     char line[112];
     ksnprintf(line, sizeof line, "ETC1 textures: no layout of the blocks drew the texels (ETC1 stays unused; params0 %08x)",
@@ -3312,6 +3385,7 @@ static int probe_etc1(const g16_t *pg)
     etc1_diagnose(pg);
     G.e1_uw = 2;
     G.e1_order = 0;
+    G.e1_map = 0;
     return 0;
 }
 
@@ -4035,9 +4109,13 @@ int gpu3d_init(void)
     static const char *const ms[3] = { "no", "on cleared pages", "on any page" };
     static const char *const clips[3] = { "no", "yes", "yes (Z planes)" };
     static const char *const e1_orders[4] = { "BE", "words LE", "LE", "halves swapped" };
-    char e1[48] = "";                   /* the ETC1 layout learned (bm3d 7.3) */
+    static const char *const e1_maps[8] = { "", ", columns reversed", ", rows reversed", ", turned",
+                                            ", transposed", ", transposed, columns reversed",
+                                            ", transposed, rows reversed", ", transposed, turned" };
+    char e1[80] = "";                   /* the ETC1 layout learned (bm3d 7.3) */
     if (G.etc1_ok)
-        ksnprintf(e1, sizeof e1, "yes (utiles %dx%d, bytes %s)", G.e1_uw, 8 / G.e1_uw, e1_orders[G.e1_order & 3]);
+        ksnprintf(e1, sizeof e1, "yes (utiles %dx%d, bytes %s%s)", G.e1_uw, 8 / G.e1_uw, e1_orders[G.e1_order & 3],
+                  e1_maps[G.e1_map & 7]);
     ksnprintf(G.why, sizeof G.why, "bm3d " BM3D_VERSION " ready (byte a = %s, texels %s, textures %s, MSAA %s, "
               "16-bit textures %s, two-thread shaders %s, vertex shader %s%s, indexed %s, "
               "clipping %s, lit models %s, queue %s, zclear in job %s, compact attributes %s, alpha textures %s, "

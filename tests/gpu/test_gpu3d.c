@@ -933,7 +933,8 @@ int main(int argc, char **argv)
     emu_no_threads = getenv("EMU_NO_THREADS") != NULL;       /* the two-thread shaders' probe: its job does not end */
     emu_t16_alpha = getenv("EMU_T16_ALPHA") ? atoi(getenv("EMU_T16_ALPHA")) : 0;   /* alpha's bits in 5551/4444 */
     emu_t16_lossy = getenv("EMU_T16_LOSSY") != NULL;         /* 5551/4444 widened as the Pi: a step off at times */
-    emu_etc1 = getenv("EMU_ETC1") ? atoi(getenv("EMU_ETC1")) : 0;  /* ETC1's layout: 1 a later candidate, 2 none */
+    emu_etc1 = getenv("EMU_ETC1") ? atoi(getenv("EMU_ETC1")) : 0;  /* ETC1's layout: 1 a later candidate, 2 none,
+                                                                       * 3 rows of each block reversed (the Pi) */
     ppm_dir = argc > 7 ? argv[7] : NULL;
     printf("gpu3d on the emulator: byte a = %s, texels %s, T-format %d, MSAA load %s\n",
            emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat,
@@ -954,7 +955,8 @@ int main(int argc, char **argv)
              emu_vpm_words ? (emu_cw_flip ? "yes (VPM in words)" : "yes (cw, VPM in words)")
                            : emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip], emu_hang_zclear ? "no" : "yes",
              cut_ok ? "RGBA5551 RGBA4444" : "no",
-             !etc1_ok ? "no" : emu_etc1 ? "yes (utiles 4x2, bytes LE)" : "yes (utiles 2x4, bytes BE)");
+             !etc1_ok ? "no" : emu_etc1 == 1 ? "yes (utiles 4x2, bytes LE)"
+                             : emu_etc1 == 3 ? "yes (utiles 2x4, bytes BE, rows reversed)" : "yes (utiles 2x4, bytes BE)");
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
     /* the Pi's case: the right order with pixels a step off (each field cut
      * to the type's bits) is still learned, the wrong ones still are not */
@@ -971,7 +973,9 @@ int main(int argc, char **argv)
                                                  "4444 mode 0: ", "4444 type 2, opaque shader: " };
         static const char *const etc_lines[] = { "ETC1 textures: no layout", "ETC1 2x4 BE: ", "ETC1 4x2 halves: ",
                                                  "ETC1 flat f800: BE 0000 4096,", "ETC1 flat 07e0:",
-                                                 "ETC1 2x4 BE, block read along x=0: 00 00" };
+                                                 "ETC1 2x4 BE, block read along x=0: 00 00",
+                                                 "ETC1 one block p&3: got 0000 0000 0000 0000 want 77bb ffdd 1199 0088",
+                                                 "ETC1 one block p>>2:", "ETC1 one block p&3 flip:" };
         for (size_t i = 0; i < sizeof cut_lines / sizeof *cut_lines; i++)
             CHECK((strstr(pl, cut_lines[i]) != NULL) == (tf && !cut_ok), "probes' log '%s' with alpha textures %d",
                   cut_lines[i], cut_ok);

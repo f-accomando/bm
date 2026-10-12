@@ -1079,8 +1079,9 @@ static uint32_t texel_at(const uint32_t *tex, int type, int x, int y, int w)
         const uint8_t *p = (const uint8_t *)tex + (size_t)etc1_index(x / 4, y / 4, (w + 3) / 4) * 8;
         uint64_t b = 0;
         for (int k = 0; k < 8; k++)
-            b |= (uint64_t)p[k] << (emu_etc1 ? 8 * k : 56 - 8 * k);
-        t = 0xFF000000u | etc1_texel(b, x & 3, y & 3);
+            b |= (uint64_t)p[k] << (emu_etc1 == 1 ? 8 * k : 56 - 8 * k);
+        /* 3: as the Pi, each block's rows reversed (the format's row 3 on top) */
+        t = 0xFF000000u | etc1_texel(b, x & 3, emu_etc1 == 3 ? 3 - (y & 3) : y & 3);
     } else {
         t = type == 16 ? tex[y * w + x] : tex[t_index(x, y, w)];
     }

@@ -21,7 +21,8 @@ extern int emu_t16_lossy;
 /* M39 (bm3d 7.3): the TMU's ETC1 (type 8) in T-format: 0 utiles of 2 x 4
  * blocks, each block's bytes big-endian (as the format; the probe's first
  * candidate); 1 utiles of 4 x 2 blocks, the bytes little-endian (a later
- * candidate the probe must learn); 2 none (texels read as 0: off) */
+ * candidate the probe must learn); 2 none (texels read as 0: off); 3 as 0
+ * with each block's rows reversed (as the Pi: the probe learns the map) */
 extern int emu_etc1;
 extern int emu_hang_zclear;             /* a job with fs_zclear does not end (a GPU without it) */
 typedef struct { uint32_t jobs, prims, pixels, batches, zstores, loads, msframes, glverts, async, glindexed, threaded, vmiss,

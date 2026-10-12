@@ -55,18 +55,23 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   `etc1_put` (byte order). `probe_etc1` draws a 128x256 texture of varied blocks for 8
   candidates (utiles 2x4 then 4x2; bytes BE, words LE, LE, halves swapped) and keeps the first
   whose sampled texels come back (status `ETC1 textures yes (utiles 2x4, bytes BE)`,
-  `gpu3d_etc1()`, options line `etc1=1`, `stats.etc1`). Emulator: `EMU_ETC1=0` (2x4, BE),
-  `=1` (4x2, LE: learned as a later candidate), `=2` (off). `make test-gpu3d`: same
-  silhouette, 37 dB PSNR against RGB565, worst channel 9.
+  `gpu3d_etc1()`, options line `etc1=1`, `stats.etc1`). Each candidate is also checked
+  against the 8 maps of a block's texels (`etc1_at`, `e1_map`: columns/rows reversed,
+  transposed); `etc1_sheet` moves each block's texels by the map learned before encoding
+  (status adds e.g. `, rows reversed`). Emulator: `EMU_ETC1=0` (2x4, BE), `=1` (4x2, LE: a
+  later candidate), `=2` (off), `=3` (2x4, BE, rows reversed as the Pi). `make test-gpu3d`:
+  same silhouette, 37 dB PSNR against RGB565, worst channel 9 (also with `=3`).
 - A failed `probe_cut16` / `probe_etc1` (Pi: both fail) logs to the probes' line (report)
   `params0`, each candidate's right pixels and first 4 texels wanted/got, and for 5551/4444
   a control with the opaque shader (`5551 type 3, opaque shader: ...`; its holes draw their
   RGB: `00c0` is right), and a first wrong pixel; test: `EMU_T16_ALPHA=2`, `EMU_ETC1=2`.
-- ETC1 on the Pi: open (all 8 candidates fail, 2x4 BE 639/4096, texels unlike the wanted).
+- ETC1 on the Pi: type 8 is ETC1, 2x4 utiles, bytes BE, but each block's rows reversed (the
+  format's row 3 on top): the report's 4 texels and 639/4096 match that exactly (642 on the
+  PC), so `e1_map` 2 is expected; to confirm on the Pi (status `..., rows reversed)`).
   A failed probe also logs `etc1_diagnose`: `ETC1 flat f800/07e0:` (one flat block everywhere,
-  per byte order: first pixel and how many equal it: is type 8 ETC1, which order) and
-  `ETC1 2x4 <order>, block read along y=0/x=0:` (which block `xy` the TMU read: 2x4 utiles
-  give `00 10 20 ...` / `00 01 02 ...`).
+  per byte order), `ETC1 2x4 <order>, block read along y=0/x=0:` (which block `xy` the TMU
+  read) and `ETC1 one block p&3 / p>>2 / p&3 flip: got .... want ....` (one grey block, its
+  16 pixels as green's top nibble, a row of x per group: where each texel of the block went).
 
 ## Decisions (from Pi reports, 2026-10-12)
 
