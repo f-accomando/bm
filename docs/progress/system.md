@@ -82,6 +82,9 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
 - Market job (`market.c`): `fiber_slice()` between the steps of the catalog (check, parse,
   adopt, the copy on the card); a game's SHA-256 in 64 KiB pieces (`catalog_hash_tick`);
   a game checked and being written (`finishing`) goes on off the tab, nothing else does.
+  Separates **Games** and **Apps** pages (`market_page`, toggled with `Y` / `V` or clicking the
+  subtabs on `TITLE_ROW`), tracks `.bm` and `.b16` editions independently, and displays `.bm` /
+  `.b16` format badges on cards, title bar and details panel.
 - Updates keep old kernels in `/bm/backup`; nothing is written before files are downloaded
   and checked; the board's own kernel last. Check and install run in a fiber of the menu
   (`update_start`, `update_tick`; the Updates panel lists the files, `update_notice` the

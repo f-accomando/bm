@@ -6,24 +6,26 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
 
 ## How it is today
 
-### The suite (`carts/`, opened from the Dev tab; tools live in the kernel, not the Market)
+### The suite (`carts/`, opened from the Dev tab or installed from the Market Apps page)
 - **bm SDK** (`carts/editor`): projects, templates (Empty 2D, Platform 2D, Top-down 2D,
   Shooter 2D, Versus 2D, Online 2D, 3D scene, 3D with models), budgets (tokens, Lua, assets),
-  the dev kit report of a test run, jumps to the other tools (`cart_tool`). Map page (`P.map`):
+  the dev kit report of a test run, jumps to the other tools (`cart_tool`), `Build .bm` (`Ctrl+B`)
+  and `Export .b16` (`Ctrl+Shift+B`, `cart_build(path, "b16")`). Map page (`P.map`):
   layers, flags, `z` a 16×16 brush (2×2 cells, cursor and tile on even cells; fill on whole
-  tiles), Home/End and PgUp/PgDn a page.
-- **bm SDK (RGB30)** (`carts/sdk_b16`, built into `kernel8.img` only: `rgb30.mk` →
-  `build/rgb30*/sdk_b16.bm`, `.incbin` in `src/rgb30/bm_embed.S`): the SDK's pages at 360×360
-  (`layout.lua`: `split` on the 8×16 grid, joined before `main.lua` by `build.py`), the pad by
-  names (`ok`/`back`, L1/R1, Start, X = the page's actions as a list, L2/R2), `padtype` for code
-  and names (a `require` shim gives empty word lists where the kernel has none). A tool of the
-  RGB30's Dev tab and of a game's options (*Open in bm SDK*, `src/rgb30/ui.c`): saves where it
-  is told, builds, tries (F5) and comes back. The suite's other programs are offered only if the
-  console has them (`SUITE` in `main.lua`: none on the RGB30). `carts/editor` is not changed by it.
+  tiles), automatic 16×16 brush and first object placeholder tile (`>= 1024`) when switching to
+  the `objects` layer, `m` (*Overview*) full-map minimap with viewport box and click/arrow jump,
+  Home/End and PgUp/PgDn a page.
+- **bm SDK (RGB30)** (`carts/sdk_b16`, built into `kernel8.img` unless `CLEAN_KERNEL=1`, and
+  published as `sdk.b16` in the Market): the SDK's pages at 360×360 (`layout.lua`: `split` on
+  the 8×16 grid, joined before `main.lua` by `build.py`), the pad by names (`ok`/`back`, L1/R1,
+  Start, X = the page's actions as a list, L2/R2), `padtype` for code and names, map `Overview`
+  (`m`) and automatic 16×16 object brush on the `objects` layer, `Build .bm` (`Ctrl+B`) and
+  `Export .b16` (`Ctrl+Shift+B`; on the RGB30, exporting a `.b16` from `/carts` also copies it to
+  `/bm/` so it appears immediately in Games).
 - **Tool session** (`src/kernel/devtool.c`): the tool, the games it tries (`cart_run`, back with
-  `cart_arg()`), the tools it opens (`cart_tool`); each console passes its tools (the Pi's seven
-  in `carts.c`, the RGB30's SDK in `ui.c`) and the RGB30 waits for the buttons to be let go
-  between runs.
+  `cart_arg()`), the tools it opens (`cart_tool`); prefers SD-installed Market apps (`/carts` or
+  `/bm/`) over embedded kernel copies so tools can be updated from the Market and kernels can be
+  built clean with `CLEAN_KERNEL=1`.
 - **bm Code** (`carts/code`): tabs, two pages, 6×12/8×14/8×16 fonts; completion
   (`predict`, [`docs/PREDICT.md`](../PREDICT.md)), pad typing (`padtype`,
   [`docs/PADTYPE.md`](../PADTYPE.md)), F6 assistant and `#entry: … #` lines, F8
@@ -35,14 +37,16 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   game builds (`cart_meshes()`).
 - **bm Sound** (`carts/sound`): SOUNDS, SFX, PATTERN, SONG pages; music assistant on F6
   ([audio](audio.md)).
-- **bm Write** (`carts/write`, a Market app in Games): `.BMD` documents in `/docs`, A4 pages,
+- **bm Write** (`carts/write`, a Market app): `.BMD` documents in `/docs`, A4 pages,
   exports `.TXT`/`.MD`/`.HTM`/`.PDF`.
 - **Lib tab** (`src/kernel/lib.c`, `libview.c`): resources `.bmm .bmi .bms .bmt .bmc .bmk`,
   hidden until `lib_tab=1`.
 - Shared Lua: `bm3d` (Studio/Animator/Mesh), `bmui` (mouse: zones registered while drawing,
   chips that press keys, `U.press` before `keyp()`, a context menu of keys).
 - Projects (M47): tools edit `.bme`, never a `.bm`/`.b16`; saving a game asks for a copy.
-  Runtime side in [lua](lua.md).
+  `bm_build` builds `.bm` and `bm_build_b16` exports `.b16` from either a `.bme` or a `.bm`
+  (also in the console menu via *Export .b16*), never overwriting the other edition. Runtime side
+  in [lua](lua.md).
 
 ### Assistant (`src/ai/`, F6 in every tool, `carts/assistant` in Dev)
 - Q&A over the knowledge base `src/ai/kb/` (`BMAI` file, `assist.c`, small INT8 network,
@@ -64,24 +68,25 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   (`models.py --meshy`) builds them again. `make overbit-heroes`: each hero as `.bmm` in
   `build/overbit/heroes/` for bm Mesh / bm Animator. Skeletons and clips are still written by `rig.py`,
   not made in Animator.
-- `scripts/mkbm.py`: builds a `.bm` (`--lua --sheet --sheet8 --map --flags --sprites --audio
-  --cover --models --res`…); header `BMCART` with CRC-32 (`src/bm/bm.h`). No `--b16` yet
-  (M42).
+- `scripts/mkbm.py`: builds a `.bm` or `.b16` (`--lua --sheet --sheet8 --map --flags --sprites --audio
+  --cover --models --res --from <cart> --b16`…); header `BMCART` with CRC-32 (`src/bm/bm.h`).
 - `scripts/bmres.py`: extract/convert `BMRES` resources. `scripts/bmaudio.py`: sound banks.
   `scripts/bmmesh.py`, `bmdecimate.py`, `tools/bmreduce.py` (quadric collapse, same code as
   `src/bm/decimate.c`).
 - `tools/qpuasm.py` → `src/gpu/shaders.h` ([graphics](graphics.md)).
 - Yharnam's drawn map: `carts/yharnam/map_ground.csv`, `map_overlay.csv` (drawn: `MAP.drawn`)
-  and `map_objects.csv` (`layers_yharnam`, 256×256 cells). `objects` is not drawn: its
-  placeholders (`art/places.py`, `PLACE` in the atlas, `mkassets.py --places` without rendering
+  and `map_objects.csv` (`layers_yharnam`, 256×256 cells). `objects` is not drawn directly in-game:
+  its placeholders (`art/places.py`, `PLACE` in the atlas, `mkassets.py --places` without rendering
   the frames) place the units `gen()` makes (houses: corner H7/H8/CH + roof tiles = width, body
   tiles only shown; trees, bushes, lamps, braziers, pyres, graves, mausoleums, statues,
-  fountains, wells, benches, fences, crates, coffins, cages, bollards, carriages, each with its
-  collider and lights): a unit stays where its placeholder is, goes without it, a placeholder no
-  unit took makes one (hash of its tile). Still `MAP`'s: hunter's lamps, barricades/gates, boss
-  arenas, areas; beyond the edge the ring (`MAP.ring`). `carts/yharnam/mkmap.py` makes the first
-  map from the plan (`make yharnam-map`, `tests/yharnam/mapgen.lua`: it overwrites the drawn
-  one), takes it back (`--from YHARNAM.BME`), draws it (`--png`).
+  fountains, wells, benches, fences, crates, coffins, cages, bollards, carriages, plus hunter's
+  lamps `shrine`=1186, barricades `barricade`=1188, gates `gate`=1190, and boss arenas `boss`=1192):
+  a unit or gameplay object stays where its placeholder is, goes without it, and a placeholder no
+  unit took makes one (hash of its tile). `ch.kind` (road, pave, grass) is derived from the drawn
+  ground tiles in `map_ground.csv` so creature spawning follows edits made in the SDK. Beyond the
+  edge lies the ring (`MAP.ring`). `carts/yharnam/mkmap.py` makes the first map from the plan
+  (`make yharnam-map`, `tests/yharnam/mapgen.lua`: it overwrites the drawn one), takes it back
+  (`--from YHARNAM.BME`), draws it (`--png`).
 - `tools/bm_net.py`: kernels, cartridges and files over WiFi (protocol in
   [system](system.md)); `tools/bm_load.py`: serial chainloader and terminal;
   `tools/overbit_relay.py`: the internet relay for `bmnet`.
@@ -90,9 +95,11 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
 - Releases: `scripts/release.sh vX.Y.Z` (signed manifests, `src/net/release.c`).
 
 ### Market (`market/`, repo `f-accomando/bm-market`)
-Apps in `GAMES` (Makefile) reach the consoles from `bm-market`; copies here are for tests.
-`make market-seed MARKET=<clone>` then commit and push there (`scripts/market.sh` from WSL).
-A new app: a line in `market/about.txt` (licence required) and a place in `GAMES`.
+Games (`GAMES`) and suite apps (`sdk` `.bm`/`.b16`, `code`, `pixel`, `studio`, `animator`, `mesh`,
+`sound`, `assistant`, `write`, `typing`, tagged `kind: app`) reach the consoles from `bm-market`;
+`make market-seed MARKET=<clone>` packages both games and apps, then commit and push there
+(`scripts/market.sh` from WSL). The Market UI separates **Games** and **Apps** pages (`Y` / `V` or
+subtab click) and shows `.bm` / `.b16` format badges on covers, title row and details panel.
 
 ### Tutorial videos (`video/`, skill `claude/skills/bm-video-tutorial`)
 `video/lib/bmvideo.py` drives `bmhost` from a key script and lays out the page with

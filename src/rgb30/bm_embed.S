@@ -72,7 +72,9 @@ bm_texroom_cart_end:
     .balign 4
     .globl bm_sdk_cart, bm_sdk_cart_end
 bm_sdk_cart:
+#ifndef BM_CLEAN_KERNEL
     .incbin "sdk_b16.bm"
+#endif
 bm_sdk_cart_end:
 
 /* the public key that checks the releases (src/net/release.c), as on the

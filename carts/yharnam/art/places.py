@@ -24,7 +24,9 @@ KINDS = [('house7', 'house', 'H7'), ('house8', 'house', 'H8'), ('chapel', 'house
          ('fountain', 'thing', 'FO'), ('well', 'thing', 'WE'), ('bench', 'thing', 'BE'),
          ('fence_h', 'thing', 'F-'), ('fence_v', 'thing', 'F|'), ('crates', 'thing', 'BX'),
          ('coffin', 'thing', 'CO'), ('cage', 'thing', 'CA'), ('bollard', 'thing', 'BO'),
-         ('carriage', 'thing', 'CG'), ('roof', 'house', None)]
+         ('carriage', 'thing', 'CG'), ('roof', 'house', None),
+         ('shrine', 'fire', 'SH'), ('barricade', 'thing', 'BA'), ('gate', 'thing', 'GA'),
+         ('boss', 'grave', 'BS')]
 
 # letters of 3 x 5 pixels
 FONT = {
@@ -34,6 +36,7 @@ FONT = {
     'H': ('x.x', 'x.x', 'xxx', 'x.x', 'x.x'), 'L': ('x..', 'x..', 'x..', 'x..', 'xxx'),
     'M': ('x.x', 'xxx', 'xxx', 'x.x', 'x.x'), 'O': ('.x.', 'x.x', 'x.x', 'x.x', '.x.'),
     'P': ('xx.', 'x.x', 'xx.', 'x..', 'x..'), 'R': ('xx.', 'x.x', 'xx.', 'x.x', 'x.x'),
+    'S': ('.xx', 'x..', '.x.', '..x', 'xx.'),
     'T': ('xxx', '.x.', '.x.', '.x.', '.x.'), 'U': ('x.x', 'x.x', 'x.x', 'x.x', 'xxx'),
     'W': ('x.x', 'x.x', 'xxx', 'xxx', 'x.x'), 'X': ('x.x', 'x.x', '.x.', 'x.x', 'x.x'),
     'Y': ('x.x', 'x.x', '.x.', '.x.', '.x.'), 'N': ('xx.', 'x.x', 'x.x', 'x.x', 'x.x'),

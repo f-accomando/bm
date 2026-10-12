@@ -35,4 +35,10 @@ int bm_make_copy(const char *game, const char *to, char *err, size_t en);
  * digit ("PONG1.BM"). The game's path in out; 0, or -1 with the reason. */
 int bm_build(const char *project, char *out, size_t n, char *err, size_t en);
 
+/* Builds or exports the .b16 edition of a project (.bme) or a game (.bm) within
+ * the 8 MiB limit of a .b16. Never replaces a .bm (separate editions): writes
+ * .B16 next to it (or in /bm on the RGB30), replacing only the .B16 built from
+ * the same source before. */
+int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en);
+
 #endif

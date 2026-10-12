@@ -19,14 +19,18 @@ bm_demo_cart_end:
     .balign 4
     .globl bm_editor_cart, bm_editor_cart_end
 bm_editor_cart:
+#ifndef BM_CLEAN_KERNEL
     .incbin "editor.bm"
+#endif
 bm_editor_cart_end:
 
     .section .rodata
     .balign 4
     .globl bm_sound_cart, bm_sound_cart_end
 bm_sound_cart:
+#ifndef BM_CLEAN_KERNEL
     .incbin "sound.bm"
+#endif
 bm_sound_cart_end:
 
     .section .rodata
@@ -80,7 +84,9 @@ bm_lib_padtype_end:
     .balign 4
     .globl bm_assistant_cart, bm_assistant_cart_end
 bm_assistant_cart:
+#ifndef BM_CLEAN_KERNEL
     .incbin "assistant.bm"
+#endif
 bm_assistant_cart_end:
 
 /* bm Code, the code editor (Dev tab) */
@@ -88,7 +94,9 @@ bm_assistant_cart_end:
     .balign 4
     .globl bm_code_cart, bm_code_cart_end
 bm_code_cart:
+#ifndef BM_CLEAN_KERNEL
     .incbin "code.bm"
+#endif
 bm_code_cart_end:
 
 /* the public key that checks the releases (M19, src/net/release.c): PEM
@@ -113,14 +121,18 @@ bm_market_key:
     .balign 4
     .globl bm_studio_cart, bm_studio_cart_end
 bm_studio_cart:
+#ifndef BM_CLEAN_KERNEL
     .incbin "studio.bm"
+#endif
 bm_studio_cart_end:
 
     .section .rodata
     .balign 4
     .globl bm_animator_cart, bm_animator_cart_end
 bm_animator_cart:
+#ifndef BM_CLEAN_KERNEL
     .incbin "animator.bm"
+#endif
 bm_animator_cart_end:
 
 /* what bm Studio and bm Animator share (require "bm3d") */
@@ -167,14 +179,18 @@ bm_lib_bmui_end:
     .balign 4
     .globl bm_mesh_cart, bm_mesh_cart_end
 bm_mesh_cart:
+#ifndef BM_CLEAN_KERNEL
     .incbin "mesh.bm"
+#endif
 bm_mesh_cart_end:
 
     .section .rodata
     .balign 4
     .globl bm_pixel_cart, bm_pixel_cart_end
 bm_pixel_cart:
+#ifndef BM_CLEAN_KERNEL
     .incbin "pixel.bm"
+#endif
 bm_pixel_cart_end:
     .section .rodata
     .balign 4

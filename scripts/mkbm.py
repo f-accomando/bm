@@ -423,10 +423,58 @@ def mark_project(data):
     return bytes(out)
 
 
+def export_from(src, a, out):
+    raw = bytearray(open(src, "rb").read())
+    if len(raw) < HEADER_SIZE or raw[:4] != MAGIC:
+        raise SystemExit(f"{src}: not a bm cartridge")
+    w, h = struct.unpack_from("<HH", raw, 8)
+    title = raw[24:56].split(b"\0", 1)[0].decode("utf-8", "replace")
+    author = raw[56:88].split(b"\0", 1)[0].decode("utf-8", "replace")
+    if a.res_set:
+        w, h = (int(v) for v in a.res.split("x"))
+        struct.pack_into("<HH", raw, 8, w, h)
+    if a.title:
+        title = a.title
+        raw[24:56] = title.encode("utf-8")[:31].ljust(32, b"\0")
+    if a.author:
+        author = a.author
+        raw[56:88] = author.encode("utf-8")[:31].ljust(32, b"\0")
+    flags = struct.unpack_from("<H", raw, 18)[0] & ~1
+    struct.pack_into("<H", raw, 18, flags)
+    raw[104:128] = b"\0" * 24
+    if a.sheet8:
+        secs = list(bmmesh.cart_sections(bytes(raw)))
+        if any(t == SEC_SHEET for t, _ in secs) and not any(t == SEC_SHEET8 for t, _ in secs):
+            new_secs = []
+            for t, payload in secs:
+                if t == SEC_SHEET:
+                    sw, sh = struct.unpack_from("<HH", payload, 0)
+                    enc = sheet8_encode(sw, sh, payload[4:])
+                    new_secs.append((SEC_SHEET8, enc) if enc else (t, payload))
+                else:
+                    new_secs.append((t, payload))
+            body = bytearray()
+            table = bytearray()
+            off = HEADER_SIZE + len(new_secs) * SECTION_ENTRY_SIZE
+            for t, payload in new_secs:
+                crc = zlib.crc32(payload) & 0xFFFFFFFF
+                table += struct.pack("<BxxxIII", t, off, len(payload), crc)
+                body += payload
+                off += len(payload)
+            struct.pack_into("<H", raw, 16, len(new_secs))
+            raw = raw[:HEADER_SIZE] + table + body
+    data = bytes(raw)
+    if out.lower().endswith(".bme"):
+        data = mark_project(data)
+    return data, title, f"{w}x{h}"
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("-o", "--output", required=True)
-    ap.add_argument("--lua", required=True)
+    ap.add_argument("-o", "--output", help="output cartridge (.bm, .bme, or .b16)")
+    ap.add_argument("--from", dest="src", help="source .bm or .bme to export or repack (e.g. to .b16)")
+    ap.add_argument("--b16", action="store_true", help="export a .b16 edition (checks the 8 MiB limit)")
+    ap.add_argument("--lua")
     ap.add_argument("--sheet")
     ap.add_argument("--sheet8", action="store_true", help="store the sheet with a palette and runs")
     ap.add_argument("--map", action="append", default=[],
@@ -440,52 +488,66 @@ def main():
     ap.add_argument("--uv-inset", type=float, help="texture inset of the models, sheet pixels (default 0.25)")
     ap.add_argument("--title", default="")
     ap.add_argument("--author", default="")
-    ap.add_argument("--res", default="640x360", choices=["640x360", "480x270", "320x180", "256x256", "360x360"])
+    ap.add_argument("--res", default=None, choices=["640x360", "480x270", "320x180", "256x256", "360x360", "720x720"])
     a = ap.parse_args()
-    lua = open(a.lua, "rb").read()
-    sheet = read_png(a.sheet) if a.sheet else None
-    layers = read_layers(a.map) if a.map else None
-    flags = read_flags(a.flags) if a.flags else None
-    res = tuple(int(v) for v in a.res.split("x"))
-    cover = make_cover(read_png(a.cover)) if a.cover else None
-    audio = bmaudio.load(a.audio) if a.audio else None
-    mesh, extra = None, []
-    if a.models and a.models.endswith(".bm"):
-        secs = dict(bmmesh.cart_sections(open(a.models, "rb").read()))
-        if SEC_MESH not in secs:
-            raise SystemExit(f"{a.models}: no 3D models in it")
-        mesh = bytearray(secs[SEC_MESH])
-        if a.uv_inset is not None:
-            struct.pack_into("<H", mesh, 2, max(0, min(65535, round(a.uv_inset * 256))))
-        mesh = bytes(mesh)
-        if SEC_ANIM in secs:
-            extra.append((SEC_ANIM, secs[SEC_ANIM]))
-        if not sheet and SEC_SHEET8 in secs:
-            sheet, a.sheet8 = sheet8_decode(secs[SEC_SHEET8]), True
-        elif not sheet and SEC_SHEET in secs:
-            w, h = struct.unpack_from("<HH", secs[SEC_SHEET], 0)
-            sheet = (w, h, secs[SEC_SHEET][4:])
-    elif a.models:
-        if not sheet and a.models.endswith(".glb"):
-            png = bmmesh.glb_image(open(a.models, "rb").read())
-            if png:
-                sheet = read_png(a.models, png)
-                w, h, rgba = sheet
-                colours = {bytes(rgba[i:i + 4]) if rgba[i + 3] >= 128 else b"" for i in range(0, len(rgba), 4)}
-                a.sheet8 = a.sheet8 or len(colours) <= 256     # smaller, as bm Studio saves it
-        models, inset = bmmesh.models_from_file(a.models)
-        inset = a.uv_inset if a.uv_inset is not None else (inset if inset is not None else 0.25)
-        mesh = bmmesh.encode(models, inset)
-    sprites, boxes = read_sprite_file(a.sprites, *(sheet[:2] if sheet else (256, 256))) if a.sprites \
-        else (None, None)
-    data = pack(lua, sheet, None, a.title, a.author, res, cover, a.sheet8, audio, mesh, extra, layers, flags,
-                sprites, boxes)
-    if a.output.lower().endswith(".bme"):
-        data = mark_project(data)
+    a.res_set = a.res is not None
+    if not a.res:
+        a.res = "360x360" if a.b16 else "640x360"
+    if not a.output and a.src and a.b16:
+        base, _ = os.path.splitext(a.src)
+        a.output = base + ".b16"
+    if not a.output or (not a.lua and not a.src):
+        ap.error("specify -o and --lua (or --from SRC [--b16] [-o OUT])")
+    if a.src and not a.lua:
+        data, title, res_str = export_from(a.src, a, a.output)
+    else:
+        lua = open(a.lua, "rb").read()
+        sheet = read_png(a.sheet) if a.sheet else None
+        layers = read_layers(a.map) if a.map else None
+        flags = read_flags(a.flags) if a.flags else None
+        res = tuple(int(v) for v in a.res.split("x"))
+        cover = make_cover(read_png(a.cover)) if a.cover else None
+        audio = bmaudio.load(a.audio) if a.audio else None
+        mesh, extra = None, []
+        if a.models and a.models.endswith(".bm"):
+            secs = dict(bmmesh.cart_sections(open(a.models, "rb").read()))
+            if SEC_MESH not in secs:
+                raise SystemExit(f"{a.models}: no 3D models in it")
+            mesh = bytearray(secs[SEC_MESH])
+            if a.uv_inset is not None:
+                struct.pack_into("<H", mesh, 2, max(0, min(65535, round(a.uv_inset * 256))))
+            mesh = bytes(mesh)
+            if SEC_ANIM in secs:
+                extra.append((SEC_ANIM, secs[SEC_ANIM]))
+            if not sheet and SEC_SHEET8 in secs:
+                sheet, a.sheet8 = sheet8_decode(secs[SEC_SHEET8]), True
+            elif not sheet and SEC_SHEET in secs:
+                w, h = struct.unpack_from("<HH", secs[SEC_SHEET], 0)
+                sheet = (w, h, secs[SEC_SHEET][4:])
+        elif a.models:
+            if not sheet and a.models.endswith(".glb"):
+                png = bmmesh.glb_image(open(a.models, "rb").read())
+                if png:
+                    sheet = read_png(a.models, png)
+                    w, h, rgba = sheet
+                    colours = {bytes(rgba[i:i + 4]) if rgba[i + 3] >= 128 else b"" for i in range(0, len(rgba), 4)}
+                    a.sheet8 = a.sheet8 or len(colours) <= 256     # smaller, as bm Studio saves it
+            models, inset = bmmesh.models_from_file(a.models)
+            inset = a.uv_inset if a.uv_inset is not None else (inset if inset is not None else 0.25)
+            mesh = bmmesh.encode(models, inset)
+        sprites, boxes = read_sprite_file(a.sprites, *(sheet[:2] if sheet else (256, 256))) if a.sprites \
+            else (None, None)
+        data = pack(lua, sheet, None, a.title, a.author, res, cover, a.sheet8, audio, mesh, extra, layers, flags,
+                    sprites, boxes)
+        if a.output.lower().endswith(".bme"):
+            data = mark_project(data)
+        title, res_str = a.title, a.res
+    if (a.b16 or a.output.lower().endswith(".b16")) and len(data) > 8 * 1024 * 1024:
+        raise SystemExit(f"{a.output}: {len(data)} bytes is over a .b16's 8 MiB limit")
     if a.output and os.path.dirname(a.output):
         os.makedirs(os.path.dirname(os.path.abspath(a.output)), exist_ok=True)
     open(a.output, "wb").write(data)
-    print(f"{a.output}: {len(data)} bytes ({a.title or 'untitled'}, {a.res})")
+    print(f"{a.output}: {len(data)} bytes ({title or 'untitled'}, {res_str})")
 
 
 if __name__ == "__main__":

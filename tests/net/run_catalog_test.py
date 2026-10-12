@@ -171,6 +171,12 @@ with tempfile.TemporaryDirectory() as tmp:
     r = mkmarket(add, "--add", cart, "--version", "a3")
     check(r.returncode == 0 and "version: a3" in open(info).read() and "about: Find them." in open(info).read(),
           "--add: changed bytes take the new version, the rest stays")
+    app_cart = os.path.join(tmp, "sdk.bm")
+    with open(app_cart, "wb") as f:
+        f.write(mkbm.pack(code, title="bm SDK", author="bm"))
+    r = mkmarket(add, "--add", app_cart, "--id", "sdk", "--kind", "app", "--version", "1.0", "--license", "MIT")
+    check(r.returncode == 0 and "kind: app\n" in open(os.path.join(add, "sdk", "info.txt")).read(),
+          "--add --kind app: writes kind: app in info.txt")
     check(mkmarket(add, "--check").returncode == 0, "--add: the folder passes --check")
 
     covers = []

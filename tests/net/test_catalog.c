@@ -241,6 +241,20 @@ int main(int argc, char **argv)
     check(parse_text(buf) == -1, "control character in a text: refused");
     snprintf(buf, sizeof buf, "bm market\nserial 1\ntitle T\n" GAME("a", ""), sha);
     check(parse_text(buf) == 0, "fields before the first game: ignored");
+    {
+        catalog_t ac;
+        snprintf(buf, sizeof buf, "bm market\nserial 1\n"
+                 GAME("a", "")
+                 "game sdk\ntitle bm SDK\nversion 1\nlicense MIT\nfile games/sdk/sdk.bm 10 %s\n"
+                 "game mytool\nkind app\ntitle My Tool\nversion 1\nlicense MIT\nfile games/mytool/t.b16 10 %s\n",
+                 sha, sha, sha);
+        check(catalog_parse((const uint8_t *)buf, strlen(buf), &ac, last_err, sizeof last_err) == 0 &&
+              ac.n == 3 && !ac.games[0].is_app && ac.games[1].is_app && ac.games[2].is_app,
+              "kind app and known app ids set is_app");
+        catalog_free(&ac);
+        snprintf(buf, sizeof buf, "bm market\nserial 1\n" GAME("a", "kind bad\n"), sha);
+        check(parse_text(buf) == -1 && strstr(last_err, "bad kind"), "invalid kind: refused");
+    }
 
     check(catalog_newer("20261001120001", "20261001120000") && !catalog_newer("20261001120000", "20261001120000") &&
           catalog_newer("10", "9") && !catalog_newer("9", "10") && catalog_newer("1", "") &&

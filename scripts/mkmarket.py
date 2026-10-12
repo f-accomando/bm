@@ -71,6 +71,7 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,22}$")
 FILE_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9._-]{0,39}\.(bm|b16)$")
 VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,14}$")
 LIMITS = {"license": 40, "about": 120}
+APP_IDS = {"sdk", "editor", "sdk-b16", "code", "pixel", "studio", "animator", "mesh", "sound", "assistant", "write", "typing"}
 
 
 def die(msg):
@@ -208,6 +209,9 @@ def read_game(games, gid):
         raise ValueError("no info.txt")
     info = read_info(os.path.join(d, "info.txt"))
     version, lic = info.get("version", ""), info.get("license", "")
+    kind = info.get("kind", "app" if gid in APP_IDS else "game").lower()
+    if kind not in ("game", "app"):
+        raise ValueError(f"kind {kind!r}: 'game' or 'app'")
     if not VERSION_RE.match(version):
         raise ValueError(f"version {version!r}: 1-15 of A-Z, a-z, 0-9, '.', '_', '-'")
     if not lic:
@@ -226,7 +230,7 @@ def read_game(games, gid):
             "id": gid, "name": name, "data": data, "title": title, "author": author, "cover": cover,
             "version": version.encode(), "license": console_text(lic, "license", LIMITS["license"]),
             "about": console_text(info.get("about", ""), "about", LIMITS["about"]),
-            "info": info,
+            "kind": kind, "info": info,
         })
     return out
 
@@ -259,18 +263,31 @@ def read_games(games):
 
 # ------------------------------------------------------------------ output
 
-def page(games, serial):
+def _render_cards(items):
     rows = []
-    for g in games:
+    for g in items:
         t = html.escape(g["title"].decode("cp437"))
         a = html.escape(g["author"].decode("cp437")) or "-"
         about = html.escape(g["info"].get("about", ""))
         lic = html.escape(g["info"].get("license", ""))
+        b16 = g["name"].lower().endswith(".b16")
+        fmt = '<span class="badge b16">.b16 &middot; RGB30</span>' if b16 else '<span class="badge bm">.bm &middot; Pi</span>'
         img = (f'<img src="games/{g["id"]}/cover.png" width="176" height="176" alt="">' if g["cover"]
                else f'<div class="nocover">{t}</div>')
-        rows.append(f"""<li>{img}<div><h2>{t}</h2><p class="by">{a} &middot; v{html.escape(g["version"].decode())}
+        rows.append(f"""<li>{img}<div><h2>{t} {fmt}</h2><p class="by">{a} &middot; v{html.escape(g["version"].decode())}
  &middot; {lic} &middot; {(len(g["data"]) + 1023) // 1024} KiB</p><p>{about}</p>
 <p><a href="games/{g["id"]}/{g["name"]}" download>{g["name"]}</a></p></div></li>""")
+    return "\n".join(rows)
+
+
+def page(games, serial):
+    play = [g for g in games if g.get("kind", "game") != "app"]
+    apps = [g for g in games if g.get("kind", "game") == "app"]
+    sections = []
+    if play:
+        sections.append(f"<h2>Games ({len(play)})</h2>\n<ul>\n{_render_cards(play)}\n</ul>")
+    if apps:
+        sections.append(f"<h2>Apps &amp; Dev Tools ({len(apps)})</h2>\n<ul>\n{_render_cards(apps)}\n</ul>")
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>bm Market</title>
@@ -279,20 +296,24 @@ def page(games, serial):
 body {{ margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,sans-serif; }}
 main {{ max-width:880px; margin:0 auto; padding:24px 16px; }}
 h1 {{ margin:0 0 4px; }} .lead {{ color:var(--dim); margin:0 0 24px; }}
+h2 {{ margin:24px 0 12px; font-size:20px; }}
+li h2 {{ margin:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }}
+.badge {{ font-size:12px; font-weight:600; padding:2px 8px; border-radius:999px; }}
+.badge.bm {{ background:#0d3b4c; color:#5ce1ff; }}
+.badge.b16 {{ background:#4a2c0a; color:#ffb84d; }}
 ul {{ list-style:none; padding:0; margin:0; display:grid; gap:16px; }}
 li {{ display:flex; gap:16px; background:var(--card); border-radius:12px; padding:16px; flex-wrap:wrap; }}
 li img, .nocover {{ border-radius:8px; image-rendering:pixelated; width:176px; height:176px; }}
 .nocover {{ display:flex; align-items:center; justify-content:center; background:#303040; color:#ffe678; }}
-h2 {{ margin:0; font-size:20px; }} .by {{ color:var(--dim); margin:0 0 8px; }}
+.by {{ color:var(--dim); margin:0 0 8px; }}
 a {{ color:var(--accent); }} code {{ background:#000; padding:2px 6px; border-radius:4px; }}
 </style></head><body><main>
 <h1>bm Market</h1>
-<p class="lead">Free games for bm, the bare metal console for the Raspberry Pi Zero.
-On the console: the <b>Market</b> tab of the menu. From a PC: download a game, then
-<code>tools/bm_net.py IP --send game.bm</code>. Catalog {serial}, {len(games)} games.</p>
-<ul>
-{chr(10).join(rows)}
-</ul></main></body></html>
+<p class="lead">Free games and apps for bm (Raspberry Pi Zero, <code>.bm</code>) and bm16 (Powkiddy RGB30, <code>.b16</code>).
+On the console: the <b>Market</b> tab of the menu (<b>Games</b> / <b>Apps</b>). From a PC: download a cartridge, then
+<code>tools/bm_net.py IP --send game.bm</code>. Catalog {serial}, {len(play)} games, {len(apps)} apps.</p>
+{chr(10).join(sections)}
+</main></body></html>
 """
 
 
@@ -304,7 +325,10 @@ def build(games, out, serial):
         rel = f"games/{g['id']}/{g['name']}"
         with open(os.path.join(out, rel), "wb") as f:
             f.write(g["data"])
-        lines += [b"game " + g["id"].encode(), b"title " + g["title"], b"author " + g["author"],
+        lines.append(b"game " + g["id"].encode())
+        if g.get("kind") == "app":
+            lines.append(b"kind app")
+        lines += [b"title " + g["title"], b"author " + g["author"],
                   b"version " + g["version"], b"license " + g["license"], b"about " + g["about"],
                   f"file {rel} {len(g['data'])} {hashlib.sha256(g['data']).hexdigest()}".encode()]
         if g["cover"]:
@@ -320,7 +344,7 @@ def build(games, out, serial):
     return index
 
 
-def add(games, path, gid, version, lic, about):
+def add(games, path, gid, version, lic, about, kind=None):
     """a cartridge into GAMES: a new folder, or the same game updated (the
     version changes only when the bytes do)"""
     data = open(path, "rb").read()
@@ -335,7 +359,7 @@ def add(games, path, gid, version, lic, about):
     d = os.path.join(games, gid)
     os.makedirs(d, exist_ok=True)
     name = os.path.basename(path)
-    # the other kind (a .bm next to a .b16, Overbit) stays
+    # the other kind (a .bm next to a .b16, Overbit or bm SDK) stays
     b16 = name.lower().endswith(".b16")
     old = [n for n in os.listdir(d) if n.lower().endswith(CART_EXT) and n.lower().endswith(".b16") == b16]
     info_path = os.path.join(d, "info.txt")
@@ -352,12 +376,16 @@ def add(games, path, gid, version, lic, about):
         info["license"] = lic
     if about:
         info["about"] = about
+    if kind:
+        info["kind"] = kind
+    elif gid in APP_IDS:
+        info.setdefault("kind", "app")
     with open(info_path, "w", encoding="utf-8", newline="\n") as f:
-        for k in ("version", "license", "about"):
+        for k in ("version", "license", "about", "kind"):
             if k in info:
                 f.write(f"{k}: {info[k]}\n")
         for k, v in info.items():
-            if k not in ("version", "license", "about"):
+            if k not in ("version", "license", "about", "kind"):
                 f.write(f"{k}: {v}\n")
     print(f"mkmarket: {gid}: {title.decode('cp437')} {'unchanged' if same else 'v' + info['version']}")
 
@@ -377,6 +405,7 @@ def main():
     ap.add_argument("--license")
     ap.add_argument("--about")
     ap.add_argument("--about-file")
+    ap.add_argument("--kind", choices=("game", "app"), help="catalog page: game (default) or app")
     a = ap.parse_args()
 
     if a.add:
@@ -390,7 +419,7 @@ def main():
                 if sep and not line.startswith("#") and key.strip() == gid:
                     l_, _, ab = rest.partition("|")
                     lic, about = lic or l_.strip(), about or ab.strip()
-        add(a.games, a.add, a.id, a.version, lic, about)
+        add(a.games, a.add, a.id, a.version, lic, about, a.kind)
         return
     games = read_games(a.games)
     if a.check:

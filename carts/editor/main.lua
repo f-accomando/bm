@@ -635,7 +635,7 @@ local function list_files()
   for _, dir in ipairs({ "/carts", "/" }) do
     for _, f in ipairs(ls(dir)) do
       local n = f.name:lower()
-      if not f.dir and (n:match("%.bm$") or n:match("%.bme$")) then
+      if not f.dir and (n:match("%.bm$") or n:match("%.bme$") or n:match("%.b16$")) then
         out[#out + 1] = (dir == "/" and "" or dir) .. "/" .. f.name
       end
     end
@@ -718,10 +718,10 @@ function store_target()
 end
 
 local function save_as(after)
-  local def = S.proj.save and S.proj.save:match("([^/]+)$"):gsub("%.[Bb][Mm]$", ".BME") or "MYGAME.BME"
+  local def = S.proj.save and S.proj.save:match("([^/]+)$"):gsub("%.[Bb][Mm]$", ".BME"):gsub("%.[Bb]16$", ".BME") or "MYGAME.BME"
   D.ask("file name (8.3, in /carts)", def, function(t)
     if t == "" then return end
-    if not t:upper():match("%.BME$") then t = t:gsub("%.[Bb][Mm]$", "") .. ".BME" end
+    if not t:upper():match("%.BME$") then t = t:gsub("%.[Bb][Mm]$", ""):gsub("%.[Bb]16$", "") .. ".BME" end
     S.proj.save = short_path("/carts/" .. t)
     S.proj.path = nil                    -- (the new file, once written)
     if save_project() then
@@ -736,15 +736,16 @@ local function save_then(after)
   elseif not S.dirty or save_project() then after() end
 end
 
--- Build .bm (Ctrl+B): the game of the project, next to it, in Games; a
--- game opened here is saved first (its editable copy)
-local function build_project()
+-- Build .bm (Ctrl+B) or Export .b16 (Ctrl+Shift+B): the game of the project,
+-- next to it, in Games; a game opened here is saved first (its editable copy)
+local function build_project(b16)
   local function go()
     if not is_project(S.proj.save) then
       say("build: a game is built from its project (save it first)", C.ERR)
       return
     end
-    local ok, e = cart_build(S.proj.save)
+    local ok, e
+    if b16 then ok, e = cart_build(S.proj.save, "b16") else ok, e = cart_build(S.proj.save) end
     if ok then say("built " .. e .. ": it is in Games", C.ACC) else say("build failed: " .. tostring(e), C.ERR) end
   end
   if S.proj.save and not is_project(S.proj.save) then
@@ -1564,7 +1565,7 @@ do
   local layer, only, show_flags = 1, false, false   -- the layer edited; drawn alone; the flags over it
   -- big (z): the 16x16 brush, a tile of 2 x 2 cells (n, n + 1 and the two under them on the sheet), as the
   -- 16x16 tiles of a big world (Yharnam's): the cursor and the tile on even cells
-  local big = false
+  local big, mini = false, false
   local m_undo, m_stroke = {}, nil
   local VIEW_Y = 48
   local VIEW_CW, VIEW_CH = W // 8, (HINT_Y - VIEW_Y) // 8
@@ -1608,6 +1609,21 @@ do
       touched()
     else
       layer = layer % #names + 1
+    end
+    if names[layer] == "objects" then
+      big = true
+      local cur = mget(mx, my, layer)
+      if cur > 0 then
+        tile = cur
+      elseif tile < 1024 then
+        for y = 0, S.map_h - 1, 2 do
+          for x = 0, S.map_w - 1, 2 do
+            local v = mget(x, y, layer)
+            if v > 0 and (tile < 1024 or v < tile) then tile = v end
+          end
+        end
+      end
+      even()
     end
     say(string.format("map layer %d/%d: %s   (map(..., \"%s\"))", layer, #names, names[layer], names[layer]), C.ACC)
   end
@@ -1679,6 +1695,7 @@ do
     elseif a == "newlayer" then next_layer(true)
     elseif a == "only" then only = not only; say(only and "this layer only" or "every layer")
     elseif a == "flags" then show_flags = not show_flags; say(show_flags and "the flags of the tiles (fget)" or "flags hidden")
+    elseif a == "mini" then mini = not mini; say(mini and "overview of the whole map (click to move)" or "overview hidden")
     elseif a == "next" then tile = tile + s elseif a == "prev" then tile = max(0, tile - s)
     elseif a == "undo" then
       local u = table.remove(m_undo)
@@ -1723,9 +1740,31 @@ do
     strip(0, "MAP", string.format("(%d,%d) = %d   tile %d%s   layer %d/%d %s", mx, my, mget(mx, my, layer), tile,
                                   big and " 16x16" or "", layer, #names, names[layer]),
           picking and "choosing the tile: arrows, then Enter" or
-          "F3 again: the sprites   tab: the tile   z: 8/16   l / L: a layer   c: flags")
+          "F3 again: the sprites   tab: the tile   z: 8/16   l / L: a layer   m: overview")
     rectfill(W - 20 - n, 20, n, n, 0x000000)
     spr(tile, W - 20 - n, 20, n // 8, n // 8)
+    if mini and not picking then
+      local mw, mh = min(128, S.map_w), min(128, S.map_h)
+      local ox, oy = W - mw - 16, VIEW_Y + 8
+      U.zone(ox, oy, mw, mh, "minimap", { ox = ox, oy = oy, mw = mw, mh = mh })
+      rectfill(ox - 4, oy - 4, mw + 8, mh + 8, C.PANEL)
+      rectfill(ox, oy, mw, mh, 0x080A10)
+      for py = 0, mh - 1 do
+        local cy = py * S.map_h // mh
+        for px = 0, mw - 1 do
+          local cx = px * S.map_w // mw
+          local v = mget(cx, cy, layer)
+          local g = layer ~= 1 and mget(cx, cy, 1) or 0
+          if v > 0 then pset(ox + px, oy + py, layer > 1 and 0xF0A840 or 0x486078)
+          elseif g > 0 then pset(ox + px, oy + py, 0x24303C) end
+        end
+      end
+      local rx = ox + vx0 * mw // max(1, S.map_w)
+      local ry = oy + vy0 * mh // max(1, S.map_h)
+      local rw = max(4, min(mw, VIEW_CW * mw // max(1, S.map_w)))
+      local rh = max(4, min(mh, VIEW_CH * mh // max(1, S.map_h)))
+      rect(rx, ry, rw, rh, C.ACC)
+    end
     if picking then
       local cols = S.sheet_w // 8
       local vw, vh = min(256, S.sheet_w), min(224, S.sheet_h)
@@ -1770,6 +1809,15 @@ do
       end
       return
     end
+    if z and z.kind == "minimap" and U.down(0) then
+      local t = z.a
+      mx = clamp((U.x - t.ox) * S.map_w // t.mw, 0, S.map_w - 1)
+      my = clamp((U.y - t.oy) * S.map_h // t.mh, 0, S.map_h - 1)
+      even()
+      vx0 = clamp(mx - VIEW_CW // 2, 0, max(0, S.map_w - VIEW_CW))
+      vy0 = clamp(my - VIEW_CH // 2, 0, max(0, S.map_h - VIEW_CH))
+      return
+    end
     local d = U.drag
     if d and (d.b == 1 or d.b == 2) and d.y0 >= VIEW_Y and d.y0 < HINT_Y then
       pan[1], pan[2] = pan[1] - d.dx, pan[2] - d.dy
@@ -1794,7 +1842,7 @@ do
   local function menu_items()
     return { { "Pick the tile", "x" }, { "Clear", "\b" }, { "Fill", "f" }, { "Tiles...", "\t" },
              { "8x8 / 16x16", "z" }, "-", { "Next layer", "l" }, { "New layer", "L" }, { "This layer only", "o" },
-             { "Flags", "c" }, "-", { "Undo", "u" } }
+             { "Flags", "c" }, { "Overview", "m" }, "-", { "Undo", "u" } }
   end
 
   P.map = { act = act, draw = draw, status = status, end_stroke = end_stroke, mouse = mouse, menu_items = menu_items,
@@ -1804,7 +1852,7 @@ do
             restore = function(t) if t then mx, my, big = t.mx or 0, t.my or 0, t.big or false; act("none") end end,
             reset = function()
               mx, my, vx0, vy0, m_undo, m_stroke, picking = 0, 0, 0, 0, {}, nil, false
-              layer, only, show_flags, big = 1, false, false, false
+              layer, only, show_flags, big, mini = 1, false, false, false, false
             end }
 end
 
@@ -2044,7 +2092,7 @@ local function set_target(t)
   S.target = t
   store_target()
   if t == "b16" then
-    say("target .b16 (RGB30): the format is not there yet; the dev kit shows its 8 MiB and what it will not have", C.ACC, 400)
+    say("target .b16 (RGB30): 8 MiB limit; Esc > Export .b16 builds the .b16 edition", C.ACC, 400)
   else
     say("target .bm: the console's cartridge", C.ACC)
   end
@@ -2183,7 +2231,7 @@ do
   local function draw_devkit()
     local I, r = S.info, S.run
     strip(PANEL_W, "dev kit", "performance, memory and tokens",
-          "target ." .. S.target .. (S.target == "b16" and "   (RGB30, 8 MiB: the format is coming, docs/B16.md)" or
+          "target ." .. S.target .. (S.target == "b16" and "   (RGB30, 8 MiB: Esc > Export .b16, docs/B16.md)" or
                                      "   F11 in any game: the overlay"))
     if not I or I.error then
       print(I and I.error and ("cannot measure: " .. I.error:sub(1, 40)) or "measuring...", INFO_X, 64, C.DIM)
@@ -2282,7 +2330,8 @@ do
       { "Open...   (Ctrl+O)", open_other },
       { "Save   (Ctrl+S)", function() if S.proj.save then save_project() else save_as() end end },
       { "Save as...   (Ctrl+Shift+S)", function() save_as() end },
-      { "Build the game .bm   (Ctrl+B)", build_project },
+      { "Build the game .bm   (Ctrl+B)", function() build_project() end },
+      { "Export .b16   (Ctrl+Shift+B)", function() build_project(true) end },
       { "Try the game (F5)", run_project },
       { "New map layer (" .. #mlayers() .. "/8)", function() S.d2view = "map"; show("d2"); P.map.new_layer() end },
       { "Exit bm SDK", function() if not needs_confirm("exit") then quit() end end },
@@ -2384,6 +2433,7 @@ local function global_key(k)
   elseif k == "^s" then if S.proj.save then save_project() else save_as() end
   elseif k == "^S" then save_as()
   elseif k == "^b" then build_project()
+  elseif k == "^B" then build_project(true)
   elseif k == "^o" then P.menu_open()
   elseif k == "^n" then choose_template()
   elseif k == "^r" or k == "f5" then run_project()
@@ -2410,7 +2460,7 @@ local function page_key(k)
     if a and a ~= "pgup" and a ~= "pgdn" then P.sprite.act(a) end
     if k ~= " " then P.sprite.stop() end
   else
-    local a = SPRITE_KEYS[k] or ({ l = "layer", L = "newlayer", o = "only", c = "flags", home = "pgleft",
+    local a = SPRITE_KEYS[k] or ({ l = "layer", L = "newlayer", o = "only", c = "flags", m = "mini", home = "pgleft",
                                    ["end"] = "pgright" })[k]
     if a then P.map.act(a) end
     if k ~= " " then P.map.end_stroke() end

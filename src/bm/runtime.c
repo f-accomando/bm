@@ -5935,19 +5935,23 @@ static int l_cart_save(lua_State *L)
     return 2;
 }
 
-/* cart_build(project) -> true and the game's path, or false and a message:
- * the .bm of a project (.bme), next to it, the game it built before replaced
- * (project.h). bm's tools only (the SDK's "Build .bm"). */
+/* cart_build(project, [target]) -> true and the game's path, or false and a
+ * message: the .bm of a project (.bme), or its .b16 when target is "b16" (from
+ * a .bme or .bm), next to it, the one it built before replaced (project.h).
+ * bm's tools only (the SDK's "Build .bm" / "Export .b16"). */
 static int l_cart_build(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
+    const char *target = luaL_optstring(L, 2, NULL);
+    int b16 = target && strcasecmp(target, "b16") == 0;
     char out[96], err[64];
     if (!tool_mode) {
         lua_pushboolean(L, 0);
         lua_pushstring(L, "only bm's tools build a game");
         return 2;
     }
-    if (bm_build(path, out, sizeof out, err, sizeof err) != 0) {
+    if ((b16 ? bm_build_b16(path, out, sizeof out, err, sizeof err)
+             : bm_build(path, out, sizeof out, err, sizeof err)) != 0) {
         lua_pushboolean(L, 0);
         lua_pushfstring(L, "%s: %s", path, err);
         return 2;

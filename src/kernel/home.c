@@ -209,7 +209,21 @@ void home_assistant(framebuffer_t *fb)
 {
     extern const uint8_t bm_assistant_cart[], bm_assistant_cart_end[];
     bm_stats_t bs;
-    bm_play(fb, bm_assistant_cart, (size_t)(bm_assistant_cart_end - bm_assistant_cart), 24u * 3600u, &bs);
+    fat_entry_t e;
+    uint8_t *sd_data = NULL;
+    size_t sd_len = 0;
+    if ((fat_find("/carts/assistant.bm", &e) == 0 || fat_find("/carts/assistan.bm", &e) == 0) &&
+        fat_load(&e, &sd_data, &sd_len) == 0) {
+        bm_play(fb, sd_data, sd_len, 24u * 3600u, &bs);
+        free(sd_data);
+        return;
+    }
+    size_t len = (size_t)(bm_assistant_cart_end - bm_assistant_cart);
+    if (len == 0) {
+        kprintf("assistant: not installed (get it from Market > Apps)\n");
+        return;
+    }
+    bm_play(fb, bm_assistant_cart, len, 24u * 3600u, &bs);
 }
 
 static void t_diag(framebuffer_t *fb)
@@ -265,8 +279,9 @@ void home_init(void)
     extern const uint8_t bm_code_cart[], bm_code_cart_end[];
     bm_cart_t bc;
     char err[8];
-    if (!tools[0].cover.px &&
-        bm_parse(bm_code_cart, (size_t)(bm_code_cart_end - bm_code_cart), &bc, err, sizeof err) == 0 &&
+    size_t code_len = (size_t)(bm_code_cart_end - bm_code_cart);
+    if (!tools[0].cover.px && code_len > 0 &&
+        bm_parse(bm_code_cart, code_len, &bc, err, sizeof err) == 0 &&
         bc.cover_rgba)
         menu_load_cover(&tools[0].cover, bc.cover_rgba, bc.cover_w, bc.cover_h);
     for (int i = 0; i < NTOOLS; i++)
