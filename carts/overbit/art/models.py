@@ -2,15 +2,16 @@
 """
 The 3D models of Overbit (every hero's meshes, skeletons and animations,
 the map) as a .bm holding only the MESH and ANIM sections and the sheet
-(the pictures of the map, and the textures of the heroes' Meshy bodies):
+(the pictures of the map; with --meshy also the textures of the heroes' Meshy bodies):
 the game's build packs it with mkbm.py --models, and bm Studio, bm
 Animator and bm Mesh can open it.
 
-  models.py OUT.bm [--lua viewer.lua] [--stats] [--map MAP.lua] [--classic]
+  models.py OUT.bm [--lua viewer.lua] [--stats] [--map MAP.lua] [--meshy]
 
-The heroes' third-person models are the Meshy figures of art/meshy on the
-heroes' skeletons (meshyrig.py); --classic: the bodies made of primitives
-(heroes/*.py) instead, the sheet with the map only (SHEET8).
+The heroes' models are made of primitives (heroes/*.py: bodies, guns and
+props on the skeletons of rig.py), the sheet with the map only (SHEET8).
+--meshy: the Meshy figures of art/meshy on the same skeletons (meshyrig.py)
+for the third-person bodies instead; set aside, their arms and guns fused.
 """
 import argparse
 import os
@@ -65,9 +66,9 @@ def main():
     ap.add_argument("--define", action="append", default=[], help="NAME=lua value, set before the code")
     ap.add_argument("--map", help="also the map: its data for the Lua code goes to this file")
     ap.add_argument("--pvs", help="the tool that finds what can be seen from where (build/host/mappvs)")
-    ap.add_argument("--classic", action="store_true", help="the heroes' bodies made of primitives, not Meshy's")
+    ap.add_argument("--meshy", action="store_true", help="the Meshy figures (art/meshy) as the heroes' bodies, not the primitives'")
     a = ap.parse_args()
-    built, used = collect(meshy=not a.classic)
+    built, used = collect(meshy=a.meshy)
     extra, sheet = build_map(a.map, a.pvs) if a.map else ([], None)
     if used:
         # the Meshy textures next to the map's atlas: a sheet of 24 bits (too

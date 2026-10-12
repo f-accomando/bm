@@ -437,7 +437,6 @@ function Actors.draw(cx, cy, cz, skip)
       local det = Actors.detail(d)
       local flags = (3 - det) * 16
       if q >= 2 or (G.gpu and q >= 1) then flags = flags + 4 end    -- Gouraud (the GPU: from MEDIUM)
-      if G.flat then flags = flags + 128 end         -- the title's MODELS: FLAT (no textures, 128: draw3d's)
       local sc = a.form.scale or 1
       local h = a.height * sc
       -- not in the view, or behind the walls of the map the camera does not

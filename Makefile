@@ -294,8 +294,9 @@ $(BUILD)/carts/nano8.bm: $(BUILD)/nano8/main.lua carts/nano8/cover.png scripts/m
 OVERBIT_SRC := $(sort $(wildcard carts/overbit/src/*.lua))
 OVERBIT_ART := $(wildcard carts/overbit/art/*.py carts/overbit/art/heroes/*.py carts/overbit/art/meshy/*.mesh \
                           carts/overbit/art/meshy/*.png carts/overbit/art/meshy/*.rig)
-# OVERBIT_CLASSIC=1: the heroes' bodies made of primitives, not the Meshy figures
-OVERBIT_MODELS_FLAGS := $(if $(OVERBIT_CLASSIC),--classic)
+# The heroes' bodies are made of primitives (art/heroes/*.py). OVERBIT_MESHY=1: the Meshy
+# figures of art/meshy instead (set aside: their arms and guns fused in the poses)
+OVERBIT_MODELS_FLAGS := $(if $(OVERBIT_MESHY),--meshy)
 title_overbit := Overbit
 # its screen: 480x270, each pixel 4x4 on a 1080p TV (it was 320x180)
 OVERBIT_RES := 480x270

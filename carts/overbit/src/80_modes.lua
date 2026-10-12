@@ -198,15 +198,7 @@ local function next_hero(k)
   menu_hero()
 end
 
--- MODELS: the heroes' bodies textured or flat colours (draw3d's flag 128; the .bm, on a runtime that has it)
-function Menu.has_flat() return OVERBIT_TV_BM and type(textures3d) == "function" end
-
-local function toggle_models()
-  Quality.set_flat(not G.flat)
-end
-
 function Menu.start()
-  if Menu.has_flat() and ITEMS[6] ~= "MODELS" then table.insert(ITEMS, 6, "MODELS") end     -- after BOTS
   clear_match()
   Menu.hero = nil
   menu_hero()
@@ -246,10 +238,6 @@ function Menu.update()
     G.bot_diff = (G.bot_diff - 1 + (c.right_p and 1 or -1)) % 3 + 1
     Snd.play("ui")
   end
-  if ITEMS[Menu.sel] == "MODELS" and (c.left_p or c.right_p) then
-    toggle_models()
-    Snd.play("ui")
-  end
   if ITEMS[Menu.sel] == "RESOLUTION" and (c.left_p or c.right_p) then
     if next_screen(c.right_p and 1 or -1) then Snd.play("ui") end
   end
@@ -271,7 +259,6 @@ function Menu.update()
     elseif it == "TRAINING RANGE" then Modes.start("range")
     elseif it == "HERO" then next_hero(1)
     elseif it == "BOTS" then G.bot_diff = G.bot_diff % 3 + 1
-    elseif it == "MODELS" then toggle_models()
     elseif it == "RESOLUTION" then next_screen(1)
     elseif it == "RENDERER" then next_renderer()
     elseif it == "ANIMATION REEL" then Modes.start("reel")
@@ -305,7 +292,6 @@ function Menu.draw()
     local s = it
     if it == "HERO" then s = "HERO: < " .. H[G.hero_id].name:upper() .. " >" end
     if it == "BOTS" then s = "BOTS: < " .. Bots.SKILL[G.bot_diff].name .. " >" end
-    if it == "MODELS" then s = "MODELS: < " .. (G.flat and "FLAT" or "TEXTURE") .. " >" end
     if it == "RESOLUTION" then
       local more = #Quality.modes(Quality.renderer()) > 1
       s = string.format(more and "RESOLUTION: < %dX%d >" or "RESOLUTION: %dX%d", SCREEN_W, SCREEN_H)
