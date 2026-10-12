@@ -1877,6 +1877,8 @@ static void gpu3d_maybe(void)
         gpu3d_set_fs2(!fs2 || strcmp(fs2, "0") != 0);   /* two-thread pixel shaders (M39; on from 6.4) */
         const char *so = config_get("gpu3d_sort");
         gpu3d_set_sort(so && strcmp(so, "1") == 0);     /* opaque meshes nearest first (M39): Settings */
+        const char *at = config_get("gpu3d_attr");
+        gpu3d_set_attr(at && strcmp(at, "1") == 0);     /* compact attributes (M39): Settings */
         const char *g2 = config_get("gpu3d_2d");
         rt.gpu2d = g2 && strcmp(g2, "1") == 0;          /* the 2D over the 3D in the job (M37): Settings */
         const char *lt = config_get("gpu3d_later");

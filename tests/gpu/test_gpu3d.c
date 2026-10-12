@@ -906,7 +906,7 @@ int main(int argc, char **argv)
     snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, 16-bit textures %s, "
              "two-thread shaders %s, vertex shader %s, "
              "indexed yes, clipping %s, "
-             "lit models yes, queue yes, zclear in job %s", emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
+             "lit models yes, queue yes, zclear in job %s, compact attributes yes", emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
              emu_tformat == 2 ? "rows" : "tiles", emu_ms_load_one ? "on cleared pages" : "on any page",
              emu_tformat == 2 ? "no" : "yes", emu_no_threads ? "no" : "yes",
              emu_vpm_words ? (emu_cw_flip ? "yes (VPM in words)" : "yes (cw, VPM in words)")
@@ -1096,6 +1096,51 @@ int main(int argc, char **argv)
         printf("  two-thread shaders: %u batches with them, %d pixels differ\n", threaded, differ);
         CHECK(differ == 0 && (emu_no_threads ? threaded == 0 : threaded >= 3),
               "two-thread shaders: %d pixels differ, %u batches", differ, threaded);
+        test_free(q[0]);
+        test_free(q[1]);
+    }
+    /* M39: compact attributes (colour and light bytes packed, unpacked by
+     * vs_baked8 and vs_lit8): the same pixels as the floats, but for a
+     * step of RGB565 where the unpack's byte / 255 and the ARM's byte *
+     * (1 / 255) differ in their last bit (unlit and baked meshes, lit boxes
+     * with fog and a lamp, heroes lit by the sun: glossy, emissive, smooth
+     * and flat, their shadows) */
+    {
+        uint16_t *q[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
+        static const scene_fn fns[3] = { s_vshader, s_vshader_lit, s_vshader_heroes };
+        int differ = 0, off = 0;
+        uint32_t words[2] = { 0, 0 };
+        for (int f = 0; f < 3; f++)
+            for (int k = 0; k < 2; k++) {
+                g16_t g;
+                r3d_t r;
+                g16_target(&g, q[k], 640, 640, 360, &font);
+                g16_cls(&g, g16_rgb(30, 20, 50));
+                r3d_init(&r, &g);
+                r.backend = gpu3d_backend();
+                gpu3d_drop();
+                r3d_zclear(&r);
+                gpu3d_set_attr(k);
+                const uint32_t w0 = emu_stats.attr_words;
+                fns[f](&r, &g, 1);
+                words[k] += emu_stats.attr_words - w0;
+                CHECK(gpu3d_attr() == k, "compact attributes: on %d, asked %d", gpu3d_attr(), k);
+                gpu3d_set_attr(0);
+                r3d_free(&r);
+                if (k)
+                    for (int i = 0; i < 640 * 360; i++) {
+                        const uint16_t a = q[0][i], b = q[1][i];
+                        if (a == b)
+                            continue;
+                        differ++;
+                        const int dr = (a >> 11) - (b >> 11), dg = (a >> 5 & 63) - (b >> 5 & 63), db = (a & 31) - (b & 31);
+                        off += dr < -1 || dr > 1 || dg < -1 || dg > 1 || db < -1 || db > 1;
+                    }
+            }
+        printf("  compact attributes: %u words of corners read instead of %u, %d pixels a step off, %d more\n",
+               words[1], words[0], differ - off, off);
+        CHECK(off == 0 && words[1] > 0 && words[1] * 10 < words[0] * 8,
+              "compact attributes: %d pixels differ by more than a step, %u words against %u", off, words[1], words[0]);
         test_free(q[0]);
         test_free(q[1]);
     }

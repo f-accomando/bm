@@ -14,7 +14,9 @@ pixel's x), y_coord (regfile B 41: its y), small immediates (0..15,
 -16..-1, 1.0 2.0 ... 128.0, 1/256 ... 0.5). Destinations: r0-r3, r5,
 ra0-ra31, rb0-rb31, tlbc (colour), tlb_z, t0s t0t t0r t0b, t1s ..., nop;
 a mul destination can pack a float into one byte of a colour: r3.8a ..
-r3.8d, or into all four with .8888. Signals: thrend sbwait sbdone ldtmu0
+r3.8d, or into all four with .8888. A regfile A source can be unpacked
+on its read (M39): ra5.8a .. ra5.8d (a byte: 0..1 to a float op, 0..255
+to an integer op), ra5.16a / .16b, ra5.8dr (UNPACK_A). Signals: thrend sbwait sbdone ldtmu0
 ldtmu1 loadc; "small" is added by itself with an immediate.
 Reference: VideoCore IV 3D Architecture Reference Guide (Broadcom), chapter 3.
 """
@@ -45,6 +47,13 @@ ACC = {"r0": 0, "r1": 1, "r2": 2, "r3": 3, "r4": 4, "r5": 5}
 COND = {"never": 0, "always": 1, "zs": 2, "zc": 3, "ns": 4, "nc": 5, "cs": 6, "cc": 7,
         "ifz": 2, "ifnz": 3, "ifn": 4, "ifnn": 5, "ifc": 6, "ifnc": 7}
 PACK_MUL = {"8888": 3, "8a": 4, "8b": 5, "8c": 6, "8d": 7}
+# regfile A unpack on a read (pm 0; reference guide, table "Regfile-a Unpack
+# Modes"): ra5.8a .. ra5.8d a byte, 0..255 as an integer to an integer op,
+# as a float 0..1 (byte / 255) to a float op (fadd .. ftoi, fmul); ra5.16a,
+# .16b a half (a half float to a float op, else a signed 16-bit integer);
+# .8dr byte d in all four bytes. Every read of regfile A in the instruction
+# is unpacked the same way; no mul pack in the same instruction (pm 1).
+UNPACK_A = {"16a": 1, "16b": 2, "8dr": 3, "8a": 4, "8b": 5, "8c": 6, "8d": 7}
 MUX_A, MUX_B = 6, 7
 
 
@@ -76,6 +85,8 @@ class Inst:
         self.raddr_a = None
         self.raddr_b = None
         self.small = None
+        self.unpack = None              # regfile A read unpacked (UNPACK_A)
+        self.a_plain = False            # a register of file A read as it is
 
 
 def load_imm(line, lineno):
@@ -125,9 +136,20 @@ def assemble_line(line, lineno):
         tok = tok.strip()
         if tok in ACC:
             return ACC[tok]
-        m = re.fullmatch(r"r([ab])(\d+)", tok)
+        m = re.fullmatch(r"r([ab])(\d+)(?:\.(\w+))?", tok)
         if m:
             n = int(m[2])
+            if m[3] is not None:
+                if m[1] != "a" or m[3] not in UNPACK_A:
+                    raise SyntaxError(f"line {lineno}: unpack .{m[3]} only on a regfile A read: {tok}")
+                u = UNPACK_A[m[3]]
+                if ins.a_plain or (ins.unpack is not None and ins.unpack != u):
+                    raise SyntaxError(f"line {lineno}: regfile A read with two unpacks")
+                ins.unpack = u
+            elif m[1] == "a":
+                if ins.unpack is not None:
+                    raise SyntaxError(f"line {lineno}: regfile A read with two unpacks")
+                ins.a_plain = True
             if m[1] == "a":
                 if ins.raddr_a not in (None, n):
                     raise SyntaxError(f"line {lineno}: two regfile A reads")
@@ -243,7 +265,10 @@ def assemble_line(line, lineno):
     else:
         raddr_b = 39 if ins.raddr_b is None else ins.raddr_b
     raddr_a = 39 if ins.raddr_a is None else ins.raddr_a
-    hi = (ins.sig << 28 | 0 << 25 | fields["pm"] << 24 | fields["pack"] << 20 |
+    unpack = ins.unpack or 0
+    if unpack and fields["pm"]:
+        raise SyntaxError(f"line {lineno}: a regfile A unpack and a mul pack in one instruction")
+    hi = (ins.sig << 28 | unpack << 25 | fields["pm"] << 24 | fields["pack"] << 20 |
           fields["cond_add"] << 17 | fields["cond_mul"] << 14 | fields["sf"] << 13 |
           fields["ws"] << 12 | fields["waddr_add"] << 6 | fields["waddr_mul"])
     lo = (fields["op_mul"] << 29 | fields["op_add"] << 24 | raddr_a << 18 | raddr_b << 12 |
@@ -1045,6 +1070,32 @@ SHADERS["vs_baked"] = """
         nop                 ; nop
 """
 
+# M39 (gpu3d_attr): vs_baked with compact attributes, x y z and two words
+# (5 instead of 9): the colour (bytes a b c, unpacked to byte / 255 as the
+# ARM writes it) and the light (bytes a b c, 128 = 1: unpacked as integers,
+# then exactly / 128 as the ARM's). The rest is vs_baked's.
+SHADERS["vs_baked8"] = """
+        ldi vr_setup, 0x501a00                          # 5 rows
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra13, vpm       ; nop                       # colour: bytes a b c
+        mov ra14, vpm       ; nop                       # light: bytes a b c
+        nop                 ; fmul ra3, ra13.8a, 1.0    # colour a, 0..1
+        nop                 ; fmul ra4, ra13.8b, 1.0
+        nop                 ; fmul rb2, ra13.8c, 1.0
+        mov r0, ra14.8a     ; nop                       # light a, 0..255
+        mov r1, ra14.8b     ; nop
+        mov r2, ra14.8c     ; nop
+        itof r0, r0         ; nop
+        itof r1, r1         ; fmul ra5, r0, 0.0078125   # / 128
+        itof r2, r2         ; fmul rb3, r1, 0.0078125
+        nop                 ; fmul rb4, r2, 0.0078125
+""" + SHADERS["vs_baked"][SHADERS["vs_baked"].index(XFORM):]
+
 # The point of the lamps and the fog (ra20 ra21 ra22: the corner itself,
 # or the middle of a flat face, as the ARM lights it) into the camera's
 # axes (ra6 rb6 rb7, where XFORM leaves the corner), by the matrix again
@@ -1182,6 +1233,35 @@ SHADERS["vs_lit"] = """
         nop                 ; nop
         nop                 ; nop
 """
+
+# M39 (gpu3d_attr): vs_lit with compact attributes, 10 words instead of 14:
+# x y z, the normal, one word of the colour (bytes a b c, unpacked to byte
+# / 255) and the flags (byte d: 1 emissive, 2 glossy and not emissive,
+# unpacked as an integer), the point of the lamps. The rest is vs_lit's.
+SHADERS["vs_lit8"] = """
+        ldi vr_setup, 0xa01a00                          # 10 rows
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra3, vpm        ; nop                       # the normal
+        mov ra4, vpm        ; nop
+        mov rb0, vpm        ; nop
+        mov ra23, vpm       ; nop                       # colour a b c, flags
+        mov ra20, vpm       ; nop                       # the point of the lamps and the fog
+        mov ra21, vpm       ; nop
+        mov ra22, vpm       ; nop
+        nop                 ; fmul rb1, ra23.8a, 1.0    # colour a, 0..1
+        nop                 ; fmul ra17, ra23.8b, 1.0
+        nop                 ; fmul ra7, ra23.8c, 1.0
+        mov r0, ra23.8d     ; nop                       # the flags, 0..3
+        and r1, r0, 1       ; nop
+        shr r0, r0, 1       ; nop
+        itof ra8, r1        ; nop                       # emissive
+        itof rb5, r0        ; nop                       # glossy
+""" + SHADERS["vs_lit"][SHADERS["vs_lit"].index(XFORM):]
 
 # Textured faces of models lit by the sun (Overbit's Meshy heroes): the
 # light of vs_lit at the corner without its highlight, grey as r3d's
@@ -1790,6 +1870,50 @@ def check_same_writes(name, code, base, base_code, n=300):
     return n
 
 
+def unpack_test():
+    """M39: the regfile A unpack, field by field as the reference guide
+    lays the instruction out (unpack bits 59:57, pm 56, raddr_a 23:18, the
+    input muxes 6 = regfile A), and the lines it must refuse"""
+    ok = True
+    cases = [
+        # line, unpack, raddr_a, (add_a, add_b, mul_a, mul_b) or None
+        ("nop ; fmul ra3, ra13.8a, 1.0", 4, 13, (0, 0, 6, 7)),
+        ("nop ; fmul rb2, ra13.8c, 1.0", 6, 13, (0, 0, 6, 7)),
+        ("mov r0, ra14.8b ; nop", 5, 14, (6, 6, 0, 0)),
+        ("mov r0, ra23.8d ; nop", 7, 23, (6, 6, 0, 0)),
+        ("fadd r0, ra7.16a, r1 ; nop", 1, 7, (6, 1, 0, 0)),
+        ("fadd r0, ra7.16b, r1 ; fmul r1, ra7.16b, r2", 2, 7, (6, 1, 6, 2)),
+        ("mov r0, ra2.8dr ; nop", 3, 2, (6, 6, 0, 0)),
+        ("mov r0, ra2 ; nop", 0, 2, (6, 6, 0, 0)),
+    ]
+    for line, unpack, ra, mux in cases:
+        (lo, hi), = [w for w, _ in assemble(line)]
+        got = (hi >> 25 & 7, hi >> 24 & 1, lo >> 18 & 63, (lo >> 9 & 7, lo >> 6 & 7, lo >> 3 & 7, lo & 7))
+        if got != (unpack, 0, ra, mux):
+            print(f"unpack: '{line}' gives unpack {got[0]} pm {got[1]} raddr_a {got[2]} muxes {got[3]}, "
+                  f"expected {unpack} 0 {ra} {mux}")
+            ok = False
+    # the same instruction without the unpack: only bits 59:57 change
+    (lo0, hi0), = [w for w, _ in assemble("nop ; fmul ra3, ra13, 1.0")]
+    (lo1, hi1), = [w for w, _ in assemble("nop ; fmul ra3, ra13.8a, 1.0")]
+    if lo0 != lo1 or hi0 ^ hi1 != 4 << 25:
+        print("unpack: more than the unpack field changes")
+        ok = False
+    for bad in ("mov r0, rb3.8a ; nop",                     # regfile B
+                "fadd r0, ra3.8a, ra3.8b ; nop",            # two unpacks
+                "fadd r0, ra3.8a, ra3 ; nop",               # unpacked and not
+                "nop ; fmul ra3, ra13.8x, 1.0",             # no such unpack
+                "mov r0, ra3.8a ; mov r3.8a, r1"):          # with a mul pack (pm 1)
+        try:
+            assemble(bad)
+        except SyntaxError:
+            continue
+        print(f"unpack: '{bad}' assembled")
+        ok = False
+    print("qpuasm: regfile A unpack " + ("ok" if ok else "FAILED"))
+    return ok
+
+
 def self_test():
     ok = True
     for i, (src, words) in enumerate(REFERENCE):
@@ -1801,6 +1925,7 @@ def self_test():
                     print(f"reference {i}: word {k}: got {g:08x}, expected {w:08x}")
             if len(got) != len(words):
                 print(f"reference {i}: {len(got)} words, expected {len(words)}")
+    ok = unpack_test() and ok
     pixels = 0
     for name, src in SHADERS.items():
         code = assemble(src)

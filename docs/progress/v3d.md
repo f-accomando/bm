@@ -20,6 +20,12 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   includes the wait before the ARM looks: trust it only without the queue.
 - `r3d_impostor=N` (off; 2..64 px of a 1080-line screen, threshold N*h/1080: `imp_threshold`
   in `r3d.c`; `gpu3d()` 5th; skinned meshes by their pose box). Host test: `make test-impostor`.
+- `gpu3d_attr=1` (bm3d 7.1, off; Settings *3D corners*, 3D Bench GPU+VS+A8): compact
+  attributes for `GV_BAKED` (5 words a corner, was 9: `vs_baked8`) and `GV_LIT` (10, was 14:
+  `vs_lit8`). ARM side `put_mesh_corner` / `pack_abc`; shader side the regfile A unpack
+  (`UNPACK_A` in `tools/qpuasm.py`, emulated in `tests/gpu/v3d_emu.c`); `probe_attr` keeps it
+  only if the pixels match the floats (a step of RGB565 allowed). `make test-gpu3d`: same
+  pixels, 28% fewer attribute words.
 
 ## Decisions (from Pi reports, 2026-10-12)
 
@@ -43,7 +49,10 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
    at 640x360, no effect: session at 8 gave 57.7 fps, GPU 7.8 ms a frame, 8588 tris), photo of
    far heroes; then the default for crowds (R42).
 3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs.
-4. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
+4. M39 remaining: RGBA5551/4444, ETC1, mipmaps. Attributes (after the Pi measures
+   GPU+VS+A8): `vs_tex_rgb` light as bytes (8 -> 6 words), `vs_lit_tex`/`vs_lit_tex2` flags
+   and uv as halves (`.16a/.16b`), normals as bytes, then 16-bit positions (scaled per mesh,
+   a separate x y z stream for the coordinate shader).
 5. QPU programs outside 3D (M44): the toolkit notes are in `docs/ROADMAP.md`.
 
 ## scaling_kernel
@@ -85,6 +94,9 @@ of the SD (not `boot/config.txt`), run Overbit on the GPU at 640x360 on 1080p, c
 Reports in branch `reports`; ask the user. The kernel must end in the commit tested.
 
 - Impostor 0 / 8 / 16 / 32: `res:640/gpu:arm+vs/q:4/ring:1/far:60`.
+- Compact attributes: boot status `compact attributes yes`, then
+  `./easy_install.sh line "gpu; b3d tests=spheres,heroes,match,big profiles=VSF,VSA; send"`
+  (GPU+VS+A8 against GPU+VS+FS2); Overbit with `gpu3d_attr=1`, same pictures.
 - A played Overbit on the GPU at 640x360, 720p and 1080p (session report): fps, `GPU 3D` ms.
 - 2D on GPU, tex16, WC, `g` test steps 15-16, `menu_scale=3`, each from all-off.
 - Cost of a pixel (`P` lines, `docs/BENCH3D.md` *The reports*): `./easy_install.sh line "gpu;

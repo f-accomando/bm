@@ -290,6 +290,18 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   `r3d.c`, colours cached per mesh version and texture version); the GPU backend sends the
   triangles of such a mesh one by one (not its copy of the mesh, which has the textures), a
   little slower. No GPU option is needed.
+- **7.1** (2026-10-12, M39): **compact attributes** (`gpu3d_attr=1`, *Settings > Screen and
+  sound > 3D corners: Compact*; 3D Bench profile GPU+VS+A8). The corners of the meshes of a
+  colour carry their bytes packed in 32-bit words, unpacked by the vertex shader as it reads
+  them (the QPU's regfile A unpack, now in `tools/qpuasm.py`: `ra13.8a` .. `.8d`, `.16a/.16b`):
+  `vs_baked8` reads x y z, the colour (bytes a b c, byte / 255) and the baked light (bytes a b c,
+  read as integers and / 128 exactly as the ARM's): **5 words a corner instead of 9**;
+  `vs_lit8` (models lit by the sun) x y z, the normal, the colour with the flags in byte d
+  (1 emissive, 2 glossy), the lamps' point: **10 instead of 14**. Positions, normals and the
+  textured shaders stay in floats. The boot probe (`probe_attr`) draws baked and sun-lit faces
+  both ways and keeps the option only if no pixel moves more than a step of RGB565 (status:
+  `compact attributes yes`); the emulator draws the same pixels and reads 28% fewer attribute
+  words in the `test-gpu3d` scenes. Off until the Pi measures it.
 
 ## The modes: old versions on today's code
 
@@ -308,7 +320,8 @@ The settings reproduce the earlier versions, so they can be compared on the same
 - with two-thread pixel shaders (`gpu3d_fs2=1`): **5.3**;
 - with meshes from the nearest and triangles in cache order (`gpu3d_sort=1`, with the
   vertex shader): **5.4** and **5.6**;
-- with each frame shown a frame later (`gpu3d_later=1`, with `gpu3d_queue=2`): **6.9**.
+- with each frame shown a frame later (`gpu3d_later=1`, with `gpu3d_queue=2`): **6.9**;
+- with compact attributes (`gpu3d_attr=1`, with the vertex shader): **7.1**.
 
 What 4.2, 4.3, 4.4 and 4.6 added (screens up to 1080p, the GPU's `cls()`, the
 GL record in bytes, no early z after a `zclear()` in the job, 8 textures in a job)

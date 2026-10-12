@@ -224,6 +224,31 @@ static uint32_t qpu_mul_op(int op, uint32_t a, uint32_t b, int *bad)
 
 static int qpu_float_add(int op) { return op >= 1 && op <= 7; }
 
+/* a half float as a float */
+static float half_to_float(uint16_t h)
+{
+    const int e = h >> 10 & 31, m = h & 1023;
+    const float s = h >> 15 ? -1.0f : 1.0f;
+    if (e == 0)
+        return s * ldexpf((float)m, -24);
+    if (e == 31)
+        return m ? NAN : s * INFINITY;
+    return s * ldexpf((float)(m | 1024), e - 25);
+}
+
+/* M39: the regfile A unpack u (1..7) of v, to a float op or an integer one */
+static uint32_t qpu_unpack(int u, uint32_t v, int to_float)
+{
+    if (u == 1 || u == 2) {
+        const uint16_t h = (uint16_t)(u == 1 ? v : v >> 16);
+        return to_float ? qu(half_to_float(h)) : (uint32_t)(int32_t)(int16_t)h;
+    }
+    if (u == 3)
+        return (v >> 24) * 0x01010101u;
+    const uint32_t b = v >> (8 * (u - 4)) & 255;
+    return to_float ? qu((float)b / 255.0f) : b;
+}
+
 /* source mux m of lane l */
 static uint32_t qpu_src(qpu_t *q, int m, int l, const uint32_t *va, const uint32_t *vb)
 {
@@ -258,8 +283,7 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
             const int op_add = lo >> 24 & 31, op_mul = lo >> 29 & 7, raddr_a = lo >> 18 & 63,
                       raddr_b = lo >> 12 & 63;
             const int add_a = lo >> 9 & 7, add_b = lo >> 6 & 7, mul_a = lo >> 3 & 7, mul_b = lo & 7;
-            if (hi >> 25 & 7)
-                return err("QPU: unpack at %u (not emulated)", (unsigned)pc, 0);
+            const int unpack = hi >> 25 & 7;
             const int uses[4] = { op_add ? add_a : -1, op_add ? add_b : -1, op_mul ? mul_a : -1,
                                   op_mul ? mul_b : -1 };
             int use_a = 0, use_b = 0, use_r4 = 0;
@@ -311,6 +335,22 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
                 (use_b && sig != 13 && raddr_b >= 32 && raddr_b != 32 && raddr_b != 38 && raddr_b != 39 &&
                  raddr_b != 48) || (use_b && sig == 13 && raddr_b >= 48))
                 return err("QPU: read address %u/%u at an emulated shader", (unsigned)raddr_a, (unsigned)raddr_b);
+            /* M39: the regfile A unpack (pm 0), of a register only: to a
+             * float where the ALUs reading regfile A do a float op, else to
+             * an integer; both ALUs reading it must agree */
+            if (unpack && use_a) {
+                if (pm)
+                    return err("QPU: r4 unpack at %u (not emulated)", (unsigned)pc, 0);
+                if (raddr_a >= 32)
+                    return err("QPU: unpack of read address %u at %u (not emulated)", (unsigned)raddr_a, (unsigned)pc);
+                const int add_reads = op_add && (add_a == 6 || add_b == 6), mul_reads = op_mul && (mul_a == 6 || mul_b == 6);
+                const int add_f = add_reads && qpu_float_add(op_add), mul_f = mul_reads && op_mul == 1;
+                if ((add_reads && mul_reads && add_f != mul_f))
+                    return err("QPU: regfile A unpacked for a float op and an integer op at %u", (unsigned)pc, 0);
+                const int to_float = add_f || mul_f;
+                for (int l = 0; l < 16; l++)
+                    ra_[l] = qpu_unpack(unpack, ra_[l], to_float);
+            }
             for (int l = 0; l < 16; l++) {
                 res_add[l] = qpu_add_op(op_add, qpu_src(q, add_a, l, ra_, rb_), qpu_src(q, add_b, l, ra_, rb_), &bad);
                 res_mul[l] = qpu_mul_op(op_mul, qpu_src(q, mul_a, l, ra_, rb_), qpu_src(q, mul_b, l, ra_, rb_), &bad);
@@ -461,6 +501,8 @@ static int gl_vertices(const uint8_t *rec, int nattr, uint32_t first, uint32_t n
                         return err("GL attribute %u: vertex outside memory", (unsigned)a, 0);
                     for (uint32_t w = 0; w < bytes / 4; w++)
                         vpm[off + w][l] = rd32(src + 4 * w);
+                    if (s == 0)
+                        emu_stats.attr_words += bytes / 4;
                 }
             }
             memset(&q, 0, sizeof q);

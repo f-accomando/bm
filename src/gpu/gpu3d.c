@@ -57,8 +57,10 @@ enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA,
        SH_TEX_RGB_SCREEN, SH_TEX2D, SH_TEXT, SH_TEX_T, SH_TEX_RGB_T,
        SH_TEX_ALPHA_T, SH_TEX_SCREEN_T, SH_TEX_RGB_ALPHA_T, SH_TEX_RGB_SCREEN_T, SH_COUNT };
 #define DEPTH_ZCLEAR 3                  /* after R3D_DEPTH_*: always passes, writes (fs_zclear) */
-/* the vertex shaders of meshes (M36); GV_LIT_TEX2: faces on two bones (a skin) */
-enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_COUNT };
+/* the vertex shaders of meshes (M36); GV_LIT_TEX2: faces on two bones (a
+ * skin); GV_BAKED8, GV_LIT8: GV_BAKED, GV_LIT with compact attributes (M39,
+ * gpu3d_attr: bytes packed in words, unpacked by the shader) */
+enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_BAKED8, GV_LIT8, GV_COUNT };
 #define CODE_CS SH_COUNT                /* the coordinate shader's kilobyte of G.code */
 #define CODE_VS (CODE_CS + 1)           /* and the vertex shaders' (two each) */
 #define CODE_SHADOW (CODE_VS + 2 * GV_COUNT)    /* the shadows' vertex shader (2), coordinate shader (1) */
@@ -67,6 +69,7 @@ enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_COUNT };
 #define TWO_BONES(vs) ((vs) == GV_LIT_TEX2)
 _Static_assert(sizeof vs_baked <= 2048 && sizeof vs_tex_rgb <= 2048 && sizeof vs_lit <= 2048 &&
                sizeof vs_lit_tex <= 2048 && sizeof vs_lit_tex2 <= 2048 && sizeof vs_shadow <= 2048 &&
+               sizeof vs_baked8 <= 2048 && sizeof vs_lit8 <= 2048 &&
                sizeof cs_colour <= 1024 && sizeof cs_shadow <= 1024 && sizeof cs_colour2 <= 1024 &&
                sizeof vs_shadow2 <= 1024 && sizeof cs_shadow2 <= 1024 &&
                CODE_SHADOW2 + 2 <= JOB_CODE / 1024, "shader code slots");
@@ -134,6 +137,7 @@ typedef struct {
                                          * mesh drawn with textures in turn keeps a copy for each */
     uint32_t version;
     int unlit, smooth;                  /* as drawn: no light; the vertices' normals (GV_LIT) */
+    int attr;                           /* M39: made with compact attributes (GV_BAKED8, GV_LIT8) */
     uint8_t *corners;                   /* NULL: not a mesh the GPU takes */
     uint16_t *idx;                      /* M39: the groups' indices (NULL: not indexed) */
     ggroup_t *g;                        /* its groups, sorted by bone */
@@ -146,7 +150,7 @@ typedef struct {
 static struct {
     int ready, failed;
     const char *status;
-    char why[320];
+    char why[384];
     uint8_t *block;
     uint8_t *tsda, *alloc, *overflow, *zbuf, *bcl, *rcl, *recs, *code;
     uint16_t *probe;
@@ -186,6 +190,8 @@ static struct {
     int fs2_ok, fs2_on;             /* M39: the probe saw the two-thread shaders draw as the others;
                                      * asked for (gpu3d_set_fs2) */
     int sort_on;                    /* M39: the opaque meshes front to back (gpu3d_set_sort) */
+    int attr_ok, attr_on;           /* M39: the probe saw the compact attributes draw as the floats;
+                                     * asked for (gpu3d_set_attr) */
     int nsort;                      /* draws held back in sort_buf */
     uint32_t sort_used;             /* their bytes */
     int ia;                         /* varying of the colour's first value: 0, or 2 (red_a 0) */
@@ -1035,7 +1041,19 @@ static const struct { const uint32_t *code; size_t size; uint8_t words, kb; } vs
     { vs_lit, sizeof vs_lit, 14, CODE_VS + 4 },         /* normal, colour, emissive, glossy, lamp point */
     { vs_lit_tex, sizeof vs_lit_tex, 12, CODE_VS + 6 }, /* normal, s t, emissive, lamp point */
     { vs_lit_tex2, sizeof vs_lit_tex2, 11, CODE_VS + 8 },   /* w, normal, s t, emissive, normal's w */
+    { vs_baked8, sizeof vs_baked8, 5, CODE_VS + 10 },   /* colour bytes, light bytes */
+    { vs_lit8, sizeof vs_lit8, 10, CODE_VS + 12 },      /* normal, colour bytes and flags, lamp point */
 };
+
+/* M39: the compact attributes in force (asked for, and the probe saw them) */
+static int attr_now(void) { return G.attr_on && G.attr_ok; }
+
+/* three bytes of a colour (or a light) in one word, byte a b c as the
+ * floats' order (the first where the probe found red), d */
+static uint32_t pack_abc(uint32_t r, uint32_t g, uint32_t b, uint32_t d)
+{
+    return (r & 255) << (8 * G.ia) | (g & 255) << 8 | (b & 255) << (8 * (2 - G.ia)) | (d & 255) << 24;
+}
 
 /* the groups of a face: its bones (two for a face of a skin, else the
  * same twice), vertex shader, fragment shader, lamps (0: an emissive face
@@ -1055,6 +1073,34 @@ static void put_mesh_corner(float *o, const r3d_mesh_t *m, int f, int k, int vs,
     const int vi = m->faces[f * 3 + k];
     const v3_t v = m->verts[vi];
     o[0] = v.x; o[1] = v.y; o[2] = v.z;
+    if (vs == GV_LIT8 || vs == GV_BAKED8) {
+        /* M39: GV_LIT's or GV_BAKED's corner with its bytes packed (the
+         * shader unpacks the same values: colour byte / 255, light / 128) */
+        const uint32_t c = m->colors[f];
+        uint32_t w[2];
+        if (vs == GV_LIT8) {
+            const int sm = smooth && !(c & R3D_FLAT), em = (c & R3D_EMISSIVE) != 0;
+            const v3_t n = sm ? m->vnormals[vi] : m->normals[f];
+            o[3] = n.x; o[4] = n.y; o[5] = n.z;
+            w[0] = pack_abc(c >> 16, c >> 8, c, (uint32_t)em | (uint32_t)((c & R3D_GLOSSY) && !em) << 1);
+            memcpy(&o[6], w, 4);
+            if (sm) {
+                o[7] = v.x; o[8] = v.y; o[9] = v.z;
+            } else {
+                const uint16_t *fc = m->faces + f * 3;
+                const v3_t a = m->verts[fc[0]], b = m->verts[fc[1]], d = m->verts[fc[2]];
+                o[7] = (a.x + b.x + d.x) * (1.0f / 3.0f);
+                o[8] = (a.y + b.y + d.y) * (1.0f / 3.0f);
+                o[9] = (a.z + b.z + d.z) * (1.0f / 3.0f);
+            }
+            return;
+        }
+        const uint8_t *bl = m->clight ? m->clight + f * 9 + k * 3 : NULL;
+        w[0] = pack_abc(c >> 16, c >> 8, c, 0);
+        w[1] = bl && !emissive ? pack_abc(bl[0], bl[1], bl[2], 0) : pack_abc(128, 128, 128, 0);
+        memcpy(&o[3], w, 8);
+        return;
+    }
     if (vs == GV_LIT_TEX2) {
         /* a corner of a skin: its weight (1 on the group's first bone, 0 on
          * the other), as GV_LIT_TEX without the lamps' point (the corner);
@@ -1318,6 +1364,8 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
             vs = GV_BAKED;
             fs = (c & R3D_SCREEN) ? SH_SCREEN : SH_COLOUR;
         }
+        if (e->attr)                    /* M39: the same faces, fewer bytes a corner */
+            vs = vs == GV_BAKED ? GV_BAKED8 : vs == GV_LIT ? GV_LIT8 : vs;
         /* the emissive faces of a "lit" model: emissive at their corners */
         const uint32_t k = group_key(bone, bone2, vs, fs, lit || (!emissive && !unlit), lods);
         int i = 0;
@@ -1476,7 +1524,7 @@ static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m, int unlit, int smo
         if (!mesh_is(e, m, unlit, smooth))
             e->m = NULL;                /* made below */
     }
-    if (mesh_is(e, m, unlit, smooth) && e->version == m->version &&
+    if (mesh_is(e, m, unlit, smooth) && e->version == m->version && e->attr == attr_now() &&
         (!e->tex || (e->tex->sheet == m->tex && e->tex->version == e->tex_version))) {
         e->used = ++G.tick;
         return e->corners ? e : NULL;
@@ -1496,6 +1544,7 @@ static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m, int unlit, int smo
     e->version = m->version;
     e->unlit = unlit;
     e->smooth = smooth;
+    e->attr = attr_now();
     e->used = ++G.tick;
     if (!mesh_build(g, e, m, unlit, smooth))
         e->corners = NULL;
@@ -1520,8 +1569,12 @@ static void bone_axes(float *o, const float N[9], const float *v)
         o[j] = N[j] * v[0] + N[3 + j] * v[1] + N[6 + j] * v[2];
 }
 
-/* the uniforms a vertex shader reads: vs_lit_tex reads those of vs_lit */
-static int unif_kind(int vs) { return vs == GV_LIT_TEX ? GV_LIT : vs; }
+/* the uniforms a vertex shader reads: vs_lit_tex and vs_lit8 read those
+ * of vs_lit, vs_baked8 those of vs_baked */
+static int unif_kind(int vs)
+{
+    return vs == GV_LIT_TEX || vs == GV_LIT8 ? GV_LIT : vs == GV_BAKED8 ? GV_BAKED : vs;
+}
 
 /* the uniforms of a group on two bones (vs_lit_tex2, cs_colour2): the two
  * matrices (A = gr->bone, B = gr->bone2), f*16, 0.5, -f*16, 0.5, -NEAR (the
@@ -2427,6 +2480,18 @@ int gpu3d_sort(void)
     return G.sort_on;
 }
 
+/* M39: compact attributes (gpu3d_attr=1); the meshes are made again as
+ * they are drawn next (mesh_get compares the way each was made) */
+void gpu3d_set_attr(int on)
+{
+    G.attr_on = !!on;
+}
+
+int gpu3d_attr(void)
+{
+    return attr_now();
+}
+
 void gpu3d_set_bilinear(int on)
 {
     if (G.bilinear == !!on)
@@ -2643,9 +2708,9 @@ int gpu3d_options_line(char *buf, size_t n)
     if (!gpu3d_ready())
         ksnprintf(buf, n, "bm3d %s gpu3d=off", BM3D_VERSION);
     else
-        ksnprintf(buf, n, "bm3d %s gpu3d=on vs=%d aa=%d queue=%d wc=%d filter=%d tex16=%d fs2=%d sort=%d",
+        ksnprintf(buf, n, "bm3d %s gpu3d=on vs=%d aa=%d queue=%d wc=%d filter=%d tex16=%d fs2=%d sort=%d attr=%d",
                   BM3D_VERSION, gpu3d_vshader_on(), gpu3d_msaa_on(), gpu3d_queue2() ? 2 : gpu3d_queue(), gpu3d_wc(),
-                  gpu3d_bilinear(), gpu3d_tex16(), gpu3d_fs2(), gpu3d_sort());
+                  gpu3d_bilinear(), gpu3d_tex16(), gpu3d_fs2(), gpu3d_sort(), gpu3d_attr());
     return (int)strlen(buf);
 }
 
@@ -3233,6 +3298,105 @@ static int probe_fs2(const g16_t *pg, const tex_t *pt)
     return 1;
 }
 
+/* M39: the compact attributes (vs_baked8, vs_lit8) against the floats
+ * (vs_baked, vs_lit): faces of a colour with baked light (one emissive,
+ * at full light) and, if the lit models' probe passed, faces lit by the
+ * sun (one glossy, one emissive), drawn both ways. Colours whose bytes all
+ * differ, so a byte read from the wrong place shows. 1 if no pixel moves
+ * more than a step of RGB565 (byte / 255 by the V3D's unpack against the
+ * ARM's byte * (1 / 255): a last bit of a float may differ), else 0 */
+static int probe_attr(const g16_t *pg)
+{
+    static uint16_t ref[PROBE_W * PROBE_H];
+    static r3d_mesh_t mb, ml;
+    static v3_t vb[6], vl[6], nb[2], nl[2];
+    static uint16_t f[6] = { 0, 1, 2, 3, 4, 5 };
+    static uint32_t cb[2] = { 0xE05A20, 0x30C090 | R3D_EMISSIVE };
+    static uint32_t cl[2] = { 0xD04818 | R3D_GLOSSY, 0x2878E0 | R3D_EMISSIVE };
+    static uint8_t light[18] = { 200, 96, 40, 128, 160, 220, 60, 250, 140, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    /* left half: the baked faces (rows 4..28 and 36..60); right half: the lit ones */
+    static const float sb[6][2] = { { 2, 4 }, { 30, 4 }, { 2, 28 }, { 2, 36 }, { 30, 36 }, { 2, 60 } };
+    static const float sl[6][2] = { { 34, 4 }, { 62, 4 }, { 34, 28 }, { 34, 36 }, { 62, 36 }, { 34, 60 } };
+    for (int i = 0; i < 6; i++) {
+        vb[i] = (v3_t){ (sb[i][0] - 32) / 16.0f, (32 - sb[i][1]) / 16.0f, 0 };
+        vl[i] = (v3_t){ (sl[i][0] - 32) / 16.0f, (32 - sl[i][1]) / 16.0f, 0 };
+    }
+    nb[0] = nb[1] = nl[0] = nl[1] = (v3_t){ 0, 0, -1 };
+    mb = (r3d_mesh_t){ .nverts = 6, .nfaces = 2, .verts = vb, .faces = f, .colors = cb, .normals = nb,
+                       .clight = light, .version = 0xFFFFFFFBu };
+    ml = (r3d_mesh_t){ .nverts = 6, .nfaces = 2, .verts = vl, .faces = f, .colors = cl, .normals = nl,
+                       .version = 0xFFFFFFFAu };
+    const float M[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 2 };
+    r3d_env_t eb, el;
+    memset(&eb, 0, sizeof eb);
+    eb.f = eb.cx = eb.cy = 32;
+    eb.inside = 1;
+    el = eb;
+    el.lit = 1;
+    el.sun[1] = 0.6f;
+    el.sun[2] = -0.8f;
+    el.view[2] = -1;
+    el.half[1] = 0.3f;
+    el.half[2] = -0.95f;
+    el.spec_p = 4;
+    for (int k = 0; k < 3; k++) {
+        el.A[k] = 0.15f + 0.05f * (float)k; el.B[k] = 0.3f; el.D[k] = 0.5f - 0.1f * (float)k; el.R[k] = 0.2f;
+        el.S[k] = 0.3f + 0.1f * (float)k;
+    }
+    const int on = G.attr_on, lit = G.lit_ok;
+    int ok = 1;
+    char line[120];
+    for (int compact = 0; compact < 2 && ok; compact++) {
+        G.attr_ok = G.attr_on = compact;
+        memset(G.probe, 0, JOB_PROBE);
+        for (int j = 0; j < 1 + lit && ok; j++) {
+            gmesh_t *e = mesh_get(pg, j ? &ml : &mb, 0, 0);
+            gunif_t u = { .job = 0, .bone = -1 };
+            if (!e || e->attr != compact) {
+                ksnprintf(line, sizeof line, "compact attributes' probe: mesh %d not made", j);
+                plog(line);
+                ok = 0;
+                break;
+            }
+            for (int i = 0; i < e->ngroups && ok; i++) {
+                const int want = compact ? (j ? GV_LIT8 : GV_BAKED8) : (j ? GV_LIT : GV_BAKED);
+                ok = e->g[i].vs == want &&
+                     gl_draw(pg, e, &e->g[i], &u, M, I3, M, I3, j ? &el : &eb, R3D_DEPTH_WRITE) == 0;
+            }
+        }
+        if (!ok || gpu3d_flush(pg, 0) != 0 || G.failed) {
+            ok = 0;
+            break;
+        }
+        if (!compact) {
+            memcpy(ref, G.probe, sizeof ref);
+            continue;
+        }
+        int differ = 0, off = 0, drawn = 0;
+        for (int i = 0; i < PROBE_W * PROBE_H; i++) {
+            const uint16_t a = ref[i], b = G.probe[i];
+            drawn += a != 0;
+            if (a == b)
+                continue;
+            differ++;
+            const int dr = (a >> 11) - (b >> 11), dg = (a >> 5 & 63) - (b >> 5 & 63), db = (a & 31) - (b & 31);
+            off += dr < -1 || dr > 1 || dg < -1 || dg > 1 || db < -1 || db > 1;
+        }
+        if (off || drawn < 64) {
+            ksnprintf(line, sizeof line, "compact attributes: %d pixels differ from the floats', %d by more than "
+                      "a step, of %d drawn (they stay off)", differ, off, drawn);
+            plog(line);
+            ok = 0;
+        } else if (differ) {
+            ksnprintf(line, sizeof line, "compact attributes: %d pixels a step off the floats'", differ);
+            plog(line);
+        }
+    }
+    G.attr_ok = ok;
+    G.attr_on = on;
+    return ok;
+}
+
 /* After a probe of something optional (the vertex shader, its clipping,
  * the queue, zclear() in a job): if the GPU failed in it (a job that did
  * not end), only that is off, as long as a clear still runs; else the GPU
@@ -3339,6 +3503,7 @@ static int probe(void)
     G.queue_ok = !G.failed ? soft(probe_queue(&pg), "the queue's probe") : 0;
     G.zclear_ok = !G.failed ? soft(probe_zclear(&pg), "the probe of zclear() in a job") : 0;
     G.fs2_ok = !G.failed ? soft(probe_fs2(&pg, &pt), "the two-thread shaders' probe") : 0;
+    G.attr_ok = G.gl_ok && !G.failed ? soft(probe_attr(&pg), "the compact attributes' probe") : 0;
     if (G.failed)
         return -1;
     memset(&G.st, 0, sizeof G.st);
@@ -3391,13 +3556,13 @@ int gpu3d_init(void)
     static const char *const clips[3] = { "no", "yes", "yes (Z planes)" };
     ksnprintf(G.why, sizeof G.why, "bm3d " BM3D_VERSION " ready (byte a = %s, texels %s, textures %s, MSAA %s, "
               "16-bit textures %s, two-thread shaders %s, vertex shader %s%s, indexed %s, "
-              "clipping %s, lit models %s, queue %s, zclear in job %s)", G.red_a ? "red" : "blue",
+              "clipping %s, lit models %s, queue %s, zclear in job %s, compact attributes %s)", G.red_a ? "red" : "blue",
               G.tex_swap ? "swapped" : "in place", G.tformat ? "in tiles" : "in rows", ms[G.ms_ok],
               G.tf16 ? "yes" : "no", G.fs2_ok ? "yes" : "no",
               G.gl_ok ? (G.vpm_bytes ? (G.gl_cw ? "yes (cw)" : "yes") : (G.gl_cw ? "yes (cw, VPM in words)"
                                                                                  : "yes (VPM in words)")) : "no",
               G.gl_ok && G.gl_clip_all ? " (clipper always on)" : "", G.idx_ok ? "yes" : "no", clips[G.clip_ok], G.lit_ok ? "yes" : "no",
-              G.queue_ok ? "yes" : "no", G.zclear_ok ? "yes" : "no");
+              G.queue_ok ? "yes" : "no", G.zclear_ok ? "yes" : "no", G.attr_ok ? "yes" : "no");
     G.status = G.why;
     G.ready = 1;
     return 0;

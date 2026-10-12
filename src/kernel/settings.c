@@ -88,7 +88,7 @@ enum {
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
     R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
-    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR,
+    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR, R_ATTR,
 };
 
 /* sound_depth: the bits of each sample at the output (what the output
@@ -521,6 +521,9 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_SORT, "3D draw order",
                  "Nearest first, triangles in cache order: the GPU skips work (vertex shader)", "%s",
                  config_on("gpu3d_sort") ? "Nearest first" : "As the game");
+        home_row(p, MENU_ROW_CHOICE, R_ATTR, "3D corners",
+                 "Floats, or compact: colour and light bytes packed (vertex shader, M39)", "%s",
+                 config_on("gpu3d_attr") ? "Compact" : "Floats");
         home_row(p, MENU_ROW_CHOICE, R_IMPOSTOR, "3D impostors",
                  "Far small models as one quad of their colour; size in px of a 1080p screen", "%s", impostor_choice());
 #endif
@@ -1098,6 +1101,12 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_save();
         ksnprintf(d->note, sizeof d->note, "3D draw order of the next game: %s",
                   config_on("gpu3d_sort") ? "nearest first" : "as the game");
+        break;
+    case R_ATTR:
+        config_set("gpu3d_attr", config_on("gpu3d_attr") ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D corners of the next game: %s",
+                  config_on("gpu3d_attr") ? "compact" : "floats");
         break;
     case R_IMPOSTOR: {
         const int px = impostor_px();

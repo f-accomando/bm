@@ -51,7 +51,7 @@ static g16_t *g;
 /* ---------------------------------------------------------------- profiles */
 
 enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2, PF_T16, PF_FS2, PF_VSS, PF_VSF,
-       NPROF };
+       PF_VSA, NPROF };
 #define M_ARM (1u << PF_ARM)
 #define M_GPU (1u << PF_GPU)
 #define M_AA  (1u << PF_AA)
@@ -65,24 +65,27 @@ enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2
 #define M_T16 (1u << PF_T16)            /* the GPU with opaque textures in 16 bits (M39, bm3d 5.2) */
 #define M_FS2 (1u << PF_FS2)            /* the GPU with two-thread pixel shaders (M39, bm3d 5.3; every textured one 6.3) */
 #define M_VSS (1u << PF_VSS)            /* GPU+VS with the meshes nearest first (M39, bm3d 5.4) */
+#define M_VSA (1u << PF_VSA)            /* GPU+VS+FS2 with compact attributes (M39, bm3d 7.1) */
 #define M_ALL (M_ARM | M_GPU | M_VS1 | M_VS)
 #define M_LIT (M_ARM | M_GPU | M_VS)    /* models lit by the sun: VS1 is the GPU for them */
 
 /* queue (M35): the end of each frame started on the GPU, the ARM's work of
  * the frame (the test's `work`) done meanwhile */
-static const struct { const char *name; int gpu, aa, vs, queue, wc, two_d, t16, fs2, sort; } prof[NPROF] = {
-    { "ARM", 0, 0, 0, 0, 0, 0, 0, 0, 0 }, { "GPU", 1, 0, 0, 0, 0, 0, 0, 0, 0 }, { "GPU+AA", 1, 1, 0, 0, 0, 0, 0, 0, 0 },
-    { "GPU+VS1", 1, 0, 1, 0, 0, 0, 0, 0, 0 }, { "GPU+VS", 1, 0, 2, 0, 0, 0, 0, 0, 0 },
-    { "GPU+VS+Q", 1, 0, 2, 1, 0, 0, 0, 0, 0 }, { "GPU+Q", 1, 0, 0, 1, 0, 0, 0, 0, 0 },
-    { "GPU+WC", 1, 0, 0, 0, 1, 0, 0, 0, 0 }, { "GPU+2D", 1, 0, 0, 0, 0, 1, 0, 0, 0 },
-    { "GPU+VS+Q2", 1, 0, 2, 2, 0, 0, 0, 0, 0 }, { "GPU+T16", 1, 0, 0, 0, 0, 0, 1, 0, 0 },
-    { "GPU+FS2", 1, 0, 0, 0, 0, 0, 0, 1, 0 }, { "GPU+VS+S", 1, 0, 2, 0, 0, 0, 0, 0, 1 },
-    { "GPU+VS+FS2", 1, 0, 2, 0, 0, 0, 0, 1, 0 },
+/* attr (M39): compact attributes (gpu3d_attr), on GPU+VS+FS2: GPU+VS+A8 */
+static const struct { const char *name; int gpu, aa, vs, queue, wc, two_d, t16, fs2, sort, attr; } prof[NPROF] = {
+    { "ARM", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, { "GPU", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    { "GPU+AA", 1, 1, 0, 0, 0, 0, 0, 0, 0, 0 },
+    { "GPU+VS1", 1, 0, 1, 0, 0, 0, 0, 0, 0, 0 }, { "GPU+VS", 1, 0, 2, 0, 0, 0, 0, 0, 0, 0 },
+    { "GPU+VS+Q", 1, 0, 2, 1, 0, 0, 0, 0, 0, 0 }, { "GPU+Q", 1, 0, 0, 1, 0, 0, 0, 0, 0, 0 },
+    { "GPU+WC", 1, 0, 0, 0, 1, 0, 0, 0, 0, 0 }, { "GPU+2D", 1, 0, 0, 0, 0, 1, 0, 0, 0, 0 },
+    { "GPU+VS+Q2", 1, 0, 2, 2, 0, 0, 0, 0, 0, 0 }, { "GPU+T16", 1, 0, 0, 0, 0, 0, 1, 0, 0, 0 },
+    { "GPU+FS2", 1, 0, 0, 0, 0, 0, 0, 1, 0, 0 }, { "GPU+VS+S", 1, 0, 2, 0, 0, 0, 0, 0, 1, 0 },
+    { "GPU+VS+FS2", 1, 0, 2, 0, 0, 0, 0, 1, 0, 0 }, { "GPU+VS+A8", 1, 0, 2, 0, 0, 0, 0, 1, 0, 1 },
 };
 
 static const char *prof_version(int p)
 {
-    return prof[p].vs && prof[p].fs2 ? "6.6" : prof[p].sort ? "5.4" : prof[p].fs2 ? "5.3" : prof[p].t16 ? "5.2" : prof[p].queue == 2 ? "5.1" : prof[p].two_d ? "4.8" : prof[p].wc ? "4.5"
+    return prof[p].attr ? "7.1" : prof[p].vs && prof[p].fs2 ? "6.6" : prof[p].sort ? "5.4" : prof[p].fs2 ? "5.3" : prof[p].t16 ? "5.2" : prof[p].queue == 2 ? "5.1" : prof[p].two_d ? "4.8" : prof[p].wc ? "4.5"
          : bm3d_mode_q(prof[p].gpu, prof[p].vs, prof[p].queue);
 }
 
@@ -718,7 +721,7 @@ typedef struct {
 } test_t;
 
 static const test_t tests[] = {
-    { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA | M_WC | M_VSS, sp_flat, spheres, sp_undo, NULL, 0, 0 },
+    { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA | M_WC | M_VSS | M_VSA, sp_flat, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_smooth", "spheres, Gouraud", "spheres", 1, 8000, M_LIT, sp_smooth, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU | M_T16 | M_FS2, sp_tex, spheres, sp_undo, NULL, 0,
       0 },
@@ -726,7 +729,7 @@ static const test_t tests[] = {
     { "spheres_baked", "spheres, baked light", "spheres", 1, 8000, M_ALL, sp_baked, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_shine", "spheres, sky, rim, gloss, 4 lamps, fog", "spheres", 1, 8000, M_LIT, sp_shine,
       spheres_shine, sp_undo, NULL, 0, 0 },
-    { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT | M_WC | M_VSS, NULL, heroes, NULL, NULL, 0, 0 },
+    { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT | M_WC | M_VSS | M_VSA, NULL, heroes, NULL, NULL, 0, 0 },
     { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT | M_T16 | M_FS2, NULL, heroes_tex, NULL, NULL, 0, 0 },
     { "heroes_skin", "heroes, textured skins (as the Meshy ones)", "heroes", 1, 512, M_LIT | M_FS2, NULL, heroes_skin, NULL,
       NULL, 0, 0 },
@@ -747,7 +750,7 @@ static const test_t tests[] = {
     { "texswap", "three textures in turn", "quads", 1, 8000, M_ARM | M_GPU, q_tex, texswap, q_free, NULL, 0, 0 },
     { "split", "3D then 2D, again and again", "rounds", 1, 400, M_LIT | M_Q | M_2D | M_VSQ | M_VSQ2, NULL, split, NULL,
       NULL, 0, 0 },
-    { "match", "a match: map, heroes, shadows, HUD", "heroes", 1, 256, M_ALL | M_AA | M_Q | M_WC | M_2D | M_T16 | M_FS2 | M_VSS, NULL, match, NULL, NULL, 0,
+    { "match", "a match: map, heroes, shadows, HUD", "heroes", 1, 256, M_ALL | M_AA | M_Q | M_WC | M_2D | M_T16 | M_FS2 | M_VSS | M_VSA, NULL, match, NULL, NULL, 0,
       0 },
     { "mix", "everything at once: map, heroes, skins, shadows, holes, glass, lamps, HUD", "slices", 1, 512,
       M_LIT | M_AA | M_T16 | M_FS2, mix_setup, mix, mix_free, NULL, 0, 0 },
@@ -755,9 +758,9 @@ static const test_t tests[] = {
       spheres,
       sp_undo,
       NULL, 0, 1300 },
-    { "big", "big meshes: models of 10 080 triangles on a map of 14 112", "models", 1, 64, M_ALL | M_VSQ | M_Q | M_VSS,
+    { "big", "big meshes: models of 10 080 triangles on a map of 14 112", "models", 1, 64, M_ALL | M_VSQ | M_Q | M_VSS | M_VSA,
       big_setup, big, big_free, NULL, 0, 0 },
-    { "big_logic", "the same and 4M instructions of logic", "models", 1, 64, M_ALL | M_VSQ | M_Q | M_VSS, big_setup, big,
+    { "big_logic", "the same and 4M instructions of logic", "models", 1, 64, M_ALL | M_VSQ | M_Q | M_VSS | M_VSA, big_setup, big,
       big_free, NULL, 0, 1300 },
     { "gpu2d", "sprites and text over the 3D", "sprites", 4, 8000, M_ARM | M_GPU | M_2D, NULL, gpu2d_scene, NULL, NULL,
       2, 0 },
@@ -945,6 +948,9 @@ static void ramp(int ti, int pf)
         if (prof[pf].fs2 && !gpu3d_fs2())
             return;                     /* the probe saw them differ: no row */
         gpu3d_set_sort(prof[pf].sort);
+        gpu3d_set_attr(prof[pf].attr);
+        if (prof[pf].attr && !gpu3d_attr())
+            return;                     /* the probe saw them differ: no row */
     } else {
         R.backend = NULL;
     }
@@ -1043,6 +1049,7 @@ static void ramp(int ti, int pf)
     gpu3d_set_tex16(0);
     gpu3d_set_fs2(0);
     gpu3d_set_sort(0);
+    gpu3d_set_attr(0);
     cur_2d = 0;
     r->ran = ns > 0;
     r->nsamples = ns;
@@ -1426,7 +1433,7 @@ static void read_prev(void)
 #define C_HW    g16_rgb(255, 90, 90)
 
 static const uint16_t prof_col[NPROF] = { 0xFC00 /* orange */, 0x2D7F, 0x8C1F, 0x07F0, 0x07E0, 0xFFE0, 0xF81F, 0x7BEF,
-                                         0xFD20, 0xAFE5, 0x5D7F, 0xB5B6, 0x4FFF, 0xFFFF };
+                                         0xFD20, 0xAFE5, 0x5D7F, 0xB5B6, 0x4FFF, 0xFFFF, 0xFBEF };
 
 static void text(int x, int y, uint16_t c, const char *fmt, ...) __attribute__((format(printf, 4, 5)));
 static void text(int x, int y, uint16_t c, const char *fmt, ...)
@@ -1483,9 +1490,9 @@ static int pages(void) { return 4 + NTESTS; }     /* the score, the summary in t
 
 /* the profiles' short names, for the summary's columns (a legend under it) */
 static const char *const prof_short[NPROF] = { "ARM", "GPU", "AA", "VS1", "VS", "VSQ", "Q", "WC", "2D", "VSQ2", "T16",
-                                               "FS2", "VSS", "VSF" };
+                                               "FS2", "VSS", "VSF", "VSA" };
 #define SX 90                           /* the summary: the profiles' columns from x SX, SW pixels each */
-#define SW 30
+#define SW 28
 #define S_BEST (SX + SW * NPROF + 6)
 #define S_ROWS 15                       /* tests on the summary's first page */
 
@@ -1566,7 +1573,7 @@ static void page_summary(int part)
             k++;
         }
     y += LH * ((k + 5) / 6 > 1 ? (k + 5) / 6 : 1) + 6;
-    text(0, y, C_DIM, "AA VS1 VS VSQ Q WC 2D VSQ2 T16 FS2 VSS VSF: GPU+AA, GPU+VS1... (the profiles: the next page)");
+    text(0, y, C_DIM, "AA VS1 VS VSQ Q WC 2D VSQ2 T16 FS2 VSS VSF VSA: GPU+AA, GPU+VS1... (the profiles: the next page)");
     y += LH;
     if (fut[0])
         text(0, y, C_DIM, "later: %s; %s%s", fut, prev_name[0] ? "against " : "the first report", prev_name);
@@ -1685,6 +1692,8 @@ static void page_info(const char *saved)
                        "nearest first (5.4)");
     y += LH;
     text(0, y, C_TEXT, "GPU+VS+FS2: the vertex shader and the two-thread shaders, the driver as the games get it (6.6)");
+    y += LH;
+    text(0, y, C_TEXT, "GPU+VS+A8: the same with compact attributes, colour and light bytes packed (M39, 7.1)");
     y += LH;
     text(0, y, C_DIM, "0.1 and 1.0 no longer run: their bars are the numbers the Pi gave then (docs/M33-PRIMA-DOPO.md)");
     y += LH + 6;

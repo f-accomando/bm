@@ -1272,6 +1272,8 @@ def test_home_ui(b, opts):
         keys("s")
         screen(["3D draw order", "< As the game >"])
         keys("s")
+        screen(["3D corners", "< Floats >"])    # M39, bm3d 7.1: compact attributes, off
+        keys("s")
         screen(["3D impostors", "< Off >"])     # far small models as one quad: off unless asked
         keys("s")
         screen(["3D on the ARM", "< Exact >"])

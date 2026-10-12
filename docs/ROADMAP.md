@@ -112,8 +112,11 @@ Misure di partenza sul Pi (v0.2.0, ARM 0.2, GPU 2.1, GPU+AA) in `docs/bench/`.
 Passi aperti o da provare (la numerazione resta: i passi chiusi sono tolti):
 1. **Misure sul Pi** con i profili del vertex shader e il test `big`/`big_logic` del 3D Bench
    (modelli da 10 080 triangoli su una mappa da 14 112: "regge 34 000 triangoli?").
-2. **Attributi compatti**: restano gli attributi a 16 e 8 bit (posizioni scalate, normali e
-   colori a 8, uv a 16; posizioni separate per lo shader di coordinate).
+2. **Attributi compatti**: primo passo fatto (bm3d 7.1, `gpu3d_attr=1`, profilo GPU+VS+A8):
+   colori, luce cotta e flag a byte in `vs_baked8` (5 parole per vertice invece di 9) e
+   `vs_lit8` (10 invece di 14), prova all'avvio; resta la misura sul Pi. Poi: la luce di
+   `vs_tex_rgb` a byte, uv e flag dei testurizzati a 16 bit, normali a 8, posizioni scalate a
+   16 bit (separate per lo shader di coordinate).
 4. **Due lavori in volo** (`gpu3d_queue=2`, `gpu3d_later=1`): resta la misura sul Pi.
 5. **Texture più leggere**: restano RGBA5551/4444 per i ritagli, ETC1 (al build) e le
    mipmap; la prova all'avvio controlla come la TMU legge ogni formato.
@@ -121,7 +124,7 @@ Passi aperti o da provare (la numerazione resta: i passi chiusi sono tolti):
     parti calde in C (raggi e collisioni, strade dei bot, particelle), meno allocazioni per
     fotogramma, `frames.py` per misurare; uno studio a parte su LuaJIT (ARMv6) sul bare metal.
 - **Da provare sul Pi:** test `g` (la riga di stato: `indexed`, `16-bit textures`,
-  `two-thread shaders`), 3D Bench con i profili GPU+VS+Q2, GPU+T16, GPU+FS2, GPU+VS+S, il
+  `two-thread shaders`, `compact attributes`), 3D Bench con i profili GPU+VS+Q2, GPU+T16, GPU+FS2, GPU+VS+S, GPU+VS+A8, il
   benchmark di Overbit con le opzioni accese; `gpu3d_later=1` contro `0` con `gpu3d_queue=2`
   (`docs/progress/v3d.md`).
 - **Fatto quando:** sul Pi il test `big` regge almeno il doppio dei triangoli a 60 fps di

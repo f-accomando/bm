@@ -551,6 +551,8 @@ void gpu3d_set_fs2(int on) { (void)on; }
 int gpu3d_fs2(void) { return 0; }
 void gpu3d_set_sort(int on) { (void)on; }
 int gpu3d_sort(void) { return 0; }
+void gpu3d_set_attr(int on) { (void)on; }
+int gpu3d_attr(void) { return 0; }
 int gpu3d_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c)
 {
     (void)g; (void)x0; (void)y0; (void)x1; (void)y1; (void)c;

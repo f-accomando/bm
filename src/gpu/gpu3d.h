@@ -129,6 +129,14 @@ int gpu3d_fs2(void);
  * picture but where two faces have the same depth. */
 void gpu3d_set_sort(int on);
 int gpu3d_sort(void);
+
+/* M39: compact attributes (gpu3d_attr=1): the corners of the meshes of a
+ * colour (baked light, or lit by the sun) with their bytes packed in words
+ * the vertex shader unpacks (5 words a corner instead of 9, 10 instead of
+ * 14), where the probe saw them draw as the floats. gpu3d_attr(): asked
+ * for and possible. */
+void gpu3d_set_attr(int on);
+int gpu3d_attr(void);
 int gpu3d_tiles(void);
 
 /* M36: whole meshes placed by the GPU's vertex shader instead of a
@@ -201,9 +209,9 @@ static inline uint32_t gpu3d_busy_us(const gpu3d_stats_t *s)
 }
 
 /* The driver's options in force, one line for the reports (so runs can be
- * compared): "bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0
- * fs2=1 sort=0" (what is asked and possible: vs the vertex shader's level,
- * queue 0, 1 or 2 jobs), or "bm3d 6.9 gpu3d=off" when the V3D is not
+ * compared): "bm3d 7.1 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0
+ * fs2=1 sort=0 attr=0" (what is asked and possible: vs the vertex shader's
+ * level, queue 0, 1 or 2 jobs), or "bm3d 7.1 gpu3d=off" when the V3D is not
  * running (the ARM, QEMU, the PC's stubs, the RGB30). The runtime adds its
  * own (later, 2d, impostor, fast). The length written. */
 int gpu3d_options_line(char *buf, size_t n);

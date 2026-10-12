@@ -49,12 +49,13 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   (2D under the 3D stays), 24-bit depth, MSAA 4× option.
 - QPU shaders written in `tools/qpuasm.py` and generated into `src/gpu/shaders.h`: fragment
   `fs_*` (two-thread variants `fs_*_t`), vertex `vs_baked`, `vs_tex_rgb`, `vs_lit`,
-  `vs_lit_tex`, `vs_lit_tex2`, shadows `vs_shadow*`, coordinate `cs_*`, `fs_zclear`.
+  `vs_lit_tex`, `vs_lit_tex2`, compact `vs_baked8`, `vs_lit8` (M39), shadows `vs_shadow*`, coordinate `cs_*`, `fs_zclear`.
 - Options (each a `bm/config.txt` key, a Settings row and, for the main ones, an argument of
   `gpu3d([on, aa, vs, queue])`): `gpu3d`, `gpu3d_aa`, `gpu3d_vs` (0/1/2), `gpu3d_queue`
   (1, 2 = two jobs in flight), `gpu3d_wc`, `gpu3d_2d`, `gpu3d_filter`, `gpu3d_tex16`,
-  `gpu3d_fs2`, `gpu3d_sort`.
-- Mesh cache: one slot per (mesh, sheet, unlit, smooth) (`mesh_get`); indexed groups are
+  `gpu3d_fs2`, `gpu3d_sort`, `gpu3d_attr`.
+- Mesh cache: one slot per (mesh, sheet, unlit, smooth), made again when `gpu3d_attr` changes
+  (`mesh_get`); indexed groups are
   padded to 16 bytes in their allocation.
 - 2D on the GPU (`gpu3d_2d=1`): rects, pixels, straight lines, `spr`/`sspr` (whole zooms),
   `map()`, `print` as quads in the job; the rest closes the job and is drawn by the ARM.
