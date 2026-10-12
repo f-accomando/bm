@@ -1,0 +1,14 @@
+bm report
+kind: overbit-bench
+kernel: v0.2.5-173-g62fef70
+branch: bm-core
+board: Pi Zero W
+date: 2026-10-12 07:26:22
+file: 20261012-072622_overbit-bench_pi-zero-w_v0.2.5-173-g62fef70.txt
+
+options bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=1 filter=1 tex16=1 fs2=1 sort=0 3d=gpu later=1 2d=1 impostor=8 fast=0
+overbit bench start: 1 phases (matrix), flags gpu:vs/q:4/secs:4, screen 480x270, GPU, renderers vs
+overbit bench GPU+VS 1920x1080 EXTREME match 487448
+overbit bench GPU+VS 1920x1080 EXTREME: 25 fps, 40.2 ms (1% 50.4, worst 64.1, 100% over 16.7), update 8.2, 3D 13.3, 25493 tri (max 30847), 0 vtx, 0 px, 44k instr, 2002 KiB Lua, bm3d 3.4
+overbit bench best GPU+VS 1920x1080: none at 60 fps
+overbit bench done in 16 s
