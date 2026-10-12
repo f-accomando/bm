@@ -3,51 +3,51 @@ kind: session
 kernel: v0.2.5-140-g5c31e9a
 branch: bm3d-driver-update
 board: Pi Zero W
-date: 2026-10-12 08:41:28
+date: 2026-10-12 08:42:24
 file: session_overbit_pi-zero-w.txt
 
 session of "Overbit" (the last one: the next run of this game replaces this file)
-options bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1 sort=0 3d=gpu later=0 2d=0 impostor=0 fast=0
-screen 480x270, 1043 frames in 45.8 s, 22.7 fps
+options bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1 sort=0 3d=gpu later=0 2d=0 impostor=8 fast=0
+screen 480x270, 1043 frames in 46.0 s, 22.6 fps
 3D: GPU
 
-time of _update + _draw (+ the 3D's wait): avg 41.7 ms, max 2217.0 ms, 743 frames over 16.7 ms
+time of _update + _draw (+ the 3D's wait): avg 41.9 ms, max 2181.3 ms, 743 frames over 16.7 ms
 memory: Lua peak 2003 KiB, data 5278 KiB; code 70594 tokens; busiest frame 1688k Lua instructions
 frames that were shown after more than 1.5 frames: 591
 
 time from one picture to the next:
   <= 18 ms (60 fps)    301
   <= 25 ms             151
-  <= 34 ms (30 fps)    148
-  <= 50 ms             139
-  <= 100 ms            286
+  <= 34 ms (30 fps)    147
+  <= 50 ms             141
+  <= 100 ms            285
   > 100 ms (a freeze)  17
 
 the frame in its parts (as the overlay, 1042 frames; ms a frame, % of the 16.7 ms of a frame):
-  update           7.2   43%
+  update           7.3   43%
   draw (no 3D)     2.1   13%
-  3D calls        28.9  173%
+  3D calls        29.0  174%
   audio            1.5    9%
   GPU wait         0.0    0%
-  all             39.8  239%
+  all             40.0  240%
 audio interrupt: 3.7% of the CPU's time (mean), 7.5% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
-   1043    46.1  2217.7 2217.0 2212.2    4.8  35.5   0.0     0.6       13     1221        1
-     14     3.3   429.0  428.3 427.0    1.3  90.7   0.0     0.6     1688     1204        1
-     17     4.4   391.9  391.5 306.2   85.3  76.7   0.0     0.4     1060     1048        1
-     15     3.7   390.4  389.6 387.7    1.8  90.7   0.0     0.8     1491     1153        1
-     16     4.0   336.8  335.5 333.7    1.8  90.7   0.0     1.2     1209     1101        1
-     13     2.9   336.1  335.3 334.0    1.3  90.7   0.0     0.7     1112     1048        1
-     12     2.6   264.6  264.2 262.9    1.3  90.7   0.0     0.4      779     1108        1
-     11     2.3   262.5  261.5 260.2    1.3  90.7   0.0     0.9      794     1195        1
-     10     2.0   258.9  258.0 256.7    1.3  90.7   0.0     0.9      753     1069        1
-      9     1.8   222.3  222.0 220.4    1.6  90.7   0.0     0.3      629     1146        1
-      8     1.5   191.1  190.6 189.3    1.3  90.7   0.0     0.5      503     1023        1
-      7     1.4   184.5  183.4 182.1    1.3  90.7   0.0     1.0      460     1109        1
+   1043    46.2  2181.8 2181.3 2179.7    1.5  35.5   0.0     0.5       13     1237        1
+     14     3.3   429.8  429.1 427.8    1.3  90.8   0.0     0.6     1688     1204        1
+     17     4.4   393.4  392.3 305.8   86.4  77.4   0.0     1.0     1060     1048        1
+     15     3.7   388.9  388.1 386.2    1.8  90.8   0.0     0.8     1491     1153        1
+     16     4.0   336.0  335.1 333.2    1.8  90.8   0.0     0.8     1209     1101        1
+     13     2.9   335.6  335.3 333.9    1.3  90.8   0.0     0.3     1112     1048        1
+     12     2.6   264.8  263.6 262.3    1.3  90.8   0.0     1.1      779     1108        1
+     11     2.3   261.1  260.8 259.1    1.7  90.8   0.0     0.3      794     1195        1
+     10     2.0   258.8  257.6 255.9    1.7  90.8   0.0     1.1      753     1069        1
+      9     1.8   221.7  220.8 219.5    1.3  90.8   0.0     0.9      629     1146        1
+      8     1.6   191.3  191.0 189.3    1.6  90.8   0.0     0.2      503     1023        1
+      7     1.4   185.0  184.7 183.1    1.6  90.8   0.0     0.3      460     1109        1
 
 GPU 3D: 1 jobs, 1 triangles a frame, 0.0 ms a frame, longest job seen to its end 0.0 ms
 (a job's time: from its start to the end the ARM saw; 1 jobs had ended before it looked, counted at the others' mean)
