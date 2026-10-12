@@ -8,21 +8,36 @@ Pause = { on = false, sel = 1, page = "main" }
 
 local ITEMS = { "RESUME", "CONTROLS", "LEAVE" }
 
+-- the chips are the system's (prompt(): lower case the keyboard, with mouse_l /
+-- mouse_r for the buttons, upper case the pad as the one in use shows it); "/" is
+-- drawn as text between alternatives
 local ROWS = {
-  { "MOVE", "W A S D", "LEFT STICK" },
-  { "LOOK", "ARROWS", "RIGHT STICK" },
-  { "FIRE", "MOUSE LEFT / J", "R2" },
-  { "SECONDARY FIRE", "MOUSE RIGHT / K", "L2" },
-  { "ABILITY 1", "SHIFT", "L1" },
-  { "ABILITY 2", "E", "R1" },
-  { "ULTIMATE", "Q", "Y" },
-  { "JUMP", "SPACE", "A" },
-  { "CROUCH", "C / CTRL", "B" },
-  { "RELOAD", "R", "X" },
-  { "MELEE", "V", "R3" },
-  { "CHANGE HERO", "H", "DOWN" },
-  { "PAUSE", "ENTER", "START" },
+  { "MOVE", { "w", "a", "s", "d" }, { "LSTICK" } },
+  { "LOOK", { "up", "down", "left", "right" }, { "RSTICK" } },
+  { "FIRE", { "mouse_l", "/", "j" }, { "R2" } },
+  { "SECONDARY FIRE", { "mouse_r", "/", "k" }, { "L2" } },
+  { "ABILITY 1", { "shift" }, { "L1" } },
+  { "ABILITY 2", { "e" }, { "R1" } },
+  { "ULTIMATE", { "q" }, { "Y" } },
+  { "JUMP", { "space" }, { "A" } },
+  { "CROUCH", { "c", "/", "ctrl" }, { "B" } },
+  { "RELOAD", { "r" }, { "X" } },
+  { "MELEE", { "v" }, { "R3" } },
+  { "CHANGE HERO", { "h" }, { "DOWN" } },
+  { "PAUSE", { "enter" }, { "START" } },
 }
+
+-- a row of chips from x, the top at y (a 12 px chip beside the 6x12 text)
+local function chips(list, x, y)
+  for _, n in ipairs(list) do
+    if n == "/" then
+      uprint("/", x + 2, y, 0x9AA2AC)
+      x = x + 11
+    else
+      x = uprompt(n, x, y, true) + 2
+    end
+  end
+end
 
 function Pause.enabled(net)
   return OVERBIT_TV_BM and not net
@@ -85,10 +100,9 @@ function Pause.draw()
     for i, r in ipairs(ROWS) do
       local y = y0 + 6 + i * 14
       uprint(r[1], x0, y, 0xD8DCE2)
-      uprint(r[2], x0 + 112, y, 0xFFFFFF)
-      uprint(r[3], x0 + 252, y, 0xFFFFFF)
+      chips(r[2], x0 + 112, y - 1)
+      chips(r[3], x0 + 252, y - 1)
     end
-    uprint("MOUSE: LEFT BUTTON FIRES, RIGHT BUTTON IS THE SECONDARY FIRE", x0 - 12, y0 + 6 + (#ROWS + 1) * 14 + 4, 0x9AA2AC)
     uprint("ENTER OR CLICK: BACK", cx - 60, LH - 22, 0x9AA2AC)
     font()
     return

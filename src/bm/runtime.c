@@ -1236,6 +1236,7 @@ static const struct { const char *name; uint8_t id; } key_prompts[] = {
     { "shift", PROMPT_KEY_SHIFT }, { "ctrl", PROMPT_KEY_CTRL }, { "alt", PROMPT_KEY_ALT },
     { "del", PROMPT_KEY_DEL }, { "home", PROMPT_KEY_HOME }, { "end", PROMPT_KEY_END },
     { "pgup", PROMPT_KEY_PGUP }, { "pgdn", PROMPT_KEY_PGDN },
+    { "mouse", PROMPT_MOUSE }, { "mouse_l", PROMPT_MOUSE_L }, { "mouse_r", PROMPT_MOUSE_R },
 };
 
 /* the pad the prompts show: the one pressed last; until then a DS4, on

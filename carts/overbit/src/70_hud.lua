@@ -17,6 +17,10 @@ local KEYS = {
 }
 local NINTENDO = { ult = "X", jump = "B", reload = "Y" }     -- the RGB30's .b16 (10_input)
 function Hud.key(action)
+  -- the .bm with a mouse in use: its buttons fire (10_input)
+  if OVERBIT_TV_BM and not Input.cmd.pad and Input.cmd.ptr_x then
+    if action == "fire" then return "mouse_l" elseif action == "fire2" then return "mouse_r" end
+  end
   if Input.cmd.pad and Input.nintendo and NINTENDO[action] then return NINTENDO[action] end
   local set = Input.cmd.pad and KEYS.pad or KEYS.kbd
   return set[action]
