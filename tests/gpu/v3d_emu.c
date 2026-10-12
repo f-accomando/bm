@@ -29,7 +29,8 @@
 int emu_red_a = 1, emu_tex_swap = 0;
 int emu_tformat = 0;                    /* the order of the 1 KiB subtiles of a T-format tile */
 int emu_t16_alpha = 0;                  /* M39: alpha's bits in RGBA5551 / RGBA4444 (v3d_emu.h) */
-int emu_etc1 = 0;                       /* M39: the layout of ETC1 textures (v3d_emu.h) */
+int emu_t16_lossy = 0;                  /* M39: 5551 / 4444 widened otherwise (v3d_emu.h) */
+int emu_etc1 = 0;                     /* M39: the layout of ETC1 textures (v3d_emu.h) */
 int emu_ms_load_one = 0;                /* MSAA: a colour load fills sample 0 only (else all 4) */
 int emu_skip = 0;                       /* jobs only counted, not run (ARM instruction counts) */
 int emu_no_threads = 0;                 /* M39: jobs with two-thread fragment shaders do not end */
@@ -1051,7 +1052,8 @@ static uint32_t etc1_index(int bx, int by, int wb);
  * byte c and its low five in byte a, alpha full; RGBA5551 (type 3) and
  * RGBA4444 (type 2) in the same layout, their colour fields from the top
  * as RGB565's and alpha in the low bits (or the top ones: emu_t16_alpha),
- * each widened to 8 bits; bytes a and c swapped with emu_tex_swap */
+ * each widened to 8 bits (emu_t16_lossy: half a step below); bytes a and c
+ * swapped with emu_tex_swap */
 static uint32_t texel_at(const uint32_t *tex, int type, int x, int y, int w)
 {
     uint32_t t;
@@ -1066,7 +1068,7 @@ static uint32_t texel_at(const uint32_t *tex, int type, int x, int y, int w)
         const int n = type == 2 ? 4 : 5, m = 16 - 3 * n;
         const uint32_t a = emu_t16_alpha ? v >> 3 * n : v & ((1u << m) - 1), rgb = emu_t16_alpha ? v : v >> m;
         const uint32_t mask = (1u << n) - 1, hi = rgb >> 2 * n & mask, g = rgb >> n & mask, lo = rgb & mask;
-#define WIDEN(c) (n == 4 ? (c) << 4 | (c) : (c) << 3 | (c) >> 2)
+#define WIDEN(c) (emu_t16_lossy ? (c) << (8 - n) | 1u << (7 - n) : n == 4 ? (c) << 4 | (c) : (c) << 3 | (c) >> 2)
         t = (m == 1 ? (a ? 255u : 0u) : a << 4 | a) << 24 | WIDEN(hi) << 16 | WIDEN(g) << 8 | WIDEN(lo);
 #undef WIDEN
     } else if (type == 8) {

@@ -37,11 +37,16 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   alpha (`g16_sheet_t.alpha`), so nothing is lost but green's last bit (a step of RGB565 at
   most); the alpha shaders discard the same texels. `probe_cut16` draws a 64x32 texture
   with the alpha shader for each order of the fields (red/blue as RGB565 or swapped, alpha
-  low or top bits) and keeps the first that gives every pixel and hole back (status `alpha
+  low or top bits) and keeps the first that gives every pixel within a step of the type's
+  bits (`cut16_near`) and every hole as the cleared page (status `alpha
   textures RGBA5551 RGBA4444`, `gpu3d_tex16()` 2, options line `tex16=2`, `stats.cut16`).
   RGBA4444 (type 2) is probed the same way but unused: no sheet has alpha between 0 and 1.
   `make test-gpu3d`: same holes, red and blue the same, green a step at most
-  (`EMU_T16_ALPHA=1` alpha on top: learned; `=2`: off).
+  (`EMU_T16_ALPHA=1` alpha on top: learned; `=2`: off; `EMU_T16_LOSSY=1` widens with half a
+  step, as the Pi gives some pixels a step off: still learned).
+  Pi (report 20261012-171826): type 3 works, order 0 (RGB565's, alpha low) is the right one
+  (5551 1845/2048 exact, 4444 1561/2048, other orders under 45%); the exact check failed it.
+  Next report: status `alpha textures RGBA5551 RGBA4444` expected.
 - `gpu3d_etc1=1` (bm3d 7.3, off; Settings *3D textures: ..., ETC1* also sets `gpu3d_tex16`;
   3D Bench GPU+ETC1): opaque sheets with sides multiples of the ETC1 tile (64x128, or 128x64
   for 4x2 utiles) as ETC1 (type 8), encoded in `tex_get` (`etc1_sheet`, encoder
@@ -55,7 +60,13 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   silhouette, 37 dB PSNR against RGB565, worst channel 9.
 - A failed `probe_cut16` / `probe_etc1` (Pi: both fail) logs to the probes' line (report)
   `params0`, each candidate's right pixels and first 4 texels wanted/got, and for 5551/4444
-  a control with the opaque shader (`5551 type 3, opaque shader: ...`); test: `EMU_T16_ALPHA=2`, `EMU_ETC1=2`.
+  a control with the opaque shader (`5551 type 3, opaque shader: ...`; its holes draw their
+  RGB: `00c0` is right), and a first wrong pixel; test: `EMU_T16_ALPHA=2`, `EMU_ETC1=2`.
+- ETC1 on the Pi: open (all 8 candidates fail, 2x4 BE 639/4096, texels unlike the wanted).
+  A failed probe also logs `etc1_diagnose`: `ETC1 flat f800/07e0:` (one flat block everywhere,
+  per byte order: first pixel and how many equal it: is type 8 ETC1, which order) and
+  `ETC1 2x4 <order>, block read along y=0/x=0:` (which block `xy` the TMU read: 2x4 utiles
+  give `00 10 20 ...` / `00 01 02 ...`).
 
 ## Decisions (from Pi reports, 2026-10-12)
 

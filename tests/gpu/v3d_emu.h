@@ -14,6 +14,10 @@ extern int emu_no_threads;              /* jobs with two-thread fragment shaders
  * 0 the low bits (as the VideoCore IV and Mesa's vc4), 1 the top bits, 2
  * neither (the types read as 0: the probe must turn them off) */
 extern int emu_t16_alpha;
+/* 1: the TMU widens RGBA5551 / RGBA4444's colour fields to 8 bits with half
+ * a step below them, not their top bits again (as the Pi, some pixels come
+ * back a step off: the probe must still learn the right order) */
+extern int emu_t16_lossy;
 /* M39 (bm3d 7.3): the TMU's ETC1 (type 8) in T-format: 0 utiles of 2 x 4
  * blocks, each block's bytes big-endian (as the format; the probe's first
  * candidate); 1 utiles of 4 x 2 blocks, the bytes little-endian (a later

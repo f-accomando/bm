@@ -1362,6 +1362,8 @@ test-gpu3d: $(BUILD)/host/test_gpu3d
 	EMU_NO_THREADS=1 $< 1 0 0 0 0 0
 	EMU_T16_ALPHA=1 $< 0 1 1 0 0 0
 	EMU_T16_ALPHA=2 $< 1 0 0 0 0 0
+	EMU_T16_LOSSY=1 $< 1 0 0 0 0 0
+	EMU_T16_LOSSY=1 EMU_T16_ALPHA=1 $< 0 1 1 0 0 0
 	EMU_ETC1=1 $< 0 1 1 0 0 0
 	EMU_ETC1=2 $< 1 0 0 0 0 0
 
