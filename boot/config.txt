@@ -17,7 +17,8 @@ hdmi_drive=2
 disable_overscan=1
 
 # The kernel asks for a 640x360 framebuffer and the GPU scales it to the
-# HDMI mode; nearest-neighbour keeps the text sharp instead of blurred.
+# HDMI mode; 8 = nearest-neighbour, sharp pixels; 6 = soft enlargement
+# (firmware default, verified on the Pi at 640x360 -> 1080p).
 scaling_kernel=8
 
 # Always 1080p60 (16:9, CEA): the picture keeps its shape. Left to the

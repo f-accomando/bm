@@ -19,7 +19,8 @@ Written to choose the menu resolution (M27, BareMetal UI).
   ARM.
 - The HDMI mode is in `boot/config.txt` *(D)*:
   - `hdmi_group=1`, `hdmi_mode=16`: **1080p at 60 Hz** (1920×1080);
-  - `scaling_kernel=8`: **sharp** scaling (solid pixels, no blur);
+  - `scaling_kernel=8`: **sharp** scaling (solid pixels, no blur); `scaling_kernel=6` is the
+    **soft** option, verified on the Pi;
   - `disable_overscan=1`: no black border.
 - With an **integer** scale (2×, 3×...) every pixel becomes a square equal to the
   others. With a non-integer one (1.5×) some pixels come out wider than others.

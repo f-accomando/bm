@@ -12,4 +12,10 @@ game any more (removed upstream); a change needs `make market-seed MARKET=<clone
 - Bench with flags: `cart_config("overbit_bench")`, `./easy_install.sh bench FLAGS` (flags in
   the header of `src/84_bench.lua`: `res`, `gpu`, `q`, `secs`, `warm`, `ring`, `far`, `save`,
   `stay`). Each step line has `update`, `3D` (the ARM's wait) and `gpu` (`stat(16)`).
+- Mouse (`.bm` only, `src/10_input.lua`): the buttons fire; moving it turns the view only in
+  the hero's own first person (`first_person`, `mouse_look`), added to `cmd.look_x/look_y` like
+  the stick (on the network the view travels in the command). `mouse()` is absolute, so it
+  takes the pointer's moves; pushed into an edge it keeps turning at the stick's top speed until
+  moved back. Speed: `MOUSE_TURN` (π per screen width) × `Input.mouse_sens`. The arrow shows
+  only in the pause menu.
 - The V3D side (queue, impostors, measurements): [v3d](v3d.md).

@@ -13,7 +13,7 @@ local ITEMS = { "RESUME", "CONTROLS", "LEAVE" }
 -- the one in use shows it); "/" is drawn as text between alternatives
 local ROWS = {
   { "MOVE", { "w", "a", "s", "d" }, { "LSTICK" } },
-  { "LOOK", { "up", "down", "left", "right" }, { "RSTICK" } },
+  { "LOOK", { "mouse", "/", "up", "down", "left", "right" }, { "RSTICK" } },
   { "FIRE", { "mouse_l", "/", "j" }, { "R2" } },
   { "SECONDARY FIRE", { "mouse_r", "/", "k" }, { "L2" } },
   { "ABILITY 1", { "shift" }, { "L1" } },

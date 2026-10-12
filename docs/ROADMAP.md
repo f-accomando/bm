@@ -389,9 +389,10 @@ prova senza seriale e spesso senza tastiera).
   di bottiglia è l'ARM o la GPU, e l'assistente (kb) lo spieghi.
 - **R41 — Disegnare piccolo e ingrandire meglio.** Overbit a 640×360 su GPU, portato a 1080p:
   oggi lo scaler hardware con `scaling_kernel=8` (pixel netti, nearest). Da provare: un kernel
-  morbido dello scaler (bilinear, gratis) e, come passata QPU a fine fotogramma, bicubic o
+  morbido dello scaler (il 6, sinc, gratis) e, come passata QPU a fine fotogramma, bicubic o
   FSR-style spaziale (EASU + RCAS, senza vettori di movimento). Prima da misurare sul Pi: il
   costo della passata a 1080p (verosimilmente più di 5 ms) e i kernel che l'HVS accetta.
+  Il kernel 6 dello scaler è verificato sul Pi; la passata QPU resta da fare solo se non basta.
 
 ### Hardware
 - **R19 — Altri controller Bluetooth.** Oggi via Bluetooth solo il DS4 (più tastiere e
@@ -401,6 +402,7 @@ prova senza seriale e spesso senza tastiera).
   altoparlanti.
 - **R22 — Pulsanti su GPIO e schermo piccolo.** Il Pi Zero dentro un guscio portatile (pad
   sui GPIO, LCD DPI o SPI): una strada diversa dalla RGB30.
-- **R41 — Ingrandimento migliore.** Oggi 640×360 → 1080p lo fa lo scaler hardware (bilineare); un passo
+- **R41 — Ingrandimento migliore.** Oggi 640×360 → 1080p lo fa lo scaler hardware (nearest con `scaling_kernel=8`, sinc morbido con il 6); un passo
   sulle QPU in stile FSR (bordi adattivi + nitidezza) o bicubico per il 3D a bassa risoluzione. Analisi dei
   costi e delle alternative: `docs/progress/graphics-research.md` nella storia git (commit 5461046).
+  Il kernel 6 dello scaler è verificato sul Pi; la passata QPU resta da fare solo se non basta.

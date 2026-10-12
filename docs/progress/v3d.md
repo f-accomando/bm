@@ -34,8 +34,11 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
 
 ## To do, in order
 
-1. Pixels at 1080p: render 640x360 or 720p and enlarge better (R41: `scaling_kernel` below,
-   then QPU bicubic / FSR-style pass); texture and 2D cost per pixel on the GPU.
+1. Pixels at 1080p (R41): the cheap soft enlargement is scaler kernel 6 (config only, no GPU
+   cost; below). A QPU bicubic / FSR-style pass stays open, only if 6 is not enough. Cost from
+   the Pi 3D Bench: a full-screen 1080p pass with one bilinear read is ~3.5-5 ms of GPU
+   (textured fill 1.65 ns/px nearest, 2.3 ns/px bilinear, plus ~0.3 ms fixed); bicubic/FSR
+   more, not measured. 2D on GPU: 9.5 ns/px (19.6 ms at 1080p).
 2. Impostors: Pi runs at `r3d_impostor` 8, 16, 32 with the new threshold (8 = 2.7 render px
    at 640x360, no effect), photo of far heroes; then the default for crowds (R42).
 3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs.
@@ -58,7 +61,7 @@ https://github.com/raspberrypi/firmware/issues/104 (closed "This is now supporte
 | 3 | `SINC_NO_SIDE_LOBES` | issue #104; not tried on Pi |
 | 4 | `SINC_HALF_FIRST_SIDE_LOBE` | issue #104; not tried on Pi |
 | 5 | `SINC_HAMMING` | issue #104; not tried on Pi |
-| 6 | `SINC_HAMMING_3PI`: firmware default ("we normally use 6") | issue #104; not tried on Pi |
+| 6 | `SINC_HAMMING_3PI`: firmware default ("we normally use 6") | **verified on Pi**: looks good (soft), 640x360 -> 1080p |
 | 7 | `SINC_HAMMING_2_5PI` | issue #104; not tried on Pi |
 | 8 | `NEAREST_NEIGHBOUR` | issue #104; **verified on Pi** (bm today) |
 
@@ -72,13 +75,9 @@ https://github.com/raspberrypi/firmware/issues/104 (closed "This is now supporte
 
 ### Try on the SD
 
-1. Pi off, SD in the PC; in `config.txt` at the root of the SD change `scaling_kernel=8` to
-   the value to try (start with 6, then 3, 5, 7). Do not touch `boot/config.txt` in the repo.
-2. Boot on a 1080p screen; run Overbit with the GPU at 640x360 (3x) and, once, at 720p (1.5x).
-3. Note per value: edge sharpness vs 8, blur, ringing (halos at sky/HUD edges), shimmering
-   when the camera moves, text of menu and HUD, crash or no signal / black screen.
-4. Photo of the same scene per value; report the value and the notes.
-5. Put back `scaling_kernel=8` before any other test.
+Optional, still untried: 3, 5, 7. Pi off, change `scaling_kernel` in `config.txt` at the root
+of the SD (not `boot/config.txt`), run Overbit on the GPU at 640x360 on 1080p, compare with 6
+(sharpness, ringing, black screen); photo per value. Put back `scaling_kernel=8` afterwards.
 
 ## To measure on the Pi
 
