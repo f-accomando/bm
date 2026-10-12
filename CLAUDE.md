@@ -25,6 +25,22 @@ compatibilità (cartelle SD e header vecchi, tag di rete in `tools/bm_net.py`).
   traduce): `OLDCLAUDE.md`, `OLDREADME.md` e tutti i file `*-IT.md`.
 - Gli spunti R1, R2, … sono in fondo a `docs/ROADMAP.md` e non sono ancora decisi.
 
+## Leggere poco (token)
+
+- **Mai per intero**: `runtime.c` (350 KB), `menu_ui.c`, `settings.c`, `bm3d.lua`, `bmlib.lua`,
+  `GAME-GUIDE.md`, `B16.md`, `sdk/README.md`, `ROADMAP.md`. `Grep -n` sul simbolo o su `^#`, o
+  `python3 scripts/cindex.py <file> [parola]`; poi `Read` con `offset`/`limit` su quel tratto.
+  Un file già letto non si rilegge.
+- **API**: `docs/API.md` è indice e basi; il resto in `docs/api/<area>.md` (draw, input, system,
+  sound, tools, light3d, bmlib, riff, bmnet): si apre solo quello dell'area.
+- **Progressi**: un'area = un `docs/progress/<area>.md` (indice `docs/progress.md`), una
+  sezione per argomento, simboli da cercare, niente cronaca; ~120 righe, poi si spezza in
+  `<area>-<tema>.md` e si aggiorna l'indice. Milestone: solo la sua sezione di `ROADMAP.md`
+  (`Grep '^## M47'`).
+- **Documenti nuovi**: sotto ~15 KB / 300 righe, titoli `##` cercabili; oltre, si dividono.
+- **Ricerche larghe** → `Explore` o un subagent che torna con la conclusione. La skill
+  `bm-docs-map` (`claude/skills/`, da copiare in `.claude/skills/`) dice cosa aprire per area.
+
 ## Come si lavora
 
 - Sviluppo nuovo (funzione, gioco, passo di milestone): prima di toccare i file chiedere
@@ -33,8 +49,8 @@ compatibilità (cartelle SD e header vecchi, tag di rete in `tools/bm_net.py`).
   altro. Non chiederlo per domande, letture della roadmap o lavoro già indicato su un
   branch.
 - In sviluppo non si lancia la suite intera. Solo i test di ciò che la modifica tocca
-  (QEMU `tests/qemu_test.py -k <nome>`, i test sul PC del pezzo). Per la GPU solo Overbit
-  (`make test-overbit`) e il 3D Bench (`make test-b3d`). I test dei giochi si accendono
+  (QEMU `tests/qemu_test.py -k <nome>`, i test sul PC del pezzo). Per la GPU solo il 3D Bench
+  (`make test-b3d`). I test dei giochi si accendono
   solo nella sessione che li tocca. `kernel7` si ignora: né build né test, finché non si
   chiede `ZERO2=1`.
 - Il Pi si prova senza seriale, copiando `dist/kernel.img` sulla SD (WSL `/mnt/d`) con
@@ -64,10 +80,8 @@ da solo (file, scopo, cosa è già stato provato).
   quello che ha già provato.
 - Ricerche larghe nel repo: `Explore`. Task indipendenti: più agenti nello stesso messaggio.
 - **API nuova o cambiata**: dopo il codice, un subagent (`light`, `standard` se tocca più
-  doc) aggiorna la documentazione: `docs/API.md` e `docs/GAME-GUIDE.md` (in inglese; i `-IT`
-  no), `src/ai/kb/` (poi `make ai-model`), gli esempi, `sdk/README.md` se serve e il file
-  giusto di `docs/progress/` (indice `docs/progress.md`). I progressi della repo vanno lì,
-  mai in questo file.
+  doc) aggiorna ciò che dice l'invariante *API* più gli esempi, `sdk/README.md` se serve e il
+  file giusto di `docs/progress/`. I progressi vanno lì, mai in questo file.
 - **Roadmap**: lo stesso passo guarda se la novità rende possibile qualcosa di nuovo nelle
   `.bm` / `.b16` esistenti (giochi, strumenti, Market) o per l'assistente AI (kb, esempi,
   Predict), e lo scrive in `docs/ROADMAP.md` come spunto R… (non come decisione) con
@@ -75,6 +89,7 @@ da solo (file, scopo, cosa è già stato provato).
 
 ## Non fare
 
+- Un `.b16` non sostituisce mai il `.bm` (né il contrario): sono due edizioni separate, ognuna col suo Market (`.bm` Pi, `.b16` RGB30), con sorgenti, regole di build e voce nel Market proprie (come `carts/titan` e `carts/titan_ex`). Vale per ogni sviluppo futuro: mai riscrivere i sorgenti del `.bm` per fare il `.b16`.
 - Sorgenti Linux (panfrost e simili) si leggono, non si copiano (GPL). Strutture GPU da
   Mesa (`v7.xml`, MIT).
 - Chiavi (`MESHY_API_KEY`, `ANTHROPIC_API_KEY`, token) solo nell'ambiente o in
@@ -106,11 +121,10 @@ da solo (file, scopo, cosa è già stato provato).
 - Faccia visibile dal lato in cui i vertici sono orari (`r3d.c`). Verso glTF la z cambia
   segno e l'ordine si inverte. `animate()` in `runtime.c` e la posa in
   `carts/animator/main.lua` fanno gli stessi conti: cambiarli insieme.
-- Pagine Lua degli strumenti: un `do … end` che esporta in `P`, meno di 200 locali.
-  Scritte sulle righe di 16 px; la cornice di un dialogo non passa sulla riga del titolo
-  (i test QEMU la leggono). In Lua `cond and nil or x` dà sempre `x`. bm Mesh riscrive
-  solo le righe tra `-- [bm Mesh begin]` e `-- [bm Mesh end]`.
-- API nuova o cambiata in `docs/API.md` e `docs/GAME-GUIDE.md` (stesse tabelle e esempi) e
+- Pagine Lua degli strumenti, bm Mesh, mouse (M48), kb, tavolette Predict: regole in
+  `docs/progress/tools.md` (*Rules*). In Lua `cond and nil or x` dà sempre `x`.
+- API nuova o cambiata nel file di `docs/api/` della sua area (indice `docs/API.md`) e in
+  `docs/GAME-GUIDE.md` (stesse tabelle e esempi) e
   in `src/ai/kb/`, poi `make ai-model` e commit di `assist.weights`. Voce nuova con
   `title_en:` e `text_en:`. Commenti `#` della kb solo in cima al file.
 - Flag tile (bmlib): 0 solido, 1 piattaforma, 2 scala, 3 acqua, 4 fa male. Token del
@@ -119,20 +133,13 @@ da solo (file, scopo, cosa è già stato provato).
   Caso di gioco con `grandom()`; niente `G.frame`, camera, qualità o stato cambiato nel
   disegno. Banco suoni in tre posti (C `au_parse`, Lua, `scripts/bmaudio.py`): cambiarli
   insieme. Shader QPU in `tools/qpuasm.py` → `src/gpu/shaders.h` (`make test-qpu`).
-- Un solo menu, `src/kernel/menu_ui.c`, per Pi e RGB30. Settings in `src/kernel/settings.c`
-  per entrambi; una riga nuova va lì. Schede Pi: Market · Games · Dev · Lib · Settings,
-  ma **Lib è nascosta** finché `lib_tab=1`. Il menu si apre su Games. Market non blocca il
-  menu e non carica se la scheda non è attiva. Fibre: `background_stop()` prima di un'app,
-  di `rescan()` e di una cancellazione; `net_wait_step` va controllato (ritorna -1 se
-  annullata).
+- Menu, Settings, schede, tasti di sistema, mouse, fibre, permessi: regole in
+  `docs/progress/system.md`, `platforms.md` e `multitasking.md` (*Rules*): un solo menu
+  (`menu_ui.c`) e un solo Settings (`settings.c`) per Pi e RGB30; le app non riusano i tasti
+  di `syskeys.c`.
 - RGB30: B conferma, A indietro (`confirm=a` li scambia). Usare `pad_ok` / `pad_back`, mai
   `PAD_A` / `PAD_B`. Barra: solo WiFi e batteria. `.bm` visibili per le prove
   (`show_bm=0` li nasconde); il Market scarica solo `.b16`.
-- Tasti di sistema in `src/kernel/syskeys.c`: le app non li riusano. F12 tenuto aiuto,
-  Esc menu, Ctrl+Esc = PS (torna al menu), F11 overlay, F6 assistente, F5 / Ctrl+R prova.
-  In rete `online(true)`: PS non sospende, chiede "Leave the match?" e chiama `_leave()`.
-  Solo un mouse muove il puntatore (`mouse(true)` per chiederlo; `mouse=off` lo spegne).
-  Riavvio automatico: sempre 3 s contati.
 - Cartucce non incorporate: solo `.bm` nuovi in `/carts`, e solo quelli fatti nella stessa
   partita; niente `picture3d`. Rete e `report()` chiedono il permesso la prima volta
   (`allow_…` in `bm/config.txt`).
@@ -141,25 +148,17 @@ da solo (file, scopo, cosa è già stato provato).
   progetto a 104). Salvare un gioco chiede la copia (`write_target`, `copy_question` in
   `runtime.c`); `cart_save`/`cart_write`/`cart_put_audio` restituiscono il file scritto;
   `cart_build`. `src/bm/project.c`; controfigure: `tests/studio/project_rules.lua`.
-- Mouse negli strumenti (M48): `require "bmui"` (`src/script/bmui.lua`), il mouse fa quello
-  che fanno i tasti: zone registrate disegnando, chip che premono il tasto, `U.press` davanti
-  a `keyp()`, menu contestuale di tasti sulla griglia 8x16. Una funzione del mouse fuori dal
-  `do … end` di una pagina non vede i suoi locali: esportarli. Prove: `bmui_host.lua`, `MS`
-  nelle controfigure, QEMU `test_editor_mouse`.
-- GPU: V3D in `src/gpu/gpu3d.c`; software se `gpu3d=0`, in QEMU, o se la GPU non risponde.
-  Cosa non documentato lo impara la prova all'avvio e si spegne da sola. Versione in
-  `src/gpu/version3d.h`: un passo che cambia cosa sa fare alza `bm3d` e una riga in
-  `docs/DRIVERS.md`. Dettaglio driver, score e opzioni: quel doc e `docs/BENCH3D.md`, non
-  qui. 2D disegnato mentre un lavoro GPU è in volo passa da `draw2d()` / `sync3d()` /
-  `flush3d(1)`.
+- GPU: regole in `docs/progress/graphics.md` (*Rules*): ogni novità è un'opzione, un passo che
+  cambia cosa sa fare alza `bm3d` in `version3d.h` e una riga in `docs/DRIVERS.md`; il 2D
+  mentre un lavoro GPU è in volo passa da `draw2d()` / `sync3d()` / `flush3d(1)`.
 
 ## Dove sta il resto
 
 Non ricopiare qui la cronaca. Prima di modificare un'area, leggere il doc o i file:
 
 - SDK, Studio, Animator, Mesh, Pixel: `sdk/README.md`, `carts/{editor,studio,animator,mesh,pixel}/`, `src/script/bm3d.lua`.
-- API giochi, bmlib, bmnet, salvataggi a 8 slot: `docs/API.md`, `src/script/bmlib.lua`, `src/script/bmnet.lua`.
+- API giochi, bmlib, bmnet, salvataggi a 8 slot: `docs/API.md` (indice) → `docs/api/{draw,input,system,sound,tools,light3d,bmlib,riff,bmnet}.md`, `src/script/bmlib.lua`, `src/script/bmnet.lua`.
 - Audio, riff, assistente musica: `src/audio/`, `docs/RIFF.md`. Assistente, mesh da immagine, riduttore: `src/ai/`, `src/ai/kb/README.md`. Predict e pad: `docs/PREDICT.md`, `docs/PADTYPE.md` (le tabelle `CROSS`/`FACE`/`KB` si cambiano in `padtype.lua`).
-- bm Write e `/docs`: `carts/write/`, `docs/API.md` (*Documents*). Ctrl+I / Ctrl+M arrivano come `"^i"` / `"^m"`.
+- bm Write e `/docs`: `carts/write/`, `docs/api/system.md` (*Documents*). Ctrl+I / Ctrl+M arrivano come `"^i"` / `"^m"`.
 - Giochi (Overbit, Yharnam, …): un documento per gioco in `docs/progress/` (indice `docs/progress.md`). Qui niente regole di un gioco specifico, solo workflow e regole generali del sistema.
 - Menu, splash, LED, report, aggiornamenti, Market: `src/kernel/{menu_ui,settings,loading,ledstate,reports,update,market}.c`. RGB30: `docs/RGB30.md`, `src/rgb30/`.

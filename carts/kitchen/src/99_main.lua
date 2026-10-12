@@ -25,6 +25,6 @@ function _draw()
   end
 end
 
--- for the host tests (tests/kitchen/sim.lua)
+-- for the host tests
 KITCHEN = { G = G, Data = Data, Scr = Scr, Kit = Kit, Food = Food, Chef = Chef, Ord = Ord,
             Bot = Bot, End = End, Save = Save, Hud = Hud, Mesh = Mesh, Dis = Dis, Haz = Haz }

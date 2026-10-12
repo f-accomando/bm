@@ -66,6 +66,15 @@ bm_texroom_cart:
 bm_texroom_cart_end:
     .byte 0
 
+/* bm SDK (RGB30), the tool of the Dev tab (src/rgb30/ui.c): the cartridge
+ * rgb30.mk builds from carts/sdk_b16 (found through -Wa,-I$(BUILD)) */
+    .section .rodata
+    .balign 4
+    .globl bm_sdk_cart, bm_sdk_cart_end
+bm_sdk_cart:
+    .incbin "sdk_b16.bm"
+bm_sdk_cart_end:
+
 /* the public key that checks the releases (src/net/release.c), as on the
  * Pi: PEM text, NUL-terminated */
     .section .rodata

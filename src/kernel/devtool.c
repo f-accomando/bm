@@ -1,0 +1,81 @@
+/*
+ * The session of a development tool built into the kernel (devtool.h): the
+ * tool, the games it tries, the other tools it opens on its file. Shared by
+ * the Pi (carts.c) and the RGB30 (src/rgb30/ui.c).
+ */
+#include "devtool.h"
+#include "crumbs.h"
+#include "bm/runtime.h"
+#include "fs/fat.h"
+#include "lib/printf.h"
+
+#include <stdlib.h>
+#include <string.h>
+
+#define PLAY_SECS   (24u * 3600u)
+
+const char *devtool_session(framebuffer_t *fb, const devtools_t *set, const uint8_t *cart, size_t cart_len,
+                            const char *what, const char *open)
+{
+    char path[64] = "", err[512] = "", tool[16], from[16] = "";
+    int back = 0, tried = 0;
+    bm_stats_t st;
+    if (open)
+        ksnprintf(path, sizeof path, "%s", open);
+    for (;;) {
+        crumb(what, NULL);
+        bm_set_arg(path[0] ? path : NULL, err[0] ? err : NULL);
+        bm_set_arg_back(back);
+        bm_set_arg_run(tried ? &st : NULL);     /* the dev kit's numbers of the game tried */
+        bm_set_arg_from(from[0] ? from : NULL);
+        tried = 0;
+        bm_set_tool(1);                 /* the tool saves where it is told */
+        bm_play(fb, cart, cart_len, PLAY_SECS, &st);
+        bm_set_tool(0);                 /* the games it tries do not */
+        bm_set_arg(NULL, NULL);
+        bm_set_arg_run(NULL);
+        bm_set_arg_from(NULL);
+        if (set->after_run)
+            set->after_run();
+        if (bm_take_tool(tool, sizeof tool)) {
+            /* the tool that asks: the next one finds it in cart_arg().from */
+            from[0] = 0;
+            for (size_t k = 0; k < set->n; k++)
+                if (!strcmp(set->tools[k].what, what))
+                    ksnprintf(from, sizeof from, "%s", set->tools[k].name);
+            size_t i = 0;
+            while (i < set->n && strcmp(set->tools[i].name, tool))
+                i++;
+            path[0] = 0;
+            bm_take_run(path, sizeof path);
+            if (i == set->n)
+                break;
+            cart = set->tools[i].start;
+            cart_len = (size_t)(set->tools[i].end - set->tools[i].start);
+            what = set->tools[i].what;
+            back = 0;
+            err[0] = 0;
+            continue;
+        }
+        if (!bm_take_run(path, sizeof path))
+            break;
+        back = 1;
+        err[0] = 0;
+        fat_entry_t e;
+        uint8_t *data;
+        size_t len;
+        if (fat_find(path, &e) != 0 || fat_load(&e, &data, &len) != 0) {
+            ksnprintf(err, sizeof err, "cannot read %s: %s", path, fat_error());
+            continue;
+        }
+        crumb("trying", path);
+        bm_play(fb, data, len, PLAY_SECS, &st);
+        bm_print_stats(&st);
+        tried = st.frames > 0;
+        free(data);
+        ksnprintf(err, sizeof err, "%s", bm_last_error());
+        if (set->after_run)
+            set->after_run();
+    }
+    return what;
+}

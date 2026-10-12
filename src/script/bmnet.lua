@@ -7,7 +7,7 @@
 -- hosts, the others join), messages (that may be lost, or sure and in
 -- order) and the lockstep of action games: every console runs the whole
 -- game with the same seed and only the players' inputs travel; a frame runs
--- when the inputs of everybody for it are there (docs/API.md, "bmnet").
+-- when the inputs of everybody for it are there (docs/api/bmnet.md).
 --
 -- Packets: "BMN1", the game (4 bytes), the type, from (u16), to (u16, 0:
 -- everyone), then:

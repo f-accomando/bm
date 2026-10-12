@@ -1,7 +1,7 @@
 # Overbit
 
-The game: `carts/overbit/` (`build.py`, `art/`, sources in `src/`). Host tests: `make
-test-overbit`. A change needs `make market-seed MARKET=<clone>` for the Market.
+The game: `carts/overbit/` (`build.py`, `art/`, sources in `src/`). There are no host tests of the
+game any more (removed upstream); a change needs `make market-seed MARKET=<clone>` for the Market.
 
 ## How it is today
 

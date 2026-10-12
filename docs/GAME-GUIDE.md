@@ -114,7 +114,7 @@ Buttons: `btn(i)` while it is held, `btnp(i)` only when it is pressed.
 Esc, Start+Select or the PS button go back to the menu, and the game stays **suspended** in
 memory (A on its cover resumes it). `quit()` instead really closes the cartridge. A network
 game calls `online(true)`: there PS asks the player whether to leave the match and
-disconnect, and if so it calls `_leave()` (see `docs/API.md`).
+disconnect, and if so it calls `_leave()` (see `docs/api/bmnet.md`).
 
 **Button icons.** To say which button does what, `prompt()` draws it as a small chip in the
 look of the controller in use: the DS4's symbols, a pad's letters, the keyboard's keys, and
@@ -600,7 +600,7 @@ local lib = require "bmlib"
 
 Times in seconds, positions in pixels, speeds in pixels per frame; tweens, timers and
 jingles go on with `lib.update()`, once in `_update`. The complete list is in
-[API.md](API.md#bmlib-the-games-shared-library). Here is a whole platformer, with no
+[api/bmlib.md](api/bmlib.md). Here is a whole platformer, with no
 other files (the tiles are drawn in the code and the map is built with `mset`): title,
 match, jumps, platforms, coins with sparks, camera, pause, record.
 
@@ -882,7 +882,7 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
 | `carts/astrowing` | 3D: models, fog, a camera that tilts, horizon |
 | `carts/hunt` | 320×180, a generated 2048×2048 map, lights, combat, boss |
 | `carts/demo` | a real PNG sprite sheet and CSV map |
-| `carts/kitchen` | a big game: sources in several files joined by `build.py`, 3D with meshes built in code, 1–4 players (`btn(i, p)`, `players()`), saves, and a host simulator (`tests/kitchen/sim.lua`) that plays by itself to find errors and measure the cost of each frame |
+| `carts/kitchen` | a big game: sources in several files joined by `build.py`, 3D with meshes built in code, 1–4 players (`btn(i, p)`, `players()`), and saves |
 | `carts/village` | 3D models made with bm Studio and a villager animated with bm Animator (`models.bm`): `model()`, `animate()` with two animations blended, `bone3d()`, terrain without z-buffer, night with `lamp3d` and fog, pre-rendered sprites |
 | `carts/titan` | big pre-rendered sprites (a 3D model made in Python becomes layered pixel art: one frame, many combinations of equipment), a big sheet with a palette (`--sheet8`), parallax, the states of a fighting game with per-frame hitboxes, a CPU opponent |
 | the SDK's templates (Ctrl+N) | *Platform 2D*, *Top-down 2D* and *Shooter 2D* with bmlib and the tiles' flags; *Versus 2D*: two players on one console, punches with hitboxes and hurtboxes; *Online 2D*: a lobby and lockstep with bmnet |

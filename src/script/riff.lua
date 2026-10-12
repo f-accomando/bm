@@ -17,7 +17,7 @@
 -- ready-made ones (instruments()) and the sounds of the cartridge's bank
 -- by name; R.code(text) runs a piece of live code (bm Code: Ctrl+Enter),
 -- R.bake() turns a pattern into a song for the bank (bm Sound).
--- docs/API.md (Riff) and docs/RIFF.md say it all.
+-- docs/api/riff.md and docs/RIFF.md say it all.
 
 local NAME, loadtext = ...      -- loadtext: the kernel's loader of Lua text, for R.code
 local R = {}

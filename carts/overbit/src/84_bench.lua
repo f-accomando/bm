@@ -80,8 +80,7 @@ local WARM, MEASURE, RING, RING_LEN
 -- phase (OVERBIT_BENCH_ONE = "gpu:2"), the fight at once (OVERBIT_BENCH_HOT:
 -- the two teams face to face at the point, no warming up; a number: the
 -- seconds of the measure, 4 by default), and a stop after this many seconds
--- of the measure (OVERBIT_BENCH_STOP). For the calibration's tests
--- (tests/overbit/run.py): OVERBIT_BENCH_FAKE(r, w, h, q) gives the frame's
+-- of the measure (OVERBIT_BENCH_STOP). OVERBIT_BENCH_FAKE(r, w, h, q) gives the frame's
 -- milliseconds in place of stat(1).
 local function config(opt, matrix)
   local fast = OVERBIT_BENCH_FAST

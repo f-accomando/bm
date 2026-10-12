@@ -18,10 +18,26 @@ Not here: history (git log), measurements (`docs/PRESTAZIONI.md`, `docs/STRESS.m
 | [graphics](progress/graphics.md) | framebuffer, 2D, software 3D, V3D driver, Mali bring-up, rendering tests | `src/drivers/fb.c`, `src/bm/gfx16.c`, `src/bm/r3d.c`, `src/gpu/`, `src/rgb30/mali.c` |
 | [v3d](progress/v3d.md) | V3D driver on the Pi Zero W: async jobs, cache, binner memory, open work and Pi measurements | `src/gpu/v3d.c`, `src/gpu/gpu3d.c`, `src/bm/runtime.c` |
 | [lua](progress/lua.md) | Lua VM, cartridge runtime, built-in libraries, dev kit, profiler, session report | `third_party/lua/`, `src/bm/runtime.c`, `src/bm/require.c`, `src/script/`, `src/bm/profile.c` |
-| [audio](progress/audio.md) | synthesizer, sound bank and player, presets, outputs, riff, music assistant | `src/audio/`, `src/script/riff.lua`, `src/ai/music.c`, `src/rgb30/rk_audio.c` |
+| [audio](progress/audio.md) (+ [output](progress/audio-output.md), [samples](progress/audio-samples.md)) | synthesizer, sound bank and player, presets, outputs, riff, music assistant | `src/audio/`, `src/script/riff.lua`, `src/ai/music.c`, `src/rgb30/rk_audio.c` |
 | [platforms](progress/platforms.md) | Pi Zero W / Pi 1, Pi Zero 2 W (off), RGB30, `bmhost`, QEMU | `src/rgb30/`, `rgb30.mk`, `tests/host/`, `tests/qemu_test.py` |
 | [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) | the games: screens and quality, bench flags, assets | `carts/overbit/`, `carts/yharnam/` |
 | [tools](progress/tools.md) | the suite (SDK, Code, Pixel, Studio, Animator, Mesh, Sound, Write), assistant, PC scripts, Market, videos, CI | `carts/`, `src/ai/`, `scripts/`, `tools/`, `market/`, `video/` |
+
+## Which section to open
+
+Open the file of the area and `Grep -n '^##'` it; read only the section you need. Every area
+file ends with *Open work* and *Rules (do not break)*.
+
+- Boot, MMU, cache, IRQ, fibers, crashes, USB, SD/FAT, Bluetooth, WiFi, menu: [system](progress/system.md).
+- Framebuffer, 2D, software 3D (`r3d`), V3D, Mali, rendering tests: [graphics](progress/graphics.md).
+- Menu fibers, shares, background jobs, SD/network measurements: [multitasking](progress/multitasking.md).
+- V3D driver on the Pi (async jobs, cache, binner memory, Pi measurements): [v3d](progress/v3d.md).
+- VM, runtime, built-in libraries, dev kit: [lua](progress/lua.md).
+- Synth, mixer, player, presets, riff, music assistant: [audio](progress/audio.md); output depth and dither: [audio-output](progress/audio-output.md); samples, effects, WAV: [audio-samples](progress/audio-samples.md).
+- Pi Zero W, Pi Zero 2 W, RGB30, PC and QEMU: [platforms](progress/platforms.md).
+- Suite (SDK, Studio, Animator, Mesh, Pixel, Write), assistant, PC scripts, Market, videos, CI: [tools](progress/tools.md).
+- Games (Overbit: screens, quality, bench flags; Yharnam: assets): [overbit](progress/overbit.md), [yharnam](progress/yharnam.md).
+- Game API reference (not progress): [API.md](API.md) → `docs/api/<area>.md`.
 
 ## Open milestones (detail in `docs/ROADMAP.md`)
 
@@ -37,4 +53,6 @@ Not here: history (git log), measurements (`docs/PRESTAZIONI.md`, `docs/STRESS.m
 - State only: what is true in the code now, with file and symbol names to grep. No dates,
   no "we did", no measurements, no closed milestones.
 - A change that makes a line false fixes or removes it in the same commit.
-- Each file stays around 80–120 lines; detail belongs in the topic doc it links.
+- Each file stays around 80–120 lines; detail belongs in the topic doc it links. A file that
+  grows past that is split by topic (`<area>-<topic>.md`) and listed in the table and in
+  *Which section to open*.
