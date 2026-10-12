@@ -13,6 +13,8 @@
 #include <stddef.h>
 
 #define BM_FLAG_PROJECT    1               /* u16 at 18: a project (.bme) */
+#define BM_FLAG_B16        2               /* u16 at 18: the .b16 profile (M42) */
+#define BM_B16_MAX         (8u << 20)      /* 8 MiB ceiling of a .b16 cartridge */
 #define BM_BUILT_FROM      104             /* char[16]: the project a game was built from */
 
 /* by the file's name: a project (.bme), a game (.bm, .b16) */

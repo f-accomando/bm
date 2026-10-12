@@ -171,7 +171,9 @@ triangoli; pad stile SNES; niente file; `rnd()` con seme; 8 MiB; nessun limite d
 2. Il runtime nel profilo: schermo fisso, tavolozza, memoria, sandbox, banchi grafici.
 3. La CPU a budget: costi dei disegni, misura sul Pi, 60 → 30 fps da soli, la percentuale nel
    dev kit.
-4. L'SDK: il target `.b16` salva un `.b16` vero (oggi solo i promemoria del dev kit, §8.5).
+4. L'SDK: fatto (`BM_FLAG_B16 = 2` nell'header, `mkbm.py --b16`, `bm_build_b16` in `project.c` con
+   controllo del limite di 8 MiB e risoluzione quadrata `360x360`, e `Ctrl+B` nell'SDK che costruisce
+   un `.b16` vero quando il target è `.b16`, oltre a `Ctrl+Shift+B` *Export .b16*).
 5. Yharnam in `.b16` (360×360, sheet a banchi), poi Overbit (M41).
 - **Fatto quando:** Yharnam `.b16` gira uguale sul Pi e sulla RGB30 nel profilo, con la CPU
   che scende a 30 fps negli stessi punti sulle due console.
@@ -364,11 +366,13 @@ prova senza seriale e spesso senza tastiera).
   (`ch.kind`: strada, marciapiede, prato), da cui nascono le creature, si ricalcola dalle tile
   disegnate in `map_ground.csv`. Resta: una casa sta dentro il suo blocco di 16×16 tile e i confini
   delle aree con il nome stanno ancora in `MAP.areas`.
-- **Resti di R37 (tavolozza delle mappe grandi nell'SDK).** Fatta la vista panoramica sulla pagina
-  mappa (`m` / *Overview*: 256×256 celle con i livelli, rettangolo della vista e clic/ frecce per
-  saltare) e la selezione automatica del pennello 16×16 e della prima tile segnaposto (`>= 1024`)
-  passando al livello `objects` sia in `carts/editor` che in `carts/sdk_b16`. Resta con Tab filtrare
-  le sole tile 16×16 già usate nella mappa.
+- **R37 — La tavolozza delle mappe grandi nell'SDK (fatto).** Vista rimpicciolita e zoom in/out
+  sulla pagina mappa (`-`/`+`: 1, 2, 4, 8, 16 px/cella; `m` / *Overview*: 256×256 celle intere in una
+  schermata a 1 px/cella con rettangolo della vista 1:1, legenda e clic/frecce per saltare), selezione
+  automatica del pennello 16×16 e della prima tile segnaposto (`>= 1024`) passando al livello
+  `objects`, e con `Tab` (`Y` sul pad) con il pennello 16×16 attivo la tavolozza compatta delle sole
+  tile 16×16 già usate nella mappa (`z` passa al foglio intero) sia in `carts/editor` che in
+  `carts/sdk_b16`.
 - **R38 — L'assistente e il pennello 16×16.** Una voce della kb ("come disegno una mappa grande
   con tile 16x16?", `z` sulla pagina mappa, `mkmap.py` come esempio) e la guida del platform che
   lo cita.

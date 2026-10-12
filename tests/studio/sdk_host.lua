@@ -493,10 +493,11 @@ local function new_env(arg)
     if moved then return true, path end
     return true
   end
-  -- cart_build: the project's game next to it
-  E.cart_build = function(path)
+  -- cart_build: the project's game next to it (.BM, or .B16 when kind == "b16")
+  E.cart_build = function(path, kind)
     if not path:match("%.BME$") then return false, "only a project (.bme) is built" end
-    local game = path:gsub("%.BME$", ".BM")
+    local ext = kind == "b16" and ".B16" or ".BM"
+    local game = path:gsub("%.BME$", ext)
     local fi, fo = assert(io.open(host(path), "rb")), assert(io.open(host(game), "wb"))
     fo:write(fi:read("a"))
     fi:close()
@@ -725,6 +726,19 @@ key("u")
 check(E.mget(80, 2) == 0 and E.mget(81, 3) == 0 and count(35) == before, "u: the fill undone")
 key("home", "x")
 check(status():find("tile 2 16x16", 1, true) or sees("tile 2 16x16"), "Home, x: back, the tile picked: " .. status())
+-- R37: Tab on a map with 16x16 tiles in use opens the compact used-tiles palette; z toggles the full sheet
+key("\t")
+check(sees("USED 16x16"), "Tab with 16x16 brush: the used 16x16 tiles palette")
+key("z")
+check(status():find("full sprite sheet", 1, true), "z in Tab picker: full sprite sheet: " .. status())
+key("\n")
+-- R37: zoom out (-), 256x256 overview (m), zoom in (+)
+key("-")
+check(sees("zoom 4px") or status():find("1:2", 1, true), "-: map zoom out to 4px: " .. status())
+key("m")
+check(sees("OVERVIEW 1:8 (256x256)"), "m: 256x256 overview in one screen")
+key("m")
+check(not sees("OVERVIEW 1:8") and status():find("1:1", 1, true), "m again: back to 1:1 (8px): " .. status())
 key("\b")
 check(E.mget(0, 2) == 0 and E.mget(1, 3) == 0, "Backspace: the 2 x 2 cells cleared")
 key("z")
@@ -752,12 +766,14 @@ frames(5)
 check(sees("59.9 fps") and sees("RAM 510k peak"), "the dev kit: the last try")
 
 -- the target .b16: the cap and what the format will not have (the shooter
--- uses math.random)
+-- uses math.random); M42 step 4: sets square 360x360 and Ctrl+B builds .b16
 run_sdk({ path = "/carts/T4.BME" })
 frames(10)
 check(sees("Shooter 2D"), "the shooter opened")
 key("b")
-check(status():find("target .b16", 1, true), "b: the target .b16")
+check(status():find("target .b16", 1, true) and sees("screen 360x360"), "b: the target .b16 and 360x360 screen")
+key("^b")
+check(built == "/carts/T4.B16" and status():find("built /carts/T4.B16", 1, true), "Ctrl+B with target .b16 builds .B16: " .. status())
 key("f1")
 frames(5)
 check(sees("of 8M (.b16)") and sees("math.random"), "the dev kit for a .b16: the cap, math.random")
@@ -769,9 +785,11 @@ frames(2)
 check(sees("main.lua:3: boom") or status():find("the game stopped", 1, true), "the error shown")
 check(status():find("the game stopped", 1, true) or status():find("boom", 1, true), "back from an error: " .. status())
 
--- Ctrl+B: the game of the project (cart_build), next to it
+-- Ctrl+B: the game of the project (cart_build), next to it; Ctrl+Shift+B: exports .b16
 key("^b")
 check(built == "/carts/T1.BM" and status():find("built /carts/T1.BM", 1, true), "Ctrl+B builds the game: " .. status())
+key("^B")
+check(built == "/carts/T1.B16" and status():find("built /carts/T1.B16", 1, true), "Ctrl+Shift+B exports .b16: " .. status())
 
 -- the models of a project (village.bm): the 3D page, the code for one,
 -- the assistant's model joining them

@@ -1882,10 +1882,142 @@ do
   local layer, only, show_flags = 1, false, false   -- the layer edited; drawn alone; the flags over it
   -- big (z): the 16x16 brush, a tile of 2 x 2 cells (n, n + 1 and the two under them on the sheet), as the
   -- 16x16 tiles of a big world (Yharnam's): the cursor and the tile on even cells
-  local big, mini = false, false
+  -- zoom (+ / -, m): pixels per 8x8 cell (1 = 256x256 overview in one screen, 2, 4, 8 = 1:1, 16 = 2x in)
+  local big, mini, zoom = false, false, 8
+  local used, used_mode, used_rev = {}, false, -1
+  local cell_col, row_runs, col_rev = {}, {}, -1
   local m_undo, m_stroke = {}, nil
   local VIEW_Y = R.view.y
   local VIEW_CW, VIEW_CH = W // 8, (HINT_Y - VIEW_Y) // 8
+  local ZOOM_STEPS = { 1, 2, 4, 8, 16 }
+  local OBJ_COL = { [1024] = 0xFFD860, [1026] = 0x9A6438, [1028] = 0x8A96A8, [1030] = 0xE04040 }
+
+  local function view_dims(z)
+    z = z or zoom
+    return min(S.map_w, W // z), min(S.map_h, (HINT_Y - VIEW_Y) // z)
+  end
+
+  local function clamp_view()
+    local s = big and 2 or 1
+    mx = clamp(mx, 0, max(0, S.map_w - s))
+    my = clamp(my, 0, max(0, S.map_h - s))
+    local cw, ch = view_dims()
+    if mx < vx0 then vx0 = mx elseif mx + s > vx0 + cw then vx0 = mx + s - cw end
+    if my < vy0 then vy0 = my elseif my + s > vy0 + ch then vy0 = my + s - ch end
+    vx0 = clamp(vx0, 0, max(0, S.map_w - cw))
+    vy0 = clamp(vy0, 0, max(0, S.map_h - ch))
+  end
+
+  local function set_zoom(z, msg)
+    zoom = z
+    clamp_view()
+    if msg then say(msg) end
+  end
+
+  local function step_zoom(d)
+    local idx = 4
+    for i, z in ipairs(ZOOM_STEPS) do if z == zoom then idx = i end end
+    local nxt = ZOOM_STEPS[clamp(idx + d, 1, #ZOOM_STEPS)]
+    local labels = { [1] = "1:8 overview (256x256 in one screen)", [2] = "1:4 (2 px/cell)",
+                     [4] = "1:2 (4 px/cell)", [8] = "1:1 (8 px/cell)", [16] = "2x (16 px/cell)" }
+    set_zoom(nxt, "map zoom " .. (labels[nxt] or (nxt .. " px")))
+  end
+
+  -- average colour of cell c on the sheet (cached per edit) for zoomed-out map rendering
+  local function color_of_cell(c)
+    if c <= 0 then return nil end
+    if col_rev ~= S.edits then cell_col, row_runs, col_rev = {}, {}, S.edits end
+    local col = cell_col[c]
+    if col ~= nil then return col or nil end
+    if OBJ_COL[c] or OBJ_COL[c - 1] or OBJ_COL[c - 32] or OBJ_COL[c - 33] then
+      col = OBJ_COL[c] or OBJ_COL[c - 1] or OBJ_COL[c - 32] or OBJ_COL[c - 33]
+      cell_col[c] = col
+      return col
+    end
+    local cols = S.sheet_w // 8
+    local sx, sy = (c % cols) * 8, (c // cols) * 8
+    local r, g, b, n = 0, 0, 0, 0
+    for j = 1, 6, 2 do
+      for i = 1, 6, 2 do
+        local p = sget(sx + i, sy + j)
+        if p then
+          r = r + (p >> 16 & 255)
+          g = g + (p >> 8 & 255)
+          b = b + (p & 255)
+          n = n + 1
+        end
+      end
+    end
+    col = n > 0 and ((r // n) << 16 | (g // n) << 8 | (b // n)) or false
+    cell_col[c] = col
+    return col or nil
+  end
+
+  -- horizontal runs { x0, len, col } for map row y (cached per edit and layer mode)
+  local function runs_of_row(y, nlayers)
+    if col_rev ~= S.edits then cell_col, row_runs, col_rev = {}, {}, S.edits end
+    local key = (only and layer or (nlayers * 16 + layer)) * 512 + y
+    local r = row_runs[key]
+    if r then return r end
+    r = {}
+    local x, w = 0, S.map_w
+    while x < w do
+      local c = nil
+      if only then
+        c = color_of_cell(mget(x, y, layer))
+      else
+        for l = nlayers, 1, -1 do
+          c = color_of_cell(mget(x, y, l))
+          if c then break end
+        end
+      end
+      if not c then
+        x = x + 1
+      else
+        local x0 = x
+        x = x + 1
+        while x < w do
+          local c2 = nil
+          if only then
+            c2 = color_of_cell(mget(x, y, layer))
+          else
+            for l = nlayers, 1, -1 do
+              c2 = color_of_cell(mget(x, y, l))
+              if c2 then break end
+            end
+          end
+          if c2 ~= c then break end
+          x = x + 1
+        end
+        r[#r + 1] = { x0, x - x0, c }
+      end
+    end
+    row_runs[key] = r
+    return r
+  end
+
+  -- the 16x16 tiles already in use across the map (for the compact Tab palette on large worlds)
+  local function refresh_used()
+    local rev = S.edits * 16 + (only and layer or 0)
+    if used_rev == rev then return end
+    used_rev = rev
+    local seen, list = {}, {}
+    local cols = S.sheet_w // 8
+    local l0, l1 = only and layer or 1, only and layer or #mlayers()
+    for l = l0, l1 do
+      for y = 0, S.map_h - 1, 2 do
+        for x = 0, S.map_w - 1, 2 do
+          local v = mget(x, y, l)
+          if v > 0 then
+            local t = (v // cols) // 2 * 2 * cols + (v % cols) // 2 * 2
+            if not seen[t] then seen[t] = true; list[#list + 1] = t end
+          end
+        end
+      end
+    end
+    table.sort(list)
+    used = list
+  end
 
   local function set_cell(x, y, v)
     if x < 0 or y < 0 or x >= S.map_w or y >= S.map_h then return end
@@ -1982,7 +2114,25 @@ do
   local function act(a)
     local s = big and 2 or 1               -- a step of the cursor: a cell, or a 16x16 tile
     local cols = S.sheet_w // 8
+    local cw, ch = view_dims()
     if picking then
+      if a == "size" and big and #used > 0 then
+        used_mode = not used_mode
+        say(used_mode and ("used 16x16 tiles (" .. #used .. " in map)") or "full sprite sheet")
+        return
+      end
+      if used_mode and #used > 0 then
+        local ucols = min(8, max(4, #used))
+        local idx = 1
+        for i, t in ipairs(used) do if t == tile then idx = i; break end end
+        if a == "left" then idx = max(1, idx - 1)
+        elseif a == "right" then idx = min(#used, idx + 1)
+        elseif a == "up" then idx = max(1, idx - ucols)
+        elseif a == "down" then idx = min(#used, idx + ucols)
+        elseif a == "paint" or a == "ok" or a == "focus" then picking = false end
+        tile = used[idx] or tile
+        return
+      end
       if a == "left" then tile = max(0, tile - s)
       elseif a == "right" then tile = tile + s
       elseif a == "up" then tile = max(0, tile - cols * s)
@@ -1994,8 +2144,8 @@ do
     end
     if a == "left" then mx = mx - s elseif a == "right" then mx = mx + s
     elseif a == "up" then my = my - s elseif a == "down" then my = my + s
-    elseif a == "pgup" then my = my - VIEW_CH elseif a == "pgdn" then my = my + VIEW_CH
-    elseif a == "pgleft" then mx = mx - VIEW_CW elseif a == "pgright" then mx = mx + VIEW_CW
+    elseif a == "pgup" then my = my - max(s, ch) elseif a == "pgdn" then my = my + max(s, ch)
+    elseif a == "pgleft" then mx = mx - max(s, cw) elseif a == "pgright" then mx = mx + max(s, cw)
     elseif a == "paint" then
       m_stroke = m_stroke or {}
       for _, e in ipairs(brush(tile)) do set_cell(mx + e[1], my + e[2], e[3]) end
@@ -2012,18 +2162,25 @@ do
     elseif a == "newlayer" then next_layer(true)
     elseif a == "only" then only = not only; say(only and "this layer only" or "every layer")
     elseif a == "flags" then show_flags = not show_flags; say(show_flags and "the flags of the tiles (fget)" or "flags hidden")
-    elseif a == "mini" then mini = not mini; say(mini and "overview of the whole map (click to move)" or "overview hidden")
+    elseif a == "mini" then
+      if zoom == 1 then
+        set_zoom(8, "map 1:1 (8 px/cell)")
+      else
+        set_zoom(1, "overview: 256x256 map in one screen (m: back to 1:1)")
+      end
+    elseif a == "zoom_in" then step_zoom(1)
+    elseif a == "zoom_out" then step_zoom(-1)
     elseif a == "next" then tile = tile + s elseif a == "prev" then tile = max(0, tile - s)
     elseif a == "undo" then
       local u = table.remove(m_undo)
       if u then for i = #u, 1, -1 do mset(u[i][1], u[i][2], u[i][3], u[i][4]) end; touched(); say("undo") end
-    elseif a == "focus" then picking = true end
-    s = big and 2 or 1
-    mx = clamp(mx, 0, max(0, S.map_w - s))
-    my = clamp(my, 0, max(0, S.map_h - s))
+    elseif a == "focus" then
+      refresh_used()
+      used_mode = big and #used > 0
+      picking = true
+    end
     even()
-    if mx < vx0 then vx0 = mx elseif mx + s > vx0 + VIEW_CW then vx0 = mx + s - VIEW_CW end
-    if my < vy0 then vy0 = my elseif my + s > vy0 + VIEW_CH then vy0 = my + s - VIEW_CH end
+    clamp_view()
   end
 
   local function draw()
@@ -2032,35 +2189,89 @@ do
     clip(0, VIEW_Y, W, HINT_Y - VIEW_Y)
     local names = mlayers()
     if layer > #names then layer = 1 end
-    if only then
-      map(vx0, vy0, 0, VIEW_Y, VIEW_CW, VIEW_CH, layer)
+    local cw, ch = view_dims()
+    if zoom == 8 then
+      if only then
+        map(vx0, vy0, 0, VIEW_Y, cw, ch, layer)
+      else
+        for l = 1, #names do map(vx0, vy0, 0, VIEW_Y, cw, ch, l) end
+      end
+    elseif zoom > 8 then
+      local cols = S.sheet_w // 8
+      local l0, l1 = only and layer or 1, only and layer or #names
+      for cy = 0, ch - 1 do
+        for cx = 0, cw - 1 do
+          local sx, sy = cx * zoom, VIEW_Y + cy * zoom
+          for l = l0, l1 do
+            local v = mget(vx0 + cx, vy0 + cy, l)
+            if v > 0 then
+              local tx, ty = (v % cols) * 8, (v // cols) * 8
+              sspr(tx, ty, 8, 8, sx, sy, zoom, zoom)
+            end
+          end
+        end
+      end
     else
-      for l = 1, #names do map(vx0, vy0, 0, VIEW_Y, VIEW_CW, VIEW_CH, l) end
+      -- zoomed out (zoom = 1, 2 or 4 px per cell): draw cached horizontal colour runs
+      local mw_px, mh_px = cw * zoom, ch * zoom
+      rectfill(0, VIEW_Y, mw_px, mh_px, 0x080A10)
+      local vx1 = vx0 + cw
+      for cy = 0, ch - 1 do
+        local sy = VIEW_Y + cy * zoom
+        for _, r in ipairs(runs_of_row(vy0 + cy, #names)) do
+          local x0, x1 = r[1], r[1] + r[2]
+          if x1 > vx0 and x0 < vx1 then
+            local a = max(x0, vx0) - vx0
+            local b = min(x1, vx1) - vx0
+            rectfill(a * zoom, sy, (b - a) * zoom, zoom, r[3])
+          end
+        end
+      end
+      rect(0, VIEW_Y, mw_px, mh_px, C.BAR)
+      if zoom == 1 then
+        local v1x = clamp(mx - VIEW_CW // 2, 0, max(0, S.map_w - VIEW_CW))
+        local v1y = clamp(my - VIEW_CH // 2, 0, max(0, S.map_h - VIEW_CH))
+        rect(v1x, VIEW_Y + v1y, min(VIEW_CW, S.map_w), min(VIEW_CH, S.map_h), C.ACC)
+        local lx = 264
+        if lx + 88 <= W then
+          print("OVERVIEW", lx, VIEW_Y, C.ACC)
+          print("256x256 1:8", lx, VIEW_Y + 16, C.TEXT)
+          print(string.format("%d,%d", mx, my), lx, VIEW_Y + 32, C.TEXT)
+          print("+-: zoom", lx, VIEW_Y + 48, C.DIM)
+          print("m : 1:1", lx, VIEW_Y + 64, C.DIM)
+        end
+      end
     end
-    if show_flags then                     -- the collisions: a frame in the colour of each flag
+    if show_flags and zoom >= 4 then          -- the collisions: a frame in the colour of each flag
       local FC = { 0xE04040, 0x40C040, 0x4080F0, 0x40D0E0, 0xE040E0 }
-      for cy = 0, VIEW_CH - 1 do
-        for cx = 0, VIEW_CW - 1 do
+      for cy = 0, ch - 1 do
+        for cx = 0, cw - 1 do
           local f = fget(mget(vx0 + cx, vy0 + cy, layer))
           if f ~= 0 then
             for k = 0, 4 do
-              if f >> k & 1 == 1 then rect(cx * 8 + k, VIEW_Y + cy * 8 + k, 8 - 2 * k, 8 - 2 * k, FC[k + 1]); break end
+              if f >> k & 1 == 1 then
+                rect(cx * zoom + k, VIEW_Y + cy * zoom + k, max(2, zoom - 2 * k), max(2, zoom - 2 * k), FC[k + 1])
+                break
+              end
             end
           end
         end
       end
     end
-    local n = big and 16 or 8                -- the brush, in pixels
-    local x, y = (mx - vx0) * 8, VIEW_Y + (my - vy0) * 8
-    rect(x - 1, y - 1, n + 2, n + 2, (S.frame // 10) % 2 == 0 and 0xFFFFFF or C.ACC)
+    local n = big and 16 or 8                -- the brush, in pixels on the strip
+    local cur_w = (big and 2 or 1) * zoom
+    local x, y = (mx - vx0) * zoom, VIEW_Y + (my - vy0) * zoom
+    rect(x - 1, y - 1, cur_w + 2, cur_w + 2, (S.frame // 10) % 2 == 0 and 0xFFFFFF or C.ACC)
     clip()
-    strip(R.strip, "MAP", string.format("(%d,%d)=%d tile %d%s L%d/%d %s", mx, my, mget(mx, my, layer), tile,
-                                        big and " 16x16" or "", layer, #names, names[layer]),
-          picking and kp("choosing the tile: arrows, then Enter", "the tile: the cross, then ok") or
+    local ztag = zoom ~= 8 and string.format(" %dpx", zoom) or ""
+    strip(R.strip, "MAP", string.format("(%d,%d)=%d tile %d%s L%d/%d %s%s", mx, my, mget(mx, my, layer), tile,
+                                        big and " 16x16" or "", layer, #names, names[layer], ztag),
+          picking and kp(used_mode and "used 16x16 tiles (z: all the sheet)" or "choosing the tile: arrows, then Enter",
+                         "the tile: the cross, then ok") or
           kp("F3: sprites  tab: tile  z: 8/16  l/L: layer", "Y+UP: the sprites  Y: the tiles  X: more"), 5)
     rectfill(W - 20 - n, 20, n, n, 0x000000)
     spr(tile, W - 20 - n, 20, n // 8, n // 8)
-    if mini and not picking then
+    if mini and not picking and zoom >= 8 then
       local mw, mh = min(128, S.map_w), min(128, S.map_h)
       local ox, oy = W - mw - 16, VIEW_Y + 8
       U.zone(ox, oy, mw, mh, "minimap", { ox = ox, oy = oy, mw = mw, mh = mh })
@@ -2078,23 +2289,52 @@ do
       end
       local rx = ox + vx0 * mw // max(1, S.map_w)
       local ry = oy + vy0 * mh // max(1, S.map_h)
-      local rw = max(4, min(mw, VIEW_CW * mw // max(1, S.map_w)))
-      local rh = max(4, min(mh, VIEW_CH * mh // max(1, S.map_h)))
+      local rw = max(4, min(mw, cw * mw // max(1, S.map_w)))
+      local rh = max(4, min(mh, ch * mh // max(1, S.map_h)))
       rect(rx, ry, rw, rh, C.ACC)
     end
     if picking then
-      local cols = S.sheet_w // 8
-      local vw, vh = min(256, S.sheet_w), min(224, S.sheet_h)
-      local tx, ty = (tile % cols) * 8, (tile // cols) * 8
-      local scx = clamp(tx - vw // 2, 0, S.sheet_w - vw) // 8 * 8
-      local scy = clamp(ty - vh // 2, 0, S.sheet_h - vh) // 8 * 8
-      local ox, oy = W - vw - 24, 64
-      U.zone(0, VIEW_Y, W, HINT_Y - VIEW_Y, "shade")
-      U.zone(ox, oy, vw, vh, "tiles", { scx = scx, scy = scy, ox = ox, oy = oy })
-      rectfill(ox - 8, oy - 8, vw + 16, vh + 16, C.PANEL)
-      checker(ox, oy, vw, vh, 4)
-      sspr(scx, scy, vw, vh, ox, oy)
-      rect(ox + tx - scx - 1, oy + ty - scy - 1, n + 2, n + 2, C.ACC)
+      if used_mode and #used > 0 then
+        local ucols = min(8, max(4, #used))
+        local urows = (#used + ucols - 1) // ucols
+        local cell = 20
+        local vis_rows = min(10, urows)
+        local sel_i = 1
+        for i, t in ipairs(used) do if t == tile then sel_i = i; break end end
+        local sel_r = (sel_i - 1) // ucols
+        local r0 = clamp(sel_r - vis_rows // 2, 0, max(0, urows - vis_rows))
+        local vw, vh = max(128, ucols * cell), vis_rows * cell
+        local ox, oy = (W - vw - 16) // 8 * 8, 80
+        U.zone(0, VIEW_Y, W, HINT_Y - VIEW_Y, "shade")
+        U.zone(ox, oy, vw, vh, "usedtiles", { ox = ox, oy = oy, ucols = ucols, cell = cell, r0 = r0 })
+        rectfill(ox - 8, oy - 24, vw + 16, vh + 32, C.PANEL)
+        rect(ox - 8, oy - 24, vw + 16, vh + 32, C.BAR)
+        print(string.format("USED 16x16 (%d)", #used), ox, oy - 16, C.ACC)
+        clip(ox - 8, oy, vw + 16, vh + 8)
+        for i = 1, #used do
+          local r, c = (i - 1) // ucols - r0, (i - 1) % ucols
+          if r >= 0 and r < vis_rows then
+            local dx, dy = ox + c * cell + 2, oy + r * cell + 2
+            checker(dx, dy, 16, 16, 4)
+            spr(used[i], dx, dy, 2, 2)
+            if used[i] == tile then rect(dx - 2, dy - 2, 20, 20, C.ACC) end
+          end
+        end
+        clip()
+      else
+        local cols = S.sheet_w // 8
+        local vw, vh = min(256, S.sheet_w), min(224, S.sheet_h)
+        local tx, ty = (tile % cols) * 8, (tile // cols) * 8
+        local scx = clamp(tx - vw // 2, 0, S.sheet_w - vw) // 8 * 8
+        local scy = clamp(ty - vh // 2, 0, S.sheet_h - vh) // 8 * 8
+        local ox, oy = W - vw - 24, 64
+        U.zone(0, VIEW_Y, W, HINT_Y - VIEW_Y, "shade")
+        U.zone(ox, oy, vw, vh, "tiles", { scx = scx, scy = scy, ox = ox, oy = oy })
+        rectfill(ox - 8, oy - 8, vw + 16, vh + 16, C.PANEL)
+        checker(ox, oy, vw, vh, 4)
+        sspr(scx, scy, vw, vh, ox, oy)
+        rect(ox + tx - scx - 1, oy + ty - scy - 1, n + 2, n + 2, C.ACC)
+      end
     end
   end
 
@@ -2107,9 +2347,10 @@ do
 
   local function status()
     local names = mlayers()
-    return picking and "choosing a tile" or string.format("(%d,%d) = %d  tile %d%s  layer %d/%d %s", mx, my,
-                                                          mget(mx, my, layer), tile, big and " 16x16" or "", layer,
-                                                          #names, names[layer] or "")
+    return picking and (used_mode and ("choosing a used 16x16 tile (" .. #used .. " in map)") or "choosing a tile") or
+           string.format("(%d,%d) = %d  tile %d%s  layer %d/%d %s%s", mx, my,
+                         mget(mx, my, layer), tile, big and " 16x16" or "", layer,
+                         #names, names[layer] or "", zoom ~= 8 and ("  zoom " .. zoom .. "px") or "")
   end
 
   -- the mouse: the left button places the tile (held: it goes on), the
@@ -2120,7 +2361,13 @@ do
     local z = U.at()
     if picking then
       if U.pressed(0) then
-        if z and z.kind == "tiles" then
+        if z and z.kind == "usedtiles" then
+          local t = z.a
+          local c = clamp((U.x - t.ox) // t.cell, 0, t.ucols - 1)
+          local r = t.r0 + (U.y - t.oy) // t.cell
+          local idx = r * t.ucols + c + 1
+          if used[idx] then tile = used[idx] end
+        elseif z and z.kind == "tiles" then
           local t = z.a
           local cols = S.sheet_w // 8
           tile = clamp(((t.scy + U.y - t.oy) // 8) * cols + (t.scx + U.x - t.ox) // 8, 0, cols * (S.sheet_h // 8) - 1)
@@ -2130,31 +2377,33 @@ do
       end
       return
     end
+    local cw, ch = view_dims()
     if z and z.kind == "minimap" and U.down(0) then
       local t = z.a
       mx = clamp((U.x - t.ox) * S.map_w // t.mw, 0, S.map_w - 1)
       my = clamp((U.y - t.oy) * S.map_h // t.mh, 0, S.map_h - 1)
       even()
-      vx0 = clamp(mx - VIEW_CW // 2, 0, max(0, S.map_w - VIEW_CW))
-      vy0 = clamp(my - VIEW_CH // 2, 0, max(0, S.map_h - VIEW_CH))
+      vx0 = clamp(mx - cw // 2, 0, max(0, S.map_w - cw))
+      vy0 = clamp(my - ch // 2, 0, max(0, S.map_h - ch))
       return
     end
     local d = U.drag
     if d and (d.b == 1 or d.b == 2) and d.y0 >= VIEW_Y and d.y0 < HINT_Y then
       pan[1], pan[2] = pan[1] - d.dx, pan[2] - d.dy
-      local sx, sy = pan[1] // 8, pan[2] // 8
+      local sx, sy = pan[1] // zoom, pan[2] // zoom
       if sx ~= 0 or sy ~= 0 then
-        vx0 = clamp(vx0 + sx, 0, max(0, S.map_w - VIEW_CW))
-        vy0 = clamp(vy0 + sy, 0, max(0, S.map_h - VIEW_CH))
-        pan[1], pan[2] = pan[1] - sx * 8, pan[2] - sy * 8
+        vx0 = clamp(vx0 + sx, 0, max(0, S.map_w - cw))
+        vy0 = clamp(vy0 + sy, 0, max(0, S.map_h - ch))
+        pan[1], pan[2] = pan[1] - sx * zoom, pan[2] - sy * zoom
       end
       return
     end
     if not z or z.kind ~= "mapview" then return end
-    if U.wheel ~= 0 then vy0 = clamp(vy0 - U.wheel * 4, 0, max(0, S.map_h - VIEW_CH)) end
+    if U.wheel ~= 0 then vy0 = clamp(vy0 - U.wheel * 4, 0, max(0, S.map_h - ch)) end
     if U.down(0) or U.pressed(2) then
-      mx = clamp(vx0 + U.x // 8, 0, S.map_w - 1)
-      my = clamp(vy0 + (U.y - VIEW_Y) // 8, 0, S.map_h - 1)
+      if U.x >= cw * zoom or (U.y - VIEW_Y) >= ch * zoom then return end
+      mx = clamp(vx0 + U.x // zoom, 0, S.map_w - 1)
+      my = clamp(vy0 + (U.y - VIEW_Y) // zoom, 0, S.map_h - 1)
       even()
       act(U.pressed(2) and "pick" or "paint")
     end
@@ -2162,8 +2411,9 @@ do
 
   local function menu_items()
     return { { "Pick the tile", "x" }, { "Clear", "\b" }, { "Fill", "f" }, { "Tiles...", "\t" }, { "Next tile", "." },
-             { "Tile before", "," }, { "8x8 / 16x16", "z" }, "-", { "Next layer", "l" }, { "New layer", "L" },
-             { "This layer only", "o" }, { "Flags", "c" }, { "Overview", "m" }, "-", { "Page up", "pgup" },
+             { "Tile before", "," }, { "8x8 / 16x16", "z" }, "-", { "Zoom in", "+" }, { "Zoom out", "-" },
+             { "Overview", "m" }, "-", { "Next layer", "l" }, { "New layer", "L" },
+             { "This layer only", "o" }, { "Flags", "c" }, "-", { "Page up", "pgup" },
              { "Page down", "pgdn" }, { "Page left", "home" }, { "Page right", "end" }, "-", { "Undo", "u" } }
   end
 
@@ -2184,11 +2434,14 @@ do
             hints = hints, pad = pad,
             new_layer = function() next_layer(true) end,
             stroking = function() return m_stroke ~= nil end,
-            state = function() return { mx = mx, my = my, big = big } end,
-            restore = function(t) if t then mx, my, big = t.mx or 0, t.my or 0, t.big or false; act("none") end end,
+            state = function() return { mx = mx, my = my, big = big, zoom = zoom } end,
+            restore = function(t)
+              if t then mx, my, big, zoom = t.mx or 0, t.my or 0, t.big or false, t.zoom or 8; act("none") end
+            end,
             reset = function()
               mx, my, vx0, vy0, m_undo, m_stroke, picking = 0, 0, 0, 0, {}, nil, false
-              layer, only, show_flags, big, mini = 1, false, false, false, false
+              layer, only, show_flags, big, mini, zoom = 1, false, false, false, false, 8
+              used, used_mode, used_rev, col_rev = {}, false, -1, -1
             end }
 end
 
@@ -2460,6 +2713,8 @@ local function set_target(t)
   S.target = t
   store_target()
   if t == "b16" then
+    local w, h = S.proj.res:match("(%d+)x(%d+)")
+    if w ~= h then S.proj.res = "360x360"; touched() end
     say("target .b16 (RGB30): the dev kit shows its 8 MiB and what the profile leaves out", C.ACC, 400)
   else
     say("target .bm: the Pi's cartridge", C.ACC)
@@ -2735,7 +2990,8 @@ do
       { "Open...", open_other, "ctrl o" },
       { "Save", function() save_project() end, "ctrl s" },
       { "Save as...", function() save_as() end, "ctrl shift s" },
-      { "Build the game .bm", build_project, "ctrl b" },
+      { "Build the game .bm", function() build_project() end, "ctrl b" },
+      { "Export .b16", function() build_project(true) end, "ctrl shift b" },
       { "Try the game", run_project, "f5" },
       { "New map layer (" .. #mlayers() .. "/8)", function() S.d2view = "map"; show("d2"); P.map.new_layer() end },
       { "Exit bm SDK", function() if not needs_confirm("exit") then quit() end end },
@@ -2772,7 +3028,7 @@ do
     print(LY.fit(f, COLS - 9), 64, 32, C.DIM)
     local kb = not pad_used()
     for i, it in ipairs(items) do
-      local y = 64 + (i - 1) * 16
+      local y = 48 + (i - 1) * 16
       U.zone(8, y, W - 16, 16, "menuitem", i)
       if i == msel then rectfill(8, y, W - 16, 16, C.SEL) end
       print(it[1], 16, y, i == msel and 0xFFFFFF or it.off and C.DIM or C.TEXT)
@@ -2781,7 +3037,7 @@ do
         print(s, W - 16 - #s * 8, y, C.DIM)
       end
     end
-    local y = 64 + #items * 16 + 16
+    local y = 48 + #items * 16 + 16
     local lines = kb and {
       { "f1", "the project, the dev kit" }, { "f2", "the code" }, { "f3", "2D: the sprites, the map" },
       { "f4", "3D: the models" }, { "f6", "the assistant" }, { "f12", "held: the keys" },
@@ -2902,8 +3158,8 @@ local function page_key(k)
     if a and a ~= "pgup" and a ~= "pgdn" then P.sprite.act(a) end
     if k ~= " " then P.sprite.stop() end
   else
-    local a = SPRITE_KEYS[k] or ({ l = "layer", L = "newlayer", o = "only", c = "flags", m = "mini", home = "pgleft",
-                                   ["end"] = "pgright" })[k]
+    local a = ({ ["+"] = "zoom_in", ["="] = "zoom_in", ["-"] = "zoom_out", l = "layer", L = "newlayer", o = "only",
+                 c = "flags", m = "mini", home = "pgleft", ["end"] = "pgright" })[k] or SPRITE_KEYS[k]
     if a then P.map.act(a) end
     if k ~= " " then P.map.end_stroke() end
   end
@@ -3001,8 +3257,9 @@ local HELP = {
     { "x", "pick the tile" },
     { "f", "fill" },
     { ", / .", "tile before / after" },
-    { "tab", "choose the tile" },
+    { "tab", "choose the tile (z: used 16x16 / sheet)" },
     { "z", "8x8 / 16x16: a tile of 2 x 2 cells" },
+    { "+ / - / m", "zoom in / out, or 256x256 overview" },
     { "u", "undo" },
     { "l / shift l", "the next layer / a new one" },
     { "o", "this layer only / every layer" },

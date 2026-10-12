@@ -9,17 +9,20 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
 ### The suite (`carts/`, opened from the Dev tab or installed from the Market Apps page)
 - **bm SDK** (`carts/editor`): projects, templates (Empty 2D, Platform 2D, Top-down 2D,
   Shooter 2D, Versus 2D, Online 2D, 3D scene, 3D with models), budgets (tokens, Lua, assets),
-  the dev kit report of a test run, jumps to the other tools (`cart_tool`), `Build .bm` (`Ctrl+B`)
-  and `Export .b16` (`Ctrl+Shift+B`, `cart_build(path, "b16")`). Map page (`P.map`):
-  layers, flags, `z` a 16×16 brush (2×2 cells, cursor and tile on even cells; fill on whole
-  tiles), automatic 16×16 brush and first object placeholder tile (`>= 1024`) when switching to
-  the `objects` layer, `m` (*Overview*) full-map minimap with viewport box and click/arrow jump,
-  Home/End and PgUp/PgDn a page.
+  the dev kit report of a test run, jumps to the other tools (`cart_tool`), `Build .bm` (`Ctrl+B`,
+  or builds a real `.b16` when `target = "b16"`) and `Export .b16` (`Ctrl+Shift+B`,
+  `cart_build(path, "b16")`). Map page (`P.map`): layers, flags, `z` a 16×16 brush (2×2 cells,
+  cursor and tile on even cells; fill on whole tiles), automatic 16×16 brush and first object
+  placeholder tile (`>= 1024`) when switching to the `objects` layer, zoom in/out (`-`/`+`: 1, 2,
+  4, 8, 16 px/cell), `m` (*Overview*) full 256×256 map at 1 px/cell with viewport box and
+  click/arrow jump, `Tab` compact palette of used 16×16 tiles (`z` toggles full sheet), Home/End
+  and PgUp/PgDn a page.
 - **bm SDK (RGB30)** (`carts/sdk_b16`, built into `kernel8.img` unless `CLEAN_KERNEL=1`, and
   published as `sdk.b16` in the Market): the SDK's pages at 360×360 (`layout.lua`: `split` on
   the 8×16 grid, joined before `main.lua` by `build.py`), the pad by names (`ok`/`back`, L1/R1,
-  Start, X = the page's actions as a list, L2/R2), `padtype` for code and names, map `Overview`
-  (`m`) and automatic 16×16 object brush on the `objects` layer, `Build .bm` (`Ctrl+B`) and
+  Start, X = the page's actions as a list, L2/R2), `padtype` for code and names, map zoom in/out
+  (`-`/`+`), `Overview` (`m`, full 256×256 at 1 px/cell), `Tab`/`Y` compact palette of used 16×16
+  tiles, automatic 16×16 object brush on the `objects` layer, `Build .bm` (`Ctrl+B`) and
   `Export .b16` (`Ctrl+Shift+B`; on the RGB30, exporting a `.b16` from `/carts` also copies it to
   `/bm/` so it appears immediately in Games).
 - **Tool session** (`src/kernel/devtool.c`): the tool, the games it tries (`cart_run`, back with
@@ -121,10 +124,10 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   (`make TARGET=rgb30 test`). A game built in `/carts` is not in Games (R41).
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
-- **M43 step 3**: a *Stack* page in bm Pixel. **M42 step 4**: the SDK saves a real `.b16`.
-- Yharnam's map on the Pi: open `yharnam.bm` in the SDK, F3 F3, edit ground and `objects`,
+- **M43 step 3**: a *Stack* page in bm Pixel.
+- Yharnam's map on the Pi: open `yharnam.bm` in the SDK, F3 F3, edit ground,lamps/barricades/gates/bosses on `objects`,
   Ctrl+S (`YHARNAM.BME`, about 6 MB), F5; then `mkmap.py --from` and commit the CSVs. A house
-  stays in its 16×16-tile block; creatures still spawn by the plan's kind of ground.
+  stays in its 16×16-tile block.
 - Overbit's mech pilots from pictures (D.Va `ref/rally_pilot.png`, D.Mon `ref/kaiju_pilot.png`):
   run `meshy-overbit` (its `request.txt` lines), then `pack.py out rally_pilot kaiju_pilot`;
   optionally `rig=` lines with the ids of `out/NAME.task.txt` and `pack.py --rig`. Until then

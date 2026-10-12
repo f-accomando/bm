@@ -127,7 +127,7 @@ static int store(const char *path, const uint8_t *data, size_t len, char *err, s
 
 static void set_flags(uint8_t *head, int project)
 {
-    const unsigned f = (head[18] | head[19] << 8) & ~BM_FLAG_PROJECT;
+    const unsigned f = (head[18] | head[19] << 8) & ~(BM_FLAG_PROJECT | BM_FLAG_B16);
     const unsigned v = f | (project ? BM_FLAG_PROJECT : 0);
     head[18] = (uint8_t)v;
     head[19] = (uint8_t)(v >> 8);
@@ -216,6 +216,12 @@ int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en)
         if (*p >= 'a' && *p <= 'z')
             *p = (char)(*p - 32);
     set_flags(data, 0);
+    data[18] |= BM_FLAG_B16;
+    unsigned w = data[12] | data[13] << 8, h = data[14] | data[15] << 8;
+    if (w != h) {
+        data[12] = 360 & 0xff; data[13] = 360 >> 8;
+        data[14] = 360 & 0xff; data[15] = 360 >> 8;
+    }
     memset(data + BM_BUILT_FROM, 0, BM_HEADER_SIZE - BM_BUILT_FROM);
     memcpy(data + BM_BUILT_FROM, from, strlen(from));
     int k, found = 0;

@@ -419,27 +419,43 @@ def mark_project(data):
     """a project (.bme), the file the tools change: bit 0 of the u16 at 18
     (a .bm is a game, read only for them; src/bm/project.h)"""
     out = bytearray(data)
-    struct.pack_into("<H", out, 18, struct.unpack_from("<H", out, 18)[0] | 1)
+    struct.pack_into("<H", out, 18, (struct.unpack_from("<H", out, 18)[0] & ~2) | 1)
+    return bytes(out)
+
+
+def mark_b16(data):
+    """a .b16 cartridge (M42): bit 1 of the u16 at 18, square screen"""
+    out = bytearray(data)
+    struct.pack_into("<H", out, 18, (struct.unpack_from("<H", out, 18)[0] & ~1) | 2)
+    w, h = struct.unpack_from("<HH", out, 12)
+    if w != h:
+        struct.pack_into("<HH", out, 12, 360, 360)
     return bytes(out)
 
 
 def export_from(src, a, out):
     raw = bytearray(open(src, "rb").read())
-    if len(raw) < HEADER_SIZE or raw[:4] != MAGIC:
+    if len(raw) < 128 or raw[:8] not in (b"BMCART\x00\x00", b"BM33CART"):
         raise SystemExit(f"{src}: not a bm cartridge")
-    w, h = struct.unpack_from("<HH", raw, 8)
-    title = raw[24:56].split(b"\0", 1)[0].decode("utf-8", "replace")
-    author = raw[56:88].split(b"\0", 1)[0].decode("utf-8", "replace")
+    w, h = struct.unpack_from("<HH", raw, 12)
+    title = raw[24:72].split(b"\0", 1)[0].decode("utf-8", "replace")
+    author = raw[72:104].split(b"\0", 1)[0].decode("utf-8", "replace")
+    is_b16 = a.b16 or out.lower().endswith(".b16")
     if a.res_set:
         w, h = (int(v) for v in a.res.split("x"))
-        struct.pack_into("<HH", raw, 8, w, h)
+        struct.pack_into("<HH", raw, 12, w, h)
+    elif is_b16 and w != h:
+        w, h = 360, 360
+        struct.pack_into("<HH", raw, 12, w, h)
     if a.title:
         title = a.title
-        raw[24:56] = title.encode("utf-8")[:31].ljust(32, b"\0")
+        raw[24:24 + 48] = title.encode("utf-8")[:47].ljust(48, b"\0")
     if a.author:
         author = a.author
-        raw[56:88] = author.encode("utf-8")[:31].ljust(32, b"\0")
-    flags = struct.unpack_from("<H", raw, 18)[0] & ~1
+        raw[72:72 + 32] = author.encode("utf-8")[:31].ljust(32, b"\0")
+    flags = struct.unpack_from("<H", raw, 18)[0] & ~(1 | 2)
+    if is_b16:
+        flags |= 2
     struct.pack_into("<H", raw, 18, flags)
     raw[104:128] = b"\0" * 24
     if a.sheet8:
@@ -453,16 +469,16 @@ def export_from(src, a, out):
                     new_secs.append((SEC_SHEET8, enc) if enc else (t, payload))
                 else:
                     new_secs.append((t, payload))
-            body = bytearray()
-            table = bytearray()
-            off = HEADER_SIZE + len(new_secs) * SECTION_ENTRY_SIZE
+            table, bodies = b"", b""
+            offset = 128 + 16 * len(new_secs)
             for t, payload in new_secs:
-                crc = zlib.crc32(payload) & 0xFFFFFFFF
-                table += struct.pack("<BxxxIII", t, off, len(payload), crc)
-                body += payload
-                off += len(payload)
-            struct.pack_into("<H", raw, 16, len(new_secs))
-            raw = raw[:HEADER_SIZE] + table + body
+                table += struct.pack("<IIII", t, offset + len(bodies), len(payload), 0)
+                bodies += payload
+                bodies += b"\0" * ((-len(bodies)) % 4)
+            after = table + bodies
+            raw[17] = len(new_secs)
+            struct.pack_into("<I", raw, 20, crc32(after))
+            raw = raw[:128] + after
     data = bytes(raw)
     if out.lower().endswith(".bme"):
         data = mark_project(data)
@@ -541,6 +557,8 @@ def main():
                     sprites, boxes)
         if a.output.lower().endswith(".bme"):
             data = mark_project(data)
+        elif a.b16 or a.output.lower().endswith(".b16"):
+            data = mark_b16(data)
         title, res_str = a.title, a.res
     if (a.b16 or a.output.lower().endswith(".b16")) and len(data) > 8 * 1024 * 1024:
         raise SystemExit(f"{a.output}: {len(data)} bytes is over a .b16's 8 MiB limit")
