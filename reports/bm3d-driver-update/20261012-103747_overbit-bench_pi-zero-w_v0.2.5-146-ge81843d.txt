@@ -1,0 +1,35 @@
+bm report
+kind: overbit-bench
+kernel: v0.2.5-146-ge81843d
+branch: bm3d-driver-update
+board: Pi Zero W
+date: 2026-10-12 10:37:47
+file: 20261012-103747_overbit-bench_pi-zero-w_v0.2.5-146-ge81843d.txt
+
+options bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1 sort=0 3d=gpu later=0 2d=0 impostor=8 fast=0
+overbit bench start: 4 phases (matrix), flags res:640/gpu:arm+vs/q:4/ring:1/far:60/secs:4, screen 480x270, GPU, renderers arm vs
+overbit bench ARM 640x360 EXTREME match 487448
+overbit bench ARM 640x360 EXTREME: 15 fps, 70.6 ms (1% 96.3, worst 101.0, 100% over 16.7), update 7.6, 3D 56.8, gpu 0.0, 5739 tri (max 7068), 5956 vtx, 390031 px, 43k instr, 2010 KiB Lua, bm3d 0.2
+overbit bench GPU+VS 640x360 EXTREME match 487448
+overbit bench GPU+VS 640x360 EXTREME: 46 fps, 19.7 ms (1% 25.1, worst 47.0, 88% over 16.7), update 7.7, 3D 5.5, gpu 4.2, 25321 tri (max 30840), 0 vtx, 0 px, 43k instr, 2010 KiB Lua, bm3d 3.4
+overbit bench ring ARM  1 heroes: 6.7 ms, 3D 4.0, 556 tri
+overbit bench ring ARM  2 heroes: 8.1 ms, 3D 5.1, 821 tri
+overbit bench ring ARM  4 heroes: 9.4 ms, 3D 5.8, 1014 tri
+overbit bench ring ARM  8 heroes: 10.4 ms, 3D 5.3, 834 tri
+overbit bench ring ARM 12 heroes: 14.7 ms, 3D 7.8, 1430 tri
+overbit bench ring ARM 16 heroes: 16.8 ms, 3D 8.1, 1490 tri
+overbit bench ring ARM 24 heroes: 23.9 ms, 3D 10.8, 2120 tri
+overbit bench ring ARM 32 heroes: 30.8 ms, 3D 13.9, 2833 tri
+overbit bench ring ARM: 12 heroes at 60 fps, 32 at 30 fps
+overbit bench ring GPU+VS  1 heroes: 3.0 ms, 3D 0.5, 2708 tri
+overbit bench ring GPU+VS  2 heroes: 3.9 ms, 3D 0.6, 4594 tri
+overbit bench ring GPU+VS  4 heroes: 5.0 ms, 3D 0.8, 6205 tri
+overbit bench ring GPU+VS  8 heroes: 7.1 ms, 3D 1.0, 4620 tri
+overbit bench ring GPU+VS 12 heroes: 10.3 ms, 3D 1.5, 8837 tri
+overbit bench ring GPU+VS 16 heroes: 12.6 ms, 3D 1.8, 8817 tri
+overbit bench ring GPU+VS 24 heroes: 16.8 ms, 3D 2.3, 14594 tri
+overbit bench ring GPU+VS 32 heroes: 20.1 ms, 3D 2.5, 18449 tri
+overbit bench ring GPU+VS: 16 heroes at 60 fps, 32 at 30 fps
+overbit bench best ARM 640x360: none at 60 fps
+overbit bench best GPU+VS 640x360: none at 60 fps
+overbit bench done in 79 s
