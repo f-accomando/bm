@@ -49,7 +49,10 @@ local function screen_size()
   if UI == 1 then
     urectfill, urect, upset, uline, ucirc, ucircfill, utri, uprint = rectfill, rect, pset, line, circ, circfill, tri,
       print
-    uprompt = prompt
+    uprompt = function(n, x, y, small, menu)          -- menu: the menu's white set (86_pause)
+      if type(x) ~= "number" then return prompt(n, x, 1, 0, y) end      -- (n, small, menu): its width
+      return prompt(n, x, y, small, 1, 0, menu)
+    end
     return
   end
   local S, H = UI, UI // 2
@@ -76,9 +79,9 @@ local function screen_size()
   uprint = function(s, x, y, c, k) return print(s, x * S, y * S, c, (k or 1) * S) // S end
   -- prompt(name, x, y, small) drawn; prompt(name [, small]) measures (in
   -- the HUD's pixels, as before)
-  uprompt = function(n, x, y, small)
-    if type(x) ~= "number" then return prompt(n, x) end
-    return prompt(n, x * S, y * S, small, S) // S
+  uprompt = function(n, x, y, small, menu)
+    if type(x) ~= "number" then return prompt(n, x, S, 0, y) // S end
+    return prompt(n, x * S, y * S, small, S, 0, menu) // S
   end
 end
 screen_size()

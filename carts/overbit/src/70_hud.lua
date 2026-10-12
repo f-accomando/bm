@@ -66,8 +66,8 @@ local function ability_box(x, y, ab, a)
   end
   local k = Hud.key(ab.key)
   if k then
-    local pw = uprompt(k, true)
-    uprompt(k, x + 11 - pw // 2, y + 19, true)
+    local pw = uprompt(k, false, true)
+    uprompt(k, x + 11 - pw // 2, y + 19, false, true)
   end
 end
 
@@ -141,8 +141,8 @@ local function ult_meter(cx, cy, a)
   ucircfill(cx, cy, r - 4, INK)
   if v >= 100 then
     local k = Hud.key("ult")
-    local pw = uprompt(k, true)
-    uprompt(k, cx - pw // 2, cy - 6, true)
+    local pw = uprompt(k, false, true)
+    uprompt(k, cx - pw // 2, cy - 6, false, true)
   else
     local s = tostring(floor(v)) .. "%"
     uprint(s, cx - #s * 3, cy - 5, 0xFFFFFF)

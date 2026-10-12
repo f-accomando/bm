@@ -1254,6 +1254,15 @@ static int pad_prompt_id(size_t i, int style)
          : style == PROMPTS_LETTERED ? pad_prompts[i].pad : prompt_rgb30(pad_prompts[i].pad);
 }
 
+/* prompt()'s last argument: the menu's set (white keys, 16 px, raised on a
+ * lip) instead of the apps' chips */
+static int prompt_menu_set;
+
+static const prompt_t *chip_of(int id, int small)
+{
+    return prompt_menu_set ? prompt_get(id, 0) : prompt_chip(id, small);
+}
+
 static const prompt_t *find_prompt(const char *n, int small)
 {
     int src = hid_last_source();
@@ -1261,17 +1270,17 @@ static const prompt_t *find_prompt(const char *n, int small)
         prompt_style = src == HID_SOURCE_PAD ? PROMPTS_LETTERED : PROMPTS_DS4;
     for (size_t i = 0; i < sizeof pad_prompts / sizeof *pad_prompts; i++)
         if (!strcmp(n, pad_prompts[i].name))
-            return prompt_chip(pad_prompt_id(i, prompt_style), small);
+            return chip_of(pad_prompt_id(i, prompt_style), small);
     for (size_t i = 0; i < sizeof key_prompts / sizeof *key_prompts; i++)
         if (!strcmp(n, key_prompts[i].name))
-            return prompt_chip(key_prompts[i].id, small);
+            return chip_of(key_prompts[i].id, small);
     if (n[0] == 'f' && n[1] >= '1' && n[1] <= '9') {
         int k = atoi(n + 1);
         if (k >= 1 && k <= 12 && (n[2] == 0 || (k >= 10 && n[3] == 0)))
-            return prompt_chip(PROMPT_KEY_F1 + k - 1, small);
+            return chip_of(PROMPT_KEY_F1 + k - 1, small);
     }
     if (n[0] && !n[1] && !(n[0] >= 'A' && n[0] <= 'Z'))
-        return prompt_chip_key((unsigned char)n[0], small);
+        return prompt_menu_set ? prompt_key((unsigned char)n[0]) : prompt_chip_key((unsigned char)n[0], small);
     return NULL;
 }
 
@@ -1309,7 +1318,8 @@ static const prompt_t *prompt_for(const char *n, int small, int player);
  * of the apps' set (prompts.c), its top left at (x, y), 16 px high for 8x16
  * text, 12 with small (by default when the font is 6x12), scale times
  * larger (1-8, as print's); returns the x after it. prompt(name [, small,
- * scale, player]) only measures: the width and height.
+ * scale, player, menu]) only measures: the width and height. A last argument
+ * `true` draws the menu's set instead: white keys 16 px high, on a lip.
  * Upper case the pad's buttons ("A", "B", "X", "Y", "START", "L1",
  * "UPDOWN"...), shown as on the pad pressed last: a DS4 (cross, circle...)
  * until another pad is used; on the RGB30 its own A B X Y (the letters in
@@ -1326,7 +1336,9 @@ static int l_prompt(lua_State *L)
     int scale = (int)luaL_optinteger(L, at + 1, 1);
     scale = scale < 1 ? 1 : scale > 8 ? 8 : scale;
     int player = (int)luaL_optinteger(L, at + 2, 0);
+    prompt_menu_set = lua_toboolean(L, at + 3);
     const prompt_t *p = prompt_for(n, small, player);
+    prompt_menu_set = 0;
     if (!p)
         return luaL_argerror(L, 1, "not a button or a key");
     if (measure) {
@@ -1573,7 +1585,7 @@ static const prompt_t *pad_chip(const char *chip, int style, int small)
 {
     for (size_t i = 0; i < sizeof pad_prompts / sizeof *pad_prompts; i++)
         if (!strcmp(chip, pad_prompts[i].name))
-            return prompt_chip(pad_prompt_id(i, style), small);
+            return chip_of(pad_prompt_id(i, style), small);
     return NULL;
 }
 

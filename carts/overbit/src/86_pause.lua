@@ -8,9 +8,9 @@ Pause = { on = false, sel = 1, page = "main" }
 
 local ITEMS = { "RESUME", "CONTROLS", "LEAVE" }
 
--- the chips are the system's (prompt(): lower case the keyboard, with mouse_l /
--- mouse_r for the buttons, upper case the pad as the one in use shows it); "/" is
--- drawn as text between alternatives
+-- the keys are the system's white set (the menu's, prompt()'s last argument: lower
+-- case the keyboard, with mouse_l / mouse_r for the buttons, upper case the pad as
+-- the one in use shows it); "/" is drawn as text between alternatives
 local ROWS = {
   { "MOVE", { "w", "a", "s", "d" }, { "LSTICK" } },
   { "LOOK", { "up", "down", "left", "right" }, { "RSTICK" } },
@@ -27,14 +27,14 @@ local ROWS = {
   { "PAUSE", { "enter" }, { "START" } },
 }
 
--- a row of chips from x, the top at y (a 12 px chip beside the 6x12 text)
+-- a row of keys from x, the top at y (16 px high)
 local function chips(list, x, y)
   for _, n in ipairs(list) do
     if n == "/" then
-      uprint("/", x + 2, y, 0x9AA2AC)
+      uprint("/", x + 2, y + 2, 0x9AA2AC)
       x = x + 11
     else
-      x = uprompt(n, x, y, true) + 2
+      x = uprompt(n, x, y, false, true) + 3
     end
   end
 end
@@ -93,17 +93,17 @@ function Pause.draw()
   urectfill(0, 0, LW, LH, 0x000000)               -- (the frame behind is not drawn)
   local cx = LW // 2
   if Pause.page == "controls" then
-    local x0, y0 = cx - 150, 24
-    uprint("CONTROLS", cx - 24, y0 - 14, 0xFFE070)
+    local x0, y0 = cx - 160, 22
+    uprint("CONTROLS", cx - 24, y0 - 16, 0xFFE070)
     uprint("KEYBOARD AND MOUSE", x0 + 112, y0, 0xFFB43C)
-    uprint("PAD", x0 + 252, y0, 0xFFB43C)
+    uprint("PAD", x0 + 262, y0, 0xFFB43C)
     for i, r in ipairs(ROWS) do
-      local y = y0 + 6 + i * 14
-      uprint(r[1], x0, y, 0xD8DCE2)
-      chips(r[2], x0 + 112, y - 1)
-      chips(r[3], x0 + 252, y - 1)
+      local y = y0 + 4 + i * 17
+      uprint(r[1], x0, y + 2, 0xD8DCE2)
+      chips(r[2], x0 + 112, y)
+      chips(r[3], x0 + 262, y)
     end
-    uprint("ENTER OR CLICK: BACK", cx - 60, LH - 22, 0x9AA2AC)
+    uprint("ENTER OR CLICK: BACK", cx - 60, LH - 14, 0x9AA2AC)
     font()
     return
   end
