@@ -187,8 +187,15 @@ static int selftest(void)
     EXPECT(b3d_load_at(n, fast, 3, 16.667f) == 33);         /* never over: the last */
     const float first[3] = { 40, 5, 6 };                    /* the first step slowed */
     EXPECT(b3d_load_at(n, first, 3, 16.667f) == 33);
+    /* the cost of a pixel: 2 ms + 1.5 ns a pixel, a step slowed by 0.2 ms */
+    const float px[4] = { 57600, 115200, 172800, 230400 }, gms[4] = { 2.0864f, 2.1728f + 0.2f, 2.2592f, 2.3456f };
+    float a0;
+    const float ns = b3d_slope(px, gms, 4, &a0) * 1e6f;
+    EXPECT(ns > 1.0f && ns < 2.0f && a0 > 1.9f && a0 < 2.2f);
+    const float same[2] = { 57600, 57600 };
+    EXPECT(b3d_slope(same, gms, 2, &a0) == -1 && a0 == -1);
 #undef EXPECT
-    printf("b3d selftest: %s\n", bad ? "FAILED" : "ok (median of a step, the last step that fits)");
+    printf("b3d selftest: %s\n", bad ? "FAILED" : "ok (median of a step, the last step that fits, cost of a pixel)");
     return bad != 0;
 }
 

@@ -73,5 +73,9 @@ int b3d_run(const b3d_platform_t *p);
  * fits after it shows) towards the step after it; -1 if none fits */
 float b3d_median(float *v, int count);
 float b3d_load_at(const float *n, const float *ms, int count, float limit);
+/* the least-squares line through the steps (x: pixels, y: ms): its slope
+ * (the cost of one more pixel), its value at 0 in *at0; -1 with fewer than
+ * two distinct x */
+float b3d_slope(const float *x, const float *y, int count, float *at0);
 
 #endif

@@ -55,7 +55,15 @@ def main():
     check(all(int(vs[t][11]) < int(gpu[t][11]) or int(gpu[t][11]) == 0 for t in ("spheres", "heroes", "heroes_tex", "heroes_skin") if t in vs),
           "GPU+VS: r3d places fewer vertices than GPU")
     check(all(float(r[4]) >= 0 or r[4] == "-1" for r in rows), "loads at 60 fps")
-    check(all(len(r) == 30 and int(r[21]) >= int(r[22]) >= 0 for r in rows), "triangles at 60 fps: given, drawn")
+    check(all(len(r) == 34 and int(r[21]) >= int(r[22]) >= 0 for r in rows), "triangles at 60 fps: given, drawn")
+    # the cost of a pixel: a P line for every fill test and gpu2d, the GPU's for every GPU profile
+    pix = {(r[1], r[2]): r for r in (l.split(",") for l in lines if l.startswith("P,"))}
+    want = [(r[1], r[2]) for r in rows if r[1].startswith("quad_") or r[1] in ("bilinear", "gpu2d")]
+    check(want and all(k in pix and len(pix[k]) == 12 for k in want), f"pixel cost: {len(pix)} P lines")
+    # (the PC's ms are noise, a slope may come out -1; the emulated V3D's job time is 0: only the shape)
+    check(all(int(r[30]) > 0 for r in rows if (r[1], r[2]) in want), "pixel cost: the pixels filled are counted")
+    check(all(all(v == "-1" or float(v) >= 0 for v in pix[k][3:]) and (k[1] == "ARM") == (pix[k][3] == "-1")
+              for k in want if k in pix), "pixel cost: the GPU's job on the GPU profiles only")
     # the score: the three drivers, every test of the score in it (the emulator runs them all)
     score = {r[1]: r for r in (l.split(",") for l in lines if l.startswith("S,"))}
     check(set(score) == {"games", "GPU", "ARM"} and all(int(r[3]) > 0 and r[5] == "1" for r in score.values()),

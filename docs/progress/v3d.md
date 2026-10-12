@@ -34,13 +34,51 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
 
 ## To do, in order
 
-1. Pixels at 1080p: render 640x360 or 720p and enlarge better (R41: scaler kernel, QPU
-   bicubic / FSR-style pass); texture and 2D cost per pixel on the GPU.
+1. Pixels at 1080p: render 640x360 or 720p and enlarge better (R41: `scaling_kernel` below,
+   then QPU bicubic / FSR-style pass); texture and 2D cost per pixel on the GPU.
 2. Impostors: Pi runs at `r3d_impostor` 8, 16, 32 with the new threshold (8 = 2.7 render px
    at 640x360, no effect), photo of far heroes; then the default for crowds (R42).
 3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs.
 4. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
 5. QPU programs outside 3D (M44): the toolkit notes are in `docs/ROADMAP.md`.
+
+## scaling_kernel
+
+`boot/config.txt` line 21 (`scaling_kernel=8`) picks the firmware HVS filter that enlarges the
+mailbox framebuffer to the HDMI mode. One global kernel for the whole display (no
+per-layer kernel). No official config.txt page lists it (checked raspberrypi.com
+`config_txt` and `legacy_config_txt`): the values come from popcornmix (Raspberry Pi
+firmware engineer) in firmware issue #104, 2012-10-18:
+https://github.com/raspberrypi/firmware/issues/104 (closed "This is now supported", 2013-07-20).
+
+| Value | Kernel (`SCALERLIB_KERNELS_TYPES_…`) | Status |
+|-------|--------------------------------------|--------|
+| 1 | `SINC` | issue #104; not tried on Pi |
+| 2 | `SINC_BLACKMAN` | issue #104; not tried on Pi |
+| 3 | `SINC_NO_SIDE_LOBES` | issue #104; not tried on Pi |
+| 4 | `SINC_HALF_FIRST_SIDE_LOBE` | issue #104; not tried on Pi |
+| 5 | `SINC_HAMMING` | issue #104; not tried on Pi |
+| 6 | `SINC_HAMMING_3PI`: firmware default ("we normally use 6") | issue #104; not tried on Pi |
+| 7 | `SINC_HAMMING_2_5PI` | issue #104; not tried on Pi |
+| 8 | `NEAREST_NEIGHBOUR` | issue #104; **verified on Pi** (bm today) |
+
+- No bilinear, bicubic or Mitchell value is listed: 1-7 are sinc variants. From the names
+  only (not measured): side lobes = sharper with possible ringing, 3 (no side lobes) the
+  softest. 0 and values above 8: not documented.
+- Mailbox framebuffer: the issue asked for framebuffer upscaling, so it applies there.
+  Old reports (firmware #104/#168, 2013, 320x240 fb): kernels other than 6 gave a black
+  screen or missing pixels, later fixed in firmware; not checked on today's firmware.
+- `vcgencmd scaling_kernel` reads/sets coefficients at run time (Linux only, not bm).
+
+### Try on the SD
+
+1. Pi off, SD in the PC; in `config.txt` at the root of the SD change `scaling_kernel=8` to
+   the value to try (start with 6, then 3, 5, 7). Do not touch `boot/config.txt` in the repo.
+2. Boot on a 1080p screen; run Overbit with the GPU at 640x360 (3x) and, once, at 720p (1.5x).
+3. Note per value: edge sharpness vs 8, blur, ringing (halos at sky/HUD edges), shimmering
+   when the camera moves, text of menu and HUD, crash or no signal / black screen.
+4. Photo of the same scene per value; report the value and the notes.
+5. Put back `scaling_kernel=8` before any other test.
 
 ## To measure on the Pi
 
@@ -49,3 +87,5 @@ Reports in branch `reports`; ask the user. The kernel must end in the commit tes
 - Impostor 0 / 8 / 16 / 32: `res:640/gpu:arm+vs/q:4/ring:1/far:60`.
 - A played Overbit on the GPU at 640x360, 720p and 1080p (session report): fps, `GPU 3D` ms.
 - 2D on GPU, tex16, WC, `g` test steps 15-16, `menu_scale=3`, each from all-off.
+- Cost of a pixel (`P` lines, `docs/BENCH3D.md` *The reports*): `./easy_install.sh line "gpu;
+  b3d tests=quad_flat,quad_tex,bilinear,gpu2d profiles=ARM,GPU,FS2,2D,VSF; send"`.
