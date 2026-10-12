@@ -143,8 +143,11 @@ Bench ha le colonne GPU vuote.
    vertex shader, poi la coda; per ogni passo una prova all'avvio, un profilo nel 3D Bench e
    un renderer in Overbit. Fatto (bm3d 6.0–6.1, `make TARGET=rgb30 test-mali`): accensione della Mali, MMU LPAE, lavori del job manager, un
    lavoro di frammenti che pulisce una superficie (descrittori Bifrost v7 da Mesa, MIT).
-   **Prossimo:** i triangoli preparati dall'ARM (lavoro del tiler con contesto e heap) con un
-   fragment shader Bifrost minimo (`ISA.xml` di Mesa), poi il vertex shader.
+   Scritto e compilato, non ancora provato sulla console: i descrittori di un disegno
+   (`mali_desc.c`, provati contro il `v7.xml`), gli shader Bifrost (`mali_shaders.h`, da
+   `tools/mali/mkshader.c` con il compilatore di Mesa) e un triangolo (Vertex, Tiler e Fragment)
+   nel Dev > GPU test. **Prossimo:** provarlo sulla RGB30 (report), poi il backend `r3d` con un
+   colore per disegno e il vertex shader con la trasformazione. Dettagli: `docs/progress/graphics.md`.
 - **Fatto quando:** sulla RGB30 Overbit `.b16` gira a 360×360 e a 720×720 e il suo benchmark
   manda il report, prima con l'ARM e poi con la Mali; il 3D Bench della RGB30 ha le righe GPU.
 

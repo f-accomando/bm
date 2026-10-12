@@ -185,8 +185,12 @@ was powered on again `bootprev.txt` has the log of the black boot.
   wait has a limit; the first step that does not come back stops the test and says why (the job
   status, an MMU fault with its address). Then (bm3d 6.1) a fragment job with no
   draws that clears a 64×64 surface (checked pixel by pixel) and a **green square
-  at the top right** of the screen: if it shows, the GPU wrote the pixels. No triangles yet. **Tested on the PC** with a simulated GPU, CRU and
-  PMU (`make TARGET=rgb30 test-mali`); in QEMU the page says there is no GPU
+  at the top right** of the screen: if it shows, the GPU wrote the pixels. After the clear the test also tries a **triangle** (a Vertex,
+  a Tiler and a Fragment job into a 96×96 square under the green one, with Bifrost shaders made by
+  Mesa's compiler, `tools/mali/`): written, not yet run on the console; its lines in the report say
+  what the vertex job wrote and the pixels inside and outside the triangle. **Tested on the PC**
+  with a simulated GPU, CRU and PMU (`make TARGET=rgb30 test-mali`; the descriptors against Mesa's
+  `v7.xml`; the simulated GPU does not run the triangle); in QEMU the page says there is no GPU
   (`test_gpu_test`); **to be tested on the console.**
 - Pi cartridges (`.bm`) in the menu and launchable, for testing: Yharnam in the SD image (see
   below).

@@ -616,7 +616,7 @@ static int fragment(mali_info_t *in)
     return MALI_OK;
 }
 
-/* --- a triangle (bm3d 6.2) ---
+/* --- a triangle (M41, not yet a bm3d version: it has not run on the device) ---
  * A Vertex job (the shader passes three positions in pixels through), a Tiler job (the triangle into the
  * tiler's lists) and a Fragment job (the tiles shaded with the draw's colour): the descriptors of
  * mali_desc.c, the shaders of mali_shaders.h (tools/mali/mkshader.c). A 96 x 96 square of the screen, under

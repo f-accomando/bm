@@ -18,7 +18,7 @@
  *   fragment   (bm3d 6.1) a FRAGMENT job on job slot 0 with no draw: the
  *              tiles cleared to a colour and written to a surface (no
  *              shader, no tiler), then a square on the screen
- *   triangle   (bm3d 6.2) a VERTEX job, a TILER job and a FRAGMENT job:
+ *   triangle   (M41, after 6.1) a VERTEX job, a TILER job and a FRAGMENT job:
  *              three positions through the shaders of mali_shaders.h into
  *              a 96 x 96 square of the screen (mali_desc.c has the
  *              descriptors)
@@ -48,7 +48,7 @@ typedef struct {
     uint8_t *screen;                    /* the page shown (XRGB8888), for a square the GPU clears: */
     uint64_t screen_pa;                 /* its physical address (inside the map); 0: none */
     uint32_t screen_w, screen_h, screen_pitch;
-    int triangle;                       /* also draw a triangle (6.2) when the clear has worked: not on a simulated GPU */
+    int triangle;                       /* also draw a triangle when the clear has worked: not on a simulated GPU */
 } mali_hw_t;
 
 /* the registers' places on the RK3566 */
