@@ -117,6 +117,27 @@ function _draw()
   draw3d(cubo, 0, 0, 0, 0, time(), 0, 1)
 end
 
+== textures3d
+kind: api
+name: textures3d
+title: textures3d([on]) e draw3d flag 128 - texture come colori pieni
+title_en: textures3d([on]) and draw3d flag 128 - textures as flat colours
+ask: modelli senza texture | colori pieni al posto delle texture | opzione piatto o texture
+ask: flat colours instead of textures | turn textures off | flat or textured option
+see: draw3d, mesh
+text:
+Il flag 128 di draw3d disegna le facce con texture in un colore solo, la
+media dei loro texel (stessa mesh, ossa e luce). textures3d(false) lo fa
+per ogni draw3d, textures3d(true) torna alle texture; restituisce lo stato.
+text_en:
+draw3d flag 128 draws the textured faces in one colour each, the average
+of their texels (same mesh, bones and light). textures3d(false) does it
+for every draw3d, textures3d(true) goes back to the textures; it returns
+the current state.
+code:
+draw3d(eroe, x, y, z, 0, yaw, 0, 1, 128)
+textures3d(not G.flat)
+
 == camera3d
 kind: api
 name: camera3d

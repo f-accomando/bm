@@ -58,11 +58,11 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   when missing); `meshyrig.py` fits them on the skeletons (Meshy's `.rig` if any, `OWN_GUN`
   drops the old gun). `request.txt` + `meshy-overbit.yml` (push to `bm-core` or Run workflow):
   text-to-3D, `rig=`, `image=` (image-to-3D from `ref/`).
-- Overbit `.bm`, models: title item MODELS (TEXTURE / FLAT, saved as `flat` with the quality prefs;
-  `Actors.body_name`). FLAT = the `NAME_flt` bodies (`meshyrig.flatten`: every textured face painted
-  with its average texel; names at most 15 characters) in `models-flat.bm` (`models.py --flat-out`; the
-  `.b16` keeps `models.bm`, 8 MiB). `make overbit-heroes`: each hero as `.bmm` in `build/overbit/heroes/`
-  for bm Mesh / bm Animator. Skeletons and clips are still written by `art/rig.py`, not made in Animator.
+- Overbit `.bm`, models: title item MODELS (TEXTURE / FLAT, saved as `flat` with the quality prefs,
+  `Quality.set_flat`; only in the `.bm`: `OVERBIT_TV_BM` and `textures3d` present). FLAT adds
+  `draw3d` flag 128 to the hero bodies in `Actors.draw` (`40_actor.lua`): no separate models.
+  `make overbit-heroes`: each hero as `.bmm` in `build/overbit/heroes/` for bm Mesh / bm Animator.
+  Skeletons and clips are still written by `art/rig.py`, not made in Animator.
 
 ### PC scripts and tools
 - `scripts/mkbm.py`: builds a `.bm` (`--lua --sheet --sheet8 --map --flags --sprites --audio
