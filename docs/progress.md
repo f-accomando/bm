@@ -1,4 +1,7 @@
-# bm progress (index)
+# bm progress (the one index)
+
+**Start here.** This is the only file `CLAUDE.md` sends you to: every other doc is reached
+from a line below. Find the line, `Grep -n '^##'` the file it names, read one section.
 
 Working notes on the **current** state of bm (BareMetal), for whoever changes the code: how
 each area is built today, what is open, and the rules that keep it working. One topic lives
@@ -38,6 +41,19 @@ file ends with *Open work* and *Rules (do not break)*.
 - Suite (SDK, Studio, Animator, Mesh, Pixel, Write), assistant, PC scripts, Market, videos, CI: [tools](progress/tools.md).
 - Games (Overbit: screens, quality, bench flags; Yharnam: assets): [overbit](progress/overbit.md), [yharnam](progress/yharnam.md).
 - Game API reference (not progress): [API.md](API.md) → `docs/api/<area>.md`.
+
+## Navigation (how to read, where things are)
+
+- [reading](progress/reading.md): the search command per big file, then `Read` offset/limit.
+- [runtime](progress/runtime.md): sections of `src/bm/runtime.c` by banner, to grep.
+
+## Reference docs (not progress)
+
+GPU: `docs/DRIVERS.md`, `docs/BENCH3D.md` · RGB30: `docs/RGB30.md` · `.b16`: `docs/B16.md` ·
+resources `BMRES`: `docs/RISORSE.md` · riff: `docs/RIFF.md` · Predict and pad: `docs/PREDICT.md`,
+`docs/PADTYPE.md` · assistant: `src/ai/kb/README.md`, `AI.md` · Market: `market/README.md` ·
+game guide: `docs/GAME-GUIDE.md` · SDK and tools: `sdk/README.md` · milestones and ideas:
+`docs/ROADMAP.md`. All are large: `Grep -n '^#'` first.
 
 ## Open milestones (detail in `docs/ROADMAP.md`)
 

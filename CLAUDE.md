@@ -27,19 +27,25 @@ compatibilità (cartelle SD e header vecchi, tag di rete in `tools/bm_net.py`).
 
 ## Leggere poco (token)
 
-- **Mai per intero**: `runtime.c` (350 KB), `menu_ui.c`, `settings.c`, `bm3d.lua`, `bmlib.lua`,
-  `GAME-GUIDE.md`, `B16.md`, `sdk/README.md`, `ROADMAP.md`. `Grep -n` sul simbolo o su `^#`, o
-  `python3 scripts/cindex.py <file> [parola]`; poi `Read` con `offset`/`limit` su quel tratto.
-  Un file già letto non si rilegge.
-- **API**: `docs/API.md` è indice e basi; il resto in `docs/api/<area>.md` (draw, input, system,
-  sound, tools, light3d, bmlib, riff, bmnet): si apre solo quello dell'area.
-- **Progressi**: un'area = un `docs/progress/<area>.md` (indice `docs/progress.md`), una
-  sezione per argomento, simboli da cercare, niente cronaca; ~120 righe, poi si spezza in
-  `<area>-<tema>.md` e si aggiorna l'indice. Milestone: solo la sua sezione di `ROADMAP.md`
-  (`Grep '^## M47'`).
+- **Un solo indice**: `docs/progress.md`. Prima di leggere o modificare un'area si apre solo
+  quello (tabella: area → file di documento → codice; sezioni *Navigation* e *Reference*);
+  da lì al file dell'area. Non si cercano doc a mano e non si aprono più indici.
+- **Cercare, poi leggere un tratto**: `Grep -n` (con `glob`/`type` e `head_limit`) sul simbolo o
+  su `^#`, oppure `python scripts/cindex.py <file> [parola]`; poi `Read` con `offset`/`limit`
+  su quel tratto. Mai `Read` per cercare. Comandi per ogni file grosso: `docs/progress/reading.md`;
+  sezioni di `runtime.c` (350 KB, mai intero): `docs/progress/runtime.md`. Un file già letto
+  in sessione non si rilegge.
+- **API**: `docs/API.md` è indice e basi; il resto in `docs/api/<area>.md`: si apre solo
+  quello dell'area.
+- **Progressi**: un'area = un `docs/progress/<area>.md`, una sezione per argomento, simboli
+  da cercare, niente cronaca; ~120 righe, poi si spezza in `<area>-<tema>.md` e si aggiorna
+  l'indice. Milestone: solo la sua sezione di `ROADMAP.md` (`Grep '^## M47'`).
 - **Documenti nuovi**: sotto ~15 KB / 300 righe, titoli `##` cercabili; oltre, si dividono.
-- **Ricerche larghe** → `Explore` o un subagent che torna con la conclusione. La skill
-  `bm-docs-map` (`claude/skills/`, da copiare in `.claude/skills/`) dice cosa aprire per area.
+- **Ricerche larghe** → `Explore` o un subagent che torna con la conclusione. Le skill
+  `bm-docs-map` e `docs-loop` (`claude/skills/`, da copiare in `.claude/skills/`) dicono cosa
+  aprire e come tenere i doc snelli.
+- **Dopo aver toccato `CLAUDE.md`, `docs/progress.md` o `docs/progress/*.md`**: skill
+  `docs-loop` (un indice solo, doc snelli, meno riletture, workflow ripetuti → skill).
 
 ## Come si lavora
 
@@ -154,11 +160,7 @@ da solo (file, scopo, cosa è già stato provato).
 
 ## Dove sta il resto
 
-Non ricopiare qui la cronaca. Prima di modificare un'area, leggere il doc o i file:
-
-- SDK, Studio, Animator, Mesh, Pixel: `sdk/README.md`, `carts/{editor,studio,animator,mesh,pixel}/`, `src/script/bm3d.lua`.
-- API giochi, bmlib, bmnet, salvataggi a 8 slot: `docs/API.md` (indice) → `docs/api/{draw,input,system,sound,tools,light3d,bmlib,riff,bmnet}.md`, `src/script/bmlib.lua`, `src/script/bmnet.lua`.
-- Audio, riff, assistente musica: `src/audio/`, `docs/RIFF.md`. Assistente, mesh da immagine, riduttore: `src/ai/`, `src/ai/kb/README.md`. Predict e pad: `docs/PREDICT.md`, `docs/PADTYPE.md` (le tabelle `CROSS`/`FACE`/`KB` si cambiano in `padtype.lua`).
-- bm Write e `/docs`: `carts/write/`, `docs/api/system.md` (*Documents*). Ctrl+I / Ctrl+M arrivano come `"^i"` / `"^m"`.
-- Giochi (Overbit, Yharnam, …): un documento per gioco in `docs/progress/` (indice `docs/progress.md`). Qui niente regole di un gioco specifico, solo workflow e regole generali del sistema.
-- Menu, splash, LED, report, aggiornamenti, Market: `src/kernel/{menu_ui,settings,loading,ledstate,reports,update,market}.c`. RGB30: `docs/RGB30.md`, `src/rgb30/`.
+Tutto parte da `docs/progress.md` (SDK, API, audio, GPU, RGB30, giochi, menu, Market, …).
+Non ricopiare qui la cronaca. Due promemoria che non stanno altrove: Ctrl+I / Ctrl+M
+arrivano come `"^i"` / `"^m"`; i giochi hanno ciascuno il proprio documento in
+`docs/progress/`, qui niente regole di un gioco specifico.

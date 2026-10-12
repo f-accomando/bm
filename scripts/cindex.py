@@ -7,7 +7,8 @@ the functions with their line, grouped under the banner they follow. For a Lua f
 contain it (case-insensitive). Always fresh: nothing is stored, so it never goes stale.
 Then `Read FILE` with offset/limit on the range you need."""
 import re, signal, sys
-signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+if hasattr(signal, "SIGPIPE"):  # not on Windows
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 def main():
     if len(sys.argv) < 2:
