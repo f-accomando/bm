@@ -2654,6 +2654,18 @@ static int l_shadow3d(lua_State *L)
     return 0;
 }
 
+/* textures3d([on]) -> on: with false every draw3d draws the textured faces as
+ * flat colours (each the average of its texels), as with the flag 128 on
+ * each; textures3d(true) the textures (the default) */
+static int l_textures3d(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    if (!lua_isnoneornil(L, 1))
+        r->notex = !lua_toboolean(L, 1);
+    lua_pushboolean(L, !r->notex);
+    return 1;
+}
+
 /* point3d(x, y, z, radius, colour, [flags]) -> pixels: a round point of
  * world radius, behind what is nearer; flags 1 = every other pixel */
 static int l_point3d(lua_State *L)
@@ -4628,7 +4640,7 @@ static const luaL_Reg api[] = {
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
     { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
     { "animate", l_animate }, { "clips", l_clips }, { "bone3d", l_bone3d },
-    { "draw3d", l_draw3d }, { "camera3d", l_camera3d }, { "light3d", l_light3d },
+    { "draw3d", l_draw3d }, { "textures3d", l_textures3d }, { "camera3d", l_camera3d }, { "light3d", l_light3d },
     { "sky3d", l_sky3d }, { "shine3d", l_shine3d }, { "shadow3d", l_shadow3d },
     { "point3d", l_point3d }, { "line3d", l_line3d }, { "sprite3d", l_sprite3d },
     { "bone_turn", l_bone_turn }, { "bones3d", l_bones3d }, { "hit3d", l_hit3d },

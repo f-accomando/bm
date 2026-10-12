@@ -751,37 +751,6 @@ def dress_mech(mod, kind, old, sk_old, name):
 
 # ------------------------------------------------------------------ for models.py
 
-def flatten(m, name):
-    """the Meshy model m (a TexMesh) as flat colours: the same vertices, bones
-    and faces, every textured face painted with the average of its texels (the
-    centre and three points towards the corners): a copy named name + "_flt".
-    The faces that are not textured (a gun, a prop) stay as they are"""
-    import copy
-    w, h, rgba = texture(name)
-    ox, oy = slot(name)
-
-    def texel(u, v):
-        x = min(w - 1, max(0, int(u - ox)))
-        y = min(h - 1, max(0, int(v - oy)))
-        i = (y * w + x) * 4
-        return rgba[i], rgba[i + 1], rgba[i + 2]
-
-    out = copy.copy(m)
-    out.name = m.name + "_flt"
-    out.faces = []
-    for f in m.faces:
-        if len(f) > 4 and f[3] & TEXTURED:
-            uv = f[4]
-            cu, cv = (uv[0] + uv[2] + uv[4]) / 3, (uv[1] + uv[3] + uv[5]) / 3
-            pts = [(cu, cv)] + [(cu + (uv[2 * i] - cu) * 0.7, cv + (uv[2 * i + 1] - cv) * 0.7) for i in range(3)]
-            px = [texel(u, v) for u, v in pts]
-            r, g, b = (round(sum(p[k] for p in px) / 4) for k in range(3))
-            out.faces.append((f[0], f[1], f[2], (f[3] & 0x7F000000) | r << 16 | g << 8 | b))
-        else:
-            out.faces.append(tuple(f[:4]))
-    return out
-
-
 MECHS = {"rally_mech": "rally", "kaiju_mech": "kaiju"}
 
 

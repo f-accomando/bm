@@ -170,7 +170,7 @@ function Quality.load()
   prefs.fps = t.fps == 30 and 30 or nil
   prefs.fixed = t.fixed == true or nil
   prefs.flat = t.flat == true or nil
-  G.flat = prefs.flat == true
+  G.flat = prefs.flat == true and OVERBIT_TV_BM == true
   if prefs.q then G.quality = prefs.q end
   Quality.fps = prefs.fps or 60
 end

@@ -307,22 +307,20 @@ $(BUILD)/overbit/main.lua: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbi
 	$(PYTHON) carts/overbit/build.py $@ --map $(BUILD)/overbit/main.map --extra $(BUILD)/overbit/21_map.lua \
 	    $(OVERBIT_BM_DEFS)
 
-# models-flat.bm: the same and the Meshy bodies in flat colours too (NAME_flt: the .bm's
-# Flat setting; the .b16 stays under its 8 MiB without them)
-$(BUILD)/overbit/models.bm $(BUILD)/overbit/models-flat.bm &: $(OVERBIT_ART) scripts/bmmesh.py scripts/mkbm.py $(BUILD)/host/mappvs
-	@mkdir -p $(BUILD)/overbit
-	$(PYTHON) carts/overbit/art/models.py $(BUILD)/overbit/models.bm --map $(BUILD)/overbit/21_map.lua --pvs $(BUILD)/host/mappvs \
-	    $(OVERBIT_MODELS_FLAGS) --flat-out $(BUILD)/overbit/models-flat.bm
+$(BUILD)/overbit/models.bm: $(OVERBIT_ART) scripts/bmmesh.py scripts/mkbm.py $(BUILD)/host/mappvs
+	@mkdir -p $(dir $@)
+	$(PYTHON) carts/overbit/art/models.py $@ --map $(BUILD)/overbit/21_map.lua --pvs $(BUILD)/host/mappvs \
+	    $(OVERBIT_MODELS_FLAGS)
 
 # every hero as an editable .bmm (bm Mesh, bm Animator, bm Studio open it: mesh, skeleton,
-# clips and the cells of the sheet it uses; the flat bodies too): build/overbit/heroes/
-OVERBIT_HEROES := rally:rally_mech,rally_pilot,rally_fp,rally_pfp,rally_mech_flt,rally_pilot_flt \
-  kaiju:kaiju_mech,kaiju_pilot,kaiju_fp,kaiju_pfp,kaiju_mech_flt,kaiju_pilot_flt \
-  sarge:sarge,sarge_fp,sarge_flt frost:frost,frost_fp,frost_flt \
-  fuse:fuse,fuse_fp,fuse_flt,fuse_wheel,fuse_mine,fuse_trap rail:rail,rail_fp,rail_flt \
-  orbit:orbit,orbit_fp,orbit_flt akari:akari,akari_fp,akari_flt,akari_fox
+# clips and the cells of the sheet it uses): build/overbit/heroes/
+OVERBIT_HEROES := rally:rally_mech,rally_pilot,rally_fp,rally_pfp \
+  kaiju:kaiju_mech,kaiju_pilot,kaiju_fp,kaiju_pfp \
+  sarge:sarge,sarge_fp frost:frost,frost_fp \
+  fuse:fuse,fuse_fp,fuse_wheel,fuse_mine,fuse_trap rail:rail,rail_fp \
+  orbit:orbit,orbit_fp akari:akari,akari_fp,akari_fox
 .PHONY: overbit-heroes
-overbit-heroes: $(BUILD)/overbit/models-flat.bm
+overbit-heroes: $(BUILD)/overbit/models.bm
 	@mkdir -p $(BUILD)/overbit/heroes
 	@for h in $(OVERBIT_HEROES); do \
 	  $(PYTHON) scripts/bmres.py extract $< -o $(BUILD)/overbit/heroes/$${h%%:*}.bmm \
@@ -339,11 +337,11 @@ $(BUILD)/overbit/sounds.json: carts/overbit/art/sounds.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) carts/overbit/art/sounds.py $@
 
-$(BUILD)/carts/overbit.bm: $(BUILD)/overbit/main.lua $(BUILD)/overbit/models-flat.bm $(BUILD)/overbit/sounds.json \
+$(BUILD)/carts/overbit.bm: $(BUILD)/overbit/main.lua $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json \
                            scripts/mkbm.py scripts/bmaudio.py $(wildcard carts/overbit/cover.png)
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_overbit)" --author bm --res $(OVERBIT_RES) \
-	    --models $(BUILD)/overbit/models-flat.bm --audio $(BUILD)/overbit/sounds.json \
+	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json \
 	    $(if $(wildcard carts/overbit/cover.png),--cover carts/overbit/cover.png)
 
 # the optimized release, the .b16 of the Market for the Pi and the RGB30 (the

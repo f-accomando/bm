@@ -198,14 +198,15 @@ local function next_hero(k)
   menu_hero()
 end
 
--- MODELS: the heroes' bodies textured or flat (only if the cartridge has the flat ones: the .bm)
+-- MODELS: the heroes' bodies textured or flat colours (draw3d's flag 128; the .bm, on a runtime that has it)
+function Menu.has_flat() return OVERBIT_TV_BM and type(textures3d) == "function" end
+
 local function toggle_models()
   Quality.set_flat(not G.flat)
-  menu_hero()
 end
 
 function Menu.start()
-  if Actors.has_flat() and ITEMS[6] ~= "MODELS" then table.insert(ITEMS, 6, "MODELS") end     -- after BOTS
+  if Menu.has_flat() and ITEMS[6] ~= "MODELS" then table.insert(ITEMS, 6, "MODELS") end     -- after BOTS
   clear_match()
   Menu.hero = nil
   menu_hero()
