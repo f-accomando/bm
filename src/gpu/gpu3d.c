@@ -245,7 +245,7 @@ static struct {
     int gl_clip_all;                /* every GL draw with the clipper on and its scaling written (as
                                      * Mesa, which never turns it off): the probe tries it if the
                                      * draws without it leave nothing */
-    char plog[1024];                /* what the probes saw (the GPU test's report) */
+    char plog[4096];              /* what the probes saw (the GPU test's report) */
     int async_now;                  /* flush_job starts the job instead of running it */
     const void *async_px;           /* (its page) */
     uint32_t vp;                    /* the job's VIEWPORT_OFFSET (x, y in 12.4) */
@@ -2985,6 +2985,24 @@ static int tformat16_learn(const g16_t *pg)
     return 0;
 }
 
+/* probe_cut16's 64 x 32 texture of type f in the order cut_mode[f] (into
+ * t16), and the RGB565 page each texel must give (into want: 0 where clear) */
+static void cut16_fill(int f, int n, uint16_t *t16, uint16_t *want)
+{
+    enum { TW = 64, TH = 32 };
+    for (int y = 0; y < TH; y++)
+        for (int x = 0; x < TW; x++) {
+            const uint32_t p = (uint32_t)(x + 3 * y) & 31, g = (uint32_t)(2 * x + 5 * y + 7) & 63,
+                           s = (uint32_t)(x ^ (y * 3)) & 31;
+            const int clear = (x + 2 * y) % 5 == 0;
+            const uint32_t al = clear ? 0 : f ? 17u * (uint32_t)((x + y) % 15 + 1) : 255;
+            t16[t16_word(x, y, TW)] = cut16_of(f, p, g, s, al);
+            want[y * TW + x] = clear ? 0 : (uint16_t)(widen(p >> (5 - n), n) >> 3 << 11 |
+                                                      widen(g >> (6 - n), n) >> 2 << 5 |
+                                                      widen(s >> (5 - n), n) >> 3);
+        }
+}
+
 /* M39 (bm3d 7.2): the 16-bit types with alpha (f 0: RGBA5551, type 3; f 1:
  * RGBA4444, type 2) in the RGB565 layout learned above. A 64 x 32 texture
  * whose texels differ (a few transparent: alpha 0; for RGBA4444 the others
@@ -2993,7 +3011,8 @@ static int tformat16_learn(const g16_t *pg)
  * and blue as in RGB565 or swapped, alpha in the low or the top bits). 1
  * with the first way where every pixel is its texel's colour (the TMU's
  * widening to 8 bits, back to RGB565) and the transparent ones stay clear,
- * learned into cut_mode[f]; 0 if no way gives it (the type stays unused) */
+ * learned into cut_mode[f]; 0 if no way gives it (the type stays unused;
+ * the report then gets what each way drew and the opaque shader's control) */
 static int probe_cut16(const g16_t *pg, int f)
 {
     enum { TW = 64, TH = 32 };
@@ -3014,19 +3033,11 @@ static int probe_cut16(const g16_t *pg, int f)
     for (int i = 0; i < 4; i++)
         v[i] = (r3d_corner_t){ q[i][0], q[i][1], 1.0f, q[i][0], q[i][1], 1.0f, { 0, 0, 0 }, { 0, 0, 0 } };
     const r3d_corner_t a[3] = { v[0], v[1], v[2] }, b[3] = { v[0], v[2], v[3] };
+    const char *nm = f ? "4444" : "5551";
+    static char diag[4][112];           /* what each order drew (logged only if none fits) */
     for (int k = 0; k < 4; k++) {
         G.cut_mode[f] = k ^ (G.t16_swap ? CUT_SWAP : 0);    /* RGB565's order first */
-        for (int y = 0; y < TH; y++)
-            for (int x = 0; x < TW; x++) {
-                const uint32_t p = (uint32_t)(x + 3 * y) & 31, g = (uint32_t)(2 * x + 5 * y + 7) & 63,
-                               s = (uint32_t)(x ^ (y * 3)) & 31;
-                const int clear = (x + 2 * y) % 5 == 0;
-                const uint32_t al = clear ? 0 : f ? 17u * (uint32_t)((x + y) % 15 + 1) : 255;
-                t16[t16_word(x, y, TW)] = cut16_of(f, p, g, s, al);
-                want[y * TW + x] = clear ? 0 : (uint16_t)(widen(p >> (5 - n), n) >> 3 << 11 |
-                                                          widen(g >> (6 - n), n) >> 2 << 5 |
-                                                          widen(s >> (5 - n), n) >> 3);
-            }
+        cut16_fill(f, n, t16, want);
         memset(G.probe, 0, JOB_PROBE);
         add_tri(pg, a, R3D_KIND_TEXTURE, &pt, 0, SH_TEX_ALPHA, 0);
         add_tri(pg, b, R3D_KIND_TEXTURE, &pt, 0, SH_TEX_ALPHA, 0);
@@ -3038,11 +3049,38 @@ static int probe_cut16(const g16_t *pg, int f)
                 differ += G.probe[y * PROBE_W + x] != want[y * TW + x];
         if (!differ)
             return 1;
+        ksnprintf(diag[k], sizeof diag[k], "%s mode %d: %d/%d right, want %04x %04x %04x %04x got %04x %04x %04x %04x",
+                  nm, G.cut_mode[f], TW * TH - differ, TW * TH, want[0], want[1], want[2], want[3],
+                  G.probe[0], G.probe[1], G.probe[2], G.probe[3]);
     }
-    char line[100];
-    ksnprintf(line, sizeof line, "%s textures: no order of the fields drew the texels (the type stays unused)",
-              f ? "RGBA4444" : "RGBA5551");
+    char line[112];
+    ksnprintf(line, sizeof line, "%s textures: no order of the fields drew the texels (the type stays unused; params0 %08x)",
+              f ? "RGBA4444" : "RGBA5551", (unsigned)pt.params[0]);
     plog(line);
+    for (int k = 0; k < 4; k++)
+        plog(diag[k]);
+    /* the control: the same texture (RGB565's order) with the opaque shader,
+     * to tell the type from the alpha shader */
+    G.cut_mode[f] = G.t16_swap ? CUT_SWAP : 0;
+    cut16_fill(f, n, t16, want);
+    memset(G.probe, 0, JOB_PROBE);
+    add_tri(pg, a, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
+    add_tri(pg, b, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
+    if (gpu3d_flush(pg, 0) == 0 && !G.failed) {
+        int right = 0, solid = 0, lit = 0;
+        for (int y = 0; y < TH; y++)
+            for (int x = 0; x < TW; x++) {
+                const uint16_t got = G.probe[y * PROBE_W + x], w = want[y * TW + x];
+                lit += got != 0;
+                if ((x + 2 * y) % 5) {
+                    solid++;
+                    right += got == w;
+                }
+            }
+        ksnprintf(line, sizeof line, "%s type %d, opaque shader: %d/%d right, %d/%d not 0, got %04x %04x %04x %04x",
+                  nm, f ? 2 : 3, right, solid, lit, TW * TH, G.probe[0], G.probe[1], G.probe[2], G.probe[3]);
+        plog(line);
+    }
     G.cut_mode[f] = 0;
     return 0;
 }
@@ -3099,7 +3137,11 @@ static int probe_etc1(const g16_t *pg)
     pt.params[0] = (v3d_bus(pt.texels) & ~0xFFFu) | 8u << 4;
     pt.params[1] = (uint32_t)TH << 20 | (uint32_t)TW << 8 | 1u << 7 | 1u << 4 | 1u << 2 | 1u;
     static const float q[4][2] = { { 0, 0 }, { PROBE_W, 0 }, { PROBE_W, PROBE_H }, { 0, PROBE_H } };
+    static char diag[8][112];           /* what each layout drew on the first pass (logged only if none fits) */
+    static const char *const order[4] = { "BE", "words LE", "LE", "halves" };
     for (int k = 0; k < 8; k++) {
+        int right[2] = { 0, 0 };
+        uint16_t w4[4] = { 0 };
         G.e1_uw = k < 4 ? 2 : 4;
         G.e1_order = k & 3;
         for (int by = 0; by < HB; by++)
@@ -3129,15 +3171,28 @@ static int probe_etc1(const g16_t *pg)
                                   db = (int)(got & 31) - (int)(lo >> 3);
                         if (dr < -1 || dr > 1 || dg < -1 || dg > 1 || db < -1 || db > 1)
                             ok[sw] = 0;
+                        else if (d == 0)
+                            right[sw]++;
                     }
+                    if (d == 0 && y == 0 && x < 4)
+                        w4[x] = (uint16_t)((c >> 19 & 31) << 11 | (c >> 10 & 63) << 5 | (c >> 3 & 31));
                 }
+            if (d == 0)
+                ksnprintf(diag[k], sizeof diag[k], "ETC1 %dx%d %s: %d|%d/%d right, want %04x %04x %04x %04x got %04x %04x %04x %04x",
+                          G.e1_uw, 8 / G.e1_uw, order[G.e1_order], right[0], right[1], PROBE_W * PROBE_H,
+                          w4[0], w4[1], w4[2], w4[3], G.probe[0], G.probe[1], G.probe[2], G.probe[3]);
         }
         if (ok[0] || ok[1]) {
             G.e1_swap = !ok[0];
             return 1;
         }
     }
-    plog("ETC1 textures: no layout of the blocks drew the texels (ETC1 stays unused)");
+    char line[112];
+    ksnprintf(line, sizeof line, "ETC1 textures: no layout of the blocks drew the texels (ETC1 stays unused; params0 %08x)",
+              (unsigned)pt.params[0]);
+    plog(line);
+    for (int k = 0; k < 8; k++)
+        plog(diag[k]);
     G.e1_uw = 2;
     G.e1_order = 0;
     return 0;

@@ -53,6 +53,9 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   `gpu3d_etc1()`, options line `etc1=1`, `stats.etc1`). Emulator: `EMU_ETC1=0` (2x4, BE),
   `=1` (4x2, LE: learned as a later candidate), `=2` (off). `make test-gpu3d`: same
   silhouette, 37 dB PSNR against RGB565, worst channel 9.
+- A failed `probe_cut16` / `probe_etc1` (Pi: both fail) logs to the probes' line (report)
+  `params0`, each candidate's right pixels and first 4 texels wanted/got, and for 5551/4444
+  a control with the opaque shader (`5551 type 3, opaque shader: ...`); test: `EMU_T16_ALPHA=2`, `EMU_ETC1=2`.
 
 ## Decisions (from Pi reports, 2026-10-12)
 

@@ -955,6 +955,22 @@ int main(int argc, char **argv)
              cut_ok ? "RGBA5551 RGBA4444" : "no",
              !etc1_ok ? "no" : emu_etc1 ? "yes (utiles 4x2, bytes LE)" : "yes (utiles 2x4, bytes BE)");
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
+    /* a failed 16-bit alpha or ETC1 probe leaves what each candidate drew in
+     * the probes' log (the report); one that passes, nothing */
+    {
+        const char *pl = gpu3d_probe_log();
+        const int tf = emu_tformat != 2;
+        static const char *const cut_lines[] = { "RGBA5551 textures: no order", "5551 mode 0: ", "5551 mode 3: ",
+                                                 "5551 type 3, opaque shader: ", "RGBA4444 textures: no order",
+                                                 "4444 mode 0: ", "4444 type 2, opaque shader: " };
+        static const char *const etc_lines[] = { "ETC1 textures: no layout", "ETC1 2x4 BE: ", "ETC1 4x2 halves: " };
+        for (size_t i = 0; i < sizeof cut_lines / sizeof *cut_lines; i++)
+            CHECK((strstr(pl, cut_lines[i]) != NULL) == (tf && !cut_ok), "probes' log '%s' with alpha textures %d",
+                  cut_lines[i], cut_ok);
+        for (size_t i = 0; i < sizeof etc_lines / sizeof *etc_lines; i++)
+            CHECK((strstr(pl, etc_lines[i]) != NULL) == (tf && !etc1_ok), "probes' log '%s' with ETC1 %d",
+                  etc_lines[i], etc1_ok);
+    }
     if (!gpu3d_ready()) {
         printf("gpu3d: %d/%d checks passed\n", checks - failures, checks);
         return 1;
