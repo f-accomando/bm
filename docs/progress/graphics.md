@@ -59,10 +59,33 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
 - 2D on the GPU (`gpu3d_2d=1`): rects, pixels, straight lines, `spr`/`sspr` (whole zooms),
   `map()`, `print` as quads in the job; the rest closes the job and is drawn by the ARM.
 
-### Mali-G52 on the RGB30 (`src/rgb30/mali.c`, `mali.h`)
-bm3d 6.0–6.1: supply, power domain, identify, reset, cores, MMU (LPAE, 2 MiB blocks), job
-manager (WRITE_VALUE chain) and a FRAGMENT job that clears a surface. No triangles yet. PC
-test with a simulated GPU: `make TARGET=rgb30 test-mali`. The 3D on the RGB30 is `r3d`.
+### Mali-G52 on the RGB30 (`src/rgb30/mali.c`, `mali.h`, `mali_desc.c`)
+bm3d 6.0-6.2: supply, power domain, identify, reset, cores, MMU (LPAE, 2 MiB blocks), job
+manager (WRITE_VALUE chain), a FRAGMENT job that clears a surface (6.1) and a triangle (6.2: Vertex,
+Tiler and Fragment jobs, a 96x96 square of the screen; the step is only on the console,
+`mali_hw_t.triangle`). The 6.2 step is written, not yet run on the device: the Dev > GPU test
+report says (`mali: the vertex job wrote ...`, `mali: a triangle: inside ... outside ...`). PC test with
+a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the RGB30 is `r3d`.
+- Descriptors: `mali_desc.c` (Primitive, Draw, Renderer State, Blend, Local Storage, Uniform Buffer,
+  Invocation, Viewport, Tiler Heap/Context, Attribute(+Buffer), Vertex and Tiler job layouts), places
+  from Mesa's `v7.xml` (MIT). `tests/rgb30/v7pack.py v7.xml` makes `mali_desc_golden.h` from the XML
+  itself; `mali_desc_test` compares the packers to it (in `test-mali`). A "padded" field stores 1 as 0.
+- Shaders: `mali_shaders.h`, from `tools/mali/mkshader.c` with Mesa's Bifrost compiler (recipe and
+  limits: `tools/mali/README.md`): vertex (a position in pixels, w = 1, no varyings) and fragment (one
+  colour per draw, pushed: words 4-7). Without IDVS: a Vertex job, then a Tiler job whose Draw
+  `position` is the buffer the vertex job wrote (varying buffer 1; an attribute buffer of binding n is
+  entry 2n; a Renderer State is followed by one Blend per render target).
+- To check on the device if the triangle does not appear (guesses read from Mesa, in order):
+  the Blend's memory format order (RGBA; the screen is XRGB), `HIERARCHY_MASK` 0xee (Mesa's value for 6
+  tiler levels, not read from the GPU), the fragment's pixel kill/ZS update (Weak Early), the 1 MiB heap
+  (`MEM_HEAP` at 1 MiB of the 4 MiB of GPU memory), no message preload.
+- Next: when 6.2 works, an `r3d` backend (`tri` callback batching screen triangles, a colour per draw),
+  then the vertex shader with the transform.
+- `origin/bm3d-mali-v1` (Grok) was not used: its additions do not compile (`mali_tri_batch_t`
+  undeclared, a stray `
+`), the descriptors are invented (placeholder shaders, a made-up tiler job)
+  and its `gpu3d.c` edit is the V3D driver, which the RGB30 does not build.
+
 
 ### Rendering tests (Dev tab)
 3D Bench (`src/bm/b3d.c`, `src/kernel/b3dpi.c`), render bench, stress test
@@ -74,8 +97,8 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 ## Open work (`docs/ROADMAP.md`)
 
 - **M35, M36, M37, M39** V3D on the Pi Zero W: [v3d](v3d.md).
-- **M41** Mali: next are ARM-prepared triangles (tiler job, minimal Bifrost shader), then the
-  vertex shader.
+- **M41** Mali: the triangle (6.2) is written and builds; to run on the device (Dev > GPU test, send the
+  report), then the `r3d` backend and the vertex shader with the transform.
 - **M43** sprite stacking (`stack()` in `gfx16.c`, bm Pixel page) — not started.
 - **M44** QPU programs outside 3D (particles, full-screen 2D effects) — not started.
 

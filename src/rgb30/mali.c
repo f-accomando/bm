@@ -6,6 +6,8 @@
  * job's own words).
  */
 #include "mali.h"
+#include "mali_desc.h"
+#include "mali_shaders.h"
 
 #include <string.h>
 
@@ -614,6 +616,142 @@ static int fragment(mali_info_t *in)
     return MALI_OK;
 }
 
+/* --- a triangle (bm3d 6.2) ---
+ * A Vertex job (the shader passes three positions in pixels through), a Tiler job (the triangle into the
+ * tiler's lists) and a Fragment job (the tiles shaded with the draw's colour): the descriptors of
+ * mali_desc.c, the shaders of mali_shaders.h (tools/mali/mkshader.c). A 96 x 96 square of the screen, under
+ * the clear's square: dark blue, an orange triangle on it. The jobs run as Mesa's panvk submits them
+ * (vertex then tiler on one slot, the fragment job on its own once they have ended). */
+#define MEM_VJOB        0x4000
+#define MEM_TJOB        0x4100
+#define MEM_HEAPD       0x4300      /* Tiler Heap */
+#define MEM_TCTX        0x4380      /* Tiler Context */
+#define MEM_VRSD        0x4500      /* the vertex shader's Renderer State */
+#define MEM_FRSD        0x4580      /* the fragment shader's, then its Blend */
+#define MEM_LS          0x4600      /* Local Storage */
+#define MEM_VIEWPORT    0x4640
+#define MEM_ABUFS       0x4680      /* attribute buffers: the vertices, a continuation, an end */
+#define MEM_ATTR        0x46c0
+#define MEM_VBUFS       0x4700      /* varying buffers: general, position, point size, an end */
+#define MEM_VATTR       0x4740      /* the position's varying attribute */
+#define MEM_UBO         0x4780      /* the fragment shader's uniform buffer descriptor */
+#define MEM_PUSH        0x47c0      /* its pushed words */
+#define MEM_COLOUR      0x47e0      /* the draw's colour: the buffer's content */
+#define MEM_VS          0x4800
+#define MEM_FS          0x4900
+#define MEM_VERTS       0x5000      /* three positions (x y z w floats) */
+#define MEM_POSITIONS   0x5100      /* what the vertex job wrote */
+#define MEM_HEAP        0x100000
+#define HEAP_SIZE       0x100000
+#define TRI             96          /* the square's side in pixels */
+#define HIERARCHY_MASK  0xee        /* Mesa's default_mask[6]: 6 levels, the one over the whole frame */
+
+static void put_f(uint8_t *p, float v)
+{
+    memcpy(p, &v, 4);
+}
+
+static uint32_t rd32(const uint8_t *p)
+{
+    uint32_t v;
+    memcpy(&v, p, 4);
+    return v;
+}
+
+/* 0 drawn, 1 the jobs ended but the triangle is not there, -1 failed */
+static int triangle(mali_info_t *in)
+{
+    uint8_t *m = H->mem;
+    const uint64_t pa = H->mem_pa;
+    const uint32_t x0 = (H->screen_w - 112) & ~15u, y0 = 96;
+    const uint64_t base = H->screen_pa + (uint64_t)y0 * H->screen_pitch + x0 * 4;
+    const uint32_t clear = 0x102050;
+
+    memset(m + MEM_VJOB, 0, 0x2000);
+    memcpy(m + MEM_VS, BM_VS_bin, sizeof BM_VS_bin);
+    memcpy(m + MEM_FS, BM_FS_bin, sizeof BM_FS_bin);
+
+    /* the data: three positions, one colour */
+    static const float v[3][4] = { { 8, 88, 0.5f, 1 }, { 88, 88, 0.5f, 1 }, { 48, 8, 0.5f, 1 } };
+    for (int i = 0; i < 3; i++)
+        for (int k = 0; k < 4; k++)
+            put_f(m + MEM_VERTS + 16 * i + 4 * k, v[i][k]);
+    const float col[4] = { 1.0f, 0.5f, 0.1f, 1.0f };
+    for (int k = 0; k < 4; k++) {
+        put_f(m + MEM_COLOUR + 4 * k, col[k]);
+        put_f(m + MEM_PUSH + 16 + 4 * k, col[k]);     /* words 4-7: BM_FS_push says ubo 0 offsets 0, 4, 8, 12 */
+    }
+
+    /* tiler: the heap and the context */
+    md_tiler_heap(m + MEM_HEAPD, pa + MEM_HEAP, HEAP_SIZE);
+    md_tiler_context(m + MEM_TCTX, TRI, TRI, HIERARCHY_MASK, pa + MEM_HEAPD);
+
+    /* the shaders' states */
+    md_renderer_state_t vrs = { .shader = pa + MEM_VS, .attribute_count = BM_VS_ATTRIBUTE_COUNT,
+                                .varying_count = BM_VS_VARYING_COUNT, .ubo_count = BM_VS_UBO_COUNT,
+                                .work_regs = BM_VS_WORK_REGS, .preload_regs = BM_VS_PRELOAD,
+                                .push_count = BM_VS_PUSH_COUNT };
+    md_renderer_state(m + MEM_VRSD, &vrs);
+    md_renderer_state_t frs = { .fragment = 1, .shader = pa + MEM_FS, .attribute_count = BM_FS_ATTRIBUTE_COUNT,
+                                .varying_count = BM_FS_VARYING_COUNT, .ubo_count = BM_FS_UBO_COUNT,
+                                .work_regs = BM_FS_WORK_REGS, .preload_regs = BM_FS_PRELOAD,
+                                .push_count = BM_FS_PUSH_COUNT, .pixel_kill = MD_KILL_WEAK_EARLY,
+                                .zs_update = MD_KILL_WEAK_EARLY, .wait6 = BM_FS_WAIT6, .wait7 = BM_FS_WAIT7 };
+    md_renderer_state(m + MEM_FRSD, &frs);
+    md_blend_opaque(m + MEM_FRSD + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
+    md_local_storage(m + MEM_LS);
+    md_viewport(m + MEM_VIEWPORT, 0, 0, TRI, TRI, 0, 0, TRI - 1, TRI - 1);
+
+    /* the vertex job's tables: attribute buffer 0 (entries come in twos), the attribute; the position varying */
+    md_attribute_buffer(m + MEM_ABUFS, pa + MEM_VERTS, 16, 3 * 16);
+    md_attribute(m + MEM_ATTR, 0, MD_FMT_RGBA32F | MD_ORDER_RGBA, 0, 1);
+    md_attribute_buffer(m + MEM_VBUFS, 0, 0, 0);
+    md_attribute_buffer(m + MEM_VBUFS + 16, pa + MEM_POSITIONS, 16, 3 * 16);
+    md_attribute_buffer(m + MEM_VBUFS + 32, 0, 0, 0);
+    md_attribute(m + MEM_VATTR, 1, MD_FMT_SNAP4 | MD_ORDER_RGBA, 0, 0);
+    md_uniform_buffer(m + MEM_UBO, pa + MEM_COLOUR, 1);
+
+    /* the jobs */
+    md_draw_t vd = { .state = pa + MEM_VRSD, .attribute_buffers = pa + MEM_ABUFS, .attributes = pa + MEM_ATTR,
+                     .varying_buffers = pa + MEM_VBUFS, .varyings = pa + MEM_VATTR, .thread_storage = pa + MEM_LS };
+    job_header(m + MEM_VJOB, MD_JOB_VERTEX, 1, 0, pa + MEM_TJOB);
+    md_vertex_job(m + MEM_VJOB, 3, &vd);
+    md_draw_t td = { .position = pa + MEM_POSITIONS, .state = pa + MEM_FRSD, .viewport = pa + MEM_VIEWPORT,
+                     .uniform_buffers = pa + MEM_UBO, .push_uniforms = pa + MEM_PUSH,
+                     .thread_storage = pa + MEM_LS };
+    md_primitive_t prim = { .mode = MD_TRIANGLES, .index_count = 3 };
+    job_header(m + MEM_TJOB, MD_JOB_TILER, 2, 1, 0);
+    md_tiler_job(m + MEM_TJOB, &prim, pa + MEM_TCTX, &td);
+
+    /* the fragment job: the clear's descriptor with the tiler's context */
+    samples(m + MEM_SAMPLES);
+    fbd(m + MEM_FBD, pa + MEM_SAMPLES, TRI, TRI, base, H->screen_pitch, clear);
+    put64(m + MEM_FBD + 56, pa + MEM_TCTX);
+    job_fragment(m + MEM_FJOB, TRI, TRI, pa + MEM_FBD);
+
+    uint32_t st;
+    if (run_on(1, pa + MEM_VJOB, &in->tri_us, &st, "a vertex and a tiler job") != 0)
+        return -1;
+    uint32_t out[4];
+    for (int k = 0; k < 4; k++)
+        out[k] = rd32(m + MEM_POSITIONS + 4 * k);
+    ksnprintf(line, sizeof line, "mali: the vertex job wrote %08x %08x %08x %08x (8.0 88.0 0.5 1.0 are 41000000 "
+              "42b00000 3f000000 3f800000)", (unsigned)out[0], (unsigned)out[1], (unsigned)out[2], (unsigned)out[3]);
+    say();
+    uint32_t us2;
+    if (run_on(0, pa + MEM_FJOB, &us2, &st, "the fragment job of the triangle") != 0)
+        return -1;
+    in->tri_us += us2;
+    const uint8_t *screen = H->screen + (size_t)y0 * H->screen_pitch + x0 * 4;
+    in->tri_in = rd32(screen + (size_t)61 * H->screen_pitch + 48 * 4) & 0xffffff;
+    in->tri_out = rd32(screen + (size_t)3 * H->screen_pitch + 3 * 4) & 0xffffff;
+    ksnprintf(line, sizeof line, "mali: a triangle: inside %06x, outside %06x (the clear is %06x, the colour ff8019), "
+              "heap bottom %08x%08x", (unsigned)in->tri_in, (unsigned)in->tri_out, (unsigned)clear,
+              (unsigned)rd32(m + MEM_HEAPD + 20), (unsigned)rd32(m + MEM_HEAPD + 16));
+    say();
+    return in->tri_in != clear && in->tri_out == clear ? 0 : 1;
+}
+
 static int probed_ok;
 
 int mali_square(const mali_hw_t *hw, uint32_t rgb)
@@ -638,6 +776,14 @@ int mali_probe(const mali_hw_t *hw, mali_info_t *info)
         (r = MALI_E_CORES, cores(in) == 0) && (r = MALI_E_MMU, mmu() == 0) && (r = jobs(in)) == MALI_OK)
         r = fragment(in);
     probed_ok = r == MALI_OK;
+    if (r == MALI_OK && H->triangle && H->screen_pa && H->screen && H->screen_w >= 128 && H->screen_h >= 208) {
+        const int t = triangle(in);     /* (the clear's square stays usable even if this fails) */
+        ksnprintf(line, sizeof line, "mali: a triangle (vertex, tiler and fragment jobs): %s",
+                  t == 0 ? "drawn by the GPU" : t > 0 ? "the jobs ended, the triangle is not there" : "failed");
+        say();
+        if (t != 0)
+            r = MALI_E_TRIANGLE;
+    }
     in->step = r;
     return r;
 }

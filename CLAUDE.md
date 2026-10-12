@@ -75,6 +75,8 @@ da solo (file, scopo, cosa è già stato provato).
   design già deciso, modifiche coordinate su più file.
 - `deep` (Opus, xhigh): architettura, refactoring pesante, bug la cui causa non è chiara
   (GPU, lockstep, audio), scelte con compromessi. Ultimo livello.
+  Mai lanciarlo di propria iniziativa: prima si chiede all'utente se preferisce `standard`
+  (Opus, effort medio), e si usa `deep` solo se risponde di sì.
 - `tracker` (Haiku, basso): solo spunte, spostamenti e righe già decise in roadmap/progress.
 - Un agente che risponde `ESCALATION: <livello>` passa il lavoro a quel livello, con
   quello che ha già provato.
