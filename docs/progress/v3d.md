@@ -55,4 +55,4 @@ Last Pi numbers: 2026-10-06, bm3d 6.7. Ask the user; reports in branch `reports`
   `gpu3d_queue=2` (q vs ql), then a played Overbit with `gpu3d_later=1`: the session report's
   `options` line must say `queue=2 later=1`, `frame queue` line (frames held); no tearing.
 - 2D on GPU, tex16, WC, `g` test steps 15-16, `menu_scale=3`.
-- Impostors: Overbit bench (GPU+VS, ARM), `r3d_impostor` 0, 4, 8: fps, tris, photo of far heroes.
+- Impostors: `far:60` ring (small far heroes): `res:640/gpu:arm+vs/q:4/ring:1/far:60` with `r3d_impostor` 0, 8, 16, 32 (row steps Off, 8, 16, 32): fps, tris, photo of the far heroes.

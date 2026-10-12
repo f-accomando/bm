@@ -42,6 +42,8 @@
 --   warm:10                   the seconds of match before the measure (default 10 for
 --                             res, gpu or q; 1 for the calibration, after the face to face)
 --   ring:1                    after it, the heroes in a ring (default 0)
+--   far:40                    the ring that many units farther from the camera (default 0): far
+--                             heroes are small on the screen, to try r3d_impostor
 --   save:1                    the best of those that hold 60 fps becomes the default
 --                             (the calibration does it by itself; save:0 stops it)
 --   stay:1                    do not leave to the title when done
@@ -112,7 +114,7 @@ local function parse_flags(text)
     if k == "res" then opt.res = words(v)
     elseif k == "gpu" then opt.gpu = words(v)
     elseif k == "q" then opt.q = {} for _, w in ipairs(words(v)) do opt.q[#opt.q + 1] = clamp(tonumber(w) or 3, 0, 4) // 1 end
-    elseif k == "secs" or k == "warm" or k == "ring" or k == "save" or k == "stay" then opt[k] = tonumber(v) or 1
+    elseif k == "secs" or k == "warm" or k == "ring" or k == "far" or k == "save" or k == "stay" then opt[k] = tonumber(v) or 1
     end
   end
   return opt
@@ -410,7 +412,7 @@ function Bench.ring_grow()
   for _, a in ipairs(G.actors) do
     if a.bench_k then
       local ang = (a.bench_k - 1) / n * 2 * pi
-      a.x, a.z = sin(ang) * 9, cos(ang) * 9 + 4
+      a.x, a.z = sin(ang) * 9, cos(ang) * 9 + 4 + (Bench.opt.far or 0)
       a.home.x, a.home.z = a.x, a.z
     end
   end

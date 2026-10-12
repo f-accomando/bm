@@ -286,7 +286,7 @@ static int config_on(const char *key)
 
 #ifndef BM_RGB30
 /* r3d_impostor: far small meshes as one quad, at most that many pixels;
- * 0 off (the default). The row's steps: Off, 2, 4, 8, 16 */
+ * 0 off (the default). The row's steps: Off, 8, 16, 32 */
 static int impostor_px(void)
 {
     const char *v = config_get("r3d_impostor");
@@ -1100,7 +1100,7 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     case R_IMPOSTOR: {
         const int px = impostor_px();
-        const char *next = px <= 0 ? "2" : px < 4 ? "4" : px < 8 ? "8" : px < 16 ? "16" : "0";
+        const char *next = px <= 0 ? "8" : px < 16 ? "16" : px < 32 ? "32" : "0";
         config_set("r3d_impostor", next);
         config_save();
         ksnprintf(d->note, sizeof d->note, "3D impostors of the next game: %s", impostor_choice());
