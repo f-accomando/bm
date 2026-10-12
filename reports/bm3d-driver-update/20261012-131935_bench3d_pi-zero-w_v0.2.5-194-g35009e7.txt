@@ -1,0 +1,53 @@
+bm report
+kind: bench3d
+kernel: v0.2.5-194-g35009e7
+branch: bm3d-driver-update
+board: Pi Zero W
+date: 2026-10-12 13:19:35
+file: 20261012-131935_bench3d_pi-zero-w_v0.2.5-194-g35009e7.txt
+
+bm 3D Bench
+kernel v0.2.5-194-g35009e7
+drivers bm3d 7.0 (M38)
+date 2026-10-12 13:19 UTC
+machine ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 43.3 C, throttled 00000
+gpu bm3d 7.0 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes)
+probes before the vertex shader probe: ERRSTAT 00003000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147; after a vertex shader draw that left nothing: ERRSTAT 00003010 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447; vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+options bm3d 7.0 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 (at the start; each profile sets its own)
+counters ARM1176 PMU
+previous bm/bench/3D0016.TXT
+only tests quad_flat,quad_tex,bilinear,gpu2d, profiles ARM,GPU,FS2,2D,VSF
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms
+R,quad_flat,ARM,0.2,11.5,24.6,0,14.8,14.8,20,20,40,576000,0,0.0,0.0,6464028,0,165908,14770766,1,23,23,400,300,0.0,0.0,0,0,0,576000,-1,22.12,-1
+R,quad_flat,GPU,2.1,67.6,142.1,0,16.3,16.4,132,132,264,0,0,1.0,14.6,2024897,1576564,39473,16341036,1,135,135,400,300,2.3,2.6,18,0,0,3801600,3.78,3.88,0.22
+R,quad_flat,GPU+VS+FS2,6.6,67.5,142.1,0,16.3,16.4,132,132,0,0,132,1.0,14.6,2005442,1570484,46484,16328990,1,135,135,400,300,2.4,2.6,26,0,0,3801600,3.78,3.88,0.23
+R,quad_tex,ARM,0.2,3.4,7.3,0,14.9,14.9,6,6,12,172800,0,0.0,0.0,7436897,0,140035,14902879,1,7,7,400,300,0.0,0.0,0,0,0,172800,-1,74.32,-1
+R,quad_tex,GPU,2.1,60.6,127.6,0,14.0,14.1,100,100,200,0,0,1.0,12.3,1752019,1332234,36778,14038556,1,121,121,400,300,2.4,2.6,18,0,0,2880000,4.21,4.32,0.22
+R,quad_tex,GPU+FS2,5.3,147.7,312.0,0,13.6,13.6,234,234,468,0,0,1.0,11.4,1858758,1229067,42737,13573690,1,295,295,400,300,2.6,2.7,22,0,0,6739200,1.65,1.76,0.25
+R,quad_tex,GPU+VS+FS2,6.6,130.9,274.9,0,15.1,15.1,234,234,0,0,234,1.0,12.0,1964011,1387702,55032,15042560,1,262,262,400,300,2.5,2.8,38,0,0,6739200,1.91,2.01,0.15
+R,gpu2d,ARM,0.2,1605.4,3807.9,0,16.3,16.3,576,226,336,43826,0,0.0,0.0,9184333,0,174718,16250432,2,576,227,400,300,0.0,0.0,0,0,0,943872,-1,12.53,-1
+R,gpu2d,GPU,2.1,1905.6,4099.5,0,13.0,14.0,576,226,336,0,0,1.0,0.3,8317589,35203,80077,13986379,2,576,227,400,300,2.8,1.7,10,0,0,943872,0.00,12.52,0.31
+R,gpu2d,GPU+2D,4.8,1785.2,3756.8,0,14.5,15.8,576,226,336,0,0,1.0,9.1,4123927,968904,337898,14862694,1,576,227,400,300,2.9,2.4,54,0,0,943872,9.45,13.63,0.38
+R,gpu2d,GPU+VS+FS2,6.6,1949.2,4142.3,0,13.6,13.7,576,576,0,0,576,1.0,0.3,8131957,37166,73916,13655071,2,576,576,400,300,2.4,1.8,10,0,0,943872,-1,12.52,-1
+R,bilinear,GPU,2.1,109.1,230.4,0,13.8,13.8,176,176,352,0,0,1.0,11.8,1810537,1272312,40829,13768340,1,218,218,400,300,2.5,2.8,18,0,0,5068800,2.27,2.39,0.28
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+P,quad_flat,ARM,-1,22.12,-1,-1,-1,-1,5.10,20.38,45.86
+P,quad_flat,GPU,3.78,3.88,0.22,0.87,3.49,7.85,0.89,3.58,8.05
+P,quad_flat,GPU+VS+FS2,3.78,3.88,0.23,0.87,3.48,7.83,0.89,3.57,8.04
+P,quad_tex,ARM,-1,74.32,-1,-1,-1,-1,17.12,68.49,154.11
+P,quad_tex,GPU,4.21,4.32,0.22,0.97,3.88,8.72,0.99,3.98,8.95
+P,quad_tex,GPU+FS2,1.65,1.76,0.25,0.38,1.52,3.42,0.41,1.63,3.66
+P,quad_tex,GPU+VS+FS2,1.91,2.01,0.15,0.44,1.76,3.96,0.46,1.85,4.16
+P,gpu2d,ARM,-1,12.53,-1,-1,-1,-1,2.89,11.55,25.99
+P,gpu2d,GPU,0.00,12.52,0.31,0.00,0.00,0.01,2.88,11.54,25.95
+P,gpu2d,GPU+2D,9.45,13.63,0.38,2.18,8.71,19.60,3.14,12.56,28.25
+P,gpu2d,GPU+VS+FS2,-1,12.52,-1,-1,-1,-1,2.88,11.54,25.96
+P,bilinear,GPU,2.27,2.39,0.28,0.52,2.09,4.71,0.55,2.20,4.95
+score 713 (bm3d 7.0 as the games get it, 3 of 24 tests, a part of the bench), GPU bm3d 2.1 548, ARM bm3d 0.2 110; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.0,713,3,0
+S,GPU,2.1,548,3,0
+S,ARM,0.2,110,3,0
+triangles at 60 fps 0 in the mix (0 drawn), the most 576 (gpu2d)
+total 21 s
