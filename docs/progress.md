@@ -20,6 +20,7 @@ Not here: history (git log), measurements (`docs/PRESTAZIONI.md`, `docs/STRESS.m
 | [lua](progress/lua.md) | Lua VM, cartridge runtime, built-in libraries, dev kit, profiler, session report | `third_party/lua/`, `src/bm/runtime.c`, `src/bm/require.c`, `src/script/`, `src/bm/profile.c` |
 | [audio](progress/audio.md) | synthesizer, sound bank and player, presets, outputs, riff, music assistant | `src/audio/`, `src/script/riff.lua`, `src/ai/music.c`, `src/rgb30/rk_audio.c` |
 | [platforms](progress/platforms.md) | Pi Zero W / Pi 1, Pi Zero 2 W (off), RGB30, `bmhost`, QEMU | `src/rgb30/`, `rgb30.mk`, `tests/host/`, `tests/qemu_test.py` |
+| [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) | the games: screens and quality, bench flags, assets | `carts/overbit/`, `carts/yharnam/` |
 | [tools](progress/tools.md) | the suite (SDK, Code, Pixel, Studio, Animator, Mesh, Sound, Write), assistant, PC scripts, Market, videos, CI | `carts/`, `src/ai/`, `scripts/`, `tools/`, `market/`, `video/` |
 
 ## Open milestones (detail in `docs/ROADMAP.md`)
