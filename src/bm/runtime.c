@@ -100,6 +100,8 @@ static struct {
     int local;                      /* player of the keyboard / USB / serial, or -1 */
     uint32_t start_us, frame;
     uint32_t last_cpu_us, fps;
+    uint32_t gpu_frame_us;      /* stat(16): the GPU's job time accounted in the last frame */
+    gpu3d_stats_t gpu_prev;     /* the driver's totals at the end of the frame before */
     uint32_t present_us;        /* last copy of the frame to the framebuffer */
     uint32_t us3d;              /* time in 3D drawing since the last zclear() */
     uint32_t us3d_all;          /* the same, never reset (the dev kit's overlay) */
@@ -1745,7 +1747,10 @@ static uint32_t assets_kb(void);
  *         the dev kit: 11 tokens of the cartridge's code (tokens.h), 12 the
  *         most Lua KiB of this run, 13 KiB of the cartridge's data in memory
  *         (sprite sheet, map, models, sound bank, z-buffer), 14 the Lua
- *         instructions of the busiest frame of this run */
+ *         instructions of the busiest frame of this run, 15 the _update
+ *         run this frame (frameskip), 16 ms of GPU job time (bin + render)
+ *         accounted in the last frame, 0 when the ARM draws the 3D: a
+ *         measurement only, never game logic (it differs between consoles) */
 static int l_stat(lua_State *L)
 {
     switch (ival(L, 1)) {
@@ -1769,6 +1774,7 @@ static int l_stat(lua_State *L)
     case 13: lua_pushinteger(L, (lua_Integer)assets_kb()); break;
     case 14: lua_pushinteger(L, (lua_Integer)rt.instr_k_max * 1000); break;
     case 15: lua_pushinteger(L, rt.updates); break;
+    case 16: lua_pushnumber(L, rt.gpu_frame_us / 1000.0); break;
     default: lua_pushnil(L);
     }
     return 1;
@@ -2919,7 +2925,8 @@ static int l_zclear(lua_State *L)
  * _update runs (where the GPU's probe saw it work); 2: two jobs in flight
  * (M39); true: the console's own level (gpu3d_queue in Settings, 1 or 2),
  * false 0; returned fifth as the level in force (1, 2) or false.
- * impostor: a mesh whose box on the screen is at most that many pixels (2..64) is drawn as one quad in its average colour, by the GPU or
+ * impostor: a mesh whose box on the screen is at most that many pixels (2..64) of a 1080-line picture
+ * (N * h / 1080 of the game's screen: 8 is 2.7 at 360 lines) is drawn as one quad in its average colour, by the GPU or
  * the ARM; false or 0 off (the default, or r3d_impostor in bm/config.txt);
  * returned sixth. later (M39, bm3d 6.9): each frame shown a frame later, so
  * the next _update and _draw run while the GPU draws it (with queue 2; not
@@ -8454,6 +8461,29 @@ static perf_phase_t perf_phase(const perf_mark_t *a, const perf_mark_t *b, const
     return p;
 }
 
+/* stat(16): the GPU's job time the driver accounted since the frame before
+ * (the jobs that ended, with the queue a frame's may end in the next one).
+ * The totals zeroed meanwhile (a game's start, a resume): from zero */
+static void gpu_frame_account(void)
+{
+    gpu3d_stats_t g, d;
+    gpu3d_peek_stats(&g);
+    const gpu3d_stats_t *p = &rt.gpu_prev;
+    if (g.jobs < p->jobs || g.untimed < p->untimed || g.bin_us < p->bin_us ||
+        g.render_us < p->render_us || g.late_us < p->late_us) {
+        d = g;
+    } else {
+        memset(&d, 0, sizeof d);
+        d.jobs = g.jobs - p->jobs;
+        d.untimed = g.untimed - p->untimed;
+        d.bin_us = g.bin_us - p->bin_us;
+        d.render_us = g.render_us - p->render_us;
+        d.late_us = g.late_us - p->late_us;
+    }
+    rt.gpu_frame_us = gpu3d_busy_us(&d);    /* (the ARM's 3D: no jobs, 0) */
+    rt.gpu_prev = g;
+}
+
 /* the frame that ended, summed; next: the start of the new one */
 static void perf_account(const perf_mark_t *next)
 {
@@ -8843,6 +8873,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
             flush3d(0);                     /* the GPU's 3D counts in the frame's time */
         cls_settle();
         rt.last_cpu_us = timer_ticks() - t0 - early_us;
+        gpu_frame_account();
         rt.last_instr_k = instr_k;
         if (instr_k > rt.instr_k_max)
             rt.instr_k_max = instr_k;

@@ -98,8 +98,13 @@ static void flush2d(void)
         gpu3d_flush(g, keep2d);
 }
 
+/* the pixels a frame asks to fill (quads, 2D rectangles, sprites, text):
+ * the per-pixel costs of the tests that measure them (test_t px) */
+static float fill_px;
+
 static void rect2d(int x, int y, int w, int h, uint16_t c)
 {
+    fill_px += (float)w * (float)h;
     if (cur_2d && R.backend && gpu3d_rect2d(g, x, y, x + w, y + h, c))
         return;
     flush2d();
@@ -108,6 +113,8 @@ static void rect2d(int x, int y, int w, int h, uint16_t c)
 
 static void text2d(int x, int y, const char *t, uint16_t c)
 {
+    if (g->font)
+        fill_px += (float)strlen(t) * (float)g->font->width * (float)g->font->height;
     if (cur_2d && R.backend && gpu3d_text2d(g, x, y, t, c, 1))
         return;
     flush2d();
@@ -116,6 +123,7 @@ static void text2d(int x, int y, const char *t, uint16_t c)
 
 static void spr2d(const g16_sheet_t *s, int sx, int sy, int sw, int sh, int x, int y)
 {
+    fill_px += (float)sw * (float)sh;
     if (cur_2d && R.backend && gpu3d_blit2d(g, s, sx, sy, sw, sh, x, y, 1, 0, 0))
         return;
     flush2d();
@@ -433,6 +441,7 @@ static void quads(int n, int f)
     for (int i = 0; i < n; i++, d *= step) {
         const float x = (i & 1) ? k * d : -k * d, y = (i & 2) ? -0.5625f * k * d : 0.5625f * k * d;
         r3d_draw_flags(&R, &quad, (v3_t){ x, y, d }, 0, 0, 0, k * d, flags);
+        fill_px += 320.0f * 180.0f;
     }
     scene_light();
 }
@@ -702,7 +711,8 @@ typedef struct {
     void (*frame)(int n, int f);
     void (*teardown)(void);
     const char *future;                 /* not developed yet: what it waits for */
-    int quad_px;                        /* each item is a 320x180 quad: pixels are its point */
+    int quad_px;                        /* 1: each item is a 320x180 quad (pixels are its point); 1 or 2 (the
+                                         * 2D's area): the report gives its cost a pixel (fill_px) */
     int work;                           /* the ARM's work of a frame after its 3D (a game's logic),
                                          * thousands of steps of 3 instructions */
 } test_t;
@@ -750,7 +760,7 @@ static const test_t tests[] = {
     { "big_logic", "the same and 4M instructions of logic", "models", 1, 64, M_ALL | M_VSQ | M_Q | M_VSS, big_setup, big,
       big_free, NULL, 0, 1300 },
     { "gpu2d", "sprites and text over the 3D", "sprites", 4, 8000, M_ARM | M_GPU | M_2D, NULL, gpu2d_scene, NULL, NULL,
-      0, 0 },
+      2, 0 },
     { "bilinear", "fill: quads, textures filtered (bilinear)", "quads", 1, 4000, M_GPU, q_bilinear, quads,
       q_bilinear_free, NULL, 1, 0 },
 };
@@ -782,7 +792,7 @@ static const struct { const char *test, *version, *when; float n60, n30; } histo
 static float ceiling(const test_t *t, const char **what)
 {
     const float frame = 1.0f / 60.0f;
-    if (t->quad_px) {
+    if (t->quad_px == 1) {
         const int tex = !strcmp(t->id, "quad_tex") || !strcmp(t->id, "quad_alpha");
         *what = tex ? "V3D 1.5 Gtexel/s" : "V3D 1 Gpixel/s";
         return (tex ? 1.5e9f : 1.0e9f) * frame / (320.0f * 180.0f);
@@ -807,6 +817,7 @@ typedef struct {
     float jobs;
     float instr, wait_instr, dmiss, cycles;  /* the ARM's counters, a frame */
     float tris_in, tris, verts, pixels, gltris;
+    float fill;                         /* the pixels the frame asked to fill (fill_px) */
     uint32_t core_mhz, gpu_mhz;         /* measured after the step's frames (0: unknown) */
     float clean_kcyc, inval_kcyc;       /* the ARM's whole-cache upkeep around the jobs, a frame */
     uint32_t pool_kb, ovf_kb, ovf_jobs; /* the binner's memory: most a job used; jobs in the overflow */
@@ -820,6 +831,11 @@ typedef struct {
     sample_t at;                        /* the last step at 60 fps or better (else the first) */
     float secs;
     float tris60, drawn60;              /* the triangles a frame at 60 fps: given, drawn */
+    /* the tests with quad_px: the cost of one more pixel (the slope over
+     * the steps, ns a pixel = ms a Mpixel; -1 unknown) of the GPU's job
+     * time and of the frame, and the GPU's time with no pixel (the line's
+     * intercept: binning, clear, tile stores of 640x360) */
+    float ns_gpu, ns_ms, gpu0_ms;
 } result_t;
 
 static result_t res[NTESTS][NPROF];
@@ -870,6 +886,27 @@ float b3d_load_at(const float *n, const float *ms, int count, float limit)
     if (ms[i + 1] <= ms[i])
         return n[i];
     return n[i] + (limit - ms[i]) / (ms[i + 1] - ms[i]) * (n[i + 1] - n[i]);
+}
+
+/* the least-squares line y = a + b x through count points: b (the cost of
+ * one more x), a in *at0; -1 (and *at0 -1) with fewer than two distinct x */
+float b3d_slope(const float *x, const float *y, int count, float *at0)
+{
+    double sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (int i = 0; i < count; i++) {
+        sx += x[i];
+        sy += y[i];
+        sxx += (double)x[i] * x[i];
+        sxy += (double)x[i] * y[i];
+    }
+    const double d = (double)count * sxx - sx * sx;
+    if (count < 2 || d <= 1e-9 * sxx) {
+        *at0 = -1;
+        return -1;
+    }
+    const double b = ((double)count * sxy - sx * sy) / d;
+    *at0 = (float)((sy - b * sx) / count);
+    return (float)b;
 }
 
 /* the user stopped the run (P->stop): the ramps end, nothing is saved */
@@ -927,6 +964,7 @@ static void ramp(int ti, int pf)
             gpu3d_flush(g, 0);
         gpu3d_set_queue(prof[pf].queue);
         gpu3d_take_stats(&st);
+        fill_px = 0;
         float fms[8];
         for (int f = 1; f <= frames; f++) {
             b3d_count_t c0, c1;
@@ -972,6 +1010,7 @@ static void ramp(int ti, int pf)
         a.ms = b3d_median(fms, frames);     /* the counters below: the mean */
         a.instr *= k; a.wait_instr *= k; a.dmiss *= k; a.cycles *= k;
         a.tris_in *= k; a.tris *= k; a.verts *= k; a.pixels *= k;
+        a.fill = fill_px * k;
         a.gpu_ms = (float)gpu3d_busy_us(&st) * k / 1000.0f;
         a.wait_ms = a.gpu_ms;           /* the ARM waits for every job (with the queue: at most) */
         a.jobs = (float)st.jobs * k;
@@ -1023,6 +1062,24 @@ static void ramp(int ti, int pf)
     r->n30 = b3d_load_at(sn, sms, ns, MS30);
     /* the triangles as the load (they grow with it); under the lightest
      * step, the part of it a frame of 60 fps holds */
+    r->ns_gpu = r->ns_ms = r->gpu0_ms = -1;
+    if (t->quad_px) {
+        float sfill[64], sgpu[64], c0;
+        for (int i = 0; i < ns; i++) {
+            sfill[i] = s[i].fill;
+            sgpu[i] = s[i].gpu_ms;
+        }
+        r->ns_ms = b3d_slope(sfill, sms, ns, &c0) * 1e6f;
+        if (prof[pf].gpu && !prof[pf].queue) {      /* the queue's job time is not trustworthy */
+            r->ns_gpu = b3d_slope(sfill, sgpu, ns, &r->gpu0_ms) * 1e6f;
+            if (r->ns_gpu < 0)
+                r->ns_gpu = r->gpu0_ms = -1;
+            else if (r->gpu0_ms < 0)
+                r->gpu0_ms = 0;         /* noise around nothing */
+        }
+        if (r->ns_ms < 0)
+            r->ns_ms = -1;
+    }
     r->tris60 = b3d_load_at(stri, sms, ns, MS60);
     r->drawn60 = b3d_load_at(sdrawn, sms, ns, MS60);
     if (r->n60 < 0) {
@@ -1215,6 +1272,18 @@ static const char *f1(char *b, float v)
     return b;
 }
 
+/* two decimals ("1.23"), for the costs of a pixel; -1 unknown */
+static const char *f2(char *b, float v)
+{
+    if (v < 0) {
+        ksnprintf(b, 16, "-1");
+        return b;
+    }
+    const int c = (int)(v * 100.0f + 0.5f);
+    ksnprintf(b, 16, "%d.%02d", c / 100, c % 100);
+    return b;
+}
+
 static void report(void)
 {
     rep_len = 0;
@@ -1233,7 +1302,7 @@ static void report(void)
             P->only_profiles ? P->only_profiles : "all");
     put("columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,"
         "instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,"
-        "ovf_jobs\n");
+        "ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms\n");
     char a[16], b[16], c[16], d[16], e[16], f[16], g1[16], g2[16];
     for (int ti = 0; ti < NTESTS; ti++) {
         const test_t *t = &tests[ti];
@@ -1246,14 +1315,42 @@ static void report(void)
             if (!r->ran)
                 continue;
             const sample_t *s = &r->at;
-            put("R,%s,%s,%s,%s,%s,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,%lu,%lu,%lu,%lu,%d,%d,%d,%lu,%lu,%s,%s,%lu,%lu,%lu\n",
+            char h1[16], h2[16], h3[16];
+            put("R,%s,%s,%s,%s,%s,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,%lu,%lu,%lu,%lu,%d,%d,%d,%lu,%lu,%s,%s,%lu,%lu,%lu,"
+                "%lu,%s,%s,%s\n",
                 t->id, prof[pf].name,
                 prof_version(pf), f1(a, r->n60), f1(b, r->n30), r->over, f1(c, s->ms), f1(d, s->worst),
                 (int)s->tris_in, (int)s->tris, (int)s->verts, (int)s->pixels, (int)s->gltris, f1(e, s->jobs),
                 f1(f, s->gpu_ms), (unsigned long)s->instr, (unsigned long)s->wait_instr, (unsigned long)s->dmiss,
                 (unsigned long)s->cycles, (int)r->secs, (int)(r->tris60 + 0.5f), (int)(r->drawn60 + 0.5f),
                 (unsigned long)s->core_mhz, (unsigned long)s->gpu_mhz, f1(g1, s->clean_kcyc), f1(g2, s->inval_kcyc),
-                (unsigned long)s->pool_kb, (unsigned long)s->ovf_kb, (unsigned long)s->ovf_jobs);
+                (unsigned long)s->pool_kb, (unsigned long)s->ovf_kb, (unsigned long)s->ovf_jobs,
+                (unsigned long)s->fill, f2(h1, r->ns_gpu), f2(h2, r->ns_ms), f2(h3, r->gpu0_ms));
+        }
+    }
+    /* the cost of a pixel (the fills and the 2D): ns a pixel = ms a Mpixel,
+     * the slope over the steps, and what filling a screen of 640x360,
+     * 1280x720, 1920x1080 costs at it (the fill only, not the frame's
+     * fixed part: the bench draws at 640x360) */
+    put("pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), "
+        "ms to fill 640x360 / 1280x720 / 1920x1080 at that cost\n");
+    put("columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,"
+        "frame_1080\n");
+    for (int ti = 0; ti < NTESTS; ti++) {
+        if (!tests[ti].quad_px || tests[ti].future)
+            continue;
+        for (int pf = 0; pf < NPROF; pf++) {
+            const result_t *r = &res[ti][pf];
+            if (!r->ran)
+                continue;
+            static const float scr[3] = { 640.0f * 360.0f, 1280.0f * 720.0f, 1920.0f * 1080.0f };
+            char v[9][16];
+            for (int k = 0; k < 3; k++) {
+                f2(v[3 + k], r->ns_gpu < 0 ? -1 : r->ns_gpu * scr[k] / 1e6f);
+                f2(v[6 + k], r->ns_ms < 0 ? -1 : r->ns_ms * scr[k] / 1e6f);
+            }
+            put("P,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n", tests[ti].id, prof[pf].name, f2(v[0], r->ns_gpu),
+                f2(v[1], r->ns_ms), f2(v[2], r->gpu0_ms), v[3], v[4], v[5], v[6], v[7], v[8]);
         }
     }
     /* the score (its S lines read by the next run) and the triangles at 60 fps */

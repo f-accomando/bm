@@ -171,7 +171,7 @@ The reference is split by area. **Read only the file you need** (and grep inside
   menu when there is a network. `bm/config.txt`: `session_report=0` never, `=1` always;
   without the line, only with a `github_token`.
 
-  From the code: `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`,
+  From the code: `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(16)`,
   `devkit()`, `profile()`. The limit is 20 million instructions per call. The
   **SDK's dev kit** (F1 twice) has the same numbers for the project: tokens, the biggest
   functions, the data's memory, the file against the 8 MiB of a `.b16` and the numbers of

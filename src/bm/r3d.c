@@ -1562,22 +1562,127 @@ static void imp_prepare(r3d_mesh_t *m)
     m->imp.baked = wb > 0;
 }
 
-/* 1 if the mesh was drawn as an impostor: its box (scale, R, p) on the
- * screen is at most r->impostor pixels each way. (wx, wy, wz) the middle of
- * its box relative to the camera, cz its depth, rad its sphere. */
-static int impostor(r3d_t *r, const r3d_mesh_t *m, const view_t *v, const float R[9], v3_t p, float scale,
-                    float wx, float wy, float wz, float cz, float rad, unsigned flags)
+/* a mesh with a skeleton: the box of each bone's vertices at rest, once a
+ * version of the mesh (and of its vbone); 0 if there are none (no memory,
+ * or a vertex of a bone the mesh does not have: drawn whole) */
+static int imp_bones(r3d_mesh_t *m)
 {
-    const float thr = (float)r->impostor;
+    const int nb = m->nbones;
+    if (m->bimp.key == m->version && m->bimp.vbone == m->vbone && m->bimp.nbones == nb)
+        return m->bimp.ok;
+    m->bimp.key = m->version;
+    m->bimp.vbone = m->vbone;
+    m->bimp.nbones = nb;
+    m->bimp.ok = 0;
+    if (nb <= 0 || nb > MAX_BONES || !m->vbone)
+        return 0;
+    if (m->bimp.cap < nb) {
+        free(m->bimp.box);
+        m->bimp.box = malloc((size_t)nb * sizeof *m->bimp.box);
+        m->bimp.cap = m->bimp.box ? nb : 0;
+        if (!m->bimp.box)
+            return 0;
+    }
+    float (*box)[6] = m->bimp.box;
+    for (int b = 0; b < nb; b++) {
+        box[b][0] = box[b][1] = box[b][2] = 1e30f;
+        box[b][3] = box[b][4] = box[b][5] = -1e30f;
+    }
+    for (int i = 0; i < m->nverts; i++) {
+        const int b = m->vbone[i];
+        if (b >= nb)
+            return 0;
+        const float c[3] = { m->verts[i].x, m->verts[i].y, m->verts[i].z };
+        for (int k = 0; k < 3; k++) {
+            if (c[k] < box[b][k]) box[b][k] = c[k];
+            if (c[k] > box[b][3 + k]) box[b][3 + k] = c[k];
+        }
+    }
+    m->bimp.ok = 1;
+    return 1;
+}
+
+/* the box of a mesh with a skeleton in its pose (its own coordinates, as
+ * m->imp.lo/hi): each bone's box at rest through the bone's matrix (the box
+ * of a box moved by any 3x4: every vertex of the bone is in it), and the
+ * sphere round its middle that holds those boxes. Only the mesh and its
+ * bones: the same on every console. 0 if there is no such box. */
+static int imp_pose(const r3d_mesh_t *m, float lo[3], float hi[3], float *rad)
+{
+    static float bc[MAX_BONES][3], be[MAX_BONES][3];
+    const int nb = m->bimp.nbones;
+    int n = 0;
+    for (int k = 0; k < 3; k++) {
+        lo[k] = 1e30f;
+        hi[k] = -1e30f;
+    }
+    for (int b = 0; b < nb; b++) {
+        const float *x = m->bimp.box[b], *B = m->bones[b];
+        if (x[0] > x[3])
+            continue;                       /* a bone with no vertex */
+        const float o[3] = { (x[0] + x[3]) * 0.5f, (x[1] + x[4]) * 0.5f, (x[2] + x[5]) * 0.5f },
+                    h[3] = { (x[3] - x[0]) * 0.5f, (x[4] - x[1]) * 0.5f, (x[5] - x[2]) * 0.5f };
+        for (int k = 0; k < 3; k++) {
+            const float *row = B + k * 4;
+            const float c = row[0] * o[0] + row[1] * o[1] + row[2] * o[2] + row[3],
+                        e = (fabsf(row[0]) * h[0] + fabsf(row[1]) * h[1] + fabsf(row[2]) * h[2]) * 1.0001f + 1e-6f;
+            if (!(fabsf(c) + e < 1e30f))
+                return 0;                   /* not a number, or too far */
+            bc[n][k] = c;
+            be[n][k] = e;
+            if (c - e < lo[k]) lo[k] = c - e;
+            if (c + e > hi[k]) hi[k] = c + e;
+        }
+        n++;
+    }
+    if (n == 0)
+        return 0;
+    float r2 = 0;
+    for (int b = 0; b < n; b++) {
+        float d2 = 0;
+        for (int k = 0; k < 3; k++) {
+            const float d = fabsf(bc[b][k] - (lo[k] + hi[k]) * 0.5f) + be[b][k];
+            d2 += d * d;
+        }
+        if (d2 > r2) r2 = d2;
+    }
+    *rad = sqrtf(r2) * 1.0001f + 1e-6f;
+    return 1;
+}
+
+/* r->impostor is in pixels of a 1080-line picture (what the screen shows:
+ * the game's screen is scaled to the TV's height), so the same model at the
+ * same place is chosen alike at 640x360, 720p and 1080p. In pixels of the
+ * 3D's target (r->g, the game's screen): impostor * h / 1080 (8 at 360
+ * lines is 2.67). A square cartridge boxed in a 16:9 page (256 lines in
+ * 270) counts its own lines: under 6% smaller, and only the target's size
+ * decides it (the same on every console). */
+static float imp_threshold(const r3d_t *r)
+{
+    return (float)(r->impostor * r->g->h) / 1080.0f;
+}
+
+/* 1 if the mesh was drawn as an impostor: its box (scale, R, p) on the
+ * screen is at most imp_threshold() pixels each way. lo, hi its box in its
+ * own coordinates (NULL: the vertices' at rest, m->imp), (wx, wy, wz) the
+ * middle of that box relative to the camera, cz its depth, rad its sphere. */
+static int impostor(r3d_t *r, const r3d_mesh_t *m, const view_t *v, const float R[9], v3_t p, float scale,
+                    const float *lo, const float *hi, float wx, float wy, float wz, float cz, float rad,
+                    unsigned flags)
+{
+    const float thr = imp_threshold(r);
     if (cz - rad < NEAR || v->f * rad > thr * (cz - rad))
         return 0;                           /* near, or its sphere is more than 2x as big */
     r3d_mesh_t *mm = (r3d_mesh_t *)m;       /* the cache of the mesh */
     imp_prepare(mm);
+    if (!lo) {
+        lo = m->imp.lo;
+        hi = m->imp.hi;
+    }
     const float *C = v->c;
     float x0 = 1e30f, y0 = 1e30f, x1 = -1e30f, y1 = -1e30f;
     for (int i = 0; i < 8; i++) {
-        const float o[3] = { (i & 1) ? m->imp.hi[0] : m->imp.lo[0], (i & 2) ? m->imp.hi[1] : m->imp.lo[1],
-                             (i & 4) ? m->imp.hi[2] : m->imp.lo[2] };
+        const float o[3] = { (i & 1) ? hi[0] : lo[0], (i & 2) ? hi[1] : lo[1], (i & 4) ? hi[2] : lo[2] };
         const float qx = p.x + scale * (R[0] * o[0] + R[1] * o[1] + R[2] * o[2]) - r->cam_pos.x,
                     qy = p.y + scale * (R[3] * o[0] + R[4] * o[1] + R[5] * o[2]) - r->cam_pos.y,
                     qz = p.z + scale * (R[6] * o[0] + R[7] * o[1] + R[8] * o[2]) - r->cam_pos.z;
@@ -1736,13 +1841,21 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     int inside = 0;                     /* R3D_INSIDE for the backend */
     float R[9];
     rot_matrix(R, rx, ry, rz);
-    if (m->radius >= 0 && !(m->bones && m->nbones > 0) && !(flags & R3D_SHADOW)) {
+    const int skinned = m->bones && m->nbones > 0;
+    /* impostors on, a mesh with a skeleton: the box of its pose and the
+     * sphere round it, from its bones (the same on every console) */
+    float plo[3], phi[3], prad = 0;
+    const int posed = skinned && r->impostor > 0 && m->radius >= 0 && !(flags & (R3D_SHADOW | R3D_FRONT)) &&
+                      m->nfaces > 2 && imp_bones((r3d_mesh_t *)m) && imp_pose(m, plo, phi, &prad);
+    if (m->radius >= 0 && (!skinned || posed) && !(flags & R3D_SHADOW)) {
         /* the mesh's bounding sphere, in camera space, against the near
          * plane and the four planes through the eye and the screen edges:
          * a mesh out of view is skipped before its vertices are transformed
-         * (not one with a skeleton: its vertices move) */
-        const float rad = m->radius * fabsf(scale);
-        const v3_t o = m->centre;
+         * (one with a skeleton only with the sphere of its pose: its
+         * vertices move) */
+        const float rad = (posed ? prad : m->radius) * fabsf(scale);
+        const v3_t o = posed ? (v3_t){ (plo[0] + phi[0]) * 0.5f, (plo[1] + phi[1]) * 0.5f, (plo[2] + phi[2]) * 0.5f }
+                             : m->centre;
         const float wx = p.x + scale * (R[0] * o.x + R[1] * o.y + R[2] * o.z) - r->cam_pos.x,
                     wy = p.y + scale * (R[3] * o.x + R[4] * o.y + R[5] * o.z) - r->cam_pos.y,
                     wz = p.z + scale * (R[6] * o.x + R[7] * o.y + R[8] * o.z) - r->cam_pos.z;
@@ -1754,11 +1867,12 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             return;
         }
         if (r->impostor > 0 && !(flags & R3D_FRONT) && m->nfaces > 2 &&
-            impostor(r, m, &v, R, p, scale, wx, wy, wz, cz, rad, flags))
+            impostor(r, m, &v, R, p, scale, posed ? plo : NULL, posed ? phi : NULL, wx, wy, wz, cz, rad, flags))
             return;
         /* the backend's guard band: |x| <= |cx| + rad and z >= cz - rad
-         * for every point of the sphere */
-        const float zmin = cz - rad, gb = r->backend ? r->backend->guard : 0;
+         * for every point of the sphere (not with a skeleton: drawn as
+         * without impostors) */
+        const float zmin = cz - rad, gb = r->backend && !skinned ? r->backend->guard : 0;
         if (gb > 0 && zmin >= NEAR && v.f * (fabsf(cx) + rad) <= (v.hw + gb) * zmin &&
             v.f * (fabsf(cy) + rad) <= (v.hh + gb) * zmin)
             inside = R3D_INSIDE;
@@ -1828,7 +1942,6 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     const int baked_lamps = m->clight && lamps.n;
     int bx0 = r->g->w, by0 = r->g->h, bx1 = 0, by1 = 0;     /* R3D_FRONT: screen box */
     int nv = 0, nfront = 0;
-    const int skinned = m->bones && m->nbones > 0;
     /* a backend: object -> camera in one matrix a bone (its pixels need not
      * match the ARM's to the last bit; the ARM keeps its two steps, but with
      * r->fast, M37) */
@@ -2482,7 +2595,7 @@ void r3d_mesh_free(r3d_mesh_t *m)
 {
     free(m->flatcol);
     free(m->verts); free(m->faces); free(m->colors); free(m->normals); free(m->vnormals); free(m->uv);
-    free(m->vlod); free(m->clight);
+    free(m->vlod); free(m->clight); free(m->bimp.box);
     memset(m, 0, sizeof *m);
 }
 

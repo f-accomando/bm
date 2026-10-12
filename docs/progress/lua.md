@@ -15,6 +15,7 @@ here.
   an instruction-count hook, globals `SCREEN_W`/`SCREEN_H`, wave constants, the API table.
 
 ### Runtime (`src/bm/runtime.c`, `runtime.h`)
+- Where things are in the file: [runtime](runtime.md).
 - One file holds the cartridge loop and almost every Lua binding (`l_*`). Loop: input,
   `_update` (fixed 1/60 s), `_draw`, 3D flush, page flip; `_init` once.
 - `frameskip(n)`: up to `n` `_update` before a `_draw` when a frame is late (`stat(15)` how

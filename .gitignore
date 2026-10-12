@@ -8,3 +8,4 @@ video/*/out/
 video/07-play/bot-sd/
 video/07-play/replay-sd/
 video/07-play/out-input.txt
+.claude/docs-loop/

@@ -5365,8 +5365,8 @@ function _draw()
   print("draws " .. draws .. " updates " .. ups, 8, 8, 7)
   if draws == 10 then t0, u0, d0 = time(), ups, draws log("frameskip measuring") end
   if draws == 60 then
-    log(string.format("frameskip draws %d updates %d in %.2f s, stat15 %d, presses %d held %d",
-                      draws - d0, ups - u0, time() - t0, stat(15), presses, held))
+    log(string.format("frameskip draws %d updates %d in %.2f s, stat15 %d, presses %d held %d, stat16 %.1f",
+                      draws - d0, ups - u0, time() - t0, stat(15), presses, held, stat(16)))
   end
 end
 """
@@ -5387,8 +5387,8 @@ def test_frameskip(b, opts):
         q.send("j")                             # A, held 10 frames from the serial line
         out = q.expect("frameskip draws", timeout=60).decode(errors="replace")
         out += q.expect("\n", timeout=5).decode(errors="replace")
-        m = re.search(r"frameskip draws (\d+) updates (\d+) in ([\d.]+) s, stat15 (\d+), presses (\d+) held (\d+)",
-                      out)
+        m = re.search(r"frameskip draws (\d+) updates (\d+) in ([\d.]+) s, stat15 (\d+), presses (\d+) held (\d+), "
+                      r"stat16 ([\d.]+)", out)
         assert m, out[-400:]
         draws, ups, secs, last, presses, held = (int(m.group(1)), int(m.group(2)), float(m.group(3)),
                                                  int(m.group(4)), int(m.group(5)), int(m.group(6)))
@@ -5398,6 +5398,7 @@ def test_frameskip(b, opts):
         assert 2 <= last <= 4, last
         assert abs(ups / 60 - secs) < 0.25 * secs, (ups, secs)
         assert presses == 1 and held > 10, (presses, held)
+        assert float(m.group(7)) == 0, m.group(7)   # stat(16): no GPU in QEMU, no job time
         q.send("q")
         out = q.expect("update+draw", timeout=20).decode(errors="replace")
         assert "stopped with an error" not in out, out

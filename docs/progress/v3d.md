@@ -9,51 +9,83 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   `INTENA` is never written and `src/kernel/irq.h` has no V3D line.
 - Bin then render are sequenced in hardware by a semaphore.
 - `queue=2` = two job memory blocks (`JOB_BLOCK` / `JOB2_BLOCK`, `gpu3d.c`): the ARM fills
-  N+1 while the GPU renders N. But `run_async` / `gpu3d_submit` still call `job_wait()` before
-  `v3d_start`, so only one GPU job runs at a time (`v3d_start` rejects a second).
-- `gpu3d_later=1` (bm3d 6.9, with `queue=2`, off by default): the frame is held one frame
-  (`held` in `runtime.c`), so the next `_update` and `_draw` fill the other block while the
-  GPU draws it. Host test: `make test-queue2d` (same pictures; jobs filled in overlap).
-- Cache: `dcache_clean_invalidate_all` 4 times per job (coarse; `dcache_clean_range` exists).
-- Binner: static 4 MiB tile allocation + 2 MiB overflow per job (`BPOA` / `BPOS`). `OUTOMEM`
-  is not handled: a stall hits the 200 ms timeout, the GPU is disabled, the ARM takes over.
+  N+1 while the GPU renders N. `run_async` / `gpu3d_submit` still call `job_wait()` before
+  `v3d_start`, so one GPU job runs at a time (`v3d_start` rejects a second).
+- `gpu3d_later=1` (with `queue=2`, off): the frame is held one frame (`held` in `runtime.c`).
+  Host test: `make test-queue2d`.
+- Cache: `dcache_clean_invalidate_all` 4 times per job. Binner: static 4 MiB tile list + 2 MiB
+  overflow (`BPOA` / `BPOS`); `OUTOMEM` is not handled (200 ms timeout, GPU off, ARM takes over).
 - Vertex shader is done (`gpu3d_vs=2` default).
+- `stat(16)`: the GPU's job time of the last frame (0 on the ARM). Read with the queue on, it
+  includes the wait before the ARM looks: trust it only without the queue.
+- `r3d_impostor=N` (off; 2..64 px of a 1080-line screen, threshold N*h/1080: `imp_threshold`
+  in `r3d.c`; `gpu3d()` 5th; skinned meshes by their pose box). Host test: `make test-impostor`.
 
-## Decisions
+## Decisions (from Pi reports, 2026-10-12)
 
-From the v3d-async-proposal review (branch `origin/v3d-async-proposal`,
-`docs/v3d-async/01*`, `02*`):
-
-- Interrupts `FLDONE` / `FRDONE`: skip. Polling costs only the final wait, the ARM is the
-  bottleneck, there is no scheduler to give time to.
-- Triple buffering: skip until a measurement shows GPU time > ARM time.
-- `v3d_async.c/.h` from the proposal are not adopted (`v3d.c` already does it).
+- Interrupts, triple buffering, `v3d_async.c/.h` of the v3d-async-proposal: skip.
+- Whole-cache clean (about 5 kcycles a job in the bench rows) and binner overflow (0 KiB, 0 jobs
+  in every row) cost nothing measurable: range clean and dynamic overflow stay off the list.
+- `gpu3d_later=1` = `queue=2` in the mean (50 vs 51 fps at 640x360), fewer late frames (38% vs
+  50%): keep it an option, off.
+- GPU 640x360 EXTREME: GPU job 4.2 ms of a 19.6 ms frame, the ARM sets the pace. At 1080p
+  a played match is fill-bound (GPU 20.4 ms for 6105 tris; 720p 10.1 ms): fewer pixels, not
+  fewer triangles, is the lever.
 
 ## To do, in order
 
-1. Read on the Pi the per-job counters (cache calls cycles, binner tile-list and overflow
-   use, overflow jobs; `docs/BENCH3D.md`); then decide: range clean instead of whole-cache
-   clean, bigger or dynamic overflow.
-2. Decide from the Pi run whether `gpu3d_later` becomes the default.
-3. Only if 1 or 2 shows a gain: chain two jobs in hardware (CT0/CT1 queue); needs removing
-   `job_wait` before `v3d_start`.
-4. `r3d_impostor=N` (0 off; 2..64 px, before the backend; *3D impostors*; fifth argument of
-   `gpu3d()`; `make test-impostor`) is an option, off. After the Pi numbers, decide on
-   Animator bake (an atlas colour per mesh).
-5. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
-6. `gpu_ms` per step in the Overbit bench: needs a `stat()` for the GPU time (new API).
+1. Pixels at 1080p (R41): the cheap soft enlargement is scaler kernel 6 (config only, no GPU
+   cost; below). A QPU bicubic / FSR-style pass stays open, only if 6 is not enough. Cost from
+   the Pi 3D Bench: a full-screen 1080p pass with one bilinear read is ~3.5-5 ms of GPU
+   (textured fill 1.65 ns/px nearest, 2.3 ns/px bilinear, plus ~0.3 ms fixed); bicubic/FSR
+   more, not measured. 2D on GPU: 9.5 ns/px (19.6 ms at 1080p).
+2. Impostors: Pi runs at `r3d_impostor` 16, 32 with the new threshold (8 = 2.7 render px
+   at 640x360, no effect: session at 8 gave 57.7 fps, GPU 7.8 ms a frame, 8588 tris), photo of
+   far heroes; then the default for crowds (R42).
+3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs.
+4. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
+5. QPU programs outside 3D (M44): the toolkit notes are in `docs/ROADMAP.md`.
 
-Fixed, not yet on the Pi: Overbit forced queue 1 at every start (`gpu3d` queue `true` = 1);
-now `true` = the console's level, 5th value the level; bench renderer `ql`. Market reseed.
+## scaling_kernel
+
+`boot/config.txt` line 21 (`scaling_kernel=8`) picks the firmware HVS filter that enlarges the
+mailbox framebuffer to the HDMI mode. One global kernel for the whole display (no
+per-layer kernel). No official config.txt page lists it (checked raspberrypi.com
+`config_txt` and `legacy_config_txt`): the values come from popcornmix (Raspberry Pi
+firmware engineer) in firmware issue #104, 2012-10-18:
+https://github.com/raspberrypi/firmware/issues/104 (closed "This is now supported", 2013-07-20).
+
+| Value | Kernel (`SCALERLIB_KERNELS_TYPES_…`) | Status |
+|-------|--------------------------------------|--------|
+| 1 | `SINC` | issue #104; not tried on Pi |
+| 2 | `SINC_BLACKMAN` | issue #104; not tried on Pi |
+| 3 | `SINC_NO_SIDE_LOBES` | issue #104; not tried on Pi |
+| 4 | `SINC_HALF_FIRST_SIDE_LOBE` | issue #104; not tried on Pi |
+| 5 | `SINC_HAMMING` | issue #104; not tried on Pi |
+| 6 | `SINC_HAMMING_3PI`: firmware default ("we normally use 6") | **verified on Pi**: looks good (soft), 640x360 -> 1080p |
+| 7 | `SINC_HAMMING_2_5PI` | issue #104; not tried on Pi |
+| 8 | `NEAREST_NEIGHBOUR` | issue #104; **verified on Pi** (bm today) |
+
+- No bilinear, bicubic or Mitchell value is listed: 1-7 are sinc variants. From the names
+  only (not measured): side lobes = sharper with possible ringing, 3 (no side lobes) the
+  softest. 0 and values above 8: not documented.
+- Mailbox framebuffer: the issue asked for framebuffer upscaling, so it applies there.
+  Old reports (firmware #104/#168, 2013, 320x240 fb): kernels other than 6 gave a black
+  screen or missing pixels, later fixed in firmware; not checked on today's firmware.
+- `vcgencmd scaling_kernel` reads/sets coefficients at run time (Linux only, not bm).
+
+### Try on the SD
+
+Optional, still untried: 3, 5, 7. Pi off, change `scaling_kernel` in `config.txt` at the root
+of the SD (not `boot/config.txt`), run Overbit on the GPU at 640x360 on 1080p, compare with 6
+(sharpness, ringing, black screen); photo per value. Put back `scaling_kernel=8` afterwards.
 
 ## To measure on the Pi
 
-Last Pi numbers: 2026-10-06, bm3d 6.7. Ask the user; reports in branch `reports`.
+Reports in branch `reports`; ask the user. The kernel must end in the commit tested.
 
-- `queue=1` vs `2` in real games (bench3d split rows Q/Q2 showed no gain).
-- Rerun with this kernel and the reseeded Overbit: `./easy_install.sh bench gpu:q+ql` with
-  `gpu3d_queue=2` (q vs ql), then a played Overbit with `gpu3d_later=1`: the session report's
-  `options` line must say `queue=2 later=1`, `frame queue` line (frames held); no tearing.
-- 2D on GPU, tex16, WC, `g` test steps 15-16, `menu_scale=3`.
-- Impostors: Overbit benchmark (GPU+VS and ARM) with `r3d_impostor` 0, 4, 8: fps, tris,
-  and a photo of the far heroes / pickups (does the quad pop or show?).
+- Impostor 0 / 8 / 16 / 32: `res:640/gpu:arm+vs/q:4/ring:1/far:60`.
+- A played Overbit on the GPU at 640x360, 720p and 1080p (session report): fps, `GPU 3D` ms.
+- 2D on GPU, tex16, WC, `g` test steps 15-16, `menu_scale=3`, each from all-off.
+- Cost of a pixel (`P` lines, `docs/BENCH3D.md` *The reports*): `./easy_install.sh line "gpu;
+  b3d tests=quad_flat,quad_tex,bilinear,gpu2d profiles=ARM,GPU,FS2,2D,VSF; send"`.

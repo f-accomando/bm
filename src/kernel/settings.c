@@ -285,8 +285,9 @@ static int config_on(const char *key)
 }
 
 #ifndef BM_RGB30
-/* r3d_impostor: far small meshes as one quad, at most that many pixels;
- * 0 off (the default). The row's steps: Off, 2, 4, 8, 16 */
+/* r3d_impostor: far small meshes as one quad, at most that many pixels of
+ * a 1080-line screen (whatever the game's size); 0 off (the default). The
+ * row's steps: Off, 8, 16, 32 */
 static int impostor_px(void)
 {
     const char *v = config_get("r3d_impostor");
@@ -299,7 +300,7 @@ static const char *impostor_choice(void)
     const int px = impostor_px();
     if (px <= 0)
         return "Off";
-    ksnprintf(t, sizeof t, "Up to %d px", px);
+    ksnprintf(t, sizeof t, "Up to %d px (1080p)", px);
     return t;
 }
 #endif
@@ -521,7 +522,7 @@ void home_panel(int id, home_panel_t *p)
                  "Nearest first, triangles in cache order: the GPU skips work (vertex shader)", "%s",
                  config_on("gpu3d_sort") ? "Nearest first" : "As the game");
         home_row(p, MENU_ROW_CHOICE, R_IMPOSTOR, "3D impostors",
-                 "Far small models drawn as one quad of their colour (GPU and ARM)", "%s", impostor_choice());
+                 "Far small models as one quad of their colour; size in px of a 1080p screen", "%s", impostor_choice());
 #endif
         home_row(p, MENU_ROW_CHOICE, R_FAST3D, "3D on the ARM",
                  "Exact as before, or fast: one matrix a model, light in its axes", "%s",
@@ -1100,7 +1101,7 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     case R_IMPOSTOR: {
         const int px = impostor_px();
-        const char *next = px <= 0 ? "2" : px < 4 ? "4" : px < 8 ? "8" : px < 16 ? "16" : "0";
+        const char *next = px <= 0 ? "8" : px < 16 ? "16" : px < 32 ? "32" : "0";
         config_set("r3d_impostor", next);
         config_save();
         ksnprintf(d->note, sizeof d->note, "3D impostors of the next game: %s", impostor_choice());

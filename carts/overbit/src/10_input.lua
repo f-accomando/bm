@@ -18,8 +18,9 @@
 -- hero       down (in spawn)     H
 --
 -- The .bm (OVERBIT_TV_BM) also has the mouse: the left button fires, the right
--- one is the secondary fire (the look stays on the arrows and the stick). The
--- pointer is hidden while playing and shows in the pause menu (86_pause).
+-- one is the secondary fire, and moving it turns the view in the hero's first
+-- person (with the arrows and the stick; mouse_look below). The pointer is
+-- hidden while playing and shows in the pause menu (86_pause).
 --
 -- The .b16 on the RGB30 (Nintendo layout: X top, A right, B bottom, Y left, and
 -- the game gets the letters printed on the console): the four face buttons
@@ -79,6 +80,57 @@ function Input.arrow(on)
   pcall(mouse, true, on)
 end
 
+-- The mouse look (.bm): mouse() says where the pointer is, held inside the
+-- screen (the runtime has no motion of its own), so the view turns by how far
+-- the pointer moved since the last frame. At an edge it cannot go on: pushed
+-- into one, it keeps turning the view at the stick's top speed while it stays
+-- there (moving it back a little stops it). Only in the hero's own first
+-- person. What it turns is cmd.look_x / look_y, as the stick: the hero (80_modes)
+-- or, on the network, the view sent in the command (83_net), never the
+-- simulation directly (lockstep).
+Input.mouse_sens = 1.0            -- mouse look speed
+local MOUSE_TURN = math.pi        -- radians for the pointer across the screen's width
+local ml = { ex = 0, ey = 0 }     -- ml.x, ml.y: the pointer at the last frame (ml.w, ml.h: its screen)
+
+-- the local hero's own first person: not the pause menu (the arrow), the menus,
+-- the death camera, a hero's camera (Fuse's wheel: cam3p), the free camera, the
+-- hero select, a spectator, the network's leave question
+local function first_person()
+  local a, m = G.local_actor, G.mode
+  if arrow or not a or not a.alive or a.cam3p or Dev.cam.on then return false end
+  if m ~= "range" and m ~= "match" and m ~= "explore" then return false end
+  local mt = Modes.list.match
+  if m == "match" and mt and (mt.spectate or (mt.state.select and mt.state.select.open)) then return false end
+  if online and select(2, online()) then return false end
+  return true
+end
+
+-- -1 / 1: the pointer pushed into the low / high edge (p: its pixel, d: its move
+-- this frame, e: the last frame's answer, hi: the last pixel); 0 elsewhere
+local function edge(p, d, e, hi)
+  if p <= 0 then return (d < 0 or e < 0) and -1 or 0 end
+  if p >= hi then return (d > 0 or e > 0) and 1 or 0 end
+  return 0
+end
+
+-- the mouse's turn this frame (radians) from the pointer at px, py (nil: none)
+local function mouse_look(px, py)
+  if not px or not first_person() then
+    ml.x = nil
+    return 0, 0
+  end
+  if not ml.x or SW ~= ml.w or SH ~= ml.h then     -- the first frame (or a new screen, that moves it): from here
+    ml.x, ml.y, ml.w, ml.h, ml.ex, ml.ey = px, py, SW, SH, 0, 0
+    return 0, 0
+  end
+  local dx, dy = px - ml.x, py - ml.y
+  ml.x, ml.y = px, py
+  ml.ex = edge(px, dx, ml.ex, SW - 1)
+  ml.ey = edge(py, dy, ml.ey, SH - 1)
+  local k = MOUSE_TURN * Input.mouse_sens / SW            -- (square pixels: the width for both)
+  return dx * k + ml.ex * 3.4 * Input.sens * DT, -dy * k - ml.ey * 2.4 * Input.sens * DT
+end
+
 -- one frame: fills cmd (and cmd.pressed_* for the edges)
 function Input.read()
   local p = pad(1) | pad()
@@ -89,13 +141,14 @@ function Input.read()
   if nintendo then pj, pc, pu, pr = PB.B, PB.A, PB.X, PB.Y end
   local function b(bit) return p & bit ~= 0 end
   -- the mouse (.bm): buttons held (1 left, 2 right) and the pointer in the HUD's pixels
-  local mb = 0
+  local mb, mlx, mly = 0, 0, 0
   if OVERBIT_TV_BM then
     local px, py, bt = mouse()
     if px then
       mb = bt or 0
       cmd.ptr_x, cmd.ptr_y = px // UI, py // UI
     end
+    mlx, mly = mouse_look(px, py)
   end
   -- movement: left stick, or WASD
   local sx, sy = stick(1)
@@ -112,8 +165,8 @@ function Input.read()
   local ay = (kd(K.DOWN) and 1 or 0) - (kd(K.UP) and 1 or 0)
   if ax ~= 0 or ay ~= 0 then rx, ry = ax * 0.75, ay * 0.75 end
   local function curve(v) return v * abs(v) end
-  cmd.look_x = curve(rx) * 3.4 * Input.sens * DT      -- radians this frame
-  cmd.look_y = -curve(ry) * 2.4 * Input.sens * DT
+  cmd.look_x = curve(rx) * 3.4 * Input.sens * DT + mlx      -- radians this frame (and the mouse's)
+  cmd.look_y = -curve(ry) * 2.4 * Input.sens * DT + mly
   local now = {
     fire = b(PB.R2) or kd(K.J) or kd(K.Z) or mb & 1 ~= 0,
     fire2 = b(PB.L2) or kd(K.K) or kd(K.X) or mb & 2 ~= 0,

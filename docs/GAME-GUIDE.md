@@ -361,11 +361,15 @@ end
   the map's visibility given once by `pvs3d{...}` (cells on the ground and the pieces seen
   from each, as Overbit's map) also if a wall hides it. Characters skipped this way cost
   nothing: `if visible3d(e.x, e.y + 1, e.z, 1.5) then draw3d(e.mesh, ...) end`.
-- **Far small models (impostors, off by default):** `gpu3d(nil, nil, nil, nil, 6)` draws a
-  model whose box on the screen is at most 6 pixels as one quad of its average colour (2
-  triangles instead of all its faces), on the GPU and on the ARM alike; `gpu3d(nil, nil,
-  nil, nil, 0)` turns it off. The player can turn it on for every game in *Settings > Screen
-  and sound > 3D impostors* (`r3d_impostor` in `bm/config.txt`).
+- **Far small models (impostors, off by default):** `gpu3d(nil, nil, nil, nil, 16)` draws a
+  model whose box on the screen is at most 16 pixels of a 1080-line screen as one quad of its
+  average colour (2 triangles instead of all its faces), on the GPU and on the ARM alike. The
+  number is the size the player sees on the TV: at 640×360 it is a third as many of the game's
+  pixels (16 → 5.3), at 720p two thirds, so the same models are chosen whatever the
+  resolution. Animated models too,
+  by the box of their pose. `gpu3d(nil, nil, nil, nil, 0)` turns it off. The player can turn
+  it on for every game in *Settings > Screen and sound > 3D impostors* (`r3d_impostor` in
+  `bm/config.txt`).
 - 2D and 3D mix: a background with `rectfill`/`map`, models with `draw3d`, the HUD with
   `print` at the end.
 - **The Pi's GPU:** `gpu3d()` says whether it draws the 3D, and how (`on, aa, vs, version,
@@ -864,7 +868,9 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
 - **Randomness:** `math.randomseed(stat(3))` when the player presses a button (the frame
   number changes every match).
 - **Debugging:** `log(...)` writes on the serial console; `stat(1)` is the last frame's time
-  in ms, `stat(2)` the fps.
+  in ms, `stat(2)` the fps, `stat(16)` the GPU's job time of the last frame in ms (`0` when
+  the ARM draws the 3D): `stat(16)` close to `stat(1)` means the GPU sets the pace. These
+  are measurements, different on every console: never game logic.
 - **Battery (handhelds):** the system already draws a small red battery over the game when
   it is at 20% or less off the charger; you do not have to. `battery()` gives the charge and
   the charger (`nil` on the Pi), `battery_low()` whether it is low, e.g. to save in time:

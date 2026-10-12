@@ -7,8 +7,10 @@
 -- BENCHMARK in the title: the calibration (2026-10-10, the user's choice).
 -- It climbs the scale of 85_quality from the lightest step (the smallest
 -- screen at level 0) to the heaviest (on a TV 640x360 at levels 0..4, then
--- 1080p at 1..4; the .bm 640x360 on the ARM, 720p and 1080p on the GPU; on
--- the RGB30's square panel 360x360, then 720x720), each
+-- 1080p at 1..4; the .bm 640x360 on the ARM, 720p and 1080p on the GPU,
+-- and the GPU's 640x360 right after its first step if that missed 60 fps:
+-- 85_quality.gpu_spare; on the RGB30's square panel 360x360, then
+-- 720x720), each
 -- step with the ARM and with the GPU (as the console's Settings start it;
 -- if there is one, and the ARM only where it draws: 85_quality.arm_ok). A
 -- renderer stops at its first step under 30 fps; the climb ends when both
@@ -40,6 +42,8 @@
 --   warm:10                   the seconds of match before the measure (default 10 for
 --                             res, gpu or q; 1 for the calibration, after the face to face)
 --   ring:1                    after it, the heroes in a ring (default 0)
+--   far:40                    the ring that many units farther from the camera (default 0): far
+--                             heroes are small on the screen, to try r3d_impostor
 --   save:1                    the best of those that hold 60 fps becomes the default
 --                             (the calibration does it by itself; save:0 stops it)
 --   stay:1                    do not leave to the title when done
@@ -109,7 +113,7 @@ local function parse_flags(text)
     if k == "res" then opt.res = words(v)
     elseif k == "gpu" then opt.gpu = words(v)
     elseif k == "q" then opt.q = {} for _, w in ipairs(words(v)) do opt.q[#opt.q + 1] = clamp(tonumber(w) or 3, 0, 4) // 1 end
-    elseif k == "secs" or k == "warm" or k == "ring" or k == "save" or k == "stay" then opt[k] = tonumber(v) or 1
+    elseif k == "secs" or k == "warm" or k == "ring" or k == "far" or k == "save" or k == "stay" then opt[k] = tonumber(v) or 1
     end
   end
   return opt
@@ -203,8 +207,8 @@ local function plan(opt)
   for _, r in ipairs(rs) do
     for _, m in ipairs(reslist) do
       for _, q in ipairs(opt.q or { 4, 3, 2, 1 }) do
-        -- the ARM does not draw above 640x360 on a TV (seconds a frame at 1080p;
-        -- the .bm: 640x360, and its GPU from 720p)
+        -- the ARM does not draw above 640x360 on a TV (seconds a frame at
+        -- 1080p); the GPU draws every screen (res:640/gpu:q on the .bm too)
         if (r ~= "arm" or Quality.arm_ok(m[1], m[2])) and (r == "arm" or Quality.gpu_ok(m[1], m[2])) then
           phases[#phases + 1] = { kind = "match", r = r, w = m[1], h = m[2], q = q }
         end
@@ -227,7 +231,18 @@ local function climb_plan()
   local g = Quality.gpu_name()
   if available(g) then rs[1] = g end
   rs[#rs + 1] = "arm"
-  return { ladder = ladder, rs = rs, step = 1, ri = 0, out = {} }
+  return { ladder = ladder, rs = rs, step = 1, ri = 0, out = {}, spare = nil }
+end
+
+-- the GPU's spare steps (Quality.gpu_spare: the .bm's 640x360), the lightest
+-- first: measured after the GPU's first step when that missed 60 fps
+local function spare_steps(C, r)
+  local out = {}
+  for i, e in ipairs(C.ladder) do
+    if Quality.gpu_spare(e[1], e[2]) then out[#out + 1] = { kind = "match", r = r, w = e[1], h = e[2], q = e[3], step = i,
+      spare = true } end
+  end
+  return out
 end
 
 -- the calibration's next phase going up, or nil: the end of the scale,
@@ -238,13 +253,14 @@ local function climb_next(now)
     C.why = string.format("time (%.0f s)", now - Bench.began)
     return nil
   end
+  if C.spare and #C.spare > 0 then return table.remove(C.spare, 1) end
   while C.step <= #C.ladder do
     local e = C.ladder[C.step]
     while C.ri < #C.rs do
       C.ri = C.ri + 1
       local r = C.rs[C.ri]
       if not C.out[r] and (r ~= "arm" or Quality.arm_ok(e[1], e[2]))
-         and (r == "arm" or Quality.gpu_ok(e[1], e[2])) then
+         and (r == "arm" or (Quality.gpu_ok(e[1], e[2]) and not Quality.gpu_spare(e[1], e[2]))) then
         return { kind = "match", r = r, w = e[1], h = e[2], q = e[3], step = C.step }
       end
     end
@@ -341,7 +357,7 @@ function Bench.next()
   Bench.ver[ph.r] = select(4, gpu3d())        -- the bm3d version (nil on a runtime before it)
   Quality.set(ph.q)
   Bench.t, Bench.frames = 0, {}
-  Bench.sum = { upd = 0, d3 = 0, tri = 0, vtx = 0, px = 0, fps = 0, n = 0, trimax = 0, ins = 0, kb = 0 }
+  Bench.sum = { upd = 0, d3 = 0, gpu = 0, tri = 0, vtx = 0, px = 0, fps = 0, n = 0, trimax = 0, ins = 0, kb = 0 }
   if ph.kind == "match" then
     -- the same match every time
     math.randomseed(SEED)
@@ -395,12 +411,12 @@ function Bench.ring_grow()
   for _, a in ipairs(G.actors) do
     if a.bench_k then
       local ang = (a.bench_k - 1) / n * 2 * pi
-      a.x, a.z = sin(ang) * 9, cos(ang) * 9 + 4
+      a.x, a.z = sin(ang) * 9, cos(ang) * 9 + 4 + (Bench.opt.far or 0)
       a.home.x, a.home.z = a.x, a.z
     end
   end
   Bench.t, Bench.frames = 0, {}
-  Bench.sum = { upd = 0, d3 = 0, tri = 0, vtx = 0, px = 0, fps = 0, n = 0, trimax = 0, ins = 0, kb = 0 }
+  Bench.sum = { upd = 0, d3 = 0, gpu = 0, tri = 0, vtx = 0, px = 0, fps = 0, n = 0, trimax = 0, ins = 0, kb = 0 }
 end
 
 function Bench.ring_end()
@@ -427,6 +443,7 @@ local function sample()
   S.n = S.n + 1
   S.upd = S.upd + (G.update_ms or 0)
   S.d3 = S.d3 + stat(6)
+  S.gpu = S.gpu + (stat(16) or 0)                  -- the GPU's job time of the frame (0 on the ARM; a runtime before it: nil)
   local tri = stat(4)
   S.tri, S.vtx, S.px, S.fps = S.tri + tri, S.vtx + stat(7), S.px + stat(5), S.fps + fps
   if tri > S.trimax then S.trimax = tri end
@@ -440,8 +457,8 @@ local function summary()
   local n = #f
   local S = Bench.sum
   if n == 0 then
-    return { ms = 0, p99 = 0, worst = 0, over = 0, over30 = 0, upd = 0, d3 = 0, tri = 0, vtx = 0, px = 0, fps = 0,
-             ins = 0, kb = 0 }
+    return { ms = 0, p99 = 0, worst = 0, over = 0, over30 = 0, upd = 0, d3 = 0, gpu = 0, tri = 0, vtx = 0, px = 0,
+             fps = 0, ins = 0, kb = 0 }
   end
   local sum, over, over30 = 0, 0, 0
   local sorted = {}
@@ -454,7 +471,7 @@ local function summary()
   table.sort(sorted)
   local nn = max(1, S.n)
   return { ms = sum / n, p99 = sorted[max(1, math.ceil(n * 0.99))], worst = sorted[n], over = over * 100 / n,
-           over30 = over30 * 100 / n, upd = S.upd / nn, d3 = S.d3 / nn, tri = S.tri / nn, trimax = S.trimax,
+           over30 = over30 * 100 / n, upd = S.upd / nn, d3 = S.d3 / nn, gpu = S.gpu / nn, tri = S.tri / nn, trimax = S.trimax,
            vtx = S.vtx / nn, px = S.px / nn, fps = S.fps / nn, ins = S.ins / nn, kb = S.kb }
 end
 
@@ -476,10 +493,22 @@ local function match_done()
   blog(string.format("overbit bench %s %dx%d %s match %d", RNAME[ph.r], s.w, s.h, Quality.names[ph.q + 1], match_hash()))
   Bench.rows[#Bench.rows + 1] = s
   blog(string.format("overbit bench %s %dx%d %s: %.0f fps, %.1f ms (1%% %.1f, worst %.1f, %.0f%% over 16.7), update %.1f, "
-    .. "3D %.1f, %.0f tri (max %d), %.0f vtx, %.0f px, %.0fk instr, %d KiB Lua, bm3d %s", RNAME[ph.r], s.w, s.h,
-    Quality.names[ph.q + 1], s.fps, s.ms, s.p99, s.worst, s.over, s.upd, s.d3, s.tri, s.trimax, s.vtx, s.px,
+    .. "3D %.1f, gpu %.1f, %.0f tri (max %d), %.0f vtx, %.0f px, %.0fk instr, %d KiB Lua, bm3d %s", RNAME[ph.r], s.w,
+    s.h, Quality.names[ph.q + 1], s.fps, s.ms, s.p99, s.worst, s.over, s.upd, s.d3, s.gpu, s.tri, s.trimax, s.vtx, s.px,
     s.ins / 1000, s.kb, Bench.ver[ph.r] or "?"))
-  if Bench.climb and not s.ok30 then
+  local C = Bench.climb
+  if C and ph.r ~= "arm" and not ph.spare and not C.spare then
+    -- the GPU's first step: missing 60 fps, its spare screen next (lightest first)
+    C.spare = s.ok and {} or spare_steps(C, ph.r)
+    if #C.spare > 0 then
+      blog(string.format("overbit bench spare %s: %dx%d %s under 60 fps, %dx%d next", RNAME[ph.r], s.w, s.h,
+        Quality.names[ph.q + 1], C.spare[1].w, C.spare[1].h))
+    end
+  end
+  if C and ph.spare then
+    -- the spare screen is looked at for 60 fps only: up to its first step under
+    if not s.ok then C.spare = {} end
+  elseif Bench.climb and not s.ok30 then
     -- this renderer climbs no more
     Bench.climb.out[ph.r] = true
     blog(string.format("overbit bench stop %s at %dx%d %s: under 30 fps (%.1f ms)", RNAME[ph.r], s.w, s.h,

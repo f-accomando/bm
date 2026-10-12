@@ -5,6 +5,9 @@ description: Mappa di quale file aprire in bm per ogni area (API, progressi, roa
 
 # bm: dove leggere e come aggiornare (poco, a sezioni)
 
+Un solo indice: `docs/progress.md` (aree, navigazione, doc di riferimento). Si parte da lì.
+Per tenere i doc snelli dopo un cambio: skill `docs-loop`.
+
 Regola: mai un file grosso per intero. `Grep -n` sul simbolo o su `^##`, poi `Read` con
 `offset`/`limit` sul tratto. Un file già letto in sessione non si rilegge.
 
@@ -45,6 +48,9 @@ Per aggiornare dopo un cambio:
 Delega con `tracker` se le righe sono già decise.
 
 ## File grossi di codice (mai interi)
+
+`runtime.c` ha la sua mappa per sezioni in `docs/progress/runtime.md`; i comandi per ogni file
+grosso sono in `docs/progress/reading.md`.
 
 **Indice sempre fresco**: `python3 scripts/cindex.py <file> [parola]` stampa i banner di sezione e le
 funzioni con la riga (C e Lua); con la parola, solo le righe che la contengono. Poi `Read` con

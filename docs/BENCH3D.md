@@ -159,10 +159,27 @@ the binner's tile-list pool (4096 KiB) and of its overflow area (2048 KiB) one j
 from `BPCA` after the job; `ovf_jobs` the jobs whose binner went into the overflow. The
 GPU test (`g`) and the session report print the binner's figures too.
 
+**The cost of a pixel.** The fill tests (`quad_*`, `bilinear`) and `gpu2d` count the pixels a
+frame asks to fill (`fill_px`: 320x180 a quad; for `gpu2d` the area of its sprites and text) and
+fit a line through the steps (`b3d_slope`): its slope is the cost of one more pixel in **ns a
+pixel** (= ms a Mpixel), so the frame's fixed part (binning, clear, tile stores, the
+spheres under the 2D) drops out. Three more `R` columns: `fill_px` (at the 60 fps step),
+`ns_px_gpu` (from the GPU job time; -1 on the ARM and with the queue, whose job time is not
+trustworthy), `ns_px_frame` (from the frame's ms: what the ARM pays for its 2D or fill), and
+`gpu0_ms` (the GPU's line at 0 pixels). After the `R` lines, one `P` line per such row
+(`columns P,...`) repeats the costs and gives the ms to fill 640x360, 1280x720 and 1920x1080 at
+them (fill only: the bench draws at 640x360, so the larger screens' tile stores are not in it).
+Compare `quad_flat` vs `quad_tex` vs `bilinear` (nearest vs filtered texels) and, in `gpu2d`,
+`GPU+2D` (`ns_px_gpu`) vs `GPU` (the ARM's 2D: `ns_px_frame`). On the PC the job time is 0 and
+the ms are noise: only the shape is checked.
+
 A job's GPU time (`gpu_ms`, the session report's *ms a frame* and *longest job seen to its
 end*) runs from its start to the end the ARM saw polling; a queued job that had ended before
 the ARM looked is not timed and counts at the timed ones' mean (`gpu3d_busy_us`; none timed:
 its start to the wait, an upper bound). The session report after a resume covers that run only.
+A game reads the same time for its last frame with `stat(16)` (ms; 0 on the ARM); the Overbit
+bench logs its mean per step as `gpu` next to `update` and `3D`: close to the frame's ms, the
+GPU sets the pace; well under it, the ARM does.
 
 So runs can be compared, every report says the 3D options in force on one `options` line
 (`gpu3d_options_line`): `bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1
