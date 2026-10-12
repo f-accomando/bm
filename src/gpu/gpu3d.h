@@ -111,7 +111,11 @@ int gpu3d_bilinear(void);
 
 /* M39: opaque sheets as RGB565 textures in T-format (gpu3d_tex16=1), where
  * the probe learned the layout: half the memory, half the TMU's reads, the
- * same colours. gpu3d_tex16(): asked for and possible. */
+ * same colours. bm3d 7.2: sheets with transparent texels (cut-outs) as
+ * RGBA5551 in the same layout, where the probe saw the TMU read it back
+ * (green loses its last bit: a step of RGB565 at most; the transparent
+ * texels the same). gpu3d_tex16(): 0 off or not possible, 1 opaque sheets,
+ * 2 also the cut-outs. */
 void gpu3d_set_tex16(int on);
 int gpu3d_tex16(void);
 
@@ -194,6 +198,7 @@ typedef struct {
      * looked are not timed: untimed of them, late_us their start to the
      * wait (an upper bound, it may hold a pause) */
     uint32_t untimed, late_us;
+    uint32_t cut16;                 /* sheets with transparent texels made as RGBA5551 textures (bm3d 7.2) */
 } gpu3d_stats_t;
 
 /* the GPU's work in s, microseconds: the jobs timed, and the untimed ones
@@ -209,9 +214,9 @@ static inline uint32_t gpu3d_busy_us(const gpu3d_stats_t *s)
 }
 
 /* The driver's options in force, one line for the reports (so runs can be
- * compared): "bm3d 7.1 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0
+ * compared): "bm3d 7.2 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0
  * fs2=1 sort=0 attr=0" (what is asked and possible: vs the vertex shader's
- * level, queue 0, 1 or 2 jobs), or "bm3d 7.1 gpu3d=off" when the V3D is not
+ * level, queue 0, 1 or 2 jobs, tex16 as gpu3d_tex16()), or "bm3d 7.2 gpu3d=off" when the V3D is not
  * running (the ARM, QEMU, the PC's stubs, the RGB30). The runtime adds its
  * own (later, 2d, impostor, fast). The length written. */
 int gpu3d_options_line(char *buf, size_t n);

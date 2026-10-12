@@ -140,7 +140,7 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   TMU reads, the same colours. The layout (4 KiB tiles of 64×32 texels) is learnt by
   the boot probe as for 32-bit textures: a 128×64 texture where word *i*
   is *i* and comes back on the page as itself (or with red and blue swapped). Sheets with
-  transparent pixels stay at 32 bits. 3D Bench profile GPU+T16.
+  transparent pixels stay at 32 bits (RGBA5551 from 7.2). 3D Bench profile GPU+T16.
 - **5.3** (2026-10-05, M39): **two-thread pixel shaders** (`gpu3d_fs2=1`, *3D pixel
   shaders: Two threads*): faces with opaque textures (`fs_tex_lit`, `fs_tex_rgb`) have a
   `_t` version that requests the texel, hands the QPU to the other thread (`lthrsw`) and reads it on
@@ -302,6 +302,17 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   both ways and keeps the option only if no pixel moves more than a step of RGB565 (status:
   `compact attributes yes`); the emulator draws the same pixels and reads 28% fewer attribute
   words in the `test-gpu3d` scenes. Off until the Pi measures it.
+- **7.2** (2026-10-12, M39): **cut-out sheets in 16 bits**: with `gpu3d_tex16=1` a sheet
+  with transparent texels (trees, fences, sprites) goes to the GPU as RGBA5551 (TMU type 3)
+  in the same 64×32 T-tiles as RGB565, instead of RGBA8888: half the memory and half the TMU
+  reads. bm sheets have 1-bit alpha, so only green's last bit is lost (a step of RGB565 at
+  most); the transparent texels are the same and the alpha shaders discard them as before.
+  The boot probe (`probe_cut16`) draws a 64×32 texture with holes through the alpha shader
+  for each order of the fields (red and blue as RGB565 or swapped; alpha in the low bits, as
+  Mesa's vc4, or the top ones) and keeps the first that gives back every pixel and every
+  hole; none: the sheets stay 32-bit. RGBA4444 (type 2) is probed the same way and unused (no
+  sheet has alpha between). Status: `alpha textures RGBA5551 RGBA4444`; options line
+  `tex16=2`. 3D Bench: GPU+T16 now also runs `quad_alpha` and `quad_texscreen`.
 
 ## The modes: old versions on today's code
 
@@ -316,7 +327,7 @@ The settings reproduce the earlier versions, so they can be compared on the same
 - with uncached job memory (`gpu3d_wc=1`): **4.5**;
 - with the 2D over the 3D in the job (`gpu3d_2d=1`): **4.8**;
 - with two jobs in flight (`gpu3d_queue=2`): **5.1**;
-- with 16-bit textures (`gpu3d_tex16=1`): **5.2**;
+- with 16-bit textures (`gpu3d_tex16=1`): **5.2** (opaque sheets), **7.2** (also the cut-outs);
 - with two-thread pixel shaders (`gpu3d_fs2=1`): **5.3**;
 - with meshes from the nearest and triangles in cache order (`gpu3d_sort=1`, with the
   vertex shader): **5.4** and **5.6**;

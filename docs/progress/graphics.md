@@ -39,7 +39,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   such a mesh goes triangle by triangle.
 
 ### V3D driver (`src/gpu/gpu3d.c`, `v3d.c`, `v3d_cl.c`, `shaders.h`)
-- Version in `src/gpu/version3d.h` (`BM3D_VERSION` "6.9"); the table there lists
+- Version in `src/gpu/version3d.h` (`BM3D_VERSION` "7.2"); the table there lists
   every step and which settings reproduce older ones.
 - Default where a V3D answers; software when `gpu3d=0`, in QEMU, or when the boot probe
   fails. What is not documented is learnt by the probe at boot and switched off by itself
@@ -54,6 +54,9 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   `gpu3d([on, aa, vs, queue])`): `gpu3d`, `gpu3d_aa`, `gpu3d_vs` (0/1/2), `gpu3d_queue`
   (1, 2 = two jobs in flight), `gpu3d_wc`, `gpu3d_2d`, `gpu3d_filter`, `gpu3d_tex16`,
   `gpu3d_fs2`, `gpu3d_sort`, `gpu3d_attr`.
+- Textures: RGBA8888 in T-tiles; with `gpu3d_tex16` opaque sheets as RGB565 and cut-out
+  sheets (1-bit alpha) as RGBA5551 (bm3d 7.2), each type kept only if its boot probe passed
+  (`docs/progress/v3d.md`).
 - Mesh cache: one slot per (mesh, sheet, unlit, smooth), made again when `gpu3d_attr` changes
   (`mesh_get`); indexed groups are
   padded to 16 bytes in their allocation.

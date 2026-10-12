@@ -896,21 +896,25 @@ int main(int argc, char **argv)
     emu_hang_zclear = getenv("EMU_HANG_ZCLEAR") != NULL;     /* the probe's job does not end */
     emu_vpm_words = getenv("EMU_VPM_WORDS") != NULL;         /* GL records in words: the probe tries bytes first */
     emu_no_threads = getenv("EMU_NO_THREADS") != NULL;       /* the two-thread shaders' probe: its job does not end */
+    emu_t16_alpha = getenv("EMU_T16_ALPHA") ? atoi(getenv("EMU_T16_ALPHA")) : 0;   /* alpha's bits in 5551/4444 */
     ppm_dir = argc > 7 ? argv[7] : NULL;
     printf("gpu3d on the emulator: byte a = %s, texels %s, T-format %d, MSAA load %s\n",
            emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat,
            emu_ms_load_one ? "one sample" : "all samples");
     CHECK(gpu3d_init() == 0, "init: %s (%s)", gpu3d_status(), emu_error);
-    char want[320];
+    char want[400];
     static const char *const clips[3] = { "yes", "no", "yes (Z planes)" };
+    const int cut_ok = emu_tformat != 2 && emu_t16_alpha != 2;
     snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, 16-bit textures %s, "
              "two-thread shaders %s, vertex shader %s, "
              "indexed yes, clipping %s, "
-             "lit models yes, queue yes, zclear in job %s, compact attributes yes", emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
+             "lit models yes, queue yes, zclear in job %s, compact attributes yes, alpha textures %s)",
+             emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
              emu_tformat == 2 ? "rows" : "tiles", emu_ms_load_one ? "on cleared pages" : "on any page",
              emu_tformat == 2 ? "no" : "yes", emu_no_threads ? "no" : "yes",
              emu_vpm_words ? (emu_cw_flip ? "yes (VPM in words)" : "yes (cw, VPM in words)")
-                           : emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip], emu_hang_zclear ? "no" : "yes");
+                           : emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip], emu_hang_zclear ? "no" : "yes",
+             cut_ok ? "RGBA5551 RGBA4444" : "no");
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
     if (!gpu3d_ready()) {
         printf("gpu3d: %d/%d checks passed\n", checks - failures, checks);
@@ -983,7 +987,8 @@ int main(int argc, char **argv)
             r3d_zclear(&r);
             gpu3d_set_tex16(k);
             s_sheets10(&r, &g, 1);
-            CHECK(!k || gpu3d_tex16() == (emu_tformat != 2), "16-bit textures: not on");
+            CHECK(!k || gpu3d_tex16() == (emu_tformat == 2 ? 0 : cut_ok ? 2 : 1), "16-bit textures: on %d",
+                  gpu3d_tex16());
             gpu3d_set_tex16(0);
             r3d_free(&r);
         }
@@ -992,6 +997,43 @@ int main(int argc, char **argv)
             differ += q[0][i] != q[1][i];
         printf("  RGB565 textures: %d pixels differ from 32-bit ones\n", differ);
         CHECK(differ == 0, "16-bit textures: %d pixels differ", differ);
+        /* bm3d 7.2: the cut-out sheets (transparent squares) as RGBA5551:
+         * the same transparent pixels, red and blue the same, green a step
+         * of RGB565 at most (its last bit is not in RGBA5551) */
+        uint32_t cut = 0;
+        for (int k = 0; k < 2; k++) {
+            g16_t g;
+            r3d_t r;
+            g16_target(&g, q[k], 640, 640, 360, &font);
+            g16_cls(&g, g16_rgb(30, 20, 50));
+            r3d_init(&r, &g);
+            r.backend = gpu3d_backend();
+            gpu3d_drop();
+            r3d_zclear(&r);
+            gpu3d_set_tex16(k);
+            gpu3d_stats_t st;
+            gpu3d_take_stats(&st);
+            s_sheets(&r, &g, 1);
+            gpu3d_take_stats(&st);
+            if (k)
+                cut = st.cut16;
+            gpu3d_set_tex16(0);
+            r3d_free(&r);
+        }
+        const uint16_t bg = g16_rgb(30, 20, 50);
+        int holes = 0, moved = 0, green = 0, drawn = 0;
+        for (int i = 0; i < 640 * 360; i++) {
+            const uint16_t a = q[0][i], b = q[1][i];
+            holes += (a == bg) != (b == bg);
+            drawn += a != bg;
+            const int dg = (int)(a >> 5 & 63) - (int)(b >> 5 & 63);
+            moved += (a & 0xF81F) != (b & 0xF81F) || dg > 1 || dg < -1;
+            green += dg != 0;
+        }
+        printf("  RGBA5551 cut-outs: %u sheets, %d pixels drawn, %d with a step of green, %d differ in "
+               "transparency, %d more\n", cut, drawn, green, holes, moved);
+        CHECK(holes == 0 && moved == 0 && drawn > 10000 && (cut_ok ? cut >= 3 : cut == 0),
+              "RGBA5551 cut-outs: %d pixels differ in transparency, %d more, %u sheets", holes, moved, cut);
     }
     /* M39: the opaque meshes nearest first: the same picture, fewer
      * pixels shaded (the early z throws away those of the boxes behind) */

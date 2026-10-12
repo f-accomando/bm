@@ -27,6 +27,7 @@
 
 int emu_red_a = 1, emu_tex_swap = 0;
 int emu_tformat = 0;                    /* the order of the 1 KiB subtiles of a T-format tile */
+int emu_t16_alpha = 0;                  /* M39: alpha's bits in RGBA5551 / RGBA4444 (v3d_emu.h) */
 int emu_ms_load_one = 0;                /* MSAA: a colour load fills sample 0 only (else all 4) */
 int emu_skip = 0;                       /* jobs only counted, not run (ARM instruction counts) */
 int emu_no_threads = 0;                 /* M39: jobs with two-thread fragment shaders do not end */
@@ -1044,8 +1045,10 @@ static uint32_t t16_index(int x, int y, int w);
 
 /* a texel of the texture at (x, y) as bytes a b c d: RGBA32R in rows,
  * RGBA8888 in T-format, or (M39) RGB565 in T-format, its top five bits in
- * byte c and its low five in byte a, alpha full; bytes a and c swapped with
- * emu_tex_swap */
+ * byte c and its low five in byte a, alpha full; RGBA5551 (type 3) and
+ * RGBA4444 (type 2) in the same layout, their colour fields from the top
+ * as RGB565's and alpha in the low bits (or the top ones: emu_t16_alpha),
+ * each widened to 8 bits; bytes a and c swapped with emu_tex_swap */
 static uint32_t texel_at(const uint32_t *tex, int type, int x, int y, int w)
 {
     uint32_t t;
@@ -1053,6 +1056,16 @@ static uint32_t texel_at(const uint32_t *tex, int type, int x, int y, int w)
         const uint16_t v = ((const uint16_t *)tex)[t16_index(x, y, w)];
         const uint32_t hi = v >> 11, g = v >> 5 & 63, lo = v & 31;
         t = 0xFF000000u | (hi << 3 | hi >> 2) << 16 | (g << 2 | g >> 4) << 8 | (lo << 3 | lo >> 2);
+    } else if (type == 2 || type == 3) {
+        if (emu_t16_alpha == 2)
+            return 0;
+        const uint32_t v = ((const uint16_t *)tex)[t16_index(x, y, w)];
+        const int n = type == 2 ? 4 : 5, m = 16 - 3 * n;
+        const uint32_t a = emu_t16_alpha ? v >> 3 * n : v & ((1u << m) - 1), rgb = emu_t16_alpha ? v : v >> m;
+        const uint32_t mask = (1u << n) - 1, hi = rgb >> 2 * n & mask, g = rgb >> n & mask, lo = rgb & mask;
+#define WIDEN(c) (n == 4 ? (c) << 4 | (c) : (c) << 3 | (c) >> 2)
+        t = (m == 1 ? (a ? 255u : 0u) : a << 4 | a) << 24 | WIDEN(hi) << 16 | WIDEN(g) << 8 | WIDEN(lo);
+#undef WIDEN
     } else {
         t = type == 16 ? tex[y * w + x] : tex[t_index(x, y, w)];
     }

@@ -109,7 +109,8 @@ typedef struct {
     int cw, ch;                     /* the sheet's cells */
     uint32_t *holes;                /* (cw+1) x (ch+1): cells not opaque above and left of each corner */
     uint32_t used;                  /* when a job last took it (G.tick), for the least recent */
-    int bits16;                     /* M39: RGB565 texels (an opaque sheet, gpu3d_tex16) */
+    int bits16;                     /* M39: 16-bit texels (gpu3d_tex16): 1 RGB565 (an opaque sheet), 2
+                                     * RGBA5551 (a sheet with transparent texels, bm3d 7.2) */
 } tex_t;
 
 /* M35: up to 8 sheets in a job (bm3d 4.6; 2 before: a third ended the
@@ -187,6 +188,11 @@ static struct {
                                      * reversed, red and blue swapped in the texel */
     uint16_t t16_inner[2][2048];    /* texel of each place in its tile (as t_inner) */
     int tex16_on;                   /* RGB565 textures asked for (gpu3d_set_tex16) */
+    /* M39 (bm3d 7.2): the 16-bit types with alpha, [0] RGBA5551 (type 3),
+     * [1] RGBA4444 (type 2), in the RGB565 layout: learned by the probe (ok)
+     * and how their fields go in the word (CUT_SWAP: red and blue swapped
+     * against RGB565, CUT_AHI: alpha in the top bits, else in the low ones) */
+    int cut_ok[2], cut_mode[2];
     int fs2_ok, fs2_on;             /* M39: the probe saw the two-thread shaders draw as the others;
                                      * asked for (gpu3d_set_fs2) */
     int sort_on;                    /* M39: the opaque meshes front to back (gpu3d_set_sort) */
@@ -348,6 +354,31 @@ static uint16_t texel16_of(uint16_t c)
     return G.t16_swap ? (uint16_t)((c & 31) << 11 | (c & 0x07E0) | c >> 11) : c;
 }
 
+/* M39 (bm3d 7.2): the 16-bit types with alpha. cut_mode: how the probe
+ * found the fields in the word */
+enum { CUT_SWAP = 1, CUT_AHI = 2 };
+
+/* a channel of n bits widened to 8 as the TMU does (its top bits again
+ * below it) */
+static uint32_t widen(uint32_t v, int n)
+{
+    return n == 1 ? (v ? 255u : 0u) : n == 4 ? v << 4 | v : v << 3 | v >> 2;
+}
+
+/* a texel of type f (0 RGBA5551, 1 RGBA4444): p, g, s the RGB565 page's
+ * fields (top five bits, six green, low five), alpha 0..255; each cut to
+ * the type's bits, placed as the probe learned */
+static uint16_t cut16_of(int f, uint32_t p, uint32_t g, uint32_t s, uint32_t a)
+{
+    const int n = f ? 4 : 5, m = f ? 4 : 1, mode = G.cut_mode[f];
+    p >>= 5 - n;
+    g >>= 6 - n;
+    s >>= 5 - n;
+    a >>= 8 - m;
+    const uint32_t rgb = (mode & CUT_SWAP ? s : p) << 2 * n | g << n | (mode & CUT_SWAP ? p : s);
+    return (uint16_t)(mode & CUT_AHI ? a << 3 * n | rgb : rgb << m | a);
+}
+
 /* the texture of a sheet, made again when the sheet changed: T-format
  * (RGBA8888 in tiles) when the probe learned it and the sides are
  * multiples of 32, else RGBA32R (rows); NULL if it cannot be one (larger
@@ -401,13 +432,24 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
     int opaque_all = 1;
     for (int i = 0; i < cw * ch && opaque_all; i++)
         opaque_all = s->cell_opaque[i] != 0;
-    const int bits16 = G.tex16_on && G.tf16 && !G.tformat_off && opaque_all && s->w % 64 == 0 && s->h % 32 == 0;
+    /* bm3d 7.2: a sheet with transparent texels as RGBA5551 (its alpha is
+     * 0 or 1: nothing lost but green's last bit) where the probe learned it */
+    const int t16_ok = G.tex16_on && G.tf16 && !G.tformat_off && s->w % 64 == 0 && s->h % 32 == 0;
+    const int bits16 = !t16_ok ? 0 : opaque_all ? 1 : G.cut_ok[0] ? 2 : 0;
     t->bits16 = bits16;
-    if (bits16) {
+    if (bits16 == 1) {
         uint16_t *t16 = (uint16_t *)t->texels;
         for (int y = 0; y < s->h; y++)
             for (int x = 0; x < s->w; x++)
                 t16[t16_word(x, y, s->w)] = texel16_of(s->px[(uint32_t)y * (uint32_t)s->w + (uint32_t)x]);
+    } else if (bits16 == 2) {
+        uint16_t *t16 = (uint16_t *)t->texels;
+        for (int y = 0; y < s->h; y++)
+            for (int x = 0; x < s->w; x++) {
+                const uint32_t i = (uint32_t)y * (uint32_t)s->w + (uint32_t)x, c = s->px[i];
+                t16[t16_word(x, y, s->w)] = cut16_of(0, c >> 11, c >> 5 & 63, c & 31, s->alpha[i] ? 255u : 0u);
+            }
+        G.st.cut16++;
     } else if (tiled) {
         for (int y = 0; y < s->h; y++)
             for (int x = 0; x < s->w; x++) {
@@ -438,7 +480,8 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
             row[x + 1] = above[x + 1] + run;
         }
     }
-    t->params[0] = (v3d_bus(t->texels) & ~0xFFFu) | (bits16 ? 4u << 4 : 0);     /* type 4: RGB565 */
+    t->params[0] = (v3d_bus(t->texels) & ~0xFFFu) | (bits16 == 1 ? 4u << 4 : bits16 == 2 ? 3u << 4 : 0);
+    /* type 4: RGB565, 3: RGBA5551 */
     t->params[1] = (tiled || bits16 ? 0 : 1u << 31) | (uint32_t)(s->h & 2047) << 20 | (uint32_t)(s->w & 2047) << 8 |
                    (G.bilinear ? 0 : 1u << 7 | 1u << 4) | 1u << 2 | 1u;     /* M37: linear (0) or nearest */
     t->params[2] = t->params[0];        /* the same, always the nearest texel: 2D (M37) */
@@ -2452,7 +2495,7 @@ void gpu3d_set_tex16(int on)
 
 int gpu3d_tex16(void)
 {
-    return G.tf16 && G.tex16_on;
+    return G.tf16 && G.tex16_on ? (G.cut_ok[0] ? 2 : 1) : 0;
 }
 
 /* M39: the opaque textured faces' shaders with two threads (gpu3d_fs2=1) */
@@ -2835,6 +2878,68 @@ static int tformat16_learn(const g16_t *pg)
                 }
         return 1;
     }
+    return 0;
+}
+
+/* M39 (bm3d 7.2): the 16-bit types with alpha (f 0: RGBA5551, type 3; f 1:
+ * RGBA4444, type 2) in the RGB565 layout learned above. A 64 x 32 texture
+ * whose texels differ (a few transparent: alpha 0; for RGBA4444 the others
+ * at alphas between, which must draw) is drawn with the alpha shader on the
+ * cleared probe buffer, for each way the fields may sit in the word (red
+ * and blue as in RGB565 or swapped, alpha in the low or the top bits). 1
+ * with the first way where every pixel is its texel's colour (the TMU's
+ * widening to 8 bits, back to RGB565) and the transparent ones stay clear,
+ * learned into cut_mode[f]; 0 if no way gives it (the type stays unused) */
+static int probe_cut16(const g16_t *pg, int f)
+{
+    enum { TW = 64, TH = 32 };
+    static tex_t pt;
+    static uint16_t want[TW * TH];
+    uint16_t *t16 = (uint16_t *)G.probe_tex;
+    const int n = f ? 4 : 5;
+    pt.texels = G.probe_tex;
+    pt.w = TW;
+    pt.h = TH;
+    pt.params = G.probe_tex + TW * TH / 2;
+    pt.inv_w = 1.0f / TW;
+    pt.inv_h = 1.0f / TH;
+    pt.params[0] = (v3d_bus(pt.texels) & ~0xFFFu) | (f ? 2u : 3u) << 4;
+    pt.params[1] = (uint32_t)TH << 20 | (uint32_t)TW << 8 | 1u << 7 | 1u << 4 | 1u << 2 | 1u;
+    static const float q[4][2] = { { 0, 0 }, { TW, 0 }, { TW, TH }, { 0, TH } };
+    r3d_corner_t v[4];
+    for (int i = 0; i < 4; i++)
+        v[i] = (r3d_corner_t){ q[i][0], q[i][1], 1.0f, q[i][0], q[i][1], 1.0f, { 0, 0, 0 }, { 0, 0, 0 } };
+    const r3d_corner_t a[3] = { v[0], v[1], v[2] }, b[3] = { v[0], v[2], v[3] };
+    for (int k = 0; k < 4; k++) {
+        G.cut_mode[f] = k ^ (G.t16_swap ? CUT_SWAP : 0);    /* RGB565's order first */
+        for (int y = 0; y < TH; y++)
+            for (int x = 0; x < TW; x++) {
+                const uint32_t p = (uint32_t)(x + 3 * y) & 31, g = (uint32_t)(2 * x + 5 * y + 7) & 63,
+                               s = (uint32_t)(x ^ (y * 3)) & 31;
+                const int clear = (x + 2 * y) % 5 == 0;
+                const uint32_t al = clear ? 0 : f ? 17u * (uint32_t)((x + y) % 15 + 1) : 255;
+                t16[t16_word(x, y, TW)] = cut16_of(f, p, g, s, al);
+                want[y * TW + x] = clear ? 0 : (uint16_t)(widen(p >> (5 - n), n) >> 3 << 11 |
+                                                          widen(g >> (6 - n), n) >> 2 << 5 |
+                                                          widen(s >> (5 - n), n) >> 3);
+            }
+        memset(G.probe, 0, JOB_PROBE);
+        add_tri(pg, a, R3D_KIND_TEXTURE, &pt, 0, SH_TEX_ALPHA, 0);
+        add_tri(pg, b, R3D_KIND_TEXTURE, &pt, 0, SH_TEX_ALPHA, 0);
+        if (gpu3d_flush(pg, 0) != 0 || G.failed)
+            return 0;
+        int differ = 0;
+        for (int y = 0; y < TH; y++)
+            for (int x = 0; x < TW; x++)
+                differ += G.probe[y * PROBE_W + x] != want[y * TW + x];
+        if (!differ)
+            return 1;
+    }
+    char line[100];
+    ksnprintf(line, sizeof line, "%s textures: no order of the fields drew the texels (the type stays unused)",
+              f ? "RGBA4444" : "RGBA5551");
+    plog(line);
+    G.cut_mode[f] = 0;
     return 0;
 }
 
@@ -3494,6 +3599,8 @@ static int probe(void)
     G.tf16 = G.tformat ? tformat16_learn(&pg) : 0;
     if (G.tformat && !G.tf16)
         plog("RGB565 textures in T-format: not learned (the textures stay 32-bit)");
+    for (int f = 0; f < 2; f++)         /* bm3d 7.2: RGBA5551, RGBA4444 */
+        G.cut_ok[f] = G.tf16 && !G.failed ? soft(probe_cut16(&pg, f), "the 16-bit alpha textures' probe") : 0;
     G.ms_ok = probe_ms();
     G.idx_ok = 0;                       /* the vertex shader's probe draws corners in a row */
     G.gl_ok = soft(probe_gl(&pg), "the vertex shader's probe");
@@ -3556,13 +3663,15 @@ int gpu3d_init(void)
     static const char *const clips[3] = { "no", "yes", "yes (Z planes)" };
     ksnprintf(G.why, sizeof G.why, "bm3d " BM3D_VERSION " ready (byte a = %s, texels %s, textures %s, MSAA %s, "
               "16-bit textures %s, two-thread shaders %s, vertex shader %s%s, indexed %s, "
-              "clipping %s, lit models %s, queue %s, zclear in job %s, compact attributes %s)", G.red_a ? "red" : "blue",
+              "clipping %s, lit models %s, queue %s, zclear in job %s, compact attributes %s, alpha textures %s)",
+              G.red_a ? "red" : "blue",
               G.tex_swap ? "swapped" : "in place", G.tformat ? "in tiles" : "in rows", ms[G.ms_ok],
               G.tf16 ? "yes" : "no", G.fs2_ok ? "yes" : "no",
               G.gl_ok ? (G.vpm_bytes ? (G.gl_cw ? "yes (cw)" : "yes") : (G.gl_cw ? "yes (cw, VPM in words)"
                                                                                  : "yes (VPM in words)")) : "no",
               G.gl_ok && G.gl_clip_all ? " (clipper always on)" : "", G.idx_ok ? "yes" : "no", clips[G.clip_ok], G.lit_ok ? "yes" : "no",
-              G.queue_ok ? "yes" : "no", G.zclear_ok ? "yes" : "no", G.attr_ok ? "yes" : "no");
+              G.queue_ok ? "yes" : "no", G.zclear_ok ? "yes" : "no", G.attr_ok ? "yes" : "no",
+              G.cut_ok[0] ? (G.cut_ok[1] ? "RGBA5551 RGBA4444" : "RGBA5551") : G.cut_ok[1] ? "RGBA4444" : "no");
     G.status = G.why;
     G.ready = 1;
     return 0;

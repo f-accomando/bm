@@ -10,6 +10,10 @@ extern int emu_need_clip;               /* GL without the clipper's flag draws n
 extern int emu_vpm_words;               /* GL records: VPM offsets and sizes in words (else bytes) */
 extern int emu_uncached;                /* v3d_uncached() asked for the jobs' memory uncached */
 extern int emu_no_threads;              /* jobs with two-thread fragment shaders do not end */
+/* M39 (bm3d 7.2): where the TMU finds alpha in RGBA5551 / RGBA4444 texels:
+ * 0 the low bits (as the VideoCore IV and Mesa's vc4), 1 the top bits, 2
+ * neither (the types read as 0: the probe must turn them off) */
+extern int emu_t16_alpha;
 extern int emu_hang_zclear;             /* a job with fs_zclear does not end (a GPU without it) */
 typedef struct { uint32_t jobs, prims, pixels, batches, zstores, loads, msframes, glverts, async, glindexed, threaded, vmiss,
                   ms_early, attr_words; } emu_stats_t;   /* ms_early: primitives with early z in MSAA tiles;

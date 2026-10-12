@@ -25,7 +25,23 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   `vs_lit8`). ARM side `put_mesh_corner` / `pack_abc`; shader side the regfile A unpack
   (`UNPACK_A` in `tools/qpuasm.py`, emulated in `tests/gpu/v3d_emu.c`); `probe_attr` keeps it
   only if the pixels match the floats (a step of RGB565 allowed). `make test-gpu3d`: same
-  pixels, 28% fewer attribute words.
+  pixels, 28% fewer attribute words. Pi (probe `compact attributes yes`, 3D Bench GPU+VS+A8
+  against GPU+VS+FS2 at 60 fps): spheres 837 vs 808 (+3.5%), heroes 72.3 vs 67.3 (+7%, GPU
+  job 8.9 vs 10.3 ms), match 35.3 vs 30.8 (+15%, 9.3 vs 10.5 ms), big 11.4 vs 9.2 (triangles
+  differ between the runs). Worth turning on; the default waits for a played Overbit with
+  `gpu3d_attr=1` (the one played so far was `attr=0`, 1920x1080: 31.7 fps, GPU set the pace
+  in 82% of the frames, GPU wait 10.4 ms).
+- `gpu3d_tex16=1` (Settings *3D textures: ..., 16-bit*, 3D Bench GPU+T16): opaque sheets as
+  RGB565 (type 4, bm3d 5.2); bm3d 7.2: sheets with transparent texels (cut-outs) as RGBA5551
+  (type 3) in the same 64x32 T-tiles (`t16_word`), `cut16_of` / `tex_get`. Sheets have 1-bit
+  alpha (`g16_sheet_t.alpha`), so nothing is lost but green's last bit (a step of RGB565 at
+  most); the alpha shaders discard the same texels. `probe_cut16` draws a 64x32 texture
+  with the alpha shader for each order of the fields (red/blue as RGB565 or swapped, alpha
+  low or top bits) and keeps the first that gives every pixel and hole back (status `alpha
+  textures RGBA5551 RGBA4444`, `gpu3d_tex16()` 2, options line `tex16=2`, `stats.cut16`).
+  RGBA4444 (type 2) is probed the same way but unused: no sheet has alpha between 0 and 1.
+  `make test-gpu3d`: same holes, red and blue the same, green a step at most
+  (`EMU_T16_ALPHA=1` alpha on top: learned; `=2`: off).
 
 ## Decisions (from Pi reports, 2026-10-12)
 
@@ -49,8 +65,8 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
    at 640x360, no effect: session at 8 gave 57.7 fps, GPU 7.8 ms a frame, 8588 tris), photo of
    far heroes; then the default for crowds (R42).
 3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs.
-4. M39 remaining: RGBA5551/4444, ETC1, mipmaps. Attributes (after the Pi measures
-   GPU+VS+A8): `vs_tex_rgb` light as bytes (8 -> 6 words), `vs_lit_tex`/`vs_lit_tex2` flags
+4. M39 remaining: ETC1 (at build), mipmaps; RGBA4444 only if sheets get soft alpha. Attributes:
+   `vs_tex_rgb` light as bytes (8 -> 6 words), `vs_lit_tex`/`vs_lit_tex2` flags
    and uv as halves (`.16a/.16b`), normals as bytes, then 16-bit positions (scaled per mesh,
    a separate x y z stream for the coordinate shader).
 5. QPU programs outside 3D (M44): the toolkit notes are in `docs/ROADMAP.md`.
@@ -94,9 +110,12 @@ of the SD (not `boot/config.txt`), run Overbit on the GPU at 640x360 on 1080p, c
 Reports in branch `reports`; ask the user. The kernel must end in the commit tested.
 
 - Impostor 0 / 8 / 16 / 32: `res:640/gpu:arm+vs/q:4/ring:1/far:60`.
-- Compact attributes: boot status `compact attributes yes`, then
-  `./easy_install.sh line "gpu; b3d tests=spheres,heroes,match,big profiles=VSF,VSA; send"`
-  (GPU+VS+A8 against GPU+VS+FS2); Overbit with `gpu3d_attr=1`, same pictures.
+- Compact attributes: a played Overbit with `gpu3d_attr=1` (session report, as the `attr=0`
+  one at 1920x1080), then decide the default.
+- RGBA5551 cut-outs (bm3d 7.2): boot status `alpha textures RGBA5551 ...`, then
+  `./easy_install.sh line "gpu; b3d tests=quad_alpha,quad_texscreen,quad_tex,mix profiles=GPU,T16; send"`
+  (GPU+T16 against GPU: `quad_alpha`/`quad_texscreen` are the cut-out sheets); photo of
+  trees/fences in Overbit with `gpu3d_tex16=1` (holes as with 0).
 - A played Overbit on the GPU at 640x360, 720p and 1080p (session report): fps, `GPU 3D` ms.
 - 2D on GPU, tex16, WC, `g` test steps 15-16, `menu_scale=3`, each from all-off.
 - Cost of a pixel (`P` lines, `docs/BENCH3D.md` *The reports*): `./easy_install.sh line "gpu;

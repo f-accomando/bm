@@ -18,10 +18,11 @@
  * GPU+FS2), with the meshes nearest first 5.4 and their
  * triangles in the vertex cache's order 5.6 (gpu3d_sort: GPU+VS+S), with
  * each frame shown a frame later 6.9 (gpu3d_later, with the two jobs of
- * 5.1), with compact attributes 7.1 (gpu3d_attr: GPU+VS+A8). 0.1 and 1.0 no longer run: the 3D Bench shows the numbers measured
+ * 5.1), with compact attributes 7.1 (gpu3d_attr: GPU+VS+A8); 7.2 adds the
+ * cut-out sheets as RGBA5551 to gpu3d_tex16 (GPU+T16). 0.1 and 1.0 no longer run: the 3D Bench shows the numbers measured
  * on the Pi with them.
  */
-#define BM3D_VERSION "7.1"
+#define BM3D_VERSION "7.2"
 #define BM3D_BLOCK   "M39"
 
 typedef struct {
@@ -71,6 +72,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "6.9", "M39", "2026-10-11", "each frame shown a frame later: the next _draw runs while the GPU draws it (option)" },
         { "7.0", "M38", "2026-10-12", "draw3d flag 128 and textures3d(): textured faces as flat colours (their average texel)" },
         { "7.1", "M39", "2026-10-12", "compact attributes: colour and light bytes packed, unpacked by the vertex shader (option)" },
+        { "7.2", "M39", "2026-10-12", "cut-out sheets as RGBA5551 with the 16-bit textures, the TMU's order probed (option)" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;
