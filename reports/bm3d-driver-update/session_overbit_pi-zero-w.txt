@@ -3,53 +3,53 @@ kind: session
 kernel: v0.2.5-194-g35009e7
 branch: bm3d-driver-update
 board: Pi Zero W
-date: 2026-10-12 13:30:12
+date: 2026-10-12 13:31:08
 file: session_overbit_pi-zero-w.txt
 
-session of "Overbit" since it was resumed (the last one: the next run of this game replaces this file)
+session of "Overbit" (the last one: the next run of this game replaces this file)
 options bm3d 7.0 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1 sort=0 3d=gpu later=0 2d=0 impostor=8 fast=0
-screen 1280x720, 2327 frames in 50.3 s, 46.2 fps
+screen 1280x720, 2307 frames in 45.5 s, 50.6 fps
 3D: GPU
 
-time of _update + _draw (+ the 3D's wait): avg 20.5 ms, max 43.9 ms, 1629 frames over 16.7 ms
-memory: Lua peak 2018 KiB, data 6825 KiB; code 70823 tokens; busiest frame 364k Lua instructions
-frames that were shown after more than 1.5 frames: 607
+time of _update + _draw (+ the 3D's wait): avg 15.7 ms, max 176.8 ms, 919 frames over 16.7 ms
+memory: Lua peak 2015 KiB, data 6825 KiB; code 70823 tokens; busiest frame 366k Lua instructions
+frames that were shown after more than 1.5 frames: 369
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    876
-  <= 25 ms             844
-  <= 34 ms (30 fps)    547
-  <= 50 ms             60
-  <= 100 ms            0
-  > 100 ms (a freeze)  0
+  <= 18 ms (60 fps)    1399
+  <= 25 ms             539
+  <= 34 ms (30 fps)    347
+  <= 50 ms             12
+  <= 100 ms            4
+  > 100 ms (a freeze)  5
 
-the frame in its parts (as the overlay, 2326 frames; ms a frame, % of the 16.7 ms of a frame):
-  update           8.6   51%
-  draw (no 3D)     6.6   40%
-  3D calls         0.9    5%
-  audio            1.2    7%
-  GPU wait         3.1   19%
-  all             20.7  124%
-audio interrupt: 5.9% of the CPU's time (mean), 9.9% at most in a second
-GPU wait: 15.4% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 70.9% of the frames
+the frame in its parts (as the overlay, 2306 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           6.7   40%
+  draw (no 3D)     5.8   34%
+  3D calls         0.5    3%
+  audio            0.5    3%
+  GPU wait         2.4   14%
+  all             16.0   96%
+audio interrupt: 2.8% of the CPU's time (mean), 7.6% at most in a second
+GPU wait: 15.4% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 46.5% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
-   2063    42.9    45.4   43.3  32.3   10.4   4.7   0.0     2.1      133     1314        3
-   2068    43.1    44.8   43.9  32.7   10.7   4.8   0.0     0.8      135     1190        3
-   2073    43.2    42.9   42.2  28.7   10.5   4.2   0.0     0.7      119     1280        3
-   3370    70.2    41.1   39.6  25.8   12.7   4.5   0.0     1.4      129     1378        3
-   3286    67.5    40.6   39.6  26.4   12.3   4.6   0.0     0.9      126     1226        3
-   3367    70.1    37.1   36.5  20.2   12.6   4.9   0.0     0.5       98     1320        2
-   3363    69.9    37.0   35.1  20.0   12.7   4.5   0.0     1.8      107     1255        2
-   3372    70.2    36.8   33.6  20.1   12.4   4.8   0.0     3.2       98     1183        2
-   2005    41.0    36.7   33.0  20.1   10.4   4.8   0.0     3.6       80     1231        2
-   3269    66.9    36.6   34.1  21.5   12.1   4.0   0.0     2.4      102     1165        2
-   3622    76.9    36.6   36.6  22.9   12.6   6.1   0.0     0.0       95     1198        2
-   2065    42.9    36.2   33.0  22.4   10.0   4.5   0.0     3.2       96     1132        2
+    372     6.8   178.3  176.8   4.7  162.4 142.8   0.0     1.5       26     1035        1
+    246     4.5   152.6    2.6   0.4    1.6   0.5   0.0   149.9        2     1686        1
+   2307    45.8   147.8  146.8   8.7  134.0 129.0   0.0     1.0       43     1321        1
+   1735    35.6   143.9  142.9   5.0  129.7 125.7   0.0     0.9       23     1384        1
+   1325    27.0   141.0  139.5   4.5  127.0 123.1   0.0     1.4       23     1307        1
+   1535    32.1    80.8    4.0   0.5    2.8   0.8   0.0    76.8        8     1216        1
+   1175    24.4    79.9    4.3   0.8    2.8   0.9   0.0    75.6        7     1271        1
+   1854    38.0    79.6    4.1   0.5    2.9   0.9   0.0    75.5        7     1394        1
+   1393    28.6    51.8   20.0   6.1    6.1   2.6   0.0    31.7       25     1265        1
+   1083    22.6    41.5   41.4  18.9   22.1  16.7   0.0     0.0       63     1247        2
+    988    20.6    39.5   28.8  20.2    8.1   2.8   0.0    10.6       73     1119        2
+   1797    37.0    37.2   42.4  20.7   15.6  13.6   0.0     0.0       40     1243        2
 
-GPU 3D: 2327 jobs, 9910 triangles a frame, 11.9 ms a frame, longest job seen to its end 17.4 ms
-(a job's time: from its start to the end the ARM saw; 134 jobs had ended before it looked, counted at the others' mean)
-binner memory: at most 116 KiB of the tile lists' 4096, 0 KiB of the overflow's 2048, 0 jobs in the overflow
-frame queue: 2327 jobs started and waited for later, 0 filled while the GPU drew the one before, 0 frames shown a frame later (gpu3d_later)
+GPU 3D: 1382 jobs, 5576 triangles a frame, 6.7 ms a frame, longest job seen to its end 15.7 ms
+(a job's time: from its start to the end the ARM saw; 100 jobs had ended before it looked, counted at the others' mean)
+binner memory: at most 104 KiB of the tile lists' 4096, 0 KiB of the overflow's 2048, 0 jobs in the overflow
+frame queue: 1382 jobs started and waited for later, 0 filled while the GPU drew the one before, 0 frames shown a frame later (gpu3d_later)
