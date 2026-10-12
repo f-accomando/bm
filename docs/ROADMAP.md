@@ -120,10 +120,11 @@ Passi aperti o da provare (la numerazione resta: i passi chiusi sono tolti):
    16 bit (separate per lo shader di coordinate).
 4. **Due lavori in volo** (`gpu3d_queue=2`, `gpu3d_later=1`): resta la misura sul Pi.
 5. **Texture più leggere**: i ritagli in RGBA5551 fatti (bm3d 7.2, con `gpu3d_tex16`,
-   prova all'avvio `probe_cut16`; resta la misura sul Pi: GPU+T16 in `quad_alpha`);
+   prova all'avvio `probe_cut16`; sul Pi la prova riesce, ma GPU+T16 non guadagna in `quad_alpha`);
    RGBA4444 provato all'avvio ma non usato (nessun foglio ha alpha a metà). ETC1 all'uso
    fatto (bm3d 7.3, `gpu3d_etc1=1`, fogli opachi codificati quando si fa la texture, prova
-   all'avvio `probe_etc1`, profilo GPU+ETC1; resta la misura sul Pi). Restano ETC1 nella
+   all'avvio `probe_etc1`, profilo GPU+ETC1; sul Pi funziona, rovesciando le righe di ogni blocco, ma GPU+ETC1 non guadagna nei quad;
+   prossimo: Overbit giocato a 1080p con tex16/etc1 contro spento). Restano ETC1 nella
    cartuccia (al build) e le mipmap; la prova all'avvio controlla come la TMU legge ogni formato.
 10. **Il Lua dei giochi** (fuori dal driver): in Overbit circa il 60% del tempo dell'ARM;
     parti calde in C (raggi e collisioni, strade dei bot, particelle), meno allocazioni per

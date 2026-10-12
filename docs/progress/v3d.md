@@ -61,17 +61,15 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   (status adds e.g. `, rows reversed`). Emulator: `EMU_ETC1=0` (2x4, BE), `=1` (4x2, LE: a
   later candidate), `=2` (off), `=3` (2x4, BE, rows reversed as the Pi). `make test-gpu3d`:
   same silhouette, 37 dB PSNR against RGB565, worst channel 9 (also with `=3`).
-- A failed `probe_cut16` / `probe_etc1` (Pi: both fail) logs to the probes' line (report)
-  `params0`, each candidate's right pixels and first 4 texels wanted/got, and for 5551/4444
-  a control with the opaque shader (`5551 type 3, opaque shader: ...`; its holes draw their
-  RGB: `00c0` is right), and a first wrong pixel; test: `EMU_T16_ALPHA=2`, `EMU_ETC1=2`.
-- ETC1 on the Pi: type 8 is ETC1, 2x4 utiles, bytes BE, but each block's rows reversed (the
-  format's row 3 on top): the report's 4 texels and 639/4096 match that exactly (642 on the
-  PC), so `e1_map` 2 is expected; to confirm on the Pi (status `..., rows reversed)`).
-  A failed probe also logs `etc1_diagnose`: `ETC1 flat f800/07e0:` (one flat block everywhere,
-  per byte order), `ETC1 2x4 <order>, block read along y=0/x=0:` (which block `xy` the TMU
-  read) and `ETC1 one block p&3 / p>>2 / p&3 flip: got .... want ....` (one grey block, its
-  16 pixels as green's top nibble, a row of x per group: where each texel of the block went).
+- Pi (v0.2.5-208): `alpha textures RGBA5551 RGBA4444` (the probe compares within a step of the
+  type's bits; the exact compare failed) and `ETC1 textures yes` (type 8 = ETC1, 2x4 utiles,
+  bytes BE, each block's rows reversed: `e1_map`). 3D Bench GPU / GPU+T16 / GPU+ETC1 are equal
+  within 1-6% (quad_tex 2.20 / 2.35 / 2.19 ns/px, spheres_tex 157 / 158 / 159 fps, heroes_tex
+  6.5 all): small sheets sit in the TMU cache, so fewer bytes buy nothing there.
+- A failed `probe_cut16` / `probe_etc1` logs to the probes' line (report) `params0`, each
+  candidate's right pixels, first 4 texels wanted/got and (5551/4444) an opaque-shader control;
+  `etc1_diagnose` adds flat-block, block-map and one-block lines. Tests: `EMU_T16_ALPHA=2`,
+  `EMU_ETC1=2`.
 
 ## Decisions (from Pi reports, 2026-10-12)
 
@@ -95,8 +93,11 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
    at 640x360, no effect: session at 8 gave 57.7 fps, GPU 7.8 ms a frame, 8588 tris), photo of
    far heroes; then the default for crowds (R42).
 3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs.
-4. M39 remaining: ETC1 in the cartridge (encoded at build time, so no encoding at load),
-   mipmaps; RGBA4444 only if sheets get soft alpha. Attributes:
+4. M39 remaining. NEXT: is 16-bit / ETC1 worth more work? A played Overbit at 1080p with
+   `gpu3d_tex16=1` and `gpu3d_etc1=1` against both off (fps, `GPU 3D` ms; the quads show no
+   gain). If nothing moves, the options stay off and M39 closes here; if it does: ETC1 in the
+   cartridge (encoded at build time, so no encoding at load), mipmaps; RGBA4444 only if
+   sheets get soft alpha. Attributes:
    `vs_tex_rgb` light as bytes (8 -> 6 words), `vs_lit_tex`/`vs_lit_tex2` flags
    and uv as halves (`.16a/.16b`), normals as bytes, then 16-bit positions (scaled per mesh,
    a separate x y z stream for the coordinate shader).
@@ -143,14 +144,10 @@ Reports in branch `reports`; ask the user. The kernel must end in the commit tes
 - Impostor 0 / 8 / 16 / 32: `res:640/gpu:arm+vs/q:4/ring:1/far:60`.
 - Compact attributes: a played Overbit with `gpu3d_attr=1` (session report, as the `attr=0`
   one at 1920x1080), then decide the default.
-- RGBA5551 cut-outs (bm3d 7.2): boot status `alpha textures RGBA5551 ...`, then
-  `./easy_install.sh line "gpu; b3d tests=quad_alpha,quad_texscreen,quad_tex,mix profiles=GPU,T16; send"`
-  (GPU+T16 against GPU: `quad_alpha`/`quad_texscreen` are the cut-out sheets); photo of
-  trees/fences in Overbit with `gpu3d_tex16=1` (holes as with 0).
-- ETC1 sheets (bm3d 7.3): boot status `ETC1 textures ...` (which layout the TMU took, or
-  `no`), then `./easy_install.sh line "gpu; b3d tests=spheres_tex,heroes_tex,quad_tex,match,mix
-  profiles=GPU,T16,ETC1; send"` (GPU+ETC1 against GPU+T16); photo of a textured scene with
-  `gpu3d_etc1=1` (colours near the 16-bit ones, no block garbage).
+- 16-bit and ETC1 sheets (bm3d 7.2, 7.3): the bench is done (above). Open: photo of
+  trees/fences in Overbit with `gpu3d_tex16=1` (holes as with 0) and of a textured scene with
+  `gpu3d_etc1=1` (colours near the 16-bit ones, no block garbage), plus the played Overbit
+  comparison of To do 4.
 - A played Overbit on the GPU at 640x360, 720p and 1080p (session report): fps, `GPU 3D` ms.
 - 2D on GPU, tex16, WC, `g` test steps 15-16, `menu_scale=3`, each from all-off.
 - Cost of a pixel (`P` lines, `docs/BENCH3D.md` *The reports*): `./easy_install.sh line "gpu;
