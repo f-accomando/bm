@@ -1,0 +1,50 @@
+bm report
+kind: session
+kernel: v0.2.5-173-g62fef70
+branch: bm-core
+board: RGB30
+date: 2026-10-12 10:56:35
+file: session_overbit_rgb30.txt
+
+session of "Overbit" (the last one: the next run of this game replaces this file)
+options bm3d 6.9 gpu3d=off 3d=arm later=0 2d=0 impostor=0 fast=0
+screen 360x360, 2150 frames in 41.6 s, 51.6 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 12.4 ms, max 561.2 ms, 185 frames over 16.7 ms
+memory: Lua peak 2099 KiB, data 5278 KiB; code 70591 tokens; busiest frame 101k Lua instructions
+frames that were shown after more than 1.5 frames: 186
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    1963
+  <= 25 ms             0
+  <= 34 ms (30 fps)    165
+  <= 50 ms             0
+  <= 100 ms            1
+  > 100 ms (a freeze)  20
+
+the frame in its parts (as the overlay, 2149 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           2.9   17%
+  draw (no 3D)     9.2   55%
+  3D calls         6.6   39%
+  audio            0.4    2%
+  GPU wait         0.0    0%
+  all             19.2  115%
+audio interrupt: 2.5% of the CPU's time (mean), 4.9% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
+    643    12.0   566.9  561.2 553.3    7.8   6.0   0.0     5.6        2     1047        1
+   1517    30.9   150.1  143.0 133.9    9.0   6.9   0.0     7.1        8     1104        1
+   1216    24.5   150.0  134.9 126.0    8.9   6.7   0.0    15.1        9     1093        1
+   1089    22.1   150.0  140.2 130.9    9.3   7.0   0.0     9.8       19     1091        1
+   1278    25.7   150.0  133.8 124.5    9.2   7.0   0.0    16.2        9     1092        1
+   1336    27.0   150.0  139.3   6.1  133.2  10.1   0.0    10.6       36     1101        2
+   1449    29.6   150.0  145.9 136.4    9.4   7.0   0.0     4.0       13     1108        1
+   1585    32.2   150.0  142.5 132.6    9.8   7.8   0.0     7.5        8     1105        1
+   1653    33.5   150.0  141.8 132.7    9.0   7.0   0.0     8.2        9     1105        1
+   1719    34.7   150.0  142.6   9.4  133.1   4.7   0.0     7.4        8     1107        1
+   1867    37.3   150.0  136.2   0.9  135.3   5.0   0.0    13.7        2     1107        1
+   2016    39.9   150.0  140.1 132.2    7.8   6.2   0.0     9.9        2     1108        1
