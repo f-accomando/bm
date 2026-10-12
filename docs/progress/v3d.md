@@ -39,8 +39,9 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
    the Pi 3D Bench: a full-screen 1080p pass with one bilinear read is ~3.5-5 ms of GPU
    (textured fill 1.65 ns/px nearest, 2.3 ns/px bilinear, plus ~0.3 ms fixed); bicubic/FSR
    more, not measured. 2D on GPU: 9.5 ns/px (19.6 ms at 1080p).
-2. Impostors: Pi runs at `r3d_impostor` 8, 16, 32 with the new threshold (8 = 2.7 render px
-   at 640x360, no effect), photo of far heroes; then the default for crowds (R42).
+2. Impostors: Pi runs at `r3d_impostor` 16, 32 with the new threshold (8 = 2.7 render px
+   at 640x360, no effect: session at 8 gave 57.7 fps, GPU 7.8 ms a frame, 8588 tris), photo of
+   far heroes; then the default for crowds (R42).
 3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs.
 4. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
 5. QPU programs outside 3D (M44): the toolkit notes are in `docs/ROADMAP.md`.
