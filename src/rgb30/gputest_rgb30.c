@@ -78,18 +78,18 @@ void rgb30_gpu_test(framebuffer_t *fb, const char *back)
         .mem = (uint8_t *)(uintptr_t)PLAT_GPU_START, .mem_pa = PLAT_GPU_START, .mem_size = 4u << 20,
         .map_pa = PLAT_FB_START, .map_size = (uint32_t)(PLAT_FB_END - PLAT_FB_START),
         .screen = fb->depth == 32 ? fb->mem + off : NULL, .screen_pa = fb->depth == 32 ? fb->bus + off : 0,
-        .screen_w = fb->width, .screen_h = fb->height, .screen_pitch = fb->pitch,
+        .screen_w = fb->width, .screen_h = fb->height, .screen_pitch = fb->pitch, .triangle = 1,
     };
     result = mali_probe(&hw, &info);
     probed = 1;
     if (result == MALI_OK)
-        kprintf("\x1b[92mmali: every step done\x1b[0m: the GPU runs jobs and clears tiles (no triangles yet)\n");
+        kprintf("\x1b[92mmali: every step done\x1b[0m: the GPU runs jobs, clears tiles and draws a triangle\n");
     else
         kprintf("\x1b[91mmali: stopped at step %d\x1b[0m (the lines above say why)\n", -result);
     reports_end();
     if (back)
         kprintf("\n\x1b[96m%s\x1b[0m back\n", back);
-    if (result == MALI_OK)
+    if (result == MALI_OK || result == MALI_E_TRIANGLE)
         mali_square(&hw, 0x40d060);     /* drawn again over the text: the last thing on the screen */
 #else
     (void)fb;

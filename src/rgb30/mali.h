@@ -18,6 +18,10 @@
  *   fragment   (bm3d 6.1) a FRAGMENT job on job slot 0 with no draw: the
  *              tiles cleared to a colour and written to a surface (no
  *              shader, no tiler), then a square on the screen
+ *   triangle   (M41, after 6.1) a VERTEX job, a TILER job and a FRAGMENT job:
+ *              three positions through the shaders of mali_shaders.h into
+ *              a 96 x 96 square of the screen (mali_desc.c has the
+ *              descriptors)
  *
  * Every wait has a timeout and every step writes a line; the first step
  * that fails ends the probe (nothing after it touches the GPU). The GPU's
@@ -44,6 +48,7 @@ typedef struct {
     uint8_t *screen;                    /* the page shown (XRGB8888), for a square the GPU clears: */
     uint64_t screen_pa;                 /* its physical address (inside the map); 0: none */
     uint32_t screen_w, screen_h, screen_pitch;
+    int triangle;                       /* also draw a triangle when the clear has worked: not on a simulated GPU */
 } mali_hw_t;
 
 /* the registers' places on the RK3566 */
@@ -55,6 +60,7 @@ typedef struct {
 enum {
     MALI_OK = 0, MALI_E_POWER = -1, MALI_E_ID = -2, MALI_E_RESET = -3, MALI_E_CORES = -4, MALI_E_MMU = -5,
     MALI_E_JOB = -6, MALI_E_CHAIN = -7, MALI_E_MEMORY = -8, MALI_E_SUPPLY = -9, MALI_E_FRAGMENT = -10,
+    MALI_E_TRIANGLE = -11,
 };
 
 typedef struct {
@@ -64,6 +70,7 @@ typedef struct {
     uint32_t js_status, job_header;     /* of the first job: JS_STATUS, exception status written back */
     uint32_t job_us, chain_us, frag_us; /* how long the jobs took */
     uint32_t frag_pixel;                /* a pixel the fragment job wrote */
+    uint32_t tri_us, tri_in, tri_out;   /* the triangle's jobs, a pixel inside it and one outside (RGB) */
     int supply_mv;                      /* vdd_gpu as the PMIC said (-1 unknown) */
     int step;                           /* the last step reached (MALI_OK: all) */
 } mali_info_t;

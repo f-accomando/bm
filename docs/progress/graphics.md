@@ -63,10 +63,8 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
 - 2D on the GPU (`gpu3d_2d=1`): rects, pixels, straight lines, `spr`/`sspr` (whole zooms),
   `map()`, `print` as quads in the job; the rest closes the job and is drawn by the ARM.
 
-### Mali-G52 on the RGB30 (`src/rgb30/mali.c`, `mali.h`)
-bm3d 6.0–6.1: supply, power domain, identify, reset, cores, MMU (LPAE, 2 MiB blocks), job
-manager (WRITE_VALUE chain) and a FRAGMENT job that clears a surface. No triangles yet. PC
-test with a simulated GPU: `make TARGET=rgb30 test-mali`. The 3D on the RGB30 is `r3d`.
+### Mali-G52 on the RGB30
+Bring-up, draw descriptors, shaders and the triangle probe: [graphics-mali](graphics-mali.md).
 
 ### Rendering tests (Dev tab)
 3D Bench (`src/bm/b3d.c`, `src/kernel/b3dpi.c`), render bench, stress test
@@ -78,8 +76,7 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 ## Open work (`docs/ROADMAP.md`)
 
 - **M35, M36, M37, M39** V3D on the Pi Zero W: [v3d](v3d.md).
-- **M41** Mali: next are ARM-prepared triangles (tiler job, minimal Bifrost shader), then the
-  vertex shader.
+- **M41** Mali: [graphics-mali](graphics-mali.md) (the triangle to run on the device).
 - **M43** sprite stacking (`stack()` in `gfx16.c`, bm Pixel page) — not started.
 - **M44** QPU programs outside 3D (particles, full-screen 2D effects) — not started.
 

@@ -313,10 +313,18 @@ static void page_message(const char *title, const char *lines[], int n)
     wait_back();
 }
 
-/* A Pi cartridge (listed for testing, show_bm=0 hides them): the runtime of
- * src/bm, its screen as big as the panel (rgb30/display.h), the 3D on the
- * ARM, no sound yet. Start + Select leaves. */
+/* A game: the runtime of src/bm, its screen as big as the panel
+ * (rgb30/display.h). Start + Select (or Esc, PS) does as on the Pi: the game
+ * stays in memory, frozen, and the menu comes back; A on its cover resumes it
+ * from the same frame, another game closes it (bm_close_suspended). */
 #define PLAY_SECS (24u * 3600u)
+
+static char susp_name[48];                         /* the frozen game's file in bm/ ("" none) */
+
+static int is_suspended(const char *name)
+{
+    return susp_name[0] && strcmp(susp_name, name) == 0 && bm_suspended(NULL, 0);
+}
 
 /* the reads and the CRC of a big game: the loading screen goes on */
 static int load_tick(void)
@@ -328,6 +336,16 @@ static int load_tick(void)
 static void play_bm(int i)
 {
     char path[80];
+    bm_stats_t st;
+    if (is_suspended(games[i].name)) {              /* frozen by Start + Select: continue */
+        wifi_auto_stop();
+        kprintf("resuming %s\n", games[i].name);
+        if (bm_resume(fb, PLAY_SECS, &st) != BM_SUSPENDED)
+            susp_name[0] = 0;
+        goto back;
+    }
+    bm_close_suspended();                           /* another game: the frozen one's memory is freed */
+    susp_name[0] = 0;
     ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
     fat_entry_t e;
     uint8_t *data = NULL;
@@ -343,9 +361,10 @@ static void play_bm(int i)
         return;
     }
     kprintf("play: %s (%lu bytes)\n", path, (uint32_t)len);
-    bm_stats_t st;
-    bm_run(fb, data, len, PLAY_SECS, &st, 0);
+    if (bm_run(fb, data, len, PLAY_SECS, &st, 1) == BM_SUSPENDED)
+        ksnprintf(susp_name, sizeof susp_name, "%s", games[i].name);
     free(data);
+back:
     console_suspend(1);                             /* the menu draws itself */
     bm_print_stats(&st);
     while (pad_state())                             /* Start + Select still held */
@@ -922,8 +941,10 @@ void ui_home(framebuffer_t *f)
             else if (strcmp(sd_state, "bm/") != 0)
                 ksnprintf(details, sizeof details, "%s", sd_state);
         } else if (shown == TAB_GAMES) {
-            v.a_label = "Play";
-            ksnprintf(details, sizeof details, "bm/%s: Start+Select leaves", games[*s].name);
+            const int frozen = is_suspended(games[*s].name);
+            v.a_label = frozen ? "Resume" : "Play";
+            ksnprintf(details, sizeof details, frozen ? "bm/%s: frozen, %s resumes it" : "bm/%s: Start+Select freezes it",
+                      games[*s].name, pad_ok_name());
         } else {
             ksnprintf(details, sizeof details, "%s", dev_items[*s].help);
         }
