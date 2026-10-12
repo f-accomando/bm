@@ -1,0 +1,34 @@
+bm report
+kind: overbit-bench
+kernel: v0.2.5-147-ga2fb9bb
+branch: bm3d-driver-update
+board: Pi Zero W
+date: 2026-10-12 11:44:10
+file: 20261012-114410_overbit-bench_pi-zero-w_v0.2.5-147-ga2fb9bb.txt
+
+options bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1 sort=0 3d=gpu later=0 2d=0 impostor=8 fast=0
+overbit bench start: 4 phases (matrix), flags res:640/gpu:arm+vs/q:4/ring:1/far:60/secs:4, screen 480x270, GPU, renderers arm vs
+overbit bench ARM 640x360 EXTREME match 487448
+overbit bench ARM 640x360 EXTREME: 15 fps, 70.5 ms (1% 96.1, worst 101.1, 100% over 16.7), update 7.7, 3D 56.7, gpu 0.0, 5739 tri (max 7068), 5956 vtx, 390031 px, 43k instr, 2010 KiB Lua, bm3d 0.2
+overbit bench GPU+VS 640x360 EXTREME match 487448
+overbit bench GPU+VS 640x360 EXTREME: 46 fps, 19.8 ms (1% 24.9, worst 46.9, 88% over 16.7), update 7.8, 3D 5.5, gpu 4.2, 25321 tri (max 30840), 0 vtx, 0 px, 43k instr, 2010 KiB Lua, bm3d 3.4
+overbit bench ring ARM  1 heroes: 6.7 ms, 3D 4.0, 556 tri
+overbit bench ring ARM  2 heroes: 8.1 ms, 3D 5.1, 821 tri
+overbit bench ring ARM  4 heroes: 10.3 ms, 3D 6.7, 1289 tri
+overbit bench ring ARM  8 heroes: 15.1 ms, 3D 9.8, 2214 tri
+overbit bench ring ARM 12 heroes: 21.1 ms, 3D 13.8, 3278 tri
+overbit bench ring ARM 16 heroes: 26.1 ms, 3D 16.9, 4209 tri
+overbit bench ring ARM 24 heroes: 37.8 ms, 3D 24.0, 6194 tri
+overbit bench ring ARM: 8 heroes at 60 fps, 16 at 30 fps
+overbit bench ring GPU+VS  1 heroes: 3.6 ms, 3D 0.4, 2708 tri
+overbit bench ring GPU+VS  2 heroes: 4.5 ms, 3D 0.6, 4594 tri
+overbit bench ring GPU+VS  4 heroes: 5.5 ms, 3D 0.9, 8029 tri
+overbit bench ring GPU+VS  8 heroes: 7.9 ms, 3D 1.5, 14805 tri
+overbit bench ring GPU+VS 12 heroes: 11.1 ms, 3D 2.2, 22412 tri
+overbit bench ring GPU+VS 16 heroes: 14.8 ms, 3D 3.0, 29188 tri
+overbit bench ring GPU+VS 24 heroes: 23.1 ms, 3D 7.8, 43571 tri
+overbit bench ring GPU+VS 32 heroes: 27.8 ms, 3D 8.7, 57954 tri
+overbit bench ring GPU+VS: 16 heroes at 60 fps, 32 at 30 fps
+overbit bench best ARM 640x360: none at 60 fps
+overbit bench best GPU+VS 640x360: none at 60 fps
+overbit bench done in 80 s
