@@ -3,29 +3,29 @@ kind: session
 kernel: v0.2.5-140-g5c31e9a
 branch: bm3d-driver-update
 board: Pi Zero W
-date: 2026-10-12 08:46:25
+date: 2026-10-12 08:55:49
 file: session_overbit_pi-zero-w.txt
 
 session of "Overbit" (the last one: the next run of this game replaces this file)
 options bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1 sort=0 3d=gpu later=0 2d=0 impostor=32 fast=0
-screen 480x270, 1043 frames in 45.9 s, 22.7 fps
+screen 480x270, 1043 frames in 45.8 s, 22.7 fps
 3D: GPU
 
-time of _update + _draw (+ the 3D's wait): avg 41.8 ms, max 2179.6 ms, 743 frames over 16.7 ms
+time of _update + _draw (+ the 3D's wait): avg 41.7 ms, max 2057.2 ms, 743 frames over 16.7 ms
 memory: Lua peak 2003 KiB, data 5278 KiB; code 70594 tokens; busiest frame 1688k Lua instructions
 frames that were shown after more than 1.5 frames: 591
 
 time from one picture to the next:
   <= 18 ms (60 fps)    301
   <= 25 ms             151
-  <= 34 ms (30 fps)    147
-  <= 50 ms             139
+  <= 34 ms (30 fps)    148
+  <= 50 ms             138
   <= 100 ms            287
   > 100 ms (a freeze)  17
 
 the frame in its parts (as the overlay, 1042 frames; ms a frame, % of the 16.7 ms of a frame):
-  update           7.2   43%
-  draw (no 3D)     2.2   13%
+  update           7.3   43%
+  draw (no 3D)     2.1   13%
   3D calls        28.9  173%
   audio            1.5    9%
   GPU wait         0.0    0%
@@ -36,18 +36,18 @@ GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more th
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
-   1043    46.1  2181.1 2179.6 2178.1    1.5  35.6   0.0     1.4       13     1226        1
-     14     3.3   428.9  427.8 426.5    1.3  90.7   0.0     1.0     1688     1204        1
-     17     4.4   392.4  391.2 305.6   85.5  76.5   0.0     1.2     1060     1048        1
-     15     3.7   389.4  388.3 386.9    1.3  90.7   0.0     1.1     1491     1153        1
-     13     2.9   335.9  334.9 333.2    1.7  90.7   0.0     0.9     1112     1048        1
-     16     4.0   335.5  334.8 333.4    1.3  90.7   0.0     0.7     1209     1101        1
-     12     2.5   264.4  264.0 262.2    1.7  90.7   0.0     0.4      779     1108        1
-     11     2.3   261.7  260.5 259.2    1.3  90.7   0.0     1.1      794     1195        1
-     10     2.0   256.1  255.8 254.5    1.3  90.7   0.0     0.2      753     1069        1
-      9     1.8   220.2  219.7 218.3    1.3  90.7   0.0     0.5      629     1146        1
-      8     1.5   189.9  189.4 188.1    1.3  90.7   0.0     0.5      503     1023        1
-      7     1.4   183.5  182.4 181.1    1.3  90.7   0.0     1.0      460     1109        1
+   1043    46.0  2057.8 2057.2 2055.7    1.5  35.6   0.0     0.5       13     1239        1
+     14     3.4   434.5  434.0 432.6    1.3  90.7   0.0     0.5     1688     1204        1
+     17     4.5   395.5  395.1 309.4   85.6  76.7   0.0     0.3     1060     1048        1
+     15     3.8   395.4  394.4 393.0    1.3  90.7   0.0     0.9     1491     1153        1
+     13     2.9   340.4  339.4 337.7    1.7  90.7   0.0     0.9     1112     1048        1
+     16     4.1   340.1  339.6 338.2    1.3  90.7   0.0     0.5     1209     1101        1
+     12     2.6   269.0  268.0 266.2    1.7  90.7   0.0     1.0      779     1108        1
+     11     2.3   264.5  263.9 262.6    1.3  90.7   0.0     0.6      794     1195        1
+     10     2.1   262.5  261.3 259.6    1.7  90.7   0.0     1.1      753     1069        1
+      9     1.8   225.1  224.8 223.5    1.3  90.7   0.0     0.3      629     1146        1
+      8     1.6   194.5  193.6 192.3    1.3  90.7   0.0     0.9      503     1023        1
+      7     1.4   187.7  187.1 185.4    1.6  90.7   0.0     0.6      460     1109        1
 
 GPU 3D: 1 jobs, 1 triangles a frame, 0.0 ms a frame, longest job seen to its end 0.0 ms
 (a job's time: from its start to the end the ARM saw; 1 jobs had ended before it looked, counted at the others' mean)
