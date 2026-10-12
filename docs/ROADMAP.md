@@ -335,8 +335,6 @@ prova senza seriale e spesso senza tastiera).
   `scripts/bmaudio.py`); resta l'import di un WAV dalla SD in bm Sound.
 - **Resti di R11 (mappe).** Hunter's Night dai numeri 32–63 ai flag delle tile; import delle
   mappe di Tiled (`.tmj`) con livelli e proprietà; più nomi per una voce dell'assistente.
-- **Resti delle hitbox (BOXES).** bm Animator (Sprites) e bm Pixel che disegnano i
-  riquadri di BOXES sui fotogrammi; i riquadri dalle ossa quando un modello diventa sprite.
 - **Resti di più giocatori e bmnet.** Provare sul Pi due console in rete con il modello *Online
   2D* (anche col relay) e due pad con *Versus 2D*; Overbit sopra bmnet (oggi ha la sua copia
   del protocollo).

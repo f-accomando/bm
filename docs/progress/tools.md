@@ -30,10 +30,10 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   (`predict`, [`docs/PREDICT.md`](../PREDICT.md)), pad typing (`padtype`,
   [`docs/PADTYPE.md`](../PADTYPE.md)), F6 assistant and `#entry: … #` lines, F8
   breakpoints, Ctrl+Enter plays riff.
-- **bm Pixel** (`carts/pixel`): F1 draw, F2 sheet, F3 palette.
+- **bm Pixel** (`carts/pixel`): F1 draw, F2 sheet, F3 palette; hitboxes of BOXES on the canvas, previews and sheet view (toggle j).
 - **bm Studio** (`carts/studio`): models from tiles and blocks (block, tile, select, vertex,
   paint), reduce. **bm Animator** (`carts/animator`): rig, keyframes, sprites from an
-  animation. **bm Mesh** (`carts/mesh`): vertices and faces of MESH models and of meshes the
+  animation (F4: bone hitboxes previewed and baked into SPRITES and BOXES). **bm Mesh** (`carts/mesh`): vertices and faces of MESH models and of meshes the
   game builds (`cart_meshes()`).
 - **bm Sound** (`carts/sound`): SOUNDS, SFX, PATTERN, SONG pages; music assistant on F6
   ([audio](audio.md)).

@@ -1246,7 +1246,7 @@ local DIRS = { 1, 2, 4, 8 }
 local MAXPX = 512 * 512                          -- the pixels of one sprite sheet put
 
 local sp = { row = 1, clip = 1, frames = 8, size = 48, dirs = 4, pitch = 30, flat = true, lit = true,
-             outline = true, colours = 0, fit = 1, t = 0, dir = 0, job = nil, last = nil }
+             outline = true, colours = 0, fit = 1, boxes = true, t = 0, dir = 0, job = nil, last = nil, frame_boxes = nil }
 
 local function sp_clips()
   local r = rig()
@@ -1280,7 +1280,67 @@ local ROWS = {
       sp.colours = list[clamp(i + d, 1, #list)]
     end, function() return sp.colours == 0 and "all" or tostring(sp.colours) end },
   { "fill", function(d) sp.fit = clamp(sp.fit + d * 0.1, 0.5, 1.6) end, function() return round(sp.fit * 100) .. "%" end },
+  { "hitboxes", function() sp.boxes = not sp.boxes end, function() return sp.boxes and "from bones" or "none" end },
 }
+
+local function bone_box_kind(name)
+  local s = name:lower()
+  if s:match("hit") or s:match("weapon") or s:match("punch") or s:match("fist") or
+     s:match("sword") or s:match("blade") or s:match("spear") or s:match("attack") then
+    return "hit", 1
+  elseif s:match("root") or s:match("body") or s:match("hips") or s:match("pelvis") then
+    return "body", 2
+  else
+    return "hurt", 0
+  end
+end
+
+local function box_colour(kind)
+  if kind == "hurt" or kind == 0 then return 0x40A0FF
+  elseif kind == "hit" or kind == 1 then return 0xFF4040
+  elseif kind == "body" or kind == 2 then return 0x40FF40
+  else return 0xFFFF40
+  end
+end
+
+local function bone_boxes(view, box, cx, cy, cz, ang, x, z)
+  local m = M()
+  if not m or not m.rig or #m.rig.bones == 0 or not bone3d or not project3d then return {} end
+  local co, si = cos(ang), sin(ang)
+  local out = {}
+  local pad = max(2, round(box[3] * 0.05))
+  for i = 1, #m.rig.bones do
+    local b = m.rig.bones[i]
+    local hx, hy, hz, tx, ty, tz = bone3d(view, i)
+    if hx then
+      local whx = (hx * co + hz * si) + x
+      local why = hy - cy
+      local whz = (-hx * si + hz * co) + z
+      local wtx = (tx * co + tz * si) + x
+      local wty = ty - cy
+      local wtz = (-tx * si + tz * co) + z
+      local shx, shy = project3d(whx, why, whz)
+      local stx, sty = project3d(wtx, wty, wtz)
+      if shx and stx then
+        local bx0 = min(shx, stx) - pad
+        local by0 = min(shy, sty) - pad
+        local bx1 = max(shx, stx) + pad
+        local by1 = max(shy, sty) + pad
+        local rx0 = round(bx0 - box[1])
+        local ry0 = round(by0 - box[2])
+        local rw = max(2, round(bx1 - bx0))
+        local rh = max(2, round(by1 - by0))
+        local kname, knum = bone_box_kind(b.name)
+        out[#out + 1] = {
+          x = rx0, y = ry0, w = rw, h = rh,
+          kind = kname, kind_num = knum,
+          bone = b.name
+        }
+      end
+    end
+  end
+  return out
+end
 
 -- the time of frame f (0-based): spread over the animation (a loop does
 -- not repeat its first frame at the end)
@@ -1324,6 +1384,7 @@ local function render(view, box, dir, t)
   zclear()
   draw3d(view, x, -cy, z, 0, ang, 0, 1, sp.lit and 0 or 2)
   clip()
+  sp.frame_boxes = bone_boxes(view, box, cx, cy, cz, ang, x, z)
 end
 
 -- where the sprites go: below what the sheet already has (or a taller sheet)
@@ -1358,12 +1419,62 @@ local function nearest(c, pal)
   return best
 end
 
+local function register_zone_boxes(zn, zx, zy, zw, zh, zframes, zfps, bxs)
+  if not cart_data then return false end
+  -- 1. SPRITES section (11)
+  local cur_sprites = cart_data(11)
+  local zlist = {}
+  if cur_sprites and #cur_sprites >= 4 then
+    local n = sunpack("<I2", cur_sprites, 1)
+    for i = 0, n - 1 do
+      local off = 5 + i * 28
+      local name, x, y, w, h, frames, fps = sunpack("<c16I2I2I2I2BB", cur_sprites, off)
+      name = name:match("^[^\0]*")
+      if name ~= zn then
+        zlist[#zlist + 1] = { name = name, x = x, y = y, w = w, h = h, frames = frames, fps = fps }
+      end
+    end
+  end
+  zlist[#zlist + 1] = { name = zn, x = zx, y = zy, w = zw, h = zh, frames = zframes, fps = zfps }
+  local zparts = { spack("<I2I2", #zlist, 0) }
+  for _, z in ipairs(zlist) do
+    zparts[#zparts + 1] = spack("<c16I2I2I2I2BBx2", z.name, z.x, z.y, z.w, z.h, z.frames, z.fps)
+  end
+  cart_data(11, table.concat(zparts))
+
+  -- 2. BOXES section (14)
+  local cur_boxes = cart_data(14)
+  local blist = {}
+  if cur_boxes and #cur_boxes >= 4 then
+    local n = sunpack("<I2", cur_boxes, 1)
+    for i = 0, n - 1 do
+      local off = 5 + i * 28
+      local zname, frame, kind, bx, by, bw, bh = sunpack("<c16BBi2i2I2I2", cur_boxes, off)
+      zname = zname:match("^[^\0]*")
+      if zname ~= zn then
+        blist[#blist + 1] = { zone = zname, frame = frame, kind = kind, x = bx, y = by, w = bw, h = bh }
+      end
+    end
+  end
+  for _, b in ipairs(bxs) do
+    blist[#blist + 1] = { zone = zn, frame = b.frame, kind = b.kind, x = b.x, y = b.y, w = b.w, h = b.h }
+  end
+  if #blist > 0 then
+    local bparts = { spack("<I2I2", #blist, 0) }
+    for _, b in ipairs(blist) do
+      bparts[#bparts + 1] = spack("<c16BBi2i2I2I2x2", b.zone, b.frame, b.kind, b.x, b.y, b.w, b.h)
+    end
+    cart_data(14, table.concat(bparts))
+  end
+  return true
+end
+
 local function start_job()
   local m = M()
   if not m or not S.view then say("no model to draw", C.ERR); return end
   local w, h = sp.size * sp.frames, sp.size * sp.dirs
   if w * h > MAXPX then say(string.format("%dx%d pixels: too many, fewer frames or a smaller size", w, h), C.ERR, 150); return end
-  sp.job = { dir = 0, w = w, h = h, px = {}, phase = "draw" }
+  sp.job = { dir = 0, w = w, h = h, px = {}, boxes = {}, phase = "draw" }
   say("drawing the sprites...", C.ACC, 60)
 end
 
@@ -1378,6 +1489,9 @@ local function job_step()
     for f = 0, sp.frames - 1 do
       local box = { 0, 0, s, s }
       render(view, box, d, frame_time(c, f))
+      if sp.boxes and sp.frame_boxes then
+        j.boxes[d * sp.frames + f] = sp.frame_boxes
+      end
       for y = 0, s - 1 do
         local row = (d * s + y) * j.w + f * s
         for x = 0, s - 1 do
@@ -1437,11 +1551,25 @@ local function job_step()
     S.dirty, S.sheet_dirty = true, true
     S.proj.sheet_w, S.proj.sheet_h = cart_sheet()
     local name = c and c.name or "rest"
+    local zn = (M().name .. "_" .. name):lower():gsub("[^%w_]", "_"):sub(1, 16)
+    local len = c and max(c.length, 0.1) or 1
+    local fps = round(sp.frames / len)
+    local bxs = {}
+    if sp.boxes and j.boxes then
+      for f = 0, sp.frames - 1 do
+        local f_boxes = j.boxes[f] or {}
+        for _, b in ipairs(f_boxes) do
+          bxs[#bxs + 1] = { frame = f + 1, kind = b.kind_num, x = b.x, y = b.y, w = b.w, h = b.h }
+        end
+      end
+    end
+    register_zone_boxes(zn, x0, y0, s, s, sp.frames, fps, bxs)
     sp.last = { string.format("-- %s %s: %d frames x %d directions, %dx%d at (%d,%d)", M().name, name, sp.frames,
                               sp.dirs, s, s, x0, y0),
-                string.format("sspr(%d + f * %d, %d + d * %d, %d, %d, x, y)", x0, s, y0, s, s, s),
-                "f: the frame (0-" .. (sp.frames - 1) .. "), d: the direction (0-" .. (sp.dirs - 1) .. ")" }
-    say(string.format("%d sprites put in the sheet at %d,%d%s", sp.frames * sp.dirs, x0, y0,
+                string.format("zone: \"%s\" (%d fps, %d boxes)  zspr(\"%s\", x, y, f)", zn, fps, #bxs, zn),
+                string.format("sspr(%d + f * %d, %d + d * %d, %d, %d, x, y)", x0, s, y0, s, s, s) }
+    say(string.format("%d sprites%s put in sheet at %d,%d%s", sp.frames * sp.dirs,
+                      #bxs > 0 and (" and " .. #bxs .. " boxes") or "", x0, y0,
                       grew and " (the sheet is bigger now)" or ""), C.ACC, 300)
     sp.job = nil
   end
@@ -1530,7 +1658,17 @@ function sprites_page.draw()
         elseif big then rectfill(zx + x * 2, py + y * 2, 2, 2, p) end
       end
     end
-    print(string.format("direction %d/%d  frame %d/%d", sp.dir % sp.dirs + 1, sp.dirs, f + 1, sp.frames), px,
+    if sp.boxes and sp.frame_boxes then
+      for _, b in ipairs(sp.frame_boxes) do
+        local col = box_colour(b.kind)
+        rect(px + b.x, py + b.y, b.w, b.h, col)
+        if big then
+          rect(zx + b.x * 2, py + b.y * 2, b.w * 2, b.h * 2, col)
+        end
+      end
+    end
+    local nbx = (sp.boxes and sp.frame_boxes and #sp.frame_boxes > 0) and ("  " .. #sp.frame_boxes .. " boxes") or ""
+    print(string.format("direction %d/%d  frame %d/%d%s", sp.dir % sp.dirs + 1, sp.dirs, f + 1, sp.frames, nbx), px,
           (py + (big and s * 2 or s) + 23) // 16 * 16, C.DIM)
   end
   rectfill(0, 16, 320, HINT_Y - 16, C.PANEL)
