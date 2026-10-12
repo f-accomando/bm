@@ -1,0 +1,43 @@
+bm report
+kind: bench3d
+kernel: v0.2.5-204-gcc46b2b-dirty
+branch: claude/m39-attributi-texture
+board: Pi Zero W
+date: 2026-10-12 15:58:50
+file: 20261012-155850_bench3d_pi-zero-w_v0.2.5-204-gcc46b2b-dirty.txt
+
+bm 3D Bench
+kernel v0.2.5-204-gcc46b2b-dirty
+drivers bm3d 7.3 (M39)
+date 2026-10-12 15:58 UTC
+machine ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 44.3 C, throttled 00000
+gpu bm3d 7.3 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures no, ETC1 textures no)
+probes RGBA5551 textures: no order of the fields drew the texels (the type stays unused); RGBA4444 textures: no order of the fields drew the texels (the type stays unused); ETC1 textures: no layout of the blocks drew the texels (ETC1 stays unused); before the vertex shader probe: ERRSTAT 00003000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147; after a vertex shader draw that left nothing: ERRSTAT 00003010 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447; vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+options bm3d 7.3 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 etc1=0 (at the start; each profile sets its own)
+counters ARM1176 PMU
+previous bm/bench/3D0022.TXT
+only tests quad_alpha,quad_texscreen,quad_tex,mix, profiles GPU,T16
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms
+R,quad_tex,GPU,2.1,48.1,101.2,0,13.5,13.6,76,76,152,0,0,1.0,11.9,1667534,1280153,36480,13527132,1,96,96,400,300,2.3,2.7,14,0,0,2188800,5.33,5.44,0.22
+R,quad_tex,GPU+T16,5.2,48.1,101.2,0,13.5,13.6,76,76,152,0,0,1.0,11.9,1663938,1280530,35870,13505836,1,96,96,400,300,2.4,2.6,14,0,0,2188800,5.32,5.45,0.22
+R,quad_alpha,GPU,2.1,43.5,91.8,0,14.8,14.8,76,76,152,0,0,1.0,13.1,1797726,1401719,36211,14774491,1,87,87,400,300,2.4,2.6,14,0,0,2188800,5.89,6.01,0.21
+R,quad_alpha,GPU+T16,5.2,43.5,91.7,0,14.8,14.8,76,76,152,0,0,1.0,13.1,1806065,1402747,37555,14797830,1,87,87,399,300,2.5,2.5,14,0,0,2188800,5.89,6.01,0.21
+R,quad_texscreen,GPU,2.1,39.9,83.9,0,15.0,16.1,76,76,152,0,0,1.0,14.3,1934067,1541273,37385,15986312,1,80,80,400,300,2.4,2.6,14,0,0,2188800,6.45,6.57,0.21
+R,quad_texscreen,GPU+T16,5.2,39.9,83.9,0,15.0,16.0,76,76,152,0,0,1.0,14.3,1930554,1541988,37214,15979143,1,80,80,400,300,2.4,2.6,14,0,0,2188800,6.45,6.57,0.21
+R,mix,GPU,2.1,2.7,6.7,0,13.0,14.0,7840,3518,2816,0,0,2.0,2.1,4206953,225478,224585,13949980,1,9956,4491,400,300,4.6,4.1,18,0,0,7056,-1,-1,-1
+R,mix,GPU+T16,5.2,2.7,6.7,0,13.9,14.0,7840,3518,2816,0,0,2.0,2.1,4207087,217814,225196,13936395,1,9991,4507,400,300,4.6,4.1,18,0,0,7056,-1,-1,-1
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+P,quad_tex,GPU,5.33,5.44,0.22,1.23,4.91,11.04,1.25,5.02,11.29
+P,quad_tex,GPU+T16,5.32,5.45,0.22,1.23,4.91,11.04,1.26,5.02,11.30
+P,quad_alpha,GPU,5.89,6.01,0.21,1.36,5.42,12.21,1.38,5.54,12.46
+P,quad_alpha,GPU+T16,5.89,6.01,0.21,1.36,5.42,12.21,1.38,5.54,12.46
+P,quad_texscreen,GPU,6.45,6.57,0.21,1.49,5.94,13.37,1.51,6.05,13.61
+P,quad_texscreen,GPU+T16,6.45,6.57,0.21,1.49,5.94,13.37,1.51,6.05,13.62
+score 380 (bm3d 7.3 as the games get it, 3 of 24 tests, a part of the bench), GPU bm3d 2.1 380, ARM bm3d 0.2 0; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.3,380,3,0
+S,GPU,2.1,380,3,0
+S,ARM,0.2,0,0,0
+triangles at 60 fps 9956 in the mix (4491 drawn), the most 9956 (mix)
+total 13 s
