@@ -218,6 +218,17 @@ Non conviene per il Lua, CRC, SHA-256, decompressione, il riduttore di poligoni,
 bot, il menu a 1080p. Programmi con `tools/qpuasm.py`, provati sul PC con l'emulatore.
 Riferimenti esterni: GPU_FFT, QPULib, py-videocore, VC4CL. Sulla RGB30 l'ARM finché non c'è
 il driver Mali (M41).
+Strumenti che mancano e servono a M44 (ricerca del 2026-10-12 su `hermanhermitage/videocoreiv-qpu`,
+`rpi-playground`: sorgenti senza licenza, si leggono i fatti e si riscrive; GPU_FFT solo dall'originale
+BSD-3 di raspberrypi/userland). Nell'ordine:
+- Lancio utente con i registri `SRQPC/SRQUA/SRQUL/SRQCS` (0x430..0x43C): per QPU UL, UA, poi PC; fine
+  quando il contatore (bit 23:16 di `SRQCS`) sale di N; serve `VPMBASE` > 0 (oggi 0 in `v3d.c`); QPU
+  bloccata: reset dal mailbox `0x30012`; la riserva `SQRSV0/1` va letta nella guida Broadcom.
+- Salti in `qpuasm.py` e nell'emulatore (3 delay slot): `if` per pixel resta predicato, si salta solo
+  su dati uniformi. Poi DMA della VPM con il mutex, la TMU come lettore di memoria (`t0s` + `ldtmu0`,
+  per una passata bicubic/FSR, R41), i semafori `sacq/srel` per due passaggi e `qpuasm.py --dis`.
+- Controlli in `qpuasm.py`: `ra39/rb39` letti danno spazzatura; immediato piccolo con `ldtmu`/`thrsw`
+  non ammesso. Contatori `PCTR*` (0x670) per il tempo GPU fine: non in queste fonti, nella guida.
 - **Fatto quando:** sul Pi le particelle di Yharnam e il suo buio a livelli li fa la GPU, con
   le misure del 3D Bench e di Yharnam prima e dopo nel report, e senza GPU (QEMU, `gpu3d=0`)
   tutto va come oggi sull'ARM.
@@ -377,6 +388,11 @@ prova senza seriale e spesso senza tastiera).
 - **R40 — Le parti del fotogramma ai giochi.** L'overlay ora misura audio e attesa della GPU:
   due `stat()` nuovi perché il governatore di qualità di Overbit e Yharnam sappia se il collo
   di bottiglia è l'ARM o la GPU, e l'assistente (kb) lo spieghi.
+- **R41 — Disegnare piccolo e ingrandire meglio.** Overbit a 640×360 su GPU, portato a 1080p:
+  oggi lo scaler hardware con `scaling_kernel=8` (pixel netti, nearest). Da provare: un kernel
+  morbido dello scaler (bilinear, gratis) e, come passata QPU a fine fotogramma, bicubic o
+  FSR-style spaziale (EASU + RCAS, senza vettori di movimento). Prima da misurare sul Pi: il
+  costo della passata a 1080p (verosimilmente più di 5 ms) e i kernel che l'HVS accetta.
 
 ### Hardware
 - **R19 — Altri controller Bluetooth.** Oggi via Bluetooth solo il DS4 (più tastiere e
