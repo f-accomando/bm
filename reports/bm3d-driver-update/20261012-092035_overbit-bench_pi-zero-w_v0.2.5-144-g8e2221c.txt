@@ -1,0 +1,20 @@
+bm report
+kind: overbit-bench
+kernel: v0.2.5-144-g8e2221c
+branch: bm3d-driver-update
+board: Pi Zero W
+date: 2026-10-12 09:20:35
+file: 20261012-092035_overbit-bench_pi-zero-w_v0.2.5-144-g8e2221c.txt
+
+options bm3d 6.9 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1 sort=0 3d=gpu later=0 2d=0 impostor=0 fast=0
+overbit bench start: 3 phases (matrix), flags res:640/gpu:vs+q+ql/q:4/secs:4, screen 480x270, GPU, renderers vs q ql
+overbit bench GPU+VS 640x360 EXTREME match 487448
+overbit bench GPU+VS 640x360 EXTREME: 46 fps, 20.0 ms (1% 25.7, worst 47.6, 90% over 16.7), update 7.9, 3D 5.5, gpu 4.2, 25493 tri (max 30847), 0 vtx, 0 px, 43k instr, 2005 KiB Lua, bm3d 3.4
+overbit bench GPU+VS+Q 640x360 EXTREME match 487448
+overbit bench GPU+VS+Q 640x360 EXTREME: 51 fps, 17.2 ms (1% 22.6, worst 33.9, 50% over 16.7), update 9.2, 3D 3.1, gpu 10.0, 25493 tri (max 30847), 0 vtx, 0 px, 43k instr, 2005 KiB Lua, bm3d 4.1
+overbit bench GPU+VS+QL 640x360 EXTREME match 487448
+overbit bench GPU+VS+QL 640x360 EXTREME: 50 fps, 16.5 ms (1% 22.2, worst 32.6, 38% over 16.7), update 8.8, 3D 3.1, gpu 17.8, 25493 tri (max 30847), 0 vtx, 0 px, 43k instr, 2005 KiB Lua, bm3d 6.9
+overbit bench best GPU+VS 640x360: none at 60 fps
+overbit bench best GPU+VS+Q 640x360: none at 60 fps
+overbit bench best GPU+VS+QL 640x360: none at 60 fps
+overbit bench done in 28 s
