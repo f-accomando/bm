@@ -42,6 +42,17 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   RGBA4444 (type 2) is probed the same way but unused: no sheet has alpha between 0 and 1.
   `make test-gpu3d`: same holes, red and blue the same, green a step at most
   (`EMU_T16_ALPHA=1` alpha on top: learned; `=2`: off).
+- `gpu3d_etc1=1` (bm3d 7.3, off; Settings *3D textures: ..., ETC1* also sets `gpu3d_tex16`;
+  3D Bench GPU+ETC1): opaque sheets with sides multiples of the ETC1 tile (64x128, or 128x64
+  for 4x2 utiles) as ETC1 (type 8), encoded in `tex_get` (`etc1_sheet`, encoder
+  `src/gpu/etc1.c`, unit test `make test-etc1`); else the 16-bit / 32-bit chain as before.
+  Layout: `etc1_block` (tiles and utile slots from RGB565's `t16_inner`: `etc1_slots`),
+  `etc1_put` (byte order). `probe_etc1` draws a 128x256 texture of varied blocks for 8
+  candidates (utiles 2x4 then 4x2; bytes BE, words LE, LE, halves swapped) and keeps the first
+  whose sampled texels come back (status `ETC1 textures yes (utiles 2x4, bytes BE)`,
+  `gpu3d_etc1()`, options line `etc1=1`, `stats.etc1`). Emulator: `EMU_ETC1=0` (2x4, BE),
+  `=1` (4x2, LE: learned as a later candidate), `=2` (off). `make test-gpu3d`: same
+  silhouette, 37 dB PSNR against RGB565, worst channel 9.
 
 ## Decisions (from Pi reports, 2026-10-12)
 
@@ -65,7 +76,8 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
    at 640x360, no effect: session at 8 gave 57.7 fps, GPU 7.8 ms a frame, 8588 tris), photo of
    far heroes; then the default for crowds (R42).
 3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs.
-4. M39 remaining: ETC1 (at build), mipmaps; RGBA4444 only if sheets get soft alpha. Attributes:
+4. M39 remaining: ETC1 in the cartridge (encoded at build time, so no encoding at load),
+   mipmaps; RGBA4444 only if sheets get soft alpha. Attributes:
    `vs_tex_rgb` light as bytes (8 -> 6 words), `vs_lit_tex`/`vs_lit_tex2` flags
    and uv as halves (`.16a/.16b`), normals as bytes, then 16-bit positions (scaled per mesh,
    a separate x y z stream for the coordinate shader).
@@ -116,6 +128,10 @@ Reports in branch `reports`; ask the user. The kernel must end in the commit tes
   `./easy_install.sh line "gpu; b3d tests=quad_alpha,quad_texscreen,quad_tex,mix profiles=GPU,T16; send"`
   (GPU+T16 against GPU: `quad_alpha`/`quad_texscreen` are the cut-out sheets); photo of
   trees/fences in Overbit with `gpu3d_tex16=1` (holes as with 0).
+- ETC1 sheets (bm3d 7.3): boot status `ETC1 textures ...` (which layout the TMU took, or
+  `no`), then `./easy_install.sh line "gpu; b3d tests=spheres_tex,heroes_tex,quad_tex,match,mix
+  profiles=GPU,T16,ETC1; send"` (GPU+ETC1 against GPU+T16); photo of a textured scene with
+  `gpu3d_etc1=1` (colours near the 16-bit ones, no block garbage).
 - A played Overbit on the GPU at 640x360, 720p and 1080p (session report): fps, `GPU 3D` ms.
 - 2D on GPU, tex16, WC, `g` test steps 15-16, `menu_scale=3`, each from all-off.
 - Cost of a pixel (`P` lines, `docs/BENCH3D.md` *The reports*): `./easy_install.sh line "gpu;

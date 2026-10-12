@@ -121,13 +121,15 @@ Passi aperti o da provare (la numerazione resta: i passi chiusi sono tolti):
 4. **Due lavori in volo** (`gpu3d_queue=2`, `gpu3d_later=1`): resta la misura sul Pi.
 5. **Texture più leggere**: i ritagli in RGBA5551 fatti (bm3d 7.2, con `gpu3d_tex16`,
    prova all'avvio `probe_cut16`; resta la misura sul Pi: GPU+T16 in `quad_alpha`);
-   RGBA4444 provato all'avvio ma non usato (nessun foglio ha alpha a metà). Restano ETC1
-   (al build) e le mipmap; la prova all'avvio controlla come la TMU legge ogni formato.
+   RGBA4444 provato all'avvio ma non usato (nessun foglio ha alpha a metà). ETC1 all'uso
+   fatto (bm3d 7.3, `gpu3d_etc1=1`, fogli opachi codificati quando si fa la texture, prova
+   all'avvio `probe_etc1`, profilo GPU+ETC1; resta la misura sul Pi). Restano ETC1 nella
+   cartuccia (al build) e le mipmap; la prova all'avvio controlla come la TMU legge ogni formato.
 10. **Il Lua dei giochi** (fuori dal driver): in Overbit circa il 60% del tempo dell'ARM;
     parti calde in C (raggi e collisioni, strade dei bot, particelle), meno allocazioni per
     fotogramma, `frames.py` per misurare; uno studio a parte su LuaJIT (ARMv6) sul bare metal.
 - **Da provare sul Pi:** test `g` (la riga di stato: `indexed`, `16-bit textures`,
-  `two-thread shaders`, `compact attributes`, `alpha textures`), 3D Bench con i profili GPU+VS+Q2, GPU+T16, GPU+FS2, GPU+VS+S, GPU+VS+A8, il
+  `two-thread shaders`, `compact attributes`, `alpha textures`, `ETC1 textures`), 3D Bench con i profili GPU+VS+Q2, GPU+T16, GPU+FS2, GPU+VS+S, GPU+VS+A8, GPU+ETC1, il
   benchmark di Overbit con le opzioni accese; `gpu3d_later=1` contro `0` con `gpu3d_queue=2`
   (`docs/progress/v3d.md`).
 - **Fatto quando:** sul Pi il test `big` regge almeno il doppio dei triangoli a 60 fps di

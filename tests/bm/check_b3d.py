@@ -38,7 +38,7 @@ def main():
         if t == "gpu2d":
             need |= {"GPU+2D"}
         if t in ("spheres_tex", "heroes_tex", "quad_tex", "match", "mix"):
-            need |= {"GPU+T16", "GPU+FS2"}
+            need |= {"GPU+T16", "GPU+FS2", "GPU+ETC1"}     # bm3d 7.3: the opaque sheets as ETC1
         if t in ("heroes_skin", "quad_alpha", "quad_texscreen"):
             need |= {"GPU+FS2"}             # bm3d 6.3: every textured shader with two threads
         if t in ("spheres", "heroes", "match", "big", "big_logic"):

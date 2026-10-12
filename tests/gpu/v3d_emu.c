@@ -17,6 +17,7 @@
  * (test_aligned_alloc), bus = 0x40000000 + offset in the arena.
  */
 #include "v3d_emu.h"
+#include "gpu/etc1.h"
 #include "gpu/shaders.h"
 #include "gpu/v3d.h"
 
@@ -28,6 +29,7 @@
 int emu_red_a = 1, emu_tex_swap = 0;
 int emu_tformat = 0;                    /* the order of the 1 KiB subtiles of a T-format tile */
 int emu_t16_alpha = 0;                  /* M39: alpha's bits in RGBA5551 / RGBA4444 (v3d_emu.h) */
+int emu_etc1 = 0;                       /* M39: the layout of ETC1 textures (v3d_emu.h) */
 int emu_ms_load_one = 0;                /* MSAA: a colour load fills sample 0 only (else all 4) */
 int emu_skip = 0;                       /* jobs only counted, not run (ARM instruction counts) */
 int emu_no_threads = 0;                 /* M39: jobs with two-thread fragment shaders do not end */
@@ -1042,6 +1044,7 @@ static uint8_t unit8(float f)
 
 static uint32_t t_index(int x, int y, int w);
 static uint32_t t16_index(int x, int y, int w);
+static uint32_t etc1_index(int bx, int by, int wb);
 
 /* a texel of the texture at (x, y) as bytes a b c d: RGBA32R in rows,
  * RGBA8888 in T-format, or (M39) RGB565 in T-format, its top five bits in
@@ -1066,6 +1069,16 @@ static uint32_t texel_at(const uint32_t *tex, int type, int x, int y, int w)
 #define WIDEN(c) (n == 4 ? (c) << 4 | (c) : (c) << 3 | (c) >> 2)
         t = (m == 1 ? (a ? 255u : 0u) : a << 4 | a) << 24 | WIDEN(hi) << 16 | WIDEN(g) << 8 | WIDEN(lo);
 #undef WIDEN
+    } else if (type == 8) {
+        /* M39 (bm3d 7.3): ETC1, decoded as the format says; red in byte c
+         * as RGB565's top bits */
+        if (emu_etc1 == 2)
+            return 0;
+        const uint8_t *p = (const uint8_t *)tex + (size_t)etc1_index(x / 4, y / 4, (w + 3) / 4) * 8;
+        uint64_t b = 0;
+        for (int k = 0; k < 8; k++)
+            b |= (uint64_t)p[k] << (emu_etc1 ? 8 * k : 56 - 8 * k);
+        t = 0xFF000000u | etc1_texel(b, x & 3, y & 3);
     } else {
         t = type == 16 ? tex[y * w + x] : tex[t_index(x, y, w)];
     }
@@ -1195,6 +1208,26 @@ static uint32_t t16_index(int x, int y, int w)
     const int sub = emu_tformat ? plain[sy][sx] : (ty & 1 ? odd : even)[sy][sx];
     return (uint32_t)(ty * tpr + tx) * 2048u + (uint32_t)sub * 512u +
            (uint32_t)((y / 4 & 3) * 4 + (x / 8 & 3)) * 32u + (uint32_t)((y & 3) * 8 + (x & 7));
+}
+
+/* M39 (bm3d 7.3): the 8-byte place of ETC1 block (bx, by) in a texture wb
+ * blocks wide, as the emulator lays it out: tiles of 4 KiB in rows, odd
+ * rows right to left; in a tile four 1 KiB subtiles in a C (or as
+ * emu_tformat says, as RGB565's); in a subtile 4 x 4 utiles of 64 bytes,
+ * raster; in a utile 2 x 4 blocks (4 x 2 with emu_etc1 1), raster */
+static uint32_t etc1_index(int bx, int by, int wb)
+{
+    static const uint8_t even[2][2] = { { 0, 3 }, { 1, 2 } }, odd[2][2] = { { 2, 1 }, { 3, 0 } },
+                         plain[2][2] = { { 0, 1 }, { 2, 3 } };
+    const int uw = emu_etc1 == 1 ? 4 : 2, uh = 8 / uw, tw = 8 * uw, th = 8 * uh;
+    const int tpr = (wb + tw - 1) / tw, ty = by / th;
+    int tx = bx / tw;
+    if (ty & 1)
+        tx = tpr - 1 - tx;
+    const int ux = bx % tw / uw, uy = by % th / uh, sx = ux / 4, sy = uy / 4;
+    const int sub = emu_tformat ? plain[sy][sx] : (ty & 1 ? odd : even)[sy][sx];
+    return (uint32_t)(ty * tpr + tx) * 512u + (uint32_t)sub * 128u + (uint32_t)((uy & 3) * 4 + (ux & 3)) * 8u +
+           (uint32_t)((by % uh) * uw + bx % uw);
 }
 
 static float edge(const evert_t *a, const evert_t *b, float x, float y)

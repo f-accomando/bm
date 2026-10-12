@@ -29,6 +29,10 @@ reproduce (`docs/DRIVERS.md`):
 - **GPU+T16**: the GPU with 16-bit textures (`gpu3d_tex16`): opaque sheets as RGB565 (bm3d
   5.2) and, from 7.2, cut-out sheets as RGBA5551; in the textured tests, `quad_alpha` and
   `quad_texscreen` (the cut-out sheet), `match`, `mix`.
+- **GPU+ETC1**: GPU+T16 with the opaque sheets as ETC1 (bm3d 7.3, `gpu3d_etc1`: 4 bits a
+  texel, encoded when the texture is made; the cut-outs stay RGBA5551), so against GPU+T16 it
+  measures ETC1 alone; in `spheres_tex`, `heroes_tex`, `quad_tex`, `match`, `mix` (the bench's
+  sheets are 128×128, opaque). Summary column `ETC1`.
 
 A profile the GPU cannot do (the boot probes turned it off) has no row.
 At each step `n` grows by a third until a frame exceeds **40 ms**; the loads at
@@ -187,8 +191,8 @@ bench logs its mean per step as `gpu` next to `update` and `3D`: close to the fr
 GPU sets the pace; well under it, the ARM does.
 
 So runs can be compared, every report says the 3D options in force on one `options` line
-(`gpu3d_options_line`): `bm3d 7.2 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1
-sort=0 attr=0` (`gpu3d=off` without the V3D), plus `3d= later= 2d= impostor= fast=` in the session
+(`gpu3d_options_line`): `bm3d 7.3 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1
+sort=0 attr=0 etc1=0` (`gpu3d=off` without the V3D), plus `3d= later= 2d= impostor= fast=` in the session
 report (second line, as the run ended) and on top of a game's `report()` (the Overbit
 bench's `overbit-bench`). The 3D Bench takes it at its start (each profile then sets its
 own), the GPU test (`g`) prints it at its end.

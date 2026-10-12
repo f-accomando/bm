@@ -1,4 +1,5 @@
 #include "gpu3d.h"
+#include "etc1.h"
 #include "shaders.h"
 #include "version3d.h"
 #include "v3d.h"
@@ -109,9 +110,13 @@ typedef struct {
     int cw, ch;                     /* the sheet's cells */
     uint32_t *holes;                /* (cw+1) x (ch+1): cells not opaque above and left of each corner */
     uint32_t used;                  /* when a job last took it (G.tick), for the least recent */
-    int bits16;                     /* M39: 16-bit texels (gpu3d_tex16): 1 RGB565 (an opaque sheet), 2
-                                     * RGBA5551 (a sheet with transparent texels, bm3d 7.2) */
+    int fmt;                        /* its texels (TF_...): 32 bits, 16 (gpu3d_tex16) or ETC1 (gpu3d_etc1) */
 } tex_t;
+
+/* the texels of a sheet's texture: RGBA8888 or RGBA32R; M39: RGB565 (an
+ * opaque sheet), RGBA5551 (a sheet with transparent texels, bm3d 7.2), ETC1
+ * (an opaque sheet, bm3d 7.3) */
+enum { TF_32, TF_565, TF_5551, TF_ETC1 };
 
 /* M35: up to 8 sheets in a job (bm3d 4.6; 2 before: a third ended the
  * job, the 3D Bench's texswap ran slower on the GPU than on the ARM) */
@@ -151,7 +156,7 @@ typedef struct {
 static struct {
     int ready, failed;
     const char *status;
-    char why[384];
+    char why[448];
     uint8_t *block;
     uint8_t *tsda, *alloc, *overflow, *zbuf, *bcl, *rcl, *recs, *code;
     uint16_t *probe;
@@ -193,7 +198,15 @@ static struct {
      * and how their fields go in the word (CUT_SWAP: red and blue swapped
      * against RGB565, CUT_AHI: alpha in the top bits, else in the low ones) */
     int cut_ok[2], cut_mode[2];
-    int fs2_ok, fs2_on;             /* M39: the probe saw the two-thread shaders draw as the others;
+    /* M39 (bm3d 7.3): ETC1 (type 8) for the opaque sheets, learned by the
+     * probe (ok) on the RGB565 layout: 64-byte utiles of 8 blocks (e1_uw
+     * blocks wide) in the 4 KiB tiles, each utile's place in its tile as
+     * RGB565's (e1_slot, [row of tiles & 1][utile row * 8 + utile column]);
+     * the block's bytes in order e1_order (ETC1_...), red and blue swapped
+     * (e1_swap); asked for (gpu3d_set_etc1) */
+    int etc1_ok, etc1_on, e1_uw, e1_order, e1_swap;
+    uint8_t e1_slot[2][64];
+    int fs2_ok, fs2_on;            /* M39: the probe saw the two-thread shaders draw as the others;
                                      * asked for (gpu3d_set_fs2) */
     int sort_on;                    /* M39: the opaque meshes front to back (gpu3d_set_sort) */
     int attr_ok, attr_on;           /* M39: the probe saw the compact attributes draw as the floats;
@@ -379,6 +392,69 @@ static uint16_t cut16_of(int f, uint32_t p, uint32_t g, uint32_t s, uint32_t a)
     return (uint16_t)(mode & CUT_AHI ? a << 3 * n | rgb : rgb << m | a);
 }
 
+/* M39 (bm3d 7.3): the orders of a block's 8 bytes the probe tries (the
+ * format's 64 bits, etc1.h): big-endian as the format (Mesa's vc4 uploads
+ * the GL's blocks as they come); two little-endian words, the high one
+ * first; all 8 little-endian (one 64-bit word of the ARM); big-endian with
+ * the halves swapped */
+enum { ETC1_BE, ETC1_WORDS_LE, ETC1_LE, ETC1_HALVES };
+
+/* the sides of an ETC1 tile (4 KiB: 8 x 8 utiles of 8 blocks), in texels */
+static int etc1_tile_w(void)
+{
+    return 8 * G.e1_uw * 4;
+}
+
+static int etc1_tile_h(void)
+{
+    return 8 * (8 / G.e1_uw) * 4;
+}
+
+/* the 8-byte place of block (bx, by) in an ETC1 T-format texture wb blocks
+ * wide (a multiple of the tile's): tiles in rows as RGB565's (odd rows
+ * reversed if those are), the utile where RGB565's utile of that row and
+ * column of the tile is, the blocks of a utile in rows */
+static uint32_t etc1_block(int bx, int by, int wb)
+{
+    const int uw = G.e1_uw, uh = 8 / uw, tw = 8 * uw, th = 8 * uh, tpr = wb / tw, ty = by / th;
+    int tx = bx / tw;
+    if ((ty & 1) && G.t16_rev)
+        tx = tpr - 1 - tx;
+    return (uint32_t)(ty * tpr + tx) * 512u + G.e1_slot[ty & 1][(by % th / uh) * 8 + bx % tw / uw] * 8u +
+           (uint32_t)((by % uh) * uw + bx % uw);
+}
+
+/* block b at place (etc1_block) with its bytes in the order learned */
+static void etc1_put(uint8_t *texels, uint32_t place, uint64_t b)
+{
+    uint8_t *o = texels + (size_t)place * 8;
+    for (int k = 0; k < 8; k++) {
+        const int sh = G.e1_order == ETC1_BE ? 56 - 8 * k : G.e1_order == ETC1_WORDS_LE ? (k < 4 ? 32 + 8 * k : 8 * (k - 4))
+                     : G.e1_order == ETC1_LE ? 8 * k : (k < 4 ? 24 - 8 * k : 88 - 8 * k);
+        o[k] = (uint8_t)(b >> sh);
+    }
+}
+
+/* each utile's place in its tile, from RGB565's (its utiles 8 x 4 texels,
+ * 32 of its words) */
+static void etc1_slots(void)
+{
+    for (int row = 0; row < 2; row++)
+        for (int j = 0; j < 8; j++)
+            for (int i = 0; i < 8; i++)
+                G.e1_slot[row][j * 8 + i] = (uint8_t)(G.t16_inner[row][j * 4 * 64 + i * 8] / 32);
+}
+
+/* an opaque sheet as ETC1 blocks in the layout learned */
+static void etc1_sheet(uint32_t *texels, const g16_sheet_t *s)
+{
+    const int wb = s->w / 4, hb = s->h / 4;
+    for (int by = 0; by < hb; by++)
+        for (int bx = 0; bx < wb; bx++)
+            etc1_put((uint8_t *)texels, etc1_block(bx, by, wb),
+                     etc1_encode(s->px + (size_t)by * 4 * (size_t)s->w + (size_t)bx * 4, s->w, G.e1_swap));
+}
+
 /* the texture of a sheet, made again when the sheet changed: T-format
  * (RGBA8888 in tiles) when the probe learned it and the sides are
  * multiples of 32, else RGBA32R (rows); NULL if it cannot be one (larger
@@ -435,14 +511,23 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
     /* bm3d 7.2: a sheet with transparent texels as RGBA5551 (its alpha is
      * 0 or 1: nothing lost but green's last bit) where the probe learned it */
     const int t16_ok = G.tex16_on && G.tf16 && !G.tformat_off && s->w % 64 == 0 && s->h % 32 == 0;
-    const int bits16 = !t16_ok ? 0 : opaque_all ? 1 : G.cut_ok[0] ? 2 : 0;
-    t->bits16 = bits16;
-    if (bits16 == 1) {
+    /* bm3d 7.3: an opaque sheet as ETC1 (4 bits a texel: an eighth of the
+     * memory, a quarter of RGB565's) where the probe learned the layout and
+     * gpu3d_etc1 asks for it; its sides multiples of the ETC1 tile's (64 x
+     * 128 texels, or 128 x 64: etc1_tile_w/h); else the 16 bits, else 32 */
+    const int e1 = G.etc1_on && G.etc1_ok && !G.tformat_off && opaque_all && s->w % etc1_tile_w() == 0 &&
+                   s->h % etc1_tile_h() == 0;
+    const int fmt = e1 ? TF_ETC1 : !t16_ok ? TF_32 : opaque_all ? TF_565 : G.cut_ok[0] ? TF_5551 : TF_32;
+    t->fmt = fmt;
+    if (fmt == TF_ETC1) {
+        etc1_sheet(t->texels, s);
+        G.st.etc1++;
+    } else if (fmt == TF_565) {
         uint16_t *t16 = (uint16_t *)t->texels;
         for (int y = 0; y < s->h; y++)
             for (int x = 0; x < s->w; x++)
                 t16[t16_word(x, y, s->w)] = texel16_of(s->px[(uint32_t)y * (uint32_t)s->w + (uint32_t)x]);
-    } else if (bits16 == 2) {
+    } else if (fmt == TF_5551) {
         uint16_t *t16 = (uint16_t *)t->texels;
         for (int y = 0; y < s->h; y++)
             for (int x = 0; x < s->w; x++) {
@@ -464,7 +549,7 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
      * (16: low bits 0 here, bit 4 in P1); P1: type bit 4, height and width
      * (2048 is 0), nearest texel when magnified and minified, clamp in s
      * and t */
-    t->params = t->texels + (bits16 ? (n + 1) / 2 : n);
+    t->params = t->texels + (fmt == TF_ETC1 ? n / 8 : fmt != TF_32 ? (n + 1) / 2 : n);
     /* the cells that are not opaque, summed over areas: any box of cells
      * is checked in four reads (tex_opaque) */
     t->cw = cw;
@@ -480,9 +565,10 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
             row[x + 1] = above[x + 1] + run;
         }
     }
-    t->params[0] = (v3d_bus(t->texels) & ~0xFFFu) | (bits16 == 1 ? 4u << 4 : bits16 == 2 ? 3u << 4 : 0);
-    /* type 4: RGB565, 3: RGBA5551 */
-    t->params[1] = (tiled || bits16 ? 0 : 1u << 31) | (uint32_t)(s->h & 2047) << 20 | (uint32_t)(s->w & 2047) << 8 |
+    t->params[0] = (v3d_bus(t->texels) & ~0xFFFu) |
+                   (fmt == TF_ETC1 ? 8u << 4 : fmt == TF_565 ? 4u << 4 : fmt == TF_5551 ? 3u << 4 : 0);
+    /* type 8: ETC1, 4: RGB565, 3: RGBA5551 */
+    t->params[1] = (tiled || fmt != TF_32 ? 0 : 1u << 31) | (uint32_t)(s->h & 2047) << 20 | (uint32_t)(s->w & 2047) << 8 |
                    (G.bilinear ? 0 : 1u << 7 | 1u << 4) | 1u << 2 | 1u;     /* M37: linear (0) or nearest */
     t->params[2] = t->params[0];        /* the same, always the nearest texel: 2D (M37) */
     t->params[3] = t->params[1] | 1u << 7 | 1u << 4;
@@ -2498,6 +2584,23 @@ int gpu3d_tex16(void)
     return G.tf16 && G.tex16_on ? (G.cut_ok[0] ? 2 : 1) : 0;
 }
 
+/* M39 (bm3d 7.3): opaque sheets as ETC1 (an eighth of the bytes the TMU
+ * reads), where the probe learned the layout; the textures made so far are
+ * made again */
+void gpu3d_set_etc1(int on)
+{
+    if (G.etc1_on == !!on)
+        return;
+    G.etc1_on = !!on;
+    for (int i = 0; i < NTEX; i++)
+        G.tex[i].version = ~G.tex[i].version;
+}
+
+int gpu3d_etc1(void)
+{
+    return G.etc1_ok && G.etc1_on;
+}
+
 /* M39: the opaque textured faces' shaders with two threads (gpu3d_fs2=1) */
 void gpu3d_set_fs2(int on)
 {
@@ -2751,9 +2854,10 @@ int gpu3d_options_line(char *buf, size_t n)
     if (!gpu3d_ready())
         ksnprintf(buf, n, "bm3d %s gpu3d=off", BM3D_VERSION);
     else
-        ksnprintf(buf, n, "bm3d %s gpu3d=on vs=%d aa=%d queue=%d wc=%d filter=%d tex16=%d fs2=%d sort=%d attr=%d",
+        ksnprintf(buf, n, "bm3d %s gpu3d=on vs=%d aa=%d queue=%d wc=%d filter=%d tex16=%d fs2=%d sort=%d attr=%d "
+                  "etc1=%d",
                   BM3D_VERSION, gpu3d_vshader_on(), gpu3d_msaa_on(), gpu3d_queue2() ? 2 : gpu3d_queue(), gpu3d_wc(),
-                  gpu3d_bilinear(), gpu3d_tex16(), gpu3d_fs2(), gpu3d_sort(), gpu3d_attr());
+                  gpu3d_bilinear(), gpu3d_tex16(), gpu3d_fs2(), gpu3d_sort(), gpu3d_attr(), gpu3d_etc1());
     return (int)strlen(buf);
 }
 
@@ -2940,6 +3044,102 @@ static int probe_cut16(const g16_t *pg, int f)
               f ? "RGBA4444" : "RGBA5551");
     plog(line);
     G.cut_mode[f] = 0;
+    return 0;
+}
+
+/* M39 (bm3d 7.3): ETC1 (type 8) in T-format. A 128 x 256 texture of blocks
+ * whose fields differ (both modes, both splits, every table, the indices at
+ * random; the differences kept in range) is drawn on the probe's 64 x 64
+ * buffer four times (two texels a pixel across, four down, shifted each
+ * time: half the texels of every block seen) for each candidate layout:
+ * the utiles 2 x 4 blocks (as Mesa's vc4 sizes the utiles of 64-bit
+ * blocks) or 4 x 2, placed in the tile as RGB565's utiles (etc1_slots),
+ * with each of the four byte orders (ETC1_...). 1 with the first where
+ * every pixel is its texel as decoded (etc1_texel; as it is, or red and
+ * blue swapped), a step of RGB565 allowed, learned into e1_uw, e1_order
+ * and e1_swap; 0 if none gives it (ETC1 stays unused) */
+static int probe_etc1(const g16_t *pg)
+{
+    enum { TW = 128, TH = 256, WB = TW / 4, HB = TH / 4 };
+    static tex_t pt;
+    static uint64_t blk[WB * HB];
+    uint32_t r = 0x2545F491u;
+    for (int i = 0; i < WB * HB; i++) {
+        uint32_t f[3];
+        for (int k = 0; k < 3; k++) {
+            r ^= r << 13;
+            r ^= r >> 17;
+            r ^= r << 5;
+            f[k] = r;
+        }
+        const int diff = (i ^ i / WB) & 1, flip = (i / 2 ^ i / WB / 2) & 1;
+        uint64_t b = (uint64_t)diff << 33 | (uint64_t)flip << 32 | (uint64_t)(f[1] & 63) << 34 | f[2];
+        for (int c = 0; c < 3; c++) {
+            if (diff) {
+                const int v = (int)(f[0] >> (5 * c) & 31);
+                int d = (int)(f[0] >> (15 + 3 * c) & 7);
+                if (v + (d >= 4 ? d - 8 : d) < 0 || v + (d >= 4 ? d - 8 : d) > 31)
+                    d = 0;
+                b |= (uint64_t)v << (59 - 8 * c) | (uint64_t)d << (56 - 8 * c);
+            } else {
+                b |= (uint64_t)(f[0] >> (8 * c) & 255) << (56 - 8 * c);
+            }
+        }
+        blk[i] = b;
+    }
+    etc1_slots();
+    pt.texels = G.probe_tex;
+    pt.w = TW;
+    pt.h = TH;
+    /* its parameters past those of the probe's quad (probe(): the later
+     * probes draw with them as the 16-bit probe left them) */
+    pt.params = G.probe_tex + TW * TH / 8 + 8;
+    pt.inv_w = 1.0f / TW;
+    pt.inv_h = 1.0f / TH;
+    pt.params[0] = (v3d_bus(pt.texels) & ~0xFFFu) | 8u << 4;
+    pt.params[1] = (uint32_t)TH << 20 | (uint32_t)TW << 8 | 1u << 7 | 1u << 4 | 1u << 2 | 1u;
+    static const float q[4][2] = { { 0, 0 }, { PROBE_W, 0 }, { PROBE_W, PROBE_H }, { 0, PROBE_H } };
+    for (int k = 0; k < 8; k++) {
+        G.e1_uw = k < 4 ? 2 : 4;
+        G.e1_order = k & 3;
+        for (int by = 0; by < HB; by++)
+            for (int bx = 0; bx < WB; bx++)
+                etc1_put((uint8_t *)pt.texels, etc1_block(bx, by, WB), blk[by * WB + bx]);
+        int ok[2] = { 1, 1 };
+        for (int d = 0; d < 4 && (ok[0] || ok[1]); d++) {
+            const int ox = d & 1, oy = d;
+            r3d_corner_t v[4];
+            for (int i = 0; i < 4; i++)
+                v[i] = (r3d_corner_t){ q[i][0], q[i][1], 1.0f, 2 * q[i][0] + (float)ox - 0.5f,
+                                       4 * q[i][1] + (float)oy - 1.5f, 1.0f, { 0, 0, 0 }, { 0, 0, 0 } };
+            const r3d_corner_t a[3] = { v[0], v[1], v[2] }, b[3] = { v[0], v[2], v[3] };
+            memset(G.probe, 0, JOB_PROBE);
+            add_tri(pg, a, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
+            add_tri(pg, b, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
+            if (gpu3d_flush(pg, 0) != 0 || G.failed)
+                return 0;
+            for (int y = 0; y < PROBE_H; y++)
+                for (int x = 0; x < PROBE_W; x++) {
+                    const int tx = 2 * x + ox, ty = 4 * y + oy;
+                    const uint32_t c = etc1_texel(blk[ty / 4 * WB + tx / 4], tx & 3, ty & 3);
+                    const uint16_t got = G.probe[y * PROBE_W + x];
+                    for (int sw = 0; sw < 2; sw++) {
+                        const uint32_t hi = (sw ? c : c >> 16) & 255, lo = (sw ? c >> 16 : c) & 255;
+                        const int dr = (int)(got >> 11) - (int)(hi >> 3), dg = (int)(got >> 5 & 63) - (int)(c >> 10 & 63),
+                                  db = (int)(got & 31) - (int)(lo >> 3);
+                        if (dr < -1 || dr > 1 || dg < -1 || dg > 1 || db < -1 || db > 1)
+                            ok[sw] = 0;
+                    }
+                }
+        }
+        if (ok[0] || ok[1]) {
+            G.e1_swap = !ok[0];
+            return 1;
+        }
+    }
+    plog("ETC1 textures: no layout of the blocks drew the texels (ETC1 stays unused)");
+    G.e1_uw = 2;
+    G.e1_order = 0;
     return 0;
 }
 
@@ -3601,6 +3801,7 @@ static int probe(void)
         plog("RGB565 textures in T-format: not learned (the textures stay 32-bit)");
     for (int f = 0; f < 2; f++)         /* bm3d 7.2: RGBA5551, RGBA4444 */
         G.cut_ok[f] = G.tf16 && !G.failed ? soft(probe_cut16(&pg, f), "the 16-bit alpha textures' probe") : 0;
+    G.etc1_ok = G.tf16 && !G.failed ? soft(probe_etc1(&pg), "the ETC1 textures' probe") : 0;    /* bm3d 7.3 */
     G.ms_ok = probe_ms();
     G.idx_ok = 0;                       /* the vertex shader's probe draws corners in a row */
     G.gl_ok = soft(probe_gl(&pg), "the vertex shader's probe");
@@ -3661,9 +3862,14 @@ int gpu3d_init(void)
     wc_apply();                         /* the probes ran with the block cached */
     static const char *const ms[3] = { "no", "on cleared pages", "on any page" };
     static const char *const clips[3] = { "no", "yes", "yes (Z planes)" };
+    static const char *const e1_orders[4] = { "BE", "words LE", "LE", "halves swapped" };
+    char e1[48] = "";                   /* the ETC1 layout learned (bm3d 7.3) */
+    if (G.etc1_ok)
+        ksnprintf(e1, sizeof e1, "yes (utiles %dx%d, bytes %s)", G.e1_uw, 8 / G.e1_uw, e1_orders[G.e1_order & 3]);
     ksnprintf(G.why, sizeof G.why, "bm3d " BM3D_VERSION " ready (byte a = %s, texels %s, textures %s, MSAA %s, "
               "16-bit textures %s, two-thread shaders %s, vertex shader %s%s, indexed %s, "
-              "clipping %s, lit models %s, queue %s, zclear in job %s, compact attributes %s, alpha textures %s)",
+              "clipping %s, lit models %s, queue %s, zclear in job %s, compact attributes %s, alpha textures %s, "
+              "ETC1 textures %s)",
               G.red_a ? "red" : "blue",
               G.tex_swap ? "swapped" : "in place", G.tformat ? "in tiles" : "in rows", ms[G.ms_ok],
               G.tf16 ? "yes" : "no", G.fs2_ok ? "yes" : "no",
@@ -3671,7 +3877,8 @@ int gpu3d_init(void)
                                                                                  : "yes (VPM in words)")) : "no",
               G.gl_ok && G.gl_clip_all ? " (clipper always on)" : "", G.idx_ok ? "yes" : "no", clips[G.clip_ok], G.lit_ok ? "yes" : "no",
               G.queue_ok ? "yes" : "no", G.zclear_ok ? "yes" : "no", G.attr_ok ? "yes" : "no",
-              G.cut_ok[0] ? (G.cut_ok[1] ? "RGBA5551 RGBA4444" : "RGBA5551") : G.cut_ok[1] ? "RGBA4444" : "no");
+              G.cut_ok[0] ? (G.cut_ok[1] ? "RGBA5551 RGBA4444" : "RGBA5551") : G.cut_ok[1] ? "RGBA4444" : "no",
+              G.etc1_ok ? e1 : "no");
     G.status = G.why;
     G.ready = 1;
     return 0;

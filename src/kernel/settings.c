@@ -509,9 +509,9 @@ void home_panel(int id, home_panel_t *p)
                  "Drawn by the ARM after the GPU, or by the GPU in the same job", "%s",
                  gpu2d_on() ? "GPU" : "ARM");
         home_row(p, MENU_ROW_CHOICE, R_FILTER, "3D textures",
-                 "Nearest texel or filtered (smoother); 16-bit: opaque ones in half the memory", "%s",
-                 filter_on() ? (config_on("gpu3d_tex16") ? "Bilinear, 16-bit" : "Bilinear")
-                             : (config_on("gpu3d_tex16") ? "Nearest, 16-bit" : "Nearest"));
+                 "Nearest or filtered; 16-bit: half the memory; ETC1: opaque ones in an eighth",
+                 "%s%s", filter_on() ? "Bilinear" : "Nearest",
+                 config_on("gpu3d_etc1") ? ", ETC1" : config_on("gpu3d_tex16") ? ", 16-bit" : "");
         home_row(p, MENU_ROW_CHOICE, R_WC, "3D job memory",
                  "Cached, or uncached with the ARM's writes merged (compare: 3D Bench)", "%s",
                  wc_on() ? "Uncached" : "Cached");
@@ -1076,13 +1076,17 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "2D over the 3D of the next game: %s", gpu2d_on() ? "GPU" : "ARM");
         break;
     case R_FILTER: {
-        /* nearest, bilinear, nearest 16-bit, bilinear 16-bit (M37, M39) */
-        const int k = (filter_on() + 2 * config_on("gpu3d_tex16") + 1) & 3;
+        /* nearest, bilinear, nearest 16-bit, bilinear 16-bit (M37, M39),
+         * nearest ETC1, bilinear ETC1 (bm3d 7.3: the opaque sheets as ETC1,
+         * the cut-outs in 16 bits) */
+        const int level = config_on("gpu3d_etc1") ? 2 : config_on("gpu3d_tex16") ? 1 : 0;
+        const int k = (filter_on() + 2 * level + 1) % 6;
         config_set("gpu3d_filter", k & 1 ? "1" : "0");
-        config_set("gpu3d_tex16", k & 2 ? "1" : "0");
+        config_set("gpu3d_tex16", k >= 2 ? "1" : "0");
+        config_set("gpu3d_etc1", k >= 4 ? "1" : "0");
         config_save();
         ksnprintf(d->note, sizeof d->note, "3D textures of the next game: %s%s", k & 1 ? "bilinear" : "nearest",
-                  k & 2 ? ", 16-bit" : "");
+                  k >= 4 ? ", ETC1" : k >= 2 ? ", 16-bit" : "");
         break;
     }
     case R_WC:

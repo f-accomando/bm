@@ -119,6 +119,16 @@ int gpu3d_bilinear(void);
 void gpu3d_set_tex16(int on);
 int gpu3d_tex16(void);
 
+/* M39 (bm3d 7.3): opaque sheets as ETC1 textures (gpu3d_etc1=1: 4 bits a
+ * texel, a quarter of RGB565's reads; the colours near the sheet's, not
+ * the same), encoded when the sheet's texture is made, where the probe
+ * learned the TMU's layout of the blocks (status "ETC1 textures yes (...)")
+ * and the sheet's sides are multiples of the ETC1 tile's (64 x 128 texels,
+ * or 128 x 64 for the other utile shape); else the sheet goes as before
+ * (gpu3d_tex16, else 32 bits). gpu3d_etc1(): asked for and possible. */
+void gpu3d_set_etc1(int on);
+int gpu3d_etc1(void);
+
 /* M39: the opaque textured faces shaded with two threads a QPU
  * (gpu3d_fs2=1), where the probe saw them draw the same pixels: one thread
  * runs while the other waits for its texel. gpu3d_fs2(): asked for and
@@ -199,6 +209,7 @@ typedef struct {
      * wait (an upper bound, it may hold a pause) */
     uint32_t untimed, late_us;
     uint32_t cut16;                 /* sheets with transparent texels made as RGBA5551 textures (bm3d 7.2) */
+    uint32_t etc1;                  /* opaque sheets made as ETC1 textures (bm3d 7.3) */
 } gpu3d_stats_t;
 
 /* the GPU's work in s, microseconds: the jobs timed, and the untimed ones
@@ -214,9 +225,9 @@ static inline uint32_t gpu3d_busy_us(const gpu3d_stats_t *s)
 }
 
 /* The driver's options in force, one line for the reports (so runs can be
- * compared): "bm3d 7.2 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0
- * fs2=1 sort=0 attr=0" (what is asked and possible: vs the vertex shader's
- * level, queue 0, 1 or 2 jobs, tex16 as gpu3d_tex16()), or "bm3d 7.2 gpu3d=off" when the V3D is not
+ * compared): "bm3d 7.3 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0
+ * fs2=1 sort=0 attr=0 etc1=0" (what is asked and possible: vs the vertex shader's
+ * level, queue 0, 1 or 2 jobs, tex16 as gpu3d_tex16()), or "bm3d 7.3 gpu3d=off" when the V3D is not
  * running (the ARM, QEMU, the PC's stubs, the RGB30). The runtime adds its
  * own (later, 2d, impostor, fast). The length written. */
 int gpu3d_options_line(char *buf, size_t n);

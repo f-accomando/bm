@@ -52,6 +52,8 @@ static const char *ppm_dir;
 
 static g16_sheet_t sheet, sheet2, sheet3;
 static g16_sheet_t sheets10[10];        /* more sheets than the backend keeps in a job (8) */
+static g16_sheet_t sheet_e;             /* M39 (bm3d 7.3): opaque 128x128, gradients and checkers (ETC1) */
+static r3d_mesh_t quad_e;               /* a quad over the whole of sheet_e */
 static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass, lit_box, hero, hero_tex, hero_skin;
 static r3d_mesh_t quad_s, lit_quad_s, lit_box_s;     /* M34: textured screen-door faces */
 static r3d_mesh_t grid_shuffled;        /* M39: a grid whose faces come in no order */
@@ -102,6 +104,16 @@ static void make_sheet(void)
             for (int cx = 0; cx < 8; cx++)
                 g16_sheet_update_cell(&sheets10[k], cx, cy);
     }
+    g16_sheet_alloc(&sheet_e, 128, 128);
+    for (int y = 0; y < 128; y++)
+        for (int x = 0; x < 128; x++) {
+            const uint32_t c = ((x >> 3) ^ (y >> 3)) & 1 ? (uint32_t)(0x20 + x / 2) << 16 | (uint32_t)(0x60 + y / 4) << 8 | 0xD0
+                                                         : (uint32_t)(0xF0 - y / 2) << 16 | 0xD000u | (uint32_t)(0x40 + x);
+            g16_sheet_set(&sheet_e, x, y, g16_rgb24(c), 1);
+        }
+    for (int cy = 0; cy < 16; cy++)
+        for (int cx = 0; cx < 16; cx++)
+            g16_sheet_update_cell(&sheet_e, cx, cy);
 }
 
 /* M36: a "hero": a sphere (bone 0) and a cube above it (bone 1), lit by
@@ -223,6 +235,18 @@ static void make_meshes(void)
         q[k]->tex = &sheet;
         r3d_mesh_normals(q[k]);
     }
+    r3d_mesh_alloc(&quad_e, 4, 2);
+    memcpy(quad_e.verts, quad.verts, 4 * sizeof *quad_e.verts);
+    memcpy(quad_e.faces, quad.faces, 6 * sizeof *quad_e.faces);
+    r3d_mesh_alloc_uv(&quad_e);
+    {
+        const float s = 128;
+        const float uv[12] = { 0, s, s, 0, s, s,   0, s, 0, 0, s, 0 };
+        memcpy(quad_e.uv, uv, sizeof uv);
+    }
+    quad_e.colors[0] = quad_e.colors[1] = R3D_TEXTURED;
+    quad_e.tex = &sheet_e;
+    r3d_mesh_normals(&quad_e);
     /* Overbit (M34): a quad of a "lit" model (light baked at the corners,
      * warm, the same at every corner: the ARM takes one per face) and a
      * screen-door cube */
@@ -572,6 +596,17 @@ static void s_sheets10(r3d_t *r, g16_t *g, int gpu)
     flush(r, g, gpu);
 }
 
+/* M39 (bm3d 7.3): the opaque sheet_e on a large quad, unlit, and smaller
+ * and turned beside it */
+static void s_etc1(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 0, -6, 0, 0, 60);
+    r3d_light(r, 0, 0, -1, 0.6f);
+    r3d_draw_flags(r, &quad_e, (v3_t){ -1.2f, 0, 0 }, 0, 0, 0, 2.2f, R3D_UNLIT);
+    r3d_draw_flags(r, &quad_e, (v3_t){ 2.4f, 0.5f, 0 }, 0.3f, 0.5f, 0.2f, 1.0f, 0);
+    flush(r, g, gpu);
+}
+
 /* 3D, 2D over it, then 3D partly behind the first: the first part's depth
  * must hide the second. Two frames: the first teaches the backend that
  * this cartridge needs its depth kept between jobs. */
@@ -897,6 +932,7 @@ int main(int argc, char **argv)
     emu_vpm_words = getenv("EMU_VPM_WORDS") != NULL;         /* GL records in words: the probe tries bytes first */
     emu_no_threads = getenv("EMU_NO_THREADS") != NULL;       /* the two-thread shaders' probe: its job does not end */
     emu_t16_alpha = getenv("EMU_T16_ALPHA") ? atoi(getenv("EMU_T16_ALPHA")) : 0;   /* alpha's bits in 5551/4444 */
+    emu_etc1 = getenv("EMU_ETC1") ? atoi(getenv("EMU_ETC1")) : 0;  /* ETC1's layout: 1 a later candidate, 2 none */
     ppm_dir = argc > 7 ? argv[7] : NULL;
     printf("gpu3d on the emulator: byte a = %s, texels %s, T-format %d, MSAA load %s\n",
            emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat,
@@ -905,16 +941,19 @@ int main(int argc, char **argv)
     char want[400];
     static const char *const clips[3] = { "yes", "no", "yes (Z planes)" };
     const int cut_ok = emu_tformat != 2 && emu_t16_alpha != 2;
+    const int etc1_ok = emu_tformat != 2 && emu_etc1 != 2;
     snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, 16-bit textures %s, "
              "two-thread shaders %s, vertex shader %s, "
              "indexed yes, clipping %s, "
-             "lit models yes, queue yes, zclear in job %s, compact attributes yes, alpha textures %s)",
+             "lit models yes, queue yes, zclear in job %s, compact attributes yes, alpha textures %s, "
+             "ETC1 textures %s)",
              emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
              emu_tformat == 2 ? "rows" : "tiles", emu_ms_load_one ? "on cleared pages" : "on any page",
              emu_tformat == 2 ? "no" : "yes", emu_no_threads ? "no" : "yes",
              emu_vpm_words ? (emu_cw_flip ? "yes (VPM in words)" : "yes (cw, VPM in words)")
                            : emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip], emu_hang_zclear ? "no" : "yes",
-             cut_ok ? "RGBA5551 RGBA4444" : "no");
+             cut_ok ? "RGBA5551 RGBA4444" : "no",
+             !etc1_ok ? "no" : emu_etc1 ? "yes (utiles 4x2, bytes LE)" : "yes (utiles 2x4, bytes BE)");
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
     if (!gpu3d_ready()) {
         printf("gpu3d: %d/%d checks passed\n", checks - failures, checks);
@@ -1034,6 +1073,61 @@ int main(int argc, char **argv)
                "transparency, %d more\n", cut, drawn, green, holes, moved);
         CHECK(holes == 0 && moved == 0 && drawn > 10000 && (cut_ok ? cut >= 3 : cut == 0),
               "RGBA5551 cut-outs: %d pixels differ in transparency, %d more, %u sheets", holes, moved, cut);
+        /* bm3d 7.3: an opaque sheet as ETC1 against RGB565 (its exact
+         * colours): the same pixels drawn, the colours within ETC1's error
+         * (PSNR over the drawn pixels, and the worst channel of 8 bits) */
+        uint32_t e1 = 0;
+        for (int k = 0; k < 2; k++) {
+            g16_t g;
+            r3d_t r;
+            g16_target(&g, q[k], 640, 640, 360, &font);
+            g16_cls(&g, bg);
+            r3d_init(&r, &g);
+            r.backend = gpu3d_backend();
+            gpu3d_drop();
+            r3d_zclear(&r);
+            gpu3d_set_tex16(1);
+            gpu3d_set_etc1(k);
+            gpu3d_stats_t st;
+            gpu3d_take_stats(&st);
+            s_etc1(&r, &g, 1);
+            gpu3d_take_stats(&st);
+            if (k) {
+                e1 = st.etc1;
+                CHECK(gpu3d_etc1() == etc1_ok, "ETC1 textures: on %d", gpu3d_etc1());
+            }
+            gpu3d_set_etc1(0);
+            gpu3d_set_tex16(0);
+            r3d_free(&r);
+        }
+        int esil = 0, edrawn = 0, eworst = 0;
+        double ese = 0;
+        for (int i = 0; i < 640 * 360; i++) {
+            const uint16_t a = q[0][i], b = q[1][i];
+            esil += (a == bg) != (b == bg);
+            if (a == bg)
+                continue;
+            edrawn++;
+            const uint32_t ca = rgb(a), cb = rgb(b);
+            for (int s = 0; s < 24; s += 8) {
+                const int d = (int)(ca >> s & 255) - (int)(cb >> s & 255);
+                ese += (double)d * d;
+                if (abs(d) > eworst)
+                    eworst = abs(d);
+            }
+        }
+        const double emse = edrawn ? ese / (3.0 * edrawn) : 0, epsnr = emse > 0 ? 10 * log10(255.0 * 255.0 / emse) : 99;
+        printf("  ETC1 sheets: %u made, %d pixels drawn, %d differ in silhouette, PSNR %.1f dB against RGB565, "
+               "worst channel %d\n", e1, edrawn, esil, epsnr, eworst);
+        if (ppm_dir) {
+            save(q[0], 640, 360, "etc1", "t16");
+            save(q[1], 640, 360, "etc1", "etc1");
+        }
+        if (etc1_ok)
+            CHECK(e1 >= 1 && esil == 0 && edrawn > 50000 && epsnr >= 33 && eworst <= 24,
+                  "ETC1 sheets: %u made, %d differ in silhouette, PSNR %.1f dB, worst %d", e1, esil, epsnr, eworst);
+        else
+            CHECK(e1 == 0 && esil == 0 && ese == 0, "ETC1 off: %u sheets made, %d pixels differ", e1, esil);
     }
     /* M39: the opaque meshes nearest first: the same picture, fewer
      * pixels shaded (the early z throws away those of the boxes behind) */

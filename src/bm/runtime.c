@@ -1873,6 +1873,8 @@ static void gpu3d_maybe(void)
         gpu3d_set_bilinear(bf && strcmp(bf, "1") == 0); /* textures filtered (M37): Settings */
         const char *t16 = config_get("gpu3d_tex16");
         gpu3d_set_tex16(t16 && strcmp(t16, "1") == 0);  /* opaque textures in 16 bits (M39): Settings */
+        const char *e1 = config_get("gpu3d_etc1");
+        gpu3d_set_etc1(e1 && strcmp(e1, "1") == 0);     /* opaque textures as ETC1 (bm3d 7.3): Settings */
         const char *fs2 = config_get("gpu3d_fs2");
         gpu3d_set_fs2(!fs2 || strcmp(fs2, "0") != 0);   /* two-thread pixel shaders (M39; on from 6.4) */
         const char *so = config_get("gpu3d_sort");

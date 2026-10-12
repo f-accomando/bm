@@ -313,6 +313,24 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   hole; none: the sheets stay 32-bit. RGBA4444 (type 2) is probed the same way and unused (no
   sheet has alpha between). Status: `alpha textures RGBA5551 RGBA4444`; options line
   `tex16=2`. 3D Bench: GPU+T16 now also runs `quad_alpha` and `quad_texscreen`.
+- **7.3** (2026-10-12, M39): **opaque sheets as ETC1** (`gpu3d_etc1=1`, *3D textures: ...,
+  ETC1*, which also sets `gpu3d_tex16=1`; 3D Bench profile GPU+ETC1 = GPU+T16 with ETC1). A
+  fully opaque sheet whose sides are multiples of the ETC1 tile (64×128 texels; 128×64 if the
+  probe learned the other utile shape) is encoded to ETC1 (TMU type 8, 4 bits a texel: a
+  quarter of RGB565's TMU reads) when its texture is made, and again when the sheet changes
+  (`src/gpu/etc1.c`: integer encoder, both modes and splits, table and indices by light; about
+  23 ms for a 1024×1024 sheet of noise on a PC, half that for flat areas). The colours are near
+  the sheet's, not the same: `make test-gpu3d` draws a 128×128 sheet of gradients and checkers
+  at 37 dB PSNR against RGB565, worst channel 9 of 255. Cut-outs stay RGBA5551, other sheets go
+  as before. The boot probe (`probe_etc1`) draws a 128×256 texture of varied blocks for each
+  candidate layout and keeps the first that gives every sampled texel back (a step of RGB565
+  allowed, red and blue as they are or swapped): utiles of 2×4 blocks (Mesa's vc4 size for
+  64-bit blocks) then 4×2, each placed in the 4 KiB tile where RGB565's utile of that row and
+  column is; the block's 8 bytes big-endian (the format's, as Mesa uploads them), as two
+  little-endian words, all little-endian, or big-endian with the halves swapped. Status:
+  `ETC1 textures yes (utiles 2x4, bytes BE)` (the layout found) or `no`; options line
+  `etc1=1`; `gpu3d_stats_t.etc1` counts the sheets made. Which candidate the Pi's TMU takes is
+  not known until the Pi runs the probe.
 
 ## The modes: old versions on today's code
 
@@ -332,7 +350,8 @@ The settings reproduce the earlier versions, so they can be compared on the same
 - with meshes from the nearest and triangles in cache order (`gpu3d_sort=1`, with the
   vertex shader): **5.4** and **5.6**;
 - with each frame shown a frame later (`gpu3d_later=1`, with `gpu3d_queue=2`): **6.9**;
-- with compact attributes (`gpu3d_attr=1`, with the vertex shader): **7.1**.
+- with compact attributes (`gpu3d_attr=1`, with the vertex shader): **7.1**;
+- with the opaque sheets as ETC1 (`gpu3d_etc1=1`, with `gpu3d_tex16=1`): **7.3**.
 
 What 4.2, 4.3, 4.4 and 4.6 added (screens up to 1080p, the GPU's `cls()`, the
 GL record in bytes, no early z after a `zclear()` in the job, 8 textures in a job)

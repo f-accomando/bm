@@ -615,7 +615,7 @@ $(BUILD)/host/bmhost-gpu: tests/host/bmhost.c tests/host/stubs.c tests/host/host
 	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
 	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -DBMHOST_GPU -Itests/host/shim -Isrc -Isrc/bm -Itests/gpu \
 	    -Ithird_party/lua -I$(BUILD) -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/libs.S \
-	    $(BMHOST_OBJS) $@-gpu3d.o src/gpu/v3d_cl.c tests/gpu/v3d_emu.c -lm
+	    $(BMHOST_OBJS) $@-gpu3d.o src/gpu/v3d_cl.c src/gpu/etc1.c tests/gpu/v3d_emu.c -lm
 bmhost-gpu: $(BUILD)/host/bmhost-gpu
 
 # bmhost-ai: the same with the real assistant (the `ai` table: src/ai/lua_ai.c and the
@@ -634,7 +634,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading test-smp test-qpu test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
@@ -824,7 +824,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-nano8 test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading \
-      test-release test-smp test-qpu test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
+      test-release test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
@@ -1295,12 +1295,21 @@ count-insns:
 # rasterizer, for the four byte orders its probe must find
 $(BUILD)/host/test_gpu3d: tests/gpu/test_gpu3d.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/gpu3d.c \
                           src/gpu/gpu3d.h src/gpu/v3d_cl.c src/gpu/v3d.h src/gpu/shaders.h src/bm/r3d.c \
-                          src/bm/gfx16.c src/bm/*.h
+                          src/bm/gfx16.c src/bm/*.h src/gpu/etc1.c src/gpu/etc1.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free \
 	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_gpu3d.c tests/gpu/v3d_emu.c \
-	    src/gpu/v3d_cl.c src/bm/r3d.c src/bm/gfx16.c $@-gpu3d.o -lm
+	    src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/r3d.c src/bm/gfx16.c $@-gpu3d.o -lm
+
+# ETC1 blocks (M39, bm3d 7.3): the decoder against hand-made blocks, the
+# encoder's error and its bits always the same
+$(BUILD)/host/test_etc1: tests/gpu/test_etc1.c src/gpu/etc1.c src/gpu/etc1.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/gpu/test_etc1.c src/gpu/etc1.c -lm
+
+test-etc1: $(BUILD)/host/test_etc1
+	$<
 
 # Impostors (far small meshes as one quad, off by default): off the picture
 # of before, on fewer triangles and a bounded difference, the same choice on
@@ -1308,7 +1317,7 @@ $(BUILD)/host/test_gpu3d: tests/gpu/test_gpu3d.c tests/gpu/v3d_emu.c tests/gpu/v
 $(BUILD)/host/test_impostor: tests/bm/test_impostor.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/gpu3d.c                              src/gpu/gpu3d.h src/gpu/v3d_cl.c src/gpu/v3d.h src/gpu/shaders.h src/bm/r3d.c                              src/bm/gfx16.c src/bm/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free 	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/bm/test_impostor.c tests/gpu/v3d_emu.c 	    src/gpu/v3d_cl.c src/bm/r3d.c src/bm/gfx16.c $@-gpu3d.o -lm
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/bm/test_impostor.c tests/gpu/v3d_emu.c 	    src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/r3d.c src/bm/gfx16.c $@-gpu3d.o -lm
 
 test-impostor: $(BUILD)/host/test_impostor
 	$<
@@ -1317,12 +1326,13 @@ test-impostor: $(BUILD)/host/test_impostor
 # twice (the second run reads the first's report); pages in build/b3d
 $(BUILD)/host/b3d_host: tests/bm/b3d_host.c src/bm/b3d.c src/bm/b3d.h tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h \
                         src/gpu/gpu3d.c src/gpu/gpu3d.h src/gpu/v3d_cl.c src/gpu/v3d.h src/gpu/shaders.h \
-                        src/gpu/version3d.h src/bm/r3d.c src/bm/gfx16.c src/gfx/font8x16.c src/gfx/font6x12.c src/bm/*.h
+                        src/gpu/version3d.h src/gpu/etc1.c src/gpu/etc1.h src/bm/r3d.c src/bm/gfx16.c src/gfx/font8x16.c \
+                        src/gfx/font6x12.c src/bm/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free \
 	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/bm/b3d_host.c src/bm/b3d.c tests/gpu/v3d_emu.c \
-	    src/gpu/v3d_cl.c src/bm/r3d.c src/bm/gfx16.c src/gfx/font8x16.c src/gfx/font6x12.c $@-gpu3d.o -lm
+	    src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/r3d.c src/bm/gfx16.c src/gfx/font8x16.c src/gfx/font6x12.c $@-gpu3d.o -lm
 
 test-b3d: $(BUILD)/host/b3d_host
 	$< --selftest
@@ -1352,6 +1362,8 @@ test-gpu3d: $(BUILD)/host/test_gpu3d
 	EMU_NO_THREADS=1 $< 1 0 0 0 0 0
 	EMU_T16_ALPHA=1 $< 0 1 1 0 0 0
 	EMU_T16_ALPHA=2 $< 1 0 0 0 0 0
+	EMU_ETC1=1 $< 0 1 1 0 0 0
+	EMU_ETC1=2 $< 1 0 0 0 0 0
 
 # QPU shaders (M33): the assembler against shaders run on a Pi, and
 # src/gpu/shaders.h up to date with the sources in tools/qpuasm.py

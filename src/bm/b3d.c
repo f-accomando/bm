@@ -51,7 +51,7 @@ static g16_t *g;
 /* ---------------------------------------------------------------- profiles */
 
 enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2, PF_T16, PF_FS2, PF_VSS, PF_VSF,
-       PF_VSA, NPROF };
+       PF_VSA, PF_ETC1, NPROF };
 #define M_ARM (1u << PF_ARM)
 #define M_GPU (1u << PF_GPU)
 #define M_AA  (1u << PF_AA)
@@ -66,26 +66,30 @@ enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2
 #define M_FS2 (1u << PF_FS2)            /* the GPU with two-thread pixel shaders (M39, bm3d 5.3; every textured one 6.3) */
 #define M_VSS (1u << PF_VSS)            /* GPU+VS with the meshes nearest first (M39, bm3d 5.4) */
 #define M_VSA (1u << PF_VSA)            /* GPU+VS+FS2 with compact attributes (M39, bm3d 7.1) */
+#define M_ETC1 (1u << PF_ETC1)          /* GPU+T16 with the opaque sheets as ETC1 (M39, bm3d 7.3) */
 #define M_ALL (M_ARM | M_GPU | M_VS1 | M_VS)
 #define M_LIT (M_ARM | M_GPU | M_VS)    /* models lit by the sun: VS1 is the GPU for them */
 
 /* queue (M35): the end of each frame started on the GPU, the ARM's work of
  * the frame (the test's `work`) done meanwhile */
 /* attr (M39): compact attributes (gpu3d_attr), on GPU+VS+FS2: GPU+VS+A8 */
-static const struct { const char *name; int gpu, aa, vs, queue, wc, two_d, t16, fs2, sort, attr; } prof[NPROF] = {
-    { "ARM", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, { "GPU", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-    { "GPU+AA", 1, 1, 0, 0, 0, 0, 0, 0, 0, 0 },
-    { "GPU+VS1", 1, 0, 1, 0, 0, 0, 0, 0, 0, 0 }, { "GPU+VS", 1, 0, 2, 0, 0, 0, 0, 0, 0, 0 },
-    { "GPU+VS+Q", 1, 0, 2, 1, 0, 0, 0, 0, 0, 0 }, { "GPU+Q", 1, 0, 0, 1, 0, 0, 0, 0, 0, 0 },
-    { "GPU+WC", 1, 0, 0, 0, 1, 0, 0, 0, 0, 0 }, { "GPU+2D", 1, 0, 0, 0, 0, 1, 0, 0, 0, 0 },
-    { "GPU+VS+Q2", 1, 0, 2, 2, 0, 0, 0, 0, 0, 0 }, { "GPU+T16", 1, 0, 0, 0, 0, 0, 1, 0, 0, 0 },
-    { "GPU+FS2", 1, 0, 0, 0, 0, 0, 0, 1, 0, 0 }, { "GPU+VS+S", 1, 0, 2, 0, 0, 0, 0, 0, 1, 0 },
-    { "GPU+VS+FS2", 1, 0, 2, 0, 0, 0, 0, 1, 0, 0 }, { "GPU+VS+A8", 1, 0, 2, 0, 0, 0, 0, 1, 0, 1 },
+/* etc1 (M39, bm3d 7.3): the opaque sheets as ETC1 (gpu3d_etc1), on GPU+T16
+ * (the cut-outs stay RGBA5551): GPU+ETC1 against GPU+T16 is ETC1 alone */
+static const struct { const char *name; int gpu, aa, vs, queue, wc, two_d, t16, fs2, sort, attr, etc1; } prof[NPROF] = {
+    { "ARM", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, { "GPU", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    { "GPU+AA", 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    { "GPU+VS1", 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0 }, { "GPU+VS", 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0 },
+    { "GPU+VS+Q", 1, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0 }, { "GPU+Q", 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 },
+    { "GPU+WC", 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0 }, { "GPU+2D", 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0 },
+    { "GPU+VS+Q2", 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0 }, { "GPU+T16", 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 },
+    { "GPU+FS2", 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0 }, { "GPU+VS+S", 1, 0, 2, 0, 0, 0, 0, 0, 1, 0, 0 },
+    { "GPU+VS+FS2", 1, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0 }, { "GPU+VS+A8", 1, 0, 2, 0, 0, 0, 0, 1, 0, 1, 0 },
+    { "GPU+ETC1", 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1 },
 };
 
 static const char *prof_version(int p)
 {
-    return prof[p].attr ? "7.1" : prof[p].vs && prof[p].fs2 ? "6.6" : prof[p].sort ? "5.4" : prof[p].fs2 ? "5.3" : prof[p].t16 ? "5.2" : prof[p].queue == 2 ? "5.1" : prof[p].two_d ? "4.8" : prof[p].wc ? "4.5"
+    return prof[p].etc1 ? "7.3" : prof[p].attr ? "7.1" : prof[p].vs && prof[p].fs2 ? "6.6" : prof[p].sort ? "5.4" : prof[p].fs2 ? "5.3" : prof[p].t16 ? "5.2" : prof[p].queue == 2 ? "5.1" : prof[p].two_d ? "4.8" : prof[p].wc ? "4.5"
          : bm3d_mode_q(prof[p].gpu, prof[p].vs, prof[p].queue);
 }
 
@@ -723,14 +727,14 @@ typedef struct {
 static const test_t tests[] = {
     { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA | M_WC | M_VSS | M_VSA, sp_flat, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_smooth", "spheres, Gouraud", "spheres", 1, 8000, M_LIT, sp_smooth, spheres, sp_undo, NULL, 0, 0 },
-    { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU | M_T16 | M_FS2, sp_tex, spheres, sp_undo, NULL, 0,
+    { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU | M_T16 | M_ETC1 | M_FS2, sp_tex, spheres, sp_undo, NULL, 0,
       0 },
     { "spheres_unlit", "spheres, unlit", "spheres", 1, 8000, M_ALL, sp_unlit, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_baked", "spheres, baked light", "spheres", 1, 8000, M_ALL, sp_baked, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_shine", "spheres, sky, rim, gloss, 4 lamps, fog", "spheres", 1, 8000, M_LIT, sp_shine,
       spheres_shine, sp_undo, NULL, 0, 0 },
     { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT | M_WC | M_VSS | M_VSA, NULL, heroes, NULL, NULL, 0, 0 },
-    { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT | M_T16 | M_FS2, NULL, heroes_tex, NULL, NULL, 0, 0 },
+    { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT | M_T16 | M_ETC1 | M_FS2, NULL, heroes_tex, NULL, NULL, 0, 0 },
     { "heroes_skin", "heroes, textured skins (as the Meshy ones)", "heroes", 1, 512, M_LIT | M_FS2, NULL, heroes_skin, NULL,
       NULL, 0, 0 },
     { "heroes_shadow", "heroes with shadows on a floor", "heroes", 1, 512, M_LIT, NULL, heroes_shadow, NULL, NULL,
@@ -740,7 +744,7 @@ static const test_t tests[] = {
     { "draws", "draw calls: a cube each", "draws", 1, 40000, M_LIT | M_WC, NULL, draws, NULL, NULL, 0, 0 },
     { "quad_flat", "fill: quads 320x180, flat", "quads", 1, 4000, M_LIT | M_AA, q_flat, quads, q_free, NULL, 1, 0 },
     { "quad_smooth", "fill: quads, Gouraud", "quads", 1, 4000, M_LIT, q_smooth, quads, q_free, NULL, 1, 0 },
-    { "quad_tex", "fill: quads, textured", "quads", 1, 4000, M_ARM | M_GPU | M_WC | M_T16 | M_FS2, q_tex, quads, q_free, NULL, 1,
+    { "quad_tex", "fill: quads, textured", "quads", 1, 4000, M_ARM | M_GPU | M_WC | M_T16 | M_ETC1 | M_FS2, q_tex, quads, q_free, NULL, 1,
       0 },
     { "quad_alpha", "fill: quads, texels with holes", "quads", 1, 4000, M_ARM | M_GPU | M_T16 | M_FS2, q_alpha, quads, q_free,
       NULL, 1, 0 },
@@ -751,10 +755,10 @@ static const test_t tests[] = {
     { "texswap", "three textures in turn", "quads", 1, 8000, M_ARM | M_GPU, q_tex, texswap, q_free, NULL, 0, 0 },
     { "split", "3D then 2D, again and again", "rounds", 1, 400, M_LIT | M_Q | M_2D | M_VSQ | M_VSQ2, NULL, split, NULL,
       NULL, 0, 0 },
-    { "match", "a match: map, heroes, shadows, HUD", "heroes", 1, 256, M_ALL | M_AA | M_Q | M_WC | M_2D | M_T16 | M_FS2 | M_VSS | M_VSA, NULL, match, NULL, NULL, 0,
+    { "match", "a match: map, heroes, shadows, HUD", "heroes", 1, 256, M_ALL | M_AA | M_Q | M_WC | M_2D | M_T16 | M_ETC1 | M_FS2 | M_VSS | M_VSA, NULL, match, NULL, NULL, 0,
       0 },
     { "mix", "everything at once: map, heroes, skins, shadows, holes, glass, lamps, HUD", "slices", 1, 512,
-      M_LIT | M_AA | M_T16 | M_FS2, mix_setup, mix, mix_free, NULL, 0, 0 },
+      M_LIT | M_AA | M_T16 | M_ETC1 | M_FS2, mix_setup, mix, mix_free, NULL, 0, 0 },
     { "queue", "spheres and 4M instructions of logic", "spheres", 1, 8000, M_GPU | M_Q | M_VS | M_VSQ | M_VSQ2, sp_smooth,
       spheres,
       sp_undo,
@@ -945,6 +949,9 @@ static void ramp(int ti, int pf)
         gpu3d_set_tex16(prof[pf].t16);
         if (prof[pf].t16 && !gpu3d_tex16())
             return;                     /* the probe did not learn the layout: no row */
+        gpu3d_set_etc1(prof[pf].etc1);
+        if (prof[pf].etc1 && !gpu3d_etc1())
+            return;                     /* the probe did not learn ETC1's layout: no row */
         gpu3d_set_fs2(prof[pf].fs2);
         if (prof[pf].fs2 && !gpu3d_fs2())
             return;                     /* the probe saw them differ: no row */
@@ -1048,6 +1055,7 @@ static void ramp(int ti, int pf)
     gpu3d_set_vshader(0);
     gpu3d_set_wc(0);
     gpu3d_set_tex16(0);
+    gpu3d_set_etc1(0);
     gpu3d_set_fs2(0);
     gpu3d_set_sort(0);
     gpu3d_set_attr(0);
@@ -1434,7 +1442,7 @@ static void read_prev(void)
 #define C_HW    g16_rgb(255, 90, 90)
 
 static const uint16_t prof_col[NPROF] = { 0xFC00 /* orange */, 0x2D7F, 0x8C1F, 0x07F0, 0x07E0, 0xFFE0, 0xF81F, 0x7BEF,
-                                         0xFD20, 0xAFE5, 0x5D7F, 0xB5B6, 0x4FFF, 0xFFFF, 0xFBEF };
+                                         0xFD20, 0xAFE5, 0x5D7F, 0xB5B6, 0x4FFF, 0xFFFF, 0xFBEF, 0xA7F9 };
 
 static void text(int x, int y, uint16_t c, const char *fmt, ...) __attribute__((format(printf, 4, 5)));
 static void text(int x, int y, uint16_t c, const char *fmt, ...)
@@ -1491,9 +1499,9 @@ static int pages(void) { return 4 + NTESTS; }     /* the score, the summary in t
 
 /* the profiles' short names, for the summary's columns (a legend under it) */
 static const char *const prof_short[NPROF] = { "ARM", "GPU", "AA", "VS1", "VS", "VSQ", "Q", "WC", "2D", "VSQ2", "T16",
-                                               "FS2", "VSS", "VSF", "VSA" };
+                                               "FS2", "VSS", "VSF", "VSA", "ETC1" };
 #define SX 90                           /* the summary: the profiles' columns from x SX, SW pixels each */
-#define SW 28
+#define SW 27
 #define S_BEST (SX + SW * NPROF + 6)
 #define S_ROWS 15                       /* tests on the summary's first page */
 
@@ -1574,7 +1582,7 @@ static void page_summary(int part)
             k++;
         }
     y += LH * ((k + 5) / 6 > 1 ? (k + 5) / 6 : 1) + 6;
-    text(0, y, C_DIM, "AA VS1 VS VSQ Q WC 2D VSQ2 T16 FS2 VSS VSF VSA: GPU+AA, GPU+VS1... (the profiles: the next page)");
+    text(0, y, C_DIM, "AA VS1 VS VSQ Q WC 2D VSQ2 T16 FS2 VSS VSF VSA ETC1: GPU+AA, GPU+VS1... (the profiles: the next page)");
     y += LH;
     if (fut[0])
         text(0, y, C_DIM, "later: %s; %s%s", fut, prev_name[0] ? "against " : "the first report", prev_name);
@@ -1687,7 +1695,7 @@ static void page_info(const char *saved)
     y += LH;
     text(0, y, C_TEXT, "GPU+WC: jobs' memory uncached (M35, 4.5); GPU+2D: the 2D over the 3D in its job (M37, 4.8)");
     y += LH;
-    text(0, y, C_TEXT, "GPU+VS+Q2: two jobs in flight (M39, 5.1); GPU+T16: opaque textures in 16 bits (M39, 5.2)");
+    text(0, y, C_TEXT, "GPU+VS+Q2: two jobs in flight (5.1); GPU+T16: 16-bit textures (5.2); GPU+ETC1: opaque as ETC1 (7.3)");
     y += LH;
     text(0, y, C_TEXT, "GPU+FS2: textured faces' pixel shaders with two threads (M39, 5.3); GPU+VS+S: meshes "
                        "nearest first (5.4)");
