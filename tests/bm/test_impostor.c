@@ -10,6 +10,13 @@
  *     choice depends on the camera and the mesh only: lockstep), fewer
  *     triangles, and the picture differs from the full one only a little
  *     (few pixels, and those not far).
+ * And meshes with a skeleton (heroes), by the box of their pose:
+ *   - far, at rest: the same choice as the mesh without bones;
+ *   - a crowd of posed heroes: off the picture of before, on the same
+ *     choice on the ARM and on the GPU, fewer triangles, a small difference;
+ *   - one hero alone, many poses and distances: an impostor only if the
+ *     whole mesh drawn is at most that many pixels (an arm thrown away
+ *     counts), never a near one.
  */
 #include <math.h>
 #include <stdarg.h>
@@ -58,6 +65,10 @@ static int failed;
  * without its vertex shader) */
 #define OFF_ARM_SUM 0x9ac5c23bu
 #define OFF_GPU_SUM 0x459ca0feu
+/* and of the crowd of heroes (r3d.c before impostors for meshes with a
+ * skeleton drew these) */
+#define OFF_CROWD_ARM_SUM 0x12a000fdu
+#define OFF_CROWD_GPU_SUM 0xd0191095u
 
 static void make_meshes(void)
 {
@@ -127,7 +138,72 @@ static uint32_t checksum(const uint16_t *p)
     return h;
 }
 
+/* ---- meshes with a skeleton */
+
+#define HERO_V 400
+static r3d_mesh_t hero, hero_plain;
+static uint8_t hero_vbone[HERO_V];
+static float hero_bones[3][12];
+
+/* a figure 2 units tall standing on y = 0: a body (bone 0) and two arms
+ * (bones 1 and 2: the vertices left and right of |x| = 0.15); `bones` 0
+ * the same mesh without a skeleton */
+static void make_hero(r3d_mesh_t *m, int bones)
+{
+    r3d_mesh_sphere(m, 10, 16, 0xE0A040, 0x4060E0);
+    for (int i = 0; i < m->nverts; i++) {
+        const v3_t v = m->verts[i];
+        m->verts[i] = (v3_t){ v.x * 0.45f, v.y + 1.0f, v.z * 0.3f };
+    }
+    r3d_mesh_normals(m);
+    if (!bones)
+        return;
+    for (int i = 0; i < m->nverts && i < HERO_V; i++)
+        hero_vbone[i] = m->verts[i].x < -0.15f ? 1 : m->verts[i].x > 0.15f ? 2 : 0;
+    m->bones = (const float (*)[12])hero_bones;
+    m->vbone = hero_vbone;
+    m->nbones = 3;
+}
+
+/* the pose: the arms turned up by a (radians) around the shoulders, the
+ * left one `out` units further left (thrown away) */
+static void hero_pose(float a, float out)
+{
+    static const float id[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 };
+    memcpy(hero_bones[0], id, sizeof id);
+    for (int b = 1; b <= 2; b++) {
+        const float t = b == 1 ? -a : a, c = cosf(t), s = sinf(t), px = b == 1 ? -0.15f : 0.15f, py = 1.6f;
+        float *M = hero_bones[b];
+        /* about z around (px, py, 0): p' = R (p - q) + q */
+        M[0] = c; M[1] = -s; M[2] = 0; M[3] = px - (c * px - s * py);
+        M[4] = s; M[5] = c;  M[6] = 0; M[7] = py - (s * px + c * py);
+        M[8] = 0; M[9] = 0;  M[10] = 1; M[11] = 0;
+    }
+    hero_bones[1][3] -= out;
+}
+
+/* rows of posed heroes going away from the camera (a quarter with an arm
+ * thrown away), no fog: the far ones a few pixels */
+static void crowd(void)
+{
+    g16_cls(&g, g16_rgb(10, 10, 30));
+    r3d_zclear(&r);
+    r3d_camera(&r, 0, 1.5f, -6, 0, 0.05f, 60);
+    r3d_light(&r, -0.4f, 0.7f, -0.6f, 0.3f);
+    r3d_shine(&r, 0.6f, 16, 0.3f);
+    for (int row = 0; row < 16; row++) {
+        const float z = 2 + row * row * 1.2f;
+        for (int i = 0; i < 9; i++) {
+            const float x = (i - 4) * (1.5f + z * 0.08f);
+            hero_pose(0.25f * (float)((row + i) % 5), (row + i) % 4 == 0 ? 2.5f : 0);
+            r3d_draw_flags(&r, &hero, (v3_t){ x, 0, z }, 0, 0.4f * i, 0, 1, (i & 1) ? R3D_SMOOTH : 0);
+        }
+    }
+}
+
 typedef struct { uint32_t sum, tris, imps; uint16_t *px; } shot_t;
+
+static void (*draw_scene)(void) = scene;
 
 static shot_t draw(int gpu, int vs, int px)
 {
@@ -135,7 +211,7 @@ static shot_t draw(int gpu, int vs, int px)
     if (gpu)
         gpu3d_set_vshader(vs);
     r.impostor = px;
-    scene();
+    draw_scene();
     if (gpu && gpu3d_flush(&g, 0) != 0) {
         printf("FAIL: gpu3d: %s (%s)\n", gpu3d_status(), emu_error);
         exit(1);
@@ -164,7 +240,8 @@ static void compare(const shot_t *a, const shot_t *b, int *far, float *mean)
     *mean = (float)(sum / (3.0 * W * H));
 }
 
-static void report(const char *what, const shot_t *off, const shot_t *on, int max_far, float max_mean)
+static void report(const char *what, const shot_t *off, const shot_t *on, int max_far, float max_mean,
+                   uint32_t min_imps)
 {
     int far;
     float mean;
@@ -172,42 +249,37 @@ static void report(const char *what, const shot_t *off, const shot_t *on, int ma
     printf("%-22s off %08x %5u tri | on %08x %5u tri, %u impostors | %5d px differ, mean %.3f\n", what, off->sum,
            off->tris, on->sum, on->tris, on->imps, far, mean);
     CHECK(off->imps == 0, "%s: impostors with the option off", what);
-    CHECK(on->imps >= 40, "%s: only %u impostors", what, on->imps);
+    CHECK(on->imps >= min_imps, "%s: only %u impostors", what, on->imps);
     CHECK(on->tris + 8u * on->imps < off->tris, "%s: not fewer triangles (%u, %u)", what, on->tris, off->tris);
     CHECK(far <= max_far, "%s: %d pixels differ (at most %d)", what, far, max_far);
     CHECK(mean <= max_mean, "%s: mean difference %.3f (at most %.3f)", what, mean, max_mean);
 }
 
-int main(void)
+/* under 1% of the picture's pixels (an impostor is at most 8x8), the mean
+ * far below one step of a colour */
+#define MAX_FAR 2000
+#define MAX_MEAN 0.25f
+
+/* a scene off and on (8 px), by the ARM and by the GPU (without and with
+ * its vertex shader): off the pictures of before, on the same choice
+ * everywhere and a small difference. Returns the ARM's count of impostors
+ * at 8 px; *arm_off_out, *arm_on_out its two shots */
+static uint32_t both(const char *name, void (*fn)(void), uint32_t off_arm, uint32_t off_gpu, uint32_t min_imps,
+                     shot_t *arm_off_out, shot_t *arm_on_out)
 {
-    fb = test_aligned_alloc(64, W * H * 2);
-    g16_target(&g, fb, W, W, H, &font);
-    r3d_init(&r, &g);
-    make_meshes();
-    if (gpu3d_init() != 0) {
-        printf("FAIL: gpu3d: %s\n", gpu3d_status());
-        return 1;
-    }
-    /* under 1% of the picture's pixels (an impostor is at most 8x8), the
-     * mean far below one step of a colour */
-    const int max_far = 2000;
-    const float max_mean = 0.25f;
-
+    draw_scene = fn;
     const shot_t arm_off = draw(0, 0, 0), arm_on = draw(0, 0, 8), arm_on2 = draw(0, 0, 8);
-    CHECK(arm_off.sum == OFF_ARM_SUM, "ARM, off: %08x, not the picture of before (%08x)", arm_off.sum, OFF_ARM_SUM);
-    CHECK(arm_on.sum == arm_on2.sum, "ARM, on: two draws differ");
-    report("ARM", &arm_off, &arm_on, max_far, max_mean);
-    const shot_t arm_on6 = draw(0, 0, 6);
-    CHECK(arm_on6.imps < arm_on.imps && arm_on6.imps > 0, "ARM: 6 px gives %u impostors, 8 px %u", arm_on6.imps,
-          arm_on.imps);
-    printf("ARM, 6 px: %u impostors, %u tri\n", arm_on6.imps, arm_on6.tris);
-
+    char what[48];
+    snprintf(what, sizeof what, "%s ARM", name);
+    CHECK(arm_off.sum == off_arm, "%s, off: %08x, not the picture of before (%08x)", what, arm_off.sum, off_arm);
+    CHECK(arm_on.sum == arm_on2.sum, "%s, on: two draws differ", what);
+    report(what, &arm_off, &arm_on, MAX_FAR, MAX_MEAN, min_imps);
+    free(arm_on2.px);
     for (int vs = 0; vs <= 2; vs += 2) {
         const shot_t off = draw(1, vs, 0), on = draw(1, vs, 8);
-        char what[32];
-        snprintf(what, sizeof what, "GPU%s", vs ? "+VS" : "");
-        CHECK(off.sum == OFF_GPU_SUM, "%s, off: %08x, not the picture of before (%08x)", what, off.sum, OFF_GPU_SUM);
-        report(what, &off, &on, max_far, max_mean);
+        snprintf(what, sizeof what, "%s GPU%s", name, vs ? "+VS" : "");
+        CHECK(off.sum == off_gpu, "%s, off: %08x, not the picture of before (%08x)", what, off.sum, off_gpu);
+        report(what, &off, &on, MAX_FAR, MAX_MEAN, min_imps);
         CHECK(on.imps == arm_on.imps, "%s: %u impostors, the ARM %u (not the same choice)", what, on.imps,
               arm_on.imps);
         /* the impostors themselves: the GPU's against the ARM's */
@@ -218,11 +290,154 @@ int main(void)
         float mean0;
         compare(&arm_off, &off, &far0, &mean0);
         printf("%-22s GPU against ARM: off %d px, mean %.3f; on %d px, mean %.3f\n", what, far0, mean0, far, mean);
-        CHECK(far <= far0 + max_far / 4, "%s: the impostors differ from the ARM's (%d px, %d without)", what, far,
+        CHECK(far <= far0 + MAX_FAR / 4, "%s: the impostors differ from the ARM's (%d px, %d without)", what, far,
               far0);
         free(off.px);
         free(on.px);
     }
+    *arm_off_out = arm_off;
+    *arm_on_out = arm_on;
+    return arm_on.imps;
+}
+
+/* the box of the pixels that are not black: 0 if none */
+static int drawn_box(int *w, int *h)
+{
+    int x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++)
+            if (fb[y * W + x]) {
+                if (x < x0) x0 = x;
+                if (x > x1) x1 = x;
+                if (y < y0) y0 = y;
+                if (y > y1) y1 = y;
+            }
+    *w = x1 - x0 + 1;
+    *h = y1 - y0 + 1;
+    return x1 >= 0;
+}
+
+/* one hero alone on black (unlit, no fog) by the ARM: impostors drawn,
+ * triangles drawn, and the box of its pixels; 0 if no pixel */
+static int alone(r3d_mesh_t *m, v3_t p, float yaw, int px, uint32_t *imps, uint32_t *tris, int *w, int *h)
+{
+    r.backend = NULL;
+    r.impostor = px;
+    g16_cls(&g, 0);
+    r3d_zclear(&r);
+    r3d_camera(&r, 0, 1.5f, -6, 0, 0.05f, 60);
+    r3d_draw_flags(&r, m, p, 0, yaw, 0, 1, R3D_UNLIT);
+    *imps = r.impostors;
+    *tris = r.tris_drawn;
+    return drawn_box(w, h);
+}
+
+/* meshes with a skeleton */
+static void skinned(void)
+{
+    uint32_t ip, tp, is, ts;
+    int w, h, ws, hs;
+    /* far, at rest: the same choice as without bones */
+    hero_pose(0, 0);
+    const v3_t far = { 1, 0, 180 };
+    alone(&hero_plain, far, 0.3f, 8, &ip, &tp, &w, &h);
+    alone(&hero, far, 0.3f, 8, &is, &ts, &ws, &hs);
+    printf("far hero at rest (%dx%d px): without bones %u impostor, %u tri; with bones %u impostor, %u tri\n", w, h,
+           ip, tp, is, ts);
+    CHECK(ip == 1 && tp == 2, "a far hero without bones: %u impostors, %u tri", ip, tp);
+    CHECK(is == ip && ts == tp, "a far hero with bones at rest: %u impostors, %u tri (without bones %u, %u)", is, ts,
+          ip, tp);
+    /* the same place, an arm thrown 3 units away: the pose is wider than
+     * 8 px, so not an impostor */
+    hero_pose(0, 3);
+    alone(&hero, far, 0, 0, &is, &ts, &ws, &hs);
+    alone(&hero, far, 0, 8, &is, &ts, &w, &h);
+    printf("far hero, an arm thrown away (%dx%d px): %u impostor, %u tri\n", ws, hs, is, ts);
+    CHECK(ws > 9 && is == 0, "a far hero %d px wide in its pose: %u impostors", ws, is);
+
+    /* many poses and places: an impostor only when the whole posed mesh
+     * drawn is at most 8 px (a pixel more for the edges), never near */
+    int chosen = 0, small = 0;
+    for (int k = 0; k < 64; k++) {
+        const float z = 2 + (float)(k * k) * 0.07f, a = 0.35f * (float)(k % 7), out = (k % 3) ? 0 : 0.6f * (float)(k % 5);
+        const v3_t p = { 0.3f * (float)(k % 9) - 1.2f, 0, z };
+        const float yaw = 0.37f * (float)k;
+        hero_pose(a, out);
+        alone(&hero, p, yaw, 0, &is, &ts, &w, &h);
+        uint32_t i8, t8;
+        alone(&hero, p, yaw, 8, &i8, &t8, &ws, &hs);
+        small += w <= 6 && h <= 6;
+        if (i8) {
+            chosen++;
+            CHECK(w <= 9 && h <= 9, "pose %d at z %.1f: an impostor, but the mesh is %dx%d px", k, z, w, h);
+        }
+        if (w > 16 || h > 16)
+            CHECK(!i8, "pose %d at z %.1f: %dx%d px, an impostor", k, z, w, h);
+    }
+    printf("posed heroes alone: %d impostors of 64 (%d at most 6x6 px)\n", chosen, small);
+    CHECK(chosen >= small && chosen >= 8, "posed heroes: %d impostors, %d at most 6x6 px", chosen, small);
+
+    /* out of view on the right with an arm thrown into it: skipped only by
+     * the sphere of the pose, so the arm is drawn, the picture of the
+     * impostors off; without the arm, skipped */
+    const v3_t side = { 14, 0, 14 };
+    hero_pose(0, 3);
+    const int seen0 = alone(&hero, side, 0, 0, &is, &ts, &w, &h);
+    const uint32_t sum0 = checksum(fb);
+    uint32_t i8, t8;
+    const int seen8 = alone(&hero, side, 0, 8, &i8, &t8, &w, &h);
+    printf("out of view, an arm in it: off %s, on %s, %u impostors, %u tri\n", seen0 ? "drawn" : "nothing",
+           seen8 ? "drawn" : "nothing", i8, t8);
+    CHECK(seen0 && seen8 && checksum(fb) == sum0 && i8 == 0, "an arm reaching into the view: not as without impostors");
+    hero_pose(0, 0);
+    alone(&hero, side, 0, 0, &is, &ts, &w, &h);
+    const int seen = alone(&hero, side, 0, 8, &i8, &t8, &w, &h);
+    printf("out of view: off %u tri, on %u tri\n", ts, t8);
+    CHECK(!seen && t8 == 0 && i8 == 0, "a hero out of view: %u tri, %u impostors", t8, i8);
+}
+
+/* the crowd at more pixels (the Overbit bench's steps): more impostors */
+static void crowd_steps(void)
+{
+    draw_scene = crowd;
+    uint32_t last = 0;
+    for (int px = 8; px <= 32; px *= 2) {
+        const shot_t s = draw(0, 0, px);
+        printf("crowd ARM, %2d px: %3u impostors, %5u tri\n", px, s.imps, s.tris);
+        CHECK(s.imps > last, "crowd: %d px gives %u impostors, fewer px %u", px, s.imps, last);
+        last = s.imps;
+        free(s.px);
+    }
+}
+
+int main(void)
+{
+    fb = test_aligned_alloc(64, W * H * 2);
+    g16_target(&g, fb, W, W, H, &font);
+    r3d_init(&r, &g);
+    make_meshes();
+    make_hero(&hero, 1);
+    make_hero(&hero_plain, 0);
+    if (gpu3d_init() != 0) {
+        printf("FAIL: gpu3d: %s\n", gpu3d_status());
+        return 1;
+    }
+
+    shot_t arm_off, arm_on;
+    both("field", scene, OFF_ARM_SUM, OFF_GPU_SUM, 40, &arm_off, &arm_on);
+    const shot_t arm_on6 = draw(0, 0, 6);
+    CHECK(arm_on6.imps < arm_on.imps && arm_on6.imps > 0, "ARM: 6 px gives %u impostors, 8 px %u", arm_on6.imps,
+          arm_on.imps);
+    printf("field ARM, 6 px: %u impostors, %u tri\n", arm_on6.imps, arm_on6.tris);
+    free(arm_off.px);
+    free(arm_on.px);
+    free(arm_on6.px);
+
+    skinned();
+    both("crowd", crowd, OFF_CROWD_ARM_SUM, OFF_CROWD_GPU_SUM, 20, &arm_off, &arm_on);
+    free(arm_off.px);
+    free(arm_on.px);
+    crowd_steps();
     if (failed)
         return 1;
     printf("impostors: ok\n");
