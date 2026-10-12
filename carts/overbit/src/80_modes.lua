@@ -132,12 +132,19 @@ end
 Modes.update_actors = update_actors
 
 function Range.update()
+  if Pause.on then
+    if Pause.update() == "leave" then Modes.start("menu") end
+    return
+  end
   update_actors()
-  if Input.cmd.menu_p then Modes.start("menu") end
+  if Input.cmd.menu_p then
+    if Pause.enabled(false) then Pause.open() else Modes.start("menu") end
+  end
 end
 
 function Range.draw()
   local me = G.local_actor
+  if Pause.on then Pause.draw() return end
   if Dev.draw_cam() then return end
   if me.alive and me.hero.camera and me.hero.camera(me) then
     draw_scene(nil)                              -- a camera of the hero's own (Fuse's wheel)
@@ -337,6 +344,7 @@ function Modes.start(name)
   -- match does not slow down); the benchmark measures one _update a frame
   frameskip(name == "bench" and 1 or 4)
   G.mode = name
+  if Pause.on then Pause.close() end
   Modes.cur = MODES[name]
   if Modes.cur.start then Modes.cur.start() end
 end

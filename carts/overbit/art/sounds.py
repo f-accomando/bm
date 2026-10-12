@@ -5,29 +5,116 @@ console's synthesizer, 8 voices of square, triangle, saw, noise, sine and
 metal with envelopes and pitch sweeps. The sound effects are in the order
 of the names in src/90_audio.lua.
 
+The effects are mostly 16-bit samples made here (numpy, a fixed seed: the same
+bytes every run; WAV files beside OUT.json), played softly: the loudest peaks
+sit at about -9 dB and the menu's sounds are a soft sine blip. A few synthesized
+voices (alarms, hums, chords) stay, quieter than before.
+
   sounds.py OUT.json
 """
 import json
+import os
+import struct
 import sys
+import wave as wavemod
+
+import numpy as np
+
+RATE = 22050
+
+
+def _env(n, attack_ms, decay):
+    t = np.arange(n) / RATE
+    a = np.minimum(1.0, t / max(attack_ms / 1000.0, 1e-4))
+    return a * np.exp(-t * decay)
+
+
+def _lowpass(x, k):
+    """one-pole low pass, k 0..1 (higher: brighter)"""
+    out = np.zeros_like(x)
+    y = 0.0
+    for i, v in enumerate(x):
+        y += k * (v - y)
+        out[i] = y
+    return out
+
+
+def _norm(x, peak):
+    return x / max(1e-9, np.max(np.abs(x))) * peak
+
+
+def _sine(f, n, f_end=None):
+    t = np.arange(n) / RATE
+    fr = np.linspace(f, f_end if f_end else f, n)
+    return np.sin(2 * np.pi * np.cumsum(fr) / RATE)
+
+
+def make_samples():
+    rng = np.random.default_rng(1337)
+    N = lambda sec: int(RATE * sec)
+    out = {}
+    noise = lambda n: rng.uniform(-1, 1, n)
+    # cannon / rifle crack: a short bright snap over a dull body
+    n = N(0.28)
+    out["blast"] = _norm(_lowpass(noise(n), 0.5) * _env(n, 1, 22) + _sine(120, n, 55) * _env(n, 2, 14) * 0.9, 0.62)
+    # a low punch
+    n = N(0.30)
+    out["thump"] = _norm(_sine(95, n, 42) * _env(n, 3, 12) + _lowpass(noise(n), 0.08) * _env(n, 1, 40) * 0.4, 0.7)
+    # explosion: a dark rolling noise with a sub under it
+    n = N(0.9)
+    out["boom"] = _norm(_lowpass(noise(n), 0.07) * _env(n, 4, 4.2) + _sine(60, n, 28) * _env(n, 6, 3.2) * 0.8, 0.7)
+    # whoosh: band-limited air swelling up and falling away
+    n = N(0.55)
+    sw = _lowpass(noise(n), 0.22) - _lowpass(noise(n), 0.03)
+    t = np.arange(n) / RATE
+    out["whoosh"] = _norm(sw * np.sin(np.pi * np.minimum(1.0, t / 0.55)) ** 1.5, 0.5)
+    # hit marker: a dry soft tick
+    n = N(0.06)
+    out["tick"] = _norm(_lowpass(noise(n), 0.35) * _env(n, 0.5, 90) + _sine(1800, n) * _env(n, 0.5, 80) * 0.5, 0.45)
+    # glass: inharmonic partials
+    n = N(0.6)
+    g = sum(_sine(f, n) * a for f, a in ((2100, 1), (3330, .7), (4870, .5), (6210, .3)))
+    out["glass"] = _norm(g * _env(n, 0.5, 9) + _lowpass(noise(n), 0.4) * _env(n, 0.3, 60) * 0.5, 0.5)
+    # bell (root C6): soft sine partials
+    n = N(0.9)
+    b = sum(_sine(1046.5 * m, n) * a for m, a in ((1, 1), (2.0, .35), (2.76, .2), (4.1, .08)))
+    out["bell"] = _norm(b * _env(n, 4, 4.5), 0.5)
+    # the menu's blip (root C6): a sine with a slow attack, no edge
+    n = N(0.11)
+    out["ui"] = _norm((_sine(1046.5, n) + _sine(2093, n) * 0.15) * _env(n, 6, 28), 0.4)
+    return out
+
+
+def write_samples(folder):
+    for name, x in make_samples().items():
+        pcm = np.clip(x * 32767, -32768, 32767).astype("<i2")
+        with wavemod.open(os.path.join(folder, name + ".wav"), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(RATE)
+            w.writeframes(pcm.tobytes())
+    return ["blast", "thump", "boom", "whoosh", "tick", "glass", "bell", "ui"]
+
 
 # instruments: name, wave, duty, vol, adsr, pitch (semitones), pitch time (x 10 ms)
 SOUNDS = [
-    ("BLAST", "noise", 128, 230, [0, 14, 0, 6], 0, 0),       # 0 cannon crack
-    ("THUMP", "sine", 128, 220, [0, 18, 0, 8], 24, 4),       # 1 low punch
-    ("ZAP", "square", 48, 150, [0, 12, 0, 6], 12, 6),        # 2 pistol
-    ("WHOOSH", "noise", 128, 120, [2, 40, 60, 20], 0, 0),    # 3 rockets, boost
-    ("RUMBLE", "saw", 128, 110, [4, 60, 160, 40], -5, 30),   # 4 engines
-    ("BOOM", "noise", 128, 255, [0, 90, 0, 60], 0, 0),       # 5 explosions
-    ("SUB", "sine", 128, 255, [0, 80, 0, 50], 12, 25),       # 6 their bass
-    ("BEEP", "square", 128, 140, [0, 8, 200, 4], 0, 0),      # 7 alarms, UI
-    ("BELL", "sine", 128, 170, [0, 40, 0, 40], 0, 0),        # 8 kill chime
-    ("TICK", "metal", 128, 140, [0, 4, 0, 3], 0, 0),         # 9 hit marker
-    ("CHORD", "triangle", 128, 160, [1, 40, 140, 30], 0, 0), # 10 call mech
-    ("HUM", "triangle", 128, 90, [3, 30, 200, 20], 0, 0),    # 11 field
-    ("SWISH", "noise", 128, 170, [1, 16, 0, 10], 0, 0),      # 12 blades
-    ("PLASMA", "saw", 96, 130, [0, 20, 60, 12], -7, 12),     # 13 plasma hum
-    ("PEW", "square", 64, 140, [0, 7, 0, 4], 12, 3),         # 14 small guns
-    ("GLASS", "metal", 128, 200, [0, 30, 0, 30], 0, 0),      # 15 shatter, ice
+    ("BLAST", "sample:blast", 128, 150, [0, 14, 0, 6], 0, 0),    # 0 cannon crack
+    ("THUMP", "sample:thump", 128, 150, [0, 18, 0, 8], 0, 0),    # 1 low punch
+    ("ZAP", "triangle", 48, 90, [0, 12, 0, 6], 12, 6),           # 2 pistol
+    ("WHOOSH", "sample:whoosh", 128, 110, [2, 40, 60, 20], 0, 0),  # 3 rockets, boost
+    ("RUMBLE", "triangle", 128, 70, [4, 60, 160, 40], -5, 30),   # 4 engines
+    ("BOOM", "sample:boom", 128, 170, [0, 90, 0, 60], 0, 0),     # 5 explosions
+    ("SUB", "sine", 128, 150, [0, 80, 0, 50], 12, 25),           # 6 their bass
+    ("BEEP", "sine", 128, 90, [4, 8, 200, 6], 0, 0),             # 7 alarms
+    ("BELL", "sample:bell", 128, 120, [0, 40, 0, 40], 0, 0),     # 8 kill chime (root C6)
+    ("TICK", "sample:tick", 128, 120, [0, 4, 0, 3], 0, 0),       # 9 hit marker
+    ("CHORD", "triangle", 128, 100, [6, 40, 140, 30], 0, 0),     # 10 call mech
+    ("HUM", "triangle", 128, 55, [8, 30, 200, 20], 0, 0),        # 11 field
+    ("SWISH", "sample:whoosh", 128, 100, [1, 16, 0, 10], 0, 0),  # 12 blades
+    ("PLASMA", "triangle", 96, 80, [2, 20, 60, 12], -7, 12),     # 13 plasma hum
+    ("PEW", "triangle", 64, 90, [0, 7, 0, 4], 12, 3),            # 14 small guns
+    ("GLASS", "sample:glass", 128, 130, [0, 30, 0, 30], 0, 0),   # 15 shatter, ice
+    ("UI", "sample:ui", 128, 100, [0, 10, 0, 6], 0, 0),          # 16 the menus (root C6)
 ]
 
 SFX = [
@@ -47,8 +134,8 @@ SFX = [
     ("CRIT", 30, ["E7 9 220", "B7 9 220", "off"]),
     ("KILL", 70, ["C6 8 200", "G6 8 220", "C7 8 240 fadeout3", "off"]),
     ("STEP", 40, ["C2 1 150", "off"]),
-    ("UI", 30, ["C6 7 160", "off"]),
-    ("UIBACK", 30, ["G5 7 140", "off"]),
+    ("UI", 30, ["C6 16 210", "off"]),
+    ("UIBACK", 30, ["G5 16 190", "off"]),
     ("FIELD", 60, ["C4 11 160 vib6", ".", ".", "off"]),
     ("SABER", 45, ["G5 12 200 bend-7", "C4 13 170 bend-5", "off"]),
     ("BARRIER", 70, ["C4 13 160 bend+12", "C5 11 170 vib4", ".", "off"]),
@@ -72,16 +159,35 @@ SFX = [
 ]
 
 
-def bank():
+SAMPLE_VOICES = (0, 1, 3, 5, 9, 12, 15)         # played at their own pitch: the note is C4
+
+
+def _fix_step(st):
+    parts = st.split()
+    if len(parts) >= 3 and parts[1].isdigit() and int(parts[1]) in SAMPLE_VOICES:
+        parts[0] = "C4"
+    return " ".join(parts)
+
+
+def bank(samples=()):
+    sounds = []
+    for n, w, d, v, e, p, t in SOUNDS:
+        x = {"name": n, "wave": w, "duty": d, "vol": v, "adsr": e, "pitch": p, "pitch_time": t,
+             "vibrato": [0, 0], "detune": 0}
+        if w.startswith("sample:"):
+            x["wave"], x["sample"] = "sample", w[7:]
+        sounds.append(x)
+    root = {"bell": "C6", "ui": "C6", "glass": "C6"}
     return {
-        "sounds": [{"name": n, "wave": w, "duty": d, "vol": v, "adsr": e, "pitch": p, "pitch_time": t,
-                    "vibrato": [0, 0], "detune": 0} for n, w, d, v, e, p, t in SOUNDS],
-        "sfx": [{"name": n, "ms": ms, "loop": [0, 0], "steps": st} for n, ms, st in SFX],
+        "sounds": sounds,
+        "sfx": [{"name": n, "ms": ms, "loop": [0, 0], "steps": [_fix_step(x) for x in st]} for n, ms, st in SFX],
+        "samples": [{"name": n, "wav": n + ".wav", "root": root.get(n, "C4")} for n in samples],
         "patterns": [],
         "songs": [],
     }
 
 
 if __name__ == "__main__":
+    folder = os.path.dirname(os.path.abspath(sys.argv[1]))
     with open(sys.argv[1], "w") as f:
-        json.dump(bank(), f, indent=1)
+        json.dump(bank(write_samples(folder)), f, indent=1)

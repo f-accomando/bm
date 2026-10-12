@@ -378,6 +378,10 @@ local function net_step(me, c)
 end
 
 function Match.update()
+  if Pause.on then
+    if Pause.update() == "leave" then Modes.start("menu") end
+    return
+  end
   if M.msg_t then M.msg_t = M.msg_t - DT if M.msg_t <= 0 then M.msg = nil M.msg_t = nil end end
   local me = G.local_actor
   local c = Input.cmd
@@ -409,6 +413,7 @@ function Match.update()
       return
     end
   elseif menu then
+    if Pause.enabled(M.net) then Pause.open() return end
     if M.net then Net.close() end
     Modes.start("menu")
   end
@@ -621,6 +626,7 @@ end
 
 function Match.draw()
   local me = G.local_actor
+  if Pause.on then Pause.draw() return end
   if M.select.open then
     select_draw()
     return
