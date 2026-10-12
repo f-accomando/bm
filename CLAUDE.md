@@ -81,6 +81,12 @@ da solo (file, scopo, cosa è già stato provato).
   design già deciso, modifiche coordinate su più file.
 - `deep` (Opus, xhigh): architettura, refactoring pesante, bug la cui causa non è chiara
   (GPU, lockstep, audio), scelte con compromessi. Ultimo livello.
+  Mai lanciarlo di propria iniziativa: prima si chiede all'utente se preferisce `standard`
+  (Opus, effort medio), e si usa `deep` solo se risponde di sì; la domanda dice in una riga
+  perché serve (causa non chiara, compromesso di design).
+  Costa per il contesto, non per il modello: prima un `Explore`/`light` trova e torna con
+  una nota (file:righe, simboli, già provato), poi `deep` o `standard` lavora solo su quella,
+  su un task stretto e autonomo. Se richiede di leggere molto, si divide.
 - `tracker` (Haiku, basso): solo spunte, spostamenti e righe già decise in roadmap/progress.
 - Un agente che risponde `ESCALATION: <livello>` passa il lavoro a quel livello, con
   quello che ha già provato.
@@ -106,7 +112,8 @@ da solo (file, scopo, cosa è già stato provato).
 - `make` → `build/kernel.img` e `build/chainloader.img` (`arm-none-eabi-gcc`).
   `make test` = test sul PC + QEMU `-M raspi0`. CI: `make test-host`
   (`HOST_SKIP=test-overbit`) e `make test-qemu SHARD=K/4`; un test nuovo oltre 20 s va in
-  `SLOW`. Un tag `v*` su un commit già verde fa la release senza rifare i test.
+  `SLOW`. Un tag `v*` su un commit già verde fa la release senza rifare i test. Da Windows,
+  build e test in WSL solo con `scripts/wsl-run.ps1` (skill `bm-wsl`).
 - `kernel7` è spento in `make`, `test`, `install`, `image`, `release` e CI. Il codice
   `BM_ZERO2` resta e deve compilare. Un kernel dalla rete deve essere per la scheda giusta
   (`bmK6`/`bmK7`, offset 4). RGB30: `kernel8.img`, `manifest-rgb30`.
