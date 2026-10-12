@@ -1,0 +1,40 @@
+bm report
+kind: gpu
+kernel: v0.2.5-173-g62fef70
+branch: bm-core
+board: Pi Zero W
+date: 2026-10-12 07:20:08
+file: 20261012-072008_gpu_pi-zero-w_v0.2.5-173-g62fef70.txt
+
+GPU test: the 3D unit (V3D), step by step (if the Pi freezes, the last line is the culprit)
+  1 power on the 3D unit (mailbox)    ok  V3D clock 250 MHz
+  2 identity                          ok  rev 1, 3 slices x 4 QPUs, 2 TMUs per slice, VPM 12 KiB
+  3 clear (rendering list only)       ok  210 us, byte a = red
+  4 one triangle (binning, shader)    ok  bin 3 us, render 302 us
+  5 depth test (24-bit z in the chip) ok
+  6 speed: 20000 small triangles      ok  ARM 7654 us, bin 2651 us, render 4273 us: 2888 k tri/s
+  7 speed: 20 full screens            ok  bin 11 us, render 19696 us: 233 Mpixel/s
+  8 texture (TMU), nearest texel      ok  render 619 us, texel bytes as the tile buffer's
+  9 on the screen (RGBA8888)          ok  render 964 us
+  10 the 3D of the games on the GPU   ok  ARM 28226 us, GPU 3559 us (7696 triangles in 1 jobs; bin 329, render 1760), 3.7% differ
+    binner: at most 34 KiB of the tile lists, 0 KiB of the overflow, 0 jobs in it
+  the picture: ARM on the left, GPU on the right (a key or 10 s)
+  11 depth kept across 2D (3D, 2D, 3D)gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+ok  ARM 8647 us, GPU 4531 us (334 triangles in 2 jobs, depth kept; bin 47, render 2830), 0.0% differ
+    binner: at most 10 KiB of the tile lists, 0 KiB of the overflow, 0 jobs in it
+  the picture: ARM on the left, GPU on the right (a key or 10 s)
+  12 textures in tiles (T-format)     ok  render in rows 1480 us, in tiles 1173 us (1.2x), the same picture
+  13 anti-aliasing (MSAA 4x)          ok  GPU without 1334 us, with 1619 us; 6.3% of the pixels smoothed (MSAA on any page)
+  the picture: without anti-aliasing on the left, with on the right (2x, a key or 10 s)
+  14 vertex shader (the GPU places the corners)ok  ARM 8655 us without, 3666 us with (60 meshes; GPU 2307 / 2088 us), 0.0% differ
+  the picture: corners by the ARM on the left, by the GPU on the right (a key or 10 s)
+  15 frame queue and zclear() in the job (M35)ok  ARM 28139 us, GPU 3677 us (7696 triangles in 1 jobs; bin 0, render 2208), 3.7% differ
+    binner: at most 34 KiB of the tile lists, 0 KiB of the overflow, 0 jobs in it
+    1 jobs started and waited for later, 0 zclear() inside a job
+  the picture: ARM on the left, GPU on the right (a key or 10 s)
+  16 2D over the 3D in the GPU's job (M37)gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+ok  ARM's 2D 5055 us in 2 jobs, GPU's 3080 us in 1 jobs (37 quads), the same pixels
+  the picture: the HUD by the ARM on the left, by the GPU on the right (a key or 10 s)
+    the probes: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147; after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447; vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+    options after the test: bm3d 6.9 gpu3d=on vs=2 aa=0 queue=1 wc=0 filter=1 tex16=1 fs2=1 sort=0
+GPU test passed
