@@ -1,0 +1,37 @@
+bm report
+kind: bench3d
+kernel: v0.2.5-198-g38e4184
+branch: claude/m39-attributi-texture
+board: Pi Zero W
+date: 2026-10-12 14:56:47
+file: 20261012-145647_bench3d_pi-zero-w_v0.2.5-198-g38e4184.txt
+
+bm 3D Bench
+kernel v0.2.5-198-g38e4184
+drivers bm3d 7.1 (M39)
+date 2026-10-12 14:56 UTC
+machine ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 44.9 C, throttled 00000
+gpu bm3d 7.1 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes)
+probes before the vertex shader probe: ERRSTAT 00003000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147; after a vertex shader draw that left nothing: ERRSTAT 00003010 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447; vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+options bm3d 7.1 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 (at the start; each profile sets its own)
+counters ARM1176 PMU
+previous bm/bench/3D0017.TXT
+only tests spheres,heroes,match,big, profiles VSF,VSA
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms
+R,spheres,GPU+VS+FS2,6.6,808.3,1646.9,0,14.0,14.1,62976,62976,0,0,62976,2.0,7.8,3043413,831228,182759,14009448,1,77597,77597,400,300,4.9,4.2,74,0,0,0,-1,-1,-1
+R,spheres,GPU+VS+A8,7.1,837.3,1691.2,0,13.6,13.7,62976,62976,0,0,62976,2.0,7.4,2992113,793713,189378,13611964,1,80381,80381,400,300,4.6,4.3,74,0,0,0,-1,-1,-1
+R,heroes,GPU+VS+FS2,6.6,67.3,123.0,0,16.3,16.3,101376,101376,0,0,101376,2.0,10.3,3503636,1092463,240073,16264056,1,103347,103347,400,300,6.8,4.3,110,0,0,0,-1,-1,-1
+R,heroes,GPU+VS+A8,7.1,72.3,136.2,0,14.8,14.9,101376,101376,0,0,101376,2.0,8.9,3350501,948930,239372,14830431,1,110981,110981,400,300,18.8,4.3,110,0,0,0,-1,-1,-1
+R,match,GPU+VS+FS2,6.6,30.8,72.1,0,16.1,16.1,93824,92864,0,0,92864,3.0,10.5,3198774,1119878,237689,16067392,1,99390,98430,400,300,8.8,6.3,126,0,0,7208,-1,-1,-1
+R,match,GPU+VS+A8,7.1,35.3,79.1,0,14.8,14.9,93824,92864,0,0,92864,3.0,9.3,3057209,984379,234575,14818027,1,113145,112185,400,300,8.9,6.1,126,0,0,7208,-1,-1,-1
+R,big,GPU+VS+FS2,6.6,9.2,22.9,0,15.2,15.2,94752,94752,0,0,94752,1.0,13.8,1769390,1481162,35602,15198866,1,106556,106556,400,300,2.3,2.8,338,0,0,0,-1,-1,-1
+R,big,GPU+VS+A8,7.1,11.4,28.5,0,15.3,15.3,114912,114912,0,0,114912,1.0,13.8,1782809,1469948,36673,15300215,1,129025,129025,400,300,2.4,2.9,398,0,0,0,-1,-1,-1
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+score 14197 (bm3d 7.1 as the games get it, 4 of 24 tests, a part of the bench), GPU bm3d 2.1 0, ARM bm3d 0.2 0; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.1,14197,4,0
+S,GPU,2.1,0,0,0
+S,ARM,0.2,0,0,0
+triangles at 60 fps 0 in the mix (0 drawn), the most 106556 (big)
+total 13 s
