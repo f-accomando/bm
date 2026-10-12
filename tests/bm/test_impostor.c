@@ -17,6 +17,10 @@
  *   - one hero alone, many poses and distances: an impostor only if the
  *     whole mesh drawn is at most that many pixels (an arm thrown away
  *     counts), never a near one.
+ * The number is in pixels of a 1080-line picture: N * h / 1080 of the
+ * target's (at 640x360 here, AT360(px) asks for px of the target's). And:
+ *   - 640x360, 1280x720, 1920x1080: the same N, the same choice (the same
+ *     size on the screen), and at 1080 lines the number is the target's.
  */
 #include <math.h>
 #include <stdarg.h>
@@ -46,8 +50,7 @@ int ksnprintf(char *buf, size_t size, const char *fmt, ...)
     return n;
 }
 
-#define W 640
-#define H 360
+static int W = 640, H = 360;    /* the target: 640x360 but in sizes() */
 
 static uint8_t glyphs[256 * 16];
 static const font_t font = { 8, 16, glyphs };
@@ -57,6 +60,9 @@ static r3d_t r;
 static g16_sheet_t sheet;
 static r3d_mesh_t sphere, lamp, box, baked;
 static int failed;
+
+/* r.impostor for px pixels of a 360-line target: 3x (1080 / 360) */
+#define AT360(px) ((px) * 3)
 
 #define CHECK(c, ...) do { if (!(c)) { printf("FAIL: " __VA_ARGS__); printf("\n"); failed = 1; } } while (0)
 
@@ -268,7 +274,7 @@ static uint32_t both(const char *name, void (*fn)(void), uint32_t off_arm, uint3
                      shot_t *arm_off_out, shot_t *arm_on_out)
 {
     draw_scene = fn;
-    const shot_t arm_off = draw(0, 0, 0), arm_on = draw(0, 0, 8), arm_on2 = draw(0, 0, 8);
+    const shot_t arm_off = draw(0, 0, 0), arm_on = draw(0, 0, AT360(8)), arm_on2 = draw(0, 0, AT360(8));
     char what[48];
     snprintf(what, sizeof what, "%s ARM", name);
     CHECK(arm_off.sum == off_arm, "%s, off: %08x, not the picture of before (%08x)", what, arm_off.sum, off_arm);
@@ -276,7 +282,7 @@ static uint32_t both(const char *name, void (*fn)(void), uint32_t off_arm, uint3
     report(what, &arm_off, &arm_on, MAX_FAR, MAX_MEAN, min_imps);
     free(arm_on2.px);
     for (int vs = 0; vs <= 2; vs += 2) {
-        const shot_t off = draw(1, vs, 0), on = draw(1, vs, 8);
+        const shot_t off = draw(1, vs, 0), on = draw(1, vs, AT360(8));
         snprintf(what, sizeof what, "%s GPU%s", name, vs ? "+VS" : "");
         CHECK(off.sum == off_gpu, "%s, off: %08x, not the picture of before (%08x)", what, off.sum, off_gpu);
         report(what, &off, &on, MAX_FAR, MAX_MEAN, min_imps);
@@ -340,8 +346,8 @@ static void skinned(void)
     /* far, at rest: the same choice as without bones */
     hero_pose(0, 0);
     const v3_t far = { 1, 0, 180 };
-    alone(&hero_plain, far, 0.3f, 8, &ip, &tp, &w, &h);
-    alone(&hero, far, 0.3f, 8, &is, &ts, &ws, &hs);
+    alone(&hero_plain, far, 0.3f, AT360(8), &ip, &tp, &w, &h);
+    alone(&hero, far, 0.3f, AT360(8), &is, &ts, &ws, &hs);
     printf("far hero at rest (%dx%d px): without bones %u impostor, %u tri; with bones %u impostor, %u tri\n", w, h,
            ip, tp, is, ts);
     CHECK(ip == 1 && tp == 2, "a far hero without bones: %u impostors, %u tri", ip, tp);
@@ -351,7 +357,7 @@ static void skinned(void)
      * 8 px, so not an impostor */
     hero_pose(0, 3);
     alone(&hero, far, 0, 0, &is, &ts, &ws, &hs);
-    alone(&hero, far, 0, 8, &is, &ts, &w, &h);
+    alone(&hero, far, 0, AT360(8), &is, &ts, &w, &h);
     printf("far hero, an arm thrown away (%dx%d px): %u impostor, %u tri\n", ws, hs, is, ts);
     CHECK(ws > 9 && is == 0, "a far hero %d px wide in its pose: %u impostors", ws, is);
 
@@ -365,7 +371,7 @@ static void skinned(void)
         hero_pose(a, out);
         alone(&hero, p, yaw, 0, &is, &ts, &w, &h);
         uint32_t i8, t8;
-        alone(&hero, p, yaw, 8, &i8, &t8, &ws, &hs);
+        alone(&hero, p, yaw, AT360(8), &i8, &t8, &ws, &hs);
         small += w <= 6 && h <= 6;
         if (i8) {
             chosen++;
@@ -385,34 +391,104 @@ static void skinned(void)
     const int seen0 = alone(&hero, side, 0, 0, &is, &ts, &w, &h);
     const uint32_t sum0 = checksum(fb);
     uint32_t i8, t8;
-    const int seen8 = alone(&hero, side, 0, 8, &i8, &t8, &w, &h);
+    const int seen8 = alone(&hero, side, 0, AT360(8), &i8, &t8, &w, &h);
     printf("out of view, an arm in it: off %s, on %s, %u impostors, %u tri\n", seen0 ? "drawn" : "nothing",
            seen8 ? "drawn" : "nothing", i8, t8);
     CHECK(seen0 && seen8 && checksum(fb) == sum0 && i8 == 0, "an arm reaching into the view: not as without impostors");
     hero_pose(0, 0);
     alone(&hero, side, 0, 0, &is, &ts, &w, &h);
-    const int seen = alone(&hero, side, 0, 8, &i8, &t8, &w, &h);
+    const int seen = alone(&hero, side, 0, AT360(8), &i8, &t8, &w, &h);
     printf("out of view: off %u tri, on %u tri\n", ts, t8);
     CHECK(!seen && t8 == 0 && i8 == 0, "a hero out of view: %u tri, %u impostors", t8, i8);
 }
 
-/* the crowd at more pixels (the Overbit bench's steps): more impostors */
+/* the crowd at more pixels, 16 32 64 of a 1080-line picture (5.3 10.7 21.3
+ * of this 360-line one; at 8 none of its heroes is that small): more
+ * impostors */
 static void crowd_steps(void)
 {
     draw_scene = crowd;
     uint32_t last = 0;
-    for (int px = 8; px <= 32; px *= 2) {
+    for (int px = 16; px <= 64; px *= 2) {
         const shot_t s = draw(0, 0, px);
-        printf("crowd ARM, %2d px: %3u impostors, %5u tri\n", px, s.imps, s.tris);
+        printf("crowd ARM, %2d px (1080p): %3u impostors, %5u tri\n", px, s.imps, s.tris);
         CHECK(s.imps > last, "crowd: %d px gives %u impostors, fewer px %u", px, s.imps, last);
         last = s.imps;
         free(s.px);
     }
 }
 
+/* the target w x h (fb holds 1920x1080), a z-buffer of its size */
+static void target(int w, int h)
+{
+    r3d_free(&r);
+    W = w;
+    H = h;
+    g16_target(&g, fb, (uint32_t)W, W, H, &font);
+    r3d_init(&r, &g);
+}
+
+/* the same scenes at 640x360, 1280x720 and 1920x1080 by the ARM: the same N
+ * gives the same choice (the number is pixels of a 1080-line picture, the
+ * models the same size on the screen); at 360 lines 8 is 2.7 of the
+ * target's pixels, fewer impostors than 8 of them (AT360(8), before) */
+static void sizes(void)
+{
+    static const int lines[3] = { 360, 720, 1080 };
+    static const int ns[3] = { 16, 24, 48 };     /* 16: a few models, 48: many */
+    static void (*const fns[2])(void) = { scene, crowd };
+    static const char *const names[2] = { "field", "crowd" };
+    uint32_t imps[2][3][3];
+    for (int s = 0; s < 3; s++) {
+        target(lines[s] * 16 / 9, lines[s]);
+        for (int f = 0; f < 2; f++) {
+            draw_scene = fns[f];
+            for (int k = 0; k < 3; k++) {
+                const shot_t sh = draw(0, 0, ns[k]);
+                imps[f][k][s] = sh.imps;
+                free(sh.px);
+            }
+        }
+    }
+    for (int f = 0; f < 2; f++)
+        for (int k = 0; k < 3; k++) {
+            printf("%s ARM, %2d px (1080p): %3u impostors at 360 lines, %3u at 720, %3u at 1080\n", names[f], ns[k],
+                   imps[f][k][0], imps[f][k][1], imps[f][k][2]);
+            CHECK(imps[f][k][0] > 0 && imps[f][k][0] == imps[f][k][1] && imps[f][k][1] == imps[f][k][2],
+                  "%s, %d px: not the same choice at 360, 720 and 1080 lines", names[f], ns[k]);
+        }
+    /* at 1080 lines the number is the target's pixels: a hero alone is an
+     * impostor only if it is at most that many (a pixel more for the edges) */
+    int chosen = 0;
+    for (int k = 0; k < 48; k++) {
+        const float z = 150 + (float)(k * k) * 0.27f;
+        uint32_t i0, t0, i8, t8;
+        int w, h, w8, h8;
+        hero_pose(0.35f * (float)(k % 7), 0);
+        alone(&hero, (v3_t){ 0.3f * (float)(k % 9) - 1.2f, 0, z }, 0.37f * (float)k, 0, &i0, &t0, &w, &h);
+        alone(&hero, (v3_t){ 0.3f * (float)(k % 9) - 1.2f, 0, z }, 0.37f * (float)k, 8, &i8, &t8, &w8, &h8);
+        if (i8) {
+            chosen++;
+            CHECK(w <= 9 && h <= 9, "1080 lines, hero %d at z %.1f: an impostor, but %dx%d px", k, z, w, h);
+        }
+        if (w > 16 || h > 16)
+            CHECK(!i8, "1080 lines, hero %d at z %.1f: %dx%d px, an impostor", k, z, w, h);
+    }
+    printf("heroes alone at 1080 lines, 8 px: %d impostors of 48\n", chosen);
+    CHECK(chosen >= 4, "1080 lines: only %d heroes alone are impostors", chosen);
+    /* 360 lines: 8 (1080p) is a third of 8 of the target's */
+    target(640, 360);
+    draw_scene = scene;
+    const shot_t a = draw(0, 0, 8), b = draw(0, 0, AT360(8));
+    printf("field ARM at 360 lines: 8 px (1080p) %u impostors, 24 px (1080p, 8 here) %u\n", a.imps, b.imps);
+    CHECK(a.imps < b.imps, "360 lines: 8 px gives %u impostors, 24 px %u", a.imps, b.imps);
+    free(a.px);
+    free(b.px);
+}
+
 int main(void)
 {
-    fb = test_aligned_alloc(64, W * H * 2);
+    fb = test_aligned_alloc(64, 1920 * 1080 * 2);
     g16_target(&g, fb, W, W, H, &font);
     r3d_init(&r, &g);
     make_meshes();
@@ -425,7 +501,7 @@ int main(void)
 
     shot_t arm_off, arm_on;
     both("field", scene, OFF_ARM_SUM, OFF_GPU_SUM, 40, &arm_off, &arm_on);
-    const shot_t arm_on6 = draw(0, 0, 6);
+    const shot_t arm_on6 = draw(0, 0, AT360(6));
     CHECK(arm_on6.imps < arm_on.imps && arm_on6.imps > 0, "ARM: 6 px gives %u impostors, 8 px %u", arm_on6.imps,
           arm_on.imps);
     printf("field ARM, 6 px: %u impostors, %u tri\n", arm_on6.imps, arm_on6.tris);
@@ -438,6 +514,7 @@ int main(void)
     free(arm_off.px);
     free(arm_on.px);
     crowd_steps();
+    sizes();
     if (failed)
         return 1;
     printf("impostors: ok\n");

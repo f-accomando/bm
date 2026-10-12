@@ -2900,7 +2900,8 @@ static int l_zclear(lua_State *L)
  * _update runs (where the GPU's probe saw it work); 2: two jobs in flight
  * (M39); true: the console's own level (gpu3d_queue in Settings, 1 or 2),
  * false 0; returned fifth as the level in force (1, 2) or false.
- * impostor: a mesh whose box on the screen is at most that many pixels (2..64) is drawn as one quad in its average colour, by the GPU or
+ * impostor: a mesh whose box on the screen is at most that many pixels (2..64) of a 1080-line picture
+ * (N * h / 1080 of the game's screen: 8 is 2.7 at 360 lines) is drawn as one quad in its average colour, by the GPU or
  * the ARM; false or 0 off (the default, or r3d_impostor in bm/config.txt);
  * returned sixth. later (M39, bm3d 6.9): each frame shown a frame later, so
  * the next _update and _draw run while the GPU draws it (with queue 2; not

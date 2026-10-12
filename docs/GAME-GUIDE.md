@@ -354,9 +354,12 @@ end
   the map's visibility given once by `pvs3d{...}` (cells on the ground and the pieces seen
   from each, as Overbit's map) also if a wall hides it. Characters skipped this way cost
   nothing: `if visible3d(e.x, e.y + 1, e.z, 1.5) then draw3d(e.mesh, ...) end`.
-- **Far small models (impostors, off by default):** `gpu3d(nil, nil, nil, nil, 6)` draws a
-  model whose box on the screen is at most 6 pixels as one quad of its average colour (2
-  triangles instead of all its faces), on the GPU and on the ARM alike; animated models too,
+- **Far small models (impostors, off by default):** `gpu3d(nil, nil, nil, nil, 16)` draws a
+  model whose box on the screen is at most 16 pixels of a 1080-line screen as one quad of its
+  average colour (2 triangles instead of all its faces), on the GPU and on the ARM alike. The
+  number is the size the player sees on the TV: at 640×360 it is a third as many of the game's
+  pixels (16 → 5.3), at 720p two thirds, so the same models are chosen whatever the
+  resolution. Animated models too,
   by the box of their pose. `gpu3d(nil, nil, nil, nil, 0)` turns it off. The player can turn
   it on for every game in *Settings > Screen and sound > 3D impostors* (`r3d_impostor` in
   `bm/config.txt`).

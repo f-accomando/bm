@@ -181,7 +181,8 @@ typedef struct {
                                  * in its own axes, also on the ARM (fewer instructions a vertex;
                                  * the pixels not bit for bit as before): r3d_fast=1 */
     int impostor;               /* impostors: a mesh whose box on the screen is at most this many
-                                 * pixels wide and high is drawn as one quad facing the camera in
+                                 * pixels wide and high, pixels of a 1080-line picture (g->h * this
+                                 * / 1080 of the target's), is drawn as one quad facing the camera in
                                  * its average colour (2 triangles, by the ARM or the backend);
                                  * a mesh with a skeleton by the box of its pose (and then also
                                  * skipped out of view, as one without);

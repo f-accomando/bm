@@ -1650,15 +1650,27 @@ static int imp_pose(const r3d_mesh_t *m, float lo[3], float hi[3], float *rad)
     return 1;
 }
 
+/* r->impostor is in pixels of a 1080-line picture (what the screen shows:
+ * the game's screen is scaled to the TV's height), so the same model at the
+ * same place is chosen alike at 640x360, 720p and 1080p. In pixels of the
+ * 3D's target (r->g, the game's screen): impostor * h / 1080 (8 at 360
+ * lines is 2.67). A square cartridge boxed in a 16:9 page (256 lines in
+ * 270) counts its own lines: under 6% smaller, and only the target's size
+ * decides it (the same on every console). */
+static float imp_threshold(const r3d_t *r)
+{
+    return (float)(r->impostor * r->g->h) / 1080.0f;
+}
+
 /* 1 if the mesh was drawn as an impostor: its box (scale, R, p) on the
- * screen is at most r->impostor pixels each way. lo, hi its box in its own
- * coordinates (NULL: the vertices' at rest, m->imp), (wx, wy, wz) the middle
- * of that box relative to the camera, cz its depth, rad its sphere. */
+ * screen is at most imp_threshold() pixels each way. lo, hi its box in its
+ * own coordinates (NULL: the vertices' at rest, m->imp), (wx, wy, wz) the
+ * middle of that box relative to the camera, cz its depth, rad its sphere. */
 static int impostor(r3d_t *r, const r3d_mesh_t *m, const view_t *v, const float R[9], v3_t p, float scale,
                     const float *lo, const float *hi, float wx, float wy, float wz, float cz, float rad,
                     unsigned flags)
 {
-    const float thr = (float)r->impostor;
+    const float thr = imp_threshold(r);
     if (cz - rad < NEAR || v->f * rad > thr * (cz - rad))
         return 0;                           /* near, or its sphere is more than 2x as big */
     r3d_mesh_t *mm = (r3d_mesh_t *)m;       /* the cache of the mesh */

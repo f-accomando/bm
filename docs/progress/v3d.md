@@ -37,13 +37,13 @@ From the v3d-async-proposal review (branch `origin/v3d-async-proposal`,
 2. Decide from the Pi run whether `gpu3d_later` becomes the default.
 3. Only if 1 or 2 shows a gain: chain two jobs in hardware (CT0/CT1 queue); needs removing
    `job_wait` before `v3d_start`.
-4. `r3d_impostor=N` (0 off; 2..64 px; `gpu3d()` 5th; `make test-impostor`), off; skinned meshes by
-   their pose's box (then also culled). After the Pi numbers: Animator bake (atlas colour a mesh)?
+4. `r3d_impostor=N` (off; 2..64 px of a 1080-line screen, N*h/1080 of the target: `imp_threshold`;
+   `gpu3d()` 5th; skinned by pose box). After the Pi numbers: Animator bake (atlas colour a mesh)?
 5. M39 remaining: 8/16-bit attributes, RGBA5551/4444, ETC1, mipmaps.
 
 Fixed, not yet on the Pi: Overbit forced queue 1 at every start (`gpu3d` queue `true` = 1);
 now `true` = the console's level, 5th value the level; bench renderer `ql`; the `.bm`'s
-640x360 on the GPU; impostors for skinned meshes (heroes never became one). Market reseed.
+640x360 on the GPU; impostors of skinned meshes; impostor size in 1080p px. Market reseed.
 
 ## To measure on the Pi
 
@@ -55,4 +55,5 @@ Last Pi numbers: 2026-10-06, bm3d 6.7. Ask the user; reports in branch `reports`
   `gpu3d_queue=2` (q vs ql), then a played Overbit with `gpu3d_later=1`: the session report's
   `options` line must say `queue=2 later=1`, `frame queue` line (frames held); no tearing.
 - 2D on GPU, tex16, WC, `g` test steps 15-16, `menu_scale=3`.
-- Impostors: `far:60` ring (small far heroes): `res:640/gpu:arm+vs/q:4/ring:1/far:60` with `r3d_impostor` 0, 8, 16, 32 (row steps Off, 8, 16, 32): fps, tris, photo of the far heroes.
+- Impostors again (old 640x360 runs were render px: 8/16/32 then = 24/48/96 now, now 2.7/5.3/10.7):
+  `res:640/gpu:arm+vs/q:4/ring:1/far:60` at `r3d_impostor` 0, 8, 16, 32: fps, tris, photo of far heroes.

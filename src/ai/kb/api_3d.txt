@@ -581,16 +581,22 @@ text:
 Il quinto argomento di gpu3d (spento di default) disegna un modello che
 sullo schermo sta in px pixel (2..64) come un quadrato del suo colore
 medio: 2 triangoli invece di tutte le facce, sulla GPU e sull'ARM.
-Anche i modelli animati, con la scatola della loro posa. 0 lo spegne.
-Dipende solo dalla camera, dal modello e dalla posa: va bene in rete.
+I pixel sono di uno schermo a 1080 righe, quello che si vede sulla TV:
+a 640x360 sono un terzo dei pixel del gioco (16 -> 5.3), a 720p due
+terzi. Anche i modelli animati, con la scatola della loro posa. 0 lo
+spegne. Dipende solo dalla camera, dal modello, dalla posa e dalla
+grandezza dello schermo del gioco: va bene in rete.
 text_en:
 gpu3d's fifth argument (off by default) draws a model that fits in px
 pixels on the screen (2..64) as one quad of its average colour: 2
-triangles instead of all its faces, on the GPU and on the ARM. Animated
-models too, by the box of their pose. 0 turns it off. It depends only
-on the camera, the model and its pose: fine online.
+triangles instead of all its faces, on the GPU and on the ARM. The
+pixels are those of a 1080-line screen, what the TV shows: at 640x360
+they are a third of the game's pixels (16 -> 5.3), at 720p two thirds.
+Animated models too, by the box of their pose. 0 turns it off. It
+depends only on the camera, the model, its pose and the size of the
+game's screen: fine online.
 code:
-function _init() gpu3d(nil, nil, nil, nil, 6) end
+function _init() gpu3d(nil, nil, nil, nil, 16) end
 
 == world3d
 kind: api
