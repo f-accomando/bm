@@ -8,8 +8,9 @@ from .container import (Cart, Header, Section, build, check_path, edition_of, ed
                         read_file, validate, write_file)
 from .mesh import Face, Mesh, Model
 from .anim import Anim, Bone, Clip, Key, Pose, Rig
-from . import anim, container, mesh, sections
+from . import anim, container, imageio, mesh, preview, sections, skin
 
 __all__ = ["ValidationError", "Cart", "Header", "Section", "build", "check_path", "edition_of",
            "edition_of_cart", "new_cart", "parse", "read_file", "validate", "write_file", "Face", "Mesh",
-           "Model", "Anim", "Bone", "Clip", "Key", "Pose", "Rig", "anim", "container", "mesh", "sections"]
+           "Model", "Anim", "Bone", "Clip", "Key", "Pose", "Rig", "anim", "container", "imageio", "mesh", "preview",
+           "sections", "skin"]
