@@ -36,6 +36,40 @@ PAD_KEY = {"left": "left", "right": "right", "up": "up", "down": "down", "a": "s
            "start": "ret", "select": "tab", "l1": "q", "r1": "e"}
 
 
+def retime(events, min_gap=4):
+    """The same key must come at least `min_gap` frames after its last press, or the USB keyboard of QEMU merges the
+    release and the next press into one report and the console sees ONE press (bmhost's scripts put a "." every 2 frames).
+    Later events are pushed back just enough, and the idle gaps give the time back. Returns (events, delta_at) where delta_at(f)
+    is how many frames the original frame f moved."""
+    last, delta, marks, out = {}, 0, [(-1, 0)], []
+    prev_f = None
+    for f, kind, args in events:
+        if prev_f is not None and delta and f - prev_f >= 30:    # an idle gap: take back what the fast keys cost
+            back = min(delta, f - prev_f - 20)
+            delta -= back
+            marks.append((f, delta))
+        prev_f = f
+        nf = f + delta
+        if kind == "type":
+            keys = ["+".join(c) for c in qemurec.decode(args)]
+            need = max([last.get(k, -99) + min_gap for k in keys] + [nf])
+            if need > nf:
+                delta += need - nf
+                nf = need
+                marks.append((f, delta))
+            for k in keys:
+                last[k] = nf
+        out.append((nf, kind, args))
+
+    def delta_at(f):
+        d = 0
+        for fr, dl in marks:
+            if fr <= f:
+                d = dl
+        return d
+    return out, delta_at
+
+
 def episode_dir(n):
     s = json.load(open(os.path.join(HERE, "series.json"), encoding="utf-8"))
     v = next(x for x in s["videos"] if x["n"] == int(n))
@@ -92,6 +126,9 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
     start = os.path.join(out, "start.bme")             # record.py's start project (out/sd holds what its bmhost run SAVED)
     if os.path.exists(start):
         files = [(src, name) for src, name in files if not name.upper().endswith(".BME")] + [(start, "carts/TROPIC.BME")]
+    orig_events = events
+    events, delta_at = retime(events)
+    print("retime: the last event moved %d frames" % delta_at(10 ** 9), flush=True)
     parts = PARTS.get(int(n), [(v["tool"], 0, None)])
     parts = [(t, a, b if b is not None else 10 ** 9) for t, a, b in parts]
 
@@ -111,7 +148,7 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
         for p_ in plan:
             if f >= p_["a"]:
                 e = p_["extra"]
-        return f + e
+        return f + e + delta_at(f)
 
     total = shifted(int(ov["frames"]))
     if limit_s:
@@ -126,11 +163,11 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
     held, ev = set(), []
     for p_ in plan:
         ev += p_["walk"]
-    for fr, kind, args in events:
+    for (fr, _, _), (nf, kind, args) in zip(orig_events, events):
         part = next((p_ for p_ in plan if p_["a"] <= fr < p_["b"]), None)
         if part is None:
             continue                                  # hook and cut frames: not in the recording
-        f = fr + part["extra"]
+        f = nf + part["extra"]
         if kind == "type":
             ev.append((f, "type", args))
         elif kind == "pad":
