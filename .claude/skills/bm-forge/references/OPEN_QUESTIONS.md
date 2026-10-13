@@ -176,3 +176,13 @@ Nothing generated here was run on the kernel or opened in bm Animator: checks ar
 53. **Market title/author uniqueness** is checked only inside the exported folder (the code
     in `export_market`, `export.py:311-402`, checks no uniqueness at all, only non-empty
     title); nothing compares with the Market repo. Whether the Market requires it is NON VERIFICATO.
+
+## Verified in the real runtime (bmhost, 2026-10-13)
+
+- `forgedemo.bm` and `forgedemo.b16` (`--square`) run in `build/host/bmhost-bin`
+  (rebuilt that day with `make build/host/bmhost-bin`): `forgedemo: 7/7 checks passed`, exit 0,
+  420 frames. The checks cover `model`, `models`, `bones3d`, `clips` (names, loop flags, lengths),
+  `animate` and `bone3d`. The three clip shots differ; the walk shot shows the generated humanoid
+  facing the camera at -z (`tests/golden/preview_samples/forge_demo_walk_bmhost.png`).
+- This is the PC build of the console's runtime, not a Pi or an RGB30. Console look: still
+  NON VERIFICATO. `stat(4)` reported 72 triangles in the frame (informational: the models total 168).

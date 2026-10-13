@@ -128,7 +128,7 @@ BM_FORGE_SLOW=1 python3 -m unittest discover tests/golden  # + QEMU (needs qemu-
 ```
 
 Opt-in bmhost run of the example game: `BM_FORGE_HOST=1` with `tests/golden/test_bmhost_demo.py`
-(planned: the file is not in the tree yet).
+(2 tests, run 2026-10-13 in WSL: bm and b16 editions give "7/7 checks passed", exit 0).
 
 Goldens and how they were made: `../tests/golden/README.md`.
 
