@@ -13,7 +13,8 @@ class SyncWatch(unittest.TestCase):
 
     def test_watch_list(self):
         self.assertEqual(syncwatch.WATCH, ["src/bm/bm.h", "src/bm/format.c", "scripts/bmmesh.py",
-                                           "src/script/bm3d.lua", "src/gpu/version3d.h"])
+                                           "src/script/bm3d.lua", "src/gpu/version3d.h", "src/bm/runtime.c",
+                                       "src/bm/r3d.c", "carts/animator/main.lua"])
         self.assertTrue(all(syncwatch.digest(p) for p in syncwatch.WATCH))
 
 

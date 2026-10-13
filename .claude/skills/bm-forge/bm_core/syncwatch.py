@@ -17,7 +17,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
 SYNC = os.path.join(HERE, "SYNC.json")
-WATCH = ["src/bm/bm.h", "src/bm/format.c", "scripts/bmmesh.py", "src/script/bm3d.lua", "src/gpu/version3d.h"]
+WATCH = ["src/bm/bm.h", "src/bm/format.c", "scripts/bmmesh.py", "src/script/bm3d.lua", "src/gpu/version3d.h", "src/bm/runtime.c", "src/bm/r3d.c", "carts/animator/main.lua"]
 
 
 def digest(rel):
