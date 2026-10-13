@@ -52,6 +52,34 @@ def pad_to_keys(args, held):
     return down, up
 
 
+# episodes made of several tools on the same SD card, in the timeline of out/input.txt (frames of the edited video):
+# (tool, first frame, last frame). The others are one tool from frame 0.
+PARTS = {2: [("PIXEL", 480, 8520), ("STUDIO", 8640, None)]}
+
+
+def walk(prev, tool):
+    """The keys that open `tool` from where the console is: first time from the Games tab (Tab, Right x N, Enter), after
+    another tool from its Dev icon (Ctrl+Esc = home, Left/Right to the icon, Enter). Returns ([(rel frame, kind, args)], length)."""
+    ev, f = [], 20
+    if prev is None:
+        ev.append((f, "type", "\\x09"))
+        f += 60
+        steps = DEV_ICON[tool]
+        key = "\\xf3"
+    else:
+        ev.append((f, "chord", "ctrl+esc"))              # Ctrl+Esc: home
+        f += 60
+        steps = DEV_ICON[tool] - DEV_ICON[prev]
+        key = "\\xf3" if steps > 0 else "\\xf2"
+    for _ in range(abs(steps)):
+        ev.append((f, "type", key))
+        f += 20
+    f += 40
+    ev.append((f, "type", "\\n"))
+    f += 60 * 3                                        # the tool loads (about 1 s of guest time) and shows its list
+    return ev, f
+
+
 def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
     ep, v = episode_dir(n)
     out = os.path.join(ep, "out")
@@ -61,7 +89,30 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
     ov = json.load(open(os.path.join(out, "overlay.json"), encoding="utf-8"))
     sd_dir = os.path.join(out, "sd", "carts")
     files = [(os.path.join(sd_dir, f), "carts/" + f) for f in sorted(os.listdir(sd_dir))] if os.path.isdir(sd_dir) else []
-    nx = DEV_ICON[v["tool"]]
+    parts = PARTS.get(int(n), [(v["tool"], 0, None)])
+    parts = [(t, a, b if b is not None else 10 ** 9) for t, a, b in parts]
+
+    # the timeline: each part is shifted by `extra` frames so that its tool is up when its first key comes
+    plan, extra, prev, prev_end = [], 0, None, 0
+    for tool, a, b in parts:
+        w_ev, w_len = walk(prev, tool)
+        gap = a - prev_end
+        extra += max(0, w_len - gap) if (intro or prev is not None) else 0
+        start = a + extra - w_len
+        plan.append({"tool": tool, "a": a, "b": b, "extra": extra, "walk": [(start + f, k, x) for f, k, x in w_ev],
+                     "walk_start": start, "walk_end": a + extra})
+        prev, prev_end = tool, b
+
+    def shifted(f):
+        e = plan[0]["extra"]
+        for p_ in plan:
+            if f >= p_["a"]:
+                e = p_["extra"]
+        return f + e
+
+    total = shifted(int(ov["frames"]))
+    if limit_s:
+        total = min(total, plan[0]["walk_end"] + int(limit_s * FPS))
 
     r = qemurec.Recorder(work, shift=shift)
     r.boot(sd_files=files, timeout=240)
@@ -69,59 +120,39 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
     while r.vtime_us() < settle:
         time.sleep(0.05)
 
-    # the walk to the tool: frames of the video before the episode's frame 0
-    pre, f = [], 30
-    pre.append((f, "type", "\\x09"))                  # Tab: Games -> Dev
-    f += 90
-    for _ in range(nx):
-        pre.append((f, "type", "\\xf3"))              # Right: next icon
-        f += 30
-    f += 60
-    pre.append((f, "type", "\\n"))                    # Enter: open the tool
-    f += 60 * 3                                       # loading (the editor is up in about 1 s of guest time)
-    offset = f if intro else 0
-    if not intro:
-        # open the tool but do not show it: the recording starts when it is up
-        for fr, kind, args in pre:
-            while r.vtime_us() < settle + fr * qemurec.US_PER_FRAME:
-                time.sleep(0.005)
-            for chord in qemurec.decode(args):
-                r.press(chord)
-        t_end = r.vtime_us() + 6e6
-        while r.vtime_us() < t_end:
-            time.sleep(0.05)
-        pre = []
-
-    total = offset + int(ov["frames"])
-    if limit_s:
-        total = min(total, offset + int(limit_s * FPS))
-    held, ev = set(), list(pre)
+    held, ev = set(), []
+    for p_ in plan:
+        ev += p_["walk"]
     for fr, kind, args in events:
+        part = next((p_ for p_ in plan if p_["a"] <= fr < p_["b"]), None)
+        if part is None:
+            continue                                  # hook and cut frames: not in the recording
+        f = fr + part["extra"]
         if kind == "type":
-            ev.append((offset + fr, "type", args))
+            ev.append((f, "type", args))
         elif kind == "pad":
             down, up = pad_to_keys(args, held)
-            for k in up:
-                ev.append((offset + fr, "keyup", k))
-            for k in down:
-                ev.append((offset + fr, "keydown", k))
+            ev += [(f, "keyup", k) for k in up] + [(f, "keydown", k) for k in down]
         elif kind == "shot":
-            ev.append((offset + fr, "shot", args))
+            ev.append((f, "shot", args))
     ev.sort(key=lambda e: e[0])
 
     shots = r.record(ev, total, os.path.join(work, "console.mkv"))
     print("recorded:", r.stats, flush=True)
 
-    # overlay: the episode's data shifted by `offset`, plus the walk to the tool
+    # overlay: the episode's data shifted like the keys, plus the walks to the tools
     s = types.SimpleNamespace(
-        caps=[(offset + k["frame"], k["cap"], k["what"]) for k in ov["keys"]],
-        scenes=[(offset + sc["frame"], sc["place"], [(c["cap"], c["what"]) for c in sc["keys"]]) for sc in ov["scenes"]],
-        lines_say=[(offset + a["from"], None if a["to"] is None else offset + a["to"], a["text"]) for a in ov["say"]],
-        cards=[(offset + c["frame"], c["title"]) for c in ov["chapters"]])
-    if intro:
-        s.scenes.insert(0, (0, "Home ▸ Dev", [("Tab", "next tab"), ("→", "next icon"), ("Enter", "open")]))
-        s.caps[0:0] = [(30, "Tab", "Dev tab")] + [(30 + 90 + 30 * i, "→", "next icon") for i in range(nx)] + \
-                      [(30 + 90 + 30 * nx + 60, "Enter", "open " + v["tool"].title())]
+        caps=[(shifted(k["frame"]), k["cap"], k["what"]) for k in ov["keys"]],
+        scenes=[(shifted(sc["frame"]), sc["place"], [(c["cap"], c["what"]) for c in sc["keys"]]) for sc in ov["scenes"]],
+        lines_say=[(shifted(a["from"]), None if a["to"] is None else shifted(a["to"]), a["text"]) for a in ov["say"]],
+        cards=[(shifted(c["frame"]), c["title"]) for c in ov["chapters"]])
+    for p_ in plan:
+        w = p_["walk_start"]
+        s.scenes.append((w, "Home ▸ Dev", [("Tab / ← →", "pick the tool"), ("Enter", "open")]))
+        s.caps.append((w + 20, "Tab" if p_ is plan[0] else "Ctrl+Esc", "Dev tab" if p_ is plan[0] else "home"))
+        s.caps.append((p_["walk_end"] - 60 * 3 - 40, "Enter", "open " + p_["tool"].title()))
+    s.scenes.sort(key=lambda x: x[0])
+    s.caps.sort(key=lambda x: x[0])
     if limit_s:
         s.scenes = [x for x in s.scenes if x[0] < total]
     ass = os.path.join(work, "overlay.ass")
@@ -132,8 +163,8 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
 
     r.close()
     qemurec.extract_sd(os.path.join(work, "sd.img"), os.path.join(work, "sd"))
-    json.dump({"frames": total, "offset": offset, "shift": shift, "stats": r.stats, "shots": shots},
-              open(os.path.join(work, "rec.json"), "w"), indent=1)
+    json.dump({"frames": total, "plan": [{k: v_ for k, v_ in p_.items() if k != "walk"} for p_ in plan], "shift": shift,
+               "stats": r.stats, "shots": shots}, open(os.path.join(work, "rec.json"), "w"), indent=1)
     print("video:", mp4)
     return mp4
 

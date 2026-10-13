@@ -311,6 +311,8 @@ class Recorder:
                     tgt = self.vtime_us() + hold_frames * US_PER_FRAME
                     while self.vtime_us() < tgt:
                         time.sleep(0.003)
+            elif kind == "chord":                       # "ctrl+esc": qcodes joined by +
+                self.press(args.split("+"))
             elif kind == "keydown":
                 self.hold([args], True)
             elif kind == "keyup":
