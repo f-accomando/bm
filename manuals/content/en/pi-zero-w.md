@@ -366,7 +366,7 @@ The functions are described in `docs/api/light3d.md`. The ones that matter for p
 
 Without doing anything, the game gets the console's settings. A game can ask for its own with `gpu3d([on, aa, vs, queue, impostor, later])`. It returns `on, aa, vs, version, queue, impostor, later`, and it changes the choice only for this cartridge (source: `docs/api/light3d.md`):
 
-- `on` stays `false` if there is no GPU (QEMU, `gpu3d=0`) and in 256x256 games in the box;
+- `on` stays `false` if there is no GPU (QEMU, `gpu3d=0`) and in 256x256 games (the GPU writes whole pages);
 - `aa` stays off if MSAA cannot be used, `vs` stays off if the boot test did not see the vertex shader work;
 - `queue` `true` asks for the console's level, `false` for none; `later` works only with `queue` 2 and never in a game played online;
 - `version` is the bm3d version this choice reproduces (`"0.2"` for the ARM, `"2.1"`, `"3.0"`, `"3.4"`, `"4.1"`, `"6.9"`).
@@ -398,7 +398,7 @@ It is bm's single benchmark of the 3D. Each test grows its load until a frame pa
 6. The next run reads the last report and compares against it. To keep a history, copy the files to `docs/bench/` in the repository.
 
 ::: try
-Run the 3D Bench twice. On the second run the pages show white ticks at the values of the first one, and a column "x last". If the two runs differ by more than a few percent, something else was loading the board.
+Run the 3D Bench twice. On the second run the pages show white ticks at the values of the first one, and a column "x last".
 :::
 
 ![The 3D Bench: one test, its bars for each profile](shots/pi-zero-w-bench-test.png)
@@ -476,7 +476,7 @@ A test that you stop (Start+Select, Ctrl+Esc or PS after the frame on screen) le
 - Divisions: use them per triangle at most, never per scanline or pixel. A denormal float traps unless RunFast is on; bm turns RunFast on at boot (source: `docs/PERFORMANCE.md`).
 - The firmware vsync is not available on the Pi Zero (source: `docs/HARDWARE.md`).
 - One USB OTG port with one HID device plus a mouse; up to 4 DualShock 4 over Bluetooth (source: `docs/HARDWARE.md`).
-- The 3D is not OpenGL: it is fixed-function. There is no programmable shader for games yet. Running your own programs on the QPUs (particles, full-screen effects) is listed as not started (source: `docs/progress/v3d.md`).
+- The 3D is not OpenGL: it is bm's own fixed-function driver. Running your own programs on the QPUs (particles, full-screen effects) is listed as not started (source: `docs/progress/v3d.md`).
 - No interrupt for the V3D: the driver polls (source: `docs/progress/v3d.md`).
 
 ## Tips
@@ -488,8 +488,8 @@ A test that you stop (Start+Select, Ctrl+Esc or PS after the frame on screen) le
 - Use `visible3d()` to skip hidden characters.
 - Use `r3d_impostor` for crowds of far models.
 - Use sheets with sides that are multiples of 32 so the GPU reads them in T-format.
-- Test on the board. QEMU shows only the order of magnitude (source: `docs/PERFORMANCE.md`).
-- Keep an eye on the `machine` line when numbers jump: the core clock is the first thing to check.
+- Test on the board. QEMU does not model the cache or the memory bus (source: `docs/PERFORMANCE.md`).
+- When numbers jump between runs, read the `machine` line: the repo tied slow quads to the core and V3D clocks (source: `docs/BENCH3D.md`).
 
 # The RGB30, where the repo compares
 
@@ -507,7 +507,3 @@ The PowKiddy RGB30 (RK3566, AArch64) runs the same 3D Bench. Its report in the r
 A value of -1 means the first step already did not fit in 16.7 ms: `spheres_tex` on the Pi is -1 and 45.4 on the RGB30; `match` is -1 on the Pi and 1.3 on the RGB30.
 
 Since then the repo has started a driver for the RGB30's Mali-G52 GPU. It powers the GPU, runs jobs and clears a surface; a triangle is written and not yet tried on the device. The 3D of the RGB30 is still `r3d` on the ARM (source: `docs/progress/graphics-mali.md`). So on the RGB30 there are no GPU numbers to compare with the Pi's V3D.
-
-# Open points
-
-The gaps of this manual are collected here from the chapters above.
