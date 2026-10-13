@@ -6,7 +6,7 @@ Fonti: [`PIANO.md`](PIANO.md), [`../../SYNC.md`](../../SYNC.md). Aggiornare ques
 
 | Video | script | shot list | copertina | metadati | input auto | registrazione | montaggio | pubblicazione |
 |---|---|---|---|---|---|---|---|---|
-| 1 Studio | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], record+verify [x] (bmhost) | [ ] | [ ] | [ ] |
+| 1 Studio | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], record+verify [x] (bmhost) | [x] QEMU 1920x1080 60 fps, verify PASS | [ ] | [ ] |
 | 2 Pixel | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], record+verify [x] (bmhost) | [ ] | [ ] | [ ] |
 | 3 Animator | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], record+verify [x] (bmhost) | [ ] | [ ] | [ ] |
 | 4 Map | [x] provvisorio | [x] provvisorio | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO | BLOCCATO | BLOCCATO |
