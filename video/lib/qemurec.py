@@ -311,6 +311,10 @@ class Recorder:
                     tgt = self.vtime_us() + hold_frames * US_PER_FRAME
                     while self.vtime_us() < tgt:
                         time.sleep(0.003)
+            elif kind == "keydown":
+                self.hold([args], True)
+            elif kind == "keyup":
+                self.hold([args], False)
             elif kind == "shot":
                 shots.append((f, args))
         # until the last frame
@@ -363,3 +367,17 @@ def write_srt(s, path):
     with open(path, "w", encoding="utf-8") as f:
         for n, (a, b, text) in enumerate(s.lines_say, 1):
             f.write("%d\n%s --> %s\n%s\n\n" % (n, t(a), t(b if b is not None else a + 120), text))
+
+
+def extract_sd(img, dest):
+    """The files on the card after the recording (what the tool saved): every file under the card's root into dest/."""
+    part = img + ".part"
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        shutil.copyfileobj(f, o)
+    shutil.rmtree(dest, ignore_errors=True)
+    os.makedirs(dest)
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    subprocess.run(["mcopy", "-s", "-n", "-i", part, "::/", dest], check=True, env=env)
+    os.remove(part)
+    return dest
