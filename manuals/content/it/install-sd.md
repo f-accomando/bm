@@ -3,7 +3,7 @@ accent: scheda SD
 lang: it
 kicker: Una guida bm
 subtitle: Metti bm su una microSD per il Raspberry Pi Zero W o per il PowKiddy RGB30, avvialo, aggiornalo e riempilo di giochi.
-footer: bm manuals - install-sd
+footer: manuali bm - install-sd
 
 ::: readme
 **Cos'è.** Il percorso da una microSD vuota al menu di bm su un Pi Zero W o su un PowKiddy RGB30, e come tenere aggiornata la scheda.
@@ -38,7 +38,7 @@ bm non ha un installatore da scaricare e avviare con un doppio clic: la scheda s
 1. Apri un terminale sul PC (su Windows: il terminale Ubuntu di WSL).
 2. Installa gli strumenti. Dovresti vedere `apt` finire senza errori.
 3. Scarica il repository. Dovresti vedere una nuova cartella `bm`.
-4. Entraci e prendi il ramo principale. Dovresti vedere `bm-core` come risposta di `git branch`.
+4. Entraci e prendi il ramo principale (questo passo serve per compilare dai sorgenti). Dovresti vedere `bm-core` come risposta di `git branch`.
 
 ::: copy
 sudo apt-get install -y git curl make python3 python3-numpy python3-pil dosfstools mtools \
@@ -106,7 +106,7 @@ Su WSL c'è uno script che fa lo stesso con un menu. La prima volta chiede la le
 
 1. Nella cartella `bm`, avvia lo script. Dovresti vedere il ramo, la cartella del repository e l'unità della scheda.
 2. Rispondi alle domande della prima esecuzione: la lettera dell'unità (per esempio `D`). Non può essere `C`.
-3. Metti la scheda nel PC. Scegli **4** (**[SD] disk image**) per cancellare la scheda e scrivere l'immagine, oppure **3** (**[SD] full install**) per copiare i file su una scheda già FAT32.
+3. Metti la scheda nel PC. Scegli **4** (**[SD] disk image**) per costruire l'immagine, formattare la scheda in FAT32 e copiarci i file dell'immagine, oppure **3** (**[SD] full install**) per copiare i file su una scheda già FAT32.
 4. Con **4**, scrivi la lettera dell'unità quando richiesto. Windows chiede i diritti di amministratore: rispondi Sì. Se Windows propone di formattare il disco, premi Annulla: lo formatta lo script.
 5. Aspetta la riga `You can take the card out of the reader.` e la riga `kernel: ... -> ...`.
 
@@ -114,7 +114,7 @@ Su WSL c'è uno script che fa lo stesso con un menu. La prima volta chiede la le
 ./easy_install.sh
 :::
 
-L'opzione **4** conserva impostazioni, salvataggi e giochi se rispondi di sì quando lo chiede: copia prima `bm/` e `carts/` sul PC e poi li rimette. Formatta in FAT32 fino a 31 GB della scheda.
+L'opzione **4** conserva impostazioni, salvataggi e giochi se rispondi di sì quando lo chiede: copia prima `bm/` e `carts/` sul PC e poi li rimette. Esegue `make image`, formatta la scheda in FAT32 (fino a 31 GB) e ci copia i file dell'immagine; non scrive il file immagine in sé. Rifiuta una scheda dell'RGB30.
 
 ::: try
 Dopo il primo avvio, premi la tastiera o il pad e passa da una all'altra delle quattro schede del menu. Poi spegni, metti la scheda nel PC e guarda le cartelle `bm/` e `carts/`.
@@ -276,7 +276,7 @@ Il Market è il catalogo dei giochi gratuiti. Niente account e niente pagamenti.
 
 1. Collega la console al WiFi.
 2. Apri la scheda **Market**: è la prima del menu.
-3. Scegli un gioco. Sul Pi lo scarica **A**; sull'RGB30 lo scarica **B** e **X** apre i dettagli.
+3. Scegli un gioco. Sull'RGB30 lo scarica **B** e **X** apre i dettagli.
 4. La console controlla la firma del catalogo e lo SHA-256 di ogni file prima di scrivere qualcosa sulla scheda. Aspetta che il gioco sia scritto.
 5. Apri la scheda **Games**. Dovresti vedere il gioco; selezionalo per giocare.
 

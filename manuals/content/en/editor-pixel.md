@@ -62,6 +62,7 @@ Start from the **Dev** tab of the menu, or press **X** on the cover of a game an
 | Save as... | Ctrl+Shift+S | asks a file name (8.3, in `/carts`) and saves there |
 | Try the game | F5 | saves if needed, runs the game, and brings you back to the same page |
 | Sheet size... | | the same as **Shift+R** on the sheet page |
+| Back to bm SDK | | returns to bm SDK; it appears only when bm Pixel was opened from the SDK |
 | Exit bm Pixel | | leaves; if there are unsaved changes, choose it again to confirm |
 
 Ctrl+Z and Ctrl+Y undo and redo. For each file bm Pixel remembers the sprite, its size, the animation, the colour and the page.
@@ -177,7 +178,7 @@ A **zone** is a named part of the sheet: a position, a size, a number of **frame
 
 - The chosen sprite and the ones that follow it in the sheet are the frames of the animation. **+** and **-** set how many (1 to 16), **>** and **<** set the speed (1 to 30 fps), **p** pauses.
 - The box on the right plays them, next to the sprite at actual size.
-- When the sprite you are on matches a zone of the file (same corner and size, or the same corner), the panel shows `zone "name" frame n/m` instead of the `spr(...)` call.
+- When the sprite you are on matches a zone of the file (first pass: the same row, the sprite size equal to the frame size of the zone, and the column anywhere inside the span of the zone's frames, so any of its frames matches; failing that, second pass: the same corner at any size, which shows frame 1), the panel shows `zone "name" frame n/m` instead of the `spr(...)` call.
 
 ## Good to know
 
@@ -303,7 +304,7 @@ A resource is one thing taken out of a cartridge in its own file. For pictures, 
 
 ## What you can do today
 
-- In the menu's **Lib** tab, the **Images** group lists the zones of SPRITES. **A** opens one in bm Pixel. The tab is hidden unless `lib_tab=1` is in `bm/config.txt`.
+- In the menu's **Lib** tab, the **Images** group lists the zones of SPRITES. `docs/RISORSE.md` describes **A** opening one in bm Pixel, but this was not confirmed in the code. The tab is hidden unless `lib_tab=1` is in `bm/config.txt`.
 - On the PC, `scripts/bmres.py` extracts a sprite zone into a `.bmi` (with its boxes), adds a resource to a `.bm`, and converts to and from `.png`, `.hex` and `.gpl`.
 
 ::: copy

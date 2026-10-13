@@ -77,15 +77,16 @@ L'RGB30 non usa il firmware del Pi. L'ordine è: la boot ROM del chip, poi `idbl
 
 Sul Pi, `main.c` fa queste cose, in quest'ordine:
 
-1. Avvia la porta seriale e i vettori delle eccezioni.
-2. Riconosce la scheda dal codice di revisione del firmware.
-3. Porta il clock dell'ARM al massimo offerto dal firmware.
-4. Divide la memoria con la GPU, poi prepara il gestore della memoria e le cache.
-5. Avvia l'unità in virgola mobile, il timer e gli interrupt.
-6. Prova ad armare il watchdog (3 secondi). Sul Pi Zero W il log di avvio dice "not available, no freeze guard".
-7. Trasforma il resoconto di crash dell'avvio precedente in un report (capitolo 12).
-8. Avvia il Bluetooth se c'è un pad abbinato, poi WiFi ed Ethernet.
-9. Apre il menu delle cartucce. Il monitor è la console di testo che gira dopo.
+1. Avvia il LED e la porta seriale, poi lo schermo e lo splash (il logo); le righe dell'avvio vanno alla console.
+2. Prepara la memoria: lo heap, il clock dell'ARM al massimo offerto dal firmware e la MMU.
+3. Riconosce la scheda e la stampa con il suo SoC e il codice di revisione.
+4. Prepara il LED della scheda, poi gli interrupt e il timer.
+5. Prova ad armare il watchdog (3 secondi). Sul Pi Zero W il log di avvio dice "not available, no freeze guard".
+6. Avvia l'audio, il DMA e l'USB.
+7. Carica l'elenco delle cartucce e `bm/config.txt`.
+8. Trasforma il resoconto di crash dell'avvio precedente in un report (capitolo 12).
+9. Avvia il Bluetooth se c'è un pad abbinato, poi WiFi ed Ethernet.
+10. Apre il menu delle cartucce. Il monitor è la console di testo che gira dopo.
 
 Il README dice che il Pi arriva al menu in circa due secondi. [DA COMPLETARE: il tempo di avvio dell'RGB30 non è stato misurato nel repository]
 
@@ -128,7 +129,7 @@ Il Market si carica solo mentre la sua scheda è attiva e non blocca mai il menu
 | `r` | rileggi la scheda SD |
 | mouse | il clic gioca; il clic destro torna indietro |
 
-Le opzioni del gioco (`c`, o X su un pad) mostrano i byte dei salvataggi e una riga *Delete the save data*.
+Le opzioni del gioco (`c`) mostrano i byte dei salvataggi e una riga *Delete the save data*.
 
 ## Da sapere
 
@@ -144,7 +145,7 @@ Le Impostazioni hanno queste pagine: Controllers, WiFi and network (Network su u
 
 # I tasti di sistema
 
-I tasti di sistema funzionano nel menu, dentro i giochi e dentro gli strumenti. Sono definiti in un'unica tabella, `src/kernel/syskeys.c`, e compaiono sullo schermo mentre tieni premuto F12.
+I tasti di sistema funzionano nel menu, dentro i giochi e dentro gli strumenti. La maggior parte è definita in un'unica tabella, `src/kernel/syskeys.c`, che elenca i tasti mostrati sullo schermo mentre tieni premuto F12. Print Screen non è in quella tabella: giochi e app lo gestiscono a parte (`src/bm/runtime.c`).
 
 | Tasto | Cosa fa |
 |---|---|
@@ -364,7 +365,7 @@ Per fare una copia dei salvataggi di un gioco, copia i suoi file da `bm/save/` s
 
 - Un'eccezione fatale mostra una schermata rossa con i registri e l'elenco degli indirizzi da cui è stata chiamata, anche durante un gioco.
 - Gli ultimi 4 KiB stampati e una traccia di breadcrumb restano in memoria attraverso un reset. Al boot successivo diventano un report in `bm/reports/`, inviato quando la rete è attiva. La rete e `report()` chiedono il tuo permesso la prima volta.
-- Dopo 20 secondi di funzionamento, lo schermo dice "Restarting in 60 s: this screen goes out as a report", il LED lampeggia un codice e la console si riavvia. [DA COMPLETARE: se il Pi Zero W si riavvia davvero da solo; il suo log di avvio dice che il watchdog non è disponibile]
+- Dopo 20 secondi di funzionamento, lo schermo dice "Restarting in 60 s: this screen goes out as a report", il LED lampeggia un codice e la console si riavvia. Vale anche sul Pi Zero W: il riavvio scrive direttamente nei registri di gestione dell'alimentazione (`src/kernel/exceptions.c`, `src/drivers/watchdog.c`), quindi non dipende dal controllo del watchdog fatto all'avvio.
 - [DA COMPLETARE: cosa significa ogni numero di lampeggi del LED sul Pi Zero W; sono scritti solo i codici dell'RGB30]
 
 ![La schermata rossa di crash](shots/boot-os-crash.png)

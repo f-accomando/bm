@@ -37,7 +37,7 @@ The sounds travel inside the game's `.bm` file, in its AUDIO section. Your game 
 
 ## Good to know
 
-- bm Sound has 8 voices. Track `t` of a pattern plays on voice `t`.
+- bm Sound has 8 voices. The tracks are numbered 1 to 8 and the voices 0 to 7: track `t` of a pattern plays on voice `t - 1` (the screen says `TRACK 1 (voice 0)`).
 - The F6 key opens a music assistant that makes beats, melodies and sound effects for you.
 - The F7 key opens Riff, where you write a pattern as one line of text.
 - Everything you change can be undone with Ctrl+Z.
@@ -63,7 +63,7 @@ Press Esc, then choose **Open a game or a sound pack...** (or press Ctrl+O). The
 
 - If the file has no sounds yet, bm Sound says so and you start from empty banks. **Save** puts the sounds in it.
 - If you open a game (`.bm`), the first save asks *Save an editable copy: NAME.BME?* and from then on you work on the copy.
-- **New project** (Ctrl+N) starts from empty banks. **The demo project** loads a bank with sounds and songs: press START to hear the song.
+- **New project** (Ctrl+N) starts from blank banks: sound 0 is named `SOUND` and song 0 is named `SONG`, with the order `{0}` (pattern 0). **The demo project** loads a bank with sounds and songs: press START to hear the song.
 
 ::: note
 The top bar shows the four pages, `OCT` (the piano octave), the player (`STOP`, `SFX`, `PATTERN` or `SONG n`) and the name of the file. A yellow dot before the name means changes not saved yet.
@@ -156,7 +156,7 @@ Under the slots a box shows the chosen pattern and a small picture of its notes.
 
 ## The assistant (F6)
 
-F6 (or **Compose with the assistant...** in the Esc menu) opens a panel that makes rhythms, backing tracks, bass lines, arpeggios, melodies and sound effects. Each one is heard while you choose it, and A puts it in the bank.
+F6 (or **Compose with the assistant...** in the Esc menu) opens a panel that makes rhythms, backing tracks, bass lines, arpeggios, melodies and sound effects. Each one is heard while you choose it, and A (Enter on the keyboard) puts it in the bank. On the keyboard the letter `a` is typed into the search text.
 
 - Rhythms and backing tracks go into new patterns, with a song of their own.
 - Bass lines, arpeggios and melodies go over the pattern on the page and follow its key and chords.
@@ -166,7 +166,7 @@ F6 (or **Compose with the assistant...** in the Esc menu) opens a panel that mak
 
 ![The assistant panel on top of the PATTERN page](shots/editor-sound-assist.png)
 
-[TO FILL: the keys inside the assistant panel]
+Keys inside the panel: Up and Down choose, Left and Right change the variant, Enter puts it in the bank, Esc closes, Tab goes to the next mode (pad: X), PgUp and PgDn scroll, typing sets the request, Ctrl+U clears it.
 
 ## Riff (F7)
 
@@ -248,7 +248,7 @@ You will make a short "coin" sound. Start in bm Sound with a new project (Esc, *
 3. Press F2 to go to SFX. The cursor is on step 1 of effect 0.
 4. Press Enter. A note appears at step 1 and you hear it. It uses the sound that was chosen on the SOUNDS page.
 5. Press the right arrow and Enter again to add step 2. Press `=` to raise it by one semitone; press `_` or `+` to move it an octave down or up.
-6. Press Up on the first step row to reach the header. Move to SPEED with the right arrow and press `-` or `=` to make steps longer or shorter. `_` and `+` change it by 10 ms.
+6. Press Up on the first step row to reach the header. Move to SPEED with the right arrow and press `-` to make the steps shorter (fewer ms) or `=` to make them longer (more ms). `_` and `+` change it by 10 ms.
 7. Press Space (START on the pad). You hear the effect. Press Space again to stop.
 8. To give the effect a slide, go back to a step with the arrow keys and press `l` twice: the step box says BEND UP. Then press `p` for a bigger amount.
 9. Go to the header, choose NAME, press Enter and type a name of up to 8 characters. Press Enter to confirm.
@@ -263,7 +263,7 @@ If you hear nothing, check that the volume of the console is up and that the ste
 
 1. Press F3 to go to PATTERN. Choose a free pattern with PgUp / PgDn.
 2. Move to the header with Up (from track 1) and set STEPS to 16 with `-` / `=`. Set TEMPO in the same way.
-3. Go back to the header of track 1 (the number at the left): press the left arrow from the first cell. Press `-` / `=` to choose the sound of that track. You hear it.
+3. Go back to the header of track 1 (the number at the left): from the STEPS / TEMPO / SWING header press Down first, then press the left arrow. Press `-` / `=` to choose the sound of that track. You hear it.
 4. Move to the first cell and press Enter. A note is placed. Press `=` to change it. Press Y or `i` to hear it.
 5. Fill other steps. With the piano keys (`z s x d c v`) a note is placed and the cursor moves to the next step.
 6. Do the same on track 2 with another sound, for a bass or a drum.
@@ -325,7 +325,7 @@ end
 sfx(n)            -- play sound effect n of the bank
 sfx(-1)           -- stop the effects
 music(n)          -- play song n
-music(-1, 500)    -- stop the music, fading it in 500 ms
+music(-1, 500)    -- stop the music, fading it out in 500 ms
 :::
 
 An effect uses a free voice and the music's track on that voice is silent while it plays. A song that uses only tracks 1 to 6 leaves voices 6 and 7 free for effects. See the manual `api-sound` for all the calls.

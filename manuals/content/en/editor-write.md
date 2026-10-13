@@ -128,9 +128,9 @@ Press **Esc** (or **Start** on the pad). Use the up and down arrows and Enter. T
 | Start | the menu |
 | Share | pad typing on or off |
 
-The text on the key list screen (F1) says Select for pad typing, and the menu says Share.
+The key screen (F1) says "Share writes with the pad" and the menu says Share for pad typing; only the list shown while F12 is held says SELECT.
 
-[TO FILL: which physical button writes a new paragraph and which deletes, on the Pi Zero W pad and on the PowKiddy RGB30; and whether pad typing is Share or Select]
+[TO FILL: which physical button writes a new paragraph and which deletes, on the Pi Zero W pad and on the PowKiddy RGB30; and which button is the right one for pad typing on each console, given that F1 and the menu say Share while the F12 list says Select]
 
 While pad typing is on, the status line shows `PAD` and a small panel appears above it. [TO FILL: how to compose letters with the pad]
 
@@ -283,7 +283,7 @@ You can also open `LETTER.MD`, if you exported it: it comes back with the same p
 |---|---|
 | Saving, opening or exporting fails and the status line is red | Read the reason. If you said no to the question on documents, the calls fail: [TO FILL: how to change the answer; the answer is kept in `bm/config.txt`] |
 | `no documents in /docs yet: Ctrl+S saves this one` | The folder is empty. Save a document first |
-| `8 letters or digits, like LETTER` | The name has a space, a dot, or more than 8 letters. Type a shorter one |
+| `8 letters or digits, like LETTER` | The name has a space, or more than 8 letters (a final `.ext` is dropped: `LETTER.TXT` is taken as `LETTER`). Type a shorter one |
 | `not a bm Write document` | The `.BMD` file is not in the bm Write format |
 | The file you saved is not in the open list | Only `.BMD`, `.MD` and `.TXT` are listed. A PDF or an HTML cannot be opened |
 | You closed the app without saving | Start bm Write again: if the changes were kept you see `the document with its changes is back (Ctrl+S saves it)` |

@@ -60,7 +60,7 @@ Mostrerai un modello della tua cartuccia, illuminato e in rotazione. Parti da un
 6. Sempre in `_draw`, disegna il modello con `draw3d(m, 0, -cy, 0, 0, ang, 0, 1, 4)`: la posizione, poi gli angoli `rx, ry, rz`, poi la scala, poi i flag. Il flag 4 ombreggia la luce in modo morbido.
 7. Aggiungi `ang = ang + 0.02` alla fine di `_draw`, così il modello gira un poco a ogni frame.
 8. Disegna il testo del gioco (l'HUD) dopo `draw3d`, con `print`.
-9. Avvia la cartuccia. Dovresti vedere il modello illuminato da un lato e in rotazione. Se non vedi nulla, il modello può essere dietro la camera o troppo grande: stampa i valori di `bounds3d` e allontana la camera.
+9. Avvia la cartuccia. Dovresti vedere il modello illuminato da un lato e in rotazione. Se non vedi nulla, il modello può essere dietro la camera o troppo grande. Un modo per scoprirlo: stampa i valori di `bounds3d` e allontana la camera.
 
 ![Il modello disegnato dal tutorial](shots/api-3d-model.png)
 
@@ -79,7 +79,7 @@ function _draw()
   cls(0)
   zclear()
   draw3d(m, 0, -cy, 0, 0, ang, 0, 1, 4)
-  print("il mio modello", 4, 4, 7)
+  print("il mio modello", 4, 4, 0xFFFFFF)
   ang = ang + 0.02
 end
 ```
@@ -88,15 +88,15 @@ end
 Cambia i flag da 4 a 2 e riavvia: il modello perde la luce e mostra colori piatti. Poi prova 4 + 128, che disegna anche le facce con texture come colori piatti.
 :::
 
-[DA COMPLETARE: l'unità degli angoli `rx, ry, rz` di `draw3d` (le fonti dicono radianti solo per `roll` e `bone_turn`)]
+Gli angoli `rx, ry, rz` di `draw3d` sono in radianti. Anche `yaw` e `pitch` della camera sono in radianti; `fov` è in gradi.
 
 # Mesh e modelli
 
 | Funzione | Descrizione |
 |---|---|
 | `mesh(v, f, [uv])` | una mesh da tabelle (fino a 65535 vertici e 65535 facce: 4096 e 16384 prima di bm3d 5.0): `v` = {x,y,z, x,y,z, ...}, `f` = {a,b,c,colour, ...} (indici da 1; una faccia si vede dal lato in cui i suoi vertici appaiono in senso **orario**). Con `uv` (6 numeri per faccia: u,v dei tre vertici in pixel dello sprite sheet) le facce con colore `-1` hanno la **texture** dello sprite sheet (corretta in prospettiva, i pixel trasparenti restano vuoti). Il colore può avere i **bit di materiale** (vedi "Disegno e bit di materiale") |
-| `mesh_sphere([r, segments, c1, c2])` | una sfera già pronta |
-| `mesh_cube([c])` | un cubo già pronto |
+| `mesh_sphere([rings, segments, c1, c2])` | una sfera già pronta. Valori predefiniti: `rings` 8, `segments` 16, `c1` 0xFFFFFF, `c2` 0xC0C0C0. Non c'è il raggio: scalala con `draw3d` |
+| `mesh_cube([c])` | un cubo già pronto. `c` vale 0xFFFFFF in modo predefinito |
 | `model(name)` / `model(n)` | un **modello 3D della cartuccia** (fatto con bm Studio, sezione MESH) come mesh, con la texture dello sprite sheet; `n` si conta da 1; `nil` se non c'è. Ogni chiamata costruisce una nuova mesh: falla in `_init` |
 | `models()` | i nomi dei modelli della cartuccia, in ordine (`{}` se non ne ha) |
 | `bounds3d(m)` | `x0, y0, z0, x1, y1, z1`: il box attorno ai vertici di una mesh, nelle sue coordinate (prima di spostarla, ruotarla e scalarla con `draw3d`): per centrarla, per le collisioni |
@@ -104,8 +104,6 @@ Cambia i flag da 4 a 2 e riavvia: il modello perde la luce e mostra colori piatt
 ## Luce precalcolata
 
 Un modello con **luce precalcolata** (il bit "lit" della sezione MESH: la luce di ogni angolo delle facce, fatta da uno script) si disegna morbido con quella luce. Non ha sole né cielo, ma ha le lampade (`lamp3d`) e la nebbia. Costa meno della luce calcolata. Le sue facce con texture (finestre, insegne) hanno una luce per faccia, colorata, e la nebbia.
-
-[DA COMPLETARE: i valori predefiniti di `mesh_sphere` (`r`, `segments`, `c1`, `c2`) e di `mesh_cube` (`c`)]
 
 ```lua
 local names = models()          -- {} se la cartuccia non ha modelli
@@ -299,7 +297,9 @@ local x, y, z, fl = world_move(w, px, py, pz, 0.4, 1.8, vx, vy, vz, 0.45, on_gro
 on_ground = (fl & 1) ~= 0
 ```
 
-[DA COMPLETARE: il valore predefinito di `on_ground` in `world_move` quando non è dato, e a cosa serve `tag` di `world_box`]
+Se `on_ground` manca in `world_move` vale `false`. Il `tag` di `world_box` vale 0 in modo predefinito.
+
+[DA COMPLETARE: a cosa serve `tag` di `world_box`]
 
 # Luce per le scene 2D
 
@@ -366,7 +366,7 @@ Sono i consigli che il repository dichiara; i numeri vengono dal 3D Bench (*Dev 
 - Costruisci i modelli in `_init`, non in `_draw`: ogni chiamata a `model()` costruisce una nuova mesh.
 - Usa texture con lati multipli di 32 (128x128, 256x256): la GPU le legge più velocemente.
 - Usa i mondi di collisione invece degli stessi test in Lua: sono in C e molto più veloci.
-- A 1080p una partita giocata è limitata dal riempimento: meno pixel, non meno triangoli, è la leva. Con il lavoro della GPU breve e l'ARM che dà il passo, guarda la logica del gioco.
+- Una scena misurata (640x360 EXTREME) aveva un lavoro della GPU di 4,2 ms in un frame di 19,6 ms: era l'ARM a dare il passo. A 1080p una partita giocata è limitata dal riempimento: meno pixel, non meno triangoli, è la leva. Con `stat(16)` vicino al tempo del frame è la GPU a dare il passo; molto sotto, è l'ARM.
 - Misura: `stat(16)` è il tempo di lavoro della GPU dell'ultimo frame in ms (0 sull'ARM). Con la coda attiva include l'attesa prima che l'ARM guardi: fidati solo senza la coda.
 - Il bench dà un punteggio a ogni driver rispetto a bm3d 2.1 sul Pi Zero W (1000 punti). `make test-b3d` fa un breve controllo sul PC; i millisecondi del PC non contano.
 

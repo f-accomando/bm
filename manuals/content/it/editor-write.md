@@ -3,7 +3,7 @@ accent: Write
 lang: it
 kicker: Un editor di bm
 subtitle: Scrivi lettere e relazioni sulla console, salvale sulla scheda SD ed esportale in PDF, HTML, Markdown o testo.
-footer: bm manuals - editor-write
+footer: manuali bm - editor-write
 
 ::: readme
 **Cos'è.** Il manuale di bm Write, il programma di videoscrittura della suite bm.
@@ -128,9 +128,9 @@ Premi **Esc** (oppure **Start** sul pad). Usa le frecce su e giù e Enter. Le vo
 | Start | il menu |
 | Share | scrittura col pad accesa o spenta |
 
-Il testo della schermata dei tasti (F1) dice Select per la scrittura col pad, mentre il menu dice Share.
+La schermata dei tasti (F1) dice "Share writes with the pad" e il menu dice Share per la scrittura col pad; solo l'elenco mostrato tenendo premuto F12 dice SELECT.
 
-[DA COMPLETARE: quale pulsante fisico scrive un nuovo paragrafo e quale cancella, sul pad del Pi Zero W e sul PowKiddy RGB30; e se la scrittura col pad è su Share o su Select]
+[DA COMPLETARE: quale pulsante fisico scrive un nuovo paragrafo e quale cancella, sul pad del Pi Zero W e sul PowKiddy RGB30; e quale pulsante è quello giusto per la scrittura col pad su ciascuna console, dato che F1 e il menu dicono Share mentre l'elenco di F12 dice Select]
 
 Con la scrittura col pad accesa, la riga di stato mostra `PAD` e sopra di essa compare un piccolo pannello. [DA COMPLETARE: come comporre le lettere con il pad]
 
@@ -283,7 +283,7 @@ Puoi aprire anche `LETTER.MD`, se l'hai esportato: ritorna con gli stessi paragr
 |---|---|
 | Salvare, aprire o esportare fallisce e la riga di stato è rossa | Leggi il motivo. Se hai risposto no alla domanda sui documenti, le chiamate falliscono: [DA COMPLETARE: come cambiare la risposta; la risposta è conservata in `bm/config.txt`] |
 | `no documents in /docs yet: Ctrl+S saves this one` | La cartella è vuota. Salva prima un documento |
-| `8 letters or digits, like LETTER` | Il nome ha uno spazio, un punto, o più di 8 lettere. Scrivine uno più corto |
+| `8 letters or digits, like LETTER` | Il nome ha uno spazio, o più di 8 lettere (un `.ext` finale viene tolto: `LETTER.TXT` è accettato come `LETTER`). Scrivine uno più corto |
 | `not a bm Write document` | Il file `.BMD` non è nel formato di bm Write |
 | Il file salvato non è nell'elenco di apertura | Sono elencati solo `.BMD`, `.MD` e `.TXT`. Un PDF o un HTML non si può aprire |
 | Hai chiuso l'app senza salvare | Riavvia bm Write: se le modifiche sono state conservate vedi `the document with its changes is back (Ctrl+S saves it)` |

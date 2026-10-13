@@ -17,7 +17,7 @@ footer: manuali bm - api-lib
 
 ## Cosa sono
 
-`bmlib` è ciò che ogni gioco scriveva da sé, trovato in 5-10 cartucce del repository, ora in una sola libreria scritta in Lua e tenuta nel kernel (`src/script/bmlib.lua`). Comprende: numeri e numeri casuali, collisioni, la mappa (muri, piattaforme, gravità), hitbox e hurtbox, easing, tween, timer e script, particelle, una camera, stati di gioco, testo, menu e menu di pausa, giocatori su una console, jingle, salvataggi, animazioni, colori e un costruttore di mesh 3D.
+`bmlib` è ciò che ogni gioco scriveva da sé, ora in una sola libreria scritta in Lua e tenuta nel kernel (`src/script/bmlib.lua`). Comprende: numeri e numeri casuali, collisioni, la mappa (muri, piattaforme, gravità), hitbox e hurtbox, easing, tween, timer e script, particelle, una camera, stati di gioco, testo, menu e menu di pausa, giocatori su una console, jingle, salvataggi, animazioni, colori e un costruttore di mesh 3D.
 
 `bmnet` è il codice di rete del gioco Overbit, messo a disposizione di ogni gioco (`src/script/bmnet.lua`). Le console si trovano nella **LAN** (broadcast UDP) o su **internet** attraverso un relay; una console **ospita** una partita e le altre **entrano**; si scambiano **messaggi** e, per i giochi d'azione, la partita gira in **lockstep**.
 
@@ -108,9 +108,9 @@ function _draw()
   cls(0)
   cam:apply()
   cam:map()
-  print("@", hero.x, hero.y, 7)           -- l'eroe
+  print("@", hero.x, hero.y, 0xFFFFFF)    -- l'eroe
   camera()
-  print("A: jump", 4, 4, 7)
+  print("A: jump", 4, 4, 0xFFFFFF)
 end
 ```
 
@@ -170,8 +170,8 @@ function _update()
   end
   if net.state == "lobby" then
     if btnp("a") then net.host({ max = 2, info = "my match" }) end
-    for id in pairs(net.hosts()) do
-      if btnp("b") then net.join(id) end
+    for _, h in ipairs(net.hosts()) do
+      if btnp("b") then net.join(h.id) end
     end
   end
   if net.state == "hosting" and btnp("start") then net.start() end
@@ -192,8 +192,6 @@ In una partita il gioco deve dipendere solo dagli input dei frame e dal seed. Le
 ::: try
 Avvia il gioco su due console. Premi A sulla prima, B sulla seconda, poi X su entrambe per vedere i messaggi, poi Start sulla prima.
 :::
-
-[DA COMPLETARE: se `net.hosts()` è indicizzata dall'id della partita o è una lista semplice, per scrivere il ciclo qui sopra senza dubbi]
 
 # bmlib: numeri
 
@@ -242,7 +240,7 @@ Le funzioni guardano i **flag delle tessere**: `lib.SOLID` (flag 0, valore 1), `
 | `lib.solid(x, y, [w, h])` | il rettangolo (o il punto) tocca qualcosa di solido |
 | `lib.move(b, dx, dy)` | muove il corpo `b = {x, y, w, h}` (`w`, `h` valgono 8 se mancano) di `dx, dy`, fermandolo contro le tessere solide e facendolo scivolare lungo i muri; cade su una piattaforma solo dall'alto (e non con `b.drop`: giù attraverso di essa). A passi più corti di una tessera: non ne salta mai una. Restituisce `hx, hy`: -1 / 1 dove ha urtato (sinistra / destra, su / giù), altrimenti 0 |
 | `lib.step(b)` | un frame di un corpo con gravità (un platform): `b.vx, b.vy` in pixel per frame, `b.gravity` (`lib.GRAVITY`, 0.25) e `b.maxfall` (`lib.MAXFALL`, 6); poi `b.ground` è `true` a terra e la velocità che ha urtato è 0. Restituisce ciò che dà `lib.move` |
-| `lib.ray(x0, y0, x1, y1, [mask])` | la prima tessera con un flag di `mask` (quello solido di `lib.tiles` se manca) sul segmento: `x, y` dove il segmento vi entra e la sua cella `mx, my`; `nil` se la via è libera (linea di vista, proiettili) |
+| `lib.ray(x0, y0, x1, y1, [mask])` | la prima tessera con un flag di `mask` (quello solido di `lib.tiles` se manca) sul segmento: `x, y` dove il segmento vi entra e la sua cella `mx, my`; `nil` se la via è libera (linea di vista, proiettili). Con `lib.tiles{edge=true}` anche ogni punto fuori dalla mappa conta come colpito, qualunque sia la maschera |
 
 ```lua
 local hero = { x = 40, y = 40, w = 8, h = 8, vx = 0, vy = 0 }
@@ -353,11 +351,13 @@ fx:burst(x, y, 20, { speed = 3, colors = { 0xFFFFFF, 0xFFD050, 0xFF6020 }, gravi
 | `S:is(name)`, `S.name`, `S:top()` | lo stato in cima |
 
 ```lua
-local S = lib.states({
+local S
+S = lib.states({
   title = { update = function(s) if btnp("ok") then S:go("play") end end,
             draw = function() cls(0); lib.printc("PRESS A", 160, 0xFFFFFF) end },
   play = { enter = function(s) s.score = 0 end,
-           update = function(s) ... end, draw = function(s) ... end },
+           update = function(s) s.score = s.score + 1 end,
+           draw = function(s) cls(0) end },
 }, "title")
 function _update() lib.update(); S:update() end
 function _draw() S:draw() end
@@ -472,7 +472,7 @@ Le console si trovano nella **LAN** (broadcast UDP) o su **internet** attraverso
 | `net.open([opt])` | apre la rete: `game` (4 caratteri, il gioco e la sua versione: i pacchetti degli altri giochi non si vedono), `port` (47320, uguale su ogni console), `relay` (`"name"` o `"name:port"`, 47310: su internet; senza, la LAN), `room` (4 caratteri, `"PLAY"`: le console di una stanza si vedono sul relay), `name` (il nome del giocatore). `true`, oppure `false` e il perché (nessuna rete) |
 | `net.close()` | se ne va: gli altri lo sanno (in una partita l'input del posto diventa `false`; quando se ne va l'host la partita finisce per tutti), il socket si chiude. Chiamala anche da `_leave()` |
 | `net.host([opt])` | questa console ospita una partita: `max` giocatori (2-8, 4), `info` (una riga che gli altri vedono nell'elenco). È il posto 1 |
-| `net.hosts()` | le partite trovate negli ultimi 3 secondi: `{id, name, players, max, info}`, per id |
+| `net.hosts()` | le partite trovate negli ultimi 3 secondi: `{id, name, players, max, info}`, una lista, ordinata per id |
 | `net.join(id)` | chiede un posto alla console `id`: l'evento `"joined"` quando dice sì, `"refused"` se è piena o già iniziata |
 | `net.peers()` | le console nella stanza o nella partita: `{id, name, seat, me}`, per posto |
 
@@ -496,7 +496,7 @@ Per i giochi d'azione, ogni console esegue tutto il gioco con lo stesso seed e v
 |---|---|
 | `net.start([opt])` | (l'host) avvia la partita con chi c'è: `seed` (gli stessi numeri casuali su ogni console; uno a caso se manca), `delay` (frame tra una pressione e il suo frame: 4 nella LAN, 7 attraverso il relay), `data` (una stringa per tutti: le opzioni scelte). Tutti ricevono l'evento `"start"` (anche l'host, al prossimo `net.update()`) |
 | `net.input(v)` | (lockstep) il mio input per il frame `net.frame + delay`: un intero a 32 bit (`net.pad(1)`). Una volta in ogni `_update` della partita, prima di `net.frames()` |
-| `net.frames()` | i frame della partita che possono girare ora: `for f, inputs in net.frames() do ... end`, `inputs[seat]` l'input di quel posto (`false` quando il suo giocatore se n'è andato). Uno, due quando la console è indietro; nessuno finché manca un input (`net.stall`: secondi dall'ultimo) |
+| `net.frames()` | i frame della partita che possono girare ora: `for f, inputs in net.frames() do ... end`, `inputs[seat]` l'input di quel posto (`false` quando il suo giocatore se n'è andato). Uno, due quando la console è indietro; nessuno finché manca un input (`net.stall`: secondi dall'ultimo frame girato) |
 | `net.check(hash)` | un numero che riassume il gioco dopo il frame appena girato (posizioni, punteggi): le console lo confrontano e una differenza è l'evento `"desync"`. Basta ogni secondo |
 | `net.pad([p])` / `net.unpad(v)` | i 16 tasti di `pad(p)` e la leva sinistra (8 bit per verso) in 32 bit / di nuovo tasti, `x`, `y` (-1..1) |
 | `net.held(v, button)` | un tasto (`"a"`, `"left"`... come `pad()`) premuto in un input di `net.pad` |
@@ -523,8 +523,8 @@ Per i giochi d'azione, ogni console esegue tutto il gioco con lo stesso seed e v
 | `net.seed` | il seed della partita |
 | `net.delay` | il ritardo della partita in frame |
 | `net.data` | la stringa data a `net.start` |
-| `net.error` | il testo dell'errore (vedi l'evento `"error"`) |
-| `net.stall` | secondi dall'ultimo input, mentre `net.frames()` aspetta |
+| `net.error` | il testo dell'errore per l'evento `"error"` (relay sconosciuto); anche "la partita è piena o già iniziata", "l'host se n'è andato" e "l'host non c'è più" (arrivano con gli eventi `"refused"` e `"lost"`). `net.open` lo riporta a `nil` |
+| `net.stall` | secondi dall'ultimo frame girato, mentre `net.frames()` aspetta (azzerato in `net.frames()` e all'inizio della partita; cresce di 1/60 a ogni `net.update()`) |
 
 ## Un esempio completo
 

@@ -114,7 +114,7 @@ On the gamepad: **A** puts, **B** removes, **X + up/down** changes level.
 
 A tile goes on one side of the cell, not on a whole cube. Use it for floors, single walls, doors and windows.
 
-- Press **f** to choose the side in turn: floor, far wall, right wall, near wall, left wall, ceiling, all sides. On the gamepad, tap **X**.
+- Press **f** to choose the side in turn: floor, far wall, right wall, near wall, left wall, ceiling. On the gamepad, tap **X**.
 - **Space** puts the tile, **Backspace** removes what is on that side.
 
 ## The brush: tiles and colours
@@ -132,7 +132,7 @@ Press **Tab** (on the gamepad **Y**) to open the sheet.
 | `Tab` | Close without changing |
 
 - A selection of several tiles is placed in one go: a door two tiles high is one put.
-- Outside the sheet, **r** turns the brush by a quarter turn and **h** mirrors it. **x** picks the tile or colour from the face under the cursor.
+- Outside the sheet, **r** turns the brush by a quarter turn with tools 1-2 only (with tool 3, select, **r** turns the chosen faces), and **h** mirrors the brush with any tool. **x** picks the tile or colour from the face under the cursor.
 - With a colour as brush, the faces get a flat colour and no texture.
 
 ![The tile picker: the sheet, the selection and the tile large](shots/editor-studio-tiles.png)
@@ -172,7 +172,7 @@ bm Studio paints **pixels of a face's tile**, not colours at the corners. There 
 
 ## What it does
 
-Tool **5** (paint) opens the tile of the face under the pointer, large in the panel. You paint it pixel by pixel while the model on the view changes. The painted sheet is saved with the model.
+With tool **5** (paint) chosen, **Enter** or **Space** opens the tile of the face under the pointer, large in the panel. You paint it pixel by pixel while the model on the view changes. The painted sheet is saved with the model.
 
 ## Good to know
 
@@ -230,7 +230,7 @@ The console draws about 1200 triangles in a scene at 60 fps. Beyond that, the co
 
 ## A model from a picture
 
-`m` (or *Model from picture...* in the menu) makes a model from an image in the `pics/` folder of the SD (`.png` or `.jpg`). There are three ways: **cutout** (a thick paper figure), **lathe** (the half outline turned around the vertical axis: vases, towers) and **meshy.ai** (an online service that needs the network and an account).
+`m` (or *Model from picture...* in the menu) makes a model from an image in the `pics/` folder of the SD or in the SD root (`.png` or `.jpg`). There are three ways: **cutout** (a thick paper figure), **lathe** (the half outline turned around the vertical axis: vases, towers) and **meshy.ai** (an online service that needs the network and an account).
 
 # Saving and exporting
 
@@ -339,7 +339,7 @@ If the count is above 1200, the line says `heavy for 60 fps`. Reduce until the w
 
 - About 1200 triangles in a scene is what the console draws at 60 fps. A model you reduced is the cheapest way to stay under it.
 - Cursor cells go from -64 to 63 on each axis.
-- A vertex count over the limit shows in a different colour in the panel. [TO FILL: the vertex limit at which the counter turns red]
+- A vertex count over the limit turns red in the panel, and saving fails above the limit: 4096 vertices (and 16384 triangles).
 - Textured faces need the sprite sheet: the textures are pieces of it.
 - Use **F5** often: it saves and shows the model in the game.
 - A game and a project are not the same: the menu shows the path of the file you are working on, so check it is the `.BME` copy before you go on.

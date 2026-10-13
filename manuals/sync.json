@@ -1,4 +1,951 @@
 {
+ "api-3d": {
+  "chapters": {
+   "1": {
+    "en": "c0d1486c0bb4",
+    "it": "7d416d673bc1",
+    "title": "How 3D works in bm"
+   },
+   "10": {
+    "en": "b58227c6f8f7",
+    "it": "bb52c6606388",
+    "title": "Collision worlds"
+   },
+   "11": {
+    "en": "3d5ce41a52f7",
+    "it": "d12b8bfe0a44",
+    "title": "Light for 2D scenes"
+   },
+   "12": {
+    "en": "24f58caa9063",
+    "it": "c27c08de5682",
+    "title": "Performance tips"
+   },
+   "2": {
+    "en": "504e08e22c30",
+    "it": "18903913910e",
+    "title": "Tutorial: a model on the screen"
+   },
+   "3": {
+    "en": "f22372a7a2fb",
+    "it": "1eff9bdfe131",
+    "title": "Meshes and models"
+   },
+   "4": {
+    "en": "e246534e6225",
+    "it": "ae5b7a491d81",
+    "title": "Drawing and material bits"
+   },
+   "5": {
+    "en": "56e63cdfbb56",
+    "it": "f1cc82197974",
+    "title": "Camera, light and fog"
+   },
+   "6": {
+    "en": "c417e7c7d212",
+    "it": "6b9470b7587d",
+    "title": "Skeletons and animation"
+   },
+   "7": {
+    "en": "fa74a9345b87",
+    "it": "0662d48dbcf1",
+    "title": "Effects, labels and 2D over the 3D"
+   },
+   "8": {
+    "en": "40eb3f7bd2b8",
+    "it": "bbdee147c624",
+    "title": "Visibility"
+   },
+   "9": {
+    "en": "492ff24a57a2",
+    "it": "e668f4736754",
+    "title": "The GPU: gpu3d and its options"
+   }
+  },
+  "sources": {
+   "docs/BENCH3D.md": "1adaf5f48818",
+   "docs/api/light3d.md": "982e8d514f7f"
+  }
+ },
+ "api-core": {
+  "chapters": {
+   "1": {
+    "en": "20b9c32a6441",
+    "it": "b3233c481bae",
+    "title": "How a cartridge works"
+   },
+   "2": {
+    "en": "02419f62c6ab",
+    "it": "c7f4b75b2bed",
+    "title": "Your first game"
+   },
+   "3": {
+    "en": "997d64e29f74",
+    "it": "e84abbd0ea9f",
+    "title": "Drawing"
+   },
+   "4": {
+    "en": "7dc767bd32b8",
+    "it": "2bb7f966d833",
+    "title": "Input"
+   },
+   "5": {
+    "en": "f0f971557fcd",
+    "it": "9af0d71f1227",
+    "title": "Time and system"
+   },
+   "6": {
+    "en": "291566a8b3c5",
+    "it": "becaa28f85d3",
+    "title": "Saves"
+   },
+   "7": {
+    "en": "19a8483d3407",
+    "it": "931160f22689",
+    "title": "Documents"
+   },
+   "8": {
+    "en": "cb359d20304d",
+    "it": "5563295507d1",
+    "title": "Screenshots"
+   },
+   "9": {
+    "en": "39b429e9de97",
+    "it": "3810c5033d94",
+    "title": "Network (UDP)"
+   }
+  },
+  "sources": {
+   "docs/API.md": "a6cc5a554136",
+   "docs/GAME-GUIDE.md": "fe7751b018ef",
+   "docs/api/draw.md": "ea320782dec2",
+   "docs/api/input.md": "01f2a82443ca",
+   "docs/api/system.md": "16dfbcccd934"
+  }
+ },
+ "api-lib": {
+  "chapters": {
+   "1": {
+    "en": "2c8d0a56a174",
+    "it": "491c59d82581",
+    "title": "The two libraries"
+   },
+   "10": {
+    "en": "57418e46bdd1",
+    "it": "d3a18231e6fb",
+    "title": "bmlib: lists and particles"
+   },
+   "11": {
+    "en": "e4b60a2b628a",
+    "it": "e5838fd43086",
+    "title": "bmlib: the camera"
+   },
+   "12": {
+    "en": "dcc291e94647",
+    "it": "dd7be3b9cd22",
+    "title": "bmlib: game states"
+   },
+   "13": {
+    "en": "b5e4216fb18e",
+    "it": "1ad3bbf83156",
+    "title": "bmlib: text, bars and menus"
+   },
+   "14": {
+    "en": "675a2c073373",
+    "it": "98c5328beb37",
+    "title": "bmlib: players on one console"
+   },
+   "15": {
+    "en": "382890186000",
+    "it": "3f87b40a0577",
+    "title": "bmlib: sound, saves, animations, colours"
+   },
+   "16": {
+    "en": "430537f6df1a",
+    "it": "91933ae133ab",
+    "title": "bmlib: the 3D builder"
+   },
+   "17": {
+    "en": "96af7ac2f917",
+    "it": "ae478d679f50",
+    "title": "bmnet: opening the network and the lobby"
+   },
+   "18": {
+    "en": "f0c900aa637d",
+    "it": "1e374c15f70e",
+    "title": "bmnet: messages and events"
+   },
+   "19": {
+    "en": "199b077dfbdc",
+    "it": "4473125d3b7b",
+    "title": "bmnet: the match in lockstep"
+   },
+   "2": {
+    "en": "0abc1634cf63",
+    "it": "a0f173860817",
+    "title": "Tutorial: a platformer step with bmlib"
+   },
+   "20": {
+    "en": "77c33e6c7955",
+    "it": "fa0ad4cd3b46",
+    "title": "bmnet: fields and a whole example"
+   },
+   "3": {
+    "en": "1f44c19d7277",
+    "it": "eb1330e72544",
+    "title": "Tutorial: a game for two over the network with bmnet"
+   },
+   "4": {
+    "en": "976acba97b05",
+    "it": "7079d11dbbf7",
+    "title": "bmlib: numbers"
+   },
+   "5": {
+    "en": "bf2c26478e9b",
+    "it": "01f64c75e1d7",
+    "title": "bmlib: random numbers"
+   },
+   "6": {
+    "en": "7b58ac3ecb51",
+    "it": "9fde121509e9",
+    "title": "bmlib: collisions"
+   },
+   "7": {
+    "en": "c41b7d66cc54",
+    "it": "5ff8f222248b",
+    "title": "bmlib: the map, walls, platforms, gravity"
+   },
+   "8": {
+    "en": "1588be6e8616",
+    "it": "b16a4c7622b9",
+    "title": "bmlib: hitboxes and hurtboxes"
+   },
+   "9": {
+    "en": "6cdbf1da858e",
+    "it": "1e477d8461c3",
+    "title": "bmlib: easing, tweens, timers and scripts"
+   }
+  },
+  "sources": {
+   "docs/api/bmlib.md": "e1b5c355f388",
+   "docs/api/bmnet.md": "31716bc331e1",
+   "docs/design/games-architecture.md": "dfb1cd8c948b"
+  }
+ },
+ "api-sound": {
+  "chapters": {
+   "1": {
+    "en": "a24d1d8cdd68",
+    "it": "aee77c4fd30b",
+    "title": "How sound works in bm"
+   },
+   "2": {
+    "en": "5251cb7d644c",
+    "it": "a250af78ebde",
+    "title": "Your first sound effect and your first music"
+   },
+   "3": {
+    "en": "36c8011f9593",
+    "it": "78d7ae4d4025",
+    "title": "Sound effects and music (the cartridge's bank)"
+   },
+   "4": {
+    "en": "ef3436c7f95f",
+    "it": "140a2a3232a1",
+    "title": "Notes from the code"
+   },
+   "5": {
+    "en": "6a239a404a2e",
+    "it": "c1cfc6aa4bb8",
+    "title": "Instruments, tone, room"
+   },
+   "6": {
+    "en": "c2373b5a4b1b",
+    "it": "43afe683d05c",
+    "title": "The bank: format and tools"
+   },
+   "7": {
+    "en": "faa8f3b101e1",
+    "it": "e69d4bdd1847",
+    "title": "riff: music as patterns"
+   }
+  },
+  "sources": {
+   "docs/api/riff.md": "d19ca9e137e0",
+   "docs/api/sound.md": "e46ff07b3726"
+  }
+ },
+ "api-tools": {
+  "chapters": {
+   "1": {
+    "en": "c345d4d3d8f0",
+    "it": "8c2f11c84d2c",
+    "title": "The cartridge file"
+   },
+   "2": {
+    "en": "3fc696417695",
+    "it": "5773361e694f",
+    "title": "The sections of a cartridge"
+   },
+   "3": {
+    "en": "f25453963ec1",
+    "it": "4d0f86dc705b",
+    "title": "The API for tools"
+   },
+   "4": {
+    "en": "a193b90ce73e",
+    "it": "92ca3c0604fc",
+    "title": "Resource files and sharing assets"
+   },
+   "5": {
+    "en": "d35e0a6d1047",
+    "it": "c4c9d0436dc9",
+    "title": "The project layout"
+   },
+   "6": {
+    "en": "80b597e4e29b",
+    "it": "7363e118a384",
+    "title": "Screenshots for developers"
+   }
+  },
+  "sources": {
+   "docs/PROJECT-LAYOUT.md": "bc24cdef62dd",
+   "docs/RISORSE.md": "5e859959104d",
+   "docs/SCREENSHOTS.md": "113a60472a9c",
+   "docs/api/tools.md": "191bf2966561"
+  }
+ },
+ "boot-os": {
+  "chapters": {
+   "1": {
+    "en": "72bdba132f4a",
+    "it": "56127a0985cc",
+    "title": "What bm is"
+   },
+   "10": {
+    "en": "3e5222d41409",
+    "it": "6d1885d1729f",
+    "title": "Screenshots"
+   },
+   "11": {
+    "en": "fce68948d03b",
+    "it": "2379b44965dd",
+    "title": "Saves"
+   },
+   "12": {
+    "en": "c434369ebe13",
+    "it": "f0186a83e822",
+    "title": "Crashes and logs"
+   },
+   "13": {
+    "en": "8a3de320a8d1",
+    "it": "350c39f68080",
+    "title": "Updating"
+   },
+   "2": {
+    "en": "76c12b744a37",
+    "it": "cd480a437ba2",
+    "title": "The boot chain"
+   },
+   "3": {
+    "en": "9634303b735a",
+    "it": "3bbff31031fc",
+    "title": "What the kernel does at start"
+   },
+   "4": {
+    "en": "4920d0e622b2",
+    "it": "f9cfe5131765",
+    "title": "The menu and its tabs"
+   },
+   "5": {
+    "en": "dd6f3832ad14",
+    "it": "d64537d8efac",
+    "title": "The system keys"
+   },
+   "6": {
+    "en": "831f584edc22",
+    "it": "06fe58866822",
+    "title": "Find out the keys of a game"
+   },
+   "7": {
+    "en": "ee5a1c35fd74",
+    "it": "9b6488f339dd",
+    "title": "The monitor"
+   },
+   "8": {
+    "en": "21cb2ebce9e9",
+    "it": "85ddcaa757f4",
+    "title": "The files on the SD card"
+   },
+   "9": {
+    "en": "566b1fbf7368",
+    "it": "24574955329d",
+    "title": "Settings and config.txt"
+   }
+  },
+  "sources": {
+   "boot": "63490264ed76",
+   "chainloader": "7feaaf3a501c",
+   "docs/HARDWARE.md": "8fc72a29a4fc",
+   "docs/progress/system.md": "e2cfcfb6a200",
+   "src/kernel/syskeys.c": "6299911b4014"
+  }
+ },
+ "editor-animator": {
+  "chapters": {
+   "1": {
+    "en": "f3b3eb20a0b4",
+    "it": "f81903776392",
+    "title": "What bm Animator is"
+   },
+   "10": {
+    "en": "16a37d3c3ea8",
+    "it": "8fa28b70ff7f",
+    "title": "Tips and limits"
+   },
+   "2": {
+    "en": "fa6fad309e5c",
+    "it": "fca77a561533",
+    "title": "Opening"
+   },
+   "3": {
+    "en": "50f31ec5ca8c",
+    "it": "4ec0236cfc67",
+    "title": "The screen and the controls"
+   },
+   "4": {
+    "en": "1a12ea2e5fac",
+    "it": "6c8cb023cdac",
+    "title": "Bones and rigging"
+   },
+   "5": {
+    "en": "6acf2b33bb69",
+    "it": "9e538400fb06",
+    "title": "Keyframes and clips"
+   },
+   "6": {
+    "en": "f07aa4a45122",
+    "it": "fcc9139e20bc",
+    "title": "Hitboxes and baking sprites (F4)"
+   },
+   "7": {
+    "en": "8f4756618174",
+    "it": "394772213463",
+    "title": "Saving and exporting"
+   },
+   "8": {
+    "en": "9239eadf4b32",
+    "it": "64f62dcf7a56",
+    "title": "Using the animation in a game"
+   },
+   "9": {
+    "en": "9d82d87dc7c1",
+    "it": "5fbfbf4bb838",
+    "title": "Tutorials"
+   }
+  },
+  "sources": {
+   "carts/animator/main.lua": "5875f7e092c5",
+   "docs/RISORSE.md": "5e859959104d",
+   "docs/design/suite-animator.md": "555d36c2c592",
+   "docs/progress/tools.md": "158374cfe563",
+   "sdk/README.md": "97ca3fe22090"
+  }
+ },
+ "editor-code": {
+  "chapters": {
+   "1": {
+    "en": "f4891ee38a85",
+    "it": "9a329e7b00d6",
+    "title": "What bm Code is"
+   },
+   "10": {
+    "en": "3a7011387475",
+    "it": "16a80e096a25",
+    "title": "Tips and limits"
+   },
+   "2": {
+    "en": "825b01f44979",
+    "it": "2eb5cab58ca3",
+    "title": "Opening and saving"
+   },
+   "3": {
+    "en": "5a2037094d0c",
+    "it": "aab5bbeaac3c",
+    "title": "The screen"
+   },
+   "4": {
+    "en": "eb2a42797a06",
+    "it": "49e5956b3423",
+    "title": "Editing keys"
+   },
+   "5": {
+    "en": "a72f8795f553",
+    "it": "8cb17a6486c3",
+    "title": "Completion and the assistant"
+   },
+   "6": {
+    "en": "3d28bf7ca5dd",
+    "it": "8f33fc0eac8d",
+    "title": "Breakpoints (F8)"
+   },
+   "7": {
+    "en": "aba018bd7bd1",
+    "it": "ccde06194cf4",
+    "title": "Playing riff with Ctrl+Enter"
+   },
+   "8": {
+    "en": "6177b545eaa9",
+    "it": "ffa32782c975",
+    "title": "Running the game and reading errors"
+   },
+   "9": {
+    "en": "46e576780208",
+    "it": "25fc8b4b6403",
+    "title": "Guided tutorials"
+   }
+  },
+  "sources": {
+   "carts/code/main.lua": "63235604898f",
+   "docs/RISORSE.md": "5e859959104d",
+   "docs/design/suite-code.md": "212bb27f00d1",
+   "docs/progress/tools.md": "158374cfe563",
+   "sdk/README.md": "97ca3fe22090"
+  }
+ },
+ "editor-mesh": {
+  "chapters": {
+   "1": {
+    "en": "3828b63252f6",
+    "it": "be3e190876b1",
+    "title": "What bm Mesh is"
+   },
+   "2": {
+    "en": "a31b6882fcb5",
+    "it": "c7732d6d5ac1",
+    "title": "Opening"
+   },
+   "3": {
+    "en": "d9cfd7fdafd7",
+    "it": "e4bd741db981",
+    "title": "The screen and the controls"
+   },
+   "4": {
+    "en": "37c4936d067f",
+    "it": "2a9a6a654f7e",
+    "title": "Selecting and moving"
+   },
+   "5": {
+    "en": "d55c26a25ff8",
+    "it": "1265ed24c919",
+    "title": "The preview and cart_meshes"
+   },
+   "6": {
+    "en": "05e0ba316067",
+    "it": "f409b3e252b4",
+    "title": "Saving"
+   },
+   "7": {
+    "en": "1dc8d2ad12e8",
+    "it": "3e6cdf456d9d",
+    "title": "Tutorials"
+   },
+   "8": {
+    "en": "783dcabf58b5",
+    "it": "cc4983c32daa",
+    "title": "Tips and limits"
+   }
+  },
+  "sources": {
+   "carts/mesh/main.lua": "ff0571ab3624",
+   "docs/RISORSE.md": "5e859959104d",
+   "docs/design/suite-studio-mesh.md": "ccf0c1f4a0a3",
+   "docs/progress/tools.md": "158374cfe563",
+   "sdk/README.md": "97ca3fe22090"
+  }
+ },
+ "editor-pixel": {
+  "chapters": {
+   "1": {
+    "en": "8505d9f9aeae",
+    "it": "a38df27e915a",
+    "title": "What bm Pixel is"
+   },
+   "10": {
+    "en": "9a3a99be5e95",
+    "it": "d8fd5530038c",
+    "title": "Importing and exporting resources"
+   },
+   "11": {
+    "en": "22c5325c93cf",
+    "it": "18264e20b515",
+    "title": "Guided tutorials"
+   },
+   "12": {
+    "en": "d27033e9d47f",
+    "it": "70622c9fee45",
+    "title": "Tips and limits"
+   },
+   "2": {
+    "en": "f79a72634801",
+    "it": "ad8096bcbd34",
+    "title": "Opening a file"
+   },
+   "3": {
+    "en": "87ef00dca7eb",
+    "it": "1542b5ee0b65",
+    "title": "The pages"
+   },
+   "4": {
+    "en": "3601dec1cae8",
+    "it": "e5f15a0962f6",
+    "title": "Drawing tools and keys"
+   },
+   "5": {
+    "en": "a0db16ed5c36",
+    "it": "0c2a37b9dec0",
+    "title": "Sprites, zones, frames and fps"
+   },
+   "6": {
+    "en": "ce6215b1ca80",
+    "it": "a96bda08ead6",
+    "title": "zones.txt: name x y width height [frames [fps]]"
+   },
+   "7": {
+    "en": "ef5e7754b6bf",
+    "it": "bf98e279ecf7",
+    "title": "Tile flags"
+   },
+   "8": {
+    "en": "67726a2b3190",
+    "it": "a5f6793b5330",
+    "title": "Hitboxes and hurtboxes"
+   },
+   "9": {
+    "en": "efdbc30f0605",
+    "it": "5b566aac5287",
+    "title": "Palettes"
+   }
+  },
+  "sources": {
+   "carts/pixel/main.lua": "15d532849ab9",
+   "docs/RISORSE.md": "5e859959104d",
+   "docs/design/suite-pixel.md": "28b52021f032",
+   "docs/progress/tools.md": "158374cfe563",
+   "sdk/README.md": "97ca3fe22090"
+  }
+ },
+ "editor-sdk": {
+  "chapters": {
+   "1": {
+    "en": "6f1d209a6aad",
+    "it": "daccfeaf32d1",
+    "title": "What bm SDK is"
+   },
+   "2": {
+    "en": "a64b7a1be245",
+    "it": "6c977e2d916e",
+    "title": "Opening bm SDK"
+   },
+   "3": {
+    "en": "b3fd9d36dd25",
+    "it": "dcc7cc5a6e5f",
+    "title": "The screen"
+   },
+   "4": {
+    "en": "27982928ec0d",
+    "it": "eadcc9d6e849",
+    "title": "Creating a project from a template"
+   },
+   "5": {
+    "en": "33d12c2c6908",
+    "it": "c8304caf5ccf",
+    "title": "The map editor"
+   },
+   "6": {
+    "en": "2e38e41b5c82",
+    "it": "0ad37f99bbcf",
+    "title": "Budgets and the dev kit report"
+   },
+   "7": {
+    "en": "ee81ba683aae",
+    "it": "d8f30b04dbb1",
+    "title": "Building and exporting"
+   },
+   "8": {
+    "en": "86b0001340c8",
+    "it": "665a68176268",
+    "title": "Keys"
+   },
+   "9": {
+    "en": "52ec4fecf34f",
+    "it": "20a7b9e5ad21",
+    "title": "Tips and troubleshooting"
+   }
+  },
+  "sources": {
+   "carts/editor/main.lua": "8de988e40572",
+   "docs/RISORSE.md": "5e859959104d",
+   "docs/design/suite-sdk.md": "ee9451f7a184",
+   "docs/progress/tools.md": "158374cfe563",
+   "sdk/README.md": "97ca3fe22090"
+  }
+ },
+ "editor-sound": {
+  "chapters": {
+   "1": {
+    "en": "7c652b541b8f",
+    "it": "5bb3ddc0f46f",
+    "title": "What bm Sound is"
+   },
+   "2": {
+    "en": "4060de18d10e",
+    "it": "5b6340451d44",
+    "title": "Opening bm Sound"
+   },
+   "3": {
+    "en": "1484d1b6c99c",
+    "it": "f55bdf073af7",
+    "title": "The pages"
+   },
+   "4": {
+    "en": "38535d32c643",
+    "it": "b5e4b4c15984",
+    "title": "Controls"
+   },
+   "5": {
+    "en": "a0c3df5678b0",
+    "it": "8e15c1d9885e",
+    "title": "Tutorials"
+   },
+   "6": {
+    "en": "9acd2ff696fe",
+    "it": "8d7a95d21e28",
+    "title": "Saving and exporting"
+   },
+   "7": {
+    "en": "a337495a586e",
+    "it": "98a878d8b768",
+    "title": "Tips and limits"
+   }
+  },
+  "sources": {
+   "carts/sound/main.lua": "7a6c6b71ed97",
+   "docs/RISORSE.md": "5e859959104d",
+   "docs/design/suite-sound.md": "5804300b49c2",
+   "docs/progress/tools.md": "158374cfe563",
+   "sdk/README.md": "97ca3fe22090"
+  }
+ },
+ "editor-studio": {
+  "chapters": {
+   "1": {
+    "en": "5a1eea2650a1",
+    "it": "187ab4024a04",
+    "title": "What bm Studio is"
+   },
+   "10": {
+    "en": "02256865cd62",
+    "it": "b9139d1160d2",
+    "title": "Tips and limits"
+   },
+   "2": {
+    "en": "cd4f150760a3",
+    "it": "1da9e174a7a3",
+    "title": "Opening a project or a game"
+   },
+   "3": {
+    "en": "7ecf4103f960",
+    "it": "eeabaa336bc9",
+    "title": "The screen and the 3D view"
+   },
+   "4": {
+    "en": "3204419ddc92",
+    "it": "c2ff3ea19b78",
+    "title": "Building: tiles and blocks"
+   },
+   "5": {
+    "en": "bbfbf6c5e7e1",
+    "it": "a841d6e6ef83",
+    "title": "Painting a model"
+   },
+   "6": {
+    "en": "9d34cf870cfb",
+    "it": "788ed6ca2fed",
+    "title": "The models page and mesh reduction"
+   },
+   "7": {
+    "en": "f50d0730d166",
+    "it": "e008f68c19ce",
+    "title": "Saving and exporting"
+   },
+   "8": {
+    "en": "45bccb428ee6",
+    "it": "21d5efb672b4",
+    "title": "Using the model in a game"
+   },
+   "9": {
+    "en": "d023d2b14919",
+    "it": "a9231ec78c6c",
+    "title": "Guided tutorials"
+   }
+  },
+  "sources": {
+   "carts/studio/main.lua": "4ad32dad9ad3",
+   "docs/RISORSE.md": "5e859959104d",
+   "docs/design/suite-studio-mesh.md": "ccf0c1f4a0a3",
+   "docs/progress/tools.md": "158374cfe563",
+   "sdk/README.md": "97ca3fe22090"
+  }
+ },
+ "editor-write": {
+  "chapters": {
+   "1": {
+    "en": "51cdcd2903a6",
+    "it": "f13e70388d74",
+    "title": "What bm Write is"
+   },
+   "2": {
+    "en": "9eafeebaeca3",
+    "it": "31fd1e23581d",
+    "title": "First start"
+   },
+   "3": {
+    "en": "c4f17375d0bc",
+    "it": "3e73aedd7381",
+    "title": "The screen and the keys"
+   },
+   "4": {
+    "en": "9cc182975319",
+    "it": "e48d4cb1fea9",
+    "title": "Styling"
+   },
+   "5": {
+    "en": "6475618a6e7e",
+    "it": "5102785204a7",
+    "title": "Saving, opening, exporting"
+   },
+   "6": {
+    "en": "c7b9adda209a",
+    "it": "70a2ebdcfc4b",
+    "title": "Tutorials"
+   },
+   "7": {
+    "en": "b77994348907",
+    "it": "f111901efbfb",
+    "title": "Tips, limits and troubleshooting"
+   }
+  },
+  "sources": {
+   "carts/write/main.lua": "e147f39975a8",
+   "docs/RISORSE.md": "5e859959104d",
+   "docs/progress/tools.md": "158374cfe563",
+   "sdk/README.md": "97ca3fe22090"
+  }
+ },
+ "install-sd": {
+  "chapters": {
+   "1": {
+    "en": "7dced84a1ddd",
+    "it": "db10940e0883",
+    "title": "What you need"
+   },
+   "2": {
+    "en": "a376217defc7",
+    "it": "b06ecd7b4f24",
+    "title": "Installing on the Pi Zero W"
+   },
+   "3": {
+    "en": "dd23cdc70dec",
+    "it": "230bce6629a0",
+    "title": "Installing on the RGB30"
+   },
+   "4": {
+    "en": "4ed93e708113",
+    "it": "30da4b08c100",
+    "title": "The folders on the card"
+   },
+   "5": {
+    "en": "6db6a8c09c8f",
+    "it": "a61c2acbbb3d",
+    "title": "Updating the kernel"
+   },
+   "6": {
+    "en": "1029628cb0ac",
+    "it": "c669796ed0c4",
+    "title": "The Market and getting games"
+   },
+   "7": {
+    "en": "ecefc88e9216",
+    "it": "5c14684107fc",
+    "title": "The config.txt keys that matter"
+   },
+   "8": {
+    "en": "872f636316d0",
+    "it": "d4c75026b531",
+    "title": "Troubleshooting"
+   }
+  },
+  "sources": {
+   "docs/RGB30.md": "201708e75617",
+   "docs/progress/platforms.md": "4510f0f460a8",
+   "easy_install.sh": "3fc0a62e5b07",
+   "scripts/copy-sd-rgb30.sh": "38f59e3439e0",
+   "scripts/mksd.py": "6ed865802e51"
+  }
+ },
+ "pi-zero-w": {
+  "chapters": {
+   "1": {
+    "en": "3ab12a02bcd0",
+    "it": "aaba0ca34ceb",
+    "title": "The board"
+   },
+   "2": {
+    "en": "fea227eac555",
+    "it": "51aa3ee33afc",
+    "title": "ARM11 performance, as measured"
+   },
+   "3": {
+    "en": "9342fee8040d",
+    "it": "3439abd0bc39",
+    "title": "The GPU and the 2D"
+   },
+   "4": {
+    "en": "a13ffa86d3d0",
+    "it": "1eefcdc23460",
+    "title": "The GPU and the 3D"
+   },
+   "5": {
+    "en": "d40d954ab545",
+    "it": "7392377894d3",
+    "title": "The bm3d drivers"
+   },
+   "6": {
+    "en": "487620e0002b",
+    "it": "5df7843ae2be",
+    "title": "Measure on your own board"
+   },
+   "7": {
+    "en": "512b1d5ec1b2",
+    "it": "e859b9ae198f",
+    "title": "Limits and tips"
+   },
+   "8": {
+    "en": "d76ccc9957c8",
+    "it": "4415512bba80",
+    "title": "The RGB30, where the repo compares"
+   }
+  },
+  "sources": {
+   "docs/BENCH3D.md": "1adaf5f48818",
+   "docs/DRIVERS.md": "0101d07d66eb",
+   "docs/HARDWARE.md": "8fc72a29a4fc",
+   "docs/PERFORMANCE.md": "1c3fc264eae4",
+   "docs/progress/graphics.md": "b96f51676fd8",
+   "docs/progress/v3d.md": "4238c5bee8d8"
+  }
+ },
  "riff": {
   "chapters": {
    "1": {

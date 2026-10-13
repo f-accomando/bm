@@ -114,7 +114,7 @@ Sul gamepad: **A** mette, **B** toglie, **X + su/giù** cambia livello.
 
 Una tessera va su un lato della cella, non su un cubo intero. Usala per pavimenti, pareti singole, porte e finestre.
 
-- Premi **f** per scegliere il lato a rotazione: pavimento, parete in fondo, parete destra, parete vicina, parete sinistra, soffitto, tutti i lati. Sul gamepad, tocca **X**.
+- Premi **f** per scegliere il lato a rotazione: pavimento, parete in fondo, parete destra, parete vicina, parete sinistra, soffitto. Sul gamepad, tocca **X**.
 - **Space** mette la tessera, **Backspace** toglie ciò che sta su quel lato.
 
 ## Il pennello: tessere e colori
@@ -132,7 +132,7 @@ Premi **Tab** (sul gamepad **Y**) per aprire lo sheet.
 | `Tab` | Chiude senza cambiare |
 
 - Una selezione di più tessere si mette in un colpo solo: una porta alta due tessere è un solo inserimento.
-- Fuori dallo sheet, **r** ruota il pennello di un quarto di giro e **h** lo specchia. **x** prende la tessera o il colore dalla faccia sotto il cursore.
+- Fuori dallo sheet, **r** ruota il pennello di un quarto di giro solo con gli strumenti 1-2 (con lo strumento 3, selezione, **r** ruota le facce scelte), e **h** specchia il pennello con qualsiasi strumento. **x** prende la tessera o il colore dalla faccia sotto il cursore.
 - Con un colore come pennello, le facce prendono un colore piatto e nessuna texture.
 
 ![Il selettore di tessere: lo sheet, la selezione e la tessera ingrandita](shots/editor-studio-tiles.png)
@@ -172,7 +172,7 @@ bm Studio dipinge **i pixel della tessera di una faccia**, non i colori agli ang
 
 ## Cosa fa
 
-Lo strumento **5** (paint) apre la tessera della faccia sotto il puntatore, grande nel pannello. La dipingi pixel per pixel mentre il modello nella vista cambia. Lo sheet dipinto viene salvato con il modello.
+Con lo strumento **5** (paint) scelto, **Enter** o **Spazio** apre la tessera della faccia sotto il puntatore, grande nel pannello. La dipingi pixel per pixel mentre il modello nella vista cambia. Lo sheet dipinto viene salvato con il modello.
 
 ## Da sapere
 
@@ -230,7 +230,7 @@ La console disegna circa 1200 triangoli in una scena a 60 fps. Oltre, i conteggi
 
 ## Un modello da un'immagine
 
-`m` (o *Model from picture...* nel menu) crea un modello da un'immagine nella cartella `pics/` della SD (`.png` o `.jpg`). Ci sono tre modi: **cutout** (una figura di carta con spessore), **lathe** (mezzo contorno fatto girare attorno all'asse verticale: vasi, torri) e **meshy.ai** (un servizio online che richiede la rete e un account).
+`m` (o *Model from picture...* nel menu) crea un modello da un'immagine nella cartella `pics/` della SD o nella radice della SD (`.png` o `.jpg`). Ci sono tre modi: **cutout** (una figura di carta con spessore), **lathe** (mezzo contorno fatto girare attorno all'asse verticale: vasi, torri) e **meshy.ai** (un servizio online che richiede la rete e un account).
 
 # Salvare ed esportare
 
@@ -339,7 +339,7 @@ Se il conteggio supera 1200, la riga dice `heavy for 60 fps`. Riduci finché l'a
 
 - Circa 1200 triangoli in una scena è ciò che la console disegna a 60 fps. Un modello ridotto è il modo più economico per restare sotto.
 - Le celle del cursore vanno da -64 a 63 su ogni asse.
-- Un numero di vertici oltre il limite appare di un colore diverso nel pannello. [DA COMPLETARE: il limite di vertici oltre il quale il contatore diventa rosso]
+- Un numero di vertici oltre il limite diventa rosso nel pannello, e oltre il limite il salvataggio fallisce: 4096 vertici (e 16384 triangoli).
 - Le facce con texture richiedono lo sprite sheet: le texture ne sono dei pezzi.
 - Usa spesso **F5**: salva e mostra il modello nel gioco.
 - Un gioco e un progetto non sono la stessa cosa: il menu mostra il percorso del file su cui lavori, quindi controlla che sia la copia `.BME` prima di proseguire.

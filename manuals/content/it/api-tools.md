@@ -44,12 +44,12 @@ Uno strumento non sovrascrive mai il tuo gioco per sbaglio. Modifichi il progett
 ## Attenzione
 
 - [DA COMPLETARE: stato del profilo `.b16`. `docs/B16.md` dice che il profilo è deciso ma non ancora implementato, e il §3 descrive un contenitore `B16CART` diverso che il §0 sostituisce con il contenitore `.bm`; `src/bm/project.h` e `scripts/mkbm.py` segnano ed esportano già i file `.b16` (bit 1 all'offset 18, controllo degli 8 MiB). Dire quale delle due è quella attuale.]
-- [DA COMPLETARE: come si compila un `.b16` dal menu della console; `src/bm/project.h` ha la funzione ma i documenti non descrivono nessuna voce di menu.]
+- Le voci *Build .bm* ed *Export .b16* dell'SDK chiamano `bm_build_b16`; **Ctrl+Shift+B** nell'SDK di bm esporta sempre un `.b16`.
 
 ## Provalo, passo per passo
 
 1. Sulla console apri la scheda Giochi e seleziona un gioco.
-2. Premi **X** per aprire le sue opzioni e scegli *Make an editable copy*.
+2. Premi **X** sul pad dell'RGB30 (**C** sul Pi) per aprire le sue opzioni e scegli *Make an editable copy*.
 3. Apri la scheda Dev. Vedi il progetto con il badge "Project".
 4. Premi **A** sul progetto. Si apre nell'SDK.
 5. Nell'SDK premi **Ctrl+B** (*Build the game .bm*). Il gioco compare nella scheda Giochi.
@@ -99,7 +99,7 @@ Una cartuccia è un'intestazione di 128 byte, una tabella delle sezioni e i corp
 | 1 | LUA | lo script principale, sorgente UTF-8 |
 | 2 | SHEET | il foglio di sprite: u16 w, u16 h, poi pixel RGBA8888 (alfa sotto 128 è trasparente) |
 | 3 | MAP | u16 w, u16 h, poi celle u16 (indice dello sprite, 0 = vuota) |
-| 4 | COVER | l'immagine della cartuccia nel menu (`mkbm.py` la fa 128x80); prima nel file |
+| 4 | COVER | l'immagine della cartuccia nel menu (`mkbm.py` la fa 88x88); prima nel file |
 | 5 | SHEET8 | il foglio con al massimo 256 colori e sequenze ripetute, molto più piccolo; una cartuccia ha SHEET o SHEET8, non entrambi |
 | 6 | AUDIO | il banco dei suoni (`BMAU`): suoni, effetti, pattern, brani; suonato da `sfx()` e `music()` |
 | 8 | MESH | modelli 3D, da 1 a 256, con il margine delle texture |
@@ -119,7 +119,7 @@ Una cartuccia è un'intestazione di 128 byte, una tabella delle sezioni e i corp
 
 # L'API per gli strumenti
 
-Parte dell'API dei giochi. Queste funzioni sono pensate per gli strumenti di sviluppo (gli editor della suite). I giochi non ne hanno bisogno, e il profilo `.b16` di `docs/B16.md` lascia fuori dalla sandbox le funzioni `cart_*` e `ls`.
+Parte dell'API dei giochi. Queste funzioni sono pensate per gli strumenti di sviluppo (gli editor della suite). I giochi non ne hanno bisogno, e il progetto in `docs/B16.md` dice che il profilo `.b16` lascia fuori dalla sandbox le funzioni `cart_*` e `ls`; la console non lo applica ancora.
 
 ## Giochi e progetti nell'API
 
@@ -280,7 +280,7 @@ Un file di risorse usa lo stesso contenitore di un `.bm`, con il magic `BMRES` e
 
 - La scheda Lib, che elenca le risorse, per ora è nascosta. `lib_tab=1` in `bm/config.txt` la riporta.
 - Le app che aprono i file di risorse non sono ancora pronte: A nella scheda Lib apre solo risorse che stanno dentro un `.bm`.
-- [DA COMPLETARE: se `bmres.py add` accetta un `.bme` come destinazione e dove scrive quando `-o` non è dato; il testo d'uso dice solo `[-o OUT.bm]`.]
+- `bmres.py add` con una cartuccia `.bme` e senza `-o` scrive il `.bme` sul posto. Con un `.bm` o un `.b16` e senza `-o` si rifiuta di cambiare il gioco ("is a game, read only") e scrive una copia con lo stesso nome e l'estensione `.bme`. Un'uscita `.bme` è segnata come progetto.
 - [DA COMPLETARE: `docs/RISORSE.md` dice che `mkbm.py --res FILE` integra le risorse in fase di compilazione, ma in `scripts/mkbm.py` l'opzione `--res` sceglie la risoluzione dello schermo. Dire quale strumento fa l'integrazione in compilazione.]
 
 ## Che cosa fa l'integrazione

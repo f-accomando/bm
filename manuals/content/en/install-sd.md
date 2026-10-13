@@ -38,7 +38,7 @@ bm has no installer you download and double-click: you build the card from the b
 1. Open a terminal on the PC (on Windows: the Ubuntu terminal of WSL).
 2. Install the tools. You should see `apt` finish with no error.
 3. Get the repository. You should see a new folder `bm`.
-4. Go into it and take the main branch. You should see `bm-core` as the answer of `git branch`.
+4. Go into it and take the main branch (this step is for building from source). You should see `bm-core` as the answer of `git branch`.
 
 ::: copy
 sudo apt-get install -y git curl make python3 python3-numpy python3-pil dosfstools mtools \
@@ -106,7 +106,7 @@ On WSL there is a script that does the same with a menu. The first time it asks 
 
 1. In the `bm` folder, start the script. You should see the branch, the repository folder and the card's drive.
 2. Answer the questions of the first run: the drive letter (for example `D`). It must not be `C`.
-3. Put the card in the PC. Choose **4** (**[SD] disk image**) to erase the card and write the image, or **3** (**[SD] full install**) to copy the files onto a card that is already FAT32.
+3. Put the card in the PC. Choose **4** (**[SD] disk image**) to build the image, format the card FAT32 and copy the image's files onto it, or **3** (**[SD] full install**) to copy the files onto a card that is already FAT32.
 4. For **4**, type the drive letter when asked. Windows asks for administrator rights: answer Yes. If Windows offers to format the disk, press Cancel: the script formats it.
 5. Wait for the line `You can take the card out of the reader.` and for `kernel: ... -> ...`.
 
@@ -114,7 +114,7 @@ On WSL there is a script that does the same with a menu. The first time it asks 
 ./easy_install.sh
 :::
 
-Option **4** keeps your settings, saves and games if you say yes when it asks: it copies `bm/` and `carts/` to the PC first and puts them back. It formats FAT32 up to 31 GB of the card.
+Option **4** keeps your settings, saves and games if you say yes when it asks: it copies `bm/` and `carts/` to the PC first and puts them back. It runs `make image`, formats the card FAT32 (up to 31 GB) and copies the image's files onto it; it does not write the image file itself. It refuses an RGB30 card.
 
 ::: try
 After the first boot, press the keyboard or the pad and move through the four tabs of the menu. Then switch off, put the card in the PC and look at the folders `bm/` and `carts/`.
@@ -276,7 +276,7 @@ The Market is the catalogue of free games. There are no accounts and no payments
 
 1. Connect the console to WiFi.
 2. Open the **Market** tab: it is the first one in the menu.
-3. Choose a game. On the Pi, **A** downloads it; on the RGB30, **B** downloads it and **X** opens its details.
+3. Choose a game. On the RGB30, **B** downloads it and **X** opens its details.
 4. The console checks the signature of the catalogue and the SHA-256 of each file before it writes anything to the card. Wait until the game is written.
 5. Open the **Games** tab. You should see the game; select it to play.
 

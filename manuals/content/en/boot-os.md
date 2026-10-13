@@ -77,15 +77,16 @@ The RGB30 does not use the Pi's firmware. The order is: the chip's boot ROM, the
 
 On the Pi, `main.c` does these things in this order:
 
-1. Starts the serial port and the exception vectors.
-2. Detects the board from the firmware's revision code.
-3. Raises the ARM clock to the maximum the firmware offers.
-4. Splits the memory with the GPU, then sets up the memory manager and the caches.
-5. Starts the floating point unit, the timer and the interrupts.
-6. Tries to arm the watchdog (3 seconds). On the Pi Zero W the boot log says "not available, no freeze guard".
-7. Turns the crash report of the previous boot into a report (chapter 12).
-8. Starts Bluetooth if a pad is paired, then WiFi and Ethernet.
-9. Opens the cartridge menu. The monitor is the text console that runs after it.
+1. Starts the LED and the serial port, then the screen and the splash (the logo); the boot's lines go to the console.
+2. Sets up the memory: the heap, the ARM clock at the maximum the firmware offers, and the MMU.
+3. Detects the board and prints it with its SoC and revision code.
+4. Sets up the board's LED, then the interrupts and the timer.
+5. Tries to arm the watchdog (3 seconds). On the Pi Zero W the boot log says "not available, no freeze guard".
+6. Starts the audio, the DMA and USB.
+7. Loads the cartridges list and `bm/config.txt`.
+8. Turns the crash report of the previous boot into a report (chapter 12).
+9. Starts Bluetooth if a pad is paired, then WiFi and Ethernet.
+10. Opens the cartridge menu. The monitor is the text console that runs after it.
 
 The README says the Pi boots into the menu in about two seconds. [TO FILL: the boot time of the RGB30 has not been measured in the repository]
 
@@ -128,7 +129,7 @@ The Market loads only while its tab is on and never blocks the menu.
 | `r` | read the SD card again |
 | mouse | click plays; right click goes back |
 
-Game options (`c`, or X on a pad) show the bytes of the saves and a *Delete the save data* row.
+Game options (`c`) show the bytes of the saves and a *Delete the save data* row.
 
 ## Good to know
 
@@ -144,7 +145,7 @@ Settings has these pages: Controllers, WiFi and network (Network on a board with
 
 # The system keys
 
-The system keys work in the menu, inside games and inside the tools. They are defined in one table, `src/kernel/syskeys.c`, and shown on screen while you hold F12.
+The system keys work in the menu, inside games and inside the tools. Most are defined in one table, `src/kernel/syskeys.c`, which lists the keys shown on screen while you hold F12. Print Screen is not in that table: games and apps handle it separately (`src/bm/runtime.c`).
 
 | Key | What it does |
 |---|---|
@@ -364,7 +365,7 @@ To back up a game's save, copy its files from `bm/save/` to the PC.
 
 - A fatal exception shows a red screen with the registers and the list of addresses it was called from, even during a game.
 - The last 4 KiB printed and a trail of breadcrumbs stay in memory across a reset. At the next boot they become a report in `bm/reports/`, sent when the network is up. Network and `report()` ask your permission the first time.
-- After 20 seconds of running time, the screen says "Restarting in 60 s: this screen goes out as a report", the LED blinks a code, and the console restarts. [TO FILL: whether the Pi Zero W really restarts by itself; its boot log says the watchdog is not available]
+- After 20 seconds of running time, the screen says "Restarting in 60 s: this screen goes out as a report", the LED blinks a code, and the console restarts. This also holds on the Pi Zero W: the restart writes the power-management registers directly (`src/kernel/exceptions.c`, `src/drivers/watchdog.c`), so it does not depend on the watchdog check made at boot.
 - [TO FILL: what each LED blink count means on the Pi Zero W; only the RGB30's codes are written down]
 
 ![The red crash screen](shots/boot-os-crash.png)

@@ -62,6 +62,7 @@ Parti dalla scheda **Dev** del menu, oppure premi **X** sulla copertina di un gi
 | Save as... | Ctrl+Shift+S | chiede un nome di file (8.3, in `/carts`) e salva lì |
 | Try the game | F5 | salva se serve, avvia il gioco e ti riporta alla stessa pagina |
 | Sheet size... | | come **Shift+R** nella pagina sheet |
+| Back to bm SDK | | torna a bm SDK; compare solo quando bm Pixel è stato aperto dall'SDK |
 | Exit bm Pixel | | esce; se ci sono modifiche non salvate, sceglila di nuovo per confermare |
 
 Ctrl+Z e Ctrl+Y annullano e ripetono. Per ogni file bm Pixel ricorda lo sprite, la sua misura, l'animazione, il colore e la pagina.
@@ -177,7 +178,7 @@ Una **zona** è una parte dello sheet con un nome: una posizione, una misura, un
 
 - Lo sprite scelto e quelli che lo seguono nello sheet sono i fotogrammi dell'animazione. **+** e **-** ne impostano il numero (da 1 a 16), **>** e **<** la velocità (da 1 a 30 fps), **p** mette in pausa.
 - Il riquadro a destra li riproduce, accanto allo sprite a grandezza reale.
-- Quando lo sprite su cui sei coincide con una zona del file (stesso angolo e stessa misura, oppure solo lo stesso angolo), il pannello mostra `zone "name" frame n/m` al posto della chiamata `spr(...)`.
+- Quando lo sprite su cui sei coincide con una zona del file (primo passaggio: la stessa riga, la misura dello sprite uguale a quella del fotogramma della zona e la colonna in un punto qualsiasi dell'estensione dei fotogrammi della zona, quindi vale uno qualsiasi dei suoi fotogrammi; altrimenti, secondo passaggio: lo stesso angolo con qualsiasi misura, che mostra il fotogramma 1), il pannello mostra `zone "name" frame n/m` al posto della chiamata `spr(...)`.
 
 ## Da sapere
 
@@ -303,7 +304,7 @@ Una risorsa è una cosa estratta da una cartuccia in un file suo. Per le immagin
 
 ## Cosa puoi fare oggi
 
-- Nella scheda **Lib** del menu, il gruppo **Images** elenca le zone di SPRITES. **A** ne apre una in bm Pixel. La scheda è nascosta a meno che `lib_tab=1` sia in `bm/config.txt`.
+- Nella scheda **Lib** del menu, il gruppo **Images** elenca le zone di SPRITES. `docs/RISORSE.md` descrive **A** che ne apre una in bm Pixel, ma nel codice non è stato confermato. La scheda è nascosta a meno che `lib_tab=1` sia in `bm/config.txt`.
 - Su PC, `scripts/bmres.py` estrae una zona di sprite in un `.bmi` (con i suoi box), aggiunge una risorsa a un `.bm` e converte da e verso `.png`, `.hex` e `.gpl`.
 
 ::: copy

@@ -60,7 +60,7 @@ You will show a model of your cartridge, lit and turning. Start from a cartridge
 6. Still in `_draw`, draw the model with `draw3d(m, 0, -cy, 0, 0, ang, 0, 1, 4)`: position, then the angles `rx, ry, rz`, then the scale, then the flags. Flag 4 shades the light smoothly.
 7. Add `ang = ang + 0.02` at the end of `_draw`, so the model turns a little each frame.
 8. Draw the text of the game (the HUD) after `draw3d`, with `print`.
-9. Run the cartridge. You should see the model lit from one side and turning. If you see nothing, the model may be behind the camera or too big: print the values from `bounds3d` and move the camera back.
+9. Run the cartridge. You should see the model lit from one side and turning. If you see nothing, the model may be behind the camera or too big. A way to find out: print the values from `bounds3d` and move the camera back.
 
 ![The model drawn by the tutorial](shots/api-3d-model.png)
 
@@ -79,7 +79,7 @@ function _draw()
   cls(0)
   zclear()
   draw3d(m, 0, -cy, 0, 0, ang, 0, 1, 4)
-  print("my model", 4, 4, 7)
+  print("my model", 4, 4, 0xFFFFFF)
   ang = ang + 0.02
 end
 ```
@@ -88,15 +88,15 @@ end
 Change the flags from 4 to 2 and run again: the model loses its light and shows flat colours. Then try 4 + 128, which also draws the textured faces as flat colours.
 :::
 
-[TO FILL: the unit of the angles `rx, ry, rz` of `draw3d` (the sources say radians only for `roll` and `bone_turn`)]
+The angles `rx, ry, rz` of `draw3d` are in radians. The camera's `yaw` and `pitch` are radians too; `fov` is in degrees.
 
 # Meshes and models
 
 | Function | Description |
 |---|---|
 | `mesh(v, f, [uv])` | a mesh from tables (up to 65535 vertices and 65535 faces: 4096 and 16384 before bm3d 5.0): `v` = {x,y,z, x,y,z, ...}, `f` = {a,b,c,colour, ...} (indices from 1; a face shows from the side where its vertices appear **clockwise**). With `uv` (6 numbers per face: u,v of the three vertices in sprite sheet pixels) the faces with colour `-1` have the sprite sheet's **texture** (perspective correct, transparent pixels stay empty). The colour can have the **material bits** (see "Drawing and material bits") |
-| `mesh_sphere([r, segments, c1, c2])` | a ready-made sphere |
-| `mesh_cube([c])` | a ready-made cube |
+| `mesh_sphere([rings, segments, c1, c2])` | a ready-made sphere. Defaults: `rings` 8, `segments` 16, `c1` 0xFFFFFF, `c2` 0xC0C0C0. There is no radius: scale it with `draw3d` |
+| `mesh_cube([c])` | a ready-made cube. `c` defaults to 0xFFFFFF |
 | `model(name)` / `model(n)` | a **3D model of the cartridge** (made with bm Studio, MESH section) as a mesh, with the sprite sheet's texture; `n` counts from 1; `nil` if it is not there. Every call builds a new mesh: do it in `_init` |
 | `models()` | the names of the cartridge's models, in order (`{}` if it has none) |
 | `bounds3d(m)` | `x0, y0, z0, x1, y1, z1`: the box round a mesh's vertices, in its coordinates (before moving, turning and scaling it with `draw3d`): to centre it, for collisions |
@@ -104,8 +104,6 @@ Change the flags from 4 to 2 and run again: the model loses its light and shows 
 ## Baked light
 
 A model with **baked light** (the "lit" bit of the MESH section: the light of each corner of the faces, made by a script) is drawn smooth with that light. It has no sun or sky, but it has the lamps (`lamp3d`) and the fog. It costs less than computed light. Its textured faces (windows, signs) have one light per face, coloured, and the fog.
-
-[TO FILL: the default values of `mesh_sphere` (`r`, `segments`, `c1`, `c2`) and of `mesh_cube` (`c`)]
 
 ```lua
 local names = models()          -- {} if the cartridge has no models
@@ -299,7 +297,9 @@ local x, y, z, fl = world_move(w, px, py, pz, 0.4, 1.8, vx, vy, vz, 0.45, on_gro
 on_ground = (fl & 1) ~= 0
 ```
 
-[TO FILL: the default of `on_ground` in `world_move` when it is not given, and what `tag` of `world_box` is used for]
+If `on_ground` is missing in `world_move` it counts as `false`. The `tag` of `world_box` defaults to 0.
+
+[TO FILL: what the `tag` of `world_box` is used for]
 
 # Light for 2D scenes
 
@@ -366,7 +366,7 @@ These are the tips the repository states; the numbers come from the 3D Bench (*D
 - Build models in `_init`, not in `_draw`: every `model()` call builds a new mesh.
 - Use textures whose sides are multiples of 32 (128x128, 256x256): the GPU reads them faster.
 - Use the collision worlds instead of the same tests in Lua: they are in C and much faster.
-- At 1080p a played match is fill-bound: fewer pixels, not fewer triangles, is the lever. With the GPU job short and the ARM setting the pace, look at the game's logic.
+- One measured scene (640x360 EXTREME) had a GPU job of 4.2 ms in a 19.6 ms frame: the ARM was setting the pace. At 1080p a played match is fill-bound: fewer pixels, not fewer triangles, is the lever. With `stat(16)` close to the frame time the GPU sets the pace; well below it, the ARM does.
 - Measure: `stat(16)` is the GPU's job time of the last frame in ms (0 on the ARM). With the queue on, it includes the wait before the ARM looks: trust it only without the queue.
 - The bench scores each driver against bm3d 2.1 on the Pi Zero W (1000 points). `make test-b3d` runs a short check on the PC; the PC's milliseconds do not count.
 

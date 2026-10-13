@@ -44,12 +44,12 @@ Your game is never overwritten by a tool by accident. You edit the project, and 
 ## Caveats
 
 - [TO FILL: status of the `.b16` profile. `docs/B16.md` says the profile is decided but not yet implemented, and §3 describes a different `B16CART` container that §0 replaces with the `.bm` container; `src/bm/project.h` and `scripts/mkbm.py` already mark and export `.b16` files (bit 1 at offset 18, 8 MiB check). Say which one is current.]
-- [TO FILL: how a `.b16` is built from the console menu; `src/bm/project.h` has the function but no menu entry is described in the docs.]
+- The SDK's *Build .bm* and *Export .b16* entries call `bm_build_b16`; **Ctrl+Shift+B** in the bm SDK always exports a `.b16`.
 
 ## Try it, step by step
 
 1. On the console, open the Games tab and select a game.
-2. Press **X** to open its options and choose *Make an editable copy*.
+2. Press **X** on the RGB30 pad (**C** on the Pi) to open its options and choose *Make an editable copy*.
 3. Open the Dev tab. You see the project with a "Project" badge.
 4. Press **A** on the project. It opens in the SDK.
 5. In the SDK press **Ctrl+B** (*Build the game .bm*). The game appears in the Games tab.
@@ -99,7 +99,7 @@ A cartridge is a 128-byte header, a section table and the section bodies. Everyt
 | 1 | LUA | the main script, UTF-8 source |
 | 2 | SHEET | the sprite sheet: u16 w, u16 h, then RGBA8888 pixels (alpha below 128 is transparent) |
 | 3 | MAP | u16 w, u16 h, then u16 cells (sprite index, 0 = empty) |
-| 4 | COVER | the picture of the cartridge in the menu (`mkbm.py` makes it 128x80); first in the file |
+| 4 | COVER | the picture of the cartridge in the menu (`mkbm.py` makes it 88x88); first in the file |
 | 5 | SHEET8 | the sheet with at most 256 colours and runs, much smaller; a cartridge has SHEET or SHEET8, not both |
 | 6 | AUDIO | the sound bank (`BMAU`): sounds, effects, patterns, songs; played by `sfx()` and `music()` |
 | 8 | MESH | 3D models, 1 to 256, with the texture inset |
@@ -119,7 +119,7 @@ A cartridge is a 128-byte header, a section table and the section bodies. Everyt
 
 # The API for tools
 
-Part of the game API. These functions are meant for the development tools (the editors of the suite). Games do not need them, and the `.b16` profile in `docs/B16.md` leaves the `cart_*` functions and `ls` out of the sandbox.
+Part of the game API. These functions are meant for the development tools (the editors of the suite). Games do not need them, and the design in `docs/B16.md` says the `.b16` profile leaves the `cart_*` functions and `ls` out of the sandbox; the console does not enforce it yet.
 
 ## Games and projects in the API
 
@@ -280,7 +280,7 @@ A resource file uses the same container as a `.bm`, with the magic `BMRES` and t
 
 - The Lib tab, which lists the resources, is hidden for now. `lib_tab=1` in `bm/config.txt` brings it back.
 - The apps that open resource files are not done yet: A in the Lib tab opens only resources that are inside a `.bm`.
-- [TO FILL: whether `bmres.py add` accepts a `.bme` as the destination and where it writes when `-o` is not given; the usage text only says `[-o OUT.bm]`.]
+- `bmres.py add` with a `.bme` cart and no `-o` writes the `.bme` in place. With a `.bm` or `.b16` and no `-o` it refuses to change the game ("is a game, read only") and writes a copy with the same name and the `.bme` extension. A `.bme` output is marked as a project.
 - [TO FILL: `docs/RISORSE.md` says `mkbm.py --res FILE` integrates resources at build time, but in `scripts/mkbm.py` the option `--res` chooses the screen resolution. Say which tool does the build-time integration.]
 
 ## What integration does

@@ -3,7 +3,7 @@ accent: Mesh
 lang: it
 kicker: L'editor della suite
 subtitle: Sposta i vertici e le facce di un modello 3D, sulla console, e guardalo nel tuo gioco.
-footer: bm manuals - editor-mesh
+footer: manuali bm - editor-mesh
 
 ::: readme
 **Che cos'è.** Il manuale di **bm Mesh**, l'editor di vertici e facce. Ogni tasto citato viene dal codice dell'editor.
@@ -42,7 +42,7 @@ L'elenco segna ogni mesh con una lettera.
 ## Da sapere
 
 - L'editor si usa con la tastiera, con il mouse o con il gamepad.
-- Tutto quello che fai si può annullare: Ctrl+Z annulla, Ctrl+Y ripete (gamepad: Y + A annulla).
+- I passi di modifica si possono annullare (30 passi): Ctrl+Z annulla, Ctrl+Y ripete (gamepad: Y + A annulla). Rinomina e cancella azzerano i passi di annullamento e ripetizione, e lo fa anche l'apertura di un file; copia come modello, copia come codice, duplica e nuovo non creano un passo di annullamento.
 
 # Aprire
 
@@ -84,7 +84,7 @@ La barra in alto ha tre pagine. Un clic su una scheda, o il suo tasto, cambia pa
 
 ![La pagina list: le mesh a sinistra, quella scelta che gira nell'anteprima](shots/editor-mesh-list.png)
 
-Altri tasti che valgono in ogni pagina:
+Altri tasti. F3 funziona solo nelle pagine list ed edit, e `[` e `]` sono ignorati nella pagina menu; gli altri valgono in ogni pagina:
 
 | Tasto | Cosa fa |
 |---|---|
@@ -217,7 +217,7 @@ Premi **g** per spostare, **r** per ruotare, **t** per scalare la scelta (si muo
 
 # L'anteprima e cart_meshes
 
-Il modello che modifichi è disegnato illuminato e con le sue texture dalla sheet della cartuccia, così lo vedi come lo mostrerà il gioco. Nella pagina edit sono disegnati solo gli spigoli delle facce rivolte verso la camera.
+Il modello che modifichi è disegnato illuminato e con le sue texture dalla sheet della cartuccia, così lo vedi come lo mostrerà il gioco. Nella pagina edit sono disegnati solo gli spigoli delle facce rivolte verso la camera, e solo quando la mesh ha 3000 triangoli o meno.
 
 ## Come arrivano le mesh del gioco
 
@@ -270,7 +270,7 @@ Premi di nuovo **g**, poi **x**, poi la freccia destra qualche volta, poi **Ente
 
 ## Sistema una faccia
 
-Nella pagina edit hanno gli spigoli disegnati solo le facce rivolte verso la camera. Se una faccia non ha spigoli da nessun lato, o è rovesciata o manca.
+Nella pagina edit, quando la mesh ha 3000 triangoli o meno, hanno gli spigoli disegnati solo le facce rivolte verso la camera. Se una faccia non ha spigoli da nessun lato, o è rovesciata o manca.
 
 ### La faccia è rovesciata
 
@@ -301,7 +301,7 @@ local m = model("ship")
 draw3d(m, 0, 0, 0, 0, 0, 0, 1, 0)
 :::
 
-[DA COMPLETARE: il tasto che esce dal gioco e ti riporta a bm Mesh]
+Per uscire dal gioco e tornare a bm Mesh premi Start + Select sul pad o Ctrl+Esc sulla tastiera; l'editor torna alla stessa pagina.
 
 # Consigli e limiti
 

@@ -17,7 +17,7 @@ footer: bm manuals - api-lib
 
 ## What they are
 
-`bmlib` is what every game used to write again by itself, found in 5 to 10 cartridges of the repository, now in a single library written in Lua and kept in the kernel (`src/script/bmlib.lua`). It covers: numbers and random numbers, collisions, the map (walls, platforms, gravity), hitboxes and hurtboxes, easing, tweens, timers and scripts, particles, a camera, game states, text, menus and the pause menu, players on one console, jingles, saves, animations, colours and a 3D mesh builder.
+`bmlib` is what every game used to write again by itself, now in a single library written in Lua and kept in the kernel (`src/script/bmlib.lua`). It covers: numbers and random numbers, collisions, the map (walls, platforms, gravity), hitboxes and hurtboxes, easing, tweens, timers and scripts, particles, a camera, game states, text, menus and the pause menu, players on one console, jingles, saves, animations, colours and a 3D mesh builder.
 
 `bmnet` is the network code of the game Overbit, made available to every game (`src/script/bmnet.lua`). Consoles find each other on the **LAN** (UDP broadcasts) or over the **internet** through a relay; one console **hosts** a match and the others **join**; they send **messages** and, for action games, the match runs in **lockstep**.
 
@@ -108,9 +108,9 @@ function _draw()
   cls(0)
   cam:apply()
   cam:map()
-  print("@", hero.x, hero.y, 7)           -- the hero
+  print("@", hero.x, hero.y, 0xFFFFFF)    -- the hero
   camera()
-  print("A: jump", 4, 4, 7)
+  print("A: jump", 4, 4, 0xFFFFFF)
 end
 ```
 
@@ -170,8 +170,8 @@ function _update()
   end
   if net.state == "lobby" then
     if btnp("a") then net.host({ max = 2, info = "my match" }) end
-    for id in pairs(net.hosts()) do
-      if btnp("b") then net.join(id) end
+    for _, h in ipairs(net.hosts()) do
+      if btnp("b") then net.join(h.id) end
     end
   end
   if net.state == "hosting" and btnp("start") then net.start() end
@@ -192,8 +192,6 @@ In a match the game must depend only on the inputs of the frames and on the seed
 ::: try
 Start the game on two consoles. Press A on the first, B on the second, then X on both to see the messages, then Start on the first.
 :::
-
-[TO FILL: whether `net.hosts()` is indexed by the id of the match or is a plain list, to write the loop above without doubt]
 
 # bmlib: numbers
 
@@ -242,7 +240,7 @@ The functions look at the **tiles' flags**: `lib.SOLID` (flag 0, value 1), `lib.
 | `lib.solid(x, y, [w, h])` | the rectangle (or the point) touches something solid |
 | `lib.move(b, dx, dy)` | moves body `b = {x, y, w, h}` (`w`, `h` 8 if missing) by `dx, dy`, stopping it against the solid tiles and sliding it along the walls; it falls on a platform only from above (and not with `b.drop`: down through it). In steps shorter than a tile: it never jumps one. Returns `hx, hy`: -1 / 1 where it hit (left / right, up / down), otherwise 0 |
 | `lib.step(b)` | one frame of a body with gravity (a platformer): `b.vx, b.vy` in pixels per frame, `b.gravity` (`lib.GRAVITY`, 0.25) and `b.maxfall` (`lib.MAXFALL`, 6); then `b.ground` is `true` on the ground and the speed that hit is 0. Returns what `lib.move` gives |
-| `lib.ray(x0, y0, x1, y1, [mask])` | the first tile with a flag of `mask` (`lib.tiles`' solid one if missing) on the segment: `x, y` where the segment enters it and its cell `mx, my`; `nil` if the way is free (line of sight, bullets) |
+| `lib.ray(x0, y0, x1, y1, [mask])` | the first tile with a flag of `mask` (`lib.tiles`' solid one if missing) on the segment: `x, y` where the segment enters it and its cell `mx, my`; `nil` if the way is free (line of sight, bullets). With `lib.tiles{edge=true}` any point outside the map also counts as a hit, whatever the mask |
 
 ```lua
 local hero = { x = 40, y = 40, w = 8, h = 8, vx = 0, vy = 0 }
@@ -353,11 +351,13 @@ fx:burst(x, y, 20, { speed = 3, colors = { 0xFFFFFF, 0xFFD050, 0xFF6020 }, gravi
 | `S:is(name)`, `S.name`, `S:top()` | the state on top |
 
 ```lua
-local S = lib.states({
+local S
+S = lib.states({
   title = { update = function(s) if btnp("ok") then S:go("play") end end,
             draw = function() cls(0); lib.printc("PRESS A", 160, 0xFFFFFF) end },
   play = { enter = function(s) s.score = 0 end,
-           update = function(s) ... end, draw = function(s) ... end },
+           update = function(s) s.score = s.score + 1 end,
+           draw = function(s) cls(0) end },
 }, "title")
 function _update() lib.update(); S:update() end
 function _draw() S:draw() end
@@ -472,7 +472,7 @@ The consoles find each other on the **LAN** (UDP broadcasts) or over the **inter
 | `net.open([opt])` | opens the network: `game` (4 characters, the game and its version: the packets of other games are not seen), `port` (47320, the same on every console), `relay` (`"name"` or `"name:port"`, 47310: over the internet; without, the LAN), `room` (4 characters, `"PLAY"`: the consoles of a room see each other on the relay), `name` (the player's name). `true`, or `false` and why (no network) |
 | `net.close()` | leaves: the others know (in a match the seat's input becomes `false`; when the host leaves the match ends for all), the socket closes. Call it from `_leave()` too |
 | `net.host([opt])` | this console hosts a match: `max` players (2-8, 4), `info` (a line the others see in the list). It is seat 1 |
-| `net.hosts()` | the matches found in the last 3 seconds: `{id, name, players, max, info}`, by id |
+| `net.hosts()` | the matches found in the last 3 seconds: `{id, name, players, max, info}`, a list, sorted by id |
 | `net.join(id)` | asks console `id` for a seat: the event `"joined"` when it says yes, `"refused"` if it is full or has begun |
 | `net.peers()` | the consoles in the room or the match: `{id, name, seat, me}`, by seat |
 
@@ -496,7 +496,7 @@ For action games, every console runs the whole game with the same seed and only 
 |---|---|
 | `net.start([opt])` | (the host) starts the match with those in: `seed` (the same random numbers on every console; one by chance if missing), `delay` (frames between a press and its frame: 4 on the LAN, 7 through the relay), `data` (a string for everybody: the options chosen). Everybody gets the event `"start"` (the host too, at the next `net.update()`) |
 | `net.input(v)` | (lockstep) my input for frame `net.frame + delay`: a 32-bit whole number (`net.pad(1)`). Once in each `_update` of the match, before `net.frames()` |
-| `net.frames()` | the frames of the match that can run now: `for f, inputs in net.frames() do ... end`, `inputs[seat]` that seat's input (`false` once its player has left). One, two when the console is behind; none while an input is missing (`net.stall`: seconds since the last) |
+| `net.frames()` | the frames of the match that can run now: `for f, inputs in net.frames() do ... end`, `inputs[seat]` that seat's input (`false` once its player has left). One, two when the console is behind; none while an input is missing (`net.stall`: seconds since the last frame ran) |
 | `net.check(hash)` | a number that sums up the game after the frame just run (positions, scores): the consoles compare them and a difference is the event `"desync"`. Every second is enough |
 | `net.pad([p])` / `net.unpad(v)` | the 16 buttons of `pad(p)` and the left stick (8 bits each way) in 32 bits / back to buttons, `x`, `y` (-1..1) |
 | `net.held(v, button)` | a button (`"a"`, `"left"`... as `pad()`) held in an input of `net.pad` |
@@ -523,8 +523,8 @@ For action games, every console runs the whole game with the same seed and only 
 | `net.seed` | the match's seed |
 | `net.delay` | the match's delay in frames |
 | `net.data` | the string given to `net.start` |
-| `net.error` | the error text (see the event `"error"`) |
-| `net.stall` | seconds since the last input, while `net.frames()` waits |
+| `net.error` | the error text for the event `"error"` (unknown relay); also "the match is full or has begun", "the host left" and "the host is gone" (these come with the events `"refused"` and `"lost"`). `net.open` resets it to `nil` |
+| `net.stall` | seconds since the last frame ran, while `net.frames()` waits (reset in `net.frames()` and at the start of a match; it grows 1/60 per `net.update()`) |
 
 ## A whole example
 

@@ -10,6 +10,7 @@ manuals/content/en/<id>.md    the text, English
 manuals/content/it/<id>.md    the text, Italian: the same chapters, steps, tables, boxes, pictures
 manuals/themes/<theme>.toml   the look (colours, fonts, sizes, shape of the boxes): paper is the chosen one
 manuals/shots/                pictures (console screenshots: docs/SCREENSHOTS.md)
+manuals/pdf/                  the finished PDFs, <id>.en.pdf and <id>.it.pdf (make manuals)
 manuals/sync.json             what en and it said when they were last stamped as equal
 scripts/mkmanual.py           one content file -> PDF
 scripts/manuals.py            status, check, stamp, build for all the manuals
@@ -30,7 +31,7 @@ scripts/manuals.py            status, check, stamp, build for all the manuals
 python3 scripts/manuals.py status             what is there, the gaps, what is behind
 python3 scripts/manuals.py check              en and it: same shape, neither behind the other
 python3 scripts/manuals.py stamp <id>         "en and it say the same now" (after check passes)
-python3 scripts/manuals.py build [<id>]       PDFs in build/manuals (--theme, -o)
+python3 scripts/manuals.py build [<id>]       PDFs (default build/manuals; the finished ones are in manuals/pdf: make manuals)
 python3 scripts/mkmanual.py <file.md> --all-themes -o DIR     one file in every theme
 ```
 

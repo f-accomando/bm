@@ -3,7 +3,7 @@ accent: bm3d
 lang: it
 kicker: Un manuale tecnico di bm
 subtitle: Raspberry Pi Zero W 1.1 con bm: prestazioni di ARM11 e GPU, e i driver bm3d 2D e 3D.
-footer: bm manuals - pi-zero-w
+footer: manuali bm - pi-zero-w
 
 ::: readme
 **Che cos'è.** Che cosa sa fare il Raspberry Pi Zero W 1.1 con bm, e che cosa offrono i driver di bm al tuo gioco: il processore ARM1176, la GPU VideoCore IV, il disegno 2D e i driver 3D chiamati bm3d.
@@ -69,7 +69,7 @@ Il repo registra questi clock da un Pi Zero W reale (fonte: `docs/bench/20261005
 | Uscita | mini-HDMI fino a 1920x1080 a 60 Hz | `docs/HARDWARE.md` |
 | Vsync del firmware | non disponibile sul Pi Zero; bm scandisce i 60 fps con il suo timer | `docs/HARDWARE.md` |
 
-bm non usa OpenGL ES. Scrive da sé i registri del V3D, con un disegno a funzioni fisse e i suoi shader per le QPU (fonte: `docs/PERFORMANCE.md`, sezione 7).
+bm non usa OpenGL ES. Scrive da sé i registri del V3D, con un disegno a funzioni fisse e i suoi shader per le QPU (fonti: `docs/PERFORMANCE.md`, sezione 7, per il driver a funzioni fisse con registri diretti; `docs/DRIVERS.md` per gli shader).
 
 ![Il 3D Bench sul Pi Zero W: la pagina del punteggio](shots/pi-zero-w-bench-score.png)
 
@@ -292,7 +292,7 @@ Programmi veri, stesso file:
 | Texture Room HD 640x360 | 25,3 ms (8 casse) | 5,8 ms (32 casse, 573 triangoli) |
 | Chaos Kitchen | 14,1 ms | 6,8 ms (758 triangoli) |
 
-Calano anche le istruzioni ARM per frame: Texture Room con 8 casse passa da 3,86 milioni a 0,62 milioni (fonte: `docs/GPU-BENCHMARK-REPORT.md`).
+Calano anche le istruzioni ARM per frame, in una simulazione host QEMU (non misurate sul Pi): Texture Room, 8 casse, 320x180, 446 triangoli, passa da 3,86 milioni a 0,62 milioni (fonte: `docs/GPU-BENCHMARK-REPORT.md`, sezione "Host Simulation Metrics (qemu-arm)").
 
 Con la GPU le sfere sono limitate dall'ARM (circa 2 us per triangolo fra trasformazioni e vertici), mentre i quad sono limitati dal V3D (fonte: `docs/STRESS.md`). La misura del 2026-10-05 (bm3d 4.2, stesso file) ha dato 207 sfere sulla GPU a 60 fps (8131 triangoli), 159 Gouraud, 165 con texture, e un quad con texture 256x256 a 3 ns per pixel (91 quad), con l'MSAA 4x che costa quasi niente (204 sfere).
 
@@ -325,7 +325,9 @@ Fonte: `docs/DRIVERS.md`.
 | Versione | Che cosa ha portato |
 |---|---|
 | 0.2 | solo ARM: bordi in virgola fissa, cicli di texture specializzati, z azzerato dal DMA (69 sfere a 60 fps) |
-| 2.1 | la GPU disegna i triangoli; luce e nebbia precalcolate sui vertici, ombre, effetti 3D |
+| 1.0 | la GPU disegna per la prima volta i triangoli (shader NV) |
+| 2.0 | pagine pulite, texture in formato T e MSAA (182 sfere a 60 fps) |
+| 2.1 | Overbit sulla GPU: facce a retino, luce RGB e nebbia precalcolate, ombre, effetti 3D |
 | da 3.0 a 3.4 | il vertex shader piazza lo scenario, poi i modelli illuminati, le ossa e le skin |
 | 4.0, 4.1 | il frame in coda: il job parte e il prossimo `_update` gira mentre la GPU disegna |
 | 4.2 | schermi fino a 1920x1080; `cls()` fatto dal job GPU |
@@ -360,7 +362,7 @@ Le funzioni sono descritte in `docs/api/light3d.md`. Quelle che contano per le p
 | `visible3d(x, y, z, r)`, `pvs3d(t)` | salta quello che non si vede prima di disegnarlo |
 | `textures3d(false)` | ogni `draw3d` disegna le facce con texture a colore piatto |
 | `stat(9)` | 1 quando il 3D lo fa la GPU |
-| `stat(16)` | il tempo GPU dell'ultimo frame in ms (0 sull'ARM); fidati solo senza la coda |
+| `stat(16)` | il tempo del job GPU dell'ultimo frame in ms; letto con la coda attiva include l'attesa, quindi fidati solo senza la coda |
 
 ## Come sceglie un gioco
 

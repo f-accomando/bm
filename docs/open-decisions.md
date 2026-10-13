@@ -25,7 +25,7 @@ document of the area.
 
 ## Manuals structure
 - 17 manuals ([MANUALS.md](MANUALS.md)): the API in five volumes (core, sound, 3D, lib, tools), one manual per editor. One big API manual instead?
-- Where the finished PDFs live: `build/manuals` only, or committed (`docs/manuals/`, as `docs/scaffold.pdf`)?
+- The finished PDFs are committed in `manuals/pdf/` (2.4 MB for the 34): keep them in the repository, or only publish them with a release?
 - Pictures: `manuals/shots/<manual>-<what>.png`, taken on the console; the ones not taken yet are listed in each manual's "Open points".
 - The Assistant app has no manual yet (it is not an editor).
 
@@ -39,3 +39,13 @@ document of the area.
   SPDX id). Confirm the string.
 - Next migrations: the other games (`snake`, `shooter`, `astrowing`, `kitchen`, `titan`, `village`, `nano8`, `overbit`, `typing`, `write`) and the apps of the suite.
 - `mkcover.py` of `yharnam` gives a different `cover.png` with this Pillow (12.3.0): pin the version or leave the cover as it is?
+
+## Found while checking the manuals (to fix in the source documents)
+- `sdk/README.md` and `docs/GAME-GUIDE.md` say bm Pixel makes zones, boxes and tile flags: the code only reads them.
+- `sdk/README.md` says bm Studio and bm Animator do not use the mouse (they do) and gives Animator's copy/paste as `c` `v` (it is Ctrl+C / Ctrl+V).
+- `docs/RISORSE.md` says `mkbm.py --res FILE` integrates resources at build time: `--res` is the resolution there.
+- `src/bm/bm.h` comments: COVER 128x80 (it is 88x88) and offsets 18 and 104 "reserved" (used by the project and `.b16` flags).
+- `docs/B16.md` "not yet implemented" against `project.h`, `mkbm.py` and a committed `titan_ex.b16`.
+- LED of the RGB30: solid green (`docs/RGB30.md`) or blinking (`boot/rgb30/LEGGIMI.txt`).
+- `sdk.b16` in the Market: `sdk/README.md` says no, `docs/progress/tools.md` says yes.
+- The 5 api manuals list the gaps the repository cannot answer; each manual's last chapter ("Open points" / "Punti aperti") has them.

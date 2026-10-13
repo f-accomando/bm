@@ -44,7 +44,7 @@ footer: bm manuals - editor-animator
 - From a game: press **X** on its cover and choose **Open in bm Animator**.
 - From another tool of the suite: the menu entry **Open in bm Animator** (bm Studio has it) switches to the same file.
 
-If the file list is empty, the screen says `no .bm files: make models in bm Studio`. If you open a file with no 3D models, it says `open a .bm with 3D models (made in bm Studio)`.
+If the file list is empty, the screen says `no .bm files: make models in bm Studio`. If you open a file with no 3D models, it says `no models: make them in bm Studio`. The text `open a .bm with 3D models (made in bm Studio)` is shown when the app starts with no file and there are `.bm` files.
 
 ## Projects and games
 
@@ -65,7 +65,7 @@ With a game open, the first save asks `Save an editable copy: NAME.BME?`. Answer
 1. Start the console and open the **Dev** tab.
 2. Start **bm Animator**.
 3. Choose a `.bm` or `.bme` with a model in it.
-4. You see page **F1** with the model turning. The list on the left shows its name, with vertices, triangles and bones.
+4. You see page **F1** with the model turning. The lists on the left are MODELS and ANIMATIONS, with names only; the name of the model and its vertices, triangles and bones are in the info strip to the right of the panel.
 
 ::: try
 Press `]` and `[` to move to the next and the previous model of the file. The status line says `model` and the name.
@@ -104,7 +104,7 @@ The layout is the one of the other console apps: on the left a panel with lists,
 | up, down | previous, next model |
 | left, right | previous, next animation |
 | space or Enter | play, stop |
-| `a` `d` `w` `s` | turn the camera by hand (it stops turning by itself) |
+| `a` `d` `w` `s` | turn the camera by hand (`a` and `d` stop the automatic spin; `w` and `s` only tilt) |
 | `o` | the camera turns by itself on, off |
 | `k` | show the skeleton |
 | `l` | light on, off |
@@ -178,7 +178,9 @@ In skin mode: arrows choose a face, space marks it, `c` marks the connected ones
 | `Y` + `B` | the menu |
 | `Y` + up, down | change model |
 | `Y` + `A` | undo |
-| `X` + d-pad | turn the camera |
+| F1: `X` + d-pad | turn the camera |
+| F2: left, right | turn the camera (`X` + left, right does nothing) |
+| F3, F4 | no camera on the pad |
 | F1: `A` | play, stop |
 | F1: `B` | show the skeleton |
 | F2: `A` + d-pad | move the chosen end (left, right, up, down) |
@@ -256,7 +258,7 @@ A walk cycle is a handful of poses. You make the poses, bm Animator makes the mo
 - **i** chooses how the movement goes between two keyframes: linear, smooth (slow at both ends) or step (the pose jumps).
 - **<** and **>** shorten and lengthen the animation by one frame. It cannot become shorter than its last keyframe.
 - `,` and `.` jump between keyframes. `(` and `)` move the keyframe you are on by one frame.
-- The last keyframe of an animation cannot be removed.
+- The only keyframe left of an animation cannot be removed (`the last keyframe stays`).
 - Pressing **Backspace** once asks to confirm; a second press deletes the animation.
 - At most **255** animations for a model.
 
@@ -306,7 +308,7 @@ Up and down choose a row, left and right change it.
 | fill | 50 % to 160 %: how much of the frame the model fills |
 | hitboxes | from bones, or none |
 
-The preview on the right turns through the directions while the animation plays, at its size and twice as big. Under the settings the screen says how many pixels the sprites will take in the sheet.
+The preview on the right turns through the directions while the animation plays, at its size, and also twice as big when the size is 64 or less. Under the settings the screen says how many pixels the sprites will take in the sheet.
 
 ## The bone hitboxes
 
@@ -327,7 +329,7 @@ Press **Enter**. The screen says `drawing the sprites...` while it works, in ste
 - The sprites go **below what the sheet already has**, enlarging the sheet if needed (never past 4096 pixels).
 - One row of frames per direction: frame `f` of direction `d` is at `x0 + f * size`, `y0 + d * size`.
 - The page adds a **zone** to the sheet, named after the model and the animation in small letters (`model_animation`, up to 16 characters), with the frame count and the speed (frames divided by the animation's length). A zone with the same name is replaced.
-- The boxes are saved in the cartridge's BOXES section, for the zone, frame by frame (from frame 1), taken from the first direction.
+- The boxes are made in the editor session (the cartridge's BOXES section), for the zone, frame by frame (from frame 1), taken from the first direction. It was not confirmed that Ctrl+S writes them to the file.
 - A line at the bottom shows the zone and the `sspr()` call to draw the frames.
 
 ## Good to know
@@ -342,7 +344,7 @@ Press **Enter**. The screen says `drawing the sprites...` while it works, in ste
 2. Choose the animation in the first row, `frames` 8, `size` 48, `directions` 4.
 3. Check that `hitboxes` says `from bones`. The preview shows the boxes with their coloured outlines.
 4. Press **Enter**.
-5. Wait for the message that ends with `put in sheet at` and the position. The line at the bottom shows the zone name.
+5. Wait for the message `N sprites[ and M boxes] put in sheet at x,y[ (the sheet is bigger now)]`; the position ends it only if the sheet did not grow. The line at the bottom shows the zone name.
 6. Press **Ctrl+S** to save.
 
 ::: try
@@ -353,7 +355,7 @@ Rename a bone to `sword` in F2, bake again and look at the preview: its box turn
 
 ## What it does
 
-**Ctrl+S** writes your work into the project file. Only the MESH and ANIM sections change (and the sprite sheet, with the SPRITES and BOXES sections, if you put sprites in it). The game's code, map, cover and sounds stay byte for byte.
+**Ctrl+S** writes your work into the project file. Only the MESH and ANIM sections change (and the sprite sheet, if you put sprites in it). It was not confirmed whether the SPRITES and BOXES sections (the zones and boxes made in the session) are written too. The game's code, map, cover and sounds stay byte for byte.
 
 ## Good to know
 

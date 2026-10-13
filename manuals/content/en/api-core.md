@@ -50,8 +50,8 @@ The cartridge can change its resolution while it runs with `screen(w, h)` (see D
 
 ## Limits
 
-- An error or an endless loop (over **20 million Lua instructions** in one frame) stops the cartridge without blocking the console. The error, with its line, appears on the console.
-- Sandbox: no `io`, `os`, `load`, `dofile`. `require` loads only the libraries built into the kernel: `"bmlib"` (the games' shared library), `"assist"` (the assistant's panel), `"bm3d"` (what bm Studio and bm Animator share), `"predict"` and `"words"` (the word completion). You have `string`, `table`, `math`, `utf8` and `coroutine`.
+- An error or an endless loop (over **20 million Lua instructions** in one call of `_init`, `_update` or `_draw`; the counter restarts at each call) stops the cartridge without blocking the console. The error, with its line, appears on the console.
+- Sandbox: no `io`, `os`, `load`, `dofile`. `require` loads only the libraries built into the kernel: `"assist"`, `"bm3d"`, `"bmlib"`, `"bmnet"`, `"predict"`, `"words"`, `"padtype"`, `"riff"` and `"bmui"`. You have `string`, `table`, `math`, `utf8` and `coroutine`.
 
 ## Leaving a game
 
@@ -340,7 +340,7 @@ With `mkbm.py`:
 On the console:
 
 - On the SDK's map page `l` goes to the next layer, Shift+L adds one (also from the menu, *New map layer*), `o` shows that one alone, `c` the flags of the tiles.
-- On the sprite page keys `0`–`7` turn the cell's flags on.
+- On the sprite page keys `0`–`7` toggle the cell's flags on and off.
 - bm Pixel and `scripts/bmres.py` make zones (`bmres.py` carries the boxes with their zones).
 - `cart_save` and `cart_load` carry layers, flags, zones and boxes with the cartridge.
 - The format is in the LAYERS (12), FLAGS (13), SPRITES (11) and BOXES (14) sections of `src/bm/bm.h`. A kernel of before draws the first layer and ignores the rest.
@@ -382,7 +382,7 @@ Instead of `i`, `btn` and `btnp` also accept a **name**:
 | 6 | **X** | C, L | X / square | `c`, `l` |
 | 7 | **Y** | V, I | Y / triangle | `v`, `i` |
 | 8 | **Start** | Enter | Start / Options | Enter |
-| 9 | **Select** | Tab | Select / Share | — |
+| 9 | **Select** | Tab | Select / Share | Tab |
 
 - Start+Select together (or the PS button) always close the cartridge: Start alone is free for the game's pause.
 - A cartridge that never asks `btn(6)`/`btn(7)` (or `btnp`) gets X as A and Y as B: games with two buttons work with all four.
@@ -405,7 +405,7 @@ keymap({ jump = "a", fire = {"x", "r1"}, pause = "start", confirm = "ok" })
 - `layout`: `"keyboard"`, `"ds4"`, `"xbox"`, `"nintendo"` or `"none"`. It says what the buttons are called: the DS4's symbols; letters with A at the bottom as Xbox; A on the right as the RGB30.
 - `bluetooth`: a boolean.
 - `ok` (`"a"` or `"b"`) and `back` (`"b"` or `"a"`): which of the game's buttons are the yes and the back.
-- `color`: the player's colour, that of their pad's light: 1 blue, 2 red, 3 green, 4 pink.
+- `color`: the player's colour, that of their pad's light, as an RGB integer: `0x3070FF` (player 1, blue), `0xFF3C28` (2, red), `0x28D848` (3, green), `0xFF38A8` (4, pink).
 
 ### Network matches: `online`
 
@@ -497,7 +497,7 @@ local x, y = stick(1)                     -- player 1's stick, from -1 to 1
 | `battery_low()` | `true` while the battery is low: 20% or less off the charger (until 23%). Then the system draws by itself a small red battery top right over the frame (left of the dev kit's overlay when it is at the top), in every game and tool; *Settings > Screen and sound > Low battery icon* (`battery_icon=0` in `bm/config.txt`) turns that icon off, not `battery_low()`. Information only: each console has its own battery, so in lockstep (`bmnet`) it never changes what the game simulates; use it to show something or to save |
 | `code_tokens(text)` | the **tokens** of a piece of Lua code, counted as `stat(11)` and the SDK's dev kit do (`src/bm/tokens.c`): each name, keyword, number, string and operator is one; comments, spaces, `,` `.` `:` `;` `::`, closing brackets (`)` `]` `}`), `end` and `local` do not count, nor the minus sign in front of a number (`-1` is one token). Information, not a limit: bm puts no ceiling on tokens (nor does the `.b16`) |
 | `log(...)` | writes in the kernel's log (serial line and console), not on the game's screen |
-| `report(kind, text)` | a report for the people who develop bm: saved in `bm/reports` on the SD card with kernel, branch, board and date (and a first `options` line: the 3D options in force), then sent to the reports' repository if there are `github_token` and the network (`src/kernel/reports.h`); at most 8 per run, 256 KiB each; `true` if saved. The first time a game calls it, the player is asked (the answer stays in `bm/config.txt`, `allow_...`): after a no, `false` |
+| `report(kind, text)` | a report for the people who develop bm: saved in `bm/reports` on the SD card with kernel, branch, board and date (and a first `options` line: the 3D options in force), then sent to the reports' repository if there are `github_token` and the network (`src/kernel/reports.h`); at most 8 per run, 256 KiB each; `true` if saved. `kind` is a required string, a free-text category label: it is turned into lower case with `-` between other characters and goes into the report header and the uploaded file name; with `kind == "session"` the upload replaces the previous file (Overbit uses `"overbit-bench"`). The first time a game calls it, the player is asked (the answer stays in `bm/config.txt`, `allow_...`): after a no, `false` |
 | `shot([prefix])` | saves the frame being drawn as a PNG (see the Screenshots chapter) |
 | `quit()` | closes the cartridge at the end of the frame |
 | `timeslice(co, [k])` | coroutine `co` stops by itself after about `k` thousand Lua instructions in a frame (400 if missing) and `coroutine.resume` returns `true` without values: a long computation goes on in the next frames instead of stopping the cartridge at the instruction limit. `timeslice(nil)` takes it away (nano8 uses it for its cartridges) |
@@ -518,7 +518,7 @@ Random numbers: `math.random`. For different games at every start, seed the gene
 | 7 | 3D vertices transformed |
 | 8 | ms since the start of this frame (to measure the phases) |
 | 9 | `1` if the GPU draws the 3D |
-| 10 | Lua instructions of the last frame (`_update` + `_draw`, in thousands) |
+| 10 | Lua instructions of the last frame (`_update` + `_draw`, in instructions, rounded to the thousand) |
 | 11 | dev kit: tokens of the cartridge's code (`code_tokens`) |
 | 12 | dev kit: the most KiB of Lua of this run |
 | 13 | dev kit: KiB of the cartridge's data in memory (sprite sheet, map, models and skeletons, sound bank, the 3D z-buffer) |
@@ -580,8 +580,6 @@ local pct, plugged = battery()
 if battery_low() and not warned then save(G) warned = true end   -- save in time
 log("frame ms", stat(1))                                         -- on the serial line, not on the screen
 ```
-
-[TO FILL: the meaning of the `kind` argument of `report(kind, text)` is not described in the sources]
 
 # Saves
 

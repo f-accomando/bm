@@ -37,7 +37,7 @@ I suoni viaggiano dentro il file `.bm` del gioco, nella sua sezione AUDIO. Il gi
 
 ## Da sapere
 
-- bm Sound ha 8 voci. La traccia `t` di un pattern suona sulla voce `t`.
+- bm Sound ha 8 voci. Le tracce sono numerate da 1 a 8 e le voci da 0 a 7: la traccia `t` di un pattern suona sulla voce `t - 1` (lo schermo dice `TRACK 1 (voice 0)`).
 - Il tasto F6 apre un assistente musicale che crea per te ritmi, melodie ed effetti sonori.
 - Il tasto F7 apre Riff, dove scrivi un pattern come una riga di testo.
 - Tutto quello che cambi si può annullare con Ctrl+Z.
@@ -63,7 +63,7 @@ Premi Esc, poi scegli **Open a game or a sound pack...** (oppure premi Ctrl+O). 
 
 - Se il file non ha ancora suoni, bm Sound lo dice e parti da banchi vuoti. **Save** ci scrive i suoni.
 - Se apri un gioco (`.bm`), il primo salvataggio chiede *Save an editable copy: NAME.BME?* e da lì in poi lavori sulla copia.
-- **New project** (Ctrl+N) parte da banchi vuoti. **The demo project** carica un banco con suoni e canzoni: premi START per ascoltare la canzone.
+- **New project** (Ctrl+N) parte da banchi vuoti: il suono 0 si chiama `SOUND` e la canzone 0 si chiama `SONG`, con l'ordine `{0}` (pattern 0). **The demo project** carica un banco con suoni e canzoni: premi START per ascoltare la canzone.
 
 ::: note
 La barra in alto mostra le quattro pagine, `OCT` (l'ottava del pianoforte), il player (`STOP`, `SFX`, `PATTERN` o `SONG n`) e il nome del file. Un punto giallo prima del nome indica modifiche non ancora salvate.
@@ -156,7 +156,7 @@ Sotto gli slot un riquadro mostra il pattern scelto e una piccola immagine delle
 
 ## L'assistente (F6)
 
-F6 (oppure **Compose with the assistant...** nel menu Esc) apre un pannello che crea ritmi, basi, linee di basso, arpeggi, melodie ed effetti sonori. Ognuno si ascolta mentre lo scegli, e A lo mette nel banco.
+F6 (oppure **Compose with the assistant...** nel menu Esc) apre un pannello che crea ritmi, basi, linee di basso, arpeggi, melodie ed effetti sonori. Ognuno si ascolta mentre lo scegli, e A (Invio sulla tastiera) lo mette nel banco. Sulla tastiera la lettera `a` viene scritta nel testo di ricerca.
 
 - Ritmi e basi vanno in nuovi pattern, con una canzone tutta loro.
 - Linee di basso, arpeggi e melodie vanno sopra il pattern della pagina e ne seguono la tonalità e gli accordi.
@@ -166,7 +166,7 @@ F6 (oppure **Compose with the assistant...** nel menu Esc) apre un pannello che 
 
 ![Il pannello dell'assistente sopra la pagina PATTERN](shots/editor-sound-assist.png)
 
-[DA COMPLETARE: i tasti dentro il pannello dell'assistente]
+Tasti nel pannello: Su e Giù scelgono, Sinistra e Destra cambiano la variante, Invio la mette nel banco, Esc chiude, Tab passa alla modalità successiva (pad: X), PgUp e PgDn scorrono, scrivendo si imposta la richiesta, Ctrl+U la cancella.
 
 ## Riff (F7)
 
@@ -248,7 +248,7 @@ Creerai un breve suono da "moneta". Parti in bm Sound con un progetto nuovo (Esc
 3. Premi F2 per andare a SFX. Il cursore è sul passo 1 dell'effetto 0.
 4. Premi Invio. Al passo 1 compare una nota e la senti. Usa il suono scelto nella pagina SOUNDS.
 5. Premi la freccia destra e di nuovo Invio per aggiungere il passo 2. Premi `=` per alzarlo di un semitono; premi `_` o `+` per spostarlo di un'ottava sotto o sopra.
-6. Premi Su sulla prima riga di passi per raggiungere l'intestazione. Spostati su SPEED con la freccia destra e premi `-` o `=` per rendere i passi più lunghi o più corti. `_` e `+` lo cambiano di 10 ms.
+6. Premi Su sulla prima riga di passi per raggiungere l'intestazione. Spostati su SPEED con la freccia destra e premi `-` per rendere i passi più corti (meno ms) o `=` per renderli più lunghi (più ms). `_` e `+` lo cambiano di 10 ms.
 7. Premi Spazio (START sul pad). Senti l'effetto. Premi di nuovo Spazio per fermarlo.
 8. Per dare all'effetto uno scivolamento, torna a un passo con le frecce e premi `l` due volte: il riquadro del passo dice BEND UP. Poi premi `p` per una quantità maggiore.
 9. Vai all'intestazione, scegli NAME, premi Invio e scrivi un nome di al massimo 8 caratteri. Premi Invio per confermare.
@@ -263,7 +263,7 @@ Se non senti nulla, controlla che il volume della console sia alto e che il pass
 
 1. Premi F3 per andare a PATTERN. Scegli un pattern libero con PgUp / PgDn.
 2. Vai all'intestazione con Su (dalla traccia 1) e imposta STEPS a 16 con `-` / `=`. Imposta TEMPO allo stesso modo.
-3. Torna all'intestazione della traccia 1 (il numero a sinistra): premi la freccia sinistra dalla prima cella. Premi `-` / `=` per scegliere il suono di quella traccia. Lo senti.
+3. Torna all'intestazione della traccia 1 (il numero a sinistra): dall'intestazione STEPS / TEMPO / SWING premi prima Giù, poi premi la freccia sinistra. Premi `-` / `=` per scegliere il suono di quella traccia. Lo senti.
 4. Vai alla prima cella e premi Invio. Viene messa una nota. Premi `=` per cambiarla. Premi Y o `i` per sentirla.
 5. Riempi altri passi. Con i tasti del pianoforte (`z s x d c v`) viene messa una nota e il cursore passa al passo successivo.
 6. Fai lo stesso sulla traccia 2 con un altro suono, per un basso o una batteria.
@@ -325,7 +325,7 @@ end
 sfx(n)            -- suona l'effetto sonoro n del banco
 sfx(-1)           -- ferma gli effetti
 music(n)          -- suona la canzone n
-music(-1, 500)    -- ferma la musica, con dissolvenza di 500 ms
+music(-1, 500)    -- ferma la musica, con dissolvenza in uscita di 500 ms
 :::
 
 Un effetto usa una voce libera e la traccia della musica su quella voce resta muta mentre l'effetto suona. Una canzone che usa solo le tracce da 1 a 6 lascia libere le voci 6 e 7 per gli effetti. Per tutte le chiamate vedi il manuale `api-sound`.

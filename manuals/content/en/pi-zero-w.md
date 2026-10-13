@@ -69,7 +69,7 @@ The repo records these clocks from a real Pi Zero W (source: `docs/bench/2026100
 | Output | mini-HDMI up to 1920x1080 at 60 Hz | `docs/HARDWARE.md` |
 | Firmware vsync | not available on the Pi Zero; bm paces 60 fps with its timer | `docs/HARDWARE.md` |
 
-bm does not use OpenGL ES. It writes the V3D registers itself, with fixed-function drawing and its own QPU shaders (source: `docs/PERFORMANCE.md`, section 7).
+bm does not use OpenGL ES. It writes the V3D registers itself, with fixed-function drawing and its own QPU shaders (sources: `docs/PERFORMANCE.md`, section 7, for the direct-register fixed-function driver; `docs/DRIVERS.md` for the shaders).
 
 ![The 3D Bench on the Pi Zero W: the score page](shots/pi-zero-w-bench-score.png)
 
@@ -292,7 +292,7 @@ Real programs, same file:
 | Texture Room HD 640x360 | 25.3 ms (8 crates) | 5.8 ms (32 crates, 573 triangles) |
 | Chaos Kitchen | 14.1 ms | 6.8 ms (758 triangles) |
 
-The ARM instructions per frame fall too: Texture Room 8 crates goes from 3.86 million to 0.62 million (source: `docs/GPU-BENCHMARK-REPORT.md`).
+The ARM instructions per frame fall too, in a QEMU host simulation (not measured on the Pi): Texture Room, 8 crates, 320x180, 446 triangles, goes from 3.86 million to 0.62 million (source: `docs/GPU-BENCHMARK-REPORT.md`, section "Host Simulation Metrics (qemu-arm)").
 
 With the GPU the spheres are limited by the ARM (about 2 us per triangle for transforms and vertices), while the quads are limited by the V3D (source: `docs/STRESS.md`). The measure of 2026-10-05 (bm3d 4.2, same file) gave 207 GPU spheres at 60 fps (8131 triangles), 159 Gouraud, 165 textured, and a textured 256x256 quad at 3 ns per pixel (91 quads), with 4x MSAA costing almost nothing (204 spheres).
 
@@ -325,7 +325,9 @@ Source: `docs/DRIVERS.md`.
 | Version | What it brought |
 |---|---|
 | 0.2 | ARM only: fixed-point edges, specialised texture loops, z cleared by DMA (69 spheres at 60 fps) |
-| 2.1 | the GPU draws the triangles; precomputed light and fog on the vertices, shadows, 3D effects |
+| 1.0 | the GPU first draws triangles (NV shaders) |
+| 2.0 | clean pages, T-format textures and MSAA (182 spheres at 60 fps) |
+| 2.1 | Overbit on the GPU: screen-door faces, precomputed RGB light and fog, shadows, 3D effects |
 | 3.0 to 3.4 | the vertex shader places the scenery, then lit models, bones and skins |
 | 4.0, 4.1 | the queued frame: the job starts and the next `_update` runs while the GPU draws |
 | 4.2 | screens up to 1920x1080; `cls()` done by the GPU job |
@@ -360,7 +362,7 @@ The functions are described in `docs/api/light3d.md`. The ones that matter for p
 | `visible3d(x, y, z, r)`, `pvs3d(t)` | skip what cannot be seen before drawing it |
 | `textures3d(false)` | every `draw3d` draws textured faces as flat colours |
 | `stat(9)` | 1 when the GPU does the 3D |
-| `stat(16)` | the GPU time of the last frame in ms (0 on the ARM); trust it without the queue |
+| `stat(16)` | the GPU job time of the last frame in ms; read with the queue on, it includes the wait, so trust it only without the queue |
 
 ## How a game chooses
 

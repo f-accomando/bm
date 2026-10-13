@@ -42,7 +42,7 @@ The list marks each mesh with a letter.
 ## Good to know
 
 - The editor is used with the keyboard, with the mouse or with the gamepad.
-- Everything you do can be undone: Ctrl+Z undoes, Ctrl+Y redoes (the gamepad: Y + A undoes).
+- Editing steps can be undone (30 steps): Ctrl+Z undoes, Ctrl+Y redoes (the gamepad: Y + A undoes). Rename and delete clear the undo and redo steps, and so does opening a file; copy as model, copy as code, duplicate and new do not make an undo step.
 
 # Opening
 
@@ -84,7 +84,7 @@ The tab bar at the top has three pages. A click on a tab, or its key, changes pa
 
 ![The list page: the meshes on the left, the chosen one turning in the preview](shots/editor-mesh-list.png)
 
-Other keys that work on every page:
+Other keys. F3 works only on the list and edit pages, and `[` and `]` are ignored on the menu page; the others work on every page:
 
 | Key | What it does |
 |---|---|
@@ -217,7 +217,7 @@ Press **g** to move, **r** to rotate, **t** to scale the choice (the corners of 
 
 # The preview and cart_meshes
 
-The model you edit is drawn lit and with its textures from the sheet of the cartridge, so you see it as the game will. On the edit page only the edges of the faces that look at the camera are drawn.
+The model you edit is drawn lit and with its textures from the sheet of the cartridge, so you see it as the game will. On the edit page only the edges of the faces that look at the camera are drawn, and only when the mesh has 3000 triangles or fewer.
 
 ## How the game's meshes arrive
 
@@ -270,7 +270,7 @@ Press **g** again, then **x**, then the right arrow a few times, then **Enter**.
 
 ## Fix a face
 
-On the edit page only the faces that look at the camera have their edges drawn. If a face has no edges from any side, either it is turned the wrong way or it is missing.
+On the edit page, when the mesh has 3000 triangles or fewer, only the faces that look at the camera have their edges drawn. If a face has no edges from any side, either it is turned the wrong way or it is missing.
 
 ### The face is turned the wrong way
 
@@ -301,7 +301,7 @@ local m = model("ship")
 draw3d(m, 0, 0, 0, 0, 0, 0, 1, 0)
 :::
 
-[TO FILL: the key that leaves the game and brings you back to bm Mesh]
+To leave the game and come back to bm Mesh, press Start + Select on the pad or Ctrl+Esc on the keyboard; the editor returns to the same page.
 
 # Tips and limits
 

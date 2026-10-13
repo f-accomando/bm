@@ -3,7 +3,7 @@ accent: suono
 lang: it
 kicker: Un riferimento bm
 subtitle: Effetti sonori, note, strumenti, brani e pattern riff: ogni funzione audio dell'API delle cartucce, con un primo tutorial.
-footer: bm manuals - api-sound
+footer: manuali bm - api-sound
 
 ::: readme
 **Cos'è.** Il volume 2 dell'API di gioco bm: tutto ciò che una cartuccia può fare con suono e musica, da `sfx(n)` ai pattern riff.
@@ -87,7 +87,7 @@ function _update()
 end
 ```
 
-3. Premi il pulsante 4 del pad. Senti un breve blip. Se non senti nulla, controlla il volume generale con `volume()`: va da 0 a 10.
+3. Premi il pulsante **A** (`btnp(4)`: tastiera Spazio, Z o J; croce del DS4; seriale Spazio o `j`). Senti un breve blip. Se non senti nulla, controlla il volume generale con `volume()`: va da 0 a 10.
 4. Cambia `880` in `"C5"`. Senti un blip con il nome della nota.
 5. Aggiungi un laser: una nota che parte alta e scende. Sostituisci il corpo dell'`if` con:
 

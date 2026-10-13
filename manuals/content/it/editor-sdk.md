@@ -3,7 +3,7 @@ accent: SDK
 lang: it
 kicker: Il manuale dell'editor
 subtitle: Progetti, template, mappe e costruzione di un gioco, sulla console.
-footer: bm manuals - bm SDK
+footer: manuali bm - bm SDK
 
 ::: readme
 **Cos'è.** Il manuale di bm SDK, il centro della suite bm: dove nasce un gioco, dove lo provi, lo misuri e lo costruisci.
@@ -342,9 +342,9 @@ Tieni premuto **F12** nell'SDK per vedere i tasti della pagina in cui sei.
 
 # Consigli e risoluzione dei problemi
 
-- **F5 non fa altro che chiedere un nome.** Un progetto che non ha ancora un file va salvato prima: scegli un nome nella casella e premi Invio. Il messaggio `no name yet: use Save as` dice lo stesso.
+- **F5 chiede un nome.** Un progetto che non ha ancora un file va salvato prima: F5 apre la casella **Save as**; scegli un nome e premi Invio. Il messaggio `no name yet: use Save as` compare solo quando usi il semplice **Save** su un progetto senza nome.
 - **`unsaved changes: choose again to confirm`.** Uscire, aprire o iniziare un nuovo progetto con modifiche non salvate chiede due volte: ripeti l'azione per confermare.
-- **`no .bm or .bme files on the SD card`.** *Open...* non ha trovato nulla in `/carts` né nella radice.
+- **`no .bm or .bme files on the SD card`.** *Open...* non ha trovato nulla in `/carts` né nella radice. Elenca i file `.bm`, `.bme` e `.b16`.
 - **`cannot measure: ...` nella pagina del progetto.** L'SDK non è riuscito a leggere i numeri del file; salvalo e leggi il messaggio.
 - **`no error to explain`.** F9 funziona solo dopo una prova finita con un errore. **Ctrl+G** nel codice porta alla riga.
 - **Il mio gioco è lento.** Guarda il dev kit dopo una prova: i frame oltre 16,7 ms, il frame più pesante e la memoria ti dicono dove.

@@ -3,7 +3,7 @@ accent: Code
 lang: it
 kicker: L'editor di codice
 subtitle: Scrivi il Lua del tuo gioco bm direttamente sulla console, eseguilo, fermalo su una riga e leggi i suoi errori.
-footer: bm manuals - bm Code
+footer: manuali bm - bm Code
 
 ::: readme
 **Cos'è questo.** Il manuale di bm Code, l'editor con cui scrivi il codice Lua di un gioco sulla console stessa.
@@ -63,7 +63,7 @@ Premi **Ctrl+N**. Una riga chiede `New project, file name (8.3 in /carts):` e su
 | Ctrl+Shift+S | salva con nome: chiede un nome 8.3 in `/carts` |
 | Ctrl+W | chiude la scheda; se ha modifiche chiede `Save`, `Discard` o `Cancel` |
 
-Una scheda con modifiche mostra un `*` dopo il nome. F5 salva ogni scheda con modifiche prima di eseguire il gioco.
+Una scheda con modifiche mostra un `*` dopo il nome. F5 salva ogni scheda con modifiche che ha un file prima di eseguire il gioco; una scheda nuova senza nome non viene salvata.
 
 ## Uscire
 
@@ -254,7 +254,7 @@ Quando fermi il gioco, bm Code torna con il cursore sulla riga e il messaggio `s
 
 riff è la notazione musicale di bm (vedi il manuale riff). In bm Code la scrivi e la senti subito.
 
-- In una scheda che contiene solo pattern, **Ctrl+Enter** suona l'intera scheda.
+- In una scheda che non contiene nessun blocco `code [[ ]]`, **Ctrl+Enter** suona l'intera scheda.
 - In un gioco, suona il blocco `riff.code [[ ... ]]` sotto il cursore, oppure il primo se il cursore non è in un blocco.
 - Le parole delle note che suonano si **illuminano**, finché il testo è quello che è stato suonato.
 - La riga di stato dice `MUSIC` e il numero di pattern che suonano.

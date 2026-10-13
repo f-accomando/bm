@@ -342,9 +342,9 @@ Hold **F12** in the SDK to see the keys of the page you are on.
 
 # Tips and troubleshooting
 
-- **F5 does nothing but ask for a name.** A project that has no file yet must be saved first: choose a name in the box and press Enter. The message `no name yet: use Save as` says the same.
+- **F5 asks for a name.** A project that has no file yet must be saved first: F5 opens the **Save as** box; choose a name and press Enter. The message `no name yet: use Save as` appears only when you use plain **Save** on a project with no name.
 - **`unsaved changes: choose again to confirm`.** Leaving, opening or starting a new project with unsaved changes asks twice: repeat the action to confirm.
-- **`no .bm or .bme files on the SD card`.** *Open...* found nothing in `/carts` or in the root.
+- **`no .bm or .bme files on the SD card`.** *Open...* found nothing in `/carts` or in the root. It lists `.bm`, `.bme` and `.b16` files.
 - **`cannot measure: ...` on the project page.** The SDK could not read the numbers of the file; save it and look at the message.
 - **`no error to explain`.** F9 works only after a try that ended with an error. **Ctrl+G** in the code goes to the line.
 - **My game is slow.** Look at the dev kit after a try: frames over 16.7 ms, the heaviest frame and the memory tell you where.

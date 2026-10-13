@@ -50,8 +50,8 @@ La cartuccia può cambiare la risoluzione mentre gira con `screen(w, h)` (vedi G
 
 ## Limiti
 
-- Un errore o un ciclo infinito (oltre **20 milioni di istruzioni Lua** in un fotogramma) ferma la cartuccia senza bloccare la console. L'errore, con la sua riga, appare sulla console.
-- Sandbox: niente `io`, `os`, `load`, `dofile`. `require` carica solo le librerie incorporate nel kernel: `"bmlib"` (la libreria condivisa dei giochi), `"assist"` (il pannello dell'assistente), `"bm3d"` (ciò che bm Studio e bm Animator condividono), `"predict"` e `"words"` (il completamento delle parole). Hai `string`, `table`, `math`, `utf8` e `coroutine`.
+- Un errore o un ciclo infinito (oltre **20 milioni di istruzioni Lua** in una chiamata di `_init`, `_update` o `_draw`; il contatore riparte a ogni chiamata) ferma la cartuccia senza bloccare la console. L'errore, con la sua riga, appare sulla console.
+- Sandbox: niente `io`, `os`, `load`, `dofile`. `require` carica solo le librerie incorporate nel kernel: `"assist"`, `"bm3d"`, `"bmlib"`, `"bmnet"`, `"predict"`, `"words"`, `"padtype"`, `"riff"` e `"bmui"`. Hai `string`, `table`, `math`, `utf8` e `coroutine`.
 
 ## Uscire da un gioco
 
@@ -340,7 +340,7 @@ Con `mkbm.py`:
 Sulla console:
 
 - Nella pagina della mappa dell'SDK `l` passa al livello successivo, Shift+L ne aggiunge uno (anche dal menu, *New map layer*), `o` mostra solo quello, `c` i flag dei tile.
-- Nella pagina degli sprite i tasti `0`–`7` accendono i flag della cella.
+- Nella pagina degli sprite i tasti `0`–`7` accendono e spengono (alternano) i flag della cella.
 - bm Pixel e `scripts/bmres.py` fanno le zone (`bmres.py` porta le caselle con le loro zone).
 - `cart_save` e `cart_load` portano livelli, flag, zone e caselle con la cartuccia.
 - Il formato è nelle sezioni LAYERS (12), FLAGS (13), SPRITES (11) e BOXES (14) di `src/bm/bm.h`. Un kernel precedente disegna il primo livello e ignora il resto.
@@ -382,7 +382,7 @@ Al posto di `i`, `btn` e `btnp` accettano anche un **nome**:
 | 6 | **X** | C, L | X / quadrato | `c`, `l` |
 | 7 | **Y** | V, I | Y / triangolo | `v`, `i` |
 | 8 | **Start** | Invio | Start / Options | Invio |
-| 9 | **Select** | Tab | Select / Share | — |
+| 9 | **Select** | Tab | Select / Share | Tab |
 
 - Start+Select insieme (o il pulsante PS) chiudono sempre la cartuccia: Start da solo è libero per la pausa del gioco.
 - Una cartuccia che non chiede mai `btn(6)`/`btn(7)` (o `btnp`) riceve X come A e Y come B: i giochi a due pulsanti funzionano con tutti e quattro.
@@ -405,7 +405,7 @@ keymap({ jump = "a", fire = {"x", "r1"}, pause = "start", confirm = "ok" })
 - `layout`: `"keyboard"`, `"ds4"`, `"xbox"`, `"nintendo"` o `"none"`. Dice come si chiamano i pulsanti: i simboli del DS4; lettere con A in basso come Xbox; A a destra come l'RGB30.
 - `bluetooth`: un booleano.
 - `ok` (`"a"` o `"b"`) e `back` (`"b"` o `"a"`): quali pulsanti del gioco sono il sì e l'indietro.
-- `color`: il colore del giocatore, quello della luce del suo pad: 1 blu, 2 rosso, 3 verde, 4 rosa.
+- `color`: il colore del giocatore, quello della luce del suo pad, come intero RGB: `0x3070FF` (giocatore 1, blu), `0xFF3C28` (2, rosso), `0x28D848` (3, verde), `0xFF38A8` (4, rosa).
 
 ### Partite in rete: `online`
 
@@ -497,7 +497,7 @@ local x, y = stick(1)                     -- lo stick del giocatore 1, da -1 a 1
 | `battery_low()` | `true` finché la batteria è scarica: 20% o meno fuori dal caricabatterie (fino al 23%). Allora il sistema disegna da solo una piccola batteria rossa in alto a destra sopra il fotogramma (a sinistra dell'overlay del dev kit quando è in alto), in ogni gioco e strumento; *Settings > Screen and sound > Low battery icon* (`battery_icon=0` in `bm/config.txt`) spegne quell'icona, non `battery_low()`. Solo informazione: ogni console ha la sua batteria, quindi nel lockstep (`bmnet`) non cambia mai ciò che il gioco simula; usala per mostrare qualcosa o per salvare |
 | `code_tokens(text)` | i **token** di un pezzo di codice Lua, contati come fanno `stat(11)` e il dev kit dell'SDK (`src/bm/tokens.c`): ogni nome, parola chiave, numero, stringa e operatore è uno; commenti, spazi, `,` `.` `:` `;` `::`, parentesi di chiusura (`)` `]` `}`), `end` e `local` non contano, né il segno meno davanti a un numero (`-1` è un token). Informazione, non un limite: bm non mette un tetto ai token (nemmeno il `.b16`) |
 | `log(...)` | scrive nel log del kernel (linea seriale e console), non sullo schermo del gioco |
-| `report(kind, text)` | un report per chi sviluppa bm: salvato in `bm/reports` sulla scheda SD con kernel, branch, scheda e data (e una prima riga `options`: le opzioni 3D in vigore), poi inviato al repository dei report se ci sono `github_token` e la rete (`src/kernel/reports.h`); al massimo 8 per esecuzione, 256 KiB ciascuno; `true` se salvato. La prima volta che un gioco lo chiama si chiede al giocatore (la risposta resta in `bm/config.txt`, `allow_...`): dopo un no, `false` |
+| `report(kind, text)` | un report per chi sviluppa bm: salvato in `bm/reports` sulla scheda SD con kernel, branch, scheda e data (e una prima riga `options`: le opzioni 3D in vigore), poi inviato al repository dei report se ci sono `github_token` e la rete (`src/kernel/reports.h`); al massimo 8 per esecuzione, 256 KiB ciascuno; `true` se salvato. `kind` è una stringa obbligatoria, un'etichetta di categoria a testo libero: viene messa in minuscolo con `-` tra gli altri caratteri e finisce nell'intestazione del report e nel nome del file inviato; con `kind == "session"` l'invio sostituisce il file precedente (Overbit usa `"overbit-bench"`). La prima volta che un gioco lo chiama si chiede al giocatore (la risposta resta in `bm/config.txt`, `allow_...`): dopo un no, `false` |
 | `shot([prefix])` | salva il fotogramma in disegno come PNG (vedi il capitolo Schermate) |
 | `quit()` | chiude la cartuccia a fine fotogramma |
 | `timeslice(co, [k])` | la coroutine `co` si ferma da sola dopo circa `k` migliaia di istruzioni Lua in un fotogramma (400 se manca) e `coroutine.resume` restituisce `true` senza valori: un calcolo lungo prosegue nei fotogrammi successivi invece di fermare la cartuccia al limite di istruzioni. `timeslice(nil)` lo toglie (nano8 lo usa per le sue cartucce) |
@@ -518,7 +518,7 @@ Numeri casuali: `math.random`. Per giochi diversi a ogni avvio, inizializza il g
 | 7 | vertici 3D trasformati |
 | 8 | ms dall'inizio di questo fotogramma (per misurare le fasi) |
 | 9 | `1` se la GPU disegna il 3D |
-| 10 | istruzioni Lua dell'ultimo fotogramma (`_update` + `_draw`, in migliaia) |
+| 10 | istruzioni Lua dell'ultimo fotogramma (`_update` + `_draw`, in istruzioni, arrotondate alle migliaia) |
 | 11 | dev kit: token del codice della cartuccia (`code_tokens`) |
 | 12 | dev kit: il massimo di KiB di Lua di questa esecuzione |
 | 13 | dev kit: KiB dei dati della cartuccia in memoria (sprite sheet, mappa, modelli e scheletri, banco dei suoni, lo z-buffer 3D) |
@@ -580,8 +580,6 @@ local pct, plugged = battery()
 if battery_low() and not warned then save(G) warned = true end   -- salva in tempo
 log("frame ms", stat(1))                                         -- sulla linea seriale, non sullo schermo
 ```
-
-[DA COMPLETARE: il significato dell'argomento `kind` di `report(kind, text)` non è descritto nelle fonti]
 
 # Salvataggi
 

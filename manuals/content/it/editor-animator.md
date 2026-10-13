@@ -3,7 +3,7 @@ accent: Animator
 lang: it
 kicker: L'editor della suite
 subtitle: Dai uno scheletro a un modello 3D, fallo camminare e usalo nel tuo gioco o come sprite pre-renderizzati.
-footer: bm manuals - editor-animator
+footer: manuali bm - editor-animator
 
 ::: readme
 **Cos'è.** Il manuale di **bm Animator**, l'editor di scheletri (rig) e animazioni. Ogni tasto citato viene dal codice dell'editor.
@@ -44,7 +44,7 @@ footer: bm manuals - editor-animator
 - Da un gioco: premi **X** sulla sua copertina e scegli **Open in bm Animator**.
 - Da un altro strumento della suite: la voce di menu **Open in bm Animator** (ce l'ha bm Studio) passa allo stesso file.
 
-Se l'elenco dei file è vuoto, lo schermo dice `no .bm files: make models in bm Studio`. Se apri un file senza modelli 3D, dice `open a .bm with 3D models (made in bm Studio)`.
+Se l'elenco dei file è vuoto, lo schermo dice `no .bm files: make models in bm Studio`. Se apri un file senza modelli 3D, dice `no models: make them in bm Studio`. Il testo `open a .bm with 3D models (made in bm Studio)` compare quando l'app parte senza file e ci sono dei file `.bm`.
 
 ## Progetti e giochi
 
@@ -65,7 +65,7 @@ Con un gioco aperto, il primo salvataggio chiede `Save an editable copy: NAME.BM
 1. Accendi la console e apri la scheda **Dev**.
 2. Avvia **bm Animator**.
 3. Scegli un `.bm` o un `.bme` con un modello dentro.
-4. Vedi la pagina **F1** con il modello che gira. L'elenco a sinistra mostra il suo nome, con vertici, triangoli e ossa.
+4. Vedi la pagina **F1** con il modello che gira. Gli elenchi a sinistra sono MODELS e ANIMATIONS, solo con i nomi; il nome del modello con vertici, triangoli e ossa sta nella striscia di informazioni a destra del pannello.
 
 ::: try
 Premi `]` e `[` per passare al modello successivo e al precedente del file. La riga di stato dice `model` e il nome.
@@ -104,7 +104,7 @@ La disposizione è quella delle altre app della console: a sinistra un pannello 
 | su, giù | modello precedente, successivo |
 | sinistra, destra | animazione precedente, successiva |
 | spazio o Invio | avvia, ferma |
-| `a` `d` `w` `s` | ruota la camera a mano (smette di girare da sola) |
+| `a` `d` `w` `s` | ruota la camera a mano (`a` e `d` fermano la rotazione automatica; `w` e `s` inclinano soltanto) |
 | `o` | la camera gira da sola sì, no |
 | `k` | mostra lo scheletro |
 | `l` | luce sì, no |
@@ -178,7 +178,9 @@ In modalità pelle: le frecce scelgono una faccia, spazio la segna, `c` segna qu
 | `Y` + `B` | il menu |
 | `Y` + su, giù | cambia modello |
 | `Y` + `A` | annulla |
-| `X` + croce direzionale | ruota la camera |
+| F1: `X` + croce direzionale | ruota la camera |
+| F2: sinistra, destra | ruota la camera (`X` + sinistra, destra non fa nulla) |
+| F3, F4 | nessuna camera sul pad |
 | F1: `A` | avvia, ferma |
 | F1: `B` | mostra lo scheletro |
 | F2: `A` + croce | sposta l'estremità scelta (sinistra, destra, su, giù) |
@@ -256,7 +258,7 @@ Un ciclo di camminata sono poche pose. Tu fai le pose, bm Animator fa il movimen
 - **i** sceglie come va il movimento tra due keyframe: lineare, morbido (lento a entrambe le estremità) o a scatti (la posa salta).
 - **<** e **>** accorciano e allungano l'animazione di un fotogramma. Non può diventare più corta del suo ultimo keyframe.
 - `,` e `.` saltano tra i keyframe. `(` e `)` spostano di un fotogramma il keyframe su cui sei.
-- L'ultimo keyframe di un'animazione non si può togliere.
+- L'unico keyframe rimasto di un'animazione non si può togliere (`the last keyframe stays`).
 - Premere **Backspace** una volta chiede conferma; la seconda pressione elimina l'animazione.
 - Al massimo **255** animazioni per modello.
 
@@ -306,7 +308,7 @@ Su e giù scelgono una riga, sinistra e destra la cambiano.
 | fill | dal 50 % al 160 %: quanta parte del fotogramma riempie il modello |
 | hitboxes | dalle ossa, o nessuna |
 
-L'anteprima a destra gira tra le direzioni mentre l'animazione procede, alla sua dimensione e al doppio. Sotto le impostazioni lo schermo dice quanti pixel occuperanno gli sprite nello sheet.
+L'anteprima a destra gira tra le direzioni mentre l'animazione procede, alla sua dimensione, e anche al doppio quando la dimensione è 64 o meno. Sotto le impostazioni lo schermo dice quanti pixel occuperanno gli sprite nello sheet.
 
 ## Le hitbox delle ossa
 
@@ -327,7 +329,7 @@ Premi **Invio**. Lo schermo dice `drawing the sprites...` mentre lavora, a tappe
 - Gli sprite vanno **sotto ciò che lo sheet ha già**, allargando lo sheet se serve (mai oltre 4096 pixel).
 - Una riga di fotogrammi per direzione: il fotogramma `f` della direzione `d` sta a `x0 + f * size`, `y0 + d * size`.
 - La pagina aggiunge allo sheet una **zona**, col nome del modello e dell'animazione in minuscolo (`model_animation`, fino a 16 caratteri), con il numero di fotogrammi e la velocità (fotogrammi divisi per la durata dell'animazione). Una zona con lo stesso nome viene sostituita.
-- I box sono salvati nella sezione BOXES della cartuccia, per la zona, fotogramma per fotogramma (dal fotogramma 1), presi dalla prima direzione.
+- I box sono creati nella sessione dell'editor (sezione BOXES della cartuccia), per la zona, fotogramma per fotogramma (dal fotogramma 1), presi dalla prima direzione. Non è confermato che Ctrl+S li scriva nel file.
 - Una riga in basso mostra la zona e la chiamata `sspr()` per disegnare i fotogrammi.
 
 ## Da sapere
@@ -342,7 +344,7 @@ Premi **Invio**. Lo schermo dice `drawing the sprites...` mentre lavora, a tappe
 2. Scegli l'animazione nella prima riga, `frames` 8, `size` 48, `directions` 4.
 3. Controlla che `hitboxes` dica `from bones`. L'anteprima mostra i box con i loro contorni colorati.
 4. Premi **Invio**.
-5. Aspetta il messaggio che finisce con `put in sheet at` e la posizione.
+5. Aspetta il messaggio `N sprites[ and M boxes] put in sheet at x,y[ (the sheet is bigger now)]`; la posizione lo conclude solo se lo sheet non è cresciuto.
 6. Premi **Ctrl+S** per salvare.
 
 ::: try
@@ -353,7 +355,7 @@ Rinomina un osso in `sword` in F2, rifai il bake e guarda l'anteprima: il suo bo
 
 ## Cosa fa
 
-**Ctrl+S** scrive il tuo lavoro nel file del progetto. Cambiano solo le sezioni MESH e ANIM (e lo sprite sheet, con le sezioni SPRITES e BOXES, se ci hai messo degli sprite). Codice del gioco, mappa, copertina e suoni restano byte per byte.
+**Ctrl+S** scrive il tuo lavoro nel file del progetto. Cambiano solo le sezioni MESH e ANIM (e lo sprite sheet, se ci hai messo degli sprite). Non è confermato se vengano scritte anche le sezioni SPRITES e BOXES (le zone e i box creati nella sessione). Codice del gioco, mappa, copertina e suoni restano byte per byte.
 
 ## Da sapere
 

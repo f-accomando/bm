@@ -87,7 +87,7 @@ function _update()
 end
 ```
 
-3. Press the button 4 of your pad. You hear a short blip. If you hear nothing, check the general volume with `volume()`: it goes from 0 to 10.
+3. Press the **A** button (`btnp(4)`: keyboard Space, Z or J; DS4 cross; serial Space or `j`). You hear a short blip. If you hear nothing, check the general volume with `volume()`: it goes from 0 to 10.
 4. Change `880` into `"C5"`. You hear a blip with the note's name.
 5. Add a laser: a note that starts high and slides down. Replace the body of the `if` with:
 

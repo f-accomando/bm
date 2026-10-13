@@ -63,7 +63,7 @@ Press **Ctrl+N**. A line asks `New project, file name (8.3 in /carts):` and sugg
 | Ctrl+Shift+S | save as: asks for an 8.3 name in `/carts` |
 | Ctrl+W | closes the tab; if it has changes it asks `Save`, `Discard` or `Cancel` |
 
-A tab with changes shows a `*` after its name. F5 saves every tab with changes before it runs the game.
+A tab with changes shows a `*` after its name. F5 saves every tab with changes that has a file before it runs the game; a new tab with no name is not saved.
 
 ## Leaving
 
@@ -254,7 +254,7 @@ When you stop the game, bm Code comes back with the cursor on the line and the m
 
 riff is bm's music notation (see the riff manual). In bm Code you write it and hear it at once.
 
-- In a tab that holds only patterns, **Ctrl+Enter** plays the whole tab.
+- In a tab that has no `code [[ ]]` block, **Ctrl+Enter** plays the whole tab.
 - In a game, it plays the `riff.code [[ ... ]]` block under the cursor, or the first one if the cursor is not in a block.
 - The words of the notes that are playing **light up**, as long as the text is the one that was played.
 - The status line says `MUSIC` and the number of patterns playing.
