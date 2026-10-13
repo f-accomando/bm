@@ -1,0 +1,10 @@
+{
+  "bm3d_version": "7.3",
+  "files": {
+    "scripts/bmmesh.py": "866d86ec7ac72ffee878ca5eddd7719ce09d19885793dacdeea7d27b6afdb714",
+    "src/bm/bm.h": "074b506a1e55f5a52eeb98ad7e044c23ca4c4a9c8a4d6dc8a0f82211b8d90c4e",
+    "src/bm/format.c": "faff4c3fa8d5737ea6dc4ec6aa61990edc52cf9fc804925f527e4e8ca3aec212",
+    "src/gpu/version3d.h": "386cea36d9aeea9dfae7744e7bf89a920598411892e67eb79d112e599892c4ed",
+    "src/script/bm3d.lua": "6852bd5d3a1fc742bc622cb6149f22801159b24060513a283497d1d280b15307"
+  }
+}
