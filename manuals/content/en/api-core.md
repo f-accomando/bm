@@ -145,6 +145,7 @@ Everything on the screen: shapes, text, sprites and the tile map.
 
 | Function | What it does |
 |---|---|
+| `rgb(r, g, b)` | the colour integer `0xRRGGBB` of three numbers 0-255 (the API's colours are 24-bit integers: `0xFFFFFF` is white, a small number such as 7 is nearly black) |
 | `cls([c])` | fills the screen (black if `c` is missing). With the 3D on the GPU the ARM does not fill it: the GPU's job clears the page to that colour (free even at 1080p); if 2D comes before the 3D the ARM fills it as always |
 | `screen(w, h)` | sets the cartridge's resolution from the next frame: `true`, or `false` if it is not one of the sizes below |
 | `screen()` | returns the width and height now |

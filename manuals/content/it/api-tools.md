@@ -171,6 +171,7 @@ Parte dell'API dei giochi. Queste funzioni sono pensate per gli strumenti di svi
 
 | Funzione | Descrizione |
 |---|---|
+| `cart_arg()` | la tabella con cui è stato aperto uno strumento, oppure `nil`: `path` (il file su cui lavorare), `error` (l'errore del gioco appena provato), `back` (true quando torna da un gioco), `from` (il nome dello strumento che lo ha chiamato), `run` (i numeri del dev kit di quel gioco); la impostano `cart_run` e `cart_tool` |
 | `cart_run(path, [options])` | esce, fa girare quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=, back=true, run=}`. `run` contiene i numeri della prova: `{frames, secs, fps, ms, ms_max, slow, lua_kb, lua_peak_kb, data_kb, instr_max, tokens, tris, gpu}` |
 | `cart_run(path, {breaks = {lines}, stop = true})` | una sessione del debugger: il gioco si ferma alle righe `breaks` del suo `main.lua`, a `breakpoint()` e, con `stop`, alla sua prima riga. Da fermo: F10 o A la riga successiva, F8 o X dentro la chiamata, Shift+F8 o Y fuori dalla funzione, F5 o Start prosegue, Esc o Select ferma il gioco |
 | `breakpoint([why])` | in un gioco provato da uno strumento, il debugger si ferma qui, con il motivo nel titolo; negli altri giochi non fa nulla |

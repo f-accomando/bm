@@ -171,6 +171,7 @@ Part of the game API. These functions are meant for the development tools (the e
 
 | Function | Description |
 |---|---|
+| `cart_arg()` | the table a tool was opened with, or `nil`: `path` (the file to work on), `error` (the error of the game just tried), `back` (true when it comes back from a game), `from` (the name of the tool that called it), `run` (the dev kit's numbers of that game); `cart_run` and `cart_tool` set it |
 | `cart_run(path, [options])` | leaves, plays that file and then opens again the cartridge that asked, with `cart_arg()` = `{path=, error=, back=true, run=}`. `run` holds the numbers of the run: `{frames, secs, fps, ms, ms_max, slow, lua_kb, lua_peak_kb, data_kb, instr_max, tokens, tris, gpu}` |
 | `cart_run(path, {breaks = {lines}, stop = true})` | a session of the debugger: the game stops at the lines `breaks` of its `main.lua`, at `breakpoint()` and, with `stop`, at its first line. Stopped: F10 or A the next line, F8 or X into the call, Shift+F8 or Y out of the function, F5 or Start goes on, Esc or Select stops the game |
 | `breakpoint([why])` | in a game tried from a tool, the debugger stops here, with the reason in its title; in other games it does nothing |

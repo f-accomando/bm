@@ -214,7 +214,29 @@ def rule_config():
     return out
 
 
-RULES = [rule_resolutions, rule_sections, rule_flags, rule_api, rule_tools, rule_platforms, rule_spec, rule_config]
+def divergences():
+    with open(os.path.join(ROOT, "docs/spec/divergences.toml"), "rb") as f:
+        return tomllib.load(f)["divergence"]
+
+
+def rule_divergences():
+    """docs/spec/divergences.toml: a hardware difference names a capability of platforms.toml; the evidence files exist"""
+    out = []
+    with open(os.path.join(ROOT, "docs/spec/platforms.toml"), "rb") as f:
+        caps = {c["id"] for c in tomllib.load(f)["capability"]}
+    for d in divergences():
+        if d["cause"] == "hardware" and d.get("capability") not in caps:
+            out.append(Finding("divergence", f"capability:{d['id']}", f"{d['id']} is a hardware difference with no capability of platforms.toml ({d.get('capability')})"))
+        if d["cause"] not in KINDS or d["status"] not in ("open", "resolved"):
+            out.append(Finding("divergence", f"fields:{d['id']}", f"{d['id']}: cause or status is not valid"))
+        for ev in d["evidence"].split(";"):
+            path = ev.strip().split(":")[0]
+            if path and not os.path.exists(os.path.join(ROOT, path)):
+                out.append(Finding("divergence", f"evidence:{d['id']}", f"{d['id']}: {path} does not exist"))
+    return out
+
+
+RULES = [rule_resolutions, rule_sections, rule_flags, rule_api, rule_tools, rule_platforms, rule_spec, rule_config, rule_divergences]
 
 
 # ------------------------------------------------------------------ the accepted divergences
@@ -259,6 +281,9 @@ def gate():
             blockers.append(f"{k}: kind '{v['kind']}' is not one of {', '.join(KINDS)}")
         elif v["kind"] in BLOCKING:
             blockers.append(f"divergence {k} ({v['kind']}): {v['because']}")
+    for d in divergences():
+        if d["status"] == "open" and d["cause"] in BLOCKING:
+            blockers.append(f"{d['id']} ({d['cause']}, priority {d.get('priority', '-')}): {d['area']}: {d['action']}")
     with open(os.path.join(ROOT, "docs/spec/specs.toml"), "rb") as f:
         reg = tomllib.load(f)
     for it in reg["item"]:

@@ -49,3 +49,8 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 - LED of the RGB30: solid green (`docs/RGB30.md`) or blinking (`boot/rgb30/LEGGIMI.txt`).
 - `sdk.b16` in the Market: `sdk/README.md` says no, `docs/progress/tools.md` says yes.
 - The 5 api manuals list the gaps the repository cannot answer; each manual's last chapter ("Open points" / "Punti aperti") has them.
+
+## Consistency and 1.0.0 ([spec/CONSISTENCY.md](spec/CONSISTENCY.md))
+- Everything converges before 1.0.0: `python3 scripts/consistency.py gate` lists the 32 blockers (28 differences between the Pi and the RGB30 that are not hardware, plus 2 accepted drifts and 2 specification items).
+- A baseline tag for the current line (`v0.3.0`?) and `v1.0.0` when `gate` is empty: waiting for a yes (a tag is outward-facing).
+- D03/D05 (RGB30 multiplayer and menu pointer: wanted or hardware choice), D16 (`show_bm`/`show_b16`), D13 (tools from Market > Apps on the RGB30).

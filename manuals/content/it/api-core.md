@@ -145,6 +145,7 @@ Tutto ciò che sta sullo schermo: forme, testo, sprite e mappa di tile.
 
 | Funzione | Cosa fa |
 |---|---|
+| `rgb(r, g, b)` | l'intero colore `0xRRGGBB` di tre numeri 0-255 (i colori dell'API sono interi a 24 bit: `0xFFFFFF` è bianco, un numero piccolo come 7 è quasi nero) |
 | `cls([c])` | riempie lo schermo (nero se manca `c`). Con il 3D sulla GPU l'ARM non lo riempie: il job della GPU pulisce la pagina a quel colore (gratis anche a 1080p); se il 2D viene prima del 3D l'ARM riempie come sempre |
 | `screen(w, h)` | imposta la risoluzione della cartuccia dal fotogramma successivo: `true`, oppure `false` se non è una delle dimensioni qui sotto |
 | `screen()` | restituisce larghezza e altezza di adesso |

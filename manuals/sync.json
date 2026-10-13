@@ -80,8 +80,8 @@
     "title": "Your first game"
    },
    "3": {
-    "en": "997d64e29f74",
-    "it": "e84abbd0ea9f",
+    "en": "a370171aeed0",
+    "it": "7a246bf56f1c",
     "title": "Drawing"
    },
    "4": {
@@ -118,7 +118,7 @@
   "sources": {
    "docs/API.md": "a6cc5a554136",
    "docs/GAME-GUIDE.md": "426aea1ebf0b",
-   "docs/api/draw.md": "ea320782dec2",
+   "docs/api/draw.md": "61932a4cb329",
    "docs/api/input.md": "01f2a82443ca",
    "docs/api/system.md": "16dfbcccd934"
   }
@@ -288,8 +288,8 @@
     "title": "The sections of a cartridge"
    },
    "3": {
-    "en": "f25453963ec1",
-    "it": "4d0f86dc705b",
+    "en": "0ef4604919fe",
+    "it": "0a6505f4445e",
     "title": "The API for tools"
    },
    "4": {
@@ -309,10 +309,10 @@
    }
   },
   "sources": {
-   "docs/PROJECT-LAYOUT.md": "bc24cdef62dd",
+   "docs/PROJECT-LAYOUT.md": "1f6e3576984a",
    "docs/RISORSE.md": "5e859959104d",
    "docs/SCREENSHOTS.md": "113a60472a9c",
-   "docs/api/tools.md": "191bf2966561"
+   "docs/api/tools.md": "c74c6bef7484"
   }
  },
  "boot-os": {

@@ -91,3 +91,4 @@ Prima di concludere qualsiasi attività o dichiarare completato un task:
 1. **Aggiornare lo Stato**: Rimuovere o aggiornare i compiti svolti in `## Open work` del rispettivo `docs/progress/<area>.md`.
 2. **Aggiornare le Regole**: Se è stato introdotto o modificato un vincolo architetturale, registrarlo in `## Rules (do not break)` del file d'area corrispondente.
 3. **Verifica Integrità**: Eseguire `python scripts/docs_audit.py score` per verificare l'assenza di link rotti o file orfani prima di terminare.
+4. **Coerenza**: se tocchi formati, API, chiavi di `config.txt`, menu/Settings o il comportamento di un solo kernel (Pi o RGB30), esegui `python scripts/consistency.py check` e aggiorna `docs/spec/` (`specs.toml`, `config-keys.toml`, `divergences.toml`); regole in `docs/spec/CONSISTENCY.md`. Tutto deve convergere prima della 1.0.0 (`consistency.py gate`).
