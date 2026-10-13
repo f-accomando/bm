@@ -38,6 +38,7 @@
 #include "net/wifi_auto.h"
 #include "net/netxfer.h"
 #include "bm/bm.h"
+#include "bm/project.h"
 #include "bm/runtime.h"
 #include "kernel/home.h"
 #include "kernel/menu_ui.h"
@@ -678,12 +679,18 @@ static void play_selected(void) { page_game(play_index); }
 /* a game of the Market, installed in bm/: plays from the card */
 static void play_market(int i, char *note, size_t n)
 {
-    const int g = game_of_path(market_path(i));
-    if (g < 0) {
-        ksnprintf(note, n, "%s is not on the SD card", market_path(i));
+    const char *mp = market_path(i);
+    if (strcasecmp(mp, "/bm/SDK.B16") == 0 || strcasecmp(mp, "/bm/SDK_B16.B16") == 0 ||
+        strcasecmp(mp, "/bm/SDK.BM") == 0) {
+        run_page(page_sdk);
         return;
     }
-    if (netxfer_updating(market_path(i))) {
+    const int g = game_of_path(mp);
+    if (g < 0) {
+        ksnprintf(note, n, "%s is not on the SD card", mp);
+        return;
+    }
+    if (netxfer_updating(mp)) {
         ksnprintf(note, n, "Updating, wait for the end of the download");
         return;
     }
@@ -693,7 +700,7 @@ static void play_market(int i, char *note, size_t n)
 
 /* --- a game's options (X on its cover; the Pi's C): its panel over the covers --- */
 
-enum { G_PLAY = 100, G_SDK, G_TYPE, G_SIZE, G_AUTHOR, G_SAVE, G_DEL_SAVE, G_DELETE };
+enum { G_PLAY = 100, G_SDK, G_BUILD_B16, G_TYPE, G_SIZE, G_AUTHOR, G_SAVE, G_DEL_SAVE, G_DELETE };
 
 /* the save slots of game `i`: bytes in all, -1 if none */
 static long game_save_bytes(int i, int *slots)
@@ -718,6 +725,9 @@ static void game_panel(int i, home_panel_t *p)
     ksnprintf(p->title, sizeof p->title, "%s", games[i].title);
     home_row(p, MENU_ROW_ACTION, G_PLAY, "Play", "Start the game", NULL);
     home_row(p, MENU_ROW_ACTION, G_SDK, "Open in bm SDK", "Saving it makes its editable copy", NULL);
+    if (games[i].is_bm)
+        home_row(p, MENU_ROW_ACTION, G_BUILD_B16, "Export .b16",
+                 "Exports a .b16 edition (up to 8 MiB) without changing the .bm", NULL);
     home_row(p, MENU_ROW_INFO, G_TYPE, "Type", "Lua 5.4 on bm", "%s", games[i].is_bm ? "bm (Pi)" : "b16 (handheld)");
     home_row(p, MENU_ROW_INFO, G_SIZE, "Size", "The whole cartridge", "%lu KiB", (unsigned long)(games[i].size + 1023) / 1024);
     home_row(p, MENU_ROW_INFO, G_AUTHOR, "Author", "From the cartridge header", "%s",
@@ -740,6 +750,19 @@ static void game_act(int i, int row, int how, home_do_t *d, int *gone)
 {
     memset(d, 0, sizeof *d);
     d->what = HOME_STAY;
+    if (row == G_BUILD_B16) {
+        char path[80], to[96], err[64];
+        ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
+        if (bm_build_b16(path, to, sizeof to, err, sizeof err) == 0) {
+            const char *slash = strrchr(to, '/');
+            ksnprintf(d->note, sizeof d->note, "%s is in Games", slash ? slash + 1 : to);
+            d->what = HOME_BACK;
+            *gone = 1;
+        } else {
+            ksnprintf(d->note, sizeof d->note, "cannot export: %s", err);
+        }
+        return;
+    }
     if (row == G_DEL_SAVE || row == G_DELETE) {
         const int file = row == G_DELETE;
         if (how != HOME_YES) {
@@ -915,10 +938,13 @@ void ui_home(framebuffer_t *f)
                 items[i] = (menu_item_t){ .title = dev_items[i].name, .kind = "tool", .cover = &dev_covers[i] };
             }
         }
+        static const char *const market_pages[] = { "Games", "Apps" };
         menu_view_t v = {
             .tabs = tab_names, .ntabs = 3, .tab = shown, .on_gear = on_gear, .peek_first = 1,
+            .subtabs = on_market ? market_pages : NULL, .nsubtabs = on_market ? 2 : 0, .subtab = market_page(),
             .items = items, .n = n, .sel = *s,
             .prompts = MENU_PROMPTS_RGB30, .confirm_b = pad_ok == PAD_B, .no_monitor = 1,
+            .y_label = on_market ? (market_page() == MARKET_PAGE_APPS ? "Games" : "Apps") : NULL,
             .idle = menu_idle,
         };
         /* the bar: the WiFi and the battery only; no icons of the
@@ -1076,12 +1102,18 @@ void ui_home(framebuffer_t *f)
                     home_do_t gd;
                     int gone = 0;
                     game_act(g, row, 0, &gd, &gone);
+                    if (gd.note[0])
+                        ksnprintf(note, sizeof note, "%s", gd.note);
                     if (gd.what == HOME_ASK) {
                         asking = ASK_GOPT;
                         ask_row = row;
                         ksnprintf(ask_q, sizeof ask_q, "%s", gd.ask);
                         ksnprintf(ask_d, sizeof ask_d, "%s", gd.ask_detail);
                         ksnprintf(ask_y, sizeof ask_y, "%s", gd.ask_yes);
+                    } else if (gone || gd.what == HOME_BACK) {
+                        gopt = -1;
+                        scan_games();
+                        market_carts_changed();
                     }
                 }
             }
@@ -1137,6 +1169,9 @@ void ui_home(framebuffer_t *f)
                 home_act(id, row, (p & pad_ok) ? 0 : dx, &d);
                 ask_row = row;
             }
+        } else if ((p & PAD_Y) && shown == TAB_MARKET) {
+            market_set_page(market_page() == MARKET_PAGE_APPS ? MARKET_PAGE_GAMES : MARKET_PAGE_APPS);
+            *s = 0;
         } else if (n > 0) {
             /* the covers: left / right along the row, up / down a row (the
              * last row may be shorter) */

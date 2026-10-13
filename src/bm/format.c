@@ -501,6 +501,16 @@ static int boxes_check(const uint8_t *p, uint32_t size)
     return (int)n;
 }
 
+int bm_sprites_check(const uint8_t *p, uint32_t size)
+{
+    return sprites_check(p, size);
+}
+
+int bm_boxes_check(const uint8_t *p, uint32_t size)
+{
+    return boxes_check(p, size);
+}
+
 /* A LAYERS section (without the map's size, checked after): the number of
  * layers, or -1 if it is broken. */
 static int layers_check(const uint8_t *p, uint32_t size)

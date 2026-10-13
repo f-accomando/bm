@@ -101,7 +101,7 @@ local ROOF = {
   lead = { ridge = { l = 1092, m = 1098, r = 1104 }, slope = { l = 1094, m = 1100, r = 1106 }, eaves = { l = 1096, m = 1102, r = 1108 }, slope2 = { l = 1110, m = 1112, r = 1114 } },
   copper = { ridge = { l = 1116, m = 1122, r = 1128 }, slope = { l = 1118, m = 1124, r = 1130 }, eaves = { l = 1120, m = 1126, r = 1132 }, slope2 = { l = 1134, m = 1136, r = 1138 } },
 }
-local PLACE = { house7 = 1140, house8 = 1142, chapel = 1144, body = 1146, tree = 1148, bush = 1150, lamp = 1152, brazier = 1154, pyre = 1156, grave = 1158, mausoleum = 1160, angel = 1162, fountain = 1164, well = 1166, bench = 1168, fence_h = 1170, fence_v = 1172, crates = 1174, coffin = 1176, cage = 1178, bollard = 1180, carriage = 1182, roof = 1184 }
+local PLACE = { house7 = 1140, house8 = 1142, chapel = 1144, body = 1146, tree = 1148, bush = 1150, lamp = 1152, brazier = 1154, pyre = 1156, grave = 1158, mausoleum = 1160, angel = 1162, fountain = 1164, well = 1166, bench = 1168, fence_h = 1170, fence_v = 1172, crates = 1174, coffin = 1176, cage = 1178, bollard = 1180, carriage = 1182, roof = 1184, shrine = 1186, barricade = 1188, gate = 1190, boss = 1192 }
 local FIRE_ANIM = {
   big = { { 3775, 1403, 56, 64, 28, 58 }, { 3832, 1403, 56, 64, 28, 58 }, { 3889, 1403, 56, 64, 28, 58 }, { 3946, 1403, 56, 64, 28, 58 }, { 4003, 1403, 56, 64, 28, 58 }, { 35, 1404, 56, 64, 28, 58 }, { 92, 1404, 56, 64, 28, 58 }, { 149, 1404, 56, 64, 28, 58 } },
   small = { { 3980, 3314, 24, 30, 12, 26 }, { 4005, 3314, 24, 30, 12, 26 }, { 4030, 3314, 24, 30, 12, 26 }, { 4055, 3314, 24, 30, 12, 26 }, { 0, 3315, 24, 30, 12, 26 }, { 25, 3315, 24, 30, 12, 26 }, { 1201, 3315, 24, 30, 12, 26 }, { 1226, 3315, 24, 30, 12, 26 } },
@@ -1521,6 +1521,17 @@ function MAP.gate_at(ax, ay, bx, by)
     end
   end
 end
+function MAP.gate_near(cx, cy)
+  for _, d in ipairs({ { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 } }) do
+    local g = MAP.gate_at(cx, cy, cx + d[1], cy + d[2])
+    if g then return g end
+  end
+  local ia = MAP.area_of(cx, cy)
+  for _, g in ipairs(MAP.gates) do
+    if g.a == ia or g.b == ia then return g end
+  end
+  return MAP.gates[1]
+end
 local G = { echoes = 0, lit = {}, spawn = nil, lost = false, popups = {}, slots = {}, time = 0, deaths = 0,
             slain = 0, done = false, bosses = {}, gates = {},
             sync = 0, bg = 0 }         -- chunks made on the spot (the view waited for them) and in time (dev kit)
@@ -1705,6 +1716,18 @@ end
 ----------------------------------------------------------------- chunks
 
 local K_FREE, K_ROAD, K_WALK, K_HOUSE, K_YARD, K_GRASS, K_PATH = 0, 1, 2, 3, 4, 5, 6
+do
+  local gk = {}
+  for _, s in ipairs({ GROUND.cobble, GROUND.cobble_warm, GROUND.cobble_wet, GROUND.cobble_moss,
+                       GROUND.setts, GROUND.flags, GROUND.flags_dark, GROUND.marble }) do
+    for _, c in ipairs(s or {}) do gk[c] = K_ROAD end
+  end
+  for _, c in ipairs(GROUND.pave or {}) do gk[c] = K_WALK end
+  for _, s in ipairs({ GROUND.grass, GROUND.grass_dark }) do for _, c in ipairs(s or {}) do gk[c] = K_GRASS end end
+  for _, c in ipairs(GROUND.gravel or {}) do gk[c] = K_PATH end
+  for _, c in ipairs(GROUND.dirt or {}) do gk[c] = K_FREE end
+  MAP.ground_kind = gk
+end
 local FMATS = { "brick", "ashlar", "stucco", "dark", "brick", "stucco" }
 local RMATS = { "slate", "tile", "lead", "copper", "slate", "slate", "tile" }
 local GRAVES = { "grave_round", "grave_round2", "grave_cross", "grave_celtic", "grave_obelisk", "grave_broken",
@@ -2303,6 +2326,130 @@ local function gen(ch)
     ch.objs, ch.cols = objs, cols
   end
 
+  local function drop_tile_unit(lx, ly)
+    local drop = {}
+    for _, u in ipairs(ch.units) do
+      if not u.w and u.k ~= "mausoleum" and u.lx == lx and u.ly == ly then drop[u] = true end
+    end
+    if not next(drop) then return end
+    local dead = {}
+    local function keep_u(list)
+      local out = {}
+      for _, e in ipairs(list) do
+        if e.u and drop[e.u] then if e.c then dead[e.c] = true end else out[#out + 1] = e end
+      end
+      return out
+    end
+    local cols = {}
+    ch.objs = keep_u(ch.objs)
+    for _, c in ipairs(ch.cols) do if not dead[c] then cols[#cols + 1] = c end end
+    ch.cols, ch.lights, ch.fires, ch.smokes, ch.lamps =
+      cols, keep_u(ch.lights), keep_u(ch.fires), keep_u(ch.smokes), keep_u(ch.lamps)
+  end
+
+  local function add_barrier(k, lx, ly, g)
+    local u = unit(k, lx, ly)
+    take(lx, ly)
+    local x, y = wx(lx), wy(ly) + 4
+    local o = add_obj(ch, "crates", x, y, nil, { 10, 10 })
+    o.gate, o.sealed = g, not g
+    if g and MAP.G.gates[g.id] then BRK.wreck(o) end
+    if (lx + ly) % 3 == 1 and not (g and MAP.G.gates[g.id]) then
+      add_light(ch, x, y - 10, g and 56 or 44, g and 4 or 3, 0, 0.7)
+    end
+    ch.unit = nil
+  end
+
+  local function add_shrine(lx, ly, a, lk)
+    local u = unit("shrine", lx, ly)
+    take(lx, ly)
+    local x, y = wx(lx), wy(ly) + 4
+    local key = (a - 1) * 10 + lk
+    local o = add_obj(ch, "shrine", x, y, nil, { 8, 4 })
+    o.shrine = key
+    ch.shrine = { x = x, y = y, key = key, area = a, k = lk, u = u }
+    ch.unit = nil
+  end
+
+  local function add_boss(lx, ly)
+    local u = unit("boss", lx, ly)
+    u.keep = true
+    take(lx, ly)
+    ch.boss = { lx = lx, ly = ly, u = u }
+    ch.unit = nil
+  end
+
+  -- the borders with another area, east and south of this chunk: a barricade of crates all
+  -- along (a gate, or sealed: MAP). Its colliders overlap: no gap to slip through
+  local bdone = {}
+  for _, dir in ipairs({ { 1, 0 }, { 0, 1 } }) do
+    local nx, ny = cx + dir[1], cy + dir[2]
+    local ia, ib = MAP.area_of(cx, cy), MAP.area_of(nx, ny)
+    if ia and ib and ia ~= ib then
+      local g = MAP.gate_at(cx, cy, nx, ny)
+      local bk = g and "gate" or "barricade"
+      for step = 0, CS - 1 do
+        local lx = dir[1] == 1 and (CS - 1) or step
+        local ly = dir[2] == 1 and (CS - 1) or step
+        local i = ly * CS + lx + 1
+        if not bdone[i] and kind[i] ~= K_HOUSE and not solid[i] then
+          bdone[i] = true
+          drop_tile_unit(lx, ly)
+          add_barrier(bk, lx, ly, g)
+        end
+      end
+    end
+  end
+
+  -- a hunter's lamp in the chunks that have one: on the street nearest the middle
+  for _, u in ipairs(ch.units) do
+    for y = u.ly, u.ly + (u.h or 1) - 1 do
+      for x = u.lx, u.lx + (u.w or 1) - 1 do used[y * CS + x + 1] = true end
+    end
+  end
+  do
+    local lamp = MAP.lamp[key2(cx, cy)]
+    if lamp then
+      local best, bd
+      for ly = 2, CS - 3 do
+        for lx = 2, CS - 3 do
+          local kk = kind[ly * CS + lx + 1]
+          if (kk == K_ROAD or kk == K_WALK) and not used[ly * CS + lx + 1] and not solid[ly * CS + lx + 1] then
+            local dd = abs(lx - 7.5) + abs(ly - 7.5)
+            if not bd or dd < bd then best, bd = { lx, ly }, dd end
+          end
+        end
+      end
+      if not best then          -- (in the forest the paths may keep to the edges)
+        for ly = 2, CS - 3 do
+          for lx = 2, CS - 3 do
+            local kk = kind[ly * CS + lx + 1]
+            if kk ~= K_HOUSE and not used[ly * CS + lx + 1] and not solid[ly * CS + lx + 1] then
+              local dd = abs(lx - 7.5) + abs(ly - 7.5)
+              if not bd or dd < bd then best, bd = { lx, ly }, dd end
+            end
+          end
+        end
+      end
+      if best then add_shrine(best[1], best[2], lamp.a, lamp.k) end
+    end
+  end
+
+  -- a boss's mark in the middle of its arena
+  if d.boss then
+    local best, bd
+    for ly = 2, CS - 3 do
+      for lx = 2, CS - 3 do
+        local i = ly * CS + lx + 1
+        if kind[i] ~= K_HOUSE and not used[i] and not solid[i] then
+          local dd = abs(lx - 8) + abs(ly - 8)
+          if not bd or dd < bd then best, bd = { lx, ly }, dd end
+        end
+      end
+    end
+    if best then add_boss(best[1], best[2]) end
+  end
+
   ------------------------------------------------- the things of the drawn map
   -- (its "objects" layer, MAP.objects: placeholders, art/places.py) What it holds is what stands here. A unit
   -- made above stays if its placeholder is on its tile (a house: its corner, as tall, and as wide as the roof
@@ -2327,6 +2474,7 @@ local function gen(ch)
     local alive, took, gone = {}, {}, false
     for _, o in ipairs(ch.objs) do if o.u then alive[o.u] = true end end
     for _, l in ipairs(ch.lights) do if l.u then alive[l.u] = true end end
+    for _, u in ipairs(ch.units) do if u.keep then alive[u] = true end end
     for _, u in ipairs(ch.units) do
       local i = u.ly * CS + u.lx + 1
       local ok = alive[u] and not took[i] and P[i] == u.k
@@ -2348,6 +2496,8 @@ local function gen(ch)
       for _, c in ipairs(ch.cols) do if not dead[c] then cols[#cols + 1] = c end end
       ch.objs, ch.cols, ch.lights, ch.fires, ch.smokes, ch.lamps =
         left(ch.objs), cols, left(ch.lights), left(ch.fires), left(ch.smokes), left(ch.lamps)
+      if ch.shrine and ch.shrine.u and ch.shrine.u.gone then ch.shrine = nil end
+      if ch.boss and ch.boss.u and ch.boss.u.gone then ch.boss = nil end
       -- the ground a house or a mausoleum gone made solid: walkable again (a yard)
       for _, u in ipairs(ch.units) do
         if u.gone and u.w then
@@ -2366,6 +2516,17 @@ local function gen(ch)
         local w, h = house_at(lx, ly)
         if w and k == "chapel" then building(lx, ly, w, h, "dark", "lead", true)
         elseif w then building(lx, ly, w, h, pick(r, FMATS), pick(r, RMATS)) end
+        return
+      elseif k == "shrine" then
+        local lamp = MAP.lamp[key2(cx, cy)]
+        add_shrine(lx, ly, lamp and lamp.a or MAP.area_of(cx, cy) or 1, lamp and lamp.k or ((cx + cy) % 8 + 1))
+        return
+      elseif k == "barricade" or k == "gate" then
+        local g = k == "gate" and (MAP.gate_near(cx, cy) or { id = 1, area = (MAP.area_of(cx, cy) or 1) + 1 }) or nil
+        add_barrier(k, lx, ly, g)
+        return
+      elseif k == "boss" then
+        add_boss(lx, ly)
         return
       end
       local u = unit(k, lx, ly)
@@ -2523,8 +2684,18 @@ local function gen(ch)
   end
 
   -- into the ring (its layer MAP.ring: cells 0-127 the ground, 128-255 what lies on it); on the drawn map the
-  -- ground is the one drawn
-  if MAP.ring and not (MAP.drawn and inside(cx, cy)) then
+  -- ground is the one drawn, and its tiles tell what ground it is for the creatures that spawn on it
+  if MAP.drawn and inside(cx, cy) then
+    for ly = 0, CS - 1 do
+      for lx = 0, CS - 1 do
+        local i = ly * CS + lx + 1
+        if kind[i] ~= K_HOUSE then
+          local gk = MAP.ground_kind[mget(2 * (tx0 + lx), 2 * (ty0 + ly), 1)]
+          if gk then kind[i] = gk end
+        end
+      end
+    end
+  elseif MAP.ring then
     local R = MAP.ring
     local rx0, ry0 = (cx % RING) * CS * 2, (cy % RING) * CS * 2
     for ly = 0, CS - 1 do
@@ -2539,62 +2710,6 @@ local function gen(ch)
           mset(129 + mx, my + 1, b + SW8 + 1, R)
         else
           mset(128 + mx, my, 0, R); mset(129 + mx, my, 0, R); mset(128 + mx, my + 1, 0, R); mset(129 + mx, my + 1, 0, R)
-        end
-      end
-    end
-  end
-  -- the borders with another area, east and south of this chunk: a barricade of crates all
-  -- along (a gate, or sealed: MAP). Its colliders overlap: no gap to slip through
-  for _, d in ipairs({ { 1, 0 }, { 0, 1 } }) do
-    local nx, ny = cx + d[1], cy + d[2]
-    local ia, ib = MAP.area_of(cx, cy), MAP.area_of(nx, ny)
-    if ia and ib and ia ~= ib then
-      local g = MAP.gate_at(cx, cy, nx, ny)
-      for k = 0, 12 do
-        local x, y = (cx + d[1]) * CPX, (cy + d[2]) * CPX
-        if d[1] == 1 then y = py0 + 10 + k * 20 else x = px0 + 10 + k * 20 end
-        local o = add_obj(ch, "crates", x, y, nil, d[1] == 1 and { 6, 12 } or { 14, 3 })
-        o.gate, o.sealed = g, not g
-        if g and MAP.G.gates[g.id] then BRK.wreck(o) end      -- (G is the ground here)
-        -- a faint light along it (the night is dark: a wall must be seen coming), warmer at a gate
-        if k % 3 == 1 and not (g and MAP.G.gates[g.id]) then add_light(ch, x, y - 10, g and 56 or 44, g and 4 or 3, 0, 0.7) end
-      end
-    end
-  end
-  -- a hunter's lamp in the chunks that have one: on the street nearest the middle
-  do
-    local lamp = MAP.lamp[key2(cx, cy)]
-    if lamp then
-      local a, k = lamp.a, lamp.k
-      do
-        local best, bd
-        for ly = 2, CS - 3 do
-          for lx = 2, CS - 3 do
-            local kk = kind[ly * CS + lx + 1]
-            if (kk == K_ROAD or kk == K_WALK) and not used[ly * CS + lx + 1] and not solid[ly * CS + lx + 1] then
-              local dd = abs(lx - 7.5) + abs(ly - 7.5)
-              if not bd or dd < bd then best, bd = { lx, ly }, dd end
-            end
-          end
-        end
-        if not best then          -- (in the forest the paths may keep to the edges)
-          for ly = 2, CS - 3 do
-            for lx = 2, CS - 3 do
-              local kk = kind[ly * CS + lx + 1]
-              if kk ~= K_HOUSE and not used[ly * CS + lx + 1] and not solid[ly * CS + lx + 1] then
-                local dd = abs(lx - 7.5) + abs(ly - 7.5)
-                if not bd or dd < bd then best, bd = { lx, ly }, dd end
-              end
-            end
-          end
-        end
-        if best then
-          local x, y = wx(best[1]), wy(best[2]) + 4
-          local key = (a - 1) * 10 + k
-          local o = add_obj(ch, "shrine", x, y, nil, { 8, 4 })
-          o.shrine = key
-          ch.shrine = { x = x, y = y, key = key, area = a, k = k }
-          take(best[1], best[2])
         end
       end
     end
@@ -3427,14 +3542,17 @@ do
       if x then new(pick(r, pool), x, y, key2(cx, cy), area) end
     end
     -- the boss, in the arena at the end of the area, until it is slain
-    local bn = d.boss and BOSS_OF[d.kind]
+    local bm = (MAP.objects and inside(cx, cy)) and ch.boss or (d.boss and { lx = 8, ly = 8 })
+    local bn = bm and (BOSS_OF[d.kind] or "butcher")
     local key = key2(cx, cy)
     if bn and not FOE.slain[key] then
       for _, o in ipairs(list) do if o.boss and o.home == key then return end end
+      local bx, by = bm.lx or 8, bm.ly or 8
       local x, y
       for rad = 0, 5 do
         for _ = 1, 8 do
-          local lx, ly = 8 + irange(r, -rad, rad), 8 + irange(r, -rad, rad)
+          local lx = min(CS - 2, max(1, bx + irange(r, -rad, rad)))
+          local ly = min(CS - 2, max(1, by + irange(r, -rad, rad)))
           local k = ch.kind[ly * CS + lx + 1]
           local px, py = (cx * CS + lx) * TS + 8, (cy * CS + ly) * TS + 8
           if k ~= K_HOUSE and not ch.solid[ly * CS + lx + 1] and not stuck(px, py, 12) then x, y = px, py; break end

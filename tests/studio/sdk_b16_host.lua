@@ -322,7 +322,7 @@ local function new_env(arg, o)
     assert(type(x0) == "number" and type(y1) == "number", "line: numbers")
     g_box("line", math.min(x0, x1), math.min(y0, y1), math.abs(x1 - x0) + 1, math.abs(y1 - y0) + 1)
   end
-  E.sspr = function(sx, sy, w, h, dx, dy) g_box("sspr", dx, dy, w, h) end
+  E.sspr = function(sx, sy, w, h, dx, dy, dw, dh) g_box("sspr", dx, dy, dw or w, dh or h) end
   E.spr = function(n, x, y, w, h) g_box("spr", x, y, (w or 1) * 8, (h or 1) * 8) end
   E.map = function(cx, cy, sx, sy, w, h) g_box("map", sx, sy, w * 8, h * 8) end
   for _, n in ipairs({ "circ", "circfill", "tri", "pset" }) do E[n] = nop end
@@ -419,10 +419,11 @@ local function new_env(arg, o)
   -- would open the other tool: on the RGB30 none, the session would end)
   E.cart_run = function(p) ran = p; quitted = true end
   E.cart_tool = function(name, p) tooled = { name, p }; quitted = true end
-  E.cart_build = function(path)
+  E.cart_build = function(path, kind)
     if not path:upper():match("%.BME$") then return false, path .. ": only a project (.bme) is built" end
     local dir, base = path:match("^(.*)/([^/.]+)%.[^.]*$")
-    local game = dir .. "/" .. base:upper() .. ".BM"     -- bm_build: next to it, its 8.3 name
+    local ext = kind == "b16" and ".B16" or ".BM"
+    local game = dir .. "/" .. base:upper() .. ext       -- bm_build / bm_build_b16: next to it, its 8.3 name
     local d = assert(read_file(host(path)))
     local f = assert(io.open(host(game), "wb")); f:write(d); f:close()
     add_file(game)
@@ -933,6 +934,15 @@ tag = "map tiles"
 check(sees("the tile: the cross, then ok"), "Y alone: the tiles")
 press("ok")
 tag = "map"
+key("z", "\t")
+check(sees("USED 16x16"), "Tab with 16x16 brush: the used 16x16 tiles palette")
+key("z")
+check(status():find("full sprite sheet", 1, true), "z in Tab picker: full sprite sheet")
+key("\n", "-")
+check(sees("4px") or status():find("1:2", 1, true), "-: map zoom out to 4px")
+key("m")
+check(sees("OVERVIEW") and sees("256x256"), "m: 256x256 overview in one screen")
+key("m", "z")
 press("r2")
 press("back")
 
@@ -1020,6 +1030,8 @@ key("^b")
 check(built == "/carts/KEEP.BM", "Ctrl+B builds the game: " .. tostring(built))
 check(status():find("built /carts/KEEP.BM", 1, true) and status():find("lists bm/", 1, true),
       "Ctrl+B says where the game is: " .. status())
+key("^B")
+check(built == "/carts/KEEP.B16", "Ctrl+Shift+B exports .b16: " .. tostring(built))
 check(not quitted and not ran, "building does not leave the SDK")
 key("f5")
 check(ran == "/carts/KEEP.BME" and quitted, "F5 tries the project (the SDK leaves for it): " .. tostring(ran))

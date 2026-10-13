@@ -644,6 +644,23 @@ static void cover_badge(int x, int y, const char *text, int hot)
     g16_text(&g, tx, ty, text, dim ? c16(C_DIM) : c16(fg));
 }
 
+/* A small pill at the top-right of a loaded cover ("BM" or "B16"). */
+static void cover_format(int x, int y, const char *fmt)
+{
+    int b16 = strcmp(fmt, "b16") == 0;
+    const char *label = b16 ? "B16" : "BM";
+    int pw = (int)strlen(label) * 6 + 8, ph = 14;
+    int bx = x + CARD_W - pw - 5, by = y + 5;
+    if (by < GRID_TOP || by + ph > GRID_BOT)
+        return;
+    uint32_t bg = b16 ? 0x241808 : 0x101C2C, fg = b16 ? 0xF0A030 : 0x70B8F8;
+    round_rect(bx, by, pw, ph, 5, dim ? half(c16(bg)) : c16(bg));
+    const font_t *old = g.font;
+    g.font = &font_console_6x12;
+    g16_text(&g, bx + 4, by + 1, label, dim ? c16(C_DIM) : c16(fg));
+    g.font = old;
+}
+
 /* a download: a bar along the bottom of the cover */
 static void cover_progress(int x, int y, int percent)
 {
@@ -1322,6 +1339,8 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         card(it->cover, x, y);
         if (it->loading && !it->cover)
             placeholder(it, x, y, t, i);
+        if (it->format && it->format[0] && (!it->loading || it->cover))
+            cover_format(x, y, it->format);
         if (it->busy) {
             char pc[8];
             ksnprintf(pc, sizeof pc, "%d%%", it->percent);
@@ -1377,25 +1396,57 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         g16_text(&g, col * 8 + ox, 16, "Settings", c16(C_DIM));
     g16_clip(&g, 0, 0, 0, 0);
 
-    /* the name of the selected cartridge, on a pill */
+    /* the name of the selected cartridge, on a pill (and subtabs at the right) */
     if (v->panel || v->lib || v->page) {
         /* the panel covers it; the Lib tab has its groups there */
-    } else if (v->banner) {
-        char buf[72];
-        ksnprintf(buf, sizeof buf, "%s", v->banner);
-        if (SW / 8 - 6 < (int)sizeof buf)       /* no longer than the layout */
-            buf[SW / 8 - 6] = 0;
-        pill_text(3, TITLE_ROW, buf, C_DIM, C_PILL);
-    } else if (cur && cur->title && cur->title[0]) {
-        char buf[72];
-        ksnprintf(buf, sizeof buf, "%s", cur->title);
-        if (SW / 8 - 6 < (int)sizeof buf)
-            buf[SW / 8 - 6] = 0;
-        int n = (int)strlen(buf);
-        round_rect(3 * 8 - 10, TITLE_ROW * 16 - 6, (n + 2) * 8 + 4, 28, 14, c16(C_LINE));
-        pill_text(3, TITLE_ROW, buf, C_TEXT, C_PILL);
-    } else if (v->n == 0) {
-        pill_text(3, TITLE_ROW, "nothing here yet", C_DIM, C_PILL);
+    } else {
+        int sub_w = 0;
+        if (v->subtabs && v->nsubtabs > 0) {
+            for (int i = 0; i < v->nsubtabs; i++)
+                sub_w += (int)strlen(v->subtabs[i]) + (i + 1 < v->nsubtabs ? 3 : 0);
+            sub_w += 3;
+            int scol = SW / 8 - sub_w;
+            round_rect((scol - 2) * 8, TITLE_ROW * 16 - 6, (sub_w + 1) * 8, 28, 14, c16(C_BAR));
+            for (int i = 0; i < v->nsubtabs; i++) {
+                int sn = (int)strlen(v->subtabs[i]);
+                zone(scol * 8 - 8, TITLE_ROW * 16 - 6, (sn + 2) * 8, 28, MENU_HIT_GROUP, i, 1);
+                if (i == v->subtab)
+                    pill_text(scol, TITLE_ROW, v->subtabs[i], C_BAR, C_TAB_ON);
+                else
+                    g16_text(&g, scol * 8, TITLE_ROW * 16, v->subtabs[i], c16(C_DIM));
+                scol += sn + 3;
+            }
+        }
+        int max_cols = SW / 8 - 6 - sub_w - (cur && cur->format && cur->format[0] ? 8 : 0);
+        if (max_cols < 12)
+            max_cols = 12;
+        if (v->banner) {
+            char buf[72];
+            ksnprintf(buf, sizeof buf, "%s", v->banner);
+            if (max_cols < (int)sizeof buf)
+                buf[max_cols] = 0;
+            pill_text(3, TITLE_ROW, buf, C_DIM, C_PILL);
+        } else if (cur && cur->title && cur->title[0]) {
+            char buf[72];
+            ksnprintf(buf, sizeof buf, "%s", cur->title);
+            if (max_cols < (int)sizeof buf)
+                buf[max_cols] = 0;
+            int n = (int)strlen(buf);
+            round_rect(3 * 8 - 10, TITLE_ROW * 16 - 6, (n + 2) * 8 + 4, 28, 14, c16(C_LINE));
+            int next_col = pill_text(3, TITLE_ROW, buf, C_TEXT, C_PILL);
+            if (cur->format && cur->format[0]) {
+                int b16 = strcmp(cur->format, "b16") == 0;
+                const char *fstr = b16 ? ".b16" : ".bm";
+                uint32_t fg = b16 ? 0xF0A030 : 0x70B8F8;
+                uint32_t bg = b16 ? 0x241808 : 0x101C2C;
+                uint32_t bd = b16 ? 0x704810 : 0x284868;
+                int fn = (int)strlen(fstr), fc = next_col + 2;
+                round_rect(fc * 8 - 10, TITLE_ROW * 16 - 6, (fn + 2) * 8 + 4, 28, 14, c16(bd));
+                pill_text(fc, TITLE_ROW, fstr, fg, bg);
+            }
+        } else if (v->n == 0) {
+            pill_text(3, TITLE_ROW, "nothing here yet", C_DIM, C_PILL);
+        }
     }
 
     /* bottom bar: details, last game, buttons */
@@ -1443,7 +1494,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     } else {
         const char *a = v->a_label ? v->a_label
                       : cur && cur->kind && (!strcmp(cur->kind, "tool") || !strcmp(cur->kind, "bme")) ? "Open"
-                                                                                                         : "Play";
+                                                                                                          : "Play";
         col = hc;
         if (a[0])
             col = hint(v, col, 21, BTN_A, a);
@@ -1451,7 +1502,9 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             col = hint(v, col, 21, BTN_X, "Details");
         else if (v->n && v->items[v->sel].path && v->items[v->sel].path[0])
             col = hint(v, col, 21, BTN_X, "Options");
-        if (!v->no_monitor)
+        if (v->y_label && v->y_label[0])
+            col = hint(v, col, 21, BTN_Y, v->y_label);
+        if (!v->no_monitor && (!WIDE || col <= (v->prompts == MENU_PROMPTS_KEYBOARD ? 60 : 66)))
             hint(v, col, 21, BTN_MONITOR, "Monitor");
     }
 

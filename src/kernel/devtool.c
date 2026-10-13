@@ -14,6 +14,42 @@
 
 #define PLAY_SECS   (24u * 3600u)
 
+/* Loads a tool from the SD card if installed from Market > Apps, or NULL to
+ * use the copy built into the kernel. */
+static uint8_t *load_sd_tool(const char *name, size_t *len)
+{
+    if (!name || !name[0])
+        return NULL;
+    const char *alt = !strcmp(name, "sdk") ? "editor"
+                    : !strcmp(name, "assistant") ? "assistan" : NULL;
+    char paths[6][40];
+    int np = 0;
+#ifdef BM_RGB30
+    if (!strcmp(name, "sdk"))
+        ksnprintf(paths[np++], sizeof paths[0], "/bm/sdk_b16.b16");
+    ksnprintf(paths[np++], sizeof paths[0], "/bm/%s.b16", name);
+    ksnprintf(paths[np++], sizeof paths[0], "/bm/%s.bm", name);
+    if (alt) {
+        ksnprintf(paths[np++], sizeof paths[0], "/bm/%s.b16", alt);
+        ksnprintf(paths[np++], sizeof paths[0], "/bm/%s.bm", alt);
+    }
+#else
+    ksnprintf(paths[np++], sizeof paths[0], "/carts/%s.bm", name);
+    if (alt)
+        ksnprintf(paths[np++], sizeof paths[0], "/carts/%s.bm", alt);
+    ksnprintf(paths[np++], sizeof paths[0], "/carts/%s.b16", name);
+    if (alt)
+        ksnprintf(paths[np++], sizeof paths[0], "/carts/%s.b16", alt);
+#endif
+    for (int i = 0; i < np; i++) {
+        fat_entry_t e;
+        uint8_t *d = NULL;
+        if (fat_find(paths[i], &e) == 0 && fat_load(&e, &d, len) == 0)
+            return d;
+    }
+    return NULL;
+}
+
 const char *devtool_session(framebuffer_t *fb, const devtools_t *set, const uint8_t *cart, size_t cart_len,
                             const char *what, const char *open)
 {
@@ -23,6 +59,19 @@ const char *devtool_session(framebuffer_t *fb, const devtools_t *set, const uint
     if (open)
         ksnprintf(path, sizeof path, "%s", open);
     for (;;) {
+        const char *tname = NULL;
+        for (size_t k = 0; k < set->n; k++)
+            if (!strcmp(set->tools[k].what, what))
+                tname = set->tools[k].name;
+        size_t sd_len = 0;
+        uint8_t *sd_cart = load_sd_tool(tname, &sd_len);
+        const uint8_t *run_cart = sd_cart ? sd_cart : cart;
+        size_t run_len = sd_cart ? sd_len : cart_len;
+        if (!run_cart || run_len == 0) {
+            free(sd_cart);
+            kprintf("devtool: %s is not installed (get it from Market > Apps)\n", what);
+            break;
+        }
         crumb(what, NULL);
         bm_set_arg(path[0] ? path : NULL, err[0] ? err : NULL);
         bm_set_arg_back(back);
@@ -30,7 +79,8 @@ const char *devtool_session(framebuffer_t *fb, const devtools_t *set, const uint
         bm_set_arg_from(from[0] ? from : NULL);
         tried = 0;
         bm_set_tool(1);                 /* the tool saves where it is told */
-        bm_play(fb, cart, cart_len, PLAY_SECS, &st);
+        bm_play(fb, run_cart, run_len, PLAY_SECS, &st);
+        free(sd_cart);
         bm_set_tool(0);                 /* the games it tries do not */
         bm_set_arg(NULL, NULL);
         bm_set_arg_run(NULL);

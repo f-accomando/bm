@@ -33,13 +33,19 @@ void market_tick(uint32_t until);
 /* The highlighted game: its cover and the ones around it come first. */
 void market_select(int i);
 
-/* The grid: the games, or placeholders while the catalog loads. */
+/* The Market's pages: Games and Apps (utility / dev). */
+enum { MARKET_PAGE_GAMES = 0, MARKET_PAGE_APPS = 1 };
+int  market_page(void);
+void market_set_page(int page);
+int  market_page_count(int page);
+
+/* The grid: the games or apps of the current page, or placeholders while loading. */
 int  market_items(menu_item_t *items, int max);
 /* A line instead of a game's title ("Loading the Market..."), or NULL. */
 const char *market_banner(void);
 /* The footer line: the catalog, the last download. */
 const char *market_status(void);
-/* The details line of game i (author, version, license, size). */
+/* The details line of game i (author, version, license, format, size). */
 void market_details(int i, char *buf, size_t n);
 
 /* What A does on game i. */
@@ -55,7 +61,7 @@ void market_get(int i);
 const char *market_path(int i);
 
 /* The options of game i (X): a panel like the settings. */
-enum { M_GET = 300, M_PLAY, M_UPDATE, M_AUTHOR, M_VERSION, M_LICENSE, M_SIZE, M_FILE, M_DELETE };
+enum { M_GET = 300, M_PLAY, M_UPDATE, M_AUTHOR, M_VERSION, M_LICENSE, M_SIZE, M_FILE, M_TYPE, M_DELETE };
 void market_panel(int i, home_panel_t *p);
 void market_act(int i, int row, int how, home_do_t *d);
 

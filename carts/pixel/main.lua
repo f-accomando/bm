@@ -84,13 +84,48 @@ local page = "draw"
 local msg, msg_c, msg_t = nil, C_TEXT, 0
 local frame, edits = 0, 0
 local undo, redo = {}, {}
-local anim = { frames = 4, fps = 8, onion = false, play = true, t = 0 }
+local anim = { frames = 4, fps = 8, onion = false, play = true, t = 0, boxes = true }
 local grid, mirror = true, false
 local clip_b = nil                   -- the clipboard: {w, h, px}
 local pick, input = nil, nil
 local confirm_t, confirm_what = 0, nil
 local files_seen = {}                -- per file: sprite, size, animation (save())
 local busy = nil                     -- {text, fn, wait}: a save, after a frame that says so
+
+local function box_colour(kind)
+  if kind == "hurt" or kind == 0 then return 0x40A0FF       -- blue / cyan
+  elseif kind == "hit" or kind == 1 then return 0xFF4040    -- red
+  elseif kind == "body" or kind == 2 then return 0x40FF40   -- green
+  else return 0xFFFF40                                      -- yellow
+  end
+end
+
+-- the zone and frame that matches the sprite at (rx, ry)
+local function current_zone()
+  if not zones or not zone then return nil end
+  local all = zones()
+  if not all or #all == 0 then return nil end
+  for _, zn in ipairs(all) do
+    local zx, zy, zw, zh, zf, zfps = zone(zn)
+    if zx and ry == zy and rs == zw and rs == zh and rx >= zx and rx < zx + zw * zf then
+      local f = (rx - zx) // zw + 1
+      return zn, zx, zy, zw, zh, zf, zfps, f
+    end
+  end
+  for _, zn in ipairs(all) do
+    local zx, zy, zw, zh, zf, zfps = zone(zn)
+    if zx and rx == zx and ry == zy then
+      return zn, zx, zy, zw, zh, zf, zfps, 1
+    end
+  end
+  return nil
+end
+
+local function get_frame_boxes(zn, f)
+  if not zn or not zboxes then return {} end
+  local ok, res = pcall(zboxes, zn, f)
+  return ok and res or {}
+end
 
 local function say(s, c, t) msg, msg_c, msg_t = s, c or C_TEXT, t or 200 end
 local function pal() return proj.palette end
@@ -818,6 +853,7 @@ function draw_key(k)
   elseif k == ">" then anim.fps = min(30, anim.fps + 1); say(anim.fps .. " frames a second", C_DIM, 60)
   elseif k == "<" then anim.fps = max(1, anim.fps - 1); say(anim.fps .. " frames a second", C_DIM, 60)
   elseif k == "z" then next_size()
+  elseif k == "j" then anim.boxes = not anim.boxes; say(anim.boxes and "hitboxes on (BOXES)" or "hitboxes off", C_DIM, 90)
   elseif k == "pgdn" then go_sprite(1)
   elseif k == "pgup" then go_sprite(-1)
   elseif k == "," then set_colour((ci - 1) % (#pal() + 1))
@@ -978,6 +1014,16 @@ function draw_draw()
     end
     frame_box(f.x, f.y, f.x + f.b.w - 1, f.y + f.b.h - 1, C_ACC)
   end
+  if anim.boxes then
+    local zn, _, _, _, _, _, _, zf = current_zone()
+    if zn then
+      local bxs = get_frame_boxes(zn, zf)
+      for _, b in ipairs(bxs) do
+        local col = box_colour(b.kind)
+        rect(CANVAS_X + b.x * z, CANVAS_Y + b.y * z, b.w * z, b.h * z, col)
+      end
+    end
+  end
   -- the pointer
   local cx, cy = CANVAS_X + px * z, CANVAS_Y + py * z
   rect(cx - 1, cy - 1, z + 2, z + 2, 0x000000)
@@ -1003,8 +1049,13 @@ function draw_draw()
   print(tool, x, 112, C_ACC)
   print("colour " .. ci .. " " .. colour_name(c), x + 96, 112, C_TEXT)
   local n = sprite_index()
+  local zn, zx, zy, zw, zh, zf, zfps, cur_f = current_zone()
   print(string.format("sprite %d  (%d,%d)  %dx%d", n, rx, ry, rs, rs), x, 128, C_TEXT)
-  print(string.format("spr(%d, x, y, %d, %d)", n, rs // 8, rs // 8), x, 144, C_DIM)
+  if zn then
+    print(string.format("zone \"%s\" frame %d/%d", zn, cur_f, zf), x, 144, C_ACC)
+  else
+    print(string.format("spr(%d, x, y, %d, %d)", n, rs // 8, rs // 8), x, 144, C_DIM)
+  end
   -- this sprite as the game draws it, and the animation from it
   local pz = rs <= 32 and 2 or (rs == 64 and 1 or 0.5)
   local ps = floor(rs * pz)
@@ -1016,10 +1067,18 @@ function draw_draw()
   local ax = x + 160
   checker(ax, py0, ps, ps, 8)
   sspr(fx, fy, rs, rs, ax, py0, false, false, pz)
+  if anim.boxes and zn then
+    for _, b in ipairs(get_frame_boxes(zn, cur_f)) do
+      rect(x + floor(b.x * pz), py0 + floor(b.y * pz), max(1, floor(b.w * pz)), max(1, floor(b.h * pz)), box_colour(b.kind))
+    end
+    for _, b in ipairs(get_frame_boxes(zn, k + 1)) do
+      rect(ax + floor(b.x * pz), py0 + floor(b.y * pz), max(1, floor(b.w * pz)), max(1, floor(b.h * pz)), box_colour(b.kind))
+    end
+  end
   print("x" .. (pz < 1 and "1/2" or pz), x, 160, C_DIM)
   print("anim " .. (k + 1) .. "/" .. anim.frames, ax, 160, C_DIM)
-  print(string.format("%d fps%s%s%s", anim.fps, anim.play and "" or " ||", anim.onion and "  onion" or "",
-                      mirror and "  mirror" or ""), x, 304, C_DIM)
+  print(string.format("%d fps%s%s%s%s", anim.fps, anim.play and "" or " ||", anim.onion and "  onion" or "",
+                      anim.boxes and "  boxes" or "", mirror and "  mirror" or ""), x, 304, C_DIM)
   if dp.float then hint({ { { "up", "down", "left", "right" }, "move" }, { { "space" }, "put it down" }, { { "esc" }, "drop it" } })
   elseif dp.sel then
     hint({ { { "ctrl", "c" }, "copy" }, { { "ctrl", "x" }, "cut" }, { { "enter" }, "lift" }, { { "h", "v" }, "flip" },
@@ -1027,7 +1086,7 @@ function draw_draw()
   elseif dp.anchor then hint({ { { "up", "down", "left", "right" }, "the other corner" }, { { "space" }, "done" }, { { "esc" }, "cancel" } })
   else
     hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "draw" }, { { "b", "e", "g", "l", "u", "o", "m" }, "tools" },
-           { { ",", "." }, "colour" }, { { "z" }, "size" }, { { "tab" }, "more" } })
+           { { ",", "." }, "colour" }, { { "z" }, "size" }, { { "j" }, "boxes" }, { { "tab" }, "more" } })
   end
 end
 end
@@ -1108,6 +1167,7 @@ function sheet_key(k)
   elseif k == "home" then rx, ry = 0, 0
   elseif k == "\n" or k == " " then go("draw"); return
   elseif k == "z" then draw_key("z")
+  elseif k == "j" then anim.boxes = not anim.boxes; say(anim.boxes and "hitboxes on (BOXES)" or "hitboxes off", C_DIM, 90)
   elseif k == "+" or k == "=" then
     for _, z in ipairs(ZOOMS) do if z > shp.zoom then shp.zoom = z; break end end
   elseif k == "-" then
@@ -1176,14 +1236,33 @@ function draw_sheet()
       rect(VIEW_X + (fx - shp.vx) * z, VIEW_Y + (fy - shp.vy) * z, rs * z, rs * z, C_DIM)
     end
   end
+  if anim.boxes and zones and zboxes then
+    for _, zn in ipairs(zones()) do
+      local zx, zy, zw, zh, zf = zone(zn)
+      if zx then
+        for f = 1, zf do
+          local fx, fy = zx + (f - 1) * zw, zy
+          local sx = VIEW_X + (fx - shp.vx) * z
+          local sy = VIEW_Y + (fy - shp.vy) * z
+          if sx + zw * z >= VIEW_X and sx <= VIEW_X + VIEW_W and sy + zh * z >= VIEW_Y and sy <= VIEW_Y + VIEW_H then
+            for _, b in ipairs(get_frame_boxes(zn, f)) do
+              local bx = VIEW_X + (fx + b.x - shp.vx) * z
+              local by = VIEW_Y + (fy + b.y - shp.vy) * z
+              rect(bx, by, max(1, floor(b.w * z)), max(1, floor(b.h * z)), box_colour(b.kind))
+            end
+          end
+        end
+      end
+    end
+  end
   rectfill(0, 16, W, 16, C_BG)
   print(string.format("sheet %dx%d  zoom %s  sprite %d at (%d,%d) %dx%d", sw, sh, z < 1 and ("1/" .. floor(1 / z)) or z,
                       sprite_index(), rx, ry, rs, rs), 8, 16, C_TEXT)
   rectfill(0, 304, W, 16, C_BG)
-  print(string.format("view (%d,%d)  %d frames from here  spr(%d, x, y, %d, %d)", shp.vx, shp.vy, anim.frames,
-                      sprite_index(), rs // 8, rs // 8), 8, 304, C_DIM)
+  print(string.format("view (%d,%d)  %d frames from here%s  spr(%d, x, y, %d, %d)", shp.vx, shp.vy, anim.frames,
+                      anim.boxes and "  boxes" or "", sprite_index(), rs // 8, rs // 8), 8, 304, C_DIM)
   hint({ { { "up", "down", "left", "right" }, "sprite" }, { { "enter" }, "draw it" }, { { "z" }, "size" }, { { "+", "-" }, "zoom" },
-         { { "ctrl", "c" }, "copy" }, { { "ctrl", "v" }, "paste" }, { { "shift", "r" }, "sheet size" } })
+         { { "j" }, "boxes" }, { { "ctrl", "c" }, "copy" }, { { "ctrl", "v" }, "paste" }, { { "shift", "r" }, "sheet size" } })
 end
 end
 

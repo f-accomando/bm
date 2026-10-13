@@ -179,6 +179,9 @@ E.cart_sheet = function(w, h)
   return sheet.w, sheet.h
 end
 E.cart_new = function() sheet = { w = 256, h = 256, px = {} } end
+E.zones = function() return {} end
+E.zboxes = function() return {} end
+E.zone = function() return nil end
 E.ai = {
   sprite = function(req, opt)
     local n = opt and opt.size or 16

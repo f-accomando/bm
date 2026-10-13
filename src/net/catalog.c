@@ -140,6 +140,20 @@ static int is_b16_path(const char *p)
     return n > 4 && p[n - 4] == '.' && (p[n - 3] | 32) == 'b' && p[n - 2] == '1' && p[n - 1] == '6';
 }
 
+/* built-in utility / dev suite ids default to apps even in older catalogs
+ * that do not carry an explicit "kind app" line */
+static int is_known_app(const char *id)
+{
+    static const char *const apps[] = {
+        "sdk", "editor", "sdk-b16", "code", "pixel", "studio",
+        "animator", "mesh", "sound", "assistant", "write", "typing"
+    };
+    for (size_t i = 0; i < sizeof apps / sizeof apps[0]; i++)
+        if (strcmp(id, apps[i]) == 0)
+            return 1;
+    return 0;
+}
+
 /* g is the last game of c (already added): the same id is allowed once per
  * kind, a .bm for the Pi and a .b16 for the handhelds (Overbit has both) */
 static const char *finish(const catalog_t *c, const catalog_game_t *g)
@@ -217,6 +231,14 @@ int catalog_parse(const uint8_t *m, size_t len, catalog_t *c, char *err, size_t 
             g = &c->games[c->n++];
             memset(g, 0, sizeof *g);
             strcpy(g->id, line + 5);
+            g->is_app = (uint8_t)is_known_app(g->id);
+        } else if (g && strncmp(line, "kind ", 5) == 0) {
+            if (strcmp(line + 5, "app") == 0)
+                g->is_app = 1;
+            else if (strcmp(line + 5, "game") == 0)
+                g->is_app = 0;
+            else
+                bad_line = 1;
         } else if (g && strncmp(line, "title ", 6) == 0) {
             bad_line = text(g->title, sizeof g->title, line + 6);
         } else if (g && strncmp(line, "author ", 7) == 0) {

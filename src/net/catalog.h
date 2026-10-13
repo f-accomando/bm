@@ -31,8 +31,9 @@ typedef struct {
     char version[16];
     char license[41];
     char about[121];
-    catalog_file_t file;        /* the .bm */
-    catalog_file_t cover;       /* a 128x80 PNG */
+    uint8_t is_app;             /* 1: an app (utility / dev tool), 0: a game */
+    catalog_file_t file;        /* the .bm or .b16 */
+    catalog_file_t cover;       /* a PNG cover */
 } catalog_game_t;
 
 typedef struct {

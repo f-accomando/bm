@@ -47,17 +47,19 @@ SOC     :=
 # its tests (test-hyp) to make test. make test-zero2 builds it anyway.
 ZERO2   ?= 0
 export ZERO2
+CLEAN_KERNEL ?= 0
+CLEAN_DEFS := $(if $(filter 1,$(CLEAN_KERNEL)),-DBM_CLEAN_KERNEL)
 K7      := $(if $(filter 1,$(ZERO2)),$(BUILD)/kernel7.img)
 COMMON  = $(ARCH) $(SOC) -std=c11 -O2 -Wall -Wextra -g -Isrc \
           -ffunction-sections -fdata-sections \
-          -DUART_BAUD=$(BAUD) $(BOOT_DEFS)
+          -DUART_BAUD=$(BAUD) $(BOOT_DEFS) $(CLEAN_DEFS)
 # Kernel: hosted C on top of newlib (libc, libm), see src/lib/syscalls.c.
 CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
           -Ithird_party/lwip/src/include -Isrc/net \
           -Ithird_party/mbedtls/include -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' $(WARN)
 # Chainloader: freestanding, no libc.
 LCFLAGS := $(COMMON) -Os -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
-ASFLAGS = $(ARCH) $(SOC) -g -Isrc -Isrc/kernel -Wa,-I$(BUILD)
+ASFLAGS = $(ARCH) $(SOC) $(CLEAN_DEFS) -g -Isrc -Isrc/kernel -Wa,-I$(BUILD)
 LDFLAGS = $(ARCH) -nostartfiles -Wl,--gc-sections
 LDLIBS  := -Wl,--start-group -lc -lm -lgcc -Wl,--end-group
 LLDLIBS := -nostdlib -lgcc
@@ -96,12 +98,14 @@ FORCE:
 
 # Third-party code: its own warning policy, not ours.
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS) $(THIRD7_OBJS): WARN := -w
+EMBED_TOOLS := $(if $(filter 1,$(CLEAN_KERNEL)),,$(BUILD)/editor.bm $(BUILD)/sound.bm \
+               $(BUILD)/studio.bm $(BUILD)/animator.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
+               $(BUILD)/assistant.bm $(BUILD)/code.bm)
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o $(BUILD)/k7/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem keys/market-pub.pem \
-                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm \
-                                 $(BUILD)/studio.bm $(BUILD)/animator.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
-                                 $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
-                                 $(BUILD)/code.bm $(BUILD)/texroom.bm src/ai/predict.lua $(BUILD)/words.lua \
+                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(EMBED_TOOLS) \
+                                 $(BUILD)/assist.bin src/ai/assist.lua \
+                                 $(BUILD)/texroom.bm src/ai/predict.lua $(BUILD)/words.lua \
                                  src/ai/padtype.lua
 
 # The development assistant (M30): knowledge base + trained network, built
@@ -129,9 +133,9 @@ $(BUILD)/code.bm: carts/code/main.lua carts/code/icon.png scripts/mkbm.py
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/code/icon.png --title "bm Code" --author bm
 
 # The assistant on its own, in the Dev tab
-$(BUILD)/assistant.bm: carts/assistant/main.lua scripts/mkbm.py
+$(BUILD)/assistant.bm: carts/assistant/main.lua carts/code/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "bm assistant" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/code/icon.png --title "bm assistant" --author bm
 
 # The editor (M15), built into the kernel
 $(BUILD)/editor.bm: carts/editor/main.lua carts/editor/icon.png scripts/mkbm.py

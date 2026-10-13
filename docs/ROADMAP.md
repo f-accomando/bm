@@ -171,7 +171,9 @@ triangoli; pad stile SNES; niente file; `rnd()` con seme; 8 MiB; nessun limite d
 2. Il runtime nel profilo: schermo fisso, tavolozza, memoria, sandbox, banchi grafici.
 3. La CPU a budget: costi dei disegni, misura sul Pi, 60 → 30 fps da soli, la percentuale nel
    dev kit.
-4. L'SDK: il target `.b16` salva un `.b16` vero (oggi solo i promemoria del dev kit, §8.5).
+4. L'SDK: fatto (`BM_FLAG_B16 = 2` nell'header, `mkbm.py --b16`, `bm_build_b16` in `project.c` con
+   controllo del limite di 8 MiB e risoluzione quadrata `360x360`, e `Ctrl+B` nell'SDK che costruisce
+   un `.b16` vero quando il target è `.b16`, oltre a `Ctrl+Shift+B` *Export .b16*).
 5. Yharnam in `.b16` (360×360, sheet a banchi), poi Overbit (M41).
 - **Fatto quando:** Yharnam `.b16` gira uguale sul Pi e sulla RGB30 nel profilo, con la CPU
   che scende a 30 fps negli stessi punti sulle due console.
@@ -335,8 +337,6 @@ prova senza seriale e spesso senza tastiera).
   `scripts/bmaudio.py`); resta l'import di un WAV dalla SD in bm Sound.
 - **Resti di R11 (mappe).** Hunter's Night dai numeri 32–63 ai flag delle tile; import delle
   mappe di Tiled (`.tmj`) con livelli e proprietà; più nomi per una voce dell'assistente.
-- **Resti delle hitbox (BOXES).** bm Animator (Sprites) e bm Pixel che disegnano i
-  riquadri di BOXES sui fotogrammi; i riquadri dalle ossa quando un modello diventa sprite.
 - **Resti di più giocatori e bmnet.** Provare sul Pi due console in rete con il modello *Online
   2D* (anche col relay) e due pad con *Versus 2D*; Overbit sopra bmnet (oggi ha la sua copia
   del protocollo).
@@ -360,14 +360,19 @@ prova senza seriale e spesso senza tastiera).
 - **R26 — Il mouse vero in nano8.** Le cartucce `.p8` che chiedono il mouse (`poke(0x5f2d,
   1)`) oggi hanno un cursore mosso da levetta, croce o frecce: con `mouse(true)` il mouse USB
   o Bluetooth, i tasti e la rotella (`stat(32)`–`stat(36)`).
-- **Resti di R36 (Yharnam disegnata).** Lampade del cacciatore, barricate e cancelli, arene dei
-  boss e aree stanno ancora in `MAP` (main.lua): come dati (segnaposti con un nome, o un file)
-  anche la forma della caccia si disegnerebbe. Una casa sta dentro il suo blocco di 16×16 tile;
-  il tipo del terreno (strada, marciapiede, prato), da cui nascono le creature, è ancora quello del
-  piano delle strade.
-- **R37 — Panoramica e tavolozza delle mappe grandi nell'SDK.** Sulla pagina mappa una vista
-  rimpicciolita (256×256 celle in uno schermo) per spostarsi, e con Tab le sole tile 16×16 già
-  usate nella mappa (lo sheet di Yharnam è largo 4096 px: le sue tile sono le prime due righe).
+- **Resti di R36 (Yharnam disegnata).** Lampade del cacciatore (`shrine`), barricate (`barricade`),
+  cancelli (`gate`) e arene dei boss (`boss`) ora sono nel livello `objects` (`map_objects.csv`, tile
+  1186/1188/1190/1192 nello sheet) e si spostano/aggiungono nel `bm SDK`; anche il tipo del terreno
+  (`ch.kind`: strada, marciapiede, prato), da cui nascono le creature, si ricalcola dalle tile
+  disegnate in `map_ground.csv`. Resta: una casa sta dentro il suo blocco di 16×16 tile e i confini
+  delle aree con il nome stanno ancora in `MAP.areas`.
+- **R37 — La tavolozza delle mappe grandi nell'SDK (fatto).** Vista rimpicciolita e zoom in/out
+  sulla pagina mappa (`-`/`+`: 1, 2, 4, 8, 16 px/cella; `m` / *Overview*: 256×256 celle intere in una
+  schermata a 1 px/cella con rettangolo della vista 1:1, legenda e clic/frecce per saltare), selezione
+  automatica del pennello 16×16 e della prima tile segnaposto (`>= 1024`) passando al livello
+  `objects`, e con `Tab` (`Y` sul pad) con il pennello 16×16 attivo la tavolozza compatta delle sole
+  tile 16×16 già usate nella mappa (`z` passa al foglio intero) sia in `carts/editor` che in
+  `carts/sdk_b16`.
 - **R38 — L'assistente e il pennello 16×16.** Una voce della kb ("come disegno una mappa grande
   con tile 16x16?", `z` sulla pagina mappa, `mkmap.py` come esempio) e la guida del platform che
   lo cita.
@@ -375,14 +380,16 @@ prova senza seriale e spesso senza tastiera).
   (45×22 caratteri, tutto impilato). Con una scala logica (le regioni di `layout.lua` in unità di
   griglia, il testo 8×16 su un 720×720) ci starebbero pannello e vista affiancati come sul Pi
   (`layout.narrow()` c'è già). Per ora l'utente ha detto di restare a 360.
-- **R41 — Il gioco costruito sulla RGB30 nella scheda Games.** bm SDK (RGB30) è uno strumento
-  del kernel8 (Dev) e costruisce (`cart_build`), ma il gioco nasce accanto al progetto: da
-  `/carts` non si vede in Games, che legge `bm/` (lo prova F5). Un progetto in `bm/` (o un
-  `cart_build` che sulla RGB30 scriva in `bm/`, magari come `.b16`) lo mostrerebbe.
-- **R42 — Altri strumenti nel kernel8.** La sessione strumento è condivisa
-  (`src/kernel/devtool.c`, tabella `rgb30_tools` in `src/rgb30/ui.c`): un'edizione `.b16` di
-  bm Pixel, bm Code o bm Sound entrerebbe come l'SDK, e l'SDK la offrirebbe con `SUITE` in
-  `carts/sdk_b16/main.lua` (oggi vuota). Il kernel8 cresce della cartuccia (l'SDK: 164 KiB).
+- **R41 — Esportazione `.b16` e giochi costruiti sulla RGB30.** Fatto: `bm_build_b16` / `cart_build(path, "b16")`,
+  `mkbm.py --from ... --b16`, *Export .b16* (`Ctrl+Shift+B`) in entrambi gli SDK e nelle opzioni del
+  menu (*Export .b16* su `.bme` e `.bm`, senza mai sovrascrivere il `.bm`); sulla RGB30 un `.b16`
+  esportato da `/carts` viene copiato anche in `/bm/` così compare subito in Games.
+- **R42 — Altri strumenti sulla RGB30 e Market Apps.** Il Market ora distingue `.bm` e `.b16` con
+  badge dedicati e separa le pagine **Games** e **Apps** (`Y` / `V` o clic sui sottotab); `make market-seed`
+  pubblica tutta la suite (`sdk` `.bm` e `.b16`, `code`, `pixel`, `studio`, `animator`, `mesh`,
+  `sound`, `assistant`) come `kind: app`, `devtool.c` preferisce le app installate sulla SD (`/carts`
+  o `/bm/`) rispetto a quelle incorporate e `CLEAN_KERNEL=1` permette di compilare `kernel.img` e
+  `kernel8.img` senza suite incorporata.
 
 ### Audio
 - **R31 — Import di un suono SAMPLE col suo campione.** Oggi un suono SAMPLE preso da un altro
