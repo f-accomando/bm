@@ -63,3 +63,10 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 - Test carts `demo`, `texroom`, `stress`: to be removed later, not migrated to the common layout.
 - Formats F3 (header integrity, variant (a): a second CRC in bytes 120..127, checked only when nonzero) and F6 (one writer in C and one in Python): do them when a header change is needed, not before; F6 must keep the bytes identical (`test_bm.c`, `test_bmres.py`).
 - D09: `/carts` on the RGB30 is accepted (storage-path); `.bme` projects in Dev are still to do.
+
+## Left for later (2026-10-13, at the end of the pdf-manuals session)
+- Manuals: the `[DA COMPLETARE]` gaps that need the hardware or a measure; about 60 pictures (`manuals/shots/`, taken on the console).
+- D09 `.bme` projects in Dev on the RGB30, D17 and D35 (after the on-screen keyboard), D03 and D05 (suspended).
+- Migration to the common layout: `sdk_b16` and `titan_ex` (own layouts).
+- Warnings seen but not mine: none open on the Pi or RGB30 builds.
+- Tags `v0.3.0` and `v1.0.0`: only with an explicit yes.
