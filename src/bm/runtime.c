@@ -9235,6 +9235,15 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         loading_stop();
         return BM_ENDED;
     }
+    {                                   /* a cartridge that needs a newer bm says so (INFO "spec": bm.h BM_SPEC_REV) */
+        char need[16];
+        if (bm_info_get(&cart, NULL, NULL, "spec", need, sizeof need) && atoi(need) > BM_SPEC_REV) {
+            kprintf("\x1b[91mbm: this game needs revision %d of the bm specification, this kernel has %d: "
+                    "update the kernel\x1b[0m\n", atoi(need), BM_SPEC_REV);
+            loading_stop();
+            return BM_ENDED;
+        }
+    }
     loading_tick();
     if (cur.w > 0 && cur.h > 0) {
         cart.width = cur.w;

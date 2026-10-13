@@ -354,7 +354,7 @@ void home_panel(int id, home_panel_t *p)
                  "The latest bm from GitHub, signed", "%s", update_ready() ? update_ready() : update_state());
         reports_row(p, MENU_ROW_SUB, R_REPORTS_SUB, "Reports", "Waiting on the SD card, to GitHub");
         home_row(p, MENU_ROW_SUB, R_SYSTEM, "System",
-                 "Version, memory, the log", "%s", bm_version);
+                 "Version, memory, the log", "%s, spec %s", bm_version, bm_spec);
         /* the last two, on every system (the user's request, 2026-10-04) */
         home_row(p, MENU_ROW_ACTION, R_RESTART, "Restart", "Restarts the console", NULL);
 #ifdef BM_RGB30

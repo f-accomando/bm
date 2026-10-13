@@ -826,7 +826,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-nano8 test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-reserved test-profile test-online test-bmnet test-loading \
+      test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-docs $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
@@ -1416,3 +1416,20 @@ test-reserved: $(BUILD)/host/bmhost-bin $(BUILD)/reserved-test.bm
 	@for n in ok.bm pixels.bm; do grep -q "^reserved: $$n true" $(BUILD)/reserved-test.log || { echo "$$n was refused"; exit 1; }; done
 	@echo "reserved: 8/8 checks passed"
 .PHONY: test-reserved
+
+# A cartridge that needs a newer revision of the specification (INFO "spec", src/bm/bm.h BM_SPEC_REV) is refused with a
+# message; one that needs the kernel's revision or none runs
+test-spec: $(BUILD)/host/bmhost-bin tests/spec/cart.lua scripts/mkbm.py
+	@mkdir -p $(BUILD)/spec
+	@printf 'name: spec test\nspec: 1\n' > $(BUILD)/spec/ok.info
+	@printf 'name: spec test\nspec: 999\n' > $(BUILD)/spec/new.info
+	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/ok.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/ok.info > /dev/null
+	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/none.bm --lua tests/spec/cart.lua --title none > /dev/null
+	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/spec/new.bm --lua tests/spec/cart.lua --info $(BUILD)/spec/new.info > /dev/null
+	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/ok.bm --seconds 1 2>&1 | grep -q "spec: ran" || { echo "spec 1 did not run"; exit 1; }
+	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/none.bm --seconds 1 2>&1 | grep -q "spec: ran" || { echo "no spec did not run"; exit 1; }
+	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/new.bm --seconds 1 2>&1 | grep -q "needs revision 999" || { echo "spec 999 was not refused"; exit 1; }
+	@echo "spec: 3/3 checks passed"
+test-consistency:
+	$(PYTHON) scripts/consistency.py check
+.PHONY: test-spec test-consistency

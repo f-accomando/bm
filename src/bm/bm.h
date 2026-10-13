@@ -136,6 +136,13 @@
 #ifndef BM_H
 #define BM_H
 
+/* The revision of the specification this kernel implements (docs/spec/specs.toml): it grows when a format, the API,
+ * the system keys or the config keys gain something a cartridge can depend on. A cartridge says what it needs with
+ * the INFO key "spec: N" (bm.info); an older kernel then refuses it with a message instead of failing half way.
+ * Revision 1: everything of 2026-10-11 (container v1, sections 1-14, resource files, projects, the .b16 marker).
+ * Revision 2 (2026-10-13): 720x720 cartridges, shot(), the INFO key "spec", tool names reserved against games. */
+#define BM_SPEC_REV 2
+
 #include <stddef.h>
 #include <stdint.h>
 

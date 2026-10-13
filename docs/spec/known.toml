@@ -1,0 +1,28 @@
+# Divergences that are accepted: each has a reason and a kind (hardware = the platform really differs;
+# history = built at different times, to align; todo = missing on purpose for now; text = noise in the docs).
+# `scripts/consistency.py check` fails on anything NOT listed here, and on an entry that is no longer found.
+
+[[accept]]
+id = "platform-menu:tabs"
+kind = "todo"
+because = "the Pi's menu has a Lib tab (resource files, hidden unless lib_tab=1); the RGB30's has none: the Lib tab is not built for the handheld"
+
+[[accept]]
+id = "platform-screen:modes"
+kind = "hardware"
+because = "a 16:9 TV on the Pi (screen() offers the 16:9 modes), a square 720x720 panel on the RGB30 (360x360 and 720x720, whole pixels)"
+
+[[accept]]
+id = "platform-tools:embedded"
+kind = "history"
+because = "the Pi kernel embeds all the tools; the RGB30 kernel embeds only the SDK (sdk_b16), the other tools come from Market > Apps"
+
+[[accept]]
+id = "api-missing:a"
+kind = "text"
+because = "`a(...)` in docs/api is an example of a mini-notation, not a function"
+
+[[accept]]
+id = "api-missing:nnet"
+kind = "text"
+because = "nnet is the neural-network library table (docs/api/system.md), registered as a library, not as a function"
