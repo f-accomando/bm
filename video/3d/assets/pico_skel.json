@@ -1,0 +1,126 @@
+{
+ "comment": "PICO skeleton, 9 bones (PIANO.md). Faces +z; tail goes to -z.",
+ "model": "PICO",
+ "bones": [
+  {
+   "name": "root",
+   "parent": null,
+   "head": [
+    0,
+    0.45,
+    0
+   ],
+   "tail": [
+    0,
+    0.5,
+    0
+   ]
+  },
+  {
+   "name": "spine",
+   "parent": "root",
+   "head": [
+    0,
+    0.45,
+    0
+   ],
+   "tail": [
+    0,
+    0.82,
+    0
+   ]
+  },
+  {
+   "name": "head",
+   "parent": "spine",
+   "connect": true,
+   "length": 0.35,
+   "direction": [
+    0,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "tail1",
+   "parent": "root",
+   "head": [
+    0,
+    0.42,
+    -0.12
+   ],
+   "tail": [
+    0,
+    0.4,
+    -0.48
+   ]
+  },
+  {
+   "name": "tail2",
+   "parent": "tail1",
+   "connect": true,
+   "length": 0.34,
+   "direction": [
+    0,
+    -0.05,
+    -1
+   ]
+  },
+  {
+   "name": "arm.L",
+   "parent": "spine",
+   "head": [
+    0.26,
+    0.78,
+    0
+   ],
+   "tail": [
+    0.26,
+    0.5,
+    0
+   ]
+  },
+  {
+   "name": "arm.R",
+   "parent": "spine",
+   "head": [
+    -0.26,
+    0.78,
+    0
+   ],
+   "tail": [
+    -0.26,
+    0.5,
+    0
+   ]
+  },
+  {
+   "name": "leg.L",
+   "parent": "root",
+   "head": [
+    0.1,
+    0.45,
+    0
+   ],
+   "tail": [
+    0.1,
+    0.14,
+    0
+   ]
+  },
+  {
+   "name": "leg.R",
+   "parent": "root",
+   "head": [
+    -0.1,
+    0.45,
+    0
+   ],
+   "tail": [
+    -0.1,
+    0.14,
+    0
+   ]
+  }
+ ]
+}
