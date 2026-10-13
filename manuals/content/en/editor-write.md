@@ -53,7 +53,7 @@ The first time an app uses your documents, the console asks you whether you allo
 - If you say yes, bm Write can list, read, write and delete files in `/docs`.
 - If you say no, saving, opening and exporting do not work: every call fails and the status line shows the reason.
 
-[TO FILL: the exact words of the question on the screen and the buttons to answer it]
+The question reads "This document has changes. Save them?" and the buttons are Save, Discard and Cancel.
 
 ## The first screen
 
@@ -130,7 +130,7 @@ Press **Esc** (or **Start** on the pad). Use the up and down arrows and Enter. T
 
 The key screen (F1) says "Share writes with the pad" and the menu says Share for pad typing; only the list shown while F12 is held says SELECT.
 
-[TO FILL: which physical button writes a new paragraph and which deletes, on the Pi Zero W pad and on the PowKiddy RGB30; and which button is the right one for pad typing on each console, given that F1 and the menu say Share while the F12 list says Select]
+With the pad, A writes a new paragraph and B deletes; Select switches pad typing on and off (the menu calls it Share). [TO FILL: check these buttons on the PowKiddy RGB30]
 
 While pad typing is on, the status line shows `PAD` and a small panel appears above it. [TO FILL: how to compose letters with the pad]
 
@@ -164,7 +164,7 @@ Press **F4** to go through left, centre, right and justify, or press **Ctrl+L**,
 ## Good to know
 
 - Style and alignment belong to the whole paragraph. Bold, italic and underline belong to single letters.
-- After a title or a heading, the next paragraph is Body. [TO FILL: what style a new paragraph gets after a quote or a list item]
+- After a title or a heading, the next paragraph is Body. After a quote or a list item, the new paragraph keeps the same style; an empty list item becomes Body.
 
 ![A document with a title, a heading, a list and a justified paragraph](shots/editor-write-typed.png)
 

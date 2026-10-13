@@ -188,7 +188,7 @@ Typing `end`, `else`, `elseif`, `until` or `}` alone on a line brings it back to
 | X | the assistant |
 | Start | the menu |
 
-In the menu and in the lists, the D-pad moves, A chooses and B goes back. The pad can also type text: switch **Pad typing** in the menu. [TO FILL: the button that switches pad typing on and off; the key list says Select, the menu entry says Share]
+In the menu and in the lists, the D-pad moves, A chooses and B goes back. The pad can also type text: switch **Pad typing** in the menu. Select switches it on and off; the menu entry calls the same button Share.
 
 # Completion and the assistant
 
@@ -287,7 +287,7 @@ The line number comes from the message. If the message has no line, the cursor s
 
 # Guided tutorials
 
-Start from bm Code. [TO FILL: how bm Code is started from the bm menu on the console, and its entry name] You can also start from the bm SDK: F1, then 1 (*OPEN IN* bm Code).
+Start from bm Code. On the console it is the entry **bm Code** of the bm menu. You can also start from the bm SDK: F1, then 1 (*OPEN IN* bm Code).
 
 ## Write and run your first line
 

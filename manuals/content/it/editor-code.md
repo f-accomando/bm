@@ -188,7 +188,7 @@ Scrivere `end`, `else`, `elseif`, `until` o `}` da soli su una riga li riporta a
 | X | l'assistente |
 | Start | il menu |
 
-Nel menu e negli elenchi il D-pad muove, A sceglie e B torna indietro. Il pad può anche scrivere testo: attiva **Pad typing** nel menu. [DA COMPLETARE: il pulsante che attiva e disattiva la scrittura con il pad; l'elenco dei tasti dice Select, la voce di menu dice Share]
+Nel menu e negli elenchi il D-pad muove, A sceglie e B torna indietro. Il pad può anche scrivere testo: attiva **Pad typing** nel menu. Select la attiva e la disattiva; la voce di menu chiama Share lo stesso pulsante.
 
 # Completamento e assistente
 
@@ -287,7 +287,7 @@ Il numero di riga viene dal messaggio. Se il messaggio non ha una riga, il curso
 
 # Tutorial guidati
 
-Parti da bm Code. [DA COMPLETARE: come si avvia bm Code dal menu di bm sulla console, e il nome della sua voce] Puoi anche partire dal bm SDK: F1, poi 1 (*OPEN IN* bm Code).
+Parti da bm Code. Sulla console è la voce **bm Code** del menu di bm. Puoi anche partire dal bm SDK: F1, poi 1 (*OPEN IN* bm Code).
 
 ## Scrivi ed esegui la tua prima riga
 

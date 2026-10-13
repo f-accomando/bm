@@ -105,7 +105,7 @@ Il gioco più piccolo: una palla che muovi con le frecce.
 5. Con le frecce porta il cursore sulla riga `print("hello!", ...)` e cambia la parola `hello!` con un testo tuo.
 6. Premi **Esc**, scegli **Save as...** e premi Invio. Una casella chiede `file name (8.3, in /carts)` e propone `MYGAME.BME`. Scrivi un nome e premi **Invio**. La riga di stato dice `saved` e il nome del file.
 7. Premi **F5**. L'SDK salva e la console esegue il gioco: una palla gialla su sfondo scuro con il tuo testo. Le frecce muovono la palla.
-8. Esci dal gioco. [DA COMPLETARE: come si esce da un gioco provato sul Pi; sull'RGB30 è Start + Select o Ctrl+Esc]
+8. Esci dal gioco. Premi Start + Select, Ctrl+Maiusc+Esc o Ctrl+Esc (Esc da solo torna indietro dentro uno strumento).
 9. Sei di nuovo nell'SDK. Premi **F1**: la riga **LAST TRY** ora mostra fps e millisecondi.
 
 ![Empty 2D in esecuzione: la palla e il tuo testo](shots/editor-sdk-empty.png)
@@ -128,7 +128,7 @@ Un eroe che corre e salta su una mappa con terreno e assi. La camera lo segue.
 8. Premi **Esc**, **Save as...**, scrivi un nome e premi **Invio**.
 9. Premi **F5**. L'eroe sta sul terreno. Le frecce corrono, **A** (Spazio sulla tastiera) salta, **giù** scende attraverso un'asse.
 10. Corri fino al primo buco: se cadi, l'eroe torna all'inizio. Trova la tua nuova asse.
-11. Esci dal gioco e sei di nuovo nell'SDK. [DA COMPLETARE: come si esce da un gioco provato sul Pi; vedi Empty 2D]
+11. Esci dal gioco e sei di nuovo nell'SDK. I tasti sono al passo 8 di Empty 2D.
 
 ![Platform 2D in esecuzione: l'eroe sulle assi](shots/editor-sdk-platform.png)
 

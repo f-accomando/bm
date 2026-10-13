@@ -53,7 +53,7 @@ La prima volta che un'app usa i tuoi documenti, la console ti chiede se lo perme
 - Se rispondi sì, bm Write può elencare, leggere, scrivere e cancellare i file in `/docs`.
 - Se rispondi no, salvare, aprire ed esportare non funzionano: ogni chiamata fallisce e la riga di stato mostra il motivo.
 
-[DA COMPLETARE: le parole esatte della domanda sullo schermo e i pulsanti per rispondere]
+La domanda è "This document has changes. Save them?" e i pulsanti sono Save, Discard e Cancel.
 
 ## La prima schermata
 
@@ -130,7 +130,7 @@ Premi **Esc** (oppure **Start** sul pad). Usa le frecce su e giù e Enter. Le vo
 
 La schermata dei tasti (F1) dice "Share writes with the pad" e il menu dice Share per la scrittura col pad; solo l'elenco mostrato tenendo premuto F12 dice SELECT.
 
-[DA COMPLETARE: quale pulsante fisico scrive un nuovo paragrafo e quale cancella, sul pad del Pi Zero W e sul PowKiddy RGB30; e quale pulsante è quello giusto per la scrittura col pad su ciascuna console, dato che F1 e il menu dicono Share mentre l'elenco di F12 dice Select]
+Con il pad, A scrive un nuovo paragrafo e B cancella; Select attiva e disattiva la scrittura col pad (il menu la chiama Share). [DA COMPLETARE: verificare questi pulsanti sul PowKiddy RGB30]
 
 Con la scrittura col pad accesa, la riga di stato mostra `PAD` e sopra di essa compare un piccolo pannello. [DA COMPLETARE: come comporre le lettere con il pad]
 
@@ -164,7 +164,7 @@ Premi **F4** per scorrere sinistra, centro, destra e giustificato, oppure premi 
 ## Da sapere
 
 - Stile e allineamento appartengono a tutto il paragrafo. Grassetto, corsivo e sottolineato appartengono alle singole lettere.
-- Dopo un titolo o un titoletto, il paragrafo successivo è Body. [DA COMPLETARE: che stile ha un nuovo paragrafo dopo una citazione o una voce di elenco]
+- Dopo un titolo o un titoletto, il paragrafo successivo è Body. Dopo una citazione o una voce di elenco, il nuovo paragrafo mantiene lo stesso stile; una voce di elenco vuota diventa Body.
 
 ![Un documento con un titolo, un titoletto, un elenco e un paragrafo giustificato](shots/editor-write-typed.png)
 

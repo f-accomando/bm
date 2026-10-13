@@ -475,8 +475,8 @@
     "title": "The screen"
    },
    "4": {
-    "en": "eb2a42797a06",
-    "it": "49e5956b3423",
+    "en": "8e2233d21633",
+    "it": "652574b8f4d1",
     "title": "Editing keys"
    },
    "5": {
@@ -500,8 +500,8 @@
     "title": "Running the game and reading errors"
    },
    "9": {
-    "en": "46e576780208",
-    "it": "25fc8b4b6403",
+    "en": "7c71bc1c4ac4",
+    "it": "733f38f92fa2",
     "title": "Guided tutorials"
    }
   },
@@ -509,7 +509,7 @@
    "carts/code/main.lua": "63235604898f",
    "docs/RISORSE.md": "5e859959104d",
    "docs/design/suite-code.md": "212bb27f00d1",
-   "docs/progress/tools.md": "6ae8072c3059",
+   "docs/progress/tools.md": "1db22dee08f7",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -653,8 +653,8 @@
     "title": "The screen"
    },
    "4": {
-    "en": "27982928ec0d",
-    "it": "eadcc9d6e849",
+    "en": "0f9e63c7ab99",
+    "it": "34f438fb2e43",
     "title": "Creating a project from a template"
    },
    "5": {
@@ -687,7 +687,7 @@
    "carts/editor/main.lua": "8de988e40572",
    "docs/RISORSE.md": "5e859959104d",
    "docs/design/suite-sdk.md": "ee9451f7a184",
-   "docs/progress/tools.md": "6ae8072c3059",
+   "docs/progress/tools.md": "1db22dee08f7",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -806,18 +806,18 @@
     "title": "What bm Write is"
    },
    "2": {
-    "en": "9eafeebaeca3",
-    "it": "31fd1e23581d",
+    "en": "dfe5b3f64a37",
+    "it": "c37946c6db48",
     "title": "First start"
    },
    "3": {
-    "en": "c4f17375d0bc",
-    "it": "3e73aedd7381",
+    "en": "1de2145b0b7b",
+    "it": "382b27f12dc2",
     "title": "The screen and the keys"
    },
    "4": {
-    "en": "9cc182975319",
-    "it": "e48d4cb1fea9",
+    "en": "2f9713aea41f",
+    "it": "6e2db3a0facf",
     "title": "Styling"
    },
    "5": {
@@ -839,7 +839,7 @@
   "sources": {
    "carts/write/main.lua": "e147f39975a8",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/progress/tools.md": "6ae8072c3059",
+   "docs/progress/tools.md": "1db22dee08f7",
    "sdk/README.md": "97ca3fe22090"
   }
  },

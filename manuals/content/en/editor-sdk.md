@@ -105,7 +105,7 @@ The smallest game: a ball you move with the arrows.
 5. Move the cursor with the arrows to the line `print("hello!", ...)` and change the word `hello!` to your own text.
 6. Press **Esc**, choose **Save as...** and press Enter. A box asks `file name (8.3, in /carts)` and suggests `MYGAME.BME`. Type a name and press **Enter**. The status line says `saved` and the name of the file.
 7. Press **F5**. The SDK saves and the console plays the game: a yellow ball on a dark background with your text. The arrows move the ball.
-8. Leave the game. [TO FILL: how to leave a tried game on the Pi; on the RGB30 it is Start + Select or Ctrl+Esc]
+8. Leave the game. Press Start + Select, Ctrl+Shift+Esc or Ctrl+Esc (Esc alone goes back inside a tool).
 9. You are back in the SDK. Press **F1**: the **LAST TRY** line now shows fps and milliseconds.
 
 ![Empty 2D running: the ball and your text](shots/editor-sdk-empty.png)
@@ -128,7 +128,7 @@ A hero that runs and jumps on a map with ground and planks. The camera follows i
 8. Press **Esc**, **Save as...**, type a name and press **Enter**.
 9. Press **F5**. The hero stands on the ground. The arrows run, **A** (Space on the keyboard) jumps, **down** drops through a plank.
 10. Run to the first gap: if you fall, the hero comes back to the start. Find your new plank.
-11. Leave the game and you are back in the SDK. [TO FILL: how to leave a tried game on the Pi; see Empty 2D]
+11. Leave the game and you are back in the SDK. See step 8 of Empty 2D for the keys.
 
 ![Platform 2D running: the hero on the planks](shots/editor-sdk-platform.png)
 
