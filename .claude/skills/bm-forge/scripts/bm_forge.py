@@ -104,9 +104,19 @@ def build_parser():
     export_market_p.add_argument("--bm", help="Path to .bm file to include")
     export_market_p.add_argument("--b16", help="Path to .b16 file to include")
 
-    # check (stub)
-    check_parser = subparsers.add_parser("check", help="Check a cartridge")
-    check_parser.add_argument("input", nargs="*", help="(not implemented)")
+    # check
+    check_parser = subparsers.add_parser("check", help="Validate files; report limits, budget, drift, similarity")
+    check_parser.add_argument("files", nargs="+", metavar="FILE", help="Cartridges (.bm/.b16/.bme) or BMRES files")
+    check_parser.add_argument("--kernel-limits", action="store_true", help="Use kernel limits (65535 verts/faces)")
+    check_parser.add_argument("--budget", type=int, help="Triangle budget a frame (enforced when given)")
+    check_parser.add_argument("--draw", action="append", dest="draws", help="Model draw count (repeatable, NAME=COUNT); enforces the budget")
+    check_parser.add_argument("--reference", help="Reference .png or cart/BMRES to compare the silhouette with (one FILE)")
+    check_parser.add_argument("--model", help="Model of FILE to compare (default the first)")
+    check_parser.add_argument("--ref-model", help="Model of the reference cart (default the same name, else the first)")
+    check_parser.add_argument("--view", default="front", choices=["front", "side", "top"], help="View for a .png reference")
+    check_parser.add_argument("--min-iou", type=float, help="Minimum IoU of the similarity (default 0.75)")
+    check_parser.add_argument("--no-sync", action="store_true", help="Skip the drift check against the repo sources")
+    check_parser.add_argument("--json", action="store_true", help="Print only a JSON object")
 
     # preview (stub)
     preview_parser = subparsers.add_parser("preview", help="Preview a cartridge")
@@ -206,17 +216,9 @@ def cmd_mesh(args):
         # Export
         try:
             if out_ext == ".bm":
-                if args.kernel_limits:
-                    cart = export.models_cart(mesh, None, args.title, args.author)
-                    container.write_file(args.out, cart, kernel_limits=True)
-                else:
-                    export.export_models(args.out, mesh, None, args.title, args.author)
+                export.export_models(args.out, mesh, None, args.title, args.author, kernel_limits=args.kernel_limits)
             else:  # .bmm
-                if args.kernel_limits:
-                    cart = export.models_cart(mesh, None, args.title, args.author)
-                    container.write_file(args.out, cart, kernel_limits=True)
-                else:
-                    export.export_bmm(args.out, mesh, None, args.title, args.author)
+                export.export_bmm(args.out, mesh, None, args.title, args.author, kernel_limits=args.kernel_limits)
 
             total_faces = sum(len(m.faces) for m in models)
             print(f"wrote {args.out}: {len(models)} models, {total_faces} triangles")
@@ -775,9 +777,196 @@ def _export_market(args):
 
 
 def cmd_check(args):
-    """not implemented"""
-    print("error: not implemented", file=sys.stderr)
-    return 2
+    """check FILE [FILE ...] [--kernel-limits] [--budget N] [--draw NAME=COUNT ...] [--reference REF]
+    [--model NAME] [--ref-model NAME] [--view front|side|top] [--min-iou F] [--no-sync] [--json]
+
+    Per file: read and check it, print edition, sections, models, rigs and the triangle budget.
+    --reference compares the silhouette of FILE with a .png or a cart. Drift of bm_core against
+    the repo sources (syncwatch) unless --no-sync. Exit: 2 usage or missing file, 1 file or
+    budget failure, 3 similarity below --min-iou, 4 drift; the first of these that applies."""
+    try:
+        from bm_core import sections as S, similarity, syncwatch
+
+        if args.reference is not None and len(args.files) != 1:
+            print("error: --reference needs exactly one FILE", file=sys.stderr)
+            return 2
+
+        draws = None
+        if args.draws:
+            draws = {}
+            for draw_spec in args.draws:
+                if "=" not in draw_spec:
+                    print(f"error: malformed --draw {draw_spec!r}, expected NAME=COUNT", file=sys.stderr)
+                    return 2
+                name, count_str = draw_spec.split("=", 1)
+                try:
+                    draws[name] = int(count_str)
+                except ValueError:
+                    print(f"error: malformed --draw {draw_spec!r}, expected NAME=COUNT", file=sys.stderr)
+                    return 2
+
+        budget_enforced = args.budget is not None or draws is not None
+        min_iou = similarity.DEFAULT_MIN_IOU if args.min_iou is None else args.min_iou
+        codes, files_out, sim_out = [], [], None
+
+        def say(line):
+            if not args.json:
+                print(line)
+
+        def reference(mesh):
+            """--reference of the one FILE -> (detail lines, similarity dict or None, exit code or None)"""
+            ref = args.reference
+            if not os.path.exists(ref):
+                print(f"error: reference file not found: {ref}", file=sys.stderr)
+                return [], None, 2
+            if mesh is None or not mesh.models:
+                return ["  FAIL similarity: no MESH to compare"], None, 1
+            model = mesh.get(args.model) if args.model else mesh.models[0]
+            if model is None:
+                print(f"error: no model {args.model!r} in {args.files[0]}", file=sys.stderr)
+                return [], None, 2
+            if ref.lower().endswith(".png"):
+                try:
+                    with open(ref, "rb") as f:
+                        iou = similarity.compare_png(model, f.read(), args.view)
+                except ValidationError as e:
+                    return [f"  FAIL reference {ref}: {e}"], None, 1
+                lines = [f"  iou {args.view}={iou:.4f}"]
+                sim = {"ref": ref, "model": model.name, "view": args.view, "iou": iou}
+                value = iou
+            else:
+                try:
+                    ref_cart = B.read_file(ref, kernel_limits=args.kernel_limits)
+                except ValidationError as e:
+                    return [f"  FAIL reference {ref}: {e}"], None, 1
+                ref_mesh = ref_cart.mesh(kernel_limits=args.kernel_limits)
+                if ref_mesh is None or not ref_mesh.models:
+                    return [f"  FAIL reference {ref}: no MESH to compare"], None, 1
+                if args.ref_model:
+                    ref_model = ref_mesh.get(args.ref_model)
+                    if ref_model is None:
+                        print(f"error: no model {args.ref_model!r} in {ref}", file=sys.stderr)
+                        return [], None, 2
+                else:
+                    ref_model = ref_mesh.get(model.name)
+                    if ref_model is None:
+                        ref_model = ref_mesh.models[0]
+                res = similarity.compare_models(model, ref_model)
+                lines = [f"  iou front={res['front']:.4f} side={res['side']:.4f} top={res['top']:.4f} "
+                         f"mean={res['mean']:.4f}"]
+                sim = {"ref": ref, "model": model.name, "ref_model": ref_model.name, "front": res["front"],
+                       "side": res["side"], "top": res["top"], "mean": res["mean"]}
+                value = res["mean"]
+            sim["min_iou"] = min_iou
+            sim["pass"] = value >= min_iou
+            if not sim["pass"]:
+                lines.append(f"  FAIL iou: {value:.4f} below --min-iou {min_iou}")
+                return lines, sim, 3
+            return lines, sim, None
+
+        for path in args.files:
+            entry = {"path": path, "ok": False, "error": None, "edition": None, "width": None, "height": None,
+                     "sections": [], "models": [], "limits": None, "rigs": [], "triangles": None,
+                     "budget": None, "budget_enforced": budget_enforced}
+            files_out.append(entry)
+            if not os.path.exists(path):
+                print(f"error: file not found: {path}", file=sys.stderr)
+                entry["error"] = "file not found"
+                codes.append(2)
+                continue
+            try:
+                cart = B.read_file(path, kernel_limits=args.kernel_limits)
+            except ValidationError as e:
+                entry["error"] = str(e)
+                codes.append(1)
+                say(f"FAIL {path}: {e}")
+                continue
+            except OSError as e:
+                print(f"error: {e}", file=sys.stderr)
+                entry["error"] = str(e)
+                codes.append(2)
+                continue
+
+            hd = cart.header
+            ed = container.edition_of_cart(cart)
+            names = [S.sec_name(s.type) for s in cart.sections]
+            mv, mf = meshmod.limits(args.kernel_limits)
+            mesh = cart.mesh(kernel_limits=args.kernel_limits)
+            anim = cart.anim(kernel_limits=args.kernel_limits)
+            lines = []
+            if hd.is_res:
+                lines.append(f"  resource kind {hd.kind}")
+            else:
+                lines.append(f"  edition {ed} {hd.width}x{hd.height}")
+                entry["width"], entry["height"] = hd.width, hd.height
+            lines.append("  sections " + ", ".join(names))
+            entry.update(edition=ed, sections=names, limits=[mv, mf])
+            if mesh is not None:
+                for m in mesh.models:
+                    entry["models"].append({"name": m.name, "verts": len(m.verts), "faces": len(m.faces)})
+                    lines.append(f"  model {m.name}: {len(m.verts)} verts, {len(m.faces)} faces (limit {mv}/{mf})")
+            if anim is not None:
+                for r in anim.rigs:
+                    clip_names = [c.name for c in r.clips]
+                    entry["rigs"].append({"model": r.model, "bones": len(r.bones), "clips": clip_names})
+                    clips_txt = ", ".join(clip_names) or "-"
+                    lines.append(f"  rig {r.model}: {len(r.bones)} bones, clips {clips_txt}")
+
+            ok = True
+            if mesh is not None and ed in ("bm", "b16"):
+                default = export.TRI_BUDGET_B16 if ed == "b16" else export.TRI_BUDGET_PI
+                budget = default if args.budget is None else args.budget
+                entry["budget"] = budget
+                draw_map = draws if draws is not None else {m.name: 1 for m in mesh.models}
+                try:
+                    tris = export.frame_triangles(mesh, draw_map)
+                    entry["triangles"] = tris
+                    lines.append(f"  budget: {tris} triangles a frame, budget {budget}")
+                    fail = f"{tris} triangles a frame over budget {budget}" if budget_enforced and tris > budget else None
+                except ValidationError as e:
+                    fail = str(e)
+                if fail:
+                    lines.append(f"  FAIL budget: {fail}")
+                    ok = False
+                    entry["error"] = f"budget: {fail}"
+                    codes.append(1)
+
+            if args.reference is not None:
+                ref_lines, sim_out, ref_code = reference(mesh)
+                lines += ref_lines
+                if ref_code is not None:
+                    codes.append(ref_code)
+
+            entry["ok"] = ok
+            say(("OK " if ok else "FAIL ") + path)
+            for line in lines:
+                say(line)
+
+        sync = {"checked": False, "drift": []}
+        if not args.no_sync:
+            drift = syncwatch.check()
+            sync = {"checked": True, "drift": [[rel, old, new] for rel, old, new in drift]}
+            if drift:
+                codes.append(4)
+            for rel, old, new in drift:
+                say(f"DRIFT {rel}: recorded {old}, now {new}")
+
+        if 2 in codes:
+            code = 2
+        elif 1 in codes:
+            code = 1
+        elif 3 in codes:
+            code = 3
+        elif 4 in codes:
+            code = 4
+        else:
+            code = 0
+        if args.json:
+            print(json.dumps({"files": files_out, "sync": sync, "similarity": sim_out, "exit": code}, sort_keys=True))
+        return code
+
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 2
 
 
 def cmd_preview(args):

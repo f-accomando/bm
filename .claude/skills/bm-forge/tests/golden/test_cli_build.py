@@ -222,6 +222,23 @@ class CliBuild(unittest.TestCase):
             self.assertEqual(code, 0, f"stderr: {stderr}")
             self.assertTrue(os.path.exists(out_path))
 
+    def test_export_kernel_limits_api(self):
+        """export_models / export_bmm with kernel_limits=True write a 5000-vertex model; the default refuses it."""
+        from bm_core import shapes, errors
+        verts, faces = [], []
+        for i in range(625):
+            vs, fs = shapes.box([float(i), 0.0, 0.0], [float(i) + 0.5, 0.5, 0.5], 0xFFFFFF, len(verts))
+            verts += vs
+            faces += fs
+        big = bm_core.Mesh([bm_core.Model("big", verts, faces)])
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with self.assertRaises(errors.ValidationError):
+                bm_core.export.export_models(os.path.join(tmpdir, "a.bm"), big)
+            for fn, ext in ((bm_core.export.export_models, ".bm"), (bm_core.export.export_bmm, ".bmm")):
+                out = os.path.join(tmpdir, "k" + ext)
+                fn(out, big, kernel_limits=True)
+                self.assertEqual(len(container.read_file(out, kernel_limits=True).mesh(kernel_limits=True).models), 1)
+
     def test_edition_kept(self):
         """mesh --in .bm -o .bmm exits code 2 (editions not converted)."""
         with tempfile.TemporaryDirectory() as tmpdir:

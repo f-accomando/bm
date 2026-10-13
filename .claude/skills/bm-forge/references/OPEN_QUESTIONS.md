@@ -186,3 +186,9 @@ Nothing generated here was run on the kernel or opened in bm Animator: checks ar
   facing the camera at -z (`tests/golden/preview_samples/forge_demo_walk_bmhost.png`).
 - This is the PC build of the console's runtime, not a Pi or an RGB30. Console look: still
   NON VERIFICATO. `stat(4)` reported 72 triangles in the frame (informational: the models total 168).
+
+## CLI (phase 4)
+
+- `bm-forge mesh --kernel-limits` only matters for `.glb` inputs: `shapes.load_boxes` (`boxes_model`) validates against the
+  tool limit (4096 vertices) while loading, so a box JSON above it exits 2 before the flag is read. `export.export_models` and
+  `export.export_bmm` take `kernel_limits=True` (tested in `test_cli_build.py::test_export_kernel_limits_api`).

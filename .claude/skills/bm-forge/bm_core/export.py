@@ -89,7 +89,7 @@ def cover_section(image):
     return bytes(body)
 
 
-def models_cart(mesh, anim=None, title="", author="", width=320, height=180):
+def models_cart(mesh, anim=None, title="", author="", width=320, height=180, kernel_limits=False):
     """Build a models cartridge (MESH + optional ANIM, no game code).
 
     Args:
@@ -104,14 +104,14 @@ def models_cart(mesh, anim=None, title="", author="", width=320, height=180):
         Cart object, validated.
     """
     cart = C.new_cart(MODELS_LUA, width, height, title, author)
-    cart.set_mesh(mesh)
+    cart.set_mesh(mesh, kernel_limits=kernel_limits)
     if anim is not None and anim.rigs:
         cart.set_anim(anim)
-    C.validate(cart)
+    C.validate(cart, kernel_limits=kernel_limits)
     return cart
 
 
-def export_models(path, mesh, anim=None, title="", author=""):
+def export_models(path, mesh, anim=None, title="", author="", kernel_limits=False):
     """Export a models cartridge to .bm file.
 
     Args:
@@ -128,11 +128,11 @@ def export_models(path, mesh, anim=None, title="", author=""):
         ValidationError if path does not end .bm.
     """
     need(path.lower().endswith(".bm"), "path must end .bm", "path")
-    cart = models_cart(mesh, anim, title, author)
-    return C.write_file(path, cart)
+    cart = models_cart(mesh, anim, title, author, kernel_limits=kernel_limits)
+    return C.write_file(path, cart, kernel_limits=kernel_limits)
 
 
-def export_bmm(path, mesh, anim=None, title="", author=""):
+def export_bmm(path, mesh, anim=None, title="", author="", kernel_limits=False):
     """Export a BMRES model file (.bmm).
 
     Args:
@@ -152,15 +152,15 @@ def export_bmm(path, mesh, anim=None, title="", author=""):
     need(ext == ".bmm", "path must end .bmm", "path")
 
     # Build sections: MESH + optional ANIM
-    sections = [C.Section(S.MESH, meshmod.encode(mesh))]
+    sections = [C.Section(S.MESH, meshmod.encode(mesh, kernel_limits))]
     if anim is not None and anim.rigs:
         sections.append(C.Section(S.ANIM, animmod.encode(anim)))
 
     # Build BMRES cart with kind = RES_MODEL
     hd = C.Header(C.MAGIC_RES, 0, 0, C.RES_MODEL, 0, 0, title, author)
     cart = C.Cart(hd, sections)
-    C.validate(cart)
-    return C.write_file(path, cart)
+    C.validate(cart, kernel_limits=kernel_limits)
+    return C.write_file(path, cart, kernel_limits=kernel_limits)
 
 
 def export_cart(path, lua, mesh, anim=None, title="", author="", res=(320, 180), cover=None, draws=None, budget=None):
