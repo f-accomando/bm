@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: bm Pixel
+desc: The pixel art editor: the sprite sheet of a .bm.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: app, tool, pixel
+resolution: 640x360

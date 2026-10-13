@@ -51,8 +51,8 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 - Panel start (`rk_dsi_init`): reset low, supply on, 20 ms, reset released, 120 ms before
   the commands; no supply cut at boot, no power-mode readback. `rk_dsi_off(link_up)` runs
   before a restart.
-- Market and Games show `.b16`; `.bm` are visible for tests (`show_bm=0` hides them); the
-  Market downloads only `.b16`. Bar: only WiFi and battery.
+- Market and Games show `.b16`; `.bm` are visible in Games for tests (`show_bm=0` hides them); the
+  Market lists only `.b16` (`market_bm=1` adds the `.bm`). Games are sorted by title; tools from the Market are not games. Bar: only WiFi and battery.
 
 ### PC and QEMU
 - `bmhost` (`tests/host/bmhost.c`): the console's runtime with kernel services stubbed;

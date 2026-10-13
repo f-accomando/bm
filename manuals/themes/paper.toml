@@ -1,0 +1,54 @@
+# Theme A - Paper / Orange: warm cream page, one orange accent, boxes with a solid offset shadow.
+# A theme is only parameters: the content never names a colour, a font or a size.
+[meta]
+name = "paper"
+label = "A - Paper / Orange"
+
+[colors]
+page = "#F1EEE7"
+text = "#2A2823"
+muted = "#7A756B"
+heading = "#1E1D1A"
+accent = "#F26A21"
+accent_text = "#FFFFFF"
+accent_soft = "#FBE3D3"
+rule = "#CFC9BC"
+box_bg = "#F8F6F1"
+box_border = "#1E1D1A"
+shadow = "#F26A21"
+code_bg = "#E9E5DB"
+code_text = "#2A2823"
+cover_bg = "#F1EEE7"
+cover_text = "#1E1D1A"
+table_head_bg = "#1E1D1A"
+table_head_text = "#F8F6F1"
+table_stripe = "#EAE6DC"
+warn = "#B3261E"
+
+[fonts]
+body = "Helvetica"
+bold = "Helvetica-Bold"
+italic = "Helvetica-Oblique"
+mono = "Courier"
+mono_bold = "Courier-Bold"
+heading = "Helvetica-Bold"
+accent = "Courier-Bold"        # the highlighted word of a title
+
+[sizes]
+body = 10
+small = 8
+code = 8.5
+h1 = 26
+h2 = 15
+h3 = 11.5
+cover_title = 40
+cover_sub = 13
+
+[layout]
+margin_mm = 20
+box_pad = 9
+box_radius = 4
+shadow_offset = 4
+box_line = 1.2
+cover_style = "left"           # left | band
+header = false

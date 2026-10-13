@@ -231,7 +231,7 @@ zspr("hero_still", x, y, 1)                -- one precise frame
 ```
 
 `zone(name)` gives where it is and how big (for collisions), `zones()` all the names. Zones
-are also made with bm Pixel on the console and with `scripts/bmres.py`.
+are also made with the bake of bm Animator on the console (sprites and boxes from an animation) and with `scripts/bmres.py`; bm Pixel shows them (and their boxes) but does not make them.
 
 **Hitboxes and hurtboxes per frame.** Under a zone you write its boxes: `hurt` where the
 character can be hit, `hit` where its blow hurts, `body` the room it takes, with the frame
@@ -265,9 +265,9 @@ mset(cx, cy, 5)                                       -- changing a cell (doors,
 
 Without `--map` the map is 256×256 empty and is filled with `mset` (`msize(w, h)` gives it
 another size). A big map (Hunter's Night: 256×256 cells, 2048×2048 pixels) is better made
-by a script: see `carts/hunt/mkassets.py`, which writes `sheet.png` and `map.csv`. Or a
+by a script: see `carts/hunt/build/mkassets.py`, which writes `assets/sheet.png` and `assets/map.csv`. Or a
 script makes the first one and the SDK's map page retouches it by hand: Yharnam's layers
-(`carts/yharnam/mkmap.py`), 16×16 tiles placed with `z`. A layer the game never draws can
+(`carts/yharnam/build/mkmap.py`), 16×16 tiles placed with `z`. A layer the game never draws can
 hold placeholders, tiles that say where things go: Yharnam reads its `objects` layer with
 `mget` and builds a house, a tree or a lamp where each one is.
 

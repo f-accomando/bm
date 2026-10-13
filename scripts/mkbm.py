@@ -52,6 +52,29 @@ SEC_MESH, SEC_ANIM = bmmesh.SEC_MESH, bmmesh.SEC_ANIM
 SEC_SPRITES, SEC_LAYERS, SEC_FLAGS, SEC_BOXES = 11, 12, 13, 14
 
 
+SEC_INFO = 10
+INFO_MAX = 16 * 1024
+RESOLUTIONS = ["640x360", "480x270", "320x180", "256x256", "360x360", "720x720"]
+
+
+def read_info(path):
+    """bm.info: (the INFO section text, UTF-8 <= 16 KiB; its top-level keys)."""
+    text = "".join(ln for ln in open(path, encoding="utf-8").read().splitlines(True)
+                   if not ln.lstrip().startswith("#"))       # comments stay in the file
+    raw = text.encode("utf-8")
+    if len(raw) > INFO_MAX:
+        raise SystemExit(f"{path}: INFO over {INFO_MAX} bytes")
+    keys = {}
+    for line in text.split("\n"):
+        s = line.strip()
+        if s.startswith("["):
+            break                       # the blocks of the parts start here
+        k, sep, v = s.partition(":")
+        if sep and not s.startswith("#"):
+            keys[k.strip()] = v.strip()
+    return raw, keys
+
+
 def read_png(path, data=None):
     if data is None:
         data = open(path, "rb").read()
@@ -504,8 +527,20 @@ def main():
     ap.add_argument("--uv-inset", type=float, help="texture inset of the models, sheet pixels (default 0.25)")
     ap.add_argument("--title", default="")
     ap.add_argument("--author", default="")
-    ap.add_argument("--res", default=None, choices=["640x360", "480x270", "320x180", "256x256", "360x360", "720x720"])
+    ap.add_argument("--info", help="bm.info of the project (INFO section, docs/PROJECT-LAYOUT.md): "
+                                   "key: value lines; name, author and resolution are the defaults of "
+                                   "--title, --author and --res")
+    ap.add_argument("--res", default=None, choices=RESOLUTIONS)
     a = ap.parse_args()
+    info_body, info = read_info(a.info) if a.info else (None, None)
+    if info is not None:
+        if a.src and not a.lua:
+            ap.error("--info goes with --lua, not with --from")
+        a.title = a.title or info.get("name", "")
+        a.author = a.author or info.get("author", "")
+        a.res = a.res or info.get("resolution")
+        if a.res and a.res not in RESOLUTIONS:
+            ap.error(f"{a.info}: resolution {a.res} is not one of {', '.join(RESOLUTIONS)}")
     a.res_set = a.res is not None
     if not a.res:
         a.res = "360x360" if a.b16 else "640x360"
@@ -525,6 +560,8 @@ def main():
         cover = make_cover(read_png(a.cover)) if a.cover else None
         audio = bmaudio.load(a.audio) if a.audio else None
         mesh, extra = None, []
+        if info is not None:
+            extra.append((SEC_INFO, info_body))
         if a.models and a.models.endswith(".bm"):
             secs = dict(bmmesh.cart_sections(open(a.models, "rb").read()))
             if SEC_MESH not in secs:

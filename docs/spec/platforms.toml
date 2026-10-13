@@ -1,0 +1,61 @@
+# The two platforms and the capabilities in which they REALLY differ (docs/spec/CONSISTENCY.md). A difference between
+# the kernels is accepted only when it comes from one of these capabilities; everything else is in divergences.toml
+# and must be gone before 1.0.0. Facts from docs/progress/platforms.md, docs/RGB30.md, docs/progress/system.md.
+
+[platform.pi-zero-w]
+kernel = "kernel.img (kernel7.img for the Zero 2 W, switched off)"
+cpu = "ARM1176JZF-S"
+screen = "HDMI, 16:9 (menu 640x360), cartridges 640x360 / 480x270 / 320x180 and the square ones boxed"
+input = "USB and Bluetooth keyboard, mouse and pads (up to 4 players)"
+gpu = "VideoCore IV (V3D): draws the 3D"
+audio = "HDMI only, stereo"
+storage = "SD: games in /carts (and /), data in /bm"
+network = "BCM43438 WiFi (Zero W); Ethernet on the Pi 1"
+battery = "none"
+
+[platform.rgb30]
+kernel = "kernel8.img (TARGET=rgb30)"
+cpu = "RK3566, Cortex-A55 (one core used)"
+screen = "square 720x720 DSI panel (menu 360x360 shown twice as big)"
+input = "built-in pad (18 buttons, 2 sticks) plus Bluetooth; no USB host; no on-screen keyboard yet"
+gpu = "Mali-G52 present, the 3D is drawn by the ARM"
+audio = "I2S codec: speaker or headphones, hardware volume keys"
+storage = "SD: everything in /bm"
+network = "RTL8821CS WiFi 2.4 GHz, open and WPA2-PSK; no Ethernet"
+battery = "yes: icon, low-battery overlay, LED"
+
+[[capability]]
+id = "square-panel"
+what = "the RGB30's screen is square 720x720; the Pi's is a 16:9 TV"
+
+[[capability]]
+id = "pad-only"
+what = "the RGB30 has only its pad: confirm is B and back is A (confirm=a swaps), buttons are the letters printed on it"
+
+[[capability]]
+id = "no-keyboard"
+what = "no USB host and no on-screen keyboard on the RGB30: keys such as F11, F12, Ctrl+Esc exist only with a Bluetooth keyboard"
+
+[[capability]]
+id = "storage-path"
+what = "the RGB30 keeps games and data in /bm, the Pi games in /carts and data in /bm"
+
+[[capability]]
+id = "no-3d-gpu-yet"
+what = "the RGB30's Mali driver does not draw 3D yet: the ARM does (lifted by the Mali milestone)"
+
+[[capability]]
+id = "audio-codec"
+what = "HDMI audio on the Pi, an I2S codec on the RGB30"
+
+[[capability]]
+id = "battery"
+what = "only the RGB30 has a battery"
+
+[[capability]]
+id = "wifi-chip"
+what = "different WiFi chips and no Ethernet on the RGB30"
+
+[[capability]]
+id = "board-boot"
+what = "different boot chains and update manifests"

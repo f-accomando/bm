@@ -281,7 +281,9 @@ are plugged in the console switches to them by itself, and the headphones are mo
 
 For testing (user decision, 2026-10-03: "for the time being") the Games tab lists the
 `.bm` cartridges in `bm/` and **launches** them, without settings; `show_bm=0` in `bm/config.txt`
-hides them. The runtime is the Pi's (`src/bm`), the same code compiled for
+hides them. The **Market** lists only the `.b16` games (user decision, 2026-10-05); `market_bm=1` adds the `.bm`
+cartridges there (its own key, since 2026-10-13: `show_bm` is only the Games tab; `show_bm=1` alone still adds them to the Market, as before). A tool
+installed from Market > Apps (`sdk_b16.b16`...) is not a game: it stays out of the Games tab, as on the Pi. The runtime is the Pi's (`src/bm`), the same code compiled for
 64 bit; what the Pi has and this does not is replaced by `src/rgb30/bm_port.c` (3D drawn
 by the ARM, no DMA) and `src/rgb30/bm_input.c` (the controls); the sound is the Pi's (above), and so is
 `nnet()` (`src/ai/net.c`, Overbit's bots: the same integers as the Pi, a lockstep need). In the SD image there is

@@ -3221,8 +3221,8 @@ static void etc1_diagnose(const g16_t *pg)
         for (int k = 0; k < 16; k++) {
             const uint16_t got = G.probe[(col ? 4 * k + 1 : 1) * PROBE_W + (col ? 1 : 4 * k + 1)];
             const uint32_t r = got >> 11, g = got >> 5 & 63, r8 = r << 3 | r >> 2, g8 = g << 2 | g >> 4;
-            n += ksnprintf(line + n, sizeof line - (size_t)n, " %x%x", (r8 + 6) / 17 > 15 ? 15 : (r8 + 6) / 17,
-                           (g8 + 6) / 17 > 15 ? 15 : (g8 + 6) / 17);
+            n += ksnprintf(line + n, sizeof line - (size_t)n, " %x%x", (unsigned)((r8 + 6) / 17 > 15 ? 15 : (r8 + 6) / 17),
+                           (unsigned)((g8 + 6) / 17 > 15 ? 15 : (g8 + 6) / 17));
         }
         plog(line);
     }

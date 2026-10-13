@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: Chaos Kitchen
+desc: A cooperative cooking game for 1-4 players on one screen.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: game, coop, 4-players
+resolution: 640x360

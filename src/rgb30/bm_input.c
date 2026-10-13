@@ -14,6 +14,8 @@
 #include "kernel/input.h"
 #include "usb/hid.h"
 #include "net/netcon.h"
+#include "net/net.h"
+#include "bt/bt.h"
 #include "plat.h"
 #include "pad.h"
 #include "drivers/timer.h"
@@ -85,6 +87,9 @@ static uint32_t prev_held;
 uint32_t input_players(uint32_t out[INPUT_PLAYERS], int text, int *quit, int *local)
 {
     (void)text;
+    bt_poll();                              /* a Bluetooth pad, keyboard or mouse, and the network, polled in the games */
+    net_poll();                             /* as on the Pi (kernel/input.c): before, only the menu did it */
+    *quit |= hid_quit_pressed();            /* the PS button, Ctrl+Esc and Esc of a Bluetooth pad or keyboard */
     const uint32_t own = plat_buttons();
     volume_keys(own, 0);                    /* + and -: the volume, in the games too */
     uint32_t held = to_hid(own) | hid_buttons();

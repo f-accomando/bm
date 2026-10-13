@@ -35,6 +35,7 @@
 #include "wifi/wifi.h"
 #include "net/net.h"
 #include "net/wifi_auto.h"
+#include "bt/bt.h"
 #include "ui.h"
 #include "battery.h"
 #include "pad.h"
@@ -329,6 +330,8 @@ void kernel_main(uintptr_t dtb)
     save_bootlog(1);
     booting = 0;
     wifi_boot();
+    if (bt_paired() && bt_start() != 0)     /* a paired pad, keyboard or mouse comes back by itself, as on the Pi */
+        kprintf("bt: not started: a paired pad will not reconnect (Settings > Controllers starts it)\n");
     bm_set_notice(notice_now);              /* the games show a kernel arriving */
     bm_set_battery(battery_state);          /* battery(), and its icon over them when low */
     bm_permissions(1);                      /* a game's network and reports: the player says */

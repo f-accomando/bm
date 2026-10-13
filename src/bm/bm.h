@@ -5,17 +5,20 @@
  *                made before the project was renamed: still read)
  *   8   u16      version (1)
  *   10  u16      header size (128)
- *   12  u16      width  (640, 480, 320, 256 or 360)
- *   14  u16      height (360, 270, 180, 256 or 360: 640x360, 480x270, 320x180, 256x256, 360x360;
- *                a square one is shown in the middle of a 480x270 screen (256x256)
- *                or a 640x360 one (360x360, the .b16's)
+ *   12  u16      width  (640, 480, 320, 256, 360 or 720)
+ *   14  u16      height (360, 270, 180, 256, 360 or 720: 640x360, 480x270, 320x180, 256x256, 360x360, 720x720;
+ *                a square one is shown in the middle of a 480x270 screen (256x256),
+ *                a 640x360 one (360x360, the .b16's) or a 1280x720 one (720x720); whole on a square panel)
  *   16  u8       pixel format (1 = RGB565; 2 = XRGB8888, reserved)
  *   17  u8       section count
- *   18  u16      reserved (0)
+ *   18  u16      flags: bit 0 a project (.bme), bit 1 a .b16 edition (src/bm/project.h); the other bits
+ *                are kept as they are by every writer. Nothing reads them: the kind is told by the file's
+ *                extension
  *   20  u32      CRC-32 of everything after the header
  *   24  char[48] title
  *   72  char[32] author
- *   104 ...      reserved (0) up to 128
+ *   104 char[16] built from: the 8.3 name of the project a game was built from (src/bm/project.h); 0 if none
+ *   120 ...      reserved (0) up to 128
  *   128 section table: count x { u32 type, u32 offset, u32 size, u32 reserved }
  *
  * Section types:
@@ -23,7 +26,7 @@
  *   2 SHEET  u16 w, u16 h, then w*h RGBA8888 pixels (alpha < 128 = transparent)
  *   3 MAP    u16 w, u16 h, then w*h u16 cells (sprite index, 0 = empty)
  *   4 COVER  u16 w, u16 h, then w*h RGBA8888: the picture printed on the
- *            cartridge in the menu (mkbm.py makes it 128x80); first in the
+ *            cartridge in the menu (mkbm.py makes it 88x88); first in the
  *            file, so the menu can read it without the rest
  *   5 SHEET8 the sheet with at most 256 colours, much smaller for big
  *            sprites: u16 w, u16 h, u16 colours (1..256), u16 reserved (0),
@@ -132,6 +135,13 @@
  */
 #ifndef BM_H
 #define BM_H
+
+/* The revision of the specification this kernel implements (docs/spec/specs.toml): it grows when a format, the API,
+ * the system keys or the config keys gain something a cartridge can depend on. A cartridge says what it needs with
+ * the INFO key "spec: N" (bm.info); an older kernel then refuses it with a message instead of failing half way.
+ * Revision 1: everything of 2026-10-11 (container v1, sections 1-14, resource files, projects, the .b16 marker).
+ * Revision 2 (2026-10-13): 720x720 cartridges, shot(), the INFO key "spec", tool names reserved against games. */
+#define BM_SPEC_REV 2
 
 #include <stddef.h>
 #include <stdint.h>
@@ -342,7 +352,7 @@ int bm_is_cart(const void *head8);
  * section of `old` copied as it is (sheet, map, cover, and the sections this
  * kernel does not know, in their order). old == NULL: a new cartridge with
  * only the code. `width` is the resolution: 320 (320x180), 256 (256x256),
- * 360 (360x360), anything else 640x360. `old` must have passed bm_parse. Returns a malloc'd file
+ * 360 (360x360), 480 (480x270), 720 (720x720), anything else 640x360. `old` must have passed bm_parse. Returns a malloc'd file
  * (*outlen bytes; the caller frees it), or NULL without memory. */
 uint8_t *bm_rewrite(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
                     const char *title, const char *author, int width, size_t *outlen);

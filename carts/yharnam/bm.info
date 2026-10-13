@@ -1,0 +1,8 @@
+# bm.info: see docs/PROJECT-LAYOUT.md
+name: Yharnam
+desc: An endless gothic town at night, seen from above.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: game, action
+resolution: 360x360

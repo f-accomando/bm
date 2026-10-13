@@ -1,0 +1,53 @@
+# Theme C - Blueprint: white page, deep blue, restrained like a datasheet; serif headings.
+[meta]
+name = "blueprint"
+label = "C - Blueprint / Datasheet"
+
+[colors]
+page = "#FFFFFF"
+text = "#1F2933"
+muted = "#6B7785"
+heading = "#0B3D91"
+accent = "#0B3D91"
+accent_text = "#FFFFFF"
+accent_soft = "#E3ECFA"
+rule = "#B8C4D6"
+box_bg = "#F3F6FB"
+box_border = "#0B3D91"
+shadow = "#FFFFFF"
+code_bg = "#F1F3F6"
+code_text = "#1F2933"
+cover_bg = "#FFFFFF"
+cover_text = "#0B3D91"
+table_head_bg = "#0B3D91"
+table_head_text = "#FFFFFF"
+table_stripe = "#F3F6FB"
+warn = "#B3261E"
+
+[fonts]
+body = "Helvetica"
+bold = "Helvetica-Bold"
+italic = "Helvetica-Oblique"
+mono = "Courier"
+mono_bold = "Courier-Bold"
+heading = "Times-Bold"
+accent = "Times-BoldItalic"
+
+[sizes]
+body = 10
+small = 8
+code = 8.5
+h1 = 27
+h2 = 16
+h3 = 12
+cover_title = 42
+cover_sub = 14
+
+[layout]
+margin_mm = 22
+box_pad = 9
+box_radius = 0
+shadow_offset = 0
+box_line = 0.8
+cover_style = "left"
+header = true

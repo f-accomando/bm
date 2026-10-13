@@ -1,0 +1,10 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in. name, author and resolution are also the
+# defaults of mkbm.py's --title, --author and --res.
+name: Pong
+desc: Two paddles and a ball, for one or two players.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: game, arcade, 2-players
+resolution: 640x360

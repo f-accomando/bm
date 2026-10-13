@@ -13,6 +13,7 @@ local W, H = T.W, T.H
 local HINT_Y, FPS = T.HINT_Y, T.FPS
 local floor, abs, sqrt, max, min, pi = math.floor, math.abs, math.sqrt, math.max, math.min, math.pi
 local sin, cos = math.sin, math.cos
+local spack, sunpack = string.pack, string.unpack
 local clamp, round = T.clamp, T.round
 local M, say = T.M, T.say
 local U = T.U                                    -- the mouse (bmui)
@@ -1438,7 +1439,7 @@ local function register_zone_boxes(zn, zx, zy, zw, zh, zframes, zfps, bxs)
   zlist[#zlist + 1] = { name = zn, x = zx, y = zy, w = zw, h = zh, frames = zframes, fps = zfps }
   local zparts = { spack("<I2I2", #zlist, 0) }
   for _, z in ipairs(zlist) do
-    zparts[#zparts + 1] = spack("<c16I2I2I2I2BBx2", z.name, z.x, z.y, z.w, z.h, z.frames, z.fps)
+    zparts[#zparts + 1] = spack("<c16I2I2I2I2BBxx", z.name, z.x, z.y, z.w, z.h, z.frames, z.fps)
   end
   cart_data(11, table.concat(zparts))
 
@@ -1462,7 +1463,7 @@ local function register_zone_boxes(zn, zx, zy, zw, zh, zframes, zfps, bxs)
   if #blist > 0 then
     local bparts = { spack("<I2I2", #blist, 0) }
     for _, b in ipairs(blist) do
-      bparts[#bparts + 1] = spack("<c16BBi2i2I2I2x2", b.zone, b.frame, b.kind, b.x, b.y, b.w, b.h)
+      bparts[#bparts + 1] = spack("<c16BBi2i2I2I2xx", b.zone, b.frame, b.kind, b.x, b.y, b.w, b.h)
     end
     cart_data(14, table.concat(bparts))
   end

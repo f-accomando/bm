@@ -33,6 +33,7 @@
 #include "lib/printf.h"
 #include "script/luavm.h"
 #include "bt/bt.h"
+#include "usb/hid.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
 #include "net/wifi_auto.h"
@@ -48,6 +49,7 @@
 #include "kernel/reports.h"
 #include "kernel/syskeys.h"
 #include "kernel/carts.h"
+#include "kernel/toolnames.h"
 #include "kernel/devtool.h"
 #include "audio/audio.h"
 #include "kernel/market.h"
@@ -177,12 +179,13 @@ static void frame_end(void)
 
 /* --- games on the SD card --- */
 
-static struct {
+struct game {
     char name[56], title[48], author[33], save[32];     /* save: its save file, as the runtime names it */
     uint32_t size;
     int is_bm;
     g16_sheet_t cover;              /* 128x80: the .bm's COVER, or its title on a label */
-} games[MAX_GAMES];
+};
+static struct game games[MAX_GAMES];
 static int n_games, n_hidden;      /* n_hidden: .bm hidden by show_bm=0 */
 static const char *sd_state = "not read";
 
@@ -227,6 +230,12 @@ static void load_cover(int i)
         menu_make_cover(&games[i].cover, games[i].title, games[i].is_bm ? "bm" : "b16");
 }
 
+/* the games by title, as on the Pi (carts.c title_cmp) */
+static int title_cmp(const void *a, const void *b)
+{
+    return strcasecmp(((const struct game *)a)->title, ((const struct game *)b)->title);
+}
+
 static void scan_games(void)
 {
     for (int i = 0; i < n_games; i++)
@@ -249,6 +258,8 @@ static void scan_games(void)
             continue;
         int is_b16 = strcasecmp(dot, ".b16") == 0;
         int is_bm = strcasecmp(dot, ".bm") == 0;
+        if (bm_tool_id_of_file(e.name))
+            continue;               /* a tool installed from Market > Apps (the SDK): Dev, not Games (as on the Pi) */
         if (is_bm && !show_bm)
             n_hidden++;
         if (!is_b16 && !(is_bm && show_bm))
@@ -260,6 +271,7 @@ static void scan_games(void)
     }
     for (int i = 0; i < n_games; i++)
         load_cover(i);
+    qsort(games, (size_t)n_games, sizeof games[0], title_cmp);
 }
 
 /* what the Market asks of the games on the card (carts.h, as carts.c on the
@@ -325,6 +337,22 @@ static char susp_name[48];                         /* the frozen game's file in 
 static int is_suspended(const char *name)
 {
     return susp_name[0] && strcmp(susp_name, name) == 0 && bm_suspended(NULL, 0);
+}
+
+/* another game is frozen in memory: starting this one would lose it, so the menu asks first (as on the Pi) */
+static int need_switch(const char *name)
+{
+    return bm_suspended(NULL, 0) && !is_suspended(name);
+}
+
+/* the words of that question */
+static void switch_question(char *q, size_t qn, char *d, size_t dn, char *y, size_t yn)
+{
+    char t[49];
+    bm_suspended(t, sizeof t);
+    ksnprintf(q, qn, "Close %s?", t);
+    ksnprintf(d, dn, "It is suspended: what was not saved is lost.");
+    ksnprintf(y, yn, "Close it");
 }
 
 /* the reads and the CRC of a big game: the loading screen goes on */
@@ -640,7 +668,7 @@ static const char *const tab_names[] = { "Market", "Games", "Dev" };
 
 /* the questions over the menu: a row of Settings, a download of the
  * Market, a row of a Market game's details, a game a nearby console sends */
-enum { ASK_NONE, ASK_ROW, ASK_MARKET, ASK_MOPT, ASK_GOPT, ASK_OFFER };
+enum { ASK_NONE, ASK_ROW, ASK_MARKET, ASK_MOPT, ASK_GOPT, ASK_OFFER, ASK_SWITCH };
 
 /* the menu's screen again after a page; if it cannot be had, the console
  * says why and a button tries again */
@@ -700,7 +728,7 @@ static void play_market(int i, char *note, size_t n)
 
 /* --- a game's options (X on its cover; the Pi's C): its panel over the covers --- */
 
-enum { G_PLAY = 100, G_SDK, G_BUILD_B16, G_TYPE, G_SIZE, G_AUTHOR, G_SAVE, G_DEL_SAVE, G_DELETE };
+enum { G_PLAY = 100, G_SDK, G_BUILD_B16, G_TYPE, G_SIZE, G_AUTHOR, G_SAVE, G_DEL_SAVE, G_DELETE, G_CLOSE };
 
 /* the save slots of game `i`: bytes in all, -1 if none */
 static long game_save_bytes(int i, int *slots)
@@ -723,7 +751,12 @@ static void game_panel(int i, home_panel_t *p)
 {
     memset(p, 0, sizeof *p);
     ksnprintf(p->title, sizeof p->title, "%s", games[i].title);
-    home_row(p, MENU_ROW_ACTION, G_PLAY, "Play", "Start the game", NULL);
+    const int frozen = is_suspended(games[i].name);
+    home_row(p, MENU_ROW_ACTION, G_PLAY, frozen ? "Resume" : "Play",
+             frozen ? "Back to the point where the game was left" : "Start the game", NULL);
+    if (frozen)
+        home_row(p, MENU_ROW_ACTION, G_CLOSE, "Close the game",
+                 "Ends the suspended game: what was not saved is lost", NULL);
     home_row(p, MENU_ROW_ACTION, G_SDK, "Open in bm SDK", "Saving it makes its editable copy", NULL);
     if (games[i].is_bm)
         home_row(p, MENU_ROW_ACTION, G_BUILD_B16, "Export .b16",
@@ -750,6 +783,12 @@ static void game_act(int i, int row, int how, home_do_t *d, int *gone)
 {
     memset(d, 0, sizeof *d);
     d->what = HOME_STAY;
+    if (row == G_CLOSE) {
+        bm_close_suspended();
+        susp_name[0] = 0;
+        ksnprintf(d->note, sizeof d->note, "closed %s", games[i].name);
+        return;
+    }
     if (row == G_BUILD_B16) {
         char path[80], to[96], err[64];
         ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
@@ -776,6 +815,14 @@ static void game_act(int i, int row, int how, home_do_t *d, int *gone)
         int err = 0;
         if (file) {
             ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
+            if (netxfer_updating(path)) {          /* a file from the PC on its way: not now (as on the Pi) */
+                ksnprintf(d->note, sizeof d->note, "Updating, wait for the end of the download");
+                return;
+            }
+            if (is_suspended(games[i].name)) {      /* the frozen copy of it goes too */
+                bm_close_suspended();
+                susp_name[0] = 0;
+            }
             err = fat_delete(path) != 0;
             *gone = !err;
         } else {
@@ -869,7 +916,7 @@ void ui_home(framebuffer_t *f)
     /* Settings: its panels, as on the Pi (settings.c), one over the other */
     static home_panel_t pb;
     struct { int id, sel, top; } stack[DEPTH_MAX];
-    int depth = 0, built = -1, frame = 0, ask_row = 0, asking = ASK_NONE;
+    int depth = 0, built = -1, frame = 0, ask_row = 0, asking = ASK_NONE, ask_switch = -1;
     char ask_q[64] = "", ask_d[64] = "", ask_y[16] = "";
     char details[64] = "", note[96] = "";
     for (;;) {
@@ -933,7 +980,8 @@ void ui_home(framebuffer_t *f)
                 const int up = netxfer_updating(gp);        /* a file from the PC on its way */
                 items[i] = (menu_item_t){ .title = games[i].title, .kind = games[i].is_bm ? "bm" : "b16",
                                           .size = games[i].size, .cover = &games[i].cover, .path = games[i].name,
-                                          .badge = !up ? NULL : up == NETXFER_QUEUED ? "Queued" : "Updating" };
+                                          .badge = !up ? NULL : up == NETXFER_QUEUED ? "Queued" : "Updating",
+                                          .running = is_suspended(games[i].name) };
             } else {
                 items[i] = (menu_item_t){ .title = dev_items[i].name, .kind = "tool", .cover = &dev_covers[i] };
             }
@@ -1033,6 +1081,14 @@ void ui_home(framebuffer_t *f)
             netxfer_write_tick(timer_ticks() + 2000);
 
         uint32_t p = pad_pressed();
+        if (hid_quit_pressed() & HID_QUIT_PS) {
+            /* the PS button or Ctrl+Esc of a Bluetooth pad or keyboard: home, the Games tab (as on the Pi) */
+            tab = TAB_GAMES;
+            mopt = -1;
+            gopt = -1;
+            asking = ASK_NONE;
+            continue;
+        }
         if (pad_serial_char() == '`') {
             run_page(serial_lua);
             continue;
@@ -1066,6 +1122,10 @@ void ui_home(framebuffer_t *f)
                     scan_games();
                     market_carts_changed();
                 }
+            } else if ((p & pad_ok) && kind == ASK_SWITCH && ask_switch >= 0) {
+                play_index = ask_switch;            /* the frozen game is closed by starting this one */
+                ask_switch = -1;
+                run_page(play_selected);
             } else if (kind == ASK_OFFER && (p & (pad_ok | pad_back))) {
                 market_offer_answer((p & pad_ok) != 0);
             }
@@ -1094,6 +1154,10 @@ void ui_home(framebuffer_t *f)
                     } else if (row == G_SDK) {
                         sdk_open = gp;              /* the SDK on the game: its project next to it */
                         run_page(page_sdk);
+                    } else if (row == G_PLAY && need_switch(games[g].name)) {
+                        ask_switch = g;
+                        asking = ASK_SWITCH;
+                        switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
                     } else {
                         play_index = g;
                         run_page(play_selected);
@@ -1128,7 +1192,14 @@ void ui_home(framebuffer_t *f)
                 const int row = mpb.ids[mopt_sel], game = mopt;
                 if (row == M_PLAY) {
                     mopt = -1;
-                    play_market(game, note, sizeof note);
+                    const int mg = game_of_path(market_path(game));
+                    if (mg >= 0 && need_switch(games[mg].name)) {
+                        ask_switch = mg;
+                        asking = ASK_SWITCH;
+                        switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
+                    } else {
+                        play_market(game, note, sizeof note);
+                    }
                 } else {
                     home_do_t md;
                     market_act(game, row, 0, &md);
@@ -1198,7 +1269,14 @@ void ui_home(framebuffer_t *f)
                     asking = ASK_MARKET;
                     ask_game = *s;
                 } else if ((p & pad_ok) && a == MARKET_PLAY) {
-                    play_market(*s, note, sizeof note);
+                    const int mg = game_of_path(market_path(*s));
+                    if (mg >= 0 && need_switch(games[mg].name)) {
+                        ask_switch = mg;
+                        asking = ASK_SWITCH;
+                        switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
+                    } else {
+                        play_market(*s, note, sizeof note);
+                    }
                 }
             } else if ((p & PAD_X) && shown == TAB_GAMES && n > 0) {
                 gopt = *s;                      /* X: the game's options (the Pi's C) */
@@ -1209,6 +1287,10 @@ void ui_home(framebuffer_t *f)
                     ksnprintf(gp, sizeof gp, "/bm/%s", games[*s].name);
                 if (shown == TAB_GAMES && netxfer_updating(gp)) {
                     ksnprintf(note, sizeof note, "Updating, wait for the end of the download");
+                } else if (shown == TAB_GAMES && need_switch(games[*s].name)) {
+                    ask_switch = *s;
+                    asking = ASK_SWITCH;
+                    switch_question(ask_q, sizeof ask_q, ask_d, sizeof ask_d, ask_y, sizeof ask_y);
                 } else if (shown == TAB_GAMES) {
                     play_index = *s;
                     run_page(play_selected);

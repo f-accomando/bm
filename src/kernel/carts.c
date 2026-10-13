@@ -4,6 +4,7 @@
 #include "carts.h"
 #include "crumbs.h"
 #include "devtool.h"
+#include "toolnames.h"
 #include "home.h"
 #include "syskeys.h"
 #include "market.h"
@@ -398,25 +399,7 @@ static const char *tool_id_of(const cart_t *c)
         if (c->builtin == bm_code_cart) return "code";
         return NULL;
     }
-    if (same_text(c->name, "sdk.bm") || same_text(c->name, "editor.bm") ||
-        same_text(c->name, "sdk.b16") || same_text(c->name, "sdk_b16.b16"))
-        return "sdk";
-    if (same_text(c->name, "sound.bm") || same_text(c->name, "sound.b16"))
-        return "sound";
-    if (same_text(c->name, "studio.bm") || same_text(c->name, "studio.b16"))
-        return "studio";
-    if (same_text(c->name, "animator.bm") || same_text(c->name, "animator.b16"))
-        return "animator";
-    if (same_text(c->name, "mesh.bm") || same_text(c->name, "mesh.b16"))
-        return "mesh";
-    if (same_text(c->name, "pixel.bm") || same_text(c->name, "pixel.b16"))
-        return "pixel";
-    if (same_text(c->name, "code.bm") || same_text(c->name, "code.b16"))
-        return "code";
-    if (same_text(c->name, "assistant.bm") || same_text(c->name, "assistan.bm") ||
-        same_text(c->name, "assistant.b16") || same_text(c->name, "assistan.b16"))
-        return "assistant";
-    return NULL;
+    return bm_tool_id_of_file(c->name);
 }
 
 static int has_sd_tool(const char *tid)
@@ -446,17 +429,17 @@ static void rescan(void)
     nsd = ncarts;
     /* the tools always come last (up from the first cartridge); skipped if
      * already installed on the SD card from Market > Apps or if CLEAN_KERNEL=1 */
-    if (ncarts < MAX_CARTS && bm_editor_cart_end > bm_editor_cart && !has_sd_tool("sdk"))
+    if (ncarts < MAX_CARTS && &bm_editor_cart_end[0] > &bm_editor_cart[0] && !has_sd_tool("sdk"))
         add_builtin("editor (built-in)", bm_editor_cart, bm_editor_cart_end);
-    if (ncarts < MAX_CARTS && bm_sound_cart_end > bm_sound_cart && !has_sd_tool("sound"))
+    if (ncarts < MAX_CARTS && &bm_sound_cart_end[0] > &bm_sound_cart[0] && !has_sd_tool("sound"))
         add_builtin("sound (built-in)", bm_sound_cart, bm_sound_cart_end);
-    if (ncarts < MAX_CARTS && bm_studio_cart_end > bm_studio_cart && !has_sd_tool("studio"))
+    if (ncarts < MAX_CARTS && &bm_studio_cart_end[0] > &bm_studio_cart[0] && !has_sd_tool("studio"))
         add_builtin("studio (built-in)", bm_studio_cart, bm_studio_cart_end);
-    if (ncarts < MAX_CARTS && bm_animator_cart_end > bm_animator_cart && !has_sd_tool("animator"))
+    if (ncarts < MAX_CARTS && &bm_animator_cart_end[0] > &bm_animator_cart[0] && !has_sd_tool("animator"))
         add_builtin("animator (built-in)", bm_animator_cart, bm_animator_cart_end);
-    if (ncarts < MAX_CARTS && bm_mesh_cart_end > bm_mesh_cart && !has_sd_tool("mesh"))
+    if (ncarts < MAX_CARTS && &bm_mesh_cart_end[0] > &bm_mesh_cart[0] && !has_sd_tool("mesh"))
         add_builtin("mesh (built-in)", bm_mesh_cart, bm_mesh_cart_end);
-    if (ncarts < MAX_CARTS && bm_pixel_cart_end > bm_pixel_cart && !has_sd_tool("pixel"))
+    if (ncarts < MAX_CARTS && &bm_pixel_cart_end[0] > &bm_pixel_cart[0] && !has_sd_tool("pixel"))
         add_builtin("pixel (built-in)", bm_pixel_cart, bm_pixel_cart_end);
     for (int i = 0; i < ncarts; i++) {
         cart_t *c = &carts[i];

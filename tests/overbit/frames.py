@@ -154,7 +154,7 @@ def cart(cfg, shim, headless, secs, res=None):
         d += ["--define", f'OVERBIT_RES="{res}"']
     if headless:
         d += ["--define", "OVERBIT_HEADLESS=true"]
-    sh([sys.executable, os.path.join(TOP, "carts/overbit/build.py"), lua, "--start", "bench",
+    sh([sys.executable, os.path.join(TOP, "carts/overbit/build/build.py"), lua, "--start", "bench",
         "--extra", os.path.join(TOP, "build/overbit/21_map.lua")] + d, cwd=TOP)
     sh([sys.executable, os.path.join(TOP, "scripts/mkbm.py"), "-o", bm, "--lua", lua, "--title", "Overbit bench",
         "--author", "bm", "--res", "480x270", "--models", os.path.join(TOP, "build/overbit/models.bm"),

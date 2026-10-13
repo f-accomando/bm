@@ -111,10 +111,10 @@ check FILE [FILE ...] [--kernel-limits] [--budget N] [--draw NAME=COUNT ...] [--
   "drift": [[rel, old, new]]}}`.
 
 ```
-python .claude/skills/bm-forge/scripts/bm_forge.py check carts/village/models.bm --budget 2000 --no-sync --json
+python .claude/skills/bm-forge/scripts/bm_forge.py check carts/village/assets/models.bm --budget 2000 --no-sync --json
 ```
 
-(`carts/village/models.bm` is at the repo root; run from there.)
+(`carts/village/assets/models.bm` is at the repo root; run from there.)
 
 ## preview
 

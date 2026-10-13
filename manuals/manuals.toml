@@ -1,0 +1,89 @@
+# The manuals: one entry each. `sources` are the files of the repository the content comes from;
+# `scripts/manuals.py status` says when one of them changed after the manual was last stamped.
+# Content: manuals/content/<lang>/<id>.md, lang en and it, same structure (docs/MANUALS.md).
+
+[[manual]]
+id = "install-sd"
+order = 1
+sources = ["easy_install.sh", "scripts/mksd.py", "scripts/copy-sd-rgb30.sh", "docs/RGB30.md", "docs/progress/platforms.md"]
+
+[[manual]]
+id = "boot-os"
+order = 2
+sources = ["docs/progress/system.md", "boot", "chainloader", "src/kernel/syskeys.c", "docs/HARDWARE.md"]
+
+[[manual]]
+id = "pi-zero-w"
+order = 3
+sources = ["docs/HARDWARE.md", "docs/DRIVERS.md", "docs/PERFORMANCE.md", "docs/BENCH3D.md", "docs/progress/v3d.md",
+           "docs/progress/graphics.md"]
+
+[[manual]]
+id = "riff"
+order = 4
+sources = ["docs/RIFF.md", "docs/api/riff.md", "docs/api/sound.md"]
+
+[[manual]]
+id = "api-core"
+order = 5
+sources = ["docs/API.md", "docs/api/draw.md", "docs/api/input.md", "docs/api/system.md", "docs/GAME-GUIDE.md"]
+
+[[manual]]
+id = "api-sound"
+order = 6
+sources = ["docs/api/sound.md", "docs/api/riff.md"]
+
+[[manual]]
+id = "api-3d"
+order = 7
+sources = ["docs/api/light3d.md", "docs/BENCH3D.md"]
+
+[[manual]]
+id = "api-lib"
+order = 8
+sources = ["docs/api/bmlib.md", "docs/api/bmnet.md", "docs/design/games-architecture.md"]
+
+[[manual]]
+id = "api-tools"
+order = 9
+sources = ["docs/api/tools.md", "docs/RISORSE.md", "docs/PROJECT-LAYOUT.md", "docs/SCREENSHOTS.md"]
+
+[[manual]]
+id = "editor-sdk"
+order = 10
+sources = ["carts/editor/main.lua", "docs/design/suite-sdk.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+
+[[manual]]
+id = "editor-code"
+order = 11
+sources = ["carts/code/main.lua", "docs/design/suite-code.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+
+[[manual]]
+id = "editor-pixel"
+order = 12
+sources = ["carts/pixel/main.lua", "docs/design/suite-pixel.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+
+[[manual]]
+id = "editor-studio"
+order = 13
+sources = ["carts/studio/main.lua", "docs/design/suite-studio-mesh.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+
+[[manual]]
+id = "editor-animator"
+order = 14
+sources = ["carts/animator/main.lua", "docs/design/suite-animator.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+
+[[manual]]
+id = "editor-mesh"
+order = 15
+sources = ["carts/mesh/main.lua", "docs/design/suite-studio-mesh.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+
+[[manual]]
+id = "editor-sound"
+order = 16
+sources = ["carts/sound/main.lua", "docs/design/suite-sound.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+
+[[manual]]
+id = "editor-write"
+order = 17
+sources = ["carts/write/main.lua", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]

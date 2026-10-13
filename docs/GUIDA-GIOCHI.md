@@ -234,7 +234,7 @@ zspr("eroe_fermo", x, y, 1)                -- un fotogramma preciso
 ```
 
 `zone(nome)` dà dove sta e quanto è grande (per le collisioni), `zones()` tutti i nomi.
-Le zone si fanno anche con bm Pixel sulla console e con `scripts/bmres.py`.
+Le zone si fanno anche con il bake di bm Animator sulla console (sprite e box da un'animazione) e con `scripts/bmres.py`; bm Pixel le mostra (con i loro box) ma non le crea.
 
 **Hitbox e hurtbox per fotogramma.** Sotto una zona si scrivono i suoi riquadri: `hurt`
 dove il personaggio può essere colpito, `hit` dove il suo colpo fa male, `body` il suo
@@ -268,7 +268,7 @@ mset(cx, cy, 5)                                       -- cambiare una cella (por
 
 Senza `--map` la mappa è 256×256 vuota e si riempie con `mset` (`msize(w, h)` le dà
 un'altra misura). Una mappa grande (Hunter's Night: 256×256 celle, 2048×2048 pixel)
-conviene generarla con uno script: vedi `carts/hunt/mkassets.py`, che produce `sheet.png` e
+conviene generarla con uno script: vedi `carts/hunt/build/mkassets.py`, che produce `assets/sheet.png` e
 `map.csv`.
 
 **I flag: che cosa è ogni tile.** Ogni tile dello sheet ha 8 flag (0–7), accesi o spenti.

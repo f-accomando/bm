@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: bm Animator
+desc: Skeletons and animations for the models of bm.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: app, tool, 3d, animation
+resolution: 640x360

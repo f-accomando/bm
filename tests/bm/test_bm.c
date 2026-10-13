@@ -410,6 +410,19 @@ static void test_format(const char *path)
             CHECK(bm_parse(r, n4, &c4, err, sizeof err) != 0, "360x180 refused");
         }
         free(r);
+        /* the RGB30's panel, 720x720, and 480x270 (which bm_rewrite used to write as 640x360) */
+        r = bm_rewrite(d, n, code, sizeof code - 1, "Square", "", 720, &n4);
+        CHECK(r && bm_parse(r, n4, &c4, err, sizeof err) == 0, "720x720 parses: %s", err);
+        CHECK(c4.width == 720 && c4.height == 720, "720x720 header %ux%u", c4.width, c4.height);
+        if (r) {
+            r[14] = 360;
+            CHECK(bm_parse(r, n4, &c4, err, sizeof err) != 0, "720x360 refused");
+        }
+        free(r);
+        r = bm_rewrite(d, n, code, sizeof code - 1, "Wide", "", 480, &n4);
+        CHECK(r && bm_parse(r, n4, &c4, err, sizeof err) == 0, "480x270 parses: %s", err);
+        CHECK(c4.width == 480 && c4.height == 270, "480x270 header %ux%u", c4.width, c4.height);
+        free(r);
     }
 
     /* new code, the rest kept: sheet, map, an unknown section (appended) */

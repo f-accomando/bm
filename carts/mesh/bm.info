@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: bm Mesh
+desc: The meshes of a .bm, its models and those its code builds.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: app, tool, 3d, mesh
+resolution: 640x360

@@ -1,0 +1,111 @@
+# The registry of the specification: what bm promises, by revision. The kernel says which revision it implements
+# (src/bm/bm.h BM_SPEC_REV, "bmSPEC=N" in kernel.img, Settings > System); a cartridge that needs a revision says so
+# with the INFO key "spec: N" (bm.info) and an older kernel refuses it with a message.
+# Rule: a change that a cartridge or a tool can depend on (a format, an API function, a system key, a config key, a
+# platform behaviour) gets an [[item]] here and, if it is new, a new revision. scripts/consistency.py checks this file.
+
+[[revision]]
+rev = 1
+date = "2026-10-11"
+what = "the baseline: container v1 (sections 1-14), resource files, projects (.bme), the .b16 marker, the 16:9 and square cartridge sizes up to 360x360, the API of docs/api as of the repository's first commit (the older history was reset on this date)"
+
+[[revision]]
+rev = 2
+date = "2026-10-13"
+what = "720x720 cartridges, shot() and the screenshot keys, the INFO key spec, tool names reserved against games, the .b16 flag set by every build, bm.info as the project's metadata"
+
+[[item]]
+id = "container-v1"
+since = 1
+status = "implemented"
+platforms = "all"
+where = ["src/bm/bm.h", "src/bm/format.c", "scripts/mkbm.py"]
+note = "docs/BM-FORMAT.md"
+
+[[item]]
+id = "sections-1-14"
+since = 1
+status = "implemented"
+platforms = "all"
+where = ["src/bm/bm.h", "src/bm/format.c"]
+note = "LUA SHEET MAP COVER SHEET8 AUDIO MESH ANIM INFO SPRITES LAYERS FLAGS BOXES"
+
+[[item]]
+id = "resource-files"
+since = 1
+status = "partial"
+platforms = "pi"
+where = ["src/bm/bm.h", "scripts/bmres.py", "src/kernel/lib.c"]
+note = "BMRES files: the PC tools make and merge them, the Pi's Lib tab reads them; no console editor opens them; the RGB30 has no Lib tab"
+
+[[item]]
+id = "project-flag"
+since = 1
+status = "implemented"
+platforms = "all"
+where = ["src/bm/project.h", "src/bm/project.c"]
+note = ".bme: bit 0 of the flags at offset 18; the extension tells the kind, nothing reads the bit"
+
+[[item]]
+id = "b16-edition"
+since = 1
+status = "implemented"
+platforms = "all"
+where = ["docs/B16.md", "src/bm/project.h", "scripts/mkbm.py"]
+note = "by decision (2026-10-13) a target (360x360 or 720x720, 8 MiB), not a sandbox: same runtime as .bm"
+
+[[item]]
+id = "info-keys"
+since = 1
+status = "implemented"
+platforms = "all"
+where = ["src/bm/bm.h", "src/bm/format.c", "scripts/bmres.py"]
+note = "name desc author license version tags origin date; unknown keys are kept"
+
+[[item]]
+id = "resolutions-to-360"
+since = 1
+status = "implemented"
+platforms = "all"
+where = ["src/bm/format.c", "src/bm/runtime.c"]
+note = "640x360 480x270 320x180 256x256 360x360"
+
+[[item]]
+id = "resolution-720"
+since = 2
+status = "implemented"
+platforms = "all"
+where = ["src/bm/format.c", "src/bm/runtime.c"]
+note = "720x720 (the RGB30 panel); on the Pi it sits in the middle of a 1280x720 screen (not tried on a Pi)"
+
+[[item]]
+id = "api-shot"
+since = 2
+status = "implemented"
+platforms = "all"
+where = ["src/bm/runtime.c", "src/bm/shot.c", "docs/SCREENSHOTS.md"]
+note = "shot([prefix]); Print Screen and Select+L1+R1; not tried on a Pi or an RGB30"
+
+[[item]]
+id = "info-spec"
+since = 2
+status = "implemented"
+platforms = "all"
+where = ["src/bm/bm.h", "src/bm/runtime.c"]
+note = "INFO key spec: N, refused by a kernel with a lower revision"
+
+[[item]]
+id = "reserved-tool-names"
+since = 2
+status = "implemented"
+platforms = "all"
+where = ["src/bm/runtime.c"]
+note = "a game cannot create /carts/<tool>.bm"
+
+[[item]]
+id = "project-layout"
+since = 2
+status = "partial"
+platforms = "all"
+where = ["docs/PROJECT-LAYOUT.md", "scripts/mkbm.py", "Makefile"]
+note = "bm.info + assets/ + res/ + build/; pong, hunt, yharnam migrated"

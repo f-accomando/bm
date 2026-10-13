@@ -50,7 +50,7 @@ def build_cart(build, name, defines):
     """a match of ten bots, logging, with these globals"""
     lua = os.path.join(build, "overbit", f"{name}.lua")
     cart = os.path.join(build, "overbit", f"{name}.bm")
-    args = [sys.executable, os.path.join(HERE, "..", "build.py"), lua, "--start", "match",
+    args = [sys.executable, os.path.join(HERE, "..", "build", "build.py"), lua, "--start", "match",
             "--extra", os.path.join(build, "overbit", "21_map.lua")]
     for d in defines:
         args += ["--define", d]

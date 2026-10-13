@@ -109,7 +109,7 @@ with the F keys (Y + left/right on the gamepad), Esc the menu, **F12** held the 
   clears, f fills, Tab chooses the tile, z a 16×16 tile of 2×2 cells on even cells,
   PgUp/PgDn and Home/End a page). For all the tools: bm Pixel (2).
   A big map of 16×16 tiles is made by a script and retouched here: Yharnam's
-  (`carts/yharnam/mkmap.py`: the first map from its street plan, and `--from` the
+  (`carts/yharnam/build/mkmap.py`: the first map from its street plan, and `--from` the
   project saved on the console back into the repository's CSV files). Its layer
   `objects` holds placeholders, labelled tags the game does not draw: where they are,
   it builds houses (the corner H7, H8 or CH, the roof tiles to its right give the width), trees,

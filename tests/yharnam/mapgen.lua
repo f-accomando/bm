@@ -2,7 +2,7 @@
 -- map: three CSV files of 256 x 256 cells, the layers "ground", "overlay" (kerbs, grass edges, puddles, leaves)
 -- and "objects" (a placeholder, art/places.py, on the tile of every house, tree, lamp, grave and thing the chunks
 -- make: their units). It is the first drawn map, the one the SDK opens to be changed by hand
--- (carts/yharnam/mkmap.py runs it; the cartridge reads it: MAP.drawn, MAP.objects in main.lua). With it the game
+-- (carts/yharnam/build/mkmap.py runs it; the cartridge reads it: MAP.drawn, MAP.objects in main.lua). With it the game
 -- makes the same town.
 --
 --   luahost tests/yharnam/mapgen.lua carts/yharnam/main.lua OUTDIR   -> OUTDIR/map_{ground,overlay,objects}.csv
@@ -76,7 +76,7 @@ local function write(name, cells, about)
   local path = OUT .. "/map_" .. name .. ".csv"
   local f = assert(io.open(path, "wb"))
   f:write("# Yharnam's map, layer \"" .. name .. "\": " .. about .. ". " .. N .. " x " .. N .. " cells of 8 x 8 (sheet.png);\n")
-  f:write("# drawn in the SDK (F3 F3), taken back with carts/yharnam/mkmap.py --from\n")
+  f:write("# drawn in the SDK (F3 F3), taken back with carts/yharnam/build/mkmap.py --from\n")
   local row = {}
   for y = 0, N - 1 do
     for x = 0, N - 1 do row[x + 1] = cells[y * N + x] or 0 end
