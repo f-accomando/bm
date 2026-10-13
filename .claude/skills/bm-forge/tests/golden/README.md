@@ -63,5 +63,11 @@ see `references/OPEN_QUESTIONS.md` items 19-22.
   BMRES kinds. All assert `ValidationError`.
 - `test_crosscheck.py`: bm_core decoding == `scripts/bmmesh.py` decoding on every golden
   (village included); bm_core encode == bmmesh encode; glb port == `bmmesh.glb_models`.
+- `test_skelanim.py` (phase 2): skeletons from `examples/humanoid.json` (= the villager's
+  layout), orphan/cycle/root/name/limit refusals, vertex binding; clips idle/walk/jump:
+  write -> read equal, byte-identical rebuild, `.bm` passes `read_file`/`validate`, duration,
+  loop closure, jump up-then-back, walk legs alternate, baked curves, 1024 keys, 255 clips,
+  out-of-range values, determinism. bm_core-made data, not goldens; the kernel never ran it.
+  `preview_samples/forge_*` are its pictures (`make_forge_samples.py`).
 - `test_syncwatch.py`: the watched sources still match `bm_core/SYNC.json`.
 - `test_conformance_slow.py`: skipped unless `BM_FORGE_SLOW=1` and `qemu-system-arm`.

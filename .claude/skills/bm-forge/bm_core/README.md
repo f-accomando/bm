@@ -18,6 +18,9 @@ ANIM (9) sections. Python >= 3.8, standard library only, no network. Formats:
 | `glb.py` | `.glb` -> `Mesh`, port of the glTF half of `scripts/bmmesh.py` |
 | `skin.py` | playback: `pose_at`, `skin` (port of `src/bm/runtime.c:2198-2321`), `playback()` -> per-frame bone matrices, posed bones, vertex bounds |
 | `preview.py` | software rasterizer (flat light, z-buffer, back faces, SHEET/SHEET8 textures): `render_mesh`, `render_turntable`, `render_anim`, `anim_gif`, `texture_of` |
+| `skelgen.py` | skeleton description (JSON) -> `Rig`: `skeleton`, `describe`; rigid binding `assign_vertices` (`nearest_bone`, `nearest_bone_part`), `bind`; `mirror_name` (bm Animator's) |
+| `animgen.py` | keyframe description (JSON) -> `Clip` on the 12 fps grid: `clip`, `add_clips`, `write_anim`; native modes or baked keys |
+| `shapes.py` | box builder with the villager's winding: `box`, `boxes_model`, `load_boxes` |
 | `imageio.py` | `Image`, PNG writer, animated GIF writer (own LZW, median-cut palette), `contact_sheet` |
 | `syncwatch.py`, `SYNC.json` | drift watch on the sources bm_core was ported from |
 
@@ -60,6 +63,30 @@ Speed (Python 3.14, Windows and WSL): 1560 triangles, 24 frames at 256x256 in 0.
 the village models at 256x256 in ~0.01-0.02 s each. Samples: `../tests/golden/preview_samples/`
 (`make_samples.py` rewrites them).
 
+## Skeletons and clips from descriptions (phase 2)
+
+```python
+import bm_core as B
+from bm_core import skelgen as SG, animgen as AG, shapes
+rig = SG.skeleton("examples/humanoid.json")              # villager layout; checks names, roots, cycles, orphans
+model, _ = shapes.load_boxes("examples/humanoid_boxes.json")
+rig = SG.bind(model, rig, strategy="nearest_bone_part")   # one bone per vertex (the format is rigid)
+reports = []
+rig = AG.add_clips(rig, ["examples/idle.json", "examples/walk.json", "examples/jump.json"], reports)
+cart = B.new_cart(b"function _draw() cls(0) end
+", 320, 180, "hero")
+AG.write_anim(cart, [rig], B.Mesh([model]))
+B.write_file("hero.bm", cart)
+```
+
+The format has one interpolation mode per clip (linear, smooth, step) and no
+per-vertex weights. Description rules, ranges and when a clip is **baked** (one key per
+12 fps frame, mode 0) are in the `skelgen.py` / `animgen.py` docstrings; a `report`
+dict says whether a clip was baked and why. Examples: `../examples/*.json`. Samples:
+`../tests/golden/preview_samples/forge_*` (`make_forge_samples.py`). The generated
+`.bm` passes bm_core's checks only: it was **never run on the kernel or opened in bm
+Animator**. Doubts: OPEN_QUESTIONS.md 37-44.
+
 ## Tests
 
 From `.claude/skills/bm-forge` (on Windows, in WSL through `scripts/wsl-run.ps1`):
@@ -95,4 +122,6 @@ goldens if a writer changed (`../tests/golden/README.md`), run the tests, then `
   container. QEMU conformance never run here.
 - AUDIO bank and LUA are not decoded; SHEET/SHEET8 pixels only for the preview.
 - Preview: flat shading only, see OPEN_QUESTIONS.md 25-36.
+- Generated rigs/clips: checked by bm_core and its playback port only, not by the kernel
+  or bm Animator (OPEN_QUESTIONS.md 37-44).
 - Stricter than the kernel on several points (see OPEN_QUESTIONS.md items 1-9).

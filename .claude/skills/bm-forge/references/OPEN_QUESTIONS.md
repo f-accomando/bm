@@ -119,3 +119,42 @@ Renderer approximations (each also in the `preview.py` docstring):
     `carts/animator/main.lua` (big files that change often; a whole-file hash would cry
     wolf). A change of `pose_at`/`skin`/`light_fast` is not detected: add line-range
     hashes to `syncwatch` if this matters.
+
+## Skeletons and clips from descriptions (`bm_core/skelgen.py`, `animgen.py`, phase 2)
+
+Nothing generated here was run on the kernel or opened in bm Animator: checks are bm_core's
+(`parse`/`validate`/`check_path`) and its playback port (`skin.py`).
+
+37. **One root only**: the format allows several bones with parent -1; skelgen refuses a
+    second root as an orphan (bm Animator starts every skeleton from one root,
+    `carts/animator/main.lua:389`, but its mirror can copy a root chain).
+38. **Bone points** must be in (-1e6, 1e6) (MESH vertex range, `src/bm/format.c:157`) and
+    bones at least 1e-3 long (`main.lua:423`); the ANIM check alone allows |v| < 1e9 and any
+    length. Pose `move` uses the same 1e6 range; `q` must be unit within 1e-3 (the runtime
+    normalises any q, `runtime.c:2201-2206`). All strict choices.
+39. **Bones are reordered parents-first** (stable) because the format needs parent < index
+    (`format.c:257-259`): bone indices may differ from the description's order.
+40. **Rigid skinning only** (one u8 bone per vertex, `format.c:266-269`): no weights exist.
+    Per-vertex `nearest_bone` splits a box at a joint (24 of the 104 humanoid vertices go to
+    the wrong bone); `bind` defaults to `nearest_bone_part` (one bone per connected part, as
+    the villager is made). A one-piece skin needs explicit `vbones`.
+41. **Baking**: ease-in / ease-out, mixed curves, or smooth with bones filled between their
+    own keys become one key per 12 fps frame, mode 0 linear (the format has one mode per
+    clip, `format.c:277`). Exact on the 12 fps frames, linear between them at higher frame
+    rates. NON VERIFICATO how usable such a clip is in bm Animator (a key on every frame).
+42. **Missing bones in a key** take their own track's value (interpolated between the keys
+    that name them); bm Animator instead stores a full sampled pose at each key it sets
+    (`set_pose(c, sample(...))`, `main.lua:1012`) and fills new bones with identity
+    (`main.lua:398-402`). Equivalent for linear/step; smooth is baked to stay exact.
+43. **180 degree rule** is checked only on `rot` inputs (per axis, between consecutive keys
+    of a bone, and across a loop's wrap): `q` and axis/angle inputs carry no intent to check.
+44. **Euler order and facing**: `rot` = R = Rz Ry Rx (bm-forge's convention; bm Animator
+    stores only quaternions). +x on a hanging limb swings it to -z, which is forward for the
+    villager (eyes at z = -0.225, toes to -0.16 in `village_models.bm`); "characters face -z"
+    is inferred from that one model, NON VERIFICATO as a project rule.
+45. **12 fps grid** is an Animator rule (`main.lua:831`), not a format rule: the village
+    walk has keys at 0.2 s steps (off the grid). animgen always snaps (times off the grid are
+    listed in `report["snapped"]`); reading such files is unaffected.
+46. **Sample cartridge** `tests/golden/preview_samples/forge_humanoid.bm`: LUA stub
+    (`cls(0)` only), container by bm_core `build`, 320x180. To check on a console: open it in
+    bm Animator (models are a `.bm` game, so saving asks for a copy) and play the clips.
