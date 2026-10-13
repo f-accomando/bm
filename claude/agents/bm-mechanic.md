@@ -1,7 +1,7 @@
 ---
 name: bm-mechanic
 description: Task meccaniche già completamente specificate a rischio zero (rename di simboli, formattazione, template ripetitivi, aggiornamento spunte/roadmap in docs/progress/). Non prende alcuna decisione.
-model: claude-haiku-4-5
+model: claude-haiku-5-5
 effort: low
 tools: Read, Edit, Write, Grep, Glob
 ---

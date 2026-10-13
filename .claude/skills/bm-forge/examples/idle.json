@@ -1,0 +1,12 @@
+{
+  "comment": "Breathing, 2 s loop. Every key names the same bones and one curve: stays native (mode 1 smooth, 2 keys).",
+  "name": "idle", "loop": true, "frames": 24, "curve": "smooth",
+  "keys": [
+    {"frame": 0, "pose": {
+      "hips": {"move": [0, 0, 0]}, "spine": {"rot": [0, 0, 0]}, "head": {"rot": [0, 0, 0]},
+      "arm.L": {"rot": [0, 0, 3]}, "arm.R": {"rot": [0, 0, -3]}}},
+    {"frame": 12, "pose": {
+      "hips": {"move": [0, -0.02, 0]}, "spine": {"rot": [-3, 0, 0]}, "head": {"rot": [4, 0, 0]},
+      "arm.L": {"rot": [0, 0, 7]}, "arm.R": {"rot": [0, 0, -7]}}}
+  ]
+}

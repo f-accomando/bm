@@ -1,7 +1,7 @@
 ---
 name: bm-research
 description: Subagent di ricerca ed esplorazione read-only ad ampio raggio. Usalo quando devi capire dove si trova una funzione, chi usa una determinata struttura, analizzare architetture su molti file, o fare rilievi nella documentazione senza intasare il contesto principale. Non modifica mai il codice e risponde con sintesi compatte.
-model: claude-haiku-4-5
+model: claude-haiku-5-5
 effort: low
 tools: Read, Grep, Glob
 ---

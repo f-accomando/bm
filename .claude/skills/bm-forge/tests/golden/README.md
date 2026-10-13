@@ -1,0 +1,88 @@
+# Golden files of bm_core
+
+Files written by the **real** tools of the repo, never by bm_core. All made at commit
+`287d05f43e8be6ace62443dfa7ba8e3759596c22` (`git rev-parse HEAD`, branch
+`claude/bm-forge`) in WSL (Python 3.14.4, `build/host/luahost` = Lua 5.4 of
+`third_party/lua`). Tests: `python3 -m unittest discover tests/golden` from
+`.claude/skills/bm-forge`.
+
+## How each file was made
+
+`make test-studio` does **not** complete at this commit: `build/host/test_meshcap` fails to
+link (`undefined reference to g16_to_rgb24`, `Makefile:1092`), before any luahost step.
+So the luahost steps of the rule (`Makefile:1239-1257`) were run by hand, without
+`test_meshcap`, into `build/forge-gold/`:
+
+```sh
+make -j$(nproc) build/host/luahost build/host/test_bm build/carts/village.bm build/carts/astrowing.bm build/demo.bm
+O=build/forge-gold; rm -rf $O; mkdir -p $O
+mkdir -p $O/studio3d-sd/carts && cp build/carts/village.bm $O/studio3d-sd/carts/
+build/host/luahost tests/studio/tools3d_host.lua . $O/studio3d-sd      # 171/171 checks passed
+mkdir -p $O/mesh-sd/carts && cp build/carts/village.bm build/carts/astrowing.bm $O/mesh-sd/carts/
+build/host/luahost tests/studio/mesh_host.lua . $O/mesh-sd             # 78/78 checks passed
+mkdir -p $O/pixel-sd/carts && cp build/carts/village.bm build/demo.bm $O/pixel-sd/carts/
+build/host/luahost tests/studio/pixel_host.lua . $O/pixel-sd           # 68/68 checks passed
+python3 tests/studio/anim_figure.py $O/anim-figure.bm
+python3 tests/studio/check_files.py $O/studio3d-sd $O/mesh-sd $O/pixel-sd build/carts/village.bm   # 62/62
+build/host/test_bm build/demo.bm $O/anim-figure.bm $O/studio3d-sd/carts/blocks.bme                  # 163/163
+```
+
+| Golden | Copied from | Writer |
+|---|---|---|
+| `village_models.bm` | `carts/village/models.bm` (tracked, last changed in `14718bb`) | bm Studio / bmmesh history; reference file |
+| `anim_figure.bm` | `$O/anim-figure.bm` | `tests/studio/anim_figure.py` = `scripts/bmmesh.py` `encode_faces`/`encode`/`encode_anim` + `scripts/mkbm.py` `pack` |
+| `bmmesh_lit.bm` | `python3 gen_bmmesh_lit.py bmmesh_lit.bm` (in this folder) | `scripts/bmmesh.py` `encode`/`encode_anim` + `scripts/mkbm.py` `pack`: lit model, corner and 5-6-5 lights, material bits, step/linear clips |
+| `studio_blocks.bme` | `$O/studio3d-sd/carts/blocks.bme` | bm Studio + bm Animator (`carts/studio`, `carts/animator`, `src/script/bm3d.lua`) under luahost: new project, skeleton, clip |
+| `studio_copy3d.bme` | `$O/studio3d-sd/carts/copy3d.bme` | bm Studio under luahost: the village saved with no edits |
+| `mesh_village.bme` | `$O/mesh-sd/carts/village.bme` | bm Mesh (`carts/mesh/main.lua`) under luahost: villager edited with its skeleton (`meshcopy.bme` is byte-identical, not copied) |
+| `mesh_astrowin.bme` | `$O/mesh-sd/carts/astrowin.bme` | bm Mesh under luahost: Astro Wing models from the game's meshes |
+
+SHA-256 at copy time: `village_models.bm 696fd1b2…`, `anim_figure.bm ae8faf77…`,
+`studio_blocks.bme cda056d6…`, `studio_copy3d.bme f1cdd674…`, `mesh_village.bme ecfcd3e4…`,
+`mesh_astrowin.bme 2a78a7f4…`.
+
+## What the luahost files are and are not
+
+The MESH and ANIM bytes are the real tools' (`bm3d.lua` encoders, bm Mesh's own). The
+**container** around them is the test stand-in `pack_cart` of
+`tests/studio/tools3d_host.lua:49-66`, not the kernel's `bm_rewrite_with`: it writes flags 0
+(no project bit in a `.bme`) and 640x360 for anything that is not 320x180. So those four
+`.bme` fail `bm_core.check_path` (asserted in `test_schema.py`), while `parse` accepts them.
+No golden comes from the kernel's own writer (bmhost has no `--arg`, QEMU is not installed):
+see `references/OPEN_QUESTIONS.md` items 19-22.
+
+## Tests here
+
+- `test_roundtrip.py`: parse -> build byte-identical for every golden; MESH and ANIM
+  decode -> encode byte-identical; JSON `to_dict`/`from_dict` round trip; a rewrite equals
+  `scripts/bmmesh.py:rewrite_cart`.
+- `test_schema.py`: header, sections, models, rigs of each golden; edition/path checks.
+- `test_negative.py`: truncated, bad magic/CRC/version/resolution, section out of bounds or
+  over the table, duplicate sections, 65 bones, 256 clips, 1025 keys, vertex mismatch, rig
+  without model, duplicate names, oversized models, bad floats, editions never converted,
+  BMRES kinds. All assert `ValidationError`.
+- `test_crosscheck.py`: bm_core decoding == `scripts/bmmesh.py` decoding on every golden
+  (village included); bm_core encode == bmmesh encode; glb port == `bmmesh.glb_models`.
+- `test_skelanim.py` (phase 2): skeletons from `examples/humanoid.json` (= the villager's
+  layout), orphan/cycle/root/name/limit refusals, vertex binding; clips idle/walk/jump:
+  write -> read equal, byte-identical rebuild, `.bm` passes `read_file`/`validate`, duration,
+  loop closure, jump up-then-back, walk legs alternate, baked curves, 1024 keys, 255 clips,
+  out-of-range values, determinism. bm_core-made data, not goldens; the kernel never ran it.
+  `preview_samples/forge_*` are its pictures (`make_forge_samples.py`).
+- `test_syncwatch.py`: the watched sources still match `bm_core/SYNC.json`.
+- `test_bmhost_demo.py` (phase 3): opt-in with `BM_FORGE_HOST=1`; builds the `forgedemo` example and runs it under bmhost, (the `forge_assets()` fixture in `_common.py` already exists).
+- `test_similarity.py`: PNG reader (RGB round trip, RGBA with row filters 0/1/4, refusal of
+  unsupported depth/interlace/size), silhouette IoU (identical = 1.0, x2 scale >= 0.99,
+  humanoid vs ground < 0.5, PNG reference round trip, size mismatch refused).
+- `test_cli_build.py`: CLI `mesh` (boxes JSON, `.glb`, `.bmm`, `--max-tris`, bad extension),
+  `skel`, `anim` (reports, duplicate clips with/without `--replace`), `kernel_limits` through
+  `export_models`/`export_bmm`, editions kept, same in/out path and missing input exit 2, no stray files.
+- `test_cli_export.py`: CLI `export` models, bmm (`--model` subset), cart (`.bm` 320x180 with COVER,
+  `.b16` 360x360, `--budget`, `.bme` refused), folder (second run without `--overwrite` fails), market.
+- `test_cli_check.py`: CLI `check` on goldens (exit 0), luahost `.bme` and corrupt CRC (exit 1), missing
+  file (exit 2), `--budget`, `--kernel-limits`, reference model/PNG IoU (`--min-iou`, exit 3), `--json`, drift (exit 0 or 4).
+- `test_cli_preview.py`: CLI `preview` (still PNG, clip GIF, contact-sheet PNG, turntable, `--mask` then
+  `--compare`, bad extension, clip without rig) and `doctor` (in process and as subprocess).
+- `test_skill_docs.py`: SKILL.md (under 150 lines, frontmatter, "Come chiedere" with 6+ blocks holding
+  COSA/VINCOLI/OUTPUT/VERIFICA, every `references/*.md` named exists), LESSONS.md cases/rules, CLI.md has a section per subcommand.
+- `test_conformance_slow.py`: skipped unless `BM_FORGE_SLOW=1` and `qemu-system-arm`.

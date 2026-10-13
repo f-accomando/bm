@@ -1,0 +1,4 @@
+# bm-forge game_demo: one shot per clip (frame n = n/60 s)
+60 shot idle
+180 shot walk
+300 shot jump
