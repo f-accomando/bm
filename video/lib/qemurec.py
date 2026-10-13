@@ -353,3 +353,13 @@ def assemble(console_mkv, ass_path, out_mp4, audio=None, seconds=None):
         cmd += ["-t", str(seconds)]
     cmd += ["-movflags", "+faststart", out_mp4]
     return subprocess.run(cmd, check=True)
+
+
+def write_srt(s, path):
+    """The narrator's lines of a bmvideo.Script as .srt (YouTube subtitles, English)."""
+    def t(frame):
+        ms = round(frame * 1000 / FPS)
+        return "%02d:%02d:%02d,%03d" % (ms // 3600000, ms // 60000 % 60, ms // 1000 % 60, ms % 1000)
+    with open(path, "w", encoding="utf-8") as f:
+        for n, (a, b, text) in enumerate(s.lines_say, 1):
+            f.write("%d\n%s --> %s\n%s\n\n" % (n, t(a), t(b if b is not None else a + 120), text))

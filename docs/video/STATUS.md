@@ -25,9 +25,9 @@ Documenti scritti il 2026-10-13 (`make video-3d-check`: 0 problemi). I `[DA VERI
 | Video 6 | output del video 4 e 5 (`chain/04-map.bm`, `chain/05-sound.bm`) | video 4 registrato (in prova si può usare una mappa fatta a script) |
 | Video 7 | `chain/06-sdk.bm` e API `map3d_*` implementate | video 6; AGY-01 |
 | Video 8 | `chain/07-code.bm` | video 7 |
-| Tutti i video | registratore QEMU con icount (misurato 59 fps, `PIANO.md` §6), da scrivere (B); domande D3–D6 | Claude cloud (B); risposta dell'utente |
+| Tutti i video | registratore QEMU `video/lib/qemurec.py` fatto e provato (B); audio da risolvere (video 5/8); domande D3–D6 | risposta dell'utente |
 | Copertine | `video/lib/cover.py` | AGY-05 (Antigravity) |
-| Overlay dei tasti | `video/3d/overlay_gen.py` + renderer (specifica in `claude/skills/bm-video-series/overlay.md`) | da scrivere |
+| Overlay dei tasti | oggi `bmvideo.make_ass` (luogo, tasto, tasti della scena, didascalia); chip di tab (`overlay.md`) | da scrivere (Claude cloud) |
 
 ## Da dove riprendere
 
