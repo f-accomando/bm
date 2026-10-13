@@ -10,6 +10,7 @@
 #include "gfx16.h"
 #include "r3d.h"
 #include "world3d.h"
+#include "map3d.h"
 #include "decimate.h"
 #include "glb.h"
 #include "cutout.h"
@@ -1920,6 +1921,30 @@ static r3d_t *r3d(lua_State *L)
     if (rt.cls_pending && !rt.r3d.backend)
         cls_settle();                   /* the GPU stopped: the ARM's 3D goes on the cleared page */
     return &rt.r3d;
+}
+
+int rt_get_map_layer(const char *name, const uint16_t **cells, int *w, int *h)
+{
+    if (w) *w = rt.map.w;
+    if (h) *h = rt.map.h;
+    if (!name || !*name) return -1;
+    for (int i = 0; i < rt.nlayers; i++) {
+        if (!strcmp(rt.layer_name[i], name)) {
+            if (cells) *cells = rt.layer[i];
+            return i;
+        }
+    }
+    return -1;
+}
+
+const g16_sheet_t *rt_get_sheet(void)
+{
+    return &rt.sheet;
+}
+
+r3d_t *rt_get_r3d(lua_State *L)
+{
+    return r3d(L);
 }
 
 /* The DMA clear started at the end of the frame, if any, is waited for
@@ -4707,6 +4732,9 @@ static const luaL_Reg api[] = {
     { "bone_turn", l_bone_turn }, { "bones3d", l_bones3d }, { "hit3d", l_hit3d },
     { "world3d", l_world3d }, { "world_box", l_world_box }, { "world_ray", l_world_ray },
     { "world_move", l_world_move }, { "world_floor", l_world_floor },
+    { "map3d_build", l_map3d_build }, { "map3d_draw", l_map3d_draw },
+    { "map3d_height", l_map3d_height }, { "map3d_blocked", l_map3d_blocked },
+    { "map3d_objects", l_map3d_objects }, { "map3d_size", l_map3d_size },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "visible3d", l_visible3d }, { "pvs3d", l_pvs3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "shot", l_shot }, { "quit", l_quit },
     { "keymap", l_keymap }, { "controller", l_controller }, { "online", l_online },

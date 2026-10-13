@@ -96,6 +96,38 @@ def decode(codes):
     return out
 
 
+SERIAL_KEY = {"\xf0": "\x1b[A", "\xf1": "\x1b[B", "\xf2": "\x1b[D", "\xf3": "\x1b[C", "\xf4": "\x1b[H", "\xf5": "\x1b[F",
+              "\xf6": "\x1b[5~", "\xf7": "\x1b[6~", "\xf8": "\x1b[3~", "\xf9": "\x1bOP", "\xfa": "\x1bOQ", "\xfb": "\x1bOR",
+              "\xfc": "\x1bOS", "\xfd": "\x1b[15~"}
+
+
+def serial_bytes(codes):
+    """The text of a `type` line as the kernel's serial terminal wants it (src/bm/runtime.c serial_text): the same key codes
+    as bmhost's typed keys, arrows and F-keys as ANSI sequences, Esc alone followed by a newline (which the terminal
+    ignores) so that it is not held back waiting for the next byte. None for what the serial line cannot say (Ctrl+Shift)."""
+    s = bytes(codes, "latin-1").decode("unicode_escape").encode("latin-1").decode("latin-1") if "\\" in codes else codes
+    if "\xee" in s:
+        return None
+    out, i = [], 0
+    while i < len(s):
+        c = s[i]
+        if c == "\x1b":
+            m = next((q for q in ("[17~", "[18~", "[19~", "[20~", "[21~", "[28~", "[29~") if s.startswith(q, i + 1)), None)
+            if m:
+                out.append("\x1b" + m)
+                i += 1 + len(m)
+                continue
+            out.append("\x1b\n")
+        elif c in SERIAL_KEY:
+            out.append(SERIAL_KEY[c])
+        elif c == "\n":
+            out.append("\r")
+        else:
+            out.append(c)
+        i += 1
+    return "".join(out).encode("latin-1")
+
+
 def parse_input(path_or_lines):
     """bmhost's input file -> [(frame, kind, args)] in order. Kinds: type, pad, shot (the others are ignored)."""
     lines = open(path_or_lines).read().splitlines() if isinstance(path_or_lines, str) else path_or_lines
@@ -226,7 +258,7 @@ class Recorder:
         self._qmp({"execute": "input-send-event", "arguments": {"events": self._events(qcodes, down)}})
 
     # -------------------------------------------------------- the recording
-    def record(self, events, frames, out, hold_frames=3, grab_size=(W, H), t0_us=None):
+    def record(self, events, frames, out, hold_frames=3, grab_size=(W, H), t0_us=None, serial=False):
         """Plays `events` (parse_input) from now for `frames` frames of guest time; console.mkv gets
         exactly `frames` pictures at 60 fps. Returns the list of (frame, name) of the `shot` lines (PNG next
         to `out`). A key stays down `hold_frames` frames (3 = 50 ms, as in bmhost)."""
@@ -299,7 +331,9 @@ class Recorder:
         ops, shots = [], []                         # (frame, order, qcodes, down?)
         for f, kind, args in (e for e in events if e[0] < frames):
             chords = []
-            if kind == "type":
+            if kind == "type" and serial and serial_bytes(args) is not None:
+                ops.append((f, 1, serial_bytes(args), True, -2))      # bytes for the serial line: no key-up to wait for
+            elif kind == "type":
                 chords = decode(args)
             elif kind == "chord":                   # "ctrl+esc": qcodes joined by +
                 chords = [args.split("+")]
@@ -317,6 +351,14 @@ class Recorder:
         ops.sort(key=lambda o: (o[0], o[1]))
         down, deadline_bad = {}, 0                  # qcode -> id of the press that holds it
         for f, _, chord, is_down, pid in ops:
+            if pid == -2:                           # serial bytes
+                target = t0 + f * US_PER_FRAME
+                while self.vtime_us() < target:
+                    time.sleep(0.002)
+                if self.vtime_us() - target > 2 * US_PER_FRAME:
+                    deadline_bad += 1
+                self.port.write(chord)
+                continue
             target = t0 + f * US_PER_FRAME
             while self.vtime_us() < target:
                 time.sleep(0.002)

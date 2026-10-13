@@ -36,13 +36,13 @@ PAD_KEY = {"left": "left", "right": "right", "up": "up", "down": "down", "a": "s
            "start": "ret", "select": "tab", "l1": "q", "r1": "e"}
 
 
-def retime(events, min_gap=4):
+def retime(events, min_gap=4, any_gap=0):
     """The same key must come at least `min_gap` frames after its last press, or the USB keyboard of QEMU merges the
     release and the next press into one report and the console sees ONE press (bmhost's scripts put a "." every 2 frames).
     Later events are pushed back just enough, and the idle gaps give the time back. Returns (events, delta_at) where delta_at(f)
     is how many frames the original frame f moved."""
     last, delta, marks, out = {}, 0, [(-1, 0)], []
-    prev_f = None
+    prev_f, last_any = None, -99
     for f, kind, args in events:
         if prev_f is not None and delta and f - prev_f >= 30:    # an idle gap: take back what the fast keys cost
             back = min(delta, f - prev_f - 20)
@@ -52,13 +52,14 @@ def retime(events, min_gap=4):
         nf = f + delta
         if kind == "type":
             keys = ["+".join(c) for c in qemurec.decode(args)]
-            need = max([last.get(k, -99) + min_gap for k in keys] + [nf])
+            need = max([last.get(k, -99) + min_gap for k in keys] + [last_any + any_gap, nf])
             if need > nf:
                 delta += need - nf
                 nf = need
                 marks.append((f, delta))
             for k in keys:
                 last[k] = nf
+            last_any = nf
         out.append((nf, kind, args))
 
     def delta_at(f):
@@ -114,7 +115,7 @@ def walk(prev, tool):
     return ev, f
 
 
-def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
+def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0, serial=True):
     ep, v = episode_dir(n)
     out = os.path.join(ep, "out")
     work = os.path.join(out, out_sub)
@@ -127,7 +128,7 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
     if os.path.exists(start):
         files = [(src, name) for src, name in files if not name.upper().endswith(".BME")] + [(start, "carts/TROPIC.BME")]
     orig_events = events
-    events, delta_at = retime(events)
+    events, delta_at = retime(events, min_gap=0 if serial else 4, any_gap=any_gap)
     print("retime: the last event moved %d frames" % delta_at(10 ** 9), flush=True)
     parts = PARTS.get(int(n), [(v["tool"], 0, None)])
     parts = [(t, a, b if b is not None else 10 ** 9) for t, a, b in parts]
@@ -154,7 +155,7 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
     if limit_s:
         total = min(total, plan[0]["walk_end"] + int(limit_s * FPS))
 
-    r = qemurec.Recorder(work, shift=shift, display=":%d" % (100 + int(n)))     # one X display per episode: they can record in parallel
+    r = qemurec.Recorder(work, shift=shift, display=":%d" % (100 + int(n) + (10 if out_sub != "qemu" else 0) + (1 if out_sub == "vB" else 0)))     # one X display per episode: they can record in parallel
     r.boot(sd_files=files, timeout=240)
     settle = r.vtime_us() + 3e6                       # the menu is up (the first seconds are a test pattern)
     while r.vtime_us() < settle:
@@ -177,7 +178,7 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
             ev.append((f, "shot", args))
     ev.sort(key=lambda e: e[0])
 
-    shots = r.record(ev, total, os.path.join(work, "console.mkv"))
+    shots = r.record(ev, total, os.path.join(work, "console.mkv"), hold_frames=hold, serial=serial)
     print("recorded:", r.stats, flush=True)
 
     # overlay: the episode's data shifted like the keys, plus the walks to the tools
@@ -215,5 +216,9 @@ if __name__ == "__main__":
     ap.add_argument("--shift", type=int, default=2)
     ap.add_argument("--no-intro", action="store_true")
     ap.add_argument("--limit-s", type=float)
+    ap.add_argument("--usb", action="store_true", help="keys on the emulated USB keyboard instead of the serial line")
+    ap.add_argument("--hold", type=int, default=3, help="frames a key stays down")
+    ap.add_argument("--any-gap", type=int, default=0, help="least frames between two keys")
+    ap.add_argument("--out", default="qemu", help="subfolder of out/ (to keep several takes)")
     a = ap.parse_args()
-    run(a.n, a.shift, not a.no_intro, a.limit_s)
+    run(a.n, a.shift, not a.no_intro, a.limit_s, a.out, a.hold, a.any_gap, not a.usb)
