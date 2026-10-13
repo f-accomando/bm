@@ -49,19 +49,11 @@ Ultimo aggiornamento: 2026-10-13 (Claude local).
 | **Claude local** | `WORKING review AGY-01..03 + GROK-01` | script `record.py`/`verify.py` video 1, 2, 3, 5 sono su `feat/claude-video3d`; poi `record.py` video 4 | 1 h |
 | **Claude cloud** | `WORKING riprese QEMU video 2, 3, 5 (shift 1)` | video 1 registrato (PASS); le riprese finali vanno a `shift` 1 | 30 min a ripresa |
 | **Antigravity** | `WORKING AGY-04` | AGY-01, 02, 03 consegnati su `feat/antigravity-map3d`, fix AGY-05 consegnato | 1.5-3 h |
-| **Grok** | `WORKING GROK-01 fix da review` | review: CHANGES REQUESTED (2 `00d7`, copertura script/input, check_series) | 30 min |
+| **Grok** | `WORKING GROK-01 fix da review` | review: CHANGES REQUESTED (2 `\u00d7`, copertura script/input, check_series) | 30 min |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
 Catena che blocca i video: 1 -> 2 -> 3 (riprese = cloud) · 5 libero · 4 = Antigravity (AGY-04 resta) · 6 = 4 + 5 · 7 = 6 · 8 = 7. Copertine PNG: da generare dopo la review del fix AGY-05.
 
----|---|---|---|---|
-| **Claude local** | `record.py`/`verify.py` video 1, 2, 3, 5 (4 agenti in parallelo); poi review/merge | nessuno per proseguire | — (poi serve il cloud per registrare) | 1–2 h |
-| **Claude cloud** | `video/lib/qemurec.py` (registratore QEMU `icount` + overlay + sottotitoli) | **Claude local** | `merge origin/feat/claude-video3d` (asset, `lib3d.py`, `input.txt`/`overlay.json` dei video 1, 2, 3, 5 appena committati) | 2–3 h |
-| **Antigravity** | correzioni AGY-05 (3 difetti), poi AGY-01 `map3d.c` | nessuno | AGY-01 è indipendente; AGY-02 e 03 dipendono dal suo AGY-01 | 15–30 min + 2–4 h |
-| **utente** | nessuna azione bloccante | — | decisioni **non bloccanti**: D3 (GPU/console vera nel video 6), D4 (campioni WAV), D5 (layout pagina), D6 (musica: 1 canzone ~60 s va bene?), D7 (`.bme` → `.bm`: prova sul campo). Servirà per il **merge finale su `bm-core`** (via libera, Step 5) e per **caricare i video su YouTube** | — |
-| **Grok** | GROK-01 (correzioni docs video 1, 2, 3, 5), branch `feat/grok-docs` | **Claude local** | review del suo lavoro prima di qualsiasi merge | 30–60 min |
-
-Catena che blocca i video: 1 → 2 → 3 (local: documenti e script pronti, ripresa = cloud) · 5 libero · **4 = Antigravity (AGY-01…03)** · 6 = 4 + 5 · 7 = 6 (+ `map3d_*` AGY-01) · 8 = 7. Copertine PNG: aspettano la correzione di AGY-05 (Antigravity).
 
 ---
 
