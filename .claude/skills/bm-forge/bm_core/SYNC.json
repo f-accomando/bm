@@ -1,0 +1,13 @@
+{
+  "bm3d_version": "7.3",
+  "files": {
+    "carts/animator/main.lua": "212483863dabd8b13c3b1be0995061ca6e69b842c1792c63d73cbc4d84d39b5a",
+    "scripts/bmmesh.py": "866d86ec7ac72ffee878ca5eddd7719ce09d19885793dacdeea7d27b6afdb714",
+    "src/bm/bm.h": "b58ac2a024b1d9d735183373a686c97a0f9d57f3d4c33ce593903d24f0f3d5d7",
+    "src/bm/format.c": "e0929c7cabcb95868a964ed20387f0985faff23beda6f8a2ee7fb2c6b6e8d63a",
+    "src/bm/r3d.c": "434d0725927faa22eaa00db04a72acfafe412d88140f8f41d1766593d272fcc4",
+    "src/bm/runtime.c": "365582c69f2bdd4fc3dce4218178b5aced08d273449c5a136e7cf458de81f726",
+    "src/gpu/version3d.h": "386cea36d9aeea9dfae7744e7bf89a920598411892e67eb79d112e599892c4ed",
+    "src/script/bm3d.lua": "6852bd5d3a1fc742bc622cb6149f22801159b24060513a283497d1d280b15307"
+  }
+}

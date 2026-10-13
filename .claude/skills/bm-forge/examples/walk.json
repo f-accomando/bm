@@ -1,0 +1,16 @@
+{
+  "comment": "One stride, 1 s loop. Frame 0: left leg forward (-z), right arm forward; frame 6 is its mirror. Hips lowest at the contacts (0, 6), highest at the passes (3, 9). Native: mode 1 smooth, 4 keys.",
+  "name": "walk", "loop": true, "frames": 12, "curve": "smooth",
+  "keys": [
+    {"frame": 0, "pose": {
+      "hips": {"move": [0, 0, 0]}, "spine": {"rot": [0, 8, 0]}, "head": {"rot": [0, -6, 0]},
+      "arm.L": {"rot": [-20, 0, 0]}, "arm.R": {"rot": [20, 0, 0]},
+      "leg.L": {"rot": [25, 0, 0]}, "leg.R": {"rot": [-25, 0, 0]}}},
+    {"frame": 3, "pose": {
+      "hips": {"move": [0, 0.05, 0]}, "spine": {"rot": [0, 0, 0]}, "head": {"rot": [0, 0, 0]},
+      "arm.L": {"rot": [0, 0, 0]}, "arm.R": {"rot": [0, 0, 0]},
+      "leg.L": {"rot": [0, 0, 0]}, "leg.R": {"rot": [0, 0, 0]}}},
+    {"frame": 6, "mirror": 0},
+    {"frame": 9, "mirror": 3}
+  ]
+}
