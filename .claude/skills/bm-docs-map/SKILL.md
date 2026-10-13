@@ -45,7 +45,7 @@ Per aggiornare dopo un cambio:
 4. Milestone aperta/chiusa: solo la sua sezione in `docs/ROADMAP.md` (`Grep '^## M47'`) e la
    riga in *Open milestones* di `docs/progress.md`. Nuovi spunti: in fondo a ROADMAP (R…).
 
-Delega con `tracker` se le righe sono già decise.
+Delega con `bm-mechanic` se le righe sono già decise.
 
 ## File grossi di codice (mai interi)
 

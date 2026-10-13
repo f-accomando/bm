@@ -30,11 +30,50 @@ Non leggere mai file per intero. Tutto lo stato attuale è tracciato in [`docs/p
 
 ---
 
-## 3. Subagent Antigravity & Specializzazioni
+## 3. Architettura Subagent Antigravity & Routing Intelligente
 
-- `research`: Agente read-only per esplorare la codebase, cercare nel web e documentazione senza intasare il contesto principale.
-- `self`: Replica ad alta autonomia per task lunghi o esecuzioni coordinate.
-- Agenti configurati in `.claude/agents/` (`light`, `standard`, `deep`, `tracker`).
+### Il Principio: Separare Decidere da Eseguire
+I modelli di punta (*Gemini Pro*) costano e ragionano in profondità: producono decisioni, analisi e Work Order concisi (pochi token di output). I modelli rapidi ed economici (*Gemini Flash / Flash-Lite*) scrivono ed editano il codice (tanti token). Il router sceglie l'agente non in base alla grandezza della task, ma in base al suo grado di specificazione.
+
+### Ruoli & Mappatura Modelli Antigravity
+Quando Antigravity invoca i subagenti tramite `invoke_subagent`, mappa i ruoli così:
+
+| Ruolo | Modello Antigravity | Toolset | Fa | NON fa |
+|---|---|---|---|---|
+| **`bm-planner`** | `Model: "pro"` | **Sola Lettura** (Read, Grep, Glob) | Trasforma task vaghe in Work Order con criteri verificabili | Scrivere codice |
+| **`bm-coder`** | `Model: "flash"` | Full (Read/Write/Exec) | Scrive codice da un Work Order preciso ed esaustivo | Design o scelte aperte |
+| **`bm-mechanic`** | `Model: "flash_lite"` | Full (Modifiche atomiche) | Task a rischio zero: rename, format, template, progress docs | Decisioni di logica |
+| **`bm-light`** | `Model: "flash"` | Full (Read/Write/Exec) | Task semplici con giudizio, docs verificate su C, fix 1–2 file | Lavori lunghi e vaghi |
+| **`bm-deep`** | `Model: "pro"` | Full (Read/Write/Exec) | Un solo problema isolato e critico con riproduzione certa | Implementare feature intere |
+| **`research`** | Subagente nativo `research` | Sola Lettura | Ricognizione codebase, ricerca simboli, documentazione | Toccare file |
+
+### Gate di Prontezza (Readiness Gate)
+Prima di assegnare una task all'esecuzione diretta o a un subagente basso, verifica le 5 condizioni:
+1. **File/funzioni**: Sono esplicitamente nominati i file e le funzioni da toccare?
+2. **Determinismo**: La modifica è descritta in modo che due programmatori farebbero lo stesso diff (nessuna scelta di design aperta)?
+3. **Criterio verificabile**: Esiste un comando deterministico di verifica (`qemu_test.py`, build, output atteso)?
+4. **Scope limitato**: Riguarda indicativamente 3 file o meno?
+5. **Nessun blocco**: È indipendente da decisioni ancora aperte?
+
+> **Regola**: Se anche una sola risposta è **NO**, la task **NON** va all'esecuzione e **NON** va a `bm-deep`: viene affidata a **`bm-planner`** (`pro`), che formula uno o più Work Order verificabili.
+
+### Regole per `bm-deep`
+- Accetta solo problem statement stretti: sintomo + riproduzione certa + area sospetta + tentativi già fatti.
+- Rifiuta richieste generiche tipo *"implementa X"* e le rimanda a `bm-planner`.
+- Output: diagnosi della causa radice e fix minimo; il resto torna a `bm-coder`/`bm-light`.
+
+### Escalation Basata su Evidenze
+- **`DONE`**: Il comando di verifica passa con successo.
+- **`BLOCKED: <motivo>`**: Specifica ambigua o decisione mancante $\to$ torna a `bm-planner`.
+- **`FAILED x2`**: Il test continua a fallire dopo 2 tentativi $\to$ sale di un livello (es. da coder a light, da light a deep).
+
+### Formato Work Order
+Ogni ordine generato da `bm-planner` contiene:
+- Obiettivo in una frase
+- File/funzioni da toccare
+- Modifica descritta senza scelte di design aperte
+- Comando di verifica e risultato atteso
+- Agente consigliato (`bm-mechanic` / `bm-coder` / `bm-light` / `bm-deep`)
 
 ---
 

@@ -30,14 +30,49 @@ Non leggere mai file per intero. Tutto lo stato attuale è tracciato in [`docs/p
 
 ---
 
-## 3. Subagent
+## 3. Architettura Subagent & Routing Intelligente
 
-Definizioni in `.claude/agents/`:
-- `research` (Haiku): Esplorazione read-only, ricerca simboli/definizioni su molti file, sintesi compatte per non inquinare il contesto.
-- `light` (Sonnet): Domande, fix rapidi di 1–2 file, typo, verifiche.
-- `standard` (Opus): Feature intere, nuovi moduli, modifiche coordinate su più file.
-- `deep` (Opus, xhigh): Architettura e bug critici a causa ignota. **Chiedere sempre conferma all'utente prima di lanciarlo.**
-- `tracker` (Haiku): Aggiornamento spunte e spostamenti righe in `docs/progress/`.
+### Il Principio: Separare Decidere da Eseguire
+I modelli di punta (*Opus*) costano molto sui token di output: devono produrre decisioni e piani sintetici (pochi token). I modelli economici (*Haiku/Sonnet*) devono scrivere il codice (tanti token). Il router sceglie l'agente non in base alla dimensione apparente della task, ma in base a quanto è già ben specificata.
+
+### Ruoli (definizioni in `.claude/agents/`)
+| Agente | Modello / effort | Fa | NON fa |
+|---|---|---|---|
+| **`bm-planner`** | Opus medium (sola lettura) | Trasforma task vaghe/grosse in ordini di lavoro (Work Order) con criteri verificabili | Scrivere codice |
+| **`bm-coder`** | Haiku high | Scrive codice da un Work Order preciso ed esaustivo | Design, risolvere ambiguità |
+| **`bm-mechanic`** | Haiku low | Task già specificate a rischio zero (rename, format, template, spunte in `docs/progress/`) | Decisioni di logica |
+| **`bm-light`** | Sonnet medium | Task semplici con giudizio tecnico, docs verificate sul codice reale, fix 1–2 file | Lavori lunghi e vaghi |
+| **`bm-deep`** | Opus xhigh | Un solo problema isolato e critico (bug con riproduzione, decisione architetturale) | Implementare feature intere |
+| **`bm-research`** | Haiku low (sola lettura) | Esplorazione read-only, ricerca simboli/definizioni su molti file, sintesi compatte | Modificare codice |
+
+### Gate di Prontezza (Readiness Gate)
+Prima di assegnare una task a un modello esecutivo (`bm-mechanic`, `bm-coder`, `bm-light`), applica questa checklist a 5 domande. Una task è pronta per un agente basso SOLO se TUTTE le risposte sono **SÌ**:
+1. **File/funzioni**: Sono esplicitamente nominati i file e le funzioni da toccare?
+2. **Determinismo**: La modifica è descritta in modo che due persone farebbero lo stesso diff (nessuna scelta di design aperta)?
+3. **Criterio verificabile**: Esiste un comando deterministico di verifica (test, build, lint, output atteso)?
+4. **Scope limitato**: Riguarda indicativamente 3 file o meno?
+5. **Nessun blocco**: È indipendente da altre decisioni ancora in sospeso?
+
+> **Regola**: Se manca anche una sola risposta, la task **NON** va a un agente basso e **NON** va a `bm-deep`: va a **`bm-planner`**, che la rende pronta o la spezza in Work Order atomici.
+
+### Regole per `bm-deep`
+- Accetta **solo** un problem statement stretto: sintomo + riproduzione esatta + area sospetta + tentativi già fatti.
+- Se manca la riproduzione o la richiesta è generica (es. *"implementa X"*), **rifiuta e rimanda a `bm-planner`**.
+- Output: diagnosi della causa radice e fix minimo; l'implementazione ritorna a `bm-coder` o `bm-light`.
+
+### Escalation Basata su Evidenze
+Gli agenti chiudono sempre con uno stato esplicito:
+- **`DONE`**: Il comando di verifica passa con successo.
+- **`BLOCKED: <motivo>`**: Specifica ambigua o decisione mancante $\to$ torna a `bm-planner`.
+- **`FAILED x2`**: Il test continua a fallire dopo 2 tentativi $\to$ sale di un livello (es. da coder a light, da light a deep).
+
+### Formato Work Order
+Ogni ordine generato da `bm-planner` contiene:
+- Obiettivo in una frase
+- File/funzioni da toccare
+- Modifica descritta senza scelte di design aperte
+- Comando di verifica e risultato atteso
+- Agente consigliato (`bm-mechanic` / `bm-coder` / `bm-light` / `bm-deep`)
 
 ---
 
