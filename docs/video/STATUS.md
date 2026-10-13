@@ -25,7 +25,7 @@ Le prime cinque colonne (documenti) si chiudono in questo task; le altre sono da
 | Video 6 | output del video 4 e 5 (`chain/04-map.bm`, `chain/05-sound.bm`) | video 4 registrato (in prova si può usare una mappa fatta a script) |
 | Video 7 | `chain/06-sdk.bm` e API `map3d_*` implementate | video 6; AGY-01 |
 | Video 8 | `chain/07-code.bm` | video 7 |
-| Tutti i video | strumento di registrazione (`bmhost`, ffmpeg; QEMU solo per la prova) e domande D1–D6 di `PIANO.md` §6 | risposta dell'utente |
+| Tutti i video | registratore QEMU con icount (misurato 59 fps, `PIANO.md` §6), da scrivere (B); domande D3–D6 | Claude cloud (B); risposta dell'utente |
 | Copertine | `video/lib/cover.py` | AGY-05 (Antigravity) |
 | Overlay dei tasti | `video/3d/overlay_gen.py` + renderer (specifica in `claude/skills/bm-video-series/overlay.md`) | da scrivere |
 

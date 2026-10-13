@@ -107,6 +107,12 @@ mai nel video finale.
    (orologio virtuale, stesso copione = stesso video). Resta da misurare in prova il frame rate del 3D a 480×270 in QEMU
    (`tools/showreel/console.py` fa ~12 screendump/s: per 60 fps veri serve una cattura di schermo, come `video/titan-clash/record_qemu.py`:
    Xvfb + QEMU gtk + `ffmpeg x11grab`). D1 è quindi risolta a favore di QEMU.
+
+   **Misura (Claude cloud, 2026-10-13, Xeon 2,1 GHz 4 core, `qemu-system-arm` 8.2.2, kernel 759599a, cartuccia 3D Studio Village a 480×270, rasterizzatore ARM)**:
+   - QEMU in tempo reale: il gioco fa **~39 fps** (580–630 frame, ~200 persi), con o senza cattura; lo schermo catturato a 60 fps mostra solo ~21 immagini distinte al secondo. **Non è 60 fps veri** su questo host: la registrazione in tempo reale non va bene qui.
+   - QEMU con **`-icount shift=1,sleep=off`** (tempo virtuale deterministico, 2 ns per istruzione): il gioco fa **59,4 fps, 0 frame persi** (tempo del guest). L'host gira a ~**3,4× più lento del reale** (17,6 immagini distinte al secondo di muro): 3,5 minuti di video ≈ 12 minuti di registrazione. Si cattura con `x11grab` a 60 fps (≥ del ritmo del guest), si tolgono i doppioni e si rimette un passo costante di 1/60 s: ogni frame del guest = un frame del video. Stesso copione = stesso video.
+   - `shift=2` è troppo lento (28,7 fps, tutti persi). Il registratore usa `shift=1`; il budget 3D va letto come "Pi un po' più lento del vero".
+   - Da verificare in B: nessun frame del guest perso (display gtk ~30 Hz, guest in muro ~18 Hz: margine ok).
 3. **Dove c'è QEMU**: nel cloud (sessione "Claude cloud", branch `feat/claude-video3d-rec`); in locale WSL ha `arm-none-eabi-gcc`,
    `gcc`, `python3` ma non `qemu-system-arm` né `ffmpeg` (ffmpeg è su Windows via winget). Divisione: **Claude local** = documenti,
    asset, script, `verify.py` con `bmhost`; **Claude cloud** = registrazione in QEMU e montaggio.
