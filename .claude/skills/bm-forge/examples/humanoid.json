@@ -1,0 +1,13 @@
+{
+  "comment": "The bone layout of the village 'villager' rig (carts/village/models.bm): same names, parents and rest points. Faces -z (eyes and feet on -z). .L is on +x, as bm Animator's mirror (carts/animator/main.lua:482).",
+  "model": "humanoid",
+  "bones": [
+    {"name": "hips", "parent": null, "head": [0, 0.9, 0], "tail": [0, 1.0, 0]},
+    {"name": "spine", "parent": "hips", "head": [0, 0.95, 0], "tail": [0, 1.5, 0]},
+    {"name": "head", "parent": "spine", "connect": true, "length": 0.5, "direction": [0, 1, 0]},
+    {"name": "arm.L", "parent": "spine", "head": [0.33, 1.42, 0], "tail": [0.33, 0.9, 0]},
+    {"name": "arm.R", "parent": "spine", "head": [-0.33, 1.42, 0], "tail": [-0.33, 0.9, 0]},
+    {"name": "leg.L", "parent": "hips", "head": [0.13, 0.9, 0], "length": 0.82, "direction": [0, -1, 0]},
+    {"name": "leg.R", "parent": "hips", "head": [-0.13, 0.9, 0], "length": 0.82, "direction": [0, -1, 0]}
+  ]
+}

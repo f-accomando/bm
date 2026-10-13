@@ -1,0 +1,21 @@
+{
+  "comment": "A standing jump, 1.5 s, no loop. Crouch (lean, arms back), launch with ease-out, fall with ease-in, land, stand. Mixed curves: baked to one key per frame, mode 0 linear.",
+  "name": "jump", "loop": false, "frames": 18,
+  "keys": [
+    {"frame": 0, "curve": "smooth", "pose": {
+      "hips": {"move": [0, 0, 0]}, "spine": {"rot": [0, 0, 0]}, "head": {"rot": [0, 0, 0]},
+      "arm.L": {"rot": [0, 0, 0]}, "arm.R": {"rot": [0, 0, 0]}, "leg.L": {"rot": [0, 0, 0]}, "leg.R": {"rot": [0, 0, 0]}}},
+    {"frame": 4, "curve": "ease-out", "pose": {
+      "hips": {"move": [0, 0, 0]}, "spine": {"rot": [-25, 0, 0]}, "head": {"rot": [15, 0, 0]},
+      "arm.L": {"rot": [-40, 0, 0]}, "arm.R": {"rot": [-40, 0, 0]}, "leg.L": {"rot": [0, 0, 0]}, "leg.R": {"rot": [0, 0, 0]}}},
+    {"frame": 8, "curve": "ease-in", "pose": {
+      "hips": {"move": [0, 0.6, 0]}, "spine": {"rot": [5, 0, 0]}, "head": {"rot": [-5, 0, 0]},
+      "arm.L": {"rot": [135, 0, 0]}, "arm.R": {"rot": [135, 0, 0]}, "leg.L": {"rot": [15, 0, 0]}, "leg.R": {"rot": [-10, 0, 0]}}},
+    {"frame": 13, "curve": "smooth", "pose": {
+      "hips": {"move": [0, 0, 0]}, "spine": {"rot": [-15, 0, 0]}, "head": {"rot": [10, 0, 0]},
+      "arm.L": {"rot": [30, 0, 0]}, "arm.R": {"rot": [30, 0, 0]}, "leg.L": {"rot": [0, 0, 0]}, "leg.R": {"rot": [0, 0, 0]}}},
+    {"frame": 17, "pose": {
+      "hips": {"move": [0, 0, 0]}, "spine": {"rot": [0, 0, 0]}, "head": {"rot": [0, 0, 0]},
+      "arm.L": {"rot": [0, 0, 0]}, "arm.R": {"rot": [0, 0, 0]}, "leg.L": {"rot": [0, 0, 0]}, "leg.R": {"rot": [0, 0, 0]}}}
+  ]
+}
