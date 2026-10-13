@@ -1,0 +1,27 @@
+# System: Bluetooth, WiFi and network
+
+Split from [system](system.md); open work and rules stay there.
+
+### Bluetooth (`src/bt/`)
+Classic (`bt.c`, `hci.c`, `btuart.c`): up to four HID pads (DualShock 4 the reference, light
+set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`). LE
+(`ble.c`, `smp_crypto.c`): one keyboard (passkey) and one mouse, keys `bt_kbd*`,
+`bt_mouse*`.
+
+### WiFi and network (`src/wifi/`, `src/net/`, `third_party/lwip`, `third_party/mbedtls`)
+- BCM43430/CYW43436 over SDIO (`wifi.c`, `sdio.c`): firmware and NVRAM loaded from the SD;
+  the chip's firmware does the WPA 4-way handshake (`sup_wpa`).
+- Auto-join (`wifi_auto.c`, Pi and RGB30): two tries at boot, then from the menu in a fiber
+  after 5 s, 15 s, 30 s, 1 min and every 2 min while down; `wifi_boot=0` turns it off.
+  `wifi_leave()` before every reboot.
+- lwIP with DHCP and SNTP (`net.c`), TLS with mbedTLS (`tls.c`), HTTP(S) (`http.c`): updates
+  (`update.c`, `release.c`, signed releases), Market catalog (`catalog.c`), GitHub reports
+  (`github.c`, `report.c`), 3D images (`img3d.c`), games' UDP and LAN (`lan.c`, `cartnet.c`).
+- PC link (`netcon.c` console, `netxfer.c` files) for `tools/bm_net.py`: a file is answered
+  `QD` once received and checked, written from the menu in a fiber
+  (`netxfer_write_tick`); one at a time, another gets `BY`. An open or suspended game is
+  replaced when closed. A kernel goes the same way while the menu runs (`menu_here()`: a
+  `netxfer_write_tick` in the last 250 ms; the answer after the write), else it is written
+  at once with the network polled (`save_now`). Tests: `tests/net/test_netcon.c` (run
+  plain, `menu`, `gone`), `check_bm_net_config.py`.
+
