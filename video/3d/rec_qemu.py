@@ -154,7 +154,7 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
     if limit_s:
         total = min(total, plan[0]["walk_end"] + int(limit_s * FPS))
 
-    r = qemurec.Recorder(work, shift=shift)
+    r = qemurec.Recorder(work, shift=shift, display=":%d" % (100 + int(n)))     # one X display per episode: they can record in parallel
     r.boot(sd_files=files, timeout=240)
     settle = r.vtime_us() + 3e6                       # the menu is up (the first seconds are a test pattern)
     while r.vtime_us() < settle:
