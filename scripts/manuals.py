@@ -88,7 +88,7 @@ def signature(text):
             sig.append(("h" + str(len(s.split(" ")[0])),))
             para = False
         elif s.startswith("|"):
-            cells = [c.strip() for c in s.strip().strip("|").split("|")]
+            cells = [c.strip() for c in s.strip().replace("\\|", "\0").strip("|").split("|")]
             if not all(re.fullmatch(r":?-+:?", c) for c in cells):
                 sig.append(("row", len(cells)))
             para = False

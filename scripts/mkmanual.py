@@ -254,7 +254,7 @@ def build_story(th, meta, lines, base_dir, width, lang):
             flush()
             rows = []
             while i < len(lines) and lines[i].startswith("|"):
-                cells = [x.strip() for x in lines[i].strip().strip("|").split("|")]
+                cells = [x.strip().replace("\0", "|") for x in lines[i].strip().replace("\\|", "\0").strip("|").split("|")]
                 if not all(re.fullmatch(r":?-+:?", x) for x in cells):
                     rows.append(cells)
                 i += 1

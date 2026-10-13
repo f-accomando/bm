@@ -1,0 +1,51 @@
+{
+ "riff": {
+  "chapters": {
+   "1": {
+    "en": "c6fdc9b594b9",
+    "it": "5d0acba0cce1",
+    "title": "What RIFF is"
+   },
+   "2": {
+    "en": "788bf7be9498",
+    "it": "d12cfa882ce7",
+    "title": "Your first song in 5 minutes"
+   },
+   "3": {
+    "en": "e4ea95f84066",
+    "it": "2b3461e0a374",
+    "title": "The notation in full"
+   },
+   "4": {
+    "en": "42f6df0f4802",
+    "it": "9fb34bd9557b",
+    "title": "Instruments and effects"
+   },
+   "5": {
+    "en": "fdda231f9def",
+    "it": "b5cc16c9af40",
+    "title": "Patterns, songs and structure"
+   },
+   "6": {
+    "en": "346fc7fa2717",
+    "it": "5f3a2aecd6e9",
+    "title": "Using a RIFF song in a game"
+   },
+   "7": {
+    "en": "9afe5981db34",
+    "it": "11995dc2c4e3",
+    "title": "Examples"
+   },
+   "8": {
+    "en": "c2d6bc8875a1",
+    "it": "36acd2213763",
+    "title": "Common mistakes"
+   }
+  },
+  "sources": {
+   "docs/RIFF.md": "60f68eb75661",
+   "docs/api/riff.md": "d19ca9e137e0",
+   "docs/api/sound.md": "e46ff07b3726"
+  }
+ }
+}

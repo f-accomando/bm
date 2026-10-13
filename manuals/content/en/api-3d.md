@@ -361,8 +361,6 @@ These are the tips the repository states; the numbers come from the 3D Bench (*D
 - Start the frame with `cls()`: the GPU tiles start from its colour and do not read the page again.
 - Draw floors and backgrounds first with flag 1 (no z-buffer): faster.
 - Use models with baked light for scenery: they cost less than computed light.
-- Use flag 2 (no light) or the emissive bit where light is not needed.
-- Use the level of detail (flags 16, 32, 48 and the bits 24-26) to drop the detail of far things.
 - Skip what cannot be seen with `visible3d` (and `pvs3d` for maps) before drawing it.
 - Use `impostor` for crowds: a far model becomes one quad (2 triangles).
 - Build models in `_init`, not in `_draw`: every `model()` call builds a new mesh.
@@ -373,7 +371,7 @@ These are the tips the repository states; the numbers come from the 3D Bench (*D
 - The bench scores each driver against bm3d 2.1 on the Pi Zero W (1000 points). `make test-b3d` runs a short check on the PC; the PC's milliseconds do not count.
 
 ::: note
-The GPU is not always faster for every scene: the 3D Bench measures each test with the ARM and with every GPU option, so you can choose the profile that fits your game.
+The 3D Bench measures each test with the ARM and with every GPU option that the console can reproduce, so you can compare the profiles.
 :::
 
 [TO FILL: figures in frames per second for a typical cartridge on the Pi Zero W and on the RGB30, measured with the 3D Bench]
