@@ -294,31 +294,46 @@ class Recorder:
         pt = threading.Thread(target=pump, daemon=True)
         pt.start()
 
-        ev = [e for e in events if e[0] < frames]
-        shots = []
-        deadline_bad = 0
-        for f, kind, args in ev:
-            target = t0 + f * US_PER_FRAME
-            while self.vtime_us() < target:
-                time.sleep(0.003)
-            late = self.vtime_us() - target
-            if late > 3 * US_PER_FRAME:
-                deadline_bad += 1
+        # every key is a pair of operations (down at its frame, up `hold_frames` later, or sooner if the same key comes
+        # again); they are done in time order, so keys 1-2 frames apart do not queue behind each other's hold.
+        ops, shots = [], []                         # (frame, order, qcodes, down?)
+        for f, kind, args in (e for e in events if e[0] < frames):
+            chords = []
             if kind == "type":
-                for chord in decode(args):
-                    self.press(chord)
-                    # a chord of several characters in one line: they come one after the other
-                    tgt = self.vtime_us() + hold_frames * US_PER_FRAME
-                    while self.vtime_us() < tgt:
-                        time.sleep(0.003)
-            elif kind == "chord":                       # "ctrl+esc": qcodes joined by +
-                self.press(args.split("+"))
+                chords = decode(args)
+            elif kind == "chord":                   # "ctrl+esc": qcodes joined by +
+                chords = [args.split("+")]
             elif kind == "keydown":
-                self.hold([args], True)
+                ops.append((f, 1, [args], True, -1))
             elif kind == "keyup":
-                self.hold([args], False)
+                ops.append((f, 0, [args], False, -1))
             elif kind == "shot":
                 shots.append((f, args))
+            for i, chord in enumerate(chords):      # the characters of one line come one after the other
+                at = f + i * hold_frames
+                pid = len(ops)
+                ops.append((at, 1, chord, True, pid))
+                ops.append((at + hold_frames, 0, chord, False, pid))
+        ops.sort(key=lambda o: (o[0], o[1]))
+        down, deadline_bad = {}, 0                  # qcode -> id of the press that holds it
+        for f, _, chord, is_down, pid in ops:
+            target = t0 + f * US_PER_FRAME
+            while self.vtime_us() < target:
+                time.sleep(0.002)
+            if self.vtime_us() - target > 2 * US_PER_FRAME:
+                deadline_bad += 1
+            if is_down:
+                again = [q for q in chord if q in down]
+                if again:                           # the key is still down from the last press: let it go first
+                    self.hold(again, False)
+                self.hold(chord, True)
+                down.update({q: pid for q in chord})
+            else:
+                mine = [q for q in reversed(chord) if q in down and (pid < 0 or down[q] == pid)]
+                if mine:
+                    self.hold(mine, False)
+                for q in mine:
+                    del down[q]
         # until the last frame
         end = t0 + frames * US_PER_FRAME
         while self.vtime_us() < end + 2 * US_PER_FRAME:
