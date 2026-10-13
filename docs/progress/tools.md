@@ -92,9 +92,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   run `meshy-overbit` (its `request.txt` lines), then `pack.py out rally_pilot kaiju_pilot`;
   optionally `rig=` lines with the ids of `out/NAME.task.txt` and `pack.py --rig`. Until then
   the text-to-3D pilots stay. The image-to-3D heroes are not rigged (no task ids kept).
-- **Mappe 3D in bm SDK** (rimandato): Map page con vista 3D, geometria costruita dal runtime e
-  condivisa con i giochi, prop MESH dal layer `objects`. Progetto in
-  [`suite-sdk.md`](../design/suite-sdk.md) Proposta 6; prima un Work Order di `bm-planner`.
+- **Mappe 3D in bm SDK** (in corso, Tropic Trail AGY-01): modulo C `src/bm/map3d.c` con API Lua `map3d_*` (costruzione mesh a pezzi 16×16 tiles con culling frustum `r3d_visible`, query quota pavimento con buche, collisioni sfere con muri e gradini, segnaposto oggetti); test suite `make test-map3d`. Prossimo: vista 3D nell'editor mappa con tasto `v` (AGY-02).
 - **R15** Live reload / auto-watch dal PC: `bm_net.py --watch` per inviare e rilanciare automaticamente la cartuccia a ogni salvataggio locale di `main.lua`.
 - **R26** Mouse hardware nativo in nano8: supporto `mouse(true)` per cartucce `.p8` che abilitano il puntatore con `poke(0x5f2d, 1)`, esportando coordinate e rotella su `stat(32)`–`stat(36)`.
 

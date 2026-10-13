@@ -574,7 +574,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # gfx16, r3d, the sound player) and the kernel's services replaced
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
-BMHOST_RT := src/bm/runtime.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/format.c src/bm/meshcap.c \
+BMHOST_RT := src/bm/runtime.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c \
              src/kernel/syskeys.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c \
              src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c src/audio/audio.c src/audio/synth.c \
@@ -629,7 +629,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-keymap test-gameapi test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
-        run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
+        run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
         test-fat test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-prompts test-docs test-hyp test-zero2 \
@@ -1120,6 +1120,15 @@ $(BUILD)/host/libbmdecimate.so: src/bm/decimate.c src/bm/decimate.h
 
 $(BUILD)/meshcap-test.bm: tests/bm/meshcap_cart.lua scripts/mkbm.py
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "meshcap test" --author tests
+
+# the 3D map engine (map3d.c, AGY-01)
+MAP3D_TEST_SRCS := src/bm/map3d.c src/bm/r3d.c src/bm/gfx16.c
+$(BUILD)/host/test_map3d: tests/bm/test_map3d.c $(MAP3D_TEST_SRCS) $(BMHOST_LUA) src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc/bm -Isrc -Ithird_party/lua -o $@ tests/bm/test_map3d.c $(MAP3D_TEST_SRCS) $(BMHOST_LUA) -lm
+
+test-map3d: $(BUILD)/host/test_map3d
+	$(BUILD)/host/test_map3d
 
 test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUILD)/carts/astrowing.bm \
          $(BUILD)/texroom.bm $(BUILD)/carts/kitchen.bm $(BUILD)/meshcap-test.bm \
