@@ -4,7 +4,7 @@ At-a-glance report: hardware constraints, technical choices made (and discarded)
 
 **Sources**
 - *(M)* Measured on physical Raspberry Pi; *(Q)* Measured in QEMU; *(H)* x86 Host benchmark (indicative proportions); *(D)* Datasheet / official documentation.
-- Additional details: stress test in [`docs/STRESS.md`](STRESS.md); hardware specs in [`docs/HARDWARE.md`](HARDWARE.md); display modes in [`docs/RISOLUZIONI.md`](RISOLUZIONI.md); GPU transition history in [`docs/M33-PRIMA-DOPO.md`](M33-PRIMA-DOPO.md); benchmark suite in [`docs/BENCH3D.md`](BENCH3D.md).
+- Additional details: stress test in [`docs/STRESS.md`](STRESS.md); hardware specs in [`docs/HARDWARE.md`](HARDWARE.md); display modes in [`docs/RISOLUZIONI.md`](RISOLUZIONI.md); GPU transition history in [`docs/GPU-BENCHMARK-REPORT.md`](GPU-BENCHMARK-REPORT.md); benchmark suite in [`docs/BENCH3D.md`](BENCH3D.md).
 
 ---
 
@@ -118,7 +118,7 @@ At-a-glance report: hardware constraints, technical choices made (and discarded)
 | Textured Spheres | 94.8 | 79.9 |
 | Texture Room (8 crates) | 84.7 | 57.7 |
 
-With 3D rendering delegated to the VideoCore IV GPU, the ARM core no longer draws pixels directly: Texture Room CPU instructions drop from 3.86 million to 0.62 million per frame. Historical transition data and Overbit benchmarks are documented in [`docs/M33-PRIMA-DOPO.md`](M33-PRIMA-DOPO.md) and [`docs/BENCH3D.md`](BENCH3D.md).
+With 3D rendering delegated to the VideoCore IV GPU, the ARM core no longer draws pixels directly: Texture Room CPU instructions drop from 3.86 million to 0.62 million per frame. Historical transition data and Overbit benchmarks are documented in [`docs/GPU-BENCHMARK-REPORT.md`](GPU-BENCHMARK-REPORT.md) and [`docs/BENCH3D.md`](BENCH3D.md).
 
 **ARM Instructions Per Triangle with GPU (M34)**, using `+gpu` scenes:
 

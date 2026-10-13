@@ -146,7 +146,7 @@ trial, off by default).
   the GPU status, the saved report.
 - **One test per page**: the bars (60 fps bright, 30 fps dim) of each profile with a
   white tick at the value of the previous report; in grey the numbers measured on the Pi with the
-  earlier drivers (0.1, 0.2, 1.0: `docs/M33-PRIMA-DOPO.md`); in red the hardware
+  earlier drivers (0.1, 0.2, 1.0: `docs/GPU-BENCHMARK-REPORT.md`); in red the hardware
   limit where there is one (the V3D: 1 Gpixel/s and 1.5 Gtexel/s according to Raspberry Pi; 3.0
   million triangles per second measured by the `g` test); below, the table of
   statistics.

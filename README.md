@@ -88,7 +88,7 @@ bm integrates **bm3d** (v7.2+), a custom dual-path 3D engine:
 - **Chaos Kitchen (3D Co-op)**: **6.8 ms/frame (60 fps)** on V3D GPU vs 14.1 ms on software ARM.
 - **Astro Wing (3D Flight Combat)**: **6.3 ms/frame (solid 60 fps)**.
 
-> Read the full performance breakdown in [`docs/M33-PRIMA-DOPO.md`](docs/M33-PRIMA-DOPO.md) and [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
+> Read the full performance breakdown in [`docs/GPU-BENCHMARK-REPORT.md`](docs/GPU-BENCHMARK-REPORT.md) and [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 
 ---
 
