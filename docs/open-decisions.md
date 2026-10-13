@@ -19,7 +19,7 @@ document of the area.
 - `shot()` asks the player nothing (it writes only in `bm/shots/`): keep it so, or ask like `doc_write`?
 
 ## Theme (PDF manuals)
-- Choose among A (paper/orange), B (night/cyan), C (white/blue technical).
+- Choose among A (paper/orange), B (night/cyan), C (blueprint/datasheet): previews in `manuals/themes/preview*.pdf` and `preview.png`.
 
 ## Manuals structure
 - Which manuals, in which order, and what the editor chapters cover.

@@ -1,0 +1,53 @@
+# Theme B - Night / Cyan: dark page like the console's screen, cyan accent, monospaced headings.
+[meta]
+name = "night"
+label = "B - Night / Cyan"
+
+[colors]
+page = "#10141C"
+text = "#D7DEE9"
+muted = "#7E8AA0"
+heading = "#F2F6FC"
+accent = "#35D0E6"
+accent_text = "#06222A"
+accent_soft = "#12363F"
+rule = "#2A3446"
+box_bg = "#171D29"
+box_border = "#35D0E6"
+shadow = "#0A0D13"
+code_bg = "#0A0D13"
+code_text = "#A9F0B5"
+cover_bg = "#10141C"
+cover_text = "#F2F6FC"
+table_head_bg = "#35D0E6"
+table_head_text = "#06222A"
+table_stripe = "#141A25"
+warn = "#FF7A7A"
+
+[fonts]
+body = "Helvetica"
+bold = "Helvetica-Bold"
+italic = "Helvetica-Oblique"
+mono = "Courier"
+mono_bold = "Courier-Bold"
+heading = "Courier-Bold"
+accent = "Courier-Bold"
+
+[sizes]
+body = 10
+small = 8
+code = 8.5
+h1 = 25
+h2 = 14.5
+h3 = 11.5
+cover_title = 38
+cover_sub = 13
+
+[layout]
+margin_mm = 20
+box_pad = 9
+box_radius = 2
+shadow_offset = 3
+box_line = 1
+cover_style = "band"
+header = true

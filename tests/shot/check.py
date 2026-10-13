@@ -32,7 +32,7 @@ def main():
     shots = os.path.join(sys.argv[1], "bm", "shots")
     names = sorted(os.listdir(shots))
     # the cart's title is "shot test" (the first four letters: SHOT); shot("ab!c") keeps the letters: ABC
-    want = ["ABC0001.PNG", "SHOT0001.PNG", "SHOT0002.PNG"]
+    want = ["ABC0001.PNG", "SHOT0001.PNG", "SHOT0002.PNG", "SHOT0003.PNG"]    # the last: the Print Screen key at frame 20
     ok = names == want
     print(f"shot: names {names} {'ok' if ok else 'WRONG, want ' + str(want)}")
     assert ok
@@ -46,7 +46,7 @@ def main():
     a, b = img["SHOT0001.PNG"], img["SHOT0002.PNG"]
     assert a(14, 60) != a(0, 0) and b(14, 60) == b(0, 0), "frame 3"
     assert b(60, 60) != b(0, 0) and a(60, 60) == a(0, 0), "frame 6"
-    print("shot: 3/3 checks passed")
+    print("shot: 4/4 checks passed")
 
 
 main()
