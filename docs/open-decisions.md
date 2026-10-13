@@ -4,17 +4,11 @@ One section per area. Remove an item when it is decided and record the result in
 document of the area.
 
 ## Formats (`.bm`, `.b16`, `.bme`)
-Audit and options with pros and cons: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [BM-FORMAT.md](BM-FORMAT.md).
-- 720x720: remove it from the tools (F2a) or accept it in the kernel (F2b)?
-- What a `.b16` promises: only a target (360x360, 8 MiB) + packaging lint (B3 a+b), or runtime enforcement (B3c, breaks published `.b16` that use `math.random`, files...)?
-- Yharnam and Titan EX are a plain copy of the `.bm`: really two editions (B2: build with `--from --b16`), or one edition under two names?
-- Header integrity: a second CRC in the reserved bytes (F3a), the full CRC (F3b, breaks old kernels) or leave it?
-- Safe now, no decision needed: F1 (document flags and built-from), F7/F8 (writer and tool fixes), B1 (make `B16.md` say what is true; `B16-IT.md` is a broken link).
-
-## Structure of the programs
-See [APP-ARCHITECTURE.md](APP-ARCHITECTURE.md) section 7.
-- **S1 (security): a game can create `/carts/pixel.bm` (any new `.bm`) and the kernel runs an SD file with a tool's name as that tool, with write access and no permission questions.** Read from the code, not tried. S1a (refuse the reserved names in `write_target`) is a few lines: do it?
-- One table of apps and tools instead of 7 lists (A2); `build.py` unified (A4); `id` in INFO for the saves (A7).
+Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [BM-FORMAT.md](BM-FORMAT.md). Decided 2026-10-13:
+- **720x720**: accepted by the kernel (for the RGB30 panel and its GPU); on the Pi it is shown in the middle of a 1280x720 screen (not tried on a Pi). Done in `format.c`, `runtime.c`, `bm.h`; `test_bm` checks it.
+- **`.b16` is a target** (360x360 or 720x720, 8 MiB), not a sandbox: `B16.md` now says so; Yharnam and Titan EX are built with `mkbm.py --from X.bm --b16` (flag set). A packaging lint of the forbidden APIs (B3b) stays possible, not done.
+- **Sharing assets is free**: no licence blocking. The licence is information that travels (`bmres.py extract` now keeps the source's `license`, `version`, `tags`); credits in `bm.info` with `credit:` lines (see PROJECT-LAYOUT.md). A `res:` list with hashes is only for reproducible builds, never a check that refuses.
+- Still open: header integrity (second CRC in the reserved bytes, F3a); the bigger writer unification (F6).
 
 ## API
 - Screenshot `shot([prefix])`, Print Screen and Select+L1+R1: done ([SCREENSHOTS.md](SCREENSHOTS.md)).

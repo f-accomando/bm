@@ -371,7 +371,7 @@ $(BUILD)/carts/overbit.b16: $(BUILD)/overbit/main.min.lua $(BUILD)/overbit/model
 # its menus on "ok" / "back", the RGB30's B and A)
 B16_AS_BM := yharnam titanex
 $(patsubst %,$(BUILD)/carts/%.b16,$(B16_AS_BM)): $(BUILD)/carts/%.b16: $(BUILD)/carts/%.bm
-	cp $< $@
+	$(PYTHON) scripts/mkbm.py --from $< --b16 -o $@
 	@test `wc -c < $@` -le 8388608 || { echo "$@ is over a .b16's 8 MiB"; rm -f $@; exit 1; }
 
 # variants that start in a mode: the reel (for docs/img) and the benchmark
@@ -826,7 +826,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-nano8 test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-profile test-online test-bmnet test-loading \
+      test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-reserved test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-docs $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
@@ -1404,3 +1404,15 @@ manuals:
 test-manuals:
 	$(PYTHON) scripts/manuals.py check
 .PHONY: manuals test-manuals
+
+# A game cannot create a file named as one of bm's tools (src/bm/runtime.c reserved_tool_name)
+$(BUILD)/reserved-test.bm: tests/tools/reserved.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "reserved test" --author tests
+test-reserved: $(BUILD)/host/bmhost-bin $(BUILD)/reserved-test.bm
+	rm -rf $(BUILD)/reserved-sd && mkdir -p $(BUILD)/reserved-sd/carts
+	$< $(BUILD)/reserved-test.bm --sd $(BUILD)/reserved-sd --seconds 1 2>&1 | tee $(BUILD)/reserved-test.log | grep "^reserved"
+	@for n in pixel.bm SDK.BM assistan.bm code.bm Studio.bm sdk_b16.bm; do \
+	    grep -q "^reserved: $$n false .*kept for one of bm's tools" $(BUILD)/reserved-test.log || { echo "$$n was not refused"; exit 1; }; done
+	@for n in ok.bm pixels.bm; do grep -q "^reserved: $$n true" $(BUILD)/reserved-test.log || { echo "$$n was refused"; exit 1; }; done
+	@echo "reserved: 8/8 checks passed"
+.PHONY: test-reserved

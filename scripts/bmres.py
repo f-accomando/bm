@@ -874,6 +874,17 @@ class Sheet:
 
 # ------------------------------------------------------------------ extraction
 
+def carry_info(src, out):
+    """what the source cartridge says about itself (licence, version, tags) goes with what is taken out of it:
+    sharing is free, but the credit travels"""
+    src_info, info = info_of(src), info_of(out)
+    for key in ("license", "version", "tags"):
+        v = kv_get(src_info["file"], key)
+        if v is not None and kv_get(info["file"], key) is None:
+            kv_set(info["file"], key, v)
+    info_store(out, info)
+
+
 def _models_info(src_info, out_info, typ, names):
     for n in names:
         it = info_item(src_info, typ, n)
@@ -1625,6 +1636,7 @@ def main(argv=None):
                 out = extract_kit(src)
             if a.name is not None and kind == IMAGE and a.rect:
                 a.name = None                       # the zone's name, not the file's
+            carry_info(src, out)
             apply_info(out, a)
             data = write(a.output, out)
             print(f"{a.output}: {len(data)} bytes, {KIND_NAMES[kind]} '{out.name}'")

@@ -5,6 +5,8 @@ decision** ([open-decisions.md](open-decisions.md)). The format as it is: [BM-FO
 structure of the programs: [APP-ARCHITECTURE.md](APP-ARCHITECTURE.md). Each proposal says whether it **breaks**
 old kernels, old tools or existing cartridges. Evidence is `file:line` at the time of the audit.
 
+> **Update 2026-10-13:** decided and done: F1 (header comments of `bm.h`), F2(b) (720x720 accepted), the bm_rewrite width bug (480x270 saved as 640x360), B1 (`B16.md` status), B2, B3(a), R1's `extract` fix, S1a. See [open-decisions.md](open-decisions.md).
+
 ## 1. What is solid
 
 - One container, parsed in one place (`format.c`), with a CRC, exact-size checks on every section, limits on the

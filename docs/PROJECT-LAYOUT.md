@@ -30,6 +30,18 @@ carts/<id>/bm.info` copies it into the cartridge.
 Unknown keys are kept in the cartridge. The binary `.bm` format does not change: an
 older kernel ignores INFO.
 
+## Credits: reusing other people's assets
+
+Sharing among developers is free: nothing refuses a resource because of its licence. To keep the credit, list what you
+reused in `bm.info` (it is copied into the INFO section like every key), one line each:
+
+```
+credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
+```
+
+`bmres.py extract` keeps the `license`, `version` and `tags` of the cartridge it takes a resource from, and `bmres.py add` writes the
+`origin` (SHA-256) and the author/licence of each part into the game's INFO.
+
 ## Migrated so far
 
 | game | state |
