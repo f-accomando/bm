@@ -643,7 +643,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
         test-fat test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
-        release disasm wav test-studio test-prompts test-hyp test-zero2 \
+        release disasm wav test-studio test-prompts test-docs test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
         test-catalog test-github test-lan market-seed test-host test-qemu
 
@@ -829,7 +829,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-nano8 test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
-      test-studio test-prompts $(if $(K7),test-hyp)
+      test-studio test-prompts test-docs $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
@@ -1161,6 +1161,9 @@ $(BUILD)/host/test_prompts: tests/ui/test_prompts.c src/kernel/prompts.c src/ker
 test-prompts: $(BUILD)/host/test_prompts
 	@mkdir -p $(BUILD)/prompts
 	$< $(BUILD)/prompts
+
+test-docs:
+	$(PYTHON) scripts/docs_audit.py score
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator

@@ -25,6 +25,21 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
 - Next: when the triangle works (then bm3d gets its version and a row in DRIVERS.md), an `r3d` backend (`tri` callback batching screen triangles, a colour per draw),
   then the vertex shader with the transform.
 - `origin/bm3d-mali-v1` (Grok) was not used: its additions do not compile (`mali_tri_batch_t`
-  undeclared, a stray `
-`), the descriptors are invented (placeholder shaders, a made-up tiler job)
+  undeclared), the descriptors are invented (placeholder shaders, a made-up tiler job)
   and its `gpu3d.c` edit is the V3D driver, which the RGB30 does not build.
+
+## M41 Roadmap: Mali GPU & Overbit in `.b16` (RGB30)
+
+1. **Overbit in `.b16` su RGB30**:
+   - Esecuzione a **360×360** (con raddoppio ×2 dal controller video hardware) e **720×720** nativo, selezionabili nel menu *RESOLUTION*.
+   - Adattamento con `screen()` per modi quadrati (`fb_init_mode`: righe a 64 byte e tessere da 16).
+   - In Overbit: adattamento di HUD, menu, cielo e campo visivo 1:1 (`SW`, `SH`, `LW`×`LH` e `UI` di `00_core.lua`).
+2. **Benchmark con ARM**:
+   - Misura delle prestazioni di Overbit (combattimento bot e anello di eroi) a entrambe le risoluzioni su ARM, con generazione report.
+3. **Driver Mali a Fasi**:
+   - *Fase 1*: Triangoli preparati dall'ARM e rasterizzati da GPU (triangolo nel *GPU test*).
+   - *Fase 2*: Backend `r3d` con batching e un colore per disegno.
+   - *Fase 3*: Vertex shader per le trasformazioni geometriche su GPU.
+   - *Fase 4*: Coda di job asincrona con supporto multi-buffering.
+- **Criterio di completamento**: Sulla RGB30 Overbit `.b16` gira stabilmente a 360×360 e a 720×720, il benchmark produce il report prestazionale (prima con ARM, poi con Mali) e la tabella 3D Bench della RGB30 riporta i dati delle colonne GPU.
+

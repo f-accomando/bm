@@ -102,7 +102,17 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   watchdog is reset by the 10 Hz tick). (3) the last-lines ring can tear at 32-byte lines (keep
   a 0 after the newest char), store the freezing kernel's version, pin `.noinit` (`linker.ld`).
 - Measurements to redo, stalls that still hold the CPU, downloads inside an app: [multitasking](multitasking.md).
-- No milestone in `docs/ROADMAP.md` is about this area today; spunti R… at its end.
+
+### Console Standalone & Hardware Spunti (R1, R2, R3, R4, R6, R8, R19, R20)
+- **R1 — WiFi dal menu col pad**: Settings > WiFi and network con selezione reti via gamepad e inserimento credenziali tramite tastiera a schermo (R2).
+- **R2 — Tastiera a schermo kernel**: Trasformazione di `padtype` in servizio nativo C per il kernel (utilizzabile per configurazione WiFi, rinomina file, Market) ed esposto ai giochi via API Lua (`textinput(titolo, default)`).
+- **R3 — Log su SD con crash traceback**: Scrittura di `bm/log.txt` sulla scheda SD del Raspberry Pi contenente il log di boot e il traceback dell'ultimo errore Lua di una cartuccia.
+- **R4 — Screenshot da combinazione tasti**: Scorciatoia gamepad/tastiera per catturare il framebuffer ed esportare un file PNG in `bm/shots/` per bug report o copertine.
+- **R6 — Web Interface locale (`bm.local`)**: Server HTTP integrato e responder mDNS (`bm.local`) per consentire il caricamento di file `.bm`, il download di screenshot/salvataggi e la modifica di `bm/config.txt` direttamente dal browser del telefono o PC locale.
+- **R8 — Rumble e LED DualShock 4**: Esposizione delle API `rumble(p, forte, debole, ms)` e `padlight(p, colore)` sfruttando il report di uscita 0x11 già implementato in `bt.c`.
+- **R19 — Supporto Controller Bluetooth Esteso**: Integrazione profili per DualSense, Switch Pro Controller, 8BitDo e gamepad Xbox (Bluetooth LE tramite `ble.c`).
+- **R20 — Telecomando HDMI-CEC**: Supporto per le frecce direzionali e tasto Select/OK del telecomando della TV per navigare nei menu della console senza controller collegato.
+- **Rete & bmnet Multiplayer**: Test di due console Pi collegate su modello *Online 2D* (anche via relay) e porting definitivo del protocollo di rete di Overbit sopra la libreria unificata `bmnet`.
 
 ## Rules (do not break)
 

@@ -132,6 +132,8 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   run `meshy-overbit` (its `request.txt` lines), then `pack.py out rally_pilot kaiju_pilot`;
   optionally `rig=` lines with the ids of `out/NAME.task.txt` and `pack.py --rig`. Until then
   the text-to-3D pilots stay. The image-to-3D heroes are not rigged (no task ids kept).
+- **R15** Live reload / auto-watch dal PC: `bm_net.py --watch` per inviare e rilanciare automaticamente la cartuccia a ogni salvataggio locale di `main.lua`.
+- **R26** Mouse hardware nativo in nano8: supporto `mouse(true)` per cartucce `.p8` che abilitano il puntatore con `poke(0x5f2d, 1)`, esportando coordinate e rotella su `stat(32)`–`stat(36)`.
 
 ## Rules (do not break)
 
