@@ -89,6 +89,9 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
     ov = json.load(open(os.path.join(out, "overlay.json"), encoding="utf-8"))
     sd_dir = os.path.join(out, "sd", "carts")
     files = [(os.path.join(sd_dir, f), "carts/" + f) for f in sorted(os.listdir(sd_dir))] if os.path.isdir(sd_dir) else []
+    start = os.path.join(out, "start.bme")             # record.py's start project (out/sd holds what its bmhost run SAVED)
+    if os.path.exists(start):
+        files = [(src, name) for src, name in files if not name.upper().endswith(".BME")] + [(start, "carts/TROPIC.BME")]
     parts = PARTS.get(int(n), [(v["tool"], 0, None)])
     parts = [(t, a, b if b is not None else 10 ** 9) for t, a, b in parts]
 
