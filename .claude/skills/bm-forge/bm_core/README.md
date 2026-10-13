@@ -23,6 +23,7 @@ ANIM (9) sections. Python >= 3.8, standard library only, no network. Formats:
 | `shapes.py` | box builder with the villager's winding: `box`, `boxes_model`, `load_boxes` |
 | `imageio.py` | `Image`, PNG writer, animated GIF writer (own LZW, median-cut palette), `contact_sheet` |
 | `export.py` | `export_models`, `export_bmm`, `export_cart`, `export_folder`, `export_market`, `about_line`; `frame_triangles`, `check_budget`, `cover_section`, `models_cart` |
+| `similarity.py` | silhouette IoU between models or against a PNG, and the PNG reader |
 | `syncwatch.py`, `SYNC.json` | drift watch on the sources bm_core was ported from |
 
 Every dataclass has `to_dict()` / `from_dict()` (JSON-safe). Each function's docstring
@@ -118,6 +119,11 @@ All in `export.py`; every function raises `ValidationError` on bad input.
   exists. See `../examples/game_demo/README.md`.
 - Export never uses `cart_data`. Doubts: OPEN_QUESTIONS.md 47-53.
 
+## CLI
+
+`../scripts/bm_forge.py` wraps bm_core: subcommands `mesh`, `skel`, `anim`, `export`, `check`,
+`preview`, `doctor`. Usage, options and exit codes: `../references/CLI.md`.
+
 ## Tests
 
 From `.claude/skills/bm-forge` (on Windows, in WSL through `scripts/wsl-run.ps1`):
@@ -141,6 +147,7 @@ bm_core is a port, so it drifts when these change:
 - `scripts/bmmesh.py` (the Python writer bm_core mirrors)
 - `src/script/bm3d.lua` (the tools' encoders and the 4096/16384 limits)
 - `src/gpu/version3d.h` (`BM3D_VERSION`, recorded for information)
+- `src/bm/runtime.c`, `src/bm/r3d.c`, `carts/animator/main.lua` (whole-file hashes: any edit reports drift)
 
 ```sh
 python3 -m bm_core.syncwatch check     # exit 1 + list on drift (also a test: test_syncwatch.py)

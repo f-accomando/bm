@@ -71,4 +71,18 @@ see `references/OPEN_QUESTIONS.md` items 19-22.
   `preview_samples/forge_*` are its pictures (`make_forge_samples.py`).
 - `test_syncwatch.py`: the watched sources still match `bm_core/SYNC.json`.
 - `test_bmhost_demo.py` (phase 3): opt-in with `BM_FORGE_HOST=1`; builds the `forgedemo` example and runs it under bmhost, (the `forge_assets()` fixture in `_common.py` already exists).
+- `test_similarity.py`: PNG reader (RGB round trip, RGBA with row filters 0/1/4, refusal of
+  unsupported depth/interlace/size), silhouette IoU (identical = 1.0, x2 scale >= 0.99,
+  humanoid vs ground < 0.5, PNG reference round trip, size mismatch refused).
+- `test_cli_build.py`: CLI `mesh` (boxes JSON, `.glb`, `.bmm`, `--max-tris`, bad extension),
+  `skel`, `anim` (reports, duplicate clips with/without `--replace`), `kernel_limits` through
+  `export_models`/`export_bmm`, editions kept, same in/out path and missing input exit 2, no stray files.
+- `test_cli_export.py`: CLI `export` models, bmm (`--model` subset), cart (`.bm` 320x180 with COVER,
+  `.b16` 360x360, `--budget`, `.bme` refused), folder (second run without `--overwrite` fails), market.
+- `test_cli_check.py`: CLI `check` on goldens (exit 0), luahost `.bme` and corrupt CRC (exit 1), missing
+  file (exit 2), `--budget`, `--kernel-limits`, reference model/PNG IoU (`--min-iou`, exit 3), `--json`, drift (exit 0 or 4).
+- `test_cli_preview.py`: CLI `preview` (still PNG, clip GIF, contact-sheet PNG, turntable, `--mask` then
+  `--compare`, bad extension, clip without rig) and `doctor` (in process and as subprocess).
+- `test_skill_docs.py`: SKILL.md (under 150 lines, frontmatter, "Come chiedere" with 6+ blocks holding
+  COSA/VINCOLI/OUTPUT/VERIFICA, every `references/*.md` named exists), LESSONS.md cases/rules, CLI.md has a section per subcommand.
 - `test_conformance_slow.py`: skipped unless `BM_FORGE_SLOW=1` and `qemu-system-arm`.

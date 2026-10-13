@@ -115,10 +115,9 @@ Renderer approximations (each also in the `preview.py` docstring):
 35. **Camera**: the preview turns the model (yaw about y, then pitch about x) in front of
     a fixed camera and fits the camera to the bounding sphere; a game places its own
     camera (`r3d_camera`). Orthographic is a preview extra.
-36. **Drift watch**: `SYNC.json` does not track `src/bm/runtime.c`, `src/bm/r3d.c` or
-    `carts/animator/main.lua` (big files that change often; a whole-file hash would cry
-    wolf). A change of `pose_at`/`skin`/`light_fast` is not detected: add line-range
-    hashes to `syncwatch` if this matters.
+36. **Drift watch**: `src/bm/runtime.c`, `src/bm/r3d.c` and `carts/animator/main.lua` are
+    tracked in `SYNC.json` as whole-file hashes: any edit to those files reports drift;
+    line-range hashes would be finer.
 
 ## Skeletons and clips from descriptions (`bm_core/skelgen.py`, `animgen.py`, phase 2)
 
