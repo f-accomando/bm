@@ -32,6 +32,19 @@ ROOT = os.path.normpath(os.path.join(HERE, ".."))
 THEMES = os.path.join(ROOT, "manuals", "themes")
 
 
+# ------------------------------------------------------------------ languages
+
+LABELS = {
+    "en": {"readme": "README", "try": "TRY IT", "warn": "BEWARE", "copy": "COPY AND PASTE", "note": "NOTE",
+           "contents": "Contents", "open": "Open points", "none": "No open points.", "page": "page",
+           "fill": "TO FILL", "gap_in": "in"},
+    "it": {"readme": "LEGGIMI", "try": "PROVA", "warn": "ATTENZIONE", "copy": "DA COPIARE", "note": "NOTA",
+           "contents": "Indice", "open": "Punti aperti", "none": "Nessun punto aperto.", "page": "pagina",
+           "fill": "DA COMPLETARE", "gap_in": "in"},
+}
+GAP = re.compile(r"\[(?:TO FILL|DA COMPLETARE):([^\]]*)\]")
+
+
 # ------------------------------------------------------------------ theme
 
 class Theme:
@@ -85,9 +98,9 @@ def inline(th, t):
     t = esc(t)
     t = re.sub(r"`([^`]+)`", lambda m: f'<font name="{th.f["mono"]}" backColor="{th.c["code_bg"].hexval().replace("0x", "#")}">'
                                        f'&nbsp;{m.group(1)}&nbsp;</font>', t)
-    t = re.sub(r"\[TO FILL:([^\]]*)\]", lambda m: f'<font name="{th.f["bold"]}" '
+    t = re.sub(r"\[(TO FILL|DA COMPLETARE):([^\]]*)\]", lambda m: f'<font name="{th.f["bold"]}" '
                f'backColor="{th.c["accent_soft"].hexval().replace("0x", "#")}" '
-               f'color="{th.c["warn"].hexval().replace("0x", "#")}">&nbsp;[TO FILL:{m.group(1)}]&nbsp;</font>', t)
+               f'color="{th.c["warn"].hexval().replace("0x", "#")}">&nbsp;[{m.group(1)}:{m.group(2)}]&nbsp;</font>', t)
     t = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", t)
     t = re.sub(r"(?<![\w*])\*([^*]+)\*(?![\w*])", r"<i>\1</i>", t)
     return t
@@ -134,6 +147,14 @@ class Box(Flowable):
             fl.drawOn(cv, pad + (3 if self.kind in ("try", "warn") else 0), y)
 
 
+class Head(Paragraph):
+    """a heading that goes into the contents and the PDF's outline"""
+
+    def __init__(self, text, style, level, plain):
+        super().__init__(text, style)
+        self.toc = (level, plain)
+
+
 class Shot(Flowable):
     """a picture with a thin frame, scaled to the width"""
 
@@ -167,8 +188,8 @@ def parse_head(lines):
     return meta, lines[i:]
 
 
-def build_story(th, meta, lines, base_dir, width):
-    p, c = th.p, th.c
+def build_story(th, meta, lines, base_dir, width, lang):
+    p, c, lab = th.p, th.c, LABELS[lang]
     story, i, para = [], 0, []
 
     def flush():
@@ -179,8 +200,7 @@ def build_story(th, meta, lines, base_dir, width):
     def box(kind, body_lines):
         inner = []
         if kind in ("try", "warn", "copy", "note"):
-            label = {"try": "TRY IT", "warn": "BEWARE", "copy": "COPY AND PASTE", "note": "NOTE"}[kind]
-            inner.append(Paragraph(label, p["label"]))
+            inner.append(Paragraph(lab[kind], p["label"]))
         if kind == "copy":
             inner.append(Preformatted("\n".join(body_lines), p["code"]))
         else:
@@ -190,7 +210,7 @@ def build_story(th, meta, lines, base_dir, width):
                                            p["body"] if kind != "readme" else ParagraphStyle("r", parent=p["body"],
                                                                                               fontSize=th.s["body"] - 0.5)))
         if kind == "readme":
-            inner.insert(0, Paragraph("README", p["label"]))
+            inner.insert(0, Paragraph(lab["readme"], p["label"]))
         story.append(Spacer(1, 4))
         story.append(Box(th, inner, kind))
         story.append(Spacer(1, 10))
@@ -223,10 +243,10 @@ def build_story(th, meta, lines, base_dir, width):
             if not first_chapter:
                 story.append(PageBreak())
             first_chapter = False
-            story.append(Paragraph(inline(th, ln[2:]), p["h1"]))
+            story.append(Head(inline(th, ln[2:]), p["h1"], 0, ln[2:]))
         elif ln.startswith("## "):
             flush()
-            story.append(Paragraph(inline(th, ln[3:]), p["h2"]))
+            story.append(Head(inline(th, ln[3:]), p["h2"], 1, ln[3:]))
         elif ln.startswith("### "):
             flush()
             story.append(Paragraph(inline(th, ln[4:]), p["h3"]))
@@ -263,7 +283,7 @@ def build_story(th, meta, lines, base_dir, width):
             m = re.match(r"!\[(.*)\]\((.*)\)", ln)
             path = os.path.join(base_dir, m.group(2))
             if not os.path.exists(path):
-                story.append(Paragraph(inline(th, f"[TO FILL: picture {m.group(2)}]"), p["body"]))
+                story.append(Paragraph(inline(th, "[" + lab["fill"] + ": " + m.group(2) + "]"), p["body"]))
             else:
                 story.append(KeepTogether([Spacer(1, 4), Shot(th, path, width), Spacer(1, 3),
                                            Paragraph(inline(th, m.group(1)), p["cap"])]))
@@ -343,30 +363,76 @@ def draw_page(cv, doc, th, meta):
     cv.restoreState()
 
 
+class Doc(BaseDocTemplate):
+    def beforeDocument(self):
+        self.hseq = 0                       # (every pass of multiBuild numbers the headings again)
+
+    def afterFlowable(self, fl):
+        if isinstance(fl, Head):
+            level, text = fl.toc
+            key = f"h{self.hseq}"
+            self.hseq += 1
+            self.canv.bookmarkPage(key)
+            self.canv.addOutlineEntry(text, key, level)
+            self.notify("TOCEntry", (level, text, self.page, key))
+
+
+def gaps_of(lines):
+    """[(chapter, text)] of the gaps marked in the content"""
+    out, chap = [], ""
+    for ln in lines:
+        if ln.startswith("# "):
+            chap = ln[2:].strip()
+        for m in GAP.finditer(ln):
+            out.append((chap, m.group(1).strip()))
+    return out
+
+
 def build(content_path, out, th):
+    from reportlab.platypus import NextPageTemplate
+    from reportlab.platypus.tableofcontents import TableOfContents
     lines = open(content_path, encoding="utf-8").read().split("\n")
     meta, body = parse_head(lines)
+    lang = meta.get("lang", "en")
+    if lang not in LABELS:
+        raise SystemExit(f"{content_path}: lang {lang} is not one of {', '.join(LABELS)}")
+    lab = LABELS[lang]
     pw, ph = A4
     m = th.l["margin_mm"] * mm
-    frame = Frame(m, 20 * mm, pw - 2 * m, ph - 20 * mm - 22 * mm, id="f", leftPadding=0, rightPadding=0, topPadding=0,
+    width = pw - 2 * m
+    frame = Frame(m, 20 * mm, width, ph - 20 * mm - 22 * mm, id="f", leftPadding=0, rightPadding=0, topPadding=0,
                   bottomPadding=0)
-    doc = BaseDocTemplate(out, pagesize=A4, title=meta.get("title", ""), author="bm",
-                          subject=f"theme {th.name}")
+    doc = Doc(out, pagesize=A4, title=meta.get("title", ""), author="bm", subject=f"theme {th.name}, {lang}")
+    doc.hseq = 0
     cover = PageTemplate("cover", [Frame(0, 0, 1, 1)], onPage=lambda cv, d: draw_cover(cv, th, meta, pw, ph))
     page = PageTemplate("page", [frame], onPage=lambda cv, d: draw_page(cv, d, th, meta))
     doc.addPageTemplates([cover, page])
-    from reportlab.platypus import NextPageTemplate
-    story = [NextPageTemplate("page"), PageBreak()]
+    p = th.p
+    toc = TableOfContents()
+    toc.levelStyles = [
+        ParagraphStyle("t0", parent=p["body"], fontName=th.f["bold"], leftIndent=0, spaceBefore=6, spaceAfter=1),
+        ParagraphStyle("t1", parent=p["body"], leftIndent=14, textColor=th.c["muted"], spaceAfter=0),
+    ]
+    toc.dotsMinLevel = 0
+    story = [NextPageTemplate("page"), PageBreak(),
+             Paragraph(esc(lab["contents"]), p["h1"]), toc, PageBreak()]
     story += build_story(th, meta, body, os.path.join(os.path.dirname(os.path.abspath(content_path)), "..", ".."),
-                         pw - 2 * m)
-    doc.build(story)
+                         width, lang)
+    gaps = gaps_of(body)
+    story += [PageBreak(), Head(esc(lab["open"]), p["h1"], 0, lab["open"])]
+    if not gaps:
+        story.append(Paragraph(esc(lab["none"]), p["body"]))
+    for chap, text in gaps:
+        story.append(Paragraph(inline(th, f"**{chap}**: {text}" if chap else text), p["li"], bulletText="\u2022"))
+    doc.multiBuild(story)
+    return len(gaps)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("content")
     ap.add_argument("-o", "--output", required=True)
-    ap.add_argument("--theme", default="paper")
+    ap.add_argument("--theme", default="paper", help="paper (the chosen one), night, blueprint or a .toml file")
     ap.add_argument("--all-themes", action="store_true")
     a = ap.parse_args()
     names = sorted(f[:-5] for f in os.listdir(THEMES) if f.endswith(".toml")) if a.all_themes else [a.theme]
@@ -375,8 +441,8 @@ def main():
         th = load_theme(n)
         out = os.path.join(a.output, f"{stem}.{th.name}.pdf") if a.all_themes else a.output
         os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
-        build(a.content, out, th)
-        print(f"{out}  ({th.label})")
+        n = build(a.content, out, th)
+        print(f"{out}  ({th.label}; {n} open points)")
 
 
 if __name__ == "__main__":

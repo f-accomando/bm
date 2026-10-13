@@ -1,5 +1,6 @@
 title: Screenshots
 accent: shots
+lang: en
 kicker: A bm how-to
 subtitle: Save what is on the screen as a picture, from the keyboard, from a pad or from your own app.
 footer: bm manuals - preview
