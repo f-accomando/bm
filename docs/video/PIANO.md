@@ -163,3 +163,13 @@ Fonti: `docs/progress/audio.md`, `docs/progress/audio-samples.md`, `manuals/cont
 4. **Studio non avvisa dei budget** 300/80/40 (solo sopra 1200 triangoli): si controllano con `bm_forge.py check` e a vista nella pagina Models (F2).
 5. **`bmhost` non ha la tab Dev**: le righe "Dev ▸ editor" sono cartelli in sovrimpressione; la ripresa vera della tab Dev è in QEMU (D1).
 6. **Conflitti di tasti** nella mappa: `[ ] , .` sono già "tessera prima/dopo", `Ctrl+Z` esiste già.
+7. **Formato intermedio**: `.bme` (progetto) contro `.bm`: la prima `Ctrl+S` su un `.bm` crea una copia `.BME`. Come diventa `chain/NN-nome.bm`
+   (Ctrl+B dell'SDK, `bm_forge.py export`, `mkbm.py`) è da provare nei video 1, 3 e 5 (D7).
+8. **Video 6**: `Ctrl+N` con un template azzera il progetto (`new_project()` in `carts/editor/main.lua`) e la scheda Lib è nascosta: il video non
+   può "importare" modelli, mappa e suono in un template. Flusso provvisorio: `start.bm` contiene già il codice adattato; il video mostra la lista dei template.
+   Se serve un import vero, è una feature mancante dell'SDK (candidata per Antigravity dopo AGY-03).
+9. **`hit`** nel gioco = urto contro il muro basso o caduta in una buca (decisione del video 7); il bot del video 8 sbatte una volta di proposito.
+10. **Video 8** a schermo intero 1920×1080 con il gioco 480×270 scalato 4× (niente pannello laterale, quindi niente overlay dei tasti); serve una variante a 480×270 dell'encoder di `bmvideo.py`.
+11. **Video 5**: i passi di ogni effetto restano a 8 (STEPS non cambia); CHORD è un arpeggio veloce, non un vero accordo; `bmhost --wav` è mono (il pan non si verifica nel wav).
+12. **Passi `+`/`_` di bm Sound**: il codice usa passi per parametro (es. BEND FROM 12) diversi dal "±10" del manuale; le shot list seguono il codice (da correggere il manuale: `docs-loop`/`bm-manuals`).
+

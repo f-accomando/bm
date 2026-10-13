@@ -6,16 +6,16 @@ Fonti: [`PIANO.md`](PIANO.md), [`../../SYNC.md`](../../SYNC.md). Aggiornare ques
 
 | Video | script | shot list | copertina | metadati | input auto | registrazione | montaggio | pubblicazione |
 |---|---|---|---|---|---|---|---|---|
-| 1 Studio | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 2 Pixel | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 3 Animator | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 4 Map | [ ] provvisorio | [ ] provvisorio | [ ] | [ ] | [ ] | BLOCCATO | BLOCCATO | BLOCCATO |
-| 5 Sound | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 6 SDK | [ ] | [ ] | [ ] | [ ] | [ ] | BLOCCATO (4) | BLOCCATO | BLOCCATO |
-| 7 Code | [ ] | [ ] | [ ] | [ ] | [ ] | BLOCCATO (6) | BLOCCATO | BLOCCATO |
-| 8 Gameplay | [ ] | [ ] | [ ] | [ ] | [ ] | BLOCCATO (7) | BLOCCATO | BLOCCATO |
+| 1 Studio | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], input.txt [ ] | [ ] | [ ] | [ ] |
+| 2 Pixel | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], input.txt [ ] | [ ] | [ ] | [ ] |
+| 3 Animator | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], input.txt [ ] | [ ] | [ ] | [ ] |
+| 4 Map | [x] provvisorio | [x] provvisorio | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO | BLOCCATO | BLOCCATO |
+| 5 Sound | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], input.txt [ ] | [ ] | [ ] | [ ] |
+| 6 SDK | [x] provvisorio (import da risolvere) | [x] provvisorio | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO (4) | BLOCCATO | BLOCCATO |
+| 7 Code | [x] (map3d_* non testate) | [x] | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO (6) | BLOCCATO | BLOCCATO |
+| 8 Gameplay | [x] | [x] | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO (7) | BLOCCATO | BLOCCATO |
 
-Le prime cinque colonne (documenti) si chiudono in questo task; le altre sono da fare.
+Documenti scritti il 2026-10-13 (`make video-3d-check`: 0 problemi). I `[DA VERIFICARE]` rimasti stanno in fondo a ogni `script.md`: vanno chiusi in prova, sull'editor vero, prima di registrare.
 
 ## Dipendenze bloccanti
 
@@ -25,12 +25,12 @@ Le prime cinque colonne (documenti) si chiudono in questo task; le altre sono da
 | Video 6 | output del video 4 e 5 (`chain/04-map.bm`, `chain/05-sound.bm`) | video 4 registrato (in prova si può usare una mappa fatta a script) |
 | Video 7 | `chain/06-sdk.bm` e API `map3d_*` implementate | video 6; AGY-01 |
 | Video 8 | `chain/07-code.bm` | video 7 |
-| Tutti i video | strumento di registrazione (`bmhost`, ffmpeg; QEMU solo per la prova) e domande D1–D6 di `PIANO.md` §6 | risposta dell'utente |
+| Tutti i video | registratore QEMU con cattura 60 fps (Claude cloud, `feat/claude-video3d-rec`) | prompt a Claude cloud; misura fps (punto A) |
 | Copertine | `video/lib/cover.py` | AGY-05 (Antigravity) |
 | Overlay dei tasti | `video/3d/overlay_gen.py` + renderer (specifica in `claude/skills/bm-video-series/overlay.md`) | da scrivere |
 
 ## Da dove riprendere
 
-1. Rispondere alle domande D1–D6 (`PIANO.md` §6).
+1. Domande ancora aperte: D3–D7 (`PIANO.md` §6 e §9).
 2. Registrare 1 → 2 → 3 → 5 (ordine di registrazione), poi 4 appena AGY-01..03 sono `DONE`.
 3. Scrivere `video/3d/NN-nome/{record.py,input.txt,verify.py}` dall'`input.md` di ogni video.
