@@ -37,7 +37,7 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 ## Project layout
 - License id: `LicenseRef-BM-Community-1.0` is used for "BM Community License 1.0" (not an
   SPDX id). Confirm the string.
-- Next migrations: the apps of the suite.
+- Next migrations: `texroom`, `demo`, `stress` (test carts), `sdk_b16` and `titan_ex` (own layouts); the suite apps have their `bm.info` but their `icon.png` and `demo.json` stay at the top.
 - `mkcover.py` of `yharnam` gives a different `cover.png` with this Pillow (12.3.0): pin the version or leave the cover as it is?
 
 ## Found while checking the manuals (to fix in the source documents)

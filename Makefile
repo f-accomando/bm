@@ -128,50 +128,50 @@ $(BUILD)/words.lua: $(WORDS_SRC)
 	$(PYTHON) scripts/mkwords.py -o $@
 
 # bm Code, the code editor (Dev tab, monitor C)
-$(BUILD)/code.bm: carts/code/main.lua carts/code/icon.png scripts/mkbm.py
+$(BUILD)/code.bm: carts/code/bm.info carts/code/main.lua carts/code/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/code/icon.png --title "bm Code" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/code/icon.png --info carts/code/bm.info
 
 # The assistant on its own, in the Dev tab
-$(BUILD)/assistant.bm: carts/assistant/main.lua carts/code/icon.png scripts/mkbm.py
+$(BUILD)/assistant.bm: carts/assistant/bm.info carts/assistant/main.lua carts/code/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/code/icon.png --title "bm assistant" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/code/icon.png --info carts/assistant/bm.info
 
 # The editor (M15), built into the kernel
-$(BUILD)/editor.bm: carts/editor/main.lua carts/editor/icon.png scripts/mkbm.py
+$(BUILD)/editor.bm: carts/editor/bm.info carts/editor/main.lua carts/editor/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/editor/icon.png \
-	    --title "bm SDK" --author bm
+	    --info carts/editor/bm.info
 
 # The Sound editor, built into the kernel: its own bank is the demo project
-$(BUILD)/sound.bm: carts/sound/main.lua carts/sound/icon.png carts/sound/demo.json scripts/mkbm.py scripts/bmaudio.py
+$(BUILD)/sound.bm: carts/sound/bm.info carts/sound/main.lua carts/sound/icon.png carts/sound/demo.json scripts/mkbm.py scripts/bmaudio.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/sound/icon.png \
-	    --audio carts/sound/demo.json --title "bm Sound" --author bm
+	    --audio carts/sound/demo.json --info carts/sound/bm.info
 
 # bm Studio and bm Animator on the console (M22): the models, then their
 # skeletons and animations; their shared code is src/script/bm3d.lua. bm
 # Studio's sheet holds the starter tiles (made by the PC version, removed on
 # 2026-10-06: the PNG stays).
-$(BUILD)/studio.bm: carts/studio/main.lua carts/studio/icon.png carts/studio/sheet.png scripts/mkbm.py
+$(BUILD)/studio.bm: carts/studio/bm.info carts/studio/main.lua carts/studio/icon.png carts/studio/assets/sheet.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/studio/icon.png \
-	    --sheet carts/studio/sheet.png --sheet8 --title "bm Studio" --author bm
+	    --sheet carts/studio/assets/sheet.png --sheet8 --info carts/studio/bm.info
 
-$(BUILD)/animator.bm: carts/animator/main.lua carts/animator/icon.png scripts/mkbm.py
+$(BUILD)/animator.bm: carts/animator/bm.info carts/animator/main.lua carts/animator/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/animator/icon.png --title "bm Animator" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/animator/icon.png --info carts/animator/bm.info
 
 # bm Mesh: the meshes of a .bm (its models and those its code builds), on
 # the console.
-$(BUILD)/mesh.bm: carts/mesh/main.lua carts/mesh/icon.png scripts/mkbm.py
+$(BUILD)/mesh.bm: carts/mesh/bm.info carts/mesh/main.lua carts/mesh/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/mesh/icon.png --title "bm Mesh" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/mesh/icon.png --info carts/mesh/bm.info
 
 # bm Pixel: the pixel art of a .bm (its sprite sheet), on the console.
-$(BUILD)/pixel.bm: carts/pixel/main.lua carts/pixel/icon.png scripts/mkbm.py
+$(BUILD)/pixel.bm: carts/pixel/bm.info carts/pixel/main.lua carts/pixel/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/pixel/icon.png --title "bm Pixel" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/pixel/icon.png --info carts/pixel/bm.info
 
 $(BUILD)/stress.bm: carts/stress/main.lua scripts/mkbm.py
 	@mkdir -p $(dir $@)
