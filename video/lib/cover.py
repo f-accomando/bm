@@ -59,9 +59,26 @@ def draw_char(draw, glyphs, ch_code, x, y, scale, color, bold=False):
                 draw.rectangle([x0, y0, x1, y1], fill=color)
 
 
+def text_to_bytes(text):
+    """Encodes unicode string to CP437 glyph byte codes.
+    Maps middle dot (· / U+00B7) explicitly to 0xFA in font8x16.
+    """
+    res = bytearray()
+    for ch in text:
+        if ch in ("·", "\u00b7") or ord(ch) == 0xFA:
+            res.append(0xFA)
+        else:
+            try:
+                b = ch.encode("cp437")
+                res.extend(b)
+            except UnicodeEncodeError:
+                res.append(ord("?"))
+    return bytes(res)
+
+
 def draw_text(draw, glyphs, text, x, y, scale, color, bold=False, spacing=1):
     """Renders text string using code page 437 encoding."""
-    raw_bytes = text.encode("cp437", errors="replace")
+    raw_bytes = text_to_bytes(text)
     cur_x = x
     char_w = 8 * scale + spacing
     for b in raw_bytes:
@@ -71,7 +88,7 @@ def draw_text(draw, glyphs, text, x, y, scale, color, bold=False, spacing=1):
 
 
 def text_width(text, scale, spacing=1, bold=False):
-    return len(text) * (8 * scale + spacing) + (max(1, scale // 4) if bold else 0)
+    return len(text_to_bytes(text)) * (8 * scale + spacing) + (max(1, scale // 4) if bold else 0)
 
 
 def wrap_text(text, max_w, scale, spacing=1, bold=False):
@@ -279,7 +296,7 @@ def render_cover(data):
     # Accent indicator pill
     draw.rectangle([banner_x, banner_y + 2, banner_x + 6, banner_y + 24], fill=accent_rgb)
 
-    banner_text = f"TROPIC TRAIL \xFA EP {number}"  # 0xFA is middle dot in CP437
+    banner_text = f"TROPIC TRAIL · EP {number}"
     draw_text(draw, glyphs, banner_text, banner_x + 18, banner_y + 4, scale=2, color=accent_rgb, bold=True)
 
     # Subtle horizontal divider line
@@ -318,6 +335,8 @@ def render_cover(data):
         draw_text(draw, glyphs, tag, box_x0 + 16, box_y1 - 28, scale=1, color=(80, 140, 160))
 
     # 3. Left Content Area
+    max_col_w = box_x0 - banner_x - 30  # ~566 px
+
     # Large Number on left
     num_str = f"{number:02d}" if number < 100 else str(number)
     num_scale = 10
@@ -326,37 +345,50 @@ def render_cover(data):
     # Episode label under/beside number
     draw_text(draw, glyphs, "EPISODE", banner_x, 130 + 16 * num_scale + 10, scale=2, color=(140, 190, 210), bold=True)
 
-    # Title white, bold, max 2 lines (scale reduces until fits)
-    max_title_w = 540
-    title_scale = 4
-    title_lines = []
-    for test_s in (4, 3, 2):
-        lines = wrap_text(title, max_title_w, test_s, bold=True)
+    # Title white, bold, max 2 lines (scale reduces until fits, no truncation)
+    title_scale = 1
+    title_lines = [title]
+    for test_s in (4, 3, 2, 1):
+        lines = wrap_text(title, max_col_w, test_s, bold=True)
         if len(lines) <= 2:
             title_scale = test_s
             title_lines = lines
             break
     if not title_lines:
-        title_scale = 2
-        title_lines = wrap_text(title, max_title_w, 2, bold=True)[:2]
+        title_scale = 1
+        title_lines = wrap_text(title, max_col_w, 1, bold=True)
 
-    title_y = 360
+    title_y = 350
     for line in title_lines:
         draw_text(draw, glyphs, line, banner_x, title_y, scale=title_scale, color=(255, 255, 255), bold=True)
         title_y += 16 * title_scale + 8
 
-    # Subtitle with tool tag
-    title_y += 16
-    if tool:
-        # Tool badge
+    # Subtitle with tool tag (contained strictly within max_col_w)
+    title_y += 14
+    if tool and subtitle:
+        tool_tag = f"[{tool}]"
+        combined = f"{tool_tag}  {subtitle}"
+        if text_width(combined, scale=2, bold=False) <= max_col_w:
+            draw_text(draw, glyphs, tool_tag, banner_x, title_y, scale=2, color=accent_rgb, bold=True)
+            badge_w = text_width(tool_tag, scale=2, bold=True) + 16
+            draw_text(draw, glyphs, subtitle, banner_x + badge_w, title_y, scale=2, color=(185, 220, 235))
+            title_y += 16 * 2 + 8
+        else:
+            draw_text(draw, glyphs, tool_tag, banner_x, title_y, scale=2, color=accent_rgb, bold=True)
+            title_y += 16 * 2 + 8
+            sub_lines = wrap_text(subtitle, max_col_w, scale=2)
+            for s_line in sub_lines:
+                draw_text(draw, glyphs, s_line, banner_x, title_y, scale=2, color=(185, 220, 235))
+                title_y += 16 * 2 + 6
+    elif tool:
         tool_tag = f"[{tool}]"
         draw_text(draw, glyphs, tool_tag, banner_x, title_y, scale=2, color=accent_rgb, bold=True)
-        badge_w = text_width(tool_tag, 2, bold=True) + 16
-    else:
-        badge_w = 0
-
-    if subtitle:
-        draw_text(draw, glyphs, subtitle, banner_x + badge_w, title_y, scale=2, color=(185, 220, 235))
+        title_y += 16 * 2 + 8
+    elif subtitle:
+        sub_lines = wrap_text(subtitle, max_col_w, scale=2)
+        for s_line in sub_lines:
+            draw_text(draw, glyphs, s_line, banner_x, title_y, scale=2, color=(185, 220, 235))
+            title_y += 16 * 2 + 6
 
     # 4. Bottom bar: bm logo at bottom right
     bm_logo = get_bm_logo()
