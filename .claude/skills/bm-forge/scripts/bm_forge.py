@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""bm-forge: mesh, skeleton, animation CLI.
+"""bm-forge: mesh, skeleton, animation, export CLI.
 
     python bm_forge.py mesh INPUT [INPUT ...] -o OUT [--title T] [--author A] [--max-tris N] [--kernel-limits]
     python bm_forge.py skel SKELETON.json --in FILE -o OUT [--strategy nearest_bone|nearest_bone_part]
     python bm_forge.py anim CLIP.json [CLIP.json ...] --in FILE -o OUT [--rig MODEL] [--replace]
-    python bm_forge.py export ... (not implemented)
+    python bm_forge.py export models|bmm|cart|folder|market ...
     python bm_forge.py check ... (not implemented)
     python bm_forge.py preview ... (not implemented)
     python bm_forge.py doctor ... (not implemented)
@@ -53,9 +53,56 @@ def build_parser():
     anim_parser.add_argument("--rig", help="Model name (required if multiple rigs)")
     anim_parser.add_argument("--replace", action="store_true", help="Replace existing clips by name")
 
-    # export (stub)
+    # export
     export_parser = subparsers.add_parser("export", help="Export a cartridge")
-    export_parser.add_argument("input", nargs="*", help="(not implemented)")
+    export_subs = export_parser.add_subparsers(dest="export_cmd", help="export subcommand")
+
+    # export models
+    export_models_p = export_subs.add_parser("models", help="Export a models cartridge")
+    export_models_p.add_argument("from_file", metavar="FROM", help="Input cartridge (.bm/.b16/.bme)")
+    export_models_p.add_argument("-o", "--out", required=True, help="Output .bm file")
+    export_models_p.add_argument("--title", default="", help="Cartridge title")
+    export_models_p.add_argument("--author", default="", help="Cartridge author")
+
+    # export bmm
+    export_bmm_p = export_subs.add_parser("bmm", help="Export a BMRES model file")
+    export_bmm_p.add_argument("from_file", metavar="FROM", help="Input cartridge (.bm/.b16/.bme)")
+    export_bmm_p.add_argument("-o", "--out", required=True, help="Output .bmm file")
+    export_bmm_p.add_argument("--model", action="append", dest="models", help="Model name to include (repeatable)")
+
+    # export cart
+    export_cart_p = export_subs.add_parser("cart", help="Export a game cartridge")
+    export_cart_p.add_argument("from_file", metavar="FROM", help="Input cartridge (.bm/.b16/.bme)")
+    export_cart_p.add_argument("--lua", required=True, help="Main Lua file")
+    export_cart_p.add_argument("-o", "--out", required=True, help="Output .bm or .b16 file")
+    export_cart_p.add_argument("--title", required=True, help="Cartridge title")
+    export_cart_p.add_argument("--author", default="", help="Cartridge author")
+    export_cart_p.add_argument("--res", help="Resolution WxH (default 360x360 for .b16 else 320x180)")
+    export_cart_p.add_argument("--cover-model", help="Model name to render for cover")
+    export_cart_p.add_argument("--draw", action="append", dest="draws", help="Model draw count (repeatable, NAME=COUNT)")
+    export_cart_p.add_argument("--budget", type=int, help="Triangle budget")
+
+    # export folder
+    export_folder_p = export_subs.add_parser("folder", help="Export a game folder")
+    export_folder_p.add_argument("from_file", metavar="FROM", help="Input cartridge (.bm/.b16/.bme)")
+    export_folder_p.add_argument("--lua", required=True, help="Main Lua file")
+    export_folder_p.add_argument("--root", required=True, help="Root directory for game folder")
+    export_folder_p.add_argument("--game", required=True, help="Game ID (lowercase, alphanumeric and underscores)")
+    export_folder_p.add_argument("--title", required=True, help="Cartridge title")
+    export_folder_p.add_argument("--author", default="", help="Cartridge author")
+    export_folder_p.add_argument("--res", help="Resolution WxH (default 320x180)")
+    export_folder_p.add_argument("--cover-model", help="Model name to render for cover")
+    export_folder_p.add_argument("--overwrite", action="store_true", help="Overwrite existing game folder")
+
+    # export market
+    export_market_p = export_subs.add_parser("market", help="Export to Market layout")
+    export_market_p.add_argument("--root", required=True, help="Root directory for Market")
+    export_market_p.add_argument("--id", required=True, help="Game ID")
+    export_market_p.add_argument("--version", required=True, help="Version string")
+    export_market_p.add_argument("--license", required=True, help="License string")
+    export_market_p.add_argument("--about", required=True, help="About text")
+    export_market_p.add_argument("--bm", help="Path to .bm file to include")
+    export_market_p.add_argument("--b16", help="Path to .b16 file to include")
 
     # check (stub)
     check_parser = subparsers.add_parser("check", help="Check a cartridge")
@@ -394,9 +441,337 @@ def cmd_anim(args):
 
 
 def cmd_export(args):
-    """not implemented"""
-    print("error: not implemented", file=sys.stderr)
-    return 2
+    """export models|bmm|cart|folder|market ..."""
+    try:
+        if not args.export_cmd:
+            print("error: export subcommand required (models, bmm, cart, folder, market)", file=sys.stderr)
+            return 2
+
+        if args.export_cmd == "models":
+            return _export_models(args)
+        elif args.export_cmd == "bmm":
+            return _export_bmm(args)
+        elif args.export_cmd == "cart":
+            return _export_cart(args)
+        elif args.export_cmd == "folder":
+            return _export_folder(args)
+        elif args.export_cmd == "market":
+            return _export_market(args)
+        else:
+            print(f"error: unknown export subcommand {args.export_cmd}", file=sys.stderr)
+            return 2
+
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 2
+
+
+def _export_models(args):
+    """export models FROM -o OUT [--title] [--author]"""
+    try:
+        # Load cartridge
+        if not os.path.exists(args.from_file):
+            print(f"error: input file not found: {args.from_file}", file=sys.stderr)
+            return 2
+        try:
+            cart = container.read_file(args.from_file)
+        except ValidationError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+
+        # Get mesh
+        mesh = cart.mesh()
+        if mesh is None:
+            print(f"error: no MESH in {args.from_file}", file=sys.stderr)
+            return 1
+
+        # Get anim
+        anim = cart.anim()
+
+        # Export
+        try:
+            export.export_models(args.out, mesh, anim, args.title, args.author)
+            total_faces = sum(len(m.faces) for m in mesh.models)
+            print(f"wrote {args.out}: {len(mesh.models)} models, {total_faces} triangles")
+            return 0
+        except ValidationError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 2
+
+
+def _export_bmm(args):
+    """export bmm FROM -o OUT [--model NAME ...]"""
+    try:
+        # Load cartridge
+        if not os.path.exists(args.from_file):
+            print(f"error: input file not found: {args.from_file}", file=sys.stderr)
+            return 2
+        try:
+            cart = container.read_file(args.from_file)
+        except ValidationError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+
+        # Get mesh
+        mesh = cart.mesh()
+        if mesh is None:
+            print(f"error: no MESH in {args.from_file}", file=sys.stderr)
+            return 1
+
+        # Get anim
+        anim = cart.anim()
+
+        # Filter models if --model given
+        if args.models:
+            # Validate all model names exist
+            for model_name in args.models:
+                if mesh.get(model_name) is None:
+                    print(f"error: no model {model_name!r}", file=sys.stderr)
+                    return 1
+            # Build filtered mesh with only selected models and their rigs
+            selected_models = [m for m in mesh.models if m.name in args.models]
+            mesh = B.Mesh(selected_models, mesh.inset)
+            # Filter anim to only include rigs of selected models
+            if anim is not None:
+                selected_rigs = [r for r in anim.rigs if r.model in args.models]
+                if selected_rigs:
+                    anim = B.Anim(selected_rigs)
+                else:
+                    anim = None
+
+        # Export
+        try:
+            export.export_bmm(args.out, mesh, anim)
+            total_faces = sum(len(m.faces) for m in mesh.models)
+            print(f"wrote {args.out}: {len(mesh.models)} models, {total_faces} triangles")
+            return 0
+        except ValidationError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 2
+
+
+def _export_cart(args):
+    """export cart FROM --lua MAIN.lua -o OUT.bm|OUT.b16 --title T [--author A] [--res WxH] [--cover-model NAME] [--draw NAME=COUNT ...] [--budget N]"""
+    try:
+        # Load cartridge
+        if not os.path.exists(args.from_file):
+            print(f"error: input file not found: {args.from_file}", file=sys.stderr)
+            return 2
+        try:
+            cart = container.read_file(args.from_file)
+        except ValidationError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+
+        # Get mesh
+        mesh = cart.mesh()
+        if mesh is None:
+            print(f"error: no MESH in {args.from_file}", file=sys.stderr)
+            return 1
+
+        # Get anim
+        anim = cart.anim()
+
+        # Read Lua
+        if not os.path.exists(args.lua):
+            print(f"error: lua file not found: {args.lua}", file=sys.stderr)
+            return 2
+        try:
+            with open(args.lua, "rb") as f:
+                lua = f.read()
+        except Exception as e:
+            print(f"error: reading lua: {e}", file=sys.stderr)
+            return 2
+
+        # Parse resolution
+        res = (320, 180)  # default for .bm
+        out_ed = container.edition_of(args.out)
+        if out_ed == "b16":
+            res = (360, 360)  # default for .b16
+        if args.res:
+            try:
+                parts = args.res.split("x")
+                if len(parts) != 2:
+                    print(f"error: malformed --res {args.res!r}, expected WxH", file=sys.stderr)
+                    return 2
+                res = (int(parts[0]), int(parts[1]))
+            except ValueError:
+                print(f"error: malformed --res {args.res!r}, expected WxH", file=sys.stderr)
+                return 2
+
+        # Parse draws
+        draws = None
+        if args.draws:
+            draws = {}
+            for draw_spec in args.draws:
+                if "=" not in draw_spec:
+                    print(f"error: malformed --draw {draw_spec!r}, expected NAME=COUNT", file=sys.stderr)
+                    return 2
+                name, count_str = draw_spec.split("=", 1)
+                try:
+                    draws[name] = int(count_str)
+                except ValueError:
+                    print(f"error: malformed --draw {draw_spec!r}, expected NAME=COUNT", file=sys.stderr)
+                    return 2
+
+        # Render cover if --cover-model given
+        cover = None
+        if args.cover_model:
+            try:
+                from bm_core import preview
+                model = mesh.get(args.cover_model)
+                if model is None:
+                    print(f"error: no model {args.cover_model!r} for cover", file=sys.stderr)
+                    return 1
+                cover = preview.render_mesh(model, size=(88, 88), yaw=0.6, pitch=0.2, background=0x8CC8F0)
+            except Exception as e:
+                print(f"error: rendering cover: {e}", file=sys.stderr)
+                return 2
+
+        # Export
+        try:
+            export.export_cart(args.out, lua, mesh, anim, args.title, args.author, res=res, cover=cover, draws=draws, budget=args.budget)
+
+            # Print info
+            ed = "b16" if out_ed == "b16" else "bm"
+            if draws is None:
+                draws = {m.name: 1 for m in mesh.models}
+            frame_tris = export.frame_triangles(mesh, draws)
+            actual_budget = args.budget or (export.TRI_BUDGET_B16 if ed == "b16" else export.TRI_BUDGET_PI)
+            print(f"wrote {args.out}: {ed} {res[0]}x{res[1]}, {frame_tris} triangles a frame (budget {actual_budget})")
+            return 0
+        except ValidationError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 2
+
+
+def _export_folder(args):
+    """export folder FROM --lua MAIN.lua --root DIR --game ID --title T [--author] [--res] [--cover-model] [--overwrite]"""
+    try:
+        # Load cartridge
+        if not os.path.exists(args.from_file):
+            print(f"error: input file not found: {args.from_file}", file=sys.stderr)
+            return 2
+        try:
+            cart = container.read_file(args.from_file)
+        except ValidationError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+
+        # Get mesh
+        mesh = cart.mesh()
+        if mesh is None:
+            print(f"error: no MESH in {args.from_file}", file=sys.stderr)
+            return 1
+
+        # Get anim
+        anim = cart.anim()
+
+        # Read Lua
+        if not os.path.exists(args.lua):
+            print(f"error: lua file not found: {args.lua}", file=sys.stderr)
+            return 2
+        try:
+            with open(args.lua, "rb") as f:
+                lua = f.read()
+        except Exception as e:
+            print(f"error: reading lua: {e}", file=sys.stderr)
+            return 2
+
+        # Parse resolution
+        res = (320, 180)
+        if args.res:
+            try:
+                parts = args.res.split("x")
+                if len(parts) != 2:
+                    print(f"error: malformed --res {args.res!r}, expected WxH", file=sys.stderr)
+                    return 2
+                res = (int(parts[0]), int(parts[1]))
+            except ValueError:
+                print(f"error: malformed --res {args.res!r}, expected WxH", file=sys.stderr)
+                return 2
+
+        # Render cover if --cover-model given
+        cover = None
+        if args.cover_model:
+            try:
+                from bm_core import preview
+                model = mesh.get(args.cover_model)
+                if model is None:
+                    print(f"error: no model {args.cover_model!r} for cover", file=sys.stderr)
+                    return 1
+                cover = preview.render_mesh(model, size=(88, 88), yaw=0.6, pitch=0.2, background=0x8CC8F0)
+            except Exception as e:
+                print(f"error: rendering cover: {e}", file=sys.stderr)
+                return 2
+
+        # Export
+        try:
+            result = export.export_folder(args.root, args.game, lua, mesh, anim, args.title, args.author, res=res, cover=cover, overwrite=args.overwrite)
+            for name, path in result.items():
+                print(path)
+            return 0
+        except ValidationError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 2
+
+
+def _export_market(args):
+    """export market --root DIR --id ID --version V --license L --about TEXT [--bm P] [--b16 P]"""
+    try:
+        # Export
+        try:
+            result = export.export_market(args.root, args.id, args.version, args.license, args.about, args.bm, args.b16)
+            for name, path in result.items():
+                print(path)
+            # Print about.txt line
+            about_line_text = export.about_line(args.id, args.license, args.about)
+            print(f"about.txt line: {about_line_text}")
+            return 0
+        except ValidationError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 2
 
 
 def cmd_check(args):
