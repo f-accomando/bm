@@ -630,6 +630,122 @@ if __name__ == "__main__":
     sys.exit(score("--save" in a) if a[:1] == ["score"] else __doc__)''', rows=11)
 
 # ============================================================ PART C
+h1("14b. Starter: scripts/cindex.py (symbol index for big files)")
+p('Lets an agent list sections and function/class names with line numbers, then read only the needed range with offset/limit. Supports C/C++, Python, JS/TS, Go, Rust and Lua. Usage: python3 scripts/cindex.py <file> [keyword]. Check: running it on itself lists def main.')
+label("scripts/cindex.py   (chmod +x scripts/cindex.py)")
+code(r'''#!/usr/bin/env python3
+"""Index of a large source file to allow surgical reading:
+  python3 scripts/cindex.py FILE [FILTER_KEYWORD]
+
+Extracts:
+- Section banners / header comments (e.g. /* ---- Section ---- */ or # ---- Section ----)
+- Function and class definitions (C, C++, Python, TypeScript, JavaScript, Go, Rust, Lua)
+- Line numbers for precise range-reading with offset/limit.
+"""
+import re
+import signal
+import sys
+
+if hasattr(signal, "SIGPIPE"):
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+
+PATTERNS = {
+    "c_cpp": re.compile(
+        r"^(?:static\s+|inline\s+|virtual\s+)*[A-Za-z_][\w\s\*&:<>,]*?\b([A-Za-z_]\w*)\s*\([^;]*$"),
+    "python": re.compile(r"^\s*(def|class)\s+([A-Za-z_]\w*)"),
+    "js_ts": re.compile(
+        r"^\s*(?:export\s+)?(?:async\s+)?(?:function\s+([A-Za-z_]\w*)"
+        r"|(?:class|interface|type)\s+([A-Za-z_]\w*)"
+        r"|const\s+([A-Za-z_]\w*)\s*=\s*(?:async\s*)?\()"),
+    "go": re.compile(r"^\s*func\s+(?:\([^)]+\)\s+)?([A-Za-z_]\w*)\s*\("),
+    "rust": re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z_]\w*)"),
+    "lua": re.compile(r"^\s*(?:local\s+)?function\s+([\w.:]+)|^\s*([\w.]+)\s*=\s*function"),
+    "banner": re.compile(r"^(?:/\*|#|//)\s*-{3,}\s*(.*?)\s*(?:-{3,}|\*/)?$")
+}
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    path = sys.argv[1]
+    keyword = sys.argv[2].lower() if len(sys.argv) > 2 else None
+
+    out = []
+    total_lines = 0
+
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            for total_lines, line in enumerate(f, 1):
+                line_str = line.rstrip("\n")
+
+                # Banner Detection
+                m_ban = PATTERNS["banner"].match(line_str)
+                if m_ban and m_ban.group(1).strip():
+                    out.append((total_lines, f"## {m_ban.group(1).strip()}"))
+                    continue
+
+                # Code Signature Detection
+                sym = None
+                if path.endswith((".c", ".h", ".cpp", ".hpp")):
+                    m = PATTERNS["c_cpp"].match(line_str)
+                    if (m and not line_str.startswith((" ", "\t", "#", "}", "/"))
+                            and m.group(1) not in ("if", "while", "for", "switch", "return")):
+                        sym = m.group(1)
+                elif path.endswith(".py"):
+                    m = PATTERNS["python"].match(line_str)
+                    if m:
+                        sym = f"{m.group(1)} {m.group(2)}"
+                elif path.endswith((".js", ".ts", ".jsx", ".tsx")):
+                    m = PATTERNS["js_ts"].match(line_str)
+                    if m:
+                        sym = m.group(1) or m.group(2) or m.group(3)
+                elif path.endswith(".go"):
+                    m = PATTERNS["go"].match(line_str)
+                    if m:
+                        sym = f"func {m.group(1)}"
+                elif path.endswith(".rs"):
+                    m = PATTERNS["rust"].match(line_str)
+                    if m:
+                        sym = f"fn {m.group(1)}"
+                elif path.endswith(".lua"):
+                    m = PATTERNS["lua"].match(line_str)
+                    if m:
+                        sym = m.group(1) or m.group(2)
+
+                if sym:
+                    out.append((total_lines, f"  {sym}"))
+    except FileNotFoundError:
+        sys.exit(f"Error: file not found: {path}")
+
+    for ln, txt in out:
+        if keyword and keyword not in txt.lower():
+            continue
+        print(f"{ln:6d}  {txt}")
+
+    print(f"-- {total_lines} lines; Read with offset/limit on the range needed", file=sys.stderr)
+
+if __name__ == "__main__":
+    main()''', rows=11)
+h1("14c. Starter: per-area test targets in the Makefile")
+p('Agents run only the tests of the touched area (section 15B adds the docs target next to these). Recipe lines MUST start with a TAB, not spaces (otherwise: missing separator). To change areas, edit AREAS and create tests/<area>/. Check: make test-core.')
+label("Makefile")
+code('''AREAS := core api utils cli
+
+.PHONY: test test-all $(addprefix test-, $(AREAS))
+
+test: test-core            # default target: fast smoke test
+
+test-core:                 # one target per area; the recipe line starts with a TAB
+	@echo "==> [TEST] Area: core"
+	@pytest tests/core -q --tb=short || npm test -- --grep "core"
+
+test-api:
+	@echo "==> [TEST] Area: api"
+	@pytest tests/api -q --tb=short || npm test -- --grep "api"
+
+# test-utils and test-cli: same shape, change the area name
+
+test-all: $(addprefix test-, $(AREAS))     # CI or before a tag/merge only''', rows=9)
+
 part("PART C — AUTOMATION AND TOOLING")
 
 h1("15. The Three Pillars of Continuous Automation")
@@ -660,12 +776,95 @@ table([
     ["Hard enforcement", "permissions allow/deny, hooks", "per-runtime settings; keep the same rules in GEMINI.md"],
 ], [92, 215, 197])
 
+h1("16b. Starter: .github/workflows/antigravity-agent.yml")
+p('Workflow that runs the agent headless or remotely through workflow_dispatch. The three inputs are filled by the remote client (leave them empty when launching by hand).')
+label(".github/workflows/antigravity-agent.yml")
+code('''name: Antigravity Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      pair:
+        description: "Pairing identifier for remote agent connection"
+        required: false
+      token:
+        description: "One-time session token"
+        required: false
+      expires:
+        description: "Session expiry timestamp (unix epoch)"
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: antigravity-agent
+  cancel-in-progress: true
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up runtime environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install agent CLI
+        run: |
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 https://antigravity.google/cli/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Configure git author
+        run: |
+          git config user.name "Agentic Assistant"
+          git config user.email "assistant-bot@users.noreply.github.com"
+
+      - name: Restore credentials
+        env:
+          AUTH_TOKEN: ${{ secrets.AGENT_AUTH_TOKEN }}
+        run: |
+          if [ -n "$AUTH_TOKEN" ]; then
+            umask 077
+            mkdir -p "$HOME/.gemini/antigravity-cli"
+            printf '%s' "$AUTH_TOKEN" | base64 -d > "$HOME/.gemini/antigravity-cli/antigravity-oauth-token"
+          fi
+
+      - name: Run agent session
+        env:
+          AGENT_RELAY: ${{ secrets.AGENT_RELAY }}
+          AGENT_PAIR_ID: ${{ inputs.pair }}
+          AGENT_PAIR_TOKEN: ${{ inputs.token }}
+          AGENT_PAIR_EXPIRES: ${{ inputs.expires }}
+        run: |
+          if [ -n "$AGENT_RELAY" ]; then
+            echo "Starting agent session with relay..."
+            agy agent --relay "$AGENT_RELAY"
+          else
+            echo "Starting standalone agent task..."
+            agy agent
+          fi''', rows=9)
+n(1, 'The file must be on the default branch for workflow_dispatch to appear under Actions.')
+n(2, "Repository secrets (Settings > Secrets and variables > Actions): AGENT_AUTH_TOKEN = the agent's OAuth token file encoded with base64 -w0 (optional); AGENT_RELAY = relay URL for the remote session (optional; empty means standalone). Never write these values in the repo.")
+n(3, 'The install URL and the agy command belong to the Antigravity CLI: with another agent, replace the steps Install agent CLI and Run agent session. Drop the write permissions if the agent only reads.')
+
 h1("17. Claude Plugins: crab-ledger and better-prompt")
 p("Two open-source plugins extend the efficiency and quality of Claude sessions:")
-b("<b>crab-ledger (cost and re-read monitoring):</b> tracks token use in real time, counts file re-reads and computes the cost of each session. It pairs with " + c("scripts/docs_audit.py rereads") +
-  " (full audit version) and writes " + c("~/.claude/crab-ledger-report.json") + ", used to spot bottlenecks and files re-read so often that they need splitting.")
-b("<b>better-prompt (prompt engineering):</b> refines, structures and optimises the prompts sent to Claude: removes ambiguity, applies clear roles and format, and cuts token use at the source.")
-p("Both can be installed from their GitHub repositories (crab-ledger and better-prompt). The docs-loop skill reads the crab-ledger report to decide which files to split first.")
+b("<b>crab-ledger (side pane with cost and efficiency):</b> shows where tokens, time and money go and whether you are getting more efficient (an animated pixel crab keeps the score). It reads the session logs Claude Code already writes in " + c("~/.claude/projects") + " and asks git for the lines added and deleted: nothing leaves your machine. Open it with " + c("/ledger") + "; needs node and git on the PATH. It writes " + c("~/.claude/crab-ledger-report.json") + ", which " + c("scripts/docs_audit.py rereads") + " uses to find files re-read so often that they need splitting.")
+b("<b>better-prompt (session watcher):</b> warns when the conversation drifts across topics and shows how much context and 5h/7d allowance you have used. It suggests, as plain text, /clear, /compact or /rewind and never runs them; each prompt of 20+ characters costs one small call to a cheap model (haiku by default). Settings in " + c("/config") + ".")
+p("Install both from a terminal Claude Code session (" + c("/plugin") + " is not available in the desktop app Code tab, but a mod installed at user scope loads there too). Answer y to add the marketplace, then pick a scope:")
+code("""/plugin install crab-ledger --marketplace f-accomando/crab-ledger
+/plugin install better-prompt --marketplace f-accomando/better-prompt
+
+Try from a clone without installing:  claude --plugin-dir /path/to/crab-ledger""")
+p("Both are optional: without them builds, tests and scripts work unchanged. The docs-loop skill reads the crab-ledger report to decide which files to split first.")
 
 h1("18. What Claude Can Inherit from Antigravity / Gemini")
 n(1, "<b>Separate research subagent for heavy searches:</b> instead of reading dozens of files in the main session, delegate to a fast read-only agent (Haiku/Sonnet) that returns a 5-line summary.")
@@ -673,6 +872,16 @@ n(2, "<b>Progressive disclosure for instructions:</b> move complex procedures in
 n(3, "<b>Cross-agent deduplication:</b> keep " + c("CLAUDE.md") + " and " + c("GEMINI.md") + " aligned on the same index (" + c("docs/progress.md") + ") so any team member can use either assistant with the same guarantees.")
 
 # ============================================================ PART D
+h1("18b. Push refused (HTTP 403) and opening the pull request")
+p("If git push fails with 403 the commits are still in the local branch. From the user's terminal (branch naming follows the agent/<feature> invariant; gh auth login first if needed):")
+code('''git branch -M agent/<feature>
+git push -u origin agent/<feature>
+
+gh pr create --base main --head agent/<feature> \\
+  --title "chore: <title>" --body "<one-line summary>"''', rows=9)
+b('The token or GitHub App needs Repository: Contents (Read and Write) and Pull Requests (Read and Write).')
+b('If the push to main is rejected, check the branch protection rules: work on a branch and open a pull request.')
+
 part("PART D — BASELINE RULES TO IMPROVE AND IMPLEMENT THIS GUIDE")
 h1("19. Baseline Rules and the Improvement Loop")
 p("Start every new project with these rules. Each one names how it is enforced, so the scaffolding improves itself instead of decaying.")
