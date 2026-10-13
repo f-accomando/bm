@@ -4,8 +4,8 @@ Solo descrizione: niente è implementato qui. Costruire poi `video/3d/01-studio/
 
 ## Runtime
 
-- `bmhost --tool` (orologio virtuale: il frame n è a n/60 s, stesso copione = stesso video). Binario `build/host/bmhost-bin`, cartuccia dell'editor `build/studio.bm` (`make bmhost build/studio.bm`; il target esiste nel Makefile).
-- Comando (come in `video/01-pixel/record.py`): `bmhost-bin build/studio.bm --tool --sd video/3d/01-studio/out/sd --input video/3d/01-studio/input.txt --seconds 215 --video <fifo> --quiet`, con audio assente.
+- `bmhost --tool` (orologio virtuale: il frame n è a n/60 s, stesso copione = stesso video). Binario `build/host/bmhost-bin`. `record.py` costruisce la propria cartuccia dell'editor in `out/studio.bm` con `scripts/mkbm.py` (il `build/studio.bm` del checkout è rotto).
+- Comando (come in `video/01-pixel/record.py`): `bmhost-bin out/studio.bm --tool --sd video/3d/01-studio/out/sd --input video/3d/01-studio/input.txt --seconds 215 --video <fifo> --quiet`, con audio assente.
 - Dev tab: bmhost non ha il menu del kernel. Il frammento 0:08-0:11 della shot list (tab Dev) è una ripresa QEMU a parte, opzionale, o una scheda grafica (decisione D1 di PIANO.md §6).
 
 ## File dei tasti
@@ -18,19 +18,19 @@ Ancoraggi di frame (60 fps): 0:08 = 480, 0:32 = 1920, 1:05 = 3900, 1:35 = 5700, 
 ## Stato di partenza
 
 - SD pulita ad ogni registrazione: `record.py` cancella `out/sd` e la ricrea (l'editor ricorda sull'SD pagina e file aperti).
-- Cartuccia di partenza: `start.bm` = nessuna; si avvia direttamente `build/studio.bm` e si crea il progetto con `Ctrl+N` (riga 4 della shot list). Per il video 1 non serve nulla in `chain/`.
+- Cartuccia di partenza: `start.bm` = nessuna; si avvia direttamente e si crea il progetto con `Ctrl+N` (riga 4 della shot list). Per il video 1 non serve nulla in `chain/`.
 
 ## File prodotto e dove va
 
-1. Studio salva `out/sd/carts/TROPIC.BME` (Ctrl+S, riga 7 e riga 68). `[DA VERIFICARE: cartella /carts in --sd]`
-2. Per la catena il file diventa `video/3d/chain/01-studio.bm` con `python .claude/skills/bm-forge/scripts/bm_forge.py export models out/sd/carts/TROPIC.BME -o video/3d/chain/01-studio.bm --title tropic`. `[DA VERIFICARE: export models accetta un .bme prodotto da Studio e conserva la sheet]`. Non si scrive `models.bm` altrove nel resto della serie.
+1. Studio salva `out/sd/carts/TROPIC.BME` (Ctrl+S, riga 7 e riga 68).
+2. Per la catena il file diventa `video/3d/chain/01-studio.bm` con `python .claude/skills/bm-forge/scripts/bm_forge.py export models out/sd/carts/TROPIC.BME -o video/3d/chain/01-studio.bm --title tropic`. Non si scrive `models.bm` altrove nel resto della serie.
 3. Il video 2 parte da `TROPIC.BME` (stesso file, copiato nella SD pulita) e non dal `.bm`, perché i `.bm` sono in sola lettura e Pixel li salverebbe in una copia `.BME` (vedi 02-pixel/input.md).
 
 ## Verifica (`verify.py`, senza guardare immagini)
 
 1. Esiste `out/sd/carts/TROPIC.BME` e `scripts/bmres.py list` lo apre senza errori (`bmres.load`/`check`).
 2. `scripts/bmres.py`: `mesh_parse(f.get(MESH))` restituisce tre modelli con nomi esatti `CRATE`, `APPLE`, `PICO`, in questo ordine.
-3. Triangoli: `python .claude/skills/bm-forge/scripts/bm_forge.py check out/sd/carts/TROPIC.BME --no-sync --draw PICO=1 --draw APPLE=60 --draw CRATE=14 --budget 100000 --json` (uso `--draw` solo per leggere i conteggi per modello); si controlla `PICO <= 300`, `APPLE <= 80`, `CRATE <= 40` dai numeri riportati, non dal budget di scena. `[DA VERIFICARE: formato dell'output JSON di check per modello]`.
+3. Triangoli: `python .claude/skills/bm-forge/scripts/bm_forge.py check out/sd/carts/TROPIC.BME --no-sync --draw PICO=1 --draw APPLE=60 --draw CRATE=14 --budget 100000 --json` (uso `--draw` solo per leggere i conteggi per modello); si controlla `PICO <= 300`, `APPLE <= 80`, `CRATE <= 40` dai numeri riportati, non dal budget di scena.
 4. Totale di scena della cartuccia sotto 1200 (soglia di Studio).
-5. Silhouette (opzionale): `bm_forge.py check ... --reference chain-ref/PICO.bm --min-iou 0.75` contro un riferimento fatto con bm-forge (solo come "risposta corretta", mai mostrato).
+5. Silhouette (opzionale): `bm_forge.py check ... --reference chain-ref/PICO.bm --min-iou 0.75` contro un riferimento fatto con bm-forge (solo come "risposta corretta", mai mostrato). Note: IoU informativo solo.
 6. Durata del video con `ffprobe`: 3:30 +/- 5 s; risoluzione 1920x1080 a 60 fps.
