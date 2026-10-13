@@ -184,7 +184,8 @@ between bracketing keys, wrap from last key to first in loops; `u` = linear, smo
 `u*u*(3-2u)` (mode 1) or 0 (step); quaternion slerp (shortest way) + linear translation; bone matrix
 `M = M_parent * T(head + t) * R(q) * T(-head)` (`src/bm/bm.h:75-76`, `src/bm/runtime.c:2273,2296-2317`).
 Rigid skinning, one bone per vertex (`src/bm/runtime.c:2319-2320`). The same maths in
-`carts/animator/main.lua` (CLAUDE.md invariant; NON VERIFICATO line by line here).
+`carts/animator/main.lua:772-812` (CLAUDE.md invariant; checked by hand in phase 1b, port
+`bm_core/skin.py`, differences in OPEN_QUESTIONS.md items 25-29).
 
 **fps**: the format has no fps: times are f32 seconds. bm Animator's timeline snaps to 12 frames/s
 (`src/script/bm3d.lua:32`, `carts/animator/main.lua:831`). Writers: `bmmesh.encode_anim` default mode 1,

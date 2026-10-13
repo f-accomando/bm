@@ -77,3 +77,45 @@ header kept, `.bm`/`.b16` never converted, no profile field) are not repeated.
     still exceed 15 bytes and is then refused at encode time.
 24. Textured `.glb` without a bm Studio sheet (all `carts/kitchen/models/chef*.glb`) is
     refused, as by bmmesh. A Meshy texture import path is `tools/meshy2mesh.py`, not ported.
+
+## Preview and playback (`bm_core/preview.py`, `bm_core/skin.py`, phase 1b)
+
+Playback check, `skin.py` against `src/bm/runtime.c:2198-2321` and bm Animator
+(`carts/animator/main.lua:772-812` `ease`/`sample`, `Q.slerp` `src/script/bm3d.lua:112-125`):
+same wrap/clamp, same key search, same smoothstep, same slerp (0.9995 threshold, shorter
+way, normalised), same `M = M_parent T(head+t) R(q) T(-head)`. bm Animator draws through
+the kernel's `animate()` (`carts/animator/main.lua:223-225`), so what it shows is the C
+maths by construction. Differences found (none changes a pose read from a valid file):
+
+25. Lua `sample` fills missing poses with identity and uses `pb = b.pose[i] or pa`
+    (`main.lua:784-786,806-807`); C always reads `nbones` poses per key (the format
+    forces them). bm_core refuses a key without one pose per bone (`skin.check_link`).
+26. Lua works in doubles, C in f32; `skin.py` in doubles: poses agree to ~1e-6, not
+    bit for bit (NON VERIFICATO against a kernel run: no bmhost/QEMU here).
+27. bm Animator's info line wraps time with `max(length, 1e-3)` (`main.lua:267-268`),
+    `pose_at` with `length > 0 ? length : 1` (`runtime.c:2232`): display only.
+28. `bone_turn()` (`runtime.c:2291-2294`) is runtime state, not file data: not modelled.
+29. r3d lights a skinned face with the normal turned by the bone of its **first**
+    vertex only (`src/bm/r3d.c:2171`); the preview does the same, so a face spanning two
+    bones is lit as if it followed one.
+
+Renderer approximations (each also in the `preview.py` docstring):
+
+30. **Flat only.** The console draws Gouraud when a game asks (`R3D_SMOOTH`,
+    `r3d.c:1906,2136`); lit models' corner lights are averaged per face. Lamps, fog,
+    rim, GLOSSY specular, r3d's dither and fixed-point texel stepping are not drawn.
+31. **Default LOD level 3** (`detail` argument): which level a game draws at depends on
+    distance and settings (NON VERIFICATO); faces with LOD bits may differ.
+32. **SCREEN material phase** `(x + y) & 1`: NON VERIFICATO against r3d's pattern.
+33. **Textured face of a lit model**: drawn with its 5-6-5 light and no sun
+    (`r3d.c:2170` skips the sun; the rest of the textured lit path past `r3d.c:2219` was
+    not read: NON VERIFICATO).
+34. **No sheet**: textured faces are flat grey `0xA0A0A0`; the runtime clears their RGB
+    (`runtime.c:2140`), so the stored RGB bits mean nothing to draw.
+35. **Camera**: the preview turns the model (yaw about y, then pitch about x) in front of
+    a fixed camera and fits the camera to the bounding sphere; a game places its own
+    camera (`r3d_camera`). Orthographic is a preview extra.
+36. **Drift watch**: `SYNC.json` does not track `src/bm/runtime.c`, `src/bm/r3d.c` or
+    `carts/animator/main.lua` (big files that change often; a whole-file hash would cry
+    wolf). A change of `pose_at`/`skin`/`light_fast` is not detected: add line-range
+    hashes to `syncwatch` if this matters.
