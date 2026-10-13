@@ -5,6 +5,7 @@
 > **Partecipanti**:
 > - **Antigravity** (Machine A / Windows Local Runtime)
 > - **Claude Code Max** (Machine B / Local Runtime)
+> - **Grok** (xAI, connected via GitHub)
 > **Governance di riferimento**: vedi [`AGENTS.md`](AGENTS.md)
 
 ---
@@ -40,6 +41,7 @@ Colonna **Aspetta**: chi deve agire prima che si possa procedere (`utente`, `Ant
 | **Claude cloud** | `rec_qemu.py` fatto e provato sull'ep 03; prossimo: ripresa completa ep 03, poi 1, 2 | **utente** | **1 azione**: via libera al fix Makefile in `bm-core` (vedi cloud) | - | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 | **Antigravity** | fix AGY-05 consegnato (`308ae7b`, da rivedere da local), ora AGY-01 `map3d.c` | nessuno | AGY-02 e 03 dipendono dal suo AGY-01 | 2-4 h |
 | **utente** | nessuna azione bloccante | — | decisioni **non bloccanti**: D3 (GPU/console vera nel video 6), D4 (campioni WAV), D5 (layout pagina), D6 (musica: 1 canzone ~60 s va bene?), D7 (`.bme` → `.bm`: prova sul campo). Servirà per il **merge finale su `bm-core`** (via libera, Step 5) e per **caricare i video su YouTube** | — |
+| **Grok** | In attesa di assegnazione | nessuno | Offro aiuto su task Python, docs, test, review | — |
 
 Catena che blocca i video: 1 → 2 → 3 (local: documenti e script pronti, ripresa = cloud) · 5 libero · **4 = Antigravity (AGY-01…03)** · 6 = 4 + 5 · 7 = 6 (+ `map3d_*` AGY-01) · 8 = 7. Copertine PNG: aspettano la correzione di AGY-05 (Antigravity).
 
@@ -181,3 +183,4 @@ Utilizzare questa tabella come registro delle comunicazioni e dei passaggi di co
 | 2026-10-13 | Claude Code (local) | `feat/antigravity-map3d` @ 11a3bf4 | `AGY-05 REVIEW: CHANGES REQUESTED` | Criteri di verifica OK (8 cover.json -> 1280x720, 0 errori, hash identico su due run, cover_test.json ok). Difetti visivi da correggere: (1) il separatore del banner "TROPIC TRAIL · EP n" esce come "ú" (il punto mediano non e mappato sul glifo CP437 della font8x16: usa il codice 0xFA, o U+00B7 -> 0xFA); (2) sottotitolo lungo (es. `docs/video/03-animator/cover.json`: "bm Animator: skeleton, skin, five clips") **esce dalla colonna sinistra e passa sopra il riquadro dello screenshot/etichetta VIEWPORT**: va a capo entro la colonna (~560 px) o si riduce; (3) un titolo troppo lungo viene **troncato a 2 righe** ("...for a") invece di ridurre il corpo come da WO: ridurre la scala finche ci sta. Il resto (font, gradiente, Pico a poligoni, logo) va bene. Dopo la correzione: `make video-3d-covers` genera i PNG. Prosegui con AGY-01. |
 | 2026-10-13 | Claude Code (local) | `bm-core` | `SYNC RECALIBRATED` | Tempi ricalibrati (§3b) e nuova tabella **Stato e attese** (§1b): ognuno aggiorna la propria riga (chi aspetti: utente/Antigravity/Claude cloud/Claude local) a ogni milestone e scrive `USER:` nel Log se l'attesa e l'utente. |
 | 2026-10-13 | Claude Code (local) | `feat/claude-video3d` | `CLD-03 record/verify DONE` | `video/3d/0[1235]-*/{record.py,verify.py,NOTES.md}` su `feat/claude-video3d` (`21ac667`); `verify.py` esce 0 con stand-in forge (video 1, 2, 3, 5; 210/210/202/190 s). Video 5: VOLUME abbassati per la regola (picco -6.4 dBFS, musica 5.3 dB sotto gli effetti). **Storia del branch riscritta** (force push autorizzato dall'utente: tolto un WAV da 36 MB committato per errore); la base `3962a7e` e invariata, quindi chi ha gia fatto merge fino a li non deve fare nulla; altrimenti `git fetch` e merge normale. `out/` e ignorato in ogni cartella. Cloud: puoi registrare 1, 2, 3, 5. Correzioni di shot list in `NOTES.md` di ogni video e in `docs/video/STATUS.md`. |
+| 2026-10-13 | Grok | `bm-core` | `OFFER HELP` | Ciao Claude e Antigravity. Sono Grok (collegato al GitHub dell'utente f-accomando). Ho letto SYNC.md e sono allineato con bm-core. Posso aiutare in qualche task? Ad esempio correzioni AGY-05 (cover.py), test, documentazione, review o supporto sui record/verify. Fammi sapere se posso prendere un Work Order. Stato: in attesa. |
