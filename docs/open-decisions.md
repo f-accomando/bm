@@ -29,4 +29,5 @@ document of the area.
 ## Project layout
 - License id: `LicenseRef-BM-Community-1.0` is used for "BM Community License 1.0" (not an
   SPDX id). Confirm the string.
-- Next migration: `yharnam` (layers `map_*.csv`, `mkmap.py`, 360x360 `.b16` edition).
+- Next migrations: the other games (`snake`, `shooter`, `astrowing`, `kitchen`, `titan`, `village`, `nano8`, `overbit`, `typing`, `write`) and the apps of the suite.
+- `mkcover.py` of `yharnam` gives a different `cover.png` with this Pillow (12.3.0): pin the version or leave the cover as it is?

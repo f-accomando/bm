@@ -3,8 +3,8 @@
 and writes where everything is into main.lua, between the lines
 "-- [atlas begin]" and "-- [atlas end]".
 
-    python3 carts/yharnam/mkassets.py        (needs numpy and Pillow)
-    python3 carts/yharnam/mkassets.py --places
+    python3 carts/yharnam/build/mkassets.py        (needs numpy and Pillow)
+    python3 carts/yharnam/build/mkassets.py --places
         only the placeholders of the drawn map (art/places.py), into the
         sheet.png and the atlas there are: what the whole run makes of them,
         without drawing the frames again
@@ -38,6 +38,8 @@ import numpy as np
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+GAME = os.path.normpath(os.path.join(HERE, '..'))     # carts/yharnam
+ASSETS = os.path.join(GAME, 'assets')
 sys.path.insert(0, os.path.join(HERE, 'art'))
 
 import anims  # noqa: E402
@@ -56,7 +58,7 @@ import sdf  # noqa: E402
 import tiles  # noqa: E402
 
 SW, SH = 4096, 4096
-CACHE = os.path.join(HERE, '..', '..', 'build', 'yharnam-frames')
+CACHE = os.path.join(GAME, '..', '..', 'build', 'yharnam-frames')
 # the kind of each creature module, for the game: where it lives, how it fights
 KIND = {'foe_villagers': 'town', 'foe_beasts': 'beast', 'foe_hunters': 'hunter', 'foe_horrors': 'horror'}
 
@@ -147,7 +149,7 @@ def places_only():
     after the roofs (the same numbering as tile() in main()), the frames and the palette untouched"""
     n0 = (1 + sum(len(v) for v in tiles.GROUND.values()) + len(tiles.CURBS) + len(tiles.GRASS_EDGES)
           + sum(len(v) for v in tiles.DECALS.values()) + len(buildings.facade_tiles()) + len(buildings.roof_tiles()))
-    path = os.path.join(HERE, 'sheet.png')
+    path = os.path.join(ASSETS, 'sheet.png')
     sheet = np.array(Image.open(path).convert('RGBA'))
     known = {tuple(int(v) for v in c) for c in sheet[sheet[:, :, 3] > 0][:, :3]}
     place = {}
@@ -165,13 +167,13 @@ def places_only():
         sheet[y:y + 16, x:x + 16] = t
         place[k] = (y // 8) * (SW // 8) + x // 8
     Image.fromarray(sheet, 'RGBA').save(path)
-    src = open(os.path.join(HERE, 'main.lua')).read()
+    src = open(os.path.join(GAME, 'main.lua')).read()
     a, b = src.index('-- [atlas begin]'), src.index('-- [atlas end]')
     atlas = src[a:b].split('\n')
     atlas = [l for l in atlas if not l.startswith('local PLACE = ')]
     at = next(i for i, l in enumerate(atlas) if l.startswith('local FIRE_ANIM = {'))
     atlas.insert(at, place_line(place))
-    open(os.path.join(HERE, 'main.lua'), 'w').write(src[:a] + '\n'.join(atlas) + src[b:])
+    open(os.path.join(GAME, 'main.lua'), 'w').write(src[:a] + '\n'.join(atlas) + src[b:])
     print('sheet.png and main.lua: %d placeholders from tile %d (cell %d)' % (len(place), n0, min(place.values())))
 
 
@@ -259,7 +261,7 @@ def main():
             glowing.update(m.ramp)
     glowing.update(tuple(c) for c in tiles.RAMPS['lit'])
     glowing = sorted(c for c in glowing if c in set(colours))
-    Image.fromarray(sheet, 'RGBA').save(os.path.join(HERE, 'sheet.png'))
+    Image.fromarray(sheet, 'RGBA').save(os.path.join(ASSETS, 'sheet.png'))
     print('sheet.png: %dx%d, %d colours, %d tiles, %d props, %d frames' % (
         SW, used_h, len(colours), len(tiles_list), len(spr), len(frames) + len(foes)))
 
@@ -362,7 +364,7 @@ def main():
     out.append('local GLOWING = { %s }' % ', '.join('[%s] = true' % rgb(c) for c in glowing))
     out.append('-- [atlas end]')
 
-    path = os.path.join(HERE, 'main.lua')
+    path = os.path.join(GAME, 'main.lua')
     src = open(path).read()
     a = src.index('-- [atlas begin]')
     b = src.index('-- [atlas end]') + len('-- [atlas end]')

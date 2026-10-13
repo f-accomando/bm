@@ -202,14 +202,12 @@ title_titan := Titan Clash
 title_nano8 := nano8
 title_village := Studio Village
 res_village := 320x180
-title_yharnam := Yharnam
 title_typing := Pad Typing
 title_write := bm Write
-res_yharnam := 360x360
 sheet8_yharnam := 1
-# Yharnam's map drawn by hand (the SDK's map page): carts/yharnam/map_ground.csv, map_overlay.csv and
+# Yharnam's map drawn by hand (the SDK's map page): carts/yharnam/assets/map_ground.csv, map_overlay.csv and
 # map_objects.csv (the placeholders of the houses, trees, lamps... it places)
-# (carts/yharnam/mkmap.py makes the first one, and takes it back from the console)
+# (carts/yharnam/build/mkmap.py makes the first one, and takes it back from the console)
 layers_yharnam := ground overlay objects
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
 # menu, scripts/mkcovers.py), sheet.png, map.csv, models.bm or models.glb (3D
@@ -449,11 +447,11 @@ yharnam-video: $(BUILD)/host/bmplay $(BUILD)/carts/yharnam.bm tools/bmplay/yharn
 	tools/bmplay/video.sh $(BUILD)/host/bmplay $(BUILD)/carts/yharnam.bm tools/bmplay/yharnam_bot.lua \
 	    $(BUILD)/yharnam-run.mp4
 
-# Yharnam's first drawn map, from its street plan (carts/yharnam/mkmap.py: it
+# Yharnam's first drawn map, from its street plan (carts/yharnam/build/mkmap.py: it
 # overwrites map_ground.csv, map_overlay.csv and map_objects.csv, the map
 # drawn by hand)
 yharnam-map: $(BUILD)/host/luahost
-	$(PYTHON) carts/yharnam/mkmap.py --luahost $<
+	$(PYTHON) carts/yharnam/build/mkmap.py --luahost $<
 
 # The Sound editor in a fake bm: its banks are the console's format, byte for byte
 $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py

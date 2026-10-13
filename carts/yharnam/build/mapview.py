@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The map of Yharnam as a picture (needs Pillow), from the text of tests/yharnam/mapdump.lua:
 
-    build/host/luahost tests/yharnam/mapdump.lua carts/yharnam/main.lua | python3 carts/yharnam/mapview.py docs/img/yharnam-map.png
+    build/host/luahost tests/yharnam/mapdump.lua carts/yharnam/main.lua | python3 carts/yharnam/build/mapview.py docs/img/yharnam-map.png
 
 Chunks coloured by district (the boss's arena in red), the hunter's lamps (yellow), the start; on the
 borders between areas the barricade: sealed (grey) or a gate: breakable orange, one-way blue (an arrow

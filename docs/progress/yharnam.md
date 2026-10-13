@@ -1,7 +1,7 @@
 # Yharnam
 
-The game: `carts/yharnam/`. Its graphics come from `mkassets.py`; after a change, run it
-again and commit `sheet.png`. Never commit a sheet made with `YH_DRAFT=1`.
+The game: `carts/yharnam/`. Its graphics come from `build/mkassets.py`; after a change, run it
+again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`.
 
 ---
 
@@ -10,7 +10,7 @@ again and commit `sheet.png`. Never commit a sheet made with `YH_DRAFT=1`.
 - **Risoluzione & Schermo**: 360×360 (visuale 3/4 isometrica gotica, perfetta per il pannello 1:1 della RGB30 e il formato `.b16`).
 - **Mondo & Streaming**: Mappa continua generata a chunk di 16×16 celle durante il movimento (`visible_chunks`, `stream()`).
 - **Illuminazione**: Livelli di luce per pixel con tabelle di dissolvenza (`fades`, `dark_begin`, `glow`, `dark_end`) ispirate a Dank Tomb, lanterne a gas, bracieri e pire.
-- **Pipeline Grafica**: Generazione procedurale di oltre 5.000 frame tramite Signed Distance Fields (`mkassets.py`, `art/sdf.py`, `art/anims.py`, `art/hunter.py`), animazioni del Cacciatore su curve cubiche Hermite a 8 direzioni, con risoluzione automatica delle collisioni dell'arma (`unclip`).
+- **Pipeline Grafica**: Generazione procedurale di oltre 5.000 frame tramite Signed Distance Fields (`build/mkassets.py`, `build/art/sdf.py`, `art/anims.py`, `art/hunter.py`), animazioni del Cacciatore su curve cubiche Hermite a 8 direzioni, con risoluzione automatica delle collisioni dell'arma (`unclip`).
 - **Mappa a Layer**: `map_ground.csv`, `map_overlay.csv` e `map_objects.csv` (256×256 celle), disegnata nell'SDK e convertita con `mkmap.py`.
 
 ---
@@ -29,7 +29,7 @@ again and commit `sheet.png`. Never commit a sheet made with `YH_DRAFT=1`.
   3. Piazzare tessere di terreno e, sul livello `objects` (`l`), posizionare segnaposto (es. albero, casa con angolo H7 e tessere tetto).
   4. Salvare con `Ctrl+S` (genera la copia `YHARNAM.BME`, ~6 MB: lo sheet resta in formato compatto `SHEET8`).
   5. Provare con `F5`: verificare che terreno e oggetti modificati compaiano nel gioco.
-  6. Eseguire `python3 carts/yharnam/mkmap.py --from` sulla cartuccia estratta dalla SD e committare i CSV aggiornati.
+  6. Eseguire `python3 carts/yharnam/build/mkmap.py --from` sulla cartuccia estratta dalla SD e committare i CSV aggiornati.
 
 ### C. Glitch Grafico all'Avvio
 - Indagare il piccolo difetto visivo presente nei primi fotogrammi:

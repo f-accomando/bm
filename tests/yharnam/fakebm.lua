@@ -8,7 +8,7 @@
 -- one empty layer "main" unless B.load_map gives the cartridge's.
 --
 --   local B = dofile("tests/yharnam/fakebm.lua")
---   B.load_map({ { "ground", "carts/yharnam/map_ground.csv" }, ... })   -- (a drawn map: before B.load)
+--   B.load_map({ { "ground", "carts/yharnam/assets/map_ground.csv" }, ... })   -- (a drawn map: before B.load)
 --   local Y = B.load("carts/yharnam/main.lua")    -- the cartridge's YHARNAM table
 
 local B = { held = 0, prev = 0, now = 0, logs = {}, px = 0, SHEET_W = 4096, SHEET_H = 4096, writes = {} }

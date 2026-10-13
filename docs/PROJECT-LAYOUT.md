@@ -35,6 +35,7 @@ older kernel ignores INFO.
 | game | state |
 |---|---|
 | `pong` | `bm.info` |
+| `yharnam` | `bm.info`; `sheet.png`, `map_*.csv` in `assets/`; `mk*.py`, `mapview.py`, `art/` in `build/` (they find `main.lua` and `assets/` from there) |
 | `hunt` | `bm.info`; `sheet.png`, `map.csv` moved to `assets/`; `mkassets.py` moved to `build/` (writes `assets/`) |
 
 ## What breaks

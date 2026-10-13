@@ -3,7 +3,7 @@
 covers, made from the game's own sprites (sheet.png and the atlas that
 mkassets.py writes into main.lua) with the title in the console's font.
 
-    python3 carts/yharnam/mkcover.py        (needs Pillow; run it again
+    python3 carts/yharnam/build/mkcover.py        (needs Pillow; run it again
                                              after mkassets.py changed the sheet)
 
 A night street: the cathedral's spire under the moon, cobbles, a lit lamp and
@@ -16,13 +16,14 @@ import re
 from PIL import Image, ImageDraw, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.join(HERE, "..", "..")
+GAME = os.path.normpath(os.path.join(HERE, ".."))     # carts/yharnam
+ROOT = os.path.join(GAME, "..", "..")
 W = H = 88
 
 
 def atlas():
     """the sprite boxes of main.lua's atlas: SPR names and the hunter's idle frames"""
-    src = open(os.path.join(HERE, "main.lua"), encoding="utf-8").read()
+    src = open(os.path.join(GAME, "main.lua"), encoding="utf-8").read()
     body = src[src.index("-- [atlas begin]"):src.index("-- [atlas end]")]
     spr = {}
     m = re.search(r"local SPR = \{(.*?)\n\}", body, re.S)
@@ -65,7 +66,7 @@ def text(img, s, x, y, col, outline):
 
 
 def main():
-    sheet = Image.open(os.path.join(HERE, "sheet.png")).convert("RGBA")
+    sheet = Image.open(os.path.join(GAME, "assets", "sheet.png")).convert("RGBA")
     spr, dirs, tiles = atlas()
 
     def cut(box):
@@ -114,7 +115,7 @@ def main():
     img = Image.composite(img, dark, vig)
     img = img.convert("RGBA")
     text(img, "YHARNAM", (W - 7 * 8) // 2, 3, (200, 32, 32, 255), (0, 0, 0, 255))
-    out = os.path.join(HERE, "cover.png")
+    out = os.path.join(GAME, "cover.png")
     img.convert("RGB").save(out, optimize=True)
     print(out)
 
