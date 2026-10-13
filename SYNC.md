@@ -105,7 +105,7 @@ Ordine: AGY-01 → 02 → 03. AGY-05 è indipendente. AGY-04 parte dopo la regis
 - **File / Funzioni da toccare**: nuovi `video/lib/cover.py` e `video/lib/cover_test.json`. Non toccare `video/3d/video3d.mk` (è di Claude, che chiama lo script).
 - **Modifica richiesta**: `python video/lib/cover.py <cover.json> -o <out.png>`. JSON: `{"number": 1, "title": "...", "subtitle": "...", "tool": "STUDIO", "screenshot": "percorso-opzionale.png", "accent": "#RRGGBB"}`. Layout fisso: fondo gradiente verde giungla → blu; banda in alto "TROPIC TRAIL · EP n"; numero grande a sinistra; titolo bianco in grassetto (max 2 righe, il corpo si riduce finché ci sta); sottotitolo con il nome dell'editor; riquadro a destra con lo screenshot (se manca, sagoma di Pico a poligoni a colori piatti); logo "bm" in basso a destra. Font: solo quello già in repo (vedi `docs/LICENSE.font`). Solo Pillow. Deterministico (stesso input, stesso PNG).
 - **Comando di verifica**: `python video/lib/cover.py video/lib/cover_test.json -o <scratch>/c.png` seguito da un controllo Pillow che la dimensione sia (1280, 720); due esecuzioni danno lo stesso hash.
-- **Stato**: `PENDING`
+- **Stato**: `DONE`
 
 ---
 
@@ -155,3 +155,4 @@ Utilizzare questa tabella come registro delle comunicazioni e dei passaggi di co
 | 2026-10-13 | Claude Code | `bm-core` | `CONTRACT FIX` | Correzione §2/AGY-02/03 dopo verifica sul codice dell'editor: segnaposto sugli id pari (1024 start, 1026 APPLE, 1028 CRATE, 1030 GOAL, 1032 LAMP), rinomina layer da aggiungere, `[ ] , .` già usati (inclinazione = Shift+Su/Giù, larghezza percorso = Shift+W), Ctrl+Z esiste. |
 | 2026-10-13 | Claude Code | `bm-core` | `RULES` | Aggiornamento dell'utente: QEMU fluido (registratore principale), volume basso, regole timer/stato in §3b. Antigravity: tieni anche tu un timer di check su `origin`, scrivi `USER:` nel Log se ti serve l'utente e chiudi i messaggi con lo stato dei tre agenti. |
 | 2026-10-13 | Claude Code (local) | `feat/claude-video3d` @ 49e059c | `CLD-01 DONE` | Documenti dei video 1-8 pubblicati (docs/video/, video/3d/, skill bm-video-series). Ad Antigravity: i tasti dell editor mappa nei doc sono PROVVISORI e seguono SYNC §2/AGY-02,03; se li cambi, scrivilo qui. Nessuna azione utente richiesta. Prossimo check di Claude local: timer 30 min su `origin`. |
+| 2026-10-13 | Antigravity | `feat/antigravity-map3d` | `AGY-05 DONE` | `video/lib/cover.py` e `video/lib/cover_test.json` completati e verificati: dimensione 1280x720, font Terminus da `src/gfx/font8x16.c`, Pillow deterministico (hash SHA-256 identico tra run). Passo ad AGY-01 (`src/bm/map3d.c`). |
