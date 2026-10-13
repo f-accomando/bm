@@ -194,7 +194,6 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
 GAMES := pong snake shooter astrowing hunt kitchen titan village nano8 overbit yharnam typing write
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
-title_pong    := Pong
 title_snake   := Snake
 title_shooter := Star Shooter
 title_astrowing := Astro Wing
@@ -225,12 +224,12 @@ layers_yharnam := ground overlay objects
 # sprites.txt (scripts/mkbm.py --flags, --sprites).
 .SECONDEXPANSION:
 $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
-                      $$(wildcard carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv carts/$$*/models.glb \
+                      $$(wildcard carts/$$*/bm.info carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv carts/$$*/models.glb \
                                   carts/$$*/models.bm carts/$$*/flags.csv carts/$$*/sprites.txt) \
                       $$(foreach l,$$(layers_$$*),carts/$$*/map_$$(l).csv)
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_$*)" --author bm \
-	    --res $(or $(res_$*),640x360) \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< \
+	    $(if $(wildcard carts/$*/bm.info),--info carts/$*/bm.info,--title "$(title_$*)" --author bm --res $(or $(res_$*),640x360)) \
 	    $(if $(wildcard carts/$*/cover.png),--cover carts/$*/cover.png) \
 	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png $(if $(sheet8_$*),--sheet8)) \
 	    $(if $(wildcard carts/$*/map.csv),--map carts/$*/map.csv) \

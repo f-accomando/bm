@@ -116,6 +116,8 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 
 ## Open work (`docs/ROADMAP.md`)
 
+- **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong` has `bm.info`; migrate `hunt`, then
+  `yharnam`; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, then publish in
   the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
