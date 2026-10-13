@@ -243,8 +243,20 @@ def build_pdf(filename):
 
     story.append(Spacer(1, 6))
 
-    # Sezione 4: Cosa può ereditare Claude da Antigravity/Gemini
-    story.append(Paragraph("4. Cosa Claude Può Ereditare da Antigravity / Gemini", h1_style))
+    # Sezione 4: Plugin Ecosistema: crab-ledger & better-prompt
+    story.append(Paragraph("4. Plugin per Claude: crab-ledger e better-prompt", h1_style))
+    story.append(Paragraph(
+        "Per estendere ulteriormente l'efficienza e la qualità dei prompt nelle sessioni Claude, sono disponibili due plugin open-source universali:",
+        body_style
+    ))
+    story.append(Paragraph("• <b>crab-ledger (Monitoraggio Costi & Riletture):</b> Plugin che traccia in tempo reale l'uso dei token, le riletture dei file (<i>rereads</i>) e calcola il costo di ogni singola sessione. Si interfaccia con <code>scripts/docs_audit.py rereads</code> producendo il report <code>~/.claude/crab-ledger-report.json</code> per identificare i colli di bottiglia e i file troppo riletti che necessitano di spezzamento.", bullet_style))
+    story.append(Paragraph("• <b>better-prompt (Prompt Engineering & Ottimizzazione):</b> Plugin che raffina, struttura e ottimizza automaticamente i prompt inviati a Claude. Applica pattern di prompt engineering avanzati, rimuove ambiguità, formatta le istruzioni con ruoli chiari e riduce il consumo di token alla sorgente.", bullet_style))
+    story.append(Paragraph("<i>Entrambi i plugin sono disponibili e installabili pubblicamente dai repository di GitHub (<code>/crab-ledger</code> e <code>/better-prompt</code>).</i>", body_style))
+
+    story.append(Spacer(1, 6))
+
+    # Sezione 5: Cosa può ereditare Claude da Antigravity/Gemini
+    story.append(Paragraph("5. Cosa Claude Può Ereditare da Antigravity / Gemini", h1_style))
     story.append(Paragraph(
         "Possiamo arricchire l'ambiente Claude integrando i seguenti pattern mutuati da Antigravity:",
         body_style
@@ -255,8 +267,8 @@ def build_pdf(filename):
 
     story.append(Spacer(1, 6))
 
-    # Sezione 5: Template di Avvio
-    story.append(Paragraph("5. Template Universale di Avvio: CLAUDE.md & GEMINI.md", h1_style))
+    # Sezione 6: Template di Avvio
+    story.append(Paragraph("6. Template Universale di Avvio: CLAUDE.md & GEMINI.md", h1_style))
     story.append(Paragraph("Utilizza questa struttura alla radice del repository per garantire compatibilità con entrambi gli agenti:", body_style))
 
     claude_template_code = """# [Nome Progetto] — Note Operative di Sessione (Claude & Gemini)
@@ -297,8 +309,8 @@ Prima di terminare o dare la risposta finale:
 
     story.append(Spacer(1, 6))
 
-    # Sezione 6: Automazione Continua a Tripla Barriera
-    story.append(Paragraph("6. I Tre Pilastri dell'Automazione Continua", h1_style))
+    # Sezione 7: Automazione Continua a Tripla Barriera
+    story.append(Paragraph("7. I Tre Pilastri dell'Automazione Continua", h1_style))
     story.append(Paragraph("<b>A. Git Pre-Commit Hook (<code>.git/hooks/pre-commit</code>):</b> Esegue <code>python scripts/docs_audit.py score</code> e blocca il commit locale se ci sono link rotti o file orfani.", body_style))
     story.append(Paragraph("<b>B. Target Makefile / Build Tool:</b> Inserire il target <code>test-docs</code> nella suite dei test standard (<code>make test</code> o <code>make test-host</code>).", body_style))
     story.append(Paragraph("<b>C. CI/CD GitHub Actions:</b> Uno step dedicato <code>Check documentation audit</code> (<code>python3 scripts/docs_audit.py score</code>) all'interno del workflow di build/test su PR.", body_style))

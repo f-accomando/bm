@@ -73,8 +73,22 @@ Hardware target: **Raspberry Pi Zero W** (ARM1176 @ 1.0 GHz, VideoCore IV V3D GP
 | **16×16 Sprites (from Lua `spr()` calls)** | **1,829** | 3,774 |
 | **3D Triangles (from Lua `draw3d()`)** | **1,115** | 4,692 |
 
-> *Real-world games*: **Astro Wing** (3D flight) runs at solid 60 fps (6.3 ms/frame); **Titan Clash** (2D fighting) runs at 60 fps (11.6 ms/frame); **Texture Room** (textured 3D) runs at 60 fps taking just 5.8 ms/frame using the GPU.  
-> Read full benchmarks in [`docs/PRESTAZIONI.md`](docs/PRESTAZIONI.md) and [`docs/HARDWARE.md`](docs/HARDWARE.md).
+### 🚀 3D Engine & Architecture (bm3d & V3D Driver)
+bm integrates **bm3d** (v7.2+), a custom dual-path 3D engine:
+- **GPU Path (V3D Hardware - Default)**: The ARM core performs vertex transforms, lighting, and clipping, while the VideoCore IV V3D GPU fills pixels via custom QPU assembly shaders (`tools/qpuasm.py`) at **811 Mpixel/s** with 24-bit depth and optional 4× MSAA. CPU pixel-drawing instructions drop by **up to 89%**.
+- **ARM Fallback Rasterizer**: Highly optimized fixed-point 32.32 software rasterizer with per-face LOD, screen-door transparency, and planar shadows when GPU is absent or in emulators.
+
+### 🎯 Real-World Game Benchmarks
+- **Overbit (3D Hero Shooter, 10 Bots, Partenope map at 480×270 / 1080p scaled)**:
+  - ARM instructions reduced by **23% to 32% per frame** across all visual presets.
+  - GPU unlocks real-time planar hero shadows, smooth Gouraud shading, textured fog, dynamic explosion lighting, and 24-bit depth.
+  - Frame rates on Pi Zero W jump from ~36 fps up to **~50 fps (LOW)**, ~34 to **~45 fps (MEDIUM)**, and ~30 to **~36 fps (HIGH)**.
+  - Budget: ~6,000 triangles at 60 fps; hero models feature up to 1,394 triangles at full LOD.
+- **Texture Room HD (640×360, 32 Crates)**: **5.8 ms/frame (solid 60 fps)** on V3D GPU vs 25–26 ms on software ARM.
+- **Chaos Kitchen (3D Co-op)**: **6.8 ms/frame (60 fps)** on V3D GPU vs 14.1 ms on software ARM.
+- **Astro Wing (3D Flight Combat)**: **6.3 ms/frame (solid 60 fps)**.
+
+> Read the full performance breakdown in [`docs/M33-PRIMA-DOPO.md`](docs/M33-PRIMA-DOPO.md) and [`docs/PRESTAZIONI.md`](docs/PRESTAZIONI.md).
 
 ---
 
