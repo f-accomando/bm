@@ -77,7 +77,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   `scripts/bmmesh.py`, `bmdecimate.py`, `tools/bmreduce.py` (quadric collapse, same code as
   `src/bm/decimate.c`).
 - `tools/qpuasm.py` → `src/gpu/shaders.h` ([graphics](graphics.md)).
-- Yharnam's drawn map: `carts/yharnam/map_ground.csv`, `map_overlay.csv` (drawn: `MAP.drawn`)
+- Yharnam's drawn map: `carts/yharnam/assets/map_ground.csv`, `map_overlay.csv` (drawn: `MAP.drawn`)
   and `map_objects.csv` (`layers_yharnam`, 256×256 cells). `objects` is not drawn directly in-game:
   its placeholders (`art/places.py`, `PLACE` in the atlas, `mkassets.py --places` without rendering
   the frames) place the units `gen()` makes (houses: corner H7/H8/CH + roof tiles = width, body
@@ -87,7 +87,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   a unit or gameplay object stays where its placeholder is, goes without it, and a placeholder no
   unit took makes one (hash of its tile). `ch.kind` (road, pave, grass) is derived from the drawn
   ground tiles in `map_ground.csv` so creature spawning follows edits made in the SDK. Beyond the
-  edge lies the ring (`MAP.ring`). `carts/yharnam/mkmap.py` makes the first map from the plan
+  edge lies the ring (`MAP.ring`). `carts/yharnam/build/mkmap.py` makes the first map from the plan
   (`make yharnam-map`, `tests/yharnam/mapgen.lua`: it overwrites the drawn one), takes it back
   (`--from YHARNAM.BME`), draws it (`--png`).
 - `tools/bm_net.py`: kernels, cartridges and files over WiFi (protocol in
