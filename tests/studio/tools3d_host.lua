@@ -290,11 +290,11 @@ local function new_env(arg_path)
     return w, h
   end
   E.cart_data = function(t, ...)
-    assert(t == 8 or t == 9, "cart_data: 8 (MESH) or 9 (ANIM)")
+    assert(t == 8 or t == 9 or t == 11 or t == 14, "cart_data: 8 (MESH), 9 (ANIM), 11 (SPRITES) or 14 (BOXES)")
     if select("#", ...) == 0 then return sec[t] end
     local data = ...
     if data == "" then data = nil end
-    if data then
+    if data and (t == 8 or t == 9) then
       local ok, e = pcall(t == 8 and mesh_models or anim_rigs, data)
       if not ok then return false, "broken: " .. tostring(e) end
     end
@@ -1038,7 +1038,7 @@ frames(8)
 local opaque = 0
 local sw, sh = E.cart_sheet()
 for y = 0, sh - 1 do for x = 0, sw - 1 do if E.sget(x, y) then opaque = opaque + 1 end end end
-check(sees("sspr(") and sees("8 sprites put in the sheet"), "Enter: the sprites in the sheet: " .. status())
+check(sees("sspr(") and sees("8 sprites and 8 boxes put in sheet"), "Enter: the sprites in the sheet: " .. status())
 check(opaque > 8 * 16 * 16, "the sprites' pixels (" .. opaque .. ")")
 key("^z")
 local after = 0
