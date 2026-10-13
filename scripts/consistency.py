@@ -227,7 +227,7 @@ def rule_divergences():
     for d in divergences():
         if d["cause"] == "hardware" and d.get("capability") not in caps:
             out.append(Finding("divergence", f"capability:{d['id']}", f"{d['id']} is a hardware difference with no capability of platforms.toml ({d.get('capability')})"))
-        if d["cause"] not in KINDS or d["status"] not in ("open", "resolved"):
+        if d["cause"] not in KINDS or d["status"] not in ("open", "suspended", "untested", "resolved"):
             out.append(Finding("divergence", f"fields:{d['id']}", f"{d['id']}: cause or status is not valid"))
         for ev in d["evidence"].split(";"):
             path = ev.strip().split(":")[0]
@@ -282,8 +282,9 @@ def gate():
         elif v["kind"] in BLOCKING:
             blockers.append(f"divergence {k} ({v['kind']}): {v['because']}")
     for d in divergences():
-        if d["status"] == "open" and d["cause"] in BLOCKING:
-            blockers.append(f"{d['id']} ({d['cause']}, priority {d.get('priority', '-')}): {d['area']}: {d['action']}")
+        if d["status"] in ("open", "suspended") and d["cause"] in BLOCKING:
+            tag = " [suspended]" if d["status"] == "suspended" else ""
+            blockers.append(f"{d['id']} ({d['cause']}, priority {d.get('priority', '-')}){tag}: {d['area']}: {d['action']}")
     with open(os.path.join(ROOT, "docs/spec/specs.toml"), "rb") as f:
         reg = tomllib.load(f)
     for it in reg["item"]:
@@ -291,6 +292,9 @@ def gate():
             blockers.append(f"spec item {it['id']} is {it['status']}: {it.get('note', '')}")
     for b in blockers:
         print("BLOCKS 1.0.0  " + b)
+    for d in divergences():
+        if d["status"] == "untested":
+            print(f"TRY ON THE CONSOLE  {d['id']}: {d['area']}: {d.get('note', '')[:110]}")
     print(f"gate: {len(blockers)} blockers for 1.0.0")
     return 1 if blockers else 0
 

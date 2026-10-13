@@ -69,66 +69,65 @@ the right scope; that every divergence names a capability and real evidence file
 documentation noise. From 1.0.0 on: container version 1 stays readable by every 1.x kernel; a new revision only **adds**;
 removing or changing a promise is a 2.0.0.
 
-## Where we are (2026-10-13, read from the code, not tried on the hardware)
-
+## Where we are (2026-10-13, read from the code; `untested` = fixed and compiled, not tried on the hardware)
 
 **1. First: devices that silently stop working**
 
-| Id | Cause | Area | What differs | What to do |
-|---|---|---|---|---|
-| D01 | history | input / system keys | Pi: BT pad PS button, BT keyboard Ctrl+Esc and Esc reach the menu (home) and the games. RGB30: only Start+Select leaves; PS/Esc are never read | forward hid_quit_pressed() in input_players; make the menu honour PS = home |
-| D02 | history | bluetooth | Pi: bt_start() at boot when a pad is paired: the pad reconnects. RGB30: BT starts only when a pairing row is opened: a paired pad, keyboard or mouse does not reconnect after a reboot | call bt_start() at boot if bt_paired() |
+| Id | Status | Cause | Area | What differs | What to do |
+|---|---|---|---|---|---|
+| D01 | untested | history | input / system keys | Pi: BT pad PS button, BT keyboard Ctrl+Esc and Esc reach the menu (home) and the games. RGB30: only Start+Select leaves; PS/Esc are never read | forward hid_quit_pressed() in input_players; make the menu honour PS = home |
+| D02 | untested | history | bluetooth | Pi: bt_start() at boot when a pad is paired: the pad reconnects. RGB30: BT starts only when a pairing row is opened: a paired pad, keyboard or mouse does not reconnect after a reboot | call bt_start() at boot if bt_paired() |
 
 **2. Data-loss risks in the menu**
 
-| Id | Cause | Area | What differs | What to do |
-|---|---|---|---|---|
-| D06 | history | launch | Pi: asks to close a game that is frozen (suspended) before starting another. RGB30: closes it silently: the frozen game's progress is lost | add the question |
-| D07 | history | frozen game | Pi: shows a 'running' badge and a Close row. RGB30: no badge, no Close row | set the badge and add the row |
-| D08 | history | delete a game | Pi: closes the suspended copy; refuses while a download is updating it. RGB30: does neither | port the two checks |
+| Id | Status | Cause | Area | What differs | What to do |
+|---|---|---|---|---|---|
+| D06 | untested | history | launch | Pi: asks to close a game that is frozen (suspended) before starting another. RGB30: closes it silently: the frozen game's progress is lost | add the question |
+| D07 | untested | history | frozen game | Pi: shows a 'running' badge and a Close row. RGB30: no badge, no Close row | set the badge and add the row |
+| D08 | untested | history | delete a game | Pi: closes the suspended copy; refuses while a download is updating it. RGB30: does neither | port the two checks |
 
 **3. One key, one default**
 
-| Id | Cause | Area | What differs | What to do |
-|---|---|---|---|---|
-| D16 | history | Market formats and show_bm / show_b16 | Pi: shows .bm; .b16 only without a .bm twin, or show_b16=1. RGB30: shows .b16; show_bm=1 adds .bm; in Games the same key show_bm has the opposite default | one key, one default; document it in RGB30.md and B16.md |
+| Id | Status | Cause | Area | What differs | What to do |
+|---|---|---|---|---|---|
+| D16 | open | history | Market formats and show_bm / show_b16 | Pi: shows .bm; .b16 only without a .bm twin, or show_b16=1. RGB30: shows .b16; show_bm=1 adds .bm; in Games the same key show_bm has the opposite default | one key, one default; document it in RGB30.md and B16.md |
 
 **4. Developer workflow**
 
-| Id | Cause | Area | What differs | What to do |
-|---|---|---|---|---|
-| D09 | history | game list | Pi: sorted by title; scans / and /carts; shows .bme projects in Dev. RGB30: FAT order; only /bm; ignores .bme | sort by title; decide on /carts and on projects |
-| D13 | history | Dev tab and Market Apps | Pi: tools recognised by name (tool_id_of), apps installed from the Market appear in Dev. RGB30: 7 fixed entries; a Market App installed on the RGB30 is not recognised as a tool and shows up as a game | same recognition on the RGB30, or filter apps out of Games |
+| Id | Status | Cause | Area | What differs | What to do |
+|---|---|---|---|---|---|
+| D09 | open | history | game list | Pi: sorted by title; scans / and /carts; shows .bme projects in Dev. RGB30: FAT order; only /bm; ignores .bme | sort by title; decide on /carts and on projects |
+| D13 | open | history | Dev tab and Market Apps | Pi: tools recognised by name (tool_id_of), apps installed from the Market appear in Dev. RGB30: 7 fixed entries; a Market App installed on the RGB30 is not recognised as a tool and shows up as a game | same recognition on the RGB30, or filter apps out of Games |
 
 **5. Robustness**
 
-| Id | Cause | Area | What differs | What to do |
-|---|---|---|---|---|
-| D10 | history | covers | Pi: loaded in the background, on-screen covers first. RGB30: all loaded synchronously at each scan (up to 64) | port the background cover job |
-| D18 | history | crash screen | Pi: red screen, restart after 60 s (after 20 s of uptime), report at the next boot. RGB30: red screen, LED code, halts for ever; no report | port the restart and the report |
+| Id | Status | Cause | Area | What differs | What to do |
+|---|---|---|---|---|---|
+| D10 | open | history | covers | Pi: loaded in the background, on-screen covers first. RGB30: all loaded synchronously at each scan (up to 64) | port the background cover job |
+| D18 | open | history | crash screen | Pi: red screen, restart after 60 s (after 20 s of uptime), report at the next boot. RGB30: red screen, LED code, halts for ever; no report | port the restart and the report |
 
 **6. Decide first whether it is wanted on that console**
 
-| Id | Cause | Area | What differs | What to do |
-|---|---|---|---|---|
-| D03 | unknown | players | Pi: up to 4 BT pads plus USB: local multiplayer. RGB30: one player only; Settings shows only Player 1 | decide whether the RGB30 has local multiplayer; if so map BT pads to players |
-| D04 | history | menu keys | Pi: Start confirms; Tab and 1-5 jump tabs; U uploads a cart. RGB30: Start does nothing in the menu; no keyboard keys | align Start and Tab for BT keyboards |
-| D05 | unknown | menu pointer | Pi: mouse: hover, click, wheel, right-click for options. RGB30: none; Settings still offers the mouse rows | port the block (pointer.c is built into the RGB30) or hide the mouse rows |
-| D11 | history | game options (X / C) | Pi: Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close. RGB30: Play, Open in bm SDK, Export .b16, info, delete save, delete | add Send and Publish; the tool rows depend on D13 |
-| D12 | history | cover details | Pi: author, kind, size, path; a performance note after a game. RGB30: only the hint line; no performance note | add the note |
-| D14 | todo | Dev tab extras | Pi: CPU bench, Stress test, Texture Room, Demo. RGB30: not built (stress.c and roombench.c are excluded) | port when the RGB30 3D bench matters |
-| D15 | todo | Settings > System | Pi: CPU clock and temperature; 3D driver row; open the monitor. RGB30: CPU name only | add what the RK3566 can report |
-| D17 | todo | WiFi connect | Pi: scan and type the password with a keyboard. RGB30: only wifi_ssid / wifi_psk from config.txt; no on-screen keyboard | needs the on-screen keyboard (R1/R2) |
-| D19 | history | SD logs | Pi: none (only the crumbs report). RGB30: bootlog.txt, bootprev.txt, lastrun.txt in bm/ | give the Pi the same three files (R3) |
-| D20 | unknown | release content | Pi: manifest.txt: kernel.img, kernel7.img, games in /carts, ca.pem. RGB30: manifest-rgb30: kernel8.img and ca.pem only | confirm it is intended |
-| D21 | todo | run from the PC without saving | Pi: bm_net.py --play wired (GO_NETPLAY). RGB30: not wired | wire it into ui_home (developer feature) |
-| D22 | history | monitor | Pi: text console and Dev tab entry. RGB30: none by design (no_monitor); the serial line has a Lua REPL | keep; tell developers |
-| D23 | todo | 3D on the GPU | Pi: V3D draws the 3D. RGB30: Mali-G52 present but the 3D is on the ARM | Mali driver (M41) |
-| D24 | todo | Overbit .b16 and Mali benchmark | Pi: -. RGB30: not done | M41 |
-| D25 | todo | multicore, fibers | Pi: -. RGB30: RGB30 uses one core; fibers in the menu only | later |
-| D26 | todo | SDK layout 720x720 | Pi: -. RGB30: not done (R39) | R39 |
-| D27 | todo | screenshot of the menu's own screens | Pi: not done. RGB30: not done | extend the screenshot to the menu |
-| D28 | todo | a game built in /carts and the Games tab | Pi: a game built in /carts is not in Games (R41). RGB30: - | R41 |
+| Id | Status | Cause | Area | What differs | What to do |
+|---|---|---|---|---|---|
+| D03 | suspended | unknown | players | Pi: up to 4 BT pads plus USB: local multiplayer. RGB30: one player only; Settings shows only Player 1 | decide whether the RGB30 has local multiplayer; if so map BT pads to players |
+| D04 | open | history | menu keys | Pi: Start confirms; Tab and 1-5 jump tabs; U uploads a cart. RGB30: Start does nothing in the menu; no keyboard keys | align Start and Tab for BT keyboards |
+| D05 | suspended | unknown | menu pointer | Pi: mouse: hover, click, wheel, right-click for options. RGB30: none; Settings still offers the mouse rows | port the block (pointer.c is built into the RGB30) or hide the mouse rows |
+| D11 | open | history | game options (X / C) | Pi: Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close. RGB30: Play, Open in bm SDK, Export .b16, info, delete save, delete | add Send and Publish; the tool rows depend on D13 |
+| D12 | open | history | cover details | Pi: author, kind, size, path; a performance note after a game. RGB30: only the hint line; no performance note | add the note |
+| D14 | open | todo | Dev tab extras | Pi: CPU bench, Stress test, Texture Room, Demo. RGB30: not built (stress.c and roombench.c are excluded) | port when the RGB30 3D bench matters |
+| D15 | open | todo | Settings > System | Pi: CPU clock and temperature; 3D driver row; open the monitor. RGB30: CPU name only | add what the RK3566 can report |
+| D17 | open | todo | WiFi connect | Pi: scan and type the password with a keyboard. RGB30: only wifi_ssid / wifi_psk from config.txt; no on-screen keyboard | needs the on-screen keyboard (R1/R2) |
+| D19 | open | history | SD logs | Pi: none (only the crumbs report). RGB30: bootlog.txt, bootprev.txt, lastrun.txt in bm/ | give the Pi the same three files (R3) |
+| D20 | open | unknown | release content | Pi: manifest.txt: kernel.img, kernel7.img, games in /carts, ca.pem. RGB30: manifest-rgb30: kernel8.img and ca.pem only | confirm it is intended |
+| D21 | open | todo | run from the PC without saving | Pi: bm_net.py --play wired (GO_NETPLAY). RGB30: not wired | wire it into ui_home (developer feature) |
+| D22 | open | history | monitor | Pi: text console and Dev tab entry. RGB30: none by design (no_monitor); the serial line has a Lua REPL | keep; tell developers |
+| D23 | open | todo | 3D on the GPU | Pi: V3D draws the 3D. RGB30: Mali-G52 present but the 3D is on the ARM | Mali driver (M41) |
+| D24 | open | todo | Overbit .b16 and Mali benchmark | Pi: -. RGB30: not done | M41 |
+| D25 | open | todo | multicore, fibers | Pi: -. RGB30: RGB30 uses one core; fibers in the menu only | later |
+| D26 | open | todo | SDK layout 720x720 | Pi: -. RGB30: not done (R39) | R39 |
+| D27 | open | todo | screenshot of the menu's own screens | Pi: not done. RGB30: not done | extend the screenshot to the menu |
+| D28 | open | todo | a game built in /carts and the Games tab | Pi: a game built in /carts is not in Games (R41). RGB30: - | R41 |
 
 The differences that are hardware, with the capability that explains each:
 

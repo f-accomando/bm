@@ -51,6 +51,6 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 - The 5 api manuals list the gaps the repository cannot answer; each manual's last chapter ("Open points" / "Punti aperti") has them.
 
 ## Consistency and 1.0.0 ([spec/CONSISTENCY.md](spec/CONSISTENCY.md))
-- Everything converges before 1.0.0: `python3 scripts/consistency.py gate` lists the 32 blockers (28 differences between the Pi and the RGB30 that are not hardware, plus 2 accepted drifts and 2 specification items).
+- Everything converges before 1.0.0: `python3 scripts/consistency.py gate` lists the blockers (27 on 2026-10-13: differences between the Pi and the RGB30 that are not hardware, 2 accepted drifts and 2 specification items); 5 more are fixed in the code and wait for a try on an RGB30 (D01, D02, D06, D07, D08).
 - A baseline tag for the current line (`v0.3.0`?) and `v1.0.0` when `gate` is empty: waiting for a yes (a tag is outward-facing).
-- D03/D05 (RGB30 multiplayer and menu pointer: wanted or hardware choice), D16 (`show_bm`/`show_b16`), D13 (tools from Market > Apps on the RGB30).
+- D03/D05 (RGB30 multiplayer and menu pointer): **suspended** by the owner (the stick may be the mouse unless the RGB30 has its own system; he is working on the on-screen keyboard and pad typing). D16 (`show_bm`/`show_b16`), D13 (tools from Market > Apps on the RGB30).

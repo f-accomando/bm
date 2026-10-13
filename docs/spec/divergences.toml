@@ -2,7 +2,8 @@
 # run on the hardware. Rule (docs/spec/CONSISTENCY.md): the kernels behave the same, except where a capability in
 # platforms.toml really differs (cause = "hardware"). Everything else is a defect that must be gone before 1.0.0:
 #   history = built at different times, the other kernel should get it; todo = documented as not done; unknown = to decide.
-# `scripts/consistency.py gate` lists the open ones that block 1.0.0. When one is fixed: status = "resolved" and say how.
+# `scripts/consistency.py gate` lists the open ones that block 1.0.0. status: open | suspended (kept on hold by the owner, still blocks)
+# | untested (fixed in the code, compiled, not tried on the hardware: to try) | resolved (tried). Say how in `note`.
 # priority (history/unknown/todo): 1 = first ... 6 = decide first whether it is wanted.
 
 [[divergence]]
@@ -12,7 +13,8 @@ pi = "BT pad PS button, BT keyboard Ctrl+Esc and Esc reach the menu (home) and t
 rgb30 = "only Start+Select leaves; PS/Esc are never read"
 cause = "history"
 priority = 1
-status = "open"
+status = "untested"
+note = "src/rgb30/bm_input.c input_players polls the Bluetooth and the network and forwards hid_quit_pressed(); src/rgb30/ui.c: PS / Ctrl+Esc in the menu goes to the Games tab. Compiles (host syntax check); not tried on an RGB30 with a Bluetooth pad."
 evidence = "src/rgb30/bm_input.c:85-100; src/kernel/input.c:145; src/usb/hid.c:251-256"
 action = "forward hid_quit_pressed() in input_players; make the menu honour PS = home"
 
@@ -23,7 +25,8 @@ pi = "bt_start() at boot when a pad is paired: the pad reconnects"
 rgb30 = "BT starts only when a pairing row is opened: a paired pad, keyboard or mouse does not reconnect after a reboot"
 cause = "history"
 priority = 1
-status = "open"
+status = "untested"
+note = "src/rgb30/main.c starts the Bluetooth at boot when a pad, keyboard or mouse is paired. Not tried: the chip is shared with the WiFi (RTL8821CS), so check that both come up."
 evidence = "src/kernel/main.c:279; src/rgb30/main.c; src/kernel/settings.c:676"
 action = "call bt_start() at boot if bt_paired()"
 
@@ -34,7 +37,8 @@ pi = "up to 4 BT pads plus USB: local multiplayer"
 rgb30 = "one player only; Settings shows only Player 1"
 cause = "unknown"
 priority = 6
-status = "open"
+status = "suspended"
+note = "kept suspended (2026-10-13): the owner is working on the on-screen keyboard and the pad typing; local multiplayer on the RGB30 is decided after."
 evidence = "src/rgb30/bm_input.c:95-98; src/kernel/settings.c:370"
 action = "decide whether the RGB30 has local multiplayer; if so map BT pads to players"
 
@@ -56,7 +60,8 @@ pi = "mouse: hover, click, wheel, right-click for options"
 rgb30 = "none; Settings still offers the mouse rows"
 cause = "unknown"
 priority = 6
-status = "open"
+status = "suspended"
+note = "kept suspended (2026-10-13): the stick may serve as the mouse, unless the RGB30 uses a system of its own; decided with the on-screen keyboard and the pad typing."
 evidence = "src/kernel/carts.c:1519-1585; src/kernel/settings.c:402"
 action = "port the block (pointer.c is built into the RGB30) or hide the mouse rows"
 
@@ -67,7 +72,8 @@ pi = "asks to close a game that is frozen (suspended) before starting another"
 rgb30 = "closes it silently: the frozen game's progress is lost"
 cause = "history"
 priority = 2
-status = "open"
+status = "untested"
+note = "src/rgb30/ui.c asks 'Close <game>?' before starting another game while one is frozen (ASK_SWITCH, also from the options and the Market). Not tried on an RGB30."
 evidence = "src/kernel/carts.c:1894; src/rgb30/ui.c:348"
 action = "add the question"
 
@@ -78,7 +84,8 @@ pi = "shows a 'running' badge and a Close row"
 rgb30 = "no badge, no Close row"
 cause = "history"
 priority = 2
-status = "open"
+status = "untested"
+note = "src/rgb30/ui.c: a frozen game has the 'running' badge, Resume and a 'Close the game' row in its options. Not tried on an RGB30."
 evidence = "src/kernel/menu_ui.c:625,1349; src/rgb30/ui.c:934"
 action = "set the badge and add the row"
 
@@ -89,7 +96,8 @@ pi = "closes the suspended copy; refuses while a download is updating it"
 rgb30 = "does neither"
 cause = "history"
 priority = 2
-status = "open"
+status = "untested"
+note = "src/rgb30/ui.c: deleting a game closes its frozen copy and refuses while a download is updating it. Not tried on an RGB30."
 evidence = "src/kernel/carts.c:1043-1066; src/rgb30/ui.c:766-793"
 action = "port the two checks"
 
@@ -189,6 +197,7 @@ rgb30 = "only wifi_ssid / wifi_psk from config.txt; no on-screen keyboard"
 cause = "todo"
 priority = 6
 status = "open"
+note = "depends on the on-screen keyboard and the pad typing, which the owner is working on."
 evidence = "src/rgb30/rtw_sta.c:643; docs/progress/system.md:107"
 action = "needs the on-screen keyboard (R1/R2)"
 
@@ -376,6 +385,7 @@ rgb30 = "BT only, no USB host; no on-screen keyboard"
 cause = "hardware"
 capability = "no-keyboard"
 status = "open"
+note = "depends on the on-screen keyboard and the pad typing, which the owner is working on."
 evidence = "rgb30.mk:66-67"
 action = "the on-screen keyboard (R1/R2) is the TODO"
 
