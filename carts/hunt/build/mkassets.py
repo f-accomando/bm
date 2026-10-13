@@ -2,7 +2,7 @@
 """Hunter's Night: draws the sprite sheet (sheet.png, 128x128) and builds the
 2048x2048 pixel town (map.csv, 256x256 cells of 8x8) in code, reproducibly.
 
-    python3 carts/hunt/mkassets.py
+    python3 carts/hunt/build/mkassets.py   (writes carts/hunt/assets/)
 
 Sheet cells (8x8, 16 per row), the numbers used by main.lua:
    1-15  floors: cobblestones, dirt, grass, marble, carpet, planks, stairs
@@ -17,7 +17,8 @@ import random
 import struct
 import zlib
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets")
+os.makedirs(HERE, exist_ok=True)
 SW = SH = 128
 sheet = [(0, 0, 0, 0)] * (SW * SH)
 rnd = random.Random(1887)

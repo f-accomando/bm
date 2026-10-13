@@ -8,7 +8,8 @@ carts/<id>/
   bm.info        metadata (INFO section), the single source: see below
   main.lua       entry point (always this name)
   cover.png      menu cover (optional)
-  assets/        sheet.png, map.csv, flags.csv, sprites.txt   (not yet used: migrated per game)
+  assets/        sheet.png, map.csv, map_<layer>.csv, flags.csv, sprites.txt, models.bm|glb
+                 (the Makefile looks here first, then in carts/<id>/: old games still work)
   res/           shared resource files .bmm .bmi .bms .bmt .bmc .bmk   (docs/RISORSE.md)
   build/         the game's own build scripts (mk*.py, build.py)
 ```
@@ -33,15 +34,17 @@ older kernel ignores INFO.
 
 | game | state |
 |---|---|
-| `pong` | `bm.info` (name, author, resolution, desc, license, version, tags) |
+| `pong` | `bm.info` |
+| `hunt` | `bm.info`; `sheet.png`, `map.csv` moved to `assets/`; `mkassets.py` moved to `build/` (writes `assets/`) |
 
 ## What breaks
 
 - Nothing in the `.bm` format. The build of a migrated game takes title, author and resolution
   from `bm.info`; its `title_<id>` line leaves the Makefile.
 - Each migrated game's `.bm` gains an INFO section (a few hundred bytes).
-- Not migrated yet: moving files into `assets/`, `res/` and `build/` (changes the paths in
-  the Makefile and in the `mk*.py` scripts of that game: listed one game at a time).
+- Moving a game's files into `assets/` and `build/` changes the paths in its own `mk*.py` and
+  in any doc that names them (for `hunt`: `mkassets.py`, `GAME-GUIDE.md`, `GUIDA-GIOCHI.md`). The
+  Makefile needs no change per game. The `.bm` built from `hunt` is identical except for INFO.
 
 ## Open decisions
 

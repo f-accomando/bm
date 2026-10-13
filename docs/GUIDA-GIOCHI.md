@@ -268,7 +268,7 @@ mset(cx, cy, 5)                                       -- cambiare una cella (por
 
 Senza `--map` la mappa è 256×256 vuota e si riempie con `mset` (`msize(w, h)` le dà
 un'altra misura). Una mappa grande (Hunter's Night: 256×256 celle, 2048×2048 pixel)
-conviene generarla con uno script: vedi `carts/hunt/mkassets.py`, che produce `sheet.png` e
+conviene generarla con uno script: vedi `carts/hunt/build/mkassets.py`, che produce `assets/sheet.png` e
 `map.csv`.
 
 **I flag: che cosa è ogni tile.** Ogni tile dello sheet ha 8 flag (0–7), accesi o spenti.

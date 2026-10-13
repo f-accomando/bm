@@ -197,8 +197,6 @@ GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 title_snake   := Snake
 title_shooter := Star Shooter
 title_astrowing := Astro Wing
-title_hunt := Hunter's Night
-res_hunt := 320x180
 title_kitchen := Chaos Kitchen
 title_titan := Titan Clash
 title_nano8 := nano8
@@ -222,21 +220,25 @@ layers_yharnam := ground overlay objects
 # in carts/<game>/map_<name>.csv, in the order of layers_<game> := name ...
 # (R11), the flags of the tiles in flags.csv and named sprite zones in
 # sprites.txt (scripts/mkbm.py --flags, --sprites).
+# A migrated game keeps its assets in carts/<game>/assets/ (docs/PROJECT-LAYOUT.md); the others
+# keep them in carts/<game>/.
+asset = $(firstword $(wildcard carts/$(1)/assets/$(2) carts/$(1)/$(2)))
 .SECONDEXPANSION:
 $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
-                      $$(wildcard carts/$$*/bm.info carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv carts/$$*/models.glb \
-                                  carts/$$*/models.bm carts/$$*/flags.csv carts/$$*/sprites.txt) \
-                      $$(foreach l,$$(layers_$$*),carts/$$*/map_$$(l).csv)
+                      $$(wildcard carts/$$*/bm.info carts/$$*/cover.png \
+                                  $$(addprefix carts/$$*/,sheet.png map.csv models.glb models.bm flags.csv sprites.txt) \
+                                  $$(addprefix carts/$$*/assets/,sheet.png map.csv models.glb models.bm flags.csv sprites.txt)) \
+                      $$(foreach l,$$(layers_$$*),$$(call asset,$$*,map_$$(l).csv))
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< \
 	    $(if $(wildcard carts/$*/bm.info),--info carts/$*/bm.info,--title "$(title_$*)" --author bm --res $(or $(res_$*),640x360)) \
 	    $(if $(wildcard carts/$*/cover.png),--cover carts/$*/cover.png) \
-	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png $(if $(sheet8_$*),--sheet8)) \
-	    $(if $(wildcard carts/$*/map.csv),--map carts/$*/map.csv) \
-	    $(foreach l,$(layers_$*),--map $(l)=carts/$*/map_$(l).csv) \
-	    $(if $(wildcard carts/$*/flags.csv),--flags carts/$*/flags.csv) \
-	    $(if $(wildcard carts/$*/sprites.txt),--sprites carts/$*/sprites.txt) \
-	    $(if $(wildcard carts/$*/models.bm),--models carts/$*/models.bm,$(if $(wildcard carts/$*/models.glb),--models carts/$*/models.glb))
+	    $(if $(call asset,$*,sheet.png),--sheet $(call asset,$*,sheet.png) $(if $(sheet8_$*),--sheet8)) \
+	    $(if $(call asset,$*,map.csv),--map $(call asset,$*,map.csv)) \
+	    $(foreach l,$(layers_$*),--map $(l)=$(call asset,$*,map_$(l).csv)) \
+	    $(if $(call asset,$*,flags.csv),--flags $(call asset,$*,flags.csv)) \
+	    $(if $(call asset,$*,sprites.txt),--sprites $(call asset,$*,sprites.txt)) \
+	    $(if $(call asset,$*,models.bm),--models $(call asset,$*,models.bm),$(if $(call asset,$*,models.glb),--models $(call asset,$*,models.glb)))
 
 # Chaos Kitchen (M17) is written in several Lua files, joined by its build.py
 KITCHEN_SRC := $(sort $(wildcard carts/kitchen/src/*.lua))

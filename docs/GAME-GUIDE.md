@@ -265,7 +265,7 @@ mset(cx, cy, 5)                                       -- changing a cell (doors,
 
 Without `--map` the map is 256×256 empty and is filled with `mset` (`msize(w, h)` gives it
 another size). A big map (Hunter's Night: 256×256 cells, 2048×2048 pixels) is better made
-by a script: see `carts/hunt/mkassets.py`, which writes `sheet.png` and `map.csv`. Or a
+by a script: see `carts/hunt/build/mkassets.py`, which writes `assets/sheet.png` and `assets/map.csv`. Or a
 script makes the first one and the SDK's map page retouches it by hand: Yharnam's layers
 (`carts/yharnam/mkmap.py`), 16×16 tiles placed with `z`. A layer the game never draws can
 hold placeholders, tiles that say where things go: Yharnam reads its `objects` layer with
