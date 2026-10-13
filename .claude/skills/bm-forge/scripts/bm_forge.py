@@ -5,9 +5,12 @@
     python bm_forge.py skel SKELETON.json --in FILE -o OUT [--strategy nearest_bone|nearest_bone_part]
     python bm_forge.py anim CLIP.json [CLIP.json ...] --in FILE -o OUT [--rig MODEL] [--replace]
     python bm_forge.py export models|bmm|cart|folder|market ...
-    python bm_forge.py check ... (not implemented)
-    python bm_forge.py preview ... (not implemented)
-    python bm_forge.py doctor ... (not implemented)
+    python bm_forge.py check FILE [FILE ...] [--kernel-limits] [--budget N] [--draw NAME=COUNT] [--reference REF]
+                             [--model NAME] [--ref-model NAME] [--view front|side|top] [--min-iou F] [--no-sync] [--json]
+    python bm_forge.py preview FILE -o OUT.png|OUT.gif [--model NAME] [--clip NAME | --turntable N] [--size WxH]
+                               [--yaw R] [--pitch R] [--ortho] [--bones] [--fps 12] [--cols N]
+                               [--mask] [--compare REF] [--ref-model NAME] [--view V] [--min-iou F]
+    python bm_forge.py doctor [--json]
 """
 import argparse
 import json
@@ -118,13 +121,29 @@ def build_parser():
     check_parser.add_argument("--no-sync", action="store_true", help="Skip the drift check against the repo sources")
     check_parser.add_argument("--json", action="store_true", help="Print only a JSON object")
 
-    # preview (stub)
-    preview_parser = subparsers.add_parser("preview", help="Preview a cartridge")
-    preview_parser.add_argument("input", nargs="*", help="(not implemented)")
+    # preview
+    preview_parser = subparsers.add_parser("preview", help="Render a model to PNG or GIF (headless); --compare checks it")
+    preview_parser.add_argument("input", metavar="FILE", help="Cartridge (.bm/.b16/.bme)")
+    preview_parser.add_argument("-o", "--out", required=True, help="Output .png or .gif")
+    preview_parser.add_argument("--model", help="Model name (default the first)")
+    preview_parser.add_argument("--clip", help="Animation clip to render (the model needs a rig)")
+    preview_parser.add_argument("--turntable", type=int, metavar="N", help="N frames turning the model a full circle")
+    preview_parser.add_argument("--size", help="Frame size WxH (still 256x256, clip and turntable 128x128, mask 96x96)")
+    preview_parser.add_argument("--yaw", type=float, help="Turn about y, radians (still and clip; default 0.6)")
+    preview_parser.add_argument("--pitch", type=float, help="Turn about x, radians (default 0.35)")
+    preview_parser.add_argument("--ortho", action="store_true", help="Orthographic camera")
+    preview_parser.add_argument("--bones", action="store_true", help="Draw the rig bones over the model")
+    preview_parser.add_argument("--fps", type=int, default=12, help="Clip frames a second (default 12)")
+    preview_parser.add_argument("--cols", type=int, help="Contact sheet columns (clip default 6)")
+    preview_parser.add_argument("--mask", action="store_true", help="Write the silhouette of the model (.png only)")
+    preview_parser.add_argument("--compare", metavar="REF", help="Compare the silhouette with REF, as check --reference")
+    preview_parser.add_argument("--ref-model", help="Model of the reference cart (default the same name, else the first)")
+    preview_parser.add_argument("--view", default="front", choices=["front", "side", "top"], help="View for --mask and a .png --compare")
+    preview_parser.add_argument("--min-iou", type=float, help="Minimum IoU of --compare (default 0.75)")
 
-    # doctor (stub)
-    doctor_parser = subparsers.add_parser("doctor", help="Diagnose a cartridge")
-    doctor_parser.add_argument("input", nargs="*", help="(not implemented)")
+    # doctor
+    doctor_parser = subparsers.add_parser("doctor", help="Report the optional tools found (none is imported)")
+    doctor_parser.add_argument("--json", action="store_true", help="Print only a JSON object")
 
     return parser
 
@@ -970,15 +989,162 @@ def cmd_check(args):
 
 
 def cmd_preview(args):
-    """not implemented"""
-    print("error: not implemented", file=sys.stderr)
-    return 2
+    """preview FILE -o OUT.png|OUT.gif [--model NAME] [--clip NAME | --turntable N] [--size WxH] [--yaw R]
+    [--pitch R] [--ortho] [--bones] [--fps N] [--cols N] [--mask] [--compare REF] [--ref-model NAME]
+    [--view V] [--min-iou F]
+
+    Renders a model of FILE headless (bm_core.preview, with the cartridge's own texture). Still: one
+    image. --turntable N: N frames turning the model; --clip NAME: the frames of a clip (the model needs
+    its rig). A .gif takes the frames, a .png a contact sheet. --mask: the silhouette as a .png.
+    --compare REF runs check --reference on FILE after the image is written (same lines, exit 3 below
+    --min-iou). Exit: 2 usage or missing file, 1 file, model or rig failure, else the --compare exit."""
+    try:
+        from bm_core import imageio, preview, similarity
+
+        # usage checks, before any work
+        ext = os.path.splitext(args.out)[1].lower()
+        if ext not in (".png", ".gif"):
+            print(f"error: output must end .png or .gif, got {ext!r}", file=sys.stderr)
+            return 2
+        if args.clip is not None and args.turntable is not None:
+            print("error: --clip and --turntable cannot be used together", file=sys.stderr)
+            return 2
+        animated = args.clip is not None or args.turntable is not None
+        if ext == ".gif" and (args.mask or not animated):
+            print("error: a .gif needs --clip or --turntable (a still or a --mask is a .png)", file=sys.stderr)
+            return 2
+        if args.fps <= 0:
+            print(f"error: --fps must be positive, got {args.fps}", file=sys.stderr)
+            return 2
+        size = None
+        if args.size is not None:
+            try:
+                w_txt, h_txt = args.size.lower().split("x")
+                size = (int(w_txt), int(h_txt))
+            except ValueError:
+                print(f"error: malformed --size {args.size!r}, expected WxH", file=sys.stderr)
+                return 2
+        if not os.path.exists(args.input):
+            print(f"error: file not found: {args.input}", file=sys.stderr)
+            return 2
+
+        try:
+            cart = container.read_file(args.input)
+            mesh = cart.mesh()
+            if mesh is None or not mesh.models:
+                print(f"error: no MESH in {args.input}", file=sys.stderr)
+                return 1
+            model = mesh.get(args.model) if args.model else mesh.models[0]
+            if model is None:
+                print(f"error: no model {args.model!r} in {args.input}", file=sys.stderr)
+                return 2
+            anim = cart.anim()
+            rig = anim.get(model.name) if anim is not None else None
+            texture, inset = preview.model_texture(cart)
+            yaw = 0.6 if args.yaw is None else args.yaw
+            pitch = 0.35 if args.pitch is None else args.pitch
+
+            img, imgs, delay_cs = None, None, None
+            if args.mask:
+                w, h = size or (96, 96)
+                img = similarity.mask_image(similarity.model_mask(model, args.view, (w, h)), w, h)
+            elif args.turntable is not None:
+                w, h = size or (128, 128)
+                imgs = preview.render_turntable(model, args.turntable, size=(w, h), pitch=pitch, texture=texture,
+                                                inset=inset, ortho=args.ortho)
+                delay_cs = 8
+                if ext == ".png":
+                    img = imageio.contact_sheet(imgs, args.cols)
+            elif args.clip is not None:
+                if rig is None:
+                    raise ValidationError(f"no rig for {model.name}", "preview")
+                w, h = size or (128, 128)
+                imgs, _ = preview.render_anim(model, rig, args.clip, fps=args.fps, size=(w, h), yaw=yaw, pitch=pitch,
+                                              show_bones=args.bones, ortho=args.ortho, texture=texture, inset=inset)
+                delay_cs = max(1, round(100 / args.fps))
+                if ext == ".png":
+                    img = imageio.contact_sheet(imgs, 6 if args.cols is None else args.cols)
+            else:
+                w, h = size or (256, 256)
+                img = preview.render_mesh(model, size=(w, h), yaw=yaw, pitch=pitch, ortho=args.ortho,
+                                          texture=texture, inset=inset,
+                                          rig=rig if args.bones else None, show_bones=args.bones)
+
+            if img is not None:
+                img.save_png(args.out)
+                dims = (img.w, img.h)
+            else:
+                imageio.save_gif(args.out, imgs, delay_cs=delay_cs)
+                dims = (imgs[0].w, imgs[0].h)
+            n = 1 if imgs is None else len(imgs)
+            print(f"wrote {args.out}: {n} frame(s) {dims[0]}x{dims[1]}")
+        except ValidationError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        except (ValueError, OSError) as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+
+        if args.compare is None:
+            return 0
+        check_args = argparse.Namespace(files=[args.input], reference=args.compare, draws=None, budget=None,
+                                        min_iou=args.min_iou, kernel_limits=False, model=args.model,
+                                        ref_model=args.ref_model, view=args.view, no_sync=True, json=False)
+        return cmd_check(check_args)
+
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 2
 
 
 def cmd_doctor(args):
-    """not implemented"""
-    print("error: not implemented", file=sys.stderr)
-    return 2
+    """doctor [--json]: the optional tools bm-forge can use (blender, numpy, trimesh, PIL, bmhost-bin,
+    qemu-system-arm, wsl) and the drift of bm_core. Found by importlib.util.find_spec and shutil.which
+    only: no optional module is imported. Always exit 0; the core needs none of them."""
+    try:
+        import importlib.util
+        import shutil
+        from bm_core import syncwatch
+
+        def has_module(name):
+            try:
+                return importlib.util.find_spec(name) is not None
+            except (ImportError, ValueError):
+                return False
+
+        py = "%d.%d.%d" % sys.version_info[:3]
+        py_ok = sys.version_info[:2] >= (3, 8)
+        blender = shutil.which("blender")
+        bmhost = os.path.join(syncwatch.REPO, "build", "host", "bmhost-bin")
+        qemu = shutil.which("qemu-system-arm")
+        wsl = shutil.which("wsl")
+        mods = {name: has_module(name) for name in ("numpy", "trimesh", "PIL")}
+        try:
+            drift = syncwatch.check()
+        except OSError as e:
+            drift = [("syncwatch", "error", str(e))]
+
+        if args.json:
+            facts = {"python": {"version": py, "ok": py_ok}, "blender": blender, "modules": mods,
+                     "bmhost_bin": {"path": bmhost, "found": os.path.exists(bmhost)},
+                     "qemu_system_arm": qemu, "wsl": wsl,
+                     "sync": {"in_sync": not drift, "drift": len(drift)},
+                     "core_needs_none": True, "exit": 0}
+            print(json.dumps(facts, sort_keys=True))
+            return 0
+
+        print(f"python {py}: " + ("ok" if py_ok else "too old, need 3.8"))
+        print(f"blender: found {blender}" if blender else "blender: not found")
+        for name in ("numpy", "trimesh", "PIL"):
+            print(f"module {name}: " + ("found" if mods[name] else "not found"))
+        print(f"bmhost-bin: found {bmhost}" if os.path.exists(bmhost) else f"bmhost-bin: not found {bmhost}")
+        print(f"qemu-system-arm: found {qemu}" if qemu else "qemu-system-arm: not found")
+        print(f"wsl: found {wsl}" if wsl else "wsl: not found")
+        print("sync: in sync" if not drift else f"sync: {len(drift)} drift")
+        print("core needs none of the optional tools")
+        return 0
+
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 2
 
 
 def main(argv=None):
