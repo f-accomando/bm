@@ -74,3 +74,40 @@ def forge_assets():
     ground = shapes.boxes_model("ground", [{"lo": [-3, -0.05, -3], "hi": [3, 0, 3], "colour": 0x3C6E3C}])[0]
 
     return B.Mesh([model, ground]), B.Anim([rig])
+
+
+# CLI testing utilities
+CLI = os.path.join(SKILL, "scripts", "bm_forge.py")
+_cli_module = None
+
+
+def cli():
+    """Lazily import and cache the CLI module."""
+    global _cli_module
+    if _cli_module is None:
+        spec = importlib.util.spec_from_file_location("bm_forge_cli", CLI)
+        _cli_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_cli_module)
+    return _cli_module
+
+
+def run_cli(argv):
+    """Run the CLI with given arguments, capturing stdout/stderr.
+
+    Returns:
+        (code, stdout, stderr) tuple.
+    """
+    import contextlib
+    import io
+
+    mod = cli()
+    stdout_buf = io.StringIO()
+    stderr_buf = io.StringIO()
+
+    with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stderr_buf):
+        try:
+            code = mod.main(argv)
+        except SystemExit as e:
+            code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
+
+    return code, stdout_buf.getvalue(), stderr_buf.getvalue()
