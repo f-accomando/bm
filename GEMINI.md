@@ -45,7 +45,7 @@ Quando Antigravity invoca i subagenti tramite `invoke_subagent`, mappa i ruoli c
 | **`bm-mechanic`** | `Model: "flash_lite"` | Full (Modifiche atomiche) | Task a rischio zero: rename, format, template, progress docs | Decisioni di logica |
 | **`bm-light`** | `Model: "flash"` | Full (Read/Write/Exec) | Task semplici con giudizio, docs verificate su C, fix 1–2 file | Lavori lunghi e vaghi |
 | **`bm-deep`** | `Model: "pro"` | Full (Read/Write/Exec) | Un solo problema isolato e critico con riproduzione certa | Implementare feature intere |
-| **`research`** | Subagente nativo `research` | Sola Lettura | Ricognizione codebase, ricerca simboli, documentazione | Toccare file |
+| **`bm-research`** | Subagente nativo `research` | Sola Lettura | Ricognizione codebase, ricerca simboli, documentazione | Toccare file |
 
 ### Gate di Prontezza (Readiness Gate)
 Prima di assegnare una task all'esecuzione diretta o a un subagente basso, verifica le 5 condizioni:

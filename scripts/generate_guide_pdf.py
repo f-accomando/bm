@@ -286,9 +286,9 @@ Non leggere file per intero. Lo stato attuale e l'indice sono in `docs/progress.
 - Nessun segreto (chiavi API, token) committato nei sorgenti.
 
 ## 3. Subagent Specializzati
-- `research` (o `light`): Esplorazione read-only e ricerca documentazione.
-- `standard` / `self`: Implementazione feature e test su più file.
-- `tracker`: Aggiornamento spunte e task in `docs/progress/`.
+- `bm-research`: Esplorazione read-only e ricerca documentazione.
+- `bm-coder` / `bm-light`: Implementazione e test da Work Order (più file solo se già specificati).
+- `bm-mechanic`: Aggiornamento spunte e task in `docs/progress/`.
 
 ## 4. Chiusura Task & Protocollo Leave-No-Trace
 Prima di terminare o dare la risposta finale:
