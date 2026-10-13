@@ -54,3 +54,23 @@ def import_script(name):
     finally:
         sys.path.remove(os.path.join(REPO, "scripts"))
     return mod
+
+
+def forge_assets():
+    """(Mesh, Anim) from examples: humanoid + boxes, with idle/walk/jump clips, plus a ground box.
+
+    Same as make_forge_samples.py build() but returns (Mesh, Anim) instead of (cart, model, rig).
+    """
+    import bm_core as B  # noqa: F401
+    from bm_core import animgen as AG, shapes, skelgen as SG  # noqa: F401
+
+    EX = os.path.join(SKILL, "examples")
+    rig = SG.skeleton(os.path.join(EX, "humanoid.json"))
+    model, _ = shapes.load_boxes(os.path.join(EX, "humanoid_boxes.json"))
+    rig = SG.bind(model, rig, strategy="nearest_bone_part")
+    rig = AG.add_clips(rig, [os.path.join(EX, n + ".json") for n in ("idle", "walk", "jump")])
+
+    # Add ground box
+    ground = shapes.boxes_model("ground", [{"lo": [-3, -0.05, -3], "hi": [3, 0, 3], "colour": 0x3C6E3C}])[0]
+
+    return B.Mesh([model, ground]), B.Anim([rig])
