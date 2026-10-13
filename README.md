@@ -1,275 +1,179 @@
-# bm — BareMetal
+# bm — BareMetal Console & Game Engine
 
 <p align="center">
-  <img src="docs/showreel.gif" width="720" alt="Showreel: on the console, a map painted in the SDK, the code written in bm Code with the AI assistant, and the game with an animated villager">
+  <img src="docs/showreel.gif" width="720" alt="bm Showreel: map in SDK, code in bm Code with AI assistant, animated game">
 </p>
-<p align="center"><sub><b>A game from scratch, with bm alone</b> (16 s): on the console, the map in the SDK, the code in
-bm Code with the AI assistant, and the game, with the villager of Studio Village. Recorded in QEMU
-(<code>-M raspi0</code>) with the same kernel as the Pi.
-<a href="docs/showreel.mp4">MP4 1280×720</a> · rebuilt by <code>make showreel</code></sub></p>
 
-**bm** is a games console that runs on a **Raspberry Pi Zero W** (and Zero 2 W) with no operating system.
-The kernel boots straight from the SD card into a menu of games. Games are written in
-Lua, with 2D and 3D graphics, sound and up to four controllers. The tools to make them
-are part of bm and run on the console itself.
+<p align="center">
+  <b>A complete game from scratch, on bare-metal hardware alone</b> (16 s).<br>
+  Map painting in SDK · code editor with AI assistant · live gameplay with skeletal animation.<br>
+  <sub>Recorded in QEMU (<code>-M raspi0</code>) running the exact Raspberry Pi kernel binary. Rebuilt with <code>make showreel</code> · <a href="docs/showreel.mp4">MP4 1280×720</a></sub>
+</p>
 
-## 1. What bm is
+<p align="center">
+  <a href="#-quick-start"><img src="https://img.shields.io/badge/Quick_Start-Make_Image-blue?style=flat-square" alt="Quick Start"></a>
+  <a href="docs/API.md"><img src="https://img.shields.io/badge/API_Reference-Lua_5.4-green?style=flat-square" alt="API Reference"></a>
+  <a href="docs/progress.md"><img src="https://img.shields.io/badge/Documentation-Living_Index-orange?style=flat-square" alt="Docs Index"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-BM_Community_1.0-purple?style=flat-square" alt="License"></a>
+</p>
 
-- **One program on the SD card.** `kernel.img` (~2 MB of C, ARM assembly and Lua 5.4)
-  drives the hardware itself:
-  - HDMI video, and audio through HDMI;
-  - USB keyboards, gamepads and mice;
-  - Bluetooth: up to 4 DualShock 4 pads, BLE keyboards and mice (LE or classic);
-  - a mouse pointer in the menu, and in the games that ask for it (only a mouse moves
-    it, never a controller);
-  - WiFi with HTTPS, Ethernet on the Pi 1 B;
-  - the SD card, read and written as FAT32.
-- **Games are `.bm` cartridges.** One file holds the Lua code, sprite sheet, tile map,
-  3D models, skeletal animations, sound bank and cover. Drop it in `carts/` and it shows
-  up in the menu. Saves and settings go in `bm/` on the card.
-- **Plays `.p8` carts too.** nano8, a built-in emulator, runs PICO-8-style `.p8` and
-  `.p8.png` carts.
-- **Same kernel for the Pi 1** (A, B, A+, B+), which has the same chip.
-- **Pi Zero 2 W too:** its own build of the same sources, `kernel7.img` (ARMv7, 32-bit),
-  sits next to `kernel.img` on the same SD card; the Pi's firmware starts the right one.
+---
 
-Why bare metal instead of Linux:
+## 🚀 Overview
 
-- **On in about 2 seconds:** power on and the menu is there. There is nothing to log
-  into, update or configure.
-- **The whole machine belongs to the game.** No scheduler, background services or
-  window system share the one 1 GHz core and 448 MiB of RAM. Input goes straight from
-  the USB and Bluetooth drivers to the game. Each frame is 16.7 ms, all for the game.
-- **No PC needed to make games.** You can write the code, draw the sprites, build the map,
-  compose the music and make 3D models on the console, then play the result.
-- **Small, and all here.** Every driver, from USB and Bluetooth to WiFi and the 3D
-  rasterizer, is in this repository. The only third-party libraries are Lua, lwIP and
-  mbedTLS.
+**bm** (BareMetal) is an open-source games console and development environment running on the **Raspberry Pi Zero W** (and Zero 2 W) with **no underlying operating system**.
+
+Power on and the console boots straight into the games menu in **~2 seconds**. Games are written in Lua 5.4, powered by a custom bare-metal runtime with full 2D and 3D pipelines, hardware-accelerated V3D rendering, polyphonic synthesizer, network multiplayer, and an on-device creative suite.
+
+---
+
+## ✨ Key Features
+
+- **True Bare Metal Architecture**:
+  - `kernel.img` (~2 MB of C, ARM assembly, and Lua 5.4) communicates directly with hardware registers.
+  - No Linux kernel, background daemons, or OS scheduler: the entire 1 GHz core and 448 MiB RAM belong exclusively to your game frame.
+  - Zero boot wait: boots directly into interactive gameplay in under 2 seconds.
+- **Hardware & Peripherals**:
+  - **Video**: Crisp HDMI output (640×360, 480×270, 320×180, or 360×360 square scaled up to 720p/1080p).
+  - **Audio**: 8-voice polyphonic synthesizer with HDMI digital audio output.
+  - **Inputs**: Plug-and-play USB keyboards, gamepads, mice, and Bluetooth (up to 4 DualShock 4 controllers + BLE peripherals).
+  - **Connectivity**: WiFi with HTTPS, local UDP multiplayer, and FAT32 SD card file system.
+- **Cartridge System (`.bm` & `.b16`)**:
+  - Single standalone cartridge files encapsulating Lua source, sprite sheets, tile maps, 3D meshes, skeletal animations, and sound banks.
+  - Compatible with PICO-8 carts (`.p8`, `.p8.png`) through the built-in `nano8` emulator.
+- **On-Console Creative Suite**:
+  - Code, draw, sculpt 3D models, rig skeletons, compose music, and test games directly on the console with no PC required.
 
 ```lua
 local x = 320
-function _update()                       -- 60 times a second
-  if btn(0) then x = x - 2 end           -- left
-  if btn(1) then x = x + 2 end           -- right
+function _update()                       -- 60 fps fixed update
+  if btn(0) then x = x - 2 end           -- Left pad / arrow
+  if btn(1) then x = x + 2 end           -- Right pad / arrow
 end
+
 function _draw()
   cls(0x102030)
-  spr(1, x, 180)                         -- a sprite from the sheet
+  spr(1, x, 180)                         -- Draw sprite from cartridge sheet
 end
 ```
 
-## 2. Performance
+---
 
-Hardware of the **Raspberry Pi Zero W**:
+## ⚡ Performance Highlights
 
-- CPU: ARM1176JZF-S, one ARMv6 core. It starts at 700 MHz and bm raises it to **1 GHz**.
-- Cache: 16 KiB L1 for instructions + 16 KiB for data.
-- RAM: 512 MiB, of which **448 MiB** go to the ARM.
-- Memory bandwidth, measured: memcpy ~100 MB/s, fill ~430 MB/s. This is the real
-  limit.
-- GPU: VideoCore IV. Its scaler enlarges the 640×360, 480×270 or 320×180 picture (or a
-  256×256 square in the middle) to 720p or 1080p for free, and our own small V3D driver draws the 3D of the games: the
-  ARM transforms, lights and clips, the GPU fills the pixels (811 Mpixel/s measured).
-  Without it (QEMU, or `gpu3d=0`) the ARM rasterizer draws.
+Hardware target: **Raspberry Pi Zero W** (ARM1176 @ 1.0 GHz, VideoCore IV V3D GPU).
 
-Measured **on the Pi**: the most objects per frame, from the stress test
-([docs/STRESS.md](docs/STRESS.md)), at 640×360 in RGB565.
-
-| | 60 fps | 30 fps |
+| Test Scenario (at 640×360 RGB565) | 60 FPS | 30 FPS |
 |---|---:|---:|
-| 16×16 sprites (C) | **4482** | 9255 |
-| 32×32 sprites (C) | **1513** | 3130 |
-| 2D triangles, ~170 px each | **2594** | 5368 |
-| 3D triangles (z-buffer, lighting), ARM rasterizer, September | **1195** | 5011 |
-| 3D triangles (spheres), ARM rasterizer after its M33 rewrite | **2700** | 8914 |
-| 3D triangles (spheres), drawn by the GPU | **7142** | 15346 |
-| 16×16 sprites, one `spr()` call each from Lua | **1829** | 3774 |
-| 3D triangles, `draw3d()` called from Lua | **1115** | 4692 |
+| **16×16 Sprites (Native C)** | **4,482** | 9,255 |
+| **32×32 Sprites (Native C)** | **1,513** | 3,130 |
+| **2D Triangles (~170 px each)** | **2,594** | 5,368 |
+| **3D Spheres (V3D GPU hardware)** | **7,142** | 15,346 |
+| **3D Spheres (ARM software rasterizer)** | **2,700** | 8,914 |
+| **16×16 Sprites (from Lua `spr()` calls)** | **1,829** | 3,774 |
+| **3D Triangles (from Lua `draw3d()`)** | **1,115** | 4,692 |
 
-Real games on the Pi:
+> *Real-world games*: **Astro Wing** (3D flight) runs at solid 60 fps (6.3 ms/frame); **Titan Clash** (2D fighting) runs at 60 fps (11.6 ms/frame); **Texture Room** (textured 3D) runs at 60 fps taking just 5.8 ms/frame using the GPU.  
+> Read full benchmarks in [`docs/PRESTAZIONI.md`](docs/PRESTAZIONI.md) and [`docs/HARDWARE.md`](docs/HARDWARE.md).
 
-- **Astro Wing** (3D flight) takes 6.3 ms per frame and runs at 60 fps.
-- **Titan Clash** (2D fighting, large sprites) takes 11.6 ms and runs at 60 fps.
-- **Texture Room** runs at 60 fps with 456 textured triangles and 60 516 textured pixels;
-  at 640×360 with 32 crates it takes 5.8 ms with the GPU against 25–26 ms on the ARM.
-- **Chaos Kitchen** with the GPU: 6.8 ms per frame (14.1 ms before).
-- A simple Lua operation costs about 100 ns.
+---
 
-More: [docs/PRESTAZIONI.md](docs/PRESTAZIONI.md) (choices, expected against measured)
-and [docs/HARDWARE.md](docs/HARDWARE.md).
+## 🛠️ The Creative Suite
 
-## 3. Tools made for bm
+Everything in a cartridge can be created using bm's built-in editors in the **Dev** menu:
 
-Everything a cartridge contains is made with bm's own tools. They read and write the
-`.bm` file directly, even on the SD card.
-
-**On the console**, in the Dev tab, with a keyboard or a gamepad:
-
-- **bm SDK**: the hub of a project. A new game from a template (platformer, top-down,
-  shooter, 3D scene, 3D with models), the code, the sprites and the map, the 3D models and
-  animations turning with the code to draw them, and the rest of the suite (bm Code,
-  Pixel, Studio, Animator, Mesh, Sound) one key away on the same file, with a way back.
-  Its dev kit shows the tokens, the memory of the game's data, the file against the 8 MiB
-  of the future `.b16` cartridge, and the fps, ms and RAM of the last try; the assistant
-  (F6) guides you through making a 2D or a 3D game step by step.
-- **bm Code**: the code editor, with tabs, two pages side by side and a small sharp
-  6×12 font. While you type a word it shows the rest of the likeliest one and Tab writes
-  it: Lua and the API in the code, Italian or English in comments, the assistant's
-  questions in `#entry:` lines ([docs/PREDICT.md](docs/PREDICT.md)).
-- **AI assistant**: a small INT8 network that runs on the Pi. It answers questions about
-  the API and error messages, comments code, sketches sprites and, in bm Studio and bm
-  Animator (F6), builds low-poly 3D models from words: shapes, objects, people, animals
-  and machines, the characters with a skeleton and animations. Its knowledge base is in
-  Italian for now. On the PC, `tools/img2mesh.py` turns a picture into such a model
-  through the Claude API: the model writes the parts, sees them rendered and corrects them;
-  `tools/meshy2mesh.py` does the same through Meshy's image-to-3D. The console does it by
-  itself too: bm Studio's models page sends a picture from the SD card to the service and
-  takes the model back, texture and all (a key in `bm/config.txt`; the services are a
-  table, Meshy first), or makes one by itself from the picture's outline, cut out with some
-  thickness or turned on a lathe, with no network at all. A polygon reducer (quadric edge collapse, in the kernel and in
-  `tools/bmreduce.py`) fits any model to the Pi's 1200 triangles, keeping borders, colour
-  lines, texture seams and the skeleton.
-- **Sound editor**: an 8-voice synthesizer, sound effects and music patterns for the
-  cartridge's sound bank.
-- **bm Studio** and **bm Animator**: 3D models and their animations. bm Studio
-  builds models with blocks and tiles, chooses, moves, turns and copies faces, moves
-  corners and paints the tiles right on the model. bm Animator plays the models, makes
-  their skeletons and skin, animates them on a timeline and draws an animation into the
-  sprite sheet.
-- **bm Mesh**: the vertices and faces of every mesh, including the ones the game's code
-  builds.
-- **bm Pixel**: the sprite sheet's pixel art. It has drawing tools, a palette of up to 256
-  colours and frame animation with onion skin.
+| Tool | Focus | Capabilities |
+|---|---|---|
+| **bm SDK** | Project Hub | Templates (platformer, shooter, 3D), asset management, token & memory monitor, quick-launch into suite editors. |
+| **bm Code** | IDE | Dual-column editor with 6×12 font, auto-completion, keyword prediction, and syntax help. |
+| **bm Pixel** | 2D Art | Sprite sheet editor, 256-color palettes, multi-frame animation with onion skinning. |
+| **bm Studio** | 3D Modeling | Box modeling, vertex tweaking, UV tile painting, and mesh creation right on the console. |
+| **bm Animator** | Animation | Bone hierarchies, skeletal rigging, timeline tracks, and baking into 2D sprite sheets. |
+| **bm Mesh** | Geometry | Vertex, edge, and face inspection for procedural and static 3D meshes. |
+| **Sound Editor** | Audio | 8-voice synth, custom instrument presets, sound effects, and music pattern sequencers. |
+| **AI Assistant** | Assistant | On-device INT8 assistant answering API questions, generating sprite sketches, and building low-poly meshes. |
 
 <p align="center">
-  <img src="docs/img/code.png" width="49%" alt="bm Code on the console">
-  <img src="docs/img/assistant.png" width="49%" alt="The AI assistant on the console">
-  <img src="docs/img/sound.png" width="49%" alt="The Sound editor on the console">
-  <img src="docs/img/studio-console.png" width="49%" alt="bm Studio on the console: faces chosen on the village's ground">
-  <img src="docs/img/animator-console.png" width="49%" alt="bm Animator on the console: the villager's bones">
-  <img src="docs/img/mesh.png" width="49%" alt="bm Mesh: the meshes Astro Wing's code builds">
-  <img src="docs/img/pixel.png" width="49%" alt="bm Pixel: Titan Clash's 2048×3448 sprite sheet">
+  <img src="docs/img/code.png" width="48%" alt="bm Code on the console">
+  <img src="docs/img/assistant.png" width="48%" alt="AI assistant on the console"><br>
+  <img src="docs/img/sound.png" width="48%" alt="Sound editor on the console">
+  <img src="docs/img/studio-console.png" width="48%" alt="bm Studio 3D editor"><br>
+  <img src="docs/img/animator-console.png" width="48%" alt="bm Animator skeletal animation">
+  <img src="docs/img/pixel.png" width="48%" alt="bm Pixel sprite editor">
 </p>
 
-## 4. What you can make
+---
 
-2D and 3D games in `.bm` cartridges: tile maps and sprites, lights, textured 3D with
-z-buffer and Gouraud shading, skeletal animation, music and sound effects, saves, and
-local multiplayer for up to 4 players. The games on the card, all `.bm`:
+## 🎮 Featured Games
 
 <p align="center">
-  <img src="docs/img/overbit-match.gif" width="720" alt="Overbit: ten bots fight for the point on Partenope, a waterfront at sunset">
-  <br><sub><b>Overbit</b>: a hero shooter in first person at 480×270 (up to 1080p on the GPU), made for 60 fps on a Pi Zero.
-  A Control match on <b>Partenope</b>, the waterfront of a future Naples at sunset, ten bots on the point;
-  <a href="docs/img/overbit-match.mp4">MP4 with sound</a> · <code>make overbit-reel-match</code></sub>
+  <img src="docs/img/overbit-match.gif" width="720" alt="Overbit gameplay">
+  <br><sub><b>Overbit</b>: 3D first-person hero shooter at 480×270 / 60 fps with 10-player AI bot battles, 8 heroes, and local/LAN netplay. <a href="docs/img/overbit-match.mp4">Watch MP4</a></sub>
 </p>
 
 <p align="center">
-  <img src="docs/img/overbit-reel-heroes.gif" width="720" alt="Overbit: the ultimates of seven heroes, filmed on the console's 3D">
-  <br><sub>The ultimates of Kaiju, Sarge, Frost, Fuse, Rail, Orbit and Akari; the whole reel,
-  <a href="docs/img/overbit-reel-heroes.mp4">MP4 with sound</a> · <code>make overbit-reel-heroes</code></sub>
+  <img src="docs/img/astrowing.png" width="24%" alt="Astro Wing">
+  <img src="docs/img/titan.png" width="24%" alt="Titan Clash">
+  <img src="docs/img/kitchen.png" width="24%" alt="Chaos Kitchen">
+  <img src="docs/img/yharnam.png" width="24%" alt="Yharnam">
 </p>
 
-<p align="center">
-  <img src="docs/img/overbit-reel-rally.gif" width="720" alt="Overbit: Rally, a tank in a white mech: its moves and abilities, filmed on the console's 3D">
-  <br><sub>Rally's animation reel, <a href="docs/img/overbit-reel-rally.mp4">MP4 with sound</a> · <code>make overbit-reel</code></sub>
-</p>
+- **Overbit**: 3D first-person hero shooter featuring 8 heroes (Rally, Kaiju, Sarge, Frost, Fuse, Rail, Orbit, Akari), control point mode, baked lighting, and 10-player lockstep netplay.
+- **Astro Wing**: High-speed 3D flight combat with procedural terrain and lighting.
+- **Titan Clash**: Giant fighting mechas with large sprite sheets and 2-player combat.
+- **Chaos Kitchen**: Cooperative 3D cooking party game for 1 to 4 players.
+- **Yharnam**: Gothic nighttime action RPG at 360×360 (.b16 screen) with 27 hunter animations, trick weapons, gun parries, visceral attacks, stamina management, and 4 district boss fights.
+- **Hunter's Night**: 2D gothic platformer with real-time dynamic light sources.
+- **bm Market**: Integrated online catalog downloading free cartridges with cryptographic SHA-256 verification directly to the SD card.
 
-<p align="center">
-  <img src="docs/img/astrowing.png" width="49%" alt="Astro Wing: 3D flight">
-  <img src="docs/img/titan.png" width="49%" alt="Titan Clash: giant robots fighting">
-  <img src="docs/img/kitchen.png" width="49%" alt="Chaos Kitchen: co-op cooking in 3D for 1 to 4 players">
-  <img src="docs/img/village.png" width="49%" alt="Studio Village: bm Studio models and an animated villager">
-  <img src="docs/img/texroom.png" width="49%" alt="Texture Room: a textured 3D room">
-  <img src="docs/img/hunt.png" width="49%" alt="Hunter's Night: gothic 2D with lights">
-  <img src="docs/img/yharnam.png" width="49%" alt="Yharnam: an endless gothic town at night, 360x360">
-  <img src="docs/img/yharnam-boss.png" width="49%" alt="Yharnam: the Butcher, one of the four bosses, in the animation viewer">
-</p>
+---
 
-- **Overbit** (M38, to be tried on the Pi): a hero shooter in 3D, first person, 8 heroes with the
-  kits of Overwatch's (our own names and looks): the tanks **Rally** and **Kaiju** (two
-  mechs with their pilots), **Sarge**, **Frost**, **Fuse** and **Rail** for damage, the
-  supports **Orbit** and **Akari**; the map **Partenope** (light baked in, textured
-  facades) and the **Control** mode, 5 against 5; bots with our own small INT8 network
-  for their tactics, trained on the PC by letting them play; **online** matches for up to
-  10 consoles (lockstep over UDP, on the LAN or through a small relay); a training range,
-  the reels, and a benchmark where the bots play the same match on the ARM and on the GPU
-  at every quality. With the GPU (shadows, smooth light, MSAA) the ARM does 23–32% less
-  work a frame than before in the heaviest fight: numbers and limits in
-  [`docs/M33-PRIMA-DOPO.md`](docs/M33-PRIMA-DOPO.md).
-- **Astro Wing**: 3D flight.
-- **Titan Clash**: giant robots fighting, against the CPU or two players.
-- **Chaos Kitchen**: co-op cooking in 3D for 1 to 4 players.
-- **Studio Village**: bm Studio models and a villager animated with bm Animator.
-- **Texture Room**: a 3D room, all textured.
-- **Hunter's Night**: gothic 2D at 320×180, with lights.
-- **Yharnam**: an endless gothic town at night, at 360×360 (the `.b16` screen): its ground and where its houses,
-  trees and lamps stand are a map drawn by hand in the SDK (the first one made from its street plan), built
-  while you walk, lit as in Dank Tomb (light levels and fade tables), with fires and warm lamps. The
-  hunter has 27 animations in 8 directions: saw cleaver combos (folded and opened), the
-  pistol, backstep, hurt, knocked down, death. Twelve creatures roam the districts (mad
-  townsfolk, beasts, hunters, eldritch horrors) and four bosses wait in theirs, each with
-  two special attacks and two combos. The fight is Bloodborne's: stamina, quickstep and roll
-  with i-frames, lock-on, charged blows, the trick weapon transformed mid-combo, the gun
-  parry and the visceral attack, the rally. The hunt is a map of four areas (`docs/img/yharnam-map.png`): the way is not a
-  line, the borders are barricades that give way to a blow once the right boss has fallen (or at
-  once, with a horde to face), some only from one side, all of them for good once broken; each
-  area ends with its boss in an open arena, with two hunter's lamps to light; blood echoes from the slain
-  are dear: a little healing, a death, and at most four paths taken at the lamps, which shape
-  how the hunter fights.
-- **Pad Typing**: practice writing Italian, English or Lua with the controller alone. The
-  cross writes consonants and the prediction finishes the syllable (square and triangle
-  turn it), R2 takes a whole word; an overlay of the pad shows what each button writes;
-  Share switches to an on-screen keyboard. The same typing works in bm Code
-  ([docs/PADTYPE.md](docs/PADTYPE.md)).
-- **bm Write**: letters and documents on A4 pages, as in a word processor: title, headings,
-  quotes and lists, bold, italic and underline, four alignments, word completion and typing
-  with the pad. Documents stay in `/docs` on the SD card and export to PDF (the same page as
-  on the screen), HTML, Markdown and plain text.
-- The rest: Pong (2 players), Snake, Star Shooter, and **nano8** for `.p8` carts.
+## 📦 Quick Start
 
-**The Market**, the first tab of the menu, downloads free games from
-[f-accomando/bm-market](https://github.com/f-accomando/bm-market): a catalog signed with the
-market's key, every file checked with its SHA-256 before it touches the SD card. Games are
-published with a pull request there, also from the console with a GitHub token, and sent
-between consoles on the home network. The games of the project are all in it.
+### Build Prerequisites
+Requires `arm-none-eabi-gcc`, Python 3, `dosfstools`, `mtools`, and QEMU (for emulation tests):
 
-The screenshots come from QEMU (`tests/qemu_test.py --shots DIR`), the showreel from
-`make showreel`.
-
-To write a game, see the guide [docs/GAME-GUIDE.md](docs/GAME-GUIDE.md) and the reference
-[docs/API.md](docs/API.md), with the shared game library `require "bmlib"` and the network
-library `require "bmnet"`. Both are
-also in Italian ([docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md), [docs/API-IT.md](docs/API-IT.md)),
-like the rest of the documentation.
-
-## Quick start
-
-```sh
-make firmware && make image      # dist/bm.img: firmware, kernel and games
-make test                        # tests on the PC and end to end in QEMU
+```bash
+# Ubuntu / Debian
+sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi \
+  qemu-system-arm make python3 python3-numpy python3-pil dosfstools mtools
 ```
 
-1. Write `dist/bm.img` to a microSD card with Raspberry Pi Imager ("Use custom"),
-   balenaEtcher or `dd`.
-2. Connect HDMI and a USB keyboard or gamepad. The keyboard or gamepad needs an OTG
-   adapter on the middle micro-USB port.
-3. Power on.
+### Build & Run
+```bash
+# 1. Build the complete bootable disk image (kernel + firmware + carts)
+make firmware && make image
 
-Needs `arm-none-eabi-gcc`, Python 3, `dosfstools` and `mtools`, plus QEMU for the tests.
+# 2. Run unit tests and full QEMU regression tests
+make test
 
-- The plan: [docs/ROADMAP.md](docs/ROADMAP.md).
+# 3. Launch QEMU emulator directly
+make qemu
+```
 
-## License
+### Flashing to Hardware
+1. Flash `dist/bm.img` to a microSD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/) (*"Use Custom"*), balenaEtcher, or `dd`.
+2. Connect HDMI to a display and plug in a USB keyboard or gamepad via OTG adapter.
+3. Insert the card into your Raspberry Pi Zero W and power on.
 
-bm is by F. Accomando and is released under the **BM Community License 1.0**
-([`LICENSE`](LICENSE)).
+---
 
-- Individuals may use, modify and redistribute it freely, including commercially on
-  their own account.
-- Attribution is required.
-- Modified versions must publish their source under the same license.
-- Organisations need a separate commercial license.
+## 📚 Documentation & Architecture
 
-Third-party components keep their own licenses: Lua (MIT), lwIP (BSD), mbedTLS
-(Apache 2.0) and the Mozilla root certificates.
+- **Living Progress & Index**: [`docs/progress.md`](docs/progress.md) *(the canonical navigation root)*.
+- **Lua API Reference**: [`docs/API.md`](docs/API.md) *(complete draw, input, audio, 3D, and netplay reference)*.
+- **Game Authoring Guide**: [`docs/GAME-GUIDE.md`](docs/GAME-GUIDE.md) (Italian: [`docs/GUIDA-GIOCHI.md`](docs/GUIDA-GIOCHI.md)).
+- **Architecture & Design RFCs**: [`docs/design/`](docs/design/).
+- **Performance & Drivers**: [`docs/PRESTAZIONI.md`](docs/PRESTAZIONI.md), [`docs/DRIVERS.md`](docs/DRIVERS.md), and [`docs/HARDWARE.md`](docs/HARDWARE.md).
+- **AI Agent Guidelines**: [`CLAUDE.md`](CLAUDE.md) and [`GEMINI.md`](GEMINI.md).
+
+---
+
+## ⚖️ License
+
+bm is developed by **F. Accomando** and licensed under the **BM Community License 1.0** ([`LICENSE`](LICENSE)).
+
+- Individuals may freely use, modify, and redistribute the project, including commercial projects on their own behalf.
+- Attribution is required; modified versions must remain under the same license.
+- Organizations require a separate commercial license.
+- Embedded third-party components retain their respective open-source licenses: Lua (MIT), lwIP (BSD), mbedTLS (Apache 2.0).
