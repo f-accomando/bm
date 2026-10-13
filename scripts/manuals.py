@@ -43,9 +43,11 @@ def h(text):
 
 def split_chapters(path):
     """[(title, text)]: the head (title "") then each '# ' chapter"""
-    out, title, buf = [], "", []
+    out, title, buf, fence = [], "", [], False
     for ln in open(path, encoding="utf-8").read().replace("\r", "").split("\n"):
-        if ln.startswith("# "):
+        if ln.startswith("```"):
+            fence = not fence
+        if ln.startswith("# ") and not fence:
             out.append((title, "\n".join(buf)))
             title, buf = ln[2:].strip(), []
         buf.append(ln)
@@ -54,7 +56,19 @@ def split_chapters(path):
 
 
 def no_comment(line):
-    return re.sub(r"\s*(--|#)\s.*$", "", line).rstrip()
+    """a code line without what a translator may change: comments, the text of strings, the values of key=value"""
+    if line.lstrip().startswith(("#", "--")):
+        return ""
+    line = re.sub(r"\s*(--|#)\s.*$", "", line).rstrip()
+    line = re.sub(r'"(?:[^"\\]|\\.)*"', '""', line)
+    line = re.sub(r"'(?:[^'\\]|\\.)*'", "''", line)
+    return re.sub(r"^(\s*[\w.]+)=.*$", r"\1=", line)
+
+
+def technical(span):
+    """an inline `code` span that is an identifier, a file name or a call: it must be the same in both languages
+    (what has spaces, <placeholders>, key=value or a key's name may be translated)"""
+    return not re.search(r"[\s<>=]", span) and bool(re.search(r"[_(./]", span))
 
 
 def signature(text):
@@ -68,9 +82,16 @@ def signature(text):
                 sig.append(("code", tuple(code)))
                 code = None
             else:
-                if s.strip():
+                if no_comment(s).strip():
                     code.append(no_comment(s))
             i += 1
+            continue
+        if s.startswith("```text"):                  # free text (a tree of files...): only its length must agree
+            j = i + 1
+            while j < len(ln) and not ln[j].startswith("```"):
+                j += 1
+            sig.append(("text", j - i - 1))
+            i, para = j + 1, False
             continue
         if s.startswith("```"):
             code, para = [], False
@@ -108,7 +129,7 @@ def signature(text):
         else:
             para = False
         i += 1
-    spans = sorted(re.findall(r"`([^`]+)`", re.sub(r"```.*?```", "", text, flags=re.S)))
+    spans = sorted(x for x in re.findall(r"`([^`]+)`", re.sub(r"```.*?```", "", text, flags=re.S)) if technical(x))
     return sig, spans, len(GAP.findall(text))
 
 

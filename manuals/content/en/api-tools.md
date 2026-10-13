@@ -356,7 +356,7 @@ python3 scripts/bmres.py convert IN.csv OUT.bmt --tiles TILES.png
 
 A game or an app lives in `carts/<id>/`. The common layout keeps the metadata in one file, `bm.info`. A folder without `bm.info` still builds the old way, with title, author and resolution from the Makefile, so you can move one game at a time.
 
-```
+```text
 carts/<id>/
   bm.info        metadata (INFO section), the single source
   main.lua       entry point (always this name)

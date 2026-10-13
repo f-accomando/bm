@@ -95,15 +95,21 @@ def esc(t):
 
 
 def inline(th, t):
-    t = esc(t)
-    t = re.sub(r"`([^`]+)`", lambda m: f'<font name="{th.f["mono"]}" backColor="{th.c["code_bg"].hexval().replace("0x", "#")}">'
-                                       f'&nbsp;{m.group(1)}&nbsp;</font>', t)
-    t = re.sub(r"\[(TO FILL|DA COMPLETARE):([^\]]*)\]", lambda m: f'<font name="{th.f["bold"]}" '
-               f'backColor="{th.c["accent_soft"].hexval().replace("0x", "#")}" '
-               f'color="{th.c["warn"].hexval().replace("0x", "#")}">&nbsp;[{m.group(1)}:{m.group(2)}]&nbsp;</font>', t)
-    t = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", t)
-    t = re.sub(r"(?<![\w*])\*([^*]+)\*(?![\w*])", r"<i>\1</i>", t)
-    return t
+    """inline markup: `code` (kept apart, nothing inside it is markup), **bold**, *italic*, [TO FILL: ...]"""
+    hexc = lambda k: th.c[k].hexval().replace("0x", "#")
+    parts = re.split(r"(`[^`]+`)", t)
+    out = []
+    for i, part in enumerate(parts):
+        if i % 2:
+            out.append(f'<font name="{th.f["mono"]}" backColor="{hexc("code_bg")}">&nbsp;{esc(part[1:-1])}&nbsp;</font>')
+            continue
+        x = esc(part)
+        x = re.sub(r"\[(TO FILL|DA COMPLETARE):([^\]]*)\]", lambda m: f'<font name="{th.f["bold"]}" '
+                   f'backColor="{hexc("accent_soft")}" color="{hexc("warn")}">&nbsp;[{m.group(1)}:{m.group(2)}]&nbsp;</font>', x)
+        x = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", x)
+        x = re.sub(r"(?<![\w*])\*([^*]+)\*(?![\w*])", r"<i>\1</i>", x)
+        out.append(x)
+    return "".join(out)
 
 
 # ------------------------------------------------------------------ flowables
@@ -379,9 +385,11 @@ class Doc(BaseDocTemplate):
 
 def gaps_of(lines, base_dir, lab):
     """[(chapter, text)] of the gaps marked in the content, and of the pictures not taken yet"""
-    out, chap = [], ""
+    out, chap, fence = [], "", False
     for ln in lines:
-        if ln.startswith("# "):
+        if ln.startswith("```"):
+            fence = not fence
+        if ln.startswith("# ") and not fence:
             chap = ln[2:].strip()
         for m in GAP.finditer(ln):
             out.append((chap, m.group(1).strip()))

@@ -366,7 +366,8 @@ Step 3 is the one the notes describe in one line only. Check on your console how
 
 ## Add a hitbox
 
-1. Write a zone in your `zones.txt` and, under it, its boxes (see the chapter on hitboxes).2. Build the cartridge with `mkbm.py --sprites zones.txt` and copy it to the card.
+1. Write a zone in your `zones.txt` and, under it, its boxes (see the chapter on hitboxes).
+2. Build the cartridge with `mkbm.py --sprites zones.txt` and copy it to the card.
 3. Open it in bm Pixel and go to F1. Press **z** until the size is the zone's frame size (16 for a 16x16 zone).
 4. Go to the first frame of the zone with the arrows on F2, or with **PgUp** and **PgDn** on F1. The panel shows `zone "name" frame 1/n`.
 5. Check that **j** says `hitboxes on (BOXES)`. The rectangles appear over the sprite: blue for hurt, red for hit, green for body.

@@ -58,7 +58,7 @@ With a game open, the first save asks `Save an editable copy: NAME.BME?`. Answer
 ## Good to know
 
 - The list of files shows the `.bm` and `.bme` files of `/carts` and of the root of the SD card.
-- The window title line shows the file name and `*modified*` when there is something to save.
+- The menu page shows the file name and `*modified*` when there is something to save.
 
 ## Try it, step by step
 
@@ -211,7 +211,7 @@ The skeleton is what lets one model have many animations at small cost: the game
 - **n** on an empty model makes one bone, `root`, from the bottom of the model up to half its height. Every next **n** adds a child of the chosen bone, half a unit long in the same direction.
 - At most **64** bones in a skeleton.
 - Joints at the same point move together: a chain stays joined when you move a joint.
-- **x** deletes a bone: its children go to its parent and its faces to the bone before. Deleting the only bone removes the skeleton.
+- **x** deletes a bone: its children go to its parent and its faces follow the parent (or the first bone). Deleting the only bone removes the skeleton.
 - **m** copies the bone and its children to the other side (x mirrored). The names end in `.L` and `.R`; a bone with no side yet gets `.L` if it is on the positive x side. The poses of the animations are mirrored too. The faces on the other side do not move by themselves: run the skin again with **k** or give them with **a**.
 - The parent of a bone is chosen among the bones before it in the list.
 
@@ -272,7 +272,7 @@ A walk cycle is a handful of poses. You make the poses, bm Animator makes the mo
 2. Press **n**. The status line says `new animation anim1`.
 3. Choose a bone with up and down.
 4. Press **w** twice. The bone turns and a diamond appears on the timeline: that is a keyframe at frame 0.
-5. Press **right** six times to go to frame 6, then **s** twice to turn it back and further. A second diamond appears.
+5. Press **right** six times to go to frame 6, then **s** four times to turn the bone the other way. A second diamond appears.
 6. Press **space**. The animation plays and loops.
 7. Press **Ctrl+S** to save.
 
@@ -342,7 +342,7 @@ Press **Enter**. The screen says `drawing the sprites...` while it works, in ste
 2. Choose the animation in the first row, `frames` 8, `size` 48, `directions` 4.
 3. Check that `hitboxes` says `from bones`. The preview shows the boxes with their coloured outlines.
 4. Press **Enter**.
-5. Wait for `sprites put in sheet`. The line at the bottom shows the zone name.
+5. Wait for the message that ends with `put in sheet at` and the position. The line at the bottom shows the zone name.
 6. Press **Ctrl+S** to save.
 
 ::: try
@@ -403,16 +403,21 @@ All these calls are in the 3D API (`docs/api/light3d.md`). The animation is part
 ## Code to copy
 
 ::: copy
-local v
+local v, t = nil, 0
 function _init()
   v = model("villager")
+end
+
+function _update()
+  t = t + 1 / 60
 end
 
 function _draw()
   cls(1)
   zclear()
-  animate(v, "walk", time())
-  draw3d(v, 0, 0, 3, 0, 0, 0, 1)
+  camera3d(0, 1, -4)
+  animate(v, "walk", t)
+  draw3d(v, 0, 0, 0, 0, 0, 0, 1)
 end
 :::
 
@@ -430,13 +435,13 @@ end
 ## Rig a model
 
 1. Open a `.bme` with a biped model (made in bm Studio) and go to **F2**.
-2. Press **n**: `root` appears at the feet.
-3. Move the tail of `root` up to the hips with **w** (each press is 1/8).
+2. Press **n**: `root` appears, from the bottom of the model up to half its height.
+3. Move the tail of `root` to the hips with **w** or **s** (each press is 1/8).
 4. Press **n** to add a bone, name it `leg.L` with Enter, and place its tail on the left foot with **s**, **a** and **d**.
 5. Press **m** to make `leg.R` on the other side.
 6. Add arms and a head the same way: `arm.L`, `arm.R`, `head`.
 7. Press **k**: every face follows its nearest bone. Press **K** instead if you want soft joints.
-8. Go to **F3** and check: the skeleton is shown on the model and the bone list is on the left.
+8. Go to **F1** and press **k**: the skeleton is drawn over the model.
 
 ::: warn
 If a part of the model follows the wrong bone, go back to F2, press **v**, choose its faces with space, choose the right bone with PgUp and PgDn, and press **a**.
@@ -445,14 +450,13 @@ If a part of the model follows the wrong bone, go back to F2, press **v**, choos
 ## Make a walk cycle
 
 1. In **F3** press **n**: `anim1` with 12 frames and loop on. Press Enter and rename it `walk`.
-2. Choose `leg.L` with up and down. Press **w** twice: the leg swings forward.
-3. Choose `leg.R`. Press **s** twice: the leg swings back. This is the first pose.
+2. Choose `leg.L` with up and down. Press **w** twice: the leg turns around x by 30 degrees.
+3. Choose `leg.R`. Press **s** twice: the leg turns the other way. Do the same with `arm.L` and `arm.R`, the arms against the legs. This is the first pose, at frame 0.
 4. Press **right** six times to go to frame 6.
-5. Press **m**: the pose is mirrored, with the legs exchanged. This is the second pose.
+5. Press **m**: the pose is mirrored, with the left and right sides exchanged. This is the second pose.
 6. Press **space**: the animation loops, going from the second pose back to the first over the other six frames.
-7. Choose `arm.L` and `arm.R` and turn them against the legs the same way.
-8. Press **i** until it says `smooth`. Press **o** to check the poses with the onion skin.
-9. Press **Ctrl+S**.
+7. Press **i** until the top line says `smooth`. Press **o** to check the poses with the onion skin.
+8. Press **Ctrl+S**.
 
 ::: try
 Lengthen the animation with `>` to slow the walk, shorten it with `<` to speed it up.
@@ -463,7 +467,7 @@ Lengthen the animation with `>` to slow the walk, shorten it with `<` to speed i
 1. In bm SDK, open the project and go to the 3D page (F4): the model turns with its animations.
 2. Press **i** there: the SDK writes in the code the lines to load the model and to draw it with `animate` and `draw3d`.
 3. Press **F5** to try the game. The model walks.
-4. Change the animation by name: `animate(v, "walk", time())`.
+4. Change the animation by name: `animate(v, "walk", t)`, with `t` the time in seconds.
 5. To go from one animation to another smoothly, give two animations and a blend: `animate(v, "walk", t, "wave", t, k)`, with `k` going from 0 to 1.
 6. Press Start + Select to leave the game and go back to the editor.
 

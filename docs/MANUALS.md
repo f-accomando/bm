@@ -40,7 +40,9 @@ python3 scripts/mkmanual.py <file.md> --all-themes -o DIR     one file in every 
 2. `scripts/manuals.py check` says, chapter by chapter, what is behind: *"it is behind (en changed
    since the stamp)"*, or *"en is behind"*, or that both changed.
 3. Bring the other language to the same text: the same chapters, sections, steps, tables, boxes,
-   pictures, code (comments may be translated), inline `code` and gaps.
+   pictures, code and gaps. In code, comments, the text of strings and the values of `key=value` lines may be
+   translated. Inline `code` that is an identifier, a file name, a path or a call (`play_at()`, `bm/shots/`)
+   must be the same; placeholders (`<NAME>`), examples with spaces and key names may be translated.
 4. `check` passes: `scripts/manuals.py stamp <id>`. Commit the two `.md` files and `sync.json` together.
 5. `status` also says when a repository file the manual comes from (`sources`) changed after the
    stamp: then check the manual still tells the truth.
