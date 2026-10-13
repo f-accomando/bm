@@ -6,16 +6,16 @@ Fonti: [`PIANO.md`](PIANO.md), [`../../SYNC.md`](../../SYNC.md). Aggiornare ques
 
 | Video | script | shot list | copertina | metadati | input auto | registrazione | montaggio | pubblicazione |
 |---|---|---|---|---|---|---|---|---|
-| 1 Studio | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 2 Pixel | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 3 Animator | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 4 Map | [ ] provvisorio | [ ] provvisorio | [ ] | [ ] | [ ] | BLOCCATO | BLOCCATO | BLOCCATO |
-| 5 Sound | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 6 SDK | [ ] | [ ] | [ ] | [ ] | [ ] | BLOCCATO (4) | BLOCCATO | BLOCCATO |
-| 7 Code | [ ] | [ ] | [ ] | [ ] | [ ] | BLOCCATO (6) | BLOCCATO | BLOCCATO |
-| 8 Gameplay | [ ] | [ ] | [ ] | [ ] | [ ] | BLOCCATO (7) | BLOCCATO | BLOCCATO |
+| 1 Studio | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], input.txt [ ] | [ ] | [ ] | [ ] |
+| 2 Pixel | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], input.txt [ ] | [ ] | [ ] | [ ] |
+| 3 Animator | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], input.txt [ ] | [ ] | [ ] | [ ] |
+| 4 Map | [x] provvisorio | [x] provvisorio | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO | BLOCCATO | BLOCCATO |
+| 5 Sound | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], input.txt [ ] | [ ] | [ ] | [ ] |
+| 6 SDK | [x] provvisorio (import da risolvere) | [x] provvisorio | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO (4) | BLOCCATO | BLOCCATO |
+| 7 Code | [x] (map3d_* non testate) | [x] | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO (6) | BLOCCATO | BLOCCATO |
+| 8 Gameplay | [x] | [x] | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO (7) | BLOCCATO | BLOCCATO |
 
-Le prime cinque colonne (documenti) si chiudono in questo task; le altre sono da fare.
+Documenti scritti il 2026-10-13 (`make video-3d-check`: 0 problemi). I `[DA VERIFICARE]` rimasti stanno in fondo a ogni `script.md`: vanno chiusi in prova, sull'editor vero, prima di registrare.
 
 ## Dipendenze bloccanti
 
@@ -31,6 +31,6 @@ Le prime cinque colonne (documenti) si chiudono in questo task; le altre sono da
 
 ## Da dove riprendere
 
-1. Rispondere alle domande D1–D6 (`PIANO.md` §6).
+1. Domande ancora aperte: D3–D7 (`PIANO.md` §6 e §9).
 2. Registrare 1 → 2 → 3 → 5 (ordine di registrazione), poi 4 appena AGY-01..03 sono `DONE`.
 3. Scrivere `video/3d/NN-nome/{record.py,input.txt,verify.py}` dall'`input.md` di ogni video.
