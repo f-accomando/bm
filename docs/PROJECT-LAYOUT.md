@@ -53,7 +53,7 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `village` | `bm.info`; `models.bm` moved to `assets/` |
 | `kitchen`, `titan` | `bm.info`; `sheet.png` in `assets/`; `build.py`, `mkassets.py` and the other scripts (`import_chefs.py`, `mkrobot.py`, `art.py`) in `build/`; `titan_ex` shares `titan/assets/sheet.png` |
 | `nano8` | `bm.info`; `build.py` and `mkdemo.py` in `build/` |
-| `overbit` | `bm.info` only; `art/`, `tools/` and `build.py` have not moved (many Makefile rules). The `.b16` rules keep `--title`/`--res` |
+| `overbit` | `bm.info`; `build.py`, `mkcover.py`, `reel.py` and `viewer.lua` in `build/`; `art/` stays at the top (generators and Meshy figures, like `yharnam`). The `.b16` rules keep `--title`/`--res` |
 
 ## What breaks
 

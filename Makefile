@@ -297,8 +297,8 @@ OVERBIT_RES := 480x270
 # 640x360 on the ARM, 640x360, 1280x720 and 1920x1080 on the GPU (85_quality); the
 # .b16 has not the flag and keeps its own (640x360 and 1080p)
 OVERBIT_BM_DEFS := --define OVERBIT_TV_BM=true
-$(BUILD)/overbit/main.lua: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm
-	$(PYTHON) carts/overbit/build.py $@ --map $(BUILD)/overbit/main.map --extra $(BUILD)/overbit/21_map.lua \
+$(BUILD)/overbit/main.lua: $(OVERBIT_SRC) carts/overbit/build/build.py $(BUILD)/overbit/models.bm
+	$(PYTHON) carts/overbit/build/build.py $@ --map $(BUILD)/overbit/main.map --extra $(BUILD)/overbit/21_map.lua \
 	    $(OVERBIT_BM_DEFS)
 
 $(BUILD)/overbit/models.bm: $(OVERBIT_ART) scripts/bmmesh.py scripts/mkbm.py $(BUILD)/host/mappvs
@@ -345,8 +345,8 @@ $(BUILD)/carts/overbit.bm: $(BUILD)/overbit/main.lua $(BUILD)/overbit/models.bm 
 # on the Pi's TV 1080p on the GPU or 640x360 (the square page left at the
 # start); the title's RESOLUTION and RENDERER, saved; BENCHMARK recalibrates.
 OVERBIT_B16_RES := 360x360
-$(BUILD)/overbit/main.min.lua: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm
-	$(PYTHON) carts/overbit/build.py $@ --minify --extra $(BUILD)/overbit/21_map.lua
+$(BUILD)/overbit/main.min.lua: $(OVERBIT_SRC) carts/overbit/build/build.py $(BUILD)/overbit/models.bm
+	$(PYTHON) carts/overbit/build/build.py $@ --minify --extra $(BUILD)/overbit/21_map.lua
 
 $(BUILD)/carts/overbit.b16: $(BUILD)/overbit/main.min.lua $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json \
                             scripts/mkbm.py scripts/bmaudio.py $(wildcard carts/overbit/cover.png)
@@ -365,8 +365,8 @@ $(patsubst %,$(BUILD)/carts/%.b16,$(B16_AS_BM)): $(BUILD)/carts/%.b16: $(BUILD)/
 	@test `wc -c < $@` -le 8388608 || { echo "$@ is over a .b16's 8 MiB"; rm -f $@; exit 1; }
 
 # variants that start in a mode: the reel (for docs/img) and the benchmark
-$(BUILD)/overbit/%.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
-	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/$*.lua --start $* --extra $(BUILD)/overbit/21_map.lua
+$(BUILD)/overbit/%.bm: $(OVERBIT_SRC) carts/overbit/build/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
+	$(PYTHON) carts/overbit/build/build.py $(BUILD)/overbit/$*.lua --start $* --extra $(BUILD)/overbit/21_map.lua
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/$*.lua --title "Overbit $*" --author bm --res $(OVERBIT_RES) \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
@@ -387,19 +387,19 @@ overbit-reel: $(BUILD)/host/bmhost-bin $(BUILD)/overbit/reel.bm
 # the reel of the other seven heroes (docs/img/overbit-reel-heroes.mp4) and a
 # GIF of their ultimates
 OVERBIT_REEL_HEROES := kaiju,sarge,frost,fuse,rail,orbit,akari
-$(BUILD)/overbit/reel-heroes.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
-	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/reel-heroes.lua --start reel --hero $(OVERBIT_REEL_HEROES) \
+$(BUILD)/overbit/reel-heroes.bm: $(OVERBIT_SRC) carts/overbit/build/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
+	$(PYTHON) carts/overbit/build/build.py $(BUILD)/overbit/reel-heroes.lua --start reel --hero $(OVERBIT_REEL_HEROES) \
 	    --extra $(BUILD)/overbit/21_map.lua
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/reel-heroes.lua --title "Overbit reel" --author bm --res $(OVERBIT_RES) \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 overbit-reel-heroes: $(BUILD)/host/bmhost-bin $(BUILD)/overbit/reel-heroes.bm
-	$(PYTHON) carts/overbit/tools/reel.py $(BUILD) $(BUILD)/overbit/reel-heroes.bm 232 docs/img/overbit-reel-heroes.mp4 \
+	$(PYTHON) carts/overbit/build/reel.py $(BUILD) $(BUILD)/overbit/reel-heroes.bm 232 docs/img/overbit-reel-heroes.mp4 \
 	    --size 960x540 --res $(OVERBIT_RES) --crf 30 --gif docs/img/overbit-reel-heroes.gif --gif-shots ULTIMATE
 
 # a match of ten bots on Partenope, filmed round the point, behind and in the
 # eyes of the heroes (docs/img/overbit-match.mp4 and a GIF of 20 s)
-$(BUILD)/overbit/match-film.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
-	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/match-film.lua --start match --extra $(BUILD)/overbit/21_map.lua \
+$(BUILD)/overbit/match-film.bm: $(OVERBIT_SRC) carts/overbit/build/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
+	$(PYTHON) carts/overbit/build/build.py $(BUILD)/overbit/match-film.lua --start match --extra $(BUILD)/overbit/21_map.lua \
 	    --define OVERBIT_SPECTATE=true --define 'OVERBIT_RULES={unlock=6,pct=0.3,round_end=4,match_end=5}'
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/match-film.lua --title "Overbit match" --author bm \
 	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
