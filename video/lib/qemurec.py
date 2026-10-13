@@ -379,5 +379,8 @@ def extract_sd(img, dest):
     os.makedirs(dest)
     env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
     subprocess.run(["mcopy", "-s", "-n", "-i", part, "::/", dest], check=True, env=env)
+    for name in os.listdir(dest):                       # FAT names come back in capitals: carts/, TROPIC.BME as the tools wrote them
+        if name != name.lower() and os.path.isdir(os.path.join(dest, name)):
+            os.rename(os.path.join(dest, name), os.path.join(dest, name.lower()))
     os.remove(part)
     return dest
