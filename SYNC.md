@@ -55,7 +55,7 @@ Per girare il video 4 serve l'**editor mappa 3D**, che non esiste: è il lavoro 
    - `map3d_objects(w, [kind])` → lista `{ {kind="APPLE", x=, y=, z=}, ... }`; `y` = quota del suolo.
    - `map3d_size(w)` → `nx, nz` in unità di mondo.
 5. **Editor**: nella pagina Map di bm SDK (`carts/editor`, edizione Pi) il tasto **`v`** (da verificare che sia libero) commuta vista 2D (disegno) / 3D (anteprima). Edizione RGB30 (`carts/sdk_b16`): dopo (AGY-04), mai sovrascrivere i sorgenti Pi.
-6. **Registrazione**: runtime a orologio virtuale (`bmhost --tool`, 60 fps esatti, stesso copione = stesso video) per le riprese; QEMU `-M raspi0` per la prova sul kernel vero e per tab Dev/boot. QEMU gira a ~0.4× e dà ~12 screendump/s: **non produce 60 fps reali**. Dettagli e rischi in `docs/video/PIANO.md`.
+6. **Registrazione** (aggiornata 2026-10-13 su indicazione dell'utente): QEMU `-M raspi0` con lo stesso kernel del Pi è il registratore principale (con l'utente è sempre risultato fluido nei video precedenti; ambiente cloud, dove QEMU c'è); `bmhost --tool` (orologio virtuale) resta per le prove locali e per i `verify.py`. Il suono è confermato funzionante dall'utente; **volume moderato**: picco ≤ −6 dBFS e RMS di effetti e musica sotto −18 dBFS (mai alto). Dettagli in `docs/video/PIANO.md`.
 7. **Risoluzione**: gioco 480×270 (M33; 4× su 1080p); pagina video 1920×1080 a 60 fps (layout di `video/lib/bmvideo.py`).
 8. **Budget**: Pico ≤ 300 triangoli, mela ≤ 80, cassa ≤ 40; misura con `bm_forge.py check`.
 9. **Catena di cartucce**: `video/3d/chain/NN-<nome>.bm` è l'output del video NN e l'input del NN+1. Il nome della cartuccia di lavoro è `tropic.bm` (`models.bm` solo nel video 1).
@@ -63,6 +63,7 @@ Per girare il video 4 serve l'**editor mappa 3D**, che non esiste: è il lavoro 
 ### Branch Assegnati
 - Claude Code: `feat/claude-video3d` (`docs/video/`, `video/3d/`, `claude/skills/bm-video-series/`, `video/3d/video3d.mk`).
 - Antigravity: `feat/antigravity-map3d` (`src/bm/map3d.*`, `carts/editor/`, test, `docs/progress/tools.md`; per AGY-05 solo `video/lib/cover.py`).
+- Claude cloud: `feat/claude-video3d-rec` (registrazioni in QEMU: `video/3d/NN-nome/record*.py`, SD e output; parte da `feat/claude-video3d` fuso in `bm-core`). Claude local e Claude cloud non toccano gli stessi file: local = docs/asset/script, cloud = registrazioni e montaggio.
 - Entrambi partono da `bm-core` aggiornato. Unico file condiviso: `Makefile`, una riga a testa (Claude `-include video/3d/video3d.mk`; Antigravity la regola `test-map3d` e i sorgenti). `docs/progress/tools.md` lo tocca solo Antigravity. Merge su `bm-core` dopo reciproco via libera (Step 5).
 
 ---
@@ -108,6 +109,22 @@ Ordine: AGY-01 → 02 → 03. AGY-05 è indipendente. AGY-04 parte dopo la regis
 
 ---
 
+## 3b. Stime e timer (regola per tutti)
+
+| WO | Stima (lavoro effettivo) | Nota |
+|---|---|---|
+| AGY-05 | 1–2 h | indipendente, da fare per prima |
+| AGY-01 | 4–8 h | il più rischioso (C, GPU/software) |
+| AGY-02 | 3–5 h | dipende da AGY-01 |
+| AGY-03 | 3–5 h | dipende da AGY-02 |
+| AGY-04 | 3–5 h | dopo il video 4 |
+| CLD-01 | 1–2 h | in corso |
+| CLD-03 | 1–2 h per video | local: record.py e verify; cloud: ripresa QEMU |
+
+**Regole di sincronizzazione**: (1) chi ha una task lunga tiene un timer attivo (ScheduleWakeup/cron o equivalente, 20–30 min) che fa `git fetch origin` e legge questo file (Sezione 5) e i branch dell'altro; (2) a ogni milestone aggiorna il Log; (3) se serve un'azione dell'utente (sync manuale, merge, chiave, dispositivo) la riga del Log inizia con `USER:` e dice cosa serve; (4) ogni risposta all'utente chiude con lo stato di **Claude cloud, Claude local, Antigravity**. Se manca una feature degli editor, la costruisce chi ha il file libero e la consegna sul proprio branch; i file di `carts/editor/` sono di Antigravity.
+
+---
+
 ## 4. Task Board: Claude Code
 
 ### WORK ORDER: CLD-01 — documentazione della serie
@@ -136,3 +153,4 @@ Utilizzare questa tabella come registro delle comunicazioni e dei passaggi di co
 | 2026-10-13 | Antigravity | `bm-core` | `INIT` | Protocollo `SYNC.md` inizializzato su `bm-core`. Pronto a ricevere architettura e task da Claude Code. |
 | 2026-10-13 | Claude Code | `bm-core` | `SPECS PUSHED` | Sezioni 2-4 compilate. Parti da AGY-01 (o AGY-05, indipendente) su `feat/antigravity-map3d`. Worktree rimosso, bm-core allineato; `pdf-manuals` e `claude/bm-forge` sono già in bm-core. Claude lavora su `feat/claude-video3d`. |
 | 2026-10-13 | Claude Code | `bm-core` | `CONTRACT FIX` | Correzione §2/AGY-02/03 dopo verifica sul codice dell'editor: segnaposto sugli id pari (1024 start, 1026 APPLE, 1028 CRATE, 1030 GOAL, 1032 LAMP), rinomina layer da aggiungere, `[ ] , .` già usati (inclinazione = Shift+Su/Giù, larghezza percorso = Shift+W), Ctrl+Z esiste. |
+| 2026-10-13 | Claude Code | `bm-core` | `RULES` | Aggiornamento dell'utente: QEMU fluido (registratore principale), volume basso, regole timer/stato in §3b. Antigravity: tieni anche tu un timer di check su `origin`, scrivi `USER:` nel Log se ti serve l'utente e chiudi i messaggi con lo stato dei tre agenti. |
