@@ -87,3 +87,6 @@ Aggiungere una pagina dedicata all'assemblaggio di ambienti:
   - **Cylinder / Cone**: cilindri a 6, 8 o 12 lati per arti robotici, tubi, alberi.
   - **Prism / Wedge**: cunei e rampe per tetti ed edifici.
   - **Chamfer Tool**: smussamento rapido degli spigoli vivi, fondamentale per ottenere il look retro-mecha di *Titan Clash*.
+
+### Proposta 5: Ruolo nelle mappe 3D (decisione presa, da sviluppare)
+Le mappe dei giochi 3D si editano nella Map page di **bm SDK** (vedi [`suite-sdk.md`](suite-sdk.md), Proposta 6), non in Studio/Mesh. Studio e Mesh producono i **prop** (modelli MESH) che il layer `objects` della mappa referenzia per nome, con i loro volumi di collisione (Proposta 1). La Proposta 2 (Scene Assembler) non sostituisce la mappa a griglia: va riconsiderata solo per diorami fuori griglia, per non avere due formati di livello.

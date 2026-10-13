@@ -105,6 +105,16 @@ function _update()
 end
 ```
 
+### Proposta 6: Mappe 3D nella Map page (decisa, da sviluppare; nessun tool esterno)
+La suite più idonea per le mappe dei giochi 3D è **bm SDK**: ha già layer, flag, layer `objects`, progetti `.bme` e build `.bm`/`.b16`, in entrambe le edizioni. Studio/Mesh restano per i prop. Overbit oggi ha la mappa generata in Python (`carts/overbit/art/partenope.py`, `mapgeo.py`): nessun editor, migrazione facoltativa e successiva.
+- **Un solo formato, nella cartuccia**: layer a griglia (pavimento, altezza, muri/soffitto, oggetti) nelle sezioni `LAYERS` e `FLAGS`, al più una sezione nuova per l'altezza. Tile e flag restano quelli degli invarianti, così le mappe 2D esistenti non si rompono.
+- **Un solo costruttore di geometria nel runtime** (C, non nei Lua delle suite): layer → mesh + collisioni. Gioco ed editor chiamano la stessa funzione, quindi l'anteprima coincide con la partita.
+- **Editor**: tasto nella Map page per passare da vista 2D (disegno) a vista 3D (anteprima, `bm3d`).
+- **Prop**: modelli MESH fatti in Studio/Mesh, referenziati per nome dal layer `objects`.
+- **Due edizioni**: `carts/editor` (Pi) e `carts/sdk_b16` (RGB30) vanno modificate entrambe; il costruttore sta nel runtime per non duplicare logica.
+- **Limite noto**: griglia con altezze = interni, arene, città a blocchi; niente pendenze arbitrarie né archi.
+- **Da decidere prima di partire** (passare da `bm-planner`): target iniziale (FPS corridoi/arene tipo Overbit o 3D città/terreno); altezza per cella (gradini) o per vertice (terreno morbido). Branch proposto: `claude/map3d`.
+
 ---
 
 ## 5. Spunti Aperti e Integrazioni Esterne (R11, R38, R39)
