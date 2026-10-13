@@ -27,7 +27,7 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 - 17 manuals ([MANUALS.md](MANUALS.md)): the API in five volumes (core, sound, 3D, lib, tools), one manual per editor. One big API manual instead?
 - The finished PDFs are committed in `manuals/pdf/` (2.4 MB for the 34): keep them in the repository, or only publish them with a release?
 - Pictures: `manuals/shots/<manual>-<what>.png`, taken on the console; the ones not taken yet are listed in each manual's "Open points".
-- The Assistant app has no manual yet (it is not an editor).
+- The Assistant app has no manual yet (it is not an editor): postponed, see the end of this file.
 
 ## Assets
 - `res:` list in `bm.info` with SHA-256 and a licence check in `mkbm.py`: approved in
@@ -54,3 +54,10 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 - Everything converges before 1.0.0: `python3 scripts/consistency.py gate` lists the blockers (27 on 2026-10-13: differences between the Pi and the RGB30 that are not hardware, 2 accepted drifts and 2 specification items); 5 more are fixed in the code and wait for a try on an RGB30 (D01, D02, D06, D07, D08).
 - A baseline tag for the current line (`v0.3.0`?) and `v1.0.0` when `gate` is empty: waiting for a yes (a tag is outward-facing).
 - D03/D05 (RGB30 multiplayer and menu pointer): **suspended** by the owner (the stick may be the mouse unless the RGB30 has its own system; he is working on the on-screen keyboard and pad typing). D16 (`show_bm`/`show_b16`), D13 (tools from Market > Apps on the RGB30).
+
+## Postponed on purpose (to do in the future, decided 2026-10-13)
+- Manual for the Assistant app (`carts/assistant`).
+- Manual of the specifications (the `docs/spec/` registry as a PDF).
+- Asset exchange on the console (sharing resources between games from the console itself; the PC side, `bmres.py`, exists).
+- Owner's tests on the hardware: D01, D02, D06, D07, D08, D13, D16, the screenshot (Select+L1+R1 on the RGB30) and a `.b16` 720x720 on the Pi; then mark them `resolved` in `docs/spec/divergences.toml` and run `consistency.py check`.
+- Test carts `demo`, `texroom`, `stress`: to be removed later, not migrated to the common layout.
