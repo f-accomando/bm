@@ -1,5 +1,5 @@
 {
-  "comment": "The bone layout of the village 'villager' rig (carts/village/models.bm): same names, parents and rest points. Faces -z (eyes and feet on -z). .L is on +x, as bm Animator's mirror (carts/animator/main.lua:482).",
+  "comment": "The bone layout of the village 'villager' rig (carts/village/assets/models.bm): same names, parents and rest points. Faces -z (eyes and feet on -z). .L is on +x, as bm Animator's mirror (carts/animator/main.lua:482).",
   "model": "humanoid",
   "bones": [
     {"name": "hips", "parent": null, "head": [0, 0.9, 0], "tail": [0, 1.0, 0]},

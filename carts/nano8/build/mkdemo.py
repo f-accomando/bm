@@ -2,7 +2,7 @@
 """Writes carts/nano8/roms/nanodemo.p8, the demo cart of nano8 (our own):
 "Comet Catcher". Sprites and map are drawn here as text, the sound effects
 and the music as lists of notes, so the cart can be made again without an
-editor: python3 carts/nano8/mkdemo.py
+editor: python3 carts/nano8/build/mkdemo.py
 
 The game shows what nano8 does: sprites and map, the symbols of the
 buttons in the text, wide and tall letters, a fill pattern, palette
@@ -11,7 +11,8 @@ flashes, particles, sound effects and a looping tune, persistent data
 """
 import os
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+BUILD_DIR = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(BUILD_DIR)
 
 # ---------------------------------------------------------------- sprites
 # one hex digit per pixel (the colour), "." = 0

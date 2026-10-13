@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-nano8 is written in several Lua files (carts/nano8/src/*.lua, in
+Chaos Kitchen is written in several Lua files (carts/kitchen/src/*.lua, in
 name order); a cartridge has one script, so they are joined into one
 main.lua. The first file (00_*.lua) declares the shared locals and stays at
 the top level; every other file goes inside `do ... end`, so its own locals
 never count against Lua's limit of 200 per function.
 
-  carts/nano8/build.py OUT.lua [--map OUT.map]
+  carts/kitchen/build/build.py OUT.lua [--map OUT.map]
 
 The map lists where each file starts in OUT.lua, to find the source line
 of an error message ("main.lua:1234").
@@ -15,7 +15,8 @@ import argparse
 import glob
 import os
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+BUILD_DIR = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(BUILD_DIR)
 
 
 def build():

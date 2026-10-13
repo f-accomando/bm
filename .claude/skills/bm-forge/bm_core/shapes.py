@@ -1,7 +1,7 @@
 """Tiny mesh builders for tests and samples: axis-aligned boxes.
 
 The corner order and the 12 triangles are copied from the villager of
-carts/village/models.bm (MESH model "villager", its first box: vertices 0..7,
+carts/village/assets/models.bm (MESH model "villager", its first box: vertices 0..7,
 faces 0..11, read with bm_core.mesh.decode), so the winding is the real
 tool's: clockwise seen from outside (src/bm/bm.h:46-47, the r3d.c invariant).
 """

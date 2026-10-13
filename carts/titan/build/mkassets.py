@@ -17,7 +17,7 @@ one is.
 
 Needs numpy and Pillow; the outputs are in git, so `make` does not.
 
-  python3 carts/titan/mkassets.py [--preview DIR]
+  python3 carts/titan/build/mkassets.py [--preview DIR]
 """
 import argparse
 import hashlib
@@ -30,9 +30,10 @@ import sys
 import numpy as np
 from PIL import Image, ImageDraw
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+BUILD_DIR = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(BUILD_DIR)
 ROOT = os.path.join(HERE, "..", "..")
-sys.path.insert(0, HERE)
+sys.path.insert(0, BUILD_DIR)
 import mkrobot  # noqa: E402
 
 SHEET_W = 2048
@@ -323,7 +324,7 @@ def main():
     print(f"sheet: {SHEET_W}x{sheet.shape[0]}, {len(pk.items)} pictures, {len(cols)} colours")
     if len(cols) > 255:
         raise SystemExit("more than 255 colours: the cartridge cannot store the sheet as SHEET8")
-    Image.fromarray(sheet, "RGBA").save(os.path.join(HERE, "sheet.png"))
+    Image.fromarray(sheet, "RGBA").save(os.path.join(HERE, "assets", "sheet.png"))
     open(os.path.join(HERE, "src", "05_sprites.lua"), "w").write("\n".join(lua) + "\n")
     art.cover(os.path.join(HERE, "cover.png"))
     if a.preview:

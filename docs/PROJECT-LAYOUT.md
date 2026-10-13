@@ -51,7 +51,9 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `hunt` | `bm.info`; `sheet.png`, `map.csv` moved to `assets/`; `mkassets.py` moved to `build/` (writes `assets/`) |
 | `snake`, `shooter`, `astrowing`, `typing`, `write` | `bm.info` (their `title_<id>` lines left the Makefile) |
 | `village` | `bm.info`; `models.bm` moved to `assets/` |
-| `kitchen`, `titan`, `nano8`, `overbit` | `bm.info` only, used by the `.bm` rule (`--info`); their sheets, `build.py` and `art/` have not moved yet. The `.b16` and `titan_ex` rules keep `--title`/`--res` (another resolution) |
+| `kitchen`, `titan` | `bm.info`; `sheet.png` in `assets/`; `build.py`, `mkassets.py` and the other scripts (`import_chefs.py`, `mkrobot.py`, `art.py`) in `build/`; `titan_ex` shares `titan/assets/sheet.png` |
+| `nano8` | `bm.info`; `build.py` and `mkdemo.py` in `build/` |
+| `overbit` | `bm.info` only; `art/`, `tools/` and `build.py` have not moved (many Makefile rules). The `.b16` rules keep `--title`/`--res` |
 
 ## What breaks
 

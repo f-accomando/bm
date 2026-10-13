@@ -46,7 +46,7 @@ carts/<game>/models.bm       optional 3D models + skeletons + animations (or mod
   (`Makefile:248-257` titan, `Makefile:238-246` kitchen).
 - **`.bm` vs `.b16` are separate editions with separate sources** (`CLAUDE.md`, *Non fare*):
   `carts/titan/src/*.lua` → `titan.bm` (`Makefile:250-257`); `carts/titan_ex/src/*.lua` →
-  `titanex.bm` at `--res 360x360`, sharing `carts/titan/sheet.png` and cover
+  `titanex.bm` at `--res 360x360`, sharing `carts/titan/assets/sheet.png` and cover
   (`Makefile:259-268`), then copied byte for byte to `titanex.b16` (`Makefile:369-372`).
   `carts/titan_ex/` also holds a `main.lua` and `titan_ex.b16` in the tree (Glob); whether
   they are stale build outputs is **NON VERIFICATO**.
@@ -325,12 +325,12 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
   (`docs/GAME-GUIDE.md:886`); inline example `docs/GAME-GUIDE.md:78-102`.
 - 3D in code only: `carts/astrowing/main.lua` (`docs/GAME-GUIDE.md:889`).
 - **Mesh load + animation (smallest found)**: `carts/village/main.lua` (109 lines),
-  `carts/village/models.bm`, `carts/village/cover.png`; registered by `Makefile:191,202-203`
+  `carts/village/assets/models.bm`, `carts/village/cover.png`; registered by `Makefile:191,202-203`
   (`res_village := 320x180`). `model()` at `carts/village/main.lua:33`, `animate()` at
   `:61,63`, `bone3d()` at `:68`. No smaller cart with `model()` was found among
   `carts/**/*.lua` and `tests/**/*.lua` outside the tools (Grep `model\("|animate\(`).
 - Inline snippets: `sdk/README.md:25-37` (model), `docs/GAME-GUIDE.md:405-415` (animate).
-- `.bm` / `.b16` twin: `carts/titan/src/*.lua` + `carts/titan/build.py` and
+- `.bm` / `.b16` twin: `carts/titan/src/*.lua` + `carts/titan/build/build.py` and
   `carts/titan_ex/src/*.lua` + `carts/titan_ex/build.py` (`Makefile:248-268,369`).
 - API test cart: `tests/gameapi/cart.lua` (`docs/GAME-GUIDE.md:896`; `make test-gameapi`,
   `docs/api/bmlib.md:303-304`).

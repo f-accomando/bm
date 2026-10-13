@@ -17,7 +17,7 @@ in front of the base, so base + layers is exactly the robot with those parts.
 Needs numpy and Pillow; the outputs (sprites.png and src/05_frames.lua) are
 in git, so `make` does not.
 
-  python3 carts/titan/mkrobot.py [--preview DIR] [--only NAME]
+  python3 carts/titan/build/mkrobot.py [--preview DIR] [--only NAME]
 """
 import argparse
 import math
@@ -27,7 +27,8 @@ import sys
 import numpy as np
 from PIL import Image
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+BUILD_DIR = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(BUILD_DIR)
 
 # ---------------------------------------------------------------- materials
 # tone ramps, darkest to lightest (5 tones); "glow" materials ignore light

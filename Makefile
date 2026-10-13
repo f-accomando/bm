@@ -230,24 +230,24 @@ $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
 
 # Chaos Kitchen (M17) is written in several Lua files, joined by its build.py
 KITCHEN_SRC := $(sort $(wildcard carts/kitchen/src/*.lua))
-$(BUILD)/kitchen/main.lua: $(KITCHEN_SRC) carts/kitchen/build.py
-	$(PYTHON) carts/kitchen/build.py $@ --map $(BUILD)/kitchen/main.map
+$(BUILD)/kitchen/main.lua: $(KITCHEN_SRC) carts/kitchen/build/build.py
+	$(PYTHON) carts/kitchen/build/build.py $@ --map $(BUILD)/kitchen/main.map
 
-$(BUILD)/carts/kitchen.bm: $(BUILD)/kitchen/main.lua carts/kitchen/sheet.png carts/kitchen/cover.png scripts/mkbm.py carts/kitchen/bm.info
+$(BUILD)/carts/kitchen.bm: $(BUILD)/kitchen/main.lua carts/kitchen/assets/sheet.png carts/kitchen/cover.png scripts/mkbm.py carts/kitchen/bm.info
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/kitchen/bm.info \
-	    --sheet carts/kitchen/sheet.png --cover carts/kitchen/cover.png
+	    --sheet carts/kitchen/assets/sheet.png --cover carts/kitchen/cover.png
 
 # Titan Clash (M20): several Lua files too; its sheet has more colours than
 # fit in RGBA sections, so it goes as SHEET8 (a palette and RLE)
 TITAN_SRC := $(sort $(wildcard carts/titan/src/*.lua))
-$(BUILD)/titan/main.lua: $(TITAN_SRC) carts/titan/build.py
-	$(PYTHON) carts/titan/build.py $@ --map $(BUILD)/titan/main.map
+$(BUILD)/titan/main.lua: $(TITAN_SRC) carts/titan/build/build.py
+	$(PYTHON) carts/titan/build/build.py $@ --map $(BUILD)/titan/main.map
 
-$(BUILD)/carts/titan.bm: $(BUILD)/titan/main.lua carts/titan/sheet.png carts/titan/cover.png scripts/mkbm.py carts/titan/bm.info
+$(BUILD)/carts/titan.bm: $(BUILD)/titan/main.lua carts/titan/assets/sheet.png carts/titan/cover.png scripts/mkbm.py carts/titan/bm.info
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/titan/bm.info \
-	    --sheet carts/titan/sheet.png --sheet8 --cover carts/titan/cover.png
+	    --sheet carts/titan/assets/sheet.png --sheet8 --cover carts/titan/cover.png
 
 # Titan Clash EX (RGB30, .b16 only): the same game's second edition, 360x360 (1:1),
 # with its own sources in carts/titan_ex/ (the Pi's .bm stays in carts/titan/)
@@ -255,10 +255,10 @@ TITAN_EX_SRC := $(sort $(wildcard carts/titan_ex/src/*.lua))
 $(BUILD)/titan_ex/main.lua: $(TITAN_EX_SRC) carts/titan_ex/build.py
 	$(PYTHON) carts/titan_ex/build.py $@ --map $(BUILD)/titan_ex/main.map
 
-$(BUILD)/carts/titanex.bm: $(BUILD)/titan_ex/main.lua carts/titan/sheet.png carts/titan/cover.png scripts/mkbm.py
+$(BUILD)/carts/titanex.bm: $(BUILD)/titan_ex/main.lua carts/titan/assets/sheet.png carts/titan/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "Titan Clash EX" --author bm \
-	    --sheet carts/titan/sheet.png --sheet8 --cover carts/titan/cover.png --res 360x360
+	    --sheet carts/titan/assets/sheet.png --sheet8 --cover carts/titan/cover.png --res 360x360
 
 # bm SDK (RGB30): the SDK's second edition, 360x360 and the pad, with its own
 # sources in carts/sdk_b16/ (layout.lua + main.lua, joined by its build.py). A tool
@@ -273,8 +273,8 @@ $(BUILD)/sdk_b16/main.lua: $(SDK_B16_SRC)
 # CREDITS.md) go to carts/nano8/ on the SD card.
 NANO8_SRC := $(sort $(wildcard carts/nano8/src/*.lua))
 NANO8_ROMS := $(sort $(wildcard carts/nano8/roms/*.p8 carts/nano8/roms/*.p8.png))
-$(BUILD)/nano8/main.lua: $(NANO8_SRC) carts/nano8/build.py
-	$(PYTHON) carts/nano8/build.py $@ --map $(BUILD)/nano8/main.map
+$(BUILD)/nano8/main.lua: $(NANO8_SRC) carts/nano8/build/build.py
+	$(PYTHON) carts/nano8/build/build.py $@ --map $(BUILD)/nano8/main.map
 
 $(BUILD)/carts/nano8.bm: $(BUILD)/nano8/main.lua carts/nano8/cover.png scripts/mkbm.py carts/nano8/bm.info
 	@mkdir -p $(dir $@)

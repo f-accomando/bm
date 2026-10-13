@@ -14,7 +14,7 @@ the rig) and models/chefs.png (the four atlases side by side, pasted into
 the sheet at y = 128 by mkassets.py). Both are in git, so `make` does not
 need this script or its libraries (Pillow and numpy).
 
-  python3 carts/kitchen/import_chefs.py [--preview DIR]
+  python3 carts/kitchen/build/import_chefs.py [--preview DIR]
 """
 import argparse
 import io
@@ -26,7 +26,8 @@ import sys
 import numpy as np
 from PIL import Image
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+BUILD_DIR = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(BUILD_DIR)
 ATLAS = 128                     # texture size of one chef, in sheet pixels
 SHEET_Y = 128                   # where the atlases go in the sheet
 

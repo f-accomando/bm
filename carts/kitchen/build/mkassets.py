@@ -2,7 +2,7 @@
 """Chaos Kitchen: draws the sprite sheet (sheet.png, 512x256) and the menu
 cover (cover.png, 128x80) in code, reproducibly. Standard library only.
 
-    python3 carts/kitchen/mkassets.py
+    python3 carts/kitchen/build/mkassets.py
 
 Sheet layout (the numbers used by src/41_hud.lua):
   16x16 icons, 32 per row: ingredients 0-22 (the order of 10_ingredients.lua),
@@ -21,7 +21,8 @@ import re
 import struct
 import zlib
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+BUILD_DIR = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(BUILD_DIR)
 ROOT = os.path.join(HERE, "..", "..")
 SW, SH = 512, 256
 
@@ -767,7 +768,7 @@ def main():
             for x in range(min(w, SW)):
                 i = (y * w + x) * 4
                 S.px[(128 + y) * SW + x] = tuple(rgba[i:i + 4])
-    write_png(os.path.join(HERE, "sheet.png"), SW, SH, S.px)
+    write_png(os.path.join(HERE, "assets", "sheet.png"), SW, SH, S.px)
     cover()
 
 

@@ -6,7 +6,7 @@ main.lua. The first file (00_*.lua) declares the shared locals and stays at
 the top level; every other file goes inside `do ... end`, so its own locals
 never count against Lua's limit of 200 per function.
 
-  carts/titan/build.py OUT.lua [--map OUT.map]
+  carts/titan/build/build.py OUT.lua [--map OUT.map]
 
 The map lists where each file starts in OUT.lua, to find the source line
 of an error message ("main.lua:1234").
@@ -16,7 +16,8 @@ import glob
 import hashlib
 import os
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+BUILD_DIR = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(BUILD_DIR)
 
 
 def build():
