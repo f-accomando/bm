@@ -39,11 +39,12 @@ Per girare il video 4 serve l'**editor mappa 3D**, che non esiste: è il lavoro 
 
 ### Decisioni prese (da non cambiare senza una riga nel Log, Sezione 5)
 1. **Un solo formato, nella cartuccia** (`docs/design/suite-sdk.md`, Proposta 6): nessuna nuova sezione. La mappa 3D sta in layer della sezione LAYERS (griglia fino a 256×256 celle). Il pennello 16×16 (2×2 celle) = **1 tessera = 1.0 unità di mondo**. Asse x a destra, y in su, z in avanti; la riga 0 della mappa è z = 0 e z cresce con il numero di riga (il livello corre verso z crescente, cioè verso il basso della vista 2D).
-2. **Layer con nome fisso** (minuscolo):
+2. **Layer con nome fisso** (minuscolo). L'editor oggi non rinomina i layer (`Shift+L` crea `layer2`, `layer3`…): AGY-02 aggiunge la rinomina e un template/azione "3D map" che crea i quattro layer con i nomi giusti. La mappa è fissa a 256×256 celle: il livello di esempio 9×96 tessere = 18×192 celle ci sta.
+  
    - `floor`: tessera ≠ 0 = c'è pavimento; il tile id sceglie la texture dalla sheet. 0 = vuoto (buca).
-   - `height`: l'id tessera n (0–255) = quota del pavimento della cella `n * 0.25` unità. Layer assente = tutto a quota 0.
+   - `height`: il valore n (0–255, scelto dal selettore di tessere come oggi) = quota del pavimento della cella `n * 0.25` unità. Layer assente = tutto a quota 0.
    - `walls`: id n ≠ 0 = blocco pieno alto `n * 0.25` sopra la quota del pavimento.
-   - `objects`: placeholder ≥ 1024 (già esistenti nell'SDK, non disegnati dal gioco). Tabella fissa: **1024 PLAYER_START, 1025 APPLE, 1026 CRATE, 1027 CRATE_BOUNCE (riservato, non usato dal gioco di esempio), 1028 GOAL, 1029 LAMP** (luce puntiforme, raggio 4, colore 0xFFC888). I modelli referenziati per nome: `APPLE`, `CRATE`, `PICO`.
+   - `objects`: placeholder ≥ 1024 (già esistenti nell'SDK, non disegnati dal gioco). Il pennello 16×16 scrive 4 celle (`t, t+1, t+c, t+c+1`), quindi i segnaposto stanno sugli **id pari** (correzione del 2026-10-13, verificata in `carts/editor/main.lua` ~righe 1578 e 1717). Tabella fissa: **1024 PLAYER_START, 1026 APPLE, 1028 CRATE, 1030 GOAL, 1032 LAMP** (luce puntiforme, raggio 4, colore 0xFFC888), 1034 CRATE_BOUNCE riservato (non usato dal gioco di esempio). `map3d_objects` legge la cella in alto a sinistra di ogni blocco 2×2. Se mancano i colori dei segnaposto 1032 e 1034 nell'editor, aggiungerli (AGY-02). I modelli referenziati per nome: `APPLE`, `CRATE`, `PICO`.
    - Flag tessera (invarianti CLAUDE.md): 0 solido, 1 piattaforma, 2 scala, 3 acqua, 4 fa male.
 3. **Un solo costruttore di geometria, in C**: nuovo `src/bm/map3d.c` (non dentro `runtime.c`, solo un gancio di registrazione). Layer → mesh + collisioni. L'editor (anteprima 3D) e il gioco chiamano la stessa funzione, quindi l'anteprima coincide con la partita.
 4. **API Lua** (nomi vincolanti; Claude scrive il gioco su questi):
@@ -54,7 +55,7 @@ Per girare il video 4 serve l'**editor mappa 3D**, che non esiste: è il lavoro 
    - `map3d_objects(w, [kind])` → lista `{ {kind="APPLE", x=, y=, z=}, ... }`; `y` = quota del suolo.
    - `map3d_size(w)` → `nx, nz` in unità di mondo.
 5. **Editor**: nella pagina Map di bm SDK (`carts/editor`, edizione Pi) il tasto **`v`** (da verificare che sia libero) commuta vista 2D (disegno) / 3D (anteprima). Edizione RGB30 (`carts/sdk_b16`): dopo (AGY-04), mai sovrascrivere i sorgenti Pi.
-6. **Registrazione**: runtime a orologio virtuale (`bmhost --tool`, 60 fps esatti, stesso copione = stesso video) per le riprese; QEMU `-M raspi0` per la prova sul kernel vero e per tab Dev/boot. QEMU gira a ~0.4× e dà ~12 screendump/s: **non produce 60 fps reali**. Dettagli e rischi in `docs/video/PIANO.md`.
+6. **Registrazione** (aggiornata 2026-10-13 su indicazione dell'utente): QEMU `-M raspi0` con lo stesso kernel del Pi è il registratore principale (con l'utente è sempre risultato fluido nei video precedenti; ambiente cloud, dove QEMU c'è); `bmhost --tool` (orologio virtuale) resta per le prove locali e per i `verify.py`. Il suono è confermato funzionante dall'utente; **volume moderato**: picco ≤ −6 dBFS e RMS di effetti e musica sotto −18 dBFS (mai alto). Dettagli in `docs/video/PIANO.md`.
 7. **Risoluzione**: gioco 480×270 (M33; 4× su 1080p); pagina video 1920×1080 a 60 fps (layout di `video/lib/bmvideo.py`).
 8. **Budget**: Pico ≤ 300 triangoli, mela ≤ 80, cassa ≤ 40; misura con `bm_forge.py check`.
 9. **Catena di cartucce**: `video/3d/chain/NN-<nome>.bm` è l'output del video NN e l'input del NN+1. Il nome della cartuccia di lavoro è `tropic.bm` (`models.bm` solo nel video 1).
@@ -62,6 +63,7 @@ Per girare il video 4 serve l'**editor mappa 3D**, che non esiste: è il lavoro 
 ### Branch Assegnati
 - Claude Code: `feat/claude-video3d` (`docs/video/`, `video/3d/`, `claude/skills/bm-video-series/`, `video/3d/video3d.mk`).
 - Antigravity: `feat/antigravity-map3d` (`src/bm/map3d.*`, `carts/editor/`, test, `docs/progress/tools.md`; per AGY-05 solo `video/lib/cover.py`).
+- Claude cloud: `feat/claude-video3d-rec` (registrazioni in QEMU: `video/3d/NN-nome/record*.py`, SD e output; parte da `feat/claude-video3d` fuso in `bm-core`). Claude local e Claude cloud non toccano gli stessi file: local = docs/asset/script, cloud = registrazioni e montaggio.
 - Entrambi partono da `bm-core` aggiornato. Unico file condiviso: `Makefile`, una riga a testa (Claude `-include video/3d/video3d.mk`; Antigravity la regola `test-map3d` e i sorgenti). `docs/progress/tools.md` lo tocca solo Antigravity. Merge su `bm-core` dopo reciproco via libera (Step 5).
 
 ---
@@ -80,15 +82,15 @@ Ordine: AGY-01 → 02 → 03. AGY-05 è indipendente. AGY-04 parte dopo la regis
 ### WORK ORDER: AGY-02
 - **Obiettivo**: vista 3D nella pagina Map di bm SDK (Pi) con lo stesso costruttore.
 - **File / Funzioni da toccare**: `carts/editor/` (file della pagina Map: `grep -n "P.map" carts/editor/*.lua`). Nessun altro editor.
-- **Modifica richiesta**: `v` commuta 2D/3D (se occupato, scegli un altro tasto e scrivilo nel Log). In 3D: camera orbitale attorno al cursore (sinistra/destra ruota, su/giù zoom, `,` `.` inclinazione); terreno con `map3d_build/draw`; oggetti con `model("APPLE")`, `model("CRATE")`, `model("PICO")` se esistono nel `.bm`, altrimenti sfera/cubo segnaposto; cursore di cella = quadrato giallo sul suolo. Nel layer `objects` la barra di stato mostra il nome del placeholder (1024–1029). Ricostruire il mondo solo quando la mappa cambia (flag sporco): 60 fps a 480×270.
+- **Modifica richiesta**: `v` commuta 2D/3D (se occupato, scegli un altro tasto e scrivilo nel Log). In 3D: camera orbitale attorno al cursore (sinistra/destra ruota, su/giù zoom, `Shift+Su`/`Shift+Giù` inclinazione; `,` `.` `[` `]` sono già "tessera prima/dopo" e NON vanno toccati); terreno con `map3d_build/draw`; oggetti con `model("APPLE")`, `model("CRATE")`, `model("PICO")` se esistono nel `.bm`, altrimenti sfera/cubo segnaposto; cursore di cella = quadrato giallo sul suolo. Nel layer `objects` la barra di stato mostra il nome del placeholder (1024–1032). Aggiungere: rinomina layer (tasto libero a scelta, scritto nel Log) e il template/azione "3D map" che crea `floor`, `height`, `walls`, `objects`. Verificato 2026-10-13: `v` e `Shift+P/A/C/O` sono liberi nella pagina Map. Ricostruire il mondo solo quando la mappa cambia (flag sporco): 60 fps a 480×270.
 - **Comando di verifica**: nuovo test in `tests/` che lancia `bmhost --tool` sull'editor con una cartuccia 8×40, preme `v`, verifica nessun errore Lua e che l'immagine 3D differisca da quella 2D; exit 0. Più `python scripts/consistency.py check` senza nuovi errori.
 - **Stato**: `PENDING`
 
 ### WORK ORDER: AGY-03
 - **Obiettivo**: strumenti di livello lineare: percorso, file di mele, casse, lampade.
 - **File / Funzioni da toccare**: `carts/editor/` (stessa pagina Map, codice nuovo); `docs/progress/tools.md` (Open work e Rules); `manuals/content/en/editor-sdk.md` (sezione "3D maps", inglese; segnare l'italiano come in ritardo come richiede la skill `bm-manuals`).
-- **Modifica richiesta**: (a) `Shift+P` percorso: due celle (Invio, Invio) tracciano un corridoio largo N (1–5, `[` `]`) sul layer `floor` con la tessera corrente; (b) `Shift+A` mele: due celle → riga di placeholder 1025 a passo 1 cella; (c) `Shift+C` casse: una cella → placeholder 1026 (una per cella); (d) `Shift+O` lampada: placeholder 1029; (e) la barra di stato mostra conteggi (mele, casse, lampade) e triangoli stimati; (f) `Ctrl+Z` annulla l'intero tratto in un colpo. Salva come sempre nel `.bme`; `Ctrl+B` genera il `.bm`.
-- **Comando di verifica**: test su `bmhost --tool` con script di tasti che disegna un percorso 4×60 con 20 mele e 6 casse e salva; `scripts/bmres.py` (sezione LAYERS) conferma 20 celle 1025 e 6 celle 1026; exit 0.
+- **Modifica richiesta**: (a) `Shift+P` percorso: due celle (Invio, Invio) tracciano un corridoio largo N (1–5, `Shift+W` cicla la larghezza) sul layer `floor` con la tessera corrente; (b) `Shift+A` mele: due celle → riga di placeholder 1026 a passo 1 cella; (c) `Shift+C` casse: una cella → placeholder 1028 (una per cella); (d) `Shift+O` lampada: placeholder 1032; (e) la barra di stato mostra conteggi (mele, casse, lampade) e triangoli stimati; (f) `Ctrl+Z` (esiste già) deve annullare l'intero tratto in un colpo. Salva come sempre nel `.bme`; `Ctrl+B` genera il `.bm`.
+- **Comando di verifica**: test su `bmhost --tool` con script di tasti che disegna un percorso 4×60 con 20 mele e 6 casse e salva; `scripts/bmres.py` (sezione LAYERS) conferma 20 blocchi 1026 e 6 blocchi 1028; exit 0.
 - **Stato**: `PENDING`
 
 ### WORK ORDER: AGY-04
@@ -104,6 +106,22 @@ Ordine: AGY-01 → 02 → 03. AGY-05 è indipendente. AGY-04 parte dopo la regis
 - **Modifica richiesta**: `python video/lib/cover.py <cover.json> -o <out.png>`. JSON: `{"number": 1, "title": "...", "subtitle": "...", "tool": "STUDIO", "screenshot": "percorso-opzionale.png", "accent": "#RRGGBB"}`. Layout fisso: fondo gradiente verde giungla → blu; banda in alto "TROPIC TRAIL · EP n"; numero grande a sinistra; titolo bianco in grassetto (max 2 righe, il corpo si riduce finché ci sta); sottotitolo con il nome dell'editor; riquadro a destra con lo screenshot (se manca, sagoma di Pico a poligoni a colori piatti); logo "bm" in basso a destra. Font: solo quello già in repo (vedi `docs/LICENSE.font`). Solo Pillow. Deterministico (stesso input, stesso PNG).
 - **Comando di verifica**: `python video/lib/cover.py video/lib/cover_test.json -o <scratch>/c.png` seguito da un controllo Pillow che la dimensione sia (1280, 720); due esecuzioni danno lo stesso hash.
 - **Stato**: `PENDING`
+
+---
+
+## 3b. Stime e timer (regola per tutti)
+
+| WO | Stima (lavoro effettivo) | Nota |
+|---|---|---|
+| AGY-05 | 1–2 h | indipendente, da fare per prima |
+| AGY-01 | 4–8 h | il più rischioso (C, GPU/software) |
+| AGY-02 | 3–5 h | dipende da AGY-01 |
+| AGY-03 | 3–5 h | dipende da AGY-02 |
+| AGY-04 | 3–5 h | dopo il video 4 |
+| CLD-01 | 1–2 h | in corso |
+| CLD-03 | 1–2 h per video | local: record.py e verify; cloud: ripresa QEMU |
+
+**Regole di sincronizzazione**: (1) chi ha una task lunga tiene un timer attivo (ScheduleWakeup/cron o equivalente, 20–30 min) che fa `git fetch origin` e legge questo file (Sezione 5) e i branch dell'altro; (2) a ogni milestone aggiorna il Log; (3) se serve un'azione dell'utente (sync manuale, merge, chiave, dispositivo) la riga del Log inizia con `USER:` e dice cosa serve; (4) ogni risposta all'utente chiude con lo stato di **Claude cloud, Claude local, Antigravity**. Se manca una feature degli editor, la costruisce chi ha il file libero e la consegna sul proprio branch; i file di `carts/editor/` sono di Antigravity.
 
 ---
 
@@ -134,3 +152,5 @@ Utilizzare questa tabella come registro delle comunicazioni e dei passaggi di co
 |---|---|---|---|---|
 | 2026-10-13 | Antigravity | `bm-core` | `INIT` | Protocollo `SYNC.md` inizializzato su `bm-core`. Pronto a ricevere architettura e task da Claude Code. |
 | 2026-10-13 | Claude Code | `bm-core` | `SPECS PUSHED` | Sezioni 2-4 compilate. Parti da AGY-01 (o AGY-05, indipendente) su `feat/antigravity-map3d`. Worktree rimosso, bm-core allineato; `pdf-manuals` e `claude/bm-forge` sono già in bm-core. Claude lavora su `feat/claude-video3d`. |
+| 2026-10-13 | Claude Code | `bm-core` | `CONTRACT FIX` | Correzione §2/AGY-02/03 dopo verifica sul codice dell'editor: segnaposto sugli id pari (1024 start, 1026 APPLE, 1028 CRATE, 1030 GOAL, 1032 LAMP), rinomina layer da aggiungere, `[ ] , .` già usati (inclinazione = Shift+Su/Giù, larghezza percorso = Shift+W), Ctrl+Z esiste. |
+| 2026-10-13 | Claude Code | `bm-core` | `RULES` | Aggiornamento dell'utente: QEMU fluido (registratore principale), volume basso, regole timer/stato in §3b. Antigravity: tieni anche tu un timer di check su `origin`, scrivi `USER:` nel Log se ti serve l'utente e chiudi i messaggi con lo stato dei tre agenti. |
