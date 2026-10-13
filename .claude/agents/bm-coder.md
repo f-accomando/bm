@@ -1,7 +1,7 @@
 ---
 name: bm-coder
 description: Scrive codice partendo ESCLUSIVAMENTE da un Ordine di Lavoro (Work Order) preciso ed esaustivo. Non prende decisioni di architettura o design e non interpreta requisiti ambigui.
-model: claude-haiku-4-5
+model: claude-haiku-5-5
 effort: high
 tools: Read, Edit, Write, Grep, Glob
 ---
