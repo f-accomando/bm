@@ -1,0 +1,581 @@
+# Registry of the keys of bm/config.txt that the kernel code reads (or writes). Facts taken from the C code.
+# Date: 2026-10-13.
+# Regenerate the list of names: grep -rhoE 'config_[a-z_]*\("[a-z0-9_]+"' src
+#   (that finds the literal keys; also read: the keys built at run time, listed below as [[pattern]], and
+#   bt_kbd/bt_mouse (+ _key) and meshy_key, whose names are in src/bt/ble.c key_addr/key_ltk and src/net/img3d.c;
+#   github_api/report_repo/report_branch are read through cfg("...") in src/kernel/reports.c).
+# Format of a block: scope = all | pi | rgb30 | tests (where the code reads it); values = what is accepted;
+#   default = what happens when the key is missing; settings = the Settings row that edits it ("" = by hand only);
+#   read_in = file:line of the read.
+# Rules of the file itself (src/kernel/config.c): a key is letters, digits, "_" (max 23 chars), a value max 127;
+#   a key ending in _token, _psk, _password or _key is a secret (hidden by config_list and the PC tools);
+#   "key=" from the PC removes the key. Unknown keys are kept as they are.
+
+[[key]]
+name = "assist_lang"
+scope = "all"
+values = "it or en (fixes the assistant's language); anything else = auto"
+default = "auto: follows the language of the questions, last used"
+meaning = "Language of the assistant (ai_set_lang)."
+settings = ""
+read_in = "src/bm/runtime.c:4842"
+
+[[key]]
+name = "battery_icon"
+scope = "rgb30"
+values = "0 = off; anything else = on"
+default = "on (the icon shows when the battery is low)"
+meaning = "Small red low-battery icon over games and tools."
+settings = "Settings > Screen and sound > Low battery icon"
+read_in = "src/bm/runtime.c:8331"
+
+[[key]]
+name = "bm_scale"
+scope = "rgb30"
+values = "int = whole-pixel scale (largest that fits); anything else = fill"
+default = "fill the panel"
+meaning = "How a .bm game is scaled on the RGB30 panel."
+settings = ""
+read_in = "src/rgb30/fb.c:87"
+
+[[key]]
+name = "bm_smooth"
+scope = "rgb30"
+values = "1 = smooth scaling; anything else = off"
+default = "off"
+meaning = "Smoothing of the scaled .bm game picture."
+settings = ""
+read_in = "src/rgb30/fb.c:87"
+
+[[key]]
+name = "bt_kbd"
+scope = "all"
+values = "\"<address aa:bb:cc:dd:ee:ff> <type 0|1> <irk or ->\" (written when pairing; needs bt_kbd_key too, at least 21 chars)"
+default = "no Bluetooth LE keyboard paired"
+meaning = "The paired Bluetooth LE keyboard (written by the pairing, removed by Forget)."
+settings = "Settings > Controllers > Pair a keyboard (written); Forget all controllers (removed)"
+read_in = "src/bt/ble.c:251"
+
+[[key]]
+name = "bt_kbd_key"
+scope = "all"
+values = "\"<ltk 32 hex> <ediv 4 hex> <rand 16 hex>\" (at least 54 chars)"
+default = "no bond"
+meaning = "Keys of the Bluetooth LE keyboard bond (secret: ends in _key)."
+settings = "Settings > Controllers > Pair a keyboard (written); Forget all controllers (removed)"
+read_in = "src/bt/ble.c:251"
+
+[[key]]
+name = "bt_mouse"
+scope = "all"
+values = "same format as bt_kbd"
+default = "no Bluetooth LE mouse paired"
+meaning = "The paired Bluetooth LE mouse."
+settings = "Settings > Controllers > Pair a mouse (written); Forget all controllers (removed)"
+read_in = "src/bt/ble.c:251"
+
+[[key]]
+name = "bt_mouse_classic"
+scope = "all"
+values = "\"<address> <32 hex digits of the link key>\" (as bt_pad<N>); the mouse's classic Bluetooth slot"
+default = "no classic Bluetooth mouse paired (the key present at all counts as paired)"
+meaning = "Paired classic Bluetooth mouse (slot after the 4 pads)."
+settings = "Settings > Controllers > Pair a mouse (written); Forget all controllers (removed)"
+read_in = "src/bt/bt.c:639"
+
+[[key]]
+name = "bt_mouse_key"
+scope = "all"
+values = "same format as bt_kbd_key"
+default = "no bond"
+meaning = "Keys of the Bluetooth LE mouse bond (secret: ends in _key)."
+settings = "Settings > Controllers > Pair a mouse (written); Forget all controllers (removed)"
+read_in = "src/bt/ble.c:251"
+
+[[key]]
+name = "bt_pad"
+scope = "all"
+values = "\"<address aa:bb:cc:dd:ee:ff> <32 hex digits>\" (old format)"
+default = "absent; used as player 1 only when bt_pad1 is missing, then moved to bt_pad1 at the next pairing"
+meaning = "Legacy key of a paired Bluetooth pad (the same as bt_pad1 now)."
+settings = "Settings > Controllers > Forget all controllers (removed)"
+read_in = "src/bt/bt.c:217"
+
+[[key]]
+name = "confirm"
+scope = "rgb30"
+values = "a or A = A confirms and B goes back; anything else = B confirms, A goes back"
+default = "B confirms, A goes back"
+meaning = "Confirm button of the RGB30 menus."
+settings = "Settings > Controllers > Confirm button"
+read_in = "src/rgb30/pad.c:14"
+
+[[key]]
+name = "dma_zclear"
+scope = "pi"
+values = "0 = off; anything else = on"
+default = "on (the z-buffer clear runs on the DMA when the DMA is ready; the RGB30 has none)"
+meaning = "DMA clear of the ARM 3D z-buffer during _update."
+settings = ""
+read_in = "src/bm/runtime.c:1948"
+
+[[key]]
+name = "draw"
+scope = "all"
+values = "ram = .bm games draw via RAM; anything else = direct"
+default = "direct (the variable starts at 0)"
+meaning = "Drawing mode of the .bm games."
+settings = "Settings > Screen and sound > Game drawing (.bm)"
+read_in = "src/kernel/config.c:105"
+
+[[key]]
+name = "game_buttons"
+scope = "rgb30"
+values = "position = B A Y X swapped as a quarter turn; anything else = by letter"
+default = "by letter"
+meaning = "Button mapping of the .b16 games' face buttons on the RGB30."
+settings = ""
+read_in = "src/rgb30/bm_input.c:32"
+
+[[key]]
+name = "game_intro"
+scope = "all"
+values = "0 = no loading intro; anything else = intro"
+default = "intro shown"
+meaning = "The retro loading screen before a game."
+settings = ""
+read_in = "src/bm/loading.c:285"
+
+[[key]]
+name = "github_api"
+scope = "all"
+values = "a URL (empty counts as missing)"
+default = "https://api.github.com"
+meaning = "GitHub API base for the reports and the Market publishing."
+settings = ""
+read_in = "src/kernel/reports.c:144"
+
+[[key]]
+name = "github_token"
+scope = "all"
+values = "a GitHub token (empty counts as missing); secret"
+default = "no token: reports stay on the SD card, publishing is off"
+meaning = "Token to send reports to GitHub (also turns session_report on when it is unset) and to publish."
+settings = ""
+read_in = "src/kernel/reports.c:118"
+
+[[key]]
+name = "gpu3d"
+scope = "pi"
+values = "0 = the ARM draws the 3D; anything else = the V3D GPU (a game's own setting can override)"
+default = "GPU"
+meaning = "GPU or ARM for the 3D of the games."
+settings = "Settings > Screen and sound > 3D of the games"
+read_in = "src/bm/runtime.c:1850"
+
+[[key]]
+name = "gpu3d_2d"
+scope = "pi"
+values = "1 = the 2D over the 3D is drawn by the GPU in its job; anything else = ARM"
+default = "ARM"
+meaning = "Who draws the 2D over the GPU 3D."
+settings = "Settings > Screen and sound > 2D over the 3D"
+read_in = "src/bm/runtime.c:1885"
+
+[[key]]
+name = "gpu3d_aa"
+scope = "pi"
+values = "1 = MSAA 4x; anything else = off"
+default = "off"
+meaning = "Anti-aliasing of the GPU 3D."
+settings = "Settings > Screen and sound > 3D anti-aliasing"
+read_in = "src/bm/runtime.c:1863"
+
+[[key]]
+name = "gpu3d_attr"
+scope = "pi"
+values = "1 = compact vertex attributes; anything else = floats"
+default = "floats"
+meaning = "Vertex attribute format of the GPU 3D."
+settings = "Settings > Screen and sound > 3D corners"
+read_in = "src/bm/runtime.c:1883"
+
+[[key]]
+name = "gpu3d_etc1"
+scope = "pi"
+values = "1 = opaque textures as ETC1; anything else = off"
+default = "off"
+meaning = "ETC1 compression of the opaque 3D textures."
+settings = "Settings > Screen and sound > 3D textures (the row cycles gpu3d_filter, gpu3d_tex16 and gpu3d_etc1)"
+read_in = "src/bm/runtime.c:1877"
+
+[[key]]
+name = "gpu3d_filter"
+scope = "pi"
+values = "1 = bilinear; anything else = nearest"
+default = "nearest"
+meaning = "Texture filter of the GPU 3D."
+settings = "Settings > Screen and sound > 3D textures"
+read_in = "src/bm/runtime.c:1873"
+
+[[key]]
+name = "gpu3d_fs2"
+scope = "pi"
+values = "0 = one-thread pixel shaders; anything else = two threads"
+default = "two threads (on)"
+meaning = "Two-thread pixel shaders of the GPU 3D."
+settings = "Settings > Screen and sound > 3D pixel shaders"
+read_in = "src/bm/runtime.c:1879"
+
+[[key]]
+name = "gpu3d_later"
+scope = "pi"
+values = "1 = each frame shown a frame later (needs gpu3d_queue=2); anything else = at once"
+default = "at once"
+meaning = "Shows the GPU frame one frame later."
+settings = "Settings > Screen and sound > 3D frame shown"
+read_in = "src/bm/runtime.c:1887"
+
+[[key]]
+name = "gpu3d_queue"
+scope = "pi"
+values = "1 = one job queued, 2 = two jobs in flight; anything else = 0 (off)"
+default = "0 (off)"
+meaning = "Frame queue: the game runs while the GPU draws the previous frame."
+settings = "Settings > Screen and sound > 3D frame queue"
+read_in = "src/bm/runtime.c:1868"
+
+[[key]]
+name = "gpu3d_sort"
+scope = "pi"
+values = "1 = opaque meshes nearest first; anything else = as the game"
+default = "as the game"
+meaning = "Draw order of the opaque meshes."
+settings = "Settings > Screen and sound > 3D draw order"
+read_in = "src/bm/runtime.c:1881"
+
+[[key]]
+name = "gpu3d_tex16"
+scope = "pi"
+values = "1 = opaque textures in 16 bits; anything else = off"
+default = "off"
+meaning = "16-bit opaque textures."
+settings = "Settings > Screen and sound > 3D textures"
+read_in = "src/bm/runtime.c:1875"
+
+[[key]]
+name = "gpu3d_vs"
+scope = "pi"
+values = "0 = the ARM places the corners, 1 = GPU for scenery, 2 = GPU for every model (atoi of the text)"
+default = "2"
+meaning = "Vertex shader mode of the GPU 3D."
+settings = "Settings > Screen and sound > 3D vertices"
+read_in = "src/bm/runtime.c:1865"
+
+[[key]]
+name = "gpu3d_wc"
+scope = "pi"
+values = "1 = job memory uncached (write-combined); anything else = cached"
+default = "cached"
+meaning = "Memory type of the GPU jobs."
+settings = "Settings > Screen and sound > 3D job memory"
+read_in = "src/bm/runtime.c:1871"
+
+[[key]]
+name = "layout"
+scope = "all"
+values = "us = US layout; anything else = Italian (it)"
+default = "it"
+meaning = "Layout of the USB or Bluetooth keyboard."
+settings = "Settings > Controllers > Keyboard layout"
+read_in = "src/kernel/config.c:103"
+
+[[key]]
+name = "lib_tab"
+scope = "pi"
+values = "1 = show the Lib tab; anything else = hidden"
+default = "Lib tab hidden"
+meaning = "Shows the Lib (resources) tab of the cartridge menu."
+settings = ""
+read_in = "src/kernel/carts.c:1167"
+
+[[key]]
+name = "market_delay"
+scope = "all"
+values = "milliseconds (strtol)"
+default = "0 (no delay)"
+meaning = "Slows a Market source down (for tests)."
+settings = ""
+read_in = "src/kernel/market.c:442"
+
+[[key]]
+name = "market_repo"
+scope = "pi"
+values = "owner/repo of GitHub (empty counts as missing)"
+default = "f-accomando/bm-market"
+meaning = "Repository where Dev > Publish sends the pull request."
+settings = ""
+read_in = "src/kernel/publish.c:45"
+
+[[key]]
+name = "market_url"
+scope = "all"
+values = "a URL; a final / is added if missing (empty counts as missing)"
+default = "https://f-accomando.github.io/bm-market/"
+meaning = "Base URL of the Market catalog."
+settings = ""
+read_in = "src/kernel/market.c:437"
+
+[[key]]
+name = "menu_scale"
+scope = "pi"
+values = "3 = menu at 3x; anything else = 1 (the code tests only for \"3\")"
+default = "1"
+meaning = "Size of the menu on the Pi (3x enlarged, by the GPU where there is one)."
+settings = ""
+read_in = "src/kernel/menu_ui.c:1188"
+
+[[key]]
+name = "meshy_key"
+scope = "pi"
+values = "the API key of the Meshy image-to-3D service; secret"
+default = "missing: the image-to-3D service reports 'put the key in bm/config.txt'; on the RGB30 the service does not exist"
+meaning = "Key of the picture-to-model service (img3d provider meshy)."
+settings = ""
+read_in = "src/bm/runtime.c:6302"
+
+[[key]]
+name = "mouse"
+scope = "all"
+values = "off, 0 or no = pointer off; anything else = on"
+default = "on"
+meaning = "Mouse pointer in the menus and games."
+settings = ""
+read_in = "src/kernel/pointer.c:27"
+
+[[key]]
+name = "name"
+scope = "all"
+values = "a text (empty counts as missing)"
+default = "bm-<last number of the IP address>"
+meaning = "Name of this console for the nearby consoles (LAN)."
+settings = ""
+read_in = "src/kernel/market.c:1091"
+
+[[key]]
+name = "net_password"
+scope = "all"
+values = "a text (empty counts as missing); secret"
+default = "a random 6-digit number is made when the network console starts and saved here"
+meaning = "Password of the network console (port 3333)."
+settings = ""
+read_in = "src/net/netcon.c:178"
+
+[[key]]
+name = "perf"
+scope = "all"
+values = "off or 0 = off; bottom = bottom overlay; anything else (top, 1, 2, 3) = top"
+default = "off"
+meaning = "The dev kit's performance overlay."
+settings = "Settings > Screen and sound > Performance overlay"
+read_in = "src/kernel/config.c:107"
+
+[[key]]
+name = "prompts"
+scope = "all"
+values = "colour = coloured button icons; anything else = white"
+default = "white"
+meaning = "Colour of the DS4 button icons in the hints."
+settings = "Settings > Controllers > Button icons"
+read_in = "src/kernel/settings.c:113"
+
+[[key]]
+name = "r3d_fast"
+scope = "all"
+values = "1 = fast (one matrix a model); anything else = exact"
+default = "exact"
+meaning = "Mode of the ARM 3D (r3d)."
+settings = "Settings > Screen and sound > 3D on the ARM"
+read_in = "src/bm/runtime.c:1913"
+
+[[key]]
+name = "r3d_impostor"
+scope = "all"
+values = "number of pixels (atoi), limited to 2..64; 0 or less = off; the Settings steps are 0, 8, 16, 32"
+default = "0 (off)"
+meaning = "Far small meshes drawn as one quad, up to that many pixels of a 1080-line screen."
+settings = "Settings > Screen and sound > 3D impostors (Pi only; the RGB30 reads the key but has no row)"
+read_in = "src/bm/runtime.c:1915"
+
+[[key]]
+name = "report_branch"
+scope = "all"
+values = "a branch name (empty counts as missing)"
+default = "reports"
+meaning = "Branch where the reports are put."
+settings = ""
+read_in = "src/kernel/reports.c:145"
+
+[[key]]
+name = "report_repo"
+scope = "all"
+values = "owner/repo (empty counts as missing)"
+default = "f-accomando/bm"
+meaning = "Repository that receives the reports."
+settings = ""
+read_in = "src/kernel/reports.c:145"
+
+[[key]]
+name = "report_upload"
+scope = "all"
+values = "0 = never send automatically; anything else = send"
+default = "send (when there is a github_token and a network)"
+meaning = "Turns the automatic upload of the reports off."
+settings = ""
+read_in = "src/kernel/reports.c:233"
+
+[[key]]
+name = "session_report"
+scope = "all"
+values = "text starting with 0 = off; any other non-empty text = on"
+default = "on if github_token is set, else off"
+meaning = "A report with the frames of a game run, when it ends (30 frames or more)."
+settings = ""
+read_in = "src/bm/runtime.c:9375"
+
+[[key]]
+name = "show_b16"
+scope = "pi"
+values = "1 = list the .b16 even when the game has a .bm; anything else = keep the .bm"
+default = "a game that has both editions shows only its .bm; .b16-only games are always shown"
+meaning = "Shows the .b16 editions in the Pi's catalog."
+settings = ""
+read_in = "src/kernel/market.c:367"
+
+[[key]]
+name = "show_bm"
+scope = "rgb30"
+values = "market.c (the catalog): 1 = also list .bm cartridges; ui.c (the games list): 0 = hide .bm"
+default = "catalog: only .b16 games; games list: .bm shown"
+meaning = "Shows the .bm cartridges on the RGB30 (the two reads have opposite defaults)."
+settings = ""
+read_in = "src/kernel/market.c:354; src/rgb30/ui.c:237"
+
+[[key]]
+name = "sound"
+scope = "all"
+values = "8bit = 8-bit chip style; anything else = hifi"
+default = "hifi"
+meaning = "Sound style."
+settings = "Settings > Screen and sound > Sound style"
+read_in = "src/kernel/config.c:111"
+
+[[key]]
+name = "sound_depth"
+scope = "all"
+values = "16, 24 or 32 (bits a sample); any other value = 24"
+default = "24"
+meaning = "Bit depth of the sound output."
+settings = "Settings > Screen and sound > Bit depth"
+read_in = "src/kernel/config.c:113"
+
+[[key]]
+name = "test_battery"
+scope = "tests"
+values = "\"mV[,charger state]\" (1 charging, 2 full); strtol of the text"
+default = "no battery (plat_battery fails)"
+meaning = "A battery for the QEMU virt platform of the RGB30 (no battery there)."
+settings = ""
+read_in = "src/rgb30/plat_virt.c:188"
+
+[[key]]
+name = "update_url"
+scope = "all"
+values = "a URL or a folder of the SD card (empty counts as missing)"
+default = "https://github.com/f-accomando/bm/releases"
+meaning = "Where the updates are looked for."
+settings = ""
+read_in = "src/kernel/update.c:175"
+
+[[key]]
+name = "v3d_clock"
+scope = "pi"
+values = "text starting with m (max) = the GPU at the highest clock the firmware allows; anything else = untouched"
+default = "the firmware's clock"
+meaning = "V3D GPU clock."
+settings = ""
+read_in = "src/kernel/main.c:266"
+
+[[key]]
+name = "volume"
+scope = "all"
+values = "a number starting with a digit (atoi), limited to 0..10"
+default = "10 (AUDIO_VOLUME_MAX)"
+meaning = "Sound volume."
+settings = "Settings > Screen and sound > Volume"
+read_in = "src/kernel/config.c:109"
+
+[[key]]
+name = "wifi_boot"
+scope = "all"
+values = "0 = do not join the saved network at boot; anything else = join"
+default = "join (needs wifi_ssid)"
+meaning = "Connect to the saved network when the console starts."
+settings = "Settings > WiFi and network > Connect at boot"
+read_in = "src/net/wifi_auto.c:54"
+
+[[key]]
+name = "wifi_psk"
+scope = "all"
+values = "the network's password (empty or missing for an open network); secret"
+default = "none"
+meaning = "Password of the saved WiFi network."
+settings = "Settings > WiFi and network > Connect to a network (Pi: written after a join; RGB30: by hand)"
+read_in = "src/wifi/wifi.c:1092; src/rgb30/rtw_sta.c:647"
+
+[[key]]
+name = "wifi_security"
+scope = "pi"
+values = "UNVERIFIED (the security text of the scan result, e.g. open or WPA2; the full list is in the scan code)"
+default = "WPA2 when the network is not seen in the scan"
+meaning = "Security type of the saved network (written after a successful join)."
+settings = "Settings > WiFi and network > Connect to a network (written)"
+read_in = "src/wifi/wifi.c:1219"
+
+[[key]]
+name = "wifi_ssid"
+scope = "all"
+values = "the network's name (empty counts as none)"
+default = "no network saved: no join"
+meaning = "The saved WiFi network."
+settings = "Settings > WiFi and network > Connect to a network (Pi: written after a join; RGB30: by hand)"
+read_in = "src/net/wifi_auto.c:54; src/wifi/wifi.c:1092; src/rgb30/rtw_sta.c:647"
+
+# Keys built at run time (patterns).
+
+[[pattern]]
+name = "bt_pad<N>"
+scope = "all"
+values = "N = 1..4 (BT_PADS); \"<address aa:bb:cc:dd:ee:ff> <32 hex digits of the link key>\""
+default = "that player slot has no Bluetooth pad paired"
+meaning = "Link key of the Bluetooth pad of player N; written by the pairing. The mouse's classic slot is bt_mouse_classic."
+settings = "Settings > Controllers > Pair a new controller (written); Forget all controllers (removed)"
+read_in = "src/bt/bt.c:189"
+
+[[pattern]]
+name = "allow_<save name>"
+scope = "all"
+values = "\"net=yes|no,report=yes|no,docs=yes|no\" (a part may be missing; yes if the text after the = starts with yes); the kernel adds the game title in parentheses"
+default = "missing = never asked: the game stops and asks the player on the first use; the answer is saved. Not asked for the tools (tool_mode) or when the kernel has not turned the question on (bmhost, PC tests): allowed"
+meaning = "Permissions given to a game: network, sending a report, documents. <save name> is the game's save name without its extension (src/bm/runtime.c perm_key). Remove the line to be asked again."
+settings = ""
+read_in = "src/bm/runtime.c:7695 (perm_key), 7703 (perm_get), 7816 (perm_allowed)"
+
+[[pattern]]
+name = "<game>_<anything>"
+scope = "all"
+values = "free text; <game> = first word of the game's title, lower case, only a-z and 0-9 kept (Overbit: overbit_bench)"
+default = "cart_config(key) returns nil when missing or empty"
+meaning = "Flags of one game, read and written only by the Lua cart_config(key [, value]); a key with another prefix is an error. Set from the monitor line (set overbit_bench=1080) or easy_install."
+settings = ""
+read_in = "src/bm/runtime.c:3511 (l_cart_config)"

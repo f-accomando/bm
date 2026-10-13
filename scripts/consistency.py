@@ -4,6 +4,7 @@ consistency.py - the formats and the platforms of bm kept consistent (docs/spec/
 
   scripts/consistency.py check          every rule below: fails on drift that docs/spec/known.toml does not accept
   scripts/consistency.py report         the same, with the accepted divergences listed (their reason) too
+  scripts/consistency.py gate           what still blocks version 1.0.0: everything must converge before it (docs/spec/CONSISTENCY.md)
   scripts/consistency.py since PATTERN FILE   the first release tag that has PATTERN in FILE (for docs/spec/specs.toml)
 
 The same fact lives in several files (the kernel in C, the tools in Python, the docs): this compares them, so a change
@@ -181,7 +182,39 @@ def rule_spec():
     return out
 
 
-RULES = [rule_resolutions, rule_sections, rule_flags, rule_api, rule_tools, rule_platforms, rule_spec]
+def rule_config():
+    """the keys of bm/config.txt: every key the code reads is in docs/spec/config-keys.toml, with the right scope"""
+    out = []
+    with open(os.path.join(ROOT, "docs/spec/config-keys.toml"), "rb") as f:
+        data = tomllib.load(f)
+    reg = {k["name"]: k for k in data["key"]}
+    patterns = [re.compile("^" + re.sub(r"<[^>]*>", r"\\w+", re.escape(p["name"]).replace("\\<", "<").replace("\\>", ">")) + "$")
+                for p in data.get("pattern", [])]
+    seen = {}
+    allsrc = ""
+    for path in glob.glob(os.path.join(ROOT, "src", "**", "*.c"), recursive=True):
+        text = open(path, encoding="utf-8", errors="replace").read()
+        allsrc += text
+        area = "rgb30" if "/src/rgb30/" in path else "other"
+        for k in re.findall(r'config_[a-z_]*\(\s*"(\w+)"', text):
+            seen.setdefault(k, set()).add(area)
+    for k in sorted(seen):
+        if k not in reg and any(p.match(k) for p in patterns):
+            continue
+        if k not in reg:
+            out.append(Finding("config", f"unregistered:{k}", f"the code reads `{k}` and docs/spec/config-keys.toml does not list it"))
+        elif seen[k] == {"rgb30"} and reg[k]["scope"] not in ("rgb30", "tests"):
+            out.append(Finding("config", f"scope:{k}", f"`{k}` is read only in src/rgb30 and its scope is {reg[k]['scope']}"))
+    for k, v in reg.items():
+        if f'"{k}"' not in allsrc:
+            out.append(Finding("config", f"stale:{k}", f"`{k}` is in docs/spec/config-keys.toml and no code mentions it"))
+        for field in ("scope", "values", "default", "meaning", "read_in"):
+            if field not in v:
+                out.append(Finding("config", f"field:{k}", f"`{k}` has no `{field}`"))
+    return out
+
+
+RULES = [rule_resolutions, rule_sections, rule_flags, rule_api, rule_tools, rule_platforms, rule_spec, rule_config]
 
 
 # ------------------------------------------------------------------ the accepted divergences
@@ -213,6 +246,30 @@ def run(verbose):
     return 1 if bad or stale else 0
 
 
+KINDS = ("hardware", "history", "todo", "unknown", "text")
+BLOCKING = ("history", "todo", "unknown")          # kinds that must be gone before 1.0.0: only hardware and noise may stay
+
+
+def gate():
+    """what stops 1.0.0: accepted divergences that are not hardware, and spec items not fully implemented"""
+    known = load_known()
+    blockers = []
+    for k, v in known.items():
+        if v["kind"] not in KINDS:
+            blockers.append(f"{k}: kind '{v['kind']}' is not one of {', '.join(KINDS)}")
+        elif v["kind"] in BLOCKING:
+            blockers.append(f"divergence {k} ({v['kind']}): {v['because']}")
+    with open(os.path.join(ROOT, "docs/spec/specs.toml"), "rb") as f:
+        reg = tomllib.load(f)
+    for it in reg["item"]:
+        if it["status"] != "implemented":
+            blockers.append(f"spec item {it['id']} is {it['status']}: {it.get('note', '')}")
+    for b in blockers:
+        print("BLOCKS 1.0.0  " + b)
+    print(f"gate: {len(blockers)} blockers for 1.0.0")
+    return 1 if blockers else 0
+
+
 def since(pattern, path):
     """the first release tag whose file has the pattern (git pickaxe)"""
     commit = subprocess.run(["git", "-C", ROOT, "log", "--format=%h", "--diff-filter=AM", "-S" + pattern, "--", path],
@@ -231,12 +288,15 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("check")
     sub.add_parser("report")
+    sub.add_parser("gate")
     s = sub.add_parser("since")
     s.add_argument("pattern")
     s.add_argument("path")
     a = ap.parse_args()
     if a.cmd == "since":
         return since(a.pattern, a.path)
+    if a.cmd == "gate":
+        return gate()
     return run(a.cmd == "report")
 
 

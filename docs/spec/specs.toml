@@ -49,10 +49,10 @@ note = ".bme: bit 0 of the flags at offset 18; the extension tells the kind, not
 [[item]]
 id = "b16-edition"
 since = 1
-status = "label-only"
+status = "implemented"
 platforms = "all"
 where = ["docs/B16.md", "src/bm/project.h", "scripts/mkbm.py"]
-note = "a target (360x360 or 720x720, 8 MiB), not a sandbox: same runtime as .bm"
+note = "by decision (2026-10-13) a target (360x360 or 720x720, 8 MiB), not a sandbox: same runtime as .bm"
 
 [[item]]
 id = "info-keys"
