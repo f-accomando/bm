@@ -234,7 +234,7 @@ zspr("eroe_fermo", x, y, 1)                -- un fotogramma preciso
 ```
 
 `zone(nome)` dà dove sta e quanto è grande (per le collisioni), `zones()` tutti i nomi.
-Le zone si fanno anche con bm Pixel sulla console e con `scripts/bmres.py`.
+Le zone si fanno anche con il bake di bm Animator sulla console (sprite e box da un'animazione) e con `scripts/bmres.py`; bm Pixel le mostra (con i loro box) ma non le crea.
 
 **Hitbox e hurtbox per fotogramma.** Sotto una zona si scrivono i suoi riquadri: `hurt`
 dove il personaggio può essere colpito, `hit` dove il suo colpo fa male, `body` il suo

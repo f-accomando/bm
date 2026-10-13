@@ -231,7 +231,7 @@ zspr("hero_still", x, y, 1)                -- one precise frame
 ```
 
 `zone(name)` gives where it is and how big (for collisions), `zones()` all the names. Zones
-are also made with bm Pixel on the console and with `scripts/bmres.py`.
+are also made with the bake of bm Animator on the console (sprites and boxes from an animation) and with `scripts/bmres.py`; bm Pixel shows them (and their boxes) but does not make them.
 
 **Hitboxes and hurtboxes per frame.** Under a zone you write its boxes: `hurt` where the
 character can be hit, `hit` where its blow hurts, `body` the room it takes, with the frame
