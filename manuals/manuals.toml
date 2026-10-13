@@ -24,46 +24,66 @@ order = 4
 sources = ["docs/RIFF.md", "docs/api/riff.md", "docs/api/sound.md"]
 
 [[manual]]
-id = "api"
+id = "api-core"
 order = 5
-sources = ["docs/API.md", "docs/api"]
+sources = ["docs/API.md", "docs/api/draw.md", "docs/api/input.md", "docs/api/system.md", "docs/GAME-GUIDE.md"]
+
+[[manual]]
+id = "api-sound"
+order = 6
+sources = ["docs/api/sound.md", "docs/api/riff.md"]
+
+[[manual]]
+id = "api-3d"
+order = 7
+sources = ["docs/api/light3d.md", "docs/BENCH3D.md"]
+
+[[manual]]
+id = "api-lib"
+order = 8
+sources = ["docs/api/bmlib.md", "docs/api/bmnet.md", "docs/design/games-architecture.md"]
+
+[[manual]]
+id = "api-tools"
+order = 9
+sources = ["docs/api/tools.md", "docs/RISORSE.md", "docs/PROJECT-LAYOUT.md", "docs/SCREENSHOTS.md"]
 
 [[manual]]
 id = "editor-sdk"
-order = 6
+order = 10
 sources = ["carts/editor/main.lua", "docs/design/suite-sdk.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-code"
-order = 7
+order = 11
 sources = ["carts/code/main.lua", "docs/design/suite-code.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-pixel"
-order = 8
+order = 12
 sources = ["carts/pixel/main.lua", "docs/design/suite-pixel.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-studio"
-order = 9
+order = 13
 sources = ["carts/studio/main.lua", "docs/design/suite-studio-mesh.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-animator"
-order = 10
+order = 14
 sources = ["carts/animator/main.lua", "docs/design/suite-animator.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-mesh"
-order = 11
+order = 15
 sources = ["carts/mesh/main.lua", "docs/design/suite-studio-mesh.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-sound"
-order = 12
+order = 16
 sources = ["carts/sound/main.lua", "docs/design/suite-sound.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-write"
-order = 13
+order = 17
 sources = ["carts/write/main.lua", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]

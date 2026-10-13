@@ -21,7 +21,7 @@ scripts/manuals.py            status, check, stamp, build for all the manuals
 | `boot-os` | what bm is: the boot, the kernel, the menu, the system keys, the files on the card |
 | `pi-zero-w` | the Pi Zero W 1.1 as bm uses it: the ARM1176, the VideoCore GPU, the bm3d 2D and 3D drivers |
 | `riff` | the RIFF music format |
-| `api` | the cartridge API, by area |
+| `api-core` `api-sound` `api-3d` `api-lib` `api-tools` | the cartridge API in five volumes: drawing, input and system; sound; 3D; bmlib and bmnet; tools and resources |
 | `editor-sdk` `editor-code` `editor-pixel` `editor-studio` `editor-animator` `editor-mesh` `editor-sound` `editor-write` | the editor of each app of the suite, one manual each |
 
 ## Commands

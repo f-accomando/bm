@@ -19,11 +19,15 @@ document of the area.
 - `shot()` asks the player nothing (it writes only in `bm/shots/`): keep it so, or ask like `doc_write`?
 
 ## Theme (PDF manuals)
-- Choose among A (paper/orange), B (night/cyan), C (blueprint/datasheet): previews in `manuals/themes/preview*.pdf` and `preview.png`.
+- Decided: theme A (paper / orange), the default. Themes B (night) and C (blueprint) stay in `manuals/themes/` as options.
+- A pixel font for the titles (as in the example PDF) needs a TTF with a licence that allows shipping it: which?
+- Print edition: a variant of A with a white page (less ink)?
 
 ## Manuals structure
-- Which manuals, in which order, and what the editor chapters cover.
-- Where the screenshots live in the repository (`manuals/shots/`?).
+- 17 manuals ([MANUALS.md](MANUALS.md)): the API in five volumes (core, sound, 3D, lib, tools), one manual per editor. One big API manual instead?
+- Where the finished PDFs live: `build/manuals` only, or committed (`docs/manuals/`, as `docs/scaffold.pdf`)?
+- Pictures: `manuals/shots/<manual>-<what>.png`, taken on the console; the ones not taken yet are listed in each manual's "Open points".
+- The Assistant app has no manual yet (it is not an editor).
 
 ## Assets
 - `res:` list in `bm.info` with SHA-256 and a licence check in `mkbm.py`: approved in

@@ -37,10 +37,10 @@ THEMES = os.path.join(ROOT, "manuals", "themes")
 LABELS = {
     "en": {"readme": "README", "try": "TRY IT", "warn": "BEWARE", "copy": "COPY AND PASTE", "note": "NOTE",
            "contents": "Contents", "open": "Open points", "none": "No open points.", "page": "page",
-           "fill": "TO FILL", "gap_in": "in"},
+           "fill": "TO FILL", "gap_in": "in", "picture": "picture to take"},
     "it": {"readme": "LEGGIMI", "try": "PROVA", "warn": "ATTENZIONE", "copy": "DA COPIARE", "note": "NOTA",
            "contents": "Indice", "open": "Punti aperti", "none": "Nessun punto aperto.", "page": "pagina",
-           "fill": "DA COMPLETARE", "gap_in": "in"},
+           "fill": "DA COMPLETARE", "gap_in": "in", "picture": "immagine da fare"},
 }
 GAP = re.compile(r"\[(?:TO FILL|DA COMPLETARE):([^\]]*)\]")
 
@@ -377,14 +377,17 @@ class Doc(BaseDocTemplate):
             self.notify("TOCEntry", (level, text, self.page, key))
 
 
-def gaps_of(lines):
-    """[(chapter, text)] of the gaps marked in the content"""
+def gaps_of(lines, base_dir, lab):
+    """[(chapter, text)] of the gaps marked in the content, and of the pictures not taken yet"""
     out, chap = [], ""
     for ln in lines:
         if ln.startswith("# "):
             chap = ln[2:].strip()
         for m in GAP.finditer(ln):
             out.append((chap, m.group(1).strip()))
+        m = re.match(r"!\[(.*)\]\((.*)\)", ln)
+        if m and not os.path.exists(os.path.join(base_dir, m.group(2))):
+            out.append((chap, f"{lab['picture']}: {m.group(2)}"))
     return out
 
 
@@ -416,9 +419,9 @@ def build(content_path, out, th):
     toc.dotsMinLevel = 0
     story = [NextPageTemplate("page"), PageBreak(),
              Paragraph(esc(lab["contents"]), p["h1"]), toc, PageBreak()]
-    story += build_story(th, meta, body, os.path.join(os.path.dirname(os.path.abspath(content_path)), "..", ".."),
-                         width, lang)
-    gaps = gaps_of(body)
+    base = os.path.join(os.path.dirname(os.path.abspath(content_path)), "..", "..")
+    story += build_story(th, meta, body, base, width, lang)
+    gaps = gaps_of(body, base, lab)
     story += [PageBreak(), Head(esc(lab["open"]), p["h1"], 0, lab["open"])]
     if not gaps:
         story.append(Paragraph(esc(lab["none"]), p["body"]))
