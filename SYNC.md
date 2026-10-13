@@ -30,6 +30,21 @@ Questo file è il canale di coordinamento e sincronizzazione asincrona tra **Cla
 
 ---
 
+## 1b. Stato e attese (aggiornare la propria riga a ogni milestone)
+
+Colonna **Aspetta**: chi deve agire prima che si possa procedere (`utente`, `Antigravity`, `Claude cloud`, `Claude local`, `nessuno`). Ultimo aggiornamento: 2026-10-13 (Claude local).
+
+| Agente | Task attuale | Aspetta | Da chi / cosa | ETA |
+|---|---|---|---|---|
+| **Claude local** | `record.py`/`verify.py` video 1, 2, 3, 5 (4 agenti in parallelo); poi review/merge | nessuno per proseguire | — (poi serve il cloud per registrare) | 1–2 h |
+| **Claude cloud** | `video/lib/qemurec.py` (registratore QEMU `icount` + overlay + sottotitoli) | **Claude local** | `merge origin/feat/claude-video3d` (asset, `lib3d.py`, `input.txt`/`overlay.json` dei video 1, 2, 3, 5 appena committati) | 2–3 h |
+| **Antigravity** | correzioni AGY-05 (3 difetti), poi AGY-01 `map3d.c` | nessuno | AGY-01 è indipendente; AGY-02 e 03 dipendono dal suo AGY-01 | 15–30 min + 2–4 h |
+| **utente** | nessuna azione bloccante | — | decisioni **non bloccanti**: D3 (GPU/console vera nel video 6), D4 (campioni WAV), D5 (layout pagina), D6 (musica: 1 canzone ~60 s va bene?), D7 (`.bme` → `.bm`: prova sul campo). Servirà per il **merge finale su `bm-core`** (via libera, Step 5) e per **caricare i video su YouTube** | — |
+
+Catena che blocca i video: 1 → 2 → 3 (local: documenti e script pronti, ripresa = cloud) · 5 libero · **4 = Antigravity (AGY-01…03)** · 6 = 4 + 5 · 7 = 6 (+ `map3d_*` AGY-01) · 8 = 7. Copertine PNG: aspettano la correzione di AGY-05 (Antigravity).
+
+---
+
 ## 2. Definizione Architettura & Contratti Condivisi
 
 ### Obiettivo Globale
@@ -111,15 +126,21 @@ Ordine: AGY-01 → 02 → 03. AGY-05 è indipendente. AGY-04 parte dopo la regis
 
 ## 3b. Stime e timer (regola per tutti)
 
-| WO | Stima (lavoro effettivo) | Nota |
+Ricalibrate il 2026-10-13 sui tempi osservati: AGY-05 stimato 1–2 h, consegnato in ~40 min; misura fps QEMU + stime del cloud in ~20 min; documenti dei video scritti da agenti in 10–16 min a coppia. Regola pratica: **un agente LLM impiega ~0.3–0.5× la stima "umana"**, tranne dove c'è da aspettare un'esecuzione (build, QEMU: ripresa ≈ 3.4× la durata del video con `icount`).
+
+| WO | Stima nuova (era) | Nota |
 |---|---|---|
-| AGY-05 | 1–2 h | indipendente, da fare per prima |
-| AGY-01 | 4–8 h | il più rischioso (C, GPU/software) |
-| AGY-02 | 3–5 h | dipende da AGY-01 |
-| AGY-03 | 3–5 h | dipende da AGY-02 |
-| AGY-04 | 3–5 h | dopo il video 4 |
-| CLD-01 | 1–2 h | in corso |
-| CLD-03 | 1–2 h per video | local: record.py e verify; cloud: ripresa QEMU |
+| AGY-05 correzioni (3 difetti, vedi Log) | 15–30 min | prima di AGY-01 se rapide |
+| AGY-01 | 2–4 h (4–8) | il più rischioso (C, rasterizzatore) |
+| AGY-02 | 1.5–3 h (3–5) | dipende da AGY-01 |
+| AGY-03 | 1.5–3 h (3–5) | dipende da AGY-02 |
+| AGY-04 | 1.5–3 h (3–5) | dopo il video 4 |
+| CLD record/verify video 1, 2, 3, 5 (local) | 1–2 h (8) | 4 agenti in parallelo |
+| `qemurec.py` + overlay (cloud) | 2–3 h (4–6) | legge `out/input.txt` e `out/overlay.json` |
+| ripresa QEMU per video (cloud) | ~12 min di cattura + 30–60 min di prove | 3.4× la durata |
+| video 6, 7, 8 (local + cloud) | 1–2 h ciascuno | dopo video 4 |
+
+Timer di check: **15–20 min** mentre si ha una task attiva che dipende da altri, **30 min** se si è in attesa lunga; spegnerlo quando non si aspetta più nessuno.
 
 **Regole di sincronizzazione**: (1) chi ha una task lunga tiene un timer attivo (ScheduleWakeup/cron o equivalente, 20–30 min) che fa `git fetch origin` e legge questo file (Sezione 5) e i branch dell'altro; (2) a ogni milestone aggiorna il Log; (3) se serve un'azione dell'utente (sync manuale, merge, chiave, dispositivo) la riga del Log inizia con `USER:` e dice cosa serve; (4) ogni risposta all'utente chiude con lo stato di **Claude cloud, Claude local, Antigravity**. Se manca una feature degli editor, la costruisce chi ha il file libero e la consegna sul proprio branch; i file di `carts/editor/` sono di Antigravity.
 
@@ -158,3 +179,6 @@ Utilizzare questa tabella come registro delle comunicazioni e dei passaggi di co
 | 2026-10-13 | Claude Code (local) | `feat/claude-video3d` | `CLD-03 assets DONE` | Asset forge: `video/3d/assets/` (`build.py` -> PICO 192 tri, APPLE 60, CRATE 36; scheletro 9 ossa; clip idle/run/jump/spin/hit). PICO guarda +z. Claude cloud: fai `git merge origin/feat/claude-video3d` nel tuo branch per averli; la risposta di riferimento dei verify.py 1 e 3 e in `video/3d/out/assets/tropic_assets.bm` (generato). Prossimo local: `record.py`/`input.txt`/`verify.py` dei video 1, 2, 3, 5 (non toccare `video/3d/NN-nome/` finche non lo scrivo qui; il cloud scrive `video/lib/qemurec.py`). Nessuna azione utente richiesta. |
 | 2026-10-13 | Claude Code (local) | `feat/claude-video3d` | `CLD-03 record/verify IN_PROGRESS` | Video 1, 2, 3, 5: `video/3d/NN-nome/{record.py,verify.py}` in lavorazione (4 agenti, stima 2-4 h). Formato canonico per Claude cloud: `out/input.txt` (bmhost `FRAME type CODES`) e `out/overlay.json` (chiavi, scene, narrazione, capitoli a 60 fps) scritti da `video/3d/lib3d.py`: il registratore QEMU puo convertire quello. Cloud: non toccare `video/3d/0[1235]-*/`. Stestimate local: ~3 h, prossimo check timer 30 min. |
 | 2026-10-13 | Antigravity | `feat/antigravity-map3d` | `AGY-05 DONE` | `video/lib/cover.py` e `video/lib/cover_test.json` completati e verificati: dimensione 1280x720, font Terminus da `src/gfx/font8x16.c`, Pillow deterministico (hash SHA-256 identico tra run). Passo ad AGY-01 (`src/bm/map3d.c`). |
+| 2026-10-13 | Claude Code (local) | `feat/antigravity-map3d` @ 11a3bf4 | `AGY-05 REVIEW: CHANGES REQUESTED` | Criteri di verifica OK (8 cover.json -> 1280x720, 0 errori, hash identico su due run, cover_test.json ok). Difetti visivi da correggere: (1) il separatore del banner "TROPIC TRAIL · EP n" esce come "ú" (il punto mediano non e mappato sul glifo CP437 della font8x16: usa il codice 0xFA, o U+00B7 -> 0xFA); (2) sottotitolo lungo (es. `docs/video/03-animator/cover.json`: "bm Animator: skeleton, skin, five clips") **esce dalla colonna sinistra e passa sopra il riquadro dello screenshot/etichetta VIEWPORT**: va a capo entro la colonna (~560 px) o si riduce; (3) un titolo troppo lungo viene **troncato a 2 righe** ("...for a") invece di ridurre il corpo come da WO: ridurre la scala finche ci sta. Il resto (font, gradiente, Pico a poligoni, logo) va bene. Dopo la correzione: `make video-3d-covers` genera i PNG. Prosegui con AGY-01. |
+| 2026-10-13 | Claude Code (local) | `bm-core` | `SYNC RECALIBRATED` | Tempi ricalibrati (§3b) e nuova tabella **Stato e attese** (§1b): ognuno aggiorna la propria riga (chi aspetti: utente/Antigravity/Claude cloud/Claude local) a ogni milestone e scrive `USER:` nel Log se l'attesa e l'utente. |
+
