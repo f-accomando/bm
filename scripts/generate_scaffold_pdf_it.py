@@ -634,6 +634,122 @@ if __name__ == "__main__":
     sys.exit(score("--save" in a) if a[:1] == ["score"] else __doc__)''', rows=11)
 
 # ============================================================ PARTE C
+h1("14b. Starter: scripts/cindex.py (indice dei simboli per file grossi)")
+p("Permette all'agente di elencare sezioni e nomi di funzioni/classi con il numero di riga e poi leggere solo l'intervallo che serve con offset/limit. Supporta C/C++, Python, JS/TS, Go, Rust e Lua. Uso: python3 scripts/cindex.py &lt;file&gt; [parola]. Verifica: eseguito su se stesso elenca def main.")
+label("scripts/cindex.py   (chmod +x scripts/cindex.py)")
+code(r'''#!/usr/bin/env python3
+"""Index of a large source file to allow surgical reading:
+  python3 scripts/cindex.py FILE [FILTER_KEYWORD]
+
+Extracts:
+- Section banners / header comments (e.g. /* ---- Section ---- */ or # ---- Section ----)
+- Function and class definitions (C, C++, Python, TypeScript, JavaScript, Go, Rust, Lua)
+- Line numbers for precise range-reading with offset/limit.
+"""
+import re
+import signal
+import sys
+
+if hasattr(signal, "SIGPIPE"):
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+
+PATTERNS = {
+    "c_cpp": re.compile(
+        r"^(?:static\s+|inline\s+|virtual\s+)*[A-Za-z_][\w\s\*&:<>,]*?\b([A-Za-z_]\w*)\s*\([^;]*$"),
+    "python": re.compile(r"^\s*(def|class)\s+([A-Za-z_]\w*)"),
+    "js_ts": re.compile(
+        r"^\s*(?:export\s+)?(?:async\s+)?(?:function\s+([A-Za-z_]\w*)"
+        r"|(?:class|interface|type)\s+([A-Za-z_]\w*)"
+        r"|const\s+([A-Za-z_]\w*)\s*=\s*(?:async\s*)?\()"),
+    "go": re.compile(r"^\s*func\s+(?:\([^)]+\)\s+)?([A-Za-z_]\w*)\s*\("),
+    "rust": re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z_]\w*)"),
+    "lua": re.compile(r"^\s*(?:local\s+)?function\s+([\w.:]+)|^\s*([\w.]+)\s*=\s*function"),
+    "banner": re.compile(r"^(?:/\*|#|//)\s*-{3,}\s*(.*?)\s*(?:-{3,}|\*/)?$")
+}
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    path = sys.argv[1]
+    keyword = sys.argv[2].lower() if len(sys.argv) > 2 else None
+
+    out = []
+    total_lines = 0
+
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            for total_lines, line in enumerate(f, 1):
+                line_str = line.rstrip("\n")
+
+                # Banner Detection
+                m_ban = PATTERNS["banner"].match(line_str)
+                if m_ban and m_ban.group(1).strip():
+                    out.append((total_lines, f"## {m_ban.group(1).strip()}"))
+                    continue
+
+                # Code Signature Detection
+                sym = None
+                if path.endswith((".c", ".h", ".cpp", ".hpp")):
+                    m = PATTERNS["c_cpp"].match(line_str)
+                    if (m and not line_str.startswith((" ", "\t", "#", "}", "/"))
+                            and m.group(1) not in ("if", "while", "for", "switch", "return")):
+                        sym = m.group(1)
+                elif path.endswith(".py"):
+                    m = PATTERNS["python"].match(line_str)
+                    if m:
+                        sym = f"{m.group(1)} {m.group(2)}"
+                elif path.endswith((".js", ".ts", ".jsx", ".tsx")):
+                    m = PATTERNS["js_ts"].match(line_str)
+                    if m:
+                        sym = m.group(1) or m.group(2) or m.group(3)
+                elif path.endswith(".go"):
+                    m = PATTERNS["go"].match(line_str)
+                    if m:
+                        sym = f"func {m.group(1)}"
+                elif path.endswith(".rs"):
+                    m = PATTERNS["rust"].match(line_str)
+                    if m:
+                        sym = f"fn {m.group(1)}"
+                elif path.endswith(".lua"):
+                    m = PATTERNS["lua"].match(line_str)
+                    if m:
+                        sym = m.group(1) or m.group(2)
+
+                if sym:
+                    out.append((total_lines, f"  {sym}"))
+    except FileNotFoundError:
+        sys.exit(f"Error: file not found: {path}")
+
+    for ln, txt in out:
+        if keyword and keyword not in txt.lower():
+            continue
+        print(f"{ln:6d}  {txt}")
+
+    print(f"-- {total_lines} lines; Read with offset/limit on the range needed", file=sys.stderr)
+
+if __name__ == "__main__":
+    main()''', rows=11)
+h1("14c. Starter: target di test per area nel Makefile")
+p("Gli agenti eseguono solo i test dell'area toccata (la sezione 15B aggiunge il target docs accanto a questi). Le righe di comando DEVONO iniziare con un TAB, non con spazi (altrimenti: missing separator). Per cambiare aree modifica AREAS e crea tests/&lt;area&gt;/. Verifica: make test-core.")
+label("Makefile")
+code('''AREAS := core api utils cli
+
+.PHONY: test test-all $(addprefix test-, $(AREAS))
+
+test: test-core            # default target: fast smoke test
+
+test-core:                 # one target per area; the recipe line starts with a TAB
+	@echo "==> [TEST] Area: core"
+	@pytest tests/core -q --tb=short || npm test -- --grep "core"
+
+test-api:
+	@echo "==> [TEST] Area: api"
+	@pytest tests/api -q --tb=short || npm test -- --grep "api"
+
+# test-utils and test-cli: same shape, change the area name
+
+test-all: $(addprefix test-, $(AREAS))     # CI or before a tag/merge only''', rows=9)
+
 part("PARTE C — AUTOMAZIONE E STRUMENTI")
 
 h1("15. I tre pilastri dell'automazione continua")
@@ -664,12 +780,95 @@ table([
     ["Enforcement rigido", "permessi allow/deny, hook", "impostazioni del runtime; tieni le stesse regole in GEMINI.md"],
 ], [92, 215, 197])
 
+h1("16b. Starter: .github/workflows/antigravity-agent.yml")
+p("Workflow che esegue l'agente in modalit&agrave; headless o remota tramite workflow_dispatch. I tre input li compila il client remoto (lasciali vuoti se lanci a mano).")
+label(".github/workflows/antigravity-agent.yml")
+code('''name: Antigravity Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      pair:
+        description: "Pairing identifier for remote agent connection"
+        required: false
+      token:
+        description: "One-time session token"
+        required: false
+      expires:
+        description: "Session expiry timestamp (unix epoch)"
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: antigravity-agent
+  cancel-in-progress: true
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up runtime environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install agent CLI
+        run: |
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 https://antigravity.google/cli/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Configure git author
+        run: |
+          git config user.name "Agentic Assistant"
+          git config user.email "assistant-bot@users.noreply.github.com"
+
+      - name: Restore credentials
+        env:
+          AUTH_TOKEN: ${{ secrets.AGENT_AUTH_TOKEN }}
+        run: |
+          if [ -n "$AUTH_TOKEN" ]; then
+            umask 077
+            mkdir -p "$HOME/.gemini/antigravity-cli"
+            printf '%s' "$AUTH_TOKEN" | base64 -d > "$HOME/.gemini/antigravity-cli/antigravity-oauth-token"
+          fi
+
+      - name: Run agent session
+        env:
+          AGENT_RELAY: ${{ secrets.AGENT_RELAY }}
+          AGENT_PAIR_ID: ${{ inputs.pair }}
+          AGENT_PAIR_TOKEN: ${{ inputs.token }}
+          AGENT_PAIR_EXPIRES: ${{ inputs.expires }}
+        run: |
+          if [ -n "$AGENT_RELAY" ]; then
+            echo "Starting agent session with relay..."
+            agy agent --relay "$AGENT_RELAY"
+          else
+            echo "Starting standalone agent task..."
+            agy agent
+          fi''', rows=9)
+n(1, 'Il file deve stare sul branch predefinito perch&eacute; workflow_dispatch compaia in Actions.')
+n(2, "Secret del repository (Settings > Secrets and variables > Actions): AGENT_AUTH_TOKEN = file del token OAuth dell'agente codificato con base64 -w0 (facoltativo); AGENT_RELAY = URL del relay per la sessione remota (facoltativo; vuoto = standalone). Non scrivere mai questi valori nel repo.")
+n(3, "L'URL di install e il comando agy sono quelli della CLI Antigravity: con un altro agente sostituisci gli step Install agent CLI e Run agent session. Togli i permessi di scrittura se l'agente legge soltanto.")
+
 h1("17. Plugin per Claude: crab-ledger e better-prompt")
 p("Due plugin open source estendono efficienza e qualit&agrave; delle sessioni Claude:")
-b("<b>crab-ledger (monitoraggio di costi e riletture):</b> traccia in tempo reale l'uso dei token, conta le riletture dei file e calcola il costo di ogni sessione. Si abbina a " + c("scripts/docs_audit.py rereads") +
-  " (versione completa dell'audit) e scrive " + c("~/.claude/crab-ledger-report.json") + ", usato per individuare i colli di bottiglia e i file riletti cos&igrave; spesso da dover essere spezzati.")
-b("<b>better-prompt (prompt engineering):</b> raffina, struttura e ottimizza i prompt inviati a Claude: toglie le ambiguit&agrave;, applica ruoli e formato chiari e riduce il consumo di token alla fonte.")
-p("Entrambi sono installabili dai rispettivi repository GitHub (crab-ledger e better-prompt). La skill docs-loop legge il report di crab-ledger per decidere quali file spezzare per primi.")
+b("<b>crab-ledger (pannello laterale con costi ed efficienza):</b> mostra dove vanno token, tempo e denaro e se stai diventando pi&ugrave; efficiente (un granchio pixel animato tiene il punteggio). Legge i log di sessione che Claude Code scrive gi&agrave; in " + c("~/.claude/projects") + " e chiede a git le righe aggiunte e rimosse: nulla lascia la macchina. Si apre con " + c("/ledger") + "; richiede node e git nel PATH. Scrive " + c("~/.claude/crab-ledger-report.json") + ", che " + c("scripts/docs_audit.py rereads") + " usa per trovare i file riletti cos&igrave; spesso da dover essere spezzati.")
+b("<b>better-prompt (sorvegliante di sessione):</b> avvisa quando la conversazione cambia argomento e mostra quanto contesto e quanta quota 5h/7d hai usato. Suggerisce, come semplice testo, /clear, /compact o /rewind e non li esegue mai; ogni prompt di almeno 20 caratteri costa una piccola chiamata a un modello economico (haiku di default). Impostazioni in " + c("/config") + ".")
+p("Installali entrambi da una sessione Claude Code in terminale (" + c("/plugin") + " non c'&egrave; nella scheda Code dell'app desktop, ma un mod installato con scope user si carica anche l&igrave;). Rispondi y per aggiungere il marketplace, poi scegli lo scope:")
+code("""/plugin install crab-ledger --marketplace f-accomando/crab-ledger
+/plugin install better-prompt --marketplace f-accomando/better-prompt
+
+Prova da un clone senza installare:  claude --plugin-dir /percorso/di/crab-ledger""")
+p("Entrambi sono facoltativi: senza di essi build, test e script funzionano invariati. La skill docs-loop legge il report di crab-ledger per decidere quali file spezzare per primi.")
 
 h1("18. Cosa Claude pu&ograve; ereditare da Antigravity / Gemini")
 n(1, "<b>Subagent research separato per le ricerche pesanti:</b> invece di far leggere decine di file alla sessione principale, delega a un agente rapido in sola lettura (Haiku/Sonnet) che restituisce una sintesi di 5 righe.")
@@ -677,6 +876,16 @@ n(2, "<b>Progressive disclosure per le istruzioni:</b> sposta le procedure compl
 n(3, "<b>Deduplicazione tra agenti:</b> tieni " + c("CLAUDE.md") + " e " + c("GEMINI.md") + " allineati sullo stesso indice (" + c("docs/progress.md") + "), cos&igrave; qualsiasi membro del team pu&ograve; usare l'uno o l'altro assistente con le stesse garanzie.")
 
 # ============================================================ PARTE D
+h1("18b. Push rifiutato (HTTP 403) e apertura della pull request")
+p("Se git push fallisce con 403 i commit restano nel branch locale. Dal terminale dell'utente (nome branch secondo l'invariante agent/&lt;feature&gt;; prima gh auth login se serve):")
+code('''git branch -M agent/<feature>
+git push -u origin agent/<feature>
+
+gh pr create --base main --head agent/<feature> \\
+  --title "chore: <title>" --body "<one-line summary>"''', rows=9)
+b('Il token o la GitHub App richiedono Repository: Contents (Read and Write) e Pull Requests (Read and Write).')
+b('Se il push su main viene rifiutato, controlla le branch protection rules: lavora su un branch e apri una pull request.')
+
 part("PARTE D — REGOLE BASE PER MIGLIORARE E IMPLEMENTARE QUESTA GUIDA")
 h1("19. Regole base e ciclo di miglioramento")
 p("Parti da queste regole in ogni nuovo progetto. Ognuna indica come viene fatta rispettare, cos&igrave; lo scaffolding migliora da solo invece di degradare.")
