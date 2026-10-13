@@ -117,26 +117,29 @@ di `tests/bm/bench3d.c` (cache e bus esclusi: è il lavoro della CPU, non il tem
 
 I pixel restano identici (stessi checksum di `make bench3d`). Con il 3D sulla GPU l'ARM
 non disegna più pixel: Texture Room 0,62 milioni di istruzioni a fotogramma invece di 3,86
-(`make count-insns` con le scene `+gpu`); il confronto completo prima/dopo è in
-`docs/M33-PRIMA-DOPO.md`.
+(`make count-insns` con le scene `+gpu`); il report storico dettagliato del passaggio ad accelerazione hardware e i dati di Overbit sono archiviati in [`docs/M33-PRIMA-DOPO.md`](M33-PRIMA-DOPO.md) e [`docs/BENCH3D.md`](BENCH3D.md).
 
 **Istruzioni ARM per triangolo con la GPU (M34, passo 4)**, stesse scene con il suffisso
 `+gpu` (r3d e backend; i pixel restano identici, sull'ARM e sulla GPU):
 
-| Scena | Prima | Dopo |
-|---|---:|---:|
-| Sfere piatte | 936 | 706 (−25%) |
-| Sfere Gouraud | 1030 | 830 (−19%) |
-| Sfere con texture | 1131 | 888 (−21%) |
-| Texture Room (8 casse) | 1386 | 1109 (−20%) |
-| Stanza con 2D in mezzo | 1432 | 1130 (−21%) |
+| Scena | Prima | Dopo | Guadagno |
+|---|---:|---:|---:|
+| Sfere piatte | 936 | 706 | **−25%** |
+| Sfere Gouraud | 1030 | 830 | **−19%** |
+| Sfere con texture | 1131 | 888 | **−21%** |
+| Texture Room (8 casse) | 1386 | 1109 | **−20%** |
+| Stanza con 2D in mezzo | 1432 | 1130 | **−21%** |
 
-Da dove: il piano vicino provato una volta per vertice (e per niente se la mesh è tutta
-davanti), niente colore RGB565 né copia della faccia quando disegna la GPU, il centro
-della faccia solo con le lampade, la banda di guardia provata una volta per mesh dalla
-sua sfera (`R3D_INSIDE`) invece che per vertice, le celle opache della texture provate
-con una tabella delle somme (4 letture invece di una per cella), il percorso del
-triangolo senza chiamate in mezzo e il colore in 0..1 calcolato una volta per faccia.
+### 5.1 Storico Miglioramenti 3D & Milestone Progressivi
+
+| Milestone / Fase | Focus Ottimizzazione | Risultato Misurato sul Pi |
+|---|---|---|
+| **Settembre 2026 (Pre-M33)** | Software rasterizer base (ARM) | 1.195 triangoli a 60 fps; Texture Room 320×180 a 30 fps (5,52 M istruzioni/frame). |
+| **M33 (1 Ottobre 2026)** | Switch a V3D Hardware (GPU default, ARM riserva) | **811 Mpixel/s**, 182 sfere a 60 fps (7.142 triangoli); Texture Room HD (640×360) a 60 fps (5,8 ms/frame, -89% istruzioni ARM). |
+| **M34 (3 Ottobre 2026)** | Ottimizzazione r3d backend e Overbit 10-bot | Overbit GPU abbatte istruzioni ARM del **23–32%** a ogni preset; framerate da ~36 a ~50 fps (LOW), da ~30 a ~36 fps (HIGH); hero shadow e z a 24 bit sbloccati. |
+| **M35–M38 (Benchmark suite)** | Texture a 16-bit (`gpu3d_tex16`), ETC1 compresso, dual-thread shaders (`fs2`) | Gestione automatica del profilo in `docs/BENCH3D.md` con scaling carichi da 60 a 30 fps. |
+
+> **Nota per sviluppi futuri**: Quando si effettuano nuove ottimizzazioni alle pipeline (es. vertex shader completi su QPU, code asincrone multi-frame, formati texture compatti), registrare il benchmark sia nello storico sopra che nel report d'area in [`docs/progress/v3d.md`](progress/v3d.md).
 
 ## 6. Atteso (simulazioni) e trovato (Pi)
 
