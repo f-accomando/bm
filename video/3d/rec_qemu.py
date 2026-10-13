@@ -78,7 +78,7 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu"):
         f += 30
     f += 60
     pre.append((f, "type", "\\n"))                    # Enter: open the tool
-    f += 60 * 6                                       # loading
+    f += 60 * 3                                       # loading (the editor is up in about 1 s of guest time)
     offset = f if intro else 0
     if not intro:
         # open the tool but do not show it: the recording starts when it is up
