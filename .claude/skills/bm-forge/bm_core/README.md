@@ -22,6 +22,7 @@ ANIM (9) sections. Python >= 3.8, standard library only, no network. Formats:
 | `animgen.py` | keyframe description (JSON) -> `Clip` on the 12 fps grid: `clip`, `add_clips`, `write_anim`; native modes or baked keys |
 | `shapes.py` | box builder with the villager's winding: `box`, `boxes_model`, `load_boxes` |
 | `imageio.py` | `Image`, PNG writer, animated GIF writer (own LZW, median-cut palette), `contact_sheet` |
+| `export.py` | `export_models`, `export_bmm`, `export_cart`, `export_folder`, `export_market`, `about_line`; `frame_triangles`, `check_budget`, `cover_section`, `models_cart` |
 | `syncwatch.py`, `SYNC.json` | drift watch on the sources bm_core was ported from |
 
 Every dataclass has `to_dict()` / `from_dict()` (JSON-safe). Each function's docstring
@@ -87,6 +88,36 @@ dict says whether a clip was baked and why. Examples: `../examples/*.json`. Samp
 `.bm` passes bm_core's checks only: it was **never run on the kernel or opened in bm
 Animator**. Doubts: OPEN_QUESTIONS.md 37-44.
 
+## Export and the example game (phase 3)
+
+All in `export.py`; every function raises `ValidationError` on bad input.
+
+- `export_models(path.bm, mesh, anim, title, author)`: a cartridge with a stub Lua
+  (`MODELS_LUA`) + MESH + ANIM if there are rigs (`export.py:92-132`).
+- `export_bmm(path.bmm, ...)`: a BMRES file of kind `RES_MODEL` with MESH + ANIM
+  (`export.py:135-163`).
+- `export_cart(path, lua, mesh, anim, title, author, res, cover, draws, budget)`: a game
+  `.bm` or `.b16` (never `.bme`); title required; optional COVER first, then LUA; checks the
+  frame triangles (`draws`, default each model once) against the budget, then `check_path`, and
+  8 MiB for `.b16` (`export.py:166-229`).
+- `export_folder(root, game, lua, mesh, anim, title, author, res, cover, overwrite)`: writes
+  `<root>/<game>/main.lua`, `models.bm`, optional `cover.png`, and `make.txt` (lines to add to
+  the Makefile by hand; bm-forge never edits it). `game` matches `^[a-z][a-z0-9_]{0,14}$`;
+  refuses an existing `main.lua` unless `overwrite` (`export.py:232-308`).
+- `export_market(root, game_id, version, license, about, bm_path, b16_path)`: copies the given
+  `.bm` / `.b16` byte for byte into `<root>/<id>/` with `info.txt` (`version:`, `license:`,
+  `about:`); refuses a folder holding `<id>.bme`; `.b16` over 8 MiB refused
+  (`export.py:311-402`).
+- `about_line(id, license, about)` -> `id: license | about` for `market/about.txt`
+  (`export.py:405-416`).
+- Budgets: `TRI_BUDGET_PI = 1200` (`docs/GAME-GUIDE.md:321`); `TRI_BUDGET_B16 = 1200` is a
+  placeholder, the real `.b16` cap is **NON VERIFICATO** (`export.py:21-22`).
+- Editions are never converted: `.bm` and `.b16` are exported from separate sources.
+- Example game: `../examples/game_demo/` (id `forgedemo`, `bm/main.lua` and `b16/main.lua`
+  written separately). Build with `python examples/game_demo/build.py --out DIR`; `build.py`
+  exists. See `../examples/game_demo/README.md`.
+- Export never uses `cart_data`. Doubts: OPEN_QUESTIONS.md 47-53.
+
 ## Tests
 
 From `.claude/skills/bm-forge` (on Windows, in WSL through `scripts/wsl-run.ps1`):
@@ -95,6 +126,9 @@ From `.claude/skills/bm-forge` (on Windows, in WSL through `scripts/wsl-run.ps1`
 python3 -m unittest discover tests/golden                  # all but the slow test
 BM_FORGE_SLOW=1 python3 -m unittest discover tests/golden  # + QEMU (needs qemu-system-arm, build/kernel.img)
 ```
+
+Opt-in bmhost run of the example game: `BM_FORGE_HOST=1` with `tests/golden/test_bmhost_demo.py`
+(planned: the file is not in the tree yet).
 
 Goldens and how they were made: `../tests/golden/README.md`.
 

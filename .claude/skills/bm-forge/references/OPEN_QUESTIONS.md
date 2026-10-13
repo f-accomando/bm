@@ -158,3 +158,21 @@ Nothing generated here was run on the kernel or opened in bm Animator: checks ar
 46. **Sample cartridge** `tests/golden/preview_samples/forge_humanoid.bm`: LUA stub
     (`cls(0)` only), container by bm_core `build`, 320x180. To check on a console: open it in
     bm Animator (models are a `.bm` game, so saving asks for a copy) and play the clips.
+
+## Export and the example game (phase 3)
+
+47. **bmhost-bin may be stale vs bm-core**: a prebuilt bmhost used by the opt-in test may not
+    match the current `src/bm/runtime.c`. NON VERIFICATO.
+48. **B16 triangle cap unknown**: `TRI_BUDGET_B16 = 1200` is the Pi figure reused
+    (`bm_core/export.py:21-22`; `docs/B16.md:28-49` only says "a triangle cap").
+49. **RGB30 3D path**: how the RGB30 draws 3D, and whether `forgedemo`'s `.b16` runs there, is
+    NON VERIFICATO (see API.md open question 3).
+50. **`stat(4)` under bmhost** is logged by the demo, not checked: NON VERIFICATO what it reports.
+51. **`cart_data` for games**: may a non-tool game call it? `l_cart_data` has no tool gate
+    (`src/bm/runtime.c:6798-6928`); Market sandbox rules NON VERIFICATO. Export never uses it.
+52. **Export never writes `.bme`**: `export_cart` refuses it (`export.py:191-192`),
+    `export_market` refuses a folder holding `<id>.bme` (`export.py:357-360`). `make.txt`
+    from `export_folder` is only a note (`export.py:287-298`); bm-forge never edits the Makefile.
+53. **Market title/author uniqueness** is checked only inside the exported folder (the code
+    in `export_market`, `export.py:311-402`, checks no uniqueness at all, only non-empty
+    title); nothing compares with the Market repo. Whether the Market requires it is NON VERIFICATO.

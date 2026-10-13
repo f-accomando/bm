@@ -70,4 +70,5 @@ see `references/OPEN_QUESTIONS.md` items 19-22.
   out-of-range values, determinism. bm_core-made data, not goldens; the kernel never ran it.
   `preview_samples/forge_*` are its pictures (`make_forge_samples.py`).
 - `test_syncwatch.py`: the watched sources still match `bm_core/SYNC.json`.
+- `test_bmhost_demo.py` (phase 3, planned, not in the tree yet): opt-in with `BM_FORGE_HOST=1`; builds the `forgedemo` example and runs it under bmhost, (the `forge_assets()` fixture in `_common.py` already exists).
 - `test_conformance_slow.py`: skipped unless `BM_FORGE_SLOW=1` and `qemu-system-arm`.

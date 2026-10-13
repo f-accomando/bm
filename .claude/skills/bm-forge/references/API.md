@@ -53,6 +53,8 @@ carts/<game>/models.bm       optional 3D models + skeletons + animations (or mod
 - Generated-asset games: Overbit builds `build/overbit/models.bm` from Python
   (`carts/overbit/art/models.py`, `Makefile:311-314`) and its `.b16` from a minified script
   (`Makefile:355-364`).
+- bm-forge writes this layout (`main.lua`, `models.bm`, optional `cover.png`, `make.txt` as a
+  note only) with `bm_core/export.py` `export_folder` (`export.py:232-308`).
 
 ## 3. Packing: scripts/mkbm.py
 
@@ -177,6 +179,14 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
   255 animations, 1024 keyframes per animation, each key a whole pose; no repeating uv
   (`sdk/README.md:58-64`); up to 256 models (`scripts/bmmesh.py:27`), names ≤15 bytes,
   unique (`scripts/bmmesh.py:26,37-39`).
+- `cart_data(8|9)` gives the running cart's MESH / ANIM bytes, or `nil`; `cart_data(8|9, bytes)`
+  replaces them in memory after the kernel checks them (`bm_mesh_check` / `bm_anim_check`,
+  more than 0x1000000 bytes refused), returning `true`, or `false` and a message; `model()` and
+  `animate()` see the new ones at once (`docs/api/tools.md:46`; `src/bm/runtime.c:6793-6797,
+  6872-6927`). Kinds 11 and 14 are SPRITES and BOXES (`src/bm/runtime.c:6801-6803`). It is
+  registered in the one function table for every cart, and `l_cart_data` has no tool gate
+  (`src/bm/runtime.c:4670,6798-6928`). Not needed for packed assets; bm-forge export never uses
+  it. Whether Market sandbox rules restrict it is **NON VERIFICATO** (open question below).
 
 ## 11. 3D: skeleton and animation playback
 
@@ -269,6 +279,8 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
   (`sections = {[8]=MESH, [9]=ANIM}`), `cart_load`, `cart_read`, `cart_meshes(path)` (meshes
   the code builds), `mesh_reduce` (`docs/api/tools.md:26-34`). These are for bm's tools;
   other carts write only `.bm`/`.bme` they made in the same run (`docs/api/tools.md:17-18`).
+- `cart_data(kind, [bytes])`: MESH 8, ANIM 9, SPRITES 11, BOXES 14, read or replace in memory
+  (`docs/api/tools.md:46`; `src/bm/runtime.c:6798-6803`); see section 10.
 
 ## 15. .bm vs .b16 profile
 
@@ -303,6 +315,9 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 - `manifest-rgb30` is the **kernel release manifest** (kernel8.img, `bm/ca.pem`), not a
   game manifest (`Makefile:760-769`; `src/kernel/update.c:32`; `scripts/mkrelease.py:15`).
   A game needs no manifest entry (**NON VERIFICATO** beyond these reads).
+- bm-forge writes the Market folder (`<id>.bm` / `<id>.b16`, `info.txt`) with
+  `bm_core/export.py` `export_market` (`export.py:311-402`) and the `about.txt` line with
+  `about_line` (`export.py:405-416`).
 
 ## 17. Minimal examples (path lists)
 
@@ -334,3 +349,5 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 6. Does the Pi Market list `.b16` games? `market/README.md:23-24` and `docs/B16.md:50` disagree.
 7. Should bm-forge-generated games use `"ok"`/`"back"` and `--sheet8` by default for both
    editions, so a later `.b16` edition is easy?
+8. May a non-tool game (one in the Market) call `cart_data`? `l_cart_data` has no tool gate
+   (`src/bm/runtime.c:6798-6928`); any Market sandbox rule is NON VERIFICATO.
