@@ -6,11 +6,11 @@ Fonti: [`PIANO.md`](PIANO.md), [`../../SYNC.md`](../../SYNC.md). Aggiornare ques
 
 | Video | script | shot list | copertina | metadati | input auto | registrazione | montaggio | pubblicazione |
 |---|---|---|---|---|---|---|---|---|
-| 1 Studio | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], input.txt [ ] | [ ] | [ ] | [ ] |
-| 2 Pixel | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], input.txt [ ] | [ ] | [ ] | [ ] |
-| 3 Animator | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], input.txt [ ] | [ ] | [ ] | [ ] |
+| 1 Studio | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], record+verify [x] (bmhost) | [ ] | [ ] | [ ] |
+| 2 Pixel | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], record+verify [x] (bmhost) | [ ] | [ ] | [ ] |
+| 3 Animator | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], record+verify [x] (bmhost) | [ ] | [ ] | [ ] |
 | 4 Map | [x] provvisorio | [x] provvisorio | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO | BLOCCATO | BLOCCATO |
-| 5 Sound | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], input.txt [ ] | [ ] | [ ] | [ ] |
+| 5 Sound | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], record+verify [x] (bmhost) | [ ] | [ ] | [ ] |
 | 6 SDK | [x] provvisorio (import da risolvere) | [x] provvisorio | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO (4) | BLOCCATO | BLOCCATO |
 | 7 Code | [x] (map3d_* non testate) | [x] | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO (6) | BLOCCATO | BLOCCATO |
 | 8 Gameplay | [x] | [x] | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO (7) | BLOCCATO | BLOCCATO |
@@ -33,4 +33,6 @@ Documenti scritti il 2026-10-13 (`make video-3d-check`: 0 problemi). I `[DA VERI
 
 1. Domande ancora aperte: D3–D7 (`PIANO.md` §6 e §9).
 2. Registrare 1 → 2 → 3 → 5 (ordine di registrazione), poi 4 appena AGY-01..03 sono `DONE`.
-3. Scrivere `video/3d/NN-nome/{record.py,input.txt,verify.py}` dall'`input.md` di ogni video.
+3. `record.py`/`verify.py` dei video 1, 2, 3, 5: **fatti** (2026-10-13, `verify.py` esce 0 con stand-in `--start forge`; durate 210/210/202/190 s). Restano: prova `--start chain` a catena vera, ripresa QEMU (`video/3d/rec_qemu.py`, Claude cloud), correzioni delle shot list dalle `NOTES.md`, segnaposto `record.py` per 6-8 `[BLOCCATO]`.
+4. Correzioni da riportare nei documenti (dettaglio in `video/3d/NN-nome/NOTES.md`): video 3 spin = 3 giri da 120 gradi su clip da 6 frame (non 180 x2); video 5 VOLUME finali APPLE 56, CRATE 72, JUMP 24, STEP 120, SPIN 104, HIT 104, musica 8 (`--wav` e stereo 48 kHz); video 1 nome modello "model" (5 backspace); video 2 tessere nella riga y=48.
+5. Bug Makefile (`--lua $<` passa `bm.info`): corretto da Claude cloud sul suo branch; serve il via libera dell'utente per portarlo in `bm-core`.
