@@ -698,6 +698,70 @@ table([
     ["R18", "<b>Safe defaults.</b> Branch before editing, selective tests only, no secrets in the repo, commits only on request.", "CLAUDE.md section 2"],
 ], [26, 372, 106])
 
+# ============================================================ PART E
+part("PART E — WORKED EXAMPLE: THEORETICAL ESTIMATE VS LIVE MEASUREMENT")
+h1("20. Benchmark Summary: Baseline, Theoretical Optimisation, Empirical Test")
+p("Two tests quantify the effect of the scaffolding. The first is an <b>analytical estimate</b> on three representative tasks; "
+  "the second is a <b>live measurement</b> run in Google Antigravity on real project files. Both compare the same two pipelines.")
+label("Methodology")
+b("<b>Baseline pipeline:</b> a single unconstrained high-tier agent, no routing, no gate. It loads whole files to find context (including a ~350 KB source file, about 88,000 tokens by itself) and writes code or prose directly.")
+b("<b>Optimised pipeline:</b> the architecture of this guide. Readiness gate first, surgical lookup (grep of one section, symbol index with offset/limit), a short Work Order from the planner, execution by a low-tier agent, and a deterministic verification command that ends the task with an explicit status.")
+b("<b>Test 1, theoretical estimate:</b> three task types (a cross-file refactor, an ambiguous debug request without reproduction steps, and a documentation realignment). Token counts and times are analytical estimates from file sizes and typical agent behaviour, not measurements.")
+b("<b>Test 2, empirical live test:</b> one documentation-consistency task (check one progress sheet against the rules of its area and validate repository integrity), executed twice on the real repository: once with full file reads, once through the optimised pipeline. Bytes, lines, tokens and wall-clock time were measured; the verification was the project's audit script.")
+b("<b>Metrics:</b> bytes and lines read, input tokens, output tokens (high-tier and low-tier), elapsed time, share of a free-plan quota consumed, and whether the result was deterministically verified.")
+label("Test 1 - theoretical estimate, totals over the three tasks")
+table([
+    ["Metric", "Baseline", "Optimised (estimate)", "Diff"],
+    ["Input tokens", "252,000", "2,000", "-99.2%"],
+    ["Output tokens, high-tier", "11,100", "245", "-97.8%"],
+    ["Output tokens, low-tier", "0", "510", "work delegated"],
+    ["Time", "~270 s", "~22 s", "-91.8% (12x)"],
+    ["Completion rate", "40% average", "100%", "gate blocks the ambiguous task"],
+    ["Errors / regressions", "4", "0", "deterministic"],
+    ["Free-plan quota", "exhausted by turn 2", "~3.5% used", "session continues"],
+], [130, 112, 130, 132])
+label("Test 2 - live measurement on real files")
+table([
+    ["Metric", "Baseline (measured)", "Optimised (measured)", "Diff"],
+    ["Bytes read", "406,994", "1,037", "-99.7%"],
+    ["Lines loaded", "10,039", "16", "-99.8%"],
+    ["Input tokens", "107,103", "404", "-99.6%"],
+    ["Output tokens", "578", "96", "-83.4%"],
+    ["Elapsed time", "14.48 s", "2.05 s", "-85.8% (7x)"],
+    ["Final verification", "none", "DONE, audit passed", "deterministic"],
+    ["Free-plan quota", "session lock", "0.4% used", "negligible"],
+], [130, 112, 130, 132])
+p("In the baseline run the single turn already exceeds the free-plan context limit and the session is blocked. In the optimised run the gate routed the task to the planner, a 16-line lookup produced a 76-token Work Order, and the low-tier agent ran the audit script (no broken links) and closed with <b>DONE</b> in 20 tokens.")
+label("Three-way comparison for the documentation task")
+p("The table sets the baseline against the theoretical optimisation and the live result. The estimate was built for the documentation task of Test 1; "
+  "the measured baseline comes from the Test 2 run, a similar task on a larger set of files, so its baseline figures are higher than the estimated baseline.")
+table([
+    ["Parameter", "Baseline (estimate)", "Baseline (measured)", "Optimised (estimate)", "Optimised (measured)"],
+    ["Data read", "whole documents", "406,994 B", "~1,500 B", "1,037 B"],
+    ["Input tokens", "~45,000", "107,103", "~450", "404"],
+    ["Output tokens", "~4,100", "578", "~90-100", "96"],
+    ["Time", "~95 s", "14.48 s", "~6 s", "2.05 s"],
+    ["Verification", "none (verbose, unverified)", "none", "audit expected OK", "audit passed, DONE"],
+    ["Free-plan quota", "not executable", "session lock", "~1%", "0.4%"],
+], [84, 100, 100, 110, 110])
+label("Optimised pipeline: estimate vs measurement")
+table([
+    ["Parameter", "Estimate", "Measured", "Deviation"],
+    ["Data read", "~1,500 B", "1,037 B (16 lines)", "-30.8% (leaner)"],
+    ["Input tokens", "~450", "404", "-10.2%"],
+    ["Output tokens, planner", "~70-80", "76", "within range"],
+    ["Output tokens, mechanic", "~20-30", "20", "within range"],
+    ["Output tokens, total", "~90-100", "96", "within range"],
+    ["Time", "~6.0 s", "2.05 s", "-65.8% (3x faster)"],
+    ["Outcome", "audit OK expected", "audit passed, DONE", "confirmed"],
+    ["Free-plan quota", "~1%", "0.4%", "-60%"],
+], [130, 112, 130, 132])
+label("Reading the results")
+b("<b>The model is accurate where it matters:</b> total output tokens were estimated at 90-100 and measured at 96. Reads and input tokens came in lower than predicted, so the estimate is conservative.")
+b("<b>Time is the loosest figure:</b> the estimate included a margin for cloud latency; local tool execution made the run about 3x faster than predicted.")
+b("<b>The saving comes from reading less, not from a cheaper model alone:</b> input fell by about 99.6% because of the gate and the surgical lookup. The output saving comes from planning separated from execution.")
+b("<b>Caveats:</b> the live test covers a single documentation task; the refactor and ambiguous-debug results of Test 1 remain estimates. Quota figures depend on the plan and can change.")
+
 doc = SimpleDocTemplate(os.path.abspath("docs/scaffold.pdf"), pagesize=letter,
                         leftMargin=54, rightMargin=54, topMargin=54, bottomMargin=54,
                         title="AI Scaffolding & Agent Architecture Guide", author="bm project")

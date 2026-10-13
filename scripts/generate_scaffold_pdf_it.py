@@ -702,6 +702,70 @@ table([
     ["R18", "<b>Default sicuri.</b> Branch prima di modificare, solo test selettivi, nessun segreto nel repo, commit solo su richiesta.", "CLAUDE.md sezione 2"],
 ], [26, 372, 106])
 
+# ============================================================ PARTE E
+part("PARTE E — ESEMPIO PRATICO: STIMA TEORICA VS MISURA REALE")
+h1("20. Sommario dei benchmark: baseline, ottimizzazione teorica, test empirico")
+p("Due test quantificano l'effetto dello scaffolding. Il primo &egrave; una <b>stima analitica</b> su tre task rappresentative; "
+  "il secondo &egrave; una <b>misura dal vivo</b> eseguita in Google Antigravity su file reali di progetto. Entrambi confrontano le stesse due pipeline.")
+label("Metodologia")
+b("<b>Pipeline baseline:</b> un solo agente di fascia alta senza vincoli, senza routing e senza gate. Carica file interi per trovare il contesto (compreso un sorgente da ~350 KB, circa 88.000 token da solo) e scrive codice o testo direttamente.")
+b("<b>Pipeline ottimizzata:</b> l'architettura di questa guida. Prima il readiness gate, poi lookup chirurgico (grep di una sola sezione, indice dei simboli con offset/limit), un Work Order breve dal planner, esecuzione da un agente di fascia bassa e un comando di verifica deterministico che chiude il task con uno stato esplicito.")
+b("<b>Test 1, stima teorica:</b> tre tipi di task (un refactoring su pi&ugrave; file, una richiesta di debug ambigua senza passi di riproduzione e un riallineamento della documentazione). Token e tempi sono stime analitiche basate sulle dimensioni dei file e sul comportamento tipico degli agenti, non misure.")
+b("<b>Test 2, test empirico dal vivo:</b> un task di coerenza documentale (confrontare una scheda di avanzamento con le regole della sua area e validare l'integrit&agrave; del repository), eseguito due volte sul repository reale: una con lettura completa dei file, una con la pipeline ottimizzata. Byte, righe, token e tempo reale sono stati misurati; la verifica era lo script di audit del progetto.")
+b("<b>Metriche:</b> byte e righe lette, token di input, token di output (fascia alta e bassa), tempo, quota del piano gratuito consumata e se il risultato &egrave; stato verificato in modo deterministico.")
+label("Test 1 - stima teorica, totali sulle tre task")
+table([
+    ["Metrica", "Baseline", "Ottimizzata (stima)", "Diff"],
+    ["Token di input", "252.000", "2.000", "-99,2%"],
+    ["Token di output, fascia alta", "11.100", "245", "-97,8%"],
+    ["Token di output, fascia bassa", "0", "510", "lavoro delegato"],
+    ["Tempo", "~270 s", "~22 s", "-91,8% (12x)"],
+    ["Tasso di completamento", "40% medio", "100%", "il gate blocca la task ambigua"],
+    ["Errori / regressioni", "4", "0", "deterministico"],
+    ["Quota piano gratuito", "esaurita al turno 2", "~3,5% usata", "la sessione continua"],
+], [130, 112, 130, 132])
+label("Test 2 - misura dal vivo su file reali")
+table([
+    ["Metrica", "Baseline (misurata)", "Ottimizzata (misurata)", "Diff"],
+    ["Byte letti", "406.994", "1.037", "-99,7%"],
+    ["Righe caricate", "10.039", "16", "-99,8%"],
+    ["Token di input", "107.103", "404", "-99,6%"],
+    ["Token di output", "578", "96", "-83,4%"],
+    ["Tempo", "14,48 s", "2,05 s", "-85,8% (7x)"],
+    ["Verifica finale", "nessuna", "DONE, audit superato", "deterministico"],
+    ["Quota piano gratuito", "blocco sessione", "0,4% usata", "trascurabile"],
+], [130, 112, 130, 132])
+p("Nella baseline il singolo turno supera subito il limite di contesto del piano gratuito e la sessione si blocca. Nella pipeline ottimizzata il gate ha instradato la task al planner, un lookup di 16 righe ha prodotto un Work Order da 76 token e l'agente di fascia bassa ha lanciato lo script di audit (zero link rotti) chiudendo con <b>DONE</b> in 20 token.")
+label("Confronto a tre vie per la task di documentazione")
+p("La tabella mette a confronto baseline, ottimizzazione teorica e risultato dal vivo. La stima &egrave; stata costruita per la task di documentazione del Test 1; "
+  "la baseline misurata viene dal Test 2, una task simile su un insieme di file pi&ugrave; grande, quindi i suoi valori sono pi&ugrave; alti della baseline stimata.")
+table([
+    ["Parametro", "Baseline (stima)", "Baseline (misurata)", "Ottimizzata (stima)", "Ottimizzata (misurata)"],
+    ["Dati letti", "documenti interi", "406.994 B", "~1.500 B", "1.037 B"],
+    ["Token di input", "~45.000", "107.103", "~450", "404"],
+    ["Token di output", "~4.100", "578", "~90-100", "96"],
+    ["Tempo", "~95 s", "14,48 s", "~6 s", "2,05 s"],
+    ["Verifica", "nessuna (prolisso, non verificato)", "nessuna", "audit atteso OK", "audit superato, DONE"],
+    ["Quota piano gratuito", "non eseguibile", "blocco sessione", "~1%", "0,4%"],
+], [84, 100, 100, 110, 110])
+label("Pipeline ottimizzata: stima vs misura")
+table([
+    ["Parametro", "Stima", "Misura", "Scostamento"],
+    ["Dati letti", "~1.500 B", "1.037 B (16 righe)", "-30,8% (pi&ugrave; snello)"],
+    ["Token di output, planner", "~70-80", "76", "nel range"],
+    ["Token di output, mechanic", "~20-30", "20", "nel range"],
+    ["Token di output, totale", "~90-100", "96", "nel range"],
+    ["Token di input", "~450", "404", "-10,2%"],
+    ["Tempo", "~6,0 s", "2,05 s", "-65,8% (3x pi&ugrave; veloce)"],
+    ["Esito", "audit OK atteso", "audit superato, DONE", "confermato"],
+    ["Quota piano gratuito", "~1%", "0,4%", "-60%"],
+], [130, 112, 130, 132])
+label("Come leggere i risultati")
+b("<b>Il modello &egrave; accurato dove conta:</b> i token di output totali erano stimati in 90-100 e sono risultati 96. Letture e token di input sono usciti pi&ugrave; bassi del previsto, quindi la stima &egrave; prudente.")
+b("<b>Il tempo &egrave; il dato pi&ugrave; largo:</b> la stima includeva un margine per la latenza cloud; l'esecuzione locale dei tool ha reso la prova circa 3 volte pi&ugrave; veloce del previsto.")
+b("<b>Il risparmio viene dal leggere meno, non solo da un modello pi&ugrave; economico:</b> l'input &egrave; calato di circa il 99,6% grazie al gate e al lookup chirurgico. Il risparmio sull'output viene dalla pianificazione separata dall'esecuzione.")
+b("<b>Limiti:</b> il test dal vivo copre una sola task di documentazione; i risultati di refactoring e debug ambiguo del Test 1 restano stime. I valori di quota dipendono dal piano e possono cambiare.")
+
 doc = SimpleDocTemplate(os.path.abspath("docs/scaffold-IT.pdf"), pagesize=letter,
                         leftMargin=54, rightMargin=54, topMargin=54, bottomMargin=54,
                         title="Guida allo Scaffolding AI e all'Architettura degli Agenti", author="bm project")
