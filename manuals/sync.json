@@ -117,7 +117,7 @@
   },
   "sources": {
    "docs/API.md": "a6cc5a554136",
-   "docs/GAME-GUIDE.md": "fe7751b018ef",
+   "docs/GAME-GUIDE.md": "426aea1ebf0b",
    "docs/api/draw.md": "ea320782dec2",
    "docs/api/input.md": "01f2a82443ca",
    "docs/api/system.md": "16dfbcccd934"
@@ -448,7 +448,7 @@
    "carts/animator/main.lua": "5875f7e092c5",
    "docs/RISORSE.md": "5e859959104d",
    "docs/design/suite-animator.md": "555d36c2c592",
-   "docs/progress/tools.md": "158374cfe563",
+   "docs/progress/tools.md": "6ae8072c3059",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -509,7 +509,7 @@
    "carts/code/main.lua": "63235604898f",
    "docs/RISORSE.md": "5e859959104d",
    "docs/design/suite-code.md": "212bb27f00d1",
-   "docs/progress/tools.md": "158374cfe563",
+   "docs/progress/tools.md": "6ae8072c3059",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -560,7 +560,7 @@
    "carts/mesh/main.lua": "ff0571ab3624",
    "docs/RISORSE.md": "5e859959104d",
    "docs/design/suite-studio-mesh.md": "ccf0c1f4a0a3",
-   "docs/progress/tools.md": "158374cfe563",
+   "docs/progress/tools.md": "6ae8072c3059",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -631,7 +631,7 @@
    "carts/pixel/main.lua": "15d532849ab9",
    "docs/RISORSE.md": "5e859959104d",
    "docs/design/suite-pixel.md": "28b52021f032",
-   "docs/progress/tools.md": "158374cfe563",
+   "docs/progress/tools.md": "6ae8072c3059",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -687,7 +687,7 @@
    "carts/editor/main.lua": "8de988e40572",
    "docs/RISORSE.md": "5e859959104d",
    "docs/design/suite-sdk.md": "ee9451f7a184",
-   "docs/progress/tools.md": "158374cfe563",
+   "docs/progress/tools.md": "6ae8072c3059",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -733,7 +733,7 @@
    "carts/sound/main.lua": "7a6c6b71ed97",
    "docs/RISORSE.md": "5e859959104d",
    "docs/design/suite-sound.md": "5804300b49c2",
-   "docs/progress/tools.md": "158374cfe563",
+   "docs/progress/tools.md": "6ae8072c3059",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -794,7 +794,7 @@
    "carts/studio/main.lua": "4ad32dad9ad3",
    "docs/RISORSE.md": "5e859959104d",
    "docs/design/suite-studio-mesh.md": "ccf0c1f4a0a3",
-   "docs/progress/tools.md": "158374cfe563",
+   "docs/progress/tools.md": "6ae8072c3059",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -839,7 +839,7 @@
   "sources": {
    "carts/write/main.lua": "e147f39975a8",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/progress/tools.md": "158374cfe563",
+   "docs/progress/tools.md": "6ae8072c3059",
    "sdk/README.md": "97ca3fe22090"
   }
  },

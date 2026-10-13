@@ -4,11 +4,17 @@ One section per area. Remove an item when it is decided and record the result in
 document of the area.
 
 ## Formats (`.bm`, `.b16`, `.bme`)
-- `docs/B16.md` says "design, not implemented", `docs/progress.md` lists M41/M42 as done and
-  `carts/titan_ex/titan_ex.b16` is committed: which is true? Update the stale one.
-- Is the `.b16` Lua sandbox (allow-list) enforced in `runtime.c`? (not verified in the audit)
-- `.bme` project files: no example in the repository; where do they live on the SD?
-- Working folder `dev/<name>/` of `B16.md` §8.1: implemented or dropped?
+Audit and options with pros and cons: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [BM-FORMAT.md](BM-FORMAT.md).
+- 720x720: remove it from the tools (F2a) or accept it in the kernel (F2b)?
+- What a `.b16` promises: only a target (360x360, 8 MiB) + packaging lint (B3 a+b), or runtime enforcement (B3c, breaks published `.b16` that use `math.random`, files...)?
+- Yharnam and Titan EX are a plain copy of the `.bm`: really two editions (B2: build with `--from --b16`), or one edition under two names?
+- Header integrity: a second CRC in the reserved bytes (F3a), the full CRC (F3b, breaks old kernels) or leave it?
+- Safe now, no decision needed: F1 (document flags and built-from), F7/F8 (writer and tool fixes), B1 (make `B16.md` say what is true; `B16-IT.md` is a broken link).
+
+## Structure of the programs
+See [APP-ARCHITECTURE.md](APP-ARCHITECTURE.md) section 7.
+- **S1 (security): a game can create `/carts/pixel.bm` (any new `.bm`) and the kernel runs an SD file with a tool's name as that tool, with write access and no permission questions.** Read from the code, not tried. S1a (refuse the reserved names in `write_target`) is a few lines: do it?
+- One table of apps and tools instead of 7 lists (A2); `build.py` unified (A4); `id` in INFO for the saves (A7).
 
 ## API
 - Screenshot `shot([prefix])`, Print Screen and Select+L1+R1: done ([SCREENSHOTS.md](SCREENSHOTS.md)).
