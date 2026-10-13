@@ -49,7 +49,7 @@ Ultimo aggiornamento: 2026-10-13 (Grok).
 | **Claude local** | `WORKING record.py video 4 + review GROK-01 (dopo le sue correzioni)` | review AGY-01..05 fatta: approvati | 1 h |
 | **Claude cloud** | `WORKING riprese QEMU video 2, 3, 5 (shift 1)` | video 1 registrato (PASS); le riprese finali vanno a `shift` 1 | 30 min a ripresa |
 | **Antigravity** | `WORKING AGY-04` (RGB30 `carts/sdk_b16`) | AGY-01, 02, 03, 05 approvati da Claude local; parti subito, non aspettare il video 4 | 1.5-2 h |
-| **Grok** | `WORKING GROK-01 fix da review (~80%)` | review: CHANGES REQUESTED (2 ×, copertura script/input, check_series) — fix in corso | 15-20 min |
+| **Grok** | `DONE` | GROK-01 approvato e integrato; nessuna nuova task (decisione dell utente) | - |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
 Catena che blocca i video: 1 -> 2 -> 3 (riprese = cloud) · 5 libero · 4 = Antigravity (AGY-04 resta) · 6 = 4 + 5 · 7 = 6 · 8 = 7. Copertine PNG: da generare dopo la review del fix AGY-05.
