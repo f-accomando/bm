@@ -255,7 +255,7 @@ identica). È il caso pesante: 10 eroi, abilità, esplosioni, particelle.
 - **Istruzioni → millisecondi**: 2,2 ns per istruzione, misurati sul Pi nel 3D dello
   stress test (sfere della GPU: 936 istruzioni per triangolo ↔ 2,04 µs). È una stima:
   sul Pi le fermate della pipeline (confronti in virgola mobile, cache) pesano più o
-  meno a seconda del codice (`docs/PRESTAZIONI.md`, sezione 6).
+  meno a seconda del codice (`docs/PERFORMANCE.md`, sezione 6).
 - **La V3D** lavora mentre l'ARM aspetta (`v3d_run` è sincrono): al tempo dell'ARM si
   aggiungono ~0,34 µs per triangolo (binning 2,7 ms + rendering 4,1 ms per 20 000
   triangoli piccoli, passo 6 del test `g` sul Pi) e ~0,1 ms per lavoro (le tile della

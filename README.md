@@ -88,7 +88,7 @@ bm integrates **bm3d** (v7.2+), a custom dual-path 3D engine:
 - **Chaos Kitchen (3D Co-op)**: **6.8 ms/frame (60 fps)** on V3D GPU vs 14.1 ms on software ARM.
 - **Astro Wing (3D Flight Combat)**: **6.3 ms/frame (solid 60 fps)**.
 
-> Read the full performance breakdown in [`docs/M33-PRIMA-DOPO.md`](docs/M33-PRIMA-DOPO.md) and [`docs/PRESTAZIONI.md`](docs/PRESTAZIONI.md).
+> Read the full performance breakdown in [`docs/M33-PRIMA-DOPO.md`](docs/M33-PRIMA-DOPO.md) and [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 
 ---
 
@@ -178,7 +178,7 @@ make qemu
 - **Lua API Reference**: [`docs/API.md`](docs/API.md) *(complete draw, input, audio, 3D, and netplay reference)*.
 - **Game Authoring Guide**: [`docs/GAME-GUIDE.md`](docs/GAME-GUIDE.md) (Italian: [`docs/GUIDA-GIOCHI.md`](docs/GUIDA-GIOCHI.md)).
 - **Architecture & Design RFCs**: [`docs/design/`](docs/design/).
-- **Performance & Drivers**: [`docs/PRESTAZIONI.md`](docs/PRESTAZIONI.md), [`docs/DRIVERS.md`](docs/DRIVERS.md), and [`docs/HARDWARE.md`](docs/HARDWARE.md).
+- **Performance & Drivers**: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md), [`docs/DRIVERS.md`](docs/DRIVERS.md), and [`docs/HARDWARE.md`](docs/HARDWARE.md).
 - **AI Agent Guidelines**: [`CLAUDE.md`](CLAUDE.md) and [`GEMINI.md`](GEMINI.md).
 
 ---

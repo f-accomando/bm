@@ -7,7 +7,7 @@ Working notes on the **current** state of bm (BareMetal), for whoever changes th
 each area is built today, what is open, and the rules that keep it working. One topic lives
 in one file; the others link to it.
 
-Not here: history (git log), measurements (`docs/PRESTAZIONI.md`, `docs/STRESS.md`,
+Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.md), `docs/STRESS.md`,
 `docs/M33-PRIMA-DOPO.md`, `docs/BENCH3D.md`), plans and milestones
 ([`docs/ROADMAP.md`](ROADMAP.md)), the game API ([`docs/API.md`](API.md)), working rules
 (`CLAUDE.md`).
@@ -51,7 +51,7 @@ file ends with *Open work* and *Rules (do not break)*.
 
 ## Reference docs (not progress)
 
-Performance: [`docs/PRESTAZIONI.md`](PRESTAZIONI.md), [`docs/M33-PRIMA-DOPO.md`](M33-PRIMA-DOPO.md) · GPU: `docs/DRIVERS.md`, `docs/BENCH3D.md` · RGB30: `docs/RGB30.md` · `.b16`: `docs/B16.md` ·
+Performance: [`docs/PERFORMANCE.md`](PERFORMANCE.md), [`docs/M33-PRIMA-DOPO.md`](M33-PRIMA-DOPO.md) · GPU: `docs/DRIVERS.md`, `docs/BENCH3D.md` · RGB30: `docs/RGB30.md` · `.b16`: `docs/B16.md` ·
 resources `BMRES`: `docs/RISORSE.md` · riff: `docs/RIFF.md` · Predict and pad: `docs/PREDICT.md`,
 `docs/PADTYPE.md` · assistant: `src/ai/kb/README.md`, `AI.md` · Market: `market/README.md` ·
 game guide: `docs/GAME-GUIDE.md` · SDK and tools: `sdk/README.md` · design RFCs: `docs/design/`. All are large: `Grep -n '^#'` first.

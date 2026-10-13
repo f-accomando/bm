@@ -5,7 +5,7 @@ Italian version: [HARDWARE-IT.md](HARDWARE-IT.md).
 (The Pi Zero 2 W, with its kernel `kernel7.img`, is in section 8.)
 
 Purpose: to see **how much of the hardware we use** and **how much headroom is left**. The status and
-the technical choices with their measurements are also in [`PRESTAZIONI.md`](PRESTAZIONI.md).
+the technical choices with their measurements are also in [`PERFORMANCE.md`](PERFORMANCE.md).
 Columns:
 
 - **Pi Zero W** — hardware capability (datasheet or measured on our Pi);
