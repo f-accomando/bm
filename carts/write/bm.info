@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: bm Write
+desc: The word processor of bm: styled documents laid out on A4 pages.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: app, tool, write
+resolution: 640x360

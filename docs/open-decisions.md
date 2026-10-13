@@ -37,7 +37,7 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 ## Project layout
 - License id: `LicenseRef-BM-Community-1.0` is used for "BM Community License 1.0" (not an
   SPDX id). Confirm the string.
-- Next migrations: the other games (`snake`, `shooter`, `astrowing`, `kitchen`, `titan`, `village`, `nano8`, `overbit`, `typing`, `write`) and the apps of the suite.
+- Next migrations: the apps of the suite, and moving the sheets and build scripts of `kitchen`, `titan`, `nano8`, `overbit` into `assets/` and `build/` (they have custom Makefile rules and `build.py` paths).
 - `mkcover.py` of `yharnam` gives a different `cover.png` with this Pillow (12.3.0): pin the version or leave the cover as it is?
 
 ## Found while checking the manuals (to fix in the source documents)

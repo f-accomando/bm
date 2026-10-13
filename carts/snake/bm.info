@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: Snake
+desc: Eat the apples, do not bite yourself or the walls.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: game, arcade
+resolution: 640x360

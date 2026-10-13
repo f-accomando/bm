@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: Pad Typing
+desc: Practice and test of writing with the controller.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: game, tool, typing
+resolution: 640x360

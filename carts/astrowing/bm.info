@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: Astro Wing
+desc: A polygon space fighter in the style of the SNES classics.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: game, 3d, shooter
+resolution: 640x360

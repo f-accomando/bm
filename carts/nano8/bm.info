@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: nano8
+desc: Plays PICO-8 style cartridges (.p8 and .p8.png).
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: app, emulator
+resolution: 640x360

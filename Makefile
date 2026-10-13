@@ -194,16 +194,6 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
 GAMES := pong snake shooter astrowing hunt kitchen titan village nano8 overbit yharnam typing write
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
-title_snake   := Snake
-title_shooter := Star Shooter
-title_astrowing := Astro Wing
-title_kitchen := Chaos Kitchen
-title_titan := Titan Clash
-title_nano8 := nano8
-title_village := Studio Village
-res_village := 320x180
-title_typing := Pad Typing
-title_write := bm Write
 sheet8_yharnam := 1
 # Yharnam's map drawn by hand (the SDK's map page): carts/yharnam/assets/map_ground.csv, map_overlay.csv and
 # map_objects.csv (the placeholders of the houses, trees, lamps... it places)
@@ -243,9 +233,9 @@ KITCHEN_SRC := $(sort $(wildcard carts/kitchen/src/*.lua))
 $(BUILD)/kitchen/main.lua: $(KITCHEN_SRC) carts/kitchen/build.py
 	$(PYTHON) carts/kitchen/build.py $@ --map $(BUILD)/kitchen/main.map
 
-$(BUILD)/carts/kitchen.bm: $(BUILD)/kitchen/main.lua carts/kitchen/sheet.png carts/kitchen/cover.png scripts/mkbm.py
+$(BUILD)/carts/kitchen.bm: $(BUILD)/kitchen/main.lua carts/kitchen/sheet.png carts/kitchen/cover.png scripts/mkbm.py carts/kitchen/bm.info
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_kitchen)" --author bm \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/kitchen/bm.info \
 	    --sheet carts/kitchen/sheet.png --cover carts/kitchen/cover.png
 
 # Titan Clash (M20): several Lua files too; its sheet has more colours than
@@ -254,9 +244,9 @@ TITAN_SRC := $(sort $(wildcard carts/titan/src/*.lua))
 $(BUILD)/titan/main.lua: $(TITAN_SRC) carts/titan/build.py
 	$(PYTHON) carts/titan/build.py $@ --map $(BUILD)/titan/main.map
 
-$(BUILD)/carts/titan.bm: $(BUILD)/titan/main.lua carts/titan/sheet.png carts/titan/cover.png scripts/mkbm.py
+$(BUILD)/carts/titan.bm: $(BUILD)/titan/main.lua carts/titan/sheet.png carts/titan/cover.png scripts/mkbm.py carts/titan/bm.info
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_titan)" --author bm \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/titan/bm.info \
 	    --sheet carts/titan/sheet.png --sheet8 --cover carts/titan/cover.png
 
 # Titan Clash EX (RGB30, .b16 only): the same game's second edition, 360x360 (1:1),
@@ -286,9 +276,9 @@ NANO8_ROMS := $(sort $(wildcard carts/nano8/roms/*.p8 carts/nano8/roms/*.p8.png)
 $(BUILD)/nano8/main.lua: $(NANO8_SRC) carts/nano8/build.py
 	$(PYTHON) carts/nano8/build.py $@ --map $(BUILD)/nano8/main.map
 
-$(BUILD)/carts/nano8.bm: $(BUILD)/nano8/main.lua carts/nano8/cover.png scripts/mkbm.py
+$(BUILD)/carts/nano8.bm: $(BUILD)/nano8/main.lua carts/nano8/cover.png scripts/mkbm.py carts/nano8/bm.info
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_nano8)" --author bm \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/nano8/bm.info \
 	    --cover carts/nano8/cover.png
 
 # Overbit (M38): a hero shooter in 3D. Several Lua files joined by its
@@ -342,9 +332,9 @@ $(BUILD)/overbit/sounds.json: carts/overbit/art/sounds.py
 	$(PYTHON) carts/overbit/art/sounds.py $@
 
 $(BUILD)/carts/overbit.bm: $(BUILD)/overbit/main.lua $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json \
-                           scripts/mkbm.py scripts/bmaudio.py $(wildcard carts/overbit/cover.png)
+                           scripts/mkbm.py scripts/bmaudio.py carts/overbit/bm.info $(wildcard carts/overbit/cover.png)
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_overbit)" --author bm --res $(OVERBIT_RES) \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/overbit/bm.info \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json \
 	    $(if $(wildcard carts/overbit/cover.png),--cover carts/overbit/cover.png)
 

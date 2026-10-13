@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: Star Shooter
+desc: Waves of alien ships, three lives.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: game, arcade, shooter
+resolution: 640x360
