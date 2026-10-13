@@ -31,3 +31,10 @@ The mix was already 32-bit float; until now it left the synthesizer as `int16_t`
 ### Tests
 
 `make test-audio` (`tests/audio/test_audio.c`: SNR per depth, dither noise, DC, room tail, block-rate sidebands) and `make TARGET=rgb30 test-audio` (I2S simulator at 16, 24 and 32 bits).
+
+## Open work (Output Hardware)
+
+- **R21 — Audio senza HDMI (Analogico / I2S su Pi)**:
+  - Uscita PWM su pin GPIO con filtro RC passivo (270 Ω + 33 nF) e jack stereo, per consentire l'ascolto su monitor privi di altoparlanti integrati.
+  - Supporto alternativo per DAC audio I2S esterni (es. MAX98357A / PCM5102).
+

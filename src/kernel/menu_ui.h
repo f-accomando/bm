@@ -20,6 +20,7 @@ typedef struct {
     const char *author;
     const char *path;           /* file on the SD card, or the built-in name */
     const char *kind;           /* "bm", or "tool" in the Dev tab */
+    const char *format;         /* "bm" or "b16" in the Market, or NULL */
     uint32_t size;              /* bytes */
     const g16_sheet_t *cover;   /* MENU_CARD x MENU_CARD, or NULL for a plain card */
     int running;                /* suspended in memory: a "Playing" badge */
@@ -106,6 +107,8 @@ typedef struct {
     int peek_first;             /* the first tab (the Market) waits off the screen at the left,
                                  * a little of its name showing, until it is the tab */
     int on_gear;                /* Settings is the tab (its panel is open): Games and Dev off */
+    const char *const *subtabs; /* Market sub-pages ("Games", "Apps"), or NULL */
+    int nsubtabs, subtab;
     const menu_item_t *items;   /* of the current tab */
     int n, sel;
     int dev[4];                 /* players 1-4: MENU_DEV_*, an icon each (no number) */
@@ -136,6 +139,7 @@ typedef struct {
     const char *notice_detail;
     int notice_progress;
     const char *a_label;        /* A in the footer, instead of Play / Open; "" hides it */
+    const char *y_label;        /* Y in the footer (e.g. "Apps" / "Games" in Market), or NULL */
     /* called while the frame waits for its time, until timer_ticks() is
      * `until` (the Market's downloads), or NULL */
     void (*idle)(uint32_t until);

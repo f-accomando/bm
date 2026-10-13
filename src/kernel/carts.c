@@ -373,6 +373,62 @@ static void background_stop(void)
     wifi_auto_stop();
 }
 
+static int same_text(const char *a, const char *b)
+{
+    for (;; a++, b++) {
+        int x = *a >= 'A' && *a <= 'Z' ? *a + 32 : *a, y = *b >= 'A' && *b <= 'Z' ? *b + 32 : *b;
+        if (x != y)
+            return 0;
+        if (!x)
+            return 1;
+    }
+}
+
+/* Tool id ("sdk", "sound", "studio", "animator", "mesh", "pixel", "code",
+ * "assistant") for a built-in or SD-installed app, or NULL for a game. */
+static const char *tool_id_of(const cart_t *c)
+{
+    if (c->builtin) {
+        if (c->builtin == bm_editor_cart) return "sdk";
+        if (c->builtin == bm_sound_cart) return "sound";
+        if (c->builtin == bm_studio_cart) return "studio";
+        if (c->builtin == bm_animator_cart) return "animator";
+        if (c->builtin == bm_mesh_cart) return "mesh";
+        if (c->builtin == bm_pixel_cart) return "pixel";
+        if (c->builtin == bm_code_cart) return "code";
+        return NULL;
+    }
+    if (same_text(c->name, "sdk.bm") || same_text(c->name, "editor.bm") ||
+        same_text(c->name, "sdk.b16") || same_text(c->name, "sdk_b16.b16"))
+        return "sdk";
+    if (same_text(c->name, "sound.bm") || same_text(c->name, "sound.b16"))
+        return "sound";
+    if (same_text(c->name, "studio.bm") || same_text(c->name, "studio.b16"))
+        return "studio";
+    if (same_text(c->name, "animator.bm") || same_text(c->name, "animator.b16"))
+        return "animator";
+    if (same_text(c->name, "mesh.bm") || same_text(c->name, "mesh.b16"))
+        return "mesh";
+    if (same_text(c->name, "pixel.bm") || same_text(c->name, "pixel.b16"))
+        return "pixel";
+    if (same_text(c->name, "code.bm") || same_text(c->name, "code.b16"))
+        return "code";
+    if (same_text(c->name, "assistant.bm") || same_text(c->name, "assistan.bm") ||
+        same_text(c->name, "assistant.b16") || same_text(c->name, "assistan.b16"))
+        return "assistant";
+    return NULL;
+}
+
+static int has_sd_tool(const char *tid)
+{
+    for (int i = 0; i < nsd; i++) {
+        const char *t = tool_id_of(&carts[i]);
+        if (t && strcmp(t, tid) == 0)
+            return 1;
+    }
+    return 0;
+}
+
 static void rescan(void)
 {
     background_stop();
@@ -388,18 +444,19 @@ static void rescan(void)
         qsort(carts, (size_t)ncarts, sizeof *carts, title_cmp);
     }
     nsd = ncarts;
-    /* the tools always come last (up from the first cartridge) */
-    if (ncarts < MAX_CARTS)
+    /* the tools always come last (up from the first cartridge); skipped if
+     * already installed on the SD card from Market > Apps or if CLEAN_KERNEL=1 */
+    if (ncarts < MAX_CARTS && bm_editor_cart_end > bm_editor_cart && !has_sd_tool("sdk"))
         add_builtin("editor (built-in)", bm_editor_cart, bm_editor_cart_end);
-    if (ncarts < MAX_CARTS)
+    if (ncarts < MAX_CARTS && bm_sound_cart_end > bm_sound_cart && !has_sd_tool("sound"))
         add_builtin("sound (built-in)", bm_sound_cart, bm_sound_cart_end);
-    if (ncarts < MAX_CARTS)
+    if (ncarts < MAX_CARTS && bm_studio_cart_end > bm_studio_cart && !has_sd_tool("studio"))
         add_builtin("studio (built-in)", bm_studio_cart, bm_studio_cart_end);
-    if (ncarts < MAX_CARTS)
+    if (ncarts < MAX_CARTS && bm_animator_cart_end > bm_animator_cart && !has_sd_tool("animator"))
         add_builtin("animator (built-in)", bm_animator_cart, bm_animator_cart_end);
-    if (ncarts < MAX_CARTS)
+    if (ncarts < MAX_CARTS && bm_mesh_cart_end > bm_mesh_cart && !has_sd_tool("mesh"))
         add_builtin("mesh (built-in)", bm_mesh_cart, bm_mesh_cart_end);
-    if (ncarts < MAX_CARTS)
+    if (ncarts < MAX_CARTS && bm_pixel_cart_end > bm_pixel_cart && !has_sd_tool("pixel"))
         add_builtin("pixel (built-in)", bm_pixel_cart, bm_pixel_cart_end);
     for (int i = 0; i < ncarts; i++) {
         cart_t *c = &carts[i];
@@ -452,17 +509,6 @@ void carts_init(void)
 int carts_count(void)
 {
     return ncarts;
-}
-
-static int same_text(const char *a, const char *b)
-{
-    for (;; a++, b++) {
-        int x = *a >= 'A' && *a <= 'Z' ? *a + 32 : *a, y = *b >= 'A' && *b <= 'Z' ? *b + 32 : *b;
-        if (x != y)
-            return 0;
-        if (!x)
-            return 1;
-    }
 }
 
 /* the SD card cartridge with this path, or -1 */
@@ -550,11 +596,10 @@ static int is_project(const cart_t *c)
     return !c->builtin && bm_is_project(c->name);
 }
 
-/* a development tool built into the kernel (the Dev tab) */
+/* a development tool built into the kernel or installed from Market > Apps (the Dev tab) */
 static int is_dev(const cart_t *c)
 {
-    return c->builtin == bm_editor_cart || c->builtin == bm_sound_cart || c->builtin == bm_studio_cart ||
-           c->builtin == bm_animator_cart || c->builtin == bm_mesh_cart || c->builtin == bm_pixel_cart;
+    return tool_id_of(c) != NULL;
 }
 
 /* The tools a tool can open on its file with cart_tool(name, path) (bm
@@ -665,19 +710,25 @@ static void play(framebuffer_t *fb, const cart_t *c)
     }
     bm_close_suspended();              /* the menu asked first */
     susp_path[0] = 0;
-    if (is_dev(c)) {
+    const char *tid = tool_id_of(c);
+    if (tid) {
         const char *w;
-        if (c->builtin == bm_editor_cart)
+        if (!strcmp(tid, "sdk"))
             w = carts_editor(fb);
-        else if (c->builtin == bm_sound_cart)
+        else if (!strcmp(tid, "sound"))
             w = carts_sound_editor(fb);
-        else if (c->builtin == bm_mesh_cart)
+        else if (!strcmp(tid, "mesh"))
             w = carts_mesh(fb);
-        else if (c->builtin == bm_pixel_cart)
+        else if (!strcmp(tid, "pixel"))
             w = carts_pixel(fb);
-        else if (c->builtin == bm_animator_cart)
+        else if (!strcmp(tid, "animator"))
             w = carts_animator(fb);
-        else
+        else if (!strcmp(tid, "code"))
+            w = carts_code(fb, NULL);
+        else if (!strcmp(tid, "assistant")) {
+            home_assistant(fb);
+            w = "Assistant";
+        } else
             w = carts_studio(fb);
         ksnprintf(last_msg, sizeof last_msg, "last: %s", w);
         crumb("cartridge menu", NULL);
@@ -819,7 +870,8 @@ static int is_suspended(const cart_t *c)
 
 /* The options of a cartridge (X on its cover): a panel like the settings. */
 enum { C_PLAY = 100, C_CLOSE, C_SDK, C_SOUND, C_STUDIO, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
-       C_DEL_SAVE, C_DELETE, C_CODE, C_MESH, C_PIXEL, C_ANIMATOR, C_PUBLISH, C_SEND, C_COPY, C_BUILD };
+       C_DEL_SAVE, C_DELETE, C_CODE, C_MESH, C_PIXEL, C_ANIMATOR, C_PUBLISH, C_SEND, C_COPY, C_BUILD,
+       C_BUILD_B16 };
 
 static int opt_cart;            /* the cartridge of the HOME_CART panel */
 static int opt_market;          /* the game of the HOME_MARKET panel */
@@ -888,9 +940,14 @@ static void cart_panel(home_panel_t *p)
         if (proj) {
             home_row(p, MENU_ROW_ACTION, C_BUILD, "Build the game (.bm)",
                      "Its game, in Games: it replaces the last build", NULL);
+            home_row(p, MENU_ROW_ACTION, C_BUILD_B16, "Export .b16",
+                     "Its .b16 edition (up to 8 MiB), in Games: never replaces .bm", NULL);
         } else {
             home_row(p, MENU_ROW_ACTION, C_COPY, "Make an editable copy",
                      "Games are read only: the copy (.bme) goes to Dev", NULL);
+            if (strcmp(kind_of(c), "b16") != 0)
+                home_row(p, MENU_ROW_ACTION, C_BUILD_B16, "Export .b16",
+                         "Exports a .b16 edition (up to 8 MiB) without changing the .bm", NULL);
             home_row(p, MENU_ROW_ACTION, C_PUBLISH, "Publish to the Market",
                      "A pull request with your GitHub token: everyone can get it", NULL);
         }
@@ -935,7 +992,8 @@ static void cart_act(int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "closed %s", c->name);
         break;
     case C_COPY:
-    case C_BUILD: {
+    case C_BUILD:
+    case C_BUILD_B16: {
         char to[96], err[64];
         background_stop();
         int r = row == C_COPY ? bm_copy_name(c->path, to, sizeof to) : 0;
@@ -943,6 +1001,8 @@ static void cart_act(int row, int how, home_do_t *d)
             ksnprintf(err, sizeof err, "no free name");
         else if (row == C_COPY)
             r = bm_make_copy(c->path, to, err, sizeof err);
+        else if (row == C_BUILD_B16)
+            r = bm_build_b16(c->path, to, sizeof to, err, sizeof err);
         else
             r = bm_build(c->path, to, sizeof to, err, sizeof err);
         if (r == 0) {
@@ -1224,13 +1284,17 @@ void carts_menu(framebuffer_t *fb)
                 if (!a_label)
                     a_label = "";
             }
+            static const char *const market_pages[] = { "Games", "Apps" };
             menu_view_t v = {
                 .tabs = tabs, .ntabs = lib_on ? 4 : 3, .tab = tab, .on_gear = on_gear, .peek_first = 1,
+                .subtabs = on_market ? market_pages : NULL, .nsubtabs = on_market ? 2 : 0, .subtab = market_page(),
                 .items = items, .n = n, .sel = tsel[tab],
                 .details = details, .note = on_market ? market_status() : last_msg,
                 .panel = depth ? &mp : NULL,
                 .banner = on_market ? market_banner() : NULL,
-                .a_label = a_label, .idle = menu_idle,
+                .a_label = a_label,
+                .y_label = on_market ? (market_page() == MARKET_PAGE_APPS ? "Games" : "Apps") : NULL,
+                .idle = menu_idle,
             };
             /* Settings is a page: the sections on the left, the rows of the
              * one chosen (or under the selection, as a preview) on the right */
@@ -1498,7 +1562,12 @@ void carts_menu(framebuffer_t *fb)
                     action = 1;
                 else if (click && h.kind == MENU_HIT_LIB)
                     action = 1;
-                else if (click && h.kind == MENU_HIT_GROUP)
+                else if (click && h.kind == MENU_HIT_GROUP && tab == TAB_MARKET && !on_gear) {
+                    if (h.index != market_page()) {
+                        market_set_page(h.index);
+                        tsel[TAB_MARKET] = 0;
+                    }
+                } else if (click && h.kind == MENU_HIT_GROUP)
                     dx = h.index - lib_group;
                 else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'Y')
                     ybtn = 1;
@@ -1746,6 +1815,10 @@ void carts_menu(framebuffer_t *fb)
                 if (dx && s_ + dx >= 0 && s_ + dx < n)
                     s_ += dx;
                 tsel[tab] = s_;
+            }
+            if (ybtn && !on_gear && tab == TAB_MARKET) {
+                market_set_page(market_page() == MARKET_PAGE_APPS ? MARKET_PAGE_GAMES : MARKET_PAGE_APPS);
+                tsel[TAB_MARKET] = 0;
             }
             /* X: the options of the highlighted cartridge, or of the
              * Market's game */

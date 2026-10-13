@@ -2,7 +2,7 @@
 
 Framebuffer, 2D (`gfx16`), software 3D (`r3d`), the V3D driver (`gpu3d`) and the Mali
 bring-up. Driver versions and history: [`docs/DRIVERS.md`](../DRIVERS.md); bench and score:
-[`docs/BENCH3D.md`](../BENCH3D.md); numbers: `docs/PRESTAZIONI.md`, `docs/STRESS.md`.
+[`docs/BENCH3D.md`](../BENCH3D.md); numbers: `docs/PERFORMANCE.md`, `docs/STRESS.md`.
 Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/light3d.md).
 
 ## How it is today

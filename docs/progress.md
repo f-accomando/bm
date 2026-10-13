@@ -7,8 +7,8 @@ Working notes on the **current** state of bm (BareMetal), for whoever changes th
 each area is built today, what is open, and the rules that keep it working. One topic lives
 in one file; the others link to it.
 
-Not here: history (git log), measurements (`docs/PRESTAZIONI.md`, `docs/STRESS.md`,
-`docs/M33-PRIMA-DOPO.md`, `docs/BENCH3D.md`), plans and milestones
+Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.md), `docs/STRESS.md`,
+[`docs/GPU-BENCHMARK-REPORT.md`](GPU-BENCHMARK-REPORT.md), `docs/BENCH3D.md`), plans and milestones
 ([`docs/ROADMAP.md`](ROADMAP.md)), the game API ([`docs/API.md`](API.md)), working rules
 (`CLAUDE.md`).
 
@@ -24,8 +24,9 @@ Not here: history (git log), measurements (`docs/PRESTAZIONI.md`, `docs/STRESS.m
 | [lua](progress/lua.md) | Lua VM, cartridge runtime, built-in libraries, dev kit, profiler, session report | `third_party/lua/`, `src/bm/runtime.c`, `src/bm/require.c`, `src/script/`, `src/bm/profile.c` |
 | [audio](progress/audio.md) (+ [output](progress/audio-output.md), [samples](progress/audio-samples.md)) | synthesizer, sound bank and player, presets, outputs, riff, music assistant | `src/audio/`, `src/script/riff.lua`, `src/ai/music.c`, `src/rgb30/rk_audio.c` |
 | [platforms](progress/platforms.md) | Pi Zero W / Pi 1, Pi Zero 2 W (off), RGB30, `bmhost`, QEMU | `src/rgb30/`, `rgb30.mk`, `tests/host/`, `tests/qemu_test.py` |
-| [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) | the games: screens and quality, bench flags, assets | `carts/overbit/`, `carts/yharnam/` |
-| [tools](progress/tools.md) | the suite (SDK, Code, Pixel, Studio, Animator, Mesh, Sound, Write), assistant, PC scripts, Market, videos, CI | `carts/`, `src/ai/`, `scripts/`, `tools/`, `market/`, `video/` |
+| [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) | the games: screens and quality, bench flags, assets, verification | `carts/overbit/`, `carts/yharnam/` |
+| [b16](progress/b16.md) | `.b16` standard profile (360×360, 256 colours, 4 MiB Lua, sandbox) | `src/bm/project.c`, `src/bm/runtime.c` |
+| [tools](progress/tools.md) | the suite, editors, PC scripts, Market, CI (design: [suite specs](design/)) | `carts/`, `src/ai/`, `scripts/`, `tools/` |
 
 ## Which section to open
 
@@ -39,8 +40,8 @@ file ends with *Open work* and *Rules (do not break)*.
 - VM, runtime, built-in libraries, dev kit: [lua](progress/lua.md).
 - Synth, mixer, player, presets, riff, music assistant: [audio](progress/audio.md); output depth and dither: [audio-output](progress/audio-output.md); samples, effects, WAV: [audio-samples](progress/audio-samples.md).
 - Pi Zero W, Pi Zero 2 W, RGB30, PC and QEMU: [platforms](progress/platforms.md).
-- Suite (SDK, Studio, Animator, Mesh, Pixel, Write), assistant, PC scripts, Market, videos, CI: [tools](progress/tools.md).
-- Games (Overbit: screens, quality, bench flags; Yharnam: assets): [overbit](progress/overbit.md), [yharnam](progress/yharnam.md).
+- Suite (SDK, Studio, Animator, Mesh, Pixel, Code, Sound, Write): [tools](progress/tools.md) (future suite evolution: `docs/design/suite-*.md`).
+- Games (Overbit, Yharnam): [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) (gameplay architecture: [`docs/design/games-architecture.md`](design/games-architecture.md)).
 - Game API reference (not progress): [API.md](API.md) → `docs/api/<area>.md`.
 
 ## Navigation (how to read, where things are)
@@ -50,18 +51,18 @@ file ends with *Open work* and *Rules (do not break)*.
 
 ## Reference docs (not progress)
 
-GPU: `docs/DRIVERS.md`, `docs/BENCH3D.md` · RGB30: `docs/RGB30.md` · `.b16`: `docs/B16.md` ·
+Performance: [`docs/PERFORMANCE.md`](PERFORMANCE.md), [`docs/GPU-BENCHMARK-REPORT.md`](GPU-BENCHMARK-REPORT.md) · GPU: `docs/DRIVERS.md`, `docs/BENCH3D.md` · RGB30: `docs/RGB30.md` · `.b16`: `docs/B16.md` ·
 resources `BMRES`: `docs/RISORSE.md` · riff: `docs/RIFF.md` · Predict and pad: `docs/PREDICT.md`,
 `docs/PADTYPE.md` · assistant: `src/ai/kb/README.md`, `AI.md` · Market: `market/README.md` ·
-game guide: `docs/GAME-GUIDE.md` · SDK and tools: `sdk/README.md` · milestones and ideas:
-`docs/ROADMAP.md`. All are large: `Grep -n '^#'` first.
+game guide: `docs/GAME-GUIDE.md` · SDK and tools: `sdk/README.md` · design RFCs: `docs/design/`. All are large: `Grep -n '^#'` first.
 
-## Open milestones (detail in `docs/ROADMAP.md`)
+## Active milestones by area
 
 - M35, M36, M37, M39 — V3D: [v3d](progress/v3d.md)
 - M41 — RGB30 Mali and Overbit `.b16`: [graphics-mali](progress/graphics-mali.md), [platforms](progress/platforms.md)
-- M42 — the `.b16` profile: [lua](progress/lua.md)
-- M43 — sprite stacking, M44 — QPU programs: [graphics](progress/graphics.md)
+- M42 — the `.b16` profile: [b16](progress/b16.md)
+- M43 — sprite stacking: [graphics](progress/graphics.md)
+- M44 — QPU programs: [v3d](progress/v3d.md)
 - M45 — bm Write, M47 — projects, M48 — mouse in the suite: [tools](progress/tools.md)
 - M46 — Audio 2: [audio](progress/audio.md)
 

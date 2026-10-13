@@ -47,17 +47,19 @@ SOC     :=
 # its tests (test-hyp) to make test. make test-zero2 builds it anyway.
 ZERO2   ?= 0
 export ZERO2
+CLEAN_KERNEL ?= 0
+CLEAN_DEFS := $(if $(filter 1,$(CLEAN_KERNEL)),-DBM_CLEAN_KERNEL)
 K7      := $(if $(filter 1,$(ZERO2)),$(BUILD)/kernel7.img)
 COMMON  = $(ARCH) $(SOC) -std=c11 -O2 -Wall -Wextra -g -Isrc \
           -ffunction-sections -fdata-sections \
-          -DUART_BAUD=$(BAUD) $(BOOT_DEFS)
+          -DUART_BAUD=$(BAUD) $(BOOT_DEFS) $(CLEAN_DEFS)
 # Kernel: hosted C on top of newlib (libc, libm), see src/lib/syscalls.c.
 CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
           -Ithird_party/lwip/src/include -Isrc/net \
           -Ithird_party/mbedtls/include -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' $(WARN)
 # Chainloader: freestanding, no libc.
 LCFLAGS := $(COMMON) -Os -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
-ASFLAGS = $(ARCH) $(SOC) -g -Isrc -Isrc/kernel -Wa,-I$(BUILD)
+ASFLAGS = $(ARCH) $(SOC) $(CLEAN_DEFS) -g -Isrc -Isrc/kernel -Wa,-I$(BUILD)
 LDFLAGS = $(ARCH) -nostartfiles -Wl,--gc-sections
 LDLIBS  := -Wl,--start-group -lc -lm -lgcc -Wl,--end-group
 LLDLIBS := -nostdlib -lgcc
@@ -96,12 +98,14 @@ FORCE:
 
 # Third-party code: its own warning policy, not ours.
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS) $(THIRD7_OBJS): WARN := -w
+EMBED_TOOLS := $(if $(filter 1,$(CLEAN_KERNEL)),,$(BUILD)/editor.bm $(BUILD)/sound.bm \
+               $(BUILD)/studio.bm $(BUILD)/animator.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
+               $(BUILD)/assistant.bm $(BUILD)/code.bm)
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o $(BUILD)/k7/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem keys/market-pub.pem \
-                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm \
-                                 $(BUILD)/studio.bm $(BUILD)/animator.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
-                                 $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
-                                 $(BUILD)/code.bm $(BUILD)/texroom.bm src/ai/predict.lua $(BUILD)/words.lua \
+                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(EMBED_TOOLS) \
+                                 $(BUILD)/assist.bin src/ai/assist.lua \
+                                 $(BUILD)/texroom.bm src/ai/predict.lua $(BUILD)/words.lua \
                                  src/ai/padtype.lua
 
 # The development assistant (M30): knowledge base + trained network, built
@@ -129,9 +133,9 @@ $(BUILD)/code.bm: carts/code/main.lua carts/code/icon.png scripts/mkbm.py
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/code/icon.png --title "bm Code" --author bm
 
 # The assistant on its own, in the Dev tab
-$(BUILD)/assistant.bm: carts/assistant/main.lua scripts/mkbm.py
+$(BUILD)/assistant.bm: carts/assistant/main.lua carts/code/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "bm assistant" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/code/icon.png --title "bm assistant" --author bm
 
 # The editor (M15), built into the kernel
 $(BUILD)/editor.bm: carts/editor/main.lua carts/editor/icon.png scripts/mkbm.py
@@ -639,7 +643,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
         test-fat test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
-        release disasm wav test-studio test-prompts test-hyp test-zero2 \
+        release disasm wav test-studio test-prompts test-docs test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
         test-catalog test-github test-lan market-seed test-host test-qemu
 
@@ -825,7 +829,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-nano8 test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
-      test-studio test-prompts $(if $(K7),test-hyp)
+      test-studio test-prompts test-docs $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
@@ -1157,6 +1161,9 @@ $(BUILD)/host/test_prompts: tests/ui/test_prompts.c src/kernel/prompts.c src/ker
 test-prompts: $(BUILD)/host/test_prompts
 	@mkdir -p $(BUILD)/prompts
 	$< $(BUILD)/prompts
+
+test-docs:
+	$(PYTHON) scripts/docs_audit.py score
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator

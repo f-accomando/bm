@@ -65,6 +65,8 @@ static int fetched, net_failed;
 static uint32_t fetched_at, note_at;
 static char note[64], banner[72];
 static char want_id[24];        /* the game to download next */
+static int want_b16;            /* 1 if want_id is the .b16 edition */
+static int cur_page;            /* MARKET_PAGE_GAMES or MARKET_PAGE_APPS */
 static int delay_ms;            /* market_delay in bm/config.txt: slows a source down (tests) */
 
 static fiber_job_t work = { .name = "market" };
@@ -227,10 +229,22 @@ cancelled:
 
 /* ---------------------------------------------------------------- installed games */
 
-static owned_t *owned_find(const char *id)
+/* a .b16, the handhelds' cartridge (docs/B16.md), by its file's name */
+static int is_b16(const char *path)
+{
+    size_t n = strlen(path);
+    return n > 4 && path[n - 4] == '.' && (path[n - 3] | 32) == 'b' && path[n - 2] == '1' && path[n - 1] == '6';
+}
+
+static const char *kind_of(const catalog_game_t *g)
+{
+    return is_b16(g->file.path) ? "b16" : "bm";
+}
+
+static owned_t *owned_find(const char *id, int b16)
 {
     for (int i = 0; i < nowned; i++)
-        if (strcmp(owned[i].id, id) == 0)
+        if (strcmp(owned[i].id, id) == 0 && is_b16(owned[i].path) == b16)
             return &owned[i];
     return NULL;
 }
@@ -285,7 +299,7 @@ static int owned_save(void)
 
 static void owned_set(const char *id, const uint8_t *sha, const char *path)
 {
-    owned_t *o = owned_find(id);
+    owned_t *o = owned_find(id, is_b16(path));
     if (!o) {
         if (!owned || nowned == CATALOG_MAX)
             return;
@@ -296,23 +310,11 @@ static void owned_set(const char *id, const uint8_t *sha, const char *path)
     ksnprintf(o->path, sizeof o->path, "%s", path);
 }
 
-static void owned_drop(const char *id)
+static void owned_drop(const char *id, int b16)
 {
-    owned_t *o = owned_find(id);
+    owned_t *o = owned_find(id, b16);
     if (o)
         *o = owned[--nowned];
-}
-
-/* a .b16, the handhelds' cartridge (docs/B16.md), by its file's name */
-static int is_b16(const char *path)
-{
-    size_t n = strlen(path);
-    return n > 4 && path[n - 4] == '.' && (path[n - 3] | 32) == 'b' && path[n - 2] == '1' && path[n - 1] == '6';
-}
-
-static const char *kind_of(const catalog_game_t *g)
-{
-    return is_b16(g->file.path) ? "b16" : "bm";
 }
 
 /* which games are on the SD card: installed from the Market (and still
@@ -325,8 +327,8 @@ static void refresh_slots(void)
     for (int i = 0; i < cat.n; i++) {
         slot_t *s = &slots[i];
         const catalog_game_t *g = &cat.games[i];
-        const owned_t *o = owned_find(g->id);
         const int b16 = is_b16(g->file.path);
+        const owned_t *o = owned_find(g->id, b16);
         s->path[0] = 0;
         s->update = 0;
         if (o && carts_has_path(o->path) && is_b16(o->path) == b16) {
@@ -347,21 +349,36 @@ static void refresh_slots(void)
 static void adopt(catalog_t *nc)
 {
 #ifdef BM_RGB30
-    /* the RGB30 plays only the .b16 games (the user's choice, 2026-10-05):
-     * the others are not in its Market */
-    int k = 0;
-    for (int i = 0; i < nc->n; i++)
-        if (is_b16(nc->games[i].file.path))
-            nc->games[k++] = nc->games[i];
-    nc->n = k;
+    /* the RGB30 plays only the .b16 games by default (the user's choice,
+     * 2026-10-05; show_bm=1 in bm/config.txt also lists .bm cartridges) */
+    const char *show = config_get("show_bm");
+    if (!show || strcmp(show, "1") != 0) {
+        int k = 0;
+        for (int i = 0; i < nc->n; i++)
+            if (is_b16(nc->games[i].file.path))
+                nc->games[k++] = nc->games[i];
+        nc->n = k;
+    }
 #else
-    /* the Pi lists the .bm games; a game with a .b16 too (Overbit) is listed
-     * twice in the catalog, its .b16 is the handhelds' */
-    int k = 0;
-    for (int i = 0; i < nc->n; i++)
-        if (!is_b16(nc->games[i].file.path))
-            nc->games[k++] = nc->games[i];
-    nc->n = k;
+    /* the Pi runs both .bm and .b16 cartridges; when a game has both in the
+     * catalog (Overbit) and show_b16 is not enabled, keep its .bm so the Pi's
+     * edition is listed without duplicating the same game, while .b16-only
+     * titles (Yharnam, Titan Clash EX) or show_b16=1 are shown with their badge */
+    const char *show_b16 = config_get("show_b16");
+    if (!show_b16 || strcmp(show_b16, "1") != 0) {
+        int k = 0;
+        for (int i = 0; i < nc->n; i++) {
+            int dup_bm = 0;
+            if (is_b16(nc->games[i].file.path)) {
+                for (int j = 0; j < nc->n; j++)
+                    if (j != i && strcmp(nc->games[j].id, nc->games[i].id) == 0 && !is_b16(nc->games[j].file.path))
+                        dup_bm = 1;
+            }
+            if (!dup_bm)
+                nc->games[k++] = nc->games[i];
+        }
+        nc->n = k;
+    }
 #endif
     slot_t *ns = calloc(nc->n ? (size_t)nc->n : 1, sizeof *ns);
     if (!ns) {
@@ -583,10 +600,10 @@ static int pick_cover(void)
 
 /* ---------------------------------------------------------------- downloads */
 
-static int find(const char *id)
+static int find(const char *id, int b16)
 {
     for (int i = 0; i < cat.n; i++)
-        if (strcmp(cat.games[i].id, id) == 0)
+        if (strcmp(cat.games[i].id, id) == 0 && is_b16(cat.games[i].file.path) == b16)
             return i;
     return -1;
 }
@@ -701,7 +718,7 @@ static int start_job(void)
     } else if (!catalog_has_key()) {
         return 0;
     } else if (want_id[0] && online()) {
-        i = find(want_id);
+        i = find(want_id, want_b16);
         want_id[0] = 0;
         if (i < 0)
             return 0;
@@ -748,12 +765,45 @@ void market_tick(uint32_t until)
     }
 }
 
-void market_select(int i)
+/* ---------------------------------------------------------------- pages & what the menu shows */
+
+int market_page(void)
 {
-    sel = i;
+    return cur_page;
 }
 
-/* ---------------------------------------------------------------- what the menu shows */
+void market_set_page(int page)
+{
+    cur_page = page == MARKET_PAGE_APPS ? MARKET_PAGE_APPS : MARKET_PAGE_GAMES;
+}
+
+int market_page_count(int page)
+{
+    if (!have)
+        return 0;
+    int want_app = page == MARKET_PAGE_APPS, n = 0;
+    for (int i = 0; i < cat.n; i++)
+        if (cat.games[i].is_app == want_app)
+            n++;
+    return n;
+}
+
+static int cat_idx(int idx)
+{
+    if (!have || idx < 0)
+        return -1;
+    int want_app = cur_page == MARKET_PAGE_APPS, n = 0;
+    for (int i = 0; i < cat.n; i++)
+        if (cat.games[i].is_app == want_app && n++ == idx)
+            return i;
+    return -1;
+}
+
+void market_select(int i)
+{
+    int ci = cat_idx(i);
+    sel = ci >= 0 ? ci : 0;
+}
 
 static int loading(void)
 {
@@ -770,15 +820,19 @@ int market_items(menu_item_t *items, int max)
             items[i] = (menu_item_t){ .title = "", .author = "", .path = "", .kind = "market", .loading = 1 };
         return n;
     }
-    int n = cat.n < max ? cat.n : max;
-    for (int i = 0; i < n; i++) {
+    int want_app = cur_page == MARKET_PAGE_APPS, n = 0;
+    for (int i = 0; i < cat.n && n < max; i++) {
         const catalog_game_t *g = &cat.games[i];
+        if (g->is_app != want_app)
+            continue;
         const slot_t *s = &slots[i];
         int ready = s->cover_state == COVER_READY && s->cover.px;
-        items[i] = (menu_item_t){
+        int b16 = is_b16(g->file.path);
+        items[n++] = (menu_item_t){
             .title = g->title, .author = g->author, .path = s->path, .kind = "market",
+            .format = b16 ? "b16" : "bm",
             .size = g->file.size, .cover = ready ? &s->cover : NULL, .loading = !ready,
-            .busy = s->busy || strcmp(want_id, g->id) == 0,
+            .busy = s->busy || (strcmp(want_id, g->id) == 0 && want_b16 == b16),
             .percent = s->busy && g->file.size ? (int)((uint64_t)s->got * 100 / g->file.size) : 0,
             .badge = s->busy ? NULL : s->path[0] ? (s->update ? "Update" : "Installed")
                    : s->failed ? "Retry" : NULL,
@@ -791,8 +845,13 @@ const char *market_banner(void)
 {
     if (inited && !catalog_has_key())
         return "The Market needs a key: scripts/market-key.sh";
-    if (have)
-        return cat.n ? NULL : "The Market is empty";
+    if (have) {
+        if (!cat.n)
+            return "The Market is empty";
+        if (!market_page_count(cur_page))
+            return cur_page == MARKET_PAGE_APPS ? "No apps in the Market yet" : "No games in the Market yet";
+        return NULL;
+    }
     if (loading())
         return "Loading the Market...";
     if (!online())
@@ -819,7 +878,8 @@ const char *market_status(void)
     if (work.busy && job == JOB_INDEX)
         return "Checking for new games...";
     const char *s = cat.serial;
-    int n = ksnprintf(line, sizeof line, "%d games", cat.n);
+    int cnt = market_page_count(cur_page);
+    int n = ksnprintf(line, sizeof line, "%d %s", cnt, cur_page == MARKET_PAGE_APPS ? "apps" : "games");
     if (strlen(s) >= 8 && n + 12 < (int)sizeof line)     /* the date of the serial */
         ksnprintf(line + n, sizeof line - (size_t)n, ", %c%c%c%c-%c%c-%c%c",
                   s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7]);
@@ -829,24 +889,27 @@ const char *market_status(void)
 void market_details(int i, char *buf, size_t n)
 {
     buf[0] = 0;
-    if (!have || i < 0 || i >= cat.n)
+    int ci = cat_idx(i);
+    if (ci < 0)
         return;
-    const catalog_game_t *g = &cat.games[i];
-    const slot_t *s = &slots[i];
+    const catalog_game_t *g = &cat.games[ci];
+    const slot_t *s = &slots[ci];
     if (s->busy)
         ksnprintf(buf, n, "downloading %lu of %lu KiB", (unsigned long)(s->got / 1024),
                   (unsigned long)((g->file.size + 1023) / 1024));
     else
-        ksnprintf(buf, n, "%s   v%s   %s   %lu KiB", g->author[0] ? g->author : "-", g->version, g->license,
-                  (unsigned long)((g->file.size + 1023) / 1024));
+        ksnprintf(buf, n, "%s   v%s   %s   %s   %lu KiB", g->author[0] ? g->author : "-", g->version, g->license,
+                  kind_of(g), (unsigned long)((g->file.size + 1023) / 1024));
 }
 
 int market_action(int i)
 {
-    if (!have || i < 0 || i >= cat.n)
+    int ci = cat_idx(i);
+    if (ci < 0)
         return MARKET_NONE;
-    const slot_t *s = &slots[i];
-    if (s->busy || strcmp(want_id, cat.games[i].id) == 0)
+    const catalog_game_t *g = &cat.games[ci];
+    const slot_t *s = &slots[ci];
+    if (s->busy || (strcmp(want_id, g->id) == 0 && want_b16 == is_b16(g->file.path)))
         return MARKET_BUSY;
     if (s->path[0])
         return s->update ? MARKET_UPDATE : MARKET_PLAY;
@@ -865,8 +928,11 @@ const char *market_action_label(int i)
 
 void market_ask(int i, home_do_t *d)
 {
-    const catalog_game_t *g = &cat.games[i];
-    int up = slots[i].path[0] != 0;
+    int ci = cat_idx(i);
+    if (ci < 0)
+        return;
+    const catalog_game_t *g = &cat.games[ci];
+    int up = slots[ci].path[0] != 0;
     d->what = HOME_ASK;
     ksnprintf(d->ask, sizeof d->ask, "%s %s?", up ? "Update" : "Download", g->title);
     if (up)
@@ -879,17 +945,20 @@ void market_ask(int i, home_do_t *d)
 
 void market_get(int i)
 {
-    if (!have || i < 0 || i >= cat.n)
+    int ci = cat_idx(i);
+    if (ci < 0)
         return;
-    ksnprintf(want_id, sizeof want_id, "%s", cat.games[i].id);
-    slots[i].failed = 0;
+    ksnprintf(want_id, sizeof want_id, "%s", cat.games[ci].id);
+    want_b16 = is_b16(cat.games[ci].file.path);
+    slots[ci].failed = 0;
     if (!online())
         say("no network: the download waits for it");
 }
 
 const char *market_path(int i)
 {
-    return have && i >= 0 && i < cat.n ? slots[i].path : "";
+    int ci = cat_idx(i);
+    return ci >= 0 ? slots[ci].path : "";
 }
 
 /* ---------------------------------------------------------------- options */
@@ -897,14 +966,16 @@ const char *market_path(int i)
 void market_panel(int i, home_panel_t *p)
 {
     memset(p, 0, sizeof *p);
-    if (!have || i < 0 || i >= cat.n)
+    int ci = cat_idx(i);
+    if (ci < 0)
         return;
-    const catalog_game_t *g = &cat.games[i];
-    const slot_t *s = &slots[i];
+    const catalog_game_t *g = &cat.games[ci];
+    const slot_t *s = &slots[ci];
     /* the panel keeps the help's pointer: a copy, not the catalog's (a new
      * catalog can replace it while the panel is open) */
     static char about[sizeof g->about];
-    ksnprintf(about, sizeof about, "%s", g->about[0] ? g->about : "A free game of the bm Market");
+    ksnprintf(about, sizeof about, "%s",
+              g->about[0] ? g->about : (g->is_app ? "A free app of the bm Market" : "A free game of the bm Market"));
     ksnprintf(p->title, sizeof p->title, "Market > %s", g->title);
     switch (market_action(i)) {
     case MARKET_GET:
@@ -932,19 +1003,23 @@ void market_panel(int i, home_panel_t *p)
              (unsigned long)((g->file.size + 1023) / 1024));
     home_row(p, MENU_ROW_INFO, M_FILE, "File", s->path[0] ? "On the SD card" : "Not on the SD card yet",
              "%s", s->path[0] ? s->path : "-");
+    home_row(p, MENU_ROW_INFO, M_TYPE, "Format",
+             is_b16(g->file.path) ? "Handheld edition (.b16, 8 MiB ceiling)" : "Native cartridge (.bm)",
+             "%s (%s)", kind_of(g), g->is_app ? "app" : "game");
     if (s->path[0] && !s->busy)
         home_row(p, MENU_ROW_ACTION, M_DELETE, "Delete from the SD card",
-                 "The game leaves the SD card; its saves stay", NULL);
+                 "The cartridge leaves the SD card; its saves stay", NULL);
 }
 
 void market_act(int i, int row, int how, home_do_t *d)
 {
     memset(d, 0, sizeof *d);
     d->what = HOME_STAY;
-    if (!have || i < 0 || i >= cat.n)
+    int ci = cat_idx(i);
+    if (ci < 0)
         return;
-    const catalog_game_t *g = &cat.games[i];
-    slot_t *s = &slots[i];
+    const catalog_game_t *g = &cat.games[ci];
+    slot_t *s = &slots[ci];
     switch (row) {
     case M_GET:
     case M_UPDATE:
@@ -966,7 +1041,7 @@ void market_act(int i, int row, int how, home_do_t *d)
         } else if (how == HOME_YES) {
             if (fat_delete(s->path) == 0) {
                 ksnprintf(d->note, sizeof d->note, "deleted %s", s->path);
-                owned_drop(g->id);
+                owned_drop(g->id, is_b16(g->file.path));
                 if (owned_save() != 0)
                     kprintf("market: cannot save the list of games: %s\n", fat_error());
                 s->path[0] = 0;

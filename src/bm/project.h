@@ -13,6 +13,8 @@
 #include <stddef.h>
 
 #define BM_FLAG_PROJECT    1               /* u16 at 18: a project (.bme) */
+#define BM_FLAG_B16        2               /* u16 at 18: the .b16 profile (M42) */
+#define BM_B16_MAX         (8u << 20)      /* 8 MiB ceiling of a .b16 cartridge */
 #define BM_BUILT_FROM      104             /* char[16]: the project a game was built from */
 
 /* by the file's name: a project (.bme), a game (.bm, .b16) */
@@ -34,5 +36,11 @@ int bm_make_copy(const char *game, const char *to, char *err, size_t en);
  * of the same name that it did not build stays, and the new one takes a
  * digit ("PONG1.BM"). The game's path in out; 0, or -1 with the reason. */
 int bm_build(const char *project, char *out, size_t n, char *err, size_t en);
+
+/* Builds or exports the .b16 edition of a project (.bme) or a game (.bm) within
+ * the 8 MiB limit of a .b16. Never replaces a .bm (separate editions): writes
+ * .B16 next to it (or in /bm on the RGB30), replacing only the .B16 built from
+ * the same source before. */
+int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en);
 
 #endif

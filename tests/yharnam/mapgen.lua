@@ -46,6 +46,7 @@ for cy = 0, M.size - 1 do
     local alive = {}
     for _, o in ipairs(ch.objs) do if o.u then alive[o.u] = true end end
     for _, l in ipairs(ch.lights) do if l.u then alive[l.u] = true end end
+    for _, u in ipairs(ch.units) do if u.keep then alive[u] = true end end
     for _, u in ipairs(ch.units) do
       if alive[u] then
         units = units + 1

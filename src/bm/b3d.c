@@ -17,7 +17,7 @@
  *
  * The sphere and quad scenes are those of the stress test (src/bm/
  * stress.c), at the same 640x360: the numbers the Pi gave with the drivers
- * before (docs/M33-PRIMA-DOPO.md) are their bars of history. The loads go
+ * before (docs/GPU-BENCHMARK-REPORT.md) are their bars of history. The loads go
  * far beyond what the drivers do today, to leave room for the next ones.
  */
 #include "b3d.h"
@@ -1704,7 +1704,7 @@ static void page_info(const char *saved)
     y += LH;
     text(0, y, C_TEXT, "GPU+VS+A8: the same with compact attributes, colour and light bytes packed (M39, 7.1)");
     y += LH;
-    text(0, y, C_DIM, "0.1 and 1.0 no longer run: their bars are the numbers the Pi gave then (docs/M33-PRIMA-DOPO.md)");
+    text(0, y, C_DIM, "0.1 and 1.0 no longer run: their bars are the numbers the Pi gave then (docs/GPU-BENCHMARK-REPORT.md)");
     y += LH + 6;
     char w[110];
     text(0, y, C_DIM, "machine: %s", cut(w, P->machine ? P->machine : "", 96));

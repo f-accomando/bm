@@ -358,7 +358,7 @@ GL record in bytes, no early z after a `zclear()` in the job, 8 textures in a jo
 holds in all GPU modes: it cannot be turned off.
 
 0.1 and 1.0 no longer run: their numbers are the ones measured on the Pi at the time
-(`docs/M33-PRIMA-DOPO.md`).
+(`docs/GPU-BENCHMARK-REPORT.md`).
 
 ## The rule
 

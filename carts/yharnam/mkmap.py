@@ -3,9 +3,8 @@
 map layers (`layers_yharnam` in the Makefile; 256 x 256 cells of 8 x 8, the whole hunt: 8 x 8 chunks of 16 x 16
 tiles of 2 x 2 cells). "ground" is the ground, "overlay" what lies on it (kerbs, grass edges, puddles, leaves):
 the game draws them (MAP.drawn in main.lua). "objects" is not drawn: its placeholders (art/places.py, a 16x16
-tile each) say where the houses, trees, lamps, graves and things stand, and the game makes them there
-(MAP.objects). The hunter's lamps, the barricades and their gates, the bosses, the creatures and the areas are
-still the code's (MAP in main.lua).
+tile each) say where the houses, trees, lamps, graves, hunter's lamps, barricades, gates, bosses and things stand,
+and the game makes them there (MAP.objects). The creatures and the areas are still the code's (MAP in main.lua).
 
     python3 carts/yharnam/mkmap.py [--luahost build/host/luahost]
         the map made from the street plan of main.lua (the first one, or to start again):

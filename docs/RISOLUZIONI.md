@@ -7,7 +7,7 @@ Written to choose the menu resolution (M27, BareMetal UI).
 
 **Sources**
 - *(M)* measured on the real Pi; *(D)* firmware or code documentation.
-- Measured memory bandwidth: `docs/PRESTAZIONI.md`.
+- Measured memory bandwidth: `docs/PERFORMANCE.md`.
 
 ---
 

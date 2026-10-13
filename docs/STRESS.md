@@ -151,7 +151,7 @@ disturbo dell'avvio. Il rasterizzatore di M33 (bordi in virgola fissa, cicli del
 texture specializzati) porta i triangoli 2D a 1,9× e le sfere 3D a 2,3× rispetto a
 settembre. Le righe GPU mancano (`GPU rows: none (probe: a clear did not finish)`):
 era un errore nell'attesa del driver, corretto dopo questa misura (vedi
-`docs/M33-PRIMA-DOPO.md`).
+`docs/GPU-BENCHMARK-REPORT.md`).
 
 Con `d0c7fe8` (stesso giorno, driver corretto) le righe ARM ripetono gli stessi valori
 entro un oggetto, e compaiono le righe GPU:
