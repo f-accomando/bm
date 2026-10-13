@@ -41,6 +41,7 @@
 #include "kernel/reports.h"
 #include "kernel/syskeys.h"
 #include "n8lua.h"
+#include "shot.h"
 #include "ai/assist.h"
 #include "ai/lua_ai.h"
 #include "ai/net.h"
@@ -3454,6 +3455,54 @@ static int l_save(lua_State *L)
  * loader, which the sandbox removes.) */
 static char perm_title[49];             /* the game asking */
 
+/* ---------------------------------------------------------------- screenshots (docs/SCREENSHOTS.md) */
+
+#define SHOT_DIR "/bm/shots"
+static int shot_req;                    /* a frame to save: the one drawn next */
+static char shot_file[13];              /* its name, "PONG0007.PNG" */
+static int shot_note;                   /* frames left for the box that says it was saved */
+static char shot_line[2][40];
+
+/* Plans a screenshot: the next free number of the prefix in /bm/shots (one more than the
+ * highest), and the request, done when the frame is drawn (shot_grab). 0, or -1 if the
+ * numbers are over. A second request in the same frame is the first one. */
+static int shot_plan(const char *prefix)
+{
+    if (shot_req)
+        return 0;
+    char p[5];
+    shot_prefix(p, perm_title, prefix);
+    int top = 0;
+    fat_dir_t d;
+    fat_entry_t e;
+    if (fat_opendir(&d, SHOT_DIR) == 0)
+        while (fat_readdir(&d, &e)) {
+            const int n = shot_number(e.name, p);
+            if (n > top)
+                top = n;
+        }
+    if (shot_name(shot_file, perm_title, prefix, top + 1) != 0)
+        return -1;
+    shot_req = 1;
+    return 0;
+}
+
+/* shot([prefix]) -> "bm/shots/PONG0007.png": the frame being drawn is saved as a PNG when it
+ * is done (the dev kit's overlays and the pointer are not in it). The name starts with the
+ * first letters of the game's title, or of `prefix` (up to 4 letters or digits). nil and a
+ * message if the numbers are over; a card that cannot be written to shows when it is saved. */
+static int l_shot(lua_State *L)
+{
+    const char *prefix = luaL_optstring(L, 1, NULL);
+    if (shot_plan(prefix) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, "no free number (9999 screenshots)");
+        return 2;
+    }
+    lua_pushfstring(L, "bm/shots/%s", shot_file);
+    return 1;
+}
+
 /* cart_config(key [, value]) -> the text of the key in bm/config.txt, or nil.
  * Only keys that start with the game's first title word in lower case and "_" (Overbit:
  * overbit_bench): the flags a game takes from the monitor line
@@ -4658,7 +4707,7 @@ static const luaL_Reg api[] = {
     { "world3d", l_world3d }, { "world_box", l_world_box }, { "world_ray", l_world_ray },
     { "world_move", l_world_move }, { "world_floor", l_world_floor },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "visible3d", l_visible3d }, { "pvs3d", l_pvs3d }, { "lamp3d", l_lamp3d },
-    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "quit", l_quit },
+    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "shot", l_shot }, { "quit", l_quit },
     { "keymap", l_keymap }, { "controller", l_controller }, { "online", l_online },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
@@ -4982,6 +5031,14 @@ static int poll_keys(void)
     int quit = 0;
     uint32_t per[INPUT_PLAYERS];
     uint32_t pad = input_players(per, rt.text_mode || rt.raw_keys, &quit, &rt.local);
+    {                                       /* the system's screenshot: Print Screen, or Select + L1 + R1 */
+        static int shot_held;
+        const uint32_t combo = HID_SELECT | HID_L1 | HID_R1;
+        const int down = hid_usage_held(0x46) || (pad & combo) == combo;
+        if (down && !shot_held && !rt.leave_ask)
+            shot_plan(NULL);
+        shot_held = down;
+    }
     if (quit & HID_QUIT_ESC) {              /* Esc in a game: Start, its menu */
         if (rt.leave_ask)
             rt.leave_no = 1;
@@ -7099,6 +7156,29 @@ static void pace(uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 
 static void perf_end(void);
 
+/* The frame drawn, before the overlays, saved if a screenshot was asked for: a PNG in /bm/shots */
+static void shot_grab(void)
+{
+    if (!shot_req)
+        return;
+    shot_req = 0;
+    flush3d(0);                         /* its 3D done, as present() does */
+    cls_settle();
+    size_t n = 0;
+    uint8_t *png = shot_png(rt.g.px, (int)rt.g.stride, rt.g.w, rt.g.h, &n);
+    const int ok = png && fat_mkdirs(SHOT_DIR) == 0 && fat_write_file(SHOT_DIR, shot_file, png, n) == 0;
+    free(png);
+    if (ok) {
+        ksnprintf(shot_line[0], sizeof shot_line[0], "Screenshot saved");
+        ksnprintf(shot_line[1], sizeof shot_line[1], "bm/shots/%s", shot_file);
+    } else {
+        ksnprintf(shot_line[0], sizeof shot_line[0], "Screenshot not saved");
+        ksnprintf(shot_line[1], sizeof shot_line[1], "%s", png ? fat_error() : "not enough memory");
+    }
+    kprintf("bm: %s: %s\n", shot_line[0], shot_line[1]);
+    shot_note = 120;
+}
+
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
     flush3d(0);
@@ -7125,6 +7205,7 @@ static void perf_frame(void);
 static void battery_draw(void);
 static void leave_draw(void);
 static void notice_draw(void);
+static void shot_note_draw(void);
 static void keys_help(lua_State *L);
 
 static void later_show(lua_State *L)
@@ -7142,11 +7223,13 @@ static void later_show(lua_State *L)
     }
     const g16_t live = rt.g;            /* the page being drawn (or the buffer in RAM) */
     rt.g.px = held.px;
+    shot_grab();                        /* (the frame as it is, without the overlays) */
     if (L) {
         perf_frame();
         battery_draw();
         leave_draw();
         notice_draw();
+        shot_note_draw();
         keys_help(L);
     }
     if (rt.mouse && rt.mouse_arrow)
@@ -8167,6 +8250,16 @@ static void notice_draw(void)
     sys_box(lines, 2, 0, 0, progress);
 }
 
+/* the box that says a screenshot was saved, for 2 seconds */
+static void shot_note_draw(void)
+{
+    if (shot_note <= 0)
+        return;
+    shot_note--;
+    const char *lines[2] = { shot_line[0], shot_line[1] };
+    sys_box(lines, 2, 1, 0, -1);
+}
+
 /* The console's battery (2026-10-10, a handheld's habit): from the kernel
  * (bm_set_battery, the RGB30); the Pi has none. Information only: each
  * console has its own, so a game played in lockstep never lets it change
@@ -8980,10 +9073,12 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
             later_hold(fb);
             perf_end();                     /* (nothing shown yet: no pace) */
         } else {
+            shot_grab();                    /* (the frame as it is, without the overlays) */
             perf_frame();
             battery_draw();
             leave_draw();
             notice_draw();
+            shot_note_draw();
             keys_help(L);
             present(fb, &deadline, &prev, &st->dropped);
         }

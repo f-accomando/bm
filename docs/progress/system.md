@@ -107,7 +107,7 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
 - **R1 — WiFi dal menu col pad**: Settings > WiFi and network con selezione reti via gamepad e inserimento credenziali tramite tastiera a schermo (R2).
 - **R2 — Tastiera a schermo kernel**: Trasformazione di `padtype` in servizio nativo C per il kernel (utilizzabile per configurazione WiFi, rinomina file, Market) ed esposto ai giochi via API Lua (`textinput(titolo, default)`).
 - **R3 — Log su SD con crash traceback**: Scrittura di `bm/log.txt` sulla scheda SD del Raspberry Pi contenente il log di boot e il traceback dell'ultimo errore Lua di una cartuccia.
-- **R4 — Screenshot da combinazione tasti**: Scorciatoia gamepad/tastiera per catturare il framebuffer ed esportare un file PNG in `bm/shots/` per bug report o copertine.
+- **R4 — Screenshot**: done in the games' runtime (`shot()`, Print Screen, Select+L1+R1, `bm/shots/`: [`SCREENSHOTS.md`](../SCREENSHOTS.md)). To do: the menu's own screens, a try on the Pi and the RGB30 (3D `later` mode), the key's picture in the F12 list.
 - **R6 — Web Interface locale (`bm.local`)**: Server HTTP integrato e responder mDNS (`bm.local`) per consentire il caricamento di file `.bm`, il download di screenshot/salvataggi e la modifica di `bm/config.txt` direttamente dal browser del telefono o PC locale.
 - **R8 — Rumble e LED DualShock 4**: Esposizione delle API `rumble(p, forte, debole, ms)` e `padlight(p, colore)` sfruttando il report di uscita 0x11 già implementato in `bt.c`.
 - **R19 — Supporto Controller Bluetooth Esteso**: Integrazione profili per DualSense, Switch Pro Controller, 8BitDo e gamepad Xbox (Bluetooth LE tramite `ble.c`).

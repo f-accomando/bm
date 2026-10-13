@@ -11,8 +11,12 @@ document of the area.
 - Working folder `dev/<name>/` of `B16.md` §8.1: implemented or dropped?
 
 ## API
-- Screenshot `shot([name])`: approved; the pad combo is open (check the reserved ones).
-- PNG encoder: compressed (fixed Huffman + RLE, recommended) or stored blocks.
+- Screenshot `shot([prefix])`, Print Screen and Select+L1+R1: done ([SCREENSHOTS.md](SCREENSHOTS.md)).
+  Open: the menu's own screens cannot take one yet; a picture for Print Screen in the F12 list
+  of keys (`syskeys.c`); is Select+L1+R1 free on every pad?
+- Pictures for the manuals: folder (`manuals/shots/`?) and naming rule, and a script that copies
+  them from the SD.
+- `shot()` asks the player nothing (it writes only in `bm/shots/`): keep it so, or ask like `doc_write`?
 
 ## Theme (PDF manuals)
 - Choose among A (paper/orange), B (night/cyan), C (white/blue technical).

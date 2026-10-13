@@ -591,7 +591,7 @@ BMHOST_RT := src/bm/runtime.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm
              src/audio/player.c src/audio/presets.c src/audio/lua_tone.c src/ai/net.c src/ai/nn.c \
              src/bm/decimate.c src/bm/cutout.c \
              src/bm/glb.c src/bm/json.c src/bm/png.c src/bm/jpeg.c src/bm/loading.c src/bm/loading_logo.c \
-             src/bm/profile.c src/bm/project.c
+             src/bm/profile.c src/bm/project.c src/bm/shot.c
 BMHOST_LUA := $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS))
 BMHOST_OBJS := $(patsubst %,$(BUILD)/host/bmhost/%.o,$(BMHOST_RT) $(BMHOST_LUA))
 $(BUILD)/host/bmhost/%.c.o: %.c
@@ -637,7 +637,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-keymap test-gameapi test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
@@ -826,7 +826,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-nano8 test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-keymap test-gameapi test-write test-profile test-online test-bmnet test-loading \
+      test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-docs $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
@@ -1388,3 +1388,12 @@ clean:
 -include $(KERNEL_OBJS:.o=.d) $(KERNEL7_OBJS:.o=.d) $(LOADER_OBJS:.o=.d)
 
 endif   # TARGET
+
+# Screenshots (src/bm/shot.c, shot() and the system's key; docs/SCREENSHOTS.md): a cart asks for
+# them in bmhost, tests/shot/check.py reads the PNGs it finds in the SD's bm/shots
+$(BUILD)/shot-test.bm: tests/shot/cart.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "shot test" --author tests
+test-shot: $(BUILD)/host/bmhost-bin $(BUILD)/shot-test.bm tests/shot/check.py
+	rm -rf $(BUILD)/shot-sd && mkdir -p $(BUILD)/shot-sd
+	$< $(BUILD)/shot-test.bm --sd $(BUILD)/shot-sd --seconds 1 2>&1 | tee $(BUILD)/shot-test.log | grep "shot:"
+	$(PYTHON) tests/shot/check.py $(BUILD)/shot-sd
