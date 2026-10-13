@@ -39,11 +39,12 @@ Per girare il video 4 serve l'**editor mappa 3D**, che non esiste: è il lavoro 
 
 ### Decisioni prese (da non cambiare senza una riga nel Log, Sezione 5)
 1. **Un solo formato, nella cartuccia** (`docs/design/suite-sdk.md`, Proposta 6): nessuna nuova sezione. La mappa 3D sta in layer della sezione LAYERS (griglia fino a 256×256 celle). Il pennello 16×16 (2×2 celle) = **1 tessera = 1.0 unità di mondo**. Asse x a destra, y in su, z in avanti; la riga 0 della mappa è z = 0 e z cresce con il numero di riga (il livello corre verso z crescente, cioè verso il basso della vista 2D).
-2. **Layer con nome fisso** (minuscolo):
+2. **Layer con nome fisso** (minuscolo). L'editor oggi non rinomina i layer (`Shift+L` crea `layer2`, `layer3`…): AGY-02 aggiunge la rinomina e un template/azione "3D map" che crea i quattro layer con i nomi giusti. La mappa è fissa a 256×256 celle: il livello di esempio 9×96 tessere = 18×192 celle ci sta.
+  
    - `floor`: tessera ≠ 0 = c'è pavimento; il tile id sceglie la texture dalla sheet. 0 = vuoto (buca).
-   - `height`: l'id tessera n (0–255) = quota del pavimento della cella `n * 0.25` unità. Layer assente = tutto a quota 0.
+   - `height`: il valore n (0–255, scelto dal selettore di tessere come oggi) = quota del pavimento della cella `n * 0.25` unità. Layer assente = tutto a quota 0.
    - `walls`: id n ≠ 0 = blocco pieno alto `n * 0.25` sopra la quota del pavimento.
-   - `objects`: placeholder ≥ 1024 (già esistenti nell'SDK, non disegnati dal gioco). Tabella fissa: **1024 PLAYER_START, 1025 APPLE, 1026 CRATE, 1027 CRATE_BOUNCE (riservato, non usato dal gioco di esempio), 1028 GOAL, 1029 LAMP** (luce puntiforme, raggio 4, colore 0xFFC888). I modelli referenziati per nome: `APPLE`, `CRATE`, `PICO`.
+   - `objects`: placeholder ≥ 1024 (già esistenti nell'SDK, non disegnati dal gioco). Il pennello 16×16 scrive 4 celle (`t, t+1, t+c, t+c+1`), quindi i segnaposto stanno sugli **id pari** (correzione del 2026-10-13, verificata in `carts/editor/main.lua` ~righe 1578 e 1717). Tabella fissa: **1024 PLAYER_START, 1026 APPLE, 1028 CRATE, 1030 GOAL, 1032 LAMP** (luce puntiforme, raggio 4, colore 0xFFC888), 1034 CRATE_BOUNCE riservato (non usato dal gioco di esempio). `map3d_objects` legge la cella in alto a sinistra di ogni blocco 2×2. Se mancano i colori dei segnaposto 1032 e 1034 nell'editor, aggiungerli (AGY-02). I modelli referenziati per nome: `APPLE`, `CRATE`, `PICO`.
    - Flag tessera (invarianti CLAUDE.md): 0 solido, 1 piattaforma, 2 scala, 3 acqua, 4 fa male.
 3. **Un solo costruttore di geometria, in C**: nuovo `src/bm/map3d.c` (non dentro `runtime.c`, solo un gancio di registrazione). Layer → mesh + collisioni. L'editor (anteprima 3D) e il gioco chiamano la stessa funzione, quindi l'anteprima coincide con la partita.
 4. **API Lua** (nomi vincolanti; Claude scrive il gioco su questi):
@@ -80,15 +81,15 @@ Ordine: AGY-01 → 02 → 03. AGY-05 è indipendente. AGY-04 parte dopo la regis
 ### WORK ORDER: AGY-02
 - **Obiettivo**: vista 3D nella pagina Map di bm SDK (Pi) con lo stesso costruttore.
 - **File / Funzioni da toccare**: `carts/editor/` (file della pagina Map: `grep -n "P.map" carts/editor/*.lua`). Nessun altro editor.
-- **Modifica richiesta**: `v` commuta 2D/3D (se occupato, scegli un altro tasto e scrivilo nel Log). In 3D: camera orbitale attorno al cursore (sinistra/destra ruota, su/giù zoom, `,` `.` inclinazione); terreno con `map3d_build/draw`; oggetti con `model("APPLE")`, `model("CRATE")`, `model("PICO")` se esistono nel `.bm`, altrimenti sfera/cubo segnaposto; cursore di cella = quadrato giallo sul suolo. Nel layer `objects` la barra di stato mostra il nome del placeholder (1024–1029). Ricostruire il mondo solo quando la mappa cambia (flag sporco): 60 fps a 480×270.
+- **Modifica richiesta**: `v` commuta 2D/3D (se occupato, scegli un altro tasto e scrivilo nel Log). In 3D: camera orbitale attorno al cursore (sinistra/destra ruota, su/giù zoom, `Shift+Su`/`Shift+Giù` inclinazione; `,` `.` `[` `]` sono già "tessera prima/dopo" e NON vanno toccati); terreno con `map3d_build/draw`; oggetti con `model("APPLE")`, `model("CRATE")`, `model("PICO")` se esistono nel `.bm`, altrimenti sfera/cubo segnaposto; cursore di cella = quadrato giallo sul suolo. Nel layer `objects` la barra di stato mostra il nome del placeholder (1024–1032). Aggiungere: rinomina layer (tasto libero a scelta, scritto nel Log) e il template/azione "3D map" che crea `floor`, `height`, `walls`, `objects`. Verificato 2026-10-13: `v` e `Shift+P/A/C/O` sono liberi nella pagina Map. Ricostruire il mondo solo quando la mappa cambia (flag sporco): 60 fps a 480×270.
 - **Comando di verifica**: nuovo test in `tests/` che lancia `bmhost --tool` sull'editor con una cartuccia 8×40, preme `v`, verifica nessun errore Lua e che l'immagine 3D differisca da quella 2D; exit 0. Più `python scripts/consistency.py check` senza nuovi errori.
 - **Stato**: `PENDING`
 
 ### WORK ORDER: AGY-03
 - **Obiettivo**: strumenti di livello lineare: percorso, file di mele, casse, lampade.
 - **File / Funzioni da toccare**: `carts/editor/` (stessa pagina Map, codice nuovo); `docs/progress/tools.md` (Open work e Rules); `manuals/content/en/editor-sdk.md` (sezione "3D maps", inglese; segnare l'italiano come in ritardo come richiede la skill `bm-manuals`).
-- **Modifica richiesta**: (a) `Shift+P` percorso: due celle (Invio, Invio) tracciano un corridoio largo N (1–5, `[` `]`) sul layer `floor` con la tessera corrente; (b) `Shift+A` mele: due celle → riga di placeholder 1025 a passo 1 cella; (c) `Shift+C` casse: una cella → placeholder 1026 (una per cella); (d) `Shift+O` lampada: placeholder 1029; (e) la barra di stato mostra conteggi (mele, casse, lampade) e triangoli stimati; (f) `Ctrl+Z` annulla l'intero tratto in un colpo. Salva come sempre nel `.bme`; `Ctrl+B` genera il `.bm`.
-- **Comando di verifica**: test su `bmhost --tool` con script di tasti che disegna un percorso 4×60 con 20 mele e 6 casse e salva; `scripts/bmres.py` (sezione LAYERS) conferma 20 celle 1025 e 6 celle 1026; exit 0.
+- **Modifica richiesta**: (a) `Shift+P` percorso: due celle (Invio, Invio) tracciano un corridoio largo N (1–5, `Shift+W` cicla la larghezza) sul layer `floor` con la tessera corrente; (b) `Shift+A` mele: due celle → riga di placeholder 1026 a passo 1 cella; (c) `Shift+C` casse: una cella → placeholder 1028 (una per cella); (d) `Shift+O` lampada: placeholder 1032; (e) la barra di stato mostra conteggi (mele, casse, lampade) e triangoli stimati; (f) `Ctrl+Z` (esiste già) deve annullare l'intero tratto in un colpo. Salva come sempre nel `.bme`; `Ctrl+B` genera il `.bm`.
+- **Comando di verifica**: test su `bmhost --tool` con script di tasti che disegna un percorso 4×60 con 20 mele e 6 casse e salva; `scripts/bmres.py` (sezione LAYERS) conferma 20 blocchi 1026 e 6 blocchi 1028; exit 0.
 - **Stato**: `PENDING`
 
 ### WORK ORDER: AGY-04
@@ -134,3 +135,4 @@ Utilizzare questa tabella come registro delle comunicazioni e dei passaggi di co
 |---|---|---|---|---|
 | 2026-10-13 | Antigravity | `bm-core` | `INIT` | Protocollo `SYNC.md` inizializzato su `bm-core`. Pronto a ricevere architettura e task da Claude Code. |
 | 2026-10-13 | Claude Code | `bm-core` | `SPECS PUSHED` | Sezioni 2-4 compilate. Parti da AGY-01 (o AGY-05, indipendente) su `feat/antigravity-map3d`. Worktree rimosso, bm-core allineato; `pdf-manuals` e `claude/bm-forge` sono già in bm-core. Claude lavora su `feat/claude-video3d`. |
+| 2026-10-13 | Claude Code | `bm-core` | `CONTRACT FIX` | Correzione §2/AGY-02/03 dopo verifica sul codice dell'editor: segnaposto sugli id pari (1024 start, 1026 APPLE, 1028 CRATE, 1030 GOAL, 1032 LAMP), rinomina layer da aggiungere, `[ ] , .` già usati (inclinazione = Shift+Su/Giù, larghezza percorso = Shift+W), Ctrl+Z esiste. |
