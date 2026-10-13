@@ -109,7 +109,7 @@ rgb30 = "FAT order; only /bm; ignores .bme"
 cause = "history"
 priority = 4
 status = "open"
-note = "the RGB30 list is now sorted by title (untested). Still to decide: /carts is not scanned (the RGB30 keeps everything in /bm: storage-path) and .bme projects are not listed in Dev."
+note = "the RGB30 list is now sorted by title (untested). /carts is not scanned: accepted, the RGB30 keeps everything in /bm (capability storage-path, decided 2026-10-13). What is left: .bme projects are not listed in Dev on the RGB30 (src/rgb30/ui.c has no .bme at all; a project opens in the SDK, which there is a Market app): to do together with the on-screen keyboard work, and to try on the hardware."
 evidence = "src/kernel/carts.c:143-169; src/rgb30/ui.c:230-263"
 action = "sort by title; decide on /carts and on projects"
 
