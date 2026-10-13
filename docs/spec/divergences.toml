@@ -109,6 +109,7 @@ rgb30 = "FAT order; only /bm; ignores .bme"
 cause = "history"
 priority = 4
 status = "open"
+note = "the RGB30 list is now sorted by title (untested). Still to decide: /carts is not scanned (the RGB30 keeps everything in /bm: storage-path) and .bme projects are not listed in Dev."
 evidence = "src/kernel/carts.c:143-169; src/rgb30/ui.c:230-263"
 action = "sort by title; decide on /carts and on projects"
 
@@ -152,7 +153,8 @@ pi = "tools recognised by name (tool_id_of), apps installed from the Market appe
 rgb30 = "7 fixed entries; a Market App installed on the RGB30 is not recognised as a tool and shows up as a game"
 cause = "history"
 priority = 4
-status = "open"
+status = "untested"
+note = "src/kernel/toolnames.h is the one list of tool names (Pi menu, RGB30 menu, runtime); the RGB30 keeps tools installed from Market > Apps out of Games. Only the SDK has a Dev entry on the RGB30 (the other tools have no pad edition). Not tried."
 evidence = "src/kernel/home.c:252; src/kernel/carts.c:389-420; src/rgb30/ui.c:623-632"
 action = "same recognition on the RGB30, or filter apps out of Games"
 
@@ -185,7 +187,8 @@ pi = "shows .bm; .b16 only without a .bm twin, or show_b16=1"
 rgb30 = "shows .b16; show_bm=1 adds .bm; in Games the same key show_bm has the opposite default"
 cause = "history"
 priority = 3
-status = "open"
+status = "untested"
+note = "src/kernel/market.c: the Market of the RGB30 has its own key market_bm (show_bm=1 still works as before); show_bm is only the Games tab. Documented in docs/RGB30.md and config-keys.toml. market.c syntax-checked only in part; not tried."
 evidence = "src/kernel/market.c:351-380; src/rgb30/ui.c:237"
 action = "one key, one default; document it in RGB30.md and B16.md"
 

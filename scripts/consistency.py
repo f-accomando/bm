@@ -121,23 +121,26 @@ def rule_api():
 
 
 def rule_tools():
-    """the names of the apps and tools: carts.c, devtool.c, catalog.c, mkmarket.py, runtime.c (reserved names) say the same"""
+    """the names of the apps and tools: src/kernel/toolnames.h is the one list; the Market's lists, devtool.c and the users of
+    the list agree with it"""
     out = []
-    carts = rd("src/kernel/carts.c")
-    ids = set(re.findall(r'return "(\w+)";', re.search(r"static const char \*tool_id_of.*?\n}", carts, re.S).group(0)))
+    names = re.findall(r'\{\s*"(\w+)",\s*"(\w+)"\s*\}', re.search(r"bm_toolnames\[\] = \{(.*?)\};", rd("src/kernel/toolnames.h"), re.S).group(1))
+    stems = {a for a, _ in names}
+    ids = {b for _, b in names}
     catalog = set(re.findall(r'"([\w-]+)"', re.search(r"apps\[\] = \{(.*?)\};", rd("src/net/catalog.c"), re.S).group(1)))
     market = set(re.findall(r'"([\w-]+)"', re.search(r"APP_IDS = \{(.*?)\}", rd("scripts/mkmarket.py"), re.S).group(1)))
     if catalog != market:
         out.append(Finding("tools", "catalog-vs-mkmarket", f"src/net/catalog.c knows {sorted(catalog)}, scripts/mkmarket.py APP_IDS {sorted(market)}"))
-    for i in sorted(ids - catalog):
-        out.append(Finding("tools", f"catalog:{i}", f"tool `{i}` (carts.c tool_id_of) is not an app of the Market catalogue (src/net/catalog.c)"))
-    res = set(re.findall(r'"(\w+)"', re.search(r"reserved_tool_name.*?\n}", rd("src/bm/runtime.c"), re.S).group(0)))
-    for i in sorted(ids - res):
-        out.append(Finding("tools", f"reserved:{i}", f"tool `{i}` is not in reserved_tool_name (src/bm/runtime.c): a game could create a file with that name"))
+    for i in sorted(ids):
+        if i not in catalog:
+            out.append(Finding("tools", f"catalog:{i}", f"tool `{i}` (src/kernel/toolnames.h) is not an app of the Market catalogue (src/net/catalog.c)"))
     dev = rd("src/kernel/devtool.c")
     for alt in re.findall(r'"(\w+)" : ', dev) + re.findall(r'\? "(\w+)"', dev):
-        if alt not in res and alt in ("editor", "assistan"):
-            out.append(Finding("tools", f"reserved:{alt}", f"alias `{alt}` (devtool.c) is not in reserved_tool_name"))
+        if alt in ("editor", "assistan") and alt not in stems:
+            out.append(Finding("tools", f"alias:{alt}", f"alias `{alt}` (devtool.c) is not in src/kernel/toolnames.h"))
+    for path, what in (("src/kernel/carts.c", "bm_tool_id_of_file"), ("src/bm/runtime.c", "bm_toolnames"), ("src/rgb30/ui.c", "bm_tool_id_of_file")):
+        if what not in rd(path):
+            out.append(Finding("tools", f"use:{path}", f"{path} does not use the one list of tool names ({what})"))
     return out
 
 

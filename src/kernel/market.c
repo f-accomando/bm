@@ -350,9 +350,10 @@ static void adopt(catalog_t *nc)
 {
 #ifdef BM_RGB30
     /* the RGB30 plays only the .b16 games by default (the user's choice,
-     * 2026-10-05; show_bm=1 in bm/config.txt also lists .bm cartridges) */
-    const char *show = config_get("show_bm");
-    if (!show || strcmp(show, "1") != 0) {
+     * 2026-10-05; market_bm=1 in bm/config.txt also lists .bm cartridges: the Games tab has its own key, show_bm) */
+    const char *mkt = config_get("market_bm"), *old = config_get("show_bm");
+    const int want_bm = mkt ? strcmp(mkt, "1") == 0 : (old && strcmp(old, "1") == 0);   /* show_bm=1: as it used to be */
+    if (!want_bm) {
         int k = 0;
         for (int i = 0; i < nc->n; i++)
             if (is_b16(nc->games[i].file.path))

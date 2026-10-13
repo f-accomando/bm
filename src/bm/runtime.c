@@ -40,6 +40,7 @@
 #include "kernel/prompts.h"
 #include "kernel/reports.h"
 #include "kernel/syskeys.h"
+#include "kernel/toolnames.h"
 #include "n8lua.h"
 #include "shot.h"
 #include "ai/assist.h"
@@ -5359,14 +5360,12 @@ static int copy_question(const char *game, const char *copy);
  * with write access everywhere and no permission questions, the next time the tool is opened) */
 static int reserved_tool_name(const char *name)
 {
-    static const char *const tools[] = { "sdk", "editor", "sdk_b16", "sound", "studio", "animator", "mesh", "pixel",
-                                         "code", "assistant", "assistan" };
     const char *dot = strrchr(name, '.');
     if (!dot)
         return 0;
     const size_t k = (size_t)(dot - name);
-    for (size_t i = 0; i < sizeof tools / sizeof *tools; i++)
-        if (strlen(tools[i]) == k && strncasecmp(name, tools[i], k) == 0)
+    for (size_t i = 0; i < BM_TOOLNAMES; i++)      /* kernel/toolnames.h: the one list */
+        if (strlen(bm_toolnames[i].stem) == k && strncasecmp(name, bm_toolnames[i].stem, k) == 0)
             return 1;
     return 0;
 }

@@ -90,14 +90,14 @@ removing or changing a promise is a 2.0.0.
 
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
-| D16 | open | history | Market formats and show_bm / show_b16 | Pi: shows .bm; .b16 only without a .bm twin, or show_b16=1. RGB30: shows .b16; show_bm=1 adds .bm; in Games the same key show_bm has the opposite default | one key, one default; document it in RGB30.md and B16.md |
+| D16 | untested | history | Market formats and show_bm / show_b16 | Pi: shows .bm; .b16 only without a .bm twin, or show_b16=1. RGB30: shows .b16; show_bm=1 adds .bm; in Games the same key show_bm has the opposite default | one key, one default; document it in RGB30.md and B16.md |
 
 **4. Developer workflow**
 
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
 | D09 | open | history | game list | Pi: sorted by title; scans / and /carts; shows .bme projects in Dev. RGB30: FAT order; only /bm; ignores .bme | sort by title; decide on /carts and on projects |
-| D13 | open | history | Dev tab and Market Apps | Pi: tools recognised by name (tool_id_of), apps installed from the Market appear in Dev. RGB30: 7 fixed entries; a Market App installed on the RGB30 is not recognised as a tool and shows up as a game | same recognition on the RGB30, or filter apps out of Games |
+| D13 | untested | history | Dev tab and Market Apps | Pi: tools recognised by name (tool_id_of), apps installed from the Market appear in Dev. RGB30: 7 fixed entries; a Market App installed on the RGB30 is not recognised as a tool and shows up as a game | same recognition on the RGB30, or filter apps out of Games |
 
 **5. Robustness**
 
@@ -154,5 +154,5 @@ RGB30 has no Lib tab), and the common project layout is migrated for 3 games out
 - Version numbering: a baseline tag for the current line (for example `v0.3.0`) and `v1.0.0` when `gate` is empty. Tagging is
   outward-facing: waiting for a yes.
 - D03 and D05: should the RGB30 have local multiplayer and the menu pointer, or are they hardware choices (then the Settings rows go)?
-- D16: the meaning of `show_bm` / `show_b16` (one key, one default).
+- D16 is decided: `show_bm` is the Games tab, `market_bm` the Market (RGB30), `show_b16` the Market (Pi).
 - D13 and the Lib tab: the tools on the RGB30 come from Market > Apps; they must be recognised as tools, and the Lib tab needs a pad UI.

@@ -300,6 +300,15 @@ settings = ""
 read_in = "src/kernel/carts.c:1167"
 
 [[key]]
+name = "market_bm"
+scope = "rgb30"
+values = "1 = also list the .bm cartridges of the Market; anything else = only .b16"
+default = "only .b16 (user's decision 2026-10-05); when the key is missing, show_bm=1 still turns it on, as it used to"
+meaning = "The Market of the RGB30: whether the Pi's .bm cartridges are listed next to the .b16 ones."
+settings = ""
+read_in = "src/kernel/market.c:354"
+
+[[key]]
 name = "market_delay"
 scope = "all"
 values = "milliseconds (strtol)"
@@ -455,11 +464,11 @@ read_in = "src/kernel/market.c:367"
 [[key]]
 name = "show_bm"
 scope = "rgb30"
-values = "market.c (the catalog): 1 = also list .bm cartridges; ui.c (the games list): 0 = hide .bm"
-default = "catalog: only .b16 games; games list: .bm shown"
-meaning = "Shows the .bm cartridges on the RGB30 (the two reads have opposite defaults)."
+values = "0 = hide the .bm cartridges; anything else = show them"
+default = "shown (the Games tab lists .bm for testing, user's decision 2026-10-03)"
+meaning = "The Games tab of the RGB30: whether the Pi's .bm cartridges are listed. The Market has its own key, market_bm."
 settings = ""
-read_in = "src/kernel/market.c:354; src/rgb30/ui.c:237"
+read_in = "src/rgb30/ui.c:238"
 
 [[key]]
 name = "sound"

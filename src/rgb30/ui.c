@@ -49,6 +49,7 @@
 #include "kernel/reports.h"
 #include "kernel/syskeys.h"
 #include "kernel/carts.h"
+#include "kernel/toolnames.h"
 #include "kernel/devtool.h"
 #include "audio/audio.h"
 #include "kernel/market.h"
@@ -178,12 +179,13 @@ static void frame_end(void)
 
 /* --- games on the SD card --- */
 
-static struct {
+struct game {
     char name[56], title[48], author[33], save[32];     /* save: its save file, as the runtime names it */
     uint32_t size;
     int is_bm;
     g16_sheet_t cover;              /* 128x80: the .bm's COVER, or its title on a label */
-} games[MAX_GAMES];
+};
+static struct game games[MAX_GAMES];
 static int n_games, n_hidden;      /* n_hidden: .bm hidden by show_bm=0 */
 static const char *sd_state = "not read";
 
@@ -228,6 +230,12 @@ static void load_cover(int i)
         menu_make_cover(&games[i].cover, games[i].title, games[i].is_bm ? "bm" : "b16");
 }
 
+/* the games by title, as on the Pi (carts.c title_cmp) */
+static int title_cmp(const void *a, const void *b)
+{
+    return strcasecmp(((const struct game *)a)->title, ((const struct game *)b)->title);
+}
+
 static void scan_games(void)
 {
     for (int i = 0; i < n_games; i++)
@@ -250,6 +258,8 @@ static void scan_games(void)
             continue;
         int is_b16 = strcasecmp(dot, ".b16") == 0;
         int is_bm = strcasecmp(dot, ".bm") == 0;
+        if (bm_tool_id_of_file(e.name))
+            continue;               /* a tool installed from Market > Apps (the SDK): Dev, not Games (as on the Pi) */
         if (is_bm && !show_bm)
             n_hidden++;
         if (!is_b16 && !(is_bm && show_bm))
@@ -261,6 +271,7 @@ static void scan_games(void)
     }
     for (int i = 0; i < n_games; i++)
         load_cover(i);
+    qsort(games, (size_t)n_games, sizeof games[0], title_cmp);
 }
 
 /* what the Market asks of the games on the card (carts.h, as carts.c on the

@@ -4,6 +4,7 @@
 #include "carts.h"
 #include "crumbs.h"
 #include "devtool.h"
+#include "toolnames.h"
 #include "home.h"
 #include "syskeys.h"
 #include "market.h"
@@ -398,25 +399,7 @@ static const char *tool_id_of(const cart_t *c)
         if (c->builtin == bm_code_cart) return "code";
         return NULL;
     }
-    if (same_text(c->name, "sdk.bm") || same_text(c->name, "editor.bm") ||
-        same_text(c->name, "sdk.b16") || same_text(c->name, "sdk_b16.b16"))
-        return "sdk";
-    if (same_text(c->name, "sound.bm") || same_text(c->name, "sound.b16"))
-        return "sound";
-    if (same_text(c->name, "studio.bm") || same_text(c->name, "studio.b16"))
-        return "studio";
-    if (same_text(c->name, "animator.bm") || same_text(c->name, "animator.b16"))
-        return "animator";
-    if (same_text(c->name, "mesh.bm") || same_text(c->name, "mesh.b16"))
-        return "mesh";
-    if (same_text(c->name, "pixel.bm") || same_text(c->name, "pixel.b16"))
-        return "pixel";
-    if (same_text(c->name, "code.bm") || same_text(c->name, "code.b16"))
-        return "code";
-    if (same_text(c->name, "assistant.bm") || same_text(c->name, "assistan.bm") ||
-        same_text(c->name, "assistant.b16") || same_text(c->name, "assistan.b16"))
-        return "assistant";
-    return NULL;
+    return bm_tool_id_of_file(c->name);
 }
 
 static int has_sd_tool(const char *tid)
