@@ -1088,7 +1088,7 @@ $(BUILD)/host/test_board7: tests/usb/test_board.c src/drivers/board.c src/driver
 	$(HOSTCC) -O2 -Wall -Wextra -DBM_ZERO2 -Isrc -o $@ tests/usb/test_board.c src/drivers/board.c
 
 # the meshes a cartridge builds in its code (cart_meshes(), bm Mesh)
-MESHCAP_SRCS := tests/bm/test_meshcap.c src/bm/meshcap.c src/bm/format.c src/bm/r3d.c src/lib/crc32.c
+MESHCAP_SRCS := tests/bm/test_meshcap.c src/bm/meshcap.c src/bm/format.c src/bm/r3d.c src/bm/gfx16.c src/lib/crc32.c
 $(BUILD)/host/test_meshcap: $(MESHCAP_SRCS) src/bm/*.h $(LUA_SRCS) tests/host/libs.S src/script/bmlib.lua src/script/bmnet.lua \
                             $(BUILD)/words.lua
 	@mkdir -p $(dir $@)

@@ -429,17 +429,17 @@ static void rescan(void)
     nsd = ncarts;
     /* the tools always come last (up from the first cartridge); skipped if
      * already installed on the SD card from Market > Apps or if CLEAN_KERNEL=1 */
-    if (ncarts < MAX_CARTS && bm_editor_cart_end > bm_editor_cart && !has_sd_tool("sdk"))
+    if (ncarts < MAX_CARTS && &bm_editor_cart_end[0] > &bm_editor_cart[0] && !has_sd_tool("sdk"))
         add_builtin("editor (built-in)", bm_editor_cart, bm_editor_cart_end);
-    if (ncarts < MAX_CARTS && bm_sound_cart_end > bm_sound_cart && !has_sd_tool("sound"))
+    if (ncarts < MAX_CARTS && &bm_sound_cart_end[0] > &bm_sound_cart[0] && !has_sd_tool("sound"))
         add_builtin("sound (built-in)", bm_sound_cart, bm_sound_cart_end);
-    if (ncarts < MAX_CARTS && bm_studio_cart_end > bm_studio_cart && !has_sd_tool("studio"))
+    if (ncarts < MAX_CARTS && &bm_studio_cart_end[0] > &bm_studio_cart[0] && !has_sd_tool("studio"))
         add_builtin("studio (built-in)", bm_studio_cart, bm_studio_cart_end);
-    if (ncarts < MAX_CARTS && bm_animator_cart_end > bm_animator_cart && !has_sd_tool("animator"))
+    if (ncarts < MAX_CARTS && &bm_animator_cart_end[0] > &bm_animator_cart[0] && !has_sd_tool("animator"))
         add_builtin("animator (built-in)", bm_animator_cart, bm_animator_cart_end);
-    if (ncarts < MAX_CARTS && bm_mesh_cart_end > bm_mesh_cart && !has_sd_tool("mesh"))
+    if (ncarts < MAX_CARTS && &bm_mesh_cart_end[0] > &bm_mesh_cart[0] && !has_sd_tool("mesh"))
         add_builtin("mesh (built-in)", bm_mesh_cart, bm_mesh_cart_end);
-    if (ncarts < MAX_CARTS && bm_pixel_cart_end > bm_pixel_cart && !has_sd_tool("pixel"))
+    if (ncarts < MAX_CARTS && &bm_pixel_cart_end[0] > &bm_pixel_cart[0] && !has_sd_tool("pixel"))
         add_builtin("pixel (built-in)", bm_pixel_cart, bm_pixel_cart_end);
     for (int i = 0; i < ncarts; i++) {
         cart_t *c = &carts[i];
