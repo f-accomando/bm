@@ -3,10 +3,12 @@
 Models.bm: a cartridge with Lua stub + MESH + ANIM (if rigs).
 .bmm: a BMRES file with MESH + ANIM (if rigs).
 Game carts (.bm / .b16): with optional cover, budget checks, section order from scripts/mkbm.py:364-415.
+Game folders and Market layouts: repo structure and market catalog folders.
 
 Python >= 3.8, standard library only.
 """
 import os
+import re
 import struct
 
 from . import container as C
@@ -225,3 +227,190 @@ def export_cart(path, lua, mesh, anim=None, title="", author="", res=(320, 180),
 
     # Write file
     return C.write_file(path, cart)
+
+
+def export_folder(root, game, lua, mesh, anim=None, title="", author="", res=(320, 180), cover=None, overwrite=False):
+    """Export a game folder with main.lua, models.bm, optional cover.png, and make.txt.
+
+    Args:
+        root: str, an existing directory.
+        game: str, game id matching ^[a-z][a-z0-9_]{0,14}$.
+        lua: str (UTF-8 encoded to bytes) or bytes, the Lua code.
+        mesh: Mesh object.
+        anim: optional Anim object.
+        title: str, non-empty cartridge title.
+        author: str, cartridge author.
+        res: tuple (width, height), default (320, 180).
+        cover: optional imageio.Image for cover.png (will be saved as PNG).
+        overwrite: bool, if False raise if root/game/main.lua exists.
+
+    Returns:
+        dict with keys: "main.lua", "models.bm", "cover.png" (if given), "make.txt".
+        Values are absolute paths to created files.
+
+    Raises:
+        ValidationError for invalid game id, missing root, overwrite conflict, or invalid title.
+    """
+    # Validate game id
+    need(re.match(r"^[a-z][a-z0-9_]{0,14}$", game), "game id must match ^[a-z][a-z0-9_]{0,14}$", "game")
+
+    # Validate root exists
+    need(os.path.isdir(root), f"root {root!r} is not a directory", "root")
+
+    # Check overwrite protection
+    game_dir = os.path.join(root, game)
+    main_lua = os.path.join(game_dir, "main.lua")
+    if os.path.exists(main_lua) and not overwrite:
+        raise ValidationError(f"{main_lua!r} exists; set overwrite=True to replace", "overwrite")
+
+    # Create game directory
+    os.makedirs(game_dir, exist_ok=True)
+
+    # Write main.lua
+    if isinstance(lua, str):
+        lua_bytes = lua.encode("utf-8")
+    else:
+        lua_bytes = bytes(lua)
+    with open(main_lua, "wb") as f:
+        f.write(lua_bytes)
+
+    # Write models.bm (using export_models)
+    models_path = os.path.join(game_dir, "models.bm")
+    export_models(models_path, mesh, anim, title, author)
+
+    # Write cover.png if given
+    cover_path = None
+    if cover is not None:
+        cover_path = os.path.join(game_dir, "cover.png")
+        cover.save_png(cover_path)
+
+    # Write make.txt
+    make_path = os.path.join(game_dir, "make.txt")
+    make_lines = [
+        "# add to <repo>/Makefile by hand (bm-forge never edits it)",
+        f"#   append {game} to GAMES (Makefile:195)",
+        f"title_{game} := {title}",
+    ]
+    if res != (640, 360):
+        make_lines.append(f"res_{game} := {res[0]}x{res[1]}")
+    make_lines.append("")  # Ensure trailing newline
+    with open(make_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(make_lines))
+
+    # Return paths
+    result = {
+        "main.lua": main_lua,
+        "models.bm": models_path,
+        "make.txt": make_path,
+    }
+    if cover_path:
+        result["cover.png"] = cover_path
+    return result
+
+
+def export_market(root, game_id, version, license, about, bm_path=None, b16_path=None):
+    """Export game cartridge(s) to Market folder layout.
+
+    Args:
+        root: str, an existing directory where root/<id>/ will be created.
+        game_id: str, game id matching ^[a-z0-9][a-z0-9-]{0,22}$.
+        version: str, version matching ^[A-Za-z0-9][A-Za-z0-9._-]{0,14}$.
+        license: str, 1-40 printable ASCII characters (32-126).
+        about: str, 0-120 printable ASCII characters (32-126).
+        bm_path: optional str, path to a .bm file (edition must be 'bm').
+        b16_path: optional str, path to a .b16 file (edition must be 'b16').
+
+    Returns:
+        dict with keys: "info.txt", "<game_id>.bm" (if bm_path given), "<game_id>.b16" (if b16_path given).
+        Values are absolute paths to created files.
+
+    Raises:
+        ValidationError for invalid inputs, edition mismatches, or missing at least one cart path.
+    """
+    # Validate game_id
+    need(re.match(r"^[a-z0-9][a-z0-9-]{0,22}$", game_id), "game_id must match ^[a-z0-9][a-z0-9-]{0,22}$", "game_id")
+
+    # Validate version
+    need(re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,14}$", version), "version must match ^[A-Za-z0-9][A-Za-z0-9._-]{0,14}$", "version")
+
+    # Validate license: 1-40 printable ASCII
+    need(1 <= len(license) <= 40, "license must be 1-40 characters", "license")
+    need(all(32 <= ord(c) <= 126 for c in license), "license must be printable ASCII", "license")
+
+    # Validate about: 0-120 printable ASCII
+    need(0 <= len(about) <= 120, "about must be 0-120 characters", "about")
+    need(all(32 <= ord(c) <= 126 for c in about), "about must be printable ASCII", "about")
+
+    # At least one path
+    need(bm_path is not None or b16_path is not None, "at least one of bm_path or b16_path must be given", "paths")
+
+    # Check for edition conversions
+    if bm_path is not None:
+        ed = C.edition_of(bm_path)
+        need(ed == "bm", "bm_path must end with .bm, not .b16 or other", "bm_path")
+
+    if b16_path is not None:
+        ed = C.edition_of(b16_path)
+        need(ed == "b16", "b16_path must end with .b16, not .bm or other", "b16_path")
+
+    # Create target directory and check for .bme project
+    target_dir = os.path.join(root, game_id)
+    if os.path.isdir(target_dir):
+        bme_path = os.path.join(target_dir, f"{game_id}.bme")
+        need(not os.path.exists(bme_path), f"target holds a .bme project {bme_path!r}", "target")
+
+    os.makedirs(target_dir, exist_ok=True)
+
+    # Read and validate source files
+    result = {}
+
+    if bm_path is not None:
+        cart = C.read_file(bm_path)
+        # Validate header title is non-empty
+        need(cart.header.title, "cartridge title must be non-empty", "title")
+        # Read source bytes
+        with open(bm_path, "rb") as f:
+            bm_data = f.read()
+        # Check B16 size limit doesn't apply to .bm but let's be thorough
+        # Write to target
+        bm_target = os.path.join(target_dir, f"{game_id}.bm")
+        with open(bm_target, "wb") as f:
+            f.write(bm_data)
+        result["bm"] = bm_target
+
+    if b16_path is not None:
+        cart = C.read_file(b16_path)
+        # Validate header title is non-empty
+        need(cart.header.title, "cartridge title must be non-empty", "title")
+        # Check B16 size limit
+        with open(b16_path, "rb") as f:
+            b16_data = f.read()
+        need(len(b16_data) <= B16_MAX_BYTES, f"b16 cartridge {len(b16_data)} bytes, max {B16_MAX_BYTES}", "b16_size")
+        # Write to target
+        b16_target = os.path.join(target_dir, f"{game_id}.b16")
+        with open(b16_target, "wb") as f:
+            f.write(b16_data)
+        result["b16"] = b16_target
+
+    # Write info.txt
+    info_path = os.path.join(target_dir, "info.txt")
+    info_text = f"version: {version}\nlicense: {license}\nabout: {about}\n"
+    with open(info_path, "w", encoding="utf-8") as f:
+        f.write(info_text)
+    result["info.txt"] = info_path
+
+    return result
+
+
+def about_line(game_id, license, about):
+    """Format a line for market/about.txt.
+
+    Args:
+        game_id: str, the game's id.
+        license: str, the license.
+        about: str, the about text.
+
+    Returns:
+        str formatted as "{game_id}: {license} | {about}".
+    """
+    return f"{game_id}: {license} | {about}"

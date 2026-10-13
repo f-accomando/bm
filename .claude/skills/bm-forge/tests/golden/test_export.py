@@ -1,5 +1,7 @@
 """Export of models, animations and game cartridges: models.bm, .bmm (BMRES), .bm/.b16 with cover."""
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -187,6 +189,177 @@ class Bmm(unittest.TestCase):
                 bmres = C.import_script("bmres")
                 parsed = bmres.load(data)
                 self.assertIsNotNone(parsed)
+
+
+class GameFolders(unittest.TestCase):
+    def test_folder_files(self):
+        """export_folder creates main.lua, models.bm, make.txt (and cover.png if given)."""
+        mesh, anim = C.forge_assets()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = export.export_folder(tmpdir, "forgedemo", "function _draw() cls(0) end\n", mesh, anim,
+                                          title="Forge Demo", author="Test", res=(320, 180))
+
+            # Check that all expected files exist
+            self.assertIn("main.lua", result)
+            self.assertIn("models.bm", result)
+            self.assertIn("make.txt", result)
+            self.assertNotIn("cover.png", result)
+
+            for key in ["main.lua", "models.bm", "make.txt"]:
+                self.assertTrue(os.path.exists(result[key]), f"{key} does not exist")
+
+            # Check make.txt contains expected lines
+            with open(result["make.txt"], "r", encoding="utf-8") as f:
+                make_text = f.read()
+            self.assertIn("title_forgedemo := Forge Demo", make_text)
+            self.assertIn("res_forgedemo := 320x180", make_text)
+
+    def test_folder_guard(self):
+        """export_folder raises on overwrite=False if main.lua exists."""
+        mesh, anim = C.forge_assets()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # First call succeeds
+            export.export_folder(tmpdir, "forgedemo", "function _draw() cls(0) end\n", mesh, anim,
+                                title="Forge Demo")
+
+            # Second call without overwrite should raise
+            with self.assertRaises(ValidationError):
+                export.export_folder(tmpdir, "forgedemo", "function _draw() cls(0) end\n", mesh, anim,
+                                    title="Forge Demo", overwrite=False)
+
+            # With overwrite=True should succeed
+            export.export_folder(tmpdir, "forgedemo", "function _draw() cls(0) end\n", mesh, anim,
+                                title="Forge Demo", overwrite=True)
+
+    def test_folder_mkbm_models(self):
+        """export_folder-generated models.bm works with mkbm.py --models."""
+        if not os.path.exists(os.path.join(C.REPO, "scripts", "mkbm.py")):
+            self.skipTest("repo scripts not available")
+
+        mesh, anim = C.forge_assets()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = export.export_folder(tmpdir, "forgedemo", "function _draw() cls(0) end\n", mesh, anim,
+                                          title="Forge Demo", res=(320, 180))
+
+            # Run mkbm.py with --models pointing to the generated models.bm
+            out_path = os.path.join(tmpdir, "rebuilt.bm")
+            cmd = [sys.executable, os.path.join(C.REPO, "scripts", "mkbm.py"),
+                   "-o", out_path,
+                   "--lua", result["main.lua"],
+                   "--models", result["models.bm"],
+                   "--res", "320x180",
+                   "--title", "Forge Demo"]
+            proc = subprocess.run(cmd, capture_output=True)
+            self.assertEqual(proc.returncode, 0, f"mkbm.py failed: {proc.stderr.decode()}")
+
+            # Compare MESH and ANIM sections
+            original = container.read_file(result["models.bm"])
+            rebuilt = container.read_file(out_path)
+
+            orig_mesh_body = original.get(S.MESH)
+            rebuilt_mesh_body = rebuilt.get(S.MESH)
+            self.assertEqual(orig_mesh_body, rebuilt_mesh_body, "MESH section differs")
+
+            orig_anim_body = original.get(S.ANIM)
+            rebuilt_anim_body = rebuilt.get(S.ANIM)
+            self.assertEqual(orig_anim_body, rebuilt_anim_body, "ANIM section differs")
+
+class MarketFolders(unittest.TestCase):
+    def test_market_layout(self):
+        """export_market creates proper Market folder structure with info.txt."""
+        mesh, anim = C.forge_assets()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a source .bm
+            src_bm = os.path.join(tmpdir, "source.bm")
+            export.export_models(src_bm, mesh, anim, "Forge Demo", "Test")
+
+            # Export to market
+            games_dir = os.path.join(tmpdir, "games")
+            os.makedirs(games_dir)
+            result = export.export_market(games_dir, "forgedemo", "1.0", "MIT", "A cool game", bm_path=src_bm)
+
+            # Check info.txt
+            self.assertIn("info.txt", result)
+            with open(result["info.txt"], "r", encoding="utf-8") as f:
+                info_text = f.read()
+            self.assertEqual(info_text, "version: 1.0\nlicense: MIT\nabout: A cool game\n")
+
+            # Check .bm was copied
+            self.assertIn("bm", result)
+            with open(result["bm"], "rb") as f:
+                market_bm = f.read()
+            with open(src_bm, "rb") as f:
+                source_bm = f.read()
+            self.assertEqual(market_bm, source_bm)
+
+    def test_market_mkmarket_check(self):
+        """export_market-generated folder passes mkmarket.py --check."""
+        if not os.path.exists(os.path.join(C.REPO, "scripts", "mkmarket.py")):
+            self.skipTest("repo scripts not available")
+
+        mesh, anim = C.forge_assets()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create source .bm
+            src_bm = os.path.join(tmpdir, "source.bm")
+            export.export_models(src_bm, mesh, anim, "Forge Demo", "Test")
+
+            # Export to market
+            games_dir = os.path.join(tmpdir, "games")
+            os.makedirs(games_dir)
+            export.export_market(games_dir, "forgedemo", "1.0", "MIT", "A test game", bm_path=src_bm)
+
+            # Run mkmarket.py --check
+            cmd = [sys.executable, os.path.join(C.REPO, "scripts", "mkmarket.py"), games_dir, "--check"]
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            self.assertEqual(proc.returncode, 0, f"mkmarket.py failed: {proc.stderr}")
+            self.assertIn("all right", proc.stdout)
+
+    def test_market_negatives(self):
+        """export_market rejects invalid inputs."""
+        mesh, anim = C.forge_assets()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_bm = os.path.join(tmpdir, "source.bm")
+            export.export_models(src_bm, mesh, anim, "Test", "Author")
+
+            # Invalid game_id (underscore, uppercase letter)
+            with self.assertRaises(ValidationError):
+                export.export_market(tmpdir, "Forge_Demo", "1.0", "MIT", "About")
+
+            # Invalid version (empty)
+            with self.assertRaises(ValidationError):
+                export.export_market(tmpdir, "forgedemo", "", "MIT", "About", bm_path=src_bm)
+
+            # Invalid license (empty)
+            with self.assertRaises(ValidationError):
+                export.export_market(tmpdir, "forgedemo", "1.0", "", "About", bm_path=src_bm)
+
+            # Invalid about (121 chars)
+            long_about = "x" * 121
+            with self.assertRaises(ValidationError):
+                export.export_market(tmpdir, "forgedemo", "1.0", "MIT", long_about, bm_path=src_bm)
+
+            # Invalid: bm_path points to a .b16
+            src_b16 = os.path.join(tmpdir, "source.b16")
+            export.export_cart(src_b16, "function _draw() end\n", mesh, anim, "Test", res=(360, 360))
+            with self.assertRaises(ValidationError):
+                export.export_market(tmpdir, "forgedemo", "1.0", "MIT", "About", bm_path=src_b16)
+
+            # Invalid: b16_path points to a .bm
+            with self.assertRaises(ValidationError):
+                export.export_market(tmpdir, "forgedemo", "1.0", "MIT", "About", b16_path=src_bm)
+
+
+class AboutLine(unittest.TestCase):
+    def test_about_line(self):
+        """about_line formats correctly."""
+        line = export.about_line("forgedemo", "MIT", "x")
+        self.assertEqual(line, "forgedemo: MIT | x")
 
 
 if __name__ == "__main__":
