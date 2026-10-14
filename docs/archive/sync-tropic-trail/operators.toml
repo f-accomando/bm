@@ -1,0 +1,50 @@
+# Who takes part in the sync (written only by SPV). A new operator = a new block; nobody edits the crab ledger.
+# Each operator writes only its own file; the block at the top of the file (--- ... ---) is the truth for its state.
+# Profile fields (place, models, subagents, strengths, weak_points) come from the "## Profilo" of each file (SYNC.md 3c); SPV copies them here.
+# Write it with tools/sync_hdr.py. Times are ISO 8601 with a time zone; readers compare in UTC.
+schema = 1
+
+[[operator]]
+id = "SPV"
+name = "Claude local"
+kind = "ai"
+file = "sync/SPV.md"
+branches = ["feat/claude-video3d"]
+cost = "measured"
+
+[[operator]]
+id = "CLD"
+name = "Claude cloud"
+kind = "ai"
+file = "sync/CLD.md"
+ledger = "sync/CLD.ledger.jsonl"
+branches = ["feat/claude-video3d-rec"]
+cost = "none"          # "reported" when CLD can read the cost of its session
+active = false
+signoff = "videos 1-8 delivered to the user; released by SPV 2026-10-14 20:55"
+
+[[operator]]
+id = "AGY"
+name = "Antigravity"
+kind = "ai"
+file = "sync/AGY.md"
+ledger = "sync/AGY.ledger.jsonl"
+branches = ["feat/antigravity-*", "agy/*"]
+cost = "none"          # no dollars: efficiency in lines per hour
+active = false
+signoff = "project delivered, heartbeat test done; released by SPV 2026-10-14 20:26"
+
+[[operator]]
+id = "OP4"
+name = "operator 4 (second Windows machine)"
+kind = "ai"
+file = "sync/OP4.md"
+branches = ["op4/*"]
+cost = "none"
+
+# An operator released with a SIGNOFF row gets: active = false, signoff = "{reason}" (SYNC.md 3c).
+
+[[operator]]
+id = "UTE"
+name = "utente"
+kind = "human"
