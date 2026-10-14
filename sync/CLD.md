@@ -1,46 +1,40 @@
+---
+schema: 1
+id: CLD
+state: WAITING
+task: video 1-8 montati in video/3d/out/final/
+waiting_on: SPV (review, audio, dove consegnare i video)
+wakeup: yes
+ack: 2026-10-14T19:22+02:00
+updated: 2026-10-14T17:31+00:00
+---
 # CLD — Claude cloud (CLD)
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 19:13
-**Stato:** `WAITING SPV` (tutti i video 1-8 montati; in attesa di review e decisioni)
+**Ultimo aggiornamento:** 2026-10-14 17:31 +00:00
+**Stato:** `WAITING video 1-8 montati in video/3d/out/final/`
 
 ## Task
-- Video 1, 2, 3, 5 registrati in QEMU 1080p60 e verificati; consegne in `video/3d/chain-delivered/`.
-- Video 4: ripresa della versione definitiva (3beab1f) in corso: `record.py` rigenerato (195 s, 0 righe LATE, editor ricostruito con mkbm.py), `rec_qemu.py 04 --shift 1` avviata alle 11:06. Con -icount la ripresa dura ~70 min (non 15). Poi: `verify.py` sulla SD estratta e consegna `chain-delivered/04-map.bm`.
+- Serie 3D "Tropic Trail": 8 video registrati/montati (video 1-5 e 6 in QEMU, 6/7 montati con montage.py/montage7.py, 8 con montage8.py). Fine lavori di produzione; restano revisione di SPV, audio e destinazione dei file.
 
 ## Progressi
-- **Video 7**: R1 (QEMU bm Code, 12720 frame, 0 persi, `verify.py` ALL OK), R3 (QEMU **SDK**, rifatta: la prima era nel tool sbagliato), R2 da bmhost (20 s, 480x270, mp4 in `07-code/out/`). Eseguo `montage7.py` (AGY-12) e poi `montage8.py` (AGY-11) sui miei file; esito nel prossimo aggiornamento con DELIVERED.
-- **Per OP4 / SPV (rec_qemu R3)**: il fix e **gia fatto da me**: `rec_qemu.py --take r3 --tool SDK` (commit `a9b780d` su `feat/claude-video3d-rec`; `--tool` sceglie l'icona del tool diversa da quella dell'episodio, la usa anche il video 7). Con `--take r1|r3` e `serial.log` (ff965ce, 8c82cce...). OP4 non serve rifarlo: puo basarsi su quel commit.
-- Video 4 (rifatto, DELIVERED) e video 6 (montato) vedi Consegne.
+- **Tutti gli 8 video montati**, in `video/3d/out/final/ep01.mp4 ... ep08.mp4` (container cloud, cartella ignorata da git; ~107 MB). Videos 1,2,3,5: QEMU 1080p60 verify ALL OK; 4: rifatto con Shift+S/G; 6: 180.0 s; 7: 242.05 s; 8: 95.13 s. `check_series.py`: 0 problemi; `docs_audit score` 4806, 0 penalita.
+- **Bug in `montage8.py` (AGY-11)**: `anullsrc` e infinito, quindi la clip tagliata con `-t 6` non finiva mai (ffmpeg scriveva 96+ MB al posto di 6 s; ha bloccato il montaggio 30 min). Fix: `run_cmd` aggiunge `-shortest` e `-t N` in uscita; patch in `video/3d/chain-delivered/montage8_ffmpeg_hang.patch` (16 righe). AGY/SPV: da integrare nel suo file. Nel mio ambiente restano due ffmpeg orfani (non posso terminarli: il sistema nega il `kill`): vanno chiusi a fine sessione.
+- Audio: i video 1-6 sono senza audio (QEMU non ha audio); 7 e 8 hanno AAC stereo (silenzio + audio di montage). Picco/RMS e musica -6 dB non sono stati lavorati: dipende dai wav di bmhost e dal montaggio finale.
+- Per OP4 / SPV: il fix di `rec_qemu` per R3 e `--take r3 --tool SDK` (commit `a9b780d`); OP4 e gia DONE.
 
 ## Problemi
-- Nessuno. Il sistema mi nega il `kill`: non posso fermare riprese gia partite.
+- Il sistema nega il `kill`: restano 1-2 ffmpeg orfani del montaggio bloccato (da chiudere a fine sessione).
 
 ## Richieste
-- SPV: conferma delle scelte sul montaggio del 6 (sopra). Il montaggio finale del video 8 (clip 1-7) lo preparo dopo il 7.
+- SPV/utente: (1) dove consegnare i video finiti (oggi `video/3d/out/final/` nel container, ignorato da git); (2) audio: lavorare picco/RMS e musica -6 dB partendo dai wav di bmhost? (3) conferma delle scelte sul montaggio del 6 (scheda finale "Next: bm Code", banner "TODAY: LIGHT, FOG AND SHADOW", scheda "Valori usati" saltata).
 
 ## Consegne
 - DELIVERED video4-take @ feat/claude-video3d-rec@8c82cce · verifica: `python3 video/3d/04-map/verify.py video/3d/04-map/out/qemu/sd` → RESULT: ALL OK (1024 e 1030 presenti) · 2026-10-14T15:50Z
 - DELIVERED video6-montage @ feat/claude-video3d-rec@4eac759 · verifica: `ffprobe ep06.mp4` → 1920x1080, 60/1, 180.0 s, nessun audio · 2026-10-14T15:50Z (R1/R3 da QEMU, R2 da bmhost; scelte da confermare nella sezione Progressi)
 - DELIVERED video7 @ feat/claude-video3d-rec@a9b780d · verifica: `verify.py` su R1 → ALL OK; R3 (SDK) con "built TROPIC.BM"; `montage7.py` (AGY-12) → ep07.mp4 1920x1080, 60/1, 242.05 s, AAC stereo · 2026-10-14T17:13Z
 - DELIVERED video8 @ feat/claude-video3d-rec@56e5fd0 · verifica: `montage8.py --clips /tmp/clips --game game.mp4` → ep08.mp4 1920x1080, 60/1, 95.13 s, AAC stereo · 2026-10-14T17:13Z (con il fix `video/3d/chain-delivered/montage8_ffmpeg_hang.patch`)
-
-
-## Progressi
-- **Tutti gli 8 video montati**, in `video/3d/out/final/ep01.mp4 ... ep08.mp4` (container cloud, cartella ignorata da git; ~107 MB). Videos 1,2,3,5: QEMU 1080p60 verify ALL OK; 4: rifatto con Shift+S/G; 6: 180.0 s; 7: 242.05 s; 8: 95.13 s. `check_series.py`: 0 problemi; `docs_audit score` 4806, 0 penalita.
-- **Bug in `montage8.py` (AGY-11)**: `anullsrc` e infinito, quindi la clip tagliata con `-t 6` non finiva mai (ffmpeg scriveva 96+ MB al posto di 6 s; ha bloccato il montaggio 30 min). Fix: `run_cmd` aggiunge `-shortest` e `-t N` in uscita; patch in `video/3d/chain-delivered/montage8_ffmpeg_hang.patch` (16 righe). AGY/SPV: da integrare nel suo file. Nel mio ambiente restano due ffmpeg orfani (non posso terminarli: il sistema nega il `kill`): vanno chiusi a fine sessione.
-- Audio: i video 1-6 sono senza audio (QEMU non ha audio); 7 e 8 hanno AAC stereo (silenzio + audio di montage). Picco/RMS e musica -6 dB non sono stati lavorati: dipende dai wav di bmhost e dal montaggio finale.
-
-## Problemi
-- Nessuno. Il sistema mi nega il `kill`: non posso fermare riprese gia partite.
-
-## Richieste
-- SPV: conferma delle scelte sul montaggio del 6 (sopra). Il montaggio finale del video 8 (clip 1-7) lo preparo dopo il 7.
-
-## Consegne
-- DELIVERED video4-take @ feat/claude-video3d-rec@8c82cce · verifica: `python3 video/3d/04-map/verify.py video/3d/04-map/out/qemu/sd` → RESULT: ALL OK (1024 e 1030 presenti) · 2026-10-14T15:50Z
-- DELIVERED video6-montage @ feat/claude-video3d-rec@4eac759 · verifica: `ffprobe ep06.mp4` → 1920x1080, 60/1, 180.0 s, nessun audio · 2026-10-14T15:50Z (R1/R3 da QEMU, R2 da bmhost; scelte da confermare nella sezione Progressi)
 
 ## Considerazioni sul sync
 Funziona: un file per operatore (zero conflitti), riga "Ultimo aggiornamento", richieste "cosa serve / cosa ho provato / cosa ho misurato", prove brevi prima di quelle lunghe (50 s al posto di 70 min).
