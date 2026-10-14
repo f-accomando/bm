@@ -2,18 +2,18 @@
 schema: 1
 id: CLD
 state: WAITING
-task: video 1-8 montati in video/3d/out/final/
-waiting_on: SPV (review, audio, dove consegnare i video)
+task: audio 5/7/8 sistemato, mp4 in video/3d/out/final
+waiting_on: utente (come ricevere gli mp4) / SPV (review)
 wakeup: yes
 ack: 2026-10-14T19:22+02:00
-updated: 2026-10-14T17:31+00:00
+updated: 2026-10-14T17:52+00:00
 ---
 # CLD — Claude cloud (CLD)
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 17:31 +00:00
-**Stato:** `WAITING video 1-8 montati in video/3d/out/final/`
+**Ultimo aggiornamento:** 2026-10-14 17:52 +00:00
+**Stato:** `WAITING audio 5/7/8 sistemato, mp4 in video/3d/out/final`
 
 ## Task
 - Serie 3D "Tropic Trail": 8 video registrati/montati (video 1-5 e 6 in QEMU, 6/7 montati con montage.py/montage7.py, 8 con montage8.py). Fine lavori di produzione; restano revisione di SPV, audio e destinazione dei file.
@@ -35,6 +35,14 @@ updated: 2026-10-14T17:31+00:00
 - DELIVERED video6-montage @ feat/claude-video3d-rec@4eac759 · verifica: `ffprobe ep06.mp4` → 1920x1080, 60/1, 180.0 s, nessun audio · 2026-10-14T15:50Z (R1/R3 da QEMU, R2 da bmhost; scelte da confermare nella sezione Progressi)
 - DELIVERED video7 @ feat/claude-video3d-rec@a9b780d · verifica: `verify.py` su R1 → ALL OK; R3 (SDK) con "built TROPIC.BM"; `montage7.py` (AGY-12) → ep07.mp4 1920x1080, 60/1, 242.05 s, AAC stereo · 2026-10-14T17:13Z
 - DELIVERED video8 @ feat/claude-video3d-rec@56e5fd0 · verifica: `montage8.py --clips /tmp/clips --game game.mp4` → ep08.mp4 1920x1080, 60/1, 95.13 s, AAC stereo · 2026-10-14T17:13Z (con il fix `video/3d/chain-delivered/montage8_ffmpeg_hang.patch`)
+- DELIVERED video7-audio @ video/3d/out/final/ep07.mp4 · verifica: `ffmpeg volumedetect` → picco -6.8 dBFS (limite -6), ffprobe 1920x1080 60/1 242.03 s, AAC stereo con i suoni del gioco (R2 bmhost `--wav`, -3 dB) · 2026-10-14T17:52Z
+- DELIVERED video8-audio @ video/3d/out/final/ep08.mp4 · verifica: picco -7.0 dBFS (era -5.0: ridotto di 2 dB), 95.15 s, 1920x1080 60/1 · 2026-10-14T17:52Z
+- DELIVERED video5-audio (invariato) @ video/3d/out/final/ep05.mp4 · verifica: `python3 video/3d/05-sound/verify.py` → volume rule: ok (musica RMS -26.9 dBFS, 5.3 dB sotto gli effetti, picco -6.4); wav 191.0 s; mp4 195.3 s, AAC stereo · 2026-10-14T17:52Z
+
+## Audio e consegna dei file (risposta alla casella 19:46)
+- **Video 5**: ha gia il wav di bmhost unito (`ep05.mp4` AAC stereo 195.3 s; wav 191.0 s). `verify.py` 05: volume rule ok (musica -26.9 dBFS RMS, 5.3 dB sotto gli effetti, picco -6.4 dBFS; ogni effetto con picco tra -7.8 e -16.8). Nota: `verify.py` 05 segnala "3 WRONG" sulla struttura (sezioni dello start diverse da `chain/03-animator.bm` attuale): il 5 fu ripreso con un 03 precedente a quello consegnato dopo; l'audio non c'entra.
+- **Video 1-4**: gli editor (Studio, Pixel, Animator, Map) non producono suoni: nessun wav da unire (restano muti). **Video 6**: R1/R3 sono l'editor SDK, muti; R2 (gioco) misurato con `bmhost --wav`: -91 dB, il gioco del 6 non suona. **Video 7**: R2 suona (mean -20, picco -3.8 dBFS): unito a -3 dB, picco -6.8 dBFS. **Video 8**: picco era -5.0 dBFS, portato a -7.0.
+- **Come avere gli mp4** (107 MB, `video/3d/out/final/ep01..ep08.mp4`, nel mio container, fuori da git): proposta in ordine (a) `SendUserFile` dalla sessione cloud: i file sono dentro la cartella di lavoro e l'utente li riceve nell'app; (b) un Artifact privato con pagina e link ai file (limite 15 MB per file binario e 64 MB per invio: 2-3 invii; ep03, ep06, ep07, ep08 oltre o vicini); (c) asset di una GitHub Release del repo (fuori dall'albero git; serve l'ok dell'utente). Non ho inviato nulla: aspetto la scelta dell'utente. Il container viene riciclato dopo ~30 min senza attivita: decidere prima.
 
 ## Considerazioni sul sync
 Funziona: un file per operatore (zero conflitti), riga "Ultimo aggiornamento", richieste "cosa serve / cosa ho provato / cosa ho misurato", prove brevi prima di quelle lunghe (50 s al posto di 70 min).
