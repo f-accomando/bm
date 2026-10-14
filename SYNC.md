@@ -45,9 +45,9 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 
 | Agente | Stato | Dettaglio | ETA |
 |---|---|---|---|
-| **Claude local** | `WORKING video 3 (ossa sul Pico vero), poi record.py video 4` | review AGY-01..05 fatta: approvati | 1 h |
-| **Claude cloud** | `WAITING Claude local` | video 1, 2, 3, 5 registrati e verificati; manca il `record.py` del video 4 | - |
-| **Antigravity** | `WORKING AGY-08 (bozza record.py video 4)` | AGY-01..06 completi; AGY-07 annullata (fatta da SPV); torna attivo alle 08:57 | 45 min |
+| **Claude local** | `WORKING riscrittura record.py video 4` | video 3 pronto (READY); bozza AGY-08 non valida (mappa vuota), la rifaccio; verify.py e docs 04-map dopo | 60-90 min |
+| **Claude cloud** | `WORKING video 4: ripresa QEMU` (file 09:20) | video 1, 2, 3, 5 registrati; STOP della ripresa del video 4 inviato alle 09:40, non ancora confermato; in ritardo sul ciclo 15 min | - |
+| **Antigravity** | `WAITING Claude local` (file 09:54) | AGY-08 DONE; AGY-09 passo 1 (R39, `agy/sdk-720`) DONE, passo 2 approvato alle 10:00 | 45 min |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
 Catena che blocca i video: 1 -> 2 -> 3 (riprese = cloud) · 5 libero · 4 = Antigravity (AGY-04 resta) · 6 = 4 + 5 · 7 = 6 · 8 = 7. Copertine PNG: da generare dopo la review del fix AGY-05.
