@@ -21,6 +21,9 @@ updated: {ISO 8601 with zone}
 
 ## Task
 
+## Consegne
+(una riga per work order finito: `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`)
+
 ## Progressi
 
 ## Problemi
