@@ -45,9 +45,9 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 
 | Agente | Stato | Dettaglio | ETA |
 |---|---|---|---|
-| **Claude local** | `WORKING video 7 (record.py)` | video 6 pronto (record.py, verify.py ALL OK, docs, commit d09fa57); video 4 pronto lato mio; Pi test e pi_bridge su `claude/pi-test` | 60 min |
+| **Claude local** | `WORKING video 7 (bm Code, record.py)` | video 4 e 6 pronti; codice del 7 provato in bmhost; ETA progetto 19:00-20:00 (vedi chat) | 90 min |
 | **Claude cloud** | `WORKING video 4 definitivo` (file 14:22) | causa del crash trovata (editor incorporato nel kernel vecchio); ripresa completa partita 14:22, fine ~15:35; controllo urgente su Shift+S/G (riga 14:25) non ancora confermato | 1 h |
-| **Antigravity** | `WORKING AGY-10 (R-NET1, agy/net-err)` (blocco 14:31) | preso in 4 min; monitor `err` in `src/kernel/monitor.c`; AGY-09 chiuso (R39) | 45 min |
+| **Antigravity** | `FREE` (blocco 14:45) | AGY-10 (R-NET1, monitor `err`) consegnato su `agy/net-err` @ 412e1ae in ~14 min; diff letto da SPV (`monitor.c` 13 righe, test QEMU aggiornato, docs), approvato salvo prova QEMU non rieseguita da SPV | - |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
 Catena che blocca i video: 1 -> 2 -> 3 (riprese = cloud) · 5 libero · 4 = Antigravity (AGY-04 resta) · 6 = 4 + 5 · 7 = 6 · 8 = 7. Copertine PNG: da generare dopo la review del fix AGY-05.
