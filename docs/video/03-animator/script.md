@@ -7,8 +7,8 @@ ogni azione resta a schermo il tempo di leggerla. Narrazione e didascalie in **i
 - **Parte da**: `chain/02-pixel.bm` (modelli `PICO`, `APPLE`, `CRATE` dipinti; nessuno scheletro). **Produce**: `chain/03-animator.bm`
   (scheletro `PICO` + 5 clip: `idle`, `run`, `jump`, `spin`, `hit`). Dettagli in [`input.md`](input.md).
 - **Fonti dei tasti**: `manuals/content/en/editor-animator.md` (tabelle F1/F2/F3), verificato con `carts/animator/main.lua`.
-- Le quantità di pressioni (`×N`) dei tasti `w a s d r f` dipendono dal modello vero di Pico (video 1): si tarano in prova,
-  non sono inventate qui. Vedi [`shot-list.md`](shot-list.md).
+- Le code delle ossa sono in unità della griglia di Pico (x -1..4, centro 1,5; y 0..4; z -3..1; asse x = 1,5, z = 0,5). Le quantità di
+  pressioni (`×N`) dei tasti `w a s d r f` (1/8 di unità l'una) si ricavano da `record.py` e non sono inventate qui. Vedi [`shot-list.md`](shot-list.md).
 
 ## Copione
 
@@ -17,9 +17,9 @@ ogni azione resta a schermo il tempo di leggerla. Narrazione e didascalie in **i
 | 0:00 | Gancio: Pico corre in loop su F1 con lo scheletro visibile (ripresa finale); titolo "Tropic Trail · Ep 3 · bm Animator" | Meet Pico, alive. One skeleton, five moves, all built inside the console. |
 | 0:08 | Tab Dev, bm Animator, elenco file; si apre il progetto; F1: Pico gira da fermo | bm Animator lives in the Dev tab. It does not build models: it opens the ones you made in bm Studio. Here is Pico, still a statue. |
 | 0:22 | Le pagine F2, F3, F4 una dopo l'altra, poi di nuovo F2 | Four pages. F1 plays, F2 builds the skeleton, F3 records clips, and F4 bakes sprites. We need the first three. |
-| 0:30 | F2: N crea `root`, S/R alza la coda fino ai fianchi | On F2, press N. The first bone is called root. Press S and R to place its tail at Pico's hips. |
+| 0:30 | F2: N crea `root`, S/R alza la coda fino ai fianchi | On F2, press N. The first bone is called root. Press W to lift its tail to Pico's hips: each press moves it an eighth of a unit. |
 | 0:42 | N aggiunge `spine`, poi `head`; Invio rinomina | N again adds a bone under the chosen one. The spine rises from the hips to the shoulders, and the head sits on top. Enter renames a bone. |
-| 0:54 | Si sceglie `spine`, N crea `arm.L`, M lo copia a destra; poi `root`, `leg.L`, M | Choose the spine, add an arm, and press M: the left arm is copied to the right. The names end in dot L and dot R. Choose the root and do the same for the legs. |
+| 0:54 | Si sceglie `spine`, N crea `arm.L`; di nuovo `spine`, N crea `arm.R` a mano; poi `root`, `leg.L`, `leg.R` a mano | Choose the spine and add an arm. The names end in dot L and dot R. M copies a bone across the middle of the world, but Pico stands off to one side, so each right bone is made by hand. Choose the root and do the same for the legs. |
 | 1:08 | `tail1`, `tail2` sul `root`; la lista mostra 9 ossa | The tail is two bones on the root. Nine bones in all. The limit is sixty-four, so there is plenty of room. |
 | 1:20 | F2: K minuscolo; F1: K mostra lo scheletro sopra il modello | Now the skin. Press K, and every face follows its nearest bone. That is right for a blocky gecko. |
 | 1:30 | F2: K maiuscolo, annulla; modo `v`, un poligono marcato e liberato | Capital K splits the faces by corner, so joints stretch, but a corner always follows one bone, never a mix. If a part follows the wrong bone, V lets you choose its faces by hand. |

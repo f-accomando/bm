@@ -72,7 +72,7 @@ Nessuna immagine: si legge il file che l'editor ha davvero scritto.
 
 ## 6. Da verificare prima di registrare
 
-- Nome e posizione del file nell'elenco di apertura; tasto per rispondere a "Save an editable copy"; dove `m` mette l'osso copiato e quale osso resta scelto;
+- Nome e posizione del file nell'elenco di apertura; tasto per rispondere a "Save an editable copy"; (`m` di F2 non si usa: specchia attorno a x = 0 e Pico, in unità della griglia x -1..4, è fuori centro; `arm.R` e `leg.R` si fanno a mano con `n`);
   asse e segno di `w a s d r f` (F2) e di `w s a d q e` (F3); valore iniziale di `i`; se `r` crea un keyframe (altrimenti aggiungere `k`);
   se l'angolo oltre 180° si accumula (`spin`); `0x7f` come Backspace; testo esatto di `m` con un solo osso.
 - Ogni voce è marcata `[DA VERIFICARE]` in [`shot-list.md`](shot-list.md).
