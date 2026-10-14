@@ -1610,12 +1610,23 @@ do
   local color, transparent = 0xFFFFFF, false
   local focus = "canvas"                 -- or "sheet"
   local s_undo, clip_px, stroke = {}, nil, false
-  local LEFT, RIGHT = table.unpack(LY.split(R.view, "h", { "25c", "*" }))
-  local CX, CY, CS = LEFT.x + 8, R.view.y, 192            -- the canvas
-  local SX, SY, SW, SH = RIGHT.x + 8, R.view.y, 144, 112   -- the sheet's window
-  local PX, PY, PW, PH = SX, SY + SH + 8, 18, 14           -- the palette's swatches
-  local COLOUR_Y = (PY + 4 * PH + 15) // 16 * 16           -- the colour's row
-  local FLAGS_Y = CY + CS                                  -- under the canvas
+  local CX, CY, CS, SX, SY, SW, SH, PX, PY, PW, PH, COLOUR_Y, FLAGS_Y
+  if LY.narrow(W) then
+    local LEFT, RIGHT = table.unpack(LY.split(R.view, "h", { "25c", "*" }))
+    CX, CY, CS = LEFT.x + 8, R.view.y, 192            -- the canvas
+    SX, SY, SW, SH = RIGHT.x + 8, R.view.y, 144, 112   -- the sheet's window
+    PX, PY, PW, PH = SX, SY + SH + 8, 18, 14           -- the palette's swatches
+    COLOUR_Y = (PY + 4 * PH + 15) // 16 * 16           -- the colour's row
+    FLAGS_Y = CY + CS                                  -- under the canvas
+  else
+    -- Wide screen (>= 480 px): panel on the left (R.panel), work canvas on the right (R.work)
+    SX, SY, SW, SH = R.panel.x + 8, R.panel.y, min(224, R.panel.w - 16), 144
+    PX, PY, PW, PH = SX, SY + SH + 8, 24, 14
+    COLOUR_Y = (PY + 4 * PH + 15) // 16 * 16
+    FLAGS_Y = COLOUR_Y + 24
+    CX, CY = R.work.x + 16, R.work.y
+    CS = min(R.work.w - 32, R.work.h - 32) // 32 * 32
+  end
   local FLAG_NAMES = { [0] = "wall", "platform", "ladder", "water", "hurt", "flag 5", "flag 6", "flag 7" }
 
   local function cells_per_row() return S.sheet_w // 8 end
@@ -1808,7 +1819,12 @@ do
       if fget(sel, f) then rectfill(x - 4, FLAGS_Y, 16, 16, FLAG_C[f]) else rect(x - 4, FLAGS_Y, 16, 16, C.BAR) end
       print(tostring(f), x, FLAGS_Y, fget(sel, f) and 0x000000 or C.DIM)
     end
-    print("0 wall 1 platform 2 ladder 3 water 4 hurt", 8, FLAGS_Y + 16, C.DIM)
+    if LY.narrow(W) then
+      print("0 wall 1 platform 2 ladder 3 water 4 hurt", 8, FLAGS_Y + 16, C.DIM)
+    else
+      print("0 wall 1 plat 2 ladder", 8, FLAGS_Y + 16, C.DIM)
+      print("3 water 4 hurt", 8, FLAGS_Y + 32, C.DIM)
+    end
   end
 
   local function hints()
@@ -1892,14 +1908,16 @@ do
   local used, used_mode, used_rev = {}, false, -1
   local cell_col, row_runs, col_rev = {}, {}, -1
   local m_undo, m_stroke = {}, nil
+  local VIEW_X = LY.narrow(W) and 0 or R.work.x
+  local VIEW_W = LY.narrow(W) and W or R.work.w
   local VIEW_Y = R.view.y
-  local VIEW_CW, VIEW_CH = W // 8, (HINT_Y - VIEW_Y) // 8
+  local VIEW_CW, VIEW_CH = VIEW_W // 8, (HINT_Y - VIEW_Y) // 8
   local ZOOM_STEPS = { 1, 2, 4, 8, 16 }
   local OBJ_COL = { [1024] = 0xFFD860, [1026] = 0x9A6438, [1028] = 0x8A96A8, [1030] = 0xE04040 }
 
   local function view_dims(z)
     z = z or zoom
-    return min(S.map_w, W // z), min(S.map_h, (HINT_Y - VIEW_Y) // z)
+    return min(S.map_w, VIEW_W // z), min(S.map_h, (HINT_Y - VIEW_Y) // z)
   end
 
   local function clamp_view()
@@ -2189,24 +2207,46 @@ do
   end
 
   local function draw()
-    rectfill(0, VIEW_Y, W, HINT_Y - VIEW_Y, 0x000000)
-    U.zone(0, VIEW_Y, W, HINT_Y - VIEW_Y, "mapview")
-    clip(0, VIEW_Y, W, HINT_Y - VIEW_Y)
+    if not LY.narrow(W) then
+      rectfill(R.panel.x, VIEW_Y, R.panel.w, HINT_Y - VIEW_Y, C.PANEL)
+      rect(R.panel.x, VIEW_Y, R.panel.w, HINT_Y - VIEW_Y, C.BAR)
+      local names = mlayers()
+      print("LAYERS (" .. #names .. ")", R.panel.x + 8, VIEW_Y + 8, C.ACC)
+      for i, name in ipairs(names) do
+        local y = VIEW_Y + 16 + i * 16
+        if i == layer then
+          rectfill(R.panel.x + 8, y - 2, R.panel.w - 16, 16, C.BAR)
+          print("> " .. name, R.panel.x + 12, y, C.TEXT)
+        else
+          print("  " .. name, R.panel.x + 12, y, C.DIM)
+        end
+      end
+      local ty = VIEW_Y + 180
+      print("BRUSH", R.panel.x + 8, ty, C.ACC)
+      print(big and "16x16" or "8x8", R.panel.x + 8, ty + 16, C.TEXT)
+      print("Tile " .. tile, R.panel.x + 8, ty + 32, C.TEXT)
+      rectfill(R.panel.x + 8, ty + 52, 32, 32, 0x000000)
+      local n = big and 16 or 8
+      spr(tile, R.panel.x + 8, ty + 52, n // 8, n // 8)
+    end
+    rectfill(VIEW_X, VIEW_Y, VIEW_W, HINT_Y - VIEW_Y, 0x000000)
+    U.zone(VIEW_X, VIEW_Y, VIEW_W, HINT_Y - VIEW_Y, "mapview")
+    clip(VIEW_X, VIEW_Y, VIEW_W, HINT_Y - VIEW_Y)
     local names = mlayers()
     if layer > #names then layer = 1 end
     local cw, ch = view_dims()
     if zoom == 8 then
       if only then
-        map(vx0, vy0, 0, VIEW_Y, cw, ch, layer)
+        map(vx0, vy0, VIEW_X, VIEW_Y, cw, ch, layer)
       else
-        for l = 1, #names do map(vx0, vy0, 0, VIEW_Y, cw, ch, l) end
+        for l = 1, #names do map(vx0, vy0, VIEW_X, VIEW_Y, cw, ch, l) end
       end
     elseif zoom > 8 then
       local cols = S.sheet_w // 8
       local l0, l1 = only and layer or 1, only and layer or #names
       for cy = 0, ch - 1 do
         for cx = 0, cw - 1 do
-          local sx, sy = cx * zoom, VIEW_Y + cy * zoom
+          local sx, sy = VIEW_X + cx * zoom, VIEW_Y + cy * zoom
           for l = l0, l1 do
             local v = mget(vx0 + cx, vy0 + cy, l)
             if v > 0 then
@@ -2219,7 +2259,7 @@ do
     else
       -- zoomed out (zoom = 1, 2 or 4 px per cell): draw cached horizontal colour runs
       local mw_px, mh_px = cw * zoom, ch * zoom
-      rectfill(0, VIEW_Y, mw_px, mh_px, 0x080A10)
+      rectfill(VIEW_X, VIEW_Y, mw_px, mh_px, 0x080A10)
       local vx1 = vx0 + cw
       for cy = 0, ch - 1 do
         local sy = VIEW_Y + cy * zoom
@@ -2228,16 +2268,16 @@ do
           if x1 > vx0 and x0 < vx1 then
             local a = max(x0, vx0) - vx0
             local b = min(x1, vx1) - vx0
-            rectfill(a * zoom, sy, (b - a) * zoom, zoom, r[3])
+            rectfill(VIEW_X + a * zoom, sy, (b - a) * zoom, zoom, r[3])
           end
         end
       end
-      rect(0, VIEW_Y, mw_px, mh_px, C.BAR)
+      rect(VIEW_X, VIEW_Y, mw_px, mh_px, C.BAR)
       if zoom == 1 then
         local v1x = clamp(mx - VIEW_CW // 2, 0, max(0, S.map_w - VIEW_CW))
         local v1y = clamp(my - VIEW_CH // 2, 0, max(0, S.map_h - VIEW_CH))
-        rect(v1x, VIEW_Y + v1y, min(VIEW_CW, S.map_w), min(VIEW_CH, S.map_h), C.ACC)
-        local lx = 264
+        rect(VIEW_X + v1x, VIEW_Y + v1y, min(VIEW_CW, S.map_w), min(VIEW_CH, S.map_h), C.ACC)
+        local lx = VIEW_X + 264
         if lx + 88 <= W then
           print("OVERVIEW", lx, VIEW_Y, C.ACC)
           print("256x256 1:8", lx, VIEW_Y + 16, C.TEXT)
@@ -2255,7 +2295,7 @@ do
           if f ~= 0 then
             for k = 0, 4 do
               if f >> k & 1 == 1 then
-                rect(cx * zoom + k, VIEW_Y + cy * zoom + k, max(2, zoom - 2 * k), max(2, zoom - 2 * k), FC[k + 1])
+                rect(VIEW_X + cx * zoom + k, VIEW_Y + cy * zoom + k, max(2, zoom - 2 * k), max(2, zoom - 2 * k), FC[k + 1])
                 break
               end
             end
@@ -2265,7 +2305,7 @@ do
     end
     local n = big and 16 or 8                -- the brush, in pixels on the strip
     local cur_w = (big and 2 or 1) * zoom
-    local x, y = (mx - vx0) * zoom, VIEW_Y + (my - vy0) * zoom
+    local x, y = VIEW_X + (mx - vx0) * zoom, VIEW_Y + (my - vy0) * zoom
     rect(x - 1, y - 1, cur_w + 2, cur_w + 2, (S.frame // 10) % 2 == 0 and 0xFFFFFF or C.ACC)
     clip()
     local ztag = zoom ~= 8 and string.format(" %dpx", zoom) or ""
@@ -2406,8 +2446,8 @@ do
     if not z or z.kind ~= "mapview" then return end
     if U.wheel ~= 0 then vy0 = clamp(vy0 - U.wheel * 4, 0, max(0, S.map_h - ch)) end
     if U.down(0) or U.pressed(2) then
-      if U.x >= cw * zoom or (U.y - VIEW_Y) >= ch * zoom then return end
-      mx = clamp(vx0 + U.x // zoom, 0, S.map_w - 1)
+      if U.x < VIEW_X or U.x >= VIEW_X + cw * zoom or (U.y - VIEW_Y) >= ch * zoom then return end
+      mx = clamp(vx0 + (U.x - VIEW_X) // zoom, 0, S.map_w - 1)
       my = clamp(vy0 + (U.y - VIEW_Y) // zoom, 0, S.map_h - 1)
       even()
       act(U.pressed(2) and "pick" or "paint")
