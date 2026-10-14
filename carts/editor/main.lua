@@ -2166,6 +2166,7 @@ do
       -- Objects
       if w3d then
         local objs = map3d_objects(w3d)
+        local lamp_slot = 0
         for _, obj in ipairs(objs) do
           local m = model(obj.kind)
           if not m and (obj.kind == "PLAYER_START" or obj.kind == "PICO") then
@@ -2174,8 +2175,9 @@ do
           if m then
             draw3d(m, obj.x, obj.y, obj.z, 0, 0, 0, 1.0)
           else
-            if obj.kind == "LAMP" then
-              lamp3d(0, obj.x, obj.y + 1.0, obj.z, 4, 1.0, 0xFFC888)
+            if obj.kind == "LAMP" and lamp_slot < 4 then
+              lamp_slot = lamp_slot + 1                      -- lamp3d slots are 1..4
+              lamp3d(lamp_slot, obj.x, obj.y + 1.0, obj.z, 4, 1.0, 0xFFC888)
             end
             point3d(obj.x, obj.y + 0.5, obj.z, 0.3, OBJ_COL[1024] or 0xFFFF00)
           end
