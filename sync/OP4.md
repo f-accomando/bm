@@ -1,21 +1,22 @@
 ---
 schema: 1
 id: OP4
-state: WORKING
-task: OP4-01 passo 2 (fix tool SDK in rec_qemu.py e riesecuzione r3)
+state: DONE
+task: OP4-01 completato e consegnato; fix su op4/rec-fixes; sign-off
 waiting_on: 
-progress: 75
-updated: 2026-10-14T18:56+02:00
+progress: 100
+updated: 2026-10-14T19:00+02:00
 ---
 # OP4 — Operator 4 (Second Windows Machine)
 
 > **Scrive solo OP4** (gli altri leggono). Il supervisore (SPV, Claude local) legge questo file e aggiorna `SYNC.md`.
 > Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`.
-> **Aggiorna "Ultimo aggiornamento" almeno ogni 15 min** (o a ogni task conclusa); senza aggiornamenti per 60 min lo stato diventa `IDLE`.
 
-**Ultimo aggiornamento:** 2026-10-14 18:56 +02:00
-**Stato:** `WORKING OP4-01 passo 2 (fix tool SDK in rec_qemu.py e riesecuzione r3)`
-**Heartbeat:** Aggiornamento garantito ogni <=15 min o a fine task; subagent/background scheduler attivi.
+**Ultimo aggiornamento:** 2026-10-14 19:00 +02:00
+**Stato:** `DONE OP4-01 completato e consegnato; fix su op4/rec-fixes; sign-off`
+
+## Consegne
+- DELIVERED OP4-01 @ op4/rec-fixes@d96e0d3f · verifica: `rec_qemu.py 07 --take r3 --shift 1` -> ALL OK (19.00 s, 1920x1080@60fps, TROPIC.BM 552 KB built, serial pulito: "bm: built /carts/TROPIC.BM from /carts/TROPIC.BME") · 2026-10-14T17:02Z
 
 ## Profilo
 - **Ambiente & Host**: Locale Windows 11 x64, 4 core (8 thread) Intel i7-11390H, 16 GB RAM. Nessun timeout container (regge processi >60 min).
@@ -28,25 +29,21 @@ updated: 2026-10-14T18:56+02:00
 - **Strumenti Linux WSL**: `/usr/bin/mtools` e `/usr/sbin/mkfs.vfat` già presenti; `Xvfb` e `qemu-system-arm` Linux installabili con `wsl -u root apt install`.
 - **Punti di rottura**: Disconnessione rete / sleep del PC host; i tool Linux necessitano di esecuzione via WSL.
 
-## Risposta a SPV: Lavori (A, B, D)
-- **(A) Montaggio video 8 con ffmpeg** (clip mp4 1-7): **`posso`** (stima ~30-40 min). FFmpeg 9.0.1 è presente e verificato. Posso comporre clip, audio e card non appena le clip grezze/partita sono disponibili.
-- **(B) Montaggio video 7**: **`posso`** (stima ~25-35 min), purché siano fornite o disponibili le tracce video/audio registrate.
-- **(D) Ripresa QEMU con `qemurec.py` / `rec_qemu.py`**: **`posso con installazione pacchetti in WSL`** (stima setup 10 min, poi ~15-20 min per prova di ripresa). In WSL2 Ubuntu ho già Linux, `mtools`, `mkfs.vfat`, `python3` e `arm-none-eabi-gcc`. Mancano solo `Xvfb` e `qemu-system-arm` Linux, che posso installare immediatamente senza password con `wsl -u root apt update && apt install -y qemu-system-arm xvfb`.
-
 ## Task
-- **OP4-01**: Ripresa QEMU di R3 del video 7 (in corso, passo 2).
+- **OP4-01**: COMPLETATO e CONSEGNATO.
 
 ## Progressi
 - **Passo 1 (Setup WSL & build)**: COMPLETATO. Pacchetti WSL `qemu-system-arm`, `xvfb`, `ffmpeg` installati; repo in `/home/francesco_accomando/bm-op4` creato; branch `op4/rec` con merge di `claude-video3d-rec`, `claude-video3d` e `bm-core`; `build/editor.bm` e `build/kernel.img` compilati (verificati `map3d_build` e `tool_start`).
-- **Passo 2 (Ripresa QEMU R3)**: `record.py --build-only` eseguito (input-r3.txt 840 frame, 14 s); prima ripresa QEMU completata (1260 frame 1920x1080 @ 60 fps, 0 late keys, serial.log pulito senza errori Lua). Riscontrato che `rec_qemu.py` per ep 07 apriva di default l'icona Dev `CODE` anziché `SDK` (quindi `Ctrl+B` era una selezione testo anziché build cartuccia).
-- **In corso**: Fix a `rec_qemu.py` per mappare `take == "r3"` su `SDK` e riesecuzione rapida della cattura per ottenere `TROPIC.BM`.
+- **Passo 2 (Ripresa QEMU R3)**: COMPLETATA. Risolto il problema del tool SDK. Esecuzione pulita di `rec_qemu.py 07 --take r3 --shift 1` con esito ALL OK: 1140 frame, 0 late keys, `TROPIC.BM` compilato con successo su SD (552.564 byte), `serial.log` pulito con `bm: built /carts/TROPIC.BM from /carts/TROPIC.BME`. File video finale: `out/qemu-r3/ep07_qemu_r3.mp4` (19.00 s, 1920x1080 @ 60 fps).
+- **Fix `rec_qemu.py` pushato su `origin/op4/rec-fixes` (commit `d96e0d3f`)**:
+  - *Differenze rispetto a `a9b780d` di CLD*:
+    1. CLD richiede il parametro esplicito `--tool SDK`. Il fix di OP4 supporta sia `--tool <TOOL>` sia il fallback automatico a `SDK` quando viene specificato `--take r3` (zero configurazioni manuali extra).
+    2. Il fix di OP4 aggiorna anche `bmvideo.write_ass` impostando `(tool or ("SDK" if take == "r3" else v["tool"])).title()`, così che la card visiva e l'overlay mostrino correttamente "Sdk" anziché rimanere fissi su "Code".
+- **Report di performance `bm-deep`**: Consegnato e documentato (causa 40-50x, safe shift con `min_gap >= 12`, fattibilità cattura 30 fps per editor).
+- **Sign-off recepito**: Ricevuto messaggio da SPV in `sync/inbox/OP4.md`. Stato impostato su `DONE`, battiti periodici interrotti.
 
 ## Problemi
-- Nessuno bloccante; fix a `rec_qemu.py` locale in corso.
+- Nessuno.
 
 ## Richieste
-- A SPV (Claude local): **Report bm-deep su ottimizzazione riprese editor**:
-  1. *Causa 40-50x*: Il kernel bare-metal brucia l'88% del frame in busy-wait (`runtime.c:7197` senza `wfi`); con `shift=1` QEMU emula 440M istr/s virtuali su vCPU single-threaded. Inoltre Xvfb inietta 32 GB di stream raw wall-clock che Python scarta al 97%.
-  2. *Perdita tasti*: Dovuta a `HOLD_FRAMES = 10` nel kernel (`runtime.c:68`) per il polling seriale: con `min_gap=0` in `rec_qemu.py`, tasti consecutivi ravvicinati non registrano l'edge (`btnp`). Impostando `min_gap >= 12`, `shift=2` (dimezza il tempo host) o `shift=3` possono essere usati in piena sicurezza senza perdere tasti.
-  3. *Cattura 30 fps per editor*: 100% compatibile. `assemble()` con `-r 60` applica il frame-hold della console, mentre i keycap e le didascalie dell'overlay `.ass` vengono renderizzati nativamente a 60 fps senza alcun drift audio.
-  Nel frattempo OP4 sta completando R3 con i parametri standard (`shift=1`).
+- A SPV (Claude local): Consegna effettuata, fix disponibile su branch `origin/op4/rec-fixes`. Sign-off recepito, OP4 passa a `DONE`.
