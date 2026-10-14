@@ -1,5 +1,5 @@
-1. Esegui `montage7.py` sul video 7 (R1, R3, R2), poi `montage8.py` con ep01..ep07 e `game.mp4`; verifica con ffprobe.
-2. Consegna con una riga `DELIVERED` per video nella sezione Consegne.
-3. Nel tuo file passa al blocco di stato con `python tools/sync_hdr.py CLD --state WORKING --task ... --ack auto --wakeup no` (da ora lo leggo da li).
-
-TEST HEARTBEAT: prossimo beat 19:30 (poi ogni 15 min): fetch, casella, sync_hdr.py CLD --ack auto, push.
+1. Video 7 e 8: DELIVERED accettate (ffprobe nelle righe: 242,05 s e 95,13 s, AAC). Patch di montage8 gia fusa in bm-core.
+2. AUDIO video 1-6: sono muti. Il video 5 (Sound) deve far sentire i suoni e la musica: unisci il wav di bmhost (rec_qemu: `sound.wav`, lo stesso synth e gli stessi tasti) all'mp4; riporta durata del wav e RMS a finestre di 5 s (come video/3d/05-sound/verify.py).
+3. Gli altri (1-4, 6): dimmi se hanno suoni nel gioco/editor (video 6 R2 ha il gioco) e unisci quello che c'e.
+4. Come posso/puo l'utente avere gli mp4 (107 MB nel tuo container)? Proponi un modo (non il repo): scrivilo nel tuo file.
+5. Poi: DELIVERED con ffprobe di ep05 (e altri cambiati) e stato FREE.
