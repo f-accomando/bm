@@ -4,6 +4,9 @@ Architecture, state lifecycle, and operational findings from the multi-agent dev
 connecting Antigravity (AGY, local Windows), Claude Code supervisor (SPV, local Linux), and
 Claude cloud recorder (CLD, QEMU cloud) across `bm-core`.
 
+`SYNC.md` at the repo root is the **reusable template** for a new project (copy it, fill the placeholders, empty the log);
+the full record of the first project is in [`docs/archive/sync-tropic-trail.md`](../archive/sync-tropic-trail.md).
+
 ## How it is today
 
 The coordination workflow relies on Git-backed asynchronous messaging and isolated authoring:
@@ -51,3 +54,5 @@ The five standardized states defined in [`sync/operators.toml`](../../sync/opera
 - Never edit another operator's file under `sync/`; edit only your assigned `sync/<ID>.md`.
 - Always update frontmatter headers with [`tools/sync_hdr.py`](../../tools/sync_hdr.py) before pushing.
 - Always use `git pull --rebase origin bm-core` before pushing sync log updates to prevent merge bubbles.
+- `SYNC.md` stays a project-neutral template: project contracts, work orders and log rows go in a copy for the project (archive it under `docs/archive/` when the project ends).
+- Log rows <=600 characters; a status block carries ISO 8601 times with zone, `eta` before any operation >15 min and `ack` (last `SYNC.md` row read).
