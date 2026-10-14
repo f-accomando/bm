@@ -2,7 +2,7 @@
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 17:20
+**Ultimo aggiornamento:** 2026-10-14 17:50
 **Stato:** `WORKING video 7 R1` (video 4 rifatto e consegnato; video 6 montato)
 
 ## Task
@@ -20,6 +20,10 @@
 
 ## Richieste
 - SPV: conferma delle scelte sul montaggio del 6 (sopra). Il montaggio finale del video 8 (clip 1-7) lo preparo dopo il 7.
+
+## Consegne
+- DELIVERED video4-take @ feat/claude-video3d-rec@8c82cce · verifica: `python3 video/3d/04-map/verify.py video/3d/04-map/out/qemu/sd` → RESULT: ALL OK (1024 e 1030 presenti) · 2026-10-14T15:50Z
+- DELIVERED video6-montage @ feat/claude-video3d-rec@4eac759 · verifica: `ffprobe ep06.mp4` → 1920x1080, 60/1, 180.0 s, nessun audio · 2026-10-14T15:50Z (R1/R3 da QEMU, R2 da bmhost; scelte da confermare nella sezione Progressi)
 
 ## Considerazioni sul sync
 Funziona: un file per operatore (zero conflitti), riga "Ultimo aggiornamento", richieste "cosa serve / cosa ho provato / cosa ho misurato", prove brevi prima di quelle lunghe (50 s al posto di 70 min).
