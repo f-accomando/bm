@@ -49,3 +49,10 @@ To carry into `docs/video/03-animator/{shot-list,script,input}.md` (not edited h
 - The mp4 (`--no-video` is the default without ffmpeg in WSL): the ffmpeg branch of `record.py` (fifo into `bmvideo.encode`) is not tested here.
 - Rows 1-3 (hook, Dev tab card) are overlay / cut: bmhost has no Dev tab (`s.mark`), the hook is `bmvideo.hook_cmd` on the last seconds.
 - The start is the stand-in (`--start forge`, `models.bm` of `video/3d/assets`, painted by bm-forge, no skeleton) until `chain/02-pixel.bm` exists.
+
+## 2026-10-14 rig on the real Pico (grid units)
+- The Pico of videos 1-2 is in grid units: x -1..4 (middle 1.5), y 0..4, z -3..1. The Animator's `M` mirrors about x = 0, so it cannot mirror this off-centre Pico: arm.R and leg.R are made by hand (N, Enter, move the tail), not with M. The script says so in the narration of rows 16-22.
+- Bones (tails): root (1.5,1.5,0.5), spine (1.5,2.5,0.5), head (1.5,4,0.5), arm.L (3.75,2.25,0.5), arm.R (-0.75,2.25,0.5), leg.L (2.5,0.375,0.5), leg.R (0.5,0.375,0.5), tail1 (1.5,1.625,-1.5), tail2 (1.5,1.75,-2.875). Axis x = 1.5, z = 0.5.
+- Long runs of one key go at 4 frames per press (more than 8 presses), shorter ones at 9: the script still ends at 202 s with no late rows.
+- `verify.py`: the bone tails are compared with this table (not the reference skeleton), the hand/head/tail tests are in grid units. "Top of the head follows head" is tested on the middle of the top face (x 0.9..2.1): the side walls of the 3-wide head touch the arms, so their top corners follow arm.L / arm.R. 46 checks, 0 failed.
+- Documents to update (`docs/video/03-animator/`): rows 16-22 (M does not mirror; numbers in grid units); keys W S A D R F counts.

@@ -167,20 +167,23 @@ def main():
     hi = [max(v[k] for v in pico.verts) for k in range(3)]
     inside = all(lo[k] - 0.3 <= c <= hi[k] + 0.3 for b in rig.bones for e in (b.head, b.tail) for k, c in enumerate(e))
     check(inside, "every bone lies on the model (inside its box plus 0.3)")
-    ref = container.read_file(ASSETS if os.path.exists(ASSETS) else _build_assets()).anim().get("PICO")
-    rt = {b.name: b.tail for b in ref.bones}
+    # the Pico of videos 1-2 is in grid units (x -1..4, middle 1.5; z -3..1): the tails the script puts the bones on
+    want_tail = {"root": [1.5, 1.5, 0.5], "spine": [1.5, 2.5, 0.5], "head": [1.5, 4.0, 0.5], "arm.L": [3.75, 2.25, 0.5], "arm.R": [-0.75, 2.25, 0.5],
+                 "leg.L": [2.5, 0.375, 0.5], "leg.R": [0.5, 0.375, 0.5], "tail1": [1.5, 1.625, -1.5], "tail2": [1.5, 1.75, -2.875]}
     far = [(b.name, [round(c, 2) for c in b.tail]) for b in rig.bones
-           if b.name in rt and math.dist(b.tail, rt[b.name]) > 0.35]
-    check(not far, "each bone's tail is near the reference skeleton's (0.35)", str(far) if far else "")
+           if b.name in want_tail and math.dist(b.tail, want_tail[b.name]) > 0.35]
+    check(not far, "each bone's tail is where the script puts it, in the grid units of the Pico (0.35)", str(far) if far else "")
+
+    ref = container.read_file(ASSETS if os.path.exists(ASSETS) else _build_assets()).anim().get("PICO")   # the reference clips (rotations do not depend on the scale)
 
     # ---- skin
     used = {rig.bones[i].name for i in rig.vbones}
     check(len(used) >= 8, "the skin uses the bones (not all the faces on root)", "%d of 9: %s" % (len(used), " ".join(sorted(used))))
     vb = lambda cond: {rig.bones[rig.vbones[i]].name for i, v in enumerate(pico.verts) if cond(v)}   # noqa: E731
-    check(vb(lambda v: v[0] >= 0.3 and v[1] <= 0.6) == {"arm.L"}, "the left hand follows arm.L", str(vb(lambda v: v[0] >= 0.3 and v[1] <= 0.6)))
-    check(vb(lambda v: v[0] <= -0.3 and v[1] <= 0.6) == {"arm.R"}, "the right hand follows arm.R")
-    check(vb(lambda v: v[1] >= 1.15) == {"head"}, "the top of the head follows head")
-    check(vb(lambda v: v[2] <= -0.8) == {"tail2"}, "the tip of the tail follows tail2")
+    check(vb(lambda v: v[0] >= 3.3 and v[1] <= 3.0) == {"arm.L"}, "the left hand follows arm.L", str(vb(lambda v: v[0] >= 3.3 and v[1] <= 3.0)))
+    check(vb(lambda v: v[0] <= -0.3 and v[1] <= 3.0) == {"arm.R"}, "the right hand follows arm.R")
+    check(vb(lambda v: v[1] >= 3.9 and 0.9 <= v[0] <= 2.1) == {"head"}, "the top of the head follows head (the middle of the top face: the side walls of the 3-wide head touch the arms)", str(vb(lambda v: v[1] >= 3.9 and 0.9 <= v[0] <= 2.1)))
+    check(vb(lambda v: v[2] <= -2.8) == {"tail2"}, "the tip of the tail follows tail2")
 
     # ---- clips
     clips = {c.name: c for c in rig.clips}
