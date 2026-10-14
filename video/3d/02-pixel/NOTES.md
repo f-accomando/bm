@@ -30,3 +30,6 @@ First run replays the editor ~85 times to plan the face pointer (about 3 minutes
   flat faces = warm colours). Not yet run on the real chain/01-studio.bme.
 - ffmpeg is missing in WSL: no mp4 produced (run record.py where ffmpeg exists; the overlay/shots/input are ready).
 - docs: tab Dev (row 2) and the hook 0:00-0:08 are not recorded here.
+
+## 2026-10-14 verify.py corrected on the real model
+- The real Pico of video 1 spans x -1..4 (middle 1.5), y 0..4, z -3..1 (grid units), not the stand-in centred on x = 0. `verify.py` now takes the middle of the model for the eye symmetry check and the top 20% of the height for the eye faces (a quad's two triangles have centres lower than the quad). Eye faces at x 0.33 and 2.67 are the two outer front faces of the head, which is what the script means. QEMU == bmhost, `verify.py` = ALL OK.

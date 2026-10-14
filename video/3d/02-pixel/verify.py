@@ -180,10 +180,12 @@ def main():
         ys = [c[1] for tri, _, _ in t for c in tri]
         ymin, ymax = min(ys), max(ys)
         eyes = [centre_normal(tri) for tri, colour, uv in t if tile_of(uv) == "face"]
-        check(all(n[2] > 0.9 and cen[1] >= ymin + 0.85 * (ymax - ymin) for cen, n in eyes), "PICO: the face tile is on front faces (+z) of the top of the head")
+        check(all(n[2] > 0.9 and cen[1] >= ymin + 0.8 * (ymax - ymin) for cen, n in eyes), "PICO: the face tile is on front faces (+z) of the top of the head")
         ex = [centre_normal(tri)[0][0] for tri, colour, uv in t if tile_of(uv) == "face"]
-        check(min(ex) < -0.05 and max(ex) > 0.05 and abs(min(ex) + max(ex)) < 0.02,
-              "PICO: the faces with the tile face are one on each side of the head (x %.2f / %.2f)" % (min(ex), max(ex)))
+        xs = [c[0] for tri, _, _ in t for c in tri]
+        mid = (min(xs) + max(xs)) / 2                     # the model is not centred on x = 0 (Pico spans -1..4, middle 1.5)
+        check(min(ex) < mid - 0.05 and max(ex) > mid + 0.05 and abs(min(ex) + max(ex) - 2 * mid) < 0.02,
+              "PICO: the faces with the tile face are one on each side of the head (x %.2f / %.2f, middle %.2f)" % (min(ex), max(ex), mid))
         check(use.get("skin", 0) == len(t) - len(flat) - use.get("face", 0), "PICO: all the other triangles use the tile skin (%d)" % use.get("skin", 0))
 
     # ---------------------------------------------------------------- 3. forge and chain
