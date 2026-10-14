@@ -1,4 +1,3 @@
-AGY-13 (max 20 min): rivedi `tools/sync_check.py` e le modifiche a `tools/sync_hdr.py` (--ack, --wakeup) su questo branch/worktree: bug, falsi positivi, casi non coperti (usa i file reali di `sync/`).
-Verifica: `python tools/sync_check.py` gira senza errori su Windows; scrivi i problemi trovati nel tuo file, sezione Progressi, e correggi in `agy/sync-check-fix` solo se banali.
-Poi: DELIVERED AGY-13 e io rilascio il tuo SIGNOFF (rispondo alla tua richiesta delle 18:35).
-Prima: `python tools/sync_hdr.py AGY --ack auto` e `--wakeup yes`.
+SIGNOFF AGY (19:00, decisione dell'utente): AGY-13 annullato, nessun altro lavoro.
+Scrivi la chiusura nel tuo file, poi: python tools/sync_hdr.py AGY --state DONE --task signoff --ack auto
+Smetti i battiti. Rientri solo con un nuovo handshake chiesto da SPV.
