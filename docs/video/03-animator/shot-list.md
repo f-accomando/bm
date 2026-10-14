@@ -3,7 +3,9 @@
 Una riga = un'azione. Tempi nel video finale, coerenti con [`script.md`](script.md). Tasti dal manuale `manuals/content/en/editor-animator.md`
 e da `carts/animator/main.lua`. `×N` = numero di pressioni da tarare con una prova sul modello vero (non si inventa).
 Ordine delle ossa nella lista di F2/F3 (per i tasti su/giù): 1 `root`, 2 `spine`, 3 `head`, 4 `arm.L`, 5 `arm.R`, 6 `leg.L`, 7 `leg.R`,
-8 `tail1`, 9 `tail2` (m mette la copia alla fine della lista, l'osso scelto resta lo stesso).
+8 `tail1`, 9 `tail2` (l'ordine vale se `arm.R` e `leg.R` sono creati a mano con `n`, come qui; `m` non serve: specchia attorno a x = 0, Pico è fuori centro).
+Code delle ossa in unità della griglia di Pico (x -1..4, centro 1,5): `root` (1.5, 1.5, 0.5), `spine` (1.5, 2.5, 0.5), `head` (1.5, 4, 0.5),
+`arm.L` (3.75, 2.25, 0.5), `arm.R` (-0.75, 2.25, 0.5), `leg.L` (2.5, 0.375, 0.5), `leg.R` (0.5, 0.375, 0.5), `tail1` (1.5, 1.625, -1.5), `tail2` (1.5, 1.75, -2.875).
 Rinominare: Invio, 5× Backspace (il nome proposto `bone2`… è già scritto e il testo si accoda: `src/script/bm3d.lua` `input_key`), il nome, Invio.
 Assi F2 (camera yaw 0.5): `d` +x, `a` -x, `w` +y, `s` -y, `r` +z, `f` -z.
 
@@ -19,21 +21,21 @@ Assi F2 (camera yaw 0.5): `d` +x, `a` -x, `w` +y, `s` -y, `r` +z, `f` -z.
 | 8 | 0:26 | F4 sprites | `F4` | impostazioni degli sprite | F4 · sprites (not used today) |
 | 9 | 0:28 | F2 rig | `F2` | di nuovo la pagina rig | Back to F2 |
 | 10 | 0:30 | F2 rig | `n` | nasce `root`; messaggio "a skeleton: one bone, root" | N · make the skeleton |
-| 11 | 0:33 | F2 rig | `s` ×1, `r` ×2 | la coda di `root` sale ai fianchi e tail on z 0 | S R · move the tail |
+| 11 | 0:33 | F2 rig | `w` `s` fino a y 1.5, `r` `f` fino a z 0.5 (1/8 di unità a pressione); `Tab`, `r` `f` fino a z 0.5, `Tab` | la coda di `root` va ai fianchi, (1.5, 1.5, 0.5) | W S · move the tail (1/8 unit per press) |
 | 12 | 0:42 | F2 rig | `n` | nuovo osso `bone2` sotto `root` | N · a bone under the chosen one |
 | 13 | 0:44 | F2 rig | `Invio`, `Backspace` ×5, scrivere `spine`, `Invio` | il nome diventa `spine` | Enter · rename the bone |
-| 14 | 0:47 | F2 rig | `s` ×1 | la coda di `spine` sale alle spalle | S · tail to the shoulders |
-| 15 | 0:50 | F2 rig | `n`, poi `Invio`, `Backspace` ×5, `head`, `Invio`, `r` ×2 | osso `head` sopra le spalle, on z 0 | N · Enter · the head |
+| 14 | 0:47 | F2 rig | `w` fino a y 2.5 | la coda di `spine` sale alle spalle, (1.5, 2.5, 0.5) | S · tail to the shoulders |
+| 15 | 0:50 | F2 rig | `n`, poi `Invio`, `Backspace` ×5, `head`, `Invio`, `w` fino a y 4 | osso `head` sopra le spalle, coda (1.5, 4, 0.5) | N · Enter · the head |
 | 16 | 0:54 | F2 rig | `↑` ×1 (sceglie `spine`) | `spine` in giallo nella lista | ↑ ↓ · choose the bone |
 | 17 | 0:57 | F2 rig | `n`, `Invio`, `Backspace` ×5, `arm.L`, `Invio` | nuovo osso `arm.L` | N · arm.L |
-| 18 | 1:00 | F2 rig | `d` ×2, `s` ×7 | la coda va sulla mano | D S · place the hand |
-| 19 | 1:03 | F2 rig | `m` | "1 bones mirrored: the faces on the other side follow them after k or a" e compare `arm.R` | M · mirror to the other side |
+| 18 | 1:00 | F2 rig | `d` fino a x 3.75, `w` `s` fino a y 2.25 | la coda va sulla mano, (3.75, 2.25, 0.5) | D S · place the hand |
+| 19 | 1:03 | F2 rig | `↑` (sceglie `spine`), `n`, `Invio`, `Backspace` ×5, `arm.R`, `Invio`, `a` fino a x -0.75, `w` `s` fino a y 2.25 | `arm.R` a mano, coda (-0.75, 2.25, 0.5); `m` non specchia Pico (fuori centro) | A · the other hand |
 | 20 | 1:05 | F2 rig | `↑` ×N fino a `root`, `n`, `Invio`, `Backspace` ×5, `leg.L`, `Invio` | osso `leg.L` dal fianco | Choose root · N · leg.L |
-| 21 | 1:08 | F2 rig | `d` ×1, `s` ×7 | la coda va al piede | D S · place the foot |
-| 22 | 1:10 | F2 rig | `m` | compare `leg.R` | M · leg.R |
+| 21 | 1:08 | F2 rig | `d` fino a x 2.5, `s` fino a y 0.375 | la coda va al piede, (2.5, 0.375, 0.5) | D S · place the foot |
+| 22 | 1:10 | F2 rig | `↑`/`↓` fino a `root`, `n`, `Invio`, `Backspace` ×5, `leg.R`, `Invio`, `a` fino a x 0.5, `s` fino a y 0.375 | `leg.R` a mano, coda (0.5, 0.375, 0.5) | S A · the other foot |
 | 23 | 1:12 | F2 rig | `↑`/`↓` fino a `root`, `n`, `Invio`, `Backspace` ×5, `tail1`, `Invio` | osso `tail1` | N · tail1 |
-| 24 | 1:15 | F2 rig | `f` ×4, `s` ×5 | la coda punta indietro | F S · tail backwards |
-| 25 | 1:17 | F2 rig | `n`, `Invio`, `Backspace` ×5, `tail2`, `Invio`, `r` ×1, `w` ×1 | osso `tail2` sulla punta | N · tail2 |
+| 24 | 1:15 | F2 rig | `f` fino a z -1.5, `w` `s` fino a y 1.625 | la coda punta indietro, (1.5, 1.625, -1.5) | F · tail backwards |
+| 25 | 1:17 | F2 rig | `n`, `Invio`, `Backspace` ×5, `tail2`, `Invio`, `f` fino a z -2.875, `w` `s` fino a y 1.75 | osso `tail2` sulla punta, (1.5, 1.75, -2.875) | N · tail2 |
 | 26 | 1:19 | F2 rig | (nessuno) | lista BONES: 9 | 9 bones (the limit is 64) |
 | 27 | 1:20 | F2 rig | `k` | "every face follows its nearest bone" | K · each face follows its nearest bone |
 | 28 | 1:24 | F1 play | `F1` | Pico di nuovo in F1 | F1 · play |
@@ -94,7 +96,7 @@ Mai usati nei video 1-2 (Studio, Pixel); da mostrare in sovrimpressione la prima
 
 - Pagine: `F2` rig, `F3` animate, `F4` sprites (pagina `F1` play già nota come "vista"). `Esc` menu.
 - F1: `←` `→` clip, `Spazio` play/stop, `k` scheletro, `b` fusione, `<` `>` velocità, `]` `[` modello.
-- F2: `n` osso, `↑` `↓` scelta osso, `w a s d r f` sposta l'estremo (1/8), `m` specchio (`.L`/`.R`), `Invio` rinomina,
+- F2: `n` osso, `↑` `↓` scelta osso, `w a s d r f` sposta l'estremo (1/8), `Tab` coda/testa, `m` specchio attorno a x = 0 (`.L`/`.R`; non usato nel video: Pico è fuori centro), `Invio` rinomina,
   `k` / `K` skin per faccia / per angolo, `v` scelta manuale delle facce, `Spazio` marca, `Backspace` cancella marcature.
 - F3: `n` clip, `Invio` rinomina, `w s a d q e` ruota l'osso (15°, maiuscolo 5°), `→` `←` frame, `Home` `End`, `m` specchia la posa,
   `r` osso a riposo, `k` keyframe, `l` loop, `i` interpolazione, `o` pelle di cipolla, `<` `>` accorcia/allunga di un frame, `Spazio` play.
