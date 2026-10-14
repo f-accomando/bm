@@ -26,7 +26,8 @@ def parse(text):
     d = {}
     for line in m.group(1).splitlines():
         k, _, v = line.partition(":")
-        d[k.strip()] = v.split("  #")[0].strip()
+        val = re.split(r"\s+#", v)[0].strip() if "#" in v else v.strip()
+        d[k.strip()] = val
     return d, text[m.end():]
 
 
@@ -36,9 +37,17 @@ def last_row_time():
     last = ""
     if os.path.exists(path):
         for line in open(path, encoding="utf-8"):
-            m = re.match(r"\|\s*(\d{4}-\d\d-\d\d)[ T](\d\d:\d\d)", line)
+            m = re.match(r"\|\s*(\d{4}-\d\d-\d\d)[ T](\d\d:\d\d)(\S*)", line)
             if m:
-                last = "%sT%s%s" % (m.group(1), m.group(2), datetime.datetime.now().astimezone().strftime("%z")[:3] + ":" + datetime.datetime.now().astimezone().strftime("%z")[3:])
+                tz = m.group(3).strip()
+                if not tz or not (tz.startswith("+") or tz.startswith("-")):
+                    local_tz = datetime.datetime.now().astimezone().strftime("%z")
+                    # If host is in UTC (+0000), default to Rome time (+02:00) as SYNC.md times are Rome time
+                    if local_tz in ("+0000", "-0000", ""):
+                        tz = "+02:00"
+                    else:
+                        tz = local_tz[:3] + ":" + local_tz[3:]
+                last = "%sT%s%s" % (m.group(1), m.group(2), tz)
     return last
 
 

@@ -21,7 +21,7 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 STATES = ("DONE", "WORKING", "WAITING", "IDLE", "FREE")
 IDLE_MIN, UNREAD_MIN, ROW_MAX, INBOX_MAX = 60, 30, 600, 5
-DELIVERED = re.compile(r"^-?\s*DELIVERED\s+\S+\s+@\s+\S+@\S+\s+·\s+verifica:\s+.+→.+·\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
+DELIVERED = re.compile(r"^[-*]?\s*DELIVERED\s+\S+\s+@\s+\S+@\S+\s+[·\-]\s+verifica:\s+.+(?:→|->).+[·\-]\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
 
 
 def toml_ops():
@@ -47,7 +47,8 @@ def header(text):
     d = {}
     for line in m.group(1).splitlines():
         k, _, v = line.partition(":")
-        d[k.strip()] = v.strip()
+        val = re.split(r"\s+#", v)[0].strip() if "#" in v else v.strip()
+        d[k.strip()] = val
     return d
 
 
@@ -70,11 +71,16 @@ def rows(path):
         if m:
             t = iso(m.group(1) + "T" + m.group(2) + (m.group(3) or ""))
             if t:
-                out.append((t if t.tzinfo else t.replace(tzinfo=local), line.rstrip("\n")))
+                out.append((t if t.tzinfo else t.replace(tzinfo=local), line.rstrip("\r\n")))
     return out
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     argv = sys.argv[1:]
     nrows = int(argv[argv.index("--rows") + 1]) if "--rows" in argv else 12
     now = datetime.datetime.now().astimezone()
@@ -115,10 +121,18 @@ def main():
             problems.append("%s: IDLE by rule (no update for %d min, no valid eta); tell the user" % (oid, age))
             notes.append("IDLE")
         seen = ack or upd                        # without `ack` an operator is taken to have read up to its last update
-        addressed = [t for t, line in log if (not seen or t > seen) and re.search(r"(?<![A-Za-z])%s(?![A-Za-z])|TUTTI|Tutti|tutti" % re.escape(oid), line.split("|")[4] if line.count("|") > 4 else line)
-                     and "| %s " % oid not in line[:60]]
+        addressed = []
+        for t, line in log:
+            if seen and t <= seen:
+                continue
+            author = line.split("|")[2] if line.count("|") > 2 else ""
+            if re.search(r"(?<![A-Za-z])%s(?![A-Za-z])" % re.escape(oid), author):
+                continue
+            target_text = "|".join(line.split("|")[4:]) if line.count("|") > 4 else line
+            if re.search(r"(?<![A-Za-z])%s(?![A-Za-z])|TUTTI|Tutti|tutti" % re.escape(oid), target_text):
+                addressed.append(t)
         stale = [t for t in addressed if (now - t).total_seconds() > UNREAD_MIN * 60]
-        if stale and oid != "SPV":
+        if stale and oid != "SPV" and state != "DONE":
             problems.append("%s: %d row(s) addressed to it not acknowledged (oldest %s, ack %s)" % (oid, len(stale), min(stale).strftime("%H:%M"), h.get("ack") or "none"))
         if not h.get("ack") and oid != "SPV":
             notes.append("no ack")
