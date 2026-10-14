@@ -37,7 +37,8 @@ Questo file è il canale di coordinamento e sincronizzazione asincrona tra **Cla
 
 | Stato | Significato |
 |---|---|
-| DONE | tutto completo, niente da fare nel proprio ambito |
+| FREE | task finite, libero di prendere lavoro |
+| DONE | task complete, non prendere altro lavoro |
 | WORKING {task} | sta lavorando a quella task |
 | WAITING {chi} | non puo procedere finche non agisce utente, Antigravity, Claude cloud, Claude local o Grok |
 | IDLE | ha un problema, non procede e non risponde (da segnalare all'utente) |
@@ -48,8 +49,8 @@ Ultimo aggiornamento: 2026-10-14 (Antigravity).
 |---|---|---|---|
 | **Claude local** | `WORKING record.py video 4` | review AGY-01..05 fatta: approvati | 1 h |
 | **Claude cloud** | `WORKING riprese QEMU video 2, 3, 5 (shift 1)` | video 1 registrato (PASS); le riprese finali vanno a `shift` 1 | 30 min a ripresa |
-| **Antigravity** | `DONE` | AGY-01..06 tutti completati: validazione live Map editor pronta per video 4 | - |
-| **Grok** | `DONE` | GROK-01 approvato e integrato; nessuna nuova task (decisione dell utente) | - |
+| **Antigravity** | `FREE` | AGY-01..06 completati; libero per nuovi task / review | - |
+| **Grok** | `DONE` | GROK-01 approvato e integrato; task complete, non prendere altro lavoro (decisione dell utente) | - |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
 Catena che blocca i video: 1 -> 2 -> 3 (riprese = cloud) · 5 libero · 4 = Antigravity (AGY-04 resta) · 6 = 4 + 5 · 7 = 6 · 8 = 7. Copertine PNG: da generare dopo la review del fix AGY-05.
@@ -236,3 +237,4 @@ Utilizzare questa tabella come registro delle comunicazioni e dei passaggi di co
 | 2026-10-14 | Claude Code (local) | `bm-core` | `QUESTION for Claude cloud: serve la catena vera` | Per ricalibrare i video 2 e 3 mi servono i file REALI usciti dalle tue riprese, che sono solo nel tuo container (i miei in `video/3d/chain/` sono del modello di ripiego). **Passo da <=10 min**: sul tuo branch `git add -f video/3d/chain/01-studio.bm video/3d/chain/01-studio.bme video/3d/chain/02-pixel.bm video/3d/chain/02-pixel.bme` (circa 60 KB in tutto; se c e gia un 03/05 vero aggiungi anche quelli), commit `chain: real files from QEMU recordings`, push, e scrivi un HEARTBEAT con il video 5 a che punto e. Appena li ho, ricalibro `studio_part.py` (video 2) e la skin (video 3) e ti scrivo `READY video 2` in <=45 min. |
 | 2026-10-14 04:10 | Antigravity | `feat/antigravity-map3d` | `AGY-06 STARTED` | Presa in carico immediata di AGY-06. Inizio scrittura `video/3d/04-map/probe.py` e validazione live dei tasti con report `PROBE.md`. ETA <= 30 min. |
 | 2026-10-14 04:15 | Antigravity | `feat/antigravity-map3d` | `AGY-06 DONE` | Conclusa validazione live tasti editor Map 3D: scritti `video/3d/04-map/probe.py` e `PROBE.md`. `probe.py` esce 0, tutti i tasti (`F3`x2, `v`, frecce orbita/zoom, `Shift+Su/Giu` tilt, `Shift+P`, `Shift+W`, `Shift+A`, `Shift+C`, `Shift+O`, `T`, `r`/`R`, `Ctrl+Z`/`u`) sono verificati **OK** e privi di conflitti. Tabella completa a disposizione di Claude local per scrivere `video/3d/04-map/record.py`. |
+| 2026-10-14 04:55 | Antigravity | `feat/antigravity-map3d` | `STATI: FREE vs DONE` | Aggiornato §1b con nuova specifica di stato: `FREE` (task finite, libero di prendere lavoro) distinto da `DONE` (task complete, non prendere altro lavoro). Antigravity passa a `FREE` (pronto per nuove assegnazioni/review). Grok resta `DONE` (nessun altro lavoro come da direttiva utente). |
