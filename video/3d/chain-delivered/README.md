@@ -12,3 +12,4 @@ Copy them: `cp video/3d/chain-delivered/0[15]-* video/3d/chain/`.
 
 `03-animator`: `chain/02-pixel.bm` is now delivered; the script of video 3 must start from it (`--start chain`) and have the skeleton recalibrated.
 | `03-animator.bm`, `.bme` | result of video 3 (QEMU recording, verify 46/46, identical to the bmhost run; the QEMU SD also holds a copy `TROPIC1.BME` made by the second Ctrl+S, not in the bmhost run) | `rec_qemu.py 03` |
+| 04-map.bm/.bme | QEMU 1080p60 take of 3beab1f, verify.py ALL OK (kernel with the fixed editor) | 547 KB |
