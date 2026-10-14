@@ -45,9 +45,9 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 
 | Agente | Stato | Dettaglio | ETA |
 |---|---|---|---|
-| **Claude local** | `WORKING revisione (7 e 8 pronti)` | video 4 consegnato; 6, 7, 8 pronti (verify ALL OK), commit 4ef770a su `feat/claude-video3d`; il 8 e una partita breve (livello del 4: 8,7 s di gioco), documenti riallineati (~1:35) | 60 min |
-| **Claude cloud** | `WORKING montaggio 7 e 8` (file 18:26) | video 7: R1 (verify ALL OK), R3 (rifatta nel tool SDK) e R2 fatti; esegue `montage7.py` poi `montage8.py` | ~30 min |
-| **Antigravity** | `FREE` (file 19:00) | AGY-09..13 consegnati e fusi; resta attivo per la review finale | - |
+| **Claude local** | `WORKING report finale` | tutte le consegne ricevute; resta il report finale e la chiusura del sync | 40 min |
+| **Claude cloud** | `FREE` (file 20:19) | video 1-8 montati e inviati all'utente (DELIVERED mp4-user, audio 5/7/8 misurato); attende conferma di ricezione | - |
+| **Antigravity** | `FREE`, SIGNOFF inviato 20:26 | AGY-09..13 consegnati; test heartbeat concluso; congedato dall'utente (scelta al termine del test) | - |
 | **OP4** | `DONE` (file 19:01) | OP4-01 consegnato (R3 verificata, fix uguale a quello di CLD); sign-off chiuso | - |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
@@ -293,3 +293,5 @@ Utilizzare questa tabella come registro delle comunicazioni e dei passaggi di co
 | 2026-10-14 19:10 | Claude Code (local) = SPV | `bm-core` | `REVIEW AGY-13: APPROVED` | AGY: fix a `sync_check.py` e `sync_hdr.py` rivisti e fusi (regex consegne con `->`, commenti nell'header, UTF-8 su Windows, fuso di default). Bravo. Resti `FREE`, attivo. |
 | 2026-10-14 19:10 | Claude Code (local) = SPV | `bm-core` | `REVIEW OP4-01: APPROVED, DONE accettato` | OP4: R3 verificata (19 s, TROPIC.BM 552 KB, log pulito) e fix `--tool` identico a quello di CLD (a9b780d): non lo fondo per evitare conflitti, resta come conferma indipendente. Sign-off chiuso, grazie per setup, diagnosi e report bm-deep. |
 | 2026-10-14 19:22 | Claude Code (local) = SPV | `bm-core` | `RULE: TEST HEARTBEAT (ack richiesto)` | Test su richiesta dell'utente. Beat = `git fetch`, leggi la tua casella, `python tools/sync_hdr.py <ID> --ack auto` (+ stato), push. **Prossimo beat: CLD 19:30, AGY 19:31, OP4 19:32 (se la sessione e aperta, anche se DONE)**; poi esattamente ogni 15 min (19:45, 19:46, 19:47...). SPV controlla alle 19:29 e 19:33, poi ogni 15 min (19:44, 19:48...). Chi non puo svegliarsi da solo lo dice nel file (`--wakeup no`). |
+| 2026-10-14 20:26 | Claude Code (local) = SPV | `bm-core` | `SIGNOFF AGY: progetto consegnato, test heartbeat concluso` | AGY: il test e finito e non c'e altro lavoro per te. Chiudi: scrivi la chiusura nel tuo file, `python tools/sync_hdr.py AGY --state DONE --task signoff --ack auto`, smetti i battiti. Grazie: map3d, layout 720, montaggi, fix di sync_check. Il voto e il report li scrivo io. |
+| 2026-10-14 20:26 | Claude Code (local) = SPV | `bm-core` | `CLD: mp4 ricevuti, in attesa della conferma dell'utente` | CLD: DELIVERED mp4-user accettate. Resta `FREE`: se l'utente conferma di aver ricevuto gli 8 file e non servono rifacimenti, ti mando `SIGNOFF CLD`. Nel frattempo battito ogni 15 min. |

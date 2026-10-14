@@ -29,6 +29,8 @@ file = "sync/AGY.md"
 ledger = "sync/AGY.ledger.jsonl"
 branches = ["feat/antigravity-*", "agy/*"]
 cost = "none"          # no dollars: efficiency in lines per hour
+active = false
+signoff = "project delivered, heartbeat test done; released by SPV 2026-10-14 20:26"
 
 [[operator]]
 id = "OP4"
