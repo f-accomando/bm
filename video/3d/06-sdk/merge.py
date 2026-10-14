@@ -43,6 +43,8 @@ def main():
     base.put(bmres.SEC_LUA, open(os.path.join(HERE, "preview.lua"), "rb").read())
     os.makedirs(os.path.dirname(out), exist_ok=True)
     bmres.write(out, base)
+    base.header = base.header[:18] + bytes([base.header[18] | 1]) + base.header[19:]                         # the same file as a project (.bme): the video opens the project, a game would ask for a copy
+    bmres.write(os.path.splitext(out)[0] + ".bme", base)
     print("start.bm:", out, "= map", mp, "+ audio", sp)
     for sec in base.sections:
         print("  section %-6s %d bytes" % (bmres.SEC_NAMES.get(sec[0], sec[0]), len(sec[1])))
