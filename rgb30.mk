@@ -120,10 +120,11 @@ FORCE:
 $(BUILD)/sdk_b16/main.lua: carts/sdk_b16/layout.lua carts/sdk_b16/main.lua carts/sdk_b16/build.py
 	$(PYTHON) carts/sdk_b16/build.py $@
 
+SDK_B16_RES ?= 360x360
 $(BUILD)/sdk_b16.bm: $(BUILD)/sdk_b16/main.lua carts/editor/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/editor/icon.png \
-	    --title "bm SDK (RGB30)" --author bm --res 360x360
+	    --title "bm SDK (RGB30)" --author bm --res $(SDK_B16_RES)
 
 .DEFAULT_GOAL := all
 .PHONY: all test test-bt test-wifi test-audio test-mali qemu clean firmware image sdcard FORCE

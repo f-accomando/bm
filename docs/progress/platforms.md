@@ -53,6 +53,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   before a restart.
 - Market and Games show `.b16`; `.bm` are visible in Games for tests (`show_bm=0` hides them); the
   Market lists only `.b16` (`market_bm=1` adds the `.bm`). Games are sorted by title; tools from the Market are not games. Bar: only WiFi and battery.
+- SDK b16 (`carts/sdk_b16/`): layout a due colonne affiancate su schermi larghi $\ge 480\text{ px}$ (720×720 via `SDK_B16_RES=720x720`, default 360×360); codice validato in CI/host, da provare sul dispositivo fisico RGB30 (R39).
 
 ### PC and QEMU
 - `bmhost` (`tests/host/bmhost.c`): the console's runtime with kernel services stubbed;
@@ -68,7 +69,6 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 - **M41** (RGB30): Overbit in `.b16` at 360×360 e 720×720, benchmark ARM e driver Mali (dettagli in [graphics-mali](graphics-mali.md)).
 - **M42**: profilo unificato `.b16` (dettagli in [b16](b16.md)).
 - **R22 — Guscio Portatile per Pi Zero**: supporto per configurazioni handheld basate su Pi Zero (lettura tasti/pad direttamente su pin GPIO, display compatto su bus DPI o SPI).
-- **R39 — Layout SDK 720×720 su RGB30**: opzione per sfruttare la risoluzione nativa 720×720 nel `carts/sdk_b16` con scala a celle 8×16, affiancando pannello e vista di lavoro.
 - RGB30 Start+Select freezes the game as on the Pi (`play_bm` in `src/rgb30/ui.c`,
   `bm_run(..., 1)`, `susp_name`); the cover then says Resume. To check on the console:
   freeze, resume, freeze and start another game (memory freed), Overbit/online not frozen.

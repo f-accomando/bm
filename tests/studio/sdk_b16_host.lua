@@ -57,6 +57,13 @@ do
   check(LY.inside(LY.rect(8, 8, 8, 8), scr) and not LY.inside(LY.rect(350, 0, 16, 8), scr), "inside")
   check(LY.overlap(LY.rect(0, 0, 10, 10), LY.rect(9, 9, 5, 5)) and not LY.overlap(LY.rect(0, 0, 8, 8), LY.rect(8, 0, 8, 8)),
         "overlap")
+  local p360, w360 = LY.side_by_side(scr)
+  check(p360.w == 128 and w360.x == 128 and w360.w == 232, "side_by_side narrow: 16 columns panel (128px), rest work (232px)")
+  local scr720 = LY.rect(0, 0, 720, 720)
+  local p720, w720 = LY.side_by_side(scr720)
+  check(p720.w == 240 and w720.x == 240 and w720.w == 480, "side_by_side wide: 30 columns panel (240px), rest work (480px)")
+  local p_cust, w_cust = LY.side_by_side(scr720, { narrow = 16, wide = 25 })
+  check(p_cust.w == 200 and w_cust.x == 200 and w_cust.w == 520, "side_by_side custom cols")
 end
 
 ----------------------------------------------------------------- .bm files (as sdk_host.lua)

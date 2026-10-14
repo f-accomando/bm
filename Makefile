@@ -264,9 +264,15 @@ $(BUILD)/carts/titanex.bm: $(BUILD)/titan_ex/main.lua carts/titan/assets/sheet.p
 # sources in carts/sdk_b16/ (layout.lua + main.lua, joined by its build.py). A tool
 # built into the RGB30's kernel (rgb30.mk, its Dev tab), not into the Pi's: here
 # only its script, for test-sdk-b16. The Pi's SDK stays carts/editor.
+SDK_B16_RES ?= 360x360
 SDK_B16_SRC := carts/sdk_b16/layout.lua carts/sdk_b16/main.lua carts/sdk_b16/build.py
 $(BUILD)/sdk_b16/main.lua: $(SDK_B16_SRC)
 	$(PYTHON) carts/sdk_b16/build.py $@
+
+$(BUILD)/carts/sdk_b16.bm: $(BUILD)/sdk_b16/main.lua carts/editor/icon.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/editor/icon.png \
+	    --title "bm SDK (RGB30)" --author bm --res $(SDK_B16_RES)
 
 # nano8: plays .p8 / .p8.png carts (machine in src/bm/n8*.c); several Lua
 # files too. The carts it ships with (carts/nano8/roms, licenses in
