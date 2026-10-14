@@ -2,23 +2,23 @@
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 15:15
-**Stato:** `WORKING video 4` (ripresa completa in corso, fine prevista 15:35; poi verify e consegna ~15:45)
+**Ultimo aggiornamento:** 2026-10-14 15:38
+**Stato:** `WAITING SPV` (video 4 consegnato; pronto a registrare il 6)
 
 ## Task
 - Video 1, 2, 3, 5 registrati in QEMU 1080p60 e verificati; consegne in `video/3d/chain-delivered/`.
 - Video 4: ripresa della versione definitiva (3beab1f) in corso: `record.py` rigenerato (195 s, 0 righe LATE, editor ricostruito con mkbm.py), `rec_qemu.py 04 --shift 1` avviata alle 11:06. Con -icount la ripresa dura ~70 min (non 15). Poi: `verify.py` sulla SD estratta e consegna `chain-delivered/04-map.bm`.
 
 ## Progressi
-- **Causa del crash trovata e corretta**: il kernel incorpora l'editor (`build/editor.bm` nel `kernel.img`); il mio `build/kernel.img` (14 ott 02:26) aveva un editor vecchio senza il fix dello slot lampada. Log seriale (nuovo, `out/qemu/serial.log`): `main.lua:2178: bad argument #1 to 'lamp3d' (lamp 1 to 4)` in `draw`, e il kernel riporta al launcher. Ricostruito `make build/kernel.img` (editor con fix): prova rapida con `chain-real/04-map-populated.bme` + `v`: il 3D preview regge fino a 40 s, nessun errore nel log. (Il test precedente a mappa vuota non toccava le lampade.)
-- Fatto (richiesta SPV punto 2): `rec_qemu.py` salva `out/qemu/serial.log` (output seriale del kernel durante la ripresa). Commit su `feat/claude-video3d-rec`. La "prova breve" automatica non c'e ancora; resta `--limit-s`.
-- In corso: ripresa completa del video 4 (`rec_qemu.py 04 --shift 1`, avviata 14:22, ~70 min). Poi `verify.py` su `out/qemu/sd` e consegna `chain-delivered/04-map.bm`.
+- **Video 4 consegnato**: ripresa QEMU 1080p60 di 3beab1f (12000 frame, 0 tasti persi, 72 min), `verify.py` su `out/qemu/sd`: **ALL OK**; serial.log pulito; `TROPIC.BME`/`.BM` 547 KB in `video/3d/chain-delivered/04-map.bm/.bme` e `chain/` (branch `feat/claude-video3d-rec`). Video: `video/3d/04-map/out/qemu/ep04_qemu.mp4` (6,1 MB, non nel repo).
+- Causa del crash precedente: kernel con editor incorporato vecchio (senza fix lamp3d); ricostruito.
+- `rec_qemu.py` salva `out/qemu/serial.log` (commit su `feat/claude-video3d-rec`).
 
 ## Problemi
-- Nessuno. Nota: i kernel `build/kernel.img` vanno ricostruiti dopo ogni modifica di `carts/editor` (l'editor e embedded). Nota minore: `TROPIC1.BME` extra nella SD QEMU del video 3.
+- Nessuno. Regola: ricostruire `build/kernel.img` dopo ogni modifica di `carts/editor` (l'editor e incorporato).
 
 ## Richieste
-- Nessuna. Regola di lavoro (utente): agente principale sempre libero, attese e verifiche delegate a subagent bm-*; timer di controllo ogni 60 min. Dopo il 4: video 6 (start = mappa del 4 come `chain/04-map.bm`), poi 7, 8.
+- SPV: confermi di registrare il 6 ora (start = `chain/04-map.bm` appena consegnato, da `06-sdk` @ d09fa57)? Parto comunque, a meno di tuo stop. Regola di lavoro (utente): agente principale sempre libero, attese delegate a subagent bm-*; heartbeat ogni 15 min.
 
 ## Report tempi e hiccups (richiesta dell'utente, 13:35)
 Perche le riprese 3D sono piu lente del gioco 2D: girano su QEMU `raspi0` con `-icount` (clock deterministico), circa 15-19x il tempo reale negli editor 3D (video 4: 200 s di video = 4065 s di ripresa, ~68 min); l'errore si scopre solo a ripresa finita; piu passaggi per video (ripresa, overlay/sottotitoli, mux 1080p60, verify, consegna); catena di dipendenze 1,2,3,5 -> 4 -> 6,7,8.
