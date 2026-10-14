@@ -65,3 +65,5 @@ buildings, crates and tests.
 pyramids (4-5 point hulls, 6 triangles each), muzzle and shoes as hulls, limbs as 6-side tubes,
 round parts 6-10 sides. Judge with `preview --yaw 2.64` (a +z model seen from the front side), not 0.6.
 Ask the triangle budget as a ceiling: `check --budget N`, spend what the silhouette needs.
+**Colours**: when the user gives a colour chart (e.g. the original Crash chart), take the palette from it
+before anything else; the example's `Mat(...)` values are read off that chart (approximate).

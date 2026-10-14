@@ -15,10 +15,11 @@ sys.path.insert(0, os.path.join(HERE, "..", ".."))
 from geo import Mat, Mesh, ellipsoid, hull, tube  # noqa: E402
 from bm_core import export, mesh as M  # noqa: E402
 
-ORANGE, ORANGE2, TAN, PALE = Mat(0xF0661A), Mat(0xC94A10), Mat(0xF6B44C), Mat(0xF8D0A0)
-BLUE, BLUE2, RED, WHITE = Mat(0x2358C0), Mat(0x4A80E6), Mat(0x8C2626), Mat(0xF0F0F0)
-GLOVE, HAIR, NAVY, BROW = Mat(0x6E2A20), Mat(0xB8283A), Mat(0x1A1A48), Mat(0x5A3418)
-GREEN, BLACK, MOUTH, PINK = Mat(0x3A9A3A), Mat(0x101010), Mat(0x601818), Mat(0xE8907A)
+# colours read from the original colour chart (Naughty Dog 1995, values approximate, read off the picture)
+ORANGE, ORANGE2, TAN, PALE = Mat(0xFF3C00), Mat(0xD42E00), Mat(0xFF7600), Mat(0xE8A8A0)
+BLUE, BLUE2, RED, WHITE = Mat(0x121261), Mat(0x272791), Mat(0x6B1515), Mat(0xF0F0F0)
+GLOVE, HAIR, NAVY, BROW = Mat(0x4A0E0E), Mat(0x9D0000), Mat(0x0D0D29), Mat(0x291508)
+GREEN, BLACK, MOUTH, PINK = Mat(0x101010), Mat(0x101010), Mat(0x601818), Mat(0xAB8E91)
 
 SEG = int(os.environ.get("CRASH_SEG", "6"))   # sides of the round parts: the triangle knob
 
@@ -55,10 +56,10 @@ def spike(base_y, x, z, h, w, lean=0.0):
 # --- head: a big faceted skull, a tapered muzzle, pointed ears, a mohawk
 in_head = True
 put(ellipsoid(0.23, 0.25, 0.23, SEG + 4, 6, smooth=False).move(0, 1.46, -0.02), ORANGE)
-put(hull(sym([(0.12, 1.40, 0.14), (0.16, 1.55, 0.16), (0.07, 1.62, 0.34), (0.09, 1.40, 0.34), (0.13, 1.33, 0.2)])), PALE)
-put(hull(sym([(0.05, 1.55, 0.34), (0.05, 1.64, 0.35), (0.03, 1.62, 0.41), (0.03, 1.55, 0.40)])), NAVY)
-put(hull(sym([(0.13, 1.36, 0.25), (0.12, 1.43, 0.35), (0.1, 1.43, 0.355), (0.1, 1.39, 0.34)])), WHITE)   # grin
-put(hull(sym([(0.12, 1.36, 0.22), (0.12, 1.38, 0.34), (0.06, 1.33, 0.30)])), MOUTH)
+put(hull(sym([(0.12, 1.40, 0.14), (0.16, 1.55, 0.16), (0.07, 1.58, 0.42), (0.09, 1.40, 0.38), (0.13, 1.33, 0.2)])), PALE)
+put(hull(sym([(0.07, 1.50, 0.36), (0.07, 1.62, 0.38), (0.04, 1.62, 0.47), (0.04, 1.47, 0.44)])), NAVY)
+put(hull(sym([(0.13, 1.36, 0.25), (0.12, 1.43, 0.38), (0.1, 1.43, 0.385), (0.1, 1.39, 0.37)])), WHITE)   # grin
+put(hull(sym([(0.12, 1.36, 0.22), (0.12, 1.38, 0.37), (0.06, 1.33, 0.33)])), MOUTH)
 for sx in (1, -1):
     eye = ellipsoid(0.11, 0.11, 0.055, SEG + 2, 4, smooth=False).move(sx * 0.115, 1.62, 0.19)
     put(eye, WHITE)
@@ -83,10 +84,10 @@ put(hull(sym([(0.08, 1.26, -0.06), (0.09, 1.34, 0.06), (0.09, 1.34, -0.06), (0.0
 # shorts: waist, legs, cuffs
 put(hull(sym([(0.2, 0.62, -0.14), (0.2, 0.62, 0.14), (0.18, 0.84, -0.13), (0.18, 0.84, 0.13)])), BLUE)
 put(hull(sym([(0.03, 0.40, -0.12), (0.03, 0.40, 0.12), (0.21, 0.40, 0.13), (0.21, 0.40, -0.13),
-              (0.02, 0.64, -0.12), (0.02, 0.64, 0.12), (0.2, 0.64, 0.13), (0.2, 0.64, -0.13)])), BLUE)
+              (0.02, 0.64, -0.12), (0.02, 0.64, 0.12), (0.2, 0.64, 0.13), (0.2, 0.64, -0.13)])), BLUE2)
 for sx in (1, -1):
     put(hull([(sx * 0.03, 0.34, -0.12), (sx * 0.22, 0.34, -0.14), (sx * 0.22, 0.34, 0.14), (sx * 0.03, 0.34, 0.12),
-              (sx * 0.03, 0.42, -0.12), (sx * 0.22, 0.42, -0.14), (sx * 0.22, 0.42, 0.14), (sx * 0.03, 0.42, 0.12)]), BLUE2)
+              (sx * 0.03, 0.42, -0.12), (sx * 0.22, 0.42, -0.14), (sx * 0.22, 0.42, 0.14), (sx * 0.03, 0.42, 0.12)]), Mat(0x3A3AB0))
     put(tube((sx * 0.13, 0.34, 0.0), (sx * 0.13, 0.16, 0.0), 0.075, 0.06, SEG, smooth=False), ORANGE)
     put(hull([(sx * 0.07, 0.14, -0.09), (sx * 0.2, 0.14, -0.09), (sx * 0.2, 0.2, 0.09), (sx * 0.07, 0.2, 0.09),
               (sx * 0.06, 0.05, -0.12), (sx * 0.22, 0.05, -0.12), (sx * 0.22, 0.05, 0.14), (sx * 0.06, 0.05, 0.14)]), GLOVE)
