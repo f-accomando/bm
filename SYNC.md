@@ -144,6 +144,8 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 
 **Requisiti di sviluppo**: se il progetto lo richiede, SPV scrive in §2 un elenco di **requisiti specifici** (toolchain, hardware, emulatori, accessi, modelli, subagent). Ogni operatore, nel proprio file, sezione `## Requisiti`, conferma per ciascuno `SÌ`, `NO` o `PARZIALE {nota}`. SPV assegna i work order solo a chi li soddisfa e, se nessuno li soddisfa, lo segnala all'utente.
 
+**Sign-off (congedo)**: SPV può **liberare** un operatore dal sync in qualsiasi momento, con una riga di Log `SIGNOFF {ID}: {motivo}`. Motivi: non c'è più lavoro adatto, i **requisiti** (§2) non sono soddisfatti, l'operatore è sostituito o troppo lento/instabile, o il progetto è finito. L'operatore, letta la riga: 1) non inizia nuovo lavoro; 2) chiude o consegna ciò che ha in corso (commit e push; se c'è un processo lungo lo dice nel proprio file e SPV decide se aspettare); 3) scrive una riga di chiusura nel proprio file e si segna `DONE` con `sync_hdr.py`; 4) smette i battiti. SPV mette l'operatore `DONE` in §1b e in `sync/operators.toml` (`active = false`, `signoff = "{motivo}"`); l'operatore rientra solo con un nuovo handshake chiesto da SPV. Un sign-off non è una colpa: non cancella i commit e il lavoro già consegnato resta in cross-review. Se l'operatore non risponde alla riga entro 60 min, SPV lo segna `IDLE` e lo segnala all'utente.
+
 ---
 
 ## 4. Segnalazioni all'utente
@@ -153,7 +155,7 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 
 ## 5. Log di handover e cross-review
 
-Solo SPV aggiunge righe. Colonne: orario ISO con fuso · operatore · branch/commit · azione (`READY`, `REVIEW: APPROVED | CHANGES REQUESTED`, `ASSIGNED`, `DECISION`, `STOP`, `QUESTION`) · messaggio (≤600 caratteri).
+Solo SPV aggiunge righe. Colonne: orario ISO con fuso · operatore · branch/commit · azione (`READY`, `REVIEW: APPROVED | CHANGES REQUESTED`, `ASSIGNED`, `SIGNOFF`, `DECISION`, `STOP`, `QUESTION`) · messaggio (≤600 caratteri).
 
 | Timestamp | Operatore | Branch / Commit | Azione | Messaggio |
 |---|---|---|---|---|

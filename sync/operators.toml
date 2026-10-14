@@ -18,6 +18,7 @@ weak_points = "{limits, breaking points}"
 
 # [[operator]]
 # id = "{ID}"        # same shape as above; the file is sync/{ID}.md (copy sync/_template.md)
+# active = false    # set by SPV with a SIGNOFF row (SYNC.md 3c); signoff = "{reason}"
 
 [[operator]]
 id = "UTE"
