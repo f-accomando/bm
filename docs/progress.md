@@ -49,6 +49,7 @@ file ends with *Open work* and *Rules (do not break)*.
 
 - [reading](progress/reading.md): the search command per big file, then `Read` offset/limit.
 - [runtime](progress/runtime.md): sections of `src/bm/runtime.c` by banner, to grep.
+- [sync](progress/sync.md): multi-agent coordination protocol, states, heartbeats, and workflow findings.
 
 ## Reference docs (not progress)
 
