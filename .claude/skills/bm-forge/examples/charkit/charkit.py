@@ -280,10 +280,11 @@ def build(spec):
         lo, hi = R[tl["lo"]], R[tl["hi"]]
         ks = tl["ks"]
         prev = [lo[ks[0]], lo[ks[1]], lo[ks[2]], hi[ks[2]], hi[ks[1]], hi[ks[0]]]
-        pts = [(0.0, tl["from"][0], tl["from"][1])] + [(0.0, p[0], p[1]) for p in tl["path"]]
-        for i, (y, z, r, col, bone) in enumerate(tl["path"]):
-            tdir = sub((0.0, y, z), pts[i])
-            ids = s.ring(align(s, prev, frame_ring((0.0, y, z), tdir, r, 6, ref=(1, 0, 0))), bone)
+        pts = [(0.0, tl["from"][0], tl["from"][1])] + [(q[5] if len(q) > 5 else 0.0, q[0], q[1]) for q in tl["path"]]
+        for i, q in enumerate(tl["path"]):
+            y, z, r, col, bone = q[:5]
+            c = pts[i + 1]
+            ids = s.ring(align(s, prev, frame_ring(c, sub(c, pts[i]), r, 6, ref=(1, 0, 0))), bone)
             s.bridge(prev, ids, P(col))
             prev = ids
         s.cap(prev, P(tl["path"][-1][3]), bone=tl["path"][-1][4])

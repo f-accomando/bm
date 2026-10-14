@@ -1,7 +1,7 @@
 # Characters: common parts and the charkit template
 
 Built with `examples/charkit/charkit.py` from a JSON spec (`examples/charkit/presets/`): `crash.json`
-(750 triangles), `rango.json` (984), `rango_sheriff.json` (1036, with hat). Run:
+(750 triangles), `rango.json` (984), `rango_sheriff.json` (1036: hat, vest, scarf, trousers, boots). Run:
 `python examples/charkit/charkit.py examples/charkit/presets/rango.json <ABS>/rango.bm`, then
 `bm_forge.py check|preview|anim`. Why one continuous rigged skin: `references/LESSONS.md` L7.
 
@@ -17,7 +17,7 @@ A biped is always the same chain, only the numbers and a few feature switches ch
 | Hat | `hat` (rings on a head ring) | none | sheriff hat (variant) |
 | Arms | `arms` (first ring = patch of torso vertices, rings, `fingers`) | long, big gloves | thin, long fingers |
 | Legs and feet | `legs` (first ring = half pelvis), `foot` slices, `toes` | shorts, big shoes | bare, long feet with toes |
-| Tail | `tail` (patch of back vertices + path) | none | thick curling tail |
+| Tail | `tail` (patch of back vertices + path [y, z, r, colour, bone, x?]: the optional x curls it sideways) | none | thick curling tail |
 | Clothes | colours by ring pair and by sector (front/back/sides); sleeves = arm ring colours | shorts, belly | Hawaiian shirt, sleeves |
 | Decals | `decals` (ring, sector, colour, radius): flowers, badge | none | flowers, star |
 | Skeleton | `bones` (`{S}` = L/R, `mirror`), tail bones | 15 bones | 17 bones |
