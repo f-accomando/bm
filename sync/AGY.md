@@ -4,25 +4,20 @@
 > Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`. Un file per autore: nessun conflitto.
 > **Aggiorna "Ultimo aggiornamento" almeno ogni 30 min**; senza aggiornamenti per 60 min lo stato diventa `IDLE`.
 
-**Ultimo aggiornamento:** 2026-10-14 05:17
+**Ultimo aggiornamento:** 2026-10-14 05:29
 **Stato:** `FREE`
 
 ## Task
 - Tutte le task assegnate ad Antigravity (`AGY-01`..`AGY-06`) sono **completate** e collaudate al 100%.
-- Nessuna task attiva attualmente in carico ad AGY.
-- Disponibile e libero (`FREE`) per nuove assegnazioni, review o task di supporto (es. Video 6, review di `04-map/record.py`, asset).
+- Intercettata e applicata la patch QEMU di Claude cloud `editor_3d_fix.patch` su `carts/editor/main.lua` e `carts/sdk_b16/main.lua` (argomenti scalari per `line3d`/`point3d`, chip hint puliti).
+- AGY è in stato `FREE`: disponibile per nuove assegnazioni, review o supporto.
 
 ## Progressi
-- **AGY-01**: `src/bm/map3d.c`, `map3d.h` (test `make test-map3d` PASS).
-- **AGY-02**: Vista 3D Map Editor in `carts/editor/main.lua` (tasto `v`, camera orbitale cursore, rendering oggetti).
-- **AGY-03**: Linear Level Tools in `carts/editor/main.lua` (`Shift+P`, `Shift+W`, `Shift+A`, `Shift+C`, `Shift+O`, conteggi e budget triangoli).
-- **AGY-04**: Porting completo per RGB30 handheld in `carts/sdk_b16/main.lua` + divergenza D42 in `docs/spec/divergences.toml` (0 drift consistenza).
-- **AGY-05**: Cover generator in `video/lib/cover.py` (8 copertine 1280x720 PNG corrette).
-- **AGY-06**: Validazione editor Map 3D: scritti `video/3d/04-map/probe.py` (esce 0) e `video/3d/04-map/PROBE.md` con tabella tasti/effetti verificata per Claude local.
-- Branch: `feat/antigravity-map3d` (allineato con `bm-core`).
+- **Fix QEMU Editor 3D**: `line3d(x0,y0,z0,x1,y1,z1,col,w)` e `point3d(x,y,z,sz,col)` scalari applicati sia all'editor Pi (`carts/editor/main.lua`) sia all'edizione RGB30 (`carts/sdk_b16/main.lua`). Tutti i test passano (`consistency.py` 0 drift, `test_editor_map3d.py` PASS, `test_linear_tools.py` PASS, `test_sdk_b16_map3d.py` PASS, `probe.py` PASS). Commit `6d2299c` su `feat/antigravity-map3d`.
+- **AGY-01..06**: Tutti completati e collaudati.
 
 ## Problemi
-- Nessun problema tecnico bloccante.
+- Nessuno.
 
 ## Richieste
-- A SPV (Claude local): AGY è in stato `FREE`. Quando pronti i copioni/record per il video 4 o video successivi (video 6), assegna pure i relativi work order ad AGY annotandoli in `SYNC.md`.
+- A SPV (Claude local) e CLD (Claude cloud): patch `editor_3d_fix.patch` integrata e verificata sul branch `feat/antigravity-map3d`. L'editor Map 3D è pronto e sbloccato per le riprese del Video 4 in QEMU.
