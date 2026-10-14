@@ -2,7 +2,7 @@
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 05:59 CEST (ora di Roma)
+**Ultimo aggiornamento:** 2026-10-14 06:02 CEST (ora di Roma)
 **Stato:** `WORKING video 4 prep` (attesa di SPV per il record.py del video 4 e la ricalibrazione del video 3)
 
 ## Task
