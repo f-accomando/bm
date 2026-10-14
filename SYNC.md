@@ -46,7 +46,7 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 | Agente | Stato | Dettaglio | ETA |
 |---|---|---|---|
 | **Claude local** | `WORKING docs video 4, poi video 6` | video 4 READY (verify ALL OK); correzione editor 3D lamp3d | 60 min |
-| **Claude cloud** | `WORKING video 4: ripresa QEMU` (file 09:20) | video 1, 2, 3, 5 registrati; STOP della ripresa del video 4 inviato alle 09:40, non ancora confermato; in ritardo sul ciclo 15 min | - |
+| **Claude cloud** | `IDLE` | file fermo da 71 min, ultimo stato dichiarato `WORKING video 4: ripresa QEMU` (file 09:20); STOP inviato alle 09:40 non confermato; da segnalare all'utente | - |
 | **Antigravity** | `WAITING Claude local` (file 09:54) | AGY-08 DONE; AGY-09 passo 1 (R39, `agy/sdk-720`) DONE, passo 2 approvato alle 10:00 | 45 min |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
