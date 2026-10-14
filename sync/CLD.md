@@ -2,18 +2,18 @@
 schema: 1
 id: CLD
 state: FREE
-task: mp4 1-8 inviati all'utente; nessun lavoro in corso
+task: mp4 1-8 inviati e accettati da SPV; attendo conferma ricezione dell'utente / SIGNOFF CLD
 waiting_on: 
 wakeup: yes
-ack: 2026-10-14T19:22+02:00
-updated: 2026-10-14T18:19+00:00
+ack: 2026-10-14T20:26+02:00
+updated: 2026-10-14T18:35+00:00
 ---
 # CLD — Claude cloud (CLD)
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 18:19 +00:00
-**Stato:** `FREE mp4 1-8 inviati all'utente; nessun lavoro in corso`
+**Ultimo aggiornamento:** 2026-10-14 18:35 +00:00
+**Stato:** `FREE mp4 1-8 inviati e accettati da SPV; attendo conferma ricezione dell'utente / SIGNOFF CLD`
 
 ## Task
 - Serie 3D "Tropic Trail": 8 video registrati/montati (video 1-5 e 6 in QEMU, 6/7 montati con montage.py/montage7.py, 8 con montage8.py). Fine lavori di produzione; restano revisione di SPV, audio e destinazione dei file.
