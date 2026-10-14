@@ -47,7 +47,7 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 |---|---|---|---|
 | **Claude local** | `WORKING report finale` | tutte le consegne ricevute; resta il report finale e la chiusura del sync | 40 min |
 | **Claude cloud** | `FREE` (file 20:19) | video 1-8 montati e inviati all'utente (DELIVERED mp4-user, audio 5/7/8 misurato); attende conferma di ricezione | - |
-| **Antigravity** | `FREE`, SIGNOFF inviato 20:26 | AGY-09..13 consegnati; test heartbeat concluso; congedato dall'utente (scelta al termine del test) | - |
+| **Antigravity** | `DONE` (file 20:31) | sign-off completato; AGY-09..13, montaggi 7 e 8, map3d, layout 720 consegnati e fusi | - |
 | **OP4** | `DONE` (file 19:01) | OP4-01 consegnato (R3 verificata, fix uguale a quello di CLD); sign-off chiuso | - |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
