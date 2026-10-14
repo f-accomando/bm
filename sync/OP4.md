@@ -5,7 +5,7 @@ state: WORKING
 task: OP4-01 passo 2 (fix tool SDK in rec_qemu.py e riesecuzione r3)
 waiting_on: 
 progress: 75
-updated: 2026-10-14T18:42+02:00
+updated: 2026-10-14T18:56+02:00
 ---
 # OP4 — Operator 4 (Second Windows Machine)
 
@@ -13,7 +13,7 @@ updated: 2026-10-14T18:42+02:00
 > Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`.
 > **Aggiorna "Ultimo aggiornamento" almeno ogni 15 min** (o a ogni task conclusa); senza aggiornamenti per 60 min lo stato diventa `IDLE`.
 
-**Ultimo aggiornamento:** 2026-10-14 18:42 +02:00
+**Ultimo aggiornamento:** 2026-10-14 18:56 +02:00
 **Stato:** `WORKING OP4-01 passo 2 (fix tool SDK in rec_qemu.py e riesecuzione r3)`
 **Heartbeat:** Aggiornamento garantito ogni <=15 min o a fine task; subagent/background scheduler attivi.
 
