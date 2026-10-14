@@ -31,7 +31,7 @@ SCRIPT = os.path.join(ROOT, "docs", "video", "07-code", "script.md")
 OFFSET = 11                                     # R1 starts at 0:11 of the video (hook and title card before it)
 R1_SECONDS, R3_SECONDS, R2_SECONDS = 205, 14, 20
 OLD_LINES = 44                                  # the code of video 6 (lines to cut; more is harmless)
-QUESTION = "third person camera"
+QUESTION = "the third person camera"     # "the" makes the panel answer in English (an unknown language falls back to Italian)
 # the blocks (script.md order) and the video second at which the narration of their group is said
 GROUPS = [("1a 1b", 36, 2), ("1c", 50, 1), ("2a 2b 2c", 68, 3), ("2d", 90, 1), ("3a 3b 3c", 114, 1), ("3d 3e 3f", 134, 3),
           ("4a 4b", 158, 2), ("F6", 176, 0), ("4d 4e", 198, 2)]
@@ -113,6 +113,9 @@ def build_r1():
             narrate(sec)
             s.key("f6", "the assistant")
             s.sec(2)
+            for _ in range(4):                  # code > sprite > mesh > music > guide: the guides are only in this mode
+                s.key("tab", "next mode", "Tab", hold=3)
+                s.sec(0.7)
             s.type_text(QUESTION, "the question", per_key=4)
             s.sec(3)
             s.key("enter", "insert the code")
@@ -176,7 +179,7 @@ def main():
     args = sys.argv[1:]
     os.makedirs(OUT, exist_ok=True)
     src = os.path.join(ROOT, "video", "3d", "06-sdk", "out", "sd", "carts", "TROPIC.BME")
-    if not os.path.exists(os.path.join(OUT, "start.bme")):
+    if os.path.exists(src):                     # the project video 6 saved (screen 480x270, its code is cut by Ctrl+K)
         shutil.copy(src, os.path.join(OUT, "start.bme"))
     r1, r3 = build_r1(), build_r3()
     write(r1, "r1")

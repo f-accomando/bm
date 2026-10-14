@@ -11,6 +11,8 @@ OUT = os.path.join(HERE, "out")
 q = sys.argv[1] if len(sys.argv) > 1 else "third person camera"
 downs = int(sys.argv[2]) if len(sys.argv) > 2 else 0
 L = [(60, "\\x0f"), (300, "\\n"), (500, "\\x1b[17~")]
+for i in range(int(os.environ.get("TABS", "0"))):
+    L.append((540 + 10 * i, "\\x09"))
 f = 600
 for ch in q:
     L.append((f, "\\x20" if ch == " " else ch))
