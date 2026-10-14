@@ -1,9 +1,9 @@
 ---
-name: bm-video-qemu
+name: bm-video-qemu-rec
 description: Records a bm tutorial episode on the REAL kernel in QEMU (-M raspi0) at exactly 60 fps of guest time, from the files an episode's record.py writes (out/input.txt, out/overlay.json, out/sd/), then builds the 1920x1080 page with the key overlay and subtitles. Use it whenever a video of the console must be recorded in the cloud, a recording looks wrong or fails verify.py, a cloud container killed a recording, or a new episode must be added to video/3d/rec_qemu.py.
 ---
 
-# bm-video-qemu: record an episode in QEMU
+# bm-video-qemu-rec: record an episode in QEMU
 
 Tools: `video/lib/qemurec.py` (the recorder) and `video/3d/rec_qemu.py NN` (an episode). Needs `qemu-system-arm`, `Xvfb`, `ffmpeg`,
 `dosfstools`, `mtools`, `arm-none-eabi-gcc` (`apt-get update && apt-get install -y qemu-system-arm gcc-arm-none-eabi dosfstools mtools`).
@@ -45,3 +45,9 @@ Build first: `make build/kernel.img` (the kernel holds the editors; after a `git
 
 `late_keys: 0` in the `recorded:` line; `ffprobe` = 1920x1080 at 60 fps and frames = script + intro; a frame at a shot time against
 `out/shots/NN.png` of bmhost (compare the 16x16 cells, not pixels: RGB565 differs a little); `verify.py` PASS.
+
+## Delegating the small chores (heartbeat, sync report)
+
+`python3 video/3d/hb.py --report` prints what changed on the other agents' branches and the recordings in progress;
+`python3 video/3d/hb.py --task "..." --pct N --note "..."` also appends the HEARTBEAT row to SYNC.md, commits and pushes.
+No decisions inside: a cheap subagent (model haiku, general-purpose, it needs Bash) can run it and summarize in a few lines.
