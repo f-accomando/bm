@@ -19,6 +19,10 @@
 --   L.wrap(s, cols, [n])        s in lines of at most cols characters, cut
 --                               between words (at most n lines)
 --   L.inside(a, b), L.overlap(a, b)   for the checks of the tests
+--   L.side_by_side(r, [cols])   cut r horizontally into panel and work regions:
+--                               panel takes cols columns (default: 16 when
+--                               narrow < 480 px, 30 when wide >= 480 px),
+--                               work takes the rest. Returns panel, work
 
 local L = { CW = 8, CH = 16 }
 
@@ -29,6 +33,33 @@ function L.cols(r) return r.w // L.CW end
 function L.rows(r) return r.h // L.CH end
 function L.row(r, i) return r.x, r.y + (i - 1) * L.CH end
 function L.narrow(w) return (w or SCREEN_W or 640) < 480 end
+
+function L.side_by_side(r, panel_cols)
+  local cols
+  if type(panel_cols) == "table" then
+    cols = L.narrow(r.w) and (panel_cols.narrow or panel_cols[1]) or (panel_cols.wide or panel_cols[2] or 30)
+  elseif type(panel_cols) == "number" then
+    if L.narrow(r.w) and panel_cols > 20 then
+      cols = 16
+    else
+      cols = panel_cols
+    end
+  elseif type(panel_cols) == "string" then
+    local n = panel_cols:match("^(%d+)c?$")
+    if n then
+      n = tonumber(n)
+      cols = (L.narrow(r.w) and n > 20) and 16 or n
+    else
+      cols = L.narrow(r.w) and 16 or 30
+    end
+  else
+    cols = L.narrow(r.w) and 16 or 30
+  end
+  local out = L.split(r, "h", { tostring(cols) .. "c", "*" })
+  local panel, work = out[1], out[2]
+  panel[1], panel[2] = panel, work
+  return panel, work
+end
 
 -- a size of a split: pixels, or nil and the weight of a share
 local function fixed(s, unit)
@@ -79,7 +110,8 @@ end
 
 function L.wrap(s, cols, n)
   local out, line = {}, ""
-  for word in tostring(s):gmatch("%S+") do
+  for w in tostring(s):gmatch("%S+") do
+    local word = w
     while #word > cols do                      -- a word longer than the line: cut
       if line ~= "" then out[#out + 1] = line; line = "" end
       out[#out + 1] = word:sub(1, cols)
