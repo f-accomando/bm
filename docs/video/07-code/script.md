@@ -66,6 +66,7 @@ local apples, crates = {}, {}
 local score, lives, hurt, cam_y, state = 0, 3, 0, 0, "title"
 local S = { APPLE = 0, CRATE = 1, JUMP = 2, STEP = 3, SPIN = 4, HIT = 5 }
 local ICON = 0
+local SC = 0.4
 ```
 
 Blocco 1b (`near`)
@@ -90,7 +91,9 @@ lamps = map3d_objects(world, "LAMP")
 for _, o in ipairs(map3d_objects(world, "APPLE")) do apples[#apples + 1] = { x = o.x, y = o.y + 0.7, z = o.z } end
 for _, o in ipairs(map3d_objects(world, "CRATE")) do crates[#crates + 1] = { x = o.x, y = o.y, z = o.z } end
 apple_m, crate_m = model("APPLE"), model("CRATE")
-crate_h = select(5, bounds3d(crate_m))
+crate_h = select(5, bounds3d(crate_m)) * SC
+local x0, _, z0, x1, _, z1 = bounds3d(pico.m)
+pico.cx, pico.cz = (x0 + x1) / 2, (z0 + z1) / 2
 cam_y = p.y
 music(0)
 end
@@ -268,12 +271,15 @@ Blocco 4d (modelli)
 ```lua
 map3d_draw(world)
 animate(pico.m, pico.clip, pico.at)
-draw3d(pico.m, pico.x, map3d_height(world, pico.x, pico.z) or pico.y, pico.z, 0, pico.face, 0, 1, 8)
-for _, c in ipairs(crates) do draw3d(crate_m, c.x, c.y, c.z) end
+local c, s = math.cos(pico.face), math.sin(pico.face)
+local ox = pico.x - (pico.cx * c + pico.cz * s) * SC
+local oz = pico.z - (pico.cz * c - pico.cx * s) * SC
+draw3d(pico.m, ox, map3d_height(world, pico.x, pico.z) or pico.y, oz, 0, pico.face, 0, SC, 8)
+for _, c in ipairs(crates) do draw3d(crate_m, c.x, c.y, c.z, 0, 0, 0, SC) end
 for _, o in ipairs(apples) do
-draw3d(apple_m, o.x, o.y + math.sin(time() * 3 + o.z) * 0.1, o.z, 0, time() * 2, 0, 1)
+draw3d(apple_m, o.x, o.y + math.sin(time() * 3 + o.z) * 0.1, o.z, 0, time() * 2, 0, SC)
 end
-draw3d(pico.m, pico.x, pico.y, pico.z, 0, pico.face, 0, 1)
+draw3d(pico.m, ox, pico.y, oz, 0, pico.face, 0, SC)
 ```
 
 Blocco 4e (HUD, titolo, fine; chiude `_draw`)
@@ -298,6 +304,8 @@ end
   voluto contro il muro.
 - Il muro basso è saltabile (il salto sale ~2 unità); la cassa non regge in piedi: si rompe sempre (spin o salto sopra).
 - Titolo e schermata finale sono nella cartuccia del 07 perché il video 8 le mostra.
+- Il Pico del video 1 è una «croce» con le braccia aperte (x da -1 a 4), non centrata sulla sua origine: il codice lo centra con
+  `bounds3d` (`pico.cx`, `pico.cz`) e disegna ogni modello in scala 0.4 (`SC`) per farlo stare nel corridoio largo 3 unità del video 4.
 
 ## [DA VERIFICARE]
 
