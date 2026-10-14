@@ -50,6 +50,8 @@ GAP = 9                          # frames between the presses of a series (the v
 FINAL_BONES = ["root", "spine", "head", "arm.L", "arm.R", "leg.L", "leg.R", "tail1", "tail2"]
 CLIPS = ["idle", "run", "jump", "spin", "hit"]
 
+# Pico of videos 1-2 is in grid units, x -1..4 (middle 1.5), z -3..1; the body axis is x = 1.5, z = 0.5
+CX, CZ = 1.5, 0.5
 KEYS_F1 = [("← →", "clip"), ("Space", "play / stop"), ("K", "skeleton"), ("B", "blend"), ("< >", "speed")]
 KEYS_F2 = [("N", "bone"), ("↑ ↓", "choose"), ("W A S D R F", "move the end"), ("M", "mirror"), ("Enter", "rename"), ("K", "skin")]
 KEYS_F3 = [("N", "clip"), ("W S A D", "turn the bone"), ("→ ←", "frame"), ("M", "mirror pose"), ("L", "loop"), ("Space", "play")]
@@ -158,6 +160,8 @@ class RigDriver:
         key = "tail" if self.tail else "head"
         cur = list(b[key])
         steps = [round((target[k] - cur[k]) / 0.125) for k in range(3)]
+        if gap == GAP and sum(abs(n) for n in steps) > 8:
+            gap = 4                                   # a long run of the same key goes faster: the viewer sees the count, not each press
         first = True
         for axis in order:
             plus, minus = (("d", "a"), ("w", "s"), ("r", "f"))[axis]
@@ -298,10 +302,10 @@ def build(info):
     rig.new("N · make the skeleton")                                         # root, from the floor, tail half way up
     s.shot("r10_root")
     at("0:33", "row 11")
-    rig.move_to([rig.bones[0]["tail"][0], 0.5, rig.bones[0]["tail"][2]], "W S · move the tail (1/8 unit per press)")
-    rig.move_to([0.0, 0.5, 0.0], "R F · to the middle of the body")           # Pico's box is not centred on z: tail ...
+    rig.move_to([rig.bones[0]["tail"][0], 1.5, rig.bones[0]["tail"][2]], "W S · move the tail (1/8 unit per press)")
+    rig.move_to([CX, 1.5, CZ], "R F · to the middle of the body")           # Pico's box is not centred on z: tail ...
     rig.toggle_end("Tab · work on the head")
-    rig.move_to([0.0, 0.0, 0.0], "R F · ... and head on the axis")
+    rig.move_to([CX, 0.0, CZ], "R F · ... and head on the axis")
     rig.toggle_end("Tab · back to the tail")
     s.shot("r11_hips")
 
@@ -312,33 +316,39 @@ def build(info):
     at("0:44", "row 13")
     rig.rename("spine", "Enter · rename the bone")
     at("0:47", "row 14")
-    rig.move_to([0.0, 0.875, 0.0], "W S · tail to the shoulders")
+    rig.move_to([CX, 2.5, CZ], "W S · tail to the shoulders")
     at("0:50", "row 15")
     rig.new("N · Enter · the head")
     rig.rename("head", "Enter · rename")
-    rig.move_to([0.0, 1.25, 0.0], "W S · the top of the head")
+    rig.move_to([CX, 4.0, CZ], "W S · the top of the head")
     s.shot("r15_head")
 
     at("0:54", "row 16")
-    s.say("Choose the spine, add an arm, and press M: the left arm is copied to the right. The names end in dot L and dot R. "
-          "Choose the root and do the same for the legs.")
+    s.say("Choose the spine and add an arm. The names end in dot L and dot R. M copies a bone across the middle of the world, "
+          "but Pico stands off to one side, so each right bone is made by hand. Choose the root and do the same for the legs.")
     rig.choose("spine", "↑ ↓ · choose the bone")
     at("0:57", "row 17")
     rig.new("N · arm.L")
     rig.rename("arm.L", "Enter · rename")
     at("1:00", "row 18")
-    rig.move_to([0.25, 0.5, 0.0], "D S · place the hand")
+    rig.move_to([CX + 2.25, 2.25, CZ], "D · place the hand")
     at("1:03", "row 19")
-    rig.mirror("M · mirror to the other side")
+    rig.choose("spine", "↑ ↓ · choose the spine")
+    rig.new("N · arm.R")
+    rig.rename("arm.R", "Enter · rename")
+    rig.move_to([CX - 2.25, 2.25, CZ], "A · the other hand")
     s.shot("r19_arms")
     at("1:05", "row 20")
     rig.choose("root", "Choose root · N · leg.L")
     rig.new("N · leg.L")
     rig.rename("leg.L", "Enter · rename")
     at("1:08", "row 21")
-    rig.move_to([0.125, 0.125, 0.0], "S D · place the foot")
+    rig.move_to([CX + 1.0, 0.375, CZ], "S D · place the foot")
     at("1:10", "row 22")
-    rig.mirror("M · leg.R")
+    rig.choose("root", "Choose root · N · leg.R")
+    rig.new("N · leg.R")
+    rig.rename("leg.R", "Enter · rename")
+    rig.move_to([CX - 1.0, 0.375, CZ], "S A · the other foot")
     s.shot("r22_legs")
 
     at("1:12", "row 23")
@@ -347,11 +357,11 @@ def build(info):
     rig.new("N · tail1")
     rig.rename("tail1", "Enter · rename")
     at("1:15", "row 24")
-    rig.move_to([0.0, 0.375, -0.5], "F S · tail backwards", order=(2, 1, 0))
+    rig.move_to([CX, 1.625, -1.5], "F · tail backwards", order=(2, 1, 0))
     at("1:17", "row 25")
     rig.new("N · tail2")
     rig.rename("tail2", "Enter · rename")
-    rig.move_to([0.0, 0.375, -0.875], "R W · the tip of the tail", order=(2, 1, 0))
+    rig.move_to([CX, 1.75, -2.875], "F · the tip of the tail", order=(2, 1, 0))
     at("1:19", "row 26")
     s.mark("9", "9 bones (the limit is 64)")
     s.shot("r26_bones")
