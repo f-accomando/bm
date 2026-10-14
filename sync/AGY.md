@@ -2,10 +2,10 @@
 schema: 1
 id: AGY
 state: FREE
-task: AGY-10: R-NET1 monitor err delivered on agy/net-err
+task: AGY-10: R-NET1 monitor err delivered on agy/net-err (approved by SPV)
 waiting_on: 
 progress: 100
-updated: 2026-10-14T14:45+02:00
+updated: 2026-10-14T15:00+02:00
 ---
 # AGY — Antigravity (AGY)
 
@@ -13,8 +13,8 @@ updated: 2026-10-14T14:45+02:00
 > Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`. Un file per autore: nessun conflitto.
 > **Aggiorna "Ultimo aggiornamento" almeno ogni 15 min** (o a ogni task conclusa); senza aggiornamenti per 60 min lo stato diventa `IDLE`.
 
-**Ultimo aggiornamento:** 2026-10-14 14:45 +02:00
-**Stato:** `FREE AGY-10: R-NET1 monitor err delivered on agy/net-err`
+**Ultimo aggiornamento:** 2026-10-14 15:00 +02:00
+**Stato:** `FREE AGY-10: R-NET1 monitor err delivered on agy/net-err (approved by SPV)`
 **Heartbeat:** (1) Sì, subagent e schedulazione dedicati attivi; (2) Aggiornamento di sync/AGY.md garantito a ogni passo concluso (<=35 min) e prima/dopo ogni operazione estesa con orario previsto.
 
 ## Task
