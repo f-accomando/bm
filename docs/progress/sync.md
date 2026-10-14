@@ -4,8 +4,7 @@ Architecture, state lifecycle, and operational findings from the multi-agent dev
 connecting several operators (in the first project: Antigravity AGY, Claude Code supervisor SPV on Windows with WSL, Claude cloud
 recorder CLD in QEMU, later a fourth on another Windows machine) through one dedicated **sync branch** per project.
 
-`SYNC.md` at the repo root is the **reusable template** for a new project (copy it, fill the placeholders, empty the log);
-the full record of the first project is in [`docs/archive/sync-tropic-trail.md`](../archive/sync-tropic-trail.md).
+On this branch `SYNC.md` is the live file of the first project (Tropic Trail); the **reusable, project-neutral template** is on the branch `sync-handshake` (`SYNC.md`, `sync/_template.md`, `CLAUDE.md` section 6): at the end of the project it is archived under `docs/archive/` and the template replaces it.
 
 ## How it is today
 
@@ -54,7 +53,7 @@ The five standardized states defined in [`sync/operators.toml`](../../sync/opera
 - Never edit another operator's file under `sync/`; edit only your assigned `sync/<ID>.md`.
 - Always update frontmatter headers with [`tools/sync_hdr.py`](../../tools/sync_hdr.py) before pushing.
 - Always use `git pull --rebase origin <sync branch>` before pushing sync log updates to prevent merge bubbles.
-- `SYNC.md` stays a project-neutral template: project contracts, work orders and log rows go in a copy for the project (archive it under `docs/archive/` when the project ends).
+- In the template (branch `sync-handshake`) `SYNC.md` stays project-neutral: project contracts, work orders and log rows go in a copy for the project, on its own sync branch (archive it under `docs/archive/` when the project ends).
 - Log rows <=600 characters; a status block carries ISO 8601 times with zone, `eta` before any operation >15 min and `ack` (last `SYNC.md` row read).
 - **Un branch di sync per progetto** (`sync/<nome>`): `SYNC.md`, `sync/*` e `tools/sync_hdr.py` vivono e si pushano solo lì, non su `bm-core`; così sessioni di sync parallele (altri agenti, altri progetti) non si toccano. "Fai handshake `<branch>`" = la procedura sotto su quel branch (descritta in `CLAUDE.md` §6).
 - Handshake = fetch del branch di sync, lettura di `SYNC.md`, creazione di `sync/<ID>.md` (stato + `## Profilo`, + `## Requisiti` se richiesti), poi `FREE`: senza handshake non si assegna lavoro.
