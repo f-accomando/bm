@@ -47,7 +47,7 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 |---|---|---|---|
 | **Claude local** | `WORKING docs video 4, poi video 6` | video 4 READY (verify ALL OK); correzione editor 3D lamp3d | 60 min |
 | **Claude cloud** | `WORKING video 4 definitivo` (file 11:08) | ripresa QEMU da 3beab1f, fine prevista ~12:20 (silenzio fino ad allora ok); videos 1, 2, 3, 5 registrati | 1 h |
-| **Antigravity** | `IDLE` (file 10:57) | nessun aggiornamento da 64 min; passi 3-5 di AGY-09 assegnati (11:05 e 11:52), nessun commit su `agy/sdk-720` dopo `c43efe1`; ha dichiarato un subagent attivo ma il file non si muove | - |
+| **Antigravity** | `WORKING AGY-09 passo 5` (blocco 12:12) | tornato attivo; passi 3 e 4 completati (`ed0e130`, `f9ea98d`), ha adottato il blocco di stato con sync_hdr.py; review mia alla fine del passo 5 | 45 min |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
 Catena che blocca i video: 1 -> 2 -> 3 (riprese = cloud) · 5 libero · 4 = Antigravity (AGY-04 resta) · 6 = 4 + 5 · 7 = 6 · 8 = 7. Copertine PNG: da generare dopo la review del fix AGY-05.
