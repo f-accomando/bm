@@ -74,6 +74,9 @@ Regole di integrazione:
 ### Obiettivo globale
 {una frase: cosa si consegna, per chi, in quanto tempo}
 
+### Requisiti di sviluppo (opzionale, vedi §3c)
+- {requisito: toolchain / hardware / emulatore / accesso / modello}
+
 ### Decisioni prese (non cambiano senza una riga nel Log)
 1. {decisione, motivo, data}
 
@@ -112,20 +115,33 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 **Chiusura**:
 1. Task concordate finite: `FREE`.
 2. Da `FREE` senza lavori: controlli dopo 15, 30 e 45 min (leggi `SYNC.md` e `sync/`). Poi chi **non è SPV** si segna `DONE`.
-3. Se non è una sessione cloud e a Roma sono le **00:00-08:00**: commit e push di tutto, poi spegne il computer. Mai con lavoro non salvato o processi lunghi attivi (scrivilo nel proprio file).
-4. SPV: se tutti sono `DONE` e le task complete, ultimo aggiornamento di `SYNC.md`, termina il sync, si segna `DONE`, scrive il report di sessione e applica la regola dello spegnimento.
+3. Prima di segnarsi `DONE`: working tree pulito e tutto pushato; se c'è lavoro non salvato o un processo lungo attivo, non chiudere e scrivilo nel proprio file.
+4. SPV: se tutti sono `DONE` e le task complete, ultimo aggiornamento di `SYNC.md`, termina il sync, si segna `DONE` e scrive il report di sessione.
+
+**Task e agenti liberi**:
+- **Spezzare le task pesanti**: nessun compito può bloccare un agente a tempo indeterminato. Se la stima supera 45 min, chi la prende la divide in passi ≤45 min e scrive una riga per passo; SPV li formalizza come work order.
+- **L'agente principale resta libero** alla comunicazione (ricevere, interrompere, ridimensionare). Il lavoro lo fanno i **subagent**; l'operatore è il **supervisore dei propri subagent** per le task che gli sono assegnate: li avvia, ne controlla l'esito con il comando di verifica e ne risponde a SPV. Chi non ha subagent lavora a passi con un controllo in mezzo.
+- **Intoppi**: si segnalano subito nel proprio file (cosa, dove, cosa si è già provato) e si cercano soluzioni. Se una task è problematica, si provano **alternative con test brevi in parallelo** (subagent diversi, 20-50 s ciascuno) e si tiene la migliore.
+- **Task ripetitive**: la stessa operazione per la terza volta diventa una **skill** (o uno script) e si annota nel Log.
 
 **Leggerezza**:
 - Righe di Log **≤600 caratteri**: decisione, commit, verifica. Le procedure vanno nel work order o in `docs/design/`.
 - Una **ipotesi** non si invia come istruzione: si verifica prima, oppure si etichetta `IPOTESI`.
-- Stessa operazione 3 volte → script o skill, annotato nel Log.
 - Si dichiarano presto i limiti d'ambiente (toolchain mancanti, container che si spengono dopo inattività, wifi) nel profilo e nel blocco di stato.
-- Mentre si aspetta un'esecuzione lunga si può provare una soluzione migliore con un subagent, fare un audit o proporre soluzioni agli intoppi.
+- Mentre si aspetta un'esecuzione lunga si può fare un audit del lavoro e cercare problemi.
 - Artefatti di ripiego (stand-in) si dichiarano tali; appena arrivano i file reali, si ricalibra e si ricontrolla ciò che li usava.
 
-## 3c. Handshake e profilo
+## 3c. Handshake, profilo e requisiti
 
-Alla prima scrittura ogni operatore aggiunge al proprio file `## Profilo` (max 10 righe): **dove gira** e i suoi punti di rottura, **modelli** e per cosa, **subagent** (sì/no, quali), **competenze e limiti**, **strumenti**. SPV ne ricava `place`, `models`, `subagents`, `strengths`, `weak_points` in `sync/operators.toml` e assegna di conseguenza.
+**Handshake** = la procedura con cui un operatore entra nel sync e si rende disponibile. Quando si dice "fai l'handshake" si intende, in ordine:
+1. **Allinearsi** al branch di sviluppo: `git fetch origin` e checkout/aggiornamento da `bm-core` (o dal branch indicato da SPV).
+2. **Leggere `SYNC.md`** (ruoli, contratti §2, work order §3, regole) e la propria cartella `sync/`.
+3. **Produrre il proprio file** `sync/<ID>.md`, con blocco di stato (`tools/sync_hdr.py`) e `## Profilo`.
+4. **Rendersi disponibile**: compilato il file, si segna `FREE` (o `WORKING` se ha già una task). Fino ad allora SPV non gli assegna lavoro.
+
+**Profilo** (max 10 righe): **dove gira** e i suoi punti di rottura, **modelli** e per cosa, **subagent** (sì/no, quali), **competenze e limiti**, **strumenti**. SPV ne ricava `place`, `models`, `subagents`, `strengths`, `weak_points` in `sync/operators.toml`.
+
+**Requisiti di sviluppo**: se il progetto lo richiede, SPV scrive in §2 un elenco di **requisiti specifici** (toolchain, hardware, emulatori, accessi, modelli, subagent). Ogni operatore, nel proprio file, sezione `## Requisiti`, conferma per ciascuno `SÌ`, `NO` o `PARZIALE {nota}`. SPV assegna i work order solo a chi li soddisfa e, se nessuno li soddisfa, lo segnala all'utente.
 
 ---
 

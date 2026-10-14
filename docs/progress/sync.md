@@ -56,3 +56,5 @@ The five standardized states defined in [`sync/operators.toml`](../../sync/opera
 - Always use `git pull --rebase origin bm-core` before pushing sync log updates to prevent merge bubbles.
 - `SYNC.md` stays a project-neutral template: project contracts, work orders and log rows go in a copy for the project (archive it under `docs/archive/` when the project ends).
 - Log rows <=600 characters; a status block carries ISO 8601 times with zone, `eta` before any operation >15 min and `ack` (last `SYNC.md` row read).
+- Handshake = fetch del branch di sviluppo, lettura di `SYNC.md`, creazione di `sync/<ID>.md` (stato + `## Profilo`, + `## Requisiti` se richiesti), poi `FREE`: senza handshake non si assegna lavoro.
+- No task open-ended: passi <=45 min; l'operatore tiene libero l'agente principale e supervisiona i propri subagent.
