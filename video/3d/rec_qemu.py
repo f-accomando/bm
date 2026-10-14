@@ -115,7 +115,7 @@ def walk(prev, tool):
     return ev, f
 
 
-def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0, serial=True, only_part=None, start_file=None, take=None):
+def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0, serial=True, only_part=None, start_file=None, take=None, tool=None):
     ep, v = episode_dir(n)
     out = os.path.join(ep, "out")
     work = os.path.join(out, out_sub)
@@ -138,7 +138,7 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0,
     orig_events = events
     events, delta_at = retime(events, min_gap=0 if serial else 4, any_gap=any_gap)
     print("retime: the last event moved %d frames" % delta_at(10 ** 9), flush=True)
-    parts = PARTS.get(int(n), [(v["tool"], 0, None)])
+    parts = [(tool, 0, None)] if tool else PARTS.get(int(n), [(v["tool"], 0, None)])   # --tool: a take in another tool than the episode's (video 7 R3 is bm SDK)
     if only_part:                                      # a test of one part: its frames start at 0, from the given project
         tool, a0, b0 = parts[only_part - 1]
         b0 = b0 if b0 is not None else 10 ** 9
@@ -246,7 +246,8 @@ if __name__ == "__main__":
     ap.add_argument("--any-gap", type=int, default=0, help="least frames between two keys")
     ap.add_argument("--out", default="qemu", help="subfolder of out/ (to keep several takes)")
     ap.add_argument("--take", choices=["r1", "r3"])
+    ap.add_argument("--tool", choices=sorted(DEV_ICON), help="record in this tool instead of the episode's (video 7 R3: SDK)")
     a = ap.parse_args()
     if a.take and a.out == "qemu":
         a.out = "qemu-" + a.take
-    run(a.n, a.shift, not a.no_intro, a.limit_s, a.out, a.hold, a.any_gap, not a.usb, a.part, a.start_file, take=a.take)
+    run(a.n, a.shift, not a.no_intro, a.limit_s, a.out, a.hold, a.any_gap, not a.usb, a.part, a.start_file, take=a.take, tool=a.tool)
