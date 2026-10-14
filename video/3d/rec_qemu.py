@@ -219,6 +219,7 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0,
     qemurec.assemble(os.path.join(work, "console.mkv"), ass, mp4, audio=wav if os.path.exists(wav) else None,
                      audio_delay=(plan[0]["a"] + plan[0]["extra"]) / FPS)
 
+    open(os.path.join(work, "serial.log"), "wb").write(getattr(r, "serial_log", b""))   # kernel output during the take
     r.close()
     qemurec.extract_sd(os.path.join(work, "sd.img"), os.path.join(work, "sd"))
     json.dump({"frames": total, "plan": [{k: v_ for k, v_ in p_.items() if k != "walk"} for p_ in plan], "shift": shift,

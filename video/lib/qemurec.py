@@ -276,6 +276,15 @@ class Recorder:
                 time.sleep(0.015)
         th = threading.Thread(target=sampler, daemon=True)
         th.start()
+
+        def serial_reader():                # the kernel's serial output during the recording (Lua errors, out of memory)
+            while not stop.is_set():
+                try:
+                    self.serial_log += self.port.read(0.2)
+                except Exception:
+                    time.sleep(0.2)
+        self.serial_log = b""
+        threading.Thread(target=serial_reader, daemon=True).start()
         while not samples:
             time.sleep(0.01)
 
