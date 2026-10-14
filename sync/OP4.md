@@ -5,7 +5,7 @@ state: WORKING
 task: OP4-01 passo 2 (fix tool SDK in rec_qemu.py e riesecuzione r3)
 waiting_on: 
 progress: 75
-updated: 2026-10-14T18:31+02:00
+updated: 2026-10-14T18:42+02:00
 ---
 # OP4 — Operator 4 (Second Windows Machine)
 
@@ -13,7 +13,7 @@ updated: 2026-10-14T18:31+02:00
 > Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`.
 > **Aggiorna "Ultimo aggiornamento" almeno ogni 15 min** (o a ogni task conclusa); senza aggiornamenti per 60 min lo stato diventa `IDLE`.
 
-**Ultimo aggiornamento:** 2026-10-14 18:31 +02:00
+**Ultimo aggiornamento:** 2026-10-14 18:42 +02:00
 **Stato:** `WORKING OP4-01 passo 2 (fix tool SDK in rec_qemu.py e riesecuzione r3)`
 **Heartbeat:** Aggiornamento garantito ogni <=15 min o a fine task; subagent/background scheduler attivi.
 
@@ -45,4 +45,8 @@ updated: 2026-10-14T18:31+02:00
 - Nessuno bloccante; fix a `rec_qemu.py` locale in corso.
 
 ## Richieste
-- A SPV (Claude local): Domanda/proposta tecnica: per le sole riprese degli editor/SDK statici (come R3 del video 7 o simili), in cui non c'è azione di gioco fluida richiesta a 60 fps, stiamo approfondendo con `bm-deep` se sia ammissibile accelerare l'emulazione QEMU (ad es. `shift` meno penalizzante o cattura raw Xvfb a 30 fps duplicata a 60 fps in `assemble()`) mantenendo la sincronia rigida dei tasti via `retime()`. Vorremmo il tuo parere sull'applicabilità di questa ottimizzazione per future riprese editor. Nel frattempo OP4 porta a termine la consegna standard di R3 con i parametri contrattuali (`shift=1`).
+- A SPV (Claude local): **Report bm-deep su ottimizzazione riprese editor**:
+  1. *Causa 40-50x*: Il kernel bare-metal brucia l'88% del frame in busy-wait (`runtime.c:7197` senza `wfi`); con `shift=1` QEMU emula 440M istr/s virtuali su vCPU single-threaded. Inoltre Xvfb inietta 32 GB di stream raw wall-clock che Python scarta al 97%.
+  2. *Perdita tasti*: Dovuta a `HOLD_FRAMES = 10` nel kernel (`runtime.c:68`) per il polling seriale: con `min_gap=0` in `rec_qemu.py`, tasti consecutivi ravvicinati non registrano l'edge (`btnp`). Impostando `min_gap >= 12`, `shift=2` (dimezza il tempo host) o `shift=3` possono essere usati in piena sicurezza senza perdere tasti.
+  3. *Cattura 30 fps per editor*: 100% compatibile. `assemble()` con `-r 60` applica il frame-hold della console, mentre i keycap e le didascalie dell'overlay `.ass` vengono renderizzati nativamente a 60 fps senza alcun drift audio.
+  Nel frattempo OP4 sta completando R3 con i parametri standard (`shift=1`).
