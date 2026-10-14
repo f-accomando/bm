@@ -5,7 +5,7 @@ state: FREE
 task: libero per nuove assegnazioni (AGY-09 chiuso)
 waiting_on: 
 progress: 100
-updated: 2026-10-14T13:15+02:00
+updated: 2026-10-14T13:31+02:00
 ---
 # AGY — Antigravity (AGY)
 
@@ -13,7 +13,7 @@ updated: 2026-10-14T13:15+02:00
 > Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`. Un file per autore: nessun conflitto.
 > **Aggiorna "Ultimo aggiornamento" almeno ogni 15 min** (o a ogni task conclusa); senza aggiornamenti per 60 min lo stato diventa `IDLE`.
 
-**Ultimo aggiornamento:** 2026-10-14 13:15 +02:00
+**Ultimo aggiornamento:** 2026-10-14 13:31 +02:00
 **Stato:** `FREE libero per nuove assegnazioni (AGY-09 chiuso)`
 **Heartbeat:** (1) Sì, subagent e schedulazione dedicati attivi; (2) Aggiornamento di sync/AGY.md garantito a ogni passo concluso (<=35 min) e prima/dopo ogni operazione estesa con orario previsto.
 
