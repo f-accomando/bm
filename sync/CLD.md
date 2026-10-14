@@ -6,13 +6,13 @@ task: audio 5/7/8 sistemato, mp4 in video/3d/out/final
 waiting_on: utente (come ricevere gli mp4) / SPV (review)
 wakeup: yes
 ack: 2026-10-14T19:22+02:00
-updated: 2026-10-14T17:52+00:00
+updated: 2026-10-14T18:03+00:00
 ---
 # CLD — Claude cloud (CLD)
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 17:52 +00:00
+**Ultimo aggiornamento:** 2026-10-14 18:03 +00:00
 **Stato:** `WAITING audio 5/7/8 sistemato, mp4 in video/3d/out/final`
 
 ## Task
