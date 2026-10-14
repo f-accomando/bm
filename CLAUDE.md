@@ -98,3 +98,17 @@ Prima di concludere qualsiasi attività o dichiarare completato un task:
 2. **Aggiornare le Regole**: Se è stato introdotto o modificato un vincolo architetturale, registrarlo in `## Rules (do not break)` del file d'area corrispondente.
 3. **Verifica Integrità**: Eseguire `python scripts/docs_audit.py score` per verificare l'assenza di link rotti o file orfani prima di terminare.
 4. **Coerenza**: se tocchi formati, API, chiavi di `config.txt`, menu/Settings o il comportamento di un solo kernel (Pi o RGB30), esegui `python scripts/consistency.py check` e aggiorna `docs/spec/` (`specs.toml`, `config-keys.toml`, `divergences.toml`); regole in `docs/spec/CONSISTENCY.md`. Tutto deve convergere prima della 1.0.0 (`consistency.py gate`).
+
+---
+
+## 6. Sync multi-operatore & Handshake
+
+Più agenti (Claude local/cloud, Antigravity, altri) lavorano in parallelo su un progetto con il protocollo di [`SYNC.md`](SYNC.md) (template; regole e lezioni in `docs/progress/sync.md`). Ogni progetto ha un **branch di sync** dedicato `sync/<nome>`: `SYNC.md`, `sync/*` e `tools/sync_hdr.py` vivono e si pushano solo lì, mai su `bm-core`, così sessioni di sync diverse non si toccano; il codice sta su branch di lavoro da `bm-core`.
+
+**"Fai handshake `<branch>`"** (dall'utente) = entrare nel sync di quel branch senza altre spiegazioni:
+1. `git fetch origin`, poi checkout di `<branch>` in un worktree o clone separato (non sul branch di lavoro) e `git pull --rebase`.
+2. Leggere `SYNC.md` (ruoli §1, contratti §2, work order §3, regole §3b/§3c) e `sync/operators.toml`; capire chi è il supervisore (SPV) e quale ID ti spetta (se non c'è, proponilo a SPV).
+3. Creare **solo** `sync/<ID>.md` da `sync/_template.md`: blocco di stato scritto con `python tools/sync_hdr.py <ID> --state FREE --task handshake`, `## Profilo` (dove giri e punti di rottura, modelli, subagent, strumenti con versione) e `## Requisiti` se §2 li elenca.
+4. Commit e `git pull --rebase origin <branch> && git push origin HEAD:<branch>`; poi aspettare l'assegnazione scritta da SPV in `SYNC.md`. **Non iniziare lavoro** prima.
+
+Regole fisse: un solo scrittore per file (`SYNC.md` solo SPV, `sync/<ID>.md` solo `<ID>`); aggiornare il proprio file ogni 15 min (un subagent per il battito, controllando solo il `git diff` dall'ultima copia vista) e a ogni task conclusa; task ≤45 min; l'agente principale resta libero; 60 min di silenzio senza `eta` = `IDLE`; righe di Log ≤600 caratteri; lo stato degli operatori in chat solo se l'utente lo chiede.
