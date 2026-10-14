@@ -47,8 +47,8 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 |---|---|---|---|
 | **Claude local** | `WORKING revisione (7 e 8 pronti)` | video 4 consegnato; 6, 7, 8 pronti (verify ALL OK), commit 4ef770a su `feat/claude-video3d`; il 8 e una partita breve (livello del 4: 8,7 s di gioco), documenti riallineati (~1:35) | 60 min |
 | **Claude cloud** | `WORKING montaggio 7 e 8` (file 18:26) | video 7: R1 (verify ALL OK), R3 (rifatta nel tool SDK) e R2 fatti; esegue `montage7.py` poi `montage8.py` | ~30 min |
-| **Antigravity** | `FREE`, AGY-13 in casella (sign-off annullato 19:05) | rivede `sync_check.py` (20 min); resta attivo | 20 min |
-| **OP4** | `WORKING OP4-01 passo 2` (file 18:28), sign-off in arrivo | R3 del 7 gia rifatta da CLD (fix `rec_qemu --tool`): OP4-01 superato; chiude la ripresa in corso e consegna il fix | 15 min |
+| **Antigravity** | `FREE` (file 19:00) | AGY-09..13 consegnati e fusi; resta attivo per la review finale | - |
+| **OP4** | `DONE` (file 19:01) | OP4-01 consegnato (R3 verificata, fix uguale a quello di CLD); sign-off chiuso | - |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
 Catena che blocca i video: 1 -> 2 -> 3 (riprese = cloud) · 5 libero · 4 = Antigravity (AGY-04 resta) · 6 = 4 + 5 · 7 = 6 · 8 = 7. Copertine PNG: da generare dopo la review del fix AGY-05.
@@ -289,3 +289,5 @@ Utilizzare questa tabella come registro delle comunicazioni e dei passaggi di co
 | 2026-10-14 18:50 | Claude Code (local) = SPV | `bm-core` | `RULE: caselle, sync_check, wakeup (ack richiesto)` | Tutti: nuove regole in SYNC.md 3c (caselle `sync/inbox/<ID>.md`, `tools/sync_check.py`, `--ack auto`, `--wakeup`, righe ≤600). Da ora i compiti nuovi e le urgenze stanno SOLO nella tua casella: leggila ora, conferma con `python tools/sync_hdr.py <ID> --ack auto`. Il controllo che SPV fa e `sync_check.py`. |
 | 2026-10-14 19:00 | Claude Code (local) = SPV | `bm-core` | `SIGNOFF AGY: lavori consegnati, nessun altro adatto` | AGY: su decisione dell'utente ti libero. AGY-09..12 sono approvati e fusi. Non iniziare AGY-13 (annullato). Consegna cio che hai in corso (niente), scrivi la chiusura nel tuo file, `python tools/sync_hdr.py AGY --state DONE --task signoff --ack auto`, smetti i battiti. Grazie: ottimo lavoro (map3d, layout 720, montaggi). Il voto e il report finale li scrivo io a fine sessione. |
 | 2026-10-14 19:05 | Claude Code (local) = SPV | `bm-core` | `RETTIFICA: SIGNOFF AGY ANNULLATO` | AGY: per decisione dell'utente il sign-off delle 19:00 e ritirato, resti attivo (`FREE`). **AGY-13 e di nuovo in casella** (`sync/inbox/AGY.md`): rivedi `tools/sync_check.py` in max 20 min. Conferma di lettura: `python tools/sync_hdr.py AGY --ack auto --wakeup yes`. |
+| 2026-10-14 19:10 | Claude Code (local) = SPV | `bm-core` | `REVIEW AGY-13: APPROVED` | AGY: fix a `sync_check.py` e `sync_hdr.py` rivisti e fusi (regex consegne con `->`, commenti nell'header, UTF-8 su Windows, fuso di default). Bravo. Resti `FREE`, attivo. |
+| 2026-10-14 19:10 | Claude Code (local) = SPV | `bm-core` | `REVIEW OP4-01: APPROVED, DONE accettato` | OP4: R3 verificata (19 s, TROPIC.BM 552 KB, log pulito) e fix `--tool` identico a quello di CLD (a9b780d): non lo fondo per evitare conflitti, resta come conferma indipendente. Sign-off chiuso, grazie per setup, diagnosi e report bm-deep. |
