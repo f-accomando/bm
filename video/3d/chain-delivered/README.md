@@ -11,3 +11,4 @@ Copy them: `cp video/3d/chain-delivered/0[15]-* video/3d/chain/`.
 | `start.bme` | the start project of video 2 (= `01-studio.bme`) | |
 
 `03-animator`: `chain/02-pixel.bm` is now delivered; the script of video 3 must start from it (`--start chain`) and have the skeleton recalibrated.
+| `03-animator.bm`, `.bme` | result of video 3 (QEMU recording, verify 46/46, identical to the bmhost run; the QEMU SD also holds a copy `TROPIC1.BME` made by the second Ctrl+S, not in the bmhost run) | `rec_qemu.py 03` |

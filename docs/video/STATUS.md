@@ -8,7 +8,7 @@ Fonti: [`PIANO.md`](PIANO.md), [`../../SYNC.md`](../../SYNC.md). Aggiornare ques
 |---|---|---|---|---|---|---|---|---|
 | 1 Studio | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], record+verify [x] (bmhost) | [x] QEMU 1920x1080 60 fps, verify PASS | [ ] | [ ] |
 | 2 Pixel | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], record+verify [x] (bmhost) | [x] QEMU 1080p60, verify ALL OK | [ ] | [ ] |
-| 3 Animator | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], record+verify [x] (bmhost) | [ ] | [ ] | [ ] |
+| 3 Animator | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], record+verify [x] (bmhost) | [x] QEMU 1080p60, verify 46/46 | [ ] | [ ] |
 | 4 Map | [x] provvisorio | [x] provvisorio | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO | BLOCCATO | BLOCCATO |
 | 5 Sound | [x] | [x] | json [x], PNG [ ] | [x] | doc [x], record+verify [x] (bmhost) | [ ] | [ ] | [ ] |
 | 6 SDK | [x] provvisorio (import da risolvere) | [x] provvisorio | json [x], PNG [ ] | [x] | doc [x] | BLOCCATO (4) | BLOCCATO | BLOCCATO |
