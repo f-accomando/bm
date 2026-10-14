@@ -138,7 +138,7 @@ def build_script():
     # ---------------------------------------------------------------- 0:38 Chapter 4: Floor and holes
     s.until(38, "Floor and holes")
     s.chapter("Floor and holes")
-    s.say("Pick a grass tile with Tab. The big brush is on: one tile is one unit of world. Shift W sets the width, Shift P draws the path between two cells. A cell left empty is a hole.", frames=27 * FPS)
+    s.say("The big brush is on, and the grass tile is ready: one tile is one unit of world. Shift W sets the width, Shift P draws the path between two cells. A cell left empty is a hole.", frames=27 * FPS)
     s.scene("Map > floor", [("Tab", "tile"), ("Shift+W", "width"), ("Shift+P", "path")])
     s.sec(0.5)
     move("right", 6)
@@ -172,7 +172,7 @@ def build_script():
     # ---------------------------------------------------------------- 1:28 Chapter 6: Apples, crates, lanterns, start and goal
     s.until(88, "Apples, crates, lanterns, start and goal")
     s.chapter("Apples, crates, lanterns, start and goal")
-    s.say("Shift A lays a row of apples. Shift C puts a crate on a cell. Shift O adds a lantern. Start and goal are tiles from the chooser: put them at the two ends.", frames=25 * FPS)
+    s.say("Shift A lays a row of apples. Shift C puts a crate on a cell. Shift O adds a lantern.", frames=25 * FPS)
     s.scene("Map > objects", [("Shift+A", "apples"), ("Shift+C", "crate"), ("Shift+O", "lamp")])
     s.sec(0.5)
     k("l", "Layer objects", "l", 25)
