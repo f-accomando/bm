@@ -5,8 +5,8 @@ Narrazione e didascalie in inglese, prosa di servizio in italiano. Fonti: `manua
 `docs/api/light3d.md` (firme di `light3d`, `sky3d`, `lamp3d`, `fog3d`, `shadow3d`, `draw3d`), `carts/editor/main.lua` (template `models3d`), `SYNC.md` §2 (lampada `LAMP`).
 Altri file: [`shot-list.md`](shot-list.md), [`youtube.md`](youtube.md), [`input.md`](input.md), [`cover.json`](cover.json).
 
-> **Stato: BLOCCATO per la registrazione finale.** Riceve l'output del video 4 (`chain/04-map.bm`), che dipende dall'editor mappa 3D (`SYNC.md` AGY-01..03) e dalle API `map3d_*`
-> (non ancora implementate). Le prove usano una mappa fatta a script, **mai nel video finale** (vedi `input.md`).
+> **Stato: script provati** (`video/3d/06-sdk/record.py`, `verify.py` ALL OK). La mappa 3D esiste (`map3d_*` implementate): `start.bm` = mappa del video 4 + AUDIO del video 5 + `preview.lua`
+> (`merge.py` scrive `out/start.bm` e `out/start.bme`). Il progetto si apre come **TROPIC.BME** (vedi `input.md`).
 
 ## Struttura del video finale
 
@@ -18,7 +18,7 @@ Altri file: [`shot-list.md`](shot-list.md), [`youtube.md`](youtube.md), [`input.
 | Chiusura | 2:52-3:00 | scheda "Next: bm Code", voce fuori campo |
 
 Riceve: `video/3d/chain/04-map.bm` (mappa) e `video/3d/chain/05-sound.bm` (suono), uniti in `start.bm` da uno script (merge deterministico, in `input.md`).
-Produce: `video/3d/chain/06-sdk.bm` (progetto assemblato: luci, ombre, nebbia, codice minimo di anteprima), costruito con `Ctrl+B`.
+Produce: `video/3d/06-sdk/out/06-sdk.bm` (il gioco: lo stesso file del progetto senza il flag progetto, scritto da `record.py` per R2; `bmhost --tool` non esegue `Ctrl+B`).
 
 ## Gancio (5-8 s)
 
@@ -31,16 +31,16 @@ Voce: *"From a flat stage to a glowing jungle. Six lines of Lua."* (le sei righe
 |---|---|---|
 | 0:00 | Gancio: la scena finita | From a flat stage to a glowing jungle. Six lines of Lua. |
 | 0:06 | Scheda titolo | (nessuna voce) |
-| 0:10 | `Ctrl+O`, `Enter`; `F1`: CONTENTS con codice, mappa, modelli, animazione, suono; `F4`: PICO, APPLE, CRATE; `F3` `F3`: i layer della mappa | bm SDK is where everything comes together. This cartridge already holds the models, the map and the sounds from the earlier videos. |
+| 0:10 | `Ctrl+O`, `Enter` (apre `TROPIC.BME`); `F1`: CONTENTS con codice, mappa, modelli, animazione, suono; `F4`: PICO, APPLE, CRATE; `F3` `F3`: i layer della mappa | bm SDK is where everything comes together. This cartridge already holds the models, the map and the sounds from the earlier videos. |
 | 0:22 | `Ctrl+N`: elenco dei template; `3D with models`; poi `F2`: il codice del template | A new project starts from a template. Control N lists them. We use 3D with models: it draws the models of the project and plays their animation. |
 | 0:34 | `F1`, `r`: la schermata passa a 480x270 | Press R on the project page: 480 by 270. It scales exactly four times to 1080p, and it has almost half the pixels of 640 by 360. |
 | 0:46 | `F2`: si scrive `sky3d(...)` | Light first. The template already sets the sun's direction and the ambient level with light3d. sky3d adds three colours: the sun, the sky above, the ground below. |
 | 1:04 | Si scrive `fog3d(...)` | fog3d fades the faces into a colour between two distances: twelve to forty units, the colour of the horizon, so the corridor melts away. |
 | 1:20 | Si scrive `lamp3d(...)` | A lantern: lamp3d number one, at the lamp the map marked. Radius four, warm orange, a little extra light. Up to four at once. |
-| 1:36 | Si scrive `shadow3d(1)` e la riga `draw3d(..., 8)` | A shadow is the same model drawn again with flag eight, flattened on the ground. shadow3d one makes it dithered black. |
-| 1:54 | `Ctrl+Shift+S`, nome TROPIC; `F5`: l'anteprima, Pico corre da solo | Save it with a name, then F5 saves and runs. Pico runs on his own through light, fog and shadow. |
+| 1:36 | Si scrive `shadow3d(1)` e la riga `draw3d(pico, px - 0.75, py, pz, 0, 0, 0, 0.5, 8)` | A shadow is the same model drawn again with flag eight, flattened on the ground. shadow3d one makes it dithered black. |
+| 1:54 | `Ctrl+S` salva `TROPIC.BME`; `F5` (solo sovrimpressione); poi la cartuccia in esecuzione (R2): Pico corre da solo | Save it with a name, then F5 saves and runs. Pico runs on his own through light, fog and shadow. |
 | 2:14 | `F1`, `F1`: la pagina del dev kit | Why 480 by 270? At sixty frames a second a frame has sixteen milliseconds. Fewer pixels means less to fill, and the dev kit shows the frames that go over. |
-| 2:30 | `Ctrl+B`: "built TROPIC: it is in Games"; scheda con la tabella dei valori | Control B builds the game. These are the values we used. The next video puts them to work. |
+| 2:30 | `Ctrl+B` (R3 registra il tasto e la pagina dev kit); scheda con la tabella dei valori | Control B builds the game. These are the values we used. The next video puts them to work. |
 | 2:52 | Scheda di chiusura | Next: bm Code. Pico moves, jumps, spins and collects apples. |
 
 ## Valori usati
@@ -50,11 +50,11 @@ Voce: *"From a flat stage to a glowing jungle. Six lines of Lua."* (le sei righe
 | `r` (pagina progetto) | 640x360 -> **480x270** | dimensione dello schermo del gioco | decisione M33: 129600 pixel, il 56% di 640x360 (230400); 4x esatto su 1080p (480x4 = 1920, 270x4 = 1080) |
 | `light3d(x, y, z, ambient)` | `-0.4, 0.8, -0.5, 0.45` | direzione del sole e luce ambiente (0-1) | gli stessi valori del template `3D with models` (`carts/editor/main.lua`) |
 | `sky3d(sun, sky, ground)` | `0xFFE8B0, 0x80B8E8, 0x486038` | colore del sole, dell'ambiente da sopra, da sotto | sole caldo, cielo azzurro, rimbalzo verde dell'erba sulle facce rivolte in basso |
-| `fog3d(colour, near, far)` | `0xA8D0C0, 12, 40` | le facce sfumano nel colore tra le due distanze | colore uguale a `cls()` per non vedere il bordo; 40 unita' = cio' che il gioco disegna davanti a Pico; **valori di partenza da tarare in prova** |
+| `fog3d(colour, near, far)` | `0xA8D0C0, 12, 40` | le facce sfumano nel colore tra le due distanze | colore uguale a `cls()` per non vedere il bordo; 40 unita' = cio' che il gioco disegna davanti a Pico |
 | `lamp3d(i, x, y, z, radius, k, colour)` | `1, l.x, l.y + 1.2, l.z, 4, 0.8, 0xFFC888` | luce puntiforme 1 (di 1-4) | raggio 4 e colore `0xFFC888` sono il contratto di `LAMP` in `SYNC.md` §2; `k` 0.8 = un po' meno del massimo (1) per non bruciare il verde; 1.2 unita' sopra il suolo |
 | `shadow3d(style)` | `1` | ombre di `draw3d` con flag 8 | 1 = nero a retino, senza leggere lo schermo; la GPU disegna sempre cosi' |
-| `draw3d(m, x, y, z, rx, ry, rz, scale, flags)` | `pico, px, py, pz, 0, 0, 0, 1, 8` | con flag 8 disegna **solo l'ombra** sul piano `y` del punto | `py` e' la quota del suolo (`map3d_height`), si disegna due volte: prima l'ombra, poi Pico |
-| `camera3d(x, y, z, yaw, pitch, fov)` | `px, py + 2.4, pz - 5, 0, -0.32, 60` | camera dietro e sopra Pico, guarda verso z crescente | fov 60 e' il valore di partenza della camera |
+| `draw3d(m, x, y, z, rx, ry, rz, scale, flags)` | `pico, px - 0.75, py, pz, 0, 0, 0, 0.5, 8` | con flag 8 disegna **solo l'ombra** sul piano `y` del punto | `py` e' la quota del suolo (`map3d_height`), si disegna due volte: prima l'ombra, poi Pico (`draw3d(pico, px - 0.75, py, pz, 0, 0, 0, 0.5)`). Pico e le mele sono a scala 0.5 e Pico e' spostato di mezza larghezza (0.75) perche' il corridoio del video 4 e' largo 3 unita' (`px = 7.5`) |
+| `camera3d(x, y, z, yaw, pitch, fov)` | `px, py + 3.2, pz - 6, 0, -0.35, 60` | camera dietro e sopra Pico, guarda verso z crescente | valori di `preview.lua`; fov 60 |
 | `cls(colour)` | `0xA8D0C0` | sfondo | uguale alla nebbia |
 
 ## Perche' 60 fps a 480x270
@@ -87,13 +87,9 @@ Voce: *"From a flat stage to a glowing jungle. Six lines of Lua."* (le sei righe
 2:30 Build with Ctrl+B
 ```
 
-## [DA VERIFICARE] di questo video
+## Note risolte dagli script (`video/3d/06-sdk/`)
 
-- **Come portare modelli, mappa e suoni in un progetto da template.** In `carts/editor/main.lua` `new_project()` chiama `cart_new()` e azzera tutto: `Ctrl+N` + template **non** conserva i modelli. La Lib tab (`Copy into a project...`) e' nascosta (`lib_tab=1`) e `bmhost` non ha il menu del kernel. Soluzione provvisoria usata nei documenti: `start.bm` contiene gia' il codice del template (adattato), e il video mostra l'elenco con `Ctrl+N` senza confermare (`Esc`). Da decidere con l'utente.
-- Se `Esc` chiude l'elenco dei template senza cambiare il progetto.
-- Movimento del cursore nell'editor di codice F2 (quanti `↓`, effetto di `End` e `Enter`, rientro automatico).
-- Il nome proposto da *Save as* (`MYGAME.BME`) si cancella digitando o va cancellato con Backspace; nome finale `TROPIC`.
-- `F5` e `Ctrl+B` sotto `bmhost --tool`, e dove finisce il `.bm` costruito.
-- Cosa mostra `LAST TRY` dopo una prova sotto `bmhost` (orologio virtuale).
-- Direzione in cui guarda Pico (rotazione `ry`) e yaw 0 della camera verso z crescente.
-- Editor mappa 3D e API `map3d_*`: non esistono ancora (AGY-01..03).
+- `Ctrl+N` + template non conserva i modelli: `start.bme` contiene gia' il codice del template (adattato) e il video mostra l'elenco con `Ctrl+N` senza confermare (`Esc`).
+- Il cursore raggiunge ogni marcatore contando le righe di `preview.lua` (`record.py`, `move()`); `End`, `Enter`, poi la riga digitata.
+- Il progetto si apre come `TROPIC.BME`; `Ctrl+S` salva. `F5` e' solo una sovrimpressione; `Ctrl+B` non costruisce sotto `bmhost --tool`: il gioco lo scrive `record.py`.
+- Resta da misurare sulla console cosa mostra `LAST TRY` (`bmhost` ha l'orologio virtuale).
