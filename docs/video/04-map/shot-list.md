@@ -25,7 +25,9 @@ dal vivo con `bmhost` e screenshot (`video/3d/04-map/proto.py`). Le sotto-righe 
 | 18 | 1:20 | Map ▸ `walls` | `l` | barra di stato: layer `walls` | Layer walls |
 | 19 | 1:23 | Map ▸ `walls` | `.`, `Space` | un blocco solido | Space · a solid block |
 | 20 | 1:28 | Map ▸ `objects` | `l` | layer `objects` | Layer objects |
-| 21 | 1:31 | Map ▸ `objects` | `Shift+A`, `Invio`, giù ×6, `Invio` | una fila di mele (segnaposto 1026) | Shift+A · a row of apples |
+| 20a | 1:30 | Map ▸ `objects` | su ×15, `Shift+S` | la partenza del livello (segnaposto 1024) | Shift+S · the start |
+| 20b | 1:31 | Map ▸ `objects` | giù ×19, `Shift+G` | il traguardo all'altro capo (segnaposto 1030) | Shift+G · the goal |
+| 21 | 1:34 | Map ▸ `objects` | su ×15, `Shift+A`, `Invio`, giù ×6, `Invio` | una fila di mele (segnaposto 1026) | Shift+A · a row of apples |
 | 22 | 1:42 | Map ▸ `objects` | `Shift+C` | una cassa (segnaposto 1028) | Shift+C · a crate |
 | 23 | 1:46 | Map ▸ `objects` | giù ×2, `Shift+O` | una lanterna (segnaposto 1032) | Shift+O · a lantern |
 | 24 | 1:55 | Map ▸ `objects` | (nessuno) | barra di stato: mele, casse, lanterne, triangoli | Counts and triangles |
@@ -43,5 +45,5 @@ dal vivo con `bmhost` e screenshot (`video/3d/04-map/proto.py`). Le sotto-righe 
 ## Tasti del video
 
 `Ctrl+O` poi `Invio`, `F3` poi `F3` (pagina Map), `T` modello 3D, `l` layer successivo, `Shift+W` larghezza del percorso, `Shift+P` percorso, `Invio` estremi,
-`Backspace` svuota, `m` panoramica, `.` valore successivo, `Space` posa, `Shift+A` mele, `Shift+C` casse, `Shift+O` lanterne, `Ctrl+Z` annulla l'ultimo tratto,
+`Backspace` svuota, `m` panoramica, `.` valore successivo, `Space` posa, `Shift+S` partenza, `Shift+G` traguardo, `Shift+A` mele, `Shift+C` casse, `Shift+O` lanterne, `Ctrl+Z` annulla l'ultimo tratto,
 `v` anteprima 3D (`←` `→` orbita, `↑` `↓` zoom), `Ctrl+S`, `Ctrl+B`. Non usati: `z` (alterna il pennello) e le frecce con Shift (non digitabili via seriale).

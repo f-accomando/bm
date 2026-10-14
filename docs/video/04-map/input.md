@@ -22,7 +22,7 @@ digitare via seriale e non sono usate.
 
 Formato `FRAME type CODICI`, righe **in ordine di frame**, generato da `Script` di `bmvideo.py` (`record.py`, anche `--build-only`). Codici: frecce `\xf0 \xf1 \xf2 \xf3`;
 `F3` = `\xfb`; Esc `\x1b`; Invio `\n`; Backspace `\x7f`; Spazio `\x20`; Tab `\x09`; `Ctrl+S` `\x13`; `Ctrl+B` `\x02`; `Ctrl+O` `\x0f`; `Ctrl+Z` `\x1a`.
-`Shift+lettera` = la **lettera maiuscola** digitata (`T`, `W`, `P`, `A`, `C`, `O`): così arriva all'editor, provato con `bmhost`.
+`Shift+lettera` = la **lettera maiuscola** digitata (`T`, `W`, `P`, `S`, `G`, `A`, `C`, `O`; `Shift+S` e `Shift+G` = `S` e `G` maiuscole): così arriva all'editor, provato con `bmhost`.
 Mappa tempi → frame (frame = secondi × 60): vedi la colonna "Tempo" di [`shot-list.md`](shot-list.md). Capitoli a 0:00, 0:08, 0:20, 0:38, 1:05, 1:28, 1:55, 2:10, 2:40, 2:55; totale 3:15.
 
 ## 4. File prodotto
@@ -37,5 +37,5 @@ le sezioni MAP, LAYERS e FLAGS. Consumato dai video 6 e 7 (il video 6 lo fonde c
 1. mappa 256×256 e layer esattamente `floor`, `height`, `walls`, `objects`;
 2. `floor`: corridoio di almeno 3 celle di larghezza e 10 righe, con una buca;
 3. `height` e `walls`: almeno un gradino e un blocco;
-4. `objects`: mele `1026`, una cassa `1028`, una lanterna `1032` (rimessa dopo `Ctrl+Z`);
+4. `objects`: partenza `1024` (`Shift+S`) e traguardo `1030` (`Shift+G`), mele `1026`, una cassa `1028`, una lanterna `1032` (rimessa dopo `Ctrl+Z`);
 5. MESH, ANIM e SHEET del video 3 mantenute; `TROPIC.BM` ha gli stessi layer e mappa; `bm_forge check` senza errori.
