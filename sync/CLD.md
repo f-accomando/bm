@@ -2,25 +2,24 @@
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 16:09
-**Stato:** `WORKING video 4 rifatto + video 6 R1` (2 riprese in parallelo; fine 4 prevista 17:15-17:25)
+**Ultimo aggiornamento:** 2026-10-14 16:53
+**Stato:** `WORKING video 4 rifatto + video 7 R1` (video 6 montato, 180 s; 2 riprese in parallelo)
 
 ## Task
 - Video 1, 2, 3, 5 registrati in QEMU 1080p60 e verificati; consegne in `video/3d/chain-delivered/`.
 - Video 4: ripresa della versione definitiva (3beab1f) in corso: `record.py` rigenerato (195 s, 0 righe LATE, editor ricostruito con mkbm.py), `rec_qemu.py 04 --shift 1` avviata alle 11:06. Con -icount la ripresa dura ~70 min (non 15). Poi: `verify.py` sulla SD estratta e consegna `chain-delivered/04-map.bm`.
 
 ## Progressi
-- **Errore mio**: ho letto la riga urgente delle 14:25 (Shift+S/G, 36b5d6b) solo alle 15:50. Il video 4 che ho consegnato alle 15:38 (da 3beab1f) NON ha partenza e traguardo: `chain-delivered/04-map.*` e `chain/04-map.*` sono da scartare. Rifatto: worktree /tmp/w4 = mio branch + `origin/feat/claude-video3d` @ bb3b55b, kernel ricostruito (tool_start=8 nel kernel.img), `record.py` 195 s, 0 righe LATE, overlay con Shift+S/Shift+G. Ripresa partita 16:04, fine prevista 17:15-17:25, poi verify (1024/1030) e nuova consegna (subagent bm-ops).
-- Parallelismo (richiesta 14:55): **si, il mio ambiente (4 core, 15 GB) regge 2 riprese**: `rec_qemu` usa un display X per episodio. Ora girano 4 e 6-R1. Le attese le fanno subagent bm-ops; io resto libero.
-- Video 6 R1: partito 15:42 con la mappa di partenza **vecchia** (chain/04-map.bm senza partenza/traguardo); non l'ho potuto fermare (il kill e stato negato dal sistema). Finisce ~16:25; se serve la rifaccio con `chain-real/04-map-populated.bme` copiata come `chain/04-map.bm`.
-- `rec_qemu.py --take r1|r3` e `serial.log` committati su `feat/claude-video3d-rec` (ff965ce).
+- **Video 6 fatto**: R1 (7020 frame, 0 persi, verify ALL OK, mappa vecchia come da tua risposta 16:25), R3 (3060 frame, 0 persi, `TROPIC.BM` costruito), R2 da bmhost in video (480x270 x4, didascalie in basso). `montage.py` (commit su `feat/claude-video3d-rec`) produce `06-sdk/out/ep06.mp4`: 1920x1080 60 fps, **180.0 s**, senza audio (file in /tmp/w6, 14 MB, non nel repo). Scelte mie da confermare: scheda finale "Next: bm Code" 8 s (senza, 172 s), banner del gancio "TODAY: LIGHT, FOG AND SHADOW" (gancio = R2 da 4 s per 6 s), scheda "Valori usati" a 2:34 saltata, didascalie di R2 solo in basso.
+- **Video 4 rifatto con Shift+S/G**: in corso dalle 16:04 (/tmp/w4), fine prevista 17:15-17:25; poi verify e consegna.
+- **Video 7 R1** (bm Code, 205 s, 2 righe LATE di `record.py` a 202 s): partito 16:52 da `06-sdk` bmhost con mappa start/goal, fine prevista ~18:00. Poi R3 (SDK, 14 s) e R2 (gioco da bmhost).
+- Montaggio del 6: `python3 video/3d/06-sdk/montage.py [--r2-only|--skip-r2]`.
 
 ## Problemi
-- Nessun blocco. Da decidere (SPV): R2/R3/montaggio del video 6 (domande sotto).
+- Nessuno. Il sistema mi nega il `kill`: non posso fermare riprese gia partite.
 
 ## Richieste
-- Domande aperte sul video 6 (R3 apre un progetto vuoto; R2 senza strumento; montaggio): vedi sotto, invariate. Prima di rifare R1 del 6 attendo il tuo ok sulla mappa di partenza.
-- Sezioni `Considerazioni sul sync` e `Profilo` (richieste 15:12 e 15:25): le aggiungo nel prossimo giro.
+- SPV: conferma delle scelte sul montaggio del 6 (sopra). Il montaggio finale del video 8 (clip 1-7) lo preparo dopo il 7.
 
 ## Considerazioni sul sync
 Funziona: un file per operatore (zero conflitti), riga "Ultimo aggiornamento", richieste "cosa serve / cosa ho provato / cosa ho misurato", prove brevi prima di quelle lunghe (50 s al posto di 70 min).
