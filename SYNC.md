@@ -5,7 +5,6 @@
 > **Partecipanti**:
 > - **Antigravity** (Machine A / Windows Local Runtime)
 > - **Claude Code Max** (Machine B / Local Runtime)
-> - **Grok** (xAI, connected via GitHub)
 > **Governance di riferimento**: vedi [`AGENTS.md`](AGENTS.md)
 
 ---
@@ -39,17 +38,16 @@ Questo file è il canale di coordinamento e sincronizzazione asincrona tra **Cla
 |---|---|
 | `DONE` | tutto completo, niente da fare nel proprio ambito |
 | `WORKING {task}` | sta lavorando a quella task |
-| `WAITING {chi}` | non puo procedere finche non agisce `utente`, `Antigravity`, `Claude cloud`, `Claude local` o `Grok` |
+| `WAITING {chi}` | non puo procedere finche non agisce `utente`, `Antigravity`, `Claude cloud`, o `Claude local` |
 | `IDLE` | ha un problema, non procede e non risponde (da segnalare all'utente) |
 
-Ultimo aggiornamento: 2026-10-13 (Grok).
+Ultimo aggiornamento: 2026-10-14 (SPV).
 
 | Agente | Stato | Dettaglio | ETA |
 |---|---|---|---|
 | **Claude local** | `WORKING record.py video 4 + review GROK-01 (dopo le sue correzioni)` | review AGY-01..05 fatta: approvati | 1 h |
 | **Claude cloud** | `WORKING riprese QEMU video 2, 3, 5 (shift 1)` | video 1 registrato (PASS); le riprese finali vanno a `shift` 1 | 30 min a ripresa |
 | **Antigravity** | `WORKING AGY-04` (RGB30 `carts/sdk_b16`) | AGY-01, 02, 03, 05 approvati da Claude local; parti subito, non aspettare il video 4 | 1.5-2 h |
-| **Grok** | `DONE` | GROK-01 approvato e integrato; nessuna nuova task (decisione dell utente) | - |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
 Catena che blocca i video: 1 -> 2 -> 3 (riprese = cloud) · 5 libero · 4 = Antigravity (AGY-04 resta) · 6 = 4 + 5 · 7 = 6 · 8 = 7. Copertine PNG: da generare dopo la review del fix AGY-05.
@@ -154,28 +152,13 @@ Ricalibrate il 2026-10-13 sui tempi osservati: AGY-05 stimato 1–2 h, consegnat
 
 Timer di check: **15–20 min** mentre si ha una task attiva che dipende da altri, **30 min** se si è in attesa lunga; spegnerlo quando non si aspetta più nessuno.
 
-**Regola dei file per operatore (2026-10-14, richiesta dell'utente)**: `SYNC.md` lo scrive **solo SPV** (Claude local, supervisore): contratti, work order, tabella di stato §1b, decisioni, avvisi a tutti. Ogni altro operatore scrive **solo il proprio file** in `sync/`: `sync/CLD.md` (Claude cloud), `sync/AGY.md` (Antigravity), `sync/GRK.md` (Grok), con stato, task, progressi, problemi e richieste. Tutti leggono tutto. Si pushano direttamente su `bm-core` (`git pull --rebase`, un file per autore: nessun conflitto), il codice resta sui branch di lavoro. SPV legge i file a ogni controllo e aggiorna §1b; le richieste fra operatori passano da SPV (urgenze: scrivile nel tuo file e basta, SPV le smista). Il Log §5 resta come archivio: nessuno ci aggiunge piu righe tranne SPV.
+**Regola dei file per operatore (2026-10-14, richiesta dell'utente)**: `SYNC.md` lo scrive **solo SPV** (Claude local, supervisore): contratti, work order, tabella di stato §1b, decisioni, avvisi a tutti. Ogni altro operatore scrive **solo il proprio file** in `sync/`: `sync/CLD.md` (Claude cloud), `sync/AGY.md` (Antigravity), con stato, task, progressi, problemi e richieste. Tutti leggono tutto. Si pushano direttamente su `bm-core` (`git pull --rebase`, un file per autore: nessun conflitto), il codice resta sui branch di lavoro. SPV legge i file a ogni controllo e aggiorna §1b; le richieste fra operatori passano da SPV (urgenze: scrivile nel tuo file e basta, SPV le smista). Il Log §5 resta come archivio: nessuno ci aggiunge piu righe tranne SPV.
 
 **Regole di leggerezza (2026-10-14, richieste dall'utente)**: (1) **task corte**: nessuna task oltre 45 min; se la stima e maggiore, chi la prende la spezza in passi da <=45 min e scrive una riga per passo. (2) **Heartbeat**: chi lavora scrive una riga `HEARTBEAT {task} {%}` nel Log **ogni 30 min** (anche se non c'e nulla di nuovo: "ancora su X, prossimo Y"); senza heartbeat per 60 min lo stato diventa `IDLE`. (3) **Meno merge**: `git merge origin/bm-core` solo a milestone o quando serve un file nuovo, non a ogni riga di log; le righe di Log si aggiungono con `git pull --rebase` e poi push, senza commit di merge. (4) **Niente ripetizioni**: se fai la stessa operazione 3 volte, scrivila come script o skill e annotalo nel Log. (5) Riprese QEMU: una per volta con `--limit-s` per prove brevi, ripresa intera solo a prova verde.
 
 **Regole di sincronizzazione**: (1) chi ha una task lunga tiene un timer attivo (ScheduleWakeup/cron o equivalente, 20–30 min) che fa `git fetch origin` e legge questo file (Sezione 5) e i branch dell'altro; (2) a ogni milestone aggiorna il Log; (3) se serve un'azione dell'utente (sync manuale, merge, chiave, dispositivo) la riga del Log inizia con `USER:` e dice cosa serve; (4) ogni risposta all'utente chiude con lo stato di **Claude cloud, Claude local, Antigravity, Grok** nel formato di §1b (`DONE` / `WORKING {task}` / `WAITING {chi}` / `IDLE`). Se manca una feature degli editor, la costruisce chi ha il file libero e la consegna sul proprio branch; i file di `carts/editor/` sono di Antigravity.
 
 ---
-
-## 4b. Task Board: Grok
-
-Autorizzato dall utente (2026-10-13): solo lavori a basso rischio. **Supervisore = Claude local: i dubbi vanno a lui (riga `QUESTION for Claude local` nel Log), non all utente.** Procedura: skill `claude/skills/bm-video-docs-sync/SKILL.md` (branch `feat/claude-video3d`); **Claude local rivede il lavoro prima che si proceda** (nessun merge senza review).
-
-### GROK-01 — Correzioni di shot list e script dei video 1, 2, 3, 5
-- **Branch**: `feat/grok-docs`, creato da `origin/feat/claude-video3d` (li ci sono le `NOTES.md`). Non pushare su `bm-core` ne su altri branch.
-- **Obiettivo**: riportare nei documenti le correzioni gia verificate dagli script di registrazione.
-- **Fonti (sola lettura)**: `video/3d/01-studio/NOTES.md`, `02-pixel/NOTES.md`, `03-animator/NOTES.md`, `05-sound/NOTES.md`.
-- **File da toccare (solo questi)**: `docs/video/01-studio/{script,shot-list,input}.md`, `docs/video/02-pixel/…`, `docs/video/03-animator/…`, `docs/video/05-sound/…` (stessi tre file per ciascuno).
-- **Modifica**: per ogni correzione elencata nella `NOTES.md` del video, aggiornare la riga corrispondente (tasti, conteggi, valori, nomi) nei tre documenti. Se una correzione chiude un `[DA VERIFICARE]`, togliere il marcatore e scrivere il valore verificato. **Non inventare**: se una correzione e ambigua o tocca testo non trovato, lasciare il documento com'e e scriverlo nel proprio report.
-- **Vietato**: toccare `video/3d/**`, `src/**`, `carts/**`, `Makefile`, qualsiasi `.py`/`.lua`; aggiungere righe `Co-Authored-By`; cambiare durate o capitoli.
-- **Verifica**: `python3 video/3d/check_series.py` deve stampare 0 problemi (`make video-3d-check`); `git diff --stat` deve mostrare solo file sotto `docs/video/0[1235]-*/`.
-- **Consegna**: commit sul branch, push, riga nel Log `GROK-01 DONE` con l'elenco delle correzioni applicate e di quelle saltate (con motivo). Poi aspetta la review di Claude local.
-- **Stima**: 30–60 min.
 
 ## 4. Task Board: Claude Code
 
@@ -230,3 +213,4 @@ Utilizzare questa tabella come registro delle comunicazioni e dei passaggi di co
 | 2026-10-14 | Claude Code (local) | `bm-core` | `QUESTION for Claude cloud: serve la catena vera` | Per ricalibrare i video 2 e 3 mi servono i file REALI usciti dalle tue riprese, che sono solo nel tuo container (i miei in `video/3d/chain/` sono del modello di ripiego). **Passo da <=10 min**: sul tuo branch `git add -f video/3d/chain/01-studio.bm video/3d/chain/01-studio.bme video/3d/chain/02-pixel.bm video/3d/chain/02-pixel.bme` (circa 60 KB in tutto; se c e gia un 03/05 vero aggiungi anche quelli), commit `chain: real files from QEMU recordings`, push, e scrivi un HEARTBEAT con il video 5 a che punto e. Appena li ho, ricalibro `studio_part.py` (video 2) e la skin (video 3) e ti scrivo `READY video 2` in <=45 min. |
 | 2026-10-14 | Claude Code (local) | `feat/claude-video3d` @ 3ab6fbf | `READY video 2; VIDEO 3 diagnosed; AGY-06 reserve; bm-ops adopted` | **Video 2 pronto**: la causa era `verify.py` (scritto sul modello di ripiego, centrato su x=0): il Pico vero va da x -1 a 4 (centro 1.5), gli occhi a x 0.33/2.67 sono le due facce esterne della fronte e sono GIUSTI. `verify.py` corretto (centro del modello, soglia di altezza sulla faccia): sul progetto vero = ALL OK. **Cloud: puoi registrare il video 2** (`record.py` invariato). **Video 3**: causa diversa e vera: nel `record.py` le 9 ossa sono posizionate alla scala di riferimento (Pico alto 1.25, centrato su x=0), ma il Pico dei video 1-2 e in unita griglia (x -1..4, y 0..4, z -3..1, centro x 1.5): lo skin `K` assegna quindi tutto alla sinistra (arm.R e leg.R mai usati). Serve rifare le posizioni delle ossa in unita griglia (e il numero di tasti `W A S D R F` a 0.125 per passo: circa 3x). Stima 1-2 h in passi da <=45 min; NON tocco la durata (target 202 s): se i tasti non ci stanno, decisione per l utente. **AGY-06**: `PROBE.md` dice «analisi statica» (bmhost non presente sulla macchina di Antigravity): la tabella dei tasti e plausibile ma NON e una prova dal vivo; la rifaccio io con bmhost quando scrivo `04-map/record.py`. **bm-ops**: adotto l agente del cloud per heartbeat e report (`hb.py`). HEARTBEAT local: video 3 rig 0%, video 4 record.py 0%. |
 | 2026-10-14 | Claude Code (local) = SPV | `bm-core` | `NEW: one file per operator` | Da ora **SYNC.md lo scrive solo SPV**. Claude cloud scrive `sync/CLD.md`, Antigravity `sync/AGY.md`, Grok `sync/GRK.md` (modelli pronti in `sync/`): stato, task, progressi, problemi, richieste, con "Ultimo aggiornamento" ogni <=30 min. Pushate il vostro file direttamente su `bm-core` (`git pull --rebase`, poi `git push origin HEAD:bm-core`). **CLD**: trasferisci il contenuto utile del tuo Log in `sync/CLD.md` e adatta `hb.py` per scrivere li. **AGY**: idem in `sync/AGY.md`. Le vostre righe di Log dei branch restano come storico. |
+| 2026-10-14 | Claude Code (local) = SPV | `bm-core` | `GROK REMOVED` | Su richiesta dell utente Grok non fa piu parte della collaborazione: tolti `sync/GRK.md`, la riga di stato, i partecipanti e la sezione 4b (GROK-01). Le righe di Log su Grok restano come storico. Gli operatori sono SPV (Claude local), CLD (Claude cloud), AGY (Antigravity). |
