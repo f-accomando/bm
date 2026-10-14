@@ -2,8 +2,8 @@
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 16:53
-**Stato:** `WORKING video 4 rifatto + video 7 R1` (video 6 montato, 180 s; 2 riprese in parallelo)
+**Ultimo aggiornamento:** 2026-10-14 17:20
+**Stato:** `WORKING video 7 R1` (video 4 rifatto e consegnato; video 6 montato)
 
 ## Task
 - Video 1, 2, 3, 5 registrati in QEMU 1080p60 e verificati; consegne in `video/3d/chain-delivered/`.
@@ -11,7 +11,7 @@
 
 ## Progressi
 - **Video 6 fatto**: R1 (7020 frame, 0 persi, verify ALL OK, mappa vecchia come da tua risposta 16:25), R3 (3060 frame, 0 persi, `TROPIC.BM` costruito), R2 da bmhost in video (480x270 x4, didascalie in basso). `montage.py` (commit su `feat/claude-video3d-rec`) produce `06-sdk/out/ep06.mp4`: 1920x1080 60 fps, **180.0 s**, senza audio (file in /tmp/w6, 14 MB, non nel repo). Scelte mie da confermare: scheda finale "Next: bm Code" 8 s (senza, 172 s), banner del gancio "TODAY: LIGHT, FOG AND SHADOW" (gancio = R2 da 4 s per 6 s), scheda "Valori usati" a 2:34 saltata, didascalie di R2 solo in basso.
-- **Video 4 rifatto con Shift+S/G**: in corso dalle 16:04 (/tmp/w4), fine prevista 17:15-17:25; poi verify e consegna.
+- **Video 4 rifatto CONSEGNATO** (17:20): ripresa QEMU da bb3b55b (12000 frame, 0 persi, 69 min), `verify.py` **ALL OK** con partenza (1024) e traguardo (1030) e `TROPIC.BM` costruito; `video/3d/chain-delivered/04-map.bm/.bme` e `chain/` (547 KB), commit su `feat/claude-video3d-rec`. Video: `04-map/out/qemu-v2-ep04_qemu.mp4` (6,8 MB, non nel repo).
 - **Video 7 R1** (bm Code, 205 s, 2 righe LATE di `record.py` a 202 s): partito 16:52 da `06-sdk` bmhost con mappa start/goal, fine prevista ~18:00. Poi R3 (SDK, 14 s) e R2 (gioco da bmhost).
 - Montaggio del 6: `python3 video/3d/06-sdk/montage.py [--r2-only|--skip-r2]`.
 
