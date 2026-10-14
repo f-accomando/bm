@@ -48,7 +48,7 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 | **Claude local** | `WORKING revisione (7 e 8 pronti)` | video 4 consegnato; 6, 7, 8 pronti (verify ALL OK), commit 4ef770a su `feat/claude-video3d`; il 8 e una partita breve (livello del 4: 8,7 s di gioco), documenti riallineati (~1:35) | 60 min |
 | **Claude cloud** | `WORKING video 7 R1` (file 17:50) | 4 e 6 consegnati con riga DELIVERED; 7 R1 in corso (fine ~18:00-18:10), poi R3/R2 e montaggio con montage7.py/montage8.py | ~30 min |
 | **Antigravity** | `FREE` (file 18:00) | AGY-11 e AGY-12 consegnati e fusi (montage8.py 95 s, montage7.py 242 s); nessun lavoro in coda | - |
-| **OP4** | `FREE handshake` (file 17:13) | OP4-01 assegnato alle 17:16, nessuna presa in carico ancora (ack non scritto) | - |
+| **OP4** | `IDLE` (file 17:13, 63 min) | OP4-01 assegnato 17:16, mai preso in carico; da segnalare all'utente | - |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
 Catena che blocca i video: 1 -> 2 -> 3 (riprese = cloud) · 5 libero · 4 = Antigravity (AGY-04 resta) · 6 = 4 + 5 · 7 = 6 · 8 = 7. Copertine PNG: da generare dopo la review del fix AGY-05.
