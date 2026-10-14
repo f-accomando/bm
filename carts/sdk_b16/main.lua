@@ -2499,7 +2499,7 @@ do
   local spin = true
   local nfo = {}                         -- per model: vertices, triangles, bones (from the sections)
   local cam = { yaw = 0.6, pitch = -0.35, dist = 4, tx = 0, ty = 0, tz = 0 }
-  local PANEL, VIEW = table.unpack(LY.split(R.body, "h", { "16c", "*" }))
+  local PANEL, VIEW = LY.side_by_side(R.body)
   local VSTRIP, V3 = table.unpack(LY.split(VIEW, "v", { "2r", "*" }))
 
   local function read_sections()
