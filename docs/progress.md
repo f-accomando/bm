@@ -40,6 +40,7 @@ file ends with *Open work* and *Rules (do not break)*.
 - VM, runtime, built-in libraries, dev kit: [lua](progress/lua.md).
 - Synth, mixer, player, presets, riff, music assistant: [audio](progress/audio.md); output depth and dither: [audio-output](progress/audio-output.md); samples, effects, WAV: [audio-samples](progress/audio-samples.md).
 - Pi Zero W, Pi Zero 2 W, RGB30, PC and QEMU: [platforms](progress/platforms.md).
+- Several operators on one repo (`SYNC.md`, `sync/`): lessons and proposals in [sync-workflow](progress/sync-workflow.md).
 - Suite (SDK, Studio, Animator, Mesh, Pixel, Code, Sound, Write): [tools](progress/tools.md) (future suite evolution: `docs/design/suite-*.md`).
 - Games (Overbit, Yharnam): [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) (gameplay architecture: [`docs/design/games-architecture.md`](design/games-architecture.md)).
 - Game API reference (not progress): [API.md](API.md) → `docs/api/<area>.md`.
