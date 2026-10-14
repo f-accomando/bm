@@ -77,6 +77,8 @@ def main():
     check(vals.count(1026) >= 6, "apples (1026): %d tiles" % vals.count(1026))
     check(1028 in vals, "a crate (1028)")
     check(1032 in vals, "a lamp (1032)")
+    check(1024 in vals, "the start of the level (1024)")
+    check(1030 in vals, "the goal of the level (1030)")
 
     print("sections / forge")
     for sec, name in ((bmres.SEC_MESH, "MESH"), (bmres.SEC_ANIM, "ANIM")):
