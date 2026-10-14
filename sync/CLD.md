@@ -1,19 +1,19 @@
 ---
 schema: 1
 id: CLD
-state: WAITING
-task: audio 5/7/8 sistemato, mp4 in video/3d/out/final
-waiting_on: utente (come ricevere gli mp4) / SPV (review)
+state: FREE
+task: mp4 1-8 inviati all'utente; nessun lavoro in corso
+waiting_on: 
 wakeup: yes
 ack: 2026-10-14T19:22+02:00
-updated: 2026-10-14T18:03+00:00
+updated: 2026-10-14T18:19+00:00
 ---
 # CLD — Claude cloud (CLD)
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 18:03 +00:00
-**Stato:** `WAITING audio 5/7/8 sistemato, mp4 in video/3d/out/final`
+**Ultimo aggiornamento:** 2026-10-14 18:19 +00:00
+**Stato:** `FREE mp4 1-8 inviati all'utente; nessun lavoro in corso`
 
 ## Task
 - Serie 3D "Tropic Trail": 8 video registrati/montati (video 1-5 e 6 in QEMU, 6/7 montati con montage.py/montage7.py, 8 con montage8.py). Fine lavori di produzione; restano revisione di SPV, audio e destinazione dei file.
@@ -43,6 +43,17 @@ updated: 2026-10-14T18:03+00:00
 - **Video 5**: ha gia il wav di bmhost unito (`ep05.mp4` AAC stereo 195.3 s; wav 191.0 s). `verify.py` 05: volume rule ok (musica -26.9 dBFS RMS, 5.3 dB sotto gli effetti, picco -6.4 dBFS; ogni effetto con picco tra -7.8 e -16.8). Nota: `verify.py` 05 segnala "3 WRONG" sulla struttura (sezioni dello start diverse da `chain/03-animator.bm` attuale): il 5 fu ripreso con un 03 precedente a quello consegnato dopo; l'audio non c'entra.
 - **Video 1-4**: gli editor (Studio, Pixel, Animator, Map) non producono suoni: nessun wav da unire (restano muti). **Video 6**: R1/R3 sono l'editor SDK, muti; R2 (gioco) misurato con `bmhost --wav`: -91 dB, il gioco del 6 non suona. **Video 7**: R2 suona (mean -20, picco -3.8 dBFS): unito a -3 dB, picco -6.8 dBFS. **Video 8**: picco era -5.0 dBFS, portato a -7.0.
 - **Come avere gli mp4** (107 MB, `video/3d/out/final/ep01..ep08.mp4`, nel mio container, fuori da git): proposta in ordine (a) `SendUserFile` dalla sessione cloud: i file sono dentro la cartella di lavoro e l'utente li riceve nell'app; (b) un Artifact privato con pagina e link ai file (limite 15 MB per file binario e 64 MB per invio: 2-3 invii; ep03, ep06, ep07, ep08 oltre o vicini); (c) asset di una GitHub Release del repo (fuori dall'albero git; serve l'ok dell'utente). Non ho inviato nulla: aspetto la scelta dell'utente. Il container viene riciclato dopo ~30 min senza attivita: decidere prima.
+- DELIVERED mp4-user @ video/3d/out/final/ep01.mp4 · verifica: SendUserFile ok → consegnato all'utente nell'app · 2026-10-14T18:19Z
+- DELIVERED mp4-user @ video/3d/out/final/ep02.mp4 · verifica: SendUserFile ok → consegnato all'utente nell'app · 2026-10-14T18:19Z
+- DELIVERED mp4-user @ video/3d/out/final/ep03.mp4 · verifica: SendUserFile ok → consegnato all'utente nell'app · 2026-10-14T18:19Z
+- DELIVERED mp4-user @ video/3d/out/final/ep04.mp4 · verifica: SendUserFile ok → consegnato all'utente nell'app · 2026-10-14T18:19Z
+- DELIVERED mp4-user @ video/3d/out/final/ep05.mp4 · verifica: SendUserFile ok → consegnato all'utente nell'app · 2026-10-14T18:19Z
+- DELIVERED mp4-user @ video/3d/out/final/ep06.mp4 · verifica: SendUserFile ok → consegnato all'utente nell'app · 2026-10-14T18:19Z
+- DELIVERED mp4-user @ video/3d/out/final/ep07.mp4 · verifica: SendUserFile ok → consegnato all'utente nell'app · 2026-10-14T18:19Z
+- DELIVERED mp4-user @ video/3d/out/final/ep08.mp4 · verifica: SendUserFile ok → consegnato all'utente nell'app · 2026-10-14T18:19Z
+- **Nota sul video 5**: `verify.py` 05 segnala "3 WRONG" sulla struttura (sezioni dello start diverse da `chain/03-animator.bm` attuale) perche il 5 fu ripreso con un 03 precedente a quello poi consegnato; l'audio e la regola del volume sono ok. Non rifatto.
+- **Audio finale**: 1-4 e 6 muti (nessun suono negli editor / nel gioco del 6); 5, 7, 8 con AAC stereo, picchi -6,4 / -6,8 / -7,0 dBFS.
+
 
 ## Considerazioni sul sync
 Funziona: un file per operatore (zero conflitti), riga "Ultimo aggiornamento", richieste "cosa serve / cosa ho provato / cosa ho misurato", prove brevi prima di quelle lunghe (50 s al posto di 70 min).
