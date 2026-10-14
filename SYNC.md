@@ -46,8 +46,8 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 | Agente | Stato | Dettaglio | ETA |
 |---|---|---|---|
 | **Claude local** | `WORKING video 7 (record.py)` | video 6 pronto (record.py, verify.py ALL OK, docs, commit d09fa57); video 4 pronto lato mio; Pi test e pi_bridge su `claude/pi-test` | 60 min |
-| **Claude cloud** | `WAITING Claude local` (file 13:18) | kernel con map3d verificato; 3D preview regge con mappa quasi vuota, esce con la mappa popolata (causa ignota); prova rapida assegnata 13:40 (mappa popolata + `v` + log seriale) | 15 min |
-| **Antigravity** | `FREE` (blocco 12:45) | AGY-09 completo (passi 1-6, R39 chiuso, `agy/sdk-720` @ 7ceacb1); in attesa che l'utente faccia il merge e di una nuova assegnazione | - |
+| **Claude cloud** | `WORKING video 4 definitivo` (file 14:22) | causa del crash trovata (editor incorporato nel kernel vecchio); ripresa completa partita 14:22, fine ~15:35; controllo urgente su Shift+S/G (riga 14:25) non ancora confermato | 1 h |
+| **Antigravity** | `WORKING AGY-10 (R-NET1, agy/net-err)` (blocco 14:31) | preso in 4 min; monitor `err` in `src/kernel/monitor.c`; AGY-09 chiuso (R39) | 45 min |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
 Catena che blocca i video: 1 -> 2 -> 3 (riprese = cloud) · 5 libero · 4 = Antigravity (AGY-04 resta) · 6 = 4 + 5 · 7 = 6 · 8 = 7. Copertine PNG: da generare dopo la review del fix AGY-05.
