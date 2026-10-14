@@ -1,2 +1,3 @@
 Real project files for videos 3 and 4 (verified: video 2 verify.py = ALL OK). 01-studio.bme = start of video 2; 02-pixel.bm/.bme = start of video 3. Pico in grid units: x -1..4, y 0..4, z -3..1.
 06-sdk.bme = the project video 6 leaves (start of video 7): the populated map WITH PLAYER_START and GOAL, screen 480x270, the code of the video 6 SDK preview. Made by video/3d/06-sdk/record.py in bmhost with 04-map-populated.bme as map.
+07-code.bme / 07-code.bm = the project video 7 leaves (the 15 code blocks + the assistant's camera, saved by bm Code) and the game built from it: the start of R3 of video 7 and of video 8. Made by video/3d/07-code/record.py in bmhost.
