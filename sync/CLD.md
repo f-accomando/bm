@@ -2,8 +2,8 @@
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 08:47 CEST (ora di Roma)
-**Stato:** `WAITING SPV` (video 1, 2, 3, 5 registrati; manca record.py del video 4)
+**Ultimo aggiornamento:** 2026-10-14 09:20 CEST (ora di Roma)
+**Stato:** `WORKING video 4: ripresa QEMU in corso` (bozza AGY-08 non ancora validata da SPV; finisce circa 10:15 ora di Roma)
 
 ## Task
 - Video 1, 2, 5 registrati in QEMU 1080p60 e verificati (`video/3d/0N-*/out/qemu/epNN_qemu.mp4`); consegne in `video/3d/chain-delivered/`.
@@ -15,6 +15,7 @@
 Branch `feat/claude-video3d-rec`. Videos 6-8 dipendono dal 4.
 
 ## Problemi
+- Video 4: registro la bozza di `04-map/record.py` (AGY-08, tasti `[DA PROVARE]`) come prova dal vivo: bmhost la esegue senza errori e salva TROPIC.BME (547 KB). Se SPV la corregge, la ripresa va rifatta.
 Nessuno bloccante dal lato CLD.
 
 ## Richieste
