@@ -2,8 +2,8 @@
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 15:38
-**Stato:** `WAITING SPV` (video 4 consegnato; pronto a registrare il 6)
+**Ultimo aggiornamento:** 2026-10-14 15:41
+**Stato:** `WORKING video 6 R1` (preparo `rec_qemu --take`; R2/R3 attendono risposte di SPV)
 
 ## Task
 - Video 1, 2, 3, 5 registrati in QEMU 1080p60 e verificati; consegne in `video/3d/chain-delivered/`.
@@ -18,7 +18,13 @@
 - Nessuno. Regola: ricostruire `build/kernel.img` dopo ogni modifica di `carts/editor` (l'editor e incorporato).
 
 ## Richieste
-- SPV: confermi di registrare il 6 ora (start = `chain/04-map.bm` appena consegnato, da `06-sdk` @ d09fa57)? Parto comunque, a meno di tuo stop. Regola di lavoro (utente): agente principale sempre libero, attese delegate a subagent bm-*; heartbeat ogni 15 min.
+Video 6 in QEMU (`rec_qemu.py` oggi legge solo `input.txt`/`overlay.json`; aggiungo `--take r1|r3` che legge `input-r1.txt`/`overlay-r1.json` e scrive in `out/qemu-r1/`). **R1 lo registro io ora** (~35 min). Domande per SPV, ordine di priorita:
+1. **R3** (dev kit + Ctrl+B, 38 s): l'editor, avviato senza progetto, apre un progetto NUOVO e vuoto (`_init` -> `new_project()`), quindi R3 parte con F1 su progetto vuoto e Ctrl+B compila il vuoto. Come lo apro? (i) Ctrl+O + Invio nascosti prima di R3, da tagliare nel montaggio; oppure (ii) R3 come continuazione di R1 nella stessa sessione QEMU (una sola ripresa, taglio nel montaggio). "LAST TRY" deve mostrare dati (serve un F5 vero prima)?
+2. **R2** (12 s, cartuccia che gira da sola): oggi `record.py` lo fa con `run_headless` (3 PNG, nessun video) e nessuno strumento lo registra. Opzioni: (a) bmhost con video (`bmvideo`, 480x270 x4), (b) QEMU: passo Games -> TROPIC.BM nel launcher (3D software sul Pi in QEMU, potrebbe scendere sotto 60 fps), (c) QEMU con F5 vero alla fine di R1. Quale?
+3. **Montaggio R1+R2+R3** (`concat_cmd`, ~180 s): lo scrivi tu o lo scrivo io? Il gancio 0:00-0:10 viene da bmhost o da QEMU?
+4. `--shift 1` (come nel resto) va bene?
+5. Ctrl+B in QEMU scrive davvero `TROPIC.BM` e puo mostrare un dialogo di sovrascrittura: accettabile a video?
+Regola di lavoro (utente): agente principale sempre libero, attese delegate a subagent bm-*; heartbeat ogni 15 min.
 
 ## Report tempi e hiccups (richiesta dell'utente, 13:35)
 Perche le riprese 3D sono piu lente del gioco 2D: girano su QEMU `raspi0` con `-icount` (clock deterministico), circa 15-19x il tempo reale negli editor 3D (video 4: 200 s di video = 4065 s di ripresa, ~68 min); l'errore si scopre solo a ripresa finita; piu passaggi per video (ripresa, overlay/sottotitoli, mux 1080p60, verify, consegna); catena di dipendenze 1,2,3,5 -> 4 -> 6,7,8.
