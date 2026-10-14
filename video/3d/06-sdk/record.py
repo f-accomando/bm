@@ -25,7 +25,8 @@ from bmvideo import Script, FPS                 # noqa: E402
 OUT = os.path.join(HERE, "out")
 SD = os.path.join(OUT, "sd")
 BIN = os.path.join(OUT, "bin")
-R1_SECONDS, R3_SECONDS = 112, 38
+R1_SECONDS, R3_SECONDS = 112, 38 + 8
+CUT_R3 = 8                                      # seconds of R3 that the montage cuts (the hidden Ctrl+O, Enter)
 OFFSET = 10                                     # the video starts R1 at 0:10 (hook and title before it)
 
 LINES = {                                       # what is typed under each marker of preview.lua
@@ -155,10 +156,17 @@ def build_r3():
     s = Ep()
     s.chapter("The dev kit")
     s.scene("bm SDK > dev kit", [("F1", "project"), ("F1", "dev kit"), ("Ctrl+B", "build")])
+    # a fresh editor (QEMU) starts with an empty new project: Ctrl+O + Enter open TROPIC.BME first; the video cuts the first CUT_R3 seconds
+    s.sec(1)
+    s.raw("\\x0f", "Ctrl+O", "open a project", 2)
+    s.wait(200)
+    s.key("enter", "Open TROPIC.BME")
+    s.wait(150)
+    s.t = max(s.t, CUT_R3 * FPS)
     k(s, "f1", "The project page: LAST TRY", "F1", 60)
-    s.until(4, "F1")
+    s.until(CUT_R3 + 4, "F1")
     k(s, "f1", "The dev kit", "F1", 60)
-    s.until(16, "Ctrl+B")
+    s.until(CUT_R3 + 16, "Ctrl+B")
     s.chord("b", what="Build the game")
     s.wait(120)
     s.until(R3_SECONDS, "end of R3")
