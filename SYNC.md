@@ -59,8 +59,7 @@ Ultimo aggiornamento: {data/ora con fuso}.
 1. **Architettura**: SPV riceve i requisiti dall'utente e compila §2 e §3.
 2. **Push specifiche**: SPV pubblica `SYNC.md` sul branch di sync.
 3. **Sviluppo parallelo**: ogni operatore lavora sul proprio branch, partendo da `bm-core` aggiornato.
-4. **Cross-review** a ogni milestone: push del branch, riga nel Log, l'altro fa `git fetch`, verifica con il comando del work order e rivede il diff.
-5. **Merge** su `bm-core` solo dopo via libera reciproco (o commenti risolti) e consenso dell'utente.
+4. **Merge** su `bm-core` solo con il consenso dell'utente.
 
 Regole di integrazione:
 - Un file ha un solo proprietario di area; chi ha bisogno di una modifica in un file altrui la chiede a SPV.
@@ -163,7 +162,7 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 - Una riga del Log che richiede un'azione dell'utente (sync manuale, merge, chiave, dispositivo) inizia con `USER:` e dice cosa serve.
 - Lo stato di ogni operatore (formato di §1b) si riporta all'utente **solo se lo chiede** (o se qualcuno è `IDLE` o serve una decisione): la verità è la tabella §1b.
 
-## 5. Log di handover e cross-review
+## 5. Log di handover
 
 Solo SPV aggiunge righe. Colonne: orario ISO con fuso · operatore · branch/commit · azione (`READY`, `REVIEW: APPROVED | CHANGES REQUESTED`, `ASSIGNED`, `RULE`, `SIGNOFF`, `DECISION`, `STOP`, `QUESTION`) · messaggio (≤600 caratteri).
 
