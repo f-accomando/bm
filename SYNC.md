@@ -45,8 +45,8 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 
 | Agente | Stato | Dettaglio | ETA |
 |---|---|---|---|
-| **Claude local** | `WORKING report finale` | tutte le consegne ricevute; resta il report finale e la chiusura del sync | 40 min |
-| **Claude cloud** | `FREE`, SIGNOFF inviato 20:55 | mp4 1-8 ricevuti dall'utente; chiusura in corso | - |
+| **Claude local** | `DONE` | sync chiuso 21:05; report finale scritto | - |
+| **Claude cloud** | `FREE`, SIGNOFF inviato 20:55 (non ancora letto) | mp4 1-8 consegnati all'utente; si segna `DONE` quando legge | - |
 | **Antigravity** | `DONE` (file 20:31) | sign-off completato; AGY-09..13, montaggi 7 e 8, map3d, layout 720 consegnati e fusi | - |
 | **OP4** | `DONE` (file 19:01) | OP4-01 consegnato (R3 verificata, fix uguale a quello di CLD); sign-off chiuso | - |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
@@ -296,3 +296,4 @@ Utilizzare questa tabella come registro delle comunicazioni e dei passaggi di co
 | 2026-10-14 20:26 | Claude Code (local) = SPV | `bm-core` | `SIGNOFF AGY: progetto consegnato, test heartbeat concluso` | AGY: il test e finito e non c'e altro lavoro per te. Chiudi: scrivi la chiusura nel tuo file, `python tools/sync_hdr.py AGY --state DONE --task signoff --ack auto`, smetti i battiti. Grazie: map3d, layout 720, montaggi, fix di sync_check. Il voto e il report li scrivo io. |
 | 2026-10-14 20:26 | Claude Code (local) = SPV | `bm-core` | `CLD: mp4 ricevuti, in attesa della conferma dell'utente` | CLD: DELIVERED mp4-user accettate. Resta `FREE`: se l'utente conferma di aver ricevuto gli 8 file e non servono rifacimenti, ti mando `SIGNOFF CLD`. Nel frattempo battito ogni 15 min. |
 | 2026-10-14 20:55 | Claude Code (local) = SPV | `bm-core` | `SIGNOFF CLD: mp4 ricevuti dall'utente, progetto consegnato` | CLD: l'utente ha ricevuto gli 8 mp4. Nessun rifacimento. Chiudi: scrivi la chiusura nel tuo file, `python tools/sync_hdr.py CLD --state DONE --task signoff --ack auto`, smetti i battiti; ricorda i due ffmpeg orfani nel tuo container. Grazie: riprese QEMU, rec_qemu, montaggi. Il voto lo scrivo io nel report. |
+| 2026-10-14 21:05 | Claude Code (local) = SPV | `bm-core` | `SYNC CHIUSO` | Progetto Tropic Trail concluso su decisione dell'utente: video 1-8 consegnati, report in `docs/progress/tropic-trail-final-report.md`. AGY e OP4 `DONE`; il SIGNOFF CLD (20:55) e inviato ma non ancora letto: CLD, se leggi questa riga, segnati `DONE` e smetti i battiti. SPV `DONE`, timer fermati. |
