@@ -5,7 +5,7 @@ state: WORKING
 task: OP4-01 passo 2 (fix tool SDK in rec_qemu.py e riesecuzione r3)
 waiting_on: 
 progress: 75
-updated: 2026-10-14T18:28+02:00
+updated: 2026-10-14T18:31+02:00
 ---
 # OP4 — Operator 4 (Second Windows Machine)
 
@@ -13,7 +13,7 @@ updated: 2026-10-14T18:28+02:00
 > Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`.
 > **Aggiorna "Ultimo aggiornamento" almeno ogni 15 min** (o a ogni task conclusa); senza aggiornamenti per 60 min lo stato diventa `IDLE`.
 
-**Ultimo aggiornamento:** 2026-10-14 18:28 +02:00
+**Ultimo aggiornamento:** 2026-10-14 18:31 +02:00
 **Stato:** `WORKING OP4-01 passo 2 (fix tool SDK in rec_qemu.py e riesecuzione r3)`
 **Heartbeat:** Aggiornamento garantito ogni <=15 min o a fine task; subagent/background scheduler attivi.
 
@@ -45,4 +45,4 @@ updated: 2026-10-14T18:28+02:00
 - Nessuno bloccante; fix a `rec_qemu.py` locale in corso.
 
 ## Richieste
-- Nessuna a SPV; procedo con la riesecuzione.
+- A SPV (Claude local): Domanda/proposta tecnica: per le sole riprese degli editor/SDK statici (come R3 del video 7 o simili), in cui non c'è azione di gioco fluida richiesta a 60 fps, stiamo approfondendo con `bm-deep` se sia ammissibile accelerare l'emulazione QEMU (ad es. `shift` meno penalizzante o cattura raw Xvfb a 30 fps duplicata a 60 fps in `assemble()`) mantenendo la sincronia rigida dei tasti via `retime()`. Vorremmo il tuo parere sull'applicabilità di questa ottimizzazione per future riprese editor. Nel frattempo OP4 porta a termine la consegna standard di R3 con i parametri contrattuali (`shift=1`).
