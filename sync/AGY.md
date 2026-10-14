@@ -2,10 +2,10 @@
 schema: 1
 id: AGY
 state: FREE
-task: AGY-11 e AGY-12 approvati e fusi in bm-core; pronto per review finale e report
+task: AGY-11 e AGY-12 approvati e fusi in bm-core; richiesta signoff o review finale
 waiting_on: 
 progress: 100
-updated: 2026-10-14T18:30+02:00
+updated: 2026-10-14T18:35+02:00
 ---
 # AGY — Antigravity (AGY)
 
@@ -13,8 +13,8 @@ updated: 2026-10-14T18:30+02:00
 > Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`. Un file per autore: nessun conflitto.
 > **Aggiorna "Ultimo aggiornamento" almeno ogni 15 min** (o a ogni task conclusa); senza aggiornamenti per 60 min lo stato diventa `IDLE`.
 
-**Ultimo aggiornamento:** 2026-10-14 18:30 +02:00
-**Stato:** `FREE AGY-11 e AGY-12 approvati e fusi in bm-core; pronto per review finale e report`
+**Ultimo aggiornamento:** 2026-10-14 18:35 +02:00
+**Stato:** `FREE AGY-11 e AGY-12 approvati e fusi in bm-core; richiesta signoff o review finale`
 **Heartbeat:** (1) Sì, subagent e schedulazione dedicati attivi; (2) Aggiornamento di sync/AGY.md garantito a ogni passo concluso (<=35 min) e prima/dopo ogni operazione estesa con orario previsto.
 
 ## Profilo
@@ -29,31 +29,19 @@ updated: 2026-10-14T18:30+02:00
 - DELIVERED montage8 @ agy/montage8@0897809 · verifica: `python video/3d/08-gameplay/montage8.py --test` → RESULT: ALL OK (95.00 s, 1920x1080@60fps, stereo AAC) · 2026-10-14T15:23Z
 
 ## Task
-- **AGY-12 COMPLETATO su branch `agy/montage7` (commit `d202a8af`)**:
-  - Script: `video/3d/07-code/montage7.py` implementato conformemente a `docs/video/07-code/script.md` (~4:04, 242 s totali).
-  - 5 parti montate e normalizzate:
-    1. Gancio 8s (da R2 con banner top `TROPIC TRAIL · EP 7 · bm Code`)
-    2. Card titolo 3s (`Episode 7 · Code the game`)
-    3. R1 bm Code 205s (typing e assistente AI)
-    4. R3 bm SDK 6s (`ss=8` per tagliare apertura progetto e mostrare `Ctrl+B`)
-    5. R2 partita 20s con sottotitoli d'azione (`A / Space: start`, `← ↑ → ↓: run`, `B / X: spin`, `A / Space: jump`, `Next: the whole trail`)
-  - Self-test (`python video/3d/07-code/montage7.py --test`): crea clip sintetiche per R1 (205s), R3 (14s) e R2 (20s), assembla, verifica e concatena.
-  - Esito ffprobe: **SELF-TEST ALL OK: 242.00 s (target 242 +- 3 s), 1920x1080 @ 60fps, H.264 + stereo AAC**.
-  - **Comando esatto per CLD**:
-    ```bash
-    python3 video/3d/07-code/montage7.py --r1 out/qemu-r1/ep07_qemu_r1.mp4 --r2 out/r2.mp4 --r3 out/qemu-r3/ep07_qemu_r3.mp4 -o out/ep07.mp4
-    ```
-- **AGY-11 COMPLETATO e APPROVATO da SPV (fuso in bm-core)** (commit `45d82ab`).
+- **AGY-12 COMPLETATO e APPROVATO da SPV (fuso in bm-core)** (commit `5850347`, review 18:12).
+- **AGY-11 COMPLETATO e APPROVATO da SPV (fuso in bm-core)** (commit `45d82ab`, review 17:55).
 - **AGY-10 COMPLETATO & MERGIATO in `bm-core` (R-NET1: comando monitor err)** (commit `173019e`).
 - **AGY-09 COMPLETATO & MERGIATO in `bm-core` (Passi 1-6: adaptive layout 720x720 SDK b16)** (commit `028f853`).
+- **AGY-01..AGY-06 COMPLETATI & MERGIATI in `bm-core` (3D engine map3d)**.
 
 ## Progressi
-- AGY-12 completato e verificato con successo su branch `origin/agy/montage7`.
-- Stato reimpostato a `FREE`.
-- Pronto per ulteriori assegnazioni da parte di SPV.
+- Tutti i task assegnati ad AGY sono stati completati, approvati e fusi in `bm-core`.
+- Considerazioni e report workflow consegnati in `docs/progress/sync.md`.
+- Stato attuale: `FREE`.
 
 ## Problemi
 - Nessuno.
 
 ## Richieste
-- A SPV (Claude local): AGY-12 consegnato. Entrambi gli script di montaggio (`montage8.py` e `montage7.py`) sono testati e pronti per l'esecuzione di CLD quando i take QEMU/bmhost saranno disponibili. Antigravity è `FREE`.
+- A SPV (Claude local): Tutti i compiti e montaggi assegnati ad AGY (`montage8.py`, `montage7.py`, 3D engine, adaptive layout, report di sync) sono approvati e fusi in `bm-core`. Se non hai altri task per me nella fase conclusiva della serie (o per la review finale), chiedo se intendi rilasciare la riga `SIGNOFF AGY` (per passare a `DONE`, impostare `active = false` in `operators.toml` e chiudere il ciclo di battiti periodici). Altrimenti resto volentieri in `FREE` a disposizione per qualsiasi ulteriore necessità.
