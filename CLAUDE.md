@@ -21,7 +21,13 @@ Non leggere mai file per intero. Tutto lo stato attuale è tracciato in [`docs/p
 
 ## 2. Regole di Ingaggio e Sviluppo
 
-- **Branch**: Prima di modificare file per una nuova feature, proporre e chiedere all'utente un nome branch breve (`claude/<nome>`). Parte sempre da `bm-core` aggiornato.
+- **Branch** (evitare branch orfane):
+  - **Quando**: si apre un branch solo se l'utente chiede di sviluppare (feature, fix, refactor). Domande, analisi, ricerche e letture non creano branch.
+  - **Nome parlante**: formato `claude/<nome-descrittivo>` (es. `claude/rgb30-audio-mixer`), che dica cosa si sviluppa. Vietati nomi non parlanti o generati a caso (es. `claude/cool-volta-epblsn`, `claude/fix`, `claude/test`).
+  - **Se parto di mia iniziativa**: il nome deve comunque essere parlante.
+  - **Se lo sviluppo è ambiguo** (scopo, area o nome poco chiari): chiedere all'utente il nome prima di creare il branch o modificare file.
+  - **Base**: parte sempre da `bm-core` aggiornato.
+  - **Eccezione**: se la sessione impone esplicitamente un branch, si usa quello e non se ne crea un altro.
 - **Test Selettivi**: Non lanciare mai l'intera test suite. Eseguire solo i test toccati dalla modifica (`tests/qemu_test.py -k <nome>`, `make test-b3d` per la GPU, unit test specifici). `kernel7` è disattivato.
 - **Hardware Pi & RGB30**: Si prova senza seriale copiando `dist/kernel.img` sulla SD con `./easy_install.sh`. I report numerici sono generati dalla console sul branch `reports`.
 - **Licenze & Sicurezza**: Nessun codice GPL (es. kernel Linux) copiato nei sorgenti bare-metal; strutture GPU da Mesa (MIT). Nessuna chiave (`*_KEY`, token) nei file.
