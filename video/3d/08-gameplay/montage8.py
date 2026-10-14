@@ -154,7 +154,7 @@ def make_hook(ffmpeg_bin, ffprobe_bin, game_mp4, out_path, seconds=8.0):
         "-i", game_mp4
     ]
     if not has_audio:
-        cmd += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
+        cmd += ["-f", "lavfi", "-i", f"anullsrc=r=48000:cl=stereo:d={seconds:.2f}"]
         cmd += ["-filter_complex", f"[0:v]{vf}[v];[1:a]afade=t=in:st=0:d=0.4,afade=t=out:st={fade_out_st:.2f}:d=0.4[a]"]
         cmd += ["-map", "[v]", "-map", "[a]"]
     else:
@@ -162,6 +162,7 @@ def make_hook(ffmpeg_bin, ffprobe_bin, game_mp4, out_path, seconds=8.0):
         cmd += ["-vf", vf, "-af", af]
 
     cmd += [
+        "-t", f"{seconds:.2f}",
         "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-r", str(FPS),
         "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
         out_path
@@ -190,13 +191,14 @@ def make_game_cut(ffmpeg_bin, ffprobe_bin, game_mp4, out_path, max_seconds=14.0)
         "-i", game_mp4
     ]
     if not has_audio:
-        cmd += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
+        cmd += ["-f", "lavfi", "-i", f"anullsrc=r=48000:cl=stereo:d={dur:.2f}"]
         cmd += ["-filter_complex", f"[0:v]{vf}[v];[1:a]aformat=sample_rates=48000:channel_layouts=stereo[a]"]
         cmd += ["-map", "[v]", "-map", "[a]"]
     else:
         cmd += ["-vf", vf, "-af", "aformat=sample_rates=48000:channel_layouts=stereo"]
 
     cmd += [
+        "-t", f"{dur:.2f}",
         "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-r", str(FPS),
         "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
         out_path
@@ -229,7 +231,7 @@ def make_clip(ffmpeg_bin, ffprobe_bin, in_path, out_path, label, seconds=6.0):
         "-i", in_path
     ]
     if not has_audio:
-        cmd += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
+        cmd += ["-f", "lavfi", "-i", f"anullsrc=r=48000:cl=stereo:d={seconds:.2f}"]
         cmd += ["-filter_complex", f"[0:v]{vf}[v];[1:a]afade=t=in:st=0:d=0.3,afade=t=out:st={fade_out_st:.2f}:d=0.3[a]"]
         cmd += ["-map", "[v]", "-map", "[a]"]
     else:
@@ -237,6 +239,7 @@ def make_clip(ffmpeg_bin, ffprobe_bin, in_path, out_path, label, seconds=6.0):
         cmd += ["-vf", vf, "-af", af]
 
     cmd += [
+        "-t", f"{seconds:.2f}",
         "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-r", str(FPS),
         "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
         out_path
@@ -264,7 +267,7 @@ def make_closing(ffmpeg_bin, ffprobe_bin, game_mp4, out_path, seconds=9.0):
         ffmpeg_bin, "-hide_banner", "-loglevel", "error", "-y",
         "-ss", f"{ss_time:.2f}",
         "-i", game_mp4,
-        "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
+        "-f", "lavfi", "-i", f"anullsrc=r=48000:cl=stereo:d={seconds:.2f}",
         "-filter_complex", f"[0:v]loop=loop=-1:size=1:start=0[v0];[v0]{vf}[v]",
         "-map", "[v]", "-map", "1:a",
         "-t", f"{seconds:.2f}",
