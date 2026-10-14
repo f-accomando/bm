@@ -50,3 +50,18 @@ item 40, `src/bm/format.c:266-269`).
 anything not 320x180; `tests/golden/test_schema.py:33,61-69` asserts the four `.bme` fail
 `check_path`.
 **Rule**: `check` exit 1 on those files is expected, not a bm_core bug.
+
+## L7 Characters and creatures are never boxes
+
+**Lesson**: box JSON (`mesh` input) gives a voxel look. For anything organic (people, animals,
+creatures) the user wants flat-shaded organic low-poly facets, as in the PS1 originals.
+**Case**: first Crash Bandicoot (83 boxes, 996 triangles) read as voxels and was rejected; it also
+faced -z, while bm Studio models face +z (y up, right side +x; `carts/overbit/art/geo.py`).
+**Rule**: for characters use the modelling kit of `carts/overbit/art/geo.py` (hull, tube, ellipsoid,
+lathe, wedge; hard parts = flat faces, `Mesh.weld()` after) and export with `bm_core.export`. Template:
+`examples/organic_crash/crash_organic.py` (738 triangles, 500 vertices). Boxes stay fine for blocks,
+buildings, crates and tests.
+**Recipe that worked**: head enlarged 1.25x (big heads read as the character), ears and hair as
+pyramids (4-5 point hulls, 6 triangles each), muzzle and shoes as hulls, limbs as 6-side tubes,
+round parts 6-10 sides. Judge with `preview --yaw 2.64` (a +z model seen from the front side), not 0.6.
+Ask the triangle budget as a ceiling: `check --budget N`, spend what the silhouette needs.

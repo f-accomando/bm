@@ -14,6 +14,8 @@ example games without the console, a GPU or any third-party package.
 ## Fixed rules
 
 - Names (models, bones, clips): 15 bytes + NUL.
+- Organic subjects (characters, creatures) are never boxes/voxels: build them with `carts/overbit/art/geo.py`
+  (flat-shaded hulls, tubes, ellipsoids), facing +z. Template `examples/organic_crash/crash_organic.py`; `references/LESSONS.md` L7.
 - Default limits 4096 vertices / 16384 triangles a model; `--kernel-limits` raises them to 65535.
 - Validation is strict: stricter than the kernel reader on purpose (`references/OPEN_QUESTIONS.md`).
 - `.bm` (Pi) and `.b16` (RGB30) are never converted: separate editions, separate sources.
