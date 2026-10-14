@@ -7,7 +7,7 @@ Copy them: `cp video/3d/chain-delivered/0[15]-* video/3d/chain/`.
 |---|---|---|
 | `01-studio.bme`, `01-studio.bm` | project and cartridge of video 1 (CRATE 12 tri, APPLE 80, PICO 116) | QEMU recording (`rec_qemu.py 01`), `verify.py` PASS; byte-identical to the bmhost run |
 | `05-sound.bme`, `05-sound.bm` | bank of video 5 | QEMU recording, `verify.py` ok, identical to bmhost |
-| `02-pixel.UNVERIFIED.bme` | result of video 2 with the CURRENT script: tiles right, eye faces on the wrong faces (x 0.33 / 2.67) | bmhost and QEMU give the same file; `verify.py` FAILS: use it only to see what the script does |
+| `02-pixel.bm`, `02-pixel.bme` | result of video 2, QEMU recording of the existing take | `verify.py` ALL OK (with local's 3ab6fbf); byte-identical to bmhost |
 | `start.bme` | the start project of video 2 (= `01-studio.bme`) | |
 
-`03-animator` needs a correct `chain/02-pixel.bm`: not delivered until video 2's script is fixed.
+`03-animator`: `chain/02-pixel.bm` is now delivered; the script of video 3 must start from it (`--start chain`) and have the skeleton recalibrated.
