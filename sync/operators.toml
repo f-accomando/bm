@@ -31,6 +31,14 @@ branches = ["feat/antigravity-*", "agy/*"]
 cost = "none"          # no dollars: efficiency in lines per hour
 
 [[operator]]
+id = "OP4"
+name = "operator 4 (second Windows machine)"
+kind = "ai"
+file = "sync/OP4.md"
+branches = ["op4/*"]
+cost = "none"
+
+[[operator]]
 id = "UTE"
 name = "utente"
 kind = "human"
