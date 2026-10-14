@@ -50,6 +50,7 @@ I modelli di punta (*Opus*) costano molto sui token di output: devono produrre d
 | **`bm-light`** | Sonnet medium | Task semplici con giudizio tecnico, docs verificate sul codice reale, fix 1–2 file | Lavori lunghi e vaghi |
 | **`bm-deep`** | Opus xhigh | Un solo problema isolato e critico (bug con riproduzione, decisione architetturale) | Implementare feature intere |
 | **`bm-research`** | Haiku low (sola lettura) | Esplorazione read-only, ricerca simboli/definizioni su molti file, sintesi compatte | Modificare codice |
+| **`bm-ops`** | Haiku low (Bash, nessuna modifica di codice) | Comandi shell già decisi: heartbeat/report di sync (`video/3d/hb.py`), `verify.py`, `make`, git fetch/status/push, controllo di una ripresa | Decidere, correggere, avviare riprese, `kill`, merge |
 
 ### Gate di Prontezza (Readiness Gate)
 Prima di assegnare una task a un modello esecutivo (`bm-mechanic`, `bm-coder`, `bm-light`), applica questa checklist a 5 domande. Una task è pronta per un agente basso SOLO se TUTTE le risposte sono **SÌ**:
