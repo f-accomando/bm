@@ -51,22 +51,23 @@ anything not 320x180; `tests/golden/test_schema.py:33,61-69` asserts the four `.
 `check_path`.
 **Rule**: `check` exit 1 on those files is expected, not a bm_core bug.
 
-## L7 Characters and creatures are never boxes
+## L7 Characters and creatures: one continuous skin, rigged, never boxes
 
-**Lesson**: box JSON (`mesh` input) gives a voxel look. For anything organic (people, animals,
-creatures) the user wants flat-shaded organic low-poly facets, as in the PS1 originals.
-**Case**: first Crash Bandicoot (83 boxes, 996 triangles) read as voxels and was rejected; it also
-faced -z, while bm Studio models face +z (y up, right side +x; `carts/overbit/art/geo.py`).
-**Rule**: for characters use the modelling kit of `carts/overbit/art/geo.py` (hull, tube, ellipsoid,
-lathe, wedge; hard parts = flat faces, `Mesh.weld()` after) and export with `bm_core.export`. Template:
-`examples/organic_crash/crash_organic.py` (738 triangles, 500 vertices). Boxes stay fine for blocks,
-buildings, crates and tests.
-**Recipe that worked**: head enlarged 1.25x (big heads read as the character), ears and hair as
-pyramids (4-5 point hulls, 6 triangles each), muzzle and shoes as hulls, limbs as 6-side tubes,
-round parts 6-10 sides. Judge with `preview --yaw 2.64` (a +z model seen from the front side), not 0.6.
-Ask the triangle budget as a ceiling: `check --budget N`, spend what the silhouette needs.
+**Lesson**: box JSON (`mesh` input) gives a voxel look, and loose pieces placed next to each other
+(hair, ears, shoulders, hands floating near the body) are a defect for the user, not a style: the model
+must be ONE continuous flat-shaded skin, and it must be skinned (a rig with a bone per vertex).
+**Case**: Crash Bandicoot. v1: 83 boxes (voxels, faced -z). v2: separate hulls (organic but detached, no
+rig): rejected. v3 `examples/organic_crash/crash_organic.py`: 730 triangles, 356 vertices, 15 bones.
+**Rule**: build a loft of rings in one shared vertex table; limbs, ears, hair spikes, fingers and the
+nose grow out of vertices they share with the part they hang on (a limb's first ring is a patch of torso
+vertices; legs start from the two halves of the pelvis ring). Orient every face away from a point inside
+its part. Colour by ring sector and by face normal (sole = faces looking down). Characters face +z, .L on +x.
+**Skinning**: the format has one bone per vertex and no weights (`bm_core/skelgen.py`). A ring shared by
+two segments belongs to the distal bone. Write the vertex bones yourself and call `skelgen.bind(...,
+vbones=...)`: `nearest_bone_part` would give a fully connected skin to a single bone. Then `anim` works
+unchanged (checked with `examples/walk.json`; the frames showed no tears at 128 px).
+**Proportions that read as the character**: big head, long snout pulled out of the head vertices, nose as a
+small pyramid on the tip, wide ears, 4-6 hair spikes, long arms with big gloves, big shoes. Judge with
+`preview --yaw 2.64` (a +z model seen from the front side), not 0.6; budget is a ceiling (`check --budget N`).
 **Colours**: when the user gives a colour chart (e.g. the original Crash chart), take the palette from it
-before anything else; the example's `Mat(...)` values are read off that chart (approximate).
-**Classic PS1 look** (user's words): many separate pieces placed next to each other, never fused: hair, ears,
-shoulders, gloves are their own polygons touching the body, with no blending. Do not smooth or merge parts
-(`Mesh.weld()` only joins identical corners of flat faces: same look). Muzzle as two volumes (snout + jaw).
+first; the example's values are read off that chart (approximate).
