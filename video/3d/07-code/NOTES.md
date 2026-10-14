@@ -1,0 +1,6 @@
+# Video 7 (bm Code, the game logic): state (2026-10-14)
+
+- `game_flat.lua` is the 16 code blocks of `docs/video/07-code/script.md` joined in order (the script and the file are identical: checked). `try.py` builds a cartridge from the map of video 6 and runs it in bmhost with a scripted pad (title, up held, jumps, spins) and saves shots. Result: the game runs, apples are collected (7 in the test), lives go down on the wall, no error.
+- **Pico is not centred on its origin** (the cross: x -1..4, z -3..1): `bounds3d` gives the centre, and `draw3d` is called at `pico.x - (cx*cos + cz*sin)*SC`, `pico.z - (cz*cos - cx*sin)*SC` (checked from above with four faces: the rotation is the standard one). Everything is drawn at scale 0.4 to fit the 3-unit corridor.
+- `PLAYER_START` and `GOAL` must exist in the map: video 4 places them with `Shift+S` / `Shift+G`.
+- The assistant (F6) exists only in `build/host/bmhost-ai` (`make bmhost-ai`, built; needs `build/assist.bin`). Two or three recordings (bm Code with `bmhost-ai --tool`, the SDK for `Ctrl+B`, the game without `--tool`). **Still to do**: `record.py`/`verify.py` for bm Code (open the project, `Ctrl+K` cuts the old lines, type the blocks with auto-indent, F6 question, `Enter` inserts the assistant's block), the build, the game recording.
