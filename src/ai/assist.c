@@ -194,7 +194,8 @@ static const char *const words_en[] = {
     "how", "the", "an", "to", "of", "with", "my", "what", "why", "when", "where",
     "which", "does", "can", "make", "is", "are", "it", "on", "for", "from", "game",
     "player", "screen", "draw", "move", "sound", "enemy", "enemies", "save", "put", "and", "this",
-    "that", "each", "every", "more", "less", "want", "show", "use", "get", "set", NULL,
+    "that", "each", "every", "more", "less", "want", "show", "use", "get", "set",
+    "third", "person", "behind", "follow", "first", NULL,
 };
 
 static int lang_word(const char *w, size_t n, const char *const *list)
