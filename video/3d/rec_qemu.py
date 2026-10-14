@@ -127,6 +127,9 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0,
     start = os.path.join(out, "start.bme")             # record.py's start project (out/sd holds what its bmhost run SAVED)
     if os.path.exists(start):
         files = [(src, name) for src, name in files if not name.upper().endswith(".BME")] + [(start, "carts/TROPIC.BME")]
+    else:                                              # a start cartridge .BM (video 3): the .BME of the bmhost run is its RESULT, not the start
+        stems = {name.upper()[:-3] for _, name in files if name.upper().endswith(".BM")}
+        files = [(src, name) for src, name in files if not (name.upper().endswith(".BME") and name.upper()[:-1] in stems)]
     orig_events = events
     events, delta_at = retime(events, min_gap=0 if serial else 4, any_gap=any_gap)
     print("retime: the last event moved %d frames" % delta_at(10 ** 9), flush=True)
