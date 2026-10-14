@@ -73,6 +73,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 
 ## Open work (`docs/ROADMAP.md`)
 
+- **`map3d` is not in `bm-core`**: the engine (`src/bm/map3d.c`, its Lua API in `runtime.c`, the 3D map editor) lives on `feat/antigravity-map3d`; a kernel built from `bm-core` (`v0.2.5-358`) stops a cartridge at `map3d_build` (checked on a Pi Zero W, 2026-10-14). Merge it before the Tropic Trail series is published ([`../video/STATUS.md`](../video/STATUS.md), branches and order).
 - **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet.
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
@@ -113,3 +114,8 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   in the Market. Its test `make test-sdk-b16` (not in `HOST_TESTS`); QEMU `test_sdk_tool`.
 - Tests: `make test-studio`, `test-write`, `test-res`, `test-ai`, `test-predict`,
   `test-padtype`, `test-img2mesh`; QEMU `test_projects`, `test_bm_write`.
+- **The kernel embeds the editor** (`build/editor.bm` is inside `kernel.img`): after any change of `carts/editor` rebuild the kernel (`make build/kernel.img`) before a QEMU run; a stale kernel runs the old editor.
+- **The 3D map** (`src/bm/map3d.c`, layers `floor`, `height`, `walls`, `objects`): `map3d_build` reads the floor only at the **top-left tile of each 2x2 block** (cell = 2x2 tiles, `cell` 1.0): a 16x16 brush with tile 0 gives a floor of holes. Object placeholders are the **even** ids >= 1024 (1024 start, 1026 apple, 1028 crate, 1030 goal, 1032 lamp); the tile chooser stops at the sheet's last tile, so the markers have their own keys (`Shift+S/G/A/C/O` in the map page). `lamp3d` slots are 1..4.
+- **bmhost and saving a game**: opening a `.bm` and saving asks "Save an editable copy" through a kernel modal that reads the keyboard, not the typed queue: in `bmhost --tool` it hangs a recording unless the input line `FRAME keys 0x28` presses Enter. A recording script opens the project (`.bme`) instead. `Ctrl+B` and `F5` do not build/run a game inside `bmhost --tool`.
+- Input files for `bmhost --input` written from Windows Python get CRLF (a CR is typed as Enter): write them with `newline="
+"` or from WSL.
