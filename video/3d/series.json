@@ -1,0 +1,22 @@
+{
+  "series": "Tropic Trail",
+  "hero": "Pico",
+  "models": ["PICO", "APPLE", "CRATE"],
+  "clips": ["idle", "run", "jump", "spin", "hit"],
+  "sounds": ["APPLE", "CRATE", "JUMP", "STEP", "SPIN", "HIT"],
+  "song": "JUNGLE",
+  "layers": ["floor", "height", "walls", "objects"],
+  "game_res": "480x270",
+  "video_res": "1920x1080",
+  "fps": 60,
+  "videos": [
+    {"n": 1, "dir": "01-studio",   "tool": "STUDIO",   "out": "01-studio.bm",   "needs": [],       "blocked": ""},
+    {"n": 2, "dir": "02-pixel",    "tool": "PIXEL",    "out": "02-pixel.bm",    "needs": [1],      "blocked": ""},
+    {"n": 3, "dir": "03-animator", "tool": "ANIMATOR", "out": "03-animator.bm", "needs": [2],      "blocked": ""},
+    {"n": 4, "dir": "04-map",      "tool": "SDK",      "out": "04-map.bm",      "needs": [3],      "blocked": "map editor 3D (SYNC AGY-01..03)"},
+    {"n": 5, "dir": "05-sound",    "tool": "SOUND",    "out": "05-sound.bm",    "needs": [3],      "blocked": ""},
+    {"n": 6, "dir": "06-sdk",      "tool": "SDK",      "out": "06-sdk.bm",      "needs": [4, 5],   "blocked": ""},
+    {"n": 7, "dir": "07-code",     "tool": "CODE",     "out": "07-code.bm",     "needs": [6],      "blocked": ""},
+    {"n": 8, "dir": "08-gameplay", "tool": "GAMEPLAY", "out": "",               "needs": [7],      "blocked": ""}
+  ]
+}

@@ -1438,3 +1438,6 @@ test-spec: $(BUILD)/host/bmhost-bin tests/spec/cart.lua scripts/mkbm.py
 test-consistency:
 	$(PYTHON) scripts/consistency.py check
 .PHONY: test-spec test-consistency
+
+# Tropic Trail video series (docs/video/PIANO.md)
+-include video/3d/video3d.mk

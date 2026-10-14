@@ -9,3 +9,8 @@ video/07-play/bot-sd/
 video/07-play/replay-sd/
 video/07-play/out-input.txt
 .claude/docs-loop/
+
+# Tropic Trail video series: generated
+video/3d/chain/
+video/3d/out/
+docs/video/*/cover.png

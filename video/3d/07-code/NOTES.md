@@ -1,0 +1,12 @@
+# Video 7 (bm Code, the game logic): state (2026-10-14)
+
+- `game_flat.lua` is the 16 code blocks of `docs/video/07-code/script.md` joined in order (the script and the file are identical: checked). `try.py` builds a cartridge from the map of video 6 and runs it in bmhost with a scripted pad (title, up held, jumps, spins) and saves shots. Result: the game runs, apples are collected (7 in the test), lives go down on the wall, no error.
+- **Pico is not centred on its origin** (the cross: x -1..4, z -3..1): `bounds3d` gives the centre, and `draw3d` is called at `pico.x - (cx*cos + cz*sin)*SC`, `pico.z - (cz*cos - cx*sin)*SC` (checked from above with four faces: the rotation is the standard one). Everything is drawn at scale 0.4 to fit the 3-unit corridor.
+- `PLAYER_START` and `GOAL` must exist in the map: video 4 places them with `Shift+S` / `Shift+G`.
+- The assistant (F6) exists only in `build/host/bmhost-ai` (`make bmhost-ai`, built; needs `build/assist.bin`). Two or three recordings (bm Code with `bmhost-ai --tool`, the SDK for `Ctrl+B`, the game without `--tool`). **Still to do**: `record.py`/`verify.py` for bm Code (open the project, `Ctrl+K` cuts the old lines, type the blocks with auto-indent, F6 question, `Enter` inserts the assistant's block), the build, the game recording.
+
+## Recorder state (2026-10-14 16:00)
+- `record.py` (run in WSL: `python3 video/3d/07-code/record.py [--shots]`, then `verify.py`: ALL OK) builds `out/input-r1.txt` (bm Code, 205 s, 1 s LATE at the very end), `input-r3.txt` (SDK, Ctrl+O, Ctrl+B) and `game.txt`, runs them, saves `out/07-code.bm`. Start = the project video 6 leaves (`06-sdk/out/sd/carts/TROPIC.BME`, 480x270): run video 6 first, with the populated map as `chain/04-map.bm`.
+- **Block 4c**: F6, then `Tab` x4 (code > sprite > mesh > music > guide: the guides exist only in the guide mode), question `the third person camera` ("the" makes the panel answer in English: a question with no known word falls back to Italian; branch `claude/kb-camera-rank` adds `third person behind follow first` to the English words). The ranking of the knowledge base was right: `Guide: the third-person camera` is first in guide mode. The shot list and the script must show the Tab presses.
+- Ctrl+O needs >= 140 frames before Enter to open the project (the list is slow).
+- The game recording R2 uses a scripted pad (the bot of video 8 will give the real run). `proto.py "question" N` probes the assistant (`TABS=4` env).

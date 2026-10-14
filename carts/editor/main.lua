@@ -1939,6 +1939,14 @@ do
     say("lamp placed (1032)")
   end
 
+  local function place_marker(id, name)
+    local tgt_l = find_layer("objects") or layer
+    m_stroke = {}
+    draw_brush_layer(mx, my, id, tgt_l)
+    end_stroke()
+    say(name .. " placed (" .. id .. ")")
+  end
+
   local function act(a)
     if a == "view3d" then
       view3d = not view3d
@@ -2010,6 +2018,14 @@ do
     end
     if a == "tool_lamps" then
       place_lamp()
+      return
+    end
+    if a == "tool_start" then
+      place_marker(1024, "start")
+      return
+    end
+    if a == "tool_goal" then
+      place_marker(1030, "goal")
       return
     end
     if a == "cycle_width" then
@@ -2166,6 +2182,7 @@ do
       -- Objects
       if w3d then
         local objs = map3d_objects(w3d)
+        local lamp_slot = 0
         for _, obj in ipairs(objs) do
           local m = model(obj.kind)
           if not m and (obj.kind == "PLAYER_START" or obj.kind == "PICO") then
@@ -2174,8 +2191,9 @@ do
           if m then
             draw3d(m, obj.x, obj.y, obj.z, 0, 0, 0, 1.0)
           else
-            if obj.kind == "LAMP" then
-              lamp3d(0, obj.x, obj.y + 1.0, obj.z, 4, 1.0, 0xFFC888)
+            if obj.kind == "LAMP" and lamp_slot < 4 then
+              lamp_slot = lamp_slot + 1                      -- lamp3d slots are 1..4
+              lamp3d(lamp_slot, obj.x, obj.y + 1.0, obj.z, 4, 1.0, 0xFFC888)
             end
             point3d(obj.x, obj.y + 0.5, obj.z, 0.3, OBJ_COL[1024] or 0xFFFF00)
           end
@@ -3091,7 +3109,8 @@ local function page_key(k)
     local a = ({ ["+"] = "zoom_in", ["="] = "zoom_in", ["-"] = "zoom_out", l = "layer", L = "newlayer", o = "only",
                  c = "flags", m = "mini", home = "pgleft", ["end"] = "pgright",
                  v = "view3d", r = "rename_layer", R = "rename_layer", T = "map3d_template",
-                 P = "tool_path", W = "cycle_width", A = "tool_apples", C = "tool_crates", O = "tool_lamps" })[k] or SPRITE_KEYS[k]
+                 P = "tool_path", W = "cycle_width", A = "tool_apples", C = "tool_crates", O = "tool_lamps",
+                 S = "tool_start", G = "tool_goal" })[k] or SPRITE_KEYS[k]
     if a then P.map.act(a) end
     if k ~= " " then P.map.end_stroke() end
   end
@@ -3152,6 +3171,7 @@ local HELP = {
     { "shift p / shift w", "path tool (start, end: Enter) / width (1-5)" },
     { "shift a", "apples line tool (start, end: Enter)" },
     { "shift c / shift o", "place crate (1028) / place lamp (1032)" },
+    { "shift s / shift g", "place the start (1024) / the goal (1030) of the level" },
     { "v", "toggle 2D / 3D preview" },
     { "x", "pick the tile" },
     { "f", "fill" },
