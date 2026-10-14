@@ -152,6 +152,7 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 - **Caselle**: ogni compito nuovo e ogni urgenza SPV la scrive in `sync/inbox/<ID>.md` (max 5 righe, un compito; vedi `sync/inbox/README.md`). Il battito controlla il `git diff` della propria casella, non tutto il Log. Conferma di lettura: `python tools/sync_hdr.py <ID> --ack auto`.
 - **Controllo oggettivo**: `python tools/sync_check.py` (età, `eta`, `ack`, righe non lette, consegne fuori formato, caselle >5 righe, righe di Log >600 caratteri). SPV lo lancia a ogni controllo: lo stato riferito all'utente è quello che stampa, col suo orario.
 - **Righe di Log ≤600 caratteri**; il resto va nel work order o nella casella.
+- **Costo dei battiti**: `python tools/sync_watch.py --id <ID> --branch sync/{nome}` fa il battito senza modello e sveglia l'agente solo se cambia la sua casella; vedi `docs/progress/sync.md` ("Cost of the heartbeats").
 - **Modifiche alle regole**: riga `RULE` con ack richiesto; vale per un operatore solo dopo il suo `ack`.
 - **Profilo**: campo `wakeup yes|no` (`--wakeup`): l'agente si risveglia da solo (timer, scheduler)? Se `no`, SPV non pretende battiti da 15 min: assegna lavori con `eta` esplicita e dice quando richiamarlo; l'utente lo sveglia con la frase di avvio (`docs/progress/sync.md`).
 

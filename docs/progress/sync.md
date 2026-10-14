@@ -61,9 +61,22 @@ The five standardized states defined in [`sync/operators.toml`](../../sync/opera
 - Dopo l'handshake: battiti brevi (3-5 min) finché l'operatore non ha preso in carico il primo work order (`ASSIGNED` letto, `ack`, `WORKING`), e SPV finché lo ha confermato; tetto di 6 battiti brevi; poi battito ogni 15 min.
 - **Consegne**: una riga `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: ... → ... · {ISO}` in `## Consegne` del proprio file, poi `FREE`; `DONE` e solo lo stato terminale, non una consegna; SPV risponde con `REVIEW` e integra solo dopo `APPROVED`.
 - **Caselle e controllo oggettivo**: compiti e urgenze in `sync/inbox/<ID>.md` (max 5 righe, solo SPV scrive); `ack` con `sync_hdr.py --ack auto`; `tools/sync_check.py` dice chi è vivo, chi non ha letto, quali consegne e righe di Log sono fuori formato (>600 caratteri). Lo stato all'utente si legge da lì, mai da memoria. Campo `wakeup yes|no` nel profilo: agenti senza risveglio autonomo ricevono lavori con `eta` esplicita. Una modifica alle regole è una riga `RULE` con ack.
+- **Heartbeat cost**: prefer a no-model beat (`tools/sync_watch.py`) or a small subagent; the main agent pays the whole conversation at every beat (section "Cost of the heartbeats").
 - **Sign-off**: SPV libera un operatore con la riga `SIGNOFF {ID}: motivo` (niente lavoro adatto, requisiti non soddisfatti, sostituzione, fine progetto); l'operatore consegna, scrive la chiusura, si segna `DONE` e smette i battiti; `operators.toml`: `active = false`, `signoff = "..."`. Senza risposta in 60 min: `IDLE`, avviso all'utente.
 - No task open-ended: passi <=45 min; l'operatore tiene libero l'agente principale e supervisiona i propri subagent.
 
 ## Frase di avvio (da incollare nella sessione di un operatore)
 
 > Sei `<ID>` nel sync del branch `<branch>`. Fai handshake `<branch>` (CLAUDE.md §6). Poi, a ogni battito (3-5 min finché non hai preso il primo work order, poi 15; se non ti svegli da solo, a ogni mio messaggio): `git fetch origin`; `git diff <ultimo hash visto> -- SYNC.md sync/`; leggi `sync/inbox/<ID>.md`; `python tools/sync_hdr.py <ID> --state ... --task ... --ack auto`; commit e push sul branch. Non iniziare altro lavoro che quello della tua casella; consegna con una riga `DELIVERED ...` nella sezione `## Consegne` del tuo file.
+
+## Cost of the heartbeats (what a beat costs, and the cheapest way)
+
+A heartbeat is only `git fetch`, a look at the inbox and `sync_hdr.py <ID> --ack auto`. What costs is *who* does it (order of magnitude, no measure yet: the cost ledger is still missing):
+
+| Who does the beat | Cost of one beat | Note |
+|---|---|---|
+| The **main agent** (a timer that re-sends a prompt) | re-reads the whole conversation: hundreds of thousands of tokens read from the cache (a tenth of the price) plus a few thousand of output and the output of the commands; the full price if the cache has expired | the most expensive; it also breaks if the session has no timer |
+| A **small subagent** (e.g. Haiku, empty context, a short prompt) | about 5-15 thousand tokens | tens of times cheaper; the protocol default for agents with subagents |
+| A **script, no model**: `tools/sync_watch.py` | 0 tokens | the model wakes up only if the inbox or a row addressed to the operator changes |
+
+`python tools/sync_watch.py --id <ID> [--branch <sync branch>] [--every 5] [--beat 15] [--wake-cmd "..."]`, run in the operator's own clone (a terminal or a background process): every `--every` minutes it fetches, compares the inbox and the Log rows addressed to the operator with the last look, and **only if there is news** writes `.sync_wake`, prints it and runs `--wake-cmd`; every `--beat` minutes it writes the heartbeat itself (`updated` and `ack`; state and task stay as the agent wrote them), commits and pushes. `--once --no-push` is a dry run. It does not replace the agent's own state changes (`WORKING`, `DELIVERED`, `FREE`): those stay the agent's job. An agent without a timer (profile `wakeup no`) still needs something to start it: the watcher's `--wake-cmd`, or the user.
