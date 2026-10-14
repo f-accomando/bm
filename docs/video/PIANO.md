@@ -183,3 +183,7 @@ Fonti: `docs/progress/audio.md`, `docs/progress/audio-samples.md`, `manuals/cont
 11. **Video 5**: i passi di ogni effetto restano a 8 (STEPS non cambia); CHORD è un arpeggio veloce, non un vero accordo; `bmhost --wav` è mono (il pan non si verifica nel wav).
 12. **Passi `+`/`_` di bm Sound**: il codice usa passi per parametro (es. BEND FROM 12) diversi dal "±10" del manuale; le shot list seguono il codice (da correggere il manuale: `docs-loop`/`bm-manuals`).
 13. **Asset di riferimento** (`video/3d/assets/`, bm-forge): PICO guarda verso **+z** (corre verso +z con `ry = 0`), 192 triangoli; APPLE 60; CRATE 36 (totale 288). Chiude i `[DA VERIFICARE]` sulla direzione di Pico dei video 6 e 7 *per il riferimento*; il modello fatto a mano in Studio nel video 1 deve guardare anch'esso verso +z.
+
+## Decisione 2026-10-13: il Pico dei video resta a blocchi
+
+Il Pico costruito a mano in Studio nei video 1-3 (116 triangoli, blocchi squadrati) **si tiene com'è**; rifarlo piu dettagliato costava 4-6 ore reali piu la riregistrazione di 1, 2 e 3. Il gecko di riferimento (`video/3d/assets/`, 192 triangoli) resta come asset di verifica e per le copertine. Conseguenza dichiarata: copertina e video non coincidono del tutto (la copertina mostra il riferimento). Riaprire la scelta solo se avanza tempo a fine serie.

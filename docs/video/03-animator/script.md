@@ -17,7 +17,7 @@ ogni azione resta a schermo il tempo di leggerla. Narrazione e didascalie in **i
 | 0:00 | Gancio: Pico corre in loop su F1 con lo scheletro visibile (ripresa finale); titolo "Tropic Trail · Ep 3 · bm Animator" | Meet Pico, alive. One skeleton, five moves, all built inside the console. |
 | 0:08 | Tab Dev, bm Animator, elenco file; si apre il progetto; F1: Pico gira da fermo | bm Animator lives in the Dev tab. It does not build models: it opens the ones you made in bm Studio. Here is Pico, still a statue. |
 | 0:22 | Le pagine F2, F3, F4 una dopo l'altra, poi di nuovo F2 | Four pages. F1 plays, F2 builds the skeleton, F3 records clips, and F4 bakes sprites. We need the first three. |
-| 0:30 | F2: N crea `root`, W alza la coda fino ai fianchi | On F2, press N. The first bone is called root. Press W to lift its tail to Pico's hips: each press moves it an eighth of a unit. |
+| 0:30 | F2: N crea `root`, S/R alza la coda fino ai fianchi | On F2, press N. The first bone is called root. Press S and R to place its tail at Pico's hips. |
 | 0:42 | N aggiunge `spine`, poi `head`; Invio rinomina | N again adds a bone under the chosen one. The spine rises from the hips to the shoulders, and the head sits on top. Enter renames a bone. |
 | 0:54 | Si sceglie `spine`, N crea `arm.L`, M lo copia a destra; poi `root`, `leg.L`, M | Choose the spine, add an arm, and press M: the left arm is copied to the right. The names end in dot L and dot R. Choose the root and do the same for the legs. |
 | 1:08 | `tail1`, `tail2` sul `root`; la lista mostra 9 ossa | The tail is two bones on the root. Nine bones in all. The limit is sixty-four, so there is plenty of room. |
@@ -26,10 +26,10 @@ ogni azione resta a schermo il tempo di leggerla. Narrazione e didascalie in **i
 | 1:45 | F3: N, nome `idle`, 24 frame, la spina dorsale respira (loop) | F3 is the timeline, twelve frames a second. N makes a clip, Enter names it. Idle is a quiet breath: turn the spine a little and a keyframe appears. |
 | 2:00 | `run`: 8 frame, posa a frame 0, M a frame 4, Spazio, fluido (`i`), pelle di cipolla (`o`) | Run is eight frames and it loops. Pose one: arms and legs opposed. Go to frame four and press M to mirror the pose. Space plays it, and the loop closes by itself. |
 | 2:20 | `jump`: L spegne il loop; accovacciata, slancio, atterraggio | Jump does not loop, so press L. A crouch, a stretch, and a landing. |
-| 2:33 | `spin`: 8 frame, root gira di 180 gradi due volte | Spin turns the root half a turn, twice. Three keyframes make a full circle. |
+| 2:33 | `spin`: 6 frame, root gira di 120 gradi tre volte | Spin turns the root one hundred and twenty degrees, three times. Three keyframes make a full circle. |
 | 2:45 | `hit`: 6 frame, Pico si inclina indietro e torna | Hit is a short lean back, and back to rest. It does not loop either. |
 | 2:55 | F1: frecce sinistra/destra cambiano clip; Spazio; K; B (fusione); `<` `>` velocità | Back on F1, left and right change the clip, Space plays it. K shows the skeleton. B blends one clip into the next. |
-| 3:10 | Ctrl+S; domanda "Save an editable copy"; messaggio `saved` | Control S saves. A cartridge is only read, so the first save makes an editable copy beside it. |
+| 3:10 | Ctrl+S; domanda "Save an editable copy"; risposta Enter/Space; messaggio `saved` | Control S saves. A cartridge is only read, so the first save makes an editable copy beside it. |
 | 3:20 | F1: Pico corre con lo scheletro; cartello finale "Next: the trail" | Pico moves. The next video receives this file, with the skeleton and five clips, and we build the trail he runs along. |
 
 Parole di narrazione: ~455 (a 130 parole/minuto, ~3:30 con le pause delle azioni).
@@ -51,12 +51,11 @@ Parole di narrazione: ~455 (a 130 parole/minuto, ~3:30 con le pause delle azioni
    no mixed weights"). PIANO.md non parla di pesi: nel video non si promettono pesi sfumati. Le giunture di Pico (modello a blocchi) vanno bene con `k`.
 4. **Timeline a 12 fps** (non 60): `animate(m, anim, t, ...)` prende il tempo in secondi, quindi il gioco a 60 fps è comunque fluido
    (interpolazione `i`), ma le durate delle clip sono multipli di 1/12 s. Durate scelte: `idle` 24 frame (2 s), `run` 8 (0,67 s), `jump` 12 (1 s),
-   `spin` 8, `hit` 6. Sono scelte editoriali, modificabili.
+   `spin` 6, `hit` 6. Sono scelte editoriali, modificabili.
 5. **Catena `.bm` e progetti `.bme`**: l'Animator modifica solo progetti `.bme`; un `.bm` aperto è in sola lettura e il primo salvataggio crea
    una copia `.BME`. PIANO.md §4 dice che l'output è `chain/03-animator.bm`: quel `.bm` va prodotto dal `.bme` (SDK `Ctrl+B`, oppure
    copia diretta dal salvataggio). Da decidere (vedi `input.md`).
 6. **`bmhost` non ha la scheda Dev**: la sequenza "Dev ▸ bm Animator" è un cartello/overlay (o una ripresa QEMU breve), non un'azione ripresa.
 7. **Console a 640×360 nel video**: `video/lib/bmvideo.py` registra `GAME_W, GAME_H = 640, 360`, mentre PIANO.md fissa il *gioco* a 480×270.
    L'Animator è uno strumento (non il gioco), quindi 640×360 va bene qui; la risoluzione 480×270 vale per i video 6-8.
-8. **Il segno delle rotazioni** (`w`/`s` attorno a x, `a`/`d` attorno a y) e l'asse di `a d w s r f` nella pagina F2 non sono descritti nel manuale
-   oltre agli esempi: le pose di `jump`, `spin`, `hit` vanno provate sul modello vero (vedi `[DA VERIFICARE]` in shot-list).
+8. **Il segno delle rotazioni** (`w`/`s` attorno a x, `a`/`d` attorno a y) e l'asse di `a d w s r f` nella pagina F2 sono verificati (camera yaw 0.5): le pose di `jump`, `spin`, `hit` sono tarate sul modello vero.
