@@ -2,7 +2,7 @@
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 16:06
+**Ultimo aggiornamento:** 2026-10-14 16:09
 **Stato:** `WORKING video 4 rifatto + video 6 R1` (2 riprese in parallelo; fine 4 prevista 17:15-17:25)
 
 ## Task
@@ -23,7 +23,26 @@
 - Sezioni `Considerazioni sul sync` e `Profilo` (richieste 15:12 e 15:25): le aggiungo nel prossimo giro.
 
 ## Considerazioni sul sync
-(Vedi `docs/progress/sync-workflow.md` sul mio branch `feat/claude-video3d-rec`; sintesi nel prossimo aggiornamento.)
+Funziona: un file per operatore (zero conflitti), riga "Ultimo aggiornamento", richieste "cosa serve / cosa ho provato / cosa ho misurato", prove brevi prima di quelle lunghe (50 s al posto di 70 min).
+Non funziona:
+- **Latenza**: ogni domanda costa un battito (fino a 60 min) per l'andata e uno per il ritorno; il crash del video 4 ha richiesto 4 giri.
+- **Righe urgenti sepolte**: la riga "URGENTE" delle 14:25 era in fondo a una tabella di righe lunghe e l'ho letta alle 15:50; ho consegnato un video 4 senza Shift+S/G (70 min persi). Il battito leggeva tutto, non il diff.
+- **Stato nei prompt dei timer**: heartbeat con "la ripresa e in corso" quando era finita; un timer non riarmato.
+- **Binari senza provenienza**: il kernel incorpora l'editor; un kernel vecchio ha fatto perdere 2 riprese.
+- **Operatore bloccato in attesa** finche non erano i subagent ad aspettare (ora si fa cosi).
+Proposte:
+1. Righe urgenti in un file a parte o in testa (`sync/URGENT.md`, o prefisso `!!` e nome dell'operatore) e il battito controlla solo `git diff` di `SYNC.md`/`sync/` dall'ultimo hash visto, con elenco delle righe nuove per me.
+2. Ogni consegna e richiesta porta `branch @ commit` sorgente; `rec_qemu` rifiuta di registrare se `build/kernel.img` e piu vecchio di `carts/editor/` o se manca il commit atteso (`tool_start`, ecc.) nel kernel.
+3. Prompt dei timer senza stato ("fai fetch, leggi il diff, decidi") e riarmo come prima azione; durata attesa scritta quando parte un job.
+
+## Profilo
+- **Dove**: cloud (container Linux 4 core/15 GB, senza GPU V3D), sessione web; il container si ricicla dopo ~30 min senza attivita e uccide i job in background; push solo su branch e `bm-core` per `sync/CLD.md`.
+- **Modelli**: Sonnet 5.5 (principale); subagent `bm-ops` (Haiku, comandi/attese/verify), `bm-planner` (work order), `bm-coder` (codice da work order).
+- **Subagent**: si; le attese lunghe e le verifiche vanno a `bm-ops`, io resto libero.
+- **Strumenti**: QEMU `raspi0` (`-icount`, 15-19x tempo reale), Xvfb+ffmpeg, bmhost, `rec_qemu.py`/`qemurec.py`; fino a 2 riprese in parallelo (display X per episodio).
+- **Competenze**: riprese QEMU riproducibili con log seriale, verifica e consegna in `chain/`; diagnosi da log e fotogrammi.
+- **Limiti**: nessuna GPU/V3D reale (3D su ARM in QEMU), niente audio da QEMU (wav da bmhost); il sistema nega `kill` di processi: le riprese non si possono fermare da qui.
+- **Punti di rottura**: sessione/container riciclato, push su `bm-core` rifiutato se avanza, timer non riarmati; leggo il sync a battiti, non in tempo reale.
 
 ## Report tempi e hiccups (richiesta dell'utente, 13:35)
 Perche le riprese 3D sono piu lente del gioco 2D: girano su QEMU `raspi0` con `-icount` (clock deterministico), circa 15-19x il tempo reale negli editor 3D (video 4: 200 s di video = 4065 s di ripresa, ~68 min); l'errore si scopre solo a ripresa finita; piu passaggi per video (ripresa, overlay/sottotitoli, mux 1080p60, verify, consegna); catena di dipendenze 1,2,3,5 -> 4 -> 6,7,8.
