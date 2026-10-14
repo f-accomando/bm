@@ -73,7 +73,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 
 ## Open work (`docs/ROADMAP.md`)
 
-- **`map3d` is not in `bm-core`**: the engine (`src/bm/map3d.c`, its Lua API in `runtime.c`, the 3D map editor) lives on `feat/antigravity-map3d`; a kernel built from `bm-core` (`v0.2.5-358`) stops a cartridge at `map3d_build` (checked on a Pi Zero W, 2026-10-14). Merge it before the Tropic Trail series is published ([`../video/STATUS.md`](../video/STATUS.md), branches and order).
+- **`map3d` is not in `bm-core`**: the engine (`src/bm/map3d.c`, its Lua API in `runtime.c`, the 3D map editor) lives on `feat/antigravity-map3d`; a kernel built from `bm-core` (`v0.2.5-358`) stops a cartridge at `map3d_build` (checked on a Pi Zero W, 2026-10-14). Merge it before the Tropic Trail series is published (`docs/video/STATUS.md` on `feat/claude-video3d` lists the branches and the order).
 - **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet.
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
