@@ -45,7 +45,7 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 
 | Agente | Stato | Dettaglio | ETA |
 |---|---|---|---|
-| **Claude local** | `WORKING record.py video 4 + review GROK-01 (dopo le sue correzioni)` | review AGY-01..05 fatta: approvati | 1 h |
+| **Claude local** | `WORKING video 3 (ossa sul Pico vero), poi record.py video 4` | review AGY-01..05 fatta: approvati | 1 h |
 | **Claude cloud** | `WORKING riprese QEMU video 2, 3, 5 (shift 1)` | video 1 registrato (PASS); le riprese finali vanno a `shift` 1 | 30 min a ripresa |
 | **Antigravity** | `WORKING AGY-04` (RGB30 `carts/sdk_b16`) | AGY-01, 02, 03, 05 approvati da Claude local; parti subito, non aspettare il video 4 | 1.5-2 h |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
@@ -156,7 +156,7 @@ Timer di check: **15–20 min** mentre si ha una task attiva che dipende da altr
 
 **Regole di leggerezza (2026-10-14, richieste dall'utente)**: (1) **task corte**: nessuna task oltre 45 min; se la stima e maggiore, chi la prende la spezza in passi da <=45 min e scrive una riga per passo. (2) **Heartbeat**: chi lavora scrive una riga `HEARTBEAT {task} {%}` nel Log **ogni 30 min** (anche se non c'e nulla di nuovo: "ancora su X, prossimo Y"); senza heartbeat per 60 min lo stato diventa `IDLE`. (3) **Meno merge**: `git merge origin/bm-core` solo a milestone o quando serve un file nuovo, non a ogni riga di log; le righe di Log si aggiungono con `git pull --rebase` e poi push, senza commit di merge. (4) **Niente ripetizioni**: se fai la stessa operazione 3 volte, scrivila come script o skill e annotalo nel Log. (5) Riprese QEMU: una per volta con `--limit-s` per prove brevi, ripresa intera solo a prova verde.
 
-**Regole di sincronizzazione**: (1) chi ha una task lunga tiene un timer attivo (ScheduleWakeup/cron o equivalente, 20–30 min) che fa `git fetch origin` e legge questo file (Sezione 5) e i branch dell'altro; (2) a ogni milestone aggiorna il Log; (3) se serve un'azione dell'utente (sync manuale, merge, chiave, dispositivo) la riga del Log inizia con `USER:` e dice cosa serve; (4) ogni risposta all'utente chiude con lo stato di **Claude cloud, Claude local, Antigravity, Grok** nel formato di §1b (`DONE` / `WORKING {task}` / `WAITING {chi}` / `IDLE`). Se manca una feature degli editor, la costruisce chi ha il file libero e la consegna sul proprio branch; i file di `carts/editor/` sono di Antigravity.
+**Regole di sincronizzazione**: (1) chi ha una task lunga tiene un timer attivo (ScheduleWakeup/cron o equivalente, 20–30 min) che fa `git fetch origin` e legge questo file (Sezione 5) e i branch dell'altro; (2) a ogni milestone aggiorna il Log; (3) se serve un'azione dell'utente (sync manuale, merge, chiave, dispositivo) la riga del Log inizia con `USER:` e dice cosa serve; (4) ogni risposta all'utente chiude con lo stato di **Claude cloud, Claude local, Antigravity** nel formato di §1b (`DONE` / `WORKING {task}` / `WAITING {chi}` / `IDLE`). Se manca una feature degli editor, la costruisce chi ha il file libero e la consegna sul proprio branch; i file di `carts/editor/` sono di Antigravity.
 
 ---
 
