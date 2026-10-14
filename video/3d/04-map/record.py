@@ -10,7 +10,7 @@ Generates the complete recording script for Episode 4 (target 3:15, 195 s, 11700
 
 Structure and timing aligned with docs/video/04-map/{script.md, shot-list.md} and keys validated
 by video/3d/04-map/PROBE.md (AGY-06) and SPV live test.
-Where live bmhost execution is pending verification, marked as [DA PROVARE].
+Keys proven live with bmhost screenshots (proto.py); Shift+arrows (3D tilt) cannot be typed over serial and is not used.
 """
 import hashlib
 import json
@@ -84,18 +84,9 @@ def build_script():
     # ---------------------------------------------------------------- 0:00 Chapter 1: The trail
     s.chapter("The trail")
     s.say("This is the whole trail Pico will run, drawn with numbers on a grid.", frames=7 * FPS)
-    s.scene("bm SDK ▸ Map ▸ 3D preview [DA PROVARE]", [("v", "preview"), ("arrows", "orbit")])
-    # Hook: 3D preview orbit showcase of the trail
-    s.sec(0.5)
-    s.key("v", what="3D preview hook", cap="v")
-    s.sec(1.0)
-    for _ in range(8):
-        s.key("right", hold=10)
-        s.wait(6)
-    s.sec(1.0)
-    s.key("up", hold=12)
-    s.sec(1.0)
-    s.key("v", what="Return to 2D view", cap="v")
+    s.scene("bm SDK", [("F3 F3", "map")])
+    # The finished 3D trail is shown by the edited footage of the final cut; on screen the SDK waits for the project.
+    s.sec(7.5)
 
     # ---------------------------------------------------------------- 0:08 Chapter 2: The map page
     s.until(8, "The map page")
@@ -133,144 +124,100 @@ def build_script():
     s.key("l", what="Cycle back to floor layer", cap="l", hold=8)
     s.wait(18)
 
+    # Every key below was proven live with bmhost screenshots (video/3d/04-map/proto.py): hold 8, then wait.
+    def k(key, what="", cap=None, w=20):
+        s.key(key, what=what, cap=cap, hold=8)
+        s.wait(w)
+
+    def move(key, n):
+        for _ in range(n):
+            s.key(key, hold=8)
+            s.wait(4)
+        s.wait(12)
+
     # ---------------------------------------------------------------- 0:38 Chapter 4: Floor and holes
     s.until(38, "Floor and holes")
     s.chapter("Floor and holes")
-    s.say("Pick a grass tile with Tab, and press Z for the big brush: one tile is one unit of world. Shift P draws the path between two cells. A cell left empty is a hole.", frames=25 * FPS)
-    s.scene("Map ▸ floor", [("Tab", "tile"), ("Z", "16x16"), ("Shift+P", "path")])
+    s.say("Pick the grass tile with Tab. The big brush is on: one tile is one unit of world. Shift W sets the width, Shift P draws the path between two cells. A cell left empty is a hole.", frames=27 * FPS)
+    s.scene("Map > floor", [("Tab", "tile"), ("Shift+W", "width"), ("Shift+P", "path")])
     s.sec(0.5)
-    # Ensure 16x16 brush
-    s.key("z", what="Big brush 16x16", cap="z", hold=8)
-    s.wait(15)
-    # Path tool: Shift+P
-    s.key("P", what="Activate Path tool", cap="Shift+P", hold=10)
-    s.wait(12)
-    s.key("enter", what="First cell of corridor", cap="Enter", hold=8)
-    s.wait(10)
-    # Move along level path (forward 24 cells)
-    for _ in range(12):
-        s.key("down", hold=4)
-        s.wait(2)
-    s.key("enter", what="Second cell of corridor", cap="Enter", hold=8)
-    s.wait(20)
-    # Widen path with Shift+W (PROBE.md verified: Shift+W cycles width 1..5)
-    s.key("W", what="Widen path", cap="Shift+W", hold=8)
-    s.wait(12)
-    s.key("W", what="Widen path", cap="Shift+W", hold=8)
-    s.wait(18)
-    # Create holes with Backspace
-    s.key("up", hold=5); s.key("up", hold=5)
-    s.key("bksp", what="Hole in corridor", cap="Backspace", hold=8)
-    s.wait(10)
-    s.key("up", hold=5)
-    s.key("bksp", what="Second hole in corridor", cap="Backspace", hold=8)
-    s.wait(20)
-    # Toggle overview map
-    s.key("m", what="Overview map", cap="m", hold=8)
-    s.wait(18)
-    s.key("m", what="Back from overview", cap="m", hold=8)
-    s.wait(18)
+    k("tab", "Open the tile chooser", "Tab", 25)
+    move("down", 3)
+    k("enter", "The grass tile of bm Pixel", "Enter", 25)
+    move("right", 6)
+    k("W", "Path width 2", "Shift+W")
+    k("W", "Path width 3", "Shift+W")
+    k("P", "Path tool", "Shift+P", 12)
+    k("enter", "First cell of the path", "Enter", 10)
+    move("down", 20)
+    k("enter", "Last cell: the corridor is drawn", "Enter", 30)
+    move("up", 8)
+    k("bksp", "A hole in the corridor", "Backspace", 25)
+    k("m", "Overview of the whole map", "m", 40)
+    k("m", "Back to 1:1", "m", 25)
 
     # ---------------------------------------------------------------- 1:05 Chapter 5: Height and walls
     s.until(65, "Height and walls")
     s.chapter("Height and walls")
     s.say("In the height layer a number is a quarter of a unit. Two quarters make a step. In walls, a number is a solid block that Pico cannot cross.", frames=21 * FPS)
-    s.scene("Map ▸ height and walls", [("l", "layer"), ("f", "fill"), ("Space", "block")])
+    s.scene("Map > height and walls", [("l", "layer"), (".", "value"), ("Space", "place")])
     s.sec(0.5)
-    # Switch to height layer
-    s.key("l", what="Layer height", cap="l", hold=8)
-    s.wait(12)
-    # Value step: '.' steps value
-    s.key(".", what="Height value 1", cap=".", hold=6)
-    s.wait(8)
-    s.key(".", what="Height value 2 (0.5 units)", cap=".", hold=6)
-    s.wait(10)
-    s.key("space", what="Place height step", cap="Space", hold=8)
-    s.wait(20)
-    # Switch to walls layer
-    s.key("l", what="Layer walls", cap="l", hold=8)
-    s.wait(12)
-    s.key(".", what="Wall value 1 (solid)", cap=".", hold=6)
-    s.wait(8)
-    s.key("space", what="Place solid wall block", cap="Space", hold=8)
-    s.wait(20)
+    k("l", "Layer height", "l", 25)
+    k(".", "Next value", ".", 12)
+    k(".", "Next value", ".", 12)
+    k("space", "Place a height step", "Space", 30)
+    move("down", 2)
+    k("space", "Place a second step", "Space", 30)
+    k("l", "Layer walls", "l", 25)
+    k(".", "Next value", ".", 12)
+    k("space", "Place a solid block", "Space", 40)
 
     # ---------------------------------------------------------------- 1:28 Chapter 6: Apples, crates, lanterns, start and goal
     s.until(88, "Apples, crates, lanterns, start and goal")
     s.chapter("Apples, crates, lanterns, start and goal")
-    s.say("Shift A lays a row of apples. Shift C puts a crate on a cell. Shift O adds a lantern. Start and goal are tiles from the chooser: put them at the two ends.", frames=25 * FPS)
-    s.scene("Map ▸ objects", [("Shift+A", "apples"), ("Shift+C", "crate"), ("Shift+O", "lamp")])
+    s.say("Shift A lays a row of apples. Shift C puts a crate on a cell. Shift O adds a lantern.", frames=25 * FPS)
+    s.scene("Map > objects", [("Shift+A", "apples"), ("Shift+C", "crate"), ("Shift+O", "lamp")])
     s.sec(0.5)
-    # Switch to objects layer
-    s.key("l", what="Layer objects", cap="l", hold=8)
-    s.wait(15)
-    # Shift+A: Row of apples
-    s.key("A", what="Apples row tool", cap="Shift+A", hold=10)
-    s.wait(10)
-    s.key("enter", what="Apples start", cap="Enter", hold=8)
-    for _ in range(6):
-        s.key("down", hold=4)
-        s.wait(2)
-    s.key("enter", what="Apples end", cap="Enter", hold=8)
-    s.wait(20)
-    # Shift+C: Place crate
-    s.key("right", hold=5); s.key("up", hold=5)
-    s.key("C", what="Place crate", cap="Shift+C", hold=8)
-    s.wait(18)
-    # Shift+O: Place lantern
-    s.key("left", hold=5); s.key("up", hold=5)
-    s.key("O", what="Place lantern", cap="Shift+O", hold=8)
-    s.wait(20)
+    k("l", "Layer objects", "l", 25)
+    k("A", "Row of apples", "Shift+A", 12)
+    k("enter", "First apple", "Enter", 10)
+    move("down", 6)
+    k("enter", "Last apple", "Enter", 40)
+    k("C", "A crate", "Shift+C", 40)
+    move("down", 2)
+    k("O", "A lantern", "Shift+O", 40)
 
     # ---------------------------------------------------------------- 1:55 Chapter 7: Counts and undo
     s.until(115, "Counts and undo")
     s.chapter("Counts and undo")
-    s.say("The status line counts apples, crates and lanterns, and estimates the triangles. Control Z takes back a whole row in one step.", frames=13 * FPS)
-    s.scene("Map ▸ objects ▸ undo", [("Ctrl+Z", "undo"), ("Shift+A", "apples")])
+    s.say("The status line counts apples, crates and lanterns, and estimates the triangles. Control Z takes back the last stroke in one step.", frames=13 * FPS)
+    s.scene("Map > objects > undo", [("Ctrl+Z", "undo"), ("Shift+A", "apples")])
     s.sec(0.5)
-    # Atomic undo with Ctrl+Z
-    s.chord("z", what="Undo whole operation")
-    s.wait(20)
-    # Re-apply row of apples
-    s.key("A", what="Re-add apples", cap="Shift+A", hold=10)
-    s.wait(8)
-    s.key("enter", hold=8)
-    for _ in range(6):
-        s.key("down", hold=4); s.wait(2)
-    s.key("enter", hold=8)
-    s.wait(25)
+    s.chord("z", what="Undo the last stroke")
+    s.wait(40)
+    k("O", "The lantern again", "Shift+O", 40)
+    move("right", 4)
+    k("A", "Row of apples again", "Shift+A", 12)
+    k("enter", "First apple", "Enter", 10)
+    move("down", 6)
+    k("enter", "Last apple", "Enter", 40)
 
     # ---------------------------------------------------------------- 2:10 Chapter 8: The 3D preview
     s.until(130, "The 3D preview")
     s.chapter("The 3D preview")
-    s.say("Press V. The same code that builds the world in the game builds this preview, so what you see is what you play. Left and right orbit, up and down zoom, comma and period tilt.", frames=28 * FPS)
-    s.scene("Map ▸ 3D preview", [("v", "preview"), ("left/right", "orbit"), ("up/down", "zoom"), ("Shift+up/dn", "tilt")])
+    s.say("Press V. The same code that builds the world in the game builds this preview, so what you see is what you play. Left and right orbit, up and down zoom.", frames=28 * FPS)
+    s.scene("Map > 3D preview", [("v", "preview"), ("left/right", "orbit"), ("up/down", "zoom")])
     s.sec(0.5)
-    # Toggle 3D preview
-    s.key("v", what="Toggle 3D preview", cap="v", hold=12)
+    k("v", "3D preview", "v", 45)
+    move("right", 6)
     s.wait(20)
-    # Orbit camera yaw (left / right)
-    for _ in range(6):
-        s.key("right", hold=8); s.wait(4)
-    s.wait(12)
-    for _ in range(4):
-        s.key("left", hold=8); s.wait(4)
-    s.wait(12)
-    # Zoom camera distance (up / down)
-    for _ in range(3):
-        s.key("up", hold=8); s.wait(4)
-    s.wait(10)
-    for _ in range(3):
-        s.key("down", hold=8); s.wait(4)
-    s.wait(12)
-    # Tilt pitch [DA PROVARE: combinazione Shift con tasti cursore da seriale QEMU]
-    s.key("up", what="Tilt camera up [DA PROVARE]", cap="Shift+Up", hold=8)
-    s.wait(8)
-    s.key("down", what="Tilt camera down [DA PROVARE]", cap="Shift+Down", hold=8)
+    move("left", 10)
     s.wait(20)
-    # Return to 2D
-    s.key("v", what="Return to 2D map", cap="v", hold=10)
-    s.wait(25)
+    move("up", 3)
+    s.wait(20)
+    move("down", 5)
+    s.wait(20)
+    k("v", "Back to the 2D map", "v", 30)
 
     # ---------------------------------------------------------------- 2:40 Chapter 9: Save and build
     s.until(160, "Save and build")
