@@ -69,6 +69,11 @@ local C_KEY = 0xFFC050                   -- the key of a row in the panel
 local R = {}
 R.tabs, R.body, R.hints, R.status = table.unpack(LY.split(LY.rect(0, 0, W, H), "v", { 16, "*", 16, 24 }))
 R.strip, R.view = table.unpack(LY.split(R.body, "v", { "2r", "*" }))
+if not LY.narrow(W) then
+  R.panel, R.work = LY.side_by_side(R.view)
+else
+  R.panel, R.work = R.view, R.view
+end
 local HINT_Y, STATUS_Y = R.hints.y, R.status.y
 local ROWS = LY.rows(R.body)             -- text rows between the tabs and the hint row
 

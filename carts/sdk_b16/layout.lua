@@ -56,9 +56,7 @@ function L.side_by_side(r, panel_cols)
     cols = L.narrow(r.w) and 16 or 30
   end
   local out = L.split(r, "h", { tostring(cols) .. "c", "*" })
-  local panel, work = out[1], out[2]
-  panel[1], panel[2] = panel, work
-  return panel, work
+  return out[1], out[2]
 end
 
 -- a size of a split: pixels, or nil and the weight of a share
