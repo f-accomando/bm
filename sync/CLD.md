@@ -2,8 +2,8 @@
 
 > Scrive solo Claude cloud (CLD). Aggiornato a mano.
 
-**Ultimo aggiornamento:** 2026-10-14 07:05 CEST (ora di Roma)
-**Stato:** `WORKING video 4 prep` (attesa di SPV per il record.py del video 4 e la ricalibrazione del video 3)
+**Ultimo aggiornamento:** 2026-10-14 07:48 CEST (ora di Roma)
+**Stato:** `WORKING video 3: ripresa QEMU in corso` (~55 min, finisce circa 08:35 ora di Roma)
 
 ## Task
 - Video 1, 2, 5 registrati in QEMU 1080p60 e verificati (`video/3d/0N-*/out/qemu/epNN_qemu.mp4`); consegne in `video/3d/chain-delivered/`.
