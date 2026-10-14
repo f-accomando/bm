@@ -33,7 +33,7 @@ si chiedeva in italiano perché allora la KB inglese non c'era.
 | 1:54 | Chapter 3: blocks 3a, 3b, 3c typed (spin, clip, steps) | B starts a spin, twenty-four frames long, with its sound. Then we choose the clip: idle, run, jump, spin or hit, and animate puts Pico in that pose. While he runs, a step sound every fourteen frames. |
 | 2:14 | Blocks 3d, 3e, 3f typed (apples, crates, goal) | An apple closer than nine tenths of a unit is collected: one point, and the apple sound. A hundred apples give a life. A crate breaks if Pico spins near it, or lands on top. It leaves an apple, and the jump bounces him. The goal ends the course. |
 | 2:38 | Chapter 4: block 4a, then 4b typed (lights, `_draw` start) | Draw. The sun, the sky, the fog and the nearest four lanterns go in one function, as we set them in episode six. Then the camera, which has to follow Pico from behind: a good question for the assistant. |
-| 2:56 | `F6`, question typed, answer, `Enter` inserts block 4c | F6 opens the assistant. We ask it in English: third person camera. It finds the guide and shows its code: a camera behind the player, a little higher, looking down. The names match ours, so Enter inserts it just as it is. |
+| 2:56 | `F6`, `Tab` ×4 (guide mode), question typed, answer, `Enter` inserts block 4c | F6 opens the assistant. Tab goes to the guides, and we ask it in English: the third person camera. It finds the guide and shows its code: a camera behind the player, a little higher, looking down. The names match ours, so Enter inserts it just as it is. |
 | 3:18 | Blocks 4d, 4e typed (models, shadow, HUD, title and clear screens) | Then the drawing: terrain, Pico's shadow, crates, spinning apples, and Pico himself. The score and the lives come last, over the 3D, and the title and clear screens. |
 | 3:33 | `Ctrl+S` in bm Code, then bm SDK: `Ctrl+O`, `Ctrl+B` | Ctrl+S saves the code: bm Code never touches a game file, so it makes an editable copy, tropic dot B M E. In the SDK, Ctrl+B builds the game. |
 | 3:44 | The built game, 4× full screen: title, `A`, run, apples, hole, crate | And here it is, on the console: arrows to run, Space to jump, X to spin. Apples, a crate, a hole. Next time, the whole trail, played from the title to the goal. |
@@ -254,7 +254,7 @@ cam_y = cam_y + (pico.y - cam_y) * 0.1
 local px, py, pz, a = pico.x, cam_y, pico.z, 0
 ```
 
-Blocco 4c: **inserito dall'assistente** (F6, domanda `third person camera`, `Enter`). Risposta attesa: la guida
+Blocco 4c: **inserito dall'assistente** (F6, `Tab` ×4 fino al modo guide, domanda `the third person camera`, `Enter`). Risposta attesa: la guida
 `guide.3d_camera` di `src/ai/kb/guide_sdk.txt` (`text_en`: 1. the player has a direction a, the camera stays behind at distance d
 and a bit higher; 2. `camera3d(x, y, z, yaw, pitch)`: yaw = a, negative pitch to look down; 3. for a smooth camera move closer
 every frame), con questo codice. Adattamento: nessuno (le variabili sono già quelle giuste); la morbidezza del punto 3 è `cam_y`.
@@ -316,5 +316,5 @@ end
 - Valori `kind` di `map3d_objects` per 1024/1030/1032 (SYNC §2 mostra solo `"APPLE"`); qui `"PLAYER_START"`, `"GOAL"`, `"LAMP"`.
 - Segno della rotazione `ry` di `draw3d` rispetto a `math.atan(sx, -sy)` (Pico potrebbe guardare dalla parte opposta).
 - Che `animate` con `t` oltre la durata di una clip non ciclica resti sull'ultima posa.
-- Che il pannello F6 in modo codice proponga la guida `guide.3d_camera` per `third person camera` (altrimenti la voce api `camera3d`).
+- Che il pannello F6 in modo guide (Tab ×4: le guide non sono nel modo codice) proponga `guide.3d_camera` per `the third person camera` (verificato, in inglese) (altrimenti la voce api `camera3d`).
 - Se alla prima `Ctrl+S` su un `.bm` bm Code chiede conferma (manuale: «writes an editable copy»; l'SDK chiede *Save an editable copy*).

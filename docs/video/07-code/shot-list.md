@@ -27,7 +27,7 @@ secondo. I blocchi `1a…4e` sono in [`script.md`](script.md). Tasti copiati da 
 | 18 | 2:31 | bm Code ▸ battitura | blocco 3f (3 righe), chiude `_update` | traguardo e vite | Typing: goal and lives |
 | 19 | 2:38 | bm Code ▸ battitura | `Enter`, blocco 4a (15 righe) + `Enter` | la funzione `lights` | Typing: lights |
 | 20 | 2:48 | bm Code ▸ battitura | blocco 4b (6 righe) | inizio di `_draw`, variabili `px, py, pz, a` | Typing: _draw |
-| 21 | 2:56 | bm Code ▸ assistente | `F6` (in bmvideo: `\x1b[17~`) | si apre il pannello dell'assistente in modo codice | F6: the assistant |
+| 21 | 2:56 | bm Code ▸ assistente | `F6` (in bmvideo: `\x1b[17~`) | si apre il pannello; poi `Tab` ×4 fino al modo guide (le guide non stanno nel modo codice) | F6: the assistant, Tab: next mode |
 | 22 | 3:00 | assistente | testo `third person camera` (4 frame per tasto) | la domanda scritta; le risposte compaiono mentre si scrive | Ask in English |
 | 23 | 3:03 | assistente | nessuno (attesa 8 s) | risposta "Guide: the third-person camera" con il codice | It finds the guide |
 | 24 | 3:12 | assistente | `Enter` | il blocco 4c entra nel codice, il pannello si chiude | Enter: insert the code |
