@@ -64,6 +64,10 @@ def main():
         holes = [y for y in rows if len(rows.get(y - 2, [])) > len(rows[y]) < len(rows.get(y + 2, []))]
         check(bool(holes), "a hole in the corridor (thin rows %s)" % holes[:4])
 
+    cellset = {(x, y) for x, y, _ in fl}
+    anchors = [(x, y) for (x, y) in cellset if x % 2 == 0 and y % 2 == 0]
+    check(len(anchors) >= 20, "map3d reads the floor on even tiles: %d of them are set (tile 0 was not left in the brush: Tab picks the grass)" % len(anchors))
+
     print("height and walls")
     check(len(pts("height")) >= 2, "height steps: %d tiles" % len(pts("height")))
     check(len(pts("walls")) >= 2, "walls blocks: %d tiles" % len(pts("walls")))

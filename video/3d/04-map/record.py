@@ -138,9 +138,12 @@ def build_script():
     # ---------------------------------------------------------------- 0:38 Chapter 4: Floor and holes
     s.until(38, "Floor and holes")
     s.chapter("Floor and holes")
-    s.say("The big brush is on, and the grass tile is ready: one tile is one unit of world. Shift W sets the width, Shift P draws the path between two cells. A cell left empty is a hole.", frames=27 * FPS)
+    s.say("Pick the grass tile with Tab. The big brush is on: one tile is one unit of world. Shift W sets the width, Shift P draws the path between two cells. A cell left empty is a hole.", frames=27 * FPS)
     s.scene("Map > floor", [("Tab", "tile"), ("Shift+W", "width"), ("Shift+P", "path")])
     s.sec(0.5)
+    k("tab", "Open the tile chooser", "Tab", 25)
+    move("down", 3)
+    k("enter", "The grass tile of bm Pixel", "Enter", 25)
     move("right", 6)
     k("W", "Path width 2", "Shift+W")
     k("W", "Path width 3", "Shift+W")
