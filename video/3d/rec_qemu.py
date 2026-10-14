@@ -115,7 +115,7 @@ def walk(prev, tool):
     return ev, f
 
 
-def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0, serial=True):
+def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0, serial=True, only_part=None, start_file=None):
     ep, v = episode_dir(n)
     out = os.path.join(ep, "out")
     work = os.path.join(out, out_sub)
@@ -131,6 +131,18 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0,
     events, delta_at = retime(events, min_gap=0 if serial else 4, any_gap=any_gap)
     print("retime: the last event moved %d frames" % delta_at(10 ** 9), flush=True)
     parts = PARTS.get(int(n), [(v["tool"], 0, None)])
+    if only_part:                                      # a test of one part: its frames start at 0, from the given project
+        tool, a0, b0 = parts[only_part - 1]
+        b0 = b0 if b0 is not None else 10 ** 9
+        orig_events = [(f - a0, k, x) for f, k, x in orig_events if a0 <= f < b0]
+        events, delta_at = retime(orig_events, min_gap=0 if serial else 4, any_gap=any_gap)
+        ov["frames"] = min(int(ov["frames"]), b0) - a0
+        for key in ("keys", "scenes", "chapters"):
+            ov[key] = [dict(e, frame=e["frame"] - a0) for e in ov[key] if a0 <= e["frame"] < b0]
+        ov["say"] = [dict(e, **{"from": e["from"] - a0, "to": None if e["to"] is None else e["to"] - a0}) for e in ov["say"] if a0 <= e["from"] < b0]
+        parts = [(tool, 0, None)]
+        if start_file:
+            files = [(src, name) for src, name in files if not name.upper().endswith(".BME")] + [(start_file, "carts/TROPIC.BME")]
     parts = [(t, a, b if b is not None else 10 ** 9) for t, a, b in parts]
 
     # the timeline: each part is shifted by `extra` frames so that its tool is up when its first key comes
@@ -155,7 +167,7 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0,
     if limit_s:
         total = min(total, plan[0]["walk_end"] + int(limit_s * FPS))
 
-    r = qemurec.Recorder(work, shift=shift, display=":%d" % (100 + int(n) + (10 if out_sub != "qemu" else 0) + (1 if out_sub == "vB" else 0)))     # one X display per episode: they can record in parallel
+    r = qemurec.Recorder(work, shift=shift, display=":%d" % int(os.environ.get("REC_DISPLAY", 100 + int(n))))     # one X display per episode: they can record in parallel
     r.boot(sd_files=files, timeout=240)
     settle = r.vtime_us() + 3e6                       # the menu is up (the first seconds are a test pattern)
     while r.vtime_us() < settle:
@@ -216,9 +228,11 @@ if __name__ == "__main__":
     ap.add_argument("--shift", type=int, default=2)
     ap.add_argument("--no-intro", action="store_true")
     ap.add_argument("--limit-s", type=float)
+    ap.add_argument("--part", type=int, help="record only this part (1-based) of a several-tool episode")
+    ap.add_argument("--start-file", help="the project the part starts from (with --part)")
     ap.add_argument("--usb", action="store_true", help="keys on the emulated USB keyboard instead of the serial line")
     ap.add_argument("--hold", type=int, default=3, help="frames a key stays down")
     ap.add_argument("--any-gap", type=int, default=0, help="least frames between two keys")
     ap.add_argument("--out", default="qemu", help="subfolder of out/ (to keep several takes)")
     a = ap.parse_args()
-    run(a.n, a.shift, not a.no_intro, a.limit_s, a.out, a.hold, a.any_gap, not a.usb)
+    run(a.n, a.shift, not a.no_intro, a.limit_s, a.out, a.hold, a.any_gap, not a.usb, a.part, a.start_file)
