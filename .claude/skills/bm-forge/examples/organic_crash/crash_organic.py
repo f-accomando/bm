@@ -55,24 +55,31 @@ def spike(base_y, x, z, h, w, lean=0.0):
 
 # --- head: a big faceted skull, a tapered muzzle, pointed ears, a mohawk
 in_head = True
+# skull, then every other piece sits next to it as its own polygons (PS1 style: no blending between parts)
 put(ellipsoid(0.23, 0.25, 0.23, SEG + 4, 6, smooth=False).move(0, 1.46, -0.02), ORANGE)
-put(hull(sym([(0.12, 1.40, 0.14), (0.16, 1.55, 0.16), (0.07, 1.58, 0.42), (0.09, 1.40, 0.38), (0.13, 1.33, 0.2)])), PALE)
-put(hull(sym([(0.07, 1.50, 0.36), (0.07, 1.62, 0.38), (0.04, 1.62, 0.47), (0.04, 1.47, 0.44)])), NAVY)
-put(hull(sym([(0.17, 1.36, 0.22), (0.16, 1.44, 0.36), (0.12, 1.44, 0.385), (0.1, 1.39, 0.37)])), WHITE)   # grin
-put(hull(sym([(0.12, 1.36, 0.22), (0.12, 1.38, 0.37), (0.06, 1.33, 0.33)])), MOUTH)
+# muzzle = two volumes: the upper snout with the nose on its tip, and the jaw under it with the teeth in front
+put(hull(sym([(0.11, 1.52, 0.12), (0.10, 1.64, 0.14), (0.06, 1.54, 0.40), (0.05, 1.60, 0.40)])), ORANGE)
+put(hull(sym([(0.05, 1.50, 0.40), (0.05, 1.60, 0.40), (0.03, 1.60, 0.47), (0.03, 1.50, 0.45)])), NAVY)   # nose
+put(hull(sym([(0.14, 1.40, 0.12), (0.13, 1.53, 0.14), (0.09, 1.42, 0.36), (0.08, 1.52, 0.38)])), PALE)    # upper lip band
+put(hull(sym([(0.15, 1.37, 0.20), (0.14, 1.43, 0.30), (0.10, 1.44, 0.40), (0.09, 1.38, 0.39)])), WHITE)   # teeth, in front
+put(hull(sym([(0.13, 1.30, 0.14), (0.12, 1.37, 0.24), (0.07, 1.31, 0.34), (0.07, 1.37, 0.36)])), MOUTH)   # open mouth
+put(hull(sym([(0.11, 1.26, 0.10), (0.10, 1.31, 0.22), (0.06, 1.26, 0.30)])), PALE)                        # chin
 for sx in (1, -1):
-    eye = ellipsoid(0.11, 0.11, 0.055, SEG + 2, 4, smooth=False).move(sx * 0.115, 1.62, 0.19)
-    put(eye, WHITE)
-    put(ellipsoid(0.05, 0.055, 0.03, 6, 3, smooth=False).move(sx * 0.105, 1.62, 0.235), GREEN)
+    put(ellipsoid(0.10, 0.10, 0.05, SEG + 2, 4, smooth=False).move(sx * 0.115, 1.62, 0.19), WHITE)
+    put(ellipsoid(0.05, 0.06, 0.03, 6, 3, smooth=False).move(sx * 0.105, 1.62, 0.235), BLACK)
     put(hull([(sx * 0.02, 1.715, 0.17), (sx * 0.2, 1.74, 0.15), (sx * 0.2, 1.78, 0.17), (sx * 0.02, 1.76, 0.2),
               (sx * 0.1, 1.74, 0.23)]), BROW)
-    put(hull([(sx * 0.2, 1.58, -0.02), (sx * 0.22, 1.50, 0.06), (sx * 0.24, 1.76, 0.0), (sx * 0.3, 1.98, -0.03),
-              (sx * 0.24, 1.62, 0.12)]), ORANGE)                                   # ear
-    put(hull([(sx * 0.21, 1.62, 0.1), (sx * 0.215, 1.7, 0.1), (sx * 0.27, 1.84, 0.02), (sx * 0.2, 1.64, 0.02),
-              (sx * 0.25, 1.68, 0.06)]), PINK)
+    # ears: a wide triangle with its own inner piece and a second small tip, all separate polygons
+    put(hull([(sx * 0.15, 1.58, -0.10), (sx * 0.15, 1.58, 0.08), (sx * 0.27, 1.50, -0.01),
+              (sx * 0.38, 2.04, -0.03), (sx * 0.23, 1.84, 0.0)]), ORANGE)
+    put(hull([(sx * 0.18, 1.62, 0.085), (sx * 0.25, 1.57, 0.085), (sx * 0.33, 1.94, 0.04),
+              (sx * 0.21, 1.78, 0.07), (sx * 0.21, 1.62, 0.03)]), GLOVE)
+    put(hull([(sx * 0.26, 1.82, -0.03), (sx * 0.31, 1.78, 0.0), (sx * 0.28, 1.93, -0.02), (sx * 0.24, 1.8, 0.02)]), ORANGE2)
     put(hull([(sx * 0.2, 1.4, 0.08), (sx * 0.24, 1.5, 0.12), (sx * 0.3, 1.38, 0.12), (sx * 0.2, 1.36, 0.0)]), ORANGE2)  # cheek fur
-for i, (z, h) in enumerate([(0.12, 0.2), (0.06, 0.3), (0.0, 0.38), (-0.07, 0.32), (-0.13, 0.24)]):
-    put(spike(1.68 + 0.02 * i, 0, z, h, 0.07, lean=-0.03), HAIR)
+# mohawk: six separate spikes standing on the skull, leaning back and out so they read from the front too
+for i, (x, z, h, lean) in enumerate([(-0.06, 0.12, 0.22, -0.04), (0.06, 0.08, 0.28, 0.04), (0.0, 0.03, 0.38, 0.0),
+                                      (-0.07, -0.03, 0.32, -0.05), (0.07, -0.08, 0.27, 0.05), (0.0, -0.14, 0.22, 0.0)]):
+    put(spike(1.70, x, z, h, 0.06, lean=lean), HAIR)
 
 in_head = False
 
@@ -100,16 +107,17 @@ for sx in (1, -1):
     put(hull([(sx * 0.09, 0.17, 0.1), (sx * 0.17, 0.17, 0.1), (sx * 0.16, 0.16, 0.26), (sx * 0.1, 0.16, 0.26),
               (sx * 0.13, 0.2, 0.18)]), WHITE)  # laces
 
-# --- arms, long and thin, big gloves
+# --- arms: a shoulder ball apart from the chest, upper arm, forearm, cuff, big glove with spread fingers
 for sx in (1, -1):
-    put(tube((sx * 0.33, 1.2, 0.0), (sx * 0.43, 1.0, 0.0), 0.06, 0.05, SEG, smooth=False), ORANGE)
-    put(tube((sx * 0.43, 1.0, 0.0), (sx * 0.5, 0.82, 0.04), 0.05, 0.045, SEG, smooth=False), ORANGE)
-    put(tube((sx * 0.5, 0.82, 0.04), (sx * 0.52, 0.76, 0.05), 0.075, 0.08, SEG, smooth=False), GLOVE)    # cuff
-    put(ellipsoid(0.11, 0.12, 0.09, SEG, 3, smooth=False).move(sx * 0.54, 0.68, 0.05), GLOVE)
+    put(ellipsoid(0.07, 0.07, 0.07, 6, 3, smooth=False).move(sx * 0.38, 1.2, 0.0), ORANGE2)
+    put(tube((sx * 0.38, 1.18, 0.0), (sx * 0.46, 1.0, 0.0), 0.055, 0.05, SEG, smooth=False), ORANGE)
+    put(tube((sx * 0.46, 1.0, 0.0), (sx * 0.52, 0.82, 0.04), 0.05, 0.045, SEG, smooth=False), ORANGE)
+    put(tube((sx * 0.52, 0.82, 0.04), (sx * 0.54, 0.76, 0.05), 0.075, 0.08, SEG, smooth=False), GLOVE)    # cuff
+    put(ellipsoid(0.11, 0.12, 0.09, SEG, 3, smooth=False).move(sx * 0.56, 0.68, 0.05), GLOVE)
     for k, (dx, dz) in enumerate([(-0.04, 0.05), (0.0, 0.07), (0.04, 0.05)]):
-        put(hull([(sx * (0.51 + dx), 0.62, 0.02 + dz), (sx * (0.57 + dx), 0.62, 0.02 + dz),
-                  (sx * (0.55 + dx), 0.46, 0.05 + dz), (sx * (0.53 + dx), 0.46, 0.05 + dz),
-                  (sx * (0.54 + dx), 0.64, 0.09 + dz)]), GLOVE)
+        put(hull([(sx * (0.53 + dx), 0.62, 0.02 + dz), (sx * (0.59 + dx), 0.62, 0.02 + dz),
+                  (sx * (0.57 + dx), 0.46, 0.05 + dz), (sx * (0.55 + dx), 0.46, 0.05 + dz),
+                  (sx * (0.56 + dx), 0.64, 0.09 + dz)]), GLOVE)
 
 m.weld()
 out = sys.argv[1] if len(sys.argv) > 1 else None

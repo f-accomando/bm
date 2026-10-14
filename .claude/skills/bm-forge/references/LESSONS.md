@@ -67,3 +67,6 @@ round parts 6-10 sides. Judge with `preview --yaw 2.64` (a +z model seen from th
 Ask the triangle budget as a ceiling: `check --budget N`, spend what the silhouette needs.
 **Colours**: when the user gives a colour chart (e.g. the original Crash chart), take the palette from it
 before anything else; the example's `Mat(...)` values are read off that chart (approximate).
+**Classic PS1 look** (user's words): many separate pieces placed next to each other, never fused: hair, ears,
+shoulders, gloves are their own polygons touching the body, with no blending. Do not smooth or merge parts
+(`Mesh.weld()` only joins identical corners of flat faces: same look). Muzzle as two volumes (snout + jaw).
