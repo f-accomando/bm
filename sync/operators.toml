@@ -1,5 +1,6 @@
 # Who takes part in the sync (written only by SPV). A new operator = a new block; nobody edits the crab ledger.
 # Each operator writes only its own file; the block at the top of the file (--- ... ---) is the truth for its state.
+# Profile fields (place, models, subagents, strengths, weak_points) come from the "## Profilo" of each file (SYNC.md 3c); SPV copies them here.
 # Write it with tools/sync_hdr.py. Times are ISO 8601 with a time zone; readers compare in UTC.
 schema = 1
 
