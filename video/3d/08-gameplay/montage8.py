@@ -79,6 +79,11 @@ def get_font_spec(bold=False):
 
 def run_cmd(cmd):
     """Run command with logging."""
+    if any("anullsrc" in str(c) for c in cmd) and "-shortest" not in cmd:
+        extra = ["-shortest"]                              # anullsrc is endless: without a limit ffmpeg never ends
+        if "-t" in cmd:                                    # an input cut (-t N) is also the length of the output
+            extra += ["-t", str(cmd[cmd.index("-t") + 1])]
+        cmd = list(cmd[:-1]) + extra + [cmd[-1]]
     print("+", " ".join(str(c) for c in cmd), file=sys.stderr)
     subprocess.run(cmd, check=True)
 
