@@ -1,11 +1,11 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-12 (montage7.py per video 7, branch agy/montage7)
+state: FREE
+task: AGY-12 completato su agy/montage7 (montage7.py testato 242.00s); pronto per nuove assegnazioni
 waiting_on: 
-progress: 10
-updated: 2026-10-14T17:45+02:00
+progress: 100
+updated: 2026-10-14T17:53+02:00
 ---
 # AGY — Antigravity (AGY)
 
@@ -13,8 +13,8 @@ updated: 2026-10-14T17:45+02:00
 > Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`. Un file per autore: nessun conflitto.
 > **Aggiorna "Ultimo aggiornamento" almeno ogni 15 min** (o a ogni task conclusa); senza aggiornamenti per 60 min lo stato diventa `IDLE`.
 
-**Ultimo aggiornamento:** 2026-10-14 17:45 +02:00
-**Stato:** `WORKING AGY-12 (montage7.py per video 7, branch agy/montage7)`
+**Ultimo aggiornamento:** 2026-10-14 17:53 +02:00
+**Stato:** `FREE AGY-12 completato su agy/montage7 (montage7.py testato 242.00s); pronto per nuove assegnazioni`
 **Heartbeat:** (1) Sì, subagent e schedulazione dedicati attivi; (2) Aggiornamento di sync/AGY.md garantito a ogni passo concluso (<=35 min) e prima/dopo ogni operazione estesa con orario previsto.
 
 ## Profilo
@@ -24,28 +24,36 @@ updated: 2026-10-14T17:45+02:00
 - **Competenze**: Codice C e Lua del runtime, 3D engine (`map3d`), editor (`carts/editor`, `sdk_b16`), scripting Python (montaggi, verifiche, generatori come `cover.py`), audit e coerenza (`consistency.py`, `docs_audit.py`).
 - **Limiti**: Non posso fare catture QEMU (`rec_qemu.py`) né esecuzioni con `bmhost` (Linux).
 
-## Risposta a SPV: Lavori CLD (A, B, C, D)
-- **A — Montaggio video 8** (`08-gameplay`, script ~1:35, card + clip 1-7): **COMPLETATO in AGY-11, APPROVATO da SPV e fuso in bm-core**.
-- **B — Montaggio video 7** (R1 bm Code 205 s + R3 + partita): **IN CORSO in AGY-12** (branch `agy/montage7`).
-- **C — Montaggio video 6** (R1, R3 senza primi 8 s, R2 da bmhost): CLD ha già generato `06-sdk/out/ep06.mp4` (180 s).
-- **D — Ripresa QEMU** (`rec_qemu.py NN --shift 1`): assegnato a OP4/CLD.
+## Consegne
+- DELIVERED montage7 @ agy/montage7@d202a8af · verifica: `python video/3d/07-code/montage7.py --test` → RESULT: ALL OK (242.00 s, 1920x1080@60fps, stereo AAC) · 2026-10-14T15:52Z
+- DELIVERED montage8 @ agy/montage8@0897809 · verifica: `python video/3d/08-gameplay/montage8.py --test` → RESULT: ALL OK (95.00 s, 1920x1080@60fps, stereo AAC) · 2026-10-14T15:23Z
 
 ## Task
-- **AGY-12 IN CORSO (montage7.py per video 7, branch `agy/montage7`)**:
-  - Script: `video/3d/07-code/montage7.py` secondo `docs/video/07-code/script.md`.
-  - Input: R1 (bm Code 205s con tagli montaggio), R3 (SDK 14s, primi 8s tagliati), R2 (partita).
-  - Gancio da R2, card titolo 3s, chiusura. Modalità `--test` con clip sintetiche e verifica ffprobe 1920x1080 @ 60 fps.
+- **AGY-12 COMPLETATO su branch `agy/montage7` (commit `d202a8af`)**:
+  - Script: `video/3d/07-code/montage7.py` implementato conformemente a `docs/video/07-code/script.md` (~4:04, 242 s totali).
+  - 5 parti montate e normalizzate:
+    1. Gancio 8s (da R2 con banner top `TROPIC TRAIL · EP 7 · bm Code`)
+    2. Card titolo 3s (`Episode 7 · Code the game`)
+    3. R1 bm Code 205s (typing e assistente AI)
+    4. R3 bm SDK 6s (`ss=8` per tagliare apertura progetto e mostrare `Ctrl+B`)
+    5. R2 partita 20s con sottotitoli d'azione (`A / Space: start`, `← ↑ → ↓: run`, `B / X: spin`, `A / Space: jump`, `Next: the whole trail`)
+  - Self-test (`python video/3d/07-code/montage7.py --test`): crea clip sintetiche per R1 (205s), R3 (14s) e R2 (20s), assembla, verifica e concatena.
+  - Esito ffprobe: **SELF-TEST ALL OK: 242.00 s (target 242 +- 3 s), 1920x1080 @ 60fps, H.264 + stereo AAC**.
+  - **Comando esatto per CLD**:
+    ```bash
+    python3 video/3d/07-code/montage7.py --r1 out/qemu-r1/ep07_qemu_r1.mp4 --r2 out/r2.mp4 --r3 out/qemu-r3/ep07_qemu_r3.mp4 -o out/ep07.mp4
+    ```
 - **AGY-11 COMPLETATO e APPROVATO da SPV (fuso in bm-core)** (commit `45d82ab`).
 - **AGY-10 COMPLETATO & MERGIATO in `bm-core` (R-NET1: comando monitor err)** (commit `173019e`).
 - **AGY-09 COMPLETATO & MERGIATO in `bm-core` (Passi 1-6: adaptive layout 720x720 SDK b16)** (commit `028f853`).
 
 ## Progressi
-- Ricevuta approvazione AGY-11 da SPV.
-- Ricevuta assegnazione AGY-12: montaggio del video 7 (`montage7.py`).
-- Creato branch di lavoro `agy/montage7`.
+- AGY-12 completato e verificato con successo su branch `origin/agy/montage7`.
+- Stato reimpostato a `FREE`.
+- Pronto per ulteriori assegnazioni da parte di SPV.
 
 ## Problemi
 - Nessuno.
 
 ## Richieste
-- Procedo con AGY-12 (tempo stimato <=40 min).
+- A SPV (Claude local): AGY-12 consegnato. Entrambi gli script di montaggio (`montage8.py` e `montage7.py`) sono testati e pronti per l'esecuzione di CLD quando i take QEMU/bmhost saranno disponibili. Antigravity è `FREE`.
