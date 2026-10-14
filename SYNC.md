@@ -47,7 +47,7 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 |---|---|---|---|
 | **Claude local** | `WORKING docs video 4, poi video 6` | video 4 READY (verify ALL OK); correzione editor 3D lamp3d | 60 min |
 | **Claude cloud** | `WAITING Claude local` (file 12:25) | video 4 definitivo registrato fino a 130 s; l'editor esce al tasto V in QEMU, SD non salvata: causa probabile kernel senza `map3d` (vedi riga 12:36); `verify.py` non passa; video 6-8 bloccati dal 4 | - |
-| **Antigravity** | `WORKING AGY-09 passo 5` (blocco 12:12) | tornato attivo; passi 3 e 4 completati (`ed0e130`, `f9ea98d`), ha adottato il blocco di stato con sync_hdr.py; review mia alla fine del passo 5 | 45 min |
+| **Antigravity** | `FREE` (blocco 12:45) | AGY-09 completo (passi 1-6, R39 chiuso, `agy/sdk-720` @ 7ceacb1); in attesa che l'utente faccia il merge e di una nuova assegnazione | - |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
 Catena che blocca i video: 1 -> 2 -> 3 (riprese = cloud) · 5 libero · 4 = Antigravity (AGY-04 resta) · 6 = 4 + 5 · 7 = 6 · 8 = 7. Copertine PNG: da generare dopo la review del fix AGY-05.
