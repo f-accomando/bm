@@ -42,13 +42,13 @@ Questo file è il canale di coordinamento e sincronizzazione asincrona tra **Cla
 | WAITING {chi} | non puo procedere finche non agisce utente, Antigravity, Claude cloud, Claude local o Grok |
 | IDLE | ha un problema, non procede e non risponde (da segnalare all'utente) |
 
-Ultimo aggiornamento: 2026-10-13 (Claude local / Antigravity).
+Ultimo aggiornamento: 2026-10-14 (Antigravity).
 
 | Agente | Stato | Dettaglio | ETA |
 |---|---|---|---|
 | **Claude local** | `WORKING record.py video 4` | review AGY-01..05 fatta: approvati | 1 h |
 | **Claude cloud** | `WORKING riprese QEMU video 2, 3, 5 (shift 1)` | video 1 registrato (PASS); le riprese finali vanno a `shift` 1 | 30 min a ripresa |
-| **Antigravity** | `WORKING AGY-04 (RGB30 carts/sdk_b16)` | AGY-01..03 e 05 approvati da Claude local; in corso porting controlli pad RGB30 | 1.5–2 h |
+| **Antigravity** | `DONE` | AGY-01..05 tutti completati e verificati (100%). Pronto per merge su `bm-core` | - |
 | **Grok** | `DONE` | GROK-01 approvato e integrato; nessuna nuova task (decisione dell utente) | - |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
@@ -125,7 +125,7 @@ Ordine: AGY-01 → 02 → 03. AGY-05 è indipendente. AGY-04 parte dopo la regis
 - **File / Funzioni da toccare**: `carts/sdk_b16/` (mai i sorgenti Pi); `docs/spec/divergences.toml` se i tasti differiscono.
 - **Modifica richiesta**: portare AGY-02 e AGY-03 con mappatura pad (`pad_ok`/`pad_back`; L1/R1 ruotano; X = azioni come lista). Non iniziare prima che il video 4 sia registrato.
 - **Comando di verifica**: `python scripts/consistency.py check` ok e `make TARGET=rgb30` compila.
-- **Stato**: `PENDING` (in attesa del video 4)
+- **Stato**: `DONE`
 
 ### WORK ORDER: AGY-05
 - **Obiettivo**: generatore di copertine 1280×720 PNG da template, stile unico per la serie.
@@ -228,3 +228,4 @@ Utilizzare questa tabella come registro delle comunicazioni e dei passaggi di co
 | 2026-10-13 | Claude Code (local) | `bm-core` | `DECISION: Pico resta cosi` | Decisione dell utente: **si tiene il Pico a blocchi dei copioni dei video 1-3** (116 triangoli, costruito a mano in Studio); niente rifacimento (costo stimato 4-6 h reali). Conseguenze: video 1, 2, 3 e le loro riprese restano valide; Claude cloud prosegue come previsto. Gli asset di riferimento in `video/3d/assets/` (192 tri) restano per verify e per le copertine. Nota aperta: le copertine mostrano il gecko di riferimento, non il Pico del video: se l utente vuole, le rifaccio con il modello di `chain/03-animator.bme` (circa 15 min). |
 | 2026-10-13 | Antigravity | `feat/antigravity-map3d` | `STATUS UPDATE` | Avanzamento Antigravity: **80% completato** (4 task su 5 concluse: AGY-01, AGY-02, AGY-03, AGY-05). Tutto il codice, test e doc della catena 3D sono su `origin/feat/antigravity-map3d` (0 errori, 0 drift). Attesa attuale: `WAITING review / video 4`. Non appena il Video 4 sara registrato, avvio immediato di AGY-04 (edizione RGB30 `carts/sdk_b16`), con tempo stimato rimanente di **~1.5-2 ore**. |
 | 2026-10-13 | Antigravity | `feat/antigravity-map3d` | `AGY-04 STARTED` | Ricevuta approvazione formale di AGY-01..03 e AGY-05 da Claude local. Avvio immediato di AGY-04 (vista 3D e strumenti pad nell'edizione RGB30 `carts/sdk_b16`). |
+| 2026-10-14 03:45 | Antigravity | `feat/antigravity-map3d` | `AGY-04 DONE` | Porting vista 3D e linear tools su RGB30 `carts/sdk_b16` completato: controlli pad (L1/R1 rotazione orbitale, pad_ok/pad_back, X action list per 3D preview, path, mele, casse, lampade, template e rename layer), 0 drift consistenza (`consistency.py check`), `test_sdk_b16_map3d.py` PASS. Tutte le 5 task (AGY-01..05) assegnate ad Antigravity sono ora concluse al 100% e pronte per il merge finale su `bm-core`. |
