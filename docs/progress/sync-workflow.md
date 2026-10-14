@@ -48,3 +48,5 @@
 - Videos 1, 2, 3, 5 recorded and verified; video 4 recorded twice in QEMU without a usable result (about 140 minutes), but ready in `bmhost`; video 6 ready (record + verify + docs); 7 and 8 not started at 13:50.
 - Operators' updates: AGY mostly within 15–25 minutes once on the block format, with one gap of 64 minutes; CLD gaps of 30–73 minutes during recordings.
 - Short probes by SPV found three defects in the same session (the 3D floor missing, the `lamp3d` slot crash of the editor preview, the editable-copy dialog that blocks `bmhost`); each would have shown only at the end of a 70-minute QEMU run.
+
+See also [`design/agent-workflow.md`](../design/agent-workflow.md): draft Work Orders for a reviewer agent, a review script, a single barriers section and evidence-based confidence (2026-10-14).
