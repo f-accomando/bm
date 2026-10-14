@@ -50,4 +50,4 @@ Build first: `make build/kernel.img` (the kernel holds the editors; after a `git
 
 `python3 video/3d/hb.py --report` prints what changed on the other agents' branches and the recordings in progress;
 `python3 video/3d/hb.py --task "..." --pct N --note "..."` also appends the HEARTBEAT row to SYNC.md, commits and pushes.
-No decisions inside: a cheap subagent (model haiku, general-purpose, it needs Bash) can run it and summarize in a few lines.
+No decisions inside: delegate it to the subagent **`bm-ops`** (`.claude/agents/bm-ops.md`, Haiku low, Bash, no edits, no kill, no QEMU) and let it summarize in a few lines. `bm-ops` is also the one for `verify.py`, `make`, `git fetch/status/push` and for checking a recording in progress.
