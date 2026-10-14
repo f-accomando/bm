@@ -1,11 +1,11 @@
 ---
 schema: 1
 id: OP4
-state: FREE
-task: handshake
+state: WORKING
+task: OP4-01 passo 2 (fix tool SDK in rec_qemu.py e riesecuzione r3)
 waiting_on: 
-progress: 0
-updated: 2026-10-14T17:13+02:00
+progress: 75
+updated: 2026-10-14T18:20+02:00
 ---
 # OP4 — Operator 4 (Second Windows Machine)
 
@@ -13,8 +13,8 @@ updated: 2026-10-14T17:13+02:00
 > Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`.
 > **Aggiorna "Ultimo aggiornamento" almeno ogni 15 min** (o a ogni task conclusa); senza aggiornamenti per 60 min lo stato diventa `IDLE`.
 
-**Ultimo aggiornamento:** 2026-10-14 17:13 +02:00
-**Stato:** `FREE handshake`
+**Ultimo aggiornamento:** 2026-10-14 18:20 +02:00
+**Stato:** `WORKING OP4-01 passo 2 (fix tool SDK in rec_qemu.py e riesecuzione r3)`
 **Heartbeat:** Aggiornamento garantito ogni <=15 min o a fine task; subagent/background scheduler attivi.
 
 ## Profilo
@@ -34,15 +34,15 @@ updated: 2026-10-14T17:13+02:00
 - **(D) Ripresa QEMU con `qemurec.py` / `rec_qemu.py`**: **`posso con installazione pacchetti in WSL`** (stima setup 10 min, poi ~15-20 min per prova di ripresa). In WSL2 Ubuntu ho già Linux, `mtools`, `mkfs.vfat`, `python3` e `arm-none-eabi-gcc`. Mancano solo `Xvfb` e `qemu-system-arm` Linux, che posso installare immediatamente senza password con `wsl -u root apt update && apt install -y qemu-system-arm xvfb`.
 
 ## Task
-- Handshake iniziale inviato a SPV. Nessun lavoro iniziato: in attesa di assegnazione su `SYNC.md`.
+- **OP4-01**: Ripresa QEMU di R3 del video 7 (in corso, passo 2).
 
 ## Progressi
-- Clone isolato `bm-op4` creato su `bm-core`.
-- Profilo di sistema completato e valutazioni di fattibilità A, B, D inviate.
-- Stato: `FREE` (in attesa di assegnazione scritta da SPV in `SYNC.md`).
+- **Passo 1 (Setup WSL & build)**: COMPLETATO. Pacchetti WSL `qemu-system-arm`, `xvfb`, `ffmpeg` installati; repo in `/home/francesco_accomando/bm-op4` creato; branch `op4/rec` con merge di `claude-video3d-rec`, `claude-video3d` e `bm-core`; `build/editor.bm` e `build/kernel.img` compilati (verificati `map3d_build` e `tool_start`).
+- **Passo 2 (Ripresa QEMU R3)**: `record.py --build-only` eseguito (input-r3.txt 840 frame, 14 s); prima ripresa QEMU completata (1260 frame 1920x1080 @ 60 fps, 0 late keys, serial.log pulito senza errori Lua). Riscontrato che `rec_qemu.py` per ep 07 apriva di default l'icona Dev `CODE` anziché `SDK` (quindi `Ctrl+B` era una selezione testo anziché build cartuccia).
+- **In corso**: Fix a `rec_qemu.py` per mappare `take == "r3"` su `SDK` e riesecuzione rapida della cattura per ottenere `TROPIC.BM`.
 
 ## Problemi
-- Nessuno.
+- Nessuno bloccante; fix a `rec_qemu.py` locale in corso.
 
 ## Richieste
-- A SPV (Claude local): handshake completato, attendo assegnazione scritta in `SYNC.md`.
+- Nessuna a SPV; procedo con la riesecuzione.
