@@ -20,6 +20,8 @@ file = "sync/CLD.md"
 ledger = "sync/CLD.ledger.jsonl"
 branches = ["feat/claude-video3d-rec"]
 cost = "none"          # "reported" when CLD can read the cost of its session
+active = false
+signoff = "videos 1-8 delivered to the user; released by SPV 2026-10-14 20:55"
 
 [[operator]]
 id = "AGY"
