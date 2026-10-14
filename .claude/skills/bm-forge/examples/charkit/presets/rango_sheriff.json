@@ -1,0 +1,564 @@
+{
+ "name": "rango_sheriff",
+ "title": "Rango sheriff (charkit)",
+ "palette": {
+  "skin": "#3FA79A",
+  "dark": "#2F8A80",
+  "belly": "#8CD0B8",
+  "shirt": "#E8E2D0",
+  "flower": "#F6E7DC",
+  "mouth": "#1E4A44",
+  "eye": "#C9D34E",
+  "pupil": "#1B1B10",
+  "hat": "#8A7A4A",
+  "star": "#E8B820"
+ },
+ "idx": {
+  "pelvis": 0,
+  "eye_lo": 10,
+  "eye_hi": 11,
+  "crown": 12,
+  "top": 13
+ },
+ "column": [
+  [
+   0.78,
+   0.13,
+   0.09,
+   "hips",
+   15
+  ],
+  [
+   0.9,
+   0.1,
+   0.075,
+   "hips"
+  ],
+  [
+   1.04,
+   0.14,
+   0.09,
+   "spine"
+  ],
+  [
+   1.18,
+   0.19,
+   0.1,
+   "spine"
+  ],
+  [
+   1.26,
+   0.21,
+   0.1,
+   "spine"
+  ],
+  [
+   1.32,
+   0.055,
+   0.055,
+   "spine"
+  ],
+  [
+   1.46,
+   0.05,
+   0.05,
+   "head"
+  ],
+  [
+   1.55,
+   0.06,
+   0.06,
+   "head"
+  ],
+  [
+   1.58,
+   0.22,
+   0.16,
+   "head"
+  ],
+  [
+   1.615,
+   0.28,
+   0.18,
+   "head"
+  ],
+  [
+   1.68,
+   0.3,
+   0.19,
+   "head"
+  ],
+  [
+   1.78,
+   0.29,
+   0.18,
+   "head"
+  ],
+  [
+   1.86,
+   0.22,
+   0.15,
+   "head"
+  ],
+  [
+   1.89,
+   0.09,
+   0.08,
+   "head"
+  ]
+ ],
+ "segments": [
+  {
+   "base": "shirt"
+  },
+  {
+   "base": "shirt"
+  },
+  {
+   "base": "shirt"
+  },
+  {
+   "base": "shirt"
+  },
+  {
+   "base": "shirt",
+   "front": "belly"
+  },
+  {
+   "base": "skin"
+  },
+  {
+   "base": "skin"
+  },
+  {
+   "base": "skin",
+   "front": "belly"
+  },
+  {
+   "base": "skin",
+   "front": "mouth",
+   "sides": {
+    "1": "mouth",
+    "4": "mouth",
+    "5": "mouth"
+   }
+  },
+  {
+   "base": "skin"
+  },
+  {
+   "base": "skin",
+   "back": "dark"
+  },
+  {
+   "base": "skin",
+   "back": "dark"
+  },
+  {
+   "base": "skin"
+  }
+ ],
+ "top_cap": {
+  "colour": "skin",
+  "apex": [
+   0.0,
+   1.91,
+   0.0
+  ]
+ },
+ "eyes": {
+  "mode": "turret",
+  "dir": [
+   0.75,
+   0.45,
+   0.5
+  ],
+  "pupil": "pupil",
+  "rings": [
+   [
+    0.05,
+    0.1,
+    "skin"
+   ],
+   [
+    0.12,
+    0.13,
+    "skin"
+   ],
+   [
+    0.18,
+    0.125,
+    "eye"
+   ],
+   [
+    0.215,
+    0.085,
+    "eye"
+   ],
+   [
+    0.23,
+    0.05,
+    "pupil"
+   ]
+  ]
+ },
+ "arms": {
+  "lo": 3,
+  "hi": 4,
+  "z": 0.04,
+  "z_below": 0.9,
+  "fingers": [
+   0,
+   2,
+   4
+  ],
+  "finger_len": 0.2,
+  "spread": 0.03,
+  "rings": [
+   [
+    1.2,
+    0.27,
+    0.05,
+    "arm.{S}",
+    "shirt"
+   ],
+   [
+    1.11,
+    0.33,
+    0.046,
+    "arm.{S}",
+    "shirt"
+   ],
+   [
+    1.0,
+    0.37,
+    0.04,
+    "forearm.{S}",
+    "skin"
+   ],
+   [
+    0.88,
+    0.4,
+    0.036,
+    "forearm.{S}",
+    "skin"
+   ],
+   [
+    0.8,
+    0.42,
+    0.05,
+    "hand.{S}",
+    "skin"
+   ],
+   [
+    0.7,
+    0.43,
+    0.055,
+    "hand.{S}",
+    "skin"
+   ]
+  ]
+ },
+ "legs": {
+  "x": 0.07,
+  "foot_bone": "foot.{S}",
+  "crotch": "skin",
+  "toe_colour": "skin",
+  "rings": [
+   [
+    0.62,
+    0.07,
+    "leg.{S}",
+    "skin"
+   ],
+   [
+    0.38,
+    0.05,
+    "shin.{S}",
+    "skin"
+   ],
+   [
+    0.25,
+    0.045,
+    "shin.{S}",
+    "skin"
+   ],
+   [
+    0.13,
+    0.05,
+    "foot.{S}",
+    "skin"
+   ]
+  ],
+  "foot": [
+   [
+    0.09,
+    0.07,
+    0.13,
+    0.07,
+    "skin"
+   ],
+   [
+    0.05,
+    0.105,
+    0.23,
+    0.12,
+    "skin"
+   ],
+   [
+    0.02,
+    0.115,
+    0.28,
+    0.14,
+    "belly"
+   ]
+  ],
+  "toes": [
+   [
+    0,
+    0.2,
+    0.09
+   ],
+   [
+    1,
+    0.24,
+    0.0
+   ],
+   [
+    2,
+    0.2,
+    -0.09
+   ]
+  ]
+ },
+ "tail": {
+  "lo": 0,
+  "hi": 1,
+  "ks": [
+   8,
+   9,
+   10
+  ],
+  "from": [
+   0.8,
+   -0.09
+  ],
+  "path": [
+   [
+    0.7,
+    -0.16,
+    0.075,
+    "skin",
+    "tail1"
+   ],
+   [
+    0.52,
+    -0.28,
+    0.07,
+    "skin",
+    "tail1"
+   ],
+   [
+    0.34,
+    -0.36,
+    0.055,
+    "skin",
+    "tail2"
+   ],
+   [
+    0.18,
+    -0.34,
+    0.042,
+    "skin",
+    "tail2"
+   ],
+   [
+    0.1,
+    -0.24,
+    0.03,
+    "skin",
+    "tail2"
+   ],
+   [
+    0.13,
+    -0.14,
+    0.02,
+    "skin",
+    "tail2"
+   ]
+  ]
+ },
+ "decals": [
+  [
+   3,
+   4,
+   "star",
+   0.04
+  ]
+ ],
+ "bones": [
+  {
+   "name": "hips",
+   "parent": null,
+   "head": [
+    0,
+    0.78,
+    0
+   ],
+   "tail": [
+    0,
+    0.9,
+    0
+   ]
+  },
+  {
+   "name": "spine",
+   "parent": "hips",
+   "head": [
+    0,
+    0.9,
+    0
+   ],
+   "tail": [
+    0,
+    1.32,
+    0
+   ]
+  },
+  {
+   "name": "head",
+   "parent": "spine",
+   "connect": true,
+   "length": 0.55,
+   "direction": [
+    0,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "arm.{S}",
+   "parent": "spine",
+   "mirror": true,
+   "head": [
+    0.21,
+    1.22,
+    0
+   ],
+   "tail": [
+    0.35,
+    1.06,
+    0.01
+   ]
+  },
+  {
+   "name": "forearm.{S}",
+   "parent": "arm.{S}",
+   "mirror": true,
+   "connect": true,
+   "tail": [
+    0.4,
+    0.86,
+    0.03
+   ]
+  },
+  {
+   "name": "hand.{S}",
+   "parent": "forearm.{S}",
+   "mirror": true,
+   "connect": true,
+   "tail": [
+    0.43,
+    0.62,
+    0.04
+   ]
+  },
+  {
+   "name": "leg.{S}",
+   "parent": "hips",
+   "mirror": true,
+   "head": [
+    0.07,
+    0.78,
+    0
+   ],
+   "tail": [
+    0.07,
+    0.4,
+    0
+   ]
+  },
+  {
+   "name": "shin.{S}",
+   "parent": "leg.{S}",
+   "mirror": true,
+   "connect": true,
+   "tail": [
+    0.07,
+    0.13,
+    0
+   ]
+  },
+  {
+   "name": "foot.{S}",
+   "parent": "shin.{S}",
+   "mirror": true,
+   "connect": true,
+   "tail": [
+    0.07,
+    0.02,
+    0.22
+   ]
+  },
+  {
+   "name": "tail1",
+   "parent": "hips",
+   "head": [
+    0,
+    0.78,
+    -0.08
+   ],
+   "tail": [
+    0,
+    0.4,
+    -0.3
+   ]
+  },
+  {
+   "name": "tail2",
+   "parent": "tail1",
+   "connect": true,
+   "tail": [
+    0,
+    0.1,
+    -0.12
+   ]
+  }
+ ],
+ "hat": {
+  "ring": 12,
+  "top": "hat",
+  "rings": [
+   [
+    0.0,
+    2.2,
+    "hat"
+   ],
+   [
+    0.025,
+    2.2,
+    "hat"
+   ],
+   [
+    0.05,
+    1.15,
+    "hat"
+   ],
+   [
+    0.17,
+    1.05,
+    "hat"
+   ]
+  ]
+ }
+}

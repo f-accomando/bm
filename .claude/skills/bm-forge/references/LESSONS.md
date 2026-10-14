@@ -57,7 +57,8 @@ anything not 320x180; `tests/golden/test_schema.py:33,61-69` asserts the four `.
 (hair, ears, shoulders, hands floating near the body) are a defect for the user, not a style: the model
 must be ONE continuous flat-shaded skin, and it must be skinned (a rig with a bone per vertex).
 **Case**: Crash Bandicoot. v1: 83 boxes (voxels, faced -z). v2: separate hulls (organic but detached, no
-rig): rejected. v3 `examples/organic_crash/crash_organic.py`: 730 triangles, 356 vertices, 15 bones.
+rig): rejected. v3 `examples/charkit` (preset crash): 750 triangles, 378 vertices, 15 bones; same kit makes Rango
+(`references/CHARACTERS.md`).
 **Rule**: build a loft of rings in one shared vertex table; limbs, ears, hair spikes, fingers and the
 nose grow out of vertices they share with the part they hang on (a limb's first ring is a patch of torso
 vertices; legs start from the two halves of the pelvis ring). Orient every face away from a point inside
