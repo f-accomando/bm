@@ -2477,10 +2477,10 @@ do
       local tx0, tx1 = mx // 2 * 1.0, (mx // 2 + 1) * 1.0
       local tz0, tz1 = my // 2 * 1.0, (my // 2 + 1) * 1.0
       local cur_y = target_y + 0.03
-      line3d({ x = tx0, y = cur_y, z = tz0 }, { x = tx1, y = cur_y, z = tz0 }, 0xFFE020, 2)
-      line3d({ x = tx1, y = cur_y, z = tz0 }, { x = tx1, y = cur_y, z = tz1 }, 0xFFE020, 2)
-      line3d({ x = tx1, y = cur_y, z = tz1 }, { x = tx0, y = cur_y, z = tz1 }, 0xFFE020, 2)
-      line3d({ x = tx0, y = cur_y, z = tz1 }, { x = tx0, y = cur_y, z = tz0 }, 0xFFE020, 2)
+      line3d(tx0, cur_y, tz0, tx1, cur_y, tz0, 0xFFE020, 2)
+      line3d(tx1, cur_y, tz0, tx1, cur_y, tz1, 0xFFE020, 2)
+      line3d(tx1, cur_y, tz1, tx0, cur_y, tz1, 0xFFE020, 2)
+      line3d(tx0, cur_y, tz1, tx0, cur_y, tz0, 0xFFE020, 2)
 
       -- Objects
       if w3d then
@@ -2496,7 +2496,7 @@ do
             if obj.kind == "LAMP" then
               lamp3d(0, obj.x, obj.y + 1.0, obj.z, 4, 1.0, 0xFFC888)
             end
-            point3d({ x = obj.x, y = obj.y + 0.5, z = obj.z }, 0.3, OBJ_COL[1024] or 0xFFFF00)
+            point3d(obj.x, obj.y + 0.5, obj.z, 0.3, OBJ_COL[1024] or 0xFFFF00)
           end
         end
       end
@@ -2504,7 +2504,7 @@ do
       if tool_mode and tool_p1 then
         local t1_x, t1_z = (tool_p1[1] // 2 + 0.5) * 1.0, (tool_p1[2] // 2 + 0.5) * 1.0
         local t1_y = (w3d and map3d_height(w3d, t1_x, t1_z)) or 0.0
-        line3d({ x = t1_x, y = t1_y + 0.1, z = t1_z }, { x = target_x, y = target_y + 0.1, z = target_z }, 0xFFE020, 3)
+        line3d(t1_x, t1_y + 0.1, t1_z, target_x, target_y + 0.1, target_z, 0xFFE020, 3)
       end
 
       clip()
