@@ -457,3 +457,15 @@ capability = "board-boot"
 status = "open"
 evidence = "docs/RGB30.md:71-121; src/kernel/update.c:29-42"
 action = "none"
+
+[[divergence]]
+id = "D42"
+area = "SDK map 3D preview and tools"
+pi = "v toggles 3D preview; orbital camera with arrows (yaw/zoom) and Shift+Up/Down (tilt); tools with keyboard shortcuts (Shift+P, Shift+W, Shift+A, Shift+C, Shift+O)"
+rgb30 = "v and pad action list (X) toggle 3D preview; L1/R1 rotate orbital camera; D-pad zooms/tilts; pad_ok commits points; pad_back cancels or returns to 2D; X action list offers all 3D/level tools"
+cause = "hardware"
+capability = "pad-only"
+status = "open"
+evidence = "carts/editor/main.lua; carts/sdk_b16/main.lua"
+action = "none: pad mappings in carts/sdk_b16/main.lua align 3D preview and level tools with RGB30 controls"
+
