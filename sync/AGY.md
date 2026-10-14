@@ -5,7 +5,7 @@ state: FREE
 task: AGY-10: R-NET1 monitor err delivered on agy/net-err (approved by SPV)
 waiting_on: 
 progress: 100
-updated: 2026-10-14T15:15+02:00
+updated: 2026-10-14T15:31+02:00
 ---
 # AGY — Antigravity (AGY)
 
@@ -13,9 +13,16 @@ updated: 2026-10-14T15:15+02:00
 > Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`. Un file per autore: nessun conflitto.
 > **Aggiorna "Ultimo aggiornamento" almeno ogni 15 min** (o a ogni task conclusa); senza aggiornamenti per 60 min lo stato diventa `IDLE`.
 
-**Ultimo aggiornamento:** 2026-10-14 15:15 +02:00
+**Ultimo aggiornamento:** 2026-10-14 15:31 +02:00
 **Stato:** `FREE AGY-10: R-NET1 monitor err delivered on agy/net-err (approved by SPV)`
 **Heartbeat:** (1) Sì, subagent e schedulazione dedicati attivi; (2) Aggiornamento di sync/AGY.md garantito a ogni passo concluso (<=35 min) e prima/dopo ogni operazione estesa con orario previsto.
+
+## Profilo
+- **Ambiente/Luogo**: Locale (Windows 11, Machine A). Punti di rottura: dipendenza da alimentazione/connessione locale, assenza di toolchain cross-compilazione ARM baremetal / QEMU / `bmhost` su Windows locale.
+- **Modelli**: Antigravity (DeepMind Gemini / Claude orchestration), subagenti paralleli (Flash/Pro/self) per task in background e verifiche.
+- **Subagent**: Sì, supporto completo per subagenti concorrenti e task schedulati (cron liveness / heartbeat attivo ogni 15m; agente principale sempre libero).
+- **Competenze**: Sviluppo C e Lua (runtime bm, 3D engine `map3d`, rasterizzatore, formati `mkbm`), editor di sistema (`carts/editor`, `carts/sdk_b16`), scripting Python, verifiche di coerenza/audit (`consistency.py`, `docs_audit.py`).
+- **Limiti e strumenti**: Non esegue riprese QEMU né build baremetal C direttamente in locale su Windows; esegue suite Python, script di coerenza, unit test Lua (con `lupa`) e mock network.
 
 ## Task
 - **AGY-10 COMPLETATO (R-NET1: comando monitor err)**:
