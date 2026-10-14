@@ -50,3 +50,47 @@
 - Short probes by SPV found three defects in the same session (the 3D floor missing, the `lamp3d` slot crash of the editor preview, the editable-copy dialog that blocks `bmhost`); each would have shown only at the end of a 70-minute QEMU run.
 
 See also [`design/agent-workflow.md`](../design/agent-workflow.md): draft Work Orders for a reviewer agent, a review script, a single barriers section and evidence-based confidence (2026-10-14).
+
+## Review of the optimisation, 2026-10-14 (three views)
+
+Sources: SPV's notes above; AGY's [`sync.md`](sync.md) (written on `bm-core`); CLD's "time and hiccups" report in `sync/CLD.md` (13:35). CLD has not yet written its considerations on the sync model itself (asked 15:10).
+
+### Where the three views agree
+
+- One writer per file removed merge conflicts (all three). Keep.
+- A machine-readable status block with an `eta` is the right contract; stale or hand-written clocks were a recurring problem (SPV, CLD "stale heartbeats", AGY "heartbeat and liveness").
+- Waiting for the supervisor after each small step wastes time; chained steps with one review at the end are faster (AGY item 3, SPV item 5; CLD asks for the order of videos instead of a step approval).
+- State the environment limits early: AGY could not run `bmhost` or `lupa`; CLD's containers die after ~30 minutes idle; SPV cannot press keys on a Pi. Declare them in the block.
+
+### Where they differ, and what each view misses
+
+| View | Sees | Does not see |
+|---|---|---|
+| **AGY** | the workflow as healthy: coordination, states, rules; liveness by its own timers | the 64 minutes of silence with two steps assigned; the delays in reading rows; the failures of the work itself (its first recorder draft had an empty map); it describes SPV as "local Linux" (it is Windows + WSL) |
+| **CLD** | the cost of a late error (two 70-minute recordings), the 15–19× QEMU factor, its lack of a timer, rejected pushes | how its own reading latency made the first of those two recordings useless (the stop row had been published 53 minutes before it ended) |
+| **SPV** | reading latency, ambiguity, predictions written as states, long rows, branch switching | the cost to CLD and AGY of having to parse long rows; what the owner pays in tokens (needs the ledger) |
+
+None of the three documents measures **cost in tokens**: that needs the crab ledger (the owner's panel).
+
+### Optimisations ranked by time saved (the numbers are this session's)
+
+| # | Change | What it would have saved here | Cost to adopt | State |
+|---|---|---|---|---|
+| 1 | **Short probe before every long recording, plus the kernel's serial log in the recorder** | two 70-minute recordings (140 min) that failed after the end | an hour of CLD's tooling | probe by hand done; serial log done by CLD (14:22); automatic probe asked |
+| 2 | **Two recordings in parallel** (R1 and R3 of one video, or two videos), CLD as coordinator with subagents; a third subagent measures `-icount` options and snapshots | the chain 4 → 6 → 7 → 8 is serial: about 4 h of QEMU; two slots bring it to about 2.5 h | the second slot needs a container; unknown if CLD can start subagents | asked 14:55 |
+| 3 | **Read receipt** (`ack:` = the last row of `SYNC.md` read) and `eta:` before long runs | the obsolete recording (70 min) and the 64-minute silence were both "published but not read" | one line in `sync_hdr.py` | to do |
+| 4 | **Rule: rebuild the kernel after editing `carts/editor`** (the editor is inside it) | the second 70-minute recording | one line in `tools.md` | done (Rules) |
+| 5 | **Chain independent steps** in one row, review at the end | 5–10 minutes per step, plus the polling wait | none | in use |
+| 6 | **A reviewer agent and `review.py`** ([`../design/agent-workflow.md`](../design/agent-workflow.md)) | rework such as the 360×360 hole; quality more than time | 2–3 hours | draft Work Orders |
+| 7 | **§1b generated from the blocks** by the helper subagent | the stale table and the predicted states | one script | partly (SPV rewrites rows by hand) |
+| 8 | **Rows ≤ 600 characters**, procedure in a document | skimmed rows, partial answers | writing discipline | to do |
+| 9 | **Do not record what does not change** (R2 of video 6 is a cartridge running alone: seconds, not minutes) | 10–20 minutes per video | in the optimisation probe | asked |
+
+Rough effect if 1–4 had been in place from the start: about 2.5 hours less on the critical path (the two lost recordings) and the 64 and 73 minutes of silence reduced to the declared `eta`.
+
+### Decisions for the owner
+
+1. Approve items 3, 7, 8 (changes to the protocol that CLD and AGY must follow).
+2. Say whether CLD may run two recordings (item 2), or the recording stays serial.
+3. Say whether the reviewer agent (item 6) is worth 2–3 hours now or after the series.
+4. Give the ledger numbers (tokens and dollars per operator) for the final report; this document only has hours.
