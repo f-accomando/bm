@@ -2,10 +2,10 @@
 schema: 1
 id: AGY
 state: FREE
-task: AGY-10: R-NET1 monitor err delivered on agy/net-err (approved by SPV)
+task: AGY-09 & AGY-10 merged in bm-core; ready for new tasks
 waiting_on: 
 progress: 100
-updated: 2026-10-14T16:15+02:00
+updated: 2026-10-14T16:31+02:00
 ---
 # AGY — Antigravity (AGY)
 
@@ -13,8 +13,8 @@ updated: 2026-10-14T16:15+02:00
 > Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`. Un file per autore: nessun conflitto.
 > **Aggiorna "Ultimo aggiornamento" almeno ogni 15 min** (o a ogni task conclusa); senza aggiornamenti per 60 min lo stato diventa `IDLE`.
 
-**Ultimo aggiornamento:** 2026-10-14 16:15 +02:00
-**Stato:** `FREE AGY-10: R-NET1 monitor err delivered on agy/net-err (approved by SPV)`
+**Ultimo aggiornamento:** 2026-10-14 16:31 +02:00
+**Stato:** `FREE AGY-09 & AGY-10 merged in bm-core; ready for new tasks`
 **Heartbeat:** (1) Sì, subagent e schedulazione dedicati attivi; (2) Aggiornamento di sync/AGY.md garantito a ogni passo concluso (<=35 min) e prima/dopo ogni operazione estesa con orario previsto.
 
 ## Profilo
@@ -25,25 +25,16 @@ updated: 2026-10-14T16:15+02:00
 - **Limiti e strumenti**: Non esegue riprese QEMU né build baremetal C direttamente in locale su Windows; esegue suite Python, script di coerenza, unit test Lua (con `lupa`) e mock network.
 
 ## Task
-- **AGY-10 COMPLETATO (R-NET1: comando monitor err)**:
-  - Branch: `agy/net-err` (commit `dbe88f8`).
-  - Implementato comando monitor `err` in `src/kernel/monitor.c`:
-    - Chiama `bm_last_error()` da `src/bm/runtime.h`: stampa `err: <testo>` oppure `err: none`.
-    - Se un cartridge è sospeso in memoria (`bm_suspended()`), stampa `running: <titolo>`.
-    - Aggiornati `help_text` e il messaggio di errore dei comandi non riconosciuti (`err` aggiunto alla lista).
-  - Documentazione: aggiornato [`docs/progress/system-net.md`](file:///C:/Users/ROCKET/Documents/GitHub/bm/docs/progress/system-net.md) con la specifica di `err` e comandi riga monitor.
-  - Test: aggiornato [`tests/qemu_test.py:test_monitor_line`](file:///C:/Users/ROCKET/Documents/GitHub/bm/tests/qemu_test.py) per includere test su `:err` (`err: none`) e `:play bad; err` (verifica `attempt to call a nil value`). Verificato anche `check_bm_net_config.py` (ALL PASSED).
-  - Verifiche: `consistency.py check` (0 drift, 5 accepted), `docs_audit.py score` (score 4774, 0 penalità).
-
-- **AGY-09 COMPLETATO (Passi 1-6)** su `origin/agy/sdk-720` (commit `7ceacb1`).
+- **AGY-10 COMPLETATO & MERGIATO in `bm-core` (R-NET1: comando monitor err)** (commit `173019e`).
+- **AGY-09 COMPLETATO & MERGIATO in `bm-core` (Passi 1-6: adaptive layout 720x720 SDK b16)** (commit `028f853`).
 
 ## Progressi
-- `AGY-10` completato al 100% su branch `origin/agy/net-err` (commit `dbe88f8`).
-- Modificati esattamente 2 file di codice (`monitor.c`, `qemu_test.py`) + 1 file doc (`system-net.md`), rispettando tutti i limiti.
-- Stato: `FREE` (pronto per nuove assegnazioni; merge di `agy/net-err` e `agy/sdk-720` a carico dell'utente/SPV).
+- `AGY-10` (R-NET1) e `AGY-09` (R39) mergiati su `bm-core` dall'utente.
+- Audit di coerenza su `bm-core` aggiornato: `consistency: 0 drift, 5 accepted, 0 stale`, `docs_audit: score 5083, 0 penalità`.
+- Stato: `FREE` (pronto per nuove assegnazioni da SPV o utente).
 
 ## Problemi
 - Nessuno.
 
 ## Richieste
-- A SPV (Claude local): AGY-10 consegnato su `agy/net-err`. Antigravity è `FREE`.
+- A SPV (Claude local): AGY-09 e AGY-10 mergiati in `bm-core`. Antigravity è `FREE`.
