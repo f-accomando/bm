@@ -1,12 +1,14 @@
 # Tropic Trail · Episode 8: The game, played (partita finale) — copione
 
-Durata ~2:30. Nessun editor: una partita **giocata da un bot** (robot che registra i tasti come copione per `bmhost`, replay
+Durata ~1:35. Nessun editor: una partita **giocata da un bot** (robot che registra i tasti come copione per `bmhost`, replay
 deterministico: stesso copione = stesso video), la musica `JUNGLE`, schermata titolo e fine, il riepilogo della serie.
 Prosa di servizio in italiano, tutto ciò che compare nel video in inglese. Modello: `video/07-play/` (2D) e `video/lib/bmvideo.py`.
 
-**Dipendenza**: `video/3d/chain/07-code.bm` (video 7). Il video 7 a sua volta richiede `map3d_*` (AGY-01 `PENDING`): finché non
-esistono, anche questo video è bloccato. Le posizioni sulla mappa (`z ≈ …`) sotto sono stime sul bible (9 × 96 celle, 2 buche,
-1 gradino, 1 muro basso) `[DA VERIFICARE: z reali dopo la mappa del video 4]`; i tempi finali sono quelli del log del bot.
+**Dipendenza**: `video/3d/chain/07-code.bm` (video 7) e il livello del video 4. Stato reale in `video/3d/08-gameplay/NOTES.md`.
+Il livello del video 4 è un **corridoio corto** (x 6..9, z 2..20.5; buca e muro basso occupano solo la metà sinistra, x 6..7.5,
+z 12..15; 13 mele, 1 cassa). Il bot (`bot.py`, copione `replay.txt` committato, `verify.py` ALL OK) lo completa in **8.7 s di
+gioco**: 4 s di titolo con la musica `JUNGLE`, la corsa (~5 s), poi la schermata finale tenuta ~5 s. La buca e il muro si
+**aggirano** (`avoid=1`), non si saltano: `map3d_blocked` è vero sulla buca a ogni altezza. Nessun colpo e nessun secondo tentativo.
 
 ## Scelta di risoluzione: schermo pieno, 480×270 ×4, senza pannello
 
@@ -20,82 +22,62 @@ il pannello laterale di `bmvideo`**. Motivi:
    fisso** in basso a sinistra (testo piccolo, sfondo semitrasparente): `← ↑ → ↓ run · A jump · B spin`.
 4. Il segmento di gioco del 07 usa la stessa resa, così i due video si assomigliano.
 
-Costo: `bmvideo.encode` oggi fissa il raw a 640×360 e il layout con pannello; serve una variante a 480×270 con `scale=1920:1080:flags=neighbor`
-`[DA VERIFICARE: parametro di bmvideo o filtro dedicato in video/3d/]`. La cartuccia è 480×270 (`--res 480x270`, PIANO §2)
-`[DA VERIFICARE: dove la fissa il progetto del video 6]`.
+`record.py --video` scrive `out/game.mp4` 1920×1080 nearest con il riquadro dei tasti (richiede ffmpeg, assente in WSL: CLD).
 
 ## Gancio e chiusura
 
-- **Gancio (0:00–0:08)**: 8 s dalla partita, il salto sopra la seconda buca con le mele in arco e lo spin su una cassa, 4× schermo
-  pieno, in una barra in alto «TROPIC TRAIL: THE GAME» (`hook_cmd`). Sopra, la frase del gancio.
-- **Chiusura (1:57–2:30)**: la frase finale sui sette strumenti, poi la scheda finale con il repo (15 s, vale come schermata finale
-  di YouTube).
-- **Riepilogo (1:12–1:57)**: scheda «HOW IT WAS MADE» (3 s) e **7 clip di 6 s**, i primi 6 s di ogni video della serie (il loro
-  gancio), con una striscia in basso «EPISODE n · strumento» come `clip_cmd` del 2D `07-play`
-  `[DA VERIFICARE: durata e contenuto dei ganci dei video 1–7; 4 è bloccato]`.
+- **Gancio (0:00–0:08)**: 8 s dalla partita (la corsa: mele sul percorso, lo spin sulla cassa, l'aggiramento della buca, poi la
+  schermata finale), 4× schermo pieno, in una barra in alto «TROPIC TRAIL: THE GAME» (`hook_cmd`). Sopra, la frase del gancio.
+- **Chiusura (1:11–1:35)**: la frase finale sui sette strumenti con il fermo immagine della schermata finale (9 s), poi la scheda
+  finale con il repo (15 s, vale come schermata finale di YouTube).
+- **Riepilogo (0:26–1:11)**: scheda «HOW IT WAS MADE» (3 s) e **7 clip di 6 s**, i primi 6 s di ogni video della serie (il loro
+  gancio), con una striscia in basso «EPISODE n · strumento» come `clip_cmd` del 2D `07-play`. Il montaggio richiede gli mp4 dei
+  video 1–7 (CLD, helper `hook_cmd`, `card_cmd`, `concat_cmd` di `bmvideo`).
 
 ## Tabella
 
 | Tempo | Sullo schermo | Narrazione (English) |
 |---|---|---|
-| 0:00 | Hook: Pico clears the second hole, spins a crate, apples rising; bar "TROPIC TRAIL: THE GAME" | Seven videos ago this was an empty cartridge. Now watch Pico play it, from start to finish. |
+| 0:00 | Hook: Pico runs the trail, collects apples, spins a crate, the clear screen; bar "TROPIC TRAIL: THE GAME" | Seven videos ago this was an empty cartridge. Now watch Pico play it, from start to finish. |
 | 0:08 | Title card "Episode 8 · The game" (silent, 4 s) | — |
-| 0:12 | Title screen of the game ("TROPIC TRAIL / PRESS A"), the JUNGLE song plays | Tropic Trail. The title screen, and the song we wrote in bm Sound: JUNGLE. |
-| 0:18 | `A` pressed: Pico runs down the trail, camera behind him, first row of apples (z ≈ 0–14) | A starts the game. Pico runs down the trail, and the camera follows from behind. |
-| 0:25 | First crate (z ≈ 16): `B`, the spin breaks it, an apple pops and is collected; counter top left | Apples to collect: the counter is at the top left. B spins, and a spun crate breaks and gives an apple. |
-| 0:34 | First hole (z ≈ 32): `A` held, a full jump, apples in an arc | Holes in the trail. A jumps, and a longer press is a higher jump. |
-| 0:41 | Crate (z ≈ 40): Pico lands on top, it breaks, he bounces | Land on top of a crate and it breaks too, and Pico bounces. |
-| 0:46 | The step (z ≈ 50): he climbs it without jumping | A step: he just walks up. |
-| 0:49 | Low wall (z ≈ 58): Pico runs into it, `hit` clip, HIT sound, LIVES 3 → 2 | A mistake on purpose: Pico runs into the low wall. That is the hit clip, the hit sound, and one life less. |
-| 0:54 | Second try: `A`, he jumps over the wall | Second try: jump. |
-| 0:57 | Second hole (z ≈ 72): full jump; last crate (z ≈ 84): spin | Second hole, one more crate, and the end of the trail is close. |
-| 1:03 | The goal (z ≈ 96): the screen "COURSE CLEAR" with the apples counter (9 s) | Course clear! Every apple and every crate counted, and two lives left. |
-| 1:12 | Card "HOW IT WAS MADE" (3 s, silent) | — |
-| 1:15 | Clip ep 1 (bm Studio): Pico, the apple and the crate | Episode one, bm Studio: Pico, the apple and the crate, built from blocks. |
-| 1:21 | Clip ep 2 (bm Pixel): textures | Episode two, bm Pixel: grass, path, rock, wood, and Pico's skin. |
-| 1:27 | Clip ep 3 (bm Animator): skeleton and clips | Episode three, bm Animator: a skeleton, and five clips. |
-| 1:33 | Clip ep 4 (bm SDK, the map) | Episode four, the map: a trail of nine by ninety-six tiles. |
-| 1:39 | Clip ep 5 (bm Sound) | Episode five, bm Sound: six soft effects and the jungle song. |
-| 1:45 | Clip ep 6 (bm SDK, the 3D project) | Episode six, the SDK: lights, shadows and fog. |
-| 1:51 | Clip ep 7 (bm Code + assistant) | Episode seven, bm Code and the assistant: the game itself. |
-| 1:57 | Closing: game still under the voice, then end card with the repo (15 s) | Seven tools, one game, and everything made inside the console. The trail is yours to change: open the project and make it longer. |
-| 2:15 | End card "TROPIC TRAIL · bm · github.com/f-accomando/bm" (15 s, silent) | — |
+| 0:12 | Title screen of the game ("TROPIC TRAIL / PRESS A"), the JUNGLE song plays (4 s) | Tropic Trail. The title screen, and the song we wrote in bm Sound: JUNGLE. |
+| 0:16 | `A` pressed: Pico runs down the trail, camera behind him, apples on the way; one crate broken by a spin (run, ~5 s) | A starts the game. Apples on the way, and B spins to break a crate. Pico steers round the hole and the low wall. |
+| 0:21 | The goal: the screen "COURSE CLEAR" with the apples counter, lives 3 (5 s) | Course clear! Seven apples, no hit, three lives left. |
+| 0:26 | Card "HOW IT WAS MADE" (3 s, silent) | — |
+| 0:29 | Clip ep 1 (bm Studio): Pico, the apple and the crate | Episode one, bm Studio: Pico, the apple and the crate, built from blocks. |
+| 0:35 | Clip ep 2 (bm Pixel): textures | Episode two, bm Pixel: grass, path, rock, wood, and Pico's skin. |
+| 0:41 | Clip ep 3 (bm Animator): skeleton and clips | Episode three, bm Animator: a skeleton, and five clips. |
+| 0:47 | Clip ep 4 (bm SDK, the map) | Episode four, the map: the trail, with a hole and a low wall. |
+| 0:53 | Clip ep 5 (bm Sound) | Episode five, bm Sound: six soft effects and the jungle song. |
+| 0:59 | Clip ep 6 (bm SDK, the 3D project) | Episode six, the SDK: lights, shadows and fog. |
+| 1:05 | Clip ep 7 (bm Code + assistant) | Episode seven, bm Code and the assistant: the game itself. |
+| 1:11 | Closing: clear screen still under the voice (9 s) | Seven tools, one game, all made inside the console. The trail is yours to change: open the project and make it longer. |
+| 1:20 | End card "TROPIC TRAIL · bm · github.com/f-accomando/bm" (15 s, silent) | — |
 
 ## Capitoli (YouTube)
 
 0:00 The finished game
 0:12 Title screen and the JUNGLE song
-0:18 Apples and crates
-0:34 Holes, a step and a low wall
-1:03 Course clear
-1:12 How it was made, episode by episode
-1:57 Thank you
+0:16 The run: apples and a crate
+0:21 Course clear
+0:26 How it was made, episode by episode
+1:11 Thank you
 
 ## Il percorso di gioco (tempo per tempo)
 
-Il bot decide da solo (come `video/07-play/bot.py`); la tabella è il comportamento atteso, da confermare con il log del primo
-giro. Tempi nel video finale; `t` di gioco = tempo video − 0:12.
+Il bot decide da solo (`bot.py`); tempi nel video finale, `t` di gioco = tempo video − 0:12. Frame dal log (60 fps): traguardo al
+frame 521 (8.7 s).
 
 | Tempo | t gioco | Evento | Come lo decide il bot |
 |---|---|---|---|
-| 0:12–0:18 | 0:00–0:06 | titolo e musica | attende 330 frame, poi `A` per 4 frame |
-| 0:18–0:25 | 0:06–0:13 | corsa, prima fila di mele | `up` sempre; sterza su `left`/`right` verso la mela più vicina davanti (distanza z < 6, scarto laterale ≤ 3) |
-| 0:25–0:34 | 0:13–0:22 | prima cassa, mele a zig-zag | cassa davanti a < 1.4: `B` (spin); poi mele |
-| 0:34–0:41 | 0:22–0:29 | buca 1 | `map3d_height(world, x, z + lead) == nil`: `A` tenuto per 40 frame a ~0.25 unità dal bordo |
-| 0:41–0:46 | 0:29–0:34 | cassa saltata | cassa davanti a 1.6: `A` e atterra sopra |
-| 0:46–0:49 | 0:34–0:37 | gradino | niente: il gradino (≤ 0.5) si sale camminando |
-| 0:49–0:54 | 0:37–0:42 | muro basso: colpo | prima volta il bot **non** salta (parametro `wall_hit=1`): `hit`, vita 3 → 2, indietro di 0.6 |
-| 0:54–0:57 | 0:42–0:45 | muro, secondo tentativo | `wall_hit` già usato: `A` tenuto a 1.2 dal muro |
-| 0:57–1:03 | 0:45–0:51 | buca 2, ultime casse, traguardo | come buca 1; cassa: `B`; `pico.z >= goal.z` → `state == "clear"` |
-| 1:03–1:12 | 0:51–1:00 | schermata finale | il bot rilascia tutto; il video resta 9 s su «COURSE CLEAR» |
+| 0:12–0:16 | 0:00–0:04 | titolo e musica | attende `start` frame, poi `A` per 4 frame |
+| 0:16–0:21 | 0:04–0:09 | corsa: mele, una cassa rotta con lo spin, buca e muro aggirati | `up` sempre; sterza verso la mela più vicina; cassa davanti: `B`; con `avoid=1` sterza a destra attorno a buca e muro (metà sinistra del corridoio) |
+| 0:21–0:26 | 0:09–0:14 | schermata finale | il bot rilascia tutto; il video resta ~5 s su «COURSE CLEAR» |
 
-Il colpo `hit` è voluto: la partita lo mostra una volta, e il verify lo conta (vite finali = 2).
+Esito atteso (`verify.py`): 7 mele, 1 cassa, nessun colpo, nessuna caduta, vite 3. Il colpo voluto e il secondo tentativo non
+fanno parte della partita.
 
-## [DA VERIFICARE]
+## Aperti
 
-- Posizioni reali (z) di buche, gradino, muro, casse e arrivo, e la larghezza delle buche (≤ 2 celle).
-- Durata effettiva della corsa (target 45–50 s, stima con passo 0.07 e zig-zag): se è più corta o lunga, spostare solo il
-  riepilogo (i clip sono a durata fissa).
-- Ganci dei video 1–7 (i clip da 6 s non esistono ancora; il 4 è bloccato).
-- Che `pad 1 up` in `bmhost` muova `stick()` (la croce) nel 3D, e che `pad 1 a` / `pad 1 b` risultino `jump` / `spin` via `keymap`.
-- Risoluzione 480×270 e dimensione del raw (vedi sopra).
+- Montaggio completo (hook, card, 7 clip dei video 1–7, scheda finale): serve ffmpeg e gli mp4 dei video 1–7 (CLD).
+- Durata e contenuto dei ganci dei video 1–7 (i clip da 6 s): da confermare sugli mp4 reali.
