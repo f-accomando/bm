@@ -58,5 +58,5 @@ The five standardized states defined in [`sync/operators.toml`](../../sync/opera
 - Log rows <=600 characters; a status block carries ISO 8601 times with zone, `eta` before any operation >15 min and `ack` (last `SYNC.md` row read).
 - **Un branch di sync per progetto** (`sync/<nome>`): `SYNC.md`, `sync/*` e `tools/sync_hdr.py` vivono e si pushano solo lì, non su `bm-core`; così sessioni di sync parallele (altri agenti, altri progetti) non si toccano. "Fai handshake `<branch>`" = la procedura sotto su quel branch (descritta in `CLAUDE.md` §6).
 - Handshake = fetch del branch di sync, lettura di `SYNC.md`, creazione di `sync/<ID>.md` (stato + `## Profilo`, + `## Requisiti` se richiesti), poi `FREE`: senza handshake non si assegna lavoro.
-- Dopo l'handshake: tre battiti brevi (3-5 min) per cogliere l'assegnazione di SPV senza passaggi dell'utente; poi battito ogni 15 min.
+- Dopo l'handshake: battiti brevi (3-5 min) finché l'operatore non ha preso in carico il primo work order (`ASSIGNED` letto, `ack`, `WORKING`), e SPV finché lo ha confermato; tetto di 6 battiti brevi; poi battito ogni 15 min.
 - No task open-ended: passi <=45 min; l'operatore tiene libero l'agente principale e supervisiona i propri subagent.

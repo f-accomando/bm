@@ -108,7 +108,7 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 | {ID-NN} | {h} | {h} |
 
 **Battito**:
-0. **All'avvio** (dall'handshake): **tre battiti brevi di 3-5 min** (leggi `SYNC.md` e `sync/`, aggiorna il tuo file) per cogliere subito l'assegnazione di SPV, le prime domande e le prime ricevute (`ack`) senza che l'utente faccia da tramite; poi si passa al ritmo normale. SPV fa lo stesso nei primi minuti di un nuovo operatore.
+0. **All'avvio** (dall'handshake): **battiti brevi di 3-5 min** (leggi `SYNC.md` e `sync/`, aggiorna il tuo file) **finché non hai preso in carico il primo work order**: cioe hai letto la riga `ASSIGNED`, scritto `ack` e ti sei segnato `WORKING`; da li si passa al ritmo normale. **SPV** tiene i battiti brevi finché ogni nuovo operatore ha confermato la presa in carico (`WORKING` e `ack` sul work order). Così l'utente non fa da tramite. Tetto di sicurezza: dopo 6 battiti brevi senza assegnazione si passa a 15 min e SPV lo segnala all'utente.
 1. Poi ogni **15 min** un subagent (o un controllo equivalente) fa un **diff** (`git fetch` + `git diff` dall'ultima copia vista), conferma stato e progressi e aggiorna il proprio file. Si aggiorna anche a ogni task conclusa.
 2. Senza aggiornamenti per 60 min e senza `eta` valida: `IDLE`.
 3. L'agente principale resta sempre raggiungibile (comunicare, interrompere, ridimensionare): il lavoro lungo va ai subagent, o a passi con un controllo in mezzo.
