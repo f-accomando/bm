@@ -208,6 +208,19 @@ Press **F3** to see the sprites, then **F3** again for the map. A map is made of
 - A map has at most 8 layers: the SDK says `a map has at most 8 layers`.
 - The menu entry *New map layer (n/8)* does the same as `L` and shows how many you have.
 
+## 3D maps and level tools
+
+Press **v** on the map page to toggle between 2D editing and real-time **3D preview**.
+
+- **Orbital camera**: arrow keys rotate (left/right yaw) and zoom (up/down distance); **Shift+Up** and **Shift+Down** adjust the tilt pitch.
+- **Template: 3D map**: press **T** (or choose it from the menu) to automatically configure the four canonical 3D layers: `floor`, `height`, `walls`, and `objects`.
+- **Rename layer**: press **r** to rename any layer with a dialog prompt.
+- **Path tool (`Shift+P`, `Shift+W`)**: press `Shift+W` to cycle corridor width from 1 to 5 tiles. Press `Shift+P`, navigate to the start cell and press Enter, then navigate to the destination cell and press Enter: a corridor of width *N* is drawn on the `floor` layer with the active tile.
+- **Apples row tool (`Shift+A`)**: press `Shift+A`, press Enter at the start cell and Enter at the destination cell: a continuous line of apple placeholders (ID 1026) is placed on the `objects` layer.
+- **Place crates and lamps (`Shift+C`, `Shift+O`)**: `Shift+C` places a crate placeholder (ID 1028) at the cursor cell on the `objects` layer, and `Shift+O` places a lamp placeholder (ID 1032).
+- **Status bar**: displays the current counts of apples, crates, and lamps, together with an estimated triangle budget (floor + objects).
+- **Undo**: `u` or `Ctrl+Z` undoes an entire path, row, or object placement in one step.
+
 ## Try it, step by step
 
 1. Open the Platform 2D project (chapter 4).
@@ -324,6 +337,12 @@ Hold **F12** in the SDK to see the keys of the page you are on.
 | u | sprites | undo |
 | 0 - 7 | sprites | a flag of the cell |
 | Space / Backspace | map | place the tile / clear the cell |
+| v | map | toggle 2D / 3D preview |
+| Shift+P / Shift+W | map | path tool (start, end: Enter) / width (1-5) |
+| Shift+A | map | apples line tool (start, end: Enter) |
+| Shift+C / Shift+O | map | place crate (1028) / place lamp (1032) |
+| r | map | rename layer |
+| T | map | template: 3D map layers |
 | x | map | pick the tile |
 | f | map | fill |
 | Tab | map | choose the tile |
