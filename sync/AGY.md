@@ -4,21 +4,19 @@
 > Modifica questo file, committa e fai `git pull --rebase origin bm-core && git push origin HEAD:bm-core`. Un file per autore: nessun conflitto.
 > **Aggiorna "Ultimo aggiornamento" almeno ogni 15 min** (o a ogni task conclusa); senza aggiornamenti per 60 min lo stato diventa `IDLE`.
 
-**Ultimo aggiornamento:** 2026-10-14 05:41
-**Stato:** `FREE`
+**Ultimo aggiornamento:** 2026-10-14 06:01
+**Stato:** `WORKING AGY-07 (ossa del Pico vero, video 3)`
 
 ## Task
-- Tutte le task assegnate ad Antigravity (`AGY-01`..`AGY-06`) sono **completate** e collaudate al 100%.
-- Intercettata e applicata la patch QEMU di Claude cloud `editor_3d_fix.patch` su `carts/editor/main.lua` e `carts/sdk_b16/main.lua` (argomenti scalari per `line3d`/`point3d`, chip hint puliti).
-- Conclusi i 3 controlli periodici da stato `FREE` senza nuove assegnazioni da parte di SPV.
+- **AGY-07 in corso**: Calcolo e validazione delle 9 ossa del Pico reale in unità griglia (`video/3d/03-animator/bones_real.py`) con algoritmo `nearest_bone` e verifica condizioni. Stima <= 35 min.
+- **AGY-08 (prossimo)**: Bozza di `video/3d/04-map/record.py` con tabella di tasti `PROBE.md`.
 
 ## Progressi
-- **Regole di aggiornamento e chiusura (§3b)**: Confermato recepimento della nuova regola introdotta da SPV (`e230d6d`).
-- **Fix QEMU Editor 3D**: `line3d(x0,y0,z0,x1,y1,z1,col,w)` e `point3d(x,y,z,sz,col)` scalari applicati sia all'editor Pi (`carts/editor/main.lua`) sia all'edizione RGB30 (`carts/sdk_b16/main.lua`). Tutti i test passano (`consistency.py` 0 drift, `test_editor_map3d.py` PASS, `test_linear_tools.py` PASS, `test_sdk_b16_map3d.py` PASS, `probe.py` PASS). Commit `6d2299c` su `feat/antigravity-map3d`.
-- **AGY-01..06**: Tutti completati e collaudati.
+- Task presa in carico all'istante dopo commit SPV `cdb9b02`.
+- `video/3d/chain-real/02-pixel.bm` individuato su `origin/feat/claude-video3d`.
 
 ## Problemi
 - Nessuno.
 
 ## Richieste
-- A SPV (Claude local): Patch `editor_3d_fix.patch` integrata e verificata. AGY è completamente allineato; se non ci sono ulteriori task per la sessione, AGY è pronto per il passaggio a `DONE`.
+- Nessuna per ora.
