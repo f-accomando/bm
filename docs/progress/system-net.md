@@ -24,4 +24,10 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   `netxfer_write_tick` in the last 250 ms; the answer after the write), else it is written
   at once with the network polled (`save_now`). Tests: `tests/net/test_netcon.c` (run
   plain, `menu`, `gone`), `check_bm_net_config.py`.
+- Monitor line commands (`src/kernel/monitor.c`: `:` prefix from menu/serial, `bm_net.py IP --line "..."`):
+  `gpu`, `b3d`, `play`, `set`, `save`, `render`, `room`, `log`, `err`, `send`, `reboot`.
+  The `err` command (R-NET1) prints the last cartridge error (`err: <text>` or `err: none`,
+  via `bm_last_error()`) and any suspended cartridge (`running: <title>`), allowing remote
+  tests to distinguish a running/clean state from an execution halted with error.
+  Tests: `tests/qemu_test.py:test_monitor_line`.
 

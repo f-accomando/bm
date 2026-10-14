@@ -5131,18 +5131,26 @@ def test_monitor_line(b, opts):
     """The monitor's ':' line (2026-10-05): commands one after the other,
     ';' between them; set changes a key until a restart, b3d runs a part of
     the 3D Bench without waiting on its pages, a word not known stops the
-    line and says so. Typed in the menu (as bm_net.py --line does it, or a
-    paste in easy_install's monitor), the ':' takes the line to the monitor."""
+    line and says so, err reports runtime errors. Typed in the menu (as
+    bm_net.py --line does it, or a paste in easy_install's monitor), the ':'
+    takes the line to the monitor."""
     tmp = tempfile.mkdtemp(prefix="bm-line-")
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
+    bad = os.path.join(tmp, "bad.bm")
     with open(cfg, "w") as f:
         f.write("layout=us\nwifi_boot=0\n")
-    mksd.build(img, [(cfg, "bm/config.txt")])
+    with open(bad, "wb") as f:
+        f.write(mkbm.pack(b"function _update() boom() end\nfunction _draw() end", title="bad"))
+    mksd.build(img, [(cfg, "bm/config.txt"), (bad, "carts/bad.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
+        q.send(":err\r")
+        out = q.expect("the line is done", timeout=10).decode(errors="replace")
+        assert "err: none" in out, out
+        q.expect("> ")
         q.send(":set gpu3d_fs2=1 gpu3d_sort=1; b3d tests=spheres,quad_flat profiles=ARM; nope; send\r")
         q.expect("back to the monitor", timeout=10)
         q.expect("set gpu3d_fs2=1 (until a restart", timeout=10)
@@ -5154,6 +5162,10 @@ def test_monitor_line(b, opts):
         out = q.expect("the line is done", timeout=30).decode(errors="replace")
         assert "'nope': not a command of the line" in out, out
         assert ": send" not in out, out             # the line stopped at the unknown word
+        q.expect("> ")
+        q.send(":play bad; err\r")
+        out = q.expect("the line is done", timeout=30).decode(errors="replace")
+        assert "attempt to call a nil value" in out, out
         q.expect("> ")
         q.send("l")                             # the key is set for now
         q.expect("lua> ")
