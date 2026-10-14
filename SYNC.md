@@ -47,7 +47,7 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 |---|---|---|---|
 | **Claude local** | `WORKING revisione (7 e 8 pronti)` | video 4 consegnato; 6, 7, 8 pronti (verify ALL OK), commit 4ef770a su `feat/claude-video3d`; il 8 e una partita breve (livello del 4: 8,7 s di gioco), documenti riallineati (~1:35) | 60 min |
 | **Claude cloud** | `WORKING montaggio 7 e 8` (file 18:26) | video 7: R1 (verify ALL OK), R3 (rifatta nel tool SDK) e R2 fatti; esegue `montage7.py` poi `montage8.py` | ~30 min |
-| **Antigravity** | `FREE` (file 18:00) | AGY-11 e AGY-12 consegnati e fusi (montage8.py 95 s, montage7.py 242 s); nessun lavoro in coda | - |
+| **Antigravity** | `FREE`, AGY-13 in casella (file 18:35) | rivede `sync_check.py` (20 min) poi sign-off (ha chiesto lui il congedo) | 20 min |
 | **OP4** | `WORKING OP4-01 passo 2` (file 18:28), sign-off in arrivo | R3 del 7 gia rifatta da CLD (fix `rec_qemu --tool`): OP4-01 superato; chiude la ripresa in corso e consegna il fix | 15 min |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
