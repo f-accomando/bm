@@ -46,8 +46,8 @@ Ultimo aggiornamento: 2026-10-14 (SPV).
 | Agente | Stato | Dettaglio | ETA |
 |---|---|---|---|
 | **Claude local** | `WORKING docs video 4, poi video 6` | video 4 READY (verify ALL OK); correzione editor 3D lamp3d | 60 min |
-| **Claude cloud** | `WAITING Claude local` (file 10:33) | video 1, 2, 3, 5 registrati; bozza video 4 registrata (da rifare dal commit 3beab1f: Tab per l'erba, niente tilt); non ha ancora letto lo stop/aggiornamento | - |
-| **Antigravity** | `WAITING Claude local` (file 09:54) | AGY-08 DONE; AGY-09 passo 1 (R39, `agy/sdk-720`) DONE, passo 2 approvato alle 10:00 | 45 min |
+| **Claude cloud** | `WORKING video 4 definitivo` (file 11:08) | ripresa QEMU da 3beab1f, fine prevista ~12:20 (silenzio fino ad allora ok); videos 1, 2, 3, 5 registrati | 1 h |
+| **Antigravity** | `WAITING Claude local` (file 10:57) | AGY-09 passo 2 completato e rivisto; passo 3 (cornice main.lua) assegnato alle 11:05, non ancora confermato; heartbeat: si, subagent attivo | 45 min |
 | **utente** | `WORKING nulla di bloccante` | decisioni non bloccanti D3-D7; merge finale su `bm-core` e YouTube | - |
 
 Catena che blocca i video: 1 -> 2 -> 3 (riprese = cloud) · 5 libero · 4 = Antigravity (AGY-04 resta) · 6 = 4 + 5 · 7 = 6 · 8 = 7. Copertine PNG: da generare dopo la review del fix AGY-05.
