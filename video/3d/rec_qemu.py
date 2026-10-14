@@ -212,7 +212,9 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0,
     bmvideo.write_ass(s, ass, ov.get("title") or "Tropic Trail", v["tool"].title(), total)
     qemurec.write_srt(s, os.path.join(work, "subs.srt"))
     mp4 = os.path.join(work, "ep%02d_qemu.mp4" % int(n))
-    qemurec.assemble(os.path.join(work, "console.mkv"), ass, mp4)
+    wav = os.path.join(out, "sound.wav")                 # QEMU's Pi has no audio out: the sound is bmhost's, same synth, same keys
+    qemurec.assemble(os.path.join(work, "console.mkv"), ass, mp4, audio=wav if os.path.exists(wav) else None,
+                     audio_delay=(plan[0]["a"] + plan[0]["extra"]) / FPS)
 
     r.close()
     qemurec.extract_sd(os.path.join(work, "sd.img"), os.path.join(work, "sd"))

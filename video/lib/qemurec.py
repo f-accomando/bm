@@ -401,17 +401,17 @@ class Recorder:
 
 
 # ----------------------------------------------------------------- the page
-def assemble(console_mkv, ass_path, out_mp4, audio=None, seconds=None):
+def assemble(console_mkv, ass_path, out_mp4, audio=None, seconds=None, audio_delay=0.0):
     """The 1920x1080 page of bmvideo (console 2x, side panel, overlay) from the lossless recording."""
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import bmvideo
     cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", console_mkv]
     if audio:
-        cmd += ["-i", audio]
+        cmd += ["-itsoffset", "%.3f" % audio_delay, "-i", audio]       # the sound of the same keys, from bmhost --wav
     cmd += ["-vf", bmvideo.filter_chain(ass_path), "-r", "60", "-c:v", "libx264", "-preset", "medium", "-crf", "19",
             "-pix_fmt", "yuv420p"]
     if audio:
-        cmd += ["-c:a", "aac", "-b:a", "160k", "-shortest"]
+        cmd += ["-af", "apad", "-c:a", "aac", "-b:a", "160k", "-shortest"]
     if seconds:
         cmd += ["-t", str(seconds)]
     cmd += ["-movflags", "+faststart", out_mp4]
