@@ -1,0 +1,13 @@
+# Chain files made by Claude cloud (the real ones, not the stand-in)
+
+`video/3d/chain/` is not in git; these are the small files that Claude local needs to recalibrate videos 2 and 3.
+Copy them: `cp video/3d/chain-delivered/0[15]-* video/3d/chain/`.
+
+| File | What | Made by |
+|---|---|---|
+| `01-studio.bme`, `01-studio.bm` | project and cartridge of video 1 (CRATE 12 tri, APPLE 80, PICO 116) | QEMU recording (`rec_qemu.py 01`), `verify.py` PASS; byte-identical to the bmhost run |
+| `05-sound.bme`, `05-sound.bm` | bank of video 5 | QEMU recording, `verify.py` ok, identical to bmhost |
+| `02-pixel.UNVERIFIED.bme` | result of video 2 with the CURRENT script: tiles right, eye faces on the wrong faces (x 0.33 / 2.67) | bmhost and QEMU give the same file; `verify.py` FAILS: use it only to see what the script does |
+| `start.bme` | the start project of video 2 (= `01-studio.bme`) | |
+
+`03-animator` needs a correct `chain/02-pixel.bm`: not delivered until video 2's script is fixed.
