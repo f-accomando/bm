@@ -8,7 +8,8 @@ Skinning is the format's own: one bone per vertex, no weights (src/bm/format.c:2
 segments belongs to the distal bone, so the bend happens in the faces of the proximal segment. The vertex
 bones are written here (nearest_bone_part would give a whole connected skin to one bone).
 
-Conventions of bm Studio: y up, the character faces +z, .L is on +x (as bm Animator's mirror). Metres.
+Conventions of bm Studio's part language (src/ai/mesh_script.c): y up, the character faces -z, .L is on +x.
+It is built facing +z and mirrored at the end. Metres.
 Run: python crash_organic.py OUT.bm   (absolute path). Then e.g. bm_forge.py anim examples/walk.json --in OUT.bm -o ...
 """
 import math
@@ -156,8 +157,8 @@ COLUMN = [(0.62, 0.20, 0.13, "hips", math.radians(15)), (0.76, 0.15, 0.10, "hips
           (1.78, 0.21, 0.20, "head", 0), (1.88, 0.09, 0.09, "head", 0)]
 R = [s.ring(ellipse(y, rx, rz, N, off), b) for y, rx, rz, b, off in COLUMN]
 # the snout: pull the front vertices (3 = ahead, 2 and 4 beside it) forward; eyes bulge a little
-for ring, dz in ((R[7], {2: .10, 3: .14, 4: .10}), (R[8], {2: .12, 3: .20, 4: .12}),
-                 (R[9], {1: .05, 2: .06, 3: .04, 4: .06, 5: .05})):
+for ring, dz in ((R[7], {2: .12, 3: .18, 4: .12}), (R[8], {2: .17, 3: .30, 4: .17}),
+                 (R[9], {2: .04, 3: .03, 4: .04})):
     for k, d in dz.items():
         x, y, z = s.v[ring[k]]
         s.v[ring[k]] = (x, y, z + d)
@@ -167,9 +168,9 @@ for i in range(5):
     col = sectors(front=TAN if i >= 1 else BLUE, back=ORANGE2 if i >= 1 else BLUE, base=TORSO[i])
     s.bridge(R[i], R[i + 1], col)
 s.bridge(R[5], R[6], ORANGE)
-s.bridge(R[6], R[7], sectors(front=WHITE, base=ORANGE, sides={1: MOUTH, 4: MOUTH}))           # grin: teeth in front
-s.bridge(R[7], R[8], sectors(front=PALE, base=ORANGE, sides={1: PALE, 4: PALE}))
-s.bridge(R[8], R[9], sectors(front=PALE, base=ORANGE, sides={1: WHITE, 4: WHITE, 0: ORANGE2, 5: ORANGE2}))
+s.bridge(R[6], R[7], sectors(front=PALE, base=ORANGE, sides={1: MOUTH, 4: MOUTH}))           # chin, dark mouth corners
+s.bridge(R[7], R[8], sectors(front=WHITE, base=ORANGE, sides={1: PALE, 4: PALE}))             # teeth, under the nose
+s.bridge(R[8], R[9], sectors(front=PALE, base=ORANGE, sides={0: ORANGE2, 5: ORANGE2}))
 s.bridge(R[9], R[10], sectors(front=ORANGE, base=ORANGE, sides={1: BROW, 4: BROW}))
 s.bridge(R[10], R[11], ORANGE)
 HEADTOP = s.cap(R[11], HAIR, apex=(0.0, 2.08, -0.06), bone="head")           # the tall central spike
@@ -179,17 +180,26 @@ tip = R[8][3]
 nose_apex = add(s.v[tip], (0.0, -0.02, 0.07))
 s.tent([R[8][2], R[8][3], R[8][4], R[7][3]], nose_apex, NAVY, "head")
 
-# eyes: a black pupil, a small hexagonal pyramid on the white face (a decal growing from its vertices)
+# eyes: crisp flat discs (white, then a black pupil on top), turned to look ahead; not protruding
+def disc(c, n, ru, rv, h, col, bone="head"):
+    u = unit(cross(n, (0, 1, 0)))
+    v = cross(n, u)
+    ring = [add(add(c, mul(n, 0.004)), add(mul(u, ru * math.cos(a)), mul(v, rv * math.sin(a))))
+            for a in [2 * math.pi * i / 8 for i in range(8)]]
+    ids = s.ring(ring, bone)
+    s.cap(ids, col, apex=add(c, mul(n, h)), bone=bone)
+
+
 for k in (1, 4):
     ids = [R[8][k], R[8][k + 1], R[9][k + 1], R[9][k]]
     c = s.centre(ids)
-    n = unit(sub(c, (0, 1.55, 0)))
-    u = unit(cross(n, (0, 1, 0)))
-    v = cross(n, u)
-    base = [add(add(c, mul(n, 0.012)), add(mul(u, 0.05 * math.cos(a)), mul(v, 0.065 * math.sin(a))))
-            for a in [2 * math.pi * i / 6 for i in range(6)]]
-    ids2 = s.ring(base, "head")
-    s.cap(ids2, BLACK, apex=add(c, mul(n, 0.032)), bone="head")
+    nq = unit(sub(c, (0, 1.55, 0)))
+    n = unit((nq[0] * 0.45, nq[1] * 0.6, nq[2] + 0.75))                 # turned towards the front
+    c = add(c, mul(n, 0.034))
+    sx = 1 if c[0] > 0 else -1
+    disc(c, n, 0.062, 0.070, 0.012, WHITE)
+    pc = add(c, add(mul(n, 0.010), (-sx * 0.012, 0.0, 0.0)))
+    disc(pc, n, 0.030, 0.042, 0.010, BLACK)
 
 # ears: wide tents on the side of the skull (rings 9/10, sectors 11 and 0 for +x, 5 and 6 for -x)
 for q in ([(9, 11), (9, 0), (9, 1), (10, 1), (10, 0), (10, 11)], [(9, 7), (9, 6), (9, 5), (10, 5), (10, 6), (10, 7)]):
@@ -245,6 +255,14 @@ for sx, bones, arc in ((1, ("leg.L", "shin.L", "foot.L"), (9, 10, 11, 0, 1, 2)),
     s.cap(prev, WHITE, inside=(cx, 0.1, 0.1))
 # fill the slit between the two legs at the crotch (arc ends of both sides)
 s.quad(R[0][9], R[0][2], R[0][3], R[0][8], BLUE, (0, 0.7, 0))
+
+# ---- the model faces -z (bm Studio's recipes, the villager): mirror z, then turn every face back
+s.v = [(x, y, -z) for x, y, z in s.v]
+s.f = [(a, c, b, col) for a, b, c, col in s.f]
+for bn in SKELETON["bones"]:
+    for key in ("head", "tail"):
+        if key in bn:
+            bn[key][2] = -bn[key][2]
 
 # ---- bind: one bone per vertex
 rig = skelgen.skeleton(SKELETON)

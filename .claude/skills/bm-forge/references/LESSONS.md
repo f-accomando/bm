@@ -61,7 +61,9 @@ rig): rejected. v3 `examples/organic_crash/crash_organic.py`: 730 triangles, 356
 **Rule**: build a loft of rings in one shared vertex table; limbs, ears, hair spikes, fingers and the
 nose grow out of vertices they share with the part they hang on (a limb's first ring is a patch of torso
 vertices; legs start from the two halves of the pelvis ring). Orient every face away from a point inside
-its part. Colour by ring sector and by face normal (sole = faces looking down). Characters face +z, .L on +x.
+its part. Colour by ring sector and by face normal (sole = faces looking down). Characters face -z, .L on +x
+(bm Studio's part language `src/ai/mesh_script.c`, the villager; `carts/overbit/art/geo.py` says +z: NON VERIFICATO which
+one the console tools really use, the example is built facing +z and mirrored at the end).
 **Skinning**: the format has one bone per vertex and no weights (`bm_core/skelgen.py`). A ring shared by
 two segments belongs to the distal bone. Write the vertex bones yourself and call `skelgen.bind(...,
 vbones=...)`: `nearest_bone_part` would give a fully connected skin to a single bone. Then `anim` works
@@ -71,3 +73,6 @@ small pyramid on the tip, wide ears, 4-6 hair spikes, long arms with big gloves,
 `preview --yaw 2.64` (a +z model seen from the front side), not 0.6; budget is a ceiling (`check --budget N`).
 **Colours**: when the user gives a colour chart (e.g. the original Crash chart), take the palette from it
 first; the example's values are read off that chart (approximate).
+**Studio/Animator**: the recipes' part language (box, tube, ell, prism, mirror, bone per group) cannot express a
+shared-vertex skin, so this model is a file (`.bm` with MESH+ANIM), not a script. It validates and plays a clip
+in bm_core; it was never opened in bm Mesh / Animator on the console (NON VERIFICATO).
