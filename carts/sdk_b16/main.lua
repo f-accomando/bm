@@ -1286,7 +1286,8 @@ do
   end
   for w in ([[mesh mesh_sphere mesh_cube model models bounds3d animate clips bone3d bones3d bone_turn hit3d
     draw3d camera3d light3d sky3d shine3d shadow3d point3d line3d sprite3d world3d world_box world_ray world_move
-    world_floor fog3d project3d lamp3d zclear gpu3d cart_data cart_meshes mesh_reduce picture3d cutout3d]]):gmatch("%S+") do
+    world_floor fog3d project3d lamp3d zclear gpu3d cart_data cart_meshes mesh_reduce picture3d cutout3d
+    map3d_build map3d_draw map3d_height map3d_blocked map3d_objects map3d_size]]):gmatch("%S+") do
     API3D[w] = true
   end
   local C_KW, C_API, C_3D, C_STR, C_NUM, C_COM, C_PUN = 0xFF7AB0, 0x70D0FF, 0x60E0B0, 0x90E070, 0xFFB060, 0x607088, 0xB0B8D0
@@ -1890,7 +1891,18 @@ do
   local VIEW_Y = R.view.y
   local VIEW_CW, VIEW_CH = W // 8, (HINT_Y - VIEW_Y) // 8
   local ZOOM_STEPS = { 1, 2, 4, 8, 16 }
-  local OBJ_COL = { [1024] = 0xFFD860, [1026] = 0x9A6438, [1028] = 0x8A96A8, [1030] = 0xE04040 }
+  local OBJ_COL = { [1024] = 0xFFD860, [1026] = 0x9A6438, [1028] = 0x8A96A8, [1030] = 0xE04040, [1032] = 0xFFC888, [1034] = 0x70A0D0 }
+  local view3d = false
+  local w3d = nil
+  local w3d_edits = -1
+  local cam_yaw = 0.0
+  local cam_pitch = -0.5
+  local cam_dist = 12.0
+  local tool_mode = nil
+  local tool_p1 = nil
+  local path_width = 1
+  local obj_counts = { apples = 0, crates = 0, lamps = 0, floor = 0, tri = 0 }
+  local obj_rev = -1
 
   local function view_dims(z)
     z = z or zoom
@@ -2111,8 +2123,259 @@ do
     end
   end
 
+  local function find_layer(name)
+    local names = mlayers()
+    for i, n in ipairs(names) do
+      if n == name then return i end
+    end
+    return nil
+  end
+
+  local function refresh_stats()
+    if obj_rev == S.edits then return end
+    obj_rev = S.edits
+    local names = mlayers()
+    local fl_idx, obj_idx = nil, nil
+    for i, n in ipairs(names) do
+      if n == "floor" then fl_idx = i end
+      if n == "objects" then obj_idx = i end
+    end
+    local na, nc, nl, nf = 0, 0, 0, 0
+    local step = big and 2 or 1
+    if obj_idx then
+      for y = 0, S.map_h - 1, step do
+        for x = 0, S.map_w - 1, step do
+          local v = mget(x, y, obj_idx)
+          if v == 1026 then na = na + 1
+          elseif v == 1028 then nc = nc + 1
+          elseif v == 1032 then nl = nl + 1 end
+        end
+      end
+    end
+    if fl_idx then
+      for y = 0, S.map_h - 1, step do
+        for x = 0, S.map_w - 1, step do
+          if mget(x, y, fl_idx) > 0 then nf = nf + 1 end
+        end
+      end
+    end
+    local tri = nf * 4 + na * 60 + nc * 36 + nl * 30
+    obj_counts = { apples = na, crates = nc, lamps = nl, floor = nf, tri = tri }
+  end
+
+  local function set_cell_layer(x, y, v, tgt_l)
+    tgt_l = tgt_l or layer
+    if x < 0 or y < 0 or x >= S.map_w or y >= S.map_h then return end
+    local old = mget(x, y, tgt_l)
+    if old == v then return end
+    if m_stroke then m_stroke[#m_stroke + 1] = { x, y, old, tgt_l } end
+    mset(x, y, v, tgt_l)
+    touched()
+  end
+
+  local function draw_brush_layer(cx, cy, t, tgt_l)
+    tgt_l = tgt_l or layer
+    for _, e in ipairs(brush(t)) do
+      set_cell_layer(cx + e[1], cy + e[2], e[3], tgt_l)
+    end
+  end
+
+  local function commit_path(p1, p2)
+    local tgt_l = find_layer("floor") or layer
+    local x1, y1 = p1[1], p1[2]
+    local x2, y2 = p2[1], p2[2]
+    local s = big and 2 or 1
+    local dx = x2 - x1
+    local dy = y2 - y1
+    local steps = max(math.abs(dx) // s, math.abs(dy) // s)
+    m_stroke = {}
+    if steps == 0 then
+      for k = 0, path_width - 1 do
+        local px = x1 + k * s
+        if px + (big and 2 or 1) <= S.map_w then
+          draw_brush_layer(px, y1, tile, tgt_l)
+        end
+      end
+    else
+      local vert = math.abs(dy) >= math.abs(dx)
+      for i = 0, steps do
+        local t_ratio = i / steps
+        local cx = (math.floor((x1 + t_ratio * dx) / s + 0.5)) * s
+        local cy = (math.floor((y1 + t_ratio * dy) / s + 0.5)) * s
+        if vert then
+          for k = 0, path_width - 1 do
+            local px = cx + k * s
+            if px + (big and 2 or 1) <= S.map_w then
+              draw_brush_layer(px, cy, tile, tgt_l)
+            end
+          end
+        else
+          for k = 0, path_width - 1 do
+            local py = cy + k * s
+            if py + (big and 2 or 1) <= S.map_h then
+              draw_brush_layer(cx, py, tile, tgt_l)
+            end
+          end
+        end
+      end
+    end
+    end_stroke()
+  end
+
+  local function commit_apples(p1, p2)
+    local tgt_l = find_layer("objects") or layer
+    local x1, y1 = p1[1], p1[2]
+    local x2, y2 = p2[1], p2[2]
+    local s = big and 2 or 1
+    local dx = x2 - x1
+    local dy = y2 - y1
+    local steps = max(math.abs(dx) // s, math.abs(dy) // s)
+    m_stroke = {}
+    for i = 0, steps do
+      local t_ratio = (steps > 0) and (i / steps) or 0
+      local cx = (math.floor((x1 + t_ratio * dx) / s + 0.5)) * s
+      local cy = (math.floor((y1 + t_ratio * dy) / s + 0.5)) * s
+      draw_brush_layer(cx, cy, 1026, tgt_l)
+    end
+    end_stroke()
+  end
+
+  local function place_crate()
+    local tgt_l = find_layer("objects") or layer
+    m_stroke = {}
+    draw_brush_layer(mx, my, 1028, tgt_l)
+    end_stroke()
+    say("crate placed (1028)")
+  end
+
+  local function place_lamp()
+    local tgt_l = find_layer("objects") or layer
+    m_stroke = {}
+    draw_brush_layer(mx, my, 1032, tgt_l)
+    end_stroke()
+    say("lamp placed (1032)")
+  end
+
   local function act(a)
+    if a == "view3d" then
+      view3d = not view3d
+      say(view3d and "3D preview (arrows: orbit/zoom, L1/R1: orbit, v/back: 2D)" or "2D map editor")
+      return
+    end
+    if a == "rename_layer" then
+      local names = mlayers()
+      local cur = names[layer] or ("layer" .. layer)
+      D.ask("layer name", cur, function(t)
+        if t and t ~= "" and t ~= cur then
+          local list = {}
+          for i, n in ipairs(names) do
+            table.insert(list, i == layer and { t, i } or { n, i })
+          end
+          mlayers(list)
+          say("layer renamed to: " .. t)
+          touched()
+        end
+      end)
+      return
+    end
+    if a == "map3d_template" then
+      local names = mlayers()
+      local existing = {}
+      for i, n in ipairs(names) do existing[n] = i end
+      local target = { "floor", "height", "walls", "objects" }
+      local list = {}
+      for _, req in ipairs(target) do
+        if existing[req] then
+          table.insert(list, { req, existing[req] })
+        else
+          table.insert(list, req)
+        end
+      end
+      mlayers(list)
+      big = true
+      say("3D map template ready: floor, height, walls, objects")
+      touched()
+      return
+    end
+    if a == "tool_path" then
+      if tool_mode == "path" and tool_p1 then
+        commit_path(tool_p1, { mx, my })
+        tool_mode = nil; tool_p1 = nil
+        say(string.format("path drawn (width %d)", path_width))
+      else
+        tool_mode = "path"
+        tool_p1 = nil
+        say(string.format("path tool (width %d): press ok at start cell", path_width))
+      end
+      return
+    end
+    if a == "tool_apples" then
+      if tool_mode == "apples" and tool_p1 then
+        commit_apples(tool_p1, { mx, my })
+        tool_mode = nil; tool_p1 = nil
+        say("apples line placed (1026)")
+      else
+        tool_mode = "apples"
+        tool_p1 = nil
+        say("apples line tool: press ok at start cell")
+      end
+      return
+    end
+    if a == "tool_crates" then
+      place_crate()
+      return
+    end
+    if a == "tool_lamps" then
+      place_lamp()
+      return
+    end
+    if a == "cycle_width" then
+      path_width = (path_width % 5) + 1
+      say(string.format("path width: %d", path_width))
+      return
+    end
+    if a == "ok" and not picking then
+      if tool_mode == "path" then
+        if not tool_p1 then
+          tool_p1 = { mx, my }
+          say(string.format("path start at (%d,%d): move to end cell and press ok", mx, my))
+        else
+          commit_path(tool_p1, { mx, my })
+          tool_mode = nil; tool_p1 = nil
+          say(string.format("path drawn (width %d)", path_width))
+        end
+        return
+      elseif tool_mode == "apples" then
+        if not tool_p1 then
+          tool_p1 = { mx, my }
+          say(string.format("apples start at (%d,%d): move to end cell and press ok", mx, my))
+        else
+          commit_apples(tool_p1, { mx, my })
+          tool_mode = nil; tool_p1 = nil
+          say("apples line placed (1026)")
+        end
+        return
+      end
+    end
+    if a == "orbit_left" then cam_yaw = cam_yaw - 0.08; return end
+    if a == "orbit_right" then cam_yaw = cam_yaw + 0.08; return end
     local s = big and 2 or 1               -- a step of the cursor: a cell, or a 16x16 tile
+    if view3d then
+      local shift = keydown and (keydown(0xE1) or keydown(0xE5))
+      if a == "left" then cam_yaw = cam_yaw - 0.1
+      elseif a == "right" then cam_yaw = cam_yaw + 0.1
+      elseif a == "up" then
+        if shift then cam_pitch = min(-0.08, cam_pitch + 0.08)
+        else cam_dist = max(2.0, cam_dist - 1.0) end
+      elseif a == "down" then
+        if shift then cam_pitch = max(-1.4, cam_pitch - 0.08)
+        else cam_dist = min(40.0, cam_dist + 1.0) end
+      elseif a == "next" then tile = tile + s
+      elseif a == "prev" then tile = max(0, tile - s)
+      end
+      even()
+      return
+    end
     local cols = S.sheet_w // 8
     local cw, ch = view_dims()
     if picking then
@@ -2184,6 +2447,71 @@ do
   end
 
   local function draw()
+    if view3d then
+      rectfill(0, VIEW_Y, W, HINT_Y - VIEW_Y, 0x182430)
+      U.zone(0, VIEW_Y, W, HINT_Y - VIEW_Y, "map3dview")
+      clip(0, VIEW_Y, W, HINT_Y - VIEW_Y)
+
+      if not w3d or w3d_edits ~= S.edits then
+        w3d = map3d_build({ floor = "floor", height = "height", walls = "walls", cell = 1.0, step = 0.25 })
+        w3d_edits = S.edits
+      end
+
+      local target_x = (mx // 2 + 0.5) * 1.0
+      local target_z = (my // 2 + 0.5) * 1.0
+      local target_y = (w3d and map3d_height(w3d, target_x, target_z)) or 0.0
+
+      local cx = target_x - math.sin(cam_yaw) * math.cos(cam_pitch) * cam_dist
+      local cy = target_y - math.sin(cam_pitch) * cam_dist
+      local cz = target_z - math.cos(cam_yaw) * math.cos(cam_pitch) * cam_dist
+
+      camera3d(cx, cy, cz, cam_yaw, cam_pitch, 60)
+      light3d(-0.4, 0.8, -0.5, 0.45)
+      zclear()
+
+      if w3d then
+        map3d_draw(w3d)
+      end
+
+      -- Cell cursor: yellow square on the ground
+      local tx0, tx1 = mx // 2 * 1.0, (mx // 2 + 1) * 1.0
+      local tz0, tz1 = my // 2 * 1.0, (my // 2 + 1) * 1.0
+      local cur_y = target_y + 0.03
+      line3d(tx0, cur_y, tz0, tx1, cur_y, tz0, 0xFFE020, 2)
+      line3d(tx1, cur_y, tz0, tx1, cur_y, tz1, 0xFFE020, 2)
+      line3d(tx1, cur_y, tz1, tx0, cur_y, tz1, 0xFFE020, 2)
+      line3d(tx0, cur_y, tz1, tx0, cur_y, tz0, 0xFFE020, 2)
+
+      -- Objects
+      if w3d then
+        local objs = map3d_objects(w3d)
+        for _, obj in ipairs(objs) do
+          local m = model(obj.kind)
+          if not m and (obj.kind == "PLAYER_START" or obj.kind == "PICO") then
+            m = model("PICO")
+          end
+          if m then
+            draw3d(m, obj.x, obj.y, obj.z, 0, 0, 0, 1.0)
+          else
+            if obj.kind == "LAMP" then
+              lamp3d(0, obj.x, obj.y + 1.0, obj.z, 4, 1.0, 0xFFC888)
+            end
+            point3d(obj.x, obj.y + 0.5, obj.z, 0.3, OBJ_COL[1024] or 0xFFFF00)
+          end
+        end
+      end
+
+      if tool_mode and tool_p1 then
+        local t1_x, t1_z = (tool_p1[1] // 2 + 0.5) * 1.0, (tool_p1[2] // 2 + 0.5) * 1.0
+        local t1_y = (w3d and map3d_height(w3d, t1_x, t1_z)) or 0.0
+        line3d(t1_x, t1_y + 0.1, t1_z, target_x, target_y + 0.1, target_z, 0xFFE020, 3)
+      end
+
+      clip()
+      strip(R.strip, "MAP 3D", string.format("(%d,%d) yaw %.1f dist %.1f", mx, my, cam_yaw, cam_dist),
+            kp("v: 2D  arrows: orbit/zoom  Shift: tilt", "L1 R1: orbit  up/dn: zoom  back: 2D  X: more"), 5)
+      return
+    end
     rectfill(0, VIEW_Y, W, HINT_Y - VIEW_Y, 0x000000)
     U.zone(0, VIEW_Y, W, HINT_Y - VIEW_Y, "mapview")
     clip(0, VIEW_Y, W, HINT_Y - VIEW_Y)
@@ -2262,6 +2590,16 @@ do
     local cur_w = (big and 2 or 1) * zoom
     local x, y = (mx - vx0) * zoom, VIEW_Y + (my - vy0) * zoom
     rect(x - 1, y - 1, cur_w + 2, cur_w + 2, (S.frame // 10) % 2 == 0 and 0xFFFFFF or C.ACC)
+    if tool_mode and tool_p1 then
+      local s = big and 2 or 1
+      local px1 = (tool_p1[1] - vx0) * zoom + (zoom * s) // 2
+      local py1 = VIEW_Y + (tool_p1[2] - vy0) * zoom + (zoom * s) // 2
+      local px2 = (mx - vx0) * zoom + (zoom * s) // 2
+      local py2 = VIEW_Y + (my - vy0) * zoom + (zoom * s) // 2
+      line(px1, py1, px2, py2, 0xFFE020)
+      rect(px1 - 2, py1 - 2, 5, 5, 0xFFD860)
+      rect(px2 - 2, py2 - 2, 5, 5, 0xFFD860)
+    end
     clip()
     local ztag = zoom ~= 8 and string.format(" %dpx", zoom) or ""
     strip(R.strip, "MAP", string.format("(%d,%d)=%d tile %d%s L%d/%d %s%s", mx, my, mget(mx, my, layer), tile,
@@ -2339,18 +2677,54 @@ do
   end
 
   local function hints()
+    if view3d then
+      return { { "v", "back", "2D map" }, { nil, "L1 R1", "orbit" }, { "up/dn", "UP DN", "zoom" }, { nil, "X", "more" } }
+    end
     if picking then return { { "up", "DPAD", "the tile" }, { "enter", "ok", "take it" } } end
+    if tool_mode then
+      return { { "enter", "ok", tool_p1 and "place" or "start" }, { "esc", "back", "cancel" }, { nil, "X", "more" } }
+    end
     return { { "space", "ok", "place" }, { "x", "back", "pick" }, { ", .", "L2 R2", "tile" }, { "tab", "Y", "tiles" },
              { "backspace", nil, "clear" }, { "f", nil, "fill" }, { nil, "X", "more" }, { "l", nil, "layer" },
              { "c", nil, "flags" }, { "u", nil, "undo" } }
   end
 
   local function status()
+    refresh_stats()
     local names = mlayers()
+    local cur_name = names[layer] or ""
+    local val = mget(mx, my, layer)
+    local obj_info = ""
+    if cur_name == "objects" and val >= 1024 then
+      local OBJ_NAMES = {
+        [1024] = "PLAYER_START",
+        [1026] = "APPLE",
+        [1028] = "CRATE",
+        [1030] = "GOAL",
+        [1032] = "LAMP",
+        [1034] = "CRATE_BOUNCE",
+      }
+      local kname = OBJ_NAMES[val] or ("OBJ_" .. val)
+      obj_info = "  [" .. kname .. "]"
+    end
+    local tool_info = ""
+    if tool_mode then
+      if tool_p1 then
+        tool_info = string.format("  [%s: (%d,%d)->(%d,%d)]", tool_mode:upper(), tool_p1[1], tool_p1[2], mx, my)
+      else
+        tool_info = string.format("  [%s: ok start]", tool_mode:upper())
+      end
+    end
+    local counts_info = string.format("  apples:%d crates:%d lamps:%d ~%dtri",
+                                      obj_counts.apples, obj_counts.crates, obj_counts.lamps, obj_counts.tri)
+    if view3d then
+      return string.format("[3D PREVIEW] (%d,%d) tile %d%s  orbit: yaw %.1f dist %.1f  (v/back: 2D)%s%s%s",
+                           mx, my, tile, big and " 16x16" or "", cam_yaw, cam_dist, obj_info, tool_info, counts_info)
+    end
     return picking and (used_mode and ("choosing a used 16x16 tile (" .. #used .. " in map)") or "choosing a tile") or
-           string.format("(%d,%d) = %d  tile %d%s  layer %d/%d %s%s", mx, my,
-                         mget(mx, my, layer), tile, big and " 16x16" or "", layer,
-                         #names, names[layer] or "", zoom ~= 8 and ("  zoom " .. zoom .. "px") or "")
+           string.format("(%d,%d)=%d tile %d%s L%d/%d %s%s%s%s%s",
+                         mx, my, val, tile, big and " 16x16" or "", layer,
+                         #names, cur_name, zoom ~= 8 and (" " .. zoom .. "px") or "", obj_info, tool_info, counts_info)
   end
 
   -- the mouse: the left button places the tile (held: it goes on), the
@@ -2410,20 +2784,39 @@ do
   end
 
   local function menu_items()
-    return { { "Pick the tile", "x" }, { "Clear", "\b" }, { "Fill", "f" }, { "Tiles...", "\t" }, { "Next tile", "." },
+    return { { view3d and "2D map editor" or "3D preview", "v" }, "-",
+             { "Path tool", "Shift+P" }, { "Path width (" .. path_width .. ")", "Shift+W" },
+             { "Apples row", "Shift+A" }, { "Place crate", "Shift+C" }, { "Place lamp", "Shift+O" }, "-",
+             { "Pick the tile", "x" }, { "Clear", "\b" }, { "Fill", "f" }, { "Tiles...", "\t" }, { "Next tile", "." },
              { "Tile before", "," }, { "8x8 / 16x16", "z" }, "-", { "Zoom in", "+" }, { "Zoom out", "-" },
-             { "Overview", "m" }, "-", { "Next layer", "l" }, { "New layer", "L" },
-             { "This layer only", "o" }, { "Flags", "c" }, "-", { "Page up", "pgup" },
+             { "Overview", "m" }, "-", { "Next layer", "l" }, { "New layer", "L" }, { "Rename layer", "r" },
+             { "Template: 3D map", "T" }, { "This layer only", "o" }, { "Flags", "c" }, "-", { "Page up", "pgup" },
              { "Page down", "pgdn" }, { "Page left", "home" }, { "Page right", "end" }, "-", { "Undo", "u" } }
   end
 
   -- the pad: the cross moves, ok held places, back picks the tile, L2 / R2
-  -- the tile before / after; choosing a tile the cross moves, ok takes it
+  -- the tile before / after; in 3D preview L1 / R1 rotate orbit, up / down zoom,
+  -- back toggles 2D, ok commits tools or paints
   local function pad()
+    if view3d then
+      if PAD.held.l1 > 0 or PAD.rp.l1 then act("orbit_left") end
+      if PAD.held.r1 > 0 or PAD.rp.r1 then act("orbit_right") end
+      for _, d in ipairs({ "left", "right", "up", "down" }) do if PAD.rp[d] then act(d) end end
+      if PAD.rp.l2 then act("prev") elseif PAD.rp.r2 then act("next") end
+      if PAD.p.back then act("view3d"); return end
+      if PAD.p.ok then
+        if tool_mode then act("ok") end
+      end
+      return
+    end
     for _, d in ipairs({ "left", "right", "up", "down" }) do if PAD.rp[d] then act(d) end end
     if picking then
       if PAD.p.ok or PAD.p.back then act("ok") end
       return
+    end
+    if tool_mode then
+      if PAD.p.ok then act("ok"); return end
+      if PAD.p.back then tool_mode = nil; tool_p1 = nil; say("tool cancelled"); return end
     end
     if btn("ok") and (PAD.p.ok or PAD.rp.left or PAD.rp.right or PAD.rp.up or PAD.rp.down) then act("paint") end
     if PAD.p.back then act("pick") end
@@ -2432,6 +2825,7 @@ do
 
   P.map = { act = act, draw = draw, status = status, end_stroke = end_stroke, mouse = mouse, menu_items = menu_items,
             hints = hints, pad = pad,
+            in_3d = function() return view3d end,
             new_layer = function() next_layer(true) end,
             stroking = function() return m_stroke ~= nil end,
             state = function() return { mx = mx, my = my, big = big, zoom = zoom } end,
@@ -2442,6 +2836,8 @@ do
               mx, my, vx0, vy0, m_undo, m_stroke, picking = 0, 0, 0, 0, {}, nil, false
               layer, only, show_flags, big, mini, zoom = 1, false, false, false, false, 8
               used, used_mode, used_rev, col_rev = {}, false, -1, -1
+              view3d, w3d, w3d_edits, cam_yaw, cam_pitch, cam_dist = false, nil, -1, 0.0, -0.5, 12.0
+              tool_mode, tool_p1, path_width, obj_rev = nil, nil, 1, -1
             end }
 end
 
@@ -3159,7 +3555,14 @@ local function page_key(k)
     if k ~= " " then P.sprite.stop() end
   else
     local a = ({ ["+"] = "zoom_in", ["="] = "zoom_in", ["-"] = "zoom_out", l = "layer", L = "newlayer", o = "only",
-                 c = "flags", m = "mini", home = "pgleft", ["end"] = "pgright" })[k] or SPRITE_KEYS[k]
+                 c = "flags", m = "mini", home = "pgleft", ["end"] = "pgright",
+                 v = "view3d", r = "rename_layer", R = "rename_layer", T = "map3d_template",
+                 P = "tool_path", ["Shift+P"] = "tool_path", ["shift p"] = "tool_path",
+                 W = "cycle_width", ["Shift+W"] = "cycle_width", ["shift w"] = "cycle_width",
+                 A = "tool_apples", ["Shift+A"] = "tool_apples", ["shift a"] = "tool_apples",
+                 C = "tool_crates", ["Shift+C"] = "tool_crates", ["shift c"] = "tool_crates",
+                 O = "tool_lamps", ["Shift+O"] = "tool_lamps", ["shift o"] = "tool_lamps",
+                 ["\r"] = "ok", ["\n"] = "ok", ["return"] = "ok", ["enter"] = "ok" })[k] or SPRITE_KEYS[k]
     if a then P.map.act(a) end
     if k ~= " " then P.map.end_stroke() end
   end
@@ -3254,6 +3657,10 @@ local HELP = {
     { "pgup / pgdn", "move a page up / down" },
     { "home / end", "move a page left / right" },
     { "space / backspace", "place the tile / clear the cell" },
+    { "shift p / shift w", "path tool / width (1-5)" },
+    { "shift a", "apples line tool" },
+    { "shift c / shift o", "place crate (1028) / place lamp (1032)" },
+    { "v", "toggle 2D / 3D preview" },
     { "x", "pick the tile" },
     { "f", "fill" },
     { ", / .", "tile before / after" },
@@ -3409,10 +3816,17 @@ local function pad_frame()
     if S.page == "menu" then S.page = S.last else go("menu") end
     return
   end
+  local pg = page_of()
+  if pg and pg.in_3d and pg.in_3d() then
+    if PAD.held.l1 > 0 or PAD.rp.l1 then pg.act("orbit_left") end
+    if PAD.held.r1 > 0 or PAD.rp.r1 then pg.act("orbit_right") end
+    if PAD.p.x then open_actions(); return end
+    if pg.pad then pg.pad() end
+    return
+  end
   if PAD.p.l1 then next_page(-1); return end
   if PAD.p.r1 then next_page(1); return end
   if PAD.p.x then open_actions(); return end
-  local pg = page_of()
   if pg and pg.pad then pg.pad() end
 end
 

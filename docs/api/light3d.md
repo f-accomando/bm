@@ -124,6 +124,20 @@ Lua). Complete example: `carts/overbit`. For the 2D map there are the tiles' fla
 | `world_move(w, x, y, z, r, h, dx, dy, dz, [step, on_ground])` | `x, y, z, flags`: a body (feet at `x, y, z`, radius `r`, height `h`) moved by `d`, sliding on the walls and climbing steps up to `step` (0.45) if it was on the ground. `flags`: 1 on the ground, 2 a wall (4 along x, 8 along z), 16 a ceiling |
 | `world_floor(w, x, z, y, r, [step])` | the floor's height under `(x, z)` |
 
+### 3D Map terrain
+
+Chunked 3D terrain built from 2D tilemap layers (`floor`, `height`, `walls`, `objects`) with frustum culling (`r3d_visible`), height queries and collision detection (`src/bm/map3d.c`).
+
+| Function | Description |
+|---|---|
+| `map3d_build([opts])` | builds a 3D map world from tilemap layers. `opts = {floor="floor", height="height", walls="walls", cell=1.0, step=0.25}` |
+| `map3d_draw(w, [flags])` | draws visible 16×16 tile chunks of terrain (culled via `r3d_visible`) |
+| `map3d_height(w, x, z)` | floor elevation at world `(x, z)`, or `nil` if hole or outside map |
+| `map3d_blocked(w, x, y, z, r)` | `true` if a sphere with center `(x, y, z)` and radius `r` touches a wall or vertical cliff |
+| `map3d_objects(w, [kind])` | list of objects in the map `{ {kind="APPLE", x=, y=, z=}, ... }`; `kind` optional filter |
+| `map3d_size(w)` | `nx, nz`: total map dimensions in world units |
+
+
 Triangles that cross the plane near the camera are cut, not dropped: floors and big objects
 stay whole even when they pass by the camera.
 
