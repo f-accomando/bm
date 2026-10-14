@@ -115,13 +115,13 @@ def walk(prev, tool):
     return ev, f
 
 
-def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0, serial=True, only_part=None, start_file=None):
+def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0, serial=True, only_part=None, start_file=None, take=None):
     ep, v = episode_dir(n)
     out = os.path.join(ep, "out")
     work = os.path.join(out, out_sub)
     os.makedirs(work, exist_ok=True)
-    events = qemurec.parse_input(os.path.join(out, "input.txt"))
-    ov = json.load(open(os.path.join(out, "overlay.json"), encoding="utf-8"))
+    events = qemurec.parse_input(os.path.join(out, ("input-%s.txt" % take) if take else "input.txt"))
+    ov = json.load(open(os.path.join(out, ("overlay-%s.json" % take) if take else "overlay.json"), encoding="utf-8"))
     sd_dir = os.path.join(out, "sd", "carts")
     files = [(os.path.join(sd_dir, f), "carts/" + f) for f in sorted(os.listdir(sd_dir))] if os.path.isdir(sd_dir) else []
     start = os.path.join(out, "start.bme")             # record.py's start project (out/sd holds what its bmhost run SAVED)
@@ -130,6 +130,11 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0,
     else:                                              # a start cartridge .BM (video 3): the .BME of the bmhost run is its RESULT, not the start
         stems = {name.upper()[:-3] for _, name in files if name.upper().endswith(".BM")}
         files = [(src, name) for src, name in files if not (name.upper().endswith(".BME") and name.upper()[:-1] in stems)]
+    if take:                                           # a take: its start project is one file (--start-file, or the run it starts from)
+        src = start_file or (os.path.join(out, "start.bme") if take == "r1" else os.path.join(out, "qemu-r1", "sd", "carts", "TROPIC.BME"))
+        if not os.path.exists(src):
+            raise SystemExit("missing " + src)
+        files = [(src, "carts/TROPIC.BME")]
     orig_events = events
     events, delta_at = retime(events, min_gap=0 if serial else 4, any_gap=any_gap)
     print("retime: the last event moved %d frames" % delta_at(10 ** 9), flush=True)
@@ -214,7 +219,7 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0,
     ass = os.path.join(work, "overlay.ass")
     bmvideo.write_ass(s, ass, ov.get("title") or "Tropic Trail", v["tool"].title(), total)
     qemurec.write_srt(s, os.path.join(work, "subs.srt"))
-    mp4 = os.path.join(work, "ep%02d_qemu.mp4" % int(n))
+    mp4 = os.path.join(work, ("ep%02d_qemu_%s.mp4" % (int(n), take)) if take else "ep%02d_qemu.mp4" % int(n))
     wav = os.path.join(out, "sound.wav")                 # QEMU's Pi has no audio out: the sound is bmhost's, same synth, same keys
     qemurec.assemble(os.path.join(work, "console.mkv"), ass, mp4, audio=wav if os.path.exists(wav) else None,
                      audio_delay=(plan[0]["a"] + plan[0]["extra"]) / FPS)
@@ -240,5 +245,8 @@ if __name__ == "__main__":
     ap.add_argument("--hold", type=int, default=3, help="frames a key stays down")
     ap.add_argument("--any-gap", type=int, default=0, help="least frames between two keys")
     ap.add_argument("--out", default="qemu", help="subfolder of out/ (to keep several takes)")
+    ap.add_argument("--take", choices=["r1", "r3"])
     a = ap.parse_args()
-    run(a.n, a.shift, not a.no_intro, a.limit_s, a.out, a.hold, a.any_gap, not a.usb, a.part, a.start_file)
+    if a.take and a.out == "qemu":
+        a.out = "qemu-" + a.take
+    run(a.n, a.shift, not a.no_intro, a.limit_s, a.out, a.hold, a.any_gap, not a.usb, a.part, a.start_file, take=a.take)
