@@ -1,23 +1,26 @@
 # Sync & Multi-Agent Coordination
 
 Architecture, state lifecycle, and operational findings from the multi-agent development workflow
-connecting Antigravity (AGY, local Windows), Claude Code supervisor (SPV, local Linux), and
-Claude cloud recorder (CLD, QEMU cloud) across `bm-core`.
+connecting several operators (in the first project: Antigravity AGY, Claude Code supervisor SPV on Windows with WSL, Claude cloud
+recorder CLD in QEMU, later a fourth on another Windows machine) through one dedicated **sync branch** per project.
+
+`SYNC.md` at the repo root is the **reusable template** for a new project (copy it, fill the placeholders, empty the log);
+the full record of the first project is in [`docs/archive/sync-tropic-trail.md`](../archive/sync-tropic-trail.md).
 
 ## How it is today
 
 The coordination workflow relies on Git-backed asynchronous messaging and isolated authoring:
 
 - **Isolated Operator Logs**: Each operator exclusively writes their own log file in `sync/`
-  ([`sync/AGY.md`](../../sync/AGY.md), [`sync/CLD.md`](../../sync/CLD.md), [`sync/SPV.md`](../../sync/SPV.md)).
-  This guarantees zero Git merge conflicts when pushing concurrently to `bm-core`.
+  (`sync/<ID>.md`, from [`sync/_template.md`](../../sync/_template.md)).
+  This guarantees zero Git merge conflicts when pushing concurrently to the sync branch.
 - **Machine-Readable Status Block**: Operators maintain an ISO 8601 frontmatter header via
   [`tools/sync_hdr.py`](../../tools/sync_hdr.py) declaring `state`, `task`, `waiting_on`, `progress`,
   `eta`, and `updated` timestamp.
 - **Central Supervisor Register**: The supervisor (SPV) periodically audits operator frontmatters,
   summarizes overall project state in table 1b of [`SYNC.md`](../../SYNC.md), and issues work orders.
 - **Dedicated Feature Branches**: Code changes live on isolated branches (`agy/*`, `feat/claude-*`).
-  Only sync logs and reviewed milestone merges touch `origin/bm-core`.
+  Only sync logs touch the sync branch; reviewed code reaches `bm-core` by merge, by the owner.
 
 ### States and Lifecycle
 
@@ -50,4 +53,12 @@ The five standardized states defined in [`sync/operators.toml`](../../sync/opera
 
 - Never edit another operator's file under `sync/`; edit only your assigned `sync/<ID>.md`.
 - Always update frontmatter headers with [`tools/sync_hdr.py`](../../tools/sync_hdr.py) before pushing.
-- Always use `git pull --rebase origin bm-core` before pushing sync log updates to prevent merge bubbles.
+- Always use `git pull --rebase origin <sync branch>` before pushing sync log updates to prevent merge bubbles.
+- `SYNC.md` stays a project-neutral template: project contracts, work orders and log rows go in a copy for the project (archive it under `docs/archive/` when the project ends).
+- Log rows <=600 characters; a status block carries ISO 8601 times with zone, `eta` before any operation >15 min and `ack` (last `SYNC.md` row read).
+- **Un branch di sync per progetto** (`sync/<nome>`): `SYNC.md`, `sync/*` e `tools/sync_hdr.py` vivono e si pushano solo lì, non su `bm-core`; così sessioni di sync parallele (altri agenti, altri progetti) non si toccano. "Fai handshake `<branch>`" = la procedura sotto su quel branch (descritta in `CLAUDE.md` §6).
+- Handshake = fetch del branch di sync, lettura di `SYNC.md`, creazione di `sync/<ID>.md` (stato + `## Profilo`, + `## Requisiti` se richiesti), poi `FREE`: senza handshake non si assegna lavoro.
+- Dopo l'handshake: battiti brevi (3-5 min) finché l'operatore non ha preso in carico il primo work order (`ASSIGNED` letto, `ack`, `WORKING`), e SPV finché lo ha confermato; tetto di 6 battiti brevi; poi battito ogni 15 min.
+- **Consegne**: una riga `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: ... → ... · {ISO}` in `## Consegne` del proprio file, poi `FREE`; `DONE` e solo lo stato terminale, non una consegna; SPV risponde con `REVIEW` e integra solo dopo `APPROVED`.
+- **Sign-off**: SPV libera un operatore con la riga `SIGNOFF {ID}: motivo` (niente lavoro adatto, requisiti non soddisfatti, sostituzione, fine progetto); l'operatore consegna, scrive la chiusura, si segna `DONE` e smette i battiti; `operators.toml`: `active = false`, `signoff = "..."`. Senza risposta in 60 min: `IDLE`, avviso all'utente.
+- No task open-ended: passi <=45 min; l'operatore tiene libero l'agente principale e supervisiona i propri subagent.

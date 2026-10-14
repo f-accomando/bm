@@ -38,6 +38,8 @@ file = "sync/OP4.md"
 branches = ["op4/*"]
 cost = "none"
 
+# An operator released with a SIGNOFF row gets: active = false, signoff = "{reason}" (SYNC.md 3c).
+
 [[operator]]
 id = "UTE"
 name = "utente"

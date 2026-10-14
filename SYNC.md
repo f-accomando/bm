@@ -178,6 +178,12 @@ Timer di check: **15–20 min** mentre si ha una task attiva che dipende da altr
 5. **Mentre si lavora**: se l'ETA e grossa, si puo provare in parallelo (con un subagent) una soluzione migliore; si ricorda che si possono **creare skill**, fare un **audit** del lavoro, cercare problemi e proporre soluzioni agli intoppi, soprattutto nei lavori lunghi. Una prova breve con log prima di ogni ripresa lunga.
 6. **SPV** orchestra: prepara i work order, fa le investigazioni, prende parte del lavoro con subagent, aggiorna §1b e scrive `SYNC.md`; resta sempre disponibile a comunicare, interrompere, pianificare e ridimensionare.
 
+**Aggiunte al §3c (2026-10-14, valgono da subito; il template completo e il branch `sync-handshake`)**:
+- **Battiti brevi all'avvio**: dopo l'handshake, battiti da 3-5 min finche l'operatore non ha preso in carico il primo work order (`ASSIGNED` letto, `ack`, `WORKING`); SPV finche ogni nuovo operatore ha confermato; tetto di 6 battiti brevi, poi 15 min.
+- **Consegne (un solo formato)**: `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}` nella sezione `## Consegne` del proprio file, poi `FREE`; `DONE` non e una consegna; SPV risponde `REVIEW: APPROVED | CHANGES REQUESTED` e integra solo dopo `APPROVED`.
+- **Sign-off**: SPV libera un operatore con la riga `SIGNOFF {ID}: motivo` (niente lavoro adatto, requisiti non soddisfatti, sostituzione, fine progetto); l'operatore consegna, scrive la chiusura, si segna `DONE`, smette i battiti; `operators.toml`: `active = false`, `signoff = "..."`. Senza risposta in 60 min: `IDLE` e avviso all'utente.
+- **Branch di sync**: i progetti futuri usano un branch `sync/<nome>` dedicato (non `bm-core`); questo progetto resta su `bm-core` fino alla chiusura.
+
 ## 4. Task Board: Claude Code
 
 ### WORK ORDER: CLD-01 — documentazione della serie
