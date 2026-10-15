@@ -7449,8 +7449,8 @@ def test_projects(b, opts):
         q.expect("menu: built /carts/PONG.BME to /carts/PONG1.BM", timeout=20)     # again: the same one
         # A on the project: the SDK on it
         keys("\r", gap=1.0)
-        q.expect("bm: loaded in", timeout=30)
-        screen(["opened /carts/PONG.BME"])
+        # the suite opens with no splash (carts.c, 2026-10-10): no "bm: loaded in"
+        screen(["opened /carts/PONG.BME"], tries=80)
         shot("sdk")
         keys("\x1b", gap=0.6)
         keys("\x1b[A", gap=0.3)                  # Exit bm SDK
