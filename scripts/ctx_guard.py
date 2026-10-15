@@ -2,14 +2,14 @@
 """Hook UserPromptSubmit: avvisa quando il contesto supera una soglia e
 chiede a Claude di chiudere la risposta con un `/compact ...` pronto.
 
-Env: CTX_GUARD_WINDOW (token della finestra, default 200000),
-     CTX_GUARD_PCT (soglia %, default 30), CTX_GUARD_STEP (riavviso ogni +N %, default 10).
+Env: CTX_GUARD_WINDOW (token della finestra, default 1000000),
+     CTX_GUARD_PCT (soglia %, default 20 = 200k su 1M), CTX_GUARD_STEP (riavviso ogni +N %, default 10 = +100k).
 Stato in .claude/state/ctx_guard_<session>.json (ignorato da git).
 """
 import json, os, sys
 
-WINDOW = int(os.environ.get("CTX_GUARD_WINDOW", "200000"))
-PCT = float(os.environ.get("CTX_GUARD_PCT", "30"))
+WINDOW = int(os.environ.get("CTX_GUARD_WINDOW", "1000000"))
+PCT = float(os.environ.get("CTX_GUARD_PCT", "20"))
 STEP = float(os.environ.get("CTX_GUARD_STEP", "10"))
 
 MSG = (
