@@ -218,13 +218,13 @@ action = "port the restart and the report"
 [[divergence]]
 id = "D19"
 area = "SD logs"
-pi = "none (only the crumbs report)"
+pi = "bootlog.txt, bootprev.txt, lastrun.txt in bm/"
 rgb30 = "bootlog.txt, bootprev.txt, lastrun.txt in bm/"
 cause = "history"
 priority = 6
-status = "open"
-evidence = "src/rgb30/main.c:167-262; docs/progress/system.md:109"
-action = "give the Pi the same three files (R3)"
+status = "resolved"
+evidence = "src/kernel/sdlog.c:1-85; src/kernel/main.c:275-277; src/rgb30/main.c:161-240"
+action = "shared module src/kernel/sdlog.c gives both platforms identical logs"
 
 [[divergence]]
 id = "D20"

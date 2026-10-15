@@ -22,6 +22,8 @@
 #include "drivers/mmio.h"
 #include "drivers/prop.h"
 #include "drivers/rng.h"
+#include "drivers/sd.h"
+#include "fs/fat.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "gfx/console.h"
@@ -37,6 +39,7 @@
 #include "bt/bt.h"
 #include "audio/audio.h"
 #include "crumbs.h"
+#include "kernel/sdlog.h"
 #include "reports.h"
 #include "drivers/watchdog.h"
 #include "drivers/dma.h"
@@ -194,6 +197,16 @@ static void memory_init(void)
     mmu_init(mem_end, sdram_end(mem_end));
 }
 
+static void pi_lastrun(void)
+{
+    uint32_t cpsr;
+    __asm__ volatile("mrs %0, cpsr" : "=r"(cpsr));
+    if ((cpsr & (1u << 7)) || fat_writing() || !sd_blocks())
+        return;
+    sdlog_lastrun();
+    uart_flush();
+}
+
 void kernel_main(uint32_t atags)
 {
 #ifdef BM_ZERO2
@@ -259,6 +272,9 @@ void kernel_main(uint32_t atags)
     usb_print();
     carts_init();
     config_load();
+    sdlog_prev();
+    watchdog_before_reboot(pi_lastrun);
+    sdlog_boot(0);
     {
         /* v3d_clock=max in bm/config.txt: the GPU at the highest clock the
          * firmware allows (enable_uart=1 holds the core at 250 MHz, and the
@@ -292,6 +308,8 @@ void kernel_main(uint32_t atags)
     bm_set_notice(notice_now);              /* the games show a kernel arriving */
     bm_permissions(1);                      /* a game's network and reports: the player says */
     ledstate_set(LED_BOOT, 0);              /* started: the LED stays on if all is well */
+    kprintf("cartridge menu\n");
+    sdlog_boot(1);
     carts_menu(&fb);
     monitor_run();
 }

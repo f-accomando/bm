@@ -5735,6 +5735,46 @@ def _sd_files(img):
     return part
 
 
+def test_sd_logs(b, opts):
+    """The Pi saves boot logs and the last run to SD (2026-10-15, D19):
+    bootlog.txt while booting, bootprev.txt on the next boot, and lastrun.txt
+    before watchdog_reboot()."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdlog-")
+    try:
+        img = os.path.join(tmp, "sd.img")
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        mksd.build(img, [(cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            q.send("q")
+            q.expect(PROMPT)
+            q.expect("> ")
+            q.send("r")
+            q.expect("restarting: this run's log in bm/lastrun.txt", timeout=20)
+            q.expect(MENU, timeout=30)
+            q.expect("boot log saved to bm/bootlog.txt", timeout=20)
+            time.sleep(1)
+        finally:
+            q.close()
+        part = _sd_files(img)
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        lastrun = subprocess.run(["mtype", "-i", part, "::/BM/LASTRUN.TXT"],
+                                 capture_output=True, text=True, env=env, check=True).stdout
+        assert "rebooting..." in lastrun, lastrun
+        bootprev = subprocess.run(["mtype", "-i", part, "::/BM/BOOTPREV.TXT"],
+                                  capture_output=True, text=True, env=env, check=True).stdout
+        assert "--- the run before" in bootprev, bootprev
+        bootlog = subprocess.run(["mtype", "-i", part, "::/BM/BOOTLOG.TXT"],
+                                 capture_output=True, text=True, env=env, check=True).stdout
+        assert "cartridge menu" in bootlog, bootlog
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_sound_editor(b, opts):
     """The Sound editor (Dev tab, monitor A): starts on the demo, types a
     note with the piano keys, saves the demo as a new sound pack, opens a
