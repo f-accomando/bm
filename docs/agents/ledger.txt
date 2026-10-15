@@ -11,3 +11,13 @@
 2026-10-15|general-purpose|sonnet|review SDLOG-FIX (AGY)|sync|-|-|DONE|88959|8|486
 2026-10-15|bm-planner|opus|WO FRZ freeze reports e log sicuri (AGY)|system|-|-|DONE|81712|50|337
 2026-10-15|general-purpose|sonnet|review NET-KEYS (NET)|tools|-|-|DONE|73694|6|203
+2026-10-15|generic|sonnet|review-FRZ|system|review|3|APPROVED|88856|9|381
+2026-10-15|generic|sonnet|review-R-NET4|tools|review|3|CHANGES REQUESTED|77942|9|470
+2026-10-15|bm-research|haiku|beta requirements survey|docs|-|-|DONE|50931|26|57
+2026-10-15|bm-light|sonnet|translate CLAUDE/AGENTS/GEMINI|docs|-|-|DONE|37127|8|71
+2026-10-15|bm-light|sonnet|translate progress b16/yharnam + STRESS|docs|-|-|DONE|38282|9|71
+2026-10-15|bm-light|sonnet|translate design docs g2|docs|-|-|DONE|40781|14|80
+2026-10-15|bm-light|sonnet|translate design docs g1|docs|-|-|DONE|45412|11|90
+2026-10-15|bm-light|sonnet|translate agents and skills|docs|-|-|DONE|55025|27|117
+2026-10-15|bm-light|sonnet|translate ROADMAP|docs|-|-|DONE|28484|6|56
+2026-10-15|general-purpose|sonnet|scaffold neutral workflow + PDF|docs|-|-|DONE|324932|110|1267
