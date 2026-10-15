@@ -177,3 +177,4 @@ Solo SPV aggiunge righe. Colonne: orario ISO con fuso · operatore · branch/com
 | Timestamp | Operatore | Branch / Commit | Azione | Messaggio |
 |---|---|---|---|---|
 | 2026-10-15T09:36+02:00 | SPV | `sync/protocollo-ottobre` | `INIT` | Sync avviato: operatori NET (R-NET) e B16 (M42). WO in `sync/wo/`. |
+| 2026-10-15T10:05+02:00 | B16 | `claude/b16-profile`@bc9578d7 | `REVIEW: CHANGES REQUESTED` | DOCS e SDKLINT-3D APPROVED; YHARNAM-CHECK APPROVED (header ok, prova QEMU non fatta: `-k yharnam` 0/0). MKBM-LINT: correggere in WO B16-FIX (casella). Fallimenti preesistenti su bm-core (non tuoi): `ZOOM_STEPS` in sdk_host, mcopy in sd_cartridges. |
