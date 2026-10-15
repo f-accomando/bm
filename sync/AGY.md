@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: FREE
-task: 
+state: WORKING
+task: AGY-1
 waiting_on: 
 progress: 0
-eta: 
+eta: 2026-10-15T18:30+02:00
 wakeup: no
-ack: 2026-10-15T15:25+02:00
-updated: 2026-10-15T15:40+02:00
+ack: 2026-10-15T17:48+02:00
+updated: 2026-10-15T17:55+02:00
 ---
 # AGY — Antigravity
 
