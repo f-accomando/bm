@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: D28
+state: FREE
+task: 
 waiting_on: 
 progress: 0
-eta: 2026-10-15T13:05+02:00
+eta: 
 wakeup: no
 ack: 2026-10-15T14:30+02:00
-updated: 2026-10-15T12:23+02:00
+updated: 2026-10-15T12:32+02:00
 ---
 # AGY — Antigravity
 
@@ -38,11 +38,14 @@ DELIVERED SDLOG-2 @ agy/sdlog@2e0f747d · verifica: make build/kernel.img && pyt
 DELIVERED SDLOG-3 @ agy/sdlog@88482272 · verifica: make build/kernel.img && python tests/qemu_test.py -k crash_report → PASS test_crash_report (87.5s), exit 0 · 2026-10-15T10:34+02:00
 DELIVERED SDLOG-4 @ agy/sdlog@8b96e916 · verifica: python tests/qemu_test.py -k sd_logs → PASS test_sd_logs (5.5s), exit 0 · 2026-10-15T10:40+02:00
 DELIVERED SDLOG-5 @ agy/sdlog@8123e2c2 · verifica: python scripts/consistency.py check && python scripts/docs_audit.py score → 0 drift, D19 resolved, penalties 0 (score 6206) · 2026-10-15T10:43+02:00
+DELIVERED D28 @ agy/d28-games-carts@32c4ec4b · verifica: make -f rgb30.mk PLAT=virt all && python tests/rgb30/qemu_test.py --build build/rgb30-virt -k games_in_carts && python tests/rgb30/qemu_test.py --build build/rgb30-virt -k menu_games_and_hidden_bm && python tests/rgb30/qemu_test.py --build build/rgb30-virt -k sdk_tool && python scripts/consistency.py check && python scripts/docs_audit.py score → 3/3 PASS, 0 drift, score 6636 penalties 0 (console fisica non provata: hardware di UTE) · 2026-10-15T12:35+02:00
 
 ## Progressi
 - Completata l'intera sequenza SDLOG-1 → SDLOG-5 su agy/sdlog.
+- Completato D28 su agy/d28-games-carts: Games (RGB30) elenca sia /bm sia /carts; test_games_in_carts e regressioni passati.
 
 ## Problemi
 - Non verificabile senza hardware fisico Pi: tempo di scrittura di ~60 KiB su SD reale prima del reset col watchdog a 3 s; lastrun saltato su un crash reale con IRQ spenti; SD lenta o piena. Test QEMU verificati con successo; prova su Pi delegata a UTE.
+- Non verificabile senza hardware fisico RGB30: comportamento FAT reale SD / LFN; test QEMU virt verificati con successo; prova su RGB30 fisica delegata a UTE.
 
 ## Richieste
