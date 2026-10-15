@@ -37,6 +37,7 @@
 #include "bt/bt.h"
 #include "audio/audio.h"
 #include "crumbs.h"
+#include "kernel/sdlog.h"
 #include "reports.h"
 #include "drivers/watchdog.h"
 #include "drivers/dma.h"
@@ -259,6 +260,8 @@ void kernel_main(uint32_t atags)
     usb_print();
     carts_init();
     config_load();
+    sdlog_prev();
+    sdlog_boot(0);
     {
         /* v3d_clock=max in bm/config.txt: the GPU at the highest clock the
          * firmware allows (enable_uart=1 holds the core at 250 MHz, and the
@@ -292,6 +295,7 @@ void kernel_main(uint32_t atags)
     bm_set_notice(notice_now);              /* the games show a kernel arriving */
     bm_permissions(1);                      /* a game's network and reports: the player says */
     ledstate_set(LED_BOOT, 0);              /* started: the LED stays on if all is well */
+    sdlog_boot(1);
     carts_menu(&fb);
     monitor_run();
 }
