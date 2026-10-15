@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-5
+state: FREE
+task: 
 waiting_on: 
 progress: 0
-eta: 2026-10-15T20:45+02:00
+eta: 
 wakeup: no
 ack: 2026-10-15T17:48+02:00
-updated: 2026-10-15T18:13+02:00
+updated: 2026-10-15T18:17+02:00
 ---
 # AGY — Antigravity
 
@@ -50,8 +50,11 @@ DELIVERED AGY-1 @ agy/api-source@29057f75 · verifica: python tests/tools/test_m
 DELIVERED AGY-2 @ agy/api-lint@38693bc0 · verifica: python tests/tools/test_api_lint.py && python scripts/api_lint.py docs/GAME-GUIDE.md docs/GUIDA-GIOCHI.md && python scripts/docs_audit.py score → 0 errori, penalties 0 (correzioni a: 0; voci b: hurt, danno in api_lint_allow.txt) · 2026-10-15T18:03+02:00
 DELIVERED AGY-3 @ agy/beta6-triage@9bebc945 · verifica: 21 righe analizzate con prove file:riga, python scripts/consistency.py check → 0 drift, 5 accepted, 0 stale · 2026-10-15T18:08+02:00
 DELIVERED AGY-4 @ agy/agent-audit-baseline@b920d6a9 · verifica: python tests/tools/test_agent_audit.py && python scripts/agent_audit.py --baseline docs/agents/baseline.txt → 14/14 test OK, tabelle model/area e sezione vs baseline presenti · 2026-10-15T18:13+02:00
+DELIVERED AGY-5 @ agy/sync-perimeter-quarantine@dcbc229e · verifica: python tests/tools/test_sync_perimeter.py && python tests/tools/test_quarantine_check.py && python scripts/quarantine_check.py && python scripts/docs_audit.py score → 7/7 test OK, penalties 0 (score 6624) · 2026-10-15T18:16+02:00
 
 ## Progressi
+- Completato AGY-5 (PERIM): tools/sync_perimeter.py (controllo perimetro WO con sezioni ed espansione .c|.h), tests/quarantine.txt con validator scripts/quarantine_check.py e aggiornamento docs/progress/sync.md.
+- Conclusa l'intera sequenza dei 5 Work Order assegnati (AGY-1, AGY-2, AGY-3, AGY-4, AGY-5); FRZ-5 non avviato come da direttiva; stato impostato a FREE.
 - Completato AGY-4 (AUDIT): agent_audit.py aggiornato con R0 (tabelle model/area, filtri --area e --since) e D-R2 (gestione baseline, delta vs baseline, docs/agents/baseline.txt generato), test estesi a 14/14 passati.
 - Completato AGY-3 (TRIAGE): redatta bozza docs/spec/beta6-triage.md con 21 divergenze classificate e motivate con riferimenti codice precisi (8 accept-hardware, 6 fix-before-beta, 6 needs-hardware-test, 1 fixed-on-branch).
 - Completato AGY-2 (API-LINT): linter scripts/api_lint.py, api_lint_allow.txt e tests/tools/test_api_lint.py; guide verificate con 0 errori residui (hurt/danno in allowlist come falsi positivi di gioco).
