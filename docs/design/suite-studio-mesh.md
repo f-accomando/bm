@@ -1,32 +1,32 @@
-# Proposte di Sviluppo: bm Studio & bm Mesh (Suite di Modellazione 3D)
+# Development Proposals: bm Studio & bm Mesh (3D Modeling Suite)
 
-Questo documento analizza cosa manca a **bm Studio** (`carts/studio`) e **bm Mesh** (`carts/mesh`) per supportare la creazione rapida di asset 3D, scenari complessi e geometrie di collisione per giochi sia tridimensionali (come *Studio Village* o *Astro Wing*) sia ibridi 2D/3D.
-
----
-
-## 1. Stato Attuale di bm Studio e bm Mesh
-
-La suite 3D di bm consente di lavorare completamente su console:
-- **bm Studio**: Modellazione a blocchi e tessere (strumenti *block*, *tile*, *select*, *vertex*, *paint*, *reduce*). Utilizza la tavolozza dello sprite sheet per applicare texture e colori alle facce.
-- **bm Mesh**: Editor analitico di vertici e triangoli:
-  - Ispezione e modifica dei modelli della sezione `MESH`.
-  - Visualizzazione e modifica delle mesh generate da codice Lua (`cart_meshes()`).
-  - Esportazione da modello a codice Lua (`mesh_nome()`) e viceversa.
+This document analyzes what **bm Studio** (`carts/studio`) and **bm Mesh** (`carts/mesh`) lack to support fast creation of 3D assets, complex scenery and collision geometry for both three-dimensional games (like *Studio Village* or *Astro Wing*) and hybrid 2D/3D ones.
 
 ---
 
-## 2. Cosa Manca per Level Design 3D e Giochi Completi
+## 1. Current State of bm Studio and bm Mesh
 
-Nonostante la facilità d'uso per piccoli oggetti singoli, quando si affrontano scenari ampi o gameplay articolati emergono chiare limitazioni:
+The bm 3D suite allows working entirely on the console:
+- **bm Studio**: Block and tile modeling (tools *block*, *tile*, *select*, *vertex*, *paint*, *reduce*). It uses the sprite sheet palette to apply textures and colors to faces.
+- **bm Mesh**: Analytical vertex and triangle editor:
+  - Inspection and editing of models in the `MESH` section.
+  - Display and editing of meshes generated from Lua code (`cart_meshes()`).
+  - Export from model to Lua code (`mesh_nome()`) and vice versa.
 
-### A. Mancanza di Geometrie di Collisione Semplificate (Collision Hulls)
-- Un modello 3D scenografico (es. un albero con chioma dettagliata o una statua gotica) può contenere 300–800 triangoli.
-- In un gioco, testare le collisioni del giocatore contro tutti i triangoli a ogni frame con `hit3d()` o calcoli matematici è proibitivo per la CPU del Raspberry Pi o della console retro.
-- Manca la possibilità di definire un **Collision Hull semplificato** (un cilindro, una capsula o una scatola AABB di ingombro) salvato insieme al modello.
-- Attualmente gli sviluppatori devono calcolare a mano i raggi di collisione in Lua (`dist(p.x, p.z, obj.x, obj.z) < r`).
+---
 
-### B. Assenza di un Assemblatore di Scenari 3D (Scene / Kitbash Layout)
-- In *Studio Village* ([`carts/village/main.lua`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/village/main.lua)), la disposizione del villaggio è definita da una tabella Lua scritta a mano:
+## 2. What Is Missing for 3D Level Design and Complete Games
+
+Despite the ease of use for small single objects, clear limitations emerge when tackling large scenery or articulated gameplay:
+
+### A. No Simplified Collision Geometry (Collision Hulls)
+- A scenic 3D model (e.g. a tree with detailed canopy or a gothic statue) can contain 300–800 triangles.
+- In a game, testing player collisions against all triangles every frame with `hit3d()` or math calculations is prohibitive for the CPU of the Raspberry Pi or the retro console.
+- There is no way to define a **simplified Collision Hull** (a cylinder, a capsule or an AABB bounding box) saved together with the model.
+- Currently developers must compute collision radii by hand in Lua (`dist(p.x, p.z, obj.x, obj.z) < r`).
+
+### B. No 3D Scene Assembler (Scene / Kitbash Layout)
+- In *Studio Village* ([`carts/village/main.lua`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/village/main.lua)), the village layout is defined by a hand-written Lua table:
   ```lua
   local things = {
     { "house", -3.5, 5.5, 0, 1 },
@@ -36,57 +36,57 @@ Nonostante la facilità d'uso per piccoli oggetti singoli, quando si affrontano 
     ...
   }
   ```
-- bm Studio e bm Mesh consentono di lavorare su **un singolo modello alla volta**, ma non offrono una modalità per **comporre una scena 3D** posizionando più modelli nello spazio con rotazioni, scale e quote Y.
+- bm Studio and bm Mesh allow working on **a single model at a time**, but offer no mode to **compose a 3D scene** by placing multiple models in space with rotations, scales and Y heights.
 
-### C. Modellazione di Forme Complesse vs Scripting Matematico
-- In *Astro Wing* ([`carts/astrowing/main.lua`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/astrowing/main.lua)), le astronavi e i dettagli sono stati scritti interamente come generatori matematici procedurali (`builder()`, tetraedri e parallelepipedi con calcolo dei prodotti vettoriali delle normali).
-- Questo è avvenuto perché modellare forme affusolate, ali rastremate e sezioni smussate a mano in bm Studio partendo da semplici cubi è lungo e manca di strumenti di estrusione lungo curve (loft/lathe) o tagli di spigoli (chamfer).
+### C. Modeling Complex Shapes vs Mathematical Scripting
+- In *Astro Wing* ([`carts/astrowing/main.lua`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/astrowing/main.lua)), the spaceships and details were written entirely as procedural mathematical generators (`builder()`, tetrahedra and cuboids with vector-product computation of normals).
+- This happened because modeling tapered shapes, tapering wings and beveled sections by hand in bm Studio starting from simple cubes is long and lacks tools for extrusion along curves (loft/lathe) or edge cuts (chamfer).
 
-### D. Mappatura UV e Assegnazione Texture dallo Sheet
-- Le facce con texture in bm Studio prendono le coordinate dallo sprite sheet.
-- Spesso regolare l'orientamento, la scala e il padding di 0.25 pixel per evitare sbavature di contorno (*texture bleeding*) richiede regolazioni minuziose vertice per vertice, mancando un selettore visivo rapido di tessere 8×8 / 16×16 applicabili con un clic.
+### D. UV Mapping and Texture Assignment from the Sheet
+- Textured faces in bm Studio take their coordinates from the sprite sheet.
+- Adjusting orientation, scale and the 0.25 pixel padding to avoid edge fringing (*texture bleeding*) often requires meticulous vertex-by-vertex tweaking, lacking a quick visual selector of 8×8 / 16×16 tiles applicable with one click.
 
 ---
 
-## 3. Complessità "Fatta a Mano" vs Soluzione Integrata
+## 3. "Hand-Made" Complexity vs Integrated Solution
 
-| Operazione | Approccio Attuale ("A mano") | Con l'Evoluzione di Studio & Mesh |
+| Operation | Current Approach ("By hand") | With the Evolution of Studio & Mesh |
 |---|---|---|
-| **Composizione Livello 3D** | Scrivere a mano tabelle di coordinate e angoli in Lua | Modalità "Scene Layout": posiziona istanze dei modelli con griglia e snapping |
-| **Volumi di Collisione** | Calcoli geometrici approssimativi hardcoded nel codice del gioco | Strumento "Collision Capsule/Box" integrato nel modello e letto da `bounds3d()` |
-| **Applicazione Texture** | Spostamento manuale delle coordinate UV per ogni vertice | Tasto "Tile Stamp": clicchi la tessera sullo sheet e clicchi la faccia del modello 3D |
-| **Generazione LOD (Livelli di Dettaglio)** | Duplicazione manuale della mesh e rimozione facce una per una | Tasto "Bake LOD": genera automaticamente le versioni a 50% e 25% di poligoni per i flag di `draw3d()` |
+| **3D Level Composition** | Hand-write coordinate and angle tables in Lua | "Scene Layout" mode: place model instances with grid and snapping |
+| **Collision Volumes** | Approximate geometric calculations hardcoded in the game code | Integrated "Collision Capsule/Box" tool in the model, read by `bounds3d()` |
+| **Texture Application** | Manually moving UV coordinates for each vertex | "Tile Stamp" key: click the tile on the sheet and click the 3D model face |
+| **LOD (Level of Detail) Generation** | Manually duplicating the mesh and removing faces one by one | "Bake LOD" key: automatically generates 50% and 25% polygon versions for the `draw3d()` flags |
 
 ---
 
-## 4. Proposte di Sviluppo & Roadmap per bm Studio & bm Mesh
+## 4. Development Proposals & Roadmap for bm Studio & bm Mesh
 
-### Proposta 1: Strumento "Collision Volumes" (Hitbox 3D)
-- In bm Studio o bm Mesh, aggiungere la definizione di volumi di ingombro semplificati:
-  - **Capsule**: ideale per personaggi bipedi (altezza, raggio).
-  - **Box**: ideale per case, casse e muri.
-  - **Cylinder**: per tronchi d'albero, pozzi e colonne.
-- Questi volumi vengono memorizzati nella sezione `MESH` e restituiti automaticamente da una nuova funzione runtime `col3d(modello, x, y, z)` o integrati in `hit3d()`.
+### Proposal 1: "Collision Volumes" Tool (3D Hitbox)
+- In bm Studio or bm Mesh, add the definition of simplified bounding volumes:
+  - **Capsule**: ideal for bipedal characters (height, radius).
+  - **Box**: ideal for houses, crates and walls.
+  - **Cylinder**: for tree trunks, wells and columns.
+- These volumes are stored in the `MESH` section and returned automatically by a new runtime function `col3d(model, x, y, z)` or integrated into `hit3d()`.
 
-### Proposta 2: Modalità "Scene / Diorama Assembler"
-Aggiungere una pagina dedicata all'assemblaggio di ambienti:
-- Permette di importare i modelli del file e posizionarli su una griglia tridimensionale con snapping a 0.5 unità.
-- Controlli per rotazione sui 3 assi (`rx, ry, rz`) e scala.
-- Salvataggio del layout in una sezione dedicata `SCENE` della cartuccia, caricabile con una sola riga in Lua:
+### Proposal 2: "Scene / Diorama Assembler" Mode
+Add a page dedicated to assembling environments:
+- Allows importing the file's models and placing them on a three-dimensional grid with 0.5-unit snapping.
+- Rotation controls on the 3 axes (`rx, ry, rz`) and scale.
+- Saving the layout into a dedicated `SCENE` cartridge section, loadable with a single Lua line:
   ```lua
   local villaggio = load_scene("village")
-  villaggio:draw() -- disegna tutti i modelli istanziati ottimizzando il culling
+  villaggio:draw() -- draws all instantiated models, optimizing culling
   ```
 
-### Proposta 3: UV Tile Brush Interattivo
-- Un pannello laterale che mostra lo sprite sheet del progetto diviso in tessere 8×8 o 16×16.
-- Cliccando su una tessera e poi su una faccia del modello 3D, la mappatura UV viene applicata istantaneamente con orientamento corretto e margine anti-bleeding automatico di 0.25 px.
+### Proposal 3: Interactive UV Tile Brush
+- A side panel showing the project's sprite sheet divided into 8×8 or 16×16 tiles.
+- Clicking a tile and then a face of the 3D model applies the UV mapping instantly, with correct orientation and an automatic 0.25 px anti-bleeding margin.
 
-### Proposta 4: Primitive Avanzate e Strumenti di Smussatura
-- Aggiungere al selettore di primitive (attualmente Cubo, Sfera, Piano):
-  - **Cylinder / Cone**: cilindri a 6, 8 o 12 lati per arti robotici, tubi, alberi.
-  - **Prism / Wedge**: cunei e rampe per tetti ed edifici.
-  - **Chamfer Tool**: smussamento rapido degli spigoli vivi, fondamentale per ottenere il look retro-mecha di *Titan Clash*.
+### Proposal 4: Advanced Primitives and Beveling Tools
+- Add to the primitive selector (currently Cube, Sphere, Plane):
+  - **Cylinder / Cone**: 6-, 8- or 12-sided cylinders for robotic limbs, pipes, trees.
+  - **Prism / Wedge**: wedges and ramps for roofs and buildings.
+  - **Chamfer Tool**: quick beveling of sharp edges, essential for achieving the retro-mecha look of *Titan Clash*.
 
-### Proposta 5: Ruolo nelle mappe 3D (decisione presa, da sviluppare)
-Le mappe dei giochi 3D si editano nella Map page di **bm SDK** (vedi [`suite-sdk.md`](suite-sdk.md), Proposta 6), non in Studio/Mesh. Studio e Mesh producono i **prop** (modelli MESH) che il layer `objects` della mappa referenzia per nome, con i loro volumi di collisione (Proposta 1). La Proposta 2 (Scene Assembler) non sostituisce la mappa a griglia: va riconsiderata solo per diorami fuori griglia, per non avere due formati di livello.
+### Proposal 5: Role in 3D maps (decision made, to be developed)
+3D game maps are edited in the Map page of **bm SDK** (see [`suite-sdk.md`](suite-sdk.md), Proposal 6), not in Studio/Mesh. Studio and Mesh produce the **props** (MESH models) that the map's `objects` layer references by name, with their collision volumes (Proposal 1). Proposal 2 (Scene Assembler) does not replace the grid map: it should be reconsidered only for off-grid dioramas, to avoid having two level formats.

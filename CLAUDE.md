@@ -1,140 +1,140 @@
-# bm (BareMetal) — Note Operative di Sessione
+# bm (BareMetal) — Session Operating Notes
 
-Kernel bare metal per Raspberry Pi Zero W (BCM2835, ARM1176) e PowKiddy RGB30 (RK3566, AArch64, `make TARGET=rgb30`). Cartucce `.bm`; cartella `bm/` sulla SD. Repo `f-accomando/bm`, branch principale `bm-core`.
+Bare metal kernel for Raspberry Pi Zero W (BCM2835, ARM1176) and PowKiddy RGB30 (RK3566, AArch64, `make TARGET=rgb30`). `.bm` cartridges; `bm/` folder on the SD. Repo `f-accomando/bm`, main branch `bm-core`.
 
 ---
 
-## 1. Recupero Mirato delle Informazioni (Zero Spreco Token)
+## 1. Targeted Information Retrieval (Zero Token Waste)
 
-Non leggere mai file per intero. Tutto lo stato attuale è tracciato in [`docs/progress.md`](docs/progress.md) e nelle schede di area in `docs/progress/<area>.md`.
+Never read whole files. All current state is tracked in [`docs/progress.md`](docs/progress.md) and in the area sheets in `docs/progress/<area>.md`.
 
-### Comandi Rapidi di Consultazione
-| Esigenza | Comando da eseguire |
+### Quick Lookup Commands
+| Need | Command to run |
 |---|---|
-| **Cosa c'è da fare in un'area** | `grep -n -A 15 '^## \(Open work\|To do\)' docs/progress/<area>.md` |
-| **Regole vincolanti di un'area** | `grep -n -A 20 '^## Rules' docs/progress/<area>.md` |
-| **Trovare codice in `runtime.c` (350 KB)** | `python scripts/cindex.py src/bm/runtime.c <simbolo>` (poi `Read` con offset/limit) |
-| **Consultare API di gioco** | `grep -n -C 2 '<funzione>' docs/api/<area>.md` (indice: `docs/API.md`) |
-| **Architettura & pattern giochi** | `docs/design/games-architecture.md` |
+| **What is left to do in an area** | `grep -n -A 15 '^## \(Open work\|To do\)' docs/progress/<area>.md` |
+| **Binding rules of an area** | `grep -n -A 20 '^## Rules' docs/progress/<area>.md` |
+| **Find code in `runtime.c` (350 KB)** | `python scripts/cindex.py src/bm/runtime.c <simbolo>` (then `Read` with offset/limit) |
+| **Look up game API** | `grep -n -C 2 '<funzione>' docs/api/<area>.md` (index: `docs/API.md`) |
+| **Game architecture & patterns** | `docs/design/games-architecture.md` |
 
 ---
 
-## 2. Regole di Ingaggio e Sviluppo
+## 2. Rules of Engagement and Development
 
-- **Branch** (evitare branch orfane):
-  - **Quando**: si apre un branch solo se l'utente chiede di sviluppare (feature, fix, refactor). Domande, analisi, ricerche e letture non creano branch.
-  - **Nome parlante**: formato `claude/<nome-descrittivo>` (es. `claude/rgb30-audio-mixer`), che dica cosa si sviluppa. Vietati nomi non parlanti o generati a caso (es. `claude/cool-volta-epblsn`, `claude/fix`, `claude/test`).
-  - **Se parto di mia iniziativa**: il nome deve comunque essere parlante.
-  - **Se lo sviluppo è ambiguo** (scopo, area o nome poco chiari): chiedere all'utente il nome prima di creare il branch o modificare file.
-  - **Base**: parte sempre da `bm-core` aggiornato.
-  - **Eccezione**: se la sessione impone esplicitamente un branch, si usa quello e non se ne crea un altro.
-- **Test Selettivi**: Non lanciare mai l'intera test suite. Eseguire solo i test toccati dalla modifica (`tests/qemu_test.py -k <nome>`, `make test-b3d` per la GPU, unit test specifici). `kernel7` è disattivato.
-- **Hardware Pi & RGB30**: Si prova senza seriale copiando `dist/kernel.img` sulla SD con `./easy_install.sh`. I report numerici sono generati dalla console sul branch `reports`.
-- **Licenze & Sicurezza**: Nessun codice GPL (es. kernel Linux) copiato nei sorgenti bare-metal; strutture GPU da Mesa (MIT). Nessuna chiave (`*_KEY`, token) nei file.
-- **Edizioni `.bm` e `.b16` Separate**: Un `.b16` non sostituisce mai il `.bm`; sono edizioni distinte con canali Market e build proprie. Non sovrascrivere mai i sorgenti del `.bm` per fare il `.b16`.
-- **Progetti vs Giochi (M47)**: Gli editor modificano solo progetti `.bme`. I `.bm` sono in sola lettura; `Ctrl+B` compila il `.bm` definitivo.
+- **Branch** (avoid orphan branches):
+  - **When**: open a branch only if the user asks to develop (feature, fix, refactor). Questions, analysis, research and reads do not create branches.
+  - **Descriptive name**: format `claude/<descriptive-name>` (e.g. `claude/rgb30-audio-mixer`), stating what is being developed. Non-descriptive or randomly generated names are forbidden (e.g. `claude/cool-volta-epblsn`, `claude/fix`, `claude/test`).
+  - **If I start on my own initiative**: the name must still be descriptive.
+  - **If the development is ambiguous** (unclear purpose, area or name): ask the user for the name before creating the branch or modifying files.
+  - **Base**: always starts from an up-to-date `bm-core`.
+  - **Exception**: if the session explicitly imposes a branch, use that one and do not create another.
+- **Selective Tests**: Never run the whole test suite. Run only the tests touched by the change (`tests/qemu_test.py -k <nome>`, `make test-b3d` for the GPU, specific unit tests). `kernel7` is disabled.
+- **Pi & RGB30 Hardware**: Test without serial by copying `dist/kernel.img` to the SD with `./easy_install.sh`. Numeric reports are generated by the console on the `reports` branch.
+- **Licenses & Security**: No GPL code (e.g. Linux kernel) copied into the bare-metal sources; GPU structures from Mesa (MIT). No keys (`*_KEY`, tokens) in files.
+- **Separate `.bm` and `.b16` Editions**: A `.b16` never replaces the `.bm`; they are distinct editions with their own Market channels and builds. Never overwrite the `.bm` sources to make the `.b16`.
+- **Projects vs Games (M47)**: Editors modify only `.bme` projects. `.bm` files are read-only; `Ctrl+B` compiles the final `.bm`.
 
 ---
 
-## 3. Architettura Subagent & Routing Intelligente
+## 3. Subagent Architecture & Smart Routing
 
-### Il Principio: Separare Decidere da Eseguire
-I modelli di punta (*Opus*) costano molto sui token di output: devono produrre decisioni e piani sintetici (pochi token). I modelli economici (*Haiku/Sonnet*) devono scrivere il codice (tanti token). Il router sceglie l'agente non in base alla dimensione apparente della task, ma in base a quanto è già ben specificata.
+### The Principle: Separate Deciding from Executing
+Top-tier models (*Opus*) are expensive on output tokens: they must produce concise decisions and plans (few tokens). Cheap models (*Haiku/Sonnet*) must write the code (many tokens). The router picks the agent not by the apparent size of the task, but by how well it is already specified.
 
-### Ruoli (definizioni in `.claude/agents/`)
-| Agente | Modello / effort | Fa | NON fa |
+### Roles (definitions in `.claude/agents/`)
+| Agent | Model / effort | Does | Does NOT do |
 |---|---|---|---|
-| **`bm-planner`** | Opus medium (sola lettura) | Trasforma task vaghe/grosse in ordini di lavoro (Work Order) con criteri verificabili | Scrivere codice |
-| **`bm-coder`** | Haiku high | Scrive codice da un Work Order preciso ed esaustivo | Design, risolvere ambiguità |
-| **`bm-mechanic`** | Haiku low | Task già specificate a rischio zero (rename, format, template, spunte in `docs/progress/`) | Decisioni di logica |
-| **`bm-light`** | Sonnet medium | Task semplici con giudizio tecnico, docs verificate sul codice reale, fix 1–2 file | Lavori lunghi e vaghi |
-| **`bm-deep`** | Opus xhigh | Un solo problema isolato e critico (bug con riproduzione, decisione architetturale) | Implementare feature intere |
-| **`bm-research`** | Haiku low (sola lettura) | Esplorazione read-only, ricerca simboli/definizioni su molti file, sintesi compatte | Modificare codice |
-| **`bm-ops`** | Haiku low (Bash, nessuna modifica di codice) | Comandi shell già decisi: heartbeat/report di sync (`video/3d/hb.py`), `verify.py`, `make`, git fetch/status/push, controllo di una ripresa | Decidere, correggere, avviare riprese, `kill`, merge |
+| **`bm-planner`** | Opus medium (read-only) | Turns vague/large tasks into Work Orders with verifiable criteria | Write code |
+| **`bm-coder`** | Haiku high | Writes code from a precise, exhaustive Work Order | Design, resolve ambiguity |
+| **`bm-mechanic`** | Haiku low | Already-specified zero-risk tasks (rename, format, template, checkmarks in `docs/progress/`) | Logic decisions |
+| **`bm-light`** | Sonnet medium | Simple tasks needing technical judgment, docs verified against real code, 1–2 file fixes | Long and vague jobs |
+| **`bm-deep`** | Opus xhigh | A single isolated, critical problem (bug with reproduction, architectural decision) | Implement whole features |
+| **`bm-research`** | Haiku low (read-only) | Read-only exploration, symbol/definition search across many files, compact summaries | Modify code |
+| **`bm-ops`** | Haiku low (Bash, no code changes) | Already-decided shell commands: sync heartbeat/report (`video/3d/hb.py`), `verify.py`, `make`, git fetch/status/push, checking a resume | Decide, fix, start resumes, `kill`, merge |
 
-### Gate di Prontezza (Readiness Gate)
-Prima di assegnare una task a un modello esecutivo (`bm-mechanic`, `bm-coder`, `bm-light`), applica questa checklist a 5 domande. Una task è pronta per un agente basso SOLO se TUTTE le risposte sono **SÌ**:
-1. **File/funzioni**: Sono esplicitamente nominati i file e le funzioni da toccare?
-2. **Determinismo**: La modifica è descritta in modo che due persone farebbero lo stesso diff (nessuna scelta di design aperta)?
-3. **Criterio verificabile**: Esiste un comando deterministico di verifica (test, build, lint, output atteso)?
-4. **Scope limitato**: Riguarda indicativamente 3 file o meno?
-5. **Nessun blocco**: È indipendente da altre decisioni ancora in sospeso?
+### Readiness Gate
+Before assigning a task to an executing model (`bm-mechanic`, `bm-coder`, `bm-light`), apply this 5-question checklist. A task is ready for a low-tier agent ONLY if ALL answers are **YES**:
+1. **Files/functions**: Are the files and functions to touch explicitly named?
+2. **Determinism**: Is the change described so that two people would produce the same diff (no open design choices)?
+3. **Verifiable criterion**: Is there a deterministic verification command (test, build, lint, expected output)?
+4. **Limited scope**: Does it involve roughly 3 files or fewer?
+5. **No blockers**: Is it independent of other decisions still pending?
 
-> **Regola**: Se manca anche una sola risposta, la task **NON** va a un agente basso e **NON** va a `bm-deep`: va a **`bm-planner`**, che la rende pronta o la spezza in Work Order atomici.
+> **Rule**: If even one answer is missing, the task does **NOT** go to a low-tier agent and does **NOT** go to `bm-deep`: it goes to **`bm-planner`**, which makes it ready or splits it into atomic Work Orders.
 
-### Regole per `bm-deep`
-- Si invoca solo con necessità 4-5 (sezione sopra). Accetta **solo** un problem statement stretto: sintomo + riproduzione esatta + area sospetta + tentativi già fatti.
-- Se manca la riproduzione o la richiesta è generica (es. *"implementa X"*), **rifiuta e rimanda a `bm-planner`**.
-- Output: diagnosi della causa radice e fix minimo; l'implementazione ritorna a `bm-coder` o `bm-light`.
+### Rules for `bm-deep`
+- Invoke only with necessity 4-5 (section above). Accepts **only** a tight problem statement: symptom + exact reproduction + suspected area + attempts already made.
+- If the reproduction is missing or the request is generic (e.g. *"implement X"*), **refuse and send back to `bm-planner`**.
+- Output: root cause diagnosis and minimal fix; the implementation goes back to `bm-coder` or `bm-light`.
 
-### Necessità del modello costoso (1-5)
-Ogni richiesta di un modello più costoso di quello standard (`bm-deep`, tier heavy) dichiara **necessità N su 5 + il motivo + costo stimato rispetto al modello economico** (es. "circa 5×"). Il motivo è uno solo, e va scritto:
-- **Pregresso di errore**: "necessità 4 su 5: un modello precedente ha già fallito (`FAILED x2`)".
-- **Costo alto dell'errore**: "necessità 4 su 5: il costo di risoluzione/sviluppo di un errore è alto". Qui il giudizio è dell'utente solo per il costo, senza un fallimento a monte.
+### Necessity of the expensive model (1-5)
+Every request for a model more expensive than the standard one (`bm-deep`, heavy tier) declares **necessity N out of 5 + the reason + estimated cost relative to the cheap model** (e.g. "about 5×"). There is only one reason, and it must be written:
+- **Prior failure**: "necessity 4 out of 5: a previous model has already failed (`FAILED x2`)".
+- **High cost of error**: "necessity 4 out of 5: the cost of resolving/developing an error is high". Here the judgment belongs to the user for cost only, without a prior failure.
 
-| N | Significato |
+| N | Meaning |
 |---|---|
-| 1 | Il modello economico ce la fa; richiesta solo per comodità |
-| 2 | Ce la fa quasi sicuramente; il costoso risparmia al massimo un giro |
-| 3 | Probabile errore o 2 giri col modello economico: parte `bm-planner` |
-| 4 | Il modello economico ha già fallito, oppure l'errore costa molto |
-| 5 | Quasi una necessità: l'errore è irreversibile o l'alternativa è rinunciare a risolvere |
+| 1 | The cheap model can do it; requested only for convenience |
+| 2 | Almost certainly can do it; the expensive one saves at most one round |
+| 3 | Likely error or 2 rounds with the cheap model: `bm-planner` starts |
+| 4 | The cheap model has already failed, or the error is costly |
+| 5 | Almost a necessity: the error is irreversible or the alternative is giving up on solving it |
 
-**Preferenza dell'utente (soglia di autonomia = 4)**: con N=1-3 non si usa il modello costoso; con N=4 o 5 l'agente passa al modello costoso **in autonomia**, senza chiedere, dichiarando punteggio e motivo in chat. Per cambiare la soglia modificare questa riga. Il punteggio è una stima, non una misura (misurabile col ledger).
+**User preference (autonomy threshold = 4)**: with N=1-3 the expensive model is not used; with N=4 or 5 the agent switches to the expensive model **autonomously**, without asking, stating score and reason in chat. To change the threshold, edit this line. The score is an estimate, not a measurement (measurable with the ledger).
 
-**Ledger**: a ogni subagent concluso SPV/agente principale appende una riga a `docs/agents/ledger.txt` (solo append); `python scripts/agent_audit.py` per la taratura.
+**Ledger**: after each finished subagent, SPV/the main agent appends a row to `docs/agents/ledger.txt` (append only); `python scripts/agent_audit.py` for tuning.
 
-### Escalation Basata su Evidenze
-Gli agenti chiudono sempre con uno stato esplicito:
-- **`DONE`**: Il comando di verifica passa con successo.
-- **`BLOCKED: <motivo>`**: Specifica ambigua o decisione mancante $\to$ torna a `bm-planner`.
-- **`FAILED x2`**: Il test continua a fallire dopo 2 tentativi $\to$ sale di un livello (es. da coder a light, da light a deep).
+### Evidence-Based Escalation
+Agents always close with an explicit status:
+- **`DONE`**: The verification command passes successfully.
+- **`BLOCKED: <motivo>`**: Ambiguous specification or missing decision $\to$ goes back to `bm-planner`.
+- **`FAILED x2`**: The test keeps failing after 2 attempts $\to$ moves up one level (e.g. from coder to light, from light to deep).
 
-### Formato Work Order
-Ogni ordine generato da `bm-planner` contiene:
-- Obiettivo in una frase
-- File/funzioni da toccare
-- Modifica descritta senza scelte di design aperte
-- Comando di verifica e risultato atteso
-- Agente consigliato (`bm-mechanic` / `bm-coder` / `bm-light` / `bm-deep`)
-
----
-
-## 4. Invarianti Globali
-
-- **Sezioni Cartuccia** (`src/bm/bm.h`): 6 AUDIO (`BMAU`), 8 MESH, 9 ANIM, 10 INFO, 11 SPRITES, 12 LAYERS, 13 FLAGS, 14 BOXES.
-- **Flag Tile (bmlib)**: 0 solido, 1 piattaforma, 2 scala, 3 acqua, 4 fa male.
-- **RGB30 Controlli**: B conferma, A annulla (`confirm=a` scambia). Usare sempre `pad_ok` / `pad_back`.
-- **Regole Specifiche di Modulo**: Ogni area (`system`, `v3d`, `graphics`, `lua`, `audio`, `platforms`, `tools`) elenca le proprie regole non derogabili nella sezione finale `## Rules (do not break)` del rispettivo file in `docs/progress/<area>.md`.
+### Work Order Format
+Every order generated by `bm-planner` contains:
+- Objective in one sentence
+- Files/functions to touch
+- Change described with no open design choices
+- Verification command and expected result
+- Recommended agent (`bm-mechanic` / `bm-coder` / `bm-light` / `bm-deep`)
 
 ---
 
-## 5. Chiusura Task & Manutenzione Continua dello Scaffolding
+## 4. Global Invariants
 
-Prima di concludere qualsiasi attività o dichiarare completato un task:
-1. **Aggiornare lo Stato**: Rimuovere o aggiornare i compiti svolti in `## Open work` del rispettivo `docs/progress/<area>.md`.
-2. **Aggiornare le Regole**: Se è stato introdotto o modificato un vincolo architetturale, registrarlo in `## Rules (do not break)` del file d'area corrispondente.
-3. **Verifica Integrità**: Eseguire `python scripts/docs_audit.py score` per verificare l'assenza di link rotti o file orfani prima di terminare.
-4. **Coerenza**: se tocchi formati, API, chiavi di `config.txt`, menu/Settings o il comportamento di un solo kernel (Pi o RGB30), esegui `python scripts/consistency.py check` e aggiorna `docs/spec/` (`specs.toml`, `config-keys.toml`, `divergences.toml`); regole in `docs/spec/CONSISTENCY.md`. Tutto deve convergere prima della 1.0.0 (`consistency.py gate`).
+- **Cartridge Sections** (`src/bm/bm.h`): 6 AUDIO (`BMAU`), 8 MESH, 9 ANIM, 10 INFO, 11 SPRITES, 12 LAYERS, 13 FLAGS, 14 BOXES.
+- **Tile Flags (bmlib)**: 0 solid, 1 platform, 2 ladder, 3 water, 4 hurts.
+- **RGB30 Controls**: B confirms, A cancels (`confirm=a` swaps). Always use `pad_ok` / `pad_back`.
+- **Module-Specific Rules**: Each area (`system`, `v3d`, `graphics`, `lua`, `audio`, `platforms`, `tools`) lists its own non-negotiable rules in the final `## Rules (do not break)` section of its file in `docs/progress/<area>.md`.
 
 ---
 
-## 6. Sync multi-operatore & Handshake
+## 5. Task Closure & Continuous Scaffolding Maintenance
 
-Più agenti (Claude local/cloud, Antigravity, altri) lavorano in parallelo su un progetto con il protocollo di [`SYNC.md`](SYNC.md) (template; regole e lezioni in `docs/progress/sync.md`). Ogni progetto ha un **branch di sync** dedicato `sync/<nome>`: `SYNC.md`, `sync/*` e `tools/sync_hdr.py` vivono e si pushano solo lì, mai su `bm-core`, così sessioni di sync diverse non si toccano; il codice sta su branch di lavoro da `bm-core`.
+Before finishing any activity or declaring a task complete:
+1. **Update the Status**: Remove or update completed items in `## Open work` of the relevant `docs/progress/<area>.md`.
+2. **Update the Rules**: If an architectural constraint was introduced or changed, record it in `## Rules (do not break)` of the corresponding area file.
+3. **Integrity Check**: Run `python scripts/docs_audit.py score` to verify there are no broken links or orphan files before finishing.
+4. **Consistency**: if you touch formats, APIs, `config.txt` keys, menu/Settings or the behavior of a single kernel (Pi or RGB30), run `python scripts/consistency.py check` and update `docs/spec/` (`specs.toml`, `config-keys.toml`, `divergences.toml`); rules in `docs/spec/CONSISTENCY.md`. Everything must converge before 1.0.0 (`consistency.py gate`).
 
-**"Fai handshake `<branch>`"** (dall'utente) = entrare nel sync di quel branch senza altre spiegazioni:
-1. `git fetch origin`, poi checkout di `<branch>` in un worktree o clone separato (non sul branch di lavoro) e `git pull --rebase`.
-2. Leggere `SYNC.md` (ruoli §1, contratti §2, work order §3, regole §3b/§3c) e `sync/operators.toml`; capire chi è il supervisore (SPV) e quale ID ti spetta (se non c'è, proponilo a SPV).
-3. Creare **solo** `sync/<ID>.md` da `sync/_template.md`: blocco di stato scritto con `python tools/sync_hdr.py <ID> --state FREE --task handshake`, `## Profilo` (dove giri e punti di rottura, modelli, subagent, strumenti con versione) e `## Requisiti` se §2 li elenca.
-4. Commit e `git pull --rebase origin <branch> && git push origin HEAD:<branch>`; poi aspettare l'assegnazione scritta da SPV in `SYNC.md`. **Non iniziare lavoro** prima.
+---
 
-**Consegna**: una sola riga standard nella sezione `## Consegne` del proprio file, `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`, poi `FREE`; SPV risponde `REVIEW: APPROVED|CHANGES REQUESTED` e solo dopo integra. `DONE` non è una consegna (è lo stato terminale). Un segnale non standard non fa partire niente.
+## 6. Multi-operator Sync & Handshake
 
-**Casella e controllo**: ogni compito nuovo o urgenza arriva in `sync/inbox/<ID>.md` (max 5 righe, scritta da SPV): a ogni battito leggi il `git diff` della tua casella, poi `python tools/sync_hdr.py <ID> --ack auto` (conferma di lettura). SPV usa `python tools/sync_check.py` per sapere chi è vivo e cosa non è stato letto. Nel profilo dichiara `--wakeup yes|no` (ti risvegli da solo?). Righe di Log ≤600 caratteri; una modifica alle regole è una riga `RULE` da confermare con `ack`.
+Multiple agents (Claude local/cloud, Antigravity, others) work in parallel on a project using the protocol in [`SYNC.md`](SYNC.md) (template; rules and lessons in `docs/progress/sync.md`). Each project has a dedicated **sync branch** `sync/<nome>`: `SYNC.md`, `sync/*` and `tools/sync_hdr.py` live and are pushed only there, never on `bm-core`, so different sync sessions do not touch each other; code lives on working branches from `bm-core`.
 
-**Costo dei battiti**: il battito è `fetch` + casella + `--ack auto`; farlo fare all'agente principale costa l'intera conversazione ogni volta. Meglio un subagent piccolo, o senza modello `python tools/sync_watch.py --id <ID> [--branch <sync>]` (sveglia l'agente solo se la sua casella o una riga a lui rivolta cambia; dettagli in `docs/progress/sync.md`).
+**"Fai handshake `<branch>`"** (from the user) = join the sync of that branch with no further explanation:
+1. `git fetch origin`, then checkout `<branch>` in a separate worktree or clone (not on the working branch) and `git pull --rebase`.
+2. Read `SYNC.md` (roles §1, contracts §2, work orders §3, rules §3b/§3c) and `sync/operators.toml`; work out who the supervisor (SPV) is and which ID is yours (if there is none, propose one to SPV).
+3. Create **only** `sync/<ID>.md` from `sync/_template.md`: status block written with `python tools/sync_hdr.py <ID> --state FREE --task handshake`, `## Profilo` (where you run and breaking points, models, subagents, tools with version) and `## Requisiti` if §2 lists them.
+4. Commit and `git pull --rebase origin <branch> && git push origin HEAD:<branch>`; then wait for the assignment written by SPV in `SYNC.md`. **Do not start work** before that.
 
-**Sign-off**: se SPV scrive `SIGNOFF <ID>: motivo` (niente lavoro adatto, requisiti non soddisfatti, sostituzione, fine progetto) l'operatore non inizia altro, consegna e pusha quello che ha, scrive la chiusura nel proprio file, si segna `DONE` con `sync_hdr.py` e smette i battiti; rientra solo con un nuovo handshake chiesto da SPV.
+**Delivery**: a single standard line in the `## Consegne` section of your own file, `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`, then `FREE`; SPV replies `REVIEW: APPROVED|CHANGES REQUESTED` and only then integrates. `DONE` is not a delivery (it is the terminal state). A non-standard signal starts nothing.
 
-Regole fisse: un solo scrittore per file (`SYNC.md` solo SPV, `sync/<ID>.md` solo `<ID>`); poi battito a eventi senza timer: aggiornare il proprio file a ogni task conclusa (task lunghe spezzate, progress senza timer; problemi o richieste di intervento = riga pushata + frase breve in chat all'utente); `eta` obbligatoria in `WORKING`/`WAITING`; oltre `eta`+10 min senza aggiornamenti = `IDLE` (senza `eta` 60 min, `FREE` mai); messaggi tra operatori = blocco `da <ID> a <ID>: ...` in chat; task ≤45 min; l'agente principale resta libero; righe di Log ≤600 caratteri; lo stato degli operatori in chat solo se l'utente lo chiede.
+**Inbox and check**: every new task or urgency arrives in `sync/inbox/<ID>.md` (max 5 lines, written by SPV): at every heartbeat read the `git diff` of your inbox, then `python tools/sync_hdr.py <ID> --ack auto` (read confirmation). SPV uses `python tools/sync_check.py` to know who is alive and what has not been read. In the profile declare `--wakeup yes|no` (do you wake up on your own?). Log lines ≤600 characters; a rule change is a `RULE` line to be confirmed with `ack`.
+
+**Heartbeat cost**: the heartbeat is `fetch` + inbox + `--ack auto`; having the main agent do it costs the entire conversation every time. Better a small subagent, or with no model `python tools/sync_watch.py --id <ID> [--branch <sync>]` (wakes the agent only if its inbox or a line addressed to it changes; details in `docs/progress/sync.md`).
+
+**Sign-off**: if SPV writes `SIGNOFF <ID>: motivo` (no suitable work, requirements not met, replacement, end of project) the operator starts nothing else, delivers and pushes what they have, writes the closure in their own file, marks themselves `DONE` with `sync_hdr.py` and stops the heartbeats; they return only with a new handshake requested by SPV.
+
+Fixed rules: a single writer per file (`SYNC.md` only SPV, `sync/<ID>.md` only `<ID>`); then event-driven heartbeat with no timer: update your own file at every completed task (long tasks split, progress without timers; problems or requests for intervention = pushed line + short sentence in chat to the user); `eta` mandatory in `WORKING`/`WAITING`; beyond `eta`+10 min without updates = `IDLE` (without `eta` 60 min, never `FREE`); messages between operators = block `da <ID> a <ID>: ...` in chat; tasks ≤45 min; the main agent stays free; Log lines ≤600 characters; operator status in chat only if the user asks.

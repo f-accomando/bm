@@ -5,50 +5,50 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 
 ---
 
-## 1. Architettura e Struttura
+## 1. Architecture and Structure
 
-- **Risoluzione & Schermo**: 360×360 (visuale 3/4 isometrica gotica, perfetta per il pannello 1:1 della RGB30 e il formato `.b16`).
-- **Mondo & Streaming**: Mappa continua generata a chunk di 16×16 celle durante il movimento (`visible_chunks`, `stream()`).
-- **Illuminazione**: Livelli di luce per pixel con tabelle di dissolvenza (`fades`, `dark_begin`, `glow`, `dark_end`) ispirate a Dank Tomb, lanterne a gas, bracieri e pire.
-- **Pipeline Grafica**: Generazione procedurale di oltre 5.000 frame tramite Signed Distance Fields (`build/mkassets.py`, `build/art/sdf.py`, `art/anims.py`, `art/hunter.py`), animazioni del Cacciatore su curve cubiche Hermite a 8 direzioni, con risoluzione automatica delle collisioni dell'arma (`unclip`).
-- **Mappa a Layer**: `map_ground.csv`, `map_overlay.csv` e `map_objects.csv` (256×256 celle), disegnata nell'SDK e convertita con `mkmap.py`.
-
----
-
-## 2. Verifiche e Controlli Aperti
-
-### A. Prestazioni su Pi Zero W e RGB30
-- Misurare il costo del fotogramma a 60 fps (generazione chunk in background, `stream()`, illuminazione a livelli, particelle).
-- Raccogliere i numeri con il report di sessione del dev kit e le righe `devinfo()` a fine partita.
-- Confrontare i parametri con il budget a 60 fps del profilo `.b16` (M42).
-
-### B. Mappa Disegnata sul Pi
-- Procedura di test su hardware:
-  1. Aprire `yharnam.bm` nell'SDK sulla console.
-  2. Pagina mappa: `F3` due volte, pennello 16×16 (`z`).
-  3. Piazzare tessere di terreno e, sul livello `objects` (`l`), posizionare segnaposto (es. albero, casa con angolo H7 e tessere tetto).
-  4. Salvare con `Ctrl+S` (genera la copia `YHARNAM.BME`, ~6 MB: lo sheet resta in formato compatto `SHEET8`).
-  5. Provare con `F5`: verificare che terreno e oggetti modificati compaiano nel gioco.
-  6. Eseguire `python3 carts/yharnam/build/mkmap.py --from` sulla cartuccia estratta dalla SD e committare i CSV aggiornati.
-
-### C. Glitch Grafico all'Avvio
-- Indagare il piccolo difetto visivo presente nei primi fotogrammi:
-  - Documentare sul Pi quando compare, la durata esatta e la schermata (titolo o transizione iniziale dopo il caricamento dei primi chunk).
-  - Punti di indagine:
-    - `_init`: verificare se le tabelle di fade e dissolvenza sono completamente inizializzate prima del primo frame di `_draw`.
-    - `visible_chunks`: verificare che i chunk non ancora completati vengano esclusi dal rendering finché non sono pronti.
+- **Resolution & Screen**: 360×360 (gothic 3/4 isometric view, perfect for the RGB30's 1:1 panel and the `.b16` format).
+- **World & Streaming**: Continuous map generated in chunks of 16×16 cells during movement (`visible_chunks`, `stream()`).
+- **Lighting**: Per-pixel light levels with fade tables (`fades`, `dark_begin`, `glow`, `dark_end`) inspired by Dank Tomb, gas lanterns, braziers and pyres.
+- **Graphics Pipeline**: Procedural generation of over 5,000 frames via Signed Distance Fields (`build/mkassets.py`, `build/art/sdf.py`, `art/anims.py`, `art/hunter.py`), Hunter animations on 8-direction cubic Hermite curves, with automatic weapon collision resolution (`unclip`).
+- **Layered Map**: `map_ground.csv`, `map_overlay.csv` and `map_objects.csv` (256×256 cells), drawn in the SDK and converted with `mkmap.py`.
 
 ---
 
-## 3. Oggetti, Luoghi e Level Design (R36)
+## 2. Open Checks and Verifications
 
-- **Segnaposto nel Layer `objects`** (`map_objects.csv`):
-  - Lanterne del cacciatore (`shrine` = 1186)
-  - Barricate (`barricade` = 1188)
-  - Cancelli (`gate` = 1190)
-  - Arene dei boss (`boss` = 1192)
-  - Si possono posizionare e spostare direttamente nel `bm SDK`.
-- **Spawning Creature**: il tipo di terreno (`ch.kind`: strada, marciapiede, erba) viene derivato dinamicamente dalle tessere disegnate in `map_ground.csv`, permettendo allo spawn dei mostri di seguire le modifiche fatte nell'SDK.
-- **Da completare**:
-  - Vincolare ogni casa dentro il proprio blocco 16×16.
-  - I confini delle aree con nome risiedono ancora in `MAP.areas` nel codice: valutare il passaggio a metadati del file mappa.
+### A. Performance on Pi Zero W and RGB30
+- Measure the frame cost at 60 fps (background chunk generation, `stream()`, tiered lighting, particles).
+- Collect the numbers with the dev kit session report and the `devinfo()` lines at the end of a run.
+- Compare the parameters with the 60 fps budget of the `.b16` profile (M42).
+
+### B. Map Drawn on the Pi
+- Hardware test procedure:
+  1. Open `yharnam.bm` in the SDK on the console.
+  2. Map page: `F3` twice, 16×16 brush (`z`).
+  3. Place terrain tiles and, on the `objects` layer (`l`), place placeholders (e.g. tree, house with H7 corner and roof tiles).
+  4. Save with `Ctrl+S` (generates the `YHARNAM.BME` copy, ~6 MB: the sheet stays in compact `SHEET8` format).
+  5. Try with `F5`: verify that the modified terrain and objects appear in the game.
+  6. Run `python3 carts/yharnam/build/mkmap.py --from` on the cartridge extracted from the SD and commit the updated CSVs.
+
+### C. Graphical Glitch at Startup
+- Investigate the small visual defect present in the first frames:
+  - Document on the Pi when it appears, its exact duration and the screen (title or initial transition after the first chunks load).
+  - Investigation points:
+    - `_init`: check whether the fade and dissolve tables are fully initialized before the first `_draw` frame.
+    - `visible_chunks`: check that chunks not yet completed are excluded from rendering until they are ready.
+
+---
+
+## 3. Objects, Places and Level Design (R36)
+
+- **Placeholders in the `objects` Layer** (`map_objects.csv`):
+  - Hunter lanterns (`shrine` = 1186)
+  - Barricades (`barricade` = 1188)
+  - Gates (`gate` = 1190)
+  - Boss arenas (`boss` = 1192)
+  - They can be placed and moved directly in the `bm SDK`.
+- **Creature Spawning**: the terrain type (`ch.kind`: road, sidewalk, grass) is derived dynamically from the tiles drawn in `map_ground.csv`, so monster spawning follows the changes made in the SDK.
+- **To be completed**:
+  - Constrain each house within its own 16×16 block.
+  - The boundaries of named areas still live in `MAP.areas` in the code: consider moving them to map file metadata.

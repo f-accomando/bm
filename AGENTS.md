@@ -1,71 +1,71 @@
-# bm (BareMetal) — Specifiche e Routing Agenti
+# bm (BareMetal) — Agent Specifications and Routing
 
-Questo file definisce la governance, il routing e i vincoli operativi per tutti gli agenti AI che operano sul repository `bm`.
-
----
-
-## 1. Il Principio Fondamentale: Separare Decidere da Eseguire
-
-- **I modelli di punta (Opus / Gemini Pro)**: Hanno un costo elevato sui token di output, ma eccellono nel ragionamento logico e architetturale. Producono **pochi token**: decisioni strategiche, schemi e Ordini di Lavoro sintetici. **Non scrivono il codice.**
-- **I modelli rapidi ed economici (Haiku / Gemini Flash / Flash-Lite)**: Producono **tanti token**: implementazione del codice, refactoring vincolati, rename, formattazione. Ricevono specifiche blindate ed eseguono.
-- **La regola del Router**: La selezione dell'agente NON dipende dalla grandezza apparente della task, ma da quanto è già rigorosamente specificata.
+This file defines the governance, routing and operating constraints for all AI agents working on the `bm` repository.
 
 ---
 
-## 2. Tabella dei Ruoli
+## 1. The Fundamental Principle: Separate Deciding from Executing
 
-| Agente | Claude Engine | Antigravity Engine | Toolset | Responsabilità Primaria | Limiti Assoluti |
+- **Top-tier models (Opus / Gemini Pro)**: High cost on output tokens, but excellent at logical and architectural reasoning. They produce **few tokens**: strategic decisions, schemas and concise Work Orders. **They do not write code.**
+- **Fast and cheap models (Haiku / Gemini Flash / Flash-Lite)**: They produce **many tokens**: code implementation, constrained refactoring, rename, formatting. They receive locked-down specs and execute.
+- **The Router rule**: Agent selection does NOT depend on the apparent size of the task, but on how rigorously it is already specified.
+
+---
+
+## 2. Role Table
+
+| Agent | Claude Engine | Antigravity Engine | Toolset | Primary Responsibility | Absolute Limits |
 |---|---|---|---|---|---|
-| **`bm-planner`** | Opus medium | Gemini Pro (`"pro"`) | **Sola Lettura** (Read, Grep, Glob) | Trasforma task vaghe in Ordini di Lavoro (Work Order) verificabili | **Non scrive codice** |
-| **`bm-coder`** | Haiku high | Gemini Flash (`"flash"`) | Full (Read/Write/Exec) | Scrive codice da un Work Order preciso | Nessun design, nessuna scelta aperta |
-| **`bm-mechanic`** | Haiku low | Gemini Flash-Lite (`"flash_lite"`) | Full (Atomico) | Rename, formattazione, template, spunte in `docs/progress/` | Zero decisioni di business |
-| **`bm-light`** | Sonnet medium | Gemini Flash (`"flash"`) | Full (Read/Write/Exec) | Task con giudizio tecnico, docs verificate leggendo il codice C, fix 1-2 file | No task lunghe o vaghe |
-| **`bm-deep`** | Opus xhigh | Gemini Pro (`"pro"`) | Full (Read/Write/Exec) | Un solo problema critico isolato con riproduzione certa | Rifiuta task senza riproduzione |
-| **`bm-research`** | Haiku low | Subagente `research` | Sola Lettura | Ispezione simboli, call flow su molti file, sintesi 5-10 righe | Non tocca file |
+| **`bm-planner`** | Opus medium | Gemini Pro (`"pro"`) | **Read-Only** (Read, Grep, Glob) | Turns vague tasks into verifiable Work Orders | **Does not write code** |
+| **`bm-coder`** | Haiku high | Gemini Flash (`"flash"`) | Full (Read/Write/Exec) | Writes code from a precise Work Order | No design, no open choices |
+| **`bm-mechanic`** | Haiku low | Gemini Flash-Lite (`"flash_lite"`) | Full (Atomic) | Rename, formatting, templates, checkmarks in `docs/progress/` | Zero business decisions |
+| **`bm-light`** | Sonnet medium | Gemini Flash (`"flash"`) | Full (Read/Write/Exec) | Tasks needing technical judgment, docs verified by reading the C code, 1-2 file fixes | No long or vague tasks |
+| **`bm-deep`** | Opus xhigh | Gemini Pro (`"pro"`) | Full (Read/Write/Exec) | A single isolated critical problem with certain reproduction | Refuses tasks without reproduction |
+| **`bm-research`** | Haiku low | `research` subagent | Read-Only | Symbol inspection, call flow across many files, 5-10 line summaries | Does not touch files |
 
 ---
 
-## 3. Il Gate di Prontezza (Readiness Gate)
+## 3. The Readiness Gate
 
-Prima di affidare una task a un modello esecutivo (`bm-mechanic`, `bm-coder`, `bm-light`), applica rigorosamente questa checklist:
+Before handing a task to an executing model (`bm-mechanic`, `bm-coder`, `bm-light`), rigorously apply this checklist:
 
-1. [ ] **File e Funzioni**: I file e le firme/funzioni da toccare sono esplicitamente nominati?
-2. [ ] **Determinismo**: La modifica è descritta in modo tale che due sviluppatori scriverebbero lo stesso diff (zero scelte di design aperte)?
-3. [ ] **Verifica Determinica**: Esiste un comando verificabile (test, build, lint, output atteso)?
-4. [ ] **Scope Contenuto**: Riguarda 3 file o meno?
-5. [ ] **Zero Dipendenze Sospese**: Non dipende da una decisione ancora da prendere?
+1. [ ] **Files and Functions**: Are the files and signatures/functions to touch explicitly named?
+2. [ ] **Determinism**: Is the change described so that two developers would write the same diff (zero open design choices)?
+3. [ ] **Deterministic Verification**: Is there a verifiable command (test, build, lint, expected output)?
+4. [ ] **Contained Scope**: Does it involve 3 files or fewer?
+5. [ ] **Zero Pending Dependencies**: Does it not depend on a decision still to be made?
 
-### Regola Aurea
-- **5 su 5 Sì** $\to$ La task è **PRONTA**: assegnala a `bm-mechanic`, `bm-coder` o `bm-light`.
-- **Anche solo 1 No** $\to$ La task **NON È PRONTA**: assegnala a **`bm-planner`** per renderla pronta o spezzarla.
-- **Mai direttamente a `bm-deep`** a meno che non soddisfi i criteri specifici di debug isolato.
-
----
-
-## 4. Regole Vincolanti per `bm-deep`
-
-`bm-deep` interviene solo su un problem statement stretto e provvisto di:
-1. Sintomo chiaro documentato.
-2. Procedura di riproduzione esatta (comando/test che fallisce).
-3. Area sospetta isolata.
-4. Tentativi già effettuati (es. fallimento `FAILED x2`).
-
-Se manca la riproduzione o la richiesta è generica (*"implementa X"*), `bm-deep` rifiuta la task e la rimanda a `bm-planner`.
+### Golden Rule
+- **5 out of 5 Yes** $\to$ The task is **READY**: assign it to `bm-mechanic`, `bm-coder` or `bm-light`.
+- **Even just 1 No** $\to$ The task is **NOT READY**: assign it to **`bm-planner`** to make it ready or split it.
+- **Never directly to `bm-deep`** unless it meets the specific criteria for isolated debugging.
 
 ---
 
-## 5. Protocollo di Chiusura ed Escalation
+## 4. Binding Rules for `bm-deep`
 
-Ogni agente termina il proprio intervento comunicando inequivocabilmente il proprio stato:
-- **`DONE`**: Il comando di verifica è passato con successo. Include riepilogo sintetico del diff.
-- **`BLOCKED: <motivo>`**: Specifica ambigua o decisione mancante. La task ritorna a `bm-planner`.
-- **`FAILED x2`**: Il test continua a fallire dopo 2 tentativi. La task escala di livello (es. da `bm-coder` a `bm-light`, o a `bm-deep`).
+`bm-deep` intervenes only on a tight problem statement that includes:
+1. A clear, documented symptom.
+2. An exact reproduction procedure (failing command/test).
+3. An isolated suspected area.
+4. Attempts already made (e.g. `FAILED x2` failure).
+
+If the reproduction is missing or the request is generic (*"implement X"*), `bm-deep` refuses the task and sends it back to `bm-planner`.
 
 ---
 
-## 6. Formato Standard dell'Ordine di Lavoro (Work Order)
+## 5. Closure and Escalation Protocol
 
-Ogni Work Order emesso da `bm-planner` rispetta questo schema:
+Every agent ends its intervention by unambiguously reporting its status:
+- **`DONE`**: The verification command passed successfully. Includes a concise diff summary.
+- **`BLOCKED: <motivo>`**: Ambiguous specification or missing decision. The task goes back to `bm-planner`.
+- **`FAILED x2`**: The test keeps failing after 2 attempts. The task escalates a level (e.g. from `bm-coder` to `bm-light`, or to `bm-deep`).
+
+---
+
+## 6. Standard Work Order Format
+
+Every Work Order issued by `bm-planner` follows this schema:
 
 ```markdown
 ### WORK ORDER: [ID]

@@ -1,70 +1,70 @@
-# Proposte di Sviluppo: bm Animator (Suite di Rigging e Animazione 3D/2D)
+# Development Proposals: bm Animator (3D/2D Rigging and Animation Suite)
 
-Questo documento analizza cosa manca a **bm Animator** (`carts/animator`) per colmare il divario con le pipeline procedurali avanzate usate per *Titan Clash* e *Yharnam*, e trasformarlo nello strumento definitivo per la produzione di kit di animazione completi sia 3D che 2D pre-renderizzati.
-
----
-
-## 1. Stato Attuale di bm Animator
-
-`bm Animator` è uno degli strumenti più avanzati della console bm:
-- **F1 (Play)**: Visualizzazione dei modelli 3D con scheletro, interpolazione in tempo reale (`animate()`), test di fusione tra animazioni diverse (`b` per blend al 25%, 50%, 75%).
-- **F2 (Rig)**: Creazione dello scheletro osseo (`n`), posizionamento giunti e code (`w a s d r f`), gerarchia genitori/figli (`p`), specchiatura simmetrica delle ossa `.L` e `.R` (`m`), assegnazione automatica o manuale della pelle (pesi rigidi o elastici con `k`/`K`).
-- **F3 (Animate)**: Creazione di animazioni su timeline a 12 fps, rotazione e traslazione delle ossa con keyframe, onion skin delle ossa (`o`), interpolazione linear/smooth/step (`i`), specchiatura delle pose (`m`).
-- **F4 (Sprites)**: Motore di bake 3D-to-2D: renderizza l'animazione direttamente nello sprite sheet a risoluzione pixel art, con opzioni per numero di direzioni (1, 2, 4, 8), inclinazione camera, luce, contorno e riduzione della tavolozza a 8, 16 o 32 colori.
+This document analyzes what **bm Animator** (`carts/animator`) lacks to close the gap with the advanced procedural pipelines used for *Titan Clash* and *Yharnam*, and to turn it into the definitive tool for producing complete pre-rendered 3D and 2D animation kits.
 
 ---
 
-## 2. Perché Titan Clash e Yharnam Hanno Usato Python Anziché bm Animator?
+## 1. Current State of bm Animator
 
-Nonostante la presenza della modalità F4 Sprites, i titoli di punta hanno sviluppato complessi generatori esterni in Python ([`carts/titan/mkrobot.py`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/titan/mkrobot.py) e [`carts/yharnam/art/`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/yharnam/art/)). I motivi tecnici risiedono in precise carenze dell'editor su console:
-
-### A. Mancanza di Event Marker sulla Timeline (Frame Attivi, Suoni, Spari)
-- In un'animazione di fendente (es. 6 frame), il danno non avviene per tutta la durata: il frame 1–2 è preparazione, il frame 3 è l'impatto con la hitbox attiva, il frame 4–6 è recupero.
-- In bm Animator **non c'è modo di marcare un frame con un evento** (es. `event = "hit"`, `sound = "slash"`, `spawn = "bullet"`).
-- Tutto questo deve essere sincronizzato manualmente via codice Lua memorizzando a mente i numeri dei fotogrammi.
-
-### B. Assenza di "Sockets" (Punti di Ancoraggio 2D per Armi e Particelle)
-- In *Yharnam*, ogni fotogramma del Cacciatore calcola la coordinata 2D esatta della punta della mannaia (per le scie di sangue e scintille) e della volata della pistola (per il lampo di fuoco e la traiettoria del proiettile).
-- bm Animator disegna il modello composito nello sprite sheet ma **non memorizza le coordinate 2D delle ossa terminali**.
-- Di conseguenza, se un gioco 2D vuole mostrare una fiammata dalla canna di un'arma, lo sviluppatore non sa dove posizionarla senza hardcodare coordinate a mano per ogni fotogramma.
-
-### C. Nessun Supporto a Layer Modulari (Armature e Armi Componibili)
-- In *Titan Clash*, il robot Vanguard ha armature intercambiabili (integra, danneggiata da colpi pesanti, armi montate sull'avambraccio).
-- Invece di duplicare 100 frame per ogni combinazione di armatura, lo script Python ha renderizzato la base + layer trasparenti separati sovrapposti in ordine fisso.
-- F4 in bm Animator renderizza l'intero modello come un blocco opaco unico, senza possibilità di esportare layer di accessori separati allineati alla stessa griglia.
-
-### D. Mancanza di Naming Automatico per le Direzioni in `SPRITES`
-- Quando F4 inforna un'animazione a 8 direzioni nello sprite sheet, genera una matrice di rettangoli ma non crea automaticamente le etichette strutturate per la sezione `SPRITES` (es. `cammina_s`, `cammina_se`, `cammina_e`, ecc.) pronte per l'uso immediato con `zspr()`.
+`bm Animator` is one of the most advanced tools of the bm console:
+- **F1 (Play)**: Viewing 3D models with skeleton, real-time interpolation (`animate()`), blend tests between different animations (`b` to blend at 25%, 50%, 75%).
+- **F2 (Rig)**: Bone skeleton creation (`n`), joint and tail placement (`w a s d r f`), parent/child hierarchy (`p`), symmetric mirroring of `.L` and `.R` bones (`m`), automatic or manual skinning (rigid or soft weights with `k`/`K`).
+- **F3 (Animate)**: Animation creation on a 12 fps timeline, bone rotation and translation with keyframes, bone onion skin (`o`), linear/smooth/step interpolation (`i`), pose mirroring (`m`).
+- **F4 (Sprites)**: 3D-to-2D bake engine: renders the animation directly into the sprite sheet at pixel art resolution, with options for number of directions (1, 2, 4, 8), camera tilt, light, outline and palette reduction to 8, 16 or 32 colors.
 
 ---
 
-## 3. Complessità "Fatta a Mano" vs Soluzione Integrata
+## 2. Why Did Titan Clash and Yharnam Use Python Instead of bm Animator?
 
-| Esigenza | Approccio Attuale (Script Python o a mano) | Con l'Evoluzione di bm Animator |
+Despite the F4 Sprites mode, the flagship titles developed complex external generators in Python ([`carts/titan/mkrobot.py`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/titan/mkrobot.py) and [`carts/yharnam/art/`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/yharnam/art/)). The technical reasons lie in specific shortcomings of the on-console editor:
+
+### A. No Event Markers on the Timeline (Active Frames, Sounds, Shots)
+- In a slash animation (e.g. 6 frames), damage does not occur for the whole duration: frames 1–2 are windup, frame 3 is the impact with the hitbox active, frames 4–6 are recovery.
+- In bm Animator there is **no way to mark a frame with an event** (e.g. `event = "hit"`, `sound = "slash"`, `spawn = "bullet"`).
+- All of this must be synchronized manually in Lua code by memorizing frame numbers.
+
+### B. No "Sockets" (2D Anchor Points for Weapons and Particles)
+- In *Yharnam*, every frame of the Hunter computes the exact 2D coordinate of the cleaver tip (for blood trails and sparks) and of the gun muzzle (for the muzzle flash and the bullet trajectory).
+- bm Animator draws the composite model into the sprite sheet but **does not store the 2D coordinates of the end bones**.
+- As a result, if a 2D game wants to show a flash from a weapon barrel, the developer does not know where to place it without hardcoding coordinates by hand for every frame.
+
+### C. No Support for Modular Layers (Composable Armor and Weapons)
+- In *Titan Clash*, the Vanguard robot has interchangeable armor (intact, damaged by heavy hits, forearm-mounted weapons).
+- Instead of duplicating 100 frames for each armor combination, the Python script rendered the base + separate transparent layers stacked in a fixed order.
+- F4 in bm Animator renders the whole model as a single opaque block, with no way to export separate accessory layers aligned to the same grid.
+
+### D. No Automatic Direction Naming in `SPRITES`
+- When F4 bakes an 8-direction animation into the sprite sheet, it generates a matrix of rectangles but does not automatically create the structured labels for the `SPRITES` section (e.g. `cammina_s`, `cammina_se`, `cammina_e`, etc.) ready for immediate use with `zspr()`.
+
+---
+
+## 3. "Hand-Made" Complexity vs Integrated Solution
+
+| Need | Current Approach (Python script or by hand) | With the Evolution of bm Animator |
 |---|---|---|
-| **Hitbox da Scheletro** | Scrivere parser matematico in Python che proietta i volumi delle ossa in coordinate 2D | In F4 Sprites, le ossa contrassegnate come "Attacco" o "Corpo" generano direttamente la sezione `BOXES` |
-| **Sincronizzazione Suoni/Colpi** | Contatori `if frame == 3 then play_sfx() end` sparsi nel codice di gioco | Tasto `e` sul frame per inserire un marcatore evento (`hit`, `sfx_sword`, `step`) esportato nei metadati |
-| **Punto di Sparo/Scia** | Trovare le coordinate X/Y del proiettile aprendo l'immagine con GIMP e segnando i pixel | Definire un osso come "Socket": F4 esporta una tabella con le coordinate schermo relative a ogni frame |
-| **Animazioni 8 Direzioni** | Centinaia di righe di script per ruotare la camera e comporre l'atlas | F4 genera la nomenclatura standard a 8 direzioni pronta per `zspr()` con punto di ancoraggio a terra |
+| **Hitboxes from Skeleton** | Write a math parser in Python that projects bone volumes into 2D coordinates | In F4 Sprites, bones flagged as "Attack" or "Body" directly generate the `BOXES` section |
+| **Sound/Hit Synchronization** | `if frame == 3 then play_sfx() end` counters scattered in the game code | `e` key on the frame to insert an event marker (`hit`, `sfx_sword`, `step`) exported in the metadata |
+| **Shot/Trail Point** | Find the projectile X/Y coordinates by opening the image in GIMP and noting the pixels | Define a bone as "Socket": F4 exports a table with the screen coordinates relative to each frame |
+| **8-Direction Animations** | Hundreds of script lines to rotate the camera and compose the atlas | F4 generates the standard 8-direction nomenclature ready for `zspr()` with a ground anchor point |
 
 ---
 
-## 4. Proposte di Sviluppo & Roadmap per bm Animator
+## 4. Development Proposals & Roadmap for bm Animator
 
-### Proposta 1: Event Marker Track in F3 (Animate)
-Aggiungere sotto la timeline dei keyframe una traccia per gli **Eventi**:
-- Selezionando un fotogramma, premere `e` (Event) per assegnare un tag:
-  - **HIT (Rosso)**: attiva la hitbox del colpo.
-  - **SFX (Giallo)**: attiva un suono specifico dal banco audio.
-  - **SPAWN (Ciano)**: genera un'entità secondaria o particella.
-  - **CANCEL (Verde)**: finestra in cui l'animazione può essere interrotta da un'altra azione (dodge/parry).
-- Questi eventi vengono salvati nei metadati della cartuccia e attivati automaticamente da `bmlib`.
+### Proposal 1: Event Marker Track in F3 (Animate)
+Add an **Events** track below the keyframe timeline:
+- With a frame selected, press `e` (Event) to assign a tag:
+  - **HIT (Red)**: activates the hit's hitbox.
+  - **SFX (Yellow)**: triggers a specific sound from the audio bank.
+  - **SPAWN (Cyan)**: spawns a secondary entity or particle.
+  - **CANCEL (Green)**: window in which the animation can be interrupted by another action (dodge/parry).
+- These events are saved in the cartridge metadata and triggered automatically by `bmlib`.
 
-### Proposta 2: Socket Point Exporter
-- Nella pagina F2 (Rig), permettere di impostare il flag `Socket` su determinate ossa (es. `hand.R`, `muzzle`, `head`).
-- Durante il bake in F4 Sprites, per ogni fotogramma ed ogni direzione vengono calcolate e salvate le coordinate 2D del socket:
+### Proposal 2: Socket Point Exporter
+- In the F2 (Rig) page, allow setting the `Socket` flag on certain bones (e.g. `hand.R`, `muzzle`, `head`).
+- During the bake in F4 Sprites, the 2D socket coordinates are computed and saved for every frame and every direction:
   ```lua
-  -- Generato automaticamente da F4
+  -- Automatically generated by F4
   local SOCKETS = {
     hero_shoot = {
       [1] = { muzzle = { x = 24, y = 14 } },
@@ -72,18 +72,18 @@ Aggiungere sotto la timeline dei keyframe una traccia per gli **Eventi**:
     }
   }
   ```
-- Questo permette al codice di posizionare scintille, fiammate e armi con precisione al sub-pixel.
+- This allows the code to place sparks, flashes and weapons with sub-pixel precision.
 
-### Proposta 3: Batch Directional Bake con Generazione `SPRITES` & `BOXES`
-Potenziare la pagina F4 Sprites:
-- Selezionare l'elenco delle animazioni da sfornare (`idle`, `walk`, `attack`, `hurt`) e il set di direzioni (4 direzioni ortogonali o 8 isometriche).
-- **Nome Base**: impostare il prefisso (es. `hunter`).
-- **Pressione Invio (Bake Completo)**:
-  1. Renderizza i frame nello sprite sheet con layout compatto (skyline packing).
-  2. Scrive nella sezione `SPRITES` i nomi con suffissi direzionali: `hunter_walk_s`, `hunter_walk_se`, ecc.
-  3. Proietta i volumi delle ossa dell'arma e del busto creando automaticamente le scatole `hit`, `hurt` e `body` per la sezione `BOXES`.
-  4. Imposta l'Anchor Point esattamente alla base delle ossa dei piedi al contatto col suolo.
+### Proposal 3: Batch Directional Bake with `SPRITES` & `BOXES` Generation
+Enhance the F4 Sprites page:
+- Select the list of animations to bake (`idle`, `walk`, `attack`, `hurt`) and the direction set (4 orthogonal or 8 isometric directions).
+- **Base Name**: set the prefix (e.g. `hunter`).
+- **Pressing Enter (Full Bake)**:
+  1. Renders the frames into the sprite sheet with a compact layout (skyline packing).
+  2. Writes into the `SPRITES` section the names with directional suffixes: `hunter_walk_s`, `hunter_walk_se`, etc.
+  3. Projects the volumes of the weapon and torso bones, automatically creating the `hit`, `hurt` and `body` boxes for the `BOXES` section.
+  4. Sets the Anchor Point exactly at the base of the foot bones at ground contact.
 
-### Proposta 4: Multi-Layer Pass Rendering (Bake Modulare)
-- Permettere di marcare le parti del modello in gruppi visivi (es. Gruppo A: `Corpo`, Gruppo B: `Armatura`, Gruppo C: `Arma`).
-- Opzione in F4: *Bake as Layers*: sforna una sequenza per ciascun gruppo mantenendo la trasparenza e lo stesso identico rettangolo di delimitazione, consentendo a giochi 2D di implementare armature e armi personalizzabili a costo zero.
+### Proposal 4: Multi-Layer Pass Rendering (Modular Bake)
+- Allow marking model parts in visual groups (e.g. Group A: `Body`, Group B: `Armor`, Group C: `Weapon`).
+- Option in F4: *Bake as Layers*: outputs a sequence for each group, keeping transparency and the exact same bounding rectangle, allowing 2D games to implement customizable armor and weapons at zero cost.
