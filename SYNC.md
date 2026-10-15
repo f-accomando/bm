@@ -16,6 +16,7 @@
 | Claude local | `SPV` | locale, Windows | `SYNC.md` + `sync/SPV.md` + `sync/inbox/*` + `sync/wo/*` | `sync/protocollo-ottobre` |
 | operatore R-NET (da handshake) | `NET` | da dichiarare nel profilo | `sync/NET.md` | `claude/net-test-*` |
 | operatore M42 (da handshake) | `B16` | da dichiarare nel profilo | `sync/B16.md` | `claude/b16-profile` |
+| Antigravity (AGY) | `AGY` | locale, QEMU; accesso al Pi in sviluppo | `sync/AGY.md` | `agy/sdlog` |
 | utente | `UTE` | - | niente (parla nelle sessioni) | - |
 
 1. `SYNC.md` lo scrive **solo SPV**: contratti, work order, decisioni, tabella di stato (§1b), avvisi a tutti.
@@ -77,11 +78,13 @@ Due sviluppi indipendenti, un operatore ciascuno: (NET) test del Pi dal PC, R-NE
 1. Screenshot via rete = op `T`/`G` sulla porta di trasferimento, non riga monitor (la riga `:` non arriva al gioco). 2026-10-15, vedi `sync/wo/NET.md`.
 2. `.b16` resta un target, non una sandbox (2026-10-13). L'utente ha confermato D1-D6 il 2026-10-15: nessun profilo a runtime; lint e controlli solo avviso; promessa 60->30 fps tolta dai docs; heap 64 MiB e save 32 KiB invariati; niente banchi grafici per Yharnam (solo Yharnam; altri giochi valutati caso per caso). I WO-R decadono.
 3. R-NET3 (token) non parte finché NET-1/2 non sono consegnati.
-4. Integrazione: ogni operatore consegna sul proprio branch; SPV fa review (subagent) e merge nel proprio branch di integrazione, poi l'utente su `bm-core`.
+4. D19 (AGY): nomi dei file `bootlog/bootprev/lastrun`; AGY tocca solo la voce D19 di `divergences.toml`; traceback Lua di R3 fuori scope. 2026-10-15, vedi `sync/wo/AGY.md`.
+5. Integrazione: ogni operatore consegna sul proprio branch; SPV fa review (subagent) e merge nel proprio branch di integrazione, poi l'utente su `bm-core`.
 
 ### Ripartizione dei file
 - `NET`: `src/kernel/monitor.c`, `src/bm/runtime.c|.h` (solo hook shot), `src/net/netxfer.c`, `tools/bm_net.py`, `tools/pi_test.py`, `tools/pi.py`, `tests/net/*`, docs di rete/spec, su `claude/net-test-*`.
 - `B16`: `scripts/mkbm.py`, `tests/tools/test_mkbm_b16.py`, `carts/editor/main.lua` (solo `B16_CHECKS`), `docs/progress/{b16,lua}.md`, `docs/FORMATS-AUDIT.md`, su `claude/b16-profile`.
+- `AGY`: `src/kernel/sdlog.c|.h`, `src/rgb30/main.c`, `rgb30.mk`, `src/kernel/main.c`, `src/drivers/watchdog.c|.h`, `tests/qemu_test.py` (solo `test_sd_logs`), `docs/progress/system.md`, voce D19 di `docs/spec/divergences.toml`, su `agy/sdlog`.
 - Condivisi: `docs/progress/tools.md` (NET toglie R-NET, B16 non lo tocca). `Makefile`: solo se nominato.
 
 ---
@@ -96,6 +99,7 @@ Work order completi in `sync/wo/<ID>.md` (scritti da SPV, un blocco per passo).
 |---|---|---|---|
 | NET-1a, NET-1b, NET-2a, NET-2b, NET-2c, NET-2d | `NET` | `PENDING` (aspetta handshake) | [`sync/wo/NET.md`](sync/wo/NET.md) |
 | B16-DOCS, B16-SDKLINT-3D, B16-MKBM-LINT, B16-YHARNAM-CHECK | `B16` | `PENDING` (aspetta handshake) | [`sync/wo/B16.md`](sync/wo/B16.md) |
+| SDLOG-1, SDLOG-2, SDLOG-3, SDLOG-4, SDLOG-5 | `AGY` | `PENDING` (aspetta handshake) | [`sync/wo/AGY.md`](sync/wo/AGY.md) |
 
 ---
 
