@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: FREE
-task: D-HOST consegnato; in attesa di review
+state: WORKING
+task: D-RUN2
 waiting_on: 
 progress: 0
-eta: 2026-10-15T14:30+02:00
+eta: 2026-10-15T13:00+02:00
 wakeup: no
-ack: 2026-10-15T13:30+02:00
-updated: 2026-10-15T11:59+02:00
+ack: 2026-10-15T14:30+02:00
+updated: 2026-10-15T12:15+02:00
 ---
 # CI — operatore CI
 
