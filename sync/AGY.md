@@ -2,13 +2,13 @@
 schema: 1
 id: AGY
 state: WORKING
-task: SDLOG-4
+task: SDLOG-5
 waiting_on: 
 progress: 0
-eta: 2026-10-15T10:55+02:00
+eta: 2026-10-15T11:00+02:00
 wakeup: no
 ack: 2026-10-15T10:25+02:00
-updated: 2026-10-15T10:34+02:00
+updated: 2026-10-15T10:40+02:00
 ---
 # AGY — Antigravity
 
@@ -36,6 +36,7 @@ updated: 2026-10-15T10:34+02:00
 DELIVERED SDLOG-1 @ agy/sdlog@2bb7ba64 · verifica: make TARGET=rgb30 && python tests/rgb30/qemu_test.py -k bootlog_on_sd → PASS test_bootlog_on_sd, exit 0 · 2026-10-15T10:24+02:00
 DELIVERED SDLOG-2 @ agy/sdlog@2e0f747d · verifica: make build/kernel.img && python tests/qemu_test.py -k boot_banner && python tests/qemu_test.py -k crash_report → 2/2 PASS, exit 0 · 2026-10-15T10:29+02:00
 DELIVERED SDLOG-3 @ agy/sdlog@88482272 · verifica: make build/kernel.img && python tests/qemu_test.py -k crash_report → PASS test_crash_report (87.5s), exit 0 · 2026-10-15T10:34+02:00
+DELIVERED SDLOG-4 @ agy/sdlog@8b96e916 · verifica: python tests/qemu_test.py -k sd_logs → PASS test_sd_logs (5.5s), exit 0 · 2026-10-15T10:40+02:00
 
 ## Progressi
 
