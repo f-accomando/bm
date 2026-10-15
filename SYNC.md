@@ -75,7 +75,7 @@ Due sviluppi indipendenti, un operatore ciascuno: (NET) test del Pi dal PC, R-NE
 
 ### Decisioni prese (non cambiano senza una riga nel Log)
 1. Screenshot via rete = op `T`/`G` sulla porta di trasferimento, non riga monitor (la riga `:` non arriva al gioco). 2026-10-15, vedi `sync/wo/NET.md`.
-2. `.b16` resta un target, non una sandbox (2026-10-13): nessun profilo a runtime finché l'utente non decide D1-D6 (`sync/wo/B16.md`). 2026-10-15.
+2. `.b16` resta un target, non una sandbox (2026-10-13). L'utente ha confermato D1-D6 il 2026-10-15: nessun profilo a runtime; lint e controlli solo avviso; promessa 60->30 fps tolta dai docs; heap 64 MiB e save 32 KiB invariati; niente banchi grafici per Yharnam (solo Yharnam; altri giochi valutati caso per caso). I WO-R decadono.
 3. R-NET3 (token) non parte finché NET-1/2 non sono consegnati.
 4. Integrazione: ogni operatore consegna sul proprio branch; SPV fa review (subagent) e merge nel proprio branch di integrazione, poi l'utente su `bm-core`.
 
