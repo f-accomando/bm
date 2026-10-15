@@ -104,6 +104,7 @@ Work order completi in `sync/wo/<ID>.md` (scritti da SPV, un blocco per passo).
 | SDLOG-1, SDLOG-2, SDLOG-3, SDLOG-4, SDLOG-5, D28, SDLOG-FIX, FRZ-1..7 | `AGY` | `PENDING` (aspetta handshake) | [`sync/wo/AGY.md`](sync/wo/AGY.md) |
 | AGY-1, AGY-2, AGY-3, AGY-4, AGY-5 (bassa priorità, in sequenza) | `AGY` | `ASSEGNATO` | [`sync/wo/AGY-1.md`](sync/wo/AGY-1.md) ... [`AGY-5`](sync/wo/AGY-5.md) |
 | AGY-7, AGY-8 (repo scaffold, in sequenza) | `AGY` | `ASSEGNATO` | [`sync/wo/AGY-7.md`](sync/wo/AGY-7.md), [`AGY-8`](sync/wo/AGY-8.md) |
+| AGY-9 (dopo AGY-8) | `AGY` | `ASSEGNATO` | [`sync/wo/AGY-9.md`](sync/wo/AGY-9.md) |
 | CI-1, D-MON, D-RES, D-LOAD, D-SCREEN, D-RGB, D-RGB2, CI-AUDIT, D-HOST, D-RUN2, D-IMP | `CI` | `PENDING` (aspetta handshake) | [`sync/wo/CI.md`](sync/wo/CI.md) |
 
 ---
@@ -222,3 +223,5 @@ Solo SPV aggiunge righe. Colonne: orario ISO con fuso · operatore · branch/com
 | 2026-10-15T20:13+02:00 | SPV | `sync/protocollo-ottobre` | `RULE` | Chiarimento: `in attesa di <Y>` nella riga `concluso` indica solo un input necessario da terzi (per esempio SPV per un blocco), non il WO successivo. Tra WO in sequenza la riga è `concluso WO <X>: <file> file +<a> -<d>, <N> token, <M> min` seguita da `preso WO <Z>`. Conferma con `ack`. |
 | 2026-10-15T20:32+02:00 | SPV | `sync/protocollo-ottobre` | `WO` | AGY: due WO sul repo scaffold, in sequenza. AGY-7 `scaffold-workflow-IT.pdf` (guida in italiano, stesso tema e font, script `scripts/build_workflow_pdf_it.py`), AGY-8 `scaffold_prompt.md` (un file che configura Claude Code da solo). Branch `agy/scaffold-workflow-it` e `agy/scaffold-prompt` da `origin/claude/workflow-template`. Solo push dei branch, mai main, merge o PR. Conferma con `ack`. |
 | 2026-10-15T20:33+02:00 | AGY | `agy/sync-perimeter-quarantine`@56e69f06 | `REVIEW: APPROVED` | AGY-6c (e con esso AGY-5): perimetro ok, 10+5 test OK, prova reale su sync/wo/AGY.md (exit 0 e FORBIDDEN exit 1). Mutazione: col vecchio codice 5 test su 10 falliscono, `lstrip` rimesso fa fallire il test di .github. Nota: manca normpath, `.//.github/workflows/ci.yml` da' OUT invece di FORBIDDEN e `src//x` OUT (fail-closed). |
+| 2026-10-15T20:34+02:00 | AGY | `agy/beta6-triage`@9e517b3a | `REVIEW: CHANGES REQUESTED` | AGY-6b: forma ok (21 righe, 0 drift, solo il file), 17 voci su 21 con citazioni pertinenti, D28 con branch@commit giusto. Da correggere: D32 (settings.c:428 e' `#else`), D35 (rgb30.mk non prova l'assenza di host USB), D04/D03 classi discutibili, D34 e D13 righe banali, 'toml stale' da precisare (campi pi/rgb30 contro note), D28 toml stale sul Pi. Dettaglio in AGY-9, da fare dopo AGY-8. |
+| 2026-10-15T20:34+02:00 | SPV | `sync/protocollo-ottobre` | `WO` | AGY-9 (correzioni di dettaglio al triage) in `sync/wo/AGY-9.md`, dopo AGY-8. |
