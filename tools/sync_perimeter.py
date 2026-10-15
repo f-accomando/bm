@@ -10,6 +10,13 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 
+def normalize_path(path):
+    p = path.replace("\\", "/")
+    if p.startswith("./"):
+        p = p[2:]
+    return p
+
+
 def extract_tokens(text):
     tokens = []
     for span in re.findall(r"`([^`]+)`", text):
@@ -24,10 +31,10 @@ def extract_tokens(text):
         else:
             expanded = [span]
         for t in expanded:
-            t = t.strip().replace("\\", "/")
+            t = normalize_path(t.strip())
             if not t:
                 continue
-            if "/" in t or re.match(r"^[\w*?\[\]\-]+\.[\w*?\[\]\-]+$", t):
+            if "/" in t or re.match(r"^[\w*?\[\]\.\-]+$", t):
                 tokens.append(t)
     return tokens
 
@@ -50,7 +57,7 @@ def parse_perimeter_lines(lines):
 
 
 def match_any(path, tokens):
-    norm_path = path.replace("\\", "/").lstrip("./")
+    norm_path = normalize_path(path)
     base = os.path.basename(norm_path)
     for t in tokens:
         if "/" in t:
@@ -63,6 +70,9 @@ def match_any(path, tokens):
 
 
 def check_perimeter(wo_path, section_id=None, files=None):
+    if files is None:
+        files = []
+
     if not os.path.exists(wo_path):
         sys.stderr.write(f"Cannot read {wo_path}\n")
         return 2, []
@@ -78,32 +88,38 @@ def check_perimeter(wo_path, section_id=None, files=None):
         initial_lines = []
         section_lines = []
         in_section = False
-        target_prefix = f"## {section_id.lower()}"
+        found_section = False
+        past_initial = False
+        target_id = section_id.strip().lower()
 
         for line in all_lines:
             stripped = line.strip()
             if stripped.startswith("## "):
+                past_initial = True
                 if in_section:
                     break
-                header_lower = stripped.lower()
-                if header_lower.startswith(target_prefix):
-                    in_section = True
-            elif not in_section and not initial_lines and stripped.startswith("## "):
-                pass
-            if not in_section:
-                # lines before the first ## header
-                if not any(l.strip().startswith("## ") for l in initial_lines):
-                    if not stripped.startswith("## "):
-                        initial_lines.append(line)
-            else:
+                header_rest = stripped[3:].strip()
+                tokens = header_rest.split()
+                if tokens:
+                    first_token = tokens[0].rstrip(":")
+                    if first_token.lower() == target_id:
+                        in_section = True
+                        found_section = True
+            elif in_section:
                 section_lines.append(line)
+            elif not past_initial:
+                initial_lines.append(line)
+
+        if not found_section:
+            sys.stderr.write(f"Section '{section_id}' not found in {wo_path}\n")
+            return 2, []
 
         init_allowed, init_forbidden = parse_perimeter_lines(initial_lines)
         sec_allowed, sec_forbidden = parse_perimeter_lines(section_lines)
 
         violations = []
         for p in files:
-            norm_p = p.replace("\\", "/").lstrip("./")
+            norm_p = normalize_path(p)
             if match_any(norm_p, sec_allowed):
                 continue
             if match_any(norm_p, sec_forbidden):
@@ -118,7 +134,7 @@ def check_perimeter(wo_path, section_id=None, files=None):
         allowed, forbidden = parse_perimeter_lines(all_lines)
         violations = []
         for p in files:
-            norm_p = p.replace("\\", "/").lstrip("./")
+            norm_p = normalize_path(p)
             if match_any(norm_p, forbidden):
                 violations.append(f"FORBIDDEN {norm_p}")
             elif match_any(norm_p, allowed):
