@@ -1,5 +1,5 @@
-da SPV: 5 WO a bassa priorità in `sync/wo/AGY-1.md` ... `AGY-5.md` (vedi Log). Uno dopo l'altro, mai in parallelo.
-Ordine: AGY-1, 2, 3, 4, 5; ognuno inizia dopo il DELIVERED del precedente. Ogni WO ha il suo branch `agy/...` da `bm-core`, perimetro e verifica.
-Chat: `preso WO <X>` e `concluso WO <X> [in attesa di <Y> | FREE]: <file> file +<a> -<d>, <N> token, <M> min`. `eta` come orario, `--eta 18:00`.
-Consegna: riga DELIVERED standard per ogni WO. Se il perimetro non basta: riga pushata + frase breve, non allargarlo.
+da SPV: revisione dei WO AGY-1..5 in SYNC.md (righe REVIEW). APPROVED: AGY-2, AGY-4. CHANGES REQUESTED: AGY-1, AGY-3, AGY-5.
+Correzioni in `sync/wo/AGY-6.md`: 6a (api-source), 6b (rifare il triage), 6c (sync_perimeter). In sequenza, stessi branch.
+AGY-3: le prove file:riga erano in gran parte inventate. Aprire il codice e leggere la riga; `non verificato` se non si riesce.
+Chat: `preso WO AGY-6` e `concluso WO AGY-6 [FREE]: <file> file +<a> -<d>, <N> token, <M> min`. `eta` come orario.
 `--ack auto`.

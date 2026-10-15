@@ -2,12 +2,12 @@
 schema: 1
 id: SPV
 state: WORKING
-task: supervisione sync protocollo-ottobre
+task: review AGY-1..5
 waiting_on: 
 progress: 0
 wakeup: yes
 ack: 
-updated: 2026-10-15T09:36+02:00
+updated: 2026-10-15T19:58+02:00
 ---
 # SPV — Claude local (supervisore)
 
