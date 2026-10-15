@@ -83,7 +83,7 @@ Every request for a model more expensive than the standard one (`bm-deep`, heavy
 
 **User preference (autonomy threshold = 4)**: with N=1-3 the expensive model is not used; with N=4 or 5 the agent switches to the expensive model **autonomously**, without asking, stating score and reason in chat. To change the threshold, edit this line. The score is an estimate, not a measurement (measurable with the ledger).
 
-**Ledger**: after each finished subagent, SPV/the main agent appends a row to `docs/agents/ledger.txt` (append only); `python scripts/agent_audit.py` for tuning.
+**Ledger**: after each finished subagent, SPV/the main agent appends a row to `docs/agents/ledger.txt` (append only); `python scripts/agent_audit.py` for tuning. `python scripts/ledger_repeats.py` lists tasks repeated 3 or more times: on the third repeat they become a skill or a script and are noted in the sync Log.
 
 ### Evidence-Based Escalation
 Agents always close with an explicit status:
