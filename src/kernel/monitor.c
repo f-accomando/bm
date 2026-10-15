@@ -284,10 +284,7 @@ static int line_command(char *c)
         kprintf("%s; %d waiting on the SD card\n", reports_last(), left);
     } else if (!strcmp(c, "reboot")) {
         kprintf("rebooting...\n");
-        wifi_leave();
-        crumbs_clean_exit();
-        uart_flush();
-        watchdog_reboot();
+        crumbs_restart(0);
     } else {
         kprintf("'%s': not a command of the line (gpu, b3d, play, set, save, render, room, log, err, send, reboot)\n", c);
         return -1;
@@ -442,10 +439,7 @@ void monitor_run(void)
         case 'u': update_monitor(); break;
         case 'r':
             kprintf("rebooting...\n");
-            wifi_leave();
-            crumbs_clean_exit();
-            uart_flush();
-            watchdog_reboot();
+            crumbs_restart(0);
         case 'X': {
             /* two keys, so that a stray key never halts the console */
             kprintf("crash test: u undefined insn, a data abort, b prefetch abort, "
