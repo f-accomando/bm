@@ -273,8 +273,7 @@ static void scan_games(void)
         g16_sheet_free(&games[i].cover);
     n_games = n_hidden = 0;
     fat_dir_t d;
-    if (fat_opendir(&d, "bm") == 0)
-        sd_state = "bm/";
+    sd_state = fat_opendir(&d, "bm") == 0 ? "bm/" : "no bm/ folder on the SD card";
     scan_dir("bm", "/bm");
     scan_dir("/carts", "/carts");
     for (int i = 0; i < n_games; i++)
