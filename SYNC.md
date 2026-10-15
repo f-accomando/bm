@@ -102,7 +102,7 @@ Work order completi in `sync/wo/<ID>.md` (scritti da SPV, un blocco per passo).
 | NET-1a, NET-1b, NET-2a, NET-2b, NET-2c, NET-2d | `NET` | `PENDING` (aspetta handshake) | [`sync/wo/NET.md`](sync/wo/NET.md) |
 | B16-DOCS, B16-SDKLINT-3D, B16-MKBM-LINT, B16-YHARNAM-CHECK, B16-D28FU | `B16` | `PENDING` (aspetta handshake) | [`sync/wo/B16.md`](sync/wo/B16.md) |
 | SDLOG-1, SDLOG-2, SDLOG-3, SDLOG-4, SDLOG-5, D28 | `AGY` | `PENDING` (aspetta handshake) | [`sync/wo/AGY.md`](sync/wo/AGY.md) |
-| CI-1, D-MON, D-RES, D-LOAD, D-SCREEN, D-RGB, D-RGB2, CI-AUDIT | `CI` | `PENDING` (aspetta handshake) | [`sync/wo/CI.md`](sync/wo/CI.md) |
+| CI-1, D-MON, D-RES, D-LOAD, D-SCREEN, D-RGB, D-RGB2, CI-AUDIT, D-HOST, D-RUN2 | `CI` | `PENDING` (aspetta handshake) | [`sync/wo/CI.md`](sync/wo/CI.md) |
 
 ---
 
