@@ -68,7 +68,7 @@ ffmpeg/libass; storyboard and script come from the same key script. Series *Skyv
 tool; `make bmhost-ai` builds `bmhost` with the real `ai` table. On the PC: no kernel menu.
 
 ### Tests on a real Pi (`tools/pi_bridge.py`, `tools/pi.py`, `tools/pi_test.py`)
-The owner types the console password once in `pi_bridge.py`; a client (Claude Code, `pi_test.py`) then sends `line`, `send`, `play`, `kernel` through a local socket without seeing the password. It can run `gpu`/`b3d`, send a cartridge or a kernel and restore the normal one. It cannot see the screen or the error of a stopped cartridge yet: [`design/pi-test.md`](../design/pi-test.md) (requests R-NET1..3).
+The owner types the console password once in `pi_bridge.py`; a client (Claude Code, `pi_test.py`) then sends `line`, `send`, `play`, `kernel` through a local socket without seeing the password. It can run `gpu`/`b3d`, send a cartridge or a kernel and restore the normal one. It sees the error of a stopped cartridge (`err`, R-NET1) and the screen (`shot OUT.png`, R-NET2: transfer ops `T`/`G`): [`design/pi-test.md`](../design/pi-test.md).
 
 ### CI (`.github/workflows/ci.yml`)
 Build; host tests (`make test-host`); QEMU in four shards (`make test-qemu SHARD=K/4`); RGB30 build and QEMU
@@ -76,7 +76,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 
 ## Open work (`docs/ROADMAP.md`)
 
-- **Pi tests from the PC** ([`design/pi-test.md`](../design/pi-test.md)): R-NET1 monitor line `err` (last error of the cartridge), R-NET2 screenshot over the network (`shot` line + transfer op `G` + `bm_net.py --get`), R-NET3 a limited test token. To plan with `bm-planner` (kernel change, branch `claude/net-test-*`).
+- **Pi tests from the PC** ([`design/pi-test.md`](../design/pi-test.md)): R-NET3 a limited test token (R-NET1 `err` and R-NET2 screenshot via ops `T`/`G` are done). To plan with `bm-planner` (kernel change, branch `claude/net-test-*`).
 - **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet.
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).

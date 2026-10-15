@@ -469,3 +469,13 @@ status = "open"
 evidence = "carts/editor/main.lua; carts/sdk_b16/main.lua"
 action = "none: pad mappings in carts/sdk_b16/main.lua align 3D preview and level tools with RGB30 controls"
 
+[[divergence]]
+id = "D43"
+area = "network transfer ops T and G"
+pi = "T (screenshot of the running game) and G (a file of bm/shots) in shared code, host tests"
+rgb30 = "same shared code (src/net/netxfer.c, src/bm/runtime.c), not yet verified on the console"
+cause = "todo"
+status = "untested"
+evidence = "src/net/netxfer.c; docs/design/pi-test.md"
+action = "try bm_net.py --shot on an RGB30 with a game running"
+

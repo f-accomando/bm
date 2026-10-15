@@ -16,6 +16,7 @@
  */
 #include "net/netcon.h"
 #include "net/netxfer.h"
+#include "fs/fat.h"
 #include "net/stream.h"
 #include "lib/crc32.h"
 #include "lib/printf.h"
@@ -31,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 
 /* ---- the kernel functions netcon.c uses */
@@ -85,6 +87,33 @@ int fat_write_file(const char *dir, const char *name, const void *data, size_t l
     return 0;
 }
 const char *fat_error(void) { return "test"; }
+/* G: /bm/shots/*.PNG is a file of 3000 bytes, what a screenshot is here */
+int fat_find(const char *path, fat_entry_t *e)
+{
+    if (strcasecmp(path, "/bm/shots/PONG0001.PNG") && strcasecmp(path, "/bm/config.txt"))
+        return -1;
+    memset(e, 0, sizeof *e);
+    e->size = 3000;
+    return 0;
+}
+int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
+{
+    *len = e->size;
+    *data = malloc(*len);
+    for (size_t i = 0; i < *len; i++)
+        (*data)[i] = (uint8_t)(i * 7 + 1);
+    return 0;
+}
+/* T: the runtime draws a frame only when `frame_in` rounds have passed (-1: no game) */
+static int shot_state, shot_asked, shot_frame;   /* shot_frame: a frame comes at once */
+void bm_shot_ask(void) { shot_asked++; shot_state = shot_frame ? 1 : 2; }
+void bm_shot_cancel(void) { shot_state = 0; }
+int bm_shot_done(char *name, size_t n)
+{
+    if (shot_state == 1)
+        snprintf(name, n, "PONG0001.PNG");
+    return shot_state == 2 ? 0 : shot_state;
+}
 
 /* the menu's fiber, run straight through (kernel/fiber.c needs the ARM):
  * fiber_job_stop runs it with fiber_cancelled() 1, as the real one */
@@ -293,7 +322,7 @@ static void xfer(client_t *x, char op, const char *pw, const char *path, const u
             tcp_output(x->pcb);
             spin(5);
         }
-    for (int i = 0; i < 600 && x->len < want && !x->closed; i++)
+    for (int i = 0; i < 4000 && x->len < want && !x->closed; i++)   /* (T waits 3 s for a frame) */
         spin(1);
     if (x->pcb && !x->closed) {
         tcp_recv(x->pcb, NULL);
@@ -501,6 +530,38 @@ int main(int argc, char **argv)
         netxfer_write_tick(0);
         check(strcmp(x.got, "OKQD") == 0 && strcmp(w_dir, "/") == 0 && strcmp(w_name, "top.bm") == 0 &&
               w_len == sizeof a, "  a file for the root: written in /");
+    }
+
+    /* T and G (R-NET2): a screenshot of the running game, and the file back */
+    {
+        client_t x;
+        shot_frame = 1;                 /* a frame is drawn at once */
+        xfer(&x, 'T', "secret", "", NULL, 0, 0, 14);
+        printf("DBG len=%zu got=%.20s\n", x.len, x.got);
+        check(strncmp(x.got, "OK", 2) == 0 && x.len == 18 && memcmp(x.got + 6, "PONG0001.PNG", 12) == 0,
+              "  T: OK and the name of the screenshot");
+        shot_frame = 0;                 /* no game: the frame never comes */
+        xfer(&x, 'T', "secret", "", NULL, 0, 0, 2);
+        check(strcmp(x.got, "NG") == 0, "  T without a game: NG after the wait");
+        xfer(&x, 'T', "nope", "", NULL, 0, 0, 2);
+        check(strcmp(x.got, "PW") == 0, "  T with a wrong password: PW");
+        uint8_t want[3000];
+        for (unsigned i = 0; i < sizeof want; i++)
+            want[i] = (uint8_t)(i * 7 + 1);
+        xfer(&x, 'G', "secret", "bm/shots/pong0001.png", NULL, 0, 0, 10 + 3000);
+        check(x.len == 3010 && strncmp(x.got, "OK", 2) == 0 && memcmp(x.got + 10, want, 3000) == 0 &&
+              (uint8_t)x.got[2] == (3000 & 0xFF) && (uint8_t)x.got[3] == (3000 >> 8), "  G: OK, length, data");
+        uint32_t c;
+        memcpy(&c, x.got + 6, 4);
+        check(c == crc32(want, 3000), "  G: the crc of the data");
+        xfer(&x, 'G', "secret", "bm/config.txt", NULL, 0, 0, 2);
+        check(strcmp(x.got, "PA") == 0, "  G outside bm/shots: PA");
+        xfer(&x, 'G', "secret", "bm/shots/../config.txt", NULL, 0, 0, 2);
+        check(strcmp(x.got, "PA") == 0, "  G with ..: PA");
+        xfer(&x, 'G', "secret", "bm/shots/NOPE0001.PNG", NULL, 0, 0, 2);
+        check(strcmp(x.got, "NF") == 0, "  G of a file that is not there: NF");
+        xfer(&x, 'G', "nope", "bm/shots/pong0001.png", NULL, 0, 0, 2);
+        check(strcmp(x.got, "PW") == 0, "  G with a wrong password: PW");
     }
 
     /* mark: what start.S puts at +4 of a kernel image (kernel.img or the

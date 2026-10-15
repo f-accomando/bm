@@ -107,6 +107,8 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 - FAT writes may meet at a tick (a fiber's write and the menu's `config_save`): a picked
   cluster is marked before any tick, and the directory is read and changed with no tick
   in between (`store()` in `fat.c`). Keep both.
+- Transfer port read ops (`netxfer.c`): `G` serves only files of `bm/shots`, one level, no `..`;
+  `T` needs a game drawing frames and gives up after 3 s (`NG`). Details in [system-net](system-net.md).
 - Keys and tokens only in the environment or `bm/config.txt`, never in files.
 - Tests: `make test-usb`, `test-fat`, `test-net`, `test-https`, `test-http`, `test-lan`,
   `test-github`, `test-release`, `test-catalog`, `test-hyp`; QEMU `-k <name>`.
