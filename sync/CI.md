@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WORKING
-task: test-prompts (null) nel run 38750609431
+state: WAITING
+task: fix test-prompts (065f102b) pushato: attendo run CI
 waiting_on: 
 progress: 0
-eta: 2026-10-15T15:15+02:00
+eta: 2026-10-15T15:50+02:00
 wakeup: no
 ack: 2026-10-15T17:14+02:00
-updated: 2026-10-15T17:16+02:00
+updated: 2026-10-15T17:20+02:00
 ---
 # CI — operatore CI
 
@@ -61,5 +61,6 @@ DELIVERED D-RUN2 @ claude/ci-repair@6b2d8727 · verifica: tests/qemu_test.py -k 
 - D-RUN2 qemu 3/4: test_editor_mouse falliva nella parte SDK ("'code' not on screen", riga 0 vuota): leggeva un secondo screendump dopo il look; ora usa il testo dello stesso look ("OPEN IN" + "code"). Locale 1/1; da confermare in CI.- D-RUN2 host: make test-impostor, solo 'crowd' (eroi in posa): in CI gli checksum ARM 9926f79d e GPU f32adb17 differiscono da 12a000fd e d0191095, in locale (gcc 15.2, WSL) coincidono; le altre scene passano. Sospetto: posa con sin/cos/FMA diversi fra gcc 13 della CI e il mio. NON corretto: cambiare gli hash o il controllo e' una decisione (tests/bm/test_impostor.c:280,287). Proposta: per 'crowd' sostituire l'uguaglianza esatta con il confronto ARM/GPU gia' presente (<=410 px) o un WO D-IMP con gli hash della CI.
 - D-IMP run 38719633913 (8e182236): passo 1 NON basta, crowd ancora 9926f79d/f32adb17 in CI (in locale invariati: -ffp-contract=off non cambia nulla su x86). Passo 2 applicato in 76a2b136: per crowd gli hash non sono piu' asseriti (stampati come informazione), resta il confronto ARM/GPU; indebolimento voluto, copertura residua = ARM/GPU (<=410 px) e le altre scene. Locale: make test-impostor exit 0.- qemu 1/4 test_mesh (rosso solo in quel run, verde nel precedente): lo screendump catturato a meta' ridisegno (riga d'intestazione '??? list?') passava le parole attese ma non la stringa asserita dopo. Fix in 78e4062e: la stringa e' ora fra le attese di screen(). Locale -k mesh 3/3. Flake da dump a meta' redraw, come test_editor_mouse.
 - host run 38737001683 (78e4062e): rosso solo test-studio (sdk_host.lua:575, carts/editor/main.lua:1614 'attempt to index a nil value'). Causa PREESISTENTE su bm-core: step_zoom usa ZOOM_STEPS mai definito nell'editor (esiste solo in carts/sdk_b16/main.lua:1916); '-' / '+' della mappa crashavano anche per l'utente. Fix di una riga in c38271f7 (local ZOOM_STEPS = {1,2,4,8,16} prima di step_zoom), fuori perimetro CI: dichiarato. Locale: make test-studio exit 0. Crowd e test_mesh non sono piu' rossi nel run.
+- host run 38750609431 (c38271f7): test-prompts, 9 FAIL '(null)'. Causa PREESISTENTE (d0e819f0, chip del mouse): tests/ui/test_prompts.c non aveva i nomi dei 3 PROMPT_MOUSE* in names[] e pretendeva larghezza >=16 / >=altezza, ma il mouse e' 11 px (9 nel chip piccolo) per scelta. Fix solo test in 065f102b: nomi, controllo dedicato del mouse (11x16, angoli liberi), minw 9 nei chip. Locale: make test-prompts ok. Non verificato: altri test host dopo prompts (si vede dal run).
 
 ## Richieste
