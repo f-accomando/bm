@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: FREE
-task: waiting SPV
+state: WORKING
+task: D28
 waiting_on: 
 progress: 0
-eta: 2026-10-15T11:00+02:00
+eta: 2026-10-15T13:05+02:00
 wakeup: no
-ack: 2026-10-15T10:25+02:00
-updated: 2026-10-15T10:44+02:00
+ack: 2026-10-15T14:30+02:00
+updated: 2026-10-15T12:23+02:00
 ---
 # AGY — Antigravity
 
