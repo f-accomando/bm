@@ -223,6 +223,7 @@ rgb30 = "bootlog.txt, bootprev.txt, lastrun.txt in bm/"
 cause = "history"
 priority = 6
 status = "resolved"
+note = "provato dall'utente su Pi Zero W il 2026-10-15 dopo SDLOG-FIX: lastrun, bootlog e bootprev corretti dopo reboot e shutdown; bootprev mostra la run prima. Crash volontario coperto da test_crash_report (QEMU), non provato a mano. Watchdog assente sul Pi Zero W: tempo di scrittura prima del reset non misurabile. Le password della console compaiono in chiaro nei log su SD"
 evidence = "src/kernel/sdlog.c:1-85; src/kernel/main.c:275-277; src/rgb30/main.c:161-240"
 action = "shared module src/kernel/sdlog.c gives both platforms identical logs"
 
