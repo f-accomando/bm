@@ -33,6 +33,7 @@ Never read whole files. All current state is tracked in [`docs/progress.md`](doc
 - **Licenses & Security**: No GPL code (e.g. Linux kernel) copied into the bare-metal sources; GPU structures from Mesa (MIT). No keys (`*_KEY`, tokens) in files.
 - **Separate `.bm` and `.b16` Editions**: A `.b16` never replaces the `.bm`; they are distinct editions with their own Market channels and builds. Never overwrite the `.bm` sources to make the `.b16`.
 - **Projects vs Games (M47)**: Editors modify only `.bme` projects. `.bm` files are read-only; `Ctrl+B` compiles the final `.bm`.
+- **Writing rules**: State each rule as what to do ("do it this way"), not as a prohibition. When a rule is retired, delete it; do not replace it with its negation, because a "do not X" line keeps the old behavior in view and reads as a new rule. Add an explicit prohibition only as an exception, when Claude keeps repeating something that harms development despite the positive rule, and note the harm next to it.
 
 ---
 
