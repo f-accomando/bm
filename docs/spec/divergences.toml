@@ -479,3 +479,13 @@ status = "untested"
 evidence = "src/net/netxfer.c; docs/design/pi-test.md"
 action = "try bm_net.py --shot on an RGB30 with a game running"
 
+[[divergence]]
+id = "D44"
+area = "Dev tab lists .bme projects"
+pi = "Dev lists .bme projects"
+rgb30 = "Dev tab does not list .bme projects"
+cause = "todo"
+priority = 6
+status = "open"
+evidence = "src/kernel/carts.c:842-844; src/rgb30/ui.c"
+action = "decide whether RGB30 Dev lists .bme"

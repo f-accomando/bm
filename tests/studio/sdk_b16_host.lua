@@ -1032,10 +1032,10 @@ check(not sees("file name") and saves == n_saves + 1 and last_save.path == "/car
 check(refused == 0 and copies == 0, "the runtime never refused a save, no copy of a project (" .. refused .. ")")
 
 -- the build and the try: the project's game next to it (the Games tab
--- lists bm/: the message says so); F5 leaves for the console to play it
+-- lists the game: the message says so); F5 leaves for the console to play it
 key("^b")
 check(built == "/carts/KEEP.BM", "Ctrl+B builds the game: " .. tostring(built))
-check(status():find("built /carts/KEEP.BM", 1, true) and status():find("lists bm/", 1, true),
+check(status():find("built /carts/KEEP.BM", 1, true) and status():find("it is in Games", 1, true),
       "Ctrl+B says where the game is: " .. status())
 key("^B")
 check(built == "/carts/KEEP.B16", "Ctrl+Shift+B exports .b16: " .. tostring(built))
