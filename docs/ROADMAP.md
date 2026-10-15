@@ -47,8 +47,8 @@ Il piano di sviluppo di **bm** (BareMetal), una *fantasy console* bare metal per
 | ID | Pri | Stato | Obiettivo | Requisito | Dettagli | Dopo |
 |---|---|---|---|---|---|---|
 | SYS-1 | P0 | in corso | CI verde su `bm-core` | tutti i job di `ci.yml` (host, qemu 1-4, rgb30) verdi su `bm-core`; `scripts/ci_audit.py` exit 0 | [tools](progress/tools.md), [sync](progress/sync.md) | - |
-| SYS-2 | P0 | in corso | Freeze report e log su SD affidabili | un riavvio voluto non segnala un freeze; un crash scrive `bootprev.txt` giusto; la password è mascherata nei log su SD; il watchdog conta sul Pi Zero W | [system](progress/system.md) `Open work` | SYS-1 |
-| SYS-3 | P1 | in corso | Prove del Pi dal PC (rete, tasti, screenshot) | `bm_net.py --shot/--keys` e il bridge provati su un Pi; R-NET3 con un token di test limitato | [tools](progress/tools.md) `Pi tests from the PC`, [pi-test](design/pi-test.md) | - |
+| SYS-2 | P0 | da provare sul Pi | Freeze report e log su SD affidabili | un riavvio voluto non segnala un freeze; un crash scrive `bootprev.txt` giusto; la password è mascherata nei log su SD; il watchdog conta sul Pi Zero W | [system](progress/system.md) `Open work` | SYS-1 |
+| SYS-3 | P1 | da provare sul Pi | Prove del Pi dal PC (rete, tasti, screenshot) | `bm_net.py --shot/--keys` e il bridge provati su un Pi; R-NET3 con un token di test limitato | [tools](progress/tools.md) `Pi tests from the PC`, [pi-test](design/pi-test.md) | - |
 | SYS-4 | P1 | da fare | Coordinamento multi-agente misurabile | ledger e `agent_audit.py` con baseline; perimetro dei work order controllato da script | [sync](progress/sync.md), [sync-workflow](progress/sync-workflow.md) | - |
 | M42 | P1 | in corso | Profilo `.b16` identico su Pi e RGB30 | *Yharnam* `.b16` gira indistinguibile su Pi Zero W e RGB30, stesso throttle CPU | [b16](progress/b16.md) §2-3 | - |
 | SYS-5 | P1 | in corso | RGB30 stabile: pannello dopo riavvio a caldo, Start+Select, un solo core | riavvio a caldo senza schermo nero; Start+Select congela e riprende come sul Pi | [platforms](progress/platforms.md) `Open work`, [multitasking](progress/multitasking.md) `Open` | - |
