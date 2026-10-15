@@ -19,6 +19,7 @@ The coordination workflow relies on Git-backed asynchronous messaging and isolat
   `eta`, and `updated` timestamp.
 - **Central Supervisor Register**: The supervisor (SPV) periodically audits operator frontmatters,
   summarizes overall project state in table 1b of [`SYNC.md`](../../SYNC.md), and issues work orders.
+- **Ledger rows**: append sub-agent rows with `python scripts/ledger_add.py --agent ... --model ... --task ... --area ... --tokens N --tools N --secs N` (validates like `agent_audit.py`, skips duplicates, `--no-write` previews) instead of editing `docs/agents/ledger.txt` by hand.
 - **Dedicated Feature Branches**: Code changes live on isolated branches (`agy/*`, `feat/claude-*`).
   Only sync logs touch the sync branch; reviewed code reaches `bm-core` by merge, by the owner.
 
