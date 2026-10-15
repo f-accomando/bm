@@ -3523,7 +3523,7 @@ def test_publish(b, opts):
             time.sleep(0.5)
             keys("x")                               # the options of My Game
             screen(["My Game", "Play"])
-            keys("sssssssss")                       # after the seven "Open in" and the copy
+            keys("ssssssssss")                      # after the seven "Open in", the copy and Export .b16
             screen(["Publish to the Market", "A pull request with your GitHub token"])
             keys("\r")
             screen(["Publish > My Game", "games/my-game", "License", "MIT", "GitHub token", "set",
@@ -4206,7 +4206,7 @@ def test_studio_animator(b, opts):
         screen(["SPRITES", "villager", "idle", "384x192 pixels in the sheet"])
         shot("animator-sprites")
         keys("\r")
-        screen(["32 sprites put in the sheet", "sspr("], tries=80)
+        screen(["32 sprites and 56 boxes put in sheet", "sspr("], tries=80)
         shot("animator-sprites-put")
 
         # out (not saved: asked twice)
