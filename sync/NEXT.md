@@ -2,6 +2,8 @@
 
 Single writer: SPV. Read this first, then `SYNC.md` Log (last rows) and `python tools/sync_check.py`.
 
+**Section 5 (end of day, 18:15) supersedes sections 1-2 where they differ.**
+
 ## 1. State at the end of today
 
 | Item | State |
@@ -48,3 +50,28 @@ Rules for the session: one operator per feature; user approval before any push t
 - Removed (merged into the integration): remote and local branches `claude/b16-profile`, `claude/net-test-err`, `agy/sdlog`, `agy/d28-games-carts`, `agy/sdlog-prev-fix`, `claude/sdk-games-message`, `claude/net-keys`, `agy/freeze-reports`, `claude/net-logs`, and their worktrees.
 - Kept: worktrees of `ci-repair`, the integration, roadmap, docs-english, remove-meshy, the sync worktrees of op-ci / op-net / AGY (reused next session).
 - Local only: `bm-core` is ahead of origin by ledger rows (`docs/agents/ledger.txt`); push them with the next protocol commit on `bm-core`.
+
+## 5. Update at the close of the session (18:15, supersedes sections 1-2)
+
+**Merged into `bm-core` today (user-approved):** PR 17 (ctx_guard, /cp), 18 (Meshy workflows removed), 19 (docs in English, positive rules), 20 (ROADMAP with levels and Beta section). The docs-english, roadmap and remove-meshy branches and worktrees are removable.
+
+**Integration `claude/integrazione-ottobre` (0c8556a9):** still NOT in `bm-core`, no PR. Needs CI green and the user's go. It contains FRZ-1..4,6,7 and R-NET4 (both APPROVED).
+
+**Hardware proof done today (Pi Zero W, integration kernel, user + bridge):**
+- Boot log: `watchdog: on, 3000 ms (loaded 196608, after 20 ms 195358)`.
+- Monitor `X f`: the Pi restarted in 2-3 s; next boot says "the Pi froze last time and the watchdog restarted it".
+- `bootprev.txt` describes the frozen run ("freeze test (X f), 296 s after boot"), not the new boot: the SDLOG-FIX bug is closed.
+- To do tomorrow (SPV, on the integration branch, with the user's go to push): set D19 to `resolved` in `docs/spec/divergences.toml`; remove "to test on the Pi" from SYS-2 and SYS-3 in `docs/ROADMAP.md`. Still untested: D43, D-RGB2, the voluntary crashes (`keys crash-*`).
+- The bridge (`tools/pi_bridge.py`, started from `bm33-int`, host 192.168.1.108) was restarted by the user with the new code (`logs`, `keys`, `kernel`). It dies with the shell; the password is typed by the user each time.
+
+**New work for tomorrow, R-NET5 (op-net, low-medium priority):** a durable bridge for tests: named keys for `X f` (freeze), reboot and a quick status; clarify whether the bridge can survive a Pi restart without storing the password; keep the fixed tables (no free keys). SPV writes the WO first (Readiness Gate).
+
+**AGY-1..5 (assigned 17:48, `sync/wo/AGY-1.md` ... `AGY-5.md`, pushed f9a780e1):** five low-priority, non-graphics WOs to run one after the other (API-SRC, API-LINT, TRIAGE, AUDIT, PERIM). The user has the start prompt; AGY has not read the inbox yet (unread 1). Tomorrow: read AGY's DELIVERED rows, review each (independent subagent, no verdict handed over). Decisions taken: APP-5 data part goes to AGY, `src/ai/api.tsv` is the single API source (switching `predict`/`mkwords.py` to it is a later WO), `sync_perimeter.py` lives on `bm-core` with the other `sync_*.py`.
+
+**Protocol rows added today:** `eta` is now a plain time (`--eta 18:00`, `sync_hdr.py` completes date and offset from the machine clock; a UTC host falls back to +02:00, wrong after the clock change on 25 Oct), pushed c50bff94. Operators must `ack`. sync_check still flags NET's non-standard DELIVERED line (R-NET4 rev. 2).
+
+**Agents left running (let them finish, then collect):** the CI diagnosis agent (reproduces every failing target of the `host` job locally; expected table: target, cause, class, minimal fix, pre-existing on bm-core, repro command) and the `baremetal` export agent (local repo `C:\Users\Utente\Documents\GitHub\baremetal`). First thing tomorrow: read both reports; then one agent per CI failure with disjoint file perimeters, fixes only on `claude/ci-repair`, verified locally before the push. Push of `baremetal` to `f-accomando/baremetal` only with the user's go, after reviewing the tree.
+
+**Local housekeeping:** `bm-core` in the main checkout is behind origin and has unpushed ledger rows (up to the planner row for the AGY WOs): `pull --rebase` and push with the next protocol commit. Planner row for the AGY WOs and the earlier subagents are in the ledger.
+
+**Still open with the user (unchanged):** revoke the Meshy key in the dashboard; scaffold PR 1 waits for the go; FRZ-5 (SPV recommends not doing it); watchdog duration; SIGNOFF of op-b16 and op-net; old remote branches; queued CI runs to cancel; the wrong report in `reports/unknown/20261015-113845_log_pi-zero-w_dev.txt`; broken host test `sdk_b16`; English translation of `SYNC.md`, `sync/*`, `docs/progress/sync.md` and the protocol strings when operators are FREE.
