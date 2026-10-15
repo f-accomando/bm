@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WORKING
-task: D-IMP
+state: WAITING
+task: D-IMP passo 1 (8e182236) pushato: attendo run CI 38719633913
 waiting_on: 
 progress: 0
-eta: 2026-10-15T13:15+02:00
+eta: 2026-10-15T13:00+02:00
 wakeup: no
 ack: 2026-10-15T14:30+02:00
-updated: 2026-10-15T12:20+02:00
+updated: 2026-10-15T12:22+02:00
 ---
 # CI — operatore CI
 
