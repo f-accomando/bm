@@ -222,7 +222,8 @@ def test_screen_console(b, opts):
 
 def test_el2_image_relocation(b, opts):
     """kernel8.img as U-Boot's booti would start it: EL2, x0 = device tree,
-    loaded below the link address (start.S moves it and drops to EL1)."""
+    loaded away from the link address (QEMU: above it, at 0x40200000;
+    start.S moves it and drops to EL1)."""
     q = Qemu(os.path.join(b, "kernel8.img"), machine="virt,gic-version=3,virtualization=on")
     try:
         out = boot(q)

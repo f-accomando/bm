@@ -85,6 +85,10 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 
 ## Rules (do not break)
 
+- `src/rgb30/start.S` copy_up: the copy loop must stay within the first BOOT_HEAD (0x100) bytes
+  (assembler `.error`); it copies the head to the link address and continues from there (an
+  in-place forward copy overwrote itself above 1.5 MiB in QEMU virt).
+
 - One menu (`src/kernel/menu_ui.c`) and one Settings (`src/kernel/settings.c`) for Pi and
   RGB30: a new row goes there for both.
 - A kernel from the network must match the board (`bmK6`/`bmK7` at offset 4).
