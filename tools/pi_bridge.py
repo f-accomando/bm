@@ -5,8 +5,8 @@ fixed operations without ever seeing the password.
   python3 tools/pi_bridge.py 192.168.1.108          # asks for the password, then waits (Ctrl-C to stop)
   python3 tools/pi.py line gpu                        # the client (another shell, or Claude)
 
-Operations: line TEXT (a monitor line: gpu, b3d, ...), send FILE, play FILE, kernel FILE, config KEY=VALUE.. is NOT allowed.
-FILE must be inside the repo or in ~/bmk*/ (the build folders). The socket is ~/.pi_bridge.sock, mode 0600."""
+Operations: line TEXT (a monitor line: gpu, b3d, ...), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. is NOT allowed.
+FILE must be inside the repo or in ~/bmk*/ (the build folders); OUT of shot is a .png in a folder there. The socket is ~/.pi_bridge.sock, mode 0600."""
 import getpass
 import os
 import socket
@@ -24,6 +24,11 @@ def allowed(path):
     return os.path.isfile(p) and any(p.startswith(os.path.realpath(d) + os.sep) for d in ALLOWED_DIRS)
 
 
+def allowed_dir(path):
+    p = os.path.realpath(path)
+    return os.path.isdir(p) and any(p == os.path.realpath(d) or p.startswith(os.path.realpath(d) + os.sep) for d in ALLOWED_DIRS)
+
+
 def run(host, pw, req):
     op, _, arg = req.partition(" ")
     base = [sys.executable, os.path.join(HERE, "bm_net.py"), host]
@@ -31,6 +36,8 @@ def run(host, pw, req):
         cmd = base + ["--line", arg]
     elif op in ("send", "play", "kernel") and allowed(arg):
         cmd = base + ["--" + op, os.path.realpath(arg)]
+    elif op == "shot" and arg.lower().endswith(".png") and allowed_dir(os.path.dirname(arg) or "."):
+        cmd = base + ["--shot", os.path.realpath(arg)]
     else:
         return "refused: %r" % req
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=dict(os.environ, BM_PASSWORD=pw))

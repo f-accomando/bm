@@ -4,7 +4,7 @@
   python3 tools/pi_test.py --cart build/carts/pong.bm [--wait 15] [--gpu] [--bench] [--kernel build/kernel.img] [--restore build/kernel.img]
   python3 tools/pi_test.py --line "gpu"             # any monitor line
 
-Steps, in this order, each one printed with its answer:  kernel (then the reboot is waited for), cart (--play), wait, err, gpu, bench, restore.
+Steps, in this order, each one printed with its answer:  kernel (then the reboot is waited for), cart (--play), wait, err, shot, gpu, bench, restore.
 A step fails when the answer has a refusal ("refused", "wrong password", "No such file", "not a kernel", "file too big") or when the bridge is down.
 The answer to --play only says the cartridge started: --cart therefore ends with an `err` check (monitor line "err" after the wait):
 "err: <text>" = runtime error of the cartridge = FAIL; "err: none" or "back to the menu first" (game still running) = PASS
@@ -48,6 +48,7 @@ def main():
     ap.add_argument("--gpu", action="store_true")
     ap.add_argument("--bench", action="store_true")
     ap.add_argument("--line", action="append", default=[])
+    ap.add_argument("--shot", metavar="OUT.png", help="after the cart (and its err check): a screenshot of the Pi saved as OUT.png")
     ap.add_argument("--restore")
     a = ap.parse_args()
     steps = []
@@ -57,6 +58,8 @@ def main():
         steps.append(("play " + a.cart, ["play", a.cart]))
         steps.append(("wait %d s" % a.wait, None))
         steps.append(("err", ["line", "err"]))
+    if a.shot:
+        steps.append(("shot " + a.shot, ["shot", os.path.abspath(a.shot)]))
     if a.gpu:
         steps.append(("gpu", ["line", "gpu"]))
     if a.bench:
