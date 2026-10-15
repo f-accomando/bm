@@ -362,3 +362,16 @@ la base per la battaglia col boss finale => music.base.boss
 a funky bass line => music.bass.funk
 the sound when the hero jumps => music.sfx.jump
 lofi beats to study to => music.beat.lofi, music.base.lofi
+
+# rig and skin (bm Animator)
+come metto le ossa al mio personaggio => guide.rig_character
+il mio modello non si muove con l'animazione pronta => tip.rig_names
+what is the right order to rig a character => guide.rig_character
+il braccio si deforma quando lo piego => tip.rig_stretch
+my elbow looks broken when it bends => tip.rig_stretch
+perché non si possono mescolare due ossa su un angolo => tip.rig_one_bone
+do i need weight painting for the skin => tip.rig_one_bone
+come aggiungo una coda animata a un animale => howto.rig_tail
+the tail of my gecko should sway when it walks => howto.rig_tail
+come controllo il rig prima di fare l'animazione => howto.rig_test_pose
+test poses for a rigged model => howto.rig_test_pose
