@@ -8,3 +8,4 @@
 2026-10-15|general-purpose|sonnet|review D-SCREEN,D-RGB,D-RGB2 (CI)|sync|-|-|DONE|101575|15|1119
 2026-10-15|bm-planner|opus|WO workflow: review meccanica, parita CI, anticorruzione, report|tools|-|-|DONE|67648|20|245
 2026-10-15|general-purpose|sonnet|review D28,B16-D28FU,CI-AUDIT,D-HOST|sync|-|-|DONE|104948|13|593
+2026-10-15|general-purpose|sonnet|review SDLOG-FIX (AGY)|sync|-|-|DONE|88959|8|486
