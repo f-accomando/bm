@@ -120,4 +120,5 @@ run from the skill folder. Procedure on drift: `references/LOOP.md` `## Keep in 
 - `references/CLI.md`: exact syntax, output lines and exit codes of every subcommand.
 - `references/LOOP.md`: improvement loop, metrics, optional tools, keep-in-sync procedure.
 - `references/LESSONS.md`: cases and rules learnt while using the skill.
+- `references/DETAIL.md`: limits, polygon reduction against building low, what 1200 triangles keep (mannequin test).
 - `references/CHARACTERS.md`: shared parts of characters and the `examples/charkit` spec (presets Crash, Rango).

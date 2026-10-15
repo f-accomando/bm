@@ -130,7 +130,7 @@ def main(out):
         files[f"reference reduced to {n}"] = f"ref_r{n}.bm"
     run([py, os.path.join(ROOT, "tools", "bmreduce.py"), os.path.join(out, "ultra.bm"), "--faces", "1200",
          "-o", os.path.join(out, "ultra_r1200.bm")])
-    files["ultra (26736) reduced to 1200"] = "ultra_r1200.bm"
+    files[f"ultra source ({len(mannequin.build(6.0)[0].faces)} tris) reduced to 1200"] = "ultra_r1200.bm"
 
     rv, rt, rg = load(os.path.join(out, "reference.bm"))
     rng = np.random.default_rng(1)

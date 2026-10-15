@@ -7,6 +7,10 @@ Split from [tools](tools.md); open work and rules stay there.
   `assist.weights` built by `make ai-model`; format in `src/ai/kb/README.md`).
 - Recipes: sprites (`sprite.c`), low-poly models with skeletons (`mesh.c`), music
   (`music.c`). Panel shared by the tools (`require "assist"`).
+- Low poly help: `src/ai/kb/lowpoly.txt` (guide `guide.lowpoly_1200`, howto `howto.reduce_triangles`, tips
+  `tip.tri_limits`, `tip.reduce_or_build`, `tip.reduce_lost_parts`): Studio's models page (F2), key `-`. Numbers from
+  the mannequin test, `.claude/skills/bm-forge/references/DETAIL.md` (1200 triangles: 0.46 cm on a 1.8 m figure;
+  reduce and build low tie at 1200, reduction wins below about 900).
 - Rig help for beginners: `src/ai/kb/rig.txt` (guide `guide.rig_character`, tips `tip.rig_stretch`,
   `tip.rig_one_bone`, `tip.rig_names`, howtos `howto.rig_tail`, `howto.rig_test_pose`): the keys of bm Animator's
   F2 rig page and F3 animate page. Avoid the word "scheletro" in their questions (`mesh.skeleton` is the enemy).

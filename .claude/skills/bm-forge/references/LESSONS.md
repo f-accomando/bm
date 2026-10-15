@@ -77,3 +77,11 @@ first; the example's values are read off that chart (approximate).
 **Studio/Animator**: the recipes' part language (box, tube, ell, prism, mirror, bone per group) cannot express a
 shared-vertex skin, so this model is a file (`.bm` with MESH+ANIM), not a script. It validates and plays a clip
 in bm_core; it was never opened in bm Mesh / Animator on the console (NON VERIFICATO).
+
+## L8 Reduce a detailed model or build it low: measure, and keep details out of the first version
+
+**Lesson**: for base forms a 1200-triangle model is within 0.5 cm of a 4000-triangle one on a 1.8 m figure; reduction
+and a direct low build tie at 1200 and above, reduction wins below about 900 (`references/DETAIL.md`).
+**Case**: loose face details, abs and ball joints on the mannequin looked crude and were rejected: "base forms only".
+**Rule**: model base forms first, as one continuous skin; add a detail only with its own budget and measure its region
+apart (the mean error hides it). The tools' ceiling is 4096 vertices, about 8000 triangles for a continuous skin.

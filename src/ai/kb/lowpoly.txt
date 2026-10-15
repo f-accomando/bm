@@ -1,0 +1,146 @@
+# Low poly: how many triangles a 3D model can have, how to reduce it in bm Studio, what to expect.
+# Numbers measured on a mannequin (.claude/skills/bm-forge/references/DETAIL.md); keys are bm Studio's models page (F2).
+
+== guide.lowpoly_1200
+kind: guide
+title: Guida: portare un modello 3D a 1200 triangoli
+title_en: Guide: bring a 3D model down to 1200 triangles
+ask: come porto il mio personaggio a 1200 triangoli | come faccio un modello leggero per la console | ottimizzare un modello 3d
+ask: guida low poly | modello 3d con pochi triangoli | quanti triangoli deve avere il personaggio
+ask: how do i make my model fit 1200 triangles | optimize a 3d model for the console | low poly guide
+ask: step by step polygon reduction | make a lighter 3d character | reduce the triangles of my character
+keys: triangoli, leggero, ottimizzare, low poly, 1200, triangles, optimize
+see: howto.reduce_triangles, tip.reduce_or_build, tip.tri_limits, tip.reduce_lost_parts
+text:
+1. Modella prima le forme base (testa, torace, arti), tutto d'un pezzo, senza
+dettagli minuti: un naso o un pollice aggiunti a mano sembrano crudi e sono i
+primi a sparire quando si riducono i triangoli.
+
+2. Parti alto: fino a circa 4000 vertici (circa 8000 triangoli) è il massimo
+che gli strumenti reggono.
+
+3. In bm Studio apri la pagina modelli (F2), scegli il modello e premi -:
+scrivi i triangoli voluti (di solito la metà), poi Invio.
+
+4. Guarda il modello di lato e dall'alto: la sagoma deve restare uguale.
+Ctrl+Z annulla se non va.
+
+5. In bm Animator, pagina rig (F2), premi t: le facce rosse si stirano o si
+strappano quando piega le ossa.
+
+6. Sotto circa 900 triangoli tieni la testa dalla riduzione e costruisci mani
+e piedi bassi fin dall'inizio.
+text_en:
+1. Model the base forms first (head, chest, limbs), all in one piece, with no
+small details: a nose or a thumb added by hand looks crude and is the first
+thing to go when triangles are reduced.
+
+2. Start high: about 4000 vertices (about 8000 triangles) is the most the
+tools hold.
+
+3. In bm Studio open the models page (F2), choose the model and press -:
+type the triangles you want (usually half), then Enter.
+
+4. Look at the model from the side and from above: the outline must stay the
+same. Ctrl+Z undoes it if it is not right.
+
+5. In bm Animator, rig page (F2), press t: the red faces stretch or tear when
+the bones bend.
+
+6. Below about 900 triangles keep the head from the reduction and build hands
+and feet low from the start.
+
+== howto.reduce_triangles
+kind: howto
+title: Ridurre i triangoli di un modello in bm Studio
+title_en: Reduce the triangles of a model in bm Studio
+ask: come riduco i triangoli di un modello | ridurre i poligoni di un modello 3d | meno triangoli in bm studio
+ask: il modello ha troppi triangoli | come alleggerisco un modello 3d | riduzione triangoli
+ask: how do i reduce the triangles of a model | fewer polygons in bm studio | make my model lighter
+ask: the model has too many triangles | decimate a 3d model | reduce polygons
+keys: ridurre, riduzione, alleggerire, reduce, decimate, fewer
+see: guide.lowpoly_1200, tip.tri_limits
+text:
+In bm Studio: F2 (modelli), scegli il modello, premi - (meno triangoli).
+Scrivi quanti triangoli vuoi: di solito la metà di quelli che ha. Dice
+"reduced to N triangles" quando ha finito; Ctrl+Z annulla. Lo scheletro e le
+animazioni restano: ogni vertice tiene il suo osso. Sul PC, per una
+cartuccia intera: python tools/bmreduce.py CART.bm --faces 1200 -o OUT.bm
+text_en:
+In bm Studio: F2 (models), choose the model, press - (fewer triangles).
+Type how many triangles you want: usually half of what it has. It says
+"reduced to N triangles" when done; Ctrl+Z undoes it. The skeleton and the
+animations stay: every vertex keeps its bone. On the PC, for a whole cartridge:
+python tools/bmreduce.py CART.bm --faces 1200 -o OUT.bm
+
+== tip.tri_limits
+kind: tip
+title: Quanti triangoli e vertici può avere un modello
+title_en: How many triangles and vertices a model can have
+ask: quanti triangoli posso usare per un personaggio | limite di triangoli di un modello | quanti vertici al massimo
+ask: massimo numero di poligoni in bm studio | quanti triangoli disegna la console | budget di triangoli
+ask: what is the maximum number of vertices in bm studio | how many triangles can a model have | triangle budget
+ask: how many triangles can the console draw | polygon limit of a model | how many polygons per character
+keys: limite, massimo, budget, limit, maximum
+see: guide.lowpoly_1200, howto.reduce_triangles
+text:
+Un modello fatto in bm Studio o in bm Animator arriva a 4096 vertici e 16384
+triangoli (il kernel legge fino a 65535). Una pelle continua ha circa metà
+vertici dei triangoli: 4096 vertici sono circa 8000 triangoli. La console ne
+disegna circa 1200 per scena a 60 fps: un personaggio sta bene in 600-1200.
+stat(4) dice quanti triangoli disegni in quel momento.
+text_en:
+A model made in bm Studio or bm Animator can have 4096 vertices and 16384
+triangles (the kernel reads up to 65535). A continuous skin has about half as
+many vertices as triangles: 4096 vertices are about 8000 triangles. The
+console draws about 1200 a scene at 60 fps: a character fits well in 600-1200.
+stat(4) tells how many triangles you draw right now.
+
+== tip.reduce_or_build
+kind: tip
+title: Meglio ridurre un modello dettagliato o costruirlo basso?
+title_en: Reduce a detailed model or build it low?
+ask: meglio costruire un modello basso o ridurlo | conviene ridurre un modello dettagliato | partire da un modello ricco
+ask: modellare low poly direttamente o ridurre dopo | quale metodo per un modello leggero | ridurre o rifare
+ask: should i model low poly or reduce a detailed model | is reducing better than building low | start detailed or low
+ask: build low poly from scratch or decimate | which is better for 1200 triangles
+keys: meglio, conviene, ridurre, costruire, better, scratch
+see: guide.lowpoly_1200, tip.reduce_lost_parts
+text:
+Misurato su un manichino alto 1,8 m: a 1200 triangoli e oltre pareggiano
+(errore medio 0,46 cm per entrambi). Sotto circa 900 triangoli vince la
+riduzione, soprattutto sulla testa; mani e piedi costruiti bassi restano
+meglio. Oltre 2000 triangoli si guadagna meno del 15%. Un modello più ricco
+del limite degli strumenti non migliora il risultato.
+text_en:
+Measured on a mannequin 1.8 m tall: at 1200 triangles and above they tie (mean
+error 0.46 cm for both). Below about 900 triangles reduction wins, above all on
+the head; hands and feet built low stay better. Above 2000 triangles you gain
+less than 15%. A model richer than the tools' limit does not improve the result.
+
+== tip.reduce_lost_parts
+kind: tip
+title: Dopo la riduzione la testa o le mani sono peggiorate
+title_en: After reducing, the head or the hands look worse
+ask: dopo la riduzione la testa è deformata | le mani sono brutte dopo aver ridotto i triangoli | la riduzione ha rovinato il modello
+ask: il modello ridotto ha perso dettagli | sono spariti i dettagli dopo la riduzione | il viso non si vede più
+ask: the hands look bad after reducing polygons | the head is deformed after reducing | reduction ruined my model
+ask: details disappeared after reducing triangles | the reduced model lost its shape
+keys: deformata, spariti, rovinato, deformed, lost, ruined
+see: howto.reduce_triangles, tip.reduce_or_build
+text:
+La riduzione toglie prima le parti piccole: dita, naso, orecchie. Rimedi:
+1. Ctrl+Z e riduci di meno (per esempio 1200 invece di 600).
+2. Costruisci mani e piedi già bassi (una manopola con il pollice), non
+ridurli.
+3. Guarda la sagoma di lato e dall'alto, non solo di fronte.
+4. Aggiungi un dettaglio solo dopo la riduzione, e dagli il suo budget di
+triangoli.
+text_en:
+Reduction removes the small parts first: fingers, nose, ears. Fixes:
+1. Ctrl+Z and reduce less (for example 1200 instead of 600).
+2. Build hands and feet low from the start (a mitten with a thumb), do not
+reduce them.
+3. Look at the outline from the side and from above, not only the front.
+4. Add a detail only after the reduction, and give it its own budget of
+triangles.
