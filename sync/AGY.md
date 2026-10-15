@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-9
+state: FREE
+task: 
 waiting_on: 
 progress: 100
-eta: 2026-10-15T22:30+02:00
+eta: 
 wakeup: no
-ack: 2026-10-15T20:34+02:00
-updated: 2026-10-15T21:30+02:00
+ack: 2026-10-15T21:32+02:00
+updated: 2026-10-15T21:43+02:00
 ---
 # AGY — Antigravity
 
@@ -56,8 +56,10 @@ DELIVERED AGY-6b @ agy/beta6-triage@9e517b3a · verifica: python scripts/consist
 DELIVERED AGY-6c @ agy/sync-perimeter-quarantine@56e69f06 · verifica: python tests/tools/test_sync_perimeter.py (10/10 OK), prova reale con sync/wo/AGY.md passata · 2026-10-15T20:29+02:00
 DELIVERED AGY-7 @ agy/scaffold-workflow-it@0a3b76d · verifica: python scripts/build_workflow_pdf_it.py → exit 0, 28 pagine (stesso numero di EN), font set identico ['Courier', 'Helvetica', 'Helvetica-Bold'], colori identici, zero parole inglesi di prosa fuori codice · 2026-10-15T21:12+02:00
 DELIVERED AGY-8 @ agy/scaffold-prompt@68e7d53 · verifica: 41/41 percorsi coincidenti con git ls-files, zero riferimenti bm, zero segreti/percorsi assoluti, prova su cartella esistente (diff prima vuoto, .scaffold e .gitignore rispettati), prova su cartella vuota (selftest 40/40, docs_audit score 3800 penalties 0, consistency check 0 drift) · 2026-10-15T21:26+02:00
+DELIVERED AGY-9 @ agy/beta6-triage@fd80458b · verifica: python scripts/consistency.py check (0 drift, 5 accepted, 0 stale), 21 righe con citazioni rifinite (D32, D35, D04, D34, D13), toml stale specificato sui campi pi/rgb30 · 2026-10-15T21:42+02:00
 
 ## Progressi
+- Completato AGY-9 (TRIAGE-BIS): rifinite citazioni e note in docs/spec/beta6-triage.md (D32 input.c:243/50 per conferma A su Pi, D35 bm_port.c:185/187 per USB non pilotato su RGB30, D04 ui.c:1084 e bm_input.c:92 con accept-hardware contestabile, D03 chiarito players/BT pad, D34 separati F11/F12 da combo pad, D13 carts.c:402 chiamata bm_tool_id_of_file, toml stale specificato sui campi pi/rgb30 di D01, D02, D06, D07, D08, D13 con note gia' allineato, D09 note toml ordinamento per titolo, D28 toml stale su pi ed evidence toml fuori tema). Verificato: 21 righe, solo il file toccato, consistency 0 drift, 5 accepted, 0 stale. Pushed su agy/beta6-triage@fd80458b.
 - Completato AGY-8 (scaffold_prompt.md): creato scaffold_prompt.md (288 righe) per la configurazione autonoma e non distruttiva di Claude Code. Verificato: 41/41 file del template censiti e coincidenti con git ls-files, gestione conflitti con protocollo non distruttivo (opzioni a/b/c), zero riferimenti a bm/baremetal, zero segreti, test su cartella esistente superato (diff iniziale vuoto, .scaffold creato a fianco, .gitignore preservato), test su cartella vuota superato (selftest 40/40, docs_audit 0 penalità, consistency 0 drift). Pushed su agy/scaffold-prompt@68e7d53 nel repo scaffold.
 - Completato AGY-7 (scaffold-workflow-IT.pdf): generato scripts/build_workflow_pdf_it.py e compilato scaffold-workflow-IT.pdf (28 pagine esatte, layout A4, font e colori identici all'originale EN, prosa interamente tradotta in italiano tecnico senza parole inglesi residue). Pushed su agy/scaffold-workflow-it@0a3b76d nel repo scaffold.
 - Completato AGY-6c (correzione PERIM): in tools/sync_perimeter.py sostituito lstrip con normalizzazione sicura del prefisso './' (.github/workflows/* correttamente FORBIDDEN), isolata la parte iniziale prima del primo '## ', match per ID intero esatto (FRZ-1 non matcha FRZ-10), exit 2 su sezione inesistente; aggiunti 8 nuovi test unitari (10/10 PASS). Stato impostato su FREE.
