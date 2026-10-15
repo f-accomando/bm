@@ -41,5 +41,16 @@ Fatto già su `bm-core` (verificato da planner): riga `err` in `src/kernel/monit
 - File: `tools/pi_test.py`, `tools/pi.py` (verbo `shot`; aggiornare la regola "four requests" di `docs/design/pi-test.md`), `docs/SCREENSHOTS.md`, `docs/progress/system-net.md`, `docs/spec/specs.toml`, `docs/spec/divergences.toml` (D2), `docs/progress/tools.md` (togliere R-NET1/2 da Open work).
 - Verifica: `python scripts/consistency.py check` e `python scripts/docs_audit.py score` senza errori nuovi.
 
+## NET-KEYS — tasti con nome nel bridge (bm-light, 40-45 min; decisione SPV 2026-10-15, chiesta dall'utente)
+- Obiettivo: poter far premere al Pi tasti del monitor (oggi il bridge inoltra solo righe `:`), senza mai dare testo libero e senza mostrare la password. Serve ora per il crash volontario `X` poi `a` (data abort); in futuro per altri comandi a due tasti.
+- Perimetro esteso: `tools/pi_bridge.py`, `tools/pi.py` (solo l'help), `tools/bm_net.py`, `tests/net/check_bm_net_config.py`. Branch `claude/net-keys` da `bm-core` aggiornato. Non toccare il kernel.
+- Modifica 1, `tools/bm_net.py`: opzione `--keys SEQ` (stringa, solo i caratteri `a-z A-Z 0-9`, max 8). Dopo il login, come `--line` (stessi controlli di `run_line`: se il focus dei tasti è "the buttons", "the application" o "a page" stampa lo stesso avviso ed esce 2), manda i byte di SEQ uno alla volta con una pausa di 0,2 s, poi legge e stampa quello che la console scrive per 3 s (o fino alla chiusura della connessione) ed esce 0.
+- Modifica 2, `tools/pi_bridge.py`: nuova op `keys NOME`. NOME deve essere una chiave di una tabella fissa `KEYS = {"monitor": "q", "crash-dabt": "Xa", "crash-undef": "Xu", "crash-prefetch": "Xb"}` nel file; qualsiasi altro nome: `refused`. NON aggiungere `f` (freeze) né sequenze libere. La riga di comando chiama `bm_net.py <host> --keys <SEQ>`; la risposta passa dal solito `replace(pw, "***")`.
+- Modifica 3, `tools/pi.py`: nell'help della prima riga aggiungere `keys NOME`.
+- Modifica 4, `tests/net/check_bm_net_config.py`: contro la console finta già presente, un caso `--keys Xa`: la console finta riceve `X` poi `a` in quest'ordine e il testo di risposta compare nell'output; un caso con focus "the application": exit 2 e nessun byte mandato; e una prova di `pi_bridge.run` (con `subprocess.run` sostituito) che `keys crash-dabt` produce `--keys Xa` e che `keys foo`, `keys Xa` e `keys` danno `refused`.
+- Verifica: `make test-net` → exit 0; `python3 tests/net/check_bm_net_config.py` → tutti i casi OK; `python scripts/docs_audit.py score` senza link rotti. Aggiornare `docs/design/pi-test.md` (tabella delle op del bridge: riga `keys NOME`, elenco dei nomi, nota che `crash-*` fa cadere il Pi e che sul Pi Zero W non si riavvia da solo: stacca l'alimentazione).
+- Non verificabile senza Pi: l'effetto reale su un Pi; lo prova SPV con il bridge dell'utente (`keys monitor`, poi `keys crash-dabt`, poi `shot`).
+- Consegna: DELIVERED standard; poi FREE.
+
 ## Non verificabile senza Pi
 QEMU non ha rete: T/G si coprono solo con `test_netcon` (host). Scoperti: PNG end-to-end, invio a pezzi su lwIP reale con file ≥100 KB, tempi dell'attesa 3 s in un gioco 3D, `pi_test.py --cart X --shot out.png` via `pi_bridge`, verdetto `err` dopo un crash reale. Dichiararlo nella consegna; la prova sul Pi la fa l'utente.
