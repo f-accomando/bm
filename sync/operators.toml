@@ -6,15 +6,15 @@ schema = 1
 
 [[operator]]
 id = "SPV"
-name = "{supervisor}"
+name = "Claude local (SPV)"
 kind = "ai"
 file = "sync/SPV.md"
-branches = ["{code branches}"]
-place = "{local | cloud, os}"
-models = "{models and what for}"
-subagents = "{yes (which) | no}"
-strengths = "{what it does best}"
-weak_points = "{limits, breaking points}"
+branches = ["sync/protocollo-ottobre"]
+place = "local, Windows 11"
+models = "Sonnet 5.5 (SPV); subagent bm-planner/bm-light/bm-mechanic/bm-coder/bm-ops/bm-research"
+subagents = "yes"
+strengths = "planning, review, protocol"
+weak_points = "does not develop; no hardware Pi/RGB30"
 
 # [[operator]]
 # id = "{ID}"        # same shape as above; the file is sync/{ID}.md (copy sync/_template.md)
@@ -24,3 +24,27 @@ weak_points = "{limits, breaking points}"
 id = "UTE"
 name = "utente"
 kind = "human"
+
+[[operator]]
+id = "NET"
+name = "operatore R-NET"
+kind = "ai"
+file = "sync/NET.md"
+branches = ["claude/net-test-err", "claude/net-test-shot"]
+place = "{da handshake}"
+models = "{da handshake}"
+subagents = "{da handshake}"
+strengths = "{da handshake}"
+weak_points = "{da handshake}"
+
+[[operator]]
+id = "B16"
+name = "operatore M42"
+kind = "ai"
+file = "sync/B16.md"
+branches = ["claude/b16-profile"]
+place = "{da handshake}"
+models = "{da handshake}"
+subagents = "{da handshake}"
+strengths = "{da handshake}"
+weak_points = "{da handshake}"

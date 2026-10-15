@@ -1,11 +1,11 @@
 # Protocollo di sincronizzazione multi-operatore (`SYNC.md`)
 
-> Template riusabile. Per un nuovo progetto: **crea il branch di sync** `sync/{nome}` da `bm-core`, copia questo file, sostituisci i `{segnaposto}`, riempi §2 e §3 e svuota il Log (§5). Il sync di un progetto vive solo su quel branch: così più sessioni di sync (altri agenti, altri progetti) possono correre in parallelo senza toccarsi.
+> Template riusabile. Per un nuovo progetto: **crea il branch di sync** `sync/protocollo-ottobre` da `bm-core`, copia questo file, sostituisci i `{segnaposto}`, riempi §2 e §3 e svuota il Log (§5). Il sync di un progetto vive solo su quel branch: così più sessioni di sync (altri agenti, altri progetti) possono correre in parallelo senza toccarsi.
 > Esempio completo di un progetto reale (Tropic Trail, 8 video, 3 operatori): [`docs/archive/sync-tropic-trail.md`](docs/archive/sync-tropic-trail.md).
 > Cosa abbiamo imparato: [`docs/progress/sync-workflow.md`](docs/progress/sync-workflow.md). Regole d'area: [`docs/progress/sync.md`](docs/progress/sync.md).
 
-- **Progetto**: {nome} · **Repo**: `f-accomando/bm` · **Base del codice**: `bm-core` · **Branch di sync**: `sync/{nome}` · **Governance**: [`AGENTS.md`](AGENTS.md)
-- **Avviato**: {data} · **Supervisore (SPV)**: {operatore} · **Utente**: decide, fa i merge finali
+- **Progetto**: protocollo-ottobre (R-NET test Pi + M42 `.b16`) · **Repo**: `f-accomando/bm` · **Base del codice**: `bm-core` · **Branch di sync**: `sync/protocollo-ottobre` · **Governance**: [`AGENTS.md`](AGENTS.md)
+- **Avviato**: 2026-10-15 · **Supervisore (SPV)**: Claude local (Sonnet 5.5) · **Utente**: decide, fa i merge finali
 
 ---
 
@@ -13,15 +13,15 @@
 
 | Operatore | ID | Dove gira | Scrive | Branch |
 |---|---|---|---|---|
-| {es. Claude local} | `SPV` | {locale/cloud} | `SYNC.md` + `sync/SPV.md` | `feat/{nome}-*` |
-| {es. Claude cloud} | `CLD` | {cloud} | `sync/CLD.md` | `feat/{nome}-rec` |
-| {es. Antigravity} | `AGY` | {Windows} | `sync/AGY.md` | `agy/*` |
+| Claude local | `SPV` | locale, Windows | `SYNC.md` + `sync/SPV.md` + `sync/inbox/*` + `sync/wo/*` | `sync/protocollo-ottobre` |
+| operatore R-NET (da handshake) | `NET` | da dichiarare nel profilo | `sync/NET.md` | `claude/net-test-*` |
+| operatore M42 (da handshake) | `B16` | da dichiarare nel profilo | `sync/B16.md` | `claude/b16-profile` |
 | utente | `UTE` | - | niente (parla nelle sessioni) | - |
 
 1. `SYNC.md` lo scrive **solo SPV**: contratti, work order, decisioni, tabella di stato (§1b), avvisi a tutti.
 2. Ogni altro operatore scrive **solo il proprio** `sync/<ID>.md`: stato, task, progressi, problemi, richieste. Tutti leggono tutto.
 3. Gli operatori sono elencati in [`sync/operators.toml`](sync/operators.toml) (lo scrive SPV; nuovo operatore = nuovo blocco).
-4. **File di sync e righe di Log si pushano solo sul branch di sync** `sync/{nome}` (`git pull --rebase origin sync/{nome}`, mai commit di merge): `SYNC.md`, `sync/*` e `tools/sync_hdr.py` non si toccano su `bm-core` durante il progetto. Il **codice** resta sui branch di lavoro (da `bm-core`) e arriva su `bm-core` solo dopo cross-review (§1c). A fine progetto SPV archivia `SYNC.md` in `docs/archive/` su `bm-core` e il branch di sync si chiude.
+4. **File di sync e righe di Log si pushano solo sul branch di sync** `sync/protocollo-ottobre` (`git pull --rebase origin sync/protocollo-ottobre`, mai commit di merge): `SYNC.md`, `sync/*` e `tools/sync_hdr.py` non si toccano su `bm-core` durante il progetto. Il **codice** resta sui branch di lavoro (da `bm-core`) e arriva su `bm-core` solo dopo cross-review (§1c). A fine progetto SPV archivia `SYNC.md` in `docs/archive/` su `bm-core` e il branch di sync si chiude.
 5. SPV scrive le righe da un **worktree separato** del branch di sync, per non cambiare branch di lavoro.
 6. Le richieste fra operatori passano da SPV; le urgenze si scrivono nel proprio file e SPV le smista. Se un operatore è bloccato e muto, l'unico canale è un messaggio dell'utente nella sua sessione.
 
@@ -46,11 +46,7 @@ Scritto da [`tools/sync_hdr.py`](tools/sync_hdr.py), mai a mano. Campi: `schema`
 
 ### 1b. Stato e attese
 
-Ultimo aggiornamento: {data/ora con fuso}.
-
-| Operatore | Stato | Dettaglio | ETA |
-|---|---|---|---|
-| {nome} | `{stato}` | {una riga} | {ISO} |
+Fonte di verità: `python tools/sync_check.py` (stato letto dai file, con orario). Operatori NET e B16 non ancora in handshake (2026-10-15).
 
 ---
 
@@ -71,16 +67,22 @@ Regole di integrazione:
 ## 2. Architettura e contratti condivisi
 
 ### Obiettivo globale
-{una frase: cosa si consegna, per chi, in quanto tempo}
+Due sviluppi indipendenti, un operatore ciascuno: (NET) test del Pi dal PC, R-NET1/2 (`err`, screenshot via rete op `T`/`G`) e poi R-NET3 (token di test); (B16) M42 profilo `.b16`, parte non bloccata (docs, lint SDK, lint `mkbm.py`, verifica Yharnam). Tutto converge nel branch di SPV prima di `bm-core`; l'utente fa il merge finale.
 
 ### Requisiti di sviluppo (opzionale, vedi §3c)
-- {requisito: toolchain / hardware / emulatore / accesso / modello}
+- `python` (3.x) nel PATH; WSL con toolchain per `make` e QEMU (`scripts/wsl-run.ps1`, skill `bm-wsl`); `git` con push su `origin`. Sì/No/Parziale nel proprio file, `## Requisiti`.
+- Nessun Pi/RGB30 raggiungibile dagli operatori: le prove su hardware le fa l'utente.
 
 ### Decisioni prese (non cambiano senza una riga nel Log)
-1. {decisione, motivo, data}
+1. Screenshot via rete = op `T`/`G` sulla porta di trasferimento, non riga monitor (la riga `:` non arriva al gioco). 2026-10-15, vedi `sync/wo/NET.md`.
+2. `.b16` resta un target, non una sandbox (2026-10-13): nessun profilo a runtime finché l'utente non decide D1-D6 (`sync/wo/B16.md`). 2026-10-15.
+3. R-NET3 (token) non parte finché NET-1/2 non sono consegnati.
+4. Integrazione: ogni operatore consegna sul proprio branch; SPV fa review (subagent) e merge nel proprio branch di integrazione, poi l'utente su `bm-core`.
 
 ### Ripartizione dei file
-- {ID}: `{cartelle/file}` su `{branch}`
+- `NET`: `src/kernel/monitor.c`, `src/bm/runtime.c|.h` (solo hook shot), `src/net/netxfer.c`, `tools/bm_net.py`, `tools/pi_test.py`, `tools/pi.py`, `tests/net/*`, docs di rete/spec, su `claude/net-test-*`.
+- `B16`: `scripts/mkbm.py`, `tests/tools/test_mkbm_b16.py`, `carts/editor/main.lua` (solo `B16_CHECKS`), `docs/progress/{b16,lua}.md`, `docs/FORMATS-AUDIT.md`, su `claude/b16-profile`.
+- Condivisi: `docs/progress/tools.md` (NET toglie R-NET, B16 non lo tocca). `Makefile`: solo se nominato.
 
 ---
 
@@ -88,13 +90,12 @@ Regole di integrazione:
 
 Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Prontezza (`bm-work-order`). Task **≤45 min** (obiettivo 15): più grandi si spezzano in passi, un work order per passo. Passi indipendenti da decisioni si autorizzano **in sequenza** con una sola review finale.
 
-### WORK ORDER: {ID-NN}
-- **Obiettivo**: {una frase}
-- **File / Funzioni da toccare**: {nomi esatti}
-- **Modifica richiesta**: {descritta senza scelte di design aperte}
-- **Prova breve**: {run di 20-50 s che esercita la parte rischiosa, con log; obbligatoria prima di ogni ripresa/esecuzione lunga}
-- **Comando di verifica**: {comando e risultato atteso}
-- **Operatore / stato**: `{ID}` · `PENDING | IN_PROGRESS | DONE | BLOCKED: {motivo} | FAILED x2`
+Work order completi in `sync/wo/<ID>.md` (scritti da SPV, un blocco per passo).
+
+| WO | Operatore | Stato | File |
+|---|---|---|---|
+| NET-1a, NET-1b, NET-2a, NET-2b, NET-2c, NET-2d | `NET` | `PENDING` (aspetta handshake) | [`sync/wo/NET.md`](sync/wo/NET.md) |
+| B16-DOCS, B16-SDKLINT-3D, B16-MKBM-LINT, B16-YHARNAM-CHECK | `B16` | `PENDING` (aspetta handshake) | [`sync/wo/B16.md`](sync/wo/B16.md) |
 
 ---
 
@@ -104,7 +105,7 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 
 | WO | Stima | Osservato |
 |---|---|---|
-| {ID-NN} | {h} | {h} |
+| (da riempire a consegna) | - | - |
 
 **Battito**:
 0. **All'avvio** (dall'handshake): **battiti brevi di 3-5 min** (leggi `SYNC.md` e `sync/`, aggiorna il tuo file) **finché non hai preso in carico il primo work order**: cioe hai letto la riga `ASSIGNED`, scritto `ack` e ti sei segnato `WORKING`; da li si passa al ritmo normale. **SPV** tiene i battiti brevi finché ogni nuovo operatore ha confermato la presa in carico (`WORKING` e `ack` sul work order). Così l'utente non fa da tramite. Tetto di sicurezza: dopo 6 battiti brevi senza assegnazione si passa a 15 min e SPV lo segnala all'utente.
@@ -135,7 +136,7 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 ## 3c. Handshake, profilo e requisiti
 
 **Handshake** = la procedura con cui un operatore entra nel sync e si rende disponibile. Quando si dice "fai l'handshake" si intende, in ordine:
-1. **Allinearsi** al **branch di sync** (il nome che l'utente dice dopo "fai handshake", es. `sync/{nome}`): `git fetch origin`, checkout (meglio in un worktree o clone separato) e `git pull --rebase`. Il branch di sviluppo del codice resta `bm-core` o quello indicato dal work order.
+1. **Allinearsi** al **branch di sync** (il nome che l'utente dice dopo "fai handshake", es. `sync/protocollo-ottobre`): `git fetch origin`, checkout (meglio in un worktree o clone separato) e `git pull --rebase`. Il branch di sviluppo del codice resta `bm-core` o quello indicato dal work order.
 2. **Leggere `SYNC.md`** (ruoli, contratti §2, work order §3, regole) e la propria cartella `sync/`.
 3. **Produrre il proprio file** `sync/<ID>.md`, con blocco di stato (`tools/sync_hdr.py`) e `## Profilo`.
 4. **Rendersi disponibile**: compilato il file, si segna `FREE` (o `WORKING` se ha già una task). Fino ad allora SPV non gli assegna lavoro.
@@ -152,7 +153,7 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 - **Caselle**: ogni compito nuovo e ogni urgenza SPV la scrive in `sync/inbox/<ID>.md` (max 5 righe, un compito; vedi `sync/inbox/README.md`). Il battito controlla il `git diff` della propria casella, non tutto il Log. Conferma di lettura: `python tools/sync_hdr.py <ID> --ack auto`.
 - **Controllo oggettivo**: `python tools/sync_check.py` (età, `eta`, `ack`, righe non lette, consegne fuori formato, caselle >5 righe, righe di Log >600 caratteri). SPV lo lancia a ogni controllo: lo stato riferito all'utente è quello che stampa, col suo orario.
 - **Righe di Log ≤600 caratteri**; il resto va nel work order o nella casella.
-- **Costo dei battiti**: `python tools/sync_watch.py --id <ID> --branch sync/{nome}` fa il battito senza modello e sveglia l'agente solo se cambia la sua casella; vedi `docs/progress/sync.md` ("Cost of the heartbeats").
+- **Costo dei battiti**: `python tools/sync_watch.py --id <ID> --branch sync/protocollo-ottobre` fa il battito senza modello e sveglia l'agente solo se cambia la sua casella; vedi `docs/progress/sync.md` ("Cost of the heartbeats").
 - **Modifiche alle regole**: riga `RULE` con ack richiesto; vale per un operatore solo dopo il suo `ack`.
 - **Profilo**: campo `wakeup yes|no` (`--wakeup`): l'agente si risveglia da solo (timer, scheduler)? Se `no`, SPV non pretende battiti da 15 min: assegna lavori con `eta` esplicita e dice quando richiamarlo; l'utente lo sveglia con la frase di avvio (`docs/progress/sync.md`).
 
@@ -169,4 +170,4 @@ Solo SPV aggiunge righe. Colonne: orario ISO con fuso · operatore · branch/com
 
 | Timestamp | Operatore | Branch / Commit | Azione | Messaggio |
 |---|---|---|---|---|
-| {ISO} | {ID} | `sync/{nome}` | `INIT` | Protocollo inizializzato. |
+| 2026-10-15T09:36+02:00 | SPV | `sync/protocollo-ottobre` | `INIT` | Sync avviato: operatori NET (R-NET) e B16 (M42). WO in `sync/wo/`. |
