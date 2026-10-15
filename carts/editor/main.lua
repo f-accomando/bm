@@ -1609,6 +1609,7 @@ do
     if msg then say(msg) end
   end
 
+  local ZOOM_STEPS = { 1, 2, 4, 8, 16 }   -- px per cell (as in sdk_b16)
   local function step_zoom(d)
     local idx = 4
     for i, z in ipairs(ZOOM_STEPS) do if z == zoom then idx = i end end
