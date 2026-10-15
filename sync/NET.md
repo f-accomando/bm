@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: NET
-state: FREE
-task: R-NET1/2 consegnato, R-NET3 non iniziato
+state: WORKING
+task: NET-KEYS
 waiting_on: 
 eta: 2026-10-15T12:00+02:00
 wakeup: no
-ack: 2026-10-15T10:05+02:00
-updated: 2026-10-15T10:10+02:00
+ack: 2026-10-15T14:55+02:00
+updated: 2026-10-15T15:07+02:00
 ---
 # NET
 
