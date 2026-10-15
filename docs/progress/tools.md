@@ -80,12 +80,10 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet.
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
-- **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, then publish in
-  the Market.
+- **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
 - **bm SDK (RGB30)**: try it on the console (Dev > bm SDK and Open in bm SDK, pad, typing, save,
-  copy of a game, Ctrl+B, F5 and Start + Select back); the QEMU test `test_sdk_tool` runs in CI
-  (`make TARGET=rgb30 test`). A game built in `/carts` is not in Games (R41).
+  copy of a game, Ctrl+B, F5 and Start + Select back); QEMU `test_sdk_tool` runs in CI. A game built in `/carts` is not in Games (R41).
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
 - **M43 step 3**: a *Stack* page in bm Pixel.
@@ -110,6 +108,8 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   of keys on the 8x16 grid. A mouse function outside a page's `do … end` does not see its
   locals: export them. Tests `bmui_host.lua`, `MS` in the test doubles, QEMU `test_editor_mouse`.
 - Predict/pad tables `CROSS`/`FACE`/`KB` change in `src/ai/padtype.lua`.
+- Skin recipes (`mesh_skin.c`): one bone per position, one connected body (`test_skins`), shared ring to the distal
+  bone; `face_b` for a bone per corner, `face()` output unchanged; `static` vertex tables.
 - kb comments `#` only at the top of a file; every entry has `title_en:` and `text_en:`.
 - bm SDK (RGB30): never edit `carts/editor` for it (two editions); never in the Pi's kernel nor
   in the Market. Its test `make test-sdk-b16` (not in `HOST_TESTS`); QEMU `test_sdk_tool`.

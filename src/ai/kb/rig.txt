@@ -190,3 +190,34 @@ degrees, and look at the model from two sides (alt and arrows orbit):
 go back to F2, v, and assign them.
 - the hand or the head deforms: they must be all on one bone.
 Then return to the rest pose with r (rest bone) and save with Ctrl+S.
+
+== tip.skin_continuous
+kind: tip
+title: Pelle continua o pezzi staccati
+title_en: Continuous skin or separate parts
+ask: meglio un corpo unico o tanti pezzi | perché il gomito si apre quando piego il braccio | braccia che si staccano dal corpo
+ask: come evito i buchi nelle giunture | pezzi staccati nel personaggio | personaggio organico invece di scatole
+ask: why do my arms detach from the body | gaps at the joints when i bend | continuous skin vs separate parts
+ask: how do i make a character that is one piece | no loose parts on a model
+keys: staccati, giunture, buchi, organico, continuo, detach, gaps, joints, continuous
+see: mesh.biped, mesh.chameleon, tip.rig_one_bone, howto.rig_test_pose
+text:
+Un personaggio fatto di scatole o tubi separati si apre alle giunture quando un osso
+ruota: ogni pezzo segue un solo osso e fra due pezzi resta uno spazio. Una pelle
+continua usa gli stessi vertici fra due segmenti: l'anello condiviso va all'osso
+distale (la mano, non l'avambraccio) e le facce fra i due anelli si allungano.
+Per le braccia e la coda l'attacco è un riquadro di sei vertici del busto; per le
+gambe due mezzi anelli del bacino. L'assistente ha già due ricette fatte così:
+"persona organica" (biped) e "camaleonte". Per controllarle apri il modello in
+bm Animator e premi t nella pagina dello scheletro: le facce rosse sono quelle
+che si stirano troppo.
+text_en:
+A character made of separate boxes or tubes opens at the joints when a bone turns:
+each piece follows one bone and a gap is left between two pieces. A continuous skin
+uses the same vertices between two segments: the shared ring goes to the distal bone
+(the hand, not the forearm) and the faces between the two rings stretch. For arms
+and the tail the attachment is a patch of six torso vertices; for the legs, two half
+rings of the pelvis. The assistant has two recipes made this way: "organic person"
+(biped) and "chameleon". To check them open the model in bm Animator and press t on
+the rig page: the red faces are the ones that stretch too much.
+

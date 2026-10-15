@@ -415,6 +415,42 @@ walk e wave. Il colore chiesto è quello della maglia.
 text_en: Head, torso, arms and legs on seven bones, with the idle, walk and
 wave animations. The colour asked for is that of the shirt.
 
+== mesh.biped
+kind: mesh
+gen: biped
+title: Persona organica (un'unica pelle continua)
+title_en: Organic person (one continuous skin)
+ask: crea una persona organica | biped | personaggio con la pelle continua | make an organic person | omino senza pezzi staccati
+ask: personaggio con le braccia attaccate al corpo | umanoide morbido | corpo unico con lo skinning | continuous skin character
+ask: umanoide con giunture che non si aprono | persona con ginocchia e gomiti che si piegano bene | smooth humanoid
+text: Un solo corpo continuo: testa, busto, braccia, mani, gambe e piedi condividono i
+vertici, quindi piegando un gomito o un ginocchio la pelle si allunga e non si apre.
+Quindici ossa (hips, spine, head, arm, forearm, hand, leg, shin, foot, destra e
+sinistra), animazioni idle, walk e wave, circa 570 triangoli. Il colore chiesto è
+quello della maglia. Per un personaggio a pezzi (più semplice) usa "persona".
+text_en: One continuous body: head, torso, arms, hands, legs and feet share their
+vertices, so bending an elbow or a knee stretches the skin instead of opening a
+gap. Fifteen bones (hips, spine, head, arm, forearm, hand, leg, shin, foot, left
+and right), idle, walk and wave animations, about 570 triangles. The colour asked
+for is that of the shirt. For a figure made of separate parts (simpler) use "person".
+
+== mesh.chameleon
+kind: mesh
+gen: chameleon
+title: Camaleonte (persona con la coda arrotolata)
+title_en: Chameleon (a person with a curled tail)
+ask: crea un camaleonte | chameleon | una lucertola umanoide | make a chameleon | rettile bipede
+ask: personaggio con la coda lunga | umanoide con la coda arrotolata | lizard person | gecko che cammina
+ask: personaggio verde con la coda che si muove | creatura con coda animata | reptile character
+text: Come la persona organica (una sola pelle continua) più una coda che nasce dalla
+schiena del bacino, lunga circa un metro, arrotolata di 270 gradi e sottile verso la
+punta. Diciotto ossa: le quindici della persona più tail1, tail2 e tail3 che ondeggiano
+con idle e walk; wave alza il braccio destro. Il seme cambia solo i colori.
+text_en: Like the organic person (one continuous skin) plus a tail that grows from the
+back of the pelvis, about a metre long, curled by 270 degrees and thinner towards the
+tip. Eighteen bones: the fifteen of the person plus tail1, tail2 and tail3, which sway
+in idle and walk; wave raises the right arm. The seed changes only the colours.
+
 == mesh.knight
 kind: mesh
 gen: knight

@@ -43,8 +43,8 @@ Built facing +z and mirrored to -z at the end (bm Studio's recipes, `src/ai/mesh
   An assistant that edits numbers in a table is far more reliable than one that writes geometry.
 - The console's own assistant (`src/ai/mesh.c`, recipes `hero`, `robot`, `mech`, `dog`; KB entries in
   `src/ai/kb/meshes.txt` with `gen:`) builds from separate boxes/tubes (`src/ai/mesh_script.c`): it cannot
-  express a shared-vertex skin. Giving it these templates would be a C recipe plus a KB entry (then
-  `make ai-model`); NOT DONE, a separate work order.
+  express a shared-vertex skin. The continuous recipes are `biped` and `chameleon` (`src/ai/mesh_skin.c`, KB
+  `mesh.biped`, `mesh.chameleon`, plan in `docs/design/organic-recipes.md`): the charkit shapes with fixed numbers.
 - NON VERIFICATO: none of these files was opened in bm Mesh / bm Animator or run on the console; only
   bm_core (check, preview, a walk clip) was.
 - Copyright: Crash and Rango are third-party characters; the presets are personal fan studies, not for
