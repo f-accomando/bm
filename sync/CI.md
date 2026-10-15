@@ -1,13 +1,14 @@
 ---
 schema: 1
 id: CI
-state: FREE
-task: handshake
+state: WORKING
+task: CI-1
 waiting_on: 
 progress: 0
+eta: 2026-10-15T11:30+02:00
 wakeup: no
-ack: 
-updated: 2026-10-15T10:38+02:00
+ack: 2026-10-15T10:25+02:00
+updated: 2026-10-15T10:39+02:00
 ---
 # CI — operatore CI
 
