@@ -4707,7 +4707,8 @@ def test_mesh(b, opts):
         keys("s", "s", "s", "s", "s", "s")      # Play, SDK, Code, Sound, Studio, Animator, Mesh
         screen(["Open in bm Mesh"])
         keys("\r")
-        text = screen(["list", "edit", "MESHES 13", "ship", "30 vertices, 32 triangles", "built by the game's code"])
+        text = screen(["list", "edit", "MESHES 13", "ship", "30 vertices, 32 triangles", "built by the game's code",
+                       "0 models, 0 code meshes, 13 from the game's code"])   # (the header row too: a redraw may be caught half way)
         assert "0 models, 0 code meshes, 13 from the game's code" in text, text
         assert "core_hot" in text and "turret" in text, text
         shot("list")
