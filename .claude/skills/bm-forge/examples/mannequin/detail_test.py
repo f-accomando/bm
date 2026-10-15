@@ -97,11 +97,11 @@ def main(out):
     os.makedirs(out, exist_ok=True)
     py = sys.executable
     mk = os.path.join(HERE, "mannequin.py")
-    ref_detail = 2.9                                                    # the largest that fits 4096 vertices
+    ref_detail = 2.2                                                    # the largest that fits 4096 vertices
     files = {}
     run([py, mk, str(ref_detail), os.path.join(out, "reference.bm")])
     run([py, mk, "6.0", os.path.join(out, "ultra.bm")])
-    for d in (0.6, 0.95, 1.0, 1.1, 1.4, 1.6):
+    for d in (0.6, 0.95, 1.1, 1.2, 1.6, 2.0):
         run([py, mk, str(d), os.path.join(out, f"direct_{d}.bm")])
         files[f"direct detail {d}"] = f"direct_{d}.bm"
     run([py, mk, str(ref_detail), os.path.join(out, "mitten.bm"), "mitten"])           # the hybrid: no fingers or toes

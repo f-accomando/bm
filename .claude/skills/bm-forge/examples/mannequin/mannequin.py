@@ -18,10 +18,11 @@ sys.path.insert(0, os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(HERE, "..", "charkit"))
 
 from bm_core import anim as A, export, mesh as M, skelgen  # noqa: E402
-from charkit import Skin, add, cross, dot, mul, sub, unit  # noqa: E402
+from charkit import Skin, add, cross, dot, frame_ring, mul, sub, unit  # noqa: E402
 
 FLAT = 0x08000000
 SKIN, DARK, LIGHT = 0x9EA3A8, 0x6F757B, 0xB4B9BE
+LIPS, EYE, PUPIL, MOUTH, BROW = 0x8A6C68, 0xE6E6E6, 0x202020, 0x3A3030, 0x7A7F85
 
 BONES = {"bones": [
     {"name": "hips", "parent": None, "head": [0, 0.92, 0], "tail": [0, 1.08, 0]},
@@ -62,7 +63,10 @@ class Builder:
         if dot(u, u) < 1e-6:
             u = sub((0, 0, 1), mul(d, d[2]))
         u = unit(u)
-        v = cross(d, u)
+        v = cross(u, d)
+        want = (0, 0, 1) if abs(d[2]) < 0.7 else (0, 1, 0)   # theta = 90 degrees is the front (+z), or up for a tube along z
+        if dot(v, want) < 0:
+            v = mul(v, -1)
         ids = []
         for i in range(rings):
             t = i / (rings - 1)
@@ -81,6 +85,27 @@ class Builder:
             s.cap(ids[-1], col)
         return ids
 
+    def blob(self, c, rx, ry, rz, bone, col, n=None, rings=None):
+        """an ellipsoid (axes along x, y, z): a muscle belly, a bone end, an eyeball"""
+        n = n or max(6, self.sides // 2)
+        rr = rings or max(4, self.rings // 2 + 1)
+        a, b = add(c, (0, -ry, 0)), add(c, (0, ry, 0))
+        self.loft(a, b, lambda t: (rx * math.sin(math.pi * min(max(t, 0.03), 0.97)),
+                                   rz * math.sin(math.pi * min(max(t, 0.03), 0.97))), bone, col, n=n, rings=rr)
+
+    def path_tube(self, pts, radii, bone, col, n=None, ref=(1, 0, 0)):
+        """a tube along a polyline (a lip, a brow, a clavicle, a tendon); radii: one per point"""
+        s = self.s
+        n = n or max(5, self.sides // 3)
+        ids = []
+        for i, p in enumerate(pts):
+            t = sub(pts[min(i + 1, len(pts) - 1)], pts[max(i - 1, 0)])
+            ids.append(s.ring(frame_ring(p, t, radii[i], n, ref), bone))
+        for i in range(len(ids) - 1):
+            s.bridge(ids[i], ids[i + 1], col)
+        s.cap(ids[0], col)
+        s.cap(ids[-1], col)
+
     def ball(self, c, r, bone, col):
         """a ball joint: a short vertical loft shaped like a sphere"""
         n = max(5, self.sides // 2 * 2)
@@ -98,29 +123,28 @@ def build(detail, fingers=True):
     # --- torso: pelvis, abdomen, chest, neck, head (one bone each)
     B.loft((0, 0.92, 0), (0, 1.08, 0), lambda t: (0.17 - 0.02 * t, 0.115), "hips", SKIN,
            bump=lambda t, th: 1 + 0.06 * g(angdiff(th, -math.pi / 2), 0.9) * g(t - 0.3, 0.4))     # glutes
-    def abs_(t, th):
-        front = max(0.0, math.sin(th))
-        return 1 + 0.06 * front * (0.5 + 0.5 * math.cos(4 * th)) * g(t - 0.5, 0.5)
-    B.loft((0, 1.08, 0), (0, 1.28, 0), lambda t: (0.145 + 0.015 * t, 0.095), "spine", SKIN, bump=abs_)
-
-    def pecs(t, th):
-        lobe = g(angdiff(th, math.radians(62)), 0.28) + g(angdiff(th, math.radians(118)), 0.28)
-        return 1 + 0.11 * lobe * g(t - 0.45, 0.3) + 0.05 * g(angdiff(th, -math.pi / 2), 0.9) * g(t - 0.6, 0.4)
+    B.loft((0, 1.08, 0), (0, 1.28, 0), lambda t: (0.145 + 0.015 * t, 0.095), "spine", SKIN)
     B.loft((0, 1.28, 0), (0, 1.50, 0), lambda t: (0.17 + 0.03 * math.sin(math.pi * min(t * 1.2, 1)), 0.115 - 0.01 * t),
-           "spine", SKIN, bump=pecs)
+           "spine", SKIN)
     B.loft((0, 1.49, 0), (0, 1.62, 0.005), lambda t: (0.05, 0.05), "head", SKIN, n=max(5, B.sides * 2 // 3), rings=3)
 
-    def face(t, th):
-        front = angdiff(th, math.pi / 2)
-        m = 1.0
-        m += 0.22 * g(front, 0.20) * g(t - 0.46, 0.09)                        # nose
-        m += 0.07 * g(front, 0.70) * g(t - 0.64, 0.05)                        # brow ridge
-        m += 0.09 * g(front, 0.28) * g(t - 0.12, 0.07)                        # chin
-        m += 0.05 * g(front, 0.45) * g(t - 0.30, 0.05)                        # lips
-        m -= 0.09 * g(angdiff(th, math.radians(62)), 0.14) * g(t - 0.58, 0.05)   # eye sockets
-        m -= 0.09 * g(angdiff(th, math.radians(118)), 0.14) * g(t - 0.58, 0.05)
-        m += 0.16 * (g(angdiff(th, 0), 0.20) + g(angdiff(th, math.pi), 0.20)) * g(t - 0.5, 0.11)   # ears
-        return m
+    if d >= 1.2:       # chest and belly: pecs, abs, obliques, lats, clavicles, trapezius, iliac lines
+        for sx in (1, -1):
+            B.blob((sx * 0.075, 1.40, 0.078), 0.076, 0.052, 0.042, "spine", SKIN, n=10, rings=7)                     # pectoral
+            B.blob((sx * 0.105, 1.36, -0.07), 0.065, 0.085, 0.042, "spine", SKIN)                    # latissimus
+            B.path_tube([(sx * 0.02, 1.488, 0.07), (sx * 0.10, 1.490, 0.062), (sx * 0.19, 1.468, 0.03)],
+                        (0.009, 0.009, 0.010), "spine", LIGHT)                                       # clavicle
+            B.path_tube([(sx * 0.03, 1.50, -0.05), (sx * 0.10, 1.488, -0.045), (sx * 0.17, 1.462, -0.02)],
+                        (0.016, 0.018, 0.015), "spine", SKIN)                                        # trapezius
+            B.path_tube([(sx * 0.125, 1.20, 0.05), (sx * 0.135, 1.12, 0.045), (sx * 0.125, 1.06, 0.06)],
+                        (0.018, 0.020, 0.018), "spine", SKIN)                                        # oblique
+            B.path_tube([(sx * 0.115, 1.045, 0.07), (sx * 0.07, 0.985, 0.095), (sx * 0.02, 0.945, 0.10)],
+                        (0.008, 0.008, 0.008), "hips", DARK)                                         # iliac line
+            B.blob((sx * 0.075, 0.975, -0.095), 0.07, 0.07, 0.045, "hips", SKIN)                     # glute
+            for row, y in enumerate((1.255, 1.205, 1.155, 1.105)):
+                B.blob((sx * 0.03, y, 0.083 - 0.003 * (row == 3)), 0.027, 0.021, 0.016, "spine", SKIN, n=6, rings=4)   # abs
+        B.path_tube([(0, 1.30, 0.093), (0, 1.12, 0.09)], (0.0035, 0.0035), "spine", DARK, n=4)       # linea alba
+        B.path_tube([(0, 1.489, 0.07), (0, 1.455, 0.088), (0, 1.405, 0.082)], (0.007, 0.008, 0.008), "spine", DARK, n=5)   # sternum
 
     def head_rad(t):
         pts = [(0.0, 0.030, 0.040), (0.08, 0.052, 0.060), (0.2, 0.068, 0.078), (0.45, 0.086, 0.100), (0.7, 0.090, 0.106),
@@ -130,8 +154,50 @@ def build(detail, fingers=True):
                 k = (t - t0) / (t1 - t0)
                 return a0 + (a1 - a0) * k, b0 + (b1 - b0) * k
         return pts[-1][1], pts[-1][2]
-    B.loft((0, 1.575, 0.0), (0, 1.80, 0.005), head_rad, "head", LIGHT, n=max(B.sides, 6), rings=max(B.rings * 2 + 2, 8),
-           bump=face)
+
+    def head_z(x, y):
+        """z of the face surface (build frame, +z ahead) at (x, y): the head loft with its bumps at that angle"""
+        t = min(max((y - 1.575) / 0.225, 0.01), 0.99)
+        ru, rv = head_rad(t)
+        th = math.acos(min(max(x / ru, -0.999), 0.999))
+        return 0.005 * t + rv * skull(t, th) * math.sin(th)
+
+    def skull(t, th):
+        front = angdiff(th, math.pi / 2)
+        m = 1.0
+        m += 0.05 * g(front, 0.70) * g(t - 0.64, 0.05)                        # brow ridge
+        m += 0.08 * g(front, 0.28) * g(t - 0.12, 0.07)                        # chin
+        m -= 0.07 * g(angdiff(th, math.radians(62)), 0.14) * g(t - 0.58, 0.05)   # eye sockets
+        m -= 0.07 * g(angdiff(th, math.radians(118)), 0.14) * g(t - 0.58, 0.05)
+        m += 0.05 * (g(angdiff(th, math.radians(35)), 0.25) + g(angdiff(th, math.radians(145)), 0.25)) * g(t - 0.38, 0.09)  # cheekbones
+        m -= 0.04 * (g(angdiff(th, math.radians(30)), 0.20) + g(angdiff(th, math.radians(150)), 0.20)) * g(t - 0.22, 0.07)  # hollow cheeks
+        return m
+    B.loft((0, 1.575, 0.0), (0, 1.80, 0.005), head_rad, "head", LIGHT, n=max(B.sides + 4, 8),
+           rings=max(B.rings * 2 + 4, 10), bump=skull)
+
+    if d >= 1.2:       # the face: nose, eyes, brows, lips, ears; the neck's cords. All placed on the head's surface.
+        def on(x, y, off=0.0):
+            return (x, y, head_z(x, y) + off)
+        B.path_tube([on(0, 1.716, 0.002), on(0, 1.692, 0.007), on(0, 1.668, 0.014)], (0.010, 0.0115, 0.013), "head", LIGHT)   # nose bridge
+        B.blob(on(0, 1.660, 0.019), 0.0155, 0.0155, 0.0155, "head", LIGHT)                              # tip
+        for sx in (1, -1):
+            B.blob(on(sx * 0.017, 1.655, 0.009), 0.009, 0.009, 0.009, "head", LIGHT, n=6, rings=4)        # nostril wing
+            B.blob(on(sx * 0.036, 1.703, 0.000), 0.0135, 0.0105, 0.0125, "head", EYE)                     # eyeball
+            B.blob(on(sx * 0.036, 1.703, 0.011), 0.0062, 0.0062, 0.0035, "head", PUPIL, n=6, rings=4)     # pupil
+            B.path_tube([on(sx * 0.014, 1.730, 0.003), on(sx * 0.036, 1.7355, 0.003), on(sx * 0.060, 1.727, 0.002)],
+                        (0.0045, 0.0055, 0.0045), "head", BROW, n=5)                                      # brow
+            B.path_tube([on(sx * 0.022, 1.7185, 0.004), on(sx * 0.036, 1.7215, 0.0055), on(sx * 0.051, 1.7155, 0.003)],
+                        (0.0028, 0.0032, 0.0028), "head", DARK, n=4)                                      # upper lid
+            B.blob((sx * 0.094, 1.690, -0.002), 0.0085, 0.030, 0.021, "head", SKIN)                       # ear
+            B.path_tube([(sx * 0.04, 1.572, -0.045), (sx * 0.03, 1.535, 0.0), (sx * 0.016, 1.49, 0.045)],
+                        (0.010, 0.0115, 0.010), "spine", SKIN, n=6)                                       # sternocleidomastoid
+        B.path_tube([on(-0.032, 1.6255, 0.004), on(-0.016, 1.630, 0.007), on(0.0, 1.632, 0.008), on(0.016, 1.630, 0.007),
+                     on(0.032, 1.6255, 0.004)], (0.0058, 0.0070, 0.0078, 0.0070, 0.0058), "head", LIPS, n=6)   # upper lip
+        B.path_tube([on(-0.026, 1.6135, 0.003), on(0.0, 1.6095, 0.006), on(0.026, 1.6135, 0.003)],
+                    (0.0060, 0.0085, 0.0060), "head", LIPS, n=6)                                          # lower lip
+        B.path_tube([on(-0.035, 1.6195, 0.002), on(0.0, 1.6195, 0.005), on(0.035, 1.6195, 0.002)], (0.0016, 0.0016, 0.0016),
+                    "head", MOUTH, n=4)                                                                   # mouth line
+        B.blob((0, 1.548, 0.047), 0.0095, 0.0125, 0.0095, "head", SKIN, n=6, rings=4)                    # Adam's apple
 
     # --- arms and legs, both sides
     for sx, S in ((1, "L"), (-1, "R")):
@@ -139,16 +205,17 @@ def build(detail, fingers=True):
         leg, shin, foot = f"leg.{S}", f"shin.{S}", f"foot.{S}"
         sh, el, wr = (sx * 0.21, 1.44, 0.0), (sx * 0.33, 1.15, 0.012), (sx * 0.35, 0.90, 0.04)
         if d >= 1.0:
-            B.ball(sh, 0.055, arm, DARK)                                                    # shoulder
+            B.blob((sx * 0.222, 1.435, 0.0), 0.052, 0.062, 0.052, arm, SKIN)                 # deltoid
         def biceps(t, th):
-            return 1 + 0.12 * g(angdiff(th, math.pi / 2), 0.7) * g(t - 0.4, 0.3)
+            return 1 + 0.14 * g(angdiff(th, math.pi / 2), 0.7) * g(t - 0.4, 0.3) + 0.08 * g(angdiff(th, -math.pi / 2), 0.7) * g(t - 0.45, 0.3)
         B.loft(sh, el, lambda t: (0.048 - 0.01 * t, 0.045 - 0.008 * t), arm, SKIN, bump=biceps)
         if d >= 1.0:
-            B.ball(el, 0.04, fore, DARK)                                                    # elbow
+            B.blob(el, 0.040, 0.040, 0.040, fore, DARK)                                       # elbow
         def fore_bump(t, th):
-            return 1 + 0.12 * g(t - 0.2, 0.25)
-        B.loft(el, wr, lambda t: (0.038 - 0.012 * t, 0.034 - 0.01 * t), fore, SKIN, bump=fore_bump)
-        # hand: palm, then fingers (or one mitten when the detail is low)
+            return 1 + 0.16 * g(t - 0.2, 0.25) + 0.05 * g(angdiff(th, math.pi / 2), 0.8) * g(t - 0.3, 0.3)
+        B.loft(el, wr, lambda t: (0.038 - 0.012 * t, 0.034 - 0.010 * t), fore, SKIN, bump=fore_bump)
+        if d >= 1.4:
+            B.blob(wr, 0.0245, 0.016, 0.0185, fore, DARK, n=6, rings=4)                       # wrist
         palm_end = (sx * 0.355, 0.82, 0.048)
         B.loft(wr, palm_end, lambda t: (0.026 + 0.012 * math.sin(math.pi * t), 0.013 + 0.005 * t), hand, SKIN,
                n=max(5, B.sides // 2), rings=3)
@@ -160,8 +227,10 @@ def build(detail, fingers=True):
                     q = (p[0], p[1] - ln * math.cos(0.35 * li), p[2] + ln * math.sin(0.5 * li) * 0.8)
                     B.loft(p, q, lambda t, li=li: (0.0085 - 0.0012 * li,) * 2, hand, SKIN, n=max(4, B.sides // 3),
                            rings=2, ref=(1, 0, 0))
+                    if li < 2:
+                        B.blob(q, 0.0072 - 0.001 * li, 0.0072 - 0.001 * li, 0.0072 - 0.001 * li, hand, DARK, n=5, rings=3)
                     p = q
-            p = (palm_end[0] + sx * 0.03, 0.85, 0.05)                                       # thumb
+            p = (palm_end[0] + sx * 0.03, 0.85, 0.05)                                         # thumb
             for li, ln in enumerate((0.026, 0.02)):
                 q = (p[0] + sx * 0.012, p[1] - ln * 0.85, p[2] + 0.012)
                 B.loft(p, q, lambda t, li=li: (0.0095 - 0.0012 * li,) * 2, hand, SKIN, n=max(4, B.sides // 3), rings=2)
@@ -172,16 +241,23 @@ def build(detail, fingers=True):
 
         hip, kn, an = (sx * 0.09, 0.92, 0.0), (sx * 0.095, 0.50, 0.012), (sx * 0.095, 0.09, 0.0)
         def quad(t, th):
-            return 1 + 0.10 * g(angdiff(th, math.pi / 2), 0.7) * g(t - 0.35, 0.3)
+            return 1 + 0.12 * g(angdiff(th, math.pi / 2), 0.7) * g(t - 0.35, 0.3) + 0.06 * g(angdiff(th, -math.pi / 2), 0.7) * g(t - 0.4, 0.3)
         B.loft(hip, kn, lambda t: (0.078 - 0.026 * t, 0.075 - 0.024 * t), leg, SKIN, bump=quad)
         if d >= 1.0:
-            B.ball(kn, 0.05, shin, DARK)                                                    # knee
+            B.blob(kn, 0.050, 0.050, 0.050, shin, DARK)                                       # knee
+        if d >= 1.4:
+            B.blob((sx * 0.095, 0.50, 0.052), 0.026, 0.030, 0.014, shin, LIGHT, n=7, rings=4)  # patella
         def calf(t, th):
-            return 1 + 0.16 * g(angdiff(th, -math.pi / 2), 0.7) * g(t - 0.25, 0.25)
+            return 1 + 0.18 * g(angdiff(th, -math.pi / 2), 0.7) * g(t - 0.25, 0.25) + 0.05 * g(angdiff(th, math.pi / 2), 0.6) * g(t - 0.3, 0.3)
         B.loft(kn, an, lambda t: (0.047 - 0.017 * t, 0.045 - 0.016 * t), shin, SKIN, bump=calf)
+        if d >= 1.4:
+            for off in (-0.02, 0.02):
+                B.blob((sx * 0.095 + off, 0.385, -0.044), 0.021, 0.07, 0.026, shin, SKIN, n=6, rings=5)   # gastrocnemius heads
         if d >= 1.0:
-            B.ball(an, 0.032, foot, DARK)                                                   # ankle
-        # foot: a loft along z, flat; toes when the detail allows
+            B.blob(an, 0.032, 0.032, 0.032, foot, DARK)                                       # ankle
+        if d >= 1.4:
+            for off in (-0.040, 0.036):
+                B.blob((sx * 0.095 + off, 0.075, 0.0), 0.009, 0.01, 0.009, foot, LIGHT, n=5, rings=3)    # malleoli
         heel, toe = (sx * 0.095, 0.045, -0.05), (sx * 0.095, 0.022, 0.14)
         B.loft(heel, toe, lambda t: (0.038 - 0.006 * t, 0.034 - 0.014 * t), foot, SKIN, ref=(1, 0, 0),
                n=max(5, B.sides // 2), rings=max(3, B.rings // 2 + 1))
