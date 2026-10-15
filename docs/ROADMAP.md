@@ -1,115 +1,115 @@
-# Roadmap bm
+# bm Roadmap
 
-Il piano di sviluppo di **bm** (BareMetal), una *fantasy console* bare metal per Raspberry Pi Zero W e PowKiddy RGB30. Qui stanno **obiettivi, requisiti e priorità**; il come sta nei file di area di [`progress/`](progress.md), la storia nel `git log`. Milestone chiuse e testo storico: commit `0e969b5`. Il traguardo corrente è la [Beta](#beta-obiettivo-del-prossimo-traguardo).
+The development plan for **bm** (BareMetal), a bare metal *fantasy console* for Raspberry Pi Zero W and PowKiddy RGB30. This file holds **goals, requirements and priorities**; the how lives in the area files under [`progress/`](progress.md), the history in `git log`. Closed milestones and historical text: commit `0e969b5`. The current target is the [Beta](#beta-next-milestone).
 
-## Come leggerla
+## How to read it
 
-- **Ordine dei livelli** (si sviluppa dall'alto verso il basso): 1 Sistema → 2 Funzioni e API → 3 Editor e app → 4 Giochi (facoltativo). Un livello non blocca il successivo, ma a parità di priorità vince il livello più alto.
-- **Una riga = un obiettivo**, mai un compito. La riga rimanda al file di area (colonna *Dettagli*): lì c'è la sezione `Open work` / `To do` da cui si ricavano i work order. Non copiare qui il dettaglio.
-- **ID**: restano `M##` (milestone) e `R##` (spunto, da idea a milestone se si decide). Le voci nuove usano `SYS-n`, `API-n`, `APP-n`, `GAME-n`. Un ID non si riusa né si rinumera.
-- **Pri**: `P0` blocca altro lavoro o rompe una promessa del progetto; `P1` il prossimo; `P2` dopo; `P3` idea non pianificata.
-- **Stato**: `in corso`, `da provare sul Pi` (fatto su PC/QEMU), `in specifica`, `da fare`, `idea`.
-- **Requisito**: la condizione verificabile per chiuderla ("fatto quando"). Se manca (`da specificare`), la riga non è pronta per un work order: va al `bm-planner`.
-- **Dopo**: dipendenze (ID). `-` = indipendente.
+- **Level order** (developed top to bottom): 1 System → 2 Features and API → 3 Editors and apps → 4 Games (optional). A level does not block the next one, but at equal priority the higher level wins.
+- **One row = one goal**, never a task. The row points to the area file (*Details* column): its `Open work` / `To do` section is where work orders come from. Do not copy the detail here.
+- **ID**: `M##` (milestone) and `R##` (idea, promoted to milestone if decided) stay. New entries use `SYS-n`, `API-n`, `APP-n`, `GAME-n`. An ID is never reused or renumbered.
+- **Pri**: `P0` blocks other work or breaks a project promise; `P1` next; `P2` later; `P3` unplanned idea.
+- **State**: `in progress`, `to test on the Pi` (done on PC/QEMU), `in specification`, `to do`, `idea`.
+- **Requirement**: the verifiable condition to close it ("done when"). If missing (`to be specified`), the row is not ready for a work order: it goes to `bm-planner`.
+- **After**: dependencies (IDs). `-` = independent.
 
-### Come la usa il sync
+### How sync uses it
 
-1. Il supervisore (SPV) o il `bm-planner` sceglie le righe di priorità più alta senza dipendenze aperte, partendo dal livello più alto.
-2. Apre il file di area indicato e prende la voce in `Open work` per scrivere i work order in `sync/wo/<ID>.md` (formato in [`SYNC.md`](../SYNC.md)); un operatore = una funzione.
-3. A chiusura aggiorna **questa riga** (stato, o rimozione) e la sezione `Open work` del file di area nello stesso commit. Le prove su hardware restano all'utente e portano le divergenze da `untested` a `resolved` in `docs/spec/divergences.toml`.
+1. The supervisor (SPV) or `bm-planner` picks the highest-priority rows with no open dependencies, starting from the highest level.
+2. It opens the indicated area file and takes the `Open work` entry to write the work orders in `sync/wo/<ID>.md` (format in [`SYNC.md`](../SYNC.md)); one operator = one function.
+3. On closing it updates **this row** (state, or removal) and the area file's `Open work` section in the same commit. Hardware tests are left to the user and move the divergences from `untested` to `resolved` in `docs/spec/divergences.toml`.
 
 ---
 
-## Beta (obiettivo del prossimo traguardo)
+## Beta (next milestone)
 
-**Che cos'è.** Una beta chiusa: uno sviluppatore indie, con la sola suite di bm e la documentazione, scrive un gioco 2D o 3D con menu iniziale, più stage e un finale, lo compila in `.bm` e lo gira su Pi Zero W e RGB30 con prestazioni accettabili. Poi lo sviluppatore usa bm, ne trova i limiti e il lavoro successivo parte dai suoi riscontri. I criteri qui sotto sono quelli per **aprirla**; ogni riga rimanda alle righe dei livelli (colonna *Dopo*) dove sta il lavoro.
+**What it is.** A closed beta: an indie developer, with only the bm suite and the documentation, writes a 2D or 3D game with a start menu, several stages and an ending, builds it to `.bm` and runs it on Pi Zero W and RGB30 with acceptable performance. Then the developer uses bm, finds its limits, and the next work starts from their feedback. The criteria below are those for **opening** it; each row points to the level rows (*After* column) where the work lives.
 
-**Prova di accettazione.** Una persona che non conosce il codice di bm parte dalla guida, crea con i soli strumenti della suite un gioco con titolo, 3 stage e finale (una versione 2D e una 3D), lo prova su entrambe le console e lo esporta. Se serve il PC solo per copiare file sulla SD, va bene; se serve leggere il codice del kernel, la prova è fallita.
+**Acceptance test.** A person who does not know the bm code starts from the guide, creates a game with title, 3 stages and ending (a 2D version and a 3D one) using only the suite's tools, tests it on both consoles and exports it. If the PC is needed only to copy files to the SD, that is fine; if reading the kernel code is needed, the test has failed.
 
-| ID | Pri | Criterio per aprire la beta | Requisito verificabile | Dopo |
+| ID | Pri | Criterion to open the beta | Verifiable requirement | After |
 |---|---|---|---|---|
-| BETA-1 | P0 | Base stabile | CI verde su `bm-core`; nessun freeze nei log di una sessione lunga su Pi e RGB30; il crash scrive un `bootprev.txt` giusto (prove su hardware fatte dall'utente) | SYS-1, SYS-2, SYS-5 |
-| BETA-2 | P0 | Un gioco completo si costruisce con la suite | la prova di accettazione, versione 2D | APP-4, APP-1, APP-6 |
-| BETA-3 | P0 | L'API è integrata nell'editor | aiuto sulla funzione e lint in bm Code; completamento con una sola fonte API | APP-5 |
-| BETA-4 | P1 | Prestazioni accettabili in 2D e 3D | budget misurato e pubblicato per Pi e RGB30; il gioco della prova a 60 fps (o con il frame rate dichiarato nel budget) | API-1, M36, M35, M37, M41 |
-| BETA-5 | P1 | La versione 3D della prova | un gioco 3D con più stage gira con la GPU (V3D sul Pi, Mali sull'RGB30) entro il budget | BETA-4, APP-2 |
-| BETA-6 | P1 | Coerenza tra i due kernel | `python scripts/consistency.py gate` senza divergenze `open` o `untested` che toccano menu, input, Games, SDK e salvataggi (D01-D13, D28, D30-D36 e simili); le altre accettate per iscritto | SYS-5, APP-1 |
-| BETA-7 | P1 | Guida per i tester | `GAME-GUIDE.md` e un avvio rapido di una pagina portano al primo gioco. I riscontri dei tester arrivano all'utente con contatto diretto, fuori da bm: nessun canale nel prodotto | APP-3 |
+| BETA-1 | P0 | Stable base | CI green on `bm-core`; no freeze in the logs of a long session on Pi and RGB30; a crash writes a correct `bootprev.txt` (hardware tests done by the user) | SYS-1, SYS-2, SYS-5 |
+| BETA-2 | P0 | A complete game can be built with the suite | the acceptance test, 2D version | APP-4, APP-1, APP-6 |
+| BETA-3 | P0 | The API is integrated in the editor | function help and lint in bm Code; completion with a single API source | APP-5 |
+| BETA-4 | P1 | Acceptable performance in 2D and 3D | budget measured and published for Pi and RGB30; the test game at 60 fps (or at the frame rate declared in the budget) | API-1, M36, M35, M37, M41 |
+| BETA-5 | P1 | The 3D version of the test | a multi-stage 3D game runs on the GPU (V3D on the Pi, Mali on the RGB30) within the budget | BETA-4, APP-2 |
+| BETA-6 | P1 | Consistency between the two kernels | `python scripts/consistency.py gate` with no `open` or `untested` divergences touching menu, input, Games, SDK and saves (D01-D13, D28, D30-D36 and similar); the others accepted in writing | SYS-5, APP-1 |
+| BETA-7 | P1 | Guide for testers | `GAME-GUIDE.md` and a one-page quick start lead to the first game. Tester feedback reaches the user through direct contact, outside bm: no channel in the product | APP-3 |
 
-**Lua e LuaJIT (decisione di base, da confermare).** Per la beta si resta sull'interprete Lua 5.4: LuaJIT non serve e non conviene. Una operazione costa circa 100 ns (circa 140.000 per frame); il disegno e il 3D stanno in C e sulla GPU, e `docs/PERFORMANCE.md` (scelte scartate) ha già scartato il JIT perché richiede generare codice a runtime su bare metal; inoltre l'hook di `profile` e dei breakpoint non scatta nel codice compilato (`docs/B16.md`, sezione sull'hook di debug). Si riconsidera solo se i riscontri del tester mostrano giochi limitati dal Lua e non dal disegno: prima si misura con `profile(true)` e si sposta il lavoro pesante in C o sulle QPU.
+**Lua and LuaJIT (baseline decision, to be confirmed).** For the beta we stay on the Lua 5.4 interpreter: LuaJIT is neither needed nor advisable. One operation costs about 100 ns (about 140,000 per frame); drawing and 3D live in C and on the GPU, and `docs/PERFORMANCE.md` (discarded choices) already discarded the JIT because it requires generating code at runtime on bare metal; moreover the `profile` and breakpoint hook does not fire in compiled code (`docs/B16.md`, section on the debug hook). It is reconsidered only if tester feedback shows games limited by Lua and not by drawing: first measure with `profile(true)` and move the heavy work to C or to the QPUs.
 
-**Fuori dalla beta** (restano nei livelli, senza bloccarla): multiplayer, Tiled, sinc/QPU, audio a 24 bit, video e giochi di esempio come Overbit e Yharnam.
-
----
-
-## 1. Sistema (kernel, piattaforme, strumenti di sviluppo)
-
-| ID | Pri | Stato | Obiettivo | Requisito | Dettagli | Dopo |
-|---|---|---|---|---|---|---|
-| SYS-1 | P0 | in corso | CI verde su `bm-core` | tutti i job di `ci.yml` (host, qemu 1-4, rgb30) verdi su `bm-core`; `scripts/ci_audit.py` exit 0 | [tools](progress/tools.md), [sync](progress/sync.md) | - |
-| SYS-2 | P0 | da provare sul Pi | Freeze report e log su SD affidabili | un riavvio voluto non segnala un freeze; un crash scrive `bootprev.txt` giusto; la password è mascherata nei log su SD; il watchdog conta sul Pi Zero W | [system](progress/system.md) `Open work` | SYS-1 |
-| SYS-3 | P1 | da provare sul Pi | Prove del Pi dal PC (rete, tasti, screenshot) | `bm_net.py --shot/--keys` e il bridge provati su un Pi; R-NET3 con un token di test limitato | [tools](progress/tools.md) `Pi tests from the PC`, [pi-test](design/pi-test.md) | - |
-| SYS-4 | P1 | da fare | Coordinamento multi-agente misurabile | ledger e `agent_audit.py` con baseline; perimetro dei work order controllato da script | [sync](progress/sync.md), [sync-workflow](progress/sync-workflow.md) | - |
-| M42 | P1 | in corso | Profilo `.b16` identico su Pi e RGB30 | *Yharnam* `.b16` gira indistinguibile su Pi Zero W e RGB30, stesso throttle CPU | [b16](progress/b16.md) §2-3 | - |
-| SYS-5 | P1 | in corso | RGB30 stabile: pannello dopo riavvio a caldo, Start+Select, un solo core | riavvio a caldo senza schermo nero; Start+Select congela e riprende come sul Pi | [platforms](progress/platforms.md) `Open work`, [multitasking](progress/multitasking.md) `Open` | - |
-| M41 | P2 | in corso | GPU Mali-G52 della RGB30 e Overbit in `.b16` | Overbit `.b16` a 60 fps con la Mali; 3D Bench riporta le metriche GPU | [graphics-mali](progress/graphics-mali.md) §M41, [platforms](progress/platforms.md) | M42 |
-| SYS-6 | P2 | da fare | Multitasking: misure da rifare, fermi della CPU, download dentro un'app | `Open` di multitasking.md svuotata o ridotta a idee | [multitasking](progress/multitasking.md) | - |
-| R3, R4 | P2 | da verificare | Log su SD e screenshot: chiudere dopo le prove su console | log SD (D19) e `shot` provati su console; voci tolte da `Open work` | [system](progress/system.md) | SYS-2, SYS-3 |
-| R1, R2, R6, R8, R19, R20 | P3 | idea | Console standalone: WiFi da pad, tastiera a schermo, web UI, rumble DS4, pad BT, HDMI-CEC | da specificare | [system](progress/system.md) `Open work` | - |
-| R22 | P3 | idea | Guscio portatile Pi Zero (GPIO, display DPI/SPI) | da specificare | [platforms](progress/platforms.md) | - |
-
-## 2. Funzioni e API (GPU, runtime, formati, audio)
-
-| ID | Pri | Stato | Obiettivo | Requisito | Dettagli | Dopo |
-|---|---|---|---|---|---|---|
-| M36 | P1 | in corso (quasi completa) | Vertici sulla GPU: mesh caricata una volta, le QPU trasformano e illuminano | anello eroi di Overbit e stress test al doppio delle prestazioni rispetto a solo ARM, a 60 fps | [v3d](progress/v3d.md) `To do` | - |
-| M35 | P1 | da provare sul Pi | ARM e GPU insieme: code asincrone | benchmark Overbit e stress sul Pi con guadagno chiaro, opzione attiva e spenta | [v3d](progress/v3d.md) | M36 |
-| M37 | P1 | da provare sul Pi | 2D e qualità sulla GPU (`gpu3d_2d`, `menu_scale=3`, bilineare) | passo 16 del test `g`: pixel identici ARM/GPU; menu a 1080p corretto | [v3d](progress/v3d.md) | M36 |
-| M47 | P1 | in corso | Progetti `.bme` modificabili, `.bm` in sola lettura | gli strumenti aprono un `.bm` in sola lettura e chiedono la copia `.bme`; `Ctrl+B` genera il `.bm` in Games | [tools](progress/tools.md), [lua](progress/lua.md) | - |
-| M39 | P2 | in corso (su PC) | GPU 3: verso il limite della V3D (attributi compatti, texture 16 bit, ETC1) | stress test al doppio dei triangoli a 60 fps; Overbit con 10 bot a 60 fps in HIGH | [v3d](progress/v3d.md) `To do`, [lua](progress/lua.md) | M35 |
-| M43 | P2 | in specifica | Sprite stacking (`stack`, `zstack`, `stackv`) | decine di pile a 60 fps sul Pi; conversione in mesh | [graphics](progress/graphics.md), [suite-pixel](design/suite-pixel.md) | - |
-| M46 | P2 | in corso | Audio 2: sintetizzatore stereo 24 bit, campioni PCM/WAV, assistente, `riff` | giochi e brani di bm Sound a 24 bit su Pi e RGB30 con campioni e pattern | [audio](progress/audio.md), [audio-samples](progress/audio-samples.md) | - |
-| M44 | P3 | da fare | Programmi sulle QPU (particelle, buio di Yharnam, audio a blocchi) | particelle e buio di Yharnam calcolati dalla GPU con fallback trasparente | [v3d](progress/v3d.md) `To do` §5, [graphics](progress/graphics.md) | M36, M41 |
-| R40-R42 | P3 | idea | Profiler, scaling sinc/QPU, impostor degli eroi | misure sul Pi che giustifichino ciascuno | [v3d](progress/v3d.md) | M36 |
-| R7, R27, bmnet | P3 | idea | Accenti UTF-8 in `print()`, batteria e autosave, multiplayer in rete | da specificare | [runtime](progress/runtime.md) `Open work`, [system-net](progress/system-net.md) | - |
-| R9, R17, R21, R25, R31-R35 | P3 | idea | WAV da SD, import MIDI, audio GPIO, audio PC, campioni e riff | da specificare | [audio-samples](progress/audio-samples.md), [audio-output](progress/audio-output.md) | M46 |
-| API-1 | P1 | da fare | Budget di prestazioni 2D e 3D pubblicato e misurato su Pi e RGB30 | una tabella (sprite, tile, mesh, particelle a 60 fps) con misure vere su entrambe le piattaforme; l'RGB30 oggi non ha numeri; `profile(true)` spiegato nella guida | [PERFORMANCE](PERFORMANCE.md), [STRESS](STRESS.md), [lua](progress/lua.md) | M36, M41 |
-
-## 3. Editor e app (la suite bm)
-
-| ID | Pri | Stato | Obiettivo | Requisito | Dettagli | Dopo |
-|---|---|---|---|---|---|---|
-| APP-1 | P1 | in corso | bm SDK su RGB30 (Dev, pad, Games con `/carts`) | prove su console per ogni voce di `Open work`; divergenze D28 ecc. a `resolved` | [tools](progress/tools.md) `bm SDK (RGB30)` | M47 |
-| M48 | P2 | in corso | Mouse in tutta la suite (USB e Bluetooth) | ogni programma seleziona, disegna e naviga col puntatore senza tastiera | [tools](progress/tools.md) | - |
-| M45 | P2 | in corso | bm Write: documenti `.BMD`, export TXT/MD/HTM/PDF | un documento formattato esportato in PDF identico sul PC | [tools](progress/tools.md) | - |
-| APP-2 | P2 | da fare | Mappe 3D in bm SDK; bm Pixel per le pile (M43 passo 3) | passi di `Open work` chiusi con una mappa 3D salvata e ricaricata | [tools](progress/tools.md) `Mappe 3D in bm SDK`, [suite-sdk](design/suite-sdk.md), [suite-pixel](design/suite-pixel.md) | M43 |
-| APP-3 | P3 | da fare | Manuali PDF e struttura del progetto | manuali EN/IT allineati; layout di `docs/PROJECT-LAYOUT.md` rispettato | [tools](progress/tools.md) `PDF manuals`, `Project layout` | - |
-| R11, R37, R38, R39 | P3 | idea | Tiled, palette delle mappe, assistente 16×16, SDK 720×720 | da specificare | [suite-sdk](design/suite-sdk.md), [sdk-720](design/sdk-720.md) | - |
-| R15, R16, R26 | P3 | idea | Live reload dal PC, template bm Code, mouse in nano8 | da specificare | [tools](progress/tools.md), [suite-code](design/suite-code.md) | - |
-| APP-4 | P0 | da fare | Template di gioco completo: menu iniziale, più stage, finale, salvataggio | dal bm SDK un nuovo progetto "Stages" compila in `.bm` e gira con titolo, 3 stage, schermata finale e record; usa la macchina a stati di `games-architecture.md` | [games-architecture](design/games-architecture.md), [tools](progress/tools.md) | APP-1 |
-| APP-5 | P0 | da fare | API integrata nell'editor: aiuto sulla funzione sotto il cursore e lint | in bm Code un tasto mostra firma e descrizione della funzione; un controllo segnala nomi di API inesistenti; la lista API ha una sola fonte generata da `docs/api/` e usata anche da `predict` | [tools](progress/tools.md), [PREDICT](PREDICT.md), [API](API.md) | - |
-| APP-6 | P1 | da fare | Sviluppare un gioco senza PC: risorse e progetti gestibili sul dispositivo | su RGB30 e Pi si crea, si salva e si compila un progetto con sprite, mappa, suoni e codice senza il PC (oggi i file di risorse sono solo da PC e l'RGB30 non ha la scheda Lib) | [tools](progress/tools.md) `bm SDK (RGB30)`, [CONSISTENCY](spec/CONSISTENCY.md) | APP-1 |
-
-## 4. Giochi (facoltativo)
-
-| ID | Pri | Stato | Obiettivo | Requisito | Dettagli | Dopo |
-|---|---|---|---|---|---|---|
-| GAME-1 | P3 | in corso | Yharnam: verifiche aperte, mappa e prestazioni sul Pi | le verifiche di §2 chiuse; mappa provata sul Pi | [yharnam](progress/yharnam.md) §2-3, [tools](progress/tools.md) | M42 |
-| GAME-2 | P3 | in corso | Overbit: schermate, qualità, piloti dei mech dalle immagini | voci di `Open work` chiuse; benchmark sul Pi e sulla RGB30 | [overbit](progress/overbit.md), [tools](progress/tools.md) | M41 |
-| GAME-3 | P3 | idea | Architettura di gioco e kit di gameplay | un gioco di prova usa il kit senza codice duplicato | [games-architecture](design/games-architecture.md) | - |
+**Out of the beta** (they stay in the levels, without blocking it): multiplayer, Tiled, sinc/QPU, 24-bit audio, video and sample games such as Overbit and Yharnam.
 
 ---
 
-## Decisioni di base in vigore
+## 1. System (kernel, platforms, development tools)
 
-- **Video delle cartucce `.bm` (2026-09-26)**: 640×360 (16:9; ×2 su 720p, ×3 su 1080p); 320×180 facoltativa; 360×360 su `.b16`. Colore RGB565. Disegno sotto il 25% del frame; rendering in C, Lua solo logica.
-- **Opzioni GPU e 3D (2026-10-03)**: ogni novità GPU che cambia aspetto o latenza è un'opzione in `bm/config.txt` o `gpu3d()`; misure comparative su Overbit; overlay unico FPS / ms / CPU / GPU su F11.
-- Altre decisioni aperte: [`open-decisions.md`](open-decisions.md).
+| ID | Pri | State | Goal | Requirement | Details | After |
+|---|---|---|---|---|---|---|
+| SYS-1 | P0 | in progress | CI green on `bm-core` | all `ci.yml` jobs (host, qemu 1-4, rgb30) green on `bm-core`; `scripts/ci_audit.py` exit 0 | [tools](progress/tools.md), [sync](progress/sync.md) | - |
+| SYS-2 | P0 | to test on the Pi | Reliable freeze report and SD logs | an intended reboot does not report a freeze; a crash writes a correct `bootprev.txt`; the password is masked in SD logs; the watchdog counts on the Pi Zero W | [system](progress/system.md) `Open work` | SYS-1 |
+| SYS-3 | P1 | to test on the Pi | Pi tests from the PC (network, keys, screenshot) | `bm_net.py --shot/--keys` and the bridge tested on a Pi; R-NET3 with a limited test token | [tools](progress/tools.md) `Pi tests from the PC`, [pi-test](design/pi-test.md) | - |
+| SYS-4 | P1 | to do | Measurable multi-agent coordination | ledger and `agent_audit.py` with baseline; work order scope checked by script | [sync](progress/sync.md), [sync-workflow](progress/sync-workflow.md) | - |
+| M42 | P1 | in progress | Identical `.b16` profile on Pi and RGB30 | *Yharnam* `.b16` runs indistinguishably on Pi Zero W and RGB30, same CPU throttle | [b16](progress/b16.md) §2-3 | - |
+| SYS-5 | P1 | in progress | Stable RGB30: panel after warm reboot, Start+Select, single core | warm reboot without black screen; Start+Select freezes and resumes as on the Pi | [platforms](progress/platforms.md) `Open work`, [multitasking](progress/multitasking.md) `Open` | - |
+| M41 | P2 | in progress | RGB30 Mali-G52 GPU and Overbit in `.b16` | Overbit `.b16` at 60 fps with the Mali; 3D Bench reports GPU metrics | [graphics-mali](progress/graphics-mali.md) §M41, [platforms](progress/platforms.md) | M42 |
+| SYS-6 | P2 | to do | Multitasking: measurements to redo, CPU stalls, download inside an app | `Open` in multitasking.md emptied or reduced to ideas | [multitasking](progress/multitasking.md) | - |
+| R3, R4 | P2 | to verify | SD log and screenshot: close after console tests | SD log (D19) and `shot` tested on console; entries removed from `Open work` | [system](progress/system.md) | SYS-2, SYS-3 |
+| R1, R2, R6, R8, R19, R20 | P3 | idea | Standalone console: WiFi from the pad, on-screen keyboard, web UI, DS4 rumble, BT pad, HDMI-CEC | to be specified | [system](progress/system.md) `Open work` | - |
+| R22 | P3 | idea | Portable Pi Zero shell (GPIO, DPI/SPI display) | to be specified | [platforms](progress/platforms.md) | - |
 
-## Vincoli di progetto
+## 2. Features and API (GPU, runtime, formats, audio)
 
-- Lua su ARM1176 è lento: disegno in C, cache attive, calcoli critici nel runtime C o sulle QPU.
-- Firmware Broadcom closed-source: versione fissata (`FW_REF`) per evitare regressioni video o mailbox.
-- Integrità della SD: hash dei file scaricati, catene FAT protette, cartelle di sistema isolate.
-- Nessuna GPU reale in CI: emulatori QPU/V3D su PC, timeout di protezione, rasterizzatore software di riserva.
-- Hardware di sviluppo (seriale, alimentazione, controller): [`HARDWARE.md`](HARDWARE.md) *Development setup*.
+| ID | Pri | State | Goal | Requirement | Details | After |
+|---|---|---|---|---|---|---|
+| M36 | P1 | in progress (almost done) | Vertices on the GPU: mesh loaded once, the QPUs transform and light | Overbit hero ring and stress test at double the ARM-only performance, at 60 fps | [v3d](progress/v3d.md) `To do` | - |
+| M35 | P1 | to test on the Pi | ARM and GPU together: async queues | Overbit and stress benchmarks on the Pi with a clear gain, option on and off | [v3d](progress/v3d.md) | M36 |
+| M37 | P1 | to test on the Pi | 2D and quality on the GPU (`gpu3d_2d`, `menu_scale=3`, bilinear) | step 16 of test `g`: identical ARM/GPU pixels; correct menu at 1080p | [v3d](progress/v3d.md) | M36 |
+| M47 | P1 | in progress | Editable `.bme` projects, read-only `.bm` | the tools open a `.bm` read-only and ask for the `.bme` copy; `Ctrl+B` generates the `.bm` in Games | [tools](progress/tools.md), [lua](progress/lua.md) | - |
+| M39 | P2 | in progress (on PC) | GPU 3: toward the V3D limit (compact attributes, 16-bit textures, ETC1) | stress test at double the triangles at 60 fps; Overbit with 10 bots at 60 fps in HIGH | [v3d](progress/v3d.md) `To do`, [lua](progress/lua.md) | M35 |
+| M43 | P2 | in specification | Sprite stacking (`stack`, `zstack`, `stackv`) | tens of stacks at 60 fps on the Pi; conversion to mesh | [graphics](progress/graphics.md), [suite-pixel](design/suite-pixel.md) | - |
+| M46 | P2 | in progress | Audio 2: 24-bit stereo synthesizer, PCM/WAV samples, wizard, `riff` | bm Sound games and tracks at 24 bit on Pi and RGB30 with samples and patterns | [audio](progress/audio.md), [audio-samples](progress/audio-samples.md) | - |
+| M44 | P3 | to do | QPU programs (particles, Yharnam darkness, block audio) | particles and Yharnam darkness computed by the GPU with transparent fallback | [v3d](progress/v3d.md) `To do` §5, [graphics](progress/graphics.md) | M36, M41 |
+| R40-R42 | P3 | idea | Profiler, sinc/QPU scaling, hero impostors | Pi measurements justifying each one | [v3d](progress/v3d.md) | M36 |
+| R7, R27, bmnet | P3 | idea | UTF-8 accents in `print()`, battery and autosave, network multiplayer | to be specified | [runtime](progress/runtime.md) `Open work`, [system-net](progress/system-net.md) | - |
+| R9, R17, R21, R25, R31-R35 | P3 | idea | WAV from SD, MIDI import, GPIO audio, PC audio, samples and riff | to be specified | [audio-samples](progress/audio-samples.md), [audio-output](progress/audio-output.md) | M46 |
+| API-1 | P1 | to do | 2D and 3D performance budget published and measured on Pi and RGB30 | a table (sprites, tiles, meshes, particles at 60 fps) with real measurements on both platforms; the RGB30 has no numbers today; `profile(true)` explained in the guide | [PERFORMANCE](PERFORMANCE.md), [STRESS](STRESS.md), [lua](progress/lua.md) | M36, M41 |
+
+## 3. Editors and apps (the bm suite)
+
+| ID | Pri | State | Goal | Requirement | Details | After |
+|---|---|---|---|---|---|---|
+| APP-1 | P1 | in progress | bm SDK on RGB30 (Dev, pad, Games with `/carts`) | console tests for every `Open work` entry; divergences D28 etc. to `resolved` | [tools](progress/tools.md) `bm SDK (RGB30)` | M47 |
+| M48 | P2 | in progress | Mouse across the whole suite (USB and Bluetooth) | every program selects, draws and navigates with the pointer without a keyboard | [tools](progress/tools.md) | - |
+| M45 | P2 | in progress | bm Write: `.BMD` documents, TXT/MD/HTM/PDF export | a formatted document exported to PDF identical on the PC | [tools](progress/tools.md) | - |
+| APP-2 | P2 | to do | 3D maps in bm SDK; bm Pixel for stacks (M43 step 3) | `Open work` steps closed with a 3D map saved and reloaded | [tools](progress/tools.md) `Mappe 3D in bm SDK`, [suite-sdk](design/suite-sdk.md), [suite-pixel](design/suite-pixel.md) | M43 |
+| APP-3 | P3 | to do | PDF manuals and project structure | EN/IT manuals aligned; layout of `docs/PROJECT-LAYOUT.md` respected | [tools](progress/tools.md) `PDF manuals`, `Project layout` | - |
+| R11, R37, R38, R39 | P3 | idea | Tiled, map palettes, 16×16 wizard, 720×720 SDK | to be specified | [suite-sdk](design/suite-sdk.md), [sdk-720](design/sdk-720.md) | - |
+| R15, R16, R26 | P3 | idea | Live reload from the PC, bm Code templates, mouse in nano8 | to be specified | [tools](progress/tools.md), [suite-code](design/suite-code.md) | - |
+| APP-4 | P0 | to do | Complete game template: start menu, several stages, ending, save | from bm SDK a new "Stages" project builds to `.bm` and runs with title, 3 stages, ending screen and record; it uses the state machine of `games-architecture.md` | [games-architecture](design/games-architecture.md), [tools](progress/tools.md) | APP-1 |
+| APP-5 | P0 | to do | API integrated in the editor: help on the function under the cursor and lint | in bm Code a key shows the function's signature and description; a check flags nonexistent API names; the API list has a single source generated from `docs/api/` and also used by `predict` | [tools](progress/tools.md), [PREDICT](PREDICT.md), [API](API.md) | - |
+| APP-6 | P1 | to do | Develop a game without a PC: resources and projects manageable on the device | on RGB30 and Pi a project with sprite, map, sounds and code is created, saved and built without the PC (today resource files are PC-only and the RGB30 has no Lib tab) | [tools](progress/tools.md) `bm SDK (RGB30)`, [CONSISTENCY](spec/CONSISTENCY.md) | APP-1 |
+
+## 4. Games (optional)
+
+| ID | Pri | State | Goal | Requirement | Details | After |
+|---|---|---|---|---|---|---|
+| GAME-1 | P3 | in progress | Yharnam: open checks, map and performance on the Pi | the §2 checks closed; map tested on the Pi | [yharnam](progress/yharnam.md) §2-3, [tools](progress/tools.md) | M42 |
+| GAME-2 | P3 | in progress | Overbit: screens, quality, mech pilots from images | `Open work` entries closed; benchmark on the Pi and the RGB30 | [overbit](progress/overbit.md), [tools](progress/tools.md) | M41 |
+| GAME-3 | P3 | idea | Game architecture and gameplay kit | a test game uses the kit without duplicated code | [games-architecture](design/games-architecture.md) | - |
+
+---
+
+## Baseline decisions in force
+
+- **`.bm` cartridge video (2026-09-26)**: 640×360 (16:9; ×2 on 720p, ×3 on 1080p); 320×180 optional; 360×360 on `.b16`. RGB565 color. Drawing under 25% of the frame; rendering in C, Lua only for logic.
+- **GPU and 3D options (2026-10-03)**: every GPU novelty that changes look or latency is an option in `bm/config.txt` or `gpu3d()`; comparative measurements on Overbit; a single FPS / ms / CPU / GPU overlay on F11.
+- Other open decisions: [`open-decisions.md`](open-decisions.md).
+
+## Project constraints
+
+- Lua on ARM1176 is slow: drawing in C, caches on, critical computation in the C runtime or on the QPUs.
+- Closed-source Broadcom firmware: version pinned (`FW_REF`) to avoid video or mailbox regressions.
+- SD integrity: hashes of downloaded files, protected FAT chains, isolated system folders.
+- No real GPU in CI: QPU/V3D emulators on PC, protection timeouts, software rasterizer fallback.
+- Development hardware (serial, power, controller): [`HARDWARE.md`](HARDWARE.md) *Development setup*.
