@@ -47,6 +47,11 @@ Perimetro: `.github/workflows/ci.yml`, `tests/qemu_test.py`, `tests/rgb30/qemu_t
 - Verifica: `scripts/wsl-run.ps1 "make -f rgb30.mk PLAT=virt all && python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k el2"` → build senza `.error`, test PASS ("EL1", "2^10 = 1024.0"); poi `make TARGET=rgb30` (rk3566) deve compilare. Facoltativo: `objdump -d build/rgb30-virt/kernel.elf | grep -A3 copy_up_end` con indirizzo < 0x40080100. Poi `python scripts/docs_audit.py score`.
 - Console vera: la prova (`./easy_install.sh`, boot fino al menu come prima) la fa l'utente: dichiararlo nella consegna. Se in QEMU il test non passa dopo 2 tentativi: `WAITING` e scrivi a SPV (niente bm-deep).
 
+## D-HOST — `make test-loading` non linka (bm-light; decisione SPV 2026-10-15: OK, perimetro esteso a `Makefile:465-470`)
+- Causa (log CI run baffa299): `undefined reference to synth_kit_find`; `src/audio/presets.c:325` lo usa, definito in `src/audio/synth.c:838`, che il link di `test_loading` (`Makefile:468`) non include. Preesistente.
+- Modifica: aggiungere `src/audio/synth.c` alle dipendenze (`:465-467`) e alla riga di link (`:468`) di `$(BUILD)/host/test_loading`, solo se il link lo richiede (altre dipendenze mancanti: nominarle in Problemi e fermarsi dopo 2 tentativi).
+- Verifica: `scripts/wsl-run.ps1 "make test-loading"` → exit 0. Nessun altro target toccato.
+
 ## CI-AUDIT — `scripts/ci_audit.py` (bm-coder, dopo CI-1 e D-MON)
 - Nuovo `scripts/ci_audit.py`, solo stdlib e PyYAML, exit 1 se trova problemi. Controlli: 1) ogni job di `ci.yml` ha `timeout-minutes` e il workflow ha `concurrency`; 2) `on.push` ignora `sync/**`; 3) in `tests/qemu_test.py` e `tests/rgb30/qemu_test.py` segnala `expect(..., timeout=T)` con T minore di un'attesa nota in una tabella interna `KNOWN_WAITS = {"stress settle": 19}`; 4) elenca i test che leggono `build/carts/<gioco>.bm` con i giochi da `Makefile` `GAMES`; 5) con `--gh`: `gh run list -w ci.yml -L 20 --json conclusion,createdAt,updatedAt` per durata media e quota di successi (senza gh avvisa e salta).
 - `CLAUDE.md` §5: aggiungere il punto 5: "se tocchi `.github/workflows/` o i timeout dei test, esegui `python scripts/ci_audit.py`".
