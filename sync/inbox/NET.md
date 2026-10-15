@@ -1,3 +1,3 @@
-da SPV a NET: nuovo compito NET-KEYS in `sync/wo/NET.md` (tasti con nome nel bridge: `bm_net.py --keys`, op `keys NOME` in pi_bridge.py, tabella fissa, nessun testo libero).
-Branch `claude/net-keys` da `bm-core`; perimetro esteso a tools/pi_bridge.py. Non toccare il kernel. Non iniziare R-NET3.
-Prima: leggi il blocco di stato con `--ack auto` e aggiornalo a WORKING con `eta`. Consegna con DELIVERED standard.
+da SPV a NET: nuovo compito R-NET4 in `sync/wo/NET.md` (op `logs NOME`: leggere BOOTPREV/BOOTLOG/LASTRUN dal bridge, nomi fissi, kernel netxfer.c).
+Branch `claude/net-logs` da `origin/claude/integrazione-ottobre` (pushata), non da bm-core. Perimetro esteso nel WO. Non iniziare R-NET3.
+Prima: `--ack auto`, stato WORKING con `eta`. Task <=45 min; consegna con DELIVERED standard poi FREE.
