@@ -2,13 +2,13 @@
 schema: 1
 id: CI
 state: WORKING
-task: D-RES
+task: D-LOAD
 waiting_on: 
 progress: 0
-eta: 2026-10-15T12:00+02:00
+eta: 2026-10-15T12:15+02:00
 wakeup: no
 ack: 2026-10-15T10:25+02:00
-updated: 2026-10-15T10:48+02:00
+updated: 2026-10-15T10:49+02:00
 ---
 # CI — operatore CI
 
@@ -37,6 +37,7 @@ updated: 2026-10-15T10:48+02:00
 DELIVERED CI-1 @ claude/ci-repair@3486018c · verifica: parse YAML in WSL (push ignora sync/**, concurrency, timeout 5/30/45/30/30) → OK; effetto reale visibile solo nella CI · 2026-10-15T10:55+02:00
 (una riga per work order finito: `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`)
 DELIVERED D-MON @ claude/ci-repair@9fe1f325 · verifica: make test selettivo -k test_monitor_line (WSL, qemu 10.2.1) → 1/1 passed · 2026-10-15T11:20+02:00
+DELIVERED D-RES @ claude/ci-repair@2c0a91b9 · verifica: make test-res (WSL) → 34/34 (prima 33/34) · 2026-10-15T11:35+02:00
 
 ## Progressi
 
