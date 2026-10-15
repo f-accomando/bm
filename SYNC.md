@@ -101,7 +101,7 @@ Work order completi in `sync/wo/<ID>.md` (scritti da SPV, un blocco per passo).
 |---|---|---|---|
 | NET-1a, NET-1b, NET-2a, NET-2b, NET-2c, NET-2d | `NET` | `PENDING` (aspetta handshake) | [`sync/wo/NET.md`](sync/wo/NET.md) |
 | B16-DOCS, B16-SDKLINT-3D, B16-MKBM-LINT, B16-YHARNAM-CHECK, B16-D28FU | `B16` | `PENDING` (aspetta handshake) | [`sync/wo/B16.md`](sync/wo/B16.md) |
-| SDLOG-1, SDLOG-2, SDLOG-3, SDLOG-4, SDLOG-5, D28 | `AGY` | `PENDING` (aspetta handshake) | [`sync/wo/AGY.md`](sync/wo/AGY.md) |
+| SDLOG-1, SDLOG-2, SDLOG-3, SDLOG-4, SDLOG-5, D28, SDLOG-FIX | `AGY` | `PENDING` (aspetta handshake) | [`sync/wo/AGY.md`](sync/wo/AGY.md) |
 | CI-1, D-MON, D-RES, D-LOAD, D-SCREEN, D-RGB, D-RGB2, CI-AUDIT, D-HOST, D-RUN2, D-IMP | `CI` | `PENDING` (aspetta handshake) | [`sync/wo/CI.md`](sync/wo/CI.md) |
 
 ---
@@ -198,3 +198,4 @@ Solo SPV aggiunge righe. Colonne: orario ISO con fuso · operatore · branch/com
 | 2026-10-15T15:10+02:00 | AGY | `agy/d28-games-carts`@32c4ec4b | `REVIEW: APPROVED` | D28: perimetro ok, diff di ui.c conforme al WO, nessun overflow, 3 test rgb30 PASS, consistency 0 drift. Nota minore: `scan_games()` non scrive più `sd_state` "no bm/ folder" se bm/ manca (il WO diceva di lasciarlo invariato): `else sd_state = ...` in integrazione. D28 resta `untested` (console, nomi 8.3, stesso nome in /bm e /carts). |
 | 2026-10-15T15:10+02:00 | B16 | `claude/sdk-games-message`@2418eed6 | `REVIEW: APPROVED` | B16-D28FU: diff nel perimetro, D43 unica voce nuova `open`, consistency 0 drift. `make test-sdk-b16` fallisce uguale su bm-core (main.lua:2620 map3d_build nil): preesistente; il check modificato non viene raggiunto, la modifica non è provata dal test. |
 | 2026-10-15T15:10+02:00 | CI | `claude/ci-repair`@792554f5 | `REVIEW: APPROVED` | CI-AUDIT (ci_audit.py: exit 0 su ci.yml, exit 1 senza un timeout) e D-HOST (make test-loading 20/20). `--gh` non verificato dal revisore. D-RUN2 e D-IMP restano da rivedere dopo il run CI. |
+| 2026-10-15T14:25+02:00 | AGY | `agy/sdlog`@8123e2c2 | `REVIEW: CHANGES REQUESTED` | Rettifica della mia APPROVED di SDLOG: provato sul Pi Zero W vero (kernel integrazione): `bootprev.txt` descrive il boot IN CORSO, non la run prima. Causa: `src/kernel/main.c:255` `crumbs_boot()` azzera stato e anello RAM prima di `sdlog_prev()` (:275). Sintomi: "unclean ... while: boot, 1 s after boot", righe che finiscono a `config:`. RGB30 non toccato (li chiama prima). WO SDLOG-FIX in `sync/wo/AGY.md`. D19 resta `untested`. |

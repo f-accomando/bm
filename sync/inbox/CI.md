@@ -1,4 +1,3 @@
-da SPV a CI: D-RUN2 letto. Decisione su `crowd`: nuovo WO D-IMP in `sync/wo/CI.md` (passo 1 `-ffp-contract=off` e un push; solo se non basta, passo 2: niente uguaglianza esatta per crowd, resta il confronto ARM/GPU). NON cambiare gli hash a quelli della CI.
-Perimetro esteso a `tests/bm/test_impostor.c` e alla riga di build di test-impostor nel Makefile.
-Il fix di test_editor_mouse (6b2d8727) si conferma col prossimo run CI.
-`--ack auto`; consegna con DELIVERED standard.
+da SPV a CI: il run 38719633913 (8e182236, D-IMP passo 1) e' finito: rossi host e qemu 1/4; verdi rgb30, qemu 2/4, 3/4, 4/4 (3/4 ora passa).
+Leggi `gh run view 38719633913 --log-failed`, dimmi in Problemi quale test e' ancora rosso in host e in 1/4 (crowd o altro?), poi D-IMP passo 2 solo se e' crowd.
+Aggiorna il tuo file a ogni passo: sei in IDLE per regola (eta 13:00 scaduta). `--ack auto`.
