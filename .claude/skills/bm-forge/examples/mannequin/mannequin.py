@@ -7,7 +7,7 @@ along it, and switches features on when they can be seen: ball joints (>= 1.0), 
 Each part is its own loft (a mannequin is made of parts); every vertex has one bone, as the format wants
 (src/bm/format.c:266-269). Built facing +z, mirrored to -z at the end (bm Studio's recipes), .L on +x.
 
-  python mannequin.py DETAIL OUT.bm [mitten]   e.g.  python mannequin.py 1.0 /abs/path/man1.bm  (mitten: no fingers or toes)
+  python mannequin.py DETAIL OUT.bm [mitten]   e.g.  python mannequin.py 1.0 /abs/path/man1.bm  (mitten: no fingers or toes; lowface: a small face below detail 1.2; noface)
 """
 import math
 import os
@@ -114,8 +114,11 @@ class Builder:
         self.loft(a, b, lambda t: (r * math.sin(math.pi * min(max(t, 0.02), 0.98)),) * 2, bone, col, n=n, rings=rr)
 
 
-def build(detail, fingers=True):
-    """fingers=False: mittens and one-piece feet at any detail (the hybrid: detail where it is worth it)"""
+def build(detail, fingers=True, lowface=False, noface=False):
+    """fingers=False: mittens and one-piece feet at any detail (the hybrid: detail where it is worth it).
+    lowface=True: below detail 1.2, still a face (nose, eyes, brows, lips) at a small budget.
+    noface=True: no face parts at all. The face parts are loose pieces: Skin.face_range = (v0, v1, f0, f1) says where
+    they are in the vertex and face lists (a model made of a reduced body and a face built apart)."""
     B = Builder(detail)
     d = detail
     s = B.s
@@ -175,29 +178,39 @@ def build(detail, fingers=True):
     B.loft((0, 1.575, 0.0), (0, 1.80, 0.005), head_rad, "head", LIGHT, n=max(B.sides + 4, 8),
            rings=max(B.rings * 2 + 4, 10), bump=skull)
 
-    if d >= 1.2:       # the face: nose, eyes, brows, lips, ears; the neck's cords. All placed on the head's surface.
+    full = d >= 1.2
+    fv0, ff0 = len(s.v), len(s.f)
+    if (full or lowface) and not noface:       # the face: nose, eyes, brows, lips, ears; the neck's cords. All placed on the head's surface.
         def on(x, y, off=0.0):
             return (x, y, head_z(x, y) + off)
         B.path_tube([on(0, 1.716, 0.002), on(0, 1.692, 0.007), on(0, 1.668, 0.014)], (0.010, 0.0115, 0.013), "head", LIGHT)   # nose bridge
         B.blob(on(0, 1.660, 0.019), 0.0155, 0.0155, 0.0155, "head", LIGHT)                              # tip
         for sx in (1, -1):
-            B.blob(on(sx * 0.017, 1.655, 0.009), 0.009, 0.009, 0.009, "head", LIGHT, n=6, rings=4)        # nostril wing
-            B.blob(on(sx * 0.036, 1.703, 0.000), 0.0135, 0.0105, 0.0125, "head", EYE)                     # eyeball
-            B.blob(on(sx * 0.036, 1.703, 0.011), 0.0062, 0.0062, 0.0035, "head", PUPIL, n=6, rings=4)     # pupil
+            if full:
+                B.blob(on(sx * 0.017, 1.655, 0.009), 0.009, 0.009, 0.009, "head", LIGHT, n=6, rings=4)        # nostril wing
+            if full:
+                B.blob(on(sx * 0.036, 1.703, 0.000), 0.0135, 0.0105, 0.0125, "head", EYE)                 # eyeball
+                B.blob(on(sx * 0.036, 1.703, 0.011), 0.0062, 0.0062, 0.0035, "head", PUPIL, n=6, rings=4)   # pupil
+            else:
+                B.blob(on(sx * 0.036, 1.703, 0.002), 0.012, 0.010, 0.010, "head", PUPIL, n=6, rings=3)    # one dark eye
             B.path_tube([on(sx * 0.014, 1.730, 0.003), on(sx * 0.036, 1.7355, 0.003), on(sx * 0.060, 1.727, 0.002)],
                         (0.0045, 0.0055, 0.0045), "head", BROW, n=5)                                      # brow
-            B.path_tube([on(sx * 0.022, 1.7185, 0.004), on(sx * 0.036, 1.7215, 0.0055), on(sx * 0.051, 1.7155, 0.003)],
-                        (0.0028, 0.0032, 0.0028), "head", DARK, n=4)                                      # upper lid
-            B.blob((sx * 0.094, 1.690, -0.002), 0.0085, 0.030, 0.021, "head", SKIN)                       # ear
-            B.path_tube([(sx * 0.04, 1.572, -0.045), (sx * 0.03, 1.535, 0.0), (sx * 0.016, 1.49, 0.045)],
-                        (0.010, 0.0115, 0.010), "spine", SKIN, n=6)                                       # sternocleidomastoid
+            if full:
+                B.path_tube([on(sx * 0.022, 1.7185, 0.004), on(sx * 0.036, 1.7215, 0.0055), on(sx * 0.051, 1.7155, 0.003)],
+                            (0.0028, 0.0032, 0.0028), "head", DARK, n=4)                                  # upper lid
+                B.blob((sx * 0.094, 1.690, -0.002), 0.0085, 0.030, 0.021, "head", SKIN)                   # ear
+                B.path_tube([(sx * 0.04, 1.572, -0.045), (sx * 0.03, 1.535, 0.0), (sx * 0.016, 1.49, 0.045)],
+                            (0.010, 0.0115, 0.010), "spine", SKIN, n=6)                                   # sternocleidomastoid
         B.path_tube([on(-0.032, 1.6255, 0.004), on(-0.016, 1.630, 0.007), on(0.0, 1.632, 0.008), on(0.016, 1.630, 0.007),
                      on(0.032, 1.6255, 0.004)], (0.0058, 0.0070, 0.0078, 0.0070, 0.0058), "head", LIPS, n=6)   # upper lip
         B.path_tube([on(-0.026, 1.6135, 0.003), on(0.0, 1.6095, 0.006), on(0.026, 1.6135, 0.003)],
                     (0.0060, 0.0085, 0.0060), "head", LIPS, n=6)                                          # lower lip
-        B.path_tube([on(-0.035, 1.6195, 0.002), on(0.0, 1.6195, 0.005), on(0.035, 1.6195, 0.002)], (0.0016, 0.0016, 0.0016),
-                    "head", MOUTH, n=4)                                                                   # mouth line
-        B.blob((0, 1.548, 0.047), 0.0095, 0.0125, 0.0095, "head", SKIN, n=6, rings=4)                    # Adam's apple
+        if full:
+            B.path_tube([on(-0.035, 1.6195, 0.002), on(0.0, 1.6195, 0.005), on(0.035, 1.6195, 0.002)], (0.0016, 0.0016, 0.0016),
+                        "head", MOUTH, n=4)                                                               # mouth line
+            B.blob((0, 1.548, 0.047), 0.0095, 0.0125, 0.0095, "head", SKIN, n=6, rings=4)                # Adam's apple
+
+    s.face_range = (fv0, len(s.v), ff0, len(s.f))
 
     # --- arms and legs, both sides
     for sx, S in ((1, "L"), (-1, "R")):
@@ -299,7 +312,7 @@ def build(detail, fingers=True):
 
 if __name__ == "__main__":
     det = float(sys.argv[1])
-    model, rig, _ = build(det, fingers="mitten" not in sys.argv[3:])
+    model, rig, _ = build(det, fingers="mitten" not in sys.argv[3:], lowface="lowface" in sys.argv[3:], noface="noface" in sys.argv[3:])
     print(f"detail {det}: {len(model.verts)} verts, {len(model.faces)} tris, {len(rig.bones)} bones", file=sys.stderr)
     if len(sys.argv) > 2:
         big = len(model.verts) > 4096 or len(model.faces) > 16384          # over the tools' limits: the kernel's
