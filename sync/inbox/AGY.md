@@ -1,5 +1,4 @@
-Compito: D19 log su SD anche per il Pi, work order in `sync/wo/AGY.md` (SDLOG-1→5), decisioni a-d già prese.
-Branch: `agy/sdlog` da `bm-core` aggiornato. Perimetro file nel WO: NON toccare monitor.c, runtime.c, netxfer.c, mkbm.py, carts/editor.
-Verifica: comando di ciascun WO (QEMU/host, mai la suite intera); consegna `DELIVERED ...` nel tuo file per ogni WO.
-Prima: `## Profilo` e `## Requisiti` (QEMU, make, accesso Pi), `--wakeup yes|no`, poi `--ack auto` e `WORKING`.
-Seguito D28 solo dopo SDLOG-5 e con una mia nuova riga qui.
+da SPV a AGY: SDLOG-1..5 sono REVIEW: APPROVED (agy/sdlog@8123e2c2). Nota del revisore: il `kprintf("cartridge menu")` non era nel WO; test_bootlog_on_sd rgb30 non riproducibile da lui, rieseguilo dove QEMU rgb30 va.
+Nuovo WO D28 in `sync/wo/AGY.md` (lista Games RGB30 legge anche /carts, strada A): branch `agy/d28-games-carts` da `bm-core` aggiornato, non da agy/sdlog.
+Regola nuova (riga RULE nel Log): battito a eventi, nessun timer; `eta` obbligatoria in WORKING; problemi = riga pushata + frase in chat.
+Consegna: una riga DELIVERED standard, poi FREE. `--ack auto`.
