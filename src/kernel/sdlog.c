@@ -3,6 +3,7 @@
 #include "drivers/sd.h"
 #include "fs/fat.h"
 #include "kernel/crumbs.h"
+#include "kernel/reports.h"
 #include "lib/printf.h"
 
 #include <stddef.h>
@@ -49,6 +50,7 @@ void sdlog_prev(void)
     } else {
         len += (size_t)ksnprintf(buf + len, 32, "(nothing in RAM)\n");
     }
+    reports_mask_secrets(buf, len);
     if (fat_mkdirs("/bm") != 0 || fat_write_file("/bm", "BOOTPREV.TXT", buf, len) != 0)
         kprintf("boot log: cannot write bm/bootprev.txt (%s)\n", fat_error());
     free(buf);
@@ -59,12 +61,21 @@ void sdlog_boot(int say)
     if (!sd_blocks())
         return;
     const char *log = klog_text();
-    if (fat_mkdirs("/bm") == 0 && fat_write_file("/bm", "BOOTLOG.TXT", log, strlen(log)) == 0) {
+    size_t n = strlen(log);
+    char *copy = malloc(n + 1);
+    if (!copy) {
+        kprintf("boot log: no memory\n");
+        return;
+    }
+    memcpy(copy, log, n + 1);
+    reports_mask_secrets(copy, n);
+    if (fat_mkdirs("/bm") == 0 && fat_write_file("/bm", "BOOTLOG.TXT", copy, n) == 0) {
         if (say)
             kprintf("boot log saved to bm/bootlog.txt\n");
     } else {
         kprintf("boot log: cannot write bm/bootlog.txt (%s)\n", fat_error());
     }
+    free(copy);
 }
 
 void sdlog_lastrun(void)
@@ -83,10 +94,19 @@ void sdlog_lastrun(void)
             memcpy(buf + n, cut, sizeof cut - 1);
             n += sizeof cut - 1;
             n += crumbs_ring_copy(buf + n, 4096 + 1);
-            log = buf;
+        }
+    } else {
+        buf = malloc(n + 1);
+        if (buf) {
+            memcpy(buf, log, n + 1);
         }
     }
-    if (fat_mkdirs("/bm") != 0 || fat_write_file("/bm", "LASTRUN.TXT", log, n) != 0)
+    if (!buf) {
+        kprintf("cannot write bm/lastrun.txt (no memory)\n");
+        return;
+    }
+    reports_mask_secrets(buf, n);
+    if (fat_mkdirs("/bm") != 0 || fat_write_file("/bm", "LASTRUN.TXT", buf, n) != 0)
         kprintf("cannot write bm/lastrun.txt (%s)\n", fat_error());
     free(buf);
 }

@@ -252,12 +252,16 @@ void kernel_main(uint32_t atags)
     rng_start();                /* warms up while the rest boots (TLS, BLE keys) */
 
     sysinfo_print_short();
-    crumbs_boot();
-    if (watchdog_arm(3000) != 0) {  /* a frozen Pi restarts and says what it was doing */
-        uint32_t ld, lf;
-        watchdog_probe_values(&ld, &lf);
+    int wd_rc = watchdog_arm(3000);
+    uint32_t ld, lf;
+    watchdog_probe_values(&ld, &lf);
+    if (wd_rc == -2)
+        kprintf("watchdog: resets at once on RSTC (emulator), no freeze guard\n");
+    else if (wd_rc != 0)
         kprintf("watchdog: not available, no freeze guard (loaded %lu, after 20 ms %lu)\n", ld, lf);
-    }
+    else
+        kprintf("watchdog: on, 3000 ms (loaded %lu, after 20 ms %lu)\n", ld, lf);
+    crumbs_boot();
     report_irq();
     if (audio_init() == 0) {
         kprintf("audio: %s\n", audio_status());

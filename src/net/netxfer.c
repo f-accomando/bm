@@ -637,12 +637,7 @@ void netxfer_poll(void)
         if (!secs && st == IDLE) {
             kprintf("net: restarting with the new kernel...\n");
             timer_delay_ms(200);
-            wifi_leave();               /* the AP told: it does not hold the old association */
-            /* an intentional restart, as every other one (update.c, monitor.c):
-             * without it the next boot reported a freeze (2026-10-11) */
-            crumbs_clean_exit();
-            uart_flush();
-            watchdog_reboot();
+            crumbs_restart(0);
         }
     }
 }
