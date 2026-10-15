@@ -62,7 +62,6 @@ U.menu_update	U.menu_update()	input	the context menu at the pointer: `{ {"Copy",
 U.press	U.press(key)	input	a key as if typed: the next `keyp()` gives it (bmui puts its own `keyp` first)
 U.update	U.update()	input	in `_update` first (reads `mouse()` once a frame), in `_draw` first (forgets the zones of the frame before)
 U.zone	U.zone(x, y, w, h, kind, a, b)	input	something clickable, as it is drawn (the last one drawn wins: a dialog over the page); `U.at()` the zone under the pointer, `U.click([b])` the zone pressed this frame (0 left, 1 right, 2 middle), `U.clicked(b)` a button let go without a drag (the zone where it went down, or `true`)
-a	a(3,8,2)	riff	a Euclidean rhythm
 ai.ask	ai.ask(question, [{n=5, ctx=word, kinds="api,howto"}])	tools	the best entries, the first the most likely: `{ {id=, title=, kind=, score=}, … }`, and as the second value the microseconds taken. Titles and texts are in the language of the answers (`ai.lang()`), which follows the question's. `ctx`: the word under the cursor (if it is a function of the API, its entry goes to the top). `kinds`: `api`, `howto`, `error`, `tip`, `sprite`
 ai.checksum	ai.checksum(question)	tools	the CRC-32 of the network's outputs for a question: for the tests (equal to that of the Python reference)
 ai.entry	ai.entry(id)	tools	an entry: `{id, kind, title, name, text, code, gen, see = {id, …}}`
@@ -265,7 +264,9 @@ net.send	net.send(data, [to])	bmnet	a message (a string up to 900 bytes) to ever
 net.start	net.start([opt])	bmnet	(the host) starts the match with those in: `seed` (the same random numbers on every console; one by chance if missing), `delay` (frames between a press and its frame: 4 on the LAN, 7 through the relay), `data` (a string for everybody: the options chosen). Everybody gets the event `"start"` (the host too, at the next `net.update()`)
 net.unpad	net.unpad(v)	bmnet	the 16 buttons of `pad(p)` and the left stick (8 bits each way) in 32 bits / back to buttons, `x`, `y` (−1..1)
 net.update	net.update()	bmnet	once in each `_update`: the packets that came, the lobby's announcements, the sure messages to send again. Returns the frame's **events**, a list of `{type = ...}`: `"join"` (`id, name, seat`), `"leave"` (`seat, id`), `"joined"` (`seat`), `"refused"`, `"start"` (`seed, seat, seats, host, data`), `"msg"` (`from, data, sure`), `"lost"` (`why`: the host has gone), `"desync"` (`frame`), `"error"` (`text`)
+net:pick	k, v = net:pick(inputs, [mask])	tools	the index (from 1) of the biggest output and its value; `mask`: a table of booleans, `false` = that output is not chosen
 net:run	net:run(inputs, [outputs])	tools	the outputs (numbers) for a table of inputs; `outputs`: a table to fill instead of a new one
+net:size	n_in, n_out = net:size()	tools	how many inputs and outputs
 net_ip	net_ip()	system	the console's address, or `nil` without a network
 net_resolve	net_resolve(name)	system	the address of a name: `nil` while it looks for it (call it again the frame after), `false` if it does not exist
 nnet	nnet(blob)	tools	the network of a "BMNN" string (format in `src/ai/net.h`; an error if it is broken), up to 8 layers of 256
@@ -321,6 +322,8 @@ timeslice	timeslice(co, [k])	system	coroutine `co` stops by itself after about `
 tone	tone(v, sound)	sound	the voice's tone for the `note()`s that follow: the name of a **ready-made instrument** (`"epiano"`, `"pluck"`, `"pad"`, `"kick"`… `instruments()` lists them) or a table in plain units (below). `tone(v)` goes back to the square of a fresh voice
 tri	tri(x0, y0, x1, y1, x2, y2, c, [c1, c2])	draw	a filled triangle; with three colours (one per corner) the colour shades from one corner to the other (Gouraud, dithered)
 udp_close	udp_close(s)	system	closes the socket
+udp_open	s, port = udp_open([port])	system	a socket on the port (0 or nothing: any); `nil` and the reason if there is no network or free socket. The first time a game opens one, the player is asked whether it may use the network (the answer stays in `bm/config.txt`); after a no, `nil` and the reason
+udp_recv	data, address, port = udp_recv(s)	system	the next packet that arrived, or `nil`; up to 48 wait in the queue
 udp_send	udp_send(s, address, port, data)	system	sends a string (at most 1024 bytes); `true` if it left (UDP: it can be lost)
 vibrato	vibrato(v, [semitones], [hz])	sound	a vibrato `semitones` wide (for example 0.3) at `hz` swings a second (default 6); `vibrato(v)` takes it away
 visible3d	visible3d(x, y, z, r)	light3d	`false` if a sphere (centre, radius) cannot be seen: behind the camera, beyond an edge of the screen, or (after `pvs3d`) on pieces of the map that the camera's cell does not see. To skip the characters and effects hidden by the walls before drawing them (bm3d 5.5)

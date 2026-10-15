@@ -9,8 +9,13 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 ROW_RE = re.compile(r"^\| (.+?) \| (.*) \|\s*$")
-SIG_RE = re.compile(r"^([A-Za-z_]\w*(?:[.:][A-Za-z_]\w*)*)\s*\(.*\)$")
+SIG_RE = re.compile(r"^(?:[A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*\s*=\s*)?([A-Za-z_]\w*(?:[.:][A-Za-z_]\w*)*)\s*\(.*\)$")
 BACKTICK_RE = re.compile(r"`([^`]+)`")
+
+# Explicit list of non-API noise patterns from docs (e.g. mini-notation examples in riff.md)
+NOISE_NAMES = {
+    "a",  # docs/api/riff.md:36 'a(3,8,2)' is Tidal Cycles/Strudel Euclidean rhythm mini-notation, not an API function
+}
 
 
 def parse_md_file(fpath, entries, err_stream=sys.stderr, rel_path=None):
@@ -32,6 +37,8 @@ def parse_md_file(fpath, entries, err_stream=sys.stderr, rel_path=None):
                 if not m_sig:
                     continue
                 name = m_sig.group(1)
+                if name in NOISE_NAMES:
+                    continue
                 sig = span
                 text = second_cell.replace("\t", " ").replace("\r", " ").replace("\n", " ")
                 if name in entries:
