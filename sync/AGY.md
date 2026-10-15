@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: FRZ-7
+state: FREE
+task: 
 waiting_on: 
 progress: 0
-eta: 2026-10-15T16:00+02:00
+eta: 
 wakeup: no
 ack: 2026-10-15T15:25+02:00
-updated: 2026-10-15T15:38+02:00
+updated: 2026-10-15T15:40+02:00
 ---
 # AGY — Antigravity
 
@@ -45,6 +45,7 @@ DELIVERED FRZ-1 @ agy/freeze-reports@deb6196d · verifica: make build/kernel.img
 DELIVERED FRZ-2 @ agy/freeze-reports@5536f070 · verifica: grep -rn "watchdog_reboot\|watchdog_halt" src && python tests/qemu_test.py -k sd_logs && python tests/qemu_test.py -k update → PASS, exit 0 · 2026-10-15T15:28+02:00
 DELIVERED FRZ-3 @ agy/freeze-reports@5d6754ae · verifica: python tests/qemu_test.py -k sd_logs && python tests/qemu_test.py -k crash_report && python tests/qemu_test.py -k boot_banner → 3/3 PASS, exit 0 (watchdog arming vero testato in QEMU con flag .noinit, log emulatore verificato) · 2026-10-15T15:33+02:00
 DELIVERED FRZ-4 @ agy/freeze-reports@63e10ff0 · verifica: python tests/qemu_test.py -k crash_report && python tests/qemu_test.py -k sd_logs && make -f rgb30.mk PLAT=virt all → PASS (kernel version nel report crash e bootprev, no byte nulli, anello ripulito), exit 0 · 2026-10-15T15:38+02:00
+DELIVERED FRZ-7 @ agy/freeze-reports@16736b2f · verifica: python scripts/docs_audit.py score && python scripts/consistency.py check → score 6203, penalties 0, 0 drift · 2026-10-15T15:40+02:00
 
 ## Progressi
 - Completata l'intera sequenza SDLOG-1 → SDLOG-5 su agy/sdlog.
@@ -55,8 +56,11 @@ DELIVERED FRZ-4 @ agy/freeze-reports@63e10ff0 · verifica: python tests/qemu_tes
 - Completato FRZ-2 su agy/freeze-reports: migrati tutti i chiamanti di riavvio/spegnimento a crumbs_restart (monitor.c, settings.c, update.c, netxfer.c).
 - Completato FRZ-3 su agy/freeze-reports: watchdog_arm() abilita il conteggio vero con RSTC; gestito probe_flag in .noinit per evitare loop di reset su QEMU; watchdog_arm spostato prima di crumbs_boot() in main.c.
 - Completato FRZ-4 su agy/freeze-reports: versione kernel tracciata in crumbs_t (MAGIC 0xBA5EC0DFu) e nei report; ring_putc scrive zero-terminatore e lettori scartano byte nulli e righe spezzate su wrap.
+- Completato FRZ-7 su agy/freeze-reports: aggiornato docs/progress/system.md (rimossi punti 1-3 da Open work, aggiunte regole crumbs_restart e reports_mask_secrets).
+- Conclusa l'intera sequenza richiesta per freeze reports (FRZ-6, FRZ-1, FRZ-2, FRZ-3, FRZ-4, FRZ-7); FRZ-5 non avviato come da direttiva.
 
 ## Problemi
+- Non verificabile senza hardware fisico Pi (FRZ-3): conteggio reale del watchdog su hardware e reset da freeze (monitor 'X f'); testato e verificato in QEMU il reset immediato con flag .noinit.
 - Non verificabile senza hardware fisico Pi: tempo di scrittura di ~60 KiB su SD reale prima del reset col watchdog a 3 s; lastrun saltato su un crash reale con IRQ spenti; SD lenta o piena. Test QEMU verificati con successo; prova su Pi delegata a UTE.
 - Non verificabile senza hardware fisico RGB30: comportamento FAT reale SD / LFN; test QEMU virt verificati con successo; prova su RGB30 fisica delegata a UTE.
 
