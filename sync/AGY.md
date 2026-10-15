@@ -2,13 +2,13 @@
 schema: 1
 id: AGY
 state: WORKING
-task: AGY-4
+task: AGY-5
 waiting_on: 
 progress: 0
-eta: 2026-10-15T20:15+02:00
+eta: 2026-10-15T20:45+02:00
 wakeup: no
 ack: 2026-10-15T17:48+02:00
-updated: 2026-10-15T18:08+02:00
+updated: 2026-10-15T18:13+02:00
 ---
 # AGY — Antigravity
 
@@ -49,8 +49,10 @@ DELIVERED FRZ-7 @ agy/freeze-reports@16736b2f · verifica: python scripts/docs_a
 DELIVERED AGY-1 @ agy/api-source@29057f75 · verifica: python tests/tools/test_mkapi.py && python scripts/mkapi.py --check → OK (UNDOCUMENTED 2: udp_open, udp_recv; NOT_IN_RUNTIME 4: a, instrument, instruments, nnet) · 2026-10-15T17:58+02:00
 DELIVERED AGY-2 @ agy/api-lint@38693bc0 · verifica: python tests/tools/test_api_lint.py && python scripts/api_lint.py docs/GAME-GUIDE.md docs/GUIDA-GIOCHI.md && python scripts/docs_audit.py score → 0 errori, penalties 0 (correzioni a: 0; voci b: hurt, danno in api_lint_allow.txt) · 2026-10-15T18:03+02:00
 DELIVERED AGY-3 @ agy/beta6-triage@9bebc945 · verifica: 21 righe analizzate con prove file:riga, python scripts/consistency.py check → 0 drift, 5 accepted, 0 stale · 2026-10-15T18:08+02:00
+DELIVERED AGY-4 @ agy/agent-audit-baseline@b920d6a9 · verifica: python tests/tools/test_agent_audit.py && python scripts/agent_audit.py --baseline docs/agents/baseline.txt → 14/14 test OK, tabelle model/area e sezione vs baseline presenti · 2026-10-15T18:13+02:00
 
 ## Progressi
+- Completato AGY-4 (AUDIT): agent_audit.py aggiornato con R0 (tabelle model/area, filtri --area e --since) e D-R2 (gestione baseline, delta vs baseline, docs/agents/baseline.txt generato), test estesi a 14/14 passati.
 - Completato AGY-3 (TRIAGE): redatta bozza docs/spec/beta6-triage.md con 21 divergenze classificate e motivate con riferimenti codice precisi (8 accept-hardware, 6 fix-before-beta, 6 needs-hardware-test, 1 fixed-on-branch).
 - Completato AGY-2 (API-LINT): linter scripts/api_lint.py, api_lint_allow.txt e tests/tools/test_api_lint.py; guide verificate con 0 errori residui (hurt/danno in allowlist come falsi positivi di gioco).
 - Completato AGY-1 (API-SRC): generatore mkapi.py, src/ai/api.tsv (337 funzioni da docs/api) e test_mkapi.py (confronto con api[] di runtime.c: rilevati UNDOCUMENTED 2 [udp_open, udp_recv] e NOT_IN_RUNTIME 4 [a, instrument, instruments, nnet]).
