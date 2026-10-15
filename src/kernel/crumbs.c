@@ -1,6 +1,9 @@
 #include "crumbs.h"
 #include "arch/cache.h"
+#include "drivers/uart.h"
+#include "drivers/watchdog.h"
 #include "lib/printf.h"
+#include "wifi/wifi.h"
 
 #include <string.h>
 
@@ -198,4 +201,15 @@ void crumbs_clean_exit(void)
 {
     cr.magic = 0;
     flush();
+}
+
+void crumbs_restart(int halt)
+{
+    wifi_leave();
+    crumbs_clean_exit();
+    uart_flush();
+    if (halt)
+        watchdog_halt();
+    else
+        watchdog_reboot();
 }

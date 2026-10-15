@@ -74,8 +74,7 @@ static int l_reboot(lua_State *L)
     (void)L;
     fflush(stdout);
     kprintf("rebooting...\n");
-    crumbs_clean_exit();
-    watchdog_reboot();
+    crumbs_restart(0);
 }
 
 static const luaL_Reg funcs[] = {
