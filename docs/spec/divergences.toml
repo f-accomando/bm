@@ -469,3 +469,14 @@ status = "open"
 evidence = "carts/editor/main.lua; carts/sdk_b16/main.lua"
 action = "none: pad mappings in carts/sdk_b16/main.lua align 3D preview and level tools with RGB30 controls"
 
+
+[[divergence]]
+id = "D43"
+area = "Dev tab lists .bme projects"
+pi = "Dev lists .bme projects"
+rgb30 = "Dev tab does not list .bme projects"
+cause = "todo"
+priority = 6
+status = "open"
+evidence = "src/kernel/carts.c:842-844; src/rgb30/ui.c"
+action = "decide whether RGB30 Dev lists .bme"

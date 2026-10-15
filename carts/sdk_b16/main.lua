@@ -870,7 +870,7 @@ local function build_project(b16)
     local ok, e
     if b16 then ok, e = cart_build(S.proj.save, "b16") else ok, e = cart_build(S.proj.save) end
     if ok then
-      say("built " .. e .. (e:upper():find("^/BM/") and ": it is in Games" or " (the Games tab lists bm/)"), C.ACC, 400)
+      say("built " .. e .. ((e:upper():find("^/BM/") or e:upper():find("^/CARTS/")) and ": it is in Games" or " (not in the Games tab)"), C.ACC, 400)
     else
       say("build failed: " .. tostring(e), C.ERR, 400)
     end
