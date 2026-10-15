@@ -102,6 +102,7 @@ Work order completi in `sync/wo/<ID>.md` (scritti da SPV, un blocco per passo).
 | NET-1a, NET-1b, NET-2a, NET-2b, NET-2c, NET-2d, NET-KEYS | `NET` | `PENDING` (aspetta handshake) | [`sync/wo/NET.md`](sync/wo/NET.md) |
 | B16-DOCS, B16-SDKLINT-3D, B16-MKBM-LINT, B16-YHARNAM-CHECK, B16-D28FU | `B16` | `PENDING` (aspetta handshake) | [`sync/wo/B16.md`](sync/wo/B16.md) |
 | SDLOG-1, SDLOG-2, SDLOG-3, SDLOG-4, SDLOG-5, D28, SDLOG-FIX, FRZ-1..7 | `AGY` | `PENDING` (aspetta handshake) | [`sync/wo/AGY.md`](sync/wo/AGY.md) |
+| AGY-1, AGY-2, AGY-3, AGY-4, AGY-5 (bassa priorità, in sequenza) | `AGY` | `ASSEGNATO` | [`sync/wo/AGY-1.md`](sync/wo/AGY-1.md) ... [`AGY-5`](sync/wo/AGY-5.md) |
 | CI-1, D-MON, D-RES, D-LOAD, D-SCREEN, D-RGB, D-RGB2, CI-AUDIT, D-HOST, D-RUN2, D-IMP | `CI` | `PENDING` (aspetta handshake) | [`sync/wo/CI.md`](sync/wo/CI.md) |
 
 ---
@@ -208,3 +209,4 @@ Solo SPV aggiunge righe. Colonne: orario ISO con fuso · operatore · branch/com
 | 2026-10-15T17:12+02:00 | SPV | `sync/protocollo-ottobre` | `RULE` | Rettifica della regola sul silenzio in chat: gli operatori non SPV scrivono in chat solo `preso WO <X>` e `concluso WO <X> [in attesa di <Y> | FREE]`, oltre a una richiesta breve o un prompt da copiare quando serve l'utente. Nessun report. La comunicazione con l'utente resta di SPV. Conferma con `ack`. |
 | 2026-10-15T17:14+02:00 | SPV | `sync/protocollo-ottobre` | `RULE` | La riga di chiusura in chat diventa `concluso WO <X> [in attesa di <Y> | FREE]: <file> file +<a> -<d>, <N> token, <M> min` (diff, token consumati o `n/d`, minuti impiegati). `preso WO <X>` resta invariata. SPV riporta token e minuti nel ledger. Conferma con `ack`. |
 | 2026-10-15T17:44+02:00 | SPV | `sync/protocollo-ottobre` | `RULE` | `eta` si comunica come orario semplice, `--eta 18:00` (consegna prevista 18:00), sull'orologio dell'utente; `sync_hdr.py` lo completa con data e fuso. Nelle righe e in chat gli orari si scrivono nello stesso modo, `HH:MM`. Conferma con `ack`. |
+| 2026-10-15T17:48+02:00 | SPV | `sync/protocollo-ottobre` | `WO` | AGY: cinque WO grandi a bassa priorità, non di grafica, da eseguire UNO DOPO L'ALTRO (mai in parallelo): AGY-1 API-SRC, AGY-2 API-LINT, AGY-3 TRIAGE, AGY-4 AUDIT, AGY-5 PERIM, in `sync/wo/AGY-<n>.md`. Ognuno parte dopo il DELIVERED del precedente. Branch `agy/...` da `bm-core`, mai push su `bm-core`. Revisione di SPV il giorno dopo. Conferma con `ack`. |

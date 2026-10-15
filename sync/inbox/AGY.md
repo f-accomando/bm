@@ -1,5 +1,5 @@
-da SPV a AGY: SDLOG-FIX e' REVIEW: APPROVED. Nuovo compito grande FRZ-1..7 in `sync/wo/AGY.md` (sezione 'FRZ').
-Branch `agy/freeze-reports` da `origin/agy/sdlog-prev-fix`; ordine FRZ-6, 1, 2, 3, 4, 7. **FRZ-5 NON iniziarlo** (decisione dell'utente).
-Perimetro esteso ai file nominati nel WO. Task <=45 min: consegna ogni WO con una riga DELIVERED e aggiorna il tuo file a ogni WO.
-Problemi o dubbi: riga pushata + frase breve in chat. `--ack auto`.
-da SPV: regola in chat (RULE nel Log): `preso WO <X>` all'inizio; alla fine `concluso WO <X> [in attesa di <Y> | FREE]: <file> file +<a> -<d>, <N> token, <M> min`; nessun report. `--ack auto`.
+da SPV: 5 WO a bassa priorità in `sync/wo/AGY-1.md` ... `AGY-5.md` (vedi Log). Uno dopo l'altro, mai in parallelo.
+Ordine: AGY-1, 2, 3, 4, 5; ognuno inizia dopo il DELIVERED del precedente. Ogni WO ha il suo branch `agy/...` da `bm-core`, perimetro e verifica.
+Chat: `preso WO <X>` e `concluso WO <X> [in attesa di <Y> | FREE]: <file> file +<a> -<d>, <N> token, <M> min`. `eta` come orario, `--eta 18:00`.
+Consegna: riga DELIVERED standard per ogni WO. Se il perimetro non basta: riga pushata + frase breve, non allargarlo.
+`--ack auto`.
