@@ -44,7 +44,7 @@ DELIVERED D-RGB @ claude/ci-repair@baffa299 · verifica: tests/rgb30/qemu_test.p
 DELIVERED D-RGB2 @ claude/ci-repair@8da839c7 · verifica: make -f rgb30.mk PLAT=virt all + tests/rgb30/qemu_test.py -k el2 (WSL) → PASS, make TARGET=rgb30 → OK; prova su console vera (easy_install.sh) all'utente · 2026-10-15T14:05+02:00
 DELIVERED CI-AUDIT @ claude/ci-repair@08d2c670 · verifica: python3 scripts/ci_audit.py → exit 0; con ci.yml senza un timeout-minutes → exit 1; docs_audit.py score → 6255, 0 penalità · 2026-10-15T11:57+02:00
 DELIVERED D-HOST @ claude/ci-repair@792554f5 · verifica: make test-loading (WSL) → exit 0, 20/20 checks · 2026-10-15T12:10+02:00
-DELIVERED D-RUN2 @ claude/ci-repair@6b2d8727 · verifica: tests/qemu_test.py -k editor_mouse (WSL) → 1/1 passed; make test-impostor (WSL) → exit 0 · 2026-10-15T12:40+02:00
+DELIVERED D-RUN2 @ claude/ci-repair@6b2d8727 · verifica: tests/qemu_test.py -k editor_mouse (WSL) → 1/1 passed; make test-impostor (WSL) → exit 0 · 2026-10-15T12:18+02:00
 
 ## Progressi
 
