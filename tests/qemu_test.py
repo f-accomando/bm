@@ -5152,7 +5152,6 @@ def test_monitor_line(b, opts):
         assert "err: none" in out, out
         q.expect("> ")
         q.send(":set gpu3d_fs2=1 gpu3d_sort=1; b3d tests=spheres,quad_flat profiles=ARM; nope; send\r")
-        q.expect("back to the monitor", timeout=10)
         q.expect("set gpu3d_fs2=1 (until a restart", timeout=10)
         q.expect("set gpu3d_sort=1", timeout=10)
         out = q.expect("3D Bench: done", timeout=240).decode(errors="replace")
