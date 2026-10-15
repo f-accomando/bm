@@ -2,13 +2,13 @@
 schema: 1
 id: AGY
 state: WORKING
-task: AGY-2
+task: AGY-3
 waiting_on: 
 progress: 0
-eta: 2026-10-15T19:15+02:00
+eta: 2026-10-15T19:45+02:00
 wakeup: no
 ack: 2026-10-15T17:48+02:00
-updated: 2026-10-15T17:58+02:00
+updated: 2026-10-15T18:03+02:00
 ---
 # AGY — Antigravity
 
@@ -47,8 +47,10 @@ DELIVERED FRZ-3 @ agy/freeze-reports@5d6754ae · verifica: python tests/qemu_tes
 DELIVERED FRZ-4 @ agy/freeze-reports@63e10ff0 · verifica: python tests/qemu_test.py -k crash_report && python tests/qemu_test.py -k sd_logs && make -f rgb30.mk PLAT=virt all → PASS (kernel version nel report crash e bootprev, no byte nulli, anello ripulito), exit 0 · 2026-10-15T15:38+02:00
 DELIVERED FRZ-7 @ agy/freeze-reports@16736b2f · verifica: python scripts/docs_audit.py score && python scripts/consistency.py check → score 6203, penalties 0, 0 drift · 2026-10-15T15:40+02:00
 DELIVERED AGY-1 @ agy/api-source@29057f75 · verifica: python tests/tools/test_mkapi.py && python scripts/mkapi.py --check → OK (UNDOCUMENTED 2: udp_open, udp_recv; NOT_IN_RUNTIME 4: a, instrument, instruments, nnet) · 2026-10-15T17:58+02:00
+DELIVERED AGY-2 @ agy/api-lint@38693bc0 · verifica: python tests/tools/test_api_lint.py && python scripts/api_lint.py docs/GAME-GUIDE.md docs/GUIDA-GIOCHI.md && python scripts/docs_audit.py score → 0 errori, penalties 0 (correzioni a: 0; voci b: hurt, danno in api_lint_allow.txt) · 2026-10-15T18:03+02:00
 
 ## Progressi
+- Completato AGY-2 (API-LINT): linter scripts/api_lint.py, api_lint_allow.txt e tests/tools/test_api_lint.py; guide verificate con 0 errori residui (hurt/danno in allowlist come falsi positivi di gioco).
 - Completato AGY-1 (API-SRC): generatore mkapi.py, src/ai/api.tsv (337 funzioni da docs/api) e test_mkapi.py (confronto con api[] di runtime.c: rilevati UNDOCUMENTED 2 [udp_open, udp_recv] e NOT_IN_RUNTIME 4 [a, instrument, instruments, nnet]).
 - Completata l'intera sequenza SDLOG-1 → SDLOG-5 su agy/sdlog.
 - Completato D28 su agy/d28-games-carts: Games (RGB30) elenca sia /bm sia /carts; test_games_in_carts e regressioni passati.
