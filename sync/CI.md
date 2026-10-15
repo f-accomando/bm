@@ -2,13 +2,13 @@
 schema: 1
 id: CI
 state: WORKING
-task: D-LOAD
+task: D-SCREEN
 waiting_on: 
 progress: 0
-eta: 2026-10-15T12:15+02:00
+eta: 2026-10-15T12:45+02:00
 wakeup: no
 ack: 2026-10-15T10:25+02:00
-updated: 2026-10-15T10:49+02:00
+updated: 2026-10-15T10:56+02:00
 ---
 # CI — operatore CI
 
@@ -38,10 +38,12 @@ DELIVERED CI-1 @ claude/ci-repair@3486018c · verifica: parse YAML in WSL (push 
 (una riga per work order finito: `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`)
 DELIVERED D-MON @ claude/ci-repair@9fe1f325 · verifica: make test selettivo -k test_monitor_line (WSL, qemu 10.2.1) → 1/1 passed · 2026-10-15T11:20+02:00
 DELIVERED D-RES @ claude/ci-repair@2c0a91b9 · verifica: make test-res (WSL) → 34/34 (prima 33/34) · 2026-10-15T11:35+02:00
+DELIVERED D-LOAD @ claude/ci-repair@c8e2cf22 · verifica: tests/qemu_test.py -k test_projects (WSL) → 1/1 passed · 2026-10-15T12:00+02:00
 
 ## Progressi
 
 ## Problemi
+- D-LOAD: causa = non Makefile:195 né overbit. Dal 2026-10-10 (carts.c, aeb0a14b) la suite non mostra lo splash, quindi "bm: loaded in" non arriva mai per un progetto aperto nell'SDK; falliva anche in locale. Tolta l'attesa, il test controlla lo schermo. Lo stesso vale per altri test che aspettino lo splash dopo l'apertura di un tool (nessun altro caso in qemu_test.py).
 - D-MON: la diagnosi del WO (timeout 10 s troppo corto) non basta: alzare a 40 s falliva ancora. "back to the monitor" è stampato solo da carts.c:2037 (uscita dal menu), mai dalla riga b3d; l'attesa a tests/qemu_test.py:5155 era obsoleta e l'ho tolta (le attese successive coprono lo stesso flusso). Da rivedere in CI.
 - Overbit Makefile:195/:645: fuori perimetro (decisione 2), da segnalare a SPV quando D-LOAD lo conferma.
 
