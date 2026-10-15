@@ -2,13 +2,13 @@
 schema: 1
 id: CI
 state: WORKING
-task: D-MON
+task: D-RES
 waiting_on: 
 progress: 0
-eta: 2026-10-15T11:40+02:00
+eta: 2026-10-15T12:00+02:00
 wakeup: no
 ack: 2026-10-15T10:25+02:00
-updated: 2026-10-15T10:40+02:00
+updated: 2026-10-15T10:48+02:00
 ---
 # CI — operatore CI
 
@@ -36,9 +36,12 @@ updated: 2026-10-15T10:40+02:00
 ## Consegne
 DELIVERED CI-1 @ claude/ci-repair@3486018c · verifica: parse YAML in WSL (push ignora sync/**, concurrency, timeout 5/30/45/30/30) → OK; effetto reale visibile solo nella CI · 2026-10-15T10:55+02:00
 (una riga per work order finito: `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`)
+DELIVERED D-MON @ claude/ci-repair@9fe1f325 · verifica: make test selettivo -k test_monitor_line (WSL, qemu 10.2.1) → 1/1 passed · 2026-10-15T11:20+02:00
 
 ## Progressi
 
 ## Problemi
+- D-MON: la diagnosi del WO (timeout 10 s troppo corto) non basta: alzare a 40 s falliva ancora. "back to the monitor" è stampato solo da carts.c:2037 (uscita dal menu), mai dalla riga b3d; l'attesa a tests/qemu_test.py:5155 era obsoleta e l'ho tolta (le attese successive coprono lo stesso flusso). Da rivedere in CI.
+- Overbit Makefile:195/:645: fuori perimetro (decisione 2), da segnalare a SPV quando D-LOAD lo conferma.
 
 ## Richieste
