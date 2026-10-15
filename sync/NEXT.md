@@ -10,8 +10,8 @@ Single writer: SPV. Read this first, then `SYNC.md` Log (last rows) and `python 
 | CI | Red on `bm-core` before today. `claude/ci-repair` (c38271f7) still red: after the `ZOOM_STEPS` fix the `host` job now fails on `make test-prompts` (9 FAIL, `(null)` names). op-ci has the message. |
 | Operators | NET, B16, AGY FREE. CI WAITING (silent since 16:14, eta 14:45 overdue). New chat rule (see Log): `taken WO X` / `done WO X ...: files, tokens, minutes`. |
 | Pending review | `ci-repair` D-RUN2 and D-IMP (CI must be green first). |
-| Docs | `claude/docs-english` (40 files in English + positive rules) and `claude/roadmap-restructure` (levels + Beta section) pushed, **no PR yet**. `SYNC.md`, `sync/`, `docs/progress/sync.md` still Italian. |
-| Meshy | Secret `MESHY_API_KEY` deleted, workflows removed on `claude/remove-meshy-workflows` (pushed, no PR). **User: revoke the key in the Meshy dashboard.** |
+| Docs | `claude/docs-english` (40 files in English + positive rules) and `claude/roadmap-restructure` (levels + Beta section, now in English) pushed, **no PR yet**. `SYNC.md`, `sync/`, `docs/progress/sync.md` still Italian. |
+| Meshy | Secret `MESHY_API_KEY` deleted, workflows removed on `claude/remove-meshy-workflows` (PR https://github.com/f-accomando/bm/pull/18, red only because `bm-core` is red). **User: revoke the key in the Meshy dashboard.** |
 | Other repos | `scaffold`: PR #1 open (`claude/workflow-template`). `baremetal`: local clean export being built by an agent, not pushed. |
 | PR 17 | `claude/exciting-galileo-9gevjm` (ctx_guard, /cp): red only because `bm-core` is red. Do not touch. |
 
@@ -43,3 +43,8 @@ Order matters; each item is one operator, one feature. The planner (`bm-planner`
 | end | Beta quick start page (1 page) + `GAME-GUIDE.md` update | BETA-7, APP-3 | bm-light | a new developer reaches the first game from the page |
 
 Rules for the session: one operator per feature; user approval before any push to `bm-core`, merge or PR; `bm-deep` only with necessity 4-5 stated; the Pi is crashed or flashed only after an explicit "ok"; notify the user before prompting an operator.
+
+## 4. Housekeeping done at the end of today
+- Removed (merged into the integration): remote and local branches `claude/b16-profile`, `claude/net-test-err`, `agy/sdlog`, `agy/d28-games-carts`, `agy/sdlog-prev-fix`, `claude/sdk-games-message`, `claude/net-keys`, `agy/freeze-reports`, `claude/net-logs`, and their worktrees.
+- Kept: worktrees of `ci-repair`, the integration, roadmap, docs-english, remove-meshy, the sync worktrees of op-ci / op-net / AGY (reused next session).
+- Local only: `bm-core` is ahead of origin by ledger rows (`docs/agents/ledger.txt`); push them with the next protocol commit on `bm-core`.
