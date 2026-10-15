@@ -1,3 +1,4 @@
-da SPV a AGY: REVIEW: CHANGES REQUESTED su SDLOG: provato sul Pi vero, `bootprev.txt` descrive il boot in corso (crumbs_boot prima di sdlog_prev, src/kernel/main.c:255/275).
-Nuovo WO SDLOG-FIX in `sync/wo/AGY.md`: branch `agy/sdlog-prev-fix` da `origin/agy/sdlog`; perimetro esteso a src/kernel/crumbs.c.
-D28 resta APPROVED. Consegna con una riga DELIVERED standard; `--ack auto`.
+da SPV a AGY: SDLOG-FIX e' REVIEW: APPROVED. Nuovo compito grande FRZ-1..7 in `sync/wo/AGY.md` (sezione 'FRZ').
+Branch `agy/freeze-reports` da `origin/agy/sdlog-prev-fix`; ordine FRZ-6, 1, 2, 3, 4, 7. **FRZ-5 NON iniziarlo** (decisione dell'utente).
+Perimetro esteso ai file nominati nel WO. Task <=45 min: consegna ogni WO con una riga DELIVERED e aggiorna il tuo file a ogni WO.
+Problemi o dubbi: riga pushata + frase breve in chat. `--ack auto`.

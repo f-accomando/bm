@@ -57,3 +57,40 @@ Tempo di scrittura di ~60 KiB su SD vera prima del reset col watchdog a 3 s; `la
 - Verifica: `make -f rgb30.mk PLAT=virt all` e il test rgb30 `-k sd_logs` invariati PASS; Pi: `python tests/qemu_test.py -k sd_logs` PASS. Se in QEMU la RAM sopravvive al riavvio, aggiungere in `test_sd_logs` un secondo boot e controllare che `bootprev` NON contenga le righe del boot corrente; se non sopravvive, scriverlo in Problemi e non inventare il test.
 - Prova finale (solo l'utente, su Pi): dopo `reboot` dalla console, `bootprev.txt` deve dire "ended cleanly, or the power went" e mostrare l'ultima riga della run prima (non `config:`).
 - Consegna: DELIVERED standard; D19 resta `untested` fino alla prova dell'utente.
+
+## FRZ — freeze reports e log sicuri (piano del bm-planner, 2026-10-15; scelta SPV)
+- Branch `agy/freeze-reports` da `origin/agy/sdlog-prev-fix` (ha sdlog.c e il fix di crumbs.c; non da bm-core). Un solo branch, un commit per WO, ordine: **FRZ-6, FRZ-1, FRZ-2, FRZ-3, FRZ-4, FRZ-7**. **FRZ-5 NON iniziarlo**: aspetta la decisione dell'utente sull'indirizzo di `.noinit` (SPV la scrive nella casella).
+- Perimetro esteso a: `src/kernel/crumbs.c|.h`, `src/kernel/reports.c|.h`, `src/kernel/monitor.c`, `src/kernel/settings.c`, `src/kernel/update.c`, `src/net/netxfer.c`, `src/script/lib_bm.c`, `docs/progress/system.md`.
+- Scoperta del planner: tutti i riavvii pianificati chiamano già `crumbs_clean_exit()` (netxfer.c:634 dal 2026-10-11): FRZ-1/2 sono un riordino e non la cura dei finti freeze. `lib_bm.c:78` non fa `uart_flush` né `wifi_leave`. `exceptions.c:107` (crash) resta com'è.
+
+## FRZ-6 — password mascherata nei file su SD (bm-light)
+- File: `src/kernel/reports.c|.h`, `src/kernel/sdlog.c`, `tests/qemu_test.py` (solo `test_sd_logs`). Non toccare `net.c:96` (lo schermo resta uguale).
+- Modifica: rendere pubblica la `mask_secrets()` di `reports.c:184` come `void reports_mask_secrets(char *text, size_t len)` (dichiarata in `reports.h`) e applicarla a una COPIA del buffer prima di ogni `fat_write_file` in `sdlog.c`: `sdlog_boot` (copia di `klog_text()` con `malloc(n+1)`; se malloc fallisce `kprintf("boot log: no memory")` e nessuna scrittura), `sdlog_lastrun` (copia anche quando `buf==NULL`), `sdlog_prev` (maschera `buf`).
+- Verifica: in `test_sd_logs` con `net_password=test-pass-4242` nel config, e da monitor `l`, `print('pw ' .. 'test-pass-' .. 4242)` poi `r`: "test-pass-4242" NON compare in LASTRUN, BOOTPREV, BOOTLOG; "pw **************" compare in LASTRUN. `python tests/qemu_test.py -k sd_logs`, `-k reports` e `make test-github` PASS.
+
+## FRZ-1 — helper unico per i riavvii pianificati (bm-coder)
+- File: `src/kernel/crumbs.c|.h`, `src/script/lib_bm.c` (`l_reboot`). Aggiungere `void crumbs_restart(int halt) __attribute__((noreturn))`: nell'ordine `wifi_leave(); crumbs_clean_exit(); uart_flush();` poi `watchdog_halt()` se `halt`, altrimenti `watchdog_reboot()` (include `wifi/wifi.h`, `drivers/uart.h`, `drivers/watchdog.h`). In `l_reboot()` tenere fflush e kprintf e sostituire le righe 77-78 con `crumbs_restart(0)`.
+- Verifica: `make` e `make TARGET=rgb30` exit 0; `-k sd_logs` PASS.
+
+## FRZ-2 — migrare i chiamanti (bm-mechanic)
+- File: `src/kernel/monitor.c` (289-292, 447-450), `src/kernel/settings.c` (933-935, 947-949, solo ramo Pi), `src/kernel/update.c` (454-457), `src/net/netxfer.c` (629-634). Ogni blocco wifi_leave/crumbs_clean_exit/uart_flush/watchdog_* diventa `crumbs_restart(0)`; in settings `R_POWEROFF` diventa `crumbs_restart(1)`; resta `wifi_auto_stop()` prima. Invariati i kprintf e i rami BM_RGB30.
+- Verifica: `grep -rn "watchdog_reboot\|watchdog_halt" src` trova solo watchdog.c|.h, crumbs.c, exceptions.c, rgb30/glue.c. `-k sd_logs` e `-k update` PASS.
+
+## FRZ-3 — il watchdog conta davvero (WDOG poi RSTC) (bm-light)
+- Rischio: QEMU riavvia appena si scrive RSTC (commento in `watchdog.c:32`): serve un flag in `.noinit` per non andare in loop.
+- File: `src/drivers/watchdog.c` (`watchdog_arm`), `src/kernel/main.c`, `tests/qemu_test.py` (`test_sd_logs`).
+- Modifica `watchdog.c`: `static uint32_t probe_flag` in `.noinit`, `#define PROBE_MAGIC 0x57444F47u`. In `watchdog_arm`: se `probe_flag==PROBE_MAGIC` → `probe_loaded=t, probe_left=0`, `return -2`. Altrimenti `probe_flag=PROBE_MAGIC` + `dcache_clean_range`; `wd_write(t)`; `timer_delay_ms(20)`; leggere `left`; `probe_flag=0` + clean; se `left==0 || left>=t` → `watchdog_stop()` e `return -1`; altrimenti `wd_ticks=t` e `return 0`.
+- Modifica `main.c`: spostare il blocco `watchdog_arm(3000)` PRIMA di `crumbs_boot()`. Tre righe di log: -2 "watchdog: resets at once on RSTC (emulator), no freeze guard"; -1 la riga attuale; 0 "watchdog: on, 3000 ms (loaded %lu, after 20 ms %lu)". Test: assert in bootlog sulla stringa del caso -2.
+- Verifica: `-k sd_logs`, `-k crash_report`, `-k boot_banner` PASS. Resta all'utente (Pi vero): il boot log dice "watchdog: on"; monitor `X` `f`: riavvio entro ~3 s e report "the Pi froze last time".
+
+## FRZ-4 — anello che non si strappa + versione del kernel bloccato (bm-light)
+- File: `src/kernel/crumbs.c`, `tests/qemu_test.py` (`test_crash_report`). In `crumbs_t` aggiungere `char kernel[32]` dopo `what`; `MAGIC` diventa `0xBA5EC0DFu`. In `crumbs_boot()`, dopo il memset: `ksnprintf(cr.kernel, sizeof cr.kernel, "%s", bm_version)` (include `kernel/version.h`). In lettura: terminare `cr.kernel`, '?' per i non stampabili; la prima riga del report finisce con ", kernel %s"; `crumbs_prev_state` aggiunge ", kernel %s"; `prev_state` e `s` a 160 byte. `ring_putc`: scrivere c in `text[at&mask]`, poi `at++`, poi `text[at&mask]=0`, pulire la cache su '\n' come oggi. Lettori: saltare i byte 0 e, se `at>RING`, scartare fino al primo '\n' compreso.
+- Verifica: assert in `test_crash_report`: `", kernel " in body.splitlines()[0]` e `"\x00" not in rep`; `-k crash_report`, `-k sd_logs` PASS; `make TARGET=rgb30` exit 0.
+
+## FRZ-5 — `.noinit` fisso in `linker.ld` — NON INIZIARE (aspetta SPV)
+- Proposta del planner (`.noinit 0x4000 (NOLOAD)` con `ASSERT(. <= 0x8000)`) potrebbe sovrapporsi al DTB del firmware del Pi Zero: decisione all'utente.
+
+## FRZ-7 — documenti (bm-mechanic)
+- `docs/progress/system.md`: in "Open work" togliere i punti (1)-(3) fatti e lasciare le prove hardware di FRZ-3 (e FRZ-5 se si fa); in "Rules" aggiungere "Planned restarts only via crumbs_restart()" e "SD logs masked with reports_mask_secrets()". Verifica: `python scripts/docs_audit.py score` senza link rotti; `python scripts/consistency.py check` 0 drift.
+- Consegna: una riga DELIVERED per WO (o una per tutto il branch, con l'elenco), poi FREE. Non provabile senza Pi: tutto ciò che dipende dal watchdog vero (FRZ-3).
+
