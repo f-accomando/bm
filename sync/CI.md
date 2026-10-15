@@ -2,13 +2,13 @@
 schema: 1
 id: CI
 state: WAITING
-task: D-IMP passo 2 (76a2b136) + test_mesh (78e4062e) pushati: attendo run CI
+task: fix test-studio (c38271f7) pushato: attendo run CI
 waiting_on: 
 progress: 0
-eta: 2026-10-15T13:40+02:00
+eta: 2026-10-15T14:45+02:00
 wakeup: no
-ack: 2026-10-15T14:25+02:00
-updated: 2026-10-15T14:44+02:00
+ack: 2026-10-15T16:14+02:00
+updated: 2026-10-15T16:21+02:00
 ---
 # CI — operatore CI
 
@@ -60,5 +60,6 @@ DELIVERED D-RUN2 @ claude/ci-repair@6b2d8727 · verifica: tests/qemu_test.py -k 
 - CI host (run baffa299): `make build/host/test_loading` non linka, `undefined reference to synth_kit_find` (presets.c usa synth.c, che il Makefile:464 non include). Non è in nessun WO, rotto da prima; rimedio probabile: aggiungere src/audio/synth.c alle dipendenze e alla riga di link. Serve un tuo OK o un WO D-HOST.
 - D-RUN2 qemu 3/4: test_editor_mouse falliva nella parte SDK ("'code' not on screen", riga 0 vuota): leggeva un secondo screendump dopo il look; ora usa il testo dello stesso look ("OPEN IN" + "code"). Locale 1/1; da confermare in CI.- D-RUN2 host: make test-impostor, solo 'crowd' (eroi in posa): in CI gli checksum ARM 9926f79d e GPU f32adb17 differiscono da 12a000fd e d0191095, in locale (gcc 15.2, WSL) coincidono; le altre scene passano. Sospetto: posa con sin/cos/FMA diversi fra gcc 13 della CI e il mio. NON corretto: cambiare gli hash o il controllo e' una decisione (tests/bm/test_impostor.c:280,287). Proposta: per 'crowd' sostituire l'uguaglianza esatta con il confronto ARM/GPU gia' presente (<=410 px) o un WO D-IMP con gli hash della CI.
 - D-IMP run 38719633913 (8e182236): passo 1 NON basta, crowd ancora 9926f79d/f32adb17 in CI (in locale invariati: -ffp-contract=off non cambia nulla su x86). Passo 2 applicato in 76a2b136: per crowd gli hash non sono piu' asseriti (stampati come informazione), resta il confronto ARM/GPU; indebolimento voluto, copertura residua = ARM/GPU (<=410 px) e le altre scene. Locale: make test-impostor exit 0.- qemu 1/4 test_mesh (rosso solo in quel run, verde nel precedente): lo screendump catturato a meta' ridisegno (riga d'intestazione '??? list?') passava le parole attese ma non la stringa asserita dopo. Fix in 78e4062e: la stringa e' ora fra le attese di screen(). Locale -k mesh 3/3. Flake da dump a meta' redraw, come test_editor_mouse.
+- host run 38737001683 (78e4062e): rosso solo test-studio (sdk_host.lua:575, carts/editor/main.lua:1614 'attempt to index a nil value'). Causa PREESISTENTE su bm-core: step_zoom usa ZOOM_STEPS mai definito nell'editor (esiste solo in carts/sdk_b16/main.lua:1916); '-' / '+' della mappa crashavano anche per l'utente. Fix di una riga in c38271f7 (local ZOOM_STEPS = {1,2,4,8,16} prima di step_zoom), fuori perimetro CI: dichiarato. Locale: make test-studio exit 0. Crowd e test_mesh non sono piu' rossi nel run.
 
 ## Richieste
