@@ -926,13 +926,11 @@ void home_act(int id, int row, int how, home_do_t *d)
         if (how == HOME_YES) {
             kprintf("rebooting...\n");
             wifi_auto_stop();
-            wifi_leave();               /* the AP told: it does not hold the old association */
 #ifdef BM_RGB30
+            wifi_leave();               /* the AP told: it does not hold the old association */
             plat_reset();
 #else
-            crumbs_clean_exit();
-            uart_flush();
-            watchdog_reboot();
+            crumbs_restart(0);
 #endif
         } else if (how == 0) {
             ask(d, "Restart the console?", "A game left suspended is closed.", "Restart");
@@ -944,9 +942,8 @@ void home_act(int id, int row, int how, home_do_t *d)
 #ifdef BM_RGB30
             plat_poweroff();
 #else
-            crumbs_clean_exit();
-            uart_flush();
-            watchdog_halt();
+            wifi_auto_stop();
+            crumbs_restart(1);
 #endif
         } else if (how == 0) {
 #ifdef BM_RGB30

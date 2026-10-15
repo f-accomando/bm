@@ -5279,8 +5279,10 @@ def test_crash_report(b, opts):
                          env=env).stdout
     shutil.rmtree(tmp, ignore_errors=True)
     head, body = rep.split("\n\n", 1)
+    assert "\x00" not in rep, "null bytes in crash report"
     assert "kind: crash" in head.splitlines(), rep[:600]
     assert body.startswith('a crash (the red screen) while: monitor command "X"'), body[:300]
+    assert ", kernel " in body.splitlines()[0], body.splitlines()[0]
     assert "--- the last lines printed ---" in body and "*** EXCEPTION: Data abort ***" in body, body[-1500:]
     assert body.index("cartridge menu") < body.index("*** EXCEPTION"), "the lines before the crash"
     assert "DFAR=00008001" in body and "called from:" in body, body[-800:]
@@ -5744,7 +5746,7 @@ def test_sd_logs(b, opts):
         img = os.path.join(tmp, "sd.img")
         cfg = os.path.join(tmp, "config.txt")
         with open(cfg, "w") as f:
-            f.write("layout=us\nwifi_boot=0\n")
+            f.write("layout=us\nwifi_boot=0\nnet_password=test-pass-4242\n")
         mksd.build(img, [(cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
         try:
@@ -5752,6 +5754,12 @@ def test_sd_logs(b, opts):
             time.sleep(0.5)
             q.send("q")
             q.expect(PROMPT)
+            q.expect("> ")
+            q.send("l\n")
+            q.expect("lua> ")
+            q.send("print('pw ' .. 'test-pass-' .. 4242)\n")
+            q.expect("pw test-pass-4242")
+            q.send("exit()\n")
             q.expect("> ")
             q.send("r")
             q.expect("restarting: this run's log in bm/lastrun.txt", timeout=20)
@@ -5765,15 +5773,20 @@ def test_sd_logs(b, opts):
         lastrun = subprocess.run(["mtype", "-i", part, "::/BM/LASTRUN.TXT"],
                                  capture_output=True, text=True, env=env, check=True).stdout
         assert "rebooting..." in lastrun, lastrun
+        assert "test-pass-4242" not in lastrun, lastrun
+        assert "pw **************" in lastrun, lastrun
         bootprev = subprocess.run(["mtype", "-i", part, "::/BM/BOOTPREV.TXT"],
                                   capture_output=True, text=True, env=env, check=True).stdout
         assert "--- the run before" in bootprev, bootprev
         assert "ended cleanly, or the power went" in bootprev, bootprev
         assert "while: boot" not in bootprev, bootprev
         assert "rebooting..." in bootprev, bootprev
+        assert "test-pass-4242" not in bootprev, bootprev
         bootlog = subprocess.run(["mtype", "-i", part, "::/BM/BOOTLOG.TXT"],
                                  capture_output=True, text=True, env=env, check=True).stdout
         assert "cartridge menu" in bootlog, bootlog
+        assert "test-pass-4242" not in bootlog, bootlog
+        assert "watchdog: resets at once on RSTC (emulator), no freeze guard" in bootlog, bootlog
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
