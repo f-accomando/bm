@@ -21,6 +21,8 @@ The coordination workflow relies on Git-backed asynchronous messaging and isolat
   summarizes overall project state in table 1b of [`SYNC.md`](../../SYNC.md), and issues work orders.
 - **Dedicated Feature Branches**: Code changes live on isolated branches (`agy/*`, `feat/claude-*`).
   Only sync logs touch the sync branch; reviewed code reaches `bm-core` by merge, by the owner.
+- **Automated Perimeter Verification**: [`tools/sync_perimeter.py`](../../tools/sync_perimeter.py) verifies modified files (`--files` or `--diff`) against work order perimeter definitions (exit 0: allowed, 1: violations found, 2: usage/io error).
+- **Test Quarantine Guard**: [`tests/quarantine.txt`](../../tests/quarantine.txt) records temporarily quarantined tests with reason and deadline, verified by [`scripts/quarantine_check.py`](../../scripts/quarantine_check.py) (exit 0: valid, 1: errors).
 
 ### States and Lifecycle
 
