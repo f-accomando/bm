@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WAITING
-task: D-RUN2 consegnato; crowd impostor: serve decisione SPV
+state: WORKING
+task: D-IMP
 waiting_on: 
 progress: 0
-eta: 2026-10-15T14:00+02:00
+eta: 2026-10-15T13:15+02:00
 wakeup: no
 ack: 2026-10-15T14:30+02:00
-updated: 2026-10-15T12:18+02:00
+updated: 2026-10-15T12:20+02:00
 ---
 # CI — operatore CI
 
