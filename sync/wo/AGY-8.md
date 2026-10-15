@@ -1,0 +1,25 @@
+# AGY-8 - SCAFFOLD-PROMPT: scaffold_prompt.md, un file che configura Claude Code da solo
+Inizia dopo: DELIVERED AGY-7.
+Repo: C:\Users\Utente\Documents\GitHub\scaffold. Base: origin/claude/workflow-template; branch agy/scaffold-prompt. Push solo di questo branch. Mai push su main, mai merge, mai PR.
+Perimetro: scaffold_prompt.md (nuovo, radice del repo). Sola lettura: tutto il resto, in particolare scaffold-workflow-EN.pdf (la fonte), docs/WORKFLOW.md, CLAUDE.md, AGENTS.md, GEMINI.md, SYNC.md, .claude/**, sync/**, scripts/**, tools/**, docs/**, .github/workflows/ci.yml. NON toccare nessun file esistente.
+Obiettivo: un solo file Markdown che un utente da' in lettura a Claude Code in una cartella di progetto (vuota o con codice) e Claude Code, seguendolo, configura da solo l'intero workflow della guida.
+
+## AGY-8a - estrarre e strutturare (bm-light, 60 min)
+- Leggere scaffold-workflow-EN.pdf per intero (pymupdf: testo di tutte le 28 pagine) e docs/WORKFLOW.md. Il prompt copre TUTTE le sezioni della guida: nessuna sezione omessa. Elencare in fondo al messaggio di consegna la corrispondenza sezione della guida -> sezione del prompt.
+- Il prompt e' scritto per Claude (seconda persona imperativa, in inglese: e' la lingua dei file del repo), con regole positive ("fai cosi'"), come nelle Writing rules di CLAUDE.md. Struttura fissa:
+  1. Scopo e come usare il file (una frase: leggi tutto, poi esegui i passi in ordine).
+  2. Domande iniziali all'utente (massimo 6, tutte insieme in un solo messaggio): nome del progetto, descrizione, linguaggio e stack, branch principale, comando di build, comando dei test. Con le risposte si sostituiscono i segnaposto <PROJECT>, <main-branch>, <build-cmd>, <test-cmd> e simili.
+  3. Albero dei file da creare: tabella percorso -> scopo -> chi lo scrive, con TUTTI i file dell'albero del template che servono a un progetto (CLAUDE.md, AGENTS.md, GEMINI.md, .claude/agents/*.md, .claude/skills/{docs-loop,docs-map,work-order}/SKILL.md, SYNC.md, sync/_template.md, sync/operators.toml, sync/inbox/README.md, docs/{WORKFLOW,ROADMAP,open-decisions,progress}.md, docs/progress/{core,sync}.md, docs/spec/*, docs/agents/ledger.txt, scripts/{agent_audit,ci_audit,consistency,docs_audit,selftest}.py, tools/sync_{check,hdr,watch}.py, .github/workflows/ci.yml, .ci-audit.toml, .gitignore). Esclusi: video/, examples/, .claude/skills/explainer-video/, i PDF.
+  4. Contenuto dei file: DECISIONE FISSA (non rimetterla in discussione): il prompt contiene INLINE il testo completo dei file piccoli e di struttura (CLAUDE.md, AGENTS.md, GEMINI.md, i sette file in .claude/agents, i tre SKILL.md, SYNC.md, sync/_template.md, operators.toml, docs/*.md, docs/spec/*.toml, ledger.txt, .gitignore, .ci-audit.toml, ci.yml) con i segnaposto, ciascuno in un blocco di codice con il percorso nel titolo. Per gli script Python (scripts/*.py e tools/*.py, grandi) il prompt contiene, per ciascuno, scopo, uso da riga di comando, exit code e il comando di copia da una variabile in cima al file `SCAFFOLD_SRC` (cartella locale o URL git del repo scaffold, da chiedere all'utente con le altre domande); se l'utente non ha SCAFFOLD_SRC il prompt spiega come procedere senza gli script (i file di docs funzionano da soli) e dice quali controlli mancano.
+  5. Verifica finale che Claude esegue: python scripts/selftest.py, python scripts/docs_audit.py score, python scripts/consistency.py check (se presenti gli script) o l'elenco dei file creati.
+  6. Prima sessione: cosa dire all'utente alla fine (3 comandi di uso quotidiano).
+- Copiare i testi dei file dall'albero reale a HEAD del branch, non riscriverli a memoria.
+
+## AGY-8b - controlli (bm-light, 45 min)
+- Ogni percorso della tabella 3 esiste nell'albero reale (git ls-files) e ogni file reale della lista 3 e' nella tabella: nessuna differenza. Scrivere il controllo come comando nel messaggio di consegna.
+- Ogni blocco inline e' identico al file reale a parte i segnaposto: confrontare con diff, elencare le differenze ammesse.
+- Nessun riferimento a bm, BareMetal, Raspberry, RGB30 o a cartelle del progetto bm (grep -iE 'bm33|baremetal|raspberry|rgb30|\bbm\b' scaffold_prompt.md -> nessuna riga).
+- Nessun segreto, nessuna chiave, nessun percorso assoluto dell'utente (grep -E 'C:\\Users|/home/|token|_KEY' -> solo falsi positivi spiegati).
+- Prova: creare una cartella temporanea vuota, simulare i passi del prompt (copia dei blocchi inline nei percorsi) e lanciare lo selftest se SCAFFOLD_SRC punta al repo; riportare l'esito.
+Criterio di fine: tutti i controlli OK; file unico; nessun altro file toccato (git diff --name-only origin/claude/workflow-template...HEAD -> solo scaffold_prompt.md).
+Consegna: riga DELIVERED standard con commit e risultati, poi FREE.
