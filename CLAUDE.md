@@ -80,7 +80,9 @@ Ogni richiesta di un modello più costoso di quello standard (`bm-deep`, tier he
 | 4 | Il modello economico ha già fallito, oppure l'errore costa molto |
 | 5 | Quasi una necessità: l'errore è irreversibile o l'alternativa è rinunciare a risolvere |
 
-**Preferenza dell'utente (soglia di autonomia = 4)**: con N=1-3 non si usa il modello costoso; con N=4 o 5 l'agente passa al modello costoso **in autonomia**, senza chiedere, dichiarando punteggio e motivo in chat. Per cambiare la soglia modificare questa riga. Il punteggio è una stima, non una misura (manca il registro dei costi).
+**Preferenza dell'utente (soglia di autonomia = 4)**: con N=1-3 non si usa il modello costoso; con N=4 o 5 l'agente passa al modello costoso **in autonomia**, senza chiedere, dichiarando punteggio e motivo in chat. Per cambiare la soglia modificare questa riga. Il punteggio è una stima, non una misura (misurabile col ledger).
+
+**Ledger**: a ogni subagent concluso SPV/agente principale appende una riga a `docs/agents/ledger.txt` (solo append); `python scripts/agent_audit.py` per la taratura.
 
 ### Escalation Basata su Evidenze
 Gli agenti chiudono sempre con uno stato esplicito:

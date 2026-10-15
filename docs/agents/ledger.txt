@@ -2,3 +2,5 @@
 2026-10-15|general-purpose|sonnet|review SDLOG-1..5 (AGY)|sync|-|-|DONE|93753|10|683
 2026-10-15|general-purpose|sonnet|review CI-1,D-MON,D-RES,D-LOAD|sync|-|-|DONE|91823|17|784
 2026-10-15|bm-planner|opus|WO fix start.S copy_up|platforms|-|-|DONE|29568|9|109
+2026-10-15|bm-planner|opus|WO ledger e audit agenti|tools|-|-|DONE|26485|11|79
+2026-10-15|bm-coder|haiku|LEDGER-1 agent_audit.py + test|tools|1|-|DONE|29819|7|70

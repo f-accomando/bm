@@ -100,8 +100,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 
 ## Rules (do not break)
 
-- Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a
-  dialog frame never crosses the title row (QEMU tests read it).
+- Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a dialog frame never crosses the title row (QEMU tests read it).
 - bm Mesh rewrites only the lines between `-- [bm Mesh begin]` and `-- [bm Mesh end]`.
 - Mouse (`require "bmui"`, `src/script/bmui.lua`): the mouse does what the keys do: zones
   registered while drawing, chips that press the key, `U.press` before `keyp()`, a context menu
@@ -118,3 +117,4 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **The kernel embeds the editor** (`build/editor.bm` is inside `kernel.img`): after any change of `carts/editor` rebuild the kernel (`make build/kernel.img`) before a QEMU run; a stale kernel runs the old editor.
 - **The 3D map** (map3d, layers `floor`, `height`, `walls`, `objects`): `map3d_build` reads the floor only at the **top-left tile of each 2x2 block** (cell = 2x2 tiles, `cell` 1.0): a 16x16 brush with tile 0 gives a floor of holes. Object placeholders are the **even** ids >= 1024 (1024 start, 1026 apple, 1028 crate, 1030 goal, 1032 lamp); the tile chooser stops at the sheet's last tile, so the markers have their own keys (`Shift+S/G/A/C/O` in the map page). `lamp3d` slots are 1..4.
 - **bmhost and saving a game**: opening a `.bm` and saving asks "Save an editable copy" through a kernel modal that reads the keyboard, not the typed queue: in `bmhost --tool` it hangs a recording unless the input line `FRAME keys 0x28` presses Enter. A recording script opens the project (`.bme`) instead; `Ctrl+B`/`F5` do not build/run a game inside `bmhost --tool`; input files written from Windows Python get CRLF (a CR is typed as Enter): write them with LF.
+- **Agent ledger** (`docs/agents/ledger.txt`, format in its `#` header): append-only, one line per subagent run; never read or edit it by hand, only `scripts/agent_audit.py` reads it.
