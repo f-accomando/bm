@@ -75,12 +75,7 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 
 - To confirm from a boot log on the device: whether a stale association after a reboot was
   part of the missing WiFi (the fix that is in: retries and `wifi_leave()`).
-- **Freeze reports (secondary, later):** (1) `netxfer.c` ~470 reboots after a network kernel
-  without `crumbs_clean_exit()`, so the next boot reports a false freeze (4 reports so far);
-  one helper for every planned restart. (2) `watchdog.c` writes only PM_WDOG and never counts on
-  the Pi Zero W: write WDOG then RSTC, check it counts, mind >3 s with interrupts off (the
-  watchdog is reset by the 10 Hz tick). (3) the last-lines ring can tear at 32-byte lines (keep
-  a 0 after the newest char), store the freezing kernel's version, pin `.noinit` (`linker.ld`).
+- **Freeze reports hardware checks (Pi Zero W):** verify real watchdog countdown on hardware (FRZ-3: boot log says "watchdog: on", monitor `X f` restarts within ~3 s with report "the Pi froze last time").
 - Measurements to redo, stalls that still hold the CPU, downloads inside an app: [multitasking](multitasking.md).
 
 ### Console Standalone & Hardware Spunti (R1, R2, R3, R4, R6, R8, R19, R20)
@@ -97,6 +92,8 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 ## Rules (do not break)
 
 - All SD logs only via `src/kernel/sdlog.c`.
+- Planned restarts only via `crumbs_restart()`.
+- SD logs masked with `reports_mask_secrets()`.
 - Fibers (`background_stop()`, `net_wait_step`, update/publish vs apps): [multitasking](multitasking.md).
 - Tabs on the Pi: Market · Games · Dev · Lib · Settings, Lib hidden until `lib_tab=1`; the
   menu opens on Games; the Market never blocks the menu and loads only when its tab is on.
