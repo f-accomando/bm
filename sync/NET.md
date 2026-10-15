@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: NET
-state: FREE
-task: R-NET4 consegnato
+state: WORKING
+task: R-NET4-fix
 waiting_on: 
-eta: 2026-10-15T17:00+02:00
+eta: 2026-10-15T17:30+02:00
 wakeup: no
-ack: 2026-10-15T15:25+02:00
-updated: 2026-10-15T15:54+02:00
+ack: 2026-10-15T16:05+02:00
+updated: 2026-10-15T16:05+02:00
 ---
 # NET
 
