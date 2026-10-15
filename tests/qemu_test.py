@@ -6528,8 +6528,7 @@ def test_editor_mouse(b, opts):
     try:
         q.boot()
         run(q, "e")
-        look(q, ["OPEN IN"], 8, 16)
-        text = screen_text(q.screendump())
+        text = look(q, ["OPEN IN", "code"], 8, 16)   # the same dump: a later one may catch a redraw
         cx, cy = find(text[:1], "code", 8, 16)
         click(q, cx, cy)                    # the F2 tab: the code page
         look(q, ["line 1/"], 8, 16, gone=["OPEN IN"])
