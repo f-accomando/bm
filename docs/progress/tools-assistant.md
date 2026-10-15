@@ -19,7 +19,8 @@ Split from [tools](tools.md); open work and rules stay there.
   `animate()`'s bone matrices of `src/bm/runtime.c`: change them together; checked equal to bm_core's
   `skin.skin()`; `tests/studio/tools3d_host.lua` presses `t`). Rango test: charkit skin 12 of 984 faces marked,
   smooth `K` 82, rigid `k` 455. Next: select faces by ring/area, mirror the skin, joint rings in bm Studio,
-  assistant actions on Animator, organic `biped`/`chameleon` recipes (bm-planner's Work Orders).
+  assistant actions on Animator, organic `biped`/`chameleon` recipes (plan and Work Orders:
+  [`design/organic-recipes.md`](../design/organic-recipes.md)).
 - Mesh from images: `cutout3d` / `picture3d` in the runtime (`src/bm/cutout.c`), PC tools
   `tools/img2mesh.py`, `cutout2mesh.py`, `local2mesh.py`, `meshy*.py` (`MESHY_API_KEY`
   only in the environment).
