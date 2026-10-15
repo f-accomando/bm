@@ -1,6 +1,6 @@
 ---
 name: bm-deep
-description: Riservato esclusivamente a un singolo problema circoscritto e difficile (bug con riproduzione certa, race condition, causa ignota dopo fallimento di altri agenti, singola decisione architetturale critica). NON implementa intere feature. Richiede approvazione prima di essere invocato.
+description: Riservato esclusivamente a un singolo problema circoscritto e difficile (bug con riproduzione certa, race condition, causa ignota dopo fallimento di altri agenti, singola decisione architetturale critica). NON implementa intere feature. Si invoca solo con necessità 4-5 su 5 dichiarata (CLAUDE.md §3, "Necessità del modello costoso"); in autonomia con soglia 4.
 model: claude-opus-5-5
 effort: xhigh
 tools: Read, Edit, Write, Grep, Glob
