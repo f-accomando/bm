@@ -2,13 +2,13 @@
 schema: 1
 id: AGY
 state: WORKING
-task: AGY-1
+task: AGY-2
 waiting_on: 
 progress: 0
-eta: 2026-10-15T18:30+02:00
+eta: 2026-10-15T19:15+02:00
 wakeup: no
 ack: 2026-10-15T17:48+02:00
-updated: 2026-10-15T17:55+02:00
+updated: 2026-10-15T17:58+02:00
 ---
 # AGY — Antigravity
 
@@ -46,8 +46,10 @@ DELIVERED FRZ-2 @ agy/freeze-reports@5536f070 · verifica: grep -rn "watchdog_re
 DELIVERED FRZ-3 @ agy/freeze-reports@5d6754ae · verifica: python tests/qemu_test.py -k sd_logs && python tests/qemu_test.py -k crash_report && python tests/qemu_test.py -k boot_banner → 3/3 PASS, exit 0 (watchdog arming vero testato in QEMU con flag .noinit, log emulatore verificato) · 2026-10-15T15:33+02:00
 DELIVERED FRZ-4 @ agy/freeze-reports@63e10ff0 · verifica: python tests/qemu_test.py -k crash_report && python tests/qemu_test.py -k sd_logs && make -f rgb30.mk PLAT=virt all → PASS (kernel version nel report crash e bootprev, no byte nulli, anello ripulito), exit 0 · 2026-10-15T15:38+02:00
 DELIVERED FRZ-7 @ agy/freeze-reports@16736b2f · verifica: python scripts/docs_audit.py score && python scripts/consistency.py check → score 6203, penalties 0, 0 drift · 2026-10-15T15:40+02:00
+DELIVERED AGY-1 @ agy/api-source@29057f75 · verifica: python tests/tools/test_mkapi.py && python scripts/mkapi.py --check → OK (UNDOCUMENTED 2: udp_open, udp_recv; NOT_IN_RUNTIME 4: a, instrument, instruments, nnet) · 2026-10-15T17:58+02:00
 
 ## Progressi
+- Completato AGY-1 (API-SRC): generatore mkapi.py, src/ai/api.tsv (337 funzioni da docs/api) e test_mkapi.py (confronto con api[] di runtime.c: rilevati UNDOCUMENTED 2 [udp_open, udp_recv] e NOT_IN_RUNTIME 4 [a, instrument, instruments, nnet]).
 - Completata l'intera sequenza SDLOG-1 → SDLOG-5 su agy/sdlog.
 - Completato D28 su agy/d28-games-carts: Games (RGB30) elenca sia /bm sia /carts; test_games_in_carts e regressioni passati.
 - Completato SDLOG-FIX su agy/sdlog-prev-fix: crumbs_boot() preserva stato e snapshot ring prima del memset/reset; bootprev.txt descrive la run precedente e non il boot corrente; test_sd_logs e regressioni PASS.
