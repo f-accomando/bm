@@ -1171,7 +1171,7 @@ test-docs:
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
-AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c src/ai/mesh.c src/ai/mesh_chars.c src/ai/mesh_script.c \
+AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c src/ai/mesh.c src/ai/mesh_chars.c src/ai/mesh_skin.c src/ai/mesh_script.c \
            src/ai/music.c src/ai/music_net.c
 $(BUILD)/host/test_ai: tests/ai/test_ai.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c
 	@mkdir -p $(dir $@)

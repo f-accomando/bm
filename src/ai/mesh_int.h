@@ -48,6 +48,8 @@ void tf_off(mc_t *c);
 
 /* a face from its corners (3 or 4), clockwise from the side that shows */
 void face(mc_t *c, const float (*p)[3], int n, int m);
+/* the same with a bone for each corner (bones: n values; 0: the bone of the moment) */
+void face_b(mc_t *c, const float (*p)[3], int n, int m, const uint8_t *bones);
 /* the same, the side that shows away from the point (ox, oy, oz) */
 void face_out(mc_t *c, const float (*p)[3], int n, int m, float ox, float oy, float oz);
 
@@ -104,5 +106,9 @@ void r_dragon(mc_t *c);
 void r_ghost(mc_t *c);
 void r_skeleton(mc_t *c);
 void r_snowman(mc_t *c);
+
+/* the organic characters, one continuous skin (mesh_skin.c) */
+void r_biped(mc_t *c);
+void r_chameleon(mc_t *c);
 
 #endif
