@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Writes the status block at the top of sync/<ID>.md (--- ... ---) with `updated` taken from the clock (ISO 8601, time zone).
 
-  python3 tools/sync_hdr.py AGY --state WORKING --task "AGY-09 passo 3" [--waiting-on utente] [--progress 40] [--eta 2026-10-14T12:20+02:00]
+  python3 tools/sync_hdr.py AGY --state WORKING --task "AGY-09 passo 3" [--waiting-on utente] [--progress 40] [--eta 18:00]
   python3 tools/sync_hdr.py CLD --ack auto           # a heartbeat that also acknowledges the last row of SYNC.md read
   python3 tools/sync_hdr.py CLD --wakeup no          # profile: this agent has no autonomous wake-up (yes | no)
 
@@ -51,6 +51,23 @@ def last_row_time():
     return last
 
 
+def parse_eta(v):
+    """`18:00` = delivery expected at 18:00 (today, or tomorrow if already past), in the user's clock; a full ISO time is kept as given."""
+    m = re.fullmatch(r"(\d{1,2}):(\d\d)", v.strip())
+    if not m:
+        return v
+    now = datetime.datetime.now().astimezone()
+    off = now.strftime("%z")
+    if off in ("+0000", "-0000", ""):
+        off = "+0200"
+    tz = datetime.timezone(datetime.timedelta(hours=int(off[:3]), minutes=int(off[0] + off[3:])))
+    now = now.astimezone(tz)
+    t = now.replace(hour=int(m.group(1)), minute=int(m.group(2)), second=0, microsecond=0)
+    if t < now:
+        t += datetime.timedelta(days=1)
+    return t.isoformat(timespec="minutes")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("id")
@@ -80,7 +97,7 @@ def main():
     if a.progress is not None:
         d["progress"] = str(a.progress)
     if a.eta is not None:
-        d["eta"] = a.eta
+        d["eta"] = parse_eta(a.eta)
     if a.wakeup:
         d["wakeup"] = a.wakeup
     if a.ack:
