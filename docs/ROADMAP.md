@@ -34,7 +34,7 @@ Il piano di sviluppo di **bm** (BareMetal), una *fantasy console* bare metal per
 | BETA-4 | P1 | Prestazioni accettabili in 2D e 3D | budget misurato e pubblicato per Pi e RGB30; il gioco della prova a 60 fps (o con il frame rate dichiarato nel budget) | API-1, M36, M35, M37, M41 |
 | BETA-5 | P1 | La versione 3D della prova | un gioco 3D con più stage gira con la GPU (V3D sul Pi, Mali sull'RGB30) entro il budget | BETA-4, APP-2 |
 | BETA-6 | P1 | Coerenza tra i due kernel | `python scripts/consistency.py gate` senza divergenze `open` o `untested` che toccano menu, input, Games, SDK e salvataggi (D01-D13, D28, D30-D36 e simili); le altre accettate per iscritto | SYS-5, APP-1 |
-| BETA-7 | P1 | Guida e feedback | `GAME-GUIDE.md` e un avvio rapido di una pagina portano al primo gioco; un tester manda un riscontro senza mezzi esterni | SYS-7, APP-3 |
+| BETA-7 | P1 | Guida per i tester | `GAME-GUIDE.md` e un avvio rapido di una pagina portano al primo gioco. I riscontri dei tester arrivano all'utente con contatto diretto, fuori da bm: nessun canale nel prodotto | APP-3 |
 
 **Lua e LuaJIT (decisione di base, da confermare).** Per la beta si resta sull'interprete Lua 5.4: LuaJIT non serve e non conviene. Una operazione costa circa 100 ns (circa 140.000 per frame); il disegno e il 3D stanno in C e sulla GPU, e `docs/PERFORMANCE.md` (scelte scartate) ha già scartato il JIT perché richiede generare codice a runtime su bare metal; inoltre l'hook di `profile` e dei breakpoint non scatta nel codice compilato (`docs/B16.md`, sezione sull'hook di debug). Si riconsidera solo se i riscontri del tester mostrano giochi limitati dal Lua e non dal disegno: prima si misura con `profile(true)` e si sposta il lavoro pesante in C o sulle QPU.
 
@@ -57,7 +57,6 @@ Il piano di sviluppo di **bm** (BareMetal), una *fantasy console* bare metal per
 | R3, R4 | P2 | da verificare | Log su SD e screenshot: chiudere dopo le prove su console | log SD (D19) e `shot` provati su console; voci tolte da `Open work` | [system](progress/system.md) | SYS-2, SYS-3 |
 | R1, R2, R6, R8, R19, R20 | P3 | idea | Console standalone: WiFi da pad, tastiera a schermo, web UI, rumble DS4, pad BT, HDMI-CEC | da specificare | [system](progress/system.md) `Open work` | - |
 | R22 | P3 | idea | Guscio portatile Pi Zero (GPIO, display DPI/SPI) | da specificare | [platforms](progress/platforms.md) | - |
-| SYS-7 | P1 | da fare | Canale di feedback per i beta tester, non pubblico | un tester manda log e screenshot di un problema senza finire nel repo pubblico `reports`; la password è mascherata | [system](progress/system.md) `Open work`, [system-net](progress/system-net.md) | SYS-2 |
 
 ## 2. Funzioni e API (GPU, runtime, formati, audio)
 
