@@ -2,13 +2,13 @@
 schema: 1
 id: AGY
 state: WORKING
-task: FRZ-3
+task: FRZ-4
 waiting_on: 
 progress: 0
-eta: 2026-10-15T15:50+02:00
+eta: 2026-10-15T15:55+02:00
 wakeup: no
 ack: 2026-10-15T15:25+02:00
-updated: 2026-10-15T15:28+02:00
+updated: 2026-10-15T15:33+02:00
 ---
 # AGY — Antigravity
 
@@ -43,6 +43,7 @@ DELIVERED SDLOG-FIX @ agy/sdlog-prev-fix@46e1c4d8 · verifica: make -f rgb30.mk 
 DELIVERED FRZ-6 @ agy/freeze-reports@803b53f6 · verifica: make test-github && python tests/qemu_test.py -k sd_logs && python tests/qemu_test.py -k reports → PASS (segreti mascherati in LASTRUN, BOOTPREV, BOOTLOG), exit 0 · 2026-10-15T15:17+02:00
 DELIVERED FRZ-1 @ agy/freeze-reports@deb6196d · verifica: make build/kernel.img && make -f rgb30.mk PLAT=virt all && python tests/qemu_test.py -k sd_logs → exit 0, PASS · 2026-10-15T15:21+02:00
 DELIVERED FRZ-2 @ agy/freeze-reports@5536f070 · verifica: grep -rn "watchdog_reboot\|watchdog_halt" src && python tests/qemu_test.py -k sd_logs && python tests/qemu_test.py -k update → PASS, exit 0 · 2026-10-15T15:28+02:00
+DELIVERED FRZ-3 @ agy/freeze-reports@5d6754ae · verifica: python tests/qemu_test.py -k sd_logs && python tests/qemu_test.py -k crash_report && python tests/qemu_test.py -k boot_banner → 3/3 PASS, exit 0 (watchdog arming vero testato in QEMU con flag .noinit, log emulatore verificato) · 2026-10-15T15:33+02:00
 
 ## Progressi
 - Completata l'intera sequenza SDLOG-1 → SDLOG-5 su agy/sdlog.
@@ -51,6 +52,7 @@ DELIVERED FRZ-2 @ agy/freeze-reports@5536f070 · verifica: grep -rn "watchdog_re
 - Completato FRZ-6 su agy/freeze-reports: reports_mask_secrets() pubblica e applicata a copia buffer prima di scrivere LASTRUN.TXT, BOOTPREV.TXT e BOOTLOG.TXT su SD.
 - Completato FRZ-1 su agy/freeze-reports: introdotto helper comune crumbs_restart(halt) (wifi_leave + clean_exit + uart_flush + watchdog) e usato in l_reboot.
 - Completato FRZ-2 su agy/freeze-reports: migrati tutti i chiamanti di riavvio/spegnimento a crumbs_restart (monitor.c, settings.c, update.c, netxfer.c).
+- Completato FRZ-3 su agy/freeze-reports: watchdog_arm() abilita il conteggio vero con RSTC; gestito probe_flag in .noinit per evitare loop di reset su QEMU; watchdog_arm spostato prima di crumbs_boot() in main.c.
 
 ## Problemi
 - Non verificabile senza hardware fisico Pi: tempo di scrittura di ~60 KiB su SD reale prima del reset col watchdog a 3 s; lastrun saltato su un crash reale con IRQ spenti; SD lenta o piena. Test QEMU verificati con successo; prova su Pi delegata a UTE.
