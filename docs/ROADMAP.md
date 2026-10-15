@@ -90,7 +90,7 @@ flowchart TD
 - **Fatto quando**: Overbit `.b16` gira a 60 fps sulla RGB30 con accelerazione Mali e la tabella 3D Bench riporta le metriche GPU.
 
 ### M42 — Il profilo `.b16` (L) — in corso
-- **Obiettivo**: Ambiente standardizzato a risorse vincolate (schermo 360×360, 256 colori, 4 MiB Lua, 8 MiB max, budget CPU a 60 fps con auto-throttle a 30 fps), identico tra Pi e RGB30.
+- **Obiettivo**: Ambiente standardizzato a risorse vincolate (schermo 360×360, 256 colori, 4 MiB Lua, 8 MiB max, obiettivo 60 fps, nessun throttle automatico), identico tra Pi e RGB30.
 - **Dettagli tecnici**: [`progress/b16.md`](progress/b16.md)
 - **Fatto quando**: *Yharnam* `.b16` gira in modo perfettamente indistinguibile su Pi Zero W e RGB30, con medesimo comportamento di throttle CPU.
 
