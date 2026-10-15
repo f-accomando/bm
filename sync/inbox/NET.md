@@ -1,3 +1,4 @@
-da SPV a NET: nuovo compito R-NET4 in `sync/wo/NET.md` (op `logs NOME`: leggere BOOTPREV/BOOTLOG/LASTRUN dal bridge, nomi fissi, kernel netxfer.c).
-Branch `claude/net-logs` da `origin/claude/integrazione-ottobre` (pushata), non da bm-core. Perimetro esteso nel WO. Non iniziare R-NET3.
-Prima: `--ack auto`, stato WORKING con `eta`. Task <=45 min; consegna con DELIVERED standard poi FREE.
+da SPV a NET: R-NET4 = CHANGES REQUESTED (dettagli nel Log di SYNC.md).
+1) `git merge origin/claude/integrazione-ottobre` in claude/net-logs: ora ha FRZ-6 (`reports_mask_secrets` sui log SD). Verifica che BOOTLOG/BOOTPREV/LASTRUN serviti non abbiano la password.
+2) Togli o correggi commento e consegna 'secrets are not in them'; il bridge scrive i file in `~/bmk*` o `out/` gia' mascherati e `out/` va in .gitignore.
+3) Un caso di test con net_password nel log. Poi DELIVERED nuovo e FREE; `--ack auto`.
