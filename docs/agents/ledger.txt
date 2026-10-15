@@ -1,0 +1,4 @@
+# date|agent|model|task|area|gate|necessity|outcome|tokens|tools|secs
+2026-10-15|general-purpose|sonnet|review SDLOG-1..5 (AGY)|sync|-|-|DONE|93753|10|683
+2026-10-15|general-purpose|sonnet|review CI-1,D-MON,D-RES,D-LOAD|sync|-|-|DONE|91823|17|784
+2026-10-15|bm-planner|opus|WO fix start.S copy_up|platforms|-|-|DONE|29568|9|109
