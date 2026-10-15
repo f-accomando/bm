@@ -90,7 +90,8 @@ const char *fat_error(void) { return "test"; }
 /* G: /bm/shots/*.PNG is a file of 3000 bytes, what a screenshot is here */
 int fat_find(const char *path, fat_entry_t *e)
 {
-    if (strcasecmp(path, "/bm/shots/PONG0001.PNG") && strcasecmp(path, "/bm/config.txt"))
+    if (strcasecmp(path, "/bm/shots/PONG0001.PNG") && strcasecmp(path, "/bm/config.txt") &&
+        strcasecmp(path, "/bm/BOOTPREV.TXT") && strcasecmp(path, "/bm/CONFIG.TXT") && strcasecmp(path, "/bm/LASTRUN.TXT"))
         return -1;
     memset(e, 0, sizeof *e);
     e->size = 3000;
@@ -558,6 +559,18 @@ int main(int argc, char **argv)
         check(strcmp(x.got, "PA") == 0, "  G outside bm/shots: PA");
         xfer(&x, 'G', "secret", "bm/shots/../config.txt", NULL, 0, 0, 2);
         check(strcmp(x.got, "PA") == 0, "  G with ..: PA");
+        xfer(&x, 'G', "secret", "bm/BOOTPREV.TXT", NULL, 0, 0, 10 + 3000);
+        check(x.len == 3010 && strncmp(x.got, "OK", 2) == 0, "  G of bm/BOOTPREV.TXT: OK");
+        xfer(&x, 'G', "secret", "/bm/lastrun.txt", NULL, 0, 0, 10 + 3000);
+        check(x.len == 3010 && strncmp(x.got, "OK", 2) == 0, "  G of bm/LASTRUN.TXT (any case): OK");
+        xfer(&x, 'G', "secret", "bm/BOOTLOG.TXT", NULL, 0, 0, 2);
+        check(strcmp(x.got, "NF") == 0, "  G of bm/BOOTLOG.TXT: allowed, not on the card here: NF");
+        xfer(&x, 'G', "secret", "bm/CONFIG.TXT", NULL, 0, 0, 2);
+        check(strcmp(x.got, "PA") == 0, "  G of bm/CONFIG.TXT: PA");
+        xfer(&x, 'G', "secret", "bm/../x", NULL, 0, 0, 2);
+        check(strcmp(x.got, "PA") == 0, "  G of bm/../x: PA");
+        xfer(&x, 'G', "secret", "bm/BOOTPREV.TXT.x", NULL, 0, 0, 2);
+        check(strcmp(x.got, "PA") == 0, "  G of a name that only starts as a log: PA");
         xfer(&x, 'G', "secret", "bm/shots/NOPE0001.PNG", NULL, 0, 0, 2);
         check(strcmp(x.got, "NF") == 0, "  G of a file that is not there: NF");
         xfer(&x, 'G', "nope", "bm/shots/pong0001.png", NULL, 0, 0, 2);

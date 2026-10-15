@@ -169,6 +169,17 @@ static int parse_header(void)
     return 0;
 }
 
+/* G: a file of bm/shots (one level, no ".."), or one of the three logs the PC reads after a crash
+ * (exact names; the SD card's secrets are not in them: sdlog.c / reports) */
+static int get_allowed(const char *p)
+{
+    static const char *const logs[] = { "bm/BOOTPREV.TXT", "bm/BOOTLOG.TXT", "bm/LASTRUN.TXT" };
+    for (unsigned i = 0; i < sizeof logs / sizeof logs[0]; i++)
+        if (strcasecmp(p, logs[i]) == 0)
+            return 1;
+    return strncasecmp(p, "bm/shots/", 9) == 0 && p[9] && !strchr(p + 9, '/') && !strstr(p, "..");
+}
+
 /* "carts/pong.bm" and "/CARTS/PONG.BM" are the same file */
 static int same_path(const char *a, const char *b)
 {
@@ -494,8 +505,8 @@ void netxfer_poll(void)
         fat_entry_t e;
         char full[80];
         size_t len = 0;
-        if (strncasecmp(p, "bm/shots/", 9) != 0 || !p[9] || strchr(p + 9, '/') || strstr(p, "..")) {
-            fail("PA");                 /* only the files of bm/shots, one level */
+        if (!get_allowed(p)) {
+            fail("PA");                 /* only the files of bm/shots (one level) and the three logs */
         } else {
             full[0] = '/';
             strcpy(full + 1, p);               /* (a path is at most 64 characters) */

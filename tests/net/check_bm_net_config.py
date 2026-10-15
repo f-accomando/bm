@@ -302,7 +302,7 @@ def main():
     seen = []
 
     class R:
-        stdout, stderr = "pw=s3cret ok", ""
+        stdout, stderr, returncode = "pw=s3cret ok", "", 0
 
     real = pi_bridge.subprocess.run
     pi_bridge.subprocess.run = lambda cmd, **kw: (seen.append(cmd), R())[1]
@@ -312,8 +312,11 @@ def main():
         for name, seq in (("monitor", "q"), ("crash-undef", "Xu"), ("crash-prefetch", "Xb")):
             pi_bridge.run("1.2.3.4", "s3cret", "keys " + name)
             check(seen[-1][-2:] == ["--keys", seq], f"bridge: keys {name} -> {seq}")
+        for name, f in (("bootprev", "BOOTPREV.TXT"), ("bootlog", "BOOTLOG.TXT"), ("lastrun", "LASTRUN.TXT")):
+            pi_bridge.run("1.2.3.4", "s3cret", "logs " + name)
+            check(seen[-1][-3] == "--get" and seen[-1][-2] == "bm/" + f, f"bridge: logs {name} -> --get bm/{f}")
         n = len(seen)
-        for bad in ("keys foo", "keys Xa", "keys", "keys crash-freeze", "keys monitor Xa"):
+        for bad in ("logs foo", "logs ../x", "logs BOOTPREV.TXT", "logs", "keys foo", "keys Xa", "keys", "keys crash-freeze", "keys monitor Xa"):
             check(pi_bridge.run("1.2.3.4", "s3cret", bad).startswith("refused"), f"bridge: '{bad}' refused")
         check(len(seen) == n, "  nothing run")
     finally:

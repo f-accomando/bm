@@ -213,7 +213,7 @@ def save(out, data):
 
 
 def get_file(args, path, out, password):
-    """--get: a file of bm/shots on the console, written to out"""
+    """--get: a file of bm/shots (or bm/BOOTPREV.TXT, BOOTLOG.TXT, LASTRUN.TXT) on the console, written to out"""
     rc, data = fetch(args, path, password)
     return rc if data is None else save(out, data)
 

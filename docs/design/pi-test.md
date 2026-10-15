@@ -14,6 +14,7 @@
 | `kernel FILE` | a kernel written as `kernel.img`, then the Pi reboots (waited for) | same |
 | `shot OUT.png` | a screenshot of the running game (op `T`, then `G`), saved as OUT.png | OUT is a `.png` in a folder of the repo or in `~/bmk*` |
 | `keys NAME` | the keys of a fixed table pressed on the Pi, one by one (`bm_net.py --keys`): `monitor` = `q`, `crash-dabt` = `Xa`, `crash-undef` = `Xu`, `crash-prefetch` = `Xb` | the name must be in `KEYS` of `pi_bridge.py`; no free text, no freeze; refused when a game or page has the keys. `crash-*` makes the Pi fall: a Pi Zero W does not restart by itself, unplug the power |
+| `logs NAME` | one of the logs the Pi writes on its SD card, read without taking the card out (`bm_net.py --get bm/NAME`): `bootprev` = `bm/BOOTPREV.TXT` (the run before), `bootlog` = `bm/BOOTLOG.TXT`, `lastrun` = `bm/LASTRUN.TXT`; saved as `out/pi_NAME.TXT` and shown | the name must be in `LOGS` of `pi_bridge.py`; the op `G` of the kernel allows these three exact names (and `bm/shots/*`), nothing else of `bm/` (`PA`) |
 | anything else (`--config`, secrets, WiFi) | **refused** | |
 
 Stop it with Ctrl-C (or `pkill -INT -f pi_bridge.py`): the socket is removed and nothing can be sent any more. After a session change the Pi's password (it is shown in clear in a terminal or a chat easily).
