@@ -1,11 +1,13 @@
 ---
 schema: 1
 id: NET
-state: FREE
-task: handshake
+state: WORKING
+task: NET-1a
 waiting_on: 
+eta: 2026-10-15T12:00+02:00
 wakeup: no
-updated: 2026-10-15T09:44+02:00
+ack: 2026-10-15T09:36+02:00
+updated: 2026-10-15T09:45+02:00
 ---
 # NET
 
