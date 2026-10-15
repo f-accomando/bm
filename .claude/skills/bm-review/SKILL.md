@@ -30,6 +30,6 @@ Give the reviewer: the WO file path, the delivery (`branch@commit`), and the rep
 - Items to prove on hardware, if any.
 
 ## 4. What SPV does with it
-- Writes one `REVIEW:` row in `SYNC.md` (Log row at most 600 characters) with the verdict and the defects; fixes go to a correction WO (`AGY-6` is the model: one section per delivery, same branch).
-- Appends one ledger row per reviewer (`docs/agents/ledger.txt`: tokens, tools, seconds from the notification).
+- Writes one `REVIEW:` row in `SYNC.md` with `python tools/sync_log.py log --action "REVIEW: APPROVED" ...` (Log row at most 600 characters) with the verdict and the defects; fixes go to a correction WO (`AGY-6` is the model: one section per delivery, same branch).
+- Appends one ledger row per reviewer with `python scripts/ledger_add.py ...` (tokens, tools, seconds from the notification).
 - Before the second review of the same delivery, checks that the fix is verified by running the tests against the old code (item 7).
