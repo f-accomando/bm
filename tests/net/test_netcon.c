@@ -97,13 +97,25 @@ int fat_find(const char *path, fat_entry_t *e)
     e->size = 3000;
     return 0;
 }
+static int load_log;                    /* the next file is a log with the password in it */
 int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
 {
     *len = e->size;
     *data = malloc(*len);
     for (size_t i = 0; i < *len; i++)
         (*data)[i] = (uint8_t)(i * 7 + 1);
+    if (load_log) {                     /* "net_password=secret" in the middle of a log */
+        const char *t = "boot ok net_password=secret wifi up";
+        memcpy(*data, t, strlen(t));
+    }
     return 0;
+}
+/* kernel/reports.c: the secrets of the console become stars */
+void reports_mask_secrets(char *text, size_t len)
+{
+    for (size_t i = 0; i + 6 <= len; i++)
+        if (memcmp(text + i, "secret", 6) == 0)
+            memset(text + i, '*', 6);
 }
 /* T: the runtime draws a frame only when `frame_in` rounds have passed (-1: no game) */
 static int shot_state, shot_asked, shot_frame;   /* shot_frame: a frame comes at once */
@@ -172,6 +184,17 @@ void wifi_leave(void) { wifi_left++; }
 static int clean_exits, flushed;
 void crumbs_clean_exit(void) { clean_exits++; }
 void uart_flush(void) { flushed += clean_exits; }
+void watchdog_reboot(void);
+/* crumbs.c: the planned restart is these four, in this order */
+void crumbs_restart(int halt)
+{
+    (void)halt;
+    wifi_leave();
+    crumbs_clean_exit();
+    uart_flush();
+    watchdog_reboot();
+    for (;;) {}
+}
 /* the kernel's way (main's argument): no menu, the menu's fiber, the menu
  * gone before it wrote; what had run when the kernel case began */
 enum { K_AT_ONCE, K_MENU, K_GONE };
@@ -563,6 +586,11 @@ int main(int argc, char **argv)
         check(x.len == 3010 && strncmp(x.got, "OK", 2) == 0, "  G of bm/BOOTPREV.TXT: OK");
         xfer(&x, 'G', "secret", "/bm/lastrun.txt", NULL, 0, 0, 10 + 3000);
         check(x.len == 3010 && strncmp(x.got, "OK", 2) == 0, "  G of bm/LASTRUN.TXT (any case): OK");
+        load_log = 1;
+        xfer(&x, 'G', "secret", "bm/BOOTPREV.TXT", NULL, 0, 0, 10 + 3000);
+        check(x.len == 3010 && memmem(x.got + 10, 3000, "net_password=******", 18) && !memmem(x.got + 10, 3000, "secret", 6),
+              "  G of a log with the password in it: masked");
+        load_log = 0;
         xfer(&x, 'G', "secret", "bm/BOOTLOG.TXT", NULL, 0, 0, 2);
         check(strcmp(x.got, "NF") == 0, "  G of bm/BOOTLOG.TXT: allowed, not on the card here: NF");
         xfer(&x, 'G', "secret", "bm/CONFIG.TXT", NULL, 0, 0, 2);

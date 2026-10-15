@@ -315,6 +315,18 @@ def main():
         for name, f in (("bootprev", "BOOTPREV.TXT"), ("bootlog", "BOOTLOG.TXT"), ("lastrun", "LASTRUN.TXT")):
             pi_bridge.run("1.2.3.4", "s3cret", "logs " + name)
             check(seen[-1][-3] == "--get" and seen[-1][-2] == "bm/" + f, f"bridge: logs {name} -> --get bm/{f}")
+        def put_log(cmd, **kw):         # bm_net --get wrote the log, the password in it
+            seen.append(cmd)
+            with open(cmd[-1], "w") as f:
+                f.write("boot net_password=s3cret end")
+            return R()
+        pi_bridge.subprocess.run = put_log
+        out = pi_bridge.run("1.2.3.4", "s3cret", "logs bootprev")
+        with open(os.path.join(pi_bridge.ROOT, "out", "pi_BOOTPREV.TXT")) as f:
+            kept = f.read()
+        check("s3cret" not in out and "net_password=***" in out and "s3cret" not in kept,
+              "bridge: logs bootprev: the password masked in the answer and in the file kept")
+        pi_bridge.subprocess.run = lambda cmd, **kw: (seen.append(cmd), R())[1]
         n = len(seen)
         for bad in ("logs foo", "logs ../x", "logs BOOTPREV.TXT", "logs", "keys foo", "keys Xa", "keys", "keys crash-freeze", "keys monitor Xa"):
             check(pi_bridge.run("1.2.3.4", "s3cret", bad).startswith("refused"), f"bridge: '{bad}' refused")

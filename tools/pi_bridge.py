@@ -54,7 +54,10 @@ def run(host, pw, req):
     text = r.stdout + r.stderr
     if op == "logs" and r.returncode == 0 and os.path.isfile(out_file):
         with open(out_file, encoding="utf-8", errors="replace") as f:
-            text += chr(10) + f.read()
+            body = f.read().replace(pw, "***")
+        with open(out_file, "w", encoding="utf-8") as f:    # what is kept on the PC is masked too
+            f.write(body)
+        text += chr(10) + body
     return text.replace(pw, "***")
 
 

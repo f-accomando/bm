@@ -22,6 +22,7 @@
 #include "netcon.h"
 #include "net.h"
 #include "kernel/config.h"
+#include "kernel/reports.h"
 #include "bm/runtime.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
@@ -170,7 +171,8 @@ static int parse_header(void)
 }
 
 /* G: a file of bm/shots (one level, no ".."), or one of the three logs the PC reads after a crash
- * (exact names; the SD card's secrets are not in them: sdlog.c / reports) */
+ * (exact names). The kernel masks the secrets when it writes them (sdlog.c), and G masks them again
+ * when it reads a log (reports_mask_secrets): a log written by an older kernel has the password in clear. */
 static int get_allowed(const char *p)
 {
     static const char *const logs[] = { "bm/BOOTPREV.TXT", "bm/BOOTLOG.TXT", "bm/LASTRUN.TXT" };
@@ -518,6 +520,8 @@ void netxfer_poll(void)
                 buf = NULL;
                 fail("NF");
             } else {
+                if (strncasecmp(p, "bm/shots/", 9) != 0)
+                    reports_mask_secrets((char *)buf, len);   /* a log: the passwords never leave the console */
                 size = (uint32_t)len;
                 crc = crc32(buf, size);
                 uint8_t h[10] = { 'O', 'K', (uint8_t)size, (uint8_t)(size >> 8), (uint8_t)(size >> 16),
