@@ -1,28 +1,28 @@
-# Proposte di Sviluppo: bm Sound (Suite Audio e Sequencer)
+# Development Proposals: bm Sound (Audio Suite and Sequencer)
 
-Questo documento analizza cosa manca a **bm Sound** (`carts/sound`) per integrarsi in modo trasparente con il gameplay dei giochi, evitare la duplicazione di codice audio in Lua ed eliminare la fatica acustica nei titoli d'azione.
-
----
-
-## 1. Stato Attuale di bm Sound
-
-`bm Sound` è un sintetizzatore e sequencer a 8 voci completo e versatile:
-- **Pagine Principali**:
-  - **SOUNDS**: Editor dello strumento sintetico (14 forme d'onda: quadra, triangolare, dente di sega, rumore, seno, metal, FM, pluck, supersaw, organo, sample PCM, rumori pink/brown/crackle) con inviluppo ADSR, filtro dinamico ed eco.
-  - **SFX**: Progettazione di effetti sonori rapidi con curve di intonazione ed effetti (glide, bend, vibrato, tremolo, arpeggio).
-  - **PATTERN**: Step sequencer a 8 tracce (una traccia per voce).
-  - **SONG**: Sequenza di pattern per comporre brani musicali complessi con gestione delle ripetizioni.
-- **Assistente Musicale**: Apertura con F6 per generare motivi, bassi ed effetti su misura.
+This document analyzes what **bm Sound** (`carts/sound`) lacks to integrate transparently with game gameplay, avoid duplicating audio code in Lua, and eliminate acoustic fatigue in action titles.
 
 ---
 
-## 2. Cosa Manca per l'Integrazione nei Giochi
+## 1. Current State of bm Sound
 
-Sebbene la generazione del suono sia ricca, il modo in cui il codice del gioco comunica con il banco audio presenta limiti storici tipici dei vecchi motori retro:
+`bm Sound` is a complete and versatile 8-voice synthesizer and sequencer:
+- **Main Pages**:
+  - **SOUNDS**: Synth instrument editor (14 waveforms: square, triangle, sawtooth, noise, sine, metal, FM, pluck, supersaw, organ, PCM sample, pink/brown/crackle noises) with ADSR envelope, dynamic filter and echo.
+  - **SFX**: Design of quick sound effects with pitch curves and effects (glide, bend, vibrato, tremolo, arpeggio).
+  - **PATTERN**: 8-track step sequencer (one track per voice).
+  - **SONG**: Pattern sequence for composing complex songs with repeat handling.
+- **Music Assistant**: Opened with F6 to generate custom melodies, basslines and effects.
 
-### A. Assenza di un Dizionario SFX con Nome (Named Sound Events)
-- Gli effetti sonori nel banco audio sono identificati unicamente da numeri interi (`0..63`).
-- In quasi tutti i giochi del repository (*Hunter's Night*, *Star Shooter*, *Skyvale World*), gli sviluppatori hanno finito per **scrivere il codice degli effetti sonori direttamente in Lua tramite `note()`**:
+---
+
+## 2. What Is Missing for Game Integration
+
+Although sound generation is rich, the way game code communicates with the audio bank has historical limits typical of old retro engines:
+
+### A. No Named SFX Dictionary (Named Sound Events)
+- Sound effects in the audio bank are identified only by integer numbers (`0..63`).
+- In almost all games in the repository (*Hunter's Night*, *Star Shooter*, *Skyvale World*), developers ended up **writing the sound effect code directly in Lua via `note()`**:
   ```lua
   local function sfx(kind)
     if kind == "slash" then note(0, 2600, 90, NOISE, 70)
@@ -30,75 +30,75 @@ Sebbene la generazione del suono sia ricca, il modo in cui il codice del gioco c
     elseif kind == "hit" then note(2, 380, 110, NOISE, 130)
     ...
   ```
-- Questo accade perché associare `sfx(14)` o `sfx(22)` nel codice Lua costringe a consultare continuamente bm Sound per ricordare quale numero corrisponda a quale effetto, rendendo il codice opaco e facile a errori di disallineamento.
+- This happens because using `sfx(14)` or `sfx(22)` in Lua code forces you to constantly consult bm Sound to remember which number corresponds to which effect, making the code opaque and prone to misalignment errors.
 
-### B. Effetto "Mitragliatrice" e Mancanza di Micro-Variazioni (Jitter)
-- In giochi ad alta frequenza d'azione (es. i colpi di pistola in *Hunter's Night* o i passi del robot in *Titan Clash*), riprodurre esattamente lo stesso effetto sonoro decine di volte al secondo con identica frequenza e volume genera monotonia e affaticamento auricolare.
-- Attualmente non esiste in bm Sound un parametro di **randomizzazione controllata** (pitch jitter / volume variation). Lo sviluppatore deve programmare manualmente in Lua formule come `hz + math.random(-20, 20)`.
+### B. "Machine Gun" Effect and Lack of Micro-Variations (Jitter)
+- In high-action-frequency games (e.g. pistol shots in *Hunter's Night* or robot footsteps in *Titan Clash*), playing exactly the same sound effect dozens of times per second with identical frequency and volume generates monotony and ear fatigue.
+- bm Sound currently has no **controlled randomization** parameter (pitch jitter / volume variation). The developer must manually program formulas such as `hz + math.random(-20, 20)` in Lua.
 
-### C. Gestione dei Canali Audio e Priorità (Voice Stealing & Ducking)
-- La console ha 8 voci polifoniche. Quando la musica suona sui canali 3–7 e compaiono molti effetti sonori simultanei (esplosioni, laser, monete), è facile che un effetto sonoro "rubi" una voce melodica o viceversa.
-- Manca una gestione automatica dei **Bus Audio**:
-  - *Bus SFX* (priorità alta, può interrompere altri SFX meno importanti).
-  - *Bus Musica* (priorità bassa, protetta da interruzioni accidentali).
-  - *Audio Ducking*: abbassamento automatico del volume della musica durante suoni importanti (dialoghi, boss roar, colpo critico).
+### C. Audio Channel Management and Priority (Voice Stealing & Ducking)
+- The console has 8 polyphonic voices. When music plays on channels 3–7 and many simultaneous sound effects appear (explosions, lasers, coins), it is easy for a sound effect to "steal" a melodic voice or vice versa.
+- Automatic **Audio Bus** management is missing:
+  - *SFX Bus* (high priority, can interrupt other less important SFX).
+  - *Music Bus* (low priority, protected from accidental interruptions).
+  - *Audio Ducking*: automatic lowering of the music volume during important sounds (dialogue, boss roar, critical hit).
 
-### D. Sequencer di Jingle Semplificato
-- In giochi come *Star Shooter* o *Hunter's Night*, le melodie brevi (es. raccogliere un potenziamento, salire di livello, accendere una lanterna) sono scritte come mini-sequencer dedicati in Lua (`tune = { {523, 4}, {659, 4}, {784, 8} }`).
-- Manca la possibilità di salvare in bm Sound questi "Jingle" a 1 o 2 voci distinti dai pattern completi a 8 tracce della canzone.
+### D. Simplified Jingle Sequencer
+- In games like *Star Shooter* or *Hunter's Night*, short melodies (e.g. picking up a power-up, leveling up, lighting a lantern) are written as dedicated mini-sequencers in Lua (`tune = { {523, 4}, {659, 4}, {784, 8} }`).
+- There is no way to save these 1- or 2-voice "Jingles" in bm Sound, distinct from the full 8-track song patterns.
 
 ---
 
-## 3. Complessità "Fatta a Mano" vs Soluzione Integrata
+## 3. "Hand-Made" Complexity vs Integrated Solution
 
-| Esigenza | Approccio Attuale ("A mano") | Con l'Evoluzione di bm Sound |
+| Need | Current Approach ("By hand") | With the Evolution of bm Sound |
 |---|---|---|
-| **Chiamata Effetti Sonori** | `sfx(12)` numerico anonimo o funzioni `note()` scritte a mano nel codice | `sfx("hero_slash")` con etichetta nominale assegnata direttamente nell'editor |
-| **Variazione dei Passi/Colpi** | Formule matematiche in Lua per perturbare la frequenza | Slider `Pitch Jitter (+/- 5%)` e `Vol Jitter` nella scheda SFX |
-| **Musica che si Abbassa sui Colpi** | Scrittura di inviluppi manuali sulle voci musicali | Canale con flag `Duck Music by 40% on play` |
-| **Jingle di Vittoria / Ritiro** | Tabelle di note scritte a mano nel file Lua | Salvataggio di "Jingle" richiamabili con `jingle("quest_complete")` |
+| **Calling Sound Effects** | Anonymous numeric `sfx(12)` or `note()` functions written by hand in the code | `sfx("hero_slash")` with a name label assigned directly in the editor |
+| **Footstep/Hit Variation** | Math formulas in Lua to perturb the frequency | `Pitch Jitter (+/- 5%)` and `Vol Jitter` sliders in the SFX tab |
+| **Music Ducking on Hits** | Writing manual envelopes on the music voices | Channel with flag `Duck Music by 40% on play` |
+| **Victory / Retreat Jingle** | Note tables written by hand in the Lua file | Saving "Jingles" callable with `jingle("quest_complete")` |
 
 ---
 
-## 4. Proposte di Sviluppo & Roadmap per bm Sound
+## 4. Development Proposals & Roadmap for bm Sound
 
-### Proposta 1: Named Sound Tags & Export
-- Nella pagina **SFX**, aggiungere un campo **Nome / Tag** (es. `coin_get`, `slash_light`, `hit_shield`, `laser`).
-- bm Sound salva queste etichette nella sezione `AUDIO` del file `.bm`.
-- L'API runtime estende `sfx()` per accettare stringhe:
+### Proposal 1: Named Sound Tags & Export
+- In the **SFX** page, add a **Name / Tag** field (e.g. `coin_get`, `slash_light`, `hit_shield`, `laser`).
+- bm Sound saves these labels in the `AUDIO` section of the `.bm` file.
+- The runtime API extends `sfx()` to accept strings:
   ```lua
-  sfx("slash_light") -- cerca il nome nel dizionario del banco e suona
+  sfx("slash_light") -- looks up the name in the bank dictionary and plays it
   ```
-- In questo modo il programmatore non deve più gestire tabelle numeriche né duplicare suoni in Lua.
+- This way the programmer no longer has to manage numeric tables or duplicate sounds in Lua.
 
-### Proposta 2: Randomizer / Variation Sliders nella Pagina SFX
-Aggiungere due parametri opzionali per ogni effetto sonoro:
-- **Pitch Variance (`0..20%`)**: a ogni riproduzione, la frequenza fondamentale viene leggermente variata casualmente entro questo intervallo.
-- **Volume Variance (`0..15%`)**: leggera variazione di guadagno per dare naturalezza all'impatto.
-- Questa funzione risolve istantaneamente la ripetitività di passi, spari, rimbalzi e fendenti senza toccare una riga di codice nel gioco.
+### Proposal 2: Randomizer / Variation Sliders in the SFX Page
+Add two optional parameters for each sound effect:
+- **Pitch Variance (`0..20%`)**: on each playback, the fundamental frequency is slightly varied at random within this range.
+- **Volume Variance (`0..15%`)**: slight gain variation to give the impact a natural feel.
+- This feature instantly solves the repetitiveness of footsteps, shots, bounces and slashes without touching a line of code in the game.
 
-### Proposta 3: Canali Riservati e Auto-Ducking
-- Nel menu di bm Sound (o nella pagina SONG), aggiungere una suddivisione predefinita delle voci:
-  - **Voci 0–2**: *SFX Bus* (con furto intelligente della voce più vecchia se tutte e 3 sono occupate).
-  - **Voci 3–7**: *Music Bus*.
-- Possibilità di contrassegnare un SFX con l'attributo **Ducking**: quando l'effetto parte, le voci della musica si attenuano automaticamente di un valore configurabile per la durata del suono.
+### Proposal 3: Reserved Channels and Auto-Ducking
+- In the bm Sound menu (or in the SONG page), add a default split of the voices:
+  - **Voices 0–2**: *SFX Bus* (with smart stealing of the oldest voice if all 3 are busy).
+  - **Voices 3–7**: *Music Bus*.
+- Ability to flag an SFX with the **Ducking** attribute: when the effect starts, the music voices are automatically attenuated by a configurable amount for the duration of the sound.
 
-### Proposta 4: Integrazione "Audio Event" con bm Animator e bm Pixel
-- Nella pagina SFX, un'opzione *Test on Animation*: permette di vedere l'anteprima di uno sprite in movimento (da bm Pixel o bm Animator) e riprodurre l'effetto sonoro per verificare a orecchio il perfetto tempismo tra impatto visivo e attacco audio prima di avviare il gioco.
+### Proposal 4: "Audio Event" Integration with bm Animator and bm Pixel
+- In the SFX page, a *Test on Animation* option: lets you preview a moving sprite (from bm Pixel or bm Animator) and play the sound effect to check by ear the perfect timing between visual impact and audio attack before launching the game.
 
 ---
 
-## 5. Roadmap e Strumenti Audio Avanzati (M46, R9, R17, R25, R31–R35)
+## 5. Roadmap and Advanced Audio Tools (M46, R9, R17, R25, R31–R35)
 
-- **Import WAV / PCM da SD (R9, R25)**:
-  - Possibilità di importare campioni audio WAV direttamente dalla scheda SD dentro bm Sound per strumenti con forma d'onda `SAMPLE`.
-  - Editor di campioni (R32): funzioni integrate per ritaglio, normalizzazione ampiezza, impostazione punti di loop; registrazione live da microfono USB o mix interno.
-- **Import / Export MIDI (R17, R25)**:
-  - Importazione di file `.mid` standard per generare automaticamente le sequenze nei banchi PATTERN e SONG di bm Sound.
-- **Gestione Campioni tra Banchi (R31, R33, R34)**:
-  - Importazione di uno strumento `SAMPLE` da un'altra cartuccia con copia e rinumerazione automatica del campione associato (`MOD1`).
-  - Distribuzione di pacchetti campioni audio `.bmau` v3 sul Market.
-  - Supporto per kit multicampione in `riff` (`s "mykit:3"`).
-- **Nuovi Preset ed Effetti nell'Assistente Musicale (R35)**:
-  - Aggiornamento di `ai.music` e `predict` con supporto a preset moderni (`kit`, `choir`, `lush`, `bitbass`) ed effetti (`crush`, `vowel`, `duck` per sidechain).
+- **WAV / PCM Import from SD (R9, R25)**:
+  - Ability to import WAV audio samples directly from the SD card into bm Sound for instruments with the `SAMPLE` waveform.
+  - Sample editor (R32): built-in functions for trimming, amplitude normalization, loop point setting; live recording from USB microphone or internal mix.
+- **MIDI Import / Export (R17, R25)**:
+  - Import of standard `.mid` files to automatically generate sequences in the PATTERN and SONG banks of bm Sound.
+- **Sample Management Across Banks (R31, R33, R34)**:
+  - Import of a `SAMPLE` instrument from another cartridge with automatic copy and renumbering of the associated sample (`MOD1`).
+  - Distribution of `.bmau` v3 audio sample packs on the Market.
+  - Support for multi-sample kits in `riff` (`s "mykit:3"`).
+- **New Presets and Effects in the Music Assistant (R35)**:
+  - Update of `ai.music` and `predict` with support for modern presets (`kit`, `choir`, `lush`, `bitbass`) and effects (`crush`, `vowel`, `duck` for sidechain).
 

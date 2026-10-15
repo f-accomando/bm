@@ -1,17 +1,17 @@
 ---
 name: docs-loop
-description: Riordina CLAUDE.md, docs/progress.md e docs/progress/*.md con un ciclo alla Karpathy (una modifica, una misura, tieni o scarta) per avere un solo indice, doc snelli, meno riletture e skill dai workflow ripetuti. Usala dopo aver modificato quei file (il mod crab-ledger lo ricorda), a fine milestone, o quando l'utente chiede di ottimizzare i doc o i token.
+description: Tidies CLAUDE.md, docs/progress.md and docs/progress/*.md with a Karpathy-style loop (one change, one measurement, keep or discard) to get a single index, lean docs, fewer rereads and skills from repeated workflows. Use it after modifying those files (the crab-ledger mod reminds you), at the end of a milestone, or when the user asks to optimize the docs or tokens.
 ---
 
-# docs-loop: doc snelli, un solo indice, meno riletture
+# docs-loop: lean docs, a single index, fewer rereads
 
-Collegata al mod **crab-ledger**: legge il suo report (`~/.claude/crab-ledger-report.json`,
-scritto a ogni aggiornamento del pannello `/ledger`) per sapere quali file si rileggono di più.
-Misura = `python scripts/docs_audit.py score` (più basso è meglio): token sempre caricati
-(CLAUDE.md + progress.md) + token medi del file d'area + penalità (orfani, link rotti, file
-oltre ~120 righe, righe duplicate, CLAUDE.md senza il rimando all'indice).
+Linked to the **crab-ledger** mod: it reads its report (`~/.claude/crab-ledger-report.json`,
+written at every update of the `/ledger` panel) to know which files are reread the most.
+Measure = `python scripts/docs_audit.py score` (lower is better): always-loaded tokens
+(CLAUDE.md + progress.md) + average tokens of the area file + penalties (orphans, broken links, files
+over ~120 lines, duplicate lines, CLAUDE.md without the pointer to the index).
 
-## 1. Base
+## 1. Baseline
 
 ```bash
 python scripts/docs_audit.py score
@@ -20,50 +20,50 @@ python scripts/docs_audit.py repeats 30   # prompt e comandi ripetuti in ≥3 se
 python scripts/docs_audit.py best         # ultimo punteggio tenuto
 ```
 
-Se `rereads` dice "no report": apri `/ledger` una volta e riprova.
+If `rereads` says "no report": open `/ledger` once and retry.
 
-## 2. Ciclo (al massimo 8 giri, senza chiedere conferma tra un giro e l'altro)
+## 2. Loop (at most 8 rounds, without asking for confirmation between rounds)
 
-Un giro = **una sola ipotesi**, scelta in quest'ordine:
+A round = **a single hypothesis**, chosen in this order:
 
-1. una penalità dell'audit (orfano → linkalo dall'indice; rotto → correggilo; oltre 120 righe
-   → spezza per tema `<area>-<tema>.md` e aggiungi la riga all'indice; duplicato → tieni una
-   copia sola e rimanda);
-2. CLAUDE.md è il file sempre caricato più grande: ciò che vale per una sola area va nella
-   sezione *Rules* del suo `docs/progress/<area>.md`, lasciando in CLAUDE.md una riga;
-3. un file nei più riletti: se è un doc, dividilo o indicizzalo; se è codice grosso, una riga
-   in `docs/progress/runtime.md` o `reading.md` (banner o comando di ricerca, mai numeri di riga);
-4. una riga di `docs/progress.md` che non serve a trovare un file.
+1. an audit penalty (orphan → link it from the index; broken → fix it; over 120 lines
+   → split by theme `<area>-<tema>.md` and add the line to the index; duplicate → keep a single
+   copy and point to it);
+2. CLAUDE.md is the largest always-loaded file: what applies to a single area goes in the
+   *Rules* section of its `docs/progress/<area>.md`, leaving one line in CLAUDE.md;
+3. a file among the most reread: if it is a doc, split or index it; if it is large code, one line
+   in `docs/progress/runtime.md` or `reading.md` (banner or search command, never line numbers);
+4. a line of `docs/progress.md` that does not help to find a file.
 
-Per ogni giro:
-1. copia i file che tocchi in `.claude/docs-loop/backup/` (niente `git reset`: l'albero ha molto
-   in staging);
-2. modifica; rileggi il diff: l'informazione è **spostata, non persa**;
+For each round:
+1. copy the files you touch into `.claude/docs-loop/backup/` (no `git reset`: the tree has a lot
+   staged);
+2. modify; reread the diff: the information is **moved, not lost**;
 3. `python scripts/docs_audit.py score`;
-4. punteggio sceso e nessuna informazione persa → `python scripts/docs_audit.py log <score> keep "<cosa>"`;
-   altrimenti ripristina dal backup e `log <score> discard "<cosa>"`.
+4. score dropped and no information lost → `python scripts/docs_audit.py log <score> keep "<cosa>"`;
+   otherwise restore from the backup and `log <score> discard "<cosa>"`.
 
-Si ferma a 8 giri, o dopo 2 scarti di fila, o quando non ci sono più ipotesi.
+Stop at 8 rounds, or after 2 discards in a row, or when there are no more hypotheses.
 
-## 3. Workflow ripetuti → skill
+## 3. Repeated workflows → skills
 
-Da `repeats`: un candidato è un prompt o una sequenza di comandi che torna in ≥3 sessioni e
-che nessuna skill esistente copre (`git status`, `fetch`, `ls` da soli non sono skill). Per ogni
-candidato (al massimo 2 per giro): nome breve, quando scatta, passi, comandi esatti. Scrivi
-`claude/skills/<nome>/SKILL.md` (sotto ~60 righe, descrizione con il trigger) e copialo in
-`.claude/skills/<nome>/`. Una riga in `docs/progress/tools.md` solo se la skill cambia il
-modo di lavorare sul repo.
+From `repeats`: a candidate is a prompt or a sequence of commands that comes back in ≥3 sessions and
+that no existing skill covers (`git status`, `fetch`, `ls` alone are not skills). For each
+candidate (at most 2 per round): short name, when it triggers, steps, exact commands. Write
+`claude/skills/<nome>/SKILL.md` (under ~60 lines, description with the trigger) and copy it to
+`.claude/skills/<nome>/`. One line in `docs/progress/tools.md` only if the skill changes the
+way of working on the repo.
 
-## 4. Regole
+## 4. Rules
 
-- Un solo indice: `docs/progress.md`; CLAUDE.md rimanda lì e non elenca altri doc.
-- Cercare con `Grep -n` / `python scripts/cindex.py <file> [parola]`, poi `Read` offset/limit.
-  Comandi per file: `docs/progress/reading.md`; `runtime.c`: `docs/progress/runtime.md`.
-- Stato, non cronaca; righe corte; ogni argomento in un solo file. Comunicazione in inglese
-  (CLAUDE.md in italiano). Non toccare `*-IT.md`, `OLD*`, i doc storici.
-- Niente commit se l'utente non lo chiede.
+- A single index: `docs/progress.md`; CLAUDE.md points there and does not list other docs.
+- Search with `Grep -n` / `python scripts/cindex.py <file> [parola]`, then `Read` offset/limit.
+  Commands per file: `docs/progress/reading.md`; `runtime.c`: `docs/progress/runtime.md`.
+- State, not chronicle; short lines; each topic in a single file. Communication in English
+  (CLAUDE.md in Italian). Do not touch `*-IT.md`, `OLD*`, the historical docs.
+- No commits unless the user asks.
 
-## 5. Chiusura
+## 5. Closing
 
-Riporta: punteggio prima → dopo, giri tenuti/scartati (`.claude/docs-loop/results.tsv`), costo
-delle riletture da crab-ledger, skill create o proposte.
+Report: score before → after, rounds kept/discarded (`.claude/docs-loop/results.tsv`), cost
+of rereads from crab-ledger, skills created or proposed.
