@@ -1,0 +1,192 @@
+# Rig and skin: how to give a 3D model bones and make the skin follow them, in bm Animator.
+# For people who have never rigged a model. Keys are bm Animator's (F2 rig page, F3 animate page).
+
+== guide.rig_character
+kind: guide
+title: Guida: dare le ossa a un personaggio e farlo muovere
+title_en: Guide: give a character bones and make it move
+ask: come faccio muovere un personaggio 3d | come metto le ossa a un modello | come si fa l'ossatura
+ask: how do i rig a 3d character | how do i add bones to a model | make my model move
+ask: guida per animare un personaggio | primo personaggio animato | principiante animator
+ask: beginner guide to bm animator | step by step rigging | rig and skin a character
+keys: ossa, ossatura, rig, skinning, animator
+see: tip.rig_stretch, tip.rig_names, tip.rig_one_bone, howto.rig_tail, howto.rig_test_pose
+text:
+1. Apri il modello in bm Animator (da bm Studio: menu, Open in bm Animator).
+F2 è la pagina rig: le ossa e la pelle.
+
+2. Ossa: n ne crea una nuova (figlia di quella scelta), w a s d r f
+spostano la punta, Tab passa da testa a coda, Enter la rinomina. Comincia
+dal bacino e sali (hips, spine, head), poi braccia e gambe.
+
+3. Nomi: usa .L e .R per i due lati (arm.L, leg.L) e premi m: l'osso e i
+suoi figli si specchiano sull'altro lato.
+
+4. Pelle: k dà a ogni faccia l'osso più vicino (parti rigide), Shift+k a
+ogni angolo (liscio). Quasi sempre basta provare k.
+
+5. Aggiusta: v apre la pagina pelle. Le frecce scelgono una faccia, spazio
+la marca, PgUp e PgDn cambiano osso, a assegna le facce marcate all'osso.
+
+6. Prova: F3 è la pagina animazione. Su e giù scelgono l'osso, w s a d q e
+lo ruotano di 15 gradi. Piega gomito e ginocchio: se la pelle si stira,
+torna a F2 e riassegna le facce vicine al giunto.
+
+7. Animazione: k aggiunge un keyframe, i tasti , e . passano tra i
+keyframe, spazio fa partire. Ctrl+S salva.
+text_en:
+1. Open the model in bm Animator (from bm Studio: menu, Open in bm
+Animator). F2 is the rig page: the bones and the skin.
+
+2. Bones: n makes a new one (a child of the chosen one), w a s d r f move
+its end, Tab switches head and tail, Enter renames it. Start at the
+pelvis and go up (hips, spine, head), then arms and legs.
+
+3. Names: use .L and .R for the two sides (arm.L, leg.L) and press m: the
+bone and its children are mirrored to the other side.
+
+4. Skin: k gives every face its nearest bone (rigid parts), Shift+k every
+corner (smooth). Most of the time k is enough.
+
+5. Fix it: v opens the skin page. Arrows choose a face, space marks it,
+PgUp and PgDn change the bone, a gives the marked faces to the bone.
+
+6. Test: F3 is the animate page. Up and down choose the bone, w s a d q e
+turn it 15 degrees. Bend an elbow and a knee: if the skin stretches, go
+back to F2 and reassign the faces near the joint.
+
+7. Animation: k adds a keyframe, the keys , and . move between keyframes,
+space plays. Ctrl+S saves.
+
+== tip.rig_stretch
+kind: tip
+title: La pelle si stira quando piego un gomito o un ginocchio
+title_en: The skin stretches when I bend an elbow or a knee
+ask: la pelle si stira quando piego il gomito | il ginocchio si deforma | la pelle si strappa nel giunto
+ask: il braccio si allunga in modo strano | una faccia si stira quando muovo l'osso | pelle stirata
+ask: the skin stretches when i bend an elbow | the knee looks wrong when it bends | skin stretches at the joint
+ask: the mesh tears when i move a bone | stretched faces in animator | why does my arm stretch
+keys: stira, stirata, giunto, gomito, ginocchio, stretch, joint, elbow, knee
+see: guide.rig_character, tip.rig_one_bone
+text:
+Succede perché le facce a cavallo del giunto hanno gli angoli su ossa
+diverse: l'osso che si muove tira solo una parte. Rimedi, in ordine:
+1. F2, poi v: scegli le facce vicine al giunto e dalle all'osso giusto
+(a). La parte che non deve piegarsi (mano, testa) va tutta a un osso.
+2. Prova Shift+k (liscio) solo sulle facce scelte: ogni angolo segue il
+suo osso più vicino. Per i giunti è spesso meglio di k.
+3. Se il giunto ha una sola fila di facce, in bm Studio aggiungine
+un'altra intorno al gomito: più facce, piega più morbida.
+text_en:
+It happens because the faces across the joint have corners on different
+bones: the moving bone pulls only part of them. Fixes, in order:
+1. F2, then v: choose the faces near the joint and give them to the right
+bone (a). A part that must not bend (hand, head) goes all to one bone.
+2. Try Shift+k (smooth) on the chosen faces only: every corner follows its
+nearest bone. For joints it is often better than k.
+3. If the joint has a single row of faces, add another one around the
+elbow in bm Studio: more faces, a softer bend.
+
+== tip.rig_one_bone
+kind: tip
+title: Un osso per angolo, niente pesi: come funziona la pelle
+title_en: One bone per corner, no weights: how the skin works
+ask: come funziona lo skinning | un osso per vertice | pesi delle ossa | quanti ossi muovono un vertice
+ask: how does skinning work in bm | one bone per vertex | bone weights | smooth skinning
+ask: perche non ci sono i pesi | differenza tra skin rigida e liscia | rigid or smooth skin
+keys: skinning, pesi, weights, rigida, liscia, rigid, smooth
+see: guide.rig_character, tip.rig_stretch
+text:
+In bm ogni angolo di una faccia segue un solo osso: non ci sono pesi che
+mescolano due ossa. Per questo un giunto si piega come una cerniera.
+Skin rigida (k): ogni faccia segue l'osso più vicino, le parti non si
+deformano. Skin liscia (Shift+k): ogni angolo sceglie il suo osso, il
+giunto si piega meglio ma può stirare le facce lunghe. Gli angoli nello
+stesso punto con lo stesso osso si saldano quando si salva.
+text_en:
+In bm every corner of a face follows a single bone: there are no weights
+mixing two bones. So a joint bends like a hinge. Rigid skin (k): every
+face follows its nearest bone, parts do not deform. Smooth skin (Shift+k):
+every corner picks its own bone, the joint bends better but long faces can
+stretch. Corners in the same place with the same bone are welded when the
+model is saved.
+
+== tip.rig_names
+kind: tip
+title: Nomi delle ossa: .L, .R e le animazioni pronte
+title_en: Bone names: .L, .R and ready-made animations
+ask: come chiamo le ossa | nomi delle ossa lato sinistro destro | specchiare le ossa
+ask: come copio le ossa sull'altro lato | perche il braccio destro non si muove | rinominare un osso
+ask: what should i name the bones | mirror the bones to the other side | name left and right bones
+ask: why does the walk animation not move my model | bone naming convention
+keys: nomi, rinominare, specchio, mirror, names, rename
+see: guide.rig_character, mesh.hero
+text:
+Un nome è lungo al massimo 15 lettere. Usa hips, spine, head e, per i
+lati, arm.L, forearm.L, hand.L, leg.L, shin.L, foot.L: il lato sinistro
+(.L) sta a +x. Con m l'osso scelto e i suoi figli si specchiano su .R.
+Le animazioni cercano le ossa per nome: se un osso ha un altro nome, quella
+parte non si muove. Rinomina con Enter.
+text_en:
+A name is at most 15 letters. Use hips, spine, head and, for the sides,
+arm.L, forearm.L, hand.L, leg.L, shin.L, foot.L: the left side (.L) is on
++x. With m the chosen bone and its children are mirrored to .R. Animations
+find bones by name: a bone with another name does not move. Rename with
+Enter.
+
+== howto.rig_tail
+kind: howto
+title: Far muovere la coda di un personaggio
+title_en: Make a character's tail move
+ask: come faccio muovere la coda del personaggio | ossa per la coda | coda che ondeggia
+ask: aggiungere ossa alla coda di un modello 3d | coda di lucertola animata | coda di un animale che si muove
+ask: how do i make a character tail move | bones for a tail | wagging a tail in animator
+ask: rig a lizard tail | tail that follows the body | add tail bones to my model
+keys: lucertola, animale, lizard, wag, ondeggia
+see: guide.rig_character, tip.rig_names
+text:
+1. F2: scegli hips e premi n: nasce un osso. Sposta la punta con w a s d r
+f lungo la coda; Enter, chiamalo tail1.
+2. Con tail1 scelto premi n e prolunga: tail2, poi tail3. Tre ossa bastano.
+3. v: scegli le facce della coda vicino alla base e assegnale a tail1
+(a), quelle di mezzo a tail2, la punta a tail3. Oppure Shift+k.
+4. F3: ruota tail1 di poco e tail2 un po' di più, con segno uguale: la
+coda si curva. Ripeti nei keyframe seguenti con segno opposto, e attiva
+il ciclo con l: ondeggia.
+text_en:
+1. F2: choose hips and press n: a bone appears. Move its end with w a s d
+r f along the tail; Enter, name it tail1.
+2. With tail1 chosen press n and extend: tail2, then tail3. Three bones
+are enough.
+3. v: choose the tail faces near the base and give them to tail1 (a), the
+middle ones to tail2, the tip to tail3. Or Shift+k.
+4. F3: turn tail1 a little and tail2 a bit more, with the same sign: the
+tail curves. Repeat in the next keyframes with the opposite sign, and
+switch the loop on with l: it sways.
+
+== howto.rig_test_pose
+kind: howto
+title: Provare se lo skinning è giusto con pose estreme
+title_en: Test the skinning with extreme poses
+ask: come controllo se la pelle segue le ossa | provare le pose per vedere i difetti | controllare lo skinning
+ask: come provo se il rig funziona | testare l'ossatura | verificare il personaggio prima di animare
+ask: how do i check if the skin follows the bones | test my rig with poses | check the skinning
+ask: how do i find skinning mistakes | test the model before animating
+keys: provare, controllare, testare, test, check, verify
+see: guide.rig_character, tip.rig_stretch
+text:
+Prima di animare, nella pagina F3 piega ogni giunto forte, anche 45 o 90
+gradi, e guarda il modello da due lati (alt e frecce per orbitare):
+- gomito e ginocchio: la pelle si stira? vedi tip.rig_stretch.
+- una parte resta ferma mentre l'osso si muove: le sue facce hanno un
+altro osso; torna a F2, v, e assegnale.
+- la mano o la testa si deformano: devono stare tutte su un osso.
+Poi torna alla posa di riposo con r (rest bone) e salva con Ctrl+S.
+text_en:
+Before animating, on the F3 page bend every joint hard, even 45 or 90
+degrees, and look at the model from two sides (alt and arrows orbit):
+- elbow and knee: does the skin stretch? see tip.rig_stretch.
+- a part stays still while its bone moves: its faces have another bone;
+go back to F2, v, and assign them.
+- the hand or the head deforms: they must be all on one bone.
+Then return to the rest pose with r (rest bone) and save with Ctrl+S.

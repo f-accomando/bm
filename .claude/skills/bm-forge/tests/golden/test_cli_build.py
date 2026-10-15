@@ -239,6 +239,22 @@ class CliBuild(unittest.TestCase):
                 fn(out, big, kernel_limits=True)
                 self.assertEqual(len(container.read_file(out, kernel_limits=True).mesh(kernel_limits=True).models), 1)
 
+    def test_export_kernel_limits_rig(self):
+        """a rig over the tools' 4096 vertices is written with kernel_limits=True (the ANIM section took the default)."""
+        from bm_core import shapes, errors, anim as animmod
+        verts, faces = [], []
+        for i in range(625):
+            vs, fs = shapes.box([float(i), 0.0, 0.0], [float(i) + 0.5, 0.5, 0.5], 0xFFFFFF, len(verts))
+            verts += vs
+            faces += fs
+        big = bm_core.Mesh([bm_core.Model("big", verts, faces)])
+        rig = animmod.Rig("big", [animmod.Bone("root", -1, [0, 0, 0], [0, 1, 0])], [0] * len(verts), [])
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out = os.path.join(tmpdir, "r.bm")
+            bm_core.export.export_models(out, big, anim=animmod.Anim([rig]), kernel_limits=True)
+            cart = container.read_file(out, kernel_limits=True)
+            self.assertEqual(len(cart.anim(kernel_limits=True).rigs), 1)
+
     def test_edition_kept(self):
         """mesh --in .bm -o .bmm exits code 2 (editions not converted)."""
         with tempfile.TemporaryDirectory() as tmpdir:

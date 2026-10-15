@@ -77,9 +77,106 @@ local function copy_pose(p)
   return o
 end
 
+-- The skin check ("test pose", key t on the rig page). Each bone in turn is bent 45 degrees round x and
+-- round z; a face is marked when one of its edges stretches, or when a corner shared with a face that
+-- follows another bone comes apart (the skin tears). The bone matrices are the kernel's animate() ones:
+-- M[i] = M[parent] * T(head + t) * R(q) * T(-head) (src/bm/runtime.c).
+local STRETCH, TEAR = 1.6, 0.02          -- an edge over 1.6x its length; a gap over 2% of the model's height
+
+local function bone_mats(r, pose)
+  local mats = {}
+  for i, b in ipairs(r.bones) do
+    local p = pose[i]
+    local q = Q.norm(p.q)
+    local x, y, z, w = q[1], q[2], q[3], q[4]
+    local rot = { 1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w),
+                  2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w),
+                  2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y) }
+    local h = b.head
+    local loc = {}
+    for row = 0, 2 do
+      local a, c, d = rot[row * 3 + 1], rot[row * 3 + 2], rot[row * 3 + 3]
+      loc[row * 4 + 1], loc[row * 4 + 2], loc[row * 4 + 3] = a, c, d
+      loc[row * 4 + 4] = h[row + 1] + p.t[row + 1] - (a * h[1] + c * h[2] + d * h[3])
+    end
+    local par = b.parent and b.parent > 0 and b.parent < i and mats[b.parent]
+    if not par then mats[i] = loc
+    else
+      local m = {}
+      for row = 0, 2 do
+        local a0, a1, a2, a3 = par[row * 4 + 1], par[row * 4 + 2], par[row * 4 + 3], par[row * 4 + 4]
+        for col = 0, 2 do m[row * 4 + col + 1] = a0 * loc[col + 1] + a1 * loc[col + 5] + a2 * loc[col + 9] end
+        m[row * 4 + 4] = a0 * loc[4] + a1 * loc[8] + a2 * loc[12] + a3
+      end
+      mats[i] = m
+    end
+  end
+  return mats
+end
+
+local function xform(m, p)
+  return { m[1] * p[1] + m[2] * p[2] + m[3] * p[3] + m[4],
+           m[5] * p[1] + m[6] * p[2] + m[7] * p[3] + m[8],
+           m[9] * p[1] + m[10] * p[2] + m[11] * p[3] + m[12] }
+end
+
+-- -> { faces = set of marked faces, n = how many, worst = name of the bone whose bending marks most }
+local function stress_test(m)
+  local r = m.rig
+  local hot, n, count = {}, 0, {}
+  local lo, hi = math.huge, -math.huge
+  for _, f in ipairs(m.faces) do for _, p in ipairs(f.p) do lo, hi = min(lo, p[2]), max(hi, p[2]) end end
+  local tear = TEAR * max(hi - lo, 1e-3)
+  local groups, by_key = {}, {}              -- the corners in one place, with the faces and bones they belong to
+  for _, f in ipairs(m.faces) do
+    if f.b then
+      for k, p in ipairs(f.p) do
+        local key = T.pkey(p)
+        local g = by_key[key]
+        if not g then g = { p = p, items = {} }; by_key[key] = g; groups[#groups + 1] = g end
+        g.items[#g.items + 1] = { f, f.b[k] or f.b[1] or 1 }
+      end
+    end
+  end
+  local mixed = {}
+  for _, g in ipairs(groups) do
+    for i = 2, #g.items do if g.items[i][2] ~= g.items[1][2] then mixed[#mixed + 1] = g; break end end
+  end
+  local function mark(f, bi)
+    if not hot[f] then hot[f] = true; n = n + 1; count[bi] = (count[bi] or 0) + 1 end
+  end
+  for bi = 1, #r.bones do
+    for ax = 1, 3, 2 do
+      local pose = rest_pose(#r.bones)
+      pose[bi].q = Q.axis(V.unit(ax), pi / 4)
+      local mats = bone_mats(r, pose)
+      for _, f in ipairs(m.faces) do
+        if f.b then
+          local nc, P = #f.p, {}
+          for k = 1, nc do P[k] = xform(mats[f.b[k] or f.b[1] or 1] or mats[1], f.p[k]) end
+          for k = 1, nc do
+            local j = k % nc + 1
+            local d0 = sqrt(V.dist2(f.p[k], f.p[j]))
+            if d0 > 1e-3 and sqrt(V.dist2(P[k], P[j])) > STRETCH * d0 then mark(f, bi); break end
+          end
+        end
+      end
+      for _, g in ipairs(mixed) do
+        local P, apart = {}, false
+        for i, it in ipairs(g.items) do P[i] = xform(mats[it[2]] or mats[1], g.p) end
+        for i = 1, #P do for j = i + 1, #P do if V.dist2(P[i], P[j]) > tear * tear then apart = true end end end
+        if apart then for _, it in ipairs(g.items) do mark(it[1], bi) end end
+      end
+    end
+  end
+  local worst, wn = nil, 0
+  for bi, c in pairs(count) do if c > wn then worst, wn = bi, c end end
+  return { faces = hot, n = n, worst = worst and r.bones[worst].name }
+end
+
 -- the faces coloured by their bones (shared corners), as a mesh; the
--- chosen faces brighter
-local function skin_mesh(m, chosen)
+-- chosen faces brighter, the faces the test pose marked red
+local function skin_mesh(m, chosen, hot)
   if not m.rig or #m.faces == 0 then return nil end
   local v, f, index = {}, {}, {}
   local function vid(p)
@@ -96,6 +193,7 @@ local function skin_mesh(m, chosen)
     local ids = {}
     for k, p in ipairs(fc.p) do ids[k] = vid(p) end
     local col = T.bone_colour(fc.b and fc.b[1] or 1)
+    if hot and hot[fc] then col = 0xFF2020 end
     if chosen and chosen[fc] then col = 0xFFFFFF end
     for _, t in ipairs(#fc.p == 4 and T.QUAD or T.TRI) do
       local a, b, c = ids[t[1]], ids[t[2]], ids[t[3]]
@@ -326,7 +424,7 @@ local function chosen_list()
 end
 
 local function remesh()
-  rg.mesh = rg.skin and M() and skin_mesh(M(), rg.sel) or nil
+  rg.mesh = rg.skin and M() and skin_mesh(M(), rg.sel, rg.stress and rg.stress.faces) or nil
 end
 
 rig_page = {
@@ -342,6 +440,7 @@ rig_page = {
     { "enter / p", "rename / parent" },
     { "k / shift k", "auto skin: rigid parts / smooth" },
     { "v", "skin: the faces and their bones" },
+    { "t", "test pose: bend each bone, mark red the faces that tear" },
     { "q / e", "turn the view" },
     { "+ / -", "zoom" },
     { "z", "frame the model" },
@@ -363,7 +462,7 @@ rig_page = {
 }
 
 function rig_page.reset()
-  rg.bone, rg.hot, rg.sel, rg.for_model = 1, nil, {}, M()
+  rg.bone, rg.hot, rg.sel, rg.for_model, rg.stress = 1, nil, {}, M(), nil
   T.aim(rg.cam, M() and M().faces or {}, 2.4)
   remesh()
 end
@@ -573,6 +672,7 @@ local function skin_key(k)
     T.begin_edit()
     for _, f in ipairs(list) do f.b = {}; for j = 1, #f.p do f.b[j] = rg.bone end end
     T.commit()
+    rg.stress = nil
     rg.sel = {}
     remesh()
     say(#list .. " faces follow " .. r.bones[rg.bone].name, C.ACC, 90)
@@ -597,8 +697,21 @@ function rig_page.key(k)
     say(rg.skin and "skin: arrows choose a face, space marks it, a gives it to the bone" or "bones", C.ACC, 120)
     return
   end
+  if k == "t" then
+    if rg.stress then rg.stress = nil; remesh(); say("test pose off", C.ACC); return end
+    if #m.faces == 0 then return end
+    rg.stress = stress_test(m)
+    rg.skin, rg.sel = true, {}
+    remesh()
+    if rg.stress.n == 0 then say("test pose: the skin holds (bent 45 degrees, each bone)", C.ACC, 150)
+    else
+      say(rg.stress.n .. " faces tear or stretch (red), most when " .. rg.stress.worst .. " bends: v, choose them, a", C.ERR, 240)
+    end
+    return
+  end
   if k == "k" or k == "K" then
     T.begin_edit(); auto_skin(m, k == "K", rg.skin and chosen_list()); T.commit()
+    rg.stress = nil
     remesh()
     say(k == "K" and "every corner follows its nearest bone (smooth)" or "every face follows its nearest bone", C.ACC)
     return

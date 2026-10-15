@@ -7,6 +7,20 @@ Split from [tools](tools.md); open work and rules stay there.
   `assist.weights` built by `make ai-model`; format in `src/ai/kb/README.md`).
 - Recipes: sprites (`sprite.c`), low-poly models with skeletons (`mesh.c`), music
   (`music.c`). Panel shared by the tools (`require "assist"`).
+- Low poly help: `src/ai/kb/lowpoly.txt` (guide `guide.lowpoly_1200`, howto `howto.reduce_triangles`, tips
+  `tip.tri_limits`, `tip.reduce_or_build`, `tip.reduce_lost_parts`): Studio's models page (F2), key `-`. Numbers from
+  the mannequin test, `.claude/skills/bm-forge/references/DETAIL.md` (1200 triangles: 0.46 cm on a 1.8 m figure;
+  reduce and build low tie at 1200, reduction wins below about 900).
+- Rig help for beginners: `src/ai/kb/rig.txt` (guide `guide.rig_character`, tips `tip.rig_stretch`,
+  `tip.rig_one_bone`, `tip.rig_names`, howtos `howto.rig_tail`, `howto.rig_test_pose`): the keys of bm Animator's
+  F2 rig page and F3 animate page. Avoid the word "scheletro" in their questions (`mesh.skeleton` is the enemy).
+  Animator `t` (rig page): bends each bone 45 degrees round x and z and marks red the faces that stretch or
+  whose shared corners come apart (`bone_mats`, `stress_test` in `carts/animator/main.lua`, repeating
+  `animate()`'s bone matrices of `src/bm/runtime.c`: change them together; checked equal to bm_core's
+  `skin.skin()`; `tests/studio/tools3d_host.lua` presses `t`). Rango test: charkit skin 12 of 984 faces marked,
+  smooth `K` 82, rigid `k` 455. Next: select faces by ring/area, mirror the skin, joint rings in bm Studio,
+  assistant actions on Animator, organic `biped`/`chameleon` recipes (plan and Work Orders:
+  [`design/organic-recipes.md`](../design/organic-recipes.md)).
 - Mesh from images: `cutout3d` / `picture3d` in the runtime (`src/bm/cutout.c`), PC tools
   `tools/img2mesh.py`, `cutout2mesh.py`, `local2mesh.py`, `meshy*.py` (`MESHY_API_KEY`
   only in the environment).

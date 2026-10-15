@@ -972,6 +972,10 @@ key("^z", "v")
 check(sees("tail of bone2"), "v: the bones again")
 key("K")
 check(sees("smooth"), "K: auto skin, smooth")
+key("t")
+check(sees("faces tear or stretch") or sees("the skin holds"), "t: the test pose says what it found")
+key("t")
+check(sees("test pose off"), "t again: the test pose off")
 key("^z")
 
 -- an animation: a turn at 0.25 s is a keyframe
