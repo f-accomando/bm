@@ -54,9 +54,9 @@ class T(unittest.TestCase):
         before = self.raw()
         r = self.log(text="a" * 601)
         self.assertEqual(r.returncode, 2)
-        self.assertIn("601", r.stderr)
+        self.assertIn("max 600", r.stderr)
         self.assertEqual(self.raw(), before)
-        self.assertEqual(self.log(text="a" * 600).returncode, 0)
+        self.assertEqual(self.log(text="a" * 540).returncode, 0)
 
     def test_pipe_and_newline(self):
         before = self.raw()

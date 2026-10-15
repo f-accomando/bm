@@ -88,9 +88,6 @@ def cmd_log(a):
     if "|" in text or "\n" in text or "\r" in text:
         sys.stderr.write("error: text must not contain '|' or newlines\n")
         return 2
-    if len(text) > MAX_MSG:
-        sys.stderr.write("error: message is %d characters (max %d)\n" % (len(text), MAX_MSG))
-        return 2
     if a.push and not pull_first(os.path.dirname(os.path.abspath(a.file))):
         return 1
     try:
@@ -104,6 +101,10 @@ def cmd_log(a):
     nl = "\r\n" if "\r\n" in raw else "\n"
     where = "`%s`" % a.branch + ("@%s" % a.commit if a.commit else "")
     row = "| %s | %s | %s | `%s` | %s |" % (now_stamp(), a.who, where, a.action, text)
+    if len(row) > MAX_MSG:
+        sys.stderr.write("error: the Log row is %d characters (max %d, as checked by sync_check.py): shorten the text by %d\n"
+                         % (len(row), MAX_MSG, len(row) - MAX_MSG))
+        return 2
     if raw and not raw.endswith("\n"):
         raw += nl
     try:
