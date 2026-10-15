@@ -18,6 +18,8 @@ Standard library only (Linux / macOS / WSL).
   bm_net.py IP --kernel build/rgb30/kernel8.img   the same on the RGB30 (kernel8.img)
   bm_net.py IP --config                 the console's bm/config.txt (secrets hidden)
   bm_net.py IP --config report_upload=0 game_intro=   a key set, one removed
+  bm_net.py IP --keys Xa                the keys X then a pressed one by one (0.2 s apart), the
+                                        console's answer shown for 3 s (what the bridge's `keys NAME` sends)
   bm_net.py IP --line "gpu; b3d; send"  a monitor line run (from the menu or the
                                         monitor), its output shown until it is done
 
@@ -267,9 +269,13 @@ def logged_in(data):
     return any(m in data for m in (b"> ", b"password: ", b"bye")) or FOCUS.search(data) is not None
 
 
-def run_line(sock, line, answer):
-    """--line: ':' + the line sent; what the console prints shown until the
-    line is done (or the console goes away: reboot)"""
+KEYS_PAUSE = 0.2        # between two keys of --keys
+KEYS_READ = 3.0         # how long the answer to --keys is shown
+
+
+def keys_blocked(answer):
+    """--line and --keys need the menu or the monitor to have the keys: 2 (and
+    why) when the console says otherwise, else None"""
     m = FOCUS.search(answer)
     where = m.group(1).decode(errors="replace") if m else ""
     if where.startswith("the buttons"):
@@ -277,6 +283,40 @@ def run_line(sock, line, answer):
         return 2
     if where.startswith("the application") or where.startswith("a page"):
         print(f"\n[bm_net] the keys go to {where}: back to the menu first (Ctrl-Esc on the console)")
+        return 2
+    return None
+
+
+def run_keys(sock, seq, answer):
+    """--keys: the keys of SEQ one at a time, then what the console prints for a few seconds"""
+    if keys_blocked(answer):
+        return 2
+    for ch in seq:
+        sock.sendall(ch.encode())
+        time.sleep(KEYS_PAUSE)
+    end = time.time() + KEYS_READ
+    while time.time() < end:
+        sock.settimeout(max(end - time.time(), 0.01))
+        try:
+            data = sock.recv(4096)
+        except socket.timeout:
+            break
+        except OSError:
+            data = b""
+        if not data:
+            print("\n[bm_net] the console closed the connection")
+            break
+        sys.stdout.write(data.decode(errors="replace"))
+        sys.stdout.flush()
+    print()
+    return 0
+
+
+def run_line(sock, line, answer):
+    """--line: ':' + the line sent; what the console prints shown until the
+    line is done (or the console goes away: reboot)"""
+    m = FOCUS.search(answer)
+    if keys_blocked(answer):
         return 2
     if not m:
         print("\n[bm_net] this kernel does not say where the keys go: the line works from its "
@@ -312,6 +352,7 @@ def main():
     ap.add_argument("--line", metavar="LINE",
                     help="run a monitor line (commands separated by ';': gpu, b3d tests=... "
                          "profiles=..., set key=value, send...) and show its output")
+    ap.add_argument("--keys", metavar="SEQ", help="press the keys of SEQ (letters and digits, at most 8) one by one")
     ap.add_argument("--config", nargs="*", metavar="KEY=VALUE",
                     help="the console's bm/config.txt: shown (secrets hidden), KEY=VALUE sets a key, "
                          "KEY= removes it")
@@ -338,6 +379,14 @@ def main():
     sys.stdout.flush()
     if b"ok - " not in answer:
         return 1
+    if args.keys is not None:
+        if not re.fullmatch(r"[A-Za-z0-9]{1,8}", args.keys):
+            print("--keys: letters and digits only, at most 8")
+            return 1
+        try:
+            return run_keys(sock, args.keys, answer)
+        finally:
+            sock.close()
     if args.line is not None:
         try:
             return run_line(sock, args.line, answer)

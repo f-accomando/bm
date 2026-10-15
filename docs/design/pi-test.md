@@ -12,6 +12,7 @@
 | `line TEXT` | a monitor line (`gpu`, `b3d`, `send`, `play`...) | at most 200 characters from `A-Z a-z 0-9 space _ - . =` |
 | `send FILE` / `play FILE` | the cartridge to the SD card / played at once | FILE is a file inside the repo or in `~/bmk*` |
 | `kernel FILE` | a kernel written as `kernel.img`, then the Pi reboots (waited for) | same |
+| `keys NAME` | the keys of a fixed table pressed on the Pi, one by one (`bm_net.py --keys`): `monitor` = `q`, `crash-dabt` = `Xa`, `crash-undef` = `Xu`, `crash-prefetch` = `Xb` | the name must be in `KEYS` of `pi_bridge.py`; no free text, no freeze; refused when a game or page has the keys. `crash-*` makes the Pi fall: a Pi Zero W does not restart by itself, unplug the power |
 | anything else (`--config`, secrets, WiFi) | **refused** | |
 
 Stop it with Ctrl-C (or `pkill -INT -f pi_bridge.py`): the socket is removed and nothing can be sent any more. After a session change the Pi's password (it is shown in clear in a terminal or a chat easily).
@@ -45,5 +46,5 @@ Reports (`gpu`, `b3d`) already leave the Pi alone: it uploads them to the branch
 ## Rules of the tools
 
 - The password is never written to a file, a log, a command line the assistant types or the chat; `pi_bridge.py` takes it with `getpass` or from `BM_PASSWORD` of its own process.
-- The bridge only runs the four requests of the table and only on files of the repo or `~/bmk*`.
+- The bridge only runs the requests of the table and only on files of the repo or `~/bmk*`.
 - A failing client counts as a failing step (a test never answers PASS when it could not talk to the Pi).
