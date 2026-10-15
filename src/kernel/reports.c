@@ -181,7 +181,7 @@ static void mask(char *text, size_t len, const char *secret)
 
 /* The reports may go to a public repository: the secrets the console knows
  * never leave it (the network console's password is in the log). */
-static void mask_secrets(char *text, size_t len)
+void reports_mask_secrets(char *text, size_t len)
 {
     static const char *const keys[] = { "github_token", "wifi_psk", "net_password", "meshy_key" };
     for (size_t i = 0; i < sizeof keys / sizeof keys[0]; i++)
@@ -218,7 +218,7 @@ static int save_report(const char *kind, const char *fixed, const char *text, si
     memcpy(all + hl, text, len);
     if (!len || text[len - 1] != '\n')
         all[hl + len++] = '\n';
-    mask_secrets(all + hl, len);
+    reports_mask_secrets(all + hl, len);
     char name[16], path[40];
     ksnprintf(name, sizeof name, "RPT%05d.TXT", scan(NULL) + 1);
     ksnprintf(path, sizeof path, DIR "/%s", name);

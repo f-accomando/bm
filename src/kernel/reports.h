@@ -47,4 +47,7 @@ int reports_auto_due(void);
  * network"), for the menu. */
 const char *reports_last(void);
 
+/* Mask known secrets in text (e.g. before saving to SD logs). */
+void reports_mask_secrets(char *text, size_t len);
+
 #endif
