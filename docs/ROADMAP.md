@@ -1,6 +1,6 @@
 # Roadmap bm
 
-Il piano di sviluppo di **bm** (BareMetal), una *fantasy console* bare metal per Raspberry Pi Zero W e PowKiddy RGB30. Qui stanno **obiettivi, requisiti e priorità**; il come sta nei file di area di [`progress/`](progress.md), la storia nel `git log`. Milestone chiuse e testo storico: commit `0e969b5`.
+Il piano di sviluppo di **bm** (BareMetal), una *fantasy console* bare metal per Raspberry Pi Zero W e PowKiddy RGB30. Qui stanno **obiettivi, requisiti e priorità**; il come sta nei file di area di [`progress/`](progress.md), la storia nel `git log`. Milestone chiuse e testo storico: commit `0e969b5`. Il traguardo corrente è la [Beta](#beta-obiettivo-del-prossimo-traguardo).
 
 ## Come leggerla
 
@@ -20,6 +20,28 @@ Il piano di sviluppo di **bm** (BareMetal), una *fantasy console* bare metal per
 
 ---
 
+## Beta (obiettivo del prossimo traguardo)
+
+**Che cos'è.** Una beta chiusa: uno sviluppatore indie, con la sola suite di bm e la documentazione, scrive un gioco 2D o 3D con menu iniziale, più stage e un finale, lo compila in `.bm` e lo gira su Pi Zero W e RGB30 con prestazioni accettabili. Poi lo sviluppatore usa bm, ne trova i limiti e il lavoro successivo parte dai suoi riscontri. I criteri qui sotto sono quelli per **aprirla**; ogni riga rimanda alle righe dei livelli (colonna *Dopo*) dove sta il lavoro.
+
+**Prova di accettazione.** Una persona che non conosce il codice di bm parte dalla guida, crea con i soli strumenti della suite un gioco con titolo, 3 stage e finale (una versione 2D e una 3D), lo prova su entrambe le console e lo esporta. Se serve il PC solo per copiare file sulla SD, va bene; se serve leggere il codice del kernel, la prova è fallita.
+
+| ID | Pri | Criterio per aprire la beta | Requisito verificabile | Dopo |
+|---|---|---|---|---|
+| BETA-1 | P0 | Base stabile | CI verde su `bm-core`; nessun freeze nei log di una sessione lunga su Pi e RGB30; il crash scrive un `bootprev.txt` giusto (prove su hardware fatte dall'utente) | SYS-1, SYS-2, SYS-5 |
+| BETA-2 | P0 | Un gioco completo si costruisce con la suite | la prova di accettazione, versione 2D | APP-4, APP-1, APP-6 |
+| BETA-3 | P0 | L'API è integrata nell'editor | aiuto sulla funzione e lint in bm Code; completamento con una sola fonte API | APP-5 |
+| BETA-4 | P1 | Prestazioni accettabili in 2D e 3D | budget misurato e pubblicato per Pi e RGB30; il gioco della prova a 60 fps (o con il frame rate dichiarato nel budget) | API-1, M36, M35, M37, M41 |
+| BETA-5 | P1 | La versione 3D della prova | un gioco 3D con più stage gira con la GPU (V3D sul Pi, Mali sull'RGB30) entro il budget | BETA-4, APP-2 |
+| BETA-6 | P1 | Coerenza tra i due kernel | `python scripts/consistency.py gate` senza divergenze `open` o `untested` che toccano menu, input, Games, SDK e salvataggi (D01-D13, D28, D30-D36 e simili); le altre accettate per iscritto | SYS-5, APP-1 |
+| BETA-7 | P1 | Guida e feedback | `GAME-GUIDE.md` e un avvio rapido di una pagina portano al primo gioco; un tester manda un riscontro senza mezzi esterni | SYS-7, APP-3 |
+
+**Lua e LuaJIT (decisione di base, da confermare).** Per la beta si resta sull'interprete Lua 5.4: LuaJIT non serve e non conviene. Una operazione costa circa 100 ns (circa 140.000 per frame); il disegno e il 3D stanno in C e sulla GPU, e `docs/PERFORMANCE.md` (scelte scartate) ha già scartato il JIT perché richiede generare codice a runtime su bare metal; inoltre l'hook di `profile` e dei breakpoint non scatta nel codice compilato (`docs/B16.md`, sezione sull'hook di debug). Si riconsidera solo se i riscontri del tester mostrano giochi limitati dal Lua e non dal disegno: prima si misura con `profile(true)` e si sposta il lavoro pesante in C o sulle QPU.
+
+**Fuori dalla beta** (restano nei livelli, senza bloccarla): multiplayer, Tiled, sinc/QPU, audio a 24 bit, video e giochi di esempio come Overbit e Yharnam.
+
+---
+
 ## 1. Sistema (kernel, piattaforme, strumenti di sviluppo)
 
 | ID | Pri | Stato | Obiettivo | Requisito | Dettagli | Dopo |
@@ -35,6 +57,7 @@ Il piano di sviluppo di **bm** (BareMetal), una *fantasy console* bare metal per
 | R3, R4 | P2 | da verificare | Log su SD e screenshot: chiudere dopo le prove su console | log SD (D19) e `shot` provati su console; voci tolte da `Open work` | [system](progress/system.md) | SYS-2, SYS-3 |
 | R1, R2, R6, R8, R19, R20 | P3 | idea | Console standalone: WiFi da pad, tastiera a schermo, web UI, rumble DS4, pad BT, HDMI-CEC | da specificare | [system](progress/system.md) `Open work` | - |
 | R22 | P3 | idea | Guscio portatile Pi Zero (GPIO, display DPI/SPI) | da specificare | [platforms](progress/platforms.md) | - |
+| SYS-7 | P1 | da fare | Canale di feedback per i beta tester, non pubblico | un tester manda log e screenshot di un problema senza finire nel repo pubblico `reports`; la password è mascherata | [system](progress/system.md) `Open work`, [system-net](progress/system-net.md) | SYS-2 |
 
 ## 2. Funzioni e API (GPU, runtime, formati, audio)
 
@@ -51,6 +74,7 @@ Il piano di sviluppo di **bm** (BareMetal), una *fantasy console* bare metal per
 | R40-R42 | P3 | idea | Profiler, scaling sinc/QPU, impostor degli eroi | misure sul Pi che giustifichino ciascuno | [v3d](progress/v3d.md) | M36 |
 | R7, R27, bmnet | P3 | idea | Accenti UTF-8 in `print()`, batteria e autosave, multiplayer in rete | da specificare | [runtime](progress/runtime.md) `Open work`, [system-net](progress/system-net.md) | - |
 | R9, R17, R21, R25, R31-R35 | P3 | idea | WAV da SD, import MIDI, audio GPIO, audio PC, campioni e riff | da specificare | [audio-samples](progress/audio-samples.md), [audio-output](progress/audio-output.md) | M46 |
+| API-1 | P1 | da fare | Budget di prestazioni 2D e 3D pubblicato e misurato su Pi e RGB30 | una tabella (sprite, tile, mesh, particelle a 60 fps) con misure vere su entrambe le piattaforme; l'RGB30 oggi non ha numeri; `profile(true)` spiegato nella guida | [PERFORMANCE](PERFORMANCE.md), [STRESS](STRESS.md), [lua](progress/lua.md) | M36, M41 |
 
 ## 3. Editor e app (la suite bm)
 
@@ -63,6 +87,9 @@ Il piano di sviluppo di **bm** (BareMetal), una *fantasy console* bare metal per
 | APP-3 | P3 | da fare | Manuali PDF e struttura del progetto | manuali EN/IT allineati; layout di `docs/PROJECT-LAYOUT.md` rispettato | [tools](progress/tools.md) `PDF manuals`, `Project layout` | - |
 | R11, R37, R38, R39 | P3 | idea | Tiled, palette delle mappe, assistente 16×16, SDK 720×720 | da specificare | [suite-sdk](design/suite-sdk.md), [sdk-720](design/sdk-720.md) | - |
 | R15, R16, R26 | P3 | idea | Live reload dal PC, template bm Code, mouse in nano8 | da specificare | [tools](progress/tools.md), [suite-code](design/suite-code.md) | - |
+| APP-4 | P0 | da fare | Template di gioco completo: menu iniziale, più stage, finale, salvataggio | dal bm SDK un nuovo progetto "Stages" compila in `.bm` e gira con titolo, 3 stage, schermata finale e record; usa la macchina a stati di `games-architecture.md` | [games-architecture](design/games-architecture.md), [tools](progress/tools.md) | APP-1 |
+| APP-5 | P0 | da fare | API integrata nell'editor: aiuto sulla funzione sotto il cursore e lint | in bm Code un tasto mostra firma e descrizione della funzione; un controllo segnala nomi di API inesistenti; la lista API ha una sola fonte generata da `docs/api/` e usata anche da `predict` | [tools](progress/tools.md), [PREDICT](PREDICT.md), [API](API.md) | - |
+| APP-6 | P1 | da fare | Sviluppare un gioco senza PC: risorse e progetti gestibili sul dispositivo | su RGB30 e Pi si crea, si salva e si compila un progetto con sprite, mappa, suoni e codice senza il PC (oggi i file di risorse sono solo da PC e l'RGB30 non ha la scheda Lib) | [tools](progress/tools.md) `bm SDK (RGB30)`, [CONSISTENCY](spec/CONSISTENCY.md) | APP-1 |
 
 ## 4. Giochi (facoltativo)
 
