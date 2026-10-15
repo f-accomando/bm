@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WORKING
-task: D-RUN2
+state: WAITING
+task: D-RUN2 consegnato; crowd impostor: serve decisione SPV
 waiting_on: 
 progress: 0
-eta: 2026-10-15T13:00+02:00
+eta: 2026-10-15T14:00+02:00
 wakeup: no
 ack: 2026-10-15T14:30+02:00
-updated: 2026-10-15T12:15+02:00
+updated: 2026-10-15T12:18+02:00
 ---
 # CI — operatore CI
 
@@ -44,6 +44,7 @@ DELIVERED D-RGB @ claude/ci-repair@baffa299 · verifica: tests/rgb30/qemu_test.p
 DELIVERED D-RGB2 @ claude/ci-repair@8da839c7 · verifica: make -f rgb30.mk PLAT=virt all + tests/rgb30/qemu_test.py -k el2 (WSL) → PASS, make TARGET=rgb30 → OK; prova su console vera (easy_install.sh) all'utente · 2026-10-15T14:05+02:00
 DELIVERED CI-AUDIT @ claude/ci-repair@08d2c670 · verifica: python3 scripts/ci_audit.py → exit 0; con ci.yml senza un timeout-minutes → exit 1; docs_audit.py score → 6255, 0 penalità · 2026-10-15T11:57+02:00
 DELIVERED D-HOST @ claude/ci-repair@792554f5 · verifica: make test-loading (WSL) → exit 0, 20/20 checks · 2026-10-15T12:10+02:00
+DELIVERED D-RUN2 @ claude/ci-repair@6b2d8727 · verifica: tests/qemu_test.py -k editor_mouse (WSL) → 1/1 passed; make test-impostor (WSL) → exit 0 · 2026-10-15T12:40+02:00
 
 ## Progressi
 
@@ -57,5 +58,6 @@ DELIVERED D-HOST @ claude/ci-repair@792554f5 · verifica: make test-loading (WSL
 - D-MON: la diagnosi del WO (timeout 10 s troppo corto) non basta: alzare a 40 s falliva ancora. "back to the monitor" è stampato solo da carts.c:2037 (uscita dal menu), mai dalla riga b3d; l'attesa a tests/qemu_test.py:5155 era obsoleta e l'ho tolta (le attese successive coprono lo stesso flusso). Da rivedere in CI.
 - Overbit Makefile:195/:645: fuori perimetro (decisione 2), da segnalare a SPV quando D-LOAD lo conferma.
 - CI host (run baffa299): `make build/host/test_loading` non linka, `undefined reference to synth_kit_find` (presets.c usa synth.c, che il Makefile:464 non include). Non è in nessun WO, rotto da prima; rimedio probabile: aggiungere src/audio/synth.c alle dipendenze e alla riga di link. Serve un tuo OK o un WO D-HOST.
+- D-RUN2 qemu 3/4: test_editor_mouse falliva nella parte SDK ("'code' not on screen", riga 0 vuota): leggeva un secondo screendump dopo il look; ora usa il testo dello stesso look ("OPEN IN" + "code"). Locale 1/1; da confermare in CI.- D-RUN2 host: make test-impostor, solo 'crowd' (eroi in posa): in CI gli checksum ARM 9926f79d e GPU f32adb17 differiscono da 12a000fd e d0191095, in locale (gcc 15.2, WSL) coincidono; le altre scene passano. Sospetto: posa con sin/cos/FMA diversi fra gcc 13 della CI e il mio. NON corretto: cambiare gli hash o il controllo e' una decisione (tests/bm/test_impostor.c:280,287). Proposta: per 'crowd' sostituire l'uguaglianza esatta con il confronto ARM/GPU gia' presente (<=410 px) o un WO D-IMP con gli hash della CI.
 
 ## Richieste
