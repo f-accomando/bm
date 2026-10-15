@@ -4,7 +4,8 @@ chiede a Claude di chiudere la risposta con un `/compact ...` pronto.
 
 Env: CTX_GUARD_WINDOW (token della finestra, default 1000000),
      CTX_GUARD_PCT (soglia %, default 20 = 200k su 1M), CTX_GUARD_STEP (riavviso ogni +N %, default 10 = +100k).
-Stato in .claude/state/ctx_guard_<session>.json (ignorato da git).
+Se esiste .claude/state/better-prompt.json (plugin better-prompt >= 0.4.0) usa i suoi token/finestra e aggiunge topic e divergenza;
+altrimenti calcola dal transcript. Stato in .claude/state/ctx_guard_<session>.json (ignorato da git).
 """
 import json, os, sys
 
@@ -40,13 +41,29 @@ def context_tokens(path):
     return last
 
 
+def plugin_state(cwd):
+    """Stato esportato da better-prompt >= 0.4.0, oppure None."""
+    try:
+        with open(os.path.join(cwd, ".claude", "state", "better-prompt.json"), encoding="utf-8") as f:
+            s = json.load(f)
+        if s["tokens"] > 0 and s["window"] > 0:
+            return s
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return None
+
+
 def main():
     try:
         d = json.load(sys.stdin)
     except ValueError:
         return
-    tok = context_tokens(d.get("transcript_path", ""))
-    pct = 100.0 * tok / WINDOW
+    bp = plugin_state(d.get("cwd") or ".")
+    if bp:  # token e finestra esatti dal plugin
+        tok, win = bp["tokens"], bp["window"]
+    else:
+        tok, win = context_tokens(d.get("transcript_path", "")), WINDOW
+    pct = 100.0 * tok / win
     sdir = os.path.join(d.get("cwd") or ".", ".claude", "state")
     sfile = os.path.join(sdir, "ctx_guard_%s.json" % d.get("session_id", "x"))
     try:
@@ -63,7 +80,16 @@ def main():
     _save(sdir, sfile, pct)
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "UserPromptSubmit",
-        "additionalContext": MSG.format(pct=pct, tok=tok // 1000, win=WINDOW // 1000, thr=PCT)}}))
+        "additionalContext": MSG.format(pct=pct, tok=tok // 1000, win=win // 1000, thr=PCT)
+        + _topics(bp)}}))
+
+
+def _topics(bp):
+    if not bp or not bp.get("topics"):
+        return ""
+    names = bp["topics"]
+    return (" Topic della chat: %s (divergenza %s%%). Nel campo 'tieni' metti solo l'ultimo topic (%s); "
+            "in 'scarta' i precedenti." % (", ".join(names), bp.get("div", 0), names[-1]))
 
 
 def _save(sdir, sfile, pct):
