@@ -470,6 +470,45 @@ B16_LUA_CHECKS = [
 ]
 
 
+def lua_code_only(text):
+    """`text` with the comments and the insides of the strings blanked, line
+    numbers kept (so a "--" or a name inside a string is not code)"""
+    out, i, n = [], 0, len(text)
+
+    def blank(chunk):
+        return "".join(c if c == "\n" else " " for c in chunk)
+    while i < n:
+        c = text[i]
+        m = None
+        if c == "-" and text.startswith("--", i):
+            m = re.match(r"--\[(=*)\[", text[i:])
+            if m:
+                end = text.find("]" + m.group(1) + "]", i + len(m.group(0)))
+                end = n if end < 0 else end + len(m.group(1)) + 2
+            else:
+                end = text.find("\n", i)
+                end = n if end < 0 else end
+            out.append(blank(text[i:end]))
+            i = end
+        elif c == "[" and (m := re.match(r"\[(=*)\[", text[i:])):
+            end = text.find("]" + m.group(1) + "]", i + len(m.group(0)))
+            end = n if end < 0 else end + len(m.group(1)) + 2
+            out.append(blank(text[i:end]))
+            i = end
+        elif c in "\"'":
+            j = i + 1
+            while j < n and text[j] != c and text[j] != "\n":
+                j += 2 if text[j] == "\\" else 1
+            end = min(j + 1, n)             # j is the closing quote, the line end or n
+            closed = end <= n and text[end - 1] == c and end - 1 > i
+            out.append(c + blank(text[i + 1:end - 1 if closed else end]) + (c if closed else ""))
+            i = end
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
 def b16_lint(data, label):
     """checks of a .b16 cartridge (M42): raises SystemExit for a sheet of
     more than 256 colours, prints a warning (first occurrence only) for
@@ -486,11 +525,9 @@ def b16_lint(data, label):
             colours.add(bytes(p) if p[3] >= 128 else b"\0\0\0\0")
             if len(colours) > 256:
                 raise SystemExit(f"{label}: a .b16 sheet has more than 256 colours (use --sheet8)")
-    lua = next((body for t, body in secs if t == SEC_LUA), None)
-    if lua is not None:
-        text = lua.decode("utf-8", errors="replace")
-        text = re.sub(r"--\[(=*)\[.*?\]\1\]", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
-        lines = [line.split("--", 1)[0] for line in text.split("\n")]
+    lua = b"\n".join(body for t, body in secs if t == SEC_LUA)
+    if lua:
+        lines = lua_code_only(lua.decode("utf-8", errors="replace")).split("\n")
         for pattern, msg in B16_LUA_CHECKS:
             rx = re.compile(pattern)
             for n, line in enumerate(lines, 1):
@@ -531,6 +568,7 @@ def export_from(src, a, out):
             for t, payload in secs:
                 if t == SEC_SHEET:
                     sw, sh = struct.unpack_from("<HH", payload, 0)
+                    from bmres import sheet8_encode      # lazy: bmres imports this module
                     enc = sheet8_encode(sw, sh, payload[4:])
                     new_secs.append((SEC_SHEET8, enc) if enc else (t, payload))
                 else:
