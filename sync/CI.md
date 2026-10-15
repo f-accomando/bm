@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WAITING
-task: fix test-studio (c38271f7) pushato: attendo run CI
+state: WORKING
+task: test-prompts (null) nel run 38750609431
 waiting_on: 
 progress: 0
-eta: 2026-10-15T14:45+02:00
+eta: 2026-10-15T15:15+02:00
 wakeup: no
-ack: 2026-10-15T16:14+02:00
-updated: 2026-10-15T16:21+02:00
+ack: 2026-10-15T17:14+02:00
+updated: 2026-10-15T17:16+02:00
 ---
 # CI — operatore CI
 
