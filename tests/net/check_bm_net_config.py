@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "tools"))
 import bm_net  # noqa: E402
 
 PASSWORD = "123456"
+FAKE_PNG = b"\x89PNG\r\n\x1a\n" + bytes((i * 7 + 3) & 0xFF for i in range(1992))   # 2000 bytes
 fails = 0
 
 
@@ -36,8 +37,10 @@ def check(ok, what):
 class Console:
     """The transfer port of a console: settings in a dict, as config.c keeps them"""
 
-    def __init__(self, knows_c=True, lose_answer=None, queues=False, busy=False):
+    def __init__(self, knows_c=True, lose_answer=None, queues=False, busy=False, knows_tg=True, no_game=False):
         self.knows_c = knows_c
+        self.knows_tg = knows_tg            # T (screenshot) and G (file of bm/shots); else BH
+        self.no_game = no_game              # T answered NG: no game drew a frame
         self.queues = queues                # S answered QD (written later, from the menu)
         self.busy = busy                    # S refused with BY after the header
         self.lose_answer = lose_answer      # a NetConsole: the kernel written, its answer lost
@@ -70,7 +73,8 @@ class Console:
 
     def one(self, c):
         tag, op = self.recv(c, 4), self.recv(c, 1)
-        if tag != b"BMXF" or op not in (b"S", b"P", b"K") + ((b"C",) if self.knows_c else ()):
+        if tag != b"BMXF" or op not in ((b"S", b"P", b"K") + ((b"C",) if self.knows_c else ())
+                                        + ((b"T", b"G") if self.knows_tg else ())):
             c.sendall(b"BH")
             return
         pw = self.recv(c, self.recv(c, 1)[0]).decode()
@@ -78,6 +82,19 @@ class Console:
         size, crc = struct.unpack("<II", self.recv(c, 8))
         if pw != PASSWORD:
             c.sendall(b"PW")
+            return
+        if op == b"T":
+            name = b"PONG0001.PNG"
+            c.sendall(b"NG" if self.no_game else b"OK" + struct.pack("<I", len(name)) + name)
+            return
+        if op == b"G":
+            p = path.lower()
+            if not p.startswith("bm/shots/") or ".." in p:
+                c.sendall(b"PA")
+            elif p != "bm/shots/pong0001.png":
+                c.sendall(b"NF")
+            else:
+                c.sendall(b"OK" + struct.pack("<II", len(FAKE_PNG), zlib.crc32(FAKE_PNG) & 0xFFFFFFFF) + FAKE_PNG)
             return
         if op == b"S" and self.busy:
             c.sendall(b"BY")            # a file sent before still waits to be written
@@ -224,6 +241,25 @@ def main():
     old = Console(knows_c=False)
     rc, out = run(old, "volume=3")
     check(rc == 1 and "newer kernel" in out, "a kernel without C: send it a newer one")
+
+    # --shot (T) and --get (G): a PNG of bm/shots
+    import tempfile
+    tmp = tempfile.mkdtemp()
+    png = os.path.join(tmp, "s.png")
+    rc, out = run(con, job=("--shot", png))
+    check(rc == 0 and open(png, "rb").read() == FAKE_PNG and "2000 bytes" in out, "--shot writes the screenshot")
+    os.remove(png)
+    rc, out = run(con, job=("--get", "BM/Shots/pong0001.png", png))
+    check(rc == 0 and open(png, "rb").read() == FAKE_PNG, "--get writes the file of bm/shots")
+    os.remove(png)
+    rc, out = run(con, job=("--get", "bm/config.txt", png))
+    check(rc == 1 and "path not allowed" in out and not os.path.exists(png), "--get outside bm/shots: PA")
+    rc, out = run(con, job=("--get", "bm/shots/NOPE.PNG", png))
+    check(rc == 1 and "no such file" in out and not os.path.exists(png), "--get of a missing file: NF")
+    rc, out = run(Console(no_game=True), job=("--shot", png))
+    check(rc == 1 and "no game drew a frame" in out and not os.path.exists(png), "--shot with no game: NG")
+    rc, out = run(Console(knows_tg=False), job=("--shot", png))
+    check(rc == 2 and "kernel too old" in out, "--shot on a kernel without T/G: too old")
 
     # --line: a monitor line from the menu, the output until it is done
     menu = NetConsole("the menu (w a s d, Enter, Esc, 1-5 the tabs; q the monitor, or a line for it: :gpu; b3d; send)")
