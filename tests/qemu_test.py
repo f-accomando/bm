@@ -5278,8 +5278,10 @@ def test_crash_report(b, opts):
                          env=env).stdout
     shutil.rmtree(tmp, ignore_errors=True)
     head, body = rep.split("\n\n", 1)
+    assert "\x00" not in rep, "null bytes in crash report"
     assert "kind: crash" in head.splitlines(), rep[:600]
     assert body.startswith('a crash (the red screen) while: monitor command "X"'), body[:300]
+    assert ", kernel " in body.splitlines()[0], body.splitlines()[0]
     assert "--- the last lines printed ---" in body and "*** EXCEPTION: Data abort ***" in body, body[-1500:]
     assert body.index("cartridge menu") < body.index("*** EXCEPTION"), "the lines before the crash"
     assert "DFAR=00008001" in body and "called from:" in body, body[-800:]

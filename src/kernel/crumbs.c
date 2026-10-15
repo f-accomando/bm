@@ -2,12 +2,13 @@
 #include "arch/cache.h"
 #include "drivers/uart.h"
 #include "drivers/watchdog.h"
+#include "kernel/version.h"
 #include "lib/printf.h"
 #include "wifi/wifi.h"
 
 #include <string.h>
 
-#define MAGIC 0xBA5EC0DEu
+#define MAGIC 0xBA5EC0DFu
 
 typedef struct {
     uint32_t magic;
@@ -16,6 +17,7 @@ typedef struct {
     int32_t irq;
     uint32_t crashed;                   /* the red screen, not a freeze */
     char what[44];
+    char kernel[32];
 } crumbs_t;
 
 /* not in .bss: start.S does not clear it (see linker.ld) */
@@ -38,14 +40,16 @@ static const char *last_kind;
 static size_t last_len;
 
 /* snapshot of the boot before, kept for sdlog_prev() if called after crumbs_boot() */
-static char prev_state[128];
+static char prev_state[160];
 static char prev_ring[RING + 1];
 static size_t prev_ring_len;
 static int booted;
 
 static void ring_putc(char c)
 {
-    ring.text[ring.at++ & (RING - 1)] = c;
+    ring.text[ring.at & (RING - 1)] = c;
+    ring.at++;
+    ring.text[ring.at & (RING - 1)] = 0;
     if (c == '\n')                      /* a whole line in the SDRAM */
         dcache_clean_range(&ring, sizeof ring);
 }
@@ -59,28 +63,43 @@ void crumbs_boot(void)
 {
     if (cr.magic == MAGIC) {
         cr.what[sizeof cr.what - 1] = 0;
+        cr.kernel[sizeof cr.kernel - 1] = 0;
+        for (char *p = cr.kernel; *p; p++)
+            if ((unsigned char)*p < 32 || *p == 127)
+                *p = '?';
         char irq[24] = "";
         if (cr.irq >= 0)
             ksnprintf(irq, sizeof irq, ", inside IRQ %ld", cr.irq);
         last_kind = cr.crashed ? "crash" : "freeze";
-        last_len = (size_t)ksnprintf(last, sizeof last, "%s while: %s, frame %lu%s, %lu s after boot\n"
+        last_len = (size_t)ksnprintf(last, sizeof last, "%s while: %s, frame %lu%s, %lu s after boot, kernel %s\n"
                                      "--- the last lines printed ---\n",
                                      cr.crashed ? "a crash (the red screen)" : "the Pi froze (the watchdog restarted it)",
-                                     cr.what, cr.frame, irq, cr.up_ms / 1000);
+                                     cr.what, cr.frame, irq, cr.up_ms / 1000, cr.kernel);
         if (last_len >= sizeof last)
             last_len = sizeof last - 1;
         if (ring.magic == RING_MAGIC) {
             uint32_t n = ring.at < RING ? ring.at : RING;
-            for (uint32_t i = 0; i < n && last_len + 1 < sizeof last; i++)
-                last[last_len++] = ring.text[(ring.at - n + i) & (RING - 1)];
+            uint32_t i = 0;
+            if (ring.at > RING) {
+                while (i < n && ring.text[(ring.at - n + i) & (RING - 1)] != '\n')
+                    i++;
+                if (i < n)
+                    i++;
+            }
+            for (; i < n && last_len + 1 < sizeof last; i++) {
+                char c = ring.text[(ring.at - n + i) & (RING - 1)];
+                if (!c)
+                    continue;
+                last[last_len++] = c;
+            }
             last[last_len] = 0;
         }
         if (cr.crashed)
             kprintf("\x1b[91mthe last run ended in a crash: saved as a report\x1b[0m\n");
         else
             kprintf("\x1b[91mthe Pi froze last time and the watchdog restarted it:\n"
-                    "  doing: %s, frame %lu%s, %lu s after boot\x1b[0m\n",
-                    cr.what, cr.frame, irq, cr.up_ms / 1000);
+                    "  doing: %s, frame %lu%s, %lu s after boot, kernel %s\x1b[0m\n",
+                    cr.what, cr.frame, irq, cr.up_ms / 1000, cr.kernel);
     }
     const char *st = crumbs_prev_state();
     size_t slen = strlen(st);
@@ -95,6 +114,7 @@ void crumbs_boot(void)
     cr.magic = MAGIC;
     cr.irq = -1;
     strcpy(cr.what, "boot");
+    ksnprintf(cr.kernel, sizeof cr.kernel, "%s", bm_version);
     flush();
     ring.magic = RING_MAGIC;
     ring.at = 0;
@@ -118,8 +138,17 @@ size_t crumbs_ring_copy(char *out, size_t size)
     size_t len = 0;
     if (ring.magic == RING_MAGIC) {
         uint32_t n = ring.at < RING ? ring.at : RING;
-        for (uint32_t i = 0; i < n && len + 1 < size; i++) {
+        uint32_t i = 0;
+        if (ring.at > RING) {
+            while (i < n && ring.text[(ring.at - n + i) & (RING - 1)] != '\n')
+                i++;
+            if (i < n)
+                i++;
+        }
+        for (; i < n && len + 1 < size; i++) {
             char c = ring.text[(ring.at - n + i) & (RING - 1)];
+            if (!c)
+                continue;
             out[len++] = (c == '\n' || c == '\t' || ((unsigned char)c >= 32 && c != 127)) ? c : '?';
         }
     }
@@ -131,16 +160,20 @@ const char *crumbs_prev_state(void)
 {
     if (booted)
         return prev_state;
-    static char s[120];
+    static char s[160];
     if (cr.magic != MAGIC)
         return "ended cleanly, or the power went (no record in RAM)";
     cr.what[sizeof cr.what - 1] = 0;
     for (char *p = cr.what; *p; p++)
         if ((unsigned char)*p < 32 || *p == 127)
             *p = '?';
-    ksnprintf(s, sizeof s, "%s while: %s, %lu s after boot",
+    cr.kernel[sizeof cr.kernel - 1] = 0;
+    for (char *p = cr.kernel; *p; p++)
+        if ((unsigned char)*p < 32 || *p == 127)
+            *p = '?';
+    ksnprintf(s, sizeof s, "%s while: %s, %lu s after boot, kernel %s",
               cr.crashed ? "ended in a crash" : "ended without a clean exit (a freeze, or a restart)",
-              cr.what, cr.up_ms / 1000);
+              cr.what, cr.up_ms / 1000, cr.kernel);
     return s;
 }
 
