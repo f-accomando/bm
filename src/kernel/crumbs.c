@@ -34,6 +34,12 @@ static char last[RING + 160];
 static const char *last_kind;
 static size_t last_len;
 
+/* snapshot of the boot before, kept for sdlog_prev() if called after crumbs_boot() */
+static char prev_state[128];
+static char prev_ring[RING + 1];
+static size_t prev_ring_len;
+static int booted;
+
 static void ring_putc(char c)
 {
     ring.text[ring.at++ & (RING - 1)] = c;
@@ -73,6 +79,15 @@ void crumbs_boot(void)
                     "  doing: %s, frame %lu%s, %lu s after boot\x1b[0m\n",
                     cr.what, cr.frame, irq, cr.up_ms / 1000);
     }
+    const char *st = crumbs_prev_state();
+    size_t slen = strlen(st);
+    if (slen >= sizeof prev_state)
+        slen = sizeof prev_state - 1;
+    memcpy(prev_state, st, slen);
+    prev_state[slen] = 0;
+    prev_ring_len = crumbs_ring_copy(prev_ring, sizeof prev_ring);
+    booted = 1;
+
     memset(&cr, 0, sizeof cr);
     cr.magic = MAGIC;
     cr.irq = -1;
@@ -85,11 +100,18 @@ void crumbs_boot(void)
 }
 
 /* The ring as it stands, oldest first, characters that are not text as
- * '?'. Before crumbs_boot() it is the run before's (RGB30's BOOTPREV.TXT). */
+ * '?'. Before crumbs_boot() it is the run before's (RGB30's BOOTPREV.TXT).
+ * After crumbs_boot() it returns the snapshot taken before the reset. */
 size_t crumbs_ring_copy(char *out, size_t size)
 {
     if (!size)
         return 0;
+    if (booted) {
+        size_t len = prev_ring_len < size - 1 ? prev_ring_len : size - 1;
+        memcpy(out, prev_ring, len);
+        out[len] = 0;
+        return len;
+    }
     size_t len = 0;
     if (ring.magic == RING_MAGIC) {
         uint32_t n = ring.at < RING ? ring.at : RING;
@@ -104,6 +126,8 @@ size_t crumbs_ring_copy(char *out, size_t size)
 
 const char *crumbs_prev_state(void)
 {
+    if (booted)
+        return prev_state;
     static char s[120];
     if (cr.magic != MAGIC)
         return "ended cleanly, or the power went (no record in RAM)";

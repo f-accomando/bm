@@ -5768,6 +5768,9 @@ def test_sd_logs(b, opts):
         bootprev = subprocess.run(["mtype", "-i", part, "::/BM/BOOTPREV.TXT"],
                                   capture_output=True, text=True, env=env, check=True).stdout
         assert "--- the run before" in bootprev, bootprev
+        assert "ended cleanly, or the power went" in bootprev, bootprev
+        assert "while: boot" not in bootprev, bootprev
+        assert "rebooting..." in bootprev, bootprev
         bootlog = subprocess.run(["mtype", "-i", part, "::/BM/BOOTLOG.TXT"],
                                  capture_output=True, text=True, env=env, check=True).stdout
         assert "cartridge menu" in bootlog, bootlog
