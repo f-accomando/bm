@@ -2,13 +2,13 @@
 schema: 1
 id: AGY
 state: WORKING
-task: FRZ-6
+task: FRZ-1
 waiting_on: 
 progress: 0
-eta: 2026-10-15T15:25+02:00
+eta: 2026-10-15T15:35+02:00
 wakeup: no
-ack: 2026-10-15T14:55+02:00
-updated: 2026-10-15T15:11+02:00
+ack: 2026-10-15T15:25+02:00
+updated: 2026-10-15T15:17+02:00
 ---
 # AGY — Antigravity
 
@@ -40,11 +40,13 @@ DELIVERED SDLOG-4 @ agy/sdlog@8b96e916 · verifica: python tests/qemu_test.py -k
 DELIVERED SDLOG-5 @ agy/sdlog@8123e2c2 · verifica: python scripts/consistency.py check && python scripts/docs_audit.py score → 0 drift, D19 resolved, penalties 0 (score 6206) · 2026-10-15T10:43+02:00
 DELIVERED D28 @ agy/d28-games-carts@32c4ec4b · verifica: make -f rgb30.mk PLAT=virt all && python tests/rgb30/qemu_test.py --build build/rgb30-virt -k games_in_carts && python tests/rgb30/qemu_test.py --build build/rgb30-virt -k menu_games_and_hidden_bm && python tests/rgb30/qemu_test.py --build build/rgb30-virt -k sdk_tool && python scripts/consistency.py check && python scripts/docs_audit.py score → 3/3 PASS, 0 drift, score 6636 penalties 0 (console fisica non provata: hardware di UTE) · 2026-10-15T12:35+02:00
 DELIVERED SDLOG-FIX @ agy/sdlog-prev-fix@46e1c4d8 · verifica: make -f rgb30.mk PLAT=virt all && python tests/rgb30/qemu_test.py -k bootlog_on_sd && python tests/qemu_test.py -k sd_logs → 2/2 PASS, exit 0 (RAM sopravvive in QEMU: bootprev contiene solo la run prima; prova su Pi fisico di UTE) · 2026-10-15T14:34+02:00
+DELIVERED FRZ-6 @ agy/freeze-reports@803b53f6 · verifica: make test-github && python tests/qemu_test.py -k sd_logs && python tests/qemu_test.py -k reports → PASS (segreti mascherati in LASTRUN, BOOTPREV, BOOTLOG), exit 0 · 2026-10-15T15:17+02:00
 
 ## Progressi
 - Completata l'intera sequenza SDLOG-1 → SDLOG-5 su agy/sdlog.
 - Completato D28 su agy/d28-games-carts: Games (RGB30) elenca sia /bm sia /carts; test_games_in_carts e regressioni passati.
 - Completato SDLOG-FIX su agy/sdlog-prev-fix: crumbs_boot() preserva stato e snapshot ring prima del memset/reset; bootprev.txt descrive la run precedente e non il boot corrente; test_sd_logs e regressioni PASS.
+- Completato FRZ-6 su agy/freeze-reports: reports_mask_secrets() pubblica e applicata a copia buffer prima di scrivere LASTRUN.TXT, BOOTPREV.TXT e BOOTLOG.TXT su SD.
 
 ## Problemi
 - Non verificabile senza hardware fisico Pi: tempo di scrittura di ~60 KiB su SD reale prima del reset col watchdog a 3 s; lastrun saltato su un crash reale con IRQ spenti; SD lenta o piena. Test QEMU verificati con successo; prova su Pi delegata a UTE.
