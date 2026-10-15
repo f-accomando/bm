@@ -308,6 +308,7 @@ void kernel_main(uint32_t atags)
     bm_set_notice(notice_now);              /* the games show a kernel arriving */
     bm_permissions(1);                      /* a game's network and reports: the player says */
     ledstate_set(LED_BOOT, 0);              /* started: the LED stays on if all is well */
+    kprintf("cartridge menu\n");
     sdlog_boot(1);
     carts_menu(&fb);
     monitor_run();
