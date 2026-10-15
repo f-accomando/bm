@@ -151,13 +151,18 @@ static void normal_of(const float (*p)[3], int n, float *o)
 
 void face(mc_t *c, const float (*p)[3], int n, int m)
 {
+    face_b(c, p, n, m, 0);
+}
+
+void face_b(mc_t *c, const float (*p)[3], int n, int m, const uint8_t *bones)
+{
     mesh_model_t *M = c->m;
     if (M->nfaces >= MESH_MAX_FACES || n < 3 || n > 4)
         return;
     mesh_face_t *f = &M->faces[M->nfaces];
     for (int k = 0; k < n; k++) {
         apply(c, p[k], f->p[k]);
-        f->b[k] = (uint8_t)c->bone;
+        f->b[k] = bones ? bones[k] : (uint8_t)c->bone;
     }
     float nn[3];
     normal_of((const float (*)[3])f->p, n, nn);
@@ -1116,6 +1121,8 @@ static const recipe_t recipes[] = {
     { "ghost", "ghost", r_ghost, 1 },
     { "skeleton", "skeleton", r_skeleton, 1 },
     { "snowman", "snowman", r_snowman, 1 },
+    { "biped", "organic biped", r_biped, 1 },
+    { "chameleon", "chameleon", r_chameleon, 1 },
 };
 
 #define NRECIPES ((int)(sizeof recipes / sizeof recipes[0]))

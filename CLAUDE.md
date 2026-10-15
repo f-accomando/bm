@@ -63,9 +63,26 @@ Prima di assegnare una task a un modello esecutivo (`bm-mechanic`, `bm-coder`, `
 > **Regola**: Se manca anche una sola risposta, la task **NON** va a un agente basso e **NON** va a `bm-deep`: va a **`bm-planner`**, che la rende pronta o la spezza in Work Order atomici.
 
 ### Regole per `bm-deep`
-- Accetta **solo** un problem statement stretto: sintomo + riproduzione esatta + area sospetta + tentativi già fatti.
+- Si invoca solo con necessità 4-5 (sezione sopra). Accetta **solo** un problem statement stretto: sintomo + riproduzione esatta + area sospetta + tentativi già fatti.
 - Se manca la riproduzione o la richiesta è generica (es. *"implementa X"*), **rifiuta e rimanda a `bm-planner`**.
 - Output: diagnosi della causa radice e fix minimo; l'implementazione ritorna a `bm-coder` o `bm-light`.
+
+### Necessità del modello costoso (1-5)
+Ogni richiesta di un modello più costoso di quello standard (`bm-deep`, tier heavy) dichiara **necessità N su 5 + il motivo + costo stimato rispetto al modello economico** (es. "circa 5×"). Il motivo è uno solo, e va scritto:
+- **Pregresso di errore**: "necessità 4 su 5: un modello precedente ha già fallito (`FAILED x2`)".
+- **Costo alto dell'errore**: "necessità 4 su 5: il costo di risoluzione/sviluppo di un errore è alto". Qui il giudizio è dell'utente solo per il costo, senza un fallimento a monte.
+
+| N | Significato |
+|---|---|
+| 1 | Il modello economico ce la fa; richiesta solo per comodità |
+| 2 | Ce la fa quasi sicuramente; il costoso risparmia al massimo un giro |
+| 3 | Probabile errore o 2 giri col modello economico: parte `bm-planner` |
+| 4 | Il modello economico ha già fallito, oppure l'errore costa molto |
+| 5 | Quasi una necessità: l'errore è irreversibile o l'alternativa è rinunciare a risolvere |
+
+**Preferenza dell'utente (soglia di autonomia = 4)**: con N=1-3 non si usa il modello costoso; con N=4 o 5 l'agente passa al modello costoso **in autonomia**, senza chiedere, dichiarando punteggio e motivo in chat. Per cambiare la soglia modificare questa riga. Il punteggio è una stima, non una misura (misurabile col ledger).
+
+**Ledger**: a ogni subagent concluso SPV/agente principale appende una riga a `docs/agents/ledger.txt` (solo append); `python scripts/agent_audit.py` per la taratura.
 
 ### Escalation Basata su Evidenze
 Gli agenti chiudono sempre con uno stato esplicito:
@@ -120,4 +137,4 @@ Più agenti (Claude local/cloud, Antigravity, altri) lavorano in parallelo su un
 
 **Sign-off**: se SPV scrive `SIGNOFF <ID>: motivo` (niente lavoro adatto, requisiti non soddisfatti, sostituzione, fine progetto) l'operatore non inizia altro, consegna e pusha quello che ha, scrive la chiusura nel proprio file, si segna `DONE` con `sync_hdr.py` e smette i battiti; rientra solo con un nuovo handshake chiesto da SPV.
 
-Regole fisse: un solo scrittore per file (`SYNC.md` solo SPV, `sync/<ID>.md` solo `<ID>`); dopo l'handshake battiti brevi di 3-5 min finché non hai preso in carico il primo work order (SPV: finché ogni nuovo operatore ha confermato; tetto 6 battiti), poi aggiornare il proprio file ogni 15 min (un subagent per il battito, controllando solo il `git diff` dall'ultima copia vista) e a ogni task conclusa; task ≤45 min; l'agente principale resta libero; 60 min di silenzio senza `eta` = `IDLE`; righe di Log ≤600 caratteri; lo stato degli operatori in chat solo se l'utente lo chiede.
+Regole fisse: un solo scrittore per file (`SYNC.md` solo SPV, `sync/<ID>.md` solo `<ID>`); poi battito a eventi senza timer: aggiornare il proprio file a ogni task conclusa (task lunghe spezzate, progress senza timer; problemi o richieste di intervento = riga pushata + frase breve in chat all'utente); `eta` obbligatoria in `WORKING`/`WAITING`; oltre `eta`+10 min senza aggiornamenti = `IDLE` (senza `eta` 60 min, `FREE` mai); messaggi tra operatori = blocco `da <ID> a <ID>: ...` in chat; task ≤45 min; l'agente principale resta libero; righe di Log ≤600 caratteri; lo stato degli operatori in chat solo se l'utente lo chiede.

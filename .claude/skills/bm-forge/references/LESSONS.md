@@ -50,3 +50,38 @@ item 40, `src/bm/format.c:266-269`).
 anything not 320x180; `tests/golden/test_schema.py:33,61-69` asserts the four `.bme` fail
 `check_path`.
 **Rule**: `check` exit 1 on those files is expected, not a bm_core bug.
+
+## L7 Characters and creatures: one continuous skin, rigged, never boxes
+
+**Lesson**: box JSON (`mesh` input) gives a voxel look, and loose pieces placed next to each other
+(hair, ears, shoulders, hands floating near the body) are a defect for the user, not a style: the model
+must be ONE continuous flat-shaded skin, and it must be skinned (a rig with a bone per vertex).
+**Case**: Crash Bandicoot. v1: 83 boxes (voxels, faced -z). v2: separate hulls (organic but detached, no
+rig): rejected. v3 `examples/charkit` (preset crash): 750 triangles, 378 vertices, 15 bones; same kit makes Rango
+(`references/CHARACTERS.md`).
+**Rule**: build a loft of rings in one shared vertex table; limbs, ears, hair spikes, fingers and the
+nose grow out of vertices they share with the part they hang on (a limb's first ring is a patch of torso
+vertices; legs start from the two halves of the pelvis ring). Orient every face away from a point inside
+its part. Colour by ring sector and by face normal (sole = faces looking down). Characters face -z, .L on +x
+(bm Studio's part language `src/ai/mesh_script.c`, the villager; `carts/overbit/art/geo.py` says +z: NON VERIFICATO which
+one the console tools really use, the example is built facing +z and mirrored at the end).
+**Skinning**: the format has one bone per vertex and no weights (`bm_core/skelgen.py`). A ring shared by
+two segments belongs to the distal bone. Write the vertex bones yourself and call `skelgen.bind(...,
+vbones=...)`: `nearest_bone_part` would give a fully connected skin to a single bone. Then `anim` works
+unchanged (checked with `examples/walk.json`; the frames showed no tears at 128 px).
+**Proportions that read as the character**: big head, long snout pulled out of the head vertices, nose as a
+small pyramid on the tip, wide ears, 4-6 hair spikes, long arms with big gloves, big shoes. Judge with
+`preview --yaw 2.64` (a +z model seen from the front side), not 0.6; budget is a ceiling (`check --budget N`).
+**Colours**: when the user gives a colour chart (e.g. the original Crash chart), take the palette from it
+first; the example's values are read off that chart (approximate).
+**Studio/Animator**: the recipes' part language (box, tube, ell, prism, mirror, bone per group) cannot express a
+shared-vertex skin, so this model is a file (`.bm` with MESH+ANIM), not a script. It validates and plays a clip
+in bm_core; it was never opened in bm Mesh / Animator on the console (NON VERIFICATO).
+
+## L8 Reduce a detailed model or build it low: measure, and keep details out of the first version
+
+**Lesson**: for base forms a 1200-triangle model is within 0.5 cm of a 4000-triangle one on a 1.8 m figure; reduction
+and a direct low build tie at 1200 and above, reduction wins below about 900 (`references/DETAIL.md`).
+**Case**: loose face details, abs and ball joints on the mannequin looked crude and were rejected: "base forms only".
+**Rule**: model base forms first, as one continuous skin; add a detail only with its own budget and measure its region
+apart (the mean error hides it). The tools' ceiling is 4096 vertices, about 8000 triangles for a continuous skin.

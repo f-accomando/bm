@@ -106,7 +106,7 @@ def models_cart(mesh, anim=None, title="", author="", width=320, height=180, ker
     cart = C.new_cart(MODELS_LUA, width, height, title, author)
     cart.set_mesh(mesh, kernel_limits=kernel_limits)
     if anim is not None and anim.rigs:
-        cart.set_anim(anim)
+        cart.set_anim(anim, kernel_limits=kernel_limits)
     C.validate(cart, kernel_limits=kernel_limits)
     return cart
 
