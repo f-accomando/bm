@@ -2,13 +2,13 @@
 schema: 1
 id: CI
 state: WORKING
-task: CI-1
+task: D-MON
 waiting_on: 
 progress: 0
-eta: 2026-10-15T11:30+02:00
+eta: 2026-10-15T11:40+02:00
 wakeup: no
 ack: 2026-10-15T10:25+02:00
-updated: 2026-10-15T10:39+02:00
+updated: 2026-10-15T10:40+02:00
 ---
 # CI — operatore CI
 
@@ -34,6 +34,7 @@ updated: 2026-10-15T10:39+02:00
 ## Task
 
 ## Consegne
+DELIVERED CI-1 @ claude/ci-repair@3486018c · verifica: parse YAML in WSL (push ignora sync/**, concurrency, timeout 5/30/45/30/30) → OK; effetto reale visibile solo nella CI · 2026-10-15T10:55+02:00
 (una riga per work order finito: `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`)
 
 ## Progressi
