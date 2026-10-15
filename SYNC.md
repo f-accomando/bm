@@ -33,14 +33,14 @@
 | `WAITING {chi}` | bloccato finché non agisce `utente`, un altro operatore o un servizio |
 | `FREE` | task concordate finite e pushate, disponibile ad altro lavoro |
 | `DONE` | terminale: sessione conclusa, nessun lavoro da reclamare |
-| `IDLE` | nessun segnale per >60 min senza `eta` dichiarata: da segnalare all'utente |
+| `IDLE` | `WORKING`/`WAITING` oltre l'`eta` di più di 10 min senza aggiornamenti (senza `eta`: >60 min): da segnalare all'utente. `FREE` e `DONE` non sono mai `IDLE` |
 
 ### Blocco di stato (in cima a ogni `sync/<ID>.md`)
 
 Scritto da [`tools/sync_hdr.py`](tools/sync_hdr.py), mai a mano. Campi: `schema`, `id`, `state`, `task`, `waiting_on`, `progress`, `eta`, `updated`, `ack`.
 
 - Orari **ISO 8601 con fuso** (`2026-10-14T12:00+02:00`); chi legge confronta in UTC.
-- `eta`: obbligatoria prima di ogni operazione >15 min. Il silenzio prima dell'`eta` non è `IDLE`.
+- `eta`: obbligatoria in ogni `WORKING` e `WAITING`; dice quando l'operatore sarà di nuovo raggiungibile. In un task è "consegna pronta tra N min"; nell'handshake o in attesa di un prompt è "risposta attesa tra N min" (minimo 3, al massimo 3 controlli brevi, poi `eta` normale). Se il lavoro si allunga, l'operatore la sposta con una riga di progress prima che scada.
 - `ack`: orario dell'ultima riga di `SYNC.md` letta (ricevuta di lettura). `--ack auto` conferma l'ultima riga presente dopo il fetch (consegna ricevuta), NON che l'agente l'abbia capita: l'agente che agisce su una riga scrive nel proprio Log `letto <ora riga>`.
 - La tabella §1b si **genera** dai blocchi: SPV non scrive stati previsti, solo letti dal file con l'orario del file. Le ipotesi si etichettano `IPOTESI`.
 
@@ -108,8 +108,9 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 
 **Battito**:
 0. **All'avvio** (dall'handshake): **battiti brevi di 3-5 min** (leggi `SYNC.md` e `sync/`, aggiorna il tuo file) **finché non hai preso in carico il primo work order**: cioe hai letto la riga `ASSIGNED`, scritto `ack` e ti sei segnato `WORKING`; da li si passa al ritmo normale. **SPV** tiene i battiti brevi finché ogni nuovo operatore ha confermato la presa in carico (`WORKING` e `ack` sul work order). Così l'utente non fa da tramite. Tetto di sicurezza: dopo 6 battiti brevi senza assegnazione si passa a 15 min e SPV lo segnala all'utente.
-1. Poi ogni **15 min** un subagent (o un controllo equivalente) fa un **diff** (`git fetch` + `git diff` dall'ultima copia vista), conferma stato e progressi e aggiorna il proprio file. Si aggiorna anche a ogni task conclusa.
-2. Senza aggiornamenti per 60 min e senza `eta` valida: `IDLE`.
+1. **Battito a eventi, senza timer** (vale per tutti gli operatori): si aggiorna il proprio file e si pusha **a ogni task conclusa**. Un task lungo lo spezza l'operatore a sua discrezione e comunica ogni passo con una riga di progress, senza timer. Un problema o la richiesta di intervento di SPV o dell'utente è una riga pushata (`WAITING`, `waiting_on`) **più una frase breve in chat all'utente**. La chat da sola non conta: SPV legge il repo. Gli operatori che si risvegliano da soli possono comunque usare `sync_watch.py`, che non costa token.
+2. SPV controlla in base all'`eta`: oltre l'`eta` di più di 10 min senza aggiornamenti è `IDLE`; senza `eta`, dopo 60 min. SPV guarda `sync_check.py` solo quando viene svegliato (messaggio dell'utente o notifica di sessione), senza polling.
+2b. **Messaggi tra operatori**: chi ha bisogno di un prompt immediato per un altro operatore (SPV compreso) scrive in chat un solo blocco auto-sufficiente che comincia con `da <ID> a <ID>: ...`; l'utente lo copia a chi serve. Il mittente lascia anche una riga con orario e oggetto nella casella del destinatario (SPV) o nel proprio file, così il passaggio è verificabile.
 3. L'agente principale resta sempre raggiungibile (comunicare, interrompere, ridimensionare): il lavoro lungo va ai subagent, o a passi con un controllo in mezzo.
 
 **Chiusura**:
@@ -117,7 +118,7 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 2. Da `FREE` senza lavori: controlli dopo 15, 30 e 45 min (leggi `SYNC.md` e `sync/`). Poi chi **non è SPV** si segna `DONE`.
 3. Prima di segnarsi `DONE`: working tree pulito e tutto pushato; se c'è lavoro non salvato o un processo lungo attivo, non chiudere e scrivilo nel proprio file.
 4. SPV: se tutti sono `DONE` e le task complete, ultimo aggiornamento di `SYNC.md`, termina il sync, si segna `DONE` e scrive il report di sessione.
-5. **Operatore bloccato e muto**: `sync_check` lo segnala `IDLE` (60 min) oppure ha una riga/casella non confermata da >30 min e non è `WAITING utente`. SPV lo dice all'utente in chat con l'ID e la riga attesa: l'unico canale è un messaggio dell'utente nella sessione dell'operatore.
+5. **Operatore bloccato e muto**: `sync_check` lo segnala `IDLE` (oltre l'`eta` + 10 min, o 60 min senza `eta`) oppure ha una riga/casella non confermata da >30 min e non è `WAITING utente`. SPV lo dice all'utente in chat con l'ID e la riga attesa: l'unico canale è un messaggio dell'utente nella sessione dell'operatore.
 
 **Task e agenti liberi**:
 - **Spezzare le task pesanti**: nessun compito può bloccare un agente a tempo indeterminato. Se la stima supera 45 min, chi la prende la divide in passi ≤45 min e scrive una riga per passo; SPV li formalizza come work order.
@@ -163,7 +164,7 @@ SPV scrive nel Log una riga `REVIEW: APPROVED | CHANGES REQUESTED` (≤600 carat
 - **Righe di Log ≤600 caratteri**; il resto va nel work order o nella casella.
 - **Costo dei battiti**: `python tools/sync_watch.py --id <ID> --branch sync/{nome}` fa il battito senza modello e sveglia l'agente solo se cambia la sua casella; vedi `docs/progress/sync.md` ("Cost of the heartbeats").
 - **Modifiche alle regole**: riga `RULE` con ack richiesto; vale per un operatore solo dopo il suo `ack`.
-- **Profilo**: campo `wakeup yes|no` (`--wakeup`): l'agente si risveglia da solo (timer, scheduler)? Se `no`, SPV non pretende battiti da 15 min: assegna lavori con `eta` esplicita e dice quando richiamarlo; l'utente lo sveglia con la frase di avvio (`docs/progress/sync.md`).
+- **Profilo**: campo `wakeup yes|no` (`--wakeup`): l'agente si risveglia da solo (timer, scheduler)? Se `no`, SPV assegna lavori con `eta` esplicita e dice quando richiamarlo; l'utente lo sveglia con la frase di avvio (`docs/progress/sync.md`).
 
 ---
 

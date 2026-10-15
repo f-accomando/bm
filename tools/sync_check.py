@@ -7,7 +7,7 @@ For every operator of sync/operators.toml (active ones) it reads the status bloc
   age of `updated`, `eta`, `ack` (the last Log row of SYNC.md it declares read), the Log rows addressed to it after that `ack`
   (unread), the size of its inbox sync/inbox/<ID>.md, and the problems:
   - no or broken status block; state not in DONE/WORKING/WAITING/IDLE/FREE;
-  - IDLE by rule: no update for 60 min without a valid `eta` (not for DONE);
+  - IDLE by rule: WORKING/WAITING more than 10 min past its `eta` without an update, or 60 min without `eta` (never FREE/DONE);
   - unread: a row addressed to the operator is older than 30 min and newer than its `ack`;
   - a line of `## Consegne` that is not `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: ... · {ISO}`;
   - the inbox has more than 5 non-empty lines;
@@ -20,7 +20,7 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 STATES = ("DONE", "WORKING", "WAITING", "IDLE", "FREE")
-IDLE_MIN, UNREAD_MIN, ROW_MAX, INBOX_MAX = 60, 30, 600, 5
+IDLE_MIN, LATE_MIN, UNREAD_MIN, ROW_MAX, INBOX_MAX = 60, 10, 30, 600, 5
 DELIVERED = re.compile(r"^[-*]?\s*DELIVERED\s+\S+\s+@\s+\S+@\S+\s+[·\-]\s+verifica:\s+.+(?:→|->).+[·\-]\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
 
 
@@ -116,8 +116,9 @@ def main():
         age = int((now - upd).total_seconds() // 60) if upd else None
         if age is None:
             problems.append("%s: `updated` missing or not ISO 8601 with zone" % oid)
-        elif oid != "SPV" and state != "DONE" and age > IDLE_MIN and not (eta and eta > now):
-            problems.append("%s: IDLE by rule (no update for %d min, no valid eta); tell the user" % (oid, age))
+        elif oid != "SPV" and state not in ("DONE", "FREE") and (
+                (age > IDLE_MIN) if not eta else (int((now - eta).total_seconds() // 60) > LATE_MIN and upd <= eta)):
+            problems.append("%s: IDLE by rule (no update for %d min, eta %s); tell the user" % (oid, age, h.get("eta") or "none"))
             notes.append("IDLE")
         seen = ack or upd                        # without `ack` an operator is taken to have read up to its last update
         addressed = []
