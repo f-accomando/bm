@@ -83,7 +83,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
 - **bm SDK (RGB30)**: try it on the console (Dev > bm SDK and Open in bm SDK, pad, typing, save,
-  copy of a game, Ctrl+B, F5 and Start + Select back); QEMU `test_sdk_tool` runs in CI. A game built in `/carts` is not in Games (R41).
+  copy of a game, Ctrl+B, F5 and Start + Select back); QEMU `test_sdk_tool` runs in CI. Games (RGB30) lists bm/ and /carts (D28).
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
 - **M43 step 3**: a *Stack* page in bm Pixel.

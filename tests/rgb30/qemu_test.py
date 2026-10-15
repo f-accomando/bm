@@ -804,6 +804,40 @@ def test_sdk_tool(b, opts):
         q.close()
 
 
+def test_games_in_carts(b, opts):
+    """The Games tab lists games from both bm/ and /carts (D28): a cartridge
+    built by the SDK or placed in /carts appears in the menu alongside bm/."""
+    tmp = tempfile.mkdtemp(prefix="bm64carts-")
+    built_bm = mkbm.pack(TRY_ME.encode(), title="Built in carts", author="tests", res=(360, 360))
+    tryme_b16 = mkbm.pack(TRY_ME.encode(), title="Try me", author="tests", res=(360, 360))
+    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
+                       "bm/tryme.b16": tryme_b16,
+                       "carts/built.bm": built_bm})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        out = boot(q)
+        assert "cartridge menu: 2 games" in out, out
+        time.sleep(0.5)
+        text = screen_all(q.screendump())
+        keys(q, "d")
+        time.sleep(0.5)
+        text += screen_all(q.screendump())
+        assert "Built in carts" in text and "Try me" in text, text
+    finally:
+        q.close()
+    sd2 = make_sd(tmp, {"bm/config.txt": b"game_intro=0\nshow_bm=0\n",
+                        "bm/tryme.b16": tryme_b16,
+                        "carts/built.bm": built_bm})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd2)
+    try:
+        out = boot(q)
+        assert "cartridge menu: 1 games" in out, out
+        out += q.expect("\n", timeout=5).decode(errors="replace")
+        assert "(1 .bm hidden by show_bm=0" in out, out
+    finally:
+        q.close()
+
+
 def test_battery_icon(b, opts):
     """The battery at the right end of the bar (the user, 2026-10-05): four
     bars from 75%, fewer below, red under 10%, a bolt on the charger (over

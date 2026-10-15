@@ -317,13 +317,13 @@ action = "extend the screenshot to the menu"
 [[divergence]]
 id = "D28"
 area = "a game built in /carts and the Games tab"
-pi = "a game built in /carts is not in Games (R41)"
-rgb30 = "-"
-cause = "todo"
-priority = 6
-status = "open"
-evidence = "docs/progress/tools.md:127"
-action = "R41"
+pi = "-"
+rgb30 = "Games read only bm/: a game built by bm SDK's Ctrl+B in /carts was not listed"
+cause = "history"
+status = "untested"
+note = "test QEMU test_games_in_carts OK; non provato su RGB30 fisica (hardware dell'utente); limite noto: stesso nome in /bm e in /carts appaiono entrambi running se uno e' sospeso"
+evidence = "src/rgb30/ui.c:248; src/bm/project.c:162-193; carts/sdk_b16/main.lua:724,873"
+action = "scan_games lists /carts too (as carts.c rescan)"
 
 [[divergence]]
 id = "D30"
