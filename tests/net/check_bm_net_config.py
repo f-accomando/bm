@@ -286,6 +286,39 @@ def main():
     check(rc == 0 and "does not say where the keys go" in out and "the line is done" in out,
           "--line on a kernel from before: said, still sent")
 
+    # --keys: the keys one at a time, in order; nothing in a game
+    bm_net.KEYS_PAUSE, bm_net.KEYS_READ = 0.05, 0.3
+    kc = NetConsole("the menu (test)")
+    rc, out = run(kc, job=("-P", str(kc.port), "--keys", "Xa"))
+    check(rc == 0 and kc.keys == b"Xa", "--keys Xa: X then a, in this order")
+    app = NetConsole("the application (Esc back to the menu)")
+    rc, out = run(app, job=("-P", str(app.port), "--keys", "Xa"))
+    check(rc == 2 and "back to the menu first" in out and app.keys == b"", "--keys in a game: exit 2, nothing sent")
+    rc, out = run(kc, job=("-P", str(kc.port), "--keys", "X a"))
+    check(rc == 1 and kc.keys == b"Xa", "--keys with a space: refused on the PC")
+
+    # the bridge: names only, from the fixed table, through bm_net --keys, password hidden
+    import pi_bridge
+    seen = []
+
+    class R:
+        stdout, stderr = "pw=s3cret ok", ""
+
+    real = pi_bridge.subprocess.run
+    pi_bridge.subprocess.run = lambda cmd, **kw: (seen.append(cmd), R())[1]
+    try:
+        out = pi_bridge.run("1.2.3.4", "s3cret", "keys crash-dabt")
+        check(seen and seen[-1][-2:] == ["--keys", "Xa"] and "s3cret" not in out, "bridge: keys crash-dabt -> --keys Xa, password hidden")
+        for name, seq in (("monitor", "q"), ("crash-undef", "Xu"), ("crash-prefetch", "Xb")):
+            pi_bridge.run("1.2.3.4", "s3cret", "keys " + name)
+            check(seen[-1][-2:] == ["--keys", seq], f"bridge: keys {name} -> {seq}")
+        n = len(seen)
+        for bad in ("keys foo", "keys Xa", "keys", "keys crash-freeze", "keys monitor Xa"):
+            check(pi_bridge.run("1.2.3.4", "s3cret", bad).startswith("refused"), f"bridge: '{bad}' refused")
+        check(len(seen) == n, "  nothing run")
+    finally:
+        pi_bridge.subprocess.run = real
+
     if fails:
         print(f"bm_net --config, --line: {fails} FAILED")
         return 1
