@@ -3540,6 +3540,13 @@ void bm_shot_ask(void)
     shot_net_file[0] = 0;
 }
 
+/* The PC gave up (3 s with no frame): a later game does not answer it. */
+void bm_shot_cancel(void)
+{
+    shot_net = 0;
+    shot_res = 0;
+}
+
 /* 0 while the frame is not drawn yet, 1 when saved (name in `name`, "PONG0007.PNG"), -1 if it could not be written. */
 int bm_shot_done(char *name, size_t n)
 {
