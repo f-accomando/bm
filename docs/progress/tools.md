@@ -91,7 +91,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   Ctrl+S (`YHARNAM.BME`, about 6 MB), F5; then `mkmap.py --from` and commit the CSVs. A house
   stays in its 16×16-tile block.
 - Overbit's mech pilots from pictures (D.Va `ref/rally_pilot.png`, D.Mon `ref/kaiju_pilot.png`):
-  run `meshy-overbit` (its `request.txt` lines), then `pack.py out rally_pilot kaiju_pilot`;
+  run `tools/meshy_text.py` with your own key (the `request.txt` lines), then `pack.py out rally_pilot kaiju_pilot`;
   optionally `rig=` lines with the ids of `out/NAME.task.txt` and `pack.py --rig`. Until then
   the text-to-3D pilots stay. The image-to-3D heroes are not rigged (no task ids kept).
 - **Mappe 3D in bm SDK** (Tropic Trail AGY-01..03 completati): modulo C `src/bm/map3d.c` con API Lua `map3d_*` (mesh a pezzi 16×16 tiles con culling frustum `r3d_visible`, query quota pavimento, collisioni muri/gradini, segnaposto oggetti); vista 3D nell'editor con tasto `v` e camera orbitale (AGY-02); strumenti percorsi lineari `Shift+P` (larghezza 1–5 con `Shift+W`), file di mele `Shift+A`, casse `Shift+C`, lampade `Shift+O`, conteggio entità e budget triangoli nella barra di stato (AGY-03).

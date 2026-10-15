@@ -33,7 +33,7 @@ Split from [tools](tools.md); open work and rules stay there.
   `meshy-out` (`SOURCES`: the image-to-3D soldier, mei, junkrat, sojourn, juno, kiriko, dva,
   beast for sarge, frost, fuse, rail, orbit, akari and the two mechs; reduced to 1200 + 450
   when missing); `meshyrig.py` fits them on the skeletons (Meshy's `.rig` if any, `OWN_GUN`
-  drops the old gun). `request.txt` + `meshy-overbit.yml` (push to `bm-core` or Run workflow):
+  drops the old gun). `request.txt` (the shared-key workflows were removed; run `tools/meshy_text.py` with your own `MESHY_API_KEY`):
   text-to-3D, `rig=`, `image=` (image-to-3D from `ref/`).
 - Overbit models: the heroes' bodies are the primitives of `carts/overbit/art/heroes/*.py` on the
   skeletons of `art/rig.py` (guns and props on their own bones: nothing fuses in the poses). The Meshy
