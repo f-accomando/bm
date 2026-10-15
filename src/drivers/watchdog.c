@@ -69,8 +69,17 @@ void watchdog_halt(void)
     watchdog_reboot();
 }
 
+static void (*before_reboot)(void);
+
+void watchdog_before_reboot(void (*fn)(void))
+{
+    before_reboot = fn;
+}
+
 void watchdog_reboot(void)
 {
+    if (before_reboot)
+        before_reboot();
     dmb();
     mmio_write(PM_WDOG, PM_PASSWORD | 10);      /* ~150 us */
     mmio_write(PM_RSTC, PM_PASSWORD
