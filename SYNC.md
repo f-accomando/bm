@@ -41,7 +41,7 @@ Scritto da [`tools/sync_hdr.py`](tools/sync_hdr.py), mai a mano. Campi: `schema`
 
 - Orari **ISO 8601 con fuso** (`2026-10-14T12:00+02:00`); chi legge confronta in UTC.
 - `eta`: obbligatoria prima di ogni operazione >15 min. Il silenzio prima dell'`eta` non è `IDLE`.
-- `ack`: orario dell'ultima riga di `SYNC.md` letta (ricevuta di lettura).
+- `ack`: orario dell'ultima riga di `SYNC.md` letta (ricevuta di lettura). `--ack auto` conferma l'ultima riga presente dopo il fetch (consegna ricevuta), NON che l'agente l'abbia capita: l'agente che agisce su una riga scrive nel proprio Log `letto <ora riga>`.
 - La tabella §1b si **genera** dai blocchi: SPV non scrive stati previsti, solo letti dal file con l'orario del file. Le ipotesi si etichettano `IPOTESI`.
 
 ### 1b. Stato e attese
@@ -117,6 +117,7 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 2. Da `FREE` senza lavori: controlli dopo 15, 30 e 45 min (leggi `SYNC.md` e `sync/`). Poi chi **non è SPV** si segna `DONE`.
 3. Prima di segnarsi `DONE`: working tree pulito e tutto pushato; se c'è lavoro non salvato o un processo lungo attivo, non chiudere e scrivilo nel proprio file.
 4. SPV: se tutti sono `DONE` e le task complete, ultimo aggiornamento di `SYNC.md`, termina il sync, si segna `DONE` e scrive il report di sessione.
+5. **Operatore bloccato e muto**: `sync_check` lo segnala `IDLE` (60 min) oppure ha una riga/casella non confermata da >30 min e non è `WAITING utente`. SPV lo dice all'utente in chat con l'ID e la riga attesa: l'unico canale è un messaggio dell'utente nella sessione dell'operatore.
 
 **Task e agenti liberi**:
 - **Spezzare le task pesanti**: nessun compito può bloccare un agente a tempo indeterminato. Se la stima supera 45 min, chi la prende la divide in passi ≤45 min e scrive una riga per passo; SPV li formalizza come work order.

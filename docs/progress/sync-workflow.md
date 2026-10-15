@@ -33,13 +33,13 @@
 |---|---|---|---|
 | 1 | A status block with ISO 8601 times *with zone* at the top of each `sync/<ID>.md`, written by `tools/sync_hdr.py`, and §1b **generated** from the blocks | one source of truth, no manual clock | done 2026-10-14 (`sync/operators.toml`, `tools/sync_hdr.py`); AGY already uses it, CLD not yet |
 | 2 | Before any operation longer than 15 minutes, write the expected end time in the block (`eta:`); silence before it is not IDLE | the 60-minute rule alone cannot tell a long recording from a stuck one | asked of CLD and AGY (row 10:55) |
-| 3 | A **read receipt**: `ack: <row time>` in the block (the last row of `SYNC.md` read) | SPV can see that a stop or a start was *read*, not only published; would have saved the 70 minutes of the obsolete recording | to do |
+| 3 | A **read receipt**: `ack: <row time>` in the block (the last row of `SYNC.md` read) | SPV can see that a stop or a start was *read*, not only published; would have saved the 70 minutes of the obsolete recording | done 2026-10-15 (`ack` in the block; `--ack auto` = delivery received, not understood; the agent writes `letto <time>` in its Log; `SYNC.md` §1) |
 | 4 | **Short probe before every long run**, mandatory in the work order (a 20–50 s run that exercises the risky key or call and a verification) | the only cheap way to find errors that show up at the end of a 70-minute recording | in use at SPV; CLD asked to add it to `rec_qemu` |
 | 5 | Authorise a **sequence** of steps in one row, with one review at the end, whenever the steps are independent of a decision | removes one wait per step | in use since 11:52 |
-| 6 | Keep rows to ≤ 600 characters: decision, commit, check; procedure in `docs/design/…` or the work order | rows are read, not skimmed | to do |
+| 6 | Keep rows to ≤ 600 characters: decision, commit, check; procedure in `docs/design/…` or the work order | rows are read, not skimmed | done 2026-10-15 (`sync_check.py` now checks ALL Log rows, not the last 12) |
 | 7 | A rule for *predictions*: SPV reports an operator's state only as read from its file, with the time of the file; hypotheses are labelled | removes the false-IDLE and false-WORKING reports | in use |
 | 8 | Capture the serial log of a kernel run by default in the recorder (`qemurec`), so a crash has a message | the crash of 131 s was a mystery for more than an hour after the recording ended | asked of CLD |
-| 9 | The owner's signal: when an operator is blocked and silent, a message in its session is the only channel; make this explicit in `SYNC.md` | CLD (no timer) and AGY (idle) answered quickly once the owner opened their session | to write |
+| 9 | The owner's signal: when an operator is blocked and silent, a message in its session is the only channel; make this explicit in `SYNC.md` | CLD (no timer) and AGY (idle) answered quickly once the owner opened their session | done 2026-10-15 (`SYNC.md` §3b Chiusura 5: "blocked and mute" = IDLE or unacknowledged >30 min and not WAITING user; SPV tells the user in chat) |
 | 10 | Write rows from a **separate worktree** of `bm-core` (a subagent does it already) | no branch switching, no rejected pushes | partly |
 
 ## Numbers for the final report (so far, to be refined)

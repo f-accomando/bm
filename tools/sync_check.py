@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Objective check of the sync (SYNC.md section 3c): who is alive, who has read what, what breaks the protocol.
 
-  python3 tools/sync_check.py [--rows N] [--strict]
+  python3 tools/sync_check.py [--strict]
 
 For every operator of sync/operators.toml (active ones) it reads the status block of sync/<ID>.md and prints:
   age of `updated`, `eta`, `ack` (the last Log row of SYNC.md it declares read), the Log rows addressed to it after that `ack`
@@ -11,7 +11,7 @@ For every operator of sync/operators.toml (active ones) it reads the status bloc
   - unread: a row addressed to the operator is older than 30 min and newer than its `ack`;
   - a line of `## Consegne` that is not `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: ... · {ISO}`;
   - the inbox has more than 5 non-empty lines;
-  - Log rows (the last N, default 12) longer than 600 characters.
+  - Log rows longer than 600 characters (ALL rows of the Log, not only the last ones).
 The state to tell the user is the one printed here (file, with its time), never a guess. Exit 1 with --strict if there is any problem."""
 import datetime
 import os
@@ -82,7 +82,6 @@ def main():
         except Exception:
             pass
     argv = sys.argv[1:]
-    nrows = int(argv[argv.index("--rows") + 1]) if "--rows" in argv else 12
     now = datetime.datetime.now().astimezone()
     log = rows(os.path.join(ROOT, "SYNC.md"))
     problems = []
@@ -147,7 +146,7 @@ def main():
         if n_in > INBOX_MAX:
             problems.append("%s: inbox has %d lines (max %d)" % (oid, n_in, INBOX_MAX))
         print("%-5s %-8s %4sm %-17s %-17s %6d %5s  %s" % (oid, state, age if age is not None else "?", h.get("eta", "")[:16] or "-", h.get("ack", "")[:16] or "-", len(addressed), n_in or "-", " ".join(notes)))
-    for t, line in log[-nrows:]:
+    for t, line in log:
         if len(line) > ROW_MAX:
             problems.append("Log row of %s is %d chars (max %d): %s..." % (t.strftime("%H:%M"), len(line), ROW_MAX, line[28:70]))
     print()
