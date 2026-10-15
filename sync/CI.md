@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WORKING
-task: CI-AUDIT
+state: WAITING
+task: D-HOST: attendo OK SPV; CI-AUDIT consegnato
 waiting_on: 
 progress: 0
-eta: 2026-10-15T14:45+02:00
+eta: 2026-10-15T14:30+02:00
 wakeup: no
 ack: 2026-10-15T13:30+02:00
-updated: 2026-10-15T11:53+02:00
+updated: 2026-10-15T11:57+02:00
 ---
 # CI — operatore CI
 
@@ -42,6 +42,7 @@ DELIVERED D-LOAD @ claude/ci-repair@c8e2cf22 · verifica: tests/qemu_test.py -k 
 DELIVERED D-SCREEN @ claude/ci-repair@a170e9e4 · verifica: tests/qemu_test.py -k test_publish e -k test_studio_animator (WSL) → 1/1 passed ciascuno · 2026-10-15T12:35+02:00
 DELIVERED D-RGB @ claude/ci-repair@baffa299 · verifica: tests/rgb30/qemu_test.py --build build/rgb30-virt -k bm_cartridge (WSL) → PASS · 2026-10-15T13:20+02:00
 DELIVERED D-RGB2 @ claude/ci-repair@8da839c7 · verifica: make -f rgb30.mk PLAT=virt all + tests/rgb30/qemu_test.py -k el2 (WSL) → PASS, make TARGET=rgb30 → OK; prova su console vera (easy_install.sh) all'utente · 2026-10-15T14:05+02:00
+DELIVERED CI-AUDIT @ claude/ci-repair@08d2c670 · verifica: python3 scripts/ci_audit.py → exit 0; con ci.yml senza un timeout-minutes → exit 1; docs_audit.py score → 6255, 0 penalità · 2026-10-15T13:05+02:00
 
 ## Progressi
 
@@ -54,5 +55,6 @@ DELIVERED D-RGB2 @ claude/ci-repair@8da839c7 · verifica: make -f rgb30.mk PLAT=
 - D-LOAD: causa = non Makefile:195 né overbit. Dal 2026-10-10 (carts.c, aeb0a14b) la suite non mostra lo splash, quindi "bm: loaded in" non arriva mai per un progetto aperto nell'SDK; falliva anche in locale. Tolta l'attesa, il test controlla lo schermo. Lo stesso vale per altri test che aspettino lo splash dopo l'apertura di un tool (nessun altro caso in qemu_test.py).
 - D-MON: la diagnosi del WO (timeout 10 s troppo corto) non basta: alzare a 40 s falliva ancora. "back to the monitor" è stampato solo da carts.c:2037 (uscita dal menu), mai dalla riga b3d; l'attesa a tests/qemu_test.py:5155 era obsoleta e l'ho tolta (le attese successive coprono lo stesso flusso). Da rivedere in CI.
 - Overbit Makefile:195/:645: fuori perimetro (decisione 2), da segnalare a SPV quando D-LOAD lo conferma.
+- CI host (run baffa299): `make build/host/test_loading` non linka, `undefined reference to synth_kit_find` (presets.c usa synth.c, che il Makefile:464 non include). Non è in nessun WO, rotto da prima; rimedio probabile: aggiungere src/audio/synth.c alle dipendenze e alla riga di link. Serve un tuo OK o un WO D-HOST.
 
 ## Richieste
