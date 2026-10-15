@@ -1,16 +1,16 @@
 """Detail test: how much of a high-detail model survives polygon reduction, and how it compares with a model built
 low-poly from the start. Optional dependencies: numpy and Pillow (not needed by bm-forge itself).
 
-  python detail_test.py OUT_DIR
+  python detail_test.py OUT_DIR [--reuse]
 
 Builds the reference (the highest `detail` of mannequin.py that fits the tools' 4096 vertices) and an "ultra" one
 (over the tools' limit, kernel limits only), reduces them with the repo's own reducer (tools/bmreduce.py, the same
 code as bm Studio's "reduce": quadric edge collapse, a vertex keeps its bone), builds direct low-poly versions, and
 measures each against the reference:
-  - error in centimetres: distance from the reference surface to the candidate surface (what detail is lost) and back
+  - error in centimetres: distance from the reference surface to the candidate surface (what is lost) and back
     (what material was added), by body part (head, torso, arms, hands, legs, feet), from 20000 points per surface;
   - silhouette IoU from the front, the side and the top (512 px).
-Writes OUT_DIR/*.bm, OUT_DIR/results.json and prints a Markdown table.
+Writes OUT_DIR/*.bm, OUT_DIR/results.json and prints a Markdown table. --reuse measures the files already there.
 """
 import json
 import os
@@ -104,34 +104,12 @@ def run(cmd):
 
 
 def largest_detail():
-    d = 3.0
+    d = 4.5
     while d > 1.0:
         if len(mannequin.build(d)[0].verts) <= 4096:
             return round(d, 2)
         d -= 0.05
     return 1.0
-
-
-def combine(out, body_tris, face_detail, py, mk):
-    """a reduced body (no face parts) + the face built apart at a small budget: one model, one rig"""
-    run([py, mk, str(largest_detail()), os.path.join(out, "noface.bm"), "noface", "mitten"])
-    run([py, os.path.join(ROOT, "tools", "bmreduce.py"), os.path.join(out, "noface.bm"), "--faces", str(body_tris),
-         "-o", os.path.join(out, "noface_r.bm")])
-    dest = os.path.join(out, "combo.bm")
-    if REUSE and os.path.exists(dest):
-        return dest
-    cart = container.read_file(os.path.join(out, "noface_r.bm"), kernel_limits=True)
-    model, rig = cart.mesh(kernel_limits=True).models[0], cart.anim(kernel_limits=True).rigs[0]
-    _, _, sk = mannequin.build(face_detail, lowface=True)
-    fv0, fv1, ff0, ff1 = sk.face_range
-    full = mannequin.build(face_detail, lowface=True)[0]
-    n0 = len(model.verts)
-    names = {b.name: i for i, b in enumerate(rig.bones)}
-    model.verts += [list(v) for v in full.verts[fv0:fv1]]
-    model.faces += [Mesh.Face(f.a - fv0 + n0, f.b - fv0 + n0, f.c - fv0 + n0, f.colour) for f in full.faces[ff0:ff1]]
-    rig.vbones += [names[b] for b in sk.bone[fv0:fv1]]
-    export.export_models(dest, Mesh.Mesh([model]), anim=A.Anim([rig]), kernel_limits=True)
-    return dest
 
 
 def main(out):
@@ -143,17 +121,9 @@ def main(out):
     files = {}
     run([py, mk, str(ref_detail), os.path.join(out, "reference.bm")])
     run([py, mk, "6.0", os.path.join(out, "ultra.bm")])
-    for d in (0.6, 0.8):
-        run([py, mk, str(d), os.path.join(out, f"lowface_{d}.bm"), "lowface"])           # a body built low + a small face
-        files[f"direct detail {d} + low face"] = f"lowface_{d}.bm"
-    for d in (0.6, 0.95, 1.1, 1.2, 1.6, 2.0):
+    for d in (0.5, 0.8, 1.0, 1.2, 1.5, 2.0):
         run([py, mk, str(d), os.path.join(out, f"direct_{d}.bm")])
         files[f"direct detail {d}"] = f"direct_{d}.bm"
-    run([py, mk, str(ref_detail), os.path.join(out, "mitten.bm"), "mitten"])           # the hybrid: no fingers or toes
-    for n in (1200, 800):
-        run([py, os.path.join(ROOT, "tools", "bmreduce.py"), os.path.join(out, "mitten.bm"), "--faces", str(n),
-             "-o", os.path.join(out, f"mitten_r{n}.bm")])
-        files[f"hybrid (mittens) reduced to {n}"] = f"mitten_r{n}.bm"
     for n in (4000, 2000, 1200, 800, 600, 400):
         run([py, os.path.join(ROOT, "tools", "bmreduce.py"), os.path.join(out, "reference.bm"), "--faces", str(n),
              "-o", os.path.join(out, f"ref_r{n}.bm")])
@@ -162,9 +132,6 @@ def main(out):
          "-o", os.path.join(out, "ultra_r1200.bm")])
     files["ultra (26736) reduced to 1200"] = "ultra_r1200.bm"
 
-    face_tris = 306                                                      # what mannequin.py 0.6 lowface spends on the face
-    combine(out, 1200 - face_tris, 0.6, py, mk)
-    files[f"hybrid: body reduced to {1200 - face_tris} + low face ({face_tris})"] = "combo.bm"
     rv, rt, rg = load(os.path.join(out, "reference.bm"))
     rng = np.random.default_rng(1)
     rp, rpg = sample(rv, rt, rg, 20000, rng)
@@ -181,9 +148,6 @@ def main(out):
                "added_mean_cm": float(to_ref.mean())}
         for vw in ("front", "side", "top"):
             row["iou_" + vw] = iou(ref_sil[vw], silhouette(v, t, vw, box))
-        face = (rpg == 0) & (rp[:, 1] > 1.60) & (rp[:, 1] < 1.75) & (rp[:, 2] < -0.05)      # nose, eyes, brows, lips
-        row["lost_face"] = float(to_cand[face].mean())
-        row["lost_face_p95"] = float(np.percentile(to_cand[face], 95))
         for gi, gn in enumerate(GROUPS):
             sel = rpg == gi
             row["lost_" + gn] = float(to_cand[sel].mean()) if sel.any() else None
@@ -191,12 +155,12 @@ def main(out):
     rows.sort(key=lambda r: r["tris"])
     with open(os.path.join(out, "results.json"), "w") as fh:
         json.dump(rows, fh, indent=1)
-    print("| candidate | tris | lost mean cm | lost p95 cm | added mean cm | IoU front/side/top | head | face | face p95 | hands | feet |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|")
+    print("| candidate | tris | lost mean cm | lost p95 cm | added mean cm | IoU front/side/top | head | torso | arms | hands | legs | feet |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|")
     for r in rows:
         print(f"| {r['label']} | {r['tris']} | {r['lost_mean_cm']:.2f} | {r['lost_p95_cm']:.2f} | {r['added_mean_cm']:.2f} | "
-              f"{r['iou_front']:.3f}/{r['iou_side']:.3f}/{r['iou_top']:.3f} | {r['lost_head']:.2f} | {r['lost_face']:.2f} | {r['lost_face_p95']:.2f} | {r['lost_hands']:.2f} | "
-              f"{r['lost_feet']:.2f} |")
+              f"{r['iou_front']:.3f}/{r['iou_side']:.3f}/{r['iou_top']:.3f} | {r['lost_head']:.2f} | {r['lost_torso']:.2f} | {r['lost_arms']:.2f} | "
+              f"{r['lost_hands']:.2f} | {r['lost_legs']:.2f} | {r['lost_feet']:.2f} |")
 
 
 if __name__ == "__main__":
