@@ -551,10 +551,15 @@ test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 
 # Resource files (docs/RISORSE.md, scripts/bmres.py): models, images, sounds,
 # maps and palettes out of a .bm and back in, conversions, broken files
-test-res: $(BUILD)/carts/village.bm $(BUILD)/demo.bm $(BUILD)/sound.bm scripts/bmres.py $(BUILD)/host/test_res
+test-res: $(BUILD)/carts/village.bm $(BUILD)/village-before.bm $(BUILD)/demo.bm $(BUILD)/sound.bm scripts/bmres.py $(BUILD)/host/test_res
 	rm -rf $(BUILD)/res && $(PYTHON) tests/res/test_bmres.py $(BUILD)/carts/village.bm $(BUILD)/demo.bm \
 	    $(BUILD)/sound.bm $(BUILD)/res
-	$(BUILD)/host/test_res $(BUILD)/res $(BUILD)/carts/village.bm
+	$(BUILD)/host/test_res $(BUILD)/res $(BUILD)/village-before.bm
+
+# a game of before the INFO section: the village without bm.info (test_res)
+$(BUILD)/village-before.bm: carts/village/main.lua carts/village/assets/models.bm scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title Village --author bm --res 320x180 \
+	    --models carts/village/assets/models.bm
 
 $(BUILD)/host/test_res: tests/bm/test_res.c src/bm/format.c src/lib/crc32.c src/bm/bm.h
 	@mkdir -p $(dir $@)
