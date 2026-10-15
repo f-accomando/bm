@@ -60,3 +60,15 @@ models = "{da handshake}"
 subagents = "{da handshake}"
 strengths = "{da handshake}"
 weak_points = "{da handshake}"
+
+[[operator]]
+id = "CI"
+name = "operatore CI"
+kind = "ai"
+file = "sync/CI.md"
+branches = ["claude/ci-repair"]
+place = "{da handshake}"
+models = "{da handshake}"
+subagents = "{da handshake}"
+strengths = "{da handshake}"
+weak_points = "{da handshake}"
