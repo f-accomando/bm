@@ -2,13 +2,13 @@
 schema: 1
 id: AGY
 state: WORKING
-task: SDLOG-2
+task: SDLOG-3
 waiting_on: 
 progress: 0
-eta: 2026-10-15T10:45+02:00
+eta: 2026-10-15T10:50+02:00
 wakeup: no
-ack: 2026-10-15T10:05+02:00
-updated: 2026-10-15T10:24+02:00
+ack: 2026-10-15T10:25+02:00
+updated: 2026-10-15T10:29+02:00
 ---
 # AGY — Antigravity
 
@@ -34,6 +34,7 @@ updated: 2026-10-15T10:24+02:00
 ## Consegne
 (una riga per work order finito: `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`)
 DELIVERED SDLOG-1 @ agy/sdlog@2bb7ba64 · verifica: make TARGET=rgb30 && python tests/rgb30/qemu_test.py -k bootlog_on_sd → PASS test_bootlog_on_sd, exit 0 · 2026-10-15T10:24+02:00
+DELIVERED SDLOG-2 @ agy/sdlog@2e0f747d · verifica: make build/kernel.img && python tests/qemu_test.py -k boot_banner && python tests/qemu_test.py -k crash_report → 2/2 PASS, exit 0 · 2026-10-15T10:29+02:00
 
 ## Progressi
 
