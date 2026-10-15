@@ -37,9 +37,12 @@ DELIVERED SDLOG-1 @ agy/sdlog@2bb7ba64 · verifica: make TARGET=rgb30 && python 
 DELIVERED SDLOG-2 @ agy/sdlog@2e0f747d · verifica: make build/kernel.img && python tests/qemu_test.py -k boot_banner && python tests/qemu_test.py -k crash_report → 2/2 PASS, exit 0 · 2026-10-15T10:29+02:00
 DELIVERED SDLOG-3 @ agy/sdlog@88482272 · verifica: make build/kernel.img && python tests/qemu_test.py -k crash_report → PASS test_crash_report (87.5s), exit 0 · 2026-10-15T10:34+02:00
 DELIVERED SDLOG-4 @ agy/sdlog@8b96e916 · verifica: python tests/qemu_test.py -k sd_logs → PASS test_sd_logs (5.5s), exit 0 · 2026-10-15T10:40+02:00
+DELIVERED SDLOG-5 @ agy/sdlog@8123e2c2 · verifica: python scripts/consistency.py check && python scripts/docs_audit.py score → 0 drift, D19 resolved, penalties 0 (score 6206) · 2026-10-15T10:43+02:00
 
 ## Progressi
+- Completata l'intera sequenza SDLOG-1 → SDLOG-5 su agy/sdlog.
 
 ## Problemi
+- Non verificabile senza hardware fisico Pi: tempo di scrittura di ~60 KiB su SD reale prima del reset col watchdog a 3 s; lastrun saltato su un crash reale con IRQ spenti; SD lenta o piena. Test QEMU verificati con successo; prova su Pi delegata a UTE.
 
 ## Richieste
