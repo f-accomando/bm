@@ -5783,6 +5783,7 @@ def test_sd_logs(b, opts):
                                  capture_output=True, text=True, env=env, check=True).stdout
         assert "cartridge menu" in bootlog, bootlog
         assert "test-pass-4242" not in bootlog, bootlog
+        assert "watchdog: resets at once on RSTC (emulator), no freeze guard" in bootlog, bootlog
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
