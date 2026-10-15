@@ -52,8 +52,10 @@ DELIVERED AGY-3 @ agy/beta6-triage@9bebc945 · verifica: 21 righe analizzate con
 DELIVERED AGY-4 @ agy/agent-audit-baseline@b920d6a9 · verifica: python tests/tools/test_agent_audit.py && python scripts/agent_audit.py --baseline docs/agents/baseline.txt → 14/14 test OK, tabelle model/area e sezione vs baseline presenti · 2026-10-15T18:13+02:00
 DELIVERED AGY-5 @ agy/sync-perimeter-quarantine@dcbc229e · verifica: python tests/tools/test_sync_perimeter.py && python tests/tools/test_quarantine_check.py && python scripts/quarantine_check.py && python scripts/docs_audit.py score → 7/7 test OK, penalties 0 (score 6624) · 2026-10-15T18:16+02:00
 DELIVERED AGY-6a @ agy/api-source@05219d60 · verifica: python tests/tools/test_mkapi.py && python scripts/mkapi.py --check → OK (UNDOCUMENTED 0: []; NOT_IN_RUNTIME 1: [nnet]; test duplicati 9 OK) · 2026-10-15T20:10+02:00
+DELIVERED AGY-6b @ agy/beta6-triage@9e517b3a · verifica: python scripts/consistency.py check (0 drift), 21 righe analizzate con 44 citazioni verificate nel codice · 2026-10-15T20:23+02:00
 
 ## Progressi
+- Completato AGY-6b (rifacimento triage BETA-6): riscritto docs/spec/beta6-triage.md con 21 righe, prove verificate nel codice dei due kernel (44 riferimenti reali controllati), indicazione esplicita toml stale e rispetto decisioni toml (D03 sospeso dall'utente, D09 storage-path, D35 causa hardware), branch reale claude/integrazione-ottobre@32c4ec4b per D28.
 - Completato AGY-6a (correzione API-SRC): aggiornata regex runtime.c in test_mkapi.py (riconosciuti instrument/instruments), estesa SIG_RE in mkapi.py a prefissi di assegnazione (estratti udp_open e udp_recv), escluso rumore 'a' da riff.md, aggiunto test di regressione sui 9 duplicati attesi.
 - Completato AGY-5 (PERIM): tools/sync_perimeter.py (controllo perimetro WO con sezioni ed espansione .c|.h), tests/quarantine.txt con validator scripts/quarantine_check.py e aggiornamento docs/progress/sync.md.
 - Conclusa l'intera sequenza dei 5 Work Order assegnati (AGY-1, AGY-2, AGY-3, AGY-4, AGY-5); FRZ-5 non avviato come da direttiva; stato impostato a FREE.
