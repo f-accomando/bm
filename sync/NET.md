@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: NET
-state: WORKING
-task: NET-2c
+state: FREE
+task: R-NET1/2 consegnato, R-NET3 non iniziato
 waiting_on: 
 eta: 2026-10-15T12:00+02:00
 wakeup: no
-ack: 2026-10-15T09:36+02:00
-updated: 2026-10-15T10:06+02:00
+ack: 2026-10-15T10:05+02:00
+updated: 2026-10-15T10:10+02:00
 ---
 # NET
 
@@ -31,6 +31,8 @@ updated: 2026-10-15T10:06+02:00
 Presa in carico di sync/wo/NET.md, ordine NET-1a→NET-2d. R-NET3 non iniziato.
 
 ## Consegne
+DELIVERED NET-2c @ claude/net-test-err@7118a51f · verifica: make test-net → exit 0 (include check_bm_net_config.py con i nuovi --shot/--get) · 2026-10-15T10:20+02:00
+DELIVERED NET-2d @ claude/net-test-err@589a6ee0 · verifica: python scripts/consistency.py check → 0 drift, 5 accepted, 0 stale; python scripts/docs_audit.py score → 6200 · nota: aggiunto verbo shot anche in tools/pi_bridge.py (necessario al verbo pi.py), D43 in divergences.toml, regola T/G in docs/progress/system.md (system-net.md non ha Rules) · tutto su un solo branch claude/net-test-err (non net-test-shot) · 2026-10-15T10:20+02:00
 DELIVERED NET-1a @ claude/net-test-err@63471356 · verifica: python tests/qemu_test.py -k monitor_line → NON PASS: le asserzioni di NET-1a (err: none, running: menu) passano ma il test cade più avanti a 'back to the monitor' (timeout 10 s, attesa stress 18 s); identico su bm-core senza la mia modifica (preesistente) · 2026-10-15T10:05+02:00
 DELIVERED NET-1b @ claude/net-test-err@b473f9dd · verifica: python -c (3 casi err_verdict del WO) → exit 0 · 2026-10-15T10:05+02:00
 DELIVERED NET-2a @ claude/net-test-err@500730e0 · verifica: make build/kernel.img → ok, nessun warning (nessun test -k shot esiste); aggiunta bm_shot_cancel per NET-2b · 2026-10-15T10:05+02:00
