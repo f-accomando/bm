@@ -279,6 +279,8 @@ static int line_command(char *c)
         char title[64];
         if (bm_suspended(title, sizeof title) && title[0])
             kprintf("running: %s\n", title);
+        else
+            kprintf("running: menu\n");
     } else if (!strcmp(c, "send")) {
         const int left = reports_send_pending();
         kprintf("%s; %d waiting on the SD card\n", reports_last(), left);
