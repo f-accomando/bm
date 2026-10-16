@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-22
+state: FREE
+task: AGY-22 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T14:40+02:00
 wakeup: no
 ack: 2026-10-16T14:20+02:00
-updated: 2026-10-16T14:29+02:00
+updated: 2026-10-16T14:31+02:00
 ---
 # AGY — Antigravity
 
@@ -74,8 +74,12 @@ DELIVERED AGY-18 @ claude/docs-en-mali-m41@e2366be7 · verifica: git grep parole
 DELIVERED AGY-19 @ claude/docs-en-v3d-qpu@50446b69 · verifica: git grep parole italiane su v3d.md -> 0 righe; docs_audit.py score -> penalties 0 come prima · 1 file, +17 -17 · non verificato su hardware · 2026-10-16T14:24+02:00
 DELIVERED AGY-20 @ claude/docs-en-open-items@3e82fbac · verifica: git grep parole italiane sui 3 file -> solo platforms.md:56 (fuori WO); docs_audit.py score -> penalties 0 come prima · 3 file, +8 -8 · non verificato su hardware · 2026-10-16T14:26+02:00
 DELIVERED AGY-21 @ claude/docs-en-d19-note@1f8fa8ee · verifica: consistency.py check -> 0 drift, 5 accepted, 0 stale; tomllib legge 43 blocchi; grep "provato dall'utente su Pi Zero W" -> 0 righe · 1 file, +1 -1 · non verificato su hardware · 2026-10-16T14:29+02:00
+DELIVERED AGY-22 @ claude/docs-en-system-console@7d670544 · verifica: git grep parole italiane su system.md -> 0 righe; docs_audit.py score -> penalties 0 come prima; riga R4 invariata · 1 file, +9 -9 · non verificato su hardware · 2026-10-16T14:31+02:00
 
 ## Progressi
+- Completato AGY-22 (IT2EN-SYSTEM) su claude/docs-en-system-console@7d670544:
+  - In `docs/progress/system.md`, tradotte in inglese le 9 righe del blocco "Console Standalone & Hardware Spunti" (titolo "Standalone Console & Hardware Ideas", voci R1 WiFi con pad, R2 tastiera kernel su schermo, R3 log su SD, R6 interfaccia web locale, R8 rumble e LED DS4, R19 controller Bluetooth estesi, R20 telecomando HDMI-CEC, e Rete & bmnet multiplayer), preservando intatta la riga R4 (Screenshot, già in inglese).
+  - Verificato: `git grep` sulle parole italiane segnala 0 righe; `git diff -U0` conferma che R4 e Freeze reports non sono toccate; `docs_audit.py score` mantiene penalità 0; diff esattamente di 1 file, +9 -9. Registrato nel ledger e pushato.
 - Completato AGY-21 (IT2EN-D19) su claude/docs-en-d19-note@1f8fa8ee:
   - In `docs/spec/divergences.toml`, tradotta in inglese la `note` del blocco della divergenza D19 (log su SD, status "resolved"), mantenendo date, nomi e riferimenti (SDLOG-FIX, Pi Zero W, test_crash_report QEMU).
   - Verificato: `consistency.py check` invariato a `0 drift, 5 accepted, 0 stale`; parsing `tomllib` conferma 43 blocchi divergenza validi; `git grep "provato dall'utente su Pi Zero W"` dà 0 match; diff esattamente di 1 file, +1 -1. Registrato nel ledger e pushato.
