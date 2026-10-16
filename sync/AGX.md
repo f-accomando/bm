@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: WORKING
-task: WO AGX-1: test-sdk-b16 host stubs & UPDOWN
+state: FREE
+task: libero, AGX-1 consegnato; pronto per AGX-2
 waiting_on: 
 eta: 2026-10-16T13:50+02:00
 wakeup: no
 ack: 2026-10-16T13:13+02:00
-updated: 2026-10-16T13:18+02:00
+updated: 2026-10-16T13:20+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -29,10 +29,10 @@ updated: 2026-10-16T13:18+02:00
 - Nessun Pi/RGB30 raggiungibile dagli operatori: SÌ (confermato, nessun hardware fisico collegato direttamente; prove hardware delegate a UTE).
 
 ## Task
-- Handshake iniziale con supervisore SPV su `sync/protocollo-ottobre` completato con successo.
-- Letti ordini in arrivo in `sync/inbox/AGX.md` (WO AGX-1 e AGX-2). Tutti i requisiti di ambiente sono ora verificati: pronto a prendere in carico AGX-1 (`make test-sdk-b16`).
+- AGX-1 completato e consegnato. Pronto per presa in carico AGX-2.
 
 ## Consegne
+- DELIVERED AGX-1 @ claude/sdk-b16-host-stubs@f56d92f5 · verifica: make test-sdk-b16 -> exit 0, 298 checks, 0 failed (1 min) · 2 file, 10 righe · non verificato su hardware · 2026-10-16T13:20+02:00
 
 ## Progressi
 - Eseguito handshake protocollo-ottobre per AGX sul nuovo computer (Windows 11 host `ROCKET`).
