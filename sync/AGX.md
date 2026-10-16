@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: libero, proposta WO PI-SHOT a SPV, attesa AGX-3
+state: WORKING
+task: WO AGX-3: PI-QEMU-TMP cleanup tmp qemu_test.py
 waiting_on: 
-eta: 2026-10-16T13:40+02:00
+eta: 2026-10-16T15:10+02:00
 wakeup: no
-ack: 2026-10-16T13:53+02:00
-updated: 2026-10-16T14:16+02:00
+ack: 2026-10-16T14:20+02:00
+updated: 2026-10-16T14:27+02:00
 ---
 # AGX — Antigravity (AGX)
 
