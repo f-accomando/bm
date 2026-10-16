@@ -8,6 +8,7 @@ PLAT=virt (PL011 serial port, ramfb screen, GICv3, generic timer).
 import argparse
 import os
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -559,6 +560,42 @@ def test_bm_cartridge(b, opts):
         assert in_menu(screen_all(img))
     finally:
         q.close()
+
+
+def test_budget_cart(b, opts):
+    """carts/budget at 640x360 on the AArch64 kernel: play from the menu,
+    allow the report with the confirm key, all tests run, the report lands in
+    bm/reports (QEMU numbers: only a proof that it works)"""
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..",
+                           "build", "carts", "budget.bm"), "rb") as f:
+        cart = f.read()
+    sd = make_sd(tmp, {"bm/budget.bm": cart, "bm/config.txt": b"layout=us\n"})
+    size = os.path.getsize(sd)
+    dump = os.path.join(tmp, "after.img")
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.4)
+        q.send("\r")                            # confirm: play
+        q.expect("play: /bm/budget.bm", timeout=10)
+        q.expect("asks to send a report (ok: allow, back: no)", timeout=900)   # over the stopped game
+        time.sleep(0.5)
+        q.send("k")                             # serial B = pad_ok: allow ("\r" is Start there)
+        q.expect("budget: done", timeout=900)
+        img = q.screendump()
+        assert img[0] == 640 and img[1] == 360, f"screen {img[0]}x{img[1]}"
+        time.sleep(1)
+        q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
+                  until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
+        time.sleep(0.3)
+    finally:
+        q.close()
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    rpt = subprocess.run(["mtype", "-i", f"{dump}@@{1024 * 1024}", "::/bm/reports/RPT00001.TXT"],
+                         capture_output=True, env=env, check=True).stdout.decode(errors="replace")
+    assert "kind: budget" in rpt and "board: QEMU virt" in rpt, rpt[:400]
+    shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_bench3d(b, opts):

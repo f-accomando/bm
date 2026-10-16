@@ -71,6 +71,7 @@ SLOW = {
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
     "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_bench_stop": 35, "test_bm_boot_demo": 22,
     "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100, "test_projects": 45, "test_editor_mouse": 40,
+    "test_budget_cart": 120,
 }
 
 
@@ -5579,6 +5580,47 @@ def test_permissions(b, opts):
                              text=True, env=env).stdout
         assert re.search(r"allow_[0-9A-F]{8}=report=yes \(permit\)", txt), txt
         assert re.search(r"allow_[0-9A-F]{8}=report=no \(deny\)", txt), txt
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_budget_cart(b, opts):
+    """carts/budget (the game budget on Pi and RGB30): the 5 tests and the
+    profile phase run on the Pi kernel, the report is allowed by the player
+    and lands in bm/reports (QEMU numbers: only a proof that it works)"""
+    tmp = tempfile.mkdtemp(prefix="bm-budget-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+        with open(b("carts/budget.bm"), "rb") as f:
+            assert _upload(q, f.read())
+        out = q.expect("asks to send a report (ok: allow, back: no)", timeout=600)
+        time.sleep(0.3)
+        q.send("j")
+        out += q.expect("budget: report true", timeout=60)
+        out += q.expect("budget: done", timeout=60)
+        q.expect("> ", timeout=20)
+        text = out.decode(errors="replace").replace("\r", "")
+        assert "budget: test,unit,n60,n30,us_item,tris60" in text, text[-2000:]
+        assert "budget: spr16," in text, text[-2000:]
+        time.sleep(0.3)
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        rpt = subprocess.run(["mtype", "-i", part, "::/BM/REPORTS/RPT00001.TXT"], capture_output=True,
+                             text=True, env=env).stdout
+        assert rpt.startswith("bm report\nkind: budget\n"), rpt[:400]
+        assert "bm budget 1" in rpt, rpt[:800]
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

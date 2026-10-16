@@ -73,6 +73,7 @@ Bring-up, draw descriptors, shaders and the triangle probe: [graphics-mali](grap
 after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 `b3d_platform_t.stop`, `bm_stats_t.left`); a stopped test leaves no report
 (`reports_drop`). Tests: `make test-b3d` (`--stop`), QEMU `test_bench_stop`.
+- Game budget: `carts/budget` measures 5 loads (spr16, tiles8, mesh96, part2d, point3d) at 60/30 fps and the profile of spr16; `scripts/perf_table.py` fills the table in [`PERFORMANCE.md`](../PERFORMANCE.md). QEMU only proves it runs.
 
 ## Open work (`docs/ROADMAP.md`)
 
@@ -80,6 +81,7 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 - **M41** Mali: [graphics-mali](graphics-mali.md) (the triangle to run on the device).
 - **M43** sprite stacking (`stack()` in `gfx16.c`, bm Pixel page) — not started.
 - **M44** QPU programs outside 3D (particles, full-screen 2D effects) — not started.
+- **API-1** budget table: Pi and RGB30 columns to fill from hardware reports (`perf_table.py --column pi|rgb30`).
 
 ## Rules (do not break)
 

@@ -224,6 +224,8 @@ and at the end the results table stays on the screen: a photo is enough.
 To return to the normal kernel: `make sdcard` and copy `dist/kernel.img` again.
 With the serial cable the same test starts from the monitor with the `S` key.
 
+For the per-device game budget (loads for 60 and 30 fps, Pi and RGB30) see the section *Game budget* in [`PERFORMANCE.md`](PERFORMANCE.md).
+
 ## The machine rows (M33)
 
 Before and after the C part the stress test writes two lines:

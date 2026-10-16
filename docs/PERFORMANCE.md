@@ -1,10 +1,61 @@
-# Performance and Technical Decisions — Raspberry Pi Zero W v1.1
+# Performance and Technical Decisions — Raspberry Pi Zero W and RGB30
 
 At-a-glance report: hardware constraints, technical choices made (and discarded), expected numbers vs. measured benchmarks.
 
 **Sources**
 - *(M)* Measured on physical Raspberry Pi; *(Q)* Measured in QEMU; *(H)* x86 Host benchmark (indicative proportions); *(D)* Datasheet / official documentation.
 - Additional details: stress test in [`docs/STRESS.md`](STRESS.md); hardware specs in [`docs/HARDWARE.md`](HARDWARE.md); display modes in [`docs/RISOLUZIONI.md`](RISOLUZIONI.md); GPU transition history in [`docs/GPU-BENCHMARK-REPORT.md`](GPU-BENCHMARK-REPORT.md); benchmark suite in [`docs/BENCH3D.md`](BENCH3D.md).
+
+---
+
+## Game budget: Pi Zero W and RGB30
+
+How much a game can draw per frame, on each device, measured by one cartridge.
+
+**What it measures.** `carts/budget` runs 5 loads: `spr16` (16x16 sprites), `tiles8` (8x8 map cells), `mesh96` (a 96-triangle sphere), `part2d` (`lib.particles`) and `point3d` (3D points). Each load grows (`n = max(n+1, n*3//2)`, 20 frames per step) until a frame takes more than 40 ms. The time is the mean of `stat(1)`, which covers `_update` and `_draw`; the loads for 60 fps (16.667 ms) and 30 fps (33.333 ms) are interpolated linearly between the steps. A value `<x` means even the first step is too slow, `>x` that the cap was reached. A last phase repeats `spr16` at the 60 fps load for 90 frames with `profile(true)` and keeps the 10 costliest functions.
+
+**How to run it.** `make build/carts/budget.bm`, then copy it to `bm/` on the SD card (or `./easy_install.sh`, entry 5) and play it. It asks to send a report: allow it. The result stays on screen for 600 frames.
+
+**Where the report goes.** `bm/reports/RPT*.TXT` on the card; with `github_token` and a network it is also pushed to the `reports` branch. `kind: budget`, first lines `bm budget 1`, `screen`, `gpu3d`, then the CSV `test,unit,n60,n30,us_item,tris60`.
+
+**How the table is filled.** One column per device, from a hardware report:
+
+```
+python scripts/perf_table.py --column pi RPT00001.TXT
+python scripts/perf_table.py --column rgb30 RPT00002.TXT
+```
+
+It rewrites only the part between the markers below and only the chosen column. A report from QEMU is refused (exit 1) unless `--allow-qemu` is given; QEMU numbers do not belong in the table. The Pi kernel in QEMU writes `board: Pi Zero` with no `QEMU` in it, so check where a Pi report comes from before using it.
+
+<!-- budget:begin -->
+| Load | Unit | Pi Zero W (60 / 30 fps) | RGB30 (60 / 30 fps) |
+| --- | --- | --- | --- |
+| spr16 | spr | — | — |
+| tiles8 | tile | — | — |
+| mesh96 | obj | — | — |
+| part2d | part | — | — |
+| point3d | pt | — | — |
+| source | | — | — |
+<!-- budget:end -->
+
+The cells are empty (`—`) until the cartridge has run on the real devices. `mesh96` cells also give the triangles per frame at 60 fps.
+
+**QEMU limit.** QEMU models neither the caches nor the memory bus, and the Pi in QEMU is about 2 times slower than the real one (section 6). The QEMU run of the cartridge only proves that it works.
+
+### Reading profile(true)
+
+`profile(true)` starts a per-function count, `profile()` returns it and `profile(false)` stops it. Each entry has `self` (time in the function itself) and `all`/`total` (with the functions it calls), in ms per frame, averaged over the last second. C functions are timed exactly; Lua functions in blocks of 1000 instructions. When it is off it costs nothing; when it is on it costs a little, so the budget numbers above are taken with the profiler off.
+
+The `profile,...` lines of the report are `profile,<name>,<where>,<self>,<total>`. Example from the QEMU run of the cartridge *(Q)*, `spr16` at 290 sprites:
+
+```
+profile,draw,main.lua:18,12.598,27.133
+profile,spr,[C],12.301,12.301
+profile,cls,[C],2.234,2.234
+profile,_draw,main.lua:183,0.259,28.300
+```
+
+Here `spr` is almost half of the frame, `cls` is next. The ranking of the 10 costliest functions of a whole game is in its session report.
 
 ---
 

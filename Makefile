@@ -297,6 +297,7 @@ OVERBIT_ART := $(wildcard carts/overbit/art/*.py carts/overbit/art/heroes/*.py c
 # figures of art/meshy instead (set aside: their arms and guns fused in the poses)
 OVERBIT_MODELS_FLAGS := $(if $(OVERBIT_MESHY),--meshy)
 title_overbit := Overbit
+title_budget := bm budget
 # its screen: 480x270, each pixel 4x4 on a 1080p TV (it was 320x180)
 OVERBIT_RES := 480x270
 # the .bm (the Pi's, in the Market next to the .b16): three screens on a TV,
