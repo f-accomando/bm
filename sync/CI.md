@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WORKING
-task: verifica merge ci-repair, run rossi
+state: WAITING
+task: ci-repair pushato e verde; attendo OK SPV su ci.yml nel branch sync
 waiting_on: 
 progress: 0
-eta: 2026-10-16T11:00+02:00
+eta: 2026-10-16T12:00+02:00
 wakeup: no
 ack: 2026-10-16T09:27+02:00
-updated: 2026-10-16T09:52+02:00
+updated: 2026-10-16T09:54+02:00
 ---
 # CI — operatore CI
 
@@ -62,5 +62,6 @@ DELIVERED D-RUN2 @ claude/ci-repair@6b2d8727 · verifica: tests/qemu_test.py -k 
 - D-IMP run 38719633913 (8e182236): passo 1 NON basta, crowd ancora 9926f79d/f32adb17 in CI (in locale invariati: -ffp-contract=off non cambia nulla su x86). Passo 2 applicato in 76a2b136: per crowd gli hash non sono piu' asseriti (stampati come informazione), resta il confronto ARM/GPU; indebolimento voluto, copertura residua = ARM/GPU (<=410 px) e le altre scene. Locale: make test-impostor exit 0.- qemu 1/4 test_mesh (rosso solo in quel run, verde nel precedente): lo screendump catturato a meta' ridisegno (riga d'intestazione '??? list?') passava le parole attese ma non la stringa asserita dopo. Fix in 78e4062e: la stringa e' ora fra le attese di screen(). Locale -k mesh 3/3. Flake da dump a meta' redraw, come test_editor_mouse.
 - host run 38737001683 (78e4062e): rosso solo test-studio (sdk_host.lua:575, carts/editor/main.lua:1614 'attempt to index a nil value'). Causa PREESISTENTE su bm-core: step_zoom usa ZOOM_STEPS mai definito nell'editor (esiste solo in carts/sdk_b16/main.lua:1916); '-' / '+' della mappa crashavano anche per l'utente. Fix di una riga in c38271f7 (local ZOOM_STEPS = {1,2,4,8,16} prima di step_zoom), fuori perimetro CI: dichiarato. Locale: make test-studio exit 0. Crowd e test_mesh non sono piu' rossi nel run.
 - host run 38750609431 (c38271f7): test-prompts, 9 FAIL '(null)'. Causa PREESISTENTE (d0e819f0, chip del mouse): tests/ui/test_prompts.c non aveva i nomi dei 3 PROMPT_MOUSE* in names[] e pretendeva larghezza >=16 / >=altezza, ma il mouse e' 11 px (9 nel chip piccolo) per scelta. Fix solo test in 065f102b: nomi, controllo dedicato del mouse (11x16, angoli liberi), minw 9 nei chip. Locale: make test-prompts ok. Non verificato: altri test host dopo prompts (si vede dal run).
+- 2026-10-16 ci-repair pushato (8de0384d, merge di bm-core). Ultimo run verde su claude/ci-repair: 38867262799 (6e0b5b40). Run rossi sui 5 rami: ledger-add, skills-review-ci-triage, translate-skill, beta6-triage, net-bridge-durable mostrano SOLO i fallimenti preesistenti (test_res 'a game of before', test_monitor_line, test_studio_animator, test_publish, rgb30 el2/ready, qemu 1/3/4): nessuno per colpa propria, sono rami su base bm-core senza ci-repair. Run sul sync: 98 rossi su 100 (push di soli file di sync). ci-repair ha branches-ignore sync/**, ma un push su sync/* usa il ci.yml del branch sync stesso: serve portare quella riga anche li' (proposta a SPV, non applicata).
 
 ## Richieste
