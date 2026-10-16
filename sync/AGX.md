@@ -1,12 +1,12 @@
 ---
 schema: 1
 id: AGX
-state: WAITING
-task: handshake: attesa abilitazione BIOS SVM Mode per WSL
-waiting_on: utente
+state: FREE
+task: libero, pronto per presa in carico WO (AGX-1 in coda)
+waiting_on: 
 wakeup: no
-ack: 2026-10-16T11:56+02:00
-updated: 2026-10-16T12:48+02:00
+ack: 2026-10-16T13:04+02:00
+updated: 2026-10-16T13:13+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -15,38 +15,41 @@ updated: 2026-10-16T12:48+02:00
 > `git pull --rebase origin sync/protocollo-ottobre && git push origin HEAD:sync/protocollo-ottobre`. Almeno ogni 15 min e a ogni task conclusa.
 
 ## Profilo
-- Dove gira: Google Antigravity IDE (sessione locale Windows 11 su host `ROCKET`, PowerShell). Worktree dedicati: `bm33-agx-sync` (`C:\Users\ROCKET\Documents\GitHub\bm33-agx-sync`) per `sync/protocollo-ottobre` e `bm33-agx` (`C:\Users\ROCKET\Documents\GitHub\bm33-agx`) per sviluppo. Punti di rottura: chiusura sessione / timeout contesto / rate limit.
-- Si risveglia da solo: NO (`wakeup no`); lavora a turni con tool esecutivi e subagent (Gemini Pro/Flash/Argon), dichiara `eta` nel blocco di stato.
+- Dove gira: Google Antigravity IDE (sessione locale Windows 11 su host `ROCKET`, PowerShell; build e test via WSL2 Ubuntu tramite `scripts/wsl-run.ps1`). Worktree dedicati: `bm33-agx-sync` (`C:\Users\ROCKET\Documents\GitHub\bm33-agx-sync`) per `sync/protocollo-ottobre` e `bm33-agx` (`C:\Users\ROCKET\Documents\GitHub\bm33-agx`) per sviluppo. Punti di rottura: chiusura sessione / timeout contesto / rate limit.
+- Si risveglia da solo: NO (`wakeup no`); lavora a turni con tool esecutivi e subagent, dichiara `eta` nel blocco di stato.
 - Modelli: Gemini 3.8 Flash (coordinamento ed esecuzione); subagent nativi / routing secondo AGENTS.md (`pro`, `flash`, `flash_lite`, `research`).
-- Competenze: programmazione C bare-metal (kernel, driver, fat32), Lua, Python, Makefile. Limiti: nessun display/input hardware diretto su console; Pi 192.168.1.208 raggiungibile su rete locale (kernel precedente; monitor di rete via `tools/bm_net.py`).
-- Strumenti: Python 3.12.10 (Windows), GNU Make 4.4.1 (ezwinports, Windows), git 2.53.0.windows.4 con push verificato su origin. QEMU arm/aarch64 e toolchain cross ARM non disponibili in ambiente utente Windows (installazione bloccata da privilegi UAC); WSL non installato.
+- Competenze: programmazione C bare-metal (kernel, driver, fat32), Lua, Python, Makefile, QEMU runner. Limiti: nessun Pi o RGB30 fisico raggiungibile direttamente (prove hardware delegate a UTE).
+- Strumenti: Python 3.12.10 (Windows), WSL Python 3.14.4, GNU Make 4.4.1 (Windows e WSL), QEMU arm/aarch64 (qemu-system-arm, qemu-system-aarch64 10.2.1), arm-none-eabi-gcc 14.2.1, aarch64-linux-gnu-gcc 15.2.0 con picolibc/libnewlib, git 2.53.0.windows.4.
 
 ## Requisiti
-- `python` (3.x) nel PATH: SÌ (`Python 3.12.10` Windows).
-- `git` con push su `origin`: SÌ (`git version 2.53.0.windows.4`, push dry-run su `origin/sync/protocollo-ottobre` con esito positivo `Everything up-to-date`).
-- `make` nel PATH: SÌ (`GNU Make 4.4.1` installato via winget).
-- `qemu-system-arm --version` e `qemu-system-aarch64 --version`: NO (mancanti in locale Windows; l'installer winget richiede elevazione amministratore/UAC interattiva).
-- `arm-none-eabi-gcc --version` e `aarch64-linux-gnu-gcc --version`: NO (mancanti in locale Windows; l'installer toolchain ARM richiede elevazione amministratore/UAC).
-- WSL con toolchain linux (`scripts/wsl-run.ps1`): NO (funzionalità WSL installata, ma avvio distribuzioni bloccato da virtualizzazione hardware disabilitata nel BIOS: AMD SVM Mode = False).
-- Nessun Pi/RGB30 raggiungibile dagli operatori: PARZIALE (Pi all'IP `192.168.1.208` raggiungibile via ping e `tools/bm_net.py` con kernel vecchio; nessun dispositivo fisico accessibile per controlli visivi o tasti, prove hardware delegate a UTE).
+- `python` (3.x) nel PATH: SÌ (Python 3.12.10 Windows, Python 3.14.4 WSL Ubuntu).
+- WSL con toolchain per `make` e QEMU (`scripts/wsl-run.ps1`): SÌ (GNU Make 4.4.1, qemu-system-arm 10.2.1, qemu-system-aarch64 10.2.1, arm-none-eabi-gcc 14.2.1, aarch64-linux-gnu-gcc 15.2.0, build-essential).
+- `git` con push su `origin`: SÌ (`git version 2.53.0.windows.4`, push dry-run `Everything up-to-date` su `origin/sync/protocollo-ottobre`).
+- Nessun Pi/RGB30 raggiungibile dagli operatori: SÌ (confermato, nessun hardware fisico collegato direttamente; prove hardware delegate a UTE).
 
 ## Task
-- Handshake iniziale con supervisore SPV su `sync/protocollo-ottobre`.
-- Letti ordini in arrivo in `sync/inbox/AGX.md` (WO AGX-1 e AGX-2). Come da protocollo ("Se un requisito resta mancante, scrivilo nel file e non iniziare WO. Poi pusha e attendi l'assegnazione"), il WO AGX-1 (`make test-sdk-b16`) non viene iniziato in attesa della disponibilità dell'ambiente di compilazione host C/WSL.
+- Handshake iniziale con supervisore SPV su `sync/protocollo-ottobre` completato con successo.
+- Letti ordini in arrivo in `sync/inbox/AGX.md` (WO AGX-1 e AGX-2). Tutti i requisiti di ambiente sono ora verificati: pronto a prendere in carico AGX-1 (`make test-sdk-b16`).
 
 ## Consegne
 
 ## Progressi
-- Eseguito handshake e configurato worktree `bm33-agx-sync` su `sync/protocollo-ottobre`.
-- Installati e configurati nel PATH utente `git` (2.53.0) e `make` (4.4.1).
-- Verificato accesso di rete locale a Raspberry Pi (`192.168.1.208`).
-- Letta la inbox `sync/inbox/AGX.md` con assegnazione WO AGX-1 e AGX-2.
-- Diagnosticata causa blocco WSL: virtualizzazione hardware disabilitata a livello firmware (`VirtualizationFirmwareEnabled: False` su AMD Ryzen 5 3600 / Gigabyte B550I AORUS PRO AX).
+- Eseguito handshake protocollo-ottobre per AGX sul nuovo computer (Windows 11 host `ROCKET`).
+- Configurato worktree dedicato `C:\Users\ROCKET\Documents\GitHub\bm33-agx-sync` su `sync/protocollo-ottobre`.
+- Abilitata virtualizzazione AMD SVM Mode in BIOS e installato WSL2 con distribuzione Ubuntu.
+- Installata ed eseguita verifica deterministica reale di tutti i requisiti:
+  - `python --version` -> Python 3.12.10 (Windows) / Python 3.14.4 (WSL)
+  - `make --version` -> GNU Make 4.4.1 (Windows e WSL)
+  - `qemu-system-arm --version` -> QEMU 10.2.1 (WSL)
+  - `qemu-system-aarch64 --version` -> QEMU 10.2.1 (WSL)
+  - `arm-none-eabi-gcc --version` -> arm-none-eabi-gcc 14.2.1 (WSL)
+  - `aarch64-linux-gnu-gcc --version` -> aarch64-linux-gnu-gcc 15.2.0 (WSL)
+  - `git push (dry-run)` -> OK, accesso a origin verificato
+  - `scripts/wsl-run.ps1` -> verificato ed operativo
+- Letti `sync/inbox/AGX.md`, `sync/wo/AGX-1.md` e `sync/wo/AGX-2.md`.
 
 ## Problemi
-- Mancano `qemu-system-arm`, `qemu-system-aarch64`, `arm-none-eabi-gcc`, `aarch64-linux-gnu-gcc` e WSL.
-- WSL bloccato con errore `HCS_E_HYPERV_NOT_INSTALLED`: la virtualizzazione AMD SVM Mode è disabilitata nel BIOS UEFI.
-- La suite di test host di AGX-1 (`make test-sdk-b16`) richiede un compilatore C host (`HOSTCC`) per generare `build/host/luahost`, attualmente assente su Windows e WSL non avviabile.
+- Nessuno al momento. Tutti i requisiti hardware/software e le toolchain di compilazione sono pienamente operativi.
 
 ## Richieste
-- A UTE: abilitazione di **SVM Mode** nel BIOS della scheda madre Gigabyte B550I AORUS PRO AX (tasto Canc all'avvio -> Tweaker / Advanced CPU Settings -> SVM Mode: Enabled -> F10 salva e riavvia). In seguito WSL2 e Ubuntu si avvieranno regolarmente.
+- A SPV: registrazione operatore AGX completata; procedo con la presa in carico del primo Work Order (AGX-1).
