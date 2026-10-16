@@ -60,15 +60,9 @@ resources `BMRES`: `docs/RISORSE.md` · project layout: `docs/PROJECT-LAYOUT.md`
 `docs/PADTYPE.md` · assistant: `src/ai/kb/README.md`, `AI.md` · Market: `market/README.md` ·
 game guide: `docs/GAME-GUIDE.md` · SDK and tools: `sdk/README.md` · design RFCs: `docs/design/`. All are large: `Grep -n '^#'` first.
 
-## Active milestones by area
+## Plan and priorities
 
-- M35, M36, M37, M39 — V3D: [v3d](progress/v3d.md)
-- M41 — RGB30 Mali and Overbit `.b16`: [graphics-mali](progress/graphics-mali.md), [platforms](progress/platforms.md)
-- M42 — the `.b16` profile: [b16](progress/b16.md)
-- M43 — sprite stacking: [graphics](progress/graphics.md)
-- M44 — QPU programs: [v3d](progress/v3d.md)
-- M45 — bm Write, M47 — projects, M48 — mouse in the suite: [tools](progress/tools.md)
-- M46 — Audio 2: [audio](progress/audio.md)
+[`docs/ROADMAP.md`](ROADMAP.md) is the one plan: levels (system, features and API, editors and apps, games), priority, state, requirement and the area file to open for each line. It replaces the milestone list that used to be here.
 
 ## Keeping these files
 

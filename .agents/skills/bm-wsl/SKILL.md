@@ -1,13 +1,13 @@
 ---
 name: bm-wsl
-description: Esegue build, test e strumenti host di bm in WSL da Windows con un solo comando fisso (scripts/wsl-run.ps1), senza ricostruire ogni volta `wsl -e bash -c "cd /mnt/c/... && ..."`. Usala ogni volta che serve make, un test, build/host/*, python3 su file del repo o uno script temporaneo in WSL; da Windows è la via normale.
+description: Runs bm builds, tests and host tools in WSL from Windows with a single fixed command (scripts/wsl-run.ps1), without rebuilding `wsl -e bash -c "cd /mnt/c/... && ..."` every time. Use it every time you need make, a test, build/host/*, python3 on repo files or a temporary script in WSL; from Windows it is the normal way.
 ---
 
-# bm-wsl: build e test in WSL, sempre nello stesso modo
+# bm-wsl: build and test in WSL, always the same way
 
-Il repo si compila e si prova in WSL (Ubuntu, 8 core). Da Windows si usa **solo**
-`scripts/wsl-run.ps1`: entra nella cartella del repo, converte i percorsi, tiene le ultime
-righe dell'output e restituisce il codice di uscita del comando (non quello di `tail`).
+The repo is built and tested in WSL (Ubuntu, 8 cores). From Windows use **only**
+`scripts/wsl-run.ps1`: it enters the repo folder, converts the paths, keeps the last
+lines of output and returns the exit code of the command (not that of `tail`).
 
 ```powershell
 scripts/wsl-run.ps1 "make test-audio"                       # ultime 40 righe
@@ -17,34 +17,34 @@ scripts/wsl-run.ps1 "make test-riff" -Dir tests             # da una sottocartel
 scripts/wsl-run.ps1 -Script C:\percorso\scratchpad\t.sh test-riff   # script temporaneo + argomenti
 ```
 
-Dalla Bash tool: `powershell -NoProfile -File scripts/wsl-run.ps1 "<comando>"`.
+From the Bash tool: `powershell -NoProfile -File scripts/wsl-run.ps1 "<comando>"`.
 
-## Regole (da CLAUDE.md)
+## Rules (from CLAUDE.md)
 
-- Solo il test di ciò che la modifica tocca (`make test-<nome>`, QEMU `tests/qemu_test.py -k <nome>`).
-  Mai `make test` intero in sviluppo; GPU solo `make test-b3d`. `kernel7` si ignora.
-- Compilare con `-j$(nproc)`; un `make` che ha già costruito non si rilancia a vuoto: prima
-  `make -n <target> | head` se non si sa cosa ricostruirebbe.
-- Output lungo: `-Tail 15` per i build, `-Tail 40` (default) per i test. Se un test fallisce,
-  rilancia solo quel test con `-Tail 120`, non la suite.
+- Test only what the change touches (`make test-<nome>`, QEMU `tests/qemu_test.py -k <nome>`).
+  Never the whole `make test` during development; GPU only `make test-b3d`. `kernel7` is ignored.
+- Build with `-j$(nproc)`; a `make` that has already built is not rerun idly: first
+  `make -n <target> | head` if you do not know what it would rebuild.
+- Long output: `-Tail 15` for builds, `-Tail 40` (default) for tests. If a test fails,
+  rerun only that test with `-Tail 120`, not the suite.
 
-## Target usati più spesso
+## Most used targets
 
 Build: `make -j$(nproc) build/kernel.img`, `make ai-model`, `make market-seed MARKET=<clone>`.
-Test: `test-audio`, `test-sound`, `test-riff`, `test-impostor`, `test-b3d`, `test-bm`,
+Tests: `test-audio`, `test-sound`, `test-riff`, `test-impostor`, `test-b3d`, `test-bm`,
 `test-gameapi`, `test-studio`, `test-sdk-b16`, `test-bmnet`, `test-qpu`, `test-host`.
-Strumenti host: `build/host/luahost <script.lua> …`, `build/host/bmhost-bin`.
-L'elenco completo: `Grep -n '^test-' Makefile`.
+Host tools: `build/host/luahost <script.lua> …`, `build/host/bmhost-bin`.
+The full list: `Grep -n '^test-' Makefile`.
 
-## Script temporanei
+## Temporary scripts
 
-Gli script di prova stanno nella cartella scratchpad della sessione e si lanciano con
-`-Script <percorso Windows>` (il wrapper converte il percorso con `wslpath`). Non scrivere
-`wsl bash /mnt/c/Users/...` a mano.
+Test scripts live in the session scratchpad folder and are launched with
+`-Script <Windows path>` (the wrapper converts the path with `wslpath`). Do not write
+`wsl bash /mnt/c/Users/...` by hand.
 
-## Se qualcosa non va
+## If something goes wrong
 
-- `wslpath failed`: WSL non installato o distro spenta; `wsl -l -v`.
-- Percorsi con spazi: sono già tra apici nel wrapper; nel comando usa apici doppi interni.
-- Variabili della shell nel comando PowerShell: proteggi il `$` con un backtick (`` `$(nproc) ``) o
-  usa apici singoli attorno a tutto il comando.
+- `wslpath failed`: WSL not installed or distro stopped; `wsl -l -v`.
+- Paths with spaces: they are already quoted in the wrapper; in the command use inner double quotes.
+- Shell variables in the PowerShell command: protect the `$` with a backtick (`` `$(nproc) ``) or
+  use single quotes around the whole command.

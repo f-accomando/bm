@@ -1,88 +1,87 @@
-# Proposte di Sviluppo: bm Code (L'Editor di Codice della Console)
+# Development Proposals: bm Code (The Console's Code Editor)
 
-Questo documento analizza cosa manca a **bm Code** (`carts/code`) per supportare progetti di programmazione complessi su console, superare il vincolo del file monolitico e migliorare l'integrazione con gli asset grafici e sonori.
-
----
-
-## 1. Stato Attuale di bm Code
-
-Attualmente `bm Code` è un editor di codice agile e ben ottimizzato per schermi a bassa risoluzione:
-- **Visualizzazione**: Tab per cartucce multiple, vista affiancata a due pagine (Split), font 6×12 (106 colonne, 28 righe di codice), 8×14 e 8×16.
-- **Scrittura assistita**: Completamento automatico predittivo (`predict`), scrittura assistita da gamepad (`padtype`), assistente AI su F6 e righe `#entry: ... #`.
-- **Debug & Audio**: Breakpoint su riga con F8, riproduzione delle righe di codice come note musicali con Ctrl+Invio (`riff`).
+This document analyzes what **bm Code** (`carts/code`) lacks to support complex programming projects on the console, overcome the monolithic-file constraint and improve integration with graphic and sound assets.
 
 ---
 
-## 2. Cosa Manca per Progetti e Giochi Complessi
+## 1. Current State of bm Code
 
-Nonostante l'eccellente usabilità su console, per progetti di grandi dimensioni emergono forti limitazioni:
+`bm Code` is currently an agile code editor, well optimized for low-resolution screens:
+- **Display**: Tabs for multiple cartridges, side-by-side two-page view (Split), 6×12 font (106 columns, 28 code lines), 8×14 and 8×16.
+- **Assisted writing**: Predictive autocomplete (`predict`), gamepad-assisted writing (`padtype`), AI assistant on F6 and `#entry: ... #` lines.
+- **Debug & Audio**: Line breakpoints with F8, playback of code lines as musical notes with Ctrl+Enter (`riff`).
 
-### A. Assenza di Struttura Multi-File all'Interno dello Stesso Progetto
-- Attualmente le tab di bm Code aprono **cartucce `.bm` o `.bme` distinte**, non file sorgente multipli dello stesso progetto.
-- Di conseguenza:
-  - In *Titan Clash*, gli sviluppatori hanno dovuto creare una cartella `carts/titan/src/` con 11 file Lua (`00_core.lua`, `20_fighter.lua`, `30_fx.lua`, `70_screens.lua`...) e creare uno script Python `build.py` da eseguire su PC per concatenarli in un unico `main.lua`.
-  - In *Yharnam*, dove lo script di build non è stato impostato allo stesso modo, l'intero gioco risiede in un unico gigantesco file `main.lua` da **5.573 righe**.
-- Modificare, navigare e manutenere un file di 5.000 righe su una console retro con risoluzione 640×360 o 360×360 è un'esperienza sfiancante.
+---
 
-### B. Mancanza di Asset Picker e Completamento Visivo
-- Quando un programmatore scrive in bm Code:
+## 2. What Is Missing for Complex Projects and Games
+
+Despite the excellent usability on the console, large projects run into strong limitations:
+
+### A. No Multi-File Structure Within the Same Project
+- Currently bm Code tabs open **distinct `.bm` or `.bme` cartridges**, not multiple source files of the same project.
+- As a result:
+  - In *Titan Clash*, developers had to create a `carts/titan/src/` folder with 11 Lua files (`00_core.lua`, `20_fighter.lua`, `30_fx.lua`, `70_screens.lua`...) and create a Python script `build.py` to run on a PC to concatenate them into a single `main.lua`.
+  - In *Yharnam*, where the build script was not set up the same way, the whole game lives in a single gigantic `main.lua` file of **5,573 lines**.
+- Editing, navigating and maintaining a 5,000-line file on a retro console with a 640×360 or 360×360 resolution is a grueling experience.
+
+### B. No Asset Picker and Visual Completion
+- When a programmer writes in bm Code:
   ```lua
   zspr("eroe_colpo_pesante", x, y)
   sfx("slash_crit")
   local m = model("gargoyle")
   ```
-  deve ricordare a memoria la grafia esatta delle stringhe definite in altri editor (bm Pixel, bm Sound, bm Studio).
-- Se sbaglia una lettera (`"eroe_colpo_pesabte"`), il gioco fallisce silenziosamente o va in crash a runtime.
-- Non esiste alcun completamento automatico o anteprima contestuale degli asset del progetto.
+  they must remember by heart the exact spelling of strings defined in other editors (bm Pixel, bm Sound, bm Studio).
+- If they misspell a letter (`"eroe_colpo_pesabte"`), the game fails silently or crashes at runtime.
+- There is no autocomplete or contextual preview of the project's assets.
 
-### C. Assenza di un Ispettore delle Variabili a Runtime (Live Watcher)
-- Per il debug, gli sviluppatori sono costretti a inserire decine di `print("stato=" .. p.state, 10, 10)` temporanei nel codice, che sporcano lo schermo e vanno poi cancellati a mano.
-- Sebbene esista F8 per i breakpoint, manca un pannello di **Watch** per monitorare le variabili dell'entità selezionata (es. `p1.state`, `p1.vx`, `p1.vy`, `p1.swing`, `p1.invuln`) durante l'esecuzione a 60 fps.
+### C. No Runtime Variable Inspector (Live Watcher)
+- For debugging, developers are forced to insert dozens of temporary `print("stato=" .. p.state, 10, 10)` calls in the code, which clutter the screen and must then be deleted by hand.
+- Although F8 exists for breakpoints, there is no **Watch** panel to monitor the selected entity's variables (e.g. `p1.state`, `p1.vx`, `p1.vy`, `p1.swing`, `p1.invuln`) while running at 60 fps.
 
-### D. Scrittura Ripetitiva delle Macchine a Stati da Zero
-- Ogni nuovo gioco richiede di riscrivere da zero le stesse 100–200 righe per gestire:
-  - Buffer degli input (memorizzare la pressione di un tasto per 4–8 frame in modo che l'attacco esca appena termina l'animazione precedente).
-  - Macchina a stati finiti (FSM) con controllo dei frame e transizioni.
-  - Timer di invulnerabilità post-colpo (i-frames) e hit-stop (blocco temporaneo del fotogramma all'impatto).
+### D. Repetitive Writing of State Machines from Scratch
+- Every new game requires rewriting from scratch the same 100–200 lines to handle:
+  - Input buffers (remembering a key press for 4–8 frames so that the attack fires as soon as the previous animation ends).
+  - Finite state machine (FSM) with frame checks and transitions.
+  - Post-hit invulnerability timers (i-frames) and hit-stop (temporary frame freeze on impact).
 
 ---
 
-## 3. Complessità "Fatta a Mano" vs Soluzione Integrata
+## 3. "Hand-Made" Complexity vs Integrated Solution
 
-| Operazione | Approccio Attuale ("A mano") | Con l'Evoluzione di bm Code |
+| Operation | Current Approach ("By hand") | With the Evolution of bm Code |
 |---|---|---|
-| **Organizzazione Progetto** | File unico da 5000+ righe, oppure build script Python esterno su PC | Tab per moduli (`player.lua`, `boss.lua`, `hud.lua`) nello stesso progetto `.bme`, caricati nativamente da `require` |
-| **Richiamo Asset** | Ricordare a memoria i nomi di sprite, mesh e suoni o cercarli su foglietti | Scrivi `zspr("` e compare il menu contestuale con le miniature degli sprite e i nomi delle zone |
-| **Debug di Movimento e Stati** | `print()` sparsi nel codice di disegno | Overlay F7: tabella variabili d'interesse visibile in sovrimpressione trasparente durante la prova con F5 |
-| **Buffer Input & Combattimento** | Decine di righe di logica custom con contatori di frame | Snippet assistito: *Insert Combat State Machine* dal menu dell'assistente |
+| **Project Organization** | Single 5000+ line file, or external Python build script on a PC | Tabs for modules (`player.lua`, `boss.lua`, `hud.lua`) in the same `.bme` project, loaded natively by `require` |
+| **Asset Recall** | Remember sprite, mesh and sound names by heart or look them up on notes | Type `zspr("` and the contextual menu appears with sprite thumbnails and zone names |
+| **Debugging Movement and States** | `print()` scattered in the drawing code | F7 overlay: table of variables of interest visible in a transparent overlay during the F5 test run |
+| **Input Buffer & Combat** | Dozens of lines of custom logic with frame counters | Assisted snippet: *Insert Combat State Machine* from the assistant menu |
 
 ---
 
-## 4. Proposte di Sviluppo & Roadmap per bm Code
+## 4. Development Proposals & Roadmap for bm Code
 
-### Proposta 1: Supporto Multi-Modulo Nativo nei Progetti `.bme`
-- Permettere a un progetto `.bme` di contenere più sezioni di codice Lua (es. `main.lua`, `player.lua`, `enemies.lua`, `ui.lua`).
-- In bm Code, una barra secondaria o una scorciatoia (es. `Ctrl+Tab` o `Ctrl+P`) permette di saltare istantaneamente da un modulo all'altro.
-- Il runtime Lua integra nativamente `require "player"` cercando prima tra i moduli interni della cartuccia. In questo modo il progetto rimane pulito, modulare e sviluppabile al 100% su console senza script Python esterni.
+### Proposal 1: Native Multi-Module Support in `.bme` Projects
+- Allow a `.bme` project to contain multiple Lua code sections (e.g. `main.lua`, `player.lua`, `enemies.lua`, `ui.lua`).
+- In bm Code, a secondary bar or a shortcut (e.g. `Ctrl+Tab` or `Ctrl+P`) lets you jump instantly from one module to another.
+- The Lua runtime natively integrates `require "player"`, searching first among the cartridge's internal modules. This way the project stays clean, modular and 100% developable on the console without external Python scripts.
 
-### Proposta 2: Asset IntelliSense & Popup Visivo
-- Quando il cursore è dentro le funzioni di richiamo asset:
-  - **`zspr("`**: si apre un pop-up con la lista di tutte le zone nominali salvate in `SPRITES`, con anteprima grafica in miniatura (8×8, 16×16) e numero di frame.
-  - **`sfx("`** o **`note(`**: pop-up con i nomi degli effetti sonori e possibilità di ascoltare l'anteprima premendo Spazio.
-  - **`model("`**: elenco dei modelli 3D disponibili nella sezione `MESH` con anteprima wireframe.
-  - **`flag(`**: visualizzazione dei flag 0–7 e del loro significato configurato nel progetto (es. `0=Muro, 1=Piattaforma, 4=Spuntoni`).
+### Proposal 2: Asset IntelliSense & Visual Popup
+- When the cursor is inside the asset-recall functions:
+  - **`zspr("`**: opens a popup with the list of all named zones saved in `SPRITES`, with a graphic thumbnail preview (8×8, 16×16) and frame count.
+  - **`sfx("`** or **`note(`**: popup with the names of the sound effects and the ability to hear a preview by pressing Space.
+  - **`model("`**: list of the 3D models available in the `MESH` section with wireframe preview.
+  - **`flag(`**: display of flags 0–7 and their meaning as configured in the project (e.g. `0=Wall, 1=Platform, 4=Spikes`).
 
-### Proposta 3: Live Variable Watcher (Pannello F7 durante F5)
-- In bm Code è possibile contrassegnare una riga o una variabile con un marcatore di "Watch" (es. `#watch player.state, player.vx, player.vy`).
-- Quando si avvia la prova del gioco con **F5**, premendo **F7** compare un riquadro semitrasparente in alto a destra con i valori aggiornati a 60 fps, senza dover toccare il codice di `_draw()`.
+### Proposal 3: Live Variable Watcher (F7 Panel during F5)
+- In bm Code you can mark a line or a variable with a "Watch" marker (e.g. `#watch player.state, player.vx, player.vy`).
+- When starting the game test run with **F5**, pressing **F7** shows a semi-transparent box at the top right with values updated at 60 fps, without touching the `_draw()` code.
 
-### Proposta 4: Snippet Generatori per Archetipi di Gioco
-Integrare nel menu dell'assistente (F6) generatori di pattern architetturali collaudati:
-1. **FSM Controller**: Genera la struttura standard per stati `IDLE`, `WALK`, `ATTACK`, `HURT`, `FALL`.
-2. **Input Buffer Queue**: Genera la logica standard a 6 frame per accettare input di attacco in anticipo.
-3. **Screen Shake & Hit-stop**: Funzioni standard pronte all'uso per dare impatto visivo ai colpi.
+### Proposal 4: Snippet Generators for Game Archetypes
+Integrate into the assistant menu (F6) generators of proven architectural patterns:
+1. **FSM Controller**: Generates the standard structure for `IDLE`, `WALK`, `ATTACK`, `HURT`, `FALL` states.
+2. **Input Buffer Queue**: Generates the standard 6-frame logic to accept attack input in advance.
+3. **Screen Shake & Hit-stop**: Ready-to-use standard functions to give hits visual impact.
 
-### Proposta 5: Template di Gioco per "New Game" (R16)
-- Attualmente "New Game" in bm Code genera un unico scheletro vuoto elementare (`TEMPLATE`).
-- Integrare la selezione guidata dei template già disponibili nell'SDK (Platform 2D, Top-Down 2D, Versus 2D, Shooter 2D, 3D Scene), generando file pronti e strutturati a moduli.
-
+### Proposal 5: Game Templates for "New Game" (R16)
+- Currently "New Game" in bm Code generates a single basic empty skeleton (`TEMPLATE`).
+- Integrate guided selection of the templates already available in the SDK (Platform 2D, Top-Down 2D, Versus 2D, Shooter 2D, 3D Scene), generating ready, module-structured files.

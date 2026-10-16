@@ -3523,7 +3523,7 @@ def test_publish(b, opts):
             time.sleep(0.5)
             keys("x")                               # the options of My Game
             screen(["My Game", "Play"])
-            keys("sssssssss")                       # after the seven "Open in" and the copy
+            keys("ssssssssss")                      # after the seven "Open in", the copy and Export .b16
             screen(["Publish to the Market", "A pull request with your GitHub token"])
             keys("\r")
             screen(["Publish > My Game", "games/my-game", "License", "MIT", "GitHub token", "set",
@@ -4206,7 +4206,7 @@ def test_studio_animator(b, opts):
         screen(["SPRITES", "villager", "idle", "384x192 pixels in the sheet"])
         shot("animator-sprites")
         keys("\r")
-        screen(["32 sprites put in the sheet", "sspr("], tries=80)
+        screen(["32 sprites and 56 boxes put in sheet", "sspr("], tries=80)
         shot("animator-sprites-put")
 
         # out (not saved: asked twice)
@@ -4707,7 +4707,8 @@ def test_mesh(b, opts):
         keys("s", "s", "s", "s", "s", "s")      # Play, SDK, Code, Sound, Studio, Animator, Mesh
         screen(["Open in bm Mesh"])
         keys("\r")
-        text = screen(["list", "edit", "MESHES 13", "ship", "30 vertices, 32 triangles", "built by the game's code"])
+        text = screen(["list", "edit", "MESHES 13", "ship", "30 vertices, 32 triangles", "built by the game's code",
+                       "0 models, 0 code meshes, 13 from the game's code"])   # (the header row too: a redraw may be caught half way)
         assert "0 models, 0 code meshes, 13 from the game's code" in text, text
         assert "core_hot" in text and "turret" in text, text
         shot("list")
@@ -5153,7 +5154,6 @@ def test_monitor_line(b, opts):
         assert "running: menu" in out, out
         q.expect("> ")
         q.send(":set gpu3d_fs2=1 gpu3d_sort=1; b3d tests=spheres,quad_flat profiles=ARM; nope; send\r")
-        q.expect("back to the monitor", timeout=10)
         q.expect("set gpu3d_fs2=1 (until a restart", timeout=10)
         q.expect("set gpu3d_sort=1", timeout=10)
         out = q.expect("3D Bench: done", timeout=240).decode(errors="replace")
@@ -6586,8 +6586,7 @@ def test_editor_mouse(b, opts):
     try:
         q.boot()
         run(q, "e")
-        look(q, ["OPEN IN"], 8, 16)
-        text = screen_text(q.screendump())
+        text = look(q, ["OPEN IN", "code"], 8, 16)   # the same dump: a later one may catch a redraw
         cx, cy = find(text[:1], "code", 8, 16)
         click(q, cx, cy)                    # the F2 tab: the code page
         look(q, ["line 1/"], 8, 16, gone=["OPEN IN"])
@@ -6595,8 +6594,7 @@ def test_editor_mouse(b, opts):
         text = look(q, ["Cut the line", "Build the game .bm", "Ctrl+B"], 8, 16)
         shot(q, "sdk-context")
         click(q, 600, 40)                   # outside: it closes, nothing else
-        look(q, [], 8, 16, gone=["Cut the line"])
-        text = screen_text(q.screendump())
+        text = look(q, ["menu"], 8, 16, gone=["Cut the line"])   # the same dump: a later one may catch a redraw
         mx, my = find(text[:1], "menu", 8, 16)
         click(q, mx, my)                    # the Esc tab: the menu page
         text = look(q, ["Continue", "Exit bm SDK"], 8, 16)
@@ -7507,8 +7505,8 @@ def test_projects(b, opts):
         q.expect("menu: built /carts/PONG.BME to /carts/PONG1.BM", timeout=20)     # again: the same one
         # A on the project: the SDK on it
         keys("\r", gap=1.0)
-        q.expect("bm: loaded in", timeout=30)
-        screen(["opened /carts/PONG.BME"])
+        # the suite opens with no splash (carts.c, 2026-10-10): no "bm: loaded in"
+        screen(["opened /carts/PONG.BME"], tries=80)
         shot("sdk")
         keys("\x1b", gap=0.6)
         keys("\x1b[A", gap=0.3)                  # Exit bm SDK

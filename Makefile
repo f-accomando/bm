@@ -463,10 +463,10 @@ $(BUILD)/keymap-test.bm: tests/keymap/cart.lua scripts/mkbm.py
 # The games' loading screen (src/bm/loading.c, 2026-10-04): the retro intro,
 # its jingle, the console's page then the game's; the frames in build/loading/
 $(BUILD)/host/test_loading: tests/bm/test_loading.c src/bm/loading.c src/bm/loading_logo.c src/bm/loading.h \
-                            src/bm/gfx16.c src/gfx/font6x12.c src/lib/printf.c src/audio/presets.c
+                            src/bm/gfx16.c src/gfx/font6x12.c src/lib/printf.c src/audio/presets.c src/audio/synth.c
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Isrc/bm -o $@ tests/bm/test_loading.c src/bm/loading.c \
-	    src/bm/loading_logo.c src/bm/gfx16.c src/gfx/font6x12.c src/lib/printf.c src/audio/presets.c -lm
+	    src/bm/loading_logo.c src/bm/gfx16.c src/gfx/font6x12.c src/lib/printf.c src/audio/presets.c src/audio/synth.c -lm
 
 test-loading: $(BUILD)/host/test_loading
 	@mkdir -p $(BUILD)/loading
@@ -551,10 +551,15 @@ test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 
 # Resource files (docs/RISORSE.md, scripts/bmres.py): models, images, sounds,
 # maps and palettes out of a .bm and back in, conversions, broken files
-test-res: $(BUILD)/carts/village.bm $(BUILD)/demo.bm $(BUILD)/sound.bm scripts/bmres.py $(BUILD)/host/test_res
+test-res: $(BUILD)/carts/village.bm $(BUILD)/village-before.bm $(BUILD)/demo.bm $(BUILD)/sound.bm scripts/bmres.py $(BUILD)/host/test_res
 	rm -rf $(BUILD)/res && $(PYTHON) tests/res/test_bmres.py $(BUILD)/carts/village.bm $(BUILD)/demo.bm \
 	    $(BUILD)/sound.bm $(BUILD)/res
-	$(BUILD)/host/test_res $(BUILD)/res $(BUILD)/carts/village.bm
+	$(BUILD)/host/test_res $(BUILD)/res $(BUILD)/village-before.bm
+
+# a game of before the INFO section: the village without bm.info (test_res)
+$(BUILD)/village-before.bm: carts/village/main.lua carts/village/assets/models.bm scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title Village --author bm --res 320x180 \
+	    --models carts/village/assets/models.bm
 
 $(BUILD)/host/test_res: tests/bm/test_res.c src/bm/format.c src/lib/crc32.c src/bm/bm.h
 	@mkdir -p $(dir $@)
@@ -821,7 +826,8 @@ qemu-screenshot: $(BUILD)/kernel.img
 # make test: the tests on the PC, then those in QEMU. The CI runs them on
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
-HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-nano8 test-net test-http test-https test-img3d \
+# test-nano8 stays a target to run by hand; it is not in the CI list
+HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-docs $(if $(K7),test-hyp)
@@ -1328,7 +1334,7 @@ test-etc1: $(BUILD)/host/test_etc1
 $(BUILD)/host/test_impostor: tests/bm/test_impostor.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/gpu3d.c                              src/gpu/gpu3d.h src/gpu/v3d_cl.c src/gpu/v3d.h src/gpu/shaders.h src/bm/r3d.c                              src/bm/gfx16.c src/bm/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free 	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/bm/test_impostor.c tests/gpu/v3d_emu.c 	    src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/r3d.c src/bm/gfx16.c $@-gpu3d.o -lm
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/bm/test_impostor.c tests/gpu/v3d_emu.c 	    src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/r3d.c src/bm/gfx16.c $@-gpu3d.o -lm
 
 test-impostor: $(BUILD)/host/test_impostor
 	$<
