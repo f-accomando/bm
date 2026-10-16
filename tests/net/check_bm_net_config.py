@@ -356,6 +356,23 @@ def main():
         logged = pi_bridge.masked("config menu_scale=3 layout=it")
         check("***" in logged and "=3" not in logged and "=it" not in logged, "bridge: the log line of a config holds *** and not the value")
 
+        # line: only the monitor commands of the list, ';' between them, b3d with tests=/profiles= (R-NET6)
+        for req, want in (("gpu", "gpu"), ("err", "err"),
+                          ("render; room; log; reboot", "render; room; log; reboot"),
+                          ("gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send", "gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send"),
+                          ("  gpu ;b3d   tests=quad_flat  profiles=FS2 ;  send ", "gpu; b3d tests=quad_flat profiles=FS2; send")):
+            pi_bridge.run("1.2.3.4", "s3cret", "line " + req)
+            check(seen[-1][-2:] == ["--line", want], f"bridge: line {req!r} -> {want!r}")
+        out = pi_bridge.run("1.2.3.4", "s3cret", "line set wifi_psk=x")
+        check(out.startswith("refused: line:") and "'set' is not allowed" in out, "bridge: line set wifi_psk=x refused, says why")
+        n0 = len(seen)
+        for req in ("save", "play pong", "gpu; set wifi_psk=x", "gpu; save", "err; play pong", "GPU", "Gpu",
+                    "gpu\tb3d", "gpu\rsave", "gpu\x1b", "err²", "gpu;;err", "gpu; ", "err now", "b3d tests=a-b", "b3d verbose=1",
+                    "b3d tests=", "x" * 200):
+            out = pi_bridge.run("1.2.3.4", "s3cret", "line " + req)
+            check(out.startswith("refused: line:"), f"bridge: line {req[:30]!r} refused")
+        check(len(seen) == n0, "bridge: the refused lines started nothing")
+
         # status: down without a process; up with the version and the state of the run before, the password masked
         real_cv = pi_bridge.bm_net.console_version
         pi_bridge.bm_net.console_version = lambda host: None

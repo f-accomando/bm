@@ -98,7 +98,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 
 ## Rules (do not break)
 
-- Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a dialog frame never crosses the title row (QEMU tests read it). API list: one source `src/ai/api.tsv` → `build/words.lua` (`api`, `allow`), never edited by hand; the Lua lint in `src/ai/predict.lua` keeps the output of `scripts/api_lint.py` (diff check APP-5b-2). `api.tsv` has one line per signature of a name (`music(n, ...)`, `music(-1)`, `music()`); `predict.api(name).forms` lists them and Ctrl+Q shows all. CI: `make test-api` (`mkapi.py --check`, tests of mkapi and api_lint). The help screen is not verified on hardware.
+- Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a dialog frame never crosses the title row (QEMU tests read it). API list: one source `src/ai/api.tsv` → `build/words.lua` (`api`, `allow`), never edited by hand; the Lua lint in `src/ai/predict.lua` keeps the output of `scripts/api_lint.py` (diff check APP-5b-2). `api.tsv` has one line per signature of a name (`music(n, ...)`, `music(-1)`, `music()`); `predict.api(name).forms` lists them and Ctrl+Q shows all. CI: `make test-api` (`mkapi.py --check`, tests of mkapi and api_lint). The help screen is not verified on hardware. `tools/pi_bridge.py` `line`: allowlist `LINE_CMDS` per `;`-command, no `set`/`save`/`play`; widening it needs SPV (R-NET6).
 - bm Mesh rewrites only the lines between `-- [bm Mesh begin]` and `-- [bm Mesh end]`.
 - Mouse (`require "bmui"`, `src/script/bmui.lua`): the mouse does what the keys do: zones
   registered while drawing, chips that press the key, `U.press` before `keyp()`, a context menu

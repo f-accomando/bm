@@ -7,7 +7,7 @@ fixed operations without ever seeing the password.
   python3 tools/pi.py line gpu                        # the client (another shell, or Claude)
   python3 tools/pi.py status                          # is the Pi up, which kernel, how did the run before end
 
-Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.TXT and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, reboot: the last ones only when the monitor has the keys), line TEXT (a monitor line: gpu, b3d, ...), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. (words of letters, digits and _-. only).
+Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.TXT and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, reboot: the last ones only when the monitor has the keys), line TEXT (monitor commands separated by ';', only gpu, b3d tests=.. profiles=.., render, room, log, err, send, reboot; set/save/play and anything else refused), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. (words of letters, digits and _-. only).
 One bridge per device: --dev NAME gives the socket ~/.pi_bridge.NAME.sock and the files out/pi_NAME_*.TXT.
 FILE must be inside the repo or in ~/bmk*/ (the build folders); OUT of shot is a .png in a folder there. The socket is ~/.pi_bridge.sock, mode 0600."""
 import datetime
@@ -16,6 +16,7 @@ import os
 import re
 import signal
 import socket
+import string
 import subprocess
 import sys
 
@@ -31,7 +32,39 @@ KEYS = {"monitor": "q", "crash-dabt": "Xa", "crash-undef": "Xu", "crash-prefetch
 MONITOR_ONLY = {"crash-dabt", "crash-undef", "crash-prefetch", "freeze", "reboot"}
 # the logs of the SD card the Pi writes at a crash or a boot (netxfer.c G allows these three names only)
 LOGS = {"bootprev": "BOOTPREV.TXT", "bootlog": "BOOTLOG.TXT", "lastrun": "LASTRUN.TXT"}
-ALLOWED_DIRS = [ROOT] + [os.path.expanduser("~/" + d) for d in os.listdir(os.path.expanduser("~")) if d.startswith("bmk")]
+# the monitor commands the line operation passes (src/kernel/monitor.c:291 lists them all; set, save and play are left out:
+# set writes any config key, wifi_psk and net_password included; play is the bridge's play FILE)
+LINE_CMDS = ("gpu", "b3d", "render", "room", "log", "err", "send", "reboot")
+# letters, digits, space and _ , = ; only (a control character would end the line early: bm_net.py closes it with a carriage return)
+LINE_CHARS = set(string.ascii_letters + string.digits + " _,=;")
+# b3d reads tests= and profiles= only (monitor.c:225-232); their names are [A-Za-z0-9_] (src/bm/b3d.c prof_short, test names)
+B3D_ARG = re.compile(r"(tests|profiles)=[A-Za-z0-9_,]+")
+
+
+def check_line(text):
+    """(normalised line, None) or (None, why): the commands of LINE_CMDS, ';' between them, b3d with tests=/profiles= only."""
+    if not text or len(text) >= 200:
+        return None, "empty or longer than 199 characters"
+    for c in text:
+        if c not in LINE_CHARS:
+            return None, "character %r not allowed" % c
+    segments = []
+    for seg in text.split(";"):
+        words = seg.split()
+        if not words:
+            return None, "empty command between ';'"
+        if words[0] not in LINE_CMDS:
+            return None, "'%s' is not allowed (allowed: gpu, b3d, render, room, log, err, send, reboot)" % words[0]
+        if words[0] != "b3d" and len(words) > 1:
+            return None, "'%s' takes no arguments" % words[0]
+        for w in words[1:]:
+            if not B3D_ARG.fullmatch(w):
+                return None, "b3d: '%s' is not tests=... or profiles=..." % w
+        segments.append(" ".join(words))
+    return "; ".join(segments), None
+
+
+ALLOWED_DIRS =[ROOT] + [os.path.expanduser("~/" + d) for d in os.listdir(os.path.expanduser("~")) if d.startswith("bmk")]
 
 
 def allowed(path):
@@ -87,8 +120,11 @@ def run(host, pw, req):
         return status(host, pw)
     if op == "config" and any(is_secret_key(w) for w in arg.split()):
         return "config: secret keys are not set through the bridge"
-    if op == "line" and arg and len(arg) < 200 and all(c.isalnum() or c in " _-.=" for c in arg):
-        cmd = base + ["--line", arg]
+    if op == "line":
+        line, why = check_line(arg)
+        if why:
+            return "refused: line: " + why
+        cmd = base + ["--line", line]
     elif op == "config" and arg and len(arg) < 200 and all(c.isalnum() or c in " _-.=" for c in arg) \
             and all(w.count("=") == 1 and not w.startswith("=") for w in arg.split()):
         cmd = base + ["--config"] + arg.split()
