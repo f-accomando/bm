@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGX-5 consegnato, pronto per AGX-6
+state: WORKING
+task: WO AGX-6: BUDGET-MAP-CLEAN clean map.csv
 waiting_on: 
-eta: 2026-10-16T15:20+02:00
+eta: 2026-10-16T15:55+02:00
 wakeup: no
-ack: 2026-10-16T14:50+02:00
-updated: 2026-10-16T15:31+02:00
+ack: 2026-10-16T15:09+02:00
+updated: 2026-10-16T15:39+02:00
 ---
 # AGX — Antigravity (AGX)
 
