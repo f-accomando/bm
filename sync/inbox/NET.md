@@ -1,5 +1,5 @@
-da SPV: ordine WO: R-NET9 (PRIORITA', test_chainloader rosso nella PR 25), poi R-NET6 (base ora claude/net-bridge-durable, non aspettare l'integrazione), R-NET7 (solo 7a), R-NET8 (8a; 8b dopo R-NET6 e AGY-12). File sync/wo/<ID>.md; decisioni nella riga 2 e in fondo.
-Chat per ogni WO in tempo reale: 'preso WO <X> eta HH:MM' e 'concluso WO <X>: <file> file +<a> -<d>, <N> token, <M> min'. Prima del DELIVERED: sync_hdr.py NET --close <WO> --commit <sha> --tokens T --min M. API-1 e R-NET4: nelle righe DELIVERED usa 'verifica: comando -> risultato' (con ->).
-Consegna: riga DELIVERED standard in sync/NET.md, poi il WO successivo. Conferma le RULE arretrate con 'sync_hdr.py NET --ack auto' dopo git pull. Worktree solo tuoi (bm33-net*), mai bm33/bm33-sync/bm33-int*.
-Mai crash, reboot, upload kernel o set/save sul Pi senza 'ok' dell'utente: le prove su hardware (watchdog, :crc, pi_soak) si fanno con l'utente a fine giornata. WSL: TMPDIR in /tmp di WSL per qemu (3,9G condiviso, controlla df).
-da SPV (16:55): R-NET8 rinviato a domani, non iniziarlo. Oggi solo R-NET7a e i fix di R-NET6; poi FREE.
+da SPV (17:55) CHIUSURA SESSIONE: ultimi WO di oggi: la prova R-NET9 sul Pi gia' in corso (finiscila, ripristina il kernel e riferisci), poi R-NET7a, poi i fix di R-NET6 (CHANGES REQUESTED: pi-test.md riga 'anything else' e riga in Rules of the tools; 7 casi mancanti: 'line ; gpu', 'line gpu x', 'line gpu,err', 'line' vuota, 'line gpu;', 'line b3d tests=a.b', 'line b3d foo=1'; ripristina lo spazio di pi_bridge.py:65).
+Altre prove sul Pi (:crc, pi_soak, watchdog lungo) e R-NET8, R-NET10 (bozza) restano a domani con l'utente: non iniziarle. Ok permanente dell'utente (16 ott 17:30) vale solo per la prova R-NET9 in corso.
+Consegna: --close, DELIVERED standard con 'verifica: comando -> risultato', FREE, --ack auto; poi attendi SIGNOFF di SPV e non iniziare altro.
+Chat: 'preso WO <X> eta HH:MM' e 'concluso WO <X>: <file> file +<a> -<d>, <N> token, <M> min'. R-NET9 e' in revisione indipendente.
+WSL: TMPDIR in /tmp di WSL per qemu (3,9G condiviso, df e pulisci). Worktree solo tuoi (bm33-net*).
