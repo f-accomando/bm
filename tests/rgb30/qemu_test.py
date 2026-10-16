@@ -222,7 +222,8 @@ def test_screen_console(b, opts):
 
 def test_el2_image_relocation(b, opts):
     """kernel8.img as U-Boot's booti would start it: EL2, x0 = device tree,
-    loaded below the link address (start.S moves it and drops to EL1)."""
+    loaded away from the link address (QEMU: above it, at 0x40200000;
+    start.S moves it and drops to EL1)."""
     q = Qemu(os.path.join(b, "kernel8.img"), machine="virt,gic-version=3,virtualization=on")
     try:
         out = boot(q)
@@ -550,9 +551,10 @@ def test_bm_cartridge(b, opts):
         q.expect("pi cart started", timeout=10)
         time.sleep(2)
         q.send("q")
-        out = q.expect("fps", timeout=10).decode(errors="replace")
-        frames = int(out.split('"Pi cart" ')[1].split()[0])
-        assert frames > 100, out
+        # q suspends the game (2026-10-12, as on the Pi): the frame statistics
+        # come when it is closed, not here
+        out = q.expect("suspended", timeout=10).decode(errors="replace")
+        assert '"Pi cart"' in out, out
         time.sleep(1)
         img = q.screendump()
         assert img[0] == SCREEN and img[1] == SCREEN, f"screen {img[0]}x{img[1]}"

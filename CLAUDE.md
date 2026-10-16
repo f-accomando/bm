@@ -117,6 +117,7 @@ Before finishing any activity or declaring a task complete:
 2. **Update the Rules**: If an architectural constraint was introduced or changed, record it in `## Rules (do not break)` of the corresponding area file.
 3. **Integrity Check**: Run `python scripts/docs_audit.py score` to verify there are no broken links or orphan files before finishing.
 4. **Consistency**: if you touch formats, APIs, `config.txt` keys, menu/Settings or the behavior of a single kernel (Pi or RGB30), run `python scripts/consistency.py check` and update `docs/spec/` (`specs.toml`, `config-keys.toml`, `divergences.toml`); rules in `docs/spec/CONSISTENCY.md`. Everything must converge before 1.0.0 (`consistency.py gate`).
+5. **CI**: if you touch `.github/workflows/` or test timeouts, run `python scripts/ci_audit.py`.
 
 ---
 
