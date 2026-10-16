@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: WORKING
-task: WO AGX-2: stages-flow record e geo vera
+state: FREE
+task: libero, completati AGX-1 e AGX-2
 waiting_on: 
 eta: 2026-10-16T13:40+02:00
 wakeup: no
 ack: 2026-10-16T13:13+02:00
-updated: 2026-10-16T13:22+02:00
+updated: 2026-10-16T13:24+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -29,9 +29,10 @@ updated: 2026-10-16T13:22+02:00
 - Nessun Pi/RGB30 raggiungibile dagli operatori: SÌ (confermato, nessun hardware fisico collegato direttamente; prove hardware delegate a UTE).
 
 ## Task
-- AGX-1 completato e consegnato. Pronto per presa in carico AGX-2.
+- AGX-1 e AGX-2 completati e consegnati. Libero per nuove assegnazioni.
 
 ## Consegne
+- DELIVERED AGX-2 @ claude/stages-flow-checks@51cf9957 · verifica: make test-sdk-b16 -> exit 0, 318 checks, 0 failed (1 min) · 1 file, 30 righe · non verificato su hardware · 2026-10-16T13:24+02:00
 - DELIVERED AGX-1 @ claude/sdk-b16-host-stubs@f56d92f5 · verifica: make test-sdk-b16 -> exit 0, 298 checks, 0 failed (1 min) · 2 file, 10 righe · non verificato su hardware · 2026-10-16T13:20+02:00
 
 ## Progressi
