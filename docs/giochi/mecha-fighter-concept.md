@@ -1,6 +1,6 @@
 # Giant robot fighting game — concept (M20)
 
-Italian version: [mecha-fighter-concept-IT.md](mecha-fighter-concept-IT.md).
+
 
 The author's original brief (2026-09-28), reproduced with no changes to its content.
 The technical design (point 25) will be in `docs/giochi/mecha-fighter-design.md`,

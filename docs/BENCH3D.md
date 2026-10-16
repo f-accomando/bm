@@ -1,6 +1,6 @@
 # 3D Bench
 
-Italian version: [BENCH3D-IT.md](BENCH3D-IT.md).
+
 
 bm's single benchmark of its 3D capabilities: *Dev > 3D Bench*, or the `j` key of the
 monitor. Code: `src/bm/b3d.c` (portable), `src/kernel/b3dpi.c` (the Pi),

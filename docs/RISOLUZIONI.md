@@ -1,6 +1,6 @@
 # Screen resolutions — menu, console and games
 
-Italian version: [RISOLUZIONI-IT.md](RISOLUZIONI-IT.md).
+
 
 Which resolutions bm can use, how they reach the TV and what they cost.
 Written to choose the menu resolution (M27, BareMetal UI).

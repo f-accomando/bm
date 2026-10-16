@@ -1,6 +1,6 @@
 # Raspberry Pi Zero W v1.1: hardware resources and how bm uses them
 
-Italian version: [HARDWARE-IT.md](HARDWARE-IT.md).
+
 
 (The Pi Zero 2 W, with its kernel `kernel7.img`, is in section 8.)
 
