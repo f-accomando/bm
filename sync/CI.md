@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WORKING
-task: esito CI merge 8de0384d, lista rami rossi
+state: WAITING
+task: CI verde su ci-repair; attendo merge su bm-core e decisioni SPV
 waiting_on: 
 progress: 0
-eta: 2026-10-16T12:30+02:00
+eta: 2026-10-16T13:30+02:00
 wakeup: no
 ack: 2026-10-16T10:20+02:00
-updated: 2026-10-16T10:33+02:00
+updated: 2026-10-16T10:43+02:00
 ---
 # CI — operatore CI
 
@@ -63,5 +63,6 @@ DELIVERED D-RUN2 @ claude/ci-repair@6b2d8727 · verifica: tests/qemu_test.py -k 
 - host run 38737001683 (78e4062e): rosso solo test-studio (sdk_host.lua:575, carts/editor/main.lua:1614 'attempt to index a nil value'). Causa PREESISTENTE su bm-core: step_zoom usa ZOOM_STEPS mai definito nell'editor (esiste solo in carts/sdk_b16/main.lua:1916); '-' / '+' della mappa crashavano anche per l'utente. Fix di una riga in c38271f7 (local ZOOM_STEPS = {1,2,4,8,16} prima di step_zoom), fuori perimetro CI: dichiarato. Locale: make test-studio exit 0. Crowd e test_mesh non sono piu' rossi nel run.
 - host run 38750609431 (c38271f7): test-prompts, 9 FAIL '(null)'. Causa PREESISTENTE (d0e819f0, chip del mouse): tests/ui/test_prompts.c non aveva i nomi dei 3 PROMPT_MOUSE* in names[] e pretendeva larghezza >=16 / >=altezza, ma il mouse e' 11 px (9 nel chip piccolo) per scelta. Fix solo test in 065f102b: nomi, controllo dedicato del mouse (11x16, angoli liberi), minw 9 nei chip. Locale: make test-prompts ok. Non verificato: altri test host dopo prompts (si vede dal run).
 - 2026-10-16 ci-repair pushato (8de0384d, merge di bm-core). Ultimo run verde su claude/ci-repair: 38867262799 (6e0b5b40). Run rossi sui 5 rami: ledger-add, skills-review-ci-triage, translate-skill, beta6-triage, net-bridge-durable mostrano SOLO i fallimenti preesistenti (test_res 'a game of before', test_monitor_line, test_studio_animator, test_publish, rgb30 el2/ready, qemu 1/3/4): nessuno per colpa propria, sono rami su base bm-core senza ci-repair. Run sul sync: 98 rossi su 100 (push di soli file di sync). ci-repair ha branches-ignore sync/**, ma un push su sync/* usa il ci.yml del branch sync stesso: serve portare quella riga anche li' (proposta a SPV, non applicata).
+- 2026-10-16 esito: merge 8de0384d VERDE in CI (run 38869985415, come 6e0b5b40). Rami con ultimo run rosso e senza ci-repair (tutti su base precedente): verificati nei log (solo fallimenti preesistenti): ledger-add, skills-review-ci-triage, translate-skill, beta6-triage, net-bridge-durable. NON verificati (gh in timeout TLS): agy/agent-audit-baseline, api-lint, api-source, beta-quickstart, sync-perimeter-quarantine, claude/integrazione-ottobre, sdk-stages-template; stesso sospetto, da riverificare dopo il merge con ci-repair. Candidate obsolete (proposta, non cancellato): rami remoti gia' in bm-core: claude/docs-english, exciting-galileo-9gevjm, organic-recipes, remove-meshy-workflows, roadmap-restructure; run rossi di rami senza piu' remoto: agy/d28-games-carts, freeze-reports, sdlog-prev-fix, claude/net-keys, net-logs, sdk-games-message. bm-core ha l'ultimo run rosso (38760262933, 15 ott) ma precede ci-repair.
 
 ## Richieste
