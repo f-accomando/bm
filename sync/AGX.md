@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: WORKING
-task: WO AGX-13: D04-START Start confirms on RGB30 menu
+state: FREE
+task: AGX-13 consegnato
 waiting_on: 
 eta: 2026-10-16T16:40+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T16:00+02:00
+updated: 2026-10-16T16:07+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -31,6 +31,7 @@ updated: 2026-10-16T16:00+02:00
 - AGX-1..AGX-12 completati e consegnati. Libero per nuove assegnazioni (prossimo: AGX-13).
 
 ## Consegne
+- DELIVERED AGX-13 @ claude/rgb30-menu-start-tab@288931f9 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k menu_start_confirms -> PASS test_menu_start_confirms (prima del fix: timeout) · 3 file · Tab/1-2-3-5 non verificati (nessun test), non verificato su hardware · 2026-10-16T16:08+02:00
 - DELIVERED AGX-12 @ claude/test-qemu-slow@54d4c5d2 · verifica: python tests/tools/test_qemu_slow.py -> Ran 1 test OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T16:00+02:00
 - DELIVERED AGX-11 @ claude/test-ci-audit@43917130 · verifica: python3 tests/tools/test_ci_audit.py (WSL) -> Ran 4 tests OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T15:58+02:00
 - DELIVERED AGX-10 @ claude/test-psf2c@1c20b784 · verifica: python tests/tools/test_psf2c.py -> Ran 5 tests OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T15:57+02:00
