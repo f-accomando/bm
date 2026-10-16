@@ -156,3 +156,5 @@ RGB30 has no Lib tab), and the common project layout is migrated for 3 games out
 - D03 and D05: should the RGB30 have local multiplayer and the menu pointer, or are they hardware choices (then the Settings rows go)?
 - D16 is decided: `show_bm` is the Games tab, `market_bm` the Market (RGB30), `show_b16` the Market (Pi).
 - D13 and the Lib tab: the tools on the RGB30 come from Market > Apps; they must be recognised as tools, and the Lib tab needs a pad UI.
+
+Hardware checks that remain for the beta: [beta-hardware-tests](beta-hardware-tests.md).
