@@ -5,6 +5,7 @@ consistency.py - the formats and the platforms of bm kept consistent (docs/spec/
   scripts/consistency.py check          every rule below: fails on drift that docs/spec/known.toml does not accept
   scripts/consistency.py report         the same, with the accepted divergences listed (their reason) too
   scripts/consistency.py gate           what still blocks version 1.0.0: everything must converge before it (docs/spec/CONSISTENCY.md)
+  scripts/consistency.py beta [--root DIR]   what still blocks the beta (BETA-6): docs/spec/beta.toml
   scripts/consistency.py since PATTERN FILE   the first release tag that has PATTERN in FILE (for docs/spec/specs.toml)
 
 The same fact lives in several files (the kernel in C, the tools in Python, the docs): this compares them, so a change
@@ -12,6 +13,7 @@ made in one place and forgotten in the others (a resolution the kernel refuses a
 6 lists) is found when it is made, not months later. Plain Python, no dependencies.
 """
 import argparse
+import datetime
 import glob
 import os
 import re
@@ -302,6 +304,132 @@ def gate():
     return 1 if blockers else 0
 
 
+def beta(root):
+    """what still blocks opening the beta (BETA-6): docs/spec/beta.toml"""
+    div_path = os.path.join(root, "docs", "spec", "divergences.toml")
+    plat_path = os.path.join(root, "docs", "spec", "platforms.toml")
+    beta_path = os.path.join(root, "docs", "spec", "beta.toml")
+
+    def _load(p):
+        try:
+            with open(p, "rb") as f:
+                return tomllib.load(f)
+        except FileNotFoundError:
+            sys.stderr.write(f"ERROR  {p}: file not found\n")
+            return None
+        except Exception as e:
+            sys.stderr.write(f"ERROR  {p}: {e}\n")
+            return None
+
+    div_data = _load(div_path)
+    if div_data is None:
+        return 2
+    plat_data = _load(plat_path)
+    if plat_data is None:
+        return 2
+    beta_data = _load(beta_path)
+    if beta_data is None:
+        return 2
+
+    caps = {c["id"] for c in plat_data.get("capability", []) if isinstance(c, dict) and "id" in c}
+    divs = {d["id"]: d for d in div_data.get("divergence", []) if isinstance(d, dict) and "id" in d}
+    scope = beta_data.get("scope", [])
+    accepts = beta_data.get("accept", [])
+
+    accept_map = {}
+    for acc in accepts:
+        if isinstance(acc, dict) and "id" in acc and acc["id"] not in accept_map:
+            accept_map[acc["id"]] = acc
+
+    B = 0
+    A = 0
+    R = 0
+    E = 0
+
+    for d_id in scope:
+        if d_id not in divs:
+            print(f"ERROR  {d_id}: not in docs/spec/divergences.toml")
+            E += 1
+            continue
+
+        d = divs[d_id]
+        status = d.get("status", "")
+        cause = d.get("cause", "")
+        cap = d.get("capability")
+        area = d.get("area", "")
+        action = d.get("action", "")
+
+        if status == "resolved":
+            print(f"{'resolved':<13}{d_id}")
+            R += 1
+        elif cause == "hardware" and cap in caps:
+            print(f"{'accepted':<13}{d_id} (hardware: {cap})")
+            A += 1
+        elif cause == "hardware":
+            print(f"{'BLOCKS BETA':<13}{d_id} (hardware, {status}): {area}: no capability of platforms.toml")
+            B += 1
+        elif d_id in accept_map:
+            acc = accept_map[d_id]
+            by = acc.get("by", "")
+            date_val = acc.get("date", "")
+            date_str = date_val.isoformat() if isinstance(date_val, (datetime.date, datetime.datetime)) else str(date_val)
+            because = acc.get("because", "")
+            print(f"{'accepted':<13}{d_id} (in writing, {by} {date_str}): {because}")
+            A += 1
+        else:
+            print(f"{'BLOCKS BETA':<13}{d_id} ({cause}, {status}): {area}: {action}")
+            B += 1
+
+    seen_accept_ids = set()
+    for acc in accepts:
+        if not isinstance(acc, dict):
+            continue
+        acc_id = acc.get("id")
+        display_id = acc_id if acc_id else "?"
+
+        field_err = False
+        for field in ("id", "because", "by", "date"):
+            val = acc.get(field)
+            if val is None or (isinstance(val, str) and not val.strip()):
+                print(f"ERROR  accept {display_id}: {field} missing or invalid")
+                E += 1
+                field_err = True
+                break
+
+        if not field_err:
+            date_val = acc.get("date")
+            if isinstance(date_val, (datetime.date, datetime.datetime)):
+                date_ok = True
+            elif isinstance(date_val, str) and re.match(r"^\d{4}-\d{2}-\d{2}$", date_val):
+                try:
+                    datetime.date.fromisoformat(date_val)
+                    date_ok = True
+                except ValueError:
+                    date_ok = False
+            else:
+                date_ok = False
+
+            if not date_ok:
+                print(f"ERROR  accept {display_id}: date missing or invalid")
+                E += 1
+
+        if acc_id:
+            if acc_id not in scope:
+                print(f"ERROR  accept {acc_id}: not in scope")
+                E += 1
+            elif acc_id in seen_accept_ids:
+                print(f"ERROR  accept {acc_id}: duplicate")
+                E += 1
+            else:
+                seen_accept_ids.add(acc_id)
+                if divs.get(acc_id, {}).get("status") == "resolved":
+                    print(f"STALE  accept {acc_id}: resolved, remove it")
+                    E += 1
+
+    print(f"beta: {B} blockers, {A} accepted, {R} resolved, {E} errors")
+    return 1 if (B + E > 0) else 0
+
+
 def since(pattern, path):
     """the first release tag whose file has the pattern (git pickaxe)"""
     commit = subprocess.run(["git", "-C", ROOT, "log", "--format=%h", "--diff-filter=AM", "-S" + pattern, "--", path],
@@ -321,6 +449,8 @@ def main():
     sub.add_parser("check")
     sub.add_parser("report")
     sub.add_parser("gate")
+    b = sub.add_parser("beta")
+    b.add_argument("--root", default=ROOT)
     s = sub.add_parser("since")
     s.add_argument("pattern")
     s.add_argument("path")
@@ -329,6 +459,8 @@ def main():
         return since(a.pattern, a.path)
     if a.cmd == "gate":
         return gate()
+    if a.cmd == "beta":
+        return beta(a.root)
     return run(a.cmd == "report")
 
 

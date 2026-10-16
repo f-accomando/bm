@@ -1,0 +1,10 @@
+# What still blocks opening the beta (BETA-6): scope mirrors docs/ROADMAP.md:36.
+# [[accept]] entries are written only by SPV or the user (format: id, because, by, date = "YYYY-MM-DD").
+# An item of scope passes if resolved, hardware with platforms.toml capability, or accepted here.
+
+scope = [
+  "D01", "D02", "D03", "D04", "D05", "D06", "D07",
+  "D08", "D09", "D10", "D11", "D12", "D13",
+  "D28",
+  "D30", "D31", "D32", "D33", "D34", "D35", "D36",
+]

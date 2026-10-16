@@ -34,6 +34,7 @@ today the kernel version is a commit hash; revision 1 is the baseline of that da
 | `docs/spec/platforms.toml` | the two platforms and the **capabilities** in which they really differ |
 | `docs/spec/divergences.toml` | every known difference between the kernels, with its cause: `hardware`, `history`, `todo` or `unknown` |
 | `docs/spec/known.toml` | the differences found by the automatic rules that are accepted for now, with a reason |
+| `docs/spec/beta.toml` | the divergences that must be closed to open the beta (BETA-6) and the ones accepted in writing, with who and when |
 | `scripts/consistency.py` | the rules, run by `make test-consistency` |
 
 ## What the script checks
@@ -44,7 +45,7 @@ the runtime registers against `docs/api/*.md`; the names of the apps and tools i
 that a game cannot create a file with a tool's name); the menu tabs, `screen()` modes and embedded tools of the two
 kernels; that `BM_SPEC_REV` is the registry's last revision; that every config key the code reads is in the registry with
 the right scope; that every divergence names a capability and real evidence files.
-`report` adds the accepted ones. **`gate` lists what still blocks 1.0.0.**
+`report` adds the accepted ones. **`gate` lists what still blocks 1.0.0.** `beta` lists what still blocks the beta: a divergence of its scope passes only if resolved, hardware with a capability, or accepted in `beta.toml`.
 
 ## Rules for a change
 
