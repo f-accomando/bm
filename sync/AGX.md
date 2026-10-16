@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: libero, AGX-1 consegnato; pronto per AGX-2
+state: WORKING
+task: WO AGX-2: stages-flow record e geo vera
 waiting_on: 
-eta: 2026-10-16T13:50+02:00
+eta: 2026-10-16T13:40+02:00
 wakeup: no
 ack: 2026-10-16T13:13+02:00
-updated: 2026-10-16T13:20+02:00
+updated: 2026-10-16T13:22+02:00
 ---
 # AGX — Antigravity (AGX)
 
