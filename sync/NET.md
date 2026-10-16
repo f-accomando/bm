@@ -2,12 +2,12 @@
 schema: 1
 id: NET
 state: WORKING
-task: R-NET5
+task: API-1
 waiting_on: 
-eta: 2026-10-16T10:30+02:00
+eta: 2026-10-16T11:45+02:00
 wakeup: no
 ack: 2026-10-16T09:17+02:00
-updated: 2026-10-16T09:18+02:00
+updated: 2026-10-16T09:28+02:00
 ---
 # NET
 
@@ -31,6 +31,7 @@ updated: 2026-10-16T09:18+02:00
 Presa in carico di sync/wo/NET.md, ordine NET-1a→NET-2d. R-NET3 non iniziato.
 
 ## Consegne
+DELIVERED R-NET5 @ claude/net-bridge-durable@260020dd · verifica: python3 tests/net/check_bm_net_config.py -> all passed (WSL); make test-net -> exit 0; python scripts/docs_audit.py score -> 6652; consistency check -> 0 drift · 5a status/freeze/reboot con --in-monitor, 5b claim_socket/--detach/timeout/exit 3, 5c docs · non verificato sul Pi; --detach (fork) e comportamento di WSL da provare dall'utente (passi 1-8 del WO) · 2026-10-16T09:30+02:00
 DELIVERED R-NET4 (rev. 2) @ claude/net-logs@0c8556a9 · verifica: make test-net → exit 0 (nuovo: G di un log con net_password=secret esce mascherato; bridge: risposta e file out/pi_*.TXT mascherati); check_bm_net_config.py → all passed; make build/kernel.img e make TARGET=rgb30 → ok; consistency 0 drift · fatto: merge di integrazione-ottobre (FRZ-6), G applica reports_mask_secrets in lettura ai 3 log (anche log scritti da kernel vecchi), commento corretto, /out/ in .gitignore, stub crumbs_restart in test_netcon (il merge FRZ-2 rompeva test-net) · 2026-10-15T16:25+02:00
 DELIVERED R-NET4 @ claude/net-logs@d39b8883 · verifica: make test-net → exit 0 (G dei 3 log OK, bm/CONFIG.TXT, bm/../x e BOOTPREV.TXT.x → PA); check_bm_net_config.py → all passed (logs bootprev|bootlog|lastrun → --get bm/NAME; logs foo, ../x, BOOTPREV.TXT, vuoto → refused); make build/kernel.img e make TARGET=rgb30 → ok; consistency check 0 drift; docs_audit 6654 · NON fatto: mascheramento segreti in lettura (reports_mask_secrets non esiste sul branch: i log escono come sono sulla SD, FRZ-6 va integrato); il caso qemu_test non aggiunto (QEMU senza rete, coperto da test_netcon) · 2026-10-15T15:55+02:00
 DELIVERED NET-KEYS @ claude/net-keys@3d9f7f28 · verifica: make test-net → exit 0; python3 tests/net/check_bm_net_config.py → all passed (--keys Xa in ordine, nel gioco exit 2, nome non in tabella refused, password mascherata); docs_audit 6636 · branch da bm-core: NON contiene il mio lavoro NET-1/2 (bm_net/pi_bridge/test toccano le stesse zone: possibili conflitti banali al merge) · 2026-10-15T15:30+02:00
