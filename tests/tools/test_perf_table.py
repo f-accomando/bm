@@ -135,6 +135,14 @@ def test_qemu_report_rejected():
     check(after == DOC, "doc changed on a rejected QEMU report")
 
 
+def test_qemu_lowercase_rejected():
+    report = REPORT_RGB30.replace("board: RGB30", "board: qemu virt")
+    rc, err, after = run_case(report, DOC, "rgb30")
+    check(rc == 1, f"exit {rc}, expected 1")
+    check("QEMU report: not a hardware measurement" in err, f"stderr: {err!r}")
+    check(after == DOC, "doc changed on a lowercase qemu report")
+
+
 def test_qemu_report_accepted_with_flag():
     rc, err, after = run_case(REPORT_QEMU, DOC, "rgb30", extra=["--allow-qemu"])
     check(rc == 0, f"exit {rc}, stderr: {err}")
@@ -190,6 +198,7 @@ TESTS = [
     test_rgb30_report_fills_rgb30_only,
     test_pi_report_leaves_rgb30_alone,
     test_qemu_report_rejected,
+    test_qemu_lowercase_rejected,
     test_qemu_report_accepted_with_flag,
     test_missing_markers_exit_1,
     test_kind_mismatch_exit_1,

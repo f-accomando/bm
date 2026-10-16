@@ -166,7 +166,7 @@ def main(argv=None):
     except CompileError as exc:
         print(f"perf_table: invalid report: {exc}", file=sys.stderr)
         return 1
-    if "QEMU" in header.get("board", "") and not args.allow_qemu:
+    if "qemu" in header.get("board", "").lower() and not args.allow_qemu:
         print("QEMU report: not a hardware measurement", file=sys.stderr)
         return 1
 
