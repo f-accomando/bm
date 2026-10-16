@@ -1001,6 +1001,22 @@ do
   check(sees("SOUNDS"), "F7 again: the sounds")
   key("f1"); key("f7")
   check(sees("SOUNDS") or sees("EFFECTS"), "F7: the page from another")
+
+  -- sounds from a file (the Lib, key i): a file of bm/lib, then one of its sounds
+  on_sd["/bm/lib"] = { "kit.bm" }
+  audio_files["/BM/LIB/KIT.BM"] = bank_bytes(5, "")      -- sound 0: TEST, METAL
+  open_sounds(nil)
+  key("i")
+  check(sees("sounds from a file") and sees("KIT.BM"), "i: the files with sounds")
+  press("ok")
+  check(sees("a sound of KIT.BM") and sees("TEST"), "ok: the sounds of the file")
+  press("ok")
+  check(sees("TEST") and settled():find("METAL", 1, true), "the sound is in slot 0: " .. status())
+  check(sees("*"), "an import is an edit")
+  key("i")
+  press("ok"); press("ok")
+  check(settled():find("sound 1", 1, true), "again: the next empty slot (1): " .. status())
+  on_sd["/bm/lib"] = nil
 end
 
 -- the code page with the pad: the cross moves, ok types with padtype's keyboard

@@ -1162,6 +1162,37 @@ def test_sdk_pad_sound(b, opts):
     assert heard and heard[0] is not None, "the sink heard nothing of the preview"
 
 
+def test_sdk_pad_lib(b, opts):
+    """By keyboard: F7 is the sounds page, i (the pad's X: Sounds from a file
+    (Lib)...) lists the files of bm/lib with a sound bank, Enter takes
+    kit.bm and its sound BELL into the first empty slot; the saved
+    project's AUDIO has it as sound 0."""
+    kit = mkbm.pack(b"", title="Kit", audio=bmaudio.pack({"sounds": [{"name": "BELL", "wave": "metal"}]}))
+    tmp = tempfile.mkdtemp(prefix="bm64kb-")
+    q, size = sdk_session(b, tmp, {"bm/lib/kit.bm": kit})
+    try:
+        sdk_open(q)
+        sdk_new_empty(q)
+        q.send(F7)
+        sdk_screen(q, ["SOUNDS"])
+        time.sleep(0.4)
+        q.send("i")
+        sdk_screen(q, ["sounds from a file"])
+        q.send("\r")                            # the only file: kit.bm
+        sdk_screen(q, ["a sound of", "BELL"])
+        q.send("\r")                            # its sound BELL
+        sdk_screen(q, ["taken from the file"])
+        time.sleep(0.4)
+        sdk_save_default(q)
+        dump = sdk_exit_dump(q, tmp, size)
+    finally:
+        q.close()
+    secs = cart_secs(sd_read(dump, "/carts/MYGAME.BME"))
+    assert 6 in secs, sorted(secs)
+    sounds = bmaudio.unpack(secs[6])["sounds"]
+    assert sounds[0]["name"] == "BELL" and sounds[0]["wave"] == "metal", sounds[:1]
+
+
 def test_sdk_pad_sfx(b, opts):
     """By keyboard: F7 F7 is the effects, Enter puts A4 (sound 0, volume 255)
     on step 0 of effect 0; the saved project's AUDIO has it."""
