@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WAITING
-task: ci-repair pushato e verde; attendo OK SPV su ci.yml nel branch sync
+state: WORKING
+task: esito CI merge 8de0384d, lista rami rossi
 waiting_on: 
 progress: 0
-eta: 2026-10-16T12:00+02:00
+eta: 2026-10-16T12:30+02:00
 wakeup: no
-ack: 2026-10-16T09:27+02:00
-updated: 2026-10-16T09:54+02:00
+ack: 2026-10-16T10:20+02:00
+updated: 2026-10-16T10:33+02:00
 ---
 # CI — operatore CI
 
