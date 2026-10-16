@@ -1,6 +1,7 @@
 #include "watchdog.h"
 #include "arch/cache.h"
 #include "mmio.h"
+#include "prop.h"
 #include "timer.h"
 
 #define PM_BASE         (PERIPHERAL_BASE + 0x100000)
@@ -33,6 +34,18 @@ int watchdog_arm(uint32_t ms)
     if (ms > 15000)
         ms = 15000;
     uint32_t t = ms * 65536u / 1000u;           /* the timer counts 1/65536 s */
+    /* QEMU resets the whole machine on the RSTC write below: under the
+     * serial chainloader that reload brings back the chainloader, not this
+     * kernel. Its board serial is no number (the answer leaves the words as
+     * sent, or 0:0), a real Pi's always is: known before the write, so no
+     * reset (R-NET9). */
+    uint32_t sn[2] = { 0xFFFFFFFFu, 0xFFFFFFFFu };
+    if (prop_query(PROP_GET_BOARD_SERIAL, sn, 2) == 0 &&
+        ((sn[0] == 0xFFFFFFFFu && sn[1] == 0xFFFFFFFFu) || (sn[0] == 0 && sn[1] == 0))) {
+        probe_loaded = t;
+        probe_left = 0;
+        return -2;
+    }
     if (probe_flag == PROBE_MAGIC) {
         probe_flag = 0;
         dcache_clean_range(&probe_flag, sizeof probe_flag);
