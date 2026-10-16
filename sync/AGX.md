@@ -1,12 +1,12 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGX-3 consegnato, attesa AGX-4
+state: WORKING
+task: WO AGX-4: TEST-CINDEX test per scripts/cindex.py
 waiting_on: 
-eta: 2026-10-16T15:10+02:00
+eta: 2026-10-16T15:00+02:00
 wakeup: no
-ack: 2026-10-16T14:20+02:00
+ack: 2026-10-16T14:30+02:00
 updated: 2026-10-16T14:33+02:00
 ---
 # AGX — Antigravity (AGX)
