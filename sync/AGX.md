@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: WORKING
-task: WO AGX-11: TEST-CIAUDIT test scripts/ci_audit.py
+state: FREE
+task: AGX-11 consegnato, pronto per AGX-12
 waiting_on: 
 eta: 2026-10-16T16:30+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T15:57+02:00
+updated: 2026-10-16T15:59+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -28,9 +28,10 @@ updated: 2026-10-16T15:57+02:00
 - Nessun Pi/RGB30 raggiungibile dagli operatori: PARZIALE (Pi 1 su rete locale a 192.168.1.208, kernel aggiornato via rete a bm dev con successo tramite bm_net.py; nessun monitor o tasto fisico collegato direttamente, verifiche fisiche delegate a UTE).
 
 ## Task
-- AGX-1..AGX-10 completati e consegnati. Libero per nuove assegnazioni (prossimo: AGX-11).
+- AGX-1..AGX-11 completati e consegnati. Libero per nuove assegnazioni (prossimo: AGX-12).
 
 ## Consegne
+- DELIVERED AGX-11 @ claude/test-ci-audit@43917130 · verifica: python3 tests/tools/test_ci_audit.py (WSL) -> Ran 4 tests OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T15:58+02:00
 - DELIVERED AGX-10 @ claude/test-psf2c@1c20b784 · verifica: python tests/tools/test_psf2c.py -> Ran 5 tests OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T15:57+02:00
 - DELIVERED AGX-9 @ claude/test-mkbm-map@ac71c987 · verifica: python tests/tools/test_mkbm_map.py -> Ran 9 tests OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T15:55+02:00
 - DELIVERED AGX-8 @ claude/test-manuals@31105761 · verifica: python tests/tools/test_manuals.py -> Ran 6 tests OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T15:54+02:00
