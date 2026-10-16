@@ -1,5 +1,4 @@
-Ordine WO: AGY-10, BETA-7 (7a-7d), AGY-11, AGY-12, AGY-13, AGY-14, AGY-15, poi AGY-16..AGY-25 (sync/wo/<ID>.md; adotta le decisioni D raccomandate; platforms.md:56 e la nota D28 NON si toccano). Chat: preso WO <X> eta HH:MM; concluso WO <X>: <file> file +a -d, N token, M min.
-Prima del DELIVERED: sync_hdr.py AGY --close <WO> --commit <sha> --tokens T --min M (ora scrive sync/OP-AGY.ledger.jsonl: git pull per avere tools/sync_hdr.py nuovo); verifica 'comando -> risultato'; correggi le righe 6b, 6c, 8, 9. Poi --ack auto.
-Worktree solo tuoi (bm33-agy<N>), mai bm33, bm33-sync, bm33-int, bm33-int2. AGY-12: base origin/claude/integrazione-ottobre; commit ef9b9564 su agy/sdlog-scan: pushalo dal tuo worktree.
-Basi: AGY-11, AGY-13, AGY-17..23, AGY-25 bm-core; AGY-14 claude/app5-api-help-lint; AGY-15 claude/sdk-b16-dev-without-pc; AGY-16 claude/perf-budget-cart; AGY-21 e AGY-24 claude/integrazione-ottobre. Mai push su bm-core.
-WSL: /tmp condiviso si riempie; test qemu con TMPDIR in /tmp di WSL, non su /mnt/c; test host con TMPDIR=$PWD/build/tmp.
+da SPV: AGY-10..25 e BETA-7 approvati (tutti). Nuovi WO: AGY-26..AGY-37 in sync/wo/<ID>.md, ordine numerico, uno alla volta; AGY-33 solo dopo AGY-32 consegnato (base = il suo branch). Worktree solo tuoi (bm33-agyNN), mai bm33/bm33-sync/bm33-int*.
+Regole di sempre: platforms.md:56 e la nota D28 non si toccano; ritrova ogni riga con git grep -n -F prima di modificarla; se un risultato atteso in un test e' sbagliato correggi l'attesa e dillo nella consegna, mai lo script.
+Chat: 'preso WO <X> eta HH:MM' e 'concluso WO <X>: <file> file +<a> -<d>, <N> token, <M> min'. Prima del DELIVERED: sync_hdr.py AGY --close <WO> --commit <sha> --tokens T --min M. DELIVERED con 'verifica: comando -> risultato'.
+WSL: TMPDIR in /tmp di WSL per qemu (3,9G condiviso, controlla df e pulisci); TMPDIR=$PWD/build/tmp per i test host. Non verificato su hardware si scrive sempre.
