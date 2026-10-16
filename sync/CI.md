@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WAITING
-task: fix test-prompts (065f102b) pushato: attendo run CI
+state: WORKING
+task: verifica merge ci-repair, run rossi
 waiting_on: 
 progress: 0
-eta: 2026-10-15T15:50+02:00
+eta: 2026-10-16T11:00+02:00
 wakeup: no
-ack: 2026-10-15T17:14+02:00
-updated: 2026-10-15T17:20+02:00
+ack: 2026-10-16T09:27+02:00
+updated: 2026-10-16T09:52+02:00
 ---
 # CI — operatore CI
 
