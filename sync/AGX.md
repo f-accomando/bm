@@ -1,12 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: libero, pronto per presa in carico WO (AGX-1 in coda)
+state: WORKING
+task: WO AGX-1: test-sdk-b16 host stubs & UPDOWN
 waiting_on: 
+eta: 2026-10-16T13:50+02:00
 wakeup: no
-ack: 2026-10-16T13:04+02:00
-updated: 2026-10-16T13:13+02:00
+ack: 2026-10-16T13:13+02:00
+updated: 2026-10-16T13:18+02:00
 ---
 # AGX — Antigravity (AGX)
 
