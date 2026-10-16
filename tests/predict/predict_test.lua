@@ -76,5 +76,15 @@ for _, t in ipairs(TEXTS) do
   check(tabs > 0 and keys < plain, string.format("%s: %d keys with Tab, %d without", t.name, keys, plain))
 end
 
+-- the lint of Lua code: the reports of scripts/api_lint.py
+local sf = assert(io.open("tests/predict/lint_sample.lua", "rb"))
+local sample = sf:read("a")
+sf:close()
+local slines = {}
+for l in (sample .. "\n"):gmatch("([^\n]*)\n") do slines[#slines + 1] = l end
+local hits = P.lint(slines)
+check(#hits == 1 and hits[1].line == 1 and hits[1].name == "sprt", "lint: the sample gives one report, sprt on line 1")
+check(#P.lint({ "zz()" }, { defined = { zz = true } }) == 0, "lint: a name given as defined is known")
+
 print(string.format("predict: %d checks, %d failed", checks, fails))
 os.exit(fails == 0 and 0 or 1)
