@@ -97,7 +97,7 @@ rgb30 = "does neither"
 cause = "history"
 priority = 2
 status = "untested"
-note = "src/rgb30/ui.c: deleting a game closes its frozen copy and refuses while a download is updating it. Not tried on an RGB30."
+note = "src/rgb30/ui.c: deleting a game closes its frozen copy and refuses while a download is updating it. Not tried on an RGB30. QEMU: test_delete_frozen_and_tools."
 evidence = "src/kernel/carts.c:1043-1066; src/rgb30/ui.c:766-793"
 action = "port the two checks"
 
@@ -154,7 +154,7 @@ rgb30 = "7 fixed entries; a Market App installed on the RGB30 is not recognised 
 cause = "history"
 priority = 4
 status = "untested"
-note = "src/kernel/toolnames.h is the one list of tool names (Pi menu, RGB30 menu, runtime); the RGB30 keeps tools installed from Market > Apps out of Games. Only the SDK has a Dev entry on the RGB30 (the other tools have no pad edition). Not tried."
+note = "src/kernel/toolnames.h is the one list of tool names (Pi menu, RGB30 menu, runtime); the RGB30 keeps tools installed from Market > Apps out of Games. Only the SDK has a Dev entry on the RGB30 (the other tools have no pad edition). Not tried. QEMU: test_delete_frozen_and_tools."
 evidence = "src/kernel/home.c:252; src/kernel/carts.c:389-420; src/rgb30/ui.c:623-632"
 action = "same recognition on the RGB30, or filter apps out of Games"
 

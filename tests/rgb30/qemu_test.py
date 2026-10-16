@@ -563,6 +563,49 @@ def test_bm_cartridge(b, opts):
         q.close()
 
 
+def test_delete_frozen_and_tools(b, opts):
+    """Deleting a frozen game closes its copy (D08) and tools stay out of Games (D13)."""
+    import shutil
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    sd = make_sd(tmp, {
+        "bm/a.bm": mkbm.pack(PI_CART.encode(), title="A cart", author="tests", res=(360, 360)),
+        "bm/b.bm": mkbm.pack(PI_CART.encode(), title="B cart", author="tests", res=(360, 360)),
+        "bm/studio.bm": mkbm.pack(PI_CART.encode(), title="Studio tool", author="tests", res=(360, 360)),
+    })
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+
+    def look():
+        time.sleep(0.6)
+        return screen_all(q.screendump())
+
+    try:
+        out = boot(q)
+        assert "cartridge menu: 2 games" in out, out
+        assert "Studio tool" not in look()
+        q.send("\r")
+        q.expect("play: /bm/a.bm", timeout=10)
+        q.expect("bm: loaded", timeout=30)
+        time.sleep(2)
+        q.send("q")
+        q.expect("suspended", timeout=10)
+        time.sleep(1)
+        q.send("x")
+        q.send("w")
+        q.send("\r")
+        text = look()
+        assert "Delete the game?" in text, text
+        q.send("\r")
+        time.sleep(1)
+        text = look()
+        assert "A cart" not in text and "a.bm" not in text, text
+        assert in_menu(text)
+        q.send("\r")
+        q.expect("play: /bm/b.bm", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_bench3d(b, opts):
     """The Dev tab's 3D Bench (src/bm/b3d.c) at 640x360: every test on the
     ARM, the report on the serial port, in bm/bench on the SD card and in
