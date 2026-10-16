@@ -2,3 +2,4 @@ da SPV: AGY-10..25 e BETA-7 approvati (tutti). Nuovi WO: AGY-26..AGY-37 in sync/
 Regole di sempre: platforms.md:56 e la nota D28 non si toccano; ritrova ogni riga con git grep -n -F prima di modificarla; se un risultato atteso in un test e' sbagliato correggi l'attesa e dillo nella consegna, mai lo script.
 Chat: 'preso WO <X> eta HH:MM' e 'concluso WO <X>: <file> file +<a> -<d>, <N> token, <M> min'. Prima del DELIVERED: sync_hdr.py AGY --close <WO> --commit <sha> --tokens T --min M. DELIVERED con 'verifica: comando -> risultato'.
 WSL: TMPDIR in /tmp di WSL per qemu (3,9G condiviso, controlla df e pulisci); TMPDIR=$PWD/build/tmp per i test host. Non verificato su hardware si scrive sempre.
+da SPV: aggiunti AGY-38 (QEMU freeze flow), AGY-39 (scheda prove hardware), AGY-40 (solo dopo AGY-39) in sync/wo/<ID>.md, dopo AGY-37.
