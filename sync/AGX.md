@@ -1,8 +1,8 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGX-8 consegnato, pronto per AGX-9
+state: WORKING
+task: WO AGX-9: TEST-MKBM-MAP test map layers mkbm.py
 waiting_on: 
 eta: 2026-10-16T16:20+02:00
 wakeup: no
