@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-28
+state: FREE
+task: AGY-28 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T16:04+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T15:54+02:00
+updated: 2026-10-16T16:00+02:00
 ---
 # AGY — Antigravity
 
@@ -80,8 +80,12 @@ DELIVERED AGY-24 @ claude/ci-audit-english@659373ab · verifica: ci_audit.py pri
 DELIVERED AGY-25 @ claude/docs-en-sync-rules@ac81296a · verifica: git grep parole italiane su sync.md -> solo Frase di avvio (70, 72) e ## Consegne (62); letterali Fai handshake x2 e da <ID> a <ID> x1 intatti; docs_audit.py score -> penalties 0 come prima · 1 file, +9 -9 · non verificato su hardware · 2026-10-16T14:41+02:00
 DELIVERED AGY-26 @ claude/docs-it-links-api@78839cab · verifica: git grep API-IT -> 0 occorrenze nei 4 file; docs_audit.py score -> penalties 0 come prima · 4 file, +4 -5 · non verificato su hardware · 2026-10-16T15:46+02:00
 DELIVERED AGY-27 @ claude/docs-it-links-guida@cded8faa · verifica: git grep API-IT in GUIDA-GIOCHI.md -> solo riga 4; docs_audit.py score senza penalità nuove · 1 file, +2 -2 · non verificato su hardware · 2026-10-16T15:51+02:00
+DELIVERED AGY-28 @ claude/docs-it-links-docs@ab366280 · verifica: git grep -c -IT.md sui 9 file -> nessuna uscita; diff --stat 9 file +9 -9 · 9 file, +9 -9 · non verificato su hardware · 2026-10-16T15:59+02:00
 
 ## Progressi
+- Completato AGY-28 (IT-LINKS-DOCS) su claude/docs-it-links-docs@ab366280:
+  - Svuotata la riga 3 (`Italian version: [*-IT.md](*-IT.md).`) in ciascuno dei 9 documenti (`docs/BENCH3D.md`, `docs/DRIVERS.md`, `docs/HARDWARE.md`, `docs/RIFF.md`, `docs/RGB30.md`, `docs/RISORSE.md`, `docs/RISOLUZIONI.md`, `docs/giochi/mecha-fighter-concept.md`, `docs/giochi/mecha-fighter-design.md`) rimuovendo i link rotti a versioni italiane inesistenti senza far scorrere la numerazione delle righe successive.
+  - Verificato: `git grep -c -IT.md` sui 9 file produce 0 uscite; `docs_audit.py score` mantiene penalità 0; `git diff --stat` conferma 9 file modificati (+9 -9). Registrato nel ledger e pushato.
 - Completato AGY-27 (IT-LINKS-GUIDA) su claude/docs-it-links-guida@cded8faa:
   - In `docs/GUIDA-GIOCHI.md`, aggiornati i 2 riferimenti a `API-IT.md` (non esistente) puntandoli ai capitoli inglesi esistenti: riga 119 `docs/api/input.md` e riga 587 `api/bmlib.md#bmlib-the-games-shared-library`. Preservata la riga 4 (spetta a BETA-7a).
   - Verificato: `git grep API-IT` su `GUIDA-GIOCHI.md` restituisce solo la riga 4; link ad àncora `bmlib.md` presente a riga 587; `docs_audit.py score` mantiene penalità 0; `git diff --stat` conferma 1 file, +2 -2. Registrato nel ledger e pushato.
