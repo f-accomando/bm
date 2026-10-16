@@ -67,9 +67,9 @@ The five standardized states defined in [`sync/operators.toml`](../../sync/opera
 - **Sign-off**: SPV releases an operator with the line `SIGNOFF {ID}: motivo` (motivo = the reason: no suitable work, requirements not met, replacement, end of project); the operator delivers, writes the closure, marks itself `DONE` and stops the heartbeats; `operators.toml`: `active = false`, `signoff = "..."`. No reply within 60 min: `IDLE`, notice to the user.
 - No open-ended tasks: steps <=45 min; the operator keeps the main agent free and supervises their own subagents.
 
-## Frase di avvio (da incollare nella sessione di un operatore)
+## Start phrase (to paste into an operator's session)
 
-> Sei `<ID>` nel sync del branch `<branch>`. Fai handshake `<branch>` (CLAUDE.md §6). Poi, a ogni battito (3-5 min finché non hai preso il primo work order, poi 15; se non ti svegli da solo, a ogni mio messaggio): `git fetch origin`; `git diff <ultimo hash visto> -- SYNC.md sync/`; leggi `sync/inbox/<ID>.md`; `python tools/sync_hdr.py <ID> --state ... --task ... --ack auto`; commit e push sul branch. Non iniziare altro lavoro che quello della tua casella; consegna con una riga `DELIVERED ...` nella sezione `## Consegne` del tuo file.
+> You are `<ID>` in the sync of branch `<branch>`. Fai handshake `<branch>` (CLAUDE.md §6). Then, at each heartbeat (3-5 min until you have taken the first work order, then 15; if you do not wake up on your own, at each user message): `git fetch origin`; `git diff <ultimo hash visto> -- SYNC.md sync/`; read `sync/inbox/<ID>.md`; `python tools/sync_hdr.py <ID> --state ... --task ... --ack auto`; commit and push to the branch. Do not start any work other than that in your inbox; deliver with a `DELIVERED ...` line in the `## Consegne` section of your file.
 
 ## Cost of the heartbeats (what a beat costs, and the cheapest way)
 
