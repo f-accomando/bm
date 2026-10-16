@@ -1,10 +1,10 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGX-10 consegnato, pronto per AGX-11
+state: WORKING
+task: WO AGX-11: TEST-CIAUDIT test scripts/ci_audit.py
 waiting_on: 
-eta: 2026-10-16T16:25+02:00
+eta: 2026-10-16T16:30+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
 updated: 2026-10-16T15:57+02:00
