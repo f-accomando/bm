@@ -1,5 +1,5 @@
 # API-1 — Budget di prestazioni Pi / RGB30: cartuccia di misura, test QEMU, tabella in docs/PERFORMANCE.md e spiegazione di profile(true) (BETA-4)
-BOZZA di bm-planner, NON assegnata (domani, dopo le decisioni D1-D6).
+Assegnato a NET (16 ott), dopo R-NET5. Decisioni adottate: D1-D6 come raccomandate. Le colonne Pi e RGB30 si riempiono alla fine, con l'utente.
 Inizia dopo: assegnazione di SPV (nessuna dipendenza da APP-4/5/6).
 Base: `bm-core` aggiornato; branch `claude/perf-budget-cart`. Mai push su `bm-core`.
 Perimetro: `carts/budget/main.lua` (nuovo), `carts/budget/map.csv` (nuovo), `Makefile` (una sola riga `title_budget`), `tests/qemu_test.py` (una funzione nuova e una voce in `SLOW`), `tests/rgb30/qemu_test.py` (una funzione nuova), `scripts/perf_table.py` (nuovo), `tests/tools/test_perf_table.py` (nuovo), `docs/PERFORMANCE.md`, `docs/STRESS.md` (una riga di rimando), `docs/progress/graphics.md` (solo "## How it is today" e "## Open work"). NON toccare: `carts/sdk_b16/*`, `tools/pi_*`, `carts/stress/*`, `src/bm/stress.c`, `src/**`, la lista `GAMES` del `Makefile`, `rgb30.mk`, `.github/workflows/*`, `SYNC.md`, `sync/*`.

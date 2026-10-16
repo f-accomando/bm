@@ -1,5 +1,5 @@
 # R-NET5: bridge durevole per i test sul Pi Zero W (operatore NET)
-BOZZA di bm-planner, NON assegnata (domani, dopo la decisione dell'utente su D1-D3).
+Assegnato a NET (16 ott). Decisioni adottate: D1, D2, D3 come raccomandate; D4 diventa il WO R-NET6 (dopo questo, stesso operatore). Sequenza di NET: R-NET5, API-1, APP-5b, R-NET6.
 Inizia dopo: DELIVERED R-NET4. Il WO resta valido anche se R-NET4 è già integrato: i file stanno già su `claude/integrazione-ottobre`, cioè il worktree `C:\Users\Utente\Documents\GitHub\bm33-int` con HEAD = `claude/integrazione-ottobre`, che contiene `keys` e `logs`.
 Base: `claude/integrazione-ottobre` aggiornato. Branch di lavoro: `claude/net-bridge-durable`. Mai push su bm-core.
 Perimetro: `tools/pi_bridge.py`, `tools/bm_net.py` (solo `main()`, il blocco `__main__` e la nuova opzione `--in-monitor`), `tools/pi.py` (solo la docstring/help), `tests/net/check_bm_net_config.py` (solo la sezione del bridge e i nuovi casi), `docs/design/pi-test.md`, `docs/progress/tools.md` (solo la riga "Pi tests from the PC" di Open work).

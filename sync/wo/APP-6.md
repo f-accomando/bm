@@ -1,5 +1,5 @@
 # APP-6: sviluppare un gioco senza PC sull'RGB30 (risorse e progetti sul dispositivo) (APP-6, BETA-2)
-BOZZA di bm-planner, NON assegnata (domani, dopo le decisioni D1-D6).
+Assegnato a B16 (16 ott), dopo APP-4. Decisioni adottate: D1-D6 come raccomandate (D1 = B: solo Lib dei suoni, 6h inclusa). Base: il branch di APP-4 `claude/sdk-stages-template` (branch impilato, nessun merge su bm-core); rebase quando APP-4 sara' integrato.
 Inizia dopo: DELIVERED APP-4 **e** integrazione di APP-4 su `bm-core` fatta da SPV (i due WO toccano gli stessi file: `TEMPLATES` e menu in `carts/sdk_b16/main.lua`, `tests/rgb30/qemu_test.py`).
 Base: `bm-core` aggiornato dopo APP-4. Branch `claude/sdk-b16-dev-without-pc`. Mai push su `bm-core`.
 Perimetro: `carts/sdk_b16/main.lua`, `tests/rgb30/qemu_test.py`. Se SPV approva D4: anche `tests/studio/sdk_b16_host.lua`, `docs/progress/tools.md`, `docs/spec/divergences.toml`.

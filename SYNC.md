@@ -105,6 +105,8 @@ Work order completi in `sync/wo/<ID>.md` (scritti da SPV, un blocco per passo).
 | AGY-1, AGY-2, AGY-3, AGY-4, AGY-5 (bassa priorità, in sequenza) | `AGY` | `ASSEGNATO` | [`sync/wo/AGY-1.md`](sync/wo/AGY-1.md) ... [`AGY-5`](sync/wo/AGY-5.md) |
 | AGY-7, AGY-8 (repo scaffold, in sequenza) | `AGY` | `ASSEGNATO` | [`sync/wo/AGY-7.md`](sync/wo/AGY-7.md), [`AGY-8`](sync/wo/AGY-8.md) |
 | AGY-9 (dopo AGY-8) | `AGY` | `ASSEGNATO` | [`sync/wo/AGY-9.md`](sync/wo/AGY-9.md) |
+| R-NET5, API-1, APP-5b (poi R-NET6), in sequenza | `NET` | `ASSEGNATO` | [`R-NET5`](sync/wo/R-NET5.md), [`API-1`](sync/wo/API-1.md), [`APP-5b`](sync/wo/APP-5b.md) |
+| APP-4, APP-6, in sequenza | `B16` | `ASSEGNATO` | [`APP-4`](sync/wo/APP-4.md), [`APP-6`](sync/wo/APP-6.md) |
 | CI-1, D-MON, D-RES, D-LOAD, D-SCREEN, D-RGB, D-RGB2, CI-AUDIT, D-HOST, D-RUN2, D-IMP | `CI` | `PENDING` (aspetta handshake) | [`sync/wo/CI.md`](sync/wo/CI.md) |
 
 ---
@@ -231,3 +233,4 @@ Solo SPV aggiunge righe. Colonne: orario ISO con fuso · operatore · branch/com
 | 2026-10-15T21:32+02:00 | SPV | `agy/scaffold-prompt`@68e7d53 | `REVIEW: CHANGES REQUESTED` | AGY-8: perimetro ok, 41/41 percorsi, nessun riferimento a bm. Bloccanti: SCAFFOLD_REF di default e' claude/workflow-template ma la PR 1 e' fusa (deve essere main); escludere examples/ rompe selftest; il sync si installa sul ramo principale senza chiederlo. Copertura solo come indice; segnaposto incompleti; repo esistente: 3 turni invece di uno, manca git init. Dettaglio in AGY-10. |
 | 2026-10-15T21:32+02:00 | SPV | `sync/protocollo-ottobre` | `WO` | AGY-10 (correzioni di AGY-7 e AGY-8 sul repo scaffold, due branch) in sync/wo/AGY-10.md, dopo AGY-9. AGY-7 APPROVED con rilievi minori (accento, perdite di dettaglio, stile), AGY-8 CHANGES REQUESTED. |
 | 2026-10-15T21:48+02:00 | SPV | `sync/protocollo-ottobre` | `NOTE` | Chiusura sessione: stato in sync/NEXT.md sezione 6 (legge per prima la prossima sessione). Da fare: rerun di qemu 3/4 su claude/ci-repair, revisione di AGY-9, decisioni sulle bozze in sync/wo/drafts, AGY-10. |
+| 2026-10-16T09:17+02:00 | SPV | `sync/protocollo-ottobre` | `WO` | 16 ott. NET: R-NET5, API-1, APP-5b in sequenza (poi R-NET6). B16: APP-4, APP-6 in sequenza. Bozze di ieri con le decisioni dei planner adottate (riga 2 di ogni WO); APP-5b non richiede merge su bm-core. Nessuna prova su hardware ora: a fine giornata con l'utente. Conferma con ack. |

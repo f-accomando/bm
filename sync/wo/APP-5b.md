@@ -1,5 +1,5 @@
 # APP-5b — aiuto sulla funzione e lint in bm Code da una sola fonte API (APP-5, parte editor)
-BOZZA di bm-planner, NON assegnata (domani, dopo le decisioni D1-D5). Limite dichiarato dal planner: non ha potuto leggere i branch agy/ (solo Read/Grep/Glob); formato di api.tsv e logica di api_lint.py presi dai WO AGY-1 e AGY-2, quindi il passo 0 di 5b-1 controlla il formato reale. Nota SPV: AGY-6a ha cambiato api.tsv (udp_open, udp_recv, net:pick, net:size, niente `a`): il passo 0 vale ancora.
+Assegnato a NET (16 ott), dopo API-1. Decisioni adottate: D1, D2, D3, D5 come raccomandate. D4 (integrazione): nessun merge su bm-core; il branch parte da bm-core aggiornato con `git merge --no-ff origin/agy/api-lint` (contiene agy/api-source); l'integrazione dei due branch agy su bm-core la fa SPV col via dell'utente.
 Operatore: op-net (motivi: NEXT.md assegna APP-5 ad "AGY or op-net"; op-b16 è su APP-4 e poi APP-6; bm Code esiste solo nel kernel Pi (`EMBED_TOOLS`); op-net ha WSL con make, gcc, qemu-system-arm).
 Inizia dopo: assegnazione di SPV e D1-D5 confermate. Ordine vincolante: 5b-1 → 5b-2 → 5b-3 → 5b-4, mai in parallelo.
 Dipendenze e ordine di integrazione su bm-core: (1) `origin/agy/api-source` (2) `origin/agy/api-lint` (nasce da api-source) (3) `claude/app5-api-help-lint` (questo WO).
