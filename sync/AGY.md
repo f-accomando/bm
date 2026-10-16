@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
+state: FREE
 task: AGY-16
 waiting_on: 
-progress: 0
+progress: 100
 eta: 2026-10-16T14:25+02:00
 wakeup: no
 ack: 2026-10-16T13:53+02:00
-updated: 2026-10-16T14:10+02:00
+updated: 2026-10-16T14:13+02:00
 ---
 # AGY — Antigravity
 
@@ -68,8 +68,13 @@ DELIVERED AGY-12 @ agy/sdlog-scan@ef9b9564 · verifica: python tests/tools/test_
 DELIVERED AGY-13 @ agy/carts-layout@7f45e21d · verifica: test_carts_layout -> OK; carts_layout.py -> exit 0, layout: 26 projects, 21 with bm.info, 5 old layout, 0 errors; docs_audit score -> score 6646 penalties 0 · 2026-10-16T11:43+02:00
 DELIVERED AGY-14 @ claude/app5b-lint-fixture@3393b811 · verifica: make test-predict -> 37 checks 0 failed; mutazioni M2 M4 M7 M8 -> 2 failed ciascuna · 2 file, 15 righe · non verificato su hardware · 2026-10-16T13:59+02:00
 DELIVERED AGY-15 @ claude/rgb30-test-tmp-cleanup@a118467a · verifica: qemu_test.py -k sdk_pad_sprite -> PASS, /tmp/bm64* prima 0 dopo 0 · 1 file, +37 -19 · non verificato su hardware (QEMU) · 2026-10-16T14:07+02:00
+DELIVERED AGY-16 @ claude/perf-qemu-case@87d112d6 · verifica: python tests/tools/test_perf_table.py -> All 11 perf_table tests PASSED (prima del fix: FAIL test_qemu_lowercase_rejected) · 2 file · non verificato su hardware · 2026-10-16T14:13+02:00
 
 ## Progressi
+- Completato AGY-16 (PERF-QEMU-CASE) su claude/perf-qemu-case@87d112d6:
+  - In `scripts/perf_table.py`, reso case-insensitive il controllo del nome scheda (`"qemu" in header.get("board", "").lower()`), in modo da respingere anche report QEMU scritti in minuscolo (`board: qemu virt`) per evitare che vengano scambiati per misure hardware.
+  - In `tests/tools/test_perf_table.py`, aggiunto il test `test_qemu_lowercase_rejected` e registrato nella suite `TESTS`.
+  - Verificato: prima del fix il nuovo test fallisce (`FAIL test_qemu_lowercase_rejected: exit 0, expected 1`); dopo il fix tutti gli 11 test passano (`All 11 perf_table tests PASSED`, `EXIT=0`). Diff finale: 2 file, 10 inserimenti, 1 cancellazione. Registrato nel ledger e pushato.
 - Completato AGY-15 (QEMU-TMP) su claude/rgb30-test-tmp-cleanup@a118467a:
   - In `tests/rgb30/qemu_test.py`, implementato il tracciamento e la pulizia automatica delle cartelle temporanee `bm64*` (~129 MB ciascuna, inclusi `mon.sock`, `screen.ppm` e `sd.img`/`after.img`) create durante i test dell'RGB30.
   - Aggiunti gli helper `mktmp(prefix)` e `rm_tmps()`, sostituiti tutti i 19 siti di allocazione temporanea (`tempfile.mkdtemp(prefix="` -> `mktmp(prefix="`), e agganciato un blocco `finally: rm_tmps()` nel ciclo principale di esecuzione test in `main()`.
