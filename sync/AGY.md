@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-29
+state: FREE
+task: AGY-29 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T16:12+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T16:02+02:00
+updated: 2026-10-16T16:05+02:00
 ---
 # AGY — Antigravity
 
@@ -81,8 +81,12 @@ DELIVERED AGY-25 @ claude/docs-en-sync-rules@ac81296a · verifica: git grep paro
 DELIVERED AGY-26 @ claude/docs-it-links-api@78839cab · verifica: git grep API-IT -> 0 occorrenze nei 4 file; docs_audit.py score -> penalties 0 come prima · 4 file, +4 -5 · non verificato su hardware · 2026-10-16T15:46+02:00
 DELIVERED AGY-27 @ claude/docs-it-links-guida@cded8faa · verifica: git grep API-IT in GUIDA-GIOCHI.md -> solo riga 4; docs_audit.py score senza penalità nuove · 1 file, +2 -2 · non verificato su hardware · 2026-10-16T15:51+02:00
 DELIVERED AGY-28 @ claude/docs-it-links-docs@ab366280 · verifica: git grep -c -IT.md sui 9 file -> nessuna uscita; diff --stat 9 file +9 -9 · 9 file, +9 -9 · non verificato su hardware · 2026-10-16T15:59+02:00
+DELIVERED AGY-29 @ claude/docs-en-padtype@c4b62122 · verifica: git grep parole italiane in PADTYPE.md -> nessuna uscita; docs_audit.py score senza penalità nuove · 1 file, +9 -9 · non verificato su hardware · 2026-10-16T16:04+02:00
 
 ## Progressi
+- Completato AGY-29 (IT2EN-PADTYPE) su claude/docs-en-padtype@c4b62122:
+  - In `docs/PADTYPE.md`, svuotata la riga 3 rimuovendo il link al non esistente `PADTYPE-IT.md` e tradotti in inglese gli 8 commenti dopo `--` nell'esempio Lua (righe 210-217 e 220), mantenendo inalterato tutto il codice Lua e le parole d'esempio.
+  - Verificato: `git grep -n -F "PADTYPE-IT"` dà 0 uscite; `docs_audit.py score` mantiene penalità 0; `git diff --stat` conferma 1 file, +9 -9. Registrato nel ledger e pushato.
 - Completato AGY-28 (IT-LINKS-DOCS) su claude/docs-it-links-docs@ab366280:
   - Svuotata la riga 3 (`Italian version: [*-IT.md](*-IT.md).`) in ciascuno dei 9 documenti (`docs/BENCH3D.md`, `docs/DRIVERS.md`, `docs/HARDWARE.md`, `docs/RIFF.md`, `docs/RGB30.md`, `docs/RISORSE.md`, `docs/RISOLUZIONI.md`, `docs/giochi/mecha-fighter-concept.md`, `docs/giochi/mecha-fighter-design.md`) rimuovendo i link rotti a versioni italiane inesistenti senza far scorrere la numerazione delle righe successive.
   - Verificato: `git grep -c -IT.md` sui 9 file produce 0 uscite; `docs_audit.py score` mantiene penalità 0; `git diff --stat` conferma 9 file modificati (+9 -9). Registrato nel ledger e pushato.
