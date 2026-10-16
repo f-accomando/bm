@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-17
+state: FREE
+task: AGY-17 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T14:45+02:00
 wakeup: no
 ack: 2026-10-16T13:53+02:00
-updated: 2026-10-16T14:17+02:00
+updated: 2026-10-16T14:20+02:00
 ---
 # AGY — Antigravity
 
@@ -69,8 +69,15 @@ DELIVERED AGY-13 @ agy/carts-layout@7f45e21d · verifica: test_carts_layout -> O
 DELIVERED AGY-14 @ claude/app5b-lint-fixture@3393b811 · verifica: make test-predict -> 37 checks 0 failed; mutazioni M2 M4 M7 M8 -> 2 failed ciascuna · 2 file, 15 righe · non verificato su hardware · 2026-10-16T13:59+02:00
 DELIVERED AGY-15 @ claude/rgb30-test-tmp-cleanup@a118467a · verifica: qemu_test.py -k sdk_pad_sprite -> PASS, /tmp/bm64* prima 0 dopo 0 · 1 file, +37 -19 · non verificato su hardware (QEMU) · 2026-10-16T14:07+02:00
 DELIVERED AGY-16 @ claude/perf-qemu-case@87d112d6 · verifica: python tests/tools/test_perf_table.py -> All 11 perf_table tests PASSED (prima del fix: FAIL test_qemu_lowercase_rejected) · 2 file · non verificato su hardware · 2026-10-16T14:13+02:00
+DELIVERED AGY-17 @ claude/docs-audit-check@565252db · verifica: python tests/tools/test_docs_audit.py -> All docs_audit tests PASSED; docs_audit.py score identico a prima; docs_audit.py check su base -> docs_audit: 0 broken, exit 0 · 2 file · non verificato su hardware · 2026-10-16T14:20+02:00
 
 ## Progressi
+- Completato AGY-17 (DOCS-CHECK) su claude/docs-audit-check@565252db:
+  - In `scripts/docs_audit.py`, estratta la verifica dei link rotti e dei file menzionati non trovati nella funzione `broken(files)`.
+  - Aggiunto il comando `docs_audit.py check` (e documentato nella docstring iniziale) che elenca i problemi come `  ! <msg>` ed esce con codice 1, oppure stampa `docs_audit: 0 broken` ed esce con 0 se non ci sono problemi.
+  - Sostituito il ciclo in `cmd_score` per usare `broken(files)` senza modificare l'output numerico di `score`.
+  - Creato il test `tests/tools/test_docs_audit.py` verificando sia il caso di fallimento su link rotto (`exit 1`) sia il caso pulito (`exit 0`), oltre al ripristino di `docs_audit.ROOT`.
+  - Verificato: `test_docs_audit.py` PASS; `docs_audit.py score` identico al byte rispetto alla misura pre-modifica (6646 penalties 0); `docs_audit.py check` su base dà `docs_audit: 0 broken` (exit 0); test manuale con link rotto temporaneo rileva `  ! broken link...` ed esce 1; compilazione bytecode pulita. Diff finale: 2 file, +81 -9.
 - Completato AGY-16 (PERF-QEMU-CASE) su claude/perf-qemu-case@87d112d6:
   - In `scripts/perf_table.py`, reso case-insensitive il controllo del nome scheda (`"qemu" in header.get("board", "").lower()`), in modo da respingere anche report QEMU scritti in minuscolo (`board: qemu virt`) per evitare che vengano scambiati per misure hardware.
   - In `tests/tools/test_perf_table.py`, aggiunto il test `test_qemu_lowercase_rejected` e registrato nella suite `TESTS`.
