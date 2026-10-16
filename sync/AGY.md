@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-18
+state: FREE
+task: AGY-18 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T14:35+02:00
 wakeup: no
 ack: 2026-10-16T13:53+02:00
-updated: 2026-10-16T14:20+02:00
+updated: 2026-10-16T14:22+02:00
 ---
 # AGY — Antigravity
 
@@ -70,8 +70,12 @@ DELIVERED AGY-14 @ claude/app5b-lint-fixture@3393b811 · verifica: make test-pre
 DELIVERED AGY-15 @ claude/rgb30-test-tmp-cleanup@a118467a · verifica: qemu_test.py -k sdk_pad_sprite -> PASS, /tmp/bm64* prima 0 dopo 0 · 1 file, +37 -19 · non verificato su hardware (QEMU) · 2026-10-16T14:07+02:00
 DELIVERED AGY-16 @ claude/perf-qemu-case@87d112d6 · verifica: python tests/tools/test_perf_table.py -> All 11 perf_table tests PASSED (prima del fix: FAIL test_qemu_lowercase_rejected) · 2 file · non verificato su hardware · 2026-10-16T14:13+02:00
 DELIVERED AGY-17 @ claude/docs-audit-check@565252db · verifica: python tests/tools/test_docs_audit.py -> All docs_audit tests PASSED; docs_audit.py score identico a prima; docs_audit.py check su base -> docs_audit: 0 broken, exit 0 · 2 file · non verificato su hardware · 2026-10-16T14:20+02:00
+DELIVERED AGY-18 @ claude/docs-en-mali-m41@e2366be7 · verifica: git grep parole italiane su graphics-mali.md -> 0 righe; docs_audit.py score -> penalties 0 come prima · 1 file, +12 -12 · non verificato su hardware · 2026-10-16T14:22+02:00
 
 ## Progressi
+- Completato AGY-18 (IT2EN-MALI) su claude/docs-en-mali-m41@e2366be7:
+  - In `docs/progress/graphics-mali.md`, tradotte in inglese le 12 righe della lista della sezione M41 (`## M41 Roadmap: Mali GPU & Overbit in .b16 (RGB30)`), mantenendo la stessa struttura, i riferimenti a codice e funzioni (`screen()`, `fb_init_mode`, `SW`, `SH`, `LW`, `LH`, `UI`, `00_core.lua`), e i criteri di completamento.
+  - Verificato: `git grep` su parole italiane rimaste nel file restituisce 0 righe (prima: 8); `docs_audit.py score` mantiene penalità 0; diff esattamente di 1 file, +12 -12. Registrato nel ledger e pushato.
 - Completato AGY-17 (DOCS-CHECK) su claude/docs-audit-check@565252db:
   - In `scripts/docs_audit.py`, estratta la verifica dei link rotti e dei file menzionati non trovati nella funzione `broken(files)`.
   - Aggiunto il comando `docs_audit.py check` (e documentato nella docstring iniziale) che elenca i problemi come `  ! <msg>` ed esce con codice 1, oppure stampa `docs_audit: 0 broken` ed esce con 0 se non ci sono problemi.
