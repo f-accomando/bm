@@ -6,7 +6,7 @@ schema = 1
 
 [[operator]]
 id = "SPV"
-name = "Claude local (SPV)"
+name = "OP-SPV"
 kind = "ai"
 file = "sync/SPV.md"
 branches = ["sync/protocollo-ottobre"]
@@ -27,7 +27,7 @@ kind = "human"
 
 [[operator]]
 id = "NET"
-name = "operatore R-NET"
+name = "OP-NET"
 kind = "ai"
 file = "sync/NET.md"
 branches = ["claude/net-test-err", "claude/net-test-shot"]
@@ -39,7 +39,7 @@ weak_points = "{da handshake}"
 
 [[operator]]
 id = "B16"
-name = "operatore M42"
+name = "OP-B16"
 kind = "ai"
 file = "sync/B16.md"
 branches = ["claude/b16-profile"]
@@ -51,7 +51,7 @@ weak_points = "{da handshake}"
 
 [[operator]]
 id = "AGY"
-name = "Antigravity"
+name = "OP-AGY"
 kind = "ai"
 file = "sync/AGY.md"
 branches = ["agy/sdlog"]
@@ -63,7 +63,7 @@ weak_points = "{da handshake}"
 
 [[operator]]
 id = "CI"
-name = "operatore CI"
+name = "OP-CI"
 kind = "ai"
 file = "sync/CI.md"
 branches = ["claude/ci-repair"]
