@@ -491,3 +491,14 @@ priority = 6
 status = "open"
 evidence = "src/kernel/carts.c:842-844; src/rgb30/ui.c"
 action = "decide whether RGB30 Dev lists .bme"
+
+[[divergence]]
+id = "D46"
+area = "SDK templates"
+pi = "carts/editor has no Stages 2D template"
+rgb30 = "carts/sdk_b16 has the Stages 2D template"
+cause = "todo"
+capability = "sdk-templates"
+status = "open"
+evidence = "carts/editor/main.lua; carts/sdk_b16/main.lua"
+action = "port Stages 2D to carts/editor (separate WO)"
