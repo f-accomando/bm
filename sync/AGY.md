@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-27
+state: FREE
+task: AGY-27 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T15:58+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T15:47+02:00
+updated: 2026-10-16T15:51+02:00
 ---
 # AGY — Antigravity
 
@@ -79,8 +79,12 @@ DELIVERED AGY-23 @ claude/docs-en-tools-open@8e244f69 · verifica: git grep paro
 DELIVERED AGY-24 @ claude/ci-audit-english@659373ab · verifica: ci_audit.py prima/dopo -> stesso exit 0 e stesse 0 righe PROBLEM; py_compile OK; grep parole italiane -> 0 righe; PyYAML presente e check_ci provato (ci_bad.yml -> 3 problem) · 1 file, +38 -38 · non verificato su hardware · 2026-10-16T14:38+02:00
 DELIVERED AGY-25 @ claude/docs-en-sync-rules@ac81296a · verifica: git grep parole italiane su sync.md -> solo Frase di avvio (70, 72) e ## Consegne (62); letterali Fai handshake x2 e da <ID> a <ID> x1 intatti; docs_audit.py score -> penalties 0 come prima · 1 file, +9 -9 · non verificato su hardware · 2026-10-16T14:41+02:00
 DELIVERED AGY-26 @ claude/docs-it-links-api@78839cab · verifica: git grep API-IT -> 0 occorrenze nei 4 file; docs_audit.py score -> penalties 0 come prima · 4 file, +4 -5 · non verificato su hardware · 2026-10-16T15:46+02:00
+DELIVERED AGY-27 @ claude/docs-it-links-guida@cded8faa · verifica: git grep API-IT in GUIDA-GIOCHI.md -> solo riga 4; docs_audit.py score senza penalità nuove · 1 file, +2 -2 · non verificato su hardware · 2026-10-16T15:51+02:00
 
 ## Progressi
+- Completato AGY-27 (IT-LINKS-GUIDA) su claude/docs-it-links-guida@cded8faa:
+  - In `docs/GUIDA-GIOCHI.md`, aggiornati i 2 riferimenti a `API-IT.md` (non esistente) puntandoli ai capitoli inglesi esistenti: riga 119 `docs/api/input.md` e riga 587 `api/bmlib.md#bmlib-the-games-shared-library`. Preservata la riga 4 (spetta a BETA-7a).
+  - Verificato: `git grep API-IT` su `GUIDA-GIOCHI.md` restituisce solo la riga 4; link ad àncora `bmlib.md` presente a riga 587; `docs_audit.py score` mantiene penalità 0; `git diff --stat` conferma 1 file, +2 -2. Registrato nel ledger e pushato.
 - Completato AGY-26 (IT-LINKS-API) su claude/docs-it-links-api@78839cab:
   - Rimossi i 5 link rotti al file inesistente `API-IT.md` da 4 file: `docs/API.md` (riga 3 e prefisso riga 6), `AI.md` (riga 18), `sdk/README.md` (riga 41), `docs/progress/lua.md` (riga 5).
   - Verificato: `git grep API-IT` sui 4 file produce 0 occorrenze; `docs_audit.py score` mantiene penalità 0; `git diff --stat` conferma 4 file modificati (+4 -5). Registrato nel ledger e pushato.
