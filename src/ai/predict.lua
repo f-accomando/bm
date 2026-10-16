@@ -44,7 +44,7 @@ local dicts, loading = {}, {}
 local function loader(lang)
   return coroutine.create(function()
     local src = (require "words")[lang]
-    local d = { words = {}, keys = {}, count = {}, at = {}, func = {}, big = {}, N = 0, api = {}, top = {} }
+    local d = { words = {}, keys = {}, count = {}, at = {}, func = {}, big = {}, N = 0, api = {}, allow = {}, top = {} }
     local i = 0
     for w, c, f in src.uni:gmatch("(%S+) (%d+)( ?f?)\n") do
       i = i + 1
@@ -66,7 +66,15 @@ local function loader(lang)
       if i % 128 == 0 and coroutine.isyieldable() then coroutine.yield() end
     end
     if src.api then
-      for name, sig in src.api:gmatch("(%S+) ([^\n]+)\n") do d.api[name] = sig end
+      i = 0
+      for name, sig, area, text in src.api:gmatch("([^\t\n]+)\t([^\t\n]*)\t([^\t\n]*)\t([^\n]*)\n") do
+        d.api[name] = { sig = sig, area = area, text = text }
+        i = i + 1
+        if i % 128 == 0 and coroutine.isyieldable() then coroutine.yield() end
+      end
+    end
+    if src.allow then
+      for name in src.allow:gmatch("[^\n]+") do d.allow[name] = true end
     end
     dicts[lang] = d
   end)
@@ -303,6 +311,34 @@ function P.complete(before, o)
       return { prefix = prefix, word = word, rest = word:sub(#prefix + 1), ending = ending, list = list }
     end
   end
+end
+
+-- the API entry of a name: { sig, area, text } from src/ai/api.tsv, or nil
+function P.api(name)
+  return dict("lua").api[name]
+end
+
+-- text cut into lines of at most width characters, at the spaces; a word
+-- longer than width is cut at width; no empty line at the end
+function P.wrap(text, width)
+  local lines, line = {}, ""
+  for word in text:gmatch("%S+") do
+    while #word > width do
+      if line ~= "" then lines[#lines + 1] = line; line = "" end
+      lines[#lines + 1] = word:sub(1, width)
+      word = word:sub(width + 1)
+    end
+    if line == "" then
+      line = word
+    elseif #line + 1 + #word <= width then
+      line = line .. " " .. word
+    else
+      lines[#lines + 1] = line
+      line = word
+    end
+  end
+  if line ~= "" then lines[#lines + 1] = line end
+  return lines
 end
 
 return P

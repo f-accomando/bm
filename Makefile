@@ -121,7 +121,7 @@ ai-model:
 
 # The word completion (M30): its dictionaries, from the texts of
 # src/ai/words, the Lua of the games and the API of the knowledge base
-WORDS_SRC := $(wildcard src/ai/words/*.txt) $(wildcard carts/*/main.lua carts/kitchen/src/*.lua carts/titan/src/*.lua) \
+WORDS_SRC := $(wildcard src/ai/words/*.txt) $(wildcard carts/*/main.lua carts/kitchen/src/*.lua carts/titan/src/*.lua) src/ai/api.tsv scripts/api_lint_allow.txt \
              $(AI_KB) scripts/mkwords.py
 $(BUILD)/words.lua: $(WORDS_SRC)
 	@mkdir -p $(dir $@)
