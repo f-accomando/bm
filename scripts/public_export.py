@@ -143,7 +143,7 @@ def wsl_path(p):
 def host_tests(makefile):
     t = open(makefile, encoding='utf-8', errors='replace').read()
     m = re.search(r'^HOST_TESTS\s*:=((?:.*\\\n)*.*)', t, re.M)
-    names = re.findall(r'\btest-[\w-]+', re.sub(r'\$\(if[^)]*\)', '', m.group(1))) if m else []  # drop K7-only
+    names = re.findall(r'\btest-[\w-]+', re.sub(r'\$\(if\s+(?:\$\([^)]*\)|[^,)])*,[^)]*\)', '', m.group(1))) if m else []  # drop K7-only
     return [n for n in dict.fromkeys(names) if re.search(r'^%s\s*:' % re.escape(n), t, re.M)]
 
 
