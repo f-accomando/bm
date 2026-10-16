@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: NET
-state: WORKING
-task: R-NET6
+state: FREE
+task: 
 waiting_on: 
 eta: 2026-10-16T17:30+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T16:25+02:00
+updated: 2026-10-16T16:32+02:00
 ---
 # NET
 
@@ -31,6 +31,7 @@ updated: 2026-10-16T16:25+02:00
 Presa in carico di sync/wo/NET.md, ordine NET-1a→NET-2d. R-NET3 non iniziato.
 
 ## Consegne
+DELIVERED R-NET6 (6a+6b+6c) @ claude/net-bridge-line-allowlist@11caf038 · verifica: python3 tests/net/check_bm_net_config.py -> 'bm_net --config, --line: all passed' (WSL); make test-net -> exit 0; docs_audit score -> penalties 0 · prova sul codice vecchio (pi_bridge.py di prima di 6a, stessi test): 23 FAIL, tra cui i due marcati ('gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send' e 'line set wifi_psk=x'); passo 0: i nomi dei profili in src/bm/b3d.c:1501-1502 (prof_short) sono tutti [A-Za-z0-9] · base: claude/net-bridge-durable@260020dd (R-NET5, come da inbox), non claude/integrazione-ottobre; tools.md era a 120 righe: la regola e' accodata alla riga 'Tool pages' · nessuna prova sul Pi; facoltativa con l'utente: 'pi.py line "set wifi_psk=x"' -> refused: line: 'set' is not allowed · 2026-10-16T16:32+02:00
 DELIVERED R-NET9 @ claude/watchdog-chainloader-fix@926f7c1d · verifica: python3 tests/qemu_test.py -k chainloader -> test_chainloader PASS + test_chainloader_bad_crc PASS; -k test_sd_logs -> PASS; -k test_crash_report -> PASS; make -> nessun warning · causa: src/drivers/watchdog.c:43-45 (watchdog_arm scrive RSTC con FULL_RESET per la sonda; QEMU resetta tutta la macchina e sotto il chainloader riparte il chainloader, non il kernel); confermata: con watchdog_arm che ritorna subito test_chainloader passa (2/2). correzione: prima della scrittura RSTC si legge il seriale scheda con parole sentinella 0xFFFFFFFF; se la risposta le lascia invariate o da' 0:0 (QEMU: nessun seriale vero) si ritorna -2 senza RSTC (messaggio 'resets at once on RSTC (emulator)' invariato, test_sd_logs lo verifica). NON verificato su hardware: su Pi reale il seriale e' un numero vero, quindi il percorso resta quello di prima (probe RSTC + lettura dopo 20 ms); la riga 'watchdog: on, 3000 ms' va vista sul Pi · prova utente a fine giornata: il Pi si avvia con 'watchdog: on', un crash volontario riavvia da solo; non verificato che QEMU piu' nuovi non restituiscano un seriale vero (in tal caso torna la sonda con reset) · 2026-10-16T16:24+02:00
 DELIVERED APP-5b @ claude/app5-api-help-lint@d2987835 · verifica: make test-predict -> 33 checks 0 failed; diff api_lint.py vs Lua lint su 113 file (2135 segnalazioni) -> 0 differenze; qemu_test.py -k test_code_api -> PASS; -k test_code_completion -> PASS; -k test_code_editor -> PASS; make -f rgb30.mk PLAT=virt all -> build ok; docs_audit score -> penalties 0; consistency check -> 0 drift · note: branch = bm-core e6d7bfd7 + merge origin/agy/api-lint (integrare prima agy/api-source e agy/api-lint); D3: se nessuno spazio entro 477 il testo e' tagliato a 477 + '...'; la regola API list in progress/tools.md e' accodata alla riga 'Tool pages' (il file era a 120 righe, limite del docs_audit); il bm Code gira solo sul Pi: nessuna prova RGB30 · 2026-10-16T12:36+02:00
 DELIVERED API-1 @ claude/perf-budget-cart@c18e881d · verifica: python tests/tools/test_perf_table.py -> 10 PASS; make build/carts/budget.bm -> exit 0; tests/qemu_test.py -k budget -> PASS (Pi); tests/rgb30/qemu_test.py -k budget -> PASS; docs_audit score -> penalties 0 · note: (1) su RGB30 il tasto ok del prompt report e' 'k' (B seriale), non '' (e' Start): usato 'k' dal codice di sd_ask/poll_keys; (2) il kernel Pi in QEMU scrive 'board: Pi Zero' senza 'QEMU': perf_table.py non lo rifiuta, non rilevabile senza toccare src/**; avvertito in PERFORMANCE.md; (3) da API-1a: la cella tiles8 (sset cella 1) copre il quadrante alto-destra dello sprite spr16 (solo grafica); senza carico 60fps numerico spr16 niente righe profile; colonne Pi/RGB30 vuote (—) fino alle prove con l'utente · 2026-10-16T11:18+02:00
