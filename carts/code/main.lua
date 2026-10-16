@@ -177,6 +177,7 @@ local function snapshot(t, v, kind)
   t.redo = {}
   t.last_kind, t.last_line = kind, v.cy
   t.dirty = true
+  t.lint_lines = nil
 end
 
 local function undo(t, v, from, to)
@@ -185,6 +186,7 @@ local function undo(t, v, from, to)
   to[#to + 1] = { lines = t.lines, cx = v.cx, cy = v.cy }
   t.lines, v.cx, v.cy = u.lines, u.cx, u.cy
   t.last_kind, t.dirty = nil, true
+  t.lint_lines = nil
   clamp(t, v)
 end
 
