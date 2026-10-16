@@ -996,13 +996,14 @@ end
 local function stages_flow(code)
   local store = {}                               -- what save(t) keeps
   local logs, ok_now, down_now = {}, false, false
-  local function play(n, pulse)
+  local function play(n, pulse, geo)
     local G2 = {}
     for k, v in pairs(E) do G2[k] = v end
     G2._init, G2._update, G2._draw = nil, nil, nil
     G2.btn = function() return false end
     G2.btnp = function(i) return (i == "ok" and ok_now) or (i == 3 and down_now) or false end
     G2.mget = function() return 7 end
+    if geo then G2.mget, G2.btn = E.mget, function(i) return i == 1 end end   -- the real map; right held
     G2.log = function(...)
       local parts = {}
       for i = 1, select("#", ...) do parts[#parts + 1] = tostring((select(i, ...))) end
@@ -1063,6 +1064,33 @@ local function stages_flow(code)
   local cont = false
   for _, l in ipairs(logs) do if l == "stages: stage 3" then cont = true end end
   check(cont, "Stages 2D run 2: CONTINUE STAGE 3: stage 3 in the logs")
+
+  -- D4: a run that continues at stage 3 does not touch the best (it counts only from stage 1)
+  check((best or 0) > 1 and store.v ~= nil and store.v.best == best,
+        "Stages 2D run 2: the best stays " .. tostring(best) .. ": " .. tostring(store.v and store.v.best))
+
+  -- run 3, real geometry: the map the template painted (ground tile 2 flag 0, plank tile 6 flag 1, exit 7)
+  -- and mflags read from it. Right held in stage 1: the hero walks into the first gap, falls, starts again;
+  -- three falls and it is game over.
+  local function mfl(x, y, w, h)
+    local o = 0
+    for ty = y // 8, (y + math.max((h or 0) - 1, 0)) // 8 do
+      for tx = x // 8, (x + math.max((w or 0) - 1, 0)) // 8 do o = o | E.fget(E.mget(tx, ty)) end
+    end
+    return o
+  end
+  check(E.mget(120, 38) == 7 and E.mget(5, 40) == 2 and E.mget(31, 40) == 0 and E.mget(12, 34) == 6,
+        "Stages 2D map: exit at 120,38, ground at 5,40, a gap at 31,40, a plank at 12,34")
+  check(mfl(40, 320, 8, 8) & 1 == 1 and mfl(248, 320, 8, 8) == 0 and mfl(96, 272, 8, 0) & 2 == 2,
+        "Stages 2D map: the ground is solid, the gap is empty, the plank is a platform")
+  local real_mflags = E.mflags
+  E.mflags = mfl
+  store.v, logs = nil, {}
+  play(900, function(f) return f % 10 == 0, false end, true)
+  E.mflags = real_mflags
+  local want, j = { "stages: stage 1", "stages: lost 2", "stages: lost 1", "stages: lost 0", "stages: gameover" }, 1
+  for _, l in ipairs(logs) do if l == want[j] then j = j + 1 end end
+  check(j > #want, "Stages 2D run 3, real geometry: walks into gap, falls 3 times, game over: " .. table.concat(logs, ", "))
 end
 
 -- saving with the pad: Save as from the actions, the name typed, Start
