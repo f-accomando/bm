@@ -1,0 +1,4 @@
+# QEMU-FLAKE - i test QEMU non falliscono piu' per connessione/avvio (bozza per domani, NON assegnata)
+Sintomi (B16, APP-8, 16 ott): (1) `ConnectionRefused` in `Qemu.__init__` (`tests/qemu_test.py:67`, connect subito dopo Popen), in test diversi a ogni giro; (2) `test_sdk_stages_build` (`tests/rgb30/qemu_test.py:632`, `q.expect("bm SDK\r\n", timeout=30)`) senza banner entro 30 s sotto carico.
+Cambio proposto: retry di connessione (5 tentativi, 0,2 s) in `Qemu.__init__`; timeout 30 -> 60 s o attesa sul banner con poll. Perimetro: `tests/qemu_test.py` (solo `Qemu.__init__`), `tests/rgb30/qemu_test.py` (solo `test_sdk_stages_build`). Dopo AGX-3 (stessa classe Qemu, tmp cleanup).
+Verifica: `-k sdk_` x3 in WSL tutti exit 0; mutazione: senza retry con un'ascolto ritardato il test deve fallire. Operatore consigliato: B16 o AGX.
