@@ -3,12 +3,17 @@
 fixed operations without ever seeing the password.
 
   python3 tools/pi_bridge.py 192.168.1.108          # asks for the password, then waits (Ctrl-C to stop)
+  python3 tools/pi_bridge.py --detach 192.168.1.108  # the same, then in the background (the shell may be closed)
   python3 tools/pi.py line gpu                        # the client (another shell, or Claude)
+  python3 tools/pi.py status                          # is the Pi up, which kernel, how did the run before end
 
-Operations: logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.TXT and shown), keys NAME (monitor, crash-dabt, crash-undef, crash-prefetch), line TEXT (a monitor line: gpu, b3d, ...), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. is NOT allowed.
+Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.TXT and shown), keys NAME (monitor, crash-*, freeze, reboot: the last ones only when the monitor has the keys), line TEXT (a monitor line: gpu, b3d, ...), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. is NOT allowed.
 FILE must be inside the repo or in ~/bmk*/ (the build folders); OUT of shot is a .png in a folder there. The socket is ~/.pi_bridge.sock, mode 0600."""
+import datetime
 import getpass
 import os
+import re
+import signal
 import socket
 import subprocess
 import sys
@@ -16,8 +21,12 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
 SOCK = os.path.expanduser("~/.pi_bridge.sock")
+sys.path.insert(0, HERE)
+import bm_net  # noqa: E402  (status asks the greeting of the console)
 # keys the Pi can be told to press, by name (the monitor; the voluntary crashes: X then a/u/b). No free keys.
-KEYS = {"monitor": "q", "crash-dabt": "Xa", "crash-undef": "Xu", "crash-prefetch": "Xb"}
+KEYS = {"monitor": "q", "crash-dabt": "Xa", "crash-undef": "Xu", "crash-prefetch": "Xb", "freeze": "Xf", "reboot": "r"}
+# these keys mean something else in the menu (X opens the options, r is an action): only when the monitor has them
+MONITOR_ONLY = {"crash-dabt", "crash-undef", "crash-prefetch", "freeze", "reboot"}
 # the logs of the SD card the Pi writes at a crash or a boot (netxfer.c G allows these three names only)
 LOGS = {"bootprev": "BOOTPREV.TXT", "bootlog": "BOOTLOG.TXT", "lastrun": "LASTRUN.TXT"}
 ALLOWED_DIRS = [ROOT] + [os.path.expanduser("~/" + d) for d in os.listdir(os.path.expanduser("~")) if d.startswith("bmk")]
@@ -33,9 +42,34 @@ def allowed_dir(path):
     return os.path.isdir(p) and any(p == os.path.realpath(d) or p.startswith(os.path.realpath(d) + os.sep) for d in ALLOWED_DIRS)
 
 
+def status(host, pw):
+    """up or down (the greeting of the console), the version, the state of the run before (BOOTPREV.TXT)"""
+    v = bm_net.console_version(host)
+    if v is None:
+        return "status: down - no answer from %s:%d (off, restarting, frozen, or another client connected)" % (host, bm_net.PORT)
+    out_file = os.path.join(ROOT, "out", "pi_status_BOOTPREV.TXT")
+    os.makedirs(os.path.dirname(out_file), exist_ok=True)
+    cmd = [sys.executable, os.path.join(HERE, "bm_net.py"), host, "--get", "bm/BOOTPREV.TXT", out_file]
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=dict(os.environ, BM_PASSWORD=pw))
+    prev, first = None, (r.stdout + r.stderr).strip().split(chr(10))[0]
+    if r.returncode == 0 and os.path.isfile(out_file):
+        with open(out_file, encoding="utf-8", errors="replace") as f:
+            body = f.read().replace(pw, "***")
+        with open(out_file, "w", encoding="utf-8") as f:
+            f.write(body)
+        found = re.findall(r"--- the run before (.*?); the last lines", body)
+        prev = found[-1] if found else None
+    lines = ["status: up - bm %s at %s" % (v, host),
+             "previous run: %s" % (prev if prev else "unknown" + (" (" + first + ")" if first else "")),
+             "checked: " + datetime.datetime.now().isoformat(timespec="seconds")]
+    return chr(10).join(lines).replace(pw, "***")
+
+
 def run(host, pw, req):
     op, _, arg = req.partition(" ")
     base = [sys.executable, os.path.join(HERE, "bm_net.py"), host]
+    if req == "status":
+        return status(host, pw)
     if op == "line" and arg and len(arg) < 200 and all(c.isalnum() or c in " _-.=" for c in arg):
         cmd = base + ["--line", arg]
     elif op in ("send", "play", "kernel") and allowed(arg):
@@ -43,14 +77,17 @@ def run(host, pw, req):
     elif op == "shot" and arg.lower().endswith(".png") and allowed_dir(os.path.dirname(arg) or "."):
         cmd = base + ["--shot", os.path.realpath(arg)]
     elif op == "keys" and arg in KEYS:
-        cmd = base + ["--keys", KEYS[arg]]
+        cmd = base + (["--in-monitor"] if arg in MONITOR_ONLY else []) + ["--keys", KEYS[arg]]
     elif op == "logs" and arg in LOGS:
         out_file = os.path.join(ROOT, "out", "pi_" + LOGS[arg])
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         cmd = base + ["--get", "bm/" + LOGS[arg], out_file]
     else:
         return "refused: %r" % req
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=dict(os.environ, BM_PASSWORD=pw))
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=dict(os.environ, BM_PASSWORD=pw))
+    except subprocess.TimeoutExpired:
+        return "timeout: no end after 300 s (the Pi may be frozen or restarting: python3 tools/pi.py status)"
     text = r.stdout + r.stderr
     if op == "logs" and r.returncode == 0 and os.path.isfile(out_file):
         with open(out_file, encoding="utf-8", errors="replace") as f:
@@ -61,21 +98,61 @@ def run(host, pw, req):
     return text.replace(pw, "***")
 
 
-def main():
-    host = sys.argv[1] if len(sys.argv) > 1 else "192.168.1.108"
-    pw = os.environ.get("BM_PASSWORD") or getpass.getpass("console password of %s (stays in this process): " % host)
-    if os.path.exists(SOCK):
-        os.unlink(SOCK)
+def claim_socket(path):
+    """The listening socket, or an exit if a bridge already listens there (a stale file is removed)"""
+    if os.path.exists(path):
+        probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        probe.settimeout(1)
+        try:
+            probe.connect(path)
+        except (ConnectionRefusedError, FileNotFoundError):
+            os.unlink(path)
+        except OSError:
+            pass
+        else:
+            probe.close()
+            sys.exit("a bridge is already running on %s (stop it: pkill -INT -f pi_bridge.py)" % path)
+        finally:
+            probe.close()
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.bind(SOCK)
-    os.chmod(SOCK, 0o600)
+    s.bind(path)
+    os.chmod(path, 0o600)
     s.listen(1)
-    print("bridge ready on", SOCK, "- Ctrl-C to stop")
+    return s
+
+
+def detach():
+    """Into the background: the shell may be closed. The password is already in this process's memory only."""
+    pid = os.fork()
+    if pid:
+        print("bridge started in the background (pid %d), log out/pi_bridge.log; stop: pkill -INT -f pi_bridge.py" % pid)
+        os._exit(0)
+    os.setsid()
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    os.makedirs(os.path.join(ROOT, "out"), exist_ok=True)
+    log = os.open(os.path.join(ROOT, "out", "pi_bridge.log"), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    null = os.open(os.devnull, os.O_RDONLY)
+    os.dup2(null, 0)
+    os.dup2(log, 1)
+    os.dup2(log, 2)
+
+
+def main():
+    args = sys.argv[1:]
+    background = "--detach" in args
+    names = [a for a in args if not a.startswith("--")]
+    host = names[0] if names else "192.168.1.108"
+    s = claim_socket(SOCK)
+    pw = os.environ.get("BM_PASSWORD") or getpass.getpass("console password of %s (stays in this process): " % host)
+    signal.signal(signal.SIGTERM, signal.default_int_handler)   # the socket is removed below
+    if background:
+        detach()
+    print("bridge ready on", SOCK, "- Ctrl-C to stop", flush=True)
     try:
         while True:
             c, _ = s.accept()
             req = c.makefile().readline().strip()
-            print("request:", req)
+            print("request:", req, flush=True)
             try:
                 out = run(host, pw, req)
             except Exception as e:
