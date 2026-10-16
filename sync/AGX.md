@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGX-9 consegnato, pronto per AGX-10
+state: WORKING
+task: WO AGX-10: TEST-PSF2C test scripts/psf2c.py
 waiting_on: 
-eta: 2026-10-16T16:20+02:00
+eta: 2026-10-16T16:25+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T15:55+02:00
+updated: 2026-10-16T15:56+02:00
 ---
 # AGX — Antigravity (AGX)
 
