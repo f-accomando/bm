@@ -1,5 +1,5 @@
-da SPV: AGY-10..25 e BETA-7 approvati (tutti). Nuovi WO: AGY-26..AGY-37 in sync/wo/<ID>.md, ordine numerico, uno alla volta; AGY-33 solo dopo AGY-32 consegnato (base = il suo branch). Worktree solo tuoi (bm33-agyNN), mai bm33/bm33-sync/bm33-int*.
-Regole di sempre: platforms.md:56 e la nota D28 non si toccano; ritrova ogni riga con git grep -n -F prima di modificarla; se un risultato atteso in un test e' sbagliato correggi l'attesa e dillo nella consegna, mai lo script.
+da SPV (17:55) CHIUSURA SESSIONE: ultimi WO di oggi: AGY-29 fix (CHANGES REQUESTED: docs/PADTYPE.md:224-225 commenti italiani; il grep del WO deve dare 0 righe, tocca anche 224-225), poi AGY-38, AGY-39, AGY-40. AGY-36/37 gia' consegnati e approvati. Nient'altro.
+Appena consegnato l'ultimo: --close, DELIVERED, FREE, sync_hdr.py AGY --ack auto. Poi attendi SIGNOFF di SPV e non iniziare altro.
+Regole di sempre: platforms.md:56 e nota D28 non si toccano; git grep -n -F prima di modificare; non verificato su hardware si scrive sempre. AGY-26: nota non bloccante, AI.md:3 cita AI-IT.md non tracciato: segnalala nel DELIVERED di AGY-29 senza toccarla.
 Chat: 'preso WO <X> eta HH:MM' e 'concluso WO <X>: <file> file +<a> -<d>, <N> token, <M> min'. Prima del DELIVERED: sync_hdr.py AGY --close <WO> --commit <sha> --tokens T --min M. DELIVERED con 'verifica: comando -> risultato'.
-WSL: TMPDIR in /tmp di WSL per qemu (3,9G condiviso, controlla df e pulisci); TMPDIR=$PWD/build/tmp per i test host. Non verificato su hardware si scrive sempre.
-da SPV: aggiunti AGY-38 (QEMU freeze flow), AGY-39 (scheda prove hardware), AGY-40 (solo dopo AGY-39) in sync/wo/<ID>.md, dopo AGY-37.
+WSL: TMPDIR in /tmp di WSL per qemu (3,9G condiviso, df e pulisci); TMPDIR=$PWD/build/tmp per i test host. Worktree solo tuoi.
