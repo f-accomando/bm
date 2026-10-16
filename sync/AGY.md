@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
+state: FREE
 task: AGY-11
 waiting_on: 
 progress: 100
 eta: 2026-10-16T11:45+02:00
 wakeup: no
 ack: 2026-10-16T11:06+02:00
-updated: 2026-10-16T11:21+02:00
+updated: 2026-10-16T11:27+02:00
 ---
 # AGY — Antigravity
 
@@ -63,8 +63,15 @@ DELIVERED BETA-7a @ agy/beta-quickstart@1a906463 · verifica: python tests/tools
 DELIVERED BETA-7b @ agy/beta-quickstart@1a906463 · verifica: python scripts/doc_refs.py --max-lines 100 manuals/content/en/quickstart.md -> exit 0 (74 righe <= 100, segnaposto G1-G4 esatti, 0 link markdown) · 2026-10-16T10:11+02:00
 DELIVERED BETA-7c @ agy/beta-quickstart@1a906463 · verifica: python scripts/manuals.py check quickstart && python scripts/manuals.py stamp quickstart && python $TMP/translate_check.py manuals/content/en/quickstart.md manuals/content/it/quickstart.md --reverse --lenient-code --glossary $TMP/glossary.tsv && python scripts/doc_refs.py --max-lines 100 manuals/content/it/quickstart.md && python scripts/manuals.py build quickstart -o manuals/pdf -> exit 0 (en/it concordano, 0 errori 1 warning glossario Need/Esigenza, creati quickstart.en.pdf e quickstart.it.pdf) · 2026-10-16T10:11+02:00
 DELIVERED BETA-7d @ agy/beta-quickstart@1a906463 · verifica: python scripts/docs_audit.py score && python scripts/doc_refs.py docs/GAME-GUIDE.md docs/GUIDA-GIOCHI.md -> score 6632 penalties 0; righe 1-8 introdotte 0 errori (errori preesistenti altrove documentati); parità translate_check documentata · 2026-10-16T10:11+02:00
+DELIVERED AGY-11 @ agy/beta6-gate@a59a54cf · verifica: test_consistency_beta (12/12 test OK); consistency.py beta -> exit 1, 14 blockers 7 accepted 0 resolved 0 errors; consistency.py check invariato (0 drift); docs_audit score -> score 6646 penalties 0 · 2026-10-16T11:27+02:00
 
 ## Progressi
+- Completato AGY-11 (BETA6-GATE) su agy/beta6-gate@a59a54cf:
+  - Implementato comando `consistency.py beta [--root DIR]` con controllo toml su `docs/spec/divergences.toml`, `platforms.toml` e `beta.toml`. Valuta ciascuna divergenza dello `scope`: resolved, accepted (hardware con capability da platforms.toml), BLOCKS BETA (hardware senza capability valida), accepted in writing (con [[accept]]), BLOCKS BETA (per tutte le altre). Controlli di validità su [[accept]] (id in scope, campi id/because/by/date non vuoti e data YYYY-MM-DD, duplicati, STALE se resolved).
+  - Creato `docs/spec/beta.toml` con scope di 21 divergenze (D01-D13, D28, D30-D36) e commento normativo.
+  - Creata suite `tests/tools/test_consistency_beta.py` con 12 test unitari esaustivi (12/12 OK).
+  - Documentato in `docs/spec/CONSISTENCY.md` nella tabella dei file e nella sezione di descrizione dei comandi.
+  - Verificato: `test_consistency_beta.py` OK; `consistency.py beta` exit 1 con 14 blockers, 7 accepted, 0 resolved, 0 errors; `consistency.py check` invariato a 0 drift; `docs_audit.py score` invariato a score 6646 penalties 0. Registrato ledger e pushato.
 - Completato BETA-7 (sezioni 7a-7d) su agy/beta-quickstart@1a906463 (la sezione 7e sarà assegnata da SPV una volta integrate APP-4, APP-5b e API-1):
   - 7a: implementato linter `scripts/doc_refs.py` (regole R1 percorsi repo/glob, R2 console /carts/ e /bm/, R3 comandi make ed easy_install.sh, R4 link markdown relativi, R5 flag --final per gap, R6 --max-lines) e suite unitaria `tests/tools/test_doc_refs.py` (11/11 test passati, exit 0). Passo 0 eseguito su `install-sd.md` (segnalati solo percorsi host /dev/sdX e /mnt/d) ed `editor-sdk.md` (0 errori).
   - 7b: creato manuale `manuals/content/en/quickstart.md` (74 righe <= 100, zero codici milestone, zero link markdown, 7 capitoli numerati con azioni e schermate riscontrate nell'SDK/code, segnaposto G1-G4 esatti) e registrato in `manuals/manuals.toml` (order = 0). Verificato con `doc_refs.py --max-lines 100` (exit 0).
