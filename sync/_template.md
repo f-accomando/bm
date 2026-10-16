@@ -25,6 +25,7 @@ updated: {ISO 8601 with zone}
 
 ## Consegne
 (una riga per work order finito: `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`)
+Prima del DELIVERED: `python tools/sync_hdr.py <ID> --close <WO> --commit <sha> --tokens T --min M` accoda i numeri del WO a `sync/<ID>.ledger.jsonl` (solo tu lo scrivi) e stampa la riga di chat `done WO ...`; non cambia lo stato.
 
 ## Progressi
 
