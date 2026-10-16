@@ -417,6 +417,7 @@ def main():
     ap.add_argument("--line", metavar="LINE",
                     help="run a monitor line (commands separated by ';': gpu, b3d tests=... "
                          "profiles=..., set key=value, send...) and show its output")
+    ap.add_argument("--in-monitor", action="store_true", help="with --keys: only when the monitor has the keys")
     ap.add_argument("--keys", metavar="SEQ", help="press the keys of SEQ (letters and digits, at most 8) one by one")
     ap.add_argument("--config", nargs="*", metavar="KEY=VALUE",
                     help="the console's bm/config.txt: shown (secrets hidden), KEY=VALUE sets a key, "
@@ -456,6 +457,13 @@ def main():
         if not re.fullmatch(r"[A-Za-z0-9]{1,8}", args.keys):
             print("--keys: letters and digits only, at most 8")
             return 1
+        if args.in_monitor:
+            m = FOCUS.search(answer)
+            where = m.group(1).decode(errors="replace") if m else ""
+            if not where.startswith("the monitor"):
+                print(f"[bm_net] the keys go to {where or 'an unknown place'}: these keys work in the monitor only (keys monitor first)")
+                sock.close()
+                return 2
         try:
             return run_keys(sock, args.keys, answer)
         finally:
@@ -508,4 +516,8 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except OSError as e:        # the console is off, restarting or frozen
+        print(f"[bm_net] the console does not answer ({e}): off, restarting or frozen; try again in a minute")
+        sys.exit(3)
