@@ -7,8 +7,8 @@ waiting_on:
 progress: 100
 eta: 2026-10-16T11:30+02:00
 wakeup: no
-ack: 2026-10-16T09:27+02:00
-updated: 2026-10-16T10:12+02:00
+ack: 2026-10-16T10:20+02:00
+updated: 2026-10-16T10:39+02:00
 ---
 # AGY — Antigravity
 
@@ -51,12 +51,12 @@ DELIVERED AGY-2 @ agy/api-lint@38693bc0 · verifica: python tests/tools/test_api
 DELIVERED AGY-3 @ agy/beta6-triage@9bebc945 · verifica: 21 righe analizzate con prove file:riga, python scripts/consistency.py check → 0 drift, 5 accepted, 0 stale · 2026-10-15T18:08+02:00
 DELIVERED AGY-4 @ agy/agent-audit-baseline@b920d6a9 · verifica: python tests/tools/test_agent_audit.py && python scripts/agent_audit.py --baseline docs/agents/baseline.txt → 14/14 test OK, tabelle model/area e sezione vs baseline presenti · 2026-10-15T18:13+02:00
 DELIVERED AGY-5 @ agy/sync-perimeter-quarantine@dcbc229e · verifica: python tests/tools/test_sync_perimeter.py && python tests/tools/test_quarantine_check.py && python scripts/quarantine_check.py && python scripts/docs_audit.py score → 7/7 test OK, penalties 0 (score 6624) · 2026-10-15T18:16+02:00
-DELIVERED AGY-6a @ agy/api-source@05219d60 · verifica: python tests/tools/test_mkapi.py && python scripts/mkapi.py --check → OK (UNDOCUMENTED 0: []; NOT_IN_RUNTIME 1: [nnet]; test duplicati 9 OK) · 2026-10-15T20:10+02:00
-DELIVERED AGY-6b @ agy/beta6-triage@9e517b3a · verifica: python scripts/consistency.py check (0 drift), 21 righe analizzate con 44 citazioni verificate nel codice · 2026-10-15T20:23+02:00
-DELIVERED AGY-6c @ agy/sync-perimeter-quarantine@56e69f06 · verifica: python tests/tools/test_sync_perimeter.py (10/10 OK), prova reale con sync/wo/AGY.md passata · 2026-10-15T20:29+02:00
-DELIVERED AGY-7 @ agy/scaffold-workflow-it@0a3b76d · verifica: python scripts/build_workflow_pdf_it.py → exit 0, 28 pagine (stesso numero di EN), font set identico ['Courier', 'Helvetica', 'Helvetica-Bold'], colori identici, zero parole inglesi di prosa fuori codice · 2026-10-15T21:12+02:00
-DELIVERED AGY-8 @ agy/scaffold-prompt@68e7d53 · verifica: 41/41 percorsi coincidenti con git ls-files, zero riferimenti bm, zero segreti/percorsi assoluti, prova su cartella esistente (diff prima vuoto, .scaffold e .gitignore rispettati), prova su cartella vuota (selftest 40/40, docs_audit score 3800 penalties 0, consistency check 0 drift) · 2026-10-15T21:26+02:00
-DELIVERED AGY-9 @ agy/beta6-triage@fd80458b · verifica: python scripts/consistency.py check (0 drift, 5 accepted, 0 stale), 21 righe con citazioni rifinite (D32, D35, D04, D34, D13), toml stale specificato sui campi pi/rgb30 · 2026-10-15T21:42+02:00
+DELIVERED AGY-6a @ agy/api-source@05219d60 · verifica: python tests/tools/test_mkapi.py && python scripts/mkapi.py --check -> OK (UNDOCUMENTED 0: []; NOT_IN_RUNTIME 1: [nnet]; test duplicati 9 OK) · 2026-10-15T20:10+02:00
+DELIVERED AGY-6b @ agy/beta6-triage@9e517b3a · verifica: python scripts/consistency.py check -> 0 drift (21 righe analizzate con 44 citazioni verificate nel codice) · 2026-10-15T20:23+02:00
+DELIVERED AGY-6c @ agy/sync-perimeter-quarantine@56e69f06 · verifica: python tests/tools/test_sync_perimeter.py -> 10/10 OK (prova reale con sync/wo/AGY.md passata) · 2026-10-15T20:29+02:00
+DELIVERED AGY-7 @ agy/scaffold-workflow-it@0a3b76d · verifica: python scripts/build_workflow_pdf_it.py -> exit 0, 28 pagine (stesso numero di EN), font set identico ['Courier', 'Helvetica', 'Helvetica-Bold'], colori identici, zero parole inglesi di prosa fuori codice · 2026-10-15T21:12+02:00
+DELIVERED AGY-8 @ agy/scaffold-prompt@68e7d53 · verifica: git ls-files && python scripts/selftest.py && python scripts/docs_audit.py score && python scripts/consistency.py check -> 41/41 percorsi, 40/40 selftest, score 3800 penalties 0, 0 drift · 2026-10-15T21:26+02:00
+DELIVERED AGY-9 @ agy/beta6-triage@fd80458b · verifica: python scripts/consistency.py check -> 0 drift, 5 accepted, 0 stale (21 righe con citazioni rifinite D32, D35, D04, D34, D13, toml stale specificato sui campi pi/rgb30) · 2026-10-15T21:42+02:00
 DELIVERED AGY-10a @ agy/scaffold-prompt@217aa8d · verifica: simulazione cartella vuota (selftest 40/40, score 3761 penalties 0, consistency check 0 drift, gate 0 blockers, agent_audit PASS) && simulazione cartella esistente (diff utente vuoto prima risposte, .scaffold a fianco con opzione b, .gitignore unito con opzione a) && grep parole vietate bm/baremetal -> 0 match, git diff vs origin/main -> solo scaffold_prompt.md · 2026-10-16T09:49+02:00
 DELIVERED AGY-10b @ agy/scaffold-workflow-it@a0a938d · verifica: python scripts/build_workflow_pdf_it.py && verifica pymupdf -> exit 0, 28 pagine esatte, font set ['Courier', 'Helvetica', 'Helvetica-Bold'], zero overflow, frasi verificate a p.11 (decidere, correggere, kill, merge), p.12 (poche migliaia di token), p.16 (Quasi una necessità; Una richiesta dichiara N su 5, l'unica motivazione, e...), p.23 (riga REVIEW tradotta), p.24 (TL;DR chiarito; collega suggerito; git pull --rebase origin sync/<nome> e cancellato consegne di due operatori), p.25 (# 0 penalità) · 2026-10-16T09:50+02:00
 DELIVERED BETA-7a @ agy/beta-quickstart@1a906463 · verifica: python tests/tools/test_doc_refs.py && python scripts/doc_refs.py manuals/content/en/install-sd.md manuals/content/en/editor-sdk.md -> 11/11 test OK (exit 0); install-sd /dev/sdX e /mnt/d (percorsi host); editor-sdk 0 errori · 2026-10-16T10:11+02:00
