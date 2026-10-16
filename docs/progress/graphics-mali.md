@@ -30,16 +30,16 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
 
 ## M41 Roadmap: Mali GPU & Overbit in `.b16` (RGB30)
 
-1. **Overbit in `.b16` su RGB30**:
-   - Esecuzione a **360×360** (con raddoppio ×2 dal controller video hardware) e **720×720** nativo, selezionabili nel menu *RESOLUTION*.
-   - Adattamento con `screen()` per modi quadrati (`fb_init_mode`: righe a 64 byte e tessere da 16).
-   - In Overbit: adattamento di HUD, menu, cielo e campo visivo 1:1 (`SW`, `SH`, `LW`×`LH` e `UI` di `00_core.lua`).
-2. **Benchmark con ARM**:
-   - Misura delle prestazioni di Overbit (combattimento bot e anello di eroi) a entrambe le risoluzioni su ARM, con generazione report.
-3. **Driver Mali a Fasi**:
-   - *Fase 1*: Triangoli preparati dall'ARM e rasterizzati da GPU (triangolo nel *GPU test*).
-   - *Fase 2*: Backend `r3d` con batching e un colore per disegno.
-   - *Fase 3*: Vertex shader per le trasformazioni geometriche su GPU.
-   - *Fase 4*: Coda di job asincrona con supporto multi-buffering.
-- **Criterio di completamento**: Sulla RGB30 Overbit `.b16` gira stabilmente a 360×360 e a 720×720, il benchmark produce il report prestazionale (prima con ARM, poi con Mali) e la tabella 3D Bench della RGB30 riporta i dati delle colonne GPU.
+1. **Overbit in `.b16` on RGB30**:
+   - Runs at **360×360** (doubled ×2 by the hardware video controller) and native **720×720**, selectable in the *RESOLUTION* menu.
+   - Adaptation with `screen()` for square modes (`fb_init_mode`: 64-byte rows and tiles of 16).
+   - In Overbit: adapt the HUD, menus, sky and field of view 1:1 (`SW`, `SH`, `LW`×`LH` and `UI` of `00_core.lua`).
+2. **Benchmark with ARM**:
+   - Measure Overbit's performance (bot fight and hero ring) at both resolutions on ARM, with report generation.
+3. **Mali driver in phases**:
+   - *Phase 1*: triangles prepared by the ARM and rasterized by the GPU (triangle in the *GPU test*).
+   - *Phase 2*: `r3d` backend with batching and one color per draw.
+   - *Phase 3*: vertex shader for the geometry transforms on the GPU.
+   - *Phase 4*: asynchronous job queue with multi-buffering support.
+- **Completion criterion**: On the RGB30 Overbit `.b16` runs stably at 360×360 and at 720×720, the benchmark produces the performance report (first with ARM, then with Mali) and the RGB30 3D Bench table reports the GPU column data.
 
