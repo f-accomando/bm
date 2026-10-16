@@ -72,3 +72,15 @@ models = "{da handshake}"
 subagents = "{da handshake}"
 strengths = "{da handshake}"
 weak_points = "{da handshake}"
+
+[[operator]]
+id = "AGX"
+name = "OP-AGX"
+kind = "ai"
+file = "sync/AGX.md"
+branches = ["claude/sdk-b16-host-stubs"]
+place = "Google Antigravity IDE, local Windows 11 (host ROCKET), build/test via WSL2"
+models = "Gemini 3.8 Flash; native subagents pro/flash/flash_lite/research"
+subagents = "yes"
+strengths = "bare-metal C, Lua, Python, Makefile, QEMU runner"
+weak_points = "no direct Pi/RGB30 (hardware proofs go to UTE); wakeup no"
