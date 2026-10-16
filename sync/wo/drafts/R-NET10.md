@@ -1,0 +1,7 @@
+# R-NET10 - PW-FILE: il bridge legge la password della console di rete da un file fuori dal repo (bozza, per la sessione di domani, NON assegnato)
+Decisione dell'utente (16 ott 17:40): rischio basso (dispositivo locale, solo handshake, nessun dato sensibile); la regola "mai su disco" cade per il solo file del bridge. Il file lo scrive l'utente; gli agenti non lo leggono, non lo creano, non lo stampano.
+Base: `claude/integrazione-ottobre` con R-NET5/R-NET6 (`tools/pi_bridge.py`). Branch: `claude/net-bridge-pwfile`. Operatore: NET (stesso file di R-NET5/6: dopo i fix di R-NET6).
+Perimetro: `tools/pi_bridge.py` (ordine di ricerca della password), `tests/net/check_bm_net_config.py` (nuovi casi con file temporaneo e mock), `docs/design/pi-test.md` (una riga nelle regole), `docs/progress/tools.md` (la regola "mai su disco" riscritta: ammesso SOLO `~/.pi_bridge.pw` o `$BM_PASSWORD_FILE`).
+Cambio: ordine = `BM_PASSWORD` (come oggi) -> file `$BM_PASSWORD_FILE` o `~/.pi_bridge.pw` -> getpass. Il file deve avere permessi 0600 (su Linux/WSL; rifiuta se leggibile da altri: `refused: password file mode`), una riga, niente log del valore (`***` ovunque). La password non entra in argv, nel Log, nei report.
+Verifica: test host con file in directory temporanea (mode 0600 ok, 0644 rifiutato, assente -> getpass simulato, valore mai in output); `python3 tests/net/check_bm_net_config.py` -> all passed; docs_audit penalties 0.
+Prova utente (una volta): creare il file con il comando indicato da SPV, riavviare il bridge senza digitare nulla.
