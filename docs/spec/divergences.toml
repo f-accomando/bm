@@ -49,7 +49,8 @@ pi = "Start confirms; Tab and 1-5 jump tabs; U uploads a cart"
 rgb30 = "Start does nothing in the menu; no keyboard keys"
 cause = "history"
 priority = 6
-status = "open"
+status = "untested"
+note = "src/rgb30/ui.c: Start confirms in the menu unless Select is held (QEMU test_menu_start_confirms); Tab and 1/2/3/5 of a Bluetooth keyboard jump tabs (4 is the Pi's Lib, absent). U (upload) not ported. Not tried with a Bluetooth keyboard."
 evidence = "src/kernel/carts.c:1491,1504-1511; src/rgb30/ui.c:1035-1219"
 action = "align Start and Tab for BT keyboards"
 

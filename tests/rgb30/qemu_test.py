@@ -563,6 +563,22 @@ def test_bm_cartridge(b, opts):
         q.close()
 
 
+def test_menu_start_confirms(b, opts):
+    """Start confirms in the menu, as on the Pi (carts.c:1474): one cartridge,
+    Start (space on the serial line) plays it."""
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    sd = make_sd(tmp, {"bm/picart.bm": mkbm.pack(PI_CART.encode(), title="Pi cart", author="tests",
+                                                 res=(360, 360))})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.4)
+        q.send(" ")                             # Start
+        q.expect("play: /bm/picart.bm", timeout=10)
+    finally:
+        q.close()
+
+
 def test_bench3d(b, opts):
     """The Dev tab's 3D Bench (src/bm/b3d.c) at 640x360: every test on the
     ARM, the report on the serial port, in bm/bench on the SD card and in

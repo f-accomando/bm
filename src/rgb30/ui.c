@@ -1089,6 +1089,9 @@ void ui_home(framebuffer_t *f)
             netxfer_write_tick(timer_ticks() + 2000);
 
         uint32_t p = pad_pressed();
+        /* Start confirms unless Select is held (the Pi, carts.c:1474) */
+        if ((p & PAD_START) && !(pad_state() & PAD_SELECT))
+            p |= pad_ok;
         if (hid_quit_pressed() & HID_QUIT_PS) {
             /* the PS button or Ctrl+Esc of a Bluetooth pad or keyboard: home, the Games tab (as on the Pi) */
             tab = TAB_GAMES;
@@ -1099,6 +1102,25 @@ void ui_home(framebuffer_t *f)
         }
         if (pad_serial_char() == '`') {
             run_page(serial_lua);
+            continue;
+        }
+        int tabto = -1;                             /* a Bluetooth keyboard: Tab and 1 2 3 5 jump tabs (carts.c:1490-1493) */
+        for (int k; (k = hid_getc()) >= 0;) {
+            if (k == '\t')
+                tabto = (tab + 1) % (TAB_SETTINGS + 1);
+            else if (k == '1')
+                tabto = TAB_MARKET;
+            else if (k == '2')
+                tabto = TAB_GAMES;
+            else if (k == '3')
+                tabto = TAB_DEV;
+            else if (k == '5')
+                tabto = TAB_SETTINGS;               /* '4' is the Pi's Lib: absent here, ignored */
+        }
+        if (tabto >= 0 && asking == ASK_NONE) {
+            tab = tabto;
+            mopt = -1;
+            gopt = -1;
             continue;
         }
         home_do_t d;
