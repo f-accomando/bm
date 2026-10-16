@@ -30,3 +30,4 @@
 {"schema":1,"operator":"OP-AGY","wo":"AGY-38","branch":"claude/rgb30-qemu-freeze-flow","commit":"726e4718","files":2,"add":70,"del":2,"lines":{"code":68,"docs":0,"data":4},"tokens":1400,"min":40,"iso":"2026-10-16T18:44+02:00"}
 {"schema":1,"operator":"OP-AGY","wo":"AGY-39","branch":"claude/beta-hardware-card","commit":"4123405b","files":2,"add":30,"del":0,"lines":{"code":0,"docs":30,"data":0},"tokens":1100,"min":6,"iso":"2026-10-16T18:52+02:00"}
 {"schema":1,"operator":"OP-AGY","wo":"AGY-40","branch":"claude/v3d-closeout","commit":"f15ff570","files":1,"add":1,"del":0,"lines":{"code":0,"docs":1,"data":0},"tokens":800,"min":3,"iso":"2026-10-16T18:56+02:00"}
+{"schema":1,"operator":"OP-AGY","wo":"AGY-29","branch":"claude/docs-en-padtype","commit":"313d1b41","files":1,"add":2,"del":2,"lines":{"code":0,"docs":4,"data":0},"tokens":500,"min":5,"iso":"2026-10-16T19:09+02:00"}

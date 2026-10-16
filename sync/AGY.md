@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-29 fix
+state: FREE
+task: AGY-29 fix consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T19:10+02:00
 wakeup: no
 ack: 2026-10-16T17:25+02:00
-updated: 2026-10-16T19:05+02:00
+updated: 2026-10-16T19:09+02:00
 ---
 # AGY — Antigravity
 
@@ -81,7 +81,7 @@ DELIVERED AGY-25 @ claude/docs-en-sync-rules@ac81296a · verifica: git grep paro
 DELIVERED AGY-26 @ claude/docs-it-links-api@78839cab · verifica: git grep API-IT -> 0 occorrenze nei 4 file; docs_audit.py score -> penalties 0 come prima · 4 file, +4 -5 · non verificato su hardware · 2026-10-16T15:46+02:00
 DELIVERED AGY-27 @ claude/docs-it-links-guida@cded8faa · verifica: git grep API-IT in GUIDA-GIOCHI.md -> solo riga 4; docs_audit.py score senza penalità nuove · 1 file, +2 -2 · non verificato su hardware · 2026-10-16T15:51+02:00
 DELIVERED AGY-28 @ claude/docs-it-links-docs@ab366280 · verifica: git grep -c -IT.md sui 9 file -> nessuna uscita; diff --stat 9 file +9 -9 · 9 file, +9 -9 · non verificato su hardware · 2026-10-16T15:59+02:00
-DELIVERED AGY-29 @ claude/docs-en-padtype@c4b62122 · verifica: git grep parole italiane in PADTYPE.md -> nessuna uscita; docs_audit.py score senza penalità nuove · 1 file, +9 -9 · non verificato su hardware · 2026-10-16T16:04+02:00
+DELIVERED AGY-29 @ claude/docs-en-padtype@313d1b41 · verifica: git grep parole italiane in PADTYPE.md -> nessuna uscita; docs_audit.py score senza penalità nuove · nota: AI.md:3 cita AI-IT.md non tracciato · 1 file, +2 -2 · non verificato su hardware · 2026-10-16T19:08+02:00
 DELIVERED AGY-30 @ claude/docs-en-sync-start@7f8e85b2 · verifica: git grep parole italiane nella frase di avvio -> nessuna uscita; docs_audit.py score senza penalità nuove · 1 file, +2 -2 · non verificato su hardware · 2026-10-16T16:08+02:00
 DELIVERED AGY-31 @ claude/divergence-evidence@8d1d1aba · verifica: consistency.py check -> uscita identica a prima; diff -> 4 evidence · 1 file, +4 -4 · non verificato su hardware · 2026-10-16T16:16+02:00
 DELIVERED AGY-32 @ claude/config-readin-check@80b1f528 · verifica: python tests/tools/test_config_readin.py -> OK; config_readin.py -> exit 1, STALE assist_lang e battery_icon (31 STALE, 1 UNCHECKED) · 2 file nuovi · non verificato su hardware · 2026-10-16T16:23+02:00
@@ -95,6 +95,9 @@ DELIVERED AGY-39 @ claude/beta-hardware-card@4123405b · verifica: grep -c righe
 DELIVERED AGY-40 @ claude/v3d-closeout@f15ff570 · verifica: docs_audit.py score -> senza collegamenti rotti; git diff --stat -> 1 file +1 · base = claude/beta-hardware-card · non verificato su hardware · 2026-10-16T18:56+02:00
 
 ## Progressi
+- Completato AGY-29 fix su claude/docs-en-padtype@313d1b41:
+  - In `docs/PADTYPE.md`, tradotti in inglese gli ultimi due commenti Lua rimasti in italiano alle righe 224-225 (`-- the text; at the cursor pt.pending() ...` e `-- the pt.open_len() letters before ...`).
+  - Verificato: `git grep -nE "spegne|spenta|proprio|maiuscole|cursore| il pad " -- docs/PADTYPE.md` restituisce 0 righe; `docs_audit.py score` 6661 senza penalità nuove (penalties 0); `git diff -U0` 1 file, +2 -2. Nota non bloccante: `AI.md:3` cita `AI-IT.md` non tracciato (segnalata senza toccare il file). Registrato nel ledger e pushato.
 - Completato AGY-40 (V3D-CLOSEOUT) su claude/v3d-closeout@f15ff570:
   - In `docs/progress/v3d.md`, inserita la voce `0. M35-M37 close-out (BETA-4)` sotto `## To do, in order`, che dichiara concluso il codice di M35-M37 documentato in DRIVERS.md (bm3d 3.0-4.9, 6.5-6.8) e rimanda per le sole prove su hardware Pi Zero W alla scheda `docs/spec/beta-hardware-tests.md`.
   - Verificato: `docs_audit.py score` 6665 senza penalità o collegamenti rotti; `git diff --stat` 1 file, +1 -0. Registrato nel ledger e pushato.
