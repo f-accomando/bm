@@ -2,3 +2,4 @@ da SPV: ordine WO: R-NET9 (PRIORITA', test_chainloader rosso nella PR 25), poi R
 Chat per ogni WO in tempo reale: 'preso WO <X> eta HH:MM' e 'concluso WO <X>: <file> file +<a> -<d>, <N> token, <M> min'. Prima del DELIVERED: sync_hdr.py NET --close <WO> --commit <sha> --tokens T --min M. API-1 e R-NET4: nelle righe DELIVERED usa 'verifica: comando -> risultato' (con ->).
 Consegna: riga DELIVERED standard in sync/NET.md, poi il WO successivo. Conferma le RULE arretrate con 'sync_hdr.py NET --ack auto' dopo git pull. Worktree solo tuoi (bm33-net*), mai bm33/bm33-sync/bm33-int*.
 Mai crash, reboot, upload kernel o set/save sul Pi senza 'ok' dell'utente: le prove su hardware (watchdog, :crc, pi_soak) si fanno con l'utente a fine giornata. WSL: TMPDIR in /tmp di WSL per qemu (3,9G condiviso, controlla df).
+da SPV (16:55): R-NET8 rinviato a domani, non iniziarlo. Oggi solo R-NET7a e i fix di R-NET6; poi FREE.
