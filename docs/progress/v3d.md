@@ -92,21 +92,21 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
    `vs_tex_rgb` light as bytes (8 -> 6 words), `vs_lit_tex`/`vs_lit_tex2` flags
    and uv as halves (`.16a/.16b`), normals as bytes, then 16-bit positions (scaled per mesh,
    a separate x y z stream for the coordinate shader).
-5. **QPU come coprocessore: programmi sulle QPU (M44)**:
-   Le 12 QPU eseguono operazioni SIMD su 16 float alla volta: calcoli paralleli su grandi masse di dati, quando il 3D non le satura (giochi 2D, menu) o riservando parte delle QPU nei giochi 3D.
-   - **Passo 1 (Driver)**: Lancio di programmi QPU "utente" al di fuori del ciclo di disegno (richieste V3D: puntatore codice, registri uniform, numero QPU, contatore di completamento; attualmente `v3d.c` assegna tutta la VPM ai vertici); coda di dispatch, attesa con timeout, rilevamento all'avvio che disabilita in caso di anomalie e fallback su ARM; esecuzione nell'emulatore `tests/gpu/v3d_emu.c`, passo dedicato nel test `g` e profilo nel 3D Bench.
-   - **Passo 2 (Particelle su GPU)**: `particles()` (posizione, velocità, gravità, vita, colore) aggiornate e disegnate via GPU senza carico ARM (migliaia di particelle anziché centinaia), integrate con modulo `lib.particles` in bmlib.
-   - **Passo 3 (Effetti a pieno schermo 2D)**: Buio a livelli e bagliori di Yharnam (oggi `g16_fade_*` via ARM), dissolvenze, sfocature, filtri CRT/scanline.
-   - **Passo 4 (Effetti audio a blocchi)**: Riverbero FDN, eco e filtri elaborati a blocchi su QPU (anche per nano8).
-   - **Passo 5 (Tracciamento raggi)**: `hit3d` batch e linee di vista per bot IA.
-   - *Toolkit e registri hardware necessari (da research 2026-10-12)*:
-     - Registri di lancio utente: `SRQPC/SRQUA/SRQUL/SRQCS` (0x430..0x43C): scrittura di QPU UL, UA, poi PC; terminazione al conteggio (bit 23:16 di `SRQCS`); richiede `VPMBASE > 0` (oggi 0 in `v3d.c`); reset da mailbox `0x30012` per QPU bloccate; riserva `SQRSV0/1`.
-     - Salti in `qpuasm.py` e nell'emulatore (3 delay slot): predicati per pixel, salti solo su dati uniformi; DMA VPM con mutex, campionamento TMU via memoria (`t0s` + `ldtmu0`), semafori `sacq/srel`.
-     - Controlli `qpuasm.py`: gestione lettura `ra39/rb39`, vincoli immediati piccoli con `ldtmu`/`thrsw`. Contatori hardware `PCTR*` (0x670) per profilazione fine.
-   - *Criterio di completamento*: particelle e buio a livelli di Yharnam gestiti interamente dalla GPU con misure nel 3D Bench e fallback software identico in QEMU (`gpu3d=0`).
-6. **Profilazione runtime per motori di gioco (R40)**:
-   - Integrazione di due nuove metriche `stat()` nell'overlay e nel dev kit: tempo di elaborazione audio e tempo di attesa della GPU.
-   - Permette al governatore dinamico di Overbit e Yharnam di stabilire a runtime se il collo di bottiglia è sul bus CPU/ARM o sulla GPU.
-7. **Adattamento dinamico impostor per folle ed eroi (R42)**:
-   - Modelli con scheletro semplificati a billboard quad con `r3d_impostor` quando lontani dalla camera; governor di qualità di Overbit/Yharnam per attivare `gpu3d(nil, nil, nil, nil, 8)` a livelli bassi.
+5. **QPUs as a coprocessor: programs on the QPUs (M44)**:
+   The 12 QPUs run SIMD operations on 16 floats at a time: parallel computation on large masses of data, when 3D does not saturate them (2D games, menus) or by reserving some QPUs in 3D games.
+   - **Step 1 (Driver)**: Launch "user" QPU programs outside the draw loop (V3D requests: code pointer, uniform registers, QPU number, completion counter; currently `v3d.c` assigns the whole VPM to vertices); dispatch queue, wait with timeout, detection at startup that disables the feature on anomalies and falls back to ARM; execution in the emulator `tests/gpu/v3d_emu.c`, a dedicated step in test `g` and a profile in the 3D Bench.
+   - **Step 2 (Particles on GPU)**: `particles()` (position, velocity, gravity, life, color) updated and drawn via GPU with no ARM load (thousands of particles instead of hundreds), integrated with the `lib.particles` module in bmlib.
+   - **Step 3 (Full-screen 2D effects)**: Darkness levels and Yharnam glows (today `g16_fade_*` via ARM), fades, blurs, CRT/scanline filters.
+   - **Step 4 (Block audio effects)**: FDN reverb, echo and filters processed in blocks on the QPUs (also for nano8).
+   - **Step 5 (Ray tracing)**: batched `hit3d` and lines of sight for AI bots.
+   - *Toolkit and hardware registers needed (from research 2026-10-12)*:
+     - User launch registers: `SRQPC/SRQUA/SRQUL/SRQCS` (0x430..0x43C): write QPU UL, UA, then PC; termination at the count (bits 23:16 of `SRQCS`); requires `VPMBASE > 0` (today 0 in `v3d.c`); reset from mailbox `0x30012` for stuck QPUs; reserve `SQRSV0/1`.
+     - Branches in `qpuasm.py` and in the emulator (3 delay slots): per-pixel predicates, branches only on uniform data; VPM DMA with mutex, TMU sampling via memory (`t0s` + `ldtmu0`), semaphores `sacq/srel`.
+     - `qpuasm.py` checks: handling of `ra39/rb39` reads, small immediate constraints with `ldtmu`/`thrsw`. Hardware counters `PCTR*` (0x670) for fine profiling.
+   - *Completion criterion*: particles and Yharnam's darkness levels handled entirely by the GPU with measurements in the 3D Bench and an identical software fallback in QEMU (`gpu3d=0`).
+6. **Runtime profiling for game engines (R40)**:
+   - Integration of two new `stat()` metrics in the overlay and the dev kit: audio processing time and GPU wait time.
+   - Lets the dynamic governor of Overbit and Yharnam decide at runtime whether the bottleneck is the CPU/ARM bus or the GPU.
+7. **Dynamic impostor adaptation for crowds and heroes (R42)**:
+   - Skinned models simplified to billboard quads with `r3d_impostor` when far from the camera; Overbit/Yharnam quality governor to enable `gpu3d(nil, nil, nil, nil, 8)` at low levels.
 
