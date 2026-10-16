@@ -2,6 +2,7 @@
 """Audit of the tracking docs, for the docs-loop skill.
 
   docs_audit.py score [--json]   one number (lower is better) and what makes it up
+  docs_audit.py check            list the broken links and the named files that are missing (exit 1 if any)
   docs_audit.py rereads          most re-read files and tips, from the crab-ledger report
   docs_audit.py repeats [DAYS]   prompts and commands repeated across sessions (skill candidates)
   docs_audit.py log SCORE keep|discard "what changed"   append to .claude/docs-loop/results.tsv
@@ -50,6 +51,30 @@ def md_links(rel):
         yield os.path.normpath(os.path.join(base, m.group(1))).replace("\\", "/")
 
 
+def broken(files):
+    """Messages for the broken links and the missing files named in `files` (each one costs P_BROKEN in the score)."""
+    msgs = []
+    for f in files:
+        for l in md_links(f):
+            if not os.path.exists(os.path.join(ROOT, l)):
+                msgs.append(f"broken link in {f}: {l}")
+        for m in re.finditer(r"`((?:docs|scripts|src|carts|tests)/[\w./-]+\.\w+)`", rd(f)):
+            p = m.group(1)
+            vague = "/." in p or (not p.startswith(("docs/", "scripts/")) and p.count("/") < 2)
+            if not vague and "*" not in p and not os.path.exists(os.path.join(ROOT, p)) and not p.endswith(("-IT.md",)):
+                msgs.append(f"missing file named in {f}: {p}")
+    return msgs
+
+
+def cmd_check():
+    msgs = broken(tracked())
+    for m in msgs:
+        print("  !", m)
+    if msgs:
+        sys.exit(1)
+    print("docs_audit: 0 broken")
+
+
 def cmd_score(as_json):
     files = tracked()
     always = tok("CLAUDE.md") + tok(INDEX)
@@ -60,15 +85,8 @@ def cmd_score(as_json):
     for f in files[2:]:
         if f not in linked:
             pen.append((P_ORPHAN, f"orphan: {f} is not linked from the index"))
-    for f in files:
-        for l in md_links(f):
-            if not os.path.exists(os.path.join(ROOT, l)):
-                pen.append((P_BROKEN, f"broken link in {f}: {l}"))
-        for m in re.finditer(r"`((?:docs|scripts|src|carts|tests)/[\w./-]+\.\w+)`", rd(f)):
-            p = m.group(1)
-            vague = "/." in p or (not p.startswith(("docs/", "scripts/")) and p.count("/") < 2)
-            if not vague and "*" not in p and not os.path.exists(os.path.join(ROOT, p)) and not p.endswith(("-IT.md",)):
-                pen.append((P_BROKEN, f"missing file named in {f}: {p}"))
+    for m in broken(files):
+        pen.append((P_BROKEN, m))
     for f in files[2:]:
         n = rd(f).count("\n")
         if n > LIMIT_LINES:
@@ -189,6 +207,8 @@ if __name__ == "__main__":
         cmd_repeats(int(a[0]) if a else 30)
     elif c == "log" and len(a) >= 2:
         cmd_log(a)
+    elif c == "check":
+        cmd_check()
     elif c == "best":
         cmd_best()
     else:
