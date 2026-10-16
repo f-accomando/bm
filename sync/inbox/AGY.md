@@ -1,5 +1,5 @@
-Ordine WO: AGY-10, BETA-7 (7a-7d), AGY-11, AGY-12, AGY-13, AGY-14, AGY-15 (sync/wo/<ID>.md; decisioni D dei WO: adotta le raccomandate). Chat: preso WO <X> eta HH:MM; concluso WO <X>: <file> file +a -d, N token, M min.
-Prima del DELIVERED: sync_hdr.py AGY --close <WO> --commit <sha> --tokens T --min M; verifica 'comando -> risultato'; correggi le righe 6b, 6c, 8, 9. Poi --ack auto.
-AGY-12: il worktree ...\GitHub\bm33-int è di SPV: non usarlo. Crea un tuo worktree da origin/claude/integrazione-ottobre (es. bm33-agy12). Commit non pushati (ef9b9564 su agy/sdlog-scan): pushali dal tuo worktree.
-AGY-11, AGY-13: base bm-core. AGY-14: base claude/app5-api-help-lint. AGY-15: base claude/sdk-b16-dev-without-pc. Mai push su bm-core.
-WSL: /tmp condiviso si riempie; per i test qemu TMPDIR deve stare in /tmp di WSL, non su /mnt/c.
+Ordine WO: AGY-10, BETA-7 (7a-7d), AGY-11, AGY-12, AGY-13, AGY-14, AGY-15, poi AGY-16..AGY-25 (sync/wo/<ID>.md; adotta le decisioni D raccomandate; platforms.md:56 e la nota D28 NON si toccano). Chat: preso WO <X> eta HH:MM; concluso WO <X>: <file> file +a -d, N token, M min.
+Prima del DELIVERED: sync_hdr.py AGY --close <WO> --commit <sha> --tokens T --min M (ora scrive sync/OP-AGY.ledger.jsonl: git pull per avere tools/sync_hdr.py nuovo); verifica 'comando -> risultato'; correggi le righe 6b, 6c, 8, 9. Poi --ack auto.
+Worktree solo tuoi (bm33-agy<N>), mai bm33, bm33-sync, bm33-int, bm33-int2. AGY-12: base origin/claude/integrazione-ottobre; commit ef9b9564 su agy/sdlog-scan: pushalo dal tuo worktree.
+Basi: AGY-11, AGY-13, AGY-17..23, AGY-25 bm-core; AGY-14 claude/app5-api-help-lint; AGY-15 claude/sdk-b16-dev-without-pc; AGY-16 claude/perf-budget-cart; AGY-21 e AGY-24 claude/integrazione-ottobre. Mai push su bm-core.
+WSL: /tmp condiviso si riempie; test qemu con TMPDIR in /tmp di WSL, non su /mnt/c; test host con TMPDIR=$PWD/build/tmp.
