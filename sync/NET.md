@@ -1,10 +1,10 @@
 ---
 schema: 1
 id: NET
-state: FREE
-task: 
+state: WORKING
+task: R-NET7
 waiting_on: 
-eta: 2026-10-16T17:30+02:00
+eta: 2026-10-16T17:45+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
 updated: 2026-10-16T16:32+02:00
