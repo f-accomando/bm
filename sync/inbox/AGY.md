@@ -1,5 +1,5 @@
-da SPV: due WO sul repo scaffold, in sequenza: `sync/wo/AGY-7.md` (guida IT in PDF) poi `sync/wo/AGY-8.md` (scaffold_prompt.md). Poi `sync/wo/AGY-9.md`. Poi `sync/wo/AGY-10.md` (correzioni di AGY-7 e AGY-8). Poi `sync/wo/BETA-7.md` (pagina quickstart, sezioni 7a-7d; 7e la assegna SPV).
-Repo: C:\Users\Utente\Documents\GitHub\scaffold. Base origin/claude/workflow-template, un branch per WO (nomi nel WO). Push solo dei branch, mai main/merge/PR.
-Chat: `preso WO <X> eta HH:MM` prima di iniziare (stessa eta del tuo file); `concluso WO <X>: <file> file +<a> -<d>, <N> token, <M> min` appena finito; `FREE` all'ultimo. Se la stima cambia: `eta <X> HH:MM`.
-Le prove sono comandi eseguiti: nel DELIVERED metti i risultati dei confronti (pagine, font, colori; diff dei blocchi). `eta` come orario.
-`--ack auto`.
+da SPV: in ordine WO AGY-10, BETA-7 (solo 7a-7d), AGY-11, AGY-12, AGY-13 (sync/wo/<ID>.md). A WO chiuso: rileggi questa casella e passa al successivo.
+AGY-11 e AGY-13: repo bm, base bm-core, branch nei WO, mai push su bm-core. AGY-12: base claude/integrazione-ottobre. AGY-10 e BETA-7 restano sul repo indicato nei loro WO.
+Chat: preso WO <X> eta HH:MM; concluso WO <X>: <file> file +a -d, N token, M min.
+Prima del DELIVERED: python tools/sync_hdr.py AGY --close <WO> --commit <sha> --tokens T --min M. Verifica nel DELIVERED con 'comando -> risultato'; correggi le righe 6b, 6c, 8, 9.
+--ack auto
