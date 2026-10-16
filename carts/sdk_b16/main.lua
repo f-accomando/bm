@@ -131,6 +131,8 @@ end
 local S = {
   page = "project", last = "project",    -- project, code, d2, d3, menu
   hubview = "hub", d2view = "sprite",     -- the other view: the dev kit, the map
+  sndview = "sounds",                     -- or "sfx": the sounds page's other view
+  snd = nil, snd_edited = false,          -- the sound bank (P.bank), false: not readable
   proj = { title = "New game", author = "", res = "360x360" },   -- path: opened; save: 8.3 written
   target = "b16",                         -- or "bm": the Pi's cartridge (docs/B16.md)
   lines = { "" }, edits = 0, dirty = false,
@@ -228,6 +230,7 @@ end
 local function remember(extra)
   local t = saved() or {}
   t.page, t.hubview, t.d2view = S.page == "menu" and S.last or S.page, S.hubview, S.d2view
+  t.sndview = S.sndview
   for k, v in pairs(extra or {}) do t[k] = v end
   save(t)
 end
@@ -967,6 +970,7 @@ local function load_project(path)
   S.sheet_w, S.sheet_h, S.map_w, S.map_h = p.sheet_w, p.sheet_h, p.map_w, p.map_h
   S.target = target_of(S.proj.save, p.res)
   S.dirty, S.edits, S.info, S.measuring = false, S.edits + 1, nil, nil
+  S.snd, S.snd_edited = nil, false
   S.err_text, S.err_line = nil, nil
   reset_pages()
   remember_last(path)
@@ -988,10 +992,149 @@ local function new_project(tp)
   if tp.paint then tp.paint() end
   S.target = "b16"
   S.dirty, S.edits, S.info, S.measuring = false, S.edits + 1, nil, nil
+  S.snd, S.snd_edited = nil, false
   S.err_text, S.err_line = nil, nil
   reset_pages()
   if tp.paint then P.sprite.restore({ sel = 1, size = 1 }) end   -- its first sprite, 8x8
   say("new project (" .. tp.name .. "): " .. kp("Esc", "Start") .. " > Save as gives it a name", C.ACC)
+end
+
+----------------------------------------------------------------- the sound bank
+
+-- The project's sounds and effects (the AUDIO section, "BMAU"), as
+-- carts/sound/main.lua keeps them: P.bank.get() is the bank in memory
+-- (S.snd; false when the file's cannot be read); the patterns, songs and
+-- samples after the effects stay as they are (tail), byte for byte.
+do
+  local NSOUND, NSFX, TONE, ROOM_SEND = 32, 64, 21, 40
+  local WAVES = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL", "FM", "PLUCK", "SUPERSAW", "ORGAN",
+                  "SAMPLE", "PINK", "BROWN", "CRACKLE" }
+  local PSOUND = "<c8BBBBBBBbBBBbxxxx"      -- then the tone, 21 bytes, and 3 reserved
+  local PSFX = "<c8HBBBxxx"
+
+  local function tone_default()
+    local t = {}
+    for i = 1, TONE do t[i] = 0 end
+    t[22 - 10] = ROOM_SEND
+    return t
+  end
+  local function sound_new()
+    return { name = "", wave = 0, duty = 128, vol = 200, a = 1, d = 0, s = 255, r = 10,
+             pitch = 0, ptime = 0, vdepth = 0, vrate = 0, detune = 0, tone = tone_default() }
+  end
+  local function sfx_new() return { name = "", ms = 60, len = 8, ls = 0, le = 0, steps = {} } end
+
+  local SOUND_KEYS = { "wave", "duty", "vol", "a", "d", "s", "r", "pitch", "ptime", "vdepth", "vrate", "detune" }
+  local function sound_empty(s)
+    local d = sound_new()
+    if s.name ~= "" then return false end
+    for _, k in ipairs(SOUND_KEYS) do if s[k] ~= d[k] then return false end end
+    for i = 1, TONE do if s.tone[i] ~= d.tone[i] then return false end end
+    return true
+  end
+  local function sfx_empty(x)
+    if x.name ~= "" then return false end
+    for k = 1, x.len do
+      local st = x.steps[k] or 0
+      if st & 255 ~= 0 or st >> 24 & 255 ~= 0 then return false end
+    end
+    return true
+  end
+  local function last_used(list, empty)
+    for i = #list, 1, -1 do if not empty(list[i]) then return i end end
+    return 0
+  end
+  local function name8(s) return (s:upper():gsub("[^%w%-_ !%.]", ""):sub(1, 8)) end
+
+  -- a bank with nothing in it (and no patterns, songs or samples)
+  local function new()
+    local b = { ver = 2, sounds = {}, sfx = {}, np = 0, ng = 0, nsm = 0, tail = "" }
+    for i = 1, NSOUND do b.sounds[i] = sound_new() end
+    for i = 1, NSFX do b.sfx[i] = sfx_new() end
+    return b
+  end
+
+  -- the bytes of the AUDIO section -> the bank; nil and a message if they are not one
+  local function parse(data)
+    if type(data) ~= "string" or #data < 16 or data:sub(1, 4) ~= "BMAU" then return nil, "not a sound bank" end
+    local ver, ns, nx, np, ng = data:byte(5, 9)
+    if ver < 1 or ver > 3 then return nil, "unsupported sound bank version" end
+    local b = new()
+    b.ver, b.np, b.ng, b.nsm = ver, np, ng, ver >= 3 and data:byte(10) or 0
+    local ok = pcall(function()
+      local pos = 17
+      for i = 1, ns do
+        local s = b.sounds[i]
+        local name
+        name, s.wave, s.duty, s.vol, s.a, s.d, s.s, s.r, s.pitch, s.ptime, s.vdepth, s.vrate, s.detune, pos =
+          sunpack(PSOUND, data, pos)
+        s.name = name:match("^[^%z]*")
+        if s.wave >= #WAVES then s.wave = 0 end
+        if ver >= 2 then
+          s.tone = { data:byte(pos, pos + TONE - 1) }
+          assert(#s.tone == TONE)
+          pos = pos + 24
+        end
+      end
+      for i = 1, nx do
+        local x = b.sfx[i]
+        local name
+        name, x.ms, x.len, x.ls, x.le, pos = sunpack(PSFX, data, pos)
+        x.name = name:match("^[^%z]*")
+        for k = 1, x.len do x.steps[k], pos = sunpack("<I4", data, pos) end
+      end
+      assert(pos <= #data + 1)
+      b.tail = data:sub(pos)
+    end)
+    if not ok then return nil, "the sound bank is broken" end
+    return b
+  end
+
+  -- the bank -> the bytes of the AUDIO section
+  local function pack(b)
+    local ns = last_used(b.sounds, sound_empty)
+    local nx = last_used(b.sfx, sfx_empty)
+    local out = { "BMAU", spack("<BBBBBBxxxxxx", b.nsm > 0 and 3 or 2, ns, nx, b.np, b.ng, b.nsm) }
+    for i = 1, ns do
+      local s = b.sounds[i]
+      out[#out + 1] = spack(PSOUND, name8(s.name), s.wave, s.duty, s.vol, s.a, s.d, s.s, s.r,
+                            s.pitch, s.ptime, s.vdepth, s.vrate, s.detune)
+      out[#out + 1] = string.char(table.unpack(s.tone, 1, TONE)) .. "\0\0\0"
+    end
+    for i = 1, nx do
+      local x = b.sfx[i]
+      local ls, le = x.ls, x.le
+      if le > x.len or ls >= le then ls, le = 0, 0 end
+      out[#out + 1] = spack(PSFX, name8(x.name), x.ms, x.len, ls, le)
+      for k = 1, x.len do out[#out + 1] = spack("<I4", x.steps[k] or 0) end
+    end
+    out[#out + 1] = b.tail
+    return table.concat(out)
+  end
+
+  -- the bank of the project: the file's (cart_audio) or an empty one
+  local function get()
+    if S.snd == nil then
+      local d = S.proj.path and cart_audio and cart_audio(S.proj.path)
+      if type(d) == "string" then
+        local b, msg = parse(d)
+        if b then S.snd = b
+        else
+          S.snd = false
+          say("sound bank not readable: " .. tostring(msg), C.ERR, 400)
+        end
+      else
+        S.snd = new()
+      end
+    end
+    return S.snd
+  end
+
+  -- a change of the bank: it is written with the project at the next save
+  local function edited() S.snd_edited = true; touched() end
+
+  P.bank = { WAVES = WAVES, sound_new = sound_new, sfx_new = sfx_new, sound_empty = sound_empty,
+             parse = parse, pack = pack, new = new, get = get, edited = edited }
 end
 
 local D = {}                             -- the dialogs: ask (a line of text), choose (a list)
@@ -1010,6 +1153,14 @@ local function save_project(after)
   if type(e) == "string" then S.proj.save = e end   -- the editable copy of a game, made by the console
   S.dirty, S.info, S.measuring = false, nil, nil
   S.proj.path = S.proj.save
+  -- the sounds of the project: cart_save writes the bank it loaded, so the edited one goes in after it
+  if S.snd and S.snd_edited and cart_put_audio then
+    local aok, ae = cart_put_audio(S.proj.save, P.bank.pack(S.snd))
+    if not aok then
+      say("sounds not saved: " .. tostring(ae), C.ERR, 400)
+      return false
+    end
+  end
   store_target()
   remember_last(S.proj.save)
   say("saved " .. S.proj.save, C.ACC)
@@ -3593,6 +3744,261 @@ do
                 end }
 end
 
+----------------------------------------------------------------- sounds page
+
+-- The project's sounds and effects (P.bank), on the pad alone. View
+-- "sounds": the 32 slots on the left, the fields of the chosen one on the
+-- right (the cross: up / down the field, left / right the value, held
+-- 8 at a time; L2 / R2 the slot; ok plays it). View "sfx": the steps of an
+-- effect, 32 in two rows (carts/sound/main.lua's step: note | sound << 8 |
+-- vol << 16 | fx << 24). Y + up / down changes the view. The keyboard does
+-- the same: arrows, [ ], Enter.
+do
+  local FIELDS = { "wave", "vol", "duty", "a", "d", "s", "r" }
+  local FIELD_NAME = { wave = "WAVE", vol = "VOLUME", duty = "DUTY", a = "ATTACK", d = "DECAY", s = "SUSTAIN",
+                       r = "RELEASE" }
+  local NOTES = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }
+  local slot, field = 0, 1                  -- the sound, the field
+  local xslot, k = 0, 0                     -- the effect, the step
+  local last_note = 69
+  local NSTEPS = 32
+
+  local function note_name(n)
+    if n == 0 then return "" end
+    if n >= 128 then return "OFF" end
+    return NOTES[n % 12 + 1] .. (n // 12 - 1)
+  end
+  local function mk(note, sound, vol, fx) return note | sound << 8 | vol << 16 | fx << 24 end
+  local function s_note(s) return s & 255 end
+  local function s_sound(s) return s >> 8 & 255 end
+  local function s_vol(s) return s >> 16 & 255 end
+  local function s_fx(s) return s >> 24 & 255 end
+
+  local function bank() return P.bank.get() end
+
+  -- plays what the bank has now (the editors' previews)
+  local function hear(f)
+    if not (audio_bank and audio_play) then say("no sound here", C.ERR); return end
+    audio_bank(P.bank.pack(S.snd))
+    f()
+  end
+  local function play_sound()
+    hear(function() audio_play(0, slot, 69, 255, 0, 350) end)
+  end
+  local function play_step(st)
+    hear(function() audio_play(0, s_sound(st), s_note(st), s_vol(st), s_fx(st), 350) end)
+  end
+
+  ---------------------------------------------------------------- sounds
+
+  local function sound_act(a, n)
+    local b = S.snd
+    local s = b.sounds[slot + 1]
+    n = n or 1
+    if a == "up" then field = (field - 2) % #FIELDS + 1
+    elseif a == "down" then field = field % #FIELDS + 1
+    elseif a == "left" or a == "right" then
+      local f = FIELDS[field]
+      local d = a == "right" and n or -n
+      if f == "wave" then
+        s.wave = (s.wave + d) % #P.bank.WAVES
+      else
+        s[f] = clamp(s[f] + d, 0, 255)
+      end
+      P.bank.edited()
+    elseif a == "prev" then slot = clamp(slot - 1, 0, 31)
+    elseif a == "next" then slot = clamp(slot + 1, 0, 31)
+    elseif a == "play" then play_sound()
+    elseif a == "clear" then
+      b.sounds[slot + 1] = P.bank.sound_new()
+      P.bank.edited()
+    end
+  end
+
+  local function slot_text(i)
+    local s = S.snd.sounds[i + 1]
+    local label = s.name ~= "" and s.name or P.bank.sound_empty(s) and "(empty)" or P.bank.WAVES[s.wave + 1]
+    return string.format("%2d %s", i, label)
+  end
+
+  local function unreadable()
+    print(LY.fit("the sound bank of this file cannot be read", COLS - 2), 8, R.view.y, C.ERR)
+  end
+
+  local function draw_sounds()
+    local b = S.snd
+    local s = b and b.sounds[slot + 1]
+    strip(R.strip, "SOUNDS", s and string.format("sound %d  %s", slot, P.bank.WAVES[s.wave + 1]) or "",
+          kp("F7 again: the effects  [ ]: the sound", "Y+UP: the effects  L2 R2: the sound"))
+    if not b then unreadable(); return end
+    local LEFT, RIGHT = table.unpack(LY.split(R.view, "h", { "14c", "*" }))
+    local items = {}
+    for i = 0, 31 do items[i + 1] = slot_text(i) end
+    list_draw("SLOTS", items, slot + 1, LEFT.x, LEFT.y, LY.rows(LEFT) - 1, LEFT.w,
+              function(i, again) slot = i - 1; if again then play_sound() end end)
+    local x = RIGHT.x + 8
+    print("FIELDS", x, RIGHT.y, C.DIM)
+    for i, f in ipairs(FIELDS) do
+      local y = RIGHT.y + 16 * i
+      U.zone(RIGHT.x, y, RIGHT.w, 16, "field", i)
+      if i == field then rectfill(RIGHT.x, y, RIGHT.w, 16, C.SEL) end
+      print(FIELD_NAME[f], x, y, i == field and 0xFFFFFF or C.DIM)
+      local v = f == "wave" and P.bank.WAVES[s.wave + 1] or tostring(s[f])
+      print(LY.fit(v, (RIGHT.w - 16) // 8 - 9), x + 72, y, i == field and 0xFFFFFF or C.TEXT)
+    end
+  end
+
+  ---------------------------------------------------------------- effects
+
+  local function step_at(x, i) return x.steps[i + 1] or 0 end
+
+  local function sfx_act(a)
+    local x = S.snd.sfx[xslot + 1]
+    if a == "left" then k = clamp(k - 1, 0, NSTEPS - 1)
+    elseif a == "right" then k = clamp(k + 1, 0, NSTEPS - 1)
+    elseif a == "prev" then xslot = clamp(xslot - 1, 0, 63)
+    elseif a == "next" then xslot = clamp(xslot + 1, 0, 63)
+    elseif a == "up" or a == "down" then
+      local st = step_at(x, k)
+      if s_note(st) >= 1 and s_note(st) <= 127 then
+        local nn = clamp(s_note(st) + (a == "up" and 1 or -1), 1, 127)
+        x.steps[k + 1] = mk(nn, s_sound(st), s_vol(st), s_fx(st))
+        last_note = nn
+        P.bank.edited()
+      end
+    elseif a == "play" then
+      local st = step_at(x, k)
+      if s_note(st) == 0 then
+        st = mk(last_note, slot, 255, 0)
+        x.steps[k + 1] = st
+        if k >= x.len then x.len = k + 1 end
+        P.bank.edited()
+      end
+      play_step(st)
+    elseif a == "erase" then
+      if step_at(x, k) ~= 0 then x.steps[k + 1] = 0; P.bank.edited() end
+    elseif a == "speed_up" or a == "speed_down" then
+      x.ms = clamp(x.ms + (a == "speed_up" and 10 or -10), 10, 500)
+      P.bank.edited()
+    elseif a == "play_fx" then
+      hear(function() sfx(xslot) end)
+    end
+  end
+
+  -- two letters for a note: the letter (lower case for a sharp) and the octave
+  local function cell_text(st)
+    local n = s_note(st)
+    if n == 0 then return ".." end
+    if n >= 128 then return "==" end
+    local nm = NOTES[n % 12 + 1]
+    local oct = n // 12 - 1
+    return (#nm == 2 and nm:sub(1, 1):lower() or nm) .. (oct >= 0 and tostring(oct) or "-")
+  end
+
+  local function draw_sfx()
+    local b = S.snd
+    local x = b and b.sfx[xslot + 1]
+    strip(R.strip, "EFFECTS", x and string.format("effect %d  %d ms  %d steps", xslot, x.ms, x.len) or "",
+          kp("F7 again: the sounds  [ ]: the effect", "Y+UP: the sounds  L2 R2: the effect"))
+    if not b then unreadable(); return end
+    local y0 = R.view.y
+    print(LY.fit(string.format("STEPS  (a lower case letter is a sharp)"), COLS - 2), 8, y0, C.DIM)
+    for i = 0, NSTEPS - 1 do
+      local cx, cy = 8 + (i % 16) * 16, y0 + 16 + (i // 16) * 16
+      local st = step_at(x, i)
+      U.zone(cx, cy, 16, 16, "step", i)
+      if i == k then rectfill(cx, cy, 16, 16, C.SEL) end
+      print(cell_text(st), cx, cy, i == k and 0xFFFFFF or i >= x.len and C.BAR or s_note(st) == 0 and C.DIM or C.TEXT)
+    end
+    local st = step_at(x, k)
+    local y = y0 + 64
+    print(LY.fit(string.format("STEP %d", k), COLS - 2), 8, y, C.DIM)
+    if s_note(st) == 0 then
+      print(LY.fit(kp("Enter", "ok") .. ": a note, " .. note_name(last_note) .. " for sound " .. slot, COLS - 2),
+            8, y + 16, C.TEXT)
+    else
+      print(LY.fit(string.format("note %s  sound %d  vol %d", note_name(s_note(st)), s_sound(st), s_vol(st)), COLS - 2),
+            8, y + 16, C.TEXT)
+    end
+  end
+
+  ---------------------------------------------------------------- the page
+
+  local function act(a, n)
+    P.bank.get()
+    if not S.snd then return end
+    if S.sndview == "sfx" then sfx_act(a) else sound_act(a, n) end
+  end
+
+  local function draw()
+    P.bank.get()
+    if S.sndview == "sfx" then draw_sfx() else draw_sounds() end
+  end
+
+  local function status()
+    if not S.snd then return "the sound bank cannot be read" end
+    if S.sndview == "sfx" then
+      local x = S.snd.sfx[xslot + 1]
+      local st = step_at(x, k)
+      return string.format("effect %d  step %d  %s", xslot, k, s_note(st) == 0 and "empty" or note_name(s_note(st)))
+    end
+    local s = S.snd.sounds[slot + 1]
+    return string.format("sound %d  %s  vol %d", slot, P.bank.WAVES[s.wave + 1], s.vol)
+  end
+
+  local function hints()
+    if S.sndview == "sfx" then
+      return { { "left right", "LEFTRIGHT", "step" }, { "up down", "UPDOWN", "note" }, { "[ ]", "L2 R2", "effect" },
+               { "enter", "ok", "put, hear" }, { nil, "back", "clear" }, { nil, "X", "more" } }
+    end
+    return { { "up down", "UPDOWN", "field" }, { "left right", "LEFTRIGHT", "value" }, { "[ ]", "L2 R2", "sound" },
+             { "enter", "ok", "play" }, { nil, "X", "more" } }
+  end
+
+  local function key(key_)
+    local a = ({ up = "up", down = "down", left = "left", right = "right", ["["] = "prev", ["]"] = "next",
+                 [","] = "prev", ["."] = "next", ["\n"] = "play" })[key_]
+    if S.sndview == "sfx" then
+      a = a or ({ ["\b"] = "erase", del = "erase", ["+"] = "speed_up", ["="] = "speed_up", ["-"] = "speed_down",
+                  p = "play_fx" })[key_]
+    elseif key_ == "c" then a = "clear"
+    elseif key_ == "pgup" then act("left", 8); return
+    elseif key_ == "pgdn" then act("right", 8); return end
+    if a then act(a) end
+  end
+
+  local function menu_items()
+    if S.sndview == "sfx" then
+      return { { "Play the step", "\n" }, { "Speed +10 ms", "+" }, { "Speed -10 ms", "-" }, { "Play the effect", "p" },
+               { "Clear the step", "\b" } }
+    end
+    return { { "Play A4", "\n" }, { "Clear the sound", "c" } }
+  end
+
+  local function pad()
+    for _, d in ipairs({ "up", "down" }) do if PAD.rp[d] then act(d) end end
+    for _, d in ipairs({ "left", "right" }) do
+      if PAD.rp[d] then act(d, S.sndview == "sounds" and PAD.held[d] > 60 and 8 or 1) end
+    end
+    if PAD.rp.l2 then act("prev") elseif PAD.rp.r2 then act("next") end
+    if PAD.p.ok then act("play") end
+    if PAD.p.back and S.sndview == "sfx" then act("erase") end
+  end
+
+  local function mouse()
+    local z = U.at()
+    if not z or not U.pressed(0) then return end
+    if z.kind == "field" then field = z.a
+    elseif z.kind == "step" then k = z.a end
+  end
+
+  P.snd = { act = act, draw = draw, status = status, key = key, pad = pad, mouse = mouse,
+            menu_items = menu_items, hints = hints,
+            state = function() return { slot = slot, xslot = xslot } end,
+            restore = function(t) if t then slot, xslot = t.slot or 0, t.xslot or 0 end end,
+            reset = function() slot, field, xslot, k = 0, 1, 0, 0 end }
+end
+
 ----------------------------------------------------------------- menu page
 
 do
@@ -3717,6 +4123,7 @@ function reset_pages()
   P.code.reset()
   P.sprite.reset()
   P.map.reset()
+  P.snd.reset()
   P.d3.refresh()
 end
 
@@ -3725,7 +4132,7 @@ function go(page)
   if page == "d3" then P.d3.refresh(true) end
 end
 
-local PAGES = { "project", "code", "d2", "d3", "menu" }
+local PAGES = { "project", "code", "d2", "d3", "snd", "menu" }
 
 local function page_of()
   if S.page == "d2" then return S.d2view == "sprite" and P.sprite or P.map end
@@ -3744,7 +4151,8 @@ end
 -- Y + up / down: the project's dev kit, the map of the sprites
 local function other_view()
   if S.page == "project" then S.hubview = S.hubview == "hub" and "devkit" or "hub"
-  elseif S.page == "d2" then S.d2view = S.d2view == "sprite" and "map" or "sprite" end
+  elseif S.page == "d2" then S.d2view = S.d2view == "sprite" and "map" or "sprite"
+  elseif S.page == "snd" then S.sndview = S.sndview == "sounds" and "sfx" or "sounds" end
 end
 
 local function global_key(k)
@@ -3752,6 +4160,7 @@ local function global_key(k)
   elseif k == "f2" then go("code")
   elseif k == "f3" then if S.page == "d2" then other_view() end go("d2")
   elseif k == "f4" then go("d3")
+  elseif k == "f7" then if S.page == "snd" then other_view() end go("snd")
   elseif k == "esc" then if S.page == "menu" then S.page = S.last else S.page = "menu" end
   -- the system's keys (the kernel's syskeys.c)
   elseif k == "^s" then save_project()
@@ -3779,6 +4188,7 @@ local function page_key(k)
   elseif S.page == "code" then P.code.key(k)
   elseif S.page == "menu" then P.menu.key(k)
   elseif S.page == "d3" then P.d3.key(k)
+  elseif S.page == "snd" then P.snd.key(k)
   elseif S.d2view == "sprite" then
     local a = SPRITE_KEYS[k] or (k:match("^[0-7]$") and "flag" .. k)
     if a and a ~= "pgup" and a ~= "pgdn" then P.sprite.act(a) end
@@ -3817,6 +4227,7 @@ end
 local function page_name()
   if S.page == "project" then return S.hubview == "devkit" and "the dev kit" or "the project" end
   if S.page == "d2" then return S.d2view == "map" and "the map" or "the sprites" end
+  if S.page == "snd" then return S.sndview == "sfx" and "the effects" or "the sounds" end
   return ({ code = "the code", d3 = "3D", menu = "the menu" })[S.page]
 end
 
@@ -3844,6 +4255,7 @@ local HELP = {
     { "f2", "the code" },
     { "f3", "2D: the sprites; again: the map" },
     { "f4", "3D: models and animations" },
+    { "f7", "sounds; again: the effects" },
     { "esc", "the menu" },
     { "ctrl n", "a new project from a template" },
     { "ctrl s / ctrl shift s", "save / save as" },
@@ -3912,6 +4324,17 @@ local HELP = {
     { "r", "turn by itself" },
     { "i", "the code that draws it" },
   },
+  snd = {
+    { "up / down", "the field (sounds), the note (effects)" },
+    { "left / right", "the value (sounds), the step (effects)" },
+    { "pgup / pgdn", "the value, 8 at a time (sounds)" },
+    { "[ / ]", "the sound / the effect before, after" },
+    { "enter", "play; on an effect: put a note, hear it" },
+    { "backspace", "clear the step (effects)" },
+    { "c", "clear the sound (sounds)" },
+    { "+ / -", "the effect's speed (effects)" },
+    { "p", "play the effect (effects)" },
+  },
   pad = {
     { "L1 R1", "the page before / after" },
     { "Y LEFTRIGHT", "the page" },
@@ -3930,7 +4353,7 @@ local function sdk_keyhelp(p)
   local list = {}
   local function add(t) for _, e in ipairs(t) do list[#list + 1] = e end end
   add(HELP.all)
-  local name = ({ project = "project", d3 = "3D", sprite = "sprites", map = "map", code = "code" })[p]
+  local name = ({ project = "project", d3 = "3D", sprite = "sprites", map = "map", code = "code", snd = "sounds" })[p]
   if HELP[p] then list[#list + 1] = name; add(HELP[p])
   else list[#list + 1] = "menu"; add({ { "up / down", "choose" }, { "enter", "select" } }) end
   list[#list + 1] = "pad"
@@ -3955,9 +4378,11 @@ function _init()
     if a.back or a.from then            -- back from the game or from another program
       S.page = t.page or "project"
       S.hubview, S.d2view = t.hubview or "hub", t.d2view or "sprite"
+      S.sndview = t.sndview or "sounds"
       if t.code_line then P.code.goto_line(t.code_line) end
       P.sprite.restore(t.sprite)
       P.map.restore(t.map)
+      P.snd.restore(t.snd)
     end
     S.last = S.page ~= "menu" and S.page or "project"
     if a.run then S.run = a.run end
@@ -3996,7 +4421,8 @@ end
 local remember_base = remember
 remember = function()
   local cy = P.code.cursor()
-  remember_base({ code_line = cy, sprite = P.sprite.state(), map = P.map.state() })
+  remember_base({ code_line = cy, sprite = P.sprite.state(), map = P.map.state(),
+                      snd = P.snd.state() })
 end
 
 -- the mouse, each frame: the chips and the tabs press their keys, the
@@ -4090,10 +4516,11 @@ function _update()
 end
 
 -- the tab bar: L1, the pages, R1 (with a pad), the file on the right
-local TAB_KEYS = { project = "f1", code = "f2", d2 = "f3", d3 = "f4", menu = "esc" }
+local TAB_KEYS = { project = "f1", code = "f2", d2 = "f3", d3 = "f4", snd = "f7", menu = "esc" }
 local function tab_label(id)
   if id == "project" then return S.hubview == "devkit" and "dev kit" or "project" end
   if id == "d2" then return S.d2view == "map" and "map" or "2D" end
+  if id == "snd" then return S.sndview == "sfx" and "sfx" or "snd" end
   return ({ code = "code", d3 = "3D", menu = "menu" })[id]
 end
 

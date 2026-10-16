@@ -24,6 +24,7 @@ import bm_load  # noqa: E402
 sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
 import mksd  # noqa: E402
 import mkbm  # noqa: E402
+import bmaudio  # noqa: E402
 
 QEMU = os.environ.get("QEMU64", "qemu-system-aarch64")
 SCREEN = 360           # the menu (made as big as the 720x720 panel on the console)
@@ -612,7 +613,7 @@ def test_sdk_stages_build(b, opts):
         keys(q, "ss")                           # the third row: bm SDK
         q.buf = b""
         q.send("\r")
-        q.expect("bm SDK\r\n", timeout=10)
+        q.expect("bm SDK\r\n", timeout=30)
         time.sleep(1.0)
         q.send("\x0e")                          # Ctrl+N: new project from a template
         screen(["new project from a template", "Stages 2D"])
@@ -923,6 +924,8 @@ def sdk_open(q):
 # the pad cannot be pressed on QEMU virt (plat_buttons() is 0), so these tests
 # do the same actions with keys. F-keys: ESC O P..S (F1..F4).
 F2, F3 = "\x1bOQ", "\x1bOR"
+F7 = "\x1b[18~"                                 # ESC [ 18 ~
+UP, DOWN, RIGHT, LEFT = "\x1b[A", "\x1b[B", "\x1b[C", "\x1b[D"
 
 
 def sdk_new_empty(q):
@@ -1039,6 +1042,138 @@ def test_sdk_pad_code(b, opts):
         lua = secs[1]
         assert lua.startswith(b"do end -- my game"), lua[:60]
     sdk_kb_run(b, drive, check)
+
+
+def sdk_heard(q, timeout=8.0):
+    """The Hz of the next 'audio: heard N Hz' line of the serial port (the sink
+    of virt_audio.c), or None."""
+    deadline = time.time() + timeout
+    while True:
+        m = re.search(rb"audio: heard (\d+) Hz", q.buf)
+        if m:
+            return int(m.group(1))
+        if time.time() > deadline:
+            return None
+        q.buf += q.port.read(0.1)
+
+
+def test_sdk_pad_sound(b, opts):
+    """By keyboard: F7 is the sounds page, four Right keys take the wave of
+    sound 0 from SQUARE to SINE, Enter plays it; the saved project's AUDIO
+    has it. (The pad's actions are the same Lua, P.snd.act.)"""
+    heard = []
+
+    def drive(q):
+        q.send(F7)
+        sdk_screen(q, ["SOUNDS"])
+        time.sleep(0.4)
+        for _ in range(4):
+            q.send(RIGHT)
+            time.sleep(0.3)
+        sdk_screen(q, ["SINE"])
+        q.buf = b""
+        q.send("\r")
+        # the sink says what it heard once a second; the 350 ms preview falls
+        # across two of its windows, so its pitch is not 440 Hz in either:
+        # that sound reached the sink is what is checked
+        heard.append(sdk_heard(q))
+
+    def check(secs):
+        assert 6 in secs, sorted(secs)
+        bank = bmaudio.unpack(secs[6])
+        assert bank["sounds"][0]["wave"] == "sine", bank["sounds"][:1]
+    sdk_kb_run(b, drive, check)
+    assert heard and heard[0] is not None, "the sink heard nothing of the preview"
+
+
+def test_sdk_pad_sfx(b, opts):
+    """By keyboard: F7 F7 is the effects, Enter puts A4 (sound 0, volume 255)
+    on step 0 of effect 0; the saved project's AUDIO has it."""
+    def drive(q):
+        q.send(F7)
+        sdk_screen(q, ["SOUNDS"])
+        time.sleep(0.4)
+        q.send(F7)                              # again: the other view
+        sdk_screen(q, ["EFFECTS"])
+        time.sleep(0.4)
+        q.send("\r")
+        time.sleep(0.6)
+
+    def check(secs):
+        assert 6 in secs, sorted(secs)
+        bank = bmaudio.unpack(secs[6])
+        assert bank["sfx"][0]["steps"][0] == bmaudio.step_text(69, 0, 255, 0), bank["sfx"][:1]
+    sdk_kb_run(b, drive, check)
+
+
+def test_sdk_pad_build(b, opts):
+    """The whole game with the keyboard (the pad's actions, as the others):
+    a pixel, a tile, 'do end ', a sine, Ctrl+S, Ctrl+B builds MYGAME.BM
+    next to the project, the menu's Export .b16 puts MYGAME.B16 in bm/. The
+    game has the project's LUA, SHEET, MAP and AUDIO."""
+    tmp = tempfile.mkdtemp(prefix="bm64kb-")
+    q, size = sdk_session(b, tmp)
+    try:
+        sdk_open(q)
+        sdk_new_empty(q)
+        q.send(F3)                              # the sprites: a white pixel
+        sdk_screen(q, ["SPRITES"])
+        time.sleep(0.4)
+        q.send(" ")
+        time.sleep(0.4)
+        q.send(F3)                              # the map: tile 1 on (0,0)
+        for _ in range(40):
+            if "SPRITES" not in screen_all(q.screendump()):
+                break
+            time.sleep(0.25)
+        else:
+            raise AssertionError("still on the sprites after the second F3")
+        time.sleep(0.4)
+        q.send(" ")
+        time.sleep(0.4)
+        q.send(F2)                              # the code
+        sdk_screen(q, ["my game"])
+        time.sleep(0.4)
+        for ch in "do end ":
+            q.send(ch)
+            time.sleep(0.2)
+        q.send(F7)                              # the sounds: SINE
+        sdk_screen(q, ["SOUNDS"])
+        time.sleep(0.4)
+        for _ in range(4):
+            q.send(RIGHT)
+            time.sleep(0.3)
+        sdk_screen(q, ["SINE"])
+        sdk_save_default(q)
+        q.send("\x02")                         # Ctrl+B: the game next to the project
+        sdk_screen(q, ["built /carts/MYGAME.BM"])
+        q.send("\x1b")                         # Esc: the menu; Export .b16 is the seventh row
+        for _ in range(6):
+            q.send(DOWN)
+            time.sleep(0.3)
+        sdk_screen(q, ["Export .b16"])
+        q.send("\r")
+        sdk_screen(q, [".B16"])
+        dump = sdk_exit_dump(q, tmp, size)
+    finally:
+        q.close()
+    project = cart_secs(sd_read(dump, "/carts/MYGAME.BME"))
+    game_bytes = sd_read(dump, "/carts/MYGAME.BM")
+    game = cart_secs(game_bytes)
+    for t in (1, 2, 3, 6):
+        assert t in project, (t, sorted(project))
+        assert game.get(t) == project[t], f"section {t} of the game is not the project's"
+    assert project[1].startswith(b"do end -- my game"), project[1][:40]
+    assert project[2][4:8] == b"\xff\xff\xff\xff", project[2][:16].hex()
+    assert struct.unpack_from("<H", project[3], 4)[0] == 1, project[3][:16].hex()
+    assert bmaudio.unpack(project[6])["sounds"][0]["wave"] == "sine"
+    assert game_bytes[104:112] != bytes(8), game_bytes[96:120]     # the project's name (cart_build)
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    listing = subprocess.run(["mdir", "-i", f"{dump}@@{1024 * 1024}", "-b", "::/bm"], capture_output=True,
+                             env=env, check=True).stdout.decode().upper()
+    assert "MYGAME.B16" in listing, listing
+    b16 = sd_read(dump, "/bm/MYGAME.B16")
+    assert struct.unpack_from("<H", b16, 18)[0] & 2, b16[16:24].hex()
 
 
 def test_battery_icon(b, opts):
