@@ -1,1 +1,2 @@
 {"schema":1,"operator":"OP-B16","wo":"APP-7","branch":"claude/sdk-stages-pi","commit":"a95897db","files":1,"add":55,"del":0,"lines":{"code":55,"docs":0,"data":0},"tokens":150000,"min":75,"iso":"2026-10-16T15:43+02:00"}
+{"schema":1,"operator":"OP-B16","wo":"APP-8","branch":"claude/sdk-kb-tests-stable","commit":"23419c38","files":2,"add":11,"del":12,"lines":{"code":19,"docs":4,"data":0},"tokens":120000,"min":50,"iso":"2026-10-16T17:47+02:00"}
