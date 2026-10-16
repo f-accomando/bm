@@ -3,48 +3,48 @@ kind: session
 kernel: v0.2.5-707-g9554944
 branch: bm-core
 board: RGB30
-date: 2026-10-16 20:56:01
+date: 2026-10-16 21:00:02
 file: session_res-publica_rgb30.txt
 
-session of "Res Publica" since it was resumed (the last one: the next run of this game replaces this file)
+session of "Res Publica" (the last one: the next run of this game replaces this file)
 options bm3d 7.3 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
-screen 360x360, 6405 frames in 108.7 s, 58.8 fps
+screen 360x360, 13552 frames in 227.8 s, 59.4 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 7.5 ms, max 34.7 ms, 102 frames over 16.7 ms
-memory: Lua peak 1863 KiB, data 904 KiB; code 53230 tokens; busiest frame 150k Lua instructions
-frames that were shown after more than 1.5 frames: 118
+time of _update + _draw (+ the 3D's wait): avg 10.1 ms, max 96.5 ms, 98 frames over 16.7 ms
+memory: Lua peak 2375 KiB, data 904 KiB; code 54227 tokens; busiest frame 229k Lua instructions
+frames that were shown after more than 1.5 frames: 99
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    6286
-  <= 25 ms             1
-  <= 34 ms (30 fps)    117
+  <= 18 ms (60 fps)    13452
+  <= 25 ms             0
+  <= 34 ms (30 fps)    92
   <= 50 ms             0
-  <= 100 ms            1
-  > 100 ms (a freeze)  0
+  <= 100 ms            6
+  > 100 ms (a freeze)  1
 
-the frame in its parts (as the overlay, 6404 frames; ms a frame, % of the 16.7 ms of a frame):
+the frame in its parts (as the overlay, 13551 frames; ms a frame, % of the 16.7 ms of a frame):
   update           0.0    0%
-  draw (no 3D)    16.5   99%
+  draw (no 3D)    16.3   97%
   3D calls         0.0    0%
-  audio            0.2    1%
+  audio            0.3    2%
   GPU wait         0.0    0%
-  all             16.9  101%
-audio interrupt: 1.7% of the CPU's time (mean), 3.6% at most in a second
+  all             16.6  100%
+audio interrupt: 2.1% of the CPU's time (mean), 3.5% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
-  20546   345.2    50.0   34.7   0.0   34.6   0.0   0.0    15.3      112     1245        1
-  20570   345.9    33.4   29.1   0.0   29.1   0.0   0.0     4.2      112     1245        1
-  20574   346.0    33.3   29.1   0.0   29.0   0.0   0.0     4.2      111     1245        1
-  18970   318.5    33.3   18.8   0.0   18.8   0.0   0.0    14.5       97     1187        1
-  20068   337.0    33.3   29.7   0.0   29.7   0.0   0.0     3.6      112     1245        1
-  20302   341.1    33.3   24.7   0.0   24.7   0.0   0.0     8.5      112     1245        1
-  22360   376.1    33.3   16.2   0.0   16.2   0.0   0.0    17.1      112     1311        1
-  17334   291.0    33.3   18.8   0.0   18.8   0.0   0.0    14.4       88     1185        1
-  17471   293.3    33.3   19.1   0.0   19.0   0.0   0.0    14.2       88     1185        1
-  18033   302.7    33.3   18.7   0.0   18.7   0.0   0.0    14.6       97     1187        1
-  18150   304.7    33.3   18.7   0.0   18.7   0.0   0.0    14.5       97     1187        1
-  18385   308.6    33.3   18.7   0.0   18.7   0.0   0.0    14.5       97     1187        1
+   1455    25.5   100.0   96.5   0.0   96.5   0.0   0.0     3.4      127     1201        1
+    645    12.0    83.4   74.5   0.0   74.5   0.0   0.0     8.9      127     1201        1
+  13399   226.4    66.7   51.0   0.0   51.0   0.0   0.0    15.6      112     1261        1
+    140     3.5    63.8   53.5  42.1   11.3   0.0   0.0    10.3      229     1205        1
+  13386   225.9    50.0   36.0   0.0   36.0   0.0   0.0    13.9      112     1261        1
+  13390   226.0    50.0   45.7   0.0   45.7   0.0   0.0     4.2      112     1261        1
+  13394   226.2    50.0   45.2   0.0   45.1   0.0   0.0     4.8      112     1261        1
+   5944   100.9    33.4   29.5   0.0   29.5   0.0   0.0     3.9      125     1200        1
+  11468   193.6    33.4   29.8   0.0   29.8   0.0   0.0     3.6       88     1200        1
+   2608    44.9    33.4   29.5   0.0   29.5   0.0   0.0     3.8      125     1200        1
+   2769    47.6    33.3   28.8  17.6   11.2   0.0   0.0     4.4      125     1201        1
+  10626   179.5    33.3   28.1   0.0   28.1   0.0   0.0     5.1       87     1200        1
