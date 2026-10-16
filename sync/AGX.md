@@ -1,10 +1,10 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGX-7 consegnato, pronto per AGX-8
+state: WORKING
+task: WO AGX-8: TEST-MANUALS test per scripts/manuals.py
 waiting_on: 
-eta: 2026-10-16T16:15+02:00
+eta: 2026-10-16T16:20+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
 updated: 2026-10-16T15:53+02:00
