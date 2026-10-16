@@ -99,7 +99,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **R26** Mouse hardware nativo in nano8: supporto `mouse(true)` per cartucce `.p8` che abilitano il puntatore con `poke(0x5f2d, 1)`, esportando coordinate e rotella su `stat(32)`–`stat(36)`.
 
 ## Rules (do not break)
-
+- Public tree: `scripts/public_export.py export|check|build` is the only way to prepare the public repo (EXCLUDE list in the script, derived from the baremetal cleanup); it never pushes, and `check` must be clean (secrets, forbidden paths, dangling refs) before publishing.
 - Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a dialog frame never crosses the title row (QEMU tests read it).
 - bm Mesh rewrites only the lines between `-- [bm Mesh begin]` and `-- [bm Mesh end]`.
 - Mouse (`require "bmui"`, `src/script/bmui.lua`): the mouse does what the keys do: zones
