@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: WORKING
-task: WO AGX-5: MAKE-TEST-TOOLS test-tools target in Makefile
+state: FREE
+task: AGX-5 consegnato, pronto per AGX-6
 waiting_on: 
 eta: 2026-10-16T15:20+02:00
 wakeup: no
 ack: 2026-10-16T14:50+02:00
-updated: 2026-10-16T14:52+02:00
+updated: 2026-10-16T15:31+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -28,9 +28,10 @@ updated: 2026-10-16T14:52+02:00
 - Nessun Pi/RGB30 raggiungibile dagli operatori: PARZIALE (Pi 1 su rete locale a 192.168.1.208, kernel aggiornato via rete a bm dev con successo tramite bm_net.py; nessun monitor o tasto fisico collegato direttamente, verifiche fisiche delegate a UTE).
 
 ## Task
-- AGX-1, AGX-2, AGX-3 e AGX-4 completati e consegnati. Libero per nuove assegnazioni (prossimo: AGX-5 dopo approvazione AGY-17).
+- AGX-1, AGX-2, AGX-3, AGX-4 e AGX-5 completati e consegnati. Libero per nuove assegnazioni (prossimo: AGX-6).
 
 ## Consegne
+- DELIVERED AGX-5 @ claude/make-test-tools@7f306907 · verifica: make test-tools -> exit 0 (3 file di test); make test-docs -> exit 0 (check, 0 broken) · 1 file · non verificato su hardware · 2026-10-16T15:31+02:00
 - DELIVERED AGX-4 @ claude/test-cindex@c11f0768 · verifica: python tests/tools/test_cindex.py -> Ran 5 tests OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T14:34+02:00
 - DELIVERED AGX-3 @ claude/qemu-test-tmp-cleanup@3d556134 · verifica: python3 tests/qemu_test.py --build build -k monitor_line -> 1/1 passed, 0 cartelle bm-* lasciate in /tmp (prima: 2); pad_typing 1/1; sd_cartridges 1/1; sd_sdhc non verificato (QEMU non parte con immagine da 4 GiB) · 1 file, 5 righe · non verificato su hardware · 2026-10-16T14:33+02:00
 - DELIVERED AGX-2 @ claude/stages-flow-checks@51cf9957 · verifica: make test-sdk-b16 -> exit 0, 318 checks, 0 failed (1 min) · 1 file, 30 righe · non verificato su hardware · 2026-10-16T13:24+02:00
