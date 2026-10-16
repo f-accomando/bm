@@ -2,6 +2,7 @@
 
 Common layout for `carts/<id>/` (games and apps). Migration is gradual: a folder without
 `bm.info` still builds the old way (title, author and resolution from the Makefile).
+Check it with `python scripts/carts_layout.py`: every project with `bm.info` must pass, and the table "Migrated so far" must match the folders.
 
 ```
 carts/<id>/
