@@ -6,8 +6,8 @@ task: libero, proposta supporto pianificazione Argon a SPV
 waiting_on: 
 eta: 2026-10-16T13:40+02:00
 wakeup: no
-ack: 2026-10-16T13:36+02:00
-updated: 2026-10-16T14:03+02:00
+ack: 2026-10-16T13:53+02:00
+updated: 2026-10-16T14:12+02:00
 ---
 # AGX — Antigravity (AGX)
 
