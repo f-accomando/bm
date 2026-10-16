@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
+state: FREE
 task: AGY-14
 waiting_on: 
-progress: 0
+progress: 100
 eta: 2026-10-16T14:05+02:00
 wakeup: no
-ack: 2026-10-16T13:36+02:00
-updated: 2026-10-16T13:41+02:00
+ack: 2026-10-16T13:53+02:00
+updated: 2026-10-16T13:59+02:00
 ---
 # AGY — Antigravity
 
@@ -66,8 +66,14 @@ DELIVERED BETA-7d @ agy/beta-quickstart@1a906463 · verifica: python scripts/doc
 DELIVERED AGY-11 @ agy/beta6-gate@a59a54cf · verifica: test_consistency_beta (12/12 test OK); consistency.py beta -> exit 1, 14 blockers 7 accepted 0 resolved 0 errors; consistency.py check invariato (0 drift); docs_audit score -> score 6646 penalties 0 · 2026-10-16T11:27+02:00
 DELIVERED AGY-12 @ agy/sdlog-scan@ef9b9564 · verifica: python tests/tools/test_sdlog_scan.py -> 13/13 test OK; python scripts/docs_audit.py score -> score 6653 penalties 0 · 2026-10-16T11:34+02:00
 DELIVERED AGY-13 @ agy/carts-layout@7f45e21d · verifica: test_carts_layout -> OK; carts_layout.py -> exit 0, layout: 26 projects, 21 with bm.info, 5 old layout, 0 errors; docs_audit score -> score 6646 penalties 0 · 2026-10-16T11:43+02:00
+DELIVERED AGY-14 @ claude/app5b-lint-fixture@3393b811 · verifica: make test-predict -> 37 checks 0 failed; mutazioni M2 M4 M7 M8 -> 2 failed ciascuna · 2 file, 15 righe · non verificato su hardware · 2026-10-16T13:59+02:00
 
 ## Progressi
+- Completato AGY-14 (APP5B-FIXTURE) su claude/app5b-lint-fixture@3393b811:
+  - Estesa la fixture `tests/predict/lint_sample.lua` con 9 righe in fondo per coprire le 4 mutazioni identificate nella review di APP-5b (nomi sconosciuti in stringhe `"` e `'`, chiamata `hurt` consentita da `scripts/api_lint_allow.txt`, dichiarazione `local a, b` a nomi multipli, blocco di commento multiriga `--[[ ... ]]`).
+  - Aggiunti 4 check dedicati in `tests/predict/predict_test.lua` (6 righe) verificando che `seen.zzstr`/`seen.zzsq`, `seen.hurt`, `seen.lva`/`seen.lvb` e `seen.blockcall` siano nulli.
+  - Verificato: `make test-predict` passa a verde con 37 checks, 0 failed.
+  - Verificate le 4 mutazioni con `build/mut.py`: ciascuna mutazione (M2, M4, M7, M8) fa fallire il test con esattamente 2 falliti (`predict: 37 checks, 2 failed`, `EXIT=2`). Diff finale: 2 file, 15 righe aggiunte, 0 tolte. Registrato nel ledger e pushato.
 - Completato AGY-13 (CARTS-LAYOUT) su agy/carts-layout@7f45e21d:
   - Creato `scripts/carts_layout.py` per verificare che i progetti in `carts/` rispettino la struttura comune di `docs/PROJECT-LAYOUT.md`: legge `bm.info` (chiavi di testa `name`, `author`, `resolution` tra 640x360, 480x270, 320x180, 256x256, 360x360, 720x720, ignorando blocchi `[part ...]`), controlla i file di testa non consentiti (assets/, build/, res/ con match case-insensitive), segnalando `MISPLACED` (errore) per i progetti con `bm.info` e `note` per quelli a vecchio layout. Verifica la corrispondenza esatta con la tabella `## Migrated so far` in `docs/PROJECT-LAYOUT.md`.
   - Creata suite `tests/tools/test_carts_layout.py` con 10 casi di test unitari via subprocess su repo temporaneo (10/10 test OK).

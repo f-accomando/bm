@@ -3,3 +3,4 @@
 {"schema":1,"operator":"OP-AGY","wo":"AGY-11","branch":"agy/beta6-gate","commit":"a59a54cf","files":4,"add":415,"del":1,"lines":{"code":403,"docs":3,"data":10},"tokens":11400,"min":12,"iso":"2026-10-16T11:27+02:00"}
 {"schema":1,"operator":"OP-AGY","wo":"AGY-12","branch":"agy/sdlog-scan","commit":"ef9b9564","files":3,"add":361,"del":1,"lines":{"code":360,"docs":2,"data":0},"tokens":9800,"min":10,"iso":"2026-10-16T11:34+02:00"}
 {"schema":1,"operator":"OP-AGY","wo":"AGY-13","branch":"agy/carts-layout","commit":"7f45e21d","files":3,"add":368,"del":0,"lines":{"code":367,"docs":1,"data":0},"tokens":10500,"min":12,"iso":"2026-10-16T11:43+02:00"}
+{"schema":1,"operator":"OP-AGY","wo":"AGY-14","branch":"claude/app5b-lint-fixture","commit":"3393b811","files":2,"add":15,"del":0,"lines":{"code":15,"docs":0,"data":0},"tokens":11200,"min":18,"iso":"2026-10-16T13:58+02:00"}
