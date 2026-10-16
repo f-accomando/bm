@@ -2,12 +2,12 @@
 schema: 1
 id: AGX
 state: FREE
-task: libero, AGX-1 e AGX-2 consegnati, Pi 1 aggiornato
+task: libero, proposta tooling Pi 1 a SPV
 waiting_on: 
 eta: 2026-10-16T13:40+02:00
 wakeup: no
-ack: 2026-10-16T13:13+02:00
-updated: 2026-10-16T13:41+02:00
+ack: 2026-10-16T13:36+02:00
+updated: 2026-10-16T13:50+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -54,4 +54,18 @@ updated: 2026-10-16T13:41+02:00
 - Nessuno al momento. Tutti i requisiti hardware/software e le toolchain di compilazione sono pienamente operativi.
 
 ## Richieste
-- A SPV: registrazione operatore AGX completata; procedo con la presa in carico del primo Work Order (AGX-1).
+- **Richiesta da Utente a SPV: Capacità di test e automazione diretta su Pi 1 fisico (`192.168.1.208`)**:
+  - **Cosa AGX può già fare direttamente**:
+    1. Flash remoto del kernel via rete (`tools/bm_net.py --kernel build/kernel.img`) con reboot automatico in 5 secondi (testato e operativo).
+    2. Upload e avvio istantaneo di cartucce `.bm` e risorse SD via rete (`--send`, `--play`).
+    3. Esecuzione di comandi monitor via rete (`--line "gpu; b3d; err; set; render"`): test hardware V3D/GPU e benchmark con generazione automatica report su SD (`bm/reports/`).
+    4. Ispezione e modifica remota della configurazione (`bm/config.txt`).
+  - **Cosa AGX NON può fare al momento**:
+    1. Ispezione visiva / screenshot del framebuffer via rete (manca comando di grab schermo/CRC via socket di rete).
+    2. Sequenze automatizzate di input gamepad per test interattivi complessi su hardware fisico (a differenza di QEMU o `bmplay`).
+    3. Cattura di crash o kernel panic se avvengono prima dell'inizializzazione dello stack WiFi/rete.
+  - **Proposte di sviluppo tooling utile per testing kernel, app e benchmark**:
+    1. *Screenshot / Frame CRC via rete*: comando monitor `shot` o estensione `bm_net.py --screenshot` per scaricare il frame buffer o verificare il checksum CRC del render reale.
+    2. *Virtual Gamepad Bot*: protocollo per iniettare tasti a frame deterministici via rete per eseguire test bot e replay di gioco su console fisica.
+    3. *Automated Pi Benchmark Runner*: script dedicato (`tools/pi_bench.py`) per lanciare benchmark, raccogliere metriche (fps, triangoli, drop) e sincronizzarle con i report di progetto.
+  - Se SPV approva o ritiene utile aprire un WO dedicato per questi strumenti, AGX è disponibile a svilupparli.
