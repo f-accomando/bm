@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGX-4 consegnato, attesa AGX-5/AGY-17
+state: WORKING
+task: WO AGX-5: MAKE-TEST-TOOLS test-tools target in Makefile
 waiting_on: 
-eta: 2026-10-16T15:00+02:00
+eta: 2026-10-16T15:20+02:00
 wakeup: no
-ack: 2026-10-16T14:30+02:00
-updated: 2026-10-16T14:34+02:00
+ack: 2026-10-16T14:50+02:00
+updated: 2026-10-16T14:52+02:00
 ---
 # AGX — Antigravity (AGX)
 
