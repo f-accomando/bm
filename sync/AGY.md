@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-36
+state: FREE
+task: AGY-36 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T16:50+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T16:40+02:00
+updated: 2026-10-16T16:44+02:00
 ---
 # AGY — Antigravity
 
@@ -88,8 +88,12 @@ DELIVERED AGY-32 @ claude/config-readin-check@80b1f528 · verifica: python tests
 DELIVERED AGY-33 @ claude/config-readin-fix@e8a8639f · verifica: config_readin.py -> 0 stale, exit 0; consistency.py check invariato · 1 file, +31 -31 · non verificato su hardware · 2026-10-16T16:28+02:00
 DELIVERED AGY-34 @ claude/syllables-en@51dd8d2d · verifica: python scripts/syllables.py -> exit 0, cifre uguali; git grep parole italiane -> nessuna uscita · 1 file · non verificato su hardware · 2026-10-16T16:34+02:00
 DELIVERED AGY-35 @ claude/test-syllables@eb867848 · verifica: python -m unittest tests/tools/test_syllables.py -> 9 OK · 1 file nuovo · non verificato su hardware · 2026-10-16T16:39+02:00
+DELIVERED AGY-36 @ claude/test-assistlib@407200db · verifica: python -m unittest tests/tools/test_assistlib.py -> OK · 1 file nuovo · non verificato su hardware · 2026-10-16T16:43+02:00
 
 ## Progressi
+- Completato AGY-36 (TEST-ASSISTLIB) su claude/test-assistlib@407200db:
+  - Creato `tests/tools/test_assistlib.py` con test unitari per `fnv1a`, `tokens`, `content_words`, `to_cp437`, `features` da `scripts/assistlib.py` (casi: fnv1a vuoto e 1 byte, tokens base/accenti/troncamento max length 24 e max count 64, stopword filtering, eccezione ValueError su glifo mancante in cp437, features ordinate e limitate a 255 nel range [0, 4096)).
+  - Verificato: `python -m unittest tests/tools/test_assistlib.py -v` 8/8 test OK; `git status --short` solo 1 file nuovo (+43 righe). Registrato nel ledger e pushato.
 - Completato AGY-35 (TEST-SYLLABLES) su claude/test-syllables@eb867848:
   - Creato `tests/tools/test_syllables.py` con 9 test unitari per `syllables()` e `plain()` da `scripts/syllables.py` (casi: 'casa', 'pizza', 'canto', 'padre', 'paese', 'piano', 'per', stringa vuota, 'città' con accento).
   - Verificato: `python -m unittest tests/tools/test_syllables.py -v` 9/9 test OK (tutte le aspettative fornite nel WO calcolate esattamente); `git status --short` solo 1 file nuovo (+41 righe). Registrato nel ledger e pushato.
