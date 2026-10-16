@@ -20,7 +20,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
 - **bm SDK (RGB30)** (`carts/sdk_b16`, built into `kernel8.img` unless `CLEAN_KERNEL=1`, and
   published as `sdk.b16` in the Market): the SDK's pages at 360×360 (`layout.lua`: `split` on
   the 8×16 grid, joined before `main.lua` by `build.py`), the pad by names (`ok`/`back`, L1/R1,
-  Start, X = the page's actions as a list, L2/R2), `padtype` for code and names, map zoom in/out
+  Start, X = the page's actions as a list, L2/R2), `padtype` for code and names, page `snd` (F7: Sounds with 7 fields and Lib import `i`, Effects with 32 steps; QEMU `test_sdk_pad_*` drive it by keyboard), map zoom in/out
   (`-`/`+`), `Overview` (`m`, full 256×256 at 1 px/cell), `Tab`/`Y` compact palette of used 16×16
   tiles, automatic 16×16 object brush on the `objects` layer, `Build .bm` (`Ctrl+B`) and
   `Export .b16` (`Ctrl+Shift+B`; on the RGB30, exporting a `.b16` from `/carts` also copies it to
@@ -82,8 +82,8 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
-- **bm SDK (RGB30)**: try it on the console (Dev > bm SDK and Open in bm SDK, pad, typing, save,
-  copy of a game, Ctrl+B, F5 and Start + Select back); QEMU `test_sdk_tool` runs in CI. A game built in `/carts` is not in Games (R41).
+- **bm SDK (RGB30)**: try it on the console (use with the pad alone is not proven; QEMU virt has no pad): Dev > bm SDK, Start > New project > Empty 2D; R1 x2 draw with ok; Y+down a tile; Select types `do end `; R1 to `snd`: wave SINE, ok plays; Start > Save > Build .bm > Export .b16; Start+Select out; reopen the .bme: all is still there.
+  QEMU `test_sdk_tool` and `test_sdk_pad_*` run in CI. A game built in `/carts` is not in Games (R41).
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
 - **M43 step 3**: a *Stack* page in bm Pixel.
