@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: NET
-state: WORKING
-task: APP-5b
-waiting_on: 
-eta: 2026-10-16T15:30+02:00
+state: WAITING
+task: R-NET6
+waiting_on: SPV: integrare R-NET5 (claude/net-bridge-durable@260020dd) in claude/integrazione-ottobre
+eta: 2026-10-16T17:00+02:00
 wakeup: no
-ack: 2026-10-16T11:06+02:00
-updated: 2026-10-16T11:18+02:00
+ack: 2026-10-16T11:56+02:00
+updated: 2026-10-16T12:37+02:00
 ---
 # NET
 
@@ -31,6 +31,7 @@ updated: 2026-10-16T11:18+02:00
 Presa in carico di sync/wo/NET.md, ordine NET-1a→NET-2d. R-NET3 non iniziato.
 
 ## Consegne
+DELIVERED APP-5b @ claude/app5-api-help-lint@d2987835 · verifica: make test-predict -> 33 checks 0 failed; diff api_lint.py vs Lua lint su 113 file (2135 segnalazioni) -> 0 differenze; qemu_test.py -k test_code_api -> PASS; -k test_code_completion -> PASS; -k test_code_editor -> PASS; make -f rgb30.mk PLAT=virt all -> build ok; docs_audit score -> penalties 0; consistency check -> 0 drift · note: branch = bm-core e6d7bfd7 + merge origin/agy/api-lint (integrare prima agy/api-source e agy/api-lint); D3: se nessuno spazio entro 477 il testo e' tagliato a 477 + '...'; la regola API list in progress/tools.md e' accodata alla riga 'Tool pages' (il file era a 120 righe, limite del docs_audit); il bm Code gira solo sul Pi: nessuna prova RGB30 · 2026-10-16T12:36+02:00
 DELIVERED API-1 @ claude/perf-budget-cart@c18e881d · verifica: python tests/tools/test_perf_table.py -> 10 PASS; make build/carts/budget.bm -> exit 0; tests/qemu_test.py -k budget -> PASS (Pi); tests/rgb30/qemu_test.py -k budget -> PASS; docs_audit score -> penalties 0 · note: (1) su RGB30 il tasto ok del prompt report e' 'k' (B seriale), non '' (e' Start): usato 'k' dal codice di sd_ask/poll_keys; (2) il kernel Pi in QEMU scrive 'board: Pi Zero' senza 'QEMU': perf_table.py non lo rifiuta, non rilevabile senza toccare src/**; avvertito in PERFORMANCE.md; (3) da API-1a: la cella tiles8 (sset cella 1) copre il quadrante alto-destra dello sprite spr16 (solo grafica); senza carico 60fps numerico spr16 niente righe profile; colonne Pi/RGB30 vuote (—) fino alle prove con l'utente · 2026-10-16T11:18+02:00
 DELIVERED R-NET5 @ claude/net-bridge-durable@260020dd · verifica: python3 tests/net/check_bm_net_config.py -> all passed (WSL); make test-net -> exit 0; python scripts/docs_audit.py score -> 6652; consistency check -> 0 drift · 5a status/freeze/reboot con --in-monitor, 5b claim_socket/--detach/timeout/exit 3, 5c docs · non verificato sul Pi; --detach (fork) e comportamento di WSL da provare dall'utente (passi 1-8 del WO) · 2026-10-16T09:30+02:00
 DELIVERED R-NET4 (rev. 2) @ claude/net-logs@0c8556a9 · verifica: make test-net → exit 0 (nuovo: G di un log con net_password=secret esce mascherato; bridge: risposta e file out/pi_*.TXT mascherati); check_bm_net_config.py → all passed; make build/kernel.img e make TARGET=rgb30 → ok; consistency 0 drift · fatto: merge di integrazione-ottobre (FRZ-6), G applica reports_mask_secrets in lettura ai 3 log (anche log scritti da kernel vecchi), commento corretto, /out/ in .gitignore, stub crumbs_restart in test_netcon (il merge FRZ-2 rompeva test-net) · 2026-10-15T16:25+02:00
