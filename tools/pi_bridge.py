@@ -62,7 +62,7 @@ def check_line(text):
     return "; ".join(segments), None
 
 
-ALLOWED_DIRS =[ROOT] + [os.path.expanduser("~/" + d) for d in os.listdir(os.path.expanduser("~")) if d.startswith("bmk")]
+ALLOWED_DIRS = [ROOT] + [os.path.expanduser("~/" + d) for d in os.listdir(os.path.expanduser("~")) if d.startswith("bmk")]
 
 
 def allowed(path):
