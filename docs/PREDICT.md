@@ -63,7 +63,7 @@ An **n-gram**: how many times each word is written and which words follow it, co
   from the texts): 8 450 words;
 - **en**: the English texts in `src/ai/words` (4 500 words): 1 140 words;
 - **lua**: the Lua of bm's games (without comments and strings), the knowledge base code and
-  all the names of its APIs with their signature: 3 350 words;
+  all the names of its APIs with their signature (the API names come from `src/ai/api.tsv`, `scripts/mkapi.py`, from `docs/api/`): 3 350 words;
 - **ask**: the knowledge base questions: 1 770 words.
 
 The score of a word that starts like the typed one is `0.4 × frequency + how many times it
@@ -84,7 +84,7 @@ The format of `build/words.lua` (text in code page 437, like the console):
 - `uni`: `word count[ f]` per line, sorted by key (lowercase, without accents); ` f` = a
   function;
 - `big`: `prev total next n next n ...` per line, the 24 most frequent words after `prev`;
-- `api` (lua only): `name signature` per line.
+- `api` (lua only): `name	signature	area	text` per line, from `src/ai/api.tsv` (text cut at 480 characters); `allow` (lua only): the names that `scripts/api_lint_allow.txt` lets pass, one per line.
 
 ### From Lua
 

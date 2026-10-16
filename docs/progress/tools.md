@@ -29,7 +29,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   `cart_arg()`), the tools it opens (`cart_tool`); prefers SD-installed Market apps (`/carts` or
   `/bm/`) over embedded kernel copies so tools can be updated from the Market and kernels can be
   built clean with `CLEAN_KERNEL=1`.
-- **bm Code** (`carts/code`): tabs, two pages, 6×12/8×14/8×16 fonts; completion
+- **bm Code** (`carts/code`): tabs, two pages, 6×12/8×14/8×16 fonts; Ctrl+Q / Y+X help on the API function, API lint on save (`predict.lint`, same rules as `scripts/api_lint.py`); completion
   (`predict`, [`docs/PREDICT.md`](../PREDICT.md)), pad typing (`padtype`,
   [`docs/PADTYPE.md`](../PADTYPE.md)), F6 assistant and `#entry: … #` lines, F8
   breakpoints, Ctrl+Enter plays riff.
@@ -100,7 +100,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 
 ## Rules (do not break)
 
-- Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a dialog frame never crosses the title row (QEMU tests read it).
+- Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a dialog frame never crosses the title row (QEMU tests read it). API list: one source `src/ai/api.tsv` → `build/words.lua` (`api`, `allow`), never edited by hand; the Lua lint in `src/ai/predict.lua` keeps the output of `scripts/api_lint.py` (diff check APP-5b-2).
 - bm Mesh rewrites only the lines between `-- [bm Mesh begin]` and `-- [bm Mesh end]`.
 - Mouse (`require "bmui"`, `src/script/bmui.lua`): the mouse does what the keys do: zones
   registered while drawing, chips that press the key, `U.press` before `keyp()`, a context menu

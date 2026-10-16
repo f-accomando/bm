@@ -6811,6 +6811,65 @@ def test_riff_code(b, opts):
         q.close()
 
 
+def test_code_api(b, opts):
+    """bm Code: Ctrl+Q shows the signature and text of the API function under
+    the cursor (src/ai/api.tsv), says so when there is none; saving a
+    cartridge lints it: an unknown API name is logged and shown."""
+    tmp = tempfile.mkdtemp(prefix="bm-codeapi-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/pong.bm"), "carts/pong.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def k(s, gap=0.04):
+        # an escape sequence goes in one piece: a lone Esc is one after 6 frames
+        for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
+            q.send(c)
+            time.sleep(gap)
+
+    def expect(needle, timeout=15):
+        return q.expect(needle, timeout=timeout).decode(errors="replace")
+
+    def see(words, tries=40):
+        text = []
+        for _ in range(tries):
+            img_ = q.screendump()
+            text = screen_text(img_, 6, 12)
+            if all(any(w in l for l in text) for w in words):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("C")
+        expect("code: ready")
+        # A: the help of the name under the cursor, and the message without one
+        k("\x14", 0.3)                                      # Ctrl+T: a new tab
+        k("cls(1)")
+        k("\x1b[H", 0.1)                                    # Home
+        k("\x11", 0.5)                                      # Ctrl+Q
+        see(["cls([c])", "fills the screen"])
+        k("\x1b", 0.6)                                      # any key closes
+        k("\x1b[F\rsprt(1)\x1b[H\x11", 0.1)
+        see(["no API help for 'sprt'"])
+        # B: save a cartridge with an unknown name: the lint says so
+        k("\x0f", 0.5)                                      # Ctrl+O
+        see(["/carts/pong.bm"])
+        k("\r")
+        expect("code: opened /carts/pong.bm")
+        k("\x0c")                                           # Ctrl+L: go to line
+        k("1\r", 0.1)
+        k("sprt(1, 2, 3)\r")
+        k("\x13")                                           # Ctrl+S
+        copy_yes(q, "/carts/pong.bm", "/carts/PONG.BME")
+        expect("code: saved /carts/PONG.BME")
+        expect("code: lint ")
+        expect("sprt:1")
+        see(["API:", "sprt"])
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_code_completion(b, opts):
     """bm Code's word completion (src/ai/predict.lua): while a word is typed
     its rest appears in grey-blue and the status line says "Tab: word"; Tab
