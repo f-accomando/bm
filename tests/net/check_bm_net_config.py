@@ -368,7 +368,7 @@ def main():
         n0 = len(seen)
         for req in ("save", "play pong", "gpu; set wifi_psk=x", "gpu; save", "err; play pong", "GPU", "Gpu",
                     "gpu\tb3d", "gpu\rsave", "gpu\x1b", "err²", "gpu;;err", "gpu; ", "err now", "b3d tests=a-b", "b3d verbose=1",
-                    "b3d tests=", "x" * 200):
+                    "b3d tests=", "x" * 200, "; gpu", "gpu x", "gpu,err", "", "gpu;", "b3d tests=a.b", "b3d foo=1"):
             out = pi_bridge.run("1.2.3.4", "s3cret", "line " + req)
             check(out.startswith("refused: line:"), f"bridge: line {req[:30]!r} refused")
         check(len(seen) == n0, "bridge: the refused lines started nothing")

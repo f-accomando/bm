@@ -17,7 +17,7 @@
 | `status` (exactly this) | is the Pi up (the greeting of the console, no login), its kernel version, how the run before ended (`BOOTPREV.TXT`), the time of the check | no uptime of the current boot (it would need a monitor line in the kernel) |
 | `logs NAME` | one of the logs the Pi writes on its SD card, read without taking the card out (`bm_net.py --get bm/NAME`): `bootprev` = `bm/BOOTPREV.TXT` (the run before), `bootlog` = `bm/BOOTLOG.TXT`, `lastrun` = `bm/LASTRUN.TXT`; saved as `out/pi_NAME.TXT` and shown | the name must be in `LOGS` of `pi_bridge.py`; the op `G` of the kernel allows these three exact names (and `bm/shots/*`), nothing else of `bm/` (`PA`) |
 | `config KEY=VALUE` | settings written to the Pi's `config.txt` (`bm_net.py --config`) | letters, digits and `_-.=` only; secret keys (`net_password`, `*_token`, `*_psk`, `*_password`, `*_key`) refused; the log shows `KEY=***` |
-| anything else | **refused** | |
+| anything else (`set`/`save`/`play` lines, secrets, WiFi) | **refused** (`refused: line: <reason>` for lines) | |
 
 **How long the bridge lives.** It survives the Pi's restarts (one connection per request, the password stays in the bridge's memory). With `python3 tools/pi_bridge.py --detach IP` it survives closing the shell (log in `out/pi_bridge.log`). It does not survive `wsl --shutdown`, a restart or suspend of Windows, nor WSL stopping its VM when the last window closes (`instanceIdleTimeout` / `vmIdleTimeout` in `%UserProfile%\.wslconfig`: to confirm on the real machine). A second instance is refused ("a bridge is already running"). Errors: `bm_net.py` exits 3 with "does not answer" when the Pi is off, restarting or frozen; a request with no end after 300 s answers "timeout: ...".
 
@@ -52,5 +52,6 @@ Reports (`gpu`, `b3d`) already leave the Pi alone: it uploads them to the branch
 
 - The password is never written to a file, a log, a command line the assistant types or the chat; `pi_bridge.py` takes it with `getpass` or from `BM_PASSWORD` of its own process.
 - The bridge only runs the requests of the table and only on files of the repo or `~/bmk*`.
+- A `line` is checked command by command against a fixed list (`LINE_CMDS`); a command that changes the configuration (`set`, `save`) or starts a game (`play`) never passes.
 - The bridge never stores the password: no file, no keyring, no persistent environment variable; after a WSL or PC restart the owner types it again.
 - A failing client counts as a failing step (a test never answers PASS when it could not talk to the Pi).
