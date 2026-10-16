@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-39
+state: FREE
+task: AGY-39 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T19:26+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T18:46+02:00
+updated: 2026-10-16T18:52+02:00
 ---
 # AGY — Antigravity
 
@@ -91,8 +91,13 @@ DELIVERED AGY-35 @ claude/test-syllables@eb867848 · verifica: python -m unittes
 DELIVERED AGY-36 @ claude/test-assistlib@407200db · verifica: python -m unittest tests/tools/test_assistlib.py -> OK · 1 file nuovo · non verificato su hardware · 2026-10-16T16:43+02:00
 DELIVERED AGY-37 @ claude/test-mkicons@53ebe687 · verifica: python -m unittest tests/tools/test_mkicons.py -> OK (Pillow 12.3.0 presente, 3 test OK) · 1 file nuovo · non verificato su hardware · 2026-10-16T16:47+02:00
 DELIVERED AGY-38 @ claude/rgb30-qemu-freeze-flow@726e4718 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k freeze_switch_close -> PASS test_freeze_switch_close · 2 file · non verificato su hardware · 2026-10-16T18:44+02:00
+DELIVERED AGY-39 @ claude/beta-hardware-card@4123405b · verifica: grep -c righe -> 13; docs_audit.py score senza nuovi ! · 2 file · non verificato su hardware (nessuna prova e' stata eseguita) · 2026-10-16T18:52+02:00
 
 ## Progressi
+- Completato AGY-39 (BETA-HWCARD) su claude/beta-hardware-card@4123405b:
+  - Creato `docs/spec/beta-hardware-tests.md` contenente la tabella con le 13 verifiche su hardware per la beta (D06, D07, D08, D12, SYS-5 su RGB30 pad; D01, D02, D04 su RGB30 BT; D13, APP-1 su RGB30 WiFi; M35, M36, M37 su Pi Zero W), con istruzioni di completamento e sezione Not covered (D16, D43).
+  - Collegata la scheda in calce a `docs/spec/CONSISTENCY.md`.
+  - Verificato: 13 righe di tabella e 1 riga di header; `docs_audit.py score` 6661 senza penalità o collegamenti rotti; `git diff --stat` 2 file, +30. Registrato nel ledger e pushato.
 - Completato AGY-38 (FREEZE-FLOW) su claude/rgb30-qemu-freeze-flow@726e4718:
   - In `tests/rgb30/qemu_test.py`, implementato `test_freeze_switch_close`: sequenza completa di freeze (Select+Start simulato via seriale con 'q'), verifica menu e dettaglio 'frozen', apertura opzioni con X ('Resume' e 'Close the game'), chiusura opzioni con Back, selezione seconda cartuccia con richiesta di conferma ('Close A cart?'), annullamento, resume della prima cartuccia, nuovo freeze e switch definitivo con conferma a chiusura.
   - In `docs/spec/divergences.toml`, aggiornata la nota di D06 e D07 aggiungendo `QEMU: test_freeze_switch_close.`.
