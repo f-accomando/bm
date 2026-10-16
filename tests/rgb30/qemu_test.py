@@ -18,7 +18,7 @@ import traceback
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
-from qemu_test import read_ppm, screen_text, pixel, free_port  # noqa: E402
+from qemu_test import read_ppm, screen_text, pixel, free_port, sdk_template  # noqa: E402
 import bm_load  # noqa: E402
 sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
 import mksd  # noqa: E402
@@ -557,6 +557,31 @@ def test_bm_cartridge(b, opts):
         img = q.screendump()
         assert img[0] == SCREEN and img[1] == SCREEN, f"screen {img[0]}x{img[1]}"
         assert in_menu(screen_all(img))
+    finally:
+        q.close()
+
+
+def test_stages_template(b, opts):
+    """The SDK's 'stages' template (carts/sdk_b16/main.lua) on the RGB30: a
+    Pi cartridge at 360x360, played from the menu with confirm (Enter); ok in the game is Space;
+    its title logs the best time, the ok button starts stage 1; 'q' leaves."""
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    sd = make_sd(tmp, {
+        "bm/config.txt": b"game_intro=0\n",
+        "bm/stages.bm": mkbm.pack(sdk_template("stages").encode(), title="Stages", author="tests",
+                                  res=(360, 360)),
+    })
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.4)
+        q.send("\r")                            # confirm: play
+        q.expect("play: /bm/stages.bm", timeout=10)
+        q.expect("stages: title best -", timeout=30)
+        q.send("x")                             # serial x = the X button, which the game reads as "ok": stage 1
+        q.expect("stages: stage 1", timeout=10)
+        q.send("q")
+        q.expect("fps", timeout=10)
     finally:
         q.close()
 
