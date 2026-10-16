@@ -8,7 +8,7 @@ Examples:
   python tools/sync_log.py log --who SPV --branch sync/protocollo-ottobre \
       --action RULE --text "Nuova regola" [--commit abc123] [--file SYNC.md] [--push]
   python tools/sync_log.py inbox --id AGY --line "Leggi WO AGY-9" \
-      --line "Poi consegna" [--file-dir sync/inbox] [--push]
+      --line "Poi consegna" [--file-dir sync/inbox] [--append] [--push]
 
 Exit codes: 0 ok, 1 git error, 2 bad usage or I/O error.
 Without --push git is never touched. With --push: pull --rebase --autostash first,
@@ -130,6 +130,21 @@ def cmd_inbox(a):
             sys.stderr.write("error: every line must be non-empty and single-line\n")
             return 2
     path = os.path.abspath(os.path.join(a.file_dir, a.id + ".md"))
+    existing = []
+    try:
+        with open(path, "rb") as f:
+            existing = [x for x in f.read().decode("utf-8").splitlines() if x.strip()]
+    except OSError:
+        pass
+    if a.append:
+        if len(existing) + len(lines) > MAX_INBOX:
+            sys.stderr.write("error: %d existing + %d new lines (max %d): %s untouched\n"
+                             % (len(existing), len(lines), MAX_INBOX, path))
+            return 2
+        lines = existing + lines
+    elif existing:
+        sys.stderr.write("warning: %s is not empty and --append is absent: overwriting %d line(s)\n"
+                         % (path, len(existing)))
     if a.push and os.path.isdir(os.path.dirname(path)) and not pull_first(os.path.dirname(path)):
         return 1
     try:
@@ -160,6 +175,7 @@ def main(argv=None):
     ib.add_argument("--id", required=True)
     ib.add_argument("--line", action="append", required=True)
     ib.add_argument("--file-dir", default="sync/inbox")
+    ib.add_argument("--append", action="store_true", help="add --line values after the existing lines (max 5 in all)")
     ib.add_argument("--push", action="store_true")
     try:
         a = p.parse_args(argv)
