@@ -8,7 +8,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
 
 ### The suite (`carts/`, opened from the Dev tab or installed from the Market Apps page)
 - **bm SDK** (`carts/editor`): projects, templates (Empty 2D, Platform 2D, Top-down 2D,
-  Shooter 2D, Versus 2D, Online 2D, 3D scene, 3D with models), budgets (tokens, Lua, assets),
+  Shooter 2D, Versus 2D, Online 2D, 3D scene, 3D with models, Stages 2D), budgets (tokens, Lua, assets),
   the dev kit report of a test run, jumps to the other tools (`cart_tool`), `Build .bm` (`Ctrl+B`,
   or builds a real `.b16` when `target = "b16"`) and `Export .b16` (`Ctrl+Shift+B`,
   `cart_build(path, "b16")`). Map page (`P.map`): layers, flags, `z` a 16×16 brush (2×2 cells,
@@ -16,7 +16,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   placeholder tile (`>= 1024`) when switching to the `objects` layer, zoom in/out (`-`/`+`: 1, 2,
   4, 8, 16 px/cell), `m` (*Overview*) full 256×256 map at 1 px/cell with viewport box and
   click/arrow jump, `Tab` compact palette of used 16×16 tiles (`z` toggles full sheet), Home/End
-  and PgUp/PgDn a page.
+  and PgUp/PgDn a page. Template *Stages 2D* as on the RGB30: `test_sdk_stages_pi`.
 - **bm SDK (RGB30)** (`carts/sdk_b16`, built into `kernel8.img` unless `CLEAN_KERNEL=1`, and
   published as `sdk.b16` in the Market): the SDK's pages at 360×360 (`layout.lua`: `split` on
   the 8×16 grid, joined before `main.lua` by `build.py`), the pad by names (`ok`/`back`, L1/R1,
