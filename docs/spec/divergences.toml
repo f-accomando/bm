@@ -73,7 +73,7 @@ rgb30 = "closes it silently: the frozen game's progress is lost"
 cause = "history"
 priority = 2
 status = "untested"
-note = "src/rgb30/ui.c asks 'Close <game>?' before starting another game while one is frozen (ASK_SWITCH, also from the options and the Market). Not tried on an RGB30."
+note = "src/rgb30/ui.c asks 'Close <game>?' before starting another game while one is frozen (ASK_SWITCH, also from the options and the Market). Not tried on an RGB30. QEMU: test_freeze_switch_close."
 evidence = "src/kernel/carts.c:1894; src/rgb30/ui.c:348"
 action = "add the question"
 
@@ -85,7 +85,7 @@ rgb30 = "no badge, no Close row"
 cause = "history"
 priority = 2
 status = "untested"
-note = "src/rgb30/ui.c: a frozen game has the 'running' badge, Resume and a 'Close the game' row in its options. Not tried on an RGB30."
+note = "src/rgb30/ui.c: a frozen game has the 'running' badge, Resume and a 'Close the game' row in its options. Not tried on an RGB30. QEMU: test_freeze_switch_close."
 evidence = "src/kernel/menu_ui.c:625,1349; src/rgb30/ui.c:934"
 action = "set the badge and add the row"
 

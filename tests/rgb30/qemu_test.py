@@ -563,6 +563,74 @@ def test_bm_cartridge(b, opts):
         q.close()
 
 
+def test_freeze_switch_close(b, opts):
+    """Start+Select freezes; the options of a frozen game; starting another asks 'Close <game>?'; resume; close and switch."""
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    sd = make_sd(tmp, {
+        "bm/a.bm": mkbm.pack(PI_CART.encode(), title="A cart", author="tests", res=(360, 360)),
+        "bm/b.bm": mkbm.pack(PI_CART.encode(), title="B cart", author="tests", res=(360, 360)),
+    })
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+
+    def look():
+        time.sleep(0.6)
+        return screen_all(q.screendump())
+
+    try:
+        boot(q)
+        time.sleep(0.4)
+        q.send("\r")
+        q.expect("play: /bm/a.bm", timeout=10)
+        q.expect("bm: loaded", timeout=30)
+        time.sleep(2)
+
+        q.send("q")
+        q.expect("suspended", timeout=10)
+        time.sleep(1)
+        text = look()
+        assert in_menu(text), text
+        assert "frozen" in look(), text
+
+        q.send("x")
+        text = look()
+        assert "Close the game" in text and "Resume" in text, text
+        q.send("\x7f")
+        text = look()
+        assert "Close the game" not in text, text
+
+        q.send("d")
+        q.send("\r")
+        text = look()
+        assert "Close A cart?" in text, text
+        q.send("\x7f")
+        text = look()
+        assert "Close A cart?" not in text, text
+
+        q.send("a")
+        q.send("\r")
+        q.expect("resuming a.bm", timeout=10)
+        time.sleep(2)
+        q.send("q")
+        q.expect("suspended", timeout=10)
+        time.sleep(1)
+
+        q.send("d")
+        time.sleep(0.4)
+        q.send("\r")
+        time.sleep(0.4)
+        q.send("\r")
+        q.expect("play: /bm/b.bm", timeout=10)
+    finally:
+        q.close()
+        try:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+            if hasattr(q, "tmp") and q.tmp:
+                shutil.rmtree(q.tmp, ignore_errors=True)
+        except Exception:
+            pass
+
+
 def test_bench3d(b, opts):
     """The Dev tab's 3D Bench (src/bm/b3d.c) at 640x360: every test on the
     ARM, the report on the serial port, in bm/bench on the SD card and in
