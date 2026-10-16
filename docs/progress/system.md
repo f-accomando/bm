@@ -75,7 +75,7 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 
 - To confirm from a boot log on the device: whether a stale association after a reboot was
   part of the missing WiFi (the fix that is in: retries and `wifi_leave()`).
-- **Freeze reports hardware checks (Pi Zero W):** verify real watchdog countdown on hardware (FRZ-3: boot log says "watchdog: on", monitor `X f` restarts within ~3 s with report "the Pi froze last time").
+- **Freeze reports hardware checks (Pi Zero W):** verify real watchdog countdown on hardware (FRZ-3: boot log says "watchdog: on", monitor `X f` restarts within ~3 s with report "the Pi froze last time"). After a long session, copy `bm/` from the card and run `python scripts/sdlog_scan.py <dir> --secret <net_password>` (verdict OK = no freeze, no crash, password masked).
 - Measurements to redo, stalls that still hold the CPU, downloads inside an app: [multitasking](multitasking.md).
 
 ### Console Standalone & Hardware Spunti (R1, R2, R3, R4, R6, R8, R19, R20)
