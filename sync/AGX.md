@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: WORKING
-task: WO AGX-15: D12-DETAILS cover details & last perf note
-waiting_on: 
+state: WAITING
+task: BLOCKED AGX-15: menu_ui.c:1465 narrow layout hides v.note when details present
+waiting_on: SPV
 eta: 2026-10-16T16:55+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T16:13+02:00
+updated: 2026-10-16T16:18+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -28,7 +28,8 @@ updated: 2026-10-16T16:13+02:00
 - Nessun Pi/RGB30 raggiungibile dagli operatori: PARZIALE (Pi 1 su rete locale a 192.168.1.208, kernel aggiornato via rete a bm dev con successo tramite bm_net.py; nessun monitor o tasto fisico collegato direttamente, verifiche fisiche delegate a UTE).
 
 ## Task
-- AGX-1..AGX-12 completati e consegnati. Libero per nuove assegnazioni (prossimo: AGX-13).
+- AGX-1..AGX-14 completati e consegnati.
+- AGX-15 BLOCKED: codice implementato su branch `claude/rgb30-cover-details@b4555d37`. Il test QEMU fallisce su `assert "last: picart.bm" in text` perché `src/kernel/menu_ui.c:1465` (`if (v->note && v->note[0] && (WIDE || !shown))`) sopprime `v->note` quando `v->details` è presente su layout stretto (`WIDE == 0`, 360x360). `src/kernel/*` è fuori perimetro. In attesa di SPV.
 
 ## Consegne
 - DELIVERED AGX-14 @ claude/rgb30-qemu-delete-tools@6dbf3908 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k delete_frozen_and_tools -> PASS test_delete_frozen_and_tools · 2 file · non verificato su hardware · 2026-10-16T16:13+02:00
