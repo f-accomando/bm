@@ -1,10 +1,10 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGX-12 consegnato, pronto per AGX-13
+state: WORKING
+task: WO AGX-13: D04-START Start confirms on RGB30 menu
 waiting_on: 
-eta: 2026-10-16T16:15+02:00
+eta: 2026-10-16T16:40+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
 updated: 2026-10-16T16:00+02:00
