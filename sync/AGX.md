@@ -2,12 +2,12 @@
 schema: 1
 id: AGX
 state: FREE
-task: libero, completati AGX-1 e AGX-2
+task: libero, AGX-1 e AGX-2 consegnati, Pi 1 aggiornato
 waiting_on: 
 eta: 2026-10-16T13:40+02:00
 wakeup: no
 ack: 2026-10-16T13:13+02:00
-updated: 2026-10-16T13:24+02:00
+updated: 2026-10-16T13:41+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -25,8 +25,7 @@ updated: 2026-10-16T13:24+02:00
 ## Requisiti
 - `python` (3.x) nel PATH: SÌ (Python 3.12.10 Windows, Python 3.14.4 WSL Ubuntu).
 - WSL con toolchain per `make` e QEMU (`scripts/wsl-run.ps1`): SÌ (GNU Make 4.4.1, qemu-system-arm 10.2.1, qemu-system-aarch64 10.2.1, arm-none-eabi-gcc 14.2.1, aarch64-linux-gnu-gcc 15.2.0, build-essential).
-- `git` con push su `origin`: SÌ (`git version 2.53.0.windows.4`, push dry-run `Everything up-to-date` su `origin/sync/protocollo-ottobre`).
-- Nessun Pi/RGB30 raggiungibile dagli operatori: SÌ (confermato, nessun hardware fisico collegato direttamente; prove hardware delegate a UTE).
+- Nessun Pi/RGB30 raggiungibile dagli operatori: PARZIALE (Pi 1 su rete locale a 192.168.1.208, kernel aggiornato via rete a bm dev con successo tramite bm_net.py; nessun monitor o tasto fisico collegato direttamente, verifiche fisiche delegate a UTE).
 
 ## Task
 - AGX-1 e AGX-2 completati e consegnati. Libero per nuove assegnazioni.
@@ -49,6 +48,7 @@ updated: 2026-10-16T13:24+02:00
   - `git push (dry-run)` -> OK, accesso a origin verificato
   - `scripts/wsl-run.ps1` -> verificato ed operativo
 - Letti `sync/inbox/AGX.md`, `sync/wo/AGX-1.md` e `sync/wo/AGX-2.md`.
+- Connessione e aggiornamento kernel Pi 1 (192.168.1.208): compilato build/kernel.img e caricato con successo via tools/bm_net.py con password. Pi 1 riavviato su 'bm dev network console' e test GPU su hardware reale eseguito via monitor di rete.
 
 ## Problemi
 - Nessuno al momento. Tutti i requisiti hardware/software e le toolchain di compilazione sono pienamente operativi.
