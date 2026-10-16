@@ -14,6 +14,7 @@ Detail of the subagent routing summarised in the `CLAUDE.md` Glossary. Search wi
 | **`bm-deep`** | Opus xhigh | A single isolated, critical problem (bug with reproduction, architectural decision) | Implement whole features |
 | **`bm-research`** | Haiku low (read-only) | Read-only exploration, symbol/definition search across many files, compact summaries | Modify code |
 | **`bm-ops`** | Haiku low (Bash, no code changes) | Already-decided shell commands: `verify.py`, `make`, git fetch/status/push, checking a resume | Decide, fix, start resumes, `kill`, merge |
+| **`bm-runner`** | Sonnet medium (all tools) | Executes and verifies in one pass: reviews that run tests, git/worktree work, builds, log extraction; prints the ready ledger row | Design, widen the scope, push to `bm-core`, merge |
 
 ### Readiness Gate
 Before assigning a task to an executing model (`bm-mechanic`, `bm-coder`, `bm-light`), apply this 5-question checklist. A task is ready for a low-tier agent ONLY if ALL answers are **YES**:
