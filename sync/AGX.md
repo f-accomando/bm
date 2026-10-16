@@ -2,11 +2,11 @@
 schema: 1
 id: AGX
 state: WAITING
-task: handshake: attesa requisiti WSL/toolchain/QEMU
+task: handshake: attesa abilitazione BIOS SVM Mode per WSL
 waiting_on: utente
 wakeup: no
 ack: 2026-10-16T11:56+02:00
-updated: 2026-10-16T12:38+02:00
+updated: 2026-10-16T12:48+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -27,7 +27,7 @@ updated: 2026-10-16T12:38+02:00
 - `make` nel PATH: SÌ (`GNU Make 4.4.1` installato via winget).
 - `qemu-system-arm --version` e `qemu-system-aarch64 --version`: NO (mancanti in locale Windows; l'installer winget richiede elevazione amministratore/UAC interattiva).
 - `arm-none-eabi-gcc --version` e `aarch64-linux-gnu-gcc --version`: NO (mancanti in locale Windows; l'installer toolchain ARM richiede elevazione amministratore/UAC).
-- WSL con toolchain linux (`scripts/wsl-run.ps1`): NO (sottosistema Linux non installato; `wsl --install` richiede privilegi di amministratore e riavvio del sistema).
+- WSL con toolchain linux (`scripts/wsl-run.ps1`): NO (funzionalità WSL installata, ma avvio distribuzioni bloccato da virtualizzazione hardware disabilitata nel BIOS: AMD SVM Mode = False).
 - Nessun Pi/RGB30 raggiungibile dagli operatori: PARZIALE (Pi all'IP `192.168.1.208` raggiungibile via ping e `tools/bm_net.py` con kernel vecchio; nessun dispositivo fisico accessibile per controlli visivi o tasti, prove hardware delegate a UTE).
 
 ## Task
@@ -41,11 +41,12 @@ updated: 2026-10-16T12:38+02:00
 - Installati e configurati nel PATH utente `git` (2.53.0) e `make` (4.4.1).
 - Verificato accesso di rete locale a Raspberry Pi (`192.168.1.208`).
 - Letta la inbox `sync/inbox/AGX.md` con assegnazione WO AGX-1 e AGX-2.
-- Rilevata impossibilità di completare in autonomia l'installazione di QEMU, Toolchain ARM e WSL per mancanza di privilegi amministrativi (richiesta elevazione UAC).
+- Diagnosticata causa blocco WSL: virtualizzazione hardware disabilitata a livello firmware (`VirtualizationFirmwareEnabled: False` su AMD Ryzen 5 3600 / Gigabyte B550I AORUS PRO AX).
 
 ## Problemi
 - Mancano `qemu-system-arm`, `qemu-system-aarch64`, `arm-none-eabi-gcc`, `aarch64-linux-gnu-gcc` e WSL.
-- La suite di test host di AGX-1 (`make test-sdk-b16`) richiede un compilatore C host (`HOSTCC`) per generare `build/host/luahost`, attualmente assente su Windows e WSL non installato.
+- WSL bloccato con errore `HCS_E_HYPERV_NOT_INSTALLED`: la virtualizzazione AMD SVM Mode è disabilitata nel BIOS UEFI.
+- La suite di test host di AGX-1 (`make test-sdk-b16`) richiede un compilatore C host (`HOSTCC`) per generare `build/host/luahost`, attualmente assente su Windows e WSL non avviabile.
 
 ## Richieste
-- A UTE / SPV: installazione di WSL (`wsl --install -d Ubuntu` da PowerShell Amministratore con successivo riavvio) oppure concessione/installazione manuale delle toolchain per consentire l'esecuzione delle build e delle verifiche di test.
+- A UTE: abilitazione di **SVM Mode** nel BIOS della scheda madre Gigabyte B550I AORUS PRO AX (tasto Canc all'avvio -> Tweaker / Advanced CPU Settings -> SVM Mode: Enabled -> F10 salva e riavvia). In seguito WSL2 e Ubuntu si avvieranno regolarmente.
