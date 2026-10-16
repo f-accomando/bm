@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-20
+state: FREE
+task: AGY-20 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T14:40+02:00
 wakeup: no
 ack: 2026-10-16T14:20+02:00
-updated: 2026-10-16T14:25+02:00
+updated: 2026-10-16T14:26+02:00
 ---
 # AGY — Antigravity
 
@@ -72,8 +72,14 @@ DELIVERED AGY-16 @ claude/perf-qemu-case@87d112d6 · verifica: python tests/tool
 DELIVERED AGY-17 @ claude/docs-audit-check@565252db · verifica: python tests/tools/test_docs_audit.py -> All docs_audit tests PASSED; docs_audit.py score identico a prima; docs_audit.py check su base -> docs_audit: 0 broken, exit 0 · 2 file · non verificato su hardware · 2026-10-16T14:20+02:00
 DELIVERED AGY-18 @ claude/docs-en-mali-m41@e2366be7 · verifica: git grep parole italiane su graphics-mali.md -> 0 righe; docs_audit.py score -> penalties 0 come prima · 1 file, +12 -12 · non verificato su hardware · 2026-10-16T14:22+02:00
 DELIVERED AGY-19 @ claude/docs-en-v3d-qpu@50446b69 · verifica: git grep parole italiane su v3d.md -> 0 righe; docs_audit.py score -> penalties 0 come prima · 1 file, +17 -17 · non verificato su hardware · 2026-10-16T14:24+02:00
+DELIVERED AGY-20 @ claude/docs-en-open-items@3e82fbac · verifica: git grep parole italiane sui 3 file -> solo platforms.md:56 (fuori WO); docs_audit.py score -> penalties 0 come prima · 3 file, +8 -8 · non verificato su hardware · 2026-10-16T14:26+02:00
 
 ## Progressi
+- Completato AGY-20 (IT2EN-OPEN3) su claude/docs-en-open-items@3e82fbac:
+  - In `docs/progress/audio-output.md`, tradotta la voce R21 (3 righe) su audio analogico/I2S via GPIO con filtro RC e DAC esterni.
+  - In `docs/progress/runtime.md`, tradotte le voci R7 (lettere accentate UTF-8 -> CP437, mantenendo esempi "città" e "perché") e R27 (gestione batteria e autosave) (2 righe).
+  - In `docs/progress/platforms.md`, tradotte le voci M41 (Overbit b16), M42 (profilo b16 unificato) e R22 (guscio portatile Pi Zero) (3 righe).
+  - Verificato: `git grep` sulle parole italiane segnala come unico match residuo `platforms.md:56` (SDK b16, fuori perimetro WO); `docs_audit.py score` mantiene penalità 0; diff esattamente di 3 file, +8 -8. Registrato nel ledger e pushato.
 - Completato AGY-19 (IT2EN-V3D) su claude/docs-en-v3d-qpu@50446b69:
   - In `docs/progress/v3d.md`, tradotte in inglese le 17 righe relative alle voci 5 (QPU come coprocessore, M44, passi 1-5, toolkit/registri e criterio), 6 (Profilazione runtime, R40) e 7 (Adattamento dinamico impostor, R42), mantenendo identici registri (`SRQPC`, `SRQUA`, `SRQUL`, `SRQCS`, `VPMBASE`, ecc.), funzioni (`r3d_impostor`, `gpu3d`), e rientri gerarchici (0, 3, 5 spazi).
   - Verificato: `git grep` su parole italiane rimaste nel file restituisce 0 righe (prima: 13); `docs_audit.py score` mantiene penalità 0; diff esattamente di 1 file, +17 -17. Registrato nel ledger e pushato.
