@@ -75,6 +75,7 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
 
 ## To do, in order
 
+0. M35-M37 close-out (BETA-4): code done (bm3d 3.0-4.9, 6.5-6.8); the Pi's 3D Bench already gives GPU+VS spheres 4x, heroes 11x, mix 9x (DRIVERS.md 6.6). Left, on the Pi only: Stress test GPU+VS rows, Overbit hero ring at 60 fps (M36); queue on/off (M35); test g step 16 and menu_scale=3 (M37): [beta-hardware-tests](../spec/beta-hardware-tests.md).
 1. Pixels at 1080p (R41): the cheap soft enlargement is scaler kernel 6 (config only, no GPU
    cost; below). A QPU bicubic / FSR-style pass stays open, only if 6 is not enough. Cost from
    the Pi 3D Bench: a full-screen 1080p pass with one bilinear read is ~3.5-5 ms of GPU
