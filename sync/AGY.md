@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
+state: FREE
 task: AGY-13
 waiting_on: 
 progress: 100
 eta: 2026-10-16T12:20+02:00
 wakeup: no
 ack: 2026-10-16T11:06+02:00
-updated: 2026-10-16T11:36+02:00
+updated: 2026-10-16T11:45+02:00
 ---
 # AGY — Antigravity
 
@@ -65,8 +65,14 @@ DELIVERED BETA-7c @ agy/beta-quickstart@1a906463 · verifica: python scripts/man
 DELIVERED BETA-7d @ agy/beta-quickstart@1a906463 · verifica: python scripts/docs_audit.py score && python scripts/doc_refs.py docs/GAME-GUIDE.md docs/GUIDA-GIOCHI.md -> score 6632 penalties 0; righe 1-8 introdotte 0 errori (errori preesistenti altrove documentati); parità translate_check documentata · 2026-10-16T10:11+02:00
 DELIVERED AGY-11 @ agy/beta6-gate@a59a54cf · verifica: test_consistency_beta (12/12 test OK); consistency.py beta -> exit 1, 14 blockers 7 accepted 0 resolved 0 errors; consistency.py check invariato (0 drift); docs_audit score -> score 6646 penalties 0 · 2026-10-16T11:27+02:00
 DELIVERED AGY-12 @ agy/sdlog-scan@ef9b9564 · verifica: python tests/tools/test_sdlog_scan.py -> 13/13 test OK; python scripts/docs_audit.py score -> score 6653 penalties 0 · 2026-10-16T11:34+02:00
+DELIVERED AGY-13 @ agy/carts-layout@7f45e21d · verifica: test_carts_layout -> OK; carts_layout.py -> exit 0, layout: 26 projects, 21 with bm.info, 5 old layout, 0 errors; docs_audit score -> score 6646 penalties 0 · 2026-10-16T11:43+02:00
 
 ## Progressi
+- Completato AGY-13 (CARTS-LAYOUT) su agy/carts-layout@7f45e21d:
+  - Creato `scripts/carts_layout.py` per verificare che i progetti in `carts/` rispettino la struttura comune di `docs/PROJECT-LAYOUT.md`: legge `bm.info` (chiavi di testa `name`, `author`, `resolution` tra 640x360, 480x270, 320x180, 256x256, 360x360, 720x720, ignorando blocchi `[part ...]`), controlla i file di testa non consentiti (assets/, build/, res/ con match case-insensitive), segnalando `MISPLACED` (errore) per i progetti con `bm.info` e `note` per quelli a vecchio layout. Verifica la corrispondenza esatta con la tabella `## Migrated so far` in `docs/PROJECT-LAYOUT.md`.
+  - Creata suite `tests/tools/test_carts_layout.py` con 10 casi di test unitari via subprocess su repo temporaneo (10/10 test OK).
+  - Aggiunta riga di verifica in `docs/PROJECT-LAYOUT.md` dopo riga 4.
+  - Verificato: `test_carts_layout.py` 10/10 OK; `carts_layout.py` -> exit 0, `layout: 26 projects, 21 with bm.info, 5 old layout, 0 errors`; `docs_audit.py score` -> score 6646 penalties 0. Registrato ledger e pushato.
 - Completato AGY-12 (SDLOG-SCAN) su agy/sdlog-scan@ef9b9564 (base claude/integrazione-ottobre in bm33-int):
   - Creato `scripts/sdlog_scan.py` per l'analisi dal PC della cartella SD (`bm/` o radice con sottocartella `bm/`, case-insensitive): parsing di `bootprev.txt` (CLEAN, UNCLEAN, CRASH, NO HEADER, MISSING), `bootlog.txt` (watchdog ON/OFF/EMULATOR/NOT REPORTED e freeze/crash passati), `lastrun.txt` (conteggio righe e avviso log pieno), controllo segreti con flag `--secret` (regola reports.c:173-176, confini non alfanumerici, nota per lunghezze < 4 senza esporre il segreto), calcolo verdetto (OK, FREEZE, CRASH, INCOMPLETE) ed exit code.
   - Creata suite `tests/tools/test_sdlog_scan.py` con 13 test esaustivi su fixture realistiche (13/13 OK).
