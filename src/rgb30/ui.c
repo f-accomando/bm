@@ -711,6 +711,20 @@ static g16_sheet_t dev_covers[N_DEV];
 /* Market first, off the screen at the left until it is the tab (as on the
  * Pi); Settings the last, its panel */
 enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
+
+/* The tab a key of a keyboard goes to, -1 if none (the Pi's carts.c:1421-1427): Tab is the next tab and wraps
+ * after the last; 1 2 3 5 are Market, Games, Dev and Settings; 4 is the Pi's Lib tab, which is not here */
+static int tab_of_key(int k, int tab)
+{
+    switch (k) {
+    case '\t': return (tab + 1) % (TAB_SETTINGS + 1);
+    case '1': return TAB_MARKET;
+    case '2': return TAB_GAMES;
+    case '3': return TAB_DEV;
+    case '5': return TAB_SETTINGS;
+    default: return -1;
+    }
+}
 static const char *const tab_names[] = { "Market", "Games", "Dev" };
 
 /* the questions over the menu: a row of Settings, a download of the
@@ -1170,6 +1184,9 @@ void ui_home(framebuffer_t *f)
             netxfer_write_tick(timer_ticks() + 2000);
 
         uint32_t p = pad_pressed();
+        /* Start confirms unless Select is held (the Pi, carts.c:1474) */
+        if ((p & PAD_START) && !(pad_state() & PAD_SELECT))
+            p |= pad_ok;
         if (hid_quit_pressed() & HID_QUIT_PS) {
             /* the PS button or Ctrl+Esc of a Bluetooth pad or keyboard: home, the Games tab (as on the Pi) */
             tab = TAB_GAMES;
@@ -1178,8 +1195,21 @@ void ui_home(framebuffer_t *f)
             asking = ASK_NONE;
             continue;
         }
-        if (pad_serial_char() == '`') {
+        const int serial_c = pad_serial_char();
+        if (serial_c == '`') {
             run_page(serial_lua);
+            continue;
+        }
+        int tabto = -1;                             /* a keyboard: Tab and 1 2 3 5 jump tabs (carts.c:1421-1427, 1479-1482) */
+        if (serial_c >= 0 && tab_of_key(serial_c, tab) >= 0)    /* the serial line's digits too, as on the Pi (its Tab is Select here) */
+            tabto = tab_of_key(serial_c, tab);
+        for (int k; (k = hid_getc()) >= 0;)
+            if (tab_of_key(k, tab) >= 0)
+                tabto = tab_of_key(k, tab);
+        if (tabto >= 0 && asking == ASK_NONE) {
+            tab = tabto;
+            mopt = -1;
+            gopt = -1;
             continue;
         }
         home_do_t d;
