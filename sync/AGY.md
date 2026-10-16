@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: FREE
-task: AGY-24 consegnato
+state: WORKING
+task: AGY-25
 waiting_on: 
 progress: 0
 eta: 2026-10-16T14:50+02:00
 wakeup: no
 ack: 2026-10-16T14:30+02:00
-updated: 2026-10-16T14:38+02:00
+updated: 2026-10-16T14:39+02:00
 ---
 # AGY — Antigravity
 
