@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: NET
-state: WAITING
-task: R-NET6
-waiting_on: SPV: integrare R-NET5 (claude/net-bridge-durable@260020dd) in claude/integrazione-ottobre
-eta: 2026-10-16T17:00+02:00
+state: WORKING
+task: R-NET9
+waiting_on: 
+eta: 2026-10-16T16:00+02:00
 wakeup: no
-ack: 2026-10-16T11:56+02:00
-updated: 2026-10-16T12:37+02:00
+ack: 2026-10-16T14:50+02:00
+updated: 2026-10-16T15:01+02:00
 ---
 # NET
 
