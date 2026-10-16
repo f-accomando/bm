@@ -967,6 +967,8 @@ local function play_template(code, name)
   local G2 = {}
   for k, v in pairs(E) do G2[k] = v end
   G2._init, G2._update, G2._draw = nil, nil, nil
+  G2.save = function() return true end
+  G2.saved = function() return nil end
   local h = {}
   G2.btn = function(i) return h[i] == true end
   G2.btnp = function(i) return h[i] == true end
@@ -988,9 +990,84 @@ local function play_template(code, name)
   check(ok, name .. ": runs 400 frames at 360x360: " .. tostring(e))
 end
 
+-- the Stages 2D template on a fresh G2 (as play_template): every stage ends
+-- at once (mget = 7). Run 1 plays to the end and saves; run 2, same store,
+-- continues at stage 3 (down at frame 2, ok at frame 10).
+local function stages_flow(code)
+  local store = {}                               -- what save(t) keeps
+  local logs, ok_now, down_now = {}, false, false
+  local function play(n, pulse)
+    local G2 = {}
+    for k, v in pairs(E) do G2[k] = v end
+    G2._init, G2._update, G2._draw = nil, nil, nil
+    G2.btn = function() return false end
+    G2.btnp = function(i) return (i == "ok" and ok_now) or (i == 3 and down_now) or false end
+    G2.mget = function() return 7 end
+    G2.log = function(...)
+      local parts = {}
+      for i = 1, select("#", ...) do parts[#parts + 1] = tostring((select(i, ...))) end
+      logs[#logs + 1] = table.concat(parts, " ")
+    end
+    G2.save = function(t) store.v = t; return true end
+    G2.saved = function() return store.v end
+    local fn, err = load(code, "=Stages 2D", "t", G2)
+    check(fn, "Stages 2D: compiles: " .. tostring(err))
+    if not fn then return end
+    G.off = true
+    local ok, e = pcall(function()
+      fn()
+      if G2._init then G2._init() end
+      for f = 1, n do
+        ok_now, down_now = pulse(f)
+        if G2._update then G2._update() end
+        if G2._draw then G2._draw() end
+      end
+    end)
+    G.off = false
+    check(ok, "Stages 2D: runs " .. n .. " frames: " .. tostring(e))
+  end
+
+  -- run 1: ok every 10th frame, to the end and the save
+  play(200, function(f) return f % 10 == 0, false end)
+  local best = store.v and store.v.best
+  local want = {
+    "stages: title best -", "stages: stage 1", "stages: clear 1", "stages: stage 2",
+    "stages: clear 2", "stages: stage 3", "stages: clear 3",
+    function(l) return l:sub(1, 15) == "stages: ending " end,
+    "stages: saved",
+  }
+  local j, missing = 1, nil
+  for _, w in ipairs(want) do
+    local hit = false
+    while j <= #logs and not hit do
+      local l = logs[j]
+      if type(w) == "function" then hit = w(l) else hit = l == w end
+      j = j + 1
+    end
+    if not hit then
+      missing = type(w) == "string" and w or "stages: ending "
+      break
+    end
+  end
+  check(missing == nil, "Stages 2D run 1: in order, the stages, the ending, the save; missing: " .. tostring(missing))
+  check(logs[#logs] == "stages: title best " .. tostring(best),
+        "Stages 2D run 1: the title with the best last: " .. tostring(logs[#logs]))
+  check(math.type(best) == "integer", "Stages 2D: the best is an integer: " .. tostring(best))
+  check(store.v ~= nil and store.v.reached == 3, "Stages 2D: reached 3 in the save: " .. tostring(store.v and store.v.reached))
+
+  -- run 2, same store: the title shows the best, then CONTINUE at stage 3
+  logs = {}
+  play(200, function(f) return f == 10, f == 2 end)
+  check(logs[1] == "stages: title best " .. tostring(best),
+        "Stages 2D run 2: the title shows the best: " .. tostring(logs[1]))
+  local cont = false
+  for _, l in ipairs(logs) do if l == "stages: stage 3" then cont = true end end
+  check(cont, "Stages 2D run 2: CONTINUE STAGE 3: stage 3 in the logs")
+end
+
 -- saving with the pad: Save as from the actions, the name typed, Start
 local names = { "Empty 2D", "Platform 2D", "Top-down 2D", "Shooter 2D", "Versus 2D", "Online 2D", "3D scene",
-                "3D with models" }
+                "3D with models", "Stages 2D" }
 for i, nm in ipairs(names) do
   run_sdk(nil)
   frames(2)
@@ -1013,13 +1090,14 @@ for i, nm in ipairs(names) do
   check(last_save and last_save.path == "/carts/" .. i .. ".BME", nm .. ": saved as " .. i .. ".BME: " ..
         tostring(last_save and last_save.path))
   if last_save then play_template(last_save.t.lua, nm) end
+  if nm == "Stages 2D" and last_save then stages_flow(last_save.t.lua) end
 end
 
 -- saving again in the same run: the same file; in a new run too (a tool
 -- writes its project where it is: no new name, the runtime never refuses)
 run_sdk(nil)                                     -- (the last project comes back: saved())
 frames(3)
-check(sees("8.BME") or sees("3D with models"), "the last project opens by itself: " .. tabs())
+check(sees("9.BME") or sees("Stages 2D"), "the last project (9.BME, Stages 2D) opens by itself: " .. tabs())
 key("^S")
 check(sees("file name"), "Ctrl+Shift+S: Save as")
 for _ = 1, 12 do key("\b") end

@@ -3164,6 +3164,19 @@ def _market_site(tmp, b, key):
     return files
 
 
+def sdk_template(tid):
+    """The code of the template `tid` in carts/sdk_b16/main.lua (its entry
+    `{ id = "<tid>", ... code = [==[ ... ]==] }`), the match starting at that
+    entry."""
+    path = os.path.join(HERE, "..", "carts", "sdk_b16", "main.lua")
+    with open(path, encoding="utf-8") as f:
+        src = f.read()
+    m = re.search(r'\{ id = "' + re.escape(tid) + r'".*?code = \[==\[\n(.*?)\]==\]', src, re.DOTALL)
+    if not m:
+        raise AssertionError(f"template {tid!r} not found in {path}")
+    return m.group(1)
+
+
 B16_GAME = r"""
 function _init() log("the b16 runs") end
 function _draw() cls(1) print("pocket", 8, 8, 7) end
@@ -3199,6 +3212,34 @@ def test_b16_on_pi(b, opts):
             time.sleep(0.8)
             q.send("\r")                                # the first game: the only one
             q.expect("the b16 runs", timeout=30)
+        finally:
+            q.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_stages_template(b, opts):
+    """The SDK's 'stages' template (carts/sdk_b16/main.lua) on the Pi: listed
+    in the menu and played from it; the title logs its best time, the ok
+    button (Space) starts stage 1."""
+    tmp = tempfile.mkdtemp(prefix="bm-stages-")
+    try:
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        cart = os.path.join(tmp, "stages.bm")
+        with open(cart, "wb") as f:
+            f.write(mkbm.pack(sdk_template("stages").encode(), title="Stages", author="tests", res=(360, 360)))
+        img = os.path.join(tmp, "sd.img")
+        mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/stages.bm")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.8)
+            q.send("\r")                                # the first game: the only one
+            q.expect("stages: title best -", timeout=30)
+            q.send(" ")                                 # the ok button: stage 1
+            q.expect("stages: stage 1", timeout=10)
         finally:
             q.close()
     finally:

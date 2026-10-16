@@ -24,7 +24,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   (`-`/`+`), `Overview` (`m`, full 256×256 at 1 px/cell), `Tab`/`Y` compact palette of used 16×16
   tiles, automatic 16×16 object brush on the `objects` layer, `Build .bm` (`Ctrl+B`) and
   `Export .b16` (`Ctrl+Shift+B`; on the RGB30, exporting a `.b16` from `/carts` also copies it to
-  `/bm/` so it appears immediately in Games).
+  `/bm/` so it appears immediately in Games). Template *Stages 2D* (3 stages in map bands, record in slot 1): `test_stages_template`, `test_sdk_stages_build`.
 - **Tool session** (`src/kernel/devtool.c`): the tool, the games it tries (`cart_run`, back with
   `cart_arg()`), the tools it opens (`cart_tool`); prefers SD-installed Market apps (`/carts` or
   `/bm/`) over embedded kernel copies so tools can be updated from the Market and kernels can be

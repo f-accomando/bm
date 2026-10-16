@@ -18,7 +18,7 @@ import traceback
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
-from qemu_test import read_ppm, screen_text, pixel, free_port  # noqa: E402
+from qemu_test import read_ppm, screen_text, pixel, free_port, sdk_template  # noqa: E402
 import bm_load  # noqa: E402
 sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
 import mksd  # noqa: E402
@@ -561,6 +561,88 @@ def test_bm_cartridge(b, opts):
         assert in_menu(screen_all(img))
     finally:
         q.close()
+
+
+def test_stages_template(b, opts):
+    """The SDK's 'stages' template (carts/sdk_b16/main.lua) on the RGB30: a
+    Pi cartridge at 360x360, played from the menu with confirm (Enter); ok in the game is Space;
+    its title logs the best time, the ok button starts stage 1; 'q' leaves."""
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    sd = make_sd(tmp, {
+        "bm/config.txt": b"game_intro=0\n",
+        "bm/stages.bm": mkbm.pack(sdk_template("stages").encode(), title="Stages", author="tests",
+                                  res=(360, 360)),
+    })
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.4)
+        q.send("\r")                            # confirm: play
+        q.expect("play: /bm/stages.bm", timeout=10)
+        q.expect("stages: title best -", timeout=30)
+        q.send("x")                             # serial x = the X button, which the game reads as "ok": stage 1
+        q.expect("stages: stage 1", timeout=10)
+        q.send("q")
+        q.expect("fps", timeout=10)
+    finally:
+        q.close()
+
+
+def test_sdk_stages_build(b, opts):
+    """From the bm SDK to the game: Ctrl+N, the ninth template (Stages 2D),
+    Ctrl+B and a name build /carts/MYGAME.BM next to the project; its Lua is
+    the template's (the 'stages: title best' log)."""
+    tmp = tempfile.mkdtemp(prefix="bm64sdk-")
+    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n"})
+    size = os.path.getsize(sd)
+    dump = os.path.join(tmp, "after.img")
+
+    def screen(want, tries=80):
+        for _ in range(tries):
+            text = screen_all(q.screendump())
+            if all(w in text for w in want):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"want {want} on the screen:\n{text}")
+
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.5)
+        keys(q, "r")                            # Dev
+        keys(q, "ss")                           # the third row: bm SDK
+        q.buf = b""
+        q.send("\r")
+        q.expect("bm SDK\r\n", timeout=10)
+        time.sleep(1.0)
+        q.send("\x0e")                          # Ctrl+N: new project from a template
+        screen(["new project from a template", "Stages 2D"])
+        for _ in range(8):                      # down (arrow) to the ninth row
+            q.send("\x1b[B")
+            time.sleep(0.4)
+        q.send("\r")
+        screen(["new project (Stages 2D)"])
+        q.send("\x02")                          # Ctrl+B: Save as
+        screen(["file name", "MYGAME.BME"])
+        q.send("\r")
+        screen(["built /carts/MYGAME.BM"])
+        q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
+                  until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
+        time.sleep(0.3)
+        q.send("\x1c")                          # Ctrl+\: leave the SDK
+        screen(["Games", "Dev", "Settings"])
+    finally:
+        q.close()
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    part = f"{dump}@@{1024 * 1024}"
+    listing = subprocess.run(["mdir", "-i", part, "-b", "::/CARTS"], capture_output=True,
+                             env=env, check=True).stdout.decode().upper()
+    assert "MYGAME.BME" in listing and "MYGAME.BM" in listing, listing
+    game = subprocess.run(["mtype", "-i", part, "::/CARTS/MYGAME.BM"], capture_output=True,
+                          env=env, check=True).stdout
+    assert game[:8] == b"BMCART\x00\x00", game[:16]
+    lua = next(body for t, body in mkbm.bmmesh.cart_sections(game) if t == 1)
+    assert b"stages: title best" in lua, lua[:200]
 
 
 def test_bench3d(b, opts):
