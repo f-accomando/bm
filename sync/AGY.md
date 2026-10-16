@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-21
+state: FREE
+task: AGY-21 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T14:38+02:00
 wakeup: no
 ack: 2026-10-16T14:20+02:00
-updated: 2026-10-16T14:27+02:00
+updated: 2026-10-16T14:29+02:00
 ---
 # AGY — Antigravity
 
@@ -73,8 +73,12 @@ DELIVERED AGY-17 @ claude/docs-audit-check@565252db · verifica: python tests/to
 DELIVERED AGY-18 @ claude/docs-en-mali-m41@e2366be7 · verifica: git grep parole italiane su graphics-mali.md -> 0 righe; docs_audit.py score -> penalties 0 come prima · 1 file, +12 -12 · non verificato su hardware · 2026-10-16T14:22+02:00
 DELIVERED AGY-19 @ claude/docs-en-v3d-qpu@50446b69 · verifica: git grep parole italiane su v3d.md -> 0 righe; docs_audit.py score -> penalties 0 come prima · 1 file, +17 -17 · non verificato su hardware · 2026-10-16T14:24+02:00
 DELIVERED AGY-20 @ claude/docs-en-open-items@3e82fbac · verifica: git grep parole italiane sui 3 file -> solo platforms.md:56 (fuori WO); docs_audit.py score -> penalties 0 come prima · 3 file, +8 -8 · non verificato su hardware · 2026-10-16T14:26+02:00
+DELIVERED AGY-21 @ claude/docs-en-d19-note@1f8fa8ee · verifica: consistency.py check -> 0 drift, 5 accepted, 0 stale; tomllib legge 43 blocchi; grep "provato dall'utente su Pi Zero W" -> 0 righe · 1 file, +1 -1 · non verificato su hardware · 2026-10-16T14:29+02:00
 
 ## Progressi
+- Completato AGY-21 (IT2EN-D19) su claude/docs-en-d19-note@1f8fa8ee:
+  - In `docs/spec/divergences.toml`, tradotta in inglese la `note` del blocco della divergenza D19 (log su SD, status "resolved"), mantenendo date, nomi e riferimenti (SDLOG-FIX, Pi Zero W, test_crash_report QEMU).
+  - Verificato: `consistency.py check` invariato a `0 drift, 5 accepted, 0 stale`; parsing `tomllib` conferma 43 blocchi divergenza validi; `git grep "provato dall'utente su Pi Zero W"` dà 0 match; diff esattamente di 1 file, +1 -1. Registrato nel ledger e pushato.
 - Completato AGY-20 (IT2EN-OPEN3) su claude/docs-en-open-items@3e82fbac:
   - In `docs/progress/audio-output.md`, tradotta la voce R21 (3 righe) su audio analogico/I2S via GPIO con filtro RC e DAC esterni.
   - In `docs/progress/runtime.md`, tradotte le voci R7 (lettere accentate UTF-8 -> CP437, mantenendo esempi "città" e "perché") e R27 (gestione batteria e autosave) (2 righe).
