@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: NET
-state: WORKING
+state: FREE
 task: R-NET8
 waiting_on: 
 eta: 2026-10-16T18:00+02:00
 wakeup: no
 ack: 2026-10-16T16:56+02:00
-updated: 2026-10-16T17:02+02:00
+updated: 2026-10-16T17:14+02:00
 ---
 # NET
 
@@ -31,6 +31,7 @@ updated: 2026-10-16T17:02+02:00
 Presa in carico di sync/wo/NET.md, ordine NET-1a→NET-2d. R-NET3 non iniziato.
 
 ## Consegne
+DELIVERED R-NET8a @ claude/pi-soak@a03dfac6 · verifica: python3 -m py_compile tools/pi_soak.py tests/net/check_pi_soak.py -> nessuna uscita; python3 tests/net/check_pi_soak.py (WSL) -> 16 controlli ok, 'pi_soak: all passed', EXIT=0, 0 cartelle /tmp/pisoak-* rimaste · sensibilita': con '<' -> '<=' nel verdetto cade il caso 8; senza il controllo di 'previous run' cade il caso 4 (file originale ripristinato, test di nuovo all passed) · 2 file nuovi, +343 -0 (la riga di ledger scritta da sync_hdr --close dice +0 -0: errore mio nei parametri, il diff vero e' +343) · non verificato: il formato del testo di un 'play' riuscito (solo i tre rifiuti noti sono riconosciuti); P1 aperto per SPV: 'keys monitor' sul Pi reale puo' rispondere 'back to the menu first' (bm_net.py keys_blocked), lo script allora esce 1 con 'cannot end the game from the PC' (caso 9); nessuna corsa sul Pi · 8b (documenti) non iniziata: parte dopo REVIEW: APPROVED di R-NET6 e AGY-12 · 2026-10-16T17:14+02:00
 DELIVERED R-NET7a @ claude/monitor-fb-crc@9650cc3b · verifica: make -> kernel.img ok senza warning; python3 tests/qemu_test.py -k monitor_crc -> PASS (1/1); -k monitor_line -> PASS (1/1); consistency check -> 0 drift, 5 accepted, 0 stale; docs_audit score -> penalties 0 · P0 sciolto: dopo due 'c' consecutivi i due ':crc' danno lo stesso valore (A == B) e il valore con ':crc' stampato e' diverso da quello a schermo ripulito (first != A), nessuna differenza dalla riga di stato · D45 aggiunto con priority = 6 (copiato da D44: D43/D44 la portano); cause = 'todo', status = 'open' conta fra i blocchi di 1.0.0 (consistency.py BLOCKING): scelta del committente, SPV puo' cambiare in 'hardware'/'history'; i numeri D45 collidono con altri branch, non rinumerato · non verificato: che monitor_crc cada sul codice vecchio (stash non provato; senza il ramo ':crc' risponde "not a command of the line" e l'assert sul formato fallisce); make TARGET=rgb30 non lanciato (monitor.c non entra in rgb30.mk, nessun header comune toccato); nessun Pi · prova utente a fine giornata: ':crc' sul Pi mostra 'crc: WxH bpp=D pitch=P crc32=0x........'; il caricamento del kernel sul Pi richiede l'ok dell'utente · 2026-10-16T17:01+02:00
 DELIVERED R-NET6 (6a+6b+6c) @ claude/net-bridge-line-allowlist@11caf038 · verifica: python3 tests/net/check_bm_net_config.py -> 'bm_net --config, --line: all passed' (WSL); make test-net -> exit 0; docs_audit score -> penalties 0 · prova sul codice vecchio (pi_bridge.py di prima di 6a, stessi test): 23 FAIL, tra cui i due marcati ('gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send' e 'line set wifi_psk=x'); passo 0: i nomi dei profili in src/bm/b3d.c:1501-1502 (prof_short) sono tutti [A-Za-z0-9] · base: claude/net-bridge-durable@260020dd (R-NET5, come da inbox), non claude/integrazione-ottobre; tools.md era a 120 righe: la regola e' accodata alla riga 'Tool pages' · nessuna prova sul Pi; facoltativa con l'utente: 'pi.py line "set wifi_psk=x"' -> refused: line: 'set' is not allowed · 2026-10-16T16:32+02:00
 DELIVERED R-NET9 @ claude/watchdog-chainloader-fix@926f7c1d · verifica: python3 tests/qemu_test.py -k chainloader -> test_chainloader PASS + test_chainloader_bad_crc PASS; -k test_sd_logs -> PASS; -k test_crash_report -> PASS; make -> nessun warning · causa: src/drivers/watchdog.c:43-45 (watchdog_arm scrive RSTC con FULL_RESET per la sonda; QEMU resetta tutta la macchina e sotto il chainloader riparte il chainloader, non il kernel); confermata: con watchdog_arm che ritorna subito test_chainloader passa (2/2). correzione: prima della scrittura RSTC si legge il seriale scheda con parole sentinella 0xFFFFFFFF; se la risposta le lascia invariate o da' 0:0 (QEMU: nessun seriale vero) si ritorna -2 senza RSTC (messaggio 'resets at once on RSTC (emulator)' invariato, test_sd_logs lo verifica). NON verificato su hardware: su Pi reale il seriale e' un numero vero, quindi il percorso resta quello di prima (probe RSTC + lettura dopo 20 ms); la riga 'watchdog: on, 3000 ms' va vista sul Pi · prova utente a fine giornata: il Pi si avvia con 'watchdog: on', un crash volontario riavvia da solo; non verificato che QEMU piu' nuovi non restituiscano un seriale vero (in tal caso torna la sonda con reset) · 2026-10-16T16:24+02:00
