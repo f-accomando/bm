@@ -1,6 +1,6 @@
 # Typing with the pad (assistive typing)
 
-Italian version: [PADTYPE-IT.md](PADTYPE-IT.md).
+
 
 Write **Italian, English and Lua with the controller alone**, in two ways:
 
@@ -207,17 +207,17 @@ presses per character.
 
 ```lua
 local pt = require "padtype"
-pt.set({ delay = 0.25, fallback = "keyboard" })   -- o "off": Share spegne
-pt.on("compose")                                   -- "keyboard", nil: spenta
-local host = pt.text_host("it")                    -- un testo; o un host proprio:
---   host.before()  il testo prima del cursore, sulla sua riga
+pt.set({ delay = 0.25, fallback = "keyboard" })   -- or "off": Share turns it off
+pt.on("compose")                                   -- "keyboard", nil: off
+local host = pt.text_host("it")                    -- a text; or a host of your own:
+--   host.before()  the text before the cursor, on its line
 --   host.insert(s), host.erase(n), host.newline(), host.move(dir)
---   host.lang      "it", "en", "lua", "ask", {it = 1, ask = 2} o "none"
---   host.prose     maiuscole a inizio frase (di default: non per "lua")
---   host.words     i nomi del codice (predict.count_words)
+--   host.lang      "it", "en", "lua", "ask", {it = 1, ask = 2} or "none"
+--   host.prose     capitals at the start of a sentence (default: not for "lua")
+--   host.words     the names in the code (predict.count_words)
 function _update()
   if not pt.update(host) then
-    -- il pad è dell'applicazione (spenta)
+    -- the pad belongs to the application (off)
   end
 end
 function _draw()
