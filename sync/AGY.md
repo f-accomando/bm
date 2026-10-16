@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-38
+state: FREE
+task: AGY-38 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T18:20+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T18:04+02:00
+updated: 2026-10-16T18:45+02:00
 ---
 # AGY — Antigravity
 
@@ -90,8 +90,13 @@ DELIVERED AGY-34 @ claude/syllables-en@51dd8d2d · verifica: python scripts/syll
 DELIVERED AGY-35 @ claude/test-syllables@eb867848 · verifica: python -m unittest tests/tools/test_syllables.py -> 9 OK · 1 file nuovo · non verificato su hardware · 2026-10-16T16:39+02:00
 DELIVERED AGY-36 @ claude/test-assistlib@407200db · verifica: python -m unittest tests/tools/test_assistlib.py -> OK · 1 file nuovo · non verificato su hardware · 2026-10-16T16:43+02:00
 DELIVERED AGY-37 @ claude/test-mkicons@53ebe687 · verifica: python -m unittest tests/tools/test_mkicons.py -> OK (Pillow 12.3.0 presente, 3 test OK) · 1 file nuovo · non verificato su hardware · 2026-10-16T16:47+02:00
+DELIVERED AGY-38 @ claude/rgb30-qemu-freeze-flow@726e4718 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k freeze_switch_close -> PASS test_freeze_switch_close · 2 file · non verificato su hardware · 2026-10-16T18:44+02:00
 
 ## Progressi
+- Completato AGY-38 (FREEZE-FLOW) su claude/rgb30-qemu-freeze-flow@726e4718:
+  - In `tests/rgb30/qemu_test.py`, implementato `test_freeze_switch_close`: sequenza completa di freeze (Select+Start simulato via seriale con 'q'), verifica menu e dettaglio 'frozen', apertura opzioni con X ('Resume' e 'Close the game'), chiusura opzioni con Back, selezione seconda cartuccia con richiesta di conferma ('Close A cart?'), annullamento, resume della prima cartuccia, nuovo freeze e switch definitivo con conferma a chiusura.
+  - In `docs/spec/divergences.toml`, aggiornata la nota di D06 e D07 aggiungendo `QEMU: test_freeze_switch_close.`.
+  - Verificato: build virt compilata e test `test_freeze_switch_close` PASS in 21s; `df -h /tmp` e conteggio `bm64*` tornano esattamente a 0; `consistency.py check` invariato (`0 drift, 5 accepted, 0 stale`); `git diff --stat` 2 file, +70 -2. Registrato nel ledger e pushato.
 - Completato AGY-37 (TEST-MKICONS) su claude/test-mkicons@53ebe687:
   - Creato `tests/tools/test_mkicons.py` con test unitari per `inside()` e verifica delle 7 icone delle cartucce in `carts/<name>/icon.png` (casi: centro e 4 angoli arrotondati, 7 file icon.png esistenti, punti di bordo rientrati nel quadrato). Se Pillow è assente salta i test con `skipTest`.
   - Verificato: `python -m unittest tests/tools/test_mkicons.py -v` 3/3 test OK con Pillow 12.3.0 presente; `git status --short` solo 1 file nuovo (+41 righe). Registrato nel ledger e pushato.
