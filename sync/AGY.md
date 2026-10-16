@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-35
+state: FREE
+task: AGY-35 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T16:46+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T16:36+02:00
+updated: 2026-10-16T16:39+02:00
 ---
 # AGY — Antigravity
 
@@ -87,8 +87,12 @@ DELIVERED AGY-31 @ claude/divergence-evidence@8d1d1aba · verifica: consistency.
 DELIVERED AGY-32 @ claude/config-readin-check@80b1f528 · verifica: python tests/tools/test_config_readin.py -> OK; config_readin.py -> exit 1, STALE assist_lang e battery_icon (31 STALE, 1 UNCHECKED) · 2 file nuovi · non verificato su hardware · 2026-10-16T16:23+02:00
 DELIVERED AGY-33 @ claude/config-readin-fix@e8a8639f · verifica: config_readin.py -> 0 stale, exit 0; consistency.py check invariato · 1 file, +31 -31 · non verificato su hardware · 2026-10-16T16:28+02:00
 DELIVERED AGY-34 @ claude/syllables-en@51dd8d2d · verifica: python scripts/syllables.py -> exit 0, cifre uguali; git grep parole italiane -> nessuna uscita · 1 file · non verificato su hardware · 2026-10-16T16:34+02:00
+DELIVERED AGY-35 @ claude/test-syllables@eb867848 · verifica: python -m unittest tests/tools/test_syllables.py -> 9 OK · 1 file nuovo · non verificato su hardware · 2026-10-16T16:39+02:00
 
 ## Progressi
+- Completato AGY-35 (TEST-SYLLABLES) su claude/test-syllables@eb867848:
+  - Creato `tests/tools/test_syllables.py` con 9 test unitari per `syllables()` e `plain()` da `scripts/syllables.py` (casi: 'casa', 'pizza', 'canto', 'padre', 'paese', 'piano', 'per', stringa vuota, 'città' con accento).
+  - Verificato: `python -m unittest tests/tools/test_syllables.py -v` 9/9 test OK (tutte le aspettative fornite nel WO calcolate esattamente); `git status --short` solo 1 file nuovo (+41 righe). Registrato nel ledger e pushato.
 - Completato AGY-34 (IT2EN-SYLLABLES) su claude/syllables-en@51dd8d2d:
   - In `scripts/syllables.py`, tradotte in inglese tutte le stringhe di output e i titoli dei cicli (righe 99, 100, 104, 106, 108, 122, 124, 130, 133, 135, 137-142, 150-153, 159), preservando la logica e i formati.
   - Verificato: `python scripts/syllables.py` exit 0, tutte le 457 cifre dell'output coincidono esattamente con l'esecuzione pre-modifica; `git grep -nE "sillab|vocal|consonant[ei] |frequenti|diversi"` nessuna uscita; `git diff --stat` 1 file, +19 -19. Registrato nel ledger e pushato.
