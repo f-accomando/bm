@@ -3791,6 +3791,69 @@ do
 
   ---------------------------------------------------------------- sounds
 
+  -- Sounds from a file (the Lib): a cartridge or project with a sound bank,
+  -- then one of its sounds into the first empty slot
+  local function lib_files()
+    local out, seen = {}, {}
+    local mine = S.proj.save and S.proj.save:upper()
+    local function add(p)
+      local n = p:lower()
+      if (n:match("%.bm$") or n:match("%.bme$")) and p:upper() ~= mine and not seen[p:upper()] then
+        seen[p:upper()] = true
+        if type(cart_audio(p)) == "string" then out[#out + 1] = p end
+      end
+    end
+    for _, p in ipairs(list_files()) do add(p) end
+    for _, f in ipairs(ls("/bm/lib")) do
+      if not f.dir then add("/bm/lib/" .. f.name) end
+    end
+    table.sort(out)
+    return out
+  end
+
+  local function copy_sound(s)
+    local c = {}
+    for key_, v in pairs(s) do c[key_] = v end
+    c.tone = { table.unpack(s.tone) }
+    return c
+  end
+
+  local function import_sound(src)
+    local b = S.snd
+    for i = 1, #b.sounds do
+      if P.bank.sound_empty(b.sounds[i]) then
+        b.sounds[i] = copy_sound(src)
+        slot = i - 1
+        P.bank.edited()
+        say("sound " .. slot .. " taken from the file", C.OK)
+        return
+      end
+    end
+    say("no empty sound slot", C.ERR)
+  end
+
+  local function import_lib()
+    if not (cart_audio and ls) then say("no sound files here", C.ERR); return end
+    local rows = {}
+    for _, p in ipairs(lib_files()) do
+      rows[#rows + 1] = { p, function()
+        local lb, msg = P.bank.parse(cart_audio(p))
+        if not lb then say(base_name(p) .. ": " .. tostring(msg), C.ERR); return end
+        local srows = {}
+        for i, s in ipairs(lb.sounds) do
+          if not P.bank.sound_empty(s) then
+            local label = s.name ~= "" and s.name or P.bank.WAVES[s.wave + 1]
+            srows[#srows + 1] = { string.format("%2d %s", i - 1, label), function() import_sound(s) end }
+          end
+        end
+        if #srows == 0 then say(base_name(p) .. " has no sounds", C.ERR); return end
+        D.choose("a sound of " .. base_name(p), srows)
+      end }
+    end
+    if #rows == 0 then say("no .bm or .bme file with sounds", C.ERR); return end
+    D.choose("sounds from a file", rows)
+  end
+
   local function sound_act(a, n)
     local b = S.snd
     local s = b.sounds[slot + 1]
@@ -3809,6 +3872,7 @@ do
     elseif a == "prev" then slot = clamp(slot - 1, 0, 31)
     elseif a == "next" then slot = clamp(slot + 1, 0, 31)
     elseif a == "play" then play_sound()
+    elseif a == "import" then import_lib()
     elseif a == "clear" then
       b.sounds[slot + 1] = P.bank.sound_new()
       P.bank.edited()
@@ -3962,6 +4026,7 @@ do
       a = a or ({ ["\b"] = "erase", del = "erase", ["+"] = "speed_up", ["="] = "speed_up", ["-"] = "speed_down",
                   p = "play_fx" })[key_]
     elseif key_ == "c" then a = "clear"
+    elseif key_ == "i" then a = "import"
     elseif key_ == "pgup" then act("left", 8); return
     elseif key_ == "pgdn" then act("right", 8); return end
     if a then act(a) end
@@ -3972,7 +4037,7 @@ do
       return { { "Play the step", "\n" }, { "Speed +10 ms", "+" }, { "Speed -10 ms", "-" }, { "Play the effect", "p" },
                { "Clear the step", "\b" } }
     end
-    return { { "Play A4", "\n" }, { "Clear the sound", "c" } }
+    return { { "Play A4", "\n" }, { "Clear the sound", "c" }, { "Sounds from a file (Lib)...", "i" } }
   end
 
   local function pad()
