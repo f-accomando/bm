@@ -1,0 +1,4 @@
+# Allowed global names for scripts/api_lint.py
+# Format: <name> # <reason>
+hurt # docs/GAME-GUIDE.md:301 falso positivo (funzione segnaposto del gioco per tile con flag 'fa male')
+danno # docs/GUIDA-GIOCHI.md:301 falso positivo (funzione segnaposto del gioco per tile con flag 'fa male')
