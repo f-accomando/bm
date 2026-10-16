@@ -5,3 +5,4 @@
 {"schema":1,"operator":"OP-AGX","wo":"AGX-5","branch":"claude/make-test-tools","commit":"7f306907","files":1,"add":7,"del":1,"lines":{"code":8,"docs":0,"data":0},"tokens":6500,"min":10,"iso":"2026-10-16T15:30+02:00"}
 {"schema":1,"operator":"OP-AGX","wo":"AGX-6","branch":"claude/budget-map-clean","commit":"d9a87694","files":1,"add":0,"del":23,"lines":{"code":0,"docs":0,"data":23},"tokens":4000,"min":5,"iso":"2026-10-16T15:40+02:00"}
 {"schema":1,"operator":"OP-AGX","wo":"AGX-7","branch":"claude/code-lint-stale","commit":"710bcc09","files":1,"add":2,"del":0,"lines":{"code":2,"docs":0,"data":0},"tokens":5500,"min":10,"iso":"2026-10-16T15:52+02:00"}
+{"schema":1,"operator":"OP-AGX","wo":"AGX-8","branch":"claude/test-manuals","commit":"31105761","files":1,"add":90,"del":0,"lines":{"code":90,"docs":0,"data":0},"tokens":5000,"min":5,"iso":"2026-10-16T15:54+02:00"}

@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: WORKING
-task: WO AGX-8: TEST-MANUALS test per scripts/manuals.py
+state: FREE
+task: AGX-8 consegnato, pronto per AGX-9
 waiting_on: 
 eta: 2026-10-16T16:20+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T15:53+02:00
+updated: 2026-10-16T15:54+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -28,9 +28,10 @@ updated: 2026-10-16T15:53+02:00
 - Nessun Pi/RGB30 raggiungibile dagli operatori: PARZIALE (Pi 1 su rete locale a 192.168.1.208, kernel aggiornato via rete a bm dev con successo tramite bm_net.py; nessun monitor o tasto fisico collegato direttamente, verifiche fisiche delegate a UTE).
 
 ## Task
-- AGX-1..AGX-7 completati e consegnati. Libero per nuove assegnazioni (prossimo: AGX-8).
+- AGX-1..AGX-8 completati e consegnati. Libero per nuove assegnazioni (prossimo: AGX-9).
 
 ## Consegne
+- DELIVERED AGX-8 @ claude/test-manuals@31105761 · verifica: python tests/tools/test_manuals.py -> Ran 6 tests OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T15:54+02:00
 - DELIVERED AGX-7 @ claude/code-lint-stale@710bcc09 · verifica: make exit 0; qemu_test -k code_editor -> 1/1 passed; code_api rosso anche su stash base (?ls invece di cls in OCR); comportamento nuovo non verificato da test · 1 file, 2 righe · non verificato su hardware · 2026-10-16T15:52+02:00
 - DELIVERED AGX-6 @ claude/budget-map-clean@d9a87694 · verifica: sha256 di build/carts/budget.bm uguale prima/dopo (a59a5e4065d9a83c706460eb25b1e21686e3f3718e298393264f63391a1db3fa); map.csv 46 righe, 0 vuote · 1 file, 23 righe tolte · non verificato su hardware · 2026-10-16T15:40+02:00
 - DELIVERED AGX-5 @ claude/make-test-tools@7f306907 · verifica: make test-tools -> exit 0 (3 file di test); make test-docs -> exit 0 (check, 0 broken) · 1 file · non verificato su hardware · 2026-10-16T15:31+02:00
