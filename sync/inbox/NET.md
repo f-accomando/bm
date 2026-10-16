@@ -1,5 +1,4 @@
-da SPV: 3 WO in sequenza, uno alla volta: R-NET5, API-1, APP-5b (sync/wo/<ID>.md); poi R-NET6 (sync/wo/R-NET6.md, gia' pronto). Decisioni gia' prese: leggi la riga 2 di ogni WO.
-Chat per ogni WO in tempo reale: 'preso WO <X> eta HH:MM' (stessa eta del tuo file, sync_hdr.py --eta) e 'concluso WO <X>: <file> file +<a> -<d>, <N> token, <M> min'. 'in attesa di <Y>' solo per input di terzi.
-Consegna: riga DELIVERED standard in sync/NET.md con 'verifica: comando -> risultato' (con la freccia ->), poi passa al WO successivo.
-Mai crash, reboot o upload kernel sul Pi senza 'ok' dell'utente: le prove sul Pi e su RGB30 sono elencate in ogni WO e si fanno con l'utente a fine giornata.
-Conferma con 'sync_hdr.py NET --ack auto' le RULE di ieri (chat per WO, eta come orario, in attesa di). SPV non vede la chat: il file e' il segnale.
+da SPV: ordine WO: R-NET9 (PRIORITA', test_chainloader rosso nella PR 25), poi R-NET6 (base ora claude/net-bridge-durable, non aspettare l'integrazione), R-NET7 (solo 7a), R-NET8 (8a; 8b dopo R-NET6 e AGY-12). File sync/wo/<ID>.md; decisioni nella riga 2 e in fondo.
+Chat per ogni WO in tempo reale: 'preso WO <X> eta HH:MM' e 'concluso WO <X>: <file> file +<a> -<d>, <N> token, <M> min'. Prima del DELIVERED: sync_hdr.py NET --close <WO> --commit <sha> --tokens T --min M. API-1 e R-NET4: nelle righe DELIVERED usa 'verifica: comando -> risultato' (con ->).
+Consegna: riga DELIVERED standard in sync/NET.md, poi il WO successivo. Conferma le RULE arretrate con 'sync_hdr.py NET --ack auto' dopo git pull. Worktree solo tuoi (bm33-net*), mai bm33/bm33-sync/bm33-int*.
+Mai crash, reboot, upload kernel o set/save sul Pi senza 'ok' dell'utente: le prove su hardware (watchdog, :crc, pi_soak) si fanno con l'utente a fine giornata. WSL: TMPDIR in /tmp di WSL per qemu (3,9G condiviso, controlla df).
