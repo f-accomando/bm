@@ -66,9 +66,9 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 
 ## Open work
 
-- **M41** (RGB30): Overbit in `.b16` at 360×360 e 720×720, benchmark ARM e driver Mali (dettagli in [graphics-mali](graphics-mali.md)).
-- **M42**: profilo unificato `.b16` (dettagli in [b16](b16.md)).
-- **R22 — Guscio Portatile per Pi Zero**: supporto per configurazioni handheld basate su Pi Zero (lettura tasti/pad direttamente su pin GPIO, display compatto su bus DPI o SPI).
+- **M41** (RGB30): Overbit in `.b16` at 360×360 and 720×720, ARM benchmark and Mali driver (details in [graphics-mali](graphics-mali.md)).
+- **M42**: unified `.b16` profile (details in [b16](b16.md)).
+- **R22 — Handheld shell for the Pi Zero**: support for handheld setups based on the Pi Zero (reading keys/pad directly on GPIO pins, compact display on a DPI or SPI bus).
 - RGB30 Start+Select freezes the game as on the Pi (`play_bm` in `src/rgb30/ui.c`,
   `bm_run(..., 1)`, `susp_name`); the cover then says Resume. To check on the console:
   freeze, resume, freeze and start another game (memory freed), Overbit/online not frozen.
