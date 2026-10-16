@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-30
+state: FREE
+task: AGY-30 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T16:15+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T16:05+02:00
+updated: 2026-10-16T16:09+02:00
 ---
 # AGY — Antigravity
 
@@ -82,8 +82,12 @@ DELIVERED AGY-26 @ claude/docs-it-links-api@78839cab · verifica: git grep API-I
 DELIVERED AGY-27 @ claude/docs-it-links-guida@cded8faa · verifica: git grep API-IT in GUIDA-GIOCHI.md -> solo riga 4; docs_audit.py score senza penalità nuove · 1 file, +2 -2 · non verificato su hardware · 2026-10-16T15:51+02:00
 DELIVERED AGY-28 @ claude/docs-it-links-docs@ab366280 · verifica: git grep -c -IT.md sui 9 file -> nessuna uscita; diff --stat 9 file +9 -9 · 9 file, +9 -9 · non verificato su hardware · 2026-10-16T15:59+02:00
 DELIVERED AGY-29 @ claude/docs-en-padtype@c4b62122 · verifica: git grep parole italiane in PADTYPE.md -> nessuna uscita; docs_audit.py score senza penalità nuove · 1 file, +9 -9 · non verificato su hardware · 2026-10-16T16:04+02:00
+DELIVERED AGY-30 @ claude/docs-en-sync-start@7f8e85b2 · verifica: git grep parole italiane nella frase di avvio -> nessuna uscita; docs_audit.py score senza penalità nuove · 1 file, +2 -2 · non verificato su hardware · 2026-10-16T16:08+02:00
 
 ## Progressi
+- Completato AGY-30 (IT2EN-SYNCSTART) su claude/docs-en-sync-start@7f8e85b2:
+  - In `docs/progress/sync.md`, tradotti in inglese il titolo della sezione della frase di avvio (`## Start phrase (to paste into an operator's session)`) e la frase di avvio stessa (riga 72), preservando tutti i letterali di comandi e protocollo (`Fai handshake`, `CLAUDE.md §6`, `## Consegne`, `DELIVERED ...`, comandi git e script Python).
+  - Verificato: `git grep` su parole italiane nella frase di avvio dà 0 uscite; `Fai handshake` intatto; `docs_audit.py score` mantiene penalità 0; `git diff --stat` conferma 1 file, +2 -2. Registrato nel ledger e pushato.
 - Completato AGY-29 (IT2EN-PADTYPE) su claude/docs-en-padtype@c4b62122:
   - In `docs/PADTYPE.md`, svuotata la riga 3 rimuovendo il link al non esistente `PADTYPE-IT.md` e tradotti in inglese gli 8 commenti dopo `--` nell'esempio Lua (righe 210-217 e 220), mantenendo inalterato tutto il codice Lua e le parole d'esempio.
   - Verificato: `git grep -n -F "PADTYPE-IT"` dà 0 uscite; `docs_audit.py score` mantiene penalità 0; `git diff --stat` conferma 1 file, +9 -9. Registrato nel ledger e pushato.
