@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
+state: FREE
 task: AGY-10
 waiting_on: 
-progress: 0
+progress: 100
 eta: 2026-10-16T10:15+02:00
 wakeup: no
-ack: 2026-10-16T09:21+02:00
-updated: 2026-10-16T09:24+02:00
+ack: 2026-10-16T09:27+02:00
+updated: 2026-10-16T09:50+02:00
 ---
 # AGY — Antigravity
 
@@ -57,8 +57,13 @@ DELIVERED AGY-6c @ agy/sync-perimeter-quarantine@56e69f06 · verifica: python te
 DELIVERED AGY-7 @ agy/scaffold-workflow-it@0a3b76d · verifica: python scripts/build_workflow_pdf_it.py → exit 0, 28 pagine (stesso numero di EN), font set identico ['Courier', 'Helvetica', 'Helvetica-Bold'], colori identici, zero parole inglesi di prosa fuori codice · 2026-10-15T21:12+02:00
 DELIVERED AGY-8 @ agy/scaffold-prompt@68e7d53 · verifica: 41/41 percorsi coincidenti con git ls-files, zero riferimenti bm, zero segreti/percorsi assoluti, prova su cartella esistente (diff prima vuoto, .scaffold e .gitignore rispettati), prova su cartella vuota (selftest 40/40, docs_audit score 3800 penalties 0, consistency check 0 drift) · 2026-10-15T21:26+02:00
 DELIVERED AGY-9 @ agy/beta6-triage@fd80458b · verifica: python scripts/consistency.py check (0 drift, 5 accepted, 0 stale), 21 righe con citazioni rifinite (D32, D35, D04, D34, D13), toml stale specificato sui campi pi/rgb30 · 2026-10-15T21:42+02:00
+DELIVERED AGY-10a @ agy/scaffold-prompt@217aa8d · verifica: simulazione cartella vuota (selftest 40/40, score 3761 penalties 0, consistency check 0 drift, gate 0 blockers, agent_audit PASS) && simulazione cartella esistente (diff utente vuoto prima risposte, .scaffold a fianco con opzione b, .gitignore unito con opzione a) && grep parole vietate bm/baremetal -> 0 match, git diff vs origin/main -> solo scaffold_prompt.md · 2026-10-16T09:49+02:00
+DELIVERED AGY-10b @ agy/scaffold-workflow-it@a0a938d · verifica: python scripts/build_workflow_pdf_it.py && verifica pymupdf -> exit 0, 28 pagine esatte, font set ['Courier', 'Helvetica', 'Helvetica-Bold'], zero overflow, frasi verificate a p.11 (decidere, correggere, kill, merge), p.12 (poche migliaia di token), p.16 (Quasi una necessità; Una richiesta dichiara N su 5, l'unica motivazione, e...), p.23 (riga REVIEW tradotta), p.24 (TL;DR chiarito; collega suggerito; git pull --rebase origin sync/<nome> e cancellato consegne di due operatori), p.25 (# 0 penalità) · 2026-10-16T09:50+02:00
 
 ## Progressi
+- Completato AGY-10 (correzioni revisioni AGY-7 e AGY-8 su repo scaffold):
+  - AGY-10a su agy/scaffold-prompt@217aa8d: impostato SCAFFOLD_REF="main" (rimossa nota PR 1), aggiunta riga 42 examples/demo/ in Tabella 3 (necessaria per selftest 40/40), domanda iniziale 7 per sync multi-operatore opzionale (default no: sync omesso; yes: ramo sync/<progetto>), copertura capitoli 14.3 (progress/core.md), 14.4 (ROADMAP.md), 14.5 (consistency.toml opzionale / match), 14.8 (primo task con planner e gate), 15 (routine, metriche e potatura), esclusione esplicita di build_workflow_pdf.py; separati segnaposto reali di configurazione da argomenti di comando generici e token di log; protocollo pre-scan in sola lettura con consolidamento in un solo messaggio/turno e default opzione (b) per docs/, scripts/, tools/, .claude/; rimozione sicura senza git clean -f. Verificato con simulazioni in cartella vuota (40/40 selftest, score 3761 penalties 0, consistency check 0 drift, gate 0, agent_audit PASS) e cartella esistente (.scaffold a fianco, file utente immutati).
+  - AGY-10b su agy/scaffold-workflow-it@a0a938d: corretto p.25 blocco comandi ("# 0 penalità"), ripristinate perdite di dettaglio EN su p.12 ("poche migliaia di token"), p.24 ("git pull --rebase origin sync/<nome>", "cancellato le consegne di due operatori", frase sul collega che suggerisce "non eseguire l'importatore"), stile su p.11 ("decidere, correggere, kill, merge"), p.16 ("Una richiesta dichiara N su 5, l'unica motivazione, e...", tolto "assoluta" da punteggio 5), p.23 riga REVIEW tradotta in italiano, chiarito TL;DR a p.24 sulla potatura regole. Verificato: 28 pagine esatte, font Courier/Helvetica/Helvetica-Bold identici, testi estratti e controllati con pymupdf su ciascuna pagina.
 - Completato AGY-9 (TRIAGE-BIS): rifinite citazioni e note in docs/spec/beta6-triage.md (D32 input.c:243/50 per conferma A su Pi, D35 bm_port.c:185/187 per USB non pilotato su RGB30, D04 ui.c:1084 e bm_input.c:92 con accept-hardware contestabile, D03 chiarito players/BT pad, D34 separati F11/F12 da combo pad, D13 carts.c:402 chiamata bm_tool_id_of_file, toml stale specificato sui campi pi/rgb30 di D01, D02, D06, D07, D08, D13 con note gia' allineato, D09 note toml ordinamento per titolo, D28 toml stale su pi ed evidence toml fuori tema). Verificato: 21 righe, solo il file toccato, consistency 0 drift, 5 accepted, 0 stale. Pushed su agy/beta6-triage@fd80458b.
 - Completato AGY-8 (scaffold_prompt.md): creato scaffold_prompt.md (288 righe) per la configurazione autonoma e non distruttiva di Claude Code. Verificato: 41/41 file del template censiti e coincidenti con git ls-files, gestione conflitti con protocollo non distruttivo (opzioni a/b/c), zero riferimenti a bm/baremetal, zero segreti, test su cartella esistente superato (diff iniziale vuoto, .scaffold creato a fianco, .gitignore preservato), test su cartella vuota superato (selftest 40/40, docs_audit 0 penalità, consistency 0 drift). Pushed su agy/scaffold-prompt@68e7d53 nel repo scaffold.
 - Completato AGY-7 (scaffold-workflow-IT.pdf): generato scripts/build_workflow_pdf_it.py e compilato scaffold-workflow-IT.pdf (28 pagine esatte, layout A4, font e colori identici all'originale EN, prosa interamente tradotta in italiano tecnico senza parole inglesi residue). Pushed su agy/scaffold-workflow-it@0a3b76d nel repo scaffold.
