@@ -26,6 +26,7 @@ bm Code è l'editor di codice della suite bm. Apre una cartuccia, mostra il suo 
 - Un assistente su F6 che risponde alle domande e scrive codice per te.
 - Breakpoint su F8 e debugger, con F5 per eseguire.
 - Ctrl+Enter suona il codice come musica (riff).
+- Ctrl+Q (sul pad Y+X) mostra firma e testo della funzione API sotto il cursore; al salvataggio i nomi che non sono nell'API vengono segnalati e i loro numeri di riga diventano rossi.
 
 ## Perché è importante
 

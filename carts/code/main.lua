@@ -708,6 +708,45 @@ local function open_assistant(t, v)
                on_insert = function(code) insert_block(t, v, code) end }
 end
 
+-- Ctrl+Q / Y+X: the signature and text of the API function under the cursor
+-- (predict.api, one source: src/ai/api.tsv). A global, like edit_key: the
+-- chunk keeps under 200 locals
+function api_help(t, v)
+  local w = word_at(t, v)
+  if not w then say("no name under the cursor", C_ERR); return end
+  local e = predict.api(w)
+  if not e then say("no API help for '" .. w .. "'", C_ERR); return end
+  local width = math.min(COLS - 4, 80) - 2
+  local lines = { e.sig }
+  for _, l in ipairs(predict.wrap(e.text, width)) do lines[#lines + 1] = l end
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "docs/api/" .. e.area .. ".md"
+  overlay = { kind = "text", title = w, lines = lines }
+end
+
+-- after a save: the unknown API names of the tab (predict.lint, the rules of
+-- scripts/api_lint.py); the names defined in any tab count as known
+function lint_tab(t)
+  local p = t.path and t.path:lower()
+  if not p or not (p:match("%.bm$") or p:match("%.bme$") or p:match("%.lua$")) then
+    t.lint, t.lint_lines = nil, nil
+    return
+  end
+  local defined = {}
+  for _, x in ipairs(tabs) do
+    for n in pairs(predict.defined(x.lines)) do defined[n] = true end
+  end
+  t.lint = predict.lint(t.lines, { defined = defined })
+  t.lint_lines = {}
+  for _, d in ipairs(t.lint) do t.lint_lines[d.line] = true end
+  local s = "code: lint " .. #t.lint .. " unknown"
+  for i = 1, math.min(5, #t.lint) do s = s .. " " .. t.lint[i].name .. ":" .. t.lint[i].line end
+  log(s)
+  if #t.lint > 0 then
+    say(string.format("API: %d unknown name(s), line %d: %s", #t.lint, t.lint[1].line, t.lint[1].name), C_ERR, 600)
+  end
+end
+
 local function explain_error(t, v)
   if not t.err then say("no error: F5 runs the game, F9 explains its error") return end
   assist.open{ error = t.err.msg, on_insert = function(code) insert_block(t, v, code) end }
@@ -758,6 +797,7 @@ local function save_as(t)
     end
     local ok, err = save_tab(t, "/carts/" .. name)
     say(ok and "saved " .. t.path or "cannot save: " .. tostring(err), ok and C_OK or C_ERR)
+    if ok then lint_tab(t) end
   end)
 end
 
@@ -766,6 +806,7 @@ local function save_current()
   if not t.path then save_as(t); return end
   local ok, err = save_tab(t)
   say(ok and "saved " .. t.path or "cannot save: " .. tostring(err), ok and C_OK or C_ERR)
+  if ok then lint_tab(t) end
 end
 
 local function close_tab(i)
@@ -922,6 +963,7 @@ do_command = function(k)
   elseif k == "f8" then toggle_break(t, v)
   elseif k == "f6" then open_assistant(t, v)
   elseif k == "f9" then explain_error(t, v)
+  elseif k == "^q" then api_help(t, v)
   elseif k == "^\n" then riff_play(t, v)
   elseif k == "^." then riff_stop()
   -- the system's keys (the kernel's syskeys.c)
@@ -1164,7 +1206,10 @@ local function pad()
       else edit_key(b == 2 and "pgup" or "pgdn") end
     end
   end
-  if btnp(6) then local t, v = current(); open_assistant(t, v) end
+  if btnp(6) then
+    local t, v = current()
+    if y then api_help(t, v) else open_assistant(t, v) end
+  end
   if btnp(8) then open_menu() end
 end
 
@@ -1196,6 +1241,7 @@ local function context_menu(t, v)
     { "Run the game", "f5" },
   }
   if t.err then items[#items + 1] = { "Explain the error", "f9" } end
+  items[#items + 1] = { "API help", "^q" }
   items[#items + 1] = { "Assistant", "f6" }
   items[#items + 1] = { "Menu", "esc" }
   U.menu(items)
@@ -1496,7 +1542,8 @@ local function draw_pane(p, c0, ncols, r0, nrows)
     local num = tostring(i)
     local bp = t.breaks and t.breaks[i]
     if bp then rectfill(x0, y, digits * CW, CH, C_BP) end
-    print(string.rep(" ", digits - #num) .. num, x0, y, bp and C_TEXT or i == v.cy and C_GUTCUR or C_GUT)
+    local bad = not bp and t.lint_lines and t.lint_lines[i]
+    print(string.rep(" ", digits - #num) .. num, x0, y, bp and C_TEXT or bad and C_ERR or i == v.cy and C_GUTCUR or C_GUT)
     local c = active and i == v.cy and comp_here(t, v)
     if c then l = l:sub(1, v.cx) .. c.rest .. l:sub(v.cx + 1) end
     if entry_request(l) then
@@ -1648,6 +1695,7 @@ local KEYHELP = {
   { "f7", "the other page" },
   { "f10", "font 6x12 / 8x14 / 8x16" },
   { "f9", "explain the game's error" },
+  { "ctrl q", "help on the API function under the cursor" },
   { "f8", "breakpoint: the game stops on the line" },
   { "ctrl enter", "play the code as music (riff)" },
   { "ctrl .", "stop the music" },
@@ -1664,6 +1712,7 @@ local KEYHELP = {
   { "DPAD", "move" },
   { "Y DPAD", "pages, tabs" },
   { "X", "the assistant" },
+  { "Y X", "help on the API function" },
   { "START", "the menu" },
 }
 
@@ -1678,7 +1727,7 @@ local HELP = {
   "Ctrl+V paste (a line: above)", "Ctrl+K cut line, Ctrl+D duplicate", "Tab / Ctrl+U indent / unindent",
   "Tab after a word: the grey-blue rest",
   "Ctrl+F find, Ctrl+G next", "Ctrl+H replace all", "Ctrl+L go to line", "",
-  "Assistant", "F6 ask (the word under the cursor)", "F9 explain the game's error",
+  "Assistant", "F6 ask (the word under the cursor)", "Ctrl+Q help on the API function", "F9 explain the game's error",
   "#entry: what to do #  then Enter:", "  the assistant does it here", "",
   "Music (riff, docs/RIFF.md)", "Ctrl+Enter play the tab, or the", "  riff.code [[ ]] under the cursor",
   "Ctrl+. stop the music", "",
