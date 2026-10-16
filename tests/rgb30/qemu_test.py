@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
@@ -960,6 +961,160 @@ def test_games_in_carts(b, opts):
         assert "(1 .bm hidden by show_bm=0" in out, out
     finally:
         q.close()
+
+
+def sdk_session(b, tmp, files=None):
+    """A QEMU with an SD card for the SDK tests: (qemu, card size); the card is
+    read back with sdk_exit_dump."""
+    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n", **(files or {})})
+    return Qemu(os.path.join(b, "kernel.elf"), sd=sd), os.path.getsize(sd)
+
+
+def sdk_screen(q, want, tries=80):
+    for _ in range(tries):
+        text = screen_all(q.screendump())
+        if all(w in text for w in want):
+            return text
+        time.sleep(0.25)
+    raise AssertionError(f"want {want} on the screen:\n{text}")
+
+
+def sdk_open(q):
+    """Boot and open bm SDK from the Dev tab (as test_sdk_tool)."""
+    boot(q)
+    time.sleep(1.0)
+    keys(q, "r")                                # Dev
+    sdk_screen(q, ["3D Bench", "Dev"])
+    keys(q, "ss")                               # the third row: bm SDK
+    text = sdk_screen(q, ["bm SDK", "Dev"])
+    assert in_menu(text), text
+    q.buf = b""
+    q.send("\r")
+    q.expect("bm SDK\r\n", timeout=10)
+    sdk_screen(q, ["PROJECT"])
+    time.sleep(0.5)
+
+
+# In the SDK (it calls keyp(): typing mode) the serial port is a keyboard:
+# the pad cannot be pressed on QEMU virt (plat_buttons() is 0), so these tests
+# do the same actions with keys. F-keys: ESC O P..S (F1..F4).
+F2, F3 = "\x1bOQ", "\x1bOR"
+
+
+def sdk_new_empty(q):
+    """Ctrl+N, the first row (Empty 2D)."""
+    q.send("\x0e")
+    sdk_screen(q, ["new project from a template", "Empty 2D"])
+    q.send("\r")
+    sdk_screen(q, ["new project (Empty 2D)"])
+    time.sleep(0.3)
+
+
+def sdk_save_default(q):
+    """Ctrl+S, Enter (accepts MYGAME.BME)."""
+    q.send("\x13")
+    sdk_screen(q, ["file name", "MYGAME.BME"])
+    q.send("\r")
+    sdk_screen(q, ["saved /carts/MYGAME.BME"])
+
+
+def sdk_exit_dump(q, tmp, size):
+    """Ctrl+backslash leaves the SDK, then the SD card's RAM disk to a file (its path)."""
+    q.send("\x1c")
+    text = sdk_screen(q, ["Games", "Dev", "Settings"])
+    assert in_menu(text), text
+    dump = os.path.join(tmp, "after.img")
+    q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
+              until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
+    time.sleep(0.3)
+    return dump
+
+
+def sd_read(dump, path):
+    """A file of the dumped SD card (mtools)."""
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    return subprocess.run(["mtype", "-i", f"{dump}@@{1024 * 1024}", "::" + path],
+                          capture_output=True, env=env, check=True).stdout
+
+
+def cart_secs(data):
+    """{section type: body} of a cartridge or project."""
+    return {t: body for t, body in mkbm.bmmesh.cart_sections(data)}
+
+
+def sdk_kb_run(b, drive, check):
+    """A new Empty 2D project: drive(q), save, leave, check(cart_secs of
+    /carts/MYGAME.BME)."""
+    tmp = tempfile.mkdtemp(prefix="bm64kb-")
+    q, size = sdk_session(b, tmp)
+    try:
+        sdk_open(q)
+        sdk_new_empty(q)
+        drive(q)
+        sdk_save_default(q)
+        dump = sdk_exit_dump(q, tmp, size)
+    finally:
+        q.close()
+    check(cart_secs(sd_read(dump, "/carts/MYGAME.BME")))
+
+
+def test_sdk_pad_sprite(b, opts):
+    """bm SDK, by keyboard (the serial port): F3 is the sprite editor, space
+    paints pixel (0,0) of cell 0 (white); Ctrl+S, leave: the SHEET of the
+    saved project. (Same Lua action as the pad's ok, P.sprite.act("paint").)"""
+    def drive(q):
+        q.send(F3)
+        sdk_screen(q, ["SPRITES"])
+        time.sleep(0.4)
+        q.send(" ")
+        time.sleep(0.4)
+
+    def check(secs):
+        assert 2 in secs, sorted(secs)
+        assert secs[2][4:8] == b"\xff\xff\xff\xff", secs[2][:16].hex()
+    sdk_kb_run(b, drive, check)
+
+
+def test_sdk_pad_map(b, opts):
+    """By keyboard: F3 F3 is the map editor, space places tile 1 on cell (0,0)
+    of layer 1; the saved project's MAP says so."""
+    def drive(q):
+        q.send(F3)
+        sdk_screen(q, ["SPRITES"])
+        time.sleep(0.4)
+        q.send(F3)                              # again: the other view
+        for _ in range(40):
+            if "SPRITES" not in screen_all(q.screendump()):
+                break
+            time.sleep(0.25)
+        else:
+            raise AssertionError("still on the sprites after the second F3")
+        time.sleep(0.4)
+        q.send(" ")
+        time.sleep(0.4)
+
+    def check(secs):
+        assert 3 in secs, sorted(secs)
+        assert struct.unpack_from("<H", secs[3], 4)[0] == 1, secs[3][:16].hex()
+    sdk_kb_run(b, drive, check)
+
+
+def test_sdk_pad_code(b, opts):
+    """By keyboard: F2 is the code, 'do end ' is typed at the cursor (the
+    start of the template's Lua); the saved project's LUA has it."""
+    def drive(q):
+        q.send(F2)
+        sdk_screen(q, ["my game"])
+        time.sleep(0.4)
+        for ch in "do end ":
+            q.send(ch)
+            time.sleep(0.2)
+        time.sleep(0.4)
+
+    def check(secs):
+        lua = secs[1]
+        assert lua.startswith(b"do end -- my game"), lua[:60]
+    sdk_kb_run(b, drive, check)
 
 
 def test_battery_icon(b, opts):
