@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-19
+state: FREE
+task: AGY-19 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T14:40+02:00
 wakeup: no
 ack: 2026-10-16T14:20+02:00
-updated: 2026-10-16T14:23+02:00
+updated: 2026-10-16T14:24+02:00
 ---
 # AGY — Antigravity
 
@@ -71,8 +71,12 @@ DELIVERED AGY-15 @ claude/rgb30-test-tmp-cleanup@a118467a · verifica: qemu_test
 DELIVERED AGY-16 @ claude/perf-qemu-case@87d112d6 · verifica: python tests/tools/test_perf_table.py -> All 11 perf_table tests PASSED (prima del fix: FAIL test_qemu_lowercase_rejected) · 2 file · non verificato su hardware · 2026-10-16T14:13+02:00
 DELIVERED AGY-17 @ claude/docs-audit-check@565252db · verifica: python tests/tools/test_docs_audit.py -> All docs_audit tests PASSED; docs_audit.py score identico a prima; docs_audit.py check su base -> docs_audit: 0 broken, exit 0 · 2 file · non verificato su hardware · 2026-10-16T14:20+02:00
 DELIVERED AGY-18 @ claude/docs-en-mali-m41@e2366be7 · verifica: git grep parole italiane su graphics-mali.md -> 0 righe; docs_audit.py score -> penalties 0 come prima · 1 file, +12 -12 · non verificato su hardware · 2026-10-16T14:22+02:00
+DELIVERED AGY-19 @ claude/docs-en-v3d-qpu@50446b69 · verifica: git grep parole italiane su v3d.md -> 0 righe; docs_audit.py score -> penalties 0 come prima · 1 file, +17 -17 · non verificato su hardware · 2026-10-16T14:24+02:00
 
 ## Progressi
+- Completato AGY-19 (IT2EN-V3D) su claude/docs-en-v3d-qpu@50446b69:
+  - In `docs/progress/v3d.md`, tradotte in inglese le 17 righe relative alle voci 5 (QPU come coprocessore, M44, passi 1-5, toolkit/registri e criterio), 6 (Profilazione runtime, R40) e 7 (Adattamento dinamico impostor, R42), mantenendo identici registri (`SRQPC`, `SRQUA`, `SRQUL`, `SRQCS`, `VPMBASE`, ecc.), funzioni (`r3d_impostor`, `gpu3d`), e rientri gerarchici (0, 3, 5 spazi).
+  - Verificato: `git grep` su parole italiane rimaste nel file restituisce 0 righe (prima: 13); `docs_audit.py score` mantiene penalità 0; diff esattamente di 1 file, +17 -17. Registrato nel ledger e pushato.
 - Completato AGY-18 (IT2EN-MALI) su claude/docs-en-mali-m41@e2366be7:
   - In `docs/progress/graphics-mali.md`, tradotte in inglese le 12 righe della lista della sezione M41 (`## M41 Roadmap: Mali GPU & Overbit in .b16 (RGB30)`), mantenendo la stessa struttura, i riferimenti a codice e funzioni (`screen()`, `fb_init_mode`, `SW`, `SH`, `LW`, `LH`, `UI`, `00_core.lua`), e i criteri di completamento.
   - Verificato: `git grep` su parole italiane rimaste nel file restituisce 0 righe (prima: 8); `docs_audit.py score` mantiene penalità 0; diff esattamente di 1 file, +12 -12. Registrato nel ledger e pushato.
