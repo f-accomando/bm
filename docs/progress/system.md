@@ -83,16 +83,16 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
   a 0 after the newest char), store the freezing kernel's version, pin `.noinit` (`linker.ld`).
 - Measurements to redo, stalls that still hold the CPU, downloads inside an app: [multitasking](multitasking.md).
 
-### Console Standalone & Hardware Spunti (R1, R2, R3, R4, R6, R8, R19, R20)
-- **R1 — WiFi dal menu col pad**: Settings > WiFi and network con selezione reti via gamepad e inserimento credenziali tramite tastiera a schermo (R2).
-- **R2 — Tastiera a schermo kernel**: Trasformazione di `padtype` in servizio nativo C per il kernel (utilizzabile per configurazione WiFi, rinomina file, Market) ed esposto ai giochi via API Lua (`textinput(titolo, default)`).
-- **R3 — Log su SD con crash traceback**: Scrittura di `bm/log.txt` sulla scheda SD del Raspberry Pi contenente il log di boot e il traceback dell'ultimo errore Lua di una cartuccia.
+### Standalone Console & Hardware Ideas (R1, R2, R3, R4, R6, R8, R19, R20)
+- **R1 — WiFi from the menu with the pad**: Settings > WiFi and network with network selection via gamepad and credential entry through the on-screen keyboard (R2).
+- **R2 — Kernel on-screen keyboard**: Turn `padtype` into a native C kernel service (usable for WiFi setup, file renaming, the Market) and expose it to games through the Lua API (`textinput(title, default)`).
+- **R3 — SD log with crash traceback**: Write `bm/log.txt` to the Raspberry Pi SD card with the boot log and the traceback of the last Lua error of a cartridge.
 - **R4 — Screenshot**: done in the games' runtime (`shot()`, Print Screen, Select+L1+R1, `bm/shots/`: [`SCREENSHOTS.md`](../SCREENSHOTS.md)). To do: the menu's own screens, a try on the Pi and the RGB30 (3D `later` mode), the key's picture in the F12 list.
-- **R6 — Web Interface locale (`bm.local`)**: Server HTTP integrato e responder mDNS (`bm.local`) per consentire il caricamento di file `.bm`, il download di screenshot/salvataggi e la modifica di `bm/config.txt` direttamente dal browser del telefono o PC locale.
-- **R8 — Rumble e LED DualShock 4**: Esposizione delle API `rumble(p, forte, debole, ms)` e `padlight(p, colore)` sfruttando il report di uscita 0x11 già implementato in `bt.c`.
-- **R19 — Supporto Controller Bluetooth Esteso**: Integrazione profili per DualSense, Switch Pro Controller, 8BitDo e gamepad Xbox (Bluetooth LE tramite `ble.c`).
-- **R20 — Telecomando HDMI-CEC**: Supporto per le frecce direzionali e tasto Select/OK del telecomando della TV per navigare nei menu della console senza controller collegato.
-- **Rete & bmnet Multiplayer**: Test di due console Pi collegate su modello *Online 2D* (anche via relay) e porting definitivo del protocollo di rete di Overbit sopra la libreria unificata `bmnet`.
+- **R6 — Local web interface (`bm.local`)**: Built-in HTTP server and mDNS responder (`bm.local`) to allow uploading `.bm` files, downloading screenshots/saves and editing `bm/config.txt` directly from the browser of a local phone or PC.
+- **R8 — Rumble and LED on the DualShock 4**: Expose the APIs `rumble(p, strong, weak, ms)` and `padlight(p, color)` using the output report 0x11 already implemented in `bt.c`.
+- **R19 — Extended Bluetooth controller support**: Integrate profiles for DualSense, Switch Pro Controller, 8BitDo and Xbox gamepads (Bluetooth LE through `ble.c`).
+- **R20 — HDMI-CEC remote control**: Support for the directional arrows and the Select/OK key of the TV remote to navigate the console menus without a controller attached.
+- **Network & bmnet multiplayer**: Test two Pi consoles connected on the *Online 2D* model (also via relay) and the final port of Overbit's network protocol on top of the unified `bmnet` library.
 
 ## Rules (do not break)
 
