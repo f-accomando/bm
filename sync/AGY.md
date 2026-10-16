@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
+state: FREE
 task: AGY-12
 waiting_on: 
 progress: 100
 eta: 2026-10-16T12:15+02:00
 wakeup: no
 ack: 2026-10-16T11:06+02:00
-updated: 2026-10-16T11:28+02:00
+updated: 2026-10-16T11:35+02:00
 ---
 # AGY — Antigravity
 
@@ -64,8 +64,14 @@ DELIVERED BETA-7b @ agy/beta-quickstart@1a906463 · verifica: python scripts/doc
 DELIVERED BETA-7c @ agy/beta-quickstart@1a906463 · verifica: python scripts/manuals.py check quickstart && python scripts/manuals.py stamp quickstart && python $TMP/translate_check.py manuals/content/en/quickstart.md manuals/content/it/quickstart.md --reverse --lenient-code --glossary $TMP/glossary.tsv && python scripts/doc_refs.py --max-lines 100 manuals/content/it/quickstart.md && python scripts/manuals.py build quickstart -o manuals/pdf -> exit 0 (en/it concordano, 0 errori 1 warning glossario Need/Esigenza, creati quickstart.en.pdf e quickstart.it.pdf) · 2026-10-16T10:11+02:00
 DELIVERED BETA-7d @ agy/beta-quickstart@1a906463 · verifica: python scripts/docs_audit.py score && python scripts/doc_refs.py docs/GAME-GUIDE.md docs/GUIDA-GIOCHI.md -> score 6632 penalties 0; righe 1-8 introdotte 0 errori (errori preesistenti altrove documentati); parità translate_check documentata · 2026-10-16T10:11+02:00
 DELIVERED AGY-11 @ agy/beta6-gate@a59a54cf · verifica: test_consistency_beta (12/12 test OK); consistency.py beta -> exit 1, 14 blockers 7 accepted 0 resolved 0 errors; consistency.py check invariato (0 drift); docs_audit score -> score 6646 penalties 0 · 2026-10-16T11:27+02:00
+DELIVERED AGY-12 @ agy/sdlog-scan@ef9b9564 · verifica: python tests/tools/test_sdlog_scan.py -> 13/13 test OK; python scripts/docs_audit.py score -> score 6653 penalties 0 · 2026-10-16T11:34+02:00
 
 ## Progressi
+- Completato AGY-12 (SDLOG-SCAN) su agy/sdlog-scan@ef9b9564 (base claude/integrazione-ottobre in bm33-int):
+  - Creato `scripts/sdlog_scan.py` per l'analisi dal PC della cartella SD (`bm/` o radice con sottocartella `bm/`, case-insensitive): parsing di `bootprev.txt` (CLEAN, UNCLEAN, CRASH, NO HEADER, MISSING), `bootlog.txt` (watchdog ON/OFF/EMULATOR/NOT REPORTED e freeze/crash passati), `lastrun.txt` (conteggio righe e avviso log pieno), controllo segreti con flag `--secret` (regola reports.c:173-176, confini non alfanumerici, nota per lunghezze < 4 senza esporre il segreto), calcolo verdetto (OK, FREEZE, CRASH, INCOMPLETE) ed exit code.
+  - Creata suite `tests/tools/test_sdlog_scan.py` con 13 test esaustivi su fixture realistiche (13/13 OK).
+  - Aggiornato `docs/progress/system.md:78` con la documentazione d'uso dello script dopo lunghe sessioni hardware.
+  - Verificato: `test_sdlog_scan.py` 13 test passati, `docs_audit.py score` -> score 6653 penalties 0. Registrato ledger e pushato.
 - Completato AGY-11 (BETA6-GATE) su agy/beta6-gate@a59a54cf:
   - Implementato comando `consistency.py beta [--root DIR]` con controllo toml su `docs/spec/divergences.toml`, `platforms.toml` e `beta.toml`. Valuta ciascuna divergenza dello `scope`: resolved, accepted (hardware con capability da platforms.toml), BLOCKS BETA (hardware senza capability valida), accepted in writing (con [[accept]]), BLOCKS BETA (per tutte le altre). Controlli di validità su [[accept]] (id in scope, campi id/because/by/date non vuoti e data YYYY-MM-DD, duplicati, STALE se resolved).
   - Creato `docs/spec/beta.toml` con scope di 21 divergenze (D01-D13, D28, D30-D36) e commento normativo.
