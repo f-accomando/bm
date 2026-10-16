@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-24
+state: FREE
+task: AGY-24 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T14:50+02:00
 wakeup: no
 ack: 2026-10-16T14:30+02:00
-updated: 2026-10-16T14:34+02:00
+updated: 2026-10-16T14:38+02:00
 ---
 # AGY — Antigravity
 
@@ -76,8 +76,13 @@ DELIVERED AGY-20 @ claude/docs-en-open-items@3e82fbac · verifica: git grep paro
 DELIVERED AGY-21 @ claude/docs-en-d19-note@1f8fa8ee · verifica: consistency.py check -> 0 drift, 5 accepted, 0 stale; tomllib legge 43 blocchi; grep "provato dall'utente su Pi Zero W" -> 0 righe · 1 file, +1 -1 · non verificato su hardware · 2026-10-16T14:29+02:00
 DELIVERED AGY-22 @ claude/docs-en-system-console@7d670544 · verifica: git grep parole italiane su system.md -> 0 righe; docs_audit.py score -> penalties 0 come prima; riga R4 invariata · 1 file, +9 -9 · non verificato su hardware · 2026-10-16T14:31+02:00
 DELIVERED AGY-23 @ claude/docs-en-tools-open@8e244f69 · verifica: git grep parole italiane su tools.md -> 0 righe; docs_audit.py score -> penalties 0 come prima · 1 file, +3 -3 · non verificato su hardware · 2026-10-16T14:33+02:00
+DELIVERED AGY-24 @ claude/ci-audit-english@659373ab · verifica: ci_audit.py prima/dopo -> stesso exit 0 e stesse 0 righe PROBLEM; py_compile OK; grep parole italiane -> 0 righe; PyYAML presente e check_ci provato (ci_bad.yml -> 3 problem) · 1 file, +38 -38 · non verificato su hardware · 2026-10-16T14:38+02:00
 
 ## Progressi
+- Completato AGY-24 (IT2EN-CIAUDIT) su claude/ci-audit-english@659373ab:
+  - In `scripts/ci_audit.py`, tradotti in inglese tutti i testi italiani (docstring iniziale, commenti di blocco/inline, messaggi di errore e di warning in `check_ci`, `check_waits`, `check_cart_refs`, `check_gh`, descrizioni e help degli argomenti CLI in `main`).
+  - Mantenuti invariati prefissi tecnici (`PROBLEM [ci]`, `PROBLEM [waits]`, `INFO`, `WARN`, `SUMMARY:`), identificatori (`timeout-minutes`, `concurrency`, `branches-ignore`, `sync/**`, `GAMES`, `KNOWN_WAITS`), e la logica di controllo.
+  - Verificato con PyYAML installato: esecuzione prima/dopo produce output identico (exit 0, 0 righe PROBLEM); fixture non conforme (`ci_bad.yml`) produce le 3 righe PROBLEM previste in inglese; `py_compile` passa senza errori; `git grep` su parole italiane dà 0 righe (prima: 36); diff esattamente di 1 file, +38 -38. Registrato nel ledger e pushato.
 - Completato AGY-23 (IT2EN-TOOLS) su claude/docs-en-tools-open@8e244f69:
   - In `docs/progress/tools.md`, tradotte in inglese le 3 righe relative a mappe 3D in SDK (C module `map3d.c`, Lua API, shortcut lineari `Shift+P`, file di mele `Shift+A`, casse, lampade, budget), R15 (live reload/auto-watch da PC con `bm_net.py --watch`), e R26 (mouse hardware nativo nano8 per `.p8` con `mouse(true)` e `poke(0x5f2d, 1)`).
   - Verificato: `git grep` sulle parole italiane segnala 0 righe; `docs_audit.py score` mantiene penalità 0; diff esattamente di 1 file, +3 -3. Registrato nel ledger e pushato.
