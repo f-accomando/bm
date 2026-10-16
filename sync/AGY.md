@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
+state: FREE
 task: BETA-7
 waiting_on: 
-progress: 0
+progress: 100
 eta: 2026-10-16T11:30+02:00
 wakeup: no
 ack: 2026-10-16T09:27+02:00
-updated: 2026-10-16T09:52+02:00
+updated: 2026-10-16T10:11+02:00
 ---
 # AGY — Antigravity
 
@@ -59,8 +59,17 @@ DELIVERED AGY-8 @ agy/scaffold-prompt@68e7d53 · verifica: 41/41 percorsi coinci
 DELIVERED AGY-9 @ agy/beta6-triage@fd80458b · verifica: python scripts/consistency.py check (0 drift, 5 accepted, 0 stale), 21 righe con citazioni rifinite (D32, D35, D04, D34, D13), toml stale specificato sui campi pi/rgb30 · 2026-10-15T21:42+02:00
 DELIVERED AGY-10a @ agy/scaffold-prompt@217aa8d · verifica: simulazione cartella vuota (selftest 40/40, score 3761 penalties 0, consistency check 0 drift, gate 0 blockers, agent_audit PASS) && simulazione cartella esistente (diff utente vuoto prima risposte, .scaffold a fianco con opzione b, .gitignore unito con opzione a) && grep parole vietate bm/baremetal -> 0 match, git diff vs origin/main -> solo scaffold_prompt.md · 2026-10-16T09:49+02:00
 DELIVERED AGY-10b @ agy/scaffold-workflow-it@a0a938d · verifica: python scripts/build_workflow_pdf_it.py && verifica pymupdf -> exit 0, 28 pagine esatte, font set ['Courier', 'Helvetica', 'Helvetica-Bold'], zero overflow, frasi verificate a p.11 (decidere, correggere, kill, merge), p.12 (poche migliaia di token), p.16 (Quasi una necessità; Una richiesta dichiara N su 5, l'unica motivazione, e...), p.23 (riga REVIEW tradotta), p.24 (TL;DR chiarito; collega suggerito; git pull --rebase origin sync/<nome> e cancellato consegne di due operatori), p.25 (# 0 penalità) · 2026-10-16T09:50+02:00
+DELIVERED BETA-7a @ agy/beta-quickstart@1a906463 · verifica: python tests/tools/test_doc_refs.py && python scripts/doc_refs.py manuals/content/en/install-sd.md manuals/content/en/editor-sdk.md -> 11/11 test OK (exit 0); install-sd /dev/sdX e /mnt/d (percorsi host); editor-sdk 0 errori · 2026-10-16T10:11+02:00
+DELIVERED BETA-7b @ agy/beta-quickstart@1a906463 · verifica: python scripts/doc_refs.py --max-lines 100 manuals/content/en/quickstart.md -> exit 0 (74 righe <= 100, segnaposto G1-G4 esatti, 0 link markdown) · 2026-10-16T10:11+02:00
+DELIVERED BETA-7c @ agy/beta-quickstart@1a906463 · verifica: python scripts/manuals.py check quickstart && python scripts/manuals.py stamp quickstart && python $TMP/translate_check.py manuals/content/en/quickstart.md manuals/content/it/quickstart.md --reverse --lenient-code --glossary $TMP/glossary.tsv && python scripts/doc_refs.py --max-lines 100 manuals/content/it/quickstart.md && python scripts/manuals.py build quickstart -o manuals/pdf -> exit 0 (en/it concordano, 0 errori 1 warning glossario Need/Esigenza, creati quickstart.en.pdf e quickstart.it.pdf) · 2026-10-16T10:11+02:00
+DELIVERED BETA-7d @ agy/beta-quickstart@1a906463 · verifica: python scripts/docs_audit.py score && python scripts/doc_refs.py docs/GAME-GUIDE.md docs/GUIDA-GIOCHI.md -> score 6632 penalties 0; righe 1-8 introdotte 0 errori (errori preesistenti altrove documentati); parità translate_check documentata · 2026-10-16T10:11+02:00
 
 ## Progressi
+- Completato BETA-7 (sezioni 7a-7d) su agy/beta-quickstart@1a906463 (la sezione 7e sarà assegnata da SPV una volta integrate APP-4, APP-5b e API-1):
+  - 7a: implementato linter `scripts/doc_refs.py` (regole R1 percorsi repo/glob, R2 console /carts/ e /bm/, R3 comandi make ed easy_install.sh, R4 link markdown relativi, R5 flag --final per gap, R6 --max-lines) e suite unitaria `tests/tools/test_doc_refs.py` (11/11 test passati, exit 0). Passo 0 eseguito su `install-sd.md` (segnalati solo percorsi host /dev/sdX e /mnt/d) ed `editor-sdk.md` (0 errori).
+  - 7b: creato manuale `manuals/content/en/quickstart.md` (74 righe <= 100, zero codici milestone, zero link markdown, 7 capitoli numerati con azioni e schermate riscontrate nell'SDK/code, segnaposto G1-G4 esatti) e registrato in `manuals/manuals.toml` (order = 0). Verificato con `doc_refs.py --max-lines 100` (exit 0).
+  - 7c: creata versione italiana `manuals/content/it/quickstart.md` con corrispondenza 1-a-1 e segnaposto DA COMPLETARE. Verificato: `manuals.py stamp quickstart` (timbro 7 capitoli), `manuals.py check quickstart` (en/it concordano), `translate_check.py` (0 errori, 1 warning glossario Need/Esigenza), `doc_refs.py --max-lines 100` (exit 0), compilati PDF `manuals/pdf/quickstart.en.pdf` e `quickstart.it.pdf`.
+  - 7d: aggiornati collegamenti e indici in `docs/GAME-GUIDE.md` (riga 7-8), `docs/GUIDA-GIOCHI.md` (riga 6-7), `README.md` (riga 180), `docs/progress.md` (riga 61), `docs/MANUALS.md` (tabella manuali), `docs/progress/tools.md` (riga 80, 120 righe totali). Verificato: `docs_audit.py score` -> score 6632 penalties 0; `doc_refs.py` sulle guide -> righe 1-8 con 0 errori; `translate_check.py` parità documentata.
 - Completato AGY-10 (correzioni revisioni AGY-7 e AGY-8 su repo scaffold):
   - AGY-10a su agy/scaffold-prompt@217aa8d: impostato SCAFFOLD_REF="main" (rimossa nota PR 1), aggiunta riga 42 examples/demo/ in Tabella 3 (necessaria per selftest 40/40), domanda iniziale 7 per sync multi-operatore opzionale (default no: sync omesso; yes: ramo sync/<progetto>), copertura capitoli 14.3 (progress/core.md), 14.4 (ROADMAP.md), 14.5 (consistency.toml opzionale / match), 14.8 (primo task con planner e gate), 15 (routine, metriche e potatura), esclusione esplicita di build_workflow_pdf.py; separati segnaposto reali di configurazione da argomenti di comando generici e token di log; protocollo pre-scan in sola lettura con consolidamento in un solo messaggio/turno e default opzione (b) per docs/, scripts/, tools/, .claude/; rimozione sicura senza git clean -f. Verificato con simulazioni in cartella vuota (40/40 selftest, score 3761 penalties 0, consistency check 0 drift, gate 0, agent_audit PASS) e cartella esistente (.scaffold a fianco, file utente immutati).
   - AGY-10b su agy/scaffold-workflow-it@a0a938d: corretto p.25 blocco comandi ("# 0 penalità"), ripristinate perdite di dettaglio EN su p.12 ("poche migliaia di token"), p.24 ("git pull --rebase origin sync/<nome>", "cancellato le consegne di due operatori", frase sul collega che suggerisce "non eseguire l'importatore"), stile su p.11 ("decidere, correggere, kill, merge"), p.16 ("Una richiesta dichiara N su 5, l'unica motivazione, e...", tolto "assoluta" da punteggio 5), p.23 riga REVIEW tradotta in italiano, chiarito TL;DR a p.24 sulla potatura regole. Verificato: 28 pagine esatte, font Courier/Helvetica/Helvetica-Bold identici, testi estratti e controllati con pymupdf su ciascuna pagina.
