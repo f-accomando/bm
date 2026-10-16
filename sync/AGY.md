@@ -1,11 +1,11 @@
 ---
 schema: 1
 id: AGY
-state: FREE
-task: AGY-29 consegnato
+state: WORKING
+task: AGY-30
 waiting_on: 
 progress: 0
-eta: 2026-10-16T16:12+02:00
+eta: 2026-10-16T16:15+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
 updated: 2026-10-16T16:05+02:00
