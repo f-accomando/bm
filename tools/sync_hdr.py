@@ -5,7 +5,7 @@
   python3 tools/sync_hdr.py CLD --ack auto           # a heartbeat that also acknowledges the last row of SYNC.md read
   python3 tools/sync_hdr.py CLD --wakeup no          # profile: this agent has no autonomous wake-up (yes | no)
   python3 tools/sync_hdr.py CLD --close WO-3 --commit <sha> --tokens 12000 --min 25 [--read R] [--state FREE|WAITING --waiting-on Y]
-      # closes a work order: appends a JSON row to sync/<ID>.ledger.jsonl and prints the chat line
+      # closes a work order: appends a JSON row to sync/OP-<ID>.ledger.jsonl and prints the chat line
       # `done WO <X> [waiting on <Y> | FREE]: <files> files +<a> -<d>, <N> tokens, <M> min`; the status block is NOT touched.
       # files/add/del/lines come from `git show --numstat <commit>` unless given by hand (--files --add --del --lines code=..,docs=..,data=..).
 
@@ -141,7 +141,7 @@ def close_wo(a):
         lines = st[3] if lines is None else lines
     if files is None or add is None or dele is None:
         return err("give --commit, or --files --add --del")
-    row = {"schema": 1, "wo": a.close, "branch": a.branch or "", "commit": a.commit or "", "files": files, "add": add, "del": dele}
+    row = {"schema": 1, "operator": "OP-" + a.id, "wo": a.close, "branch": a.branch or "", "commit": a.commit or "", "files": files, "add": add, "del": dele}
     if lines is not None:
         row["lines"] = {k: lines.get(k, 0) for k in ("code", "docs", "data")}
     row["tokens"] = a.tokens
@@ -149,7 +149,7 @@ def close_wo(a):
         row["read"] = a.read
     row["min"] = a.min
     row["iso"] = now_stamp()
-    path = a.ledger or os.path.join(ROOT, "sync", a.id + ".ledger.jsonl")
+    path = a.ledger or os.path.join(ROOT, "sync", "OP-" + a.id + ".ledger.jsonl")
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(path, "a", encoding="utf-8", newline="") as f:
         f.write(json.dumps(row, separators=(",", ":")) + "\n")
@@ -180,7 +180,7 @@ def main():
     ap.add_argument("--commit")
     ap.add_argument("--branch")
     ap.add_argument("--repo", help="git repo for --commit (default: this repo)")
-    ap.add_argument("--ledger", help="ledger file (default sync/<ID>.ledger.jsonl)")
+    ap.add_argument("--ledger", help="ledger file (default sync/OP-<ID>.ledger.jsonl)")
     a = ap.parse_args()
     if a.close:
         sys.exit(close_wo(a))

@@ -44,6 +44,7 @@ class T(unittest.TestCase):
         self.assertEqual((row["files"], row["add"], row["del"]), (5, 10, 0))
         self.assertEqual(row["lines"], {"code": 4, "docs": 2, "data": 4})
         self.assertEqual((row["schema"], row["wo"], row["branch"], row["tokens"], row["min"]), (1, "WO-1", "b", 100, 7))
+        self.assertEqual(row["operator"], "OP-OP")
         self.assertNotIn("read", row)
         self.assertRegex(row["iso"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d[+-]\d\d:\d\d$")
         self.assertEqual(r.stdout.strip(), "done WO WO-1 FREE: 5 files +10 -0, 100 tokens, 7 min")
