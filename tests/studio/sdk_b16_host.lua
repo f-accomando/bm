@@ -444,6 +444,15 @@ local function new_env(arg, o)
     return n
   end
   E.camera3d = nop
+  -- the 3D map view (carts/sdk_b16/main.lua :2479-2530): the map3d_* world, the cursor lines and the points
+  E.map3d_build = function(t) assert(type(t) == "table", "map3d_build: a table"); return { map3d = true } end
+  E.map3d_draw = function(w) assert(type(w) == "table", "map3d_draw: a world") end
+  E.map3d_height = function() return 0.0 end
+  E.map3d_objects = function() return {} end
+  E.map3d_blocked = function() return false end
+  E.map3d_size = function() return 0, 0 end
+  E.line3d = nop
+  E.point3d = nop
   E.project3d = function(x, y, z) return 244 + x * 10, 184 - y * 10, 5 end
   E.sget = function(x, y)
     if x < 0 or y < 0 or x >= sheet.w or y >= sheet.h then return nil end
