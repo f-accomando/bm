@@ -2,12 +2,12 @@
 schema: 1
 id: AGX
 state: FREE
-task: libero, proposta supporto pianificazione Argon a SPV
+task: libero, proposta WO PI-SHOT a SPV, attesa AGX-3
 waiting_on: 
 eta: 2026-10-16T13:40+02:00
 wakeup: no
 ack: 2026-10-16T13:53+02:00
-updated: 2026-10-16T14:12+02:00
+updated: 2026-10-16T14:16+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -69,7 +69,30 @@ updated: 2026-10-16T14:12+02:00
     2. *Virtual Gamepad Bot*: protocollo per iniettare tasti a frame deterministici via rete per eseguire test bot e replay di gioco su console fisica.
     3. *Automated Pi Benchmark Runner*: script dedicato (`tools/pi_bench.py`) per lanciare benchmark, raccogliere metriche (fps, triangoli, drop) e sincronizzarle con i report di progetto.
   - Se SPV approva o ritiene utile aprire un WO dedicato per questi strumenti, AGX è disponibile a svilupparli.
-- **Iniziativa Utente a SPV: Proposta di supporto pianificazione WO brief per la Beta/Alfa tramite Gemini 4 Argon (tier pro)**:
-  - Su iniziativa dell'Utente per saggiare le capacità di deep reasoning e planning sistemico del modello Gemini 4 Argon (tier `pro`), AGX propone di supportare SPV elaborando una bozza di pianificazione (WO brief) per i prossimi passi verso la beta o alfa di `bm` (es. tooling di verifica remota, integrazione hardware Pi o chiusura perimetri aperti).
-  - Si specifica espressamente che qualsiasi WO brief elaborato verrà fornito come bozza di proposta tecnica, interamente e rigorosamente soggetta allo scrutinio, revisione e approvazione esclusiva di SPV prima di qualsiasi eventuale adozione o assegnazione operativa.
-  - AGX chiede a SPV se accoglie tale supporto di pianificazione e su quale perimetro/area prioritaria della Beta preferisce sia focalizzato il brief.
+- **Iniziativa Utente a SPV: Bozza tecnica WO Brief per la Beta/Alfa tramite Gemini Pro (`bm-planner`)**:
+  - Su iniziativa dell'Utente per saggiare le capacità di deep reasoning e planning sistemico del modello Gemini Pro (`bm-planner` / Argon tier `pro`), è stata elaborata una bozza tecnica di Work Order conforme rigorosamente ad `AGENTS.md`.
+  - Si specifica espressamente che questa bozza è un contributo tecnico propositivo interamente e rigorosamente **soggetto a scrutinio, revisione o scarto da parte di SPV**. AGX non ha iniziato né inizierà alcun lavoro di implementazione sul tooling Pi senza formale approvazione/WO di SPV.
+
+```markdown
+### WORK ORDER: PI-SHOT (Proposta Tecnica — Soggetta a Scrutinio SPV)
+- **Obiettivo**: Implementare il comando monitor 'shot' e l'opzione '--shot' in bm_net.py per permettere ad AGX e alla CI la verifica visiva deterministica del framebuffer reale di Pi 1 tramite CRC32 IEEE 802.3 senza saturare il buffer console.
+- **File/Funzioni da toccare**:
+  1. `src/kernel/monitor.c`:
+     - riga 44: aggiungere `#include "lib/crc32.h"` tra gli include del kernel.
+     - riga 92 (`help_text`): aggiungere il comando `shot` nell'elenco comandi della riga comandi (`"       render  room  log  err  shot  send  reboot\n"`).
+     - riga 282 (`line_command`): aggiungere il ramo per il comando `shot` leggendo `console_framebuffer()`, calcolando `crc32()` sui byte della pagina attiva `fb->shown` e stampando `shot: %ux%u %ubpp pitch=%u size=%lu crc32=0x%08lx\n`.
+     - riga 292: aggiornare la stringa d'errore del monitor inserendo `shot`.
+  2. `tools/bm_net.py`:
+     - riga 312: aggiungere argomenti CLI `--shot` e opzionale `--shot-expect CRC`.
+     - riga 341: se `--shot`, eseguire `:shot\r`, validare output regex e checksum (exit code 0 su match, 1 su mismatch).
+- **File da NON toccare (Perimetro Blindato)**:
+  - `src/net/netcon.c` (nessun dump pixel sul ring buffer da 32 KiB)
+  - `src/net/netxfer.c` (nessuna modifica al transfer binary)
+  - `src/drivers/fb.c`, `src/drivers/fb.h`, `src/bm/runtime.c`, `src/lib/crc32.*`
+- **Comando di verifica**:
+  1. `python tests/net/check_bm_net_config.py` (exit 0)
+  2. `python tools/bm_net.py 192.168.1.208 --shot` (exit 0)
+  3. `python tools/bm_net.py 192.168.1.208 --shot --shot-expect <CRC>` (exit 0)
+- **Agente designato**: `bm-coder` (Gemini Flash)
+```
+
