@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-33
+state: FREE
+task: AGY-33 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T16:38+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T16:25+02:00
+updated: 2026-10-16T16:29+02:00
 ---
 # AGY — Antigravity
 
@@ -85,8 +85,12 @@ DELIVERED AGY-29 @ claude/docs-en-padtype@c4b62122 · verifica: git grep parole 
 DELIVERED AGY-30 @ claude/docs-en-sync-start@7f8e85b2 · verifica: git grep parole italiane nella frase di avvio -> nessuna uscita; docs_audit.py score senza penalità nuove · 1 file, +2 -2 · non verificato su hardware · 2026-10-16T16:08+02:00
 DELIVERED AGY-31 @ claude/divergence-evidence@8d1d1aba · verifica: consistency.py check -> uscita identica a prima; diff -> 4 evidence · 1 file, +4 -4 · non verificato su hardware · 2026-10-16T16:16+02:00
 DELIVERED AGY-32 @ claude/config-readin-check@80b1f528 · verifica: python tests/tools/test_config_readin.py -> OK; config_readin.py -> exit 1, STALE assist_lang e battery_icon (31 STALE, 1 UNCHECKED) · 2 file nuovi · non verificato su hardware · 2026-10-16T16:23+02:00
+DELIVERED AGY-33 @ claude/config-readin-fix@e8a8639f · verifica: config_readin.py -> 0 stale, exit 0; consistency.py check invariato · 1 file, +31 -31 · non verificato su hardware · 2026-10-16T16:28+02:00
 
 ## Progressi
+- Completato AGY-33 (READIN-FIX) su claude/config-readin-fix@e8a8639f:
+  - In `docs/spec/config-keys.toml`, aggiornati i 31 riferimenti `read_in = "file:riga"` segnalati STALE da `scripts/config_readin.py` (tra cui `assist_lang` 4842 -> 4897, `battery_icon` 8331 -> 8395, i parametri `gpu3d_*`, `bt_*`, `r3d_*`, `session_report`, ecc.).
+  - Verificato: `config_readin.py` restituisce `config_readin: 0 stale` ed exit code 0; `consistency.py check` invariato (`0 drift, 5 accepted, 0 stale`); `git diff --stat` conferma 1 file, +31 -31 (tutte sole righe `read_in =`). Registrato nel ledger e pushato.
 - Completato AGY-32 (READIN-CHECK) su claude/config-readin-check@80b1f528:
   - Creati `scripts/config_readin.py` e la relativa suite di unit test `tests/tools/test_config_readin.py` per validare che i riferimenti `read_in = "file:riga"` in `docs/spec/config-keys.toml` puntino a righe contenenti `"<name>"`.
   - Lo script individua righe STALE suggerendo la prima riga nel file contenente il nome della chiave e la parola `config`, oppure UNCHECKED se la chiave è assente dal file (non errore).
