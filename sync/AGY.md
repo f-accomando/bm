@@ -7,8 +7,8 @@ waiting_on:
 progress: 0
 eta: 2026-10-16T19:03+02:00
 wakeup: no
-ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T18:57+02:00
+ack: 2026-10-16T17:25+02:00
+updated: 2026-10-16T18:59+02:00
 ---
 # AGY — Antigravity
 
@@ -92,7 +92,7 @@ DELIVERED AGY-36 @ claude/test-assistlib@407200db · verifica: python -m unittes
 DELIVERED AGY-37 @ claude/test-mkicons@53ebe687 · verifica: python -m unittest tests/tools/test_mkicons.py -> OK (Pillow 12.3.0 presente, 3 test OK) · 1 file nuovo · non verificato su hardware · 2026-10-16T16:47+02:00
 DELIVERED AGY-38 @ claude/rgb30-qemu-freeze-flow@726e4718 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k freeze_switch_close -> PASS test_freeze_switch_close · 2 file · non verificato su hardware · 2026-10-16T18:44+02:00
 DELIVERED AGY-39 @ claude/beta-hardware-card@4123405b · verifica: grep -c righe -> 13; docs_audit.py score senza nuovi ! · 2 file · non verificato su hardware (nessuna prova e' stata eseguita) · 2026-10-16T18:52+02:00
-DELIVERED AGY-40 @ claude/v3d-closeout@f15ff570 · verifica: docs_audit.py score senza collegamenti rotti; git diff --stat 1 file +1 · base = claude/beta-hardware-card · non verificato su hardware · 2026-10-16T18:56+02:00
+DELIVERED AGY-40 @ claude/v3d-closeout@f15ff570 · verifica: docs_audit.py score -> senza collegamenti rotti; git diff --stat -> 1 file +1 · base = claude/beta-hardware-card · non verificato su hardware · 2026-10-16T18:56+02:00
 
 ## Progressi
 - Completato AGY-40 (V3D-CLOSEOUT) su claude/v3d-closeout@f15ff570:
