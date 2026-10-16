@@ -522,3 +522,14 @@ capability = "pad-only"
 status = "open"
 evidence = "carts/sound/main.lua; carts/sdk_b16/main.lua"
 action = "none: the screen and the pad set the limit; Lib of sprites and maps is a separate system WO"
+
+[[divergence]]
+id = "D48"
+area = "monitor"
+pi = "the monitor line `crc` prints the CRC32 of the page on screen (fixed format), to compare with a value taken from the same Pi"
+rgb30 = "none: the RGB30 kernel does not compile src/kernel/monitor.c (see D22)"
+cause = "todo"
+priority = 6
+status = "open"
+evidence = "src/kernel/monitor.c; tests/qemu_test.py:test_monitor_crc"
+action = "decide whether the RGB30 needs a crc of its screen (a serial command, or the pad kernel's own tool); until then the screen check by CRC is Pi-only"
