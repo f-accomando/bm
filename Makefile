@@ -1173,7 +1173,13 @@ test-prompts: $(BUILD)/host/test_prompts
 	$< $(BUILD)/prompts
 
 test-docs:
-	$(PYTHON) scripts/docs_audit.py score
+	$(PYTHON) scripts/docs_audit.py check
+
+# The unit tests of the scripts (tests/tools/test_*.py), one after the other; the first failure stops
+test-tools:
+	@for t in tests/tools/test_*.py; do echo "== $$t"; $(PYTHON) $$t || exit 1; done
+.PHONY: test-tools
+
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
