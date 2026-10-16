@@ -1,10 +1,10 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGX-6 consegnato, pronto per AGX-7
+state: WORKING
+task: WO AGX-7: CODE-LINT-STALE clear marks on text change
 waiting_on: 
-eta: 2026-10-16T15:55+02:00
+eta: 2026-10-16T16:15+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
 updated: 2026-10-16T15:47+02:00
