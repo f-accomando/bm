@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-32
+state: FREE
+task: AGY-32 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T16:34+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T16:19+02:00
+updated: 2026-10-16T16:24+02:00
 ---
 # AGY — Antigravity
 
@@ -84,8 +84,13 @@ DELIVERED AGY-28 @ claude/docs-it-links-docs@ab366280 · verifica: git grep -c -
 DELIVERED AGY-29 @ claude/docs-en-padtype@c4b62122 · verifica: git grep parole italiane in PADTYPE.md -> nessuna uscita; docs_audit.py score senza penalità nuove · 1 file, +9 -9 · non verificato su hardware · 2026-10-16T16:04+02:00
 DELIVERED AGY-30 @ claude/docs-en-sync-start@7f8e85b2 · verifica: git grep parole italiane nella frase di avvio -> nessuna uscita; docs_audit.py score senza penalità nuove · 1 file, +2 -2 · non verificato su hardware · 2026-10-16T16:08+02:00
 DELIVERED AGY-31 @ claude/divergence-evidence@8d1d1aba · verifica: consistency.py check -> uscita identica a prima; diff -> 4 evidence · 1 file, +4 -4 · non verificato su hardware · 2026-10-16T16:16+02:00
+DELIVERED AGY-32 @ claude/config-readin-check@80b1f528 · verifica: python tests/tools/test_config_readin.py -> OK; config_readin.py -> exit 1, STALE assist_lang e battery_icon (31 STALE, 1 UNCHECKED) · 2 file nuovi · non verificato su hardware · 2026-10-16T16:23+02:00
 
 ## Progressi
+- Completato AGY-32 (READIN-CHECK) su claude/config-readin-check@80b1f528:
+  - Creati `scripts/config_readin.py` e la relativa suite di unit test `tests/tools/test_config_readin.py` per validare che i riferimenti `read_in = "file:riga"` in `docs/spec/config-keys.toml` puntino a righe contenenti `"<name>"`.
+  - Lo script individua righe STALE suggerendo la prima riga nel file contenente il nome della chiave e la parola `config`, oppure UNCHECKED se la chiave è assente dal file (non errore).
+  - Verificato: 3/3 test in `test_config_readin.py` OK; `config_readin.py` su base repo rileva 31 STALE (inclusi `assist_lang` 4842 -> 4897 e `battery_icon` 8331 -> 8395) e 1 UNCHECKED (`meshy_key`), terminando con exit code 1; `py_compile` passa senza errori; `git status --short` mostra esattamente i 2 file nuovi (+148 righe). Registrato nel ledger e pushato.
 - Completato AGY-31 (DIV-EVIDENCE) su claude/divergence-evidence@8d1d1aba:
   - In `docs/spec/divergences.toml`, corrette le 4 `evidence` che puntavano a righe non corrispondenti in `docs/progress/*.md`: D17 `src/rgb30/rtw_sta.c:643; docs/progress/system.md:82-83` (voci R1 WiFi e R2 tastiera a schermo); D24 `docs/progress/platforms.md:69` (M41); D27 `docs/progress/system.md:85` (R4 Screenshot); D39 `docs/progress/platforms.md:40-45` (Battery).
   - Verificato: `consistency.py check` invariato (`0 drift, 5 accepted, 0 stale`, exit 0); `git diff -U0` mostra solo le 4 righe evidence modificate; `git diff --stat` conferma 1 file, +4 -4. Registrato nel ledger e pushato.
