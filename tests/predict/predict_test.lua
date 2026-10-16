@@ -84,6 +84,12 @@ local slines = {}
 for l in (sample .. "\n"):gmatch("([^\n]*)\n") do slines[#slines + 1] = l end
 local hits = P.lint(slines)
 check(#hits == 1 and hits[1].line == 1 and hits[1].name == "sprt", "lint: the sample gives one report, sprt on line 1")
+local seen = {}
+for _, h in ipairs(hits) do seen[h.name] = h.line end
+check(seen.zzstr == nil and seen.zzsq == nil, "lint: a name inside a string is not a call")
+check(seen.hurt == nil and P.api("hurt") == nil, "lint: a name of scripts/api_lint_allow.txt is known")
+check(seen.lva == nil and seen.lvb == nil, "lint: local a, b defines both names")
+check(seen.blockcall == nil, "lint: a --[[ ]] block comment is not code")
 check(#P.lint({ "zz()" }, { defined = { zz = true } }) == 0, "lint: a name given as defined is known")
 
 print(string.format("predict: %d checks, %d failed", checks, fails))
