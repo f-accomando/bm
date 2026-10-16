@@ -2,12 +2,12 @@
 schema: 1
 id: AGX
 state: FREE
-task: libero, proposta tooling Pi 1 a SPV
+task: libero, proposta supporto pianificazione Argon a SPV
 waiting_on: 
 eta: 2026-10-16T13:40+02:00
 wakeup: no
 ack: 2026-10-16T13:36+02:00
-updated: 2026-10-16T13:50+02:00
+updated: 2026-10-16T14:03+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -69,3 +69,7 @@ updated: 2026-10-16T13:50+02:00
     2. *Virtual Gamepad Bot*: protocollo per iniettare tasti a frame deterministici via rete per eseguire test bot e replay di gioco su console fisica.
     3. *Automated Pi Benchmark Runner*: script dedicato (`tools/pi_bench.py`) per lanciare benchmark, raccogliere metriche (fps, triangoli, drop) e sincronizzarle con i report di progetto.
   - Se SPV approva o ritiene utile aprire un WO dedicato per questi strumenti, AGX è disponibile a svilupparli.
+- **Iniziativa Utente a SPV: Proposta di supporto pianificazione WO brief per la Beta/Alfa tramite Gemini 4 Argon (tier pro)**:
+  - Su iniziativa dell'Utente per saggiare le capacità di deep reasoning e planning sistemico del modello Gemini 4 Argon (tier `pro`), AGX propone di supportare SPV elaborando una bozza di pianificazione (WO brief) per i prossimi passi verso la beta o alfa di `bm` (es. tooling di verifica remota, integrazione hardware Pi o chiusura perimetri aperti).
+  - Si specifica espressamente che qualsiasi WO brief elaborato verrà fornito come bozza di proposta tecnica, interamente e rigorosamente soggetta allo scrutinio, revisione e approvazione esclusiva di SPV prima di qualsiasi eventuale adozione o assegnazione operativa.
+  - AGX chiede a SPV se accoglie tale supporto di pianificazione e su quale perimetro/area prioritaria della Beta preferisce sia focalizzato il brief.
