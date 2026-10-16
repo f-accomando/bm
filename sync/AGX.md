@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGX-13 consegnato
+state: WORKING
+task: WO AGX-14: DELETE-TOOLS test QEMU D08 D13
 waiting_on: 
-eta: 2026-10-16T16:40+02:00
+eta: 2026-10-16T16:45+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T16:07+02:00
+updated: 2026-10-16T16:08+02:00
 ---
 # AGX — Antigravity (AGX)
 
