@@ -18,6 +18,7 @@ scripts/manuals.py            status, check, stamp, build for all the manuals
 
 | Manual (`id`) | For |
 |---|---|
+| `quickstart` | the first game in one page: title, 3 stages, ending, on the RGB30 and the Pi |
 | `install-sd` | putting bm on an SD card: Pi Zero W and RGB30 |
 | `boot-os` | what bm is: the boot, the kernel, the menu, the system keys, the files on the card |
 | `pi-zero-w` | the Pi Zero W 1.1 as bm uses it: the ARM1176, the VideoCore GPU, the bm3d 2D and 3D drivers |

@@ -87,3 +87,8 @@ sources = ["carts/sound/main.lua", "docs/design/suite-sound.md", "docs/progress/
 id = "editor-write"
 order = 17
 sources = ["carts/write/main.lua", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+
+[[manual]]
+id = "quickstart"
+order = 0
+sources = ["carts/sdk_b16/main.lua", "carts/code/main.lua", "docs/GAME-GUIDE.md", "docs/PERFORMANCE.md", "manuals/content/en/install-sd.md"]

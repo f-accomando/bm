@@ -177,6 +177,7 @@ make qemu
 - **Living Progress & Index**: [`docs/progress.md`](docs/progress.md) *(the canonical navigation root)*.
 - **Lua API Reference**: [`docs/API.md`](docs/API.md) *(complete draw, input, audio, 3D, and netplay reference)*.
 - **Game Authoring Guide**: [`docs/GAME-GUIDE.md`](docs/GAME-GUIDE.md) (Italian: [`docs/GUIDA-GIOCHI.md`](docs/GUIDA-GIOCHI.md)).
+- **Quick start (first game)**: [manuals/content/en/quickstart.md](manuals/content/en/quickstart.md) (Italian: [manuals/content/it/quickstart.md](manuals/content/it/quickstart.md); PDF in manuals/pdf/).
 - **Architecture & Design RFCs**: [`docs/design/`](docs/design/).
 - **Performance & Drivers**: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md), [`docs/DRIVERS.md`](docs/DRIVERS.md), and [`docs/HARDWARE.md`](docs/HARDWARE.md).
 - **AI Agent Guidelines**: [`CLAUDE.md`](CLAUDE.md) and [`GEMINI.md`](GEMINI.md).

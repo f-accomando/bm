@@ -5,6 +5,8 @@ maps, 3D models, sound and saves. The complete reference of every function is in
 [API.md](API.md). In Italian: [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md) and
 [API-IT.md](API-IT.md).
 
+First time with bm? The one-page quick start [quickstart.md](../manuals/content/en/quickstart.md) (PDF `manuals/pdf/quickstart.en.pdf`) makes a first game with a title, 3 stages and an ending; this guide explains every part of it.
+
 ## 0. On the console: the bm SDK
 
 Without a PC: in the menu's **Dev** tab there is the **bm SDK** (also `e` from the

@@ -946,6 +946,52 @@
    "docs/progress/v3d.md": "4238c5bee8d8"
   }
  },
+ "quickstart": {
+  "chapters": {
+   "1": {
+    "en": "f59f6644f8b2",
+    "it": "3877e7a3857a",
+    "title": "Before you start"
+   },
+   "2": {
+    "en": "e03d3209d89c",
+    "it": "ba5a1c51765b",
+    "title": "Make the game on the RGB30"
+   },
+   "3": {
+    "en": "33b048170925",
+    "it": "de19220ee016",
+    "title": "Make it yours"
+   },
+   "4": {
+    "en": "0040170968eb",
+    "it": "486f571b4ff7",
+    "title": "Play it from the menu"
+   },
+   "5": {
+    "en": "ee8c70be230e",
+    "it": "48298bc53dfb",
+    "title": "On the Pi: change the code with bm Code"
+   },
+   "6": {
+    "en": "e4087ed3cc45",
+    "it": "20f028288bde",
+    "title": "Keep it at 60 fps"
+   },
+   "7": {
+    "en": "00c8c8ed31d8",
+    "it": "9fad3dae0289",
+    "title": "Where to go next"
+   }
+  },
+  "sources": {
+   "carts/code/main.lua": "63235604898f",
+   "carts/sdk_b16/main.lua": "b500f5af0427",
+   "docs/GAME-GUIDE.md": "b2ad99839736",
+   "docs/PERFORMANCE.md": "1c3fc264eae4",
+   "manuals/content/en/install-sd.md": "803702d6a930"
+  }
+ },
  "riff": {
   "chapters": {
    "1": {

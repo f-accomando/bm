@@ -77,7 +77,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 ## Open work (`docs/ROADMAP.md`)
 
 - **Pi tests from the PC** ([`design/pi-test.md`](../design/pi-test.md)): R-NET1 monitor line `err` (last error of the cartridge), R-NET2 screenshot over the network (`shot` line + transfer op `G` + `bm_net.py --get`), R-NET3 a limited test token. To plan with `bm-planner` (kernel change, branch `claude/net-test-*`).
-- **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet.
+- **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 18 manuals (with `quickstart`, the one-page first game for testers) in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet.
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.

@@ -4,6 +4,8 @@ Guida pratica: dal primo file Lua alla cartuccia sulla SD, con sprite, mappe, mo
 suono e salvataggi. Il riferimento completo di ogni funzione è in [API-IT.md](API-IT.md).
 In inglese: [GAME-GUIDE.md](GAME-GUIDE.md) e [API.md](API.md).
 
+Prima volta con bm? La guida rapida di una pagina [quickstart.md](../manuals/content/it/quickstart.md) (PDF `manuals/pdf/quickstart.it.pdf`) crea un primo gioco con titolo, 3 stage e un finale; questa guida ne spiega ogni parte.
+
 ## 0. Sulla console: il bm SDK
 
 Senza PC: nella scheda **Dev** del menu c'è il **bm SDK** (anche `e` dal monitor), il
