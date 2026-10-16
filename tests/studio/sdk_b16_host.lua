@@ -266,6 +266,7 @@ end
 local E, texts, keyq, held, frame, saved_t, quitted, draws, arg_t
 local sec, sheet, mapc, lnames, mlay, flg
 local refused, copies, saves, last_save, built, ran, tooled
+local audio_files, audio_puts, audio_last = {}, 0, nil      -- the sound banks by file; what was played
 local keyhelp_list, keyhelp_title, MS, ai_full, last_kb, numeric_btn
 local loaded, cur_font
 local CUTS = {}
@@ -618,7 +619,20 @@ local function new_env(arg, o)
     if path ~= asked then return true, path end
     return true
   end
-  E.cart_audio = function() return false end
+  -- the sound banks of the files (cart_put_audio writes one, cart_audio reads
+  -- it: the AUDIO section of the project), and the last preview played
+  E.cart_put_audio = function(path, bank)
+    audio_files[path:upper()] = bank
+    audio_puts = audio_puts + 1
+    return true
+  end
+  E.cart_audio = function(path)
+    if path == nil then return nil end
+    return audio_files[path:upper()] or false
+  end
+  E.audio_bank = function(bank) audio_last = { bank = bank } end
+  E.audio_play = function(v, sound, note, vol, fx, ms) audio_last = { v = v, sound = sound, note = note, vol = vol, fx = fx, ms = ms, bank = audio_last and audio_last.bank } end
+  E.sfx = function(n) audio_last = { sfx = n, bank = audio_last and audio_last.bank } end
   -- the assistant's knowledge: the Pi's kernel (ask, entries, recipes) or,
   -- as on the RGB30, only the music
   if o.ai then
@@ -819,6 +833,8 @@ local pages = {
   { "sprites", "the sprites", function() press("r1"); press("r1") end },
   { "map", "the map", function() press("r1"); press("r1"); with("y", "down") end },
   { "3D", "3D", function() press("r1"); press("r1"); press("r1") end },
+  { "sounds", "the sounds", function() for _ = 1, 4 do press("r1") end end },
+  { "sfx", "the effects", function() for _ = 1, 4 do press("r1") end; with("y", "down") end },
 }
 for _, pg in ipairs(pages) do
   run_sdk(nil)
@@ -862,6 +878,130 @@ for _, pg in ipairs(pages) do
   check(ran_n == n and n > 5, pg[1] .. ": all its " .. n .. " actions run (" .. ran_n .. ")")
 end
 check(not numeric_btn, "the SDK never asks a button by number: " .. tostring(numeric_btn))
+
+
+-- the sounds page (APP-6d/e/f): the project's sound bank on the pad. The
+-- bank is written with the project (cart_put_audio after cart_save), what
+-- the file had after the effects is kept byte for byte, an edit is heard.
+local function bank_bytes(wave, tail)
+  local tone = {}
+  for i = 1, 21 do tone[i] = 0 end
+  tone[12] = 40
+  return "BMAU" .. string.pack("<BBBBBBxxxxxx", 2, 1, 0, 1, 0, 0)
+         .. string.pack("<c8BBBBBBBbBBBbxxxx", "TEST", wave, 128, 200, 1, 0, 255, 10, 0, 0, 0, 0, 0)
+         .. string.char(table.unpack(tone)) .. "\0\0\0" .. tail
+end
+local function settled()                          -- the status line, once the message is gone
+  frames(250)
+  return status()
+end
+local function open_sounds(arg)
+  if not arg then saved_t = nil end              -- a new project, not the last one
+  run_sdk(arg)
+  frames(3)
+  for _ = 1, 4 do press("r1") end
+  frames(2)
+end
+do
+  tag = "snd"
+  audio_files, audio_puts, audio_last = {}, 0, nil
+  open_sounds(nil)
+  check(sees("SOUNDS") and sees("(empty)") and tabs():find("snd", 1, true), "R1 x4: the sounds page: " .. tabs())
+  check(settled():find("sound 0", 1, true) and settled():find("SQUARE", 1, true), "sound 0: SQUARE: " .. status())
+  for _ = 1, 4 do press("right") end
+  check(sees("SINE") and settled():find("SINE", 1, true), "right x4: wave SINE: " .. status())
+  check(sees("*"), "an edit: the file is not saved")
+  press("ok")
+  check(audio_last and audio_last.sound == 0 and audio_last.note == 69 and audio_last.vol == 255 and audio_last.ms == 350
+        and type(audio_last.bank) == "string" and audio_last.bank:sub(1, 4) == "BMAU",
+        "ok plays A4 of slot 0 with the bank as it is now")
+  press("down")
+  for _ = 1, 3 do press("right") end
+  press("r2")
+  check(settled():find("sound 1", 1, true), "R2: sound 1: " .. status())
+  press("l2")
+  key("^s")
+  key("\n")                                      -- the name MYGAME.BME is accepted
+  local got = audio_files["/CARTS/MYGAME.BME"]
+  check(got and got:sub(1, 4) == "BMAU" and got:byte(5) == 2 and got:byte(6) == 1, "Ctrl+S writes the bank with the project")
+  check(got and got:byte(25) == 4 and got:byte(27) == 203, "the bank: sound 0 is SINE, its volume 203: "
+        .. tostring(got and got:byte(27)))
+  check(not tabs():find("*", 1, true), "saved: no star on the tabs")
+  local puts = audio_puts
+  key("^s")
+  check(audio_puts == puts + 1, "saving again writes the bank again (after the first edit)")
+
+  -- a bank of the file: read, edited, written with what follows the effects as it was
+  local tail = string.pack("<BBxx", 16, 0) .. "TAIL"
+  local orig = bank_bytes(4, tail)
+  saved_t = nil
+  run_sdk(nil); frames(3)
+  key("^S")
+  for _ = 1, 12 do key("\b") end
+  for c in ("TB"):gmatch(".") do key(c) end
+  key("\n")
+  audio_files["/CARTS/TB.BME"] = orig
+  local n0 = audio_puts
+  open_sounds({ path = "/carts/TB.BME", back = false })
+  check(sees("TEST") and settled():find("SINE", 1, true), "the file's bank: sound 0 TEST, SINE: " .. status())
+  key("^s")
+  frames(2)
+  check(audio_puts == n0 and audio_files["/CARTS/TB.BME"] == orig, "saving without touching the sounds leaves the bank alone")
+  press("right")
+  check(settled():find("METAL", 1, true), "right: the next wave: " .. status())
+  press("left")
+  key("^s")
+  check(audio_files["/CARTS/TB.BME"] == orig, "an edit undone: pack(parse(bank)) is the same bytes")
+  press("right")
+  key("^s")
+  local now = audio_files["/CARTS/TB.BME"]
+  check(now ~= orig and now:sub(-#tail) == tail and now:byte(8) == 1 and now:byte(25) == 5,
+        "an edit: the wave is METAL and the patterns after the effects are kept")
+
+  -- a bank the SDK cannot read: the page says so and nothing is written over it
+  audio_files["/CARTS/TB.BME"] = "BMAUxxxxxxxxxxxxxxxxxxxx"
+  open_sounds({ path = "/carts/TB.BME", back = false })
+  check(sees("cannot be read"), "a broken bank: the page says so")
+  press("right"); press("ok")
+  key("^s")
+  frames(2)
+  check(audio_files["/CARTS/TB.BME"] == "BMAUxxxxxxxxxxxxxxxxxxxx", "a broken bank is not written over")
+
+  -- the effects: Y + down is the other view; ok puts a note (A4 of the sound
+  -- chosen on the sounds page) and plays it, up / down change it, back clears
+  open_sounds(nil)
+  with("y", "down")
+  tag = "sfx"
+  check(sees("EFFECTS") and tabs():find("sfx", 1, true), "Y + down: the effects: " .. tabs())
+  press("ok")
+  check(audio_last and audio_last.sound == 0 and audio_last.note == 69 and audio_last.vol == 255 and audio_last.ms == 350,
+        "ok on a step: A4 of sound 0 is put and heard")
+  press("up")
+  check(settled():find("A#4", 1, true), "up: the note, A#4: " .. status())
+  press("right")
+  press("ok")
+  check(audio_last.note == 70, "the next step takes the last note (70): " .. tostring(audio_last.note))
+  press("back")
+  check(settled():find("empty", 1, true), "back: the step is empty")
+  press("left"); press("r2")
+  check(settled():find("effect 1", 1, true), "R2: effect 1: " .. status())
+  press("l2")
+  key("+")
+  key("^s")
+  key("\n")
+  local fx = audio_files["/CARTS/MYGAME.BME"]
+  check(fx and fx:byte(7) == 1 and fx:byte(6) == 0, "the effect is written: one effect, no sound")
+  check(fx and string.unpack("<H", fx, 25) == 70 and string.unpack("<I4", fx, 33) == (70 | 255 << 16),
+        "its speed 70 ms and its first step A#4 (note 70, sound 0, volume 255)")
+  with("y", "up")
+  check(sees("SOUNDS"), "Y + up: the sounds again")
+  key("f7")
+  check(sees("EFFECTS"), "F7 on the sounds page: the effects")
+  key("f7")
+  check(sees("SOUNDS"), "F7 again: the sounds")
+  key("f1"); key("f7")
+  check(sees("SOUNDS") or sees("EFFECTS"), "F7: the page from another")
+end
 
 -- the code page with the pad: the cross moves, ok types with padtype's keyboard
 run_sdk(nil)
