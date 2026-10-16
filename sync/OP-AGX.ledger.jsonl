@@ -3,3 +3,4 @@
 {"schema":1,"operator":"OP-AGX","wo":"AGX-3","branch":"claude/qemu-test-tmp-cleanup","commit":"3d556134","files":1,"add":5,"del":0,"lines":{"code":5,"docs":0,"data":0},"tokens":8000,"min":10,"iso":"2026-10-16T14:32+02:00"}
 {"schema":1,"operator":"OP-AGX","wo":"AGX-4","branch":"claude/test-cindex","commit":"c11f0768","files":1,"add":78,"del":0,"lines":{"code":78,"docs":0,"data":0},"tokens":6000,"min":5,"iso":"2026-10-16T14:34+02:00"}
 {"schema":1,"operator":"OP-AGX","wo":"AGX-5","branch":"claude/make-test-tools","commit":"7f306907","files":1,"add":7,"del":1,"lines":{"code":8,"docs":0,"data":0},"tokens":6500,"min":10,"iso":"2026-10-16T15:30+02:00"}
+{"schema":1,"operator":"OP-AGX","wo":"AGX-6","branch":"claude/budget-map-clean","commit":"d9a87694","files":1,"add":0,"del":23,"lines":{"code":0,"docs":0,"data":23},"tokens":4000,"min":5,"iso":"2026-10-16T15:40+02:00"}
