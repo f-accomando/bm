@@ -113,3 +113,20 @@ Rules for the session: one operator per feature; user approval before any push t
 **Pending with the user:** D03/D04 classes of the triage; baremetal push; PR for `claude/translate-skill`; rerun/cancel of CI runs; integration order of the AGY branches into bm-core; hardware proofs at the end of the day (list them from the delivered WOs).
 
 **Housekeeping:** ledger rows of 15-16 Oct are uncommitted in the local `bm-core` checkout (written with `scripts/ledger_add.py` from `..\bm33-ledger`); commit/push with the next protocol commit. `sync_log.py` is the way to write Log rows and inboxes.
+
+## 8. Update 16 Oct (evening, supersedes sections 6-7 where they differ)
+Session opens when the user says "buongiorno". The user runs the compact prompt, then logs off; tomorrow restarts with "buongiorno".
+
+**Operators at the close (all FREE, SIGNOFF sent):** NET, B16, AGY, AGX. CI idle (stale 550 min).
+
+**Reviews to do first thing (Haiku for docs and host Python, Sonnet for C/Lua/QEMU):** AGY-29 fix (313d1b41), AGY-38 (726e4718, QEMU), AGY-39 (4123405b), AGY-40 (f15ff570); AGX-3, 5, 6 if the running review did not close (see the Log). Corrections owed: APP-8 (text only), R-NET7a (test_monitor_crc flaky: find why two `c` presses give different screens; screendump or short sleep).
+
+**WO drafts for the day (`sync/wo/drafts/`, not assigned):** R-NET10 (bridge reads the password from a file outside the repo, mode 0600, user writes it; the user already created `~/.pi_bridge.pw`), QEMU-FLAKE (ConnectionRefused in `Qemu.__init__` + stages_build banner timeout; after AGX-3), R-NET8b, AGX-14 test with `keys(pause=0.3)` (`tests/rgb30/qemu_test.py:592-594`), AGY-20 `AI.md:3` points to untracked `AI-IT.md`, D12 note cites `menu_ui.c:1465` (the condition is at :1463), `ZOOM_STEPS` undefined in `carts/editor/main.lua:1799` (`make test-studio` EXIT=2, pre-existing). Renumber D43/D44 -> D45 at integration.
+
+**User proofs (all moved to tomorrow):** `:crc` (R-NET7), `pi_soak` (R-NET8), long watchdog, budget API-1, Stages 2D template, APP-6 pad only, APP-5b on screen, BETA-HWCARD (AGY-39 card). Done today with the user's OK: R-NET9 on the Pi (watchdog on 3000 ms, voluntary freeze reboots after ~10 s, normal kernel restored).
+
+**Standing user decisions (16 Oct):** permanent OK for upload/crash/reboot/pi_soak on Pi 1 (`set`/`save` stay refused by the bridge); password rule "never on disk" relaxed for the bridge file only (R-NET10); Haiku medium for reviews of docs and host Python (`bm-reviewer` on `claude/bm-reviewer-agent@7e7427f8`, not merged).
+
+**Merges still waiting for the user's go:** PR 25 (CI red: test_chainloader fixed by R-NET9 but not in the PR yet; flaky meshy2mesh/editor_mouse), approved branches (see Log), `claude/bm-reviewer-agent`.
+
+**Warning:** reviewers deleted `bm*` dirs in WSL `/tmp` (not only theirs). Tell reviewers to remove only dirs they created.
