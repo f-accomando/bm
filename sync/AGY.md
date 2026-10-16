@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-34
+state: FREE
+task: AGY-34 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T16:42+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T16:31+02:00
+updated: 2026-10-16T16:35+02:00
 ---
 # AGY — Antigravity
 
@@ -86,8 +86,12 @@ DELIVERED AGY-30 @ claude/docs-en-sync-start@7f8e85b2 · verifica: git grep paro
 DELIVERED AGY-31 @ claude/divergence-evidence@8d1d1aba · verifica: consistency.py check -> uscita identica a prima; diff -> 4 evidence · 1 file, +4 -4 · non verificato su hardware · 2026-10-16T16:16+02:00
 DELIVERED AGY-32 @ claude/config-readin-check@80b1f528 · verifica: python tests/tools/test_config_readin.py -> OK; config_readin.py -> exit 1, STALE assist_lang e battery_icon (31 STALE, 1 UNCHECKED) · 2 file nuovi · non verificato su hardware · 2026-10-16T16:23+02:00
 DELIVERED AGY-33 @ claude/config-readin-fix@e8a8639f · verifica: config_readin.py -> 0 stale, exit 0; consistency.py check invariato · 1 file, +31 -31 · non verificato su hardware · 2026-10-16T16:28+02:00
+DELIVERED AGY-34 @ claude/syllables-en@51dd8d2d · verifica: python scripts/syllables.py -> exit 0, cifre uguali; git grep parole italiane -> nessuna uscita · 1 file · non verificato su hardware · 2026-10-16T16:34+02:00
 
 ## Progressi
+- Completato AGY-34 (IT2EN-SYLLABLES) su claude/syllables-en@51dd8d2d:
+  - In `scripts/syllables.py`, tradotte in inglese tutte le stringhe di output e i titoli dei cicli (righe 99, 100, 104, 106, 108, 122, 124, 130, 133, 135, 137-142, 150-153, 159), preservando la logica e i formati.
+  - Verificato: `python scripts/syllables.py` exit 0, tutte le 457 cifre dell'output coincidono esattamente con l'esecuzione pre-modifica; `git grep -nE "sillab|vocal|consonant[ei] |frequenti|diversi"` nessuna uscita; `git diff --stat` 1 file, +19 -19. Registrato nel ledger e pushato.
 - Completato AGY-33 (READIN-FIX) su claude/config-readin-fix@e8a8639f:
   - In `docs/spec/config-keys.toml`, aggiornati i 31 riferimenti `read_in = "file:riga"` segnalati STALE da `scripts/config_readin.py` (tra cui `assist_lang` 4842 -> 4897, `battery_icon` 8331 -> 8395, i parametri `gpu3d_*`, `bt_*`, `r3d_*`, `session_report`, ecc.).
   - Verificato: `config_readin.py` restituisce `config_readin: 0 stale` ed exit code 0; `consistency.py check` invariato (`0 drift, 5 accepted, 0 stale`); `git diff --stat` conferma 1 file, +31 -31 (tutte sole righe `read_in =`). Registrato nel ledger e pushato.
