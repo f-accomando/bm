@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
+state: FREE
 task: AGY-15
 waiting_on: 
-progress: 0
+progress: 100
 eta: 2026-10-16T14:25+02:00
 wakeup: no
 ack: 2026-10-16T13:53+02:00
-updated: 2026-10-16T14:00+02:00
+updated: 2026-10-16T14:07+02:00
 ---
 # AGY — Antigravity
 
@@ -67,8 +67,14 @@ DELIVERED AGY-11 @ agy/beta6-gate@a59a54cf · verifica: test_consistency_beta (1
 DELIVERED AGY-12 @ agy/sdlog-scan@ef9b9564 · verifica: python tests/tools/test_sdlog_scan.py -> 13/13 test OK; python scripts/docs_audit.py score -> score 6653 penalties 0 · 2026-10-16T11:34+02:00
 DELIVERED AGY-13 @ agy/carts-layout@7f45e21d · verifica: test_carts_layout -> OK; carts_layout.py -> exit 0, layout: 26 projects, 21 with bm.info, 5 old layout, 0 errors; docs_audit score -> score 6646 penalties 0 · 2026-10-16T11:43+02:00
 DELIVERED AGY-14 @ claude/app5b-lint-fixture@3393b811 · verifica: make test-predict -> 37 checks 0 failed; mutazioni M2 M4 M7 M8 -> 2 failed ciascuna · 2 file, 15 righe · non verificato su hardware · 2026-10-16T13:59+02:00
+DELIVERED AGY-15 @ claude/rgb30-test-tmp-cleanup@a118467a · verifica: qemu_test.py -k sdk_pad_sprite -> PASS, /tmp/bm64* prima 0 dopo 0 · 1 file, +37 -19 · non verificato su hardware (QEMU) · 2026-10-16T14:07+02:00
 
 ## Progressi
+- Completato AGY-15 (QEMU-TMP) su claude/rgb30-test-tmp-cleanup@a118467a:
+  - In `tests/rgb30/qemu_test.py`, implementato il tracciamento e la pulizia automatica delle cartelle temporanee `bm64*` (~129 MB ciascuna, inclusi `mon.sock`, `screen.ppm` e `sd.img`/`after.img`) create durante i test dell'RGB30.
+  - Aggiunti gli helper `mktmp(prefix)` e `rm_tmps()`, sostituiti tutti i 19 siti di allocazione temporanea (`tempfile.mkdtemp(prefix="` -> `mktmp(prefix="`), e agganciato un blocco `finally: rm_tmps()` nel ciclo principale di esecuzione test in `main()`.
+  - Verificato con `build/chk.py`: creazione e rimozione automatica OK (`ok True`).
+  - Verificato con `tests/rgb30/qemu_test.py -k sdk_pad_sprite` e `-k sdk_pad_build`: entrambi i test passano a verde (`PASS`, `EXIT=0`) e al termine lasciano 0 cartelle `/tmp/bm64*` residue (prima: 0, durante: 2, dopo: 0; uso spazio `/tmp` invariato a 0%). Diff finale: 1 file, 37 inserimenti, 19 cancellazioni. Registrato nel ledger e pushato.
 - Completato AGY-14 (APP5B-FIXTURE) su claude/app5b-lint-fixture@3393b811:
   - Estesa la fixture `tests/predict/lint_sample.lua` con 9 righe in fondo per coprire le 4 mutazioni identificate nella review di APP-5b (nomi sconosciuti in stringhe `"` e `'`, chiamata `hurt` consentita da `scripts/api_lint_allow.txt`, dichiarazione `local a, b` a nomi multipli, blocco di commento multiriga `--[[ ... ]]`).
   - Aggiunti 4 check dedicati in `tests/predict/predict_test.lua` (6 righe) verificando che `seen.zzstr`/`seen.zzsq`, `seen.hurt`, `seen.lva`/`seen.lvb` e `seen.blockcall` siano nulli.
