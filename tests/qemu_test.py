@@ -7722,6 +7722,61 @@ def test_chainloader_bad_crc(b, opts):
         q.close()
 
 
+def test_sdk_stages_pi(b, opts):
+    """Stages 2D in the Pi's bm SDK: Ctrl+N, the last of nine templates (one Up
+    from the first row), a name with Ctrl+S, Ctrl+B builds the game next to
+    the project; the .BM carries the template's Lua."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdsp-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def k(s, gap=0.2):
+        q.send(s)
+        time.sleep(gap)
+
+    def see(word, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: any(word in l for l in t), tries=2)
+            if any(word in l for l in text):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("e")
+        see("OPEN IN")
+        k("\x0e", 0.5)                                      # Ctrl+N: the templates
+        see("new project from a template")
+        see("Stages 2D")                                    # the ninth, in the list
+        k("\x1b[A", 0.3)                                    # one Up wraps to the last row
+        k("\r", 0.5)
+        see("new project (Stages 2D)")
+        k("\x13", 1)                                        # Ctrl+S: no name yet, Save as
+        see("file name")
+        k("\r")
+        see("saved /carts/MYGAME.BME")
+        k("\x02", 1)                                        # Ctrl+B: the game next to it
+        see("built ")
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True, env=env,
+                               text=True).stdout.upper()
+        assert "MYGAME.BME" in names and "MYGAME.BM" in names.replace("MYGAME.BME", ""), names
+        game = subprocess.run(["mtype", "-i", part, "::/CARTS/MYGAME.BM"], capture_output=True,
+                              env=env).stdout
+        assert game[:8] == b"BMCART\x00\x00", game[:16]
+        assert b"stages: title best" in game, "the template's Lua in the .BM"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--build", default="build")
