@@ -15,3 +15,4 @@
 {"schema":1,"operator":"OP-AGY","wo":"AGY-23","branch":"claude/docs-en-tools-open","commit":"8e244f69","files":1,"add":3,"del":3,"lines":{"code":0,"docs":6,"data":0},"tokens":3400,"min":2,"iso":"2026-10-16T14:33+02:00"}
 {"schema":1,"operator":"OP-AGY","wo":"AGY-24","branch":"claude/ci-audit-english","commit":"659373ab","files":1,"add":38,"del":38,"lines":{"code":76,"docs":0,"data":0},"tokens":4200,"min":3,"iso":"2026-10-16T14:38+02:00"}
 {"schema":1,"operator":"OP-AGY","wo":"AGY-25","branch":"claude/docs-en-sync-rules","commit":"ac81296a","files":1,"add":9,"del":9,"lines":{"code":0,"docs":18,"data":0},"tokens":3800,"min":3,"iso":"2026-10-16T14:41+02:00"}
+{"schema":1,"operator":"OP-AGY","wo":"AGY-26","branch":"claude/docs-it-links-api","commit":"78839caba08e647eb52743e78c3c75ec8b710b8f","files":4,"add":4,"del":5,"lines":{"code":0,"docs":9,"data":0},"tokens":1200,"min":3,"iso":"2026-10-16T15:46+02:00"}

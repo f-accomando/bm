@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-26
+state: FREE
+task: AGY-26 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-16T15:55+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T15:43+02:00
+updated: 2026-10-16T15:47+02:00
 ---
 # AGY — Antigravity
 
@@ -78,8 +78,12 @@ DELIVERED AGY-22 @ claude/docs-en-system-console@7d670544 · verifica: git grep 
 DELIVERED AGY-23 @ claude/docs-en-tools-open@8e244f69 · verifica: git grep parole italiane su tools.md -> 0 righe; docs_audit.py score -> penalties 0 come prima · 1 file, +3 -3 · non verificato su hardware · 2026-10-16T14:33+02:00
 DELIVERED AGY-24 @ claude/ci-audit-english@659373ab · verifica: ci_audit.py prima/dopo -> stesso exit 0 e stesse 0 righe PROBLEM; py_compile OK; grep parole italiane -> 0 righe; PyYAML presente e check_ci provato (ci_bad.yml -> 3 problem) · 1 file, +38 -38 · non verificato su hardware · 2026-10-16T14:38+02:00
 DELIVERED AGY-25 @ claude/docs-en-sync-rules@ac81296a · verifica: git grep parole italiane su sync.md -> solo Frase di avvio (70, 72) e ## Consegne (62); letterali Fai handshake x2 e da <ID> a <ID> x1 intatti; docs_audit.py score -> penalties 0 come prima · 1 file, +9 -9 · non verificato su hardware · 2026-10-16T14:41+02:00
+DELIVERED AGY-26 @ claude/docs-it-links-api@78839cab · verifica: git grep API-IT -> 0 occorrenze nei 4 file; docs_audit.py score -> penalties 0 come prima · 4 file, +4 -5 · non verificato su hardware · 2026-10-16T15:46+02:00
 
 ## Progressi
+- Completato AGY-26 (IT-LINKS-API) su claude/docs-it-links-api@78839cab:
+  - Rimossi i 5 link rotti al file inesistente `API-IT.md` da 4 file: `docs/API.md` (riga 3 e prefisso riga 6), `AI.md` (riga 18), `sdk/README.md` (riga 41), `docs/progress/lua.md` (riga 5).
+  - Verificato: `git grep API-IT` sui 4 file produce 0 occorrenze; `docs_audit.py score` mantiene penalità 0; `git diff --stat` conferma 4 file modificati (+4 -5). Registrato nel ledger e pushato.
 - Completato AGY-25 (IT2EN-SYNCRULES) su claude/docs-en-sync-rules@ac81296a:
   - In `docs/progress/sync.md`, tradotti in inglese i 9 bullet italiani della sezione `## Rules (do not break)` (un branch di sync per progetto, handshake, battito a eventi senza timer, consegne, review di una consegna, operatori senza canale diretto, caselle e controllo oggettivo, sign-off, no task open-ended), preservando intatti i letterali di protocollo (`Fai handshake`, `DELIVERED`, `REVIEW`, `APPROVED`, `SIGNOFF`, `letto <ora riga>`, `## Consegne`, ecc.) e la riga già in inglese `Heartbeat cost`.
   - Verificato: `git grep` su parole italiane individua solo `## Consegne` (letterale) e la `## Frase di avvio` (voluta e preservata); conteggi letterali intatti (Fai handshake: 2, da <ID> a <ID>: 1); `git diff -U0` conferma che Frase di avvio e Heartbeat cost non sono toccate; `docs_audit.py score` mantiene penalità 0; diff esattamente di 1 file, +9 -9. Registrato nel ledger e pushato.
