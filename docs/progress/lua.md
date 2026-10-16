@@ -2,7 +2,7 @@
 
 The Lua 5.4 VM, the cartridge runtime, the libraries built into the kernel and the dev kit.
 The API itself (every function, arguments, examples) is in [`docs/API.md`](../API.md) and
-its copies (`docs/API-IT.md`, `docs/GAME-GUIDE.md`, `docs/GUIDA-GIOCHI.md`): not repeated
+its copies (`docs/GAME-GUIDE.md`, `docs/GUIDA-GIOCHI.md`): not repeated
 here.
 
 ## How it is today

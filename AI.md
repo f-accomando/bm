@@ -15,7 +15,7 @@ pieces below: an INT8 engine in C with the ARMv6 SIMD, training on the PC and in
 on the Pi, bit-exact tests inside `make test`, and the hybrid approach (the network chooses
 among the entries of a knowledge base and among the sprite recipes, classic code does the
 rest). Details, numbers and what to try on the Pi: [docs/ROADMAP.md](docs/ROADMAP.md), M30;
-API in [docs/API-IT.md](docs/API-IT.md) ([docs/API.md](docs/API.md) in English). The same
+API in [docs/API.md](docs/API.md). The same
 engine will later serve the games (the Titan Clash CPU opponent, below).
 
 ## Most sensible and useful for bm
