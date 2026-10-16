@@ -201,7 +201,7 @@ cause = "todo"
 priority = 6
 status = "open"
 note = "depends on the on-screen keyboard and the pad typing, which the owner is working on."
-evidence = "src/rgb30/rtw_sta.c:643; docs/progress/system.md:107"
+evidence = "src/rgb30/rtw_sta.c:643; docs/progress/system.md:82-83"
 action = "needs the on-screen keyboard (R1/R2)"
 
 [[divergence]]
@@ -279,7 +279,7 @@ rgb30 = "not done"
 cause = "todo"
 priority = 6
 status = "open"
-evidence = "docs/progress/platforms.md:68"
+evidence = "docs/progress/platforms.md:69"
 action = "M41"
 
 [[divergence]]
@@ -312,7 +312,7 @@ rgb30 = "not done"
 cause = "todo"
 priority = 6
 status = "open"
-evidence = "docs/progress/system.md:110"
+evidence = "docs/progress/system.md:85"
 action = "extend the screenshot to the menu"
 
 [[divergence]]
@@ -434,7 +434,7 @@ rgb30 = "icon, low-battery overlay, Settings row, LED"
 cause = "hardware"
 capability = "battery"
 status = "open"
-evidence = "docs/progress/platforms.md:41-45"
+evidence = "docs/progress/platforms.md:40-45"
 action = "none"
 
 [[divergence]]
