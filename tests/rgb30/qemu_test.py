@@ -8,6 +8,7 @@ PLAT=virt (PL011 serial port, ramfb screen, GICv3, generic timer).
 import argparse
 import os
 import re
+import shutil
 import socket
 import struct
 import subprocess
@@ -27,6 +28,21 @@ import mkbm  # noqa: E402
 import bmaudio  # noqa: E402
 
 QEMU = os.environ.get("QEMU64", "qemu-system-aarch64")
+
+TMP_DIRS = []           # the temporary folders of the running test, removed by main() after it
+
+
+def mktmp(prefix):
+    """A temporary folder (an SD image is 64 MB, and /tmp of WSL is a 3.9 GB tmpfs)."""
+    d = tempfile.mkdtemp(prefix=prefix)
+    TMP_DIRS.append(d)
+    return d
+
+
+def rm_tmps():
+    while TMP_DIRS:
+        shutil.rmtree(TMP_DIRS.pop(), ignore_errors=True)
+
 SCREEN = 360           # the menu (made as big as the 720x720 panel on the console)
 
 
@@ -36,7 +52,7 @@ RAMDISK = 0x50000000    # src/rgb30/sd_virt.c
 class Qemu:
     def __init__(self, image, machine="virt,gic-version=3", extra=(), sd=None):
         """sd: an SD card image (scripts/mksd.py), loaded as a RAM disk."""
-        self.tmp = tempfile.mkdtemp(prefix="bm64-")
+        self.tmp = mktmp(prefix="bm64-")
         if sd:
             extra = (*extra, "-device", f"loader,file={sd},addr={RAMDISK:#x},force-raw=on")
         self.mon_path = os.path.join(self.tmp, "mon.sock")
@@ -259,7 +275,7 @@ def test_menu_games_and_hidden_bm(b, opts):
     """.b16 files in bm/ are the games; the .bm cartridges are listed too,
     for testing, unless show_bm=0 in bm/config.txt (then the Games tab says
     how many are hidden)."""
-    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    tmp = mktmp(prefix="bm64sd-")
     sd = make_sd(tmp, {"bm/racer.b16": b"B16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64),
                        "bm/notes.txt": b"hello", "bm/config.txt": b"show_bm=0\n"})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
@@ -304,7 +320,7 @@ def test_menu_games_and_hidden_bm(b, opts):
 def test_bootlog_on_sd(b, opts):
     """The boot log goes to bm/bootlog.txt on the SD card (read back from
     the RAM disk with mtools: the FAT stays valid)."""
-    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    tmp = mktmp(prefix="bm64sd-")
     sd = make_sd(tmp, {"bm/racer.b16": b"B16" + bytes(100)})
     size = os.path.getsize(sd)
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
@@ -338,7 +354,7 @@ def test_update_from_sd(b, opts):
     bm/backup, the new one written last (read back from the RAM disk with
     mtools before the restart, which reloads it), and the console restarts.
     Both in the menu's background: the panel stays on the screen."""
-    tmp = tempfile.mkdtemp(prefix="bm64up-")
+    tmp = mktmp(prefix="bm64up-")
     key, pub = os.path.join(tmp, "key.pem"), os.path.join(tmp, "pub.pem")
     subprocess.run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256",
                     "-out", key], check=True, capture_output=True)
@@ -489,7 +505,7 @@ def test_confirm_button(b, opts):
     serial port's Enter presses the confirm button."""
     chips = {}
     for config, ok, held in ((b"layout=us\n", "B", "00000020"), (b"confirm=a\n", "A", "00000010")):
-        tmp = tempfile.mkdtemp(prefix="bm64sd-")
+        tmp = mktmp(prefix="bm64sd-")
         sd = make_sd(tmp, {"bm/config.txt": config})     # no games: Dev is one tab away
         q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
         try:
@@ -532,7 +548,7 @@ def test_bm_cartridge(b, opts):
     RGB565, runs on the AArch64 kernel (QEMU shows its screen 1:1, widened to
     32 bits); its screen, then A reaches the game; 'q' leaves with the frame
     statistics and the menu's 360x360 comes back."""
-    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    tmp = mktmp(prefix="bm64sd-")
     sd = make_sd(tmp, {"bm/picart.bm": mkbm.pack(PI_CART.encode(), title="Pi cart", author="tests",
                                                  res=(360, 360))})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
@@ -567,7 +583,7 @@ def test_stages_template(b, opts):
     """The SDK's 'stages' template (carts/sdk_b16/main.lua) on the RGB30: a
     Pi cartridge at 360x360, played from the menu with confirm (Enter); ok in the game is Space;
     its title logs the best time, the ok button starts stage 1; 'q' leaves."""
-    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    tmp = mktmp(prefix="bm64sd-")
     sd = make_sd(tmp, {
         "bm/config.txt": b"game_intro=0\n",
         "bm/stages.bm": mkbm.pack(sdk_template("stages").encode(), title="Stages", author="tests",
@@ -592,7 +608,7 @@ def test_sdk_stages_build(b, opts):
     """From the bm SDK to the game: Ctrl+N, the ninth template (Stages 2D),
     Ctrl+B and a name build /carts/MYGAME.BM next to the project; its Lua is
     the template's (the 'stages: title best' log)."""
-    tmp = tempfile.mkdtemp(prefix="bm64sdk-")
+    tmp = mktmp(prefix="bm64sdk-")
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n"})
     size = os.path.getsize(sd)
     dump = os.path.join(tmp, "after.img")
@@ -649,7 +665,7 @@ def test_bench3d(b, opts):
     """The Dev tab's 3D Bench (src/bm/b3d.c) at 640x360: every test on the
     ARM, the report on the serial port, in bm/bench on the SD card and in
     bm/reports for GitHub; the back button returns to the menu's 360x360."""
-    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    tmp = mktmp(prefix="bm64sd-")
     sd = make_sd(tmp, {"bm/config.txt": b"layout=us\n"})
     size = os.path.getsize(sd)
     dump = os.path.join(tmp, "after.img")
@@ -748,7 +764,7 @@ def test_market_b16(b, opts):
     until it is the tab, nothing loads before; of the catalog only the .b16
     (the user's choice for the RGB30); one downloads after a question, goes
     to bm/ as POCKET.B16, plays, and the Games tab has it."""
-    tmp = tempfile.mkdtemp(prefix="bm64mk-")
+    tmp = mktmp(prefix="bm64mk-")
     key, pub = os.path.join(tmp, "key.pem"), os.path.join(tmp, "pub.pem")
     subprocess.run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256",
                     "-out", key], check=True, capture_output=True)
@@ -840,7 +856,7 @@ def test_sdk_tool(b, opts):
     it ('q' stops it) and the SDK comes back with the run's numbers;
     Ctrl+\\ (Ctrl+Esc) leaves it for the menu. The Dev tab has it last; it
     opens on the file of the last time."""
-    tmp = tempfile.mkdtemp(prefix="bm64sdk-")
+    tmp = mktmp(prefix="bm64sdk-")
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
                        "bm/tryme.b16": mkbm.pack(TRY_ME.encode(), title="Try me", author="tests", res=(360, 360))})
 
@@ -972,7 +988,7 @@ def cart_secs(data):
 def sdk_kb_run(b, drive, check):
     """A new Empty 2D project: drive(q), save, leave, check(cart_secs of
     /carts/MYGAME.BME)."""
-    tmp = tempfile.mkdtemp(prefix="bm64kb-")
+    tmp = mktmp(prefix="bm64kb-")
     q, size = sdk_session(b, tmp)
     try:
         sdk_open(q)
@@ -1092,7 +1108,7 @@ def test_sdk_pad_lib(b, opts):
     kit.bm and its sound BELL into the first empty slot; the saved
     project's AUDIO has it as sound 0."""
     kit = mkbm.pack(b"", title="Kit", audio=bmaudio.pack({"sounds": [{"name": "BELL", "wave": "metal"}]}))
-    tmp = tempfile.mkdtemp(prefix="bm64kb-")
+    tmp = mktmp(prefix="bm64kb-")
     q, size = sdk_session(b, tmp, {"bm/lib/kit.bm": kit})
     try:
         sdk_open(q)
@@ -1142,7 +1158,7 @@ def test_sdk_pad_build(b, opts):
     a pixel, a tile, 'do end ', a sine, Ctrl+S, Ctrl+B builds MYGAME.BM
     next to the project, the menu's Export .b16 puts MYGAME.B16 in bm/. The
     game has the project's LUA, SHEET, MAP and AUDIO."""
-    tmp = tempfile.mkdtemp(prefix="bm64kb-")
+    tmp = mktmp(prefix="bm64kb-")
     q, size = sdk_session(b, tmp)
     try:
         sdk_open(q)
@@ -1217,7 +1233,7 @@ def test_battery_icon(b, opts):
     x0, x1, y0 = SCREEN - 16 - 27, SCREEN - 16, 12        # menu_ui.c: status_icons
 
     def look(config, settings=False):
-        tmp = tempfile.mkdtemp(prefix="bm64bat-")
+        tmp = mktmp(prefix="bm64bat-")
         q = Qemu(os.path.join(b, "kernel.elf"), sd=make_sd(tmp, {"bm/config.txt": config}))
         try:
             boot(q)
@@ -1273,7 +1289,7 @@ def test_battery_low_game(b, opts):
     icon), battery_low() still true."""
 
     def run(config):
-        tmp = tempfile.mkdtemp(prefix="bm64low-")
+        tmp = mktmp(prefix="bm64low-")
         sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n" + config,
                            "bm/low.bm": mkbm.pack(LOW_CART.encode(), title="Low", author="tests")})
         q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
@@ -1333,7 +1349,7 @@ function _draw() cls(1) end
 def test_riff(b, opts):
     """riff (require "riff", M46) on the RGB30: a pattern of one A4 a cycle,
     queued with play_at, comes out of the console's output at 440 Hz."""
-    tmp = tempfile.mkdtemp(prefix="bm64riff-")
+    tmp = mktmp(prefix="bm64riff-")
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
                        "bm/riff.bm": mkbm.pack(RIFF_CART.encode(), title="Riff", author="tests")})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
@@ -1403,7 +1419,7 @@ def test_nnet(b, opts):
     lua += ["  log('nnet size ' .. table.concat({net:size()}, ' '))", "end",
             "function _update() t = t + 1 if t == 20 then log('nnet done') quit() end end",
             "function _draw() cls(1) end"]
-    tmp = tempfile.mkdtemp(prefix="bm64nnet-")
+    tmp = mktmp(prefix="bm64nnet-")
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
                        "bm/nnet.bm": mkbm.pack("\n".join(lua).encode(), title="Nnet", author="tests")})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
@@ -1435,7 +1451,7 @@ def test_sound(b, opts):
     the square of the level); the level is saved in bm/config.txt;
     Settings > Screen and sound has the Sound, Volume, Bit depth (24-bit by
     default) and Test the sound rows."""
-    tmp = tempfile.mkdtemp(prefix="bm64snd-")
+    tmp = mktmp(prefix="bm64snd-")
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
                        "bm/tone.bm": mkbm.pack(TONE_CART.encode(), title="Tone", author="tests")})
     size = os.path.getsize(sd)
@@ -1506,6 +1522,8 @@ def main():
             failed += 1
             print(f"FAIL {t.__name__}")
             traceback.print_exc()
+        finally:
+            rm_tmps()
     print(f"{len(TESTS) - failed if not opts.k else ''} passed, {failed} failed")
     sys.exit(1 if failed else 0)
 
