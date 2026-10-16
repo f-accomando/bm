@@ -1,10 +1,10 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGX-14 consegnato
+state: WORKING
+task: WO AGX-15: D12-DETAILS cover details & last perf note
 waiting_on: 
-eta: 2026-10-16T16:45+02:00
+eta: 2026-10-16T16:55+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
 updated: 2026-10-16T16:13+02:00
