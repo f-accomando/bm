@@ -633,9 +633,8 @@ def test_sdk_stages_build(b, opts):
         time.sleep(1.0)
         q.send("\x0e")                          # Ctrl+N: new project from a template
         screen(["new project from a template", "Stages 2D"])
-        for _ in range(8):                      # down (arrow) to the ninth row
-            q.send("\x1b[B")
-            time.sleep(0.4)
+        q.send("\x1b[A")                        # Up: D.choose wraps from the first row to the ninth
+        time.sleep(0.4)
         q.send("\r")
         screen(["new project (Stages 2D)"])
         q.send("\x02")                          # Ctrl+B: Save as
@@ -1001,7 +1000,7 @@ def sdk_kb_run(b, drive, check):
     check(cart_secs(sd_read(dump, "/carts/MYGAME.BME")))
 
 
-def test_sdk_pad_sprite(b, opts):
+def test_sdk_kb_sprite(b, opts):
     """bm SDK, by keyboard (the serial port): F3 is the sprite editor, space
     paints pixel (0,0) of cell 0 (white); Ctrl+S, leave: the SHEET of the
     saved project. (Same Lua action as the pad's ok, P.sprite.act("paint").)"""
@@ -1018,7 +1017,7 @@ def test_sdk_pad_sprite(b, opts):
     sdk_kb_run(b, drive, check)
 
 
-def test_sdk_pad_map(b, opts):
+def test_sdk_kb_map(b, opts):
     """By keyboard: F3 F3 is the map editor, space places tile 1 on cell (0,0)
     of layer 1; the saved project's MAP says so."""
     def drive(q):
@@ -1042,7 +1041,7 @@ def test_sdk_pad_map(b, opts):
     sdk_kb_run(b, drive, check)
 
 
-def test_sdk_pad_code(b, opts):
+def test_sdk_kb_code(b, opts):
     """By keyboard: F2 is the code, 'do end ' is typed at the cursor (the
     start of the template's Lua); the saved project's LUA has it."""
     def drive(q):
@@ -1073,7 +1072,7 @@ def sdk_heard(q, timeout=8.0):
         q.buf += q.port.read(0.1)
 
 
-def test_sdk_pad_sound(b, opts):
+def test_sdk_kb_sound(b, opts):
     """By keyboard: F7 is the sounds page, four Right keys take the wave of
     sound 0 from SQUARE to SINE, Enter plays it; the saved project's AUDIO
     has it. (The pad's actions are the same Lua, P.snd.act.)"""
@@ -1102,7 +1101,7 @@ def test_sdk_pad_sound(b, opts):
     assert heard and heard[0] is not None, "the sink heard nothing of the preview"
 
 
-def test_sdk_pad_lib(b, opts):
+def test_sdk_kb_lib(b, opts):
     """By keyboard: F7 is the sounds page, i (the pad's X: Sounds from a file
     (Lib)...) lists the files of bm/lib with a sound bank, Enter takes
     kit.bm and its sound BELL into the first empty slot; the saved
@@ -1133,7 +1132,7 @@ def test_sdk_pad_lib(b, opts):
     assert sounds[0]["name"] == "BELL" and sounds[0]["wave"] == "metal", sounds[:1]
 
 
-def test_sdk_pad_sfx(b, opts):
+def test_sdk_kb_sfx(b, opts):
     """By keyboard: F7 F7 is the effects, Enter puts A4 (sound 0, volume 255)
     on step 0 of effect 0; the saved project's AUDIO has it."""
     def drive(q):
@@ -1153,7 +1152,7 @@ def test_sdk_pad_sfx(b, opts):
     sdk_kb_run(b, drive, check)
 
 
-def test_sdk_pad_build(b, opts):
+def test_sdk_kb_build(b, opts):
     """The whole game with the keyboard (the pad's actions, as the others):
     a pixel, a tile, 'do end ', a sine, Ctrl+S, Ctrl+B builds MYGAME.BM
     next to the project, the menu's Export .b16 puts MYGAME.B16 in bm/. The
