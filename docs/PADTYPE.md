@@ -221,8 +221,8 @@ function _update()
   end
 end
 function _draw()
-  -- il testo; al cursore pt.pending() (P.C_PEND), pt.ghost() (C_GHOST),
-  -- le pt.open_len() lettere prima (C_OPEN), le pt.flash() (C_PRED)
+  -- the text; at the cursor pt.pending() (P.C_PEND), pt.ghost() (C_GHOST),
+  -- the pt.open_len() letters before (C_OPEN), the pt.flash() (C_PRED)
   pt.draw(150, 226)
 end
 ```
