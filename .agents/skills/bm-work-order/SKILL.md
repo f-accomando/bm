@@ -1,28 +1,28 @@
 ---
 name: bm-work-order
-description: Generatore e validatore di Ordini di Lavoro (Work Order) per bm. Applica il Gate di Prontezza (Readiness Gate a 5 domande) per determinare se una task è pronta per essere eseguita da bm-mechanic, bm-coder, bm-light o se deve essere spezzata da bm-planner.
+description: Generator and validator of Work Orders for bm. Applies the Readiness Gate (5 questions) to determine whether a task is ready to be executed by bm-mechanic, bm-coder, bm-light or must be split by bm-planner.
 ---
 
 # bm Work Order & Readiness Gate Protocol
 
-Questa skill guida la generazione e validazione di ordini di lavoro (Work Order) per garantire **massima efficienza dei token**, determinismo del codice e zero decisioni non pianificate durante la scrittura.
+This skill guides the generation and validation of Work Orders to ensure **maximum token efficiency**, code determinism and zero unplanned decisions during writing.
 
-## 1. Il Gate di Prontezza (5 Domande)
-Prima di assegnare una task all'esecuzione, rispondi a queste 5 domande:
+## 1. The Readiness Gate (5 Questions)
+Before assigning a task to execution, answer these 5 questions:
 
-1. **File/Funzioni espliciti**: Sono nominati i percorsi dei file e i nomi delle funzioni/simboli esatti da toccare?
-2. **Determinismo del Diff**: La modifica è descritta in modo tale che due programmatori farebbero lo stesso diff (nessuna scelta di design aperta)?
-3. **Criterio Verificabile**: Esiste un comando deterministico di verifica (es. `python tests/qemu_test.py -k <nome>`, compilazione, asserzione)?
-4. **Scope Contenuto**: Riguarda indicativamente 3 file o meno?
-5. **Zero Dipendenze Sospese**: Non dipende da una decisione architetturale o di prodotto ancora da prendere?
+1. **Explicit files/functions**: Are the file paths and the exact names of the functions/symbols to touch named?
+2. **Diff determinism**: Is the change described such that two programmers would make the same diff (no open design choice)?
+3. **Verifiable criterion**: Is there a deterministic verification command (e.g. `python tests/qemu_test.py -k <nome>`, compilation, assertion)?
+4. **Contained scope**: Does it involve roughly 3 files or fewer?
+5. **Zero pending dependencies**: Does it not depend on an architectural or product decision still to be made?
 
-### Esito del Gate
-- **5 su 5 SÌ** $\to$ Task **PRONTA**. Seleziona l'agente esecutivo (`bm-mechanic`, `bm-coder`, `bm-light`).
-- **Almeno 1 NO** $\to$ Task **NON PRONTA**. Invocare `bm-planner` (Gemini Pro / Opus) per investigare, sciogliere le ambiguità e produrre uno o più Work Order.
+### Gate Outcome
+- **5 out of 5 YES** $\to$ Task **READY**. Select the executing agent (`bm-mechanic`, `bm-coder`, `bm-light`).
+- **At least 1 NO** $\to$ Task **NOT READY**. Invoke `bm-planner` (Gemini Pro / Opus) to investigate, resolve the ambiguities and produce one or more Work Orders.
 
 ---
 
-## 2. Template Ufficiale del Work Order
+## 2. Official Work Order Template
 
 ```markdown
 ### WORK ORDER: [ID-BREVE]
@@ -36,8 +36,8 @@ Prima di assegnare una task all'esecuzione, rispondi a queste 5 domande:
 
 ---
 
-## 3. Protocollo di Chiusura
-L'agente esecutore restituisce uno dei seguenti stati:
-- **`DONE`**: Comando di verifica eseguito e passato con successo. Breve diff summary.
-- **`BLOCKED: <motivo>`**: Specifica incompleta, firma non corrispondente o decisione mancante $\to$ ritorno a `bm-planner`.
-- **`FAILED x2`**: Due tentativi consecutivi di fix falliti $\to$ escalation a `bm-light` o `bm-deep`.
+## 3. Closing Protocol
+The executing agent returns one of the following states:
+- **`DONE`**: Verification command run and passed successfully. Brief diff summary.
+- **`BLOCKED: <motivo>`**: Incomplete specification, mismatched signature or missing decision $\to$ back to `bm-planner`.
+- **`FAILED x2`**: Two consecutive fix attempts failed $\to$ escalation to `bm-light` or `bm-deep`.

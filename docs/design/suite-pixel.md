@@ -1,113 +1,112 @@
-# Proposte di Sviluppo: bm Pixel (Suite 2D & Sprite Editor)
+# Development Proposals: bm Pixel (2D Suite & Sprite Editor)
 
-Questo documento analizza cosa manca a **bm Pixel** (`carts/pixel`) per supportare la creazione completa di kit di animazione per personaggi complessi (stile *Titan Clash*, *Yharnam* o action/platformer avanzati), identificando le criticità dell'approccio manuale e delineando proposte concrete per l'interfaccia e il motore.
-
----
-
-## 1. Stato Attuale di bm Pixel
-
-Attualmente `bm Pixel` è strutturato in tre modalità principali:
-- **F1 (Draw)**: Disegno dello sprite ingrandito (matita, gomma, riempimento, linee, rettangoli, ovali, selezioni, specchio, onion skin singolo frame).
-- **F2 (Sheet)**: Vista d'insieme dello sprite sheet (scelta sprite, copia/incolla, ridimensionamento dello sheet da 8 fino a 4096 px).
-- **F3 (Palette)**: Gestione dei colori (modifica tavolozza, estrazione da sheet, preset).
-
-Recentemente è stata introdotta la pressione di `j` per visualizzare le hitbox della sezione `BOXES` sullo sheet.
+This document analyzes what **bm Pixel** (`carts/pixel`) lacks to support the full creation of animation kits for complex characters (*Titan Clash*, *Yharnam* style, or advanced action/platformers), identifying the pain points of the manual approach and outlining concrete proposals for the interface and the engine.
 
 ---
 
-## 2. Cosa Manca per Creare un Kit di Animazione Completo
+## 1. Current State of bm Pixel
 
-Se uno sviluppatore vuole creare un personaggio d'azione completo con le sue animazioni su bm Pixel, si scontra con ostacoli insormontabili a mano:
+`bm Pixel` is currently structured in three main modes:
+- **F1 (Draw)**: Enlarged sprite drawing (pencil, eraser, fill, lines, rectangles, ovals, selections, mirror, single-frame onion skin).
+- **F2 (Sheet)**: Overview of the sprite sheet (sprite selection, copy/paste, sheet resizing from 8 up to 4096 px).
+- **F3 (Palette)**: Color management (palette editing, extraction from sheet, presets).
 
-### A. Nessuna Gestione Naming delle "Zone" (`SPRITES`)
-- Per usare la funzione ad alto livello `zspr("eroe_corre", x, y)`, il file `.bm` deve contenere la sezione `SPRITES`.
-- In bm Pixel **non c'è un'interfaccia per definire e nominare le zone**: lo sviluppatore deve ricordare a memoria le coordinate (es. `x=64, y=32, w=16, h=16, 6 frame, 10 fps`), uscire da bm Pixel, aprire un editor di testo o un PC, compilare `sprites.txt` e repackare la cartuccia con `mkbm.py --sprites`.
-
-### B. Hitbox & Hurtbox Non Editabili Visivamente
-- La pressione del tasto `j` mostra le scatole se già presenti nel file, ma **è impossibile disegnarle, ridimensionarle o spostarle interattivamente col puntatore**.
-- In un gioco come *Titan Clash*, ogni mossa (jab, pugno pesante, calcio, parata, spazzata) richiede la calibrazione al pixel di:
-  1. `body`: collisione fisica / pushbox.
-  2. `hurt`: dove il personaggio può ricevere colpi.
-  3. `hit`: dove il colpo causa danno, attiva solo in determinati frame.
-- Scrivere queste coordinate numeriche alla cieca è frustrante e richiede centinaia di riavvii di prova.
-
-### C. Assenza di un Anchor / Pivot Point (Origine Piedi)
-- Quando un personaggio passa da `idle` (16×24) a `slash` (32×32 con la scia della spada), il punto di riferimento `x, y` standard in alto a sinistra fa "saltare" la figura visivamente su schermo.
-- Manca la definizione dell'**Anchor Point** (il punto tra i piedi a terra, es. `ax=8, ay=24`). Senza di esso, ogni cambio di dimensione costringe a calcolare manualmente gli offset nel codice Lua (`x - 8, y - 16`).
-
-### D. Mancanza di una Timeline di Animazione Multi-frame
-- bm Pixel mostra una piccola anteprima animata che scorre automaticamente le celle contigue orizzontali.
-- Non permette di:
-  - Cambiare la sequenza dei fotogrammi (es. frame 1 -> 2 -> 3 -> 2).
-  - Impostare durate differenziate per frame (es. frame di anticipazione lungo, frame di impatto breve).
-  - Riordinare o duplicare un fotogramma senza dover copiare/incollare manualmente pixel sulla griglia dello sheet.
+Pressing `j` was recently introduced to display the hitboxes of the `BOXES` section on the sheet.
 
 ---
 
-## 3. Complessità "Fatta a Mano" vs Soluzione Integrata
+## 2. What Is Missing to Create a Complete Animation Kit
 
-| Operazione | Attualmente ("A mano") | Con gli strumenti proposti in bm Pixel |
+If a developer wants to create a complete action character with its animations in bm Pixel, they face insurmountable obstacles by hand:
+
+### A. No Naming Management of "Zones" (`SPRITES`)
+- To use the high-level function `zspr("eroe_corre", x, y)`, the `.bm` file must contain the `SPRITES` section.
+- In bm Pixel **there is no interface to define and name zones**: the developer must remember the coordinates from memory (e.g. `x=64, y=32, w=16, h=16, 6 frames, 10 fps`), leave bm Pixel, open a text editor or a PC, fill in `sprites.txt` and repack the cartridge with `mkbm.py --sprites`.
+
+### B. Hitboxes & Hurtboxes Not Visually Editable
+- Pressing the `j` key shows the boxes if already present in the file, but **it is impossible to draw, resize or move them interactively with the pointer**.
+- In a game like *Titan Clash*, every move (jab, heavy punch, kick, parry, sweep) requires pixel-level calibration of:
+  1. `body`: physical collision / pushbox.
+  2. `hurt`: where the character can receive hits.
+  3. `hit`: where the strike deals damage, active only in certain frames.
+- Writing these numeric coordinates blindly is frustrating and requires hundreds of test restarts.
+
+### C. No Anchor / Pivot Point (Feet Origin)
+- When a character goes from `idle` (16×24) to `slash` (32×32 with the sword trail), the standard top-left `x, y` reference point makes the figure visually "jump" on screen.
+- The definition of the **Anchor Point** (the point between the feet on the ground, e.g. `ax=8, ay=24`) is missing. Without it, every size change forces manual computation of offsets in the Lua code (`x - 8, y - 16`).
+
+### D. No Multi-Frame Animation Timeline
+- bm Pixel shows a small animated preview that automatically scrolls through contiguous horizontal cells.
+- It does not allow you to:
+  - Change the frame sequence (e.g. frame 1 -> 2 -> 3 -> 2).
+  - Set different durations per frame (e.g. long anticipation frame, short impact frame).
+  - Reorder or duplicate a frame without manually copying/pasting pixels on the sheet grid.
+
+---
+
+## 3. "Hand-Made" Complexity vs Integrated Solution
+
+| Operation | Currently ("By hand") | With the Proposed Tools in bm Pixel |
 |---|---|---|
-| **Definizione Animazione** | Calcolo manuale di coordinate `x, y, w, h`, scrittura manuale di `sprites.txt` | Selezione dell'area, tasto `Nome`, selezione frame e FPS, salvataggio automatico in `SPRITES` |
-| **Piazzamento Hitbox/Hurtbox** | Misurazione pixel su foglio a quadretti, inserimento stringhe tipo `hit 3 24 10 10 6` | Strumento rettangolo dedicato (`H` per Hurtbox in blu, `K` per Hitbox in rosso) disegnato direttamente sul canvas |
-| **Allineamento a Terra** | Offset calcolati in Lua (`draw_x = x - ox`) | Clic per piazzare l'ancora (croce gialla ai piedi), applicata automaticamente da `zspr()` |
-| **Controllo Fluidità** | Onion skin limitato al frame adiacente | Onion skin multi-frame (frame precedente in rosso, successivo in verde) con regolazione opacità |
+| **Animation Definition** | Manual computation of `x, y, w, h` coordinates, manual writing of `sprites.txt` | Area selection, `Name` key, frame and FPS selection, automatic save into `SPRITES` |
+| **Hitbox/Hurtbox Placement** | Measuring pixels on graph paper, entering strings like `hit 3 24 10 10 6` | Dedicated rectangle tool (`H` for Hurtbox in blue, `K` for Hitbox in red) drawn directly on the canvas |
+| **Ground Alignment** | Offsets computed in Lua (`draw_x = x - ox`) | Click to place the anchor (yellow cross at the feet), applied automatically by `zspr()` |
+| **Fluidity Check** | Onion skin limited to the adjacent frame | Multi-frame onion skin (previous frame in red, next in green) with opacity adjustment |
 
 ---
 
-## 4. Proposte di Sviluppo & Roadmap per bm Pixel
+## 4. Development Proposals & Roadmap for bm Pixel
 
-### Proposta 1: Nuova Pagina F4 — "Animation & Zones"
-Aggiungere una quarta pagina a bm Pixel dedicata alla gestione delle animazioni:
-- **Pannello sinistro (Lista Zone)**:
-  - Elenco di tutte le zone del progetto (`idle`, `walk`, `punch`, `jump`, `hurt`).
-  - Tasti: `n` per nuova zona, `d` per duplica, `Invio` per rinomina, `Del` per elimina.
-- **Timeline inferiore**:
-  - Mostra i fotogrammi della zona selezionata in sequenza con miniature.
-  - Possibilità di aggiungere/rimuovere fotogrammi pescando da qualsiasi punto dello sheet.
-  - Cursore per regolare gli FPS (da 1 a 60 fps) e modalità di riproduzione (Loop, One-shot, Ping-pong).
-- **Canvas centrale di Anteprima**:
-  - Riproduce l'animazione in loop a dimensione reale e ingrandita.
-  - Mostra una linea di terra e l'ancora modificabile col cursore.
+### Proposal 1: New F4 Page — "Animation & Zones"
+Add a fourth page to bm Pixel dedicated to animation management:
+- **Left panel (Zone List)**:
+  - List of all zones in the project (`idle`, `walk`, `punch`, `jump`, `hurt`).
+  - Keys: `n` for new zone, `d` for duplicate, `Enter` for rename, `Del` for delete.
+- **Bottom timeline**:
+  - Shows the frames of the selected zone in sequence with thumbnails.
+  - Ability to add/remove frames picking from anywhere on the sheet.
+  - Cursor to adjust FPS (from 1 to 60 fps) and playback mode (Loop, One-shot, Ping-pong).
+- **Central Preview canvas**:
+  - Plays the animation in a loop at real and enlarged size.
+  - Shows a ground line and the anchor editable with the cursor.
 
-### Proposta 2: Strumento Visivo "Box Editor" (Hitbox / Hurtbox)
-Nella pagina F4 (o integrato in F1):
-- Selezione del tipo di scatola con tasti rapidi:
-  - **1: Body Box (Verde)** — ingombro solido.
-  - **2: Hurtbox (Blu)** — area vulnerabile del personaggio.
-  - **3: Hitbox (Rossa)** — area attiva del colpo.
-- Tracciare il rettangolo col mouse o le frecce della tastiera direttamente sul fotogramma corrente.
-- Opzione per copiare la scatola su tutti i fotogrammi (`*`) o lasciarla attiva solo nel frame selezionato.
-- Salvataggio automatico nella sezione `BOXES` della cartuccia.
+### Proposal 2: Visual "Box Editor" Tool (Hitbox / Hurtbox)
+In the F4 page (or integrated in F1):
+- Box type selection with hotkeys:
+  - **1: Body Box (Green)** — solid footprint.
+  - **2: Hurtbox (Blue)** — vulnerable area of the character.
+  - **3: Hitbox (Red)** — active area of the strike.
+- Draw the rectangle with the mouse or keyboard arrows directly on the current frame.
+- Option to copy the box to all frames (`*`) or leave it active only in the selected frame.
+- Automatic saving into the cartridge `BOXES` section.
 
-### Proposta 3: Generatore di Rampe di Colore & Palette Assistita
-- Nei giochi come *Yharnam* e *Titan Clash*, ogni materiale usa rampe di 5–6 tonalità coerenti (chiaroscuro, ombre fredde e luci calde).
-- Proposta: nella pagina F3 (Palette), aggiungere uno strumento **Ramp Builder**:
-  - Si seleziona un colore base: l'assistente (o una funzione matematica) genera automaticamente una rampa di 5 toni (ombra bluastra, mezzotono, riflesso caldo) salvandola nella tavolozza.
-  - Strumento **Shading Brush**: un pennello che non cambia colore ma aumenta/diminuisce di un gradino la tonalità sulla rampa corrente.
+### Proposal 3: Color Ramp Generator & Assisted Palette
+- In games like *Yharnam* and *Titan Clash*, each material uses ramps of 5–6 coherent tones (chiaroscuro, cool shadows and warm lights).
+- Proposal: in the F3 (Palette) page, add a **Ramp Builder** tool:
+  - Select a base color: the assistant (or a math function) automatically generates a 5-tone ramp (bluish shadow, midtone, warm highlight) and saves it into the palette.
+  - **Shading Brush** tool: a brush that does not change color but raises/lowers the tone by one step on the current ramp.
 
-### Proposta 4: 8-Direction Mirroring Assistant
-- Per personaggi con visuale 3/4 (stile *Yharnam* o *Hunter's Night*):
-  - Spesso le direzioni verso sinistra (SW, W, NW) sono speculazioni di quelle verso destra (SE, E, NE).
-  - Un comando dedicato "Genera direzioni specchiate" che clona le sequenze nello sheet applicando il flip orizzontale, preservando la mano che impugna l'arma (per evitare che il personaggio diventi improvvisamente mancino).
+### Proposal 4: 8-Direction Mirroring Assistant
+- For characters with a 3/4 view (*Yharnam* or *Hunter's Night* style):
+  - The left-facing directions (SW, W, NW) are often mirrors of the right-facing ones (SE, E, NE).
+  - A dedicated "Generate mirrored directions" command that clones the sequences in the sheet applying a horizontal flip, preserving the hand holding the weapon (to prevent the character from suddenly becoming left-handed).
 
 ---
 
-## 5. Milestone M43 — Sprite Stacking (Fette Sovrapposte e Voxel)
+## 5. Milestone M43 — Sprite Stacking (Overlaid Slices and Voxels)
 
-La tecnica dello *sprite stacking* consente di generare volumi pseudo-3D sovrapponendo fette 2D scalate e ruotate, ottenendo profondità al costo del rendering 2D classico:
+The *sprite stacking* technique allows generating pseudo-3D volumes by overlaying scaled and rotated 2D slices, obtaining depth at the cost of classic 2D rendering:
 
-1. **Integrazione Runtime**:
-   - `stack(sx, sy, w, h, n, x, y, [rz, scala, passo])`: disegna `n` fette consecutive dallo sheet a partire da `(sx, sy)` (in C `gfx16.c` con campionamento inverso `sspr`, colore 0 trasparente), supportato in `draw2d()` e `bmhost`.
-2. **Pile Nominali in `SPRITES`**:
-   - Definizione zone con tipo `stack` e conteggio fette in `sprites.txt` / `mkbm.py --sprites`.
-   - API `zstack(nome, x, y, [rz, scala])`, visualizzazione con rotazione interattiva nella scheda Lib e nei file `.bmi`.
-3. **Editor dedicato in bm Pixel**:
-   - Nuova pagina **Stack**: visualizzazione fette sia affiancate in griglia sia sovrapposte con onion skin verticale; anteprima 3D rotante in tempo reale; duplicazione automatica della fetta sul livello superiore per facilitare l'estrusione; creazione rapida di una pila partendo da una zona esistente.
-4. **Rotazione Completa x, y, z**:
-   - `stackv(...)` come volume di voxel con orientamento 3D libero lungo l'asse più vicino alla camera.
-5. **Esportazione verso gli altri strumenti della suite**:
-   - Conversione automatica della pila in `MESH` (facce esterne dei voxel colorate) per `bm Studio` e `bm Mesh`.
-   - Generazione automatica di sprite pre-renderizzati in 8 direzioni per `bm Animator`.
-- **Criterio di completamento**: decine di stack rotanti renderizzati a 60 fps sul Pi, modificabili nativamente in bm Pixel ed esportabili in modelli 3D.
-
+1. **Runtime Integration**:
+   - `stack(sx, sy, w, h, n, x, y, [rz, scala, passo])`: draws `n` consecutive slices from the sheet starting at `(sx, sy)` (in C `gfx16.c` with `sspr` inverse sampling, color 0 transparent), supported in `draw2d()` and `bmhost`.
+2. **Named Stacks in `SPRITES`**:
+   - Zone definition with type `stack` and slice count in `sprites.txt` / `mkbm.py --sprites`.
+   - `zstack(nome, x, y, [rz, scala])` API, display with interactive rotation in the Lib tab and in `.bmi` files.
+3. **Dedicated Editor in bm Pixel**:
+   - New **Stack** page: slice view both side by side in a grid and overlaid with vertical onion skin; real-time rotating 3D preview; automatic duplication of the slice onto the upper level to ease extrusion; quick creation of a stack starting from an existing zone.
+4. **Full x, y, z Rotation**:
+   - `stackv(...)` as a voxel volume with free 3D orientation along the axis closest to the camera.
+5. **Export to the Other Suite Tools**:
+   - Automatic conversion of the stack into `MESH` (colored outer voxel faces) for `bm Studio` and `bm Mesh`.
+   - Automatic generation of pre-rendered 8-direction sprites for `bm Animator`.
+- **Completion criterion**: dozens of rotating stacks rendered at 60 fps on the Pi, natively editable in bm Pixel and exportable to 3D models.

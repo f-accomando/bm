@@ -129,3 +129,10 @@ that matter for bm *(D)*:
   peripherals as the BCM2710, a Cortex-A7, no radio), `tests/qemu_test.py --kernel7`.
 
 Update this document when the measurements or the implementation change.
+
+## Development setup
+
+- **Serial debug**: a USB-serial adapter at **3.3 V** (not 5 V) on GPIO14/15 + GND.
+- **Power**: a stable 5 V 2 A supply, so GPU load does not sag the voltage.
+- **Input**: a DualShock 4 (the reference Bluetooth pad) and a USB or Bluetooth mouse (M48).
+- **Analogue audio**: a passive RC filter (270 ohm + 33 nF) with a stereo jack on the GPIO pins (R21).

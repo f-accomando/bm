@@ -35,9 +35,9 @@ import mkbm  # noqa: E402
 NAMES = ["sarge", "frost", "fuse", "rail", "orbit", "akari", "rally_mech", "rally_pilot", "kaiju_mech", "kaiju_pilot"]
 
 # the figure of each hero: Meshy image-to-3D models made from pictures
-# (.github/workflows/meshy.yml, on meshy-out); the names missing here are
+# (tools/meshy2mesh.py, on meshy-out); the names missing here are
 # the models of the same name (the pilots: image-to-3D from ref/, through
-# request.txt and .github/workflows/meshy-overbit.yml)
+# request.txt and tools/meshy_text.py)
 SOURCES = {"sarge": "soldier", "frost": "mei", "fuse": "junkrat", "rail": "sojourn", "orbit": "juno",
            "akari": "kiriko", "rally_mech": "dva", "kaiju_mech": "beast"}
 

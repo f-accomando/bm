@@ -1,0 +1,10 @@
+# date|agent|model|task|area|gate|necessity|outcome|tokens|tools|secs
+2026-10-15|general-purpose|sonnet|review SDLOG-1..5 (AGY)|sync|-|-|DONE|93753|10|683
+2026-10-15|general-purpose|sonnet|review CI-1,D-MON,D-RES,D-LOAD|sync|-|-|DONE|91823|17|784
+2026-10-15|bm-planner|opus|WO fix start.S copy_up|platforms|-|-|DONE|29568|9|109
+2026-10-15|bm-planner|opus|WO ledger e audit agenti|tools|-|-|DONE|26485|11|79
+2026-10-15|bm-coder|haiku|LEDGER-1 agent_audit.py + test|tools|1|-|DONE|29819|7|70
+2026-10-15|bm-planner|opus|WO D28 Games RGB30 legge /carts|platforms|-|-|DONE|68441|48|228
+2026-10-15|general-purpose|sonnet|review D-SCREEN,D-RGB,D-RGB2 (CI)|sync|-|-|DONE|101575|15|1119
+2026-10-15|bm-planner|opus|WO workflow: review meccanica, parita CI, anticorruzione, report|tools|-|-|DONE|67648|20|245
+2026-10-15|general-purpose|sonnet|review D28,B16-D28FU,CI-AUDIT,D-HOST|sync|-|-|DONE|104948|13|593

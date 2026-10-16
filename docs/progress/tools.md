@@ -80,12 +80,10 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet.
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
-- **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, then publish in
-  the Market.
+- **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
 - **bm SDK (RGB30)**: try it on the console (Dev > bm SDK and Open in bm SDK, pad, typing, save,
-  copy of a game, Ctrl+B, F5 and Start + Select back); the QEMU test `test_sdk_tool` runs in CI
-  (`make TARGET=rgb30 test`). A game built in `/carts` is not in Games (R41).
+  copy of a game, Ctrl+B, F5 and Start + Select back); QEMU `test_sdk_tool` runs in CI. A game built in `/carts` is not in Games (R41).
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
 - **M43 step 3**: a *Stack* page in bm Pixel.
@@ -93,7 +91,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   Ctrl+S (`YHARNAM.BME`, about 6 MB), F5; then `mkmap.py --from` and commit the CSVs. A house
   stays in its 16×16-tile block.
 - Overbit's mech pilots from pictures (D.Va `ref/rally_pilot.png`, D.Mon `ref/kaiju_pilot.png`):
-  run `meshy-overbit` (its `request.txt` lines), then `pack.py out rally_pilot kaiju_pilot`;
+  run `tools/meshy_text.py` with your own key (the `request.txt` lines), then `pack.py out rally_pilot kaiju_pilot`;
   optionally `rig=` lines with the ids of `out/NAME.task.txt` and `pack.py --rig`. Until then
   the text-to-3D pilots stay. The image-to-3D heroes are not rigged (no task ids kept).
 - **Mappe 3D in bm SDK** (Tropic Trail AGY-01..03 completati): modulo C `src/bm/map3d.c` con API Lua `map3d_*` (mesh a pezzi 16×16 tiles con culling frustum `r3d_visible`, query quota pavimento, collisioni muri/gradini, segnaposto oggetti); vista 3D nell'editor con tasto `v` e camera orbitale (AGY-02); strumenti percorsi lineari `Shift+P` (larghezza 1–5 con `Shift+W`), file di mele `Shift+A`, casse `Shift+C`, lampade `Shift+O`, conteggio entità e budget triangoli nella barra di stato (AGY-03).
@@ -102,14 +100,15 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 
 ## Rules (do not break)
 
-- Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a
-  dialog frame never crosses the title row (QEMU tests read it).
+- Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a dialog frame never crosses the title row (QEMU tests read it).
 - bm Mesh rewrites only the lines between `-- [bm Mesh begin]` and `-- [bm Mesh end]`.
 - Mouse (`require "bmui"`, `src/script/bmui.lua`): the mouse does what the keys do: zones
   registered while drawing, chips that press the key, `U.press` before `keyp()`, a context menu
   of keys on the 8x16 grid. A mouse function outside a page's `do … end` does not see its
   locals: export them. Tests `bmui_host.lua`, `MS` in the test doubles, QEMU `test_editor_mouse`.
 - Predict/pad tables `CROSS`/`FACE`/`KB` change in `src/ai/padtype.lua`.
+- Skin recipes (`mesh_skin.c`): one bone per position, one connected body (`test_skins`), shared ring to the distal
+  bone; `face_b` for a bone per corner, `face()` output unchanged; `static` vertex tables.
 - kb comments `#` only at the top of a file; every entry has `title_en:` and `text_en:`.
 - bm SDK (RGB30): never edit `carts/editor` for it (two editions); never in the Pi's kernel nor
   in the Market. Its test `make test-sdk-b16` (not in `HOST_TESTS`); QEMU `test_sdk_tool`.
@@ -118,3 +117,4 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **The kernel embeds the editor** (`build/editor.bm` is inside `kernel.img`): after any change of `carts/editor` rebuild the kernel (`make build/kernel.img`) before a QEMU run; a stale kernel runs the old editor.
 - **The 3D map** (map3d, layers `floor`, `height`, `walls`, `objects`): `map3d_build` reads the floor only at the **top-left tile of each 2x2 block** (cell = 2x2 tiles, `cell` 1.0): a 16x16 brush with tile 0 gives a floor of holes. Object placeholders are the **even** ids >= 1024 (1024 start, 1026 apple, 1028 crate, 1030 goal, 1032 lamp); the tile chooser stops at the sheet's last tile, so the markers have their own keys (`Shift+S/G/A/C/O` in the map page). `lamp3d` slots are 1..4.
 - **bmhost and saving a game**: opening a `.bm` and saving asks "Save an editable copy" through a kernel modal that reads the keyboard, not the typed queue: in `bmhost --tool` it hangs a recording unless the input line `FRAME keys 0x28` presses Enter. A recording script opens the project (`.bme`) instead; `Ctrl+B`/`F5` do not build/run a game inside `bmhost --tool`; input files written from Windows Python get CRLF (a CR is typed as Enter): write them with LF.
+- **Agent ledger** (`docs/agents/ledger.txt`, format in its `#` header): append-only, one line per subagent run; never read or edit it by hand, only `scripts/agent_audit.py` reads it.

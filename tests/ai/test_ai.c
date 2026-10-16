@@ -213,6 +213,66 @@ static void test_sprites(void)
 /* every recipe: seeds 1-6 at 16x16, 1-2 at 32x32, 1 at 8x8; a PPM, 3x */
 /* ---------------------------------------------------------------- 3D recipes */
 
+/* the organic recipes are ONE skin: a position has one bone, the body is one piece from the hips to the
+ * head, the hands, the feet and the tail, and the table of vertices stays small */
+static void test_skins(void)
+{
+    static mesh_model_t m;
+    static int32_t key[4 * MESH_MAX_FACES][3];
+    static int bone_of[4 * MESH_MAX_FACES], parent[4 * MESH_MAX_FACES];
+    const char *ids[2] = { "biped", "chameleon" };
+    for (int s = 0; s < 2; s++) {
+        mesh_req_t r;
+        mesh_req_init(&r, ids[s]);
+        if (mesh_make(&r, &m)) continue;                /* the recipe is not there */
+        int n = 0, tris = 0, split = 0;
+        for (int f = 0; f < m.nfaces; f++) {
+            const mesh_face_t *fc = &m.faces[f];
+            tris += fc->n == 4 ? 2 : 1;
+            for (int k = 0; k < fc->n; k++) {
+                int32_t q[3] = { (int32_t)lroundf(fc->p[k][0] * 256), (int32_t)lroundf(fc->p[k][1] * 256),
+                                 (int32_t)lroundf(fc->p[k][2] * 256) };
+                int i = 0;
+                while (i < n && memcmp(key[i], q, sizeof q)) i++;
+                if (i == n) { memcpy(key[n], q, sizeof q); bone_of[n] = fc->b[k]; parent[n] = n; n++; }
+                else if (bone_of[i] != fc->b[k]) split++;
+            }
+        }
+        CHECK(split == 0, "%s: %d corners on a position of another bone", ids[s], split);
+        CHECK(tris <= 640, "%s: %d triangles", ids[s], tris);
+        CHECK(n <= 512, "%s: %d distinct positions", ids[s], n);
+        /* the pieces: positions joined by the faces */
+        for (int f = 0; f < m.nfaces; f++) {
+            const mesh_face_t *fc = &m.faces[f];
+            int first = -1;
+            for (int k = 0; k < fc->n; k++) {
+                int32_t q[3] = { (int32_t)lroundf(fc->p[k][0] * 256), (int32_t)lroundf(fc->p[k][1] * 256),
+                                 (int32_t)lroundf(fc->p[k][2] * 256) };
+                int i = 0;
+                while (memcmp(key[i], q, sizeof q)) i++;
+                while (parent[i] != i) i = parent[i];
+                if (first < 0) first = i;
+                else parent[i] = first;
+            }
+        }
+        int root = -1, bad = 0;
+        const char *must[] = { "hips", "head", "hand.L", "hand.R", "foot.L", "foot.R", "tail3" };
+        for (int j = 0; j < 7; j++) {
+            int bi = -1;
+            for (int k = 0; k < m.nbones; k++) if (!strcmp(m.bones[k].name, must[j])) bi = k;
+            if (bi < 0) { CHECK(j == 6, "%s: no bone %s", ids[s], must[j]); continue; }
+            int i = 0;
+            while (i < n && bone_of[i] != bi) i++;
+            CHECK(i < n, "%s: nothing on %s", ids[s], must[j]);
+            if (i == n) continue;
+            while (parent[i] != i) i = parent[i];
+            if (root < 0) root = i;
+            else bad += i != root;
+        }
+        CHECK(bad == 0, "%s: %d parts loose from the body", ids[s], bad);
+    }
+}
+
 static void test_meshes(void)
 {
     static mesh_model_t a, b;
@@ -414,6 +474,7 @@ int main(int argc, char **argv)
     test_speed();
     test_sprites();
     test_meshes();
+    test_skins();
     test_script();
 
     printf("%d checks, %d failed\n", checks, fails);

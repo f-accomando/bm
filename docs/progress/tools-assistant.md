@@ -19,8 +19,13 @@ Split from [tools](tools.md); open work and rules stay there.
   `animate()`'s bone matrices of `src/bm/runtime.c`: change them together; checked equal to bm_core's
   `skin.skin()`; `tests/studio/tools3d_host.lua` presses `t`). Rango test: charkit skin 12 of 984 faces marked,
   smooth `K` 82, rigid `k` 455. Next: select faces by ring/area, mirror the skin, joint rings in bm Studio,
-  assistant actions on Animator, organic `biped`/`chameleon` recipes (plan and Work Orders:
-  [`design/organic-recipes.md`](../design/organic-recipes.md)).
+  assistant actions on Animator.
+- Organic recipes `biped` (15 bones) and `chameleon` (18 bones, curled tail): one continuous skin,
+  `src/ai/mesh_skin.c` (vertex table, rings, `limb`; plan and Work Orders in
+  [`design/organic-recipes.md`](../design/organic-recipes.md), WO-0..6 done). KB `mesh.biped`, `mesh.chameleon`,
+  `tip.skin_continuous`; held-out 277/345 first, 314/345 in the first three. Open: the Animator `t` test on both
+  (not run), the word "coda" makes `howto.rig_tail` win over `mesh.chameleon` for "lizard person with a tail",
+  WO-7 (`skin` instructions in the part language / `img2mesh`).
 - Mesh from images: `cutout3d` / `picture3d` in the runtime (`src/bm/cutout.c`), PC tools
   `tools/img2mesh.py`, `cutout2mesh.py`, `local2mesh.py`, `meshy*.py` (`MESHY_API_KEY`
   only in the environment).
@@ -28,7 +33,7 @@ Split from [tools](tools.md); open work and rules stay there.
   `meshy-out` (`SOURCES`: the image-to-3D soldier, mei, junkrat, sojourn, juno, kiriko, dva,
   beast for sarge, frost, fuse, rail, orbit, akari and the two mechs; reduced to 1200 + 450
   when missing); `meshyrig.py` fits them on the skeletons (Meshy's `.rig` if any, `OWN_GUN`
-  drops the old gun). `request.txt` + `meshy-overbit.yml` (push to `bm-core` or Run workflow):
+  drops the old gun). `request.txt` (the shared-key workflows were removed; run `tools/meshy_text.py` with your own `MESHY_API_KEY`):
   text-to-3D, `rig=`, `image=` (image-to-3D from `ref/`).
 - Overbit models: the heroes' bodies are the primitives of `carts/overbit/art/heroes/*.py` on the
   skeletons of `art/rig.py` (guns and props on their own bones: nothing fuses in the poses). The Meshy
