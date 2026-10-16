@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: WAITING
-task: BLOCKED AGX-15: menu_ui.c:1465 narrow layout hides v.note when details present
-waiting_on: SPV
+state: FREE
+task: AGX-15 consegnato, evasa proposta AGX-PWD
+waiting_on: 
 eta: 2026-10-16T16:55+02:00
 wakeup: no
 ack: 2026-10-16T15:42+02:00
-updated: 2026-10-16T16:18+02:00
+updated: 2026-10-16T17:38+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -28,10 +28,19 @@ updated: 2026-10-16T16:18+02:00
 - Nessun Pi/RGB30 raggiungibile dagli operatori: PARZIALE (Pi 1 su rete locale a 192.168.1.208, kernel aggiornato via rete a bm dev con successo tramite bm_net.py; nessun monitor o tasto fisico collegato direttamente, verifiche fisiche delegate a UTE).
 
 ## Task
-- AGX-1..AGX-14 completati e consegnati.
-- AGX-15 BLOCKED: codice implementato su branch `claude/rgb30-cover-details@b4555d37`. Il test QEMU fallisce su `assert "last: picart.bm" in text` perché `src/kernel/menu_ui.c:1465` (`if (v->note && v->note[0] && (WIDE || !shown))`) sopprime `v->note` quando `v->details` è presente su layout stretto (`WIDE == 0`, 360x360). `src/kernel/*` è fuori perimetro. In attesa di SPV.
+- AGX-1..AGX-15 completati e consegnati. Evasa proposta AGX-PWD.
+
+## Proposta password bridge (AGX-PWD)
+- Accesso AGX attuale: usa `bm_net.py` su porte 3333/3334; il segreto vive solo nella memoria RAM del processo chiamante (passato come variabile di processo o prompt interattivo da UTE), mai salvato su file, git o keyring.
+- Confronto opzioni:
+  1. File 0600 fuori repo: Rischio alto su host condivisi/Windows (NTFS non mappa 0600 nativo); rompe la regola "mai su disco"; ~5 righe (`open(p).read().strip()`).
+  2. Windows Credential Manager / DPAPI: Rischio persistenza e dipendenze esterne (pywin32/keyring); rompe la regola "mai keyring/persistente"; ~20 righe.
+  3. Script demone utente 1 volta al giorno (--detach): Rischio minimo (segreto solo nella RAM di `pi_bridge.py` su socket `~/.pi_bridge.sock` 0600); NON cambia la regola ("mai su disco"); ~15 righe in `pi_bridge.py`.
+  4. Metodo attuale AGX (sessione effimera in memoria): Rischio nullo; richiede avvio o variabile a ogni avvio sessione; 0 righe codice.
+- Raccomandazione: opzione (3) integrata con (4). L'utente avvia `tools/pi_bridge.py <IP>` una volta sola a inizio giornata digitando la password una tantum. Il bridge serve NET, AGX e tutti gli operatori via socket locale `tools/pi.py` senza mai toccare disco né keyring.
 
 ## Consegne
+- DELIVERED AGX-15 @ claude/rgb30-cover-details@c0c77719 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k cover_details_perf -> PASS test_cover_details_perf · 3 file · base = claude/rgb30-menu-start-tab · non verificato su hardware · 2026-10-16T17:38+02:00
 - DELIVERED AGX-14 @ claude/rgb30-qemu-delete-tools@6dbf3908 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k delete_frozen_and_tools -> PASS test_delete_frozen_and_tools · 2 file · non verificato su hardware · 2026-10-16T16:13+02:00
 - DELIVERED AGX-13 @ claude/rgb30-menu-start-tab@288931f9 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k menu_start_confirms -> PASS test_menu_start_confirms (prima del fix: timeout) · 3 file · Tab/1-2-3-5 non verificati (nessun test), non verificato su hardware · 2026-10-16T16:08+02:00
 - DELIVERED AGX-12 @ claude/test-qemu-slow@54d4c5d2 · verifica: python tests/tools/test_qemu_slow.py -> Ran 1 test OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T16:00+02:00
