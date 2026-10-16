@@ -6537,8 +6537,7 @@ def test_editor_mouse(b, opts):
         text = look(q, ["Cut the line", "Build the game .bm", "Ctrl+B"], 8, 16)
         shot(q, "sdk-context")
         click(q, 600, 40)                   # outside: it closes, nothing else
-        look(q, [], 8, 16, gone=["Cut the line"])
-        text = screen_text(q.screendump())
+        text = look(q, ["menu"], 8, 16, gone=["Cut the line"])   # the same dump: a later one may catch a redraw
         mx, my = find(text[:1], "menu", 8, 16)
         click(q, mx, my)                    # the Esc tab: the menu page
         text = look(q, ["Continue", "Exit bm SDK"], 8, 16)
