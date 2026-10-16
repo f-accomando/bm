@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: AGY
-state: WORKING
-task: AGY-25
+state: FREE
+task: AGY-25 consegnato (sequenza AGY-10..25 completata)
 waiting_on: 
 progress: 0
 eta: 2026-10-16T14:50+02:00
 wakeup: no
 ack: 2026-10-16T14:30+02:00
-updated: 2026-10-16T14:39+02:00
+updated: 2026-10-16T14:41+02:00
 ---
 # AGY — Antigravity
 
@@ -77,8 +77,12 @@ DELIVERED AGY-21 @ claude/docs-en-d19-note@1f8fa8ee · verifica: consistency.py 
 DELIVERED AGY-22 @ claude/docs-en-system-console@7d670544 · verifica: git grep parole italiane su system.md -> 0 righe; docs_audit.py score -> penalties 0 come prima; riga R4 invariata · 1 file, +9 -9 · non verificato su hardware · 2026-10-16T14:31+02:00
 DELIVERED AGY-23 @ claude/docs-en-tools-open@8e244f69 · verifica: git grep parole italiane su tools.md -> 0 righe; docs_audit.py score -> penalties 0 come prima · 1 file, +3 -3 · non verificato su hardware · 2026-10-16T14:33+02:00
 DELIVERED AGY-24 @ claude/ci-audit-english@659373ab · verifica: ci_audit.py prima/dopo -> stesso exit 0 e stesse 0 righe PROBLEM; py_compile OK; grep parole italiane -> 0 righe; PyYAML presente e check_ci provato (ci_bad.yml -> 3 problem) · 1 file, +38 -38 · non verificato su hardware · 2026-10-16T14:38+02:00
+DELIVERED AGY-25 @ claude/docs-en-sync-rules@ac81296a · verifica: git grep parole italiane su sync.md -> solo Frase di avvio (70, 72) e ## Consegne (62); letterali Fai handshake x2 e da <ID> a <ID> x1 intatti; docs_audit.py score -> penalties 0 come prima · 1 file, +9 -9 · non verificato su hardware · 2026-10-16T14:41+02:00
 
 ## Progressi
+- Completato AGY-25 (IT2EN-SYNCRULES) su claude/docs-en-sync-rules@ac81296a:
+  - In `docs/progress/sync.md`, tradotti in inglese i 9 bullet italiani della sezione `## Rules (do not break)` (un branch di sync per progetto, handshake, battito a eventi senza timer, consegne, review di una consegna, operatori senza canale diretto, caselle e controllo oggettivo, sign-off, no task open-ended), preservando intatti i letterali di protocollo (`Fai handshake`, `DELIVERED`, `REVIEW`, `APPROVED`, `SIGNOFF`, `letto <ora riga>`, `## Consegne`, ecc.) e la riga già in inglese `Heartbeat cost`.
+  - Verificato: `git grep` su parole italiane individua solo `## Consegne` (letterale) e la `## Frase di avvio` (voluta e preservata); conteggi letterali intatti (Fai handshake: 2, da <ID> a <ID>: 1); `git diff -U0` conferma che Frase di avvio e Heartbeat cost non sono toccate; `docs_audit.py score` mantiene penalità 0; diff esattamente di 1 file, +9 -9. Registrato nel ledger e pushato.
 - Completato AGY-24 (IT2EN-CIAUDIT) su claude/ci-audit-english@659373ab:
   - In `scripts/ci_audit.py`, tradotti in inglese tutti i testi italiani (docstring iniziale, commenti di blocco/inline, messaggi di errore e di warning in `check_ci`, `check_waits`, `check_cart_refs`, `check_gh`, descrizioni e help degli argomenti CLI in `main`).
   - Mantenuti invariati prefissi tecnici (`PROBLEM [ci]`, `PROBLEM [waits]`, `INFO`, `WARN`, `SUMMARY:`), identificatori (`timeout-minutes`, `concurrency`, `branches-ignore`, `sync/**`, `GAMES`, `KNOWN_WAITS`), e la logica di controllo.
