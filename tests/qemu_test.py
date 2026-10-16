@@ -5174,6 +5174,47 @@ def test_monitor_line(b, opts):
         q.close()
 
 
+def test_monitor_crc(b, opts):
+    """The monitor's ':crc' (R-NET7): the CRC32 of the page on screen, in the
+    line's fixed format; the same screen gives the same value, another screen
+    another one."""
+    tmp = tempfile.mkdtemp(prefix="bm-crc-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+
+        def crc():
+            q.send(":crc\r")
+            out = q.expect("the line is done", timeout=10).decode(errors="replace")
+            m = re.search(r"crc: (\d+)x(\d+) bpp=(\d+) pitch=(\d+) crc32=0x([0-9a-f]{8})\b", out)
+            assert m, out
+            q.expect("> ")
+            return m
+
+        m = crc()
+        w, h, bpp, pitch = map(int, m.group(1, 2, 3, 4))
+        assert w > 0 and h > 0 and bpp == 32 and pitch >= w * 4, m.group(0)
+        first = m.group(5)
+        assert first != "00000000", m.group(0)
+        q.send("c")                             # console_clear(): the same screen twice
+        q.expect("> ")
+        a = crc().group(5)
+        q.send("c")
+        q.expect("> ")
+        b2 = crc().group(5)
+        assert a == b2, f"the same screen, two values: {a} {b2}"
+        assert first != a, f"the screen with ':crc' printed and the cleared one give the same value {a}"
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_reports(b, opts):
     """The reports (src/kernel/reports.c, 2026-10-04): Z in the monitor makes
     one of the log, saved as bm/reports/RPT00001.TXT with its header (kernel,

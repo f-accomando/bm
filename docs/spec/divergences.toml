@@ -490,3 +490,14 @@ priority = 6
 status = "open"
 evidence = "src/kernel/carts.c:842-844; src/rgb30/ui.c"
 action = "decide whether RGB30 Dev lists .bme"
+
+[[divergence]]
+id = "D45"
+area = "monitor"
+pi = "the monitor line `crc` prints the CRC32 of the page on screen (fixed format), to compare with a value taken from the same Pi"
+rgb30 = "none: the RGB30 kernel does not compile src/kernel/monitor.c (see D22)"
+cause = "todo"
+priority = 6
+status = "open"
+evidence = "src/kernel/monitor.c; tests/qemu_test.py:test_monitor_crc"
+action = "decide whether the RGB30 needs a crc of its screen (a serial command, or the pad kernel's own tool); until then the screen check by CRC is Pi-only"
