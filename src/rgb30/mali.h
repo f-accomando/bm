@@ -88,4 +88,20 @@ const char *mali_exception(uint32_t code);
 /* "Mali-G52 r1p0" from GPU_ID */
 const char *mali_name(uint32_t gpu_id, char *buf, int n);
 
+/* M41 phase 2: a frame of up to MALI_MAX_DRAWS draws, each n triangles of ONE colour (xyz = 3 floats a vertex, in
+ * pixels of the surface, z in 0..1, 3n vertices; rgb 0xRRGGBB), at most MALI_BATCH_MAX triangles in all. The surface is
+ * w x h XRGB8888 (w, h multiples of 16, at most 1920 x 1080) at target (CPU pointer) / target_pa (what the GPU sees,
+ * 64-aligned) with `pitch` bytes a row; it is first cleared to `clear` (0xRRGGBB): what was there is not kept. Draws are
+ * drawn in the order given (no depth test). After a good mali_probe with the same hw. 0 drawn, 1 the jobs ended but the
+ * first draw's first triangle centre is still `clear`, -1 failed or refused. */
+#define MALI_MAX_DRAWS  64
+#define MALI_BATCH_MAX  1024
+typedef struct { const float (*xyz)[3]; uint32_t n, rgb; } mali_draw_t;
+int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,
+               uint32_t clear, const mali_draw_t *draws, uint32_t ndraws);
+/* places in hw->mem the test reads */
+#define MALI_FRAME_VERTS      0x10000   /* all vertices, 4 floats each (x y z 1), draw after draw */
+#define MALI_FRAME_POSITIONS  0x20000   /* what the vertex jobs write, same order */
+#define MALI_FRAME_PUSH       0x30000   /* per draw 64 bytes: the pushed words, colour at +16 */
+
 #endif

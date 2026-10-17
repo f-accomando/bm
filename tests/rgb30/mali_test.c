@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "rgb30/mali.h"
+#include "rgb30/mali_desc.h"
 
 static int checks, failures;
 #define CHECK(c, ...) do { checks++; if (!(c)) { failures++; printf("FAIL %s:%d: ", __FILE__, __LINE__); \
@@ -368,6 +369,8 @@ static void log_line(const char *s)
     strcat(lines, "\n");
 }
 
+static mali_hw_t G;                     /* the hw of the last probe (mali_frame wants the same one) */
+
 static int probe(mali_info_t *in)
 {
     memset(mem, 0xee, MEM_SIZE);
@@ -376,11 +379,92 @@ static int probe(mali_info_t *in)
     S.pmu_off = 1;
     S.pmu_req = 1;
     memset(screen, 0x10, SCREEN_PITCH * SCREEN_H);
-    const mali_hw_t hw = { .rd = rd, .wr = wr, .us = us, .log = log_line, .supply_mv = supply_mv, .mem = mem,
+    G = (mali_hw_t){ .rd = rd, .wr = wr, .us = us, .log = log_line, .supply_mv = supply_mv, .mem = mem,
                            .mem_pa = MEM_PA, .mem_size = MEM_SIZE, .map_pa = MAP_PA, .map_size = MAP_SIZE,
                            .screen = screen, .screen_pa = SCREEN_PA, .screen_w = SCREEN_W, .screen_h = SCREEN_H,
                            .screen_pitch = SCREEN_PITCH };
-    return mali_probe(&hw, in);
+    return mali_probe(&G, in);
+}
+
+static uint32_t word(const uint8_t *p)
+{
+    uint32_t v;
+    memcpy(&v, p, 4);
+    return v;
+}
+
+static uint64_t word64(const uint8_t *p)
+{
+    uint64_t v;
+    memcpy(&v, p, 8);
+    return v;
+}
+
+/* mali_frame: the memory image the jobs are built from (the simulated GPU has no tiler, so what it draws is not checked) */
+static void test_frame_image(void)
+{
+    /* the layout of mali.c: draw d at MEM_DRAWS + 0x800 d, its Vertex job at +0, its Tiler job at +0x100 */
+    const uint32_t DRAWS = 0x40000, DSIZE = 0x800, TJ = 0x100;
+    static const float t0[3][3] = { { 4, 4, 0.25f }, { 40, 4, 0.25f }, { 4, 40, 0.25f } };
+    static const float t1[6][3] = { { 8, 8, 0.5f }, { 50, 8, 0.5f }, { 8, 50, 0.5f },
+                                    { 10, 10, 0.75f }, { 20, 10, 0.75f }, { 10, 20, 0.75f } };
+    static const float t2[3][3] = { { 30, 30, 0.125f }, { 60, 30, 0.125f }, { 30, 60, 0.125f } };
+    const mali_draw_t d[3] = { { t0, 1, 0xff0000 }, { t1, 2, 0x00ff00 }, { t2, 1, 0x0000ff } };
+    const float *flat[12] = { t0[0], t0[1], t0[2], t1[0], t1[1], t1[2], t1[3], t1[4], t1[5], t2[0], t2[1], t2[2] };
+
+    printf("mali: mali_frame, the memory image of three draws\n");
+    memset(&S, 0, sizeof S);
+    mali_info_t in;
+    CHECK(probe(&in) == MALI_OK, "probe before the frame");
+    const uint32_t surf_pa_off = 0x200000;              /* inside mem, 64-aligned, after the heap */
+    uint8_t *surf = mem + surf_pa_off;
+    const int r = mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0x102050, d, 3);
+    (void)r;                                            /* the simulator has no tiler: the result is not asked */
+
+    int bad = 0;                                        /* (a) the vertices as (x y z 1) */
+    for (int i = 0; i < 12; i++) {
+        const float want[4] = { flat[i][0], flat[i][1], flat[i][2], 1.0f };
+        bad += memcmp(mem + MALI_FRAME_VERTS + 16 * i, want, 16) != 0;
+    }
+    CHECK(bad == 0, "frame: %d of 12 vertices differ from (x y z 1)", bad);
+
+    static const float col[3][4] = { { 1, 0, 0, 1 }, { 0, 1, 0, 1 }, { 0, 0, 1, 1 } };      /* (b) the pushed colours */
+    bad = 0;
+    for (int k = 0; k < 3; k++)
+        bad += memcmp(mem + MALI_FRAME_PUSH + 64 * k + 16, col[k], 16) != 0;
+    CHECK(bad == 0, "frame: %d of 3 pushed colours differ", bad);
+
+    uint8_t tmp[64];                                    /* (c) draw 1's vertex job carries 6 vertices; the job chain */
+    memset(tmp, 0, sizeof tmp);
+    md_invocation(tmp, 6);
+    CHECK(memcmp(mem + DRAWS + DSIZE + 32, tmp, 8) == 0, "frame: draw 1's vertex job invocation is not md_invocation(6)");
+    bad = 0;
+    for (uint32_t k = 0; k < 3; k++) {
+        const uint8_t *v = mem + DRAWS + DSIZE * k, *t = v + TJ;
+        const uint32_t vidx = word(v + 16) >> 16, tidx = word(t + 16) >> 16;
+        bad += vidx != 2 * k + 1 || word(v + 20) != (k ? 2 * k : 0);                    /* Vertex 2k+1, after Tiler 2k */
+        bad += tidx != 2 * k + 2 || word(t + 20) != 2 * k + 1;                          /* Tiler 2k+2, after its Vertex */
+        bad += word64(v + 24) != MEM_PA + DRAWS + DSIZE * k + TJ;                       /* Vertex -> its Tiler */
+        bad += word64(t + 24) != (k < 2 ? MEM_PA + DRAWS + DSIZE * (k + 1) : 0);        /* Tiler -> next Vertex, or end */
+    }
+    CHECK(bad == 0, "frame: %d job-chain fields wrong (index, dependency, next)", bad);
+
+    printf("mali: mali_frame refuses\n");
+    const mali_draw_t none = { t0, 0, 0 };
+    mali_draw_t big[2] = { { t0, 1000, 0 }, { t0, 25, 0 } };       /* 1025 triangles (the vertices are not read: refused first) */
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, d, 0) == -1, "frame: 0 draws refused");
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, &none, 1) == -1, "frame: a draw of 0 refused");
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 60, 64, 0, d, 3) == -1, "frame: w = 60 refused");
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, big, 2) == -1, "frame: 1025 triangles refused");
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off + 4, 256, 64, 64, 0, d, 3) == -1, "frame: unaligned target_pa refused");
+    memset(&S, 0, sizeof S);
+    S.pd_stuck = 1;                                                 /* a probe that fails: no frame after it */
+    CHECK(probe(&in) == MALI_E_POWER, "probe fails (power)");
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, d, 3) == -1, "frame: refused before a good probe");
+    memset(&S, 0, sizeof S);
+    CHECK(probe(&in) == MALI_OK, "probe again");
+    mali_hw_t other = G;                                            /* another hw than the probed one */
+    CHECK(mali_frame(&other, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, d, 3) == -1, "frame: another hw refused");
 }
 
 int main(void)
@@ -466,6 +550,8 @@ int main(void)
     S.frag_no_write = 1;
     r = probe(&in);
     CHECK(r == MALI_E_FRAGMENT && strstr(lines, "of 4096 pixels are not"), "the clear lost, said (%d)", r);
+
+    test_frame_image();
 
     CHECK(!strcmp(mali_exception(0xc1), "TRANSLATION_FAULT") && !strcmp(mali_exception(0x43), "JOB_WRITE_FAULT"),
           "exception names");
