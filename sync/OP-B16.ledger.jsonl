@@ -11,3 +11,4 @@
 {"schema":1,"operator":"OP-B16","wo":"CO-5","branch":"claude/closeout-sync-hdr-closed","commit":"885913a8","files":2,"add":54,"del":0,"lines":{"code":54,"docs":0,"data":0},"tokens":45000,"min":15,"iso":"2026-10-17T17:31+02:00"}
 {"schema":1,"operator":"OP-B16","wo":"CO-5","branch":"claude/closeout-sync-hdr-closed","commit":"73420638","files":2,"add":3,"del":1,"lines":{"code":4,"docs":0,"data":0},"tokens":8000,"min":5,"iso":"2026-10-17T17:42+02:00"}
 {"schema":1,"operator":"OP-B16","wo":"W06a","branch":"claude/stages3d-governor","commit":"bb9d2a12","files":3,"add":32,"del":0,"lines":{"code":29,"docs":3,"data":0},"tokens":40000,"min":15,"iso":"2026-10-17T17:50+02:00"}
+{"schema":1,"operator":"OP-B16","wo":"W06b","branch":"claude/stages3d-budget","commit":"342a8018","files":2,"add":2,"del":0,"lines":{"code":2,"docs":0,"data":0},"tokens":15000,"min":8,"iso":"2026-10-17T17:56+02:00"}
