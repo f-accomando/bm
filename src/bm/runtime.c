@@ -3488,6 +3488,9 @@ static int shot_req;                    /* a frame to save: the one drawn next *
 static char shot_file[13];              /* its name, "PONG0007.PNG" */
 static int shot_note;                   /* frames left for the box that says it was saved */
 static char shot_line[2][40];
+static int shot_net;                    /* asked over the network (bm_shot_ask): plan it at the next key poll */
+static int shot_res;                    /* its answer: 2 waiting for the frame, 1 saved, -1 not saved, 0 none asked */
+static char shot_net_file[13];          /* the name of the file it saved */
 
 /* Plans a screenshot: the next free number of the prefix in /bm/shots (one more than the
  * highest), and the request, done when the frame is drawn (shot_grab). 0, or -1 if the
@@ -3527,6 +3530,29 @@ static int l_shot(lua_State *L)
     }
     lua_pushfstring(L, "bm/shots/%s", shot_file);
     return 1;
+}
+
+/* The PC's request (netxfer op 'T'): the next frame drawn is saved, as with the keys. */
+void bm_shot_ask(void)
+{
+    shot_net = 1;
+    shot_res = 2;
+    shot_net_file[0] = 0;
+}
+
+/* The PC gave up (3 s with no frame): a later game does not answer it. */
+void bm_shot_cancel(void)
+{
+    shot_net = 0;
+    shot_res = 0;
+}
+
+/* 0 while the frame is not drawn yet, 1 when saved (name in `name`, "PONG0007.PNG"), -1 if it could not be written. */
+int bm_shot_done(char *name, size_t n)
+{
+    if (shot_res == 1 && name && n)
+        ksnprintf(name, n, "%s", shot_net_file);
+    return shot_res == 2 ? 0 : shot_res;
 }
 
 /* cart_config(key [, value]) -> the text of the key in bm/config.txt, or nil.
@@ -5067,6 +5093,13 @@ static int poll_keys(void)
         if (down && !shot_held && !rt.leave_ask)
             shot_plan(NULL);
         shot_held = down;
+        if (shot_net == 1) {                /* the PC asked (op 'T' of the transfer port) */
+            shot_net = 0;
+            if (shot_plan(NULL) != 0)
+                shot_res = -1;
+            else
+                shot_res = 2;
+        }
     }
     if (quit & HID_QUIT_ESC) {              /* Esc in a game: Start, its menu */
         if (rt.leave_ask)
@@ -7219,6 +7252,10 @@ static void shot_grab(void)
     uint8_t *png = shot_png(rt.g.px, (int)rt.g.stride, rt.g.w, rt.g.h, &n);
     const int ok = png && fat_mkdirs(SHOT_DIR) == 0 && fat_write_file(SHOT_DIR, shot_file, png, n) == 0;
     free(png);
+    if (shot_res == 2) {                /* answers a bm_shot_ask() that waits (a shot made by a key leaves it alone) */
+        shot_res = ok ? 1 : -1;
+        memcpy(shot_net_file, shot_file, sizeof shot_net_file);
+    }
     if (ok) {
         ksnprintf(shot_line[0], sizeof shot_line[0], "Screenshot saved");
         ksnprintf(shot_line[1], sizeof shot_line[1], "bm/shots/%s", shot_file);

@@ -5,6 +5,7 @@
 
 /* Full SoC reset through the PM watchdog; the firmware boots again from SD. */
 void watchdog_reboot(void) __attribute__((noreturn));
+void watchdog_before_reboot(void (*fn)(void));
 /* The same reset, but the firmware halts (Settings > Shut down): off until
  * the power is plugged again. The RGB30: the PMIC turns it off. */
 void watchdog_halt(void) __attribute__((noreturn));

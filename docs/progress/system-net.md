@@ -24,6 +24,11 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   `netxfer_write_tick` in the last 250 ms; the answer after the write), else it is written
   at once with the network polled (`save_now`). Tests: `tests/net/test_netcon.c` (run
   plain, `menu`, `gone`), `check_bm_net_config.py`.
+  Read ops (R-NET2, header with size 0 and crc 0): `T` takes a screenshot of the running game
+  (`bm_shot_ask`; answer `OK` + len32 + name, `NG` after 3 s without a frame); `G` gets a file
+  of `bm/shots`, or exactly `bm/BOOTPREV.TXT`, `bm/BOOTLOG.TXT`, `bm/LASTRUN.TXT` (R-NET4; bridge `logs NAME`) (answer `OK` + len32 + crc32 + data; `PA`, `NF`, `SZ`, `PW`). Tools:
+  `bm_net.py --shot` (T then G), `--get`; `pi_test.py --shot`. Shared with the RGB30 but not
+  yet proved there.
 - Monitor line commands (`src/kernel/monitor.c`: `:` prefix from menu/serial, `bm_net.py IP --line "..."`):
   `gpu`, `b3d`, `play`, `set`, `save`, `render`, `room`, `log`, `err`, `send`, `reboot`.
   The `err` command (R-NET1) prints the last cartridge error (`err: <text>` or `err: none`,

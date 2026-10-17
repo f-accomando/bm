@@ -28,6 +28,20 @@ at any point of the frame; calling it twice in a frame gives one file). It retur
 name it will have, or `nil` and a message if the numbers are over. No question to the player
 (the file only goes to `bm/shots/`).
 
+## Over the network
+
+From the PC, with the console's network link ([design/pi-test.md](design/pi-test.md)):
+
+```
+python tools/bm_net.py IP --shot out.png                    # the running game, saved as out.png
+python tools/bm_net.py IP --get bm/shots/PONG0007.PNG out.png   # a file already in bm/shots
+python3 tools/pi_test.py --cart build/carts/pong.bm --shot out.png
+```
+
+The console saves the PNG in `bm/shots/` as with the key, then sends it. A game must be
+drawing frames: with none, the request fails after 3 s (`NG`). Only files of `bm/shots/` (one
+level) can be fetched. Not yet proved on the RGB30.
+
 ## Names and format
 
 - **Name**: `<PREFIX><NNNN>.PNG`, 8.3 as the card's file system wants. The prefix is the

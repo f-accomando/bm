@@ -47,10 +47,10 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 | ID | Pri | State | Goal | Requirement | Details | After |
 |---|---|---|---|---|---|---|
 | SYS-1 | P0 | in progress | CI green on `bm-core` | all `ci.yml` jobs (host, qemu 1-4, rgb30) green on `bm-core`; `scripts/ci_audit.py` exit 0 | [tools](progress/tools.md), [sync](progress/sync.md) | - |
-| SYS-2 | P0 | to test on the Pi | Reliable freeze report and SD logs | an intended reboot does not report a freeze; a crash writes a correct `bootprev.txt`; the password is masked in SD logs; the watchdog counts on the Pi Zero W | [system](progress/system.md) `Open work` | SYS-1 |
-| SYS-3 | P1 | to test on the Pi | Pi tests from the PC (network, keys, screenshot) | `bm_net.py --shot/--keys` and the bridge tested on a Pi; R-NET3 with a limited test token | [tools](progress/tools.md) `Pi tests from the PC`, [pi-test](design/pi-test.md) | - |
+| SYS-2 | P0 | in progress | Reliable freeze report and SD logs | an intended reboot does not report a freeze; a crash writes a correct `bootprev.txt`; the password is masked in SD logs; the watchdog counts on the Pi Zero W | [system](progress/system.md) `Open work` | SYS-1 |
+| SYS-3 | P1 | in progress | Pi tests from the PC (network, keys, screenshot) | `bm_net.py --shot/--keys` and the bridge tested on a Pi; R-NET3 with a limited test token | [tools](progress/tools.md) `Pi tests from the PC`, [pi-test](design/pi-test.md) | - |
 | SYS-4 | P1 | to do | Measurable multi-agent coordination | ledger and `agent_audit.py` with baseline; work order scope checked by script | [sync](progress/sync.md), [sync-workflow](progress/sync-workflow.md) | - |
-| M42 | P1 | in progress | Identical `.b16` profile on Pi and RGB30 | *Yharnam* `.b16` runs indistinguishably on Pi Zero W and RGB30, same CPU throttle | [b16](progress/b16.md) §2-3 | - |
+| M42 | P1 | in progress | Identical `.b16` profile on Pi and RGB30 | *Yharnam* `.b16` runs indistinguishably on Pi Zero W and RGB30, lint warnings in place | [b16](progress/b16.md) §2-3 | - |
 | SYS-5 | P1 | in progress | Stable RGB30: panel after warm reboot, Start+Select, single core | warm reboot without black screen; Start+Select freezes and resumes as on the Pi | [platforms](progress/platforms.md) `Open work`, [multitasking](progress/multitasking.md) `Open` | - |
 | M41 | P2 | in progress | RGB30 Mali-G52 GPU and Overbit in `.b16` | Overbit `.b16` at 60 fps with the Mali; 3D Bench reports GPU metrics | [graphics-mali](progress/graphics-mali.md) §M41, [platforms](progress/platforms.md) | M42 |
 | SYS-6 | P2 | to do | Multitasking: measurements to redo, CPU stalls, download inside an app | `Open` in multitasking.md emptied or reduced to ideas | [multitasking](progress/multitasking.md) | - |
