@@ -589,9 +589,7 @@ def test_delete_frozen_and_tools(b, opts):
         q.send("q")
         q.expect("suspended", timeout=10)
         time.sleep(1)
-        q.send("x")
-        q.send("w")
-        q.send("\r")
+        keys(q, "xw\r", pause=0.3)
         text = look()
         assert "Delete the game?" in text, text
         q.send("\r")
@@ -604,6 +602,7 @@ def test_delete_frozen_and_tools(b, opts):
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(q.tmp, ignore_errors=True)
 
 
 def test_bench3d(b, opts):
