@@ -62,7 +62,7 @@ For a Glossary term, run its command and read only that section.
 | Delivery | hand-over line | `grep -n -A 14 '^### Delivery' docs/progress/sync.md` |
 | Inbox | inbox and ack | `grep -n -A 14 '^### Inbox and check' docs/progress/sync.md` |
 | Heartbeat | beat cost | `grep -n -A 14 '^### Heartbeat cost' docs/progress/sync.md` |
-| Sign-off | `SIGNOFF <ID>` | `grep -n -A 14 '^### Sign-off' docs/progress/sync.md` |
+| Closeout | CLOSEOUT phases C0-C6 | `grep -n -A 14 '^### Closeout' docs/progress/sync.md` |
 | Sync rules | writers, beat | `grep -n -A 14 '^### Fixed rules' docs/progress/sync.md` |
 
 Roles (`.claude/agents/`): `bm-planner` Opus, plans. `bm-coder` Haiku, code from a Work Order. `bm-mechanic` Haiku, zero-risk edits. `bm-light` Sonnet, simple fixes. `bm-deep` Opus xhigh, one critical problem. `bm-research` Haiku, read-only search. `bm-ops` Haiku, shell commands.

@@ -64,8 +64,9 @@ The five standardized states defined in [`sync/operators.toml`](../../sync/opera
 - **Operatori senza canale diretto** (es. AGY): SPV prepara per l'utente un prompt unico e auto-sufficiente (ID, branch di sync, handshake, casella, work order, branch e perimetro, `--wakeup`, consegna) e lo scrive in chat; l'utente lo incolla e basta. Dettaglio in `SYNC.md` §3c. Per gli operatori che SPV avvia da sé il prompt è il brief di `start_session`.
 - **Caselle e controllo oggettivo**: compiti e urgenze in `sync/inbox/<ID>.md` (max 5 righe, solo SPV scrive); `ack` con `sync_hdr.py --ack auto`; `tools/sync_check.py` dice chi è vivo, chi non ha letto, quali consegne e righe di Log sono fuori formato (>600 caratteri). Lo stato all'utente si legge da lì, mai da memoria. Campo `wakeup yes|no` nel profilo: agenti senza risveglio autonomo ricevono lavori con `eta` esplicita. Una modifica alle regole è una riga `RULE` con ack. `--ack auto` conferma solo la consegna dell'ultima riga dopo il fetch, non che sia stata capita: chi agisce su una riga scrive nel proprio Log `letto <ora riga>`. Operatore "bloccato e muto" (`IDLE` per `sync_check`, o riga/casella non confermata da >30 min e non `WAITING utente`): SPV lo dice all'utente in chat con ID e riga attesa (`SYNC.md` §3b, Chiusura 5).
 - **Heartbeat cost**: prefer a no-model beat (`tools/sync_watch.py`) or a small subagent; the main agent pays the whole conversation at every beat (section "Cost of the heartbeats").
-- **Sign-off**: SPV libera un operatore con la riga `SIGNOFF {ID}: motivo` (niente lavoro adatto, requisiti non soddisfatti, sostituzione, fine progetto); l'operatore consegna, scrive la chiusura, si segna `DONE` e smette i battiti; `operators.toml`: `active = false`, `signoff = "..."`. Senza risposta in 60 min: `IDLE`, avviso all'utente.
+- **Closeout**: closing a session = CLOSEOUT, see `SYNC.md` §3b (phases C0-C6; SPV line per operator, operator steps in §2b).
 - No task open-ended: passi <=45 min; l'operatore tiene libero l'agente principale e supervisiona i propri subagent.
+- A session closes only through CLOSEOUT (`SYNC.md` §3b), on the user's request; each phase starts after a script verifies the output of the previous one.
 
 ## Frase di avvio (da incollare nella sessione di un operatore)
 
@@ -101,8 +102,8 @@ every new task or urgency arrives in `sync/inbox/<ID>.md` (max 5 lines, written 
 ### Heartbeat cost
 the heartbeat is `fetch` + inbox + `--ack auto`; having the main agent do it costs the entire conversation every time. Better a small subagent, or with no model `python tools/sync_watch.py --id <ID> [--branch <sync>]` (wakes the agent only if its inbox or a line addressed to it changes; details in `docs/progress/sync.md`).
 
-### Sign-off
-if SPV writes `SIGNOFF <ID>: motivo` (no suitable work, requirements not met, replacement, end of project) the operator starts nothing else, delivers and pushes what they have, writes the closure in their own file, marks themselves `DONE` with `sync_hdr.py` and stops the heartbeats; they return only with a new handshake requested by SPV.
+### Closeout
+closing a session = CLOSEOUT, see `SYNC.md` §3b (phases C0-C6, one `SIGNOFF <ID>` line per operator, operator steps in §2b there).
 
 ### Fixed rules
 a single writer per file (`SYNC.md` only SPV, `sync/<ID>.md` only `<ID>`); then event-driven heartbeat with no timer: update your own file at every completed task (long tasks split, progress without timers; problems or requests for intervention = a pushed line, which SPV relays to the user; operators other than SPV write in chat only `taken WO <X>` and `done WO <X> [waiting on <Y> | FREE]: <files> files +<a> -<d>, <N> tokens, <M> min`, plus a short request or a ready-to-copy prompt when a user action is needed); `eta` mandatory in `WORKING`/`WAITING`; beyond `eta`+10 min without updates = `IDLE` (without `eta` 60 min, never `FREE`); messages between operators = block `da <ID> a <ID>: ...` in chat; tasks ≤45 min; the main agent stays free; Log lines ≤600 characters; operator status in chat only if the user asks.
