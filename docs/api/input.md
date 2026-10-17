@@ -17,13 +17,17 @@ Part of the game API. Index and basics: [API.md](../API.md).
 **Mouse and pointer (M32).** A cartridge has the pointer only if it asks for it: without
 `mouse(true)` there is none (in bm's menu there always is). Only a USB or Bluetooth mouse
 moves it: a controller never shows it (its right stick is `stick(p, 1)`); the console may
-have it off for the whole system (`mouse=off` in `bm/config.txt`).
+have it off for the whole system (`mouse=off` in `bm/config.txt`). The stick pointer of the
+RGB30 is separate (`stickmouse()`): it is not the kernel pointer, it needs
+Settings > Controllers > Stick as pointer on, and the cartridge draws its cursor.
 
 | Function | Description |
 |---|---|
 | `mouse(on, [arrow])` | `mouse(true)`: the cartridge wants the pointer, and the console draws its arrow over the frame (`mouse(true, false)`: no arrow, the cartridge draws its cursor); `mouse(false)` takes it away. Returns `false` if the console has the mouse off |
 | `mouse()` | `x, y, buttons, wheel, visible`: the position in pixels of the cartridge's screen (without `camera`), the buttons held as bits (1 left, 2 right, 4 middle), the wheel's clicks in this frame (up positive) and `true` if the pointer shows (as soon as something moves it). `nil` if the cartridge has not asked for it or if nothing moves it (neither mouse nor right stick) |
 | `mousep([i])` | `true` in the frame button `i` is pressed (0 left, the default; 1 right; 2 middle) |
+| `stickmouse(on)` | `stickmouse(true)`: the cartridge wants the right stick as a pointer (RGB30 only, with Settings > Controllers > Stick as pointer on). Returns `false`, and nothing moves, on the Pi or with the option off; `stickmouse(false)` takes it away. The console draws nothing: the cartridge draws its cursor |
+| `stickmouse()` | `x, y, buttons, pressed`: the position in pixels of the cartridge's screen (it starts in the middle), the buttons held as bits (1 = R3, 2 = L3) and the ones pressed in this frame. `nil` if the cartridge has not asked or the option is off |
 
 ```lua
 function _init() mouse(true) end

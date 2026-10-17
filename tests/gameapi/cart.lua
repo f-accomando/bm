@@ -27,6 +27,7 @@ local function map_api()
   check(w == 40 and h == 23 and n == 2, "msize(): 40x23, 2 layers")
   check(same(mlayers(), { "main", "front" }), "mlayers(): main, front")
   check(mget(0, 20) == 1 and mget(12, 15) == 2 and mget(20, 17) == 3, "mget of layer 1")
+  check(stickmouse(true) == false and stickmouse() == nil, "stickmouse(): off without the RGB30 option")
   check(mget(5, 5) == 0 and mget(5, 5, 2) == 4 and mget(5, 5, "front") == 4, "mget of the layer front")
   check(mget(-1, 0) == 0 and mget(40, 0, "front") == 0, "mget out of the map: 0")
   check(not pcall(mget, 0, 0, "nope") and not pcall(mget, 0, 0, 3) and not pcall(mget, 0, 0, 0),

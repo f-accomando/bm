@@ -57,13 +57,13 @@ action = "align Start and Tab for BT keyboards"
 id = "D05"
 area = "menu pointer"
 pi = "mouse: hover, click, wheel, right-click for options"
-rgb30 = "no menu pointer (the kernel pointer is for a real mouse only); the stick is a pointer only in apps and games that call the stick API, when Settings > Controllers > Stick as pointer is on; Settings still offers the mouse rows"
-cause = "todo"
-priority = 3
+rgb30 = "no menu pointer; the stick is a pointer in apps and games that call stickmouse(), with Settings > Controllers > Stick as pointer on"
+cause = "hardware"
+capability = "pad-only"
 status = "open"
-note = "decided 2026-10-17 (user): the kernel pointer (M32, src/kernel/pointer.h) stays for the real mouse and its code stays; the RGB30 stick works as a pointer through an on|off option and only in apps and games that have the API. Built by WO D05-STICK-a (key and Settings row) and D05-STICK-b (API and docs); D05-STICK-b turns this block into cause hardware, capability pad-only, action none."
+note = "decided 2026-10-17 (user): the kernel pointer (M32, src/kernel/pointer.h) stays for the real mouse and its code stays; the RGB30 stick works as a pointer through an on|off option and only in apps and games that have the API. Built 2026-10-17 by D05-STICK-a and D05-STICK-b, not tried on hardware."
 evidence = "src/kernel/carts.c:1519-1585; src/kernel/settings.c:402"
-action = "D05-STICK-a and D05-STICK-b"
+action = "none: keep the docs honest"
 
 [[divergence]]
 id = "D06"

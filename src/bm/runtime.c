@@ -22,6 +22,7 @@
 #include "lib/crc32.h"
 #include "kernel/input.h"
 #include "kernel/pointer.h"
+#include "kernel/stickptr.h"
 #include "usb/hid.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
@@ -155,6 +156,8 @@ static struct {
     uint8_t *anim;              /* copy of its ANIM section (skeletons), or NULL */
     uint32_t anim_size;
     int mouse, mouse_arrow;     /* mouse(true [, arrow]): the pointer is the cartridge's */
+    int stick_ptr;              /* stickmouse(true): the right stick is a pointer (RGB30, stick_mouse=on) */
+    stickptr_t sp;              /* its position and buttons this frame */
     int reports;                /* report() calls in this run */
     pointer_t ptr;              /* the pointer this frame */
     int want_w, want_h;         /* screen(w, h): the resolution from the next frame */
@@ -4531,6 +4534,34 @@ static int l_mousep(lua_State *L)
     return 1;
 }
 
+/* stickmouse(on): the cartridge wants the right stick as a pointer; true only
+ * on the RGB30 with Settings > Controllers > Stick as pointer on. The console
+ * draws nothing. stickmouse(): x, y, buttons (1 = R3, 2 = L3), pressed this
+ * frame; nil when the cartridge did not ask or the option is off. */
+static int l_stickmouse(lua_State *L)
+{
+    if (lua_gettop(L) >= 1) {
+        int on = 0;
+#ifdef BM_RGB30
+        on = lua_toboolean(L, 1) && stickptr_parse(config_get("stick_mouse"));
+#endif
+        if (on && !rt.stick_ptr)
+            stickptr_reset(&rt.sp, rt.g.w, rt.g.h);
+        rt.stick_ptr = on;
+        lua_pushboolean(L, on);
+        return 1;
+    }
+    if (!rt.stick_ptr) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushinteger(L, (lua_Integer)rt.sp.x);
+    lua_pushinteger(L, (lua_Integer)rt.sp.y);
+    lua_pushinteger(L, rt.leave_ask ? 0 : rt.sp.buttons);
+    lua_pushinteger(L, rt.leave_ask ? 0 : rt.sp.pressed);
+    return 4;
+}
+
 static int l_pad(lua_State *L)
 {
     uint32_t b = 0;
@@ -4769,7 +4800,7 @@ static const luaL_Reg api[] = {
     { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
     { "doc_list", l_doc_list }, { "doc_read", l_doc_read }, { "doc_write", l_doc_write }, { "doc_delete", l_doc_delete },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
-    { "keys", l_keys }, { "pad", l_pad }, { "mouse", l_mouse }, { "mousep", l_mousep }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
+    { "keys", l_keys }, { "pad", l_pad }, { "mouse", l_mouse }, { "mousep", l_mousep }, { "stickmouse", l_stickmouse }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
     { "cart_save", l_cart_save }, { "cart_build", l_cart_build }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg }, { "cart_config", l_cart_config },
     { "cart_data", l_cart_data },
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
@@ -5129,6 +5160,11 @@ static int poll_keys(void)
             rt.hold[b]--;
         }
     rt.ptr = *pointer_update();             /* also when unused: the motion is dropped */
+    if (rt.stick_ptr) {
+        float sx, sy;
+        input_stick_r(0, &sx, &sy);
+        stickptr_step(&rt.sp, sx, sy, rt.praw[0], rt.g.w, rt.g.h);
+    }
     rt.prev = rt.now;
     rt.raw_all = pad | serial;
     rt.now = hid_to_btn(pad | serial);
