@@ -104,8 +104,25 @@ class Qemu:
              "-monitor", f"unix:{self.mon_path},server=on,wait=off",
              "-qmp", f"unix:{self.qmp_path},server=on,wait=off", *extra],
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        self.port = bm_load.Port(f"tcp:127.0.0.1:{tcp}", 115200)
-        self.mini = bm_load.Port(f"tcp:127.0.0.1:{tcp2}", 115200) if mini_uart else None
+        for attempt in range(5):
+            try:
+                self.port = bm_load.Port(f"tcp:127.0.0.1:{tcp}", 115200)
+                break
+            except OSError:
+                if attempt == 4:
+                    raise
+                time.sleep(0.2)
+        if mini_uart:
+            for attempt in range(5):
+                try:
+                    self.mini = bm_load.Port(f"tcp:127.0.0.1:{tcp2}", 115200)
+                    break
+                except OSError:
+                    if attempt == 4:
+                        raise
+                    time.sleep(0.2)
+        else:
+            self.mini = None
         self.buf = b""
 
     # file-like sink so bm_load.Loader can echo into our buffer
