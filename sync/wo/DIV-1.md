@@ -6,7 +6,7 @@ Objective: the three blocks say what the user decided on 17 Oct 2026, and `pytho
 
 ## Proof (opened on `origin/claude/integrazione-ottobre`)
 - Blocks: D03 is `docs/spec/divergences.toml:33-43` (`id` at `:34`), D05 `docs/spec/divergences.toml:56-66` (`id` at `:57`), D11 `docs/spec/divergences.toml:127-136` (`id` at `:128`). Re-find: `git grep -n '^id = "D\(03\|05\|11\)"' -- docs/spec/divergences.toml`.
-- The rule: a hardware difference needs `capability` naming an `id` of `docs/spec/platforms.toml` (`scripts/consistency.py:230`); `status` must be one of open, suspended, untested, resolved (`scripts/consistency.py:233`); only the kinds history, todo, unknown block 1.0.0 (`scripts/consistency.py:275`). So "accepted" is written as `cause = "hardware"` + `capability` + `status = "open"` + `action = "none: ..."`, exactly as D30 (`docs/spec/divergences.toml:329-338`) and D31 do. Capability `pad-only` exists: `docs/spec/platforms.toml:32`.
+- The rule: a hardware difference needs `capability` naming an `id` of `docs/spec/platforms.toml` (`scripts/consistency.py:231`); `status` must be one of open, suspended, untested, resolved (`scripts/consistency.py:233`); only the kinds history, todo, unknown block 1.0.0 (`scripts/consistency.py:275`). So "accepted" is written as `cause = "hardware"` + `capability` + `status = "open"` + `action = "none: ..."`, exactly as D30 (`docs/spec/divergences.toml:329-338`) and D31 do. Capability `pad-only` exists: `docs/spec/platforms.toml:32`.
 - Evidence files must exist (`scripts/consistency.py:235-238`): keep each block's `evidence` as it is.
 
 ## The change (replace the block's fields as listed; keep `id`, `area`, `pi`, `evidence`)
