@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: WORKING
-task: WO AGY-39 fix: correzione scheda hardware beta
+state: FREE
+task: AGY-39 fix consegnato
 waiting_on: 
 eta: 2026-10-17T09:55+02:00
 wakeup: no
 ack: 2026-10-17T09:27+02:00
-updated: 2026-10-17T09:33+02:00
+updated: 2026-10-17T09:35+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -40,6 +40,7 @@ updated: 2026-10-17T09:33+02:00
 - Raccomandazione: opzione (3) integrata con (4). L'utente avvia `tools/pi_bridge.py <IP>` una volta sola a inizio giornata digitando la password una tantum. Il bridge serve NET, AGX e tutti gli operatori via socket locale `tools/pi.py` senza mai toccare disco né keyring.
 
 ## Consegne
+- DELIVERED AGY-39 @ claude/beta-hardware-card@cf9bac6b · verifica: rows 13 -> 13; docs_audit score -> 6661 penalties 0 · 1 file (correzioni D06, M37, test_netxfer) · non verificato su hardware · 2026-10-17T09:35+02:00
 - DELIVERED AGX-15 @ claude/rgb30-cover-details@c0c77719 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k cover_details_perf -> PASS test_cover_details_perf · 3 file · base = claude/rgb30-menu-start-tab · non verificato su hardware · 2026-10-16T17:38+02:00
 - DELIVERED AGX-14 @ claude/rgb30-qemu-delete-tools@6dbf3908 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k delete_frozen_and_tools -> PASS test_delete_frozen_and_tools · 2 file · non verificato su hardware · 2026-10-16T16:13+02:00
 - DELIVERED AGX-13 @ claude/rgb30-menu-start-tab@288931f9 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k menu_start_confirms -> PASS test_menu_start_confirms (prima del fix: timeout) · 3 file · Tab/1-2-3-5 non verificati (nessun test), non verificato su hardware · 2026-10-16T16:08+02:00
