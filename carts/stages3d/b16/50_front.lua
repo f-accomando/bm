@@ -13,6 +13,7 @@ local function seconds(frames)
     return string.format("%.1f", frames / 60)
 end
 
+FRONT.budget_ms = 33.0   -- 30 fps at 360x360 (D1, 17 Oct): common/45_quality.lua reads it
 function FRONT.title_draw(g)
     cls(0x101828)
     centred("STAGES 3D", 90, 0xFFD050)
