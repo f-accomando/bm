@@ -208,6 +208,90 @@ static void test_fade(void)
     g16_fade_free(&f);
 }
 
+/* a backend that draws flat colours only (colour_only, M41): flat meshes reach it, textures and effects go to the ARM */
+static int co_tris, co_hooks;
+static char co_why[160];
+
+static void co_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind, const g16_sheet_t *tex, int depth)
+{
+    (void)ctx; (void)g; (void)v; (void)kind; (void)tex; (void)depth;
+    co_tris++;
+}
+
+static void co_nop(void *ctx, const g16_t *g)
+{
+    (void)ctx; (void)g;
+}
+
+static void co_hook(void *ctx, const char *why)
+{
+    (void)ctx;
+    co_hooks++;
+    snprintf(co_why, sizeof co_why, "%s", why);
+}
+
+static void test_colour_only(void)
+{
+    static uint16_t px[360 * 640];
+    g16_t g;
+    r3d_t r;
+    r3d_mesh_t cube, quad;
+    g16_sheet_t tex;
+    r3d_backend_t be = { .tri = co_tri, .zclear = co_nop, .colour_only = 1 };
+    g16_target(&g, px, 640, 640, 360, &font);
+    CHECK(r3d_init(&r, &g) == 0 && r3d_mesh_cube(&cube, 0x00FF00) == 0, "colour_only: setup");
+    CHECK(g16_sheet_alloc(&tex, 16, 16) == 0 && r3d_mesh_alloc(&quad, 4, 2) == 0 && r3d_mesh_alloc_uv(&quad) == 0,
+          "colour_only: texture and quad");
+    for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 16; x++)
+            g16_sheet_set(&tex, x, y, g16_rgb(255, 0, 0), 1);
+    quad.verts[0] = (v3_t){ -1, -1, 0 }; quad.verts[1] = (v3_t){ 1, -1, 0 };
+    quad.verts[2] = (v3_t){ 1, 1, 0 };   quad.verts[3] = (v3_t){ -1, 1, 0 };
+    static const uint16_t f[6] = { 0, 2, 1, 0, 3, 2 };
+    memcpy(quad.faces, f, sizeof f);
+    static const float uv[12] = { 0, 16, 16, 0, 16, 16,   0, 16, 0, 0, 16, 0 };
+    memcpy(quad.uv, uv, sizeof uv);
+    quad.colors[0] = quad.colors[1] = R3D_TEXTURED;
+    quad.tex = &tex;
+    r3d_mesh_normals(&quad);
+
+    /* (a) a flat-coloured mesh: the backend gets the triangles, the ARM is not asked */
+    r.backend = &be;
+    r.arm_hook = co_hook;
+    co_tris = co_hooks = 0;
+    r3d_zclear(&r);
+    r3d_camera(&r, 0, 0, -3, 0, 0, 60);
+    r3d_light(&r, 0, 0, -1, 1);
+    r3d_draw(&r, &cube, (v3_t){ 0, 0, 0 }, 0.3f, 0.2f, 0, 1);
+    CHECK(co_tris > 0 && co_hooks == 0 && r.backend == &be, "colour_only: flat mesh stays on the backend (%d tris, %d hooks)",
+          co_tris, co_hooks);
+
+    /* (b) a textured mesh: the ARM takes over once, with the reason */
+    co_tris = co_hooks = 0;
+    r3d_draw(&r, &quad, (v3_t){ 0, 0, 0 }, 0, 0, 0, 1);
+    CHECK(co_hooks == 1 && strstr(co_why, "textures") && r.backend == NULL,
+          "colour_only: textured mesh hands over (%d hooks, \"%s\", backend %p)", co_hooks, co_why, (const void *)r.backend);
+
+    /* (c) the same scene on a backend without the flag: the textured triangles reach it, no hook */
+    be.colour_only = 0;
+    r.backend = &be;
+    co_tris = co_hooks = 0;
+    r3d_draw(&r, &quad, (v3_t){ 0, 0, 0 }, 0, 0, 0, 1);
+    CHECK(co_tris > 0 && co_hooks == 0 && r.backend == &be, "colour_only off: textured triangles reach the backend (%d, %d)",
+          co_tris, co_hooks);
+
+    /* (d) an effect (a point) on a colour_only backend: the ARM takes over */
+    be.colour_only = 1;
+    r.backend = &be;
+    co_tris = co_hooks = 0;
+    r3d_point(&r, (v3_t){ 0, 0, 0 }, 0.5f, 0xFFFFFF, 0);
+    CHECK(co_hooks == 1 && r.backend == NULL, "colour_only: an effect hands over (%d hooks)", co_hooks);
+
+    r3d_mesh_free(&quad);
+    r3d_mesh_free(&cube);
+    g16_sheet_free(&tex);
+}
+
 static void test_3d(void)
 {
     static uint16_t big[360 * 640];
@@ -886,6 +970,7 @@ int main(int argc, char **argv)
     test_light();
     test_fade();
     test_3d();
+    test_colour_only();
     test_format(argc > 1 ? argv[1] : "build/demo.bm");
     test_cover_peek();
     test_sheet8();
