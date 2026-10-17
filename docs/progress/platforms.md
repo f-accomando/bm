@@ -42,7 +42,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   `battery()` / `battery_low()` in Lua (`nil`/`false` on the Pi). Low from 20% off the
   charger until 23%: a red icon drawn by the runtime over games and tools (`battery_draw()`
   in `runtime.c`, after `flush3d`, outside lockstep); `battery_icon=0` turns it off. QEMU:
-  `test_battery_low_game` (`tests/rgb30/qemu_test.py`).
+  `test_battery_low_game` (`tests/rgb30/qemu_test.py`); `test_stages3d_b16` (Stages 3D `.b16`: three stages by keys, `-k stages3d`).
 - WiFi RTL8821CS over SDIO (`rtw_*.c`, `wpa.c`), Bluetooth RTL8821CS on UART1 (`rk_bt.c`,
   H5).
 - Logs on the SD for the run before: `bm/bootprev.txt` (its boot log + last 4 KiB printed),
