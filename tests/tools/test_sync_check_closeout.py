@@ -236,6 +236,33 @@ class T(unittest.TestCase):
         self.sync_md()                                           # no DRAIN yet: nothing to check
         self.assertEqual(sc.closeout_permissions(sc.rows(log)), [])
 
+    def test_phase_main_prints_the_permissions_list(self):
+        # main() wiring of C0: the list is printed when it is there, a problem (exit 1 with --strict) when it is not
+        self.closed_session()
+        self.operator("SPV", "WORKING")
+        code, lines = self.check("--strict")
+        self.assertIn("C0 permissions: sync_hdr.py, push", lines)
+        self.assertEqual(code, 0)
+        self.assertEqual(lines[-1], "CLOSEOUT-READY")
+        self.sync_md(row(30, "CLOSEOUT", "DRAIN"), row(20, "SIGNOFF", "SIGNOFF AAA: closeout"),
+                     row(20, "SIGNOFF", "SIGNOFF BBB: closeout"))        # same session, no list
+        code, lines = self.check("--strict")
+        self.assertTrue(any("! C0: permissions list missing" in ln for ln in lines))
+        self.assertFalse(any(ln.startswith("C0 permissions:") for ln in lines))
+        self.assertEqual(lines[-1], "CLOSEOUT-READY")                      # the states are still READY: only C0 fails
+        self.assertEqual(code, 1)
+
+    def test_phase_forced_operator_counts_as_ready(self):
+        self.sync_md(row(40, "CLOSEOUT", "PERMISSIONS: sync_hdr.py"), row(30, "CLOSEOUT", "DRAIN"),
+                     row(20, "SIGNOFF", "SIGNOFF AAA: closeout"), row(10, "SIGNOFF", "SIGNOFF BBB FORCED: no answer"))
+        self.handoff()
+        self.operator("AAA", "DONE", ack_ago=5, closed=True)
+        self.operator("BBB", "FREE", ack_ago=50)                       # never answered
+        self.operator("SPV", "WORKING")
+        code, lines = self.check("--strict")
+        self.assertEqual(lines[-1], "CLOSEOUT-READY")
+        self.assertEqual(code, 0)
+
     # -- the leftovers (CLOSEOUT.md 2c and 2e); git is mocked
 
     GIT = {("branch", "-r", "--no-merged", "origin/bm-core"):
