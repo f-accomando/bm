@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: NET
-state: WORKING
+state: WAITING
 task: R-NET10
-waiting_on: 
-eta: 2026-10-17T10:45+02:00
+waiting_on: utente: ok scritto in chat per far leggere al bridge la password da ~/.pi_bridge.pw (0600)
+eta: 2026-10-17T11:30+02:00
 wakeup: no
 ack: 2026-10-17T09:52+02:00
-updated: 2026-10-17T09:59+02:00
+updated: 2026-10-17T10:00+02:00
 ---
 # NET
 
