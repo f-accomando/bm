@@ -8,6 +8,7 @@ end
 
 function _update()
     update_state()
+    quality_step()
 end
 
 function _draw()
