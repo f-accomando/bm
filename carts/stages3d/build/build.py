@@ -4,7 +4,7 @@ Stages 3D: the shared logic (common/) plus one front per edition (bm/ now, b16/ 
 
   carts/stages3d/build/build.py EDITION OUT.lua [--map OUT.map]
 
-EDITION is `bm` (the Pi, 640x360) or `b16` (the RGB30, 360x360: no front yet).
+EDITION is `bm` (the Pi, 640x360) or `b16` (the RGB30, 360x360).
 The sources of the edition are COPIED to OUT's folder under src/ (common/*.lua and
 <EDITION>/*.lua), then joined into one main.lua in file-name order (the two-digit prefix
 decides; on a tie common/ wins). The first file (00_core.lua) stays at the top level;

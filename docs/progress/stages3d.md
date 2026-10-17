@@ -1,7 +1,7 @@
 # Stages 3D
 
-A 3-stage 3D cartridge for the Pi (`.bm`, 640×360): `carts/stages3d/`. Shared logic in `common/`,
-one front per edition (`bm/` today, `b16/` empty until the RGB30 edition). Not in `GAMES`
+A 3-stage 3D cartridge for the Pi (`.bm`, 640×360) and the RGB30 (`.b16`, 360×360): `carts/stages3d/`. Shared logic in `common/`,
+one front per edition (`bm/` and `b16/`). Not in `GAMES`
 (`Makefile`): it does not go into `dist/bm` or the Market.
 
 ## How it is today
@@ -9,11 +9,12 @@ one front per edition (`bm/` today, `b16/` empty until the RGB30 edition). Not i
 - Layout: `common/` (`00_core` locals and the `GAME` table, `10_stages` the data, `20_world` map,
   height, collision, objects, `30_logic` movement, apples, goal, record, `40_states` the state
   machine and the log, `99_main` `_init/_update/_draw`), `bm/` (`50_front.lua`, `bm.info`),
-  `b16/` (`README.txt` only), `assets/` (sheet and four map layers, made by `build/mksheet.py`
+  `b16/` (`50_front.lua`, `bm.info`, `README.txt`: the RGB30 edition), `assets/` (sheet and four map layers, made by `build/mksheet.py`
   and `build/mkmap.py`, committed), `build/build.py`.
 - Build: `build.py EDITION OUT.lua` copies `common/*.lua` and `<EDITION>/*.lua` into `OUT`'s
   `src/` (a copy, not a reference: each edition has its own sources) and joins them in file-name
-  order; `b16` fails with `b16: no front yet`. `make build/carts/stages3d.bm`.
+  order. `make build/carts/stages3d.bm`; `b16` builds `build/carts/stages3d.b16`
+  (`make build/carts/stages3d.b16`).
 - `FRONT` interface (the front defines it, each function gets `g`, the `GAME` table, read only):
   `title_draw`, `play_draw`, `clear_draw`, `final_draw`, `record_draw`. Fields of `g`: `state`,
   `stage` (1..3), `px py pz`, `apples`, `apples_total`, `stage_frames`, `total_frames`, `best`,
@@ -27,12 +28,15 @@ one front per edition (`bm/` today, `b16/` empty until the RGB30 edition). Not i
 - Test: `make test-stages3d` plays the three stages in bmhost with `tests/stages3d/input.txt`
   and `tests/stages3d/check.py` prints `stages3d: N/N checks passed` (not in `HOST_TESTS`).
   `gpu3d` is off in bmhost: the GPU path is not tried there. The camera pitch is negative
-  (looks down), checked on a shot.
+  (looks down), checked on a shot. `make test-stages3d-b16` plays the same script on the `.b16`
+  (not in `HOST_TESTS`); without `--square` bmhost frames the 360×360 page in 640×360.
 
 ## Open work
 
-- 3D-7: the `.b16` front for the RGB30 (360×360, 30 fps) in `carts/stages3d/b16/` with its own
-  `bm.info`; repeat `test-stages3d` on it.
+- Run the `.b16` on the RGB30: 30 fps at 360×360 (optional 720×720), `3D: GPU` on the title, the
+  buttons and the `save()` record (`mkbm.py` warns that saves are not designed for a `.b16`). Not
+  verified on hardware.
+- QEMU test of the cartridge on the RGB30 kernel: W05.
 - A run on the Pi: 60 fps at 640×360 (`stat(1)` under 16.7 ms), `3D: GPU` on the title. Not verified on hardware.
 - Fill the four tiles of each map cell, or the stripes stay.
 - Content (enemies, jumps, music), into `GAMES` and the Market: when decided.
@@ -46,4 +50,4 @@ one front per edition (`bm/` today, `b16/` empty until the RGB30 edition). Not i
 3. Each edition has its own front sources and `bm.info`, a Makefile rule and a `.bm`/`.b16`:
    writing `b16/` changes no file of `bm/`.
 4. Changing `common/` changes both editions: `test-stages3d` runs on the `.bm` and must be
-   repeated on the `.b16`.
+   repeated on the `.b16`; both tests (`test-stages3d`, `test-stages3d-b16`) must pass.

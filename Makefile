@@ -272,6 +272,18 @@ $(BUILD)/carts/stages3d.bm: $(BUILD)/stages3d/bm/main.lua $(STAGES3D_ASSETS) car
 	    --map floor=carts/stages3d/assets/map_floor.csv --map height=carts/stages3d/assets/map_height.csv \
 	    --map walls=carts/stages3d/assets/map_walls.csv --map objects=carts/stages3d/assets/map_objects.csv
 
+# Stages 3D .b16 (RGB30, 360x360): the same common/ copied into its own src, its own front and bm.info
+STAGES3D_B16_SRC := $(sort $(wildcard carts/stages3d/common/*.lua carts/stages3d/b16/*.lua))
+$(BUILD)/stages3d/b16/main.lua: $(STAGES3D_B16_SRC) carts/stages3d/build/build.py
+	$(PYTHON) carts/stages3d/build/build.py b16 $@ --map $(BUILD)/stages3d/b16/main.map
+
+$(BUILD)/carts/stages3d.b16: $(BUILD)/stages3d/b16/main.lua $(STAGES3D_ASSETS) carts/stages3d/b16/bm.info scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stages3d/b16/bm.info --sheet carts/stages3d/assets/sheet.png \
+	    --map floor=carts/stages3d/assets/map_floor.csv --map height=carts/stages3d/assets/map_height.csv \
+	    --map walls=carts/stages3d/assets/map_walls.csv --map objects=carts/stages3d/assets/map_objects.csv
+	@test `wc -c < $@` -le 8388608 || { echo "stages3d.b16 is over a .b16's 8 MiB"; rm -f $@; exit 1; }
+
 # bm SDK (RGB30): the SDK's second edition, 360x360 and the pad, with its own
 # sources in carts/sdk_b16/ (layout.lua + main.lua, joined by its build.py). A tool
 # built into the RGB30's kernel (rgb30.mk, its Dev tab), not into the Pi's: here
@@ -526,6 +538,13 @@ test-stages3d: $(BUILD)/host/bmhost-bin $(BUILD)/carts/stages3d.bm tests/stages3
 	    --shots $(BUILD)/stages3d-shots > $(BUILD)/stages3d-test.log 2>&1
 	$(PYTHON) tests/stages3d/check.py $(BUILD)/stages3d-test.log
 
+# Stages 3D .b16: the same script and the same check.py as the .bm; a .b16 is the .bm container (src/bm/format.c:10)
+test-stages3d-b16: $(BUILD)/host/bmhost-bin $(BUILD)/carts/stages3d.b16 tests/stages3d/input.txt tests/stages3d/check.py
+	rm -rf $(BUILD)/stages3d16-sd $(BUILD)/stages3d16-shots && mkdir -p $(BUILD)/stages3d16-sd $(BUILD)/stages3d16-shots
+	$< $(BUILD)/carts/stages3d.b16 --sd $(BUILD)/stages3d16-sd --input tests/stages3d/input.txt --seconds 20 \
+	    --shots $(BUILD)/stages3d16-shots > $(BUILD)/stages3d16-test.log 2>&1
+	$(PYTHON) tests/stages3d/check.py $(BUILD)/stages3d16-test.log
+
 # bm Write (carts/write, 2026-10-06): a document typed, styled, saved in
 # /docs and exported in bmhost, then opened again (the session, the
 # Markdown); tests/write/check.py reads the files (the PDF's xref too)
@@ -658,7 +677,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-keymap test-gameapi test-stages3d test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-keymap test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
