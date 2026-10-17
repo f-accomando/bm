@@ -261,6 +261,19 @@ class T(unittest.TestCase):
         self.assertNotIn("  > WO XX-1 assigned and not delivered", out)      # delivered
         self.assertIn("  > AAA: closed with open items: XX-3", out)
 
+    def test_leftovers_wo_id_compare_is_exact(self):
+        # AGY-10 delivered must not hide AGY-1 (and AGY-1 delivered must not hide AGY-10)
+        self.sync_md(row(30, "WO", "AAA: WO AGY-1 first"), row(29, "WO", "AAA: WO AGY-10 tenth"),
+                     row(28, "WO", "AAA: WO AGY-2 second"))
+        with open(os.path.join(self.root, "sync", "AAA.md"), "w", encoding="utf-8") as f:
+            f.write("---\nschema: 1\nid: AAA\nstate: FREE\nupdated: %s\n---\n# AAA\n\n## Consegne\n"
+                    "- DELIVERED AGY-10 @ b@abc1234 · verifica: t -> ok · 2026-10-17T10:00\n"
+                    "- DELIVERED AGY-2 @ b@abc1235 · verifica: t -> ok · 2026-10-17T10:01\n" % stamp(1))
+        out = self.leftovers()
+        self.assertIn("  > WO AGY-1 assigned and not delivered", out)
+        self.assertNotIn("  > WO AGY-10 assigned and not delivered", out)
+        self.assertNotIn("  > WO AGY-2 assigned and not delivered", out)
+
     def test_leftovers_branches_and_worktrees(self):
         self.sync_md(row(30, "CLOSEOUT", "DRAIN"))
         self.operator("AAA", "FREE")

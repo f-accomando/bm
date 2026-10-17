@@ -225,7 +225,7 @@ def leftovers(log, ops):
             continue
         mm = WO_ID.search(m)
         wo = mm.group(0) if mm else None
-        if wo and wo not in seen and not any(d.startswith(wo) or wo.startswith(d) for d in delivered):
+        if wo and wo not in seen and wo not in delivered:
             seen.add(wo)
             out.append("WO %s assigned and not delivered" % wo)
     try:                                                        # DELIVERED without REVIEW
