@@ -1,0 +1,50 @@
+bm report
+kind: session
+kernel: v0.2.5-707-g9554944
+branch: bm-core
+board: RGB30
+date: 2026-10-17 21:24:17
+file: session_mars2099_rgb30.txt
+
+session of "MARS2099" (the last one: the next run of this game replaces this file)
+options bm3d 7.3 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
+screen 360x360, 70 frames in 2.3 s, 30.0 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 25.2 ms, max 26.5 ms, 70 frames over 16.7 ms
+memory: Lua peak 335 KiB, data 322 KiB; code 5250 tokens; busiest frame 82k Lua instructions
+frames that were shown after more than 1.5 frames: 70
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    0
+  <= 25 ms             0
+  <= 34 ms (30 fps)    69
+  <= 50 ms             0
+  <= 100 ms            0
+  > 100 ms (a freeze)  0
+
+the frame in its parts (as the overlay, 70 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.2    1%
+  draw (no 3D)    30.2  181%
+  3D calls         0.0    0%
+  audio            2.6   16%
+  GPU wait         0.0    0%
+  all             33.1  199%
+audio interrupt: 8.0% of the CPU's time (mean), 8.1% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
+     33     2.7    33.7   25.5   0.2   25.3   0.0   0.0     8.2       80      221        1
+     42     3.0    33.7   25.5   0.2   25.3   0.0   0.0     8.1       80      253        1
+     51     3.3    33.6   25.5   0.2   25.3   0.0   0.0     8.0       81      246        1
+     60     3.6    33.6   25.5   0.2   25.3   0.0   0.0     8.0       81      239        1
+     69     3.9    33.5   25.5   0.2   25.3   0.0   0.0     8.0       80      232        1
+      6     1.8    33.3   25.3   0.2   25.1   0.0   0.0     8.0       80      238        1
+     10     2.0    33.3   24.9   0.2   24.6   0.0   0.0     8.4       79      229        1
+     11     2.0    33.3   25.8   0.2   25.6   0.0   0.0     7.5       82      231        1
+     15     2.1    33.3   25.5   0.2   25.3   0.0   0.0     7.7       80      235        1
+     17     2.2    33.3   25.0   0.2   24.8   0.0   0.0     8.2       80      233        1
+     21     2.3    33.3   25.5   0.2   25.3   0.0   0.0     7.7       80      230        1
+     23     2.4    33.3   25.5   0.2   25.3   0.0   0.0     7.7       81      229        1
