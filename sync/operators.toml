@@ -50,18 +50,6 @@ strengths = "{da handshake}"
 weak_points = "{da handshake}"
 
 [[operator]]
-id = "AGY"
-name = "OP-AGY"
-kind = "ai"
-file = "sync/AGY.md"
-branches = ["agy/sdlog"]
-place = "{da handshake}"
-models = "{da handshake}"
-subagents = "{da handshake}"
-strengths = "{da handshake}"
-weak_points = "{da handshake}"
-
-[[operator]]
 id = "CI"
 name = "OP-CI"
 kind = "ai"
