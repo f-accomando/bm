@@ -71,6 +71,23 @@ class T(unittest.TestCase):
         self.run_tool(["--close", "WO-1", "--commit", self.sha, "--tokens", "1", "--min", "1"])
         self.assertFalse(os.path.exists(hdr))
 
+    def test_closed_line(self):
+        f = os.path.join(self.d, "OP.md")
+        with open(f, "w", encoding="utf-8", newline="") as fh:
+            fh.write("---\nschema: 1\nid: OP\nstate: FREE\ntask: x\n---\n# OP\n\n## Consegne\n\n## Progressi\nuno\n")
+        r = self.run_tool(["--file", f, "--closed", "nessuno", "--branch", "br", "--commit", self.sha[:8]])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        t = open(f, encoding="utf-8").read()
+        self.assertIn("state: DONE", t)
+        self.assertRegex(t, r"## Chiusura\nCLOSED @ br@%s · tree clean · aperti: nessuno · \d{4}-\d\d-\d\dT\d\d:\d\d[+-]\d\d:\d\d\n\n## Progressi" % self.sha[:8])
+        r = self.run_tool(["--file", f, "--closed", "WO-9", "--branch", "br"])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        t = open(f, encoding="utf-8").read()
+        self.assertEqual(t.count("## Chiusura"), 1)
+        self.assertIn("br@%s · tree clean · aperti: WO-9" % self.sha[:7], t)
+        r = self.run_tool(["--file", f, "--closed", "nessuno"])
+        self.assertEqual(r.returncode, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

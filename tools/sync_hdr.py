@@ -9,6 +9,10 @@
       # `done WO <X> [waiting on <Y> | FREE]: <files> files +<a> -<d>, <N> tokens, <M> min`; the status block is NOT touched.
       # files/add/del/lines come from `git show --numstat <commit>` unless given by hand (--files --add --del --lines code=..,docs=..,data=..).
 
+  python3 tools/sync_hdr.py CLD --closed nessuno --branch <b> [--commit <sha>]
+      # writes the `## Chiusura` line `CLOSED @ <b>@<sha> · tree clean · aperti: nessuno|<WO ids> · <ISO>` (section created before
+      # `## Progressi` if missing), then applies --state DONE --ack auto. The commit defaults to `git rev-parse --short HEAD`.
+
 state: DONE | WORKING | WAITING | IDLE | FREE;  waiting_on (only with WAITING): utente | Antigravity | Claude cloud | Claude local.
 The text of the file is kept; the old lines '**Ultimo aggiornamento:**' and '**Stato:**' are refreshed too, if the file has them.
 Then: git add sync/<ID>.md && git commit && git pull --rebase origin bm-core && git push origin HEAD:bm-core."""
@@ -158,6 +162,28 @@ def close_wo(a):
     return 0
 
 
+def write_closed(a, body):
+    """body with the CLOSED line added to `## Chiusura` (section created before `## Progressi`, or at the end); None if the commit is unknown."""
+    sha = a.commit
+    if not sha:
+        r = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=a.repo or ROOT, capture_output=True, text=True)
+        sha = r.stdout.strip() if r.returncode == 0 else ""
+    if not sha:
+        return None
+    line = "CLOSED @ %s@%s · tree clean · aperti: %s · %s" % (a.branch, sha, a.closed, now_stamp())
+    m = re.search(r"^## Chiusura[ \t]*\n", body, re.M)
+    if m:
+        end = re.search(r"^## ", body[m.end():], re.M)
+        pos = m.end() + end.start() if end else len(body)
+        head = body[:pos].rstrip("\n") + "\n" + line + "\n"
+        return head + ("\n" + body[pos:] if end else "")
+    sec = "## Chiusura\n" + line + "\n\n"
+    m = re.search(r"^## Progressi", body, re.M)
+    if m:
+        return body[:m.start()] + sec + body[m.start():]
+    return body.rstrip("\n") + "\n\n" + sec.rstrip("\n") + "\n"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("id")
@@ -178,17 +204,28 @@ def main():
     ap.add_argument("--min", type=int)
     ap.add_argument("--lines", help="code=N,docs=N,data=N")
     ap.add_argument("--commit")
+    ap.add_argument("--closed", metavar="OPEN", help="write the Chiusura line (needs --branch): `nessuno` or the open WO ids; then DONE + ack auto")
     ap.add_argument("--branch")
     ap.add_argument("--repo", help="git repo for --commit (default: this repo)")
     ap.add_argument("--ledger", help="ledger file (default sync/OP-<ID>.ledger.jsonl)")
     a = ap.parse_args()
     if a.close:
         sys.exit(close_wo(a))
+    if a.closed:
+        if not a.branch:
+            sys.stderr.write("error: --closed needs --branch\n")
+            sys.exit(2)
+        a.state, a.ack = "DONE", "auto"
     path = a.file or os.path.join(ROOT, "sync", a.id + ".md")
     text = open(path, encoding="utf-8", newline="").read() if os.path.exists(path) else "# %s\n\n" % a.id
     nl = "\r\n" if "\r\n" in text else "\n"
     text = text.replace("\r\n", "\n")
     d, body = parse(text)
+    if a.closed:
+        body = write_closed(a, body)
+        if body is None:
+            sys.stderr.write("error: no commit (give --commit, or run inside a git repo)\n")
+            sys.exit(2)
     d.update({"schema": "1", "id": a.id})
     if a.state:
         d["state"] = a.state
