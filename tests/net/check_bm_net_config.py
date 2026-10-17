@@ -13,9 +13,11 @@ import contextlib
 import io
 import os
 import re
+import shutil
 import socket
 import struct
 import sys
+import tempfile
 import threading
 import time
 import zlib
@@ -352,6 +354,34 @@ def main():
             out = pi_bridge.run("1.2.3.4", "s3cret", "line " + req)
             check(out.startswith("refused: line:"), f"bridge: line {req[:30]!r} refused")
         check(len(seen) == n0, "bridge: the refused lines started nothing")
+
+        # the password: BM_PASSWORD, then a file of the owner (mode 0600, one line), then the prompt; the value never shown
+        pwdir = tempfile.mkdtemp(prefix="pipw-")
+        try:
+            pwf = os.path.join(pwdir, "pw")
+            asked = []
+            ask = lambda prompt: (asked.append(prompt), "typed-pw")[1]
+            with open(pwf, "w") as f:
+                f.write("file-pw\r\nsecond line\n")
+            os.chmod(pwf, 0o600)
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD_FILE": pwf}, ask)
+            check(pw == "file-pw" and why is None and pwf in where and not asked and "file-pw" not in where,
+                  "password: the file (mode 0600), first line only, CR stripped, the prompt not used, value not in the source text")
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD": "env-pw", "BM_PASSWORD_FILE": pwf}, ask)
+            check(pw == "env-pw" and where == "BM_PASSWORD" and not asked, "password: BM_PASSWORD wins over the file")
+            os.chmod(pwf, 0o644)
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD_FILE": pwf}, ask)
+            check(pw is None and why and "password file mode" in why and "file-pw" not in why and not asked,
+                  "password: a file others can read is refused, the value not in the message, no fallback to the prompt")
+            os.chmod(pwf, 0o600)
+            with open(pwf, "w") as f:
+                f.write("\n")
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD_FILE": pwf}, ask)
+            check(pw is None and why and "empty" in why, "password: an empty file is refused")
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD_FILE": os.path.join(pwdir, "none")}, ask)
+            check(pw == "typed-pw" and where == "the prompt" and len(asked) == 1, "password: no file -> the prompt")
+        finally:
+            shutil.rmtree(pwdir, ignore_errors=True)
 
         # status: down without a process; up with the version and the state of the run before, the password masked
         real_cv = pi_bridge.bm_net.console_version
