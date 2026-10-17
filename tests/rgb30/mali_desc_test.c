@@ -113,6 +113,40 @@ int main(void)
     uint8_t zero[32] = { 0 };
     same("tiler job: header stays zero", j, zero, sizeof zero);
 
+    /* a batch: the draws' addresses summed by the index, 64 / 8 / 32 bytes apart */
+    md_draw_t bd = d;
+    bd.position = 0x3c0006000ull;
+    bd.uniform_buffers = 0x3c0006500ull;
+    bd.push_uniforms = 0x3c0006600ull;
+    static uint8_t bj[4 * MD_TILER_JOB_SIZE];
+    checks++;
+    if (md_tiler_batch(bj, MD_TILER_JOB_SIZE, 4, &tri, 0x3c0004000ull, &bd) != 0) {
+        failures++;
+        printf("FAIL tiler batch: 4 jobs refused\n");
+    }
+    for (int i = 0; i < 4; i++) {
+        md_draw_t di = bd;
+        di.position += (uint64_t)i * 64;
+        di.uniform_buffers += (uint64_t)i * 8;
+        di.push_uniforms += (uint64_t)i * 32;
+        uint8_t want[MD_TILER_JOB_SIZE];
+        memset(want, 0, sizeof want);
+        md_tiler_job(want, &tri, 0x3c0004000ull, &di);
+        char name[32];
+        snprintf(name, sizeof name, "tiler batch: job %d", i);
+        same(name, bj + i * MD_TILER_JOB_SIZE, want, sizeof want);
+    }
+    checks++;
+    if (md_tiler_batch(bj, MD_TILER_JOB_SIZE, 0, &tri, 0x3c0004000ull, &bd) != -1) {
+        failures++;
+        printf("FAIL tiler batch: n = 0 accepted\n");
+    }
+    checks++;
+    if (md_tiler_batch(bj, MD_TILER_JOB_SIZE, 9, &tri, 0x3c0004000ull, &bd) != -1) {
+        failures++;
+        printf("FAIL tiler batch: n = 9 accepted\n");
+    }
+
     /* the vertex job: invocation at 32, parameters at 40 (job task split 5 in bits 26-29), draw at 64 */
     uint8_t v[MD_VERTEX_JOB_SIZE];
     memset(v, 0, sizeof v);

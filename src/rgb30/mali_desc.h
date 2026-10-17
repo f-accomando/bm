@@ -110,6 +110,15 @@ void md_attribute_buffer(uint8_t *p, uint64_t pointer, uint32_t stride, uint32_t
  * p the Primitive, tiler the Tiler Context's address, d the Draw */
 void md_tiler_job(uint8_t *j, const md_primitive_t *p, uint64_t tiler, const md_draw_t *d);
 
+/* bytes between the draws' positions, uniform buffer descriptors and pushed words in a batch */
+enum { MD_BATCH_MAX = 8, MD_BATCH_POS = 64, MD_BATCH_UBO = 8, MD_BATCH_PUSH = 32 };
+
+/* n tiler jobs at jobs + i * stride; d is the draw 0: draw i gets position + i * MD_BATCH_POS, uniform_buffers +
+ * i * MD_BATCH_UBO, push_uniforms + i * MD_BATCH_PUSH; the headers are the caller's; 0, or -1 (nothing written) if
+ * n is 0 or over MD_BATCH_MAX */
+int md_tiler_batch(uint8_t *jobs, uint32_t stride, uint32_t n, const md_primitive_t *p, uint64_t tiler,
+                   const md_draw_t *d);
+
 /* the Vertex job (a Compute Job layout, 192 bytes, zeroed first): the header is the caller's */
 void md_vertex_job(uint8_t *j, uint32_t vertices, const md_draw_t *d);
 

@@ -4,10 +4,10 @@ The RGB30's Mali-G52 driver, part of [graphics](graphics.md). Driver versions: [
 
 ## Mali-G52 (`src/rgb30/mali.c`, `mali.h`, `mali_desc.c`)
 bm3d 6.0-6.1: supply, power domain, identify, reset, cores, MMU (LPAE, 2 MiB blocks), job
-manager (WRITE_VALUE chain), a FRAGMENT job that clears a surface (6.1) and, written and not yet a version, a triangle (Vertex,
-Tiler and Fragment jobs, a 96x96 square of the screen; the step is only on the console,
+manager (WRITE_VALUE chain), a FRAGMENT job that clears a surface (6.1) and, written and not yet a version, a batch of 4 triangles
+(Vertex, 4 Tiler and Fragment jobs, a colour per draw, a 96x96 square of the screen; the step is only on the console,
 `mali_hw_t.triangle`). The triangle step is not yet run on the device: the Dev > GPU test
-report says (`mali: the vertex job wrote ...`, `mali: a triangle: inside ... outside ...`). PC test with
+report says (`mali: the vertex job wrote ...`, `mali: a triangle: inside ... outside ...`, `mali: a batch of 4 triangles ...`). PC test with
 a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the RGB30 is `r3d`.
 - Descriptors: `mali_desc.c` (Primitive, Draw, Renderer State, Blend, Local Storage, Uniform Buffer,
   Invocation, Viewport, Tiler Heap/Context, Attribute(+Buffer), Vertex and Tiler job layouts), places
@@ -22,7 +22,7 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
   the Blend's memory format order (RGBA; the screen is XRGB), `HIERARCHY_MASK` 0xee (Mesa's value for 6
   tiler levels, not read from the GPU), the fragment's pixel kill/ZS update (Weak Early), the 1 MiB heap
   (`MEM_HEAP` at 1 MiB of the 4 MiB of GPU memory), no message preload.
-- Next: when the triangle works (then bm3d gets its version and a row in DRIVERS.md), an `r3d` backend (`tri` callback batching screen triangles, a colour per draw),
+- Next: when the triangle works (then bm3d gets its version and a row in DRIVERS.md), an `r3d` backend (`tri` callback) that uses the batch,
   then the vertex shader with the transform.
 - `origin/bm3d-mali-v1` (Grok) was not used: its additions do not compile (`mali_tri_batch_t`
   undeclared), the descriptors are invented (placeholder shaders, a made-up tiler job)

@@ -188,6 +188,21 @@ void md_tiler_job(uint8_t *j, const md_primitive_t *p, uint64_t tiler, const md_
     md_draw(j + MD_TJ_DRAW, d);
 }
 
+int md_tiler_batch(uint8_t *jobs, uint32_t stride, uint32_t n, const md_primitive_t *p, uint64_t tiler,
+                   const md_draw_t *d)
+{
+    if (n == 0 || n > MD_BATCH_MAX)
+        return -1;
+    for (uint32_t i = 0; i < n; i++) {
+        md_draw_t di = *d;
+        di.position += (uint64_t)i * MD_BATCH_POS;
+        di.uniform_buffers += (uint64_t)i * MD_BATCH_UBO;
+        di.push_uniforms += (uint64_t)i * MD_BATCH_PUSH;
+        md_tiler_job(jobs + i * stride, p, tiler, &di);
+    }
+    return 0;
+}
+
 void md_vertex_job(uint8_t *j, uint32_t vertices, const md_draw_t *d)
 {
     md_invocation(j + 32, vertices);
