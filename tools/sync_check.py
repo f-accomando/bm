@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Objective check of the sync (SYNC.md section 3c): who is alive, who has read what, what breaks the protocol.
 
-  python3 tools/sync_check.py [--strict] [--closeout]
+  python3 tools/sync_check.py [--strict]
 
 For every operator of sync/operators.toml (active ones) it reads the status block of sync/<ID>.md and prints:
   age of `updated`, `eta`, `ack` (the last Log row of SYNC.md it declares read), the Log rows addressed to it after that `ack`
@@ -12,23 +12,16 @@ For every operator of sync/operators.toml (active ones) it reads the status bloc
   - a line of `## Consegne` that is not `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: ... · {ISO}`;
   - the inbox has more than 5 non-empty lines;
   - Log rows longer than 600 characters (ALL rows of the Log, not only the last ones).
-With --closeout (CLOSEOUT, sync/wo/CLOSEOUT.md section 2b) it adds the `closeout` column, the closing state of each operator
-  (ACTIVE, DRAINING, SIGNOFF-SENT, SIGNOFF-ACK, SIGNED-OFF, UNRESPONSIVE, FORCED) and a last line CLOSEOUT-READY (every active
-  operator but SPV is SIGNED-OFF or FORCED), CLOSEOUT-END (READY, a `CLOSEOUT` Log line starting with END, SPV DONE) or
-  CLOSEOUT-NOT-READY: ID=state,...; with --strict the exit is 1 on NOT-READY.
 The state to tell the user is the one printed here (file, with its time), never a guess. Exit 1 with --strict if there is any problem."""
 import datetime
 import os
 import re
-import subprocess
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 STATES = ("DONE", "WORKING", "WAITING", "IDLE", "FREE")
 IDLE_MIN, LATE_MIN, UNREAD_MIN, ROW_MAX, INBOX_MAX = 60, 10, 30, 600, 5
 DELIVERED = re.compile(r"^[-*]?\s*DELIVERED\s+\S+\s+@\s+\S+@\S+\s+[·\-]\s+verifica:\s+.+(?:→|->).+[·\-]\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
-CLOSED = re.compile(r"^[-*]?\s*CLOSED\s+@\s+\S+@\S+\s+·\s+tree clean\s+·\s+aperti:\s+.+·\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
-SIGNOFF_WAIT_MIN, ETA_GRACE_MIN = 30, 10
 
 
 DELIVERED_PARTS = re.compile(r"^[-*]?\s*DELIVERED\s+(\S+)\s+@\s+\S+@(\S+)\s")
@@ -113,226 +106,6 @@ def addressed_rows(oid, h, log):
     return out
 
 
-def closeout_rows(log):
-    """[(datetime, action, message)] of the Log rows that matter for the CLOSEOUT: the action is the 4th cell (backticks
-    removed), the message the rest"""
-    out = []
-    for t, line in log:
-        cells = line.split("|")
-        if len(cells) < 6:
-            continue
-        action = cells[4].replace("`", "").strip()
-        if action in ("CLOSEOUT", "SIGNOFF", "ASSIGNED", "WO", "HANDSHAKE"):
-            out.append((t, action, "|".join(cells[5:]).strip().rstrip("|").strip()))
-    return out
-
-
-def has_closed_line(text):
-    """True if the ## Chiusura section of an operator file has a valid CLOSED line"""
-    m = re.search(r"^## Chiusura\s*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
-    return bool(m) and any(CLOSED.match(ln.strip()) for ln in m.group(1).splitlines())
-
-
-def closeout_state(oid, h, text, log, now):
-    """closing state of one operator (CLOSEOUT.md 2b): ACTIVE, DRAINING, SIGNOFF-SENT, SIGNOFF-ACK, SIGNED-OFF,
-    UNRESPONSIVE or FORCED. Only the lines after the last `CLOSEOUT DRAIN` count (older SIGNOFF rows belong to
-    earlier sessions); an assignment or a handshake after the SIGNOFF brings the operator back to ACTIVE."""
-    crows = closeout_rows(log)
-    drains = [t for t, a, m in crows if a == "CLOSEOUT" and m.startswith("DRAIN")]
-    if not drains:
-        return "ACTIVE"
-    drain = max(drains)
-    sign = re.compile(r"^(?:SIGNOFF\s+)?%s\b(\s+FORCED)?" % re.escape(oid))
-    addr = re.compile(r"(?<![A-Za-z])%s(?![A-Za-z])" % re.escape(oid))
-    signoff, forced = None, False
-    for t, a, m in crows:
-        mm = sign.match(m) if a == "SIGNOFF" and t >= drain else None
-        if mm and (signoff is None or t >= signoff):
-            signoff, forced = t, bool(mm.group(1))
-    state = h.get("state", "")
-    if signoff is None:
-        return "DRAINING" if state in ("WORKING", "WAITING") else "ACTIVE"
-    if any(a in ("ASSIGNED", "WO", "HANDSHAKE") and t > signoff and addr.search(m) for t, a, m in crows):
-        return "ACTIVE"
-    if forced:
-        return "FORCED"
-    ack = iso(h.get("ack", ""))
-    if ack and ack >= signoff and state == "DONE" and has_closed_line(text):
-        return "SIGNED-OFF"
-    eta = iso(h.get("eta", ""))
-    if state == "WORKING" and eta:
-        limit = eta + datetime.timedelta(minutes=ETA_GRACE_MIN)
-    else:
-        limit = signoff + datetime.timedelta(minutes=SIGNOFF_WAIT_MIN)
-    if now > limit:
-        return "UNRESPONSIVE"
-    return "SIGNOFF-ACK" if ack and ack >= signoff else "SIGNOFF-SENT"
-
-
-def toml_branches():
-    """{id: [branches]} of sync/operators.toml (the `branches` key of each operator)"""
-    with open(os.path.join(ROOT, "sync", "operators.toml"), encoding="utf-8") as f:
-        text = f.read()
-    try:
-        import tomllib
-        return {o["id"]: list(o.get("branches", [])) for o in tomllib.loads(text).get("operator", [])}
-    except ImportError:
-        out = {}
-        for blk in text.split("[[operator]]")[1:]:
-            m = re.search(r'^id\s*=\s*"([^"]+)"', blk, re.M)
-            b = re.search(r"^branches\s*=\s*\[(.*?)\]", blk, re.M | re.S)
-            if m:
-                out[m.group(1)] = re.findall(r'"([^"]+)"', b.group(1)) if b else []
-        return out
-
-
-def git(*args):
-    """stdout of a git command run in ROOT, or None if it fails"""
-    try:
-        r = subprocess.run(["git"] + list(args), cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=30)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return r.stdout if r.returncode == 0 else None
-
-
-WO_ID = re.compile(r"(?<![\w-])[A-Z][A-Z0-9]*(?:-[A-Za-z0-9]+)+(?![\w-])")
-
-
-def leftovers(log, ops):
-    """what must not be lost at the closing hand-off (CLOSEOUT.md 2c) and the branch and worktree list (2e), one entry per
-    line prefixed `  > `. `ops` is toml_ops(). The DELIVERED-without-REVIEW items need tools/spv_brief.py (missing on bm-core)."""
-    out = []
-    active = [oid for oid, on in ops if on]
-    texts = {}
-    for oid in active:
-        path = os.path.join(ROOT, "sync", oid + ".md")
-        if os.path.exists(path):
-            with open(path, encoding="utf-8") as f:
-                texts[oid] = f.read()
-    for oid in active:                                          # inboxes not empty
-        path = os.path.join(ROOT, "sync", "inbox", oid + ".md")
-        if os.path.exists(path):
-            with open(path, encoding="utf-8") as f:
-                n = sum(1 for ln in f if ln.strip())
-            if n:
-                out.append("inbox %s: %d line(s) not empty" % (oid, n))
-    delivered = set()                                           # WOs assigned and not delivered
-    for text in texts.values():
-        delivered |= {p[0] for p in map(delivered_parts, consegne(text)) if p}
-    seen = set()
-    for _, a, m in closeout_rows(log):
-        if a not in ("ASSIGNED", "WO"):
-            continue
-        mm = WO_ID.search(m)
-        wo = mm.group(0) if mm else None
-        if wo and wo not in seen and wo not in delivered:
-            seen.add(wo)
-            out.append("WO %s assigned and not delivered" % wo)
-    try:                                                        # DELIVERED without REVIEW
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        import spv_brief
-        reviews = [(t, line) for t, line in log if spv_brief.is_review(line)]
-        for oid, text in texts.items():
-            for wo, sha in spv_brief.pending(text, reviews):
-                out.append("%s: DELIVERED %s@%s without REVIEW" % (oid, wo, sha[:8]))
-    except ImportError:
-        out.append("DELIVERED without REVIEW: n/d (tools/spv_brief.py missing)")
-    for oid, text in texts.items():                             # CLOSED lines with open items
-        for m in re.finditer(r"^[-*]?\s*CLOSED\b.*?aperti:\s*(.+?)\s*·", text, re.M):
-            if m.group(1).strip().lower() != "nessuno":
-                out.append("%s: closed with open items: %s" % (oid, m.group(1).strip()))
-    mine = toml_branches()
-    unmerged = git("branch", "-r", "--no-merged", "origin/bm-core")
-    if unmerged is None:
-        out.append("git: n/d")
-    else:
-        owner = {"origin/" + b: oid for oid, bs in mine.items() for b in bs}
-        for br in (ln.strip() for ln in unmerged.splitlines()):
-            if br and "->" not in br:
-                out.append("branch %s not merged%s" % (br, " (%s)" % owner[br] if br in owner else ""))
-    trees = git("worktree", "list", "--porcelain")
-    if trees is None:
-        out.append("git: n/d")
-    else:
-        for blk in re.split(r"\n\s*\n", trees.strip()):
-            fields = dict(ln.partition(" ")[::2] for ln in blk.splitlines() if ln.strip())
-            if "worktree" in fields:
-                out.append("worktree %s (%s)" % (fields["worktree"], fields.get("branch", "detached").replace("refs/heads/", "")))
-    return ["  > " + e for e in out]
-
-
-def closeout_permissions(log):
-    """C0 DRAIN (CLOSEOUT.md 2a): SPV lists the permissions the operators need from the user (`CLOSEOUT PERMISSIONS: ...`)
-    in the Log before the `CLOSEOUT DRAIN` line. [] if there is no DRAIN line yet or the list is there; else the problem"""
-    drains = [t for t, a, m in closeout_rows(log) if a == "CLOSEOUT" and m.startswith("DRAIN")]
-    if not drains or closeout_permission_list(log) is not None:
-        return []
-    return ["C0: permissions list missing (a `CLOSEOUT PERMISSIONS: ...` row before the DRAIN row)"]
-
-
-def closeout_permission_list(log):
-    """the text of the last `CLOSEOUT PERMISSIONS: ...` row written before the last DRAIN row, or None (no DRAIN, no list)"""
-    rows_ = closeout_rows(log)
-    drains = [t for t, a, m in rows_ if a == "CLOSEOUT" and m.startswith("DRAIN")]
-    found = [m for t, a, m in rows_ if drains and a == "CLOSEOUT" and m.startswith("PERMISSIONS") and t <= max(drains)]
-    return found[-1][len("PERMISSIONS"):].lstrip(": ") if found else None
-
-
-BLOCKS = ("RUOLO", "REGOLE", "VINCOLI", "STRUMENTI", "STATO", "IN SOSPESO", "LEZIONI")     # scripts/ctx_guard.py, blocks 1-7
-
-
-def closeout_phase_checks(now):
-    """the problems of the DOCS, HANDOFF and CLEAN phases after READY (CLOSEOUT.md 2a, 2e): [] when all is in order.
-    C4: sync/NEXT.md has `## <n>. CLOSEOUT <today>` with the seven block titles under it.
-    C5: the sync worktree is clean, the inboxes are empty, no worktree is dirty."""
-    out = []
-    today = now.strftime("%Y-%m-%d")
-    nxt = os.path.join(ROOT, "sync", "NEXT.md")
-    text = ""
-    if os.path.exists(nxt):
-        with open(nxt, encoding="utf-8") as f:
-            text = f.read()
-    m = re.search(r"^## \d+\. CLOSEOUT %s\s*$(.*?)(?=^## |\Z)" % re.escape(today), text, re.S | re.M)
-    if not m:
-        out.append("C4: sync/NEXT.md has no section `## <n>. CLOSEOUT %s`" % today)
-    else:
-        missing = [str(i + 1) + " " + b for i, b in enumerate(BLOCKS)
-                   if not re.search(r"^[#*\s-]*%d\s+%s\b" % (i + 1, re.escape(b)), m.group(1), re.M)]
-        if missing:
-            out.append("C4: the CLOSEOUT section of NEXT.md lacks the block(s) " + ", ".join(missing))
-    status = git("status", "--porcelain")
-    if status is None:
-        out.append("C5: git: n/d (clean tree not checked)")
-    elif status.strip():
-        out.append("C5: the sync worktree is not clean (%d path(s))" % len(status.strip().splitlines()))
-    inbox_dir = os.path.join(ROOT, "sync", "inbox")
-    for name in sorted(os.listdir(inbox_dir)) if os.path.isdir(inbox_dir) else []:
-        if not name.endswith(".md") or name.lower().startswith("readme"):
-            continue
-        with open(os.path.join(inbox_dir, name), encoding="utf-8") as f:
-            n = sum(1 for ln in f if ln.strip())
-        if n:
-            out.append("C5: inbox %s has %d non-empty line(s)" % (name[:-3], n))
-    trees = git("worktree", "list", "--porcelain")
-    for blk in re.split(r"\n\s*\n", (trees or "").strip()):
-        fields = dict(ln.partition(" ")[::2] for ln in blk.splitlines() if ln.strip())
-        path = fields.get("worktree")
-        if path and os.path.abspath(path) != os.path.abspath(ROOT):
-            dirty = git("-C", path, "status", "--porcelain")
-            if dirty and dirty.strip():
-                out.append("C5: worktree %s is dirty (%d path(s))" % (path, len(dirty.strip().splitlines())))
-    return out
-
-
-def closeout_summary(states, spv_state, log):
-    """the last line of --closeout: (text, ready). `states` {id: state} of the active operators but SPV"""
-    waiting = ["%s=%s" % (i, st) for i, st in states.items() if st not in ("SIGNED-OFF", "FORCED")]
-    if waiting:
-        return "CLOSEOUT-NOT-READY: " + ",".join(waiting), False
-    ended = any(a == "CLOSEOUT" and m.startswith("END") for _, a, m in closeout_rows(log))
-    return ("CLOSEOUT-END" if ended and spv_state == "DONE" else "CLOSEOUT-READY"), True
-
-
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         try:
@@ -343,18 +116,15 @@ def main():
     now = datetime.datetime.now().astimezone()
     log = rows(os.path.join(ROOT, "SYNC.md"))
     problems = []
-    co = "--closeout" in argv
-    co_states, hdr_states = {}, {}              # closing state and `state` of each operator
     print("sync check at %s (Log rows: %d, last %s)" % (now.strftime("%H:%M"), len(log), log[-1][0].strftime("%H:%M") if log else "-"))
-    print("%-5s %-8s %5s %-17s %-17s %6s %5s  %s%s" % ("ID", "state", "age", "eta", "ack", "unread", "inbox", "%-13s " % "closeout" if co else "", "notes"))
+    print("%-5s %-8s %5s %-17s %-17s %6s %5s  %s" % ("ID", "state", "age", "eta", "ack", "unread", "inbox", "notes"))
     for oid, active in toml_ops():
         if not active:
             continue
         path = os.path.join(ROOT, "sync", oid + ".md")
         notes = []
         if not os.path.exists(path):
-            print("%-5s %-8s %5s %-17s %-17s %6s %5s  %s%s" % (oid, "-", "-", "-", "-", "-", "-", "%-13s " % "NO-FILE" if co else "", "no file"))
-            co_states[oid] = "NO-FILE"
+            print("%-5s %-8s %5s %-17s %-17s %6s %5s  %s" % (oid, "-", "-", "-", "-", "-", "-", "no file"))
             problems.append("%s: no sync/%s.md (handshake not done)" % (oid, oid))
             continue
         text = open(path, encoding="utf-8").read()
@@ -363,8 +133,7 @@ def main():
             mu = re.search(r"\*\*Ultimo aggiornamento:\*\*\s*(\d{4}-\d\d-\d\d)[ T](\d\d:\d\d)\s*([+-]\d\d:?\d\d)?", text)
             ms = re.search(r"\*\*Stato:\*\*\s*`?(\w+)", text)
             if not (mu and ms):
-                print("%-5s %-8s %5s %-17s %-17s %6s %5s  %s%s" % (oid, "-", "-", "-", "-", "-", "-", "%-13s " % "NO-STATUS" if co else "", "no status"))
-                co_states[oid] = "NO-STATUS"
+                print("%-5s %-8s %5s %-17s %-17s %6s %5s  %s" % (oid, "-", "-", "-", "-", "-", "-", "no status"))
                 problems.append("%s: no status block and no old-style lines (write it with tools/sync_hdr.py)" % oid)
                 continue
             z = mu.group(3) or now.strftime("%z")[:3] + ":" + now.strftime("%z")[3:]
@@ -397,28 +166,15 @@ def main():
         n_in = sum(1 for l in open(inbox, encoding="utf-8") if l.strip()) if os.path.exists(inbox) else 0
         if n_in > INBOX_MAX:
             problems.append("%s: inbox has %d lines (max %d)" % (oid, n_in, INBOX_MAX))
-        cs = closeout_state(oid, h, text, log, now) if co else ""
-        co_states[oid], hdr_states[oid] = cs, state
-        print("%-5s %-8s %4sm %-17s %-17s %6d %5s  %s%s" % (oid, state, age if age is not None else "?", h.get("eta", "")[:16] or "-", h.get("ack", "")[:16] or "-", len(addressed), n_in or "-", "%-13s " % cs if co else "", " ".join(notes)))
+        print("%-5s %-8s %4sm %-17s %-17s %6d %5s  %s" % (oid, state, age if age is not None else "?", h.get("eta", "")[:16] or "-", h.get("ack", "")[:16] or "-", len(addressed), n_in or "-", " ".join(notes)))
     for t, line in log:
         if len(line) > ROW_MAX:
             problems.append("Log row of %s is %d chars (max %d): %s..." % (t.strftime("%H:%M"), len(line), ROW_MAX, line[28:70]))
-    if co:
-        text, ready = closeout_summary({i: st for i, st in co_states.items() if i != "SPV"}, hdr_states.get("SPV", ""), log)
-        problems += closeout_permissions(log)       # C0: the list shown to the user before the DRAIN line
-        if ready:
-            problems += closeout_phase_checks(now)  # C4 handoff, C5 clean tree, inboxes, worktrees
     print()
     for p in problems:
         print("  ! " + p)
     print("%d problem(s)" % len(problems))
-    if co:
-        perms = closeout_permission_list(log)
-        if perms is not None:                       # C0: what SPV showed the user before DRAIN
-            print("C0 permissions: " + perms)
-        print("\n".join(leftovers(log, toml_ops())) or "  > nothing left")
-        print(text)
-    return 1 if ((problems or (co and not ready)) and "--strict" in argv) else 0
+    return 1 if (problems and "--strict" in argv) else 0
 
 
 if __name__ == "__main__":
