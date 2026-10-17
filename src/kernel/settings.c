@@ -10,6 +10,7 @@
 #include "home.h"
 #include "config.h"
 #include "pointer.h"
+#include "stickptr.h"
 #include "reports.h"
 #include "update.h"
 #include "version.h"
@@ -88,7 +89,7 @@ enum {
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
     R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
-    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR, R_ATTR,
+    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_STICK_MOUSE, R_CHANGE, R_LATER, R_IMPOSTOR, R_ATTR,
 };
 
 /* sound_depth: the bits of each sample at the output (what the output
@@ -145,6 +146,12 @@ static int battery_icon_on(void)
 {
     const char *v = config_get("battery_icon");
     return !(v && strcmp(v, "0") == 0);
+}
+
+/* the right stick as a pointer in the apps and games that ask (stickmouse()) */
+static int stick_mouse_on(void)
+{
+    return stickptr_parse(config_get("stick_mouse"));
 }
 #endif
 
@@ -413,6 +420,11 @@ void home_panel(int id, home_panel_t *p)
                          mice & POINTER_USB ? "USB" : mice ? "Bluetooth on" :
                          bt_mouse_paired() ? "Bluetooth off" : "-");
         }
+#ifdef BM_RGB30
+        home_row(p, MENU_ROW_CHOICE, R_STICK_MOUSE, "Stick as pointer",
+                 "The right stick moves a pointer in the apps and games that ask for it", "%s",
+                 stick_mouse_on() ? "On" : "Off");
+#endif
         home_row(p, MENU_ROW_ACTION, R_PAIR, "Pair a new controller",
                  "DS4: hold Share + PS until the light flashes", NULL);
         home_row(p, MENU_ROW_ACTION, R_PAIR_KBD, "Pair a keyboard",
@@ -877,6 +889,11 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_set("battery_icon", battery_icon_on() ? "0" : "1");
         config_save();
         ksnprintf(d->note, sizeof d->note, "low battery icon: %s", battery_icon_on() ? "on" : "off");
+        break;
+    case R_STICK_MOUSE:
+        config_set("stick_mouse", stick_mouse_on() ? "off" : "on");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "stick as pointer: %s", stick_mouse_on() ? "on" : "off");
         break;
 #endif
     case R_PROMPTS:

@@ -489,6 +489,15 @@ settings = "Settings > Screen and sound > Bit depth"
 read_in = "src/kernel/config.c:113"
 
 [[key]]
+name = "stick_mouse"
+scope = "rgb30"
+values = "on or off"
+default = "off"
+meaning = "The right stick moves a pointer in the apps and games that ask for it (stickmouse()); the kernel pointer stays for a real mouse."
+settings = "Settings > Controllers > Stick as pointer"
+read_in = "src/kernel/settings.c:154"
+
+[[key]]
 name = "test_battery"
 scope = "tests"
 values = "\"mV[,charger state]\" (1 charging, 2 full); strtol of the text"

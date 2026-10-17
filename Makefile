@@ -829,7 +829,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # test-nano8 stays a target to run by hand; it is not in the CI list
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
-      test-release test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
+      test-release test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype test-stickptr \
       test-studio test-prompts test-docs $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
@@ -869,6 +869,13 @@ test-net: $(BUILD)/host/test_netcon $(BUILD)/host/test_ethnet $(BUILD)/host/test
 	$(BUILD)/host/test_ethnet
 	$(BUILD)/host/test_config
 	$(PYTHON) tests/net/check_bm_net_config.py
+
+test-stickptr: $(BUILD)/host/test_stickptr
+	$(BUILD)/host/test_stickptr
+
+$(BUILD)/host/test_stickptr: tests/kernel/test_stickptr.c src/kernel/stickptr.c src/kernel/stickptr.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/kernel/test_stickptr.c src/kernel/stickptr.c
 
 # bm/config.txt (src/kernel/config.c): the file, and the settings from the PC
 # (netxfer's C, bm_net.py --config, easy_install.sh)
