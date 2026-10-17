@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: Handshake 17 ott eseguito, pronto per AGX-5 fix
+state: WORKING
+task: WO AGX-5 fix: togliere riga vuota extra Makefile
 waiting_on: 
-eta: 2026-10-16T16:55+02:00
+eta: 2026-10-17T09:45+02:00
 wakeup: no
 ack: 2026-10-17T09:27+02:00
-updated: 2026-10-17T09:30+02:00
+updated: 2026-10-17T09:31+02:00
 ---
 # AGX — Antigravity (AGX)
 
