@@ -139,6 +139,33 @@ int fat_mount(void)
 const char *fat_error(void) { return err; }
 const char *fat_describe(void) { return vol.mounted ? desc : err; }
 uint32_t fat_cluster_bytes(void) { return vol.mounted ? vol.spc * 512 : 0; }
+uint32_t fat_total_clusters(void) { return vol.mounted ? vol.clusters : 0; }
+
+int fat_free_step(fat_free_t *st, uint32_t max_sectors)
+{
+    const uint32_t end = vol.clusters + 2;
+    const uint32_t per = vol.fat32 ? 128 : 256;     /* FAT entries per sector */
+    if (!vol.mounted)
+        return -1;
+    if (st->next < 2)
+        st->next = 2;
+    if (max_sectors < 1)
+        max_sectors = 1;
+    if (max_sectors > 256)
+        max_sectors = 256;
+    while (max_sectors-- && st->next < end) {
+        const uint8_t *s = sector(vol.fat_lba + st->next / per);
+        if (!s)
+            return -1;
+        uint32_t c = st->next, stop = (c / per + 1) * per;
+        for (; c < stop && c < end; c++) {
+            const uint32_t v = vol.fat32 ? rd32(s + (c % per) * 4) & 0x0FFFFFFF : rd16(s + (c % per) * 2);
+            st->free += v == 0;
+        }
+        st->next = c;
+    }
+    return st->next >= end;
+}
 
 static uint32_t next_cluster(uint32_t c)
 {

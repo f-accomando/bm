@@ -35,6 +35,12 @@ const char *fat_describe(void);
 /* The volume's cluster size in bytes (0 if not mounted): a card's write
  * speed depends on it (the sd: line at boot says it). */
 uint32_t fat_cluster_bytes(void);
+/* Data clusters of the volume (0 if not mounted). */
+uint32_t fat_total_clusters(void);
+/* A count of the free clusters in steps: set `st` to zeros, call until it returns 1 (done: st->free is exact as of the
+ * last sector read). Each call reads at most max_sectors sectors of the FAT (1..256). -1 on a read error. */
+typedef struct { uint32_t next, free; } fat_free_t;
+int fat_free_step(fat_free_t *st, uint32_t max_sectors);
 
 /* Opens a directory by path ("/" or "/carts", case insensitive). */
 int fat_opendir(fat_dir_t *d, const char *path);

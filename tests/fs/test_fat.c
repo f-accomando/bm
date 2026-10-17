@@ -199,6 +199,29 @@ static int nest_tick(void)
     return 0;
 }
 
+static uint32_t count_free(void)
+{
+    fat_free_t st = { 0, 0 };
+    int r;
+    while ((r = fat_free_step(&st, 3)) == 0)
+        ;
+    return r == 1 ? st.free : ~0u;
+}
+
+static void test_free_count(void)
+{
+    const uint32_t cb = fat_cluster_bytes();
+    uint32_t f0 = count_free();
+    uint8_t *p = pattern(9000, 77);
+    CHECK(fat_write_file("/", "FREE9K.BIN", p, 9000) == 0);
+    free(p);
+    uint32_t f1 = count_free();
+    CHECK(f0 - f1 == (9000 + cb - 1) / cb);
+    CHECK(f0 < fat_total_clusters());
+    CHECK(fat_delete("/FREE9K.BIN") == 0);
+    CHECK(count_free() == f0);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4) {
@@ -233,6 +256,7 @@ int main(int argc, char **argv)
         CHECK(read_back("/bm/save/sizes.sav", p, sizes[i]));
         free(p);
     }
+    test_free_count();
 
     /* 200 files: the directory grows over several clusters */
     for (int i = 0; i < 200; i++) {
