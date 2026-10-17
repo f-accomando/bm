@@ -5202,14 +5202,19 @@ def test_monitor_crc(b, opts):
         assert w > 0 and h > 0 and bpp == 32 and pitch >= w * 4, m.group(0)
         first = m.group(5)
         assert first != "00000000", m.group(0)
-        q.send("c")                             # console_clear(): the same screen twice
-        q.expect("> ")
-        a = crc().group(5)
-        q.send("c")
-        q.expect("> ")
-        b2 = crc().group(5)
-        assert a == b2, f"the same screen, two values: {a} {b2}"
-        assert first != a, f"the screen with ':crc' printed and the cleared one give the same value {a}"
+        # console_clear() gives the same screen, but for the status line: it shows
+        # the uptime in seconds (src/kernel/input.c update_uptime), so two clears on
+        # either side of a second differ. Clear and ask until two in a row agree: they
+        # do within one second, and a CRC that did not follow the screen never would.
+        seen = []
+        for _ in range(20):
+            q.send("c")
+            q.expect("> ")
+            seen.append(crc().group(5))
+            if len(seen) > 1 and seen[-1] == seen[-2]:
+                break
+        assert len(seen) > 1 and seen[-1] == seen[-2], f"the same screen, never the same value: {seen}"
+        assert first != seen[-1], f"the screen with ':crc' printed and the cleared one give the same value {first}"
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
