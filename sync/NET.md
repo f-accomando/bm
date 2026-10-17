@@ -2,12 +2,12 @@
 schema: 1
 id: NET
 state: FREE
-task: R-NET10
+task: prove HW consegnate
 waiting_on: 
-eta: 2026-10-17T11:30+02:00
+eta: 2026-10-18T16:30+02:00
 wakeup: no
-ack: 2026-10-17T14:10+02:00
-updated: 2026-10-17T15:03+02:00
+ack: 2026-10-17T16:29+02:00
+updated: 2026-10-17T17:33+02:00
 ---
 # NET
 
@@ -56,5 +56,6 @@ DELIVERED NET-2b @ claude/net-test-err@119fc21d · verifica: make test-net → e
 PROVE SUL PI (ok scritto dell'utente, bridge avviato da lui, Pi Zero W 192.168.1.108) · R-NET9: kernel claude/watchdog-chainloader-fix caricato (back after 21 s), 'watchdog: on, 3000 ms (loaded 196608, after 20 ms 195358)'; freeze volontario (keys freeze) -> down ~10 s, poi 'previous run: ended without a clean exit ... while: freeze test (X f)' = il watchdog riavvia da solo. R-NET8a: pi_soak.py --minutes 1 --every 20 senza --reboot -> Pong 5065 frames 59.9 fps 0 dropped, verdict OK (P1 sciolto: keys monitor chiude il gioco sul Pi vero); con --reboot -> Pong 5297 frames 59.9 fps, previous run ended cleanly, verdict OK. R-NET7a ':crc' NON provato: il bridge di R-NET6 non ha crc in LINE_CMDS (pi.py line crc sarebbe 'refused'); serve aggiungere 'crc' a LINE_CMDS (parola + test) = decisione SPV. Kernel rimesso: build di claude/integrazione-ottobre@f5cd71b7 (4402892 byte), back after 16 s, watchdog on. Nota: il bridge accetta solo file nel repo del bridge o in ~/bmk* esistenti all'avvio · 2026-10-16T18:28+02:00
 
 ## Problemi
+- PROVE HW 17 ott: soak 3 e 10 min = Pi sempre su (up 10/10), verdetto FAIL solo perche' il kernel non termina il gioco da PC (nessuna riga fps); watchdog R-NET9 = freeze -> riavvio ok (BOOTPREV 'freeze test'); log: claude/pi-soak@edbf9f6f reports/net-hw-2026-10-17.md. Non fattibili: :crc (serve 'crc' in LINE_CMDS, decisione SPV), budget API-1 (serve cart su SD/schermo). Kernel normale rimesso.
 
 ## Richieste
