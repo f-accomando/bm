@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: QEMU-FLAKE consegnato; prossimo: AGX-14 test pause=0.3
+state: WORKING
+task: WO QEMU-FLAKE fix: revisione SPV (kill proc su eccezione, log su timeout stages_build)
 waiting_on: 
-eta: 2026-10-17T10:15+02:00
+eta: 2026-10-17T15:30+02:00
 wakeup: no
-ack: 2026-10-17T12:35+02:00
-updated: 2026-10-17T13:23+02:00
+ack: 2026-10-17T14:10+02:00
+updated: 2026-10-17T15:03+02:00
 ---
 # AGX — Antigravity (AGX)
 
