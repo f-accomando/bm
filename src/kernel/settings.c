@@ -88,8 +88,15 @@ enum {
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
     R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
-    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR, R_ATTR,
+    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR, R_ATTR, R_UTILS,
 };
+#define R_UTIL_BASE 200   /* the rows of HOME_UTILITIES: R_UTIL_BASE + i */
+
+/* No utility until a kernel defines its own (home.c on the Pi, ui.c on the RGB30). */
+__attribute__((weak)) int home_utils(void) { return 0; }
+__attribute__((weak)) const char *home_util_title(int i) { (void)i; return ""; }
+__attribute__((weak)) const char *home_util_about(int i) { (void)i; return ""; }
+__attribute__((weak)) void home_util_start(int i, home_do_t *d) { (void)i; (void)d; }
 
 /* sound_depth: the bits of each sample at the output (what the output
  * really carries is in the row's help) */
@@ -647,12 +654,21 @@ void home_panel(int id, home_panel_t *p)
                      bm3d_mode_q(gpu, gpu ? vs_on() : 0, gpu && queue_on()));
         }
 #endif
+        home_row(p, MENU_ROW_SUB, R_UTILS, "Utilities", "Benchmarks, tests and controls", "%d", home_utils());
         home_row(p, MENU_ROW_ACTION, R_LOG, "Log since boot",
                  "Everything printed since the console started", NULL);
 #ifndef BM_RGB30
         home_row(p, MENU_ROW_ACTION, R_MONITOR, "Open the monitor",
                  "The text console with every command", NULL);
 #endif
+        break;
+    }
+    case HOME_UTILITIES: {
+        ksnprintf(p->title, sizeof p->title, "Settings > System > Utilities");
+        for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)
+            home_row(p, MENU_ROW_ACTION, R_UTIL_BASE + i, home_util_title(i), home_util_about(i), NULL);
+        if (home_utils() == 0)
+            home_row(p, MENU_ROW_INFO, R_UTILS, "none", "This console has no utility yet", NULL);
         break;
     }
     }
@@ -667,6 +683,7 @@ int home_sub_panel(int row)
     case R_UPDATES: return HOME_UPDATES;
     case R_REPORTS_SUB: return HOME_REPORTS;
     case R_SYSTEM: return HOME_SYSTEM;
+    case R_UTILS: return HOME_UTILITIES;
     }
     return 0;
 }
@@ -857,8 +874,13 @@ void home_act(int id, int row, int how, home_do_t *d)
     memset(d, 0, sizeof *d);
     d->what = HOME_STAY;
     (void)id;
+    if (row >= R_UTIL_BASE && row < R_UTIL_BASE + HOME_ROWS_MAX) {
+        if (how == 0 && row - R_UTIL_BASE < home_utils())
+            home_util_start(row - R_UTIL_BASE, d);
+        return;
+    }
     switch (row) {
-    case R_CONTROLLERS: case R_WIFI: case R_SYSTEM: case R_SCREEN: case R_UPDATES: case R_REPORTS_SUB:
+    case R_CONTROLLERS: case R_WIFI: case R_SYSTEM: case R_SCREEN: case R_UPDATES: case R_REPORTS_SUB: case R_UTILS:
         d->what = HOME_OPEN;
         d->panel = home_sub_panel(row);
         break;
