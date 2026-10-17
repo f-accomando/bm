@@ -1,5 +1,3 @@
-da SPV: HANDSHAKE (17 ott): fai handshake sync/protocollo-ottobre (rileggi SYNC.md e il tuo file, profilo aggiornato, sync_hdr.py <ID> --state FREE, --ack auto). SIGNOFF di ieri superato.
-WO in sequenza: (1) R-NET7a fix: test_monitor_crc instabile (3 FAIL su 6, 'the same screen, two values'): trova la causa (screendump o attesa breve) e correggi; (2) sync/wo/R-NET10.md (password bridge da file 0600).
-Pi: ok permanente utente (16 ott 17:30) per upload kernel, crash, reboot, pi_soak sul Pi 1; set/save rifiutati dal bridge. Le prove con la password restano all'utente.
-Chat: 'preso WO <X> eta HH:MM' e 'concluso WO <X>: <file> file +a -d, N token, M min'; prima del DELIVERED sync_hdr.py <ID> --close <WO> --commit <sha> --tokens T --min M. Worktree solo tuoi; TMPDIR in /tmp di WSL per qemu (df, rimuovi solo le tue cartelle).
-SIGNOFF del 16 ott REVOCATO (utente, 17 ott): non e' piu' valido, continua sui WO sopra senza fermarti.
+PROVE HARDWARE via bridge, in autonomia (ok permanente utente 16 ott 17:30: upload kernel, crash, reboot, pi_soak sul Pi 1; set/save rifiutati). Esegui quelle fattibili senza intervento dell'utente: :crc (R-NET7a), pi_soak (R-NET8), watchdog lungo (R-NET9), misura budget API-1 se serve solo il kernel.
+Per ogni prova: comando, esito, numeri, log in reports/; rete/bridge giu o serve SD, schermo o pad: scrivi in Problemi quale prova serve all'utente e cosa fare. Password da ~/.pi_bridge.pw (R-NET10): non leggerla ne' stamparla.
+Poi: sync/wo/CO-5.md e CO-6.md (inglese). Chat: 'preso WO <X> eta HH:MM', 'concluso WO <X>: ...'. --ack auto

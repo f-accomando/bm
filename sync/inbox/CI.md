@@ -1,1 +1,2 @@
-WO CI-25 in sync/wo/CI-25.md: via utente dato per CI (ignore sync/**, cancel run superate, cherry-pick R-NET9 su integrazione, 1 rerun). Leggilo e procedi. --ack auto
+WO in sequenza: (1) sync/wo/DIV-1.md; (2) sync/wo/D05-STICK.md parte a; (3) parte b (DIV-1 prima, stesso blocco D05). Tutti in inglese. Verifica nel WO. Se i punti dubbi (stato accepted, input stick) bloccano, scrivi BLOCKED in Problemi.
+Chat: 'preso WO <X> eta HH:MM', 'concluso WO <X>: <file> file +a -d, N token, M min'; sync_hdr.py <ID> --close <WO> --commit <sha> --tokens T --min M prima del DELIVERED. --ack auto
