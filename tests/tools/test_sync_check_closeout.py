@@ -7,6 +7,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
@@ -168,6 +169,57 @@ class T(unittest.TestCase):
         self.operator("SPV", "WORKING")
         header = self.check()[1][1]
         self.assertIn("closeout", header)
+
+    # -- the leftovers (CLOSEOUT.md 2c and 2e); git is mocked
+
+    GIT = {("branch", "-r", "--no-merged", "origin/bm-core"):
+           "  origin/HEAD -> origin/bm-core\n  origin/claude/aaa-work\n  origin/agy/old\n",
+           ("worktree", "list", "--porcelain"):
+           "worktree /w/main\nHEAD abc\nbranch refs/heads/sync/t\n\nworktree /w/rv\nHEAD def\ndetached\n"}
+
+    def leftovers(self, git=None):
+        with mock.patch.object(sc, "git", side_effect=lambda *a: (self.GIT if git is None else git).get(a)):
+            return sc.leftovers(sc.rows(os.path.join(self.root, "SYNC.md")), sc.toml_ops())
+
+    def test_leftovers_inbox_wo_and_open_items(self):
+        self.sync_md(row(30, "WO", "AAA: WO XX-1 first"), row(29, "ASSIGNED", "AAA: WO XX-2 second"))
+        with open(os.path.join(self.root, "sync", "AAA.md"), "w", encoding="utf-8") as f:
+            f.write("---\nschema: 1\nid: AAA\nstate: DONE\nupdated: %s\n---\n# AAA\n\n## Consegne\n"
+                    "- DELIVERED XX-1 @ b@abc1234 · verifica: t -> ok · 2026-10-17T10:00\n\n## Chiusura\n"
+                    "CLOSED @ b@abc1234 · tree clean · aperti: XX-3 · 2026-10-17T10:05\n" % stamp(1))
+        with open(os.path.join(self.root, "sync", "inbox", "AAA.md"), "w", encoding="utf-8") as f:
+            f.write("new task\n\n")
+        out = self.leftovers()
+        self.assertIn("  > inbox AAA: 1 line(s) not empty", out)
+        self.assertIn("  > WO XX-2 assigned and not delivered", out)
+        self.assertNotIn("  > WO XX-1 assigned and not delivered", out)      # delivered
+        self.assertIn("  > AAA: closed with open items: XX-3", out)
+
+    def test_leftovers_branches_and_worktrees(self):
+        self.sync_md(row(30, "CLOSEOUT", "DRAIN"))
+        self.operator("AAA", "FREE")
+        with open(os.path.join(self.root, "sync", "operators.toml"), "a", encoding="utf-8") as f:
+            f.write('branches = ["claude/aaa-work"]\n')           # belongs to the last operator (BBB)
+        out = self.leftovers()
+        self.assertIn("  > branch origin/claude/aaa-work not merged (BBB)", out)
+        self.assertIn("  > branch origin/agy/old not merged", out)
+        self.assertFalse([e for e in out if "->" in e])                     # the origin/HEAD alias is skipped
+        self.assertIn("  > worktree /w/main (sync/t)", out)
+        self.assertIn("  > worktree /w/rv (detached)", out)
+
+    def test_leftovers_git_unavailable(self):
+        self.sync_md(row(30, "CLOSEOUT", "DRAIN"))
+        self.operator("AAA", "FREE")
+        out = self.leftovers(git={})
+        self.assertEqual([e for e in out if "git:" in e], ["  > git: n/d", "  > git: n/d"])
+
+    def test_closeout_prints_leftovers_before_the_last_line(self):
+        self.closed_session()
+        self.operator("SPV", "WORKING")
+        with mock.patch.object(sc, "git", side_effect=lambda *a: self.GIT.get(a)):
+            lines = self.check()[1]
+        self.assertTrue(any(ln.startswith("  > worktree /w/main") for ln in lines))
+        self.assertEqual(lines[-1], "CLOSEOUT-READY")
 
 
 if __name__ == "__main__":
