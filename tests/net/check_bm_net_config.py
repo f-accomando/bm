@@ -339,7 +339,7 @@ def main():
         check("--in-monitor" not in seen[-1], "bridge: keys monitor needs no monitor")
 
         # line: only the monitor commands of the list, ';' between them, b3d with tests=/profiles= (R-NET6)
-        for req, want in (("gpu", "gpu"), ("err", "err"),
+        for req, want in (("gpu", "gpu"), ("err", "err"), ("crc", "crc"),
                           ("render; room; log; reboot", "render; room; log; reboot"),
                           ("gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send", "gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send"),
                           ("  gpu ;b3d   tests=quad_flat  profiles=FS2 ;  send ", "gpu; b3d tests=quad_flat profiles=FS2; send")):
