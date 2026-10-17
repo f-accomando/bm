@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WORKING
-task: D05-STICK-b
+state: FREE
+task: D05-STICK-b consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-17T18:00+02:00
 wakeup: no
 ack: 2026-10-17T16:29+02:00
-updated: 2026-10-17T16:40+02:00
+updated: 2026-10-17T16:47+02:00
 ---
 # CI — operatore CI
 
@@ -48,6 +48,7 @@ DELIVERED D-RUN2 @ claude/ci-repair@6b2d8727 · verifica: tests/qemu_test.py -k 
 DELIVERED CI-25 @ claude/integrazione-ottobre@0ba07260 · verifica: gh run 39030418735 → success (cherry-pick R-NET9, nessun rerun) · 2026-10-17T14:40+02:00
 DELIVERED DIV-1 @ claude/spec-divergences-d03-d05-d11@008af2a1 · verifica: python scripts/consistency.py check -> exit 0 · 1 file · non verificato su hardware · 2026-10-17T16:45+02:00
 DELIVERED D05-STICK-a @ claude/rgb30-stick-pointer@d80e1dfd · verifica: make test-stickptr -> ok; make e make TARGET=rgb30 -> exit 0; consistency.py check -> exit 0 · 7 files (rgb30.mk in piu: stickptr.c va nella lista del kernel RGB30) · non verificato su hardware · 2026-10-17T17:20+02:00
+DELIVERED D05-STICK-b @ claude/rgb30-stick-pointer@1954d26e · verifica: make test-gameapi -> 208/208; make e make TARGET=rgb30 -> exit 0; consistency.py check -> exit 0, gate non elenca piu D05 · 5 files (+DIV-1 integrato nel ramo) · non verificato su hardware · 2026-10-17T17:45+02:00
 
 ## Progressi
 
