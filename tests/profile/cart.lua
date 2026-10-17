@@ -46,6 +46,8 @@ function _draw()
   if frame == 125 then
     local rows, frames = profile()
     check(frames == 60, "a window of 60 frames: " .. tostring(frames))
+    check(type(stat(17)) == "number" and stat(17) >= 0, "stat(17): a number")
+    check(type(stat(18)) == "number" and stat(18) == 0, "stat(18): 0 on the host (no GPU)")
     for i = 1, math.min(#rows, 8) do
       local r = rows[i]
       log(string.format("profile: %-12s %-16s self %.3f total %.3f calls %d", r.name, r.where, r.self, r.total, r.calls))

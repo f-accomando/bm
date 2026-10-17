@@ -105,6 +105,8 @@ static struct {
     uint32_t last_cpu_us, fps;
     uint32_t gpu_frame_us;      /* stat(16): the GPU's job time accounted in the last frame */
     gpu3d_stats_t gpu_prev;     /* the driver's totals at the end of the frame before */
+    uint32_t audio_frame_us, wait_frame_us;  /* stat(17), stat(18): the audio interrupt's time and the ARM's wait for the GPU in the last frame */
+    uint32_t au_prev, wt_prev; int au_seen;
     uint32_t present_us;        /* last copy of the frame to the framebuffer */
     uint32_t us3d;              /* time in 3D drawing since the last zclear() */
     uint32_t us3d_all;          /* the same, never reset (the dev kit's overlay) */
@@ -1752,7 +1754,9 @@ static uint32_t assets_kb(void);
  *         (sprite sheet, map, models, sound bank, z-buffer), 14 the Lua
  *         instructions of the busiest frame of this run, 15 the _update
  *         run this frame (frameskip), 16 ms of GPU job time (bin + render)
- *         accounted in the last frame, 0 when the ARM draws the 3D: a
+ *         accounted in the last frame, 0 when the ARM draws the 3D, 17 ms
+ *         of the audio interrupt and 18 ms of the ARM's wait for the GPU in
+ *         the last frame (18: 0 when the ARM draws the 3D): a
  *         measurement only, never game logic (it differs between consoles) */
 static int l_stat(lua_State *L)
 {
@@ -1778,6 +1782,8 @@ static int l_stat(lua_State *L)
     case 14: lua_pushinteger(L, (lua_Integer)rt.instr_k_max * 1000); break;
     case 15: lua_pushinteger(L, rt.updates); break;
     case 16: lua_pushnumber(L, rt.gpu_frame_us / 1000.0); break;
+    case 17: lua_pushnumber(L, rt.audio_frame_us / 1000.0); break;
+    case 18: lua_pushnumber(L, rt.wait_frame_us / 1000.0); break;
     default: lua_pushnil(L);
     }
     return 1;
@@ -8743,6 +8749,23 @@ static void gpu_frame_account(void)
     rt.gpu_prev = g;
 }
 
+/* stat(17), stat(18): the audio interrupt's time and the ARM's wait for the GPU
+ * in the frame that ended, from the two running totals. The audio total may
+ * wrap (unsigned subtraction); the wait total restarts from zero with the driver */
+static void audio_wait_account(void)
+{
+    const uint32_t au = audio_busy_us, wt = gpu3d_wait_us();
+    if (!rt.au_seen) {
+        rt.audio_frame_us = rt.wait_frame_us = 0;
+        rt.au_seen = 1;
+    } else {
+        rt.audio_frame_us = au - rt.au_prev;
+        rt.wait_frame_us = wt >= rt.wt_prev ? wt - rt.wt_prev : wt;
+    }
+    rt.au_prev = au;
+    rt.wt_prev = wt;
+}
+
 /* the frame that ended, summed; next: the start of the new one */
 static void perf_account(const perf_mark_t *next)
 {
@@ -9133,6 +9156,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         cls_settle();
         rt.last_cpu_us = timer_ticks() - t0 - early_us;
         gpu_frame_account();
+        audio_wait_account();
         rt.last_instr_k = instr_k;
         if (instr_k > rt.instr_k_max)
             rt.instr_k_max = instr_k;

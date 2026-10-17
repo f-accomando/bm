@@ -105,8 +105,7 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
      - Controlli `qpuasm.py`: gestione lettura `ra39/rb39`, vincoli immediati piccoli con `ldtmu`/`thrsw`. Contatori hardware `PCTR*` (0x670) per profilazione fine.
    - *Criterio di completamento*: particelle e buio a livelli di Yharnam gestiti interamente dalla GPU con misure nel 3D Bench e fallback software identico in QEMU (`gpu3d=0`).
 6. **Profilazione runtime per motori di gioco (R40)**:
-   - Integrazione di due nuove metriche `stat()` nell'overlay e nel dev kit: tempo di elaborazione audio e tempo di attesa della GPU.
-   - Permette al governatore dinamico di Overbit e Yharnam di stabilire a runtime se il collo di bottiglia è sul bus CPU/ARM o sulla GPU.
+   - R40 done: `stat(17)`, `stat(18)` (GAME-GUIDE). Open: the governors of Overbit and Yharnam read them (their own WO).
 7. **Adattamento dinamico impostor per folle ed eroi (R42)**:
    - Modelli con scheletro semplificati a billboard quad con `r3d_impostor` quando lontani dalla camera; governor di qualità di Overbit/Yharnam per attivare `gpu3d(nil, nil, nil, nil, 8)` a livelli bassi.
 

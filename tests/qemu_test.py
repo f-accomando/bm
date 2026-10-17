@@ -5423,6 +5423,42 @@ def test_frameskip(b, opts):
         q.close()
 
 
+PROFILE_STAT_CART = r"""
+local n = 0
+function _update() end
+function _draw()
+  n = n + 1
+  cls(1)
+  if n == 30 then
+    log(string.format("profilestat a %.3f w %.3f n19 %s", stat(17), stat(18), tostring(stat(19))))
+  end
+end
+"""
+
+
+def test_profile_stat(b, opts):
+    """stat(17), stat(18): the audio's time and the ARM's wait for the GPU in
+    the last frame, always readable; in QEMU there is no GPU (18 is 0) and
+    stat(19) does not exist"""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        assert _upload(q, mkbm.pack(PROFILE_STAT_CART.encode(), title="profstat"))
+        out = q.expect("profilestat", timeout=30).decode(errors="replace")
+        out += q.expect("\n", timeout=5).decode(errors="replace")
+        m = re.search(r"profilestat a ([\d.]+) w ([\d.]+) n19 (\w+)", out)
+        assert m, out[-400:]
+        assert float(m.group(1)) >= 0, m.group(1)
+        assert float(m.group(2)) == 0, m.group(2)       # no GPU in QEMU, nothing to wait for
+        assert m.group(3) == "nil", m.group(3)
+        q.send("q")
+        out = q.expect("update+draw", timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+    finally:
+        q.close()
+
+
 DEVKIT_CART = r"""
 function _init()
   log("devkit was " .. devkit(2) .. ", now " .. devkit())
