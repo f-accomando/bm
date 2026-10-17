@@ -143,7 +143,7 @@ rgb30 = "only the hint line; no performance note"
 cause = "history"
 priority = 6
 status = "untested"
-note = "src/rgb30/ui.c: the cover of a game shows author, kind, size and path, and the note 'last: <file>, X fps, update+draw ...' after a game (QEMU test_cover_details_perf; nota nascosta su layout stretto, menu_ui.c:1465). Not tried on an RGB30."
+note = "src/rgb30/ui.c: the cover of a game shows author, kind, size and path, and the note 'last: <file>, X fps, update+draw ...' after a game (QEMU test_cover_details_perf; nota nascosta su layout stretto, menu_ui.c:1463). Not tried on an RGB30."
 evidence = "src/kernel/carts.c:544-555,1277; src/rgb30/ui.c:969"
 action = "add the note"
 
