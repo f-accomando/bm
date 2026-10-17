@@ -264,13 +264,18 @@ def leftovers(log, ops):
 def closeout_permissions(log):
     """C0 DRAIN (CLOSEOUT.md 2a): SPV lists the permissions the operators need from the user (`CLOSEOUT PERMISSIONS: ...`)
     in the Log before the `CLOSEOUT DRAIN` line. [] if there is no DRAIN line yet or the list is there; else the problem"""
-    rows_ = closeout_rows(log)
-    drains = [t for t, a, m in rows_ if a == "CLOSEOUT" and m.startswith("DRAIN")]
-    if not drains:
-        return []
-    if any(a == "CLOSEOUT" and m.startswith("PERMISSIONS") and t <= max(drains) for t, a, m in rows_):
+    drains = [t for t, a, m in closeout_rows(log) if a == "CLOSEOUT" and m.startswith("DRAIN")]
+    if not drains or closeout_permission_list(log) is not None:
         return []
     return ["C0: permissions list missing (a `CLOSEOUT PERMISSIONS: ...` row before the DRAIN row)"]
+
+
+def closeout_permission_list(log):
+    """the text of the last `CLOSEOUT PERMISSIONS: ...` row written before the last DRAIN row, or None (no DRAIN, no list)"""
+    rows_ = closeout_rows(log)
+    drains = [t for t, a, m in rows_ if a == "CLOSEOUT" and m.startswith("DRAIN")]
+    found = [m for t, a, m in rows_ if drains and a == "CLOSEOUT" and m.startswith("PERMISSIONS") and t <= max(drains)]
+    return found[-1][len("PERMISSIONS"):].lstrip(": ") if found else None
 
 
 BLOCKS = ("RUOLO", "REGOLE", "VINCOLI", "STRUMENTI", "STATO", "IN SOSPESO", "LEZIONI")     # scripts/ctx_guard.py, blocks 1-7
@@ -408,6 +413,9 @@ def main():
         print("  ! " + p)
     print("%d problem(s)" % len(problems))
     if co:
+        perms = closeout_permission_list(log)
+        if perms is not None:                       # C0: what SPV showed the user before DRAIN
+            print("C0 permissions: " + perms)
         print("\n".join(leftovers(log, toml_ops())) or "  > nothing left")
         print(text)
     return 1 if ((problems or (co and not ready)) and "--strict" in argv) else 0
