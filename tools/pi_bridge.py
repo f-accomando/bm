@@ -195,6 +195,31 @@ def detach():
     os.dup2(log, 2)
 
 
+def get_password(host, environ=os.environ, ask=getpass.getpass):
+    """(password, where it came from, None) or (None, None, why): BM_PASSWORD, then the file BM_PASSWORD_FILE or
+    ~/.pi_bridge.pw (the owner writes it, mode 0600, one line), then the prompt. The value is never shown."""
+    if environ.get("BM_PASSWORD"):
+        return environ["BM_PASSWORD"], "BM_PASSWORD", None
+    path = os.path.expanduser(environ.get("BM_PASSWORD_FILE") or "~/.pi_bridge.pw")
+    try:
+        fd = os.open(path, os.O_RDONLY)
+    except OSError:
+        fd = None
+    if fd is not None:
+        try:
+            st = os.fstat(fd)
+            if hasattr(os, "getuid") and (st.st_mode & 0o077 or st.st_uid != os.getuid()):
+                return None, None, "refused: password file mode (%s must be yours and mode 0600: chmod 600 it)" % path
+            line = os.read(fd, 4096).decode("utf-8", "replace").splitlines()
+        finally:
+            os.close(fd)
+        pw = line[0].strip() if line else ""
+        if not pw:
+            return None, None, "refused: password file %s is empty (one line, the password)" % path
+        return pw, "file " + path, None
+    return ask("console password of %s (stays in this process): " % host), "the prompt", None
+
+
 def main():
     global SOCK, DEV
     args = sys.argv[1:]
@@ -209,7 +234,13 @@ def main():
     names = [a for a in args if not a.startswith("--")]
     host = names[0] if names else "192.168.1.108"
     s = claim_socket(SOCK)
-    pw = os.environ.get("BM_PASSWORD") or getpass.getpass("console password of %s (stays in this process): " % host)
+    pw, where, why = get_password(host)
+    if why:
+        print(why)
+        s.close()
+        os.unlink(SOCK)
+        sys.exit(2)
+    print("password from", where, flush=True)
     signal.signal(signal.SIGTERM, signal.default_int_handler)   # the socket is removed below
     if background:
         detach()

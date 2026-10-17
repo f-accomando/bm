@@ -5,7 +5,7 @@
 
 ## What exists
 
-**The bridge.** The owner types the console password once in `python3 tools/pi_bridge.py <ip>` (WSL, `getpass`; or `BM_PASSWORD` in the environment of that process only). The bridge keeps it in memory and listens on a Unix socket `~/.pi_bridge.sock` (mode 0600). A client, such as Claude Code, sends one request per connection; the bridge runs `bm_net.py` with the password and returns the answer with the password replaced by `***`. The client never sees the password.
+**The bridge.** The owner types the console password once in `python3 tools/pi_bridge.py <ip>` (WSL, `getpass`; or `BM_PASSWORD` in the environment of that process only; or, so the owner types nothing, a one-line file `~/.pi_bridge.pw` or `$BM_PASSWORD_FILE` that the owner wrote, mode 0600; the order is `BM_PASSWORD`, the file, the prompt). The bridge keeps it in memory and listens on a Unix socket `~/.pi_bridge.sock` (mode 0600). A client, such as Claude Code, sends one request per connection; the bridge runs `bm_net.py` with the password and returns the answer with the password replaced by `***`. The client never sees the password.
 
 | Request | Does | Limits |
 |---|---|---|
@@ -50,8 +50,8 @@ Reports (`gpu`, `b3d`) already leave the Pi alone: it uploads them to the branch
 
 ## Rules of the tools
 
-- The password is never written to a file, a log, a command line the assistant types or the chat; `pi_bridge.py` takes it with `getpass` or from `BM_PASSWORD` of its own process.
+- The password is never written to a log, a command line the assistant types or the chat; `pi_bridge.py` takes it from `BM_PASSWORD` of its own process, from the owner's file (below) or with `getpass`.
 - The bridge only runs the requests of the table and only on files of the repo or `~/bmk*`.
 - A `line` is checked command by command against a fixed list (`LINE_CMDS`); a command that changes the configuration (`set`, `save`) or starts a game (`play`) never passes.
-- The bridge never stores the password: no file, no keyring, no persistent environment variable; after a WSL or PC restart the owner types it again.
+- The bridge never stores the password itself: no keyring, no persistent environment variable. The only file allowed is `~/.pi_bridge.pw` (or `$BM_PASSWORD_FILE`): the owner writes it (user's decision, 16 Oct 2026: a local device, only the handshake), mode 0600 and the owner's, one line; the bridge refuses it otherwise (`refused: password file mode`). The assistants never create, read or print that file.
 - A failing client counts as a failing step (a test never answers PASS when it could not talk to the Pi).
