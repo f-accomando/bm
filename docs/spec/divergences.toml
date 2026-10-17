@@ -34,13 +34,13 @@ action = "call bt_start() at boot if bt_paired()"
 id = "D03"
 area = "players"
 pi = "up to 4 BT pads plus USB: local multiplayer"
-rgb30 = "one player only; Settings shows only Player 1"
-cause = "unknown"
-priority = 6
-status = "suspended"
-note = "kept suspended (2026-10-13): the owner is working on the on-screen keyboard and the pad typing; local multiplayer on the RGB30 is decided after."
+rgb30 = "one player only (its own pad); Settings shows only Player 1; a shared or split screen over HDMI may add local players later (a future exception)"
+cause = "hardware"
+capability = "pad-only"
+status = "open"
+note = "accepted 2026-10-17 (user): the RGB30 is one player locally. The exception, a shared screen or split screen over HDMI with more pads, is a future decision and gets its own divergence when it is started."
 evidence = "src/rgb30/bm_input.c:95-98; src/kernel/settings.c:370"
-action = "decide whether the RGB30 has local multiplayer; if so map BT pads to players"
+action = "none: keep the docs honest"
 
 [[divergence]]
 id = "D04"
@@ -57,13 +57,13 @@ action = "align Start and Tab for BT keyboards"
 id = "D05"
 area = "menu pointer"
 pi = "mouse: hover, click, wheel, right-click for options"
-rgb30 = "none; Settings still offers the mouse rows"
-cause = "unknown"
-priority = 6
-status = "suspended"
-note = "kept suspended (2026-10-13): the stick may serve as the mouse, unless the RGB30 uses a system of its own; decided with the on-screen keyboard and the pad typing."
+rgb30 = "no menu pointer (the kernel pointer is for a real mouse only); the stick is a pointer only in apps and games that call the stick API, when Settings > Controllers > Stick as pointer is on; Settings still offers the mouse rows"
+cause = "todo"
+priority = 3
+status = "open"
+note = "decided 2026-10-17 (user): the kernel pointer (M32, src/kernel/pointer.h) stays for the real mouse and its code stays; the RGB30 stick works as a pointer through an on|off option and only in apps and games that have the API. Built by WO D05-STICK-a (key and Settings row) and D05-STICK-b (API and docs); D05-STICK-b turns this block into cause hardware, capability pad-only, action none."
 evidence = "src/kernel/carts.c:1519-1585; src/kernel/settings.c:402"
-action = "port the block (pointer.c is built into the RGB30) or hide the mouse rows"
+action = "D05-STICK-a and D05-STICK-b"
 
 [[divergence]]
 id = "D06"
@@ -132,8 +132,9 @@ rgb30 = "Play, Open in bm SDK, Export .b16, info, delete save, delete"
 cause = "history"
 priority = 6
 status = "open"
+note = "decided 2026-10-17 (user): the RGB30 gets Send to a nearby console; Publish stays off for now (it can be added later). The tool rows (Open in the tools, editable copy, Build) depend on D13."
 evidence = "src/kernel/carts.c:913-956; src/rgb30/ui.c:722-746"
-action = "add Send and Publish; the tool rows depend on D13"
+action = "add Send to a nearby console to the RGB30 game options; Publish stays off for now; the tool rows depend on D13"
 
 [[divergence]]
 id = "D12"
