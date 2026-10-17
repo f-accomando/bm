@@ -2,12 +2,12 @@
 schema: 1
 id: AGX
 state: WORKING
-task: WO 3D-2: attributi compatti per facce texturizzate (M39)
+task: WO 3D-4: QPU branch e semafori (M44 1a)
 waiting_on: 
-eta: 2026-10-17T16:15+02:00
+eta: 2026-10-17T17:55+02:00
 wakeup: no
-ack: 2026-10-17T15:38+02:00
-updated: 2026-10-17T16:05+02:00
+ack: 2026-10-17T16:29+02:00
+updated: 2026-10-17T17:09+02:00
 ---
 # AGX — Antigravity (AGX)
 
