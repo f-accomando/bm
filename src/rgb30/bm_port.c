@@ -18,26 +18,60 @@
 #include "usb/usb.h"
 #include "lua.h"
 #include "lauxlib.h"
+#include "gputest_rgb30.h"
+#include "mali.h"
+#include "kernel/config.h"
 
 #include <string.h>
 
-/* --- the V3D: absent, so r3d draws on the ARM --- */
+/* --- the 3D GPU: the V3D is absent, so r3d draws on the ARM; with mali3d=1 in bm/config.txt the Mali (M41, phase 2)
+ * draws the flat-coloured triangles, the ARM the rest (see mali_backend in mali.c) --- */
 
-int gpu3d_init(void)                                    { return -1; }
-const char *gpu3d_status(void)                          { return "no GPU driver on the RGB30 yet"; }
-int gpu3d_ready(void)                                   { return 0; }
-int gpu3d_failed(void)                                  { return 1; }
-const r3d_backend_t *gpu3d_backend(void)                { return NULL; }
+static const r3d_backend_t *mali_be;
+static int mali_tried;
+
+int gpu3d_init(void)
+{
+    if (mali_be)
+        return 0;
+    if (mali_tried)
+        return -1;
+    mali_tried = 1;
+    const char *k = config_get("mali3d");
+    if (!k || strcmp(k, "1"))
+        return -1;
+    const mali_hw_t *hw = rgb30_mali_hw();
+    if (!hw || rgb30_mali_probe() != MALI_OK)
+        return -1;
+    mali_be = mali_backend(hw);
+    return mali_be ? 0 : -1;
+}
+const char *gpu3d_status(void)
+{
+    return mali_be ? "the Mali draws flat colours (mali3d=1)" : "no GPU driver on the RGB30 yet";
+}
+int gpu3d_ready(void)                                   { return mali_be != NULL; }
+int gpu3d_failed(void)                                  { return mali_be == NULL; }
+const r3d_backend_t *gpu3d_backend(void)                { return mali_be; }
 void gpu3d_set_fb(const void *mem, uint32_t size, uint32_t bus)
 {
     (void)mem; (void)size; (void)bus;
 }
 void gpu3d_set_size(int w, int h)                       { (void)w; (void)h; }
-int gpu3d_pending(void)                                 { return 0; }
+int gpu3d_pending(void)                                 { return mali_be ? mali_backend_pending() : 0; }
 void gpu3d_page(int uniform, uint16_t c)                { (void)uniform; (void)c; }
 int gpu3d_cleared(void)                                 { return 0; }
-void gpu3d_drop(void)                                   { }
-int gpu3d_flush(const g16_t *g, int keep)               { (void)g; (void)keep; return 0; }
+void gpu3d_drop(void)
+{
+    if (mali_be)
+        mali_backend_drop();
+}
+/* (the page's px is writable through the const struct: g16_t holds it by pointer) */
+int gpu3d_flush(const g16_t *g, int keep)
+{
+    (void)keep;
+    return mali_be ? mali_backend_flush((g16_t *)g) : 0;
+}
 int gpu3d_submit(const g16_t *g, int keep)              { (void)g; (void)keep; return 0; }
 int gpu3d_sync(void)                                    { return 0; }
 int gpu3d_sync_page(const void *px)                     { (void)px; return 0; }
