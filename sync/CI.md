@@ -2,13 +2,13 @@
 schema: 1
 id: CI
 state: WORKING
-task: CO-2
+task: CO-3
 waiting_on: 
 progress: 0
 eta: 2026-10-17T18:30+02:00
 wakeup: no
 ack: 2026-10-17T16:29+02:00
-updated: 2026-10-17T17:04+02:00
+updated: 2026-10-17T17:06+02:00
 ---
 # CI — operatore CI
 
@@ -50,6 +50,7 @@ DELIVERED DIV-1 @ claude/spec-divergences-d03-d05-d11@008af2a1 · verifica: pyth
 DELIVERED D05-STICK-a @ claude/rgb30-stick-pointer@d80e1dfd · verifica: make test-stickptr -> ok; make e make TARGET=rgb30 -> exit 0; consistency.py check -> exit 0 · 7 files (rgb30.mk in piu: stickptr.c va nella lista del kernel RGB30) · non verificato su hardware · 2026-10-17T17:20+02:00
 DELIVERED D05-STICK-b @ claude/rgb30-stick-pointer@1954d26e · verifica: make test-gameapi -> 208/208; make e make TARGET=rgb30 -> exit 0; consistency.py check -> exit 0, gate non elenca piu D05 · 5 files (+DIV-1 integrato nel ramo) · non verificato su hardware · 2026-10-17T17:45+02:00
 DELIVERED CO-1 @ claude/sync-closeout-co1@d96f0bc1 · verifica: python tools/sync_check.py --closeout --strict -> exit 1, ultima riga CLOSEOUT-NOT-READY (nessun DRAIN: tutti ACTIVE); prova a mano di SIGNED-OFF, UNRESPONSIVE, SIGNOFF-ACK, END -> ok; i test unittest arrivano con CO-2 · 1 file · 2026-10-17T17:35+02:00
+DELIVERED CO-2 @ claude/sync-closeout-co2@a828c94d · verifica: python -m unittest tests.tools.test_sync_check_closeout -> 13 test OK (sopra CO-1) · 1 file · 2026-10-17T17:50+02:00
 
 ## Progressi
 
