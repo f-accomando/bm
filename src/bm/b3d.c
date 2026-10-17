@@ -1019,6 +1019,11 @@ static void ramp(int ti, int pf)
         gpu3d_set_queue(0);
         if (halted)
             break;                      /* a step not finished: not a sample */
+        if (prof[pf].gpu && !R.backend) {
+            ns = 0;                     /* the backend handed over to the ARM during the step (r3d to_arm): these are
+                                         * the ARM's numbers, no GPU row */
+            break;
+        }
         gpu3d_take_stats(&st);
         const float k = 1.0f / (float)frames;
         a.ms = b3d_median(fms, frames);     /* the counters below: the mean */
