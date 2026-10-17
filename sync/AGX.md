@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: WORKING
-task: WO QEMU-FLAKE: fix retry connessione Qemu e timeout sdk_stages_build
+state: FREE
+task: QEMU-FLAKE consegnato; prossimo: AGX-14 test pause=0.3
 waiting_on: 
 eta: 2026-10-17T10:15+02:00
 wakeup: no
-ack: 2026-10-17T09:27+02:00
-updated: 2026-10-17T09:39+02:00
+ack: 2026-10-17T12:35+02:00
+updated: 2026-10-17T13:23+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -40,6 +40,7 @@ updated: 2026-10-17T09:39+02:00
 - Raccomandazione: opzione (3) integrata con (4). L'utente avvia `tools/pi_bridge.py <IP>` una volta sola a inizio giornata digitando la password una tantum. Il bridge serve NET, AGX e tutti gli operatori via socket locale `tools/pi.py` senza mai toccare disco né keyring.
 
 ## Consegne
+- DELIVERED QEMU-FLAKE @ claude/qemu-flake@ed5943ba · verifica: python3 tests/rgb30/qemu_test.py -k sdk_ (3 giri) -> 9/9 PASS, 0 fail · 2 file · base = claude/sdk-kb-tests-stable + AGX-3 · non verificato su hardware · 2026-10-17T13:23+02:00
 - DELIVERED AGY-39 @ claude/beta-hardware-card@cf9bac6b · verifica: rows 13 -> 13; docs_audit score -> 6661 penalties 0 · 1 file (correzioni D06, M37, test_netxfer) · non verificato su hardware · 2026-10-17T09:35+02:00
 - DELIVERED AGX-15 @ claude/rgb30-cover-details@c0c77719 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k cover_details_perf -> PASS test_cover_details_perf · 3 file · base = claude/rgb30-menu-start-tab · non verificato su hardware · 2026-10-16T17:38+02:00
 - DELIVERED AGX-14 @ claude/rgb30-qemu-delete-tools@6dbf3908 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k delete_frozen_and_tools -> PASS test_delete_frozen_and_tools · 2 file · non verificato su hardware · 2026-10-16T16:13+02:00

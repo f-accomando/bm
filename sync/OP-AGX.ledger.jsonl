@@ -15,3 +15,4 @@
 {"schema":1,"operator":"OP-AGX","wo":"AGX-15","branch":"claude/rgb30-cover-details","commit":"c0c77719","files":3,"add":48,"del":5,"lines":{"code":50,"docs":0,"data":3},"tokens":11000,"min":30,"iso":"2026-10-16T17:38+02:00"}
 {"schema":1,"operator":"OP-AGX","wo":"AGX-5","branch":"claude/make-test-tools","commit":"a04a2ab3","files":1,"add":0,"del":1,"lines":{"code":1,"docs":0,"data":0},"tokens":3000,"min":5,"iso":"2026-10-17T09:32+02:00"}
 {"schema":1,"operator":"OP-AGX","wo":"AGY-39","branch":"claude/beta-hardware-card","commit":"cf9bac6b","files":1,"add":2,"del":3,"lines":{"code":0,"docs":5,"data":0},"tokens":4000,"min":10,"iso":"2026-10-17T09:35+02:00"}
+{"schema":1,"operator":"OP-AGX","wo":"QEMU-FLAKE","branch":"claude/qemu-flake","commit":"ed5943ba","files":2,"add":28,"del":4,"lines":{"code":32,"docs":0,"data":0},"tokens":5000,"min":15,"iso":"2026-10-17T13:23+02:00"}
