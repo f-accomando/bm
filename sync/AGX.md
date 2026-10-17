@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: QEMU-FLAKE fix consegnato, pronto per AGX-14 test pause=0.3
+state: WORKING
+task: WO AGX-14 fix: test_delete_frozen_and_tools con keys(pause=0.3)
 waiting_on: 
-eta: 2026-10-17T15:30+02:00
+eta: 2026-10-17T15:25+02:00
 wakeup: no
 ack: 2026-10-17T14:10+02:00
-updated: 2026-10-17T15:05+02:00
+updated: 2026-10-17T15:06+02:00
 ---
 # AGX — Antigravity (AGX)
 
