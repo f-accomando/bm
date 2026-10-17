@@ -177,6 +177,32 @@ def make_sd(tmp, files):
     return out
 
 
+def wait_screen(q, want, tries=80):
+    """Poll the screen until all the words of `want` are on it (the menu's row must be there BEFORE Enter)."""
+    text = ""
+    for _ in range(tries):
+        text = screen_all(q.screendump())
+        if all(w in text for w in want):
+            return text
+        time.sleep(0.25)
+    raise AssertionError(f"want {want} on the screen:\n{text}")
+
+
+def walk_until(q, key, needle, limit=120.0):
+    """Send `key` (one press every 0.2 s) until `needle` shows on the serial port; returns the serial text seen."""
+    end = time.time() + limit
+    seen = b""
+    while time.time() < end:
+        q.send(key)
+        time.sleep(0.2)
+        try:
+            seen += q.expect(needle, timeout=0.1)
+            return seen.decode(errors="replace")
+        except AssertionError:
+            pass
+    raise AssertionError(f"{needle!r} not seen in {limit:.0f} s; serial output:\n" + q.buf.decode(errors="replace"))
+
+
 def test_boot_banner(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
@@ -1786,6 +1812,58 @@ def test_sound(b, opts):
     cfg = subprocess.run(["mtype", "-i", f"{dump}@@{1024 * 1024}", "::/bm/config.txt"], capture_output=True,
                          env=env, check=True).stdout.decode(errors="replace")
     assert "volume=5" in cfg, cfg
+
+
+def test_stages3d_b16(b, opts):
+    """Stages 3D (carts/stages3d, the .b16 edition): the game is on the Games tab, the Dev tab is still reachable,
+    A starts it and the keys reach stage 3 with no exception; q leaves for the menu. Needs
+    build/carts/stages3d.b16 (make build/carts/stages3d.b16)."""
+    cart = os.path.join(os.path.dirname(os.path.normpath(b)), "carts", "stages3d.b16")
+    if not os.path.exists(cart):
+        print(f"SKIP test_stages3d_b16: {cart} missing (make build/carts/stages3d.b16)")
+        return
+    tmp = tempfile.mkdtemp(prefix="bm64s3d-")
+    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n", "bm/stages3d.b16": open(cart, "rb").read()})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    serial = ""
+    try:
+        out = boot(q)
+        assert "cartridge menu: 1 games" in out, out
+        time.sleep(0.5)
+        wait_screen(q, ["Stages 3D"])
+        keys(q, "r")
+        text = wait_screen(q, ["3D Bench"])
+        assert in_menu(text), text
+        keys(q, "l")
+        wait_screen(q, ["Stages 3D"])
+        q.buf = b""
+        q.send("\r")
+        serial += q.expect("play: /bm/stages3d.b16", timeout=10).decode(errors="replace")
+        serial += q.expect("stages3d: title gpu3d=", timeout=60).decode(errors="replace")
+        time.sleep(1)
+        img = q.screendump()
+        assert img[0] == 360 and img[1] == 360, f"screen {img[0]}x{img[1]}"
+        colours = {img[2][i:i + 3] for i in range(0, len(img[2]), 3)}
+        assert len(colours) > 3, f"{len(colours)} colours: not the title"
+        serial += walk_until(q, " ", "stages3d: stage 1 start", limit=30)
+        serial += walk_until(q, "w", "stages3d: stage 2 start", limit=180)
+        serial += walk_until(q, "w", "stages3d: stage 3 start", limit=180)
+        time.sleep(1.5)
+        img = q.screendump()
+        colours = {img[2][i:i + 3] for i in range(0, len(img[2]), 3)}
+        assert len(colours) > 8, f"{len(colours)} colours: the 3D view is not drawn"
+        q.send("q")
+        serial += q.expect("suspended", timeout=10).decode(errors="replace")
+        time.sleep(1)
+        img = q.screendump()
+        assert img[0] == SCREEN and img[1] == SCREEN
+        assert in_menu(screen_all(img))
+        serial += q.buf.decode(errors="replace")
+        low = serial.lower()
+        for bad in ("exception", "panic", "stopped with an error", "traceback"):
+            assert bad not in low, f"{bad!r} in the serial output:\n{serial[-3000:]}"
+    finally:
+        q.close()
 
 
 TESTS = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

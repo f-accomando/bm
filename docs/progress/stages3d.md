@@ -36,7 +36,9 @@ one front per edition (`bm/` and `b16/`). Not in `GAMES`
 - Run the `.b16` on the RGB30: 30 fps at 360×360 (optional 720×720), `3D: GPU` on the title, the
   buttons and the `save()` record (`mkbm.py` warns that saves are not designed for a `.b16`). Not
   verified on hardware.
-- QEMU test of the cartridge on the RGB30 kernel: W05.
+- `test_stages3d_b16` (`tests/rgb30/qemu_test.py`, `-k stages3d`, needs `make build/carts/stages3d.b16`): boot, Dev tab,
+  stage 3 reached by keys (Start starts the game in QEMU), no exception, in QEMU `virt`; not in the default
+  `rgb30.mk` test run (decision: SPV). Not verified on hardware.
 - A run on the Pi: 60 fps at 640×360 (`stat(1)` under 16.7 ms), `3D: GPU` on the title. Not verified on hardware.
 - Fill the four tiles of each map cell, or the stripes stay.
 - Content (enemies, jumps, music), into `GAMES` and the Market: when decided.
