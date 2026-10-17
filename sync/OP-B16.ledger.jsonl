@@ -1,3 +1,4 @@
 {"schema":1,"operator":"OP-B16","wo":"APP-7","branch":"claude/sdk-stages-pi","commit":"a95897db","files":1,"add":55,"del":0,"lines":{"code":55,"docs":0,"data":0},"tokens":150000,"min":75,"iso":"2026-10-16T15:43+02:00"}
 {"schema":1,"operator":"OP-B16","wo":"APP-8","branch":"claude/sdk-kb-tests-stable","commit":"23419c38","files":2,"add":11,"del":12,"lines":{"code":19,"docs":4,"data":0},"tokens":120000,"min":50,"iso":"2026-10-16T17:47+02:00"}
 {"schema":1,"operator":"OP-B16","wo":"ZOOM-STEPS","branch":"claude/sdk-stages-pi","commit":"607d8821","files":1,"add":1,"del":0,"lines":{"code":1,"docs":0,"data":0},"tokens":25000,"min":15,"iso":"2026-10-17T09:57+02:00"}
+{"schema":1,"operator":"OP-B16","wo":"3D-1","branch":"claude/v3d-stat-audio-gpu-wait","commit":"7d8b9b14","files":6,"add":66,"del":5,"lines":{"code":64,"docs":7,"data":0},"tokens":45000,"min":25,"iso":"2026-10-17T12:19+02:00"}
