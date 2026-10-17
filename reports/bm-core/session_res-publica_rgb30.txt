@@ -3,48 +3,38 @@ kind: session
 kernel: v0.2.5-707-g9554944
 branch: bm-core
 board: RGB30
-date: 2026-10-17 12:38:21
+date: 2026-10-17 12:59:31
 file: session_res-publica_rgb30.txt
 
 session of "Res Publica" (the last one: the next run of this game replaces this file)
 options bm3d 7.3 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
-screen 360x360, 15935 frames in 304.7 s, 52.2 fps
+screen 360x360, 1060 frames in 17.8 s, 59.5 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 15.8 ms, max 155.9 ms, 2093 frames over 16.7 ms
-memory: Lua peak 2525 KiB, data 904 KiB; code 58265 tokens; busiest frame 297k Lua instructions
-frames that were shown after more than 1.5 frames: 2157
+time of _update + _draw (+ the 3D's wait): avg 8.7 ms, max 97.8 ms, 2 frames over 16.7 ms
+memory: Lua peak 2373 KiB, data 904 KiB; code 58265 tokens; busiest frame 228k Lua instructions
+frames that were shown after more than 1.5 frames: 2
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    13777
+  <= 18 ms (60 fps)    1057
   <= 25 ms             0
-  <= 34 ms (30 fps)    1984
-  <= 50 ms             2
-  <= 100 ms            169
-  > 100 ms (a freeze)  2
+  <= 34 ms (30 fps)    0
+  <= 50 ms             0
+  <= 100 ms            1
+  > 100 ms (a freeze)  1
 
-the frame in its parts (as the overlay, 15934 frames; ms a frame, % of the 16.7 ms of a frame):
+the frame in its parts (as the overlay, 1059 frames; ms a frame, % of the 16.7 ms of a frame):
   update           0.0    0%
-  draw (no 3D)    18.6  111%
+  draw (no 3D)    15.5   93%
   3D calls         0.0    0%
-  audio            0.3    2%
+  audio            0.3    1%
   GPU wait         0.0    0%
-  all             19.0  114%
-audio interrupt: 1.8% of the CPU's time (mean), 3.5% at most in a second
+  all             15.9   95%
+audio interrupt: 1.8% of the CPU's time (mean), 2.9% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
-    423     8.9   166.7  155.9   0.0  155.9   0.0   0.0    10.8      157     1309        1
-    402     8.1   116.7  110.1   0.0  110.1   0.0   0.0     6.5      157     1309        1
-    303     6.2    65.3   61.0  49.0   12.0   0.0   0.0     4.2      222     1695        1
-    466    10.6    50.0   42.5   0.0   42.5   0.0   0.0     7.4      297     1370        1
-   1809    57.3    50.0   35.5   0.0   35.5   0.0   0.0    14.4      157     1368        1
-    452    10.0    50.0   33.6   0.0   33.6   0.0   0.0    16.3      297     1556        1
-    457    10.2    50.0   46.2   0.0   46.2   0.0   0.0     3.7      297     1370        1
-    491    11.6    50.0   34.2   0.0   34.2   0.0   0.0    15.7      157     1368        1
-    535    13.1    50.0   34.5   0.0   34.5   0.0   0.0    15.4      156     1368        1
-    548    13.6    50.0   34.4   0.0   34.4   0.0   0.0    15.5      157     1368        1
-    587    14.9    50.0   34.5   0.0   34.4   0.0   0.0    15.5      157     1368        1
-   1107    32.9    50.0   34.4   0.0   34.4   0.0   0.0    15.5      156     1368        1
+    830    15.0   100.0   97.8   0.0   97.8   0.0   0.0     2.2      125     1251        1
+    390     7.6    65.9   49.8  38.4   11.4   0.0   0.0    16.0      228     1755        1
