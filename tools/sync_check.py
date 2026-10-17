@@ -261,6 +261,64 @@ def leftovers(log, ops):
     return ["  > " + e for e in out]
 
 
+def closeout_permissions(log):
+    """C0 DRAIN (CLOSEOUT.md 2a): SPV lists the permissions the operators need from the user (`CLOSEOUT PERMISSIONS: ...`)
+    in the Log before the `CLOSEOUT DRAIN` line. [] if there is no DRAIN line yet or the list is there; else the problem"""
+    rows_ = closeout_rows(log)
+    drains = [t for t, a, m in rows_ if a == "CLOSEOUT" and m.startswith("DRAIN")]
+    if not drains:
+        return []
+    if any(a == "CLOSEOUT" and m.startswith("PERMISSIONS") and t <= max(drains) for t, a, m in rows_):
+        return []
+    return ["C0: permissions list missing (a `CLOSEOUT PERMISSIONS: ...` row before the DRAIN row)"]
+
+
+BLOCKS = ("RUOLO", "REGOLE", "VINCOLI", "STRUMENTI", "STATO", "IN SOSPESO", "LEZIONI")     # scripts/ctx_guard.py, blocks 1-7
+
+
+def closeout_phase_checks(now):
+    """the problems of the DOCS, HANDOFF and CLEAN phases after READY (CLOSEOUT.md 2a, 2e): [] when all is in order.
+    C4: sync/NEXT.md has `## <n>. CLOSEOUT <today>` with the seven block titles under it.
+    C5: the sync worktree is clean, the inboxes are empty, no worktree is dirty."""
+    out = []
+    today = now.strftime("%Y-%m-%d")
+    nxt = os.path.join(ROOT, "sync", "NEXT.md")
+    text = ""
+    if os.path.exists(nxt):
+        with open(nxt, encoding="utf-8") as f:
+            text = f.read()
+    m = re.search(r"^## \d+\. CLOSEOUT %s\s*$(.*?)(?=^## |\Z)" % re.escape(today), text, re.S | re.M)
+    if not m:
+        out.append("C4: sync/NEXT.md has no section `## <n>. CLOSEOUT %s`" % today)
+    else:
+        missing = [str(i + 1) + " " + b for i, b in enumerate(BLOCKS)
+                   if not re.search(r"^[#*\s-]*%d\s+%s\b" % (i + 1, re.escape(b)), m.group(1), re.M)]
+        if missing:
+            out.append("C4: the CLOSEOUT section of NEXT.md lacks the block(s) " + ", ".join(missing))
+    status = git("status", "--porcelain")
+    if status is None:
+        out.append("C5: git: n/d (clean tree not checked)")
+    elif status.strip():
+        out.append("C5: the sync worktree is not clean (%d path(s))" % len(status.strip().splitlines()))
+    inbox_dir = os.path.join(ROOT, "sync", "inbox")
+    for name in sorted(os.listdir(inbox_dir)) if os.path.isdir(inbox_dir) else []:
+        if not name.endswith(".md") or name.lower().startswith("readme"):
+            continue
+        with open(os.path.join(inbox_dir, name), encoding="utf-8") as f:
+            n = sum(1 for ln in f if ln.strip())
+        if n:
+            out.append("C5: inbox %s has %d non-empty line(s)" % (name[:-3], n))
+    trees = git("worktree", "list", "--porcelain")
+    for blk in re.split(r"\n\s*\n", (trees or "").strip()):
+        fields = dict(ln.partition(" ")[::2] for ln in blk.splitlines() if ln.strip())
+        path = fields.get("worktree")
+        if path and os.path.abspath(path) != os.path.abspath(ROOT):
+            dirty = git("-C", path, "status", "--porcelain")
+            if dirty and dirty.strip():
+                out.append("C5: worktree %s is dirty (%d path(s))" % (path, len(dirty.strip().splitlines())))
+    return out
+
+
 def closeout_summary(states, spv_state, log):
     """the last line of --closeout: (text, ready). `states` {id: state} of the active operators but SPV"""
     waiting = ["%s=%s" % (i, st) for i, st in states.items() if st not in ("SIGNED-OFF", "FORCED")]
@@ -340,17 +398,19 @@ def main():
     for t, line in log:
         if len(line) > ROW_MAX:
             problems.append("Log row of %s is %d chars (max %d): %s..." % (t.strftime("%H:%M"), len(line), ROW_MAX, line[28:70]))
+    if co:
+        text, ready = closeout_summary({i: st for i, st in co_states.items() if i != "SPV"}, hdr_states.get("SPV", ""), log)
+        problems += closeout_permissions(log)       # C0: the list shown to the user before the DRAIN line
+        if ready:
+            problems += closeout_phase_checks(now)  # C4 handoff, C5 clean tree, inboxes, worktrees
     print()
     for p in problems:
         print("  ! " + p)
     print("%d problem(s)" % len(problems))
-    not_ready = False
     if co:
         print("\n".join(leftovers(log, toml_ops())) or "  > nothing left")
-        text, ready = closeout_summary({i: st for i, st in co_states.items() if i != "SPV"}, hdr_states.get("SPV", ""), log)
         print(text)
-        not_ready = not ready
-    return 1 if ((problems or not_ready) and "--strict" in argv) else 0
+    return 1 if ((problems or (co and not ready)) and "--strict" in argv) else 0
 
 
 if __name__ == "__main__":
