@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGX-5 fix consegnato
+state: WORKING
+task: WO AGY-39 fix: correzione scheda hardware beta
 waiting_on: 
-eta: 2026-10-17T09:45+02:00
+eta: 2026-10-17T09:55+02:00
 wakeup: no
 ack: 2026-10-17T09:27+02:00
-updated: 2026-10-17T09:32+02:00
+updated: 2026-10-17T09:33+02:00
 ---
 # AGX — Antigravity (AGX)
 
