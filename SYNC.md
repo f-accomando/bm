@@ -1,5 +1,14 @@
 # Protocollo di sincronizzazione multi-operatore (`SYNC.md`)
 
+## Come leggere
+
+Il file e' lungo (circa 58 KB): non leggerlo per intero.
+- Mappa delle sezioni: `grep -n '^## \|^### ' SYNC.md` (numeri di riga, poi `Read` con offset/limit).
+- Una regola sola: `grep -n -A 20 '^### <titolo>' SYNC.md` (o `'^## <n>'` per una sezione intera).
+- Log (sezione 5, in fondo, una riga per evento, la piu' recente e' l'ultima): `tail -6 SYNC.md | cut -c1-200`.
+- Stato (chi e' vivo, cosa e' da rivedere, cosa e' fermo): `python tools/spv_brief.py`, non rileggere il Log; controllo oggettivo: `python tools/sync_check.py`.
+- Scrivere nel Log solo con `python tools/sync_log.py` (formato delle righe invariato).
+
 > Template riusabile. Per un nuovo progetto: **crea il branch di sync** `sync/protocollo-ottobre` da `bm-core`, copia questo file, sostituisci i `{segnaposto}`, riempi §2 e §3 e svuota il Log (§5). Il sync di un progetto vive solo su quel branch: così più sessioni di sync (altri agenti, altri progetti) possono correre in parallelo senza toccarsi.
 > Esempio completo di un progetto reale (Tropic Trail, 8 video, 3 operatori): [`docs/archive/sync-tropic-trail.md`](docs/archive/sync-tropic-trail.md).
 > Cosa abbiamo imparato: [`docs/progress/sync-workflow.md`](docs/progress/sync-workflow.md). Regole d'area: [`docs/progress/sync.md`](docs/progress/sync.md).
