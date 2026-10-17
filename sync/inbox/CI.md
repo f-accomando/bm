@@ -1,1 +1,1 @@
-CO-1: read sync/wo/CO-1.md and do it (branch per WO). Then CO-2, CO-3, CO-4 in sequence (same file sync_check.py). Deliver each as usual.
+D05-STICK-a CHANGES REQUESTED: in tests/host/test_stickptr.c add a case pushing y alone for a few frames and assert the y delta equals the x delta; mutant sy*w->sy*h must fail. Rerun make test-stickptr. Deliver as D05-STICK-a fix. Then CO-1..CO-4 are in review: wait.
