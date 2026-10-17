@@ -1,3 +1,3 @@
-PROVE HARDWARE via bridge, in autonomia (ok permanente utente 16 ott 17:30: upload kernel, crash, reboot, pi_soak sul Pi 1; set/save rifiutati). Esegui quelle fattibili senza intervento dell'utente: :crc (R-NET7a), pi_soak (R-NET8), watchdog lungo (R-NET9), misura budget API-1 se serve solo il kernel.
-Per ogni prova: comando, esito, numeri, log in reports/; rete/bridge giu o serve SD, schermo o pad: scrivi in Problemi quale prova serve all'utente e cosa fare. Password da ~/.pi_bridge.pw (R-NET10): non leggerla ne' stamparla.
-Poi: sync/wo/CO-5.md e CO-6.md (inglese). Chat: 'preso WO <X> eta HH:MM', 'concluso WO <X>: ...'. --ack auto
+HARDWARE PROOFS via bridge, autonomous (standing user OK 16 Oct 17:30: kernel upload, crash, reboot, pi_soak on Pi 1; set/save refused by the bridge). Run: :crc (R-NET7a), pi_soak (R-NET8), long watchdog (R-NET9), API-1 budget if the kernel is enough.
+Per proof: command, result, numbers, log in reports/. Bridge down or SD/screen/pad needed: write in Problemi which proof the user must do and how. Password from ~/.pi_bridge.pw: never read or print it.
+CO-5 and CO-6 moved to B16: ignore them. Chat: 'preso WO <X> eta HH:MM', 'concluso WO <X>: ...'. --ack auto
