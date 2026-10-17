@@ -23,6 +23,9 @@ one front per edition (`bm/` and `b16/`). Not in `GAMES`
   fewest frames is the record (`save`/`saved`). The three stages are three zones of ONE map: the
   3D map has a single `objects` layer (`src/bm/map3d.c`). The map reads one tile in 2×2, so the
   floor draws as stripes (the other three tiles of a cell are 0).
+- Quality: `common/45_quality.lua` watches `stat(1)` against `FRONT.budget_ms` (16.0 default; the `.bm` 16.0, the `.b16` 33.0) and sets
+  `gpu3d(nil, nil, nil, nil, 8)` after 1 s over budget, back to 0 after 3 s under 70%; logs `stages3d: quality <0|1> ...` only on a
+  change. Not verified on hardware.
 - Log lines: `stages3d: title gpu3d=on|off`, `stage <k> start`, `stage <k> clear frames=.. apples=a/t`,
   `final frames=..`, `record frames=.. saved=.. readback=.. best=..`, `title`.
 - Test: `make test-stages3d` plays the three stages in bmhost with `tests/stages3d/input.txt`
