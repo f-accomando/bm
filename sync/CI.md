@@ -2,13 +2,13 @@
 schema: 1
 id: CI
 state: WAITING
-task: CI verde su ci-repair; attendo merge su bm-core e decisioni SPV
+task: CI-25 consegnato; attendo SPV
 waiting_on: 
 progress: 0
-eta: 2026-10-16T13:30+02:00
+eta: 2026-10-17T16:00+02:00
 wakeup: no
-ack: 2026-10-16T10:20+02:00
-updated: 2026-10-16T10:43+02:00
+ack: 2026-10-17T14:10+02:00
+updated: 2026-10-17T14:32+02:00
 ---
 # CI — operatore CI
 
@@ -45,10 +45,12 @@ DELIVERED D-RGB2 @ claude/ci-repair@8da839c7 · verifica: make -f rgb30.mk PLAT=
 DELIVERED CI-AUDIT @ claude/ci-repair@08d2c670 · verifica: python3 scripts/ci_audit.py → exit 0; con ci.yml senza un timeout-minutes → exit 1; docs_audit.py score → 6255, 0 penalità · 2026-10-15T11:57+02:00
 DELIVERED D-HOST @ claude/ci-repair@792554f5 · verifica: make test-loading (WSL) → exit 0, 20/20 checks · 2026-10-15T12:10+02:00
 DELIVERED D-RUN2 @ claude/ci-repair@6b2d8727 · verifica: tests/qemu_test.py -k editor_mouse (WSL) → 1/1 passed; make test-impostor (WSL) → exit 0 · 2026-10-15T12:18+02:00
+DELIVERED CI-25 @ claude/integrazione-ottobre@0ba07260 · verifica: gh run 39030418735 → success (cherry-pick R-NET9, nessun rerun) · 2026-10-17T14:40+02:00
 
 ## Progressi
 
 ## Problemi
+- CI-25: ci.yml gia con branches-ignore sync/** su bm-core e sync (nessun ramo ci-sync-ignore); nessuna run annullata (nessuna superata).
 - D-SCREEN parziale: test_editor_mouse passa in locale, da confermare in CI. D-RGB2: ho aggiunto un ASSERT in src/rgb30/kernel.ld (fuori perimetro del WO) perche' il .if di gas non valuta la differenza fra etichette; copy_up_end e' globale.
 - D-RGB test_bm_cartridge: `q` ora sospende il gioco (dal 2026-10-12, "bm: \"Pi cart\" suspended"), le statistiche frame arrivano solo alla chiusura. Il test ora aspetta "suspended"; il controllo frames>100 è tolto.
 - D-RGB test_el2_image_relocation, DIAGNOSI (serve decisione SPV, è start.S): riprodotta in locale, nessun output seriale. Con `-kernel` QEMU carica l'immagine a 0x40200000 (link 0x40080000): start.S copia in avanti (copy_up) ~1,86 MB sopra se stesso. Dopo 0x180000 byte (1,5 MiB) la destinazione raggiunge il cuore del ciclo di copia (0x40200070) e lo sovrascrive: `Undefined Instruction` a ELR 0x40200074. Ipotesi: l'immagine ha superato 1,5 MiB (kernel8.img 1.859.152 B) e prima il ciclo non veniva toccato. Fix possibili (decide SPV): (a) copiare con un ciclo già spostato/copiato in un luogo sicuro, o in blocchi da una posizione che non si sovrappone al codice; (b) text_offset/KERNEL_BASE di virt diversi, ma il test non proverebbe più la rilocazione. Non l'ho toccato (fuori perimetro, WO: fermarsi). Vale anche per U-Boot reale se carica a più di 1,5 MiB sopra il link (da verificare con l'utente).
