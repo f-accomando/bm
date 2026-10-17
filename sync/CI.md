@@ -2,13 +2,13 @@
 schema: 1
 id: CI
 state: WORKING
-task: CO-3
+task: CO-4
 waiting_on: 
 progress: 0
-eta: 2026-10-17T18:30+02:00
+eta: 2026-10-17T19:15+02:00
 wakeup: no
 ack: 2026-10-17T16:29+02:00
-updated: 2026-10-17T17:06+02:00
+updated: 2026-10-17T17:12+02:00
 ---
 # CI — operatore CI
 
@@ -51,6 +51,7 @@ DELIVERED D05-STICK-a @ claude/rgb30-stick-pointer@d80e1dfd · verifica: make te
 DELIVERED D05-STICK-b @ claude/rgb30-stick-pointer@1954d26e · verifica: make test-gameapi -> 208/208; make e make TARGET=rgb30 -> exit 0; consistency.py check -> exit 0, gate non elenca piu D05 · 5 files (+DIV-1 integrato nel ramo) · non verificato su hardware · 2026-10-17T17:45+02:00
 DELIVERED CO-1 @ claude/sync-closeout-co1@d96f0bc1 · verifica: python tools/sync_check.py --closeout --strict -> exit 1, ultima riga CLOSEOUT-NOT-READY (nessun DRAIN: tutti ACTIVE); prova a mano di SIGNED-OFF, UNRESPONSIVE, SIGNOFF-ACK, END -> ok; i test unittest arrivano con CO-2 · 1 file · 2026-10-17T17:35+02:00
 DELIVERED CO-2 @ claude/sync-closeout-co2@a828c94d · verifica: python -m unittest tests.tools.test_sync_check_closeout -> 13 test OK (sopra CO-1) · 1 file · 2026-10-17T17:50+02:00
+DELIVERED CO-3 @ claude/sync-closeout-co3@43922104 · verifica: python -m unittest tests.tools.test_sync_check_closeout -k leftovers -> 4 test OK (git simulato); tutta la suite 17 OK · 2 files · 2026-10-17T18:25+02:00
 
 ## Progressi
 
