@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WAITING
-task: CI-25 consegnato; attendo SPV
+state: FREE
+task: CI-25 consegnato
 waiting_on: 
 progress: 0
 eta: 2026-10-17T16:00+02:00
 wakeup: no
 ack: 2026-10-17T14:10+02:00
-updated: 2026-10-17T14:32+02:00
+updated: 2026-10-17T15:18+02:00
 ---
 # CI — operatore CI
 
