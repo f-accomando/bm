@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WAITING
-task: fix consegnati; attendo SPV su revert codice sync e W12..
+state: WORKING
+task: W13a
 waiting_on: 
 progress: 0
-eta: 2026-10-17T19:30+02:00
+eta: 2026-10-17T20:30+02:00
 wakeup: no
 ack: 2026-10-17T17:39+02:00
-updated: 2026-10-17T17:46+02:00
+updated: 2026-10-17T17:59+02:00
 ---
 # CI — operatore CI
 
@@ -56,6 +56,7 @@ DELIVERED CO-4 @ claude/sync-closeout-co4@517faf7f · verifica: python -m unitte
 DELIVERED D05-STICK-a-fix @ claude/rgb30-stick-pointer@fb9c8cc1 · verifica: make test-stickptr -> ok; mutante sy*w->sy*h -> 2 FAIL (dy > 40, diff), ripristinato -> ok · 1 file (il test sta in tests/kernel/test_stickptr.c) · 2026-10-17T18:10+02:00
 DELIVERED CO-3-fix @ claude/sync-closeout-co3@4dcf830a · verifica: python -m unittest tests.tools.test_sync_check_closeout -> 18 OK (confronto esatto AGY-1/AGY-10 + test collisione) · 2 files · 2026-10-17T18:12+02:00
 DELIVERED CO-4-fix @ claude/sync-closeout-co4@d9a30cc6 · verifica: python -m unittest tests.tools.test_sync_check_closeout -> 26 OK (lista permessi stampata, wiring main C0, FORCED in READY); co4 contiene il merge di co3 · 2 files · 2026-10-17T18:14+02:00
+DELIVERED W12 @ claude/mali-frame@62e46d04 · verifica: make TARGET=rgb30 test-mali -> mali: 35/35 checks passed, mali_desc_test 21/0, EXIT=0; make TARGET=rgb30 e PLAT=virt -> EXIT=0; qemu_test.py --build build/rgb30-virt -k gpu_test -> PASS; mutazioni (push colour +20, dep tiler 2d) -> 1 FAIL ciascuna, ripristinate · 3 files · layout per draw 0x800 byte (non 0x400: vjob 0x100, tjob 0x200, tabelle 0x1c0); frame NON eseguito su Mali (nessun tiler nel simulatore): non verificato su hardware (H1, H6) · 2026-10-17T19:20+02:00
 
 ## Progressi
 
