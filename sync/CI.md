@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: WORKING
-task: D05-STICK-a fix (test y)
+state: WAITING
+task: fix consegnati; attendo SPV su revert codice sync e W12..
 waiting_on: 
 progress: 0
 eta: 2026-10-17T19:30+02:00
 wakeup: no
 ack: 2026-10-17T17:39+02:00
-updated: 2026-10-17T17:40+02:00
+updated: 2026-10-17T17:46+02:00
 ---
 # CI — operatore CI
 
@@ -53,6 +53,9 @@ DELIVERED CO-1 @ claude/sync-closeout-co1@d96f0bc1 · verifica: python tools/syn
 DELIVERED CO-2 @ claude/sync-closeout-co2@a828c94d · verifica: python -m unittest tests.tools.test_sync_check_closeout -> 13 test OK (sopra CO-1) · 1 file · 2026-10-17T17:50+02:00
 DELIVERED CO-3 @ claude/sync-closeout-co3@43922104 · verifica: python -m unittest tests.tools.test_sync_check_closeout -k leftovers -> 4 test OK (git simulato); tutta la suite 17 OK · 2 files · 2026-10-17T18:25+02:00
 DELIVERED CO-4 @ claude/sync-closeout-co4@517faf7f · verifica: python -m unittest tests.tools.test_sync_check_closeout -k phase -> 6 test OK; suite intera 23 OK · decisione: la lista permessi e la riga Log `CLOSEOUT PERMISSIONS: ...` prima della riga DRAIN (CO-7 deve citarla) · 2 files · 2026-10-17T19:05+02:00
+DELIVERED D05-STICK-a fix @ claude/rgb30-stick-pointer@fb9c8cc1 · verifica: make test-stickptr -> ok; mutante sy*w->sy*h -> 2 FAIL (dy > 40, diff), ripristinato -> ok · 1 file (il test sta in tests/kernel/test_stickptr.c) · 2026-10-17T18:10+02:00
+DELIVERED CO-3 fix @ claude/sync-closeout-co3@4dcf830a · verifica: python -m unittest tests.tools.test_sync_check_closeout -> 18 OK (confronto esatto AGY-1/AGY-10 + test collisione) · 2 files · 2026-10-17T18:12+02:00
+DELIVERED CO-4 fix @ claude/sync-closeout-co4@d9a30cc6 · verifica: python -m unittest tests.tools.test_sync_check_closeout -> 26 OK (lista permessi stampata, wiring main C0, FORCED in READY); co4 contiene il merge di co3 · 2 files · 2026-10-17T18:14+02:00
 
 ## Progressi
 
