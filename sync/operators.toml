@@ -18,6 +18,15 @@ weak_points = "{limits, breaking points}"
 
 # [[operator]]
 # id = "{ID}"        # same shape as above; the file is sync/{ID}.md (copy sync/_template.md)
+# name = "{operator}"
+# kind = "ai"
+# file = "sync/{ID}.md"
+# branches = ["{work branch}"]
+# place = "{where it runs}"
+# models = "{models and what for}"
+# subagents = "{yes (which) | no}"
+# strengths = "{what it does best}"
+# weak_points = "{limits}"
 # active = false    # set by SPV with a SIGNOFF row (SYNC.md 3c); signoff = "{reason}"
 
 [[operator]]

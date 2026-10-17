@@ -24,6 +24,9 @@ IDLE_MIN, LATE_MIN, UNREAD_MIN, ROW_MAX, INBOX_MAX = 60, 10, 30, 600, 5
 DELIVERED = re.compile(r"^[-*]?\s*DELIVERED\s+\S+\s+@\s+\S+@\S+\s+[·\-]\s+verifica:\s+.+(?:→|->).+[·\-]\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
 
 
+DELIVERED_PARTS = re.compile(r"^[-*]?\s*DELIVERED\s+(\S+)\s+@\s+\S+@(\S+)\s")
+
+
 def toml_ops():
     """[(id, active)] from sync/operators.toml (tomllib on 3.11+, else a plain scan)"""
     path = os.path.join(ROOT, "sync", "operators.toml")
@@ -61,7 +64,7 @@ def iso(s):
 
 
 def rows(path):
-    """[(datetime, full line)] of the Log rows `| 2026-10-14 18:35 | ...` (the time as written; Rome time = the local zone)"""
+    """[(datetime, full line)] of the Log rows `| YYYY-MM-DD HH:MM | ...` (the time as written; local time = the local zone)"""
     out = []
     if not os.path.exists(path):
         return out
@@ -72,6 +75,34 @@ def rows(path):
             t = iso(m.group(1) + "T" + m.group(2) + (m.group(3) or ""))
             if t:
                 out.append((t if t.tzinfo else t.replace(tzinfo=local), line.rstrip("\r\n")))
+    return out
+
+
+def consegne(text):
+    """the lines of the ## Consegne section of an operator file"""
+    m = re.search(r"^## Consegne\s*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
+    return [ln.strip() for ln in (m.group(1).splitlines() if m else []) if ln.strip()]
+
+
+def delivered_parts(line):
+    """(WO-ID, commit) of a standard DELIVERED line, or None"""
+    m = DELIVERED_PARTS.match(line)
+    return (m.group(1), m.group(2)) if m else None
+
+
+def addressed_rows(oid, h, log):
+    """times of the Log rows addressed to oid after its `ack` (or its last update), written by others"""
+    seen = iso(h.get("ack", "")) or iso(h.get("updated", ""))
+    out = []
+    for t, line in log:
+        if seen and t <= seen:
+            continue
+        author = line.split("|")[2] if line.count("|") > 2 else ""
+        if re.search(r"(?<![A-Za-z])%s(?![A-Za-z])" % re.escape(oid), author):
+            continue
+        target_text = "|".join(line.split("|")[4:]) if line.count("|") > 4 else line
+        if re.search(r"(?<![A-Za-z])%s(?![A-Za-z])|TUTTI|Tutti|tutti" % re.escape(oid), target_text):
+            out.append(t)
     return out
 
 
@@ -98,7 +129,7 @@ def main():
             continue
         text = open(path, encoding="utf-8").read()
         h = header(text)
-        if not h:                               # the old format: **Ultimo aggiornamento:** 2026-10-14 18:26 / **Stato:** `...`
+        if not h:                               # the old format: **Ultimo aggiornamento:** YYYY-MM-DD HH:MM / **Stato:** `...`
             mu = re.search(r"\*\*Ultimo aggiornamento:\*\*\s*(\d{4}-\d\d-\d\d)[ T](\d\d:\d\d)\s*([+-]\d\d:?\d\d)?", text)
             ms = re.search(r"\*\*Stato:\*\*\s*`?(\w+)", text)
             if not (mu and ms):
@@ -120,17 +151,7 @@ def main():
                 (age > IDLE_MIN) if not eta else (int((now - eta).total_seconds() // 60) > LATE_MIN and upd <= eta)):
             problems.append("%s: IDLE by rule (no update for %d min, eta %s); tell the user" % (oid, age, h.get("eta") or "none"))
             notes.append("IDLE")
-        seen = ack or upd                        # without `ack` an operator is taken to have read up to its last update
-        addressed = []
-        for t, line in log:
-            if seen and t <= seen:
-                continue
-            author = line.split("|")[2] if line.count("|") > 2 else ""
-            if re.search(r"(?<![A-Za-z])%s(?![A-Za-z])" % re.escape(oid), author):
-                continue
-            target_text = "|".join(line.split("|")[4:]) if line.count("|") > 4 else line
-            if re.search(r"(?<![A-Za-z])%s(?![A-Za-z])|TUTTI|Tutti|tutti" % re.escape(oid), target_text):
-                addressed.append(t)
+        addressed = addressed_rows(oid, h, log)  # without `ack` an operator is taken to have read up to its last update
         stale = [t for t in addressed if (now - t).total_seconds() > UNREAD_MIN * 60]
         if stale and oid != "SPV" and state != "DONE":
             problems.append("%s: %d row(s) addressed to it not acknowledged (oldest %s, ack %s)" % (oid, len(stale), min(stale).strftime("%H:%M"), h.get("ack") or "none"))
@@ -138,9 +159,8 @@ def main():
             notes.append("no ack")
         if h.get("wakeup") not in ("yes", "no"):
             notes.append("wakeup?")
-        m = re.search(r"^## Consegne\s*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
-        for line in (m.group(1).splitlines() if m else []):
-            if line.strip() and not line.strip().startswith("(") and not DELIVERED.match(line.strip()):
+        for line in consegne(text):
+            if not line.startswith("(") and not DELIVERED.match(line):
                 problems.append("%s: not a standard delivery line: %s" % (oid, line.strip()[:70]))
         inbox = os.path.join(ROOT, "sync", "inbox", oid + ".md")
         n_in = sum(1 for l in open(inbox, encoding="utf-8") if l.strip()) if os.path.exists(inbox) else 0

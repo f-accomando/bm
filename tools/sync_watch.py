@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A heartbeat that costs no model tokens (docs/progress/sync.md, "Cost of the heartbeats").
 
-  python3 tools/sync_watch.py --id AGY [--branch bm-core] [--every 5] [--beat 15] [--wake-cmd "..."] [--once] [--no-push]
+  python3 tools/sync_watch.py --id OP1 [--branch bm-core] [--every 5] [--beat 15] [--wake-cmd "..."] [--once] [--no-push]
 
 Run it in the operator's own clone (checked out on the sync branch), in a terminal or a background process. Every `--every` minutes:
   1. `git fetch origin <branch>` and `git pull --rebase`;

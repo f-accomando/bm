@@ -1,13 +1,20 @@
 # Protocollo di sincronizzazione multi-operatore (`SYNC.md`)
 
-> Template riusabile. Per un nuovo progetto: **crea il branch di sync** `sync/{nome}` da `bm-core`, copia questo file, sostituisci i `{segnaposto}`, riempi §2 e §3 e svuota il Log (§5). Il sync di un progetto vive solo su quel branch: così più sessioni di sync (altri agenti, altri progetti) possono correre in parallelo senza toccarsi.
-> Esempio completo di un progetto reale (Tropic Trail, 8 video, 3 operatori): [`docs/archive/sync-tropic-trail.md`](docs/archive/sync-tropic-trail.md).
+## Come leggere
+
+Il file e' lungo (circa 20 KB, di più una volta compilato): non leggerlo per intero.
+- Mappa delle sezioni: `grep -n '^## \|^### ' SYNC.md` (numeri di riga, poi `Read` con offset/limit).
+- Una regola sola: `grep -n -A 20 '^### <titolo>' SYNC.md` (o `'^## <n>'` per una sezione intera).
+- Log (sezione 5, in fondo, una riga per evento, la piu' recente e' l'ultima): `tail -6 SYNC.md | cut -c1-200`.
+- Stato (chi e' vivo, cosa e' da rivedere, cosa e' fermo): `python tools/spv_brief.py`, non rileggere il Log; controllo oggettivo: `python tools/sync_check.py`.
+- Scrivere nel Log solo con `python tools/sync_log.py` (formato delle righe invariato).
+
+> Template riusabile. **Questo è il template** (ramo `sync-handshake`). Per un nuovo progetto: **crea il ramo di sync dal template** (`git switch -c sync/{nome} origin/sync-handshake`), poi **crea il branch di sync** `sync/{nome}` da questo ramo (non da `bm-core`; il codice parte da `bm-core`), sostituisci i `{segnaposto}`, riempi §2 e §3 e svuota il Log (§5). Il sync di un progetto vive solo su quel branch: così più sessioni di sync (altri agenti, altri progetti) possono correre in parallelo senza toccarsi.
+> Esempio di un progetto reale: [`docs/archive/sync-tropic-trail.md`](docs/archive/sync-tropic-trail.md) (dove presente).
 > Cosa abbiamo imparato: [`docs/progress/sync-workflow.md`](docs/progress/sync-workflow.md). Regole d'area: [`docs/progress/sync.md`](docs/progress/sync.md).
 
 - **Progetto**: {nome} · **Repo**: `f-accomando/bm` · **Base del codice**: `bm-core` · **Branch di sync**: `sync/{nome}` · **Governance**: [`AGENTS.md`](AGENTS.md)
 - **Avviato**: {data} · **Supervisore (SPV)**: {operatore} · **Utente**: decide, fa i merge finali
-
----
 
 ## 1. Ruoli e file (un solo scrittore per file)
 
@@ -15,7 +22,7 @@
 |---|---|---|---|---|
 | {es. Claude local} | `SPV` | {locale/cloud} | `SYNC.md` + `sync/SPV.md` | `feat/{nome}-*` |
 | {es. Claude cloud} | `CLD` | {cloud} | `sync/CLD.md` | `feat/{nome}-rec` |
-| {es. Antigravity} | `AGY` | {Windows} | `sync/AGY.md` | `agy/*` |
+| {es. altro strumento} | `OP2` | {Windows} | `sync/OP2.md` | `op2/*` |
 | utente | `UTE` | - | niente (parla nelle sessioni) | - |
 
 1. `SYNC.md` lo scrive **solo SPV**: contratti, work order, decisioni, tabella di stato (§1b), avvisi a tutti.
@@ -39,8 +46,8 @@
 
 Scritto da [`tools/sync_hdr.py`](tools/sync_hdr.py), mai a mano. Campi: `schema`, `id`, `state`, `task`, `waiting_on`, `progress`, `eta`, `updated`, `ack`.
 
-- Orari **ISO 8601 con fuso** (`2026-10-14T12:00+02:00`); chi legge confronta in UTC.
-- `eta`: obbligatoria in ogni `WORKING` e `WAITING`; dice quando l'operatore sarà di nuovo raggiungibile. In un task è "consegna pronta tra N min"; nell'handshake o in attesa di un prompt è "risposta attesa tra N min" (minimo 3, al massimo 3 controlli brevi, poi `eta` normale). Se il lavoro si allunga, l'operatore la sposta con una riga di progress prima che scada.
+- Orari **ISO 8601 con fuso** (`YYYY-MM-DDTHH:MM+02:00`); chi legge confronta in UTC.
+- `eta`: obbligatoria in ogni `WORKING` e `WAITING`; dice quando l'operatore sarà di nuovo raggiungibile. Si scrive come orario sull'orologio dell'utente: `--eta 18:00` (consegna prevista alle 18:00; se l'orario è già passato vale il giorno dopo). In un task è l'ora di consegna; nell'handshake o in attesa di un prompt è l'ora della risposta attesa (almeno 3 min avanti, al massimo 3 controlli brevi, poi `eta` normale). Se il lavoro si allunga, l'operatore la sposta con una riga di progress prima che scada.
 - `ack`: orario dell'ultima riga di `SYNC.md` letta (ricevuta di lettura). `--ack auto` conferma l'ultima riga presente dopo il fetch (consegna ricevuta), NON che l'agente l'abbia capita: l'agente che agisce su una riga scrive nel proprio Log `letto <ora riga>`.
 - La tabella §1b si **genera** dai blocchi: SPV non scrive stati previsti, solo letti dal file con l'orario del file. Le ipotesi si etichettano `IPOTESI`.
 
@@ -86,7 +93,9 @@ Regole di integrazione:
 
 ## 3. Task board
 
-Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Prontezza (`bm-work-order`). Task **≤45 min** (obiettivo 15): più grandi si spezzano in passi, un work order per passo. Passi indipendenti da decisioni si autorizzano **in sequenza** con una sola review finale.
+Un blocco per work order, formato di [`docs/agents/routing.md`](docs/agents/routing.md) (Work Order Format) e Gate di Prontezza (`bm-work-order`). Task **≤45 min** (obiettivo 15): più grandi si spezzano in passi, un work order per passo. Passi indipendenti da decisioni si autorizzano **in sequenza** con una sola review finale.
+
+Work order completi in `sync/wo/<ID>.md` (scritti da SPV, un blocco per passo); bozze in `sync/wo/drafts/`.
 
 ### WORK ORDER: {ID-NN}
 - **Obiettivo**: {una frase}
@@ -104,11 +113,11 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 
 | WO | Stima | Osservato |
 |---|---|---|
-| {ID-NN} | {h} | {h} |
+| {WO-ID} | - | - |
 
 **Battito**:
 0. **All'avvio** (dall'handshake): **battiti brevi di 3-5 min** (leggi `SYNC.md` e `sync/`, aggiorna il tuo file) **finché non hai preso in carico il primo work order**: cioe hai letto la riga `ASSIGNED`, scritto `ack` e ti sei segnato `WORKING`; da li si passa al ritmo normale. **SPV** tiene i battiti brevi finché ogni nuovo operatore ha confermato la presa in carico (`WORKING` e `ack` sul work order). Così l'utente non fa da tramite. Tetto di sicurezza: dopo 6 battiti brevi senza assegnazione si passa a 15 min e SPV lo segnala all'utente.
-1. **Battito a eventi, senza timer** (vale per tutti gli operatori): si aggiorna il proprio file e si pusha **a ogni task conclusa**. Un task lungo lo spezza l'operatore a sua discrezione e comunica ogni passo con una riga di progress, senza timer. Un problema o la richiesta di intervento di SPV o dell'utente è una riga pushata (`WAITING`, `waiting_on`) **più una frase breve in chat all'utente**. La chat da sola non conta: SPV legge il repo. Gli operatori che si risvegliano da soli possono comunque usare `sync_watch.py`, che non costa token.
+1. **Battito a eventi, senza timer** (vale per tutti gli operatori): si aggiorna il proprio file e si pusha **a ogni task conclusa**. Un task lungo lo spezza l'operatore a sua discrezione e comunica ogni passo con una riga di progress, senza timer. Gli operatori diversi da SPV comunicano con il proprio file e con la casella. In chat gli operatori diversi da SPV scrivono solo una riga: `preso WO <X> eta HH:MM` quando iniziano (la stessa `eta` scritta nel proprio file con `sync_hdr.py --eta`), `concluso WO <X> [in attesa di <Y> | FREE]: <file> file +<a> -<d>, <N> token, <M> min` quando finiscono (ogni messaggio si scrive nel momento in cui il WO inizia o finisce, uno per WO, mai un solo messaggio per più WO). `in attesa di <Y>` si scrive solo quando l'operatore è fermo per un input di terzi (per esempio una risposta di SPV a un blocco), mai per indicare il WO successivo; `FREE` quando non c'è altro da fare; se il WO successivo è già assegnato la riga si chiude senza questa parte (diff da `git diff --stat`, token dalla propria sessione o `n/d`, minuti dall'inizio alla fine del WO); nient'altro (niente report o riepiloghi). Per una richiesta all'utente scrivono la richiesta breve o un prompt pronto da copiare. Un problema o la richiesta di intervento è una riga pushata (`WAITING`, `waiting_on`); SPV la legge nel repo e la riferisce all'utente. La chat da sola non conta. Gli operatori che si risvegliano da soli possono comunque usare `sync_watch.py`, che non costa token.
 2. SPV controlla in base all'`eta`: oltre l'`eta` di più di 10 min senza aggiornamenti è `IDLE`; senza `eta`, dopo 60 min. SPV guarda `sync_check.py` solo quando viene svegliato (messaggio dell'utente o notifica di sessione), senza polling.
 2b. **Messaggi tra operatori**: chi ha bisogno di un prompt immediato per un altro operatore (SPV compreso) scrive in chat un solo blocco auto-sufficiente che comincia con `da <ID> a <ID>: ...`; l'utente lo copia a chi serve. Il mittente lascia anche una riga con orario e oggetto nella casella del destinatario (SPV) o nel proprio file, così il passaggio è verificabile.
 3. L'agente principale resta sempre raggiungibile (comunicare, interrompere, ridimensionare): il lavoro lungo va ai subagent, o a passi con un controllo in mezzo.
@@ -148,7 +157,7 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 4. **Esito per WO**: `APPROVABLE` o `CHANGES` con motivo e `file:riga`; ciò che non si può verificare senza hardware si dichiara.
 SPV scrive nel Log una riga `REVIEW: APPROVED | CHANGES REQUESTED` (≤600 caratteri) e, se serve, un work order di correzione nella casella dell'operatore. L'integrazione avviene solo su `APPROVED`, nel branch di integrazione di SPV; il merge su `bm-core` solo col consenso dell'utente.
 
-**Operatori senza canale diretto** (altri strumenti o sessioni che SPV non può avviare né messaggiare, es. AGY): SPV prepara per l'utente **un solo prompt auto-sufficiente** da incollare nella loro sessione, e lo scrive in chat. Contiene: ID, branch di sync, la frase di handshake, il percorso della casella (`sync/inbox/<ID>.md`) e del work order (`sync/wo/<ID>.md`), il branch di lavoro, il perimetro dei file, la regola "dopo l'handshake leggi la casella e parti senza aspettare", dove consegnare (`DELIVERED`), il `--wakeup` da dichiarare e "se ti blocchi segnalo nel tuo file e fermati". Prima di dare il prompt SPV ha già pushato casella, work order e blocco in `operators.toml`. Dopo l'incollo l'utente non fa altro: SPV controlla `sync_check.py` (stato, `ack`) e, se l'operatore tace oltre 30 min, avvisa l'utente (§3b, regola 5). Per gli operatori che SPV avvia da sé il prompt è il brief di `start_session`, con lo stesso contenuto.
+**Operatori senza canale diretto** (altri strumenti o sessioni che SPV non può avviare né messaggiare): SPV prepara per l'utente **un solo prompt auto-sufficiente** da incollare nella loro sessione, e lo scrive in chat. Contiene: ID, branch di sync, la frase di handshake, il percorso della casella (`sync/inbox/<ID>.md`) e del work order (`sync/wo/<ID>.md`), il branch di lavoro, il perimetro dei file, la regola "dopo l'handshake leggi la casella e parti senza aspettare", dove consegnare (`DELIVERED`), il `--wakeup` da dichiarare e "se ti blocchi segnalo nel tuo file e fermati". Prima di dare il prompt SPV ha già pushato casella, work order e blocco in `operators.toml`. Dopo l'incollo l'utente non fa altro: SPV controlla `sync_check.py` (stato, `ack`) e, se l'operatore tace oltre 30 min, avvisa l'utente (§3b, regola 5). Per gli operatori che SPV avvia da sé il prompt è il brief di `start_session`, con lo stesso contenuto.
 
 **Profilo** (max 10 righe): **dove gira** e i suoi punti di rottura, **modelli** e per cosa, **subagent** (sì/no, quali), **competenze e limiti**, **strumenti**. SPV ne ricava `place`, `models`, `subagents`, `strengths`, `weak_points` in `sync/operators.toml`.
 
@@ -171,7 +180,7 @@ SPV scrive nel Log una riga `REVIEW: APPROVED | CHANGES REQUESTED` (≤600 carat
 ## 4. Segnalazioni all'utente
 
 - Una riga del Log che richiede un'azione dell'utente (sync manuale, merge, chiave, dispositivo) inizia con `USER:` e dice cosa serve.
-- Lo stato di ogni operatore (formato di §1b) si riporta all'utente **solo se lo chiede** (o se qualcuno è `IDLE` o serve una decisione): la verità è la tabella §1b.
+- Chi comunica con l'utente è SPV: riferisce esiti, decisioni e richieste degli operatori. Lo stato di ogni operatore (formato di §1b) si riporta all'utente **solo se lo chiede** (o se qualcuno è `IDLE` o serve una decisione): la verità è la tabella §1b.
 
 ## 5. Log di handover
 
@@ -179,4 +188,4 @@ Solo SPV aggiunge righe. Colonne: orario ISO con fuso · operatore · branch/com
 
 | Timestamp | Operatore | Branch / Commit | Azione | Messaggio |
 |---|---|---|---|---|
-| {ISO} | {ID} | `sync/{nome}` | `INIT` | Protocollo inizializzato. |
+| {ISO con fuso} | SPV | `sync/{nome}` | `INIT` | Sync avviato. Operatori: {ID...}. WO in `sync/wo/`. |
