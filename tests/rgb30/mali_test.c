@@ -467,6 +467,107 @@ static void test_frame_image(void)
     CHECK(mali_frame(&other, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, d, 3) == -1, "frame: another hw refused");
 }
 
+/* the r3d backend against a mock of mali_frame: which draws it makes, in which order, and what it copies into the page */
+static int m_calls, m_nd, m_draws[8], m_rgb[8], m_total, m_firsts[8], m_nfirst;
+
+static int mock_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,
+                      uint32_t clear, const mali_draw_t *d, uint32_t nd)
+{
+    (void)hw; (void)target_pa;
+    m_calls++;
+    m_nd = (int)nd;
+    m_total = 0;
+    m_nfirst = 0;
+    for (uint32_t k = 0; k < nd; k++) {
+        if (k < 8) {
+            m_draws[k] = (int)d[k].n;
+            m_rgb[k] = (int)d[k].rgb;
+        }
+        for (uint32_t j = 0; j < d[k].n; j++) {
+            if (m_nfirst < 8)
+                m_firsts[m_nfirst++] = (int)d[k].xyz[3 * j][0];
+            m_total++;
+        }
+    }
+    for (uint32_t y = 0; y < h; y++)
+        for (uint32_t x = 0; x < w; x++) {
+            const uint32_t v = (x >= 8 && x < 12 && y >= 8 && y < 12) ? 0x336699u :
+                               (x >= 20 && x < 24 && y >= 8 && y < 12) ? 0xFFEE00u : clear;   /* above the key too */
+            memcpy(target + (size_t)y * pitch + 4 * x, &v, 4);
+        }
+    return 0;
+}
+
+static void feed(const r3d_backend_t *be, const g16_t *g, float x, float r, float gg, float b, float z, int kind, int depth)
+{
+    r3d_corner_t c[3];
+    memset(c, 0, sizeof c);
+    for (int i = 0; i < 3; i++) {
+        c[i].x = x + (float)i;
+        c[i].y = 4;
+        c[i].z = z;
+        c[i].a = r;
+        c[i].b = gg;
+        c[i].c = b;
+    }
+    be->tri(be->ctx, g, c, kind, NULL, depth);
+}
+
+static void test_backend(void)
+{
+    static uint16_t page[64 * 64];
+    printf("mali: the r3d backend (a mock of mali_frame)\n");
+    memset(&S, 0, sizeof S);
+    mali_info_t in;
+    CHECK(probe(&in) == MALI_OK, "backend: probe");
+    mali_hw_t other = G;
+    CHECK(mali_backend(&other) == NULL, "backend: NULL for a hw that was not probed");
+    const r3d_backend_t *be = mali_backend(&G);
+    CHECK(be != NULL && be->colour_only == 1 && be->tri && be->zclear, "backend: after a probe, colour_only");
+    if (!be)
+        return;
+    g16_t g = { .px = page, .stride = 64, .w = 64, .h = 64 };
+    for (int i = 0; i < 64 * 64; i++)
+        page[i] = 0xFFFF;
+    mali_backend_set_frame(mock_frame);
+    mali_backend_drop();
+    m_calls = 0;
+
+    feed(be, &g, 10, 1, 0, 0, 0.5f, R3D_KIND_COLOUR, R3D_DEPTH_WRITE);       /* A: red, z 0.5 */
+    feed(be, &g, 20, 0, 1, 0, 0.1f, R3D_KIND_COLOUR, R3D_DEPTH_WRITE);       /* B: green, far */
+    feed(be, &g, 30, 1, 0, 0, 0.3f, R3D_KIND_COLOUR, R3D_DEPTH_WRITE);       /* C: red, z 0.3 */
+    feed(be, &g, 40, 0, 0, 1, 0.9f, R3D_KIND_COLOUR, R3D_DEPTH_WRITE);       /* D: blue, near */
+    CHECK(mali_backend_pending() == 4, "backend: 4 waiting (%d)", mali_backend_pending());
+    feed(be, &g, 50, 1, 1, 1, 0.5f, R3D_KIND_TEXTURE, R3D_DEPTH_WRITE);      /* not flat: ignored */
+    feed(be, &g, 50, 1, 1, 1, 0.5f, R3D_KIND_COLOUR, R3D_DEPTH_TEST);        /* not depth-written: ignored */
+    CHECK(mali_backend_pending() == 4, "backend: a texture and a tested triangle add nothing (%d)", mali_backend_pending());
+
+    CHECK(mali_backend_flush(&g) == 0 && mali_backend_pending() == 0, "backend: flush");
+    CHECK(m_calls == 1 && m_nd == 3 && m_draws[0] == 1 && m_draws[1] == 2 && m_draws[2] == 1,
+          "backend: 3 draws of 1, 2, 1 triangles (%d: %d %d %d)", m_nd, m_draws[0], m_draws[1], m_draws[2]);
+    CHECK(m_rgb[0] == 0x00FF00 && m_rgb[1] == 0xFF0000 && m_rgb[2] == 0x0000FF,
+          "backend: green, red, blue far to near (%06x %06x %06x)", m_rgb[0], m_rgb[1], m_rgb[2]);
+    CHECK(m_firsts[0] == 20 && m_firsts[1] == 30 && m_firsts[2] == 10 && m_firsts[3] == 40,
+          "backend: B, C, A, D (%d %d %d %d)", m_firsts[0], m_firsts[1], m_firsts[2], m_firsts[3]);
+    const uint16_t want = (uint16_t)((0x33 >> 3) << 11 | (0x66 >> 2) << 5 | (0x99 >> 3));
+    const uint16_t want2 = (uint16_t)((0xFF >> 3) << 11 | (0xEE >> 2) << 5 | (0x00 >> 3));
+    CHECK(page[8 * 64 + 20] == want2, "backend: a covered pixel above the key colour is %04x (want %04x)", page[8 * 64 + 20], want2);
+    CHECK(page[8 * 64 + 8] == want && page[0] == 0xFFFF && page[63 * 64 + 63] == 0xFFFF,
+          "backend: the covered pixel is %04x (want %04x), the others stay (%04x)", page[8 * 64 + 8], want, page[0]);
+
+    feed(be, &g, 10, 1, 0, 1, 0.5f, R3D_KIND_COLOUR, R3D_DEPTH_WRITE);       /* exactly the key colour ff00ff */
+    CHECK(mali_backend_flush(&g) == 0 && m_rgb[0] == 0xFF01FF, "backend: the key colour is nudged (%06x)", m_rgb[0]);
+
+    m_calls = 0;
+    for (int i = 0; i < 1025; i++)
+        feed(be, &g, 4, 0, 1, 0, 0.5f, R3D_KIND_COLOUR, R3D_DEPTH_WRITE);
+    CHECK(m_calls == 1 && m_total == 1024 && mali_backend_pending() == 1,
+          "backend: the 1025th flushes 1024 (%d calls, %d drawn, %d waiting)", m_calls, m_total, mali_backend_pending());
+    be->zclear(be->ctx, &g);
+    CHECK(mali_backend_pending() == 0, "backend: zclear forgets what waits");
+    mali_backend_set_frame(NULL);
+}
+
 int main(void)
 {
     mem = malloc(MEM_SIZE);
@@ -552,6 +653,7 @@ int main(void)
     CHECK(r == MALI_E_FRAGMENT && strstr(lines, "of 4096 pixels are not"), "the clear lost, said (%d)", r);
 
     test_frame_image();
+    test_backend();
 
     CHECK(!strcmp(mali_exception(0xc1), "TRANSLATION_FAULT") && !strcmp(mali_exception(0x43), "JOB_WRITE_FAULT"),
           "exception names");

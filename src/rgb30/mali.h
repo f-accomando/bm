@@ -34,6 +34,8 @@
 
 #include <stdint.h>
 
+#include "bm/r3d.h"
+
 typedef struct {
     uint32_t (*rd)(uintptr_t addr);
     void (*wr)(uintptr_t addr, uint32_t v);
@@ -103,5 +105,15 @@ int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_
 #define MALI_FRAME_VERTS      0x10000   /* all vertices, 4 floats each (x y z 1), draw after draw */
 #define MALI_FRAME_POSITIONS  0x20000   /* what the vertex jobs write, same order */
 #define MALI_FRAME_PUSH       0x30000   /* per draw 64 bytes: the pushed words, colour at +16 */
+
+/* M41 phase 2: the r3d backend of the Mali: flat colour triangles only (r3d hands everything else to the ARM: W13b).
+ * `hw` must be the one a good mali_probe used. NULL if not probed. */
+const r3d_backend_t *mali_backend(const mali_hw_t *hw);
+int mali_backend_pending(void);                 /* triangles waiting */
+int mali_backend_flush(g16_t *g);               /* draws them, copies the covered pixels into g->px; 0, or -1 (the ARM must draw this frame) */
+void mali_backend_drop(void);                   /* forgets what waits */
+/* test seam: replaces mali_frame (NULL: the real one) */
+void mali_backend_set_frame(int (*frame)(const mali_hw_t *, uint8_t *, uint64_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                                         const mali_draw_t *, uint32_t));
 
 #endif

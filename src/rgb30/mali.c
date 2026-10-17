@@ -869,3 +869,156 @@ int mali_probe(const mali_hw_t *hw, mali_info_t *info)
     in->step = r;
     return r;
 }
+
+/* --- the r3d backend (M41 phase 2) ---
+ * r3d hands this backend flat-coloured, depth-written triangles only (colour_only, W13b). They are buffered, sorted far to
+ * near (painter's order: the Mali draws without a depth test here), drawn by mali_frame into an XRGB surface cleared to a key
+ * colour, and the pixels the GPU covered are copied into the RGB565 page. */
+#define BE_SURF_OFF     0x200000    /* the surface in hw->mem: after the heap */
+#define BE_KEY          0xFF00FF    /* "not covered" */
+
+typedef struct { float v[3][3]; float key; uint32_t rgb; } be_tri_t;
+
+static be_tri_t be_tris[MALI_BATCH_MAX];
+static int be_n;
+static const mali_hw_t *be_hw;
+static int (*be_frame)(const mali_hw_t *, uint8_t *, uint64_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                       const mali_draw_t *, uint32_t);
+
+void mali_backend_set_frame(int (*frame)(const mali_hw_t *, uint8_t *, uint64_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                                         const mali_draw_t *, uint32_t))
+{
+    be_frame = frame;
+}
+
+int mali_backend_pending(void)
+{
+    return be_n;
+}
+
+void mali_backend_drop(void)
+{
+    be_n = 0;
+}
+
+/* the pixels of the surface that are not the key, into the page */
+static void be_resolve(const g16_t *g, const uint8_t *surf, uint32_t pitch)
+{
+    for (int y = 0; y < g->h; y++)
+        for (int x = 0; x < g->w; x++) {
+            const uint32_t p = rd32(surf + (size_t)y * pitch + 4 * (size_t)x) & 0xFFFFFF;
+            if (p != BE_KEY)
+                g->px[(size_t)y * g->stride + x] = (uint16_t)((p >> 19 & 31) << 11 | (p >> 10 & 63) << 5 | (p >> 3 & 31));
+        }
+}
+
+/* one frame of the draws so far, resolved into the page; 0, or -1 */
+static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, uint32_t sw, uint32_t sh,
+                  const mali_draw_t *dr, uint32_t nd)
+{
+    int (*frame)(const mali_hw_t *, uint8_t *, uint64_t, uint32_t, uint32_t, uint32_t, uint32_t, const mali_draw_t *,
+                 uint32_t) = be_frame ? be_frame : mali_frame;
+    if (frame(be_hw, surf, pa, pitch, sw, sh, BE_KEY, dr, nd) < 0)      /* 0 and 1 both count as done */
+        return -1;
+    be_resolve(g, surf, pitch);
+    return 0;
+}
+
+static int be_flush(const g16_t *g)
+{
+    static float vbuf[MALI_BATCH_MAX * 3][3];
+    static mali_draw_t dr[MALI_MAX_DRAWS];
+    static int idx[MALI_BATCH_MAX];
+    const int n = be_n;
+    if (n == 0)
+        return 0;
+    be_n = 0;
+    const mali_hw_t *hw = be_hw;
+    const uint32_t sw = ((uint32_t)g->w + 15) & ~15u, sh = ((uint32_t)g->h + 15) & ~15u;
+    const uint32_t pitch = (sw * 4 + 63) & ~63u;
+    if (!hw || sw > 1920 || sh > 1080 || BE_SURF_OFF + (uint64_t)pitch * sh > hw->mem_size)
+        return -1;
+    for (int i = 0; i < n; i++)
+        idx[i] = i;
+    for (int i = 1; i < n; i++) {                   /* stable insertion sort: far (small key) first */
+        const int k = idx[i];
+        int j = i - 1;
+        while (j >= 0 && be_tris[idx[j]].key > be_tris[k].key) {
+            idx[j + 1] = idx[j];
+            j--;
+        }
+        idx[j + 1] = k;
+    }
+    uint8_t *surf = hw->mem + BE_SURF_OFF;
+    const uint64_t pa = hw->mem_pa + BE_SURF_OFF;
+    uint32_t nd = 0, nv = 0;
+    for (int i = 0; i < n; i++) {
+        const be_tri_t *t = &be_tris[idx[i]];
+        if (nd > 0 && dr[nd - 1].rgb == t->rgb) {
+            dr[nd - 1].n++;
+        } else {
+            if (nd == MALI_MAX_DRAWS) {             /* a full frame: draw it, go on with a fresh one */
+                if (be_run(g, surf, pa, pitch, sw, sh, dr, nd) != 0)
+                    return -1;
+                nd = 0;
+                nv = 0;
+            }
+            dr[nd].xyz = (const float (*)[3])vbuf[nv];
+            dr[nd].n = 1;
+            dr[nd].rgb = t->rgb;
+            nd++;
+        }
+        memcpy(vbuf[nv], t->v, sizeof t->v);
+        nv += 3;
+    }
+    return be_run(g, surf, pa, pitch, sw, sh, dr, nd);
+}
+
+int mali_backend_flush(g16_t *g)
+{
+    return be_flush(g);
+}
+
+static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind, const g16_sheet_t *tex, int depth)
+{
+    (void)ctx;
+    (void)tex;
+    if (kind != R3D_KIND_COLOUR || depth != R3D_DEPTH_WRITE)    /* r3d sends nothing else (colour_only): the guard */
+        return;
+    if (be_n == MALI_BATCH_MAX)
+        be_flush(g);                                /* (g16_t holds the page by pointer: const does not stop the copy) */
+    be_tri_t *t = &be_tris[be_n++];
+    float r = 0, gr = 0, b = 0, z = 0;
+    for (int i = 0; i < 3; i++) {
+        t->v[i][0] = v[i].x;
+        t->v[i][1] = v[i].y;
+        t->v[i][2] = 0.5f;
+        r += v[i].a;
+        gr += v[i].b;
+        b += v[i].c;
+        z += v[i].z;
+    }
+    const uint32_t cr = (uint32_t)(r / 3 * 255 + 0.5f), cg = (uint32_t)(gr / 3 * 255 + 0.5f),
+                   cb = (uint32_t)(b / 3 * 255 + 0.5f);
+    uint32_t rgb = (cr > 255 ? 255 : cr) << 16 | (cg > 255 ? 255 : cg) << 8 | (cb > 255 ? 255 : cb);
+    if (rgb == BE_KEY)
+        rgb = 0xFF01FF;                             /* the key means "not covered" */
+    t->rgb = rgb;
+    t->key = z / 3;                                 /* 1/depth: larger is nearer */
+}
+
+static void be_zclear(void *ctx, const g16_t *g)
+{
+    (void)ctx;
+    (void)g;
+    mali_backend_drop();
+}
+
+const r3d_backend_t *mali_backend(const mali_hw_t *hw)
+{
+    static const r3d_backend_t be = { .tri = be_tri, .zclear = be_zclear, .colour_only = 1 };
+    if (!probed_ok || hw != H)
+        return NULL;
+    be_hw = hw;
+    return &be;
+}
