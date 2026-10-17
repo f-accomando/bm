@@ -4,3 +4,4 @@
 {"schema":1,"operator":"OP-B16","wo":"3D-1","branch":"claude/v3d-stat-audio-gpu-wait","commit":"7d8b9b14","files":6,"add":66,"del":5,"lines":{"code":64,"docs":7,"data":0},"tokens":45000,"min":25,"iso":"2026-10-17T12:19+02:00"}
 {"schema":1,"operator":"OP-B16","wo":"3D-3","branch":"claude/mali-triangle-batch","commit":"029e2027","files":5,"add":122,"del":36,"lines":{"code":150,"docs":8,"data":0},"tokens":60000,"min":20,"iso":"2026-10-17T13:49+02:00"}
 {"schema":1,"operator":"OP-B16","wo":"3D-5","branch":"claude/perf-3d-budget-table","commit":"e0afc683","files":1,"add":16,"del":0,"lines":{"code":0,"docs":16,"data":0},"tokens":25000,"min":10,"iso":"2026-10-17T13:50+02:00"}
+{"schema":1,"operator":"OP-B16","wo":"3D-6","branch":"claude/stages3d-bm-edition","commit":"eddfd2e6","files":20,"add":755,"del":1,"lines":{"code":302,"docs":63,"data":391},"tokens":110000,"min":55,"iso":"2026-10-17T13:59+02:00"}
