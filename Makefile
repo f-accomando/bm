@@ -1310,9 +1310,9 @@ count-insns:
 
 # The GPU backend of the 3D (M33) on a V3D emulator, against the software
 # rasterizer, for the four byte orders its probe must find
-$(BUILD)/host/test_gpu3d: tests/gpu/test_gpu3d.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/gpu3d.c \
-                          src/gpu/gpu3d.h src/gpu/v3d_cl.c src/gpu/v3d.h src/gpu/shaders.h src/bm/r3d.c \
-                          src/bm/gfx16.c src/bm/*.h src/gpu/etc1.c src/gpu/etc1.h
+$(BUILD)/host/test_gpu3d: tests/gpu/test_gpu3d.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h tests/gpu/qpu_progs.h \
+                          src/gpu/gpu3d.c src/gpu/gpu3d.h src/gpu/v3d_cl.c src/gpu/v3d.h src/gpu/shaders.h \
+                          src/bm/r3d.c src/bm/gfx16.c src/bm/*.h src/gpu/etc1.c src/gpu/etc1.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free \
 	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
@@ -1390,6 +1390,8 @@ test-gpu3d: $(BUILD)/host/test_gpu3d
 test-qpu:
 	$(PYTHON) tools/qpuasm.py -o $(BUILD)/shaders.h
 	cmp $(BUILD)/shaders.h src/gpu/shaders.h
+	$(PYTHON) tools/qpuasm.py --progs $(BUILD)/qpu_progs.h
+	cmp $(BUILD)/qpu_progs.h tests/gpu/qpu_progs.h
 
 HOSTCC ?= cc
 

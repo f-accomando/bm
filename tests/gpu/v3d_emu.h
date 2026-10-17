@@ -30,6 +30,9 @@ typedef struct { uint32_t jobs, prims, pixels, batches, zstores, loads, msframes
                                                          * attr_words: words the VCD loaded for vertex shaders */
 extern emu_stats_t emu_stats;
 extern char emu_error[256];
+extern uint8_t emu_sem[16];
+
+int emu_qpu_exec(const uint32_t *code, int ninst, const uint32_t *unif, int nunif, uint32_t (*vpm)[16]);
 
 void *test_aligned_alloc(size_t align, size_t size);
 void test_free(void *p);

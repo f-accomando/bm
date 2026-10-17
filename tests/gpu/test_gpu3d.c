@@ -21,6 +21,7 @@
 #include "bm/r3d.h"
 #include "gpu/gpu3d.h"
 #include "v3d_emu.h"
+#include "qpu_progs.h"
 
 static int checks, failures;
 
@@ -920,6 +921,45 @@ static void run_scene(int s)
         save(c, w, h, scenes[s].name, "msaa");
 }
 
+static void qpu_branch_test(void)
+{
+    static uint32_t vpm[64][16];
+
+    /* (a) qpu_loop with unif = {5} and zeroed vpm: == 0, vpm[0][l] == 15, vpm[1][l] == 5 */
+    memset(vpm, 0, sizeof vpm);
+    const uint32_t u5[1] = { 5 };
+    CHECK(emu_qpu_exec(qpu_loop, sizeof qpu_loop / 8, u5, 1, vpm) == 0,
+          "qpu_branch_test: qpu_loop (5) failed: %s", emu_error);
+    for (int l = 0; l < 16; l++) {
+        CHECK(vpm[0][l] == 15, "qpu_branch_test: qpu_loop (5) lane %d sum %u != 15", l, vpm[0][l]);
+        CHECK(vpm[1][l] == 5, "qpu_branch_test: qpu_loop (5) lane %d iters %u != 5", l, vpm[1][l]);
+    }
+
+    /* (b) qpu_loop with unif = {1}: vpm[0][0] == 1, vpm[1][0] == 1 */
+    memset(vpm, 0, sizeof vpm);
+    const uint32_t u1[1] = { 1 };
+    CHECK(emu_qpu_exec(qpu_loop, sizeof qpu_loop / 8, u1, 1, vpm) == 0,
+          "qpu_branch_test: qpu_loop (1) failed: %s", emu_error);
+    CHECK(vpm[0][0] == 1, "qpu_branch_test: qpu_loop (1) sum %u != 1", vpm[0][0]);
+    CHECK(vpm[1][0] == 1, "qpu_branch_test: qpu_loop (1) iters %u != 1", vpm[1][0]);
+
+    /* (c) memset(emu_sem, 0, 16), qpu_sem: == 0 and emu_sem[3] == 1 */
+    memset(emu_sem, 0, sizeof emu_sem);
+    CHECK(emu_qpu_exec(qpu_sem, sizeof qpu_sem / 8, NULL, 0, NULL) == 0,
+          "qpu_branch_test: qpu_sem failed: %s", emu_error);
+    CHECK(emu_sem[3] == 1, "qpu_branch_test: emu_sem[3] %u != 1", (unsigned)emu_sem[3]);
+
+    /* (d) qpu_block: == -1 and strstr(emu_error, "semaphore 5") != NULL */
+    CHECK(emu_qpu_exec(qpu_block, sizeof qpu_block / 8, NULL, 0, NULL) == -1,
+          "qpu_branch_test: qpu_block expected to fail");
+    CHECK(strstr(emu_error, "semaphore 5") != NULL,
+          "qpu_branch_test: qpu_block error '%s' does not mention semaphore 5", emu_error);
+
+    /* (e) qpu_loop with nunif = 0: == -1 (uniform non dato) */
+    CHECK(emu_qpu_exec(qpu_loop, sizeof qpu_loop / 8, NULL, 0, vpm) == -1,
+          "qpu_branch_test: qpu_loop with 0 uniforms expected to fail");
+}
+
 int main(int argc, char **argv)
 {
     emu_red_a = argc > 1 ? atoi(argv[1]) : 1;
@@ -936,6 +976,7 @@ int main(int argc, char **argv)
     emu_etc1 = getenv("EMU_ETC1") ? atoi(getenv("EMU_ETC1")) : 0;  /* ETC1's layout: 1 a later candidate, 2 none,
                                                                        * 3 rows of each block reversed (the Pi) */
     ppm_dir = argc > 7 ? argv[7] : NULL;
+    qpu_branch_test();
     printf("gpu3d on the emulator: byte a = %s, texels %s, T-format %d, MSAA load %s\n",
            emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat,
            emu_ms_load_one ? "one sample" : "all samples");

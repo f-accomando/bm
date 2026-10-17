@@ -18,6 +18,9 @@ r3.8d, or into all four with .8888. A regfile A source can be unpacked
 on its read (M39): ra5.8a .. ra5.8d (a byte: 0..1 to a float op, 0..255
 to an integer op), ra5.16a / .16b, ra5.8dr (UNPACK_A). Signals: thrend sbwait sbdone ldtmu0
 ldtmu1 loadc; "small" is added by itself with an immediate.
+Branches (signal 15): br <cond>, :label (always, allz, allnz, anyz, anynz, alln, allnn, anyn, anynn), 3 delay slots.
+Semaphores (signal 14): srel N (release, counter +1) and sacq N (acquire, counter -1, blocks if 0).
+Labels: :name defines an instruction target for branches.
 Reference: VideoCore IV 3D Architecture Reference Guide (Broadcom), chapter 3.
 """
 import argparse
@@ -46,6 +49,7 @@ PACK_A = {"16a": 1, "16b": 2}           # regfile A pack (pm 0): the low or high
 ACC = {"r0": 0, "r1": 1, "r2": 2, "r3": 3, "r4": 4, "r5": 5}
 COND = {"never": 0, "always": 1, "zs": 2, "zc": 3, "ns": 4, "nc": 5, "cs": 6, "cc": 7,
         "ifz": 2, "ifnz": 3, "ifn": 4, "ifnn": 5, "ifc": 6, "ifnc": 7}
+BR_COND = {"always": 15, "allz": 0, "allnz": 1, "anyz": 2, "anynz": 3, "alln": 4, "allnn": 5, "anyn": 6, "anynn": 7}
 PACK_MUL = {"8888": 3, "8a": 4, "8b": 5, "8c": 6, "8d": 7}
 # regfile A unpack on a read (pm 0; reference guide, table "Regfile-a Unpack
 # Modes"): ra5.8a .. ra5.8d a byte, 0..255 as an integer to an integer op,
@@ -117,6 +121,29 @@ def load_imm(line, lineno):
 
 
 def assemble_line(line, lineno):
+    line = line.strip()
+    if line.startswith("srel") or line.startswith("sacq"):
+        m = re.fullmatch(r"(srel|sacq)\s+(\d+)", line)
+        if not m:
+            raise SyntaxError(f"line {lineno}: invalid semaphore instruction: {line}")
+        op, n_str = m[1], m[2]
+        n = int(n_str)
+        if not (0 <= n <= 15):
+            raise SyntaxError(f"line {lineno}: semaphore number must be 0..15: {n}")
+        acquire = 1 if op == "sacq" else 0
+        hi = 14 << 28 | 4 << 25 | COND["always"] << 17 | 39 << 6 | 39
+        lo = (acquire << 4) | n
+        return lo, hi
+    if line.startswith("br ") or line.startswith("br\t"):
+        m = re.fullmatch(r"br\s+(\S+?)\s*,\s*:([a-zA-Z_][a-zA-Z0-9_]*)", line)
+        if not m:
+            raise SyntaxError(f"line {lineno}: invalid branch syntax: {line}")
+        cond_name, label = m[1], m[2]
+        if cond_name not in BR_COND:
+            raise SyntaxError(f"line {lineno}: unknown branch condition {cond_name}")
+        hi = 0xF << 28 | BR_COND[cond_name] << 20 | 1 << 19 | 39 << 6 | 39
+        lo = 0
+        return lo, hi
     if line.startswith("ldi "):
         return load_imm(line, lineno)
     parts = [p.strip() for p in line.split(";")]
@@ -278,10 +305,33 @@ def assemble_line(line, lineno):
 
 def assemble(src):
     out = []
+    labels = {}
     for n, line in enumerate(src.splitlines(), 1):
         line = line.split("#")[0].strip()
-        if line:
-            out.append((assemble_line(line, n), line))
+        if not line:
+            continue
+        if line.startswith(":"):
+            m = re.fullmatch(r":([a-zA-Z_][a-zA-Z0-9_]*)", line)
+            if not m:
+                raise SyntaxError(f"line {n}: invalid label: {line}")
+            lbl = m[1]
+            if lbl in labels:
+                raise SyntaxError(f"line {n}: duplicate label :{lbl}")
+            labels[lbl] = len(out)
+            continue
+        out.append((assemble_line(line, n), line))
+
+    # Second pass: resolve branch target offsets
+    for i in range(len(out)):
+        (lo, hi), line = out[i]
+        m = re.fullmatch(r"br\s+(\S+?)\s*,\s*:([a-zA-Z_][a-zA-Z0-9_]*)", line)
+        if m:
+            lbl = m[2]
+            if lbl not in labels:
+                raise SyntaxError(f"undefined label :{lbl}")
+            target_idx = labels[lbl]
+            imm = ((target_idx - (i + 4)) * 8) & 0xFFFFFFFF
+            out[i] = ((imm, hi), line)
     return out
 
 
@@ -1638,6 +1688,43 @@ SHADERS["cs_shadow"] = """
         nop                 ; nop
 """
 
+# Test programs (M44): loops and semaphores for host emulator tests
+TEST_PROGS = {
+    "qpu_loop": """
+        mov r1, unif        ; nop
+        ldi r0, 0
+        ldi r2, 0
+        ldi vw_setup, 0x1a00
+        :loop
+        add r0, r0, r1      ; nop
+        sub.setf r1, r1, 1  ; nop
+        br anynz, :loop
+        add r2, r2, 1       ; nop
+        nop                 ; nop
+        nop                 ; nop
+        mov vpm, r0         ; nop
+        mov vpm, r2         ; nop
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+    """,
+    "qpu_sem": """
+        srel 3
+        srel 3
+        sacq 3
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+    """,
+    "qpu_block": """
+        sacq 5
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+    """,
+}
+
+
 # shaders run on a Pi (Zero W) by others, as the reference of the encoding
 REFERENCE = [
     # Peter Lemon, V3D/ControlList/NV/Vertex_Array/Triangle/VertexColor
@@ -1914,6 +2001,34 @@ def unpack_test():
     return ok
 
 
+def branch_sem_test():
+    """M44: checks on branch offsets and semaphores"""
+    ok = True
+    loop_code = assemble(TEST_PROGS["qpu_loop"])
+    (loop_lo, loop_hi), _ = loop_code[6]
+    if loop_hi != 0xf03809e7 or loop_lo != 0xffffffd0:
+        print(f"branch: qpu_loop got {loop_lo:08x} {loop_hi:08x}, expected ffffffd0 f03809e7")
+        ok = False
+    sem_code = assemble(TEST_PROGS["qpu_sem"])
+    (srel_lo, srel_hi), _ = sem_code[0]
+    if srel_lo != 0x00000003 or srel_hi != 0xe80209e7:
+        print(f"semaphore: srel 3 got {srel_lo:08x} {srel_hi:08x}, expected 00000003 e80209e7")
+        ok = False
+    (sacq_lo, sacq_hi), _ = sem_code[2]
+    if sacq_lo != 0x00000013 or sacq_hi != 0xe80209e7:
+        print(f"semaphore: sacq 3 got {sacq_lo:08x} {sacq_hi:08x}, expected 00000013 e80209e7")
+        ok = False
+    for bad in ("br allz, :x", ":a\nnop ; nop\n:a", "br anyc, :x\n:x"):
+        try:
+            assemble(bad)
+            print(f"branch/label: '{bad}' assembled without SyntaxError")
+            ok = False
+        except SyntaxError:
+            pass
+    print("qpuasm: branches and semaphores " + ("ok" if ok else "FAILED"))
+    return ok
+
+
 def self_test():
     ok = True
     for i, (src, words) in enumerate(REFERENCE):
@@ -1926,6 +2041,7 @@ def self_test():
             if len(got) != len(words):
                 print(f"reference {i}: {len(got)} words, expected {len(words)}")
     ok = unpack_test() and ok
+    ok = branch_sem_test() and ok
     pixels = 0
     for name, src in SHADERS.items():
         code = assemble(src)
@@ -1949,7 +2065,22 @@ def write_header(path):
         lines.append("};")
         lines.append("")
     lines.append("#endif")
-    with open(path, "w") as f:
+    with open(path, "w", newline="\n") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def write_progs_header(path):
+    lines = ["/* Generated by tools/qpuasm.py from its TEST_PROGS: do not edit. */",
+             "#ifndef QPU_PROGS_H", "#define QPU_PROGS_H", "", "#include <stdint.h>", ""]
+    for name, src in TEST_PROGS.items():
+        code = assemble(src)
+        lines.append(f"static const uint32_t {name}[{2 * len(code)}] __attribute__((aligned(8))) = {{")
+        for (lo, hi), text in code:
+            lines.append(f"    0x{lo:08x}, 0x{hi:08x},     /* {text} */")
+        lines.append("};")
+        lines.append("")
+    lines.append("#endif")
+    with open(path, "w", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
 
 
@@ -1957,6 +2088,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--test", action="store_true")
     ap.add_argument("-o", "--output")
+    ap.add_argument("--progs")
     a = ap.parse_args()
     if a.test:
         return 0 if self_test() else 1
@@ -1964,6 +2096,11 @@ def main():
         if not self_test():
             return 1
         write_header(a.output)
+        return 0
+    if a.progs:
+        if not self_test():
+            return 1
+        write_progs_header(a.progs)
         return 0
     ap.print_help()
     return 0

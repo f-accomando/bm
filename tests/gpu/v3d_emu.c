@@ -22,6 +22,7 @@
 #include "gpu/v3d.h"
 
 #include <math.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,6 +46,7 @@ int emu_need_clip = 0;                  /* GL records without the clipper's flag
                                          * of the Pi, the clipper always on (gl_clip_all, bm3d 6.5) */
 emu_stats_t emu_stats;
 char emu_error[256];
+uint8_t emu_sem[16];
 
 /* ---------------------------------------------------------------- arena */
 
@@ -143,9 +145,12 @@ void v3d_dump(char *buf, size_t n)
     snprintf(buf, n, "emulator: %s\n", emu_error);
 }
 
-static int err(const char *fmt, unsigned a, unsigned b)
+static int err(const char *fmt, ...)
 {
-    snprintf(emu_error, sizeof emu_error, fmt, a, b);
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(emu_error, sizeof emu_error, fmt, ap);
+    va_end(ap);
     return -1;
 }
 
@@ -262,10 +267,12 @@ static uint32_t qpu_src(qpu_t *q, int m, int l, const uint32_t *va, const uint32
 /* runs code until its thread end; 0, or -1 (emu_error says why) */
 static int qpu_run(qpu_t *q, const uint32_t *code, int max)
 {
-    int end = -1;
+    int end = -1, br_left = 0, br_to = -1, steps = 0;
     q->wrote_a = q->wrote_b = -1;
     q->sfu_at = -1;
     for (int pc = 0; pc < max; pc++) {
+        if (++steps > 100000)
+            return err("QPU: more than 100000 instructions executed", 0, 0);
         const uint32_t lo = code[2 * pc], hi = code[2 * pc + 1];
         const int sig = hi >> 28, last3 = end >= 0;
         const int ws = hi >> 12 & 1, sf = hi >> 13 & 1, cond_add = hi >> 17 & 7, cond_mul = hi >> 14 & 7;
@@ -276,13 +283,73 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
             memcpy(q->acc[4], q->sfu_value, sizeof q->sfu_value);
             q->sfu_pending = 0;
         }
-        if (sig == 15)
-            return err("QPU: branch at %u (not emulated)", (unsigned)pc, 0);
-        if (sig == 14) {                /* load immediate */
-            if (hi >> 25 & 7)
+        if (sig == 15) {
+            const int rel = hi >> 19 & 1, reg = hi >> 18 & 1;
+            const int cond_br = hi >> 20 & 15;
+            const int32_t imm = (int32_t)lo;
+            if (!rel)
+                return err("QPU: absolute branch at %u (not emulated)", (unsigned)pc, 0);
+            if (reg)
+                return err("QPU: branch from register at %u (not emulated)", (unsigned)pc, 0);
+            if (waddr_add != 39 || waddr_mul != 39)
+                return err("QPU: branch with link at %u (not emulated)", (unsigned)pc, 0);
+            if (cond_br >= 8 && cond_br <= 14)
+                return err("QPU: branch condition %u at %u (not emulated)", (unsigned)cond_br, (unsigned)pc);
+            if (br_left > 0)
+                return err("QPU: branch in delay slot at %u (not emulated)", (unsigned)pc, 0);
+            if (end >= 0)
+                return err("QPU: branch after thread end at %u (not emulated)", (unsigned)pc, 0);
+            if (imm % 8 != 0)
+                return err("QPU: branch offset %d not a multiple of 8 at %u", (int)imm, (unsigned)pc);
+            const int target = pc + 4 + imm / 8;
+            if (target < 0 || target >= max)
+                return err("QPU: branch target %d outside [0, %d) at %u", target, max, (unsigned)pc);
+            int taken = 0;
+            switch (cond_br) {
+            case 15: taken = 1; break;
+            case 0:  taken = 1; for (int l = 0; l < 16; l++) if (!q->z[l]) taken = 0; break;
+            case 1:  taken = 1; for (int l = 0; l < 16; l++) if (q->z[l]) taken = 0; break;
+            case 2:  taken = 0; for (int l = 0; l < 16; l++) if (q->z[l]) taken = 1; break;
+            case 3:  taken = 0; for (int l = 0; l < 16; l++) if (!q->z[l]) taken = 1; break;
+            case 4:  taken = 1; for (int l = 0; l < 16; l++) if (!q->n[l]) taken = 0; break;
+            case 5:  taken = 1; for (int l = 0; l < 16; l++) if (q->n[l]) taken = 0; break;
+            case 6:  taken = 0; for (int l = 0; l < 16; l++) if (q->n[l]) taken = 1; break;
+            case 7:  taken = 0; for (int l = 0; l < 16; l++) if (!q->n[l]) taken = 1; break;
+            default: break;
+            }
+            if (taken) {
+                if (q->sfu_pending)
+                    return err("QPU: SFU result pending at a branch at %u", (unsigned)pc, 0);
+                br_to = target;
+                br_left = 4;
+            }
+            q->wrote_a = q->wrote_b = -1;
+            if (br_left && --br_left == 0)
+                pc = br_to - 1;
+            continue;
+        }
+        if (sig == 14) {                /* load immediate or semaphore */
+            const int imm_type = hi >> 25 & 7;
+            if (imm_type == 4) {        /* semaphore */
+                const unsigned n = lo & 15;
+                const int acquire = lo >> 4 & 1;
+                if (acquire) {
+                    if (emu_sem[n] == 0)
+                        return err("QPU: semaphore %u acquired at %u with count 0 (would block)", n, (unsigned)pc);
+                    emu_sem[n]--;
+                } else {
+                    if (emu_sem[n] == 15)
+                        return err("QPU: semaphore %u released at 15 (would block)", n, (unsigned)pc);
+                    emu_sem[n]++;
+                }
+                for (int l = 0; l < 16; l++)
+                    res_add[l] = res_mul[l] = 0;
+            } else if (imm_type != 0) {
                 return err("QPU: packed load immediate at %u", (unsigned)pc, 0);
-            for (int l = 0; l < 16; l++)
-                res_add[l] = res_mul[l] = lo;
+            } else {
+                for (int l = 0; l < 16; l++)
+                    res_add[l] = res_mul[l] = lo;
+            }
         } else {
             const int op_add = lo >> 24 & 31, op_mul = lo >> 29 & 7, raddr_a = lo >> 18 & 63,
                       raddr_b = lo >> 12 & 63;
@@ -442,10 +509,22 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
             end = pc;
         if (end >= 0 && pc == end + 2)
             return 0;
-        if (sig != 1 && sig != 3 && sig != 13 && sig != 14)
+        if (br_left && --br_left == 0)
+            pc = br_to - 1;
+        if (sig != 1 && sig != 3 && sig != 13 && sig != 14 && sig != 15)
             return err("QPU: signal %u at %u (not emulated)", (unsigned)sig, (unsigned)pc);
     }
     return err("QPU: no thread end in %u instructions", (unsigned)max, 0);
+}
+
+int emu_qpu_exec(const uint32_t *code, int ninst, const uint32_t *unif, int nunif, uint32_t (*vpm)[16])
+{
+    static qpu_t q;
+    memset(&q, 0, sizeof q);
+    q.unif = unif;
+    q.nunif = nunif;
+    q.vpm = vpm;
+    return qpu_run(&q, code, ninst);
 }
 
 /* ---------------------------------------------------------------- binning */
