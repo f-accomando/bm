@@ -130,3 +130,11 @@ Session opens when the user says "buongiorno". The user runs the compact prompt,
 **Merges still waiting for the user's go:** PR 25 (CI red: test_chainloader fixed by R-NET9 but not in the PR yet; flaky meshy2mesh/editor_mouse), approved branches (see Log), `claude/bm-reviewer-agent`.
 
 **Warning:** reviewers deleted `bm*` dirs in WSL `/tmp` (not only theirs). Tell reviewers to remove only dirs they created.
+
+## 9. Decisioni utente 17 Oct (divergenze, BETA-6)
+- D03: accepted. RGB30 un giocatore locale; eccezione futura: schermo condiviso/split screen se l'RGB30 e' collegato via HDMI a una TV.
+- D05: RGB30 senza mouse, ma lo stick fa da puntatore in app/feature specifiche. Tenere il codice mouse; SPV verifica se coincide con la funzione dello stick (ricerca lanciata, esito da riportare).
+- D09: non chiusa. Da discutere con l'utente: cosa e' gioco/app/utility, cosa sta nel kernel e cosa nel market; distinzione .b16 / .bm / .bme e cartelle.
+- D10: non chiusa. Definizione di sistema: fiber su ARM6 (Pi Zero), multitask vero su ARM7/8 multicore; quando entra in gioco l'uno e quando l'altro (vedi progress/multitasking.md).
+- D11: Send si' (condividere giochi e app con amici), Publish spento per ora (da considerare in futuro); l'RGB30 non e' per sviluppo, il .b16 dell'SDK e' solo per test.
+- Seguito: WO per divergences.toml (D03 accepted, D05, D11) dopo la verifica D05; D09 e D10 = sessioni di discussione/progetto.
