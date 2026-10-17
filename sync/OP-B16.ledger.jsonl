@@ -9,3 +9,4 @@
 {"schema":1,"operator":"OP-B16","wo":"3D-7","branch":"claude/stages3d-b16-edition","commit":"26671568","files":8,"add":105,"del":14,"lines":{"code":88,"docs":28,"data":3},"tokens":45000,"min":25,"iso":"2026-10-17T16:36+02:00"}
 {"schema":1,"operator":"OP-B16","wo":"W05","branch":"claude/stages3d-qemu-test","commit":"c0ca055a","files":3,"add":82,"del":2,"lines":{"code":78,"docs":6,"data":0},"tokens":70000,"min":50,"iso":"2026-10-17T16:59+02:00"}
 {"schema":1,"operator":"OP-B16","wo":"CO-5","branch":"claude/closeout-sync-hdr-closed","commit":"885913a8","files":2,"add":54,"del":0,"lines":{"code":54,"docs":0,"data":0},"tokens":45000,"min":15,"iso":"2026-10-17T17:31+02:00"}
+{"schema":1,"operator":"OP-B16","wo":"CO-5","branch":"claude/closeout-sync-hdr-closed","commit":"73420638","files":2,"add":3,"del":1,"lines":{"code":4,"docs":0,"data":0},"tokens":8000,"min":5,"iso":"2026-10-17T17:42+02:00"}
