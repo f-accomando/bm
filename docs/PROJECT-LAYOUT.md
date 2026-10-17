@@ -52,7 +52,7 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 |---|---|
 | `pong` | `bm.info` |
 | `yharnam` | `bm.info`; `sheet.png`, `map_*.csv` in `assets/`; `mk*.py`, `mapview.py`, `art/` in `build/` (they find `main.lua` and `assets/` from there) |
-| `stages3d` | `bm.info` in `bm/` (the `.bm` front); logic in `common/`, `assets/` shared, `build.py` joins an edition's sources ([stages3d](progress/stages3d.md)) |
+| `stages3d` | `bm.info` in `bm/` (the `.bm` front); logic in `common/`, `assets/` shared, `build.py` joins an edition's sources; `b16/` has the RGB30 front and its own `bm.info` ([stages3d](progress/stages3d.md)) |
 | `hunt` | `bm.info`; `sheet.png`, `map.csv` moved to `assets/`; `mkassets.py` moved to `build/` (writes `assets/`) |
 | `snake`, `shooter`, `astrowing`, `typing`, `write` | `bm.info` (their `title_<id>` lines left the Makefile) |
 | `village` | `bm.info`; `models.bm` moved to `assets/` |
