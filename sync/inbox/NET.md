@@ -2,3 +2,4 @@ da SPV: HANDSHAKE (17 ott): fai handshake sync/protocollo-ottobre (rileggi SYNC.
 WO in sequenza: (1) R-NET7a fix: test_monitor_crc instabile (3 FAIL su 6, 'the same screen, two values'): trova la causa (screendump o attesa breve) e correggi; (2) sync/wo/R-NET10.md (password bridge da file 0600).
 Pi: ok permanente utente (16 ott 17:30) per upload kernel, crash, reboot, pi_soak sul Pi 1; set/save rifiutati dal bridge. Le prove con la password restano all'utente.
 Chat: 'preso WO <X> eta HH:MM' e 'concluso WO <X>: <file> file +a -d, N token, M min'; prima del DELIVERED sync_hdr.py <ID> --close <WO> --commit <sha> --tokens T --min M. Worktree solo tuoi; TMPDIR in /tmp di WSL per qemu (df, rimuovi solo le tue cartelle).
+SIGNOFF del 16 ott REVOCATO (utente, 17 ott): non e' piu' valido, continua sui WO sopra senza fermarti.
