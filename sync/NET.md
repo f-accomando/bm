@@ -51,6 +51,8 @@ DELIVERED NET-1b @ claude/net-test-err@b473f9dd · verifica: python -c (3 casi e
 DELIVERED NET-2a @ claude/net-test-err@500730e0 · verifica: make build/kernel.img → ok, nessun warning (nessun test -k shot esiste); aggiunta bm_shot_cancel per NET-2b · 2026-10-15T10:05+02:00
 DELIVERED NET-2b @ claude/net-test-err@119fc21d · verifica: make test-net → exit 0 (3 varianti; nuovi test T/G: OK, NG, PW, PA, NF, crc) · 2026-10-15T10:05+02:00
 
+DELIVERED R-NET9b @ claude/net-bridge-crc@7052d934 · verifica: python3 tests/net/check_bm_net_config.py -> all passed; line crc sul Pi -> crc32=0x8ac035aa · 2026-10-17T18:14+02:00
+
 ## Progressi
 
 PROVE SUL PI (ok scritto dell'utente, bridge avviato da lui, Pi Zero W 192.168.1.108) · R-NET9: kernel claude/watchdog-chainloader-fix caricato (back after 21 s), 'watchdog: on, 3000 ms (loaded 196608, after 20 ms 195358)'; freeze volontario (keys freeze) -> down ~10 s, poi 'previous run: ended without a clean exit ... while: freeze test (X f)' = il watchdog riavvia da solo. R-NET8a: pi_soak.py --minutes 1 --every 20 senza --reboot -> Pong 5065 frames 59.9 fps 0 dropped, verdict OK (P1 sciolto: keys monitor chiude il gioco sul Pi vero); con --reboot -> Pong 5297 frames 59.9 fps, previous run ended cleanly, verdict OK. R-NET7a ':crc' NON provato: il bridge di R-NET6 non ha crc in LINE_CMDS (pi.py line crc sarebbe 'refused'); serve aggiungere 'crc' a LINE_CMDS (parola + test) = decisione SPV. Kernel rimesso: build di claude/integrazione-ottobre@f5cd71b7 (4402892 byte), back after 16 s, watchdog on. Nota: il bridge accetta solo file nel repo del bridge o in ~/bmk* esistenti all'avvio · 2026-10-16T18:28+02:00
