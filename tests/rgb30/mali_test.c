@@ -47,6 +47,10 @@ static uint8_t *screen;
 static struct {
     /* variants */
     int pd_stuck, soft_reset_dead, bad_job_type_bit, cores_dead, frag_no_write;
+    int accept_vt;                      /* vertex and tiler jobs (types 5, 7) complete as no-ops; a fragment job may carry a tiler */
+    int fault_vt;                       /* the next vertex job faults (once) */
+    int hold;                           /* bit n: a start on job slot n is kept back until release() */
+    int held[2];
     /* SoC */
     uint32_t gates;                     /* CRU_CLKGATE_CON2 (1: gated) */
     uint32_t pmu_off, pmu_req;          /* PD_GPU off; bus idle requested */
@@ -147,7 +151,7 @@ static uint32_t fragment(const uint8_t *h)
     const uint32_t w11 = rd32(f + 44);
     if (rd32(f) & 0x1ff || !rd64(f + 16) || !va_ptr(rd64(f + 16), 256, 0) || (w11 >> 9 & 15) > 8 ||
         (w11 >> 9 & 15) < 4 || ((w11 >> 24) & 255) * 1024u < 4u << (w11 >> 9 & 15) || (w11 >> 19 & 15) ||
-        rd64(f + 56))
+        (rd64(f + 56) && !S.accept_vt))
         return 0x40;                    /* frame shaders, no sample locations, tile size, colour room, tiler */
     const uint32_t fw = (rd32(f + 32) & 0xffff) + 1, fh = (rd32(f + 32) >> 16) + 1;
     const uint8_t *rt = f + 128;
@@ -224,6 +228,12 @@ static void run_chain(int js)
                 fault(js, f);
                 return;
             }
+        } else if (S.accept_vt && (type == 5 || type == 7)) {
+            if (S.fault_vt && type == 5) {
+                S.fault_vt = 0;
+                fault(js, 0x58);        /* DATA_INVALID_FAULT */
+                return;
+            }
         } else if (type != 1 && type != 3) {
             fault(js, 0x40);            /* only NULL, WRITE_VALUE, CACHE_FLUSH, FRAGMENT here */
             return;
@@ -238,6 +248,28 @@ static void run_chain(int js)
     }
     S.js_status[js] = 0x01;
     S.job_raw |= 1u << js;
+}
+
+/* a start on a slot: at once, or kept back while S.hold has the slot's bit */
+static void start_chain(int js)
+{
+    if (S.hold >> js & 1) {
+        S.js_status[js] = 0x08;         /* running */
+        S.held[js] = 1;
+        return;
+    }
+    run_chain(js);
+}
+
+/* lets the held slots in mask go: the chains they were asked to run run now */
+static void release(int mask)
+{
+    S.hold &= ~mask;
+    for (int js = 0; js < 2; js++)
+        if (mask >> js & 1 && S.held[js]) {
+            S.held[js] = 0;
+            run_chain(js);
+        }
 }
 
 static uint32_t rd(uintptr_t a)
@@ -338,7 +370,7 @@ static void wr(uintptr_t a, uint32_t v)
     case 0x1800 + 0x50: case 0x1800 + 0x80 + 0x50: S.js_aff[r >= 0x1880][0] = v; break;
     case 0x1800 + 0x54: case 0x1800 + 0x80 + 0x54: S.js_aff[r >= 0x1880][1] = v; break;
     case 0x1800 + 0x58: case 0x1800 + 0x80 + 0x58: S.js_cfg[r >= 0x1880] = v; break;
-    case 0x1800 + 0x60: case 0x1800 + 0x80 + 0x60: if (v == 1) run_chain(r >= 0x1880); break;
+    case 0x1800 + 0x60: case 0x1800 + 0x80 + 0x60: if (v == 1) start_chain(r >= 0x1880); break;
     case 0x2400 + 0x00: S.as_transtab[0] = v; break;
     case 0x2400 + 0x04: S.as_transtab[1] = v; break;
     case 0x2400 + 0x08: S.as_memattr[0] = v; break;
@@ -404,7 +436,7 @@ static uint64_t word64(const uint8_t *p)
 static void test_frame_image(void)
 {
     /* the layout of mali.c: draw d at MEM_DRAWS + 0x800 d, its Vertex job at +0, its Tiler job at +0x100 */
-    const uint32_t DRAWS = 0x40000, DSIZE = 0x800, TJ = 0x100;
+    const uint32_t DRAWS = MALI_FRAME_DRAWS, DSIZE = 0x800, TJ = 0x100;
     static const float t0[3][3] = { { 4, 4, 0.25f }, { 40, 4, 0.25f }, { 4, 40, 0.25f } };
     static const float t1[6][3] = { { 8, 8, 0.5f }, { 50, 8, 0.5f }, { 8, 50, 0.5f },
                                     { 10, 10, 0.75f }, { 20, 10, 0.75f }, { 10, 20, 0.75f } };
@@ -465,6 +497,72 @@ static void test_frame_image(void)
     CHECK(probe(&in) == MALI_OK, "probe again");
     mali_hw_t other = G;                                            /* another hw than the probed one */
     CHECK(mali_frame(&other, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, d, 3) == -1, "frame: another hw refused");
+}
+
+/* frames in flight: two sets, submit / busy / wait, on the simulator with vertex and tiler jobs accepted as no-ops */
+static void test_async(void)
+{
+    static const float t0[3][3] = { { 4, 4, 0.25f }, { 40, 4, 0.25f }, { 4, 40, 0.25f } };
+    const mali_draw_t d = { t0, 1, 0xff0000 };
+    mali_info_t in;
+    uint8_t *s0 = NULL, *s1 = NULL, *s2 = NULL;
+    uint32_t p0 = 0, p1 = 0, p2 = 0;
+
+    printf("mali: frames in flight (two sets)\n");
+    memset(&S, 0, sizeof S);
+    CHECK(probe(&in) == MALI_OK, "async: probe");
+    S.accept_vt = 1;
+    S.hold = 3;                                         /* both slots keep their start back */
+    const int base_frags = S.frags_run;
+    CHECK(mali_frame_busy() == 0, "async: nothing in flight at first");
+    CHECK(mali_frame_submit(&G, 64, 64, 0x102050, &d, 1, &s0, &p0) == 0, "async: first submit");
+    CHECK(mali_frame_submit(&G, 64, 64, 0x304050, &d, 1, &s1, &p1) == 0, "async: second submit");
+    CHECK(mali_frame_busy() == 2, "async: two frames in flight (%d)", mali_frame_busy());
+    CHECK(mali_frame_submit(&G, 64, 64, 0, &d, 1, &s2, &p2) == -1, "async: a third submit while both sets are busy");      /* (b) */
+    CHECK(mali_frame_submit(&G, 400, 400, 0, &d, 1, &s2, &p2) == -1, "async: a 400 x 400 surface is too big for a set");  /* (c) */
+    CHECK(s0 != s1 && s0 == mem + MALI_SET_BASE(0) + 0x100000 && s1 == mem + MALI_SET_BASE(1) + 0x100000,
+          "async: the surfaces sit at the sets' +0x100000 (%p %p)", (void *)s0, (void *)s1);                                  /* (d) */
+    CHECK(p0 == 256 && p1 == 256, "async: pitch %u %u", p0, p1);
+
+    /* only set 0's vertex job is on slot 1; set 1 waits for the slot */
+    CHECK(S.held[1] == 1 && S.held[0] == 0, "async: one chain on slot 1, none on slot 0 yet");
+    /* let slot 1 go, keep slot 0 back: set 0's fragment job starts and stays; set 1's vertex work ends behind it */
+    release(2);
+    CHECK(mali_frame_busy() == 2 && S.held[0] == 1 && S.held[1] == 0, "async: set 0 on slot 0, set 1's vertex jobs ran");
+    CHECK(mali_frame_busy() == 2 && S.frags_run == base_frags, "async: set 1 waits for slot 0 (fragment jobs run: %d)",
+          S.frags_run - base_frags);
+    release(1);                                         /* slot 0 free: set 0 ends, set 1's fragment job starts and ends */
+    CHECK(mali_frame_wait(1000000) == 0, "async: wait ends");                                                                  /* (a) */
+    CHECK(S.frags_run == base_frags + 2 && mali_frame_busy() == 0, "async: two fragment jobs ran (%d)",
+          S.frags_run - base_frags);
+    CHECK((word(s0) & 0xffffff) == 0x102050 && (word(s1) & 0xffffff) == 0x304050,
+          "async: each surface holds its own clear (%06x %06x)", word(s0) & 0xffffff, word(s1) & 0xffffff);
+
+    /* the synchronous frame is refused while a frame flies, and works after */
+    S.hold = 3;
+    CHECK(mali_frame_submit(&G, 64, 64, 0, &d, 1, &s2, &p2) == 0, "async: submit again after the wait");
+    CHECK(mali_frame(&G, mem + 0x200000, MEM_PA + 0x200000, 256, 64, 64, 0, &d, 1) == -1,
+          "async: mali_frame refused while a frame flies");
+    release(3);
+    CHECK(mali_frame_wait(1000000) == 0, "async: that frame ends");
+
+    /* (e) a job that faults */
+    S.fault_vt = 1;
+    CHECK(mali_frame_submit(&G, 64, 64, 0, &d, 1, &s2, &p2) == 0, "async: submit that will fault");
+    CHECK(mali_frame_wait(1000000) == -1 && strstr(lines, "the vertex and tiler jobs of a queued frame: failed"),
+          "async: a fault: wait says -1");
+    CHECK(mali_frame_busy() == 0, "async: nothing flies after the fault");
+    CHECK(mali_frame_submit(&G, 64, 64, 0x405060, &d, 1, &s2, &p2) == 0 && mali_frame_wait(1000000) == 0 &&
+          (word(s2) & 0xffffff) == 0x405060, "async: the next frame works and is drawn");
+
+    /* a frame that never ends: wait times out */
+    S.hold = 3;
+    CHECK(mali_frame_submit(&G, 64, 64, 0, &d, 1, &s2, &p2) == 0 && mali_frame_wait(1000) == -1,
+          "async: wait times out while the GPU holds the frame");
+    release(3);
+    CHECK(mali_frame_wait(1000000) == 0, "async: and the frame ends after the release");
+    CHECK(mali_frame(&G, mem + 0x200000, MEM_PA + 0x200000, 256, 64, 64, 0, &d, 1) >= 0,
+          "async: mali_frame works again when none flies");
 }
 
 /* the r3d backend against a mock of mali_frame: which draws it makes, in which order, and what it copies into the page */
@@ -654,6 +752,7 @@ int main(void)
 
     test_frame_image();
     test_backend();
+    test_async();
 
     CHECK(!strcmp(mali_exception(0xc1), "TRANSLATION_FAULT") && !strcmp(mali_exception(0x43), "JOB_WRITE_FAULT"),
           "exception names");

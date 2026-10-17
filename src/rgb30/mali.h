@@ -101,10 +101,29 @@ const char *mali_name(uint32_t gpu_id, char *buf, int n);
 typedef struct { const float (*xyz)[3]; uint32_t n, rgb; } mali_draw_t;
 int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,
                uint32_t clear, const mali_draw_t *draws, uint32_t ndraws);
-/* places in hw->mem the test reads */
-#define MALI_FRAME_VERTS      0x10000   /* all vertices, 4 floats each (x y z 1), draw after draw */
-#define MALI_FRAME_POSITIONS  0x20000   /* what the vertex jobs write, same order */
-#define MALI_FRAME_PUSH       0x30000   /* per draw 64 bytes: the pushed words, colour at +16 */
+/* The GPU memory in sets (M41 phase 4): set s (0 or 1) starts at MALI_SET_BASE(s) in hw->mem and holds, from there, its tables
+ * and descriptors (+0x0000), the shader code (+0x8000), the vertices (+0x10000), the positions (+0x20000), the pushed words
+ * (+0x30000), the per-draw blocks (+0x40000), the tiler heap (+0x80000) and the surface (+0x100000, up to MALI_SET_SURF_MAX
+ * bytes). mali_frame uses set 0. hw->mem_size must reach MALI_SET_BASE(2) for two sets. */
+#define MALI_SET_SIZE         0x190000
+#define MALI_SET_BASE(s)      (0x80000u + (uint32_t)(s) * MALI_SET_SIZE)
+#define MALI_SET_SURFACE      0x100000
+#define MALI_SET_SURF_MAX     0x90000   /* 368 x 368 x 4 with the pitch 64-aligned is 0x84400 */
+/* places in hw->mem the test reads (set 0's) */
+#define MALI_FRAME_DRAWS      (MALI_SET_BASE(0) + 0x40000)  /* draw d: its Vertex job at +0x800 d, its Tiler job at +0x100 */
+#define MALI_FRAME_VERTS      (MALI_SET_BASE(0) + 0x10000)  /* all vertices, 4 floats each (x y z 1), draw after draw */
+#define MALI_FRAME_POSITIONS  (MALI_SET_BASE(0) + 0x20000)  /* what the vertex jobs write, same order */
+#define MALI_FRAME_PUSH       (MALI_SET_BASE(0) + 0x30000)  /* per draw 64 bytes: the pushed words, colour at +16 */
+
+/* M41 phase 4: frames in flight. Two sets: a frame is built in the free one while the other may still be drawing.
+ * mali_frame_submit takes the arguments of mali_frame except the surface: it is the set's own (368 x 368 at most), returned in
+ * *surface / *pitch for the caller to read after the wait; it stays valid until a submit reuses its set (the second submit
+ * after it). 0 submitted, -1 refused (both sets busy, a bad argument, the surface too big: use mali_frame), -2 failed to
+ * start (not used yet: a job's fault shows at mali_frame_busy / mali_frame_wait). mali_frame refuses while frames fly. */
+int mali_frame_submit(const mali_hw_t *hw, uint32_t w, uint32_t h, uint32_t clear, const mali_draw_t *draws,
+                      uint32_t ndraws, uint8_t **surface, uint32_t *pitch);
+int mali_frame_busy(void);                      /* frames still drawing (0..2); advances the state machine (polls the slots) */
+int mali_frame_wait(uint32_t timeout_us);       /* until none is: 0, -1 timeout or a job fault (the lines are in the log) */
 
 /* M41 phase 2: the r3d backend of the Mali: flat colour triangles only (r3d hands everything else to the ARM: W13b).
  * `hw` must be the one a good mali_probe used. NULL if not probed. */
