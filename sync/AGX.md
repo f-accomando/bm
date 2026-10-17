@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGX-14 fix e nota D12 consegnati
+state: WORKING
+task: WO 3D-2: attributi compatti per facce texturizzate (M39)
 waiting_on: 
-eta: 2026-10-17T15:25+02:00
+eta: 2026-10-17T16:15+02:00
 wakeup: no
 ack: 2026-10-17T14:10+02:00
-updated: 2026-10-17T15:10+02:00
+updated: 2026-10-17T15:26+02:00
 ---
 # AGX — Antigravity (AGX)
 
