@@ -64,14 +64,7 @@ class Qemu:
              "-serial", f"tcp:127.0.0.1:{tcp},server=on,wait=on",
              "-monitor", f"unix:{self.mon_path},server=on,wait=off", *extra],
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        for attempt in range(5):
-            try:
-                self.port = bm_load.Port(f"tcp:127.0.0.1:{tcp}", 115200)
-                break
-            except OSError:
-                if attempt == 4:
-                    raise
-                time.sleep(0.2)
+        self.port = bm_load.Port(f"tcp:127.0.0.1:{tcp}", 115200)
         self.buf = b""
 
     def expect(self, needle, timeout=10.0):
@@ -636,7 +629,11 @@ def test_sdk_stages_build(b, opts):
         keys(q, "ss")                           # the third row: bm SDK
         q.buf = b""
         q.send("\r")
-        q.expect("bm SDK\r\n", timeout=60)
+        try:
+            q.expect("bm SDK\r\n", timeout=60)
+        except AssertionError as e:
+            text = screen_all(q.screendump())
+            raise AssertionError(f"stages_build banner timeout; serial buf:\n{q.buf.decode(errors='replace')}\nscreen:\n{text}") from e
         time.sleep(1.0)
         q.send("\x0e")                          # Ctrl+N: new project from a template
         screen(["new project from a template", "Stages 2D"])
