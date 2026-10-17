@@ -1,3 +1,4 @@
 D05-STICK-a CHANGES REQUESTED: in tests/host/test_stickptr.c add a case pushing y alone for a few frames and assert the y delta equals the x delta; mutant sy*w->sy*h must fail. Rerun make test-stickptr. Deliver as D05-STICK-a fix. Then CO-1..CO-4 are in review: wait.
 CO-3 fix: exact WO id compare in leftovers() (AGY-1 vs AGY-10) + collision test. CO-4 fix: DRAIN prints the permissions list; test main() C0 wiring; test FORCED in READY. Same branches, redeliver.
 After the fixes: sync/wo/W12.md, W13a,b,c, W14 (Mali, files in each WO). Open decisions settled: accept the ones written in the WOs (flat colour, sort far to near, 0xFF00FF key). W15, W16, W17 later.
+Option (b): push ONE revert commit on sync/protocollo-ottobre undoing c08aa51b..780a2c81 (tools/sync_check.py and its test only), no force. Check git diff --stat shows only those 2 files. Code stays on the claude/sync-closeout-co* branches until APPROVED.
