@@ -3,48 +3,48 @@ kind: session
 kernel: v0.2.5-707-g9554944
 branch: bm-core
 board: RGB30
-date: 2026-10-17 15:14:51
+date: 2026-10-17 15:23:32
 file: session_res-publica_rgb30.txt
 
 session of "Res Publica" (the last one: the next run of this game replaces this file)
 options bm3d 7.3 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
-screen 360x360, 12485 frames in 261.9 s, 47.6 fps
+screen 360x360, 12638 frames in 394.8 s, 32.0 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 13.6 ms, max 130.1 ms, 2844 frames over 16.7 ms
-memory: Lua peak 2547 KiB, data 904 KiB; code 62548 tokens; busiest frame 316k Lua instructions
-frames that were shown after more than 1.5 frames: 2847
+time of _update + _draw (+ the 3D's wait): avg 20.3 ms, max 208.9 ms, 9069 frames over 16.7 ms
+memory: Lua peak 2488 KiB, data 904 KiB; code 62548 tokens; busiest frame 311k Lua instructions
+frames that were shown after more than 1.5 frames: 9077
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    9637
+  <= 18 ms (60 fps)    3560
   <= 25 ms             0
-  <= 34 ms (30 fps)    2507
-  <= 50 ms             5
-  <= 100 ms            333
-  > 100 ms (a freeze)  2
+  <= 34 ms (30 fps)    7966
+  <= 50 ms             8
+  <= 100 ms            1074
+  > 100 ms (a freeze)  29
 
-the frame in its parts (as the overlay, 12484 frames; ms a frame, % of the 16.7 ms of a frame):
+the frame in its parts (as the overlay, 12637 frames; ms a frame, % of the 16.7 ms of a frame):
   update           0.0    0%
-  draw (no 3D)    20.4  122%
+  draw (no 3D)    30.4  182%
   3D calls         0.0    0%
-  audio            0.3    2%
+  audio            0.5    3%
   GPU wait         0.0    0%
-  all             20.8  125%
-audio interrupt: 1.8% of the CPU's time (mean), 3.2% at most in a second
+  all             31.1  186%
+audio interrupt: 1.8% of the CPU's time (mean), 3.3% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
-    630    11.8   133.4  130.1   0.0  130.0   0.0   0.0     3.2      112     1288        1
-    331     6.7   100.0   99.6   0.0   99.6   0.0   0.0     0.4      113     1286        1
-    154     3.7    83.3   76.5  65.2   11.2   0.0   0.0     6.8      217     1636        1
-   3589    70.7    66.7   54.0   0.0   54.0   0.0   0.0    12.7      316     1352        1
-   3596    71.1    66.7   54.5   0.0   54.5   0.0   0.0    12.1      315     1293        1
-   3604    71.5    66.7   54.7   0.0   54.7   0.0   0.0    11.9      315     1352        1
-   3634    73.1    66.7   54.5   0.0   54.5   0.0   0.0    12.1      316     1293        1
-   3642    73.4    66.7   54.7   0.0   54.6   0.0   0.0    11.9      315     1352        1
-   3688    75.8    66.7   50.9   0.0   50.8   0.0   0.0    15.8      315     1352        1
-   3566    69.5    66.7   56.5   0.0   56.5   0.0   0.0    10.1      315     1352        1
-   3570    69.7    66.7   54.8   0.0   54.8   0.0   0.0    11.8      316     1352        1
-   3574    69.9    66.7   52.8   0.0   52.7   0.0   0.0    13.8      315     1352        1
+    490     9.8   216.8  208.9   0.0  208.9   0.0   0.0     7.8      175     1349        1
+  12551   394.4   166.7  151.4 140.9   10.4   0.0   0.0    15.3      110     1681        1
+    436     8.5   116.7  102.9   0.0  102.9   0.0   0.0    13.7      128     1287        1
+  12437   392.2   116.7  101.3  90.8   10.5   0.0   0.0    15.3      110     1836        1
+  11944   374.3   100.1   86.8   0.0   86.8   0.0   0.0    13.2      189     1654        1
+   7575   231.4   100.0   86.7   0.0   86.7   0.0   0.0    13.2      159     1640        1
+  12016   377.4   100.0   91.7   0.0   91.7   0.0   0.0     8.2      311     1597        1
+   7565   231.0   100.0   86.7   0.0   86.7   0.0   0.0    13.2      158     1641        1
+   9222   284.8   100.0   87.3   0.0   87.3   0.0   0.0    12.6      158     1646        1
+  11747   367.2   100.0   85.1   0.0   85.1   0.0   0.0    14.9      170     1627        1
+  11924   373.3   100.0   83.9   0.0   83.9   0.0   0.0    16.0      188     1654        1
+  11934   373.8   100.0   87.5   0.0   87.4   0.0   0.0    12.5      188     1654        1
