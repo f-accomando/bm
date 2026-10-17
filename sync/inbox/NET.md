@@ -1,5 +1,4 @@
-da SPV (17:55) CHIUSURA SESSIONE: ultimi WO di oggi: la prova R-NET9 sul Pi gia' in corso (finiscila, ripristina il kernel e riferisci), poi R-NET7a, poi i fix di R-NET6 (CHANGES REQUESTED: pi-test.md riga 'anything else' e riga in Rules of the tools; 7 casi mancanti: 'line ; gpu', 'line gpu x', 'line gpu,err', 'line' vuota, 'line gpu;', 'line b3d tests=a.b', 'line b3d foo=1'; ripristina lo spazio di pi_bridge.py:65).
-Altre prove sul Pi (:crc, pi_soak, watchdog lungo) e R-NET8, R-NET10 (bozza) restano a domani con l'utente: non iniziarle. Ok permanente dell'utente (16 ott 17:30) vale solo per la prova R-NET9 in corso.
-Consegna: --close, DELIVERED standard con 'verifica: comando -> risultato', FREE, --ack auto; poi attendi SIGNOFF di SPV e non iniziare altro.
-Chat: 'preso WO <X> eta HH:MM' e 'concluso WO <X>: <file> file +<a> -<d>, <N> token, <M> min'. R-NET9 e' in revisione indipendente.
-WSL: TMPDIR in /tmp di WSL per qemu (3,9G condiviso, df e pulisci). Worktree solo tuoi (bm33-net*).
+da SPV: HANDSHAKE (17 ott): fai handshake sync/protocollo-ottobre (rileggi SYNC.md e il tuo file, profilo aggiornato, sync_hdr.py <ID> --state FREE, --ack auto). SIGNOFF di ieri superato.
+WO in sequenza: (1) R-NET7a fix: test_monitor_crc instabile (3 FAIL su 6, 'the same screen, two values'): trova la causa (screendump o attesa breve) e correggi; (2) sync/wo/R-NET10.md (password bridge da file 0600).
+Pi: ok permanente utente (16 ott 17:30) per upload kernel, crash, reboot, pi_soak sul Pi 1; set/save rifiutati dal bridge. Le prove con la password restano all'utente.
+Chat: 'preso WO <X> eta HH:MM' e 'concluso WO <X>: <file> file +a -d, N token, M min'; prima del DELIVERED sync_hdr.py <ID> --close <WO> --commit <sha> --tokens T --min M. Worktree solo tuoi; TMPDIR in /tmp di WSL per qemu (df, rimuovi solo le tue cartelle).
