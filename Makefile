@@ -1180,7 +1180,6 @@ test-tools:
 	@for t in tests/tools/test_*.py; do echo "== $$t"; $(PYTHON) $$t || exit 1; done
 .PHONY: test-tools
 
-
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
 AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c src/ai/mesh.c src/ai/mesh_chars.c src/ai/mesh_skin.c src/ai/mesh_script.c \
