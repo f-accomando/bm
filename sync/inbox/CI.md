@@ -1,2 +1,1 @@
-WO in sequenza: (1) sync/wo/DIV-1.md; (2) sync/wo/D05-STICK.md parte a; (3) parte b (DIV-1 prima, stesso blocco D05). Tutti in inglese. Verifica nel WO. Se i punti dubbi (stato accepted, input stick) bloccano, scrivi BLOCKED in Problemi.
-Chat: 'preso WO <X> eta HH:MM', 'concluso WO <X>: <file> file +a -d, N token, M min'; sync_hdr.py <ID> --close <WO> --commit <sha> --tokens T --min M prima del DELIVERED. --ack auto
+CO-1: read sync/wo/CO-1.md and do it (branch per WO). Then CO-2, CO-3, CO-4 in sequence (same file sync_check.py). Deliver each as usual.
