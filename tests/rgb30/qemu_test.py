@@ -626,7 +626,9 @@ def test_sdk_stages_build(b, opts):
         boot(q)
         time.sleep(0.5)
         keys(q, "r")                            # Dev
-        keys(q, "ss")                           # the third row: bm SDK
+        keys(q, "ss", pause=0.3)                # the third row: bm SDK
+        text = screen(["bm SDK", "Dev"])
+        assert in_menu(text), text
         q.buf = b""
         q.send("\r")
         try:
