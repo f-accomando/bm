@@ -3,48 +3,48 @@ kind: session
 kernel: v0.2.5-707-g9554944
 branch: bm-core
 board: RGB30
-date: 2026-10-17 15:59:40
+date: 2026-10-17 16:21:25
 file: session_res-publica_rgb30.txt
 
 session of "Res Publica" (the last one: the next run of this game replaces this file)
 options bm3d 7.3 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
-screen 360x360, 470 frames in 13.2 s, 35.3 fps
+screen 360x360, 11137 frames in 342.0 s, 32.5 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 17.0 ms, max 109.8 ms, 316 frames over 16.7 ms
-memory: Lua peak 2555 KiB, data 904 KiB; code 62709 tokens; busiest frame 291k Lua instructions
-frames that were shown after more than 1.5 frames: 316
+time of _update + _draw (+ the 3D's wait): avg 22.5 ms, max 139.1 ms, 8686 frames over 16.7 ms
+memory: Lua peak 2577 KiB, data 904 KiB; code 64665 tokens; busiest frame 307k Lua instructions
+frames that were shown after more than 1.5 frames: 8686
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    153
+  <= 18 ms (60 fps)    2450
   <= 25 ms             0
-  <= 34 ms (30 fps)    313
-  <= 50 ms             0
-  <= 100 ms            2
-  > 100 ms (a freeze)  1
+  <= 34 ms (30 fps)    8097
+  <= 50 ms             14
+  <= 100 ms            572
+  > 100 ms (a freeze)  3
 
-the frame in its parts (as the overlay, 469 frames; ms a frame, % of the 16.7 ms of a frame):
-  update           0.1    0%
-  draw (no 3D)    27.4  164%
+the frame in its parts (as the overlay, 11136 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.0    0%
+  draw (no 3D)    29.9  179%
   3D calls         0.0    0%
-  audio            0.5    3%
+  audio            0.6    4%
   GPU wait         0.0    0%
-  all             28.1  169%
-audio interrupt: 2.0% of the CPU's time (mean), 3.1% at most in a second
+  all             30.6  183%
+audio interrupt: 2.1% of the CPU's time (mean), 3.4% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
-    164     4.1   116.7  109.8   0.0  109.8   0.0   0.0     6.8      193     1295        1
-     73     2.3    83.3   73.6  62.7   10.8   0.0   0.0     9.7      217     1605        1
-    259     7.3    83.3   71.1   0.0   71.1   0.0   0.0    12.1      245     1302        1
-    223     6.1    33.4   22.9   0.0   22.9   0.0   0.0    10.5      245     2043        1
-    219     5.9    33.4   23.0   0.0   23.0   0.0   0.0    10.4      245     1985        1
-    419    12.6    33.4   17.2   0.0   17.1   0.0   0.0    16.2      192     1358        1
-    332     9.7    33.3   21.6   0.0   21.5   0.0   0.0    11.7      245     1364        1
-    423    12.8    33.3   17.6   0.0   17.5   0.0   0.0    15.7      192     1408        1
-    161     3.9    33.3   26.6   0.0   26.6   0.0   0.0     6.6      171     2352        1
-    254     7.1    33.3   22.6   0.0   22.6   0.0   0.0    10.7      245     2496        1
-    282     8.1    33.3   21.9   0.0   21.9   0.0   0.0    11.4      245     1389        1
-    462    14.1    33.3   17.4   0.0   17.4   0.0   0.0    15.8      192     1427        1
+    600    11.3   150.0  139.1   0.0  139.1   0.0   0.0    10.9      113     1304        1
+    298     6.2   100.0   96.8   0.0   96.8   0.0   0.0     3.1      112     1305        1
+  10956   339.9   100.0   85.4  74.9   10.5   0.0   0.0    14.5      110     1440        1
+    131     3.3    83.3   79.8  68.6   11.2   0.0   0.0     3.5      217     1682        1
+   9836   305.2    66.8   55.0   0.0   55.0   0.0   0.0    11.7      171     1386        1
+   2678    58.3    66.7   50.4   0.0   50.3   0.0   0.0    16.2      189     1368        1
+   2683    58.5    66.7   54.1   0.0   54.0   0.0   0.0    12.5      188     1368        1
+   7184   212.7    66.7   55.8   0.0   55.8   0.0   0.0    10.8      262     1379        1
+   7191   213.0    66.7   56.5   0.0   56.5   0.0   0.0    10.1      262     1320        1
+   7210   213.9    66.7   50.0   0.0   49.9   0.0   0.0    16.6      171     1318        1
+   7249   215.4    66.7   50.4   0.0   50.3   0.0   0.0    16.3      171     1377        1
+   7300   217.4    66.7   52.8   0.0   52.8   0.0   0.0    13.8      232     1380        1
