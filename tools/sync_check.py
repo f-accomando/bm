@@ -20,6 +20,7 @@ The state to tell the user is the one printed here (file, with its time), never 
 import datetime
 import os
 import re
+import subprocess
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -168,6 +169,98 @@ def closeout_state(oid, h, text, log, now):
     return "SIGNOFF-ACK" if ack and ack >= signoff else "SIGNOFF-SENT"
 
 
+def toml_branches():
+    """{id: [branches]} of sync/operators.toml (the `branches` key of each operator)"""
+    with open(os.path.join(ROOT, "sync", "operators.toml"), encoding="utf-8") as f:
+        text = f.read()
+    try:
+        import tomllib
+        return {o["id"]: list(o.get("branches", [])) for o in tomllib.loads(text).get("operator", [])}
+    except ImportError:
+        out = {}
+        for blk in text.split("[[operator]]")[1:]:
+            m = re.search(r'^id\s*=\s*"([^"]+)"', blk, re.M)
+            b = re.search(r"^branches\s*=\s*\[(.*?)\]", blk, re.M | re.S)
+            if m:
+                out[m.group(1)] = re.findall(r'"([^"]+)"', b.group(1)) if b else []
+        return out
+
+
+def git(*args):
+    """stdout of a git command run in ROOT, or None if it fails"""
+    try:
+        r = subprocess.run(["git"] + list(args), cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+WO_ID = re.compile(r"(?<![\w-])[A-Z][A-Z0-9]*(?:-[A-Za-z0-9]+)+(?![\w-])")
+
+
+def leftovers(log, ops):
+    """what must not be lost at the closing hand-off (CLOSEOUT.md 2c) and the branch and worktree list (2e), one entry per
+    line prefixed `  > `. `ops` is toml_ops(). The DELIVERED-without-REVIEW items need tools/spv_brief.py (missing on bm-core)."""
+    out = []
+    active = [oid for oid, on in ops if on]
+    texts = {}
+    for oid in active:
+        path = os.path.join(ROOT, "sync", oid + ".md")
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                texts[oid] = f.read()
+    for oid in active:                                          # inboxes not empty
+        path = os.path.join(ROOT, "sync", "inbox", oid + ".md")
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                n = sum(1 for ln in f if ln.strip())
+            if n:
+                out.append("inbox %s: %d line(s) not empty" % (oid, n))
+    delivered = set()                                           # WOs assigned and not delivered
+    for text in texts.values():
+        delivered |= {p[0] for p in map(delivered_parts, consegne(text)) if p}
+    seen = set()
+    for _, a, m in closeout_rows(log):
+        if a not in ("ASSIGNED", "WO"):
+            continue
+        mm = WO_ID.search(m)
+        wo = mm.group(0) if mm else None
+        if wo and wo not in seen and not any(d.startswith(wo) or wo.startswith(d) for d in delivered):
+            seen.add(wo)
+            out.append("WO %s assigned and not delivered" % wo)
+    try:                                                        # DELIVERED without REVIEW
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import spv_brief
+        reviews = [(t, line) for t, line in log if spv_brief.is_review(line)]
+        for oid, text in texts.items():
+            for wo, sha in spv_brief.pending(text, reviews):
+                out.append("%s: DELIVERED %s@%s without REVIEW" % (oid, wo, sha[:8]))
+    except ImportError:
+        out.append("DELIVERED without REVIEW: n/d (tools/spv_brief.py missing)")
+    for oid, text in texts.items():                             # CLOSED lines with open items
+        for m in re.finditer(r"^[-*]?\s*CLOSED.*?aperti:\s*(.+?)\s*·", text, re.M):
+            if m.group(1).strip().lower() != "nessuno":
+                out.append("%s: closed with open items: %s" % (oid, m.group(1).strip()))
+    mine = toml_branches()
+    unmerged = git("branch", "-r", "--no-merged", "origin/bm-core")
+    if unmerged is None:
+        out.append("git: n/d")
+    else:
+        owner = {"origin/" + b: oid for oid, bs in mine.items() for b in bs}
+        for br in (ln.strip() for ln in unmerged.splitlines()):
+            if br and "->" not in br:
+                out.append("branch %s not merged%s" % (br, " (%s)" % owner[br] if br in owner else ""))
+    trees = git("worktree", "list", "--porcelain")
+    if trees is None:
+        out.append("git: n/d")
+    else:
+        for blk in re.split(r"\n\s*\n", trees.strip()):
+            fields = dict(ln.partition(" ")[::2] for ln in blk.splitlines() if ln.strip())
+            if "worktree" in fields:
+                out.append("worktree %s (%s)" % (fields["worktree"], fields.get("branch", "detached").replace("refs/heads/", "")))
+    return ["  > " + e for e in out]
+
+
 def closeout_summary(states, spv_state, log):
     """the last line of --closeout: (text, ready). `states` {id: state} of the active operators but SPV"""
     waiting = ["%s=%s" % (i, st) for i, st in states.items() if st not in ("SIGNED-OFF", "FORCED")]
@@ -253,6 +346,7 @@ def main():
     print("%d problem(s)" % len(problems))
     not_ready = False
     if co:
+        print("\n".join(leftovers(log, toml_ops())) or "  > nothing left")
         text, ready = closeout_summary({i: st for i, st in co_states.items() if i != "SPV"}, hdr_states.get("SPV", ""), log)
         print(text)
         not_ready = not ready
