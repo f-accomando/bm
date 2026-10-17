@@ -57,17 +57,26 @@ class T(unittest.TestCase):
         with open(os.path.join(self.root, "sync", oid + ".md"), "w", encoding="utf-8") as f:
             f.write(body)
 
+    def handoff(self, date=None, drop=None):
+        """sync/NEXT.md with today's CLOSEOUT section and the seven blocks (minus the title `drop`)"""
+        blocks = ["1 RUOLO", "2 REGOLE DELL'UTENTE", "3 VINCOLI STABILI", "4 STRUMENTI E PROTOCOLLO", "5 STATO",
+                  "6 IN SOSPESO CON L'UTENTE", "7 LEZIONI OPERATIVE"]
+        body = "\n".join(b for b in blocks if b != drop)
+        with open(os.path.join(self.root, "sync", "NEXT.md"), "w", encoding="utf-8") as f:
+            f.write("# Next\n\n## 8. Old section\n\n## 9. CLOSEOUT %s\n\n%s\n" % (date or NOW.strftime("%Y-%m-%d"), body))
+
     def state(self, oid="AAA"):
         path = os.path.join(self.root, "sync", oid + ".md")
         with open(path, encoding="utf-8") as f:
             text = f.read()
         return sc.closeout_state(oid, sc.header(text), text, sc.rows(os.path.join(self.root, "SYNC.md")), NOW)
 
-    def check(self, *args):
+    def check(self, *args, git=None):
         out = io.StringIO()
         argv, sys.argv = sys.argv, ["sync_check.py", "--closeout"] + list(args)
+        git = {("status", "--porcelain"): ""} if git is None else git
         try:
-            with contextlib.redirect_stdout(out):
+            with contextlib.redirect_stdout(out), mock.patch.object(sc, "git", side_effect=lambda *a: git.get(a)):
                 code = sc.main()
         finally:
             sys.argv = argv
@@ -129,8 +138,9 @@ class T(unittest.TestCase):
     # -- the last line
 
     def closed_session(self, bbb_state="SIGNED-OFF"):
-        self.sync_md(row(30, "CLOSEOUT", "DRAIN"), row(20, "SIGNOFF", "SIGNOFF AAA: closeout"),
-                     row(20, "SIGNOFF", "SIGNOFF BBB: closeout"))
+        self.sync_md(row(40, "CLOSEOUT", "PERMISSIONS: sync_hdr.py, push"), row(30, "CLOSEOUT", "DRAIN"),
+                     row(20, "SIGNOFF", "SIGNOFF AAA: closeout"), row(20, "SIGNOFF", "SIGNOFF BBB: closeout"))
+        self.handoff()
         self.operator("AAA", "DONE", ack_ago=5, closed=True)
         if bbb_state == "SIGNED-OFF":
             self.operator("BBB", "DONE", ack_ago=5, closed=True)
@@ -145,8 +155,10 @@ class T(unittest.TestCase):
         self.assertEqual(code, 0)
 
     def test_end(self):
-        self.sync_md(row(30, "CLOSEOUT", "DRAIN"), row(20, "SIGNOFF", "SIGNOFF AAA: closeout"),
-                     row(20, "SIGNOFF", "SIGNOFF BBB: closeout"), row(1, "CLOSEOUT", "END: session closed"))
+        self.sync_md(row(40, "CLOSEOUT", "PERMISSIONS: sync_hdr.py, push"), row(30, "CLOSEOUT", "DRAIN"),
+                     row(20, "SIGNOFF", "SIGNOFF AAA: closeout"), row(20, "SIGNOFF", "SIGNOFF BBB: closeout"),
+                     row(1, "CLOSEOUT", "END: session closed"))
+        self.handoff()
         self.operator("AAA", "DONE", ack_ago=5, closed=True)
         self.operator("BBB", "DONE", ack_ago=5, closed=True)
         self.operator("SPV", "DONE")
@@ -169,6 +181,60 @@ class T(unittest.TestCase):
         self.operator("SPV", "WORKING")
         header = self.check()[1][1]
         self.assertIn("closeout", header)
+
+    # -- the phase checks (C0 permissions, C4 handoff, C5 clean tree); git is mocked
+
+    def test_phase_all_in_order(self):
+        self.closed_session()
+        with mock.patch.object(sc, "git", side_effect=lambda *a: {("status", "--porcelain"): ""}.get(a)):
+            self.assertEqual(sc.closeout_phase_checks(NOW), [])
+
+    def test_phase_handoff_missing_or_old(self):
+        self.closed_session()
+        os.remove(os.path.join(self.root, "sync", "NEXT.md"))
+        code, lines = self.check("--strict")
+        self.assertTrue(any("! C4:" in ln for ln in lines))
+        self.assertEqual(code, 1)
+        self.handoff(date="2026-01-01")                          # a section of another day
+        self.assertTrue(any("C4:" in ln for ln in self.check()[1]))
+
+    def test_phase_handoff_lacks_a_block(self):
+        self.closed_session()
+        self.handoff(drop="7 LEZIONI OPERATIVE")
+        lines = self.check()[1]
+        self.assertTrue(any("C4:" in ln and "7 LEZIONI" in ln for ln in lines))
+
+    def test_phase_dirty_tree_inbox_and_worktree(self):
+        self.closed_session()
+        with open(os.path.join(self.root, "sync", "inbox", "AAA.md"), "w", encoding="utf-8") as f:
+            f.write("still a task\n")
+        with open(os.path.join(self.root, "sync", "inbox", "README.md"), "w", encoding="utf-8") as f:
+            f.write("how the inbox works\n")                    # not an inbox
+        git = {("status", "--porcelain"): " M sync/AAA.md\n",
+               ("worktree", "list", "--porcelain"):
+               "worktree %s\nHEAD a\nbranch refs/heads/x\n\nworktree /w/other\nHEAD b\ndetached\n" % self.root,
+               ("-C", "/w/other", "status", "--porcelain"): "?? file\n"}
+        lines = self.check("--strict", git=git)[1]
+        self.assertTrue(any("C5: the sync worktree is not clean" in ln for ln in lines))
+        self.assertTrue(any("C5: inbox AAA has 1" in ln for ln in lines))
+        self.assertFalse(any("README" in ln and "C5" in ln for ln in lines))
+        self.assertTrue(any("C5: worktree /w/other is dirty" in ln for ln in lines))
+
+    def test_phase_checks_only_after_ready(self):
+        self.closed_session(bbb_state="FREE")                   # NOT-READY: no C4/C5 problems yet
+        os.remove(os.path.join(self.root, "sync", "NEXT.md"))
+        self.assertFalse(any("C4:" in ln for ln in self.check()[1]))
+
+    def test_phase_permissions_list_before_drain(self):
+        log = os.path.join(self.root, "SYNC.md")
+        self.sync_md(row(30, "CLOSEOUT", "DRAIN"))
+        self.assertEqual(len(sc.closeout_permissions(sc.rows(log))), 1)
+        self.sync_md(row(40, "CLOSEOUT", "PERMISSIONS: sync_hdr.py"), row(30, "CLOSEOUT", "DRAIN"))
+        self.assertEqual(sc.closeout_permissions(sc.rows(log)), [])
+        self.sync_md(row(20, "CLOSEOUT", "PERMISSIONS: late"), row(30, "CLOSEOUT", "DRAIN"))   # after the DRAIN row
+        self.assertEqual(len(sc.closeout_permissions(sc.rows(log))), 1)
+        self.sync_md()                                           # no DRAIN yet: nothing to check
+        self.assertEqual(sc.closeout_permissions(sc.rows(log)), [])
 
     # -- the leftovers (CLOSEOUT.md 2c and 2e); git is mocked
 
@@ -216,8 +282,7 @@ class T(unittest.TestCase):
     def test_closeout_prints_leftovers_before_the_last_line(self):
         self.closed_session()
         self.operator("SPV", "WORKING")
-        with mock.patch.object(sc, "git", side_effect=lambda *a: self.GIT.get(a)):
-            lines = self.check()[1]
+        lines = self.check(git={**self.GIT, ("status", "--porcelain"): ""})[1]
         self.assertTrue(any(ln.startswith("  > worktree /w/main") for ln in lines))
         self.assertEqual(lines[-1], "CLOSEOUT-READY")
 
