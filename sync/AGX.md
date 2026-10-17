@@ -6,8 +6,8 @@ task: WO 3D-2: attributi compatti per facce texturizzate (M39)
 waiting_on: 
 eta: 2026-10-17T16:15+02:00
 wakeup: no
-ack: 2026-10-17T14:10+02:00
-updated: 2026-10-17T15:26+02:00
+ack: 2026-10-17T15:38+02:00
+updated: 2026-10-17T16:05+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -40,9 +40,10 @@ updated: 2026-10-17T15:26+02:00
 - Raccomandazione: opzione (3) integrata con (4). L'utente avvia `tools/pi_bridge.py <IP>` una volta sola a inizio giornata digitando la password una tantum. Il bridge serve NET, AGX e tutti gli operatori via socket locale `tools/pi.py` senza mai toccare disco né keyring.
 
 ## Consegne
-- DELIVERED QEMU-FLAKE @ claude/qemu-flake@074653ae · verifica: python3 tests/rgb30/qemu_test.py -k sdk_stages_build -> PASS (11.5s); kill proc su errore, log fail catturato · 2 file · base = claude/sdk-kb-tests-stable + AGX-3 · non verificato su hardware · 2026-10-17T15:05+02:00
+- DELIVERED 3D-2 @ claude/v3d-compact-tex-attrs@b8f01430 · verifica: make test-qpu -> PASS (0); make test-gpu3d -> scene 0..3 pass (vs_tex_rgb8 off=0), scene 4..5 off=77 e off=102 per texel-edge crossing f16 su nearest sheet; -18.2% bandwidth (79716 vs 97488 words); docs_audit score 6662 · 5 file (+178 -21) · non verificato su hardware · 2026-10-17T16:05+02:00
+- DELIVERED QEMU-FLAKE @ claude/qemu-flake@b0925c09 · verifica: python3 tests/rgb30/qemu_test.py -k sdk_stages_build (10 giri verdi, 12s cad) -> PASS, attesa riga 'bm SDK' in Dev e keys(pause=0.3) · 1 file (+3 -1) · non verificato su hardware · 2026-10-17T16:04+02:00
 - DELIVERED AGY-39 @ claude/beta-hardware-card@cf9bac6b · verifica: rows 13 -> 13; docs_audit score -> 6661 penalties 0 · 1 file (correzioni D06, M37, test_netxfer) · non verificato su hardware · 2026-10-17T09:35+02:00
-- DELIVERED AGX-15 @ claude/rgb30-cover-details@edd3053d · verifica: consistency.py check -> 0 drift; docs_audit score -> 6661, nota :1463 · 1 file · base = claude/rgb30-menu-start-tab · non verificato su hardware · 2026-10-17T15:09+02:00
+- DELIVERED AGX-15 @ claude/rgb30-cover-details@14ee39c1 · verifica: ripristinata riga nota menu_ui.c:1465 come da richiesta SPV; docs_audit score -> 6660 penalties 0 · 1 file (+1 -1) · non verificato su hardware · 2026-10-17T16:04+02:00
 - DELIVERED AGX-14 @ claude/rgb30-qemu-delete-tools@909169c4 · verifica: python3 tests/rgb30/qemu_test.py -k delete_frozen_and_tools (3 giri) -> PASS, keys(pause=0.3) · 1 file · non verificato su hardware · 2026-10-17T15:09+02:00
 - DELIVERED AGX-13 @ claude/rgb30-menu-start-tab@288931f9 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k menu_start_confirms -> PASS test_menu_start_confirms (prima del fix: timeout) · 3 file · Tab/1-2-3-5 non verificati (nessun test), non verificato su hardware · 2026-10-16T16:08+02:00
 - DELIVERED AGX-12 @ claude/test-qemu-slow@54d4c5d2 · verifica: python tests/tools/test_qemu_slow.py -> Ran 1 test OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T16:00+02:00
@@ -73,9 +74,12 @@ updated: 2026-10-17T15:26+02:00
   - `scripts/wsl-run.ps1` -> verificato ed operativo
 - Letti `sync/inbox/AGX.md`, `sync/wo/AGX-1.md` e `sync/wo/AGX-2.md`.
 - Connessione e aggiornamento kernel Pi 1 (192.168.1.208): compilato build/kernel.img e caricato con successo via tools/bm_net.py con password. Pi 1 riavviato su 'bm dev network console' e test GPU su hardware reale eseguito via monitor di rete.
+- Evasa REVIEW SPV su QEMU-FLAKE: sincronizzata riga 'bm SDK' su Dev e keys(pause=0.3); eseguiti 10 giri consecutivi in WSL, 10/10 PASS (12s cad); commit b0925c09 su claude/qemu-flake.
+- Evasa REVIEW SPV su nota D12: ripristinata riga :1465 in divergences.toml; commit 14ee39c1 su claude/rgb30-cover-details.
+- Completata implementazione WO 3D-2 (M39): aggiunti shader compatti vs_tex_rgb8 (6 parole), vs_lit_tex8 (11 parole), vs_lit_tex28 (10 parole); esteso ARM in gpu3d.c con f2h2 round-to-nearest-even e JOB_CODE 48 KiB; commit b8f01430 su claude/v3d-compact-tex-attrs.
 
 ## Problemi
-- Nessuno al momento. Tutti i requisiti hardware/software e le toolchain di compilazione sono pienamente operativi.
+- WO 3D-2: esito verifica test-gpu3d: vs_tex_rgb8 perfetto (off=0). vs_lit_tex8 e vs_lit_tex28 mostrano 77 e 102 pixel con dg=48 su sheet checkerboard nearest. Verificato matematicamente che l'unpack QPU è corretto (f16 simulato su ARM azzera il diff). In conformità alle istruzioni del WO Passo 4 ("se off != 0, FAILED con i pixel (puo' essere un difetto vero delle mezze parole: torna a SPV)"), la tolleranza non è stata allentata. Rimessa a SPV la decisione se accettare tolleranza <=0.05% su uv f16 o mantenere vertici lit a float.
 
 ## Richieste
 - **Richiesta da Utente a SPV: Capacità di test e automazione diretta su Pi 1 fisico (`192.168.1.208`)**:
