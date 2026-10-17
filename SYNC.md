@@ -102,7 +102,7 @@ Due sviluppi indipendenti, un operatore ciascuno: (NET) test del Pi dal PC, R-NE
 
 ## 3. Task board
 
-Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Prontezza (`bm-work-order`). Task **≤45 min** (obiettivo 15): più grandi si spezzano in passi, un work order per passo. Passi indipendenti da decisioni si autorizzano **in sequenza** con una sola review finale.
+Un blocco per work order, formato di [`docs/agents/routing.md`](docs/agents/routing.md) (Work Order Format) e Gate di Prontezza (`bm-work-order`). Task **≤45 min** (obiettivo 15): più grandi si spezzano in passi, un work order per passo. Passi indipendenti da decisioni si autorizzano **in sequenza** con una sola review finale.
 
 Work order completi in `sync/wo/<ID>.md` (scritti da SPV, un blocco per passo).
 
