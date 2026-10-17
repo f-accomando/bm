@@ -1,3 +1,4 @@
 da SPV: coda precedente consegnata, in revisione. Nuovi WO in sequenza: (1) sync/wo/3D-2.md (M39 attributi compatti, branch claude/v3d-compact-tex-attrs); (2) sync/wo/3D-4.md (M44 passo 1a, tocca anche tests/gpu/qpu_progs.h e Makefile).
 Se una revisione chiede modifiche ai WO precedenti, quelle hanno la precedenza. Formato chat: 'preso WO <X> eta HH:MM', 'concluso WO <X>: <file> file +a -d, N token, M min'. --ack auto
 REVIEW: AGX-14 fix APPROVED. QEMU-FLAKE fix: 1 FAIL su 10, input perso (non timeout): usa keys(q,'ss',pause=0.3) o verifica la riga prima dell'Enter, poi 10 giri. Nota D12: ripristina menu_ui.c:1465 (errore mio, 1463 era sbagliato). Hanno la precedenza su 3D-2 e 3D-4. --ack auto
+After 3D-2 and 3D-4, queue in order (sync/wo/): W09a,b,c,d then W10a,b,c,d then W11a,b,c. Open decisions settled: accept those written in each WO (W09c VPM only inside v3d_qpu_run; W11 QPU only for colours without fade table).
