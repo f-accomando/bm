@@ -175,7 +175,8 @@ def write_closed(a, body):
     if m:
         end = re.search(r"^## ", body[m.end():], re.M)
         pos = m.end() + end.start() if end else len(body)
-        head = body[:pos].rstrip("\n") + "\n" + line + "\n"
+        old = re.sub(r"^[-*]?\s*CLOSED\s+@.*\n?", "", body[m.end():pos], flags=re.M).strip("\n")
+        head = body[:m.end()] + (old + "\n" if old else "") + line + "\n"
         return head + ("\n" + body[pos:] if end else "")
     sec = "## Chiusura\n" + line + "\n\n"
     m = re.search(r"^## Progressi", body, re.M)

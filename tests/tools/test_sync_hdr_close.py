@@ -84,6 +84,7 @@ class T(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         t = open(f, encoding="utf-8").read()
         self.assertEqual(t.count("## Chiusura"), 1)
+        self.assertEqual(t.count("CLOSED @"), 1)
         self.assertIn("br@%s · tree clean · aperti: WO-9" % self.sha[:7], t)
         r = self.run_tool(["--file", f, "--closed", "nessuno"])
         self.assertEqual(r.returncode, 2)
