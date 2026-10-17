@@ -26,6 +26,20 @@ int main(void)
     CHECK(s.x > 320 + 40);
     CHECK(s.y == 180);
 
+    /* the same speed on both axes: y alone for the same frames moves as far as x did (not scaled by h) */
+    {
+        float dx = s.x - 320, dy, diff;
+        stickptr_reset(&s, 640, 360);
+        for (i = 0; i < 10; i++) stickptr_step(&s, 0, 1, 0, 640, 360);
+        dy = s.y - 180;
+        diff = dy - dx;
+        CHECK(dy > 40);
+        CHECK(diff < 0.01f && diff > -0.01f);
+        CHECK(s.x == 320);
+    }
+    stickptr_reset(&s, 640, 360);
+    for (i = 0; i < 10; i++) stickptr_step(&s, 1, 0, 0, 640, 360);
+
     for (i = 0; i < 1000; i++) stickptr_step(&s, 1, 1, 0, 640, 360);
     CHECK(s.x == 639 && s.y == 359);
     for (i = 0; i < 1000; i++) stickptr_step(&s, -1, -1, 0, 640, 360);
