@@ -1,5 +1,5 @@
-da SPV: HANDSHAKE (17 ott): fai handshake sync/protocollo-ottobre (rileggi SYNC.md e il tuo file, profilo aggiornato, sync_hdr.py <ID> --state FREE, --ack auto). SIGNOFF di ieri superato. Da oggi AGX eredita il lavoro di AGY (AGY esce): leggi sync/AGY.md e i suoi WO per il contesto.
+da SPV: handshake fatto, SIGNOFF del 16 ott revocato: continua i WO senza fermarti. --ack auto
 WO in sequenza: (1) AGX-5 fix: togliere la riga vuota in piu' dopo .PHONY: test-tools (REVIEW CHANGES REQUESTED nel Log); (2) AGY-39 fix, scheda tests: passi D06 con A=Close it e B=Cancel (menu_ui.c:1530-1531), togliere 'test_netxfer' inesistente, segnare 'pi.py line "gpu; send"' in attesa di R-NET6; (3) sync/wo/QEMU-FLAKE.md.
 Chat: 'preso WO <X> eta HH:MM' e 'concluso WO <X>: <file> file +a -d, N token, M min'; prima del DELIVERED sync_hdr.py <ID> --close <WO> --commit <sha> --tokens T --min M. Worktree solo tuoi; TMPDIR in /tmp di WSL per qemu (df, rimuovi solo le tue cartelle).
-SIGNOFF del 16 ott REVOCATO (utente, 17 ott): non e' piu' valido, continua sui WO sopra senza fermarti.
 Poi (4): test AGX-14 in tests/rgb30/qemu_test.py:592-594 con keys(pause=0.3) (3 giri verdi); (5) nota D12: la condizione e' a menu_ui.c:1463, non :1465.
+REVIEW QEMU-FLAKE: CHANGES REQUESTED (Log): cattura il log del FAIL (1 su 13), prova timeout 30->60 s al posto del retry, termina qemu su errore, motiva il perimetro.
