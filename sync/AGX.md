@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: attesa WO
+state: WORKING
+task: FIX 3D-2: no half-uv lit_tex, test-gpu3d off=0
 waiting_on: 
-eta: 
+eta: 2026-10-17T18:35+02:00
 wakeup: no
-ack: 2026-10-17T16:29+02:00
-updated: 2026-10-17T17:26+02:00
+ack: 2026-10-17T18:05+02:00
+updated: 2026-10-17T18:07+02:00
 ---
 # AGX — Antigravity (AGX)
 
