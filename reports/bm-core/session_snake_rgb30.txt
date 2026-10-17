@@ -3,37 +3,38 @@ kind: session
 kernel: v0.2.5-707-g9554944
 branch: bm-core
 board: RGB30
-date: 2026-10-17 19:46:34
+date: 2026-10-17 19:58:00
 file: session_snake_rgb30.txt
 
 session of "Snake" (the last one: the next run of this game replaces this file)
 options bm3d 7.3 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
-screen 360x360, 1140 frames in 19.0 s, 59.7 fps
+screen 360x360, 16070 frames in 268.1 s, 59.9 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 0.4 ms, max 68.9 ms, 1 frames over 16.7 ms
-memory: Lua peak 90 KiB, data 322 KiB; code 1433 tokens; busiest frame 2k Lua instructions
-frames that were shown after more than 1.5 frames: 1
+time of _update + _draw (+ the 3D's wait): avg 0.6 ms, max 139.2 ms, 2 frames over 16.7 ms
+memory: Lua peak 145 KiB, data 322 KiB; code 2212 tokens; busiest frame 4k Lua instructions
+frames that were shown after more than 1.5 frames: 2
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    1138
+  <= 18 ms (60 fps)    16067
   <= 25 ms             0
   <= 34 ms (30 fps)    0
   <= 50 ms             0
   <= 100 ms            1
-  > 100 ms (a freeze)  0
+  > 100 ms (a freeze)  1
 
-the frame in its parts (as the overlay, 1139 frames; ms a frame, % of the 16.7 ms of a frame):
+the frame in its parts (as the overlay, 16069 frames; ms a frame, % of the 16.7 ms of a frame):
   update           0.0    0%
-  draw (no 3D)    15.2   91%
+  draw (no 3D)    16.1   96%
   3D calls         0.0    0%
   audio            0.4    2%
   GPU wait         0.0    0%
-  all             15.7   94%
-audio interrupt: 2.7% of the CPU's time (mean), 3.3% at most in a second
+  all             16.5   99%
+audio interrupt: 2.5% of the CPU's time (mean), 3.7% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
-    489     9.9    83.1   68.9  68.3    0.6   0.0   0.0    14.1        2       88        1
+   4826    82.3   150.0  139.2 138.6    0.6   0.0   0.0    10.7        3       97        1
+   3133    54.0    83.3   71.5  70.8    0.6   0.0   0.0    11.8        3      125        1
