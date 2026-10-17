@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: FREE
-task: CO-1..CO-4 consegnati
+state: WORKING
+task: D05-STICK-a fix (test y)
 waiting_on: 
 progress: 0
-eta: 2026-10-17T19:15+02:00
+eta: 2026-10-17T19:30+02:00
 wakeup: no
-ack: 2026-10-17T16:29+02:00
-updated: 2026-10-17T17:17+02:00
+ack: 2026-10-17T17:39+02:00
+updated: 2026-10-17T17:40+02:00
 ---
 # CI — operatore CI
 
