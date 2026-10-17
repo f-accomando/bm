@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: WORKING
-task: WO AGX-14 fix: test_delete_frozen_and_tools con keys(pause=0.3)
+state: FREE
+task: AGX-14 fix e nota D12 consegnati
 waiting_on: 
 eta: 2026-10-17T15:25+02:00
 wakeup: no
 ack: 2026-10-17T14:10+02:00
-updated: 2026-10-17T15:06+02:00
+updated: 2026-10-17T15:10+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -42,8 +42,8 @@ updated: 2026-10-17T15:06+02:00
 ## Consegne
 - DELIVERED QEMU-FLAKE @ claude/qemu-flake@074653ae · verifica: python3 tests/rgb30/qemu_test.py -k sdk_stages_build -> PASS (11.5s); kill proc su errore, log fail catturato · 2 file · base = claude/sdk-kb-tests-stable + AGX-3 · non verificato su hardware · 2026-10-17T15:05+02:00
 - DELIVERED AGY-39 @ claude/beta-hardware-card@cf9bac6b · verifica: rows 13 -> 13; docs_audit score -> 6661 penalties 0 · 1 file (correzioni D06, M37, test_netxfer) · non verificato su hardware · 2026-10-17T09:35+02:00
-- DELIVERED AGX-15 @ claude/rgb30-cover-details@c0c77719 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k cover_details_perf -> PASS test_cover_details_perf · 3 file · base = claude/rgb30-menu-start-tab · non verificato su hardware · 2026-10-16T17:38+02:00
-- DELIVERED AGX-14 @ claude/rgb30-qemu-delete-tools@6dbf3908 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k delete_frozen_and_tools -> PASS test_delete_frozen_and_tools · 2 file · non verificato su hardware · 2026-10-16T16:13+02:00
+- DELIVERED AGX-15 @ claude/rgb30-cover-details@edd3053d · verifica: consistency.py check -> 0 drift; docs_audit score -> 6661, nota :1463 · 1 file · base = claude/rgb30-menu-start-tab · non verificato su hardware · 2026-10-17T15:09+02:00
+- DELIVERED AGX-14 @ claude/rgb30-qemu-delete-tools@909169c4 · verifica: python3 tests/rgb30/qemu_test.py -k delete_frozen_and_tools (3 giri) -> PASS, keys(pause=0.3) · 1 file · non verificato su hardware · 2026-10-17T15:09+02:00
 - DELIVERED AGX-13 @ claude/rgb30-menu-start-tab@288931f9 · verifica: python3 tests/rgb30/qemu_test.py --build build/rgb30-virt -k menu_start_confirms -> PASS test_menu_start_confirms (prima del fix: timeout) · 3 file · Tab/1-2-3-5 non verificati (nessun test), non verificato su hardware · 2026-10-16T16:08+02:00
 - DELIVERED AGX-12 @ claude/test-qemu-slow@54d4c5d2 · verifica: python tests/tools/test_qemu_slow.py -> Ran 1 test OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T16:00+02:00
 - DELIVERED AGX-11 @ claude/test-ci-audit@43917130 · verifica: python3 tests/tools/test_ci_audit.py (WSL) -> Ran 4 tests OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T15:58+02:00
