@@ -8,7 +8,10 @@ Examples:
   python tools/sync_log.py log --who SPV --branch sync/protocollo-ottobre \
       --action RULE --text "Nuova regola" [--commit abc123] [--file SYNC.md] [--push]
   python tools/sync_log.py inbox --id AGY --line "Leggi WO AGY-9" \
-      --line "Poi consegna" [--file-dir sync/inbox] [--append] [--push]
+      --line "Poi consegna" [--file-dir sync/inbox] [--append] [--push] [--verbose]
+
+--quiet (log: opt-in; inbox: default) prints one short line instead of the row or
+the inbox text. Warnings and errors always go to stderr. git output is hidden in quiet mode.
 
 Exit codes: 0 ok, 1 git error, 2 bad usage or I/O error.
 Without --push git is never touched. With --push: pull --rebase --autostash first,
@@ -40,9 +43,9 @@ def known_actions(text):
     return acts
 
 
-def git(args, cwd):
+def git(args, cwd, quiet=False):
     r = subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True)
-    if r.stdout:
+    if r.stdout and not quiet:
         print(r.stdout, end="")
     if r.returncode != 0:
         sys.stderr.write(r.stderr or "git %s failed\n" % args[0])
@@ -59,15 +62,15 @@ def current_branch(cwd):
     return r.stdout.strip()
 
 
-def pull_first(cwd):
+def pull_first(cwd, quiet=False):
     """Bring the branch up to date BEFORE the file is written, so the rebase never has to merge our edit."""
     br = current_branch(cwd)
     if br is None:
         return False
-    return git(["pull", "--rebase", "--autostash", "origin", br], cwd)
+    return git(["pull", "--rebase", "--autostash", "origin", br], cwd, quiet)
 
 
-def push(paths, action, who, cwd):
+def push(paths, action, who, cwd, quiet=False):
     br = current_branch(cwd)
     if br is None:
         return 1
@@ -78,7 +81,7 @@ def push(paths, action, who, cwd):
         ["push", "origin", "HEAD:" + br],
     ]
     for s in steps:
-        if not git(s, cwd):
+        if not git(s, cwd, quiet):
             return 1
     return 0
 
@@ -88,7 +91,7 @@ def cmd_log(a):
     if "|" in text or "\n" in text or "\r" in text:
         sys.stderr.write("error: text must not contain '|' or newlines\n")
         return 2
-    if a.push and not pull_first(os.path.dirname(os.path.abspath(a.file))):
+    if a.push and not pull_first(os.path.dirname(os.path.abspath(a.file)), a.quiet):
         return 1
     try:
         with open(a.file, "rb") as f:
@@ -113,14 +116,15 @@ def cmd_log(a):
     except OSError as e:
         sys.stderr.write("error: %s\n" % e)
         return 2
-    print(row)
+    print("log: riga scritta, %d caratteri" % len(row) if a.quiet else row)
     if a.push:
         d = os.path.dirname(os.path.abspath(a.file))
-        return push([os.path.abspath(a.file)], a.action, a.who, d)
+        return push([os.path.abspath(a.file)], a.action, a.who, d, a.quiet)
     return 0
 
 
 def cmd_inbox(a):
+    quiet = not a.verbose  # quiet is the default for inbox
     lines = a.line
     if len(lines) > MAX_INBOX:
         sys.stderr.write("error: %d lines (max %d)\n" % (len(lines), MAX_INBOX))
@@ -145,7 +149,7 @@ def cmd_inbox(a):
     elif existing:
         sys.stderr.write("warning: %s is not empty and --append is absent: overwriting %d line(s)\n"
                          % (path, len(existing)))
-    if a.push and os.path.isdir(os.path.dirname(path)) and not pull_first(os.path.dirname(path)):
+    if a.push and os.path.isdir(os.path.dirname(path)) and not pull_first(os.path.dirname(path), quiet):
         return 1
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -154,9 +158,12 @@ def cmd_inbox(a):
     except OSError as e:
         sys.stderr.write("error: %s\n" % e)
         return 2
-    print("\n".join(lines))
+    if quiet:
+        print("inbox %s: %d righe" % (a.id, len(lines)))
+    else:
+        print("\n".join(lines))
     if a.push:
-        return push([path], "inbox", a.id, os.path.dirname(path))
+        return push([path], "inbox", a.id, os.path.dirname(path), quiet)
     return 0
 
 
@@ -171,12 +178,15 @@ def main(argv=None):
     lg.add_argument("--text", required=True)
     lg.add_argument("--file", default="SYNC.md")
     lg.add_argument("--push", action="store_true")
+    lg.add_argument("--quiet", action="store_true", help="print one line: log: riga scritta, K caratteri")
     ib = sub.add_parser("inbox")
     ib.add_argument("--id", required=True)
     ib.add_argument("--line", action="append", required=True)
     ib.add_argument("--file-dir", default="sync/inbox")
     ib.add_argument("--append", action="store_true", help="add --line values after the existing lines (max 5 in all)")
     ib.add_argument("--push", action="store_true")
+    ib.add_argument("--quiet", action="store_true", help="default: print inbox ID: N righe only")
+    ib.add_argument("--verbose", action="store_true", help="print the inbox text after writing")
     try:
         a = p.parse_args(argv)
     except SystemExit as e:
