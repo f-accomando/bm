@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: WORKING
-task: WO AGX-5 fix: togliere riga vuota extra Makefile
+state: FREE
+task: AGX-5 fix consegnato
 waiting_on: 
 eta: 2026-10-17T09:45+02:00
 wakeup: no
 ack: 2026-10-17T09:27+02:00
-updated: 2026-10-17T09:31+02:00
+updated: 2026-10-17T09:32+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -50,7 +50,7 @@ updated: 2026-10-17T09:31+02:00
 - DELIVERED AGX-8 @ claude/test-manuals@31105761 · verifica: python tests/tools/test_manuals.py -> Ran 6 tests OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T15:54+02:00
 - DELIVERED AGX-7 @ claude/code-lint-stale@710bcc09 · verifica: make exit 0; qemu_test -k code_editor -> 1/1 passed; code_api rosso anche su stash base (?ls invece di cls in OCR); comportamento nuovo non verificato da test · 1 file, 2 righe · non verificato su hardware · 2026-10-16T15:52+02:00
 - DELIVERED AGX-6 @ claude/budget-map-clean@d9a87694 · verifica: sha256 di build/carts/budget.bm -> identico prima/dopo (a59a5e4065d9a83c706460eb25b1e21686e3f3718e298393264f63391a1db3fa); map.csv 46 righe, 0 vuote · 1 file, 23 righe tolte · non verificato su hardware · 2026-10-16T15:40+02:00
-- DELIVERED AGX-5 @ claude/make-test-tools@7f306907 · verifica: make test-tools -> exit 0 (3 file di test); make test-docs -> exit 0 (check, 0 broken) · 1 file · non verificato su hardware · 2026-10-16T15:31+02:00
+- DELIVERED AGX-5 @ claude/make-test-tools@a04a2ab3 · verifica: make test-tools -> exit 0 (3 file di test); make test-docs -> exit 0 (check, 0 broken) · 1 file (-1 riga vuota) · non verificato su hardware · 2026-10-17T09:32+02:00
 - DELIVERED AGX-4 @ claude/test-cindex@c11f0768 · verifica: python tests/tools/test_cindex.py -> Ran 5 tests OK, exit 0 · 1 file nuovo · non verificato su hardware · 2026-10-16T14:34+02:00
 - DELIVERED AGX-3 @ claude/qemu-test-tmp-cleanup@3d556134 · verifica: python3 tests/qemu_test.py --build build -k monitor_line -> 1/1 passed, 0 cartelle bm-* lasciate in /tmp (prima: 2); pad_typing 1/1; sd_cartridges 1/1; sd_sdhc non verificato (QEMU non parte con immagine da 4 GiB) · 1 file, 5 righe · non verificato su hardware · 2026-10-16T14:33+02:00
 - DELIVERED AGX-2 @ claude/stages-flow-checks@51cf9957 · verifica: make test-sdk-b16 -> exit 0, 318 checks, 0 failed (1 min) · 1 file, 30 righe · non verificato su hardware · 2026-10-16T13:24+02:00
