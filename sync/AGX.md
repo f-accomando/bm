@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: WORKING
-task: WO 3D-4: QPU branch e semafori (M44 1a)
+state: FREE
+task: attesa WO
 waiting_on: 
-eta: 2026-10-17T17:55+02:00
+eta: 
 wakeup: no
 ack: 2026-10-17T16:29+02:00
-updated: 2026-10-17T17:09+02:00
+updated: 2026-10-17T17:26+02:00
 ---
 # AGX — Antigravity (AGX)
 
@@ -40,6 +40,7 @@ updated: 2026-10-17T17:09+02:00
 - Raccomandazione: opzione (3) integrata con (4). L'utente avvia `tools/pi_bridge.py <IP>` una volta sola a inizio giornata digitando la password una tantum. Il bridge serve NET, AGX e tutti gli operatori via socket locale `tools/pi.py` senza mai toccare disco né keyring.
 
 ## Consegne
+- DELIVERED 3D-4 @ claude/qpu-branches-semaphores@d08382aa · verifica: make test-qpu test-gpu3d -> qpuasm: ok, 0 FAIL, EXIT=0 · 7 file · non verificato su hardware · 2026-10-17T17:25+02:00
 - DELIVERED 3D-2 @ claude/v3d-compact-tex-attrs@b8f01430 · verifica: make test-qpu -> PASS (0); make test-gpu3d -> scene 0..3 pass (vs_tex_rgb8 off=0), scene 4..5 off=77 e off=102 per texel-edge crossing f16 su nearest sheet; -18.2% bandwidth (79716 vs 97488 words); docs_audit score 6662 · 5 file (+178 -21) · non verificato su hardware · 2026-10-17T16:05+02:00
 - DELIVERED QEMU-FLAKE @ claude/qemu-flake@b0925c09 · verifica: python3 tests/rgb30/qemu_test.py -k sdk_stages_build (10 giri verdi, 12s cad) -> PASS, attesa riga 'bm SDK' in Dev e keys(pause=0.3) · 1 file (+3 -1) · non verificato su hardware · 2026-10-17T16:04+02:00
 - DELIVERED AGY-39 @ claude/beta-hardware-card@cf9bac6b · verifica: rows 13 -> 13; docs_audit score -> 6661 penalties 0 · 1 file (correzioni D06, M37, test_netxfer) · non verificato su hardware · 2026-10-17T09:35+02:00
@@ -60,6 +61,7 @@ updated: 2026-10-17T17:09+02:00
 - DELIVERED AGX-1 @ claude/sdk-b16-host-stubs@f56d92f5 · verifica: make test-sdk-b16 -> exit 0, 298 checks, 0 failed (1 min) · 2 file, 10 righe · non verificato su hardware · 2026-10-16T13:20+02:00
 
 ## Progressi
+- Completato WO 3D-4 (M44 passo 1a): salti a 3 delay slot e semafori in qpuasm.py ed emulatore; test-qpu e test-gpu3d verdi (413/413 checks); commit d08382aa su claude/qpu-branches-semaphores.
 - Eseguito handshake protocollo-ottobre per AGX sul nuovo computer (Windows 11 host `ROCKET`).
 - Configurato worktree dedicato `C:\Users\ROCKET\Documents\GitHub\bm33-agx-sync` su `sync/protocollo-ottobre`.
 - Abilitata virtualizzazione AMD SVM Mode in BIOS e installato WSL2 con distribuzione Ubuntu.

@@ -19,3 +19,5 @@
 {"schema":1,"operator":"OP-AGX","wo":"QEMU-FLAKE","branch":"claude/qemu-flake","commit":"074653ae","files":2,"add":14,"del":28,"lines":{"code":42,"docs":0,"data":0},"tokens":4000,"min":10,"iso":"2026-10-17T15:05+02:00"}
 {"schema":1,"operator":"OP-AGX","wo":"AGX-14","branch":"claude/rgb30-qemu-delete-tools","commit":"909169c4","files":1,"add":2,"del":3,"lines":{"code":5,"docs":0,"data":0},"tokens":3000,"min":10,"iso":"2026-10-17T15:09+02:00"}
 {"schema":1,"operator":"OP-AGX","wo":"AGX-15","branch":"claude/rgb30-cover-details","commit":"edd3053d","files":1,"add":1,"del":1,"lines":{"code":0,"docs":0,"data":2},"tokens":2000,"min":5,"iso":"2026-10-17T15:09+02:00"}
+{"schema":1,"operator":"OP-AGX","wo":"3D-4","branch":"claude/qpu-branches-semaphores","commit":"d08382aa","files":7,"add":320,"del":17,"lines":{"code":335,"docs":2,"data":0},"tokens":12000,"min":30,"iso":"2026-10-17T17:25+02:00"}
+{"schema":1,"operator":"OP-AGX","wo":"3D-2","branch":"claude/v3d-compact-tex-attrs","commit":"b8f01430","files":5,"add":711,"del":16,"lines":{"code":720,"docs":7,"data":0},"tokens":15000,"min":35,"iso":"2026-10-17T17:25+02:00"}
