@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: AGX
-state: FREE
-task: AGY-39 fix consegnato
+state: WORKING
+task: WO QEMU-FLAKE: fix retry connessione Qemu e timeout sdk_stages_build
 waiting_on: 
-eta: 2026-10-17T09:55+02:00
+eta: 2026-10-17T10:15+02:00
 wakeup: no
 ack: 2026-10-17T09:27+02:00
-updated: 2026-10-17T09:35+02:00
+updated: 2026-10-17T09:39+02:00
 ---
 # AGX — Antigravity (AGX)
 
