@@ -3,32 +3,37 @@ kind: session
 kernel: v0.2.5-707-g9554944
 branch: bm-core
 board: RGB30
-date: 2026-10-17 20:01:12
+date: 2026-10-17 20:06:25
 file: session_snake_rgb30.txt
 
 session of "Snake" (the last one: the next run of this game replaces this file)
 options bm3d 7.3 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
-screen 360x360, 9457 frames in 157.6 s, 59.9 fps
+screen 360x360, 15778 frames in 263.1 s, 59.9 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 0.5 ms, max 2.0 ms, 0 frames over 16.7 ms
-memory: Lua peak 157 KiB, data 322 KiB; code 2442 tokens; busiest frame 4k Lua instructions
-frames that were shown after more than 1.5 frames: 0
+time of _update + _draw (+ the 3D's wait): avg 0.6 ms, max 86.6 ms, 1 frames over 16.7 ms
+memory: Lua peak 159 KiB, data 322 KiB; code 2417 tokens; busiest frame 6k Lua instructions
+frames that were shown after more than 1.5 frames: 1
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    9456
+  <= 18 ms (60 fps)    15776
   <= 25 ms             0
   <= 34 ms (30 fps)    0
   <= 50 ms             0
   <= 100 ms            0
-  > 100 ms (a freeze)  0
+  > 100 ms (a freeze)  1
 
-the frame in its parts (as the overlay, 9456 frames; ms a frame, % of the 16.7 ms of a frame):
+the frame in its parts (as the overlay, 15777 frames; ms a frame, % of the 16.7 ms of a frame):
   update           0.0    0%
   draw (no 3D)    16.0   96%
   3D calls         0.0    0%
   audio            0.4    2%
   GPU wait         0.0    0%
   all             16.5   99%
-audio interrupt: 2.6% of the CPU's time (mean), 3.6% at most in a second
+audio interrupt: 2.9% of the CPU's time (mean), 3.7% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
+  15246   256.0   100.0   86.6  85.9    0.7   0.0   0.0    13.3        5       95        1
