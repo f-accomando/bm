@@ -238,7 +238,7 @@ def leftovers(log, ops):
     except ImportError:
         out.append("DELIVERED without REVIEW: n/d (tools/spv_brief.py missing)")
     for oid, text in texts.items():                             # CLOSED lines with open items
-        for m in re.finditer(r"^[-*]?\s*CLOSED.*?aperti:\s*(.+?)\s*·", text, re.M):
+        for m in re.finditer(r"^[-*]?\s*CLOSED\b.*?aperti:\s*(.+?)\s*·", text, re.M):
             if m.group(1).strip().lower() != "nessuno":
                 out.append("%s: closed with open items: %s" % (oid, m.group(1).strip()))
     mine = toml_branches()
