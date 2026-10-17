@@ -2,12 +2,12 @@
 schema: 1
 id: NET
 state: FREE
-task: prove HW consegnate
+task: bridge crc consegnato
 waiting_on: 
-eta: 2026-10-18T16:30+02:00
+eta: 2026-10-17T18:20+02:00
 wakeup: no
 ack: 2026-10-17T16:29+02:00
-updated: 2026-10-17T17:33+02:00
+updated: 2026-10-17T18:14+02:00
 ---
 # NET
 
@@ -56,6 +56,8 @@ DELIVERED NET-2b @ claude/net-test-err@119fc21d · verifica: make test-net → e
 PROVE SUL PI (ok scritto dell'utente, bridge avviato da lui, Pi Zero W 192.168.1.108) · R-NET9: kernel claude/watchdog-chainloader-fix caricato (back after 21 s), 'watchdog: on, 3000 ms (loaded 196608, after 20 ms 195358)'; freeze volontario (keys freeze) -> down ~10 s, poi 'previous run: ended without a clean exit ... while: freeze test (X f)' = il watchdog riavvia da solo. R-NET8a: pi_soak.py --minutes 1 --every 20 senza --reboot -> Pong 5065 frames 59.9 fps 0 dropped, verdict OK (P1 sciolto: keys monitor chiude il gioco sul Pi vero); con --reboot -> Pong 5297 frames 59.9 fps, previous run ended cleanly, verdict OK. R-NET7a ':crc' NON provato: il bridge di R-NET6 non ha crc in LINE_CMDS (pi.py line crc sarebbe 'refused'); serve aggiungere 'crc' a LINE_CMDS (parola + test) = decisione SPV. Kernel rimesso: build di claude/integrazione-ottobre@f5cd71b7 (4402892 byte), back after 16 s, watchdog on. Nota: il bridge accetta solo file nel repo del bridge o in ~/bmk* esistenti all'avvio · 2026-10-16T18:28+02:00
 
 ## Problemi
+- R-NET7a su Pi (kernel monitor-fb-crc, bridge con crc): `line crc` -> `crc: 640x360 bpp=32 pitch=2560 crc32=0x8ac035aa` (menu/monitor, ripetibile). Kernel normale rimesso.
+- pi_soak FAIL = diagnosi: durante un gioco la console risponde 'the keys go to the application: back to the menu first' (netcon_focus FOCUS_APP, carts.c:1945) e `keys monitor` ('q') va al gioco, non lo chiude. Fix minimo senza toccare il kernel: runtime.c:5017 gia' tratta 0x1C (Ctrl+\) sulla linea come Ctrl+Esc (serial_quit). Servono nel bridge/bm_net.py un nome tasto `game-exit` = byte 0x1C (oggi --keys accetta solo lettere/cifre, bm_net.py:458) e in pi_soak `keys game-exit` prima di `keys monitor`. Da provare sul Pi che 0x1C passi anche da netcon (input.c:66). Proposta WO R-NET11.
 - PROVE HW 17 ott: soak 3 e 10 min = Pi sempre su (up 10/10), verdetto FAIL solo perche' il kernel non termina il gioco da PC (nessuna riga fps); watchdog R-NET9 = freeze -> riavvio ok (BOOTPREV 'freeze test'); log: claude/pi-soak@edbf9f6f reports/net-hw-2026-10-17.md. Non fattibili: :crc (serve 'crc' in LINE_CMDS, decisione SPV), budget API-1 (serve cart su SD/schermo). Kernel normale rimesso.
 
 ## Richieste

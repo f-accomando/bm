@@ -5,3 +5,4 @@
 {"schema":1,"operator":"OP-NET","wo":"R-NET6","branch":"","commit":"189d9ee5","files":3,"add":4,"del":3,"lines":{"code":4,"docs":3,"data":0},"tokens":15000,"min":10,"iso":"2026-10-16T18:32+02:00"}
 {"schema":1,"operator":"OP-NET","wo":"R-NET7a-fix","branch":"","commit":"3501cee0","files":1,"add":11,"del":5,"lines":{"code":21,"docs":0,"data":0},"tokens":30000,"min":30,"iso":"2026-10-17T09:58+02:00"}
 {"schema":1,"operator":"OP-NET","wo":"R-NET10","branch":"","commit":"22156f14","files":4,"add":66,"del":5,"lines":{"code":63,"docs":8,"data":0},"tokens":40000,"min":45,"iso":"2026-10-17T15:03+02:00"}
+{"schema":1,"operator":"OP-NET","wo":"R-NET9b","branch":"","commit":"7052d934","files":3,"add":4,"del":4,"lines":{"code":6,"docs":2,"data":0},"tokens":60000,"min":25,"iso":"2026-10-17T18:14+02:00"}
