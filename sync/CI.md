@@ -1,14 +1,14 @@
 ---
 schema: 1
 id: CI
-state: FREE
-task: CI-25 consegnato
+state: WORKING
+task: D05-STICK-a
 waiting_on: 
 progress: 0
-eta: 2026-10-17T16:00+02:00
+eta: 2026-10-17T17:20+02:00
 wakeup: no
-ack: 2026-10-17T14:10+02:00
-updated: 2026-10-17T15:18+02:00
+ack: 2026-10-17T16:29+02:00
+updated: 2026-10-17T16:30+02:00
 ---
 # CI — operatore CI
 
@@ -46,6 +46,7 @@ DELIVERED CI-AUDIT @ claude/ci-repair@08d2c670 · verifica: python3 scripts/ci_a
 DELIVERED D-HOST @ claude/ci-repair@792554f5 · verifica: make test-loading (WSL) → exit 0, 20/20 checks · 2026-10-15T12:10+02:00
 DELIVERED D-RUN2 @ claude/ci-repair@6b2d8727 · verifica: tests/qemu_test.py -k editor_mouse (WSL) → 1/1 passed; make test-impostor (WSL) → exit 0 · 2026-10-15T12:18+02:00
 DELIVERED CI-25 @ claude/integrazione-ottobre@0ba07260 · verifica: gh run 39030418735 → success (cherry-pick R-NET9, nessun rerun) · 2026-10-17T14:40+02:00
+DELIVERED DIV-1 @ claude/spec-divergences-d03-d05-d11@008af2a1 · verifica: python scripts/consistency.py check -> exit 0 · 1 file · non verificato su hardware · 2026-10-17T16:45+02:00
 
 ## Progressi
 
