@@ -1,13 +1,13 @@
 ---
 schema: 1
 id: NET
-state: WAITING
+state: FREE
 task: R-NET10
-waiting_on: utente: ok scritto in chat per far leggere al bridge la password da ~/.pi_bridge.pw (0600)
+waiting_on: 
 eta: 2026-10-17T11:30+02:00
 wakeup: no
-ack: 2026-10-17T09:52+02:00
-updated: 2026-10-17T10:00+02:00
+ack: 2026-10-17T14:10+02:00
+updated: 2026-10-17T15:03+02:00
 ---
 # NET
 
@@ -31,6 +31,7 @@ updated: 2026-10-17T10:00+02:00
 Presa in carico di sync/wo/NET.md, ordine NET-1a→NET-2d. R-NET3 non iniziato.
 
 ## Consegne
+DELIVERED R-NET10 @ claude/net-bridge-pwfile@22156f14 · verifica: python3 tests/net/check_bm_net_config.py (WSL) -> 5 casi password ok, 'bm_net --config, --line: all passed'; make test-net -> exit 0; docs_audit score -> penalties 0 · fatto: get_password() in pi_bridge.py, ordine BM_PASSWORD -> file BM_PASSWORD_FILE o ~/.pi_bridge.pw (0600, del proprietario, una riga) -> getpass; file leggibile da altri o di un altro utente 'refused: password file mode', file vuoto rifiutato, il valore mai nei messaggi; main() stampa solo da dove viene ('password from file ...'); regola riscritta in pi-test.md e tools.md (accodata alla riga Tool pages, file a 120 righe) · il file lo scrive solo l'utente, io non l'ho creato ne' letto; nessuna prova con password reale · prova utente: creare ~/.pi_bridge.pw (chmod 600), riavviare il bridge senza digitare · 2026-10-17T15:03+02:00
 DELIVERED R-NET7a fix @ claude/monitor-fb-crc@3501cee0 · verifica: 4 corse in parallelo x5 (20 corse, WSL sotto carico) di python3 tests/qemu_test.py -k monitor_crc -> prima del fix 2 FAIL su 20 ('the same screen, two values'), dopo il fix 20 PASS su 20 piu' una corsa singola PASS (1/1 passed) · causa: la riga di stato in alto mostra l'uptime in secondi (src/kernel/input.c:20 update_uptime -> console_set_status); il CRC copre tutta la pagina, quindi due ':crc' dopo 'c' a cavallo di un cambio di secondo danno valori diversi, e' lo schermo ad essere diverso, non il comando · correzione solo nel test (monitor.c invariato): si ripete 'c' + ':crc' (fino a 20 volte) finche' due valori consecutivi coincidono e si asserisce che il primo valore (con ':crc' stampato) sia diverso dall'ultimo; un CRC che non seguisse lo schermo non coinciderebbe mai · nota: ':crc' sul Pi reale mostra la stessa riga uptime: per un golden da confrontare serve uno schermo senza riga di stato che cambi (decisione per R-NET7b, SPV) · 2026-10-17T09:58+02:00
 DELIVERED R-NET6 (fix della REVIEW CHANGES REQUESTED) @ claude/net-bridge-line-allowlist@189d9ee5 · verifica: python3 tests/net/check_bm_net_config.py (WSL) -> 0 FAIL, 'bm_net --config, --line: all passed'; make test-net -> exit 0; docs_audit score -> penalties 0 · fatto: pi-test.md riga 'anything else (--config, set/save/play lines, secrets, WiFi) | refused (refused: line: <reason> for lines)' e riga in 'Rules of the tools' (A line is checked command by command against LINE_CMDS...); 7 casi aggiunti al test ('; gpu', 'gpu x', 'gpu,err', vuota, 'gpu;', 'b3d tests=a.b', 'b3d foo=1', tutti refused: line:); spazio ripristinato in pi_bridge.py:65 (ALLOWED_DIRS = [ROOT]) · nota: la regola di tools.md 'Rules (do not break)' c'era gia' (accodata alla riga Tool pages) · il messaggio di SPV delle 18:30 e' arrivato dopo le prove sul Pi, fatte con l'ok scritto dell'utente (upload kernel, freeze, pi_soak --minutes 1 con e senza --reboot, ripristino): da ora nessun'altra prova sul Pi · 2026-10-16T18:32+02:00
 DELIVERED R-NET8a @ claude/pi-soak@a03dfac6 · verifica: python3 -m py_compile tools/pi_soak.py tests/net/check_pi_soak.py -> nessuna uscita; python3 tests/net/check_pi_soak.py (WSL) -> 16 controlli ok, 'pi_soak: all passed', EXIT=0, 0 cartelle /tmp/pisoak-* rimaste · sensibilita': con '<' -> '<=' nel verdetto cade il caso 8; senza il controllo di 'previous run' cade il caso 4 (file originale ripristinato, test di nuovo all passed) · 2 file nuovi, +343 -0 (la riga di ledger scritta da sync_hdr --close dice +0 -0: errore mio nei parametri, il diff vero e' +343) · non verificato: il formato del testo di un 'play' riuscito (solo i tre rifiuti noti sono riconosciuti); P1 aperto per SPV: 'keys monitor' sul Pi reale puo' rispondere 'back to the menu first' (bm_net.py keys_blocked), lo script allora esce 1 con 'cannot end the game from the PC' (caso 9); nessuna corsa sul Pi · 8b (documenti) non iniziata: parte dopo REVIEW: APPROVED di R-NET6 e AGY-12 · 2026-10-16T17:14+02:00
