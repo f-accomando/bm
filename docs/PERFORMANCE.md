@@ -91,6 +91,22 @@ At-a-glance report: hardware constraints, technical choices made (and discarded)
 | Early frustum bounding-sphere culling (M33) | Transform all vertices | Bounding sphere tested against 4 screen edges + near plane | Chaos Kitchen: hundreds of `draw3d` calls/frame |
 | **DMA z-clear** at end of frame (M33) | `memset` in `zclear()` | DMA clears buffer while next frame's `_update` runs | ~1 ms at 640×360 saved; disable via `dma_zclear=0` |
 
+### 4.1 3D budget: Pi Zero W and RGB30
+
+What a 3D game may ask of each device per frame, at the resolution and frame rate the project declares. Decided on 2026-10-17: the Pi at 640×360 and 60 fps; the RGB30 at 360×360 and 30 fps until it is measured. *(M)* is measured on the device; `to measure` is a number nobody has taken yet, not an estimate.
+
+| | Pi Zero W (`.bm`) | RGB30 (`.b16`) |
+|---|---|---|
+| Target resolution | 640×360 | 360×360 |
+| Target frame rate (frame time) | 60 fps (16.7 ms) | 30 fps (33.3 ms) until measured |
+| Optional resolution tests | 1280×720 and 1920×1080 (the scaler fills the screen, section 1); not measured | 720×720; not measured |
+| Triangles per frame at the target | 7,142 flat on the V3D GPU *(M)*; 2,679 on the ARM *(M)* | to measure (tests H1 and H6) |
+| Fill rate | 811 Mpixel/s on the V3D GPU *(M)* | to measure (tests H1 and H6) |
+| Draw calls per frame | not measured: the `draws` test of [`docs/BENCH3D.md`](BENCH3D.md) gives the cost of a call | to measure (tests H1 and H6) |
+| Reference scene | Texture Room HD at 640×360: 60 fps, 5.8 ms a frame *(M)* | to measure (tests H1 and H6) |
+
+The Pi numbers are the ones of sections 1, 4, 5.1 and 6 (flat spheres, M33); a game with Gouraud or textured faces gets fewer triangles (section 5). H1 is the batch of four triangles of the Mali driver on the RGB30 (`mali: a batch of 4 triangles ...` in *Dev > GPU test*); H6 is the RGB30's own 3D measurement. When they give numbers, replace the `to measure` cells and, if the RGB30 holds more than 30 fps, the frame rate row.
+
 ---
 
 ## 5. Cost Per Pixel: Flat, Gouraud, Textures
