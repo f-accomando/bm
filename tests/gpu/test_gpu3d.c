@@ -463,6 +463,21 @@ static void s_vshader_skin(r3d_t *r, g16_t *g, int gpu)
     hero_m = &hero;
 }
 
+/* a quad of a "lit" model (baked light at corners, fs_tex_rgb) through the vertex shader */
+static void s_vshader_tex(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 0.5f, -5, 0, -0.1f, 60);
+    r3d_fog(r, 0xC0A080, 3, 10);
+    r3d_lamp_rgb(r, 0, 1.2f, 0.3f, 0.5f, 2.5f, 0.8f, 0xFF8040);
+    gpu3d_set_vshader(gpu != 0);
+    r3d_draw_flags(r, &lit_quad, (v3_t){ -1.0f, 0, 1 }, 0.4f, 0.7f, 0, 1.2f, 0);
+    r3d_draw_flags(r, &lit_quad, (v3_t){ 1.2f, 0.3f, 2 }, -0.3f, 0.5f, 0.2f, 1.0f, 0);
+    flush(r, g, gpu);
+    gpu3d_set_vshader(0);
+    r3d_lamp(r, 0, 0, 0, 0, 0, 0);
+    r3d_fog(r, 0, 0, 0);
+}
+
 static void s_spheres(r3d_t *r, g16_t *g, int gpu)
 {
     r3d_camera(r, 0, 0, -6, 0, 0, 60);
@@ -1271,10 +1286,11 @@ int main(int argc, char **argv)
      * and flat, their shadows) */
     {
         uint16_t *q[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
-        static const scene_fn fns[3] = { s_vshader, s_vshader_lit, s_vshader_heroes };
+        static const scene_fn fns[6] = { s_vshader, s_vshader_lit, s_vshader_heroes,
+                                         s_vshader_tex, s_vshader_heroes_tex, s_vshader_skin };
         int differ = 0, off = 0;
         uint32_t words[2] = { 0, 0 };
-        for (int f = 0; f < 3; f++)
+        for (int f = 0; f < 6; f++)
             for (int k = 0; k < 2; k++) {
                 g16_t g;
                 r3d_t r;

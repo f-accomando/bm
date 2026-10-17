@@ -19,7 +19,7 @@
 #define JOB_RCL      (128u << 10)   /* up to 44 bytes a tile: 2040 tiles (1080p with MSAA) */
 #define JOB_RECS     (64u << 10)    /* shader records: NV 16 bytes, GL 64 */
 #define JOB_UNIF     (256u << 10)   /* uniforms of the vertex shaders (a hero: one block a bone) */
-#define JOB_CODE     (40u << 10)    /* the shaders: 1 KiB each, 2 KiB for a vertex shader */
+#define JOB_CODE     (48u << 10)    /* the shaders: 1 KiB each, 2 KiB for a vertex shader */
 #define JOB_VERTS    (4u << 20)
 #define PROBE_W      64
 #define PROBE_H      64
@@ -59,18 +59,20 @@ enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA,
        SH_TEX_ALPHA_T, SH_TEX_SCREEN_T, SH_TEX_RGB_ALPHA_T, SH_TEX_RGB_SCREEN_T, SH_COUNT };
 #define DEPTH_ZCLEAR 3                  /* after R3D_DEPTH_*: always passes, writes (fs_zclear) */
 /* the vertex shaders of meshes (M36); GV_LIT_TEX2: faces on two bones (a
- * skin); GV_BAKED8, GV_LIT8: GV_BAKED, GV_LIT with compact attributes (M39,
- * gpu3d_attr: bytes packed in words, unpacked by the shader) */
-enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_BAKED8, GV_LIT8, GV_COUNT };
+ * skin); GV_BAKED8, GV_LIT8, GV_TEX_RGB8, GV_LIT_TEX8, GV_LIT_TEX28: compact attributes
+ * (M39, gpu3d_attr: bytes/halves packed in words, unpacked by the shader) */
+enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_BAKED8, GV_LIT8,
+       GV_TEX_RGB8, GV_LIT_TEX8, GV_LIT_TEX28, GV_COUNT };
 #define CODE_CS SH_COUNT                /* the coordinate shader's kilobyte of G.code */
 #define CODE_VS (CODE_CS + 1)           /* and the vertex shaders' (two each) */
 #define CODE_SHADOW (CODE_VS + 2 * GV_COUNT)    /* the shadows' vertex shader (2), coordinate shader (1) */
 #define CODE_CS2 (CODE_SHADOW + 3)      /* on two bones: the coordinate shader, the shadow's two */
 #define CODE_SHADOW2 (CODE_CS2 + 1)
-#define TWO_BONES(vs) ((vs) == GV_LIT_TEX2)
+#define TWO_BONES(vs) ((vs) == GV_LIT_TEX2 || (vs) == GV_LIT_TEX28)
 _Static_assert(sizeof vs_baked <= 2048 && sizeof vs_tex_rgb <= 2048 && sizeof vs_lit <= 2048 &&
                sizeof vs_lit_tex <= 2048 && sizeof vs_lit_tex2 <= 2048 && sizeof vs_shadow <= 2048 &&
                sizeof vs_baked8 <= 2048 && sizeof vs_lit8 <= 2048 &&
+               sizeof vs_tex_rgb8 <= 2048 && sizeof vs_lit_tex8 <= 2048 && sizeof vs_lit_tex28 <= 2048 &&
                sizeof cs_colour <= 1024 && sizeof cs_shadow <= 1024 && sizeof cs_colour2 <= 1024 &&
                sizeof vs_shadow2 <= 1024 && sizeof cs_shadow2 <= 1024 &&
                CODE_SHADOW2 + 2 <= JOB_CODE / 1024, "shader code slots");
@@ -1198,7 +1200,53 @@ static const struct { const uint32_t *code; size_t size; uint8_t words, kb; } vs
     { vs_lit_tex2, sizeof vs_lit_tex2, 11, CODE_VS + 8 },   /* w, normal, s t, emissive, normal's w */
     { vs_baked8, sizeof vs_baked8, 5, CODE_VS + 10 },   /* colour bytes, light bytes */
     { vs_lit8, sizeof vs_lit8, 10, CODE_VS + 12 },      /* normal, colour bytes and flags, lamp point */
+    { vs_tex_rgb8, sizeof vs_tex_rgb8, 6, CODE_VS + 14 },
+    { vs_lit_tex8, sizeof vs_lit_tex8, 11, CODE_VS + 16 },
+    { vs_lit_tex28, sizeof vs_lit_tex28, 10, CODE_VS + 18 },
 };
+
+/* M39: compact attributes: uv as halves (float16) on sheets up to 512x512;
+ * with 10 mantissa bits the error on 0..1 is <= 2^-11, which is <= 0.25 texels */
+#define ATTR_UV16_MAX 512
+
+/* convert a float to IEEE 754 binary16 (half-float) with round-to-nearest-even */
+static inline uint16_t float_to_half(float f)
+{
+    union { float f; uint32_t u; } x = { f };
+    uint32_t u = x.u;
+    uint32_t sign = (u >> 16) & 0x8000;
+    if ((u & 0x7fffffff) == 0)
+        return (uint16_t)sign;
+    int exp = (int)((u >> 23) & 0xff) - 127;
+    uint32_t mant = u & 0x007fffff;
+    if (exp > 15)
+        return (uint16_t)(sign | 0x7bff);
+    if (exp < -24)
+        return (uint16_t)sign;
+    if (exp < -14) {
+        mant |= 0x00800000;
+        int shift = -14 - exp;
+        mant += (1 << (shift + 12)) - 1 + ((mant >> (shift + 13)) & 1);
+        return (uint16_t)(sign | (mant >> (shift + 13)));
+    }
+    uint32_t hexp = (uint32_t)(exp + 15) << 10;
+    mant += 0x0fff + ((mant >> 13) & 1);
+    if (mant & 0x00800000) {
+        mant = 0;
+        hexp += 1 << 10;
+        if (hexp >= (31 << 10))
+            return (uint16_t)(sign | 0x7bff);
+    }
+    return (uint16_t)(sign | hexp | (mant >> 13));
+}
+
+/* pack two floats into two float16 (s in the low half, t in the high),
+ * rounded to nearest-even for finite values; with 10 mantissa bits the
+ * error on 0..1 is at most 2^-11 (~0.00049, <= 0.25 texel on a 512 sheet) */
+static uint32_t f2h2(float s, float t)
+{
+    return (uint32_t)float_to_half(s) | ((uint32_t)float_to_half(t) << 16);
+}
 
 /* M39: the compact attributes in force (asked for, and the probe saw them) */
 static int attr_now(void) { return G.attr_on && G.attr_ok; }
@@ -1256,7 +1304,7 @@ static void put_mesh_corner(float *o, const r3d_mesh_t *m, int f, int k, int vs,
         memcpy(&o[3], w, 8);
         return;
     }
-    if (vs == GV_LIT_TEX2) {
+    if (vs == GV_LIT_TEX2 || vs == GV_LIT_TEX28) {
         /* a corner of a skin: its weight (1 on the group's first bone, 0 on
          * the other), as GV_LIT_TEX without the lamps' point (the corner);
          * a flat face's normal turns with its first corner's bone, as r3d */
@@ -1265,18 +1313,40 @@ static void put_mesh_corner(float *o, const r3d_mesh_t *m, int f, int k, int vs,
         const v3_t n = sm ? m->vnormals[vi] : m->normals[f];
         o[3] = m->vbone[vi] == bone ? 1.0f : 0.0f;
         o[4] = n.x; o[5] = n.y; o[6] = n.z;
+        if (vs == GV_LIT_TEX28) {
+            const uint32_t uv = f2h2(m->uv[f * 6 + k * 2] * t->inv_w, m->uv[f * 6 + k * 2 + 1] * t->inv_h);
+            memcpy(&o[7], &uv, 4);
+            o[8] = (float)((c & R3D_EMISSIVE) != 0);
+            o[9] = sm ? o[3] : m->vbone[m->faces[f * 3]] == bone ? 1.0f : 0.0f;
+            return;
+        }
         o[7] = m->uv[f * 6 + k * 2] * t->inv_w;
         o[8] = m->uv[f * 6 + k * 2 + 1] * t->inv_h;
         o[9] = (float)((c & R3D_EMISSIVE) != 0);
         o[10] = sm ? o[3] : m->vbone[m->faces[f * 3]] == bone ? 1.0f : 0.0f;
         return;
     }
-    if (vs == GV_LIT_TEX) {
+    if (vs == GV_LIT_TEX || vs == GV_LIT_TEX8) {
         /* a textured face lit by the sun: as GV_LIT, s t in place of the colour, no gloss */
         const uint32_t c = m->colors[f];
         const int sm = smooth && !(c & R3D_FLAT);
         const v3_t n = sm ? m->vnormals[vi] : m->normals[f];
         o[3] = n.x; o[4] = n.y; o[5] = n.z;
+        if (vs == GV_LIT_TEX8) {
+            const uint32_t uv = f2h2(m->uv[f * 6 + k * 2] * t->inv_w, m->uv[f * 6 + k * 2 + 1] * t->inv_h);
+            memcpy(&o[6], &uv, 4);
+            o[7] = (float)((c & R3D_EMISSIVE) != 0);
+            if (sm) {
+                o[8] = v.x; o[9] = v.y; o[10] = v.z;
+            } else {
+                const uint16_t *fc = m->faces + f * 3;
+                const v3_t a = m->verts[fc[0]], b = m->verts[fc[1]], d = m->verts[fc[2]];
+                o[8] = (a.x + b.x + d.x) * (1.0f / 3.0f);
+                o[9] = (a.y + b.y + d.y) * (1.0f / 3.0f);
+                o[10] = (a.z + b.z + d.z) * (1.0f / 3.0f);
+            }
+            return;
+        }
         o[6] = m->uv[f * 6 + k * 2] * t->inv_w;
         o[7] = m->uv[f * 6 + k * 2 + 1] * t->inv_h;
         o[8] = (float)((c & R3D_EMISSIVE) != 0);
@@ -1313,6 +1383,13 @@ static void put_mesh_corner(float *o, const r3d_mesh_t *m, int f, int k, int vs,
         return;
     }
     const uint8_t *bl = m->clight ? m->clight + f * 9 + k * 3 : NULL;
+    if (vs == GV_TEX_RGB8) {
+        o[3] = m->uv[f * 6 + k * 2] * t->inv_w;
+        o[4] = m->uv[f * 6 + k * 2 + 1] * t->inv_h;
+        const uint32_t w = bl && !emissive ? pack_abc(bl[0], bl[1], bl[2], 0) : pack_abc(128, 128, 128, 0);
+        memcpy(&o[5], &w, 4);
+        return;
+    }
     float l[3] = { 1, 1, 1 };
     if (bl && !emissive) {
         l[G.ia] = bl[0] * (1.0f / 128);         /* red where the probe found it */
@@ -1519,8 +1596,16 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
             vs = GV_BAKED;
             fs = (c & R3D_SCREEN) ? SH_SCREEN : SH_COLOUR;
         }
-        if (e->attr)                    /* M39: the same faces, fewer bytes a corner */
-            vs = vs == GV_BAKED ? GV_BAKED8 : vs == GV_LIT ? GV_LIT8 : vs;
+        if (e->attr) {                  /* M39: the same faces, fewer bytes a corner */
+            if (vs == GV_BAKED)
+                vs = GV_BAKED8;
+            else if (vs == GV_LIT)
+                vs = GV_LIT8;
+            else if (vs == GV_TEX_RGB)
+                vs = GV_TEX_RGB8;
+            else if ((vs == GV_LIT_TEX || vs == GV_LIT_TEX2) && t && t->w <= ATTR_UV16_MAX && t->h <= ATTR_UV16_MAX)
+                vs = vs == GV_LIT_TEX ? GV_LIT_TEX8 : GV_LIT_TEX28;
+        }
         /* the emissive faces of a "lit" model: emissive at their corners */
         const uint32_t k = group_key(bone, bone2, vs, fs, lit || (!emissive && !unlit), lods);
         int i = 0;
@@ -1728,7 +1813,10 @@ static void bone_axes(float *o, const float N[9], const float *v)
  * of vs_lit, vs_baked8 those of vs_baked */
 static int unif_kind(int vs)
 {
-    return vs == GV_LIT_TEX || vs == GV_LIT8 ? GV_LIT : vs == GV_BAKED8 ? GV_BAKED : vs;
+    return vs == GV_TEX_RGB8 ? GV_TEX_RGB :
+           vs == GV_LIT_TEX || vs == GV_LIT8 || vs == GV_LIT_TEX8 ? GV_LIT :
+           vs == GV_BAKED8 ? GV_BAKED :
+           vs == GV_LIT_TEX28 ? GV_LIT_TEX2 : vs;
 }
 
 /* the uniforms of a group on two bones (vs_lit_tex2, cs_colour2): the two
@@ -1960,7 +2048,7 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
     r[0] = (uint8_t)((clipping ? 4 : 0) | fs_flags(fs_code(fs)));
     r[3] = shaders[fs].varyings;
     a = v3d_bus(G.code + 1024 * fs_code(fs)); memcpy(r + 4, &a, 4);
-    a = gr->vs == GV_TEX_RGB || gr->vs == GV_LIT_TEX || two ? v3d_bus(e->tex->params) : 0; memcpy(r + 8, &a, 4);
+    a = gr->vs == GV_TEX_RGB || gr->vs == GV_TEX_RGB8 || gr->vs == GV_LIT_TEX || gr->vs == GV_LIT_TEX8 || two ? v3d_bus(e->tex->params) : 0; memcpy(r + 8, &a, 4);
     /* the first attribute: x y z (and w on two bones), the coordinate
      * shader's too */
     const uint32_t head = two ? 16 : 12;

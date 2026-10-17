@@ -1472,6 +1472,76 @@ SHADERS["vs_lit_tex2"] = """
         nop                 ; nop
 """
 
+# M39 (gpu3d_attr): vs_tex_rgb with compact attributes, x y z, s t and
+# the light in bytes (6 words instead of 8: bytes a b c, 128 = 1, unpacked
+# as integers, then / 128 as the ARM's). The rest is vs_tex_rgb's.
+SHADERS["vs_tex_rgb8"] = """
+        ldi vr_setup, 0x601a00                          # 6 rows
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra3, vpm        ; nop                       # s
+        mov ra4, vpm        ; nop                       # t
+        mov ra14, vpm       ; nop                       # light: bytes a b c
+        nop                 ; nop
+        mov r0, ra14.8a     ; nop                       # light a, 0..255
+        mov r1, ra14.8b     ; nop
+        mov r2, ra14.8c     ; nop
+        itof r0, r0         ; nop
+        itof r1, r1         ; fmul ra5, r0, 0.0078125   # / 128
+        itof r2, r2         ; fmul rb3, r1, 0.0078125
+        nop                 ; fmul rb4, r2, 0.0078125
+""" + SHADERS["vs_tex_rgb"][SHADERS["vs_tex_rgb"].index(XFORM):]
+
+# M39 (gpu3d_attr): vs_lit_tex with compact attributes, 11 words instead of
+# 12: x y z, the normal, s and t in one word (halves: s 16a, t 16b), emissive,
+# the point of the lamps. The rest is vs_lit_tex's.
+SHADERS["vs_lit_tex8"] = """
+        ldi vr_setup, 0xb01a00                          # 11 rows
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra3, vpm        ; nop                       # the normal
+        mov ra4, vpm        ; nop
+        mov rb0, vpm        ; nop
+        mov ra7, vpm        ; nop                       # s and t as halves
+        mov ra8, vpm        ; nop                       # emissive
+        mov ra20, vpm       ; nop                       # the point of the lamps
+        mov ra21, vpm       ; nop
+        mov ra22, vpm       ; nop
+        nop                 ; fmul rb1, ra7.16a, 1.0    # s
+        nop                 ; fmul ra17, ra7.16b, 1.0   # t
+""" + SHADERS["vs_lit_tex"][SHADERS["vs_lit_tex"].index(XFORM):]
+
+# M39 (gpu3d_attr): vs_lit_tex2 with compact attributes, 10 words instead of
+# 11: x y z w, the normal, s and t in one word (halves: s 16a, t 16b), emissive,
+# the normal's weight. The rest is vs_lit_tex2's.
+SHADERS["vs_lit_tex28"] = """
+        ldi vr_setup, 0xa01a00                          # 10 rows
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra25, vpm       ; nop                       # w: 1 bone A, 0 bone B
+        mov ra3, vpm        ; nop                       # the normal
+        mov ra4, vpm        ; nop
+        mov rb0, vpm        ; nop
+        mov ra7, vpm        ; nop                       # s and t as halves
+        mov ra8, vpm        ; nop                       # emissive
+        mov rb25, vpm       ; nop                       # the normal's weight
+        nop                 ; fmul rb1, ra7.16a, 1.0    # s
+        nop                 ; fmul ra17, ra7.16b, 1.0   # t
+""" + SHADERS["vs_lit_tex2"][SHADERS["vs_lit_tex2"].index(XFORM2):]
+
+
 # Shadows (M36): the corner (ra0 ra1 ra2) into world axes relative to the
 # camera by its bone (12 uniforms), then down along the sun to the ground's
 # plane, as r3d's draw_shadow: h = max(0, (y - plane) / Ly), x - Lx h,

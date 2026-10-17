@@ -22,7 +22,9 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   in `r3d.c`; `gpu3d()` 5th; skinned meshes by their pose box). Host test: `make test-impostor`.
 - `gpu3d_attr=1` (bm3d 7.1, off; Settings *3D corners*, 3D Bench GPU+VS+A8): compact
   attributes for `GV_BAKED` (5 words a corner, was 9: `vs_baked8`) and `GV_LIT` (10, was 14:
-  `vs_lit8`). ARM side `put_mesh_corner` / `pack_abc`; shader side the regfile A unpack
+  `vs_lit8`); textured faces too: `vs_tex_rgb8` 6 words (was 8), `vs_lit_tex8` 11 (12),
+  `vs_lit_tex28` 10 (11), uv as halves on sheets up to 512; `JOB_CODE` 48 KiB.
+  ARM side `put_mesh_corner` / `pack_abc`; shader side the regfile A unpack
   (`UNPACK_A` in `tools/qpuasm.py`, emulated in `tests/gpu/v3d_emu.c`); `probe_attr` keeps it
   only if the pixels match the floats (a step of RGB565 allowed). `make test-gpu3d`: same
   pixels, 28% fewer attribute words. Pi (probe `compact attributes yes`, 3D Bench GPU+VS+A8
@@ -89,8 +91,7 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
    gain). If nothing moves, the options stay off and M39 closes here; if it does: ETC1 in the
    cartridge (encoded at build time, so no encoding at load), mipmaps; RGBA4444 only if
    sheets get soft alpha. Attributes:
-   `vs_tex_rgb` light as bytes (8 -> 6 words), `vs_lit_tex`/`vs_lit_tex2` flags
-   and uv as halves (`.16a/.16b`), normals as bytes, then 16-bit positions (scaled per mesh,
+   flags as halves, normals as bytes, then 16-bit positions (scaled per mesh,
    a separate x y z stream for the coordinate shader).
 5. **QPU come coprocessore: programmi sulle QPU (M44)**:
    Le 12 QPU eseguono operazioni SIMD su 16 float alla volta: calcoli paralleli su grandi masse di dati, quando il 3D non le satura (giochi 2D, menu) o riservando parte delle QPU nei giochi 3D.
