@@ -442,7 +442,7 @@ static void test_frame_image(void)
     static const float t1[6][3] = { { 8, 8, 0.5f }, { 50, 8, 0.5f }, { 8, 50, 0.5f },
                                     { 10, 10, 0.75f }, { 20, 10, 0.75f }, { 10, 20, 0.75f } };
     static const float t2[3][3] = { { 30, 30, 0.125f }, { 60, 30, 0.125f }, { 30, 60, 0.125f } };
-    const mali_draw_t d[3] = { { t0, 1, 0xff0000 }, { t1, 2, 0x00ff00 }, { t2, 1, 0x0000ff } };
+    const mali_draw_t d[3] = { { t0, 1, 0xff0000, NULL }, { t1, 2, 0x00ff00, NULL }, { t2, 1, 0x0000ff, NULL } };
     const float *flat[12] = { t0[0], t0[1], t0[2], t1[0], t1[1], t1[2], t1[3], t1[4], t1[5], t2[0], t2[1], t2[2] };
 
     printf("mali: mali_frame, the memory image of three draws\n");
@@ -483,8 +483,8 @@ static void test_frame_image(void)
     CHECK(bad == 0, "frame: %d job-chain fields wrong (index, dependency, next)", bad);
 
     printf("mali: mali_frame refuses\n");
-    const mali_draw_t none = { t0, 0, 0 };
-    mali_draw_t big[2] = { { t0, 1000, 0 }, { t0, 25, 0 } };       /* 1025 triangles (the vertices are not read: refused first) */
+    const mali_draw_t none = { t0, 0, 0, NULL };
+    mali_draw_t big[2] = { { t0, 1000, 0, NULL }, { t0, 25, 0, NULL } };       /* 1025 triangles (the vertices are not read: refused first) */
     CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, d, 0) == -1, "frame: 0 draws refused");
     CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, &none, 1) == -1, "frame: a draw of 0 refused");
     CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 60, 64, 0, d, 3) == -1, "frame: w = 60 refused");
@@ -509,7 +509,7 @@ static void test_matrix_image(void)
     static const float t1[3][3] = { { 8, 8, 0.5f }, { 50, 8, 0.5f }, { 8, 50, 0.5f } };
     static const float m[16] = { 2, 0, 0, 10, 0, 3, 0, 20, 0, 0, 1, 0, 0, 0, 0, 1 };
     const mali_draw_t both[2] = { { t0, 1, 0xff0000, m }, { t1, 1, 0x00ff00, NULL } };
-    const mali_draw_t plain[2] = { { t0, 1, 0xff0000 }, { t1, 1, 0x00ff00 } };
+    const mali_draw_t plain[2] = { { t0, 1, 0xff0000, NULL }, { t1, 1, 0x00ff00, NULL } };
 
     printf("mali: mali_frame, a draw with a matrix\n");
     memset(&S, 0, sizeof S);
@@ -571,7 +571,7 @@ static void test_matrix_image(void)
 static void test_async(void)
 {
     static const float t0[3][3] = { { 4, 4, 0.25f }, { 40, 4, 0.25f }, { 4, 40, 0.25f } };
-    const mali_draw_t d = { t0, 1, 0xff0000 };
+    const mali_draw_t d = { t0, 1, 0xff0000, NULL };
     mali_info_t in;
     uint8_t *s0 = NULL, *s1 = NULL, *s2 = NULL;
     uint32_t p0 = 0, p1 = 0, p2 = 0;
