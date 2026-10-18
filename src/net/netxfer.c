@@ -13,11 +13,17 @@
  * (the menu and its box go on while it is written; the PC has its answer
  * after the write); anywhere else (a game, the monitor) it is written at
  * once, the network polled meanwhile, as before: the restart follows.
+ *
+ * T (R-NET2): a screenshot of the game running (bm_shot_ask), the answer is
+ * OK + the name of the PNG in bm/shots, or NG (no frame in 3 s). G gets a
+ * file of bm/shots (OK, length, crc, the data): both with size 0, crc 0.
  */
 #include "netxfer.h"
 #include "netcon.h"
 #include "net.h"
 #include "kernel/config.h"
+#include "kernel/reports.h"
+#include "bm/runtime.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "drivers/watchdog.h"
@@ -40,7 +46,7 @@
 #define CONFIG_REPLY (8u << 10)         /* the settings after it: under TCP_SND_BUF */
 
 static struct tcp_pcb *listener, *peer;
-static enum { IDLE, HEADER, DATA, DONE, WRITING, REPLIED } st;
+static enum { IDLE, HEADER, DATA, DONE, WRITING, REPLIED, SHOT, GETFILE, SENDING } st;
 static uint8_t hdr[4 + 1 + 1 + 64 + 1 + 64 + 8];
 static unsigned hdr_len, need;
 static char op, path[65];
@@ -54,6 +60,9 @@ static int said;                        /* the tenth of a kernel, or the second,
 static uint8_t *play_buf;
 static size_t play_len;
 static unsigned saves;
+static uint32_t shot_t0;                /* T: when it was asked (timer_ticks) */
+static uint32_t sent, sent_at;          /* G: the bytes given to TCP, and when last */
+#define SHOT_WAIT_US 3000000u
 
 /* S: the file received and checked, waiting to be written (one at a time:
  * the memory is the temporary copy, the card is written once) */
@@ -136,7 +145,8 @@ static int parse_header(void)
     unsigned n = 6;
     if (hdr_len < n)
         return 1;
-    if (memcmp(hdr, "BMXF", 4) != 0 || (hdr[4] != 'S' && hdr[4] != 'P' && hdr[4] != 'K' && hdr[4] != 'C'))
+    if (memcmp(hdr, "BMXF", 4) != 0 || (hdr[4] != 'S' && hdr[4] != 'P' && hdr[4] != 'K' && hdr[4] != 'C' &&
+                           hdr[4] != 'T' && hdr[4] != 'G'))
         return -1;
     unsigned pl = hdr[5];
     n += pl + 1;
@@ -158,6 +168,18 @@ static int parse_header(void)
     crc = le32(hdr + n - 4);
     need = n;
     return 0;
+}
+
+/* G: a file of bm/shots (one level, no ".."), or one of the three logs the PC reads after a crash
+ * (exact names). The kernel masks the secrets when it writes them (sdlog.c), and G masks them again
+ * when it reads a log (reports_mask_secrets): a log written by an older kernel has the password in clear. */
+static int get_allowed(const char *p)
+{
+    static const char *const logs[] = { "bm/BOOTPREV.TXT", "bm/BOOTLOG.TXT", "bm/LASTRUN.TXT" };
+    for (unsigned i = 0; i < sizeof logs / sizeof logs[0]; i++)
+        if (strcasecmp(p, logs[i]) == 0)
+            return 1;
+    return strncasecmp(p, "bm/shots/", 9) == 0 && p[9] && !strchr(p + 9, '/') && !strstr(p, "..");
 }
 
 /* "carts/pong.bm" and "/CARTS/PONG.BM" are the same file */
@@ -203,6 +225,20 @@ static void feed(const uint8_t *p, unsigned len)
                     kprintf("\x1b[91mnet: transfer with a wrong password from %s\x1b[0m\n",
                             ipaddr_ntoa(&peer->remote_ip));
                 fail(r == -2 ? "PW" : "BH");
+                return;
+            }
+            if (op == 'T' || op == 'G') {
+                if (size || crc) {
+                    fail("BH");
+                    return;
+                }
+                if (op == 'T') {
+                    bm_shot_ask();
+                    shot_t0 = timer_ticks();
+                    st = SHOT;
+                } else {
+                    st = GETFILE;       /* read from netxfer_poll, outside lwIP */
+                }
                 return;
             }
             if (op == 'S')
@@ -445,6 +481,81 @@ void netxfer_poll(void)
             free(d);
         }
     }
+    if ((st == SHOT || st == GETFILE || st == SENDING) && !peer) {
+        if (st == SHOT)
+            bm_shot_cancel();
+        reset();                        /* the PC went away */
+    }
+    if (st == SHOT) {
+        char name[16];
+        const int r = bm_shot_done(name, sizeof name);
+        if (r == 1) {
+            reply_text("OK", name, (uint32_t)strlen(name));
+        } else if (r < 0 || timer_ticks() - shot_t0 > SHOT_WAIT_US) {
+            bm_shot_cancel();
+            reply("NG");                /* no game drew a frame, or the card refused it */
+        }
+        if (r != 0 || timer_ticks() - shot_t0 > SHOT_WAIT_US) {
+            st = REPLIED;
+            close_at = timer_ticks();
+        }
+    }
+    if (st == GETFILE) {
+        const char *p = path;
+        while (*p == '/')
+            p++;
+        fat_entry_t e;
+        char full[80];
+        size_t len = 0;
+        if (!get_allowed(p)) {
+            fail("PA");                 /* only the files of bm/shots (one level) and the three logs */
+        } else {
+            full[0] = '/';
+            strcpy(full + 1, p);               /* (a path is at most 64 characters) */
+            if (fat_find(full, &e) != 0 || e.is_dir) {
+                fail("NF");
+            } else if (e.size > MAX_SIZE) {
+                fail("SZ");
+            } else if (fat_load(&e, &buf, &len) != 0) {
+                buf = NULL;
+                fail("NF");
+            } else {
+                if (strncasecmp(p, "bm/shots/", 9) != 0)
+                    reports_mask_secrets((char *)buf, len);   /* a log: the passwords never leave the console */
+                size = (uint32_t)len;
+                crc = crc32(buf, size);
+                uint8_t h[10] = { 'O', 'K', (uint8_t)size, (uint8_t)(size >> 8), (uint8_t)(size >> 16),
+                                  (uint8_t)(size >> 24), (uint8_t)crc, (uint8_t)(crc >> 8),
+                                  (uint8_t)(crc >> 16), (uint8_t)(crc >> 24) };
+                tcp_write(peer, h, sizeof h, TCP_WRITE_FLAG_COPY);
+                tcp_output(peer);
+                sent = 0;
+                sent_at = timer_ticks();
+                st = SENDING;
+            }
+        }
+    }
+    if (st == SENDING) {                /* the file, in pieces of what TCP has room for */
+        u32_t room = tcp_sndbuf(peer);
+        uint32_t n = size - sent < room ? size - sent : room;
+        if (n > 0xFFFFu)
+            n = 0xFFFFu;
+        if (n && tcp_write(peer, buf + sent, (u16_t)n, TCP_WRITE_FLAG_COPY) == ERR_OK) {
+            sent += n;
+            sent_at = timer_ticks();
+            tcp_output(peer);
+        }
+        if (sent == size) {
+            free(buf);
+            buf = NULL;
+            st = REPLIED;
+            close_at = timer_ticks();
+        } else if (timer_ticks() - sent_at > 10000000u) {
+            kprintf("\x1b[91mnet: file transfer stalled, given up\x1b[0m\n");
+            drop_peer();
+            reset();
+        }
+    }
     if (st == DONE) {
         int waits = 0;                  /* a kernel left to the menu's fiber: no answer yet */
         if (crc32(buf, size) != crc) {
@@ -530,12 +641,7 @@ void netxfer_poll(void)
         if (!secs && st == IDLE) {
             kprintf("net: restarting with the new kernel...\n");
             timer_delay_ms(200);
-            wifi_leave();               /* the AP told: it does not hold the old association */
-            /* an intentional restart, as every other one (update.c, monitor.c):
-             * without it the next boot reported a freeze (2026-10-11) */
-            crumbs_clean_exit();
-            uart_flush();
-            watchdog_reboot();
+            crumbs_restart(0);
         }
     }
 }

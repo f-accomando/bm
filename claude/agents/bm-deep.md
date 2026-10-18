@@ -1,6 +1,6 @@
 ---
 name: bm-deep
-description: Reserved exclusively for a single circumscribed and hard problem (bug with certain reproduction, race condition, unknown cause after other agents failed, single critical architectural decision). Does NOT implement whole features. Invoked only with a declared necessity of 4-5 out of 5 (CLAUDE.md §3, "Necessity of the expensive model"); autonomously with threshold 4.
+description: Reserved exclusively for a single circumscribed and hard problem (bug with certain reproduction, race condition, unknown cause after other agents failed, single critical architectural decision). Does NOT implement whole features. Invoked only with a declared necessity of 4-5 out of 5 (CLAUDE.md, Glossary: Necessity); autonomously with threshold 4.
 model: claude-opus-5-5
 effort: xhigh
 tools: Read, Edit, Write, Grep, Glob

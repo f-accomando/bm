@@ -451,10 +451,7 @@ void update_install(framebuffer_t *fb)
     }
     /* the access point told we leave: without it, it held the old
      * association and the first join after the restart could fail */
-    wifi_leave();
-    crumbs_clean_exit();
-    uart_flush();
-    watchdog_reboot();
+    crumbs_restart(0);
 }
 
 #ifndef BM_RGB30                        /* the RGB30 has no monitor */

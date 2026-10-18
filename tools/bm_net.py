@@ -18,6 +18,10 @@ Standard library only (Linux / macOS / WSL).
   bm_net.py IP --kernel build/rgb30/kernel8.img   the same on the RGB30 (kernel8.img)
   bm_net.py IP --config                 the console's bm/config.txt (secrets hidden)
   bm_net.py IP --config report_upload=0 game_intro=   a key set, one removed
+  bm_net.py IP --shot shot.png          a screenshot of the running game, saved as shot.png
+  bm_net.py IP --get bm/shots/PONG0007.PNG out.png   a file of bm/shots on the console
+  bm_net.py IP --keys Xa                the keys X then a pressed one by one (0.2 s apart), the
+                                        console's answer shown for 3 s (what the bridge's `keys NAME` sends)
   bm_net.py IP --line "gpu; b3d; send"  a monitor line run (from the menu or the
                                         monitor), its output shown until it is done
 
@@ -50,6 +54,9 @@ ANSWERS = {b"OK": "ok", b"PW": "wrong password", b"SZ": "file too big (or no mem
                   "replaced when it is closed)",
            b"BY": "busy: the console is still writing a file sent before (back to its menu, "
                   "wait for it, then send again)",
+           b"PA": "path not allowed (only files of bm/shots)",
+           b"NF": "no such file",
+           b"NG": "no screenshot: no game drew a frame (start a game first)",
            b"KV": "not key=value lines: nothing changed",
            b"KA": "not a kernel for this console (the Pi Zero 2 W takes build/kernel7.img, "
                   "the RGB30 build/rgb30/kernel8.img, the other boards build/kernel.img)"}
@@ -166,6 +173,66 @@ def recv_exact(sock, n, timeout):
     return data
 
 
+def refused(a):
+    """The message of a refusal; 2 if the kernel does not know T/G (too old)"""
+    if a == b"BH":
+        print("kernel too old (it does not know T/G)")
+        return 2
+    print("refused: " + ANSWERS.get(a, a or "no answer"))
+    return 1
+
+
+def fetch(args, path, password):
+    """Op G: (0, data) or (the exit code, None)"""
+    sock, a = open_request(args, b"G", path, b"", password)
+    if a != b"OK":
+        sock.close()
+        return refused(a), None
+    head = recv_exact(sock, 8, 10)
+    n, crc = struct.unpack("<II", head) if len(head) == 8 else (0, 0)
+    data = recv_exact(sock, n, 30) if len(head) == 8 else b""
+    sock.close()
+    if len(head) < 8 or len(data) != n:
+        print("incomplete answer from the console")
+        return 1, None
+    if zlib.crc32(data) & 0xFFFFFFFF != crc:
+        print("damaged in transit (crc)")
+        return 1, None
+    return 0, data
+
+
+def save(out, data):
+    try:
+        with open(out, "wb") as f:
+            f.write(data)
+    except OSError as e:
+        print(f"{out}: {e.strerror}")
+        return 1
+    print(f"{len(data)} bytes -> {out}")
+    return 0
+
+
+def get_file(args, path, out, password):
+    """--get: a file of bm/shots (or bm/BOOTPREV.TXT, BOOTLOG.TXT, LASTRUN.TXT) on the console, written to out"""
+    rc, data = fetch(args, path, password)
+    return rc if data is None else save(out, data)
+
+
+def shot(args, out, password):
+    """--shot: a screenshot of the running game (T), then its file (G)"""
+    sock, a = open_request(args, b"T", "", b"", password)
+    if a != b"OK":
+        sock.close()
+        return refused(a)
+    head = recv_exact(sock, 4, 10)
+    name = recv_exact(sock, struct.unpack("<I", head)[0], 10) if len(head) == 4 else b""
+    sock.close()
+    if not name:
+        print("incomplete answer from the console")
+        return 1
+    return get_file(args, "bm/shots/" + name.decode(errors="replace"), out, password)
+
+
 # a setting: the key letters, digits and _ (at most 23), the value one line
 # of at most 127 bytes ("key=" removes the key); as src/kernel/config.c
 KEY_VALUE = re.compile(r"([A-Za-z0-9_]{1,23})=([^\x00-\x1f\x7f]*)")
@@ -267,9 +334,13 @@ def logged_in(data):
     return any(m in data for m in (b"> ", b"password: ", b"bye")) or FOCUS.search(data) is not None
 
 
-def run_line(sock, line, answer):
-    """--line: ':' + the line sent; what the console prints shown until the
-    line is done (or the console goes away: reboot)"""
+KEYS_PAUSE = 0.2        # between two keys of --keys
+KEYS_READ = 3.0         # how long the answer to --keys is shown
+
+
+def keys_blocked(answer):
+    """--line and --keys need the menu or the monitor to have the keys: 2 (and
+    why) when the console says otherwise, else None"""
     m = FOCUS.search(answer)
     where = m.group(1).decode(errors="replace") if m else ""
     if where.startswith("the buttons"):
@@ -277,6 +348,40 @@ def run_line(sock, line, answer):
         return 2
     if where.startswith("the application") or where.startswith("a page"):
         print(f"\n[bm_net] the keys go to {where}: back to the menu first (Ctrl-Esc on the console)")
+        return 2
+    return None
+
+
+def run_keys(sock, seq, answer):
+    """--keys: the keys of SEQ one at a time, then what the console prints for a few seconds"""
+    if keys_blocked(answer):
+        return 2
+    for ch in seq:
+        sock.sendall(ch.encode())
+        time.sleep(KEYS_PAUSE)
+    end = time.time() + KEYS_READ
+    while time.time() < end:
+        sock.settimeout(max(end - time.time(), 0.01))
+        try:
+            data = sock.recv(4096)
+        except socket.timeout:
+            break
+        except OSError:
+            data = b""
+        if not data:
+            print("\n[bm_net] the console closed the connection")
+            break
+        sys.stdout.write(data.decode(errors="replace"))
+        sys.stdout.flush()
+    print()
+    return 0
+
+
+def run_line(sock, line, answer):
+    """--line: ':' + the line sent; what the console prints shown until the
+    line is done (or the console goes away: reboot)"""
+    m = FOCUS.search(answer)
+    if keys_blocked(answer):
         return 2
     if not m:
         print("\n[bm_net] this kernel does not say where the keys go: the line works from its "
@@ -312,11 +417,20 @@ def main():
     ap.add_argument("--line", metavar="LINE",
                     help="run a monitor line (commands separated by ';': gpu, b3d tests=... "
                          "profiles=..., set key=value, send...) and show its output")
+    ap.add_argument("--keys", metavar="SEQ", help="press the keys of SEQ (letters and digits, at most 8) one by one")
     ap.add_argument("--config", nargs="*", metavar="KEY=VALUE",
                     help="the console's bm/config.txt: shown (secrets hidden), KEY=VALUE sets a key, "
                          "KEY= removes it")
+    ap.add_argument("--shot", metavar="OUT",
+                    help="screenshot of the running game, written to OUT (a PNG)")
+    ap.add_argument("--get", nargs=2, metavar=("PATH", "OUT"),
+                    help="a file of bm/shots on the console (PATH, e.g. bm/shots/PONG0007.PNG) written to OUT")
     args = ap.parse_args()
 
+    if args.shot is not None:
+        return shot(args, args.shot, args.password or getpass.getpass("password: "))
+    if args.get is not None:
+        return get_file(args, args.get[0], args.get[1], args.password or getpass.getpass("password: "))
     if args.config is not None:
         return config(args, args.password or getpass.getpass("password: "))
 
@@ -338,6 +452,14 @@ def main():
     sys.stdout.flush()
     if b"ok - " not in answer:
         return 1
+    if args.keys is not None:
+        if not re.fullmatch(r"[A-Za-z0-9]{1,8}", args.keys):
+            print("--keys: letters and digits only, at most 8")
+            return 1
+        try:
+            return run_keys(sock, args.keys, answer)
+        finally:
+            sock.close()
     if args.line is not None:
         try:
             return run_line(sock, args.line, answer)

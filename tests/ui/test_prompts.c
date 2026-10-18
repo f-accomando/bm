@@ -33,6 +33,7 @@ static const char *const names[PROMPT_COUNT] = {
     "Ctrl", "Alt", "Del", "Home", "End", "PgUp", "PgDn",
     "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
     "RGB30 A", "RGB30 B", "RGB30 X", "RGB30 Y",
+    "mouse", "mouse left", "mouse right",
 };
 
 /* a raised button: transparent corners, a light face, a lip on the last rows */
@@ -70,13 +71,14 @@ static uint32_t chip_colour(int id)
 }
 
 /* a chip: its size, clear corners, its colour, something cut out of it */
-static void check_chip(const prompt_t *p, int small, uint32_t rgb, const char *name)
+/* minw: a key chip is at least as wide as high; the mouse is narrower (9 or 11 px) */
+static void check_chip(const prompt_t *p, int small, uint32_t rgb, const char *name, int minw)
 {
     int h = small ? PROMPT_SMALL_H : PROMPT_H;
     CHECK(p, "%s: no chip", name);
     if (!p)
         return;
-    CHECK(p->h == h && p->w >= h && p->w <= PROMPT_MAX_W, "%s: %dx%d", name, p->w, p->h);
+    CHECK(p->h == h && p->w >= (minw ? minw : h) && p->w <= PROMPT_MAX_W, "%s: %dx%d", name, p->w, p->h);
     CHECK((at(p, 0, 0) >> 24) < 128 && (at(p, p->w - 1, p->h - 1) >> 24) < 128, "%s: corners not clear", name);
     int fill = 0, cut = 0;
     for (int y = 0; y < p->h; y++)
@@ -116,6 +118,7 @@ static void check_rgb30(const prompt_t *p, int h, uint32_t rgb, const char *name
 }
 
 static int is_rgb30(int id) { return id >= PROMPT_RGB30_A && id <= PROMPT_RGB30_Y; }
+static int is_mouse(int id) { return id >= PROMPT_MOUSE && id <= PROMPT_MOUSE_R; }
 
 static void checks(void)
 {
@@ -133,7 +136,10 @@ static void checks(void)
           "prompt_rgb30: other prompts");
     for (int id = 0; id < PROMPT_COUNT; id++) {
         const prompt_t *p = prompt_get(id, 0);
-        if (!is_rgb30(id))
+        if (is_mouse(id)) {          /* narrower than a key (11 px), the same corners and a cut-out */
+            CHECK(p && p->w == 11 && p->h == PROMPT_H, "%s: %dx%d", names[id], p ? p->w : 0, p ? p->h : 0);
+            CHECK(p && (at(p, 0, 0) >> 24) < 128 && (at(p, p->w - 1, 0) >> 24) < 128, "%s: corners not clear", names[id]);
+        } else if (!is_rgb30(id))
             check_shape(p, names[id]);
         CHECK(prompt_get(id, 0) == p, "%s: made twice", names[id]);
         if (id > PROMPT_TRIANGLE)
@@ -192,13 +198,13 @@ static void checks(void)
             }
             check_chip(p, small, id == PROMPT_DPAD_UP || id == PROMPT_DPAD_DOWN || id == PROMPT_DPAD_LEFT ||
                        id == PROMPT_DPAD_RIGHT || id == PROMPT_DPAD_UPDOWN || id == PROMPT_DPAD_LEFTRIGHT
-                       ? 0x5A6380 : chip_colour(id), name);
+                       ? 0x5A6380 : chip_colour(id), name, is_mouse(id) ? 9 : 0);
             CHECK(prompt_chip(id, small) == p && p != prompt_get(id, 0), "%s: made twice", name);
         }
         for (int ch = 33; ch < 127; ch++) {
             snprintf(name, sizeof name, "chip key %c%s", ch, small ? " (12)" : "");
             const prompt_t *p = prompt_chip_key(ch, small);
-            check_chip(p, small, 0xFFC050, name);
+            check_chip(p, small, 0xFFC050, name, 0);
             CHECK(p && p->w == (small ? 12 : 16), "%s: width", name);
         }
         CHECK(prompt_chip_key('q', small) == prompt_chip_key('Q', small), "chip keys: lower case");
