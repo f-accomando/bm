@@ -33,7 +33,24 @@ static nir_variable *var(nir_builder *b, nir_variable_mode mode, const char *nam
     return v;
 }
 
-static void compile(const char *name, nir_shader *s, FILE *out, struct pan_shader_info *info_out)
+/* The vertices are in pixels: the viewport transform is the identity. nir_inline_sysval makes ONE component of the
+ * constant, so a vec3 scale read through .y / .z gets folded to 0 (the y and z of every position vanish); a vec3 constant
+ * does not. */
+static bool is_viewport_scale(const nir_instr *instr, const void *data)
+{
+    (void)data;
+    return instr->type == nir_instr_type_intrinsic &&
+           nir_instr_as_intrinsic(instr)->intrinsic == nir_intrinsic_load_viewport_scale;
+}
+
+static nir_def *unit_scale(nir_builder *b, nir_instr *instr, void *data)
+{
+    (void)instr;
+    (void)data;
+    return nir_imm_vec3(b, 1.0f, 1.0f, 1.0f);
+}
+
+static void compile(const char *name, nir_shader *s, FILE *out, struct pan_shader_info *info_out, int full_scale)
 {
     nir_validate_shader(s, "built");
     pan_preprocess_nir(s, GPU_ID);
@@ -57,7 +74,10 @@ static void compile(const char *name, nir_shader *s, FILE *out, struct pan_shade
     if (s->info.stage == MESA_SHADER_VERTEX) {
         NIR_PASS(_, s, nir_inline_sysval, nir_intrinsic_load_noperspective_varyings_pan, 0);
         /* the vertices are already in pixels: the shader's viewport transform is the identity */
-        NIR_PASS(_, s, nir_inline_sysval, nir_intrinsic_load_viewport_scale, 0x3f800000u);
+        if (full_scale)
+            NIR_PASS(_, s, nir_shader_lower_instructions, is_viewport_scale, unit_scale, NULL);
+        else
+            NIR_PASS(_, s, nir_inline_sysval, nir_intrinsic_load_viewport_scale, 0x3f800000u);
         NIR_PASS(_, s, nir_inline_sysval, nir_intrinsic_load_viewport_offset, 0);
         NIR_PASS(_, s, nir_opt_constant_folding);
         NIR_PASS(_, s, nir_opt_dce);
@@ -132,7 +152,24 @@ int main(int argc, char **argv)
         nir_variable *opos = var(&b, nir_var_shader_out, "gl_Position", VARYING_SLOT_POS, INTERP_MODE_NONE);
         nir_store_var(&b, opos, nir_load_var(&b, ipos), 0xf);
         nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
-        compile("BM_VS", b.shader, out, &vi);
+        compile("BM_VS", b.shader, out, &vi, 0);   /* (as committed: y and z of the position are lost, see README) */
+    }
+    {   /* vertex with the transform: gl_Position = M * pos, M a row-major 4x4 matrix in uniform buffer 0 (16 pushed words) */
+        nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_VERTEX, opt, "bm_vs3");
+        b.shader->info.first_ubo_is_default_ubo = true;
+        b.shader->info.num_ubos = 1;
+        nir_variable *ipos = var(&b, nir_var_shader_in, "pos", VERT_ATTRIB_GENERIC0, INTERP_MODE_NONE);
+        nir_variable *opos = var(&b, nir_var_shader_out, "gl_Position", VARYING_SLOT_POS, INTERP_MODE_NONE);
+        nir_def *p = nir_load_var(&b, ipos);
+        nir_def *r[4];
+        for (int i = 0; i < 4; i++) {
+            nir_def *row = nir_load_ubo(&b, 4, 32, nir_imm_int(&b, 0), nir_imm_int(&b, 16 * i), .align_mul = 16,
+                                        .align_offset = 0, .range_base = 0, .range = 64);
+            r[i] = nir_fdot4(&b, row, p);
+        }
+        nir_store_var(&b, opos, nir_vec4(&b, r[0], r[1], r[2], r[3]), 0xf);
+        nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
+        compile("BM_VS3", b.shader, out, &vi, 1);
     }
     {   /* fragment: colour 0 = the draw's colour, a vec4 at offset 0 of uniform buffer 0 (pushed) */
         nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT, opt, "bm_fs");
@@ -143,7 +180,7 @@ int main(int argc, char **argv)
                                   .align_offset = 0, .range_base = 0, .range = 16);
         nir_store_var(&b, ocol, c, 0xf);
         nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
-        compile("BM_FS", b.shader, out, &fi);
+        compile("BM_FS", b.shader, out, &fi, 0);
     }
     fclose(out);
     return 0;
