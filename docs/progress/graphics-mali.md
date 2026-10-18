@@ -23,11 +23,10 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
   tiler levels, not read from the GPU), the fragment's pixel kill/ZS update (Weak Early), the 1 MiB heap
   (`MEM_HEAP` at 1 MiB of the 4 MiB of GPU memory), no message preload.
 - State (written, none of it has run on a Mali; H1, the triangle, comes first, then H6, the 3D Bench of the RGB30):
-  - Phase 2 (W12, W13a-c, W14): `mali_frame` draws N draws of one colour into an XRGB surface; `mali_backend` (flat colours, sorted far to near,
-    resolved into the page by the key colour `0xFF00FF`, "not covered") sits behind `mali3d=1`; r3d hands textures and effects to the ARM
-    (`colour_only`); the 3D Bench has the GPU rows for the flat-colour scenes.
+  - Phase 2 (W12, W13a, W13b): `mali_frame` draws N draws of one colour into an XRGB surface; `mali_backend` (flat colours, sorted far to near,
+    resolved into the page by the key colour `0xFF00FF`, "not covered"); r3d hands textures and effects to the ARM (`colour_only`).
   - Phase 4 (W16): two buffer sets in the GPU memory (`MALI_SET_SIZE` 0x190000: a 368 x 368 surface with a 64-aligned pitch is 0x84400 bytes),
-    `mali_frame_submit` / `mali_frame_busy` / `mali_frame_wait`; the backend still draws synchronously.
+    `mali_frame_submit` / `mali_frame_busy` / `mali_frame_wait`; the backend draws synchronously.
   - Phase 3 (W15, `BM_VS3`, a 4x4 matrix pushed per draw) is not delivered: it waits for the Mesa/Bifrost build.
 - `origin/bm3d-mali-v1` (Grok) was not used: its additions do not compile (`mali_tri_batch_t`
   undeclared), the descriptors are invented (placeholder shaders, a made-up tiler job)
@@ -43,8 +42,8 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
    - Misura delle prestazioni di Overbit (combattimento bot e anello di eroi) a entrambe le risoluzioni su ARM, con generazione report.
 3. **Driver Mali a Fasi**:
    - *Fase 1*: Triangoli preparati dall'ARM e rasterizzati da GPU (triangolo nel *GPU test*).
-   - *Fase 2*: Backend `r3d` con batching e un colore per disegno (code written, not run).
+   - *Fase 2*: Backend `r3d` con batching e un colore per disegno (codice scritto, non eseguito).
    - *Fase 3*: Vertex shader per le trasformazioni geometriche su GPU.
-   - *Fase 4*: Coda di job asincrona con supporto multi-buffering (code written, not run).
+   - *Fase 4*: Coda di job asincrona con supporto multi-buffering (codice scritto, non eseguito).
 - **Criterio di completamento**: Sulla RGB30 Overbit `.b16` gira stabilmente a 360×360 e a 720×720, il benchmark produce il report prestazionale (prima con ARM, poi con Mali) e la tabella 3D Bench della RGB30 riporta i dati delle colonne GPU.
 
