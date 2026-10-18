@@ -223,6 +223,9 @@ static void test_free_count(void)
     CHECK(count_free() == f0);
 }
 
+size_t sdmap_core_save(char *out, size_t n);        /* sdmap_core.c: the cache text */
+int sdmap_core_load(const char *text, size_t len);
+
 static int has_file(const sdmap_t *r, const char *path, uint32_t bytes)
 {
     for (int i = 0; i < r->nfiles; i++)
@@ -262,6 +265,19 @@ static void test_sdmap(void)
     for (int i = 1; i < m->nfiles; i++)
         CHECK(m->files[i - 1].bytes >= m->files[i].bytes);
     CHECK(sdmap_core_permille() == 1000);
+
+    /* the cache text: saved, loaded back the same */
+    char text[8192];
+    size_t tn = sdmap_core_save(text, sizeof text);
+    CHECK(tn > 0);
+    sdmap_t was = *m;
+    sdmap_core_reset();
+    CHECK(sdmap_core_load(text, tn) == 1);
+    m = sdmap_core_result();
+    CHECK(m->total == was.total && m->bme == was.bme && m->bm == was.bm && m->ndirs == was.ndirs && m->nfiles == was.nfiles);
+    CHECK(m->nfiles > 0 && !strcmp(m->files[0].path, was.files[0].path));
+    CHECK(sdmap_core_load("sdmap 2\n", 8) == 0);
+    CHECK(sdmap_core_load("sdmap 1\nD x\n", 12) == 0);
 }
 
 int main(int argc, char **argv)

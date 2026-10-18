@@ -213,3 +213,136 @@ int sdmap_core_step(unsigned budget)
     }
     return 0;
 }
+
+/* ---- the cache text (bm/sdmap.txt): "sdmap 1", T, D, F lines ---- */
+
+typedef struct { char *p; size_t n, cap; int over; } out_t;
+
+static void put_s(out_t *o, const char *s)
+{
+    for (; *s; s++) {
+        if (o->n + 1 < o->cap)
+            o->p[o->n] = *s;
+        else
+            o->over = 1;
+        o->n++;
+    }
+}
+
+static void put_u(out_t *o, uint64_t v)
+{
+    char tmp[24];
+    int i = 0;
+    do
+        tmp[i++] = (char)('0' + v % 10);
+    while (v /= 10);
+    while (i)
+        {
+            char c[2] = { tmp[--i], 0 };
+            put_s(o, c);
+        }
+}
+
+size_t sdmap_core_save(char *out, size_t n)
+{
+    out_t o = { out, 0, n, 0 };
+    put_s(&o, "sdmap 1\n");
+    put_s(&o, "T "); put_u(&o, res.total);
+    put_s(&o, " "); put_u(&o, res.free);
+    put_s(&o, " "); put_u(&o, res.kernel);
+    put_s(&o, " "); put_u(&o, res.bm);
+    put_s(&o, " "); put_u(&o, res.bme);
+    put_s(&o, " "); put_u(&o, res.other);
+    put_s(&o, "\n");
+    for (int i = 0; i < res.ndirs; i++) {
+        put_s(&o, "D "); put_u(&o, res.dirs[i].files);
+        put_s(&o, " "); put_u(&o, res.dirs[i].kb);
+        put_s(&o, " "); put_s(&o, res.dirs[i].path);
+        put_s(&o, "\n");
+    }
+    for (int i = 0; i < res.nfiles; i++) {
+        put_s(&o, "F "); put_u(&o, res.files[i].bytes);
+        put_s(&o, " "); put_s(&o, res.files[i].path);
+        put_s(&o, "\n");
+    }
+    if (o.over || o.n >= n)
+        return 0;
+    out[o.n] = 0;
+    return o.n;
+}
+
+/* a decimal number at *s (then one space or the end of line): 1 ok */
+static int get_u(const char **s, const char *end, uint64_t *v)
+{
+    const char *p = *s;
+    if (p >= end || *p < '0' || *p > '9')
+        return 0;
+    uint64_t r = 0;
+    for (; p < end && *p >= '0' && *p <= '9'; p++)
+        r = r * 10 + (uint64_t)(*p - '0');
+    if (p < end && *p != ' ' && *p != '\n')
+        return 0;
+    *v = r;
+    *s = p < end && *p == ' ' ? p + 1 : p;
+    return 1;
+}
+
+int sdmap_core_load(const char *text, size_t len)
+{
+    sdmap_t tmp;
+    memset(&tmp, 0, sizeof tmp);
+    const char *p = text, *end = text + len;
+    int seen_t = 0, first = 1;
+    while (p < end) {
+        const char *eol = p;
+        while (eol < end && *eol != '\n')
+            eol++;
+        if (first) {
+            if (eol - p != 7 || memcmp(p, "sdmap 1", 7) != 0)
+                goto bad;
+            first = 0;
+        } else if (eol > p) {
+            uint64_t a, b;
+            const char *q = p + 2;
+            if (p[1] != ' ')
+                goto bad;
+            if (*p == 'T') {
+                uint64_t v[6];
+                for (int i = 0; i < 6; i++)
+                    if (!get_u(&q, eol, &v[i]))
+                        goto bad;
+                tmp.total = v[0]; tmp.free = v[1]; tmp.kernel = v[2]; tmp.bm = v[3]; tmp.bme = v[4]; tmp.other = v[5];
+                seen_t = 1;
+            } else if (*p == 'D') {
+                if (!get_u(&q, eol, &a) || !get_u(&q, eol, &b) || tmp.ndirs >= SDMAP_DIRS)
+                    goto bad;
+                size_t pl = (size_t)(eol - q);
+                if (pl == 0 || pl >= sizeof tmp.dirs[0].path)
+                    goto bad;
+                sdmap_dir_t *d = &tmp.dirs[tmp.ndirs++];
+                d->files = (uint32_t)a;
+                d->kb = (uint32_t)b;
+                memcpy(d->path, q, pl);
+            } else if (*p == 'F') {
+                if (!get_u(&q, eol, &a) || tmp.nfiles >= SDMAP_FILES)
+                    goto bad;
+                size_t pl = (size_t)(eol - q);
+                if (pl == 0 || pl >= sizeof tmp.files[0].path)
+                    goto bad;
+                sdmap_file_t *f = &tmp.files[tmp.nfiles++];
+                f->bytes = (uint32_t)a;
+                memcpy(f->path, q, pl);
+            } else {
+                goto bad;
+            }
+        }
+        p = eol + 1;
+    }
+    if (first || !seen_t)
+        goto bad;
+    res = tmp;
+    return 1;
+bad:
+    memset(&res, 0, sizeof res);
+    return 0;
+}
