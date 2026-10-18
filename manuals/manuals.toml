@@ -87,3 +87,11 @@ sources = ["carts/sound/main.lua", "docs/design/suite-sound.md", "docs/progress/
 id = "editor-write"
 order = 17
 sources = ["carts/write/main.lua", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+
+[[manual]]
+id = "characters"
+order = 18
+sources = ["docs/api/draw.md", "docs/api/light3d.md", "docs/progress/graphics.md", "docs/progress/yharnam.md", "docs/progress/tools.md",
+           "docs/design/suite-pixel.md", "docs/design/suite-animator.md", "docs/design/games-architecture.md",
+           "carts/pixel/main.lua", "carts/animator/main.lua", "carts/studio/main.lua", "carts/mesh/main.lua",
+           "carts/titan/build/mkrobot.py", "carts/yharnam/build/mkassets.py", "carts/hunt/main.lua", "tools/cutout2mesh.py", "tools/img2mesh.py"]

@@ -391,6 +391,94 @@
    "src/kernel/syskeys.c": "6299911b4014"
   }
  },
+ "characters": {
+  "chapters": {
+   "1": {
+    "en": "e1c1c6536e60",
+    "it": "777341ee4a7b",
+    "title": "What this manual covers"
+   },
+   "10": {
+    "en": "3f8d29be2d44",
+    "it": "4039b8fabb38",
+    "title": "3D models"
+   },
+   "11": {
+    "en": "db4b971764b9",
+    "it": "b4ddb3cfd34a",
+    "title": "Drawing and animating in the game"
+   },
+   "12": {
+    "en": "8365d99abcd5",
+    "it": "92f6a5528706",
+    "title": "Tutorials"
+   },
+   "13": {
+    "en": "44d5c676723f",
+    "it": "18b219c19bea",
+    "title": "Tips and limits"
+   },
+   "2": {
+    "en": "ab16820a9e91",
+    "it": "cb878f4bba28",
+    "title": "Choosing a technique"
+   },
+   "3": {
+    "en": "94418e6e64ce",
+    "it": "629fa4cf69a8",
+    "title": "Sprites by hand"
+   },
+   "4": {
+    "en": "276a9bf570b8",
+    "it": "e2ba3a6a4aba",
+    "title": "Side-scroller characters"
+   },
+   "5": {
+    "en": "c532dffe2b33",
+    "it": "a48638a4d3d8",
+    "title": "Top-down characters, 4 directions"
+   },
+   "6": {
+    "en": "1c32544d5967",
+    "it": "0c63658c5126",
+    "title": "Top-down characters, 8 directions"
+   },
+   "7": {
+    "en": "ceef6d1968fa",
+    "it": "d12f0adc44ab",
+    "title": "Optimising sprites"
+   },
+   "8": {
+    "en": "c906e56eee6f",
+    "it": "14249902483c",
+    "title": "Pre-rendered 2D"
+   },
+   "9": {
+    "en": "c6f0bd5c2907",
+    "it": "7ffecfaf2f13",
+    "title": "Meshes"
+   }
+  },
+  "sources": {
+   "carts/animator/main.lua": "fc5476e9d561",
+   "carts/hunt/main.lua": "9626c44827de",
+   "carts/mesh/main.lua": "ff0571ab3624",
+   "carts/pixel/main.lua": "15d532849ab9",
+   "carts/studio/main.lua": "4ad32dad9ad3",
+   "carts/titan/build/mkrobot.py": "72c7aff21afd",
+   "carts/yharnam/build/mkassets.py": "efc8086470ce",
+   "docs/api/draw.md": "61932a4cb329",
+   "docs/api/light3d.md": "768fc91992e3",
+   "docs/design/games-architecture.md": "d55d35bd36ae",
+   "docs/design/suite-animator.md": "be49ad9d4cf9",
+   "docs/design/suite-pixel.md": "f7a42429b14b",
+   "docs/progress/graphics.md": "b96f51676fd8",
+   "docs/progress/tools.md": "4f939091e718",
+   "docs/progress/yharnam.md": "81a77c0aef1c",
+   "tools/cutout2mesh.py": "a2a57f9737c1",
+   "tools/img2mesh.py": "db3364221d4a"
+  }
+ },
  "editor-animator": {
   "chapters": {
    "1": {
