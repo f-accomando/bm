@@ -659,7 +659,8 @@ static int fragment(mali_info_t *in)
 #define SO_VIEWPORT     0x0b40
 #define SO_ATTR         0x0bc0
 #define SO_VATTR        0x0c40      /* the position's varying attribute */
-#define SO_VS           0x8000      /* BM_VS; 0x8100 is BM_VS3's */
+#define SO_VS           0x8000      /* BM_VS */
+#define SO_VS3          0x8400      /* BM_VS3 (0x1a0 bytes; 0x8100 would run into SO_FS) */
 #define SO_FS           0x8200
 #define SO_HEAP         0x80000
 #define SO_DRAWS        0x40000
@@ -681,6 +682,8 @@ static int fragment(mali_info_t *in)
 #define D_VBUFS         0x3c0       /* varying buffers: general, the draw's positions, point size, an end */
 #define D_UBO           0x400       /* the fragment shader's uniform buffer descriptor */
 #define D_COLOUR        0x440       /* the draw's colour: the buffer's content */
+#define D_VUBO          0x480       /* the vertex shader's uniform buffer descriptor (a draw with a matrix) */
+#define D_VRSD          0x500       /* its vertex Renderer State */
 
 static void put_f(uint8_t *p, float v)
 {
@@ -709,6 +712,12 @@ static void frame_build(uint32_t set, const mali_draw_t *draws, uint32_t ndraws,
     memset(m + sb + SO_DRAWS, 0, (size_t)MEM_DRAW_SIZE * ndraws);
     memcpy(m + sb + SO_VS, BM_VS_bin, sizeof BM_VS_bin);
     memcpy(m + sb + SO_FS, BM_FS_bin, sizeof BM_FS_bin);
+    const uint32_t vpush = sb + (MALI_FRAME_VPUSH - MALI_SET_BASE(0));
+    for (uint32_t d = 0; d < ndraws; d++)
+        if (draws[d].mvp) {
+            memcpy(m + sb + SO_VS3, BM_VS3_bin, sizeof BM_VS3_bin);
+            break;
+        }
 
     /* tiler: the heap and the context */
     md_tiler_heap(m + sb + SO_HEAPD, pa + sb + SO_HEAP, HEAP_SIZE);
@@ -758,10 +767,25 @@ static void frame_build(uint32_t set, const mali_draw_t *draws, uint32_t ndraws,
         md_attribute_buffer(dm + D_VBUFS + 16, pa + positions + 16 * first, 16, 16 * nv);
         md_attribute_buffer(dm + D_VBUFS + 32, 0, 0, 0);
         md_uniform_buffer(dm + D_UBO, dpa + D_COLOUR, 1);
+        if (draws[d].mvp) {   /* phase 3: BM_VS3 with the matrix pushed (BM_VS3_push: words 0..15 are bytes 0..60 of ubo 0) */
+            md_renderer_state_t vrs3 = { .shader = pa + sb + SO_VS3, .attribute_count = BM_VS3_ATTRIBUTE_COUNT,
+                                         .varying_count = BM_VS3_VARYING_COUNT, .ubo_count = BM_VS3_UBO_COUNT,
+                                         .work_regs = BM_VS3_WORK_REGS, .preload_regs = BM_VS3_PRELOAD,
+                                         .push_count = BM_VS3_PUSH_COUNT };
+            md_renderer_state(dm + D_VRSD, &vrs3);
+            for (int k = 0; k < 16; k++)
+                put_f(m + vpush + 64 * d + BM_VS3_push[k][1], draws[d].mvp[k]);
+            md_uniform_buffer(dm + D_VUBO, pa + vpush + 64 * d, 4);
+        }
 
         /* the jobs: Vertex 2d + 1 (after the previous Tiler job), Tiler 2d + 2 (after its Vertex job) */
         md_draw_t vd = { .state = pa + sb + SO_VRSD, .attribute_buffers = dpa + D_ABUFS, .attributes = pa + sb + SO_ATTR,
                          .varying_buffers = dpa + D_VBUFS, .varyings = pa + sb + SO_VATTR, .thread_storage = pa + sb + SO_LS };
+        if (draws[d].mvp) {
+            vd.state = dpa + D_VRSD;
+            vd.uniform_buffers = dpa + D_VUBO;
+            vd.push_uniforms = pa + vpush + 64 * d;
+        }
         job_header(dm + D_VJOB, MD_JOB_VERTEX, 2 * (int)d + 1, d ? 2 * (int)d : 0, dpa + D_TJOB);
         md_vertex_job(dm + D_VJOB, nv, &vd);
         md_draw_t td = { .position = pa + positions + 16 * first, .state = dpa + D_FRSD,

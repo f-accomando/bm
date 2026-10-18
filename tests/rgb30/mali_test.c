@@ -16,6 +16,7 @@
 
 #include "rgb30/mali.h"
 #include "rgb30/mali_desc.h"
+#include "rgb30/mali_shaders.h"
 
 static int checks, failures;
 #define CHECK(c, ...) do { checks++; if (!(c)) { failures++; printf("FAIL %s:%d: ", __FILE__, __LINE__); \
@@ -499,6 +500,73 @@ static void test_frame_image(void)
     CHECK(mali_frame(&other, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, d, 3) == -1, "frame: another hw refused");
 }
 
+/* phase 3: a draw with a matrix runs BM_VS3 with the matrix pushed; a draw without is the phase-2 draw */
+static void test_matrix_image(void)
+{
+    const uint32_t SB = MALI_SET_BASE(0), DRAWS = MALI_FRAME_DRAWS, DSIZE = 0x800, VRSD = 0xa00, D_VRSD = 0x500, D_VUBO = 0x480,
+                   VS = 0x8000, VS3 = 0x8400;                     /* the layout of mali.c (SO_*, D_*) */
+    static const float t0[3][3] = { { 4, 4, 0.25f }, { 40, 4, 0.25f }, { 4, 40, 0.25f } };
+    static const float t1[3][3] = { { 8, 8, 0.5f }, { 50, 8, 0.5f }, { 8, 50, 0.5f } };
+    static const float m[16] = { 2, 0, 0, 10, 0, 3, 0, 20, 0, 0, 1, 0, 0, 0, 0, 1 };
+    const mali_draw_t both[2] = { { t0, 1, 0xff0000, m }, { t1, 1, 0x00ff00, NULL } };
+    const mali_draw_t plain[2] = { { t0, 1, 0xff0000 }, { t1, 1, 0x00ff00 } };
+
+    printf("mali: mali_frame, a draw with a matrix\n");
+    memset(&S, 0, sizeof S);
+    mali_info_t in;
+    CHECK(probe(&in) == MALI_OK, "probe before the matrix frame");
+    const uint32_t surf_pa_off = 0x200000;
+    uint8_t *surf = mem + surf_pa_off;
+    memset(mem + SB, 0, 0x90000);
+    (void)mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0x102050, both, 2);
+
+    CHECK(memcmp(mem + MALI_FRAME_VPUSH, m, sizeof m) == 0, "matrix: the 16 floats at MALI_FRAME_VPUSH differ from the matrix");
+
+    uint8_t tmp[128];                                               /* (b) the Renderer States and the vertex Draws */
+    md_renderer_state_t v3 = { .shader = MEM_PA + SB + VS3, .attribute_count = BM_VS3_ATTRIBUTE_COUNT,
+                               .varying_count = BM_VS3_VARYING_COUNT, .ubo_count = BM_VS3_UBO_COUNT,
+                               .work_regs = BM_VS3_WORK_REGS, .preload_regs = BM_VS3_PRELOAD, .push_count = BM_VS3_PUSH_COUNT };
+    memset(tmp, 0, sizeof tmp);
+    md_renderer_state(tmp, &v3);
+    CHECK(memcmp(mem + DRAWS + D_VRSD, tmp, MD_RENDERER_STATE_SIZE) == 0, "matrix: draw 0's Renderer State is not BM_VS3's");
+    CHECK(memcmp(mem + SB + VS3, BM_VS3_bin, sizeof BM_VS3_bin) == 0, "matrix: BM_VS3 is not at its place");
+    md_renderer_state_t v1 = { .shader = MEM_PA + SB + VS, .attribute_count = BM_VS_ATTRIBUTE_COUNT,
+                               .varying_count = BM_VS_VARYING_COUNT, .ubo_count = BM_VS_UBO_COUNT,
+                               .work_regs = BM_VS_WORK_REGS, .preload_regs = BM_VS_PRELOAD, .push_count = BM_VS_PUSH_COUNT };
+    memset(tmp, 0, sizeof tmp);
+    md_renderer_state(tmp, &v1);
+    CHECK(memcmp(mem + SB + VRSD, tmp, MD_RENDERER_STATE_SIZE) == 0, "matrix: the shared Renderer State is not BM_VS's");
+
+    const uint64_t d0 = MEM_PA + DRAWS, d1 = d0 + DSIZE;
+    md_draw_t vd0 = { .state = d0 + D_VRSD, .attribute_buffers = d0 + 0x380, .attributes = MEM_PA + SB + 0xbc0,
+                      .varying_buffers = d0 + 0x3c0, .varyings = MEM_PA + SB + 0xc40, .thread_storage = MEM_PA + SB + 0xb00,
+                      .uniform_buffers = d0 + D_VUBO, .push_uniforms = MEM_PA + MALI_FRAME_VPUSH };
+    memset(tmp, 0, sizeof tmp);
+    md_draw(tmp, &vd0);
+    CHECK(memcmp(mem + DRAWS + MD_VJ_DRAW, tmp, MD_DRAW_SIZE) == 0, "matrix: draw 0's vertex Draw (state, uniform buffer, push) differs");
+    md_draw_t vd1 = { .state = MEM_PA + SB + VRSD, .attribute_buffers = d1 + 0x380, .attributes = MEM_PA + SB + 0xbc0,
+                      .varying_buffers = d1 + 0x3c0, .varyings = MEM_PA + SB + 0xc40, .thread_storage = MEM_PA + SB + 0xb00 };
+    memset(tmp, 0, sizeof tmp);
+    md_draw(tmp, &vd1);
+    CHECK(memcmp(mem + DRAWS + DSIZE + MD_VJ_DRAW, tmp, MD_DRAW_SIZE) == 0, "matrix: draw 1's vertex Draw is not the phase-2 one");
+    uint8_t ub[16] = { 0 };
+    md_uniform_buffer(ub, MEM_PA + MALI_FRAME_VPUSH, 4);
+    CHECK(memcmp(mem + DRAWS + D_VUBO, ub, 8) == 0, "matrix: draw 0's uniform buffer descriptor differs");
+
+    memset(mem + SB, 0, 0x90000);                                   /* (c) no matrix: BM_VS3 stays out, the phase-2 state */
+    (void)mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0x102050, plain, 2);
+    int nz = 0;
+    for (uint32_t i = 0; i < sizeof BM_VS3_bin; i++)
+        nz += mem[SB + VS3 + i] != 0;
+    CHECK(nz == 0, "matrix: a frame without a matrix wrote %d bytes of BM_VS3", nz);
+    memset(tmp, 0, sizeof tmp);
+    md_renderer_state(tmp, &v1);
+    CHECK(memcmp(mem + SB + VRSD, tmp, MD_RENDERER_STATE_SIZE) == 0, "matrix: the plain frame's Renderer State changed");
+
+    mali_draw_t bad[1] = { { t0, 1025, 0, m } };                    /* (d) the limit holds with a matrix */
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, bad, 1) == -1, "matrix: 1025 triangles with a matrix refused");
+}
+
 /* frames in flight: two sets, submit / busy / wait, on the simulator with vertex and tiler jobs accepted as no-ops */
 static void test_async(void)
 {
@@ -752,6 +820,7 @@ int main(void)
 
     test_frame_image();
     test_backend();
+    test_matrix_image();
     test_async();
 
     CHECK(!strcmp(mali_exception(0xc1), "TRANSLATION_FAULT") && !strcmp(mali_exception(0x43), "JOB_WRITE_FAULT"),

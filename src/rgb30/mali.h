@@ -98,7 +98,11 @@ const char *mali_name(uint32_t gpu_id, char *buf, int n);
  * first draw's first triangle centre is still `clear`, -1 failed or refused. */
 #define MALI_MAX_DRAWS  64
 #define MALI_BATCH_MAX  1024
-typedef struct { const float (*xyz)[3]; uint32_t n, rgb; } mali_draw_t;
+typedef struct {
+    const float (*xyz)[3];
+    uint32_t n, rgb;
+    const float *mvp;   /* NULL: xyz are pixels (phase 2); else a 4x4 matrix by rows, xyz are model-space and the GPU transforms them (phase 3) */
+} mali_draw_t;
 int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,
                uint32_t clear, const mali_draw_t *draws, uint32_t ndraws);
 /* The GPU memory in sets (M41 phase 4): set s (0 or 1) starts at MALI_SET_BASE(s) in hw->mem and holds, from there, its tables
@@ -114,6 +118,7 @@ int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_
 #define MALI_FRAME_VERTS      (MALI_SET_BASE(0) + 0x10000)  /* all vertices, 4 floats each (x y z 1), draw after draw */
 #define MALI_FRAME_POSITIONS  (MALI_SET_BASE(0) + 0x20000)  /* what the vertex jobs write, same order */
 #define MALI_FRAME_PUSH       (MALI_SET_BASE(0) + 0x30000)  /* per draw 64 bytes: the pushed words, colour at +16 */
+#define MALI_FRAME_VPUSH      (MALI_SET_BASE(0) + 0x38000)  /* per draw 64 bytes: the vertex shader's 16 pushed words (the matrix, by rows) */
 
 /* M41 phase 4: frames in flight. Two sets: a frame is built in the free one while the other may still be drawing.
  * mali_frame_submit takes the arguments of mali_frame except the surface: it is the set's own (368 x 368 at most), returned in
