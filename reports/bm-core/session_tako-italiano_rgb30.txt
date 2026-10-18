@@ -1,0 +1,34 @@
+bm report
+kind: session
+kernel: v0.2.5-707-g9554944
+branch: bm-core
+board: RGB30
+date: 2026-10-18 16:20:14
+file: session_tako-italiano_rgb30.txt
+
+session of "TAKO: Italiano" (the last one: the next run of this game replaces this file)
+options bm3d 7.3 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
+screen 360x360, 1743 frames in 29.0 s, 59.9 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 3.3 ms, max 6.8 ms, 0 frames over 16.7 ms
+memory: Lua peak 313 KiB, data 1722 KiB; code 6886 tokens; busiest frame 9k Lua instructions
+frames that were shown after more than 1.5 frames: 0
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    1742
+  <= 25 ms             0
+  <= 34 ms (30 fps)    0
+  <= 50 ms             0
+  <= 100 ms            0
+  > 100 ms (a freeze)  0
+
+the frame in its parts (as the overlay, 1742 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.0    0%
+  draw (no 3D)    15.5   93%
+  3D calls         0.0    0%
+  audio            0.3    1%
+  GPU wait         0.0    0%
+  all             15.8   95%
+audio interrupt: 2.0% of the CPU's time (mean), 3.3% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
