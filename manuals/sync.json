@@ -982,6 +982,74 @@
    "scripts/mksd.py": "6ed865802e51"
   }
  },
+ "levels": {
+  "chapters": {
+   "1": {
+    "en": "b7a272059dcd",
+    "it": "462b636eb170",
+    "title": "What a level is in bm"
+   },
+   "10": {
+    "en": "c11f7ead3c33",
+    "it": "5b13328b1447",
+    "title": "Tips and limits"
+   },
+   "2": {
+    "en": "a8949c98aa98",
+    "it": "a83ce732a01b",
+    "title": "The sprite sheet and the tiles"
+   },
+   "3": {
+    "en": "b74eca2809f1",
+    "it": "7a41101dd02c",
+    "title": "The 2D map in bm SDK"
+   },
+   "4": {
+    "en": "a940f4a25af9",
+    "it": "26246a799425",
+    "title": "The linear level tools (path, apples, crates, lamps)"
+   },
+   "5": {
+    "en": "5d6be86b34db",
+    "it": "98d249bb1607",
+    "title": "3D levels"
+   },
+   "6": {
+    "en": "05c65c1e45fc",
+    "it": "c1ddb94a8382",
+    "title": "Building a game with the suite"
+   },
+   "7": {
+    "en": "889bb2163038",
+    "it": "05260c526d19",
+    "title": "Several stages in a 2D game"
+   },
+   "8": {
+    "en": "507c64925fcf",
+    "it": "5652a134a2df",
+    "title": "Several stages in a 3D game"
+   },
+   "9": {
+    "en": "fbc7b893a9e9",
+    "it": "fcecfd93c2d4",
+    "title": "Switching levels in the game"
+   }
+  },
+  "sources": {
+   "carts/editor/main.lua": "104fd090065d",
+   "docs/GAME-GUIDE.md": "426aea1ebf0b",
+   "docs/ROADMAP.md": "74b3aab8f42e",
+   "docs/api/bmlib.md": "e1b5c355f388",
+   "docs/api/draw.md": "61932a4cb329",
+   "docs/api/light3d.md": "768fc91992e3",
+   "docs/design/games-architecture.md": "d55d35bd36ae",
+   "docs/design/suite-sdk.md": "6a8b4424e3fa",
+   "docs/progress/graphics.md": "b96f51676fd8",
+   "docs/progress/tools.md": "4f939091e718",
+   "docs/progress/v3d.md": "71c6d083c4d6",
+   "src/bm/map3d.c": "83e5e8666802"
+  }
+ },
  "pi-zero-w": {
   "chapters": {
    "1": {
