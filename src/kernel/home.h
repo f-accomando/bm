@@ -33,7 +33,7 @@ void home_row(home_panel_t *p, int kind, int id, const char *label, const char *
  * HOME_MARKET (a game of the Market) and HOME_SEND (to a nearby console)
  * by market.c, HOME_PUBLISH (sending a game to the Market) by publish.c. */
 enum { HOME_SETTINGS = 1, HOME_CONTROLLERS, HOME_WIFI, HOME_SYSTEM, HOME_CART, HOME_GRAPHICS, HOME_MARKET,
-       HOME_PUBLISH, HOME_SEND, HOME_UPDATES, HOME_REPORTS };
+       HOME_PUBLISH, HOME_SEND, HOME_UPDATES, HOME_REPORTS, HOME_UTILITIES };
 
 /* What a row asks of the menu. */
 enum {
@@ -72,6 +72,13 @@ int  home_sub_panel(int row_id);
  * on a choice), HOME_YES (the question was answered yes). */
 void home_act(int id, int row_id, int how, home_do_t *d);
 
+/* The utilities (benchmarks, tests, configuration controls: type "utility", D09) of the running kernel, listed by
+ * Settings > System > Utilities. The Pi defines them in home.c, the RGB30 in ui.c. */
+int  home_utils(void);                                  /* how many */
+const char *home_util_title(int i);
+const char *home_util_about(int i);                     /* one line of help */
+void home_util_start(int i, home_do_t *d);              /* fills d as home_act does */
+
 /* The tools of the Dev tab (after the SDK), with their covers. */
 void home_init(void);
 int  home_tools(void);
@@ -79,6 +86,7 @@ const char *home_tool_title(int i);
 const char *home_tool_about(int i);
 const g16_sheet_t *home_tool_cover(int i);
 void home_tool_start(int i, home_do_t *d);
+int  home_tool_is_utility(int i);   /* tool i is a utility (not shown in Dev); home.c */
 
 /* After a tool on the text console: "A: back to the menu", from any
  * controller, the keyboard or the serial port. */
