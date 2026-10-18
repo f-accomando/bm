@@ -53,9 +53,10 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 | M42 | P1 | in progress | Identical `.b16` profile on Pi and RGB30 | *Yharnam* `.b16` runs indistinguishably on Pi Zero W and RGB30, same CPU throttle | [b16](progress/b16.md) §2-3 | - |
 | SYS-5 | P1 | in progress | Stable RGB30: panel after warm reboot, Start+Select, single core | warm reboot without black screen; Start+Select freezes and resumes as on the Pi | [platforms](progress/platforms.md) `Open work`, [multitasking](progress/multitasking.md) `Open` | - |
 | M41 | P2 | in progress | RGB30 Mali-G52 GPU and Overbit in `.b16` | Overbit `.b16` at 60 fps with the Mali; 3D Bench reports GPU metrics | [graphics-mali](progress/graphics-mali.md) §M41, [platforms](progress/platforms.md) | M42 |
-| SYS-6 | P2 | to do | Multitasking: measurements to redo, CPU stalls, download inside an app | `Open` in multitasking.md emptied or reduced to ideas | [multitasking](progress/multitasking.md) | - |
+| SYS-6 | P2 | to do | Multitasking: measurements to redo, CPU stalls, download inside an app | `Open` in multitasking.md emptied or reduced to ideas; Beta R1/R2 roadmap | [multitasking](progress/multitasking.md) | - |
 | R3, R4 | P2 | to verify | SD log and screenshot: close after console tests | SD log (D19) and `shot` tested on console; entries removed from `Open work` | [system](progress/system.md) | SYS-2, SYS-3 |
 | R1, R2, R6, R8, R19, R20 | P3 | idea | Standalone console: WiFi from the pad, on-screen keyboard, web UI, DS4 rumble, BT pad, HDMI-CEC | to be specified | [system](progress/system.md) `Open work` | - |
+| R49 | P3 | idea | Multitasking Ibrido & Scheduler Differenziato (Beta Rev 1 & Rev 2) | specifiche e architettura definite in multitasking.md | [multitasking](progress/multitasking.md) | SYS-6 |
 | R22 | P3 | idea | Portable Pi Zero shell (GPIO, DPI/SPI display) | to be specified | [platforms](progress/platforms.md) | - |
 
 ## 2. Features and API (GPU, runtime, formats, audio)
