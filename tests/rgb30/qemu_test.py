@@ -222,7 +222,8 @@ def test_screen_console(b, opts):
 
 def test_el2_image_relocation(b, opts):
     """kernel8.img as U-Boot's booti would start it: EL2, x0 = device tree,
-    loaded below the link address (start.S moves it and drops to EL1)."""
+    loaded away from the link address (QEMU: above it, at 0x40200000;
+    start.S moves it and drops to EL1)."""
     q = Qemu(os.path.join(b, "kernel8.img"), machine="virt,gic-version=3,virtualization=on")
     try:
         out = boot(q)
@@ -550,9 +551,10 @@ def test_bm_cartridge(b, opts):
         q.expect("pi cart started", timeout=10)
         time.sleep(2)
         q.send("q")
-        out = q.expect("fps", timeout=10).decode(errors="replace")
-        frames = int(out.split('"Pi cart" ')[1].split()[0])
-        assert frames > 100, out
+        # q suspends the game (2026-10-12, as on the Pi): the frame statistics
+        # come when it is closed, not here
+        out = q.expect("suspended", timeout=10).decode(errors="replace")
+        assert '"Pi cart"' in out, out
         time.sleep(1)
         img = q.screendump()
         assert img[0] == SCREEN and img[1] == SCREEN, f"screen {img[0]}x{img[1]}"
@@ -800,6 +802,40 @@ def test_sdk_tool(b, opts):
         q.send("\x1c")
         text = screen(["Games", "Dev", "Settings"])
         assert in_menu(text), text
+    finally:
+        q.close()
+
+
+def test_games_in_carts(b, opts):
+    """The Games tab lists games from both bm/ and /carts (D28): a cartridge
+    built by the SDK or placed in /carts appears in the menu alongside bm/."""
+    tmp = tempfile.mkdtemp(prefix="bm64carts-")
+    built_bm = mkbm.pack(TRY_ME.encode(), title="Built in carts", author="tests", res=(360, 360))
+    tryme_b16 = mkbm.pack(TRY_ME.encode(), title="Try me", author="tests", res=(360, 360))
+    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
+                       "bm/tryme.b16": tryme_b16,
+                       "carts/built.bm": built_bm})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        out = boot(q)
+        assert "cartridge menu: 2 games" in out, out
+        time.sleep(0.5)
+        text = screen_all(q.screendump())
+        keys(q, "d")
+        time.sleep(0.5)
+        text += screen_all(q.screendump())
+        assert "Built in carts" in text and "Try me" in text, text
+    finally:
+        q.close()
+    sd2 = make_sd(tmp, {"bm/config.txt": b"game_intro=0\nshow_bm=0\n",
+                        "bm/tryme.b16": tryme_b16,
+                        "carts/built.bm": built_bm})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd2)
+    try:
+        out = boot(q)
+        assert "cartridge menu: 1 games" in out, out
+        out += q.expect("\n", timeout=5).decode(errors="replace")
+        assert "(1 .bm hidden by show_bm=0" in out, out
     finally:
         q.close()
 

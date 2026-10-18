@@ -3523,7 +3523,7 @@ def test_publish(b, opts):
             time.sleep(0.5)
             keys("x")                               # the options of My Game
             screen(["My Game", "Play"])
-            keys("sssssssss")                       # after the seven "Open in" and the copy
+            keys("ssssssssss")                      # after the seven "Open in", the copy and Export .b16
             screen(["Publish to the Market", "A pull request with your GitHub token"])
             keys("\r")
             screen(["Publish > My Game", "games/my-game", "License", "MIT", "GitHub token", "set",
@@ -4206,7 +4206,7 @@ def test_studio_animator(b, opts):
         screen(["SPRITES", "villager", "idle", "384x192 pixels in the sheet"])
         shot("animator-sprites")
         keys("\r")
-        screen(["32 sprites put in the sheet", "sspr("], tries=80)
+        screen(["32 sprites and 56 boxes put in sheet", "sspr("], tries=80)
         shot("animator-sprites-put")
 
         # out (not saved: asked twice)
@@ -4707,7 +4707,8 @@ def test_mesh(b, opts):
         keys("s", "s", "s", "s", "s", "s")      # Play, SDK, Code, Sound, Studio, Animator, Mesh
         screen(["Open in bm Mesh"])
         keys("\r")
-        text = screen(["list", "edit", "MESHES 13", "ship", "30 vertices, 32 triangles", "built by the game's code"])
+        text = screen(["list", "edit", "MESHES 13", "ship", "30 vertices, 32 triangles", "built by the game's code",
+                       "0 models, 0 code meshes, 13 from the game's code"])   # (the header row too: a redraw may be caught half way)
         assert "0 models, 0 code meshes, 13 from the game's code" in text, text
         assert "core_hot" in text and "turret" in text, text
         shot("list")
@@ -5150,9 +5151,9 @@ def test_monitor_line(b, opts):
         q.send(":err\r")
         out = q.expect("the line is done", timeout=10).decode(errors="replace")
         assert "err: none" in out, out
+        assert "running: menu" in out, out
         q.expect("> ")
         q.send(":set gpu3d_fs2=1 gpu3d_sort=1; b3d tests=spheres,quad_flat profiles=ARM; nope; send\r")
-        q.expect("back to the monitor", timeout=10)
         q.expect("set gpu3d_fs2=1 (until a restart", timeout=10)
         q.expect("set gpu3d_sort=1", timeout=10)
         out = q.expect("3D Bench: done", timeout=240).decode(errors="replace")
@@ -5278,8 +5279,10 @@ def test_crash_report(b, opts):
                          env=env).stdout
     shutil.rmtree(tmp, ignore_errors=True)
     head, body = rep.split("\n\n", 1)
+    assert "\x00" not in rep, "null bytes in crash report"
     assert "kind: crash" in head.splitlines(), rep[:600]
     assert body.startswith('a crash (the red screen) while: monitor command "X"'), body[:300]
+    assert ", kernel " in body.splitlines()[0], body.splitlines()[0]
     assert "--- the last lines printed ---" in body and "*** EXCEPTION: Data abort ***" in body, body[-1500:]
     assert body.index("cartridge menu") < body.index("*** EXCEPTION"), "the lines before the crash"
     assert "DFAR=00008001" in body and "called from:" in body, body[-800:]
@@ -5732,6 +5735,60 @@ def _sd_files(img):
         f.seek(2048 * 512)
         o.write(f.read())
     return part
+
+
+def test_sd_logs(b, opts):
+    """The Pi saves boot logs and the last run to SD (2026-10-15, D19):
+    bootlog.txt while booting, bootprev.txt on the next boot, and lastrun.txt
+    before watchdog_reboot()."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdlog-")
+    try:
+        img = os.path.join(tmp, "sd.img")
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\nnet_password=test-pass-4242\n")
+        mksd.build(img, [(cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            q.send("q")
+            q.expect(PROMPT)
+            q.expect("> ")
+            q.send("l\n")
+            q.expect("lua> ")
+            q.send("print('pw ' .. 'test-pass-' .. 4242)\n")
+            q.expect("pw test-pass-4242")
+            q.send("exit()\n")
+            q.expect("> ")
+            q.send("r")
+            q.expect("restarting: this run's log in bm/lastrun.txt", timeout=20)
+            q.expect(MENU, timeout=30)
+            q.expect("boot log saved to bm/bootlog.txt", timeout=20)
+            time.sleep(1)
+        finally:
+            q.close()
+        part = _sd_files(img)
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        lastrun = subprocess.run(["mtype", "-i", part, "::/BM/LASTRUN.TXT"],
+                                 capture_output=True, text=True, env=env, check=True).stdout
+        assert "rebooting..." in lastrun, lastrun
+        assert "test-pass-4242" not in lastrun, lastrun
+        assert "pw **************" in lastrun, lastrun
+        bootprev = subprocess.run(["mtype", "-i", part, "::/BM/BOOTPREV.TXT"],
+                                  capture_output=True, text=True, env=env, check=True).stdout
+        assert "--- the run before" in bootprev, bootprev
+        assert "ended cleanly, or the power went" in bootprev, bootprev
+        assert "while: boot" not in bootprev, bootprev
+        assert "rebooting..." in bootprev, bootprev
+        assert "test-pass-4242" not in bootprev, bootprev
+        bootlog = subprocess.run(["mtype", "-i", part, "::/BM/BOOTLOG.TXT"],
+                                 capture_output=True, text=True, env=env, check=True).stdout
+        assert "cartridge menu" in bootlog, bootlog
+        assert "test-pass-4242" not in bootlog, bootlog
+        assert "watchdog: resets at once on RSTC (emulator), no freeze guard" in bootlog, bootlog
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_sound_editor(b, opts):
@@ -6529,8 +6586,7 @@ def test_editor_mouse(b, opts):
     try:
         q.boot()
         run(q, "e")
-        look(q, ["OPEN IN"], 8, 16)
-        text = screen_text(q.screendump())
+        text = look(q, ["OPEN IN", "code"], 8, 16)   # the same dump: a later one may catch a redraw
         cx, cy = find(text[:1], "code", 8, 16)
         click(q, cx, cy)                    # the F2 tab: the code page
         look(q, ["line 1/"], 8, 16, gone=["OPEN IN"])
@@ -6538,8 +6594,7 @@ def test_editor_mouse(b, opts):
         text = look(q, ["Cut the line", "Build the game .bm", "Ctrl+B"], 8, 16)
         shot(q, "sdk-context")
         click(q, 600, 40)                   # outside: it closes, nothing else
-        look(q, [], 8, 16, gone=["Cut the line"])
-        text = screen_text(q.screendump())
+        text = look(q, ["menu"], 8, 16, gone=["Cut the line"])   # the same dump: a later one may catch a redraw
         mx, my = find(text[:1], "menu", 8, 16)
         click(q, mx, my)                    # the Esc tab: the menu page
         text = look(q, ["Continue", "Exit bm SDK"], 8, 16)
@@ -7450,8 +7505,8 @@ def test_projects(b, opts):
         q.expect("menu: built /carts/PONG.BME to /carts/PONG1.BM", timeout=20)     # again: the same one
         # A on the project: the SDK on it
         keys("\r", gap=1.0)
-        q.expect("bm: loaded in", timeout=30)
-        screen(["opened /carts/PONG.BME"])
+        # the suite opens with no splash (carts.c, 2026-10-10): no "bm: loaded in"
+        screen(["opened /carts/PONG.BME"], tries=80)
         shot("sdk")
         keys("\x1b", gap=0.6)
         keys("\x1b[A", gap=0.3)                  # Exit bm SDK

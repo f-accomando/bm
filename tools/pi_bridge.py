@@ -5,8 +5,8 @@ fixed operations without ever seeing the password.
   python3 tools/pi_bridge.py 192.168.1.108          # asks for the password, then waits (Ctrl-C to stop)
   python3 tools/pi.py line gpu                        # the client (another shell, or Claude)
 
-Operations: line TEXT (a monitor line: gpu, b3d, ...), send FILE, play FILE, kernel FILE, config KEY=VALUE.. is NOT allowed.
-FILE must be inside the repo or in ~/bmk*/ (the build folders). The socket is ~/.pi_bridge.sock, mode 0600."""
+Operations: logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.TXT and shown), keys NAME (monitor, crash-dabt, crash-undef, crash-prefetch), line TEXT (a monitor line: gpu, b3d, ...), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. is NOT allowed.
+FILE must be inside the repo or in ~/bmk*/ (the build folders); OUT of shot is a .png in a folder there. The socket is ~/.pi_bridge.sock, mode 0600."""
 import getpass
 import os
 import socket
@@ -16,12 +16,21 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
 SOCK = os.path.expanduser("~/.pi_bridge.sock")
+# keys the Pi can be told to press, by name (the monitor; the voluntary crashes: X then a/u/b). No free keys.
+KEYS = {"monitor": "q", "crash-dabt": "Xa", "crash-undef": "Xu", "crash-prefetch": "Xb"}
+# the logs of the SD card the Pi writes at a crash or a boot (netxfer.c G allows these three names only)
+LOGS = {"bootprev": "BOOTPREV.TXT", "bootlog": "BOOTLOG.TXT", "lastrun": "LASTRUN.TXT"}
 ALLOWED_DIRS = [ROOT] + [os.path.expanduser("~/" + d) for d in os.listdir(os.path.expanduser("~")) if d.startswith("bmk")]
 
 
 def allowed(path):
     p = os.path.realpath(path)
     return os.path.isfile(p) and any(p.startswith(os.path.realpath(d) + os.sep) for d in ALLOWED_DIRS)
+
+
+def allowed_dir(path):
+    p = os.path.realpath(path)
+    return os.path.isdir(p) and any(p == os.path.realpath(d) or p.startswith(os.path.realpath(d) + os.sep) for d in ALLOWED_DIRS)
 
 
 def run(host, pw, req):
@@ -31,10 +40,25 @@ def run(host, pw, req):
         cmd = base + ["--line", arg]
     elif op in ("send", "play", "kernel") and allowed(arg):
         cmd = base + ["--" + op, os.path.realpath(arg)]
+    elif op == "shot" and arg.lower().endswith(".png") and allowed_dir(os.path.dirname(arg) or "."):
+        cmd = base + ["--shot", os.path.realpath(arg)]
+    elif op == "keys" and arg in KEYS:
+        cmd = base + ["--keys", KEYS[arg]]
+    elif op == "logs" and arg in LOGS:
+        out_file = os.path.join(ROOT, "out", "pi_" + LOGS[arg])
+        os.makedirs(os.path.dirname(out_file), exist_ok=True)
+        cmd = base + ["--get", "bm/" + LOGS[arg], out_file]
     else:
         return "refused: %r" % req
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=dict(os.environ, BM_PASSWORD=pw))
-    return (r.stdout + r.stderr).replace(pw, "***")
+    text = r.stdout + r.stderr
+    if op == "logs" and r.returncode == 0 and os.path.isfile(out_file):
+        with open(out_file, encoding="utf-8", errors="replace") as f:
+            body = f.read().replace(pw, "***")
+        with open(out_file, "w", encoding="utf-8") as f:    # what is kept on the PC is masked too
+            f.write(body)
+        text += chr(10) + body
+    return text.replace(pw, "***")
 
 
 def main():

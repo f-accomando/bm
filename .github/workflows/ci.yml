@@ -2,12 +2,17 @@ name: ci
 
 on:
   push:
-    # the consoles' test reports (src/kernel/reports.c) are not code
-    branches-ignore: [reports]
+    # the consoles' test reports (src/kernel/reports.c) are not code; the sync/*
+    # branches carry coordination files (SYNC.md), not code
+    branches-ignore: [reports, 'sync/**']
     # with a branch filter alone GitHub skips the tags: the releases (v*,
     # the release job below) need them named
     tags: ['v*']
   pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   # The Pi Zero 2 W's build (kernel7.img) and its tests are off for now:
@@ -20,6 +25,7 @@ jobs:
   tested:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     permissions:
       actions: read
     outputs:
@@ -42,6 +48,7 @@ jobs:
     needs: tested
     if: ${{ !cancelled() && needs.tested.outputs.tested != 'true' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
         with:
@@ -69,8 +76,9 @@ jobs:
     needs: tested
     if: ${{ !cancelled() && needs.tested.outputs.tested != 'true' }}
     name: qemu (${{ matrix.shard }}/4)
-    # Pinned: the screen reference hash depends on the QEMU version (8.2 here).
+    # 8.2 = the QEMU version apt gives on ubuntu-24.04: the screen reference hash depends on it; changing runs-on changes the hash.
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -86,6 +94,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi \
             qemu-system-arm qemu-user make python3 python3-numpy python3-pil dosfstools mtools
+
+      - name: Check the QEMU version
+        run: qemu-system-arm --version | tee /dev/stderr | grep -q 'version 8\.2\.'
 
       - name: Build
         run: make -j"$(nproc)"
@@ -123,6 +134,7 @@ jobs:
     needs: tested
     if: ${{ !cancelled() && needs.tested.outputs.tested != 'true' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
         with:
@@ -154,6 +166,7 @@ jobs:
       (needs.tested.outputs.tested == 'true' ||
       (needs.host.result == 'success' && needs.qemu.result == 'success' && needs.rgb30.result == 'success')) }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:

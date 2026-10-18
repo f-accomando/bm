@@ -28,5 +28,7 @@ const char *crumbs_last(const char **kind, size_t *len);
 size_t crumbs_ring_copy(char *out, size_t size);
 /* Before crumbs_boot(): how the run before ended, one line. */
 const char *crumbs_prev_state(void);
+/* Planned restart or halt: wifi_leave(), crumbs_clean_exit(), uart_flush(), watchdog_*. */
+void crumbs_restart(int halt) __attribute__((noreturn));
 
 #endif

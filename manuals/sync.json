@@ -391,6 +391,94 @@
    "src/kernel/syskeys.c": "6299911b4014"
   }
  },
+ "characters": {
+  "chapters": {
+   "1": {
+    "en": "e1c1c6536e60",
+    "it": "777341ee4a7b",
+    "title": "What this manual covers"
+   },
+   "10": {
+    "en": "3f8d29be2d44",
+    "it": "4039b8fabb38",
+    "title": "3D models"
+   },
+   "11": {
+    "en": "db4b971764b9",
+    "it": "b4ddb3cfd34a",
+    "title": "Drawing and animating in the game"
+   },
+   "12": {
+    "en": "8365d99abcd5",
+    "it": "92f6a5528706",
+    "title": "Tutorials"
+   },
+   "13": {
+    "en": "44d5c676723f",
+    "it": "18b219c19bea",
+    "title": "Tips and limits"
+   },
+   "2": {
+    "en": "ab16820a9e91",
+    "it": "cb878f4bba28",
+    "title": "Choosing a technique"
+   },
+   "3": {
+    "en": "94418e6e64ce",
+    "it": "629fa4cf69a8",
+    "title": "Sprites by hand"
+   },
+   "4": {
+    "en": "276a9bf570b8",
+    "it": "e2ba3a6a4aba",
+    "title": "Side-scroller characters"
+   },
+   "5": {
+    "en": "c532dffe2b33",
+    "it": "a48638a4d3d8",
+    "title": "Top-down characters, 4 directions"
+   },
+   "6": {
+    "en": "1c32544d5967",
+    "it": "0c63658c5126",
+    "title": "Top-down characters, 8 directions"
+   },
+   "7": {
+    "en": "ceef6d1968fa",
+    "it": "d12f0adc44ab",
+    "title": "Optimising sprites"
+   },
+   "8": {
+    "en": "c906e56eee6f",
+    "it": "14249902483c",
+    "title": "Pre-rendered 2D"
+   },
+   "9": {
+    "en": "c6f0bd5c2907",
+    "it": "7ffecfaf2f13",
+    "title": "Meshes"
+   }
+  },
+  "sources": {
+   "carts/animator/main.lua": "fc5476e9d561",
+   "carts/hunt/main.lua": "9626c44827de",
+   "carts/mesh/main.lua": "ff0571ab3624",
+   "carts/pixel/main.lua": "15d532849ab9",
+   "carts/studio/main.lua": "4ad32dad9ad3",
+   "carts/titan/build/mkrobot.py": "72c7aff21afd",
+   "carts/yharnam/build/mkassets.py": "efc8086470ce",
+   "docs/api/draw.md": "61932a4cb329",
+   "docs/api/light3d.md": "768fc91992e3",
+   "docs/design/games-architecture.md": "d55d35bd36ae",
+   "docs/design/suite-animator.md": "be49ad9d4cf9",
+   "docs/design/suite-pixel.md": "f7a42429b14b",
+   "docs/progress/graphics.md": "b96f51676fd8",
+   "docs/progress/tools.md": "4f939091e718",
+   "docs/progress/yharnam.md": "81a77c0aef1c",
+   "tools/cutout2mesh.py": "a2a57f9737c1",
+   "tools/img2mesh.py": "db3364221d4a"
+  }
+ },
  "editor-animator": {
   "chapters": {
    "1": {
@@ -892,6 +980,74 @@
    "easy_install.sh": "3fc0a62e5b07",
    "scripts/copy-sd-rgb30.sh": "38f59e3439e0",
    "scripts/mksd.py": "6ed865802e51"
+  }
+ },
+ "levels": {
+  "chapters": {
+   "1": {
+    "en": "b7a272059dcd",
+    "it": "462b636eb170",
+    "title": "What a level is in bm"
+   },
+   "10": {
+    "en": "c11f7ead3c33",
+    "it": "5b13328b1447",
+    "title": "Tips and limits"
+   },
+   "2": {
+    "en": "a8949c98aa98",
+    "it": "a83ce732a01b",
+    "title": "The sprite sheet and the tiles"
+   },
+   "3": {
+    "en": "b74eca2809f1",
+    "it": "7a41101dd02c",
+    "title": "The 2D map in bm SDK"
+   },
+   "4": {
+    "en": "a940f4a25af9",
+    "it": "26246a799425",
+    "title": "The linear level tools (path, apples, crates, lamps)"
+   },
+   "5": {
+    "en": "5d6be86b34db",
+    "it": "98d249bb1607",
+    "title": "3D levels"
+   },
+   "6": {
+    "en": "05c65c1e45fc",
+    "it": "c1ddb94a8382",
+    "title": "Building a game with the suite"
+   },
+   "7": {
+    "en": "889bb2163038",
+    "it": "05260c526d19",
+    "title": "Several stages in a 2D game"
+   },
+   "8": {
+    "en": "507c64925fcf",
+    "it": "5652a134a2df",
+    "title": "Several stages in a 3D game"
+   },
+   "9": {
+    "en": "fbc7b893a9e9",
+    "it": "fcecfd93c2d4",
+    "title": "Switching levels in the game"
+   }
+  },
+  "sources": {
+   "carts/editor/main.lua": "104fd090065d",
+   "docs/GAME-GUIDE.md": "426aea1ebf0b",
+   "docs/ROADMAP.md": "74b3aab8f42e",
+   "docs/api/bmlib.md": "e1b5c355f388",
+   "docs/api/draw.md": "61932a4cb329",
+   "docs/api/light3d.md": "768fc91992e3",
+   "docs/design/games-architecture.md": "d55d35bd36ae",
+   "docs/design/suite-sdk.md": "6a8b4424e3fa",
+   "docs/progress/graphics.md": "b96f51676fd8",
+   "docs/progress/tools.md": "4f939091e718",
+   "docs/progress/v3d.md": "71c6d083c4d6",
+   "src/bm/map3d.c": "83e5e8666802"
   }
  },
  "pi-zero-w": {
