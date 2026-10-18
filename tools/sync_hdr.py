@@ -9,6 +9,11 @@
       # `done WO <X> [waiting on <Y> | FREE]: <files> files +<a> -<d>, <N> tokens, <M> min`; the status block is NOT touched.
       # files/add/del/lines come from `git show --numstat <commit>` unless given by hand (--files --add --del --lines code=..,docs=..,data=..).
 
+  python3 tools/sync_hdr.py CLD --closed nessuno --branch claude/x [--commit <sha>]
+      # writes `CLOSED @ <branch>@<commit> · tree clean · aperti: <nessuno|WO ids> · <ISO>` in the `## Chiusura` section
+      # (created before `## Progressi` if missing; an existing CLOSED line is replaced), then applies --state DONE --ack auto.
+      # --commit defaults to `git rev-parse --short HEAD`.
+
 state: DONE | WORKING | WAITING | IDLE | FREE;  waiting_on (only with WAITING): utente | Antigravity | Claude cloud | Claude local.
 The text of the file is kept; the old lines '**Ultimo aggiornamento:**' and '**Stato:**' are refreshed too, if the file has them.
 Then: git add sync/<ID>.md && git commit && git pull --rebase origin bm-core && git push origin HEAD:bm-core."""
@@ -158,6 +163,24 @@ def close_wo(a):
     return 0
 
 
+def set_closed(body, line):
+    """Put `line` in the `## Chiusura` section of body (LF text): replace a CLOSED line, else add it; create the section before `## Progressi` (or at the end)."""
+    m = re.search(r"^## Chiusura[ \t]*\n", body, re.M)
+    if not m:
+        sec = "## Chiusura\n\n%s\n\n" % line
+        p = re.search(r"^## Progressi", body, re.M)
+        if p:
+            return body[:p.start()] + sec + body[p.start():]
+        return body.rstrip("\n") + "\n\n" + sec.rstrip("\n") + "\n"
+    end = re.search(r"^## ", body[m.end():], re.M)
+    stop = m.end() + end.start() if end else len(body)
+    sect = body[m.end():stop]
+    new, n = re.subn(r"^[-*]?[ \t]*CLOSED\s+@.*$", lambda _: line, sect, count=1, flags=re.M)
+    if not n:
+        new = "\n" + line + "\n" + sect.lstrip("\n") if sect.strip() else "\n" + line + "\n\n"
+    return body[:m.end()] + new + body[stop:]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("id")
@@ -170,6 +193,7 @@ def main():
     ap.add_argument("--wakeup", choices=("yes", "no"), help="does the agent wake itself up (timer, scheduler)?")
     ap.add_argument("--file")
     ap.add_argument("--close", metavar="WO", help="close a work order: ledger row + chat line (status block untouched)")
+    ap.add_argument("--closed", metavar="OPEN", help="write the CLOSED line in ## Chiusura (OPEN: `nessuno` or open WO ids); implies --state DONE --ack auto")
     ap.add_argument("--files", type=int)
     ap.add_argument("--add", type=int)
     ap.add_argument("--del", dest="dele", type=int)
@@ -184,6 +208,19 @@ def main():
     a = ap.parse_args()
     if a.close:
         sys.exit(close_wo(a))
+    closed_line = None
+    if a.closed:
+        if not a.branch:
+            sys.exit("error: --closed needs --branch")
+        commit = a.commit
+        if not commit:
+            r = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=a.repo or ROOT, capture_output=True, text=True)
+            if r.returncode != 0 or not r.stdout.strip():
+                sys.exit("error: --closed needs --commit (git rev-parse failed)")
+            commit = r.stdout.strip()
+        closed_line = "CLOSED @ %s@%s · tree clean · aperti: %s · %s" % (a.branch, commit, a.closed, now_stamp())
+        a.state = "DONE"
+        a.ack = a.ack or "auto"
     path = a.file or os.path.join(ROOT, "sync", a.id + ".md")
     text = open(path, encoding="utf-8", newline="").read() if os.path.exists(path) else "# %s\n\n" % a.id
     nl = "\r\n" if "\r\n" in text else "\n"
@@ -216,6 +253,8 @@ def main():
     if a.state or a.task is not None:
         status = (d["state"] + " " + d.get("task", "")).strip()
         body = re.sub(r"(\*\*Stato:\*\*).*", lambda m: "%s `%s`" % (m.group(1), status), body, count=1)
+    if closed_line:
+        body = set_closed(body, closed_line)
     open(path, "w", encoding="utf-8", newline="").write((head + body).replace("\n", nl))
     print("%s: %s %s (updated %s)" % (path, d["state"], d.get("task", ""), d["updated"]))
 
