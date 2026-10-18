@@ -3,15 +3,15 @@
 chiede a Claude di chiudere la risposta con un `/compact ...` pronto.
 
 Env: CTX_GUARD_WINDOW (token della finestra, default 1000000),
-     CTX_GUARD_PCT (soglia %, default 20 = 200k su 1M), CTX_GUARD_STEP (riavviso ogni +N %, default 10 = +100k).
+     CTX_GUARD_PCT (soglia %, default 12 = 120k su 1M), CTX_GUARD_STEP (riavviso ogni +N %, default 5 = +50k).
 Se esiste .claude/state/better-prompt.json (plugin better-prompt >= 0.4.0) usa i suoi token/finestra e aggiunge topic e divergenza;
 altrimenti calcola dal transcript. Stato in .claude/state/ctx_guard_<session>.json (ignorato da git).
 """
 import json, os, sys
 
 WINDOW = int(os.environ.get("CTX_GUARD_WINDOW", "1000000"))
-PCT = float(os.environ.get("CTX_GUARD_PCT", "20"))
-STEP = float(os.environ.get("CTX_GUARD_STEP", "10"))
+PCT = float(os.environ.get("CTX_GUARD_PCT", "12"))
+STEP = float(os.environ.get("CTX_GUARD_STEP", "5"))
 
 MSG = (
     "[ctx_guard] Contesto al {pct:.0f}% ({tok}k/{win}k token), oltre la soglia {thr:.0f}%. Dopo aver risposto, chiudi con UN solo blocco di codice: la riga `/compact` seguita dal testo qui sotto, compilato dal contesto reale, così che un agente nuovo riparta SENZA rileggere la conversazione. Frasi corte e positive (\"fai X\"). Ogni dato volatile (hash, ID agente, stato di branch/CI) porta data/ora e la fonte da cui rileggerlo; in caso di dubbio vince la fonte. Struttura fissa, in quest'ordine:\n"
