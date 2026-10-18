@@ -10,6 +10,7 @@
 #define _DEFAULT_SOURCE
 #include "fs/fat.h"
 #include "drivers/sd.h"
+#include "kernel/sdmap.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -222,6 +223,47 @@ static void test_free_count(void)
     CHECK(count_free() == f0);
 }
 
+static int has_file(const sdmap_t *r, const char *path, uint32_t bytes)
+{
+    for (int i = 0; i < r->nfiles; i++)
+        if (!strcasecmp(r->files[i].path, path) && r->files[i].bytes == bytes)
+            return 1;
+    return 0;
+}
+
+static void test_sdmap(void)
+{
+    uint8_t *buf = pattern(5000, 5);
+    CHECK(fat_mkdirs("/bm") == 0);
+    CHECK(fat_mkdirs("/bme") == 0);
+    CHECK(fat_write_file("/bm", "G.BM", buf, 3000) == 0);
+    CHECK(fat_write_file("/bm", "LOG.TXT", buf, 2000) == 0);
+    CHECK(fat_write_file("/bme", "P.BME", buf, 5000) == 0);
+    CHECK(fat_write_file("/", "kernel.img", buf, 4000) == 0);
+    CHECK(fat_write_file("/", "X.DAT", buf, 1000) == 0);
+    free(buf);
+    sdmap_core_reset();
+    int r;
+    while ((r = sdmap_core_step(2)) == 1)
+        ;
+    CHECK(r == 0);
+    const sdmap_t *m = sdmap_core_result();
+    CHECK(m->bm >= 5000 && m->bme == 5000 && m->kernel == 4000);
+    CHECK(m->free > 0 && m->free + m->kernel + m->bm + m->bme + m->other == m->total);
+    int found = 0;
+    for (int i = 0; i < m->ndirs; i++)
+        if (!strcasecmp(m->dirs[i].path, "/bme")) {
+            found = 1;
+            CHECK(m->dirs[i].files == 1 && m->dirs[i].kb == 4);
+        }
+    CHECK(found);
+    CHECK(has_file(m, "/bm/LOG.TXT", 2000) && has_file(m, "/X.DAT", 1000));
+    CHECK(!has_file(m, "/bm/G.BM", 3000) && !has_file(m, "/bme/P.BME", 5000) && !has_file(m, "/kernel.img", 4000));
+    for (int i = 1; i < m->nfiles; i++)
+        CHECK(m->files[i - 1].bytes >= m->files[i].bytes);
+    CHECK(sdmap_core_permille() == 1000);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4) {
@@ -257,6 +299,7 @@ int main(int argc, char **argv)
         free(p);
     }
     test_free_count();
+    test_sdmap();
 
     /* 200 files: the directory grows over several clusters */
     for (int i = 0; i < 200; i++) {
