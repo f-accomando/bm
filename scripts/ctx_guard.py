@@ -3,22 +3,27 @@
 chiede a Claude di chiudere la risposta con un `/compact ...` pronto.
 
 Env: CTX_GUARD_WINDOW (token della finestra, default 1000000),
-     CTX_GUARD_PCT (soglia %, default 20 = 200k su 1M), CTX_GUARD_STEP (riavviso ogni +N %, default 10 = +100k).
+     CTX_GUARD_PCT (soglia %, default 12 = 120k su 1M), CTX_GUARD_STEP (riavviso ogni +N %, default 5 = +50k).
 Se esiste .claude/state/better-prompt.json (plugin better-prompt >= 0.4.0) usa i suoi token/finestra e aggiunge topic e divergenza;
 altrimenti calcola dal transcript. Stato in .claude/state/ctx_guard_<session>.json (ignorato da git).
 """
 import json, os, sys
 
 WINDOW = int(os.environ.get("CTX_GUARD_WINDOW", "1000000"))
-PCT = float(os.environ.get("CTX_GUARD_PCT", "20"))
-STEP = float(os.environ.get("CTX_GUARD_STEP", "10"))
+PCT = float(os.environ.get("CTX_GUARD_PCT", "12"))
+STEP = float(os.environ.get("CTX_GUARD_STEP", "5"))
 
 MSG = (
-    "[ctx_guard] Contesto al {pct:.0f}% ({tok}k/{win}k token), oltre la soglia {thr:.0f}%. "
-    "Dopo aver risposto, chiudi con UN solo blocco di codice contenente il comando da incollare: "
-    "`/compact tieni: <obiettivo>; <decisioni prese e perché>; <file toccati e branch>; "
-    "<stato docs/progress/ da aggiornare>; <prossimo passo>. scarta: output di comandi e letture di file già usate`. "
-    "Compila ogni campo dal contesto reale, max 12 righe, nessun altro testo sul compact."
+    "[ctx_guard] Contesto al {pct:.0f}% ({tok}k/{win}k token), oltre la soglia {thr:.0f}%. Dopo aver risposto, chiudi con UN solo blocco di codice: la riga `/compact` seguita dal testo qui sotto, compilato dal contesto reale, così che un agente nuovo riparta SENZA rileggere la conversazione. Frasi corte e positive (\"fai X\"). Ogni dato volatile (hash, ID agente, stato di branch/CI) porta data/ora e la fonte da cui rileggerlo; in caso di dubbio vince la fonte. Struttura fissa, in quest'ordine:\n"
+    "1 RUOLO (3-5 righe): chi sono, progetto/branch/worktree (path completo), cosa non è di mia competenza e a chi va passato, primi file/comandi da leggere alla ripartenza (in ordine).\n"
+    "2 REGOLE DELL'UTENTE (testuali, con data): stile di conversazione, cosa si fa a fine giornata o su richiesta, come comportarsi davanti a impedimenti e tempi alti; un'eccezione dell'utente va scritta con data e portata.\n"
+    "3 VINCOLI STABILI: consensi richiesti (merge, push, PR, eliminazioni, rerun/cancel CI, azioni sull'hardware), ciascuno 'serve il via esplicito' o 'libero'; attribuzione nei commit/PR; soglie di costo; convenzioni (orari, lingua, lunghezza righe di log).\n"
+    "4 STRUMENTI E PROTOCOLLO: comandi fissi con sintassi minima, skill/agenti e limiti dei subagent; se la sessione è in un sync (SYNC.md) anche formati obbligatori (preso/concluso WO, DELIVERED, REVIEW, SIGNOFF, RULE, da <ID> a <ID>), stati operatore, casella sync/inbox, procedura di consegna, costo dei battiti.\n"
+    "5 STATO (max 15 righe): una riga per lavoro aperto `ID · chi · stato · ultimo hash/branch · prossimo passo · fonte`, ogni riga con data e fonte, raggruppate per operatori, branch e integrazione, CI, repo pubblici, docs da aggiornare, agenti in corso (ID + cosa devono restituire). Scrivi solo ciò che è cambiato dall'ultimo compact; un dato superato si SOSTITUISCE.\n"
+    "6 IN SOSPESO CON L'UTENTE: elenco numerato di decisioni/consensi attesi, una riga ciascuno, senza quelle risolte (includi prove hardware di fine giornata e doveri di fine sessione).\n"
+    "7 LEZIONI OPERATIVE: solo quelle che hanno già causato errori, una riga con il comando o il gesto corretto.\n"
+    "SCARTA: output di comandi e letture di file già usate, ragionamenti intermedi, hash superati, tentativi falliti già risolti, conversazione di cortesia.\n"
+    "Prima di emettere: i blocchi 1-4 e 7 restano identici al compact precedente salvo modifiche esplicite (non riscriverli da zero); nessun dato volatile senza data e fonte; blocchi durevoli (1-4, 7) max 60 righe, stato+sospesi (5-6) max 30. Nessun altro testo sul compact."
 )
 
 
@@ -88,8 +93,8 @@ def _topics(bp):
     if not bp or not bp.get("topics"):
         return ""
     names = bp["topics"]
-    return (" Topic della chat: %s (divergenza %s%%). Nel campo 'tieni' metti solo l'ultimo topic (%s); "
-            "in 'scarta' i precedenti." % (", ".join(names), bp.get("div", 0), names[-1]))
+    return (" Topic della chat: %s (divergenza %s%%). Nel blocco 5 (STATO) tieni solo l'ultimo topic (%s); "
+            "i precedenti vanno in SCARTA." % (", ".join(names), bp.get("div", 0), names[-1]))
 
 
 def _save(sdir, sfile, pct):
