@@ -300,6 +300,15 @@ settings = ""
 read_in = "src/kernel/carts.c:1167"
 
 [[key]]
+name = "mali3d"
+scope = "rgb30"
+values = "1 = the Mali draws the flat-colour triangles of the 3D; anything else = the ARM"
+default = "ARM"
+meaning = "RK3566 Mali backend of r3d (phase 2), flat colours only; textures and effects hand over to the ARM. Not run on a console."
+settings = ""
+read_in = "src/rgb30/bm_port.c:35"
+
+[[key]]
 name = "market_bm"
 scope = "rgb30"
 values = "1 = also list the .bm cartridges of the Market; anything else = only .b16"
