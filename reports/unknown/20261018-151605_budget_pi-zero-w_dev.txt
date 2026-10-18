@@ -1,0 +1,29 @@
+bm report
+kind: budget
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: 2026-10-18 15:16:05
+file: 20261018-151605_budget_pi-zero-w_dev.txt
+
+options bm3d 7.3 gpu3d=on vs=2 aa=0 queue=2 wc=0 filter=0 tex16=0 fs2=1 sort=0 attr=0 etc1=0 3d=gpu later=0 2d=0 impostor=8 fast=0
+bm budget 1
+screen 640x360
+gpu3d 1
+test,unit,n60,n30,us_item,tris60
+spr16,spr,1945,4019,8.02,
+tiles8,tile,13116,27345,1.17,
+mesh96,obj,589,1195,25.41,56569
+part2d,part,1244,2595,12.29,
+point3d,pt,215,439,72.59,
+profile_load,spr16,1945
+profile,spr,[C],11.225,11.225
+profile,draw,main.lua:18,8.535,19.766
+profile,rectfill,[C],0.049,0.049
+profile,print,[C],0.042,0.042
+profile,format,[C],0.027,0.027
+profile,_draw,main.lua:183,0.014,19.901
+profile,cls,[C],0.005,0.005
+profile,stat,[C],0.001,0.001
+profile,_update,main.lua:138,0.000,0.001
+profile,profile,[C],0.000,0.000
