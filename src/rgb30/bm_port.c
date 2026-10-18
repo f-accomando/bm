@@ -28,20 +28,24 @@
  * draws the flat-coloured triangles, the ARM the rest (see mali_backend in mali.c) --- */
 
 static const r3d_backend_t *mali_be;
-static int mali_tried;
-
+/* The key is read on every init (the 3D Bench switches it on and back): off drops the backend and what it holds, on probes
+ * the Mali once (a probe that failed is not repeated) and keeps the backend while the key stays on. */
 int gpu3d_init(void)
 {
+    const char *k = config_get("mali3d");
+    if (!k || strcmp(k, "1")) {
+        if (mali_be)
+            mali_backend_drop();
+        mali_be = NULL;
+        return -1;
+    }
     if (mali_be)
         return 0;
-    if (mali_tried)
-        return -1;
-    mali_tried = 1;
-    const char *k = config_get("mali3d");
-    if (!k || strcmp(k, "1"))
-        return -1;
     const mali_hw_t *hw = rgb30_mali_hw();
-    if (!hw || rgb30_mali_probe() != MALI_OK)
+    int r = hw ? rgb30_gpu_result(NULL) : MALI_E_POWER;     /* 1: not probed yet; a failure stays until the next boot */
+    if (r == 1)
+        r = rgb30_mali_probe();
+    if (r != MALI_OK)
         return -1;
     mali_be = mali_backend(hw);
     return mali_be ? 0 : -1;
