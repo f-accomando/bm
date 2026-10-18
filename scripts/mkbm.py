@@ -37,6 +37,7 @@ Format: see src/bm/bm.h.
 """
 import argparse
 import os
+import re
 import struct
 import sys
 import zlib
@@ -456,6 +457,85 @@ def mark_b16(data):
     return bytes(out)
 
 
+B16_LUA_CHECKS = [
+    (r"(?<![\w])math\.random", "math.random: not the same game on every machine"),
+    (r"(?<![\w.:])time\(", "time(): no clock; count the ticks instead"),
+    (r"(?<![\w.:])save\(", "save(): saves are not designed yet"),
+    (r"(?<![\w.:])ls\(", "ls() and files: no file system"),
+    (r"(?<![\w.:])cart_\w+\(", "cart_*: the tools' functions, not a game's"),
+    (r"(?<![\w.:])udp_\w+\(", "udp: no network from the system"),
+    (r"(?<![\w.:])require(?![\w])", "require: not for a .b16"),
+    (r"(?<![\w.:])load\(", "load(): not for a .b16"),
+    (r"(?<![\w.:])screen\(", "screen(): one machine, one resolution"),
+]
+
+
+def lua_code_only(text):
+    """`text` with the comments and the insides of the strings blanked, line
+    numbers kept (so a "--" or a name inside a string is not code)"""
+    out, i, n = [], 0, len(text)
+
+    def blank(chunk):
+        return "".join(c if c == "\n" else " " for c in chunk)
+    while i < n:
+        c = text[i]
+        m = None
+        if c == "-" and text.startswith("--", i):
+            m = re.match(r"--\[(=*)\[", text[i:])
+            if m:
+                end = text.find("]" + m.group(1) + "]", i + len(m.group(0)))
+                end = n if end < 0 else end + len(m.group(1)) + 2
+            else:
+                end = text.find("\n", i)
+                end = n if end < 0 else end
+            out.append(blank(text[i:end]))
+            i = end
+        elif c == "[" and (m := re.match(r"\[(=*)\[", text[i:])):
+            end = text.find("]" + m.group(1) + "]", i + len(m.group(0)))
+            end = n if end < 0 else end + len(m.group(1)) + 2
+            out.append(blank(text[i:end]))
+            i = end
+        elif c in "\"'":
+            j = i + 1
+            while j < n and text[j] != c and text[j] != "\n":
+                j += 2 if text[j] == "\\" else 1
+            end = min(j + 1, n)             # j is the closing quote, the line end or n
+            closed = end <= n and text[end - 1] == c and end - 1 > i
+            out.append(c + blank(text[i + 1:end - 1 if closed else end]) + (c if closed else ""))
+            i = end
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
+def b16_lint(data, label):
+    """checks of a .b16 cartridge (M42): raises SystemExit for a sheet of
+    more than 256 colours, prints a warning (first occurrence only) for
+    each system call of B16_LUA_CHECKS in its Lua"""
+    secs = bmmesh.cart_sections(data)
+    types = {t for t, _ in secs}
+    sheet = next((body for t, body in secs if t == SEC_SHEET), None)
+    if sheet is not None and SEC_SHEET8 not in types:
+        w, h = struct.unpack_from("<HH", sheet, 0)
+        rgba = sheet[4:]
+        colours = set()
+        for i in range(min(w * h, len(rgba) // 4)):
+            p = rgba[i * 4:i * 4 + 4]
+            colours.add(bytes(p) if p[3] >= 128 else b"\0\0\0\0")
+            if len(colours) > 256:
+                raise SystemExit(f"{label}: a .b16 sheet has more than 256 colours (use --sheet8)")
+    lua = b"\n".join(body for t, body in secs if t == SEC_LUA)
+    if lua:
+        lines = lua_code_only(lua.decode("utf-8", errors="replace")).split("\n")
+        for pattern, msg in B16_LUA_CHECKS:
+            rx = re.compile(pattern)
+            for n, line in enumerate(lines, 1):
+                if rx.search(line):
+                    print(f"warning: {label}:{n}: {msg}", file=sys.stderr)
+                    break
+
+
 def export_from(src, a, out):
     raw = bytearray(open(src, "rb").read())
     if len(raw) < 128 or raw[:8] not in (b"BMCART\x00\x00", b"BM33CART"):
@@ -488,6 +568,7 @@ def export_from(src, a, out):
             for t, payload in secs:
                 if t == SEC_SHEET:
                     sw, sh = struct.unpack_from("<HH", payload, 0)
+                    from bmres import sheet8_encode      # lazy: bmres imports this module
                     enc = sheet8_encode(sw, sh, payload[4:])
                     new_secs.append((SEC_SHEET8, enc) if enc else (t, payload))
                 else:
@@ -597,6 +678,8 @@ def main():
         elif a.b16 or a.output.lower().endswith(".b16"):
             data = mark_b16(data)
         title, res_str = a.title, a.res
+    if a.b16 or a.output.lower().endswith(".b16"):
+        b16_lint(data, a.output)
     if (a.b16 or a.output.lower().endswith(".b16")) and len(data) > 8 * 1024 * 1024:
         raise SystemExit(f"{a.output}: {len(data)} bytes is over a .b16's 8 MiB limit")
     if a.output and os.path.dirname(a.output):

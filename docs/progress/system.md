@@ -75,18 +75,13 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 
 - To confirm from a boot log on the device: whether a stale association after a reboot was
   part of the missing WiFi (the fix that is in: retries and `wifi_leave()`).
-- **Freeze reports (secondary, later):** (1) `netxfer.c` ~470 reboots after a network kernel
-  without `crumbs_clean_exit()`, so the next boot reports a false freeze (4 reports so far);
-  one helper for every planned restart. (2) `watchdog.c` writes only PM_WDOG and never counts on
-  the Pi Zero W: write WDOG then RSTC, check it counts, mind >3 s with interrupts off (the
-  watchdog is reset by the 10 Hz tick). (3) the last-lines ring can tear at 32-byte lines (keep
-  a 0 after the newest char), store the freezing kernel's version, pin `.noinit` (`linker.ld`).
+- **Freeze reports hardware checks (Pi Zero W):** verify real watchdog countdown on hardware (FRZ-3: boot log says "watchdog: on", monitor `X f` restarts within ~3 s with report "the Pi froze last time").
 - Measurements to redo, stalls that still hold the CPU, downloads inside an app: [multitasking](multitasking.md).
 
 ### Console Standalone & Hardware Spunti (R1, R2, R3, R4, R6, R8, R19, R20)
 - **R1 — WiFi dal menu col pad**: Settings > WiFi and network con selezione reti via gamepad e inserimento credenziali tramite tastiera a schermo (R2).
 - **R2 — Tastiera a schermo kernel**: Trasformazione di `padtype` in servizio nativo C per il kernel (utilizzabile per configurazione WiFi, rinomina file, Market) ed esposto ai giochi via API Lua (`textinput(titolo, default)`).
-- **R3 — Log su SD con crash traceback**: Scrittura di `bm/log.txt` sulla scheda SD del Raspberry Pi contenente il log di boot e il traceback dell'ultimo errore Lua di una cartuccia.
+- **R3 — Traceback Lua su SD**: Traceback dell'ultimo errore Lua di una cartuccia salvato su SD (log di boot, bootprev e lastrun completati in D19).
 - **R4 — Screenshot**: done in the games' runtime (`shot()`, Print Screen, Select+L1+R1, `bm/shots/`: [`SCREENSHOTS.md`](../SCREENSHOTS.md)). To do: the menu's own screens, a try on the Pi and the RGB30 (3D `later` mode), the key's picture in the F12 list.
 - **R6 — Web Interface locale (`bm.local`)**: Server HTTP integrato e responder mDNS (`bm.local`) per consentire il caricamento di file `.bm`, il download di screenshot/salvataggi e la modifica di `bm/config.txt` direttamente dal browser del telefono o PC locale.
 - **R8 — Rumble e LED DualShock 4**: Esposizione delle API `rumble(p, forte, debole, ms)` e `padlight(p, colore)` sfruttando il report di uscita 0x11 già implementato in `bt.c`.
@@ -96,6 +91,9 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 
 ## Rules (do not break)
 
+- All SD logs only via `src/kernel/sdlog.c`.
+- Planned restarts only via `crumbs_restart()`.
+- SD logs masked with `reports_mask_secrets()`.
 - Fibers (`background_stop()`, `net_wait_step`, update/publish vs apps): [multitasking](multitasking.md).
 - Tabs on the Pi: Market · Games · Dev · Lib · Settings, Lib hidden until `lib_tab=1`; the
   menu opens on Games; the Market never blocks the menu and loads only when its tab is on.
@@ -107,6 +105,8 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 - FAT writes may meet at a tick (a fiber's write and the menu's `config_save`): a picked
   cluster is marked before any tick, and the directory is read and changed with no tick
   in between (`store()` in `fat.c`). Keep both.
+- Transfer port read ops (`netxfer.c`): `G` serves only files of `bm/shots` (one level, no `..`) and the three logs `bm/BOOTPREV.TXT|BOOTLOG.TXT|LASTRUN.TXT` (exact names);
+  `T` needs a game drawing frames and gives up after 3 s (`NG`). Details in [system-net](system-net.md).
 - Keys and tokens only in the environment or `bm/config.txt`, never in files.
 - Tests: `make test-usb`, `test-fat`, `test-net`, `test-https`, `test-http`, `test-lan`,
   `test-github`, `test-release`, `test-catalog`, `test-hyp`; QEMU `-k <name>`.

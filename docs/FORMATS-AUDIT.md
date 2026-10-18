@@ -82,15 +82,15 @@ are not applied yet"; `scripts/mkmarket.py:121-125`).
 | Palette of 256 colours / `SHEET8` | not checked for `.b16`; no `PAL` section exists |
 | Lua heap 4 MiB | **contradicted**: 64 MiB for every cartridge (`luavm.c:13`) |
 | Save 64 KiB | **contradicted**: 32 KiB (`runtime.c:3300`); `B16.md:529` says saves are not designed |
-| Budget 1 M instructions, 60 -> 30 fps drop | **contradicted/missing**: 20 M per callback for every cartridge; no throttle |
+| Budget 1 M instructions, 60 -> 30 fps drop | **contradicted/missing**: 20 M per callback for every cartridge; no throttle. Decided: promise dropped (D4) |
 | Sandbox allow-list built from empty; no `math.random`, `time`, files, `screen`, `require` | **contradicted**: a deny list (only `dofile loadfile load` removed); `math`, `time`, `cart_*`, `ls` stay (`runtime.c:4809-4822`) |
 | Graphic banks 1024x1024, `gfxbank` | only designed; Yharnam's sheet is 4096x3392 |
 | File cap 8 MiB | enforced when **building** (`mkbm.py:600`, `project.c:203`, Makefile, `mkmarket.py`), not when the console loads |
 | Working folder `dev/<name>/`, `suspend` | only designed; the real flow is `.bme` projects |
 
 How a `.b16` is really made: `mkbm.py --b16`/`--from X --b16`; the SDK's "Export .b16" (`bm_build_b16`); Overbit has its own
-rule (minified Lua, header 360x360); **Yharnam and Titan Clash EX are a plain `cp` of the `.bm`** (`B16_AS_BM`,
-Makefile:372-375): same bytes, flag 0, so in practice **one edition under two names**. The RGB30 lists `.bm` files too by
+rule (minified Lua, header 360x360); **Yharnam and Titan Clash EX `.b16` are made with
+`mkbm.py --from X.bm --b16`** (`B16_AS_BM`, Makefile:370): done (B2). The RGB30 lists `.bm` files too by
 default (`show_bm`, `ui.c:238`), against "only `.b16`" in the docs.
 
 Documentation inconsistencies: `B16.md:5-7` "not yet implemented" against `progress/b16.md` "done" and the tools above;

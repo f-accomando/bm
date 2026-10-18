@@ -800,7 +800,6 @@ local B16_CHECKS = {                     -- (whole names: %f, not "mytime(")
   { "%f[%w_.:]udp_%w+%(", "udp: no network from the system (6.7)" },
   { "%f[%w_.:]require%f[^%w_]", "require: never in the sandbox (6.3)" },
   { "%f[%w_.:]load%(", "load(): never in the sandbox (6.3)" },
-  { "%f[%w_.:]draw3d%(", "3D: the .b16 machine profile is not written yet (7)" },
   { "%f[%w_.:]screen%(", "screen(): one machine, one resolution (2.6)" },
 }
 

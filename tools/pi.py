@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Client of tools/pi_bridge.py:  python3 tools/pi.py line gpu | send FILE | play FILE | kernel FILE"""
+"""Client of tools/pi_bridge.py:  python3 tools/pi.py line gpu | send FILE | play FILE | kernel FILE | shot OUT.png | keys NAME | logs NAME"""
 import os
 import socket
 import sys
