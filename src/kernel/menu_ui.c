@@ -833,11 +833,31 @@ static void draw_list(const menu_panel_t *p, int x0, int w, int faded, int hit, 
         if (sel)
             round_rect(x0 + 16, y - 6, w - 32, 28, 8, faded ? c16(C_LINE) : c16(C_TAB_ON));
         sel = sel && !faded;
-        uint16_t fg = sel ? c16(C_BAR) : r->kind == MENU_ROW_INFO ? c16(C_DIM) : c16(C_TEXT);
-        uint16_t fv = sel ? c16(0x4A4A56) : r->kind == MENU_ROW_INFO ? c16(C_TEXT) : c16(C_DIM);
+        const int info = r->kind == MENU_ROW_INFO || r->kind == MENU_ROW_BAR;
+        uint16_t fg = sel ? c16(C_BAR) : info ? c16(C_DIM) : c16(C_TEXT);
+        uint16_t fv = sel ? c16(0x4A4A56) : info ? c16(C_TEXT) : c16(C_DIM);
         ksnprintf(buf, sizeof buf, "%s", r->label ? r->label : "");
         buf[30] = 0;
+        if (r->swatch)
+            g16_rectfill(&g, label_col * 8 - 12, y + 3, 8, 8, c16(r->swatch));
         g16_text(&g, label_col * 8, y, buf, fg);
+        if (r->kind == MENU_ROW_BAR) {
+            static const uint32_t part_col[5] = { 0xE06C75, 0x61AFEF, 0x98C379, 0xE5C07B, 0x4A5060 };  /* kernel, bm, bme, other, free */
+            const int bx = (label_col + (int)strlen(buf) + 1) * 8, bw = value_end * 8 - bx;
+            if (r->bar && bw > 0) {
+                g16_rectfill(&g, bx, y + 2, bw, 10, c16(C_LINE));
+                int px = bx;
+                for (int k = 0; k < 5; k++) {
+                    int pw = bw * r->bar[k] / 1000;
+                    if (pw > bx + bw - px)
+                        pw = bx + bw - px;
+                    if (pw > 0)
+                        g16_rectfill(&g, px, y + 2, pw, 10, c16(part_col[k]));
+                    px += pw;
+                }
+            }
+            continue;
+        }
         const char *val = values && r->value ? r->value : "";
         if (r->kind == MENU_ROW_CHOICE && sel && values)
             ksnprintf(buf, sizeof buf, "< %s >", val);
@@ -1476,7 +1496,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         col = WIDE ? 40 : hc;
         if (r && r->kind == MENU_ROW_CHOICE)
             col = hint(v, col, 21, BTN_CHANGE, "Change");
-        else if (r && r->kind != MENU_ROW_INFO)
+        else if (r && r->kind != MENU_ROW_INFO && r->kind != MENU_ROW_BAR)
             col = hint(v, col, 21, BTN_A, r->kind == MENU_ROW_SUB ? "Open" : "Select");
         hint(v, WIDE && col < 55 ? 55 : col, 21, BTN_B, "Back");
     } else if (v->on_gear) {

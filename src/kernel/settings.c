@@ -67,7 +67,7 @@ void home_row(home_panel_t *p, int kind, int id, const char *label, const char *
         vsnprintf(p->value[i], sizeof p->value[i], fmt, ap);
         va_end(ap);
     }
-    p->rows[i] = (menu_row_t){ p->label[i], fmt ? p->value[i] : NULL, kind };
+    p->rows[i] = (menu_row_t){ p->label[i], fmt ? p->value[i] : NULL, kind, NULL, 0 };
     p->ids[i] = id;
     p->help[i] = help;
 }
