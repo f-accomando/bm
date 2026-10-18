@@ -75,4 +75,4 @@ Roles (`.claude/agents/`): `bm-planner` Opus, plans. `bm-coder` Haiku, code from
 3. Create **only** `sync/<ID>.md` from `sync/_template.md`: status block written with `python tools/sync_hdr.py <ID> --state FREE --task handshake`, `## Profilo` (where you run and breaking points, models, subagents, tools with version) and `## Requisiti` if §2 lists them.
 4. Commit and `git pull --rebase origin <branch> && git push origin HEAD:<branch>`; then wait for the assignment written by SPV in `SYNC.md`. Start work only after that assignment.
 
-**Delivery line** (section `## Consegne` of your own file, then `FREE`): `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`
+**Delivery line** (section `## Consegne` of your own file, then `FREE`): `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}` Before it, close the WO with `python tools/sync_hdr.py <ID> --close <WO> --commit <sha> --tokens T --min M` (appends the row to `sync/<ID>.ledger.jsonl` and prints the `done WO` chat line).
