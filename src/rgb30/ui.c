@@ -181,6 +181,7 @@ static void frame_end(void)
 
 struct game {
     char name[56], title[48], author[33], save[32];     /* save: its save file, as the runtime names it */
+    char dir[8];                                        /* "/bm" or "/carts" */
     uint32_t size;
     int is_bm;
     g16_sheet_t cover;              /* 128x80: the .bm's COVER, or its title on a label */
@@ -194,7 +195,7 @@ static const char *sd_state = "not read";
 static void load_cover(int i)
 {
     char path[80];
-    ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
+    ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
     ksnprintf(games[i].title, sizeof games[i].title, "%s", games[i].name);
     games[i].author[0] = 0;
     fat_entry_t e;
@@ -236,20 +237,14 @@ static int title_cmp(const void *a, const void *b)
     return strcasecmp(((const struct game *)a)->title, ((const struct game *)b)->title);
 }
 
-static void scan_games(void)
+static void scan_dir(const char *open, const char *dir)
 {
-    for (int i = 0; i < n_games; i++)
-        g16_sheet_free(&games[i].cover);
-    n_games = n_hidden = 0;
     fat_dir_t d;
     fat_entry_t e;
     const char *show = config_get("show_bm");
     int show_bm = !show || strcmp(show, "0") != 0;     /* for testing: shown unless show_bm=0 */
-    if (fat_opendir(&d, "bm") != 0) {
-        sd_state = "no bm/ folder on the SD card";
+    if (fat_opendir(&d, open) != 0)
         return;
-    }
-    sd_state = "bm/";
     while (fat_readdir(&d, &e) == 1 && n_games < MAX_GAMES) {
         if (e.is_dir)
             continue;
@@ -265,10 +260,22 @@ static void scan_games(void)
         if (!is_b16 && !(is_bm && show_bm))
             continue;               /* .bm: for the Pi, hidden here */
         ksnprintf(games[n_games].name, sizeof games[0].name, "%s", e.name);
+        ksnprintf(games[n_games].dir, sizeof games[0].dir, "%s", dir);
         games[n_games].size = e.size;
         games[n_games].is_bm = is_bm;
         n_games++;
     }
+}
+
+static void scan_games(void)
+{
+    for (int i = 0; i < n_games; i++)
+        g16_sheet_free(&games[i].cover);
+    n_games = n_hidden = 0;
+    fat_dir_t d;
+    sd_state = fat_opendir(&d, "bm") == 0 ? "bm/" : "no bm/ folder on the SD card";
+    scan_dir("bm", "/bm");
+    scan_dir("/carts", "/carts");
     for (int i = 0; i < n_games; i++)
         load_cover(i);
     qsort(games, (size_t)n_games, sizeof games[0], title_cmp);
@@ -286,7 +293,7 @@ const char *carts_find_title(const char *title, const char *author)
     static char path[80];
     for (int i = 0; i < n_games; i++)
         if (same_ci(games[i].title, title) && same_ci(games[i].author, author)) {
-            ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
+            ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
             return path;
         }
     return NULL;
@@ -294,11 +301,12 @@ const char *carts_find_title(const char *title, const char *author)
 
 static int game_of_path(const char *path)
 {
-    if (strncasecmp(path, "/bm/", 4) != 0)
-        return -1;
-    for (int i = 0; i < n_games; i++)
-        if (same_ci(games[i].name, path + 4))
+    for (int i = 0; i < n_games; i++) {
+        char full[80];
+        ksnprintf(full, sizeof full, "%s/%s", games[i].dir, games[i].name);
+        if (same_ci(full, path))
             return i;
+    }
     return -1;
 }
 
@@ -375,7 +383,7 @@ static void play_bm(int i)
     }
     bm_close_suspended();                           /* another game: the frozen one's memory is freed */
     susp_name[0] = 0;
-    ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
+    ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
     fat_entry_t e;
     uint8_t *data = NULL;
     size_t len = 0;
@@ -791,7 +799,7 @@ static void game_act(int i, int row, int how, home_do_t *d, int *gone)
     }
     if (row == G_BUILD_B16) {
         char path[80], to[96], err[64];
-        ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
+        ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
         if (bm_build_b16(path, to, sizeof to, err, sizeof err) == 0) {
             const char *slash = strrchr(to, '/');
             ksnprintf(d->note, sizeof d->note, "%s is in Games", slash ? slash + 1 : to);
@@ -814,7 +822,7 @@ static void game_act(int i, int row, int how, home_do_t *d, int *gone)
         char path[80];
         int err = 0;
         if (file) {
-            ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
+            ksnprintf(path, sizeof path, "%s/%s", games[i].dir, games[i].name);
             if (netxfer_updating(path)) {          /* a file from the PC on its way: not now (as on the Pi) */
                 ksnprintf(d->note, sizeof d->note, "Updating, wait for the end of the download");
                 return;
@@ -976,7 +984,7 @@ void ui_home(framebuffer_t *f)
         for (int i = 0; i < n && shown != TAB_MARKET; i++) {
             if (shown == TAB_GAMES) {
                 char gp[80];
-                ksnprintf(gp, sizeof gp, "/bm/%s", games[i].name);
+                ksnprintf(gp, sizeof gp, "%s/%s", games[i].dir, games[i].name);
                 const int up = netxfer_updating(gp);        /* a file from the PC on its way */
                 items[i] = (menu_item_t){ .title = games[i].title, .kind = games[i].is_bm ? "bm" : "b16",
                                           .size = games[i].size, .cover = &games[i].cover, .path = games[i].name,
@@ -1017,8 +1025,8 @@ void ui_home(framebuffer_t *f)
         } else if (shown == TAB_GAMES) {
             const int frozen = is_suspended(games[*s].name);
             v.a_label = frozen ? "Resume" : "Play";
-            ksnprintf(details, sizeof details, frozen ? "bm/%s: frozen, %s resumes it" : "bm/%s: Start+Select freezes it",
-                      games[*s].name, pad_ok_name());
+            ksnprintf(details, sizeof details, frozen ? "%s/%s: frozen, %s resumes it" : "%s/%s: Start+Select freezes it",
+                      games[*s].dir + 1, games[*s].name, pad_ok_name());
         } else {
             ksnprintf(details, sizeof details, "%s", dev_items[*s].help);
         }
@@ -1148,7 +1156,7 @@ void ui_home(framebuffer_t *f)
                 if (row == G_PLAY || row == G_SDK) {
                     gopt = -1;
                     static char gp[80];
-                    ksnprintf(gp, sizeof gp, "/bm/%s", games[g].name);
+                    ksnprintf(gp, sizeof gp, "%s/%s", games[g].dir, games[g].name);
                     if (netxfer_updating(gp)) {
                         ksnprintf(note, sizeof note, "Updating, wait for the end of the download");
                     } else if (row == G_SDK) {
@@ -1284,7 +1292,7 @@ void ui_home(framebuffer_t *f)
             } else if (p & pad_ok) {
                 char gp[80] = "";
                 if (shown == TAB_GAMES)
-                    ksnprintf(gp, sizeof gp, "/bm/%s", games[*s].name);
+                    ksnprintf(gp, sizeof gp, "%s/%s", games[*s].dir, games[*s].name);
                 if (shown == TAB_GAMES && netxfer_updating(gp)) {
                     ksnprintf(note, sizeof note, "Updating, wait for the end of the download");
                 } else if (shown == TAB_GAMES && need_switch(games[*s].name)) {

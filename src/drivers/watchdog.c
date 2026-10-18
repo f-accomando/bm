@@ -1,5 +1,7 @@
 #include "watchdog.h"
+#include "arch/cache.h"
 #include "mmio.h"
+#include "prop.h"
 #include "timer.h"
 
 #define PM_BASE         (PERIPHERAL_BASE + 0x100000)
@@ -10,6 +12,9 @@
 #define PM_PASSWORD     0x5A000000u
 #define PM_RSTC_WRCFG_CLR       0xFFFFFFCFu
 #define PM_RSTC_WRCFG_FULL_RESET 0x00000020u
+
+#define PROBE_MAGIC 0x57444F47u
+static uint32_t probe_flag __attribute__((section(".noinit"), aligned(CACHE_LINE)));
 
 static uint32_t wd_ticks;               /* 0 = off */
 static uint32_t probe_loaded, probe_left;  /* last detection, for the boot line */
@@ -29,19 +34,39 @@ int watchdog_arm(uint32_t ms)
     if (ms > 15000)
         ms = 15000;
     uint32_t t = ms * 65536u / 1000u;           /* the timer counts 1/65536 s */
-    /* The real timer counts down as soon as it is loaded; an emulator that
-     * resets at once on RSTC (QEMU) does not, and is left alone. */
-    dmb();
-    mmio_write(PM_WDOG, PM_PASSWORD | t);
+    /* QEMU resets the whole machine on the RSTC write below: under the
+     * serial chainloader that reload brings back the chainloader, not this
+     * kernel. Its board serial is no number (the answer leaves the words as
+     * sent, or 0:0), a real Pi's always is: known before the write, so no
+     * reset (R-NET9). */
+    uint32_t sn[2] = { 0xFFFFFFFFu, 0xFFFFFFFFu };
+    if (prop_query(PROP_GET_BOARD_SERIAL, sn, 2) == 0 &&
+        ((sn[0] == 0xFFFFFFFFu && sn[1] == 0xFFFFFFFFu) || (sn[0] == 0 && sn[1] == 0))) {
+        probe_loaded = t;
+        probe_left = 0;
+        return -2;
+    }
+    if (probe_flag == PROBE_MAGIC) {
+        probe_flag = 0;
+        dcache_clean_range(&probe_flag, sizeof probe_flag);
+        probe_loaded = t;
+        probe_left = 0;
+        return -2;
+    }
+    probe_flag = PROBE_MAGIC;
+    dcache_clean_range(&probe_flag, sizeof probe_flag);
+    wd_write(t);
     timer_delay_ms(20);
     uint32_t left = mmio_read(PM_WDOG) & 0xFFFFF;
-    dmb();
+    probe_flag = 0;
+    dcache_clean_range(&probe_flag, sizeof probe_flag);
     probe_loaded = t;
     probe_left = left;
-    if (left == 0 || left >= t)
+    if (left == 0 || left >= t) {
+        watchdog_stop();
         return -1;
+    }
     wd_ticks = t;
-    wd_write(wd_ticks);
     return 0;
 }
 
@@ -69,8 +94,17 @@ void watchdog_halt(void)
     watchdog_reboot();
 }
 
+static void (*before_reboot)(void);
+
+void watchdog_before_reboot(void (*fn)(void))
+{
+    before_reboot = fn;
+}
+
 void watchdog_reboot(void)
 {
+    if (before_reboot)
+        before_reboot();
     dmb();
     mmio_write(PM_WDOG, PM_PASSWORD | 10);      /* ~150 us */
     mmio_write(PM_RSTC, PM_PASSWORD

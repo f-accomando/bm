@@ -5151,6 +5151,7 @@ def test_monitor_line(b, opts):
         q.send(":err\r")
         out = q.expect("the line is done", timeout=10).decode(errors="replace")
         assert "err: none" in out, out
+        assert "running: menu" in out, out
         q.expect("> ")
         q.send(":set gpu3d_fs2=1 gpu3d_sort=1; b3d tests=spheres,quad_flat profiles=ARM; nope; send\r")
         q.expect("set gpu3d_fs2=1 (until a restart", timeout=10)
@@ -5278,8 +5279,10 @@ def test_crash_report(b, opts):
                          env=env).stdout
     shutil.rmtree(tmp, ignore_errors=True)
     head, body = rep.split("\n\n", 1)
+    assert "\x00" not in rep, "null bytes in crash report"
     assert "kind: crash" in head.splitlines(), rep[:600]
     assert body.startswith('a crash (the red screen) while: monitor command "X"'), body[:300]
+    assert ", kernel " in body.splitlines()[0], body.splitlines()[0]
     assert "--- the last lines printed ---" in body and "*** EXCEPTION: Data abort ***" in body, body[-1500:]
     assert body.index("cartridge menu") < body.index("*** EXCEPTION"), "the lines before the crash"
     assert "DFAR=00008001" in body and "called from:" in body, body[-800:]
@@ -5732,6 +5735,60 @@ def _sd_files(img):
         f.seek(2048 * 512)
         o.write(f.read())
     return part
+
+
+def test_sd_logs(b, opts):
+    """The Pi saves boot logs and the last run to SD (2026-10-15, D19):
+    bootlog.txt while booting, bootprev.txt on the next boot, and lastrun.txt
+    before watchdog_reboot()."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdlog-")
+    try:
+        img = os.path.join(tmp, "sd.img")
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\nnet_password=test-pass-4242\n")
+        mksd.build(img, [(cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            q.send("q")
+            q.expect(PROMPT)
+            q.expect("> ")
+            q.send("l\n")
+            q.expect("lua> ")
+            q.send("print('pw ' .. 'test-pass-' .. 4242)\n")
+            q.expect("pw test-pass-4242")
+            q.send("exit()\n")
+            q.expect("> ")
+            q.send("r")
+            q.expect("restarting: this run's log in bm/lastrun.txt", timeout=20)
+            q.expect(MENU, timeout=30)
+            q.expect("boot log saved to bm/bootlog.txt", timeout=20)
+            time.sleep(1)
+        finally:
+            q.close()
+        part = _sd_files(img)
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        lastrun = subprocess.run(["mtype", "-i", part, "::/BM/LASTRUN.TXT"],
+                                 capture_output=True, text=True, env=env, check=True).stdout
+        assert "rebooting..." in lastrun, lastrun
+        assert "test-pass-4242" not in lastrun, lastrun
+        assert "pw **************" in lastrun, lastrun
+        bootprev = subprocess.run(["mtype", "-i", part, "::/BM/BOOTPREV.TXT"],
+                                  capture_output=True, text=True, env=env, check=True).stdout
+        assert "--- the run before" in bootprev, bootprev
+        assert "ended cleanly, or the power went" in bootprev, bootprev
+        assert "while: boot" not in bootprev, bootprev
+        assert "rebooting..." in bootprev, bootprev
+        assert "test-pass-4242" not in bootprev, bootprev
+        bootlog = subprocess.run(["mtype", "-i", part, "::/BM/BOOTLOG.TXT"],
+                                 capture_output=True, text=True, env=env, check=True).stdout
+        assert "cartridge menu" in bootlog, bootlog
+        assert "test-pass-4242" not in bootlog, bootlog
+        assert "watchdog: resets at once on RSTC (emulator), no freeze guard" in bootlog, bootlog
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_sound_editor(b, opts):

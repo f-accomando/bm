@@ -60,8 +60,8 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
 
 ## Open work (`docs/ROADMAP.md`)
 
-- **M42** `.b16` profile: profile field and `mkbm.py --b16` (not there yet), fixed screen,
-  palette, memory and sandbox, CPU budget 60 → 30 fps, SDK target, Yharnam then Overbit.
+- **M42** `.b16` is a target, not a sandbox (decision 2026-10-13, D1-D6 confirmed 2026-10-15):
+  header flag and `mkbm.py --b16` done; remaining: lint warnings (SDK + `mkbm.py`), Yharnam check.
 - **M39 step 10**: hot Lua of the games in C (rays, bot paths, particles), fewer allocations.
 - **M47** projects: done on the PC, to verify on the Pi.
 - Yharnam checks without a milestone ("Da fare" in the roadmap): frame cost on Pi and RGB30
