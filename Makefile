@@ -856,9 +856,9 @@ $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/for
 test-fat: $(BUILD)/host/test_fat
 	$(PYTHON) tests/fs/run.py $<
 
-$(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/drivers/sd.h
+$(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/drivers/sd.h src/kernel/sdmap_core.c src/kernel/sdmap.h
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/fs/test_fat.c src/fs/fat.c
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/fs/test_fat.c src/fs/fat.c src/kernel/sdmap_core.c
 
 # Network console on lwIP's loopback interface (the WiFi chip is not in QEMU),
 # then lwIP on the Pi 1 B's Ethernet with a simulated LAN9512 and a DHCP peer
