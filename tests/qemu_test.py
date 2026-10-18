@@ -1135,7 +1135,11 @@ def test_home_ui(b, opts):
     victim = os.path.join(tmp, "victim.bm")
     with open(victim, "wb") as f:
         f.write(mkbm.pack(COUNTER_CART.encode(), title="BBB delete me"))
-    mksd.build(img, [(saver, "carts/saver.bm"), (victim, "carts/Un gioco da cancellare.bm")])
+    notes = os.path.join(tmp, "NOTES.TXT")
+    with open(notes, "wb") as f:
+        f.write(b"x" * 3000)
+    mksd.build(img, [(saver, "carts/saver.bm"), (victim, "carts/Un gioco da cancellare.bm"),
+                     (saver, "bme/PROJ.BME"), (notes, "bm/NOTES.TXT")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def keys(k):
@@ -1320,6 +1324,46 @@ def test_home_ui(b, opts):
         keys("\r")
         screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
         shot("system")
+        # D09-5g: SD map (the scan runs in the menu's free time), its bar and "Other files"
+        down = 0
+        for down in range(1, 14):
+            keys("s")
+            _, t = settled_screen(q, lambda i, t: any("What is on the card" in l for l in t), tries=2)
+            if any("What is on the card" in l for l in t):
+                break
+        else:
+            raise AssertionError("SD map row never selected")
+        keys("\r")
+        screen(["Settings > System > SD map", "SD card", "Kernel", "bm (games)", "bme (projects)", "Free"])
+        for _ in range(6):                      # the panel shows five rows: the cursor scrolls down to Scan
+            keys("s")
+        screen(["Scan"])
+        img_, text = settled_screen(q, lambda i, t: any("Scan" in l and "done" in l for l in t), tries=300)
+        assert any("Scan" in l and "done" in l for l in text), "\n".join(text)
+        screen(["/bm", "/bme", "files"])
+        for _ in range(16):                     # back up to the bar row
+            keys("w")
+        screen(["SD card", "Kernel", "bm (games)"])
+        img_ = q.screendump()
+        text = screen_text(img_)
+        row = next(i for i, l in enumerate(text) if "SD card" in l and "SD map" not in l)
+        want = {"bm": (0x61, 0xAF, 0xEF), "bme": (0x98, 0xC3, 0x79), "free": (0x4A, 0x50, 0x60)}
+        seen = {pixel(img_, x, row * 16 + 8) for x in range(24 * 8, img_[0])}
+        for name, c in want.items():
+            assert any(all(abs(a - b2) <= 8 for a, b2 in zip(c, got)) for got in seen), \
+                f"bar colour {name} {c} not on the bar row: {sorted(seen)[:12]}"
+        shot("sdmap")
+        for _ in range(14):                     # "Other files" is the last row of the panel
+            keys("s")
+            _, t = settled_screen(q, lambda i, t: any("Files the menu cannot show" in l for l in t), tries=2)
+            if any("Files the menu cannot show" in l for l in t):
+                break
+        keys("\r")
+        screen(["Settings > System > SD map > Other files", "NOTES.TXT", "2 KB"])
+        keys("q")
+        keys("q")                               # back to System, the cursor on SD map
+        for _ in range(down):
+            keys("w")
         keys("w")                               # the list scrolls to its last rows
         screen(["3D driver", "bm3d", "as 0.2", "Log since boot",   # QEMU: the ARM's 3D
                 "Open the monitor"])
@@ -1382,6 +1426,9 @@ def test_home_ui(b, opts):
         saves = subprocess.run(["mdir", "-i", part, "::/BM/SAVE"], capture_output=True,
                                text=True, env=env).stdout
         assert not re.search(r"^[0-9A-F]{8}\s+(SAV|S02)", saves, re.M), saves
+        cache = subprocess.run(["mtype", "-i", part, "::/BM/SDMAP.TXT"], capture_output=True,
+                               text=True, env=env).stdout
+        assert cache.startswith("sdmap 1"), cache[:60]
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
