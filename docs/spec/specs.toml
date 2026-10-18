@@ -14,6 +14,11 @@ rev = 2
 date = "2026-10-13"
 what = "720x720 cartridges, shot() and the screenshot keys, the INFO key spec, tool names reserved against games, the .b16 flag set by every build, bm.info as the project's metadata"
 
+[[revision]]
+rev = 3
+date = "2026-10-17"
+what = "the cartridge type (game, app, utility) declared in bm.info and mirrored in bits 2-3 of the header flags; projects (.bme) live in /bme; /carts is obsolete (scanned for one release, with a warning)"
+
 [[item]]
 id = "container-v1"
 since = 1
@@ -117,3 +122,19 @@ status = "partial"
 platforms = "all"
 where = ["docs/PROJECT-LAYOUT.md", "scripts/mkbm.py", "Makefile"]
 note = "bm.info + assets/ + res/ + build/; pong, hunt, yharnam migrated"
+
+[[item]]
+id = "cart-type"
+since = 3
+status = "implemented"
+platforms = "all"
+where = ["src/bm/project.h", "scripts/mkbm.py", "src/kernel/carts.c", "src/rgb30/ui.c"]
+note = "docs/BM-FORMAT.md; menu grouping: Games = game, Dev = app, Settings > System > Utilities = utility"
+
+[[item]]
+id = "folders-bm-bme"
+since = 3
+status = "implemented"
+platforms = "all"
+where = ["src/bm/project.c", "src/kernel/carts.c", "src/rgb30/ui.c"]
+note = ".bm/.b16 in /bm, .bme in /bme; /carts read for one release (D09-3a..3d), then removed (D09-3g)"

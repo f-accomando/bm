@@ -25,10 +25,14 @@ carts/<id>/bm.info` copies it into the cartridge.
 | `name` | name shown | default of `--title` |
 | `author` | author | default of `--author` |
 | `resolution` | `640x360`, `480x270`, `320x180`, `256x256`, `360x360`, `720x720` | default of `--res` |
+| `type` | `game`, `app` or `utility` (no key = game) | bits 2-3 of the header flags (`mkbm.py`) |
 | `desc`, `license` (SPDX id), `version`, `tags`, `date` | as in `bm.h` | stored only |
 
 Unknown keys are kept in the cartridge. The binary `.bm` format does not change: an
 older kernel ignores INFO.
+
+`mkbm.py` mirrors `type` in bits 2-3 of the u16 flags at offset 18 of the header (`docs/BM-FORMAT.md`), so the menu
+groups a cartridge without reading its INFO. On the SD, `.bm` and `.b16` games live in `/bm` and `.bme` projects in `/bme`.
 
 ## Credits: reusing other people's assets
 
