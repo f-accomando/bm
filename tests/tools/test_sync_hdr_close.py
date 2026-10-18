@@ -70,6 +70,25 @@ class T(unittest.TestCase):
         self.run_tool(["--close", "WO-1", "--commit", self.sha, "--tokens", "1", "--min", "1"])
         self.assertFalse(os.path.exists(hdr))
 
+    def test_closed_line(self):
+        hdr = os.path.join(self.d, "OP.md")
+        with open(hdr, "w", encoding="utf-8", newline="") as f:
+            f.write("---\nschema: 1\nid: OP\nstate: WORKING\ntask: t\nupdated: x\n---\n# OP\n\n## Progressi\n\n- a\n")
+        base = ["OP", "--file", hdr, "--repo", self.d]
+        r = subprocess.run([sys.executable, TOOL] + base + ["--closed", "nessuno"], capture_output=True, text=True)
+        self.assertNotEqual(r.returncode, 0)  # --branch is required
+        for _ in range(2):  # second run replaces the line, no duplicate
+            r = subprocess.run([sys.executable, TOOL] + base + ["--closed", "nessuno", "--branch", "claude/x"],
+                               capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+        with open(hdr, encoding="utf-8") as f:
+            txt = f.read()
+        short = git(["rev-parse", "--short", "HEAD"], self.d)
+        self.assertIn("state: DONE", txt)
+        self.assertEqual(txt.count("CLOSED @"), 1)
+        self.assertRegex(txt, r"## Chiusura\n\nCLOSED @ claude/x@%s \u00b7 tree clean \u00b7 aperti: nessuno \u00b7 \d{4}-\d\d-\d\dT\d\d:\d\d" % short)
+        self.assertLess(txt.index("## Chiusura"), txt.index("## Progressi"))
+
 
 if __name__ == "__main__":
     unittest.main()
