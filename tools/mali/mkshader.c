@@ -152,7 +152,7 @@ int main(int argc, char **argv)
         nir_variable *opos = var(&b, nir_var_shader_out, "gl_Position", VARYING_SLOT_POS, INTERP_MODE_NONE);
         nir_store_var(&b, opos, nir_load_var(&b, ipos), 0xf);
         nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
-        compile("BM_VS", b.shader, out, &vi, 0);   /* (as committed: y and z of the position are lost, see README) */
+        compile("BM_VS", b.shader, out, &vi, 1);
     }
     {   /* vertex with the transform: gl_Position = M * pos, M a row-major 4x4 matrix in uniform buffer 0 (16 pushed words) */
         nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_VERTEX, opt, "bm_vs3");
