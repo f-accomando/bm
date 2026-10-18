@@ -1174,6 +1174,7 @@ test-prompts: $(BUILD)/host/test_prompts
 
 test-docs:
 	$(PYTHON) scripts/docs_audit.py score
+	$(PYTHON) -m unittest tests.tools.test_claude_glossary
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator

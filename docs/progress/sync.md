@@ -56,7 +56,7 @@ The five standardized states defined in [`sync/operators.toml`](../../sync/opera
 - Always use `git pull --rebase origin <sync branch>` before pushing sync log updates to prevent merge bubbles.
 - `SYNC.md` stays a project-neutral template: project contracts, work orders and log rows go in a copy for the project (archive it under `docs/archive/` when the project ends).
 - Log rows <=600 characters; a status block carries ISO 8601 times with zone, `eta` before any operation >15 min and `ack` (last `SYNC.md` row read).
-- **Un branch di sync per progetto** (`sync/<nome>`): `SYNC.md`, `sync/*` e `tools/sync_hdr.py` vivono e si pushano solo lì, non su `bm-core`; così sessioni di sync parallele (altri agenti, altri progetti) non si toccano. "Fai handshake `<branch>`" = la procedura sotto su quel branch (descritta in `CLAUDE.md` §6).
+- **Un branch di sync per progetto** (`sync/<nome>`): `SYNC.md`, `sync/*` e `tools/sync_hdr.py` vivono e si pushano solo lì, non su `bm-core`; così sessioni di sync parallele (altri agenti, altri progetti) non si toccano. "Fai handshake `<branch>`" = la procedura sotto su quel branch (descritta in `CLAUDE.md`, Glossary: Handshake).
 - Handshake = fetch del branch di sync, lettura di `SYNC.md`, creazione di `sync/<ID>.md` (stato + `## Profilo`, + `## Requisiti` se richiesti), poi `FREE`: senza handshake non si assegna lavoro.
 - Battito a eventi senza timer (2026-10-15): a ogni task conclusa; task lunghe spezzate dall'operatore con righe di progress; problemi e richieste di intervento = riga pushata + una frase in chat all'utente. SPV giudica dall'`eta` (IDLE oltre `eta`+10 min, senza `eta` 60 min; `FREE` mai IDLE) e controlla solo quando è svegliato. `eta` di handshake = "risposta attesa tra N min" (min 3, max 3 controlli brevi). Prompt tra operatori: blocco `da <ID> a <ID>: ...` in chat + riga nella casella.
 - **Consegne**: una riga `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: ... → ... · {ISO}` in `## Consegne` del proprio file, poi `FREE`; `DONE` e solo lo stato terminale, non una consegna; SPV risponde con `REVIEW` e integra solo dopo `APPROVED`.
@@ -69,7 +69,7 @@ The five standardized states defined in [`sync/operators.toml`](../../sync/opera
 
 ## Frase di avvio (da incollare nella sessione di un operatore)
 
-> Sei `<ID>` nel sync del branch `<branch>`. Fai handshake `<branch>` (CLAUDE.md §6). Poi, a ogni battito (3-5 min finché non hai preso il primo work order, poi 15; se non ti svegli da solo, a ogni mio messaggio): `git fetch origin`; `git diff <ultimo hash visto> -- SYNC.md sync/`; leggi `sync/inbox/<ID>.md`; `python tools/sync_hdr.py <ID> --state ... --task ... --ack auto`; commit e push sul branch. Non iniziare altro lavoro che quello della tua casella; consegna con una riga `DELIVERED ...` nella sezione `## Consegne` del tuo file.
+> Sei `<ID>` nel sync del branch `<branch>`. Fai handshake `<branch>` (CLAUDE.md, Glossary: Handshake). Poi, a ogni battito (3-5 min finché non hai preso il primo work order, poi 15; se non ti svegli da solo, a ogni mio messaggio): `git fetch origin`; `git diff <ultimo hash visto> -- SYNC.md sync/`; leggi `sync/inbox/<ID>.md`; `python tools/sync_hdr.py <ID> --state ... --task ... --ack auto`; commit e push sul branch. Non iniziare altro lavoro che quello della tua casella; consegna con una riga `DELIVERED ...` nella sezione `## Consegne` del tuo file.
 
 ## Cost of the heartbeats (what a beat costs, and the cheapest way)
 
@@ -82,3 +82,27 @@ A heartbeat is only `git fetch`, a look at the inbox and `sync_hdr.py <ID> --ack
 | A **script, no model**: `tools/sync_watch.py` | 0 tokens | the model wakes up only if the inbox or a row addressed to the operator changes |
 
 `python tools/sync_watch.py --id <ID> [--branch <sync branch>] [--every 5] [--beat 15] [--wake-cmd "..."]`, run in the operator's own clone (a terminal or a background process): every `--every` minutes it fetches, compares the inbox and the Log rows addressed to the operator with the last look, and **only if there is news** writes `.sync_wake`, prints it and runs `--wake-cmd`; every `--beat` minutes it writes the heartbeat itself (`updated` and `ack`; state and task stay as the agent wrote them), commits and pushes. `--once --no-push` is a dry run. It does not replace the agent's own state changes (`WORKING`, `DELIVERED`, `FREE`): those stay the agent's job. An agent without a timer (profile `wakeup no`) still needs something to start it: the watcher's `--wake-cmd`, or the user.
+
+## Operator protocol (moved from CLAUDE.md)
+
+Searchable with `grep -n -A 14 '^### <Term>' docs/progress/sync.md`. The four handshake steps also stay in `CLAUDE.md`.
+
+### Handshake
+Multiple agents (Claude local/cloud, Antigravity, others) work in parallel on a project using the protocol in [`SYNC.md`](SYNC.md) (template; rules and lessons in `docs/progress/sync.md`). Each project has a dedicated **sync branch** `sync/<nome>`: `SYNC.md`, `sync/*` and `tools/sync_hdr.py` live and are pushed only there, never on `bm-core`, so different sync sessions do not touch each other; code lives on working branches from `bm-core`.
+
+The four handshake steps (fetch and checkout, read `SYNC.md`, create `sync/<ID>.md`, commit and push) are in `CLAUDE.md`, section Glossary.
+
+### Delivery
+a single standard line in the `## Consegne` section of your own file, `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`, then `FREE`; SPV replies `REVIEW: APPROVED|CHANGES REQUESTED` and only then integrates. `DONE` is not a delivery (it is the terminal state). A non-standard signal starts nothing.
+
+### Inbox and check
+every new task or urgency arrives in `sync/inbox/<ID>.md` (max 5 lines, written by SPV): at every heartbeat read the `git diff` of your inbox, then `python tools/sync_hdr.py <ID> --ack auto` (read confirmation). SPV uses `python tools/sync_check.py` to know who is alive and what has not been read. In the profile declare `--wakeup yes|no` (do you wake up on your own?). Log lines ≤600 characters; a rule change is a `RULE` line to be confirmed with `ack`.
+
+### Heartbeat cost
+the heartbeat is `fetch` + inbox + `--ack auto`; having the main agent do it costs the entire conversation every time. Better a small subagent, or with no model `python tools/sync_watch.py --id <ID> [--branch <sync>]` (wakes the agent only if its inbox or a line addressed to it changes; details in `docs/progress/sync.md`).
+
+### Sign-off
+if SPV writes `SIGNOFF <ID>: motivo` (no suitable work, requirements not met, replacement, end of project) the operator starts nothing else, delivers and pushes what they have, writes the closure in their own file, marks themselves `DONE` with `sync_hdr.py` and stops the heartbeats; they return only with a new handshake requested by SPV.
+
+### Fixed rules
+a single writer per file (`SYNC.md` only SPV, `sync/<ID>.md` only `<ID>`); then event-driven heartbeat with no timer: update your own file at every completed task (long tasks split, progress without timers; problems or requests for intervention = a pushed line, which SPV relays to the user; operators other than SPV write in chat only `taken WO <X>` and `done WO <X> [waiting on <Y> | FREE]: <files> files +<a> -<d>, <N> tokens, <M> min`, plus a short request or a ready-to-copy prompt when a user action is needed); `eta` mandatory in `WORKING`/`WAITING`; beyond `eta`+10 min without updates = `IDLE` (without `eta` 60 min, never `FREE`); messages between operators = block `da <ID> a <ID>: ...` in chat; tasks ≤45 min; the main agent stays free; Log lines ≤600 characters; operator status in chat only if the user asks.
