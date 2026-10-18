@@ -24,7 +24,7 @@ The coordination workflow relies on Git-backed asynchronous messaging and isolat
 
 ### States and Lifecycle
 
-The five standardized states defined in [`sync/operators.toml`](../../sync/operators.toml):
+The four standardized states defined in [`sync/operators.toml`](../../sync/operators.toml):
 
 1. **`WORKING`**: Actively executing steps of an assigned work order. For tasks exceeding 15 min,
    the expected completion timestamp is declared in `eta`.
@@ -33,14 +33,15 @@ The five standardized states defined in [`sync/operators.toml`](../../sync/opera
 3. **`FREE`**: Assigned tasks are 100% complete and pushed; the operator remains active on the
    heartbeat loop, ready to claim new assignments.
 4. **`DONE`**: Terminal milestone reached; session concluded without claiming additional work.
-5. **`IDLE`**: Unhealthy lack of communication (>60 min without an updated heartbeat or commit).
+
+`STALE` is a note, not a state: `sync_check.py` shows it to SPV when there is no update beyond `eta` + 10 min (60 min without `eta`). `FREE` and `DONE` are never `STALE`.
 
 ## Workflow findings and considerations
 
 1. **Single-file vs Monolithic log**: Moving away from concurrent edits in [`SYNC.md`](../../SYNC.md)
    to individual operator files eliminated Git merge collisions completely.
 2. **Heartbeat and autonomous liveness**: Maintaining active cron/schedule timers (e.g. 15-minute
-   heartbeat interval) prevents false-positive `IDLE` detections while waiting for supervisor review.
+   heartbeat interval) prevents false-positive `STALE` notes while waiting for supervisor review.
 3. **Sequential autonomy vs Micro-locking**: Requiring supervisor sign-off after every sub-step
    (<=45 min) introduces significant idle latency. Permitting operators to chain consecutive steps
    autonomously (e.g. AGY-09 steps 3 through 5) with independent commits accelerates throughput.
@@ -58,14 +59,15 @@ The five standardized states defined in [`sync/operators.toml`](../../sync/opera
 - Log rows <=600 characters; a status block carries ISO 8601 times with zone, `eta` before any operation >15 min and `ack` (last `SYNC.md` row read).
 - **Un branch di sync per progetto** (`sync/<nome>`): `SYNC.md`, `sync/*` e `tools/sync_hdr.py` vivono e si pushano solo lì, non su `bm-core`; così sessioni di sync parallele (altri agenti, altri progetti) non si toccano. "Fai handshake `<branch>`" = la procedura sotto su quel branch (descritta in `CLAUDE.md`, Glossary: Handshake).
 - Handshake = fetch del branch di sync, lettura di `SYNC.md`, creazione di `sync/<ID>.md` (stato + `## Profilo`, + `## Requisiti` se richiesti), poi `FREE`: senza handshake non si assegna lavoro.
-- Battito a eventi senza timer (2026-10-15): a ogni task conclusa; task lunghe spezzate dall'operatore con righe di progress; problemi e richieste di intervento = riga pushata + una frase in chat all'utente. SPV giudica dall'`eta` (IDLE oltre `eta`+10 min, senza `eta` 60 min; `FREE` mai IDLE) e controlla solo quando è svegliato. `eta` di handshake = "risposta attesa tra N min" (min 3, max 3 controlli brevi). Prompt tra operatori: blocco `da <ID> a <ID>: ...` in chat + riga nella casella.
+- Battito a eventi senza timer (2026-10-15): a ogni task conclusa; task lunghe spezzate dall'operatore con righe di progress; problemi e richieste di intervento = riga pushata + una frase in chat all'utente. SPV giudica dall'`eta` (STALE oltre `eta`+10 min, senza `eta` 60 min; `FREE` mai STALE) e controlla solo quando è svegliato. `eta` di handshake = "risposta attesa tra N min" (min 3, max 3 controlli brevi). Prompt tra operatori: blocco `da <ID> a <ID>: ...` in chat + riga nella casella.
 - **Consegne**: una riga `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: ... → ... · {ISO}` in `## Consegne` del proprio file, poi `FREE`; `DONE` e solo lo stato terminale, non una consegna; SPV risponde con `REVIEW` e integra solo dopo `APPROVED`.
 - **Review di una consegna**: SPV fa rivedere ogni `DELIVERED` a un subagent indipendente (perimetro, comandi rieseguiti con distinzione preesistente/introdotto, lettura del codice, esito per WO) prima di `REVIEW: APPROVED`; l'integrazione solo su `APPROVED`. Dettaglio in `SYNC.md` §3c.
 - **Operatori senza canale diretto** (es. AGY): SPV prepara per l'utente un prompt unico e auto-sufficiente (ID, branch di sync, handshake, casella, work order, branch e perimetro, `--wakeup`, consegna) e lo scrive in chat; l'utente lo incolla e basta. Dettaglio in `SYNC.md` §3c. Per gli operatori che SPV avvia da sé il prompt è il brief di `start_session`.
-- **Caselle e controllo oggettivo**: compiti e urgenze in `sync/inbox/<ID>.md` (max 5 righe, solo SPV scrive); `ack` con `sync_hdr.py --ack auto`; `tools/sync_check.py` dice chi è vivo, chi non ha letto, quali consegne e righe di Log sono fuori formato (>600 caratteri). Lo stato all'utente si legge da lì, mai da memoria. Campo `wakeup yes|no` nel profilo: agenti senza risveglio autonomo ricevono lavori con `eta` esplicita. Una modifica alle regole è una riga `RULE` con ack. `--ack auto` conferma solo la consegna dell'ultima riga dopo il fetch, non che sia stata capita: chi agisce su una riga scrive nel proprio Log `letto <ora riga>`. Operatore "bloccato e muto" (`IDLE` per `sync_check`, o riga/casella non confermata da >30 min e non `WAITING utente`): SPV lo dice all'utente in chat con ID e riga attesa (`SYNC.md` §3b, Chiusura 5).
+- **Caselle e controllo oggettivo**: compiti e urgenze in `sync/inbox/<ID>.md` (max 5 righe, solo SPV scrive); `ack` con `sync_hdr.py --ack auto`; `tools/sync_check.py` dice chi è vivo, chi non ha letto, quali consegne e righe di Log sono fuori formato (>600 caratteri). Lo stato all'utente si legge da lì, mai da memoria. Campo `wakeup yes|no` nel profilo: agenti senza risveglio autonomo ricevono lavori con `eta` esplicita. Una modifica alle regole è una riga `RULE` con ack. `--ack auto` conferma solo la consegna dell'ultima riga dopo il fetch, non che sia stata capita: chi agisce su una riga scrive nel proprio Log `letto <ora riga>`. Operatore "bloccato e muto" (`STALE` per `sync_check`, o riga/casella non confermata da >30 min e non `WAITING utente`): SPV lo dice all'utente in chat con ID e riga attesa (`SYNC.md` §3b, Chiusura 5).
 - **Heartbeat cost**: prefer a no-model beat (`tools/sync_watch.py`) or a small subagent; the main agent pays the whole conversation at every beat (section "Cost of the heartbeats").
-- **Sign-off**: SPV libera un operatore con la riga `SIGNOFF {ID}: motivo` (niente lavoro adatto, requisiti non soddisfatti, sostituzione, fine progetto); l'operatore consegna, scrive la chiusura, si segna `DONE` e smette i battiti; `operators.toml`: `active = false`, `signoff = "..."`. Senza risposta in 60 min: `IDLE`, avviso all'utente.
+- **Closeout**: closing a session = CLOSEOUT, see `SYNC.md` §3b (phases C0-C6; SPV line per operator, operator steps in `SYNC.md` §3b).
 - No task open-ended: passi <=45 min; l'operatore tiene libero l'agente principale e supervisiona i propri subagent.
+- A session closes only through CLOSEOUT (`SYNC.md` §3b), on the user's request; each phase starts after a script verifies the output of the previous one.
 
 ## Frase di avvio (da incollare nella sessione di un operatore)
 
@@ -101,8 +103,8 @@ every new task or urgency arrives in `sync/inbox/<ID>.md` (max 5 lines, written 
 ### Heartbeat cost
 the heartbeat is `fetch` + inbox + `--ack auto`; having the main agent do it costs the entire conversation every time. Better a small subagent, or with no model `python tools/sync_watch.py --id <ID> [--branch <sync>]` (wakes the agent only if its inbox or a line addressed to it changes; details in `docs/progress/sync.md`).
 
-### Sign-off
-if SPV writes `SIGNOFF <ID>: motivo` (no suitable work, requirements not met, replacement, end of project) the operator starts nothing else, delivers and pushes what they have, writes the closure in their own file, marks themselves `DONE` with `sync_hdr.py` and stops the heartbeats; they return only with a new handshake requested by SPV.
+### Closeout
+closing a session = CLOSEOUT, see `SYNC.md` §3b (phases C0-C6, one `SIGNOFF <ID>` line per operator, operator steps in `SYNC.md` §3b).
 
 ### Fixed rules
-a single writer per file (`SYNC.md` only SPV, `sync/<ID>.md` only `<ID>`); then event-driven heartbeat with no timer: update your own file at every completed task (long tasks split, progress without timers; problems or requests for intervention = a pushed line, which SPV relays to the user; operators other than SPV write in chat only `taken WO <X>` and `done WO <X> [waiting on <Y> | FREE]: <files> files +<a> -<d>, <N> tokens, <M> min`, plus a short request or a ready-to-copy prompt when a user action is needed); `eta` mandatory in `WORKING`/`WAITING`; beyond `eta`+10 min without updates = `IDLE` (without `eta` 60 min, never `FREE`); messages between operators = block `da <ID> a <ID>: ...` in chat; tasks ≤45 min; the main agent stays free; Log lines ≤600 characters; operator status in chat only if the user asks.
+a single writer per file (`SYNC.md` only SPV, `sync/<ID>.md` only `<ID>`); then event-driven heartbeat with no timer: update your own file at every completed task (long tasks split, progress without timers; problems or requests for intervention = a pushed line, which SPV relays to the user; operators other than SPV write in chat only `taken WO <X>` and `done WO <X> [waiting on <Y> | FREE]: <files> files +<a> -<d>, <N> tokens, <M> min`, plus a short request or a ready-to-copy prompt when a user action is needed); `eta` mandatory in `WORKING`/`WAITING`; beyond `eta`+10 min without updates = `STALE` note for SPV (without `eta` 60 min; never for `FREE`); messages between operators = block `da <ID> a <ID>: ...` in chat; tasks ≤45 min; the main agent stays free; Log lines ≤600 characters; operator status in chat only if the user asks.
