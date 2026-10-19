@@ -1135,11 +1135,14 @@ def test_home_ui(b, opts):
     victim = os.path.join(tmp, "victim.bm")
     with open(victim, "wb") as f:
         f.write(mkbm.pack(COUNTER_CART.encode(), title="BBB delete me"))
+    big = os.path.join(tmp, "BIG.DAT")           # 1.5 MiB: wide enough to show in the bar of the SD map
+    with open(big, "wb") as f:
+        f.write(bytes(3 << 19))
     notes = os.path.join(tmp, "NOTES.TXT")
     with open(notes, "wb") as f:
         f.write(b"x" * 3000)
     mksd.build(img, [(saver, "carts/saver.bm"), (victim, "carts/Un gioco da cancellare.bm"),
-                     (saver, "bme/PROJ.BME"), (notes, "bm/NOTES.TXT")])
+                     (big, "bme/PROJ.BME"), (big, "bm/DATA.DAT"), (notes, "bm/NOTES.TXT")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def keys(k):
@@ -1340,9 +1343,17 @@ def test_home_ui(b, opts):
         screen(["Scan"])
         img_, text = settled_screen(q, lambda i, t: any("Scan" in l and "done" in l for l in t), tries=300)
         assert any("Scan" in l and "done" in l for l in text), "\n".join(text)
+        for _ in range(12):                     # the folders follow Scan
+            keys("s")
+            _, t = settled_screen(q, lambda i, t: any("/bme" in l for l in t), tries=2)
+            if any("/bme" in l for l in t):
+                break
         screen(["/bm", "/bme", "files"])
-        for _ in range(16):                     # back up to the bar row
+        for _ in range(16):                     # back up until the bar row is on the screen
             keys("w")
+            _, t = settled_screen(q, lambda i, t: any("Kernel" in l for l in t), tries=2)
+            if any("Kernel" in l for l in t) and any("SD card" in l and "SD map" not in l for l in t):
+                break
         screen(["SD card", "Kernel", "bm (games)"])
         img_ = q.screendump()
         text = screen_text(img_)
