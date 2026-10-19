@@ -102,6 +102,7 @@ def main(argv=None, sleep=time.sleep, now=time.monotonic):
                 up += alive
                 down += not alive
                 print("soak: check %d/%d %s" % (i, n, "up" if alive else "down"), file=sys.stderr)
+            q("keys game-exit")             # a game takes the keys: Ctrl-\ ends it, then the monitor has them
             k = q("keys monitor")
             if "back to the menu first" in k or k.lstrip().startswith("refused"):
                 why.append("cannot end the game from the PC: " + first_line(k))

@@ -297,6 +297,13 @@ def main():
     rc, out = run(kc, job=("-P", str(kc.port), "--keys", "X a"))
     check(rc == 1 and kc.keys == b"Xa", "--keys with a space: refused on the PC")
 
+    # --game-exit: the Ctrl-\ byte, in a game only
+    rc, out = run(app, job=("-P", str(app.port), "--game-exit"))
+    check(rc == 0 and app.keys == b"", "--game-exit in a game: the one byte 0x1C")
+    kc.keys = b""
+    rc, out = run(kc, job=("-P", str(kc.port), "--game-exit"))
+    check(rc == 2 and "game only" in out and kc.keys == b"", "--game-exit in the menu: exit 2, nothing sent")
+
     # the bridge: names only, from the fixed table, through bm_net --keys, password hidden
     import pi_bridge
     seen = []
@@ -335,6 +342,8 @@ def main():
         check(seen[-1][-3:] == ["--in-monitor", "--keys", "r"], "bridge: keys reboot -> r")
         pi_bridge.run("1.2.3.4", "s3cret", "keys monitor")
         check("--in-monitor" not in seen[-1], "bridge: keys monitor needs no monitor")
+        pi_bridge.run("1.2.3.4", "s3cret", "keys game-exit")
+        check(seen[-1][-1] == "--game-exit" and "--keys" not in seen[-1], "bridge: keys game-exit -> --game-exit")
 
         # status: down without a process; up with the version and the state of the run before, the password masked
         real_cv = pi_bridge.bm_net.console_version

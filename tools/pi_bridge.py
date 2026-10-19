@@ -7,7 +7,7 @@ fixed operations without ever seeing the password.
   python3 tools/pi.py line gpu                        # the client (another shell, or Claude)
   python3 tools/pi.py status                          # is the Pi up, which kernel, how did the run before end
 
-Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.TXT and shown), keys NAME (monitor, crash-*, freeze, reboot: the last ones only when the monitor has the keys), line TEXT (a monitor line: gpu, b3d, ...), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. is NOT allowed.
+Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.TXT and shown), keys NAME (monitor, game-exit: Ctrl-\ ends the game, crash-*, freeze, reboot: the last ones only when the monitor has the keys), line TEXT (a monitor line: gpu, b3d, ...), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. is NOT allowed.
 FILE must be inside the repo or in ~/bmk*/ (the build folders); OUT of shot is a .png in a folder there. The socket is ~/.pi_bridge.sock, mode 0600."""
 import datetime
 import getpass
@@ -76,6 +76,8 @@ def run(host, pw, req):
         cmd = base + ["--" + op, os.path.realpath(arg)]
     elif op == "shot" and arg.lower().endswith(".png") and allowed_dir(os.path.dirname(arg) or "."):
         cmd = base + ["--shot", os.path.realpath(arg)]
+    elif op == "keys" and arg == "game-exit":
+        cmd = base + ["--game-exit"]
     elif op == "keys" and arg in KEYS:
         cmd = base + (["--in-monitor"] if arg in MONITOR_ONLY else []) + ["--keys", KEYS[arg]]
     elif op == "logs" and arg in LOGS:

@@ -97,6 +97,8 @@ def seq_script(reboot_down=2, status_down_at=None, fps=FPS, lastrun=FPS, after=U
             return UP
         if req.startswith("play "):
             return play if play is not None else "123456 bytes in 2.0 s"
+        if req == "keys game-exit":
+            return "ok"
         if req == "keys monitor":
             return keys if keys is not None else fps
         if req == "line reboot":
@@ -122,8 +124,8 @@ def main():
         check(rc == 0 and len(out) == 3 and all(l.startswith("soak: ") for l in out), "1: all fine -> exit 0, three soak: lines")
         check("verdict OK" in out[-1] and "up 30 down 0" in out[0] and "59.8 fps" in out[1], "1: verdict OK, 30 checks up, the fps line")
         order = [r for r in seen if r.startswith(("play ", "keys ", "line ", "logs "))]
-        check(order == ["play " + os.path.abspath(cart), "keys monitor", "line reboot", "logs lastrun"],
-              "1: play (absolute path), keys monitor, line reboot, logs lastrun, in that order")
+        check(order == ["play " + os.path.abspath(cart), "keys game-exit", "keys monitor", "line reboot", "logs lastrun"],
+              "1: play (absolute path), keys game-exit, keys monitor, line reboot, logs lastrun, in that order")
         check(seen.count("status") == 1 + 30 + 3, "1: a status at the start, 30 checks, 3 while the Pi restarts")
 
         # 2. one check down: the session goes on, the verdict fails
