@@ -1,0 +1,38 @@
+bm report
+kind: bench3d
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: 2026-10-19 08:22:50
+file: 20261019-082250_bench3d_pi-zero-w_dev.txt
+
+bm 3D Bench
+kernel dev
+drivers bm3d 7.3 (M39)
+date 2026-10-19 08:22 UTC
+machine ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 44.3 C, throttled 00000
+gpu bm3d 7.3 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed))
+probes before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147; after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447; vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+options bm3d 7.3 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 etc1=0 (at the start; each profile sets its own)
+counters ARM1176 PMU
+previous bm/bench/3D0033.TXT
+only tests spheres_tex,heroes_tex,quad_tex,match,mix, profiles VS,VSE
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms
+R,spheres_tex,GPU+VS+ETC1,7.3,874.1,1757.0,0,16.7,16.7,83904,83904,0,0,83904,2.0,9.4,3857329,1002211,232289,16665543,2,83914,83914,400,300,4.9,4.3,78,0,0,0,-1,-1,-1
+R,heroes_tex,GPU+VS,3.4,74.6,142.6,0,14.2,14.3,101376,101376,0,0,101376,2.0,8.2,3288219,873224,239637,14215708,1,114657,114657,400,300,6.9,4.2,94,0,0,0,-1,-1,-1
+R,heroes_tex,GPU+VS+ETC1,7.3,74.6,142.5,0,14.2,14.3,101376,101376,0,0,101376,2.0,8.2,3306414,873425,240147,14243691,1,114552,114552,400,300,6.8,4.4,94,0,0,0,-1,-1,-1
+R,quad_tex,GPU+VS+ETC1,7.3,130.5,273.4,0,15.1,15.1,234,234,0,0,234,1.0,13.1,1976861,1419931,55163,15079378,1,261,261,400,300,2.4,2.7,38,0,0,6739200,1.93,2.02,0.15
+R,match,GPU+VS,3.4,33.3,74.8,0,15.4,15.5,93824,92864,0,0,92864,3.0,9.9,3128303,1041686,237980,15423682,2,106974,106014,400,300,8.0,6.1,126,0,0,7208,-1,-1,-1
+R,match,GPU+VS+ETC1,7.3,33.8,75.3,0,15.1,15.2,93824,92864,0,0,92864,3.0,9.6,3091170,1015212,234746,15134003,1,108667,107707,400,300,8.0,6.2,126,0,0,7208,-1,-1,-1
+R,mix,GPU+VS,3.4,25.0,51.8,0,15.0,15.1,70240,70238,0,0,70238,3.0,9.3,3082962,985226,249780,15014995,1,82583,82581,400,300,8.1,6.3,82,0,0,7056,-1,-1,-1
+R,mix,GPU+VS+ETC1,7.3,26.3,52.2,0,14.9,14.9,70240,70238,0,0,70238,3.0,9.1,3074374,967073,249306,14849015,1,83645,83643,400,300,8.8,6.3,82,0,0,7056,-1,-1,-1
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+P,quad_tex,GPU+VS+ETC1,1.93,2.02,0.15,0.44,1.78,4.00,0.47,1.86,4.19
+score 0 (bm3d 7.3 as the games get it, 0 of 24 tests, a part of the bench), GPU bm3d 2.1 0, ARM bm3d 0.2 0; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.3,0,0,0
+S,GPU,2.1,0,0,0
+S,ARM,0.2,0,0,0
+triangles at 60 fps 0 in the mix (0 drawn), the most 0 (none)
+total 14 s
