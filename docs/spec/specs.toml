@@ -138,3 +138,11 @@ status = "implemented"
 platforms = "all"
 where = ["src/bm/project.c", "src/kernel/carts.c", "src/rgb30/ui.c"]
 note = ".bm/.b16 in /bm, .bme in /bme; /carts read for one release (D09-3a..3d), then removed (D09-3g)"
+
+[[item]]
+id = "sd-map"
+since = 3
+status = "implemented"
+platforms = "all"
+where = ["src/kernel/sdmap_core.c", "src/kernel/sdmap.c", "src/kernel/settings.c", "src/kernel/menu_ui.c", "src/fs/fat.c"]
+note = "Settings > System > SD map: bar kernel/bm/bme/other/free, folders, other files; incremental scan in a menu fiber; cache bm/sdmap.txt"

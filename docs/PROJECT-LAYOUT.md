@@ -61,6 +61,10 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `code`, `assistant`, `editor` (bm SDK), `sound`, `animator`, `mesh`, `pixel` | `bm.info` used by their rule (`--info`); built into the kernel or installed on the SD as before |
 | `studio` | `bm.info`; `sheet.png` moved to `assets/` |
 
+## Files the console writes on the SD card
+
+- `bm/sdmap.txt` is the cache of the SD map (Settings > System > SD map), rewritten by the console after each scan.
+
 ## What breaks
 
 - Nothing in the `.bm` format. The build of a migrated game takes title, author and resolution

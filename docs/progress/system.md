@@ -77,6 +77,7 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
   part of the missing WiFi (the fix that is in: retries and `wifi_leave()`).
 - **Freeze reports hardware checks (Pi Zero W):** verify real watchdog countdown on hardware (FRZ-3: boot log says "watchdog: on", monitor `X f` restarts within ~3 s with report "the Pi froze last time").
 - Measurements to redo, stalls that still hold the CPU, downloads inside an app: [multitasking](multitasking.md).
+- Try the SD map (Settings > System) on the Pi Zero W (speed of the scan, stutter of the menu) and on the RGB30: not verified on hardware.
 
 ### Console Standalone & Hardware Spunti (R1, R2, R3, R4, R6, R8, R19, R20)
 - **R1 — WiFi dal menu col pad**: Settings > WiFi and network con selezione reti via gamepad e inserimento credenziali tramite tastiera a schermo (R2).
@@ -94,6 +95,9 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 - All SD logs only via `src/kernel/sdlog.c`.
 - Planned restarts only via `crumbs_restart()`.
 - SD logs masked with `reports_mask_secrets()`.
+- The SD map scan never runs while a game or a tool runs (`sdmap_stop` in `background_stop` on the Pi, in `run_page` on the RGB30).
+- The bar's categories are fixed: kernel, bm, bme, other, free (other = total - free - the rest).
+- Free space is counted from the FAT (`fat_free_step`), not from FSInfo.
 - Fibers (`background_stop()`, `net_wait_step`, update/publish vs apps): [multitasking](multitasking.md).
 - Tabs on the Pi: Market · Games · Dev · Lib · Settings, Lib hidden until `lib_tab=1`; the
   menu opens on Games; the Market never blocks the menu and loads only when its tab is on.
