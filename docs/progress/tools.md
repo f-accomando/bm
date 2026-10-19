@@ -68,7 +68,7 @@ ffmpeg/libass; storyboard and script come from the same key script. Series *Skyv
 tool; `make bmhost-ai` builds `bmhost` with the real `ai` table. On the PC: no kernel menu.
 
 ### Tests on a real Pi (`tools/pi_bridge.py`, `tools/pi.py`, `tools/pi_test.py`)
-The owner types the console password once in `pi_bridge.py`; a client (Claude Code, `pi_test.py`) then sends `line`, `send`, `play`, `kernel` through a local socket without seeing the password. It can run `gpu`/`b3d`, send a cartridge or a kernel and restore the normal one. It sees the error of a stopped cartridge (`err`, R-NET1) and the screen (`shot OUT.png`, R-NET2: transfer ops `T`/`G`): [`design/pi-test.md`](../design/pi-test.md).
+The owner types the console password once in `pi_bridge.py`; a client (Claude Code, `pi_test.py`) then sends `line`, `send`, `play`, `kernel` through a local socket without seeing the password. It can run `gpu`/`b3d`, send a cartridge or a kernel and restore the normal one. `./easy_install.sh bridge [profile]` (menu 9) starts it for a saved profile with its board (`--board pi|zero2|rgb30`: `kernel FILE` takes only that board's kernel file; the RGB30 has no monitor, so its crash/freeze/reboot keys answer "not for this board"; test `tests/net/check_pi_bridge_board.py`, not tried on the RGB30). It sees the error of a stopped cartridge (`err`, R-NET1) and the screen (`shot OUT.png`, R-NET2: transfer ops `T`/`G`): [`design/pi-test.md`](../design/pi-test.md).
 
 ### CI (`.github/workflows/ci.yml`)
 Build; host tests (`make test-host`); QEMU in four shards (`make test-qemu SHARD=K/4`); RGB30 build and QEMU
