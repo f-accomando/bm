@@ -99,6 +99,12 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 | GAME-2 | P3 | in progress | Overbit: screens, quality, mech pilots from images | `Open work` entries closed; benchmark on the Pi and the RGB30 | [overbit](progress/overbit.md), [tools](progress/tools.md) | M41 |
 | GAME-3 | P3 | idea | Game architecture and gameplay kit | a test game uses the kit without duplicated code | [games-architecture](design/games-architecture.md) | - |
 
+## Post-beta milestones
+
+| ID | Prio | Status | Item | Done when |
+|---|---|---|---|---|
+| WEB-1 | P2 | idea | bm in the browser: the portable runtime (Lua runtime, gfx16, audio, bmlib) built to WebAssembly with canvas, keyboard/gamepad and WebAudio, to let people try the platform and promote it | a static page (artifact or GitHub Pages, up to 16 MB with cartridges embedded) runs a `.bm` game at 360x360; first step is a read-only feasibility WO on how much of `src/bm/runtime.c` depends on the kernel |
+
 ---
 
 ## Baseline decisions in force
