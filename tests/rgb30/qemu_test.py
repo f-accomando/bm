@@ -408,11 +408,15 @@ def test_crash_report(b, opts):
     screen, after 60 s (and 20 s of uptime) the board restarts with its RAM
     kept, and the next boot files the crash as a report with the lines
     printed before it (src/kernel/crumbs.c). crash() on the serial prompt
-    is a BRK."""
+    is a BRK. The kernel starts from kernel8.img: QEMU's ELF loader writes
+    zeros over .noinit (NOBITS inside the one PT_LOAD) at every reset and the
+    crash record would be lost; the raw Image leaves it. So QEMU does not prove
+    that the RK3566 keeps its DRAM across the PSCI reset: a check on the
+    hardware is still due."""
     tmp = tempfile.mkdtemp(prefix="bm64crash-")
     sd = make_sd(tmp, {"bm/config.txt": b"report_upload=0\n"})
     size = os.path.getsize(sd)
-    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    q = Qemu(os.path.join(b, "kernel8.img"), sd=sd)
     try:
         boot(q)
         time.sleep(21)                          # past the first 20 s of the boot

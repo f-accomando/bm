@@ -213,7 +213,7 @@ cause = "history"
 priority = 5
 status = "untested"
 note = "RGB30 files crash reports only, not freezes: no watchdog yet"
-evidence = "src/kernel/exceptions.c:87-110; src/rgb30/exc.c die(); src/rgb30/main.c crumbs_last; tests/rgb30/qemu_test.py test_crash_report"
+evidence = "src/kernel/exceptions.c:87-110; src/rgb30/exc.c:65-88; src/rgb30/main.c:258-268; tests/rgb30/qemu_test.py:406"
 action = "try on the hardware"
 
 [[divergence]]
