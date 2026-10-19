@@ -11,12 +11,12 @@ Games declare them once: `keymap({ confirm = "ok", cancel = "back", pause = "sta
 | Logical action | Keymap button | RGB30 today | RGB30 target | Pi keyboard | Pi pad | Context |
 |---|---|---|---|---|---|---|
 | confirm | `"ok"` | B (`pad_ok = PAD_B`, `src/rgb30/pad.c:10`; `confirm=a` swaps, `pad.c:16`) | B (unchanged) | Space (`docs/api/input.md:9`) | cross (DS4) / A (Xbox) (`docs/api/input.md:9`) | menus |
-| cancel | `"back"` | A (`pad_back = PAD_A`, `src/rgb30/pad.c:10`; `docs/progress/platforms.md:35`) | Y, A stays a second back: to implement (kernel) | X (`docs/api/input.md:9`, `:75`) | circle (DS4) / B (Xbox) (`docs/api/input.md:9`) | menus |
-| pause | `"start"` | Start | Start (unchanged) | Enter (`docs/api/input.md:78`) | Start / Options (`docs/api/input.md:78`) | gameplay; opens `lib.pause` (`src/script/bmlib.lua:1153`, opened by `btnp("start")` at `:1170`) |
+| cancel | `"back"` | A (`pad_back = PAD_A`, `src/rgb30/pad.c:10`; `docs/progress/platforms.md:35`) | Y only, A is no back (menus: `claude/pad-y-cancel`, to merge; games keep A/B as before) | X (`docs/api/input.md:9`, `:75`) | circle (DS4) / B (Xbox) (`docs/api/input.md:9`) | menus |
+| pause | `"start"` | Start | Start (unchanged) | Enter (`docs/api/input.md:78`) | Start / Options (`docs/api/input.md:78`) | gameplay; opens `lib.pause` (`src/script/bmlib.lua:1179`, opened by `btnp("start")` at `:1196`) |
 | move | `"left"`..`"down"` or `stick()` | D-pad / left stick | unchanged | arrows / WASD (`docs/api/input.md:70-73`) | cross / stick (`docs/api/input.md:70-73`, `:15`) | gameplay and menus |
 | act1 | `"ok"` | B | B (unchanged) | Space | cross (DS4) / A (Xbox) | gameplay |
 | act2 | the A/B button that is not `controller().ok` (`docs/api/input.md:12`) | A | A (unchanged) | X | circle (DS4) / B (Xbox) | gameplay |
-| shoulder_l / shoulder_r | `"l1"` / `"r1"` | L1 / R1 | unchanged | Q / E (`docs/api/input.md:95`) | L1 / R1 | gameplay |
+| shoulder_l / shoulder_r | `"l1"` / `"r1"` | L1 / R1 | unchanged | Q / E (`docs/api/input.md:97`) | L1 / R1 | gameplay |
 
 Rows marked "to implement (kernel)": cancel on Y (the only RGB30 target that differs from today). Everything else already works through `pad_ok` / `pad_back` and the `"ok"` / `"back"` names (`src/rgb30/bm_input.c:68-76`).
 
@@ -37,7 +37,7 @@ A game that needs a different binding declares it with `lib.input({ act2 = "x" }
 
 ## 4. On-Screen Hints
 
-Show hints with `prompt("act1", x, y)`, which draws the right symbol for the player's controller (`lastinput()` tells which: `docs/api/input.md:96`). Write hints through `prompt()` so key names never appear as literal text. `.b16` sources carry no `prompt()` keyboard words: `.b16` games get RGB30 pad bindings only.
+Show hints with `prompt("act1", x, y)`, which draws the right symbol for the player's controller (`lastinput()` tells which: `docs/api/input.md:98`). Write hints through `prompt()` so key names never appear as literal text. `.b16` sources carry no `prompt()` keyboard words: `.b16` games get RGB30 pad bindings only.
 
 ## 5. Editors
 

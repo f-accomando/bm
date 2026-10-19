@@ -677,7 +677,11 @@ Altre cose utili: `lib.script` per le scene scritte in fila (`lib.wait(1)`,
 `lib.waitfor(...)`), `lib.tween` per scritte e menu che entrano, `lib.menu` per i menu
 propri, `lib.btnr` per i tasti che si ripetono, `lib.rng(seme)` per mondi sempre uguali
 dallo stesso seme, `lib.ray` per vedere se un nemico vede l'eroe, `lib.dir8` per gli sprite
-a 8 direzioni.
+a 8 direzioni, `lib.input()` per lo standard di input dei giochi (`confirm`, `cancel`,
+`pause`, `act1`, `act2`, `shoulder_l`, `shoulder_r` sugli stessi tasti in ogni gioco: `act2` è il
+tasto A/B che non è `controller().ok`; `lib.input({ act2 = "x" })` cambia singole azioni,
+elencate in `lib.input_exceptions` e dichiarate nel `docs/progress/<gioco>.md`; `lib.INPUT_STD`
+è la tabella senza `act2`; vedi [design/games-input-standard.md](design/games-input-standard.md)).
 
 ## 12. Colpi: hitbox e hurtbox
 
