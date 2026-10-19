@@ -4,11 +4,13 @@ fixed operations without ever seeing the password.
 
   python3 tools/pi_bridge.py 192.168.1.108          # asks for the password, then waits (Ctrl-C to stop)
   python3 tools/pi_bridge.py --detach 192.168.1.108  # the same, then in the background (the shell may be closed)
+  python3 tools/pi_bridge.py --board rgb30 IP        # the board: pi (default), zero2, rgb30 (easy_install.sh bridge [profile] passes it)
   python3 tools/pi.py line gpu                        # the client (another shell, or Claude)
   python3 tools/pi.py status                          # is the Pi up, which kernel, how did the run before end
 
 Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.TXT and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, reboot: the last ones only when the monitor has the keys), line TEXT (monitor commands separated by ';', only gpu, b3d tests=.. profiles=.., render, room, log, err, send, reboot; set/save/play and anything else refused), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. (words of letters, digits and _-. only).
 One bridge per device: --dev NAME gives the socket ~/.pi_bridge.NAME.sock and the files out/pi_NAME_*.TXT.
+The board decides the kernel file kernel FILE takes (pi: any name, as before; zero2: kernel7.img, rgb30: kernel8.img); the RGB30 has no monitor, so its crash, freeze and reboot keys answer "not for this board".
 FILE must be inside the repo or in ~/bmk*/ (the build folders); OUT of shot is a .png in a folder there. The socket is ~/.pi_bridge.sock, mode 0600."""
 import datetime
 import getpass
@@ -64,6 +66,8 @@ def check_line(text):
     return "; ".join(segments), None
 
 
+# the kernel file name each board takes (bm_net.py --kernel answers KA for another one; refused here before it is sent)
+KERNEL_FILE = {"pi": "kernel.img", "zero2": "kernel7.img", "rgb30": "kernel8.img"}
 ALLOWED_DIRS = [ROOT] + [os.path.expanduser("~/" + d) for d in os.listdir(os.path.expanduser("~")) if d.startswith("bmk")]
 
 
@@ -113,8 +117,23 @@ def masked(req):
     return "config " + " ".join(w.partition("=")[0] + "=***" if "=" in w else w for w in arg.split())
 
 
-def run(host, pw, req):
+def board_refusal(req, board):
+    """why the bridge of this board refuses req, or None (the board decides only: kernel names and monitor-only keys)"""
     op, _, arg = req.partition(" ")
+    if board not in KERNEL_FILE:
+        return "refused: unknown board %r" % board
+    if op == "kernel" and board != "pi" and os.path.basename(arg) != KERNEL_FILE[board]:   # pi: any name, as before (kernelA.img)
+        return "refused: the %s board takes %s only, not %s" % (board, KERNEL_FILE[board], os.path.basename(arg))
+    if op == "keys" and board == "rgb30" and arg in MONITOR_ONLY:
+        return "refused: keys %s: not for this board (the RGB30 has no monitor)" % arg
+    return None
+
+
+def run(host, pw, req, board="pi"):
+    op, _, arg = req.partition(" ")
+    why = board_refusal(req, board)
+    if why:
+        return why
     base = [sys.executable, os.path.join(HERE, "bm_net.py"), host]
     if req == "status":
         return status(host, pw)
@@ -231,6 +250,13 @@ def main():
         del args[i:i + 2]
         SOCK = os.path.expanduser("~/.pi_bridge.%s.sock" % DEV)
     background = "--detach" in args
+    board = "pi"
+    if "--board" in args:
+        i = args.index("--board")
+        board = args[i + 1] if i + 1 < len(args) else ""
+        del args[i:i + 2]
+    if board not in KERNEL_FILE:
+        sys.exit("--board: pi, zero2 or rgb30")
     names = [a for a in args if not a.startswith("--")]
     host = names[0] if names else "192.168.1.108"
     s = claim_socket(SOCK)
@@ -244,14 +270,14 @@ def main():
     signal.signal(signal.SIGTERM, signal.default_int_handler)   # the socket is removed below
     if background:
         detach()
-    print("bridge ready on", SOCK, "- Ctrl-C to stop", flush=True)
+    print("bridge ready on", SOCK, "(board %s) - Ctrl-C to stop" % board, flush=True)
     try:
         while True:
             c, _ = s.accept()
             req = c.makefile().readline().strip()
             print("request:", masked(req), flush=True)
             try:
-                out = run(host, pw, req)
+                out = run(host, pw, req, board)
             except Exception as e:
                 out = "error: %s" % e
             c.sendall(out.encode("utf-8", "replace"))
