@@ -26,6 +26,7 @@
 #include "gfx/font.h"
 #include "kernel/config.h"
 #include "kernel/fiber.h"
+#include "kernel/sdmap.h"
 #include "kernel/tick.h"
 #include "kernel/update.h"
 #include "kernel/version.h"
@@ -699,6 +700,7 @@ static void run_page(void (*run)(void))
         return;
     }
     market_set_active(0);                           /* its work stops first, as on the Pi */
+    sdmap_stop();
     netxfer_write_pause();                          /* a file from the PC: written later */
     menu_ui_close_quiet(fb);                        /* (not the console flashing: the pages draw themselves) */
     console_suspend(1);
@@ -877,9 +879,10 @@ static void text_page(void)
  * the link is down. */
 static const fiber_share_t menu_jobs[] = {
     /*                      game tool menu */
-    { update_tick,        {  0,   0,  30 } },
-    { market_tick,        {  0,   0,  60 } },
+    { update_tick,        {  0,   0,  25 } },
+    { market_tick,        {  0,   0,  55 } },
     { wifi_auto_idle,     {  0,   0,  10 } },
+    { sdmap_tick,         {  0,   0,  10 } },   /* the SD map scan (Settings > System > SD map), last */
 };
 
 /* the menu's free time in a frame: a file from the PC (bm_net.py --send)

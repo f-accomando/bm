@@ -220,6 +220,49 @@ def test_screen_console(b, opts):
         q.close()
 
 
+def test_sd_map(b, opts):
+    """Settings > System > SD map: the scan runs in the menu's free time, the
+    panel shows the bar, the legend, the folders and the files the menu cannot show."""
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    big = bytes(3 << 19)                        # 1.5 MiB: wide enough to show in the bar on a 64 MiB card
+    sd = make_sd(tmp, {"bm/racer.b16": b"B16" + bytes(100), "bme/PROJ.BME": big,
+                       "bm/DATA.DAT": big, "bm/NOTES.TXT": b"x" * 3000})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+
+    def until(words, keyname, tries=16):
+        text = ""
+        for _ in range(tries):
+            text = screen_all(q.screendump())
+            if all(w in text for w in words):
+                return text
+            keys(q, keyname)
+        raise AssertionError(f"{words!r} not on the screen:\n{text}")
+
+    try:
+        boot(q)
+        time.sleep(0.5)
+        keys(q, "rr")                           # Settings
+        keys(q, "www")                          # System: round up from the first row
+        keys(q, "\r")
+        until(["What is on the card"], "s")     # the SD map row
+        keys(q, "\r")
+        text = until(["Settings > System > SD map", "Kernel", "bm (games)", "bme (projects)"], "s", tries=1)
+        until(["Scan", "done"], "s", tries=60)  # the scan ends in the menu's free time
+        text = until(["/bm", "/bme", "files"], "s")
+        until(["Kernel", "bm (games)", "Free"], "w", tries=20)    # back up to the bar
+        img = q.screendump()
+        w, h, px = img
+        seen = {tuple(px[i:i + 3]) for i in range(0, w * h * 3, 3)}
+        for name, c in (("bm", (0x61, 0xAF, 0xEF)), ("bme", (0x98, 0xC3, 0x79)), ("free", (0x4A, 0x50, 0x60))):
+            assert any(all(abs(a - b2) <= 8 for a, b2 in zip(c, got)) for got in seen),                 f"bar colour {name} {c} not on the screen"
+        until(["Files the menu cannot show"], "s", tries=20)
+        keys(q, "\r")
+        until(["Settings > System > SD map > Other", "DATA.DAT"], "s", tries=1)
+        until(["NOTES.TXT", "2 KB"], "s", tries=6)
+    finally:
+        q.close()
+
+
 def test_el2_image_relocation(b, opts):
     """kernel8.img as U-Boot's booti would start it: EL2, x0 = device tree,
     loaded away from the link address (QEMU: above it, at 0x40200000;
