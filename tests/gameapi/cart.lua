@@ -497,6 +497,17 @@ local function lib_hits()
 end
 
 -- players on one console: colours, views
+local function lib_input()
+  local t = lib.input()
+  local km = keymap()
+  check(km.confirm[1] == "ok" and km.pause[1] == "start" and km.act1[1] == "ok" and km.act2[1] == t.act2 and t.act2 == (controller().ok == "b" and "a" or "b"),
+        "lib.input: the standard actions on the keymap")
+  check(#lib.input_exceptions == 0, "lib.input: no exceptions by default")
+  lib.input({ act2 = "x" })
+  check(keymap().act2[1] == "x" and lib.input_exceptions[1] == "act2", "lib.input: an override is a declared exception")
+  lib.input()
+end
+
 local function lib_players()
   check(#lib.PLAYER_COLORS == 4 and controller(2).color == lib.PLAYER_COLORS[2] and
         controller().color == lib.PLAYER_COLORS[1], "controller(p).color: the player's colour")
@@ -550,6 +561,7 @@ function _init()
   lib_things()
   lib_hits()
   lib_players()
+  lib_input()
   party = lib.party({ min = 2 })
   menu = lib.menu({ "one", { label = "two", off = true }, { label = "three", value = "3" } }, { wrap = false })
   volume0 = volume()

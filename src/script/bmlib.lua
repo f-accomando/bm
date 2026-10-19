@@ -1073,6 +1073,32 @@ function lib.btnr(i, p, delay, rate)
   return r.n == 1 or (r.n > delay and (r.n - delay) % rate == 0)
 end
 
+-- The input standard for games (docs/design/games-input-standard.md): the
+-- same actions on the same buttons in every game. lib.input() puts them on
+-- the keymap; act2 is the A/B button that is not controller().ok (no
+-- controller: "b"). over = { act2 = "x" } changes single actions: those keys
+-- are the game's declared exceptions (lib.input_exceptions, to list in its
+-- docs/progress/<game>.md). Returns the keymap table.
+lib.INPUT_STD = { confirm = "ok", cancel = "back", pause = "start", act1 = "ok",
+                  shoulder_l = "l1", shoulder_r = "r1" }
+
+function lib.input(over)
+  local t = {}
+  for k, v in pairs(lib.INPUT_STD) do t[k] = v end
+  local c = controller and controller()
+  t.act2 = (c and c.ok == "b") and "a" or "b"
+  lib.input_exceptions = {}
+  if over then
+    for k, v in pairs(over) do
+      t[k] = v
+      lib.input_exceptions[#lib.input_exceptions + 1] = k
+    end
+    table.sort(lib.input_exceptions)
+  end
+  if keymap then keymap(t) end          -- a host without the keymap (the tools' tests) just gets the table
+  return t
+end
+
 local Menu = {}
 Menu.__index = Menu
 

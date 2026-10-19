@@ -85,3 +85,4 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
   do not reuse them.
 - Tests: `make test-gameapi`, `test-bm`, `test-profile`, `test-bmnet`, `test-online`,
   `test-loading`; QEMU `-k <name>` for the piece touched.
+- New games start from `lib.input()` (the standard in [games-input-standard](../design/games-input-standard.md)); a different binding goes only through its override table and is listed in the game's `docs/progress/<game>.md`.

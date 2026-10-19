@@ -203,6 +203,7 @@ function _draw() S:draw() end
 
 | Function | Description |
 |---|---|
+| `lib.input([over])` | the games' input standard ([games-input-standard](../design/games-input-standard.md)): puts `confirm`, `cancel`, `pause`, `act1`, `act2`, `shoulder_l`, `shoulder_r` on the keymap (`act2` = the A/B button that is not `controller().ok`) and returns the table; `over = { act2 = "x" }` changes single actions, listed in `lib.input_exceptions` (declare them in the game's `docs/progress/<game>.md`). `lib.INPUT_STD` is the table without `act2` |
 | `lib.textw(text, [scale])` | width and height in pixels with the font of `print` now (the longest line) |
 | `lib.printc(text, y, [c, scale, x, w, grid])` | in the middle of the screen (or of `x..x + w`); `grid`: on the font's columns (text that stays still, as the menus). Returns the x |
 | `lib.printr(text, x, y, [c, scale])` | ending at `x` (numbers aligned to the right) |
