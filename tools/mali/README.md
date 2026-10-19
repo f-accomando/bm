@@ -33,6 +33,11 @@ Mesa's postprocess.
 
 `src/rgb30/mali_shaders.h` is made and committed. Run: `mkshader OUT.h`.
 
+- `BM_VS3` (phase 3): attribute 0 a model-space vec4, 16 pushed words = a 4x4 matrix by rows (uniform buffer 0), position = M * v
+  (the matrix carries projection and viewport; w is the clip w); not run on a Mali yet. Its viewport scale is a vec3 constant
+  (`unit_scale` in `mkshader.c`).
+- `BM_VS` is built with `full_scale = 1` (W15c): it now carries y and z. Before W15c `nir_inline_sysval` made a one-component
+  constant for the vec3 viewport scale, the optimizer read its `.y` / `.z` as 0 and the shader stored `(x/w, 0, 0, 1/w)`.
 - Vertex shader (`BM_VS`, 160 bytes, 32 work registers): attribute 0 is a vec4 position already in
   pixels (w = 1); the viewport transform is made the identity (`nir_inline_sysval` scale 1, offset 0).
   No varyings.
