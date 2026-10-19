@@ -1,0 +1,35 @@
+bm report
+kind: bench3d
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: 2026-10-19 13:30:33
+file: 20261019-133033_bench3d_pi-zero-w_dev.txt
+
+bm 3D Bench
+kernel dev
+drivers bm3d 7.3 (M39)
+date 2026-10-19 13:30 UTC
+machine ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 46.5 C, throttled 00000
+gpu bm3d 7.3 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed))
+probes before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147; after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447; vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+options bm3d 7.3 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 etc1=0 (at the start; each profile sets its own)
+counters ARM1176 PMU
+previous bm/bench/3D0039.TXT
+only tests queue, profiles all
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms
+R,queue,GPU,2.1,87.8,268.0,0,14.6,14.7,6336,2540,3696,0,0,1.0,1.4,8431700,144491,111675,14644492,2,8425,3434,400,300,3.4,2.1,22,0,0,0,-1,-1,-1
+R,queue,GPU+VS,3.4,584.9,1610.5,0,14.6,14.6,47232,47232,0,0,47232,1.0,3.5,7267732,379820,121958,14573202,2,56146,56146,400,300,3.0,2.2,102,0,0,0,-1,-1,-1
+R,queue,GPU+VS+Q,4.1,652.2,1795.7,0,11.1,11.1,47232,47232,0,0,47232,1.0,6.6,6892218,58,123958,11073936,2,62615,62615,400,300,2.4,2.4,102,0,0,0,-1,-1,-1
+R,queue,GPU+Q,4.1,107.3,311.6,0,15.1,15.2,8448,3443,4928,0,0,1.0,6.6,9255092,58,137947,15137700,2,10305,4188,400,300,3.7,2.2,22,0,0,0,-1,-1,-1
+R,queue,GPU+VS+Q2,5.1,652.7,1795.3,0,11.1,11.1,47232,47232,0,0,47232,1.0,6.6,6892218,58,123960,11080108,2,62654,62654,400,300,2.5,2.5,102,0,0,0,-1,-1,-1
+R,queue,GPU+VS+FS2,6.6,585.3,1607.0,0,14.6,14.7,47232,47232,0,0,47232,1.0,3.5,7275609,379626,121044,14581607,2,56186,56186,400,300,2.9,2.2,102,0,0,0,-1,-1,-1
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+score 0 (bm3d 7.3 as the games get it, 0 of 24 tests, a part of the bench), GPU bm3d 2.1 0, ARM bm3d 0.2 0; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.3,0,0,0
+S,GPU,2.1,0,0,0
+S,ARM,0.2,0,0,0
+triangles at 60 fps 0 in the mix (0 drawn), the most 56186 (queue)
+total 15 s
