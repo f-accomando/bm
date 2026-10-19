@@ -8,6 +8,7 @@ PLAT=virt (PL011 serial port, ramfb screen, GICv3, generic timer).
 import argparse
 import os
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -400,6 +401,41 @@ def test_update_from_sd(b, opts):
     assert read("/kernel8.img") == open(new_kernel, "rb").read(), "the new kernel8.img"
     assert read("/bm/backup/kernel8.img") == old_kernel, "the old one kept"
     assert read("/bm/ca.pem") == open(ca, "rb").read(), "the certificates"
+
+
+def test_crash_report(b, opts):
+    """A crash becomes a report, as on the Pi (tests/qemu_test.py): the red
+    screen, after 60 s (and 20 s of uptime) the board restarts with its RAM
+    kept, and the next boot files the crash as a report with the lines
+    printed before it (src/kernel/crumbs.c). crash() on the serial prompt
+    is a BRK."""
+    tmp = tempfile.mkdtemp(prefix="bm64crash-")
+    sd = make_sd(tmp, {"bm/config.txt": b"report_upload=0\n"})
+    size = os.path.getsize(sd)
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(21)                          # past the first 20 s of the boot
+        lua_prompt(q)
+        q.send("crash()\r")
+        q.expect("*** EXCEPTION: synchronous exception - BRK (breakpoint) ***", timeout=10)
+        q.expect("Restarting in 60 s", timeout=20)
+        q.expect("the last run ended in a crash: saved as a report", timeout=120)
+        q.expect("RPT00001.TXT", timeout=30)
+        dump = os.path.join(tmp, "after.img")
+        q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
+                  until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
+    finally:
+        q.close()
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    part = f"{dump}@@{1024 * 1024}"
+    rep = subprocess.run(["mtype", "-i", part, "::/bm/reports/RPT00001.TXT"], capture_output=True, text=True,
+                         env=env).stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    head, body = rep.split("\n\n", 1)
+    assert "kind: crash" in head.splitlines(), rep[:600]
+    assert body.startswith("a crash (the red screen) while:"), body[:300]
+    assert "--- the last lines printed ---" in body and "*** EXCEPTION" in body, body[-1500:]
 
 
 def test_bluetooth_page_without_chip(b, opts):
