@@ -7,7 +7,7 @@ fixed operations without ever seeing the password.
   python3 tools/pi.py line gpu                        # the client (another shell, or Claude)
   python3 tools/pi.py status                          # is the Pi up, which kernel, how did the run before end
 
-Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.TXT and shown), keys NAME (monitor, game-exit: Ctrl-\ ends the game, crash-*, freeze, reboot: the last ones only when the monitor has the keys), line TEXT (a monitor line: gpu, b3d, ...), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. is NOT allowed.
+Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.TXT and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, reboot: the last ones only when the monitor has the keys), line TEXT (a monitor line: gpu, b3d, ...), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. is NOT allowed.
 FILE must be inside the repo or in ~/bmk*/ (the build folders); OUT of shot is a .png in a folder there. The socket is ~/.pi_bridge.sock, mode 0600."""
 import datetime
 import getpass

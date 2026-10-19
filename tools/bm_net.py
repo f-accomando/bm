@@ -353,7 +353,7 @@ def keys_blocked(answer):
 
 
 def run_game_exit(sock, answer):
-    """--game-exit: Ctrl-\ (0x1C) to a game, which the runtime reads as Ctrl-Esc (back to the menu); only when
+    """--game-exit: Ctrl-backslash (0x1C) to a game, which the runtime reads as Ctrl-Esc (back to the menu); only when
     the console says its keys go to the application"""
     m = FOCUS.search(answer)
     where = m.group(1).decode(errors="replace") if m else ""
