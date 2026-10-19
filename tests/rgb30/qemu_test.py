@@ -527,6 +527,33 @@ def test_bluetooth_page_without_chip(b, opts):
         q.close()
 
 
+def test_y_goes_back(b, opts):
+    """Y goes back like A (the back button): a Settings page opened with
+    Enter closes with Y, in both confirm settings (the serial port's y is the
+    Y button)."""
+    for config in (b"layout=us\n", b"confirm=a\n"):
+        tmp = tempfile.mkdtemp(prefix="bm64sd-")
+        sd = make_sd(tmp, {"bm/config.txt": config})
+        q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+        try:
+            boot(q)
+            for _ in range(6):                  # to the Settings tab
+                if "Controllers" in screen_all(q.screendump()):
+                    break
+                keys(q, "r", 0.5)
+            q.send("\r")                        # Controllers
+            time.sleep(0.5)
+            text = screen_all(q.screendump())
+            assert "Settings > Controllers" in text, text
+            q.send("y")                         # back, as A
+            time.sleep(0.6)
+            text = screen_all(q.screendump())
+            assert in_menu(text) and "Settings > Controllers" not in text, (config, text)
+        finally:
+            q.close()
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_wifi_page_without_chip(b, opts):
     """Settings > WiFi and network > Connect to a network starts the chip;
     QEMU has none: it says so, B goes back."""

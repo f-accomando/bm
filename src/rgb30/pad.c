@@ -7,7 +7,9 @@
 #include "net/netcon.h"
 #include "kernel/config.h"
 
-uint32_t pad_ok = PAD_B, pad_back = PAD_A;
+/* pad_backs: every button that goes back in the menus: the back button
+ * (A, or B with confirm=a) and Y */
+uint32_t pad_ok = PAD_B, pad_back = PAD_A, pad_backs = PAD_A | PAD_Y;
 
 void pad_config(void)
 {
@@ -15,6 +17,7 @@ void pad_config(void)
     int a = v && (v[0] == 'a' || v[0] == 'A');
     pad_ok = a ? PAD_A : PAD_B;
     pad_back = a ? PAD_B : PAD_A;
+    pad_backs = pad_back | PAD_Y;
 }
 
 const char *pad_ok_name(void)   { return pad_ok == PAD_A ? "A" : "B"; }

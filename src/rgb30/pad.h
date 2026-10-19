@@ -30,7 +30,7 @@ extern const char *const pad_names[PAD_COUNT];
 
 /* the confirm and back buttons (PAD_B and PAD_A unless confirm=a), and
  * their names for the screen */
-extern uint32_t pad_ok, pad_back;
+extern uint32_t pad_ok, pad_back, pad_backs;
 const char *pad_ok_name(void);
 const char *pad_back_name(void);
 /* reads confirm= from bm/config.txt (after config_load) */
