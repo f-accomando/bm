@@ -360,7 +360,7 @@ def run_game_exit(sock, answer):
     if not where.startswith("the application"):
         print(f"[bm_net] the keys go to {where or 'an unknown place'}: --game-exit works in a game only")
         return 2
-    sock.sendall(b"")
+    sock.sendall(b"\x1c")
     end = time.time() + KEYS_READ
     while time.time() < end:
         sock.settimeout(max(end - time.time(), 0.01))
