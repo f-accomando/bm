@@ -56,6 +56,7 @@ SEC_SPRITES, SEC_LAYERS, SEC_FLAGS, SEC_BOXES = 11, 12, 13, 14
 SEC_INFO = 10
 INFO_MAX = 16 * 1024
 RESOLUTIONS = ["640x360", "480x270", "320x180", "256x256", "360x360", "720x720"]
+TYPES = {"game": 0, "app": 1, "utility": 2}   # bm.info "type:", bits 2-3 of the u16 at 18 (src/bm/project.h)
 
 
 def read_info(path):
@@ -457,6 +458,13 @@ def mark_b16(data):
     return bytes(out)
 
 
+def mark_type(data, name):
+    """bits 2-3 of the u16 at 18: the type of bm.info (game 0, app 1, utility 2; src/bm/project.h)"""
+    out = bytearray(data)
+    struct.pack_into("<H", out, 18, (struct.unpack_from("<H", out, 18)[0] & ~12) | (TYPES[name] << 2))
+    return bytes(out)
+
+
 B16_LUA_CHECKS = [
     (r"(?<![\w])math\.random", "math.random: not the same game on every machine"),
     (r"(?<![\w.:])time\(", "time(): no clock; count the ticks instead"),
@@ -677,6 +685,10 @@ def main():
             data = mark_project(data)
         elif a.b16 or a.output.lower().endswith(".b16"):
             data = mark_b16(data)
+        if info and info.get("type"):
+            if info["type"] not in TYPES:
+                raise SystemExit(f"{a.info}: type: {info['type']!r} must be game, app or utility")
+            data = mark_type(data, info["type"])
         title, res_str = a.title, a.res
     if a.b16 or a.output.lower().endswith(".b16"):
         b16_lint(data, a.output)

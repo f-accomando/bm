@@ -1159,6 +1159,7 @@ test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUI
 	    $(BUILD)/carts/astrowing.bm ship:32,dart,tower,gate,ring:120,laser,bolt,debris,debris2,mark,core,core_hot,turret \
 	    $(BUILD)/texroom.bm floor_mesh,walls_mesh,crate_mesh,pillar_mesh \
 	    $(BUILD)/carts/kitchen.bm chef_classic1_body,chef1_body,plate,dplate
+	$(PYTHON) tests/bm/test_type.py
 
 # The button prompts (bm-ui): every one checked, and both sets drawn 3x as
 # on a TV into build/prompts/prompts.png (the menu) and chips.png (the apps)
