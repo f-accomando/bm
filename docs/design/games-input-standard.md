@@ -45,7 +45,7 @@ The editors keep their own keyboard model; the standard above is for games. See 
 
 ## 6. Inventory
 
-`python scripts/input_inventory.py --games` lists the raw buttons each game reads and compares them with this table. The script is added by Part C of this work (not present yet).
+`python scripts/input_inventory.py --games` lists the raw buttons each game reads and compares them with this table. It prints one markdown table, cart by cart (`std`, `exc:<button>`, `raw:<button>` or `-`); read-only, exit 0.
 
 ---
 
