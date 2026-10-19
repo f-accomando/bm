@@ -441,7 +441,7 @@ def main():
                     help="run a monitor line (commands separated by ';': gpu, b3d tests=... "
                          "profiles=..., set key=value, send...) and show its output")
     ap.add_argument("--in-monitor", action="store_true", help="with --keys: only when the monitor has the keys")
-    ap.add_argument("--game-exit", action="store_true", help="end the game running (Ctrl-\ byte, the menu is back)")
+    ap.add_argument("--game-exit", action="store_true", help="end the game running (the Ctrl-\ byte, the menu is back)")
     ap.add_argument("--keys", metavar="SEQ", help="press the keys of SEQ (letters and digits, at most 8) one by one")
     ap.add_argument("--config", nargs="*", metavar="KEY=VALUE",
                     help="the console's bm/config.txt: shown (secrets hidden), KEY=VALUE sets a key, "
