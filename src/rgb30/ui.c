@@ -582,7 +582,7 @@ void ui_screen_modes(void)
         uint32_t p;
         while (!(p = pad_pressed()))
             timer_delay_ms(10);
-        if (p & pad_backs)
+        if (p & pad_back)
             break;
         if (p & (pad_ok | PAD_RIGHT | PAD_DOWN))
             i = (i + 1) % n;
@@ -1225,7 +1225,7 @@ void ui_home(framebuffer_t *f)
         if (asking) {
             /* a question: confirm says yes, back cancels */
             const int kind = asking;
-            if (p & (pad_ok | pad_backs))
+            if (p & (pad_ok | pad_back))
                 asking = ASK_NONE;
             if ((p & pad_ok) && kind == ASK_ROW) {
                 home_act(stack[depth - 1].id, ask_row, HOME_YES, &d);
@@ -1255,7 +1255,7 @@ void ui_home(framebuffer_t *f)
                 play_index = ask_switch;            /* the frozen game is closed by starting this one */
                 ask_switch = -1;
                 run_page(play_selected);
-            } else if (kind == ASK_OFFER && (p & (pad_ok | pad_backs))) {
+            } else if (kind == ASK_OFFER && (p & (pad_ok | pad_back))) {
                 market_offer_answer((p & pad_ok) != 0);
             }
         } else if ((p & PAD_L1) && tab > TAB_MARKET) {
@@ -1289,7 +1289,7 @@ void ui_home(framebuffer_t *f)
             int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
             if (dy && gpb.n)
                 gopt_sel = (gopt_sel + dy + gpb.n) % gpb.n;
-            if (p & (pad_backs | PAD_X)) {
+            if (p & (pad_back | PAD_X)) {
                 gopt = -1;
             } else if ((p & pad_ok) && gpb.n && gpb.rows[gopt_sel].kind != MENU_ROW_INFO) {
                 const int row = gpb.ids[gopt_sel], g = gopt;
@@ -1340,7 +1340,7 @@ void ui_home(framebuffer_t *f)
             int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
             if (dy && mpb.n)
                 mopt_sel = (mopt_sel + dy + mpb.n) % mpb.n;
-            if (p & pad_backs) {
+            if (p & pad_back) {
                 mopt = -1;
             } else if ((p & pad_ok) && mpb.n && mpb.rows[mopt_sel].kind != MENU_ROW_INFO) {
                 const int row = mpb.ids[mopt_sel], game = mopt;
@@ -1386,7 +1386,7 @@ void ui_home(framebuffer_t *f)
                 p |= pad_ok;
             else if (depth > 1 && dx < 0 && (!r || r->kind != MENU_ROW_CHOICE))
                 p |= pad_back;
-            if (p & pad_backs) {
+            if (p & pad_back) {
                 if (--depth == 0)
                     tab = TAB_DEV;
                 built = -1;

@@ -741,8 +741,10 @@ static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[3], con
     }
     const int rgb30 = v->prompts == MENU_PROMPTS_RGB30;  /* the console's own A B X Y */
     int ds = v->prompts != MENU_PROMPTS_PAD && !rgb30;
+    if (rgb30 && b == BTN_B)
+        b = BTN_Y;                              /* the console's back is Y (A is no back) */
     if (!ds && v->confirm_b && (b == BTN_A || b == BTN_B))
-        b = b == BTN_A ? BTN_B : BTN_A;         /* confirm on B, back on A */
+        b = b == BTN_A ? BTN_B : BTN_A;         /* confirm on B */
     switch (b) {
     case BTN_A: case BTN_B: case BTN_X:
         p[0] = ds ? prompt_get(ds4[b], v->prompts_colour)

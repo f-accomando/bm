@@ -67,7 +67,7 @@ static void count(b3d_count_t *c)
 static int key(void)
 {
     const uint32_t p = pad_pressed();
-    if (p & (pad_backs | PAD_SELECT))
+    if (p & (pad_back | PAD_SELECT))
         return B3D_KEY_BACK;
     if (p & (PAD_LEFT | PAD_UP | PAD_L1))
         return B3D_KEY_LEFT;

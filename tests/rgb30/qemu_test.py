@@ -609,9 +609,9 @@ def test_display_modes(b, opts):
 
 
 def test_confirm_button(b, opts):
-    """B (the RGB30's lower face button) confirms and A goes back by
-    default: the hints of the Settings panel say so (Open on one chip,
-    Back on the other, swapped by confirm=a in bm/config.txt) and the
+    """B (the RGB30's lower face button) confirms and Y goes back by
+    default: the hints of the Settings panel say so (Open on the B chip, or
+    the A chip with confirm=a in bm/config.txt; Back always on the Y chip) and the
     serial port's Enter presses the confirm button."""
     chips = {}
     for config, ok, held in ((b"layout=us\n", "B", "00000020"), (b"confirm=a\n", "A", "00000010")):
@@ -636,7 +636,8 @@ def test_confirm_button(b, opts):
             assert "Input test" in text and f"held: {held}" in text, text
         finally:
             q.close()
-    assert chips["B"] == chips["A"][::-1], "confirm=a does not swap the chips of Open and Back"
+    assert chips["B"][0] != chips["A"][0], "confirm=a does not change the chip of Open"
+    assert chips["B"][1] == chips["A"][1], "the chip of Back (Y) is the same in both settings"
 
 
 PI_CART = r"""

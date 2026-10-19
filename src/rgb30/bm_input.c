@@ -69,7 +69,7 @@ int input_device(int p)
  * as the game sees it: its letter, or its place with game_buttons=position */
 uint32_t input_ok_bit(int back)
 {
-    uint32_t phys = back ? pad_back : pad_ok;
+    uint32_t phys = back ? (pad_ok == PAD_B ? PAD_A : PAD_B) : pad_ok;    /* the games: A and B as before */
     if (by_position())
         return phys == PAD_B ? HID_A : HID_B;
     return phys == PAD_B ? HID_B : HID_A;
