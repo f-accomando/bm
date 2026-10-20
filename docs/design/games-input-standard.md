@@ -4,36 +4,37 @@ One set of logical actions for every game, so the same game reads the same on th
 
 ---
 
-## 1. The Standard Actions
+## 1. Menus (every game and the system)
 
-Games declare them once: `keymap({ confirm = "ok", cancel = "back", pause = "start", act1 = "ok", act2 = ..., shoulder_l = "l1", shoulder_r = "r1" })`.
+Decided by the user, 19 Oct 2026. `lib.input()` always sets `confirm = "ok"`, `cancel = "back"`, `pause = "start"`.
 
-| Logical action | Keymap button | RGB30 today | RGB30 target | Pi keyboard | Pi pad | Context |
-|---|---|---|---|---|---|---|
-| confirm | `"ok"` | B (`pad_ok = PAD_B`, `src/rgb30/pad.c:10`; `confirm=a` swaps, `pad.c:16`) | B (unchanged) | Space (`docs/api/input.md:9`) | cross (DS4) / A (Xbox) (`docs/api/input.md:9`) | menus |
-| cancel | `"back"` | A (`pad_back = PAD_A`, `src/rgb30/pad.c:10`; `docs/progress/platforms.md:35`) | Y only, A is no back (menus: `claude/pad-y-cancel`, to merge; games keep A/B as before) | X (`docs/api/input.md:9`, `:75`) | circle (DS4) / B (Xbox) (`docs/api/input.md:9`) | menus |
-| pause | `"start"` | Start | Start (unchanged) | Enter (`docs/api/input.md:78`) | Start / Options (`docs/api/input.md:78`) | gameplay; opens `lib.pause` (`src/script/bmlib.lua:1179`, opened by `btnp("start")` at `:1196`) |
-| move | `"left"`..`"down"` or `stick()` | D-pad / left stick | unchanged | arrows / WASD (`docs/api/input.md:70-73`) | cross / stick (`docs/api/input.md:70-73`, `:15`) | gameplay and menus |
-| act1 | `"ok"` | B | B (unchanged) | Space | cross (DS4) / A (Xbox) | gameplay |
-| act2 | the A/B button that is not `controller().ok` (`docs/api/input.md:12`) | A | A (unchanged) | X | circle (DS4) / B (Xbox) | gameplay |
-| shoulder_l / shoulder_r | `"l1"` / `"r1"` | L1 / R1 | unchanged | Q / E (`docs/api/input.md:97`) | L1 / R1 | gameplay |
+| Action | RGB30 | Pi keyboard (target) | Pi keyboard today | Pi pad |
+|---|---|---|---|---|
+| confirm (`"ok"`) | B (`pad_ok = PAD_B`, `src/rgb30/pad.c:10`; `confirm=a` swaps to A) | Enter: to implement (kernel) | Space (`docs/api/input.md:9`) | cross (DS4) / A (Xbox) (`docs/api/input.md:9`) |
+| cancel (`"back"`) | Y only, A is no back (`claude/pad-y-cancel`, to merge; games keep A/B as before) | Esc: to implement (kernel) | X (`docs/api/input.md:9`, `:75`) | circle (DS4) / B (Xbox) (`docs/api/input.md:9`) |
+| pause (`"start"`) | Start: system menu (controls, volume, save, quit) | Esc as well: to implement (kernel) | Enter (`docs/api/input.md:78`) | Start / Options (`docs/api/input.md:78`) |
+| home | Start+Select: back to the bm menu, the game frozen (`docs/api/input.md:81-82`) | | | |
 
-Rows marked "to implement (kernel)": cancel on Y (the only RGB30 target that differs from today). Everything else already works through `pad_ok` / `pad_back` and the `"ok"` / `"back"` names (`src/rgb30/bm_input.c:68-76`).
+Start opens `lib.pause` (`src/script/bmlib.lua:1201`, opened by `btnp("start")` at `:1218`). Select may open an in-game menu where a game has one.
 
-Exit: Start+Select (or the PS button) always closes the cartridge and is fixed (`docs/api/input.md:81-82`). Start alone is the game's pause.
+## 2. Gameplay Schemes
 
-Screen: the RGB30 panel is 720x720; the menu and `.b16` games run at 360x360 scaled x2 (`docs/RGB30.md:13-14`).
+A game picks one scheme with `lib.input({ scheme = "scroller" | "topdown" | "stick" })`; without a `scheme` it is `"scroller"` (`lib.input_scheme` tells which one runs). Movement is the D-pad, or `stick()` in the stick scheme. The button names are the RGB30's; on the Pi the same keymap names resolve to the Pi pad and keyboard ("ok" is the cross / A / Space, the other A/B button the circle / B / X).
 
----
+| Action | scroller 2D (default) | top-down 2D (e.g. Yharnam) | stick (e.g. Overbit) |
+|---|---|---|---|
+| act1 | B (`"ok"`): jump | B (`"ok"`): attack, interact | R2: fire |
+| act2 | Y: attack | A (the other A/B button): dodge, run | L2: secondary fire |
+| act3 | A (the other A/B button): secondary action | Y: secondary (pistol, ...) | L1: ability |
+| act4 | X: game menu or special ability | X: game menu or ability | R1: ability |
+| act5..act8 | | | B, A, Y, X: jump, crouch, reload, ultimate and similar; X may be the game menu |
+| shoulder_l / shoulder_r | L1 / R1 | L1 / R1 | (taken by act3 / act4) |
 
-## 2. Contexts
-
-- **Menus**: confirm and cancel only (`"ok"` / `"back"`), plus move. Use `pad_ok` / `pad_back` in C and the names in Lua, so `confirm=a` and `game_buttons=position` are honoured.
-- **Gameplay**: act1 on `"ok"`, act2 on the other face button, pause on Start, L1/R1 for the shoulders. Read the buttons through actions, never through the letters.
+Keyboard keys for the actions today: act1 Space, act2 X, act3 V, act4 C, shoulders Q / E (`docs/api/input.md:9`, `:70-78`, `:97`); the keyboard map per scheme is to implement (kernel). Read the buttons through the actions, never through the letters.
 
 ## 3. Declared Exceptions
 
-A game that needs a different binding declares it with `lib.input({ act2 = "x" })`. Each such key is listed in the game's `docs/progress/<game>.md` with the reason. Any other raw button (`btn(4)`, `btn("a")` for an action) is an undeclared deviation and gets migrated to an action.
+A game that needs a different binding declares it with `lib.input({ scheme = "topdown", act3 = "x" })`: every key but `scheme` is an exception. Each such key is listed in the game's `docs/progress/<game>.md` with the reason. Any other raw button (`btn(4)`, `btn("a")` for an action) is an undeclared deviation and gets migrated to an action.
 
 ## 4. On-Screen Hints
 
@@ -49,12 +50,12 @@ The editors keep their own keyboard model; the standard above is for games. See 
 
 ---
 
-## 7. Open Decisions
+## 7. Decided and Open
 
-1. Kernel change: RGB30 `pad_back` = Y with A as a second back, in `src/rgb30/pad.c` / `src/rgb30/bm_input.c`; check the interaction with `game_buttons=position` (`bm_input.c:34-42`, `:56-60`, `:70-76`). Separate Work Order.
-2. Gameplay act1 = the ok button (RGB30 B), act2 = the A/B button that is not ok: the user confirms.
-3. Whether X and Y get roles act3 / act4 or stay free.
-4. Esc on the Pi keyboard as a cancel alias.
-5. Migration of existing games to `lib.input`, and its order.
-6. Where exceptions are recorded in the cartridge (INFO, section 10).
-7. Whether `lib.input` re-runs on a controller change (`lastinput()`).
+Decided by the user on 19 Oct 2026: menus B ok / Y cancel with A no back; the three gameplay schemes of section 2 (each game declares its scheme); keyboard Enter = ok and Esc = back and pause; existing games migrate to `lib.input` one by one as they are fixed; the bindings become mappable from Settings > Controls (CONTROLS-1).
+
+Open:
+
+1. Kernel: the keyboard map (Enter = ok, Esc = back and pause, one key set per scheme) and the merge of `claude/pad-y-cancel`; separate Work Orders.
+2. Where a game's exceptions are recorded in the cartridge (INFO, section 10), besides its `docs/progress/<game>.md`.
+3. Whether `lib.input` re-runs on a controller change (`lastinput()`); to re-evaluate once the remap menu exists.

@@ -500,13 +500,26 @@ end
 local function lib_input()
   local t = lib.input()
   local km = keymap()
-  check(km.confirm[1] == "ok" and km.pause[1] == "start" and km.act1[1] == "ok" and km.act2[1] == t.act2 and t.act2 == (controller().ok == "b" and "a" or "b"),
-        "lib.input: the standard actions on the keymap")
+  local other = controller().ok == "a" and "b" or "a"
+  check(km.confirm[1] == "ok" and km.cancel[1] == "back" and km.pause[1] == "start" and km.act1[1] == "ok" and
+        km.act2[1] == "y" and km.act3[1] == other and km.act4[1] == "x" and km.shoulder_l[1] == "l1" and
+        t.act2 == "y" and lib.input_scheme == "scroller", "lib.input: the scroller scheme is the default")
   check(#lib.input_exceptions == 0, "lib.input: no exceptions by default")
+  lib.input({ scheme = "topdown" })
+  km = keymap()
+  check(km.act1[1] == "ok" and km.act2[1] == other and km.act3[1] == "y" and km.act4[1] == "x" and
+        #lib.input_exceptions == 0, "lib.input: the topdown scheme")
+  lib.input({ scheme = "stick" })
+  km = keymap()
+  check(km.act1[1] == "r2" and km.act2[1] == "l2" and km.act3[1] == "l1" and km.act4[1] == "r1" and
+        km.act5[1] == "ok" and km.act6[1] == other and km.act7[1] == "y" and km.act8[1] == "x" and
+        km.shoulder_l == nil, "lib.input: the stick scheme")
   lib.input({ act2 = "x" })
-  check(keymap().act2[1] == "x" and lib.input_exceptions[1] == "act2", "lib.input: an override is a declared exception")
+  check(keymap().act2[1] == "x" and lib.input_exceptions[1] == "act2" and #lib.input_exceptions == 1,
+        "lib.input: an override is a declared exception")
   lib.input()
 end
+
 
 local function lib_players()
   check(#lib.PLAYER_COLORS == 4 and controller(2).color == lib.PLAYER_COLORS[2] and

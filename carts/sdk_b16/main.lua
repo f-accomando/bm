@@ -447,7 +447,7 @@ end
   { id = "versus", name = "Versus 2D", desc = "two players on one console: punches with hitboxes",
     code = [==[
 -- versus: two fighters on one console, each with a controller; alone,
--- the computer plays the second. Left/right walk, act1 punches, act2 jumps.
+-- the computer plays the second. Left/right walk, act2 punches, act1 jumps.
 -- The punches are hitboxes and the bodies hurtboxes (lib.hits): a punch
 -- hits once, the one hit flashes and is pushed back.
 local lib = require "bmlib"
@@ -468,7 +468,7 @@ local function controls(f, o)
     local d = o.x - f.x
     return d < -20, d > 20, math.abs(d) < 30 and lib.chance(0.06), lib.chance(0.01)
   end
-  return btn("left", f.pad), btn("right", f.pad), btnp("act1", f.pad), btnp("act2", f.pad)
+  return btn("left", f.pad), btn("right", f.pad), btnp("act2", f.pad), btnp("act1", f.pad)
 end
 
 local function play(f, o)
