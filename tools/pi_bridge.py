@@ -67,11 +67,26 @@ def status(host, pw):
     return chr(10).join(lines).replace(pw, "***")
 
 
+def is_secret_key(word):
+    k = word.partition("=")[0].lower()
+    return k == "net_password" or bool(bm_net.SECRET.match(k))
+
+
+def masked(req):
+    """The request as it is logged: a config value is never written"""
+    op, _, arg = req.partition(" ")
+    if op != "config":
+        return req
+    return "config " + " ".join(w.partition("=")[0] + "=***" if "=" in w else w for w in arg.split())
+
+
 def run(host, pw, req):
     op, _, arg = req.partition(" ")
     base = [sys.executable, os.path.join(HERE, "bm_net.py"), host]
     if req == "status":
         return status(host, pw)
+    if op == "config" and any(is_secret_key(w) for w in arg.split()):
+        return "config: secret keys are not set through the bridge"
     if op == "line" and arg and len(arg) < 200 and all(c.isalnum() or c in " _-.=" for c in arg):
         cmd = base + ["--line", arg]
     elif op == "config" and arg and len(arg) < 200 and all(c.isalnum() or c in " _-.=" for c in arg) \
@@ -90,7 +105,7 @@ def run(host, pw, req):
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         cmd = base + ["--get", "bm/" + LOGS[arg], out_file]
     else:
-        return "refused: %r" % req
+        return "refused: %r" % masked(req)
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=dict(os.environ, BM_PASSWORD=pw))
     except subprocess.TimeoutExpired:
@@ -167,7 +182,7 @@ def main():
         while True:
             c, _ = s.accept()
             req = c.makefile().readline().strip()
-            print("request:", req, flush=True)
+            print("request:", masked(req), flush=True)
             try:
                 out = run(host, pw, req)
             except Exception as e:

@@ -345,6 +345,17 @@ def main():
         pi_bridge.run("1.2.3.4", "s3cret", "keys game-exit")
         check(seen[-1][-1] == "--game-exit" and "--keys" not in seen[-1], "bridge: keys game-exit -> --game-exit")
 
+        # config: allowed keys go through, secret keys are refused before any child starts, the log never holds a value
+        pi_bridge.run("1.2.3.4", "s3cret", "config menu_scale=3")
+        check(seen[-1][-2:] == ["--config", "menu_scale=3"], "bridge: config menu_scale=3 goes through")
+        n = len(seen)
+        out = pi_bridge.run("1.2.3.4", "s3cret", "config net_password=x")
+        check(len(seen) == n and "secret keys are not set" in out, "bridge: config net_password=x refused, child not started")
+        out = pi_bridge.run("1.2.3.4", "s3cret", "config menu_scale=3 WIFI_PSK=x")
+        check(len(seen) == n and "secret keys are not set" in out, "bridge: config wifi_psk=x (bm_net.SECRET) refused, child not started")
+        logged = pi_bridge.masked("config menu_scale=3 layout=it")
+        check("***" in logged and "=3" not in logged and "=it" not in logged, "bridge: the log line of a config holds *** and not the value")
+
         # status: down without a process; up with the version and the state of the run before, the password masked
         real_cv = pi_bridge.bm_net.console_version
         pi_bridge.bm_net.console_version = lambda host: None
