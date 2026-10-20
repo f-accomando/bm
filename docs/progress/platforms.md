@@ -95,6 +95,8 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 
 - One menu (`src/kernel/menu_ui.c`) and one Settings (`src/kernel/settings.c`) for Pi and
   RGB30: a new row goes there for both.
+- Confirm and back go through `pad_ok` / `pad_back`, never a fixed button (rule 5 in
+  `docs/spec/CONSISTENCY.md`).
 - A kernel from the network must match the board (`bmK6`/`bmK7` at offset 4).
 - Numbers on the Pi or RGB30 come from the console's reports (`reports` branch,
   `reports/<branch>/…`): ask the user to run them.
