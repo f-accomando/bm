@@ -105,13 +105,13 @@ action = "port the two checks"
 id = "D09"
 area = "game list"
 pi = "sorted by title; scans / and /carts; shows .bme projects in Dev"
-rgb30 = "FAT order; only /bm; ignores .bme"
+rgb30 = "sorted by title (src/rgb30/ui.c:281 qsort with title_cmp); only /bm (accepted); .bme projects: see D44"
 cause = "history"
 priority = 4
-status = "open"
-note = "the RGB30 list is now sorted by title (untested). /carts is not scanned: accepted, the RGB30 keeps everything in /bm (capability storage-path, decided 2026-10-13). What is left: .bme projects are not listed in Dev on the RGB30 (src/rgb30/ui.c has no .bme at all; a project opens in the SDK, which there is a Market app): to do together with the on-screen keyboard work, and to try on the hardware."
+status = "untested"
+note = "The RGB30 list is sorted by title: qsort with title_cmp at src/rgb30/ui.c:281 (commit 88c914c5). Compiles; not tried on an RGB30. /carts is not scanned: accepted, the RGB30 keeps everything in /bm (capability storage-path, decided 2026-10-13). The .bme projects in Dev are tracked by D44, not here."
 evidence = "src/kernel/carts.c:143-169; src/rgb30/ui.c:230-263"
-action = "sort by title; decide on /carts and on projects"
+action = "try the title order on the RGB30; the projects are D44"
 
 [[divergence]]
 id = "D10"

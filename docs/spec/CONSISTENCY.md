@@ -96,7 +96,7 @@ removing or changing a promise is a 2.0.0.
 
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
-| D09 | open | history | game list | Pi: sorted by title; scans / and /carts; shows .bme projects in Dev. RGB30: FAT order; only /bm; ignores .bme | sort by title; decide on /carts and on projects |
+| D09 | untested | history | game list | Pi: sorted by title; scans / and /carts; shows .bme projects in Dev. RGB30: sorted by title; only /bm (accepted); .bme projects are D44 | try the title order on the RGB30 |
 | D13 | untested | history | Dev tab and Market Apps | Pi: tools recognised by name (tool_id_of), apps installed from the Market appear in Dev. RGB30: 7 fixed entries; a Market App installed on the RGB30 is not recognised as a tool and shows up as a game | same recognition on the RGB30, or filter apps out of Games |
 
 **5. Robustness**
