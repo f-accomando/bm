@@ -5,7 +5,7 @@ Detail of SPV closeout in [`sync.md`](sync.md). Log action: `CLOSEOUT`. Check ea
 | Phase | SPV does |
 |---|---|
 | C0 DRAIN | Write `CLOSEOUT DRAIN` and an inbox line per active operator. Start no new `ASSIGNED` or review. Check: no `WORKING` operator on a pre-DRAIN WO, no pending row, except `DEFER`. |
-| C1 SIGNOFF | Write `SIGNOFF <ID>: closeout <date>` and in `sync/inbox/<ID>.md` (`sync_watch` wakes `wakeup no`). Check: all are `SIGNED-OFF` or `FORCED`. |
+| C1 SIGNOFF | Write `SIGNOFF <ID>: closeout <date>` in the Log and in `sync/inbox/<ID>.md` (`sync_watch` then wakes operators with `wakeup no`). Check: all are `SIGNED-OFF` or `FORCED`. |
 | C2 READY | Run `sync_check.py --closeout --strict`. Write `CLOSEOUT READY`. Check: exit 0, last line `CLOSEOUT-READY`. |
 | C3 DOCS | Update `docs/progress/<area>.md`, `docs/ROADMAP.md`, `docs/agents/ledger.txt`. On `bm-core`, run `python scripts/docs_audit.py score` and `python scripts/consistency.py check`. |
 | C4 HANDOFF | In `sync/NEXT.md`, write `## N. CLOSEOUT <date>` (replaces older) with the `scripts/ctx_guard.py` prompt: RUOLO, REGOLE, VINCOLI, STRUMENTI, STATO, IN SOSPESO, LEZIONI. Check: date, 7 titles. |
