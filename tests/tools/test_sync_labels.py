@@ -57,6 +57,21 @@ class T(unittest.TestCase):
                 + (DELIVERED % ("verify", ISO)).replace("XX-1", "XX-2") + "\n")
         self.assertEqual(len(sc.consegne(text)), 2)
 
+    def test_template_has_no_delivery_problem(self):
+        # SYNC-EN-5: the English template used as an operator file: every line of its Deliveries
+        # section is a note in brackets or a standard DELIVERED line, and the sections are English
+        path = os.path.join(HERE, "..", "..", "sync", "_template.md")
+        with open(path, encoding="utf-8") as f:
+            text = f.read().replace("{ID}", "AAA")
+        lines = sc.consegne(text)
+        self.assertTrue(lines, "the template has no Deliveries section")
+        bad = [ln for ln in lines if not ln.startswith("(") and not sc.DELIVERED.match(ln)]
+        self.assertEqual(bad, [])
+        for heading in ("## Profile", "## Requirements", "## Deliveries", "## Progress", "## Problems", "## Requests"):
+            self.assertIn(heading + "\n", text)
+        for word in ("Profilo", "Requisiti", "Consegne", "verifica", "utente"):
+            self.assertNotIn(word, text)
+
     def leftovers(self, closed):
         with open(os.path.join(self.root, "sync", "AAA.md"), "w", encoding="utf-8") as f:
             f.write(block("AAA", "Deliveries", "Closing", DELIVERED % ("verify", ISO), closed))
