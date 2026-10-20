@@ -75,10 +75,10 @@ class T(unittest.TestCase):
         with open(hdr, "w", encoding="utf-8", newline="") as f:
             f.write("---\nschema: 1\nid: OP\nstate: WORKING\ntask: t\nupdated: x\n---\n# OP\n\n## Progressi\n\n- a\n")
         base = ["OP", "--file", hdr, "--repo", self.d]
-        r = subprocess.run([sys.executable, TOOL] + base + ["--closed", "nessuno"], capture_output=True, text=True)
+        r = subprocess.run([sys.executable, TOOL] + base + ["--closed", "none"], capture_output=True, text=True)
         self.assertNotEqual(r.returncode, 0)  # --branch is required
         for _ in range(2):  # second run replaces the line, no duplicate
-            r = subprocess.run([sys.executable, TOOL] + base + ["--closed", "nessuno", "--branch", "claude/x"],
+            r = subprocess.run([sys.executable, TOOL] + base + ["--closed", "none", "--branch", "claude/x"],
                                capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stderr)
         with open(hdr, encoding="utf-8") as f:
@@ -86,8 +86,23 @@ class T(unittest.TestCase):
         short = git(["rev-parse", "--short", "HEAD"], self.d)
         self.assertIn("state: DONE", txt)
         self.assertEqual(txt.count("CLOSED @"), 1)
-        self.assertRegex(txt, r"## Chiusura\n\nCLOSED @ claude/x@%s \u00b7 tree clean \u00b7 aperti: nessuno \u00b7 \d{4}-\d\d-\d\dT\d\d:\d\d" % short)
-        self.assertLess(txt.index("## Chiusura"), txt.index("## Progressi"))
+        self.assertRegex(txt, r"## Closing\n\nCLOSED @ claude/x@%s \u00b7 tree clean \u00b7 open: none \u00b7 \d{4}-\d\d-\d\dT\d\d:\d\d" % short)
+        self.assertLess(txt.index("## Closing"), txt.index("## Progressi"))
+
+    def test_closed_line_reuses_italian_section(self):
+        hdr = os.path.join(self.d, "OP.md")
+        with open(hdr, "w", encoding="utf-8", newline="") as f:
+            f.write("---\nschema: 1\nid: OP\nstate: WORKING\ntask: t\nupdated: x\n---\n# OP\n\n## Chiusura\n\n## Progress\n\n- a\n")
+        r = subprocess.run([sys.executable, TOOL, "OP", "--file", hdr, "--repo", self.d, "--closed", "XX-3",
+                            "--branch", "claude/x"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(hdr, encoding="utf-8") as f:
+            txt = f.read()
+        self.assertNotIn("## Closing", txt)
+        self.assertEqual(txt.count("CLOSED @"), 1)
+        self.assertGreater(txt.index("CLOSED @"), txt.index("## Chiusura"))
+        self.assertLess(txt.index("CLOSED @"), txt.index("## Progress"))
+        self.assertIn("open: XX-3", txt)
 
 
 if __name__ == "__main__":
