@@ -40,7 +40,7 @@ What is missing is **a step and an agent that ties them together**: today whoeve
   3. `review.py` plan: every `run` check passed, every `listed` check was run or is declared not run;
   4. the **old behaviour is unchanged**: for a change that adds a case (a new layout, a new key, a new target), the old case has a test or the same output; when it cannot be tested the report says so;
   5. the new code is **reachable**: something builds or calls it by default or by a documented option (the 360×360 hole of AGY-09 was code that nothing activated);
-  6. rules of the area (`## Rules (do not break)` of `docs/progress/<area>.md`) is respected;
+  6. rules of the area (`## Rules (do not break)` of `docs/progress/<area>.md`) are respected;
   7. docs: the area's `## Open work` is updated and `docs_audit.py score` has no penalties;
   8. no secrets, no GPL code, no file larger than the repo's limits.
 - **Output**: `APPROVE`, `CHANGES: <list>` or `BLOCKED: <reason>` (the same vocabulary as the other agents), then at most 15 lines. It never edits; fixes go back to the executing agent.
