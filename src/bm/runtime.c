@@ -19,6 +19,7 @@
 #include "drivers/uart.h"
 #include "fs/fat.h"
 #include "kernel/config.h"
+#include "kernel/controls.h"
 #include "lib/crc32.h"
 #include "kernel/input.h"
 #include "kernel/pointer.h"
@@ -98,8 +99,9 @@ static struct {
     uint32_t praw[INPUT_PLAYERS];   /* HID bits per player (stick() from the cross) */
     uint32_t praw_prev[INPUT_PLAYERS];  /* ...the frame before (btnp() of a name) */
     /* keymap(): the game's actions and their buttons (indices of button_names) */
-    struct { char name[16]; uint8_t btn[4], n; } keymap[32];
+    struct { char name[16]; uint8_t btn[4], n, gbtn[4], gn; } keymap[32];  /* btn: in effect; gbtn: the game's own */
     int nkeymap;
+    char scheme[12];                /* controls(): "scroller" (default when empty), "topdown", "stick" */
     int local;                      /* player of the keyboard / USB / serial, or -1 */
     uint32_t start_us, frame;
     uint32_t last_cpu_us, fps;
@@ -1546,6 +1548,56 @@ static int named_button(lua_State *L, int pressed)
  * with prompt("action"); the game remaps by calling it again (its options
  * menu, saved with save()). keymap() gives the table back, keymap(nil)
  * forgets it. */
+/* The player's remap (Settings > Controls, kernel/controls.c): an action of
+ * the game's scheme (or the pause) the player set to a button takes that
+ * button instead of the game's own; the others keep the game's. Run again
+ * when keymap() or controls() changes something and when the game resumes. */
+static void keymap_apply_controls(void)
+{
+    const char *scheme = rt.scheme[0] ? rt.scheme : "scroller";
+    for (int k = 0; k < rt.nkeymap; k++) {
+        memcpy(rt.keymap[k].btn, rt.keymap[k].gbtn, sizeof rt.keymap[k].btn);
+        rt.keymap[k].n = rt.keymap[k].gn;
+        const char *b = !strcmp(rt.keymap[k].name, "pause") ? controls_lookup("system", "pause")
+                                                            : controls_lookup(scheme, rt.keymap[k].name);
+        if (!b)
+            continue;
+        const char *name = !strcmp(b, "st") ? "start" : !strcmp(b, "se") ? "select" : b;
+        const int i = button_index(name);
+        if (i < 0)
+            continue;
+        if (button_real(i) == 6 || button_real(i) == 7)
+            rt.uses_xy = 1;
+        rt.keymap[k].btn[0] = (uint8_t)i;
+        rt.keymap[k].n = 1;
+    }
+}
+
+/* controls(): the player's settings as a table { scheme = "scroller", c1 = "default" | "<button>",
+ * ... } for the codes of kernel/controls.h; controls(scheme) sets the scheme
+ * of the running game ("scroller", "topdown" or "stick") and applies the
+ * player's remap to its keymap. */
+static int l_controls(lua_State *L)
+{
+    if (lua_gettop(L) >= 1) {
+        const char *s = luaL_checkstring(L, 1);
+        if (strcmp(s, "scroller") && strcmp(s, "topdown") && strcmp(s, "stick"))
+            return luaL_error(L, "controls: the scheme is \"scroller\", \"topdown\" or \"stick\"");
+        ksnprintf(rt.scheme, sizeof rt.scheme, "%s", s);
+        keymap_apply_controls();
+        return 0;
+    }
+    lua_createtable(L, 0, CONTROLS_COUNT + 1);
+    lua_pushstring(L, rt.scheme[0] ? rt.scheme : "scroller");
+    lua_setfield(L, -2, "scheme");
+    for (int i = 0; i < controls_count(); i++) {
+        const char *b = controls_get(i);
+        lua_pushstring(L, b ? b : "default");
+        lua_setfield(L, -2, controls_code(i));
+    }
+    return 1;
+}
+
 static int l_keymap(lua_State *L)
 {
     if (lua_isnone(L, 1)) {
@@ -1593,9 +1645,12 @@ static int l_keymap(lua_State *L)
             if (!one)
                 lua_pop(L, 1);
         }
+        memcpy(k->gbtn, k->btn, sizeof k->gbtn);
+        k->gn = k->n;
         rt.nkeymap++;
         lua_pop(L, 1);
     }
+    keymap_apply_controls();
     return 0;
 }
 
@@ -4820,7 +4875,7 @@ static const luaL_Reg api[] = {
     { "map3d_objects", l_map3d_objects }, { "map3d_size", l_map3d_size },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "visible3d", l_visible3d }, { "pvs3d", l_pvs3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "shot", l_shot }, { "quit", l_quit },
-    { "keymap", l_keymap }, { "controller", l_controller }, { "online", l_online },
+    { "keymap", l_keymap }, { "controls", l_controls }, { "controller", l_controller }, { "online", l_online },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
@@ -9457,6 +9512,7 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
 {
     if (!susp.active)
         return BM_ENDED;
+    keymap_apply_controls();                    /* the player may have changed Settings > Controls meanwhile */
     memset(st, 0, sizeof *st);
     memcpy(st->title, susp.title, sizeof st->title);
     perm_fb = fb;
