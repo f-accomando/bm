@@ -35,12 +35,15 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 STATES = ("DONE", "WORKING", "WAITING", "FREE")
 
 
-def find_root(repo=None):
-    """the checkout that holds sync/ and SYNC.md: --repo, else the checkout of the current directory, else the tool's own"""
-    if repo:
-        return os.path.abspath(repo)
+def find_root(sync=None, oid=None):
+    """the checkout that holds sync/ and SYNC.md: --sync, else the checkout of the current directory if it holds sync/<ID>.md, else the tool's own"""
+    if sync:
+        return os.path.abspath(sync)
     r = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
-    return os.path.abspath(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip() else ROOT
+    top = os.path.abspath(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip() else None
+    if top and oid and os.path.exists(os.path.join(top, "sync", oid + ".md")):
+        return top
+    return ROOT
 KEYS = ["schema", "id", "state", "task", "waiting_on", "progress", "eta", "wakeup", "ack", "updated"]
 
 
@@ -195,20 +198,6 @@ def set_closed(body, line):
     return body[:m.end()] + new + body[stop:]
 
 
-def drop_assigned(oid, wo):
-    """remove the line `ASSIGNED <wo> ...` from sync/inbox/<oid>.md (if the file exists); other lines stay"""
-    path = os.path.join(ROOT, "sync", "inbox", oid + ".md")
-    if not os.path.exists(path):
-        return
-    with open(path, encoding="utf-8", newline="") as f:
-        text = f.read()
-    lines = text.splitlines(True)
-    keep = [ln for ln in lines if not re.match(r"ASSIGNED\s+%s(\s|$)" % re.escape(wo), ln)]
-    if len(keep) != len(lines):
-        with open(path, "w", encoding="utf-8", newline="") as f:
-            f.write("".join(keep))
-
-
 def deliver_wo(a):
     """--deliver WO: checks, ledger row (as --close), then the DELIVERED line for the file. Returns (exit code, line)."""
     def err(msg):
@@ -223,7 +212,6 @@ def deliver_wo(a):
     rc = close_wo(a, a.deliver)
     if rc:
         return rc, None
-    drop_assigned(a.id, a.deliver)
     return 0, "DELIVERED %s @ %s@%s · verify: %s · %s" % (a.deliver, a.branch, a.commit, a.verify, now_stamp())
 
 
@@ -268,11 +256,12 @@ def main():
     ap.add_argument("--lines", help="code=N,docs=N,data=N")
     ap.add_argument("--commit")
     ap.add_argument("--branch")
-    ap.add_argument("--repo", help="git repo for --commit (default: this repo)")
+    ap.add_argument("--repo", help="git repo for --commit (default: the sync checkout)")
+    ap.add_argument("--sync", help="checkout that holds sync/ and SYNC.md (default: the current checkout if it holds sync/<ID>.md, else this tool's)")
     ap.add_argument("--ledger", help="ledger file (default sync/<ID>.ledger.jsonl)")
     a = ap.parse_args()
     global ROOT
-    ROOT = find_root(a.repo)
+    ROOT = find_root(a.sync, a.id)
     if a.close and a.deliver:
         sys.exit("error: --deliver and --close are two ways to close a WO: give one")
     if a.close:

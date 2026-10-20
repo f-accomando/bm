@@ -43,7 +43,7 @@ class T(unittest.TestCase):
             f.write(HEAD + "".join("| %s | SPV | `sync/t` | `NOTE` | %s |\n" % (t, t[11:16]) for t in rows))
 
     def call(self, *args):
-        with mock.patch.object(sys, "argv", ["sync_hdr.py", "OP", "--repo", self.root] + list(args)), \
+        with mock.patch.object(sys, "argv", ["sync_hdr.py", "OP", "--sync", self.root] + list(args)), \
                 contextlib.redirect_stdout(io.StringIO()):
             self.mod.main()
         with open(self.hdr, encoding="utf-8") as f:
