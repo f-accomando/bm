@@ -72,7 +72,7 @@ The owner types the console password once in `pi_bridge.py`; a client (Claude Co
 
 ### CI (`.github/workflows/ci.yml`)
 Build; host tests (`make test-host`); QEMU in four shards (`make test-qemu SHARD=K/4`); RGB30 build and QEMU
-tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes in `SLOW`.
+tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes in `SLOW`. Three QEMU tests were steadied against flaky timing: `test_studio_animator` (short gap, the toast is brief), `test_usb_mouse` (wait for one icon), `test_code_completion` (wait for the colour). `test_code_completion` still failed once on CI before PR 52. On a miss it now prints the screen text and colour counts and saves `build/diag/code-complete-miss.png`; CI uploads `build/diag/`. Read these files when it fails again. The artifact upload may fail without failing the job.
 
 ## Open work (`docs/ROADMAP.md`)
 
