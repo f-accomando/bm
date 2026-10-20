@@ -1,78 +1,75 @@
-# bm (BareMetal) — Session Operating Notes
+# bm (BareMetal): session notes
 
-Bare metal kernel for Raspberry Pi Zero W (BCM2835, ARM1176) and PowKiddy RGB30 (RK3566, AArch64, `make TARGET=rgb30`). `.bm` cartridges; `bm/` folder on the SD. Repo `f-accomando/bm`, main branch `bm-core`.
+bm is a bare-metal kernel. It runs on the Raspberry Pi Zero W (BCM2835, ARM1176) and on the PowKiddy RGB30 (RK3566, AArch64; build with `make TARGET=rgb30`). Cartridges are `.bm` files in the `bm/` folder on the SD card. The repository is `f-accomando/bm`. The main branch is `bm-core`.
 
-## 1. Targeted Information Retrieval 
+## 1. Find information
 
-Read files in targeted slices (grep, `offset`/`limit`). All current state is tracked in [`docs/progress.md`](docs/progress.md) and in the area sheets in `docs/progress/<area>.md`.
+Read files in small slices (`grep`, or `offset` and `limit`). The current state is in [`docs/progress.md`](docs/progress.md) and in the area sheets `docs/progress/<area>.md`.
 
-### Quick Lookup Commands
-| Need | Command to run |
+| Need | Command or file |
 |---|---|
 | What is left to do in an area | `grep -n -A 15 '^## \(Open work\|To do\)' docs/progress/<area>.md` |
 | Binding rules of an area | `grep -n -A 20 '^## Rules' docs/progress/<area>.md` |
-| Find code in `runtime.c` (350 KB) | `python scripts/cindex.py src/bm/runtime.c <simbolo>` |
-| Look up game API | `grep -n -C 2 '<funzione>' docs/api/<area>.md` (index: `docs/API.md`) |
-| Game architecture & patterns | `docs/design/games-architecture.md` |
+| Code in `runtime.c` (350 KB) | `python scripts/cindex.py src/bm/runtime.c <symbol>` |
+| Game API | `grep -n -C 2 '<function>' docs/api/<area>.md` (index: `docs/API.md`) |
+| Game architecture and patterns | `docs/design/games-architecture.md` |
+| Cartridge format and section numbers | `docs/BM-FORMAT.md`; constants: `grep -n 'BM_SEC_' src/bm/bm.h` |
+| Tile flags | `grep -n -A 5 'The tiles. flags' docs/api/draw.md` |
+| Keys, menus, and screen rules per device | `docs/spec/ui-reference.md` |
 
-## 2. Rules of Engagement and Development
+## 2. Rules
 
-- **Branch** (avoid orphan branches):
-  - **When**: open a branch only if the user asks to develop (feature, fix, refactor). Questions, analysis, research and reads stay on the current branch.
-  - **Name**: `claude/<descriptive-name>`, descriptive also when I start on my own initiative; if purpose, area or name is ambiguous, ask the user for the name before creating the branch or modifying files.
-  - **Base**: always starts from an up-to-date `bm-core`.
-  - **Exception**: if the session explicitly imposes a branch, use that one only.
-- **Selective Tests**: Run only the tests touched by the change (`tests/qemu_test.py -k <nome>`, `make test-b3d` for the GPU, specific unit tests). `kernel7` is disabled.
-- **Pi & RGB30 Hardware**: Test without serial by copying `dist/kernel.img` to the SD with `./easy_install.sh`; numeric reports come from the console on the `reports` branch.
-- **Licenses & Security**: Bare-metal sources hold only original or permissively licensed code (GPU structures from Mesa, MIT). Secrets such as `*_KEY` and tokens live outside the repo.
-- **Separate `.bm` and `.b16` Editions**: A `.bm` and a `.b16` are distinct editions with their own Market channels and builds; the `.b16` is built from its own sources and leaves the `.bm` sources as they are.
-- **Projects vs Games (M47)**: Editors modify only `.bme` projects. `.bm` files are read-only; `Ctrl+B` compiles the final `.bm`.
-- **Writing rules**: State each rule as what to do ("do it this way"), not as a prohibition. When a rule is retired, delete it; do not replace it with its negation, because a "do not X" line keeps the old behavior in view and reads as a new rule. Add an explicit prohibition only as an exception, when Claude keeps repeating something that harms development despite the positive rule, and note the harm next to it.
+**Branches**
+- When: Open a branch only when the user asks for development work (feature, fix, or refactor). For questions, analysis, research, and reads, stay on the current branch.
+- Name: Use `claude/<descriptive-name>`. Make the name descriptive, even when you start the work on your own initiative. If the purpose, area, or name is not clear, ask the user for the name before you create the branch or change files.
+- Base: Start from an up-to-date `bm-core`.
+- Exception: If the session names a branch, use only that branch.
 
-## 4. Global Invariants
+**Selective tests.** Run only the tests that the change affects. Examples: `tests/qemu_test.py -k <name>`, `make test-b3d` (GPU), or a specific unit test. The `kernel7` target is disabled.
 
-- **Cartridge Sections** (`src/bm/bm.h`): 6 AUDIO (`BMAU`), 8 MESH, 9 ANIM, 10 INFO, 11 SPRITES, 12 LAYERS, 13 FLAGS, 14 BOXES.
-- **Tile Flags (bmlib)**: 0 solid, 1 platform, 2 ladder, 3 water, 4 hurts.
-- **Per-Device UI Reference**: Keys, menus, and screen rules per device live in [`docs/spec/ui-reference.md`](docs/spec/ui-reference.md).
-- **Module-Specific Rules**: Each area (`system`, `v3d`, `graphics`, `lua`, `audio`, `platforms`, `tools`) lists its own non-negotiable rules in the final `## Rules (do not break)` section of its file in `docs/progress/<area>.md`.
+**Pi and RGB30 hardware.** Test without a serial connection. Copy `dist/kernel.img` to the SD card with `./easy_install.sh`. The console sends numeric reports to the `reports` branch.
 
-## 5. Task Closure & Continuous Scaffolding Maintenance
+**Licenses and security.** Bare-metal sources contain only original code or code with a permissive license. You can use GPU structures from Mesa (MIT). Keep secrets, such as `*_KEY` and tokens, outside the repository.
 
-Before finishing any activity or declaring a task complete:
-1. **Update the Status**: Remove or update completed items in `## Open work` of the relevant `docs/progress/<area>.md`.
-2. **Update the Rules**: If an architectural constraint was introduced or changed, record it in `## Rules (do not break)` of the corresponding area file.
-3. **Integrity Check**: Run `python scripts/docs_audit.py score` to verify there are no broken links or orphan files before finishing.
-4. **Consistency**: if you touch formats, APIs, `config.txt` keys, menu/Settings or the behavior of a single kernel (Pi or RGB30), run `python scripts/consistency.py check` and update `docs/spec/` (`specs.toml`, `config-keys.toml`, `divergences.toml`); rules in `docs/spec/CONSISTENCY.md`. Everything must converge before 1.0.0 (`consistency.py gate`).
-5. **CI**: if you touch `.github/workflows/` or test timeouts, run `python scripts/ci_audit.py`.
+**`.bm` and `.b16` editions.** A `.bm` and a `.b16` are different editions. Each edition has its own Market channel and its own build. Build the `.b16` from its own sources. Leave the `.bm` sources unchanged.
+
+**Projects.** Change only `.bme` projects. `.bm` files are read-only.
+
+**Writing rules.** State each rule as an action ("do it this way"). Delete a retired rule. A negation of it keeps the old behavior in view. Add an explicit prohibition only when an action keeps harming development despite the positive rule. Write the harm next to the prohibition. Write each new or changed line of this file, and of the files it points to, in ASD-STE100: short sentences, one instruction per sentence, active voice, and imperative verbs.
+
+## 3. Task closure
+
+Before you declare a task complete, do these steps:
+
+1. Update the status. Remove the completed items and update the partial items in `## Open work` of the area file `docs/progress/<area>.md`.
+2. Update the rules. If you add or change an architectural constraint, record it in `## Rules (do not break)` of the same file.
+3. Check integrity. Run `python scripts/docs_audit.py score`. Fix each broken link and each orphan file that the command reports.
+4. Check consistency. If you change formats, APIs, `config.txt` keys, the menu, Settings, or the behavior of one kernel (Pi or RGB30):
+   - Run `python scripts/consistency.py check`.
+   - Update `docs/spec/` (`specs.toml`, `config-keys.toml`, `divergences.toml`). The rules are in `docs/spec/CONSISTENCY.md`.
+   - Before version 1.0.0, `python scripts/consistency.py gate` must pass.
+5. Check CI. If you change `.github/workflows/` or test timeouts, run `python scripts/ci_audit.py`.
 
 ## Glossary
 
-For a Glossary term, run its command and read only that section.
+Run the command of a term. Read only that section.
 
 | Term | Meaning | Command |
 |---|---|---|
-| Roles | agent table | `grep -n -A 14 '^### Roles' docs/agents/routing.md` |
-| Readiness Gate | 5-question check | `grep -n -A 14 '^### Readiness Gate' docs/agents/routing.md` |
-| bm-deep | heavy agent rules | `grep -n -A 14 '^### bm-deep' docs/agents/routing.md` |
-| Necessity | score 1-5 | `grep -n -A 14 '^### Necessity' docs/agents/routing.md` |
-| Escalation | closing status | `grep -n -A 14 '^### Escalation' docs/agents/routing.md` |
+| Roles | model and task of each agent (`.claude/agents/`) | `grep -n -A 14 '^### Roles' docs/agents/routing.md` |
+| Readiness Gate | 5 questions to ask before you give a task to `bm-mechanic`, `bm-coder`, or `bm-light`; one "no" sends the task to `bm-planner` | `grep -n -A 14 '^### Readiness Gate' docs/agents/routing.md` |
+| bm-deep | rules for the heavy agent | `grep -n -A 14 '^### bm-deep' docs/agents/routing.md` |
+| Necessity | score 1-5 to declare before you use an expensive model | `grep -n -A 14 '^### Necessity' docs/agents/routing.md` |
+| Escalation | closing status of an agent: `DONE`, `BLOCKED`, or `FAILED x2` | `grep -n -A 14 '^### Escalation' docs/agents/routing.md` |
 | Work Order | order format | `grep -n -A 14 '^### Work Order Format' docs/agents/routing.md` |
 | Ledger | cost rows | `grep -n -A 14 '^### Ledger' docs/agents/routing.md` |
-| Handshake | join a sync | `grep -n -A 14 '^### Handshake' docs/progress/sync.md` |
-| Delivery | hand-over line | `grep -n -A 14 '^### Delivery' docs/progress/sync.md` |
-| Inbox | inbox and ack | `grep -n -A 14 '^### Inbox and check' docs/progress/sync.md` |
-| Heartbeat | beat cost | `grep -n -A 14 '^### Heartbeat cost' docs/progress/sync.md` |
+| Handshake | steps to join a sync | `grep -n -A 14 '^### Handshake' docs/progress/sync.md` |
+| Delivery | steps to hand over a work order | `grep -n -A 14 '^### Delivery' docs/progress/sync.md` |
+| Inbox | inbox file and read confirmation | `grep -n -A 14 '^### Inbox and check' docs/progress/sync.md` |
+| Heartbeat | cost of the beat | `grep -n -A 14 '^### Heartbeat cost' docs/progress/sync.md` |
 | Closeout | CLOSEOUT phases C0-C6 | `grep -n -A 14 '^### Closeout' docs/progress/sync.md` |
-| Sync rules | writers, beat | `grep -n -A 14 '^### Fixed rules' docs/progress/sync.md` |
+| Sync rules | writers and beat | `grep -n -A 14 '^### Fixed rules' docs/progress/sync.md` |
 
-Roles (`.claude/agents/`): `bm-planner` Opus, plans. `bm-coder` Haiku, code from a Work Order. `bm-mechanic` Haiku, zero-risk edits. `bm-light` Sonnet, simple fixes. `bm-deep` Opus xhigh, one critical problem. `bm-research` Haiku, read-only search. `bm-ops` Haiku, shell commands.
+**Autonomy threshold = 4** (user preference). With N = 1 to 3, use the standard model. With N = 4 or 5, switch to the expensive model without asking. State the score and the reason in the chat. To change the threshold, edit this line. The score is an estimate. The ledger gives measured values.
 
-**User preference (autonomy threshold = 4)**: with N=1-3 the expensive model is not used; with N=4 or 5 the agent switches to the expensive model **autonomously**, without asking, stating score and reason in chat. To change the threshold, edit this line. The score is an estimate, not a measurement (measurable with the ledger).
-
-**"Fai handshake `<branch>`"** (from the user) = join the sync of that branch with no further explanation:
-1. `git fetch origin`, then checkout `<branch>` in a separate worktree or clone (not on the working branch) and `git pull --rebase`.
-2. Read `SYNC.md` (roles §1, contracts §2, work orders §3, rules §3b/§3c) and `sync/operators.toml`; work out who the supervisor (SPV) is and which ID is yours (if there is none, propose one to SPV).
-3. Create **only** `sync/<ID>.md` from `sync/_template.md`: status block written with `python tools/sync_hdr.py <ID> --state FREE --task handshake`, `## Profilo` (where you run and breaking points, models, subagents, tools with version) and `## Requisiti` if §2 lists them.
-4. Commit and `git pull --rebase origin <branch> && git push origin HEAD:<branch>`; then wait for the assignment written by SPV in `SYNC.md`. Start work only after that assignment.
-
-**Delivery line** (section `## Consegne` of your own file, then `FREE`): `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}` Before it, close the WO with `python tools/sync_hdr.py <ID> --close <WO> --commit <sha> --tokens T --min M` (appends the row to `sync/<ID>.ledger.jsonl` and prints the `done WO` chat line).
+**"Fai handshake `<branch>`"** (from the user): Act on the branch name alone. Run the Glossary command for Handshake and follow its steps.
