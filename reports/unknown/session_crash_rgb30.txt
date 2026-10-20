@@ -1,0 +1,39 @@
+bm report
+kind: session
+kernel: dev
+branch: unknown
+board: RGB30
+date: 2026-10-20 14:37:32
+file: session_crash_rgb30.txt
+
+session of "CRASH" (the last one: the next run of this game replaces this file)
+options bm3d 7.3 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
+screen 360x360, 6889 frames in 115.0 s, 59.8 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 0.0 ms, max 0.1 ms, 0 frames over 16.7 ms
+memory: Lua peak 57 KiB, data 322 KiB; code 40 tokens; busiest frame 1k Lua instructions
+frames that were shown after more than 1.5 frames: 1
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    6887
+  <= 25 ms             0
+  <= 34 ms (30 fps)    0
+  <= 50 ms             0
+  <= 100 ms            0
+  > 100 ms (a freeze)  1
+
+the frame in its parts (as the overlay, 6888 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.0    0%
+  draw (no 3D)    16.3   98%
+  3D calls         0.0    0%
+  audio            0.1    0%
+  GPU wait         0.0    0%
+  all             16.5   99%
+audio interrupt: 0.8% of the CPU's time (mean), 2.8% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KiB  updates
+   1222    22.3   200.1    0.0   0.0    0.0   0.0   0.0   200.0        0       57        1
