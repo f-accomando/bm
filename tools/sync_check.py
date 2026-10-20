@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Objective check of the sync (SYNC.md section 3c): who is alive, who has read what, what breaks the protocol.
 
-  python3 tools/sync_check.py [--strict] [--closeout]
+  python3 tools/sync_check.py [--strict] [--closeout] [--now <ISO>]
 
 For every operator of sync/operators.toml (active ones) it reads the status block of sync/<ID>.md and prints:
   age of `updated`, `eta`, `ack` (the last Log row of SYNC.md it declares read), the Log rows addressed to it after that `ack`
@@ -294,8 +294,8 @@ def leftovers(log, ops):
     else:
         owner = {"origin/" + b: oid for oid, bs in mine.items() for b in bs}
         for br in (ln.strip() for ln in unmerged.splitlines()):
-            if br and "->" not in br:
-                out.append("branch %s not merged%s" % (br, " (%s)" % owner[br] if br in owner else ""))
+            if br in owner:                                     # branches of operators.toml only
+                out.append("branch %s not merged (%s)" % (br, owner[br]))
     trees = git("worktree", "list", "--porcelain")
     if trees is None:
         out.append("git: n/d")
@@ -387,6 +387,13 @@ def main():
             pass
     argv = sys.argv[1:]
     now = datetime.datetime.now().astimezone()
+    if "--now" in argv:                                         # fixed clock for tests and dry runs
+        try:
+            now = datetime.datetime.fromisoformat(argv[argv.index("--now") + 1])
+            now = now if now.tzinfo else now.astimezone()
+        except (IndexError, ValueError):
+            print("--now needs an ISO time, e.g. 2026-10-20T14:00+02:00")
+            return 2
     log = rows(os.path.join(ROOT, "SYNC.md"))
     problems = []
     co = "--closeout" in argv
