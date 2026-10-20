@@ -70,6 +70,34 @@ class T(unittest.TestCase):
         self.assertIn("state: FREE", txt)
         self.assertRegex(r.stdout, r"^done WO XX-1 FREE: 1 files \+3 -0, 1000 tokens, 10 min")
 
+    def test_default_root_is_the_current_checkout(self):
+        # SYNC-EN-11: without --file/--ledger/--repo the file and the ledger are those of the checkout of the cwd
+        os.makedirs(os.path.join(self.d, "sync"))
+        path = os.path.join(self.d, "sync", "OP.md")
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(START + "## Deliveries\n\n## Closing\n")
+        r = subprocess.run([sys.executable, TOOL, "OP", "--deliver", "XX-1", "--branch", "claude/x", "--commit", self.sha,
+                            "--tokens", "1", "--min", "1", "--verify", "t -> ok"], cwd=self.d, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(path, encoding="utf-8") as f:
+            self.assertIn("DELIVERED XX-1 @ claude/x@" + self.sha, f.read())
+        self.assertTrue(os.path.exists(os.path.join(self.d, "sync", "OP.ledger.jsonl")))
+        self.assertFalse(os.path.exists(os.path.join(HERE, "..", "..", "sync", "OP.ledger.jsonl")))
+
+    def test_deliver_drops_only_its_assigned_line(self):
+        os.makedirs(os.path.join(self.d, "sync", "inbox"))
+        inbox = os.path.join(self.d, "sync", "inbox", "OP.md")
+        keep = "ASSIGNED XX-10 @ b · t\nASSIGNED XX-2 @ b · t\n"
+        with open(inbox, "w", encoding="utf-8", newline="") as f:
+            f.write("ASSIGNED XX-1 @ b · t\n" + keep)
+        self.write("## Deliveries\n\n## Closing\n")
+        r = subprocess.run([sys.executable, TOOL, "OP", "--file", self.hdr, "--repo", self.d, "--deliver", "XX-1",
+                            "--branch", "claude/x", "--commit", self.sha, "--tokens", "1", "--min", "1",
+                            "--verify", "t -> ok"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(inbox, encoding="utf-8") as f:
+            self.assertEqual(f.read(), keep)
+
     def test_line_in_italian_section_when_only_that_exists(self):
         self.write("## Consegne\n\n## Chiusura\n")
         r = self.deliver()

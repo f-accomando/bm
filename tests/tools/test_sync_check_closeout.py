@@ -82,6 +82,13 @@ class T(unittest.TestCase):
             sys.argv = argv
         return code, out.getvalue().strip().splitlines()
 
+    def test_idle_is_not_a_state(self):
+        # SYNC-EN-11: IDLE is a note, not a state value (sync_hdr refuses it)
+        self.sync_md()
+        self.operator("AAA", state="IDLE")
+        code, out = self.check()
+        self.assertTrue([ln for ln in out if "AAA: state 'IDLE' is not one of" in ln], out)
+
     # -- the seven states
 
     def test_active_without_drain(self):

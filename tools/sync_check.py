@@ -6,7 +6,7 @@
 For every operator of sync/operators.toml (active ones) it reads the status block of sync/<ID>.md and prints:
   age of `updated`, `eta`, `ack` (the last Log row of SYNC.md it declares read), the Log rows addressed to it after that `ack`
   (unread), the size of its inbox sync/inbox/<ID>.md, and the problems:
-  - no or broken status block; state not in DONE/WORKING/WAITING/IDLE/FREE;
+  - no or broken status block; state not in DONE/WORKING/WAITING/FREE;
   - IDLE by rule: WORKING/WAITING more than 10 min past its `eta` without an update, or 60 min without `eta` (never FREE/DONE);
   - unread: a row addressed to the operator is older than 30 min and newer than its `ack`;
   - a line of `## Deliveries` (`## Consegne`) that is not `DELIVERED {WO-ID} @ {branch}@{commit} · verify: ... · {ISO}` (`verifica:`);
@@ -26,7 +26,7 @@ import subprocess
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-STATES = ("DONE", "WORKING", "WAITING", "IDLE", "FREE")
+STATES = ("DONE", "WORKING", "WAITING", "FREE")
 IDLE_MIN, LATE_MIN, UNREAD_MIN, ROW_MAX, INBOX_MAX = 60, 10, 30, 600, 5
 TAKE_MIN = 10          # minutes an assigned WO may wait before the operator is flagged as not having taken it
 DELIVERED = re.compile(r"^[-*]?\s*DELIVERED\s+\S+\s+@\s+\S+@\S+\s+[·\-]\s+(?:verify|verifica):\s+.+(?:→|->).+[·\-]\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
