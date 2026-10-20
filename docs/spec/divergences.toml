@@ -208,12 +208,13 @@ action = "needs the on-screen keyboard (R1/R2)"
 id = "D18"
 area = "crash screen"
 pi = "red screen, restart after 60 s (after 20 s of uptime), report at the next boot"
-rgb30 = "red screen, LED code, halts for ever; no report"
+rgb30 = "red screen, restart after 60 s (after 20 s of uptime), crash report at the next boot"
 cause = "history"
 priority = 5
-status = "open"
-evidence = "src/kernel/exceptions.c:87-110; src/rgb30/exc.c:80"
-action = "port the restart and the report"
+status = "untested"
+note = "RGB30 files crash reports only, not freezes: no watchdog yet"
+evidence = "src/kernel/exceptions.c:87-110; src/rgb30/exc.c:65-88; src/rgb30/main.c:258-268; tests/rgb30/qemu_test.py:406"
+action = "try on the hardware"
 
 [[divergence]]
 id = "D19"
