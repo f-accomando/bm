@@ -12,7 +12,7 @@ This file defines the rules of the multi-agent sync. Several operators work in p
 - The inbox has at most 5 lines.
 - Before you push a sync file, run `git pull --rebase origin <sync branch>`.
 - Write the status block of your file only with `python tools/sync_hdr.py`. The block has `state`, `task`, `waiting_on`, `progress`, `eta`, `wakeup`, `ack`, and `updated`. Use ISO 8601 times with the time zone. Every call of the script sets `ack` to the last row of `SYNC.md`.
-- A Log row has at most 600 characters.
+- A Log row has at most 600 characters. Closed sync files and the older tools use Italian labels: see [`sync-labels.md`](sync-labels.md).
 
 ## 2. Rules for all operators
 
@@ -23,12 +23,9 @@ The user says "Fai handshake `<branch>`" ("Do the handshake"). Act on the branch
 3. Create only `sync/<ID>.md`, from `sync/_template.md`. Write the status block with `python tools/sync_hdr.py <ID> --state FREE --task handshake --wakeup yes|no`. Write `## Profile` in at most 10 lines: where you run and where you break, the models and what each one does, the subagents (yes or no, which), your strengths and limits, and the tools with their versions. SPV copies `place`, `models`, `subagents`, `strengths`, and `weak_points` into `sync/operators.toml`. Write `## Requirements` if `SYNC.md` lists requirements.
 4. Commit. Run `git pull --rebase origin <branch>`, then `git push origin HEAD:<branch>`. Then wait. SPV assigns no work before the handshake. Start work only when SPV or the user wakes you.
 
-### Wake phrase
-The user pastes this into the session of an operator that has no timer (`wakeup no`): "Sei `<ID>` nel sync del branch `<branch>`. Fai handshake `<branch>`. Poi, a ogni mio messaggio: `git fetch origin`, leggi `sync/inbox/<ID>.md`, esegui `python tools/sync_hdr.py <ID> --ack auto`, commit e push. Non iniziare altro lavoro che quello della tua casella; consegna con una riga `DELIVERED ...`." (In English: you are `<ID>` in the sync of branch `<branch>`; do the handshake; then, at each message from me, run a beat; do only the work in your inbox; deliver with a `DELIVERED` row.)
-
 ### States
-- `WORKING`: You execute an assigned WO. Declare `eta`.
-- `WAITING`: A peer blocks you. Name the peer in `waiting_on` and declare `eta`. The allowed values are in `sync/operators.toml`.
+- `WORKING`: You execute an assigned WO. Declare `eta` as a time `HH:MM` (`--eta 18:00`); a time already past means the next day.
+- `WAITING`: A peer blocks you. Name the peer in `waiting_on` and declare `eta`. The allowed values are in `sync/operators.toml`. If the work takes longer, move `eta` with a progress row before it expires.
 - `FREE`: All your assigned WOs are delivered. You wait for new work.
 - `DONE`: Your session is finished. You claim no more work.
 
@@ -72,10 +69,9 @@ A beat is `git fetch`, a look at the inbox, and `--ack auto`. What costs is who 
 ### Fixed rules
 - One writer for each file (see "1. Files and branches").
 - Write your status block only with `python tools/sync_hdr.py`. Times are ISO 8601 with the time zone.
-- A Log row has at most 600 characters. Put the rest in the WO or in the inbox.
-- Say `IPOTESI` for a guess. Do not send a guess as an instruction.
+- A Log row has at most 600 characters. Put the rest in the WO or in the inbox. Say `IPOTESI` for a guess; do not send a guess as an instruction.
 - Declare the limits of your place early (missing toolchain, a container that stops, wifi) in the profile and in the status block.
-- `wakeup yes|no` in the profile says if you wake up on your own. For `no`, SPV gives WOs with an explicit `eta` and says when to call you (see "Wake phrase").
+- `wakeup yes|no` in the profile says if you wake up on your own. For `no`, SPV gives WOs with an explicit `eta` and says when to call you (see "Wake phrase" in `sync-spv.md`).
 - `active = false` in `sync/operators.toml` only when an operator leaves the project for good. At the end of a session the block stays `active`.
 - Split a task over 45 minutes into steps of at most 45 minutes. A stand-in file is declared as such; when the real file arrives, check again what used it.
 
@@ -85,7 +81,14 @@ A session closes only through CLOSEOUT (see "SPV closeout"), on the user's reque
 2. Deliver and push. Your working tree must be clean.
 3. Remove your own clean worktrees and temporary folders.
 4. Write the section `## Closing` in your own file with the line `CLOSED @ {branch}@{commit} · tree clean · open: {WO or none} · {ISO}`.
-5. Run `python tools/sync_hdr.py <ID> --state DONE`. Commit and push. Then stop.
+5. Run `python tools/sync_hdr.py <ID> --ack auto --state DONE`. Commit and push. After `DONE`, do no more heartbeats.
+
+SPV runs the phases (detail and checks: [`sync-closeout.md`](sync-closeout.md)):
+- C0 DRAIN: no new WO; WOs already started finish. C1 SIGNOFF: one row for each operator.
+- C2 READY: `sync_check.py --closeout --strict` exits 0. C3 DOCS: update progress, ROADMAP, ledger.
+- C4 HANDOFF: `sync/NEXT.md` with the 7-block restart prompt. C5 CLEAN: push, empty inboxes, remove worktrees.
+- C6 END: the list "What not to lose" goes to the user; SPV marks itself `DONE`.
+
 
 ## 3. Rules for the SPV
 
@@ -113,7 +116,3 @@ A session closes only through CLOSEOUT (see "SPV closeout"), on the user's reque
 
 The phases C0 to C6 (DRAIN, SIGNOFF, READY, DOCS, HANDOFF, CLEAN, END), the operator states, the timeouts, `DEFER`, safe cleanup, and the list "What not to lose" are in [`sync-closeout.md`](sync-closeout.md).
 4. To release an operator at any time, write the Log row `SIGNOFF {ID}: {reason}`.
-
-## Reference: English and Italian labels
-
-The table of labels (`## Deliveries` and `## Consegne`, `verify:` and `verifica:`, and others) is in [`sync-labels.md`](sync-labels.md). Closed sync files and the older tools use the Italian labels.
