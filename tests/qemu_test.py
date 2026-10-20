@@ -3918,6 +3918,7 @@ def test_usb_mouse(b, opts):
         # its icon once it has moved (2026-10-04: a keyboard's dongle declares
         # a mouse with none behind it)
         time.sleep(1.0)
+        settled_screen(q, lambda i, t: len(bar_icons(i)) == 1, tries=20)
         assert len(bar_icons(q.screendump())) == 1, "a mouse icon before the mouse did anything"
         q.pointer(320, 180)
         shot_ = wait_icons(q, 2)
@@ -4178,7 +4179,7 @@ def test_studio_animator(b, opts):
         keys(RIGHT, RIGHT, RIGHT, "w", gap=0.4)
         screen(["TURN root   0.25 s  frame 3  key"])
         shot("animator-keyframe")
-        keys("\x13", gap=0.6)                   # Ctrl+S
+        keys("\x13", gap=0.1)                   # Ctrl+S; short gap: the toast is brief
         screen(["saved /carts/CUBE.BME"])
 
         # the village: the villager, its bones, its animations, its sprites
@@ -6919,6 +6920,10 @@ def test_code_completion(b, opts):
         k("\t", 0.4)
         text = see(["  1 function"])
         assert not any("Tab:" in l for l in text), "written: no suggestion left"
+        for _ in range(20):                                 # the colour settles a little after the text
+            if coloured(PRED) > 20:
+                break
+            time.sleep(0.25)
         assert coloured(PRED) > 20, "what Tab wrote, green"
         shot("written")
         k(" _upd", 0.1)
