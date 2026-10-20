@@ -223,7 +223,7 @@ rgb30 = "bootlog.txt, bootprev.txt, lastrun.txt in bm/"
 cause = "history"
 priority = 6
 status = "resolved"
-note = "provato dall'utente su Pi Zero W il 2026-10-15 dopo SDLOG-FIX: lastrun, bootlog e bootprev corretti dopo reboot e shutdown; bootprev mostra la run prima. Crash volontario coperto da test_crash_report (QEMU), non provato a mano. Watchdog assente sul Pi Zero W: tempo di scrittura prima del reset non misurabile. Le password della console compaiono in chiaro nei log su SD"
+note = "Tested by the user on Pi Zero W on 2026-10-15 after SDLOG-FIX: lastrun, bootlog, and bootprev correct after reboot and shutdown; bootprev shows the prior run. Voluntary crash covered by test_crash_report (QEMU), not tested by hand. Watchdog absent on Pi Zero W: write time before reset not measurable. Console secrets are masked in SD logs via reports_mask_secrets() (src/kernel/sdlog.c:53,71,108; tests/qemu_test.py:5776-5777). AGY-B1 verified planned reboot on RGB30 (2026-10-20): bootprev recorded the prior run ended cleanly ('the run before' and 'ended cleanly' present, 'froze' = 0), with DSI link on."
 evidence = "src/kernel/sdlog.c:1-85; src/kernel/main.c:275-277; src/rgb30/main.c:161-240"
 action = "shared module src/kernel/sdlog.c gives both platforms identical logs"
 
@@ -232,11 +232,13 @@ id = "D20"
 area = "release content"
 pi = "manifest.txt: kernel.img, kernel7.img, games in /carts, ca.pem"
 rgb30 = "manifest-rgb30: kernel8.img and ca.pem only"
-cause = "unknown"
+cause = "hardware"
+capability = "board-boot"
 priority = 6
-status = "open"
-evidence = "Makefile:766-774"
-action = "confirm it is intended"
+status = "resolved"
+note = "Confirmed intended in Makefile:766-775: RGB30 release uses manifest-rgb30 with kernel8.img and ca.pem only."
+evidence = "Makefile:766-775"
+action = "confirmed intended; separate manifests per board"
 
 [[divergence]]
 id = "D21"
@@ -254,9 +256,11 @@ id = "D22"
 area = "monitor"
 pi = "text console and Dev tab entry"
 rgb30 = "none by design (no_monitor); the serial line has a Lua REPL"
-cause = "history"
+cause = "hardware"
+capability = "no-keyboard"
 priority = 6
 status = "open"
+note = "RGB30 has no monitor console by design (no USB host / no keyboard; serial line has a Lua REPL)."
 evidence = "src/rgb30/ui.c:946; src/kernel/settings.c:652"
 action = "keep; tell developers"
 
@@ -477,6 +481,7 @@ pi = "T (screenshot of the running game) and G (a file of bm/shots) in shared co
 rgb30 = "same shared code (src/net/netxfer.c, src/bm/runtime.c), not yet verified on the console"
 cause = "todo"
 status = "untested"
+note = "Op G read bm/ on the RGB30 on 2026-10-20 (RGB30-BRIDGE-TRY, c6593655) and Op T answered 'no game drew a frame (start a game first)'."
 evidence = "src/net/netxfer.c; docs/design/pi-test.md"
 action = "try bm_net.py --shot on an RGB30 with a game running"
 
