@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A heartbeat that costs no model tokens (docs/progress/sync.md, "Cost of the heartbeats").
+"""A heartbeat that costs no model tokens (docs/design/sync-heartbeat-cost.md).
 
   python3 tools/sync_watch.py --id AGY [--branch bm-core] [--every 5] [--beat 15] [--wake-cmd "..."] [--once] [--no-push]
 

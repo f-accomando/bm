@@ -1,120 +1,104 @@
-# Sync & Multi-Agent Coordination
+# Sync protocol
 
-Architecture, state lifecycle, and operational findings from the multi-agent development workflow
-connecting several operators (in the first project: Antigravity AGY, Claude Code supervisor SPV on Windows with WSL, Claude cloud
-recorder CLD in QEMU, later a fourth on another Windows machine) through one dedicated **sync branch** per project.
+This file defines the rules of the multi-agent sync. Several operators work in parallel on one project. One operator is the supervisor (SPV). Section 2 applies to all operators, SPV included. Section 3 applies to SPV only.
 
-`SYNC.md` at the repo root is the **reusable template** for a new project (copy it, fill the placeholders, empty the log);
-the full record of the first project is in [`docs/archive/sync-tropic-trail.md`](../archive/sync-tropic-trail.md).
+`SYNC.md` is the template of a project: contracts, work orders, and the Log. Copy it for each new project. Archive the copy in `docs/archive/` when the project ends.
 
-## How it is today
+## 1. Files and branches
 
-The coordination workflow relies on Git-backed asynchronous messaging and isolated authoring:
+- Each project has one sync branch, `sync/<name>`. `SYNC.md`, `sync/*`, and `tools/sync_hdr.py` live on this branch only, not on `bm-core`. Parallel syncs then do not touch each other.
+- Code lives on working branches from `bm-core`. Only sync files go to the sync branch.
+- Each file has one writer. SPV writes `SYNC.md` and `sync/inbox/<ID>.md`. Operator `<ID>` writes `sync/<ID>.md`. Single writers prevent merge conflicts.
+- The inbox has at most 5 lines.
+- Before you push a sync file, run `git pull --rebase origin <sync branch>`.
+- Write the status block of your file only with `python tools/sync_hdr.py`. The block has `state`, `task`, `waiting_on`, `progress`, `eta`, `wakeup`, `ack`, and `updated`. Use ISO 8601 times with the time zone. Every call of the script sets `ack` to the last row of `SYNC.md`.
+- A Log row has at most 600 characters.
 
-- **Isolated Operator Logs**: Each operator exclusively writes their own log file in `sync/`
-  (`sync/<ID>.md`, from [`sync/_template.md`](../../sync/_template.md)).
-  This guarantees zero Git merge conflicts when pushing concurrently to the sync branch.
-- **Machine-Readable Status Block**: Operators maintain an ISO 8601 frontmatter header via
-  [`tools/sync_hdr.py`](../../tools/sync_hdr.py) declaring `state`, `task`, `waiting_on`, `progress`,
-  `eta`, and `updated` timestamp.
-- **Central Supervisor Register**: The supervisor (SPV) periodically audits operator frontmatters,
-  summarizes overall project state in table 1b of [`SYNC.md`](../../SYNC.md), and issues work orders.
-- **Ledger rows**: append sub-agent rows with `python scripts/ledger_add.py --agent ... --model ... --task ... --area ... --tokens N --tools N --secs N` (validates like `agent_audit.py`, skips duplicates, `--no-write` previews) instead of editing `docs/agents/ledger.txt` by hand.
-- **Repeated tasks**: `python scripts/ledger_repeats.py [--min 3] [--since YYYY-MM-DD]` groups ledger tasks by form (first word + `ID` if it names a WO) and lists those repeated 3+ times; each becomes a skill or script, noted in the SYNC.md Log.
-- **Dedicated Feature Branches**: Code changes live on isolated branches (`agy/*`, `feat/claude-*`).
-  Only sync logs touch the sync branch; reviewed code reaches `bm-core` by merge, by the owner.
-
-### States and Lifecycle
-
-The four standardized states defined in [`sync/operators.toml`](../../sync/operators.toml):
-
-1. **`WORKING`**: Actively executing steps of an assigned work order. For tasks exceeding 15 min,
-   the expected completion timestamp is declared in `eta`.
-2. **`WAITING`**: Execution blocked on an external peer (declared in `waiting_on`: `utente`,
-   `Claude local`, `Antigravity`, or `Claude cloud`).
-3. **`FREE`**: Assigned tasks are 100% complete and pushed; the operator remains active on the
-   heartbeat loop, ready to claim new assignments.
-4. **`DONE`**: Terminal milestone reached; session concluded without claiming additional work.
-
-`STALE` is a note, not a state: `sync_check.py` shows it to SPV when there is no update beyond `eta` + 10 min (60 min without `eta`). `FREE` and `DONE` are never `STALE`.
-
-## Workflow findings and considerations
-
-1. **Single-file vs Monolithic log**: Moving away from concurrent edits in [`SYNC.md`](../../SYNC.md)
-   to individual operator files eliminated Git merge collisions completely.
-2. **Heartbeat and autonomous liveness**: Maintaining active cron/schedule timers (e.g. 15-minute
-   heartbeat interval) prevents false-positive `STALE` notes while waiting for supervisor review.
-3. **Sequential autonomy vs Micro-locking**: Requiring supervisor sign-off after every sub-step
-   (<=45 min) introduces significant idle latency. Permitting operators to chain consecutive steps
-   autonomously (e.g. AGY-09 steps 3 through 5) with independent commits accelerates throughput.
-4. **Environment declarations**: Stating toolchain limitations early (e.g. Windows local without
-   Linux host binary compilers vs QEMU virtualized environment) avoids assigning unexecutable tasks.
-5. **Contract clarity**: Splitting frontmatter state from narrative logs allows programmatic
-   parsing while preserving nuanced developer context.
-
-## Rules (do not break)
-
-- Never edit another operator's file under `sync/`; edit only your assigned `sync/<ID>.md`.
-- Always update frontmatter headers with [`tools/sync_hdr.py`](../../tools/sync_hdr.py) before pushing.
-- Always use `git pull --rebase origin <sync branch>` before pushing sync log updates to prevent merge bubbles.
-- `SYNC.md` stays a project-neutral template: project contracts, work orders and log rows go in a copy for the project (archive it under `docs/archive/` when the project ends).
-- Log rows <=600 characters; a status block carries ISO 8601 times with zone, `eta` before any operation >15 min and `ack` (last `SYNC.md` row read).
-- **Un branch di sync per progetto** (`sync/<nome>`): `SYNC.md`, `sync/*` e `tools/sync_hdr.py` vivono e si pushano solo lì, non su `bm-core`; così sessioni di sync parallele (altri agenti, altri progetti) non si toccano. "Fai handshake `<branch>`" = la procedura sotto su quel branch (descritta in `CLAUDE.md`, Glossary: Handshake).
-- Handshake = fetch del branch di sync, lettura di `SYNC.md`, creazione di `sync/<ID>.md` (stato + `## Profilo`, + `## Requisiti` se richiesti), poi `FREE`: senza handshake non si assegna lavoro.
-- Battito a eventi senza timer (2026-10-15): a ogni task conclusa; task lunghe spezzate dall'operatore con righe di progress; problemi e richieste di intervento = riga pushata + una frase in chat all'utente. SPV giudica dall'`eta` (STALE oltre `eta`+10 min, senza `eta` 60 min; `FREE` mai STALE) e controlla solo quando è svegliato. `eta` di handshake = "risposta attesa tra N min" (min 3, max 3 controlli brevi). Prompt tra operatori: blocco `da <ID> a <ID>: ...` in chat + riga nella casella.
-- **Consegne**: una riga `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: ... → ... · {ISO}` in `## Consegne` del proprio file, poi `FREE`; `DONE` e solo lo stato terminale, non una consegna; SPV risponde con `REVIEW` e integra solo dopo `APPROVED`.
-- **Review di una consegna**: SPV fa rivedere ogni `DELIVERED` a un subagent indipendente (perimetro, comandi rieseguiti con distinzione preesistente/introdotto, lettura del codice, esito per WO) prima di `REVIEW: APPROVED`; l'integrazione solo su `APPROVED`. Dettaglio in `SYNC.md` §3c.
-- **Operatori senza canale diretto** (es. AGY): SPV prepara per l'utente un prompt unico e auto-sufficiente (ID, branch di sync, handshake, casella, work order, branch e perimetro, `--wakeup`, consegna) e lo scrive in chat; l'utente lo incolla e basta. Dettaglio in `SYNC.md` §3c. Per gli operatori che SPV avvia da sé il prompt è il brief di `start_session`.
-- **Caselle e controllo oggettivo**: compiti e urgenze in `sync/inbox/<ID>.md` (max 5 righe, solo SPV scrive); `ack` con `sync_hdr.py --ack auto`; `tools/sync_check.py` dice chi è vivo, chi non ha letto, quali consegne e righe di Log sono fuori formato (>600 caratteri). Lo stato all'utente si legge da lì, mai da memoria. Campo `wakeup yes|no` nel profilo: agenti senza risveglio autonomo ricevono lavori con `eta` esplicita. Una modifica alle regole è una riga `RULE` con ack. `--ack auto` conferma solo la consegna dell'ultima riga dopo il fetch, non che sia stata capita: chi agisce su una riga scrive nel proprio Log `letto <ora riga>`. Operatore "bloccato e muto" (`STALE` per `sync_check`, o riga/casella non confermata da >30 min e non `WAITING utente`): SPV lo dice all'utente in chat con ID e riga attesa (`SYNC.md` §3b, Chiusura 5).
-- **Heartbeat cost**: prefer a no-model beat (`tools/sync_watch.py`) or a small subagent; the main agent pays the whole conversation at every beat (section "Cost of the heartbeats").
-- **Closeout**: closing a session = CLOSEOUT, see `SYNC.md` §3b (phases C0-C6; SPV line per operator, operator steps in `SYNC.md` §3b).
-- No task open-ended: passi <=45 min; l'operatore tiene libero l'agente principale e supervisiona i propri subagent.
-- A session closes only through CLOSEOUT (`SYNC.md` §3b), on the user's request; each phase starts after a script verifies the output of the previous one.
-
-## Frase di avvio (da incollare nella sessione di un operatore)
-
-> Sei `<ID>` nel sync del branch `<branch>`. Fai handshake `<branch>` (CLAUDE.md, Glossary: Handshake). Poi, a ogni battito (3-5 min finché non hai preso il primo work order, poi 15; se non ti svegli da solo, a ogni mio messaggio): `git fetch origin`; `git diff <ultimo hash visto> -- SYNC.md sync/`; leggi `sync/inbox/<ID>.md`; `python tools/sync_hdr.py <ID> --state ... --task ... --ack auto`; commit e push sul branch. Non iniziare altro lavoro che quello della tua casella; consegna con una riga `DELIVERED ...` nella sezione `## Consegne` del tuo file.
-
-## Cost of the heartbeats (what a beat costs, and the cheapest way)
-
-A heartbeat is only `git fetch`, a look at the inbox and `sync_hdr.py <ID> --ack auto`. What costs is *who* does it (order of magnitude, no measure yet: the cost ledger is still missing):
-
-| Who does the beat | Cost of one beat | Note |
-|---|---|---|
-| The **main agent** (a timer that re-sends a prompt) | re-reads the whole conversation: hundreds of thousands of tokens read from the cache (a tenth of the price) plus a few thousand of output and the output of the commands; the full price if the cache has expired | the most expensive; it also breaks if the session has no timer |
-| A **small subagent** (e.g. Haiku, empty context, a short prompt) | about 5-15 thousand tokens | tens of times cheaper; the protocol default for agents with subagents |
-| A **script, no model**: `tools/sync_watch.py` | 0 tokens | the model wakes up only if the inbox or a row addressed to the operator changes |
-
-`python tools/sync_watch.py --id <ID> [--branch <sync branch>] [--every 5] [--beat 15] [--wake-cmd "..."]`, run in the operator's own clone (a terminal or a background process): every `--every` minutes it fetches, compares the inbox and the Log rows addressed to the operator with the last look, and **only if there is news** writes `.sync_wake`, prints it and runs `--wake-cmd`; every `--beat` minutes it writes the heartbeat itself (`updated` and `ack`; state and task stay as the agent wrote them), commits and pushes. `--once --no-push` is a dry run. It does not replace the agent's own state changes (`WORKING`, `DELIVERED`, `FREE`): those stay the agent's job. An agent without a timer (profile `wakeup no`) still needs something to start it: the watcher's `--wake-cmd`, or the user.
-
-## Operator protocol (moved from CLAUDE.md)
-
-Searchable with `grep -n -A 14 '^### <Term>' docs/progress/sync.md`. The four handshake steps also stay in `CLAUDE.md`.
+## 2. Rules for all operators
 
 ### Handshake
-Multiple agents (Claude local/cloud, Antigravity, others) work in parallel on a project using the protocol in [`SYNC.md`](SYNC.md) (template; rules and lessons in `docs/progress/sync.md`). Each project has a dedicated **sync branch** `sync/<nome>`: `SYNC.md`, `sync/*` and `tools/sync_hdr.py` live and are pushed only there, never on `bm-core`, so different sync sessions do not touch each other; code lives on working branches from `bm-core`.
 
-The user says "Fai handshake `<branch>`". Do these steps:
-1. Run `git fetch origin`. Check out `<branch>` in a separate worktree or clone, so that the working branch stays unchanged. Then run `git pull --rebase`.
-2. Read `SYNC.md`: roles in §1, contracts in §2, work orders in §3, and rules in §3b and §3c. Read `sync/operators.toml`. Find the supervisor (SPV) and your ID. If you have no ID, propose one to SPV.
-3. Create only `sync/<ID>.md`, from `sync/_template.md`. Write the status block with `python tools/sync_hdr.py <ID> --state FREE --task handshake`. Write `## Profilo`: where you run, the limits, the models, the subagents, and the tools with their versions. Write `## Requisiti` if §2 lists requirements.
-4. Commit. Run `git pull --rebase origin <branch>`, then `git push origin HEAD:<branch>`. Wait for the assignment that SPV writes in `SYNC.md`. Start work only after that assignment.
+The user says "Fai handshake `<branch>`" ("Do the handshake"). Act on the branch name alone. Do these steps:
+1. Run `git fetch origin`. Check out `<branch>` in a separate worktree or clone, so that the working branch stays unchanged. Run `git pull --rebase`.
+2. Read `SYNC.md` and `sync/operators.toml`. Find SPV and your ID. If you have no ID, propose one to SPV.
+3. Create only `sync/<ID>.md`, from `sync/_template.md`. Write the status block with `python tools/sync_hdr.py <ID> --state FREE --task handshake --wakeup yes|no`. Write `## Profile`: where you run, the limits, the models, the subagents, and the tools with their versions. Write `## Requirements` if `SYNC.md` lists requirements.
+4. Commit. Run `git pull --rebase origin <branch>`, then `git push origin HEAD:<branch>`. Then wait. SPV assigns no work before the handshake. Start work only when SPV or the user wakes you.
 
-### Delivery
-a single standard line in the `## Consegne` section of your own file, `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`, then `FREE`; SPV replies `REVIEW: APPROVED|CHANGES REQUESTED` and only then integrates. `DONE` is not a delivery (it is the terminal state). A non-standard signal starts nothing.
+### States
 
-1. Close the work order: `python tools/sync_hdr.py <ID> --close <WO> --commit <sha> --tokens T --min M`. The command adds a row to `sync/<ID>.ledger.jsonl` and prints the chat line `done WO`.
-2. Write the delivery line in `## Consegne` of your own file (format above).
-3. Set your state to `FREE`.
+- `WORKING`: You execute an assigned WO. Declare `eta`.
+- `WAITING`: A peer blocks you. Name the peer in `waiting_on` and declare `eta`. The allowed values are in `sync/operators.toml`.
+- `FREE`: All your assigned WOs are delivered. You wait for new work.
+- `DONE`: Your session is finished. You claim no more work.
 
-### Inbox and check
-every new task or urgency arrives in `sync/inbox/<ID>.md` (max 5 lines, written by SPV): at every heartbeat read the `git diff` of your inbox, then `python tools/sync_hdr.py <ID> --ack auto` (read confirmation). SPV uses `python tools/sync_check.py` to know who is alive and what has not been read. In the profile declare `--wakeup yes|no` (do you wake up on your own?). Log lines ≤600 characters; a rule change is a `RULE` line to be confirmed with `ack`.
+### Work order cycle
 
-### Heartbeat cost
-the heartbeat is `fetch` + inbox + `--ack auto`; having the main agent do it costs the entire conversation every time. Better a small subagent, or with no model `python tools/sync_watch.py --id <ID> [--branch <sync>]` (wakes the agent only if its inbox or a line addressed to it changes; details in `docs/progress/sync.md`).
+Use no timers. A beat is `git fetch origin` plus reading your inbox. Do these steps in this order for each work order (WO):
+1. Take. When SPV or the user wakes you ("controlla l'inbox", "check the inbox"), run a beat. Then run `python tools/sync_hdr.py <ID> --state WORKING --task <WO-ID> --eta HH:MM`. Commit and push. Do this before any work on the WO.
+2. Work. Do the WO. Keep your main agent available: give long work to subagents. If a third party blocks you, run the same command with `--state WAITING --waiting-on <peer>`, push, and ask in chat. Run it again with `--state WORKING` when the block ends.
+3. Deliver. Run `python tools/sync_hdr.py <ID> --deliver <WO-ID> --commit <sha> --verify "<command> → <result>" --tokens T --min M`. Push after step 4.
+4. Beat. Run a beat. If your inbox holds another WO, run the command of step 1 for it. Then push once. Write in chat the line that `--deliver` printed: `done WO <X> [waiting on <Y> | FREE]: <files> files +<a> -<d>, <N> tokens, <M> min`. If your inbox holds no other WO, your state is `FREE`. Wait for a wake.
+5. Review. SPV answers with a `REVIEW` row. After `CHANGES REQUESTED`, do step 1 again before you change any file.
+
+`DONE` is not a delivery. A non-standard signal starts nothing. `tools/sync_watch.py` is optional: it wakes you when your inbox changes. Its cost is in `docs/design/sync-heartbeat-cost.md`.
+
+### Chat
+
+Write in chat only the `done WO` line and a short request when the user must act. Write the status of your work only when the user asks. To contact another operator, ask SPV.
 
 ### Closeout
-closing a session = CLOSEOUT, see `SYNC.md` §3b (phases C0-C6, one `SIGNOFF <ID>` line per operator, operator steps in `SYNC.md` §3b).
 
-### Fixed rules
-a single writer per file (`SYNC.md` only SPV, `sync/<ID>.md` only `<ID>`); then event-driven heartbeat with no timer: update your own file at every completed task (long tasks split, progress without timers; problems or requests for intervention = a pushed line, which SPV relays to the user; operators other than SPV write in chat only `taken WO <X>` and `done WO <X> [waiting on <Y> | FREE]: <files> files +<a> -<d>, <N> tokens, <M> min`, plus a short request or a ready-to-copy prompt when a user action is needed); `eta` mandatory in `WORKING`/`WAITING`; beyond `eta`+10 min without updates = `STALE` note for SPV (without `eta` 60 min; never for `FREE`); messages between operators = block `da <ID> a <ID>: ...` in chat; tasks ≤45 min; the main agent stays free; Log lines ≤600 characters; operator status in chat only if the user asks.
+A session closes only through CLOSEOUT (`SYNC.md` §3b), on the user's request. SPV starts it with `CLOSEOUT DRAIN` or `SIGNOFF <ID>` in your inbox. Then do these steps:
+1. Let your own subagents finish. Take no new WO and no new review.
+2. Deliver and push. Your working tree must be clean.
+3. Remove your own clean worktrees and temporary folders.
+4. Write the section `## Closing` in your own file with the line `CLOSED @ {branch}@{commit} · tree clean · open: {WO or none} · {ISO}`.
+5. Run `python tools/sync_hdr.py <ID> --state DONE`. Commit and push. Then stop.
+
+## 3. Rules for the SPV
+
+### Assignments
+
+1. Write each WO so that it takes at most 45 minutes. Split larger work into steps, one WO per step. Give an operator with `wakeup no` WOs with an explicit `eta`.
+2. Write the WO file. Push the `ASSIGNED` rows and the inbox lines first. The inbox holds at most 5 lines, so queue at most 5 WOs in the order of execution.
+3. Wake the operator only when it is `FREE`, or when it is new. An operator that is `WORKING` finds the queued WOs at its next beat. Wake the operator yourself when you can (for example with `send_message`). When you cannot, tell the user which operator to wake and the phrase to say: "controlla l'inbox".
+4. Wait for the take (`WORKING` on the WO). Do not poll. When the user wakes you, run `python tools/sync_check.py`. If the first WO of an operator has an `ASSIGNED` row older than 10 minutes and the operator is not `WORKING`, wake the operator again or tell the user.
+
+### Review and integration
+
+1. For each `DELIVERED` line, start an independent subagent for the review. The review checks the scope, reruns the commands (it separates failures that existed before from new failures), reads the code, and gives a result per WO. `SYNC.md` §3c has the details.
+2. Write the `REVIEW` row: `REVIEW: APPROVED` or `REVIEW: CHANGES REQUESTED`. After `CHANGES REQUESTED`, add a correction WO to the inbox of the operator.
+3. Integrate only after `APPROVED`. The user approves the merge into `bm-core`.
+
+### Monitoring
+
+- Read the state of the operators from `python tools/sync_check.py`, never from memory. Run it when the user or a session notice wakes you. Report the status to the user only when the user asks.
+- `STALE` is a note, not a state. The script shows it for an operator that is `WORKING` or `WAITING` more than 10 minutes past its `eta` without an update, or 60 minutes without `eta`. `FREE` and `DONE` are never `STALE`.
+- The script also shows unread rows (a row addressed to an operator is older than 30 minutes and newer than its `ack`) and rows in a wrong format.
+- An operator is blocked and silent when it is `STALE`, or when a row or an inbox line stays unconfirmed for more than 30 minutes and the operator is not `WAITING user`. Tell the user in chat with the ID and the awaited row.
+- To change a rule, write a `RULE` row. The operators confirm it with `ack`.
+
+### Operators without a direct channel
+
+Some operators (for example AGY) cannot be started or messaged by SPV. For each of them, write in chat one self-contained prompt for the user. The prompt has the ID, the sync branch, the handshake, the inbox, the WO, the branch and scope, `--wakeup`, and the delivery command. The user pastes the prompt into the session. For an operator that you start yourself, the prompt is the brief of `start_session`.
+
+### SPV closeout
+
+1. Open CLOSEOUT only when the user asks. Announce it with one `CLOSEOUT` Log row.
+2. Before the `DRAIN` row, tell the user which permissions the operators need, so that the user grants them at once.
+3. Run the phases C0 to C6 (`SYNC.md` §3b). Start each phase only after a script verifies the output of the previous phase: `python tools/sync_check.py --closeout`.
+4. To release an operator at any time, write the Log row `SIGNOFF {ID}: {reason}`.
+
+## Reference: English and Italian labels
+
+Closed sync files and the older tools use the Italian labels.
+
+| English | Italian |
+|---|---|
+| `## Deliveries` | `## Consegne` |
+| `## Profile` | `## Profilo` |
+| `## Requirements` | `## Requisiti` |
+| `## Closing` | `## Chiusura` |
+| `verify:` | `verifica:` |
+| `open: ... none` | `aperti: ... nessuno` |
+| `waiting_on: user` | `waiting_on: utente` |

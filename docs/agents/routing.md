@@ -44,7 +44,7 @@ Every request for a model more expensive than the standard one (`bm-deep`, heavy
 | 5 | Almost a necessity: the error is irreversible or the alternative is giving up on solving it |
 
 ### Ledger
-after each finished subagent, SPV/the main agent appends a row to `docs/agents/ledger.txt` (append only); `python scripts/agent_audit.py` for tuning. `python scripts/ledger_repeats.py` lists tasks repeated 3 or more times: on the third repeat they become a skill or a script and are noted in the sync Log.
+after each finished subagent, SPV/the main agent appends a row to `docs/agents/ledger.txt` (append only); `python scripts/agent_audit.py` for tuning. `python scripts/ledger_repeats.py` lists tasks repeated 3 or more times: on the third repeat they become a skill or a script and are noted in the sync Log. To add a row, run `python scripts/ledger_add.py --agent ... --model ... --task ... --area ... --tokens N --tools N --secs N`. The script validates the row like `agent_audit.py` and skips duplicates. `--no-write` shows a preview. Edit `ledger.txt` only through this script.
 
 ### Escalation
 Agents always close with an explicit status:
