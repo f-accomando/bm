@@ -63,13 +63,16 @@ Run the command of a term. Read only that section.
 | Escalation | closing status of an agent: `DONE`, `BLOCKED`, or `FAILED x2` | `grep -n -A 14 '^### Escalation' docs/agents/routing.md` |
 | Work Order | order format | `grep -n -A 14 '^### Work Order Format' docs/agents/routing.md` |
 | Ledger | cost rows | `grep -n -A 14 '^### Ledger' docs/agents/routing.md` |
-| Handshake | steps to join a sync | `grep -n -A 14 '^### Handshake' docs/progress/sync.md` |
-| Delivery | steps to hand over a work order | `grep -n -A 14 '^### Delivery' docs/progress/sync.md` |
-| Inbox | inbox file and read confirmation | `grep -n -A 14 '^### Inbox and check' docs/progress/sync.md` |
-| Heartbeat | cost of the beat | `grep -n -A 14 '^### Heartbeat cost' docs/progress/sync.md` |
-| Closeout | CLOSEOUT phases C0-C6 | `grep -n -A 14 '^### Closeout' docs/progress/sync.md` |
-| Sync rules | writers and beat | `grep -n -A 14 '^### Fixed rules' docs/progress/sync.md` |
+| Sync files and branches | one writer per file, status block, Log row limit | `grep -n -A 14 '^## 1. Files and branches' docs/progress/sync.md` |
+| Handshake (operator) | steps to join a sync | `grep -n -A 14 '^### Handshake' docs/progress/sync.md` |
+| Work order cycle (operator) | take, work, deliver, beat, review; wake phrase | `grep -n -A 14 '^### Work order cycle' docs/progress/sync.md` |
+| States (operator) | `WORKING`, `WAITING`, `FREE`, `DONE` | `grep -n -A 14 '^### States' docs/progress/sync.md` |
+| Closeout (operator) | steps when a session closes | `grep -n -A 14 '^### Closeout' docs/progress/sync.md` |
+| Assignments (SPV) | write, queue, and wake | `grep -n -A 14 '^### Assignments' docs/progress/sync.md` |
+| Review (SPV) | review and integration | `grep -n -A 14 '^### Review and integration' docs/progress/sync.md` |
+| Monitoring (SPV) | `sync_check.py`, `STALE`, silent operator | `grep -n -A 14 '^### Monitoring' docs/progress/sync.md` |
+| Closeout (SPV) | phases C0-C6 | `grep -n -A 14 '^### SPV closeout' docs/progress/sync.md` |
 
 **Autonomy threshold = 4** (user preference). With N = 1 to 3, use the standard model. With N = 4 or 5, switch to the expensive model without asking. State the score and the reason in the chat. To change the threshold, edit this line. The score is an estimate. The ledger gives measured values.
 
-**"Fai handshake `<branch>`"** (from the user): Act on the branch name alone. Run the Glossary command for Handshake and follow its steps.
+**"Fai handshake `<branch>`"** (from the user): Act on the branch name alone. Run the Glossary command for Handshake (operator) and follow its steps.
