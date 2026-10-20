@@ -83,7 +83,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
 - **bm SDK (RGB30)**: try it on the console (use with the pad alone is not proven; QEMU virt has no pad): Dev > bm SDK, Start > New project > Empty 2D; R1 x2 draw with ok; Y+down a tile; Select types `do end `; R1 to `snd`: wave SINE, ok plays; Start > Save > Build .bm > Export .b16; Start+Select out; reopen the .bme: all is still there.
-  QEMU `test_sdk_tool` and `test_sdk_pad_*` run in CI. Games (RGB30) lists bm/ and /carts (D28).
+  QEMU `test_sdk_tool`, `test_sdk_pad_*` and `test_sdk_layers_b16` (layers and flags) run in CI; on the Pi `test_sdk_code_pi` and `test_sdk_layers`. APP-1 QEMU proof is done on both kernels; the pad, the screen and the sound stay `not verified on hardware`. Games (RGB30) lists bm/ and /carts (D28).
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
 - **M43 step 3**: a *Stack* page in bm Pixel.

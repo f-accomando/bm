@@ -1213,6 +1213,53 @@ def test_sdk_pad_sfx(b, opts):
     sdk_kb_run(b, drive, check)
 
 
+def test_sdk_layers_b16(b, opts):
+    """R11 in the RGB30 bm SDK (as the Pi's test_sdk_layers): a new Platform 2D
+    project (the second template), 4 on the sprite page sets flag 4 of the
+    cell, L on the map page adds a layer and space places a tile on it,
+    Ctrl+S saves the project with its LAYERS and FLAGS sections."""
+    tmp = tempfile.mkdtemp(prefix="bm64kb-")
+    q, size = sdk_session(b, tmp)
+    try:
+        sdk_open(q)
+        q.send("\x0e")                          # Ctrl+N: the templates
+        sdk_screen(q, ["new project from a template", "Platform 2D"])
+        q.send(DOWN)                            # Platform 2D
+        time.sleep(0.4)
+        q.send("\r")
+        sdk_screen(q, ["new project (Platform 2D)"])
+        time.sleep(0.3)
+        q.send(F3)                              # the sprites, on cell 1
+        sdk_screen(q, ["SPRITES"])
+        time.sleep(0.4)
+        q.send("4")
+        sdk_screen(q, ["flag 4 on"])
+        q.send(F3)                              # the map
+        sdk_screen(q, ["L1/1 main"])
+        time.sleep(0.4)
+        q.send("L")
+        sdk_screen(q, ["map layer 2/2: layer2"])
+        time.sleep(0.3)
+        q.send(RIGHT)
+        time.sleep(0.3)
+        q.send(" ")                             # tile 1 at (1, 0) of layer 2
+        time.sleep(0.4)
+        sdk_save_default(q)
+        dump = sdk_exit_dump(q, tmp, size)
+    finally:
+        q.close()
+    secs = cart_secs(sd_read(dump, "/carts/MYGAME.BME"))
+    lay = secs[12]
+    w, h, n = struct.unpack_from("<HHH", lay, 0)
+    assert n == 2, (w, h, n)
+    assert lay[8:24].rstrip(b"\0") == b"main" and lay[24:40].rstrip(b"\0") == b"layer2", lay[8:40]
+    cells = lay[8 + 2 * 16:]
+    assert struct.unpack_from("<H", cells, 1 * 2)[0] == 1, "tile 1 at (1, 0) of layer 2"
+    per, rows = struct.unpack_from("<HH", secs[13], 0)
+    fl = secs[13][4:]
+    assert per == 32 and fl[1] == 16 and fl[2] == 1 and fl[6] == 2, (per, rows, list(fl[:8]))
+
+
 def test_sdk_pad_build(b, opts):
     """The whole game with the keyboard (the pad's actions, as the others):
     a pixel, a tile, 'do end ', a sine, Ctrl+S, Ctrl+B builds MYGAME.BM

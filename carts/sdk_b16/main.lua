@@ -3059,7 +3059,7 @@ do
 
   local function hints()
     if view3d then
-      return { { "v", "back", "2D map" }, { nil, "L1 R1", "orbit" }, { "up/dn", "UP DN", "zoom" }, { nil, "X", "more" } }
+      return { { "v", "back", "2D map" }, { nil, "L1 R1", "orbit" }, { "up/dn", "UP DOWN", "zoom" }, { nil, "X", "more" } }
     end
     if picking then return { { "up", "DPAD", "the tile" }, { "enter", "ok", "take it" } } end
     if tool_mode then

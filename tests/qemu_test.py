@@ -7832,6 +7832,65 @@ def test_sdk_stages_pi(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_sdk_code_pi(b, opts):
+    """The code page of the Pi's bm SDK (as the RGB30's test_sdk_pad_code): a
+    new Empty 2D project, F2 is the code, 'do end ' is typed at the cursor,
+    Ctrl+S saves the project; its LUA section has the typed text."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdcp-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    F2 = "\x1bOQ"
+
+    def k(s, gap=0.2):
+        q.send(s)
+        time.sleep(gap)
+
+    def see(word, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: any(word in l for l in t), tries=2)
+            if any(word in l for l in text):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("e")
+        see("OPEN IN")
+        k("\x0e", 0.5)                                      # Ctrl+N: the templates
+        see("new project from a template")
+        k("\r", 0.5)                                        # the first row: Empty 2D
+        see("new project (Empty 2D)")
+        k(F2, 0.5)                                          # the code
+        see("line 1/")
+        for ch in "do end ":
+            k(ch, 0.2)
+        k("\x13", 1)                                        # Ctrl+S: no name yet, Save as
+        see("file name")
+        k("\r")
+        see("saved /carts/")
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True, env=env,
+                               text=True).stdout.split()
+        assert names, "no project saved"
+        data = subprocess.run(["mtype", "-i", part, names[0]], capture_output=True, env=env).stdout
+        assert data[:8] == b"BMCART\x00\x00", data[:16]
+        secs = {}
+        for i in range(data[17]):
+            t, off, size, _ = struct.unpack_from("<IIII", data, 128 + i * 16)
+            secs[t] = data[off:off + size]
+        assert b"do end " in secs[1], secs[1][:120]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--build", default="build")

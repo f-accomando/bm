@@ -335,6 +335,13 @@ local function new_env(arg, o)
   E.map = function(cx, cy, sx, sy, w, h) g_box("map", sx, sy, w * 8, h * 8) end
   for _, n in ipairs({ "circ", "circfill", "tri", "pset" }) do E[n] = nop end
   for _, n in ipairs({ "cls", "zclear", "light3d", "fog3d", "lamp3d", "camera", "sky3d" }) do E[n] = nop end
+  -- the 3D map preview (AGY-04): the host has no map3d engine, so a stub world
+  E.map3d_build = function() return {} end
+  E.map3d_height = function() return 0.0 end
+  E.map3d_objects = function() return {} end
+  E.map3d_draw = nop
+  E.line3d = nop
+  E.point3d = nop
   E.clip = function(x) clipped = x ~= nil end
   E.font = function(name)
     if name then cur_font = name == "6x12" and { 6, 12 } or { 8, 16 } end
