@@ -33,7 +33,7 @@ Read files in targeted slices (grep, `offset`/`limit`). All current state is tra
 
 - **Cartridge Sections** (`src/bm/bm.h`): 6 AUDIO (`BMAU`), 8 MESH, 9 ANIM, 10 INFO, 11 SPRITES, 12 LAYERS, 13 FLAGS, 14 BOXES.
 - **Tile Flags (bmlib)**: 0 solid, 1 platform, 2 ladder, 3 water, 4 hurts.
-- **RGB30 Controls**: B confirms, A cancels (`confirm=a` swaps). Always use `pad_ok` / `pad_back`.
+- **Per-Device UI Reference**: Keys, menus, and screen rules per device live in [`docs/spec/ui-reference.md`](docs/spec/ui-reference.md).
 - **Module-Specific Rules**: Each area (`system`, `v3d`, `graphics`, `lua`, `audio`, `platforms`, `tools`) lists its own non-negotiable rules in the final `## Rules (do not break)` section of its file in `docs/progress/<area>.md`.
 
 ## 5. Task Closure & Continuous Scaffolding Maintenance
