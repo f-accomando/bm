@@ -1240,7 +1240,7 @@ def test_home_ui(b, opts):
         # keyboard layout changes and is saved; the submenus
         keys("5")
         net = "Network" if KERNEL7 else "WiFi and network"     # raspi2b: a Pi 2 B, Ethernet only
-        screen(["Settings", "Controllers", net, "Screen and sound", "Updates", "Reports", "System"])
+        screen(["Settings", "Controllers", "Controls", net, "Screen and sound", "Updates", "Reports"])    # System is below the fold with the Controls row
         shot("settings")
         keys("\r")                              # Controllers
         screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Bluetooth keyboard",
@@ -1257,6 +1257,10 @@ def test_home_ui(b, opts):
         screen([f"< {after} >", "keyboard layout: "])
         keys("\r")                              # A changes it too: back as it was
         screen([f"< {before} >"])
+        keys("q")
+        keys("s")
+        keys("\r")                              # Controls (CONTROLS-1; the RGB30 has the test of its panels)
+        screen(["Settings > Controls", "Scroller games", "Top-down games", "Stick games", "Pause and menus", "Reset all"])
         keys("q")
         keys("s")
         keys("\r")

@@ -210,7 +210,7 @@ def test_screen_console(b, opts):
             assert name in text and in_menu(text), f"{name!r} not selected on the Dev tab:\n{text}"
         keys(q, "r")                            # Settings: its panel, the Pi's sections (settings.c)
         text = screen_all(q.screendump())
-        for needle in ("Controllers", "WiFi and network", "Screen and sound", "Updates", "Reports", "System"):
+        for needle in ("Controllers", "Controls", "WiFi and network", "Screen and sound", "Updates", "Reports", "System"):
             assert needle in text, f"{needle!r} not in Settings:\n{text}"
         assert "none waiting" in text, text    # no reports waiting
         keys(q, "w")                            # up from the first row: round to the last
@@ -420,7 +420,7 @@ def test_update_from_sd(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
-        keys(q, "rrsss")                        # Settings: Controllers, WiFi, Screen, Updates
+        keys(q, "rrssss")                       # Settings: Controllers, Controls, WiFi, Screen, Updates
         q.send("\r")
         time.sleep(0.5)
         keys(q, "s")                            # Check for updates
@@ -560,7 +560,7 @@ def test_wifi_page_without_chip(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        keys(q, "rrs")                          # Settings: Controllers, WiFi and network
+        keys(q, "rrss")                         # Settings: Controllers, Controls, WiFi and network
         q.send("\r")
         time.sleep(0.5)
         keys(q, "ss")                           # Connect to a network, after State
@@ -638,6 +638,59 @@ def test_confirm_button(b, opts):
             q.close()
     assert chips["B"][0] != chips["A"][0], "confirm=a does not change the chip of Open"
     assert chips["B"][1] == chips["A"][1], "the chip of Back (Y) is the same in both settings"
+
+
+def test_controls_menu(b, opts):
+    """Settings > Controls (CONTROLS-1): a scheme's actions show the button the
+    config sets (controls= in bm/config.txt) or Default with the game's own;
+    Right changes the button of the row (X -> Y here) and Reset all (asked)
+    puts every action back on Default."""
+    def open_scroller(q):
+        for _ in range(6):                      # to the Settings tab
+            if "Controllers" in screen_all(q.screendump()):
+                break
+            keys(q, "r", 0.5)
+        keys(q, "s")                            # Controllers -> Controls
+        q.send("\r")
+        time.sleep(0.5)
+        text = screen_all(q.screendump())
+        assert "Settings > Controls" in text and "Stick games" in text and "Reset all" in text, text
+        q.send("\r")                            # Scroller games
+        time.sleep(0.5)
+        return screen_all(q.screendump())
+
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    sd = make_sd(tmp, {"bm/config.txt": b"layout=us\ncontrols=c1:x\n"})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        text = open_scroller(q)
+        assert "Settings > Controls > Scroller games" in text, text
+        a1 = [l for l in text.split("\n") if "Action 1" in l]
+        a2 = [l for l in text.split("\n") if "Action 2" in l]
+        assert a1 and "< X >" in a1[0] and "Default" not in a1[0], text
+        assert a2 and "Default (Y)" in a2[0], text
+        keys(q, "d")                            # Right: X -> Y on the first row
+        text = screen_all(q.screendump())
+        a1 = [l for l in text.split("\n") if "Action 1" in l]
+        assert a1 and "< Y >" in a1[0], text
+        q.send("\x7f")                          # back, then Reset all
+        time.sleep(0.4)
+        keys(q, "w")                            # up from the first row: the last, Reset all
+        q.send("\r")
+        time.sleep(0.4)
+        assert "Reset all the controls?" in screen_all(q.screendump())
+        q.send("\r")                            # yes
+        time.sleep(0.4)
+        assert "0 changed" in screen_all(q.screendump())
+        keys(q, "wwwww")                        # up to Scroller games
+        q.send("\r")
+        time.sleep(0.4)
+        text = screen_all(q.screendump())
+        a1 = [l for l in text.split("\n") if "Action 1" in l]
+        assert a1 and "Default (B)" in a1[0], text
+    finally:
+        q.close()
 
 
 PI_CART = r"""
