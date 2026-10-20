@@ -10,6 +10,9 @@ Examples:
   python tools/sync_log.py inbox --id AGY --line "Leggi WO AGY-9" \
       --line "Poi consegna" [--file-dir sync/inbox] [--append] [--push] [--verbose]
 
+  python tools/sync_log.py assign --id NET --wo W1 --wo W2 --branch B [--who SPV] [--push]
+      one ASSIGNED Log row plus one inbox line per WO; with --push both files go in one commit.
+
 --quiet (log: opt-in; inbox: default) prints one short line instead of the row or
 the inbox text. Warnings and errors always go to stderr. git output is hidden in quiet mode.
 
@@ -167,6 +170,59 @@ def cmd_inbox(a):
     return 0
 
 
+def cmd_assign(a):
+    """One Log row ASSIGNED plus one inbox line per WO, all checked before anything is written."""
+    wo_re = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    for w in a.wo:
+        if not wo_re.match(w):
+            sys.stderr.write("error: WO '%s' does not match [A-Za-z0-9][A-Za-z0-9._-]*\n" % w)
+            return 2
+    stamp = now_stamp()
+    row = "| %s | %s | `%s` | `ASSIGNED` | %s: %s |" % (stamp, a.who, a.branch, a.id, ", ".join(a.wo))
+    if len(row) > MAX_MSG:
+        sys.stderr.write("error: the Log row is %d characters (max %d): use fewer WOs\n" % (len(row), MAX_MSG))
+        return 2
+    new = ["ASSIGNED %s @ %s · %s" % (w, a.branch, stamp) for w in a.wo]
+    ipath = os.path.abspath(os.path.join(a.file_dir, a.id + ".md"))
+    lpath = os.path.abspath(a.file)
+    if a.push:
+        for d in sorted({os.path.dirname(lpath), os.path.dirname(ipath)}):
+            if os.path.isdir(d) and not pull_first(d, True):
+                return 1
+    existing = []
+    try:
+        with open(ipath, "rb") as f:
+            existing = [x for x in f.read().decode("utf-8").splitlines() if x.strip()]
+    except OSError:
+        pass
+    if len(existing) + len(new) > MAX_INBOX:
+        sys.stderr.write("error: %d existing + %d new inbox lines (max %d): nothing written\n"
+                         % (len(existing), len(new), MAX_INBOX))
+        return 2
+    try:
+        with open(lpath, "rb") as f:
+            raw = f.read().decode("utf-8")
+    except OSError as e:
+        sys.stderr.write("error: %s\n" % e)
+        return 2
+    nl = "\r\n" if "\r\n" in raw else "\n"
+    if raw and not raw.endswith("\n"):
+        raw += nl
+    try:
+        os.makedirs(os.path.dirname(ipath), exist_ok=True)
+        with open(lpath, "wb") as f:
+            f.write((raw + row + nl).encode("utf-8"))
+        with open(ipath, "wb") as f:
+            f.write(("\n".join(existing + new) + "\n").encode("utf-8"))
+    except OSError as e:
+        sys.stderr.write("error: %s\n" % e)
+        return 2
+    print("assign %s: %d WO, log + inbox" % (a.id, len(a.wo)))
+    if a.push:
+        return push([lpath, ipath], "ASSIGNED", a.who, os.path.dirname(lpath), True)
+    return 0
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -187,10 +243,20 @@ def main(argv=None):
     ib.add_argument("--push", action="store_true")
     ib.add_argument("--quiet", action="store_true", help="default: print inbox ID: N righe only")
     ib.add_argument("--verbose", action="store_true", help="print the inbox text after writing")
+    asg = sub.add_parser("assign")
+    asg.add_argument("--id", required=True)
+    asg.add_argument("--wo", action="append", required=True)
+    asg.add_argument("--branch", required=True)
+    asg.add_argument("--who", default="SPV")
+    asg.add_argument("--file", default="SYNC.md")
+    asg.add_argument("--file-dir", default="sync/inbox")
+    asg.add_argument("--push", action="store_true")
     try:
         a = p.parse_args(argv)
     except SystemExit as e:
         return 0 if e.code in (0, None) else 2
+    if a.cmd == "assign":
+        return cmd_assign(a)
     return cmd_log(a) if a.cmd == "log" else cmd_inbox(a)
 
 
