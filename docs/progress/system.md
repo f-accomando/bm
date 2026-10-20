@@ -73,6 +73,7 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 
 ## Open work
 
+- **C4:** the RAM ring stops before the crash (BOOTPREV ends at the netcon prompt). BETA1-C4-RING records `ring_at` and the sink state; read them on the Pi.
 - To confirm from a boot log on the device: whether a stale association after a reboot was
   part of the missing WiFi (the fix that is in: retries and `wifi_leave()`).
 - **Freeze reports hardware checks (Pi Zero W):** verify real watchdog countdown on hardware (FRZ-3: boot log says "watchdog: on", monitor `X f` restarts within ~3 s with report "the Pi froze last time").

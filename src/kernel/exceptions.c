@@ -127,8 +127,10 @@ void exception_handler(uint32_t type, exc_frame_t *f)
     arm_isb();
     crumbs_crashed();   /* first: a restart after this point is a crash, not a freeze (BETA-1 C4) */
     if (exc_depth++) {
-        if (crumbs_uptime_ms() >= 20000)
+        if (crumbs_uptime_ms() >= 20000) {
+            crumb("nested exception", NULL);
             watchdog_reboot();
+        }
         led_blink_code(type);
     }
     const char *name = type < 8 ? exc_names[type] : "Unknown";
