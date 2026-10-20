@@ -34,6 +34,14 @@ def parse_iso(s):
         return None
 
 
+def _ledger_id(path, row):
+    """operator of a ledger row: its `operator` field (OP-<ID>), else the ID in the file name sync/<ID>.ledger.jsonl"""
+    if row.get("operator"):
+        return row["operator"][3:]
+    name = os.path.basename(path)[:-len(".ledger.jsonl")]
+    return name[3:] if name.startswith("OP-") else name
+
+
 def read(path):
     try:
         with open(path, encoding="utf-8") as f:
@@ -109,7 +117,7 @@ def main(argv=None):
             t = parse_iso(d.get("iso", ""))
             if ok(t):
                 ledger.append(d)
-                who = d.get("operator", "")[3:] if d.get("operator") else                     os.path.basename(p).split(".")[0]           # sync/<ID>.ledger.jsonl rows carry no operator
+                who = _ledger_id(p, d)
                 done.setdefault(who, []).append(t)
     for p in sorted(glob.glob(os.path.join(repo, "sync", "*.md"))):
         op = os.path.basename(p)[:-3]

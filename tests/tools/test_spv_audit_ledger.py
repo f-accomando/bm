@@ -45,6 +45,15 @@ class T(unittest.TestCase):
     def test_row_of_another_operator_does_not_count_for_cld(self):
         self.assertNotIn("(1 gaps)", self.audit("ZZZ.ledger.jsonl", {"iso": DONE, "wo": "XX-1"}))
 
+    def test_dotted_id_and_op_file_without_operator_field(self):
+        with open(os.path.join(self.root, "SYNC.md"), "w", encoding="utf-8") as f:
+            f.write(HEAD + "| %s | A.b_2 | `b/x` | `NOTE` | preso WO XX-2 |\n" % TAKEN)
+        self.assertIn("(1 gaps)", self.audit("A.b_2.ledger.jsonl", {"iso": DONE, "wo": "XX-1"}))
+        os.remove(os.path.join(self.root, "sync", "A.b_2.ledger.jsonl"))
+        with open(os.path.join(self.root, "SYNC.md"), "w", encoding="utf-8") as f:
+            f.write(HEAD + "| %s | CLD | `b/x` | `NOTE` | preso WO XX-2 |\n" % TAKEN)
+        self.assertIn("(1 gaps)", self.audit("OP-CLD.ledger.jsonl", {"iso": DONE, "wo": "XX-1"}))
+
     def test_idle_is_not_a_state(self):
         self.assertNotIn("IDLE", sync_hdr.STATES)
 
