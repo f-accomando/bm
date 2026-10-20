@@ -60,6 +60,14 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
 
 ## Open work (`docs/ROADMAP.md`)
 
+- **GAME-INPUT-1** (input standard for games: the design note games-input-standard (on that branch),
+  `lib.INPUT_STD` / `lib.input`): parts A-C reviewed on branch `claude/games-input-standard`,
+  not merged. Open: document `lib.input` in `API.md`, `API-IT.md`, `GAME-GUIDE.md`,
+  `GUIDA-GIOCHI.md` and `src/ai/kb`; migrate existing games one by one. Keys decided 19 Oct:
+  menus B ok / Y cancel; keyboard Enter = ok, Esc = back and pause.
+- **CONTROLS-1** (planned, deferred to the next session): bindings mappable through an API
+  from the menu Controls; three default schemes per game (pad, stick, 2D scroller / top-down)
+  as written in the CONTROLS-1 work order on the sync branch.
 - **M42** `.b16` is a target, not a sandbox (decision 2026-10-13, D1-D6 confirmed 2026-10-15):
   header flag and `mkbm.py --b16` done; remaining: lint warnings (SDK + `mkbm.py`), Yharnam check.
 - **M39 step 10**: hot Lua of the games in C (rays, bot paths, particles), fewer allocations.
