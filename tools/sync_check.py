@@ -9,7 +9,7 @@ For every operator of sync/operators.toml (active ones) it reads the status bloc
   - no or broken status block; state not in DONE/WORKING/WAITING/IDLE/FREE;
   - IDLE by rule: WORKING/WAITING more than 10 min past its `eta` without an update, or 60 min without `eta` (never FREE/DONE);
   - unread: a row addressed to the operator is older than 30 min and newer than its `ack`;
-  - a line of `## Consegne` that is not `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: ... · {ISO}`;
+  - a line of `## Deliveries` (`## Consegne`) that is not `DELIVERED {WO-ID} @ {branch}@{commit} · verify: ... · {ISO}` (`verifica:`);
   - the inbox has more than 5 non-empty lines;
   - Log rows longer than 600 characters (ALL rows of the Log, not only the last ones).
 With --closeout (CLOSEOUT, sync/wo/CLOSEOUT.md section 2b) it adds the `closeout` column, the closing state of each operator
@@ -26,8 +26,8 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 STATES = ("DONE", "WORKING", "WAITING", "IDLE", "FREE")
 IDLE_MIN, LATE_MIN, UNREAD_MIN, ROW_MAX, INBOX_MAX = 60, 10, 30, 600, 5
-DELIVERED = re.compile(r"^[-*]?\s*DELIVERED\s+\S+\s+@\s+\S+@\S+\s+[·\-]\s+verifica:\s+.+(?:→|->).+[·\-]\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
-CLOSED = re.compile(r"^[-*]?\s*CLOSED\s+@\s+\S+@\S+\s+·\s+tree clean\s+·\s+aperti:\s+.+·\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
+DELIVERED = re.compile(r"^[-*]?\s*DELIVERED\s+\S+\s+@\s+\S+@\S+\s+[·\-]\s+(?:verify|verifica):\s+.+(?:→|->).+[·\-]\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
+CLOSED = re.compile(r"^[-*]?\s*CLOSED\s+@\s+\S+@\S+\s+·\s+tree clean\s+·\s+(?:open|aperti):\s+.+·\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
 SIGNOFF_WAIT_MIN, ETA_GRACE_MIN = 30, 10
 
 
@@ -86,9 +86,11 @@ def rows(path):
 
 
 def consegne(text):
-    """the lines of the ## Consegne section of an operator file"""
-    m = re.search(r"^## Consegne\s*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
-    return [ln.strip() for ln in (m.group(1).splitlines() if m else []) if ln.strip()]
+    """the lines of the ## Deliveries (## Consegne) section of an operator file; both present: joined"""
+    out = []
+    for m in re.finditer(r"^## (?:Deliveries|Consegne)\s*\n(.*?)(?=^## |\Z)", text, re.S | re.M):
+        out += [ln.strip() for ln in m.group(1).splitlines() if ln.strip()]
+    return out
 
 
 def delivered_parts(line):
@@ -128,8 +130,8 @@ def closeout_rows(log):
 
 
 def has_closed_line(text):
-    """True if the ## Chiusura section of an operator file has a valid CLOSED line"""
-    m = re.search(r"^## Chiusura\s*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
+    """True if the ## Closing (## Chiusura) section of an operator file has a valid CLOSED line"""
+    m = re.search(r"^## (?:Closing|Chiusura)\s*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
     return bool(m) and any(CLOSED.match(ln.strip()) for ln in m.group(1).splitlines())
 
 
@@ -238,8 +240,8 @@ def leftovers(log, ops):
     except ImportError:
         out.append("DELIVERED without REVIEW: n/d (tools/spv_brief.py missing)")
     for oid, text in texts.items():                             # CLOSED lines with open items
-        for m in re.finditer(r"^[-*]?\s*CLOSED\b.*?aperti:\s*(.+?)\s*·", text, re.M):
-            if m.group(1).strip().lower() != "nessuno":
+        for m in re.finditer(r"^[-*]?\s*CLOSED\b.*?(?:open|aperti):\s*(.+?)\s*·", text, re.M):
+            if m.group(1).strip().lower() not in ("none", "nessuno"):
                 out.append("%s: closed with open items: %s" % (oid, m.group(1).strip()))
     mine = toml_branches()
     unmerged = git("branch", "-r", "--no-merged", "origin/bm-core")

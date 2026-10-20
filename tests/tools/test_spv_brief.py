@@ -63,6 +63,19 @@ class T(unittest.TestCase):
         self.assertNotIn("AGX-1", new[0])
         self.assertNotIn("verifica", r.stdout.split("last")[0])
 
+    def test_english_labels_deliveries_and_verify(self):
+        # SYNC-EN-1: `## Deliveries` and `verify:` are read as `## Consegne` and `verifica:`
+        body = ("---\nschema: 1\nid: AGX\nstate: WORKING\nupdated: %s\nack: %s\n---\n# AGX\n\n## Deliveries\n"
+                "- DELIVERED AGX-7 @ b@77777777 · verify: x -> ok · 1 file · %s\n" % (stamp(5), stamp(10), stamp(5)))
+        with open(os.path.join(self.root, "sync", "AGX.md"), "w", encoding="utf-8") as f:
+            f.write(body)
+        self.sync_md([])
+        r = run(self.root)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        new = [ln for ln in r.stdout.splitlines() if ln.startswith("    new DELIVERED")]
+        self.assertEqual(len(new), 1, r.stdout)
+        self.assertIn("AGX-7 77777777", new[0])
+
     def test_unread_count_and_state(self):
         self.operator("AGX", [])
         self.sync_md([self.review(1, "REVIEW: APPROVED none"),
