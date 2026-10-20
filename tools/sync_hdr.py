@@ -190,7 +190,7 @@ def main():
     ap.add_argument("--waiting-on", dest="waiting_on")
     ap.add_argument("--progress", type=int)
     ap.add_argument("--eta")
-    ap.add_argument("--ack", help="ISO time of the last SYNC.md Log row read, or `auto` (the last row now in SYNC.md)")
+    ap.add_argument("--ack", help="ISO time of the last SYNC.md Log row read, or `auto` (the last row now in SYNC.md; also the default when --ack is missing)")
     ap.add_argument("--wakeup", choices=("yes", "no"), help="does the agent wake itself up (timer, scheduler)?")
     ap.add_argument("--file")
     ap.add_argument("--close", metavar="WO", help="close a work order: ledger row + chat line (status block untouched)")
@@ -244,6 +244,10 @@ def main():
         d["wakeup"] = a.wakeup
     if a.ack:
         d["ack"] = last_row_time() if a.ack == "auto" else a.ack
+    else:                                    # no --ack: the last SYNC.md row now (empty: the old value stays)
+        auto = last_row_time()
+        if auto:
+            d["ack"] = auto
     if d.get("state") not in STATES:
         sys.exit("state? one of %s (use --state)" % "/".join(STATES))
     now = datetime.datetime.now().astimezone()
