@@ -323,8 +323,8 @@ pi = "-"
 rgb30 = "Games read only bm/: a game built by bm SDK's Ctrl+B in /carts was not listed"
 cause = "history"
 status = "resolved"
-note = "test QEMU test_games_in_carts OK; provato dall'utente su RGB30 fisica il 2026-10-15 (.bm e .b16, cartelle bm/ e /carts, menu Games); limite noto: stesso nome in /bm e in /carts appaiono entrambi running se uno e' sospeso"
-evidence = "src/rgb30/ui.c:248; src/bm/project.c:162-193; carts/sdk_b16/main.lua:724,873"
+note = "QEMU proves (both kernels, APP-1): test_games_in_carts (Games lists /carts); the SDK on the Pi (test_sdk_layers, test_sdk_code_pi, test_sdk_stages_pi, test_sdk_suite, test_sdk_keeps_models) and on the RGB30 (test_sdk_tool, test_sdk_pad_*, test_sdk_layers_b16, test_sdk_stages_build); not proven by QEMU: the pad (QEMU virt has no pad), the console screen and sound; provato dall'utente su RGB30 fisica il 2026-10-15 (.bm e .b16, cartelle bm/ e /carts, menu Games); limite noto: stesso nome in /bm e in /carts appaiono entrambi running se uno e' sospeso"
+evidence = "src/rgb30/ui.c:248; src/bm/project.c:162-193; carts/sdk_b16/main.lua:724,873; tests/rgb30/qemu_test.py:test_sdk_layers_b16; tests/qemu_test.py:test_sdk_code_pi"
 action = "scan_games lists /carts too (as carts.c rescan)"
 
 [[divergence]]
@@ -491,3 +491,25 @@ priority = 6
 status = "open"
 evidence = "src/kernel/carts.c:842-844; src/rgb30/ui.c"
 action = "decide whether RGB30 Dev lists .bme"
+
+[[divergence]]
+id = "D46"
+area = "SDK templates"
+pi = "carts/editor offers the Stages 2D template, as carts/sdk_b16"
+rgb30 = "carts/sdk_b16 has the Stages 2D template"
+cause = "todo"
+capability = "sdk-templates"
+status = "resolved"
+evidence = "carts/editor/main.lua; tests/studio/sdk_host.lua; tests/qemu_test.py:test_sdk_stages_pi; tests/rgb30/qemu_test.py:test_sdk_stages_build"
+action = "none: the same template on both consoles, two tests"
+
+[[divergence]]
+id = "D47"
+area = "Sound authoring"
+pi = "sounds are made in bm Sound (suite program)"
+rgb30 = "sounds are made in the SDK page snd (360x360, pad only, no suite programs in the kernel)"
+cause = "hardware"
+capability = "pad-only"
+status = "open"
+evidence = "carts/sound/main.lua; carts/sdk_b16/main.lua"
+action = "none: the screen and the pad set the limit; Lib of sprites and maps is a separate system WO"

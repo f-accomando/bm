@@ -3164,6 +3164,19 @@ def _market_site(tmp, b, key):
     return files
 
 
+def sdk_template(tid):
+    """The code of the template `tid` in carts/sdk_b16/main.lua (its entry
+    `{ id = "<tid>", ... code = [==[ ... ]==] }`), the match starting at that
+    entry."""
+    path = os.path.join(HERE, "..", "carts", "sdk_b16", "main.lua")
+    with open(path, encoding="utf-8") as f:
+        src = f.read()
+    m = re.search(r'\{ id = "' + re.escape(tid) + r'".*?code = \[==\[\n(.*?)\]==\]', src, re.DOTALL)
+    if not m:
+        raise AssertionError(f"template {tid!r} not found in {path}")
+    return m.group(1)
+
+
 B16_GAME = r"""
 function _init() log("the b16 runs") end
 function _draw() cls(1) print("pocket", 8, 8, 7) end
@@ -3199,6 +3212,34 @@ def test_b16_on_pi(b, opts):
             time.sleep(0.8)
             q.send("\r")                                # the first game: the only one
             q.expect("the b16 runs", timeout=30)
+        finally:
+            q.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_stages_template(b, opts):
+    """The SDK's 'stages' template (carts/sdk_b16/main.lua) on the Pi: listed
+    in the menu and played from it; the title logs its best time, the ok
+    button (Space) starts stage 1."""
+    tmp = tempfile.mkdtemp(prefix="bm-stages-")
+    try:
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        cart = os.path.join(tmp, "stages.bm")
+        with open(cart, "wb") as f:
+            f.write(mkbm.pack(sdk_template("stages").encode(), title="Stages", author="tests", res=(360, 360)))
+        img = os.path.join(tmp, "sd.img")
+        mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/stages.bm")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.8)
+            q.send("\r")                                # the first game: the only one
+            q.expect("stages: title best -", timeout=30)
+            q.send(" ")                                 # the ok button: stage 1
+            q.expect("stages: stage 1", timeout=10)
         finally:
             q.close()
     finally:
@@ -7734,6 +7775,120 @@ def test_chainloader_bad_crc(b, opts):
         assert loader.wait_ready(timeout=5), "loader did not recover"
     finally:
         q.close()
+
+
+def test_sdk_stages_pi(b, opts):
+    """Stages 2D in the Pi's bm SDK: Ctrl+N, the last of nine templates (one Up
+    from the first row), a name with Ctrl+S, Ctrl+B builds the game next to
+    the project; the .BM carries the template's Lua."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdsp-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def k(s, gap=0.2):
+        q.send(s)
+        time.sleep(gap)
+
+    def see(word, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: any(word in l for l in t), tries=2)
+            if any(word in l for l in text):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("e")
+        see("OPEN IN")
+        k("\x0e", 0.5)                                      # Ctrl+N: the templates
+        see("new project from a template")
+        see("Stages 2D")                                    # the ninth, in the list
+        k("\x1b[A", 0.3)                                    # one Up wraps to the last row
+        k("\r", 0.5)
+        see("new project (Stages 2D)")
+        k("\x13", 1)                                        # Ctrl+S: no name yet, Save as
+        see("file name")
+        k("\r")
+        see("saved /carts/MYGAME.BME")
+        k("\x02", 1)                                        # Ctrl+B: the game next to it
+        see("built ")
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True, env=env,
+                               text=True).stdout.upper()
+        assert "MYGAME.BME" in names and "MYGAME.BM" in names.replace("MYGAME.BME", ""), names
+        game = subprocess.run(["mtype", "-i", part, "::/CARTS/MYGAME.BM"], capture_output=True,
+                              env=env).stdout
+        assert game[:8] == b"BMCART\x00\x00", game[:16]
+        assert b"stages: title best" in game, "the template's Lua in the .BM"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_sdk_code_pi(b, opts):
+    """The code page of the Pi's bm SDK (as the RGB30's test_sdk_pad_code): a
+    new Empty 2D project, F2 is the code, 'do end ' is typed at the cursor,
+    Ctrl+S saves the project; its LUA section has the typed text."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdcp-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    F2 = "\x1bOQ"
+
+    def k(s, gap=0.2):
+        q.send(s)
+        time.sleep(gap)
+
+    def see(word, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: any(word in l for l in t), tries=2)
+            if any(word in l for l in text):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("e")
+        see("OPEN IN")
+        k("\x0e", 0.5)                                      # Ctrl+N: the templates
+        see("new project from a template")
+        k("\r", 0.5)                                        # the first row: Empty 2D
+        see("new project (Empty 2D)")
+        k(F2, 0.5)                                          # the code
+        see("line 1/")
+        for ch in "do end ":
+            k(ch, 0.2)
+        k("\x13", 1)                                        # Ctrl+S: no name yet, Save as
+        see("file name")
+        k("\r")
+        see("saved /carts/")
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True, env=env,
+                               text=True).stdout.split()
+        assert names, "no project saved"
+        data = subprocess.run(["mtype", "-i", part, names[0]], capture_output=True, env=env).stdout
+        assert data[:8] == b"BMCART\x00\x00", data[:16]
+        secs = {}
+        for i in range(data[17]):
+            t, off, size, _ = struct.unpack_from("<IIII", data, 128 + i * 16)
+            secs[t] = data[off:off + size]
+        assert b"do end " in secs[1], secs[1][:120]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def main():
