@@ -6,7 +6,7 @@ This file defines the rules of the multi-agent sync. Several operators work in p
 
 ## 1. Files and branches
 
-- Each project has one sync branch, `sync/<name>`. `SYNC.md`, `sync/*`, and `tools/sync_hdr.py` live on this branch only, not on `bm-core`. Parallel syncs then do not touch each other.
+- Each project has one sync branch, `sync/<name>`. `SYNC.md` and `sync/*` live on this branch only, not on `bm-core`. The tools (`tools/sync_hdr.py`, `sync_log.py`, `sync_check.py`) live on `bm-core`. Parallel syncs then do not touch each other.
 - Code lives on working branches from `bm-core`. Only sync files go to the sync branch.
 - Each file has one writer. SPV writes `SYNC.md` and `sync/inbox/<ID>.md`. Operator `<ID>` writes `sync/<ID>.md`. Single writers prevent merge conflicts.
 - The inbox has at most 5 lines.
@@ -37,7 +37,7 @@ Use no timers. A beat is `git fetch origin` plus reading your inbox. Do these st
 1. Take. When SPV or the user wakes you ("controlla l'inbox", "check the inbox"), run a beat. Then run `python tools/sync_hdr.py <ID> --state WORKING --task <WO-ID> --eta HH:MM`. Commit and push. Do this before any work on the WO.
 2. Work. Do the WO. Keep your main agent available: give long work to subagents. If a third party blocks you, run the same command with `--state WAITING --waiting-on <peer>`, push, and ask in chat. Run it again with `--state WORKING` when the block ends.
 3. Deliver. Run `python tools/sync_hdr.py <ID> --deliver <WO-ID> --commit <sha> --verify "<command> → <result>" --tokens T --min M`. Push after step 4.
-4. Beat. Run a beat. If your inbox holds another WO, run the command of step 1 for it. Then push once. Write in chat the line that `--deliver` printed: `done WO <X> [waiting on <Y> | FREE]: <files> files +<a> -<d>, <N> tokens, <M> min`. If your inbox holds no other WO, your state is `FREE`. Wait for a wake.
+4. Beat. Run a beat. If your inbox holds another WO, run the command of step 1 for it. Then push once. Write in chat the line that `--deliver` printed: `done WO <X> FREE: <files> files +<a> -<d>, <N> tokens, <M> min`. If your inbox holds no other WO, your state is `FREE`. Wait for a wake.
 5. Review. SPV answers with a `REVIEW` row. After `CHANGES REQUESTED`, do step 1 again before you change any file.
 
 `DONE` is not a delivery. A non-standard signal starts nothing. `tools/sync_watch.py` is optional: it wakes you when your inbox changes. Its cost is in `docs/design/sync-heartbeat-cost.md`.
@@ -62,13 +62,17 @@ A session closes only through CLOSEOUT (`SYNC.md` §3b), on the user's request. 
 1. Write each WO so that it takes at most 45 minutes. Split larger work into steps, one WO per step. Give an operator with `wakeup no` WOs with an explicit `eta`.
 2. Write the WO file. Push the `ASSIGNED` rows and the inbox lines first. The inbox holds at most 5 lines, so queue at most 5 WOs in the order of execution.
 3. Wake the operator only when it is `FREE`, or when it is new. An operator that is `WORKING` finds the queued WOs at its next beat. Wake the operator yourself when you can (for example with `send_message`). When you cannot, tell the user which operator to wake and the phrase to say: "controlla l'inbox".
-4. Wait for the take (`WORKING` on the WO). Do not poll. When the user wakes you, run `python tools/sync_check.py`. If the first WO of an operator has an `ASSIGNED` row older than 10 minutes and the operator is not `WORKING`, wake the operator again or tell the user.
+4. Wait for the take (`WORKING` on the WO). Do not poll. When the user wakes you, run `python tools/sync_check.py`. It flags a WO that nobody took within 10 minutes (the operator is not `WORKING`). Then wake the operator again or tell the user.
 
 ### Review and integration
 
-1. For each `DELIVERED` line, start an independent subagent for the review. The review checks the scope, reruns the commands (it separates failures that existed before from new failures), reads the code, and gives a result per WO. `SYNC.md` §3c has the details.
+1. Review by tier. For code on shared files or the kernel, start an independent subagent for a full review. For documents and mechanical WOs, rerun the verify command and read the diff yourself. The full review checks the scope, reruns the commands (it separates failures that existed before from new failures), reads the code, and gives a result per WO. `SYNC.md` §3c has the details.
 2. Write the `REVIEW` row: `REVIEW: APPROVED` or `REVIEW: CHANGES REQUESTED`. After `CHANGES REQUESTED`, add a correction WO to the inbox of the operator.
 3. Integrate only after `APPROVED`. The user approves the merge into `bm-core`.
+
+### Quick jobs
+
+For a small job on workflow, tools, docs, or project structure that the user asks for in chat, write no WO. Use subagents. The merge into `bm-core` still needs the explicit OK of the user. `src/`, the kernel, games, jobs over 45 minutes, and hardware keep the WO.
 
 ### Monitoring
 
