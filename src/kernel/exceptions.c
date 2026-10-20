@@ -111,6 +111,7 @@ static void __attribute__((noreturn)) die(uint32_t code)
 
 void exception_handler(uint32_t type, exc_frame_t *f)
 {
+    crumbs_crashed();   /* first: a restart after this point is a crash, not a freeze (BETA-1 C4) */
     const char *name = type < 8 ? exc_names[type] : "Unknown";
     const char *mode = mode_names[f->spsr & 0xF];
 
