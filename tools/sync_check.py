@@ -147,13 +147,13 @@ def queue_head(oid, log, delivered):
     """(WO-ID, clock start) of the first WO assigned to `oid` that is not delivered, or None. The WOs come from the ASSIGNED
     rows whose message is exactly `<oid>: WO[, WO...]` (older free text is ignored), in row order then list order.
     `delivered` is {WO-ID: delivery time}. The clock starts at the later of the row time and the delivery of the WO before it."""
-    wo_re = r"[A-Z][A-Z0-9]*(?:-[A-Za-z0-9]+)+"
+    wo_re = r"[A-Za-z0-9][A-Za-z0-9._-]*"      # the IDs `sync_log.py assign` accepts
     pattern = re.compile(r"%s:\s*%s(?:,\s*%s)*\s*" % (re.escape(oid), wo_re, wo_re))
     prev = None
     for t, action, msg in closeout_rows(log):
         if action != "ASSIGNED" or not pattern.fullmatch(msg):
             continue
-        for wo in WO_ID.findall(msg.split(":", 1)[1]):
+        for wo in (w.strip() for w in msg.split(":", 1)[1].split(",")):
             if wo not in delivered:
                 return wo, max(x for x in (t, prev) if x)
             prev = delivered[wo]

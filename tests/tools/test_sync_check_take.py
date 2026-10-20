@@ -68,6 +68,15 @@ class T(unittest.TestCase):
     def test_rows_for_other_operators_are_ignored(self):
         self.assertIsNone(self.check("FREE", [assigned(60, "AGY: XX-1")]))
 
+    def test_leading_digit_and_dotted_ids(self):
+        # `sync_log.py assign` accepts IDs such as 3D-1 and A.b_2-1 (SYNC-EN-7-fix)
+        self.assertEqual(self.check("FREE", [assigned(11, "NET: 3D-1")]),
+                         "NET: 3D-1 assigned 11 min ago, not taken; wake the operator or tell the user")
+        self.assertIsNone(self.check("FREE", [assigned(9, "NET: 3D-1")]))
+        self.assertIn("A.b_2-1 assigned 11 min ago", self.check("FREE", [assigned(11, "NET: A.b_2-1")]))
+        wo, _ = sc.queue_head("NET", [assigned(30, "NET: 3D-1, 3D-2")], {"3D-1": ago(5)})
+        self.assertEqual(wo, "3D-2")
+
     def test_queue_head_second_row_starts_after_first_row_delivery(self):
         log = [assigned(60, "NET: XX-1"), assigned(40, "NET: XX-2")]
         wo, start = sc.queue_head("NET", log, {"XX-1": ago(15)})

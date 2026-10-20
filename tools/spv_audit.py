@@ -109,7 +109,8 @@ def main(argv=None):
             t = parse_iso(d.get("iso", ""))
             if ok(t):
                 ledger.append(d)
-                done.setdefault(d.get("operator", "")[3:], []).append(t)
+                who = d.get("operator", "")[3:] if d.get("operator") else                     os.path.basename(p).split(".")[0]           # sync/<ID>.ledger.jsonl rows carry no operator
+                done.setdefault(who, []).append(t)
     for p in sorted(glob.glob(os.path.join(repo, "sync", "*.md"))):
         op = os.path.basename(p)[:-3]
         txt = read(p)
