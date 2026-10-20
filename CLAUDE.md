@@ -35,7 +35,7 @@ Read files in small slices (`grep`, or `offset` and `limit`). The current state 
 
 **Projects.** Change only `.bme` projects. `.bm` files are read-only.
 
-**Writing rules.** State each rule as an action ("do it this way"). Delete a retired rule. A negation of it keeps the old behavior in view. Add an explicit prohibition only when an action keeps harming development despite the positive rule. Write the harm next to the prohibition.
+**Writing rules.** State each rule as an action ("do it this way"). Delete a retired rule. A negation of it keeps the old behavior in view. Add an explicit prohibition only when an action keeps harming development despite the positive rule. Write the harm next to the prohibition. Write each new or changed line of this file in ASD-STE100: short sentences, one instruction per sentence, active voice, and imperative verbs.
 
 ## 3. Task closure
 
@@ -52,32 +52,24 @@ Before you declare a task complete, do these steps:
 
 ## Glossary
 
-For a Glossary term, run its command and read only that section.
+Run the command of a term. Read only that section.
 
 | Term | Meaning | Command |
 |---|---|---|
-| Roles | agent table | `grep -n -A 14 '^### Roles' docs/agents/routing.md` |
-| Readiness Gate | 5-question check | `grep -n -A 14 '^### Readiness Gate' docs/agents/routing.md` |
-| bm-deep | heavy agent rules | `grep -n -A 14 '^### bm-deep' docs/agents/routing.md` |
-| Necessity | score 1-5 | `grep -n -A 14 '^### Necessity' docs/agents/routing.md` |
-| Escalation | closing status | `grep -n -A 14 '^### Escalation' docs/agents/routing.md` |
+| Roles | model and task of each agent (`.claude/agents/`) | `grep -n -A 14 '^### Roles' docs/agents/routing.md` |
+| Readiness Gate | 5 questions to ask before you give a task to `bm-mechanic`, `bm-coder`, or `bm-light`; one "no" sends the task to `bm-planner` | `grep -n -A 14 '^### Readiness Gate' docs/agents/routing.md` |
+| bm-deep | rules for the heavy agent | `grep -n -A 14 '^### bm-deep' docs/agents/routing.md` |
+| Necessity | score 1-5 to declare before you use an expensive model | `grep -n -A 14 '^### Necessity' docs/agents/routing.md` |
+| Escalation | closing status of an agent: `DONE`, `BLOCKED`, or `FAILED x2` | `grep -n -A 14 '^### Escalation' docs/agents/routing.md` |
 | Work Order | order format | `grep -n -A 14 '^### Work Order Format' docs/agents/routing.md` |
 | Ledger | cost rows | `grep -n -A 14 '^### Ledger' docs/agents/routing.md` |
-| Handshake | join a sync | `grep -n -A 14 '^### Handshake' docs/progress/sync.md` |
-| Delivery | hand-over line | `grep -n -A 14 '^### Delivery' docs/progress/sync.md` |
-| Inbox | inbox and ack | `grep -n -A 14 '^### Inbox and check' docs/progress/sync.md` |
-| Heartbeat | beat cost | `grep -n -A 14 '^### Heartbeat cost' docs/progress/sync.md` |
+| Handshake | steps to join a sync | `grep -n -A 14 '^### Handshake' docs/progress/sync.md` |
+| Delivery | steps to hand over a work order | `grep -n -A 14 '^### Delivery' docs/progress/sync.md` |
+| Inbox | inbox file and read confirmation | `grep -n -A 14 '^### Inbox and check' docs/progress/sync.md` |
+| Heartbeat | cost of the beat | `grep -n -A 14 '^### Heartbeat cost' docs/progress/sync.md` |
 | Closeout | CLOSEOUT phases C0-C6 | `grep -n -A 14 '^### Closeout' docs/progress/sync.md` |
-| Sync rules | writers, beat | `grep -n -A 14 '^### Fixed rules' docs/progress/sync.md` |
+| Sync rules | writers and beat | `grep -n -A 14 '^### Fixed rules' docs/progress/sync.md` |
 
-Roles (`.claude/agents/`): `bm-planner` Opus, plans. `bm-coder` Haiku, code from a Work Order. `bm-mechanic` Haiku, zero-risk edits. `bm-light` Sonnet, simple fixes. `bm-deep` Opus xhigh, one critical problem. `bm-research` Haiku, read-only search. `bm-ops` Haiku, shell commands.
+**Autonomy threshold = 4** (user preference). With N = 1 to 3, use the standard model. With N = 4 or 5, switch to the expensive model without asking. State the score and the reason in the chat. To change the threshold, edit this line. The score is an estimate. The ledger gives measured values.
 
-**User preference (autonomy threshold = 4)**: with N=1-3 the expensive model is not used; with N=4 or 5 the agent switches to the expensive model **autonomously**, without asking, stating score and reason in chat. To change the threshold, edit this line. The score is an estimate, not a measurement (measurable with the ledger).
-
-**"Fai handshake `<branch>`"** (from the user) = join the sync of that branch with no further explanation:
-1. `git fetch origin`, then checkout `<branch>` in a separate worktree or clone (not on the working branch) and `git pull --rebase`.
-2. Read `SYNC.md` (roles §1, contracts §2, work orders §3, rules §3b/§3c) and `sync/operators.toml`; work out who the supervisor (SPV) is and which ID is yours (if there is none, propose one to SPV).
-3. Create **only** `sync/<ID>.md` from `sync/_template.md`: status block written with `python tools/sync_hdr.py <ID> --state FREE --task handshake`, `## Profilo` (where you run and breaking points, models, subagents, tools with version) and `## Requisiti` if §2 lists them.
-4. Commit and `git pull --rebase origin <branch> && git push origin HEAD:<branch>`; then wait for the assignment written by SPV in `SYNC.md`. Start work only after that assignment.
-
-**Delivery line** (section `## Consegne` of your own file, then `FREE`): `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}` Before it, close the WO with `python tools/sync_hdr.py <ID> --close <WO> --commit <sha> --tokens T --min M` (appends the row to `sync/<ID>.ledger.jsonl` and prints the `done WO` chat line).
+**"Fai handshake `<branch>`"** (from the user): Act on the branch name alone. Run the Glossary command for Handshake and follow its steps.

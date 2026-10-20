@@ -94,10 +94,18 @@ Searchable with `grep -n -A 14 '^### <Term>' docs/progress/sync.md`. The four ha
 ### Handshake
 Multiple agents (Claude local/cloud, Antigravity, others) work in parallel on a project using the protocol in [`SYNC.md`](SYNC.md) (template; rules and lessons in `docs/progress/sync.md`). Each project has a dedicated **sync branch** `sync/<nome>`: `SYNC.md`, `sync/*` and `tools/sync_hdr.py` live and are pushed only there, never on `bm-core`, so different sync sessions do not touch each other; code lives on working branches from `bm-core`.
 
-The four handshake steps (fetch and checkout, read `SYNC.md`, create `sync/<ID>.md`, commit and push) are in `CLAUDE.md`, section Glossary.
+The user says "Fai handshake `<branch>`". Do these steps:
+1. Run `git fetch origin`. Check out `<branch>` in a separate worktree or clone, so that the working branch stays unchanged. Then run `git pull --rebase`.
+2. Read `SYNC.md`: roles in §1, contracts in §2, work orders in §3, and rules in §3b and §3c. Read `sync/operators.toml`. Find the supervisor (SPV) and your ID. If you have no ID, propose one to SPV.
+3. Create only `sync/<ID>.md`, from `sync/_template.md`. Write the status block with `python tools/sync_hdr.py <ID> --state FREE --task handshake`. Write `## Profilo`: where you run, the limits, the models, the subagents, and the tools with their versions. Write `## Requisiti` if §2 lists requirements.
+4. Commit. Run `git pull --rebase origin <branch>`, then `git push origin HEAD:<branch>`. Wait for the assignment that SPV writes in `SYNC.md`. Start work only after that assignment.
 
 ### Delivery
 a single standard line in the `## Consegne` section of your own file, `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`, then `FREE`; SPV replies `REVIEW: APPROVED|CHANGES REQUESTED` and only then integrates. `DONE` is not a delivery (it is the terminal state). A non-standard signal starts nothing.
+
+1. Close the work order: `python tools/sync_hdr.py <ID> --close <WO> --commit <sha> --tokens T --min M`. The command adds a row to `sync/<ID>.ledger.jsonl` and prints the chat line `done WO`.
+2. Write the delivery line in `## Consegne` of your own file (format above).
+3. Set your state to `FREE`.
 
 ### Inbox and check
 every new task or urgency arrives in `sync/inbox/<ID>.md` (max 5 lines, written by SPV): at every heartbeat read the `git diff` of your inbox, then `python tools/sync_hdr.py <ID> --ack auto` (read confirmation). SPV uses `python tools/sync_check.py` to know who is alive and what has not been read. In the profile declare `--wakeup yes|no` (do you wake up on your own?). Log lines ≤600 characters; a rule change is a `RULE` line to be confirmed with `ack`.
