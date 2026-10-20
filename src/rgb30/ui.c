@@ -1075,7 +1075,8 @@ void ui_home(framebuffer_t *f)
             .tabs = tab_names, .ntabs = 3, .tab = shown, .on_gear = on_gear, .peek_first = 1,
             .subtabs = on_market ? market_pages : NULL, .nsubtabs = on_market ? 2 : 0, .subtab = market_page(),
             .items = items, .n = n, .sel = *s,
-            .prompts = MENU_PROMPTS_RGB30, .confirm_b = pad_ok == PAD_B, .no_monitor = 1,
+            .prompts = MENU_PROMPTS_RGB30, .confirm_b = pad_ok == PAD_B,
+            .ok_btn = pad_ok_name(), .back_btn = pad_back_name(), .no_monitor = 1,
             .y_label = on_market ? (market_page() == MARKET_PAGE_APPS ? "Games" : "Apps") : NULL,
             .idle = menu_idle,
         };

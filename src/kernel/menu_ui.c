@@ -741,9 +741,15 @@ static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[3], con
     }
     const int rgb30 = v->prompts == MENU_PROMPTS_RGB30;  /* the console's own A B X Y */
     int ds = v->prompts != MENU_PROMPTS_PAD && !rgb30;
-    if (rgb30 && b == BTN_B)
-        b = BTN_Y;                              /* the console's back is Y (A is no back) */
-    if (!ds && v->confirm_b && (b == BTN_A || b == BTN_B))
+    if (rgb30) {                                /* the console's OK is B and its back Y unless the player set others */
+        const char *face = b == BTN_A ? v->ok_btn : b == BTN_B ? v->back_btn : NULL;
+        if (b == BTN_B && !face)
+            face = "Y";
+        if (face)
+            b = face[0] == 'A' ? BTN_A : face[0] == 'B' ? BTN_B : face[0] == 'X' ? BTN_X : BTN_Y;
+        else if (v->confirm_b && b == BTN_A)
+            b = BTN_B;
+    } else if (!ds && v->confirm_b && (b == BTN_A || b == BTN_B))
         b = b == BTN_A ? BTN_B : BTN_A;         /* confirm on B */
     switch (b) {
     case BTN_A: case BTN_B: case BTN_X:

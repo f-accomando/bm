@@ -113,7 +113,7 @@ enum {
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
-    R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
+    R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
     R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR, R_ATTR, R_UTILS,
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
     R_CONTROLS, R_CTL_SCROLLER, R_CTL_TOPDOWN, R_CTL_STICK, R_CTL_SYSTEM, R_CTL_KEYS, R_CTL_RESET,
@@ -384,7 +384,8 @@ static int ctl_changed(const char *scheme)
 static void ctl_step(int i, int dir)
 {
     static const char *const cycle[] = { NULL, "a", "b", "x", "y", "l1", "r1", "l2", "r2", "st", "se" };
-    const int n = (int)(sizeof cycle / sizeof cycle[0]);
+    const int menu = !strcmp(controls_scheme(i), "system") && strcmp(controls_code(i), "pa");
+    const int n = menu ? 5 : (int)(sizeof cycle / sizeof cycle[0]);        /* the menus' OK and Cancel: a face button */
     const char *now = controls_get(i);
     int at = 0;
     for (int k = 1; now && k < n; k++)
@@ -392,6 +393,9 @@ static void ctl_step(int i, int dir)
             at = k;
     at = (at + dir + n) % n;
     controls_set(i, cycle[at]);
+#ifdef BM_RGB30
+    pad_config();
+#endif
 }
 
 void home_panel(int id, home_panel_t *p)
@@ -496,9 +500,6 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_ACTION, R_TEST, "Test the buttons",
 #ifdef BM_RGB30
                  "Every button and both sticks, live (Start + Select: back)", NULL);
-        home_row(p, MENU_ROW_CHOICE, R_CONFIRM, "Confirm button",
-                 "The button that says yes; the other goes back (confirm= in bm/config.txt)",
-                 "%s", pad_ok == PAD_A ? "A (B back)" : "B (A back)");
 #else
                  "The buttons each player holds, for 10 s", NULL);
 #endif
@@ -540,6 +541,10 @@ void home_panel(int id, home_panel_t *p)
         for (int i = 0; i < controls_count(); i++) {
             if (strcmp(controls_scheme(i), scheme))
                 continue;
+#ifndef BM_RGB30
+            if (!strcmp(controls_code(i), "mo") || !strcmp(controls_code(i), "mc"))
+                continue;               /* the Pi's menus keep their buttons */
+#endif
             const char *b = controls_get(i);
             if (b)
                 home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Left or right: another button; Default is the game's own",
@@ -1215,12 +1220,6 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     }
 #ifdef BM_RGB30
-    case R_CONFIRM:
-        config_set("confirm", pad_ok == PAD_A ? "b" : "a");
-        config_save();
-        pad_config();
-        ksnprintf(d->note, sizeof d->note, "%s confirms, %s goes back", pad_ok_name(), pad_back_name());
-        break;
     case R_MODES:
         if (how == 0) text(d, x_modes, 0, 1);
         break;

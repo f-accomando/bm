@@ -611,17 +611,24 @@ def test_display_modes(b, opts):
 def test_confirm_button(b, opts):
     """B (the RGB30's lower face button) confirms and Y goes back by
     default: the hints of the Settings panel say so (Open on the B chip, or
-    the A chip with confirm=a in bm/config.txt; Back always on the Y chip) and the
+    the A chip with confirm=a in bm/config.txt, or what mo= and mc= of controls= set;
+    Back on the Y chip) and the
     serial port's Enter presses the confirm button."""
     chips = {}
-    for config, ok, held in ((b"layout=us\n", "B", "00000020"), (b"confirm=a\n", "A", "00000010")):
+    for config, ok, held in ((b"layout=us\n", "B", "00000020"), (b"confirm=a\n", "A", "00000010"),
+                             (b"controls=mo:x mc:a\n", "X", "00000040")):
         tmp = mktmp(prefix="bm64sd-")
         sd = make_sd(tmp, {"bm/config.txt": config})     # no games: Dev is one tab away
         q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
         try:
             boot(q)
             time.sleep(0.4)
-            keys(q, "rr")                      # the Settings panel: Open and Back
+            for _ in range(6):                 # to the Settings tab
+                if "Controllers" in screen_all(q.screendump()):
+                    break
+                keys(q, "r", 0.5)
+            keys(q, "s")
+            keys(q, "w")                       # the Settings panel: Open and Back
             img = q.screendump()
             rows = screen_text(img)
             assert "Open" in rows[21] and "Back" in rows[21], "\n".join(rows)
@@ -638,6 +645,7 @@ def test_confirm_button(b, opts):
             q.close()
     assert chips["B"][0] != chips["A"][0], "confirm=a does not change the chip of Open"
     assert chips["B"][1] == chips["A"][1], "the chip of Back (Y) is the same in both settings"
+    assert chips["X"][0] != chips["B"][0] and chips["X"][1] != chips["B"][1], "controls=mo:x mc:a: the chips of Open (X) and Back (A) change"
 
 
 def test_controls_menu(b, opts):
