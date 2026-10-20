@@ -543,13 +543,13 @@
  "editor-code": {
   "chapters": {
    "1": {
-    "en": "f4891ee38a85",
-    "it": "9a329e7b00d6",
+    "en": "ba8f25287e00",
+    "it": "62c895212e40",
     "title": "What bm Code is"
    },
    "10": {
-    "en": "3a7011387475",
-    "it": "16a80e096a25",
+    "en": "b97545ee983f",
+    "it": "b3e228fcd8f5",
     "title": "Tips and limits"
    },
    "2": {
@@ -563,13 +563,13 @@
     "title": "The screen"
    },
    "4": {
-    "en": "8e2233d21633",
-    "it": "652574b8f4d1",
+    "en": "45490b36dc27",
+    "it": "bc71dae10d47",
     "title": "Editing keys"
    },
    "5": {
-    "en": "a72f8795f553",
-    "it": "8cb17a6486c3",
+    "en": "94646b304e70",
+    "it": "821c314f793f",
     "title": "Completion and the assistant"
    },
    "6": {
@@ -594,10 +594,10 @@
    }
   },
   "sources": {
-   "carts/code/main.lua": "63235604898f",
+   "carts/code/main.lua": "28aad86702e8",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/design/suite-code.md": "212bb27f00d1",
-   "docs/progress/tools.md": "1db22dee08f7",
+   "docs/design/suite-code.md": "9def238703df",
+   "docs/progress/tools.md": "7b96089e4af0",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -736,18 +736,18 @@
     "title": "Opening bm SDK"
    },
    "3": {
-    "en": "b3fd9d36dd25",
-    "it": "dcc7cc5a6e5f",
+    "en": "b68edc35db15",
+    "it": "7222516d704a",
     "title": "The screen"
    },
    "4": {
-    "en": "0f9e63c7ab99",
-    "it": "34f438fb2e43",
+    "en": "df9bf8a3c292",
+    "it": "24b35366250b",
     "title": "Creating a project from a template"
    },
    "5": {
-    "en": "33d12c2c6908",
-    "it": "c8304caf5ccf",
+    "en": "1c3284b1ec4c",
+    "it": "3152f1d70cea",
     "title": "The map editor"
    },
    "6": {
@@ -756,13 +756,13 @@
     "title": "Budgets and the dev kit report"
    },
    "7": {
-    "en": "ee81ba683aae",
-    "it": "d8f30b04dbb1",
+    "en": "f190ab7bb3bf",
+    "it": "b56baea826a2",
     "title": "Building and exporting"
    },
    "8": {
-    "en": "86b0001340c8",
-    "it": "665a68176268",
+    "en": "579b68177179",
+    "it": "d9f8402a93ce",
     "title": "Keys"
    },
    "9": {
@@ -772,10 +772,10 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "8de988e40572",
+   "carts/editor/main.lua": "0548c690b34e",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/design/suite-sdk.md": "ee9451f7a184",
-   "docs/progress/tools.md": "1db22dee08f7",
+   "docs/design/suite-sdk.md": "6a8b4424e3fa",
+   "docs/progress/tools.md": "7b96089e4af0",
    "sdk/README.md": "97ca3fe22090"
   }
  },

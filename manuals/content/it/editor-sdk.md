@@ -71,7 +71,7 @@ A destra, **CONTENTS** mostra cosa c'è nel file: codice (righe, KiB, token), sp
 
 ## Le altre pagine
 
-- **F2, il codice.** Un editor rapido con i colori della sintassi e il numero di token nella riga di stato. Per più di una modifica veloce, premi `1` nella pagina del progetto per aprire bm Code.
+- **F2, il codice.** Un editor rapido con i colori della sintassi e il numero di token nella riga di stato. Per più di una modifica veloce, premi `1` nella pagina del progetto per aprire bm Code. L'aiuto su una funzione dell'API (**Ctrl+Q**) e il controllo dei nomi API sconosciuti al salvataggio sono in bm Code, non in questo editor rapido.
 - **F3, gli sprite.** Lo sheet, la palette e i **flag** della cella scelta (tasti da `0` a `7`). La convenzione dei flag è quella di bmlib: 0 muro, 1 piattaforma, 2 scala, 3 acqua, 4 fa male.
 - **F3 ancora, la mappa.** Vedi il capitolo 5.
 - **F4, il 3D.** I modelli del progetto in una lista e le animazioni di quello scelto. Il tasto `i` scrive nel codice le righe per caricare e disegnare il modello.
@@ -91,6 +91,7 @@ Inizia un nuovo progetto con **Ctrl+N**, con *New project...* nel menu (Esc), op
 | Online 2D | da due a quattro console in rete: una lobby e lockstep |
 | 3D scene | pavimento, cubi, una palla con la sua ombra, una camera che segue |
 | 3D with models | i modelli di bm Studio, animati (bm Animator) |
+| Stages 2D | un titolo, tre livelli, un finale e un miglior tempo salvato |
 
 Un nuovo progetto non è ancora salvato: la pagina del progetto dice `not saved yet` finché non usi **Save as**. Se hai modifiche non salvate, l'SDK dice `unsaved changes: choose the template again to leave them`: scegli di nuovo il template per confermare.
 
@@ -180,6 +181,26 @@ I numeri casuali del gioco vengono dal seme della partita (`lib.rng`), mai da `m
 3. Premi **Esc**, **Save as...**, scrivi un nome e premi Invio.
 4. Premi **F5**. I modelli del progetto girano su un piedistallo; con uno scheletro (bm Animator) eseguono la loro prima animazione. Sinistra e destra cambiano il modello, su e giù lo zoom. Senza modelli si vede un cubo.
 
+## Tutorial: Stages 2D
+
+Un piccolo gioco completo: una schermata del titolo, tre livelli, un finale e un miglior tempo salvato. L'eroe corre e salta come in Platform 2D.
+
+1. Premi **Ctrl+N**. *Stages 2D* è l'ultima riga della lista: premi **su** una volta dalla prima riga, poi **Invio**. La riga di stato dice `new project (Stages 2D)`.
+2. Premi **Esc**, **Save as...**, scrivi un nome e premi **Invio**.
+3. Premi **F3** due volte per vedere la mappa. I tre livelli sono tre fasce di 48 righe una sotto l'altra (righe 0-47, 48-95, 96-143). In ogni fascia il terreno ha dei buchi, ci sono delle assi, e l'uscita (tile 7, una bandiera) è a destra.
+4. Premi **F5**. Il titolo mostra **NEW GAME**; su e giù scelgono, **A** avvia. Quando hai raggiunto il livello 2 o 3, compare una seconda riga **CONTINUE STAGE**.
+5. Gioca: sinistra e destra camminano, **A** salta, **giù** scende attraverso un'asse. In alto a sinistra compaiono il livello, le vite e il tempo.
+6. Cadi in un buco: perdi una vita (ne hai 3) e il livello ricomincia. Senza vite compare **GAME OVER** e **A** torna al titolo.
+7. Raggiungi la bandiera: `STAGE 1 CLEAR`, poi **A** per il livello successivo. Dopo il livello 3 il finale mostra `ALL CLEAR` con il tuo tempo e il miglior tempo. Solo una partita iniziata con **NEW GAME** può stabilire il miglior tempo.
+
+::: note
+Il gioco conserva il miglior tempo e il livello raggiunto con `save()`. Come funzionano i salvataggi è nel manuale dell'API.
+:::
+
+::: try
+Avvicina all'inizio la bandiera del livello 1 (una tile 7 sulla mappa), oppure aggiungi un'asse sopra il primo buco, e premi di nuovo F5.
+:::
+
 # L'editor di mappe
 
 Premi **F3** per vedere gli sprite, poi ancora **F3** per la mappa. Una mappa è fatta di tile dello sprite sheet, su più layer.
@@ -207,6 +228,20 @@ Premi **F3** per vedere gli sprite, poi ancora **F3** per la mappa. Una mappa è
 
 - Una mappa ha al massimo 8 layer: l'SDK dice `a map has at most 8 layers`.
 - La voce di menu *New map layer (n/8)* fa lo stesso di `L` e mostra quanti ne hai.
+
+## Mappe 3D e strumenti per i livelli
+
+Premi **v** nella pagina della mappa per passare tra la modifica 2D e l'**anteprima 3D** in tempo reale.
+
+- **Camera orbitale**: le frecce ruotano (sinistra/destra, imbardata) e ingrandiscono (su/giù, distanza); **Shift+Su** e **Shift+Giù** regolano l'inclinazione.
+- **Template: mappa 3D**: premi **T** (o scegli dal menu) per configurare in automatico i quattro layer 3D canonici: `floor`, `height`, `walls` e `objects`.
+- **Rinomina layer**: premi **r** per rinominare un layer con una finestra di dialogo.
+- **Strumento percorso (`Shift+P`, `Shift+W`)**: premi `Shift+W` per scorrere la larghezza del corridoio da 1 a 5 tile. Premi `Shift+P`, vai alla cella di partenza e premi Invio, poi vai alla cella di arrivo e premi Invio: sul layer `floor` viene disegnato un corridoio largo *N* con la tile attiva.
+- **Strumento fila di mele (`Shift+A`)**: premi `Shift+A`, premi Invio sulla cella di partenza e Invio su quella di arrivo: sul layer `objects` viene messa una linea continua di segnaposto mela (ID 1026).
+- **Piazza casse e lampade (`Shift+C`, `Shift+O`)**: `Shift+C` piazza un segnaposto cassa (ID 1028) sulla cella del cursore nel layer `objects`, e `Shift+O` un segnaposto lampada (ID 1032).
+- **Piazza partenza e arrivo (`Shift+S`, `Shift+G`)**: `Shift+S` piazza il segnaposto di partenza (ID 1024) e `Shift+G` quello di arrivo (ID 1030) sulla cella del cursore.
+- **Barra di stato**: mostra il conteggio di mele, casse e lampade, con una stima del budget di triangoli (pavimento + oggetti).
+- **Annulla**: `u` o `Ctrl+Z` annulla in un solo passo un intero percorso, una fila o un oggetto piazzato.
 
 ## Provalo, passo passo
 
@@ -249,14 +284,15 @@ Premi **F1** nella pagina del progetto, poi ancora **F1**. La seconda pagina è 
 
 - **Ctrl+B**, o *Build the game .bm* nel menu: costruisce il gioco del progetto. Quando il target è `.b16`, costruisce il `.b16` e la voce di menu lo dice.
 - **Ctrl+Shift+B**, o *Export .b16*: esporta il `.b16` qualunque sia il target.
-- Se va a buon fine l'SDK dice `built NAME: it is in Games`.
+- Il gioco viene scritto accanto al progetto. Per un progetto in `/carts` il gioco è in `/carts` e la scheda **Games** elenca i giochi di `/carts`.
+- Se va a buon fine l'SDK dice `built /carts/NAME.BM: it is in Games` (il percorso del gioco).
 
 ## Da sapere
 
 - Un gioco si costruisce dal suo progetto. Se è aperto un gioco, l'SDK ne salva prima la copia modificabile.
 - Portare il target su `.b16` (tasto `b` nella pagina del progetto) cambia lo schermo in `360x360` se non era quadrato, e ti dice il limite di 8 MiB.
 - Il target viene ricordato per ogni file di progetto.
-- Sull'RGB30, esportare un `.b16` da `/carts` lo copia anche in `/bm/`, così compare subito in Games.
+- Sull'RGB30, esportare un `.b16` da `/carts` lo copia anche in `/bm/`, così compare subito in Games. Sull'RGB30 la scheda Games elenca `/bm/` e `/carts`; se il gioco è scritto altrove, la riga di stato aggiunge `(not in the Games tab)`.
 
 ## Attenzione
 
@@ -267,7 +303,7 @@ Premi **F1** nella pagina del progetto, poi ancora **F1**. La seconda pagina è 
 
 1. Apri o crea un progetto e salvalo con **Save as**.
 2. Premi **Ctrl+B**.
-3. Aspetta `built ...: it is in Games`.
+3. Aspetta `built /carts/NAME.BM: it is in Games`.
 4. Esci dall'SDK (Esc, **Exit bm SDK**) e apri la scheda **Games**: il tuo gioco è lì.
 
 ::: copy
@@ -283,9 +319,39 @@ Ctrl+Shift+B    export .b16
 - Il pad: **L1 / R1** cambiano pagina, **Start** apre il menu, **X** apre la lista delle azioni della pagina, **L2 / R2** il colore o la tile precedente o successiva, **ok** e **back** sono B e A (`confirm=a` li scambia).
 - Il testo si scrive con la tastiera su schermo (`padtype`); una tastiera funziona come sul Pi.
 - Un nuovo progetto è 360x360 con il target `.b16`.
+- I template sono gli stessi, *Stages 2D* compreso.
 - **Try**: Start + Select (o Ctrl+Esc) esce dal gioco e l'SDK ritorna.
 - I programmi bm Code, Pixel, Studio, Animator, Mesh e Sound non sono sull'RGB30, quindi *Open in ...* non viene offerto.
-- [DA COMPLETARE: bm SDK (RGB30) provato sulla console; se è pubblicato nel Market, i file del repository non concordano]
+::: warn
+Il pad, lo schermo e il suono di bm SDK (RGB30) sono stati pilotati da tastiera in un emulatore (QEMU) e dai test del repository. **Non sono verificati su un RGB30 vero.**
+:::
+
+- [DA COMPLETARE: bm SDK (RGB30) provato su una console vera con il solo pad; se è pubblicato nel Market, i file del repository non concordano]
+
+## La pagina dei suoni (RGB30)
+
+Premi **F7** per la pagina dei suoni e degli effetti del progetto (sul pad è la pagina dopo *3D*, raggiunta con R1). Lavora sul banco suoni salvato nel progetto. **F7** di nuovo, o **Y + su/giù**, passa da una vista all'altra.
+
+### Suoni
+
+La lista a sinistra ha 32 slot di suono, il pannello a destra i campi del suono scelto: **WAVE**, **VOLUME**, **DUTY**, **ATTACK**, **DECAY**, **SUSTAIN**, **RELEASE**.
+
+- Su e giù scelgono il campo, sinistra e destra cambiano il valore; **PgUp / PgDn** (sul pad: tieni premuto sinistra o destra) lo cambiano di 8 alla volta.
+- `[` e `]` (o `,` e `.`; sul pad **L2 / R2**) scelgono il suono.
+- **Invio** (sul pad **ok**) suona il suono sulla nota A4.
+- `c` svuota il suono.
+- `i` apre *Sounds from a file (Lib)*: prima la lista dei file `.bm` e `.bme` con un banco suoni (da `/carts`, `/bm`, dalla radice della scheda e da `/bm/lib`), poi i suoni del file scelto. Il suono va nel primo slot vuoto; la riga di stato dice `sound N taken from the file`. Se non c'è nulla, dice `no .bm or .bme file with sounds` o `no empty sound slot`.
+
+### Effetti
+
+La vista degli effetti ha 64 effetti da 32 passi ciascuno. Un passo è una nota, il suono che la suona e il suo volume.
+
+- Sinistra e destra scelgono il passo, su e giù ne cambiano la nota (una lettera minuscola è un diesis).
+- **Invio** su un passo vuoto mette una nota (l'ultima nota, con il suono scelto nella vista dei suoni) e la suona; su un passo pieno lo suona.
+- **Backspace** (sul pad **back**) svuota il passo.
+- `+` e `-` cambiano la velocità dell'effetto di 10 ms (da 10 a 500 ms). `p` suona l'intero effetto.
+
+Le modifiche si salvano con il progetto (**Ctrl+S**).
 
 # Tasti
 
@@ -297,6 +363,7 @@ Tieni premuto **F12** nell'SDK per vedere i tasti della pagina in cui sei.
 | F2 | ovunque | il codice |
 | F3 | ovunque | gli sprite; ancora: la mappa |
 | F4 | ovunque | modelli e animazioni 3D |
+| F7 | ovunque (RGB30) | i suoni; ancora: gli effetti |
 | Esc | ovunque | il menu |
 | Ctrl+N | ovunque | un nuovo progetto da un template |
 | Ctrl+O | ovunque | apre una cartuccia |
@@ -324,6 +391,13 @@ Tieni premuto **F12** nell'SDK per vedere i tasti della pagina in cui sei.
 | u | sprite | annulla |
 | 0 - 7 | sprite | un flag della cella |
 | Spazio / Backspace | mappa | piazza la tile / svuota la cella |
+| v | mappa | alterna anteprima 2D / 3D |
+| Shift+P / Shift+W | mappa | strumento percorso (inizio, fine: Invio) / larghezza (1-5) |
+| Shift+A | mappa | strumento fila di mele (inizio, fine: Invio) |
+| Shift+C / Shift+O | mappa | piazza cassa (1028) / piazza lampada (1032) |
+| Shift+S / Shift+G | mappa | piazza la partenza (1024) / l'arrivo (1030) |
+| r | mappa | rinomina il layer |
+| T | mappa | template: layer della mappa 3D |
 | x | mappa | prende la tile |
 | f | mappa | riempie |
 | Tab | mappa | sceglie la tile |
@@ -338,7 +412,15 @@ Tieni premuto **F12** nell'SDK per vedere i tasti della pagina in cui sei.
 | Spazio | 3D | avvia, pausa |
 | q / e, w / s | 3D | ruota, inclina |
 | i | 3D | il codice che disegna il modello |
+| + / - | 3D | zoom |
+| r | 3D | gira da solo |
 | Invio, a, m | 3D | apre in bm Studio, bm Animator, bm Mesh |
+| su / giù, sinistra / destra | suoni (RGB30) | il campo, il valore |
+| [ / ] o , / . | suoni (RGB30) | il suono prima / dopo |
+| Invio | suoni (RGB30) | suona (su un passo vuoto di un effetto: mette una nota) |
+| c / i | suoni (RGB30) | svuota il suono / suoni da un file (Lib) |
+| Backspace | effetti (RGB30) | svuota il passo |
+| + / - / p | effetti (RGB30) | velocità dell'effetto / suona l'effetto |
 
 # Consigli e risoluzione dei problemi
 
