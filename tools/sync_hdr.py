@@ -33,6 +33,17 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 STATES = ("DONE", "WORKING", "WAITING", "FREE")
+
+
+def find_root(sync=None, oid=None):
+    """the checkout that holds sync/ and SYNC.md: --sync, else the checkout of the current directory if it holds sync/<ID>.md, else the tool's own"""
+    if sync:
+        return os.path.abspath(sync)
+    r = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
+    top = os.path.abspath(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip() else None
+    if top and oid and os.path.exists(os.path.join(top, "sync", oid + ".md")):
+        return top
+    return ROOT
 KEYS = ["schema", "id", "state", "task", "waiting_on", "progress", "eta", "wakeup", "ack", "updated"]
 
 
@@ -245,9 +256,12 @@ def main():
     ap.add_argument("--lines", help="code=N,docs=N,data=N")
     ap.add_argument("--commit")
     ap.add_argument("--branch")
-    ap.add_argument("--repo", help="git repo for --commit (default: this repo)")
+    ap.add_argument("--repo", help="git repo for --commit (default: the sync checkout)")
+    ap.add_argument("--sync", help="checkout that holds sync/ and SYNC.md (default: the current checkout if it holds sync/<ID>.md, else this tool's)")
     ap.add_argument("--ledger", help="ledger file (default sync/<ID>.ledger.jsonl)")
     a = ap.parse_args()
+    global ROOT
+    ROOT = find_root(a.sync, a.id)
     if a.close and a.deliver:
         sys.exit("error: --deliver and --close are two ways to close a WO: give one")
     if a.close:

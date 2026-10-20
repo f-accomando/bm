@@ -70,6 +70,64 @@ class T(unittest.TestCase):
         self.assertIn("state: FREE", txt)
         self.assertRegex(r.stdout, r"^done WO XX-1 FREE: 1 files \+3 -0, 1000 tokens, 10 min")
 
+    def test_default_root_is_the_current_checkout(self):
+        # SYNC-EN-11: without --file/--ledger/--repo the file and the ledger are those of the checkout of the cwd
+        os.makedirs(os.path.join(self.d, "sync"))
+        path = os.path.join(self.d, "sync", "OP.md")
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(START + "## Deliveries\n\n## Closing\n")
+        r = subprocess.run([sys.executable, TOOL, "OP", "--deliver", "XX-1", "--branch", "claude/x", "--commit", self.sha,
+                            "--tokens", "1", "--min", "1", "--verify", "t -> ok"], cwd=self.d, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(path, encoding="utf-8") as f:
+            self.assertIn("DELIVERED XX-1 @ claude/x@" + self.sha, f.read())
+        self.assertTrue(os.path.exists(os.path.join(self.d, "sync", "OP.ledger.jsonl")))
+        self.assertFalse(os.path.exists(os.path.join(HERE, "..", "..", "sync", "OP.ledger.jsonl")))
+
+    def _other_sync(self):
+        # a second checkout that holds sync/OP.md; self.d is the code repo
+        o = os.path.join(self.d, "other")
+        os.makedirs(os.path.join(o, "sync"))
+        git(["init", "-q"], o)
+        with open(os.path.join(o, "sync", "OP.md"), "w", encoding="utf-8", newline="") as f:
+            f.write(START + "## Deliveries\n\n## Closing\n")
+        return o
+
+    def _run(self, cwd, *extra):
+        return subprocess.run([sys.executable, TOOL, "OP", "--deliver", "XX-1", "--branch", "claude/x", "--commit", self.sha,
+                               "--tokens", "1", "--min", "1", "--verify", "t -> ok"] + list(extra),
+                              cwd=cwd, capture_output=True, text=True)
+
+    def test_repo_keeps_only_the_commit_meaning(self):
+        # --repo is the code repo; the sync files go to the cwd checkout that holds sync/OP.md
+        o = self._other_sync()
+        r = self._run(o, "--repo", self.d)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(os.path.join(o, "sync", "OP.md"), encoding="utf-8") as f:
+            self.assertIn("DELIVERED XX-1", f.read())
+        self.assertTrue(os.path.exists(os.path.join(o, "sync", "OP.ledger.jsonl")))
+        self.assertFalse(os.path.exists(os.path.join(self.d, "sync", "OP.ledger.jsonl")))
+
+    def test_sync_option_wins(self):
+        o = self._other_sync()
+        r = self._run(self.d, "--sync", o, "--repo", self.d)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(os.path.join(o, "sync", "OP.md"), encoding="utf-8") as f:
+            self.assertIn("DELIVERED XX-1", f.read())
+
+    def test_no_match_falls_back_to_the_tools_checkout(self):
+        import sync_hdr
+        cwd = os.getcwd()
+        try:
+            os.chdir(self.d)        # a git checkout without sync/OP.md
+            self.assertEqual(sync_hdr.find_root(None, "OP"), sync_hdr.ROOT)
+            os.makedirs(os.path.join(self.d, "sync"))
+            open(os.path.join(self.d, "sync", "OP.md"), "w").close()
+            self.assertEqual(os.path.realpath(sync_hdr.find_root(None, "OP")), os.path.realpath(self.d))
+            self.assertEqual(sync_hdr.find_root(self.d, "OP"), os.path.abspath(self.d))
+        finally:
+            os.chdir(cwd)
+
     def test_line_in_italian_section_when_only_that_exists(self):
         self.write("## Consegne\n\n## Chiusura\n")
         r = self.deliver()
