@@ -180,6 +180,7 @@ jobs:
             build/chainloader.img
             build-stress/kernel.img
             build/screen.png
+            build/diag/
           if-no-files-found: ignore
 
   rgb30:

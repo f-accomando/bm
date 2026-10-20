@@ -6920,10 +6920,27 @@ def test_code_completion(b, opts):
         k("\t", 0.4)
         text = see(["  1 function"])
         assert not any("Tab:" in l for l in text), "written: no suggestion left"
+        for _ in range(20):                                 # the grey-blue rest is gone once Tab is done
+            if coloured(GHOST) < 20:
+                break
+            time.sleep(0.25)
         for _ in range(20):                                 # the colour settles a little after the text
             if coloured(PRED) > 20:
                 break
             time.sleep(0.25)
+        if coloured(PRED) <= 20:                            # CI evidence of the rare miss: build/diag/ is uploaded
+            img = q.screendump()
+            w, h, px = img
+            hist = {}
+            for i in range(0, w * 12 * 3, 3):               # the first text row (12 px high)
+                key = tuple(px[i + j] >> 4 << 4 for j in range(3))
+                hist[key] = hist.get(key, 0) + 1
+            top = sorted(hist.items(), key=lambda kv: -kv[1])[:8]
+            print("code-completion miss: GHOST=%d PRED=%d" % (coloured(GHOST), coloured(PRED)))
+            print("first row colours (rgb>>4<<4: pixels):", top)
+            print("screen:\n" + "\n".join(screen_text(img, 6, 12)))
+            os.makedirs("build/diag", exist_ok=True)
+            _save_png(img, "build/diag/code-complete-miss.png")
         assert coloured(PRED) > 20, "what Tab wrote, green"
         shot("written")
         k(" _upd", 0.1)
