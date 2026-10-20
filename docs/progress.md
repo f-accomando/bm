@@ -52,7 +52,9 @@ file ends with *Open work* and *Rules (do not break)*.
 - [reading](progress/reading.md): the search command per big file, then `Read` offset/limit.
 - [runtime](progress/runtime.md): sections of `src/bm/runtime.c` by banner, to grep.
 - [sync](progress/sync.md): multi-agent coordination protocol, states, heartbeats, and workflow findings.
-- [sync-spv](progress/sync-spv.md): sync rules for the SPV (assignments, review, monitoring, closeout phases).
+- [sync-closeout](progress/sync-closeout.md): closeout phases C0-C6, operator states, timeouts, what not to lose.
+- [sync-spv](progress/sync-spv.md): review steps, quick jobs, operators without a direct channel.
+- [sync-labels](progress/sync-labels.md): English and Italian labels of sync files.
 
 ## Reference docs (not progress)
 
