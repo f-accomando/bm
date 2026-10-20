@@ -77,6 +77,7 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
 
 ## Rules (do not break)
 
+- A game reads its buttons through `keymap()` names (`lib.input`); the player's remap (`controls=`, `controls()`) applies to the actions of the declared scheme, so a game that hard-codes a button name ignores it.
 - New or changed API: all four API docs (same tables and examples) and `src/ai/kb/` (entries
   with `title_en:`/`text_en:`), then `make ai-model` and commit `assist.weights`; examples
   and `sdk/README.md` if needed.
