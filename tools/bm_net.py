@@ -352,6 +352,29 @@ def keys_blocked(answer):
     return None
 
 
+def run_game_exit(sock, answer):
+    """--game-exit: Ctrl-backslash (0x1C) to a game, which the runtime reads as Ctrl-Esc (back to the menu); only when
+    the console says its keys go to the application"""
+    m = FOCUS.search(answer)
+    where = m.group(1).decode(errors="replace") if m else ""
+    if not where.startswith("the application"):
+        print(f"[bm_net] the keys go to {where or 'an unknown place'}: --game-exit works in a game only")
+        return 2
+    sock.sendall(b"\x1c")
+    end = time.time() + KEYS_READ
+    while time.time() < end:
+        sock.settimeout(max(end - time.time(), 0.01))
+        try:
+            data = sock.recv(4096)
+        except (socket.timeout, OSError):
+            break
+        if not data:
+            break
+        sys.stdout.write(data.decode(errors="replace"))
+    sys.stdout.flush()
+    return 0
+
+
 def run_keys(sock, seq, answer):
     """--keys: the keys of SEQ one at a time, then what the console prints for a few seconds"""
     if keys_blocked(answer):
@@ -417,6 +440,8 @@ def main():
     ap.add_argument("--line", metavar="LINE",
                     help="run a monitor line (commands separated by ';': gpu, b3d tests=... "
                          "profiles=..., set key=value, send...) and show its output")
+    ap.add_argument("--in-monitor", action="store_true", help="with --keys: only when the monitor has the keys")
+    ap.add_argument("--game-exit", action="store_true", help="end the game running (the Ctrl-backslash byte, the menu is back)")
     ap.add_argument("--keys", metavar="SEQ", help="press the keys of SEQ (letters and digits, at most 8) one by one")
     ap.add_argument("--config", nargs="*", metavar="KEY=VALUE",
                     help="the console's bm/config.txt: shown (secrets hidden), KEY=VALUE sets a key, "
@@ -452,10 +477,22 @@ def main():
     sys.stdout.flush()
     if b"ok - " not in answer:
         return 1
+    if args.game_exit:
+        try:
+            return run_game_exit(sock, answer)
+        finally:
+            sock.close()
     if args.keys is not None:
         if not re.fullmatch(r"[A-Za-z0-9]{1,8}", args.keys):
             print("--keys: letters and digits only, at most 8")
             return 1
+        if args.in_monitor:
+            m = FOCUS.search(answer)
+            where = m.group(1).decode(errors="replace") if m else ""
+            if not where.startswith("the monitor"):
+                print(f"[bm_net] the keys go to {where or 'an unknown place'}: these keys work in the monitor only (keys monitor first)")
+                sock.close()
+                return 2
         try:
             return run_keys(sock, args.keys, answer)
         finally:
@@ -508,4 +545,8 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except OSError as e:        # the console is off, restarting or frozen
+        print(f"[bm_net] the console does not answer ({e}): off, restarting or frozen; try again in a minute")
+        sys.exit(3)
