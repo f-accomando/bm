@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Writes the status block at the top of sync/<ID>.md (--- ... ---) with `updated` taken from the clock (ISO 8601, time zone).
 
-  python3 tools/sync_hdr.py AGY --state WORKING --task "AGY-09 passo 3" [--waiting-on utente] [--progress 40] [--eta 18:00]
+  python3 tools/sync_hdr.py AGY --state WORKING --task "AGY-09 step 3" [--waiting-on user] [--progress 40] [--eta 18:00]
   python3 tools/sync_hdr.py CLD --ack auto           # a heartbeat that also acknowledges the last row of SYNC.md read
   python3 tools/sync_hdr.py CLD --wakeup no          # profile: this agent has no autonomous wake-up (yes | no)
   python3 tools/sync_hdr.py CLD --close WO-3 --commit <sha> --tokens 12000 --min 25 [--read R] [--state FREE|WAITING --waiting-on Y]
@@ -9,9 +9,10 @@
       # `done WO <X> [waiting on <Y> | FREE]: <files> files +<a> -<d>, <N> tokens, <M> min`; the status block is NOT touched.
       # files/add/del/lines come from `git show --numstat <commit>` unless given by hand (--files --add --del --lines code=..,docs=..,data=..).
 
-  python3 tools/sync_hdr.py CLD --closed nessuno --branch claude/x [--commit <sha>]
-      # writes `CLOSED @ <branch>@<commit> · tree clean · aperti: <nessuno|WO ids> · <ISO>` in the `## Chiusura` section
-      # (created before `## Progressi` if missing; an existing CLOSED line is replaced), then applies --state DONE --ack auto.
+  python3 tools/sync_hdr.py CLD --closed none --branch claude/x [--commit <sha>]
+      # writes `CLOSED @ <branch>@<commit> · tree clean · open: <none|WO ids> · <ISO>` in the `## Closing` section
+      # (an existing `## Closing` or `## Chiusura` is reused; else `## Closing` is created before `## Progress`/`## Progressi`;
+      # an existing CLOSED line is replaced), then applies --state DONE --ack auto.
       # --commit defaults to `git rev-parse --short HEAD`.
 
 state: DONE | WORKING | WAITING | FREE;  waiting_on (only with WAITING): utente | Antigravity | Claude cloud | Claude local.
@@ -164,11 +165,11 @@ def close_wo(a):
 
 
 def set_closed(body, line):
-    """Put `line` in the `## Chiusura` section of body (LF text): replace a CLOSED line, else add it; create the section before `## Progressi` (or at the end)."""
-    m = re.search(r"^## Chiusura[ \t]*\n", body, re.M)
+    """Put `line` in the `## Closing` (or `## Chiusura`) section of body (LF text): replace a CLOSED line, else add it; create `## Closing` before `## Progress`/`## Progressi` (or at the end)."""
+    m = re.search(r"^## (?:Closing|Chiusura)[ \t]*\n", body, re.M)
     if not m:
-        sec = "## Chiusura\n\n%s\n\n" % line
-        p = re.search(r"^## Progressi", body, re.M)
+        sec = "## Closing\n\n%s\n\n" % line
+        p = re.search(r"^## Progress", body, re.M)
         if p:
             return body[:p.start()] + sec + body[p.start():]
         return body.rstrip("\n") + "\n\n" + sec.rstrip("\n") + "\n"
@@ -193,7 +194,7 @@ def main():
     ap.add_argument("--wakeup", choices=("yes", "no"), help="does the agent wake itself up (timer, scheduler)?")
     ap.add_argument("--file")
     ap.add_argument("--close", metavar="WO", help="close a work order: ledger row + chat line (status block untouched)")
-    ap.add_argument("--closed", metavar="OPEN", help="write the CLOSED line in ## Chiusura (OPEN: `nessuno` or open WO ids); implies --state DONE --ack auto")
+    ap.add_argument("--closed", metavar="OPEN", help="write the CLOSED line in ## Closing (OPEN: `none` or open WO ids); implies --state DONE --ack auto")
     ap.add_argument("--files", type=int)
     ap.add_argument("--add", type=int)
     ap.add_argument("--del", dest="dele", type=int)
@@ -218,7 +219,7 @@ def main():
             if r.returncode != 0 or not r.stdout.strip():
                 sys.exit("error: --closed needs --commit (git rev-parse failed)")
             commit = r.stdout.strip()
-        closed_line = "CLOSED @ %s@%s · tree clean · aperti: %s · %s" % (a.branch, commit, a.closed, now_stamp())
+        closed_line = "CLOSED @ %s@%s · tree clean · open: %s · %s" % (a.branch, commit, a.closed, now_stamp())
         a.state = "DONE"
         a.ack = a.ack or "auto"
     path = a.file or os.path.join(ROOT, "sync", a.id + ".md")
