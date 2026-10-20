@@ -8,7 +8,7 @@
 
 #include <string.h>
 
-#define MAGIC 0xBA5EC0DFu
+#define MAGIC 0xBA5EC0E0u
 
 typedef struct {
     uint32_t magic;
@@ -192,10 +192,13 @@ const char *crumbs_last(const char **kind, size_t *len)
 
 void crumbs_crashed(void)
 {
+    if (!cr.crashed) {
+        /* the first call only: die() or a nested exception must not overwrite these */
+        cr.ring_at = ring.at;
+        cr.ring_on = (uint32_t)klog_ring_is(ring_putc);
+        klog_set_ring(ring_putc);
+    }
     cr.crashed = 1;
-    cr.ring_at = ring.at;
-    cr.ring_on = (uint32_t)klog_ring_is(ring_putc);
-    klog_set_ring(ring_putc);
     flush();
     dcache_clean_range(&ring, sizeof ring);
 }
