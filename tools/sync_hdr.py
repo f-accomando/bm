@@ -14,7 +14,7 @@
       # (created before `## Progressi` if missing; an existing CLOSED line is replaced), then applies --state DONE --ack auto.
       # --commit defaults to `git rev-parse --short HEAD`.
 
-state: DONE | WORKING | WAITING | IDLE | FREE;  waiting_on (only with WAITING): utente | Antigravity | Claude cloud | Claude local.
+state: DONE | WORKING | WAITING | FREE;  waiting_on (only with WAITING): utente | Antigravity | Claude cloud | Claude local.
 The text of the file is kept; the old lines '**Ultimo aggiornamento:**' and '**Stato:**' are refreshed too, if the file has them.
 Then: git add sync/<ID>.md && git commit && git pull --rebase origin bm-core && git push origin HEAD:bm-core."""
 import argparse
@@ -26,7 +26,7 @@ import subprocess
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-STATES = ("DONE", "WORKING", "WAITING", "IDLE", "FREE")
+STATES = ("DONE", "WORKING", "WAITING", "FREE")
 KEYS = ["schema", "id", "state", "task", "waiting_on", "progress", "eta", "wakeup", "ack", "updated"]
 
 
