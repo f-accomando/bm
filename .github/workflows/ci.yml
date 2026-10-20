@@ -20,6 +20,59 @@ env:
   ZERO2: "0"
 
 jobs:
+  # Decides whether the heavy jobs (qemu, rgb30) are needed. heavy=false only
+  # when every changed file is in the ALLOWLIST below: files no kernel build or
+  # QEMU test reads (docs, manuals, sync files, the audit/ledger scripts). Any
+  # other file, an empty list, a tag or a failed diff gives heavy=true. `host`
+  # always runs (it holds the docs audit).
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      heavy: ${{ steps.diff.outputs.heavy }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          REF: ${{ github.ref }}
+        run: |
+          # ALLOWLIST: paths that cannot affect the qemu and rgb30 jobs.
+          # scripts/ and tools/ are build inputs (mkbm.py, img2mesh.py, ...),
+          # so only the audit/ledger/sync helpers are listed, one by one.
+          allowed() {
+            case "$1" in
+              docs/*|manuals/*|tests/tools/*|sync/*|.claude/*|SYNC.md) return 0 ;;
+              */*) ;;
+              *.md) return 0 ;;
+            esac
+            case "$1" in
+              scripts/agent_audit.py|scripts/ci_audit.py|scripts/consistency.py|scripts/cindex.py) return 0 ;;
+              scripts/ctx_guard.py|scripts/docs_audit.py|scripts/ledger_add.py|scripts/ledger_repeats.py) return 0 ;;
+              scripts/recipe_bench.py|scripts/wsl-run.ps1|scripts/hooks/*) return 0 ;;
+              tools/sync_check.py|tools/sync_hdr.py|tools/sync_watch.py) return 0 ;;
+            esac
+            return 1
+          }
+          heavy=true
+          case "$REF" in
+            refs/tags/*) base="" ;;
+            *) if [ "$EVENT_NAME" = pull_request ]; then base="$PR_BASE"; else base="$PUSH_BEFORE"; fi ;;
+          esac
+          case "$base" in ""|*[!0-9a-f]*|0000000000000000000000000000000000000000) base="" ;; esac
+          if [ -n "$base" ] && files=$(git diff --name-only "$base" HEAD) && [ -n "$files" ]; then
+            heavy=false
+            while IFS= read -r f; do
+              allowed "$f" || { heavy=true; echo "heavy: $f"; break; }
+            done <<< "$files"
+          fi
+          echo "heavy=$heavy"
+          echo "heavy=$heavy" >> "$GITHUB_OUTPUT"
+
   # A tag on a commit whose tests already passed on a branch (bm-core, before
   # the tag): the release goes at once, the tests are not run again.
   tested:
@@ -73,8 +126,8 @@ jobs:
   # The tests in QEMU (make test-qemu), in four groups of about 6 minutes on
   # four machines at once (tests/qemu_test.py --shard).
   qemu:
-    needs: tested
-    if: ${{ !cancelled() && needs.tested.outputs.tested != 'true' }}
+    needs: [tested, changes]
+    if: ${{ !cancelled() && needs.tested.outputs.tested != 'true' && needs.changes.outputs.heavy == 'true' }}
     name: qemu (${{ matrix.shard }}/4)
     # 8.2 = the QEMU version apt gives on ubuntu-24.04: the screen reference hash depends on it; changing runs-on changes the hash.
     runs-on: ubuntu-24.04
@@ -131,8 +184,8 @@ jobs:
   rgb30:
     # bm for the PowKiddy RGB30 (RK3566, AArch64): the console's kernel, and
     # the same kernel for QEMU's virt machine with its tests (rgb30.mk)
-    needs: tested
-    if: ${{ !cancelled() && needs.tested.outputs.tested != 'true' }}
+    needs: [tested, changes]
+    if: ${{ !cancelled() && needs.tested.outputs.tested != 'true' && needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
