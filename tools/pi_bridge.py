@@ -7,7 +7,8 @@ fixed operations without ever seeing the password.
   python3 tools/pi.py line gpu                        # the client (another shell, or Claude)
   python3 tools/pi.py status                          # is the Pi up, which kernel, how did the run before end
 
-Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.TXT and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, reboot: the last ones only when the monitor has the keys), line TEXT (a monitor line: gpu, b3d, ...), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. is NOT allowed.
+Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.TXT and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, reboot: the last ones only when the monitor has the keys), line TEXT (a monitor line: gpu, b3d, ...), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. (words of letters, digits and _-. only).
+One bridge per device: --dev NAME gives the socket ~/.pi_bridge.NAME.sock and the files out/pi_NAME_*.TXT.
 FILE must be inside the repo or in ~/bmk*/ (the build folders); OUT of shot is a .png in a folder there. The socket is ~/.pi_bridge.sock, mode 0600."""
 import datetime
 import getpass
@@ -21,6 +22,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
 SOCK = os.path.expanduser("~/.pi_bridge.sock")
+DEV = ""            # --dev NAME: one bridge per device
 sys.path.insert(0, HERE)
 import bm_net  # noqa: E402  (status asks the greeting of the console)
 # keys the Pi can be told to press, by name (the monitor; the voluntary crashes: X then a/u/b). No free keys.
@@ -47,7 +49,7 @@ def status(host, pw):
     v = bm_net.console_version(host)
     if v is None:
         return "status: down - no answer from %s:%d (off, restarting, frozen, or another client connected)" % (host, bm_net.PORT)
-    out_file = os.path.join(ROOT, "out", "pi_status_BOOTPREV.TXT")
+    out_file = os.path.join(ROOT, "out", "pi_" + (DEV + "_" if DEV else "") + "status_BOOTPREV.TXT")
     os.makedirs(os.path.dirname(out_file), exist_ok=True)
     cmd = [sys.executable, os.path.join(HERE, "bm_net.py"), host, "--get", "bm/BOOTPREV.TXT", out_file]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=dict(os.environ, BM_PASSWORD=pw))
@@ -72,6 +74,9 @@ def run(host, pw, req):
         return status(host, pw)
     if op == "line" and arg and len(arg) < 200 and all(c.isalnum() or c in " _-.=" for c in arg):
         cmd = base + ["--line", arg]
+    elif op == "config" and arg and len(arg) < 200 and all(c.isalnum() or c in " _-.=" for c in arg) \
+            and all(w.count("=") == 1 and not w.startswith("=") for w in arg.split()):
+        cmd = base + ["--config"] + arg.split()
     elif op in ("send", "play", "kernel") and allowed(arg):
         cmd = base + ["--" + op, os.path.realpath(arg)]
     elif op == "shot" and arg.lower().endswith(".png") and allowed_dir(os.path.dirname(arg) or "."):
@@ -81,7 +86,7 @@ def run(host, pw, req):
     elif op == "keys" and arg in KEYS:
         cmd = base + (["--in-monitor"] if arg in MONITOR_ONLY else []) + ["--keys", KEYS[arg]]
     elif op == "logs" and arg in LOGS:
-        out_file = os.path.join(ROOT, "out", "pi_" + LOGS[arg])
+        out_file = os.path.join(ROOT, "out", "pi_" + (DEV + "_" if DEV else "") + LOGS[arg])
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         cmd = base + ["--get", "bm/" + LOGS[arg], out_file]
     else:
@@ -140,7 +145,15 @@ def detach():
 
 
 def main():
+    global SOCK, DEV
     args = sys.argv[1:]
+    if "--dev" in args:
+        i = args.index("--dev")
+        DEV = args[i + 1] if i + 1 < len(args) else ""
+        if not re.fullmatch(r"[a-z0-9]{1,12}", DEV):
+            sys.exit("--dev needs a name of 1-12 letters or digits, for example pizero, pi1, rgb30")
+        del args[i:i + 2]
+        SOCK = os.path.expanduser("~/.pi_bridge.%s.sock" % DEV)
     background = "--detach" in args
     names = [a for a in args if not a.startswith("--")]
     host = names[0] if names else "192.168.1.108"
