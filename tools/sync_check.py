@@ -9,7 +9,9 @@ For every operator of sync/operators.toml (active ones) it reads the status bloc
   - no or broken status block; state not in DONE/WORKING/WAITING/IDLE/FREE;
   - IDLE by rule: WORKING/WAITING more than 10 min past its `eta` without an update, or 60 min without `eta` (never FREE/DONE);
   - unread: a row addressed to the operator is older than 30 min and newer than its `ack`;
-  - a line of `## Consegne` that is not `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: ... · {ISO}`;
+  - a line of `## Deliveries` (`## Consegne`) that is not `DELIVERED {WO-ID} @ {branch}@{commit} · verify: ... · {ISO}` (`verifica:`);
+  - an `ASSIGNED` row `<ID>: WO[, WO...]` whose first undelivered WO is more than TAKE_MIN (10) min old (counted from the row, or
+    from the delivery of the WO before it) while the state is not WORKING or DONE: `<ID>: <WO> assigned <N> min ago, not taken; ...`;
   - the inbox has more than 5 non-empty lines;
   - Log rows longer than 600 characters (ALL rows of the Log, not only the last ones).
 With --closeout (CLOSEOUT, sync/wo/CLOSEOUT.md section 2b) it adds the `closeout` column, the closing state of each operator
@@ -26,8 +28,9 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 STATES = ("DONE", "WORKING", "WAITING", "IDLE", "FREE")
 IDLE_MIN, LATE_MIN, UNREAD_MIN, ROW_MAX, INBOX_MAX = 60, 10, 30, 600, 5
-DELIVERED = re.compile(r"^[-*]?\s*DELIVERED\s+\S+\s+@\s+\S+@\S+\s+[·\-]\s+verifica:\s+.+(?:→|->).+[·\-]\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
-CLOSED = re.compile(r"^[-*]?\s*CLOSED\s+@\s+\S+@\S+\s+·\s+tree clean\s+·\s+aperti:\s+.+·\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
+TAKE_MIN = 10          # minutes an assigned WO may wait before the operator is flagged as not having taken it
+DELIVERED = re.compile(r"^[-*]?\s*DELIVERED\s+\S+\s+@\s+\S+@\S+\s+[·\-]\s+(?:verify|verifica):\s+.+(?:→|->).+[·\-]\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
+CLOSED = re.compile(r"^[-*]?\s*CLOSED\s+@\s+\S+@\S+\s+·\s+tree clean\s+·\s+(?:open|aperti):\s+.+·\s+\d{4}-\d\d-\d\dT\d\d:\d\d")
 SIGNOFF_WAIT_MIN, ETA_GRACE_MIN = 30, 10
 
 
@@ -86,9 +89,11 @@ def rows(path):
 
 
 def consegne(text):
-    """the lines of the ## Consegne section of an operator file"""
-    m = re.search(r"^## Consegne\s*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
-    return [ln.strip() for ln in (m.group(1).splitlines() if m else []) if ln.strip()]
+    """the lines of the ## Deliveries (## Consegne) section of an operator file; both present: joined"""
+    out = []
+    for m in re.finditer(r"^## (?:Deliveries|Consegne)\s*\n(.*?)(?=^## |\Z)", text, re.S | re.M):
+        out += [ln.strip() for ln in m.group(1).splitlines() if ln.strip()]
+    return out
 
 
 def delivered_parts(line):
@@ -127,9 +132,50 @@ def closeout_rows(log):
     return out
 
 
+def delivery_times(text):
+    """{WO-ID: datetime} of the standard DELIVERED lines of an operator file (the last ISO time of the line)"""
+    out = {}
+    for line in consegne(text):
+        p = delivered_parts(line)
+        stamps = re.findall(r"\d{4}-\d\d-\d\dT\d\d:\d\d(?:[+-]\d\d:?\d\d)?", line)
+        if p and stamps:
+            out[p[0]] = iso(stamps[-1])
+    return out
+
+
+def queue_head(oid, log, delivered):
+    """(WO-ID, clock start) of the first WO assigned to `oid` that is not delivered, or None. The WOs come from the ASSIGNED
+    rows whose message is exactly `<oid>: WO[, WO...]` (older free text is ignored), in row order then list order.
+    `delivered` is {WO-ID: delivery time}. The clock starts at the later of the row time and the delivery of the WO before it."""
+    wo_re = r"[A-Za-z0-9][A-Za-z0-9._-]*"      # the IDs `sync_log.py assign` accepts
+    pattern = re.compile(r"%s:\s*%s(?:,\s*%s)*\s*" % (re.escape(oid), wo_re, wo_re))
+    prev = None
+    for t, action, msg in closeout_rows(log):
+        if action != "ASSIGNED" or not pattern.fullmatch(msg):
+            continue
+        for wo in (w.strip() for w in msg.split(":", 1)[1].split(",")):
+            if wo not in delivered:
+                return wo, max(x for x in (t, prev) if x)
+            prev = delivered[wo]
+    return None
+
+
+def untaken(oid, state, log, text, now):
+    """the problem line when the head of the queue of `oid` waits more than TAKE_MIN and the state is not WORKING/DONE, else None"""
+    if oid == "SPV" or state in ("WORKING", "DONE"):
+        return None
+    head = queue_head(oid, log, delivery_times(text))
+    if not head:
+        return None
+    wait = int((now - head[1]).total_seconds() // 60)
+    if wait <= TAKE_MIN:
+        return None
+    return "%s: %s assigned %d min ago, not taken; wake the operator or tell the user" % (oid, head[0], wait)
+
+
 def has_closed_line(text):
-    """True if the ## Chiusura section of an operator file has a valid CLOSED line"""
-    m = re.search(r"^## Chiusura\s*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
+    """True if the ## Closing (## Chiusura) section of an operator file has a valid CLOSED line"""
+    m = re.search(r"^## (?:Closing|Chiusura)\s*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
     return bool(m) and any(CLOSED.match(ln.strip()) for ln in m.group(1).splitlines())
 
 
@@ -238,8 +284,8 @@ def leftovers(log, ops):
     except ImportError:
         out.append("DELIVERED without REVIEW: n/d (tools/spv_brief.py missing)")
     for oid, text in texts.items():                             # CLOSED lines with open items
-        for m in re.finditer(r"^[-*]?\s*CLOSED\b.*?aperti:\s*(.+?)\s*·", text, re.M):
-            if m.group(1).strip().lower() != "nessuno":
+        for m in re.finditer(r"^[-*]?\s*CLOSED\b.*?(?:open|aperti):\s*(.+?)\s*·", text, re.M):
+            if m.group(1).strip().lower() not in ("none", "nessuno"):
                 out.append("%s: closed with open items: %s" % (oid, m.group(1).strip()))
     mine = toml_branches()
     unmerged = git("branch", "-r", "--no-merged", "origin/bm-core")
@@ -393,6 +439,10 @@ def main():
         for line in consegne(text):
             if not line.startswith("(") and not DELIVERED.match(line):
                 problems.append("%s: not a standard delivery line: %s" % (oid, line.strip()[:70]))
+        late = untaken(oid, state, log, text, now)
+        if late:
+            problems.append(late)
+            notes.append("not taken")
         inbox = os.path.join(ROOT, "sync", "inbox", oid + ".md")
         n_in = sum(1 for l in open(inbox, encoding="utf-8") if l.strip()) if os.path.exists(inbox) else 0
         if n_in > INBOX_MAX:

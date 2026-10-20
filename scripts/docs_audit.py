@@ -22,6 +22,8 @@ LOOP = os.path.join(ROOT, ".claude", "docs-loop", "results.tsv")
 INDEX = "docs/progress.md"
 LIMIT_LINES = 120
 P_ORPHAN, P_BROKEN, P_BIG, P_DUP = 500, 300, 200, 50
+CLAUDE_MD_LIMIT = 7500        # bytes; tests/tools/test_claude_glossary.py reads the same constant
+P_CLAUDE = 500
 
 
 def rd(rel):
@@ -82,6 +84,9 @@ def cmd_score(as_json):
     for t, fs in seen.items():
         if len(fs) > 1:
             pen.append((P_DUP, f"duplicated in {', '.join(sorted(fs))}: {t[:50]}…"))
+    claude_bytes = os.path.getsize(os.path.join(ROOT, "CLAUDE.md"))
+    if claude_bytes > CLAUDE_MD_LIMIT:
+        pen.append((P_CLAUDE, f"CLAUDE.md has {claude_bytes} bytes (limit {CLAUDE_MD_LIMIT}): move detail to docs/progress/"))
     entry = [f for f in ("docs/progress.md",) if "docs/progress.md" in rd("CLAUDE.md")]
     if not entry:
         pen.append((2000, "CLAUDE.md does not point to the single index docs/progress.md"))
@@ -89,12 +94,14 @@ def cmd_score(as_json):
     res = {
         "score": round(score), "always_loaded": round(always), "mean_area": round(mean_area),
         "penalty": sum(p for p, _ in pen), "penalties": [m for _, m in pen],
+        "claude_bytes": claude_bytes,
         "files": {f: round(tok(f)) for f in files},
     }
     if as_json:
         print(json.dumps(res, indent=1))
         return
     print(f"score {res['score']}  (always loaded {res['always_loaded']} + mean area {res['mean_area']} + penalties {res['penalty']})")
+    print(f"CLAUDE.md {res['claude_bytes']} bytes (limit {CLAUDE_MD_LIMIT})")
     for f, t in sorted(res["files"].items(), key=lambda x: -x[1])[:6]:
         print(f"  {t:6d} tok  {f}")
     for m in res["penalties"][:15]:

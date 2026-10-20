@@ -1,7 +1,9 @@
 """Every Glossary row of CLAUDE.md names a grep command: its file must exist and hold the heading."""
-import os, re, unittest
+import os, re, sys, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
+from docs_audit import CLAUDE_MD_LIMIT  # noqa: E402  (the limit lives in one place)
 CMD = re.compile(r"`grep -n -A \d+ '\^(#+ [^']+)' (\S+)`")
 
 
@@ -36,7 +38,7 @@ class ClaudeGlossaryTest(unittest.TestCase):
             self.assertTrue(starts, f"{term}: heading '{heading}' not found in {rel}")
 
     def test_size_budget(self):
-        self.assertLessEqual(os.path.getsize(os.path.join(ROOT, "CLAUDE.md")), 7500)
+        self.assertLessEqual(os.path.getsize(os.path.join(ROOT, "CLAUDE.md")), CLAUDE_MD_LIMIT)
 
 
 if __name__ == "__main__":

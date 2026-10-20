@@ -11,24 +11,24 @@ updated: {ISO 8601 with zone}
 ---
 # {ID} — {name}
 
-> **Scrive solo {ID}** (gli altri leggono). Il supervisore (SPV) legge questo file e aggiorna la tabella §1b di `SYNC.md`.
-> Aggiornare il blocco con `python tools/sync_hdr.py {ID} --state ... --task ... [--waiting-on] [--progress] [--eta]`, poi commit e
-> `git pull --rebase origin sync/{nome} && git push origin HEAD:sync/{nome}`. Almeno ogni 15 min e a ogni task conclusa.
+> **Only {ID} writes this file** (the others read it). The supervisor (SPV) reads it and updates table §1b of `SYNC.md`.
+> Update the block with `python tools/sync_hdr.py {ID} --state ... --task ... [--waiting-on] [--progress] [--eta]`, then commit and
+> `git pull --rebase origin sync/{name} && git push origin HEAD:sync/{name}`. Do it at least every 15 min and after each finished task.
 
-## Profilo
-(max 10 righe: dove gira e i suoi punti di rottura, **se si risveglia da solo (timer/scheduler: `--wakeup yes|no`)**, modelli e per cosa, subagent sì/no, competenze e limiti, strumenti con versione)
+## Profile
+(max 10 lines: where you run and your breaking points, **if you wake yourself up (timer/scheduler: `--wakeup yes|no`)**, models and what each is for, subagents yes/no, strengths and limits, tools with version)
 
-## Requisiti
-(solo se `SYNC.md` §2 li elenca: per ciascuno `SÌ`, `NO` o `PARZIALE {nota}`)
+## Requirements
+(only if `SYNC.md` §2 lists them: for each one write `YES`, `NO` or `PARTIAL {note}`)
 
 ## Task
 
-## Consegne
-(una riga per work order finito: `DELIVERED {WO-ID} @ {branch}@{commit} · verifica: {comando} → {risultato} · {ISO}`)
-Prima del DELIVERED: `python tools/sync_hdr.py <ID> --close <WO> --commit <sha> --tokens T --min M` accoda i numeri del WO a `sync/<ID>.ledger.jsonl` (solo tu lo scrivi) e stampa la riga di chat `done WO ...`; non cambia lo stato.
+## Deliveries
+(one line per finished work order: `DELIVERED {WO-ID} @ {branch}@{commit} · verify: {command} → {result} · {ISO}`)
+(close the work order and write the line in one call: `python tools/sync_hdr.py <ID> --deliver <WO> --branch <branch> --commit <sha> --tokens T --min M --verify "command -> result"`. It writes the ledger row, adds the line above, sets the state to FREE and prints the chat line `done WO ...`.)
 
-## Progressi
+## Progress
 
-## Problemi
+## Problems
 
-## Richieste
+## Requests
