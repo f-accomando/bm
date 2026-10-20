@@ -12,7 +12,7 @@ SCRIPT = os.path.join(ROOT, "scripts", "mkapi.py")
 RUNTIME_C = os.path.join(ROOT, "src", "bm", "runtime.c")
 API_TSV = os.path.join(ROOT, "src", "ai", "api.tsv")
 
-UNDOCUMENTED = {"udp_open", "udp_recv"}
+UNDOCUMENTED = set()
 NOT_IN_RUNTIME = {"a", "instrument", "instruments", "nnet"}
 
 
@@ -28,6 +28,8 @@ class MkapiTest(unittest.TestCase):
                 "| `func_a(x)` / `func_b(y)` | description for both |\n"
                 "| `not_a_func` | no parentheses here |\n"
                 "| `func_a(z)` | duplicate entry |\n"
+                "| `s, port = res_open([port])` | result prefix |\n"
+                "| `data, address, port = res_recv(s)` | three results |\n"
             )
             with open(fixture_md, "w", encoding="utf-8") as f:
                 f.write(content)
@@ -39,6 +41,9 @@ class MkapiTest(unittest.TestCase):
             self.assertIn("func_a", entries)
             self.assertIn("func_b", entries)
             self.assertNotIn("not_a_func", entries)
+            self.assertIn("res_open", entries)
+            self.assertIn("res_recv", entries)
+            self.assertEqual(entries["res_open"]["signature"], "s, port = res_open([port])")
             self.assertEqual(entries["func_a"]["text"], "description for both")
             self.assertEqual(entries["func_b"]["text"], "description for both")
 

@@ -11,7 +11,7 @@ LUA_STD = {
     "assert", "error", "ipairs", "pairs", "next", "pcall", "xpcall", "select",
     "tonumber", "tostring", "type", "unpack", "rawget", "rawset", "rawequal",
     "rawlen", "setmetatable", "getmetatable", "require", "collectgarbage",
-    "print", "string", "table", "math", "coroutine", "utf8"
+    "print", "string", "table", "math", "coroutine", "utf8", "loadfile", "dofile"
 }
 
 KEYWORDS = {

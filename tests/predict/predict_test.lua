@@ -90,6 +90,7 @@ check(seen.zzstr == nil and seen.zzsq == nil, "lint: a name inside a string is n
 check(seen.hurt == nil and P.api("hurt") == nil, "lint: a name of scripts/api_lint_allow.txt is known")
 check(seen.lva == nil and seen.lvb == nil, "lint: local a, b defines both names")
 check(seen.blockcall == nil, "lint: a --[[ ]] block comment is not code")
+check(#P.lint({ "loadfile('a')", "dofile('b')" }) == 0, "lint: loadfile and dofile are Lua standard")
 check(#P.lint({ "zz()" }, { defined = { zz = true } }) == 0, "lint: a name given as defined is known")
 
 print(string.format("predict: %d checks, %d failed", checks, fails))

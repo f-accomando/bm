@@ -6965,6 +6965,24 @@ def test_code_api(b, opts):
         expect("code: lint ")
         expect("sprt:1")
         see(["API:", "sprt"])
+
+        def red_gutter():
+            # pixels of the lint colour C_ERR (0xFF6464, 5-6 bit on screen) in the gutter
+            w, h, px = img_ = q.screendump()
+            return sum(1 for y in range(h) for x in range(0, 30)
+                       if pixel(img_, x, y) == (248, 100, 96))
+        for _ in range(20):
+            if red_gutter():
+                break
+            time.sleep(0.25)
+        assert red_gutter(), "lint: no red line number in the gutter"
+        # C: an edit clears the marks
+        k("x", 0.5)
+        for _ in range(20):
+            if not red_gutter():
+                break
+            time.sleep(0.25)
+        assert not red_gutter(), "lint: the gutter mark is still there after an edit"
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)

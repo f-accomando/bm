@@ -346,7 +346,7 @@ end
 local LUA_STD = { "assert", "error", "ipairs", "pairs", "next", "pcall", "xpcall", "select",
                   "tonumber", "tostring", "type", "unpack", "rawget", "rawset", "rawequal",
                   "rawlen", "setmetatable", "getmetatable", "require", "collectgarbage",
-                  "print", "string", "table", "math", "coroutine", "utf8" }
+                  "print", "string", "table", "math", "coroutine", "utf8", "loadfile", "dofile" }
 local LUA_KEYWORDS = { "function", "if", "while", "until", "return", "and", "or", "not",
                        "elseif", "in", "local" }
 
