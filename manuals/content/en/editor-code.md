@@ -26,6 +26,7 @@ bm Code is the code editor of the bm suite. It opens a cartridge, shows its Lua 
 - An assistant on F6 that answers questions and writes code for you.
 - Breakpoints on F8 and the debugger, with F5 to run.
 - Ctrl+Enter plays the code as music (riff).
+- Ctrl+Q (on the pad Y+X) shows the signature and text of the API function under the cursor; on save, names that are not in the API are reported and their line numbers turn red.
 
 ## Why it matters
 

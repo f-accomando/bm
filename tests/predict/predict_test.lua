@@ -40,7 +40,15 @@ check(first("lua", "f") == "function", "code, a line not indented: f -> function
 check(first("lua", "  f") == "for", "code, indented: f -> for")
 local w = first("lua", "  if b")
 check(w == "btn" or w == "btnp", "code: 'if b' -> btn: " .. tostring(w))
-check(P.dict("lua").api.btn ~= nil, "the API's signatures, from the knowledge base")
+check(P.api("btn") ~= nil and P.api("btn").sig:sub(1, 4) == "btn(", "the API's signatures, from api.tsv")
+check(P.api("cls").sig == "cls([c])", "api: the signature of cls")
+check(P.api("cls").text:find("^fills the screen") ~= nil, "api: the text of cls")
+check(P.api("cls").area == "draw", "api: the area of cls")
+check(P.api("nonexistent_xyz") == nil, "api: an unknown name is nil")
+local wr = P.wrap("aa bb cc", 5)
+check(#wr == 2 and wr[1] == "aa bb" and wr[2] == "cc", "wrap: at the spaces")
+wr = P.wrap("abcdefgh", 3)
+check(#wr == 3 and wr[1] == "abc" and wr[2] == "def" and wr[3] == "gh", "wrap: a long word is cut")
 local _, c = first("lua", "spr")
 check(c and c.ending == "(", "an API function ends with its parenthesis")
 check(first({ it = 1, ask = 2 }, "co") == "come", "questions: co -> come")
@@ -67,6 +75,23 @@ for _, t in ipairs(TEXTS) do
   local plain = typist(t.text, { lang = t.lang, autoindent = t.lang == "lua", complete = false })
   check(tabs > 0 and keys < plain, string.format("%s: %d keys with Tab, %d without", t.name, keys, plain))
 end
+
+-- the lint of Lua code: the reports of scripts/api_lint.py
+local sf = assert(io.open("tests/predict/lint_sample.lua", "rb"))
+local sample = sf:read("a")
+sf:close()
+local slines = {}
+for l in (sample .. "\n"):gmatch("([^\n]*)\n") do slines[#slines + 1] = l end
+local hits = P.lint(slines)
+check(#hits == 1 and hits[1].line == 1 and hits[1].name == "sprt", "lint: the sample gives one report, sprt on line 1")
+local seen = {}
+for _, h in ipairs(hits) do seen[h.name] = h.line end
+check(seen.zzstr == nil and seen.zzsq == nil, "lint: a name inside a string is not a call")
+check(seen.hurt == nil and P.api("hurt") == nil, "lint: a name of scripts/api_lint_allow.txt is known")
+check(seen.lva == nil and seen.lvb == nil, "lint: local a, b defines both names")
+check(seen.blockcall == nil, "lint: a --[[ ]] block comment is not code")
+check(#P.lint({ "loadfile('a')", "dofile('b')" }) == 0, "lint: loadfile and dofile are Lua standard")
+check(#P.lint({ "zz()" }, { defined = { zz = true } }) == 0, "lint: a name given as defined is known")
 
 print(string.format("predict: %d checks, %d failed", checks, fails))
 os.exit(fails == 0 and 0 or 1)
