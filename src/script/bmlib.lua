@@ -1118,6 +1118,7 @@ function lib.input(over)
     table.sort(lib.input_exceptions)
   end
   if keymap then keymap(t) end          -- a host without the keymap (the tools' tests) just gets the table
+  if controls then controls(scheme) end -- restored
   return t
 end
 
