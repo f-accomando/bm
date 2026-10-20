@@ -1,6 +1,6 @@
 # Sync protocol
 
-This file defines the rules of the multi-agent sync. Several operators work in parallel on one project. One operator is the supervisor (SPV). Section 2 applies to all operators, SPV included. Section 3 applies to SPV only.
+This file defines the rules of the multi-agent sync. Several operators work in parallel on one project. One operator is the supervisor (SPV). Section 2 applies to all operators, SPV included. Section 3 (`sync-spv.md`) applies to SPV only.
 
 `SYNC.md` is the template of a project: contracts, work orders, and the Log. Copy it for each new project. Archive the copy in `docs/archive/` when the project ends.
 
@@ -21,8 +21,12 @@ This file defines the rules of the multi-agent sync. Several operators work in p
 The user says "Fai handshake `<branch>`" ("Do the handshake"). Act on the branch name alone. Do these steps:
 1. Run `git fetch origin`. Check out `<branch>` in a separate worktree or clone, so that the working branch stays unchanged. Run `git pull --rebase`.
 2. Read `SYNC.md` and `sync/operators.toml`. Find SPV and your ID. If you have no ID, propose one to SPV.
-3. Create only `sync/<ID>.md`, from `sync/_template.md`. Write the status block with `python tools/sync_hdr.py <ID> --state FREE --task handshake --wakeup yes|no`. Write `## Profile`: where you run, the limits, the models, the subagents, and the tools with their versions. Write `## Requirements` if `SYNC.md` lists requirements.
+3. Create only `sync/<ID>.md`, from `sync/_template.md`. Write the status block with `python tools/sync_hdr.py <ID> --state FREE --task handshake --wakeup yes|no`. Write `## Profile` in at most 10 lines: where you run and where you break, the models and what each one does, the subagents (yes or no, which), your strengths and limits, and the tools with their versions. SPV copies `place`, `models`, `subagents`, `strengths`, and `weak_points` into `sync/operators.toml`. Write `## Requirements` if `SYNC.md` lists requirements.
 4. Commit. Run `git pull --rebase origin <branch>`, then `git push origin HEAD:<branch>`. Then wait. SPV assigns no work before the handshake. Start work only when SPV or the user wakes you.
+
+### Wake phrase
+
+The user pastes this into the session of an operator that has no timer (`wakeup no`): "Sei `<ID>` nel sync del branch `<branch>`. Fai handshake `<branch>`. Poi, a ogni mio messaggio: `git fetch origin`, leggi `sync/inbox/<ID>.md`, esegui `python tools/sync_hdr.py <ID> --ack auto`, commit e push. Non iniziare altro lavoro che quello della tua casella; consegna con una riga `DELIVERED ...`." (In English: you are `<ID>` in the sync of branch `<branch>`; do the handshake; then, at each message from me, run a beat; do only the work in your inbox; deliver with a `DELIVERED` row.)
 
 ### States
 
@@ -36,19 +40,57 @@ The user says "Fai handshake `<branch>`" ("Do the handshake"). Act on the branch
 Use no timers. A beat is `git fetch origin` plus reading your inbox. Do these steps in this order for each work order (WO):
 1. Take. When SPV or the user wakes you ("controlla l'inbox", "check the inbox"), run a beat. Then run `python tools/sync_hdr.py <ID> --state WORKING --task <WO-ID> --eta HH:MM`. Commit and push. Do this before any work on the WO.
 2. Work. Do the WO. Keep your main agent available: give long work to subagents. If a third party blocks you, run the same command with `--state WAITING --waiting-on <peer>`, push, and ask in chat. Run it again with `--state WORKING` when the block ends.
-3. Deliver. Run `python tools/sync_hdr.py <ID> --deliver <WO-ID> --commit <sha> --verify "<command> → <result>" --tokens T --min M`. Push after step 4.
+3. Deliver. Run `python tools/sync_hdr.py <ID> --deliver <WO-ID> --branch <branch> --commit <sha> --verify "<command> → <result>" --tokens T --min M` (see Delivery). Push after step 4.
 4. Beat. Run a beat. If your inbox holds another WO, run the command of step 1 for it. Then push once. Write in chat the line that `--deliver` printed: `done WO <X> FREE: <files> files +<a> -<d>, <N> tokens, <M> min`. If your inbox holds no other WO, your state is `FREE`. Wait for a wake.
 5. Review. SPV answers with a `REVIEW` row. After `CHANGES REQUESTED`, do step 1 again before you change any file.
 
-`DONE` is not a delivery. A non-standard signal starts nothing. `tools/sync_watch.py` is optional: it wakes you when your inbox changes. Its cost is in `docs/design/sync-heartbeat-cost.md`.
+`tools/sync_watch.py` is optional (see Heartbeat cost).
+
+### Delivery
+
+`--deliver` writes one row in `## Deliveries` of your own file, in this format, and sets your state to `FREE`:
+
+`DELIVERED {WO-ID} @ {branch}@{commit} · verify: {command} → {result} · {ISO}`
+
+- `--deliver` also adds the cost row to `sync/<ID>.ledger.jsonl` and prints the chat line. `--close <WO>` does the ledger row and the chat line only.
+- `DONE` is not a delivery: it is the last state of a session.
+- SPV answers in the Log with `REVIEW: APPROVED` or `REVIEW: CHANGES REQUESTED`. Only after `APPROVED` is the work ready to integrate.
+- A signal in another form (free text, `DONE {task}`) starts nothing. SPV asks you to write it again as a `DELIVERED` row.
 
 ### Chat
 
-Write in chat only the `done WO` line and a short request when the user must act. Write the status of your work only when the user asks. To contact another operator, ask SPV.
+Write in chat only these lines, and nothing else (no report, no summary):
+- `done WO <X> FREE: <files> files +<a> -<d>, <N> tokens, <M> min` when you finish a WO. Use `waiting on <Y>` in place of `FREE` only when a third party blocks you (for example an answer from SPV), never to name the next WO. If your inbox holds the next WO, close the line without that part. `--deliver` prints this line.
+- A short request when the user must act.
+
+Write one line for each WO, when the WO starts or ends. The status of your work goes in chat only when the user asks. To contact another operator, ask SPV. A problem or a request for help is a pushed row (`WAITING`, `waiting_on`): SPV reads it in the repository. Chat alone does not count.
+
+### Inbox and check
+
+- SPV writes new tasks and urgent notes in `sync/inbox/<ID>.md` (at most 5 lines, one task per line).
+- At each beat, read the `git diff` of your inbox, not the whole Log. Then run `python tools/sync_hdr.py <ID> --ack auto`.
+- `--ack auto` proves that the delivery arrived, not that you understood the row. Whoever acts on a row writes `read <time of the row>` in its own Log or file.
+- `python tools/sync_check.py` checks age, `eta`, `ack`, unread rows, deliveries in a wrong format, inboxes over 5 lines, and Log rows over 600 characters. SPV reports to the user the state that the script prints, with its time.
+- A rule change is a `RULE` row. It binds an operator only after the `ack` of that operator.
+
+### Heartbeat cost
+
+A beat is `git fetch`, a look at the inbox, and `--ack auto`. What costs is who does it. The main agent re-reads the whole conversation at each beat, so give the beat to a small subagent (about 5 to 15 thousand tokens) or to no model. `python tools/sync_watch.py --id <ID> [--branch <sync branch>] [--every 5] [--beat 15] [--wake-cmd "..."]` runs in your own clone. It fetches, compares your inbox and the Log rows addressed to you with the last look, and wakes the model only if something changed (`.sync_wake`, `--wake-cmd`). It writes the heartbeat itself (`updated`, `ack`) and never changes the state or the task. `--once --no-push` is a dry run. Details and costs: `docs/design/sync-heartbeat-cost.md`.
+
+### Fixed rules
+
+- One writer for each file (see "1. Files and branches").
+- Write your status block only with `python tools/sync_hdr.py`. Times are ISO 8601 with the time zone.
+- A Log row has at most 600 characters. Put the rest in the WO or in the inbox.
+- Say `IPOTESI` for a guess. Do not send a guess as an instruction.
+- Declare the limits of your place early (missing toolchain, a container that stops, wifi) in the profile and in the status block.
+- `wakeup yes|no` in the profile says if you wake up on your own. For `no`, SPV gives WOs with an explicit `eta` and says when to call you (see "Wake phrase").
+- `active = false` in `sync/operators.toml` only when an operator leaves the project for good. At the end of a session the block stays `active`.
+- Split a task over 45 minutes into steps of at most 45 minutes. A stand-in file is declared as such; when the real file arrives, check again what used it.
 
 ### Closeout
 
-A session closes only through CLOSEOUT (`SYNC.md` §3b), on the user's request. SPV starts it with `CLOSEOUT DRAIN` or `SIGNOFF <ID>` in your inbox. Then do these steps:
+A session closes only through CLOSEOUT (see "SPV closeout" in `sync-spv.md`), on the user's request. SPV starts it with `CLOSEOUT DRAIN` or `SIGNOFF <ID>` in your inbox. Then do these steps:
 1. Let your own subagents finish. Take no new WO and no new review.
 2. Deliver and push. Your working tree must be clean.
 3. Remove your own clean worktrees and temporary folders.
@@ -57,41 +99,7 @@ A session closes only through CLOSEOUT (`SYNC.md` §3b), on the user's request. 
 
 ## 3. Rules for the SPV
 
-### Assignments
-
-1. Write each WO so that it takes at most 45 minutes. Split larger work into steps, one WO per step. Give an operator with `wakeup no` WOs with an explicit `eta`.
-2. Write the WO file. Push the `ASSIGNED` rows and the inbox lines first. The inbox holds at most 5 lines, so queue at most 5 WOs in the order of execution.
-3. Wake the operator only when it is `FREE`, or when it is new. An operator that is `WORKING` finds the queued WOs at its next beat. Wake the operator yourself when you can (for example with `send_message`). When you cannot, tell the user which operator to wake and the phrase to say: "controlla l'inbox".
-4. Wait for the take (`WORKING` on the WO). Do not poll. When the user wakes you, run `python tools/sync_check.py`. It flags a WO that nobody took within 10 minutes (the operator is not `WORKING`). Then wake the operator again or tell the user.
-
-### Review and integration
-
-1. Review by tier. For code on shared files or the kernel, start an independent subagent for a full review. For documents and mechanical WOs, rerun the verify command and read the diff yourself. The full review checks the scope, reruns the commands (it separates failures that existed before from new failures), reads the code, and gives a result per WO. `SYNC.md` §3c has the details.
-2. Write the `REVIEW` row: `REVIEW: APPROVED` or `REVIEW: CHANGES REQUESTED`. After `CHANGES REQUESTED`, add a correction WO to the inbox of the operator.
-3. Integrate only after `APPROVED`. The user approves the merge into `bm-core`.
-
-### Quick jobs
-
-For a small job on workflow, tools, docs, or project structure that the user asks for in chat, write no WO. Use subagents. The merge into `bm-core` still needs the explicit OK of the user. `src/`, the kernel, games, jobs over 45 minutes, and hardware keep the WO.
-
-### Monitoring
-
-- Read the state of the operators from `python tools/sync_check.py`, never from memory. Run it when the user or a session notice wakes you. Report the status to the user only when the user asks.
-- `STALE` is a note, not a state. The script shows it for an operator that is `WORKING` or `WAITING` more than 10 minutes past its `eta` without an update, or 60 minutes without `eta`. `FREE` and `DONE` are never `STALE`.
-- The script also shows unread rows (a row addressed to an operator is older than 30 minutes and newer than its `ack`) and rows in a wrong format.
-- An operator is blocked and silent when it is `STALE`, or when a row or an inbox line stays unconfirmed for more than 30 minutes and the operator is not `WAITING user`. Tell the user in chat with the ID and the awaited row.
-- To change a rule, write a `RULE` row. The operators confirm it with `ack`.
-
-### Operators without a direct channel
-
-Some operators (for example AGY) cannot be started or messaged by SPV. For each of them, write in chat one self-contained prompt for the user. The prompt has the ID, the sync branch, the handshake, the inbox, the WO, the branch and scope, `--wakeup`, and the delivery command. The user pastes the prompt into the session. For an operator that you start yourself, the prompt is the brief of `start_session`.
-
-### SPV closeout
-
-1. Open CLOSEOUT only when the user asks. Announce it with one `CLOSEOUT` Log row.
-2. Before the `DRAIN` row, tell the user which permissions the operators need, so that the user grants them at once.
-3. Run the phases C0 to C6 (`SYNC.md` §3b). Start each phase only after a script verifies the output of the previous phase: `python tools/sync_check.py --closeout`.
-4. To release an operator at any time, write the Log row `SIGNOFF {ID}: {reason}`.
+The rules for SPV are in [`sync-spv.md`](sync-spv.md): Assignments, Review and integration, Quick jobs, Monitoring, Operators without a direct channel, SPV closeout.
 
 ## Reference: English and Italian labels
 
