@@ -28,8 +28,8 @@ peripherals as device, the rest unmapped. `mmu_set_cached` switches ranges (GPU 
 ### Crashes and freezes (`exceptions.c`, `crumbs.c`, `src/drivers/watchdog.c`)
 Exceptions show a red screen with registers and the call trail. Breadcrumbs and the last 4 KiB
 printed live in `.noinit`, survive a reset and become a report at the next boot
-(`reports_text`), sent once the network is up. Watchdog: meant to be armed at 3 s, but the Pi Zero W boot log
-says "not available, no freeze guard" (see Open work).
+(`reports_text`), sent once the network is up. Watchdog: armed at 3 s (the Pi Zero W boot log says `watchdog: on, 3000 ms`).
+`exception_handler()` sets the crash flag before all other work, so a restart from a hang in the handler is reported as a crash.
 
 ### USB (`src/usb/`)
 Own DWC2 host stack (`dwc2.c`, `usb.c`). HID (`hid.c`): boot keyboards (IT/US layout),
@@ -73,6 +73,7 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 
 ## Open work
 
+- **C4:** the RAM ring stops before the crash (BOOTPREV ends at the netcon prompt). BETA1-C4-RING records `ring_at` and the sink state; read them on the Pi. Details: [beta1-c4-diag.md](beta1-c4-diag.md).
 - To confirm from a boot log on the device: whether a stale association after a reboot was
   part of the missing WiFi (the fix that is in: retries and `wifi_leave()`).
 - **Freeze reports hardware checks (Pi Zero W):** verify real watchdog countdown on hardware (FRZ-3: boot log says "watchdog: on", monitor `X f` restarts within ~3 s with report "the Pi froze last time").
@@ -108,5 +109,7 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 - Transfer port read ops (`netxfer.c`): `G` serves only files of `bm/shots` (one level, no `..`) and the three logs `bm/BOOTPREV.TXT|BOOTLOG.TXT|LASTRUN.TXT` (exact names);
   `T` needs a game drawing frames and gives up after 3 s (`NG`). Details in [system-net](system-net.md).
 - Keys and tokens only in the environment or `bm/config.txt`, never in files.
+- Call `crumbs_crashed()` as the first statement of `exception_handler()` (`src/kernel/exceptions.c`). Harm if moved: a hang before `watchdog_stop()` is reported as a freeze (BETA-1 C4).
+- Clear SCTLR.A as the first step of `exception_handler`. Keep the re-entry guard: a nested exception does not print; it restarts (uptime 20 s or more) or blinks.
 - Tests: `make test-usb`, `test-fat`, `test-net`, `test-https`, `test-http`, `test-lan`,
   `test-github`, `test-release`, `test-catalog`, `test-hyp`; QEMU `-k <name>`.

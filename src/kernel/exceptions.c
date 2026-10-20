@@ -13,11 +13,13 @@
 #include "lib/printf.h"
 #include "lib/heap.h"
 #include "drivers/timer.h"
+#include "arch/cache.h"
 
 #include <stdarg.h>
 
 extern char __text_end[];
 
+static volatile uint32_t exc_depth;   /* nested exceptions: the dump must not recurse */
 static framebuffer_t *panic_fb;
 static uint32_t panic_w, panic_h;       /* the console's mode */
 
@@ -95,7 +97,13 @@ static void __attribute__((noreturn)) die(uint32_t code)
     if (crumbs_uptime_ms() >= 20000) {
         kprintf("Restarting in 60 s: this screen goes out as a report\n");
         const uint32_t t0 = timer_ticks();
+        uint32_t said = 0;
         while (timer_ticks() - t0 < 60u * 1000000u) {
+            const uint32_t s = (timer_ticks() - t0) / 1000000u;
+            if (s / 10u > said) {
+                said = s / 10u;
+                kprintf("restart in %lu s\n", 60u - said * 10u);
+            }
             for (unsigned i = 0; i < code; i++) {
                 led_set(1);
                 timer_delay_ms(200);
@@ -111,6 +119,20 @@ static void __attribute__((noreturn)) die(uint32_t code)
 
 void exception_handler(uint32_t type, exc_frame_t *f)
 {
+    /* trigger_dabt() and any A=1 code leave alignment checks on; the dump uses unaligned accesses (mmu.c runs with A=0) */
+    uint32_t sctlr;
+    __asm__ volatile("mrc p15, 0, %0, c1, c0, 0" : "=r"(sctlr));
+    sctlr &= ~2u;
+    __asm__ volatile("mcr p15, 0, %0, c1, c0, 0" : : "r"(sctlr) : "memory");
+    arm_isb();
+    crumbs_crashed();   /* first: a restart after this point is a crash, not a freeze (BETA-1 C4) */
+    if (exc_depth++) {
+        if (crumbs_uptime_ms() >= 20000) {
+            crumb("nested exception", NULL);
+            watchdog_reboot();
+        }
+        led_blink_code(type);
+    }
     const char *name = type < 8 ? exc_names[type] : "Unknown";
     const char *mode = mode_names[f->spsr & 0xF];
 
