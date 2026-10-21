@@ -233,6 +233,7 @@ typedef struct {
     char name[BM_MODEL_NAME + 1];
     uint16_t x, y, w, h;            /* the first frame, sheet pixels */
     uint8_t frames, fps;            /* the next frames: w x h boxes to the right */
+    uint8_t slices;                 /* 0 for a plain zone; 2..255 for a stack zone (w x h slices to the right) */
 } bm_zone_t;
 
 /* A box of the BOXES section. */

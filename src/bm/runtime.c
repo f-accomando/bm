@@ -737,6 +737,19 @@ static int l_sspr(lua_State *L)
     return 0;
 }
 
+/* the record or the draw of one stack, shared by stack() and zstack() */
+static void stack_draw(const int32_t v[7], const float f[3])
+{
+    int32_t *a;
+    sheet_commit();
+    if (draw2d(D2_STACK, 10, &a)) {
+        memcpy(a, v, 7 * sizeof v[0]);
+        memcpy(a + 7, f, 3 * sizeof f[0]);
+    } else {
+        g16_stack(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6], f[0], f[1], f[2]);
+    }
+}
+
 /* stack(sx, sy, w, h, n, x, y, [rz=0, scale=1, step=1]): sprite stacking, n slices of w x h
  * side by side from (sx, sy); the first is the bottom, centred on (x, y); rz in radians */
 static int l_stack(lua_State *L)
@@ -745,14 +758,7 @@ static int l_stack(lua_State *L)
                            ival(L, 7) };
     const float f[3] = { (float)luaL_optnumber(L, 8, 0), (float)luaL_optnumber(L, 9, 1),
                          (float)luaL_optnumber(L, 10, 1) };
-    int32_t *a;
-    sheet_commit();
-    if (draw2d(D2_STACK, 10, &a)) {
-        memcpy(a, v, sizeof v);
-        memcpy(a + 7, f, sizeof f);
-    } else {
-        g16_stack(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6], f[0], f[1], f[2]);
-    }
+    stack_draw(v, f);
     return 0;
 }
 
@@ -1035,8 +1041,8 @@ static int zone_arg(lua_State *L, int idx, bm_zone_t *z)
     return i;
 }
 
-/* zone(name) -> x, y, w, h, frames, fps: where the zone is in the sheet (its
- * first frame), or nil */
+/* zone(name) -> x, y, w, h, frames, fps, slices: where the zone is in the sheet (its
+ * first frame), or nil; slices is 0 for a plain zone */
 static int l_zone(lua_State *L)
 {
     const char *name = luaL_checkstring(L, 1);
@@ -1052,7 +1058,8 @@ static int l_zone(lua_State *L)
     lua_pushinteger(L, z.h);
     lua_pushinteger(L, z.frames);
     lua_pushinteger(L, z.fps);
-    return 6;
+    lua_pushinteger(L, z.slices);
+    return 7;
 }
 
 /* strnlen (POSIX, not C11: bmhost builds this file as C11) */
@@ -1155,6 +1162,21 @@ static int l_zspr(lua_State *L)
     l_sspr(L);
     lua_pushinteger(L, f + 1);
     return 1;
+}
+
+/* zstack(name, x, y, [rz=0, scale=1]): draws a stack zone (a zone with slices) as stack() does,
+ * with the step 1; a zone without slices is an error */
+static int l_zstack(lua_State *L)
+{
+    bm_zone_t z;
+    zone_arg(L, 1, &z);
+    if (z.slices < 2)
+        return luaL_error(L, "zstack: the zone \"%s\" has no slices (a stack zone is \"stack name x y w h n\")",
+                          z.name);
+    const int32_t v[7] = { z.x, z.y, z.w, z.h, z.slices, ival(L, 2), ival(L, 3) };
+    const float f[3] = { (float)luaL_optnumber(L, 4, 0), (float)luaL_optnumber(L, 5, 1), 1.0f };
+    stack_draw(v, f);
+    return 0;
 }
 
 static int l_sget(lua_State *L)
@@ -4765,7 +4787,7 @@ static int l_quit(lua_State *L)
 static const luaL_Reg api[] = {
     { "cls", l_cls }, { "pset", l_pset }, { "pget", l_pget }, { "line", l_line },
     { "rect", l_rect }, { "rectfill", l_rectfill }, { "circ", l_circ }, { "circfill", l_circfill },
-    { "spr", l_spr }, { "sspr", l_sspr }, { "stack", l_stack }, { "map", l_map }, { "mget", l_mget }, { "mset", l_mset },
+    { "spr", l_spr }, { "sspr", l_sspr }, { "stack", l_stack }, { "zstack", l_zstack }, { "map", l_map }, { "mget", l_mget }, { "mset", l_mset },
     { "fget", l_fget }, { "fset", l_fset }, { "mflags", l_mflags }, { "msize", l_msize },
     { "mlayers", l_mlayers }, { "zone", l_zone }, { "zones", l_zones }, { "zspr", l_zspr },
     { "zboxes", l_zboxes },

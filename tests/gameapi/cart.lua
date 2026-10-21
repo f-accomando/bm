@@ -80,11 +80,13 @@ local function map_api()
   check(not pcall(msize, 0, 10), "msize(0, h): an error")
 
   -- the named zones (sprites.txt)
-  check(same(zones(), { "coin", "big" }), "zones()")
+  check(same(zones(), { "coin", "big", "rgb" }), "zones()")
   local x, y, zw, zh, fr, fps = zone("coin")
   check(x == 0 and y == 8 and zw == 8 and zh == 8 and fr == 3 and fps == 10, "zone(coin)")
   local bx, by, bw, bh, bf, bfps = zone("big")
   check(bx == 0 and by == 16 and bw == 16 and bh == 16 and bf == 1 and bfps == 0, "zone(big)")
+  local _, _, _, _, _, _, sl = zone("rgb")
+  check(select(7, zone("coin")) == 0 and select(7, zone("big")) == 0 and sl == 3, "zone(): slices (0 for a plain zone)")
   check(zone("none") == nil and not pcall(zspr, "none", 0, 0), "an unknown zone")
   -- their hitboxes and hurtboxes (zboxes: the boxes under the zones)
   local all = zboxes("coin")
@@ -153,6 +155,45 @@ local function draw_checks()
   stack(8, 0, 8, 8, 0, 300, 300)
   check(pget(0, 0) == RED and pget(3, 3) == RED and pget(4, 4) == 0 and pget(300, 300) == 0,
         "stack: at the edge of the screen, and n = 0 draws nothing")
+  -- NaN and inf from Lua draw nothing
+  cls(0)
+  stack(8, 0, 8, 8, 3, 100, 100, 0 / 0, 1, 1)
+  stack(8, 0, 8, 8, 3, 100, 100, 0, math.huge, 1)
+  stack(8, 0, 8, 8, 3, 100, 100, 0, 1, math.huge)
+  stack(8, 0, 8, 8, 3, 100, 100, -math.huge)
+  check(pget(96, 103) == 0 and pget(100, 100) == 0, "stack: NaN and inf draw nothing")
+  -- a slice outside the sheet is skipped; scale <= 0 or > 64 draws nothing
+  cls(0)
+  stack(8, 0, 8, 8, 2, 100, 100, 0, 0)
+  stack(8, 0, 8, 8, 2, 100, 100, 0, -1)
+  stack(8, 0, 8, 8, 2, 100, 100, 0, 65)
+  stack(60, 0, 8, 8, 1, 100, 100)
+  check(pget(96, 103) == 0 and pget(100, 100) == 0, "stack: scale <= 0 or > 64, and a slice off the sheet")
+  -- zstack(): the stack zone "rgb" (slices 8x8 at (8, 0)), the same as stack() with step 1
+  local function grab(x0, y0, x1, y1)
+    local t = {}
+    for yy = y0, y1 do for xx = x0, x1 do t[#t + 1] = pget(xx, yy) or -1 end end
+    return t
+  end
+  cls(0)
+  zstack("rgb", 100, 100)
+  check(pget(96, 103) == RED and pget(96, 102) == GREEN and pget(96, 101) == BLUE and pget(96, 94) == BLUE
+        and pget(96, 93) == 0 and pget(104, 100) == 0, "zstack: position, the upper slice over the lower")
+  for _, a in ipairs({ { 0.7, 1 }, { 1.2, 2 } }) do
+    cls(0)
+    stack(8, 0, 8, 8, 3, 150, 100, a[1], a[2], 1)
+    local want = grab(100, 60, 200, 140)
+    cls(0)
+    zstack("rgb", 150, 100, a[1], a[2])
+    check(same(grab(100, 60, 200, 140), want), "zstack: rotation " .. a[1] .. " scale " .. a[2] .. " as stack()")
+  end
+  cls(0)
+  zstack("rgb", 150, 100, math.pi / 2)
+  check(pget(146, 103) == RED and pget(153, 103) == RED and pget(150, 70) == 0, "zstack: drawn turned")
+  check(not pcall(zstack, "coin", 10, 10) and not pcall(zstack, "big", 10, 10) and not pcall(zstack, "none", 10, 10),
+        "zstack: a zone without slices, or none, is an error")
+  local _, msg = pcall(zstack, "coin", 10, 10)
+  check(tostring(msg):find("no slices", 1, true) ~= nil, "zstack: the error says there are no slices")
   local f = zspr("coin", 0, 0)                 -- by the clock: 10 frames a second
   check(f == math.floor(time() * 10) % 3 + 1, "zspr animated by time()")
   -- a camera in a player's view (lib.split): drawing stays in the view
@@ -187,7 +228,8 @@ local function save_checks()
   check(p and same(p.layers, { "main", "front", "extra" }), "cart_load: the layers' names")
   check(mget(3, 3, "extra") == 7 and mget(5, 5, "front") == 4 and mget(0, 20) == 1, "cart_load: the layers' cells")
   check(fget(5, 7) and fget(1) == 1 and fget(3) == 4, "cart_load: the flags")
-  check(same(zones(), { "coin", "big" }), "cart_load: the zones")
+  check(same(zones(), { "coin", "big", "rgb" }), "cart_load: the zones")
+  check(select(7, zone("rgb")) == 3 and select(7, zone("coin")) == 0, "cart_load: the slices of a stack zone")
   check(#zboxes("coin") == 2 and zboxes("big")[1].x == -2, "cart_load: the boxes")
   -- cart_write(sheet = true) writes the flags changed since
   fset(6, 2, true)

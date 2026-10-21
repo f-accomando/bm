@@ -78,7 +78,7 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 
 - V3D (bm3D 3.0-7.3) on the Pi Zero W: [v3d](v3d.md).
 - Mali-G52 driver: [graphics-mali](graphics-mali.md) (the triangle to run on the device).
-- Sprite stacking: `stack()` is done (`g16_stack` in `gfx16.c`, CPU only, no memory per stack; Pi speed not measured). Not done: `zstack`, `stackv`, the bm Pixel page, the mesh.
+- Sprite stacking: `stack()`, stack zones (`stack name x y w h n` in the zones file, `zone()` 7th value) and `zstack()` are done (`g16_stack` in `gfx16.c`, CPU only, no memory per stack; Pi speed not measured). Not done: `stackv`, the bm Pixel page, the mesh conversion, the Pi speed.
 - QPU programs outside 3D (particles, full-screen 2D effects) — not started.
 
 ## Rules (do not break)
