@@ -7625,8 +7625,7 @@ def test_projects(b, opts):
         q.expect("menu: copied /carts/pong.bm to /carts/PONG.BME", timeout=20)
         screen(["PONG.BME is a project"])
         keys("3", gap=0.6)                        # Dev: the tools only, no row for the project
-        joined = screen(["bm SDK"])
-        assert "Project" not in joined and "/carts/PONG.BME" not in joined, joined     # no cover, no info line
+        screen(["bm SDK"])
         shot("dev")
         keys("\r", gap=1.5)                       # bm SDK, the first row
         keys("\x0f", gap=1.0)                     # Ctrl+O: the SDK's list of files
@@ -7643,6 +7642,13 @@ def test_projects(b, opts):
         keys("\x1b[A", gap=0.3)                  # Exit bm SDK
         keys("\r", gap=0.5)
         screen(["last: SDK"], tries=80)
+        # the walk of the old test (8 down, 8 right) ends on the project when the tab lists it: here on a tool
+        for _ in range(8):
+            keys("s", gap=0.15)
+        for _ in range(8):
+            keys("d", gap=0.15)
+        joined = screen(["Dev"])
+        assert "Project" not in joined and "/carts/PONG.BME" not in joined, joined
         keys("2", gap=0.6)                        # Games: the two Pongs, the build among them
         screen(["Pong"])
     finally:

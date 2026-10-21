@@ -850,7 +850,7 @@ static int is_suspended(const cart_t *c)
 
 /* The options of a cartridge (X on its cover): a panel like the settings. */
 enum { C_PLAY = 100, C_CLOSE, C_SDK, C_SOUND, C_STUDIO, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
-       C_DEL_SAVE, C_DELETE, C_CODE, C_MESH, C_PIXEL, C_ANIMATOR, C_PUBLISH, C_SEND, C_COPY, C_BUILD,
+       C_DEL_SAVE, C_DELETE, C_CODE, C_MESH, C_PIXEL, C_ANIMATOR, C_PUBLISH, C_SEND, C_COPY,
        C_BUILD_B16 };
 
 static int opt_cart;            /* the cartridge of the HOME_CART panel */
@@ -895,10 +895,9 @@ static void cart_panel(home_panel_t *p)
     const cart_t *c = &carts[opt_cart];
     memset(p, 0, sizeof *p);
     ksnprintf(p->title, sizeof p->title, "%s", c->title);
-    int susp = is_suspended(c), proj = is_project(c);
-    home_row(p, MENU_ROW_ACTION, C_PLAY, susp ? "Resume" : proj ? "Try it" : "Play",
-             susp ? "Back to the point where the game was left" : proj ? "Plays the project as it is saved"
-                                                                     : "Start the game", NULL);
+    int susp = is_suspended(c);        /* the tabs list no project (D44): a panel is always a game's */
+    home_row(p, MENU_ROW_ACTION, C_PLAY, susp ? "Resume" : "Play",
+             susp ? "Back to the point where the game was left" : "Start the game", NULL);
     if (susp)
         home_row(p, MENU_ROW_ACTION, C_CLOSE, "Close the game",
                  "Ends the suspended game: what was not saved is lost", NULL);
@@ -917,20 +916,13 @@ static void cart_panel(home_panel_t *p)
                  "Its meshes, also those its code builds: vertices, faces; to models or to code", NULL);
         home_row(p, MENU_ROW_ACTION, C_PIXEL, "Open in bm Pixel",
                  "Its sprite sheet: pixel art, palette, animation; the rest stays as it is", NULL);
-        if (proj) {
-            home_row(p, MENU_ROW_ACTION, C_BUILD, "Build the game (.bm)",
-                     "Its game, in Games: it replaces the last build", NULL);
+        home_row(p, MENU_ROW_ACTION, C_COPY, "Make an editable copy",
+                 "Games are read only: open the copy (.bme) from an editor", NULL);
+        if (strcmp(kind_of(c), "b16") != 0)
             home_row(p, MENU_ROW_ACTION, C_BUILD_B16, "Export .b16",
-                     "Its .b16 edition (up to 8 MiB), in Games: never replaces .bm", NULL);
-        } else {
-            home_row(p, MENU_ROW_ACTION, C_COPY, "Make an editable copy",
-                     "Games are read only: the copy (.bme) goes to Dev", NULL);
-            if (strcmp(kind_of(c), "b16") != 0)
-                home_row(p, MENU_ROW_ACTION, C_BUILD_B16, "Export .b16",
-                         "Exports a .b16 edition (up to 8 MiB) without changing the .bm", NULL);
-            home_row(p, MENU_ROW_ACTION, C_PUBLISH, "Publish to the Market",
-                     "A pull request with your GitHub token: everyone can get it", NULL);
-        }
+                     "Exports a .b16 edition (up to 8 MiB) without changing the .bm", NULL);
+        home_row(p, MENU_ROW_ACTION, C_PUBLISH, "Publish to the Market",
+                 "A pull request with your GitHub token: everyone can get it", NULL);
         home_row(p, MENU_ROW_ACTION, C_SEND, "Send to a nearby console",
                  "To a console on this network with the Market tab open", NULL);
     }
@@ -940,8 +932,8 @@ static void cart_panel(home_panel_t *p)
              "%s", c->path);
     home_row(p, MENU_ROW_INFO, C_SIZE, "Size", "The whole cartridge",
              "%lu KiB", (c->size + 1023) / 1024);
-    home_row(p, MENU_ROW_INFO, C_TYPE, "Type", proj ? "A project: the tools change it" : "Lua 5.4 on bm", "%s",
-             proj ? "bme (project)" : !strcmp(kind_of(c), "b16") ? "b16 (handheld)" : "bm (native)");
+    home_row(p, MENU_ROW_INFO, C_TYPE, "Type", "Lua 5.4 on bm", "%s",
+             !strcmp(kind_of(c), "b16") ? "b16 (handheld)" : "bm (native)");
     char v[40];
     if (opt_save >= 0 && opt_slots > 1)
         ksnprintf(v, sizeof v, "%ld bytes in %d slots", opt_save, opt_slots);
@@ -972,7 +964,6 @@ static void cart_act(int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "closed %s", c->name);
         break;
     case C_COPY:
-    case C_BUILD:
     case C_BUILD_B16: {
         char to[96], err[64];
         background_stop();
@@ -981,10 +972,8 @@ static void cart_act(int row, int how, home_do_t *d)
             ksnprintf(err, sizeof err, "no free name");
         else if (row == C_COPY)
             r = bm_make_copy(c->path, to, err, sizeof err);
-        else if (row == C_BUILD_B16)
-            r = bm_build_b16(c->path, to, sizeof to, err, sizeof err);
         else
-            r = bm_build(c->path, to, sizeof to, err, sizeof err);
+            r = bm_build_b16(c->path, to, sizeof to, err, sizeof err);
         if (r == 0) {
             const char *slash = strrchr(to, '/');
             ksnprintf(d->note, sizeof d->note, row == C_COPY ? "%s is a project (SDK: Open)" : "%s is in Games",
@@ -1231,7 +1220,7 @@ void carts_menu(framebuffer_t *fb)
                 items[i] = (menu_item_t){ .title = c->title, .author = c->author, .path = c->path, .kind = kind_of(c),
                                           .size = c->size, .cover = c->cover.px ? &c->cover : NULL,
                                           .loading = !c->cover_read, .running = is_suspended(c),
-                                          .badge = is_project(c) ? "Project" : NULL };
+                                          .badge = NULL };
                 /* a file from the PC on its way (bm_net.py --send) */
                 const int up = netxfer_updating(c->path);
                 if (up) {
