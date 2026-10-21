@@ -34,7 +34,7 @@ Uno strumento non sovrascrive mai il tuo gioco per sbaglio. Modifichi il progett
 ## Da sapere
 
 - Uno strumento che salva un gioco chiede prima: *Save an editable copy: NAME.BME?* La copia va accanto al gioco (`NAME.BME`, oppure `NAME1.BME` se il nome è occupato).
-- Nel menu, *Make an editable copy* è nelle opzioni di un gioco. Il progetto va nella scheda Dev con il badge "Project". A su un progetto lo apre nell'SDK.
+- Nel menu, *Make an editable copy* è nelle opzioni di un gioco. Il progetto non è nelle schede del menu: aprilo dall'SDK con *Open* (**Ctrl+O**).
 - *Build the game (.bm)* è nelle opzioni di un progetto. Nell'SDK il tasto è **Ctrl+B**.
 - Una compilazione scrive il gioco accanto al progetto, con il nome del progetto salvato all'offset 104 dell'intestazione. La compilazione successiva sostituisce quel gioco e solo quello. Un gioco con lo stesso nome che non è stato compilato dal progetto resta, e il nuovo prende una cifra (`PONG1.BM`).
 - Il `.bm` e il `.b16` sono edizioni separate. Un `.b16` non sostituisce mai il `.bm`, e i sorgenti del `.bm` non vengono mai sovrascritti per fare il `.b16`.
@@ -50,8 +50,8 @@ Uno strumento non sovrascrive mai il tuo gioco per sbaglio. Modifichi il progett
 
 1. Sulla console apri la scheda Giochi e seleziona un gioco.
 2. Premi **X** sul pad dell'RGB30 (**C** sul Pi) per aprire le sue opzioni e scegli *Make an editable copy*.
-3. Apri la scheda Dev. Vedi il progetto con il badge "Project".
-4. Premi **A** sul progetto. Si apre nell'SDK.
+3. Apri la scheda Dev e avvia **bm SDK**. La scheda non elenca i progetti.
+4. Nell'SDK premi **Ctrl+O** e scegli il progetto.
 5. Nell'SDK premi **Ctrl+B** (*Build the game .bm*). Il gioco compare nella scheda Giochi.
 
 ![Le opzioni di un gioco, con Make an editable copy](shots/api-tools-editable-copy.png)

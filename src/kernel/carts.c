@@ -573,7 +573,7 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
     }
 }
 
-/* a project (.bme): in the Dev tab, A opens it in the SDK */
+/* a project (.bme): not listed in the tabs; the editors open it (Open) */
 static int is_project(const cart_t *c)
 {
     return !c->builtin && bm_is_project(c->name);
@@ -836,12 +836,9 @@ static int tab_items(int tab, int *idx)
     for (int i = 0; i < ncarts; i++)
         if (is_dev(&carts[i]) == (tab == TAB_DEV) && !is_project(&carts[i]))
             idx[n++] = i;
-    if (tab == TAB_DEV) {
+    if (tab == TAB_DEV) {               /* the projects are not listed: the editors open them (Open) */
         for (int t = 0; t < home_tools() && n < MAX_CARTS + 16; t++)
             idx[n++] = -1 - t;
-        for (int i = 0; i < ncarts && n < MAX_CARTS + 16; i++)     /* the projects, after the tools */
-            if (is_project(&carts[i]))
-                idx[n++] = i;
     }
     return n;
 }
@@ -990,7 +987,7 @@ static void cart_act(int row, int how, home_do_t *d)
             r = bm_build(c->path, to, sizeof to, err, sizeof err);
         if (r == 0) {
             const char *slash = strrchr(to, '/');
-            ksnprintf(d->note, sizeof d->note, row == C_COPY ? "%s is in Dev" : "%s is in Games",
+            ksnprintf(d->note, sizeof d->note, row == C_COPY ? "%s is a project (SDK: Open)" : "%s is in Games",
                       slash ? slash + 1 : to);
             kprintf("menu: %s %s to %s\n", row == C_COPY ? "copied" : "built", c->path, to);
             d->what = HOME_BACK;            /* the menu reads the SD card again */

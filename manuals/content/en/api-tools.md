@@ -34,7 +34,7 @@ Your game is never overwritten by a tool by accident. You edit the project, and 
 ## Good to know
 
 - A tool that saves a game asks first: *Save an editable copy: NAME.BME?* The copy goes next to the game (`NAME.BME`, or `NAME1.BME` if that name is taken).
-- In the menu, *Make an editable copy* is in a game's options. The project goes to the Dev tab with a "Project" badge. A on a project opens it in the SDK.
+- In the menu, *Make an editable copy* is in a game's options. The project is not listed in the menu tabs: open it from the SDK with *Open* (**Ctrl+O**).
 - *Build the game (.bm)* is in a project's options. In the SDK the key is **Ctrl+B**.
 - A build writes the game next to the project, with the project's name stored at offset 104 of the header. The next build replaces that game and only that one. A game of the same name that it did not build stays, and the new one takes a digit (`PONG1.BM`).
 - The `.bm` and the `.b16` are separate editions. A `.b16` never replaces the `.bm`, and the `.bm` sources are never overwritten to make a `.b16`.
@@ -50,8 +50,8 @@ Your game is never overwritten by a tool by accident. You edit the project, and 
 
 1. On the console, open the Games tab and select a game.
 2. Press **X** on the RGB30 pad (**C** on the Pi) to open its options and choose *Make an editable copy*.
-3. Open the Dev tab. You see the project with a "Project" badge.
-4. Press **A** on the project. It opens in the SDK.
+3. Open the Dev tab and start the **bm SDK**. The tab does not list projects.
+4. In the SDK press **Ctrl+O** and choose the project.
 5. In the SDK press **Ctrl+B** (*Build the game .bm*). The game appears in the Games tab.
 
 ![The options of a game, with Make an editable copy](shots/api-tools-editable-copy.png)

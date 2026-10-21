@@ -45,7 +45,7 @@ menu / RGB30 ui / monitor / bmhost
 |---|---|---|
 | What | `.bm` / `.b16` cartridges in `/carts` (Pi) or `/bm` (RGB30), from the Market or by hand | ordinary cartridges written in Lua, **embedded in the kernel** |
 | Examples | pong, hunt, yharnam, Overbit... | bm SDK, Sound, Studio, Animator, Mesh, Pixel, Code, Assistant |
-| Where they run | the **Games** tab (cover, suspend/resume) | the **Dev** tab; the project files `.bme` come after them |
+| Where they run | the **Games** tab (cover, suspend/resume) | the **Dev** tab (the tools only; the project files `.bme` are not listed: the editors open them) |
 | `tool_mode` | 0 | 1 |
 | Writing | only **new** `.bm`/`.bme` files in `/carts` (and the ones made in this run); asks for net/docs/report | any path; may `cart_build`, `cart_run`, `cart_tool`; never asked |
 
