@@ -129,12 +129,12 @@ action = "port the background cover job"
 id = "D11"
 area = "game options (X / C)"
 pi = "Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close"
-rgb30 = "Play, Open in bm SDK, Export .b16, info, delete save, delete"
+rgb30 = "Play, Open in bm SDK, Export .b16, Send to a nearby console, info, delete save, delete"
 cause = "history"
 priority = 6
 status = "open"
 evidence = "src/kernel/carts.c:913-956; src/rgb30/ui.c:722-746"
-action = "add Send and Publish; the tool rows depend on D13"
+action = "add Publish (the owner decided Publish stays off on the RGB30); the tool rows depend on D13"
 
 [[divergence]]
 id = "D12"

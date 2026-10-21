@@ -1076,6 +1076,39 @@ def test_sdk_tool(b, opts):
         q.close()
 
 
+def test_game_send(b, opts):
+    """A game's options (X) have "Send to a nearby console" (D11, as the Pi): it
+    opens the list of the consoles nearby, the shared code of src/kernel/market.c;
+    with no network the list says so; back returns to the options."""
+    tmp = mktmp(prefix="bm64send-")
+    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
+                       "bm/tryme.b16": mkbm.pack(TRY_ME.encode(), title="Try me", author="tests", res=(360, 360))})
+
+    def screen(want, tries=80):
+        for _ in range(tries):
+            text = screen_all(q.screendump())
+            if all(w in text for w in want):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"want {want} on the screen:\n{text}")
+
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.5)
+        screen(["Try me"])
+        keys(q, "x")                           # X: its options
+        screen(["Open in bm SDK", "Play"])
+        keys(q, "ss")                           # down: Open in bm SDK, then Send (no Export .b16 for a .b16)
+        screen(["Send to a nearby console", "To a console on this network"])
+        q.send("\r")                           # confirm: the consoles nearby
+        screen(["Send > Try me", "This console", "No console nearby yet"])
+        keys(q, "x")                            # back: the options
+        screen(["Open in bm SDK", "Play"])
+    finally:
+        q.close()
+
+
 def test_games_in_carts(b, opts):
     """The Games tab lists games from both bm/ and /carts (D28): a cartridge
     built by the SDK or placed in /carts appears in the menu alongside bm/."""
