@@ -88,7 +88,7 @@ static struct {
     int nzones;
     uint8_t *boxes;                 /* a copy of its BOXES section (zboxes), or NULL */
     int nboxes;
-    struct pvs *pvs;                /* M39: the map's visibility given by pvs3d(), or NULL */
+    struct pvs *pvs;                /* bm3d 5.5: the map's visibility given by pvs3d(), or NULL */
     uint8_t *cell_dirty;
     int sheet_dirty;
     uint8_t hold[SER_COUNT];
@@ -132,7 +132,7 @@ static struct {
     r3d_t r3d;
     int r3d_ready;
     int zclear_seen;            /* zclear() called in this frame */
-    int early;                  /* in the next frame's _update, run while the GPU draws (M35) */
+    int early;                  /* in the next frame's _update, run while the GPU draws (bm3d 4.1) */
     int early_touch;            /* ... which drew 3D or needed the page: */
     int no_early;               /* its _update runs after the frame again */
     int hold_frame;             /* this frame is not shown (the 3D went from the GPU to the ARM
@@ -161,8 +161,8 @@ static struct {
     int gpu3d_boxed;            /* the GPU not started: the page was a square inside the screen */
     int cls_pending;            /* a cls() left to the GPU's next job (cls_settle) */
     uint16_t cls_colour;
-    int gpu2d;                  /* M37: the 2D over the 3D drawn by the GPU in its job (gpu3d_2d=1) */
-    int later;                  /* M39: each frame shown a frame later asked for (gpu3d_later=1,
+    int gpu2d;                  /* bm3d 4.8: the 2D over the 3D drawn by the GPU in its job (gpu3d_2d=1) */
+    int later;                  /* bm3d 6.9: each frame shown a frame later asked for (gpu3d_later=1,
                                  * gpu3d()): later_on() says when it is */
     int online;                 /* online(true): played over the network, PS asks first */
     char online_note[64];       /* online()'s line under the question */
@@ -209,7 +209,7 @@ static void sheet_commit(void)
 
 /* ---------------------------------------------------------------- API */
 
-/* M35: 2D drawn on the page while the GPU draws 3D on it (the frame
+/* bm3d 4.1: 2D drawn on the page while the GPU draws 3D on it (the frame
  * queue on): the GPU's job is started and the 2D is recorded here, then
  * drawn on the page in the same order once the job has ended (flush3d):
  * before more 3D, before the page is read, at the end of the frame. The
@@ -233,7 +233,7 @@ static struct {
     uint32_t ops;                       /* drawn after the GPU (for the log and the bench) */
 } d2 = { .cut = D2_NONE };
 
-/* M39 (bm3d 6.9): the frame shown a frame later (gpu3d_later=1, with two
+/* bm3d 6.9: the frame shown a frame later (gpu3d_later=1, with two
  * jobs in flight). At the end of a frame its 3D is started on the GPU and
  * the frame is held: its page, and the 2D recorded after its job started
  * (d2's records, moved here). The next _update and _draw run meanwhile on
@@ -324,10 +324,10 @@ static void d2_replay(uint32_t upto)
  * page: then the job goes first (2D drawn after the 3D lands on it, pget
  * reads the 3D). keep: in the middle of a frame, the depth stays for the
  * 3D drawn after; 0 at the end of the frame. The 2D recorded while the
- * job was drawing (M35) then goes on the page. */
+ * job was drawing (bm3d 4.1) then goes on the page. */
 static void flush3d(int keep)
 {
-    /* (a frame started on the GPU, M35: waited for, the page has it) */
+    /* (a frame started on the GPU, bm3d 4.1: waited for, the page has it) */
     if (rt.r3d.backend &&
         (((gpu3d_pending() || !keep) && gpu3d_flush(&rt.g, keep) != 0) || gpu3d_sync_page(rt.g.px) != 0 ||
          gpu3d_failed()))
@@ -343,7 +343,7 @@ static void flush3d(int keep)
     d2_replay(d2.cut == D2_NONE || rt.early ? d2.n : d2.cut);
 }
 
-/* M39: the job of the frame held (later_hold) waited for, if it is still
+/* bm3d 6.9: the job of the frame held (later_hold) waited for, if it is still
  * drawing: only that one (its page is not the one being drawn) */
 static void later_wait(void)
 {
@@ -389,7 +389,7 @@ static void cls_settle(void)
     g16_cls(&rt.g, rt.cls_colour);
 }
 
-/* M35: the end of the frame's 3D started on the GPU and not waited for
+/* bm3d 4.1: the end of the frame's 3D started on the GPU and not waited for
  * (gpu3d_queue on): the next _update runs meanwhile; flush3d waits */
 static int submit3d(void)
 {
@@ -422,7 +422,7 @@ static void settle2d(void)
         flush3d(1);
 }
 
-/* M35: the next frame's _update runs while the GPU draws this one: the 2D
+/* bm3d 4.1: the next frame's _update runs while the GPU draws this one: the 2D
  * it draws is recorded, for the next frame's page (begin 1); after the
  * page is shown, the records are that page's (begin 0) */
 static void d2_early(int begin)
@@ -435,7 +435,7 @@ static void d2_early(int begin)
     }
 }
 
-/* M37: the 2D over the 3D drawn by the GPU in the frame's job, where it
+/* bm3d 4.8: the 2D over the 3D drawn by the GPU in the frame's job, where it
  * draws it as the ARM does (gpu3d_2d=1): while the job is open (3D waits
  * in it) and nothing is recorded for after it. Then no job ends for a HUD
  * and a frame of 3D, 2D, 3D, 2D is one job. 1 if the GPU took op (its
@@ -1151,7 +1151,7 @@ static int l_sset(lua_State *L)
     if (x < 0 || y < 0 || x >= rt.sheet.w || y >= rt.sheet.h)
         return 0;
     int opaque = !lua_isnoneornil(L, 3);
-    later_paint();                      /* the frame held's sprites as they were (M39) */
+    later_paint();                      /* the frame held's sprites as they were (bm3d 6.9) */
     sync3d();                           /* the waiting 3D may use the sheet as texture */
     g16_sheet_set(&rt.sheet, x, y, opaque ? col(L, 3, 0) : 0, opaque);
     rt.cell_dirty[(y / G16_CELL) * (rt.sheet.w / G16_CELL) + x / G16_CELL] = 1;
@@ -1172,7 +1172,7 @@ static int l_print(lua_State *L)
     const char *s = luaL_tolstring(L, 1, &len);
     int32_t *a;
     if (gpu2d_open() && gpu3d_text2d(&rt.g, x, y, s, c, scale)) {
-        g16_t m = rt.g;                 /* where it ends, as drawn (M37: the GPU drew it) */
+        g16_t m = rt.g;                 /* where it ends, as drawn (bm3d 4.8: the GPU drew it) */
         m.cx0 = m.cy0 = 0x40000000;
         m.cx1 = m.cy1 = -0x40000000;
         lua_pushinteger(L, g16_text_scaled(&m, x, y, s, c, scale));
@@ -1868,26 +1868,26 @@ static void gpu3d_maybe(void)
         gpu3d_set_vshader(vs ? atoi(vs) : 2);           /* vertex shader: Settings (0, 1, 2; every model
                                                          * from bm3d 6.6, where the boot's probes saw it) */
         const char *q = config_get("gpu3d_queue");
-        gpu3d_set_queue(q && (q[0] == '1' || q[0] == '2') ? q[0] - '0' : 0);  /* the frame in the queue (M35),
-                                                                                 two jobs in flight (M39) */
+        gpu3d_set_queue(q && (q[0] == '1' || q[0] == '2') ? q[0] - '0' : 0);  /* the frame in the queue (bm3d 4.1),
+                                                                                 two jobs in flight (bm3d 5.1) */
         const char *wc = config_get("gpu3d_wc");
-        gpu3d_set_wc(wc && strcmp(wc, "1") == 0);       /* the jobs' memory uncached (M35): Settings */
+        gpu3d_set_wc(wc && strcmp(wc, "1") == 0);       /* the jobs' memory uncached (bm3d 4.1): Settings */
         const char *bf = config_get("gpu3d_filter");
-        gpu3d_set_bilinear(bf && strcmp(bf, "1") == 0); /* textures filtered (M37): Settings */
+        gpu3d_set_bilinear(bf && strcmp(bf, "1") == 0); /* textures filtered (bm3d 4.8): Settings */
         const char *t16 = config_get("gpu3d_tex16");
-        gpu3d_set_tex16(t16 && strcmp(t16, "1") == 0);  /* opaque textures in 16 bits (M39): Settings */
+        gpu3d_set_tex16(t16 && strcmp(t16, "1") == 0);  /* opaque textures in 16 bits (bm3d 5.2): Settings */
         const char *e1 = config_get("gpu3d_etc1");
         gpu3d_set_etc1(e1 && strcmp(e1, "1") == 0);     /* opaque textures as ETC1 (bm3d 7.3): Settings */
         const char *fs2 = config_get("gpu3d_fs2");
-        gpu3d_set_fs2(!fs2 || strcmp(fs2, "0") != 0);   /* two-thread pixel shaders (M39; on from 6.4) */
+        gpu3d_set_fs2(!fs2 || strcmp(fs2, "0") != 0);   /* two-thread pixel shaders (bm3d 5.3; on from 6.4) */
         const char *so = config_get("gpu3d_sort");
-        gpu3d_set_sort(so && strcmp(so, "1") == 0);     /* opaque meshes nearest first (M39): Settings */
+        gpu3d_set_sort(so && strcmp(so, "1") == 0);     /* opaque meshes nearest first (bm3d 5.4): Settings */
         const char *at = config_get("gpu3d_attr");
-        gpu3d_set_attr(at && strcmp(at, "1") == 0);     /* compact attributes (M39): Settings */
+        gpu3d_set_attr(at && strcmp(at, "1") == 0);     /* compact attributes (bm3d 7.1): Settings */
         const char *g2 = config_get("gpu3d_2d");
-        rt.gpu2d = g2 && strcmp(g2, "1") == 0;          /* the 2D over the 3D in the job (M37): Settings */
+        rt.gpu2d = g2 && strcmp(g2, "1") == 0;          /* the 2D over the 3D in the job (bm3d 4.8): Settings */
         const char *lt = config_get("gpu3d_later");
-        rt.later = lt && strcmp(lt, "1") == 0;          /* each frame shown a frame later (M39): Settings */
+        rt.later = lt && strcmp(lt, "1") == 0;          /* each frame shown a frame later (bm3d 6.9): Settings */
         rt.r3d.backend = gpu3d_backend();
         rt.r3d.arm_hook = gpu3d_to_arm;
         if (!cur.bench)                 /* a benchmark has its own report */
@@ -1913,7 +1913,7 @@ static r3d_t *r3d(lua_State *L)
             luaL_error(L, "not enough memory for the z-buffer");
         rt.r3d_ready = 1;
         const char *fast = config_get("r3d_fast");
-        rt.r3d.fast = fast && strcmp(fast, "1") == 0;   /* M37: one matrix, light in the object's axes */
+        rt.r3d.fast = fast && strcmp(fast, "1") == 0;   /* bm3d 4.9: one matrix, light in the object's axes */
         const char *imp = config_get("r3d_impostor");
         rt.r3d.impostor = imp ? impostor_px(atoi(imp)) : 0;   /* far small meshes as one quad: Settings */
         gpu3d_maybe();
@@ -2770,7 +2770,7 @@ static int l_fog3d(lua_State *L)
     return 0;
 }
 
-/* M39: the precomputed visibility of a map (pvs3d): a grid of cells on
+/* bm3d 5.5: the precomputed visibility of a map (pvs3d): a grid of cells on
  * the ground, for each the pieces of the map seen from it (their numbers,
  * from 1), and the pieces' boxes on the ground; one block of memory */
 struct pvs {
@@ -2945,21 +2945,21 @@ static int l_zclear(lua_State *L)
 
 /* gpu3d([on, [aa, [vs, [queue, [impostor, [later]]]]]]) -> on, aa, vs, version, queue, impostor, later:
  * whether the GPU draws the 3D, whether with anti-aliasing (MSAA 4x, where the GPU allows it) and whether
- * its vertex shader places the corners of the models (M36, where the GPU's
+ * its vertex shader places the corners of the models (bm3d 3.0, where the GPU's
  * probe drew with it): false, 1 the scenery (meshes unlit or with baked
  * light), 2 (or true) every model; version: the bm3d version that reproduces
  * (src/gpu/version3d.h: "0.2" the ARM, "2.1", "3.0", "3.4", "4.1"). With on, the 3D
  * goes to the GPU (if the console has one that answers) or to the ARM from
  * here, whatever Settings > Graphics says: for benchmarks; switch between
  * frames (what was drawn so far in a frame is not in the other's depth).
- * queue (M35): the end of a frame's 3D started on the GPU while the next
+ * queue (bm3d 4.1): the end of a frame's 3D started on the GPU while the next
  * _update runs (where the GPU's probe saw it work); 2: two jobs in flight
- * (M39); true: the console's own level (gpu3d_queue in Settings, 1 or 2),
+ * (bm3d 5.1); true: the console's own level (gpu3d_queue in Settings, 1 or 2),
  * false 0; returned fifth as the level in force (1, 2) or false.
  * impostor: a mesh whose box on the screen is at most that many pixels (2..64) of a 1080-line picture
  * (N * h / 1080 of the game's screen: 8 is 2.7 at 360 lines) is drawn as one quad in its average colour, by the GPU or
  * the ARM; false or 0 off (the default, or r3d_impostor in bm/config.txt);
- * returned sixth. later (M39, bm3d 6.9): each frame shown a frame later, so
+ * returned sixth. later (bm3d 6.9): each frame shown a frame later, so
  * the next _update and _draw run while the GPU draws it (with queue 2; not
  * online); returned seventh. */
 static int l_gpu3d(lua_State *L)
@@ -5642,7 +5642,7 @@ static int l_cart_load(lua_State *L)
         lua_pushstring(L, err);
         return 2;
     }
-    later_paint();                      /* the frame held's 2D with the sheet and map it had (M39) */
+    later_paint();                      /* the frame held's 2D with the sheet and map it had (bm3d 6.9) */
     sync3d();                           /* the waiting 3D may use the sheet as texture */
     free_assets();
     if (load_assets(&c) != 0 || extras_keep(data) != 0) {
@@ -5691,7 +5691,7 @@ static int l_cart_sheet(lua_State *L)
         luaL_argcheck(L, w >= G16_CELL && w <= BM_SHEET_MAX && w % G16_CELL == 0, 1, "8 to 4096, a multiple of 8");
         luaL_argcheck(L, h >= G16_CELL && h <= BM_SHEET_MAX && h % G16_CELL == 0, 2, "8 to 4096, a multiple of 8");
         if (w != rt.sheet.w || h != rt.sheet.h) {
-            later_paint();              /* the frame held's sprites as they were (M39) */
+            later_paint();              /* the frame held's sprites as they were (bm3d 6.9) */
             sync3d();                   /* the waiting 3D may use the sheet as texture */
             g16_sheet_t ns;
             const int nper = w / G16_CELL, nrows = h / G16_CELL, oper = rt.sheet.w / G16_CELL;
@@ -5917,7 +5917,7 @@ static int l_cart_new(lua_State *L)
 {
     bm_cart_t c;
     memset(&c, 0, sizeof c);
-    later_paint();                      /* the frame held's 2D with the sheet and map it had (M39) */
+    later_paint();                      /* the frame held's 2D with the sheet and map it had (bm3d 6.9) */
     sync3d();
     free_assets();
     if (load_assets(&c) != 0)
@@ -7298,7 +7298,7 @@ static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint3
     pace(deadline, prev, dropped);
 }
 
-/* M39: the frame held (later_hold) on the screen: its job waited for, its
+/* bm3d 6.9: the frame held (later_hold) on the screen: its job waited for, its
  * 2D on its page, with the overlays drawn after a frame (the dev kit's,
  * the battery, the leave question, the notice, F12's keys) when L is
  * given, and its page shown. Then nothing is held. Its page is the
@@ -7347,7 +7347,7 @@ static void later_flush(void)
     later_show(NULL);
 }
 
-/* M39: this frame is shown a frame later: the option asked for (gpu3d_later,
+/* bm3d 6.9: this frame is shown a frame later: the option asked for (gpu3d_later,
  * gpu3d()), the GPU drawing the 3D with two jobs in flight, straight on the
  * screen's pages (three of them, whole: not via RAM nor a square inside the
  * screen), not online (lockstep: the option is left out), no screen() to
@@ -7438,12 +7438,12 @@ static void release(lua_State *L)
     if (rt.r3d.backend)
         gpu3d_drop();           /* an error in the middle of a frame */
     rt.r3d.backend = NULL;
-    free(d2.w);                 /* 2D recorded in the middle of a frame (M35) */
+    free(d2.w);                 /* 2D recorded in the middle of a frame (bm3d 4.1) */
     d2.w = NULL;
     d2.n = d2.cap = d2.ops = 0;
     d2.on = 0;
     d2.cut = D2_NONE;
-    free(held.w);               /* ... and for a frame held (M39) */
+    free(held.w);               /* ... and for a frame held (bm3d 6.9) */
     held.w = NULL;
     held.n = held.cap = 0;
     held.on = 0;
@@ -8678,7 +8678,7 @@ static int session_wanted(void);
  * ARM's wait for the GPU (gpu3d_wait_us), the 3D calls' time (us3d_all).
  * m0 the frame's start, m1 after its _update, m2 after its _draw, m3
  * before the pace (the page shown); e0..e1 the early _update of the frame
- * queue (M35), run in this frame's time. A frame is summed at the next
+ * queue (bm3d 4.1), run in this frame's time. A frame is summed at the next
  * one's start (the audio of the whole frame, the pace's too). Nothing here
  * changes what the game does: only times are read. */
 typedef struct { uint32_t t, au, wt, d3; } perf_mark_t;
@@ -9014,7 +9014,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     uint32_t start = timer_ticks(), deadline = start + FRAME_US, prev = start;
     uint32_t fps_t0 = start, fps_frames = 0;
     int left = 0;                           /* Esc, PS, Start+Select, 'q' */
-    int updated = 0;                        /* this frame's _update ran while the GPU drew the last (M35) */
+    int updated = 0;                        /* this frame's _update ran while the GPU drew the last (bm3d 4.1) */
     uint32_t early_us = 0;                  /* its time */
     /* the time limit in 64 bits: seconds * 10^6 overflows 32 bits after
      * 71 minutes (24 hours used to end a game after 8 min 20 s), and so
@@ -9027,7 +9027,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     const uint32_t slow0 = rt.slow_frames;
     prof_enable(0, NULL);                   /* the profiler of functions starts from nothing */
     perf_reset();                           /* the overlay: this run's frames only (a resumed one's too) */
-    held.on = held.now = 0;                 /* nothing held (M39), this run's count */
+    held.on = held.now = 0;                 /* nothing held (bm3d 6.9), this run's count */
     held.n = 0;
     held.frames = 0;
     held.fb = fb;
@@ -9104,7 +9104,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         updated = 0;
         rt.frame++;                         /* (before the next _update, if it runs early) */
         const uint32_t instr_k = rt.frame_instr_k;
-        /* M39 (bm3d 6.9): this frame shown a frame later: its 3D started on
+        /* bm3d 6.9: this frame shown a frame later: its 3D started on
          * the GPU, the frame held before shown meanwhile, then this one held
          * while the next _update and _draw run on the next page */
         const int hold = later_on(fb) && later_submit();
@@ -9112,7 +9112,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         if (!hold)
             later_flush();                  /* (the option just went off: the frame held first) */
         if (!hold && submit3d()) {
-            /* the frame in the queue (M35): the GPU draws it while the next
+            /* the frame in the queue (bm3d 4.1): the GPU draws it while the next
              * frame's _update runs; flush3d waits for it before the page
              * is shown */
             if (pf.on)

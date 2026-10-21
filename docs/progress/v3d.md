@@ -1,6 +1,6 @@
 # V3D driver (Pi Zero W, ARM1176 only)
 
-Tracking for M35, M36, M37, M39. Rest of the graphics stack: [graphics](graphics.md).
+Tracking for bm3D 3.0-7.3. Rest of the graphics stack: [graphics](graphics.md).
 Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
 
 ## Today
@@ -75,24 +75,24 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
 
 ## To do, in order
 
-1. Pixels at 1080p (R41): the cheap soft enlargement is scaler kernel 6 (config only, no GPU
+1. Pixels at 1080p (QPU scaling): the cheap soft enlargement is scaler kernel 6 (config only, no GPU
    cost; below). A QPU bicubic / FSR-style pass stays open, only if 6 is not enough. Cost from
    the Pi 3D Bench: a full-screen 1080p pass with one bilinear read is ~3.5-5 ms of GPU
    (textured fill 1.65 ns/px nearest, 2.3 ns/px bilinear, plus ~0.3 ms fixed); bicubic/FSR
    more, not measured. 2D on GPU: 9.5 ns/px (19.6 ms at 1080p).
 2. Impostors: Pi runs at `r3d_impostor` 16, 32 with the new threshold (8 = 2.7 render px
    at 640x360, no effect: session at 8 gave 57.7 fps, GPU 7.8 ms a frame, 8588 tris), photo of
-   far heroes; then the default for crowds (R42).
+   far heroes; then the default for crowds (billboard impostors).
 3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs.
-4. M39 remaining. NEXT: is 16-bit / ETC1 worth more work? A played Overbit at 1080p with
+4. Remaining work of bm3D 5.0-7.3. NEXT: is 16-bit / ETC1 worth more work? A played Overbit at 1080p with
    `gpu3d_tex16=1` and `gpu3d_etc1=1` against both off (fps, `GPU 3D` ms; the quads show no
-   gain). If nothing moves, the options stay off and M39 closes here; if it does: ETC1 in the
+   gain). If nothing moves, the options stay off and this work closes here; if it does: ETC1 in the
    cartridge (encoded at build time, so no encoding at load), mipmaps; RGBA4444 only if
    sheets get soft alpha. Attributes:
    `vs_tex_rgb` light as bytes (8 -> 6 words), `vs_lit_tex`/`vs_lit_tex2` flags
    and uv as halves (`.16a/.16b`), normals as bytes, then 16-bit positions (scaled per mesh,
    a separate x y z stream for the coordinate shader).
-5. **QPU come coprocessore: programmi sulle QPU (M44)**:
+5. **QPU come coprocessore: programmi sulle QPU (programmi utente sulle QPU)**:
    Le 12 QPU eseguono operazioni SIMD su 16 float alla volta: calcoli paralleli su grandi masse di dati, quando il 3D non le satura (giochi 2D, menu) o riservando parte delle QPU nei giochi 3D.
    - **Passo 1 (Driver)**: Lancio di programmi QPU "utente" al di fuori del ciclo di disegno (richieste V3D: puntatore codice, registri uniform, numero QPU, contatore di completamento; attualmente `v3d.c` assegna tutta la VPM ai vertici); coda di dispatch, attesa con timeout, rilevamento all'avvio che disabilita in caso di anomalie e fallback su ARM; esecuzione nell'emulatore `tests/gpu/v3d_emu.c`, passo dedicato nel test `g` e profilo nel 3D Bench.
    - **Passo 2 (Particelle su GPU)**: `particles()` (posizione, velocità, gravità, vita, colore) aggiornate e disegnate via GPU senza carico ARM (migliaia di particelle anziché centinaia), integrate con modulo `lib.particles` in bmlib.
@@ -104,9 +104,9 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
      - Salti in `qpuasm.py` e nell'emulatore (3 delay slot): predicati per pixel, salti solo su dati uniformi; DMA VPM con mutex, campionamento TMU via memoria (`t0s` + `ldtmu0`), semafori `sacq/srel`.
      - Controlli `qpuasm.py`: gestione lettura `ra39/rb39`, vincoli immediati piccoli con `ldtmu`/`thrsw`. Contatori hardware `PCTR*` (0x670) per profilazione fine.
    - *Criterio di completamento*: particelle e buio a livelli di Yharnam gestiti interamente dalla GPU con misure nel 3D Bench e fallback software identico in QEMU (`gpu3d=0`).
-6. **Profilazione runtime per motori di gioco (R40)**:
+6. **Profilazione runtime per motori di gioco (metriche runtime in stat())**:
    - Integrazione di due nuove metriche `stat()` nell'overlay e nel dev kit: tempo di elaborazione audio e tempo di attesa della GPU.
    - Permette al governatore dinamico di Overbit e Yharnam di stabilire a runtime se il collo di bottiglia è sul bus CPU/ARM o sulla GPU.
-7. **Adattamento dinamico impostor per folle ed eroi (R42)**:
+7. **Adattamento dinamico impostor per folle ed eroi (impostor billboard)**:
    - Modelli con scheletro semplificati a billboard quad con `r3d_impostor` quando lontani dalla camera; governor di qualità di Overbit/Yharnam per attivare `gpu3d(nil, nil, nil, nil, 8)` a livelli bassi.
 

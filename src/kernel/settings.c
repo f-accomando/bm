@@ -215,7 +215,7 @@ static const char *aa_choice(void)
 }
 
 /* gpu3d_vs=1: the GPU's vertex shader places the corners of the scenery
- * (models unlit or with baked light), 2: of every model (M36; the default
+ * (models unlit or with baked light), 2: of every model (bm3d 3.4; the default
  * from bm3d 6.6), 0: the ARM places them */
 static int vs_on(void)
 {
@@ -234,8 +234,8 @@ static const char *vs_choice(void)
     return vs_on() == 1 ? "GPU: scenery" : "GPU: all models";
 }
 
-/* gpu3d_queue=1 (M35): the end of a frame's 3D starts on the GPU and the
- * game's next _update runs meanwhile; 2 (M39): and two jobs in flight */
+/* gpu3d_queue=1 (bm3d 4.1): the end of a frame's 3D starts on the GPU and the
+ * game's next _update runs meanwhile; 2 (bm3d 5.1): and two jobs in flight */
 static int queue_on(void)
 {
     const char *on = config_get("gpu3d_queue");
@@ -251,7 +251,7 @@ static const char *queue_choice(void)
     return queue_on() == 2 ? "On, 2 jobs" : "On";
 }
 
-/* gpu3d_later=1 (M39, bm3d 6.9): each frame shown a frame later, the
+/* gpu3d_later=1 (bm3d 6.9): each frame shown a frame later, the
  * game's next frame drawn while the GPU draws it; with gpu3d_queue=2 */
 static int later_on(void)
 {
@@ -270,21 +270,21 @@ static const char *later_choice(void)
     return "A frame later";
 }
 
-/* gpu3d_2d=1 (M37): the 2D over the 3D drawn by the GPU in its job */
+/* gpu3d_2d=1 (bm3d 4.8): the 2D over the 3D drawn by the GPU in its job */
 static int gpu2d_on(void)
 {
     const char *on = config_get("gpu3d_2d");
     return on && strcmp(on, "1") == 0;
 }
 
-/* gpu3d_filter=1 (M37): the GPU's textures filtered (bilinear) */
+/* gpu3d_filter=1 (bm3d 4.8): the GPU's textures filtered (bilinear) */
 static int filter_on(void)
 {
     const char *on = config_get("gpu3d_filter");
     return on && strcmp(on, "1") == 0;
 }
 
-/* gpu3d_wc=1 (M35): the memory of the GPU's jobs uncached, the ARM's
+/* gpu3d_wc=1 (bm3d 4.1): the memory of the GPU's jobs uncached, the ARM's
  * writes merged */
 static int wc_on(void)
 {
@@ -555,7 +555,7 @@ void home_panel(int id, home_panel_t *p)
                  "Nearest first, triangles in cache order: the GPU skips work (vertex shader)", "%s",
                  config_on("gpu3d_sort") ? "Nearest first" : "As the game");
         home_row(p, MENU_ROW_CHOICE, R_ATTR, "3D corners",
-                 "Floats, or compact: colour and light bytes packed (vertex shader, M39)", "%s",
+                 "Floats, or compact: colour and light bytes packed (vertex shader, bm3d 7.1)", "%s",
                  config_on("gpu3d_attr") ? "Compact" : "Floats");
         home_row(p, MENU_ROW_CHOICE, R_IMPOSTOR, "3D impostors",
                  "Far small models as one quad of their colour; size in px of a 1080p screen", "%s", impostor_choice());
@@ -1172,7 +1172,7 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "2D over the 3D of the next game: %s", gpu2d_on() ? "GPU" : "ARM");
         break;
     case R_FILTER: {
-        /* nearest, bilinear, nearest 16-bit, bilinear 16-bit (M37, M39),
+        /* nearest, bilinear, nearest 16-bit, bilinear 16-bit (bm3d 4.8, 5.2),
          * nearest ETC1, bilinear ETC1 (bm3d 7.3: the opaque sheets as ETC1,
          * the cut-outs in 16 bits) */
         const int level = config_on("gpu3d_etc1") ? 2 : config_on("gpu3d_tex16") ? 1 : 0;

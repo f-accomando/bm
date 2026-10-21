@@ -70,8 +70,8 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   A is not a second back (games that rely on A as back are fixed one by one). Today the code
   still maps A to back (`pad_back`). Per-device key reference: branch `claude/ui-reference`
   (file ui-reference.md under docs/spec there, UI-REF-1, reviewed, not merged).
-- **M41** (RGB30): Overbit in `.b16` at 360×360 e 720×720, benchmark ARM e driver Mali (dettagli in [graphics-mali](graphics-mali.md)).
-- **M42**: profilo unificato `.b16` (dettagli in [b16](b16.md)).
+- **Mali-G52 driver** (RGB30): Overbit in `.b16` at 360×360 e 720×720, benchmark ARM e driver Mali (dettagli in [graphics-mali](graphics-mali.md)).
+- **Profilo `.b16`**: profilo unificato `.b16` (dettagli in [b16](b16.md)).
 - **R22 — Guscio Portatile per Pi Zero**: supporto per configurazioni handheld basate su Pi Zero (lettura tasti/pad direttamente su pin GPIO, display compatto su bus DPI o SPI).
 - RGB30 runs on one core (no PSCI `CPU_ON`), fibers in the menu only; multicore: [multitasking](multitasking.md).
 - RGB30 panel after a warm restart: confirmed OK on hardware on 21 Oct 2026. Watch for a regression (`src/rgb30/rk_dsi.c`):

@@ -28,12 +28,12 @@
 
 int emu_red_a = 1, emu_tex_swap = 0;
 int emu_tformat = 0;                    /* the order of the 1 KiB subtiles of a T-format tile */
-int emu_t16_alpha = 0;                  /* M39: alpha's bits in RGBA5551 / RGBA4444 (v3d_emu.h) */
-int emu_t16_lossy = 0;                  /* M39: 5551 / 4444 widened otherwise (v3d_emu.h) */
-int emu_etc1 = 0;                     /* M39: the layout of ETC1 textures (v3d_emu.h) */
+int emu_t16_alpha = 0;                  /* bm3d 7.2: alpha's bits in RGBA5551 / RGBA4444 (v3d_emu.h) */
+int emu_t16_lossy = 0;                  /* bm3d 7.2: 5551 / 4444 widened otherwise (v3d_emu.h) */
+int emu_etc1 = 0;                     /* bm3d 7.3: the layout of ETC1 textures (v3d_emu.h) */
 int emu_ms_load_one = 0;                /* MSAA: a colour load fills sample 0 only (else all 4) */
 int emu_skip = 0;                       /* jobs only counted, not run (ARM instruction counts) */
-int emu_no_threads = 0;                 /* M39: jobs with two-thread fragment shaders do not end */
+int emu_no_threads = 0;                 /* bm3d 5.3: jobs with two-thread fragment shaders do not end */
 int emu_hang_zclear = 0;                /* a job with fs_zclear does not end */
 int emu_cw_flip = 0;                    /* GL: the V3D calls the other orientation clockwise */
 int emu_clip = 0;                       /* GL clipping: 0 as GL (near plane, guard band), 1 none (the
@@ -155,7 +155,7 @@ static float rdf(const uint8_t *p) { uint32_t u = rd32(p); float f; memcpy(&f, &
 
 /* ---------------------------------------------------------------- QPU */
 
-/* The QPU interpreter (M36): the vertex and coordinate shaders run as the
+/* The QPU interpreter (bm3d 3.0): the vertex and coordinate shaders run as the
  * V3D runs them, 16 vertices at a time, so an error in their code shows on
  * the PC. The subset the shaders of bm use: the ALU ops, regfile A and B,
  * the accumulators, uniforms, the VPM (horizontal 32-bit rows), the SFU's
@@ -240,7 +240,7 @@ static float half_to_float(uint16_t h)
     return s * ldexpf((float)(m | 1024), e - 25);
 }
 
-/* M39: the regfile A unpack u (1..7) of v, to a float op or an integer one */
+/* bm3d 7.1: the regfile A unpack u (1..7) of v, to a float op or an integer one */
 static uint32_t qpu_unpack(int u, uint32_t v, int to_float)
 {
     if (u == 1 || u == 2) {
@@ -339,7 +339,7 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
                 (use_b && sig != 13 && raddr_b >= 32 && raddr_b != 32 && raddr_b != 38 && raddr_b != 39 &&
                  raddr_b != 48) || (use_b && sig == 13 && raddr_b >= 48))
                 return err("QPU: read address %u/%u at an emulated shader", (unsigned)raddr_a, (unsigned)raddr_b);
-            /* M39: the regfile A unpack (pm 0), of a register only: to a
+            /* bm3d 7.1: the regfile A unpack (pm 0), of a register only: to a
              * float where the ALUs reading regfile A do a float op, else to
              * an integer; both ALUs reading it must agree */
             if (unpack && use_a) {
@@ -676,7 +676,7 @@ static int shader_of(const uint8_t *code)
     if (!memcmp(code, fs_tex_lit_screen, sizeof fs_tex_lit_screen)) return SH_TEX_SCREEN;
     if (!memcmp(code, fs_tex_rgb_screen, sizeof fs_tex_rgb_screen)) return SH_TEX_RGB_SCREEN;
     if (!memcmp(code, fs_text, sizeof fs_text)) return SH_TEXT;
-    if (!memcmp(code, fs_tex_lit_t, sizeof fs_tex_lit_t)) return SH_TEX;       /* M39: two threads */
+    if (!memcmp(code, fs_tex_lit_t, sizeof fs_tex_lit_t)) return SH_TEX;       /* bm3d 5.3: two threads */
     if (!memcmp(code, fs_tex_rgb_t, sizeof fs_tex_rgb_t)) return SH_TEX_RGB;
     if (!memcmp(code, fs_tex_lit_alpha_t, sizeof fs_tex_lit_alpha_t)) return SH_TEX_ALPHA;    /* bm3d 6.3 */
     if (!memcmp(code, fs_tex_lit_screen_t, sizeof fs_tex_lit_screen_t)) return SH_TEX_SCREEN;
@@ -699,7 +699,7 @@ static int switches_threads(const uint8_t *code)
     return 0;
 }
 
-/* M39: a fragment shader with thread switches; a record that says it
+/* bm3d 5.3: a fragment shader with thread switches; a record that says it
  * single-threaded (flag 0) is an error, and emu_no_threads: a GPU on which
  * they do not work (the job does not end) */
 static int threaded_check(const uint8_t *rec)
@@ -721,7 +721,7 @@ static int threaded_check(const uint8_t *rec)
     return 0;
 }
 
-/* M35: the binner's semaphore (INCREMENT_SEMAPHORE at the end of the
+/* bm3d 4.1: the binner's semaphore (INCREMENT_SEMAPHORE at the end of the
  * binning list, WAIT_ON_SEMAPHORE in the rendering list). A job started
  * with v3d_start (async) must have both: on the V3D the two threads run
  * together and the rendering would read tile lists not yet written. */
@@ -822,7 +822,7 @@ static int bin(uint32_t start, uint32_t end)
             glclip = rd16(glrec) >> 2 & 1;
             p += 4;
             break;
-        case 32:                                                /* INDEXED_PRIMITIVE_LIST (M39) */
+        case 32:                                                /* INDEXED_PRIMITIVE_LIST (bm3d 5.0) */
         case 33: {                                              /* VERTEX_ARRAY_PRIMITIVES */
             const int indexed = id == 32;
             uint32_t n = rd32(p + 1), first = indexed ? 0 : rd32(p + 5), maxi = indexed ? rd32(p + 9) : 0;
@@ -865,7 +865,7 @@ static int bin(uint32_t start, uint32_t end)
                     memmove(glc, glc + nshade, n * sizeof *glc);
                     emu_stats.glindexed += n;
                     /* a model of the VCD's cache of shaded corners (16, first in first out):
-                     * the corners shaded again for this draw's order of indices (M39) */
+                     * the corners shaded again for this draw's order of indices (bm3d 5.0) */
                     uint16_t fifo[16];
                     int nf = 0, head = 0;
                     for (uint32_t i = 0; i < n; i++) {
@@ -1048,7 +1048,7 @@ static uint32_t t16_index(int x, int y, int w);
 static uint32_t etc1_index(int bx, int by, int wb);
 
 /* a texel of the texture at (x, y) as bytes a b c d: RGBA32R in rows,
- * RGBA8888 in T-format, or (M39) RGB565 in T-format, its top five bits in
+ * RGBA8888 in T-format, or (bm3d 5.2) RGB565 in T-format, its top five bits in
  * byte c and its low five in byte a, alpha full; RGBA5551 (type 3) and
  * RGBA4444 (type 2) in the same layout, their colour fields from the top
  * as RGB565's and alpha in the low bits (or the top ones: emu_t16_alpha),
@@ -1072,7 +1072,7 @@ static uint32_t texel_at(const uint32_t *tex, int type, int x, int y, int w)
         t = (m == 1 ? (a ? 255u : 0u) : a << 4 | a) << 24 | WIDEN(hi) << 16 | WIDEN(g) << 8 | WIDEN(lo);
 #undef WIDEN
     } else if (type == 8) {
-        /* M39 (bm3d 7.3): ETC1, decoded as the format says; red in byte c
+        /* bm3d 7.3: ETC1, decoded as the format says; red in byte c
          * as RGB565's top bits */
         if (emu_etc1 == 2)
             return 0;
@@ -1119,7 +1119,7 @@ static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard
     const int type = (int)(p0 >> 4 & 15) | (int)(p1 >> 31) << 4;
     uint8_t c[4];
     if (!(p1 >> 7 & 1) && !(p1 >> 4 & 7)) {
-        /* M37: bilinear (MAGFILT and MINFILT linear): the four texels
+        /* bm3d 4.8: bilinear (MAGFILT and MINFILT linear): the four texels
          * around the point, clamped at the edges */
         const float fx = va[0] * (float)w - 0.5f, fy = va[1] * (float)h - 0.5f;
         const int x0 = (int)floorf(fx), y0 = (int)floorf(fy);
@@ -1143,7 +1143,7 @@ static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard
         const uint32_t t = texel_at(tex, type, tx, ty, w);
         c[0] = (uint8_t)t; c[1] = (uint8_t)(t >> 8); c[2] = (uint8_t)(t >> 16); c[3] = (uint8_t)(t >> 24);
     }
-    if (pr->shader == SH_TEXT) {        /* M37: the colour where the glyph's texel is opaque */
+    if (pr->shader == SH_TEXT) {        /* bm3d 4.8: the colour where the glyph's texel is opaque */
         out[0] = unit8(va[2]); out[1] = unit8(va[3]); out[2] = unit8(va[4]); out[3] = 255;
         if (c[3] == 0)
             *discard = 1;
@@ -1194,7 +1194,7 @@ static uint32_t t_index(int x, int y, int w)
            (uint32_t)((y / 4 & 3) * 4 + (x / 4 & 3)) * 16u + (uint32_t)((y & 3) * 4 + (x & 3));
 }
 
-/* the 16-bit place of texel (x, y) in an RGB565 T-format texture (M39), as
+/* the 16-bit place of texel (x, y) in an RGB565 T-format texture (bm3d 5.2), as
  * the emulator lays it out: tiles of 4 KiB, 64 x 32 texels, in rows, odd
  * rows right to left; in a tile four 1 KiB subtiles of 32 x 16 in a C (or
  * a reversed C, or raster with emu_tformat 1); in a subtile 4 x 4 utiles of
@@ -1213,7 +1213,7 @@ static uint32_t t16_index(int x, int y, int w)
            (uint32_t)((y / 4 & 3) * 4 + (x / 8 & 3)) * 32u + (uint32_t)((y & 3) * 8 + (x & 7));
 }
 
-/* M39 (bm3d 7.3): the 8-byte place of ETC1 block (bx, by) in a texture wb
+/* bm3d 7.3: the 8-byte place of ETC1 block (bx, by) in a texture wb
  * blocks wide, as the emulator lays it out: tiles of 4 KiB in rows, odd
  * rows right to left; in a tile four 1 KiB subtiles in a C (or as
  * emu_tformat says, as RGB565's); in a subtile 4 x 4 utiles of 64 bytes,
@@ -1535,7 +1535,7 @@ int v3d_run(uint32_t bin_start, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end
     return r;
 }
 
-/* M35: a started job; the emulator runs it when it is waited for (M39:
+/* bm3d 4.1: a started job; the emulator runs it when it is waited for (bm3d 5.1:
  * so a driver that wrote the memory the job reads, or drew on its page,
  * before waiting for it gets a wrong picture, as on the V3D).
  * emu_stats.async counts them. */

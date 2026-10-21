@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unit test for scripts/mkbm.py b16_lint (M42): the sheet of a .b16 has at
+Unit test for scripts/mkbm.py b16_lint: the sheet of a .b16 has at
 most 256 colours, its Lua warns on the system calls of B16_LUA_CHECKS, and
 the CLI (--from X.bm --b16) leaves the .bm untouched.
 """

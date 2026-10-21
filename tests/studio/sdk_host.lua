@@ -768,7 +768,7 @@ frames(5)
 check(sees("59.9 fps") and sees("RAM 510k peak"), "the dev kit: the last try")
 
 -- the target .b16: the cap and what the format will not have (the shooter
--- uses math.random); M42 step 4: sets square 360x360 and Ctrl+B builds .b16
+-- uses math.random); .b16 profile, step 4: sets square 360x360 and Ctrl+B builds .b16
 run_sdk({ path = "/carts/T4.BME" })
 frames(10)
 check(sees("Shooter 2D"), "the shooter opened")

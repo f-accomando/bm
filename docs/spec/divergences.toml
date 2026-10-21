@@ -275,7 +275,7 @@ cause = "todo"
 priority = 6
 status = "open"
 evidence = "docs/progress/graphics-mali.md:5-11"
-action = "Mali driver (M41)"
+action = "Mali driver"
 
 [[divergence]]
 id = "D24"
@@ -286,7 +286,7 @@ cause = "todo"
 priority = 6
 status = "open"
 evidence = "docs/progress/platforms.md:68"
-action = "M41"
+action = "Overbit in .b16 on the RGB30"
 
 [[divergence]]
 id = "D25"

@@ -84,7 +84,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
-- **M43 step 3**: a *Stack* page in bm Pixel.
+- **Sprite stacking, step 3**: a *Stack* page in bm Pixel.
 - Yharnam's map on the Pi: open `yharnam.bm` in the SDK, F3 F3, edit ground,lamps/barricades/gates/bosses on `objects`,
   Ctrl+S (`YHARNAM.BME`, about 6 MB), F5; then `mkmap.py --from` and commit the CSVs. A house
   stays in its 16×16-tile block.

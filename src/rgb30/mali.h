@@ -1,5 +1,5 @@
 /*
- * M41: the RGB30's GPU, a Mali-G52 (Bifrost) in the RK3566, without an
+ * The RGB30's GPU, a Mali-G52 (Bifrost) in the RK3566, without an
  * operating system. First step (bm3d 6.0): the GPU found and powered, its
  * memory mapped, jobs run by its job manager; no drawing yet.
  *
@@ -18,7 +18,7 @@
  *   fragment   (bm3d 6.1) a FRAGMENT job on job slot 0 with no draw: the
  *              tiles cleared to a colour and written to a surface (no
  *              shader, no tiler), then a square on the screen
- *   triangle   (M41, after 6.1) a VERTEX job, a TILER job and a FRAGMENT job:
+ *   triangle   (after bm3d 6.1) a VERTEX job, a TILER job and a FRAGMENT job:
  *              three positions through the shaders of mali_shaders.h into
  *              a 96 x 96 square of the screen (mali_desc.c has the
  *              descriptors)

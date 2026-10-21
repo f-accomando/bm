@@ -58,22 +58,22 @@ enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2
 #define M_VS1 (1u << PF_VS1)
 #define M_VS  (1u << PF_VS)
 #define M_VSQ (1u << PF_VSQ)
-#define M_Q   (1u << PF_Q)              /* the queue without the vertex shader (M35, bm3d 4.4) */
-#define M_WC  (1u << PF_WC)             /* the GPU with the jobs' memory uncached (M35, bm3d 4.5) */
-#define M_2D  (1u << PF_2D)             /* the GPU with the 2D over the 3D in its job (M37, bm3d 4.8) */
-#define M_VSQ2 (1u << PF_VSQ2)          /* GPU+VS+Q with two jobs in flight (M39, bm3d 5.1) */
-#define M_T16 (1u << PF_T16)            /* the GPU with opaque textures in 16 bits (M39, bm3d 5.2) */
-#define M_FS2 (1u << PF_FS2)            /* the GPU with two-thread pixel shaders (M39, bm3d 5.3; every textured one 6.3) */
-#define M_VSS (1u << PF_VSS)            /* GPU+VS with the meshes nearest first (M39, bm3d 5.4) */
-#define M_VSA (1u << PF_VSA)            /* GPU+VS+FS2 with compact attributes (M39, bm3d 7.1) */
-#define M_ETC1 (1u << PF_ETC1)          /* GPU+T16 with the opaque sheets as ETC1 (M39, bm3d 7.3) */
+#define M_Q   (1u << PF_Q)              /* the queue without the vertex shader (bm3d 4.4) */
+#define M_WC  (1u << PF_WC)             /* the GPU with the jobs' memory uncached (bm3d 4.5) */
+#define M_2D  (1u << PF_2D)             /* the GPU with the 2D over the 3D in its job (bm3d 4.8) */
+#define M_VSQ2 (1u << PF_VSQ2)          /* GPU+VS+Q with two jobs in flight (bm3d 5.1) */
+#define M_T16 (1u << PF_T16)            /* the GPU with opaque textures in 16 bits (bm3d 5.2) */
+#define M_FS2 (1u << PF_FS2)            /* the GPU with two-thread pixel shaders (bm3d 5.3; every textured one 6.3) */
+#define M_VSS (1u << PF_VSS)            /* GPU+VS with the meshes nearest first (bm3d 5.4) */
+#define M_VSA (1u << PF_VSA)            /* GPU+VS+FS2 with compact attributes (bm3d 7.1) */
+#define M_ETC1 (1u << PF_ETC1)          /* GPU+T16 with the opaque sheets as ETC1 (bm3d 7.3) */
 #define M_ALL (M_ARM | M_GPU | M_VS1 | M_VS)
 #define M_LIT (M_ARM | M_GPU | M_VS)    /* models lit by the sun: VS1 is the GPU for them */
 
-/* queue (M35): the end of each frame started on the GPU, the ARM's work of
+/* queue (bm3d 4.1): the end of each frame started on the GPU, the ARM's work of
  * the frame (the test's `work`) done meanwhile */
-/* attr (M39): compact attributes (gpu3d_attr), on GPU+VS+FS2: GPU+VS+A8 */
-/* etc1 (M39, bm3d 7.3): the opaque sheets as ETC1 (gpu3d_etc1), on GPU+T16
+/* attr (bm3d 7.1): compact attributes (gpu3d_attr), on GPU+VS+FS2: GPU+VS+A8 */
+/* etc1 (bm3d 7.3): the opaque sheets as ETC1 (gpu3d_etc1), on GPU+T16
  * (the cut-outs stay RGBA5551): GPU+ETC1 against GPU+T16 is ETC1 alone */
 static const struct { const char *name; int gpu, aa, vs, queue, wc, two_d, t16, fs2, sort, attr, etc1; } prof[NPROF] = {
     { "ARM", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, { "GPU", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
@@ -93,7 +93,7 @@ static const char *prof_version(int p)
          : bm3d_mode_q(prof[p].gpu, prof[p].vs, prof[p].queue);
 }
 
-/* M37: the profile draws the 2D over the 3D on the GPU, in its job */
+/* bm3d 4.8: the profile draws the 2D over the 3D on the GPU, in its job */
 static int cur_2d;
 static int keep2d;                      /* the scene draws 3D after its 2D (the depth is kept) */
 
@@ -387,7 +387,7 @@ static void spheres_shine(int n, int f)
 }
 
 /* the sphere back as made */
-/* M39: big meshes: a model of 10 080 triangles (a smooth sphere, 5112
+/* bm3d 5.0: big meshes: a model of 10 080 triangles (a smooth sphere, 5112
  * vertices: more than the 4096 of a mesh before bm3d 5.0) and a "lit" map
  * of 14 112 (a textured grid, its light baked at each vertex, the same for
  * every face on it, as a real map's) */
@@ -466,7 +466,7 @@ static void q_texscreen(void)
     quad.colors[0] = quad.colors[1] = R3D_TEXTURED | R3D_SCREEN;
 }
 static void q_free(void) { r3d_mesh_free(&quad); flags = 0; }
-/* M37: textured quads filtered by the TMU (bilinear: four texels a pixel) */
+/* bm3d 4.8: textured quads filtered by the TMU (bilinear: four texels a pixel) */
 static void q_bilinear(void) { q_tex(); gpu3d_set_bilinear(1); }
 static void q_bilinear_free(void) { q_free(); gpu3d_set_bilinear(0); }
 
@@ -587,7 +587,7 @@ static void split(int n, int f)
     }
 }
 
-/* M37: n sprites of 16 x 16 and n / 4 lines of text over a few spheres:
+/* bm3d 4.8: n sprites of 16 x 16 and n / 4 lines of text over a few spheres:
  * a HUD, a radar of a game; with GPU+2D in the job, else the ARM after it */
 static void gpu2d_scene(int n, int f)
 {
@@ -986,7 +986,7 @@ static void ramp(int ti, int pf)
             const uint32_t u0 = P->us();
             t->frame(n, f);
             if (R.backend && prof[pf].queue) {
-                gpu3d_submit(g, 0);     /* the GPU draws while the ARM works (M35) */
+                gpu3d_submit(g, 0);     /* the GPU draws while the ARM works (bm3d 4.1) */
                 work(t->work);
                 gpu3d_sync();
             } else {
@@ -1690,19 +1690,19 @@ static void page_info(const char *saved)
          prof_version(PF_ARM), prof_version(PF_GPU), prof_version(PF_AA), prof_version(PF_VS1),
          prof_version(PF_VS));
     y += LH;
-    text(0, y, gpu3d_queue_ok() ? C_TEXT : C_DIM, "GPU+Q, GPU+VS+Q: GPU and GPU+VS with the frame in the queue (M35: "
+    text(0, y, gpu3d_queue_ok() ? C_TEXT : C_DIM, "GPU+Q, GPU+VS+Q: GPU and GPU+VS with the frame in the queue (bm3d 4.1: "
          "the ARM goes on while the GPU draws)%s", gpu3d_queue_ok() ? "" : ", not on this GPU");
     y += LH;
-    text(0, y, C_TEXT, "GPU+WC: jobs' memory uncached (M35, 4.5); GPU+2D: the 2D over the 3D in its job (M37, 4.8)");
+    text(0, y, C_TEXT, "GPU+WC: jobs' memory uncached (4.5); GPU+2D: the 2D over the 3D in its job (4.8)");
     y += LH;
     text(0, y, C_TEXT, "GPU+VS+Q2: two jobs in flight (5.1); GPU+T16: 16-bit textures (5.2); GPU+ETC1: opaque as ETC1 (7.3)");
     y += LH;
-    text(0, y, C_TEXT, "GPU+FS2: textured faces' pixel shaders with two threads (M39, 5.3); GPU+VS+S: meshes "
+    text(0, y, C_TEXT, "GPU+FS2: textured faces' pixel shaders with two threads (5.3); GPU+VS+S: meshes "
                        "nearest first (5.4)");
     y += LH;
     text(0, y, C_TEXT, "GPU+VS+FS2: the vertex shader and the two-thread shaders, the driver as the games get it (6.6)");
     y += LH;
-    text(0, y, C_TEXT, "GPU+VS+A8: the same with compact attributes, colour and light bytes packed (M39, 7.1)");
+    text(0, y, C_TEXT, "GPU+VS+A8: the same with compact attributes, colour and light bytes packed (7.1)");
     y += LH;
     text(0, y, C_DIM, "0.1 and 1.0 no longer run: their bars are the numbers the Pi gave then (docs/GPU-BENCHMARK-REPORT.md)");
     y += LH + 6;

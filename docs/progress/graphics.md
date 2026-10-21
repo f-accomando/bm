@@ -49,7 +49,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   (2D under the 3D stays), 24-bit depth, MSAA 4× option.
 - QPU shaders written in `tools/qpuasm.py` and generated into `src/gpu/shaders.h`: fragment
   `fs_*` (two-thread variants `fs_*_t`), vertex `vs_baked`, `vs_tex_rgb`, `vs_lit`,
-  `vs_lit_tex`, `vs_lit_tex2`, compact `vs_baked8`, `vs_lit8` (M39), shadows `vs_shadow*`, coordinate `cs_*`, `fs_zclear`.
+  `vs_lit_tex`, `vs_lit_tex2`, compact `vs_baked8`, `vs_lit8`, shadows `vs_shadow*`, coordinate `cs_*`, `fs_zclear`.
 - Options (each a `bm/config.txt` key, a Settings row and, for the main ones, an argument of
   `gpu3d([on, aa, vs, queue])`): `gpu3d`, `gpu3d_aa`, `gpu3d_vs` (0/1/2), `gpu3d_queue`
   (1, 2 = two jobs in flight), `gpu3d_wc`, `gpu3d_2d`, `gpu3d_filter`, `gpu3d_tex16`,
@@ -76,10 +76,10 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 
 ## Open work (`docs/ROADMAP.md`)
 
-- **M35, M36, M37, M39** V3D on the Pi Zero W: [v3d](v3d.md).
-- **M41** Mali: [graphics-mali](graphics-mali.md) (the triangle to run on the device).
-- **M43** sprite stacking (`stack()` in `gfx16.c`, bm Pixel page) — not started.
-- **M44** QPU programs outside 3D (particles, full-screen 2D effects) — not started.
+- V3D (bm3D 3.0-7.3) on the Pi Zero W: [v3d](v3d.md).
+- Mali-G52 driver: [graphics-mali](graphics-mali.md) (the triangle to run on the device).
+- Sprite stacking (`stack()` in `gfx16.c`, bm Pixel page) — not started.
+- QPU programs outside 3D (particles, full-screen 2D effects) — not started.
 
 ## Rules (do not break)
 

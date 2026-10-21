@@ -6,7 +6,7 @@
 /*
  * ETC1 (OES_compressed_ETC1_RGB8_texture): a block of 4x4 RGB texels in 64
  * bits, bit 63 the first bit of the format's block (its bytes big-endian).
- * M39, bm3d 7.3: the opaque sheets of gpu3d_etc1, made when a sheet's
+ * bm3d 7.3: the opaque sheets of gpu3d_etc1, made when a sheet's
  * texture is made (gpu3d.c tex_get); the V3D emulator of the tests decodes
  * them with etc1_texel.
  */

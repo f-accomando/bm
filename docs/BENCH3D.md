@@ -17,7 +17,7 @@ reproduce (`docs/DRIVERS.md`):
 - **GPU+AA**: the same with 4× MSAA;
 - **GPU+VS1**: bm3d 3.0, the vertex shader for the scenery;
 - **GPU+VS**: bm3d 3.4, the vertex shader for everything;
-- **GPU+VS+Q**: bm3d 4.1, the same with the queued frame (M35; only in the `queue` test);
+- **GPU+VS+Q**: bm3d 4.1, the same with the queued frame (bm3D 4.1; only in the `queue` test);
 - **GPU+FS2**: the textured pixel shaders with two threads (bm3d 5.3, all the 3D ones from
   6.3), in the tests with textures; from 6.4 they are the default, and the GPU row reproduces them with one thread.
   The colour ones stay single-threaded (with two threads the Pi measured them 4–5% slower).
@@ -70,16 +70,16 @@ the Pi's numbers with the earlier drivers are the historical bars.
   z preserved);
 - `match`: a synthetic match, map of 100 pieces, heroes with shadows, a
   first-person model and a HUD;
-- `mix`: everything together, like a game (M41, for the score): n slices of a road, each one a piece
+- `mix`: everything together, like a game (for the score): n slices of a road, each one a piece
   of map with baked light under a hero (in turn Gouraud with highlights, with the texture, with the
   skin on two bones) with its shadow, a fence of texels with holes, a screen-door glass and a
   crate; the ground under the camera across the near plane, sky, rim, 4 lamps and fog, a
   first-person model at the bottom right and a HUD of sprites and text over the 3D;
 - `queue`: Gouraud spheres plus a fixed ARM workload after the 3D (4 million instructions,
   a game's logic), with GPU+VS and GPU+VS+Q: in the queue the ARM works while the GPU draws;
-- `gpu2d`: sprites and text over the 3D (M37; with GPU+2D in the GPU job, otherwise the ARM);
-  `bilinear`: quads with filtered textures (M37, an option off by default);
-- `big`, `big_logic`: models of 10 080 triangles on a map of 14 112 (M39), the second with the
+- `gpu2d`: sprites and text over the 3D (bm3D 4.8; with GPU+2D in the GPU job, otherwise the ARM);
+  `bilinear`: quads with filtered textures (bm3D 4.9, an option off by default);
+- `big`, `big_logic`: models of 10 080 triangles on a map of 14 112 (larger indexed meshes, bm3D 5.0), the second with the
   logic of `queue`.
 
 The maximum loads are far beyond what the drivers do today (up to 8000 spheres, 512

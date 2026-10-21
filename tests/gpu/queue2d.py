@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-The frame queue's 2D (M35) on the PC: small cartridges run in bmhost-gpu
+The frame queue's 2D (bm3d 4.1) on the PC: small cartridges run in bmhost-gpu
 (the V3D emulated) with the queue off and on, and their frames compared.
 With the queue, the 2D drawn after 3D is recorded while the GPU draws and
 drawn after it, a zclear() between 3D stays inside the GPU's job, and the
@@ -8,7 +8,7 @@ next frame's _update runs while the GPU draws (the 2D it draws goes on the
 next frame's page): the frames must be the same. A cartridge that draws 3D
 in _update gets its _update after the frame again (a line in the log).
 
-M39 (bm3d 6.9): with each frame shown a frame later (gpu3d_later=1, two
+bm3d 6.9: with each frame shown a frame later (gpu3d_later=1, two
 jobs in flight) the frame's job starts at its end and the frame is held
 while the next _update and _draw run on the next page; the held frame gets
 its recorded 2D and is shown at the end of the next one. The first loop
@@ -143,7 +143,7 @@ def main():
                 differ.append(s)
         check(len(shots) >= 15 and not differ, f"{mode}: {len(shots)} frames, the same with the queue "
               f"({len(differ)} differ: {' '.join(differ[:5])})", logs[0][-500:] + log[-500:])
-        # M39: each frame shown a frame later (two jobs in flight), also with
+        # bm3d 5.1: each frame shown a frame later (two jobs in flight), also with
         # the 2D over the 3D in the GPU's job: the same pictures as without
         # the queue, every one (no _update runs early here). "held" does not
         # read the page at the end of _draw: its last job is still running
@@ -173,7 +173,7 @@ def main():
                   f"{' '.join(differ[:5])})", logl[-800:])
         if mode != "draw":
             continue
-        # M37: the 2D over the 3D drawn by the GPU in its job (gpu3d_2d=1),
+        # bm3d 4.8: the 2D over the 3D drawn by the GPU in its job (gpu3d_2d=1),
         # without and with the queue: the same frames, fewer jobs
         for q in (0, 1):
             d = os.path.join(out, f"{mode}-2d-q{q}")

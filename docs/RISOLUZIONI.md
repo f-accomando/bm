@@ -123,7 +123,7 @@ the conditions of section 4.
 - **Pi, `menu_scale=3`** in `bm/config.txt`: 1920×1080 with the same layout scaled 3×.
   The ARM scales it every frame (~4 MB written to video memory, like the background copy
   at 1080p in section 3): it is a test, it does not run at 60 fps. The next step is to have
-  the GPU draw the menu (M37: covers, bars and text as V3D quads), and then
+  the GPU draw the menu (bm3D 4.8: covers, bars and text as V3D quads), and then
   1080p will also be able to have finer text and icons.
 - **RGB30**: 360×360 RGB565, scaled 2× by the video controller onto the 720×720 panel (integer
   pixels, no CPU cost); 2 covers per row.

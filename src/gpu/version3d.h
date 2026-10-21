@@ -24,7 +24,7 @@
  * on the Pi with them.
  */
 #define BM3D_VERSION "7.3"
-#define BM3D_BLOCK   "M39"
+#define BM3D_BLOCK   "etc1"
 
 typedef struct {
     const char *version, *block, *date, *what;
@@ -39,42 +39,42 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "1.0", "M33", "2026-10-01", "the GPU draws the triangles, the ARM places and lights them" },
         { "2.0", "M34", "2026-10-01", "cleared pages, textures in T-format, MSAA 4x, less ARM a triangle" },
         { "2.1", "M34", "2026-10-03", "Overbit on the GPU: screen-door, baked RGB light, shadows, effects" },
-        { "3.0", "M36", "2026-10-03", "vertex shader for the scenery, clipping on the GPU" },
-        { "3.1", "M36", "2026-10-03", "vertex shader for models lit by the sun, with bones (heroes)" },
-        { "3.2", "M36", "2026-10-03", "vertex shader for shadows and the first-person layer" },
-        { "3.3", "M36", "2026-10-03", "textured models lit by the sun: Gouraud, on the vertex shader too" },
-        { "3.4", "M36", "2026-10-03", "skins on the vertex shader: faces on two bones (the Meshy heroes)" },
-        { "4.0", "M35", "2026-10-03", "the frame in the queue: the GPU draws while the game's next update runs" },
-        { "4.1", "M35", "2026-10-03", "2D after 3D recorded while the GPU draws, zclear() inside the job" },
+        { "3.0", "vs", "2026-10-03", "vertex shader for the scenery, clipping on the GPU" },
+        { "3.1", "vs", "2026-10-03", "vertex shader for models lit by the sun, with bones (heroes)" },
+        { "3.2", "vs", "2026-10-03", "vertex shader for shadows and the first-person layer" },
+        { "3.3", "vs", "2026-10-03", "textured models lit by the sun: Gouraud, on the vertex shader too" },
+        { "3.4", "vs", "2026-10-03", "skins on the vertex shader: faces on two bones (the Meshy heroes)" },
+        { "4.0", "queue", "2026-10-03", "the frame in the queue: the GPU draws while the game's next update runs" },
+        { "4.1", "queue", "2026-10-03", "2D after 3D recorded while the GPU draws, zclear() inside the job" },
         { "4.2", "M38", "2026-10-04", "screens up to 1920x1080 (screen()), cls() cleared by the GPU's job" },
-        { "4.3", "M36", "2026-10-05", "the vertex shader's VPM offsets in bytes, as the V3D wants; the probe learns it" },
-        { "4.4", "M35", "2026-10-05", "no early z after a zclear() in the job nor with MSAA; the queue without VS" },
-        { "4.5", "M35", "2026-10-05", "the jobs' memory uncached, the ARM's writes merged (option)" },
-        { "4.6", "M35", "2026-10-05", "up to 8 textures in a job (2 before: a third ended it)" },
+        { "4.3", "vs", "2026-10-05", "the vertex shader's VPM offsets in bytes, as the V3D wants; the probe learns it" },
+        { "4.4", "queue", "2026-10-05", "no early z after a zclear() in the job nor with MSAA; the queue without VS" },
+        { "4.5", "queue", "2026-10-05", "the jobs' memory uncached, the ARM's writes merged (option)" },
+        { "4.6", "queue", "2026-10-05", "up to 8 textures in a job (2 before: a third ended it)" },
         { "4.7", "M34", "2026-10-05", "textured screen-door faces on the GPU too (the last case left to the ARM)" },
-        { "4.8", "M37", "2026-10-05", "2D over the 3D in the GPU's job, pixel for pixel; textures filtered (options)" },
-        { "4.9", "M37", "2026-10-05", "the ARM's 3D: one matrix a model, lit in its own axes (option r3d_fast)" },
-        { "5.0", "M39", "2026-10-05", "meshes up to 65535 vertices; indexed: a shared corner shaded once" },
-        { "5.1", "M39", "2026-10-05", "two jobs in flight: a job filled while the one before is drawn (option)" },
-        { "5.2", "M39", "2026-10-05", "opaque textures as RGB565 in tiles, layout learned by the probe (option)" },
-        { "5.3", "M39", "2026-10-05", "textured faces shaded with two threads a QPU, checked by the probe (option)" },
-        { "5.4", "M39", "2026-10-05", "the meshes' draws nearest first: early z skips the hidden pixels (option)" },
-        { "5.5", "M39", "2026-10-05", "visible3d and pvs3d: characters hidden by the map skipped (Overbit)" },
-        { "5.6", "M39", "2026-10-05", "each mesh's triangles in the vertex cache's order (with the draw order option)" },
-        { "6.0", "M41", "2026-10-05", "RGB30: the Mali-G52 powered, mapped, running jobs (GPU test); no drawing yet" },
-        { "6.1", "M41", "2026-10-05", "RGB30: a Mali fragment job clears tiles into a surface and on the screen" },
-        { "6.2", "M39", "2026-10-05", "V3D: shaders without thread switches said single-threaded (GPU+FS2 hung)" },
-        { "6.3", "M39", "2026-10-05", "two threads for every 3D shader (GPU+FS2); early z kept in MSAA jobs that clear" },
-        { "6.4", "M39", "2026-10-06", "textured shaders with two threads by default; the colour ones lock the scoreboard last" },
-        { "6.5", "M36", "2026-10-06", "vertex shader probe: also with the clipper on as Mesa, V3D errors logged; shadows counted" },
-        { "6.6", "M36", "2026-10-06", "the vertex shader on by default (every model), as the Pi drew it with the clipper on" },
-        { "6.7", "M36", "2026-10-06", "vertex shader: a mesh's copy for each texture; sun-lit textures with three varyings" },
-        { "6.8", "M36", "2026-10-06", "vertex shader: a mesh's corners no longer written past their copy (the heap broken)" },
-        { "6.9", "M39", "2026-10-11", "each frame shown a frame later: the next _draw runs while the GPU draws it (option)" },
+        { "4.8", "2D", "2026-10-05", "2D over the 3D in the GPU's job, pixel for pixel; textures filtered (options)" },
+        { "4.9", "2D", "2026-10-05", "the ARM's 3D: one matrix a model, lit in its own axes (option r3d_fast)" },
+        { "5.0", "mesh", "2026-10-05", "meshes up to 65535 vertices; indexed: a shared corner shaded once" },
+        { "5.1", "jobs2", "2026-10-05", "two jobs in flight: a job filled while the one before is drawn (option)" },
+        { "5.2", "tex16", "2026-10-05", "opaque textures as RGB565 in tiles, layout learned by the probe (option)" },
+        { "5.3", "fs2", "2026-10-05", "textured faces shaded with two threads a QPU, checked by the probe (option)" },
+        { "5.4", "sort", "2026-10-05", "the meshes' draws nearest first: early z skips the hidden pixels (option)" },
+        { "5.5", "pvs", "2026-10-05", "visible3d and pvs3d: characters hidden by the map skipped (Overbit)" },
+        { "5.6", "vcache", "2026-10-05", "each mesh's triangles in the vertex cache's order (with the draw order option)" },
+        { "6.0", "Mali", "2026-10-05", "RGB30: the Mali-G52 powered, mapped, running jobs (GPU test); no drawing yet" },
+        { "6.1", "Mali", "2026-10-05", "RGB30: a Mali fragment job clears tiles into a surface and on the screen" },
+        { "6.2", "fs2", "2026-10-05", "V3D: shaders without thread switches said single-threaded (GPU+FS2 hung)" },
+        { "6.3", "fs2", "2026-10-05", "two threads for every 3D shader (GPU+FS2); early z kept in MSAA jobs that clear" },
+        { "6.4", "fs2", "2026-10-06", "textured shaders with two threads by default; the colour ones lock the scoreboard last" },
+        { "6.5", "vs", "2026-10-06", "vertex shader probe: also with the clipper on as Mesa, V3D errors logged; shadows counted" },
+        { "6.6", "vs", "2026-10-06", "the vertex shader on by default (every model), as the Pi drew it with the clipper on" },
+        { "6.7", "vs", "2026-10-06", "vertex shader: a mesh's copy for each texture; sun-lit textures with three varyings" },
+        { "6.8", "vs", "2026-10-06", "vertex shader: a mesh's corners no longer written past their copy (the heap broken)" },
+        { "6.9", "later", "2026-10-11", "each frame shown a frame later: the next _draw runs while the GPU draws it (option)" },
         { "7.0", "M38", "2026-10-12", "draw3d flag 128 and textures3d(): textured faces as flat colours (their average texel)" },
-        { "7.1", "M39", "2026-10-12", "compact attributes: colour and light bytes packed, unpacked by the vertex shader (option)" },
-        { "7.2", "M39", "2026-10-12", "cut-out sheets as RGBA5551 with the 16-bit textures, the TMU's order probed (option)" },
-        { "7.3", "M39", "2026-10-12", "opaque sheets as ETC1, encoded when made, the TMU's block layout probed (option)" },
+        { "7.1", "attr", "2026-10-12", "compact attributes: colour and light bytes packed, unpacked by the vertex shader (option)" },
+        { "7.2", "tex16", "2026-10-12", "cut-out sheets as RGBA5551 with the 16-bit textures, the TMU's order probed (option)" },
+        { "7.3", "etc1", "2026-10-12", "opaque sheets as ETC1, encoded when made, the TMU's block layout probed (option)" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;
@@ -82,7 +82,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
 
 /* the version a renderer reproduces: gpu (the V3D draws), vs (its vertex
  * shader: 0, 1 the scenery, 2 every model), queue (the frame in the queue,
- * M35) */
+ * bm3d 4.1) */
 static inline const char *bm3d_mode_q(int gpu, int vs, int queue)
 {
     if (!gpu)
@@ -97,7 +97,7 @@ static inline const char *bm3d_mode(int gpu, int vs)
     return bm3d_mode_q(gpu, vs, 0);
 }
 
-/* the same, later: each frame shown a frame later (M39, gpu3d_later) */
+/* the same, later: each frame shown a frame later (bm3d 6.9, gpu3d_later) */
 static inline const char *bm3d_mode_l(int gpu, int vs, int queue, int later)
 {
     return gpu && later ? "6.9" : bm3d_mode_q(gpu, vs, queue);
