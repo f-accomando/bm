@@ -18,6 +18,9 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
 - Vertex shader is done (`gpu3d_vs=2` default).
 - `stat(16)`: the GPU's job time of the last frame (0 on the ARM). Read with the queue on, it
   includes the wait before the ARM looks: trust it only without the queue.
+- `stat(17)`: ms of audio interrupt time in the last frame. `stat(18)`: ms the ARM waited for the GPU
+  in the last frame (0 on the ARM, RGB30 and QEMU). Both: `gpu_frame_account` in `runtime.c`.
+  Measurements only. The overlay already shows both as its audio and wait bars.
 - `r3d_impostor=N` (off; 2..64 px of a 1080-line screen, threshold N*h/1080: `imp_threshold`
   in `r3d.c`; `gpu3d()` 5th; skinned meshes by their pose box). Host test: `make test-impostor`.
 - `gpu3d_attr=1` (bm3d 7.1, off; Settings *3D corners*, 3D Bench GPU+VS+A8): compact
@@ -104,9 +107,6 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
      - Branches in `qpuasm.py` and in the emulator (3 delay slots): per-pixel predicates, branches only on uniform data; VPM DMA with mutex, TMU sampling via memory (`t0s` + `ldtmu0`), semaphores `sacq/srel`.
      - `qpuasm.py` checks: handling of `ra39/rb39` reads, small immediate constraints with `ldtmu`/`thrsw`. Hardware counters `PCTR*` (0x670) for fine profiling.
    - *Completion criterion*: particles and Yharnam's darkness levels handled entirely by the GPU with measurements in the 3D Bench and an identical software fallback in QEMU (`gpu3d=0`).
-6. **Runtime profiling for game engines**:
-   - Integration of two new `stat()` metrics in the overlay and the dev kit: audio processing time and GPU wait time.
-   - Lets the dynamic governor of Overbit and Yharnam decide at runtime whether the bottleneck is the CPU/ARM bus or the GPU.
-7. **Dynamic impostor adaptation for crowds and heroes**:
+6. **Dynamic impostor adaptation for crowds and heroes**:
    - Skinned models simplified to billboard quads with `r3d_impostor` when far from the camera; Overbit/Yharnam quality governor to enable `gpu3d(nil, nil, nil, nil, 8)` at low levels.
 

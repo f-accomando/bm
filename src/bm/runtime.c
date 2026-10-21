@@ -105,6 +105,9 @@ static struct {
     uint32_t last_cpu_us, fps;
     uint32_t gpu_frame_us;      /* stat(16): the GPU's job time accounted in the last frame */
     gpu3d_stats_t gpu_prev;     /* the driver's totals at the end of the frame before */
+    uint32_t audio_frame_us;    /* stat(17): the audio interrupt's time in the last frame */
+    uint32_t gpuwait_frame_us;  /* stat(18): the ARM's wait for the GPU in the last frame */
+    uint32_t audio_prev, gpuwait_prev;  /* their totals at the end of the frame before */
     uint32_t present_us;        /* last copy of the frame to the framebuffer */
     uint32_t us3d;              /* time in 3D drawing since the last zclear() */
     uint32_t us3d_all;          /* the same, never reset (the dev kit's overlay) */
@@ -1801,8 +1804,11 @@ static uint32_t assets_kb(void);
  *         (sprite sheet, map, models, sound bank, z-buffer), 14 the Lua
  *         instructions of the busiest frame of this run, 15 the _update
  *         run this frame (frameskip), 16 ms of GPU job time (bin + render)
- *         accounted in the last frame, 0 when the ARM draws the 3D: a
- *         measurement only, never game logic (it differs between consoles) */
+ *         accounted in the last frame, 0 when the ARM draws the 3D,
+ *         17 ms of audio processing in the last frame, 18 ms the ARM
+ *         waited for the GPU in the last frame (0 when the ARM draws the
+ *         3D; 0 on the RGB30 and in QEMU, where no such source exists):
+ *         measurements only, never game logic (they differ between consoles) */
 static int l_stat(lua_State *L)
 {
     switch (ival(L, 1)) {
@@ -1827,6 +1833,8 @@ static int l_stat(lua_State *L)
     case 14: lua_pushinteger(L, (lua_Integer)rt.instr_k_max * 1000); break;
     case 15: lua_pushinteger(L, rt.updates); break;
     case 16: lua_pushnumber(L, rt.gpu_frame_us / 1000.0); break;
+    case 17: lua_pushnumber(L, rt.audio_frame_us / 1000.0); break;
+    case 18: lua_pushnumber(L, rt.gpuwait_frame_us / 1000.0); break;
     default: lua_pushnil(L);
     }
     return 1;
@@ -8804,6 +8812,13 @@ static void gpu_frame_account(void)
     }
     rt.gpu_frame_us = gpu3d_busy_us(&d);    /* (the ARM's 3D: no jobs, 0) */
     rt.gpu_prev = g;
+    /* stat(17), stat(18): the audio interrupt's time and the ARM's wait
+     * for the GPU since the frame before (a total that went back: from zero) */
+    const uint32_t au = audio_busy_us, wt = gpu3d_wait_us();
+    rt.audio_frame_us = au >= rt.audio_prev ? au - rt.audio_prev : au;
+    rt.gpuwait_frame_us = wt >= rt.gpuwait_prev ? wt - rt.gpuwait_prev : wt;
+    rt.audio_prev = au;
+    rt.gpuwait_prev = wt;
 }
 
 /* the frame that ended, summed; next: the start of the new one */
