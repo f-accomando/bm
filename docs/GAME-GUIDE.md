@@ -39,8 +39,8 @@ If the game stops with an error, the SDK goes back to the line in red (Ctrl+G fi
 again). Everything else in this guide holds for the SDK too.
 
 **Projects and games**: what the tools change is a **project**, a `.bme` in `/carts` with an
-8.3 name (e.g. `MYGAME.BME`), in the Dev tab with a "Project" badge (A opens it in the SDK,
-*Try it* plays it). A `.bm` is a **game**, in Games: the tools open it to read it and take its
+8.3 name (e.g. `MYGAME.BME`). It is not listed in the menu tabs: the editors open it (the SDK's
+*Open*, Ctrl+O). A `.bm` is a **game**, in Games: the tools open it to read it and take its
 code, sprites, models and sounds, but do not change it. Saving one, they ask to make its
 **editable copy** (`NAME.BME`, next to it); the copy is also in a game's options (X), *Make an
 editable copy*. When the project is ready, **Ctrl+B** in the SDK (or *Build the game (.bm)*
