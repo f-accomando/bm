@@ -336,7 +336,8 @@ La console lo scrive quando cambi un'impostazione. Puoi anche modificarlo dal PC
 | `layout` | `it` o `us`: la tastiera |
 | `volume` | da 0 a 10 |
 | `confirm` | `a`: A conferma (RGB30) |
-| `show_bm` | `0`: niente `.bm` nel menu dell'RGB30 |
+| `show_bm` | `0`: niente `.bm` nella scheda Games dell'RGB30 (di base si vedono, per le prove) |
+| `market_bm` | `1`: il Market dell'RGB30 elenca anche le cartucce `.bm` (di base elenca solo `.b16`) |
 | `menu_scale` | `3`: il menu del Pi a 1920x1080 |
 | `github_token` | un token GitHub per i rapporti di test |
 

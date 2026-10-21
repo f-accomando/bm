@@ -71,7 +71,7 @@ On the right, **CONTENTS** shows what is in the file: code (lines, KiB, tokens),
 
 ## The other pages
 
-- **F2, the code.** A quick editor with syntax colours and the number of tokens in the status line. For more than a quick change, press `1` on the project page to open bm Code.
+- **F2, the code.** A quick editor with syntax colours and the number of tokens in the status line. For more than a quick change, press `1` on the project page to open bm Code. The help on an API function (**Ctrl+Q**) and the check of unknown API names on save are in bm Code, not in this quick editor.
 - **F3, the sprites.** The sheet, the palette and the **flags** of the chosen cell (keys `0` to `7`). The flag convention is bmlib's: 0 wall, 1 platform, 2 ladder, 3 water, 4 hurts.
 - **F3 again, the map.** See chapter 5.
 - **F4, the 3D.** The project's models in a list and the animations of the chosen one. Key `i` writes into the code the lines to load and draw the model.
@@ -91,6 +91,7 @@ Start a new project with **Ctrl+N**, with *New project...* in the menu (Esc), or
 | Online 2D | two to four consoles on the network: a lobby and lockstep |
 | 3D scene | floor, cubes, a ball with its shadow, a camera that follows |
 | 3D with models | the models of bm Studio, animated (bm Animator) |
+| Stages 2D | a title, three stages, an ending and a saved best time |
 
 A new project is not saved yet: the project page says `not saved yet` until you use **Save as**. If you have unsaved changes, the SDK says `unsaved changes: choose the template again to leave them`: choose the template again to confirm.
 
@@ -180,6 +181,26 @@ The game's random numbers come from the match's seed (`lib.rng`), never from `ma
 3. Press **Esc**, **Save as...**, type a name and press Enter.
 4. Press **F5**. The models of the project turn on a stand; with a skeleton (bm Animator) they play their first animation. Left and right change the model, up and down the zoom. With no model, a cube is shown.
 
+## Tutorial: Stages 2D
+
+A whole small game: a title screen, three stages, an ending and a saved best time. The hero runs and jumps like in Platform 2D.
+
+1. Press **Ctrl+N**. *Stages 2D* is the last row of the list: press **up** once from the first row, then **Enter**. The status line says `new project (Stages 2D)`.
+2. Press **Esc**, **Save as...**, type a name and press **Enter**.
+3. Press **F3** twice to see the map. The three stages are three bands of 48 rows one under the other (rows 0-47, 48-95, 96-143). In each band the ground has gaps, there are planks, and the exit (tile 7, a flag) is at the right.
+4. Press **F5**. The title shows **NEW GAME**; up and down choose, **A** starts. Once you have reached stage 2 or 3, a second row **CONTINUE STAGE** appears.
+5. Play: left and right walk, **A** jumps, **down** drops through a plank. The top left shows the stage, the lives and the time.
+6. Fall down a gap: you lose a life (you have 3) and the stage starts again. With no lives left, **GAME OVER** appears and **A** goes back to the title.
+7. Reach the flag: `STAGE 1 CLEAR`, then **A** for the next stage. After stage 3 the ending shows `ALL CLEAR` with your time and the best time. Only a game started with **NEW GAME** can set the best time.
+
+::: note
+The game keeps the best time and the stage you reached with `save()`. How saves work is in the API manual.
+:::
+
+::: try
+Move the flag of stage 1 closer to the start (a tile 7 on the map), or add a plank over the first gap, and press F5 again.
+:::
+
 # The map editor
 
 Press **F3** to see the sprites, then **F3** again for the map. A map is made of tiles from the sprite sheet, on layers.
@@ -218,6 +239,7 @@ Press **v** on the map page to toggle between 2D editing and real-time **3D prev
 - **Path tool (`Shift+P`, `Shift+W`)**: press `Shift+W` to cycle corridor width from 1 to 5 tiles. Press `Shift+P`, navigate to the start cell and press Enter, then navigate to the destination cell and press Enter: a corridor of width *N* is drawn on the `floor` layer with the active tile.
 - **Apples row tool (`Shift+A`)**: press `Shift+A`, press Enter at the start cell and Enter at the destination cell: a continuous line of apple placeholders (ID 1026) is placed on the `objects` layer.
 - **Place crates and lamps (`Shift+C`, `Shift+O`)**: `Shift+C` places a crate placeholder (ID 1028) at the cursor cell on the `objects` layer, and `Shift+O` places a lamp placeholder (ID 1032).
+- **Place the start and the goal (`Shift+S`, `Shift+G`, Pi SDK only)**: the RGB30 SDK has no start or goal tool. On the Pi, `Shift+S` places the start placeholder (ID 1024) and `Shift+G` the goal (ID 1030) at the cursor cell.
 - **Status bar**: displays the current counts of apples, crates, and lamps, together with an estimated triangle budget (floor + objects).
 - **Undo**: `u` or `Ctrl+Z` undoes an entire path, row, or object placement in one step.
 
@@ -262,14 +284,15 @@ Press **F1** on the project page, then **F1** again. The second page is the **de
 
 - **Ctrl+B**, or *Build the game .bm* in the menu: builds the game of the project. When the target is `.b16`, it builds the `.b16` and the menu entry says so.
 - **Ctrl+Shift+B**, or *Export .b16*: exports the `.b16` whatever the target.
-- On success the SDK says `built NAME: it is in Games`.
+- The game is written next to the project. For a project in `/carts` the game is in `/carts` too, and the **Games** tab lists the games of `/carts`.
+- On success the SDK says `built /carts/NAME.BM: it is in Games` (the path of the game).
 
 ## Good to know
 
 - A game is built from its project. If a game is open, the SDK saves its editable copy first.
 - Setting the target to `.b16` (key `b` on the project page) changes the screen to `360x360` if it was not square, and tells you the 8 MiB limit.
 - The target is remembered for each project file.
-- On the RGB30, exporting a `.b16` from `/carts` also copies it to `/bm/`, so it appears at once in Games.
+- On the RGB30, exporting a `.b16` from `/carts` also copies it to `/bm/`, so it appears at once in Games. On the RGB30 the Games tab lists `/bm/` and `/carts`; if the game is written somewhere else, the status line adds `(not in the Games tab)`.
 
 ## Caveats
 
@@ -280,7 +303,7 @@ Press **F1** on the project page, then **F1** again. The second page is the **de
 
 1. Open or create a project and save it with **Save as**.
 2. Press **Ctrl+B**.
-3. Wait for `built ...: it is in Games`.
+3. Wait for `built /carts/NAME.BM: it is in Games`.
 4. Leave the SDK (Esc, **Exit bm SDK**) and open the **Games** tab: your game is there.
 
 ::: copy
@@ -296,9 +319,43 @@ Ctrl+Shift+B    export .b16
 - The pad: **L1 / R1** change page, **Start** opens the menu, **X** opens the list of the actions of the page, **L2 / R2** the previous or next colour or tile, **ok** and **back** are B and A (`confirm=a` swaps them).
 - Text is typed with the on-screen keyboard (`padtype`); a keyboard works as on the Pi.
 - A new project is 360x360 with the target `.b16`.
+- The templates are the same, *Stages 2D* included.
 - **Try**: Start + Select (or Ctrl+Esc) leaves the game and the SDK comes back.
 - The programs bm Code, Pixel, Studio, Animator, Mesh and Sound are not on the RGB30, so *Open in ...* is not offered.
-- [TO FILL: bm SDK (RGB30) tried on the console; whether it is published in the Market, the repository files disagree]
+::: warn
+The pad, the screen and the sound of bm SDK (RGB30) were driven by keyboard in an emulator (QEMU) and by the repository tests only. They are **not verified on a real RGB30**.
+:::
+
+- [TO FILL: bm SDK (RGB30) tried on a real console with the pad alone; whether it is published in the Market, the repository files disagree]
+
+## The sounds page (RGB30)
+
+Press **F7** for the page of the project's sounds and effects (on the pad it is the page after *3D*, reached with R1). It works on the sound bank saved in the project. **F7** again, or **Y + up/down**, goes between the two views.
+
+::: warn
+The sounds page was driven in an emulator and by the repository tests only. It is **not verified on a real RGB30**.
+:::
+
+### Sounds
+
+The left list has 32 sound slots, the right panel the fields of the chosen sound: **WAVE**, **VOLUME**, **DUTY**, **ATTACK**, **DECAY**, **SUSTAIN**, **RELEASE**.
+
+- Up and down choose the field, left and right change the value; **PgUp / PgDn** (on the pad: hold left or right) change it 8 at a time.
+- `[` and `]` (or `,` and `.`; on the pad **L2 / R2**) choose the sound.
+- **Enter** (on the pad **ok**) plays the sound on the note A4.
+- `c` clears the sound.
+- `i` opens *Sounds from a file (Lib)*: first the list of the `.bm` and `.bme` files with a sound bank (from `/carts`, `/bm`, the root of the card and `/bm/lib`), then the sounds in the file you chose. The sound goes into the first empty slot; the status line says `sound N taken from the file`. If there is none, it says `no .bm or .bme file with sounds` or `no empty sound slot`.
+
+### Effects
+
+The effects view has 64 effects of 32 steps each. A step is a note, the sound that plays it and its volume.
+
+- Left and right choose the step, up and down change its note (a lower case letter is a sharp).
+- **Enter** on an empty step puts a note (the last note, with the sound chosen in the sounds view) and plays it; on a full step it plays it.
+- **Backspace** (on the pad **back**) clears the step.
+- `+` and `-` change the speed of the effect by 10 ms (from 10 to 500 ms). `p` plays the whole effect.
+
+The changes are saved with the project (**Ctrl+S**).
 
 # Keys
 
@@ -310,6 +367,7 @@ Hold **F12** in the SDK to see the keys of the page you are on.
 | F2 | anywhere | the code |
 | F3 | anywhere | the sprites; again: the map |
 | F4 | anywhere | 3D models and animations |
+| F7 | anywhere (RGB30) | the sounds; again: the effects |
 | Esc | anywhere | the menu |
 | Ctrl+N | anywhere | a new project from a template |
 | Ctrl+O | anywhere | open a cartridge |
@@ -341,6 +399,7 @@ Hold **F12** in the SDK to see the keys of the page you are on.
 | Shift+P / Shift+W | map | path tool (start, end: Enter) / width (1-5) |
 | Shift+A | map | apples line tool (start, end: Enter) |
 | Shift+C / Shift+O | map | place crate (1028) / place lamp (1032) |
+| Shift+S / Shift+G | map | (Pi SDK only) place the start (1024) / the goal (1030) |
 | r | map | rename layer |
 | T | map | template: 3D map layers |
 | x | map | pick the tile |
@@ -357,7 +416,15 @@ Hold **F12** in the SDK to see the keys of the page you are on.
 | Space | 3D | play, pause |
 | q / e, w / s | 3D | turn, tilt |
 | i | 3D | the code that draws the model |
+| + / - | 3D | zoom |
+| r | 3D | turn by itself |
 | Enter, a, m | 3D | open in bm Studio, bm Animator, bm Mesh |
+| up / down, left / right | sounds (RGB30) | the field, the value |
+| [ / ] or , / . | sounds (RGB30) | the sound before / after |
+| Enter | sounds (RGB30) | play (on an empty effect step: put a note) |
+| c / i | sounds (RGB30) | clear the sound / sounds from a file (Lib) |
+| Backspace | effects (RGB30) | clear the step |
+| + / - / p | effects (RGB30) | speed of the effect / play the effect |
 
 # Tips and troubleshooting
 
