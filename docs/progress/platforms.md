@@ -66,6 +66,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 
 ## Open work
 
+- RGB30 `bm_net.py --play` (D21, `play_net` in `src/rgb30/ui.c`): to try on the console. Send a `.b16` and a `.bm` with `python tools/bm_net.py IP --play FILE`. The game starts from the menu, Start+Select goes back to the menu, and a frozen game is closed.
 - RGB30 menu keys, user decision 19 Oct 2026 (target, not implemented): B = ok, Y = cancel,
   A is not a second back (games that rely on A as back are fixed one by one). Today the code
   still maps A to back (`pad_back`). Per-device key reference: branch `claude/ui-reference`

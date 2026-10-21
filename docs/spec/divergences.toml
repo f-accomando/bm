@@ -243,11 +243,12 @@ action = "confirm it is intended"
 id = "D21"
 area = "run from the PC without saving"
 pi = "bm_net.py --play wired (GO_NETPLAY)"
-rgb30 = "not wired"
+rgb30 = "bm_net.py --play wired (play_net in the menu loop)"
 cause = "todo"
 priority = 6
-status = "open"
-evidence = "src/kernel/carts.c:1860,1878,2032"
+status = "untested"
+note = "src/rgb30/ui.c play_net: the menu takes netxfer_take_play and plays with bm_play, as GO_NETPLAY on the Pi; a frozen game is closed without a question, as on the Pi. Built for rk3566 and virt; QEMU has no network (-nic none), so no test sends P. Not tried on the console."
+evidence = "src/kernel/carts.c:1843,1861,2015; src/rgb30/ui.c:426,1004"
 action = "wire it into ui_home (developer feature)"
 
 [[divergence]]
