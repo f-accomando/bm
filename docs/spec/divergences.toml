@@ -235,10 +235,10 @@ rgb30 = "manifest-rgb30: kernel8.img and ca.pem only"
 cause = "hardware"
 capability = "board-boot"
 priority = 6
-status = "open"
-note = "The RGB30 release uses manifest-rgb30 with kernel8.img and ca.pem only (Makefile:766-775); the update test reads the same manifest (tests/rgb30/qemu_test.py:335-352). Looks intended: waits for the user's written acceptance."
+status = "resolved"
+note = "Kernels ship bare: no games, no apps. Exception until the apps move to the Market: kernel.img carries the bm editor suite and kernel8.img carries the bm SDK. The benchmarks (Texture Room, built into the kernel) stay in both. Accepted in writing by the user, 21 Oct 2026. Intended."
 evidence = "Makefile:766-775; tests/rgb30/qemu_test.py:335-352"
-action = "ask the user to accept it in writing; then close"
+action = "none"
 
 [[divergence]]
 id = "D21"
@@ -262,7 +262,7 @@ priority = 6
 status = "open"
 note = "RGB30 has no monitor console by design (no USB host / no keyboard; serial line has a Lua REPL)."
 evidence = "src/rgb30/ui.c:946; src/kernel/settings.c:652"
-action = "keep; tell developers"
+action = "the user builds a terminal monitor for the RGB30 after the beta; study: mini-HDMI detection, external monitor, BT keyboard and mouse"
 
 [[divergence]]
 id = "D23"
@@ -494,4 +494,4 @@ cause = "todo"
 priority = 6
 status = "open"
 evidence = "src/kernel/carts.c:842-844; src/rgb30/ui.c"
-action = "decide whether RGB30 Dev lists .bme"
+action = "remove the project rows from the Pi Dev tab (WO NET-D44-PI); then intended"
