@@ -27,8 +27,7 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 | [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) | the games: screens and quality, bench flags, assets, verification | `carts/overbit/`, `carts/yharnam/` |
 | [b16](progress/b16.md) | `.b16` standard profile (360×360, 256 colours, 4 MiB Lua, sandbox) | `src/bm/project.c`, `src/bm/runtime.c` |
 | [tools](progress/tools.md) (+ [assistant](progress/tools-assistant.md)) | the suite, editors, PC scripts, Market, CI (design: [suite specs](design/)) | `carts/`, `src/ai/`, `scripts/`, `tools/` |
-| [sync-workflow](progress/sync-workflow.md) | multi-agent sync: what worked, what hurt, proposals (notes from the 3D video series) | `SYNC.md`, `sync/` |
-| [tropic-trail-final-report](progress/tropic-trail-final-report.md) | final report of the 3D video series: deliveries, grades of the operators, estimated vs actual times, lessons | `video/3d/`, `SYNC.md` |
+| [tropic-trail-final-report](progress/tropic-trail-final-report.md) | final report of the 3D video series: deliveries, grades of the operators, estimated vs actual times, lessons | `video/3d/` |
 
 ## Which section to open
 
@@ -42,7 +41,6 @@ file ends with *Open work* and *Rules (do not break)*.
 - VM, runtime, built-in libraries, dev kit: [lua](progress/lua.md).
 - Synth, mixer, player, presets, riff, music assistant: [audio](progress/audio.md); output depth and dither: [audio-output](progress/audio-output.md); samples, effects, WAV: [audio-samples](progress/audio-samples.md).
 - Pi Zero W, Pi Zero 2 W, RGB30, PC and QEMU: [platforms](progress/platforms.md).
-- Several operators on one repo (`SYNC.md`, `sync/`): lessons and proposals in [sync-workflow](progress/sync-workflow.md).
 - Suite (SDK, Studio, Animator, Mesh, Pixel, Code, Sound, Write): [tools](progress/tools.md) (future suite evolution: `docs/design/suite-*.md`).
 - Games (Overbit, Yharnam): [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) (gameplay architecture: [`docs/design/games-architecture.md`](design/games-architecture.md)).
 - Game API reference (not progress): [API.md](API.md) → `docs/api/<area>.md`.
@@ -51,10 +49,6 @@ file ends with *Open work* and *Rules (do not break)*.
 
 - [reading](progress/reading.md): the search command per big file, then `Read` offset/limit.
 - [runtime](progress/runtime.md): sections of `src/bm/runtime.c` by banner, to grep.
-- [sync](progress/sync.md): multi-agent coordination protocol, states, heartbeats, and workflow findings.
-- [sync-closeout](progress/sync-closeout.md): closeout phases C0-C6, operator states, timeouts, what not to lose.
-- [sync-spv](progress/sync-spv.md): review steps, quick jobs, operators without a direct channel.
-- [sync-labels](progress/sync-labels.md): English and Italian labels of sync files.
 
 ## Reference docs (not progress)
 

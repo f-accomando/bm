@@ -50,7 +50,7 @@ jobs:
           # and src/ai/api.tsv are not listed: they make the heavy jobs run.
           allowed() {
             case "$1" in
-              docs/*|manuals/*|tests/tools/*|sync/*|.claude/*|SYNC.md) return 0 ;;
+              docs/*|manuals/*|tests/tools/*|.claude/*) return 0 ;;
               */*) ;;
               *.md) return 0 ;;
             esac
@@ -58,7 +58,6 @@ jobs:
               scripts/agent_audit.py|scripts/ci_audit.py|scripts/consistency.py|scripts/cindex.py) return 0 ;;
               scripts/ctx_guard.py|scripts/docs_audit.py|scripts/ledger_add.py|scripts/ledger_repeats.py) return 0 ;;
               scripts/recipe_bench.py|scripts/wsl-run.ps1|scripts/hooks/*) return 0 ;;
-              tools/sync_check.py|tools/sync_hdr.py|tools/sync_watch.py) return 0 ;;
             esac
             return 1
           }

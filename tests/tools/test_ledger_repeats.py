@@ -34,7 +34,7 @@ class RepeatsTest(unittest.TestCase):
         out = r.stdout.splitlines()
         self.assertTrue(out[0].startswith("3 x review ID (agenti: general-purpose; token totali 300"), out)
         self.assertNotIn("translate", r.stdout)
-        self.assertIn("note it in the SYNC.md Log", out[-1])
+        self.assertIn("note it in the ledger notes", out[-1])
 
     def test_min_two(self):
         self.ledger(row("wo AGY-1"), row("wo AGY-2"), row("solo thing"))

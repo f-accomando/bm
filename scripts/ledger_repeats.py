@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""List sub-agent ledger tasks repeated N or more times (SYNC.md "Task ripetitive").
+"""List sub-agent ledger tasks repeated N or more times.
 
 Usage: python scripts/ledger_repeats.py [--file docs/agents/ledger.txt] [--min 3] [--since YYYY-MM-DD]
 
@@ -24,8 +24,8 @@ import sys
 
 ID_RE = re.compile(r"\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+")
 MARK = "\x00"
-RECOMMEND = ('repeated >= 3 times: make it a skill or a script and note it in the '
-             'SYNC.md Log (SYNC.md rule "Task ripetitive")')
+RECOMMEND = ('repeated >= 3 times: make it a skill or a script and note it in '
+             'the ledger notes')
 
 
 def form(task):

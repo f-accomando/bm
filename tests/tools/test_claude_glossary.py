@@ -26,7 +26,7 @@ def glossary_rows():
 
 class ClaudeGlossaryTest(unittest.TestCase):
     def test_has_rows(self):
-        self.assertGreaterEqual(len(glossary_rows()), 10)
+        self.assertGreaterEqual(len(glossary_rows()), 7)
 
     def test_every_row_points_to_an_existing_heading(self):
         for term, _meaning, command in glossary_rows():

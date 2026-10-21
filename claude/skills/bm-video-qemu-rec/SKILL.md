@@ -46,8 +46,6 @@ Build first: `make build/kernel.img` (the kernel holds the editors; after a `git
 `late_keys: 0` in the `recorded:` line; `ffprobe` = 1920x1080 at 60 fps and frames = script + intro; a frame at a shot time against
 `out/shots/NN.png` of bmhost (compare the 16x16 cells, not pixels: RGB565 differs a little); `verify.py` PASS.
 
-## Delegating the small chores (heartbeat, sync report)
+## Delegating the small chores
 
-`python3 video/3d/hb.py --report` prints what changed on the other agents' branches and the recordings in progress;
-`python3 video/3d/hb.py --task "..." --pct N --note "..."` also appends the HEARTBEAT row to SYNC.md, commits and pushes.
-No decisions inside: delegate it to the subagent **`bm-ops`** (`.claude/agents/bm-ops.md`, Haiku low, Bash, no edits, no kill, no QEMU) and let it summarize in a few lines. `bm-ops` is also the one for `verify.py`, `make`, `git fetch/status/push` and for checking a recording in progress.
+No decisions inside: delegate them to the subagent **`bm-ops`** (`.claude/agents/bm-ops.md`, Haiku low, Bash, no edits, no kill, no QEMU) and let it summarize in a few lines. `bm-ops` runs `verify.py`, `make`, `git fetch/status/push` and for checking a recording in progress.

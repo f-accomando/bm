@@ -12,10 +12,10 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 - **Requirement**: the verifiable condition to close it ("done when"). If missing (`to be specified`), the row is not ready for a work order: it goes to `bm-planner`.
 - **After**: dependencies (IDs). `-` = independent.
 
-### How sync uses it
+### How agents use it
 
-1. The supervisor (SPV) or `bm-planner` picks the highest-priority rows with no open dependencies, starting from the highest level.
-2. It opens the indicated area file and takes the `Open work` entry to write the work orders in `sync/wo/<ID>.md` (format in [`SYNC.md`](../SYNC.md)); one operator = one function.
+1. The caller or `bm-planner` picks the highest-priority rows with no open dependencies, starting from the highest level.
+2. It opens the indicated area file and takes the `Open work` entry to write the work orders (format in `docs/agents/routing.md`); one operator = one function.
 3. On closing it updates **this row** (state, or removal) and the area file's `Open work` section in the same commit. Hardware tests are left to the user and move the divergences from `untested` to `resolved` in `docs/spec/divergences.toml`.
 
 ---
@@ -46,10 +46,10 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 | ID | Pri | State | Goal | Requirement | Details | After |
 |---|---|---|---|---|---|---|
-| SYS-1 | P0 | in progress | CI green on `bm-core` | all `ci.yml` jobs (host, qemu 1-4, rgb30) green on `bm-core`; `scripts/ci_audit.py` exit 0 | [tools](progress/tools.md), [sync](progress/sync.md) | - |
+| SYS-1 | P0 | in progress | CI green on `bm-core` | all `ci.yml` jobs (host, qemu 1-4, rgb30) green on `bm-core`; `scripts/ci_audit.py` exit 0 | [tools](progress/tools.md) | - |
 | SYS-2 | P0 | in progress | Reliable freeze report and SD logs | an intended reboot does not report a freeze; a crash writes a correct `bootprev.txt` | [system](progress/system.md) `Open work` | SYS-1 |
 | SYS-3 | P1 | in progress | Pi tests from the PC (network, keys, screenshot) | `bm_net.py --shot/--keys` and the bridge tested on a Pi; R-NET3 with a limited test token | [tools](progress/tools.md) `Pi tests from the PC`, [pi-test](design/pi-test.md) | - |
-| SYS-4 | P1 | to do | Measurable multi-agent coordination | ledger and `agent_audit.py` with baseline; work order scope checked by script | [sync](progress/sync.md), [sync-workflow](progress/sync-workflow.md) | - |
+| SYS-4 | P1 | to do | Measurable multi-agent coordination | ledger and `agent_audit.py` with baseline; work order scope checked by script | [archive](archive/sync/README.md) | - |
 | M42 | P1 | in progress | Identical `.b16` profile on Pi and RGB30 | *Yharnam* `.b16` runs indistinguishably on Pi Zero W and RGB30, lint warnings in place | [b16](progress/b16.md) §2-3 | - |
 | M41 | P2 | in progress | RGB30 Mali-G52 GPU and Overbit in `.b16` | Overbit `.b16` at 60 fps with the Mali; 3D Bench reports GPU metrics | [graphics-mali](progress/graphics-mali.md) §Roadmap, [platforms](progress/platforms.md) | M42 |
 | SYS-6 | P2 | to do | Multitasking: measurements to redo, CPU stalls, download inside an app | `Open` in multitasking.md emptied or reduced to ideas; Beta R1/R2 roadmap | [multitasking](progress/multitasking.md) | - |
