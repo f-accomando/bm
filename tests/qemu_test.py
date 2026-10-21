@@ -69,7 +69,7 @@ SLOW = {
     "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
-    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_bench_stop": 35, "test_bm_boot_demo": 22,
+    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_stack_bench": 30, "test_bench_stop": 35, "test_bm_boot_demo": 22,
     "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100, "test_projects": 45, "test_editor_mouse": 40,
 }
 
@@ -6115,6 +6115,26 @@ def test_room_bench(b, opts):
         assert re.search(r"ARM 320x180\s+(<8|\d+ \(\d+\))\s+(<8|\d+ \(\d+\))", plain), plain
         assert "GPU 320x180" not in plain and "error" not in plain, plain
         q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
+def test_stack_bench(b, opts):
+    """The sprite stacking benchmark (monitor line word `stack`, Dev tab
+    Stack bench): 16, 64 and 128 stacks of 8 and 16 slices, a row each with
+    us a frame and the rates; it runs to the end without an error."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        q.send(":stack\r")
+        out = q.expect("Stack bench done", timeout=120).decode(errors="replace")
+        plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
+        rows = re.findall(r"^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$", plain, re.M)
+        assert [(int(r[0]), int(r[1])) for r in rows] == [(16, 8), (16, 16), (64, 8), (64, 16), (128, 8), (128, 16)], plain
+        assert all(int(r[2]) > 0 and int(r[3]) > 0 and int(r[4]) > 0 for r in rows), plain
+        assert "error" not in plain and "stopped" not in plain, plain
+        q.expect("the line is done", timeout=10)
     finally:
         q.close()
 
