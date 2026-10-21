@@ -1,6 +1,6 @@
 # bm on the PowKiddy RGB30
 
-Italian version: [RGB30-IT.md](RGB30-IT.md).
+
 
 Bare metal version of bm for the **PowKiddy RGB30**: Rockchip **RK3566** SoC (4 × 64-bit
 Cortex-A55, 1 GiB LPDDR4), **720×720** IPS screen over MIPI-DSI (Sitronix ST7703 panel), two

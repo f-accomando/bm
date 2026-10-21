@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Audit CI: workflow .github/workflows/ci.yml e timeout dei test QEMU.
+"""CI audit: the .github/workflows/ci.yml workflow and the timeouts of the QEMU tests.
 
-Uso: python scripts/ci_audit.py [--gh] [--ci PATH]
+Usage: python scripts/ci_audit.py [--gh] [--ci PATH]
 
-Exit 0 se nessun problema, 1 se ne viene trovato almeno uno.
-Le righe INFO e WARN non influenzano l'exit code.
+Exit 0 when there is no problem, 1 when at least one is found.
+INFO and WARN lines do not affect the exit code.
 """
 
 import argparse
@@ -17,7 +17,7 @@ from pathlib import Path
 
 try:
     import yaml
-except ImportError:  # gestito in check_ci
+except ImportError:  # handled in check_ci
     yaml = None
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -29,10 +29,10 @@ QEMU_TESTS = [
 TEST_MAIN = ROOT / "tests" / "qemu_test.py"
 MAKEFILE = ROOT / "Makefile"
 
-# chiave (sottostringa del needle di expect) -> timeout minimo in secondi
+# key (substring of the expect needle) -> minimum timeout in seconds
 KNOWN_WAITS = {"stress settle": 19}
 
-# expect("needle", ... timeout=<int>): needle solo se letterale (no f-string)
+# expect("needle", ... timeout=<int>): needle only if literal (no f-string)
 EXPECT_RE = re.compile(
     r"""\bexpect\(\s*(["'])((?:\\.|(?!\1).)*?)\1\s*,[^()]*?\btimeout\s*=\s*(\d+)(?![\d.])"""
 )
@@ -68,53 +68,53 @@ def warn(msg):
 
 
 def check_ci(ci_path):
-    """Check 1 (timeout-minutes per job, concurrency) e check 2 (sync/** in branches-ignore)."""
+    """Check 1 (timeout-minutes per job, concurrency) and check 2 (sync/** in branches-ignore)."""
     name = rel(ci_path)
     if yaml is None:
-        problem("ci", "PyYAML non installato (pip install pyyaml)")
+        problem("ci", "PyYAML not installed (pip install pyyaml)")
         return
     if not ci_path.is_file():
-        problem("ci", f"{name}: file non trovato")
+        problem("ci", f"{name}: file not found")
         return
     try:
         data = yaml.safe_load(read_text(ci_path))
     except yaml.YAMLError as e:
-        problem("ci", f"{name}: YAML non valido ({e})")
+        problem("ci", f"{name}: invalid YAML ({e})")
         return
     if not isinstance(data, dict):
-        problem("ci", f"{name}: il documento YAML non e' un mapping")
+        problem("ci", f"{name}: the YAML document is not a mapping")
         return
 
-    # Check 1: ogni job ha timeout-minutes; workflow ha concurrency top-level.
+    # Check 1: every job has timeout-minutes; the workflow has a top-level concurrency.
     jobs = data.get("jobs") or {}
     if not isinstance(jobs, dict):
-        problem("ci", f"{name}: 'jobs' non e' un mapping")
+        problem("ci", f"{name}: 'jobs' is not a mapping")
     else:
         for job_id, job in jobs.items():
             if not isinstance(job, dict) or "timeout-minutes" not in job:
-                problem("ci", f"{name}: job '{job_id}' senza timeout-minutes")
+                problem("ci", f"{name}: job '{job_id}' without timeout-minutes")
     if "concurrency" not in data:
-        problem("ci", f"{name}: concurrency top-level mancante")
+        problem("ci", f"{name}: top-level concurrency missing")
 
-    # Check 2: on.push.branches-ignore contiene 'sync/**'.
-    # PyYAML legge la chiave 'on' come booleano True.
+    # Check 2: on.push.branches-ignore contains 'sync/**'.
+    # PyYAML reads the key 'on' as the boolean True.
     on = data.get("on", data.get(True))
     if on is None:
-        problem("ci", f"{name}: chiave 'on' mancante")
+        problem("ci", f"{name}: key 'on' missing")
         return
     push = on.get("push") if isinstance(on, dict) else None
     if not isinstance(push, dict):
-        problem("ci", f"{name}: on.push mancante o senza branches-ignore")
+        problem("ci", f"{name}: on.push missing or without branches-ignore")
         return
     ignored = push.get("branches-ignore") or []
     if isinstance(ignored, str):
         ignored = [ignored]
     if "sync/**" not in ignored:
-        problem("ci", f"{name}: on.push.branches-ignore non contiene 'sync/**'")
+        problem("ci", f"{name}: on.push.branches-ignore does not contain 'sync/**'")
 
 
 def check_waits(path):
-    """Check 3: expect() con needle noto e timeout inferiore al minimo in KNOWN_WAITS."""
+    """Check 3: expect() with a known needle and a timeout below the minimum in KNOWN_WAITS."""
     src = read_text(path)
     for m in EXPECT_RE.finditer(src):
         needle = m.group(2)
@@ -130,7 +130,7 @@ def check_waits(path):
 
 
 def read_games():
-    """Legge la lista GAMES dalla riga 'GAMES := ...' del Makefile."""
+    """Reads the GAMES list from the 'GAMES := ...' line of the Makefile."""
     try:
         text = read_text(MAKEFILE)
     except OSError:
@@ -140,7 +140,7 @@ def read_games():
 
 
 def check_cart_refs(path, games):
-    """Check 4 (informativo): test functions che referenziano carts/<game>.bm."""
+    """Check 4 (informational): test functions that reference carts/<game>.bm."""
     found = {}
     current = None
     for line in read_text(path).splitlines():
@@ -155,7 +155,7 @@ def check_cart_refs(path, games):
             if game in games:
                 found.setdefault(current, set()).add(game)
     if not found:
-        info("nessuna test function riferisce carts/<game>.bm")
+        info("no test function references carts/<game>.bm")
         return
     for name in sorted(found):
         info(f"{name} -> {', '.join(sorted(found[name]))}")
@@ -166,7 +166,7 @@ def parse_ts(value):
 
 
 def check_gh():
-    """Check 5 (con --gh, informativo): durata media e quota di successi delle ultime run."""
+    """Check 5 (with --gh, informational): average duration and success rate of the latest runs."""
     cmd = [
         "gh", "run", "list", "-w", "ci.yml", "-L", "20",
         "--json", "conclusion,createdAt,updatedAt",
@@ -181,19 +181,19 @@ def check_gh():
             timeout=60,
         )
     except (OSError, subprocess.SubprocessError) as e:
-        warn(f"gh non disponibile o fallito ({e}): statistiche CI saltate")
+        warn(f"gh not available or failed ({e}): CI statistics skipped")
         return
     if r.returncode != 0:
         detail = (r.stderr or "").strip()[:200]
-        warn(f"gh run list fallito (exit {r.returncode}): {detail}: statistiche CI saltate")
+        warn(f"gh run list failed (exit {r.returncode}): {detail}: CI statistics skipped")
         return
     try:
         runs = json.loads(r.stdout or "[]")
     except json.JSONDecodeError:
-        warn("output di gh run list non e' JSON: statistiche CI saltate")
+        warn("gh run list output is not JSON: CI statistics skipped")
         return
     if not runs:
-        info("gh: nessuna run di ci.yml")
+        info("gh: no runs of ci.yml")
         return
 
     durations = []
@@ -206,10 +206,10 @@ def check_gh():
         durations.append((updated - created).total_seconds() / 60.0)
 
     ok = sum(1 for run in runs if run.get("conclusion") == "success")
-    avg = f"{sum(durations) / len(durations):.1f} min" if durations else "n/d"
+    avg = f"{sum(durations) / len(durations):.1f} min" if durations else "n/a"
     pct = 100.0 * ok / len(runs)
     info(
-        f"CI ultime {len(runs)} run: durata media {avg} (su {len(durations)}), "
+        f"CI last {len(runs)} runs: average duration {avg} (over {len(durations)}), "
         f"success {ok}/{len(runs)} = {pct:.0f}%"
     )
 
@@ -218,9 +218,9 @@ def main(argv=None):
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
-    ap = argparse.ArgumentParser(description="Audit CI di bm (workflow e timeout dei test).")
-    ap.add_argument("--gh", action="store_true", help="statistiche delle ultime 20 run via gh (informativo)")
-    ap.add_argument("--ci", default=None, help="percorso di ci.yml (default .github/workflows/ci.yml)")
+    ap = argparse.ArgumentParser(description="bm CI audit (workflow and test timeouts).")
+    ap.add_argument("--gh", action="store_true", help="statistics of the latest 20 runs via gh (informational)")
+    ap.add_argument("--ci", default=None, help="path of ci.yml (default .github/workflows/ci.yml)")
     args = ap.parse_args(argv)
 
     ci_path = Path(args.ci).resolve() if args.ci else DEFAULT_CI
@@ -230,15 +230,15 @@ def main(argv=None):
         if test_file.is_file():
             check_waits(test_file)
         else:
-            problem("waits", f"{rel(test_file)}: file non trovato")
+            problem("waits", f"{rel(test_file)}: file not found")
 
     games = read_games()
     if not games:
-        info("GAMES non trovato nel Makefile: check 4 saltato")
+        info("GAMES not found in the Makefile: check 4 skipped")
     elif TEST_MAIN.is_file():
         check_cart_refs(TEST_MAIN, games)
     else:
-        info(f"{rel(TEST_MAIN)} non trovato: check 4 saltato")
+        info(f"{rel(TEST_MAIN)} not found: check 4 skipped")
 
     if args.gh:
         check_gh()

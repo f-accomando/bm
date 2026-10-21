@@ -1,9 +1,8 @@
 # Native `.bm` cartridges: API and first cartridge
 
-Italian version: [API-IT.md](API-IT.md).
 
 > A step-by-step practical guide (sprites, maps, 3D models, sound, lights, saves):
-> [GAME-GUIDE.md](GAME-GUIDE.md). In Italian: [API-IT.md](API-IT.md) and
+> [GAME-GUIDE.md](GAME-GUIDE.md). In Italian:
 > [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md).
 
 A `.bm` cartridge is a game for bm written in **Lua 5.4**. The kernel draws in C

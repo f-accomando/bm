@@ -1,6 +1,6 @@
 # bm's 3D drivers: the versions
 
-Italian version: [DRIVERS-IT.md](DRIVERS-IT.md).
+
 
 bm's 3D goes through two drivers: **r3d** (`src/bm/r3d.c`: scene, transforms, light,
 the ARM rasterizer) and **gpu3d** (`src/gpu/gpu3d.c` with the shaders from

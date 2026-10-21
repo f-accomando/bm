@@ -116,7 +116,7 @@ Pulsanti: `btn(i)` finché è premuto, `btnp(i)` solo al momento della pressione
 Esc, Start+Select o il tasto PS tornano al menu, e il gioco resta **sospeso** in memoria
 (A sulla sua copertina lo riprende). `quit()` invece chiude davvero la cartuccia. Un gioco in
 rete chiama `online(true)`: lì PS chiede al giocatore se vuole uscire dalla partita e
-disconnettersi, e se sì chiama `_leave()` (vedi `docs/API-IT.md`).
+disconnettersi, e se sì chiama `_leave()` (vedi `docs/api/input.md`).
 
 **Icone dei tasti.** Per dire quale tasto fa che cosa, `prompt()` lo disegna come un piccolo
 chip nell'aspetto del controller in uso: i simboli del DS4, le lettere di un pad, i tasti
@@ -584,7 +584,7 @@ local lib = require "bmlib"
 
 Tempi in secondi, posizioni in pixel, velocità in pixel per fotogramma; tween, timer e
 jingle vanno avanti con `lib.update()`, una volta in `_update`. L'elenco completo è in
-[API-IT.md](API-IT.md#bmlib-la-libreria-comune-dei-giochi). Ecco un platform intero, senza
+[api/bmlib.md](api/bmlib.md#bmlib-the-games-shared-library). Ecco un platform intero, senza
 file a parte (le tile si disegnano nel codice e la mappa si costruisce con `mset`): titolo,
 partita, salto, piattaforme, monete con le scintille, camera, pausa, record.
 
