@@ -45,6 +45,13 @@ check(P.api("cls").sig == "cls([c])", "api: the signature of cls")
 check(P.api("cls").text:find("^fills the screen") ~= nil, "api: the text of cls")
 check(P.api("cls").area == "draw", "api: the area of cls")
 check(P.api("nonexistent_xyz") == nil, "api: an unknown name is nil")
+check(#P.api("cls").forms == 1 and P.api("cls").forms[1].sig == "cls([c])", "api: a name with one signature has one form")
+local mf = P.api("music").forms
+check(#mf == 3 and mf[1].sig:find("^music%(n,") and mf[2].sig == "music(-1, [fade_ms])" and mf[3].sig == "music()",
+      "api: music keeps its three signatures, in the order of the docs")
+check(P.api("music").sig == mf[1].sig, "api: sig, area and text are those of the first form")
+check(P.api("sfx").forms[2].sig == "sfx(-1, [v])", "api: sfx keeps sfx(-1, [v])")
+check(#P.api("model").forms == 2 and P.api("model").forms[2].sig == "model(n)", "api: model keeps model(n)")
 local wr = P.wrap("aa bb cc", 5)
 check(#wr == 2 and wr[1] == "aa bb" and wr[2] == "cc", "wrap: at the spaces")
 wr = P.wrap("abcdefgh", 3)

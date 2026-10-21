@@ -139,7 +139,7 @@ def tsv_api():
         if line.startswith('#'):
             continue
         name, sig, area, text = line.rstrip('\n').split('\t')
-        api[name] = (sig, area, text)
+        api.setdefault(name, []).append((sig, area, text))     # one line per signature of the name
     return api
 
 
@@ -257,7 +257,7 @@ def main():
         parts.append('uni = ' + long_string(u) + ',')
         parts.append('big = ' + long_string(b) + ',')
         if lang == 'lua':
-            parts.append('api = ' + long_string(''.join('%s\t%s\t%s\t%s\n' % (n, api_text(s), ar, api_text(t)) for n, (s, ar, t) in sorted(api.items()))) + ',')
+            parts.append('api = ' + long_string(''.join('%s\t%s\t%s\t%s\n' % (n, api_text(s), ar, api_text(t)) for n, forms in sorted(api.items()) for (s, ar, t) in forms)) + ',')
             parts.append('allow = ' + long_string(''.join('%s\n' % n for n in allow_names())) + ',')
         parts.append('},')
         if a.stats:

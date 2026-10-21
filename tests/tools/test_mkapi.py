@@ -27,7 +27,8 @@ class MkapiTest(unittest.TestCase):
                 "# Sample\n"
                 "| `func_a(x)` / `func_b(y)` | description for both |\n"
                 "| `not_a_func` | no parentheses here |\n"
-                "| `func_a(z)` | duplicate entry |\n"
+                "| `func_a(z)` | another form of func_a |\n"
+                "| `func_a(x)` | the same signature again |\n"
                 "| `s, port = res_open([port])` | result prefix |\n"
                 "| `data, address, port = res_recv(s)` | three results |\n"
             )
@@ -43,13 +44,34 @@ class MkapiTest(unittest.TestCase):
             self.assertNotIn("not_a_func", entries)
             self.assertIn("res_open", entries)
             self.assertIn("res_recv", entries)
-            self.assertEqual(entries["res_open"]["signature"], "s, port = res_open([port])")
-            self.assertEqual(entries["func_a"]["text"], "description for both")
-            self.assertEqual(entries["func_b"]["text"], "description for both")
+            self.assertEqual(entries["res_open"][0]["signature"], "s, port = res_open([port])")
+            self.assertEqual(entries["func_b"][0]["text"], "description for both")
+            # every distinct signature of a name stays, in the order of the docs
+            self.assertEqual([e["signature"] for e in entries["func_a"]], ["func_a(x)", "func_a(z)"])
+            self.assertEqual([e["text"] for e in entries["func_a"]], ["description for both", "another form of func_a"])
 
+            # only the same signature twice is a dup (the first one stays)
             err_output = err_buf.getvalue()
-            self.assertIn("dup func_a", err_output)
-            self.assertIn("docs/api/sample.md:4", err_output)
+            self.assertIn("dup func_a docs/api/sample.md:5", err_output)
+            self.assertNotIn("sample.md:4", err_output)
+
+            # the tsv has one line per signature of the name
+            lines = mkapi.format_tsv(entries).splitlines()[1:]
+            self.assertEqual([l.split("\t")[1] for l in lines if l.startswith("func_a\t")], ["func_a(x)", "func_a(z)"])
+
+    def test_every_form_in_api_tsv(self):
+        # the names documented with several signatures keep each of them (the Ctrl+Q help shows all)
+        with open(API_TSV, "r", encoding="utf-8") as f:
+            sigs = {}
+            for line in f:
+                if line.startswith("#"):
+                    continue
+                parts = line.rstrip("\n").split("\t")
+                sigs.setdefault(parts[0], []).append(parts[1])
+        self.assertEqual(sigs["music"], ["music(n, [fade_ms], [pos])", "music(-1, [fade_ms])", "music()"])
+        self.assertEqual(sigs["sfx"][-1], "sfx(-1, [v])")
+        self.assertIn("model(n)", sigs["model"])
+        self.assertEqual(len(sigs["model"]), 2)
 
     def test_mkapi_check_subprocess(self):
         res = subprocess.run(
