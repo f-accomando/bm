@@ -13,10 +13,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/ctx_guard.py\""
-          },
-          {
-            "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/sync_watch.py\""
           }
         ]

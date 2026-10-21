@@ -44,6 +44,10 @@ jobs:
           # ALLOWLIST: paths that cannot affect the qemu and rgb30 jobs.
           # scripts/ and tools/ are build inputs (mkbm.py, img2mesh.py, ...),
           # so only the audit/ledger/sync helpers are listed, one by one.
+          # docs/api/** and tests/tools/* stay here: the host job always runs
+          # make test-host, which checks them (test-api: mkapi --check, the
+          # unit tests of mkapi and api_lint). scripts/mkapi.py, scripts/api_lint.py
+          # and src/ai/api.tsv are not listed: they make the heavy jobs run.
           allowed() {
             case "$1" in
               docs/*|manuals/*|tests/tools/*|sync/*|.claude/*|SYNC.md) return 0 ;;
@@ -171,6 +175,7 @@ jobs:
 
       - uses: actions/upload-artifact@v6
         if: always() && matrix.shard == 1
+        continue-on-error: true
         with:
           name: bm-images
           path: |
@@ -179,6 +184,7 @@ jobs:
             build/chainloader.img
             build-stress/kernel.img
             build/screen.png
+            build/diag/
           if-no-files-found: ignore
 
   rgb30:

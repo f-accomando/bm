@@ -38,7 +38,7 @@ You build the world on the console itself, with bm SDK: draw the tiles, paint th
 
 ## Caveats
 
-- **[IN DEVELOPMENT]** A list of levels or stages inside the cartridge, with a key to switch between them in the editor, does not exist. What is missing: the bm SDK has one map and no "level 1, level 2" entries. Today the stages are layers or regions of the same map, or are built by your code.
+- **[IN DEVELOPMENT]** A list of levels or stages inside the cartridge, with a key to switch between them in the editor, does not exist. What is missing: the bm SDK has one map and no "level 1, level 2" entries. Today the stages are layers or regions of the same map, or are built by your code. The *Stages 2D* template (**Ctrl+N**) shows one way: three stages as three bands of 48 rows of one map.
 - **[IN DEVELOPMENT]** `lib.world()` (a loader for map, entities and triggers) and a room grid for the map page are only proposals in the design notes of bm SDK. They are not in the suite.
 - **[IN DEVELOPMENT]** Importing maps from Tiled is not available. What is missing: the whole import; the map comes from the SDK or from CSV files.
 
@@ -479,7 +479,8 @@ If a layer name is wrong, the call fails with an error. Check the name with `mla
 
 ## Caveats
 
-- **[IN DEVELOPMENT]** The title screen, the stage list and the ending have to be written by hand. What is missing: a template with a menu, several stages and an ending. It is planned for the beta (rev 1): its acceptance test asks for a game with title, 3 stages and ending made with the suite alone.
+- For a 2D game, the *Stages 2D* template (**Ctrl+N**) already gives a title screen with NEW GAME and CONTINUE, three stages, a game over, an ending and a saved best time. Start from it and change it.
+- **[IN DEVELOPMENT]** There is no such template for 3D. What is missing: a 3D template with a menu, several stages and an ending. In 3D, write the title screen, the stage list and the ending by hand.
 - For the 3D version the machine is the same: in `enter`, fill the layers of the stage with `mset`, call `map3d_build` and keep the world.
 
 # Tips and limits
@@ -515,7 +516,7 @@ If a layer name is wrong, the call fails with an error. Check the name with `mla
 
 ## What is not there yet
 
-- **[IN DEVELOPMENT]** A list of stages in the cartridge and in the editor.
+- **[IN DEVELOPMENT]** A list of stages in the cartridge and in the editor (the *Stages 2D* template splits one map in bands instead).
 - **[IN DEVELOPMENT]** `lib.world()` and the room grid.
 - **[IN DEVELOPMENT]** Tiled import.
 - **[IN DEVELOPMENT]** An editor for the boxes.

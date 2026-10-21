@@ -26,6 +26,7 @@ bm Code è l'editor di codice della suite bm. Apre una cartuccia, mostra il suo 
 - Un assistente su F6 che risponde alle domande e scrive codice per te.
 - Breakpoint su F8 e debugger, con F5 per eseguire.
 - Ctrl+Enter suona il codice come musica (riff).
+- Ctrl+Q (sul pad Y+X) mostra firma e testo della funzione API sotto il cursore; al salvataggio i nomi che non sono nell'API vengono segnalati e i loro numeri di riga diventano rossi.
 
 ## Perché è importante
 
@@ -172,6 +173,7 @@ Scrivere `end`, `else`, `elseif`, `until` o `}` da soli su una riga li riporta a
 | F8 | breakpoint sulla riga |
 | F6 | l'assistente |
 | F9 | spiega l'errore del gioco |
+| Ctrl+Q | aiuto sulla funzione API sotto il cursore |
 | Ctrl+Enter | suona il codice come musica (riff) |
 | Ctrl+. | ferma la musica |
 | Esc | lascia la selezione, oppure apre il menu |
@@ -186,6 +188,7 @@ Scrivere `end`, `else`, `elseif`, `until` o `}` da soli su una riga li riporta a
 | Y + sinistra / destra | scheda precedente / successiva |
 | Y + su / giù | pagina su / pagina giù |
 | X | l'assistente |
+| Y + X | aiuto sulla funzione API sotto il cursore |
 | Start | il menu |
 
 Nel menu e negli elenchi il D-pad muove, A sceglie e B torna indietro. Il pad può anche scrivere testo: attiva **Pad typing** nel menu. Select la attiva e la disattiva; la voce di menu chiama Share lo stesso pulsante.
@@ -208,7 +211,7 @@ Nel menu, **Word completion** lo attiva e lo disattiva, e **Words in comments** 
 
 **F6** apre il pannello dell'assistente in modalità codice, con la parola sotto il cursore come contesto. Risponde mentre scrivi la domanda. **Enter** inserisce il codice che propone nel punto del cursore, **Esc** lo chiude. Niente gira mentre è chiuso. L'inserimento è un solo passo di annullamento con Ctrl+Z.
 
-[DA COMPLETARE: cosa conosce l'assistente e a cosa può rispondere in modalità codice; le fonti dicono solo: l'API, come si fa, gli errori]
+In modalità codice l'assistente risponde con quattro tipi di voci della sua base di conoscenza: funzioni **API**, esempi **how-to** con codice, messaggi di **errore** di Lua e **consigli**. Le sue risposte su sprite, modelli 3D e musica sono negli altri strumenti.
 
 ### Una riga `#entry:`
 
@@ -223,6 +226,27 @@ L'assistente lo fa sul posto e la riga di stato dice cosa ha fatto, con `(Ctrl+Z
 ### Spiegare un errore
 
 **F9** apre l'assistente sull'errore dell'ultima esecuzione. Se non c'è errore, la riga di stato dice `no error: F5 runs the game, F9 explains its error`.
+
+## Aiuto su una funzione API (Ctrl+Q)
+
+Porta il cursore sul nome di una funzione di bm e premi **Ctrl+Q** (sul pad, tieni premuto **Y** e premi **X**). Si apre una finestra con la firma della funzione, il suo testo e, in fondo, il file del manuale dell'API che la descrive (`docs/api/NAME.md`). Qualsiasi tasto chiude la finestra.
+
+- Su un nome che non è nell'API, la riga di stato dice `no API help for 'NAME'`.
+- Senza nessun nome sotto il cursore, dice `no name under the cursor`.
+- Con il mouse, il tasto destro apre un menu che contiene *API help*.
+
+## Il controllo dei nomi API al salvataggio
+
+Quando salvi una scheda il cui file finisce in `.bm`, `.bme` o `.lua`, bm Code cerca i nomi che sembrano chiamate all'API di bm ma non ci sono, come fa `scripts/api_lint.py`.
+
+- La riga di stato dice `API: N unknown name(s), line L: NAME` per il primo, e il numero di ogni riga con un nome sconosciuto diventa **rosso**.
+- Un nome che definisci tu, in questa scheda o in un'altra scheda aperta, vale come noto.
+- I numeri rossi spariscono appena cambi il testo (anche con annulla o ripeti). Salva di nuovo per controllare di nuovo.
+- Una riga con breakpoint mantiene il suo numero rosso scuro.
+
+::: try
+Premi **Ctrl+T** per una scheda vuota e scrivi `cls(1)`. Porta il cursore su `cls` e premi **Ctrl+Q**: vedi `cls([c])` e cosa fa. Premi un tasto qualsiasi. Ora scrivi `sprt(1)` su una riga e premi **Ctrl+Q**: la riga di stato dice `no API help for 'sprt'`.
+:::
 
 # Breakpoint (F8)
 
@@ -344,8 +368,8 @@ Metti un breakpoint dentro `_draw`, premi F5 e premi F10 riga per riga. Quale va
 - **Annulla** ricorda gli ultimi 100 passi di ogni scheda.
 - **Schede.** La barra in alto mostra tante schede quante ne stanno; le altre sono indicate da `...`. Usa F2 e F3 per raggiungerle.
 - **Debug solo da bm Code.** `breakpoint()` ferma solo in un gioco eseguito da uno strumento come bm Code.
-- [DA COMPLETARE: il numero di righe di codice visibili con i font 8x14 e 8x16]
-- [DA COMPLETARE: il file più grande che bm Code può aprire]
+- **Righe sullo schermo.** Con una pagina sullo schermo 640x360, il codice mostra 28 righe con il font 6x12, 23 con l'8x14 e 20 con l'8x16 (le righe dello schermo, meno la barra in alto e la riga di stato). Le colonne sono 106, 80 e 80. Questi numeri vengono dall'impaginazione nel codice, non da un conteggio sullo schermo. La casella di scrittura con il pad occupa alcune righe.
+- [DA COMPLETARE: il file più grande che bm Code può aprire; il codice non pone un limite proprio e nessuno è stato misurato]
 
 ::: copy
 F5          -- esegue il gioco

@@ -8,7 +8,7 @@
 
 #include <string.h>
 
-#define MAGIC 0xBA5EC0DFu
+#define MAGIC 0xBA5EC0E0u
 
 typedef struct {
     uint32_t magic;
@@ -16,6 +16,8 @@ typedef struct {
     uint32_t up_ms;
     int32_t irq;
     uint32_t crashed;                   /* the red screen, not a freeze */
+    uint32_t ring_at;                   /* ring.at when the crash began */
+    uint32_t ring_on;                   /* the ring was the log sink then */
     char what[44];
     char kernel[32];
 } crumbs_t;
@@ -71,10 +73,11 @@ void crumbs_boot(void)
         if (cr.irq >= 0)
             ksnprintf(irq, sizeof irq, ", inside IRQ %ld", cr.irq);
         last_kind = cr.crashed ? "crash" : "freeze";
-        last_len = (size_t)ksnprintf(last, sizeof last, "%s while: %s, frame %lu%s, %lu s after boot, kernel %s\n"
+        last_len = (size_t)ksnprintf(last, sizeof last, "%s while: %s, frame %lu%s, %lu s after boot, kernel %s, ring %lu, sink %s\n"
                                      "--- the last lines printed ---\n",
                                      cr.crashed ? "a crash (the red screen)" : "the Pi froze (the watchdog restarted it)",
-                                     cr.what, cr.frame, irq, cr.up_ms / 1000, cr.kernel);
+                                     cr.what, cr.frame, irq, cr.up_ms / 1000, cr.kernel,
+                                     cr.ring_at, cr.ring_on ? "on" : "off");
         if (last_len >= sizeof last)
             last_len = sizeof last - 1;
         if (ring.magic == RING_MAGIC) {
@@ -171,9 +174,9 @@ const char *crumbs_prev_state(void)
     for (char *p = cr.kernel; *p; p++)
         if ((unsigned char)*p < 32 || *p == 127)
             *p = '?';
-    ksnprintf(s, sizeof s, "%s while: %s, %lu s after boot, kernel %s",
+    ksnprintf(s, sizeof s, "%s while: %s, %lu s after boot, kernel %s, ring %lu, sink %s",
               cr.crashed ? "ended in a crash" : "ended without a clean exit (a freeze, or a restart)",
-              cr.what, cr.up_ms / 1000, cr.kernel);
+              cr.what, cr.up_ms / 1000, cr.kernel, cr.ring_at, cr.ring_on ? "on" : "off");
     return s;
 }
 
@@ -189,6 +192,12 @@ const char *crumbs_last(const char **kind, size_t *len)
 
 void crumbs_crashed(void)
 {
+    if (!cr.crashed) {
+        /* the first call only: die() or a nested exception must not overwrite these */
+        cr.ring_at = ring.at;
+        cr.ring_on = (uint32_t)klog_ring_is(ring_putc);
+        klog_set_ring(ring_putc);
+    }
     cr.crashed = 1;
     flush();
     dcache_clean_range(&ring, sizeof ring);

@@ -26,6 +26,7 @@ bm Code is the code editor of the bm suite. It opens a cartridge, shows its Lua 
 - An assistant on F6 that answers questions and writes code for you.
 - Breakpoints on F8 and the debugger, with F5 to run.
 - Ctrl+Enter plays the code as music (riff).
+- Ctrl+Q (on the pad Y+X) shows the signature and text of the API function under the cursor; on save, names that are not in the API are reported and their line numbers turn red.
 
 ## Why it matters
 
@@ -172,6 +173,7 @@ Typing `end`, `else`, `elseif`, `until` or `}` alone on a line brings it back to
 | F8 | breakpoint on the line |
 | F6 | the assistant |
 | F9 | explain the error of the game |
+| Ctrl+Q | help on the API function under the cursor |
 | Ctrl+Enter | play the code as music (riff) |
 | Ctrl+. | stop the music |
 | Esc | drop the selection, or open the menu |
@@ -186,6 +188,7 @@ Typing `end`, `else`, `elseif`, `until` or `}` alone on a line brings it back to
 | Y + left / right | previous / next tab |
 | Y + up / down | page up / page down |
 | X | the assistant |
+| Y + X | help on the API function under the cursor |
 | Start | the menu |
 
 In the menu and in the lists, the D-pad moves, A chooses and B goes back. The pad can also type text: switch **Pad typing** in the menu. Select switches it on and off; the menu entry calls the same button Share.
@@ -208,7 +211,7 @@ In the menu, **Word completion** turns it on and off, and **Words in comments** 
 
 **F6** opens the assistant panel in code mode, with the word under the cursor as context. It answers while you type your question. **Enter** inserts the code it proposes at the cursor, **Esc** closes it. Nothing runs while it is closed. Inserting is one undo step with Ctrl+Z.
 
-[TO FILL: what the assistant knows and what it can answer in code mode; the sources only say: the API, how-to, errors]
+In code mode the assistant answers with four kinds of entries of its knowledge base: **API** functions, **how-to** examples with code, Lua **error** messages and **tips**. Its answers about sprites, 3D models and music are in the other tools.
 
 ### An `#entry:` line
 
@@ -223,6 +226,27 @@ The assistant does it in place and the status line says what it did, with `(Ctrl
 ### Explaining an error
 
 **F9** opens the assistant on the error of the last run. If there is no error, the status line says `no error: F5 runs the game, F9 explains its error`.
+
+## Help on an API function (Ctrl+Q)
+
+Put the cursor on the name of a bm function and press **Ctrl+Q** (on the pad, hold **Y** and press **X**). A box opens with the signature of the function, its text and, at the bottom, the file of the API manual where it is described (`docs/api/NAME.md`). Any key closes the box.
+
+- On a name that is not in the API, the status line says `no API help for 'NAME'`.
+- With no name under the cursor, it says `no name under the cursor`.
+- With the mouse, the right button opens a menu that has *API help*.
+
+## The check of API names on save
+
+When you save a tab whose file ends in `.bm`, `.bme` or `.lua`, bm Code looks for names that look like calls to the bm API but are not in it, as `scripts/api_lint.py` does.
+
+- The status line says `API: N unknown name(s), line L: NAME` for the first one, and the line number of each line with an unknown name turns **red**.
+- A name that you define yourself, in this tab or in any other open tab, counts as known.
+- The red numbers go away as soon as you change the text (and with undo or redo). Save again to check again.
+- A breakpoint line keeps its dark red number.
+
+::: try
+Press **Ctrl+T** for an empty tab and type `cls(1)`. Put the cursor on `cls` and press **Ctrl+Q**: you see `cls([c])` and what it does. Press any key. Now type `sprt(1)` on a line and press **Ctrl+Q** on it: the status line says `no API help for 'sprt'`.
+:::
 
 # Breakpoints (F8)
 
@@ -344,8 +368,8 @@ Put a breakpoint inside `_draw`, press F5, and press F10 line by line. Which var
 - **Undo** remembers the last 100 steps of each tab.
 - **Tabs.** The top bar shows as many tabs as fit; the rest are shown as `...`. Use F2 and F3 to reach them.
 - **Debug only from bm Code.** `breakpoint()` stops only in a game run from a tool such as bm Code.
-- [TO FILL: the number of lines of code visible with the 8x14 and the 8x16 fonts]
-- [TO FILL: the biggest file bm Code can open]
+- **Lines on the screen.** With one page on the 640x360 screen, the code shows 28 lines with the 6x12 font, 23 with the 8x14 and 20 with the 8x16 (the rows of the screen, less the top bar and the status line). The columns are 106, 80 and 80. These numbers come from the layout in the code, not from a count on the screen. The pad typing box takes some rows.
+- [TO FILL: the biggest file bm Code can open; the code sets no limit of its own and none was measured]
 
 ::: copy
 F5          -- run the game

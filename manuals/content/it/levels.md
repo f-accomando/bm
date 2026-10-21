@@ -38,7 +38,7 @@ Costruisci il mondo sulla console stessa, con bm SDK: disegni le tile, dipingi l
 
 ## Attenzione
 
-- **[IN SVILUPPO]** Non esiste un elenco di livelli o stage dentro la cartuccia, con un tasto per passare dall'uno all'altro nell'editor. Cosa manca: bm SDK ha una sola mappa e nessuna voce "livello 1, livello 2". Oggi gli stage sono layer o regioni della stessa mappa, oppure li costruisce il tuo codice.
+- **[IN SVILUPPO]** Non esiste un elenco di livelli o stage dentro la cartuccia, con un tasto per passare dall'uno all'altro nell'editor. Cosa manca: bm SDK ha una sola mappa e nessuna voce "livello 1, livello 2". Oggi gli stage sono layer o regioni della stessa mappa, oppure li costruisce il tuo codice. Il template *Stages 2D* (**Ctrl+N**) ne mostra un modo: tre stage come tre fasce di 48 righe di una mappa sola.
 - **[IN SVILUPPO]** `lib.world()` (un caricatore di mappa, entità e trigger) e una griglia di stanze per la pagina mappa sono solo proposte nelle note di progetto di bm SDK. Nella suite non ci sono.
 - **[IN SVILUPPO]** L'importazione di mappe da Tiled non c'è. Cosa manca: tutta l'importazione; la mappa viene dall'SDK o da file CSV.
 
@@ -479,7 +479,8 @@ Se il nome di un layer è sbagliato, la chiamata fallisce con un errore. Control
 
 ## Attenzione
 
-- **[IN SVILUPPO]** La schermata del titolo, l'elenco degli stage e il finale vanno scritti a mano. Cosa manca: un modello con menu, più stage e un finale. È previsto per la beta (rev 1): il suo test di accettazione chiede un gioco con titolo, 3 stage e finale fatto solo con la suite.
+- Per un gioco 2D, il template *Stages 2D* (**Ctrl+N**) dà già una schermata del titolo con NEW GAME e CONTINUE, tre stage, un game over, un finale e un miglior tempo salvato. Parti da lì e cambialo.
+- **[IN SVILUPPO]** Per il 3D non c'è un template così. Cosa manca: un template 3D con menu, più stage e un finale. In 3D scrivi a mano la schermata del titolo, l'elenco degli stage e il finale.
 - Per la versione 3D la macchina è la stessa: in `enter`, riempi i layer dello stage con `mset`, chiama `map3d_build` e conserva il mondo.
 
 # Consigli e limiti
@@ -515,7 +516,7 @@ Se il nome di un layer è sbagliato, la chiamata fallisce con un errore. Control
 
 ## Cosa non c'è ancora
 
-- **[IN SVILUPPO]** Un elenco di stage nella cartuccia e nell'editor.
+- **[IN SVILUPPO]** Un elenco di stage nella cartuccia e nell'editor (il template *Stages 2D* divide invece una mappa in fasce).
 - **[IN SVILUPPO]** `lib.world()` e la griglia di stanze.
 - **[IN SVILUPPO]** L'importazione da Tiled.
 - **[IN SVILUPPO]** Un editor per i box.

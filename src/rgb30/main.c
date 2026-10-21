@@ -42,6 +42,7 @@
 #include "kernel/ledstate.h"
 #include "kernel/splash.h"
 #include "kernel/notice.h"
+#include "kernel/reports.h"
 #include "kernel/sdlog.h"
 #include "bm/runtime.h"
 #include "audio/audio.h"
@@ -106,6 +107,12 @@ static int l_exit(lua_State *L)
     return 0;
 }
 
+static int l_crash(lua_State *L)
+{
+    (void)L;
+    __builtin_trap();
+}
+
 void ui_serial_repl(void)
 {
     char line[256];
@@ -114,6 +121,8 @@ void ui_serial_repl(void)
     if (L) {
         lua_pushcfunction(L, l_exit);
         lua_setglobal(L, "exit");
+        lua_pushcfunction(L, l_crash);      /* a test of the crash report: a BRK */
+        lua_setglobal(L, "crash");
     }
     repl_done = 0;
     kprintf("Lua %s - exit() or Ctrl-D: back to the menu\n> ", LUA_RELEASE + 4);
@@ -245,6 +254,15 @@ void kernel_main(uintptr_t dtb)
     if (plat_display_problem()) {
         plat_led(-1, 1);                    /* red stays on: see bm/bootlog.txt */
         ledstate_set(LED_DISPLAY, 1);       /* and the green blinks slowly */
+    }
+    {
+        /* the boot before ended in a crash: a report, with the lines printed
+         * before it; a "freeze" record is not one here: no watchdog yet */
+        const char *kind;
+        size_t n;
+        const char *t = crumbs_last(&kind, &n);
+        if (t && !strcmp(kind, "crash"))
+            reports_text(kind, t, n);
     }
     kprintf("ready\n");
     sdlog_boot(1);

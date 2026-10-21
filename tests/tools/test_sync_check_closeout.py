@@ -315,10 +315,28 @@ class T(unittest.TestCase):
             f.write('branches = ["claude/aaa-work"]\n')           # belongs to the last operator (BBB)
         out = self.leftovers()
         self.assertIn("  > branch origin/claude/aaa-work not merged (BBB)", out)
-        self.assertIn("  > branch origin/agy/old not merged", out)
+        self.assertFalse([e for e in out if "agy/old" in e])                # a branch outside operators.toml is not listed
         self.assertFalse([e for e in out if "->" in e])                     # the origin/HEAD alias is skipped
         self.assertIn("  > worktree /w/main (sync/t)", out)
         self.assertIn("  > worktree /w/rv (detached)", out)
+
+    def test_now_option_replaces_the_clock(self):
+        self.sync_md(row(5, "ASSIGNED", "AAA: XX-1"))
+        self.operator("AAA", "FREE")
+
+        def run(*args):
+            out = io.StringIO()
+            argv, sys.argv = sys.argv, ["sync_check.py"] + list(args)
+            try:
+                with contextlib.redirect_stdout(out), mock.patch.object(sc, "git", return_value=""):
+                    code = sc.main()
+            finally:
+                sys.argv = argv
+            return code, out.getvalue()
+        self.assertNotIn("not taken", run()[1])                            # 5 minutes: not yet
+        late = (NOW + datetime.timedelta(minutes=20)).isoformat(timespec="minutes")
+        self.assertIn("not taken", run("--now", late)[1])                  # the same data, 25 minutes later
+        self.assertEqual(run("--now", "garbage")[0], 2)
 
     def test_leftovers_git_unavailable(self):
         self.sync_md(row(30, "CLOSEOUT", "DRAIN"))
