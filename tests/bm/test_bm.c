@@ -854,6 +854,27 @@ static void test_pixel(void)
         g16_stack(&g, &s, 0, 0, 4, 3, 1, 40, 40, -inff, 1.0f, 1.0f);
         g16_stack(&g, &s, 0, 0, 4, 3, 1, 40, 40, 0.0f, -inff, 1.0f);
         CHECK(memcmp(ref, fb, sizeof ref) == 0, "stack with -inf draws nothing");
+        /* a huge finite step lifts every slice but the first off the screen: only slice 0 shows.
+         * smoke test: checks the picture, not UB (x86 gives INT_MIN for a bad cast, which is off screen
+         * too); build with -fsanitize=float-cast-overflow to see the cast. */
+        g16_cls(&g, 0);
+        g16_stack(&g, &s, 0, 0, 4, 3, 1, 40, 40, 0.0f, 1.0f, 0.0f);
+        memcpy(ref, fb, sizeof ref);
+        const float huge[] = { 1.0e30f, -1.0e30f, 3.0e38f, -3.0e38f };
+        for (unsigned k = 0; k < sizeof huge / sizeof *huge; k++) {
+            g16_cls(&g, 0);
+            g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, 0.0f, 1.0f, huge[k]);
+            CHECK(memcmp(ref, fb, sizeof ref) == 0, "stack with a huge step (case %u) shows only slice 0", k);
+            g16_cls(&g, 0);
+            g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, 0.0f, 64.0f, huge[k]);
+            CHECK(1, "smoke test: huge step with scale 64 (case %u) runs", k);
+        }
+        /* a huge finite rz: sin and cos stay in -1..1, the stack is drawn and nothing crashes.
+         * smoke test: checks nothing drawn outside the guard, not UB */
+        g16_cls(&g, 0);
+        g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, 1.0e30f, 1.0f, 2.0f);
+        g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, -3.0e38f, 64.0f, 2.0f);
+        CHECK(1, "smoke test: huge rz runs");
     }
 
     /* a stack partly outside the clip rectangle and the screen: nothing is written outside the

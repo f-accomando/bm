@@ -289,7 +289,11 @@ void g16_stack(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
     for (int i = 0; i < n; i++) {
         const int fx = sx + i * sw;
         if (fx + sw > s->w) break;
-        const float cy = cy0 - (float)(int)floorf((float)i * step * scale + 0.5f);
+        /* a lift beyond 1e6 pixels is off screen anyway: the clamp keeps the cast defined */
+        float lift = floorf((float)i * step * scale + 0.5f);
+        if (!(lift > -1.0e6f)) lift = -1.0e6f;
+        if (lift > 1.0e6f) lift = 1.0e6f;
+        const float cy = cy0 - (float)(int)lift;
         const float cx = cx0;
         int x0 = (int)floorf(cx - hx), x1 = (int)ceilf(cx + hx) + 1;
         int y0 = (int)floorf(cy - hy), y1 = (int)ceilf(cy + hy) + 1;
