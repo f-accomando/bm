@@ -44,8 +44,8 @@ The executing agent returns one of the following states:
 
 ---
 
-## 4. Sync work orders (files in `sync/wo/`)
-A WO for an operator in the sync protocol (`SYNC.md`) has this shape. `bm-planner` writes the text; SPV saves it as `sync/wo/<ID>.md` (a planner cannot write files) and assigns it with a Log row (`python tools/sync_log.py log ...`). A draft that is not assigned yet lives in `sync/wo/drafts/`.
+## 4. Work orders for operators
+The sync system is retired (`docs/archive/sync/README.md`). A WO now has this shape. `bm-planner` writes the text; the caller saves it where the task needs it.
 
 ```markdown
 # <ID> - <NAME>: <one-line goal> (<roadmap ID>)

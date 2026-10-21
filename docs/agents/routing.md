@@ -13,7 +13,7 @@ Detail of the subagent routing summarised in the `CLAUDE.md` Glossary. Search wi
 | **`bm-light`** | Sonnet medium | Simple tasks needing technical judgment, docs verified against real code, 1–2 file fixes | Long and vague jobs |
 | **`bm-deep`** | Opus xhigh | A single isolated, critical problem (bug with reproduction, architectural decision) | Implement whole features |
 | **`bm-research`** | Haiku low (read-only) | Read-only exploration, symbol/definition search across many files, compact summaries | Modify code |
-| **`bm-ops`** | Haiku low (Bash, no code changes) | Already-decided shell commands: sync heartbeat/report (`video/3d/hb.py`), `verify.py`, `make`, git fetch/status/push, checking a resume | Decide, fix, start resumes, `kill`, merge |
+| **`bm-ops`** | Haiku low (Bash, no code changes) | Already-decided shell commands: `verify.py`, `make`, git fetch/status/push, checking a resume | Decide, fix, start resumes, `kill`, merge |
 
 ### Readiness Gate
 Before assigning a task to an executing model (`bm-mechanic`, `bm-coder`, `bm-light`), apply this 5-question checklist. A task is ready for a low-tier agent ONLY if ALL answers are **YES**:
@@ -44,7 +44,7 @@ Every request for a model more expensive than the standard one (`bm-deep`, heavy
 | 5 | Almost a necessity: the error is irreversible or the alternative is giving up on solving it |
 
 ### Ledger
-after each finished subagent, SPV/the main agent appends a row to `docs/agents/ledger.txt` (append only); `python scripts/agent_audit.py` for tuning. `python scripts/ledger_repeats.py` lists tasks repeated 3 or more times: on the third repeat they become a skill or a script and are noted in the sync Log. To add a row, run `python scripts/ledger_add.py --agent ... --model ... --task ... --area ... --tokens N --tools N --secs N`. The script validates the row like `agent_audit.py` and skips duplicates. `--no-write` shows a preview. Edit `ledger.txt` only through this script.
+after each finished subagent, SPV/the main agent appends a row to `docs/agents/ledger.txt` (append only); `python scripts/agent_audit.py` for tuning. `python scripts/ledger_repeats.py` lists tasks repeated 3 or more times: on the third repeat they become a skill or a script. To add a row, run `python scripts/ledger_add.py --agent ... --model ... --task ... --area ... --tokens N --tools N --secs N`. The script validates the row like `agent_audit.py` and skips duplicates. `--no-write` shows a preview. Edit `ledger.txt` only through this script.
 
 ### Escalation
 Agents always close with an explicit status:

@@ -1,7 +1,7 @@
 # Tropic Trail — stato della serie
 
 Legenda: `[x]` fatto · `[ ]` da fare · `[-]` non applicabile · `BLOCCATO` vedi dipendenze.
-Fonti: [`PIANO.md`](PIANO.md), [`../../SYNC.md`](../../SYNC.md). Aggiornare questa pagina a ogni passo
+Fonti: [`PIANO.md`](PIANO.md), `SYNC.md` (archivio: `docs/archive/sync/SYNC.md`). Aggiornare questa pagina a ogni passo
 (la serie riparte dal primo video con una casella vuota non bloccata). Controllo dei documenti: `make video-3d-check`.
 
 | Video | script | shot list | copertina | metadati | input auto | registrazione | montaggio | pubblicazione |

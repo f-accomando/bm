@@ -8,16 +8,6 @@
     "anthropic-skills:xlsx": "off"
   },
   "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/sync_watch.py\""
-          }
-        ]
-      }
-    ],
     "SubagentStop": [
       {
         "hooks": [
