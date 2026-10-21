@@ -95,6 +95,7 @@ S3 and S4 need no device and can be done at once. S1 and S2 need hardware: not v
 ## 6. Draft tasks (VID-S1..VID-DOC)
 
 The "Who" column says how much planning a task needs.
+
 | Task | Content | Who | Why |
 |---|---|---|---|
 | VID-S3 | The compression script of S3 and its report | small task | One script, PC only, a measurable result |
