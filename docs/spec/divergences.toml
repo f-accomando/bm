@@ -493,9 +493,10 @@ pi = "Dev lists .bme projects"
 rgb30 = "Dev tab does not list .bme projects"
 cause = "todo"
 priority = 6
-status = "open"
-evidence = "src/kernel/carts.c:842-844; src/rgb30/ui.c"
-action = "remove the project rows from the Pi Dev tab (WO NET-D44-PI); then intended"
+status = "resolved"
+evidence = "src/kernel/carts.c:577-579,837,1885-1888; tests/qemu_test.py:test_projects"
+note = "Projects (.bme) are not listed in the menu tabs on either kernel (user decision 21 Oct 2026). Pi Dev tab fixed in PR 58 (src/kernel/carts.c tab_items; test_projects walks the Dev tab)."
+action = "none"
 
 [[divergence]]
 id = "D46"

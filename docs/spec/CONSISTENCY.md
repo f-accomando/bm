@@ -128,7 +128,7 @@ removing or changing a promise is a 2.0.0.
 | D26 | open | todo | SDK layout 720x720 | Pi: -. RGB30: not done (R39) | R39 |
 | D27 | open | todo | screenshot of the menu's own screens | Pi: not done. RGB30: not done | extend the screenshot to the menu |
 | D28 | open | todo | a game built in /carts and the Games tab | Pi: a game built in /carts is not in Games (R41). RGB30: - | R41 |
-| D44 | open | todo | Dev tab lists .bme projects | Pi: Dev lists .bme projects. RGB30: the Dev tab does not list them (right: the projects live in their own folder and the editors read them) | remove the project rows from the Pi Dev tab (WO NET-D44-PI); then intended |
+| D44 | resolved | todo | Dev tab lists .bme projects | Projects (.bme) are not listed in the menu tabs on either kernel (user decision 21 Oct 2026). Pi Dev tab fixed in PR 58 (src/kernel/carts.c tab_items; test_projects walks the Dev tab). | none |
 
 The differences that are hardware, with the capability that explains each:
 
