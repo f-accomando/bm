@@ -1183,6 +1183,7 @@ test-api:
 test-docs:
 	$(PYTHON) scripts/docs_audit.py score
 	$(PYTHON) -m unittest tests.tools.test_claude_glossary
+	$(PYTHON) -m unittest discover -s tests/tools -p "test_*.py"
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
