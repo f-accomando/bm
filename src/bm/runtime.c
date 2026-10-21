@@ -9362,6 +9362,8 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     bm_close_suspended();              /* one cartridge in memory at a time */
     memset(st, 0, sizeof *st);
     memset(&rt, 0, sizeof rt);
+    rt.audio_prev = audio_busy_us;     /* stat(17), stat(18) count from this run */
+    rt.gpuwait_prev = gpu3d_wait_us();
     n_made = 0;
     rt.prof_want = 0;
     free(proj_cover);                  /* no project open yet (cart_load) */
