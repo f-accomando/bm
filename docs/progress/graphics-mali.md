@@ -18,10 +18,23 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
   colour per draw, pushed: words 4-7). Without IDVS: a Vertex job, then a Tiler job whose Draw
   `position` is the buffer the vertex job wrote (varying buffer 1; an attribute buffer of binding n is
   entry 2n; a Renderer State is followed by one Blend per render target).
-- To check on the device if the triangle does not appear (guesses read from Mesa, in order):
-  the Blend's memory format order (RGBA; the screen is XRGB), `HIERARCHY_MASK` 0xee (Mesa's value for 6
-  tiler levels, not read from the GPU), the fragment's pixel kill/ZS update (Weak Early), the 1 MiB heap
-  (`MEM_HEAP` at 1 MiB of the 4 MiB of GPU memory), no message preload.
+- Fault on the device (21 Oct, report `20261021-154617_gpu_rgb30_dev.txt`): the vertex and tiler job
+  ends with `mali: a vertex and a tiler job: failed, JS_STATUS 58 DATA_INVALID_FAULT`. The clear works.
+- Variant probe (`src/rgb30/mali_variants.h`, `triangle()` in `mali.c`): the base jobs run first. If they
+  fail, the probe resets the GPU and runs 8 variants of the jobs, each built again with one patch
+  (`mv_table`: block, first bit, bit count, value). One Dev > GPU run gives all the results.
+  Read the log lines `mali: variant N <name>: ok` or `mali: variant N <name>: JS_STATUS 0x..`:
+  - 0 `vertex-only` (the vertex job alone) and 1 `tiler-only` (the CPU writes the positions, the tiler
+    job alone, no dependency) isolate the failing job. They never count as the one that works.
+    0 ok and 1 fail: the tiler job or its tables are wrong. 0 fail: the vertex job is wrong.
+  - 2 `heap-bottom64` (heap bottom = base + 64), 3 `vary0-copy` (varying buffer 0 = the position entry),
+    4 `mask-ff` (hierarchy mask 0xff), 5 `no-depth-cull`, 6 `tiler-vrsd` (tiler job state = the vertex
+    shader's), 7 `provoke-0` (first provoking vertex = 0). The first of these that is `ok` goes on to the
+    fragment job (`mali: variant N <name> goes on to the fragment job`) and the pixel check.
+  - All 8 fail with the same status: the fault is not in these fields. Other guesses: the Blend's memory
+    format order (RGBA; the screen is XRGB), the fragment's pixel kill/ZS update (Weak Early), the 1 MiB
+    heap, no message preload.
+  - Host test: `make TARGET=rgb30 test-mali` (the patches and the log lines; the simulated GPU has no tiler).
 - Next: when the triangle works (then bm3d gets its version and a row in DRIVERS.md), an `r3d` backend (`tri` callback batching screen triangles, a colour per draw),
   then the vertex shader with the transform.
 - `origin/bm3d-mali-v1` (Grok) was not used: its additions do not compile (`mali_tri_batch_t`
