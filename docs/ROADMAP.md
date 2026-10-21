@@ -28,12 +28,12 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 | ID | Pri | Criterion to open the beta | Verifiable requirement | After |
 |---|---|---|---|---|
-| BETA-1 | P0 | Stable base | CI green on `bm-core`; a crash writes a correct `bootprev.txt` (hardware tests done by the user) | SYS-1, SYS-2, SYS-5 |
+| BETA-1 | P0 | Stable base | CI green on `bm-core`; a crash writes a correct `bootprev.txt` (hardware tests done by the user) | SYS-1, SYS-2 |
 | BETA-2 | P0 | A complete game can be built with the suite | the acceptance test, 2D version | APP-4, APP-1, APP-6 |
 | BETA-3 | P0 | The API is integrated in the editor | function help and lint in bm Code; completion with a single API source | APP-5 |
 | BETA-4 | P1 | Acceptable performance in 2D and 3D | budget measured and published for Pi and RGB30; the test game at 60 fps (or at the frame rate declared in the budget) | API-1, M36, M35, M37, M41 |
 | BETA-5 | P1 | The 3D version of the test | a multi-stage 3D game runs on the GPU (V3D on the Pi, Mali on the RGB30) within the budget | BETA-4, APP-2 |
-| BETA-6 | P1 | Consistency between the two kernels | `python scripts/consistency.py gate` with no `open` or `untested` divergences touching menu, input, Games, SDK and saves (D01-D13, D28, D30-D36 and similar); the others accepted in writing | SYS-5, APP-1 |
+| BETA-6 | P1 | Consistency between the two kernels | `python scripts/consistency.py gate` with no `open` or `untested` divergences touching menu, input, Games, SDK and saves (D01-D13, D28, D30-D36 and similar); the others accepted in writing | APP-1 |
 | BETA-7 | P1 | Manuals up to date | Each manual in `manuals/content/` (English and Italian) matches the code, and `python scripts/manuals.py status` shows no open item. No tester guide and no feedback channel: users send feedback to the owner in private, outside bm | APP-3 |
 
 **Lua and LuaJIT (baseline decision, to be confirmed).** For the beta we stay on the Lua 5.4 interpreter: LuaJIT is neither needed nor advisable. One operation costs about 100 ns (about 140,000 per frame); drawing and 3D live in C and on the GPU, and `docs/PERFORMANCE.md` (discarded choices) already discarded the JIT because it requires generating code at runtime on bare metal; moreover the `profile` and breakpoint hook does not fire in compiled code (`docs/B16.md`, section on the debug hook). It is reconsidered only if tester feedback shows games limited by Lua and not by drawing: first measure with `profile(true)` and move the heavy work to C or to the QPUs.
@@ -51,7 +51,6 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 | SYS-3 | P1 | in progress | Pi tests from the PC (network, keys, screenshot) | `bm_net.py --shot/--keys` and the bridge tested on a Pi; R-NET3 with a limited test token | [tools](progress/tools.md) `Pi tests from the PC`, [pi-test](design/pi-test.md) | - |
 | SYS-4 | P1 | to do | Measurable multi-agent coordination | ledger and `agent_audit.py` with baseline; work order scope checked by script | [sync](progress/sync.md), [sync-workflow](progress/sync-workflow.md) | - |
 | M42 | P1 | in progress | Identical `.b16` profile on Pi and RGB30 | *Yharnam* `.b16` runs indistinguishably on Pi Zero W and RGB30, lint warnings in place | [b16](progress/b16.md) §2-3 | - |
-| SYS-5 | P1 | in progress | Stable RGB30: panel after warm reboot, Start+Select, single core | warm reboot without black screen; Start+Select freezes and resumes as on the Pi | [platforms](progress/platforms.md) `Open work`, [multitasking](progress/multitasking.md) `Open` | - |
 | M41 | P2 | in progress | RGB30 Mali-G52 GPU and Overbit in `.b16` | Overbit `.b16` at 60 fps with the Mali; 3D Bench reports GPU metrics | [graphics-mali](progress/graphics-mali.md) §M41, [platforms](progress/platforms.md) | M42 |
 | SYS-6 | P2 | to do | Multitasking: measurements to redo, CPU stalls, download inside an app | `Open` in multitasking.md emptied or reduced to ideas; Beta R1/R2 roadmap | [multitasking](progress/multitasking.md) | - |
 | R3, R4 | P2 | to verify | SD log and screenshot: close after console tests | SD log (D19) and `shot` tested on console; entries removed from `Open work` | [system](progress/system.md) | SYS-2, SYS-3 |
