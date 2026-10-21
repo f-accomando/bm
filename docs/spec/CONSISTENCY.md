@@ -138,7 +138,7 @@ The differences that are hardware, with the capability that explains each:
 | D31 | game screen | `square-panel` | Pi: square carts boxed in 16:9 black. RGB30: fb_init_game fills the panel; screen() offers only 360x360 and 720x720; bm_scale, bm_smooth |
 | D32 | confirm / back | `pad-only` | Pi: A confirms, B backs. RGB30: B confirms, A backs; confirm=a swaps |
 | D33 | game buttons | `pad-only` | Pi: DS4 by position. RGB30: built-in pad by the letters printed on it; game_buttons=position |
-| D34 | system keys | `no-keyboard` | Pi: F11, F12 (held: the key list), Print Screen, Ctrl+Esc. RGB30: only on a BT keyboard; the pad has Select+L1+R1 (screenshot) and Start+Select (leave) |
+| D34 | system keys | `no-keyboard` | Pi: F11, F12 (held: the key list), Print Screen, Ctrl+Esc. RGB30: only on a BT keyboard; the pad has Select held 3 s (screenshot) and Start+Select (leave) |
 | D35 | text input | `no-keyboard` | Pi: USB or BT keyboard and mouse. RGB30: BT only, no USB host; no on-screen keyboard |
 | D36 | storage paths | `storage-path` | Pi: cartridges in /carts and /, data in /bm. RGB30: everything in /bm; the mapping is done by hand in 4 places |
 | D37 | 3D settings | `no-3d-gpu-yet` | Pi: 12 rows (AA, VS, queue, textures...). RGB30: '3D on the ARM' only |

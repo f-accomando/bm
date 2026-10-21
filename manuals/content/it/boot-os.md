@@ -325,7 +325,7 @@ python3 tools/bm_net.py IP --config
 
 # Schermate
 
-Premi `Print Screen` sulla tastiera, oppure tieni premuti **Select + L1 + R1** su un pad (Share + L1 + R1 su un DS4). La console salva lo schermo del gioco, com'è stato disegnato, come PNG in `bm/shots/`. Gli overlay, l'icona della batteria, il puntatore e il riquadro del messaggio non sono nell'immagine.
+Premi `Print Screen` sulla tastiera, oppure tieni premuto **Select** per 3 secondi su un pad (Share su un DS4). La console salva lo schermo del gioco, com'è stato disegnato, come PNG in `bm/shots/`. Gli overlay, l'icona della batteria, il puntatore e il riquadro del messaggio non sono nell'immagine.
 
 ## Da sapere
 
@@ -345,7 +345,7 @@ Premi `Print Screen` sulla tastiera, oppure tieni premuti **Select + L1 + R1** s
 Scatta tre immagini dello stesso gioco. Ottieni `0001`, `0002` e `0003` con lo stesso prefisso.
 :::
 
-[DA COMPLETARE: verificare Select + L1 + R1 sul PowKiddy RGB30; non ancora provato sulla console]
+[DA COMPLETARE: verificare Select tenuto 3 s sul PowKiddy RGB30; non ancora provato sulla console]
 
 Un gioco scatta da solo con `shot()`; vedi il manuale dell'API.
 

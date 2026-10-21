@@ -664,7 +664,7 @@ A game or an app saves the frame it is drawing as a PNG on the SD card, and the 
 | How | Where |
 |---|---|
 | **Print Screen** on the keyboard | `bm/shots/` on the SD card |
-| **Select + L1 + R1** together on a pad (Share + L1 + R1 on a DS4) | `bm/shots/` on the SD card |
+| **Select** held for 3 seconds on a pad (Share on a DS4) | `bm/shots/` on the SD card |
 
 A box says `Screenshot saved` and the file name for two seconds. The picture is the game's own screen as it was drawn: the dev kit's overlays, the battery icon, the pointer and that box are **not** in it.
 
@@ -672,7 +672,7 @@ A box says `Screenshot saved` and the file name for two seconds. The picture is 
 Games and apps run by bm's menu take it; the menu's own screens do not yet.
 :::
 
-[TO FILL: check Select + L1 + R1 on the PowKiddy RGB30; not tried on the console yet]
+[TO FILL: check Select held 3 s on the PowKiddy RGB30; not tried on the console yet]
 
 ## For an app
 
@@ -697,7 +697,7 @@ local path = shot("menu")    -- "bm/shots/MENU0001.png"
 ## Try it, step by step
 
 1. Start any game from the menu, for example **Pong**.
-2. Press **Print Screen** on the keyboard, or hold **Select + L1 + R1** on the pad.
+2. Press **Print Screen** on the keyboard, or hold **Select** for 3 seconds on the pad.
 3. Wait for the box that says `Screenshot saved`.
 4. Switch the console off and put the SD card in your computer.
 5. Open the folder `bm/shots/`: the picture is there, for example `PONG0001.PNG`.
