@@ -72,6 +72,7 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
   header flag and `mkbm.py --b16` done; remaining: lint warnings (SDK + `mkbm.py`), Yharnam check.
 - **Lua speed, step 10**: hot Lua of the games in C (rays, bot paths, particles), fewer allocations.
 - **M47** projects: done on the PC, to verify on the Pi.
+- **Games input standard** ([games-input-standard](../design/games-input-standard.md)): games migrate to `lib.input` per the inventory (GAME-INPUT-1 parts B and C); open decisions in the standard, section 7.
 - Yharnam checks without a milestone ("Da fare" in the roadmap): frame cost on Pi and RGB30
   via the session report and `devinfo()`, a glitch in the first frames; its drawn map edited in
   the SDK on the Pi ([tools](tools.md)).
@@ -92,3 +93,4 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
   do not reuse them.
 - Tests: `make test-gameapi`, `test-bm`, `test-profile`, `test-bmnet`, `test-online`,
   `test-loading`; QEMU `-k <name>` for the piece touched.
+- New games start from `lib.input()` (the standard in [games-input-standard](../design/games-input-standard.md)); a different binding goes only through its override table and is listed in the game's `docs/progress/<game>.md`.
