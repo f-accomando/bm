@@ -1,0 +1,26 @@
+bm report
+kind: system
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: 2026-10-21 13:27:26
+file: 20261021-132726_system_pi-zero-w_dev.txt
+
+bm > System
+
+bm dev
+board revision : 009000c1 (Raspberry Pi Zero W)
+ARM memory     : 00000000 + 448 MiB
+GPU memory     : 1c000000 + 64 MiB
+CPU            : ARM1176 (MIDR 410fb767), started in SVC mode
+ARM clock      : 1000 MHz
+core clock     : 250 MHz
+UART clock     : 250000000 Hz, 115200 baud
+SoC temp       : 44.3 C
+MMU/caches     : on (I+D cache, branch prediction)
+kernel end     : 0xe9f370
+heap           : 0xe9f370-0x1c000000, 433 MiB, 2887 KiB reserved, 2795 KiB in use
+uptime         : 1408070 ms
+SD card        : FAT32, 7591 MiB, label BOOTFS
+audio          : HDMI 48 kHz
+network        : 192.168.1.108, time 2026-10-21 13:27 UTC
