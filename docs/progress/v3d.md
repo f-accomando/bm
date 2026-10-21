@@ -16,6 +16,9 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
 - Cache: `dcache_clean_invalidate_all` 4 times per job. Binner: static 4 MiB tile list + 2 MiB
   overflow (`BPOA` / `BPOS`); `OUTOMEM` is not handled (200 ms timeout, GPU off, ARM takes over).
 - Vertex shader is done (`gpu3d_vs=2` default).
+- QPU programs outside 3D (bm3d 7.x; `src/gpu/qpu.c`; programs in `tools/qpuprogs.py`, made into `src/gpu/qpuprog.h`):
+  see item 5 of `To do`. Nothing calls them yet. `v3d_init` still gives all of the VPM to the vertex pipeline.
+  A user program gets `V3D_QPU_ROWS` rows only while `v3d_qpu_run` waits, and `v3d_qpu_run` refuses during a 3D job.
 - `stat(16)`: the GPU's job time of the last frame (0 on the ARM). Read with the queue on, it
   includes the wait before the ARM looks: trust it only without the queue.
 - `stat(17)`: ms of audio interrupt time in the last frame. `stat(18)`: ms the ARM waited for the GPU
@@ -104,9 +107,9 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
    a separate x y z stream for the coordinate shader).
 5. **QPUs as a coprocessor: programs on the QPUs**:
    The 12 QPUs run SIMD operations on 16 floats at a time: parallel computation on large masses of data, when 3D does not saturate them (2D games, menus) or by reserving some QPUs in 3D games.
-   - **Step 1 (Driver)**: Launch "user" QPU programs outside the draw loop (V3D requests: code pointer, uniform registers, QPU number, completion counter; currently `v3d.c` assigns the whole VPM to vertices); dispatch queue, wait with timeout, detection at startup that disables the feature on anomalies and falls back to ARM; execution in the emulator `tests/gpu/v3d_emu.c`, a dedicated step in test `g` and a profile in the 3D Bench.
-   - **Step 2 (Particles on GPU)**: `particles()` (position, velocity, gravity, life, color) updated and drawn via GPU with no ARM load (thousands of particles instead of hundreds), integrated with the `lib.particles` module in bmlib.
-   - **Step 3 (Full-screen 2D effects)**: Darkness levels and Yharnam glows (today `g16_fade_*` via ARM), fades, blurs, CRT/scanline filters.
+   - **Step 1 (Driver)**: done on the emulator, `not verified on hardware`. `v3d_qpu_run` (`src/gpu/v3d.c`) starts user programs through `SRQPC/SRQUA/SRQUL/SRQCS`, gives the VPM share (`VPMBASE`) only during the run, waits with a timeout, and resets the QPUs on a failure. `src/gpu/qpu.c` adds the dispatch queue (`qpu_*_queue`, `qpu_flush`: whole requests packed in launches of up to 16 jobs), the probe at start (`qpu_init`: each program against its ARM version; a wrong program is turned off alone), the fallback (a failed run is done again by the ARM from the source; two failed runs in a row turn the QPU path off) and the counters (`qpu_stats`). Tests: `make test-v3d` (register model), `make test-qpurun` (emulator, three ways: it works, the QPUs never answer, they store wrong data), `make test-qpu` (the generated header). The emulator (`v3d_qpu_run` in `tests/gpu/v3d_emu.c`) runs user programs with branches (3 delay slots), the TMU (`t0s` then `ldtmu0`), the VPM and the DMA store. Open: a step in test `g`, a profile row in the 3D Bench, and the register details on the Pi (SRQCS bits, VPMBASE unit, VPM rows of a user program, TMU raw lookup, DMA store setup words, run time of 12 QPUs).
+   - **Step 2 (Particles on GPU)**: half done. The update is done (`qp_particles` in `tools/qpuprogs.py`, `qpu_particles` with its ARM version `qpu_particles_arm`; blocks of 16 particles with x, y, vx, vy, life; on the emulator the QPU result equals the ARM result to the bit). Open: the Lua `particles()` call and the `lib.particles` module in bmlib (they keep their Lua pool today), and the drawing on the GPU (the ARM draws).
+   - **Step 3 (Full-screen 2D effects)**: half done. The darkness levels of Yharnam are done (`qp_fade`, `qpu_fade`, `qpu_fade_apply` for `g16_fade_t`: the same picture as `g16_fade_apply`, tested at 640x360 and with a tail of pixels). Open: the call in the runtime (nothing calls it), fades, blurs, CRT and scanline filters.
    - **Step 4 (Block audio effects)**: FDN reverb, echo and filters processed in blocks on the QPUs (also for nano8).
    - **Step 5 (Ray tracing)**: batched `hit3d` and lines of sight for AI bots.
    - *Toolkit and hardware registers needed (from research 2026-10-12)*:

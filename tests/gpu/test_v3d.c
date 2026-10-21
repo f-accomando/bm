@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "drivers/mmio.h"           /* the model: tests/gpu/mock */
 #include "gpu/v3d.h"
@@ -25,12 +26,24 @@ static int bin_delay, rnd_delay;    /* reads of BFC / RFC until the job ends; 0:
 static int bin_left, rnd_left;
 static uint32_t rnd_error;          /* CT1CS when the rendering list fails */
 static uint32_t now;
+/* QPU programs (bm3d 7.x): SRQPC queues one; each read of SRQCS ends one more
+ * after qpu_delay reads (0: never); qpu_err sets the error bit */
+enum { SRQPC = 0x430, SRQUA = 0x434, SRQUL = 0x438, SRQCS = 0x43C, VPMBASE = 0x504 };
+static int qpu_delay, qpu_sent, qpu_done, qpu_reads, qpu_err, qpu_err_launch;
+static uint32_t qpu_ul[32], qpu_ua[32], qpu_pc[32], vpmbase_max, vpmbase_now_seen;
 
 uint32_t mock_read(uint32_t addr)
 {
     uint32_t off = addr - V3D_BASE;
     if (off >= sizeof regs)
         return 0;
+    if (off == SRQCS) {
+        if (qpu_delay && qpu_done < qpu_sent && ++qpu_reads >= qpu_delay) {
+            qpu_reads = 0;
+            qpu_done++;
+        }
+        return (uint32_t)(qpu_err ? 1u << 7 : 0) | (uint32_t)(qpu_sent & 255) << 8 | (uint32_t)(qpu_done & 255) << 16;
+    }
     if (off == BFC && bin_left > 0 && --bin_left == 0)
         regs[BFC / 4] = 1;
     if (off == RFC && rnd_left > 0 && --rnd_left == 0) {
@@ -47,6 +60,26 @@ void mock_write(uint32_t addr, uint32_t v)
     uint32_t off = addr - V3D_BASE;
     if (off >= sizeof regs)
         return;
+    if (off == SRQCS) {
+        if (v & 1u << 8) qpu_sent = 0;
+        if (v & 1u << 16) qpu_done = 0;
+        if (v & 1u << 7) qpu_err = 0;
+        return;
+    }
+    if (off == SRQPC && qpu_sent < 32) {
+        qpu_pc[qpu_sent] = v;
+        qpu_ul[qpu_sent] = regs[SRQUL / 4];
+        qpu_ua[qpu_sent] = regs[SRQUA / 4];
+        qpu_sent++;
+        if (qpu_err_launch)
+            qpu_err = 1;
+        return;
+    }
+    if (off == VPMBASE) {
+        vpmbase_now_seen = v;
+        if (v > vpmbase_max)
+            vpmbase_max = v;
+    }
     if ((off == BFC || off == RFC) && (v & 1)) {
         regs[off / 4] = 0;              /* write 1: the count back to 0 */
         return;
@@ -149,6 +182,37 @@ int main(void)
     CHECK(v3d_wait(200000, NULL, NULL) == -1 && now - t0 >= 200000, "a started job that never ends was a success");
     CHECK(job(0, 0, 3, NULL) == 0, "the next job after a started one failed");
 
+    /* QPU programs: launched in order with their uniforms, VPM share only for the run */
+    {
+        v3d_qpu_job_t jobs[3] = { { 0x40001000u, 0x40002000u, 5 }, { 0x40001000u, 0x40002100u, 6 },
+                                  { 0x40001100u, 0x40002200u, 7 } };
+        qpu_delay = 2;
+        CHECK(v3d_qpu_run(jobs, 3, 100000) == 0, "qpu run: %s", v3d_qpu_status());
+        CHECK(qpu_sent == 0 && qpu_done == 0, "counts not reset after the run");
+        CHECK(vpmbase_max == V3D_QPU_VPM, "VPM share %u during the run", vpmbase_max);
+        CHECK(vpmbase_now_seen == 0, "VPM not given back to the vertex pipeline");
+        CHECK(qpu_pc[0] == 0x40001000u && qpu_pc[2] == 0x40001100u && qpu_ua[1] == 0x40002100u && qpu_ul[1] == 6 &&
+              qpu_ul[2] == 7, "launch registers: pc %08x ua %08x ul %u", qpu_pc[2], qpu_ua[1], qpu_ul[1]);
+        qpu_delay = 0;
+        t0 = now;
+        CHECK(v3d_qpu_run(jobs, 2, 50000) == -1, "programs that never end were a success");
+        CHECK(now - t0 >= 50000 && !strcmp(v3d_qpu_status(), "timeout"), "gave up after %u us: %s", now - t0,
+              v3d_qpu_status());
+        qpu_delay = 1;
+        qpu_err_launch = 1;
+        CHECK(v3d_qpu_run(jobs, 1, 50000) == -1 && !strcmp(v3d_qpu_status(), "queue error"), "a queue error: %s",
+              v3d_qpu_status());
+        qpu_err_launch = qpu_err = 0;
+        CHECK(v3d_qpu_run(jobs, 0, 1000) == -1 && v3d_qpu_run(jobs, V3D_QPU_MAX + 1, 1000) == -1,
+              "a bad job count was accepted");
+        rnd_delay = 0;
+        CHECK(v3d_start(0, 0, 0x40200000u, 0x40200100u) == 0, "start for the busy check");
+        CHECK(v3d_qpu_run(jobs, 1, 1000) == -1 && !strcmp(v3d_qpu_status(), "a 3D job is running"),
+              "a QPU run during a 3D job: %s", v3d_qpu_status());
+        v3d_wait(1000, NULL, NULL);
+        qpu_delay = 1;
+        CHECK(v3d_qpu_run(jobs, 3, 100000) == 0, "the run after the errors failed");
+    }
     printf("v3d: %d/%d checks passed\n", checks - failures, checks);
     return failures ? 1 : 0;
 }
