@@ -1,0 +1,118 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-b4eb1b_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: freeze test (X f), frame 0, 180 s after boot, kernel dev, ring 0, sink off
+--- the last lines printed ---
+net: console opened from 192.168.1.97
+> 
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> q
+unknown command (0x71), 'h' for help
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> X
+crash test: u undefined insn, a data abort, b prefetch abort, s SVC,
+  f freeze (the watchdog restarts the Pi in 3 s); other keys cancel
+hift+Esc the monitor, hold F12: the keys)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-10-21 07:58 UTC
+menu idle: 296/300 frames, 628 of 2454 ms taken, 498.8 ms past a frame; covers 600 ms (+500.6); min slack -100910 us, paced 0; sd 2 retried, 2 timed out
+
+net: console opened from 192.168.1.97
+> back to the monitor
+
+type 'h' for help
+> :
+:q
+: q 
+'q': not a command of the line (gpu, b3d, play, set, save, render, room, log, err, send, reboot)
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> q
+unknown command (0x71), 'h' for help
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> h
+commands (games: arrows/wasd, space = A, Esc their menu; Ctrl+Esc or q leaves):
+  M  cartridge menu, or PS on a pad (SD: / and /carts; else built-in demos)
+  f  list cartridges        F  re-read the SD card
+  n  built-in native demo.bm
+  l  Lua REPL (Esc, Ctrl-D or exit() returns here)
+  U  receive a cartridge over serial and play it
+  i  system info            m  heap usage          c  clear screen
+  y  USB: scan port and hub Y  input test: USB, then each player (10 s)
+  L  keyboard layout Italian / US
+  a  audio: HDMI sound status and a test tune
+  e  editor: code, sprites and map of a .bm cartridge
+  A  sound editor: sounds, sound effects and music of a .bm cartridge
+  3  bm Studio: the 3D models of a .bm cartridge (tiles and blocks)
+  4  bm Mesh: the meshes of a .bm (also those its code builds) to edit
+  5  bm Pixel: the sprite sheet of a .bm: pixel art, palette, animation
+  6  bm Animator: skeletons and animations of the 3D models, sprites
+  C  bm Code: the code editor (tabs, two pages, small font)
+  I  assistant: how to write code, sprite bases (M30; F6 in the tools)
+  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)
+  K  Bluetooth: pair a keyboard (LE, e.g. MX Keys: hold an Easy-Switch key)
+-- lines 1-20 of 53: up/down, PgUp/PgDn, space; q or Esc returns --
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+>   M  cartridge menu, or PS on a pad (SD: / and /carts; else built-in demos)
+  f  list cartridges        F  re-read the SD card
+  n  built-in native demo.bm
+  l  Lua REPL (Esc, Ctrl-D or exit() returns here)
+  U  receive a cartridge over serial and play it
+  i  system info            m  heap usage          c  clear screen
+  y  USB: scan port and hub Y  input test: USB, then each player (10 s)
+  L  keyboard layout Italian / US
+  a  audio: HDMI sound status and a test tune
+  e  editor: code, sprites and map of a .bm cartridge
+  A  sound editor: sounds, sound effects and music of a .bm cartridge
+  3  bm Studio: the 3D models of a .bm cartridge (tiles and blocks)
+  4  bm Mesh: the meshes of a .bm (also those its code builds) to edit
+  5  bm Pixel: the sprite sheet of a .bm: pixel art, palette, animation
+  6  bm Animator: skeletons and animations of the 3D models, sprites
+  C  bm Code: the code editor (tabs, two pages, small font)
+  I  assistant: how to write code, sprite bases (M30; F6 in the tools)
+  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)
+  K  Bluetooth: pair a keyboard (LE, e.g. MX Keys: hold an Easy-Switch key)
+  O  Bluetooth: pair a mouse (LE or classic; in pairing mode, no code)
+-- lines 2-21 of 53: up/down, PgUp/PgDn, space; q or Esc returns --
+net: console closed
