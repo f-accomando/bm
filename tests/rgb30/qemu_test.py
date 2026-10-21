@@ -730,6 +730,41 @@ def test_sdk_stages_build(b, opts):
     assert b"stages: title best" in lua, lua[:200]
 
 
+def test_cover_details_perf(b, opts):
+    """Cover details show author, size, path and performance note after a game (D12)."""
+    import shutil
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    sd = make_sd(tmp, {"bm/picart.bm": mkbm.pack(PI_CART.encode(), title="Pi cart", author="tests",
+                                                 res=(360, 360))})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.6)
+        text = screen_all(q.screendump())
+        assert "tests" in text and "KiB" in text, text
+        q.send("\r")
+        q.expect("play: /bm/picart.bm", timeout=10)
+        q.expect("bm: loaded", timeout=30)
+        time.sleep(2)
+        q.send("q")
+        q.expect("suspended", timeout=10)
+        time.sleep(1)
+        text = screen_all(q.screendump())
+        # the narrow screen shows the note on the details line (cut at 41 characters), as the Pi's "last:" note
+        assert re.search(r"last: picart.bm, \d+\.\d fps, update\+draw", text), text
+        assert "tests   bm" not in text, "the details wait while the note shows:" + chr(10) + text
+        keys(q, "r")                            # Dev: another tab, the note is over
+        time.sleep(0.5)
+        keys(q, "l")                            # back to Games
+        time.sleep(0.6)
+        text = screen_all(q.screendump())
+        assert "last: picart.bm" not in text, text
+        assert "picart.bm: frozen" in text, "the details are back (the game is frozen):" + chr(10) + text
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_bench3d(b, opts):
     """The Dev tab's 3D Bench (src/bm/b3d.c) at 640x360: every test on the
     ARM, the report on the serial port, in bm/bench on the SD card and in
