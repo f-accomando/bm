@@ -1551,6 +1551,11 @@ local function register_zone_boxes(zn, zx, zy, zw, zh, zframes, zfps, bxs)
       end
     end
   end
+  -- keep the old slices only if the re-baked zone still fits the sheet
+  local sheet_w = cart_sheet()
+  if keep_slices > 0 and sheet_w and zx + zw * max(zframes, keep_slices) > sheet_w then
+    keep_slices = 0
+  end
   zlist[#zlist + 1] = { name = zn, x = zx, y = zy, w = zw, h = zh, frames = zframes, fps = zfps, slices = keep_slices }
   local zparts = { spack("<I2I2", #zlist, 0) }
   for _, z in ipairs(zlist) do
