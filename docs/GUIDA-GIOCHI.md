@@ -38,8 +38,8 @@ Se il gioco si ferma con un errore, l'SDK torna sulla riga in rosso (Ctrl+G la
 ritrova). Tutto il resto di questa guida vale anche per l'SDK.
 
 **Progetti e giochi**: quello che gli strumenti cambiano è un **progetto**, un `.bme` in
-`/carts` con un nome 8.3 (es. `MIOGIOCO.BME`), nella scheda Dev con l'etichetta "Project" (A lo
-apre nell'SDK, *Try it* lo gioca). Un `.bm` è un **gioco**, in Games: gli strumenti lo aprono
+`/carts` con un nome 8.3 (es. `MIOGIOCO.BME`). Non è nelle schede del menu: lo aprono gli editor
+(*Open* dell'SDK, Ctrl+O). Un `.bm` è un **gioco**, in Games: gli strumenti lo aprono
 per leggerlo e prenderne codice, sprite, modelli e suoni, ma non lo cambiano. Salvandolo
 chiedono di farne la **copia modificabile** (`NOME.BME`, accanto); la copia c'è anche nelle
 opzioni di un gioco (X), *Make an editable copy*. Quando il progetto è pronto, **Ctrl+B**

@@ -7627,37 +7627,32 @@ def test_projects(b, opts):
         screen(["Make an editable copy"])
         keys("\r", gap=1.0)
         q.expect("menu: copied /carts/pong.bm to /carts/PONG.BME", timeout=20)
-        screen(["PONG.BME is in Dev"])
-        keys("3", gap=0.6)                        # Dev: the project after the tools
-        for _ in range(8):
-            keys("s", gap=0.15)
-        for _ in range(8):
-            keys("d", gap=0.15)
-        screen(["/carts/PONG.BME", "bme"])
+        screen(["PONG.BME is a project"])
+        keys("3", gap=0.6)                        # Dev: the tools only, no row for the project
+        screen(["bm SDK"])
         shot("dev")
-        keys("x")
-        screen(["Try it", "Open in the SDK"])
-        for _ in range(8):
-            keys("s")                             # Try it, SDK, ... Pixel, Build
-        screen(["Build the game (.bm)"])
-        shot("project-options")
-        keys("\r", gap=1.0)
-        q.expect("menu: built /carts/PONG.BME to /carts/PONG1.BM", timeout=20)
-        screen(["PONG1.BM is in Games"])
-        keys("x")
-        for _ in range(8):
-            keys("s")
-        keys("\r", gap=1.0)
-        q.expect("menu: built /carts/PONG.BME to /carts/PONG1.BM", timeout=20)     # again: the same one
-        # A on the project: the SDK on it
-        keys("\r", gap=1.0)
-        # the suite opens with no splash (carts.c, 2026-10-10): no "bm: loaded in"
+        keys("\r", gap=1.5)                       # bm SDK, the first row
+        keys("\x0f", gap=1.0)                     # Ctrl+O: the SDK's list of files
+        screen(["/carts/PONG.BME"])
+        shot("sdk-open")
+        keys("\r", gap=1.0)                       # the project
         screen(["opened /carts/PONG.BME"], tries=80)
+        keys("\x02", gap=1.5)                     # Ctrl+B: the game of the project, a new name
+        screen(["built /carts/PONG1.BM"], tries=80)
+        keys("\x02", gap=1.5)                     # again: the same one
+        screen(["built /carts/PONG1.BM"], tries=80)
         shot("sdk")
         keys("\x1b", gap=0.6)
         keys("\x1b[A", gap=0.3)                  # Exit bm SDK
         keys("\r", gap=0.5)
-        screen(["last: SDK on PONG.BME"], tries=80)
+        screen(["last: SDK"], tries=80)
+        # the walk of the old test (8 down, 8 right) ends on the project when the tab lists it: here on a tool
+        for _ in range(8):
+            keys("s", gap=0.15)
+        for _ in range(8):
+            keys("d", gap=0.15)
+        joined = screen(["Dev"])
+        assert "Project" not in joined and "/carts/PONG.BME" not in joined, joined
         keys("2", gap=0.6)                        # Games: the two Pongs, the build among them
         screen(["Pong"])
     finally:

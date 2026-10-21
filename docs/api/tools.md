@@ -12,9 +12,8 @@ like the permissions) and writes the copy, next to the game (`NAME.BME`, or `NAM
 that is taken); a new `.bm` becomes a project (`"/carts/NEW.BM"` → `/carts/NEW.BME`). So
 `cart_save`, `cart_write` and `cart_put_audio` return `true` **and the file written** when it is
 not the one asked: the tool goes on with that one. A project makes its game with
-`cart_build`. In the menu: *Make an editable copy* in a game's options (the project goes to
-Dev, with a "Project" badge), *Build the game (.bm)* in a project's; A on a project opens it in
-the SDK. These rules are for bm's tools; the other cartridges write only `.bm` and `.bme` files
+`cart_build`. In the menu: *Make an editable copy* in a game's options (the project is not listed
+in the tabs: open it with the SDK's *Open*, Ctrl+O); *Build the game (.bm)* is in the SDK (Ctrl+B). These rules are for bm's tools; the other cartridges write only `.bm` and `.bme` files
 in `/carts` that they made in the same run.
 
 | Function | Description |
