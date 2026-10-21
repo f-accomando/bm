@@ -34,7 +34,7 @@ The mix was already 32-bit float; until now it left the synthesizer as `int16_t`
 
 ## Open work (Output Hardware)
 
-- **R21 — Audio without HDMI (Analog / I2S on the Pi)**:
+- **Audio without HDMI (Analog / I2S on the Pi)**:
   - PWM output on GPIO pins with a passive RC filter (270 Ω + 33 nF) and a stereo jack, to allow listening on monitors without built-in speakers.
   - Alternative support for external I2S audio DACs (e.g. MAX98357A / PCM5102).
 

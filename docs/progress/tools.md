@@ -92,9 +92,9 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   run `tools/meshy_text.py` with your own key (the `request.txt` lines), then `pack.py out rally_pilot kaiju_pilot`;
   optionally `rig=` lines with the ids of `out/NAME.task.txt` and `pack.py --rig`. Until then
   the text-to-3D pilots stay. The image-to-3D heroes are not rigged (no task ids kept).
-- **3D maps in bm SDK** (Tropic Trail AGY-01..03 completed): C module `src/bm/map3d.c` with Lua API `map3d_*` (mesh in 16×16-tile pieces with frustum culling `r3d_visible`, floor height queries, wall/step collisions, object placeholders); 3D view in the editor with the `v` key and an orbit camera (AGY-02); straight path tools `Shift+P` (width 1–5 with `Shift+W`), apple rows `Shift+A`, crates `Shift+C`, lamps `Shift+O`, entity count and triangle budget in the status bar (AGY-03).
-- **R15** Live reload / auto-watch from the PC: `bm_net.py --watch` to automatically send and relaunch the cartridge at every local save of `main.lua`.
-- **R26** Native hardware mouse in nano8: `mouse(true)` support for `.p8` cartridges that enable the pointer with `poke(0x5f2d, 1)`, exporting coordinates and wheel on `stat(32)`–`stat(36)`.
+- **3D maps in bm SDK** (Tropic Trail, completed): C module `src/bm/map3d.c` with Lua API `map3d_*` (mesh in 16×16-tile pieces with frustum culling `r3d_visible`, floor height queries, wall/step collisions, object placeholders); 3D view in the editor with the `v` key and an orbit camera; straight path tools `Shift+P` (width 1–5 with `Shift+W`), apple rows `Shift+A`, crates `Shift+C`, lamps `Shift+O`, entity count and triangle budget in the status bar.
+- **Live reload / auto-watch from the PC**: `bm_net.py --watch` to automatically send and relaunch the cartridge at every local save of `main.lua`.
+- **Native hardware mouse in nano8**: `mouse(true)` support for `.p8` cartridges that enable the pointer with `poke(0x5f2d, 1)`, exporting coordinates and wheel on `stat(32)`–`stat(36)`.
 
 ## Rules (do not break)
 

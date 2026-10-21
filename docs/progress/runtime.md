@@ -52,6 +52,6 @@ fix the line in the same commit. No line numbers, no history.
 
 ## Open work (Runtime APIs)
 
-- **R7 — Accented letters in `print()`**: text is rendered in CP437 (`g16_text` in `gfx16.c`); implement transparent decoding of multibyte UTF-8 sequences into CP437 glyphs to avoid wrong glyphs with accents ("città", "perché").
-- **R27 — Battery handling in games**: integrate the `battery()` and `battery_low()` states with the runtime library to provide `lib.autosave` at the first critical-battery warning in long games.
+- **Accented letters in `print()`**: text is rendered in CP437 (`g16_text` in `gfx16.c`); implement transparent decoding of multibyte UTF-8 sequences into CP437 glyphs to avoid wrong glyphs with accents ("città", "perché").
+- **Battery handling in games**: integrate the `battery()` and `battery_low()` states with the runtime library to provide `lib.autosave` at the first critical-battery warning in long games.
 
