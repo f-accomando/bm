@@ -71,6 +71,16 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   `etc1_diagnose` adds flat-block, block-map and one-block lines. Tests: `EMU_T16_ALPHA=2`,
   `EMU_ETC1=2`.
 
+- Pi Zero W, 3D Bench, 21 Oct (bm3D 7.x hardware check): score 3412 (GPU 953, ARM 166). Spheres:
+  ARM 70 fps, GPU+VS 809, GPU+VS+A8 840 (+3.8% over GPU+VS). Draw queue: VS 573 fps, VS+queue
+  643 (+12%). Compressed textures: T16 161.6 fps and ETC1 160.6 fps, no gain, so they stay off.
+  Step 16 of test `g`: identical pixels on the ARM and the GPU.
+- Recommendation (the user decides): keep `gpu3d_attr` default OFF. A8 gains only 3.8% on the
+  spheres and it is a compact-attribute path with its own probe. Turn it ON only for the
+  heavy-mesh games where the Pi reports above (heroes, match) show a gain.
+- Mali: the RGB30 triangle fails (`JS_STATUS` 58). It is parked. The user will align Mali later.
+- Sprite stacking (`stack()`, stack zones, `zstack()`) is done. It runs on the CPU only.
+
 Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [v3d-notes](v3d-notes.md).
 
 ## To do, in order
@@ -84,11 +94,8 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
    at 640x360, no effect: session at 8 gave 57.7 fps, GPU 7.8 ms a frame, 8588 tris), photo of
    far heroes; then the default for crowds (billboard impostors).
 3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs.
-4. Remaining work of bm3D 5.0-7.3. NEXT: is 16-bit / ETC1 worth more work? A played Overbit at 1080p with
-   `gpu3d_tex16=1` and `gpu3d_etc1=1` against both off (fps, `GPU 3D` ms; the quads show no
-   gain). If nothing moves, the options stay off and this work closes here; if it does: ETC1 in the
-   cartridge (encoded at build time, so no encoding at load), mipmaps; RGBA4444 only if
-   sheets get soft alpha. Attributes:
+4. Remaining work of bm3D 5.0-7.3. 16-bit and ETC1 textures: the Pi shows no gain (21 Oct), so
+   they stay off. Reopen them only if a played Overbit at 1080p shows a gain. Attributes:
    `vs_tex_rgb` light as bytes (8 -> 6 words), `vs_lit_tex`/`vs_lit_tex2` flags
    and uv as halves (`.16a/.16b`), normals as bytes, then 16-bit positions (scaled per mesh,
    a separate x y z stream for the coordinate shader).
@@ -109,4 +116,5 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
    - Lets the dynamic governor of Overbit and Yharnam decide at runtime whether the bottleneck is the CPU/ARM bus or the GPU.
 7. **Dynamic impostor adaptation for crowds and heroes**:
    - Skinned models simplified to billboard quads with `r3d_impostor` when far from the camera; Overbit/Yharnam quality governor to enable `gpu3d(nil, nil, nil, nil, 8)` at low levels.
-
+8. Sprite stacking on the Pi: measure `stack()` and `zstack()` with a benchmark on the Pi Zero W
+   (not measured yet).
