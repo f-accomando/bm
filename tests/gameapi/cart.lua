@@ -426,6 +426,12 @@ local function lib_things()
   local x, y = d:apply()
   check(x == 30 and y == 0, "camera: the shake is over")
   camera()
+  -- stat(16..18): measurements only; check the type and the range, never a value
+  for n = 16, 18 do
+    local v = stat(n)
+    check(type(v) == "number" and v >= 0, "stat(" .. n .. "): a number, 0 or more")
+  end
+  check(stat(19) == nil, "stat(19): nil, no such value")
   -- states
   local log_ = {}
   local defs = {
