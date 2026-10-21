@@ -16,9 +16,7 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
 - Cache: `dcache_clean_invalidate_all` 4 times per job. Binner: static 4 MiB tile list + 2 MiB
   overflow (`BPOA` / `BPOS`); `OUTOMEM` is not handled (200 ms timeout, GPU off, ARM takes over).
 - Vertex shader is done (`gpu3d_vs=2` default).
-- QPU programs outside 3D (bm3d 7.x; `src/gpu/qpu.c`; programs in `tools/qpuprogs.py`, made into `src/gpu/qpuprog.h`):
-  see item 5 of `To do`. Nothing calls them yet. `v3d_init` still gives all of the VPM to the vertex pipeline.
-  A user program gets `V3D_QPU_ROWS` rows only while `v3d_qpu_run` waits, and `v3d_qpu_run` refuses during a 3D job.
+- QPU programs outside 3D (bm3d 7.x, `src/gpu/qpu.c`, `tools/qpuprogs.py`): item 5 of `To do`; nothing calls them yet. `v3d_qpu_run` refuses during a 3D job.
 - `stat(16)`: the GPU's job time of the last frame (0 on the ARM). Read with the queue on, it
   includes the wait before the ARM looks: trust it only without the queue.
 - `stat(17)`: ms of audio interrupt time in the last frame. `stat(18)`: ms the ARM waited for the GPU
