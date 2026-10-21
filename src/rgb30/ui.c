@@ -420,6 +420,35 @@ static void page_game(int i)
     play_bm(i);
 }
 
+static uint8_t *net_play_buf;
+static size_t net_play_len;
+
+static void play_net(void)
+{
+    bm_close_suspended();                           /* another game: the frozen one's memory is freed */
+    susp_name[0] = 0;
+    wifi_auto_stop();
+    if (net_play_len < 8 || !bm_is_cart(net_play_buf)) {
+        kprintf("unknown cartridge format\n");
+        const char *lines[] = { "From the network", "", "unknown cartridge format", "" };
+        page_message("Game", lines, 4);
+        return;
+    }
+    loading_begin(fb);
+    kprintf("play: from the network (%lu bytes)\n", (uint32_t)net_play_len);
+    bm_stats_t st;
+    bm_play(fb, net_play_buf, net_play_len, PLAY_SECS, &st);
+    console_suspend(1);                             /* the menu draws itself */
+    bm_print_stats(&st);
+    while (pad_state())                             /* Start + Select still held */
+        timer_delay_ms(10);
+    pad_pressed();
+    if (!st.ok) {
+        const char *lines[] = { "From the network", "", "stopped with an error:", bm_last_error() };
+        page_message("Game", lines, 4);
+    }
+}
+
 static void draw_button(int x, int y, const char *name, int on)
 {
     gfx_rect(fb, x, y, 56, 24, rgb(on ? C_OK : C_HEAD));
@@ -967,6 +996,24 @@ void ui_home(framebuffer_t *f)
             seen_saves = netxfer_saves();
             scan_games();
             market_carts_changed();
+        }
+        /* a cartridge sent with bm_net.py --play: it plays at once, not saved (D21, as GO_NETPLAY on the Pi) */
+        {
+            uint8_t *nb;
+            size_t nl;
+            if (netxfer_take_play(&nb, &nl)) {
+                net_play_buf = nb;
+                net_play_len = nl;
+                run_page(play_net);
+                free(nb);
+                net_play_buf = NULL;
+                net_play_len = 0;
+                asking = ASK_NONE;
+                ask_switch = -1;
+                mopt = -1;
+                gopt = -1;
+                built = -1;
+            }
         }
         /* the tests' reports waiting on the SD card go once the console is
          * on the network (reports_auto_due; no fibers here: a moment's wait,
