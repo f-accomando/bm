@@ -3,32 +3,32 @@ kind: session
 kernel: dev
 branch: unknown
 board: RGB30
-date: 2026-10-21 09:08:34
+date: 2026-10-21 09:08:51
 file: session_lopo-kratos_rgb30.txt
 
 session of "Lopo Kratos" (the last one: the next run of this game replaces this file)
 options bm3d 7.3 gpu3d=off 3d=arm later=0 2d=0 impostor=0 fast=0
-screen 360x360, 449 frames in 7.4 s, 59.8 fps
+screen 360x360, 357 frames in 5.9 s, 59.9 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 6.7 ms, max 10.0 ms, 0 frames over 16.7 ms
-memory: Lua peak 92 KiB, data 703 KiB; code 1499 tokens; busiest frame 1k Lua instructions
-frames that were shown after more than 1.5 frames: 1
+time of _update + _draw (+ the 3D's wait): avg 6.6 ms, max 10.0 ms, 0 frames over 16.7 ms
+memory: Lua peak 85 KiB, data 703 KiB; code 1499 tokens; busiest frame 1k Lua instructions
+frames that were shown after more than 1.5 frames: 0
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    448
+  <= 18 ms (60 fps)    356
   <= 25 ms             0
   <= 34 ms (30 fps)    0
   <= 50 ms             0
   <= 100 ms            0
   > 100 ms (a freeze)  0
 
-the frame in its parts (as the overlay, 449 frames; ms a frame, % of the 16.7 ms of a frame):
+the frame in its parts (as the overlay, 357 frames; ms a frame, % of the 16.7 ms of a frame):
   update           0.4    2%
   draw (no 3D)    10.9   65%
-  3D calls         4.9   29%
+  3D calls         4.8   29%
   audio            0.2    1%
   GPU wait         0.0    0%
-  all             16.6   99%
-audio interrupt: 1.3% of the CPU's time (mean), 3.1% at most in a second
+  all             16.5   99%
+audio interrupt: 1.4% of the CPU's time (mean), 3.1% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
