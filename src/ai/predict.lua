@@ -44,7 +44,7 @@ local dicts, loading = {}, {}
 local function loader(lang)
   return coroutine.create(function()
     local src = (require "words")[lang]
-    local d = { words = {}, keys = {}, count = {}, at = {}, func = {}, big = {}, N = 0, api = {}, top = {} }
+    local d = { words = {}, keys = {}, count = {}, at = {}, func = {}, big = {}, N = 0, api = {}, allow = {}, top = {} }
     local i = 0
     for w, c, f in src.uni:gmatch("(%S+) (%d+)( ?f?)\n") do
       i = i + 1
@@ -66,7 +66,20 @@ local function loader(lang)
       if i % 128 == 0 and coroutine.isyieldable() then coroutine.yield() end
     end
     if src.api then
-      for name, sig in src.api:gmatch("(%S+) ([^\n]+)\n") do d.api[name] = sig end
+      i = 0
+      for name, sig, area, text in src.api:gmatch("([^\t\n]+)\t([^\t\n]*)\t([^\t\n]*)\t([^\n]*)\n") do
+        local e = d.api[name]
+        if not e then
+          e = { sig = sig, area = area, text = text, forms = {} }
+          d.api[name] = e
+        end
+        e.forms[#e.forms + 1] = { sig = sig, area = area, text = text }
+        i = i + 1
+        if i % 128 == 0 and coroutine.isyieldable() then coroutine.yield() end
+      end
+    end
+    if src.allow then
+      for name in src.allow:gmatch("[^\n]+") do d.allow[name] = true end
     end
     dicts[lang] = d
   end)
@@ -303,6 +316,260 @@ function P.complete(before, o)
       return { prefix = prefix, word = word, rest = word:sub(#prefix + 1), ending = ending, list = list }
     end
   end
+end
+
+-- the API entry of a name from src/ai/api.tsv, or nil: { sig, area, text } of the first form, and
+-- forms = { { sig, area, text }, ... }: every signature of the name, in the order of the docs
+function P.api(name)
+  return dict("lua").api[name]
+end
+
+-- text cut into lines of at most width characters, at the spaces; a word
+-- longer than width is cut at width; no empty line at the end
+function P.wrap(text, width)
+  local lines, line = {}, ""
+  for word in text:gmatch("%S+") do
+    while #word > width do
+      if line ~= "" then lines[#lines + 1] = line; line = "" end
+      lines[#lines + 1] = word:sub(1, width)
+      word = word:sub(width + 1)
+    end
+    if line == "" then
+      line = word
+    elseif #line + 1 + #word <= width then
+      line = line .. " " .. word
+    else
+      lines[#lines + 1] = line
+      line = word
+    end
+  end
+  if line ~= "" then lines[#lines + 1] = line end
+  return lines
+end
+
+-- The lint of Lua code (bm Code, on save): the rules and the reports of
+-- scripts/api_lint.py (the diff check of APP-5b-2 compares the two).
+local LUA_STD = { "assert", "error", "ipairs", "pairs", "next", "pcall", "xpcall", "select",
+                  "tonumber", "tostring", "type", "unpack", "rawget", "rawset", "rawequal",
+                  "rawlen", "setmetatable", "getmetatable", "require", "collectgarbage",
+                  "print", "string", "table", "math", "coroutine", "utf8", "loadfile", "dofile" }
+local LUA_KEYWORDS = { "function", "if", "while", "until", "return", "and", "or", "not",
+                       "elseif", "in", "local" }
+
+-- the code with its comments and strings blanked, the line breaks kept: a
+-- comment is "--" to the end of the line, or --[==[ ]==]; a string is "..."
+-- or '...' (a backslash skips the next character), or [==[ ]==]
+function P.strip_code(text)
+  local out, pos, i, n = {}, 1, 1, #text
+  while true do
+    local s = string.find(text, "[%-\"'%[]", i)
+    if not s then break end
+    local c = text:sub(s, s)
+    local e
+    if c == "-" then
+      if text:sub(s, s + 1) == "--" then
+        local eqs, j = text:match("^%-%-%[(=*)%[()", s)
+        if eqs then
+          local _, ce = string.find(text, "]" .. eqs .. "]", j, true)
+          e = ce
+        end
+        if not e then
+          local nl = string.find(text, "\n", s, true)
+          e = nl and nl - 1 or n
+        end
+      end
+    elseif c == "[" then
+      local eqs, j = text:match("^%[(=*)%[()", s)
+      if eqs then
+        local _, ce = string.find(text, "]" .. eqs .. "]", j, true)
+        e = ce
+      end
+    else
+      local j = s + 1
+      while j <= n do
+        local b = text:sub(j, j)
+        if b == "\\" then
+          j = j + 2
+        elseif b == c then
+          e = j
+          break
+        else
+          j = j + 1
+        end
+      end
+    end
+    if e then
+      out[#out + 1] = text:sub(pos, s - 1)
+      out[#out + 1] = (text:sub(s, e):gsub("[^\n]", " "))
+      pos, i = e + 1, e + 1
+    else
+      i = s + 1
+    end
+  end
+  out[#out + 1] = text:sub(pos)
+  return table.concat(out)
+end
+
+-- each whole word `word` of text (not after a letter, a digit or _) is given
+-- to fn(s, e): fn returns where the search goes on, or nil to go on after it
+local function scan_word(text, word, fn)
+  local pos = 1
+  while true do
+    local s, e = string.find(text, word, pos, true)
+    if not s then return end
+    local prev = s > 1 and text:sub(s - 1, s - 1) or ""
+    local resume
+    if not prev:find("[%w_]") then resume = fn(s, e) end
+    pos = resume or e + 1
+  end
+end
+
+-- the names defined in a text (strip_code applied), by the rules of
+-- scripts/api_lint.py: function N, function T.N, function T:N, local N[, M],
+-- N = function, the parameters of function (..), for N[, M] in, for N =
+local function defined_of(text)
+  local defs = {}
+  scan_word(text, "function", function(_, e)
+    local ws = text:match("^%s+()", e + 1)
+    if not ws then return nil end
+    local n1, a1 = text:match("^([%a_][%w_]*)()", ws)
+    if not n1 then return nil end
+    local sep, n2, a2 = text:match("^([%.:])([%a_][%w_]*)()", a1)
+    if sep then
+      defs[n1], defs[n2] = true, true
+      return a2
+    end
+    defs[n1] = true
+    return a1
+  end)
+  scan_word(text, "local", function(_, e)
+    local ws = text:match("^%s+()", e + 1)
+    if not ws then return nil end
+    local n, a = text:match("^([%a_][%w_]*)()", ws)
+    if not n then return nil end
+    defs[n] = true
+    while true do
+      local m, b = text:match("^%s*,%s*([%a_][%w_]*)()", a)
+      if not m then break end
+      defs[m] = true
+      a = b
+    end
+    return a
+  end)
+  for _, tok, e in text:gmatch("()([%w_]+)()") do
+    if tok:find("^[%a_]") then
+      local fe = text:match("^%s*=%s*function()", e)
+      if fe and not text:sub(fe, fe):find("[%w_]") then defs[tok] = true end
+    end
+  end
+  scan_word(text, "function", function(_, e)
+    local open
+    local ws = text:match("^%s+()", e + 1)
+    if ws then
+      local n1, a1 = text:match("^([%a_][%w_]*)()", ws)
+      if n1 then
+        local q = a1
+        local nq = text:match("^[%.:][%a_][%w_]*()", q)
+        while nq do
+          q = nq
+          nq = text:match("^[%.:][%a_][%w_]*()", q)
+        end
+        open = text:match("^%s*%(()", q)
+      end
+    end
+    open = open or text:match("^%s*%(()", e + 1)
+    if not open then return nil end
+    local close = string.find(text, ")", open, true)
+    if not close then return nil end
+    for item in (text:sub(open, close - 1) .. ","):gmatch("([^,]*),") do
+      local p = item:match("^%s*(.-)%s*$")
+      if p ~= "" and p ~= "..." then defs[p] = true end
+    end
+    return close + 1
+  end)
+  scan_word(text, "for", function(_, e)
+    local ws = text:match("^%s+()", e + 1)
+    if not ws then return nil end
+    local n, a = text:match("^([%a_][%w_]*)()", ws)
+    if not n then return nil end
+    local names = { n }
+    while true do
+      local m, b = text:match("^%s*,%s*([%a_][%w_]*)()", a)
+      if not m then break end
+      names[#names + 1] = m
+      a = b
+    end
+    local ip = text:match("^%s+in()", a)
+    if not ip or text:sub(ip, ip):find("[%w_]") then return nil end
+    for _, m in ipairs(names) do defs[m] = true end
+    return ip
+  end)
+  scan_word(text, "for", function(_, e)
+    local ws = text:match("^%s+()", e + 1)
+    if not ws then return nil end
+    local n, a = text:match("^([%a_][%w_]*)()", ws)
+    if n and text:find("^%s*=", a) then
+      defs[n] = true
+      return a
+    end
+    return nil
+  end)
+  return defs
+end
+
+-- the names defined in some lines of code
+function P.defined(lines)
+  return defined_of(P.strip_code(table.concat(lines, "\n")))
+end
+
+-- the lines of a text as Python's str.splitlines() cuts them: at the line
+-- breaks, and at the other breaks a Python text can hold
+local function py_lines(text)
+  text = text:gsub("\r\n", "\n")
+  text = text:gsub("\r", "\n")
+  text = text:gsub("\194\133", "\n")
+  text = text:gsub("\226\128[\168\169]", "\n")
+  text = text:gsub("[\11\12\28\29\30]", "\n")
+  local out = {}
+  for l in (text .. "\n"):gmatch("([^\n]*)\n") do out[#out + 1] = l end
+  return out
+end
+
+-- The unknown names called in lines of Lua code: { line = N, name = S }, in
+-- the order and with the duplicates of scripts/api_lint.py. A name is known
+-- if it is an API name (or the first part of a dotted one), a standard Lua
+-- name, a keyword, in dict("lua").allow, defined in the code, or in o.defined
+-- (a set of names, e.g. those defined in the other tabs).
+function P.lint(lines, o)
+  o = o or {}
+  local clean = P.strip_code(table.concat(lines, "\n"))
+  local known = {}
+  for name in pairs(dict("lua").api) do
+    local seg = name
+    if name:find(".", 1, true) then
+      seg = name:match("^([^.]*)")
+    elseif name:find(":", 1, true) then
+      seg = name:match("^([^:]*)")
+    end
+    known[seg] = true
+  end
+  for name in pairs(dict("lua").allow) do known[name] = true end
+  for _, w in ipairs(LUA_STD) do known[w] = true end
+  for _, w in ipairs(LUA_KEYWORDS) do known[w] = true end
+  for name in pairs(defined_of(clean)) do known[name] = true end
+  for name in pairs(o.defined or {}) do known[name] = true end
+  local issues = {}
+  for lno, line in ipairs(py_lines(clean)) do
+    for s, name, e in line:gmatch("()([%w_]+)()") do
+      if name:find("^[%a_]") and line:find("^%s*%(", e) then
+        local prev = s > 1 and line:sub(s - 1, s - 1) or ""
+        if prev ~= "." and prev ~= ":" and not known[name] then
+          issues[#issues + 1] = { line = lno, name = name }
+        end
+      end
+    end
+  end
+  return issues
 end
 
 return P

@@ -48,3 +48,34 @@ fibers probably off or used differently (job per core, real threads for download
 - Quotas matter little on a 14-game card: the value is the measurement and removing the long stalls
   (FAT, handshake, SD timeout), not the share table. With real multicore the idle-slice model gives
   way to real concurrency; the cancellation/lock rules (`background_stop`, card writer) carry over.
+
+### Multitasking su Single-Core: Confronto Unix vs BM & Strategie Differenziate
+Confronto architetturale tra l'approccio kernel monolitico/preemptive (Unix-like) e Bare-Metal cooperativo:
+
+1. **Cosa fa meglio Unix rispetto a BM su single-core:**
+   - **Preemption hardware garantita:** Tramite timer interrupt e time-slicing forzato, i task bloccanti (`while(1);` o calcolo CPU-bound) non congelano il sistema.
+   - **Isolamento della memoria (MMU):** Spazi di indirizzamento virtuale separati; il crash/fault di un task termina il processo senza corrompere la memoria globale o far collassare il kernel.
+   - **Scheduler a priorità dinamiche ed euristiche I/O:** Favorisce i task interattivi abbattendo la latenza e previene l'inversione di priorità.
+
+2. **Limiti delle sole Fiber cooperative:**
+   - *Fragilità cooperativa:* Basta un delay busy-waiting, una chiamata I/O sincrona non spezzata (es. handshake TLS o timeout SD) o la dimenticanza di un `yield()` per mandare in starvation gli altri task.
+   - *Assenza di Hard Real-Time:* Impossibile garantire latenze sub-millisecondo per eventi critici (audio, stream input/network).
+   - *Stack non protetto:* Rischio di overflow silenzioso tra gli stack allocati delle fiber in assenza di MPU.
+
+3. **Approccio Differenziato / Ibrido per Categoria di Task:**
+   - **Livello 0 - Interrupt Hardware (ISR ad alta priorità):** Streaming audio buffer (DMA/I2S), cattura frame di clock seriale/pad.
+   - **Livello 1 - Event-driven / Non-bloccante nel loop principale:** Logica 60 fps di giochi e strumenti (`present()`, rasterizer C).
+   - **Livello 2 - Fiber cooperative a time-slice:** Task lenti di background (download Market, hashing SHA-256 cartucce, scrittura FAT a blocchi, scraping cataloghi).
+   - **Livello 3 - Preemption controllata / Watchdog / MPU (Evoluzione R49):** Controllo overflow stack con guardie o MPU e timer di slice per mitigare stalli lunghi.
+
+## Spunti di Sviluppo (Beta R1 / R2)
+
+- **R49 — Multitasking Ibrido & Scheduler Differenziato (Beta Rev 1 & Rev 2)**:
+  - *Revisione 1 (Beta R1 - Consolidamento cooperativo I/O):*
+    - Estensione del modello `FIBER_TOOL` e `FIBER_MENU` con yield obbligatorio nei loop lenti di crittografia/hash (mbedTLS ECC restartable, hash SHA-256 incrementale) e download con ripresa (`Range: bytes=`).
+    - Isolamento stretto tra scritture SD concorrenti (salvataggio gioco `store()` vs download fiber in background).
+    - Canarini di stack software all'estremità degli stack delle fiber per intercettare gli overflow al context switch.
+  - *Revisione 2 (Beta R2 - Approccio ibrido con Preemption & MPU):*
+    - Scheduler gerarchico differenziato: ISR per audio e periferiche veloci, time-slice preemptivo leggero o interruzione tramite timer SysTick/timer counter per impedire a una fiber di monopolizzare la CPU oltre la quota assegnata.
+    - Protezione opzionale tramite MPU (sulle piattaforme che ne dispongono) per isolare le aree di stack e segnalare immediatamente gli overflow.
+

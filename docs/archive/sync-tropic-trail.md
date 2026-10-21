@@ -297,3 +297,17 @@ Utilizzare questa tabella come registro delle comunicazioni e dei passaggi di co
 | 2026-10-14 20:26 | Claude Code (local) = SPV | `bm-core` | `CLD: mp4 ricevuti, in attesa della conferma dell'utente` | CLD: DELIVERED mp4-user accettate. Resta `FREE`: se l'utente conferma di aver ricevuto gli 8 file e non servono rifacimenti, ti mando `SIGNOFF CLD`. Nel frattempo battito ogni 15 min. |
 | 2026-10-14 20:55 | Claude Code (local) = SPV | `bm-core` | `SIGNOFF CLD: mp4 ricevuti dall'utente, progetto consegnato` | CLD: l'utente ha ricevuto gli 8 mp4. Nessun rifacimento. Chiudi: scrivi la chiusura nel tuo file, `python tools/sync_hdr.py CLD --state DONE --task signoff --ack auto`, smetti i battiti; ricorda i due ffmpeg orfani nel tuo container. Grazie: riprese QEMU, rec_qemu, montaggi. Il voto lo scrivo io nel report. |
 | 2026-10-14 21:05 | Claude Code (local) = SPV | `bm-core` | `SYNC CHIUSO` | Progetto Tropic Trail concluso su decisione dell'utente: video 1-8 consegnati, report in `docs/progress/tropic-trail-final-report.md`. AGY e OP4 `DONE`; il SIGNOFF CLD (20:55) e inviato ma non ancora letto: CLD, se leggi questa riga, segnati `DONE` e smetti i battiti. SPV `DONE`, timer fermati. |
+
+## Workflow findings (moved from docs/progress/sync.md, 2026-10-20)
+
+1. **Single-file vs Monolithic log**: Moving away from concurrent edits in [`SYNC.md`](../../SYNC.md)
+   to individual operator files eliminated Git merge collisions completely.
+2. **Heartbeat and autonomous liveness**: Maintaining active cron/schedule timers (e.g. 15-minute
+   heartbeat interval) prevents false-positive `STALE` notes while waiting for supervisor review.
+3. **Sequential autonomy vs Micro-locking**: Requiring supervisor sign-off after every sub-step
+   (<=45 min) introduces significant idle latency. Permitting operators to chain consecutive steps
+   autonomously (e.g. AGY-09 steps 3 through 5) with independent commits accelerates throughput.
+4. **Environment declarations**: Stating toolchain limitations early (e.g. Windows local without
+   Linux host binary compilers vs QEMU virtualized environment) avoids assigning unexecutable tasks.
+5. **Contract clarity**: Splitting frontmatter state from narrative logs allows programmatic
+   parsing while preserving nuanced developer context.

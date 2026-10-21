@@ -121,7 +121,7 @@ ai-model:
 
 # The word completion (M30): its dictionaries, from the texts of
 # src/ai/words, the Lua of the games and the API of the knowledge base
-WORDS_SRC := $(wildcard src/ai/words/*.txt) $(wildcard carts/*/main.lua carts/kitchen/src/*.lua carts/titan/src/*.lua) \
+WORDS_SRC := $(wildcard src/ai/words/*.txt) $(wildcard carts/*/main.lua carts/kitchen/src/*.lua carts/titan/src/*.lua) src/ai/api.tsv scripts/api_lint_allow.txt \
              $(AI_KB) scripts/mkwords.py
 $(BUILD)/words.lua: $(WORDS_SRC)
 	@mkdir -p $(dir $@)
@@ -643,7 +643,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
         test-fat test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
-        release disasm wav test-studio test-prompts test-docs test-hyp test-zero2 \
+        release disasm wav test-studio test-prompts test-docs test-api test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
         test-catalog test-github test-lan market-seed test-host test-qemu
 
@@ -764,11 +764,11 @@ RELEASE_PUB ?= keys/release-pub.pem
 # the RGB30's manifest-rgb30 (kernel8.img, bm/ca.pem) in the same release,
 # for its System > Updates
 RGB30_KERNEL ?=
-release: $(BUILD)/kernel.img $(K7) $(GAME_CARTS)
+# The release ships the kernels bare: no games (D20; the bm editor suite is inside kernel.img)
+release: $(BUILD)/kernel.img $(K7)
 	rm -rf $(RELEASE_DIR)
 	$(PYTHON) scripts/mkrelease.py $(RELEASE_DIR) --version $(VERSION) --commit $$(git rev-parse HEAD) \
 	    --file $(BUILD)/kernel.img:/kernel.img $(if $(K7),--file $(K7):/kernel7.img) \
-	    $(foreach c,$(GAME_CARTS),--file $(c):/carts/$(notdir $(c))) \
 	    --file boot/ca.pem:/bm/ca.pem --pub $(RELEASE_PUB) $(RELEASE_FLAGS)
 	$(if $(RGB30_KERNEL),$(PYTHON) scripts/mkrelease.py $(RELEASE_DIR) --manifest manifest-rgb30 \
 	    --version $(VERSION) --commit $$(git rev-parse HEAD) --file $(RGB30_KERNEL):/kernel8.img \
@@ -830,7 +830,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
-      test-studio test-prompts test-docs $(if $(K7),test-hyp)
+      test-studio test-prompts test-docs test-api $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
@@ -1173,8 +1173,16 @@ test-prompts: $(BUILD)/host/test_prompts
 	@mkdir -p $(BUILD)/prompts
 	$< $(BUILD)/prompts
 
+# The API list of the code editor: api.tsv is made from docs/api, the lint and
+# the generator have unit tests
+test-api:
+	$(PYTHON) scripts/mkapi.py --check
+	$(PYTHON) tests/tools/test_api_lint.py
+	$(PYTHON) tests/tools/test_mkapi.py
+
 test-docs:
 	$(PYTHON) scripts/docs_audit.py score
+	$(PYTHON) -m unittest tests.tools.test_claude_glossary
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator

@@ -3222,6 +3222,19 @@ def _market_site(tmp, b, key):
     return files
 
 
+def sdk_template(tid):
+    """The code of the template `tid` in carts/sdk_b16/main.lua (its entry
+    `{ id = "<tid>", ... code = [==[ ... ]==] }`), the match starting at that
+    entry."""
+    path = os.path.join(HERE, "..", "carts", "sdk_b16", "main.lua")
+    with open(path, encoding="utf-8") as f:
+        src = f.read()
+    m = re.search(r'\{ id = "' + re.escape(tid) + r'".*?code = \[==\[\n(.*?)\]==\]', src, re.DOTALL)
+    if not m:
+        raise AssertionError(f"template {tid!r} not found in {path}")
+    return m.group(1)
+
+
 B16_GAME = r"""
 function _init() log("the b16 runs") end
 function _draw() cls(1) print("pocket", 8, 8, 7) end
@@ -3257,6 +3270,34 @@ def test_b16_on_pi(b, opts):
             time.sleep(0.8)
             q.send("\r")                                # the first game: the only one
             q.expect("the b16 runs", timeout=30)
+        finally:
+            q.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_stages_template(b, opts):
+    """The SDK's 'stages' template (carts/sdk_b16/main.lua) on the Pi: listed
+    in the menu and played from it; the title logs its best time, the ok
+    button (Space) starts stage 1."""
+    tmp = tempfile.mkdtemp(prefix="bm-stages-")
+    try:
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        cart = os.path.join(tmp, "stages.bm")
+        with open(cart, "wb") as f:
+            f.write(mkbm.pack(sdk_template("stages").encode(), title="Stages", author="tests", res=(360, 360)))
+        img = os.path.join(tmp, "sd.img")
+        mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/stages.bm")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.8)
+            q.send("\r")                                # the first game: the only one
+            q.expect("stages: title best -", timeout=30)
+            q.send(" ")                                 # the ok button: stage 1
+            q.expect("stages: stage 1", timeout=10)
         finally:
             q.close()
     finally:
@@ -3976,6 +4017,7 @@ def test_usb_mouse(b, opts):
         # its icon once it has moved (2026-10-04: a keyboard's dongle declares
         # a mouse with none behind it)
         time.sleep(1.0)
+        settled_screen(q, lambda i, t: len(bar_icons(i)) == 1, tries=20)
         assert len(bar_icons(q.screendump())) == 1, "a mouse icon before the mouse did anything"
         q.pointer(320, 180)
         shot_ = wait_icons(q, 2)
@@ -4236,7 +4278,7 @@ def test_studio_animator(b, opts):
         keys(RIGHT, RIGHT, RIGHT, "w", gap=0.4)
         screen(["TURN root   0.25 s  frame 3  key"])
         shot("animator-keyframe")
-        keys("\x13", gap=0.6)                   # Ctrl+S
+        keys("\x13", gap=0.1)                   # Ctrl+S; short gap: the toast is brief
         screen(["saved /carts/CUBE.BME"])
 
         # the village: the villager, its bones, its animations, its sprites
@@ -5341,7 +5383,9 @@ def test_crash_report(b, opts):
     assert "kind: crash" in head.splitlines(), rep[:600]
     assert body.startswith('a crash (the red screen) while: monitor command "X"'), body[:300]
     assert ", kernel " in body.splitlines()[0], body.splitlines()[0]
+    assert ", ring " in body.splitlines()[0] and "sink " in body.splitlines()[0], body.splitlines()[0]
     assert "--- the last lines printed ---" in body and "*** EXCEPTION: Data abort ***" in body, body[-1500:]
+    assert "restart in 10 s" in body, body[-1500:]
     assert body.index("cartridge menu") < body.index("*** EXCEPTION"), "the lines before the crash"
     assert "DFAR=00008001" in body and "called from:" in body, body[-800:]
 
@@ -6926,6 +6970,87 @@ def test_riff_code(b, opts):
         q.close()
 
 
+def test_code_api(b, opts):
+    """bm Code: Ctrl+Q shows the signature and text of the API function under
+    the cursor (src/ai/api.tsv), says so when there is none; saving a
+    cartridge lints it: an unknown API name is logged and shown."""
+    tmp = tempfile.mkdtemp(prefix="bm-codeapi-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/pong.bm"), "carts/pong.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def k(s, gap=0.04):
+        # an escape sequence goes in one piece: a lone Esc is one after 6 frames
+        for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
+            q.send(c)
+            time.sleep(gap)
+
+    def expect(needle, timeout=15):
+        return q.expect(needle, timeout=timeout).decode(errors="replace")
+
+    def see(words, tries=40):
+        text = []
+        for _ in range(tries):
+            img_ = q.screendump()
+            text = screen_text(img_, 6, 12)
+            if all(any(w in l for l in text) for w in words):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("C")
+        expect("code: ready")
+        # A: the help of the name under the cursor, and the message without one
+        k("\x14", 0.3)                                      # Ctrl+T: a new tab
+        k("cls(1)")
+        k("\x1b[H", 0.1)                                    # Home
+        k("\x11", 0.5)                                      # Ctrl+Q
+        see(["cls([c])", "fills the screen"])
+        k("\x1b", 0.6)                                      # any key closes
+        k("\x1b[F\rsprt(1)\x1b[H\x11", 0.1)
+        see(["no API help for 'sprt'"])
+        # a name with two signatures: the help shows both
+        k("\x1b[F\rfset(1, 2)\x1b[H\x11", 0.1)
+        see(["fset(n, f, on)", "fset(n, byte)"])
+        k("\x1b", 0.6)
+        # B: save a cartridge with an unknown name: the lint says so
+        k("\x0f", 0.5)                                      # Ctrl+O
+        see(["/carts/pong.bm"])
+        k("\r")
+        expect("code: opened /carts/pong.bm")
+        k("\x0c")                                           # Ctrl+L: go to line
+        k("1\r", 0.1)
+        k("sprt(1, 2, 3)\r")
+        k("\x13")                                           # Ctrl+S
+        copy_yes(q, "/carts/pong.bm", "/carts/PONG.BME")
+        expect("code: saved /carts/PONG.BME")
+        expect("code: lint ")
+        expect("sprt:1")
+        see(["API:", "sprt"])
+
+        def red_gutter():
+            # pixels of the lint colour C_ERR (0xFF6464, 5-6 bit on screen) in the gutter
+            w, h, px = img_ = q.screendump()
+            return sum(1 for y in range(h) for x in range(0, 30)
+                       if pixel(img_, x, y) == (248, 100, 96))
+        for _ in range(20):
+            if red_gutter():
+                break
+            time.sleep(0.25)
+        assert red_gutter(), "lint: no red line number in the gutter"
+        # C: an edit clears the marks
+        k("x", 0.5)
+        for _ in range(20):
+            if not red_gutter():
+                break
+            time.sleep(0.25)
+        assert not red_gutter(), "lint: the gutter mark is still there after an edit"
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_code_completion(b, opts):
     """bm Code's word completion (src/ai/predict.lua): while a word is typed
     its rest appears in grey-blue and the status line says "Tab: word"; Tab
@@ -6977,6 +7102,27 @@ def test_code_completion(b, opts):
         k("\t", 0.4)
         text = see(["  1 function"])
         assert not any("Tab:" in l for l in text), "written: no suggestion left"
+        for _ in range(20):                                 # the grey-blue rest is gone once Tab is done
+            if coloured(GHOST) < 20:
+                break
+            time.sleep(0.25)
+        for _ in range(20):                                 # the colour settles a little after the text
+            if coloured(PRED) > 20:
+                break
+            time.sleep(0.25)
+        if coloured(PRED) <= 20:                            # CI evidence of the rare miss: build/diag/ is uploaded
+            img = q.screendump()
+            w, h, px = img
+            hist = {}
+            for i in range(0, w * 12 * 3, 3):               # the first text row (12 px high)
+                key = tuple(px[i + j] >> 4 << 4 for j in range(3))
+                hist[key] = hist.get(key, 0) + 1
+            top = sorted(hist.items(), key=lambda kv: -kv[1])[:8]
+            print("code-completion miss: GHOST=%d PRED=%d" % (coloured(GHOST), coloured(PRED)))
+            print("first row colours (rgb>>4<<4: pixels):", top)
+            print("screen:\n" + "\n".join(screen_text(img, 6, 12)))
+            os.makedirs("build/diag", exist_ok=True)
+            _save_png(img, "build/diag/code-complete-miss.png")
         assert coloured(PRED) > 20, "what Tab wrote, green"
         shot("written")
         k(" _upd", 0.1)
@@ -7539,37 +7685,32 @@ def test_projects(b, opts):
         screen(["Make an editable copy"])
         keys("\r", gap=1.0)
         q.expect("menu: copied /carts/pong.bm to /carts/PONG.BME", timeout=20)
-        screen(["PONG.BME is in Dev"])
-        keys("3", gap=0.6)                        # Dev: the project after the tools
-        for _ in range(8):
-            keys("s", gap=0.15)
-        for _ in range(8):
-            keys("d", gap=0.15)
-        screen(["/carts/PONG.BME", "bme"])
+        screen(["PONG.BME is a project"])
+        keys("3", gap=0.6)                        # Dev: the tools only, no row for the project
+        screen(["bm SDK"])
         shot("dev")
-        keys("x")
-        screen(["Try it", "Open in the SDK"])
-        for _ in range(8):
-            keys("s")                             # Try it, SDK, ... Pixel, Build
-        screen(["Build the game (.bm)"])
-        shot("project-options")
-        keys("\r", gap=1.0)
-        q.expect("menu: built /carts/PONG.BME to /carts/PONG1.BM", timeout=20)
-        screen(["PONG1.BM is in Games"])
-        keys("x")
-        for _ in range(8):
-            keys("s")
-        keys("\r", gap=1.0)
-        q.expect("menu: built /carts/PONG.BME to /carts/PONG1.BM", timeout=20)     # again: the same one
-        # A on the project: the SDK on it
-        keys("\r", gap=1.0)
-        # the suite opens with no splash (carts.c, 2026-10-10): no "bm: loaded in"
+        keys("\r", gap=1.5)                       # bm SDK, the first row
+        keys("\x0f", gap=1.0)                     # Ctrl+O: the SDK's list of files
+        screen(["/carts/PONG.BME"])
+        shot("sdk-open")
+        keys("\r", gap=1.0)                       # the project
         screen(["opened /carts/PONG.BME"], tries=80)
+        keys("\x02", gap=1.5)                     # Ctrl+B: the game of the project, a new name
+        screen(["built /carts/PONG1.BM"], tries=80)
+        keys("\x02", gap=1.5)                     # again: the same one
+        screen(["built /carts/PONG1.BM"], tries=80)
         shot("sdk")
         keys("\x1b", gap=0.6)
         keys("\x1b[A", gap=0.3)                  # Exit bm SDK
         keys("\r", gap=0.5)
-        screen(["last: SDK on PONG.BME"], tries=80)
+        screen(["last: SDK"], tries=80)
+        # the walk of the old test (8 down, 8 right) ends on the project when the tab lists it: here on a tool
+        for _ in range(8):
+            keys("s", gap=0.15)
+        for _ in range(8):
+            keys("d", gap=0.15)
+        joined = screen(["Dev"])
+        assert "Project" not in joined and "/carts/PONG.BME" not in joined, joined
         keys("2", gap=0.6)                        # Games: the two Pongs, the build among them
         screen(["Pong"])
     finally:
@@ -7792,6 +7933,120 @@ def test_chainloader_bad_crc(b, opts):
         assert loader.wait_ready(timeout=5), "loader did not recover"
     finally:
         q.close()
+
+
+def test_sdk_stages_pi(b, opts):
+    """Stages 2D in the Pi's bm SDK: Ctrl+N, the last of nine templates (one Up
+    from the first row), a name with Ctrl+S, Ctrl+B builds the game next to
+    the project; the .BM carries the template's Lua."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdsp-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def k(s, gap=0.2):
+        q.send(s)
+        time.sleep(gap)
+
+    def see(word, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: any(word in l for l in t), tries=2)
+            if any(word in l for l in text):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("e")
+        see("OPEN IN")
+        k("\x0e", 0.5)                                      # Ctrl+N: the templates
+        see("new project from a template")
+        see("Stages 2D")                                    # the ninth, in the list
+        k("\x1b[A", 0.3)                                    # one Up wraps to the last row
+        k("\r", 0.5)
+        see("new project (Stages 2D)")
+        k("\x13", 1)                                        # Ctrl+S: no name yet, Save as
+        see("file name")
+        k("\r")
+        see("saved /carts/MYGAME.BME")
+        k("\x02", 1)                                        # Ctrl+B: the game next to it
+        see("built ")
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True, env=env,
+                               text=True).stdout.upper()
+        assert "MYGAME.BME" in names and "MYGAME.BM" in names.replace("MYGAME.BME", ""), names
+        game = subprocess.run(["mtype", "-i", part, "::/CARTS/MYGAME.BM"], capture_output=True,
+                              env=env).stdout
+        assert game[:8] == b"BMCART\x00\x00", game[:16]
+        assert b"stages: title best" in game, "the template's Lua in the .BM"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_sdk_code_pi(b, opts):
+    """The code page of the Pi's bm SDK (as the RGB30's test_sdk_pad_code): a
+    new Empty 2D project, F2 is the code, 'do end ' is typed at the cursor,
+    Ctrl+S saves the project; its LUA section has the typed text."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdcp-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    F2 = "\x1bOQ"
+
+    def k(s, gap=0.2):
+        q.send(s)
+        time.sleep(gap)
+
+    def see(word, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: any(word in l for l in t), tries=2)
+            if any(word in l for l in text):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("e")
+        see("OPEN IN")
+        k("\x0e", 0.5)                                      # Ctrl+N: the templates
+        see("new project from a template")
+        k("\r", 0.5)                                        # the first row: Empty 2D
+        see("new project (Empty 2D)")
+        k(F2, 0.5)                                          # the code
+        see("line 1/")
+        for ch in "do end ":
+            k(ch, 0.2)
+        k("\x13", 1)                                        # Ctrl+S: no name yet, Save as
+        see("file name")
+        k("\r")
+        see("saved /carts/")
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True, env=env,
+                               text=True).stdout.split()
+        assert names, "no project saved"
+        data = subprocess.run(["mtype", "-i", part, names[0]], capture_output=True, env=env).stdout
+        assert data[:8] == b"BMCART\x00\x00", data[:16]
+        secs = {}
+        for i in range(data[17]):
+            t, off, size, _ = struct.unpack_from("<IIII", data, 128 + i * 16)
+            secs[t] = data[off:off + size]
+        assert b"do end " in secs[1], secs[1][:120]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def main():

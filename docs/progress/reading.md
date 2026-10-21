@@ -23,6 +23,8 @@ A file read once in a session is not read again. Wide questions ("where is X use
 - Before opening a doc, `Grep -n '^#'` it; open only the section.
 - Tests: run the one test the change touches, not the suite.
 
+Lookup recipes with a measured cost per question: [lua](../agents/recipes/lua.md).
+
 ## Keeping this file
 
 One row per file that is too big to read whole (over ~15 KB). No history.

@@ -1,13 +1,18 @@
 /*
  * Fatal exceptions and panic() on the AArch64 build: register dump on the
- * serial console and on the screen (white on red), then the red LED blinks
- * the code (1 sync abort, 2 IRQ, 3 FIQ, 4 SError, 9 panic) forever.
+ * serial console and on the screen (white on red). After 20 s of uptime the
+ * red LED blinks the code (1 sync abort, 2 IRQ, 3 FIQ, 4 SError, 9 panic)
+ * for a minute, then the board restarts and the next boot files the crash
+ * as a report (src/kernel/crumbs.c); before that, it blinks forever.
  */
 #include "a64.h"
+#include "plat.h"
 #include "kernel/exceptions.h"
 #include "kernel/crumbs.h"
 #include "drivers/fb.h"
 #include "drivers/led.h"
+#include "drivers/timer.h"
+#include "drivers/watchdog.h"
 #include "gfx/console.h"
 #include "lib/printf.h"
 
@@ -57,6 +62,30 @@ static void print_hex64(const char *name, uint64_t v)
     kprintf("%s=%08lx%08lx", name, (uint32_t)(v >> 32), (uint32_t)v);
 }
 
+static void __attribute__((noreturn)) die(unsigned code)
+{
+    kprintf("System halted. LED blink code: %lu\n", (uint32_t)code);
+    crumbs_crashed();
+    /* as on the Pi (src/kernel/exceptions.c): a minute on the red screen, then
+     * a reset that keeps the RAM; not in the first 20 s of a boot, where it
+     * would come again and again */
+    if (crumbs_uptime_ms() >= 20000) {
+        kprintf("Restarting in 60 s: this screen goes out as a report\n");
+        const uint32_t t0 = timer_ticks();
+        while (timer_ticks() - t0 < 60u * 1000000u) {
+            for (unsigned i = 0; i < code; i++) {
+                plat_led(-1, 1);
+                timer_delay_ms(200);
+                plat_led(-1, 0);
+                timer_delay_ms(300);
+            }
+            timer_delay_ms(1500);
+        }
+        watchdog_reboot();
+    }
+    led_blink_code(code);
+}
+
 void a64_exception(uint64_t type, a64_frame_t *f)
 {
     static const char *const names[] = { "?", "synchronous exception", "IRQ", "FIQ", "SError" };
@@ -77,8 +106,7 @@ void a64_exception(uint64_t type, a64_frame_t *f)
         kprintf("x%-2d=%08lx%08lx%s", i, (uint32_t)(f->x[i] >> 32), (uint32_t)f->x[i],
                 (i % 2 == 1) ? "\n" : "  ");
     }
-    kprintf("System halted. LED blink code: %lu\n", (uint32_t)type);
-    led_blink_code((unsigned)type);
+    die((unsigned)type);
 }
 
 void panic(const char *fmt, ...)
@@ -91,6 +119,5 @@ void panic(const char *fmt, ...)
     va_end(ap);
     kprintf("\n");
     crumbs_print();
-    kprintf("System halted. LED blink code: 9\n");
-    led_blink_code(9);
+    die(9);
 }

@@ -121,7 +121,7 @@ since = 2
 status = "partial"
 platforms = "all"
 where = ["docs/PROJECT-LAYOUT.md", "scripts/mkbm.py", "Makefile"]
-note = "bm.info + assets/ + res/ + build/; pong, hunt, yharnam migrated"
+note = "bm.info + assets/ + res/ + build/; 21 of the 26 folders in carts/ have bm.info; without it: demo, stress, texroom, sdk_b16, titan_ex (they still build the old way, see Makefile)"
 
 [[item]]
 id = "cart-type"

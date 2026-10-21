@@ -301,6 +301,21 @@ If `on_ground` is missing in `world_move` it counts as `false`. The `tag` of `wo
 
 [TO FILL: what the `tag` of `world_box` is used for]
 
+# 3D map terrain
+
+A 3D world made from the layers of the 2D map: the editor's 3D preview and the games use these functions. The ground comes from the layers `floor`, `height` and `walls`; the placeholders come from the layer `objects`. The world is drawn in chunks of 16x16 tiles, and only the chunks you can see are drawn.
+
+| Function | Description |
+|---|---|
+| `map3d_build([opts])` | builds the world from the map layers and returns it. `opts = { floor = "floor", height = "height", walls = "walls", cell = 1.0, step = 0.25 }`: the names of the layers, the size of one tile in world units, and the height step. Every field is optional. The layer of the objects is always `objects` |
+| `map3d_draw(w, [flags])` | draws the chunks of the ground you can see; `flags` is optional (0 if missing) |
+| `map3d_height(w, x, z)` | the height of the ground at `(x, z)`, or `nil` for a hole or a point outside the map |
+| `map3d_blocked(w, x, y, z, r)` | `true` if a sphere with centre `(x, y, z)` and radius `r` touches a wall or a cliff |
+| `map3d_objects(w, [kind])` | the list of the objects `{ kind, x, y, z }`; `kind` filters the list |
+| `map3d_size(w)` | `nx, nz`: the size of the world in world units |
+
+Call `zclear()` and `camera3d` first, then `map3d_draw`. If the map is empty, `map3d_build` gives an error. For a full example with several stages, see the manual *Maps and Levels*.
+
 # Light for 2D scenes
 
 These functions are not 3D: they darken a 2D scene lit by lamps. From the first `light_begin()` or `dark_begin()` the cartridge draws in RAM instead of directly on the screen.

@@ -18,7 +18,7 @@ Verificato con Grep/lettura nei file citati.
 | Pennello 16×16 = 2 × 2 celle (`t`, `t+1`, `t+c`, `t+c+1`), posato su celle pari | `carts/editor/main.lua` righe 1717-1729 | un "1.0 unità" del contratto è questo blocco |
 | Posa/cancella/preleva/riempi/annulla: `Space`, `Backspace`, `x`, `f`, `u` e `Ctrl+Z` (`"^z"`) | `carts/editor/main.lua` righe 2705-2710 (`SPRITE_KEYS`), 1858-1862 (`next`/`prev`/`undo`) | `[` `]` `,` `.` sono già "tessera prima/dopo" |
 | Zoom `+`/`-`, panoramica `m`, flag `c`, selettore `Tab` | `manuals/content/en/editor-sdk.md` righe 191-197; `docs/progress/tools.md` righe 16-19 | |
-| Mappa 256 × 256 celle, fino a 8 layer, sezioni MAP + LAYERS (layer 2..8) + FLAGS | `carts/editor/main.lua` riga 677; `docs/BM-FORMAT.md` riga 61; `CLAUDE.md` §4 (sezioni 12 LAYERS, 13 FLAGS) | MAP conta come layer 1 (`nlayers` 2..8) |
+| Mappa 256 × 256 celle, fino a 8 layer, sezioni MAP + LAYERS (layer 2..8) + FLAGS | `carts/editor/main.lua` riga 677; `docs/BM-FORMAT.md` riga 61; `src/bm/bm.h` (sezioni 12 LAYERS, 13 FLAGS) | MAP conta come layer 1 (`nlayers` 2..8) |
 | Salvataggio nel progetto `.bme`; `Ctrl+S`, `Ctrl+B` genera il `.bm`; primo salvataggio di un gioco crea la copia modificabile | `manuals/content/en/editor-sdk.md` righe 294-306; `docs/progress/tools.md` riga 12 | |
 | Pagina 3D dell'SDK (`F4`): anteprima dei modelli e animazioni del progetto; `i` scrive il codice di caricamento | `manuals/content/en/editor-sdk.md` riga 77 e tabella "Keys" | è già un contesto di rendering 3D nell'editor |
 | API 3D per l'anteprima: `light3d`, `sky3d`, `lamp3d` (1-4), `fog3d`, `shadow3d`, `visible3d`, `draw3d`, `model` | `docs/api/light3d.md` righe 71-96 | |

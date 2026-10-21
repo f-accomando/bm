@@ -81,7 +81,7 @@ On the Pi, `main.c` does these things in this order:
 2. Sets up the memory: the heap, the ARM clock at the maximum the firmware offers, and the MMU.
 3. Detects the board and prints it with its SoC and revision code.
 4. Sets up the board's LED, then the interrupts and the timer.
-5. Tries to arm the watchdog (3 seconds). On the Pi Zero W the boot log says "not available, no freeze guard".
+5. Tries to arm the watchdog (3 seconds). The boot log says `watchdog: on, 3000 ms` when it is armed. If the check fails, it says "not available, no freeze guard" (in an emulator: "resets at once on RSTC (emulator), no freeze guard"). The Pi Zero W is armed; this is not verified on a real console by this manual.
 6. Starts the audio, the DMA and USB.
 7. Loads the cartridges list and `bm/config.txt`.
 8. Turns the crash report of the previous boot into a report (chapter 12).
@@ -134,7 +134,7 @@ Game options (`c`) show the bytes of the saves and a *Delete the save data* row.
 ## Good to know
 
 - On the RGB30, **B** confirms and **A** goes back. Set `confirm=a` in `bm/config.txt` to swap them, or use Settings > Controllers > *Confirm button*.
-- On the RGB30 the top bar shows only WiFi and battery. The Market and Games list `.b16` files; `.bm` files are shown for testing, and `show_bm=0` hides them.
+- On the RGB30 the top bar shows only WiFi and battery. Games lists `.b16` files, and shows `.bm` files for testing: `show_bm=0` hides them. The Market lists only `.b16`: `market_bm=1` adds the `.bm`.
 - The editors work on projects only. A `.bm` is read-only; Ctrl+B in an editor builds the final `.bm`.
 
 ## Settings
@@ -299,7 +299,8 @@ Settings, the monitor line `set`/`save` and the PC tools write `bm/config.txt`. 
 | `wifi_ssid`, `wifi_psk` | the network to join |
 | `wifi_boot=0` | do not join the network at boot |
 | `lib_tab=1` | show the Lib tab |
-| `show_bm=0` | hide `.bm` files on the RGB30 |
+| `show_bm=0` | hide `.bm` files in the Games tab of the RGB30 |
+| `market_bm=1` | list `.bm` files also in the Market of the RGB30 |
 | `menu_scale=3` | a 1920x1080 menu on the Pi (a try) |
 | `battery_icon=0` | turn off the low-battery icon (RGB30) |
 | `mouse=off` | turn the pointer off |

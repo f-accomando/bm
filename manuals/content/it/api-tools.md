@@ -34,7 +34,7 @@ Uno strumento non sovrascrive mai il tuo gioco per sbaglio. Modifichi il progett
 ## Da sapere
 
 - Uno strumento che salva un gioco chiede prima: *Save an editable copy: NAME.BME?* La copia va accanto al gioco (`NAME.BME`, oppure `NAME1.BME` se il nome è occupato).
-- Nel menu, *Make an editable copy* è nelle opzioni di un gioco. Il progetto va nella scheda Dev con il badge "Project". A su un progetto lo apre nell'SDK.
+- Nel menu, *Make an editable copy* è nelle opzioni di un gioco. Il progetto non è nelle schede del menu: aprilo dall'SDK con *Open* (**Ctrl+O**).
 - *Build the game (.bm)* è nelle opzioni di un progetto. Nell'SDK il tasto è **Ctrl+B**.
 - Una compilazione scrive il gioco accanto al progetto, con il nome del progetto salvato all'offset 104 dell'intestazione. La compilazione successiva sostituisce quel gioco e solo quello. Un gioco con lo stesso nome che non è stato compilato dal progetto resta, e il nuovo prende una cifra (`PONG1.BM`).
 - Il `.bm` e il `.b16` sono edizioni separate. Un `.b16` non sostituisce mai il `.bm`, e i sorgenti del `.bm` non vengono mai sovrascritti per fare il `.b16`.
@@ -50,8 +50,8 @@ Uno strumento non sovrascrive mai il tuo gioco per sbaglio. Modifichi il progett
 
 1. Sulla console apri la scheda Giochi e seleziona un gioco.
 2. Premi **X** sul pad dell'RGB30 (**C** sul Pi) per aprire le sue opzioni e scegli *Make an editable copy*.
-3. Apri la scheda Dev. Vedi il progetto con il badge "Project".
-4. Premi **A** sul progetto. Si apre nell'SDK.
+3. Apri la scheda Dev e avvia **bm SDK**. La scheda non elenca i progetti.
+4. Nell'SDK premi **Ctrl+O** e scegli il progetto.
 5. Nell'SDK premi **Ctrl+B** (*Build the game .bm*). Il gioco compare nella scheda Giochi.
 
 ![Le opzioni di un gioco, con Make an editable copy](shots/api-tools-editable-copy.png)
@@ -440,6 +440,8 @@ Un riquadro dice `Screenshot saved` e il nome del file per due secondi. L'immagi
 - Il nome è `<PREFISSO><NNNN>.PNG`, 8.3. Il prefisso è formato dalle prime lettere o cifre del titolo del gioco, fino a 4 (`Pong` da `PONG`, `Hunter's Night` da `HUNT`, `SHOT` se non ce ne sono) oppure dal `prefix` che hai dato.
 - Il numero è uno più del più alto di quel prefisso già presente in `bm/shots/`, da 0001 a 9999. Il Pi Zero non ha orologio, quindi non c'è la data.
 - Il formato è PNG, 8 bit RGB, della dimensione dello schermo del gioco (640x360, 360x360...). Non si perde nulla: i colori a 16 bit della console vengono allargati a 8 bit. Non c'è il JPG, perché rovina la pixel art.
+- Dal PC, sul collegamento di rete, `python tools/bm_net.py IP --shot out.png` chiede alla console uno screenshot del gioco in corso (la console chiede la password della Console) e lo salva come `out.png`. `python tools/bm_net.py IP --get bm/shots/PONG0007.PNG out.png` scarica un file già presente in `bm/shots/`. Il gioco deve disegnare fotogrammi: se non ne disegna, la richiesta fallisce dopo 3 secondi. Si possono scaricare solo file di `bm/shots/`. Non è verificato su un RGB30.
+- Dal PC, `python tools/bm_net.py IP --play game.bm` invia un `.bm` alla console e lo avvia subito. La console chiede la password della console. Il file non viene salvato sulla scheda SD. Il menu avvia il gioco quando ha i tasti; se è in corso un aggiornamento o una pubblicazione sul Market, mostra un messaggio e non avvia il gioco. `--send game.bm` salva invece il file sulla scheda SD. Non verificato su un RGB30.
 - Uno schermo piatto occupa pochi KB; il rumore può occupare quanto l'immagine grezza (circa 0,7 MB a 640x360).
 
 ## Attenzione

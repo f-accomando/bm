@@ -8,3 +8,61 @@
 2026-10-15|general-purpose|sonnet|review D-SCREEN,D-RGB,D-RGB2 (CI)|sync|-|-|DONE|101575|15|1119
 2026-10-15|bm-planner|opus|WO workflow: review meccanica, parita CI, anticorruzione, report|tools|-|-|DONE|67648|20|245
 2026-10-15|general-purpose|sonnet|review D28,B16-D28FU,CI-AUDIT,D-HOST|sync|-|-|DONE|104948|13|593
+2026-10-15|general-purpose|sonnet|review SDLOG-FIX (AGY)|sync|-|-|DONE|88959|8|486
+2026-10-15|bm-planner|opus|WO FRZ freeze reports e log sicuri (AGY)|system|-|-|DONE|81712|50|337
+2026-10-15|general-purpose|sonnet|review NET-KEYS (NET)|tools|-|-|DONE|73694|6|203
+2026-10-15|generic|sonnet|review-FRZ|system|review|3|APPROVED|88856|9|381
+2026-10-15|generic|sonnet|review-R-NET4|tools|review|3|CHANGES REQUESTED|77942|9|470
+2026-10-15|bm-research|haiku|beta requirements survey|docs|-|-|DONE|50931|26|57
+2026-10-15|bm-light|sonnet|translate CLAUDE/AGENTS/GEMINI|docs|-|-|DONE|37127|8|71
+2026-10-15|bm-light|sonnet|translate progress b16/yharnam + STRESS|docs|-|-|DONE|38282|9|71
+2026-10-15|bm-light|sonnet|translate design docs g2|docs|-|-|DONE|40781|14|80
+2026-10-15|bm-light|sonnet|translate design docs g1|docs|-|-|DONE|45412|11|90
+2026-10-15|bm-light|sonnet|translate agents and skills|docs|-|-|DONE|55025|27|117
+2026-10-15|bm-light|sonnet|translate ROADMAP|docs|-|-|DONE|28484|6|56
+2026-10-15|general-purpose|sonnet|scaffold neutral workflow + PDF|docs|-|-|DONE|324932|110|1267
+2026-10-15|bm-planner|opus|AGY WO sequence (5 WO)|sync|-|-|DONE|86926|54|430
+2026-10-15|general-purpose|sonnet|CI host diagnosis|ci|-|-|DONE|91333|24|2974
+2026-10-15|general-purpose|sonnet|review AGY-1 API-SRC|sync|-|-|DONE|73196|7|66
+2026-10-15|general-purpose|sonnet|review AGY-2 API-LINT|sync|-|-|DONE|74913|8|84
+2026-10-15|general-purpose|sonnet|review AGY-3 TRIAGE|sync|-|-|DONE|74624|8|88
+2026-10-15|general-purpose|sonnet|review AGY-4 AUDIT|sync|-|-|DONE|75899|5|75
+2026-10-15|general-purpose|sonnet|review AGY-5 PERIM|sync|-|-|DONE|78569|7|90
+2026-10-15|general-purpose|sonnet|review AGY-6a mkapi|sync|-|-|DONE|72873|4|43
+2026-10-15|general-purpose|sonnet|review AGY-6b triage|sync|-|-|DONE|93456|10|109
+2026-10-15|general-purpose|sonnet|review AGY-6c perimeter|sync|-|-|DONE|70700|5|66
+2026-10-15|bm-planner|opus|WO R-NET5 durable bridge|sync|-|-|DONE|65521|24|228
+2026-10-15|bm-planner|opus|WO APP-4 template Stages|sync|-|-|DONE|105536|66|436
+2026-10-15|bm-planner|opus|WO APP-5b editor help and lint|sync|-|-|DONE|118988|66|513
+2026-10-15|bm-planner|opus|WO API-1 performance budget|sync|-|-|DONE|88252|74|376
+2026-10-15|bm-planner|opus|WO APP-6 dev without PC|sync|-|-|DONE|168760|101|770
+2026-10-15|general-purpose|sonnet|write tools/sync_log.py|sync|-|-|DONE|76088|6|88
+2026-10-15|general-purpose|sonnet|write scripts/ledger_add.py|sync|-|-|DONE|80476|13|117
+2026-10-15|general-purpose|sonnet|write scripts/ledger_repeats.py|sync|-|-|DONE|73365|7|70
+2026-10-15|general-purpose|sonnet|write bm-translate skill and checker|docs|-|-|DONE|162604|47|631
+2026-10-15|general-purpose|sonnet|review AGY-7 Italian PDF|sync|-|-|DONE|145966|26|160
+2026-10-15|general-purpose|sonnet|review AGY-8 scaffold prompt|sync|-|-|DONE|93763|10|183
+2026-10-16|general-purpose|sonnet|review AGY-9 triage|sync|-|-|DONE|84468|8|72
+2026-10-16|bm-planner|opus|WO R-NET6 line allowlist|sync|-|-|DONE|59695|29|210
+2026-10-16|bm-planner|opus|WO BETA-7 quickstart|docs|-|-|DONE|123557|57|459
+2026-10-16|general-purpose|sonnet|diagnose test_editor_mouse flake|ci|-|-|DONE|84593|9|474
+2026-10-16|general-purpose|sonnet|clean baremetal tree|docs|-|-|DONE|90496|15|388
+2026-10-16|general-purpose|sonnet|review APP-4|sync|-|-|DONE|175105|80|3657
+2026-10-16|general-purpose|sonnet|review APP-6a-6c B16 (f299f18d) [bm-runner]|tools|-|-|DONE|112168|38|3654
+2026-10-16|general-purpose|sonnet|review API-1 NET c18e881d [bm-runner]|tools|-|-|DONE|0|60|4000
+2026-10-16|general-purpose|sonnet|review APP-6 6d-6i B16 3db6a92c [bm-runner]|tools|-|-|DONE|0|90|5000
+2026-10-16|general-purpose|sonnet|review APP-5b NET d2987835 [bm-runner]|tools|-|-|DONE|0|60|3000
+2026-10-16|general-purpose|sonnet|review AGX-1 AGX-2 [bm-runner]|tools|-|-|DONE|0|40|2400
+2026-10-17|general-purpose|sonnet|review DIV-1 D05-STICK CI [bm-runner]|tools|-|-|DONE|98169|21|2306
+2026-10-17|general-purpose|sonnet|review 3D-7 W05 B16 [bm-runner]|tools|-|-|DONE|130230|48|3724
+2026-10-17|general-purpose|sonnet|review 3D-2 AGX-15 AGX [bm-runner]|tools|-|-|DONE|113395|35|2824
+2026-10-17|general-purpose|haiku|review CO-1..CO-5 [bm-runner]|tools|-|-|DONE|125863|19|342
+2026-10-17|general-purpose|sonnet|write WO W06 W09-W17 [bm-runner]|tools|-|-|DONE|348981|113|1748
+2026-10-17|general-purpose|haiku|review CO-3 CO-4 CO-5 fixes [bm-runner]|tools|-|-|DONE|85955|11|202
+2026-10-17|general-purpose|sonnet|review D05-STICK-a fix W06 [bm-runner]|tools|-|-|DONE|95142|35|1271
+2026-10-17|general-purpose|haiku|review CO-6 [bm-runner]|tools|-|-|DONE|88848|10|110
+2026-10-17|general-purpose|haiku|review NET bridge crc [bm-runner]|tools|-|-|DONE|85412|11|88
+2026-10-17|general-purpose|sonnet|write WO D10-COVERS [bm-runner]|tools|-|-|DONE|115139|15|222
+2026-10-17|general-purpose|haiku|execute CO-7 closeout rule [bm-runner]|tools|-|-|DONE|111576|21|237
+2026-10-17|general-purpose|sonnet|review W12 W13a W13b [bm-runner]|tools|-|-|DONE|120059|36|5160
+2026-10-17|general-purpose|sonnet|review W13c W14 [bm-runner]|tools|-|-|DONE|117139|53|4647

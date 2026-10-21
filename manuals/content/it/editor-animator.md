@@ -128,6 +128,7 @@ La disposizione è quella delle altre app della console: a sinistra un pannello 
 | `k` | pelle: ogni faccia segue l'osso più vicino |
 | `K` | pelle: ogni angolo segue l'osso più vicino (morbida) |
 | `v` | modalità pelle: scegli le facce a mano |
+| `t` | posa di prova: piega ogni osso e segna in rosso le facce che si allungano o si strappano |
 | `q` `e` | ruota la vista a scatti |
 | `z` | inquadra il modello |
 
@@ -222,6 +223,8 @@ Lo scheletro permette a un modello di avere tante animazioni a basso costo: il g
 - **k** dà ogni faccia al suo osso più vicino: parti rigide, adatto a robot e personaggi squadrati.
 - **K** dà ogni angolo al suo osso più vicino: il modello si allunga alle giunture.
 - In modalità pelle (**v**), se hai segnato delle facce, **k** e **K** lavorano solo su quelle.
+- **t** prova la pelle. Piega ogni osso a turno di 45 gradi (attorno a x e attorno a z) e segna in rosso le facce che si rompono: una faccia con un lato che cresce oltre 1,6 volte la sua lunghezza (si allunga), o un angolo condiviso con una faccia di un altro osso che si stacca di più del 2% dell'altezza del modello (la pelle si strappa). La riga di stato dice quante facce sono rosse e quale osso, piegato, ne segna di più, oppure che la pelle regge. Premi **t** di nuovo per spegnere la prova. Poi scegli le facce rosse con **v** e dalle a un osso con **a**.
+- La pelle automatica (**k**, **K**) spegne la prova.
 
 ![La pagina rig (F2): le ossa di un modello e i loro nomi nell'elenco](shots/editor-animator-rig.png)
 

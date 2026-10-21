@@ -96,7 +96,7 @@ removing or changing a promise is a 2.0.0.
 
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
-| D09 | open | history | game list | Pi: sorted by title; scans / and /carts; shows .bme projects in Dev. RGB30: FAT order; only /bm; ignores .bme | sort by title; decide on /carts and on projects |
+| D09 | untested | history | game list | Pi: sorted by title; scans / and /carts; shows .bme projects in Dev. RGB30: sorted by title; scans /bm and /carts; .bme projects are D44 | try the title order on the RGB30 |
 | D13 | untested | history | Dev tab and Market Apps | Pi: tools recognised by name (tool_id_of), apps installed from the Market appear in Dev. RGB30: 7 fixed entries; a Market App installed on the RGB30 is not recognised as a tool and shows up as a game | same recognition on the RGB30, or filter apps out of Games |
 
 **5. Robustness**
@@ -119,15 +119,16 @@ removing or changing a promise is a 2.0.0.
 | D15 | open | todo | Settings > System | Pi: CPU clock and temperature; 3D driver row; open the monitor. RGB30: CPU name only | add what the RK3566 can report |
 | D17 | open | todo | WiFi connect | Pi: scan and type the password with a keyboard. RGB30: only wifi_ssid / wifi_psk from config.txt; no on-screen keyboard | needs the on-screen keyboard (R1/R2) |
 | D19 | open | history | SD logs | Pi: none (only the crumbs report). RGB30: bootlog.txt, bootprev.txt, lastrun.txt in bm/ | give the Pi the same three files (R3) |
-| D20 | open | unknown | release content | Pi: manifest.txt: kernel.img, kernel7.img, games in /carts, ca.pem. RGB30: manifest-rgb30: kernel8.img and ca.pem only | confirm it is intended |
+| D20 | resolved | hardware | release content | Pi: manifest.txt: kernel.img, kernel7.img, games in /carts, ca.pem. RGB30: manifest-rgb30: kernel8.img and ca.pem only | none: intended; kernels ship bare (exception: kernel.img has the bm editor suite, kernel8.img the bm SDK, until the apps move to the Market); accepted by the user, 21 Oct 2026 |
 | D21 | open | todo | run from the PC without saving | Pi: bm_net.py --play wired (GO_NETPLAY). RGB30: not wired | wire it into ui_home (developer feature) |
-| D22 | open | history | monitor | Pi: text console and Dev tab entry. RGB30: none by design (no_monitor); the serial line has a Lua REPL | keep; tell developers |
+| D22 | open | hardware | monitor | Pi: text console and Dev tab entry. RGB30: none by design (no_monitor); the serial line has a Lua REPL | the user builds a terminal monitor for the RGB30 after the beta; study: mini-HDMI detection, external monitor, BT keyboard and mouse |
 | D23 | open | todo | 3D on the GPU | Pi: V3D draws the 3D. RGB30: Mali-G52 present but the 3D is on the ARM | Mali driver (M41) |
 | D24 | open | todo | Overbit .b16 and Mali benchmark | Pi: -. RGB30: not done | M41 |
 | D25 | open | todo | multicore, fibers | Pi: -. RGB30: RGB30 uses one core; fibers in the menu only | later |
 | D26 | open | todo | SDK layout 720x720 | Pi: -. RGB30: not done (R39) | R39 |
 | D27 | open | todo | screenshot of the menu's own screens | Pi: not done. RGB30: not done | extend the screenshot to the menu |
 | D28 | open | todo | a game built in /carts and the Games tab | Pi: a game built in /carts is not in Games (R41). RGB30: - | R41 |
+| D44 | resolved | todo | Dev tab lists .bme projects | Projects (.bme) are not listed in the menu tabs on either kernel (user decision 21 Oct 2026). Pi Dev tab fixed in PR 58 (src/kernel/carts.c tab_items; test_projects walks the Dev tab). | none |
 
 The differences that are hardware, with the capability that explains each:
 

@@ -8,7 +8,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
 
 ### The suite (`carts/`, opened from the Dev tab or installed from the Market Apps page)
 - **bm SDK** (`carts/editor`): projects, templates (Empty 2D, Platform 2D, Top-down 2D,
-  Shooter 2D, Versus 2D, Online 2D, 3D scene, 3D with models), budgets (tokens, Lua, assets),
+  Shooter 2D, Versus 2D, Online 2D, 3D scene, 3D with models, Stages 2D), budgets (tokens, Lua, assets),
   the dev kit report of a test run, jumps to the other tools (`cart_tool`), `Build .bm` (`Ctrl+B`,
   or builds a real `.b16` when `target = "b16"`) and `Export .b16` (`Ctrl+Shift+B`,
   `cart_build(path, "b16")`). Map page (`P.map`): layers, flags, `z` a 16×16 brush (2×2 cells,
@@ -16,20 +16,20 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   placeholder tile (`>= 1024`) when switching to the `objects` layer, zoom in/out (`-`/`+`: 1, 2,
   4, 8, 16 px/cell), `m` (*Overview*) full 256×256 map at 1 px/cell with viewport box and
   click/arrow jump, `Tab` compact palette of used 16×16 tiles (`z` toggles full sheet), Home/End
-  and PgUp/PgDn a page.
+  and PgUp/PgDn a page. Template *Stages 2D* as on the RGB30: `test_sdk_stages_pi`.
 - **bm SDK (RGB30)** (`carts/sdk_b16`, built into `kernel8.img` unless `CLEAN_KERNEL=1`, and
   published as `sdk.b16` in the Market): the SDK's pages at 360×360 (`layout.lua`: `split` on
   the 8×16 grid, joined before `main.lua` by `build.py`), the pad by names (`ok`/`back`, L1/R1,
-  Start, X = the page's actions as a list, L2/R2), `padtype` for code and names, map zoom in/out
+  Start, X = the page's actions as a list, L2/R2), `padtype` for code and names, page `snd` (F7: Sounds with 7 fields and Lib import `i`, Effects with 32 steps; QEMU `test_sdk_pad_*` drive it by keyboard), map zoom in/out
   (`-`/`+`), `Overview` (`m`, full 256×256 at 1 px/cell), `Tab`/`Y` compact palette of used 16×16
   tiles, automatic 16×16 object brush on the `objects` layer, `Build .bm` (`Ctrl+B`) and
   `Export .b16` (`Ctrl+Shift+B`; on the RGB30, exporting a `.b16` from `/carts` also copies it to
-  `/bm/` so it appears immediately in Games).
+  `/bm/` so it appears immediately in Games). Template *Stages 2D* (3 stages in map bands, record in slot 1): `test_stages_template`, `test_sdk_stages_build`.
 - **Tool session** (`src/kernel/devtool.c`): the tool, the games it tries (`cart_run`, back with
   `cart_arg()`), the tools it opens (`cart_tool`); prefers SD-installed Market apps (`/carts` or
   `/bm/`) over embedded kernel copies so tools can be updated from the Market and kernels can be
   built clean with `CLEAN_KERNEL=1`.
-- **bm Code** (`carts/code`): tabs, two pages, 6×12/8×14/8×16 fonts; completion
+- **bm Code** (`carts/code`): tabs, two pages, 6×12/8×14/8×16 fonts; Ctrl+Q / Y+X help on the API function, API lint on save (`predict.lint`, same rules as `scripts/api_lint.py`); completion
   (`predict`, [`docs/PREDICT.md`](../PREDICT.md)), pad typing (`padtype`,
   [`docs/PADTYPE.md`](../PADTYPE.md)), F6 assistant and `#entry: … #` lines, F8
   breakpoints, Ctrl+Enter plays riff.
@@ -72,18 +72,18 @@ The owner types the console password once in `pi_bridge.py`; a client (Claude Co
 
 ### CI (`.github/workflows/ci.yml`)
 Build; host tests (`make test-host`); QEMU in four shards (`make test-qemu SHARD=K/4`); RGB30 build and QEMU
-tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes in `SLOW`.
+tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes in `SLOW`. Three QEMU tests were steadied against flaky timing: `test_studio_animator` (short gap, the toast is brief), `test_usb_mouse` (wait for one icon), `test_code_completion` (wait for the colour). `test_code_completion` still failed once on CI before PR 52. On a miss it now prints the screen text and colour counts and saves `build/diag/code-complete-miss.png`; CI uploads `build/diag/`. Read these files when it fails again. The artifact upload may fail without failing the job.
 
 ## Open work (`docs/ROADMAP.md`)
 
-- **Pi tests from the PC** ([`design/pi-test.md`](../design/pi-test.md)): R-NET3 a limited test token (R-NET1 `err` and R-NET2 screenshot via ops `T`/`G` are done). To plan with `bm-planner` (kernel change, branch `claude/net-test-*`).
+- **Pi tests from the PC** ([`design/pi-test.md`](../design/pi-test.md)): R-NET3 a limited test token (R-NET1 `err`, R-NET2 screenshot via ops `T`/`G` and R-NET5 bridge `status`/`freeze`/`reboot`/`--detach` are done; the test on the real Pi is the owner's). To plan with `bm-planner` (kernel change, branch `claude/net-test-*`).
 - **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet.
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
-- **bm SDK (RGB30)**: try it on the console (Dev > bm SDK and Open in bm SDK, pad, typing, save,
-  copy of a game, Ctrl+B, F5 and Start + Select back); QEMU `test_sdk_tool` runs in CI. Games (RGB30) lists bm/ and /carts (D28).
+- **bm SDK (RGB30)**: try it on the console (use with the pad alone is not proven; QEMU virt has no pad): Dev > bm SDK, Start > New project > Empty 2D; R1 x2 draw with ok; Y+down a tile; Select types `do end `; R1 to `snd`: wave SINE, ok plays; Start > Save > Build .bm > Export .b16; Start+Select out; reopen the .bme: all is still there.
+  QEMU `test_sdk_tool`, `test_sdk_pad_*` and `test_sdk_layers_b16` (layers and flags) run in CI; on the Pi `test_sdk_code_pi` and `test_sdk_layers`. APP-1 QEMU proof is done on both kernels; the pad, the screen and the sound stay `not verified on hardware`. Games (RGB30) lists bm/ and /carts (D28).
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
 - **M43 step 3**: a *Stack* page in bm Pixel.
@@ -100,7 +100,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 
 ## Rules (do not break)
 
-- Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a dialog frame never crosses the title row (QEMU tests read it).
+- Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a dialog frame never crosses the title row (QEMU tests read it). API list: one source `src/ai/api.tsv` → `build/words.lua` (`api`, `allow`), never edited by hand; the Lua lint in `src/ai/predict.lua` keeps the output of `scripts/api_lint.py` (diff check APP-5b-2). `api.tsv` has one line per signature of a name (`music(n, ...)`, `music(-1)`, `music()`); `predict.api(name).forms` lists them and Ctrl+Q shows all. CI: `make test-api` (`mkapi.py --check`, tests of mkapi and api_lint). The help screen is not verified on hardware.
 - bm Mesh rewrites only the lines between `-- [bm Mesh begin]` and `-- [bm Mesh end]`.
 - Mouse (`require "bmui"`, `src/script/bmui.lua`): the mouse does what the keys do: zones
   registered while drawing, chips that press the key, `U.press` before `keyp()`, a context menu
