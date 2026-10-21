@@ -26,7 +26,7 @@ bm Code is the code editor of the bm suite. It opens a cartridge, shows its Lua 
 - An assistant on F6 that answers questions and writes code for you.
 - Breakpoints on F8 and the debugger, with F5 to run.
 - Ctrl+Enter plays the code as music (riff).
-- Ctrl+Q (on the pad Y+X) shows the signature and text of the API function under the cursor; on save, names that are not in the API are reported and their line numbers turn red.
+- Ctrl+Q (on the pad Y+X) shows every signature of the API name under the cursor, each with its text; on save, names that are not in the API are reported and their line numbers turn red.
 
 ## Why it matters
 
@@ -229,7 +229,7 @@ The assistant does it in place and the status line says what it did, with `(Ctrl
 
 ## Help on an API function (Ctrl+Q)
 
-Put the cursor on the name of a bm function and press **Ctrl+Q** (on the pad, hold **Y** and press **X**). A box opens with the signature of the function, its text and, at the bottom, the file of the API manual where it is described (`docs/api/NAME.md`). Any key closes the box.
+Put the cursor on the name of a bm function and press **Ctrl+Q** (on the pad, hold **Y** and press **X**). A box opens. It shows each signature of the name, with its text under it. A name can have more than one signature. At the bottom, the box lists the API manual files that describe the name (`docs/api/NAME.md`), one line for each file. Any key closes the box.
 
 - On a name that is not in the API, the status line says `no API help for 'NAME'`.
 - With no name under the cursor, it says `no name under the cursor`.

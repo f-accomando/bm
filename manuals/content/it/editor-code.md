@@ -26,7 +26,7 @@ bm Code è l'editor di codice della suite bm. Apre una cartuccia, mostra il suo 
 - Un assistente su F6 che risponde alle domande e scrive codice per te.
 - Breakpoint su F8 e debugger, con F5 per eseguire.
 - Ctrl+Enter suona il codice come musica (riff).
-- Ctrl+Q (sul pad Y+X) mostra firma e testo della funzione API sotto il cursore; al salvataggio i nomi che non sono nell'API vengono segnalati e i loro numeri di riga diventano rossi.
+- Ctrl+Q (sul pad Y+X) mostra tutte le firme del nome API sotto il cursore, ciascuna con il suo testo; al salvataggio i nomi che non sono nell'API vengono segnalati e i loro numeri di riga diventano rossi.
 
 ## Perché è importante
 
@@ -229,7 +229,7 @@ L'assistente lo fa sul posto e la riga di stato dice cosa ha fatto, con `(Ctrl+Z
 
 ## Aiuto su una funzione API (Ctrl+Q)
 
-Porta il cursore sul nome di una funzione di bm e premi **Ctrl+Q** (sul pad, tieni premuto **Y** e premi **X**). Si apre una finestra con la firma della funzione, il suo testo e, in fondo, il file del manuale dell'API che la descrive (`docs/api/NAME.md`). Qualsiasi tasto chiude la finestra.
+Porta il cursore sul nome di una funzione di bm e premi **Ctrl+Q** (sul pad, tieni premuto **Y** e premi **X**). Si apre una finestra con ogni firma del nome, ciascuna seguita dal suo testo (un nome può avere più firme). In fondo la finestra elenca i file del manuale dell'API che descrivono il nome (`docs/api/NAME.md`), una riga per file. Qualsiasi tasto chiude la finestra.
 
 - Su un nome che non è nell'API, la riga di stato dice `no API help for 'NAME'`.
 - Senza nessun nome sotto il cursore, dice `no name under the cursor`.
