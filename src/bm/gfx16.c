@@ -272,6 +272,7 @@ void g16_stack(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
                int n, int x, int y, float rz, float scale, float step)
 {
     if (!s->px || n <= 0 || sw <= 0 || sh <= 0 || sx < 0 || sy < 0 || sy + sh > s->h) return;
+    if (!isfinite(rz) || !isfinite(scale) || !isfinite(step)) return;   /* NaN or inf from Lua */
     if (!(scale > 0.0f) || scale > 64.0f) return;
     const float c = cosf(rz), sn = sinf(rz);
     const float ac = c < 0 ? -c : c, as = sn < 0 ? -sn : sn;

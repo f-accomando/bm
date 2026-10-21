@@ -72,6 +72,10 @@ function _draw()
   spr(1, 150, 120)
   sspr(8, 0, 16, 16, 220, 100, false, false, 2)
   map(0, 0, 0, 160, 4, 1)
+  stack(8, 0, 8, 8, 3, 60, 100, 0.5, 2, 3)         -- sprite stacking: scale and rz
+  camera(4, 3) clip(40, 80, 50, 40)
+  stack(8, 0, 8, 8, 3, 70, 110, 0, 1, 2)           -- with a camera and a clip
+  camera() clip()
   draw3d(cube, 1.5, 0, 0, 0, t * 0.1, 0, 0.5)     -- 3D after the 2D: over it
   draw3d(cube, 0.6, 0.2, -3.0, 0, t * 0.02, 0, 0.2, 64)    -- first person: a zclear inside the job
   rect(150, 20, 200, 60, 0xFFFF00)
