@@ -27,6 +27,7 @@
 #include <string.h>
 
 int emu_red_a = 1, emu_tex_swap = 0;
+int emu_qpu = 0;                        /* QPU programs: 0 run, 1 the QPUs do not answer, 2 they store wrong data */
 int emu_tformat = 0;                    /* the order of the 1 KiB subtiles of a T-format tile */
 int emu_t16_alpha = 0;                  /* bm3d 7.2: alpha's bits in RGBA5551 / RGBA4444 (v3d_emu.h) */
 int emu_t16_lossy = 0;                  /* bm3d 7.2: 5551 / 4444 widened otherwise (v3d_emu.h) */
@@ -178,6 +179,12 @@ typedef struct {
     int sfu_at;                         /* the instruction that wrote the SFU, -1 */
     int sfu_pending;
     uint32_t sfu_value[16];
+    /* bm3d 7.x: a user program (v3d_qpu_run): branches, the TMU, the DMA store */
+    int user, rows;                     /* user: 1; the VPM rows it may use */
+    long max_steps, steps;              /* instructions it may run, and ran */
+    uint32_t tmu[8][16];                /* the TMU's answers, in order */
+    int tmu_n;
+    int vdw_units, vdw_depth, vdw_y, vdw_x, vdw_stride, dma;
 } qpu_t;
 
 static float qf(uint32_t u) { float f; memcpy(&f, &u, 4); return f; }
@@ -262,10 +269,16 @@ static uint32_t qpu_src(qpu_t *q, int m, int l, const uint32_t *va, const uint32
 /* runs code until its thread end; 0, or -1 (emu_error says why) */
 static int qpu_run(qpu_t *q, const uint32_t *code, int max)
 {
-    int end = -1;
+    int end = -1, pc = 0, br_target = 0, br_wait = 0;
     q->wrote_a = q->wrote_b = -1;
     q->sfu_at = -1;
-    for (int pc = 0; pc < max; pc++) {
+    const long limit = q->user ? q->max_steps : max;
+    for (long steps = 0; steps < limit; steps++, pc++) {
+        if (br_wait && --br_wait == 0)  /* the branch's three delay slots are done */
+            pc = br_target;
+        if (pc < 0 || pc >= max)
+            return err("QPU: pc %u outside the program", (unsigned)pc, 0);
+        q->steps = steps + 1;
         const uint32_t lo = code[2 * pc], hi = code[2 * pc + 1];
         const int sig = hi >> 28, last3 = end >= 0;
         const int ws = hi >> 12 & 1, sf = hi >> 13 & 1, cond_add = hi >> 17 & 7, cond_mul = hi >> 14 & 7;
@@ -276,8 +289,29 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
             memcpy(q->acc[4], q->sfu_value, sizeof q->sfu_value);
             q->sfu_pending = 0;
         }
-        if (sig == 15)
-            return err("QPU: branch at %u (not emulated)", (unsigned)pc, 0);
+        if (sig == 15) {
+            if (!q->user)
+                return err("QPU: branch at %u (not emulated)", (unsigned)pc, 0);
+            if (br_wait || end >= 0)
+                return err("QPU: branch at %u inside a delay slot or after the thread end", (unsigned)pc, 0);
+            const int bc = hi >> 20 & 15;
+            if ((hi >> 19 & 1) == 0 || (hi >> 18 & 1))
+                return err("QPU: branch at %u: only relative to a label is emulated", (unsigned)pc, 0);
+            if (bc != 15 && bc > 7)
+                return err("QPU: branch condition %u (carry) not emulated", (unsigned)bc, 0);
+            int all = 1, any = 0;
+            for (int l = 0; l < 16; l++) {
+                const int f = bc < 4 ? q->z[l] : q->n[l], on = (bc & 1) ? !f : f;
+                all &= on;
+                any |= on;
+            }
+            if (bc == 15 || ((bc >> 1 & 1) ? any : all)) {
+                br_target = pc + 4 + (int)((int32_t)lo / 8);
+                br_wait = 4;
+            }
+            q->wrote_a = q->wrote_b = -1;
+            continue;
+        }
         if (sig == 14) {                /* load immediate */
             if (hi >> 25 & 7)
                 return err("QPU: packed load immediate at %u", (unsigned)pc, 0);
@@ -313,7 +347,7 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
                 unif = q->unif[q->unif_at++];
             }
             if (vpm_read) {
-                if (q->vr_left <= 0 || q->vr_addr >= QPU_VPM_ROWS)
+                if (q->vr_left <= 0 || q->vr_addr >= q->rows)
                     return err("QPU: VPM read at %u past its setup", (unsigned)pc, 0);
                 memcpy(vrow, q->vpm[q->vr_addr], sizeof vrow);
                 q->vr_addr += q->vr_stride;
@@ -335,9 +369,10 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
                     }
                 }
             }
-            if ((use_a && raddr_a >= 32 && raddr_a != 32 && raddr_a != 38 && raddr_a != 39 && raddr_a != 48) ||
+            const int user_a = q->user && raddr_a == 51, user_b = q->user && (raddr_b == 50 || raddr_b == 51);
+            if ((use_a && raddr_a >= 32 && raddr_a != 32 && raddr_a != 38 && raddr_a != 39 && raddr_a != 48 && !user_a) ||
                 (use_b && sig != 13 && raddr_b >= 32 && raddr_b != 32 && raddr_b != 38 && raddr_b != 39 &&
-                 raddr_b != 48) || (use_b && sig == 13 && raddr_b >= 48))
+                 raddr_b != 48 && !user_b) || (use_b && sig == 13 && raddr_b >= 48))
                 return err("QPU: read address %u/%u at an emulated shader", (unsigned)raddr_a, (unsigned)raddr_b);
             /* bm3d 7.1: the regfile A unpack (pm 0), of a register only: to a
              * float where the ALUs reading regfile A do a float op, else to
@@ -408,15 +443,24 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
             } else if (waddr == 48) {       /* VPM write */
                 if (last3)
                     return err("QPU: VPM write at %u, in the last three instructions", (unsigned)pc, 0);
-                if (q->vw_addr >= QPU_VPM_ROWS)
-                    return err("QPU: VPM write past row %u", QPU_VPM_ROWS, 0);
+                if (q->vw_addr >= q->rows)
+                    return err("QPU: VPM write past row %u", (unsigned)q->rows, 0);
                 memcpy(q->vpm[q->vw_addr], res, sizeof q->vpm[0]);
                 q->vw_addr += q->vw_stride;
             } else if (waddr == 49) {       /* VPM read (file A) or write (file B) setup */
                 const uint32_t v = res[0];
-                if ((v >> 30) || (v >> 8 & 3) != 2 || !(v >> 11 & 1))
+                if (q->user && !file_a && (v >> 30) == 2) {         /* DMA store, basic setup */
+                    q->vdw_units = (int)(v >> 23 & 127) ? (int)(v >> 23 & 127) : 128;
+                    q->vdw_depth = (int)(v >> 16 & 127) ? (int)(v >> 16 & 127) : 128;
+                    q->vdw_y = (int)(v >> 7 & 127);
+                    q->vdw_x = (int)(v >> 3 & 15);
+                    if ((v >> 15 & 1) || !(v >> 14 & 1) || (v & 7))
+                        return err("QPU: DMA store setup %08x: horizontal 32-bit, not laned expected", v, 0);
+                } else if (q->user && !file_a && (v >> 30) == 3) {  /* DMA store, stride */
+                    q->vdw_stride = (int)(v & 0x1FFF);
+                } else if ((v >> 30) || (v >> 8 & 3) != 2 || !(v >> 11 & 1)) {
                     return err("QPU: VPM setup %08x: generic horizontal 32-bit expected", v, 0);
-                if (file_a) {
+                } else if (file_a) {
                     q->vr_addr = v & 255;
                     q->vr_stride = v >> 12 & 63;
                     q->vr_left = (v >> 20 & 15) ? (int)(v >> 20 & 15) : 16;
@@ -424,6 +468,31 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
                     q->vw_addr = v & 255;
                     q->vw_stride = v >> 12 & 63;
                 }
+            } else if (q->user && waddr == 50 && !file_a) {         /* the DMA store starts */
+                const uint32_t addr = res[0];
+                if (q->vdw_x + q->vdw_depth > 16)
+                    return err("QPU: DMA store of %u words from word %u of a row", (unsigned)q->vdw_depth, (unsigned)q->vdw_x);
+                for (int u = 0; u < q->vdw_units; u++) {
+                    const int row = q->vdw_y + u;
+                    uint32_t *d = ptr(addr + (uint32_t)u * (uint32_t)(q->vdw_depth * 4 + q->vdw_stride));
+                    if (row >= q->rows || !d || (addr & 3))
+                        return err("QPU: DMA store row %u to address %08x", (unsigned)row, addr);
+                    memcpy(d, q->vpm[row] + q->vdw_x, (size_t)q->vdw_depth * 4);
+                    if (emu_qpu == 2 && !u)
+                        d[0] ^= 0x400000u;   /* a QPU that stores wrong data: the probe must turn it off */
+                }
+                q->dma++;
+            } else if (q->user && waddr == 51) {                    /* mutex release */
+            } else if (q->user && waddr == 56) {                    /* the TMU: one address a lane */
+                if (q->tmu_n >= 8)
+                    return err("QPU: TMU request %u, its queue holds 8", (unsigned)q->tmu_n, 0);
+                for (int l = 0; l < 16; l++) {
+                    const uint32_t *w = ptr(res[l] & ~3u);
+                    if (!w)
+                        return err("QPU: TMU address %08x outside memory", res[l], 0);
+                    q->tmu[q->tmu_n][l] = *w;
+                }
+                q->tmu_n++;
             } else if (waddr == 52 || waddr == 54 || waddr == 55) {    /* SFU: r4, three instructions on */
                 if (q->sfu_pending)
                     return err("QPU: two SFU writes at %u", (unsigned)pc, 0);
@@ -438,11 +507,18 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
         }
         q->wrote_a = new_a;
         q->wrote_b = new_b;
+        if (q->user && sig == 10) {     /* r4 is the oldest TMU answer from the next instruction on */
+            if (q->tmu_n <= 0)
+                return err("QPU: ldtmu0 at %u without a request", (unsigned)pc, 0);
+            memcpy(q->acc[4], q->tmu[0], sizeof q->acc[4]);
+            memmove(q->tmu[0], q->tmu[1], sizeof q->tmu[0] * (size_t)(q->tmu_n - 1));
+            q->tmu_n--;
+        }
         if (sig == 3)
             end = pc;
         if (end >= 0 && pc == end + 2)
             return 0;
-        if (sig != 1 && sig != 3 && sig != 13 && sig != 14)
+        if (sig != 1 && sig != 3 && sig != 13 && sig != 14 && !(q->user && sig == 10))
             return err("QPU: signal %u at %u (not emulated)", (unsigned)sig, (unsigned)pc);
     }
     return err("QPU: no thread end in %u instructions", (unsigned)max, 0);
@@ -513,6 +589,7 @@ static int gl_vertices(const uint8_t *rec, int nattr, uint32_t first, uint32_t n
             q.unif = unif[s];
             q.nunif = 256;
             q.vpm = vpm;
+            q.rows = QPU_VPM_ROWS;
             if (qpu_run(&q, code[s], 512) != 0)
                 return -1;
             /* as Broadcom's simulator (Mesa's emit_stub_vpm_read): every
@@ -1507,6 +1584,62 @@ static int render(uint32_t start, uint32_t end, int have_bin)
         return err("rendering list without end of frame", 0, 0);
     if (tiles != ((fw + TS - 1) / TS) * ((fh + TS - 1) / TS))
         return err("%u tiles stored, frame of %u", (unsigned)tiles, (unsigned)(((fw + TS - 1) / TS) * ((fh + TS - 1) / TS)));
+    return 0;
+}
+
+/* ---------------------------------------------------------------- QPU programs */
+
+static char qpu_why[256] = "not run";
+static uint32_t qpu_vpm[64][16];
+
+const char *v3d_qpu_status(void)
+{
+    return qpu_why;
+}
+
+/* The programs run one after the other, each to its end (the V3D runs 12 at
+ * once: a program that waits for another's result is not emulated). The VPM is
+ * the rows 0..V3D_QPU_ROWS-1 of a program; the mutex is not modelled. */
+int v3d_qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us)
+{
+    (void)timeout_us;
+    if (emu_qpu == 1) {
+        snprintf(qpu_why, sizeof qpu_why, "timeout");
+        return -1;
+    }
+    if (n <= 0 || n > V3D_QPU_MAX) {
+        snprintf(qpu_why, sizeof qpu_why, "bad job count");
+        return -1;
+    }
+    for (int i = 0; i < n; i++) {
+        const uint32_t *code = ptr(jobs[i].code), *unif = ptr(jobs[i].unif);
+        if (!code || (jobs[i].code & 7) || (jobs[i].nunif && !unif) ||
+            (size_t)(jobs[i].unif - 0x40000000u) + 4u * jobs[i].nunif > ARENA) {
+            snprintf(qpu_why, sizeof qpu_why, "queue error");
+            snprintf(emu_error, sizeof emu_error, "QPU job %d: code %08x uniforms %08x", i, (unsigned)jobs[i].code,
+                     (unsigned)jobs[i].unif);
+            return -1;
+        }
+        static qpu_t q;
+        memset(&q, 0, sizeof q);
+        memset(qpu_vpm, 0, sizeof qpu_vpm);
+        q.user = 1;
+        q.rows = V3D_QPU_ROWS;
+        q.vpm = qpu_vpm;
+        q.unif = unif;
+        q.nunif = (int)jobs[i].nunif;
+        q.max_steps = 1L << 24;
+        const int words = (int)((ARENA - (jobs[i].code - 0x40000000u)) / 8);
+        const int r = qpu_run(&q, code, words > 65536 ? 65536 : words);
+        emu_stats.qpu_jobs++;
+        emu_stats.qpu_steps += (uint32_t)q.steps;
+        emu_stats.qpu_dma += (uint32_t)q.dma;
+        if (r) {
+            snprintf(qpu_why, sizeof qpu_why, "queue error");
+            return -1;
+        }
+    }
+    snprintf(qpu_why, sizeof qpu_why, "ok");
     return 0;
 }
 

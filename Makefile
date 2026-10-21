@@ -638,7 +638,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-keymap test-gameapi test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-keymap test-gameapi test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
@@ -829,7 +829,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # test-nano8 stays a target to run by hand; it is not in the CI list
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
-      test-release test-smp test-qpu test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
+      test-release test-smp test-qpu test-qpurun test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-docs test-api $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
@@ -1400,6 +1400,20 @@ test-gpu3d: $(BUILD)/host/test_gpu3d
 test-qpu:
 	$(PYTHON) tools/qpuasm.py -o $(BUILD)/shaders.h
 	cmp $(BUILD)/shaders.h src/gpu/shaders.h
+	$(PYTHON) tools/qpuprogs.py -o $(BUILD)/qpuprog.h
+	cmp $(BUILD)/qpuprog.h src/gpu/qpuprog.h
+
+# bm3d 7.x: the QPU programs (src/gpu/qpu.c) on the V3D emulator, three ways: they work,
+# the V3D never answers, the V3D stores wrong data
+$(BUILD)/host/test_qpurun: tests/gpu/test_qpu.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/qpu.c src/gpu/qpu.h                            src/gpu/qpuprog.h src/gpu/v3d.h src/bm/gfx16.c src/bm/gfx16.h
+	mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free 	    -c src/gpu/qpu.c -o $@-qpu.o
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_qpu.c tests/gpu/v3d_emu.c 	    src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/gfx16.c $@-qpu.o -lm
+
+test-qpurun: $(BUILD)/host/test_qpurun
+	$< 0
+	$< 1
+	$< 2
 
 HOSTCC ?= cc
 

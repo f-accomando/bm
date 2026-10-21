@@ -39,7 +39,8 @@ WADDR = {"r0": 32, "r1": 33, "r2": 34, "r3": 35, "tmu_noswap": 36, "r5": 37, "ho
          "tlb_alpha": 47, "vpm": 48, "mutex_release": 51, "sfu_recip": 52, "sfu_recipsqrt": 53,
          "sfu_exp": 54, "sfu_log": 55, "t0s": 56, "t0t": 57, "t0r": 58, "t0b": 59, "t1s": 60,
          "t1t": 61, "t1r": 62, "t1b": 63}
-RADDR = {"unif": 32, "vary": 35, "elem_num": 38, "nop": 39, "vpm": 48}   # readable from file A or B
+RADDR = {"unif": 32, "vary": 35, "elem_num": 38, "nop": 39, "vpm": 48,   # readable from file A or B
+         "mutex_acquire": 51}       # bm3d 7.x user programs: the read waits until the VPM mutex is ours
 # written through one register file: (address, file)
 WFILE = {"vr_setup": (49, "A"), "vw_setup": (49, "B"), "vr_addr": (50, "A"), "vw_addr": (50, "B")}
 PACK_A = {"16a": 1, "16b": 2}           # regfile A pack (pm 0): the low or high half of the register
@@ -116,9 +117,29 @@ def load_imm(line, lineno):
     return imm, hi
 
 
-def assemble_line(line, lineno):
+# bm3d 7.x: branches of user programs, relative, 3 delay slots. The condition
+# looks at the flags of all 16 lanes: all/any lanes with Z (or N) set / clear.
+BRANCH_COND = {"allz": 0, "allnz": 1, "anyz": 2, "anynz": 3, "alln": 4, "allnn": 5, "anyn": 6,
+               "anynn": 7, "always": 15}
+
+
+def branch(line, lineno, labels, at):
+    """bra[.cond] label: the target relative to the instruction 4 on, in bytes"""
+    m = re.fullmatch(r"bra(?:\.(\w+))?\s+(\w+)", line)
+    if not m or (m[1] or "always") not in BRANCH_COND:
+        raise SyntaxError(f"line {lineno}: bra[.allz|allnz|anyz|anynz|alln|allnn|anyn|anynn] label: {line}")
+    if labels is None or m[2] not in labels:
+        raise SyntaxError(f"line {lineno}: unknown label {m[2]}")
+    imm = (labels[m[2]] - (at + 4)) * 8 & 0xFFFFFFFF
+    hi = 15 << 28 | BRANCH_COND[m[1] or "always"] << 20 | 1 << 19 | WADDR["nop"] << 6 | WADDR["nop"]
+    return imm, hi
+
+
+def assemble_line(line, lineno, labels=None, at=0):
     if line.startswith("ldi "):
         return load_imm(line, lineno)
+    if line.startswith("bra"):
+        return branch(line, lineno, labels, at)
     parts = [p.strip() for p in line.split(";")]
     if len(parts) < 2 or len(parts) > 3:
         raise SyntaxError(f"line {lineno}: need 'add ; mul [; signal]': {line}")
@@ -158,6 +179,11 @@ def assemble_line(line, lineno):
             if ins.raddr_b not in (None, n) or ins.small is not None:
                 raise SyntaxError(f"line {lineno}: two regfile B reads")
             ins.raddr_b = n
+            return MUX_B
+        if tok == "vw_wait":                # the DMA store's end (regfile B read 50)
+            if ins.raddr_b not in (None, 50) or ins.small is not None:
+                raise SyntaxError(f"line {lineno}: two regfile B reads")
+            ins.raddr_b = 50
             return MUX_B
         if tok == "x_coord":                # X_PIXEL_COORD: regfile A only
             if ins.raddr_a not in (None, 41):
@@ -277,12 +303,15 @@ def assemble_line(line, lineno):
 
 
 def assemble(src):
-    out = []
+    """the instructions of src: (lo, hi) and their text; "name:" lines are labels"""
+    lines, labels = [], {}
     for n, line in enumerate(src.splitlines(), 1):
         line = line.split("#")[0].strip()
-        if line:
-            out.append((assemble_line(line, n), line))
-    return out
+        if line.endswith(":") and re.fullmatch(r"\w+:", line):
+            labels[line[:-1]] = len(lines)
+        elif line:
+            lines.append((n, line))
+    return [(assemble_line(line, n, labels, k), line) for k, (n, line) in enumerate(lines)]
 
 
 # ---------------------------------------------------------------- shaders of bm
