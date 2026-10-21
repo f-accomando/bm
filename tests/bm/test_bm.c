@@ -811,6 +811,49 @@ static void test_pixel(void)
     g16_sspr_zoom(&g, &s, 8, 0, 4, 4, W - 3, H - 3, 0, 0, 2.0f);
     CHECK(at(W - 3, H - 3) == 1 && at(W - 1, H - 3) == 2 && at(W - 1, H - 1) == 0, "clipped at the edge");
     g16_sheet_free(&s);
+
+    /* sprite stacking: 3 slices of 4x3 side by side, a distinct colour per pixel */
+    CHECK(g16_sheet_alloc(&s, 12, 3) == 0, "stack sheet");
+    for (int y = 0; y < 3; y++)
+        for (int x = 0; x < 12; x++)
+            g16_sheet_set(&s, x, y, (uint16_t)(100 + x + y * 12), !(x == 5 && y == 1));
+    static uint16_t ref[W * H];
+    g16_cls(&g, 0x7777);
+    for (int i = 0; i < 3; i++) g16_sspr(&g, &s, i * 4, 0, 4, 3, 38, 39 - i * 2, 0, 0);
+    memcpy(ref, fb, sizeof ref);
+    g16_cls(&g, 0x7777);
+    g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, 0.0f, 1.0f, 2.0f);
+    CHECK(memcmp(ref, fb, sizeof ref) == 0, "stack rz=0 scale=1 equals sspr per slice");
+    g16_cls(&g, 0);
+    g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, 0.0f, 1.0f, 2.0f);
+    CHECK(at(38, 41) == 124 && at(38, 39) == 128 && at(38, 37) == 132 && at(39, 38) == 0,
+          "stack order: the upper slice covers the lower one, a transparent pixel shows nothing");
+    g16_cls(&g, 0);
+    g16_stack(&g, &s, 0, 0, 4, 3, 0, 40, 40, 0.0f, 1.0f, 2.0f);
+    memset(ref, 0, sizeof ref);
+    CHECK(memcmp(ref, fb, sizeof ref) == 0, "stack n=0 draws nothing");
+    g16_cls(&g, 0);
+    g16_stack(&g, &s, 0, 0, 4, 3, 1, 1, 1, 0.0f, 1.0f, 0.0f);
+    CHECK(at(0, 0) == 101 && at(2, 1) == 115, "stack clipped at the top left");
+    g16_cls(&g, 0);
+    g16_stack(&g, &s, 0, 0, 4, 3, 1, W - 1, H - 1, 0.0f, 1.0f, 0.0f);
+    CHECK(at(W - 3, H - 2) == 100 && at(W - 1, H - 1) == 114 && at(W - 3, H - 3) == 0,
+          "stack clipped at the bottom right");
+    g16_sheet_free(&s);
+
+    /* a quarter turn of a square slice is exact */
+    CHECK(g16_sheet_alloc(&s, 4, 4) == 0, "stack square sheet");
+    for (int y = 0; y < 4; y++)
+        for (int x = 0; x < 4; x++)
+            g16_sheet_set(&s, x, y, (uint16_t)(200 + x + y * 4), 1);
+    g16_cls(&g, 0);
+    g16_stack(&g, &s, 0, 0, 4, 4, 1, 40, 40, 1.5707963267948966f, 1.0f, 1.0f);
+    int exact = 1;
+    for (int ly = 0; ly < 4; ly++)
+        for (int lx = 0; lx < 4; lx++)
+            if (at(41 - ly, 38 + lx) != 200 + lx + ly * 4) exact = 0;
+    CHECK(exact, "stack: a 90 degree turn moves every pixel to its exact place");
+    g16_sheet_free(&s);
 }
 
 /* A cartridge with a skeleton (tests/studio/anim_figure.py): the kernel

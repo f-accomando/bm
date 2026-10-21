@@ -125,6 +125,34 @@ local function draw_checks()
   cls(0)
   zspr("coin", 0, 0, 1, false, false, 2)
   check(pget(15, 15) == CYAN and pget(16, 16) == 0, "zspr zoom 2")
+  -- stack(): red, green and blue slices (cells 1-3) of 8x8, each 4 pixels above the one below
+  cls(0)
+  stack(8, 0, 8, 8, 3, 100, 100, 0, 1, 4)
+  check(pget(96, 102) == RED and pget(103, 103) == RED and pget(104, 100) == 0 and pget(95, 100) == 0,
+        "stack: the bottom slice is centred on (x, y)")
+  check(pget(96, 98) == GREEN and pget(96, 94) == BLUE and pget(96, 88) == BLUE and pget(96, 87) == 0,
+        "stack: each slice 4 pixels higher, the upper one over the lower")
+  cls(0)
+  stack(8, 0, 8, 8, 2, 100, 100)
+  check(pget(96, 103) == RED and pget(96, 95) == GREEN and pget(96, 94) == 0, "stack: step 1 by default")
+  cls(0)
+  stack(0, 16, 16, 16, 1, 100, 100, math.pi / 2)
+  check(pget(104, 96) == RED and pget(96, 96) == WHITE and pget(96, 104) == WHITE and pget(104, 104) == WHITE,
+        "stack: a quarter turn moves the red corner to the top right")
+  cls(0)
+  stack(0, 16, 16, 16, 1, 100, 100, 0, 2)
+  check(pget(84, 84) == RED and pget(100, 100) == WHITE and pget(115, 115) == WHITE and pget(116, 116) == 0,
+        "stack: scale 2 doubles the slice")
+  cls(0)
+  clip(90, 90, 10, 10)
+  stack(8, 0, 8, 8, 1, 100, 100)
+  clip()
+  check(pget(99, 99) == RED and pget(100, 100) == 0 and pget(95, 89) == 0, "stack: clipped to the clip rectangle")
+  cls(0)
+  stack(8, 0, 8, 8, 1, 0, 0)
+  stack(8, 0, 8, 8, 0, 300, 300)
+  check(pget(0, 0) == RED and pget(3, 3) == RED and pget(4, 4) == 0 and pget(300, 300) == 0,
+        "stack: at the edge of the screen, and n = 0 draws nothing")
   local f = zspr("coin", 0, 0)                 -- by the clock: 10 frames a second
   check(f == math.floor(time() * 10) % 3 + 1, "zspr animated by time()")
   -- a camera in a player's view (lib.split): drawing stays in the view

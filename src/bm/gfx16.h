@@ -71,6 +71,14 @@ void g16_sspr(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
  * covers round(sw * zoom) x round(sh * zoom) pixels of the screen. */
 void g16_sspr_zoom(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
                    int dx, int dy, int flip_x, int flip_y, float zoom);
+/* Sprite stacking: `n` slices of sw x sh, side by side on the sheet from
+ * (sx, sy), slice 0 is the bottom and is drawn first.  (x, y) is the centre of
+ * the bottom slice; each slice turns by `rz` (radians) around its centre, is
+ * `scale` times bigger and sits step * scale pixels above the one below.
+ * Colour 0 (alpha 0) is transparent.  Without turn and scale it equals n calls
+ * of g16_sspr. */
+void g16_stack(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+               int n, int x, int y, float rz, float scale, float step);
 /* Map cells [mx, mx+mw) x [my, my+mh) drawn at (x, y); cell 0 is skipped. */
 void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
              int mx, int my, int x, int y, int mw, int mh);

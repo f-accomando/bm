@@ -34,6 +34,7 @@ pixel, decoded at loading (Titan Clash: 2048×3376 pixels in 1.7 MB).
 |---|---|
 | `spr(n, x, y, [w, h, flip_x, flip_y])` | draws cell `n` (w×h cells, default 1×1), mirrored too |
 | `sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom])` | copies any rectangle of the sheet; with `zoom` (default 1) it draws it bigger (`2`, `3`…) or smaller (`0.5`), pixel by pixel: it covers `sw * zoom` × `sh * zoom` pixels |
+| `stack(sx, sy, w, h, n, x, y, [rz, scale, step])` | sprite stacking: draws `n` slices of `w`×`h` pixels that lie side by side on the sheet from `(sx, sy)`, left to right. Slice 1 is the bottom and is drawn first. `(x, y)` is the centre of the bottom slice on the ground. Each slice turns by `rz` radians (default 0) around its centre, is `scale` times bigger (default 1) and sits `step * scale` pixels above the slice below (default `step` 1). Colour 0 is transparent. It reads the sheet each call and keeps no memory. At `rz` 0 and `scale` 1 it equals `n` calls of `sspr` |
 | `sget(x, y)` / `sset(x, y, [c])` | reads / writes a pixel of the sheet (`nil` = transparent) |
 | `zspr(name, x, y, [frame, flip_x, flip_y, zoom])` | draws a **named zone** of the sheet (below): `frame` from 1 to the number of frames (beyond it starts again), or `nil`: the one its fps give at `time()`, so the animation runs by itself. Returns the frame drawn. A zone that is not there is an error |
 | `zone(name)` | `x, y, w, h, frames, fps` of the zone (its first frame, in sheet pixels), or `nil` |
