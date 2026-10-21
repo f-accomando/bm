@@ -90,8 +90,7 @@ static const char help_text[] =
             "       gpu                       the GPU test (g), its report\n"
             "       b3d tests=a,b profiles=P  the 3D Bench, all or a part (GPU+FS2 or FS2...)\n"
             "       set key=value ...         bm/config.txt keys until a restart (save: kept)\n"
-            "       render  room  stack  log  err  crc  send  reboot
-"
+            "       render  room  stack  log  err  crc  send  reboot\n"
             "     e.g. :gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send\n"
             "     crc: the CRC32 of the page on screen (crc: WxH bpp=D pitch=P crc32=0x........)\n"
             "     (from the menu too: the ':' takes the line to the monitor; from the PC\n"
