@@ -1538,21 +1538,23 @@ local function register_zone_boxes(zn, zx, zy, zw, zh, zframes, zfps, bxs)
   -- 1. SPRITES section (11)
   local cur_sprites = cart_data(11)
   local zlist = {}
+  local keep_slices = 0   -- slices of the zone that is replaced stay
   if cur_sprites and #cur_sprites >= 4 then
     local n = sunpack("<I2", cur_sprites, 1)
     for i = 0, n - 1 do
       local off = 5 + i * 28
-      local name, x, y, w, h, frames, fps = sunpack("<c16I2I2I2I2BB", cur_sprites, off)
+      local name, x, y, w, h, frames, fps, slices = sunpack("<c16I2I2I2I2BBB", cur_sprites, off)
       name = name:match("^[^\0]*")
+      if name == zn then keep_slices = slices end
       if name ~= zn then
-        zlist[#zlist + 1] = { name = name, x = x, y = y, w = w, h = h, frames = frames, fps = fps }
+        zlist[#zlist + 1] = { name = name, x = x, y = y, w = w, h = h, frames = frames, fps = fps, slices = slices }
       end
     end
   end
-  zlist[#zlist + 1] = { name = zn, x = zx, y = zy, w = zw, h = zh, frames = zframes, fps = zfps }
+  zlist[#zlist + 1] = { name = zn, x = zx, y = zy, w = zw, h = zh, frames = zframes, fps = zfps, slices = keep_slices }
   local zparts = { spack("<I2I2", #zlist, 0) }
   for _, z in ipairs(zlist) do
-    zparts[#zparts + 1] = spack("<c16I2I2I2I2BBxx", z.name, z.x, z.y, z.w, z.h, z.frames, z.fps)
+    zparts[#zparts + 1] = spack("<c16I2I2I2I2BBBx", z.name, z.x, z.y, z.w, z.h, z.frames, z.fps, z.slices)
   end
   cart_data(11, table.concat(zparts))
 
