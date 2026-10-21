@@ -90,6 +90,7 @@ BM_SRCS := $(filter-out src/bm/stress.c src/bm/roombench.c,$(wildcard src/bm/*.c
            src/ai/music.c src/ai/music_net.c src/ai/lua_music.c src/ai/nn.c src/ai/net.c \
            src/kernel/prompts.c src/kernel/pointer.c \
            src/kernel/menu_ui.c src/kernel/icons.c src/kernel/syskeys.c src/kernel/settings.c \
+           src/kernel/sdmap.c src/kernel/sdmap_core.c \
            src/kernel/ledstate.c src/kernel/notice.c src/kernel/splash.c src/kernel/logo_data.c
 # the Dev tab's bm SDK (RGB30) runs as a tool, as the Pi's suite: the same loop
 BM_SRCS += src/kernel/devtool.c

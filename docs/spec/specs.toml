@@ -14,6 +14,11 @@ rev = 2
 date = "2026-10-13"
 what = "720x720 cartridges, shot() and the screenshot keys, the INFO key spec, tool names reserved against games, the .b16 flag set by every build, bm.info as the project's metadata"
 
+[[revision]]
+rev = 3
+date = "2026-10-17"
+what = "the cartridge type (game, app, utility) declared in bm.info and mirrored in bits 2-3 of the header flags; projects (.bme) live in /bme; /carts is obsolete (scanned for one release, with a warning)"
+
 [[item]]
 id = "container-v1"
 since = 1
@@ -117,3 +122,27 @@ status = "partial"
 platforms = "all"
 where = ["docs/PROJECT-LAYOUT.md", "scripts/mkbm.py", "Makefile"]
 note = "bm.info + assets/ + res/ + build/; 21 of the 26 folders in carts/ have bm.info; without it: demo, stress, texroom, sdk_b16, titan_ex (they still build the old way, see Makefile)"
+
+[[item]]
+id = "cart-type"
+since = 3
+status = "partial"
+platforms = "all"
+where = ["src/bm/project.h", "scripts/mkbm.py", "src/kernel/settings.c", "src/kernel/home.h"]
+note = "docs/BM-FORMAT.md. Done: the type bits in the header (project.h), written by mkbm.py from bm.info. Not done: no kernel code calls bm_type_of_head(), so the menu does not group by type (Games = game, Dev = app, Settings > System > Utilities = utility); home_utils() is a weak stub that returns 0 (settings.c:122) and home_tool_is_utility() has no definition (home.h:89)"
+
+[[item]]
+id = "folders-bm-bme"
+since = 3
+status = "partial"
+platforms = "all"
+where = ["src/kernel/sdmap_core.c", "src/bm/project.c"]
+note = "Done: the SD map counts /bm and /bme (sdmap_core.c, the only code that knows /bme); bm_is_project() tells a project by its extension. Not done: no scan of /bme, no project created in /bme (a copy goes next to its game), and /carts is still scanned (carts.c:428-429 scans / and /carts; rgb30/ui.c:278-279 scans /bm and /carts)"
+
+[[item]]
+id = "sd-map"
+since = 3
+status = "implemented"
+platforms = "all"
+where = ["src/kernel/sdmap_core.c", "src/kernel/sdmap.c", "src/kernel/settings.c", "src/kernel/menu_ui.c", "src/fs/fat.c"]
+note = "Settings > System > SD map: bar kernel/bm/bme/other/free, folders, other files; incremental scan in a menu fiber; cache bm/sdmap.txt"

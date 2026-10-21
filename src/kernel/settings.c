@@ -17,6 +17,7 @@
 #include "bt/bt.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
+#include "sdmap.h"
 #include "gfx/console.h"
 #include "lib/heap.h"
 #include "lib/printf.h"
@@ -53,6 +54,30 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* ---------------------------------------------------------------- the SD map */
+
+static const char *sdmap_state_name(void)
+{
+    switch (sdmap_state()) {
+    case SDMAP_CACHED: return "cached";
+    case SDMAP_SCANNING: return "scanning";
+    case SDMAP_DONE: return "done";
+    }
+    return "";
+}
+
+static void fmt_size(char *out, size_t n, uint64_t bytes)
+{
+    if (bytes < (1u << 20))
+        ksnprintf(out, n, "%lu KiB", (unsigned long)(bytes >> 10));
+    else if (bytes < (1u << 30))
+        ksnprintf(out, n, "%lu.%lu MiB", (unsigned long)(bytes >> 20),
+                  (unsigned long)((bytes & 0xFFFFF) * 10 >> 20));
+    else
+        ksnprintf(out, n, "%lu.%02lu GiB", (unsigned long)(bytes >> 30),
+                  (unsigned long)((bytes & 0x3FFFFFFF) * 100 >> 30));
+}
+
 void home_row(home_panel_t *p, int kind, int id, const char *label, const char *help,
               const char *fmt, ...)
 {
@@ -67,7 +92,7 @@ void home_row(home_panel_t *p, int kind, int id, const char *label, const char *
         vsnprintf(p->value[i], sizeof p->value[i], fmt, ap);
         va_end(ap);
     }
-    p->rows[i] = (menu_row_t){ p->label[i], fmt ? p->value[i] : NULL, kind };
+    p->rows[i] = (menu_row_t){ p->label[i], fmt ? p->value[i] : NULL, kind, NULL, 0 };
     p->ids[i] = id;
     p->help[i] = help;
 }
@@ -88,8 +113,16 @@ enum {
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
     R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
-    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR, R_ATTR,
+    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR, R_ATTR, R_UTILS,
+    R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
 };
+#define R_UTIL_BASE 200   /* the rows of HOME_UTILITIES: R_UTIL_BASE + i */
+
+/* No utility until a kernel defines its own (home.c on the Pi, ui.c on the RGB30). */
+__attribute__((weak)) int home_utils(void) { return 0; }
+__attribute__((weak)) const char *home_util_title(int i) { (void)i; return ""; }
+__attribute__((weak)) const char *home_util_about(int i) { (void)i; return ""; }
+__attribute__((weak)) void home_util_start(int i, home_do_t *d) { (void)i; (void)d; }
 
 /* sound_depth: the bits of each sample at the output (what the output
  * really carries is in the row's help) */
@@ -627,6 +660,7 @@ void home_panel(int id, home_panel_t *p)
 #endif
         home_row(p, MENU_ROW_INFO, R_SD, "SD card", "The card the console started from",
                  "%s", fat_describe());
+        home_row(p, MENU_ROW_SUB, R_SDMAP, "SD map", "What is on the card, by folder", "%s", sdmap_state_name());
 #ifdef BM_RGB30
         {
             int mv, charge;
@@ -647,12 +681,68 @@ void home_panel(int id, home_panel_t *p)
                      bm3d_mode_q(gpu, gpu ? vs_on() : 0, gpu && queue_on()));
         }
 #endif
+        home_row(p, MENU_ROW_SUB, R_UTILS, "Utilities", "Benchmarks, tests and controls", "%d", home_utils());
         home_row(p, MENU_ROW_ACTION, R_LOG, "Log since boot",
                  "Everything printed since the console started", NULL);
 #ifndef BM_RGB30
         home_row(p, MENU_ROW_ACTION, R_MONITOR, "Open the monitor",
                  "The text console with every command", NULL);
 #endif
+        break;
+    }
+    case HOME_UTILITIES: {
+        ksnprintf(p->title, sizeof p->title, "Settings > System > Utilities");
+        for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)
+            home_row(p, MENU_ROW_ACTION, R_UTIL_BASE + i, home_util_title(i), home_util_about(i), NULL);
+        if (home_utils() == 0)
+            home_row(p, MENU_ROW_INFO, R_UTILS, "none", "This console has no utility yet", NULL);
+        break;
+    }
+    case HOME_SDMAP: {
+        static uint16_t parts[5];
+        static const uint32_t col[5] = { 0xE06C75, 0x61AFEF, 0x98C379, 0xE5C07B, 0x4A5060 };
+        static const char *const name[5] = { "Kernel", "bm (games)", "bme (projects)", "Other", "Free" };
+        ksnprintf(p->title, sizeof p->title, "Settings > System > SD map");
+        sdmap_request();
+        const sdmap_t *m = sdmap_result();
+        const uint64_t v[5] = { m->kernel, m->bm, m->bme, m->other, m->free };
+        for (int i = 0; i < 5; i++)
+            parts[i] = m->total ? (uint16_t)(v[i] * 1000 / m->total) : 0;
+        home_row(p, MENU_ROW_BAR, R_SDBAR, "SD card", "Kernel, games, projects, other files and free space", NULL);
+        p->rows[p->n - 1].bar = parts;
+        for (int i = 0; i < 5; i++) {
+            char sz[24];
+            fmt_size(sz, sizeof sz, v[i]);
+            home_row(p, MENU_ROW_INFO, R_SDINFO, name[i], "The colour of the bar", "%s", sz);
+            p->rows[p->n - 1].swatch = col[i];
+        }
+        home_row(p, MENU_ROW_INFO, R_SDINFO, "Scan", "The menu reads the card while it is idle",
+                 "%s %d%%", sdmap_state_name(), sdmap_permille() / 10);
+        for (int i = 0; i < m->ndirs; i++)
+            home_row(p, MENU_ROW_INFO, R_SDINFO, m->dirs[i].path, "Files directly in this folder",
+                     "%lu files, %lu KB", (unsigned long)m->dirs[i].files, (unsigned long)m->dirs[i].kb);
+        home_row(p, MENU_ROW_SUB, R_SDFILES, "Other files", "Files the menu cannot show, largest first",
+                 "%d", m->nfiles);
+        break;
+    }
+    case HOME_SDFILES: {
+        ksnprintf(p->title, sizeof p->title, "Settings > System > SD map > Other files");
+        const sdmap_t *m = sdmap_result();
+        for (int i = 0; i < m->nfiles; i++) {
+            const char *path = m->files[i].path;
+            size_t len = strlen(path);
+            char lab[32];
+            if (len > 31)
+                ksnprintf(lab, sizeof lab, "..%s", path + len - 29);
+            else
+                ksnprintf(lab, sizeof lab, "%s", path);
+            uint32_t kb = m->files[i].bytes / 1024;
+            if (kb == 0 && m->files[i].bytes)
+                kb = 1;
+            home_row(p, MENU_ROW_INFO, R_SDINFO, lab, "Its path and size", "%lu KB", (unsigned long)kb);
+        }
+        if (m->nfiles == 0)
+            home_row(p, MENU_ROW_INFO, R_SDINFO, "none", "Every file on the card is shown by the menu", NULL);
         break;
     }
     }
@@ -667,6 +757,9 @@ int home_sub_panel(int row)
     case R_UPDATES: return HOME_UPDATES;
     case R_REPORTS_SUB: return HOME_REPORTS;
     case R_SYSTEM: return HOME_SYSTEM;
+    case R_UTILS: return HOME_UTILITIES;
+    case R_SDMAP: return HOME_SDMAP;
+    case R_SDFILES: return HOME_SDFILES;
     }
     return 0;
 }
@@ -857,8 +950,14 @@ void home_act(int id, int row, int how, home_do_t *d)
     memset(d, 0, sizeof *d);
     d->what = HOME_STAY;
     (void)id;
+    if (row >= R_UTIL_BASE && row < R_UTIL_BASE + HOME_ROWS_MAX) {
+        if (how == 0 && row - R_UTIL_BASE < home_utils())
+            home_util_start(row - R_UTIL_BASE, d);
+        return;
+    }
     switch (row) {
-    case R_CONTROLLERS: case R_WIFI: case R_SYSTEM: case R_SCREEN: case R_UPDATES: case R_REPORTS_SUB:
+    case R_CONTROLLERS: case R_WIFI: case R_SYSTEM: case R_SCREEN: case R_UPDATES: case R_REPORTS_SUB: case R_UTILS:
+    case R_SDMAP: case R_SDFILES:
         d->what = HOME_OPEN;
         d->panel = home_sub_panel(row);
         break;

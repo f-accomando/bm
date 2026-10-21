@@ -1,6 +1,7 @@
 /*
  * Cartridge list (built-in + SD card) and the on-screen menu.
  */
+#include "sdmap.h"
 #include "carts.h"
 #include "crumbs.h"
 #include "devtool.h"
@@ -335,11 +336,12 @@ static const fiber_share_t menu_jobs[] = {
     /*                      game tool menu */
     { update_tick,        {  0,   0,  15 } },   /* Settings > Updates: check, install */
     { publish_tick,       {  0,   0,  15 } },   /* a game to the Market */
-    { market_tick,        {  0,   0,  30 } },   /* its tab */
+    { market_tick,        {  0,   0,  25 } },   /* its tab */
     { lib_idle,           {  0,   0,  15 } },   /* its tab */
-    { covers_tick,        {  0,   0,  15 } },   /* the tab's covers first */
+    { covers_tick,        {  0,   0,  10 } },   /* the tab's covers first */
     { reports_idle,       {  0,   0,   5 } },   /* Games, Dev, Lib, no panel */
     { wifi_auto_idle,     {  0,   0,   5 } },   /* the saved network again, while the link is down */
+    { sdmap_tick,         {  0,   0,  10 } },   /* the SD map scan (Settings > System > SD map), last */
 };
 
 /* the menu's free time in a frame (menu_view_t.idle) */
@@ -372,6 +374,7 @@ static void background_stop(void)
     lib_job_stop();
     fiber_job_stop(&report_job);
     wifi_auto_stop();
+    sdmap_stop();
 }
 
 static int same_text(const char *a, const char *b)

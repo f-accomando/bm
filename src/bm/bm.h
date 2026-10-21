@@ -140,8 +140,9 @@
  * the system keys or the config keys gain something a cartridge can depend on. A cartridge says what it needs with
  * the INFO key "spec: N" (bm.info); an older kernel then refuses it with a message instead of failing half way.
  * Revision 1: everything of 2026-10-11 (container v1, sections 1-14, resource files, projects, the .b16 marker).
- * Revision 2 (2026-10-13): 720x720 cartridges, shot(), the INFO key "spec", tool names reserved against games. */
-#define BM_SPEC_REV 2
+ * Revision 2 (2026-10-13): 720x720 cartridges, shot(), the INFO key "spec", tool names reserved against games.
+ * Revision 3 (2026-10-17): the cartridge type in bits 2-3 of the flags (bm.info "type"), the /bme folder for projects. */
+#define BM_SPEC_REV 3
 
 #include <stddef.h>
 #include <stdint.h>

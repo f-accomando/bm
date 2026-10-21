@@ -26,7 +26,7 @@ All numbers are little endian.
 | 12, 14 | u16, u16 | width, height | cartridge: only 640x360, 480x270, 320x180, 256x256, 360x360. In a resource file offset 12 is the **kind** (1..6) |
 | 16 | u8 | pixel format | only 1 (RGB565); 2 is reserved and refused |
 | 17 | u8 | number of sections | up to 255 |
-| 18 | u16 | flags | bit 0 project, bit 1 `.b16` (defined in `project.h`, not in `bm.h`, whose comment still says "reserved (0)"). **No code reads these bits**: the kind comes from the extension. Writers keep the other bits |
+| 18 | u16 | flags | bit 0 project, bit 1 `.b16`, bits 2-3 the type declared in `bm.info` (0 game, 1 app, 2 utility, 3 reserved = game); defined in `project.h`, not in `bm.h`, whose comment still says "reserved (0)". `mkbm.py` writes the type bits and `bm_type_of_head()` reads them; no kernel uses them for the menu yet (D09). The project/`.b16` kind still comes from the extension. Writers keep the other bits |
 | 20 | u32 | CRC-32 | of the bytes from 128 to the end of the file. The **header is not covered** |
 | 24 | 48 | title | UTF-8, up to 47 bytes + NUL; shown by the menu |
 | 72 | 32 | author | up to 31 bytes + NUL |

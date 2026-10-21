@@ -75,6 +75,7 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 
 - **C4:** the RAM ring stops before the crash (BOOTPREV ends at the netcon prompt). BETA1-C4-RING is merged (PR 50): the crash record holds `ring_at` and the sink state, and a nested exception leaves the crumb `nested exception`. The item stays open until the Pi run reads them. Details: [beta1-c4-diag.md](beta1-c4-diag.md).
 - Measurements to redo, stalls that still hold the CPU, downloads inside an app: [multitasking](multitasking.md).
+- Try the SD map (Settings > System) on the Pi Zero W (speed of the scan, stutter of the menu) and on the RGB30: not verified on hardware.
 
 ### Console Standalone & Hardware Spunti (R1, R2, R3, R4, R6, R8, R19, R20)
 - **R1 — WiFi dal menu col pad**: Settings > WiFi and network con selezione reti via gamepad e inserimento credenziali tramite tastiera a schermo (R2).
@@ -92,6 +93,9 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 - All SD logs only via `src/kernel/sdlog.c`.
 - Planned restarts only via `crumbs_restart()`.
 - SD logs masked with `reports_mask_secrets()`.
+- The SD map scan never runs while a game or a tool runs (`sdmap_stop` in `background_stop` on the Pi, in `run_page` on the RGB30).
+- The bar's categories are fixed: kernel, bm, bme, other, free (other = total - free - the rest).
+- Free space is counted from the FAT (`fat_free_step`), not from FSInfo.
 - Fibers (`background_stop()`, `net_wait_step`, update/publish vs apps): [multitasking](multitasking.md).
 - Tabs on the Pi: Market · Games · Dev · Lib · Settings, Lib hidden until `lib_tab=1`; the
   menu opens on Games; the Market never blocks the menu and loads only when its tab is on.

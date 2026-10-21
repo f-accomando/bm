@@ -856,9 +856,9 @@ $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/for
 test-fat: $(BUILD)/host/test_fat
 	$(PYTHON) tests/fs/run.py $<
 
-$(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/drivers/sd.h
+$(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/drivers/sd.h src/kernel/sdmap_core.c src/kernel/sdmap.h
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/fs/test_fat.c src/fs/fat.c
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/fs/test_fat.c src/fs/fat.c src/kernel/sdmap_core.c
 
 # Network console on lwIP's loopback interface (the WiFi chip is not in QEMU),
 # then lwIP on the Pi 1 B's Ethernet with a simulated LAN9512 and a DHCP peer
@@ -1159,6 +1159,7 @@ test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUI
 	    $(BUILD)/carts/astrowing.bm ship:32,dart,tower,gate,ring:120,laser,bolt,debris,debris2,mark,core,core_hot,turret \
 	    $(BUILD)/texroom.bm floor_mesh,walls_mesh,crate_mesh,pillar_mesh \
 	    $(BUILD)/carts/kitchen.bm chef_classic1_body,chef1_body,plate,dplate
+	$(PYTHON) tests/bm/test_type.py
 
 # The button prompts (bm-ui): every one checked, and both sets drawn 3x as
 # on a TV into build/prompts/prompts.png (the menu) and chips.png (the apps)

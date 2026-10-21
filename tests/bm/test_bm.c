@@ -5,6 +5,7 @@
 
 #include "bm/bm.h"
 #include "bm/gfx16.h"
+#include "bm/project.h"
 #include "bm/r3d.h"
 #include "lib/crc32.h"
 
@@ -878,6 +879,23 @@ static void test_console_cart(const char *path)
     free(d);
 }
 
+static void test_type_bits(void)
+{
+    unsigned char h[128] = {0};
+    CHECK(bm_type_of_head(h) == BM_TYPE_GAME, "type 0: a game");
+    h[18] = 4;
+    CHECK(bm_type_of_head(h) == BM_TYPE_APP, "type 1: an app");
+    h[18] = 8;
+    CHECK(bm_type_of_head(h) == BM_TYPE_UTILITY, "type 2: a utility");
+    h[18] = 12;
+    CHECK(bm_type_of_head(h) == BM_TYPE_GAME, "3 is reserved: a game");
+    h[18] = 5;
+    CHECK(bm_type_of_head(h) == BM_TYPE_APP, "project + app");
+    h[18] = 2 | 8;
+    CHECK(bm_type_of_head(h) == BM_TYPE_UTILITY, "b16 + utility");
+    CHECK(strcmp(bm_type_name(BM_TYPE_APP), "app") == 0, "type name");
+}
+
 int main(int argc, char **argv)
 {
     test_primitives();
@@ -888,6 +906,7 @@ int main(int argc, char **argv)
     test_3d();
     test_format(argc > 1 ? argv[1] : "build/demo.bm");
     test_cover_peek();
+    test_type_bits();
     test_sheet8();
     test_mesh();
     test_pixel();
