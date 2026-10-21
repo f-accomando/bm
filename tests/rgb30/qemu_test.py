@@ -210,7 +210,7 @@ def test_screen_console(b, opts):
             assert name in text and in_menu(text), f"{name!r} not selected on the Dev tab:\n{text}"
         keys(q, "r")                            # Settings: its panel, the Pi's sections (settings.c)
         text = screen_all(q.screendump())
-        for needle in ("Controllers", "Controls", "WiFi and network", "Screen and sound", "Updates", "Reports", "System"):
+        for needle in ("Controllers", "Controls", "WiFi and network", "Screen and sound", "Updates", "Reports"):   # System is below the sixth row (Controls added one)
             assert needle in text, f"{needle!r} not in Settings:\n{text}"
         assert "none waiting" in text, text    # no reports waiting
         keys(q, "w")                            # up from the first row: round to the last
@@ -1858,7 +1858,7 @@ def test_sound(b, opts):
         quarter = tone()
         assert 0.2 * full <= quarter <= 0.3 * full, (full, quarter)
         keys(q, "rr")                           # Settings; down to Screen and sound
-        keys(q, "ss\r")
+        keys(q, "sss\r")
         # its rows longer than the screen since Sound style and 3D on the ARM:
         # seven down to the last (Bit depth before it), Test the sound, the
         # list scrolling with it

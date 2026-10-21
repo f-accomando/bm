@@ -320,7 +320,7 @@ int carts_has_path(const char *path)
 
 static void wait_back(void)
 {
-    while (!(pad_pressed() & (PAD_B | PAD_A)))
+    while (!(pad_pressed() & (pad_ok | pad_back)))
         timer_delay_ms(10);
 }
 
