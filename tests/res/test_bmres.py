@@ -107,6 +107,45 @@ def test_info_sprites():
     raises(lambda: bmres.sprites_decode(body[:-1]), "SPRITES cut short")
 
 
+def stack_cart():
+    """a cart with a 96x16 sheet and one stack zone: w=8, 1 frame, 12 slices"""
+    f = empty_cart()
+    rgba = bytearray()
+    for y in range(16):
+        for x in range(96):
+            rgba += bytes((x * 2 + 1, y * 9 + 1, 200, 255))
+    bmres.sheet_set(f, 96, 16, bytes(rgba), seed=())
+    f.sections.append([bmres.SEC_SPRITES, bmres.sprites_encode(
+        [{"name": "tree", "x": 0, "y": 0, "w": 8, "h": 8, "frames": 1, "fps": 0, "slices": 12}])])
+    return f
+
+
+def zones_fit(f):
+    """the same check as format.c: x + w * max(frames, slices) fits the sheet"""
+    sw, sh, _ = bmres.sheet_get(f)
+    return all(z["x"] + z["w"] * max(z["frames"], z["slices"]) <= sw and z["y"] + z["h"] <= sh
+               for z in bmres.sprites_decode(f.get(bmres.SEC_SPRITES)))
+
+
+def test_stack_zone():
+    src = stack_cart()
+    ext = roundtrip(bmres.extract_image(src, sprites=["tree"]))
+    z = bmres.sprites_decode(ext.get(bmres.SEC_SPRITES))[0]
+    check(z["slices"] == 12 and z["w"] == 8, "extract: the stack zone keeps its slices")
+    check(bmres.sheet_get(ext)[0] >= 96, "extract: the sheet keeps the full width of the stack zone")
+    check(zones_fit(ext), "extract: the stack zone fits the sheet")
+    check(block(bmres.sheet_get(ext), z["x"], z["y"], 96, 8) == block(bmres.sheet_get(src), 0, 0, 96, 8),
+          "extract: all 96 pixels of the stack zone")
+    cart = empty_cart()
+    bmres.integrate(cart, ext)
+    cart = roundtrip(cart)
+    z = bmres.sprites_decode(cart.get(bmres.SEC_SPRITES))[0]
+    check(z["slices"] == 12, "merge: the stack zone keeps its slices")
+    check(zones_fit(cart), "merge: the stack zone fits the sheet")
+    check(block(bmres.sheet_get(cart), z["x"], z["y"], 96, 8) == block(bmres.sheet_get(src), 0, 0, 96, 8),
+          "merge: all 96 pixels of the stack zone")
+
+
 def test_container(village):
     f = bmres.extract_models(village, ["house"])
     data = bmres.dump(f)
@@ -427,6 +466,7 @@ def main():
     os.makedirs(out, exist_ok=True)
     village, demo, sound = (bmres.read(p) for p in (village_path, demo_path, sound_path))
     test_info_sprites()
+    test_stack_zone()
     test_container(village)
     test_models(village, demo, out)
     test_image(demo, out)

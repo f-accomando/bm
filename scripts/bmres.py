@@ -399,8 +399,8 @@ def boxes_encode(boxes):
 
 
 def zone_rect(z):
-    """the pixels of a zone with all its frames: x, y, w, h"""
-    return z["x"], z["y"], z["w"] * z["frames"], z["h"]
+    """the pixels of a zone with all its frames or slices: x, y, w, h"""
+    return z["x"], z["y"], z["w"] * max(z["frames"], z.get("slices", 0)), z["h"]
 
 
 # ------------------------------------------------------------------ sheets
