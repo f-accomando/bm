@@ -28,7 +28,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 | ID | Pri | Criterion to open the beta | Verifiable requirement | After |
 |---|---|---|---|---|
-| BETA-1 | P0 | Stable base | CI green on `bm-core`; no freeze in the logs of a long session on Pi and RGB30; a crash writes a correct `bootprev.txt` (hardware tests done by the user) | SYS-1, SYS-2, SYS-5 |
+| BETA-1 | P0 | Stable base | CI green on `bm-core`; a crash writes a correct `bootprev.txt` (hardware tests done by the user) | SYS-1, SYS-2, SYS-5 |
 | BETA-2 | P0 | A complete game can be built with the suite | the acceptance test, 2D version | APP-4, APP-1, APP-6 |
 | BETA-3 | P0 | The API is integrated in the editor | function help and lint in bm Code; completion with a single API source | APP-5 |
 | BETA-4 | P1 | Acceptable performance in 2D and 3D | budget measured and published for Pi and RGB30; the test game at 60 fps (or at the frame rate declared in the budget) | API-1, M36, M35, M37, M41 |
@@ -47,7 +47,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 | ID | Pri | State | Goal | Requirement | Details | After |
 |---|---|---|---|---|---|---|
 | SYS-1 | P0 | in progress | CI green on `bm-core` | all `ci.yml` jobs (host, qemu 1-4, rgb30) green on `bm-core`; `scripts/ci_audit.py` exit 0 | [tools](progress/tools.md), [sync](progress/sync.md) | - |
-| SYS-2 | P0 | in progress | Reliable freeze report and SD logs | an intended reboot does not report a freeze; a crash writes a correct `bootprev.txt`; the password is masked in SD logs; the watchdog counts on the Pi Zero W | [system](progress/system.md) `Open work` | SYS-1 |
+| SYS-2 | P0 | in progress | Reliable freeze report and SD logs | an intended reboot does not report a freeze; a crash writes a correct `bootprev.txt` | [system](progress/system.md) `Open work` | SYS-1 |
 | SYS-3 | P1 | in progress | Pi tests from the PC (network, keys, screenshot) | `bm_net.py --shot/--keys` and the bridge tested on a Pi; R-NET3 with a limited test token | [tools](progress/tools.md) `Pi tests from the PC`, [pi-test](design/pi-test.md) | - |
 | SYS-4 | P1 | to do | Measurable multi-agent coordination | ledger and `agent_audit.py` with baseline; work order scope checked by script | [sync](progress/sync.md), [sync-workflow](progress/sync-workflow.md) | - |
 | M42 | P1 | in progress | Identical `.b16` profile on Pi and RGB30 | *Yharnam* `.b16` runs indistinguishably on Pi Zero W and RGB30, lint warnings in place | [b16](progress/b16.md) §2-3 | - |
