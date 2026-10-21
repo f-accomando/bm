@@ -4,6 +4,7 @@
 #include "lib/printf.h"
 
 #include <math.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -280,7 +281,8 @@ int qpu_fade_apply(g16_t *g, const g16_fade_t *f)
     static uint16_t *scratch;
     static uint32_t scratch_px;
     const uint32_t total = (uint32_t)g->w * (uint32_t)g->h, blocks = total / 32;
-    if (!qpu_fade_ok() || g->stride != (uint32_t)g->w || g->w != f->w || g->h != f->h || blocks == 0 ||
+    if (!qpu_fade_ok() || (((uintptr_t)g->px | (uintptr_t)f->lv | (uintptr_t)f->index | (uintptr_t)f->tab) & 63) ||
+        g->stride != (uint32_t)g->w || g->w != f->w || g->h != f->h || blocks == 0 ||
         f->levels > 16) {
         g16_fade_apply(g, f);
         return 0;
@@ -438,9 +440,14 @@ int qpu_init(void)
     particles_ok = probe_particles();
     if (!particles_ok)
         qpu_stats.probe_bad++;
-    fade_ok = probe_fade();
-    if (!fade_ok)
-        qpu_stats.probe_bad++;
+    if (!particles_ok && !strcmp(v3d_qpu_status(), "timeout")) {
+        ksnprintf(why_f, sizeof why_f, "skipped: the V3D did not answer");    /* no second wait for nothing */
+        fade_ok = 0;
+    } else {
+        fade_ok = probe_fade();
+        if (!fade_ok)
+            qpu_stats.probe_bad++;
+    }
     ksnprintf(status, sizeof status, "particles %s%s%s, fade %s%s%s", particles_ok ? "yes" : "no",
               particles_ok ? "" : ": ", particles_ok ? "" : why_p, fade_ok ? "yes" : "no", fade_ok ? "" : ": ",
               fade_ok ? "" : why_f);

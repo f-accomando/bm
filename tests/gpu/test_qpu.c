@@ -153,7 +153,7 @@ static void fade_case(uint32_t pixels, int levels, int ntab, int expect_qpu)
 }
 
 /* g16_fade_apply of the 2D library against qpu_fade_apply, on lamps and colours made with its own calls */
-static void g16_case(int w, int h, int expect_qpu)
+static void g16_case(int w, int h, int expect_qpu, int misalign)
 {
     g16_fade_t f;
     g16_fade_init(&f, w, h);
@@ -182,7 +182,7 @@ static void g16_case(int w, int h, int expect_qpu)
     f.lv = lv;
     f.index = index;
     f.tab = tab;
-    uint16_t *px = qpu_alloc((size_t)w * h * 2), *ref = malloc((size_t)w * h * 2);
+    uint16_t *px0 = qpu_alloc((size_t)w * h * 2 + 64), *px = px0 + (misalign ? 1 : 0), *ref = malloc((size_t)w * h * 2);
     for (int i = 0; i < w * h; i++) {
         px[i] = (uint16_t)rnd();
         if (i % 4 == 0)
@@ -202,7 +202,7 @@ static void g16_case(int w, int h, int expect_qpu)
     CHECK(!memcmp(px, ref, (size_t)w * h * 2), "g16 fade %dx%d: not the library's picture", w, h);
     CHECK(by_qpu == expect_qpu && (emu_stats.qpu_jobs > jobs0) == expect_qpu, "g16 fade %dx%d: by_qpu %d, jobs %u", w, h,
           by_qpu, emu_stats.qpu_jobs - jobs0);
-    qpu_free(px);
+    qpu_free(px0);
     free(ref);
     qpu_free(lv);
     qpu_free(index);
@@ -228,9 +228,10 @@ int main(int argc, char **argv)
         fade_case(32 * 13, 8, 200, 1);
         fade_case(32 * 50, 12, 255, 1);
         fade_case(32 * 400, 8, 7, 1);       /* 12 jobs of 33 blocks */
-        g16_case(640, 360, 1);              /* a screen of Yharnam's size */
-        g16_case(100, 33, 1);               /* 3300 pixels: 103 blocks and 4 pixels for the ARM */
-        g16_case(20, 1, 0);                 /* less than a block */
+        g16_case(640, 360, 1, 0);              /* a screen of Yharnam's size */
+        g16_case(100, 33, 1, 0);               /* 3300 pixels: 103 blocks and 4 pixels for the ARM */
+        g16_case(20, 1, 0, 0);               /* less than a block */
+        g16_case(64, 32, 0, 1);             /* a picture not on a 64-byte line: the ARM, same picture */
         CHECK(emu_stats.qpu_dma > 0, "no DMA store counted");
 
         /* a queue: three requests of different kinds, one flush, one launch each batch */
@@ -287,15 +288,19 @@ int main(int argc, char **argv)
         emu_qpu = 0;
         particles_case(7, 0);               /* off for good: no job even when the V3D answers again */
         fade_case(64, 8, 4, 0);
-        g16_case(64, 32, 0);
+        g16_case(64, 32, 0, 0);
     } else {
         CHECK(r == -1 && !qpu_particles_ok() && !qpu_fade_ok(), "QPUs usable with emu_qpu=%d: %s", mode, qpu_status());
+        if (mode == 1) {
+            CHECK(qpu_stats.probe_bad == 1 && strstr(qpu_status(), "skipped"), "the fade probe waited too: %s", qpu_status());
+            CHECK(emu_stats.qpu_jobs == 0, "jobs ran with a V3D that never answers");
+        }
         if (mode == 2)
             CHECK(qpu_stats.probe_bad == 2, "probe turned %u programs off", qpu_stats.probe_bad);
         emu_qpu = 0;
         particles_case(9, 0);
         fade_case(96, 8, 4, 0);
-        g16_case(64, 32, 0);
+        g16_case(64, 32, 0, 0);
     }
     CHECK(test_arena_overruns() == 0, "a block was written past its end");
     printf("qpu: %d/%d checks passed (%u QPU jobs, %u instructions)\n", checks - failures, checks, emu_stats.qpu_jobs,
