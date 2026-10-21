@@ -209,7 +209,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   screen to the left until it is the current tab: the same Market as the Pi, but only the
   catalogue's `.b16` games; B asks and downloads, the game goes into `bm/` and is played from there, X the details:
   play, download again, delete), **Games** (`.b16` games and the `.bm` ones, with their
-  cover; **X** opens a game's options, the Pi's C: play, open in bm SDK, type, size, author, save data and deleting it, deleting the file; with `show_bm=0` it says how many cartridges are hidden), **Dev** (3D Bench, Render bench,
+  cover; **X** opens a game's options, the Pi's C: play, open in bm SDK, send to a nearby console, type, size, author, save data and deleting it, deleting the file; with `show_bm=0` it says how many cartridges are hidden), **Dev** (3D Bench, Render bench,
   Display, Input test, Boot log, Lua on the serial port, GPU test, bm SDK) and **Settings**, the last, a page of its own:
   since 2026-10-04 the same sections as the Pi (`src/kernel/settings.c`): Controllers
   (Bluetooth, pairing pads, keyboards and mice, button test, *Confirm button*, keyboard

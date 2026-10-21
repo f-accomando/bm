@@ -12,7 +12,7 @@ This document is the fixed reference for device-specific input controls, menu be
 | Scaling rule | Video controller (VOP2) hardware scaling ×2 (`bm_scale`, `bm_smooth`), sharp or smoothed | `docs/RGB30.md:175-176`, `docs/spec/divergences.toml:344` | implemented |
 | Confirm button | B = OK / confirm (bottom button); `confirm=a` in `bm/config.txt` swaps to A | `docs/RGB30.md:166-167,220`, `docs/progress/platforms.md:35`, `docs/spec/divergences.toml:355` | implemented |
 | Back button | Y = cancel / back (target, user decision 2026-10-19; currently A = back, code uses `pad_back`) | user decision 2026-10-19; `docs/RGB30.md:166-167,220`, `docs/progress/platforms.md:35` | to implement |
-| X button | Opens cartridge options in menu (play, open in bm SDK, type, size, author, save data, delete) | `docs/RGB30.md:210,212`, `docs/progress/platforms.md:36` | implemented |
+| X button | Opens cartridge options in menu (play, open in bm SDK, send to a nearby console, type, size, author, save data, delete) | `docs/RGB30.md:210,212`, `docs/progress/platforms.md:36` | implemented |
 | Y button | Target: cancel / back in menus and apps (currently contextual secondary action in apps / tools) | user decision 2026-10-19; `docs/RGB30.md:223`, `docs/spec/divergences.toml:366` | to implement |
 | L1 / R1 | Move between menu tabs (Market, Games, Dev, Settings) without wrapping | `docs/RGB30.md:219`, `docs/progress/platforms.md:36` | implemented |
 | D-pad | Navigate covers, menu items, and settings rows | `docs/RGB30.md:219-220`, `docs/progress/platforms.md:35` | implemented |

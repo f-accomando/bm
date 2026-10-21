@@ -729,7 +729,7 @@ static const char *const tab_names[] = { "Market", "Games", "Dev" };
 
 /* the questions over the menu: a row of Settings, a download of the
  * Market, a row of a Market game's details, a game a nearby console sends */
-enum { ASK_NONE, ASK_ROW, ASK_MARKET, ASK_MOPT, ASK_GOPT, ASK_OFFER, ASK_SWITCH };
+enum { ASK_NONE, ASK_ROW, ASK_MARKET, ASK_MOPT, ASK_GOPT, ASK_OFFER, ASK_SWITCH, ASK_SEND };
 
 /* the menu's screen again after a page; if it cannot be had, the console
  * says why and a button tries again */
@@ -790,7 +790,7 @@ static void play_market(int i, char *note, size_t n)
 
 /* --- a game's options (X on its cover; the Pi's C): its panel over the covers --- */
 
-enum { G_PLAY = 100, G_SDK, G_BUILD_B16, G_TYPE, G_SIZE, G_AUTHOR, G_SAVE, G_DEL_SAVE, G_DELETE, G_CLOSE };
+enum { G_PLAY = 100, G_SDK, G_BUILD_B16, G_SEND, G_TYPE, G_SIZE, G_AUTHOR, G_SAVE, G_DEL_SAVE, G_DELETE, G_CLOSE };
 
 /* the save slots of game `i`: bytes in all, -1 if none */
 static long game_save_bytes(int i, int *slots)
@@ -823,6 +823,8 @@ static void game_panel(int i, home_panel_t *p)
     if (games[i].is_bm)
         home_row(p, MENU_ROW_ACTION, G_BUILD_B16, "Export .b16",
                  "Exports a .b16 edition (up to 8 MiB) without changing the .bm", NULL);
+    home_row(p, MENU_ROW_ACTION, G_SEND, "Send to a nearby console",
+             "To a console on this network with the Market tab open", NULL);
     home_row(p, MENU_ROW_INFO, G_TYPE, "Type", "Lua 5.4 on bm", "%s", games[i].is_bm ? "bm (Pi)" : "b16 (handheld)");
     home_row(p, MENU_ROW_INFO, G_SIZE, "Size", "The whole cartridge", "%lu KiB", (unsigned long)(games[i].size + 1023) / 1024);
     home_row(p, MENU_ROW_INFO, G_AUTHOR, "Author", "From the cartridge header", "%s",
@@ -976,6 +978,7 @@ void ui_home(framebuffer_t *f)
     /* a game's options (X on the Games tab): the same kind of panel */
     static home_panel_t gpb;
     int gopt = -1, gopt_sel = 0;
+    int gsend = 0;                      /* 1: the options show the consoles to send the game to */
     /* Settings: its panels, as on the Pi (settings.c), one over the other */
     static home_panel_t pb;
     struct { int id, sel, top; } stack[DEPTH_MAX];
@@ -998,7 +1001,7 @@ void ui_home(framebuffer_t *f)
          * hear this one only then (M24) */
         const int on_market = tab == TAB_MARKET && !on_gear;
         market_set_active(on_market);
-        market_lan(on_market);
+        market_lan(on_market || (gopt >= 0 && gsend));
         if (!on_market)
             mopt = -1;
         if (tab != TAB_GAMES || on_gear)
@@ -1136,7 +1139,10 @@ void ui_home(framebuffer_t *f)
                                      mpb.n ? mpb.help[mopt_sel] : NULL };
             v.panel = &mpanel;
         } else if (gopt >= 0 && gopt < n_games) {
-            game_panel(gopt, &gpb);
+            if (gsend)
+                market_send_panel(&gpb);
+            else
+                game_panel(gopt, &gpb);
             if (gopt_sel >= gpb.n) gopt_sel = gpb.n ? gpb.n - 1 : 0;
             mpanel = (menu_panel_t){ gpb.title, gpb.rows, gpb.n, gopt_sel,
                                      gopt_sel >= MENU_PANEL_ROWS ? gopt_sel - MENU_PANEL_ROWS + 1 : 0,
@@ -1145,6 +1151,8 @@ void ui_home(framebuffer_t *f)
         } else {
             gopt = -1;
         }
+        if (gopt < 0)
+            gsend = 0;
         menu_page_t page;
         frame++;
         if (depth) {
@@ -1241,6 +1249,8 @@ void ui_home(framebuffer_t *f)
                     scan_games();
                     market_carts_changed();
                 }
+            } else if ((p & pad_ok) && kind == ASK_SEND && gopt >= 0 && gsend) {
+                market_send_act(ask_row, HOME_YES, &d);     /* HOME_TEXT: the sending, below */
             } else if ((p & pad_ok) && kind == ASK_SWITCH && ask_switch >= 0) {
                 play_index = ask_switch;            /* the frozen game is closed by starting this one */
                 ask_switch = -1;
@@ -1255,6 +1265,25 @@ void ui_home(framebuffer_t *f)
         } else if ((p & PAD_R1) && tab < TAB_SETTINGS) {
             tab++;
             mopt = -1;
+        } else if (gopt >= 0 && gsend) {
+            /* the consoles nearby: up/down choose, confirm asks, back returns to the options */
+            int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
+            if (dy && gpb.n)
+                gopt_sel = (gopt_sel + dy + gpb.n) % gpb.n;
+            if (p & (pad_back | PAD_X)) {
+                gsend = 0;
+                gopt_sel = 0;
+            } else if ((p & pad_ok) && gpb.n && gpb.rows[gopt_sel].kind != MENU_ROW_INFO) {
+                home_do_t sd;
+                ask_row = gpb.ids[gopt_sel];
+                market_send_act(ask_row, 0, &sd);
+                if (sd.what == HOME_ASK) {
+                    asking = ASK_SEND;
+                    ksnprintf(ask_q, sizeof ask_q, "%s", sd.ask);
+                    ksnprintf(ask_d, sizeof ask_d, "%s", sd.ask_detail);
+                    ksnprintf(ask_y, sizeof ask_y, "%s", sd.ask_yes);
+                }
+            }
         } else if (gopt >= 0) {
             /* a game's options: up/down choose, confirm does, back closes */
             int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
@@ -1281,6 +1310,12 @@ void ui_home(framebuffer_t *f)
                         play_index = g;
                         run_page(play_selected);
                     }
+                } else if (row == G_SEND) {
+                    char gp[80];
+                    ksnprintf(gp, sizeof gp, "%s/%s", games[g].dir, games[g].name);
+                    market_send_setup(gp, games[g].title, games[g].author);
+                    gsend = 1;
+                    gopt_sel = 0;
                 } else {
                     home_do_t gd;
                     int gone = 0;
