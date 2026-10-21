@@ -441,6 +441,7 @@ A box says `Screenshot saved` and the file name for two seconds. The picture is 
 - The number is one more than the highest of that prefix already in `bm/shots/`, from 0001 to 9999. The Pi Zero has no clock, so there is no date.
 - The format is PNG, 8 bits RGB, the size of the game's screen (640x360, 360x360...). Nothing is lost: the console's 16-bit colours are widened to 8 bits. There is no JPG, because it spoils pixel art.
 - From the PC, over the network link, `python tools/bm_net.py IP --shot out.png` asks the console for a screenshot of the running game (the console asks for the Console password) and saves it as `out.png`. `python tools/bm_net.py IP --get bm/shots/PONG0007.PNG out.png` fetches a file that is already in `bm/shots/`. A game must be drawing frames: with none, the request fails after 3 seconds. Only files of `bm/shots/` can be fetched. This is not verified on an RGB30.
+- From the PC, `python tools/bm_net.py IP --play game.bm` sends a `.bm` to the console and plays it at once. The console asks for the Console password. The file is not saved on the SD card. The menu starts the game when it has the keys; if an update or a Market publish is running, it shows a message and does not start the game. `--send game.bm` saves the file on the SD card instead. This is not verified on an RGB30.
 - A flat screen takes a few KB; noise can take as much as the raw picture (about 0.7 MB at 640x360).
 
 ## Caveats

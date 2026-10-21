@@ -283,8 +283,8 @@
  "api-tools": {
   "chapters": {
    "1": {
-    "en": "c345d4d3d8f0",
-    "it": "8c2f11c84d2c",
+    "en": "6623cb3a44e8",
+    "it": "64ea78b0fe3a",
     "title": "The cartridge file"
    },
    "2": {
@@ -308,8 +308,8 @@
     "title": "The project layout"
    },
    "6": {
-    "en": "bbc2a566ae7c",
-    "it": "4d45e7f3b711",
+    "en": "b8bdde4f8529",
+    "it": "1807c7dff79f",
     "title": "Screenshots for developers"
    }
   },
@@ -317,7 +317,7 @@
    "docs/PROJECT-LAYOUT.md": "17c4ea9e1d20",
    "docs/RISORSE.md": "5e859959104d",
    "docs/SCREENSHOTS.md": "dea6b5f72b07",
-   "docs/api/tools.md": "c74c6bef7484"
+   "docs/api/tools.md": "8a4b1eea899a"
   }
  },
  "boot-os": {
@@ -392,7 +392,7 @@
    "boot": "63490264ed76",
    "chainloader": "7feaaf3a501c",
    "docs/HARDWARE.md": "e7d2cc4e6cea",
-   "docs/progress/system.md": "02290829ca2f",
+   "docs/progress/system.md": "c771caf8966c",
    "src/kernel/syskeys.c": "6299911b4014"
   }
  },
@@ -541,7 +541,7 @@
    "carts/animator/main.lua": "fc5476e9d561",
    "docs/RISORSE.md": "5e859959104d",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
-   "docs/progress/tools.md": "3075afe198bd",
+   "docs/progress/tools.md": "78aaf20324a6",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -780,7 +780,7 @@
    "carts/editor/main.lua": "0548c690b34e",
    "docs/RISORSE.md": "5e859959104d",
    "docs/design/suite-sdk.md": "6a8b4424e3fa",
-   "docs/progress/tools.md": "3075afe198bd",
+   "docs/progress/tools.md": "78aaf20324a6",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -981,7 +981,7 @@
   },
   "sources": {
    "docs/RGB30.md": "aac642c7a39a",
-   "docs/progress/platforms.md": "19498fed6c0c",
+   "docs/progress/platforms.md": "9942f2bb6202",
    "easy_install.sh": "3fc0a62e5b07",
    "scripts/copy-sd-rgb30.sh": "38f59e3439e0",
    "scripts/mksd.py": "6ed865802e51"
@@ -1042,15 +1042,15 @@
   },
   "sources": {
    "carts/editor/main.lua": "0548c690b34e",
-   "docs/GAME-GUIDE.md": "8dddfa34df77",
-   "docs/ROADMAP.md": "e146ed9a977b",
+   "docs/GAME-GUIDE.md": "f1c97c4052fd",
+   "docs/ROADMAP.md": "8bd94d2f10c9",
    "docs/api/bmlib.md": "e1b5c355f388",
    "docs/api/draw.md": "61932a4cb329",
    "docs/api/light3d.md": "768fc91992e3",
    "docs/design/games-architecture.md": "d55d35bd36ae",
    "docs/design/suite-sdk.md": "6a8b4424e3fa",
    "docs/progress/graphics.md": "b96f51676fd8",
-   "docs/progress/tools.md": "3075afe198bd",
+   "docs/progress/tools.md": "78aaf20324a6",
    "docs/progress/v3d.md": "71c6d083c4d6",
    "src/bm/map3d.c": "83e5e8666802"
   }
