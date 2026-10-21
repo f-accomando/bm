@@ -203,6 +203,7 @@ class Qemu:
     def close(self):
         self.proc.kill()
         self.proc.wait()
+        shutil.rmtree(self.tmp, ignore_errors=True)
 
 
 def read_ppm(path):
@@ -1002,6 +1003,7 @@ def test_sd_cartridges(b, opts):
         q.expect("> ")
     finally:
         q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 COUNTER_CART = r"""
@@ -3939,6 +3941,7 @@ def test_sd_sdhc_and_usb_menu(b, opts):
     finally:
         q.close()
         os.remove(img)
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_menu_scroll(b, opts):
@@ -5279,6 +5282,7 @@ def test_monitor_line(b, opts):
         q.expect("lua> ")
     finally:
         q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_reports(b, opts):
@@ -7346,6 +7350,7 @@ def test_pad_typing(b, opts):
         see(["  1 123"], gone=["PAD compose"], cw=6, ch=12)
     finally:
         q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_editor(b, opts):
