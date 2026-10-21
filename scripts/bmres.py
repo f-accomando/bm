@@ -210,7 +210,8 @@ def check(f, where="file"):
         if f.get(SEC_SPRITES) is not None:
             zones = sprites_decode(f.get(SEC_SPRITES))
             for z in zones:
-                if sheet and (z["x"] + z["w"] * max(z["frames"], z.get("slices", 0)) > sheet[0] or z["y"] + z["h"] > sheet[1]):
+                zx, zy, zw, zh = zone_rect(z)
+                if sheet and (zx + zw > sheet[0] or zy + zh > sheet[1]):
                     raise ResError(f"zone {z['name']} is out of the sheet")
         if f.get(SEC_BOXES) is not None:
             frames = {z["name"]: z["frames"] for z in zones}
@@ -351,13 +352,15 @@ def sprites_decode(body):
     for i in range(n):
         o = 4 + SPRITE_SIZE * i
         name = _cstr(body[o:o + NAME_LEN])
-        x, y, w, h, frames, fps, slices = struct.unpack_from("<4HBBB", body, o + NAME_LEN)
+        x, y, w, h, frames, fps, slices, flags = struct.unpack_from("<4HBBBB", body, o + NAME_LEN)
         if not name or name in seen or not w or not h or not 1 <= frames <= FRAMES_MAX:
             raise ResError(f"bad zone {name!r} in SPRITES")
         seen.add(name)
         zone = {"name": name, "x": x, "y": y, "w": w, "h": h, "frames": frames, "fps": fps}
         if slices:                      # byte 26: slices of a stack zone
             zone["slices"] = slices
+            if flags & 1:               # byte 27, bit 0: the slices lie one under the other (stackv)
+                zone["vertical"] = True
         zones.append(zone)
     return zones
 
@@ -367,8 +370,9 @@ def sprites_encode(zones):
         raise ResError(f"1 to {SPRITES_MAX} zones, not {len(zones)}")
     out = bytearray(struct.pack("<HH", len(zones), 0))
     for z in zones:
-        out += _fixed(z["name"], NAME_LEN) + struct.pack("<4HBBBx", z["x"], z["y"], z["w"], z["h"],
-                                                         z.get("frames", 1), z.get("fps", 0), z.get("slices", 0))
+        out += _fixed(z["name"], NAME_LEN) + struct.pack("<4HBBBB", z["x"], z["y"], z["w"], z["h"],
+                                                         z.get("frames", 1), z.get("fps", 0), z.get("slices", 0),
+                                                         1 if z.get("vertical") and z.get("slices") else 0)
     return bytes(out)
 
 
@@ -400,6 +404,8 @@ def boxes_encode(boxes):
 
 def zone_rect(z):
     """the pixels of a zone with all its frames or slices: x, y, w, h"""
+    if z.get("vertical"):
+        return z["x"], z["y"], z["w"] * z["frames"], z["h"] * z.get("slices", 1)
     return z["x"], z["y"], z["w"] * max(z["frames"], z.get("slices", 0)), z["h"]
 
 
