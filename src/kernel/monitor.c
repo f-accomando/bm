@@ -89,7 +89,7 @@ static const char help_text[] =
             "       gpu                       the GPU test (g), its report\n"
             "       b3d tests=a,b profiles=P  the 3D Bench, all or a part (GPU+FS2 or FS2...)\n"
             "       set key=value ...         bm/config.txt keys until a restart (save: kept)\n"
-            "       render  room  log  err  send  reboot\n"
+            "       render  room  stack  log  err  send  reboot\n"
             "     e.g. :gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send\n"
             "     (from the menu too: the ':' takes the line to the monitor; from the PC\n"
             "     tools/bm_net.py IP --line \"...\" or easy_install.sh line \"...\")\n";
@@ -257,10 +257,12 @@ static int line_command(char *c)
     } else if (!strcmp(c, "save")) {
         config_save();
         kprintf("bm/config.txt saved\n");
-    } else if (!strcmp(c, "render") || !strcmp(c, "room")) {
+    } else if (!strcmp(c, "render") || !strcmp(c, "room") || !strcmp(c, "stack")) {
         home_report_begin(c);
         if (c[1] == 'e')
             bm_bench_report(console_framebuffer(), 120);
+        else if (c[1] == 't')
+            bm_stack_bench(console_framebuffer(), 30);
         else
             bm_room_bench(console_framebuffer());
         home_report_end();
@@ -288,7 +290,7 @@ static int line_command(char *c)
         kprintf("rebooting...\n");
         crumbs_restart(0);
     } else {
-        kprintf("'%s': not a command of the line (gpu, b3d, play, set, save, render, room, log, err, send, reboot)\n", c);
+        kprintf("'%s': not a command of the line (gpu, b3d, play, set, save, render, room, stack, log, err, send, reboot)\n", c);
         return -1;
     }
     return 0;
