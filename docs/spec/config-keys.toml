@@ -27,7 +27,7 @@ values = "0 = off; anything else = on"
 default = "on (the icon shows when the battery is low)"
 meaning = "Small red low-battery icon over games and tools."
 settings = "Settings > Screen and sound > Low battery icon"
-read_in = "src/bm/runtime.c:8395"
+read_in = "src/bm/runtime.c:8409"
 
 [[key]]
 name = "bm_scale"
@@ -297,7 +297,7 @@ values = "1 = show the Lib tab; anything else = hidden"
 default = "Lib tab hidden"
 meaning = "Shows the Lib (resources) tab of the cartridge menu."
 settings = ""
-read_in = "src/kernel/carts.c:1150"
+read_in = "src/kernel/carts.c:1139"
 
 [[key]]
 name = "market_bm"
@@ -342,7 +342,7 @@ values = "3 = menu at 3x; anything else = 1 (the code tests only for \"3\")"
 default = "1"
 meaning = "Size of the menu on the Pi (3x enlarged, by the GPU where there is one)."
 settings = ""
-read_in = "src/kernel/menu_ui.c:1188"
+read_in = "src/kernel/menu_ui.c:1208"
 
 [[key]]
 name = "meshy_key"
@@ -396,7 +396,7 @@ values = "colour = coloured button icons; anything else = white"
 default = "white"
 meaning = "Colour of the DS4 button icons in the hints."
 settings = "Settings > Controllers > Button icons"
-read_in = "src/kernel/settings.c:113"
+read_in = "src/kernel/settings.c:146"
 
 [[key]]
 name = "r3d_fast"
@@ -450,7 +450,7 @@ values = "text starting with 0 = off; any other non-empty text = on"
 default = "on if github_token is set, else off"
 meaning = "A report with the frames of a game run, when it ends (30 frames or more)."
 settings = ""
-read_in = "src/bm/runtime.c:9448"
+read_in = "src/bm/runtime.c:9462"
 
 [[key]]
 name = "show_b16"
@@ -468,7 +468,7 @@ values = "0 = hide the .bm cartridges; anything else = show them"
 default = "shown (the Games tab lists .bm for testing, user's decision 2026-10-03)"
 meaning = "The Games tab of the RGB30: whether the Pi's .bm cartridges are listed. The Market has its own key, market_bm."
 settings = ""
-read_in = "src/rgb30/ui.c:244"
+read_in = "src/rgb30/ui.c:245"
 
 [[key]]
 name = "sound"
