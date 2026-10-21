@@ -29,7 +29,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 | ID | Pri | Criterion to open the beta | Verifiable requirement | After |
 |---|---|---|---|---|
 | BETA-1 | P0 | Stable base | CI green on `bm-core`; a crash writes a correct `bootprev.txt` (hardware tests done by the user) | SYS-1, SYS-2 |
-| BETA-2 | P0 | A complete game can be built with the suite | the acceptance test, 2D version | APP-4, APP-1, APP-6 |
+| BETA-2 | P0 | A complete game can be built with the suite | the acceptance test, 2D version | APP-1, APP-6 |
 | BETA-3 | P0 | The API is integrated in the editor | function help and lint in bm Code; completion with a single API source | APP-5 |
 | BETA-4 | P1 | Acceptable performance in 2D and 3D | budget measured and published for Pi and RGB30; the test game at 60 fps (or at the frame rate declared in the budget) | API-1, M36, M35, M37, M41 |
 | BETA-5 | P1 | The 3D version of the test | a multi-stage 3D game runs on the GPU (V3D on the Pi, Mali on the RGB30) within the budget | BETA-4, APP-2 |
@@ -86,9 +86,8 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 | APP-3 | P3 | to do | PDF manuals and project structure | EN/IT manuals aligned; layout of `docs/PROJECT-LAYOUT.md` respected | [tools](progress/tools.md) `PDF manuals`, `Project layout` | - |
 | R11, R37, R38, R39 | P3 | idea | Tiled, map palettes, 16×16 wizard, 720×720 SDK | to be specified | [suite-sdk](design/suite-sdk.md), [sdk-720](design/sdk-720.md) | - |
 | R15, R16, R26 | P3 | idea | Live reload from the PC, bm Code templates, mouse in nano8 | to be specified | [tools](progress/tools.md), [suite-code](design/suite-code.md) | - |
-| APP-4 | P0 | to do | Complete game template: start menu, several stages, ending, save | from bm SDK a new "Stages" project builds to `.bm` and runs with title, 3 stages, ending screen and record; it uses the state machine of `games-architecture.md` | [games-architecture](design/games-architecture.md), [tools](progress/tools.md) | APP-1 |
 | APP-5 | P0 | to do | API integrated in the editor: help on the function under the cursor and lint | in bm Code a key shows the function's signature and description; a check flags nonexistent API names; the API list has a single source generated from `docs/api/` and also used by `predict` | [tools](progress/tools.md), [PREDICT](PREDICT.md), [API](API.md) | - |
-| APP-6 | P1 | to do | Develop a game without a PC: resources and projects manageable on the device | on RGB30 and Pi a project with sprite, map, sounds and code is created, saved and built without the PC (today resource files are PC-only and the RGB30 has no Lib tab) | [tools](progress/tools.md) `bm SDK (RGB30)`, [CONSISTENCY](spec/CONSISTENCY.md) | APP-1 |
+| APP-6 | P1 | to do | Develop a game without a PC: resources and projects manageable on the device | on RGB30 and Pi the SDK makes a project with sprite, map, sounds and code, saves it and builds it without the PC; the resources are made inside the SDK pages (the Lib tab is closed by decision, and resources are not made on the device) | [tools](progress/tools.md) `bm SDK (RGB30)`, [CONSISTENCY](spec/CONSISTENCY.md) | APP-1 |
 
 ## 4. Games (optional)
 
