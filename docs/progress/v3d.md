@@ -20,7 +20,7 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   includes the wait before the ARM looks: trust it only without the queue.
 - `stat(17)`: ms of audio interrupt time in the last frame. `stat(18)`: ms the ARM waited for the GPU
   in the last frame (0 on the ARM, RGB30 and QEMU). Both: `gpu_frame_account` in `runtime.c`.
-  Measurements only. The overlay already shows both as its audio and wait bars.
+  Measurements only (QEMU test: `-k stat_perf`, range only). The overlay already shows both as its audio and wait bars.
 - `r3d_impostor=N` (off; 2..64 px of a 1080-line screen, threshold N*h/1080: `imp_threshold`
   in `r3d.c`; `gpu3d()` 5th; skinned meshes by their pose box). Host test: `make test-impostor`.
 - `gpu3d_attr=1` (bm3d 7.1, off; Settings *3D corners*, 3D Bench GPU+VS+A8): compact
