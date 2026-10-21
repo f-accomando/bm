@@ -69,7 +69,7 @@ SLOW = {
     "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
-    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_bench_stop": 35, "test_bm_boot_demo": 22,
+    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_video_bench": 30, "test_bench_stop": 35, "test_bm_boot_demo": 22,
     "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100, "test_projects": 45, "test_editor_mouse": 40,
 }
 
@@ -6117,6 +6117,41 @@ def test_room_bench(b, opts):
         q.expect("> ", timeout=10)
     finally:
         q.close()
+
+
+def test_video_bench(b, opts):
+    """The Video bench (monitor line word `video`, Dev tab Video bench): the
+    SD write and read figures and the JPEG decode times print, the files
+    it writes are gone and it runs to the end without an error."""
+    tmp = tempfile.mkdtemp(prefix="bm-vid-")
+    try:
+        img = os.path.join(tmp, "sd.img")
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        mksd.build(img, [(cfg, "bm/config.txt")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            q.send(":video quick\r")
+            out = q.expect("Video bench done", timeout=300).decode(errors="replace")
+            plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
+            assert re.search(r"8 writes, \d+\.\d\d MB/s mean", plain), plain
+            assert re.search(r"SD read: 2 files, \d+\.\d\d MB/s", plain), plain
+            assert re.search(r"320x180 \(\d+ bytes\): +mean \d+\.\d\d ms", plain), plain
+            assert re.search(r"480x270 \(\d+ bytes\): +mean \d+\.\d\d ms", plain), plain
+            assert "failed" not in plain and "stopped" not in plain, plain
+            q.expect("the line is done", timeout=10)
+            time.sleep(1)
+        finally:
+            q.close()
+        part = _sd_files(img)
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        left = subprocess.run(["mdir", "-i", part, "::/BM/VIDBENCH"], capture_output=True, text=True, env=env).stdout
+        assert "VB" not in left, left
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_bench_stop(b, opts):

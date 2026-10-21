@@ -163,8 +163,8 @@ action = "same recognition on the RGB30, or filter apps out of Games"
 [[divergence]]
 id = "D14"
 area = "Dev tab extras"
-pi = "CPU bench, Stress test, Texture Room, Demo"
-rgb30 = "not built (stress.c and roombench.c are excluded)"
+pi = "CPU bench, Stress test, Texture Room, Video bench, Demo"
+rgb30 = "not built (stress.c, roombench.c and vidbench.c are excluded)"
 cause = "todo"
 priority = 6
 status = "open"
