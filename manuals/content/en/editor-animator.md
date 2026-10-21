@@ -128,6 +128,7 @@ The layout is the one of the other console apps: on the left a panel with lists,
 | `k` | skin: each face follows its nearest bone |
 | `K` | skin: each corner follows its nearest bone (smooth) |
 | `v` | skin mode: choose faces by hand |
+| `t` | test pose: bend each bone and mark in red the faces that stretch or tear |
 | `q` `e` | turn the view by steps |
 | `z` | frame the model |
 
@@ -222,6 +223,8 @@ The skeleton is what lets one model have many animations at small cost: the game
 - **k** gives each face to its nearest bone: rigid parts, good for robots and boxy characters.
 - **K** gives each corner to its nearest bone: the model stretches at the joints.
 - In skin mode (**v**), if you have marked faces, **k** and **K** work only on them.
+- **t** tests the skin. It bends each bone in turn by 45 degrees (around x and around z) and marks in red the faces that break: a face whose edge grows to more than 1.6 times its length (it stretches), or a corner shared with a face of another bone that comes apart by more than 2% of the model's height (the skin tears). The status line says how many faces are red and which bone's bend marks most, or that the skin holds. Press **t** again to switch the test off. Then choose the red faces with **v** and give them to a bone with **a**.
+- Auto skin (**k**, **K**) switches the test off.
 
 ![The rig page (F2): the bones of a model and their names in the list](shots/editor-animator-rig.png)
 

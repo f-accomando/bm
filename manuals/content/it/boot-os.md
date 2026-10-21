@@ -81,7 +81,7 @@ Sul Pi, `main.c` fa queste cose, in quest'ordine:
 2. Prepara la memoria: lo heap, il clock dell'ARM al massimo offerto dal firmware e la MMU.
 3. Riconosce la scheda e la stampa con il suo SoC e il codice di revisione.
 4. Prepara il LED della scheda, poi gli interrupt e il timer.
-5. Prova ad armare il watchdog (3 secondi). Sul Pi Zero W il log di avvio dice "not available, no freeze guard".
+5. Prova ad armare il watchdog (3 secondi). Il log di avvio dice `watchdog: on, 3000 ms` quando è armato. Se il controllo fallisce, dice "not available, no freeze guard" (in un emulatore: "resets at once on RSTC (emulator), no freeze guard"). Il Pi Zero W è armato; questo manuale non lo ha verificato su una console vera.
 6. Avvia l'audio, il DMA e l'USB.
 7. Carica l'elenco delle cartucce e `bm/config.txt`.
 8. Trasforma il resoconto di crash dell'avvio precedente in un report (capitolo 12).
@@ -134,7 +134,7 @@ Le opzioni del gioco (`c`) mostrano i byte dei salvataggi e una riga *Delete the
 ## Da sapere
 
 - Sull'RGB30, **B** conferma e **A** torna indietro. Imposta `confirm=a` in `bm/config.txt` per scambiarli, oppure usa Settings > Controllers > *Confirm button*.
-- Sull'RGB30 la barra in alto mostra solo WiFi e batteria. Il Market e Games elencano i file `.b16`; i file `.bm` si vedono per le prove, e `show_bm=0` li nasconde.
+- Sull'RGB30 la barra in alto mostra solo WiFi e batteria. Games elenca i file `.b16` e mostra i `.bm` per le prove: `show_bm=0` li nasconde. Il Market elenca solo i `.b16`: `market_bm=1` aggiunge i `.bm`.
 - Gli editor lavorano solo sui progetti. Un `.bm` è in sola lettura; Ctrl+B in un editor costruisce il `.bm` definitivo.
 
 ## Impostazioni
@@ -299,7 +299,8 @@ Le Impostazioni, `set`/`save` della riga del monitor e gli strumenti del PC scri
 | `wifi_ssid`, `wifi_psk` | la rete a cui collegarsi |
 | `wifi_boot=0` | non collegarsi alla rete all'avvio |
 | `lib_tab=1` | mostra la scheda Lib |
-| `show_bm=0` | nasconde i file `.bm` sull'RGB30 |
+| `show_bm=0` | nasconde i file `.bm` nella scheda Games dell'RGB30 |
+| `market_bm=1` | elenca i file `.bm` anche nel Market dell'RGB30 |
 | `menu_scale=3` | un menu 1920x1080 sul Pi (una prova) |
 | `battery_icon=0` | spegne l'icona di batteria scarica (RGB30) |
 | `mouse=off` | spegne il puntatore |

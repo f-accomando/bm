@@ -301,6 +301,21 @@ Se `on_ground` manca in `world_move` vale `false`. Il `tag` di `world_box` vale 
 
 [DA COMPLETARE: a cosa serve `tag` di `world_box`]
 
+# Terreno di mappa 3D
+
+Un mondo 3D costruito con i livelli della mappa 2D: l'anteprima 3D dell'editor e i giochi usano queste funzioni. Il terreno viene dai livelli `floor`, `height` e `walls`; i segnaposto vengono dal livello `objects`. Il mondo si disegna a blocchi di 16x16 tile, e si disegnano solo i blocchi che si vedono.
+
+| Funzione | Descrizione |
+|---|---|
+| `map3d_build([opts])` | costruisce il mondo dai livelli della mappa e lo restituisce. `opts = { floor = "floor", height = "height", walls = "walls", cell = 1.0, step = 0.25 }`: i nomi dei livelli, la dimensione di un tile in unità del mondo e il passo dell'altezza. Ogni campo è facoltativo. Il livello degli oggetti è sempre `objects` |
+| `map3d_draw(w, [flags])` | disegna i blocchi di terreno che si vedono; `flags` è facoltativo (0 se manca) |
+| `map3d_height(w, x, z)` | l'altezza del terreno in `(x, z)`, o `nil` per un buco o un punto fuori dalla mappa |
+| `map3d_blocked(w, x, y, z, r)` | `true` se una sfera con centro `(x, y, z)` e raggio `r` tocca un muro o un dirupo |
+| `map3d_objects(w, [kind])` | la lista degli oggetti `{ kind, x, y, z }`; `kind` filtra la lista |
+| `map3d_size(w)` | `nx, nz`: la dimensione del mondo in unità del mondo |
+
+Chiama prima `zclear()` e `camera3d`, poi `map3d_draw`. Se la mappa è vuota, `map3d_build` dà un errore. Per un esempio completo con più livelli di gioco, vedi il manuale *Mappe e livelli*.
+
 # Luce per le scene 2D
 
 Queste funzioni non sono 3D: oscurano una scena 2D illuminata da lampade. Dal primo `light_begin()` o `dark_begin()` la cartuccia disegna in RAM invece che direttamente sullo schermo.

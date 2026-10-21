@@ -239,7 +239,7 @@ Premi **v** nella pagina della mappa per passare tra la modifica 2D e l'**antepr
 - **Strumento percorso (`Shift+P`, `Shift+W`)**: premi `Shift+W` per scorrere la larghezza del corridoio da 1 a 5 tile. Premi `Shift+P`, vai alla cella di partenza e premi Invio, poi vai alla cella di arrivo e premi Invio: sul layer `floor` viene disegnato un corridoio largo *N* con la tile attiva.
 - **Strumento fila di mele (`Shift+A`)**: premi `Shift+A`, premi Invio sulla cella di partenza e Invio su quella di arrivo: sul layer `objects` viene messa una linea continua di segnaposto mela (ID 1026).
 - **Piazza casse e lampade (`Shift+C`, `Shift+O`)**: `Shift+C` piazza un segnaposto cassa (ID 1028) sulla cella del cursore nel layer `objects`, e `Shift+O` un segnaposto lampada (ID 1032).
-- **Piazza partenza e arrivo (`Shift+S`, `Shift+G`)**: `Shift+S` piazza il segnaposto di partenza (ID 1024) e `Shift+G` quello di arrivo (ID 1030) sulla cella del cursore.
+- **Piazza partenza e arrivo (`Shift+S`, `Shift+G`, solo SDK Pi)**: l'SDK RGB30 non ha lo strumento di partenza e arrivo. Su Pi, `Shift+S` piazza il segnaposto di partenza (ID 1024) e `Shift+G` quello di arrivo (ID 1030) sulla cella del cursore.
 - **Barra di stato**: mostra il conteggio di mele, casse e lampade, con una stima del budget di triangoli (pavimento + oggetti).
 - **Annulla**: `u` o `Ctrl+Z` annulla in un solo passo un intero percorso, una fila o un oggetto piazzato.
 
@@ -332,6 +332,10 @@ Il pad, lo schermo e il suono di bm SDK (RGB30) sono stati pilotati da tastiera 
 
 Premi **F7** per la pagina dei suoni e degli effetti del progetto (sul pad è la pagina dopo *3D*, raggiunta con R1). Lavora sul banco suoni salvato nel progetto. **F7** di nuovo, o **Y + su/giù**, passa da una vista all'altra.
 
+::: warn
+La pagina dei suoni è stata provata solo in un emulatore e con i test del repository. **Non è verificata su un RGB30 vero**.
+:::
+
 ### Suoni
 
 La lista a sinistra ha 32 slot di suono, il pannello a destra i campi del suono scelto: **WAVE**, **VOLUME**, **DUTY**, **ATTACK**, **DECAY**, **SUSTAIN**, **RELEASE**.
@@ -395,7 +399,7 @@ Tieni premuto **F12** nell'SDK per vedere i tasti della pagina in cui sei.
 | Shift+P / Shift+W | mappa | strumento percorso (inizio, fine: Invio) / larghezza (1-5) |
 | Shift+A | mappa | strumento fila di mele (inizio, fine: Invio) |
 | Shift+C / Shift+O | mappa | piazza cassa (1028) / piazza lampada (1032) |
-| Shift+S / Shift+G | mappa | piazza la partenza (1024) / l'arrivo (1030) |
+| Shift+S / Shift+G | mappa | (solo SDK Pi) piazza la partenza (1024) / l'arrivo (1030) |
 | r | mappa | rinomina il layer |
 | T | mappa | template: layer della mappa 3D |
 | x | mappa | prende la tile |

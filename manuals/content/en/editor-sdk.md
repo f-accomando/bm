@@ -239,7 +239,7 @@ Press **v** on the map page to toggle between 2D editing and real-time **3D prev
 - **Path tool (`Shift+P`, `Shift+W`)**: press `Shift+W` to cycle corridor width from 1 to 5 tiles. Press `Shift+P`, navigate to the start cell and press Enter, then navigate to the destination cell and press Enter: a corridor of width *N* is drawn on the `floor` layer with the active tile.
 - **Apples row tool (`Shift+A`)**: press `Shift+A`, press Enter at the start cell and Enter at the destination cell: a continuous line of apple placeholders (ID 1026) is placed on the `objects` layer.
 - **Place crates and lamps (`Shift+C`, `Shift+O`)**: `Shift+C` places a crate placeholder (ID 1028) at the cursor cell on the `objects` layer, and `Shift+O` places a lamp placeholder (ID 1032).
-- **Place the start and the goal (`Shift+S`, `Shift+G`)**: `Shift+S` places the start placeholder (ID 1024) and `Shift+G` the goal (ID 1030) at the cursor cell.
+- **Place the start and the goal (`Shift+S`, `Shift+G`, Pi SDK only)**: the RGB30 SDK has no start or goal tool. On the Pi, `Shift+S` places the start placeholder (ID 1024) and `Shift+G` the goal (ID 1030) at the cursor cell.
 - **Status bar**: displays the current counts of apples, crates, and lamps, together with an estimated triangle budget (floor + objects).
 - **Undo**: `u` or `Ctrl+Z` undoes an entire path, row, or object placement in one step.
 
@@ -332,6 +332,10 @@ The pad, the screen and the sound of bm SDK (RGB30) were driven by keyboard in a
 
 Press **F7** for the page of the project's sounds and effects (on the pad it is the page after *3D*, reached with R1). It works on the sound bank saved in the project. **F7** again, or **Y + up/down**, goes between the two views.
 
+::: warn
+The sounds page was driven in an emulator and by the repository tests only. It is **not verified on a real RGB30**.
+:::
+
 ### Sounds
 
 The left list has 32 sound slots, the right panel the fields of the chosen sound: **WAVE**, **VOLUME**, **DUTY**, **ATTACK**, **DECAY**, **SUSTAIN**, **RELEASE**.
@@ -395,7 +399,7 @@ Hold **F12** in the SDK to see the keys of the page you are on.
 | Shift+P / Shift+W | map | path tool (start, end: Enter) / width (1-5) |
 | Shift+A | map | apples line tool (start, end: Enter) |
 | Shift+C / Shift+O | map | place crate (1028) / place lamp (1032) |
-| Shift+S / Shift+G | map | place the start (1024) / the goal (1030) |
+| Shift+S / Shift+G | map | (Pi SDK only) place the start (1024) / the goal (1030) |
 | r | map | rename layer |
 | T | map | template: 3D map layers |
 | x | map | pick the tile |

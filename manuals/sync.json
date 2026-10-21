@@ -12,11 +12,16 @@
     "title": "Collision worlds"
    },
    "11": {
+    "en": "84919c5e1589",
+    "it": "98ef212bb42a",
+    "title": "3D map terrain"
+   },
+   "12": {
     "en": "3d5ce41a52f7",
     "it": "d12b8bfe0a44",
     "title": "Light for 2D scenes"
    },
-   "12": {
+   "13": {
     "en": "24f58caa9063",
     "it": "c27c08de5682",
     "title": "Performance tips"
@@ -64,7 +69,7 @@
   },
   "sources": {
    "docs/BENCH3D.md": "1adaf5f48818",
-   "docs/api/light3d.md": "982e8d514f7f"
+   "docs/api/light3d.md": "768fc91992e3"
   }
  },
  "api-core": {
@@ -303,15 +308,15 @@
     "title": "The project layout"
    },
    "6": {
-    "en": "80b597e4e29b",
-    "it": "7363e118a384",
+    "en": "bbc2a566ae7c",
+    "it": "4d45e7f3b711",
     "title": "Screenshots for developers"
    }
   },
   "sources": {
-   "docs/PROJECT-LAYOUT.md": "1f6e3576984a",
+   "docs/PROJECT-LAYOUT.md": "17c4ea9e1d20",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/SCREENSHOTS.md": "113a60472a9c",
+   "docs/SCREENSHOTS.md": "dea6b5f72b07",
    "docs/api/tools.md": "c74c6bef7484"
   }
  },
@@ -348,13 +353,13 @@
     "title": "The boot chain"
    },
    "3": {
-    "en": "9634303b735a",
-    "it": "3bbff31031fc",
+    "en": "e4669d77edba",
+    "it": "b5bbb494a69f",
     "title": "What the kernel does at start"
    },
    "4": {
-    "en": "4920d0e622b2",
-    "it": "f9cfe5131765",
+    "en": "5aedc45b80cc",
+    "it": "9f07edaf331a",
     "title": "The menu and its tabs"
    },
    "5": {
@@ -378,16 +383,16 @@
     "title": "The files on the SD card"
    },
    "9": {
-    "en": "566b1fbf7368",
-    "it": "24574955329d",
+    "en": "62baf58ad42a",
+    "it": "a1ed90e59d4f",
     "title": "Settings and config.txt"
    }
   },
   "sources": {
    "boot": "63490264ed76",
    "chainloader": "7feaaf3a501c",
-   "docs/HARDWARE.md": "8fc72a29a4fc",
-   "docs/progress/system.md": "e2cfcfb6a200",
+   "docs/HARDWARE.md": "e7d2cc4e6cea",
+   "docs/progress/system.md": "02290829ca2f",
    "src/kernel/syskeys.c": "6299911b4014"
   }
  },
@@ -497,13 +502,13 @@
     "title": "Opening"
    },
    "3": {
-    "en": "50f31ec5ca8c",
-    "it": "4ec0236cfc67",
+    "en": "531c936e73d2",
+    "it": "3c8c40c3d9e9",
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "1a12ea2e5fac",
-    "it": "6c8cb023cdac",
+    "en": "a2c2b610d93f",
+    "it": "2f30cdb7ce3d",
     "title": "Bones and rigging"
    },
    "5": {
@@ -533,10 +538,10 @@
    }
   },
   "sources": {
-   "carts/animator/main.lua": "5875f7e092c5",
+   "carts/animator/main.lua": "fc5476e9d561",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/design/suite-animator.md": "555d36c2c592",
-   "docs/progress/tools.md": "6ae8072c3059",
+   "docs/design/suite-animator.md": "be49ad9d4cf9",
+   "docs/progress/tools.md": "3075afe198bd",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -746,8 +751,8 @@
     "title": "Creating a project from a template"
    },
    "5": {
-    "en": "1c3284b1ec4c",
-    "it": "3152f1d70cea",
+    "en": "605a685054fb",
+    "it": "c97a2f0aa049",
     "title": "The map editor"
    },
    "6": {
@@ -756,13 +761,13 @@
     "title": "Budgets and the dev kit report"
    },
    "7": {
-    "en": "f190ab7bb3bf",
-    "it": "b56baea826a2",
+    "en": "72d7ef6f099a",
+    "it": "8aa4685261fc",
     "title": "Building and exporting"
    },
    "8": {
-    "en": "579b68177179",
-    "it": "d9f8402a93ce",
+    "en": "bae231287baf",
+    "it": "108703b0dfb0",
     "title": "Keys"
    },
    "9": {
@@ -775,7 +780,7 @@
    "carts/editor/main.lua": "0548c690b34e",
    "docs/RISORSE.md": "5e859959104d",
    "docs/design/suite-sdk.md": "6a8b4424e3fa",
-   "docs/progress/tools.md": "7b96089e4af0",
+   "docs/progress/tools.md": "3075afe198bd",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -964,8 +969,8 @@
     "title": "The Market and getting games"
    },
    "7": {
-    "en": "ecefc88e9216",
-    "it": "5c14684107fc",
+    "en": "d0a7e8b16174",
+    "it": "23f8e0f0a2c3",
     "title": "The config.txt keys that matter"
    },
    "8": {
@@ -975,8 +980,8 @@
    }
   },
   "sources": {
-   "docs/RGB30.md": "201708e75617",
-   "docs/progress/platforms.md": "4510f0f460a8",
+   "docs/RGB30.md": "aac642c7a39a",
+   "docs/progress/platforms.md": "19498fed6c0c",
    "easy_install.sh": "3fc0a62e5b07",
    "scripts/copy-sd-rgb30.sh": "38f59e3439e0",
    "scripts/mksd.py": "6ed865802e51"
@@ -985,13 +990,13 @@
  "levels": {
   "chapters": {
    "1": {
-    "en": "b7a272059dcd",
-    "it": "462b636eb170",
+    "en": "bec175b43299",
+    "it": "5c337177c840",
     "title": "What a level is in bm"
    },
    "10": {
-    "en": "c11f7ead3c33",
-    "it": "5b13328b1447",
+    "en": "5597984ee246",
+    "it": "4463d1324cb3",
     "title": "Tips and limits"
    },
    "2": {
@@ -1030,22 +1035,22 @@
     "title": "Several stages in a 3D game"
    },
    "9": {
-    "en": "fbc7b893a9e9",
-    "it": "fcecfd93c2d4",
+    "en": "4b35fdfcd141",
+    "it": "5fc5f2ec1da1",
     "title": "Switching levels in the game"
    }
   },
   "sources": {
-   "carts/editor/main.lua": "104fd090065d",
-   "docs/GAME-GUIDE.md": "426aea1ebf0b",
-   "docs/ROADMAP.md": "74b3aab8f42e",
+   "carts/editor/main.lua": "0548c690b34e",
+   "docs/GAME-GUIDE.md": "8dddfa34df77",
+   "docs/ROADMAP.md": "e146ed9a977b",
    "docs/api/bmlib.md": "e1b5c355f388",
    "docs/api/draw.md": "61932a4cb329",
    "docs/api/light3d.md": "768fc91992e3",
    "docs/design/games-architecture.md": "d55d35bd36ae",
    "docs/design/suite-sdk.md": "6a8b4424e3fa",
    "docs/progress/graphics.md": "b96f51676fd8",
-   "docs/progress/tools.md": "4f939091e718",
+   "docs/progress/tools.md": "3075afe198bd",
    "docs/progress/v3d.md": "71c6d083c4d6",
    "src/bm/map3d.c": "83e5e8666802"
   }
