@@ -1,7 +1,7 @@
 /*
  * Host test of the .bmv reader (src/bm/vid.c) and of jpeg_decode565.
  *   test_vid dump DIR     writes DIR/f0..f2.jpg (the Video bench's 320x180 frame) and DIR/a.raw
- *   test_vid check FILE   reads a clip made by scripts/mkvid.py from those files
+ *   test_vid check FILE CHANNELS BITS   reads a clip made by scripts/mkvid.py from those files
  * run_vid_test.py runs both with mkvid.py in between.
  */
 #include "bm/vid.h"
@@ -24,6 +24,22 @@ static int fails;
 
 #define AUDIO_FRAMES 11025                  /* 0.5 s of 22050 Hz mono, 16-bit */
 
+/* frame i: the bench frame with a comment segment "Fi" after the SOI, so that every frame has its own bytes
+ * (the decoder skips comments); returns the length, out has room for the bench frame + 6 */
+static size_t make_frame(int i, uint8_t *out)
+{
+    out[0] = vidbench_jpg320[0];
+    out[1] = vidbench_jpg320[1];
+    out[2] = 0xFF;
+    out[3] = 0xFE;
+    out[4] = 0;
+    out[5] = 4;
+    out[6] = 'F';
+    out[7] = (uint8_t)('0' + i);
+    memcpy(out + 8, vidbench_jpg320 + 2, vidbench_jpg320_len - 2);
+    return vidbench_jpg320_len + 6;
+}
+
 static int dump(const char *dir)
 {
     char path[512];
@@ -32,7 +48,9 @@ static int dump(const char *dir)
         FILE *f = fopen(path, "wb");
         if (!f)
             return 1;
-        fwrite(vidbench_jpg320, 1, vidbench_jpg320_len, f);
+        uint8_t *fr = malloc(vidbench_jpg320_len + 6);
+        fwrite(fr, 1, make_frame(i, fr), f);
+        free(fr);
         fclose(f);
     }
     snprintf(path, sizeof path, "%s/a.raw", dir);
@@ -53,7 +71,7 @@ static uint16_t to565(const uint8_t *rgb)
     return (uint16_t)((rgb[0] >> 3) << 11 | (rgb[1] >> 2) << 5 | (rgb[2] >> 3));
 }
 
-static int check(const char *file)
+static int check(const char *file, int channels, int bits)
 {
     FILE *f = fopen(file, "rb");
     if (!f)
@@ -72,8 +90,9 @@ static int check(const char *file)
     if (fails)
         return 1;
     CHECK(v.frames == 3 && v.width == 320 && v.height == 180 && v.fps == 15);
-    CHECK(v.audio_channels == 1 && v.audio_bits == 16 && v.audio_rate == 22050);
-    CHECK(v.audio_len == AUDIO_FRAMES * 2);
+    CHECK(v.audio_channels == channels && v.audio_bits == bits && v.audio_rate == 22050);
+    const int sf = channels * bits / 8;         /* a.raw is 22050 bytes: 11025 frames of 16-bit mono or 8-bit stereo */
+    CHECK(v.audio_len == AUDIO_FRAMES * 2 && AUDIO_FRAMES * 2 / sf == 11025);
     CHECK(bmv_duration_ms(&v) == 200);
     CHECK(bmv_frame_at(&v, 0) == 0 && bmv_frame_at(&v, 67) == 1 && bmv_frame_at(&v, 133) == 1 &&
           bmv_frame_at(&v, 134) == 2 && bmv_frame_at(&v, 99999) == 2);
@@ -86,7 +105,10 @@ static int check(const char *file)
     for (uint32_t i = 0; i < 3; i++) {
         const uint8_t *p;
         size_t n;
-        CHECK(bmv_frame(&v, i, &p, &n) == 0 && n == vidbench_jpg320_len && !memcmp(p, vidbench_jpg320, n));
+        uint8_t *want = malloc(vidbench_jpg320_len + 6);
+        const size_t wn = make_frame((int)i, want);
+        CHECK(bmv_frame(&v, i, &p, &n) == 0 && n == wn && !memcmp(p, want, n));
+        free(want);
         memset(px, 0xAA, 320 * 180 * 2);
         CHECK(bmv_decode(&v, i, px, err, sizeof err) == 0);
         int diff = 0;
@@ -104,7 +126,7 @@ static int check(const char *file)
     /* audio: the span of the second frame, then the edges */
     const uint8_t *a = NULL;
     CHECK(bmv_audio_span(&v, 0, 1000, &a) == AUDIO_FRAMES * 2 && a == v.audio);
-    CHECK(bmv_audio_span(&v, 100, 200, &a) == 2205 * 2 && a == v.audio + 2205 * 2);
+    CHECK(bmv_audio_span(&v, 100, 200, &a) == (size_t)(2205 * sf) && a == v.audio + 2205 * sf);
     CHECK(bmv_audio_span(&v, 200, 100, &a) == 0 && bmv_audio_span(&v, 5000, 6000, &a) == 0);
 
     /* a smaller buffer refuses the picture */
@@ -142,6 +164,20 @@ static int check(const char *file)
         memset(copy + idx + field * 4, 0xFF, 4);            /* offset or size 0xFFFFFFFF: no overflow */
         CHECK(bmv_open(&t, copy, (size_t)len, err, sizeof err) != 0);
     }
+    /* hostile audio fields: a size that is not a whole number of samples, a start or an end outside the file */
+    struct { int pos; uint32_t val; } hostile[] = {
+        { 28, (uint32_t)v.audio_len + 1 },          /* not a whole number of sample frames (sf is 2) */
+        { 24, (uint32_t)len },                      /* audio_off at the end of the file */
+        { 24, 0xFFFFFFFFu },
+        { 28, 0xFFFFFFFFu },
+        { 24, 4 },                                  /* inside the header */
+    };
+    for (size_t k = 0; k < sizeof hostile / sizeof hostile[0]; k++) {
+        bmv_t t;
+        memcpy(copy, buf, (size_t)len);
+        memcpy(copy + hostile[k].pos, &hostile[k].val, 4);   /* little-endian host */
+        CHECK(bmv_open(&t, copy, (size_t)len, err, sizeof err) != 0);
+    }
     free(copy);
     free(px);
     free(rgb);
@@ -155,8 +191,8 @@ int main(int argc, char **argv)
 {
     if (argc == 3 && !strcmp(argv[1], "dump"))
         return dump(argv[2]);
-    if (argc == 3 && !strcmp(argv[1], "check"))
-        return check(argv[2]);
-    fprintf(stderr, "usage: test_vid dump DIR | check FILE\n");
+    if (argc == 5 && !strcmp(argv[1], "check"))
+        return check(argv[2], atoi(argv[3]), atoi(argv[4]));
+    fprintf(stderr, "usage: test_vid dump DIR | check FILE CHANNELS BITS\n");
     return 2;
 }

@@ -33,9 +33,9 @@ def jpeg_size(data):
             i += 1 if m == 0xFF else 2
             continue
         n = struct.unpack(">H", data[i + 2:i + 4])[0]
-        if m in (0xC0, 0xC1, 0xC2):
+        if 0xC0 <= m <= 0xCF and m not in (0xC4, 0xC8, 0xCC):
             h, w = struct.unpack(">HH", data[i + 5:i + 9])
-            return w, h, m == 0xC2
+            return w, h, m != 0xC0 and m != 0xC1
         i += 2 + n
     raise ValueError("no frame header")
 
@@ -48,11 +48,15 @@ def pack(frames, fps, pcm=b"", rate=0, channels=0, bits=0):
     for k, f in enumerate(frames):
         fw, fh, prog = jpeg_size(f)
         if prog:
-            raise ValueError(f"frame {k} is progressive: the console reads baseline JPEG only")
+            raise ValueError(f"frame {k} is not baseline JPEG (progressive, lossless or arithmetic): the console reads baseline only")
         if (fw, fh) != (w, h):
             raise ValueError(f"frame {k} is {fw}x{fh}, the first is {w}x{h}")
     if not 1 <= fps <= 240:
         raise ValueError("fps must be 1..240")
+    if not (1 <= w <= 1920 and 1 <= h <= 1080):
+        raise ValueError(f"picture size {w}x{h}: the console reads 1..1920 x 1..1080")
+    if len(frames) > 1000000:
+        raise ValueError("more than 1,000,000 frames")
     if pcm:
         if channels not in (1, 2) or bits not in (8, 16) or not 4000 <= rate <= 48000:
             raise ValueError("audio: channels 1|2, bits 8|16, rate 4000..48000")
@@ -67,6 +71,8 @@ def pack(frames, fps, pcm=b"", rate=0, channels=0, bits=0):
     index_off = pos
     index = b"".join(struct.pack("<II", o, n) for o, n in offs)
     audio_off = index_off + len(index)
+    if pos + len(index) + len(pcm) >= 1 << 32:
+        raise ValueError("the clip would be 4 GiB or more")
     head = MAGIC + struct.pack("<BBBBHHHHIIII", 1, 1, channels, bits, w, h, fps, rate, len(frames),
                                index_off, audio_off if pcm else 0, len(pcm))
     assert len(head) == 32
