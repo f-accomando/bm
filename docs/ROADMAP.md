@@ -29,11 +29,11 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 | ID | Pri | Criterion to open the beta | Verifiable requirement | After |
 |---|---|---|---|---|
 | BETA-1 | P0 | Stable base | CI green on `bm-core`; a crash writes a correct `bootprev.txt` (hardware tests done by the user) | SYS-1, SYS-2 |
-| BETA-2 | P0 | A complete game can be built with the suite | the acceptance test, 2D version | APP-1, APP-6 |
+| BETA-2 | P0 | A complete game can be built with the suite | the acceptance test, 2D version | APP-6 |
 | BETA-3 | P0 | The API is integrated in the editor | function help and lint in bm Code; completion with a single API source | APP-5 |
 | BETA-4 | P1 | Acceptable performance in 2D and 3D | budget measured and published for Pi and RGB30; the test game at 60 fps (or at the frame rate declared in the budget) | API-1, M36, M35, M37, M41 |
 | BETA-5 | P1 | The 3D version of the test | a multi-stage 3D game runs on the GPU (V3D on the Pi, Mali on the RGB30) within the budget | BETA-4, APP-2 |
-| BETA-6 | P1 | Consistency between the two kernels | `python scripts/consistency.py gate` with no `open` or `untested` divergences touching menu, input, Games, SDK and saves (D01-D13, D28, D30-D36 and similar); the others accepted in writing | APP-1 |
+| BETA-6 | P1 | Consistency between the two kernels | `python scripts/consistency.py gate` with no `open` or `untested` divergences touching menu, input, Games, SDK and saves (D01-D13, D28, D30-D36 and similar); the others accepted in writing | - |
 | BETA-7 | P1 | Manuals up to date | Each manual in `manuals/content/` (English and Italian) matches the code, and `python scripts/manuals.py status` shows no open item. No tester guide and no feedback channel: users send feedback to the owner in private, outside bm | APP-3 |
 
 **Lua and LuaJIT (baseline decision, to be confirmed).** For the beta we stay on the Lua 5.4 interpreter: LuaJIT is neither needed nor advisable. One operation costs about 100 ns (about 140,000 per frame); drawing and 3D live in C and on the GPU, and `docs/PERFORMANCE.md` (discarded choices) already discarded the JIT because it requires generating code at runtime on bare metal; moreover the `profile` and breakpoint hook does not fire in compiled code (`docs/B16.md`, section on the debug hook). It is reconsidered only if tester feedback shows games limited by Lua and not by drawing: first measure with `profile(true)` and move the heavy work to C or to the QPUs.
@@ -79,7 +79,6 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 | ID | Pri | State | Goal | Requirement | Details | After |
 |---|---|---|---|---|---|---|
-| APP-1 | P1 | in progress | bm SDK on RGB30 (Dev, pad, Games with `/carts`) | console tests for every `Open work` entry; divergences D28 etc. to `resolved` | [tools](progress/tools.md) `bm SDK (RGB30)` | M47 |
 | M48 | P2 | in progress | Mouse across the whole suite (USB and Bluetooth) | every program selects, draws and navigates with the pointer without a keyboard | [tools](progress/tools.md) | - |
 | M45 | P2 | in progress | bm Write: `.BMD` documents, TXT/MD/HTM/PDF export | a formatted document exported to PDF identical on the PC | [tools](progress/tools.md) | - |
 | APP-2 | P2 | to do | 3D maps in bm SDK; bm Pixel for stacks (M43 step 3) | `Open work` steps closed with a 3D map saved and reloaded | [tools](progress/tools.md) `Mappe 3D in bm SDK`, [suite-sdk](design/suite-sdk.md), [suite-pixel](design/suite-pixel.md) | M43 |
@@ -87,7 +86,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 | R11, R37, R38, R39 | P3 | idea | Tiled, map palettes, 16×16 wizard, 720×720 SDK | to be specified | [suite-sdk](design/suite-sdk.md), [sdk-720](design/sdk-720.md) | - |
 | R15, R16, R26 | P3 | idea | Live reload from the PC, bm Code templates, mouse in nano8 | to be specified | [tools](progress/tools.md), [suite-code](design/suite-code.md) | - |
 | APP-5 | P0 | to do | API integrated in the editor: help on the function under the cursor and lint | in bm Code a key shows the function's signature and description; a check flags nonexistent API names; the API list has a single source generated from `docs/api/` and also used by `predict` | [tools](progress/tools.md), [PREDICT](PREDICT.md), [API](API.md) | - |
-| APP-6 | P1 | to do | Develop a game without a PC: resources and projects manageable on the device | on RGB30 and Pi the SDK makes a project with sprite, map, sounds and code, saves it and builds it without the PC; the resources are made inside the SDK pages (the Lib tab is closed by decision, and resources are not made on the device) | [tools](progress/tools.md) `bm SDK (RGB30)`, [CONSISTENCY](spec/CONSISTENCY.md) | APP-1 |
+| APP-6 | P1 | to do | Develop a game without a PC: resources and projects manageable on the device | on RGB30 and Pi the SDK makes a project with sprite, map, sounds and code, saves it and builds it without the PC; the resources are made inside the SDK pages (the Lib tab is closed by decision, and resources are not made on the device) | [tools](progress/tools.md) `bm SDK (RGB30)`, [CONSISTENCY](spec/CONSISTENCY.md) | - |
 
 ## 4. Games (optional)
 
