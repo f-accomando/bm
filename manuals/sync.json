@@ -122,7 +122,7 @@
   },
   "sources": {
    "docs/API.md": "a6cc5a554136",
-   "docs/GAME-GUIDE.md": "426aea1ebf0b",
+   "docs/GAME-GUIDE.md": "f1c97c4052fd",
    "docs/api/draw.md": "61932a4cb329",
    "docs/api/input.md": "01f2a82443ca",
    "docs/api/system.md": "16dfbcccd934"
@@ -234,7 +234,7 @@
   "sources": {
    "docs/api/bmlib.md": "e1b5c355f388",
    "docs/api/bmnet.md": "31716bc331e1",
-   "docs/design/games-architecture.md": "dfb1cd8c948b"
+   "docs/design/games-architecture.md": "d55d35bd36ae"
   }
  },
  "api-sound": {
@@ -1101,10 +1101,10 @@
   "sources": {
    "docs/BENCH3D.md": "1adaf5f48818",
    "docs/DRIVERS.md": "0101d07d66eb",
-   "docs/HARDWARE.md": "8fc72a29a4fc",
+   "docs/HARDWARE.md": "e7d2cc4e6cea",
    "docs/PERFORMANCE.md": "1c3fc264eae4",
    "docs/progress/graphics.md": "b96f51676fd8",
-   "docs/progress/v3d.md": "4238c5bee8d8"
+   "docs/progress/v3d.md": "71c6d083c4d6"
   }
  },
  "riff": {
