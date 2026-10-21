@@ -6,3 +6,5 @@ coin    0  8  8  8  3      10
 big     0  16 16 16
   body  1  -2 4  20 12
   box 7 *  2  2  4  4
+# a stack zone (zstack): name x y w h n, n slices of w x h side by side
+stack rgb 8 0 8 8 3

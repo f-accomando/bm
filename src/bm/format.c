@@ -714,7 +714,8 @@ static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t e
     for (unsigned i = 0; i < c->zones; i++) {
         bm_zone_t z;
         bm_zone(c, (int)i, &z);
-        if ((uint32_t)z.x + (uint32_t)z.w * z.frames > c->sheet_w || (uint32_t)z.y + z.h > c->sheet_h) {
+        const uint32_t across = z.slices > z.frames ? z.slices : z.frames;
+        if ((uint32_t)z.x + (uint32_t)z.w * across > c->sheet_w || (uint32_t)z.y + z.h > c->sheet_h) {
             if (c->kind)
                 return fail(err, errlen, "a sprite zone out of the sheet");
             c->sprites = NULL;
@@ -812,6 +813,7 @@ int bm_zone(const bm_cart_t *c, int i, bm_zone_t *z)
     z->h = rd16(p + 22);
     z->frames = p[24];
     z->fps = p[25];
+    z->slices = p[26];              /* the low byte of the u16 that was reserved (zero) */
     return 0;
 }
 

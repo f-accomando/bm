@@ -19,6 +19,7 @@ static const font_t font = { 8, 16, glyphs };
 #define H 48
 static uint16_t fb[H * W];
 
+static float nanf_(void) { volatile float z = 0.0f; return z / z; }
 static uint16_t at(int x, int y) { return fb[y * W + x]; }
 
 static void test_primitives(void)
@@ -810,6 +811,120 @@ static void test_pixel(void)
     g16_cls(&g, 0);
     g16_sspr_zoom(&g, &s, 8, 0, 4, 4, W - 3, H - 3, 0, 0, 2.0f);
     CHECK(at(W - 3, H - 3) == 1 && at(W - 1, H - 3) == 2 && at(W - 1, H - 1) == 0, "clipped at the edge");
+    g16_sheet_free(&s);
+
+    /* sprite stacking: 3 slices of 4x3 side by side, a distinct colour per pixel */
+    CHECK(g16_sheet_alloc(&s, 12, 3) == 0, "stack sheet");
+    for (int y = 0; y < 3; y++)
+        for (int x = 0; x < 12; x++)
+            g16_sheet_set(&s, x, y, (uint16_t)(100 + x + y * 12), !(x == 5 && y == 1));
+    static uint16_t ref[W * H];
+    g16_cls(&g, 0x7777);
+    for (int i = 0; i < 3; i++) g16_sspr(&g, &s, i * 4, 0, 4, 3, 38, 39 - i * 2, 0, 0);
+    memcpy(ref, fb, sizeof ref);
+    g16_cls(&g, 0x7777);
+    g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, 0.0f, 1.0f, 2.0f);
+    CHECK(memcmp(ref, fb, sizeof ref) == 0, "stack rz=0 scale=1 equals sspr per slice");
+    g16_cls(&g, 0);
+    g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, 0.0f, 1.0f, 2.0f);
+    CHECK(at(38, 41) == 124 && at(38, 39) == 128 && at(38, 37) == 132 && at(39, 38) == 0,
+          "stack order: the upper slice covers the lower one, a transparent pixel shows nothing");
+    g16_cls(&g, 0);
+    g16_stack(&g, &s, 0, 0, 4, 3, 0, 40, 40, 0.0f, 1.0f, 2.0f);
+    memset(ref, 0, sizeof ref);
+    CHECK(memcmp(ref, fb, sizeof ref) == 0, "stack n=0 draws nothing");
+    g16_cls(&g, 0);
+    g16_stack(&g, &s, 0, 0, 4, 3, 1, 1, 1, 0.0f, 1.0f, 0.0f);
+    CHECK(at(0, 0) == 101 && at(2, 1) == 115, "stack clipped at the top left");
+    g16_cls(&g, 0);
+    g16_stack(&g, &s, 0, 0, 4, 3, 1, W - 1, H - 1, 0.0f, 1.0f, 0.0f);
+    CHECK(at(W - 3, H - 2) == 100 && at(W - 1, H - 1) == 114 && at(W - 3, H - 3) == 0,
+          "stack clipped at the bottom right");
+    /* NaN and inf from Lua draw nothing (and never reach the float to int casts) */
+    {
+        const float nanf = nanf_(), inff = 1.0f / 0.0f;
+        const float bad[3][3] = { { nanf, 1.0f, 1.0f }, { 0.0f, inff, 1.0f }, { 0.0f, 1.0f, inff } };
+        for (int k = 0; k < 3; k++) {
+            g16_cls(&g, 0);
+            g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, bad[k][0], bad[k][1], bad[k][2]);
+            memset(ref, 0, sizeof ref);
+            CHECK(memcmp(ref, fb, sizeof ref) == 0, "stack with NaN or inf (case %d) draws nothing", k);
+        }
+        g16_cls(&g, 0);
+        g16_stack(&g, &s, 0, 0, 4, 3, 1, 40, 40, -inff, 1.0f, 1.0f);
+        g16_stack(&g, &s, 0, 0, 4, 3, 1, 40, 40, 0.0f, -inff, 1.0f);
+        CHECK(memcmp(ref, fb, sizeof ref) == 0, "stack with -inf draws nothing");
+        /* a huge finite step lifts every slice but the first off the screen: only slice 0 shows.
+         * smoke test: checks the picture, not UB (x86 gives INT_MIN for a bad cast, which is off screen
+         * too); build with -fsanitize=float-cast-overflow to see the cast. */
+        g16_cls(&g, 0);
+        g16_stack(&g, &s, 0, 0, 4, 3, 1, 40, 40, 0.0f, 1.0f, 0.0f);
+        memcpy(ref, fb, sizeof ref);
+        const float huge[] = { 1.0e30f, -1.0e30f, 3.0e38f, -3.0e38f };
+        for (unsigned k = 0; k < sizeof huge / sizeof *huge; k++) {
+            g16_cls(&g, 0);
+            g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, 0.0f, 1.0f, huge[k]);
+            CHECK(memcmp(ref, fb, sizeof ref) == 0, "stack with a huge step (case %u) shows only slice 0", k);
+            g16_cls(&g, 0);
+            g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, 0.0f, 64.0f, huge[k]);
+            CHECK(1, "smoke test: huge step with scale 64 (case %u) runs", k);
+        }
+        /* a huge finite rz: sin and cos stay in -1..1, the stack is drawn and nothing crashes.
+         * smoke test: checks nothing drawn outside the guard, not UB */
+        g16_cls(&g, 0);
+        g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, 1.0e30f, 1.0f, 2.0f);
+        g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, -3.0e38f, 64.0f, 2.0f);
+        CHECK(1, "smoke test: huge rz runs");
+    }
+
+    /* a stack partly outside the clip rectangle and the screen: nothing is written outside the
+     * clip, not even in a guard band around the framebuffer */
+    {
+        enum { G = 16, SW = W + 2 * G, SH = H + 2 * G };
+        static uint16_t gb[SH * SW], want[SH * SW];
+        g16_t gg;
+        g16_target(&gg, gb + G * SW + G, SW, W, H, &font);
+        const struct { int cx, cy, x, y; float rz, sc; } cases[] = {
+            { 0, 0, 0, 0, 0.0f, 1.0f },                    /* the whole screen: only the guard band */
+            { 10, 8, 20, 16, 0.0f, 1.0f },                 /* a clip inside the screen */
+            { 10, 8, 20, 16, 0.6f, 3.0f },                 /* turned and bigger than the clip */
+            { 0, 0, 2, 2, 0.4f, 4.0f },                    /* over the top left edge */
+            { 0, 0, W - 2, H - 2, 1.0f, 4.0f },            /* over the bottom right edge */
+        };
+        for (unsigned k = 0; k < sizeof cases / sizeof *cases; k++) {
+            for (int i = 0; i < SH * SW; i++) gb[i] = 0xABCD;
+            memcpy(want, gb, sizeof gb);
+            g16_clip(&gg, cases[k].cx, cases[k].cy, cases[k].cx ? 12 : 0, cases[k].cx ? 10 : 0);
+            g16_stack(&gg, &s, 0, 0, 4, 3, 3, cases[k].x, cases[k].y, cases[k].rz, cases[k].sc, 2.0f);
+            const int c0 = cases[k].cx ? cases[k].cx : 0, c1 = cases[k].cx ? cases[k].cx + 12 : W;
+            const int r0 = cases[k].cx ? cases[k].cy : 0, r1 = cases[k].cx ? cases[k].cy + 10 : H;
+            int bad_px = 0, inside = 0;
+            for (int y = 0; y < SH; y++)
+                for (int x = 0; x < SW; x++) {
+                    const int px = x - G, py = y - G;
+                    const int in = px >= c0 && px < c1 && py >= r0 && py < r1;
+                    if (in) inside += gb[y * SW + x] != want[y * SW + x];
+                    else bad_px += gb[y * SW + x] != want[y * SW + x];
+                }
+            CHECK(bad_px == 0, "stack case %u wrote %d pixels outside the clip and the screen", k, bad_px);
+            if (k >= 1 && k <= 2) CHECK(inside > 0, "stack case %u drew inside the clip", k);
+        }
+        g16_clip(&gg, 0, 0, 0, 0);
+    }
+    g16_sheet_free(&s);
+
+    /* a quarter turn of a square slice is exact */
+    CHECK(g16_sheet_alloc(&s, 4, 4) == 0, "stack square sheet");
+    for (int y = 0; y < 4; y++)
+        for (int x = 0; x < 4; x++)
+            g16_sheet_set(&s, x, y, (uint16_t)(200 + x + y * 4), 1);
+    g16_cls(&g, 0);
+    g16_stack(&g, &s, 0, 0, 4, 4, 1, 40, 40, 1.5707963267948966f, 1.0f, 1.0f);
+    int exact = 1;
+    for (int ly = 0; ly < 4; ly++)
+        for (int lx = 0; lx < 4; lx++)
+            if (at(41 - ly, 38 + lx) != 200 + lx + ly * 4) exact = 0;
+    CHECK(exact, "stack: a 90 degree turn moves every pixel to its exact place");
     g16_sheet_free(&s);
 }
 

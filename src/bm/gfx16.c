@@ -1,5 +1,6 @@
 #include "gfx16.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -258,6 +259,62 @@ void g16_sspr_zoom(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int s
             uint32_t k = sbase + (uint32_t)(sx + (flip_x ? sw - 1 - lx : lx));
             if (s->alpha[k])
                 dst[x] = s->px[k];
+        }
+    }
+}
+
+/* Sprite stacking: slice i of `n` (left to right on the sheet, slice 0 is the
+ * bottom) is drawn turned by `rz` radians around its centre, `scale` times
+ * bigger, and lifted by i * step * scale pixels.  Inverse mapping: for each
+ * screen pixel of the bounding box, the source pixel comes from 16.16 fixed
+ * point steps (sin and cos are read once per call). */
+void g16_stack(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+               int n, int x, int y, float rz, float scale, float step)
+{
+    if (!s->px || n <= 0 || sw <= 0 || sh <= 0 || sx < 0 || sy < 0 || sy + sh > s->h) return;
+    if (!isfinite(rz) || !isfinite(scale) || !isfinite(step)) return;   /* NaN or inf from Lua */
+    if (!(scale > 0.0f) || scale > 64.0f) return;
+    const float c = cosf(rz), sn = sinf(rz);
+    const float ac = c < 0 ? -c : c, as = sn < 0 ? -sn : sn;
+    /* a turn of exactly 90 degrees must not leave a rounding trace */
+    const int32_t cf = (int32_t)lrintf(c / scale * 65536.0f);
+    const int32_t sf = (int32_t)lrintf(sn / scale * 65536.0f);
+    /* half size of the bounding box of the turned rectangle */
+    const float hx = scale * (ac * sw + as * sh) * 0.5f + 1.0f;
+    const float hy = scale * (as * sw + ac * sh) * 0.5f + 1.0f;
+    /* the centre of the slice, in the index space of the pixels */
+    const float cx0 = (float)(x - g->cam_x - sw / 2) + (float)(sw - 1) * 0.5f;
+    const float cy0 = (float)(y - g->cam_y - sh / 2) + (float)(sh - 1) * 0.5f;
+    const float hw = (float)(sw - 1) * 0.5f, hh = (float)(sh - 1) * 0.5f;
+    for (int i = 0; i < n; i++) {
+        const int fx = sx + i * sw;
+        if (fx + sw > s->w) break;
+        /* a lift beyond 1e6 pixels is off screen anyway: the clamp keeps the cast defined */
+        float lift = floorf((float)i * step * scale + 0.5f);
+        if (!(lift > -1.0e6f)) lift = -1.0e6f;
+        if (lift > 1.0e6f) lift = 1.0e6f;
+        const float cy = cy0 - (float)(int)lift;
+        const float cx = cx0;
+        int x0 = (int)floorf(cx - hx), x1 = (int)ceilf(cx + hx) + 1;
+        int y0 = (int)floorf(cy - hy), y1 = (int)ceilf(cy + hy) + 1;
+        if (x0 < g->cx0) x0 = g->cx0;
+        if (y0 < g->cy0) y0 = g->cy0;
+        if (x1 > g->cx1) x1 = g->cx1;
+        if (y1 > g->cy1) y1 = g->cy1;
+        if (x0 >= x1 || y0 >= y1) continue;
+        /* source position (+0.5 so that the cut rounds to the nearest pixel) */
+        const float ox = (float)x0 - cx, oy = (float)y0 - cy;
+        int32_t u0 = (int32_t)lrintf((ox * (float)cf + oy * (float)sf) + (hw + 0.5f) * 65536.0f);
+        int32_t v0 = (int32_t)lrintf((oy * (float)cf - ox * (float)sf) + (hh + 0.5f) * 65536.0f);
+        for (int py = y0; py < y1; py++, u0 += sf, v0 += cf) {
+            int32_t u = u0, v = v0;
+            uint16_t *dst = g->px + (uint32_t)py * g->stride;
+            for (int px = x0; px < x1; px++, u += cf, v -= sf) {
+                const uint32_t lx = (uint32_t)(u >> 16), ly = (uint32_t)(v >> 16);
+                if (u < 0 || v < 0 || lx >= (uint32_t)sw || ly >= (uint32_t)sh) continue;
+                const uint32_t k = (uint32_t)(sy + (int)ly) * s->w + (uint32_t)(fx + (int)lx);
+                if (s->alpha[k]) dst[px] = s->px[k];
+            }
         }
     }
 }
