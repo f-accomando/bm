@@ -6132,7 +6132,7 @@ def test_stack_bench(b, opts):
         plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
         rows = re.findall(r"^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$", plain, re.M)
         assert [(int(r[0]), int(r[1])) for r in rows] == [(16, 8), (16, 16), (64, 8), (64, 16), (128, 8), (128, 16)], plain
-        assert all(int(r[2]) > 0 and int(r[3]) > 0 for r in rows), plain
+        assert all(int(r[2]) > 0 and int(r[3]) > 0 and int(r[4]) > 0 for r in rows), plain
         assert "error" not in plain and "stopped" not in plain, plain
         q.expect("the line is done", timeout=10)
     finally:

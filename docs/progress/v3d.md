@@ -116,5 +116,5 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
    - *Completion criterion*: particles and Yharnam's darkness levels handled entirely by the GPU with measurements in the 3D Bench and an identical software fallback in QEMU (`gpu3d=0`).
 6. **Dynamic impostor adaptation for crowds and heroes**:
    - Skinned models simplified to billboard quads with `r3d_impostor` when far from the camera; Overbit/Yharnam quality governor to enable `gpu3d(nil, nil, nil, nil, 8)` at low levels.
-8. Sprite stacking on the Pi: the Stack bench exists; run it on the Pi Zero W and write the numbers here.
-   - Run: Dev tab, **Stack bench** (or `:stack` in the menu): 16, 64 and 128 stacks of 8 and 16 slices, 30 frames each. Read `us/frame` (drawing only; below 16600 fits 60 fps), `stacks/s`, `slices/s`. It times `g16_stack`, not the 3D Bench score.
+8. Sprite stacking on the Pi: the Stack bench exists. Run it on the Pi Zero W and write the numbers here.
+   - Run: open the Dev tab and select **Stack bench**, or type `:stack` in the menu. It draws 16, 64 and 128 stacks of 8 and 16 slices. Read `us/frame`, `stacks/s` and `slices/s`. Below 16600 `us/frame` fits 60 fps.

@@ -9784,6 +9784,8 @@ void bm_stack_bench(framebuffer_t *fb, uint32_t frames)
             if (!done || !total)
                 continue;
             const uint32_t us = total / done;
+            if (!us)
+                continue;
             kprintf("%8d %7d %12lu %12lu %12lu\n", n, sl, (unsigned long)us,
                     (unsigned long)((uint64_t)n * 1000000u / us), (unsigned long)((uint64_t)n * (uint64_t)sl * 1000000u / us));
         }
