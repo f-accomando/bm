@@ -685,15 +685,20 @@ def img_tabs(q, want=None, lib=False):
     return lit
 
 
-def settled_screen(q, ok, tries=8):
+def settled_screen(q, ok, tries=15):
     """QEMU shows page 0 even while it is being drawn (it ignores the
     virtual offset), so a screendump can catch a frame half drawn: retry
-    until `ok(img, text)` holds."""
-    for _ in range(tries):
+    until `ok(img, text)` holds. The retries are 0.1 s apart: back to back
+    they can all land in the same long frame of a loaded runner. `ok` must
+    ask for everything the caller asserts afterwards (a half-drawn frame
+    can have the title and miss the line below it)."""
+    for n in range(tries):
         img = q.screendump()
         text = screen_text(img)
         if ok(img, text):
             return img, text
+        if n + 1 < tries:
+            time.sleep(0.1)
     return img, text
 
 
@@ -965,14 +970,16 @@ def test_sd_cartridges(b, opts):
         q.send("M")
         q.expect("cartridge menu")
         time.sleep(0.5)
-        _, text = settled_screen(q, lambda i, t: any("bm native demo" in l for l in t))
+        want = ("Games", "bm native demo", "/Il mio gioco lungo.bm")
+        _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
         screen = "\n".join(text)
-        for s_ in ("Games", "bm native demo", "/Il mio gioco lungo.bm"):
+        for s_ in want:
             assert s_ in screen, screen
         q.send("d")                           # the next cover: its title and file
-        _, text = settled_screen(q, lambda i, t: any("Pong" in l for l in t))
+        want = ("Pong", "/carts/demo2.bm")
+        _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
         screen = "\n".join(text)
-        assert "Pong" in screen and "/carts/demo2.bm" in screen, screen
+        assert all(w in screen for w in want), screen
         q.send("a")
         q.send("\r")                          # SD cartridges come first, by title
         q.expect("playing Il mio gioco lungo.bm", timeout=10)
@@ -7026,6 +7033,18 @@ def test_code_completion(b, opts):
                 n += 1
         return n
 
+    def wait_coloured(rgb, tries=20):
+        """the count of that colour on the first screen with more than 20 pixels of it, or of the last one.
+        One sample is not enough: under load a screendump can catch a frame the guest is still drawing,
+        without the colour, though the frames before and after have it (CI misses of this test)"""
+        n = 0
+        for _ in range(tries):
+            n = coloured(rgb)
+            if n > 20:
+                break
+            time.sleep(0.25)
+        return n
+
     GHOST, PRED = 0x6C8CC8, 0x50E0B0
 
     def shot(name):
@@ -7039,7 +7058,7 @@ def test_code_completion(b, opts):
         k("\x14", 0.4)                                      # Ctrl+T: an empty tab
         k("f", 0.4)
         see(["  1 function", "Tab: function"])              # f + the grey-blue rest
-        assert coloured(GHOST) > 20, "the suggestion in grey-blue"
+        assert wait_coloured(GHOST) > 20, "the suggestion in grey-blue"
         shot("ghost")
         k("\t", 0.4)
         text = see(["  1 function"])
@@ -7048,11 +7067,8 @@ def test_code_completion(b, opts):
             if coloured(GHOST) < 20:
                 break
             time.sleep(0.25)
-        for _ in range(20):                                 # the colour settles a little after the text
-            if coloured(PRED) > 20:
-                break
-            time.sleep(0.25)
-        if coloured(PRED) <= 20:                            # CI evidence of the rare miss: build/diag/ is uploaded
+        pred = wait_coloured(PRED)                          # the colour settles a little after the text
+        if pred <= 20:                                      # CI evidence of a miss: build/diag/ is uploaded
             img = q.screendump()
             w, h, px = img
             hist = {}
@@ -7060,12 +7076,12 @@ def test_code_completion(b, opts):
                 key = tuple(px[i + j] >> 4 << 4 for j in range(3))
                 hist[key] = hist.get(key, 0) + 1
             top = sorted(hist.items(), key=lambda kv: -kv[1])[:8]
-            print("code-completion miss: GHOST=%d PRED=%d" % (coloured(GHOST), coloured(PRED)))
+            print("code-completion miss: GHOST=%d PRED=%d" % (coloured(GHOST), pred))
             print("first row colours (rgb>>4<<4: pixels):", top)
             print("screen:\n" + "\n".join(screen_text(img, 6, 12)))
             os.makedirs("build/diag", exist_ok=True)
             _save_png(img, "build/diag/code-complete-miss.png")
-        assert coloured(PRED) > 20, "what Tab wrote, green"
+        assert pred > 20, "what Tab wrote, green"
         shot("written")
         k(" _upd", 0.1)
         see(["Tab: _update"])
