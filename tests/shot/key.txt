@@ -1,2 +1,10 @@
 20 keys 0x46
 24 keys none
+30 pad 1 select
+260 pad 1 none
+300 pad 1 select
+420 pad 1 none
+500 pad 1 select l1
+700 pad 1 none
+720 pad 1 select l1 r1
+920 pad 1 none

@@ -11,9 +11,9 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 - Still open: header integrity (second CRC in the reserved bytes, F3a); the bigger writer unification (F6).
 
 ## API
-- Screenshot `shot([prefix])`, Print Screen and Select+L1+R1: done ([SCREENSHOTS.md](SCREENSHOTS.md)).
+- Screenshot `shot([prefix])`, Print Screen and Select held 3 s: done ([SCREENSHOTS.md](SCREENSHOTS.md)).
   Open: the menu's own screens cannot take one yet; a picture for Print Screen in the F12 list
-  of keys (`syskeys.c`); is Select+L1+R1 free on every pad?
+  of keys (`syskeys.c`); is Select held 3 s free on every pad?
 - Pictures for the manuals: folder (`manuals/shots/`?) and naming rule, and a script that copies
   them from the SD.
 - `shot()` asks the player nothing (it writes only in `bm/shots/`): keep it so, or ask like `doc_write`?
@@ -59,7 +59,7 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 - Manual for the Assistant app (`carts/assistant`).
 - Manual of the specifications (the `docs/spec/` registry as a PDF).
 - Asset exchange on the console (sharing resources between games from the console itself; the PC side, `bmres.py`, exists).
-- Owner's tests on the hardware: D01, D02, D06, D07, D08, D13, D16, the screenshot (Select+L1+R1 on the RGB30) and a `.b16` 720x720 on the Pi; then mark them `resolved` in `docs/spec/divergences.toml` and run `consistency.py check`.
+- Owner's tests on the hardware: D01, D02, D06, D07, D08, D13, D16, the screenshot (Select held 3 s on the RGB30) and a `.b16` 720x720 on the Pi; then mark them `resolved` in `docs/spec/divergences.toml` and run `consistency.py check`.
 - Test carts `demo`, `texroom`, `stress`: to be removed later, not migrated to the common layout.
 - Formats F3 (header integrity, variant (a): a second CRC in bytes 120..127, checked only when nonzero) and F6 (one writer in C and one in Python): do them when a header change is needed, not before; F6 must keep the bytes identical (`test_bm.c`, `test_bmres.py`).
 - D09: `/carts` on the RGB30 is accepted (storage-path); `.bme` projects in Dev are still to do.

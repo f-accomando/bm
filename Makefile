@@ -1414,7 +1414,7 @@ $(BUILD)/shot-test.bm: tests/shot/cart.lua scripts/mkbm.py
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "shot test" --author tests
 test-shot: $(BUILD)/host/bmhost-bin $(BUILD)/shot-test.bm tests/shot/check.py tests/shot/key.txt
 	rm -rf $(BUILD)/shot-sd && mkdir -p $(BUILD)/shot-sd
-	$< $(BUILD)/shot-test.bm --sd $(BUILD)/shot-sd --input tests/shot/key.txt --seconds 1 2>&1 | tee $(BUILD)/shot-test.log | grep "shot:"
+	$< $(BUILD)/shot-test.bm --sd $(BUILD)/shot-sd --input tests/shot/key.txt --seconds 16 2>&1 | tee $(BUILD)/shot-test.log | grep "shot:"
 	$(PYTHON) tests/shot/check.py $(BUILD)/shot-sd
 
 # The PDF manuals (docs/MANUALS.md): en and it, theme A; test-manuals says if one language is behind

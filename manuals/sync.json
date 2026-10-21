@@ -110,8 +110,8 @@
     "title": "Documents"
    },
    "8": {
-    "en": "cb359d20304d",
-    "it": "5563295507d1",
+    "en": "7714f06d5fdc",
+    "it": "4beaba48ac89",
     "title": "Screenshots"
    },
    "9": {
@@ -125,7 +125,7 @@
    "docs/GAME-GUIDE.md": "f1c97c4052fd",
    "docs/api/draw.md": "61932a4cb329",
    "docs/api/input.md": "01f2a82443ca",
-   "docs/api/system.md": "16dfbcccd934"
+   "docs/api/system.md": "fb5e23858131"
   }
  },
  "api-lib": {
@@ -308,15 +308,15 @@
     "title": "The project layout"
    },
    "6": {
-    "en": "b8bdde4f8529",
-    "it": "1807c7dff79f",
+    "en": "69a13c60ba6e",
+    "it": "05d9dcf7b64d",
     "title": "Screenshots for developers"
    }
   },
   "sources": {
    "docs/PROJECT-LAYOUT.md": "17c4ea9e1d20",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/SCREENSHOTS.md": "dea6b5f72b07",
+   "docs/SCREENSHOTS.md": "34e487f54164",
    "docs/api/tools.md": "8a4b1eea899a"
   }
  },
@@ -328,8 +328,8 @@
     "title": "What bm is"
    },
    "10": {
-    "en": "3e5222d41409",
-    "it": "6d1885d1729f",
+    "en": "9171cee1ee05",
+    "it": "0de466f8b0a6",
     "title": "Screenshots"
    },
    "11": {
@@ -392,7 +392,7 @@
    "boot": "63490264ed76",
    "chainloader": "7feaaf3a501c",
    "docs/HARDWARE.md": "e7d2cc4e6cea",
-   "docs/progress/system.md": "c771caf8966c",
+   "docs/progress/system.md": "5ba5a564ee5e",
    "src/kernel/syskeys.c": "6299911b4014"
   }
  },

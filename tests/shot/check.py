@@ -32,7 +32,9 @@ def main():
     shots = os.path.join(sys.argv[1], "bm", "shots")
     names = sorted(os.listdir(shots))
     # the cart's title is "shot test" (the first four letters: SHOT); shot("ab!c") keeps the letters: ABC
-    want = ["ABC0001.PNG", "SHOT0001.PNG", "SHOT0002.PNG", "SHOT0003.PNG"]    # the last: the Print Screen key at frame 20
+    want = ["ABC0001.PNG", "SHOT0001.PNG", "SHOT0002.PNG", "SHOT0003.PNG", "SHOT0004.PNG"]
+    # SHOT0003: the Print Screen key at frame 20; SHOT0004: Select held from frame 30, shot at 3 s (frame 210), no second shot while it stays down.
+    # None for: Select held 2 s (frames 300-420), Select + L1 held 4 s (500-700), the old Select + L1 + R1 held 4 s (720-920)
     ok = names == want
     print(f"shot: names {names} {'ok' if ok else 'WRONG, want ' + str(want)}")
     assert ok

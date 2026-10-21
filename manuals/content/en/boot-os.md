@@ -325,7 +325,7 @@ python3 tools/bm_net.py IP --config
 
 # Screenshots
 
-Press `Print Screen` on the keyboard, or hold **Select + L1 + R1** on a pad (Share + L1 + R1 on a DS4). The console saves the game's own screen, as it was drawn, as a PNG in `bm/shots/`. The overlays, the battery icon, the pointer and the message box are not in the picture.
+Press `Print Screen` on the keyboard, or hold **Select** for 3 seconds on a pad (Share on a DS4). The console saves the game's own screen, as it was drawn, as a PNG in `bm/shots/`. The overlays, the battery icon, the pointer and the message box are not in the picture.
 
 ## Good to know
 
@@ -345,7 +345,7 @@ Press `Print Screen` on the keyboard, or hold **Select + L1 + R1** on a pad (Sha
 Take three pictures of the same game. You get `0001`, `0002` and `0003` with the same prefix.
 :::
 
-[TO FILL: check Select + L1 + R1 on the PowKiddy RGB30; not tried on the console yet]
+[TO FILL: check Select held 3 s on the PowKiddy RGB30; not tried on the console yet]
 
 A game takes a picture by itself with `shot()`; see the API manual.
 

@@ -5086,10 +5086,24 @@ static int poll_keys(void)
     int quit = 0;
     uint32_t per[INPUT_PLAYERS];
     uint32_t pad = input_players(per, rt.text_mode || rt.raw_keys, &quit, &rt.local);
-    {                                       /* the system's screenshot: Print Screen, or Select + L1 + R1 */
+    {                                       /* the system's screenshot: Print Screen, or Select held 3 s on a pad */
         static int shot_held;
-        const uint32_t combo = HID_SELECT | HID_L1 | HID_R1;
-        const int down = hid_usage_held(0x46) || (pad & combo) == combo;
+        static uint32_t sel_t0;             /* when Select alone went down (0: it is not) */
+        static int sel_shot;                /* the shot of this hold is taken: wait for the release */
+        int down = hid_usage_held(0x46);
+        if (!(pad & HID_SELECT)) {          /* released: a new hold can start */
+            sel_t0 = 0;
+            sel_shot = 0;
+        } else if (pad != HID_SELECT || sel_shot || rt.leave_ask) {
+            sel_t0 = 0;                     /* another button, or the shot is taken: the 3 s start again */
+        } else {
+            if (!sel_t0)
+                sel_t0 = timer_ticks() | 1; /* never 0 */
+            if (timer_ticks() - sel_t0 >= 3000000u) {
+                down = 1;
+                sel_shot = 1;
+            }
+        }
         if (down && !shot_held && !rt.leave_ask)
             shot_plan(NULL);
         shot_held = down;

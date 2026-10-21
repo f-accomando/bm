@@ -1,6 +1,6 @@
 -- Screenshots (docs/SCREENSHOTS.md), checked in bmhost with --sd: shot() planned
 -- at frame 3 and 6 (two files, numbers 1 and 2), shot("ab!c") at frame 9 (a
--- prefix of its own), twice in one frame (one file); key.txt presses Print Screen at frame 20. tests/shot/check.py reads
+-- prefix of its own), twice in one frame (one file); key.txt presses Print Screen at frame 20 and holds Select (3 s: a shot; 2 s, Select + L1, Select + L1 + R1: none). tests/shot/check.py reads
 -- the PNGs in the SD's bm/shots.
 local frame = 0
 

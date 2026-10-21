@@ -84,7 +84,7 @@ since = 2
 status = "implemented"
 platforms = "all"
 where = ["src/bm/runtime.c", "src/bm/shot.c", "docs/SCREENSHOTS.md"]
-note = "shot([prefix]); Print Screen and Select+L1+R1; not tried on a Pi or an RGB30"
+note = "shot([prefix]); Print Screen and Select held 3 s; not tried on a Pi or an RGB30"
 
 [[item]]
 id = "info-spec"

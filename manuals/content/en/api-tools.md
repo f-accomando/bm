@@ -426,7 +426,7 @@ A game or an app saves the frame it is drawing as a PNG on the SD card. The play
 | How | Where |
 |---|---|
 | **Print Screen** on the keyboard | `bm/shots/` on the SD card |
-| **Select + L1 + R1** together on a pad (Share + L1 + R1 on a DS4) | `bm/shots/` on the SD card |
+| **Select** held for 3 seconds on a pad (Share on a DS4) | `bm/shots/` on the SD card |
 | `shot([prefix])` in your code | `bm/shots/` on the SD card |
 
 ## What it does
@@ -446,7 +446,7 @@ A box says `Screenshot saved` and the file name for two seconds. The picture is 
 
 ## Caveats
 
-- [TO FILL: check Select + L1 + R1 on the PowKiddy RGB30, and `shot()` with a 3D game on the GPU; the repository says neither was tried on a Pi or an RGB30.]
+- [TO FILL: check Select held 3 s on the PowKiddy RGB30, and `shot()` with a 3D game on the GPU; the repository says neither was tried on a Pi or an RGB30.]
 
 ## Try it, step by step
 

@@ -426,7 +426,7 @@ Un gioco o un'app salva come PNG sulla scheda SD il fotogramma che sta disegnand
 | Come | Dove |
 |---|---|
 | **Print Screen** sulla tastiera | `bm/shots/` sulla scheda SD |
-| **Select + L1 + R1** insieme su un pad (Share + L1 + R1 su un DS4) | `bm/shots/` sulla scheda SD |
+| **Select** tenuto premuto per 3 secondi su un pad (Share su un DS4) | `bm/shots/` sulla scheda SD |
 | `shot([prefix])` nel tuo codice | `bm/shots/` sulla scheda SD |
 
 ## Che cosa fa
@@ -446,7 +446,7 @@ Un riquadro dice `Screenshot saved` e il nome del file per due secondi. L'immagi
 
 ## Attenzione
 
-- [DA COMPLETARE: verificare Select + L1 + R1 sul PowKiddy RGB30, e `shot()` con un gioco 3D sulla GPU; il repository dice che nessuno dei due è stato provato su un Pi o un RGB30.]
+- [DA COMPLETARE: verificare Select tenuto 3 s sul PowKiddy RGB30, e `shot()` con un gioco 3D sulla GPU; il repository dice che nessuno dei due è stato provato su un Pi o un RGB30.]
 
 ## Provalo, passo per passo
 
