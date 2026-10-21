@@ -1272,9 +1272,9 @@ def test_home_ui(b, opts):
         keys("\r")                              # Screen and sound
         screen(["Settings > Screen and sound", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
                 "3D anti-aliasing", "Off",      # QEMU has no V3D; no anti-aliasing unless asked
-                "3D vertices"])                 # nor the vertex shader (M36)
-        keys("sssss")                           # the GPU's options of bm3d 4.5-6.9 (M35, M37, M39): off
-        screen(["3D frame shown", "< At once >"])   # M39, bm3d 6.9: each frame a frame later
+                "3D vertices"])                 # nor the vertex shader (bm3d 3.0)
+        keys("sssss")                           # the GPU's options of bm3d 4.5-6.9 (queue, 2D on the GPU, a frame later): off
+        screen(["3D frame shown", "< At once >"])   # bm3d 6.9: each frame a frame later
         keys("s")
         screen(["2D over the 3D", "< ARM >"])
         keys("s")
@@ -1282,11 +1282,11 @@ def test_home_ui(b, opts):
         keys("s")
         screen(["3D job memory", "< Cached >"])
         keys("s")
-        screen(["3D pixel shaders", "< Two threads >"])  # M39; on from bm3d 6.4
+        screen(["3D pixel shaders", "< Two threads >"])  # bm3d 5.3; on from 6.4
         keys("s")
         screen(["3D draw order", "< As the game >"])
         keys("s")
-        screen(["3D corners", "< Floats >"])    # M39, bm3d 7.1: compact attributes, off
+        screen(["3D corners", "< Floats >"])    # bm3d 7.1: compact attributes, off
         keys("s")
         screen(["3D impostors", "< Off >"])     # far small models as one quad: off unless asked
         keys("s")

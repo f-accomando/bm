@@ -449,7 +449,7 @@ def mark_project(data):
 
 
 def mark_b16(data):
-    """a .b16 cartridge (M42): bit 1 of the u16 at 18, square screen"""
+    """a .b16 cartridge: bit 1 of the u16 at 18, square screen"""
     out = bytearray(data)
     struct.pack_into("<H", out, 18, (struct.unpack_from("<H", out, 18)[0] & ~1) | 2)
     w, h = struct.unpack_from("<HH", out, 12)
@@ -518,7 +518,7 @@ def lua_code_only(text):
 
 
 def b16_lint(data, label):
-    """checks of a .b16 cartridge (M42): raises SystemExit for a sheet of
+    """checks of a .b16 cartridge: raises SystemExit for a sheet of
     more than 256 colours, prints a warning (first occurrence only) for
     each system call of B16_LUA_CHECKS in its Lua"""
     secs = bmmesh.cart_sections(data)

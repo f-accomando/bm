@@ -1,5 +1,5 @@
 /*
- * M41: the Mali-G52's (Bifrost, "v7") descriptors for a draw: the vertex and
+ * The Mali-G52's (Bifrost, "v7") descriptors for a draw: the vertex and
  * tiler jobs and what they point at. Every field's place is that of Mesa's
  * src/panfrost/genxml/v7.xml (MIT), the values those Mesa's pan_shader.h,
  * pan_blend.c and panvk fill in for a shader without depth, stencil or

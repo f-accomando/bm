@@ -28,9 +28,9 @@
 #define JOB_BLOCK    (JOB_TSDA + JOB_ALLOC + JOB_OVERFLOW + JOB_ZBUF + JOB_BCL + JOB_RCL + JOB_RECS + JOB_UNIF + JOB_CODE + \
                       JOB_VERTS + JOB_PROBE + PROBE_TEX)
 /* the block in whole sections of 1 MiB, which the MMU can map uncached
- * (gpu3d_set_wc, M35) without touching any other memory */
+ * (gpu3d_set_wc, bm3d 4.1) without touching any other memory */
 #define JOB_SECTIONS ((JOB_BLOCK + 0xFFFFFu) & ~0xFFFFFu)
-/* M39: the second block of the memory of a job (two jobs in flight): what
+/* bm3d 5.1: the second block of the memory of a job (two jobs in flight): what
  * a job writes and the binner reads; the depth kept between jobs, the
  * shaders and the probe's buffers stay in the first */
 #define JOB2_BLOCK   (JOB_TSDA + JOB_ALLOC + JOB_OVERFLOW + JOB_BCL + JOB_RCL + JOB_RECS + JOB_UNIF + JOB_VERTS)
@@ -58,8 +58,8 @@ enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA,
        SH_TEX_RGB_SCREEN, SH_TEX2D, SH_TEXT, SH_TEX_T, SH_TEX_RGB_T,
        SH_TEX_ALPHA_T, SH_TEX_SCREEN_T, SH_TEX_RGB_ALPHA_T, SH_TEX_RGB_SCREEN_T, SH_COUNT };
 #define DEPTH_ZCLEAR 3                  /* after R3D_DEPTH_*: always passes, writes (fs_zclear) */
-/* the vertex shaders of meshes (M36); GV_LIT_TEX2: faces on two bones (a
- * skin); GV_BAKED8, GV_LIT8: GV_BAKED, GV_LIT with compact attributes (M39,
+/* the vertex shaders of meshes (bm3d 3.0); GV_LIT_TEX2: faces on two bones (a
+ * skin); GV_BAKED8, GV_LIT8: GV_BAKED, GV_LIT with compact attributes (bm3d 7.1,
  * gpu3d_attr: bytes packed in words, unpacked by the shader) */
 enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_BAKED8, GV_LIT8, GV_COUNT };
 #define CODE_CS SH_COUNT                /* the coordinate shader's kilobyte of G.code */
@@ -76,7 +76,7 @@ _Static_assert(sizeof vs_baked <= 2048 && sizeof vs_tex_rgb <= 2048 && sizeof vs
                CODE_SHADOW2 + 2 <= JOB_CODE / 1024, "shader code slots");
 
 /* discard: the shader may write no pixel (early z off); near: the texture
- * as the nearest texel, whatever gpu3d_set_bilinear says (2D, M37) */
+ * as the nearest texel, whatever gpu3d_set_bilinear says (2D, bm3d 4.8) */
 static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyings, discard, near; } shaders[SH_COUNT] = {
     { fs_colour, sizeof fs_colour, 0, 3, 0, 0 },
     { fs_tex_lit, sizeof fs_tex_lit, 2, 3, 0, 0 },
@@ -87,9 +87,9 @@ static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyi
     { fs_zclear, sizeof fs_zclear, 0, 0, 0, 0 },
     { fs_tex_lit_screen, sizeof fs_tex_lit_screen, 2, 3, 1, 0 },   /* M34: textured screen-door */
     { fs_tex_rgb_screen, sizeof fs_tex_rgb_screen, 2, 8, 1, 0 },
-    { fs_tex_lit_alpha, sizeof fs_tex_lit_alpha, 2, 3, 1, 1 },  /* M37: sprites (k = 1) */
-    { fs_text, sizeof fs_text, 2, 5, 1, 1 },                    /* M37: text */
-    { fs_tex_lit_t, sizeof fs_tex_lit_t, 2, 3, 0, 0 },          /* M39: SH_TEX, SH_TEX_RGB with two threads */
+    { fs_tex_lit_alpha, sizeof fs_tex_lit_alpha, 2, 3, 1, 1 },  /* bm3d 4.8: sprites (k = 1) */
+    { fs_text, sizeof fs_text, 2, 5, 1, 1 },                    /* bm3d 4.8: text */
+    { fs_tex_lit_t, sizeof fs_tex_lit_t, 2, 3, 0, 0 },          /* bm3d 5.3: SH_TEX, SH_TEX_RGB with two threads */
     { fs_tex_rgb_t, sizeof fs_tex_rgb_t, 2, 8, 0, 0 },
     { fs_tex_lit_alpha_t, sizeof fs_tex_lit_alpha_t, 2, 3, 1, 0 },  /* bm3d 6.3: the other textured ones */
     { fs_tex_lit_screen_t, sizeof fs_tex_lit_screen_t, 2, 3, 1, 0 },
@@ -113,16 +113,16 @@ typedef struct {
     int fmt;                        /* its texels (TF_...): 32 bits, 16 (gpu3d_tex16) or ETC1 (gpu3d_etc1) */
 } tex_t;
 
-/* the texels of a sheet's texture: RGBA8888 or RGBA32R; M39: RGB565 (an
+/* the texels of a sheet's texture: RGBA8888 or RGBA32R; bm3d 5.2: RGB565 (an
  * opaque sheet), RGBA5551 (a sheet with transparent texels, bm3d 7.2), ETC1
  * (an opaque sheet, bm3d 7.3) */
 enum { TF_32, TF_565, TF_5551, TF_ETC1 };
 
-/* M35: up to 8 sheets in a job (bm3d 4.6; 2 before: a third ended the
+/* bm3d 4.1: up to 8 sheets in a job (bm3d 4.6; 2 before: a third ended the
  * job, the 3D Bench's texswap ran slower on the GPU than on the ARM) */
 #define NTEX 8
 
-/* M36: a mesh whose vertices the V3D places. Its corners (3 a face) in
+/* bm3d 3.0: a mesh whose vertices the V3D places. Its corners (3 a face) in
  * memory the V3D reads, made again when the mesh changes (its version):
  * x y z, the face's normal, its colour (0..1, in the order of the colour
  * varyings). */
@@ -134,7 +134,7 @@ typedef struct {
     uint8_t bone, bone2;                /* its matrix (the faces of a group are on one bone; with
                                          * GV_LIT_TEX2 each corner on bone or bone2) */
     uint32_t first, n;                  /* its first byte in the corners, its corners (3 a face) */
-    uint32_t nv, ifirst;                /* M39, indexed: its different corners (0: not indexed, the
+    uint32_t nv, ifirst;                /* bm3d 5.0, indexed: its different corners (0: not indexed, the
                                          * n corners one after the other), its first index */
 } ggroup_t;
 typedef struct {
@@ -143,9 +143,9 @@ typedef struct {
                                          * mesh drawn with textures in turn keeps a copy for each */
     uint32_t version;
     int unlit, smooth;                  /* as drawn: no light; the vertices' normals (GV_LIT) */
-    int attr;                           /* M39: made with compact attributes (GV_BAKED8, GV_LIT8) */
+    int attr;                           /* bm3d 7.1: made with compact attributes (GV_BAKED8, GV_LIT8) */
     uint8_t *corners;                   /* NULL: not a mesh the GPU takes */
-    uint16_t *idx;                      /* M39: the groups' indices (NULL: not indexed) */
+    uint16_t *idx;                      /* bm3d 5.0: the groups' indices (NULL: not indexed) */
     ggroup_t *g;                        /* its groups, sorted by bone */
     int ngroups;
     const tex_t *tex;                   /* its texture (textured faces), at version tex_version */
@@ -184,21 +184,21 @@ static struct {
     int red_a, tex_swap;            /* colour byte order, found by the probe */
     int tformat, tformat_off;       /* textures in T-format (learned by the probe; off: rows) */
     int msaa;                       /* MSAA 4x asked for (gpu3d_set_msaa) */
-    int bilinear;                   /* M37: textures filtered (gpu3d_set_bilinear) */
+    int bilinear;                   /* bm3d 4.8: textures filtered (gpu3d_set_bilinear) */
     int ms_ok;                      /* the probe: 0 no MSAA, 1 on cleared pages, 2 also on loaded ones */
     int ms, tile;                   /* the job: MSAA, tile size */
     int t_rev;                      /* odd rows of 4 KiB tiles run right to left */
     uint16_t t_inner[2][1024];      /* word of each texel in its tile: even, odd rows of tiles */
-    int tf16, t16_rev, t16_swap;    /* M39: RGB565 in T-format learned (tiles of 64x32), odd rows
+    int tf16, t16_rev, t16_swap;    /* bm3d 5.2: RGB565 in T-format learned (tiles of 64x32), odd rows
                                      * reversed, red and blue swapped in the texel */
     uint16_t t16_inner[2][2048];    /* texel of each place in its tile (as t_inner) */
     int tex16_on;                   /* RGB565 textures asked for (gpu3d_set_tex16) */
-    /* M39 (bm3d 7.2): the 16-bit types with alpha, [0] RGBA5551 (type 3),
+    /* bm3d 7.2: the 16-bit types with alpha, [0] RGBA5551 (type 3),
      * [1] RGBA4444 (type 2), in the RGB565 layout: learned by the probe (ok)
      * and how their fields go in the word (CUT_SWAP: red and blue swapped
      * against RGB565, CUT_AHI: alpha in the top bits, else in the low ones) */
     int cut_ok[2], cut_mode[2];
-    /* M39 (bm3d 7.3): ETC1 (type 8) for the opaque sheets, learned by the
+    /* bm3d 7.3: ETC1 (type 8) for the opaque sheets, learned by the
      * probe (ok) on the RGB565 layout: 64-byte utiles of 8 blocks (e1_uw
      * blocks wide) in the 4 KiB tiles, each utile's place in its tile as
      * RGB565's (e1_slot, [row of tiles & 1][utile row * 8 + utile column]);
@@ -207,10 +207,10 @@ static struct {
      * etc1_at: the Pi's rows reversed); asked for (gpu3d_set_etc1) */
     int etc1_ok, etc1_on, e1_uw, e1_order, e1_swap, e1_map;
     uint8_t e1_slot[2][64];
-    int fs2_ok, fs2_on;            /* M39: the probe saw the two-thread shaders draw as the others;
+    int fs2_ok, fs2_on;            /* bm3d 5.3: the probe saw the two-thread shaders draw as the others;
                                      * asked for (gpu3d_set_fs2) */
-    int sort_on;                    /* M39: the opaque meshes front to back (gpu3d_set_sort) */
-    int attr_ok, attr_on;           /* M39: the probe saw the compact attributes draw as the floats;
+    int sort_on;                    /* bm3d 5.4: the opaque meshes front to back (gpu3d_set_sort) */
+    int attr_ok, attr_on;           /* bm3d 7.1: the probe saw the compact attributes draw as the floats;
                                      * asked for (gpu3d_set_attr) */
     int nsort;                      /* draws held back in sort_buf */
     uint32_t sort_used;             /* their bytes */
@@ -225,19 +225,19 @@ static struct {
     gmesh_t gm[NMESH];
     uint16_t hint[MESH_HINTS];      /* the slot a mesh had last, by its address */
     int gl_ok;                      /* the probe drew with the vertex shader */
-    int idx_ok;                     /* M39: the probe drew indexed meshes (corners shared) */
+    int idx_ok;                     /* bm3d 5.0: the probe drew indexed meshes (corners shared) */
     int gl_cw;                      /* CONFIGURATION_BITS clockwise bit for r3d's front faces */
     int gl_on;                      /* asked for (gpu3d_set_vshader): 1 meshes unlit or with baked
                                      * light, 2 also the models lit by the sun (heroes) */
     int clip_ok;                    /* the probe saw the GPU clip: 1, 2 with Z_MIN_MAX_CLIPPING_PLANES */
     int lit_ok;                     /* the probe saw vs_lit light as r3d (models lit by the sun) */
-    int queue_ok;                   /* M35: the probe saw a started job end right (semaphores) */
+    int queue_ok;                   /* bm3d 4.1: the probe saw a started job end right (semaphores) */
     int queue_on;                   /* asked for (gpu3d_set_queue) */
     int inflight;                   /* a job started (v3d_start), not waited for yet */
-    int zclear_ok;                  /* M35: the probe saw zclear() inside a job work (fs_zclear) */
+    int zclear_ok;                  /* bm3d 4.1: the probe saw zclear() inside a job work (fs_zclear) */
     int zc;                         /* a zclear() quad in the open job: no early z after it */
-    int wc, wc_on;                  /* M35: the block uncached (writes merged); asked for */
-    uint8_t *block2;                /* M39: the second block (gpu3d_set_queue(2)) */
+    int wc, wc_on;                  /* bm3d 4.1: the block uncached (writes merged); asked for */
+    uint8_t *block2;                /* bm3d 5.1: the second block (gpu3d_set_queue(2)) */
     int cur, inflight_blk;          /* the block the job being filled uses, the started job's */
     const void *inflight_px;        /* the page the started job draws on */
     int queue2;                     /* two jobs in flight asked for */
@@ -349,7 +349,7 @@ static uint32_t t_word(int x, int y, int w)
     return (uint32_t)(ty * tpr + tx) * 1024u + G.t_inner[ty & 1][(y & 31) * 32 + (x & 31)];
 }
 
-/* M39: the 16-bit place of texel (x, y) in an RGB565 T-format texture w
+/* bm3d 5.2: the 16-bit place of texel (x, y) in an RGB565 T-format texture w
  * wide (a multiple of 64): tiles of 4 KiB, 64 x 32 texels, laid out as the
  * probe learned */
 static uint32_t t16_word(int x, int y, int w)
@@ -368,7 +368,7 @@ static uint16_t texel16_of(uint16_t c)
     return G.t16_swap ? (uint16_t)((c & 31) << 11 | (c & 0x07E0) | c >> 11) : c;
 }
 
-/* M39 (bm3d 7.2): the 16-bit types with alpha. cut_mode: how the probe
+/* bm3d 7.2: the 16-bit types with alpha. cut_mode: how the probe
  * found the fields in the word */
 enum { CUT_SWAP = 1, CUT_AHI = 2 };
 
@@ -393,7 +393,7 @@ static uint16_t cut16_of(int f, uint32_t p, uint32_t g, uint32_t s, uint32_t a)
     return (uint16_t)(mode & CUT_AHI ? a << 3 * n | rgb : rgb << m | a);
 }
 
-/* M39 (bm3d 7.3): the orders of a block's 8 bytes the probe tries (the
+/* bm3d 7.3: the orders of a block's 8 bytes the probe tries (the
  * format's 64 bits, etc1.h): big-endian as the format (Mesa's vc4 uploads
  * the GL's blocks as they come); two little-endian words, the high one
  * first; all 8 little-endian (one 64-bit word of the ARM); big-endian with
@@ -512,7 +512,7 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
     }
     if (G.tex_used[slot] && gpu3d_pending() && flush_job(g, 1) != 0)
         return NULL;
-    if (job_wait() != 0)                /* a job started last may read it (M35) */
+    if (job_wait() != 0)                /* a job started last may read it (bm3d 4.1) */
         return NULL;
     tex_t *t = &G.tex[slot];
     const int cw = s->w / G16_CELL, ch = s->h / G16_CELL;
@@ -528,7 +528,7 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
     }
     const uint32_t n = (uint32_t)s->w * (uint32_t)s->h;
     const int tiled = G.tformat && !G.tformat_off && s->w % 32 == 0 && s->h % 32 == 0;
-    /* M39: an opaque sheet as RGB565 in T-format (half the memory and the
+    /* bm3d 5.2: an opaque sheet as RGB565 in T-format (half the memory and the
      * TMU's reads; the colours exactly the sheet's) where the probe learned
      * that layout and gpu3d_tex16 asks for it */
     int opaque_all = 1;
@@ -595,8 +595,8 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
                    (fmt == TF_ETC1 ? 8u << 4 : fmt == TF_565 ? 4u << 4 : fmt == TF_5551 ? 3u << 4 : 0);
     /* type 8: ETC1, 4: RGB565, 3: RGBA5551 */
     t->params[1] = (tiled || fmt != TF_32 ? 0 : 1u << 31) | (uint32_t)(s->h & 2047) << 20 | (uint32_t)(s->w & 2047) << 8 |
-                   (G.bilinear ? 0 : 1u << 7 | 1u << 4) | 1u << 2 | 1u;     /* M37: linear (0) or nearest */
-    t->params[2] = t->params[0];        /* the same, always the nearest texel: 2D (M37) */
+                   (G.bilinear ? 0 : 1u << 7 | 1u << 4) | 1u << 2 | 1u;     /* bm3d 4.8: linear (0) or nearest */
+    t->params[2] = t->params[0];        /* the same, always the nearest texel: 2D (bm3d 4.8) */
     t->params[3] = t->params[1] | 1u << 7 | 1u << 4;
     t->sheet = s;
     t->version = s->version;
@@ -647,7 +647,7 @@ static void use_block(int k)
     G.verts = k ? (uint8_t *)G.unif + JOB_UNIF : G.code + JOB_CODE;
 }
 
-/* M39: the second block, made the first time two jobs in flight are asked
+/* bm3d 5.1: the second block, made the first time two jobs in flight are asked
  * for (its sections uncached as the first's); 0, or -1 */
 static int block2_make(void)
 {
@@ -665,7 +665,7 @@ static int block2_make(void)
 
 static void job_begin(int w, int h)
 {
-    /* the job started last reads its memory: with two blocks (M39) this
+    /* the job started last reads its memory: with two blocks (bm3d 5.1) this
      * job takes the other one and the GPU goes on, else it is waited for */
     if (G.inflight && G.inflight_blk == G.cur) {
         if (G.queue2 && block2_make() == 0) {
@@ -779,7 +779,7 @@ static void config(int faces, uint16_t cfg)
     }
 }
 
-/* M39: the draws of meshes that test and write the depth held back in a
+/* bm3d 5.4: the draws of meshes that test and write the depth held back in a
  * list of their own, each with its whole state, and written into the job
  * nearest first at the next draw of another kind or at the job's end: the
  * V3D's early z then throws away the pixels hidden by what came before
@@ -827,7 +827,7 @@ static void sort_flush(void)
     state_forget();                     /* the last draw written is not the last made */
 }
 
-/* M39: the shader whose code a record points to: the opaque textured
+/* bm3d 5.3: the shader whose code a record points to: the opaque textured
  * ones with two threads where asked for and the probe saw them work (a
  * thread waits for its texel while the other runs: the QPU is not idle
  * during the TMU's reads) */
@@ -1141,7 +1141,7 @@ static void cb_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
         add_tri(g, v, R3D_KIND_COLOUR, NULL, depth, SH_COLOUR, inside);
 }
 
-/* zclear() inside the job (M35): a quad over the whole page that writes
+/* zclear() inside the job (bm3d 4.1): a quad over the whole page that writes
  * the far depth and gives each pixel its colour back (fs_zclear); 0, or
  * -1 if the GPU failed. Its depth a hair under 1 (24 bits: 0xFFFFF0), never
  * at the end of the range where a conversion might wrap: nothing r3d draws
@@ -1175,7 +1175,7 @@ static void cb_zclear(void *ctx, const g16_t *g)
 {
     (void)ctx;
     /* what is drawn next must not see the depth of what was drawn so far.
-     * With the frame queue (M35) and where the probe saw it work, a quad
+     * With the frame queue (bm3d 4.1) and where the probe saw it work, a quad
      * in the same job clears it (a game with first-person arms: one job a
      * frame); else what was drawn goes to the screen now, and the next
      * job starts with a clear depth buffer */
@@ -1187,7 +1187,7 @@ static void cb_zclear(void *ctx, const g16_t *g)
     G.z_saved = G.split = 0;
 }
 
-/* ---------------------------------------------------------------- meshes (M36) */
+/* ---------------------------------------------------------------- meshes (bm3d 3.0) */
 
 /* the vertex shaders of meshes, their words a corner (x y z first) */
 static const struct { const uint32_t *code; size_t size; uint8_t words, kb; } vshaders[GV_COUNT] = {
@@ -1200,7 +1200,7 @@ static const struct { const uint32_t *code; size_t size; uint8_t words, kb; } vs
     { vs_lit8, sizeof vs_lit8, 10, CODE_VS + 12 },      /* normal, colour bytes and flags, lamp point */
 };
 
-/* M39: the compact attributes in force (asked for, and the probe saw them) */
+/* bm3d 7.1: the compact attributes in force (asked for, and the probe saw them) */
 static int attr_now(void) { return G.attr_on && G.attr_ok; }
 
 /* three bytes of a colour (or a light) in one word, byte a b c as the
@@ -1229,7 +1229,7 @@ static void put_mesh_corner(float *o, const r3d_mesh_t *m, int f, int k, int vs,
     const v3_t v = m->verts[vi];
     o[0] = v.x; o[1] = v.y; o[2] = v.z;
     if (vs == GV_LIT8 || vs == GV_BAKED8) {
-        /* M39: GV_LIT's or GV_BAKED's corner with its bytes packed (the
+        /* bm3d 7.1: GV_LIT's or GV_BAKED's corner with its bytes packed (the
          * shader unpacks the same values: colour byte / 255, light / 128) */
         const uint32_t c = m->colors[f];
         uint32_t w[2];
@@ -1337,7 +1337,7 @@ static void put_mesh_corner(float *o, const r3d_mesh_t *m, int f, int k, int vs,
  * and the sky, or not at all) and textured faces (with baked light, or lit
  * by the sun); with a skeleton, the corners of a face on one bone; no
  * textured screen-door; unlit: every face at full light */
-/* M39 (gpu3d_sort): a group's triangles in the order that reuses the
+/* bm3d 5.4 (gpu3d_sort): a group's triangles in the order that reuses the
  * V3D's cache of shaded corners best (Tom Forsyth's linear-speed vertex
  * cache optimisation, for a cache of VC_SIZE), then its corners (words
  * each, at o) renumbered in the order of their first use, so that the VCD
@@ -1519,7 +1519,7 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
             vs = GV_BAKED;
             fs = (c & R3D_SCREEN) ? SH_SCREEN : SH_COLOUR;
         }
-        if (e->attr)                    /* M39: the same faces, fewer bytes a corner */
+        if (e->attr)                    /* bm3d 7.1: the same faces, fewer bytes a corner */
             vs = vs == GV_BAKED ? GV_BAKED8 : vs == GV_LIT ? GV_LIT8 : vs;
         /* the emissive faces of a "lit" model: emissive at their corners */
         const uint32_t k = group_key(bone, bone2, vs, fs, lit || (!emissive && !unlit), lods);
@@ -1559,7 +1559,7 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
         bytes += (count[i] * vshaders[key[i] >> 12 & 15].words * 4u + 15) & ~15u;
     uint8_t *b = aligned_alloc(16, bytes);
     ggroup_t *gs = malloc((size_t)(nkeys > 0 ? nkeys : 1) * sizeof *gs);
-    /* M39: indexed, the corners that are the same word for word kept once
+    /* bm3d 5.0: indexed, the corners that are the same word for word kept once
      * (16-bit indices: a group of up to 65535 different corners) */
     const int indexed = G.idx_ok;
     uint16_t *ix = indexed ? aligned_alloc(16, ((size_t)m->nfaces * 6 + 15) & ~(size_t)15) : NULL;
@@ -1686,7 +1686,7 @@ static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m, int unlit, int smo
     }
     if (e->corners && e->job == G.job_no && G.open && flush_job(g, 1) != 0)
         return NULL;
-    if (e->corners && job_wait() != 0)  /* a job started last may read them (M35) */
+    if (e->corners && job_wait() != 0)  /* a job started last may read them (bm3d 4.1) */
         return NULL;
     free(e->corners);
     free(e->idx);
@@ -1853,7 +1853,7 @@ static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const
 }
 
 /* the triangles of group gr (its GL record given): its corners one after
- * the other, or (M39) its different corners by 16-bit indices, which the
+ * the other, or (bm3d 5.2) its different corners by 16-bit indices, which the
  * V3D shades once for every face they are on (its vertex cache) */
 static void gl_prims(const gmesh_t *e, const ggroup_t *gr)
 {
@@ -1895,7 +1895,7 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
     job_for(g);
     batch_close();
     const int fs = gr->fs;
-    /* M39: a mesh's draw that writes the depth held back, to be written
+    /* bm3d 5.4: a mesh's draw that writes the depth held back, to be written
      * nearest first (pixels thrown away by its shader too: what is left
      * of it still takes the nearest place) */
     const int held = G.sort_on && depth == R3D_DEPTH_WRITE && !env->front;
@@ -2018,7 +2018,7 @@ static int cb_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (
     return 1;
 }
 
-/* M36: the shadow of a mesh the GPU has the corners of (any way it was
+/* bm3d 3.0: the shadow of a mesh the GPU has the corners of (any way it was
  * drawn; else made as the model will be drawn), each group but the
  * screen-door faces' (they cast none) flattened by vs_shadow: black on
  * every other pixel, tested against the depth, not written. Only the faces
@@ -2131,7 +2131,7 @@ static int cb_shadow(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float
     return 1;
 }
 
-/* ---------------------------------------------------------------- 2D (M37) */
+/* ---------------------------------------------------------------- 2D (bm3d 4.8) */
 
 /* The 2D a cartridge draws over its 3D, in the same job (gpu3d_*2d): no
  * job ends for it, and a frame of 3D, HUD, 3D, HUD is one job. Only what
@@ -2300,7 +2300,7 @@ int gpu3d_text2d(const g16_t *g, int x, int y, const char *str, uint16_t c, int 
     return 1;
 }
 
-/* ---------------------------------------------------------------- enlarging (M37) */
+/* ---------------------------------------------------------------- enlarging (bm3d 4.8) */
 
 /* A frame of RGB565 pixels (the menu's 640x360 layout) as a texture the
  * TMU reads (RGBA32R: the TMU reads no RGB565 in rows), through a table of
@@ -2369,7 +2369,7 @@ int gpu3d_enlarge(const uint16_t *src, int w, int h, int scale, const g16_t *pag
  * zstore keeps it there for the next job. Two loads of a tile take place
  * one at a time (tile coordinates, then a store of nothing that clears
  * nothing), and so do two stores, as Linux's vc4 does. */
-/* sem (M35, a job started with v3d_start): the rendering waits on the
+/* sem (bm3d 4.1, a job started with v3d_start): the rendering waits on the
  * binner's semaphore before the first tile reads the tile lists */
 static uint32_t rcl_build(uint32_t fb, int w, int h, int bin, int load, uint32_t clear, int zload, int zstore,
                           int ms, int sem)
@@ -2455,7 +2455,7 @@ static void cost_add(void)
 
 static int run(int bin, uint32_t rcl_end)
 {
-    if (job_wait() != 0)                /* (a job of the other block, M39) */
+    if (job_wait() != 0)                /* (a job of the other block, bm3d 5.1) */
         return -1;
     uint32_t bus_us = 0, rus = 0;
     v3d_set_overflow(v3d_bus(G.overflow), JOB_OVERFLOW);    /* the GPU test sets its own */
@@ -2476,7 +2476,7 @@ static int run(int bin, uint32_t rcl_end)
     return err;
 }
 
-/* M35: the job started (v3d_start) and not waited for: wait now. The
+/* bm3d 4.1: the job started (v3d_start) and not waited for: wait now. The
  * ARM must not touch what it reads (the job's lists, records, uniforms
  * and vertices, the meshes' corners, the textures) nor the page it draws
  * on before this */
@@ -2550,7 +2550,7 @@ void gpu3d_set_msaa(int on)
     G.msaa = on;
 }
 
-/* M35: the memory of the jobs uncached: the ARM writes the lists, records,
+/* bm3d 4.1: the memory of the jobs uncached: the ARM writes the lists, records,
  * uniforms and vertices of a frame once and never reads them, so a cache
  * line read for each (write-allocate) and pushed out later is lost work,
  * and the lines of the Lua and of r3d it pushes out come back as misses.
@@ -2589,11 +2589,11 @@ int gpu3d_msaa_on(void)
     return G.msaa && G.ms_ok > 0;
 }
 
-/* M37: the textures filtered (bilinear: the four texels around a point
+/* bm3d 4.8: the textures filtered (bilinear: the four texels around a point
  * mixed) or the nearest texel, as the ARM draws them; the textures made so
  * far are made again with the other parameters (a slot the waiting job
  * reads is drawn first, tex_get) */
-/* M39: opaque sheets as RGB565 textures (half the memory and the TMU's
+/* bm3d 5.2: opaque sheets as RGB565 textures (half the memory and the TMU's
  * reads), where the probe learned their layout; the textures made so far
  * are made again */
 void gpu3d_set_tex16(int on)
@@ -2610,7 +2610,7 @@ int gpu3d_tex16(void)
     return G.tf16 && G.tex16_on ? (G.cut_ok[0] ? 2 : 1) : 0;
 }
 
-/* M39 (bm3d 7.3): opaque sheets as ETC1 (an eighth of the bytes the TMU
+/* bm3d 7.3: opaque sheets as ETC1 (an eighth of the bytes the TMU
  * reads), where the probe learned the layout; the textures made so far are
  * made again */
 void gpu3d_set_etc1(int on)
@@ -2627,7 +2627,7 @@ int gpu3d_etc1(void)
     return G.etc1_ok && G.etc1_on;
 }
 
-/* M39: the opaque textured faces' shaders with two threads (gpu3d_fs2=1) */
+/* bm3d 5.3: the opaque textured faces' shaders with two threads (gpu3d_fs2=1) */
 void gpu3d_set_fs2(int on)
 {
     G.fs2_on = !!on;
@@ -2652,7 +2652,7 @@ int gpu3d_sort(void)
     return G.sort_on;
 }
 
-/* M39: compact attributes (gpu3d_attr=1); the meshes are made again as
+/* bm3d 7.1: compact attributes (gpu3d_attr=1); the meshes are made again as
  * they are drawn next (mesh_get compares the way each was made) */
 void gpu3d_set_attr(int on)
 {
@@ -2752,7 +2752,7 @@ static int flush_job(const g16_t *g, int store)
     const int async = G.async_now;
     G.async_px = g->px;
     if (async)
-        v3d_cl_u8(&G.cl, V3D_INCREMENT_SEMAPHORE);  /* the rendering waits on it (M35) */
+        v3d_cl_u8(&G.cl, V3D_INCREMENT_SEMAPHORE);  /* the rendering waits on it (bm3d 4.1) */
     v3d_cl_u8(&G.cl, V3D_FLUSH);        /* ends the tile lists */
     v3d_cl_u8(&G.cl, V3D_NOP);
     if (G.cl.overflow) {
@@ -2828,7 +2828,7 @@ int gpu3d_inflight(void)
 }
 
 /* on: 0 off, 1 the frame in the queue (bm3d 4.1), 2 and two jobs in
- * flight (M39, bm3d 5.1: the second block made here) */
+ * flight (bm3d 5.1: the second block made here) */
 void gpu3d_set_queue(int on)
 {
     G.queue_on = on != 0;
@@ -2925,7 +2925,7 @@ static int probe_ms(void)
     return G.probe[10 * PROBE_W + 10] == 0x07E0 && G.probe[PROBE_W * PROBE_H - 1] == 0x07E0 ? 2 : 1;
 }
 
-/* M39: the layout of RGB565 textures in T-format. A 128 x 64 texture whose
+/* bm3d 5.2: the layout of RGB565 textures in T-format. A 128 x 64 texture whose
  * 16-bit word i holds i (as RGB565: it comes back on the page as itself,
  * or with red and blue swapped) is drawn in two halves on the probe's
  * buffer: for each texel, the word the TMU read. 1 if it is a layout of
@@ -3051,7 +3051,7 @@ static void cut16_fill(int f, int n, uint16_t *t16, uint16_t *want)
         }
 }
 
-/* M39 (bm3d 7.2): the 16-bit types with alpha (f 0: RGBA5551, type 3; f 1:
+/* bm3d 7.2: the 16-bit types with alpha (f 0: RGBA5551, type 3; f 1:
  * RGBA4444, type 2) in the RGB565 layout learned above. A 64 x 32 texture
  * whose texels differ (a few transparent: alpha 0; for RGBA4444 the others
  * at alphas between, which must draw) is drawn with the alpha shader on the
@@ -3259,7 +3259,7 @@ static void etc1_diagnose(const g16_t *pg)
     }
 }
 
-/* M39 (bm3d 7.3): ETC1 (type 8) in T-format. A 128 x 256 texture of blocks
+/* bm3d 7.3: ETC1 (type 8) in T-format. A 128 x 256 texture of blocks
  * whose fields differ (both modes, both splits, every table, the indices at
  * random; the differences kept in range) is drawn on the probe's 64 x 64
  * buffer four times (two texels a pixel across, four down, shifted each
@@ -3448,7 +3448,7 @@ static int recover(void)
     return 0;
 }
 
-/* M36: two triangles placed by the vertex shader on a cleared buffer, red
+/* bm3d 3.0: two triangles placed by the vertex shader on a cleared buffer, red
  * on the left as r3d's front faces turn (clockwise on the screen), green on
  * the right the other way round. Whichever the V3D keeps tells the
  * clockwise bit; points inside and outside the red one check where the
@@ -3550,7 +3550,7 @@ static int probe_gl(const g16_t *pg)
     return 0;
 }
 
-/* M39: a quad of two triangles sharing two corners, drawn by indices
+/* bm3d 5.0: a quad of two triangles sharing two corners, drawn by indices
  * (INDEXED_PRIMITIVE_LIST): its four different corners shaded once. 1 if
  * both triangles are where they should be, else 0 (the meshes go as their
  * corners one after the other, as before) */
@@ -3600,7 +3600,7 @@ static int probe_index(const g16_t *pg)
     return 0;
 }
 
-/* M36: whether the GPU clips what the vertex shader placed (the record's
+/* bm3d 3.0: whether the GPU clips what the vertex shader placed (the record's
  * flag 4), as GL wants: a floor that goes behind the camera (red, both
  * ways round) cut at the near plane, a triangle reaching thousands of
  * pixels to the right (green: out of the 12.4 range) cut at the guard
@@ -3665,7 +3665,7 @@ static int probe_clip(const g16_t *pg)
     return 0;
 }
 
-/* M36: vs_lit against r3d's light_fast, worked out here: a grey face lit
+/* bm3d 3.0: vs_lit against r3d's light_fast, worked out here: a grey face lit
  * by the sun from the front with a highlight (n.H = 0.8, p 4), and one lit
  * from behind (no sun, no highlight: the ambient and the rim) */
 static int probe_lit(const g16_t *pg)
@@ -3724,7 +3724,7 @@ static int probe_lit(const g16_t *pg)
 /* The order of red and blue: a clear with byte a of the colour full says
  * where byte a lands in BGR565; a texture whose texels have byte a full
  * says whether the TMU keeps the bytes in place. */
-/* M35: a job started with v3d_start (the binner's semaphore, the
+/* bm3d 4.1: a job started with v3d_start (the binner's semaphore, the
  * rendering waiting on it) on a cleared buffer, a green quad over all of
  * it; 1 if the V3D ends it and the buffer is green, else 0 (every job is
  * run and waited for, as before) */
@@ -3757,7 +3757,7 @@ static int probe_queue(const g16_t *pg)
     return c == 0x07E0 && d == 0x07E0;
 }
 
-/* M35: zclear() inside a job. Green over the whole buffer, the depth
+/* bm3d 4.1: zclear() inside a job. Green over the whole buffer, the depth
  * cleared by fs_zclear, then blue farther away on the left half: blue
  * there (the depth was cleared), green on the right (the colour kept) */
 static int probe_zclear(const g16_t *pg)
@@ -3797,7 +3797,7 @@ static int probe_zclear(const g16_t *pg)
     return 0;
 }
 
-/* M39: the two-thread shaders against the others: quads with the probe's
+/* bm3d 5.3: the two-thread shaders against the others: quads with the probe's
  * texture (any layout: the same both times), dimmed (SH_TEX) and with light
  * and fog (SH_TEX_RGB), drawn with each; 1 if every pixel is the same */
 static int probe_fs2(const g16_t *pg, const tex_t *pt)
@@ -3849,7 +3849,7 @@ static int probe_fs2(const g16_t *pg, const tex_t *pt)
     return 1;
 }
 
-/* M39: the compact attributes (vs_baked8, vs_lit8) against the floats
+/* bm3d 7.1: the compact attributes (vs_baked8, vs_lit8) against the floats
  * (vs_baked, vs_lit): faces of a colour with baked light (one emissive,
  * at full light) and, if the lit models' probe passed, faces lit by the
  * sun (one glossy, one emissive), drawn both ways. Colours whose bytes all

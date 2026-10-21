@@ -127,7 +127,7 @@ int main(void)
     regs[CT1CS / 4] = 0;
     CHECK(job(0, 0, 3, NULL) == 0, "the next job after an error failed");
 
-    /* M35: a job started and waited for later */
+    /* bm3d 4.1: a job started and waited for later */
     CHECK(v3d_wait(200000, NULL, NULL) == 0, "a wait with no job started failed");
     bin_delay = 4;
     rnd_delay = 6;

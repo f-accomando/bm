@@ -528,10 +528,10 @@ int main(int argc, char **argv)
                         "a frame recorded meanwhile, %.2f zclear() a frame inside a job\n",
                 (double)g.queued / (double)run.frame, (double)st.d2_ops / (double)run.frame,
                 (double)g.zinjob / (double)run.frame);
-    if (st.later && run.frame > 0)      /* M39: each frame shown a frame later (gpu3d_later) */
+    if (st.later && run.frame > 0)      /* bm3d 6.9: each frame shown a frame later (gpu3d_later) */
         fprintf(stderr, "bmhost: frame later: %u frames shown a frame later, %.2f jobs a frame filled while the "
                         "GPU drew the one before\n", (unsigned)st.later, (double)g.overlapped / (double)run.frame);
-    if (g.quads2d && run.frame > 0)     /* M37: the 2D over the 3D in the GPU's job */
+    if (g.quads2d && run.frame > 0)     /* bm3d 4.8: the 2D over the 3D in the GPU's job */
         fprintf(stderr, "bmhost: 2D on the GPU: %.1f quads a frame\n", (double)g.quads2d / (double)run.frame);
     if (g.glmeshes && run.frame > 0)
         fprintf(stderr, "bmhost: vertex shader: %.0f meshes and %.0f triangles a frame\n",

@@ -12,7 +12,7 @@ CPU, not the time on the Pi.
 A scene named SCENE+gpu is drawn by the GPU backend (src/gpu/gpu3d.c) on
 the V3D emulator (tests/gpu/v3d_emu.c, not counted): the ARM's share of
 the 3D with the GPU; SCENE+vs with the vertex shader placing every model
-(M36). Its counts are those of a second frame (two frames minus one), when
+(bm3d 3.0). Its counts are those of a second frame (two frames minus one), when
 the textures (and the meshes' corners) are already made.
 
 Needs arm-linux-gnueabihf-gcc and qemu-arm (Ubuntu: gcc-arm-linux-gnueabihf,

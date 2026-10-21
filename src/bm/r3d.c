@@ -994,7 +994,7 @@ static void view_setup(const r3d_t *r, view_t *v)
     cache.ok = 1;
 }
 
-/* M39: 1 if a sphere can be in view (as a mesh's bounding sphere before
+/* bm3d 5.5: 1 if a sphere can be in view (as a mesh's bounding sphere before
  * its vertices are transformed) */
 int r3d_visible(const r3d_t *r, v3_t p, float rad)
 {
@@ -1055,7 +1055,7 @@ static int clip_near(const cv_t in[3], cv_t out[4])
     return n;
 }
 
-#define MAX_VERTS 65535                 /* a mesh's (M39, bm3d 5.0: 4096 before) */
+#define MAX_VERTS 65535                 /* a mesh's (bm3d 5.0: 4096 before) */
 /* triangles smaller than this (twice the area, in pixels) are drawn in one
  * colour: below it the setup of the colour gradients costs more than the
  * pixels, and a gradient over a dozen pixels does not show */
@@ -1326,7 +1326,7 @@ static void draw_shadow(r3d_t *r, const r3d_mesh_t *m, const xform_t *x, v3_t p,
  * small next to its distance), so no square root per vertex. */
 typedef struct {
     v3_t V, H;                  /* towards the camera; half way between it and the sun */
-    v3_t L, U;                  /* light_obj (M37, r3d_t.fast): the sun and the up axis; all four in
+    v3_t L, U;                  /* light_obj (bm3d 4.9, r3d_t.fast): the sun and the up axis; all four in
                                  * the object's axes, its normals not turned */
 } shine_t;
 
@@ -1369,7 +1369,7 @@ static void light_fast(const r3d_t *r, const lamps_t *L, const shine_t *sh, v3_t
     }
 }
 
-/* M37 (r3d_t.fast): light_fast with the normal in the object's axes, the
+/* bm3d 4.9 (r3d_t.fast): light_fast with the normal in the object's axes, the
  * sun, up, V and H turned into them once a draw (sh) */
 static void light_obj(const r3d_t *r, const lamps_t *L, const shine_t *sh, v3_t n, float px, float py, float pz,
                        int glossy, lit_t *out)
@@ -1944,10 +1944,10 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     int nv = 0, nfront = 0;
     /* a backend: object -> camera in one matrix a bone (its pixels need not
      * match the ARM's to the last bit; the ARM keeps its two steps, but with
-     * r->fast, M37) */
+     * r->fast, bm3d 4.9) */
     static float F[MAX_BONES + 1][12];
     const int fused = r->backend != NULL || r->fast;
-    /* M37, r->fast: a model without bones lit in its own axes (the sun, up,
+    /* bm3d 4.9, r->fast: a model without bones lit in its own axes (the sun, up,
      * V and H turned back once, its normals not turned at all) */
     shine_t sho;
     const int objlight = r->fast && !skinned;
@@ -1970,7 +1970,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                     F[b][k * 4 + j] = C[k * 3] * W[j] + C[k * 3 + 1] * W[4 + j] + C[k * 3 + 2] * W[8 + j];
         }
     }
-    /* M36: a mesh the GPU places itself (its vertex shader), with its
+    /* bm3d 3.0: a mesh the GPU places itself (its vertex shader), with its
      * bones: unlit, a "lit" model (light baked at its corners: the world of
      * a map), or lit by the sun and the sky (heroes), with the fog and the
      * lamps; the backend may say no */

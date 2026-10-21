@@ -1,5 +1,5 @@
 /*
- * M41: the RGB30's Mali-G52, first step (see mali.h). The registers and
+ * The Mali-G52 driver, first step (see mali.h). The registers and
  * the order of the steps are those of the GPU's public documentation as
  * Linux's panfrost driver and Rockchip's power domains use them; the job
  * descriptors those Mesa's panfrost writes (a header of 32 bytes, then the
@@ -616,7 +616,7 @@ static int fragment(mali_info_t *in)
     return MALI_OK;
 }
 
-/* --- a triangle (M41, not yet a bm3d version: it has not run on the device) ---
+/* --- a triangle (the Mali-G52 driver, not yet a bm3d version: it has not run on the device) ---
  * A Vertex job (the shader passes three positions in pixels through), a Tiler job (the triangle into the
  * tiler's lists) and a Fragment job (the tiles shaded with the draw's colour): the descriptors of
  * mali_desc.c, the shaders of mali_shaders.h (tools/mali/mkshader.c). A 96 x 96 square of the screen, under

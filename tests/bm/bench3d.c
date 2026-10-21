@@ -11,7 +11,7 @@
  * Built with -DBENCH_GPU (and tests/gpu/v3d_emu.c, src/gpu/gpu3d.c), a
  * scene named SCENE+gpu is drawn by the GPU backend on the V3D emulator:
  * the ARM's share of the 3D with the GPU (M33); SCENE+vs with the vertex
- * shader placing every model (M36).
+ * shader placing every model (bm3d 3.0).
  *
  * The checksums tell whether a change to the rasterizer changes the
  * picture; the ARM instruction counts tell what it costs, per pixel and
@@ -374,7 +374,7 @@ int main(int argc, char **argv)
     }
     g16_target(&g, fb, 640, 640, 360, &font);
     r3d_init(&r, &g);
-    r.fast = getenv("R3D_FAST") != NULL;    /* M37: one matrix, light in the object's axes */
+    r.fast = getenv("R3D_FAST") != NULL;    /* bm3d 4.9: one matrix, light in the object's axes */
 #ifdef BENCH_GPU
     if (gpu)
         r.backend = gpu3d_backend();

@@ -115,7 +115,7 @@ enum { R3D_KIND_COLOUR, R3D_KIND_TEXTURE, R3D_KIND_SCREEN, R3D_KIND_TEX_RGB, R3D
  * or tested only (3D effects, shadows) */
 enum { R3D_DEPTH_WRITE, R3D_DEPTH_NONE, R3D_DEPTH_TEST };
 
-/* what a backend mesh (M36) needs of the scene: the projection (screen x =
+/* what a backend mesh (bm3d 3.0) needs of the scene: the projection (screen x =
  * cx + f x / z, y = cy - f y / z), the fog (f = clamp((depth - near) * k,
  * 0, 1), k 0 for none; its colour 0..1), the lamps (camera x y z, 1/r^2,
  * colour times k), the level of detail (0..3) */
@@ -142,7 +142,7 @@ typedef struct {
     /* depth: R3D_DEPTH_* */
     void (*tri)(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
                 const g16_sheet_t *tex, int depth);
-    /* M36, optional: a whole mesh placed by the GPU (its vertex shader),
+    /* bm3d 3.0, optional: a whole mesh placed by the GPU (its vertex shader),
      * M[b] object -> camera with bone b (3x4 by rows; one without a
      * skeleton), N[b] its turn of the normals to world axes (3x3); 1 if
      * the backend took it, 0 if r3d draws it a triangle at a time (the
@@ -150,7 +150,7 @@ typedef struct {
      * if the GPU clips) */
     int (*mesh)(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*M)[12], const float (*N)[9],
                 int nbones, const r3d_env_t *env, int depth);
-    /* M36, optional: the shadow of a mesh (R3D_SHADOW) by the GPU: W[b]
+    /* bm3d 3.0, optional: the shadow of a mesh (R3D_SHADOW) by the GPU: W[b]
      * object -> world relative to the camera with bone b (3x4), C the
      * camera's turn (3x3 by rows), down along L (L.y >= 0.25) to the plane
      * y = plane (relative to the camera); 1 if the backend took it */
@@ -183,7 +183,7 @@ typedef struct {
     float fog_near, fog_far;    /* ... between these depths (off if far <= near) */
     int shadow_style;           /* 0 darken, 1 dither */
     int notex;                  /* 1: every draw has R3D_FLATTEX (textures3d(false)) */
-    int fast;                   /* M37: object -> camera in one matrix and a model without bones lit
+    int fast;                   /* bm3d 4.9: object -> camera in one matrix and a model without bones lit
                                  * in its own axes, also on the ARM (fewer instructions a vertex;
                                  * the pixels not bit for bit as before): r3d_fast=1 */
     int impostor;               /* impostors: a mesh whose box on the screen is at most this many
@@ -229,7 +229,7 @@ void r3d_lamp_rgb(r3d_t *r, int i, float x, float y, float z, float radius, floa
 /* World point -> screen. Returns 0 if it is behind the camera. */
 int r3d_project(const r3d_t *r, v3_t p, float *sx, float *sy, float *depth);
 
-/* M39: 0 if a sphere (centre p, radius rad) is out of the camera's view:
+/* bm3d 5.5: 0 if a sphere (centre p, radius rad) is out of the camera's view:
  * behind it or beyond an edge of the screen. */
 int r3d_visible(const r3d_t *r, v3_t p, float rad);
 

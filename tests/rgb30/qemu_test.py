@@ -777,7 +777,7 @@ def test_bench3d(b, opts):
 
 
 def test_gpu_test(b, opts):
-    """Dev > GPU test (M41): on QEMU's virt there is no Mali, the page says
+    """Dev > GPU test: on QEMU's virt there is no Mali, the page says
     so and nothing touches the GPU's registers; back returns to the menu."""
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:

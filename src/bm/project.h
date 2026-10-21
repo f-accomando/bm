@@ -13,7 +13,7 @@
 #include <stddef.h>
 
 #define BM_FLAG_PROJECT    1               /* u16 at 18: a project (.bme) */
-#define BM_FLAG_B16        2               /* u16 at 18: the .b16 profile (M42) */
+#define BM_FLAG_B16        2               /* u16 at 18: the .b16 profile */
 #define BM_B16_MAX         (8u << 20)      /* 8 MiB ceiling of a .b16 cartridge */
 #define BM_FLAG_TYPE_SHIFT 2               /* u16 at 18, bits 2-3: the type of bm.info (game, app, utility) */
 enum { BM_TYPE_GAME = 0, BM_TYPE_APP = 1, BM_TYPE_UTILITY = 2 };

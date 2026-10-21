@@ -68,9 +68,9 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
 - **CONTROLS-1** (planned, deferred to the next session): bindings mappable through an API
   from the menu Controls; three default schemes per game (pad, stick, 2D scroller / top-down)
   as written in the CONTROLS-1 work order on the sync branch.
-- **M42** `.b16` is a target, not a sandbox (decision 2026-10-13, D1-D6 confirmed 2026-10-15):
+- **`.b16` profile**: it is a target, not a sandbox (decision 2026-10-13, D1-D6 confirmed 2026-10-15):
   header flag and `mkbm.py --b16` done; remaining: lint warnings (SDK + `mkbm.py`), Yharnam check.
-- **M39 step 10**: hot Lua of the games in C (rays, bot paths, particles), fewer allocations.
+- **Lua speed, step 10**: hot Lua of the games in C (rays, bot paths, particles), fewer allocations.
 - **M47** projects: done on the PC, to verify on the Pi.
 - Yharnam checks without a milestone ("Da fare" in the roadmap): frame cost on Pi and RGB30
   via the session report and `devinfo()`, a glitch in the first frames; its drawn map edited in

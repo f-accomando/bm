@@ -623,7 +623,7 @@ static void scene_aa(g16_t *g, r3d_t *r, int gpu)
         gpu3d_flush(g, 0);
 }
 
-/* step 15 (M35): the scene of step 10 and a first-person cube in front
+/* step 15 (bm3d 4.1): the scene of step 10 and a first-person cube in front
  * of everything (R3D_FRONT: a zclear() inside the GPU's job), the job
  * started and waited for later as with the frame queue */
 static void scene_queue(g16_t *g, r3d_t *r, int gpu)
@@ -983,7 +983,7 @@ static void scene_vs(g16_t *g, r3d_t *r, int gpu)
 }
 
 
-/* the scene of step 16 (M37): the 3D of step 10, a HUD over it (bars,
+/* the scene of step 16 (bm3d 4.8): the 3D of step 10, a HUD over it (bars,
  * sprites of the sheet, flipped and twice as big, text in two sizes),
  * then a cube in front, partly over the HUD; the HUD drawn by the ARM
  * after the GPU's job (gpu2d 0) or by the GPU in it (1) */
@@ -1019,11 +1019,11 @@ static void scene_2d(g16_t *g, r3d_t *r, int gpu2d)
     gpu3d_flush(g, 0);
 }
 
-/* 16 (M37): the HUD over the 3D drawn by the GPU in its job against the
+/* 16 (bm3d 4.8): the HUD over the 3D drawn by the GPU in its job against the
  * ARM after the job: the same pixels, one job less */
 static int step_gpu2d(framebuffer_t *fb)
 {
-    step("16 2D over the 3D in the GPU's job (M37)");
+    step("16 2D over the 3D in the GPU's job (bm3d 4.8)");
     if (gpu3d_init() != 0) {
         fail(gpu3d_status());
         return -1;
@@ -1105,26 +1105,26 @@ static void probe_lines(void)
         kprintf("    the probes: %s\n", p);
 }
 
-/* 15 (M35): the frame queue: the job started (semaphores) and waited for
+/* 15 (bm3d 4.1): the frame queue: the job started (semaphores) and waited for
  * later, the first-person layer's zclear() inside it (fs_zclear), as the
  * ARM draws */
 static int step_queue(framebuffer_t *fb)
 {
     if (gpu3d_init() != 0 || !gpu3d_queue_ok()) {
-        step("15 frame queue and zclear() in the job (M35)");
+        step("15 frame queue and zclear() in the job (bm3d 4.1)");
         kprintf("skipped: %s\n", gpu3d_status());
         return 0;
     }
     const int was = gpu3d_queue();
     gpu3d_set_queue(1);
-    const int r = step_compare(fb, "15 frame queue and zclear() in the job (M35)", scene_queue);
+    const int r = step_compare(fb, "15 frame queue and zclear() in the job (bm3d 4.1)", scene_queue);
     if (r == 0 && !gpu3d_zclear_ok())
         kprintf("    zclear in job no: the first-person layer ends the job (%s)\n", gpu3d_status());
     gpu3d_set_queue(was);
     return r;
 }
 
-/* 14 (M36): the scene above by the GPU with the corners placed by the ARM
+/* 14 (bm3d 3.0): the scene above by the GPU with the corners placed by the ARM
  * (left) and by the GPU's vertex shader (right): the same picture, and
  * the ARM's time of each */
 static int step_vshader(framebuffer_t *fb)

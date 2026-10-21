@@ -20,7 +20,7 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 ### A. Performance on Pi Zero W and RGB30
 - Measure the frame cost at 60 fps (background chunk generation, `stream()`, tiered lighting, particles).
 - Collect the numbers with the dev kit session report and the `devinfo()` lines at the end of a run.
-- Compare the parameters with the 60 fps budget of the `.b16` profile (M42).
+- Compare the parameters with the 60 fps budget of the `.b16` profile.
 
 ### B. Map Drawn on the Pi
 - Hardware test procedure:

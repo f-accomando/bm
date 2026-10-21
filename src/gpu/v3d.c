@@ -277,7 +277,7 @@ int v3d_run(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end, uint
     return err;
 }
 
-/* M35: a job started and not waited for. The binning list ends with
+/* bm3d 4.1: a job started and not waited for. The binning list ends with
  * INCREMENT_SEMAPHORE and the rendering list waits on it before its first
  * tile, as Linux's vc4 does, so the two threads start together and the ARM
  * goes on. */

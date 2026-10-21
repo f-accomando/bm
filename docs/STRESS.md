@@ -37,7 +37,7 @@ for 2D/3D polygons, both from C and through the cartridge Lua API (`.bm`).
 | quad 320×180 flat / no z / Gouraud / texture | N quads of 320×180 pixels (a quarter of the screen, i.e. one whole 320×180 screen), one per quadrant in turn, each closer than the previous: every pixel passes the z-buffer and is written | the slope is the **cost of one pixel** (`ns/px` column), without the per-triangle work of the spheres; 256×256 texture, larger than the data cache (M33) |
 | GPU spheres 96 / smooth / textured, GPU quad flat / Gouraud / texture | the same scenes with the 3D drawn by the GPU (`gpu3d` backend, M33): the ARM transforms, lights and clips, the V3D fills the pixels; the time includes the GPU work | Pi only (in QEMU the `GPU rows: none (...)` line says why they are missing); GPU quads go up to 2000, each closer than the previous by one 24-bit z step |
 | GPU spheres AA 4x, GPU quad AA 4x | GPU spheres and flat quads with 4× MSAA anti-aliasing (M34): 32×32 pixel tiles with 4 samples each | the cost of MSAA relative to the GPU rows without it; `no MSAA on this GPU` if the startup probe does not find it |
-| GPU+VS spheres 96, GPU+VS smooth | the spheres of the GPU rows with vertices placed by the GPU vertex shader (M36): the ARM sends only matrices and lights | how many more spheres compared to the GPU rows (M36 goal: at least double at 60 fps); `no vertex shader for lit models on this GPU` if the startup probes do not find it |
+| GPU+VS spheres 96, GPU+VS smooth | the spheres of the GPU rows with vertices placed by the GPU vertex shader (bm3D 3.0-3.4): the ARM sends only matrices and lights | how many more spheres compared to the GPU rows (goal of bm3D 3.0-3.4: at least double at 60 fps); `no vertex shader for lit models on this GPU` if the startup probes do not find it |
 
 For 3D the table reports the number of spheres and, in parentheses, the **triangles
 actually drawn** per frame.
@@ -179,7 +179,7 @@ benefits: to be compared with the 9 ns/px above) and two new rows measure
 `stress` report in the `reports` branch. ARM 1000 MHz, core 250 (maximum 400), V3D 250, SDRAM
 400 MHz, 47.6 → 52.9 °C, no throttling, interrupts 0.5% (1188/s). The 3D rows: ARM as
 bm3d 0.2, GPU as 2.1; the GPU+VS rows are missing because the vertex shader probe at startup
-did not pass (`vertex shader no`, `docs/ROADMAP.md`, M36).
+did not pass (`vertex shader no`, `docs/ROADMAP.md`).
 
 | Test | Pi 60 fps | Pi 30 fps | µs/object |
 |---|---:|---:|---:|

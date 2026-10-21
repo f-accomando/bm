@@ -513,7 +513,7 @@ local function lib_players()
         "split(3, 4): the corners")
 end
 
----------------------------------------------------------------- 3D visibility (M39)
+---------------------------------------------------------------- 3D visibility (bm3d 5.5)
 
 -- visible3d: the camera's view, then the map's visibility of pvs3d (two
 -- cells along x: from the first the pieces 1 and 2, from the second 3)

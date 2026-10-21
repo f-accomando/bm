@@ -49,7 +49,7 @@ int gpu3d_pending(void);            /* triangles waiting for a flush */
  * the page or another page is drawn on. */
 void gpu3d_page(int uniform, uint16_t c);
 /* 1 if a job has cleared the page to the colour of gpu3d_page(1, c) since
- * the last call (a cls() the ARM did not have to draw, M39); then 0 */
+ * the last call (a cls() the ARM did not have to draw, bm3d 4.2); then 0 */
 int gpu3d_cleared(void);
 void gpu3d_drop(void);              /* forgets them and the depth (the cartridge ended) */
 
@@ -60,7 +60,7 @@ void gpu3d_drop(void);              /* forgets them and the depth (the cartridge
  * stays off: gpu3d_ready() is 0 and gpu3d_status() says why). */
 int gpu3d_flush(const g16_t *g, int keep);
 
-/* M35, the frame in the queue: the 3D waiting (as gpu3d_flush(g, keep))
+/* bm3d 4.1, the frame in the queue: the 3D waiting (as gpu3d_flush(g, keep))
  * started on the V3D and not waited for, when the probe saw it work and
  * gpu3d_set_queue(1) asked for it; else gpu3d_flush(g, keep). Before the
  * ARM touches the page (2D, reading it, showing it) gpu3d_sync() waits
@@ -70,7 +70,7 @@ int gpu3d_flush(const g16_t *g, int keep);
  * and not waited for yet. */
 int gpu3d_submit(const g16_t *g, int keep);
 int gpu3d_sync(void);
-/* M39: gpu3d_sync() if the started job draws on the page at px (the ARM is
+/* bm3d 5.1: gpu3d_sync() if the started job draws on the page at px (the ARM is
  * about to touch it), else nothing: the job of another page goes on (its
  * memory, the meshes and textures it reads are waited for by the driver) */
 int gpu3d_sync_page(const void *px);
@@ -79,12 +79,12 @@ void gpu3d_set_queue(int on);
 int gpu3d_queue(void);                  /* on: asked for and possible */
 int gpu3d_queue_ok(void);               /* the probe saw a started job end right */
 int gpu3d_zclear_ok(void);              /* the probe saw zclear() inside a job work (with the queue) */
-/* M39: gpu3d_set_queue(2): the queue and two jobs in flight, each in its
+/* bm3d 5.1: gpu3d_set_queue(2): the queue and two jobs in flight, each in its
  * own memory: the ARM fills the next frame's job while the GPU draws this
  * one (bm3d 5.1). gpu3d_queue2(): asked for and possible. */
 int gpu3d_queue2(void);
 
-/* M35, step 2: the memory of the jobs (lists, records, uniforms, vertices)
+/* bm3d 4.1, step 2: the memory of the jobs (lists, records, uniforms, vertices)
  * uncached, the ARM's writes merged by the write buffer, no cache line read
  * for them (gpu3d_wc=1, off until the Pi shows it pays). gpu3d_wc(): it is
  * (the MMU changed it). */
@@ -103,13 +103,13 @@ int gpu3d_msaa_on(void);            /* asked for and possible (on any page) */
  * probe learned T-format. */
 void gpu3d_tiled_textures(int on);
 
-/* M37: the GPU's textures filtered (bilinear) instead of the nearest texel
+/* bm3d 4.8: the GPU's textures filtered (bilinear) instead of the nearest texel
  * as the ARM draws them (gpu3d_filter=1: it changes how they look);
  * gpu3d_bilinear() what was asked. */
 void gpu3d_set_bilinear(int on);
 int gpu3d_bilinear(void);
 
-/* M39: opaque sheets as RGB565 textures in T-format (gpu3d_tex16=1), where
+/* bm3d 5.2: opaque sheets as RGB565 textures in T-format (gpu3d_tex16=1), where
  * the probe learned the layout: half the memory, half the TMU's reads, the
  * same colours. bm3d 7.2: sheets with transparent texels (cut-outs) as
  * RGBA5551 in the same layout, where the probe saw the TMU read it back
@@ -119,7 +119,7 @@ int gpu3d_bilinear(void);
 void gpu3d_set_tex16(int on);
 int gpu3d_tex16(void);
 
-/* M39 (bm3d 7.3): opaque sheets as ETC1 textures (gpu3d_etc1=1: 4 bits a
+/* bm3d 7.3: opaque sheets as ETC1 textures (gpu3d_etc1=1: 4 bits a
  * texel, a quarter of RGB565's reads; the colours near the sheet's, not
  * the same), encoded when the sheet's texture is made, where the probe
  * learned the TMU's layout of the blocks (status "ETC1 textures yes (...)")
@@ -129,14 +129,14 @@ int gpu3d_tex16(void);
 void gpu3d_set_etc1(int on);
 int gpu3d_etc1(void);
 
-/* M39: the opaque textured faces shaded with two threads a QPU
+/* bm3d 5.3: the opaque textured faces shaded with two threads a QPU
  * (gpu3d_fs2=1), where the probe saw them draw the same pixels: one thread
  * runs while the other waits for its texel. gpu3d_fs2(): asked for and
  * possible. */
 void gpu3d_set_fs2(int on);
 int gpu3d_fs2(void);
 
-/* M39: the draws of opaque meshes by the vertex shader written into the
+/* bm3d 5.4: the draws of opaque meshes by the vertex shader written into the
  * job nearest first (gpu3d_sort=1): the GPU's early z throws away the
  * pixels they hide before shading them; and the triangles of each mesh in
  * the order that reuses the GPU's cache of shaded corners. The same
@@ -144,7 +144,7 @@ int gpu3d_fs2(void);
 void gpu3d_set_sort(int on);
 int gpu3d_sort(void);
 
-/* M39: compact attributes (gpu3d_attr=1): the corners of the meshes of a
+/* bm3d 7.1: compact attributes (gpu3d_attr=1): the corners of the meshes of a
  * colour (baked light, or lit by the sun) with their bytes packed in words
  * the vertex shader unpacks (5 words a corner instead of 9, 10 instead of
  * 14), where the probe saw them draw as the floats. gpu3d_attr(): asked
@@ -153,7 +153,7 @@ void gpu3d_set_attr(int on);
 int gpu3d_attr(void);
 int gpu3d_tiles(void);
 
-/* M36: whole meshes placed by the GPU's vertex shader instead of a
+/* bm3d 3.0: whole meshes placed by the GPU's vertex shader instead of a
  * triangle at a time by r3d. gpu3d_vshader(): the probes drew with it (1),
  * also clipped and with lit models (2), or not (0); gpu3d_set_vshader() asks for it (off until verified on the
  * Pi): 1 the meshes unlit or with baked light (a map), 2 also the models
@@ -168,7 +168,7 @@ int gpu3d_vshader_on(void);
  * went as expected; the GPU test puts it in its report. */
 const char *gpu3d_probe_log(void);
 
-/* M37: 2D over the 3D in the same job, drawn by the GPU pixel for pixel as
+/* bm3d 4.8: 2D over the 3D in the same job, drawn by the GPU pixel for pixel as
  * the ARM draws it (no depth test or write): a rectangle [x0, x1) x [y0,
  * y1) of the page (after the camera, cut to g's clip rectangle); the
  * rectangle (sx, sy, sw, sh) of a sheet at (dx, dy), zoom times bigger,
@@ -180,7 +180,7 @@ int gpu3d_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, i
                  int flip_x, int flip_y);
 int gpu3d_text2d(const g16_t *g, int x, int y, const char *str, uint16_t c, int scale);
 
-/* M37: the w x h RGB565 frame src scale times bigger on page (as many
+/* bm3d 4.8: the w x h RGB565 frame src scale times bigger on page (as many
  * pixels as w * scale x h * scale; the menu at 1920x1080 from its
  * 640x360 layout), the nearest pixel, by the GPU: 0, or -1 (then the ARM
  * enlarges it) */
@@ -191,15 +191,15 @@ typedef struct {
     uint32_t zjobs;                 /* jobs that loaded or stored the depth */
     uint32_t cleared;               /* jobs that cleared the page instead of loading it */
     uint32_t msjobs;                /* jobs with MSAA 4x */
-    uint32_t glmeshes;              /* meshes placed by the vertex shader (M36) */
+    uint32_t glmeshes;              /* meshes placed by the vertex shader (bm3d 3.0) */
     uint32_t gltris;                /* their triangles (in tris too) */
-    uint32_t queued;                /* jobs started and waited for later (M35) */
-    uint32_t zinjob;                /* zclear() inside a job (M35) */
-    uint32_t quads2d;               /* 2D drawn by the GPU over the 3D (M37) */
-    uint32_t glverts;               /* corners the vertex shader is given (M39: indexed, once each) */
-    uint32_t overlapped;            /* jobs filled while the one before was drawn (M39, two blocks) */
-    uint32_t sorted;                /* mesh draws moved by the nearest-first order (M39) */
-    uint32_t vcached;               /* triangles put in the vertex cache's order (M39) */
+    uint32_t queued;                /* jobs started and waited for later (bm3d 4.1) */
+    uint32_t zinjob;                /* zclear() inside a job (bm3d 4.1) */
+    uint32_t quads2d;               /* 2D drawn by the GPU over the 3D (bm3d 4.8) */
+    uint32_t glverts;               /* corners the vertex shader is given (bm3d 5.0: indexed, once each) */
+    uint32_t overlapped;            /* jobs filled while the one before was drawn (bm3d 5.1, two blocks) */
+    uint32_t sorted;                /* mesh draws moved by the nearest-first order (bm3d 5.4) */
+    uint32_t vcached;               /* triangles put in the vertex cache's order (bm3d 5.6) */
     uint32_t clean_cyc, inval_cyc;  /* ARM cycles of the whole-cache clean before jobs, invalidate after (PMU on) */
     uint32_t pool_max, ovf_max;     /* the most bytes of the binner's pool (JOB_ALLOC) and overflow a job used */
     uint32_t ovf_jobs;              /* jobs whose binner went into the overflow area */

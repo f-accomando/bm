@@ -93,7 +93,7 @@ In the F4 page (or integrated in F1):
 
 ---
 
-## 5. Milestone M43 — Sprite Stacking (Overlaid Slices and Voxels)
+## 5. Sprite Stacking (Overlaid Slices and Voxels)
 
 The *sprite stacking* technique allows generating pseudo-3D volumes by overlaying scaled and rotated 2D slices, obtaining depth at the cost of classic 2D rendering:
 

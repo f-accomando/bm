@@ -28,7 +28,7 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
   undeclared), the descriptors are invented (placeholder shaders, a made-up tiler job)
   and its `gpu3d.c` edit is the V3D driver, which the RGB30 does not build.
 
-## M41 Roadmap: Mali GPU & Overbit in `.b16` (RGB30)
+## Roadmap: Mali GPU & Overbit in `.b16` (RGB30)
 
 1. **Overbit in `.b16` su RGB30**:
    - Esecuzione a **360×360** (con raddoppio ×2 dal controller video hardware) e **720×720** nativo, selezionabili nel menu *RESOLUTION*.

@@ -33,7 +33,7 @@ static int sw = 640, sh = 360, cols = MENU_COLS;
  * 1920x1080), drawn in `frame` and enlarged at the flip */
 static int scale = 1;
 static uint16_t *frame;
-static int gpu_big;                     /* M37: the GPU enlarges it (else the ARM) */
+static int gpu_big;                     /* bm3d 4.8: the GPU enlarges it (else the ARM) */
 #define FRAME_US 16667
 
 /* layout: text sits on the 8x16 grid, on solid colours (the QEMU tests
@@ -1213,7 +1213,7 @@ static int screen_open(framebuffer_t *fb)
     if (scale > 1 && (!frame || fb_init_depth(fb, (uint32_t)(sw * scale), (uint32_t)(sh * scale), 3, 16) != 0))
         scale = 1;
     if (scale > 1) {
-        /* M37: the GPU enlarges the layout (a job a frame: the ARM's 4 MB
+        /* bm3d 4.8: the GPU enlarges the layout (a job a frame: the ARM's 4 MB
          * of writes gone), where there is one; else the ARM, as before */
         const int was = gpu_big;
         gpu_big = fb->pitch == fb->width * 2 && gpu3d_init() == 0;

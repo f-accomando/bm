@@ -56,7 +56,7 @@ void v3d_last_cost(v3d_cost_t *c);
 int v3d_run(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end, uint32_t timeout_us,
             uint32_t *bin_us, uint32_t *rnd_us);
 
-/* M35: the same job started, not waited for (the binning list must end
+/* bm3d 4.1: the same job started, not waited for (the binning list must end
  * with V3D_INCREMENT_SEMAPHORE before its FLUSH, the rendering list start
  * with V3D_WAIT_ON_SEMAPHORE when there is binning): 0, or -1 (a job still
  * running, no V3D). v3d_busy: 1 while it runs. v3d_wait: waits for it as
@@ -73,7 +73,7 @@ int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us);
  * dev kit's "GPU wait"); it wraps */
 extern volatile uint32_t v3d_wait_us;
 
-/* M35: the 1 MiB sections wholly inside [p, p + size) of ARM memory made
+/* bm3d 4.1: the 1 MiB sections wholly inside [p, p + size) of ARM memory made
  * uncached (on: the ARM's writes go out through the write buffer, merged,
  * with no line read first and no line of other data pushed out of the
  * cache) or cached again; the number of sections changed (0: none, as on
