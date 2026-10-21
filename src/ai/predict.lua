@@ -68,7 +68,12 @@ local function loader(lang)
     if src.api then
       i = 0
       for name, sig, area, text in src.api:gmatch("([^\t\n]+)\t([^\t\n]*)\t([^\t\n]*)\t([^\n]*)\n") do
-        d.api[name] = { sig = sig, area = area, text = text }
+        local e = d.api[name]
+        if not e then
+          e = { sig = sig, area = area, text = text, forms = {} }
+          d.api[name] = e
+        end
+        e.forms[#e.forms + 1] = { sig = sig, area = area, text = text }
         i = i + 1
         if i % 128 == 0 and coroutine.isyieldable() then coroutine.yield() end
       end
@@ -313,7 +318,8 @@ function P.complete(before, o)
   end
 end
 
--- the API entry of a name: { sig, area, text } from src/ai/api.tsv, or nil
+-- the API entry of a name from src/ai/api.tsv, or nil: { sig, area, text } of the first form, and
+-- forms = { { sig, area, text }, ... }: every signature of the name, in the order of the docs
 function P.api(name)
   return dict("lua").api[name]
 end

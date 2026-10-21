@@ -719,10 +719,19 @@ function api_help(t, v)
   local e = predict.api(w)
   if not e then say("no API help for '" .. w .. "'", C_ERR); return end
   local width = math.min(COLS - 4, 80) - 2
-  local lines = { e.sig }
-  for _, l in ipairs(predict.wrap(e.text, width)) do lines[#lines + 1] = l end
+  local lines, seen = {}, {}
+  for i, f in ipairs(e.forms) do          -- every signature of the name, each with its text
+    if i > 1 then lines[#lines + 1] = "" end
+    lines[#lines + 1] = f.sig
+    for _, l in ipairs(predict.wrap(f.text, width)) do lines[#lines + 1] = l end
+  end
   lines[#lines + 1] = ""
-  lines[#lines + 1] = "docs/api/" .. e.area .. ".md"
+  for _, f in ipairs(e.forms) do
+    if not seen[f.area] then
+      seen[f.area] = true
+      lines[#lines + 1] = "docs/api/" .. f.area .. ".md"
+    end
+  end
   overlay = { kind = "text", title = w, lines = lines }
 end
 

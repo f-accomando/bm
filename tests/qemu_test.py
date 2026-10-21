@@ -6952,6 +6952,10 @@ def test_code_api(b, opts):
         k("\x1b", 0.6)                                      # any key closes
         k("\x1b[F\rsprt(1)\x1b[H\x11", 0.1)
         see(["no API help for 'sprt'"])
+        # a name with two signatures: the help shows both
+        k("\x1b[F\rfset(1, 2)\x1b[H\x11", 0.1)
+        see(["fset(n, f, on)", "fset(n, byte)"])
+        k("\x1b", 0.6)
         # B: save a cartridge with an unknown name: the lint says so
         k("\x0f", 0.5)                                      # Ctrl+O
         see(["/carts/pong.bm"])
