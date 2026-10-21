@@ -62,14 +62,12 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 | ID | Pri | State | Goal | Requirement | Details | After |
 |---|---|---|---|---|---|---|
-| M36 | P1 | in progress (almost done) | Vertices on the GPU: mesh loaded once, the QPUs transform and light | Overbit hero ring and stress test at double the ARM-only performance, at 60 fps | [v3d](progress/v3d.md) `To do` | - |
-| M35 | P1 | to test on the Pi | ARM and GPU together: async queues | Overbit and stress benchmarks on the Pi with a clear gain, option on and off | [v3d](progress/v3d.md) | M36 |
-| M37 | P1 | to test on the Pi | 2D and quality on the GPU (`gpu3d_2d`, `menu_scale=3`, bilinear) | step 16 of test `g`: identical ARM/GPU pixels; correct menu at 1080p | [v3d](progress/v3d.md) | M36 |
+| M37 | P1 | to test on the Pi | 2D and quality on the GPU (`gpu3d_2d`, `menu_scale=3`, bilinear) | correct menu at 1080p on the Pi (step 16 of test `g` is closed: identical ARM/GPU pixels, GFX-HW-1, 21 Oct) | [v3d](progress/v3d.md) | - |
 | M47 | P1 | in progress | Editable `.bme` projects, read-only `.bm` | the tools open a `.bm` read-only and ask for the `.bme` copy; `Ctrl+B` generates the `.bm` in Games | [tools](progress/tools.md), [lua](progress/lua.md) | - |
-| M39 | P2 | in progress (on PC) | GPU 3: toward the V3D limit (compact attributes, 16-bit textures, ETC1) | stress test at double the triangles at 60 fps; Overbit with 10 bots at 60 fps in HIGH | [v3d](progress/v3d.md) `To do`, [lua](progress/lua.md) | M35 |
-| M43 | P2 | in specification | Sprite stacking (`stack`, `zstack`, `stackv`) | tens of stacks at 60 fps on the Pi; conversion to mesh | [graphics](progress/graphics.md), [suite-pixel](design/suite-pixel.md) | - |
+| M39 | P2 | in progress | GPU 3: toward the V3D limit (compact attributes, 16-bit textures, ETC1) | Pi 21 Oct: A8 +3.8% (kept off), T16 and ETC1 no gain (kept off). Open: stress test at double the triangles at 60 fps; Overbit with 10 bots at 60 fps in HIGH | [v3d](progress/v3d.md) `To do`, [lua](progress/lua.md) | - |
+| M43 | P2 | in progress | Sprite stacking (`stack`, `zstack` done, CPU only; `stackv` open) | measure stacks with a benchmark on the Pi Zero W (not measured), tens of stacks at 60 fps; conversion to mesh | [graphics](progress/graphics.md), [suite-pixel](design/suite-pixel.md) | - |
 | M46 | P2 | in progress | Audio 2: 24-bit stereo synthesizer, PCM/WAV samples, wizard, `riff` | bm Sound games and tracks at 24 bit on Pi and RGB30 with samples and patterns | [audio](progress/audio.md), [audio-samples](progress/audio-samples.md) | - |
-| M44 | P3 | to do | QPU programs (particles, Yharnam darkness, block audio) | particles and Yharnam darkness computed by the GPU with transparent fallback | [v3d](progress/v3d.md) `To do` §5, [graphics](progress/graphics.md) | M36, M41 |
+| M44 | P3 | to do | QPU programs (particles, Yharnam darkness, block audio) | particles and Yharnam darkness computed by the GPU with transparent fallback | [v3d](progress/v3d.md) `To do` §5, [graphics](progress/graphics.md) | M41 |
 | R40-R42 | P3 | idea | Profiler, sinc/QPU scaling, hero impostors | Pi measurements justifying each one | [v3d](progress/v3d.md) | M36 |
 | R7, R27, bmnet | P3 | idea | UTF-8 accents in `print()`, battery and autosave, network multiplayer | to be specified | [runtime](progress/runtime.md) `Open work`, [system-net](progress/system-net.md) | - |
 | R9, R17, R21, R25, R31-R35 | P3 | idea | WAV from SD, MIDI import, GPIO audio, PC audio, samples and riff | to be specified | [audio-samples](progress/audio-samples.md), [audio-output](progress/audio-output.md) | M46 |
