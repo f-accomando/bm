@@ -60,8 +60,8 @@ try:
     check(not ran and out.startswith("refused"), "pi refuses an unknown key name")
     out, ran = ask("c64", "kernel " + os.path.join(work, "kernel.img"))
     check(not ran and "unknown board" in out, "an unknown board is refused")
-    out, ran = ask("rgb30", "config key=value")
-    check(not ran and out.startswith("refused"), "config stays not allowed")
+    out, ran = ask("rgb30", "config net_password=x")
+    check(not ran and "secret" in out, "a secret config key stays refused")
 finally:
     shutil.rmtree(work, ignore_errors=True)
 print("%d failed" % fails)

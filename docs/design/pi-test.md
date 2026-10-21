@@ -19,6 +19,8 @@
 | `config KEY=VALUE` | settings written to the Pi's `config.txt` (`bm_net.py --config`) | letters, digits and `_-.=` only; secret keys (`net_password`, `*_token`, `*_psk`, `*_password`, `*_key`) refused; the log shows `KEY=***` |
 | anything else (`set`/`save`/`play` lines, secrets, WiFi) | **refused** (`refused: line: <reason>` for lines) | |
 
+**Boards.** `--board pi|zero2|rgb30` sets the kernel file name that `kernel FILE` accepts (`kernel.img`, `kernel7.img`, `kernel8.img`). The RGB30 has no monitor, so its `crash-*`, `freeze` and `reboot` keys answer "not for this board". `easy_install.sh bridge [profile]` starts the bridge for a profile.
+
 **How long the bridge lives.** It survives the Pi's restarts (one connection per request, the password stays in the bridge's memory). With `python3 tools/pi_bridge.py --detach IP` it survives closing the shell (log in `out/pi_bridge.log`). It does not survive `wsl --shutdown`, a restart or suspend of Windows, nor WSL stopping its VM when the last window closes (`instanceIdleTimeout` / `vmIdleTimeout` in `%UserProfile%\.wslconfig`: to confirm on the real machine). A second instance is refused ("a bridge is already running"). Errors: `bm_net.py` exits 3 with "does not answer" when the Pi is off, restarting or frozen; a request with no end after 300 s answers "timeout: ...".
 
 Stop it with Ctrl-C (or `pkill -INT -f pi_bridge.py`): the socket is removed and nothing can be sent any more. After a session change the Pi's password (it is shown in clear in a terminal or a chat easily).
