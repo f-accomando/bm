@@ -1096,7 +1096,22 @@ void ui_home(framebuffer_t *f)
         } else {
             ksnprintf(details, sizeof details, "%s", dev_items[*s].help);
         }
-        v.details = details[0] ? details : NULL;
+        /* the speed of the game that just ended takes the details line (the narrow screen shows the note only
+         * when that line is free) until the cover or the tab changes; the details come back then */
+        static int perf_at = -1;
+        if (!last_perf[0]) {
+            perf_at = -1;
+        } else if (on_market || on_gear) {          /* another tab: the note is over */
+            last_perf[0] = 0;
+            perf_at = -1;
+        } else if (perf_at < 0) {
+            perf_at = shown * 1000 + *s;
+        } else if (perf_at != shown * 1000 + *s) {  /* another cover: over */
+            last_perf[0] = 0;
+            perf_at = -1;
+        }
+        const int perf_shown = last_perf[0] && !note[0];
+        v.details = details[0] && !perf_shown ? details : NULL;
         v.note = on_market ? market_status() : note[0] ? note : last_perf[0] ? last_perf : NULL;
         menu_panel_t panel, sections, mpanel;
         if (mopt >= 0) {

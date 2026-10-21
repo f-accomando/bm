@@ -750,7 +750,16 @@ def test_cover_details_perf(b, opts):
         q.expect("suspended", timeout=10)
         time.sleep(1)
         text = screen_all(q.screendump())
-        assert "last: picart.bm" in text or ("frozen" in text and "picart.bm" in text), text
+        # the narrow screen shows the note on the details line (cut at 41 characters), as the Pi's "last:" note
+        assert re.search(r"last: picart.bm, \d+\.\d fps, update\+draw", text), text
+        assert "tests   bm" not in text, "the details wait while the note shows:" + chr(10) + text
+        keys(q, "r")                            # Dev: another tab, the note is over
+        time.sleep(0.5)
+        keys(q, "l")                            # back to Games
+        time.sleep(0.6)
+        text = screen_all(q.screendump())
+        assert "last: picart.bm" not in text, text
+        assert "picart.bm: frozen" in text, "the details are back (the game is frozen):" + chr(10) + text
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)

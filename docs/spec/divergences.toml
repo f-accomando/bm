@@ -143,8 +143,8 @@ rgb30 = "only the hint line; no performance note"
 cause = "history"
 priority = 6
 status = "untested"
-note = "src/rgb30/ui.c: the cover of a game shows author, kind, size and path, and the note 'last: <file>, X fps, update+draw ...' after a game (QEMU test_cover_details_perf; nota nascosta su layout stretto, menu_ui.c:1465). Not tried on an RGB30."
-evidence = "src/kernel/carts.c:544-555,1277; src/rgb30/ui.c:969"
+note = "src/rgb30/ui.c: the cover of a game shows author, kind, size and path, and the note 'last: <file>, X fps, update+draw ...' after a game (QEMU test_cover_details_perf). On the narrow screen the note takes the details line until the cover or the tab changes, then the details return (menu_ui.c:1485 shows the note only when that line is free). Not tried on an RGB30."
+evidence = "src/kernel/carts.c:530-541,693; src/rgb30/ui.c:345,409-418,1098-1115; src/kernel/menu_ui.c:1485"
 action = "add the note"
 
 [[divergence]]
