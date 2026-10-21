@@ -55,7 +55,7 @@ def check_info(body, where="INFO"):
 
 def check_sprites(body, where="SPRITES"):
     """SPRITES (11): port of sprites_check (src/bm/format.c:469-485), layout
-    bm.h:87-91. -> {"zones": [{name, x, y, w, h, frames, fps}]}"""
+    bm.h:87-91. -> {"zones": [{name, x, y, w, h, frames, fps[, slices]}]}"""
     need(len(body) >= 4, "SPRITES shorter than its head", where)
     n, pad = struct.unpack_from("<HH", body, 0)
     need(1 <= n <= SPRITES_MAX, f"{n} sprite zones, 1 to {SPRITES_MAX}", where)
@@ -68,10 +68,13 @@ def check_sprites(body, where="SPRITES"):
         name = read_name(z[:16], w_, "zone name")
         need(z[:16] not in seen, f"zone name {name!r} twice", w_)
         seen.add(z[:16])
-        x, y, w, h, frames, fps, _ = struct.unpack_from("<HHHHBBH", z, 16)
+        x, y, w, h, frames, fps, slices = struct.unpack_from("<HHHHBBB", z, 16)
         need(w and h, "zone of size 0", w_)
         need(1 <= frames <= FRAMES_MAX, f"{frames} frames, 1 to {FRAMES_MAX}", w_)
-        zones.append({"name": name, "x": x, "y": y, "w": w, "h": h, "frames": frames, "fps": fps})
+        zone = {"name": name, "x": x, "y": y, "w": w, "h": h, "frames": frames, "fps": fps}
+        if slices:                      # byte 26: slices of a stack zone
+            zone["slices"] = slices
+        zones.append(zone)
     return {"zones": zones}
 
 

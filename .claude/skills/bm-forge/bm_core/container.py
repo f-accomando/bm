@@ -242,7 +242,7 @@ def validate(cart, kernel_limits=False):
     if S.SPRITES in info:
         sw, sh = (sheet["w"], sheet["h"]) if sheet else (0, 0)
         for z in info[S.SPRITES]["zones"]:
-            need(z["x"] + z["w"] * z["frames"] <= sw and z["y"] + z["h"] <= sh,
+            need(z["x"] + z["w"] * max(z["frames"], z.get("slices", 0)) <= sw and z["y"] + z["h"] <= sh,
                  f"sprite zone {z['name']!r} out of the sheet (src/bm/format.c:704-714)")
             zones[z["name"]] = z["frames"]
     if S.BOXES in info:

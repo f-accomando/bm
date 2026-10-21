@@ -101,6 +101,8 @@ def test_info_sprites():
              {"name": "coin", "x": 64, "y": 0, "w": 8, "h": 8, "frames": 1, "fps": 0}]
     body = bmres.sprites_encode(zones)
     check(len(body) == 4 + 28 * 2 and bmres.sprites_decode(body) == zones, "SPRITES back the same")
+    stk = [{"name": "tree", "x": 0, "y": 0, "w": 8, "h": 8, "frames": 1, "fps": 0, "slices": 12}]
+    check(bmres.sprites_decode(bmres.sprites_encode(stk)) == stk, "SPRITES keeps the slices of a stack zone")
     raises(lambda: bmres.sprites_decode(bmres.sprites_encode(zones + [zones[0]])), "SPRITES with a name twice")
     raises(lambda: bmres.sprites_decode(body[:-1]), "SPRITES cut short")
 
