@@ -246,8 +246,8 @@ pi = "bm_net.py --play wired (GO_NETPLAY)"
 rgb30 = "bm_net.py --play wired (play_net in the menu loop)"
 cause = "todo"
 priority = 6
-status = "untested"
-note = "src/rgb30/ui.c play_net: the menu takes netxfer_take_play and plays with bm_play, as GO_NETPLAY on the Pi; a frozen game is closed without a question, as on the Pi. Built for rk3566 and virt; QEMU has no network (-nic none), so no test sends P. Not tried on the console."
+status = "resolved"
+note = "src/rgb30/ui.c play_net: the menu takes netxfer_take_play and plays with bm_play, as GO_NETPLAY on the Pi; a frozen game is closed without a question, as on the Pi. Proved on RGB30 hardware with the user 2026-10-21: sent .bm and .b16 with bm_net.py --play, both start from the menu, return with Start+Select, frozen game (Snake) closed without questions, cartridge not saved on SD."
 evidence = "src/kernel/carts.c:1843,1861,2015; src/rgb30/ui.c:426,1004"
 action = "wire it into ui_home (developer feature)"
 

@@ -108,7 +108,7 @@ since = 2
 status = "implemented"
 platforms = "all"
 where = ["src/net/netxfer.c", "src/bm/runtime.c", "tools/bm_net.py"]
-note = "transfer port 3334 ops S send, P play, K kernel, C config, T take a screenshot of the running game (OK+len32+name, NG after 3 s), G get a file of bm/shots only (OK+len32+crc32+data; PA NF SZ PW); T and G not yet proved on the RGB30; P on the RGB30: the menu plays it (D21), not yet proved on the RGB30"
+note = "transfer port 3334 ops S send, P play, K kernel, C config, T take a screenshot of the running game (OK+len32+name, NG after 3 s), G get a file of bm/shots only (OK+len32+crc32+data; PA NF SZ PW); T and G not yet proved on the RGB30; P on the RGB30: the menu plays it (D21), proved on RGB30 hardware 2026-10-21"
 
 [[item]]
 id = "project-layout"
