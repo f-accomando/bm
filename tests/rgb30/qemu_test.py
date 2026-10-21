@@ -648,6 +648,59 @@ def test_bm_cartridge(b, opts):
         q.close()
 
 
+def test_menu_start_confirms(b, opts):
+    """Start confirms in the menu, as on the Pi (carts.c:1474): one cartridge,
+    Start (space on the serial line) plays it."""
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    sd = make_sd(tmp, {"bm/picart.bm": mkbm.pack(PI_CART.encode(), title="Pi cart", author="tests",
+                                                 res=(360, 360))})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.4)
+        q.send(" ")                             # Start
+        q.expect("play: /bm/picart.bm", timeout=10)
+    finally:
+        q.close()
+
+
+def test_menu_tab_keys(b, opts):
+    """D04, the number keys in the menu as on the Pi (carts.c:1421-1427, 1481): 1 2 3 5 go to Market, Games,
+    Dev and Settings; 4 is the Pi's Lib tab, which the RGB30 does not have: nothing happens. (Tab goes to the
+    next tab and wraps after the last, from a keyboard only: on the serial line Tab is the Select button, and
+    QEMU has no keyboard. tab_of_key() in src/rgb30/ui.c is the one place that maps both.)"""
+    q = Qemu(os.path.join(b, "kernel.elf"))
+
+    def tab_now():
+        text = screen_all(q.screendump())
+        return ("Settings" if "Controllers" in text and "Screen and sound" in text else
+                "Dev" if "3D Bench" in text else
+                "Games" if "No games yet" in text else
+                "Market" if "Market" in text else "?")
+
+    def key_then(k, want, what):
+        q.send(k)
+        for _ in range(12):
+            time.sleep(0.3)
+            if tab_now() == want:
+                return
+        raise AssertionError(f"{what}: wanted {want}, on {tab_now()}:" + chr(10) + screen_all(q.screendump()))
+    try:
+        boot(q)
+        time.sleep(0.5)
+        assert tab_now() == "Games", tab_now()
+        key_then("3", "Dev", "key 3")
+        key_then("5", "Settings", "key 5")
+        key_then("1", "Market", "key 1")
+        key_then("2", "Games", "key 2")
+        key_then("3", "Dev", "key 3 again")
+        q.send("4")                             # the Pi's Lib tab: not here
+        time.sleep(1.0)
+        assert tab_now() == "Dev", "key 4 must do nothing, on " + tab_now()
+    finally:
+        q.close()
+
+
 def test_stages_template(b, opts):
     """The SDK's 'stages' template (carts/sdk_b16/main.lua) on the RGB30: a
     Pi cartridge at 360x360, played from the menu with confirm (Enter); ok in the game is Space;

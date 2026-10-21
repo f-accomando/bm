@@ -46,12 +46,13 @@ action = "decide whether the RGB30 has local multiplayer; if so map BT pads to p
 id = "D04"
 area = "menu keys"
 pi = "Start confirms; Tab and 1-5 jump tabs; U uploads a cart"
-rgb30 = "Start does nothing in the menu; no keyboard keys"
+rgb30 = "Start confirms unless Select is held; Tab and 1 2 3 5 of a keyboard jump tabs (4 is the Pi's Lib tab: absent, ignored); U (upload) is not ported"
 cause = "history"
 priority = 6
-status = "open"
-evidence = "src/kernel/carts.c:1491,1504-1511; src/rgb30/ui.c:1035-1219"
-action = "align Start and Tab for BT keyboards"
+status = "untested"
+note = "src/rgb30/ui.c: Start confirms in the menu unless Select is held (QEMU test_menu_start_confirms); Tab (wraps after the last tab) and 1/2/3/5 of a Bluetooth or USB keyboard jump tabs; the serial line's 1/2/3/5 do the same (QEMU test_menu_tab_keys; Tab has no QEMU test: on the serial line it is Select and QEMU has no keyboard); 4 is the Pi's Lib, absent. U (upload) not ported. Not tried with a Bluetooth keyboard."
+evidence = "src/kernel/carts.c:1421-1427,1479-1482; src/rgb30/ui.c:1187-1189,1198-1214"
+action = "port U (upload) if wanted"
 
 [[divergence]]
 id = "D05"
