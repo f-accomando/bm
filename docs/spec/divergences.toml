@@ -105,12 +105,12 @@ action = "port the two checks"
 id = "D09"
 area = "game list"
 pi = "sorted by title; scans / and /carts; shows .bme projects in Dev"
-rgb30 = "sorted by title (src/rgb30/ui.c:281 qsort with title_cmp); only /bm (accepted); .bme projects: see D44"
+rgb30 = "sorted by title (src/rgb30/ui.c:281 qsort with title_cmp); scans /bm and /carts (scan_games, src/rgb30/ui.c:278-279); .bme projects: see D44"
 cause = "history"
 priority = 4
 status = "untested"
-note = "The RGB30 list is sorted by title: qsort with title_cmp at src/rgb30/ui.c:281 (commit 88c914c5). Compiles; not tried on an RGB30. /carts is not scanned: accepted, the RGB30 keeps everything in /bm (capability storage-path, decided 2026-10-13). The .bme projects in Dev are tracked by D44, not here."
-evidence = "src/kernel/carts.c:143-169; src/rgb30/ui.c:230-263"
+note = "The RGB30 list is sorted by title: qsort with title_cmp at src/rgb30/ui.c:281 (commit 88c914c5). Compiles; not tried on an RGB30. scan_games() scans both /bm and /carts (src/rgb30/ui.c:278-279), as the Pi does; the game list is the same on both. The .bme projects in Dev are tracked by D44, not here."
+evidence = "src/kernel/carts.c:143-169; src/rgb30/ui.c:234-237,277-281"
 action = "try the title order on the RGB30; the projects are D44"
 
 [[divergence]]
@@ -235,10 +235,10 @@ rgb30 = "manifest-rgb30: kernel8.img and ca.pem only"
 cause = "hardware"
 capability = "board-boot"
 priority = 6
-status = "resolved"
-note = "Confirmed intended in Makefile:766-775: RGB30 release uses manifest-rgb30 with kernel8.img and ca.pem only."
-evidence = "Makefile:766-775"
-action = "confirmed intended; separate manifests per board"
+status = "open"
+note = "The RGB30 release uses manifest-rgb30 with kernel8.img and ca.pem only (Makefile:766-775); the update test reads the same manifest (tests/rgb30/qemu_test.py:335-352). Looks intended: waits for the user's written acceptance."
+evidence = "Makefile:766-775; tests/rgb30/qemu_test.py:335-352"
+action = "ask the user to accept it in writing; then close"
 
 [[divergence]]
 id = "D21"

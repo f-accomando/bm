@@ -14,7 +14,7 @@ because = "a 16:9 TV on the Pi (screen() offers the 16:9 modes), a square 720x72
 
 [[accept]]
 id = "platform-tools:embedded"
-kind = "hardware"
+kind = "history"
 because = "the Pi kernel embeds all the tools; the RGB30 kernel embeds only the SDK (sdk_b16), the other tools come from Market > Apps"
 
 [[accept]]
