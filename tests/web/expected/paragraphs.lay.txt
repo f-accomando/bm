@@ -1,0 +1,49 @@
+page w=240 h=344 lines=21 links=0 images=0 controls=0 forms=0 rects=1 cut=false title="Paragraphs"
+line y=12 h=12
+  t x=4 y=12 w=210 h=12 "This is the first paragraph. It has" 
+line y=24 h=12
+  t x=4 y=24 w=192 h=12 "enough words to wrap on a narrow" 
+line y=36 h=12
+  t x=4 y=36 w=210 h=12 "screen, so the line breaking can be" 
+line y=48 h=12
+  t x=4 y=48 w=228 h=12 "checked with extra spaces and newlines" 
+line y=60 h=12
+  t x=4 y=60 w=42 h=12 "inside." 
+line y=84 h=12
+  t x=4 y=84 w=66 h=12 "Second with" 
+  t x=76 y=84 w=24 h=12 "bold" b
+  t x=100 y=84 w=6 h=12 "," 
+  t x=112 y=84 w=36 h=12 "italic" i
+  t x=148 y=84 w=6 h=12 "," 
+  t x=160 y=84 w=54 h=12 "underline" u
+line y=96 h=12
+  t x=4 y=96 w=18 h=12 "and" 
+  t x=28 y=96 w=24 h=12 "code" c=333333
+  t x=58 y=96 w=30 h=12 "text." 
+line y=108 h=12
+  t x=4 y=108 w=126 h=12 "A line after a break." 
+line y=120 h=12
+line y=132 h=12
+  t x=4 y=132 w=102 h=12 "Two breaks above." 
+line y=156 h=12
+  t x=81 y=156 w=78 h=12 "Centered line" 
+line y=180 h=12
+  t x=206 y=180 w=30 h=12 "Right" 
+line y=204 h=12
+  t x=22 y=204 w=138 h=12 "Quoted text in a block." 
+line y=228 h=12
+  t x=4 y=228 w=48 h=12 "line one" 
+line y=240 h=12
+  t x=4 y=240 w=114 h=12 "  indented line two" 
+line y=252 h=12
+line y=264 h=12
+  t x=4 y=264 w=66 h=12 "after blank" 
+line y=292 h=12
+  t x=8 y=292 w=186 h=12 "Box with background and padding" 
+line y=308 h=12
+  t x=4 y=308 w=174 h=12 "Loose text in the body with a" 
+line y=320 h=12
+  t x=4 y=320 w=228 h=12 "verylongwordthatdoesnotfitononelineata" 
+line y=332 h=12
+  t x=4 y=332 w=168 h=12 "llbecauseitisreallylong end." 
+rect bg 4,288,232,20 c=eeeeee
