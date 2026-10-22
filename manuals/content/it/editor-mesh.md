@@ -147,6 +147,7 @@ La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in
 | A (Maiusc+A) | aggiunge una parte: un cubo, un cilindro, una sfera o un piano |
 | m | specchia la scelta, da sinistra a destra sullo schermo |
 | M | copia la scelta dall'altra parte dello 0 |
+| X (Maiusc+X) | specchio dal vivo acceso o spento |
 | j | crea una faccia su 3 o 4 vertici scelti |
 | k | fonde i vertici scelti in uno |
 | K | salda i vertici nello stesso punto |
@@ -217,6 +218,10 @@ Premi **g** per spostare, **r** per ruotare, **t** per scalare la scelta (si muo
 ## Aggiungi una parte
 
 **Maiusc+A** apre un elenco di quattro forme: cubo, cilindro, sfera e piano. Quella che scegli si aggiunge al modello come parte nuova, di larghezza 1 e del colore della pagina. Va al centro dei vertici scelti, oppure allo 0 se non c'è nulla di scelto. I vertici della parte nuova diventano la scelta, quindi puoi spostarli, ruotarli o scalarli subito. Un solo annulla toglie la parte. Se il modello ha uno scheletro, i vertici nuovi seguono l'osso del primo vertice scelto (o il primo osso). Con il gamepad tocca X e scegli **Aggiungi una parte**.
+
+## Specchio dal vivo
+
+**Maiusc+X** accende e spegne lo specchio dal vivo. Quando è acceso, la pagina mostra **MIRROR X**. Sposta, ruota, scala, dipingi e cancella agiscono allora sui vertici o sulle facce scelti e sui loro corrispondenti dall'altra parte del piano X = 0. L'editor trova il corrispondente dalla posizione: il vertice in (-x, y, z), entro 0,001. Un vertice sul piano è il corrispondente di se stesso. Un vertice senza corrispondente cambia da solo. Se scegli entrambi i lati, guida il vertice con il numero più basso e l'altro lo segue. Gli strumenti che aggiungono parti o cambiano la topologia (aggiungi una parte, estrudi, duplica, suddividi) non agiscono sull'altro lato. Un solo annulla riporta indietro entrambi i lati. Con il gamepad tocca X e scegli **Live mirror X on / off**.
 
 ## La vista
 

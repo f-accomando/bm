@@ -262,6 +262,72 @@ function G.add_vertex(it, p, from)
   return #it.v
 end
 
+-- Mirror across the plane X = 0. G.mirror_pairs(it, list, eps) takes a list
+-- of vertex numbers and returns { [vertex] = partner }: the vertex at the
+-- mirrored position (-x, y, z), within eps (0.001 by default). A vertex on
+-- the plane is its own partner. A vertex with no counterpart is not in the
+-- table. When two vertices share the place, the nearest one is the partner.
+function G.mirror_pairs(it, list, eps)
+  eps = eps or 0.001
+  local cell, grid, v = eps * 2, {}, it.v
+  local function key(cx, cy, cz) return (cx * 1000003 + cy) * 1000033 + cz end
+  for i, p in ipairs(v) do
+    local k = key(floor(p[1] / cell), floor(p[2] / cell), floor(p[3] / cell))
+    local b = grid[k]
+    if b then b[#b + 1] = i else grid[k] = { i } end
+  end
+  local out = {}
+  for _, i in ipairs(list) do
+    local p = v[i]
+    local x, y, z = -p[1], p[2], p[3]
+    local cx, cy, cz = floor(x / cell), floor(y / cell), floor(z / cell)
+    local best, bd = nil, eps * eps * 3 + 1e-12
+    for dx = -1, 1 do for dy = -1, 1 do for dz = -1, 1 do
+      local b = grid[key(cx + dx, cy + dy, cz + dz)]
+      if b then
+        for _, j in ipairs(b) do
+          local q = v[j]
+          local ex, ey, ez = q[1] - x, q[2] - y, q[3] - z
+          if math.abs(ex) <= eps and math.abs(ey) <= eps and math.abs(ez) <= eps then
+            local d = ex * ex + ey * ey + ez * ez
+            if d < bd then best, bd = j, d end
+          end
+        end
+      end
+    end end end
+    out[i] = best
+  end
+  return out
+end
+
+-- The faces that mirror the faces fs (a list of face numbers): the face whose
+-- three corners are the partners (table mp of G.mirror_pairs, which must hold
+-- every corner of fs) of the three corners. Returns { [face] = partner face };
+-- a face with no counterpart is not in the table.
+function G.mirror_faces(it, fs, mp)
+  local byk, out = {}, {}
+  local function key(a, b, c)
+    if a > b then a, b = b, a end
+    if b > c then b, c = c, b end
+    if a > b then a, b = b, a end
+    return (a * 70001 + b) * 70001 + c
+  end
+  for fi, f in ipairs(it.f) do
+    local k = key(f[1], f[2], f[3])
+    local b = byk[k]
+    if b then b[#b + 1] = fi else byk[k] = { fi } end
+  end
+  for _, fi in ipairs(fs) do
+    local f = it.f[fi]
+    local a, b, c = mp[f[1]], mp[f[2]], mp[f[3]]
+    if a and b and c then
+      local l = byk[key(a, b, c)]
+      if l then out[fi] = l[1] end
+    end
+  end
+  return out
+end
+
 -- A primitive ("cube", "plane", "sphere" or "cylinder") of the width size, in
 -- the colour col, with its middle at centre, added to the model it as a new
 -- part. The faces look out. The new vertices take the bone given (or 0) when

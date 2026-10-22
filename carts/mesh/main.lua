@@ -1025,7 +1025,7 @@ end
 ----------------------------------------------------------------- edit page
 do
 
-ed = { mode = "v", sv = {}, sf = {}, order = 0, px = W // 2, py = 184, tool = nil, step = 3, colour = 0xE84A5A,
+ed = { mirror = false, mode = "v", sv = {}, sf = {}, order = 0, px = W // 2, py = 184, tool = nil, step = 3, colour = 0xE84A5A,
        cam = { yaw = 0.6, pitch = -0.45, dist = 4, tx = 0, ty = 0, tz = 0 },
        sx = {}, sy = {}, sz = {}, hv = nil, hf = nil, force = nil, pal = nil, last_k = nil, last_f = 0, rep = 0 }
 
@@ -1196,11 +1196,26 @@ local function tool_start(kind, axis, keep)
   end
   ed.tool = { kind = kind, vs = vs, base = base, c = centre_of(it, vs), n = unit(n), axis = axis,
               d = { 0, 0, 0 }, m = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }, s = { 1, 1, 1 }, deg = 0 }
+  if ed.mirror then
+    -- live mirror: a vertex with a counterpart across X = 0 moves it too. When both
+    -- are chosen, the lower number leads and the other follows.
+    local mp = B.G.mirror_pairs(it, vs)
+    local sorted, fol, skip, lone = { table.unpack(vs) }, {}, {}, 0
+    table.sort(sorted)
+    for _, i in ipairs(sorted) do
+      local j = mp[i]
+      if j == nil then lone = lone + 1
+      elseif j ~= i and not skip[i] then fol[i], skip[j] = j, true end
+    end
+    ed.tool.fol, ed.tool.skip = fol, skip
+    if lone > 0 then say("mirror X: " .. lone .. " chosen without a counterpart", C_DIM, 120) end
+  end
 end
 
 local function tool_apply()
   local t, it = ed.tool, I()
   for _, i in ipairs(t.vs) do
+    if t.skip and t.skip[i] then goto next_vertex end
     local b, p = t.base[i], it.v[i]
     if t.kind == "move" then
       p[1], p[2], p[3] = b[1] + t.d[1], b[2] + t.d[2], b[3] + t.d[3]
@@ -1214,6 +1229,9 @@ local function tool_apply()
       end
       p[1], p[2], p[3] = t.c[1] + x, t.c[2] + y, t.c[3] + z
     end
+    local j = t.fol and t.fol[i]
+    if j then local q = it.v[j]; q[1], q[2], q[3] = -p[1], p[2], p[3] end
+    ::next_vertex::
   end
   it.view = nil
 end
@@ -1232,7 +1250,8 @@ local function tool_text()
 end
 
 local function tool_ok()
-  local what = tool_text():gsub("%s*%(step.*$", ""):lower() .. ": " .. #ed.tool.vs .. " vertices"
+  local what = tool_text():gsub("%s*%(step.*$", ""):lower() .. ": " .. #ed.tool.vs .. " vertices" ..
+               (ed.tool.fol and " (mirror X)" or "")
   ed.tool = nil
   finish_edit(what)
 end
@@ -1551,10 +1570,28 @@ local function op_flip()
   finish_edit(#fs .. " faces turned over")
 end
 
+-- live mirror: the faces and their counterparts across X = 0 (a new list)
+function ed.mirror_faces(it, fs)
+  if not ed.mirror then return fs end
+  local corners, seen = {}, {}
+  for _, fi in ipairs(fs) do
+    for k = 1, 3 do local c = it.f[fi][k]; if not seen[c] then seen[c] = true; corners[#corners + 1] = c end end
+  end
+  local mf = B.G.mirror_faces(it, fs, B.G.mirror_pairs(it, corners))
+  local out, in_out = {}, {}
+  for _, fi in ipairs(fs) do if not in_out[fi] then in_out[fi] = true; out[#out + 1] = fi end end
+  for _, fi in ipairs(fs) do
+    local g = mf[fi]
+    if g and not in_out[g] then in_out[g] = true; out[#out + 1] = g end
+  end
+  return out
+end
+
 local function op_paint()
   local fs = sel_faces()
   if not need_faces(fs) then return end
   local it = begin_edit()
+  fs = ed.mirror_faces(it, fs)
   for _, fi in ipairs(fs) do it.f[fi][4], it.f[fi][5] = ed.colour, nil end
   finish_edit(string.format("%d faces painted #%06X", #fs, ed.colour))
 end
@@ -1574,6 +1611,11 @@ local function op_delete()
   if ed.mode == "v" then
     if not next(ed.sv) then say("choose vertices first", C_ERR); return end
     it = begin_edit()
+    if ed.mirror then
+      local list = {}
+      for i in pairs(ed.sv) do list[#list + 1] = i end
+      for _, j in pairs(B.G.mirror_pairs(it, list)) do ed.sv[j] = ed.sv[j] or ed.order end
+    end
     local out = {}
     for _, f in ipairs(it.f) do if not (ed.sv[f[1]] or ed.sv[f[2]] or ed.sv[f[3]]) then out[#out + 1] = f end end
     local n = #it.f - #out
@@ -1584,6 +1626,7 @@ local function op_delete()
     local fs = sel_faces()
     if not need_faces(fs) then return end
     it = begin_edit()
+    fs = ed.mirror_faces(it, fs)
     local del, out = {}, {}
     for _, fi in ipairs(fs) do del[fi] = true end
     for fi, f in ipairs(it.f) do if not del[fi] then out[#out + 1] = f end end
@@ -1712,9 +1755,16 @@ local function open_palette()
   for i, c in ipairs(PALETTE) do if c == ed.colour then ed.pal = i end end
 end
 
+-- Shift+X: the live mirror across X = 0 for move, rotate, scale, paint and delete
+function ed.toggle_mirror()
+  ed.mirror = not ed.mirror
+  say(ed.mirror and "mirror X on: edits happen on both sides" or "mirror X off", ed.mirror and C_ACC or C_DIM, 120)
+end
+
 local COMMANDS = {
   { "Move (g)", "g" }, { "Rotate (r)", "r" }, { "Scale (t)", "t" }, { "Extrude faces (x)", "x" },
   { "Duplicate (d)", "d" }, { "Add a part (A)", "A" }, { "Mirror left-right (m)", "m" }, { "Mirror copy across 0 (M)", "M" },
+  { "Live mirror X on / off (X)", "X" },
   { "New face on 3-4 vertices (j)", "j" }, { "Merge vertices (k)", "k" }, { "Weld equal vertices (K)", "K" },
   { "Subdivide faces (u)", "u" }, { "Turn faces over (i)", "i" }, { "Paint faces (p)", "p" },
   { "Colour from the face (o)", "o" }, { "Palette (c)", "c" }, { "Delete (Del)", "del" },
@@ -1803,6 +1853,7 @@ function edit_key(k)
   elseif k == "A" then op_add_part()
   elseif k == "m" then op_mirror()
   elseif k == "M" then op_mirror_copy()
+  elseif k == "X" then ed.toggle_mirror()
   elseif k == "j" then op_join()
   elseif k == "k" then op_merge()
   elseif k == "K" then op_weld()
@@ -1927,6 +1978,7 @@ function draw_edit()
   -- what it is
   rectfill(0, 16, W, 32, C_BG)
   local nsel = ed.mode == "v" and count(ed.sv) or count(ed.sf)
+  if ed.mirror then rectfill(W - 72, 16, 64, 8, C_BG); print("MIRROR X", W - 72, 16, C_ACC) end
   print(it.name, 8, 16, KIND_C[it.kind])
   print(string.format("%d of 65535 vertices  %d triangles   %s: %d chosen", #it.v, #it.f,
                       ed.mode == "v" and "VERTICES" or "FACES", nsel), 8 + (#it.name + 2) * 8, 16, C_TEXT)
@@ -1987,6 +2039,7 @@ local HELP = {
     { "x / d", "extrude faces / duplicate (then move)" },
     { "shift a", "add a part: cube, cylinder, sphere, plane" },
     { "m / shift m", "mirror left-right / copy across 0" },
+    { "shift x", "live mirror X on / off: move, rotate, scale, paint, delete on both sides" },
     { "j", "new face on 3-4 vertices" },
     { "k / shift k", "merge / weld equal vertices" },
     { "u / i", "subdivide / turn over" },

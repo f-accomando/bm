@@ -748,6 +748,138 @@ do
   key("^z", "^s")
 end
 
+-- Shift+X: the live mirror across X = 0 (a new cube: v1..v8 = x -,+,+,-,-,+,+,-)
+do
+  local function same(a, b) return math.abs(a - b) < 1e-5 end
+  local function changed(m0, m1)
+    local out = {}
+    for i = 1, m0.nv do
+      for k = 1, 3 do if not same(m0.verts[i][k], m1.verts[i][k]) then out[#out + 1] = i; break end end
+    end
+    return out
+  end
+  local function mirrored(m, i, j)
+    return same(m.verts[i][1], -m.verts[j][1]) and same(m.verts[i][2], m.verts[j][2]) and same(m.verts[i][3], m.verts[j][3])
+  end
+  local function mode(m)               -- "VERTICES" or "FACES"
+    if not sees(m .. ":") then key("	") end
+  end
+  local function pick(list)            -- clear, then choose these numbers (n steps the pointer)
+    if not sees(": 0 chosen") then key("a") end
+    key("home")
+    local last = 0
+    for _, i in ipairs(list) do
+      for _ = last + 1, i do key("n") end
+      last = i
+      key(" ")
+    end
+  end
+  key("f1", "n")
+  key("r")
+  type_text("mirt")
+  local name = "mirt"
+  key("f2")
+  mode("VERTICES")
+  key("^s")
+  local m0 = model_of("meshcopy.bme", name)
+  check(m0 and m0.nv == 8 and m0.nf == 12, "mirror: a new cube")
+  -- off: one vertex moves alone
+  pick({ 1 })
+  key("g", "up", "\n", "^s")
+  local m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 1, "mirror off: one vertex moves (" .. #changed(m0, m1) .. ")")
+  key("^z", "^s")
+  -- on: the vertex and its counterpart
+  check(not sees("MIRROR X"), "no indicator while the mirror is off")
+  key("X")
+  check(sees("MIRROR X") and status():find("mirror X on", 1, true), "Shift+X: the indicator and the message: " .. status())
+  key("g", "up", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  local ch = changed(m0, m1)
+  check(#ch == 2 and ch[1] == 1 and ch[2] == 2 and mirrored(m1, 1, 2) and not same(m1.verts[1][2], m0.verts[1][2]),
+        "move: v1 and its counterpart v2 (" .. table.concat(ch, ",") .. ")")
+  check(sees("of 65535 vertices") and sees("8 of"), "the counters stay")
+  key("^z", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 0, "one undo takes back both sides")
+  -- rotate: v1 and v4 (the left side)
+  pick({ 1, 4 })
+  check(sees("VERTICES: 2 chosen"), "v1 and v4 chosen")
+  key("r", "up", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 4 and mirrored(m1, 1, 2) and mirrored(m1, 4, 3),
+        "rotate: both sides turn (" .. #changed(m0, m1) .. ")")
+  key("^z")
+  -- scale
+  key("t", "up", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 4 and mirrored(m1, 1, 2) and mirrored(m1, 4, 3), "scale: both sides (" .. #changed(m0, m1) .. ")")
+  key("^z")
+  -- every vertex chosen: still symmetric
+  pick({ 1, 2, 3, 4, 5, 6, 7, 8 })
+  key("r", "left", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) > 0 and mirrored(m1, 1, 2) and mirrored(m1, 4, 3) and mirrored(m1, 5, 6) and mirrored(m1, 8, 7),
+        "rotate with both sides chosen: the result is symmetric")
+  key("^z", "^s")
+  -- a vertex that lost its counterpart has no pair
+  key("X")
+  pick({ 1 })
+  key("g", "up", "\n", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(not sees("MIRROR X") and #changed(m0, m1) == 1, "off again: one vertex")
+  key("X", "g", "up", "\n", "^s")
+  local m2 = model_of("meshcopy.bme", name)
+  check(#changed(m1, m2) == 1 and changed(m1, m2)[1] == 1, "no counterpart: only v1 moves (" .. #changed(m1, m2) .. ")")
+  key("^z", "^z", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(#changed(m0, m1) == 0, "back to the cube")
+  -- paint: face 9 (left side), its counterpart is face 12
+  mode("FACES")
+  pick({ 9 })
+  check(sees("FACES: 1 chosen"), "face 9 chosen")
+  key("c", "right", "right", "\n", "p", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  local c9 = m1.faces[9][4]
+  local ok = c9 ~= m0.faces[9][4] and m1.faces[12][4] == c9
+  for i = 1, 12 do if i ~= 9 and i ~= 12 and m1.faces[i][4] ~= m0.faces[i][4] then ok = false end end
+  check(ok, "paint: face 9 and its counterpart 12 only")
+  key("^z", "^s")
+  -- delete a face with its counterpart (one undo)
+  pick({ 9 })
+  key("del", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and m1.nf == 10, "delete a face: two faces go (" .. (m1 and m1.nf or "-") .. ")")
+  key("^z", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and m1.nf == 12, "one undo brings both back")
+  -- delete a vertex: it and its counterpart with their faces
+  mode("VERTICES")
+  pick({ 1 })
+  key("del", "^s")
+  m1 = model_of("meshcopy.bme", name)
+  check(m1 and m1.nf == 4 and m1.nv == 6, "delete a vertex: v1 and v2 go (" .. (m1 and (m1.nv .. "/" .. m1.nf) or "-") .. ")")
+  key("^z", "X", "^s")
+  check(not sees("MIRROR X"), "Shift+X again: off")
+  -- the command is on the menu and in the help
+  key("f3")
+  check(sees("Live mirror X"), "the commands list the live mirror")
+  key("esc")
+  -- the test model goes (the copy stays the village as saved)
+  key("f1")
+  goto_item("M mirt")
+  key("del", "del", "^s")
+  check(not model_of("meshcopy.bme", name), "the test cube is deleted")
+  -- T.G.mirror_pairs: tolerance, the plane, no counterpart
+  local G = E.require("bm3d").G
+  local it = { v = { { 1, 2, 3 }, { -1.0004, 2, 3 }, { 0, 5, 5 }, { 4, 4, 4 }, { -4.01, 4, 4 }, { 7, 7, 7 } }, f = {} }
+  local mp = G.mirror_pairs(it, { 1, 2, 3, 4, 5, 6 })
+  check(mp[1] == 2 and mp[2] == 1 and mp[3] == 3 and mp[4] == nil and mp[5] == nil and mp[6] == nil,
+        "T.G.mirror_pairs: a pair within 0.001, the plane, none beyond it")
+  local fm = G.mirror_faces({ f = { { 1, 3, 5 }, { 2, 3, 6 }, { 1, 2, 3 } } }, { 1, 3 }, { [1] = 2, [3] = 3, [5] = 6, [2] = 1 })
+  check(fm[1] == 2 and fm[3] == 3 and next(fm, 3) == nil, "T.G.mirror_faces: the counterpart face, a face on the plane is its own")
+end
+
 -- F12 held: the keys of the page (keyhelp(), the kernel draws them)
 local function in_help(keys, what)
   for _, e in ipairs(keyhelp_list or {}) do

@@ -147,6 +147,7 @@ The edit page draws the model with its edges, a pointer, and a line at the top w
 | A (Shift+A) | add a part: a cube, a cylinder, a sphere or a plane |
 | m | mirror the choice, left to right on the screen |
 | M | copy the choice to the other side of 0 |
+| X (Shift+X) | live mirror on or off |
 | j | make a face on 3 or 4 chosen vertices |
 | k | merge the chosen vertices into one |
 | K | weld the vertices at the same point |
@@ -217,6 +218,10 @@ Press **g** to move, **r** to rotate, **t** to scale the choice (the corners of 
 ## Add a part
 
 **Shift+A** opens a list of four shapes: cube, cylinder, sphere and plane. The one you pick is added to the model as a new part, with the width 1 and the colour of the page. It goes to the middle of the chosen vertices, or to 0 if nothing is chosen. The vertices of the new part are then the choice, so you can move, rotate or scale it at once. One undo takes the part away. If the model has a skeleton, the new vertices follow the bone of the first chosen vertex (or the first bone). With the gamepad, tap X and pick **Add a part**.
+
+## Live mirror
+
+**Shift+X** turns the live mirror on and off. While it is on, the page shows **MIRROR X**. Move, rotate, scale, paint and delete then act on the chosen vertices or faces and on their counterparts across the plane X = 0. The editor finds the counterpart by position: the vertex at (-x, y, z), within 0.001. A vertex on the plane is its own counterpart. A vertex with no counterpart changes alone. If you choose both sides, the vertex with the lower number leads and the other follows. The tools that add parts or change the topology (add a part, extrude, duplicate, subdivide) do not act on the other side. One undo takes back both sides. With the gamepad, tap X and pick **Live mirror X on / off**.
 
 ## The view
 
