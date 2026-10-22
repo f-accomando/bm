@@ -625,18 +625,17 @@ def test_wifi_page_without_chip(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        keys(q, "rrss")                         # Settings: Controllers, Controls, WiFi and network
-        q.send("\r")
-        time.sleep(0.5)
-        keys(q, "ss")                           # Connect to a network, after State
-        q.send("\r")
-        q.expect("no WiFi chip in QEMU", timeout=10)
-        time.sleep(0.5)
-        text = "\n".join(screen_text(q.screendump()))
-        assert "no WiFi chip in QEMU" in text, text
-        q.send("\x7f")
-        time.sleep(0.6)
-        assert in_menu(screen_all(q.screendump()))
+        press(q, "r", ["every 3D test"])                # the Dev tab
+        press(q, "r", ["Controllers", "built in"])      # the Settings tab
+        press(q, "s", ["Which button does what"])       # Controls
+        press(q, "s", ["The link, the address"])        # WiFi and network
+        press(q, "\r", ["Settings > WiFi and network"])
+        press(q, "s", ["The link to the access point"])  # State
+        press(q, "s", ["Lists the networks, joins"])    # Connect to a network
+        press_serial(q, "\r", "no WiFi chip in QEMU")   # the chip starts; the line is printed
+        wait_screen(q, ["no WiFi chip in QEMU"])
+        text = press(q, "\x7f", ["Games", "Dev", "Settings"])    # B: back to the panel
+        assert in_menu(text) and "Settings > WiFi and network" in text, text
     finally:
         q.close()
 
@@ -953,40 +952,26 @@ def test_sdk_stages_build(b, opts):
     size = os.path.getsize(sd)
     dump = os.path.join(tmp, "after.img")
 
-    def screen(want, tries=80):
-        for _ in range(tries):
-            text = screen_all(q.screendump())
-            if all(w in text for w in want):
-                return text
-            time.sleep(0.25)
-        raise AssertionError(f"want {want} on the screen:\n{text}")
-
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
-        time.sleep(0.5)
-        keys(q, "r")                            # Dev
-        keys(q, "ss")                           # the third row: bm SDK
+        press(q, "r", ["every 3D test"])        # Dev
+        press(q, "s", ["both sticks"])          # the second row: Input test
+        press(q, "s", ["build and try"])        # the third row: bm SDK
         q.buf = b""
-        q.send("\r")
-        q.expect("bm SDK\r\n", timeout=30)
-        time.sleep(1.0)
-        q.send("\x0e")                          # Ctrl+N: new project from a template
-        screen(["new project from a template", "Stages 2D"])
-        for _ in range(8):                      # down (arrow) to the ninth row
-            q.send("\x1b[B")
-            time.sleep(0.4)
-        q.send("\r")
-        screen(["new project (Stages 2D)"])
-        q.send("\x02")                          # Ctrl+B: Save as
-        screen(["file name", "MYGAME.BME"])
-        q.send("\r")
-        screen(["built /carts/MYGAME.BM"])
+        press_serial(q, "\r", "bm SDK\r\n", tries=3, wait=60.0)
+        # Ctrl+N: new project from a template (sent again until the SDK is ready to read it)
+        press(q, "\x0e", ["new project from a template", "Stages 2D"], wait=15.0)
+        for desc in ("run and jump", "pick up the coins", "waves of enemies", "punches with",
+                     "two to four consoles", "floor, cubes", "the models of bm Studio",
+                     "three stages"):           # down (arrow) to the ninth row; each row shows its text
+            press(q, "\x1b[B", [desc], wait=10.0)
+        press(q, "\r", ["new project (Stages 2D)"], wait=10.0)
+        press(q, "\x02", ["file name", "MYGAME.BME"], wait=10.0)     # Ctrl+B: Save as
+        press(q, "\r", ["built /carts/MYGAME.BM"], wait=20.0)
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
                   until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
-        time.sleep(0.3)
-        q.send("\x1c")                          # Ctrl+\: leave the SDK
-        screen(["Games", "Dev", "Settings"])
+        press(q, "\x1c", ["Games", "Dev", "Settings"], wait=10.0)     # Ctrl+\: leave the SDK
     finally:
         q.close()
     env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
@@ -1151,18 +1136,15 @@ def test_gpu_test(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        keys(q, "r")                            # Dev tab: 3D Bench
-        keys(q, "sdd")                          # the second row's last: GPU test
-        text = screen_all(q.screendump())
+        press(q, "r", ["every 3D test"])        # Dev tab: 3D Bench
+        press(q, "s", ["both sticks"])          # the second row: Input test
+        press(q, "d", ["since boot"])           # Boot log
+        text = press(q, "d", ["Mali-G52"])      # GPU test
         assert "GPU test" in text and in_menu(text), text
-        q.send("\r")
-        q.expect("no Mali on QEMU virt", timeout=20)
-        time.sleep(0.5)
-        text = screen_all(q.screendump())
-        assert "GPU test" in text and "no Mali on QEMU virt" in text, text
-        q.send("\x7f")                          # A: back
-        time.sleep(1.5)
-        assert in_menu(screen_all(q.screendump()))
+        press_serial(q, "\r", "no Mali on QEMU virt", wait=30.0)
+        wait_screen(q, ["GPU test", "no Mali on QEMU virt"])
+        text = press(q, "\x7f", ["Games", "Dev", "Settings"])     # A: back
+        assert in_menu(text), text
     finally:
         q.close()
 
@@ -1172,18 +1154,18 @@ def test_menu_input_page(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        keys(q, "rs")                           # Dev tab: down a row: Input test
-        q.send("\r")
-        time.sleep(0.4)
-        q.send("x")                            # X held for a moment
-        time.sleep(0.05)
-        img = q.screendump()
-        text = screen_all(img)
+        press(q, "r", ["every 3D test"])        # Dev tab
+        press(q, "s", ["both sticks"])          # down a row: Input test
+        press(q, "\r", ["held: "])              # the page
+        for i in range(60):                     # X is held for 120 ms: a screen taken too early or too late
+            q.send("x")                         # misses it (the frame has not read it, or it is let go); send again
+            time.sleep(0.03 + 0.01 * (i % 6))
+            text = screen_all(q.screendump())
+            if "held: 00000040" in text:        # PAD_X
+                break
         assert "Input test" in text, text
-        assert "held: 00000040" in text, text  # PAD_X
-        q.send("\t ")                          # Select + Start: back
-        time.sleep(0.6)
-        text = screen_all(q.screendump())
+        assert "held: 00000040" in text, text
+        text = press(q, "\t ", ["Games", "Dev", "Settings"])     # Select + Start: back
         assert in_menu(text) and "Input test" in text, text
     finally:
         q.close()
