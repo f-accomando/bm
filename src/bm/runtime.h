@@ -150,4 +150,10 @@ void bm_save_path(const char *title, const char *author, char *out, size_t n);
 #define BM_SAVE_SLOTS 8
 void bm_save_slot(const char *path, int slot, char *out, size_t n);
 
+/* dark_end() fades the page with this when it is set (the Pi kernel sets it
+ * only with gpu3d_qpu=1; default NULL = g16_fade_apply, no extra work). It
+ * returns 1 if it did the fade on the GPU, 0 if the ARM did it; either way
+ * the page is the picture of g16_fade_apply. It does the ARM fallback itself. */
+extern int (*bm_fade_accel)(g16_t *g, const g16_fade_t *f);
+
 #endif

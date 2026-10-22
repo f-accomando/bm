@@ -103,6 +103,11 @@ def test_info_sprites():
     check(len(body) == 4 + 28 * 2 and bmres.sprites_decode(body) == zones, "SPRITES back the same")
     stk = [{"name": "tree", "x": 0, "y": 0, "w": 8, "h": 8, "frames": 1, "fps": 0, "slices": 12}]
     check(bmres.sprites_decode(bmres.sprites_encode(stk)) == stk, "SPRITES keeps the slices of a stack zone")
+    stv = [dict(stk[0], vertical=True)]
+    enc = bmres.sprites_encode(stv)
+    check(bmres.sprites_decode(enc) == stv and enc[4 + 27] == 1,
+          "SPRITES keeps the direction of a stackv zone (bit 0 of byte 27)")
+    check(bmres.zone_rect(stv[0]) == (0, 0, 8, 96), "a stackv zone spans h x slices")
     raises(lambda: bmres.sprites_decode(bmres.sprites_encode(zones + [zones[0]])), "SPRITES with a name twice")
     raises(lambda: bmres.sprites_decode(body[:-1]), "SPRITES cut short")
 
