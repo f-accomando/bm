@@ -2010,23 +2010,20 @@ def test_bmweb(b, opts):
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
-        f.write("layout=us
-wifi_boot=0
-")
+        f.write("layout=us\nwifi_boot=0\n")
     mksd.build(img, [(cfg, "bm/config.txt")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.boot()
         assert _upload(q, mkbm.pack(src.encode(), title="bmweb"))
         out = q.expect("bmweb-test end", timeout=120)
-        text = out.decode(errors="replace").replace("", "")
+        text = out.decode(errors="replace").replace("\r", "")
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
     assert "bmweb: ready" in text, text[-2000:]
     assert "bmweb-test home home" in text, text[-2000:]
-    mode = [l for l in text.split("
-") if "bmweb-test mode" in l]
+    mode = [l for l in text.split("\n") if "bmweb-test mode" in l]
     assert mode and "mode error" in mode[-1] and "Cannot load" in mode[-1], (mode, text[-2000:])
     assert "bmweb-test refused error" in text, text[-2000:]
     assert "attempt to" not in text and "stack traceback" not in text, text[-2000:]
