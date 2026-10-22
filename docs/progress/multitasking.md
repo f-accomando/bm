@@ -42,7 +42,7 @@ fibers probably off or used differently (job per core, real threads for download
 - TLS session reuse for the 3 requests of a report (proposal: 2-4 `mbedtls_ssl_session` cached
   by host:port in `tls.c`, `MBEDTLS_SSL_SESSION_TICKETS`, ~60+40 lines; or HTTP keep-alive).
 - Synchronous menu SD writes (`config_save`) vs a paused netxfer write at card wrap-around: `netxfer.h` says pause first, Settings does not.
-- Failing tests: `test_sd_cartridges` (also on the old kernel), RGB30 `test_update_from_sd` flaky,
+- Failing tests: RGB30 `test_update_from_sd` flaky,
   `make test-net` link failure in `test_config` (pre-existing).
 ## Considerations
 - Quotas matter little on a 14-game card: the value is the measurement and removing the long stalls
