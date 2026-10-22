@@ -62,6 +62,7 @@ Friday evening:
 8. Evaluate the security findings of `docs/OS-CAPABILITIES.md`: `lua_load(..., NULL)` at `runtime.c:9438` may accept bytecode; default net password is 6 digits from `srand(timer_ticks())` (`netcon.c:183`), plaintext on TCP 3334; carts can `ls` the SD and `cart_read` any `.bm` without a prompt; FAT dates fixed at 2026-01-01 (`fat.c:682`); docs disagree (`docs/progress/b16.md:16` says 4 MiB heap, code 64 MiB; RGB30 menu framebuffer 360x360).
 9. R41 and R42 only if the R40 numbers (`stat(17)`, `stat(18)`) show a gain.
 10. Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
+11. Multitab (APP-8): one tab per Lua module of a `.bme` project in bm Code, shared with bm SDK and the other code editors (one component in bmui). Same `.bm` as today. Plan it with `bm-planner` first. See `docs/ROADMAP.md`.
 
 ## Open issues
 - The Pi froze once on `b3d tests=herotris` with all profiles in one line (8 profiles in one run). The user power-cycled the Pi. The same profiles run one at a time did not freeze. Cause unknown, no fix. Command: `b3d tests=herotris` (no profile named, so all 8 profiles in one line). To reproduce, run it again and note the profile that is running at the freeze.
