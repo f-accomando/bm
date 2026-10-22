@@ -697,6 +697,192 @@ static void mix(int n, int f)
         spr2d(&sheet[1], k * 16, 0, 16, 16, W - 140 + 16 * k, H - 28);
 }
 
+/* ------------------------------------------------- the 2D scenes (opt-in)
+ * Tests to measure 2D work (map, sprites, stacks, fade, light) on the Pi
+ * Zero W. They run only when `tests=` names them (`optin`), so the default
+ * run, the score and the old reports stay as they were. Every scene is fixed:
+ * the positions come from a hash of the item number and the frame number,
+ * never from the time. `n` is the load; fill_px counts the screen pixels the
+ * frame asks to draw (ns_px_frame in the report).
+ *
+ * Hooks, not developed here (they wait for their code in bm-core):
+ *   stackv     the vertical stacks of PR 90 (a test_t "stackv" after "stack")
+ *   particles  the 3D particles of PR 99 (a test_t "particles")
+ * TODO: add them as opt-in tests of this block when those PRs are merged. */
+
+static uint32_t hash2d(uint32_t i)
+{
+    i ^= i >> 16;
+    i *= 0x7FEB352Du;
+    i ^= i >> 15;
+    i *= 0x846CA68Bu;
+    i ^= i >> 16;
+    return i;
+}
+
+#define MAP8_W 96                       /* cells of a layer: 768 x 448 pixels */
+#define MAP8_H 56
+#define MAP8_LAYERS 8
+static g16_map_t map8_layer[MAP8_LAYERS];
+static float map8_cover[MAP8_LAYERS];   /* the part of the screen a layer fills */
+
+static void map8_setup(void)
+{
+    for (int l = 0; l < MAP8_LAYERS; l++) {
+        g16_map_t *m = &map8_layer[l];
+        m->w = MAP8_W;
+        m->h = MAP8_H;
+        m->cells = calloc((size_t)MAP8_W * MAP8_H, sizeof *m->cells);
+        int used = 0;
+        for (int i = 0; m->cells && i < MAP8_W * MAP8_H; i++) {
+            const uint32_t h = hash2d((uint32_t)(l * 100003 + i));
+            /* layers 0-2: every cell, opaque tiles; 3-7: half the cells, tiles with holes (alpha) */
+            if (l < 3 || (h >> 8 & 1)) {
+                m->cells[i] = (uint16_t)(1 + h % 255);
+                used++;
+            }
+        }
+        map8_cover[l] = (float)used / (float)(MAP8_W * MAP8_H);
+    }
+}
+
+static void map8_free(void)
+{
+    for (int l = 0; l < MAP8_LAYERS; l++) {
+        free(map8_layer[l].cells);
+        map8_layer[l].cells = NULL;
+    }
+}
+
+/* n layers (8 = the scene) of map() at 640x360, each scrolling faster than the one below */
+static void map8_scene(int n, int f)
+{
+    g16_cls(g, g16_rgb(10, 10, 30));
+    for (int l = 0; l < n && l < MAP8_LAYERS; l++) {
+        if (!map8_layer[l].cells)
+            continue;
+        const int sx = (f * (l + 1) * 5) % 120, sy = (f * (l + 1)) % 64;
+        g16_map(g, &sheet[l < 3 ? 0 : 1], &map8_layer[l], sx / 8, sy / 8, -(sx % 8), -(sy % 8), W / 8 + 1, H / 8 + 1);
+        fill_px += (float)(W * H) * map8_cover[l];
+    }
+}
+
+/* a sprite of 16 x 16 with flip; the GPU draws it in GPU+2D, else the ARM */
+static void spr2d_flip(const g16_sheet_t *s, int sx, int sy, int x, int y, int fx, int fy)
+{
+    fill_px += 16.0f * 16.0f;
+    if (cur_2d && R.backend && gpu3d_blit2d(g, s, sx, sy, 16, 16, x, y, 1, fx, fy))
+        return;
+    flush2d();
+    g16_sspr(g, s, sx, sy, 16, 16, x, y, fx, fy);
+}
+
+/* n sprites of 16 x 16: half opaque (sheet 0), half with holes (sheet 1), some flipped */
+static void sprites_scene(int n, int f)
+{
+    cls3d();                            /* the page of the GPU too (GPU+2D) */
+    for (int i = 0; i < n; i++) {
+        const uint32_t h = hash2d((uint32_t)i);
+        spr2d_flip(&sheet[i & 1], (int)(h & 7) * 16, (int)(h >> 3 & 7) * 16,
+                   (int)((h >> 6) % (uint32_t)(W - 16) + (uint32_t)(f * (1 + (int)(h >> 29)))) % (W - 16),
+                   (int)((h >> 15) % (uint32_t)(H - 16)), (int)(h >> 26 & 1), (int)(h >> 27 & 1));
+    }
+}
+
+/* n stacks of 8 slices (16 x 16, sheet 1 has holes), turning, in three sizes: a fixed pile */
+static void stack_scene(int n, int f)
+{
+    g16_cls(g, g16_rgb(10, 10, 30));
+    for (int i = 0; i < n; i++) {
+        const uint32_t h = hash2d((uint32_t)i + 77u);
+        const float scale = 1.0f + 0.5f * (float)(i % 3);
+        fill_px += 8.0f * 256.0f * scale * scale;
+        g16_stack(g, &sheet[1], 0, 0, 16, 16, 8, 40 + (int)(h % (uint32_t)(W - 80)),
+                  40 + (int)(h >> 12 & 0xFF) % (H - 80), (float)(h >> 20 & 63) * 0.1f + (float)f * 0.05f, scale, 2.0f);
+    }
+}
+
+/* the background of fade and light: blocks of the colours the fade has tables for */
+static const uint16_t fx_col[4] = { 0xF800, 0x07E0, 0x001F, 0xFFE0 };      /* RGB565 */
+
+static void fx_back(void)
+{
+    g16_cls(g, g16_rgb(40, 40, 60));
+    for (int i = 0; i < 12; i++)
+        g16_rectfill(g, (i % 4) * (W / 4), (i / 4) * (H / 3), W / 4, H / 3, fx_col[(i + i / 4) & 3]);
+    fill_px += (float)(W * H);          /* the pass over the whole screen */
+}
+
+static g16_fade_t fx_fade;
+static g16_light_t fx_light;
+static int fx_ok;
+
+static void fade_setup(void)
+{
+    fx_ok = g16_fade_init(&fx_fade, W, H) == 0;
+    if (!fx_ok)
+        return;
+    g16_fade_reset(&fx_fade, 16);
+    for (int c = 0; c < 4; c++) {       /* the table of each block colour: darker to itself */
+        uint16_t to[16];
+        const uint32_t r = (uint32_t)fx_col[c] >> 11 << 3, gr = (uint32_t)fx_col[c] >> 5 << 2 & 0xFF,
+                       b = (uint32_t)fx_col[c] << 3 & 0xFF;
+        for (int k = 0; k < 16; k++)
+            to[k] = g16_rgb(r * (uint32_t)(k + 1) / 16, gr * (uint32_t)(k + 1) / 16, b * (uint32_t)(k + 1) / 16);
+        g16_fade_colour(&fx_fade, fx_col[c], to);
+    }
+    g16_fade_done(&fx_fade);
+}
+
+static void fade_free(void)
+{
+    if (fx_ok)
+        g16_fade_free(&fx_fade);
+    fx_ok = 0;
+}
+
+/* n lamps (levels, rings dithered) and the fade over the whole screen, on the ARM */
+static void fade_scene(int n, int f)
+{
+    fx_back();
+    if (!fx_ok)
+        return;
+    g16_fade_clear(&fx_fade, 3);
+    for (int i = 0; i < n; i++) {
+        const uint32_t h = hash2d((uint32_t)i + 5u);
+        g16_fade_glow(&fx_fade, (int)(h % (uint32_t)W) + f, (int)(h >> 12 & 0x1FF) % H, 40 + (int)(h >> 24 & 63), 15,
+                      128);
+    }
+    g16_fade_apply(g, &fx_fade);
+}
+
+static void light_setup(void)
+{
+    fx_ok = g16_light_init(&fx_light, W, H) == 0;
+}
+
+static void light_free(void)
+{
+    if (fx_ok)
+        g16_light_free(&fx_light);
+    fx_ok = 0;
+}
+
+/* n soft lamps and the light over the whole screen, on the ARM */
+static void light_scene(int n, int f)
+{
+    fx_back();
+    if (!fx_ok)
+        return;
+    g16_light_clear(&fx_light, 0x404040);
+    for (int i = 0; i < n; i++) {
+        const uint32_t h = hash2d((uint32_t)i + 9u);
+        g16_light_add(&fx_light, (float)((int)(h % (uint32_t)W) + f), (float)((int)(h >> 12 & 0x1FF) % H),
+                      40.0f + (float)(h >> 24 & 63), 0xFFE0A0u + (h >> 8 & 0x1F) * 0x10100u, 1.0f);
+    }
+    g16_light_apply(g, &fx_light);
+}
+
 /* ---------------------------------------------------------------- tests */
 
 /* a game's logic between two frames: k thousand steps of a random
@@ -722,6 +908,7 @@ typedef struct {
                                          * 2D's area): the report gives its cost a pixel (fill_px) */
     int work;                           /* the ARM's work of a frame after its 3D (a game's logic),
                                          * thousands of steps of 3 instructions */
+    int optin;                          /* runs only when `tests=` names it (the 2D scenes) */
 } test_t;
 
 static const test_t tests[] = {
@@ -771,6 +958,14 @@ static const test_t tests[] = {
       2, 0 },
     { "bilinear", "fill: quads, textures filtered (bilinear)", "quads", 1, 4000, M_GPU, q_bilinear, quads,
       q_bilinear_free, NULL, 1, 0 },
+    /* the 2D scenes: only with `tests=` (docs/BENCH3D.md), outside the score */
+    { "map8", "2D: 8 layers of map(), parallax", "layers", 1, MAP8_LAYERS, M_ARM, map8_setup, map8_scene, map8_free, NULL, 2,
+      0, 1 },
+    { "sprites", "2D: sprites, flip, alpha", "sprites", 16, 4000, M_ARM | M_2D, NULL, sprites_scene, NULL, NULL, 2, 0, 1 },
+    { "stack", "2D: sprite stacks (stack)", "stacks", 1, 600, M_ARM, NULL, stack_scene, NULL, NULL, 2, 0, 1 },
+    { "fade", "2D: full-screen fade (dark_end), ARM", "lamps", 1, 64, M_ARM, fade_setup, fade_scene, fade_free, NULL, 2, 0,
+      1 },
+    { "light", "2D: full-screen light, ARM", "lamps", 1, 64, M_ARM, light_setup, light_scene, light_free, NULL, 2, 0, 1 },
 };
 #define NTESTS ((int)(sizeof tests / sizeof tests[0]))
 
@@ -1887,7 +2082,8 @@ int b3d_run(const b3d_platform_t *plat)
     const uint32_t t0 = P->us();
     for (int ti = 0; ti < NTESTS && !stopping(); ti++)
         for (int pf = 0; pf < NPROF && !stopping(); pf++)
-            if (!tests[ti].future && runs(&tests[ti], pf) && listed(P->only_tests, tests[ti].id) && prof_listed(pf))
+            if (!tests[ti].future && (!tests[ti].optin || P->only_tests) && runs(&tests[ti], pf) &&
+                listed(P->only_tests, tests[ti].id) && prof_listed(pf))
                 ramp(ti, pf);
     R.backend = NULL;
     meshes_free();
