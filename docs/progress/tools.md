@@ -60,8 +60,11 @@ Games (`MARKET_GAMES`: `GAMES` without `MARKET_NOT`, so without `village`) and t
 `kind: app` line) reach the consoles from `bm-market`. The Pi gets each editor as `.bm` (built as
 `build/<id>.bm`); the RGB30 gets the SDK as `.b16` under the same id `editor` (from `carts/sdk_b16`).
 `assistant`, `write` and `typing` keep their place in the apps list of `is_known_app`.
-`make market-seed MARKET=<clone>` packages games and apps, then commit and push there
-(`scripts/market.sh` from WSL). Removing a game from the seed does not remove it from the clone: run
+`bm-market` has two folders with one layout: `games/<id>/` and `apps/<id>/`. `mkmarket.py games --apps apps`
+reads both. An item of `apps/` is always `kind app`; an id exists in one folder only; the catalog keeps
+one format (a `kind app` line), so old consoles work. `make market-seed MARKET=<clone>` puts the games
+in `games/` and the apps (the editors, `typing`, `write`) in `apps/`. Then commit and push there
+(`scripts/market.sh` from WSL). Removing an item from the seed does not remove it from the clone: run
 `git rm -r games/<id>` there. The Market UI separates **Games** and **Apps** pages (`Y` / `V` or
 subtab click) and shows `.bm` / `.b16` format badges on covers, title row and details panel.
 
@@ -86,9 +89,9 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet.
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
-- **Market apps** (branch `claude/market-apps-editors`): publish the editors and remove `village`
-  from `bm-market` (the owner runs the commands of the pull request). The other RGB30 editors have no
-  `.b16` edition yet, so only the SDK appears on the RGB30 Apps page.
+- **Market apps** (branch `claude/market-apps-folder`): the owner moves the items of `games/` that are
+  apps to `apps/` in `bm-market` and removes `village` (commands in the pull request). The other
+  RGB30 editors have no `.b16` edition yet, so only the SDK appears on the RGB30 Apps page.
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an

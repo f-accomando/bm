@@ -1,4 +1,4 @@
-# The bm Market: checks the games of a pull request; on main, builds the
+# The bm Market: checks the games and apps of a pull request; on main, builds the
 # catalog, signs it and publishes it with GitHub Pages
 # (https://f-accomando.github.io/bm-market/). The tools are bm's
 # (scripts/mkmarket.py), the public key too (keys/market-pub.pem): the
@@ -36,8 +36,8 @@ jobs:
           sparse-checkout: |
             scripts
             keys
-      - name: Check the games
-        run: python3 bm/scripts/mkmarket.py games --check
+      - name: Check the games and apps
+        run: python3 bm/scripts/mkmarket.py games --apps apps --check
 
   publish:
     needs: check
@@ -80,7 +80,7 @@ jobs:
         if: steps.key.outputs.ok == 'true'
         env:
           BM_MARKET_KEY: ${{ secrets.BM_MARKET_KEY }}
-        run: python3 bm/scripts/mkmarket.py games -o site --require-key --pub bm/keys/market-pub.pem
+        run: python3 bm/scripts/mkmarket.py games --apps apps -o site --require-key --pub bm/keys/market-pub.pem
       - uses: actions/upload-pages-artifact@v5
         if: steps.key.outputs.ok == 'true'
         with:
