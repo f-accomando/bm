@@ -541,6 +541,7 @@ int update_start(int install)
     if (task.busy || (install && !update_ready()))
         return -1;
     task_install = install;
+    release_hash_tick = fiber_slice;    /* a big file's hash gives the CPU back between pieces */
     if (fiber_job_start(&task, TASK_STACK, task_main, NULL) != 0)
         return -1;
     if (!install) {                     /* the row says so at once */
