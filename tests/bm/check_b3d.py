@@ -10,7 +10,7 @@ TESTS = ["spheres", "spheres_smooth", "spheres_tex", "spheres_unlit", "spheres_b
          "quad_screen", "quad_texscreen", "texswap", "split", "match", "mix", "queue", "bilinear", "gpu2d", "big", "big_logic"]
 FUTURE = []
 # the 2D scenes: only when `tests=` names them (the default run has no row of them)
-TESTS2D = {"map8": {"ARM"}, "sprites": {"ARM", "GPU+2D"}, "stack": {"ARM"}, "fade": {"ARM"}, "light": {"ARM"},
+TESTS2D = {"map8": {"ARM"}, "sprites": {"ARM", "GPU+2D"}, "stack": {"ARM"}, "fade": {"ARM", "QPU"}, "light": {"ARM"},
            "herotris": {"ARM", "GPU", "GPU+VS", "GPU+VS+Q", "GPU+VS+Q2", "GPU+VS+A8", "GPU+VS+A8+Q", "GPU+VS+FS2"},
            "cel_lit": {"ARM", "GPU+VS"}, "cel": {"ARM", "GPU+VS"}, "cel_lit_nd": {"ARM", "GPU+VS"}, "cel_nd": {"ARM", "GPU+VS"},
            "cel_outline": {"ARM", "GPU+VS"}}
@@ -58,6 +58,11 @@ def check_2d(d):
     hdr = "size 640x360" in text and "vsprobe gpu3d_vshader=" in text
     print(("ok   " if hdr else "FAIL ") + "size and vsprobe lines in the header")
     fails += not hdr
+    # the fade on the QPU profile: one qpufade line (the PC has no QPU hook: the ARM path ran, key 0)
+    qline = [l for l in text.splitlines() if l.startswith("qpufade ")]
+    ok = len(qline) == 1 and "key=0 path=arm" in qline[0] and "n60_qpu=" in qline[0] and "ms_arm=" in qline[0]
+    print(("ok   " if ok else "FAIL ") + f"qpufade line (no hook: ARM): {qline[0] if qline else 'missing'}")
+    fails += not ok
     others = {r[1] for r in rows} - set(TESTS2D)
     print(("ok   " if not others else "FAIL ") + "2D scenes: only the named tests ran")
     fails += bool(others)
@@ -65,8 +70,21 @@ def check_2d(d):
     return 1 if fails else 0
 
 
+def check_qpufade(d):
+    """make test-b3d, fourth run: --tests=fade --profiles=ARM,QPU with a stand-in QPU hook: both rows, path=qpu."""
+    text = open(os.path.join(d, "3D0001.TXT")).read()
+    rows = {l.split(",")[2] for l in text.splitlines() if l.startswith("R,fade,")}
+    qline = [l for l in text.splitlines() if l.startswith("qpufade ")]
+    ok = rows == {"ARM", "QPU"} and len(qline) == 1 and "key=1 path=qpu" in qline[0] and "frames_arm=0" in qline[0]
+    ok = ok and "ms_qpu=" in qline[0] and "ms_arm=" in qline[0] and "frames_qpu=0" not in qline[0]
+    print(("ok   " if ok else "FAIL ") + f"qpufade (stand-in hook): {' '.join(sorted(rows))}; {qline[0] if qline else 'missing'}")
+    return 0 if ok else 1
+
+
 def main():
     d = sys.argv[1]
+    if len(sys.argv) > 2 and sys.argv[2] == "--qpufade":
+        return check_qpufade(d)
     if len(sys.argv) > 2 and sys.argv[2] == "--2d":
         return check_2d(d)
     fails = 0

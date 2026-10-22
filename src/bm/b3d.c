@@ -51,7 +51,7 @@ static g16_t *g;
 /* ---------------------------------------------------------------- profiles */
 
 enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2, PF_T16, PF_FS2, PF_VSS, PF_VSF,
-       PF_VSA, PF_ETC1, PF_VSAQ, NPROF };
+       PF_VSA, PF_ETC1, PF_VSAQ, PF_QPU, NPROF };
 #define M_ARM (1u << PF_ARM)
 #define M_GPU (1u << PF_GPU)
 #define M_AA  (1u << PF_AA)
@@ -68,6 +68,7 @@ enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2
 #define M_VSA (1u << PF_VSA)            /* GPU+VS+FS2 with compact attributes (bm3d 7.1) */
 #define M_VSAQ (1u << PF_VSAQ)          /* GPU+VS+A8 with the frame in the queue (herotris: docs/design/triangle-throughput.md) */
 #define M_ETC1 (1u << PF_ETC1)          /* GPU+T16 with the opaque sheets as ETC1 (bm3d 7.3) */
+#define M_QPU (1u << PF_QPU)            /* the ARM with the full-screen fade on the QPUs (gpu3d_qpu=1; the fade test only) */
 #define M_ALL (M_ARM | M_GPU | M_VS1 | M_VS)
 #define M_LIT (M_ARM | M_GPU | M_VS)    /* models lit by the sun: VS1 is the GPU for them */
 
@@ -86,6 +87,7 @@ static const struct { const char *name; int gpu, aa, vs, queue, wc, two_d, t16, 
     { "GPU+FS2", 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0 }, { "GPU+VS+S", 1, 0, 2, 0, 0, 0, 0, 0, 1, 0, 0 },
     { "GPU+VS+FS2", 1, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0 }, { "GPU+VS+A8", 1, 0, 2, 0, 0, 0, 0, 1, 0, 1, 0 },
     { "GPU+ETC1", 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1 }, { "GPU+VS+A8+Q", 1, 0, 2, 1, 0, 0, 0, 1, 0, 1, 0 },
+    { "QPU", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
 static const char *prof_version(int p)
@@ -982,8 +984,15 @@ static g16_fade_t fx_fade;
 static g16_light_t fx_light;
 static int fx_ok;
 
+/* the QPU profile: dark_end through P->fade_qpu (the gpu3d_qpu=1 hook), the ARM when it is not there or
+ * the QPUs did not do the frame; the frames of each path are counted for the report */
+static int cur_qpu;
+static int fade_frames_qpu, fade_frames_arm;
+static char fade_line[160];             /* the report's qpufade line; empty when the QPU profile did not run */
+
 static void fade_setup(void)
 {
+    fade_frames_qpu = fade_frames_arm = 0;
     fx_ok = g16_fade_init(&fx_fade, W, H) == 0;
     if (!fx_ok)
         return;
@@ -1001,6 +1010,10 @@ static void fade_setup(void)
 
 static void fade_free(void)
 {
+    if (cur_qpu)
+        ksnprintf(fade_line, sizeof fade_line, "key=%d path=%s frames_qpu=%d frames_arm=%d", P->fade_qpu ? 1 : 0,
+                  fade_frames_qpu && fade_frames_arm ? "mixed" : fade_frames_qpu ? "qpu" : "arm", fade_frames_qpu,
+                  fade_frames_arm);
     if (fx_ok)
         g16_fade_free(&fx_fade);
     fx_ok = 0;
@@ -1018,7 +1031,15 @@ static void fade_scene(int n, int f)
         g16_fade_glow(&fx_fade, (int)(h % (uint32_t)W) + f, (int)(h >> 12 & 0x1FF) % H, 40 + (int)(h >> 24 & 63), 15,
                       128);
     }
+    if (cur_qpu && P->fade_qpu) {       /* the hook does the frame by the ARM itself when the QPUs do not */
+        if (P->fade_qpu(g, &fx_fade))
+            fade_frames_qpu++;
+        else
+            fade_frames_arm++;
+        return;
+    }
     g16_fade_apply(g, &fx_fade);
+    fade_frames_arm += cur_qpu;
 }
 
 static void light_setup(void)
@@ -1131,8 +1152,8 @@ static const test_t tests[] = {
       0, 1 },
     { "sprites", "2D: sprites, flip, alpha", "sprites", 16, 4000, M_ARM | M_2D, NULL, sprites_scene, NULL, NULL, 2, 0, 1 },
     { "stack", "2D: sprite stacks (stack)", "stacks", 1, 600, M_ARM, NULL, stack_scene, NULL, NULL, 2, 0, 1 },
-    { "fade", "2D: full-screen fade (dark_end), ARM", "lamps", 1, 64, M_ARM, fade_setup, fade_scene, fade_free, NULL, 2, 0,
-      1 },
+    { "fade", "2D: full-screen fade (dark_end), ARM and QPU", "lamps", 1, 64, M_ARM | M_QPU, fade_setup, fade_scene,
+      fade_free, NULL, 2, 0, 1 },
     { "light", "2D: full-screen light, ARM", "lamps", 1, 64, M_ARM, light_setup, light_scene, light_free, NULL, 2, 0, 1 },
     /* herotris (docs/design/triangle-throughput.md): how many triangles a hero and a map hold at 60 fps */
     { "herotris", "hero + map + parallax + HUD + 4M instr of logic", "sets", 1, 64,
@@ -1354,6 +1375,7 @@ static void ramp(int ti, int pf)
         R.backend = NULL;
     }
     cur_2d = prof[pf].two_d;
+    cur_qpu = pf == PF_QPU;
     if (t->setup)
         t->setup();
     for (int k = 0; k < 4; k++)
@@ -1740,6 +1762,20 @@ static int test_idx(const char *id)
     return -1;
 }
 
+/* the fade test on the QPU profile: which path ran, and its load and time against the ARM */
+static void report_qpufade(void)
+{
+    int ti = 0;
+    while (ti < NTESTS && strcmp(tests[ti].id, "fade"))
+        ti++;
+    if (ti >= NTESTS || !res[ti][PF_QPU].ran)
+        return;
+    const result_t *q = &res[ti][PF_QPU], *a = &res[ti][PF_ARM];
+    char b1[16], b2[16], b3[16], b4[16];
+    put("qpufade %s n60_qpu=%s ms_qpu=%s n60_arm=%s ms_arm=%s (n60: lamps at 60 fps; ms: 1 lamp)\n", fade_line,
+        f1(b1, q->n60), f1(b2, q->ms_n[0]), a->ran ? f1(b3, a->n60) : "NA", a->ran ? f1(b4, a->ms_n[0]) : "NA");
+}
+
 /* Q1, how many hero triangles hold 60 fps: one H line a profile of a test with a probe (herotris).
  * sets60 = the sets (a hero, its shadow, a map of 100 pieces) a frame of 60 fps holds; hero_tris60 the hero
  * mesh's triangles in them (1536 a set, without the shadow), hero_shadow_tris60 with the shadow; submitted60
@@ -1898,6 +1934,7 @@ static void report(void)
     report_cel();
     if (qpu_line[0])
         put("qpu row (gpu3d_qpu=1): %s\n", qpu_line);
+    report_qpufade();
     /* the score (its S lines read by the next run) and the triangles at 60 fps */
     int sc[NDRV], nt[NDRV];
     for (int d = 0; d < NDRV; d++)
@@ -1971,7 +2008,7 @@ static void read_prev(void)
 #define C_HW    g16_rgb(255, 90, 90)
 
 static const uint16_t prof_col[NPROF] = { 0xFC00 /* orange */, 0x2D7F, 0x8C1F, 0x07F0, 0x07E0, 0xFFE0, 0xF81F, 0x7BEF,
-                                         0xFD20, 0xAFE5, 0x5D7F, 0xB5B6, 0x4FFF, 0xFFFF, 0xFBEF, 0xA7F9, 0xFE60 };
+                                         0xFD20, 0xAFE5, 0x5D7F, 0xB5B6, 0x4FFF, 0xFFFF, 0xFBEF, 0xA7F9, 0xFE60, 0xF81F };
 
 static void text(int x, int y, uint16_t c, const char *fmt, ...) __attribute__((format(printf, 4, 5)));
 static void text(int x, int y, uint16_t c, const char *fmt, ...)
@@ -2028,9 +2065,9 @@ static int pages(void) { return 4 + NTESTS; }     /* the score, the summary in t
 
 /* the profiles' short names, for the summary's columns (a legend under it) */
 static const char *const prof_short[NPROF] = { "ARM", "GPU", "AA", "VS1", "VS", "VSQ", "Q", "WC", "2D", "VSQ2", "T16",
-                                               "FS2", "VSS", "VSF", "VSA", "ETC1", "VSAQ" };
+                                               "FS2", "VSS", "VSF", "VSA", "ETC1", "VSAQ", "QPU" };
 #define SX 90                           /* the summary: the profiles' columns from x SX, SW pixels each */
-#define SW 27
+#define SW 25
 #define S_BEST (SX + SW * NPROF + 6)
 #define S_ROWS 15                       /* tests on the summary's first page */
 
@@ -2111,7 +2148,7 @@ static void page_summary(int part)
             k++;
         }
     y += LH * ((k + 5) / 6 > 1 ? (k + 5) / 6 : 1) + 6;
-    text(0, y, C_DIM, "AA VS1 VS VSQ Q WC 2D VSQ2 T16 FS2 VSS VSF VSA ETC1: GPU+AA, GPU+VS1... (the profiles: the next page)");
+    text(0, y, C_DIM, "AA VS1 VS VSQ Q WC 2D VSQ2 T16 FS2 VSS VSF VSA ETC1 QPU: GPU+AA, GPU+VS1... (the profiles: the next page)");
     y += LH;
     if (fut[0])
         text(0, y, C_DIM, "later: %s; %s%s", fut, prev_name[0] ? "against " : "the first report", prev_name);

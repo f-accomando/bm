@@ -5676,6 +5676,13 @@ def test_monitor_line(b, opts):
         assert "'nope': not a command of the line" in out, out
         assert ": send" not in out, out             # the line stopped at the unknown word
         q.expect("> ")
+        # the fade on the QPU profile: no gpu3d_qpu key here, so the ARM runs it and the report says so
+        q.send(":b3d tests=fade profiles=ARM,QPU; send\r")
+        out = q.expect("3D Bench: done", timeout=240).decode(errors="replace")
+        assert "R,fade,ARM" in out and "R,fade,QPU" in out, out[-2000:]
+        assert "qpufade key=0 path=arm" in out, out[-2000:]
+        q.expect("the line is done", timeout=30)
+        q.expect("> ")
         q.send(":play bad; err\r")
         out = q.expect("the line is done", timeout=30).decode(errors="replace")
         assert "attempt to call a nil value" in out, out

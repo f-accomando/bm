@@ -241,12 +241,39 @@ frame. Compare the same test before and after a change, on the same console, ARM
 | `map8` | layers, 1 to 8 | 8 layers of `map()` at 640x360, parallax scroll. Layers 0-2: every cell, opaque tiles. Layers 3-7: half the cells, tiles with holes (alpha). | ARM |
 | `sprites` | sprites, from 16 | 16x16 `sspr` with flip, half opaque and half with alpha. | ARM, GPU+2D |
 | `stack` | stacks, from 1 | `g16_stack`: stacks of 8 slices, three sizes, turning. A fixed pile. | ARM |
-| `fade` | lamps, from 1 | `g16_fade_glow` lamps and `g16_fade_apply` over the whole screen (the ARM path of `dark_end`). | ARM |
+| `fade` | lamps, from 1 | `g16_fade_glow` lamps and `g16_fade_apply` over the whole screen (the ARM path of `dark_end`). The `QPU` profile does the same fade through the QPU path (see *The fade on the QPU*). | ARM, QPU |
 | `light` | lamps, from 1 | `g16_light_add` lamps and `g16_light_apply` over the whole screen. | ARM |
 
 Every frame starts with `cls` of the 640x360 page. `fade` and `light` also draw 12 blocks of
 colour first, so the pass over the whole screen has a picture to work on. The cost of the `cls` is
 in every row, so compare rows of the same test only.
+
+## The fade on the QPU
+
+The profile `QPU` is a column of the `fade` test only. It draws the same frame as `ARM`, but the full-screen fade goes through the hook of `dark_end()` (`qpu_fade_hook`, `src/gpu/qpu.h`). The hook runs the fade on the QPUs in blocks of 32 pixels and falls back to the ARM version when a QPU run fails. The profile is **opt-in**: it runs only with `tests=fade`, and it is not in the score.
+
+The QPU path is on only with the config key `gpu3d_qpu=1` (default off). Without the key, the `QPU` profile runs the ARM fade and says so. The report has one extra line after the `qpu row` line:
+
+```
+qpufade key=1 path=qpu frames_qpu=<n> frames_arm=<n> n60_qpu=<n> ms_qpu=<ms> n60_arm=<n> ms_arm=<ms> (n60: lamps at 60 fps; ms: 1 lamp)
+```
+
+| Field | Meaning |
+|---|---|
+| `key` | 1 if `gpu3d_qpu=1` was set when the bench started, else 0. |
+| `path` | `qpu` if every frame of the `QPU` profile ran on the QPUs, `arm` if none did, `mixed` if both happened (a 3D job was running, or a run failed and the ARM took over). |
+| `frames_qpu`, `frames_arm` | the frames of the `QPU` profile on each path. |
+| `n60_*`, `ms_*` | the load at 60 fps (lamps) and the median frame time at 1 lamp, for `QPU` and for `ARM`. `ms` at 1 lamp is the figure to compare: it is the full-screen fade plus the fixed part of the frame (`cls` and the 12 blocks). The gain of the QPU is `ms_arm - ms_qpu`. |
+
+The names are the usual ones: `profiles=ARM,QPU` (letters and digits, comma only). The `R,fade,QPU` line is the same format as every `R` line.
+
+Run it on the Pi (monitor line; `set` changes the key until a restart, so put it first: the GPU test then runs its QPU step too):
+
+```
+./easy_install.sh line "set gpu3d_qpu=1; gpu; b3d tests=fade profiles=ARM,QPU; send"
+```
+
+The PC test (`make test-b3d`) runs the profile with a stand-in hook and checks the line (`path=qpu`); the QEMU test `test_monitor_line` runs it without the key (`path=arm`). Neither measures a QPU time.
 
 ## herotris
 

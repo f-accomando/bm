@@ -1551,6 +1551,9 @@ test-b3d: $(BUILD)/host/b3d_host
 	rm -rf $(BUILD)/b3d2d && mkdir -p $(BUILD)/b3d2d
 	$< $(BUILD)/b3d2d --tests=map8,sprites,stack,fade,light,herotris,cel
 	$(PYTHON) tests/bm/check_b3d.py $(BUILD)/b3d2d --2d
+	rm -rf $(BUILD)/b3dq && mkdir -p $(BUILD)/b3dq
+	$< $(BUILD)/b3dq --tests=fade --profiles=ARM,QPU --qpufade
+	$(PYTHON) tests/bm/check_b3d.py $(BUILD)/b3dq --qpufade
 
 # The V3D driver's job runner against a model of the V3D's registers
 $(BUILD)/host/test_v3d: tests/gpu/test_v3d.c tests/gpu/mock/drivers/mmio.h src/gpu/v3d.c src/gpu/v3d.h

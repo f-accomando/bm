@@ -18,6 +18,7 @@
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "fs/fat.h"
+#include "gpu/qpu.h"
 #include "gpu/v3d.h"
 #include "lib/printf.h"
 #include "net/net.h"
@@ -188,6 +189,7 @@ int bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles, 
         .only_tests = tests, .only_profiles = profiles, .no_wait = no_wait, .clocks = real ? clocks : NULL,
         .stop = syskeys_test_stop,
         .qpu_row = gpu_qpu_key() ? gpu_qpu_row : NULL,      /* gpu3d_qpu=1 only (default off) */
+        .fade_qpu = gpu_qpu_key() ? qpu_fade_hook : NULL,   /* the fade test's QPU profile: gpu3d_qpu=1 only */
     };
     free(sent);                         /* (nothing left from a run before) */
     sent = NULL;

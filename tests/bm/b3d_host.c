@@ -199,6 +199,13 @@ static int selftest(void)
     return bad != 0;
 }
 
+/* --qpufade: a stand-in for the Pi's QPU hook (the ARM's fade; "the QPUs did it" for the report's path) */
+static int fake_qpu_fade(g16_t *g1, const g16_fade_t *f)
+{
+    g16_fade_apply(g1, f);
+    return 1;
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 2 && !strcmp(argv[1], "--selftest"))
@@ -210,12 +217,14 @@ int main(int argc, char **argv)
     dir = argv[1];
     int full = 0;
     const char *only_tests = NULL, *only_profiles = NULL;
+    int qpufade = 0;
     for (int i = 2; i < argc; i++) {
         if (!strcmp(argv[i], "--full")) full = 1;
         if (!strcmp(argv[i], "-v")) verbose = 1;
         if (!strcmp(argv[i], "--frames")) frames = 1;
         if (!strncmp(argv[i], "--tests=", 8)) only_tests = argv[i] + 8;
         if (!strncmp(argv[i], "--profiles=", 11)) only_profiles = argv[i] + 11;
+        if (!strcmp(argv[i], "--qpufade")) qpufade = 1;
         if (!strncmp(argv[i], "--stop=", 7)) stop_at = atoi(argv[i] + 7);
     }
     uint16_t *px = test_aligned_alloc(64, 640 * 360 * 2);     /* where the emulated V3D can draw */
@@ -230,7 +239,7 @@ int main(int argc, char **argv)
         .g = &page, .us = us, .present = present, .count = NULL, .counting = 0, .key = key, .log = log_line,
         .save = save, .load_last = load_last, .kernel = "host", .machine = "PC, the V3D emulated",
         .date = "", .quick = !full, .page_shown = shown, .only_tests = only_tests, .only_profiles = only_profiles,
-        .stop = stop_at > 0 ? stop : NULL,
+        .stop = stop_at > 0 ? stop : NULL, .fade_qpu = qpufade ? fake_qpu_fade : NULL,
     };
     if (stop_at > 0) {
         /* stopped halfway: B3D_STOPPED, no report saved, no page shown */
