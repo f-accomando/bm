@@ -1655,6 +1655,15 @@ test-spec: $(BUILD)/host/bmhost-bin tests/spec/cart.lua scripts/mkbm.py
 	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/none.bm --seconds 1 2>&1 | grep -q "spec: ran" || { echo "no spec did not run"; exit 1; }
 	@$(BUILD)/host/bmhost-bin $(BUILD)/spec/new.bm --seconds 1 2>&1 | grep -q "needs revision 999" || { echo "spec 999 was not refused"; exit 1; }
 	@echo "spec: 3/3 checks passed"
+# A cartridge's code is Lua text: a section that starts with the bytecode signature is refused (mode "t" in lua_load)
+test-luatext: $(BUILD)/host/bmhost-bin scripts/mkbm.py
+	@mkdir -p $(BUILD)/luatext
+	@$(PYTHON) -c "open('$(BUILD)/luatext/code.luac','wb').write(b'\x1bLua\x55\x00\x19\x93\r\n\x1a\n junk')"
+	@$(PYTHON) scripts/mkbm.py -o $(BUILD)/luatext/bytecode.bm --lua $(BUILD)/luatext/code.luac --title luac > /dev/null
+	@$(BUILD)/host/bmhost-bin $(BUILD)/luatext/bytecode.bm --seconds 1 2>&1 | tee $(BUILD)/luatext/bytecode.log | grep -q "attempt to load a binary chunk" || { echo "bytecode was not refused"; cat $(BUILD)/luatext/bytecode.log; exit 1; }
+	@echo "luatext: 1/1 checks passed"
+.PHONY: test-luatext
+
 test-consistency:
 	$(PYTHON) scripts/consistency.py check
 .PHONY: test-spec test-consistency

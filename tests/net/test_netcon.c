@@ -55,6 +55,20 @@ int config_merge(const char *text, size_t len, char *out, size_t out_len)
 static uint32_t fake_us;                /* advanced by spin() */
 uint32_t timer_ticks(void) { return fake_us; }
 void timer_delay_ms(uint32_t ms) { fake_us += ms * 1000; }
+int sd_writer_begin(const char *who, void (*pause)(void)) { (void)who; (void)pause; return 0; }
+void sd_writer_end(const char *who) { (void)who; }
+static int rng_fail;                    /* rng_read: 1 = no random numbers */
+int rng_read(void *buf, size_t len)
+{
+    static uint32_t n = 12345;
+    if (rng_fail)
+        return -1;
+    for (size_t i = 0; i < len; i++) {
+        n = n * 1664525u + 1013904223u;
+        ((uint8_t *)buf)[i] = (uint8_t)(n >> 24);
+    }
+    return 0;
+}
 u32_t sys_now(void) { return fake_us / 1000; }
 
 /* the SD card: the last file written */
@@ -361,6 +375,22 @@ int main(int argc, char **argv)
 {
     k_way = argc > 1 && !strcmp(argv[1], "menu") ? K_MENU : argc > 1 && !strcmp(argv[1], "gone") ? K_GONE : K_AT_ONCE;
     lwip_init();
+    {   /* the made password: six digits, from the generator or, without it, from the hash */
+        char pw[8], seen[3][8];
+        int digits = 1, differ = 0;
+        for (int mode = 0; mode < 2; mode++) {
+            rng_fail = mode;
+            for (int i = 0; i < 3; i++) {
+                netcon_make_password(pw);
+                snprintf(seen[i], sizeof seen[i], "%s", pw);
+                digits &= strlen(pw) == 6 && strspn(pw, "0123456789") == 6;
+            }
+            differ += strcmp(seen[0], seen[1]) && strcmp(seen[1], seen[2]);
+        }
+        rng_fail = 0;
+        check(digits, "made password: six digits (generator and fallback)");
+        check(differ == 2, "made password: not the same twice (generator and fallback)");
+    }
     check(netcon_start() == 0, "listening on port 3333");
     check(strcmp(netcon_password(), "secret") == 0, "password from the config");
 

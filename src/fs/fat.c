@@ -679,7 +679,51 @@ static int to_83(const char *name, uint8_t out[11])
     return 0;
 }
 
-#define FAT_DATE ((2026 - 1980) << 9 | 1 << 5 | 1)   /* no clock: 2026-01-01 */
+#define FAT_DATE_FIXED ((2026 - 1980) << 9 | 1 << 5 | 1)   /* no clock: 2026-01-01 */
+
+static unsigned long (*clock_fn)(void);
+
+void fat_set_clock(unsigned long (*seconds_since_1970)(void))
+{
+    clock_fn = seconds_since_1970;
+}
+
+/* Days since 1970-01-01 to a civil date (proleptic Gregorian). */
+static void civil_from_days(long z, int *y, unsigned *m, unsigned *d)
+{
+    z += 719468;
+    const long era = (z >= 0 ? z : z - 146096) / 146097;
+    const unsigned doe = (unsigned)(z - era * 146097);
+    const unsigned yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    const unsigned doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    const unsigned mp = (5 * doy + 2) / 153;
+    *d = doy - (153 * mp + 2) / 5 + 1;
+    *m = mp < 10 ? mp + 3 : mp - 9;
+    *y = (int)(yoe + era * 400) + (*m <= 2);
+}
+
+/* The FAT date and time words of now: the network's clock when it has the
+ * time (UTC), else the fixed date and time 0. */
+static void fat_stamp(uint16_t *date, uint16_t *time)
+{
+    unsigned long t = clock_fn ? clock_fn() : 0;
+    int y;
+    unsigned m, d;
+    if (t == 0) {
+        *date = FAT_DATE_FIXED;
+        *time = 0;
+        return;
+    }
+    civil_from_days((long)(t / 86400), &y, &m, &d);
+    if (y < 1980 || y > 2107) {
+        *date = FAT_DATE_FIXED;
+        *time = 0;
+        return;
+    }
+    const unsigned sod = (unsigned)(t % 86400);
+    *date = (uint16_t)((y - 1980) << 9 | m << 5 | d);
+    *time = (uint16_t)(sod / 3600 << 11 | sod % 3600 / 60 << 5 | sod % 60 / 2);
+}
 
 static void make_entry(uint8_t de[32], const uint8_t name[11], uint8_t attr,
                        uint32_t cluster, uint32_t size)
@@ -687,10 +731,14 @@ static void make_entry(uint8_t de[32], const uint8_t name[11], uint8_t attr,
     memset(de, 0, 32);
     memcpy(de, name, 11);
     de[11] = attr;
-    wr16(de + 16, FAT_DATE);                    /* created */
-    wr16(de + 18, FAT_DATE);                    /* accessed */
+    uint16_t date, time;
+    fat_stamp(&date, &time);
+    wr16(de + 14, time);                        /* created, time */
+    wr16(de + 16, date);                        /* created */
+    wr16(de + 18, date);                        /* accessed */
     wr16(de + 20, vol.fat32 ? cluster >> 16 : 0);
-    wr16(de + 24, FAT_DATE);                    /* written */
+    wr16(de + 22, time);                        /* written, time */
+    wr16(de + 24, date);                        /* written */
     wr16(de + 26, cluster);
     wr32(de + 28, size);
 }
@@ -936,8 +984,10 @@ static int store(const char *path, const char *dir, const char *name, const uint
     if (found) {
         uint8_t f[12];                          /* +20: one sector write */
         wr16(f, vol.fat32 ? first >> 16 : 0);   /* cluster, high */
-        wr16(f + 2, 0);                         /* write time */
-        wr16(f + 4, FAT_DATE);                  /* write date */
+        uint16_t date, time;
+        fat_stamp(&date, &time);
+        wr16(f + 2, time);                      /* write time */
+        wr16(f + 4, date);                      /* write date */
         wr16(f + 6, first);                     /* cluster, low */
         wr32(f + 8, (uint32_t)len);
         if (patch_sector(e.dir_lba, e.dir_off + 20, f, 12))

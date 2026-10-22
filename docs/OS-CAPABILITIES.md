@@ -47,7 +47,7 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 - **Stack**: the kernel stack is 1 MiB on both machines. The Lua parser and the VM use it. [code, `linker.ld:4`, `src/rgb30/kernel.ld:9`]
 - **Native code from a cartridge**: there is no loader, no `dlopen` and no machine-code section in the format. [code, `src/bm/bm.h:154-167`]
   - The QPU programs are built into the kernel. A cartridge cannot supply one. [code]
-  - See [the bytecode question](#8-security) in section 8. A cartridge may carry precompiled Lua bytecode. That path is untested and may bypass the sandbox.
+  - See [the bytecode question](#8-security) in section 8. The runtime loads a cartridge's code as text only. A bytecode chunk is refused.
 - The machine code of the kernel is fixed at build time. `kernel.img` is replaced as a whole file.
 
 ## 3. Network
@@ -203,7 +203,7 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 | Volumes | one volume. No mount points. | `src/fs/fat.h:2-4` |
 | Long names | read. Written files and directories get 8.3 names. | `src/fs/fat.h:3-5`, `src/fs/fat.c:3` |
 | Write path | whole files are written. An existing file keeps its name. The write can run in a fiber in slices. | `src/fs/fat.h:5-7` |
-| File dates | fixed at 2026-01-01. The kernel has the SNTP time but does not use it for FAT. | `src/fs/fat.c:682-692` |
+| File dates | the SNTP time (UTC) when the network has set it. Else fixed at 2026-01-01. The kernel registers the clock with `fat_set_clock(net_time)` after the card is mounted. | `src/fs/fat.c` (`fat_stamp`), `src/kernel/carts.c` (`carts_init`), `src/rgb30/main.c` |
 | Reading a file | the whole file goes into a `malloc` buffer. | `src/fs/fat.c:409` |
 | File size | 32-bit size field in FAT. A transfer is limited to 100 MiB. A Market file is limited to 100 MiB. | `src/net/netxfer.c:44`, `src/net/catalog.h:19` |
 | `.b16` size | 8 MiB. **It is checked when the file is built, not when it is loaded.** | `scripts/mkbm.py:700`, `src/bm/project.c:203`, `src/bm/project.h:17` |
@@ -283,8 +283,8 @@ A cartridge **can**: [code]
 - Read and write documents in `/docs` if the player allows it. `src/bm/runtime.c:3747`
 - Use UDP if the player allows it. `src/bm/runtime.c:3297`
 - Send a report to GitHub if the player allows it. `src/bm/runtime.c:3255`
-- **List any directory of the SD card** with `ls(dir)`. It needs no permission. `src/bm/runtime.c:5615`, `src/bm/runtime.c:4829`
-- Read the title, author and Lua code of any `.bm` file with `cart_read`. It needs no permission. `src/bm/runtime.c:6180`
+- **List any directory of the SD card** with `ls(dir)`. It needs no permission. `src/bm/runtime.c` (`l_ls`)
+- Read the title, author and Lua code of any `.bm` file with `cart_read`. It needs no permission. `src/bm/runtime.c` (`l_cart_read`)
 - Create new `.bm` or `.bme` files in `/carts`. It cannot change a file that was there before. `src/bm/runtime.c:5561-5570`
 - Quit, which returns to the menu.
 
@@ -294,18 +294,28 @@ A cartridge **cannot**: [code]
 - Run longer than 20 million Lua instructions in one callback. `src/bm/runtime.c:70-71`
 - Use more than 64 MiB of Lua memory. `src/script/luavm.c:13`
 
-**The bytecode question (not tested).**
-- The runtime loads `main.lua` with `lua_load(..., NULL)`. A NULL mode accepts text and binary chunks. [code, `src/bm/runtime.c:9438`]
-- The library loader and the save loader use mode `"t"` (text only). [code, `src/bm/require.c:50`, `src/bm/runtime.c:3656`]
-- No check for a bytecode signature was found in the cartridge parser. [code, `grep` of `src/bm/format.c`, `src/bm/project.c`]
-- Lua does not verify precompiled chunks. A crafted chunk can corrupt memory.
-- The kernel has no memory protection. Corrupted memory can mean code execution in kernel mode. **This is an unverified risk.** Nobody built an exploit for this file.
+**Reading the SD card (`ls`, `cart_read`): finding kept, behaviour not changed.**
+- `ls` and `cart_read` have no `tool_mode` check and no prompt. A game can list the files of the card and read the code, the title and the author of every `.bm` on it. It cannot read other files, and it cannot change a file that was there before. [code, `src/bm/runtime.c` (`l_ls`, `l_cart_read`); `docs/APP-ARCHITECTURE.md` says the same for `cart_read`]
+- Why it stays: the editors and the SDK of bm (bm Code, bm Pixel, the Studio) are cartridges. They call `ls` and `cart_read` to open files and to keep several files open (`docs/api/tools.md`). The `.bm` files are public by design: the code of a game is open and the Market lists the same data. The `save` data and the network keys are not in a `.bm`, so `cart_read` does not give them. `bm/config.txt` (Wi-Fi password, `net_password`) is **not** readable by `cart_read`, because `bm_parse` refuses a file that is not a cartridge. `ls` shows the name and size of `config.txt`, not its text.
+- Options, not built: (1) a prompt on the first `ls` or `cart_read` of each game, like the prompts for UDP and documents (a small change in the code, but the tools would ask on every start, so they need an allow-list of the bm tools first); (2) a per-cartridge permission flag in the INFO section, set by the author and shown in the menu (needs a format change and a spec revision); (3) limit `ls` to `/carts`, `/docs` and the cartridge's own folder (breaks the file browsers of the tools). Pick (1) with a list of the bm tools if a game that scans the card for private data is ever found.
+
+**The bytecode question (closed).**
+- The runtime loads `main.lua` of a cartridge with `lua_load(..., "t")`. Only text chunks load. A chunk that starts with the bytecode signature stops with "attempt to load a binary chunk (mode is 't')". [code, `src/bm/runtime.c` (`bm_run`)]
+- The capture of a cartridge's 3D data (`bm_meshcap`) loads the code with mode `"t"` too. [code, `src/bm/meshcap.c`]
+- The library loader and the save loader use mode `"t"`. [code, `src/bm/require.c:50`, `src/bm/runtime.c:3840`]
+- Cartridges store Lua as source text (the token count in `lua_tokens` reads text). No tool in the repository writes bytecode into a cartridge, so the restriction removes no valid cartridge. [code, `scripts/mkbm.py`]
+- Why: Lua does not verify precompiled chunks. A crafted chunk can corrupt memory, and the kernel has no memory protection.
+- Test: `make test-luatext` packs a cartridge whose code starts with the bytecode signature. The runtime must refuse it. The test fails on the old `NULL` mode (the chunk is read as bytecode and fails with "bad binary format" instead).
+- Not covered: the `string.dump` function is still present in the cartridge sandbox. It only makes bytecode. Nothing in the sandbox can load it, because `load`, `loadfile` and `dofile` are removed.
 
 **The file-transfer service (TCP 3334).**
-- The password is 6 digits by default. It comes from `rand()` seeded with `timer_ticks()`. [code, `src/net/netcon.c:183-184`]
+- The password is 6 digits by default. It comes from the hardware random generator (`rng_read`, `src/drivers/rng.c` on the Pi, `src/rgb30/rng.c` on the RGB30). If the generator gives nothing, it comes from a hash of the timer, a counter and a stack address. The old source was `rand()` seeded with `timer_ticks()`, which gave about the same password after each boot. [code, `src/net/netcon.c` (`netcon_make_password`)]
+- The length stays at 6 digits, so that the user types it easily. A user can set any text in `net_password` of `config.txt`.
 - The check is `memcmp`. The traffic is clear text. There is no rate limit for the transfer port. [code, `src/net/netxfer.c:162`]
 - The `K` operation writes a new kernel. The `C` operation changes `config.txt`. [code, `src/net/netxfer.c:1-5`]
-- A device on the same network that guesses the password controls the console. This is **from code, not tested**.
+- A device on the same network that guesses the password controls the console. This is **from code, not tested**. Six digits are 1 000 000 values. With no rate limit on the transfer port, a guess loop on the LAN is possible.
+- **Accepted risk: the plaintext protocol stays.** The tools `tools/bm_net.py` and the bridge send the password and the file bytes in the clear, and the protocol is part of their contract. TLS server mode is not built into the kernel (the TLS library is client only, `src/net/bm_mbedtls.h`). A change would need a new server stack and new versions of every tool. The expected network is a private home LAN. Do not open ports 3333 and 3334 to the internet. A user on a shared network can set a long `net_password`, or keep the Wi-Fi off.
+- Options that were not built: a rate limit per address on port 3334 (small), a challenge and response with a hash of the password (changes the tools), TLS with a pre-shared key (large).
 
 ## 9. Graphics and 3D
 
@@ -363,7 +373,7 @@ Legend: **measured**, **from code**, **estimate**.
 | Frame pacing | one fixed target of 16 667 us per frame | from code (`src/bm/runtime.c:67`) |
 | Boot time | the README says about 2 seconds. **No measurement exists in the documents.** The USB and the network start-up add fixed waits of 100 ms to 1 s each. Treat the claim as unproven. | **estimate** (`README.md:26`, `src/usb/dwc2.c:93-175`) |
 | Small attack surface | no shell, no package scripts, no browser. Two TCP ports, both password-protected. | from code |
-| Sandbox that cannot reach files | `io`, `os`, `load` removed | from code (but see the bytecode question) |
+| Sandbox that cannot reach files | `io`, `os`, `load` removed | from code (bytecode is refused, see section 8.1) |
 | Signed distribution | catalog and releases carry ECDSA signatures | from code |
 | License-clean sources | Lua (MIT), mbedTLS, lwIP (BSD), Mesa-derived structures, rtw88 (BSD-3 option) | from code (`third_party/*/LICENSE`, `src/rgb30/rtw.h:1-8`) |
 | Image size | a kernel of about 1.1 MB with the tools inside | **measured** (`docs/HARDWARE.md:34`; not run again) |
@@ -388,7 +398,7 @@ Legend: **measured**, **from code**, **estimate**.
 
 ## Where code and documents disagree
 
-- `docs/progress/b16.md:16` says the `.b16` Lua heap is **4 MiB**. The code gives every cartridge **64 MiB** (`src/script/luavm.c:13`). `docs/B16.md:12` and `docs/progress/b16.md:46` also say 64 MiB. The line 16 is stale.
+- `docs/progress/b16.md` section 1 said the `.b16` Lua heap is **4 MiB**, the save **64 KiB** and that there is a sandbox. The code gives every cartridge **64 MiB**, saves of **32 KiB**, and no sandbox (`src/script/luavm.c:13`, `src/bm/runtime.c:3566`). The section is fixed from the code.
 - `README.md:26` and `README.md:35` say the console boots in about 2 seconds. No document records a measurement. The code has fixed waits in USB start-up (`src/usb/dwc2.c:93-175`, `src/usb/usb.c:453,513`). The claim stays an estimate.
 - `README.md:34` says "448 MiB RAM". The code reads the real split from the firmware (`src/kernel/main.c:125-139`). `boot/config.txt` sets no `gpu_mem`. `docs/HARDWARE.md:34` gives 448 MiB with `gpu_mem=64`. The number depends on the firmware default of the card used.
 - `docs/B16.md:10` says the 8 MiB limit applies at build time. This is correct in the code (`scripts/mkbm.py:700`). The macro `BM_B16_MAX` in `src/bm/project.h:17` is **not used** by any code. The check in `src/bm/project.c:203` uses its own constant.
@@ -400,7 +410,8 @@ Legend: **measured**, **from code**, **estimate**.
 ## Unverified items
 
 - All hardware behavior in this file is **not verified on hardware** by the writer.
-- The bytecode path in section 8.1 was **not tested**.
-- The password guessing risk in section 8.1 was **not tested**.
+- The bytecode refusal is tested on the host only (`make test-luatext`). It is **not verified on hardware**.
+- The password guessing risk in section 8.1 was **not tested**. The new password source (`rng_read`) is tested on the host with a fake generator. It is **not verified on hardware**.
+- The file dates from SNTP are tested on the host (`make test-fat`, a fake clock). They are **not verified on hardware**. The dates are UTC. There is no time zone.
 - No SD speed, no boot time and no RGB30 3D rate is documented. They are **not verified**.
 - Open PRs (80, 82, 83, 93, 94, 100, 101, 104, 106, 107, 108, 112 and others) describe **proposed** features. They are not in `bm-core`.

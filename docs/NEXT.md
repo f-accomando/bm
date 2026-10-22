@@ -23,7 +23,6 @@ Thursday evening:
 - Run the hero benchmark on the Pi. Write the numbers into the sheets.
 
 Friday morning:
-- SYS-7: security findings of OS-CAPABILITIES (`lua_load` bytecode, net password entropy, `ls` and `cart_read` prompt, FAT dates).
 - The three tools from the bundle (done).
 
 Friday afternoon:

@@ -464,6 +464,7 @@ void carts_init(void)
                 sd_blocks() / 2048, fat_error());
     } else {
         sd_ok = 1;
+        fat_set_clock(net_time);        /* SNTP time for the file dates, when the net has it */
     }
     ledstate_set(LED_NO_SD, !sd_ok);
     fat_load_tick = sd_tick;            /* the loading screen, the menu's fibers */

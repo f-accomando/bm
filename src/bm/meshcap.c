@@ -514,7 +514,7 @@ int bm_mesh_capture(lua_State *L, const char *lua, size_t len, int width, int he
     lua_sethook(G, cap_hook, LUA_MASKCOUNT, CAP_EVERY);
 
     /* the code, then _init, _update and _draw once */
-    if (luaL_loadbuffer(G, lua, len, "=main.lua") == LUA_OK) {
+    if (luaL_loadbufferx(G, lua, len, "=main.lua", "t") == LUA_OK) {
         cap_phase(G, err, sizeof err);
         static const char *const calls[] = { "_init", "_update", "_draw", NULL };
         for (const char *const *c = calls; *c; c++) {

@@ -17,6 +17,8 @@ void netcon_poll(void);
 /* A byte typed by the client, -1 if none. */
 int  netcon_getc(void);
 int  netcon_pending(void);
+/* Makes a new password: six digits, from the random generator. */
+void netcon_make_password(char out[8]);
 /* The password, for the screen. */
 const char *netcon_password(void);
 /* A client is logged in. */

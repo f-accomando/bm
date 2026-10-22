@@ -234,6 +234,46 @@ static int has_file(const sdmap_t *r, const char *path, uint32_t bytes)
     return 0;
 }
 
+/* the date and time words of a file's directory entry, read from the image */
+static void entry_stamp(const char *path, unsigned *date, unsigned *time)
+{
+    fat_entry_t e;
+    uint8_t sec[512];
+    CHECK(fat_find(path, &e) == 0);
+    CHECK(sd_read(e.dir_lba, 1, sec) == 0);
+    *date = sec[e.dir_off + 24] | sec[e.dir_off + 25] << 8;
+    *time = sec[e.dir_off + 22] | sec[e.dir_off + 23] << 8;
+}
+
+static unsigned long fake_now;
+static unsigned long fake_clock(void) { return fake_now; }
+
+/* the file dates: 2026-01-01 without a clock, the clock's UTC time with one */
+static void test_clock(void)
+{
+    uint8_t *buf = pattern(100, 3);
+    unsigned date, time;
+    CHECK(fat_write_file("/", "NOCLK.DAT", buf, 100) == 0);
+    entry_stamp("/NOCLK.DAT", &date, &time);
+    CHECK(date == ((2026 - 1980) << 9 | 1 << 5 | 1) && time == 0);
+    fat_set_clock(fake_clock);
+    fake_now = 0;                               /* the net does not have the time yet */
+    CHECK(fat_write_file("/", "UNKNOWN.DAT", buf, 100) == 0);
+    entry_stamp("/UNKNOWN.DAT", &date, &time);
+    CHECK(date == ((2026 - 1980) << 9 | 1 << 5 | 1) && time == 0);
+    fake_now = 1792053725;                      /* 2026-10-15 08:42:05 UTC */
+    CHECK(fat_write_file("/", "CLOCK.DAT", buf, 100) == 0);
+    entry_stamp("/CLOCK.DAT", &date, &time);
+    CHECK(date == ((2026 - 1980) << 9 | 10 << 5 | 15));
+    CHECK(time == (8 << 11 | 42 << 5 | 5 / 2));
+    fake_now = 1709164800 + 86399;              /* 2024-02-29 23:59:59 (leap day) */
+    CHECK(fat_write_file("/", "LEAP.DAT", buf, 100) == 0);
+    entry_stamp("/LEAP.DAT", &date, &time);
+    CHECK(date == ((2024 - 1980) << 9 | 2 << 5 | 29) && time == (23 << 11 | 59 << 5 | 29));
+    fat_set_clock(NULL);
+    free(buf);
+}
+
 static void test_sdmap(void)
 {
     uint8_t *buf = pattern(5000, 5);
@@ -316,6 +356,7 @@ int main(int argc, char **argv)
     }
     test_free_count();
     test_sdmap();
+    test_clock();
 
     /* 200 files: the directory grows over several clusters */
     for (int i = 0; i < 200; i++) {

@@ -9,6 +9,7 @@
 #include "kernel/version.h"
 #include "lib/printf.h"
 #include "drivers/timer.h"
+#include "drivers/rng.h"
 
 #include "lwip/tcp.h"
 #include "lwip/ip_addr.h"
@@ -171,6 +172,31 @@ static err_t on_accept(void *arg, struct tcp_pcb *pcb, err_t err)
     return ERR_OK;
 }
 
+/* Six digits from the hardware random generator (drivers/rng.h). If the
+ * generator gives nothing, from a hash of the timer, a counter and a stack
+ * address: weaker, but never the same on each boot. */
+void netcon_make_password(char out[8])
+{
+    static uint32_t counter;
+    uint32_t v = 0;
+    for (int tries = 0; tries < 8; tries++) {
+        uint32_t r;
+        if (rng_read(&r, sizeof r) == 0) {
+            v = r;
+        } else {
+            uint32_t h = 2166136261u;
+            const uint32_t src[3] = { timer_ticks(), ++counter, (uint32_t)(uintptr_t)&h };
+            for (int i = 0; i < 3; i++)
+                for (int b = 0; b < 4; b++)
+                    h = (h ^ (src[i] >> (8 * b) & 0xff)) * 16777619u;
+            v = h ^ (v << 7);
+        }
+        if (v < 4294000000u)            /* no bias: 4294000000 is a multiple of 1000000 */
+            break;
+    }
+    snprintf(out, 8, "%06u", (unsigned)(v % 1000000u));
+}
+
 int netcon_start(void)
 {
     if (listener)
@@ -179,8 +205,7 @@ int netcon_start(void)
     if (pw && pw[0]) {
         snprintf(password, sizeof password, "%s", pw);
     } else {
-        srand(timer_ticks());
-        snprintf(password, sizeof password, "%06d", rand() % 1000000);
+        netcon_make_password(password);
         config_set("net_password", password);
         config_save();
     }

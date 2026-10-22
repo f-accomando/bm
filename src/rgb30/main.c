@@ -162,6 +162,7 @@ static void sd_boot(void)
         return;
     }
     ledstate_set(LED_NO_SD, 0);
+    fat_set_clock(net_time);            /* SNTP time for the file dates, when the net has it */
     kprintf("SD: %s (%s)\n", fat_describe(), sd_controller());
     fat_write_tick = fiber_slice_tick;  /* a fiber's long write gives the CPU back (fat.h) */
     config_load();

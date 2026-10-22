@@ -29,6 +29,9 @@ typedef struct {
 /* Mounts the volume through the block reader (sd_read). Returns 0 on
  * success; fat_error() says why not. */
 int fat_mount(void);
+/* The clock for the dates of new and written files: seconds since 1970
+ * (UTC), 0 while unknown (then the date stays 2026-01-01). */
+void fat_set_clock(unsigned long (*seconds_since_1970)(void));
 const char *fat_error(void);
 /* "FAT32, 1024 MiB, label BOOT" */
 const char *fat_describe(void);

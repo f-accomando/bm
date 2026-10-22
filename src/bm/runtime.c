@@ -10070,7 +10070,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     perf_on = perf_user;                /* the overlay as Settings has it */
     dbg_begin(L, cart.lua, cart.lua_size);  /* a game tried from a tool: the debugger (R13) */
     chunk_reader_t rd = { cart.lua, cart.lua_size };
-    if (lua_load(L, read_chunk, &rd, "=main.lua", NULL) != LUA_OK ||
+    if (lua_load(L, read_chunk, &rd, "=main.lua", "t") != LUA_OK ||
         (lua_pushcfunction(L, traceback), lua_insert(L, -2), lua_pcall(L, 0, 0, -2)) != LUA_OK ||
         call(L, "_init") != 0)
         error = lua_tostring(L, -1);
