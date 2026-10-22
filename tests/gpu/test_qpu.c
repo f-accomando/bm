@@ -176,9 +176,7 @@ static void g16_case_with(int (*apply)(g16_t *, const g16_fade_t *), int w, int 
     memcpy(lv, f.lv, (size_t)w * h);
     memcpy(index, f.index, 65536);
     memcpy(tab, f.tab, G16_FADE_LEVELS * 256 * 2);
-    free(f.lv);
-    free(f.index);
-    free(f.tab);
+    g16_fade_free(&f);
     f.lv = lv;
     f.index = index;
     f.tab = tab;
@@ -282,6 +280,35 @@ int main(int argc, char **argv)
         hook_case(100, 33, 1, 0);
         hook_case(64, 32, 0, 1);            /* a shape the QPUs do not take: the ARM, no failure */
         CHECK(qpu_fade_ok(), "the hook turned the QPUs off for a shape");
+        {   /* g16_fade_init gives arrays the QPUs take as they are (64-byte lines) */
+            g16_fade_t fi;
+            CHECK(g16_fade_init(&fi, 640, 360) == 0, "g16_fade_init failed");
+            CHECK((((uintptr_t)fi.lv | (uintptr_t)fi.index | (uintptr_t)fi.tab) & 63) == 0,
+                  "g16_fade_init arrays not on 64-byte lines");
+            uint16_t *px = qpu_alloc(640 * 360 * 2);
+            memset(px, 0x55, 640 * 360 * 2);
+            g16_t gi = { .px = px, .stride = 640, .w = 640, .h = 360 };
+            const uint32_t j0 = emu_stats.qpu_jobs, al0 = qpu_stats.fade_arm_align;
+            CHECK(qpu_fade_apply(&gi, &fi) == 1 && emu_stats.qpu_jobs > j0 && qpu_stats.fade_arm_align == al0,
+                  "fade arrays from g16_fade_init went to the ARM");
+            qpu_free(px);
+            g16_fade_free(&fi);
+        }
+        {   /* a picture off a 64-byte line: the ARM, counted as alignment */
+            const uint32_t al0 = qpu_stats.fade_arm_align;
+            hook_case(64, 32, 0, 1);
+            CHECK(qpu_stats.fade_arm_align == al0 + 1, "alignment fallback not counted");
+        }
+        {   /* a 3D job running: this call on the ARM, same picture, no failure, the next call tries the QPUs again */
+            const uint32_t f0 = qpu_stats.failures, b0 = qpu_stats.busy_skips;
+            emu_qpu_busy = 1;
+            hook_case(640, 360, 0, 0);
+            hook_case(640, 360, 0, 0);
+            emu_qpu_busy = 0;
+            CHECK(qpu_stats.failures == f0 && qpu_stats.busy_skips == b0 + 2 && qpu_fade_ok(),
+                  "busy counted as a failure: failures %u busy %u", qpu_stats.failures - f0, qpu_stats.busy_skips - b0);
+            hook_case(640, 360, 1, 0);      /* the 3D job is over: the QPUs again */
+        }
 
         /* a queue: three requests of different kinds, one flush, one launch each batch */
         const size_t n1 = 5 * QPU_PBLOCK, n2 = 9 * QPU_PBLOCK;
