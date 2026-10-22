@@ -26,6 +26,7 @@ extern int emu_t16_lossy;
 extern int emu_etc1;
 extern int emu_qpu;                     /* bm3d 7.x QPU programs: 0 run, 1 the QPUs do not answer,
                                          * 2 they run and store wrong data (the probe turns them off) */
+extern int emu_qpu_busy;                /* v3d_qpu_run returns -2 (a 3D job is running) while set */
 extern int emu_hang_zclear;             /* a job with fs_zclear does not end (a GPU without it) */
 typedef struct { uint32_t jobs, prims, pixels, batches, zstores, loads, msframes, glverts, async, glindexed, threaded, vmiss,
                   ms_early, attr_words,

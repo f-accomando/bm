@@ -3,14 +3,15 @@
 colour per 8x8 cell, written as a PNG with the standard library.
   cell 1 red (a wall: flag 0), 2 green (a platform: flag 1), 3 blue (a
   ladder: flag 2), 4 yellow (no flags), 8-10 the zone "coin" (cyan, white,
-  magenta), 16-17 and 24-25 the zone "big" (red top left, white the rest)."""
+  magenta), 7, 15 and 23 the zone "rgbv" (red, green, blue, one under the other), 16-17 and 24-25 the zone "big" (red top left, white the rest)."""
 import struct
 import sys
 import zlib
 
 W, H = 64, 32
 CELLS = {1: 0xFF0000, 2: 0x00FF00, 3: 0x0000FF, 4: 0xFFFF00, 8: 0x00FFFF, 9: 0xFFFFFF, 10: 0xFF00FF,
-         16: 0xFF0000, 17: 0xFFFFFF, 24: 0xFFFFFF, 25: 0xFFFFFF}
+         16: 0xFF0000, 17: 0xFFFFFF, 24: 0xFFFFFF, 25: 0xFFFFFF,
+         7: 0xFF0000, 15: 0x00FF00, 23: 0x0000FF}
 
 
 def main(out):
