@@ -15,6 +15,7 @@ typedef struct {
     uint32_t received;          /* body bytes */
     char type[64];              /* Content-Type */
     char url[512];              /* after redirects (cut short if longer) */
+    char location[256];         /* the last Location header seen (a redirect followed or refused) */
     char error[192];            /* when the request itself failed */
 } http_info_t;
 
@@ -29,6 +30,12 @@ typedef struct {
     uint32_t timeout_ms;        /* per read; 0: 15 s */
     int any_status;             /* the body of any status goes to the sink (an API's
                                  * error messages); else only 2xx bodies do */
+    int max_redirects;          /* redirects followed; 0: 5 */
+    int same_scheme;            /* 1: a redirect from https to http (or back) is refused */
+    /* Called before each connection (the first and each redirect) with the address
+     * about to be opened. Non-zero stops the request: it fails with the text put in err. */
+    int (*before)(void *ctx, const char *url, char *err, size_t err_len);
+    void *before_ctx;
 } http_req_t;
 
 /* Returns the HTTP status (>= 100), or -1 with info->error set. req may be

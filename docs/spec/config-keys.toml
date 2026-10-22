@@ -138,6 +138,15 @@ settings = "Settings > Screen and sound > Game drawing (.bm)"
 read_in = "src/kernel/config.c:105"
 
 [[key]]
+name = "file_write_max_kib"
+scope = "all"
+values = "KiB, a whole number from 1 to 32768; anything else = default"
+default = "8192 (8 MiB)"
+meaning = "Largest file that file_write() writes in bm/web."
+settings = ""
+read_in = "src/bm/runtime.c:4068"
+
+[[key]]
 name = "game_buttons"
 scope = "rgb30"
 values = "position = B A Y X swapped as a quarter turn; anything else = by letter"
@@ -541,6 +550,15 @@ default = "10 (AUDIO_VOLUME_MAX)"
 meaning = "Sound volume."
 settings = "Settings > Screen and sound > Volume"
 read_in = "src/kernel/config.c:109"
+
+[[key]]
+name = "web_max_kib"
+scope = "all"
+values = "KiB, a whole number from 1 to 32768; anything else = default"
+default = "4096 (4 MiB)"
+meaning = "Largest answer body that web_get() keeps. A cartridge can ask for less, never more."
+settings = ""
+read_in = "src/bm/runtime.c:3884"
 
 [[key]]
 name = "wifi_boot"

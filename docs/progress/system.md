@@ -91,6 +91,7 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 ## Rules (do not break)
 
 - All SD logs only via `src/kernel/sdlog.c`.
+- A cartridge writes files only through `file_write` into `bm/web` (a bare 8.3 name, never `.bm`, `.bme` or `.b16`), and fetches only `https://` addresses through `web_get`: the rules live in `src/bm/webpolicy.c`, nowhere else.
 - Planned restarts only via `crumbs_restart()`.
 - SD logs masked with `reports_mask_secrets()`.
 - The SD map scan never runs while a game or a tool runs (`sdmap_stop` in `background_stop` on the Pi, in `run_page` on the RGB30).
