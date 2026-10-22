@@ -174,6 +174,8 @@ typedef struct {
                                  * they go to the ARM */
     int cel;                    /* bm3d 7.5: its mesh cuts the sun's light by the bands of r3d_env_t.cel
                                  * (cel3d); else a lit cel draw goes to the ARM triangle by triangle */
+    int colour_only;            /* M41: draws flat colours with depth R3D_DEPTH_WRITE only (the Mali, phase 2): anything
+                                 * else makes r3d hand over to the ARM (to_arm) */
 } r3d_backend_t;
 
 typedef struct { float r, g, b; } r3d_rgb_t;

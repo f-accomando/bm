@@ -247,6 +247,16 @@ $(BUILD)/carts/kitchen.bm: $(BUILD)/kitchen/main.lua carts/kitchen/assets/sheet.
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/kitchen/bm.info \
 	    --sheet carts/kitchen/assets/sheet.png --cover carts/kitchen/cover.png
 
+# bm Web (carts/bmweb): the modules in src/ and main.lua are joined by build/build.py. The project
+# (.bme) is the source the Dev tab edits; the .bm is the same cartridge to play. Not in GAMES.
+BMWEB_SRC := $(sort $(wildcard carts/bmweb/src/*.lua)) carts/bmweb/main.lua
+$(BUILD)/bmweb/main.lua: $(BMWEB_SRC) carts/bmweb/build/build.py
+	$(PYTHON) carts/bmweb/build/build.py $@
+
+$(BUILD)/carts/bmweb.bm $(BUILD)/carts/bmweb.bme: $(BUILD)/carts/bmweb.%: $(BUILD)/bmweb/main.lua scripts/mkbm.py carts/bmweb/bm.info
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/bmweb/bm.info
+
 # Titan Clash (M20): several Lua files too; its sheet has more colours than
 # fit in RGBA sections, so it goes as SHEET8 (a palette and RLE)
 TITAN_SRC := $(sort $(wildcard carts/titan/src/*.lua))
@@ -627,6 +637,10 @@ test-bmnet: $(BUILD)/host/bmhost-bin tests/bmnet/cart.lua tests/bmnet/run.py src
 test-web:
 	sh tests/web/run.sh
 
+# bm web player stage 1 (web/bmcart.js): the .bm reader in Node; skipped when Node is missing
+test-webplayer:
+	@if command -v node >/dev/null 2>&1; then node tests/webplayer/test_bmcart.js; else echo "test-webplayer: skipped (no node)"; fi
+
 test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 	$< tests/sound/sim.lua carts/sound/main.lua $(BUILD)/demo.bmau
 
@@ -719,7 +733,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-cel test-herocart test-controls test-keymap test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-webplayer test-cel test-herocart test-controls test-keymap test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \

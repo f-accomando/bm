@@ -2,9 +2,11 @@
  * The 3D Bench (src/bm/b3d.c) on the RGB30, as the Pi's src/kernel/b3dpi.c:
  * the 640x360 video mode (made as big as the panel), the Cortex-A55's
  * counters (cycles, instructions, L1 data cache refills), the reports in
- * /bm/bench on the SD card, the console's buttons. The 3D is the ARM's
- * (the Mali runs jobs but does not draw yet), so every GPU row is
- * skipped.
+ * /bm/bench on the SD card, the console's buttons. The 3D is the ARM's;
+ * the "GPU" profile is the Mali backend (M41, phase 2), switched on with
+ * mali3d=1 while the bench runs: it draws flat colours only, so its rows
+ * exist only for the scenes of flat colours (r3d hands textures and
+ * effects to the ARM, and then that GPU row is dropped).
  */
 #include "b3d_rgb30.h"
 #include "gputest_rgb30.h"
@@ -13,6 +15,7 @@
 #include "bm/runtime.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
+#include "kernel/config.h"
 #include "kernel/reports.h"
 #include "kernel/syskeys.h"
 #include "kernel/version.h"
@@ -148,19 +151,26 @@ static int load_last(char **text, char *name, size_t n)
 void rgb30_bench3d(framebuffer_t *fb)
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
-    static char machine[96];
-    const int mali = rgb30_gpu_result(NULL);       /* what Dev > GPU test found */
-    char ms[40];
+    static char machine[128];
+    /* M41: the Mali probed now (where there is one), else what Dev > GPU test found */
+    const int mali = rgb30_mali_hw() ? rgb30_mali_probe() : rgb30_gpu_result(NULL);
+    char ms[56];
     if (mali == 1)
         ksnprintf(ms, sizeof ms, "not tested (Dev > GPU test)");
     else if (mali == MALI_OK)
-        ksnprintf(ms, sizeof ms, "runs jobs, no drawing yet");
+        ksnprintf(ms, sizeof ms, "flat colours on the GPU, textures on the ARM");
     else
         ksnprintf(ms, sizeof ms, "stopped at step %d", -mali);
+    char keep[8];                                   /* mali3d as it was (a copy: config_set may move the string) */
+    const char *was = config_get("mali3d");
+    ksnprintf(keep, sizeof keep, "%s", was ? was : "0");
+    if (mali == MALI_OK)
+        config_set("mali3d", "1");
     ksnprintf(machine, sizeof machine, "%s, Cortex-A55, the 3D on the ARM (Mali: %s)", PLAT_NAME, ms);
     fbp = fb;
     if (bm_video_enter(fb, 640, 360, &page) != 0) {
         kprintf("3D Bench: cannot set the video mode\n");
+        config_set("mali3d", keep);
         return;
     }
     const int counting = pmu_start();
@@ -181,6 +191,7 @@ void rgb30_bench3d(framebuffer_t *fb)
     if (counting)
         pmu_stop();
     bm_video_leave(fb, con_w, con_h);
+    config_set("mali3d", keep);             /* the key as it was before the bench */
     if (err == B3D_STOPPED) {               /* no report in bm/bench nor bm/reports, none sent */
         kprintf("3D Bench: stopped; no report saved or sent\n");
         return;

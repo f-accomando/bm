@@ -1,7 +1,8 @@
 # Web browser cart (design study)
 
-Status: study only. No kernel code and no cart code are written. All sizes and times are
-estimates. Mark each number "not measured" until a Pi Zero W run exists.
+Status: the study of 22 Oct is kept below. Stages 1 to 5 are built (section 8 says what the
+cart does and where it differs from the plan). All sizes and times are estimates. Mark each number
+"not measured" until a Pi Zero W run exists; nothing is verified on hardware.
 
 Goal: a `.bm` cart written in Lua. It shows HTML and HTML5 pages on bm. It has no JavaScript
 engine. The first target site is <https://poly.pizza>: low poly 3D models, licences CC0 and CC-BY.
@@ -86,7 +87,7 @@ text. Both are `not verified`. TLS 1.2 is a risk only if Cloudflare drops it (no
 | Screen | `screen(w,h)`: 320x180 up to 960x540 (16:9). 640x360 with `font("6x12")` gives 106 columns by 30 rows. | Few lines of text per screen: use the small font. |
 | Input | Pad buttons, stick, `keyp()` for typed text, `mouse()` with `mousep()` (a cart must call `mouse(true)`). Same API on Pi and RGB30. | None. The RGB30 has no keyboard: an on-screen keyboard is needed for the URL bar. |
 | Lua memory | `stat(0)` reports Lua KiB. The kernel's own state has `LUA_MEM_LIMIT` 64 MiB (`docs/progress/lua.md`). The cart limit: `not verified`. | Measure on the Pi before stage 2. |
-| Write to SD | `save(t, slot)` (a table, 32 KiB, 8 slots). `cart_save`, `cart_write`, `cart_data` (project files). No "write bytes to a path". | A `.glb` needs a raw file write. New API `file_write(path, bytes)` limited to `bm/downloads/`. |
+| Write to SD | `save(t, slot)` (a table, 32 KiB, 8 slots). `cart_save`, `cart_write`, `cart_data` (project files). No "write bytes to a path". | A `.glb` needs a raw file write. New API `file_write(path, bytes)` limited to `bm/web/`. |
 | 3D import | C: `src/bm/glb.c` `glb_to_model` (positions welded, winding fixed, PNG or JPEG base colour texture shrunk to 256x256, model framed, decimated to `faces` triangles). Used by `picture3d("take")`. Python: `scripts/meshy2mesh.py`, bm-forge `mesh` for untextured `.glb`. | Lua cannot call `glb_to_model` on a file from the SD card. Add `glb_import(path, opts)`. The poly.pizza GLB checked has no texture: colours come from material factors (`not verified` that `glb.c` reads them). |
 | Multitasking | Fibers are cooperative. `fiber_slice()` yields when a slice ends. SD reads and FAT writes yield. `net_wait_step()` always yields. `timeslice(co, k)` limits Lua. A cart's `_update` runs at 60 Hz. | The work-budget steps (alternative A of the study on `origin/claude/multitasking-alternatives`) are not in `bm-core`. |
 
@@ -158,7 +159,7 @@ fetch (kernel, chunks) -> tokenizer -> tree builder -> style -> block/inline lay
   image, 4 MB total decoded, GIF and SVG skipped. Cards with no usable format stay as a placeholder.
 - **Downloads.** A link that ends in `.glb` or answers `model/gltf-binary` (or a body that starts
   with `glTF`) opens a "Download?" box with name, size and URL. After A: stream to
-  `bm/downloads/<safe name>.glb` (name cleaned to `[A-Za-z0-9._-]`, 8.3-safe on FAT). Cap 8 MB.
+  `bm/web/<safe name>.glb` (name cleaned to `[A-Za-z0-9._-]`, 8.3-safe on FAT). Cap 8 MB.
   Then a second box offers "Open in viewer" (section 3.4). The page shows the licence from the
   JSON and the cart writes `<name>.glb.txt` next to the file with the URL, author and licence
   (the CC-BY attribution).
@@ -177,8 +178,8 @@ fetch (kernel, chunks) -> tokenizer -> tree builder -> style -> block/inline lay
 - No cookies, no credentials, no `Authorization`, no `Referer`, no login forms, no password input.
   The cart sends `User-Agent`, `Accept`, `Accept-Language`, `Connection: close`.
 - Content is data. The cart never runs a script from a page, never uses page text as Lua, never
-  builds a file path from page text without cleaning it, and never writes outside `bm/downloads/`.
-- Downloaded files stay in the downloads folder. The kernel parses them with C code (`glb.c`) that
+  builds a file path from page text without cleaning it, and never writes outside `bm/web/`.
+- Downloaded files stay in the download folder `bm/web`. The kernel parses them with C code (`glb.c`) that
   has size checks. A fuzz test of `glb_to_model` with truncated files is part of stage 5.
 - Privacy: the URL bar shows what leaves the console. No history is sent anywhere.
 
@@ -223,7 +224,7 @@ On the PC, `bm-forge` (`mesh` command) is the reference for the same `.glb` file
 | 2b | Cart: URL bar, fetch, render, scroll, link focus, history, error pages, cert error text. | QEMU: the cart loads `/index.html` from the mock, a scripted key sequence follows a link, goes back, and a screenshot (`shot`) matches a reference (`tests/shot/`). | 700 Lua | up to 3 MB with the page |
 | 3 | Kernel `image_load(bytes, maxw, maxh)` (PNG, JPEG, banded decode, shrink) and WebP VP8 decoder (own PR if large). Cart image loader and cache. | Host test of the decoder on fixtures (PNG, baseline JPEG, lossy WebP from poly.pizza `t.webp`); QEMU page with 4 images. | 250 Lua + 150 C glue (+ 1 200 C for WebP) | 4 MB cap on decoded images |
 | 4 | Site profile `poly.pizza`: read `__SERVER_APP_STATE__`, grid of cards (title, author, tris, licence), `/search/<text>` from the search bar, category list, model page with licence and Download button; crawl delay and `robots.txt`. | Host test on saved pages (fixtures of home, search, model pages); mock server serving them. Live site check is manual, by the user. | 500 Lua | 1 MB |
-| 5 | `file_write` (to `bm/downloads/` only) and `glb_import`; download box; `.glb.txt` licence note; hand-off to the viewer and to Studio. | Mock serves a real small `.glb`; QEMU checks the file on the SD image and the model counts; fuzz test of truncated `.glb`; bm-forge `validate` on the result. | 300 C + 400 Lua | 8 MB download buffer streamed to the SD, not held |
+| 5 | `file_write` (to `bm/web/` only) and `glb_import`; download box; `.glb.txt` licence note; hand-off to the viewer and to Studio. | Mock serves a real small `.glb`; QEMU checks the file on the SD image and the model counts; fuzz test of truncated `.glb`; bm-forge `validate` on the result. | 300 C + 400 Lua | 8 MB download buffer streamed to the SD, not held |
 
 Total estimate: about 3 100 Lua lines, 700 C lines (+1 200 C for WebP). Run only the tests of the
 stage (CLAUDE.md "Selective tests"). Each stage ends with the closure steps of `CLAUDE.md` section 3
@@ -270,3 +271,35 @@ stage 1b, optional).
 - Code read: `src/net/bm_mbedtls.h`, `tls.c`, `tls.h`, `http.h`, `src/bm/jpeg.h`, `png.h`, `glb.h`,
   `docs/api/*.md`, `tests/net/run_http_test.py`, the multitasking study and PR 88 file list.
 - Not done: any build, any QEMU or hardware run, any API call, any login.
+
+## 8. What is built (stages 2b to 5)
+
+The cart is the `.bme` project `carts/bmweb/` (`main.lua`, `src/*.lua`, `bm.info`). `carts/bmweb/build/build.py`
+joins the modules into one script (a cartridge has one). `make build/carts/bmweb.bme` (and `.bm`) builds it.
+It is a generic browser: no site name is in the code. The user types or picks an address.
+
+| Module | Job |
+|---|---|
+| `loader.lua` | One request at a time. A gap of 3 s between two requests to one host (more if `robots.txt` has a longer `Crawl-delay`, at most 30 s). It reads `robots.txt` once per host before the first other request and refuses a disallowed path. No prefetch. |
+| `robots.lua` | Parser: group `bm`, else `*`; longest rule wins, `*` and `$` in a path; `Crawl-delay`. |
+| `browser.lua` | State: history (32), bookmarks (32, in `save` slot 1), focus on links and fields, GET forms, the body laid out in slices of 6 ms a frame, pictures on demand, the download prompt. |
+| `view.lua` | Screen 640x360 with the 6x12 font; input by pad, keyboard and mouse; an on-screen keyboard for the address and for text fields. |
+| `files.lua` | Response kind (HTML, text, picture, file) from the Content-Type or the first bytes; the 8.3 name of a saved file (`STEM6` + 2 hash characters + `.EXT`, never `.BM`, `.BME` or `.B16`); the note text. |
+| `atlas.lua` | 16 picture slots of 160x128 on a 640x512 sheet (`cart_sheet`). A picture is cut to 160x120. |
+| `cp437.lua` | UTF-8 to code page 437, one byte per code point. |
+
+Differences from the plan:
+
+- **Stage 4 has no site profile.** Decision Q2 bars a site name in the cart. Stage 4 is the generic part: `robots.txt`,
+  the pace, bookmarks and GET forms (a search box works through its `<form>`). The `__SERVER_APP_STATE__` reader is not built.
+- **Pictures load when the user asks** (X), one at a time, nearest the top of the view first, 200 KB each. An opened picture
+  (a link to a PNG, JPEG or WebP) shows at once.
+- **A file is fetched first, then asked about.** The kernel has no HEAD request, so the file is in the kernel result
+  (not in Lua memory) when the box "Save this file?" opens. A writes it with `file_write(name, id)` and a note
+  `NAME.TXT` (`NAME.NTE` for a `.TXT` file) with the address, the page it came from and the size. B drops it.
+- **No `glb_import` and no 3D viewer** in the cart. The kernel API stays as it is. A saved `.glb` is opened with the Dev tools.
+- **Only `https://`.** The kernel refuses `http://`; the key `web_http` of section 3.2 is not used.
+- The redirect limit is the kernel's 3 (not 5). The page cap is 1 MiB; a file is capped by `web_max_kib` (4 MiB).
+
+Tests: `make test-web` (PC, mock kernel, `tests/web/cart.lua`) and QEMU `test_bmweb` (the Pi kernel, no network).
+Keys and the Pi run are in [progress/tools.md](../progress/tools.md).

@@ -53,10 +53,44 @@ static int supply_mv(void)
     const int v = vs & 0x7f;
     return v <= 80 ? 500 + v * 25 / 2 : 1600 + (v - 81) * 100;
 }
+
+static mali_hw_t hw;            /* the one hw every probe uses (mali_frame wants the probed one) */
+
+/* the fields that never change: the registers, the GPU's memory, what the GPU sees; no screen */
+static void hw_fixed(void)
+{
+    hw = (mali_hw_t){
+        .rd = rd, .wr = wr, .us = us, .log = log_line, .supply_mv = supply_mv,
+        .mem = (uint8_t *)(uintptr_t)PLAT_GPU_START, .mem_pa = PLAT_GPU_START, .mem_size = 4u << 20,
+        .map_pa = PLAT_FB_START, .map_size = (uint32_t)(PLAT_FB_END - PLAT_FB_START),
+    };
+}
 #endif
 
 static mali_info_t info;
 static int probed, result = 1;
+
+const mali_hw_t *rgb30_mali_hw(void)
+{
+#ifdef PLAT_RK3566
+    hw_fixed();
+    return &hw;
+#else
+    return NULL;
+#endif
+}
+
+int rgb30_mali_probe(void)
+{
+#ifdef PLAT_RK3566
+    hw_fixed();
+    result = mali_probe(&hw, &info);
+    probed = 1;
+    return result;
+#else
+    return MALI_E_POWER;
+#endif
+}
 
 int rgb30_gpu_result(const mali_info_t **in)
 {
@@ -72,14 +106,13 @@ void rgb30_gpu_test(framebuffer_t *fb, const char *back)
 #ifdef PLAT_RK3566
     /* the page shown, for the square the GPU clears (XRGB8888 only) */
     const uint32_t page = fb->buffers ? fb->size / fb->buffers : 0, off = fb->shown * page;
-    static mali_hw_t hw;
-    hw = (mali_hw_t){
-        .rd = rd, .wr = wr, .us = us, .log = log_line, .supply_mv = supply_mv,
-        .mem = (uint8_t *)(uintptr_t)PLAT_GPU_START, .mem_pa = PLAT_GPU_START, .mem_size = 4u << 20,
-        .map_pa = PLAT_FB_START, .map_size = (uint32_t)(PLAT_FB_END - PLAT_FB_START),
-        .screen = fb->depth == 32 ? fb->mem + off : NULL, .screen_pa = fb->depth == 32 ? fb->bus + off : 0,
-        .screen_w = fb->width, .screen_h = fb->height, .screen_pitch = fb->pitch, .triangle = 1,
-    };
+    hw_fixed();
+    hw.screen = fb->depth == 32 ? fb->mem + off : NULL;
+    hw.screen_pa = fb->depth == 32 ? fb->bus + off : 0;
+    hw.screen_w = fb->width;
+    hw.screen_h = fb->height;
+    hw.screen_pitch = fb->pitch;
+    hw.triangle = 1;
     result = mali_probe(&hw, &info);
     probed = 1;
     if (result == MALI_OK)

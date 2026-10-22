@@ -188,7 +188,9 @@ was powered on again `bootprev.txt` has the log of the black boot.
   at the top right** of the screen: if it shows, the GPU wrote the pixels. After the clear the test also tries a **triangle** (a Vertex,
   a Tiler and a Fragment job into a 96×96 square under the green one, with Bifrost shaders made by
   Mesa's compiler, `tools/mali/`): written, not yet run on the console; its lines in the report say
-  what the vertex job wrote and the pixels inside and outside the triangle. **Tested on the PC**
+  what the vertex job wrote and the pixels inside and outside the triangle. On the 21 Oct run the jobs
+  failed with `JS_STATUS 58`; if the base jobs fail, the test now tries 8 variants and logs `mali: variant N <name>: ok`
+  or its status (see `docs/progress/graphics-mali.md`). **Tested on the PC**
   with a simulated GPU, CRU and PMU (`make TARGET=rgb30 test-mali`; the descriptors against Mesa's
   `v7.xml`; the simulated GPU does not run the triangle); in QEMU the page says there is no GPU
   (`test_gpu_test`); **to be tested on the console.**
@@ -234,8 +236,8 @@ was powered on again `bootprev.txt` has the log of the black boot.
   `battery()` and `battery_low()`. The lines that do work (pairing, connecting, updating, bench, log) still write
   to the text console.
 - **3D Bench** (Dev tab, `src/rgb30/b3d_rgb30.c`): the same test bench as the Pi
-  (`src/bm/b3d.c`), at 640×360 scaled onto the panel; all 3D tests drawn by the ARM (the Mali
-  GPU has no driver yet: the GPU columns stay empty), the Cortex-A55 counters
+  (`src/bm/b3d.c`), at 640×360 scaled onto the panel; all 3D tests drawn by the ARM; with `mali3d=1` the GPU
+  profile runs flat-colour scenes on the Mali (written, not verified on hardware), the other rows stay empty, the Cortex-A55 counters
   (instructions, L1 data cache misses, cycles; `start.S` leaves them to EL1 with `MDCR_EL2.HPMN`), the
   report in `bm/bench/3DNNNN.TXT` on the SD and on the serial port. Left/right page through the
   result pages, the back button (A) returns to the menu. In QEMU it takes about 40 s

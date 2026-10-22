@@ -25,3 +25,7 @@ Mock only. Assets need the licence policy before real content.
 ## External loads
 
 The page loads React 18.3.1 and ReactDOM 18.3.1 (MIT) from `cdnjs.cloudflare.com`. The page has no `fetch`, no storage, and sends no data. The only link is "Buy me a coffee" (a plain `<a>`).
+
+## Cartridge reader (stage 1)
+
+`bmcart.js` reads a `.bm` or `.b16` file in the page (header, CRC-32, sections, INFO lines, cover). The Start tab has an "Open a .bm file" input that shows the result. The file stays in the browser. Test: `node tests/webplayer/test_bmcart.js`. The plan is in `docs/design/bm-web-player.md`.

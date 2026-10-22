@@ -77,7 +77,7 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 ## Open work (`docs/ROADMAP.md`)
 
 - V3D (bm3D 3.0-7.3) on the Pi Zero W: [v3d](v3d.md).
-- Mali-G52 driver: [graphics-mali](graphics-mali.md) (the triangle to run on the device).
+- Mali-G52 driver: [graphics-mali](graphics-mali.md) (the Dev > GPU test run with the variant probe, then the 3D Bench with `mali3d=1`: both on the device).
 - Sprite stacking: `stack()`, stack zones (`stack name x y w h n` in the zones file, `zone()` 7th value) and `zstack()` are done (`g16_stack` in `gfx16.c`, CPU only, no memory per stack; Pi speed not measured). `stackv` (the same call with the slices one under the other; zone line `stackv name x y w h n`, bit 0 of byte 27 of the SPRITES zone) is done. The mesh conversion is a host tool: `tools/stack2mesh.py` (see [tools](tools.md)). Not done: the bm Pixel page, a button for the conversion in bm Pixel and bm Studio, the Pi speed.
 - 3D particles: `particles*` and `lib.particles3d` are done (ARM step and draw in `r3d_pfx_*`, no cost without a pool; host test `test_pfx`, `make test-gameapi`). Not measured on the Pi Zero W. Not done: the QPU step (the idea is dropped for now).
 - 2D benchmarks: `b3d tests=map8,sprites,stack,fade,light` ([BENCH3D](../BENCH3D.md), *The 2D scenes*). Compare with them before and after `map()` (PR 105), the `-O3` knob (`PI_O3_FILES`, when it lands) and the fade. Not run on the Pi yet.

@@ -1975,6 +1975,60 @@ def test_web_api(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+BMWEB_DRIVER = """
+-- test driver (tests/qemu_test.py): the joined cart's locals b (browser) and v (view) are in scope here
+local __n, __done = 0, false
+local __update = _update
+function _update()
+  __update()
+  __n = __n + 1
+  if __n == 5 then
+    log("bmweb-test home " .. b.mode)
+    b:go("https://example.test/a")
+  end
+  if __n > 5 and not __done and b.mode ~= "loading" then
+    __done = true
+    log("bmweb-test mode " .. b.mode .. " status " .. b.status .. " url " .. b.url)
+    b:go("javascript:alert(1)")
+    log("bmweb-test refused " .. b.mode)
+    log("bmweb-test end")
+  end
+end
+"""
+
+
+def test_bmweb(b, opts):
+    """bm Web (carts/bmweb) starts on the Pi kernel, draws its home page and, with no network (the QEMU
+    machine has none), shows an error page for a request and for a refused address. The browser logic
+    against a mock kernel is tested on the PC by make test-web."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("bmweb_build", os.path.join(HERE, "..", "carts", "bmweb", "build", "build.py"))
+    bb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bb)
+    src = bb.build() + BMWEB_DRIVER
+    tmp = tempfile.mkdtemp(prefix="bm-bmweb-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+        assert _upload(q, mkbm.pack(src.encode(), title="bmweb"))
+        out = q.expect("bmweb-test end", timeout=120)
+        text = out.decode(errors="replace").replace("\r", "")
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+    assert "bmweb: ready" in text, text[-2000:]
+    assert "bmweb-test home home" in text, text[-2000:]
+    mode = [l for l in text.split("\n") if "bmweb-test mode" in l]
+    assert mode and "mode error" in mode[-1] and "Cannot load" in mode[-1], (mode, text[-2000:])
+    assert "bmweb-test refused error" in text, text[-2000:]
+    assert "attempt to" not in text and "stack traceback" not in text, text[-2000:]
+
+
 class FakeBtChip:
     """Plays the BCM43438 on the PL011 socket: answers HCI commands (H4)
     like the real chip, ignoring the first reset to exercise the power
