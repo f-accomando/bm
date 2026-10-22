@@ -281,6 +281,10 @@ static void test_sdmap(void)
     uint8_t *buf = pattern(5000, 5);
     CHECK(fat_mkdirs("/bm") == 0);
     CHECK(fat_mkdirs("/bme") == 0);
+    CHECK(fat_mkdirs("/glb") == 0);
+    CHECK(fat_mkdirs("/bmm") == 0);
+    CHECK(fat_write_file("/glb", "a.glb", buf, 4500) == 0);
+    CHECK(fat_write_file("/bmm", "a.bmm", buf, 2500) == 0);
     CHECK(fat_write_file("/bm", "G.BM", buf, 3000) == 0);
     CHECK(fat_write_file("/bm", "LOG.TXT", buf, 2000) == 0);
     CHECK(fat_write_file("/bme", "P.BME", buf, 5000) == 0);
@@ -302,6 +306,20 @@ static void test_sdmap(void)
             CHECK(m->dirs[i].files == 1 && m->dirs[i].kb == 4);
         }
     CHECK(found);
+    /* /glb and /bmm are folders of their own: an entry each, with their files and bytes */
+    int glb = 0, bmm = 0;
+    for (int i = 0; i < m->ndirs; i++) {
+        if (!strcasecmp(m->dirs[i].path, "/glb")) {
+            glb++;
+            CHECK(m->dirs[i].files == 1 && m->dirs[i].kb == 4);
+        }
+        if (!strcasecmp(m->dirs[i].path, "/bmm")) {
+            bmm++;
+            CHECK(m->dirs[i].files == 1 && m->dirs[i].kb == 2);
+        }
+    }
+    CHECK(glb == 1 && bmm == 1);
+    CHECK(has_file(m, "/glb/a.glb", 4500) && has_file(m, "/bmm/a.bmm", 2500));
     CHECK(has_file(m, "/bm/LOG.TXT", 2000) && has_file(m, "/X.DAT", 1000));
     CHECK(!has_file(m, "/bm/G.BM", 3000) && !has_file(m, "/bme/P.BME", 5000) && !has_file(m, "/kernel.img", 4000));
     for (int i = 1; i < m->nfiles; i++)

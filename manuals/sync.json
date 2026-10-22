@@ -492,8 +492,8 @@
  "editor-animator": {
   "chapters": {
    "1": {
-    "en": "f3b3eb20a0b4",
-    "it": "f81903776392",
+    "en": "9e2a09cc6e97",
+    "it": "5ecd3a77eea3",
     "title": "What bm Animator is"
    },
    "10": {
@@ -546,7 +546,7 @@
    "carts/animator/main.lua": "6bc4c3631506",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
-   "docs/progress/tools.md": "cfe67dd19cbf",
+   "docs/progress/tools.md": "80547a3b408d",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -614,8 +614,8 @@
  "editor-mesh": {
   "chapters": {
    "1": {
-    "en": "3828b63252f6",
-    "it": "be3e190876b1",
+    "en": "a11fc1598498",
+    "it": "0a1abf1502fb",
     "title": "What bm Mesh is"
    },
    "2": {
@@ -629,8 +629,8 @@
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "37c4936d067f",
-    "it": "2a9a6a654f7e",
+    "en": "30a5d2e0e427",
+    "it": "2ea9eded49c3",
     "title": "Selecting and moving"
    },
    "5": {
@@ -649,16 +649,16 @@
     "title": "Tutorials"
    },
    "8": {
-    "en": "783dcabf58b5",
-    "it": "cc4983c32daa",
+    "en": "ac901b269df9",
+    "it": "8c0efff625eb",
     "title": "Tips and limits"
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "0f67d24de65f",
+   "carts/mesh/main.lua": "f5e4fae8b0df",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "cfe67dd19cbf",
+   "docs/progress/tools.md": "ee59eceb703a",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -838,13 +838,13 @@
  "editor-studio": {
   "chapters": {
    "1": {
-    "en": "5a1eea2650a1",
-    "it": "187ab4024a04",
+    "en": "4edee514d5e5",
+    "it": "072f233ed7e7",
     "title": "What bm Studio is"
    },
    "10": {
-    "en": "02256865cd62",
-    "it": "b9139d1160d2",
+    "en": "c197a3f9f4a5",
+    "it": "2d669c9c1fcc",
     "title": "Tips and limits"
    },
    "2": {
@@ -889,10 +889,10 @@
    }
   },
   "sources": {
-   "carts/studio/main.lua": "4ad32dad9ad3",
+   "carts/studio/main.lua": "d8500c830f1e",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "cfe67dd19cbf",
+   "docs/progress/tools.md": "ee59eceb703a",
    "sdk/README.md": "f56faae98658"
   }
  },

@@ -46,7 +46,7 @@ file ends with *Open work* and *Rules (do not break)*.
 - VM, runtime, built-in libraries, dev kit: [lua](progress/lua.md).
 - Synth, mixer, player, presets, riff, music assistant: [audio](progress/audio.md); output depth and dither: [audio-output](progress/audio-output.md); samples, effects, WAV: [audio-samples](progress/audio-samples.md).
 - Pi Zero W, Pi Zero 2 W, RGB30, PC and QEMU: [platforms](progress/platforms.md).
-- Suite (SDK, Studio, Animator, Mesh, Pixel, Code, Sound, Write): [tools](progress/tools.md) (future suite evolution: `docs/design/suite-*.md`).
+- Suite (SDK, Studio, Animator, Mesh, Pixel, Code, Sound, Write): [tools](progress/tools.md) (future suite evolution: `docs/design/suite-*.md`; modelling plan: [modelling-suite](design/modelling-suite.md)).
 - Games (Overbit, Yharnam): [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) (gameplay architecture: [`docs/design/games-architecture.md`](design/games-architecture.md)).
 - Input standard for games (actions on buttons, RGB30 and Pi): [`docs/design/games-input-standard.md`](design/games-input-standard.md).
 - Game API reference (not progress): [API.md](API.md) → `docs/api/<area>.md`.

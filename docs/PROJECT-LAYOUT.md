@@ -80,7 +80,7 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 
 ## Files the console writes on the SD card
 
-- `bm/sdmap.txt` is the cache of the SD map (Settings > System > SD map), rewritten by the console after each scan.
+- `bm/sdmap.txt` is the cache of the SD map (Settings > System > SD map), rewritten by the console after each scan. The SD map lists `/glb` and `/bmm` as folders of their own, like `/bm` and `/bme`.
 
 ## What breaks
 

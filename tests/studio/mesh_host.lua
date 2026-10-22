@@ -160,9 +160,12 @@ E.mouse = function(on) if on ~= nil then return true end; return MS.x, MS.y, MS.
 E.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
 local bmui
 E.require = function(name)
-  assert(name == "bmui", "require: only bmui here")      -- (no assistant: F6 says so)
-  bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()   -- the mouse (it takes keyp over)
-  return bmui
+  if name == "bmui" then                 -- the mouse: once (it takes keyp over)
+    bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()
+    return bmui
+  end
+  assert(name == "bm3d", "require: only bm3d and bmui here")      -- (no assistant: F6 says so)
+  return assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
 end
 local keyhelp_list, keyhelp_title
 E.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
@@ -760,6 +763,23 @@ check(sees("Exit bm Mesh"), "mouse: the menu tab")
 mx, my = at("Continue", 32)
 click(mx, my)
 check(not sees("Exit bm Mesh"), "mouse: a click on Continue")
+
+-- the shared geometry (bm3d.lua, T.G): pure, no editor state
+do
+  local G = E.require("bm3d").G
+  local it = { v = { { 0, 0, 0 }, { 9, 9, 9 }, { 1, 0, 0 }, { 0, 1, 0 } },
+               f = { { 1, 3, 4, 0xFF0000 } }, vb = { 0, 1, 2, 3 }, dirty = true, name = "tri" }
+  local sv = G.compact(it, { [1] = 1, [2] = 2, [4] = 3 })
+  check(#it.v == 3 and it.f[1][1] == 1 and it.f[1][2] == 2 and it.f[1][3] == 3, "T.G.compact: the unused vertex goes, the corners follow")
+  check(it.vb[1] == 0 and it.vb[2] == 2 and it.vb[3] == 3 and #it.vb == 3, "T.G.compact: the bones follow")
+  check(sv[1] == 1 and sv[3] == 3 and sv[2] == nil, "T.G.compact: the selection is returned with the new numbers")
+  it.f[2] = { 1, 2, 3, -1, { 0, 0, 1.5, 2, 3, 4 } }
+  local bin = G.encode_model(it)
+  local back = G.model_item("tri", bin)
+  local again = G.encode_model({ name = "tri", v = back.v, f = back.f, dirty = true })
+  check(#back.v == 3 and #back.f == 2 and back.f[2][4] == -1 and back.f[2][5][3] == 1.5, "T.G.model_item: reads what encode_model wrote")
+  check(again == bin, "T.G.encode_model, model_item, encode_model: byte-equal")
+end
 
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)

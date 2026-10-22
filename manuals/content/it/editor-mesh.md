@@ -29,6 +29,13 @@ footer: manuali bm - editor-mesh
 - **bm Animator** aggiunge scheletri e animazioni (la sezione ANIM). bm Mesh conserva lo scheletro di un modello: l'osso di ogni vertice nuovo è quello del vertice da cui viene, e ossa e animazioni restano quelle di bm Animator.
 - Nel gioco usi un modello con `model("name")`.
 
+## Quale editor per cosa
+
+- **bm Studio**: modelli statici. Oggetti, props ed edifici, fatti di blocchi e tile. La mappa 3D di un gioco si fa nella pagina mappa di bm SDK.
+- **bm Mesh**: modelli organici. Personaggi ed eroi, e tutta la modifica fine di vertici e triangoli.
+- **bm Animator**: rig e animazioni. Mette uno scheletro in un modello e lo muove. Non costruisce modelli.
+- bm Studio e bm Mesh scrivono la stessa sezione MESH, quindi un modello passa da un editor all'altro.
+
 ## I tre tipi di mesh
 
 L'elenco segna ogni mesh con una lettera.
@@ -213,7 +220,7 @@ Premi **g** per spostare, **r** per ruotare, **t** per scalare la scelta (si muo
 ## Attenzione
 
 - Modificare una mesh **G** prima ne crea una copia come modello; il codice del gioco non viene riscritto. La barra di stato dice il nome della copia.
-- Le modifiche che supererebbero 65535 vertici o 65535 triangoli vengono rifiutate e annullate.
+- Le modifiche che supererebbero il limite del formato di 65535 vertici o 65535 triangoli vengono rifiutate e annullate.
 
 # L'anteprima e cart_meshes
 
@@ -315,7 +322,7 @@ Per uscire dal gioco e tornare a bm Mesh premi Start + Select sul pad o Ctrl+Esc
 
 ## Limiti
 
-- Al massimo 65535 vertici e 65535 triangoli in una mesh.
+- Il limite del formato di una mesh è 65535 vertici e 65535 triangoli. La pagina di modifica mostra il conteggio dei vertici rispetto a esso.
 - Al massimo 256 modelli in una cartuccia.
 - Una mesh G non si può rinominare né cancellare: cambia il codice con bm Code.
 - Una copia come codice non conserva lo scheletro.

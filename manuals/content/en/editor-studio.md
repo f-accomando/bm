@@ -25,6 +25,13 @@ bm Studio builds 3D models out of blocks and tiles, right on the console. You pl
 - **bm Pixel and the sprite sheet.** The textures of the faces are pieces of the project's sprite sheet. bm Pixel draws it.
 - **bm SDK.** The hub of the project. In its F1 page the *OPEN IN* list has bm Studio as number 3, and the menu of bm Studio has *Back to bm SDK* when the SDK opened it.
 
+## Which editor for what
+
+- **bm Studio**: static models. Objects, props and buildings, made of blocks and tiles. The 3D map of a game is made in the map page of bm SDK.
+- **bm Mesh**: organic models. Characters and heroes, and all fine editing of vertices and triangles.
+- **bm Animator**: rigs and animations. It puts a skeleton into a model and moves it. It does not build models.
+- bm Studio and bm Mesh write the same MESH section, so a model can go from one editor to the other.
+
 ## Good to know
 
 - bm Studio is a cartridge built into the kernel. You find it in the **Dev** tab of the menu.
@@ -339,7 +346,7 @@ If the count is above 1200, the line says `heavy for 60 fps`. Reduce until the w
 
 - About 1200 triangles in a scene is what the console draws at 60 fps. A model you reduced is the cheapest way to stay under it.
 - Cursor cells go from -64 to 63 on each axis.
-- A vertex count over the limit turns red in the panel, and saving fails above the limit: 4096 vertices (and 16384 triangles).
+- The panel counts vertices and triangles. There is no size cap on saving; only the format limit of 65535 vertices and 65535 triangles per mesh stays. The vertex counter shows it ("of 65535").
 - Textured faces need the sprite sheet: the textures are pieces of it.
 - Use **F5** often: it saves and shows the model in the game.
 - A game and a project are not the same: the menu shows the path of the file you are working on, so check it is the `.BME` copy before you go on.
