@@ -267,7 +267,7 @@ Migration of old carts:
 | Old file | New meaning |
 |---|---|
 | `.bm`, no compatibility block | Pi only (**Decided**) |
-| `.b16` (flag bit 1 set) | targets = Pi + RGB30. Reason: the Pi plays `.b16` today (`carts.c:154-157`), and the RGB30 plays it by default. This is a proposal that goes against a literal reading of decision 2 ("old = Pi"). See open question 3. |
+| `.b16` (flag bit 1 set) | targets = Pi + RGB30 (kernel8). **Decided** (user, 22 Oct, option 1). The Pi plays `.b16` today (`carts.c:154-157`) and the RGB30 plays it by default. |
 | Overbit `.bm` + `.b16` | one `overbit.bm` with targets Pi + RGB30 when T1 works; else keep two files until T2 |
 | Yharnam, Titan Clash EX, `sdk_b16` (`.b16` only) | rebuilt as `.bm` with targets Pi + RGB30 |
 
@@ -337,7 +337,7 @@ Hardware: nothing here is verified on a Pi or an RGB30. QEMU does not prove hard
 
 1. **Market and grey.** The local menu greys incompatible carts. The Market shows only compatible items. Is that right, or should the Market also list the others greyed with the reason ("for the RGB30 only")? The second way helps discovery; the first keeps the list short.
 2. **Soft limit.** Do you want a warning in the SDK above 32 MiB, and the Market ceiling at 100 MiB? Or no warning at all?
-3. **Old `.b16` files.** Decision 2 says old carts are Pi only. The existing `.b16` carts run on the RGB30 today. Should they become Pi + RGB30 (proposed), or Pi only (literal)? Literal would grey Yharnam on the RGB30 until it is rebuilt.
+3. **Old `.b16` files.** Decided (user, 22 Oct, option 1): an old `.b16` gets targets Pi + RGB30 (kernel8), because the Pi plays `.b16` today and the RGB30 was the main target. Old `.bm` files stay Pi only.
 4. **Start a greyed cart?** Is grey a lock, or may the user start the cart after a confirm ("not made for this device")? The study proposes a confirm.
 5. **Audio.** Raise `AU_PCM_MAX` to 8M values in stage 1, or keep it for a separate PR?
 6. **Pad cursor.** May the kernel emulate the mouse with the right stick for carts that declare `mouse_optional`? It changes what `mouse()` returns on the RGB30 (today: no pointer).
