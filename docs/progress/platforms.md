@@ -96,10 +96,13 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   `kernel8.img` at 237 KiB/s (8.2 s), then a clean restart after a 3 s countdown. `line` is refused (the keys go
   to the buttons, no monitor). `--get bm/BOOTLOG.TXT`, `BOOTPREV.TXT`, `LASTRUN.TXT` work (583, 726, 2657 bytes).
   `--shot` answers `no game drew a frame` until a game runs. A kernel older than Op T/G refuses logs and shot.
-- RGB30 QEMU test `test_wifi_page_without_chip` is flaky (3 fails in 7 local runs, 0 in 6 CI runs, 2026-10-20,
-  68cb9b5d, 4846fbd6): it sends a fixed key path with 0.3 s gaps, and a key that lands during a redraw moves the
-  cursor. Fix: loop on `screen_text` as `test_confirm_button` does. A full `/tmp` (tmpfs) in WSL fails any test
-  that writes an SD image: delete `/tmp/bm64*` between runs. `test_update_from_sd` and `test_crash_report` passed 3 of 3.
+- RGB30 QEMU tests (22 Oct). The menu reads a serial key as held for `PAD_SERIAL_MS` (120 ms, `src/rgb30/pad.c`): a
+  frame longer than that, as under load, loses the key. Use `press`, `press_serial` and `wait_screen` in
+  `tests/rgb30/qemu_test.py`, no blind keys or fixed sleeps. Fixed so: `test_update_from_sd`, `test_gpu_test`,
+  `test_menu_input_page` (sends X again until a screen shows `held: 00000040`), `test_sdk_stages_build`,
+  `test_wifi_page_without_chip`: 5 of 5 alone, 3 of 3 with 14 busy loops (load 16 on 8 cores). Still blind:
+  `test_bluetooth_page_without_chip`, `test_games_in_carts`, `test_menu_games_and_hidden_bm`, `test_screen_console`.
+  A full `/tmp` (tmpfs) in WSL fails any test that writes an SD image: delete `/tmp/bm64*` or set `TMPDIR`.
 
 ## Rules (do not break)
 
