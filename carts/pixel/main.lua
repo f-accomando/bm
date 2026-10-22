@@ -1130,7 +1130,12 @@ local function resize()
     fit_region()
     sheet_reset()
     draw_reset()
-    say("the sheet is " .. sw .. "x" .. sh .. " (Ctrl+S saves)", C_ACC)
+    local bad = stack_resized and stack_resized() or 0
+    if bad > 0 then
+      say("the sheet is " .. sw .. "x" .. sh .. ": " .. bad .. " stack zone(s) are now outside it (Stack page: fix them)", C_ERR, 400)
+    else
+      say("the sheet is " .. sw .. "x" .. sh .. " (Ctrl+S saves)", C_ACC)
+    end
   end)
 end
 shp.resize = resize
@@ -1482,13 +1487,16 @@ local PREV_X, PREV_Y, PREV_W, PREV_H = 312, 144, 320, 160
 local TWO_PI = 2 * math.pi
 
 -- the stack zones of the file (SPRITES with 2 or more slices)
+local zcache                              -- the list below, rebuilt only when the zones change
 local function stack_zones()
+  if zcache then return zcache end
   local list = {}
   if not zones or not zone then return list end
   for _, zn in ipairs(zones() or {}) do
     local x, y, w, h, fr, fps, n = zone(zn)
     if x and n and n >= 2 then list[#list + 1] = { name = zn, x = x, y = y, w = w, h = h, frames = fr, fps = fps, n = n } end
   end
+  zcache = list
   return list
 end
 
@@ -1526,6 +1534,19 @@ end
 
 function stack_reset()
   sp.zi, sp.k, sp.zdirty = 1, 1, false
+  zcache = nil
+end
+
+-- the sheet got another size: the zones are checked again; the file is
+-- written with them, and the count of the ones that no longer fit is returned
+function stack_resized()
+  zcache = nil
+  local bad = 0
+  for _, z in ipairs(stack_zones()) do
+    if not fits(z.x, z.y, z.w, z.h, z.n) then bad = bad + 1 end
+  end
+  if cart_data and cart_data(11) then sp.zdirty = true end
+  return bad
 end
 
 function stack_enter()
@@ -1558,6 +1579,7 @@ local function put_zone(z)
   local ok, e = cart_data(11, spack("<I2I2", count, 0) .. table.concat(parts))
   if not ok then return false, tostring(e) end
   sp.zdirty, dirty = true, true
+  zcache = nil
   return true
 end
 
