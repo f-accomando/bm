@@ -13,9 +13,11 @@ import contextlib
 import io
 import os
 import re
+import shutil
 import socket
 import struct
 import sys
+import tempfile
 import threading
 import time
 import zlib
@@ -355,6 +357,51 @@ def main():
         check(len(seen) == n and "secret keys are not set" in out, "bridge: config wifi_psk=x (bm_net.SECRET) refused, child not started")
         logged = pi_bridge.masked("config menu_scale=3 layout=it")
         check("***" in logged and "=3" not in logged and "=it" not in logged, "bridge: the log line of a config holds *** and not the value")
+
+        # line: only the monitor commands of the list, ';' between them, b3d with tests=/profiles= (R-NET6)
+        for req, want in (("gpu", "gpu"), ("err", "err"), ("crc", "crc"),
+                          ("render; room; log; reboot", "render; room; log; reboot"),
+                          ("gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send", "gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send"),
+                          ("  gpu ;b3d   tests=quad_flat  profiles=FS2 ;  send ", "gpu; b3d tests=quad_flat profiles=FS2; send")):
+            pi_bridge.run("1.2.3.4", "s3cret", "line " + req)
+            check(seen[-1][-2:] == ["--line", want], f"bridge: line {req!r} -> {want!r}")
+        out = pi_bridge.run("1.2.3.4", "s3cret", "line set wifi_psk=x")
+        check(out.startswith("refused: line:") and "'set' is not allowed" in out, "bridge: line set wifi_psk=x refused, says why")
+        n0 = len(seen)
+        for req in ("save", "play pong", "gpu; set wifi_psk=x", "gpu; save", "err; play pong", "GPU", "Gpu",
+                    "gpu\tb3d", "gpu\rsave", "gpu\x1b", "err²", "gpu;;err", "gpu; ", "err now", "b3d tests=a-b", "b3d verbose=1",
+                    "b3d tests=", "x" * 200, "; gpu", "gpu x", "gpu,err", "", "gpu;", "b3d tests=a.b", "b3d foo=1"):
+            out = pi_bridge.run("1.2.3.4", "s3cret", "line " + req)
+            check(out.startswith("refused: line:"), f"bridge: line {req[:30]!r} refused")
+        check(len(seen) == n0, "bridge: the refused lines started nothing")
+
+        # the password: BM_PASSWORD, then a file of the owner (mode 0600, one line), then the prompt; the value never shown
+        pwdir = tempfile.mkdtemp(prefix="pipw-")
+        try:
+            pwf = os.path.join(pwdir, "pw")
+            asked = []
+            ask = lambda prompt: (asked.append(prompt), "typed-pw")[1]
+            with open(pwf, "w") as f:
+                f.write("file-pw\r\nsecond line\n")
+            os.chmod(pwf, 0o600)
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD_FILE": pwf}, ask)
+            check(pw == "file-pw" and why is None and pwf in where and not asked and "file-pw" not in where,
+                  "password: the file (mode 0600), first line only, CR stripped, the prompt not used, value not in the source text")
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD": "env-pw", "BM_PASSWORD_FILE": pwf}, ask)
+            check(pw == "env-pw" and where == "BM_PASSWORD" and not asked, "password: BM_PASSWORD wins over the file")
+            os.chmod(pwf, 0o644)
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD_FILE": pwf}, ask)
+            check(pw is None and why and "password file mode" in why and "file-pw" not in why and not asked,
+                  "password: a file others can read is refused, the value not in the message, no fallback to the prompt")
+            os.chmod(pwf, 0o600)
+            with open(pwf, "w") as f:
+                f.write("\n")
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD_FILE": pwf}, ask)
+            check(pw is None and why and "empty" in why, "password: an empty file is refused")
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD_FILE": os.path.join(pwdir, "none")}, ask)
+            check(pw == "typed-pw" and where == "the prompt" and len(asked) == 1, "password: no file -> the prompt")
+        finally:
+            shutil.rmtree(pwdir, ignore_errors=True)
 
         # status: down without a process; up with the version and the state of the run before, the password masked
         real_cv = pi_bridge.bm_net.console_version

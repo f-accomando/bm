@@ -195,10 +195,18 @@ static int flush_reqs(req_t *r, int n)
             nj += jobs_of(&r[i + m]);
             m++;
         }
-        if (run_batch(r + i, m) == 0) {
+        const int rb = run_batch(r + i, m);
+        if (rb == 0) {
             fail_run = 0;
             qpu_stats.on_qpu += (uint32_t)m;
             qpu_stats.runs += (uint32_t)m;
+        } else if (rb == -2) {          /* a 3D job is running: this call on the ARM, no failure */
+            qpu_stats.busy_skips++;
+            for (int k = 0; k < m; k++) {
+                run_arm(&r[i + k]);
+                qpu_stats.runs++;
+            }
+            arm += m;
         } else {
             qpu_stats.failures++;
             if (++fail_run >= 2)
@@ -281,9 +289,17 @@ int qpu_fade_apply(g16_t *g, const g16_fade_t *f)
     static uint16_t *scratch;
     static uint32_t scratch_px;
     const uint32_t total = (uint32_t)g->w * (uint32_t)g->h, blocks = total / 32;
-    if (!qpu_fade_ok() || (((uintptr_t)g->px | (uintptr_t)f->lv | (uintptr_t)f->index | (uintptr_t)f->tab) & 63) ||
-        g->stride != (uint32_t)g->w || g->w != f->w || g->h != f->h || blocks == 0 ||
-        f->levels > 16) {
+    if (!qpu_fade_ok()) {
+        g16_fade_apply(g, f);
+        return 0;
+    }
+    if (((uintptr_t)g->px | (uintptr_t)f->lv | (uintptr_t)f->index | (uintptr_t)f->tab) & 63) {
+        qpu_stats.fade_arm_align++;     /* the picture or a table is not on a 64-byte line */
+        g16_fade_apply(g, f);
+        return 0;
+    }
+    if (g->stride != (uint32_t)g->w || g->w != f->w || g->h != f->h || blocks == 0 || f->levels > 16) {
+        qpu_stats.fade_arm_shape++;
         g16_fade_apply(g, f);
         return 0;
     }
@@ -314,6 +330,24 @@ int qpu_fade_apply(g16_t *g, const g16_fade_t *f)
         qpu_fade_arm(&t);
     }
     return 1;
+}
+
+int qpu_fade_hook(g16_t *g, const g16_fade_t *f)
+{
+    static int state;                   /* 0 not tried, 1 ready, -1 off for good */
+    if (state == 0)
+        state = qpu_init() == 0 && qpu_fade_ok() ? 1 : -1;
+    if (state < 0) {
+        g16_fade_apply(g, f);
+        return 0;
+    }
+    const uint32_t fails = qpu_stats.failures;
+    const int r = qpu_fade_apply(g, f);
+    if (qpu_stats.failures != fails || !qpu_fade_ok()) {
+        qpu_disable();                  /* the first failure is enough: the ARM from now on */
+        state = -1;
+    }
+    return r;
 }
 
 /* ---------------------------------------------------------------------- probe */
