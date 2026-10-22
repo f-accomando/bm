@@ -407,7 +407,16 @@ T,GPU+VS+Q,2x,...
 
 How to read it. The 2x load is stable if `v3d_failed` is 0, the bench finished (no freeze), and `pool_kb` and `ovf_kb` stay inside the pool the driver has. At 2x the frame is expected to miss 60 fps: `ms` is then about the double of 1x and `drops` is near `frames`. What is looked for is a clean slow-down (`worst` near `ms`) and no `v3d_failed`. The test has no pass or fail mark of its own: the SPV reads the columns. Without the V3D (QEMU) the profile does not run and the report has no `stress` line.
 
-On the PC, `make test-b3d` runs the test for 6 frames a load and checks the `T` lines (the PC's ms do not count). Not verified on hardware.
+On the PC, `make test-b3d` runs the test for 6 frames a load and checks the `T` lines (the PC's ms do not count).
+
+Measured on the Pi Zero W, 22 Oct 2026, one run (report `20261022-191158_bench3d_pi-zero-w_dev.txt`, id `b3d-191158`): `n60` = 24.8 quarter sets.
+
+| Load | `n` | `tris_in` | `ms` | `worst` | `drops` | `arm_ms` | `gpu_ms` | `pool_kb` | `ovf_kb` | `v3d_failed` |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1x | 24 | 48 432 | 13.3 | 13.5 | 0 | 13.1 | 6.8 | 122 | 0 | 0 |
+| 2x | 48 | 96 864 | 25.2 | 25.3 | 116 of 116 | 25.2 | 16.1 | 142 | 0 | 0 |
+
+At 2x the frame runs at about 40 fps, with 2 jobs a frame. The slow-down is clean (`worst` is near `ms`). The ARM sets the pace (`arm_ms` equals `ms`), not the GPU. The Pi did not hang. Only one run exists.
 
 ## On the PC
 
