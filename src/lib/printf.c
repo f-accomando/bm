@@ -161,6 +161,11 @@ int klog_ring_is(void (*ring)(char c))
     return log_ring == ring;
 }
 
+void *klog_ring_get(void)
+{
+    return (void *)log_ring;
+}
+
 static void bootlog_putc(char c)
 {
     if (bootlog_esc) {                          /* ESC [ ... letter */
