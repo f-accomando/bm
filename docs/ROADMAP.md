@@ -98,7 +98,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 | ID | Prio | Status | Item | Done when |
 |---|---|---|---|---|
-| WEB-1 | P2 | idea | bm in the browser: the portable runtime (Lua runtime, gfx16, audio, bmlib) built to WebAssembly with canvas, keyboard/gamepad and WebAudio, to let people try the platform and promote it | a static page (artifact or GitHub Pages, up to 16 MB with cartridges embedded) runs a `.bm` game at 360x360; first step is a read-only feasibility WO on how much of `src/bm/runtime.c` depends on the kernel |
+| WEB-1 | P2 | in progress | bm in the browser: the portable runtime (Lua runtime, gfx16, audio, bmlib) built to WebAssembly with canvas, keyboard/gamepad and WebAudio, to let people try the platform and promote it | a static page (artifact or GitHub Pages, up to 16 MB with cartridges embedded) runs a `.bm` game at 360x360; study done (`docs/design/bm-web-player.md`); stage 1 done (JavaScript `.bm` reader in the mock page); next: a wasm toolchain (needs the user's OK), then the frame-step runner |
 
 ---
 
