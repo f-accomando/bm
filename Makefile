@@ -57,6 +57,15 @@ COMMON  = $(ARCH) $(SOC) -std=c11 -O2 -Wall -Wextra -g -Isrc \
 CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
           -Ithird_party/lwip/src/include -Isrc/net \
           -Ithird_party/mbedtls/include -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' $(WARN)
+# PI_O3_FILES: source files built with -O3 instead of -O2 (default empty: every file -O2,
+# the output does not change). Example: make PI_O3_FILES="src/bm/gfx16.c src/bm/r3d.c".
+# Paths as in KERNEL_SRCS. The flags are not a prerequisite: after you change the
+# variable, run make clean (or delete the .o files) so the files are built again.
+# Off for now; the accept rule is in docs/progress/graphics.md (Open work).
+PI_O3_FILES ?=
+ifneq ($(strip $(PI_O3_FILES)),)
+$(patsubst %,$(BUILD)/k/%.o,$(PI_O3_FILES)): CFLAGS += -O3
+endif
 # Chainloader: freestanding, no libc.
 LCFLAGS := $(COMMON) -Os -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
 ASFLAGS = $(ARCH) $(SOC) $(CLEAN_DEFS) -g -Isrc -Isrc/kernel -Wa,-I$(BUILD)
