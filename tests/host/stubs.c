@@ -671,3 +671,15 @@ int reports_text(const char *kind, const char *text, size_t len)
     fclose(f);
     return 0;
 }
+
+/* the screen recorder (src/bm/rec.c) works on the console's card and fibers: off in bmhost */
+#include "bm/rec.h"
+int rec_config(rec_cfg_t *cfg) { (void)cfg; return 0; }
+int rec_start(const rec_cfg_t *cfg) { (void)cfg; return -1; }
+void rec_stop(void) {}
+int rec_active(void) { return 0; }
+int rec_due(void) { return 0; }
+void rec_frame(const uint16_t *px, uint32_t stride, int w, int h) { (void)px; (void)stride; (void)w; (void)h; }
+void rec_pump(uint32_t until) { (void)until; }
+void rec_note_game_io(void) {}
+void rec_overlay_text(char *buf, int n) { if (n > 0) buf[0] = 0; }

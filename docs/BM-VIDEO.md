@@ -19,7 +19,7 @@ All numbers are little-endian.
 |---|---|---|---|
 | 0 | 4 bytes | magic | `BMV1` |
 | 4 | u8 | version | 1 |
-| 5 | u8 | codec | 1 = baseline JPEG (MJPEG) |
+| 5 | u8 | codec | 1 = baseline JPEG (MJPEG); 2 = raw RGB565, little-endian (the recorder); 3 = raw RGB332 (`rrrgggbb`, the recorder) |
 | 6 | u8 | audio channels | 0 = no audio, 1 or 2 |
 | 7 | u8 | audio bits | 8 (unsigned) or 16 (signed); 0 with no audio |
 | 8 | u16 | width | 1 to 1920 |
@@ -38,7 +38,7 @@ All numbers are little-endian.
 | 0 | u32 | offset of the frame in the file (at least 32) |
 | 4 | u32 | size of the frame in bytes (at least 4) |
 
-Every frame has the size of the clip. Every frame is a key frame, so a seek is one index read.
+Every frame has the size of the clip. A raw frame is exactly width x height x 2 (codec 2) or x 1 (codec 3) bytes; the reader refuses another size. Every frame is a key frame, so a seek is one index read.
 
 ## Rules
 
@@ -66,6 +66,6 @@ python scripts/mkvid.py -o clip.bmv --jpegs frames/ --fps 15 --pcm audio.raw --r
 | `bmv_duration_ms` | Gives the length of the clip. |
 | `bmv_audio_span` | Gives the PCM bytes for a time span. |
 
-`jpeg_decode565` (`src/bm/jpeg.h`) writes RGB565 into a given buffer. It does not allocate a 24-bit picture.
+`bmv_decode` also copies a raw RGB565 frame and expands a raw RGB332 frame (r 3 bits, g 3 bits, b 2 bits, the top bits repeated). `jpeg_decode565` (`src/bm/jpeg.h`) writes RGB565 into a given buffer. It does not allocate a 24-bit picture.
 
-The Lua API for cartridges is not written yet (see Open work in [video.md](progress/video.md)).
+The Lua API for cartridges is in [api/video.md](api/video.md). The screen recorder writes codec 2 and 3 chunks: see [video.md](progress/video.md).

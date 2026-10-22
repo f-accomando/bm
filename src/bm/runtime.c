@@ -19,6 +19,7 @@
 #include "drivers/uart.h"
 #include "fs/fat.h"
 #include "vid.h"
+#include "rec.h"
 #include "kernel/config.h"
 #include "lib/crc32.h"
 #include "kernel/input.h"
@@ -3526,6 +3527,7 @@ static int l_save(lua_State *L)
     ser(L, 1, 0);
     char name[16];
     slot_name(slot, name);
+    rec_note_game_io();                 /* the recorder leaves the card to the save */
     if (fat_mkdirs(SAVE_DIR) != 0 || fat_write_file(SAVE_DIR, name, sb.p, sb.n) != 0) {
         lua_pushboolean(L, 0);
         lua_pushstring(L, fat_error());
@@ -4797,6 +4799,7 @@ static int l_quit(lua_State *L)
 
 #define VIDEO_MT   "bm.video"
 #define CLIP_DIR   "/bm/clips/"
+#define REC_CLIP_DIR "/bm/rec/"
 #define CLIP_MAX   (48u << 20)          /* a clip is read whole into memory: 48 MiB at most */
 
 typedef struct {
@@ -4833,10 +4836,15 @@ static int l_clip_gc(lua_State *L)
 static int l_video_open(lua_State *L)
 {
     const char *name = luaL_checkstring(L, 1);
+    const char *dir = CLIP_DIR;
     char path[FAT_NAME_MAX + 16], err[80];
+    if (!strncmp(name, "rec/", 4)) {      /* the recorder's chunks (bm/rec) play as clips too */
+        dir = REC_CLIP_DIR;
+        name += 4;
+    }
     if (!*name || strchr(name, '/') || strchr(name, '\\') || strstr(name, "..") || strlen(name) >= FAT_NAME_MAX)
-        return luaL_error(L, "video_open: a file name in %s, no path", CLIP_DIR);
-    ksnprintf(path, sizeof path, CLIP_DIR "%s", name);
+        return luaL_error(L, "video_open: a file name in %s (or rec/ and a name), no other path", CLIP_DIR);
+    ksnprintf(path, sizeof path, "%s%s", dir, name);
     fat_entry_t e;
     uint8_t *data = NULL;
     size_t len = 0;
@@ -7458,6 +7466,7 @@ static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
 static void pace(uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
     zclear_dma_start();
+    rec_pump(*deadline);                /* the recorder writes in the time the frame has left */
     while ((int32_t)(timer_ticks() - *deadline) < 0)
         ;
     uint32_t now = timer_ticks();
@@ -7474,9 +7483,15 @@ static void perf_end(void);
 /* The frame drawn, before the overlays, saved if a screenshot was asked for: a PNG in /bm/shots */
 static void shot_grab(void)
 {
+    if (rec_due()) {                    /* the recorder takes the frame as it is, with the screenshot */
+        flush3d(0);
+        cls_settle();
+        rec_frame(rt.g.px, rt.g.stride, rt.g.w, rt.g.h);
+    }
     if (!shot_req)
         return;
     shot_req = 0;
+    rec_note_game_io();
     flush3d(0);                         /* its 3D done, as present() does */
     cls_settle();
     size_t n = 0;
@@ -8572,6 +8587,11 @@ static void notice_draw(void)
 /* the box that says a screenshot was saved, for 2 seconds */
 static void shot_note_draw(void)
 {
+    if (rec_active()) {                 /* not in the recording: it is drawn after the frame was taken */
+        char t[24];
+        rec_overlay_text(t, sizeof t);
+        g16_text(&rt.g, 2, 2, t, 0xF800);
+    }
     if (shot_note <= 0)
         return;
     shot_note--;
@@ -9255,6 +9275,11 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     held.n = 0;
     held.frames = 0;
     held.fb = fb;
+    {
+        rec_cfg_t rc;
+        if (rec_config(&rc))
+            rec_start(&rc);             /* bm/config.txt rec=on: this run is recorded to /bm/rec */
+    }
     while (!error) {
         uint32_t now_us = timer_ticks();
         played_us += now_us - played_at;
@@ -9437,6 +9462,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     prof_enable(0, NULL);                   /* not over the menu nor the next game */
     memset(&dbg, 0, sizeof dbg);            /* nor the debugger (R13) */
     cart_src = NULL;
+    rec_stop();                             /* the rest to the card, the report */
     st->frames = rt.frame - frame0;
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);

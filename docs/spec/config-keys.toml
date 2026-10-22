@@ -588,3 +588,48 @@ default = "cart_config(key) returns nil when missing or empty"
 meaning = "Flags of one game, read and written only by the Lua cart_config(key [, value]); a key with another prefix is an error. Set from the monitor line (set overbit_bench=1080) or easy_install."
 settings = ""
 read_in = "src/bm/runtime.c:3511 (l_cart_config)"
+
+[[key]]
+name = "rec"
+scope = "all"
+values = "on or 1 = record every game run to /bm/rec; anything else = off"
+default = "off"
+meaning = "Screen recorder (VID-REC): the game's frames go to .bmv chunk files; the report is printed when the game ends."
+settings = ""
+read_in = "src/bm/rec.c"
+
+[[key]]
+name = "rec_fps"
+scope = "all"
+values = "1 to 30"
+default = "15"
+meaning = "Frames a second of the recording."
+settings = ""
+read_in = "src/bm/rec.c"
+
+[[key]]
+name = "rec_size"
+scope = "all"
+values = "WxH, 16x16 to 1920x1080 (the frame is scaled by nearest pixel)"
+default = "320x180"
+meaning = "Size of the recording."
+settings = ""
+read_in = "src/bm/rec.c"
+
+[[key]]
+name = "rec_format"
+scope = "all"
+values = "rgb565 or rgb332"
+default = "rgb565"
+meaning = "Pixel format of the recording (rgb332 is half the size)."
+settings = ""
+read_in = "src/bm/rec.c"
+
+[[key]]
+name = "rec_ring_mb"
+scope = "all"
+values = "1 to 256"
+default = "64 (smaller if memory is short)"
+meaning = "RAM that holds the chunks that wait for the card."
+settings = ""
+read_in = "src/bm/rec.c"

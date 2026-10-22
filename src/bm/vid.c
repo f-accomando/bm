@@ -36,7 +36,7 @@ int bmv_open(bmv_t *v, const uint8_t *d, size_t len, char *err, size_t errlen)
     t.audio_rate = rd16(d + 14);
     t.frames = rd32(d + 16);
     const uint32_t index_off = rd32(d + 20), audio_off = rd32(d + 24), audio_len = rd32(d + 28);
-    if (t.codec != BMV_CODEC_MJPEG)
+    if (t.codec != BMV_CODEC_MJPEG && t.codec != BMV_CODEC_RAW565 && t.codec != BMV_CODEC_RGB332)
         return bad(err, errlen, "a codec this console does not know");
     if (t.width < 1 || t.height < 1 || t.width > 1920 || t.height > 1080)
         return bad(err, errlen, "a bad picture size");
@@ -65,6 +65,8 @@ int bmv_open(bmv_t *v, const uint8_t *d, size_t len, char *err, size_t errlen)
         const uint32_t off = rd32(t.index + (size_t)i * 8), n = rd32(t.index + (size_t)i * 8 + 4);
         if (off < BMV_HEADER || n < 4 || (uint64_t)off + n > len)
             return bad(err, errlen, "a frame is outside the file");
+        if (t.codec != BMV_CODEC_MJPEG && n != (uint32_t)t.width * (uint32_t)t.height * (t.codec == BMV_CODEC_RAW565 ? 2u : 1u))
+            return bad(err, errlen, "a raw frame of the wrong size");
     }
     *v = t;
     return 0;
@@ -97,6 +99,18 @@ int bmv_decode(const bmv_t *v, uint32_t i, uint16_t *out, char *err, size_t errl
     int w, h;
     if (bmv_frame(v, i, &p, &n) != 0)
         return bad(err, errlen, "no such frame");
+    if (v->codec == BMV_CODEC_RAW565) {
+        for (size_t k = 0; k < (size_t)v->width * (size_t)v->height; k++)
+            out[k] = (uint16_t)(p[2 * k] | p[2 * k + 1] << 8);
+        return 0;
+    }
+    if (v->codec == BMV_CODEC_RGB332) {
+        for (size_t k = 0; k < (size_t)v->width * (size_t)v->height; k++) {
+            const unsigned r = p[k] >> 5, g = p[k] >> 2 & 7, b = p[k] & 3;
+            out[k] = (uint16_t)(((r << 2 | r >> 1) << 11) | ((g << 3 | g) << 5) | (b << 3 | b << 1 | b >> 1));
+        }
+        return 0;
+    }
     if (jpeg_decode565(p, n, out, v->width, v->height, &w, &h, err, errlen) != 0)
         return -1;
     if (w != v->width || h != v->height)

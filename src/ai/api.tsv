@@ -339,7 +339,7 @@ udp_open	s, port = udp_open([port])	system	a socket on the port (0 or nothing: a
 udp_recv	data, address, port = udp_recv(s)	system	the next packet that arrived, or `nil`; up to 48 wait in the queue
 udp_send	udp_send(s, address, port, data)	system	sends a string (at most 1024 bytes); `true` if it left (UDP: it can be lost)
 vibrato	vibrato(v, [semitones], [hz])	sound	a vibrato `semitones` wide (for example 0.3) at `hz` swings a second (default 6); `vibrato(v)` takes it away
-video_open	video_open(name)	video	opens `bm/clips/<name>` (a file name, no path). Returns a clip, or `nil` and a message ("no such clip", "the clip is over 48 MiB", "not a .bmv clip" ...). The clip is freed when it is closed or when the game ends
+video_open	video_open(name)	video	opens `bm/clips/<name>` (a file name, no path), or `bm/rec/<file>` for a recording when `name` starts with `"rec/"` (`"rec/R0010001.BMV"`). Returns a clip, or `nil` and a message ("no such clip", "the clip is over 48 MiB", "not a .bmv clip" ...). The clip is freed when it is closed or when the game ends
 visible3d	visible3d(x, y, z, r)	light3d	`false` if a sphere (centre, radius) cannot be seen: behind the camera, beyond an edge of the screen, or (after `pvs3d`) on pieces of the map that the camera's cell does not see. To skip the characters and effects hidden by the walls before drawing them (bm3d 5.5)
 volume	volume([level])	sound	the general volume 0–10 (with `level` it changes it). It is the console's: it holds for every game and stays in `bm/config.txt`
 world3d	world3d()	light3d	an empty collision world
