@@ -5,7 +5,8 @@
  *   bmLauncher.stop()                   leave the cartridge
  * bmweb.js and bmweb.wasm (make web-player) are loaded when the first cartridge starts.
  * It draws on canvas#bm-canvas, reads the keyboard and the gamepad, and plays the sound with an
- * AudioWorklet at 48 kHz. Nothing leaves the browser.
+ * AudioWorklet at 48 kHz. The saves of the cartridges (the SD card's bm/save) live in IndexedDB. Nothing
+ * leaves the browser.
  */
 (function () {
   "use strict";
@@ -41,8 +42,8 @@
         if (typeof createBmWeb !== "function") return reject(new Error("bmweb.js has no createBmWeb"));
         createBmWeb({ bmFrame: onFrame, bmAudio: onAudio, bmPace: onPace, bmDone: onDone }).then(function (m) {
           mod = m;
-          resolve(m);
-        }, reject);
+          return mountSaves(m);
+        }).then(function () { resolve(mod); }, reject);
       };
       s.onerror = function () {
         loading = null;
@@ -51,6 +52,24 @@
       document.head.appendChild(s);
     });
     return loading;
+  }
+
+  /* ---- saves: /sd/bm/save is an IndexedDB file system; it is read before a start and written while a
+   * cartridge runs (every 3 s) and when it ends */
+  var saveDirty = false;
+  function mountSaves(m) {
+    var FS = m.FS;
+    ["/sd", "/sd/bm", "/sd/bm/save"].forEach(function (d) { try { FS.mkdir(d); } catch (e) { /* exists */ } });
+    if (typeof indexedDB === "undefined" || !m.IDBFS) return Promise.resolve();
+    FS.mount(m.IDBFS, {}, "/sd/bm/save");
+    saveDirty = true;
+    return new Promise(function (resolve) {
+      FS.syncfs(true, function (err) { if (err) console.warn("bm saves: cannot read IndexedDB", err); saveDirty = false; resolve(); });
+    });
+  }
+  function flushSaves() {
+    if (!mod || typeof indexedDB === "undefined" || !mod.IDBFS) return;
+    mod.FS.syncfs(false, function (err) { if (err) console.warn("bm saves: cannot write IndexedDB", err); });
   }
 
   /* ---- video */
@@ -138,9 +157,11 @@
   window.addEventListener("blur", function () { held = 0; });
 
   /* ---- control */
-  var finish = null;
+  var finish = null, saveTimer = 0;
   function onDone() {
     running = false;
+    clearInterval(saveTimer);
+    flushSaves();
     if (finish) finish();
     if (window.bmLauncher.onstop) window.bmLauncher.onstop();
   }
@@ -157,6 +178,7 @@
       m.HEAPU8.set(bytes, ptr);
       running = true; held = 0; lastPad = ""; nextTime = 0;
       m._bmweb_input(0, 0, 0, 0, 0);
+      saveTimer = setInterval(flushSaves, 3000);
       /* bmweb_start sleeps between frames (Asyncify): it returns at once and bmDone tells the end */
       return new Promise(function (resolve) {
         finish = function () { m._free(ptr); resolve(); };
@@ -173,5 +195,10 @@
   }
 
   window.bmLauncher = { start: start, startBytes: startBytes, stop: stop, isRunning: function () { return running; }, stats: stats,
+                        saveFiles: function () {
+                          var o = {};
+                          if (mod) mod.FS.readdir("/sd/bm/save").forEach(function (n) { if (n[0] !== ".") o[n] = mod.FS.readFile("/sd/bm/save/" + n, { encoding: "utf8" }); });
+                          return o;
+                        },
                         onstop: null, onerror: null };
 })();
