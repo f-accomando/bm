@@ -1,0 +1,18 @@
+bm report
+kind: dma
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: 2026-10-22 07:51:05
+file: 20261022-075105_dma_pi-zero-w_dev.txt
+
+bm > DMA test
+
+DMA test, channel 4 (if the Pi freezes, the last line is the culprit)
+  1 copy RAM -> RAM, 4 KiB          ok
+  2 fill RAM, 4 KiB                 ok
+  3 copy RAM -> RAM, 450 KiB        ok  CPU 3137 us, DMA 2387 us
+  4 fill RAM, 450 KiB               ok  CPU 1056 us, DMA 848 us
+  5 fill screen (grey band)         ok  CPU 287 us, DMA 226 us
+  6 copy RAM -> screen (pattern)    ok  CPU 839 us, DMA 244 us
+DMA test passed
