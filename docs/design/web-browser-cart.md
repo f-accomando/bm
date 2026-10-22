@@ -28,7 +28,7 @@ about 12 requests in total, User-Agent `bm-research/0.1`). The files stayed in a
 | Hosting and TLS | Cloudflare in front (`server: cloudflare`), HSTS. See section 1.1. |
 
 Plain verdict: poly.pizza is **not** JS-only. A parser with HTML plus the embedded JSON can read the
-lists, the search results and the model pages. The pictures are WebP, which bm cannot decode today.
+lists, the search results and the model pages. The pictures are WebP. The kernel decodes them with `webp_decode565` ([webp-decoder.md](webp-decoder.md)).
 
 ### 1.1 Terms and policy risk (needs the user)
 
@@ -80,7 +80,7 @@ text. Both are `not verified`. TLS 1.2 is a risk only if Cloudflare drops it (no
 | TLS | mbedTLS 1.2, see 1.2. Handshake blocks the cart (a loop with `net_wait_step`). | Cost of one handshake on the Pi: `not measured`. `multitasking-alternatives.md` item b lists it. |
 | JPEG | `src/bm/jpeg.c`: baseline only, progressive refused. | Progressive JPEG on the web is common. |
 | PNG | `src/bm/png.c`: `png_rgba`, inflate, RGBA output in one malloc. | A 1220x720 RGBA image needs 3.5 MB. Needs downscale on decode. |
-| WebP | **None** (`grep -ri webp src` finds nothing). | The site's cards are lossy WebP. A VP8 decoder is about 1200 lines of C: a kernel stage of its own. |
+| WebP | `src/bm/webp.c`: `webp_decode565`, lossy (VP8) and lossless (VP8L), no Lua call yet ([webp-decoder.md](webp-decoder.md)). | The site's cards are lossy WebP. Stage 0 is the Lua call `image_load`. |
 | Pixels from Lua | `sset(x, y, c)` and the sprite sheet (up to 4096x4096), `sspr` with zoom. No "draw this RGB buffer" call. | Per pixel `sset` from Lua is slow. Add `image_load(bytes, maxw, maxh)` that decodes and writes into a sheet area. |
 | Text | Three bitmap fonts: 8x16, 8x14, 6x12, 256 glyphs in code page 437. No Unicode, no proportional font. | The cart maps UTF-8 to CP437 and uses `?` for the rest. Layout is on a fixed grid. |
 | Screen | `screen(w,h)`: 320x180 up to 960x540 (16:9). 640x360 with `font("6x12")` gives 106 columns by 30 rows. | Few lines of text per screen: use the small font. |
@@ -153,7 +153,7 @@ fetch (kernel, chunks) -> tokenizer -> tree builder -> style -> block/inline lay
   cached in RAM; the cart reloads it. Optional later: cache on the SD card under `bm/web/cache/`.
 - **Images.** The image table lists `<img>` with width and height from attributes. A placeholder
   box (grey, with the `alt` text) is laid out at once. A loader step fetches one image at a time,
-  nearest first to the focus. It decodes (PNG now, JPEG baseline now, WebP later), shrinks to at
+  nearest first to the focus. It decodes (PNG, JPEG baseline and WebP), shrinks to at
   most 160x120 and writes to a free area of the sprite sheet. Cap: 16 images per page, 200 KB per
   image, 4 MB total decoded, GIF and SVG skipped. Cards with no usable format stay as a placeholder.
 - **Downloads.** A link that ends in `.glb` or answers `model/gltf-binary` (or a body that starts
