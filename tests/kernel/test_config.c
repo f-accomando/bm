@@ -7,6 +7,7 @@
  */
 #include "kernel/config.h"
 #include "fs/fat.h"
+#include "kernel/fiber.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,6 +69,8 @@ int fat_write_file(const char *dir, const char *name, const void *data, size_t l
     return 0;
 }
 const char *fat_error(void) { return "test"; }
+/* src/fs/sdlock.c is linked in (config_save writes through it); it asks if a fiber runs */
+fiber_t *fiber_current(void) { return NULL; }
 
 static void put_file(const char *text)
 {
