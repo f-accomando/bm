@@ -358,8 +358,8 @@
     "title": "What the kernel does at start"
    },
    "4": {
-    "en": "5aedc45b80cc",
-    "it": "9f07edaf331a",
+    "en": "3af415fec840",
+    "it": "1e7a52967282",
     "title": "The menu and its tabs"
    },
    "5": {
@@ -391,8 +391,8 @@
   "sources": {
    "boot": "63490264ed76",
    "chainloader": "7feaaf3a501c",
-   "docs/HARDWARE.md": "e7d2cc4e6cea",
-   "docs/progress/system.md": "5ba5a564ee5e",
+   "docs/HARDWARE.md": "1412f8591e74",
+   "docs/progress/system.md": "a228c61db524",
    "src/kernel/syskeys.c": "6299911b4014"
   }
  },

@@ -799,6 +799,47 @@ end
 function Parts:count() return #self.list end
 function Parts:clear() self.list = {} end
 
+----------------------------------------------------------------- particles3d
+
+local P3 = {}
+P3.__index = P3
+
+function lib.particles3d(maxn)
+  particles(maxn or 1024)
+  return setmetatable({}, P3)
+end
+
+function P3:add(x, y, z, vx, vy, vz, life, color)
+  return particles_add(x, y, z, vx, vy, vz, life, color)
+end
+
+function P3:burst(x, y, z, n, o)
+  o = o or {}
+  local speed = o.speed or 2
+  local life = o.life or 30
+  local color = o.color or 0xFFFFFF
+  local up = o.up or 0
+  for _ = 1, n do
+    local a = random() * lib.TAU
+    local u = random() * 2 - 1
+    local s = sqrt(1 - u * u)
+    local sp = speed * (0.3 + 0.7 * random())
+    self:add(x, y, z, sp * cos(a) * s, sp * (u + up), sp * sin(a) * s, life * (0.7 + 0.6 * random()), color)
+  end
+end
+
+function P3:update(gravity)
+  return particles_step(gravity or 0.02)
+end
+
+function P3:draw(radius)
+  return particles_draw(radius or 0.1)
+end
+
+function P3:count()
+  return particles_count()
+end
+
 ----------------------------------------------------------------- camera
 
 local Cam = {}

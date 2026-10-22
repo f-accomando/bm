@@ -8,7 +8,7 @@
 
 #include <string.h>
 
-#define MAGIC 0xBA5EC0E0u
+#define MAGIC 0xBA5EC0E1u
 
 typedef struct {
     uint32_t magic;
@@ -46,6 +46,10 @@ static char prev_state[160];
 static char prev_ring[RING + 1];
 static size_t prev_ring_len;
 static int booted;
+/* cr is the record of THIS boot only from the end of crumbs_boot(): before it, cr is the record of the
+ * boot before and the timer IRQ (already on) must not write into it (BETA-1 C4) */
+static int cr_live;
+static int crash_noted;                 /* crumbs_crashed() has run in this boot */
 
 static void ring_putc(char c)
 {
@@ -56,8 +60,16 @@ static void ring_putc(char c)
         dcache_clean_range(&ring, sizeof ring);
 }
 
+static void ring_state(void)
+{
+    cr.ring_at = ring.at;
+    cr.ring_on = (uint32_t)klog_ring_is(ring_putc);
+}
+
 static void flush(void)
 {
+    if (cr_live && !cr.crashed)             /* the live state: a freeze report shows how far the ring got */
+        ring_state();
     dcache_clean_range(&cr, sizeof cr);     /* in SDRAM even if the CPU stops */
 }
 
@@ -118,6 +130,7 @@ void crumbs_boot(void)
     cr.irq = -1;
     strcpy(cr.what, "boot");
     ksnprintf(cr.kernel, sizeof cr.kernel, "%s", bm_version);
+    cr_live = 1;                        /* the old record is copied and cr is reset: cr is this boot's */
     flush();
     ring.magic = RING_MAGIC;
     ring.at = 0;
@@ -192,10 +205,10 @@ const char *crumbs_last(const char **kind, size_t *len)
 
 void crumbs_crashed(void)
 {
-    if (!cr.crashed) {
+    if (!crash_noted) {
         /* the first call only: die() or a nested exception must not overwrite these */
-        cr.ring_at = ring.at;
-        cr.ring_on = (uint32_t)klog_ring_is(ring_putc);
+        crash_noted = 1;
+        ring_state();
         klog_set_ring(ring_putc);
     }
     cr.crashed = 1;
@@ -210,6 +223,8 @@ uint32_t crumbs_uptime_ms(void)
 
 void crumb(const char *what, const char *name)
 {
+    if (!cr_live)
+        return;
     ksnprintf(cr.what, sizeof cr.what, name ? "%s \"%s\"" : "%s", what, name);
     cr.frame = 0;
     flush();
@@ -217,18 +232,24 @@ void crumb(const char *what, const char *name)
 
 void crumb_frame(uint32_t frame)
 {
+    if (!cr_live)
+        return;
     cr.frame = frame;
     flush();
 }
 
 void crumb_tick(uint32_t ms)
 {
+    if (!cr_live)
+        return;
     cr.up_ms = ms;
     flush();
 }
 
 void crumb_irq(int irq)
 {
+    if (!cr_live)
+        return;
     cr.irq = irq;
     flush();
 }

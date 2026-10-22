@@ -1,0 +1,16 @@
+page w=240 h=156 lines=7 links=1 images=0 controls=0 forms=0 rects=0 cut=false title="Fish & Chips ©"
+line y=12 h=12
+  t x=4 y=12 w=210 h=12 "<tag> & \"quotes\" 'apos' © ® ™ … — –" 
+line y=36 h=12
+  t x=4 y=36 w=168 h=12 "Numeric: ABCD € 😀 bad: � � �" 
+line y=60 h=12
+  t x=4 y=60 w=210 h=12 "Unknown &nosuchthing; and bare &amp" 
+line y=72 h=12
+  t x=4 y=72 w=228 h=12 "and ampersand & alone, AT&T and a&b;c." 
+line y=96 h=12
+  t x=4 y=96 w=138 h=12 "No break space and éüß." 
+line y=120 h=12
+  t x=4 y=120 w=186 h=12 "Double &lt; stays as &lt; text." 
+line y=144 h=12
+  t x=4 y=144 w=108 h=12 "Attribute entities" u c=0000ee link=1
+link 1 https://example.test/search?a=1&b=2 "Attribute entities" boxes=4,144,108,12
