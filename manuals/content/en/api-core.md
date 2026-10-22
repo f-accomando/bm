@@ -361,6 +361,7 @@ Buttons, the keyboard, the mouse and the players.
 | `keymap(t)` | sets the game's **actions** on the buttons (see below) |
 | `keymap()` | returns the table |
 | `keymap(nil)` | takes the table away |
+| `controls([scheme])` | the player's remap from Settings > Controls: `controls()` reads it, `controls("scroller"\|"topdown"\|"stick")` picks the game's scheme (`lib.input` does it) |
 | `controller([p])` | returns what player `p` (1–4, the first if missing) plays with (see below) |
 | `online([on, note])` | tells the system the match is played over the **network** (see below) |
 | `players()` | how many players have a controller (at least 1) and, as the second value, which: bit `n` = player `n+1` (for example `3, 7` = players 1, 2 and 3) |

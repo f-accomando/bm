@@ -1,4 +1,5 @@
 #include "pad.h"
+#include "kernel/controls.h"
 #include "plat.h"
 #include "drivers/timer.h"
 #include "bt/bt.h"
@@ -7,18 +8,38 @@
 #include "net/netcon.h"
 #include "kernel/config.h"
 
-uint32_t pad_ok = PAD_B, pad_back = PAD_A;
+/* the menus: B confirms (A with confirm=a), Y goes back; A is no second back */
+uint32_t pad_ok = PAD_B, pad_back = PAD_Y;
 
+/* the face button a controls= code (mo, mc: Settings > Controls) names, or 0 */
+static uint32_t face(const char *b)
+{
+    if (b && b[0] && !b[1])
+        switch (b[0]) {
+        case 'a': return PAD_A;
+        case 'b': return PAD_B;
+        case 'x': return PAD_X;
+        case 'y': return PAD_Y;
+        }
+    return 0;
+}
+
+/* The menus' OK and Cancel: mo and mc of controls= (a, b, x or y), else the
+ * old confirm=a (A is OK), else B and Y; the Cancel is never the OK button. */
 void pad_config(void)
 {
     const char *v = config_get("confirm");
-    int a = v && (v[0] == 'a' || v[0] == 'A');
-    pad_ok = a ? PAD_A : PAD_B;
-    pad_back = a ? PAD_B : PAD_A;
+    pad_ok = face(controls_lookup("system", "menu_ok"));
+    if (!pad_ok)
+        pad_ok = v && (v[0] == 'a' || v[0] == 'A') ? PAD_A : PAD_B;
+    pad_back = face(controls_lookup("system", "menu_cancel"));
+    if (!pad_back || pad_back == pad_ok)
+        pad_back = pad_ok == PAD_Y ? PAD_A : PAD_Y;
 }
 
-const char *pad_ok_name(void)   { return pad_ok == PAD_A ? "A" : "B"; }
-const char *pad_back_name(void) { return pad_back == PAD_A ? "A" : "B"; }
+static const char *face_name(uint32_t p) { return p == PAD_A ? "A" : p == PAD_B ? "B" : p == PAD_X ? "X" : "Y"; }
+const char *pad_ok_name(void)   { return face_name(pad_ok); }
+const char *pad_back_name(void) { return face_name(pad_back); }
 
 /* Bluetooth pads and keyboards (usb/hid.h buttons) on the button in the
  * same place: their lower face button (the DS4's cross, a keyboard's

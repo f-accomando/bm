@@ -15,5 +15,11 @@ int jpeg_is(const uint8_t *data, size_t len);
 /* The picture as RGB (3 bytes a pixel, malloc'd): 0, or -1 with a word in
  * err (NULL allowed) saying why. */
 int jpeg_decode(const uint8_t *data, size_t len, uint8_t **rgb, int *w, int *h, char *err, size_t errlen);
+/* The same, into the caller's RGB565 buffer (w*h values, rows w apart, room
+ * for cap_w x cap_h): no 24-bit picture, no allocation for the result (the
+ * decoder's own planes are still allocated and freed on each call). A
+ * larger picture is refused. */
+int jpeg_decode565(const uint8_t *data, size_t len, uint16_t *out, int cap_w, int cap_h, int *w, int *h, char *err,
+                   size_t errlen);
 
 #endif
