@@ -76,6 +76,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 
 ## Open work (`docs/ROADMAP.md`)
 
+- **Web browser cart** ([`design/web-browser-cart.md`](../design/web-browser-cart.md)): design study only (HTML without JavaScript, poly.pizza as first site, 5 stages); no code yet; waits for the owner's answers Q1-Q6.
 - **Pi tests from the PC** ([`design/pi-test.md`](../design/pi-test.md)): R-NET3 a limited test token (R-NET1 `err`, R-NET2 screenshot via ops `T`/`G` and R-NET5 bridge `status`/`freeze`/`reboot`/`--detach` are done; the test on the real Pi is the owner's). To plan with `bm-planner` (kernel change, branch `claude/net-test-*`).
 - **Bridge tools ported** (`line` allowlist with `crc`, password from `BM_PASSWORD_FILE`, `--board pi|zero2|rgb30`, `easy_install.sh bridge [profile]`, monitor `crc`): run `tests/net/check_bm_net_config.py` and `tests/net/check_pi_bridge_board.py` in WSL (Unix sockets); add `check_pi_bridge_board.py` to `make test-net`; build the Pi kernel with the monitor `crc` command (not built yet) and run `test_monitor_crc` in `tests/qemu_test.py`; check `crc` and `--board` on the real Pi and RGB30 (not verified on hardware). Decide whether `stack` joins `LINE_CMDS` in `tools/pi_bridge.py`.
 - **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet.
