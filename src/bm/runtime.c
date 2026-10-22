@@ -18,6 +18,7 @@
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "fs/fat.h"
+#include "fs/sdlock.h"
 #include "vid.h"
 #include "rec.h"
 #include "kernel/config.h"
@@ -51,6 +52,7 @@
 #include "ai/lua_ai.h"
 #include "ai/net.h"
 #include "net/cartnet.h"
+#include "webfile.h"
 #include "webget.h"
 #include "webimg.h"
 #include "webpolicy.h"
@@ -3707,7 +3709,7 @@ static int l_save(lua_State *L)
     char name[16];
     slot_name(slot, name);
     rec_note_game_io();                 /* the recorder leaves the card to the save */
-    if (fat_mkdirs(SAVE_DIR) != 0 || fat_write_file(SAVE_DIR, name, sb.p, sb.n) != 0) {
+    if (sd_write_file("save", SAVE_DIR, name, sb.p, sb.n) != 0) {
         lua_pushboolean(L, 0);
         lua_pushstring(L, fat_error());
         return 2;
@@ -4003,7 +4005,7 @@ static int l_doc_write(lua_State *L)
         lua_pushstring(L, "more than 4 MiB");
         return 2;
     }
-    if (fat_mkdirs(DOCS_DIR) != 0 || fat_write_file(DOCS_DIR, name, data, len) != 0) {
+    if (sd_write_file("doc", DOCS_DIR, name, data, len) != 0) {
         lua_pushnil(L);
         lua_pushstring(L, fat_error());
         return 2;
@@ -4041,13 +4043,20 @@ static int web_nil(lua_State *L, const char *why)
     return 2;
 }
 
-/* web_get(url, [{max = bytes, timeout = ms}]) -> id, or nil and why. https only. */
+/* web_get(url, [{max = bytes, timeout = ms, resume = "NAME.EXT"}]) -> id, or nil and why. https only.
+ * resume: a bare 8.3 name in bm/web; a request that failed or was cancelled leaves NAME.PRT there
+ * and the next web_get for the same address with the same resume name asks the server for the rest. */
 static int l_web_get(lua_State *L)
 {
     const char *url = luaL_checkstring(L, 1);
     size_t cap = web_cap_bytes(config_get("web_max_kib"), WEB_MAX_KIB_DEFAULT, WEB_MAX_KIB_LIMIT);
     uint32_t timeout = 15000;
+    char resume[40] = "";
     if (lua_istable(L, 2)) {
+        lua_getfield(L, 2, "resume");
+        if (lua_type(L, -1) == LUA_TSTRING)
+            snprintf(resume, sizeof resume, "%s", lua_tostring(L, -1));
+        lua_pop(L, 1);
         lua_getfield(L, 2, "max");
         if (lua_isnumber(L, -1) && lua_tonumber(L, -1) >= 1 && (lua_Number)cap > lua_tonumber(L, -1))
             cap = (size_t)lua_tonumber(L, -1);      /* a cartridge asks for less, never more */
@@ -4065,7 +4074,7 @@ static int l_web_get(lua_State *L)
         return web_nil(L, "no network");
     if (!perm_allowed(PERM_NET))
         return web_nil(L, "the player did not allow this game the network");
-    const int id = web_start(url, cap, timeout, err, sizeof err);
+    const int id = web_start_resume(url, cap, timeout, resume[0] ? resume : NULL, err, sizeof err);
     if (id < 0)
         return web_nil(L, err);
     lua_pushinteger(L, id);
@@ -4123,6 +4132,10 @@ static int l_web_info(lua_State *L)
     lua_setfield(L, -2, "url");
     lua_pushinteger(L, (lua_Integer)r->size);
     lua_setfield(L, -2, "size");
+    if (r->resumed) {
+        lua_pushinteger(L, (lua_Integer)r->resumed);
+        lua_setfield(L, -2, "resumed");         /* bytes that came from the part file */
+    }
     if (r->error[0]) {
         lua_pushstring(L, r->error);
         lua_setfield(L, -2, "error");
@@ -4214,11 +4227,14 @@ static int l_image_load(lua_State *L)
     return 1;
 }
 
-/* file_write(name, bytes_or_id) -> true and the path ("bm/web/NAME.EXT"), or nil and why.
+/* file_write(name, bytes_or_id, [async]) -> true and the path ("bm/web/NAME.EXT"), or nil and why.
  * Writes a file in bm/web on the SD card (made if it is not there): an 8.3 name, no other
  * folder, never .bm, .bme or .b16, at most file_write_max_kib (8 MiB) and 128 files in the
- * folder. A name that is there is replaced. It waits for the card: a big file stops the
- * frame for the time of the write. One SD writer at a time (fat_writing()). */
+ * folder. A name that is there is replaced. Without async the call waits for the card: a big
+ * file stops the frame for the time of the write. With async = true the data is copied and
+ * queued: the call returns at once with true, and the file goes to the card in pieces while the
+ * cartridge polls (web_poll, file_state, about 3-4 ms each); file_state(name) says when. One
+ * SD writer at a time (sdlock.h): another writer pauses the queued one, which starts again. */
 static int l_file_write(lua_State *L)
 {
     char name[13], err[96];
@@ -4230,34 +4246,36 @@ static int l_file_write(lua_State *L)
     if (!data)
         return web_nil(L, why);
     const size_t cap = web_cap_bytes(config_get("file_write_max_kib"), FILE_MAX_KIB_DEFAULT, FILE_MAX_KIB_LIMIT);
-    if (len > cap)
-        return web_nil(L, "the file is over the cap (file_write_max_kib in bm/config.txt)");
-    if (fat_writing())
-        return web_nil(L, "the SD card is busy writing: try again");
+    const int rc = lua_toboolean(L, 3) ? webfile_queue(name, data, len, cap, err, sizeof err)
+                                       : webfile_write(name, data, len, cap, err, sizeof err);
+    if (rc != 0)
+        return web_nil(L, err);
     char path[32];
     ksnprintf(path, sizeof path, "%s/%s", WEB_FILES_DIR, name);
-    fat_entry_t e;
-    const int there = fat_find(path, &e) == 0;
-    if (there && e.is_dir)
-        return web_nil(L, "that name is a folder");
-    if (!there) {
-        int files = 0;
-        fat_dir_t d;
-        if (fat_opendir(&d, WEB_FILES_DIR) == 0)
-            while (fat_readdir(&d, &e) > 0)
-                files++;
-        if (files >= FILE_MAX_FILES)
-            return web_nil(L, "the bm/web folder has 128 files already");
-    }
-    int ok;
-    if (there)
-        ok = fat_replace(path, data, len) == 0;
-    else
-        ok = fat_mkdirs(WEB_FILES_DIR) == 0 && fat_write_file(WEB_FILES_DIR, name, data, len) == 0;
-    if (!ok)
-        return web_nil(L, fat_error());
     lua_pushboolean(L, 1);
     lua_pushstring(L, path + 1);
+    return 2;
+}
+
+/* file_state(name) -> "queued", "writing" (and the bytes on the card), "done" (and the size) or
+ * "error" (and why) for the last async file_write of that name; nil if there is none. It also
+ * works the queue for about 3 ms. */
+static int l_file_state(lua_State *L)
+{
+    char name[13], err[96] = "";
+    if (web_file_name(luaL_checkstring(L, 1), name, err, sizeof err) != 0)
+        return web_nil(L, err);
+    webfile_pump(3000);
+    size_t done = 0;
+    static const char *const names[] = { "", "queued", "writing", "done", "error" };
+    const wf_state_t st = webfile_state(name, err, sizeof err, &done);
+    if (st == WF_NONE)
+        return web_nil(L, "no such write");
+    lua_pushstring(L, names[st]);
+    if (st == WF_ERROR)
+        lua_pushstring(L, err);
+    else
+        lua_pushinteger(L, (lua_Integer)done);
     return 2;
 }
 
@@ -5395,7 +5413,7 @@ static const luaL_Reg api[] = {
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "web_get", l_web_get }, { "web_poll", l_web_poll }, { "web_info", l_web_info }, { "web_body", l_web_body },
-    { "web_cancel", l_web_cancel }, { "image_load", l_image_load }, { "file_write", l_file_write },
+    { "web_cancel", l_web_cancel }, { "image_load", l_image_load }, { "file_write", l_file_write }, { "file_state", l_file_state },
     { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
     { "doc_list", l_doc_list }, { "doc_read", l_doc_read }, { "doc_write", l_doc_write }, { "doc_delete", l_doc_delete },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },

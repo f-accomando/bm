@@ -81,10 +81,11 @@ class H(http.server.BaseHTTPRequestHandler):
         return TOKENS.get(auth[7:]) if auth.startswith("Bearer ") else None
 
     def body(self):
-        n = int(self.headers.get("Content-Length", 0))
-        return json.loads(self.rfile.read(n) or b"{}")
+        return json.loads(self.raw or b"{}")
 
     def route(self, method):
+        # the whole request body is read first: the client keeps the connection (keep-alive)
+        self.raw = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         W.calls.append((method, self.path))
         login = self.user()
         if not login:

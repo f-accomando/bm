@@ -206,7 +206,7 @@ static int fetch(const char *rel, size_t max, size_t expect, uint32_t *got,
     sink_t s = { NULL, 0, 0, max, got };
     if (expect && (s.buf = malloc(expect)) != NULL)
         s.cap = expect;
-    http_req_t req = { .timeout_ms = 15000 };
+    http_req_t req = { .timeout_ms = 15000, .keep_alive = 1 };
     static http_info_t info;
     int st = http_request(url, &req, sink, &s, &info);
     if (st == 200 && !info.error[0]) {

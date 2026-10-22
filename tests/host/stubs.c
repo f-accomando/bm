@@ -700,3 +700,71 @@ web_state_t web_poll(int id) { (void)id; return WEB_FREE; }
 const web_req_t *web_find(int id) { (void)id; return NULL; }
 void web_cancel(int id) { (void)id; }
 void web_reset(void) {}
+int web_start_resume(const char *url, size_t max, uint32_t timeout_ms, const char *stem, char *err, size_t en)
+{
+    (void)stem;
+    return web_start(url, max, timeout_ms, err, en);
+}
+
+/* file_write (src/bm/webfile.c) queues in a fiber: bmhost writes at once, the host folder is the card */
+#include "webfile.h"
+#include "webpolicy.h"
+#include "fs/sdlock.h"
+static wf_state_t host_wf_state;
+static char host_wf_name[13], host_wf_err[96];
+int webfile_write(const char *name, const uint8_t *data, size_t len, size_t cap, char *err, size_t en)
+{
+    if (len > cap) {
+        snprintf(err, en, "the file is over the cap (file_write_max_kib in bm/config.txt)");
+        return -1;
+    }
+    char path[32];
+    snprintf(path, sizeof path, "%s/%s", WEB_FILES_DIR, name);
+    fat_entry_t e;
+    const int there = fat_find(path, &e) == 0;
+    if (there && e.is_dir) {
+        snprintf(err, en, "that name is a folder");
+        return -1;
+    }
+    if (!there) {
+        int files = 0;
+        fat_dir_t d;
+        if (fat_opendir(&d, WEB_FILES_DIR) == 0)
+            while (fat_readdir(&d, &e) > 0)
+                files++;
+        if (files >= FILE_MAX_FILES) {
+            snprintf(err, en, "the bm/web folder has 128 files already");
+            return -1;
+        }
+    }
+    const int ok = there ? fat_replace(path, data, len) == 0
+                         : fat_mkdirs(WEB_FILES_DIR) == 0 && fat_write_file(WEB_FILES_DIR, name, data, len) == 0;
+    if (!ok)
+        snprintf(err, en, "%s", fat_error());
+    return ok ? 0 : -1;
+}
+int webfile_queue(const char *name, const uint8_t *data, size_t len, size_t cap, char *err, size_t en)
+{
+    const int rc = webfile_write(name, data, len, cap, host_wf_err, sizeof host_wf_err);
+    snprintf(host_wf_name, sizeof host_wf_name, "%s", name);
+    host_wf_state = rc ? WF_ERROR : WF_DONE;
+    if (rc)
+        snprintf(err, en, "%s", host_wf_err);
+    return 0;
+}
+int webfile_pump(uint32_t budget_us) { (void)budget_us; return 0; }
+wf_state_t webfile_state(const char *name, char *err, size_t en, size_t *done)
+{
+    if (strcmp(name, host_wf_name) != 0)
+        return WF_NONE;
+    if (done)
+        *done = 0;
+    if (host_wf_state == WF_ERROR)
+        snprintf(err, en, "%s", host_wf_err);
+    return host_wf_state;
+}
+int sd_write_file(const char *who, const char *dir, const char *name, const void *data, size_t len)
+{
+    (void)who;
+    return fat_mkdirs(dir) == 0 && fat_write_file(dir, name, data, len) == 0 ? 0 : -1;
+}

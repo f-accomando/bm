@@ -32,6 +32,7 @@ today the kernel version is a commit hash; revision 1 is the baseline of that da
 | `docs/spec/specs.toml` | the revisions and the items of the specification, each with its revision, status (`implemented`, `partial`, `planned`), files and platforms |
 | `docs/spec/config-keys.toml` | every key of `bm/config.txt` the kernel reads (60 keys and 3 patterns): scope, values, default, the Settings row |
 | `docs/spec/platforms.toml` | the two platforms and the **capabilities** in which they really differ |
+| `docs/spec/compat-policy.toml` | per kernel, whether a cartridge shows, greys or hides (editable rows); read by `scripts/bm_weight.py`, see [devkit-weight](../progress/devkit-weight.md) |
 | `docs/spec/divergences.toml` | every known difference between the kernels, with its cause: `hardware`, `history`, `todo` or `unknown` |
 | `docs/spec/known.toml` | the differences found by the automatic rules that are accepted for now, with a reason |
 | `scripts/consistency.py` | the rules, run by `make test-consistency` |
