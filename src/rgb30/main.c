@@ -61,6 +61,7 @@ static framebuffer_t fb;
 
 static void heartbeat(uint32_t tick)
 {
+    fiber_tick();                               /* fiber_over: a fiber past its slice (fiber.h) */
     ledstate_tick(tick * (1000 / TICK_HZ));     /* green on, or a slow blink (ledstate.h) */
     if (tick % (TICK_HZ / 10) == 0)
         crumb_tick(tick * (1000 / TICK_HZ));

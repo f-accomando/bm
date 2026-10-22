@@ -80,3 +80,23 @@ Raw reports: branch `reports`, `reports/unknown/`. Source commits: 61dc9f73, 935
   74.6 / 74.6, match 32.2 / 32.1 and 33.8 / 33.3, mix 26.1 / 26.1 and 26.3 / 25.0 (ratio 1.00-1.05).
 - Fade (`g16_fade_apply`, cart `FADE.BM`): 16.55 ms a fade, 1542 fades. The CRC sample read 0 (`pget`), so the
   fade result is not proven. No QPU comparison yet.
+
+## Waiting for the user: first QPU run on the Pi
+
+The QPU check is behind the config key `gpu3d_qpu` (default off). With the key off, nothing changes: no `qpu_init` call and no new work. Nothing here is verified on hardware.
+
+1. Edit `bm/config.txt` on the SD card. Add the line `gpu3d_qpu=1`.
+2. Put the card in the Pi Zero W. Do not use a serial connection.
+3. Open Dev > GPU test (monitor key `g`). Read the new step `QPU programs (gpu3d_qpu=1)` after the speed steps.
+   - `QPU PASS` = both programs gave the ARM result.
+   - `QPU SKIP` = `qpu_init` failed, the probe turned the programs off, or a run timed out. The reason follows the line.
+   - `QPU FAIL` = a QPU result differs from the ARM result. The line names the first word or pixel.
+4. Open Dev > 3D Bench and run it. The log has one `QPU ...` line after the ramps. The saved report has one `qpu row (gpu3d_qpu=1)` line before the score.
+5. Copy back: a photo of the GPU test lines (or the console text) and the new report in `bm/bench` (the console also sends it to the `reports` branch). The times are the numbers to read: ARM us and QPU us for 1024 particles and for 1024 pixels of fade.
+6. Play Yharnam (it lights by levels) with `gpu3d_qpu=1`. The darkness (`dark_end()`) now runs on the QPUs. Compare the look with `gpu3d_qpu=0`: it must be the same picture. Read the fps in the performance overlay (F11 or the dev kit) for both settings.
+7. Compare the speed with the ARM fade. Each `dark_end()` call on the QPUs cleans and invalidates the data cache twice and copies the picture (460 KB at 640x360). The ARM fade takes 16.55 ms (see above). The QPU path is useful only if its time per fade is lower. Read the ARM and QPU times from the GPU test line and from the fps overlay. If the QPU time is higher, set `gpu3d_qpu=0`.
+8. Read the end of the QPU line after the game. `fade: ARM (alignment)` = the console page or a fade table was not on a 64-byte line, so the ARM did the fade. `fade: ARM while a 3D job ran` = a 3D job was running for some calls (the ARM did them, the QPU path stays on). Note both.
+9. If the picture is wrong or the game stalls, note it and set `gpu3d_qpu=0`. After a failed QPU run the game goes on with the ARM fade by itself.
+10. Set `gpu3d_qpu=0` again (or delete the line) after the run.
+
+If the Pi freezes, the last line on the screen shows the step that stopped. Each QPU run has a timeout of 50 ms, so a freeze means a hang outside the QPU code (for example the mailbox call in `qpu_init`).

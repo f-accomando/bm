@@ -22,6 +22,7 @@
 #include "drivers/timer.h"
 #include "fs/fat.h"
 #include "kernel/config.h"
+#include "kernel/stalls.h"
 #include "lib/printf.h"
 #include "net.h"
 
@@ -208,6 +209,9 @@ tls_t *tls_open(const char *host, uint16_t port, char *err, size_t err_len)
     mbedtls_ssl_conf_ca_chain(&conf, &roots, NULL);
     mbedtls_ssl_set_bio(&t->ssl, t, bio_send, bio_recv, NULL);
     mbedtls_ssl_set_verify(&t->ssl, note_chain, t);
+#ifndef BM_HOST_TEST
+    const uint32_t hs_t0 = timer_ticks();
+#endif
     while ((r = mbedtls_ssl_handshake(&t->ssl)) != 0) {
         if (r == MBEDTLS_ERR_SSL_WANT_READ || r == MBEDTLS_ERR_SSL_WANT_WRITE)
             continue;
@@ -227,6 +231,9 @@ tls_t *tls_open(const char *host, uint16_t port, char *err, size_t err_len)
         tls_close(t);
         return NULL;
     }
+#ifndef BM_HOST_TEST
+    stall_note(&stall_tls, hs_t0, 0);
+#endif
     return t;
 }
 

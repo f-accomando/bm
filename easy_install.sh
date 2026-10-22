@@ -27,6 +27,10 @@
 #                           settings shown (tokens and passwords hidden), keys set
 #                           (github_token for the reports, WiFi...) or removed
 #   8   [SD] config         the same on the card in the reader
+#   9  [NET] bridge         tools/pi_bridge.py for a saved profile (its board: pi,
+#                           zero2 or rgb30): you type the password, NET and AGY
+#                           then run tools/pi.py without seeing it;
+#                           ./easy_install.sh bridge [profile]
 #   r  release              a new version on GitHub (scripts/release.sh --no-sd:
 #                           the tag, the CI tests it and publishes it); the
 #                           consoles take it from Settings > Updates
@@ -617,6 +621,16 @@ job_monitor() {
     save_conf
 }
 
+# The bridge for NET and AGY: pi_bridge.py asks the password once, never this script (the saved code stays unused)
+job_bridge() {
+    PICK_Q="Which one to open the bridge for"
+    pick_profile "${1:-}" || return 0
+    local p=${PROFILES[$PICK]} name ip board
+    name=$(profile_field "$p" 0); ip=$(profile_field "$p" 1); board=$(profile_field "$p" 3)
+    say "The bridge to $name ($ip, $(board_name "$board")): type the console password, then NET and AGY use tools/pi.py. Ctrl-C stops it."
+    python3 tools/pi_bridge.py --board "${board:-pi}" "$ip"
+}
+
 # ---------------------------------------------------------------- a console's settings
 # bm/config.txt: "key=value" lines (src/kernel/config.c); the ones you may want
 config_keys() {
@@ -1114,6 +1128,7 @@ case ${1:-} in
     net) job_net "${2:-}" ;;
     send) job_send "${2:-}" "${3:-}"; exit 0 ;;
     monitor) job_monitor "${2:-}"; exit 0 ;;
+    bridge) job_bridge "${2:-}"; exit 0 ;;
     line) [ -n "${2:-}" ] || die "line \"gpu; b3d; send\" [profile]: the line is missing"
           job_monitor "${3:-}" "$2"; exit 0 ;;
     bench) job_monitor "${3:-}" "set overbit_bench=${2:-auto}; play overbit; send"; exit 0 ;;
@@ -1123,7 +1138,7 @@ case ${1:-} in
     rollback) job_rollback "${2:-}" ;;
     market) job_market; exit 0 ;;
     "") ;;
-    *) die "unknown: $1 (kernel, install, image, net [profile], bench [FLAGS] [profile], send FILE [profile], monitor [profile], \
+    *) die "unknown: $1 (kernel, install, image, net [profile], bench [FLAGS] [profile], send FILE [profile], monitor [profile], bridge [profile], \
 line \"LINE\" [profile], config [profile], config-sd, release [vX.Y.Z], rollback [vX.Y.Z], market, or nothing for the menu)" ;;
 esac
 
@@ -1138,6 +1153,7 @@ while :; do
   6  [NET] monitor         (a console's monitor here: its keys and commands; Ctrl-Q leaves)
   7  [NET] config          (a console's bm/config.txt: shown, keys set or removed)
   8   [SD] config          (bm/config.txt on the card in the reader)
+  9  [NET] bridge          (pi_bridge.py for a console's profile: you type the password, NET and AGY use pi.py)
   r  release               (a new version on GitHub: release.sh --no-sd; the consoles update)
   o  older release         (an older signed release on the card: checked first, old kernels in bm/backup)
   m  market                (the games in the bm Market: market.sh; the first time its setup)
@@ -1155,12 +1171,13 @@ MENU
         6) job_monitor ;;
         7) job_config ;;
         8) job_config_sd ;;
+        9) job_bridge ;;
         r|R) job_release ;;
         o|O) job_rollback ;;
         m|M) job_market ;;
         b|B) change_branch; BRANCH=$(git rev-parse --abbrev-ref HEAD); echo "  branch      $(branch_line)" ;;
         p|P) change_paths ;;
         q|Q|"") exit 0 ;;
-        *) warn "1 to 8, r, o, m, b, p or q" ;;
+        *) warn "1 to 9, r, o, m, b, p or q" ;;
     esac
 done

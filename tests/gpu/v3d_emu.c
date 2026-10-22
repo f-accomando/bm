@@ -27,6 +27,7 @@
 #include <string.h>
 
 int emu_red_a = 1, emu_tex_swap = 0;
+int emu_qpu_busy = 0;
 int emu_qpu = 0;                        /* QPU programs: 0 run, 1 the QPUs do not answer, 2 they store wrong data */
 int emu_tformat = 0;                    /* the order of the 1 KiB subtiles of a T-format tile */
 int emu_t16_alpha = 0;                  /* bm3d 7.2: alpha's bits in RGBA5551 / RGBA4444 (v3d_emu.h) */
@@ -1603,6 +1604,10 @@ const char *v3d_qpu_status(void)
 int v3d_qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us)
 {
     (void)timeout_us;
+    if (emu_qpu_busy) {
+        snprintf(qpu_why, sizeof qpu_why, "a 3D job is running");
+        return -2;
+    }
     if (emu_qpu == 1) {
         snprintf(qpu_why, sizeof qpu_why, "timeout");
         return -1;

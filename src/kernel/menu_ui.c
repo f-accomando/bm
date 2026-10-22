@@ -4,6 +4,7 @@
 #include "icons.h"
 #include "pointer.h"
 #include "prompts.h"
+#include "stalls.h"
 #include "syskeys.h"
 #include "bm/bm.h"
 #include "drivers/sd.h"
@@ -1315,6 +1316,33 @@ static void enlarge(framebuffer_t *fb)
     }
 }
 
+/* the long calls that hold the CPU (stalls.h), a line when one ran in the window: count,
+ * the last and the longest in ms; the hash adds the KiB. Starts counting again. */
+static void stall_print(const char *name, stall_t *s, char *buf, size_t n, size_t *k)
+{
+    if (!s->n)
+        return;
+    if (*k < n)
+        *k += (size_t)ksnprintf(buf + *k, n - *k, "%s%s %lux last %lu.%lu worst %lu.%lu ms", *k ? ", " : "", name,
+                                (unsigned long)s->n, (unsigned long)(s->last / 1000),
+                                (unsigned long)(s->last / 100 % 10), (unsigned long)(s->worst / 1000),
+                                (unsigned long)(s->worst / 100 % 10));
+    if (s->bytes && *k < n)
+        *k += (size_t)ksnprintf(buf + *k, n - *k, " (%lu KiB)", (unsigned long)(s->bytes / 1024));
+    *s = (stall_t){0};
+}
+
+static void stalls_report(void)
+{
+    char line[160];
+    size_t k = 0;
+    stall_print("tls handshake", &stall_tls, line, sizeof line, &k);
+    stall_print("verify", &stall_verify, line, sizeof line, &k);
+    stall_print("file hash", &stall_hash, line, sizeof line, &k);
+    if (k)
+        kprintf("menu stalls: %s\n", line);
+}
+
 void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
 {
     if (!ready)
@@ -1647,7 +1675,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     else if (slack < idle_slack)
         idle_slack = slack;
     if (++idle_frames >= IDLE_FRAMES) {
-        char jobs[256], sd[48] = "";
+        char jobs[384], sd[48] = "";
         const int ran = fiber_jobs_report(jobs, sizeof jobs);
         uint32_t retries, timeouts;
         sd_counters(&retries, &timeouts);
@@ -1661,6 +1689,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
                     "min slack %d us, paced %d%s\n", idle_gave, idle_frames, (unsigned long)(idle_used / 1000),
                     (unsigned long)(idle_offered / 1000), (unsigned long)(idle_over / 1000),
                     (unsigned long)(idle_over / 100 % 10), ran ? jobs : "no job", (int)idle_slack, paced, sd);
+        stalls_report();
         idle_frames = idle_gave = 0;
         idle_offered = idle_used = idle_over = 0;
         idle_slack = SLACK_NONE;

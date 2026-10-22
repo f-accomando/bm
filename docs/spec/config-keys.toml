@@ -246,6 +246,15 @@ settings = "Settings > Screen and sound > 3D frame shown"
 read_in = "src/bm/runtime.c:1889"
 
 [[key]]
+name = "gpu3d_qpu"
+scope = "pi"
+values = "1 = the GPU test (g) and the 3D Bench run the QPU programs against the ARM versions, and the games' dark_end() (Yharnam) runs on the QPUs; anything else = off"
+default = "off (no qpu_init call, no new work)"
+meaning = "QPU check: a step in the GPU test and a row in the 3D Bench; the darkness levels of dark_end() on the QPUs with the ARM as fallback. For the first run on the Pi."
+settings = ""
+read_in = "src/kernel/gputest.c:1232"
+
+[[key]]
 name = "gpu3d_queue"
 scope = "pi"
 values = "1 = one job queued, 2 = two jobs in flight; anything else = 0 (off)"
