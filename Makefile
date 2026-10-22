@@ -660,7 +660,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
         test-fat test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
-        release disasm wav test-studio test-prompts test-docs test-api test-hyp test-zero2 \
+        release disasm wav test-studio test-prompts test-docs test-api test-crumbs test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
         test-catalog test-github test-lan market-seed test-host test-qemu test-vid
 
@@ -847,7 +847,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-controls test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
-      test-studio test-prompts test-docs test-api test-vid $(if $(K7),test-hyp)
+      test-studio test-prompts test-docs test-api test-crumbs test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
@@ -1197,6 +1197,14 @@ $(BUILD)/host/test_prompts: tests/ui/test_prompts.c src/kernel/prompts.c src/ker
 test-prompts: $(BUILD)/host/test_prompts
 	@mkdir -p $(BUILD)/prompts
 	$< $(BUILD)/prompts
+
+# The crash record (src/kernel/crumbs.c): the old record is not written before crumbs_boot()
+test-crumbs: $(BUILD)/host/test_crumbs
+	$(BUILD)/host/test_crumbs
+
+$(BUILD)/host/test_crumbs: tests/kernel/test_crumbs.c src/kernel/crumbs.c src/kernel/crumbs.h src/lib/printf.c src/lib/printf.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/kernel/test_crumbs.c src/lib/printf.c
 
 # The API list of the code editor: api.tsv is made from docs/api, the lint and
 # the generator have unit tests
