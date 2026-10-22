@@ -32,6 +32,9 @@ Friday afternoon:
 - API-3: triangle throughput. Decide the default of `gpu3d_queue` from the benchmark numbers.
 - API-4: VID-REC MJPEG or RLE encoder for 30 fps.
 
+Friday after the Mali device runs (done by the user through the RGB30 bridge, one session only on the RGB30):
+- Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
+
 Friday evening:
 - SYS-8: first stage of single-bm (compat header bytes 120..127, remove the 8 MiB limits).
 - Clean up branches and worktrees.
@@ -48,17 +51,18 @@ Friday evening:
 - Decided 22 Oct, to implement (design in `docs/design/single-bm-and-adaptive-screen.md`): old `.b16` = Pi + RGB30; old `.bm` = Pi only; grey not hidden, start after confirm; audio max 8M; pad mouse; bars G1; 720x405 mode; `.bm` for all.
 
 ## Queue (development, in order)
-2. Remote branches left: `api-particles3d`, `beta1-c4-ring2`, `beta1-c4-ring3`, `gpu3d-fade`, `stages3d-budget`, `stages3d-qemu-test`, `v3d-compact-tex-attrs`, `reports`, `sync-handshake`. The Mali work is in `bm-core` (sheet `docs/progress/graphics-mali.md`, `Open work`: the device runs).
-3. Old work in the archive: 23 old unmerged branches are in `C:\Users\Utente\Documents\GitHub\bm-archive\branches-2026-10-22.bundle` and are deleted from the repository. Port their content on demand from the bundle: budget cart and `perf_table.py`, RGB30 cover job D10, xmenu close game, RGB30 QEMU freeze and delete tests, bench-vs-etc1 VSE column, 3D budget table, PROP-1 and PROP-2 docs, gfx-backends rule.
-5. Multitasking stages 3 (SD writer lock; `file_write` is synchronous and stops the frame until then), 4 (keep-alive), 5 (Range resume `.part`).
-6. Cel shader stage 3 (V3D vertex programs) and stage 4 (outline by inverted hull); Mali uses the ARM path.
-8. Single-bm implementation by the stages of the design: remove the 8 MiB limits (and palette/audio limits), per-system input chips, aspect modes, compat header in bytes 120..127 (change the `memset` in `project.c:143,178,225`).
-9. VID-REC next slices: MJPEG or RLE encoder for 30 fps (SD write is 2.50 MB/s, raw is a NO GO), real 8-bit palette, audio.
-10a. Web player (WEB-1): stage 2 needs a wasm toolchain (emsdk, or `clang` and `lld` in WSL): the user decides. Plan in `docs/design/bm-web-player.md`.
-10. Triangle throughput: stage 1 `gpu3d_queue=1` default after the user's Pi runs. `gpu3d_attr` stays off (decided 22 Oct). The V3D async proposal is decided "skip" (12 Oct, `docs/progress/v3d-notes.md`: interrupts, triple buffering, `v3d_async.c`). `queue=2` and `gpu3d_later` replaced it. Chain jobs (CT0/CT1) only if a measurement shows the GPU idle between jobs.
-11. Evaluate the security findings of `docs/OS-CAPABILITIES.md`: `lua_load(..., NULL)` at `runtime.c:9438` may accept bytecode; default net password is 6 digits from `srand(timer_ticks())` (`netcon.c:183`), plaintext on TCP 3334; carts can `ls` the SD and `cart_read` any `.bm` without a prompt; FAT dates fixed at 2026-01-01 (`fat.c:682`); docs disagree (`docs/progress/b16.md:16` says 4 MiB heap, code 64 MiB; RGB30 menu framebuffer 360x360).
-12. QPU step 4: re-run the `v3d_init` register block after a QPU reset; lock for `v3d_qpu_run` (needs a Pi run).
-13. R41 and R42 only if the R40 numbers (`stat(17)`, `stat(18)`) show a gain.
+1. Remote branches left: `api-particles3d`, `beta1-c4-ring2`, `beta1-c4-ring3`, `gpu3d-fade`, `stages3d-budget`, `stages3d-qemu-test`, `v3d-compact-tex-attrs`, `reports`, `sync-handshake`. The Mali work is in `bm-core` (sheet `docs/progress/graphics-mali.md`, `Open work`: the device runs).
+2. Old work in the archive: 23 old unmerged branches are in `C:\Users\Utente\Documents\GitHub\bm-archive\branches-2026-10-22.bundle` and are deleted from the repository. Port their content on demand from the bundle: budget cart and `perf_table.py`, RGB30 cover job D10, xmenu close game, RGB30 QEMU freeze and delete tests, bench-vs-etc1 VSE column, 3D budget table, PROP-1 and PROP-2 docs, gfx-backends rule.
+3. Multitasking stages 3 (SD writer lock; `file_write` is synchronous and stops the frame until then), 4 (keep-alive), 5 (Range resume `.part`).
+4. Cel shader stage 3 (V3D vertex programs) and stage 4 (outline by inverted hull); Mali uses the ARM path.
+5. Single-bm implementation by the stages of the design: remove the 8 MiB limits (and palette/audio limits), per-system input chips, aspect modes, compat header in bytes 120..127 (change the `memset` in `project.c:143,178,225`).
+6. VID-REC next slices: MJPEG or RLE encoder for 30 fps (SD write is 2.50 MB/s, raw is a NO GO), real 8-bit palette, audio.
+7. Web player (WEB-1): stage 2 needs a wasm toolchain (emsdk, or `clang` and `lld` in WSL): the user decides. Plan in `docs/design/bm-web-player.md`.
+8. Triangle throughput: stage 1 `gpu3d_queue=1` default after the user's Pi runs. `gpu3d_attr` stays off (decided 22 Oct). The V3D async proposal is decided "skip" (12 Oct, `docs/progress/v3d-notes.md`: interrupts, triple buffering, `v3d_async.c`). `queue=2` and `gpu3d_later` replaced it. Chain jobs (CT0/CT1) only if a measurement shows the GPU idle between jobs.
+9. Evaluate the security findings of `docs/OS-CAPABILITIES.md`: `lua_load(..., NULL)` at `runtime.c:9438` may accept bytecode; default net password is 6 digits from `srand(timer_ticks())` (`netcon.c:183`), plaintext on TCP 3334; carts can `ls` the SD and `cart_read` any `.bm` without a prompt; FAT dates fixed at 2026-01-01 (`fat.c:682`); docs disagree (`docs/progress/b16.md:16` says 4 MiB heap, code 64 MiB; RGB30 menu framebuffer 360x360).
+10. QPU step 4: re-run the `v3d_init` register block after a QPU reset; lock for `v3d_qpu_run` (needs a Pi run).
+11. R41 and R42 only if the R40 numbers (`stat(17)`, `stat(18)`) show a gain.
+12. Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
 
 ## Never delete
 `bm-core`, `reports`, `sync-handshake`, `claude/beta1-c4-ring2`, `claude/beta1-c4-ring3`, and the graphics branches below until their commits are ported or the user says go.
