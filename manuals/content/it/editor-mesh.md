@@ -29,6 +29,13 @@ footer: manuali bm - editor-mesh
 - **bm Animator** aggiunge scheletri e animazioni (la sezione ANIM). bm Mesh conserva lo scheletro di un modello: l'osso di ogni vertice nuovo è quello del vertice da cui viene, e ossa e animazioni restano quelle di bm Animator.
 - Nel gioco usi un modello con `model("name")`.
 
+## Quale editor per cosa
+
+- **bm Studio**: modelli statici. Oggetti, props ed edifici, fatti di blocchi e tile. La mappa 3D di un gioco si fa nella pagina mappa di bm SDK.
+- **bm Mesh**: modelli organici. Personaggi ed eroi, e tutta la modifica fine di vertici e triangoli.
+- **bm Animator**: rig e animazioni. Mette uno scheletro in un modello e lo muove. Non costruisce modelli.
+- bm Studio e bm Mesh scrivono la stessa sezione MESH, quindi un modello passa da un editor all'altro.
+
 ## I tre tipi di mesh
 
 L'elenco segna ogni mesh con una lettera.

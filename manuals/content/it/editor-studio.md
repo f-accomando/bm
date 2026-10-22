@@ -25,6 +25,13 @@ bm Studio costruisce modelli 3D con blocchi e tessere, direttamente sulla consol
 - **bm Pixel e lo sprite sheet.** Le texture delle facce sono pezzi dello sprite sheet del progetto. Lo disegna bm Pixel.
 - **bm SDK.** Il centro del progetto. Nella sua pagina F1 l'elenco *OPEN IN* ha bm Studio come numero 3, e il menu di bm Studio ha *Back to bm SDK* quando è stato aperto dall'SDK.
 
+## Quale editor per cosa
+
+- **bm Studio**: modelli statici. Oggetti, props ed edifici, fatti di blocchi e tile. La mappa 3D di un gioco si fa nella pagina mappa di bm SDK.
+- **bm Mesh**: modelli organici. Personaggi ed eroi, e tutta la modifica fine di vertici e triangoli.
+- **bm Animator**: rig e animazioni. Mette uno scheletro in un modello e lo muove. Non costruisce modelli.
+- bm Studio e bm Mesh scrivono la stessa sezione MESH, quindi un modello passa da un editor all'altro.
+
 ## Da sapere
 
 - bm Studio è una cartuccia inclusa nel kernel. La trovi nella scheda **Dev** del menu.
@@ -339,7 +346,7 @@ Se il conteggio supera 1200, la riga dice `heavy for 60 fps`. Riduci finché l'a
 
 - Circa 1200 triangoli in una scena è ciò che la console disegna a 60 fps. Un modello ridotto è il modo più economico per restare sotto.
 - Le celle del cursore vanno da -64 a 63 su ogni asse.
-- Un numero di vertici oltre il limite diventa rosso nel pannello, e oltre il limite il salvataggio fallisce: 4096 vertici (e 16384 triangoli).
+- Il pannello conta vertici e triangoli. Il salvataggio non ha un tetto di dimensione; resta solo il limite del formato di 65535 vertici per mesh.
 - Le facce con texture richiedono lo sprite sheet: le texture ne sono dei pezzi.
 - Usa spesso **F5**: salva e mostra il modello nel gioco.
 - Un gioco e un progetto non sono la stessa cosa: il menu mostra il percorso del file su cui lavori, quindi controlla che sia la copia `.BME` prima di proseguire.

@@ -63,6 +63,7 @@ Friday evening:
 9. R41 and R42 only if the R40 numbers (`stat(17)`, `stat(18)`) show a gain.
 10. Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
 11. Multitab (APP-8): one tab per Lua module of a `.bme` project in bm Code, shared with bm SDK and the other code editors (one component in bmui). Same `.bm` as today. Plan it with `bm-planner` first. See `docs/ROADMAP.md`.
+12. Modelling suite (APP-10, then APP-11, APP-12; plan in `docs/design/modelling-suite.md`). Start with `bm-planner` to split APP-10 into work orders. First steps: remove the save caps (`T.LIMIT_V`, `T.LIMIT_T`) and add the vertex and triangle counters; then the shared import function (with APP-9); then primitives, live X mirror, edge mode, snap. Host tests only until the done condition passes; hardware not verified.
 
 ## Open issues
 - The Pi froze once on `b3d tests=herotris` with all profiles in one line (8 profiles in one run). The user power-cycled the Pi. The same profiles run one at a time did not freeze. Cause unknown, no fix. Command: `b3d tests=herotris` (no profile named, so all 8 profiles in one line). To reproduce, run it again and note the profile that is running at the freeze.

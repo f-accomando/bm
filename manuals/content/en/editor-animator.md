@@ -31,6 +31,13 @@ footer: bm manuals - editor-animator
 - Models live in the MESH section of the cartridge, skeletons and animations in the ANIM section. bm Animator changes only those two sections (and the sprite sheet, when you put sprites in it).
 - The game uses the result with `model()` and `animate()`.
 
+## Which editor for what
+
+- **bm Studio**: static models. Objects, props and buildings, made of blocks and tiles. The 3D map of a game is made in the map page of bm SDK.
+- **bm Mesh**: organic models. Characters and heroes, and all fine editing of vertices and triangles.
+- **bm Animator**: rigs and animations. It puts a skeleton into a model and moves it. It does not build models.
+- bm Studio and bm Mesh write the same MESH section, so a model can go from one editor to the other.
+
 ## Good to know
 
 - The Pi Zero W has bm Animator. The kernel of the RGB30 does not have it: it does not offer the suite's programs.

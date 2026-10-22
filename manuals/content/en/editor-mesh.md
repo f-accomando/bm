@@ -29,6 +29,13 @@ footer: bm manuals - editor-mesh
 - **bm Animator** adds skeletons and animations (the ANIM section). bm Mesh keeps the skeleton of a model: the bone of each new vertex is the one of the vertex it comes from, and bones and animations stay those of bm Animator.
 - In the game you use a model with `model("name")`.
 
+## Which editor for what
+
+- **bm Studio**: static models. Objects, props and buildings, made of blocks and tiles. The 3D map of a game is made in the map page of bm SDK.
+- **bm Mesh**: organic models. Characters and heroes, and all fine editing of vertices and triangles.
+- **bm Animator**: rigs and animations. It puts a skeleton into a model and moves it. It does not build models.
+- bm Studio and bm Mesh write the same MESH section, so a model can go from one editor to the other.
+
 ## The three kinds of meshes
 
 The list marks each mesh with a letter.
