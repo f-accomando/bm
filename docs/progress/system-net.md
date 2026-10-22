@@ -30,7 +30,7 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   `bm_net.py --shot` (T then G), `--get`; `pi_test.py --shot`. Shared with the RGB30 but not
   yet proved there.
 - Monitor line commands (`src/kernel/monitor.c`: `:` prefix from menu/serial, `bm_net.py IP --line "..."`):
-  `gpu`, `b3d`, `play`, `set`, `save`, `render`, `room`, `log`, `err`, `send`, `reboot`.
+  `gpu`, `b3d`, `play`, `set`, `save`, `render`, `room`, `stack`, `log`, `err`, `send`, `reboot`.
   The `err` command (R-NET1) prints the last cartridge error (`err: <text>` or `err: none`,
   via `bm_last_error()`) and any suspended cartridge (`running: <title>`), allowing remote
   tests to distinguish a running/clean state from an execution halted with error.

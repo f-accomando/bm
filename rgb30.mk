@@ -47,6 +47,11 @@ COMMON  := $(ARCH) --specs=picolibc.specs $(SYSINC) -std=c11 -O2 -Wall -Wextra -
 CFLAGS   = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
            -Ithird_party/mbedtls/include -Ithird_party/lwip/src/include -Isrc/net \
            -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' $(WARN)
+# PI_O3_FILES: same knob as the Pi build (see Makefile); default empty, nothing changes.
+PI_O3_FILES ?=
+ifneq ($(strip $(PI_O3_FILES)),)
+$(patsubst %,$(BUILD)/k/%.o,$(PI_O3_FILES)): CFLAGS += -O3
+endif
 # -Wa,-I$(BUILD): the cartridges built here that bm_embed.S takes with .incbin
 ASFLAGS := $(ARCH) $(PLAT_DEF) $(CLEAN_DEFS) -g -Isrc -Isrc/rgb30 -Wa,-I$(BUILD)
 LDFLAGS := $(ARCH) --specs=picolibc.specs -nostartfiles -static -no-pie -Wl,--gc-sections \

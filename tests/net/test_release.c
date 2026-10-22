@@ -8,6 +8,7 @@
 
 #include "mbedtls/entropy.h"
 #include "mbedtls/platform_time.h"
+#include "mbedtls/sha256.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,6 +37,9 @@ static void check(int ok, const char *what)
     printf("%s %s\n", ok ? "ok  " : "FAIL", what);
     fails += !ok;
 }
+
+static int ticks;
+static void count_tick(void) { ticks++; }
 
 static char *slurp(const char *dir, const char *name, size_t *len)
 {
@@ -175,6 +179,29 @@ int main(int argc, char **argv)
             vok = 0;
         }
     check(vok, "versions: newer, same, older, development builds, bad tags");
+
+    /* a 6 MB file: hashed in pieces, the hook runs between them, the digest is the one-shot one */
+    {
+        const size_t big = 6u << 20;
+        uint8_t *buf = malloc(big);
+        for (size_t i = 0; i < big; i++)
+            buf[i] = (uint8_t)(i * 2654435761u >> 13);
+        release_file_t rf = { .size = big };
+        mbedtls_sha256(buf, big, rf.sha256, 0);
+        release_hash_tick = count_tick;
+        ticks = 0;
+        const int good = release_check_file(&rf, buf, big);
+        const int n = ticks;
+        buf[big / 2] ^= 1;
+        const int bad = release_check_file(&rf, buf, big);
+        const int shortlen = release_check_file(&rf, buf, big - 1);
+        release_hash_tick = NULL;
+        check(good == 0 && n > 1, "6 MB hash: same digest, yields between pieces");
+        printf("     yields in a 6 MB hash: %d\n", n);
+        check(bad == -1 && shortlen == -1 && release_check_file(&rf, buf, big) == -1,
+              "6 MB hash: a changed byte or a short file is refused");
+        free(buf);
+    }
 
     free(man);
     free(sig);
