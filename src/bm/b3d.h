@@ -57,6 +57,10 @@ typedef struct {
      * Ctrl+Esc, PS; src/kernel/syskeys.h), asked after every frame of the
      * ramps; NULL: it cannot be stopped */
     int (*stop)(void);
+    /* the QPU row (config key gpu3d_qpu=1, default off): writes one line of
+     * text (the QPU programs against the ARM versions); NULL: no row, and
+     * the bench does nothing more than it did before */
+    void (*qpu_row)(char *line, size_t n);
 } b3d_platform_t;
 
 /* runs the bench, then shows the pages until B3D_KEY_BACK (in quick mode,

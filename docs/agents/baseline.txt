@@ -1,0 +1,4 @@
+# baseline of docs/agents/ledger.txt, rows 9, last date 2026-10-15
+bm-coder|1|100.0|29819|70
+bm-planner|4|100.0|48608|168.5
+general-purpose|4|100.0|97664|733.5
