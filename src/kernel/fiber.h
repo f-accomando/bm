@@ -62,6 +62,7 @@ typedef struct {
     const char *name;           /* in fiber_jobs_report ("covers", "market"...) */
     uint32_t took, worst;       /* since that report: us run, and the most over its time */
     uint32_t stopped;           /* since that report: the longest fiber_job_stop, us */
+    uint32_t hw;                /* the most of the stack used so far, bytes (painted at the first start) */
 } fiber_job_t;
 
 /* Starts fn(arg) in j (it must not be busy). 0, or -1 without memory. */
@@ -72,8 +73,20 @@ int  fiber_job_run(fiber_job_t *j, uint32_t until);
 /* Asks it to stop and lets it end (its waits and reads fail at once). */
 void fiber_job_stop(fiber_job_t *j);
 
+/* Measurement (multitasking stage 1, no behavior change). The stack of a job is painted when
+ * it is allocated; fiber_jobs_report scans it (only then) for the most used, "stk 3.4/16K".
+ * The 1 kHz tick (fiber_tick, called from the board's tick hook) sets fiber_over when the
+ * running fiber is past its `until`; fiber_job_run logs "did not yield" for a slice that went
+ * FIBER_STALL_US over with the flag set, once for each new record of a job. */
+#define FIBER_STALL_US 5000
+extern volatile uint8_t fiber_over;
+void fiber_tick(void);
+/* Boot diagnostics: a job that runs 8 ms with no yield and a 2 KiB stack use; prints the
+ * "did not yield" line and "fiber selftest: ok" (0), or FAILED (1). */
+int  fiber_selftest(void);
+
 /* What the jobs took since the last call, for the menu's log line: "covers
- * 31 ms (+2.0), market 4 ms (+0.3, stop 120.5)": the time each ran in its
+ * 31 ms (+2.0, stk 3.4/16K), market 4 ms (+0.3, stk 9.0/128K, stop 120.5)": the time each ran in its
  * slices, and in brackets the most it went over a deadline, ms (a stall of
  * the menu: a TLS handshake, a hash, a cover decoded do not give the CPU
  * back), then the longest stop if one waited (fiber_job_stop: the menu
