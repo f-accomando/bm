@@ -120,9 +120,12 @@ void g16_blit565(g16_t *g, const uint16_t *src, int w, int h, int x, int y, int 
 {
     if (w <= 0 || h <= 0 || scale < 1 || scale > 8)
         return;
-    x -= g->cam_x;
-    y -= g->cam_y;
+    const int64_t lx = (int64_t)x - g->cam_x, ly = (int64_t)y - g->cam_y;
     const int dw = w * scale, dh = h * scale;
+    if (lx >= g->cx1 || ly >= g->cy1 || lx + dw <= g->cx0 || ly + dh <= g->cy0)
+        return;                         /* off the clip (and no overflow below) */
+    x = (int)lx;
+    y = (int)ly;
     int x0 = x < g->cx0 ? g->cx0 : x, x1 = x + dw > g->cx1 ? g->cx1 : x + dw;
     int y0 = y < g->cy0 ? g->cy0 : y, y1 = y + dh > g->cy1 ? g->cy1 : y + dh;
     if (x0 >= x1 || y0 >= y1)

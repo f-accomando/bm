@@ -4841,6 +4841,9 @@ static int l_video_open(lua_State *L)
     uint8_t *data = NULL;
     size_t len = 0;
     const char *why = NULL;
+    clip_t *c = lua_newuserdatauv(L, sizeof *c, 0);     /* first: a memory error then leaks nothing */
+    memset(c, 0, sizeof *c);
+    luaL_setmetatable(L, VIDEO_MT);
     if (fat_find(path, &e) != 0 || e.is_dir)
         why = "no such clip";
     else if (e.size > CLIP_MAX)
@@ -4848,13 +4851,11 @@ static int l_video_open(lua_State *L)
     else if (fat_load(&e, &data, &len) != 0)
         why = "cannot read the clip";
     if (why) {
+        lua_pop(L, 1);
         lua_pushnil(L);
         lua_pushstring(L, why);
         return 2;
     }
-    clip_t *c = lua_newuserdatauv(L, sizeof *c, 0);
-    memset(c, 0, sizeof *c);
-    luaL_setmetatable(L, VIDEO_MT);
     if (bmv_open(&c->v, data, len, err, sizeof err) != 0) {
         free(data);
         lua_pop(L, 1);
@@ -4904,7 +4905,10 @@ static int l_clip_draw(lua_State *L)
 {
     clip_t *c = check_clip(L, 1);
     const lua_Integer f = luaL_checkinteger(L, 2);
-    const int x = ival(L, 3), y = ival(L, 4), scale = (int)luaL_optinteger(L, 5, 1);
+    lua_Number fx = luaL_checknumber(L, 3), fy = luaL_checknumber(L, 4);
+    fx = fx > -1e6 && fx < 1e6 ? fx : 1e6;      /* (NaN and the huge are far off the screen) */
+    fy = fy > -1e6 && fy < 1e6 ? fy : 1e6;
+    const int x = (int)fx, y = (int)fy, scale = (int)luaL_optinteger(L, 5, 1);
     if (f < 0 || f >= (lua_Integer)c->v.frames)
         return luaL_error(L, "clip:draw: frame %d of %d", (int)f, (int)c->v.frames);
     if (scale < 1 || scale > 8)
