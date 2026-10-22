@@ -57,6 +57,15 @@ COMMON  = $(ARCH) $(SOC) -std=c11 -O2 -Wall -Wextra -g -Isrc \
 CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
           -Ithird_party/lwip/src/include -Isrc/net \
           -Ithird_party/mbedtls/include -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' $(WARN)
+# PI_O3_FILES: source files built with -O3 instead of -O2 (default empty: every file -O2,
+# the output does not change). Example: make PI_O3_FILES="src/bm/gfx16.c src/bm/r3d.c".
+# Paths as in KERNEL_SRCS. The flags are not a prerequisite: after you change the
+# variable, run make clean (or delete the .o files) so the files are built again.
+# Off for now; the accept rule is in docs/progress/graphics.md (Open work).
+PI_O3_FILES ?=
+ifneq ($(strip $(PI_O3_FILES)),)
+$(patsubst %,$(BUILD)/k/%.o,$(PI_O3_FILES)): CFLAGS += -O3
+endif
 # Chainloader: freestanding, no libc.
 LCFLAGS := $(COMMON) -Os -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
 ASFLAGS = $(ARCH) $(SOC) $(CLEAN_DEFS) -g -Isrc -Isrc/kernel -Wa,-I$(BUILD)
@@ -460,6 +469,9 @@ $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py
 $(BUILD)/keymap-test.bm: tests/keymap/cart.lua scripts/mkbm.py
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "keymap test"
 
+$(BUILD)/controls-test.bm: tests/controls/cart.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "controls test"
+
 # The games' loading screen (src/bm/loading.c, 2026-10-04): the retro intro,
 # its jingle, the console's page then the game's; the frames in build/loading/
 $(BUILD)/host/test_loading: tests/bm/test_loading.c src/bm/loading.c src/bm/loading_logo.c src/bm/loading.h \
@@ -482,6 +494,11 @@ test-riff: $(BUILD)/host/bmhost-bin $(BUILD)/riff-test.bm
 	@mkdir -p $(BUILD)/riff
 	$< $(BUILD)/riff-test.bm --seconds 7 --wav $(BUILD)/riff/riff.wav 2>&1 | tee $(BUILD)/riff-test.log | grep "^riff"
 	grep -q "^riff: \([0-9]*\)/\1 checks passed" $(BUILD)/riff-test.log
+
+# The player's remap of the game buttons (CONTROLS-1): controls= of the config
+test-controls: $(BUILD)/host/bmhost-bin $(BUILD)/controls-test.bm tests/controls/input.txt
+	BMHOST_CONFIG="controls=c1:x t2:l1 s1:y pa:se mc:x" $< $(BUILD)/controls-test.bm --input tests/controls/input.txt --seconds 4 2>&1 | tee $(BUILD)/controls-test.log | grep "^controls"
+	grep -q "^controls: \([0-9]*\)/\1 checks passed" $(BUILD)/controls-test.log
 
 test-keymap: $(BUILD)/host/bmhost-bin $(BUILD)/keymap-test.bm tests/keymap/input.txt
 	$< $(BUILD)/keymap-test.bm --input tests/keymap/input.txt --seconds 8 2>&1 | tee $(BUILD)/keymap-test.log | grep "^keymap"
@@ -586,7 +603,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
 BMHOST_RT := src/bm/runtime.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c \
-             src/kernel/syskeys.c \
+             src/kernel/syskeys.c src/kernel/controls.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c \
              src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c src/audio/audio.c src/audio/synth.c \
              src/audio/player.c src/audio/presets.c src/audio/lua_tone.c src/ai/net.c src/ai/nn.c \
@@ -638,14 +655,14 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-keymap test-gameapi test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-controls test-keymap test-gameapi test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
         test-fat test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-prompts test-docs test-api test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
-        test-catalog test-github test-lan market-seed test-host test-qemu
+        test-catalog test-github test-lan market-seed test-host test-qemu test-vid
 
 all: $(BUILD)/kernel.img $(K7) $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -828,9 +845,9 @@ qemu-screenshot: $(BUILD)/kernel.img
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 # test-nano8 stays a target to run by hand; it is not in the CI list
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
-      test-release test-smp test-qpu test-qpurun test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
-      test-studio test-prompts test-docs test-api $(if $(K7),test-hyp)
+      test-catalog test-github test-lan test-controls test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
+      test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
+      test-studio test-prompts test-docs test-api test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
@@ -1016,6 +1033,14 @@ test-img3d: $(BUILD)/host/test_img3d
 $(BUILD)/host/test_img3d: tests/net/test_img3d.c src/net/img3d.c src/net/http.c src/net/*.h $(GLB_SRCS) src/bm/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -Wall -Wextra -Isrc -Isrc/bm -DHTTP_USER_AGENT='"test"' -o $@ tests/net/test_img3d.c src/net/img3d.c src/net/http.c $(GLB_SRCS) -lm
+
+# the .bmv reader (src/bm/vid.c), jpeg_decode565 and scripts/mkvid.py
+test-vid: $(BUILD)/host/test_vid scripts/mkvid.py tests/video/run_vid_test.py
+	$(PYTHON) tests/video/run_vid_test.py $(BUILD)/host/test_vid $(BUILD)/vid
+
+$(BUILD)/host/test_vid: tests/video/test_vid.c src/bm/vid.c src/bm/jpeg.c src/bm/vidbench_data.c src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -Isrc/bm -o $@ tests/video/test_vid.c src/bm/vid.c src/bm/jpeg.c src/bm/vidbench_data.c -lm
 
 test-http: $(BUILD)/host/test_http
 	$(PYTHON) tests/net/run_http_test.py $(BUILD)/host/test_http
@@ -1408,9 +1433,23 @@ test-qpu:
 $(BUILD)/host/test_qpurun: tests/gpu/test_qpu.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/qpu.c src/gpu/qpu.h                            src/gpu/qpuprog.h src/gpu/v3d.h src/bm/gfx16.c src/bm/gfx16.h
 	mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free 	    -c src/gpu/qpu.c -o $@-qpu.o
-	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_qpu.c tests/gpu/v3d_emu.c 	    src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/gfx16.c $@-qpu.o -lm
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free -include v3d_emu.h -c src/bm/gfx16.c -o $@-g16.o
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_qpu.c tests/gpu/v3d_emu.c 	    src/gpu/v3d_cl.c src/gpu/etc1.c $@-g16.o $@-qpu.o -lm
 
 test-qpurun: $(BUILD)/host/test_qpurun
+	$< 0
+	$< 1
+	$< 2
+	$< 3
+
+# bm3d 7.x: the QPU check (src/gpu/qpucheck.c, config key gpu3d_qpu) on the V3D emulator: PASS, SKIP (no answer), SKIP (probe off)
+$(BUILD)/host/test_qpucheck: tests/gpu/test_qpucheck.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/qpu.c src/gpu/qpu.h src/gpu/qpucheck.c src/gpu/qpucheck.h src/gpu/qpuprog.h src/gpu/v3d.h src/bm/gfx16.c src/bm/gfx16.h
+	mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free -c src/gpu/qpu.c -o $@-qpu.o
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free -c src/gpu/qpucheck.c -o $@-chk.o
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_qpucheck.c tests/gpu/v3d_emu.c src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/gfx16.c $@-qpu.o $@-chk.o -lm
+
+test-qpucheck: $(BUILD)/host/test_qpucheck
 	$< 0
 	$< 1
 	$< 2

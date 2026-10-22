@@ -68,8 +68,10 @@ dell'ultimo fotogramma. Il dev kit: 11 token del codice, 12 KiB di Lua al
 massimo, 13 KiB dei dati (sheet, mappa, modelli, suoni), 14 istruzioni del
 fotogramma più pesante, 15 quanti _update prima di questo _draw, 16 ms di
 lavoro della GPU nell'ultimo fotogramma (0 se il 3D lo fa l'ARM): vicino a
-stat(1) vuol dire che il passo lo dà la GPU. Sono misure, diverse su ogni
-console: mai nella logica del gioco (in rete le console si separano).
+stat(1) vuol dire che il passo lo dà la GPU. 17 ms dell'audio e 18 ms di
+attesa dell'ARM per la GPU nell'ultimo fotogramma (0 se il 3D lo fa l'ARM).
+Sono misure, diverse su ogni console: mai nella logica del gioco (in rete
+le console si separano).
 text_en:
 0 KiB used by Lua, 1 ms of the last frame, 2 fps, 3 frame number, 4 3D
 triangles, 5 3D pixels, 6 ms of 3D drawing, 7 3D vertices, 8 ms since the
@@ -78,8 +80,10 @@ last frame. The dev kit: 11 tokens of the code, 12 the most KiB of Lua,
 13 KiB of the data (sheet, map, models, sounds), 14 instructions of the
 busiest frame, 15 how many _update ran before this _draw, 16 ms of GPU
 job time in the last frame (0 when the ARM does the 3D): close to stat(1)
-means the GPU sets the pace. These are measurements, different on every
-console: never game logic (in a network match the consoles fall apart).
+means the GPU sets the pace. 17 ms of audio and 18 ms the ARM waited for
+the GPU in the last frame (0 when the ARM does the 3D). These are
+measurements, different on every console: never game logic (in a network
+match the consoles fall apart).
 code:
 print(stat(2) .. " fps  " .. stat(1) .. " ms", 8, 8, 0x80FF80)
 print(stat(0) .. " KiB", 8, 24, 0x80FF80)
