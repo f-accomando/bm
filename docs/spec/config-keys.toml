@@ -664,9 +664,9 @@ read_in = "src/bm/rec.c"
 [[key]]
 name = "rec_format"
 scope = "all"
-values = "rgb565 or rgb332"
-default = "rgb565"
-meaning = "Pixel format of the recording (rgb332 is half the size)."
+values = "rle565, rgb565 or rgb332"
+default = "rle565"
+meaning = "Pixel format of the recording (rle565 is lossless run-length frames, rgb332 is half the raw size)."
 settings = ""
 read_in = "src/bm/rec.c"
 

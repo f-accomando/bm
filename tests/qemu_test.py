@@ -70,7 +70,7 @@ SLOW = {
     "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
-    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_video_bench": 30, "test_video_player": 25, "test_video_rec": 60, "test_video_rec_drops": 40, "test_stack_bench": 30, "test_bench_stop": 35, "test_bm_boot_demo": 22,
+    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_video_bench": 30, "test_video_player": 25, "test_video_rec": 60, "test_video_rec_rle": 60, "test_video_rec_drops": 40, "test_stack_bench": 30, "test_bench_stop": 35, "test_bm_boot_demo": 22,
     "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100, "test_projects": 45, "test_editor_mouse": 40,
 }
 
@@ -6765,16 +6765,40 @@ def _rgb565_to_888(c):
     return (r << 3 | r >> 2) << 16 | (g << 2 | g >> 4) << 8 | (b << 3 | b >> 2)
 
 
+def _rle565_decode(data, w, h):
+    """The pixels of one RLE565 frame (docs/BM-VIDEO.md), written apart from the C decoder; asserts on a bad stream"""
+    px, i = [], 0
+    while len(px) < w * h:
+        c = data[i]
+        i += 1
+        n, kind = (c & 63) + 1, c >> 6
+        if kind == 0:
+            px += struct.unpack("<%dH" % n, data[i:i + 2 * n])
+            i += 2 * n
+        elif kind == 1:
+            px += [struct.unpack("<H", data[i:i + 2])[0]] * n
+            i += 2
+        else:
+            assert kind == 2 and len(px) >= w, (kind, len(px))
+            px += [px[len(px) - w + k] for k in range(n)]
+    assert len(px) == w * h and i == len(data), (len(px), i, len(data))
+    return px
+
+
 def _bmv_frames(data):
-    """(width, height, fps, [colour of each frame, or None if it is not one colour]) of a raw RGB565 .bmv chunk"""
-    assert data[:4] == b"BMV1" and data[4] == 1 and data[5] == 2, data[:8]
+    """(width, height, fps, [colour of each frame, or None if it is not one colour]) of an RGB565 or RLE565 .bmv chunk"""
+    assert data[:4] == b"BMV1" and data[4] == 1 and data[5] in (2, 4), data[:8]
     w, h, fps = struct.unpack("<HHH", data[8:14])
     frames, index_off = struct.unpack("<II", data[16:24])
     cols = []
     for k in range(frames):
         off, size = struct.unpack("<II", data[index_off + 8 * k:index_off + 8 * k + 8])
-        assert size == w * h * 2 and off + size <= len(data)
-        px = struct.unpack("<%dH" % (w * h), data[off:off + size])
+        assert off + size <= len(data)
+        if data[5] == 2:
+            assert size == w * h * 2
+            px = struct.unpack("<%dH" % (w * h), data[off:off + size])
+        else:
+            px = _rle565_decode(data[off:off + size], w, h)
         cols.append(px[0] if all(p == px[0] for p in px) else None)
     return w, h, fps, cols
 
@@ -6816,16 +6840,28 @@ REC_DONE = r"run 1 done: (\d+) frames in [\d.]+ s, dropped (\d+) \(ring full\), 
 
 
 def test_video_rec(b, opts):
-    """The screen recorder (VID-REC, rec=on): 2 s of a cart at 15 fps are written as .bmv chunks in /bm/rec,
-    the report line has the counters, every frame is one colour and consecutive frames differ; then a cart
-    plays the first chunk through video_open("rec/...") and sees the same colours."""
+    """The screen recorder (VID-REC, rec=on) with raw RGB565 frames: 2 s of a cart at 15 fps are written as .bmv
+    chunks in /bm/rec, the report line has the counters, every frame is one colour and consecutive frames differ;
+    then a cart plays the first chunk through video_open("rec/...") and sees the same colours."""
+    _rec_check(b, "rec_format=rgb565\n", 2)
+
+
+def test_video_rec_rle(b, opts):
+    """The same with the default format, RLE565 (lossless run-length frames): the chunks hold many small frames,
+    the report has the bytes and the ms of a frame, and the cart's player sees the same colours."""
+    out = _rec_check(b, "", 1)
+    assert re.search(r"rec: rle565, \d+ bytes a frame \(mean\), \d+ largest, encode \d+\.\d\d ms a frame \(mean\)", out), out
+
+
+def _rec_check(b, fmt_cfg, min_chunks):
     tmp = tempfile.mkdtemp(prefix="bm-rec-")
     try:
-        img, out = _rec_session(b, "SAVE_EVERY_FRAME = false\n" + REC_CART, "rec=on\nrec_fps=15\nrec_ring_mb=8\n", tmp)
+        img, out = _rec_session(b, "SAVE_EVERY_FRAME = false\n" + REC_CART,
+                                "rec=on\nrec_fps=15\nrec_ring_mb=8\n" + fmt_cfg, tmp)
         m = re.search(REC_DONE, out)
         assert m, out
         captured, dropped, nchunks, failed = (int(x) for x in m.groups())
-        assert captured >= 8 and failed == 0 and nchunks >= 2, out
+        assert captured >= 8 and failed == 0 and nchunks >= min_chunks, out
         assert re.search(r"card \d+\.\d\d MB/s while writing, worst chunk [\d.]+ ms, game waited at most [\d.]+ ms", out), out
         names, chunks = _rec_chunks(img)
         assert len(chunks) == nchunks and names[0] == "R0010001.BMV", (names, out)
@@ -6862,6 +6898,7 @@ def test_video_rec(b, opts):
         assert len(got) == len(first_cols), (len(got), len(first_cols), plain2)
         for (k, hexc), want in zip(got, first_cols):
             assert int(hexc, 16) == _rgb565_to_888(want), (k, hexc, want)
+        return out
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -6872,7 +6909,7 @@ def test_video_rec_drops(b, opts):
     blocks, and the chunks are all written when the game ends."""
     tmp = tempfile.mkdtemp(prefix="bm-recdrop-")
     try:
-        img, out = _rec_session(b, "SAVE_EVERY_FRAME = true\n" + REC_CART, "rec=on\nrec_fps=15\nrec_ring_mb=1\n", tmp)
+        img, out = _rec_session(b, "SAVE_EVERY_FRAME = true\n" + REC_CART, "rec=on\nrec_fps=15\nrec_ring_mb=1\nrec_format=rgb565\n", tmp)
         m = re.search(REC_DONE, out)
         assert m, out
         captured, dropped, nchunks, failed = (int(x) for x in m.groups())

@@ -14,7 +14,14 @@
 #define BMV_CODEC_MJPEG 1
 #define BMV_CODEC_RAW565 2      /* a frame is width*height RGB565 values (the recorder) */
 #define BMV_CODEC_RGB332 3      /* a frame is width*height bytes, rrrgggbb */
+#define BMV_CODEC_RLE565 4      /* a frame is RLE tokens over width*height RGB565 values (the recorder), see BMV_RLE565 below */
 #define BMV_VERSION     1
+
+/* RLE565 frame: tokens, no header, until width*height pixels are made. A token byte holds a type (top 2 bits) and
+ * a count - 1 (low 6 bits, so 1 to 64 pixels): 0 literal (count RGB565 values follow, 2 bytes each, little-endian),
+ * 1 repeat (one value follows, repeated count times), 2 copy above (the count pixels of the row above, none in
+ * row 0), 3 reserved. Lossless; every frame is a key frame. */
+#define BMV_RLE565_MAX(w, h) ((size_t)(h) * ((size_t)(w) * 2u + ((size_t)(w) + 63u) / 64u))   /* the largest frame */
 
 typedef struct {
     const uint8_t *data;
@@ -40,6 +47,14 @@ int bmv_frame(const bmv_t *v, uint32_t i, const uint8_t **p, size_t *n);
 uint32_t bmv_frame_at(const bmv_t *v, uint32_t ms);
 /* Frame i decoded to RGB565 (a raw codec is copied or expanded) into out (width x height values, rows width apart). */
 int bmv_decode(const bmv_t *v, uint32_t i, uint16_t *out, char *err, size_t errlen);
+/* RLE565 encoder: one row of w pixels to out (BMV_RLE565_MAX(w, 1) bytes at most). prev is the row above, NULL
+ * for row 0. Returns the bytes written. Runs never cross a row. */
+size_t bmv_rle565_row(uint8_t *out, const uint16_t *cur, const uint16_t *prev, int w);
+/* A whole picture (w x h values, rows w apart) to out (BMV_RLE565_MAX(w, h) bytes at most); returns the bytes. */
+size_t bmv_rle565_encode(uint8_t *out, const uint16_t *px, int w, int h);
+/* RLE565 decoder: n bytes at p to w x h values (rows w apart). 0, or -1 if the tokens do not make exactly w x h
+ * pixels, use the reserved type, copy above in row 0, or run past the end of the frame. */
+int bmv_rle565_decode(const uint8_t *p, size_t n, uint16_t *out, int w, int h);
 /* Length of the clip in milliseconds. */
 uint32_t bmv_duration_ms(const bmv_t *v);
 /* The audio that goes with the time span [from_ms, to_ms): pointer and bytes

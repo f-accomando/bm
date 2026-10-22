@@ -27,7 +27,7 @@ Friday morning:
 
 Friday afternoon:
 - API-3: triangle throughput. Decide the default of `gpu3d_queue` from the benchmark numbers.
-- API-4: VID-REC MJPEG or RLE encoder for 30 fps.
+- API-4: run the Video bench on the Pi Zero W (Dev tab, or the monitor line `:video`) and send the RLE565 lines of the report.
 
 Friday after the Mali device runs (done by the SPV through the RGB30 bridge, one session only on the RGB30):
 - Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
@@ -52,7 +52,7 @@ Friday evening:
 1. Remote branches left: `api-particles3d`, `beta1-c4-ring2`, `beta1-c4-ring3`, `gpu3d-fade`, `stages3d-budget`, `stages3d-qemu-test`, `v3d-compact-tex-attrs`, `reports`, `sync-handshake`. The Mali work is in `bm-core` (sheet `docs/progress/graphics-mali.md`, `Open work`: the device runs).
 2. Old work in the archive: 23 old unmerged branches are in `C:\Users\Utente\Documents\GitHub\bm-archive\branches-2026-10-22.bundle` and are deleted from the repository. Port their content on demand from the bundle: budget cart and `perf_table.py`, RGB30 cover job D10, xmenu close game, RGB30 QEMU freeze and delete tests, bench-vs-etc1 VSE column, 3D budget table, PROP-1 and PROP-2 docs, gfx-backends rule.
 4. Single-bm implementation by the stages of the design: remove the 8 MiB limits (and palette/audio limits), per-system input chips, aspect modes, compat header in bytes 120..127 (change the `memset` in `project.c:143,178,225`).
-5. VID-REC next slices: MJPEG or RLE encoder for 30 fps (SD write is 2.50 MB/s, raw is a NO GO), real 8-bit palette, audio.
+5. VID-REC next slices: real 8-bit palette, audio (the RLE565 encoder is done; the Pi numbers are the API-4 item above).
 6. Web player (WEB-1): stages 1 and 2 are done (emsdk is in `~/emsdk` in WSL). Next: stage 3, the browser runner (`-sASYNCIFY`, canvas, keyboard and pad). Plan in `docs/design/bm-web-player.md`.
 7. Triangle throughput: stage 1 `gpu3d_queue=1` default after the user's Pi runs. `gpu3d_attr` stays off (decided 22 Oct). The V3D async proposal is decided "skip" (12 Oct, `docs/progress/v3d-notes.md`: interrupts, triple buffering, `v3d_async.c`). `queue=2` and `gpu3d_later` replaced it. Chain jobs (CT0/CT1) only if a measurement shows the GPU idle between jobs.
 8. Evaluate the security findings of `docs/OS-CAPABILITIES.md`: `lua_load(..., NULL)` at `runtime.c:9438` may accept bytecode; default net password is 6 digits from `srand(timer_ticks())` (`netcon.c:183`), plaintext on TCP 3334; carts can `ls` the SD and `cart_read` any `.bm` without a prompt; FAT dates fixed at 2026-01-01 (`fat.c:682`); docs disagree (`docs/progress/b16.md:16` says 4 MiB heap, code 64 MiB; RGB30 menu framebuffer 360x360).

@@ -3,7 +3,7 @@
  *
  * At the game's present point rec_frame() copies the frame, scaled to the
  * recording size, into a chunk of a ring in RAM. Finished chunks are written
- * to /bm/rec as .bmv files (docs/BM-VIDEO.md, raw codecs) by a fiber that
+ * to /bm/rec as .bmv files (docs/BM-VIDEO.md) by a fiber that
  * runs in the time the game would wait for the next frame (rec_pump), so the
  * game does not stall on the card. When the ring is full the frame is
  * dropped and counted: the recorder never blocks the game. Plain C, kernel only.
@@ -16,7 +16,7 @@
 typedef struct {
     int w, h;                   /* the recording size */
     int fps;                    /* 1..30 */
-    int format;                 /* BMV_CODEC_RAW565 or BMV_CODEC_RGB332 */
+    int format;                 /* BMV_CODEC_RLE565 (default), BMV_CODEC_RAW565 or BMV_CODEC_RGB332 */
     uint32_t ring_bytes;        /* the ring in RAM */
 } rec_cfg_t;
 
@@ -30,10 +30,13 @@ typedef struct {
     uint32_t write_worst_us;    /* the longest chunk */
     uint32_t pump_worst_us;     /* the longest rec_pump (the most the game waited) */
     uint32_t slots, slots_high; /* chunks of the ring, and the most in use at once */
+    uint64_t frame_bytes;       /* the bytes of all captured frames */
+    uint32_t frame_max;         /* the largest frame (RLE) */
+    uint32_t enc_us, enc_worst_us;  /* time to scale and encode a frame: all frames, the longest (RLE) */
     uint32_t run;               /* the number in the file names */
 } rec_stats_t;
 
-/* The recording configured by bm/config.txt: rec (on/off), rec_fps, rec_size (WxH), rec_format (rgb565, rgb332),
+/* The recording configured by bm/config.txt: rec (on/off), rec_fps, rec_size (WxH), rec_format (rle565, rgb565, rgb332),
  * rec_ring_mb. Fills cfg with defaults and returns 1 if rec is on. */
 int rec_config(rec_cfg_t *cfg);
 

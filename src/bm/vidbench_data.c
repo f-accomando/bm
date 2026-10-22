@@ -1858,3 +1858,35 @@ const uint8_t vidbench_jpg480[] = {
     92,72,163,74,246,244,250,32,216,165,186,87,255,217,
 };
 const unsigned vidbench_jpg480_len = 18990;
+
+/* A pixel-art style test frame: a flat sky, 16x16 tiles in three colours, sprites of four colours with a little
+ * noise, a bar of text-like strokes. Made from a fixed seed; not a recording of a game. */
+void vidbench_synth_frame(uint16_t *px, int w, int h)
+{
+    uint32_t seed = 12345;
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            uint16_t c = 0x2D7F;                                        /* sky */
+            if (y >= h * 2 / 3) {
+                const int t = ((x >> 4) + (y >> 4)) % 3;                /* tiles */
+                c = t == 0 ? 0x3A06 : t == 1 ? 0x6B4D : 0x5AEB;
+                if ((x & 15) == 0 || (y & 15) == 0)
+                    c = 0x2124;
+            }
+            px[(size_t)y * (size_t)w + (size_t)x] = c;
+        }
+    for (int s = 0; s < 12; s++)                                        /* sprites */
+        for (int y = 0; y < 16; y++)
+            for (int x = 0; x < 16; x++) {
+                seed = seed * 1664525u + 1013904223u;
+                static const uint16_t pal[4] = { 0xF800, 0xFFE0, 0x07E0, 0xFFFF };
+                const int px0 = 20 + s * 24 + x, py0 = h / 3 + (s % 4) * 12 + y;
+                if (px0 < w && py0 < h && (x + y) % 5 != 0)
+                    px[(size_t)py0 * (size_t)w + (size_t)px0] = pal[(seed >> 24) & 3];
+            }
+    for (int y = 4; y < 12 && y < h; y++)                               /* a text bar */
+        for (int x = 4; x < w - 4; x++) {
+            seed = seed * 1664525u + 1013904223u;
+            px[(size_t)y * (size_t)w + (size_t)x] = ((x / 6) % 3 && (seed >> 28) > 5) ? 0xFFFF : 0x0000;
+        }
+}

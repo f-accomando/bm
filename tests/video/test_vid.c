@@ -1,6 +1,7 @@
 /*
  * Host test of the .bmv reader (src/bm/vid.c) and of jpeg_decode565.
  *   test_vid dump DIR     writes DIR/f0..f2.jpg (the Video bench's 320x180 frame) and DIR/a.raw
+ *   test_vid rle          the RLE565 codec of the recorder: round trips, hostile streams
  *   test_vid raw          the raw codecs of the recorder, built in memory
  *   test_vid check FILE CHANNELS BITS   reads a clip made by scripts/mkvid.py from those files
  * run_vid_test.py runs both with mkvid.py in between.
@@ -248,14 +249,157 @@ static int raw(void)
     return fails != 0;
 }
 
+/* the RLE565 codec of the recorder: encode, decode, bit exact; hostile streams */
+static uint32_t rng_state = 7;
+static uint32_t rnd(void)
+{
+    rng_state = rng_state * 1664525u + 1013904223u;
+    return rng_state >> 8;
+}
+
+static void round_trip(const char *what, const uint16_t *px, int w, int h)
+{
+    uint8_t *enc = malloc(BMV_RLE565_MAX(w, h));
+    uint16_t *back = malloc((size_t)w * (size_t)h * 2);
+    const size_t n = bmv_rle565_encode(enc, px, w, h);
+    int ok = n >= 1 && n <= BMV_RLE565_MAX(w, h) && bmv_rle565_decode(enc, n, back, w, h) == 0 &&
+             !memcmp(back, px, (size_t)w * (size_t)h * 2);
+    if (!ok)
+        printf("round trip of %s (%dx%d) failed\n", what, w, h);
+    CHECK(ok);
+    /* a cut stream and a stream with a byte too many are refused */
+    CHECK(bmv_rle565_decode(enc, n - 1, back, w, h) != 0);
+    enc[n] = 0;
+    CHECK(bmv_rle565_decode(enc, n + 1, back, w, h) != 0);
+    free(enc);
+    free(back);
+}
+
+static int rle(void)
+{
+    char err[80];
+    static const int sizes[][2] = { { 1, 1 }, { 1, 5 }, { 3, 2 }, { 63, 3 }, { 64, 3 }, { 65, 3 }, { 129, 4 },
+                                    { 320, 180 }, { 16, 16 } };
+    for (size_t k = 0; k < sizeof sizes / sizeof sizes[0]; k++) {
+        const int w = sizes[k][0], h = sizes[k][1];
+        uint16_t *px = malloc((size_t)w * (size_t)h * 2);
+        const size_t cnt = (size_t)w * (size_t)h;
+        for (size_t i = 0; i < cnt; i++)                    /* flat */
+            px[i] = 0x1234;
+        round_trip("flat", px, w, h);
+        for (size_t i = 0; i < cnt; i++)                    /* noise: the worst case, nothing repeats by chance */
+            px[i] = (uint16_t)rnd();
+        round_trip("noise", px, w, h);
+        for (size_t i = 0; i < cnt; i++)                    /* a few colours: runs and copies of every length */
+            px[i] = (uint16_t)(rnd() % 3 ? 0xF800 : rnd() % 4);
+        round_trip("few colours", px, w, h);
+        for (size_t i = cnt > (size_t)w ? (size_t)w : 0; i < cnt; i++)  /* the row above, with changes */
+            px[i] = rnd() % 5 ? px[i - (cnt > (size_t)w ? (size_t)w : 0)] : (uint16_t)rnd();
+        round_trip("rows like the row above", px, w, h);
+        if (w >= 4 && h >= 2) {
+            vidbench_synth_frame(px, w, h);
+            round_trip("test frame", px, w, h);
+        }
+        free(px);
+    }
+    {   /* sizes: noise is at most the bound (and the bound is reached by literals); flat is tiny */
+        uint16_t *px = malloc(320 * 180 * 2);
+        uint8_t *enc = malloc(BMV_RLE565_MAX(320, 180));
+        for (int i = 0; i < 320 * 180; i++)
+            px[i] = (uint16_t)(i * 7 + (rnd() | 1));
+        CHECK(bmv_rle565_encode(enc, px, 320, 180) <= BMV_RLE565_MAX(320, 180));
+        CHECK(BMV_RLE565_MAX(320, 180) == 180u * (640u + 5u));
+        memset(px, 0, 320 * 180 * 2);
+        const size_t flat = bmv_rle565_encode(enc, px, 320, 180);
+        CHECK(flat == 3 * 5 + 179 * 5);     /* row 0: five repeats of 64 pixels; the others: five copies */
+        vidbench_synth_frame(px, 320, 180);
+        const size_t art = bmv_rle565_encode(enc, px, 320, 180);
+        printf("test frame 320x180: %zu of 115200 bytes\n", art);
+        CHECK(art < 115200 / 2);
+        free(px);
+        free(enc);
+    }
+    /* hostile streams: type 3, copy above in row 0, a run past the end, a literal cut short */
+    {
+        uint16_t out[16];
+        const uint8_t t3[] = { 0xC0 }, up0[] = { 0x80 }, over[] = { 0x40 | 31, 1, 2 }, cut[] = { 0x03, 1, 2, 3 },
+                      ok[] = { 0x40 | 15, 1, 2 };
+        CHECK(bmv_rle565_decode(t3, sizeof t3, out, 4, 4) != 0);
+        CHECK(bmv_rle565_decode(up0, sizeof up0, out, 4, 4) != 0);
+        CHECK(bmv_rle565_decode(over, sizeof over, out, 4, 4) != 0);
+        CHECK(bmv_rle565_decode(cut, sizeof cut, out, 4, 4) != 0);
+        CHECK(bmv_rle565_decode(ok, sizeof ok, out, 4, 4) == 0 && out[0] == 0x0201 && out[15] == 0x0201);
+        CHECK(bmv_rle565_decode(ok, 0, out, 4, 4) != 0);
+        /* random bytes never crash, and a stream that decodes uses every byte */
+        for (int k = 0; k < 20000; k++) {
+            uint8_t junk[40];
+            const size_t n = rnd() % 40;
+            for (size_t i = 0; i < n; i++)
+                junk[i] = (uint8_t)rnd();
+            (void)bmv_rle565_decode(junk, n, out, 4, 4);
+        }
+    }
+    /* a clip of codec 4 in memory: 8x4, 3 frames of different sizes; open, decode, refusals */
+    {
+        uint16_t f[3][32];
+        uint8_t buf[BMV_HEADER + 3 * 80 + 3 * 8], *w = buf + BMV_HEADER;
+        uint32_t off[3], sz[3];
+        for (int i = 0; i < 32; i++) {
+            f[0][i] = 0xAAAA;                               /* flat */
+            f[1][i] = (uint16_t)(i * 1111);                 /* all different */
+            f[2][i] = i < 8 ? 0x07E0 : f[1][i];             /* one row, then copies of nothing */
+        }
+        memset(buf, 0, sizeof buf);
+        for (int i = 0; i < 3; i++) {
+            off[i] = (uint32_t)(w - buf);
+            sz[i] = (uint32_t)bmv_rle565_encode(w, f[i], 8, 4);
+            w += sz[i];
+        }
+        memcpy(buf, "BMV1", 4);
+        buf[4] = 1;
+        buf[5] = BMV_CODEC_RLE565;
+        buf[8] = 8;
+        buf[10] = 4;
+        buf[12] = 30;
+        w32(buf + 16, 3);
+        w32(buf + 20, (uint32_t)(w - buf));
+        for (int i = 0; i < 3; i++) {
+            w32(w + i * 8, off[i]);
+            w32(w + i * 8 + 4, sz[i]);
+        }
+        const size_t len = (size_t)(w - buf) + 24;
+        bmv_t v;
+        CHECK(bmv_open(&v, buf, len, err, sizeof err) == 0);
+        if (fails)
+            return 1;
+        uint16_t px[32];
+        for (uint32_t i = 0; i < 3; i++) {
+            memset(px, 0, sizeof px);
+            CHECK(bmv_decode(&v, i, px, err, sizeof err) == 0 && !memcmp(px, f[i], sizeof px));
+        }
+        w32(w + 4, 2);                                      /* 2 bytes cannot be a frame */
+        CHECK(bmv_open(&v, buf, len, err, sizeof err) != 0);
+        w32(w + 4, (uint32_t)BMV_RLE565_MAX(8, 4) + 1);     /* larger than the worst case */
+        CHECK(bmv_open(&v, buf, len, err, sizeof err) != 0);
+        w32(w + 4, sz[0]);
+        buf[BMV_HEADER] = 0xC0;                             /* opens (the tokens are checked when it is decoded) */
+        CHECK(bmv_open(&v, buf, len, err, sizeof err) == 0 && bmv_decode(&v, 0, px, err, sizeof err) != 0);
+    }
+    if (!fails)
+        printf("test_vid rle: all passed\n");
+    return fails != 0;
+}
+
 int main(int argc, char **argv)
 {
+    if (argc == 2 && !strcmp(argv[1], "rle"))
+        return rle();
     if (argc == 2 && !strcmp(argv[1], "raw"))
         return raw();
     if (argc == 3 && !strcmp(argv[1], "dump"))
         return dump(argv[2]);
     if (argc == 5 && !strcmp(argv[1], "check"))
         return check(argv[2], atoi(argv[3]), atoi(argv[4]));
-    fprintf(stderr, "usage: test_vid dump DIR | check FILE CHANNELS BITS\n");
+    fprintf(stderr, "usage: test_vid dump DIR | raw | rle | check FILE CHANNELS BITS\n");
     return 2;
 }

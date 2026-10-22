@@ -6,36 +6,41 @@ Study: [video-feasibility-2026-10.md](../bench/video-feasibility-2026-10.md). PC
 * The Pi Zero W (RGB565, no 32-bit colour) is the benchmark.
 * Mali paths on the RGB30 stay untouched.
 * The first codec is MJPEG with `src/bm/jpeg.c` (baseline only). Then RLE+delta palette. MPEG-1 comes last.
+* `src/bm/jpeg.c` only decodes. The recorder does not write MJPEG. It writes RLE565 (codec 4, lossless, intra only, see [BM-VIDEO.md](../BM-VIDEO.md)).
+* The recorder default format is `rle565`. A raw format (`rec_format=rgb565` or `rgb332`) stays readable and writable.
+* A chunk of RLE565 frames ends at 256 frames or at about 256 KiB of frame bytes. The frames of a chunk have different sizes, so the index is written after the last frame.
+* Any change of the RLE565 token format needs a new codec number. Keep the old one readable.
 
 ## Open work
 * VID-S3, VID-S4: done on the PC (see the spikes sheet).
-* VID-S1, VID-S2: done on the Pi Zero W (22 Oct, reports branch). SD write 2.50 MB/s mean, worst write 603 ms: **NO GO** for raw recording at 15 fps (needs 5.00 MB/s and 100 ms). SD read 5.14 MB/s. JPEG decode: 320x180 in 53 ms (under 66 ms: MJPEG at 15 fps is a go), 480x270 in 116 ms. Next: an encoder (MJPEG or RLE+delta) for the recorder. Steps to repeat the run on another card are below.
+* VID-S1, VID-S2: done on the Pi Zero W (22 Oct, reports branch). SD write 2.50 MB/s mean, worst write 603 ms: **NO GO** for raw recording at 15 fps (needs 5.00 MB/s and 100 ms). SD read 5.14 MB/s. JPEG decode: 320x180 in 53 ms (under 66 ms: MJPEG at 15 fps is a go), 480x270 in 116 ms. Steps to repeat the run on another card are below.
 * VID-FMT slice 1 is done: format [BM-VIDEO.md](../BM-VIDEO.md), reader `src/bm/vid.c`, tool `scripts/mkvid.py`, `jpeg_decode565` (RGB565 into a given buffer), `make test-vid`.
 * VID-FMT slice 2 is done: the Lua player ([api/video.md](../api/video.md)): `video_open`, `clip:info/frame_at/draw/close`. The clip stays whole in memory (48 MiB at most) in `/bm/clips`. Test: `test_video_player`.
 * VID-FMT slice 3 is open: the clip's audio (a PCM stream voice in the mixer), clips inside the cartridge, a frame read on demand for long clips.
 * Decoder guard: `jpeg_decode565` checks the picture size against the buffer after the scan. A hostile frame that declares a huge size makes it allocate its planes first. Check the size from the SOF header before the scan.
-* VID-REC slice 1 is done (below): the recorder, off by default. Open: MJPEG or RLE+delta encoding (the Pi numbers are in VID-S1 above: raw writes are too slow), a palette (8-bit) format with a real palette, a Dev tab switch, audio in the recording, recording from a cartridge's own call.
+* VID-REC slice 1 is done (below): the recorder, off by default. The RLE565 encoder is done (lossless, host-tested round trip, QEMU tests). Open: the Pi numbers of the encoder (run the Video bench, step 7 below), a palette (8-bit) format with a real palette (it needs a palette per frame or per clip and a quantizer: a separate slice), a Dev tab switch, audio in the recording, recording from a cartridge's own call, a delta against the previous frame if the Pi numbers show that intra frames are still too big.
 
 ## Screen recorder (VID-REC)
-Code: `src/bm/rec.c`. It is off by default. Keys in `bm/config.txt`: `rec=on`, `rec_fps` (1 to 30, default 15), `rec_size` (WxH, default 320x180), `rec_format` (`rgb565` default, or `rgb332`), `rec_ring_mb` (1 to 256, default 64).
-* **Capture.** At the present point of the game (`shot_grab`), when a frame is due, the frame is scaled by nearest pixel to `rec_size` and copied into a chunk of the ring in RAM. A chunk holds frames up to about 256 KiB (3 frames at 320x180 RGB565).
-* **Write.** A fiber writes finished chunks as `bm/rec/Rnnnmmmm.BMV` (nnn the run, mmmm the chunk; each file is a `.bmv` clip of codec 2 or 3, see [BM-VIDEO.md](../BM-VIDEO.md)). It runs in the time the game would wait for the next frame, at least 1 ms a frame when there is work. A write piece is a run of clusters (up to 32 KiB): the fiber cannot stop inside it, so the game can wait for one piece (about 16 ms at 2 MB/s). The report gives the longest wait.
+Code: `src/bm/rec.c`. It is off by default. Keys in `bm/config.txt`: `rec=on`, `rec_fps` (1 to 30, default 15), `rec_size` (WxH, default 320x180), `rec_format` (`rle565` default, `rgb565`, or `rgb332`), `rec_ring_mb` (1 to 256, default 64).
+* **Capture.** At the present point of the game (`shot_grab`), when a frame is due, the frame is scaled by nearest pixel to `rec_size` and copied into a chunk of the ring in RAM. A chunk holds frames up to about 256 KiB (3 frames at 320x180 raw RGB565). With `rle565` each row is encoded as it is scaled (run-length, repeat, and copy of the row above), so a frame of a game is a fraction of the raw size and a chunk holds up to 256 frames.
+* **Write.** A fiber writes finished chunks as `bm/rec/Rnnnmmmm.BMV` (nnn the run, mmmm the chunk; each file is a `.bmv` clip of codec 4, 2 or 3, see [BM-VIDEO.md](../BM-VIDEO.md)). It runs in the time the game would wait for the next frame, at least 1 ms a frame when there is work. A write piece is a run of clusters (up to 32 KiB): the fiber cannot stop inside it, so the game can wait for one piece (about 16 ms at 2 MB/s). The report gives the longest wait. At 30 fps the card must take frame bytes x 30 a second: `rle565` keeps this under the 2.50 MB/s of the Pi test card when a frame is under about 80 KB (the report prints the figure).
 * **Never blocks.** When every chunk of the ring is in use, the due frame is dropped and counted (`dropped`). The game's own `save()` and screenshots hold the writer back for 300 ms (one sector cache for the card).
 * **FAT cost.** There is no preallocation: each chunk file allocates clusters while it is written. Each file is one `fat_write_file` call, so a power cut loses at most the chunks in the ring.
-* **Report.** When the game ends (or is suspended), the console prints two lines (`rec: run N done ...` and `rec: card X MB/s while writing, worst chunk ..., game waited at most ... in a pump, ring high A of B chunks.`). A red `REC captured dropped` text shows in the top left corner of the screen while it records (it is not in the recording).
-* **Play a recording** in a cartridge: `video_open("rec/R0010001.BMV")` ([api/video.md](../api/video.md)). On the PC, join the chunks with `ffmpeg` (each chunk is raw frames: read the header, or convert with a small script).
-* **Tests:** `test_video_rec` (2 s of a cart, chunks read back, same colours through the cart player), `test_video_rec_drops` (a game that saves every frame, a ring of 1 MiB: drops are counted, nothing blocks), `make test-vid` (the raw codecs).
+* **Report.** When the game ends (or is suspended), the console prints three lines (`rec: run N done ...`, `rec: rle565, N bytes a frame (mean), M largest, encode X ms a frame (mean), Y ms worst, Z MB/s at F fps.` and `rec: card X MB/s while writing, worst chunk ..., game waited at most ... in a pump, ring high A of B chunks.`). The second line is the cost of the encoder: bytes a frame, time to scale and encode a frame, and the card rate the recording needs. A red `REC captured dropped` text shows in the top left corner of the screen while it records (it is not in the recording).
+* **Play a recording** in a cartridge: `video_open("rec/R0010001.BMV")` ([api/video.md](../api/video.md)). On the PC, convert the chunks with a small script (the header gives the codec; see [BM-VIDEO.md](../BM-VIDEO.md) for the RLE565 tokens).
+* **Tests:** `test_video_rec` (raw RGB565: 2 s of a cart, chunks read back, same colours through the cart player), `test_video_rec_rle` (the same with RLE565, and the encoder line in the report), `test_video_rec_drops` (raw RGB565, a game that saves every frame, a ring of 1 MiB: drops are counted, nothing blocks), `make test-vid` (the raw codecs, and `test_vid rle`: bit exact round trips of flat, noise and pixel-art frames at many sizes, hostile streams).
 
 ## To run on the Pi (VID-S1, VID-S2; done once, repeat on another card)
 1. Build and copy the kernel: `make`, then `./easy_install.sh` (SD card in the PC).
 2. Boot the Pi Zero W with a card that has at least 100 MiB free. Use the card that you use for games.
 3. Open the Dev tab. Select **Video bench**. Or send the monitor line `:video`.
-4. Wait about 1 to 3 minutes. The bench writes 128 files of 256 KiB in `/bm/vidbench`, reads 16 back, deletes all, and decodes two JPEG frames 100 times each.
+4. Wait about 1 to 3 minutes. The bench writes 128 files of 256 KiB in `/bm/vidbench`, reads 16 back, deletes all, decodes two JPEG frames 100 times each, and encodes two 320x180 frames with RLE565 100 times each.
 5. Send the report: the console sends the numeric report to the `reports` branch. Or copy the lines from the screen.
 6. Read the result:
    * SD write: go for raw recording at 15 fps if the mean is at least 5.00 MB/s and the worst write is at most 100 ms.
    * JPEG decode: go for MJPEG at 15 fps if the 320x180 mean is at most 66 ms. If it is more, write the RLE+delta palette codec first, or add a fast IDCT to `jpeg.c`.
 7. Repeat step 3 to 6 on a second card type if you have one. The result depends on the card.
+7. Read the RLE565 lines at the end of the report (the bench encodes a 320x180 pixel-art test frame and a photo frame 100 times each): bytes of the frame, mean, best and worst ms, and for 15 and 30 fps the MB/s the card must take against the SD write mean of the same run. The recorder at 30 fps fits when the line says `fits` and the encode time is well under 33 ms (the bench prints it as a percentage of a frame). The pixel-art frame is a synthetic frame, not a game; the photo frame is the worst case. For a real game, set `rec=on` and `rec_fps=30` in `bm/config.txt`, play, and read the `rec: rle565, ...` line at the end of the run.
 `:video quick` runs a sixteenth of each count (the QEMU test uses it).
 
 ## To run the recorder on the Pi (VID-REC)

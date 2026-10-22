@@ -19,7 +19,7 @@ All numbers are little-endian.
 |---|---|---|---|
 | 0 | 4 bytes | magic | `BMV1` |
 | 4 | u8 | version | 1 |
-| 5 | u8 | codec | 1 = baseline JPEG (MJPEG); 2 = raw RGB565, little-endian (the recorder); 3 = raw RGB332 (`rrrgggbb`, the recorder) |
+| 5 | u8 | codec | 1 = baseline JPEG (MJPEG); 2 = raw RGB565, little-endian (the recorder); 3 = raw RGB332 (`rrrgggbb`, the recorder); 4 = RLE565 (lossless run-length RGB565, the recorder) |
 | 6 | u8 | audio channels | 0 = no audio, 1 or 2 |
 | 7 | u8 | audio bits | 8 (unsigned) or 16 (signed); 0 with no audio |
 | 8 | u16 | width | 1 to 1920 |
@@ -38,7 +38,20 @@ All numbers are little-endian.
 | 0 | u32 | offset of the frame in the file (at least 32) |
 | 4 | u32 | size of the frame in bytes (at least 4) |
 
-Every frame has the size of the clip. A raw frame is exactly width x height x 2 (codec 2) or x 1 (codec 3) bytes; the reader refuses another size. Every frame is a key frame, so a seek is one index read.
+Every frame has the picture size of the clip. A raw frame is exactly width x height x 2 (codec 2) or x 1 (codec 3) bytes; the reader refuses another size. An RLE565 frame (codec 4) has its own size: at least 3 bytes and at most the worst case `BMV_RLE565_MAX` (see below). Every frame is a key frame, so a seek is one index read.
+
+## RLE565 frame (codec 4)
+
+A frame is a list of tokens. It has no header. The tokens make exactly width x height pixels, row after row. A token is one byte: the top 2 bits are the type, the low 6 bits are the count minus 1 (1 to 64 pixels).
+
+| Type | Name | Bytes after the token | Meaning |
+|---|---|---|---|
+| 0 | literal | count x 2 | count RGB565 values, little-endian |
+| 1 | repeat | 2 | one RGB565 value, count times |
+| 2 | copy above | 0 | the count pixels of the row above (a token in row 0 is an error) |
+| 3 | reserved | | the reader refuses the frame |
+
+The encoder never makes a run that crosses a row. The decoder accepts such a run. The worst case is a frame of literals only: height x (2 x width + ceil(width / 64)) bytes. The reader refuses a frame that is larger. The decoder (`bmv_rle565_decode`) refuses a stream that is too short, too long, or that uses the reserved type. The encoder is `bmv_rle565_row` (one row, used by the recorder) and `bmv_rle565_encode` (a picture). The codec is lossless: the decoded frame has the same RGB565 values as the source.
 
 ## Rules
 
@@ -66,6 +79,6 @@ python scripts/mkvid.py -o clip.bmv --jpegs frames/ --fps 15 --pcm audio.raw --r
 | `bmv_duration_ms` | Gives the length of the clip. |
 | `bmv_audio_span` | Gives the PCM bytes for a time span. |
 
-`bmv_decode` also copies a raw RGB565 frame and expands a raw RGB332 frame (r 3 bits, g 3 bits, b 2 bits, the top bits repeated). `jpeg_decode565` (`src/bm/jpeg.h`) writes RGB565 into a given buffer. It does not allocate a 24-bit picture.
+`bmv_decode` also copies a raw RGB565 frame, decodes an RLE565 frame and expands a raw RGB332 frame (r 3 bits, g 3 bits, b 2 bits, the top bits repeated). `jpeg_decode565` (`src/bm/jpeg.h`) writes RGB565 into a given buffer. It does not allocate a 24-bit picture.
 
 The Lua API for cartridges is in [api/video.md](api/video.md). The screen recorder writes codec 2 and 3 chunks: see [video.md](progress/video.md).

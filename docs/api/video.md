@@ -4,7 +4,7 @@ Part of the game API. Index and basics: [API.md](../API.md). The file format and
 
 ### Video clips (.bmv)
 
-A clip is a `.bmv` file in `bm/clips/` on the SD card. The console reads the whole file into memory (48 MiB at most) and decodes one frame at a time. The frames are baseline JPEG, so a frame costs decode time: measure it on the console (the Video bench in the Dev tab). The clip's audio is not played yet.
+A clip is a `.bmv` file in `bm/clips/` on the SD card. The console reads the whole file into memory (48 MiB at most) and decodes one frame at a time. The frames are baseline JPEG (or the raw and RLE565 frames of the screen recorder, see [BM-VIDEO.md](../BM-VIDEO.md)). A JPEG frame costs decode time: measure it on the console (the Video bench in the Dev tab). The clip's audio is not played yet.
 
 | Function | Description |
 |---|---|
