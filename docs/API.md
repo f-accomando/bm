@@ -118,6 +118,7 @@ The reference is split by area. **Read only the file you need** (and grep inside
 | [api/light3d.md](api/light3d.md) | nano8 · Light · Light by levels · 3D (software) · Collision worlds |
 | [api/bmlib.md](api/bmlib.md) | The games' shared library |
 | [api/riff.md](api/riff.md) | Music as patterns |
+| [api/video.md](api/video.md) | Video clips (.bmv) |
 | [api/bmnet.md](api/bmnet.md) | Games over the network |
 
 ## Budget and tips

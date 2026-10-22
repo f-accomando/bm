@@ -69,7 +69,7 @@ SLOW = {
     "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
-    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_video_bench": 30, "test_bench_stop": 35, "test_bm_boot_demo": 22,
+    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_video_bench": 30, "test_video_player": 25, "test_bench_stop": 35, "test_bm_boot_demo": 22,
     "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100, "test_projects": 45, "test_editor_mouse": 40,
 }
 
@@ -6150,6 +6150,89 @@ def test_video_bench(b, opts):
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
         left = subprocess.run(["mdir", "-i", part, "::/BM/VIDBENCH"], capture_output=True, text=True, env=env).stdout
         assert "VB" not in left, left
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+VIDEO_CART = r"""
+local c, n
+function _init()
+  local err
+  c, err = video_open("test.bmv")
+  if not c then log("open failed " .. tostring(err)) return end
+  log(string.format("info %d %d %d %d %d %s", c:info()))
+  log("frame_at " .. c:frame_at(0) .. " " .. c:frame_at(70) .. " " .. c:frame_at(9999))
+  log("missing " .. tostring(select(2, video_open("nope.bmv"))))
+  log("badname " .. tostring(pcall(video_open, "../x")))
+  n = 0
+end
+function _draw()
+  cls(0)
+  if not c then return end
+  c:draw(2, 0, 0)
+  n = n + 1
+  if n == 3 then
+    for _, p in ipairs({ { 20, 20 }, { 160, 90 }, { 300, 40 }, { 100, 150 }, { 250, 160 } }) do
+      log(string.format("px %d %d %06X", p[1], p[2], pget(p[1], p[2])))
+    end
+    log("again " .. tostring(c:draw(0, 0, 0, 1)))
+    log("badframe " .. tostring(pcall(c.draw, c, 3, 0, 0)))
+    c:close()
+    log("closed " .. tostring(pcall(c.info, c)))
+    log("clip done")
+  end
+end
+"""
+
+# the bench frame (a 320x180 baseline JPEG) from vidbench_data.c, and its colours at five points (ffmpeg's decode)
+VIDEO_PIXELS = {(20, 20): (40, 32, 15), (160, 90): (87, 79, 104), (300, 40): (86, 91, 106),
+                (100, 150): (97, 98, 128), (250, 160): (18, 12, 8)}
+
+
+def _bench_jpeg():
+    src = open(os.path.join(HERE, "..", "src", "bm", "vidbench_data.c")).read()
+    body = src.split("vidbench_jpg320[] = {")[1].split("};")[0]
+    return bytes(int(x) for x in re.findall(r"\d+", body))
+
+
+def test_video_player(b, opts):
+    """The clip player of the cartridge API (VID-FMT slice 2): video_open of a .bmv in /bm/clips, clip:info,
+    frame_at, draw (the colours at five points match the picture), the same frame again, a bad frame and a
+    bad name refused, close."""
+    import mkvid
+    tmp = tempfile.mkdtemp(prefix="bm-vidplay-")
+    try:
+        jpg = _bench_jpeg()
+        clip = os.path.join(tmp, "test.bmv")
+        with open(clip, "wb") as f:
+            f.write(mkvid.pack([jpg, jpg, jpg], 15))
+        cart = os.path.join(tmp, "vid.bm")
+        with open(cart, "wb") as f:
+            f.write(mkbm.pack(VIDEO_CART.encode(), title="Vid test", res=(320, 180)))
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        img = os.path.join(tmp, "sd.img")
+        mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/vid.bm"), (clip, "bm/clips/test.bmv")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            q.send(":play vid\r")
+            out = q.expect("clip done", timeout=60).decode(errors="replace")
+            plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
+            assert "info 320 180 15 3 200 false" in plain, plain
+            assert "frame_at 0 1 2" in plain, plain
+            assert "missing no such clip" in plain, plain
+            assert "badname false" in plain, plain
+            assert "again true" in plain and "badframe false" in plain and "closed false" in plain, plain
+            for (x, y), want in VIDEO_PIXELS.items():
+                m = re.search(r"px %d %d ([0-9A-F]{6})" % (x, y), plain)
+                assert m, plain
+                got = tuple(int(m.group(1)[i:i + 2], 16) for i in (0, 2, 4))
+                assert all(abs(g - w) <= 16 for g, w in zip(got, want)), (x, y, got, want)
+        finally:
+            q.close()
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

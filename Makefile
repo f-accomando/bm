@@ -591,7 +591,7 @@ BMHOST_RT := src/bm/runtime.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm
              src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c src/audio/audio.c src/audio/synth.c \
              src/audio/player.c src/audio/presets.c src/audio/lua_tone.c src/ai/net.c src/ai/nn.c \
              src/bm/decimate.c src/bm/cutout.c \
-             src/bm/glb.c src/bm/json.c src/bm/png.c src/bm/jpeg.c src/bm/loading.c src/bm/loading_logo.c \
+             src/bm/glb.c src/bm/json.c src/bm/png.c src/bm/jpeg.c src/bm/vid.c src/bm/loading.c src/bm/loading_logo.c \
              src/bm/profile.c src/bm/project.c src/bm/shot.c
 BMHOST_LUA := $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS))
 BMHOST_OBJS := $(patsubst %,$(BUILD)/host/bmhost/%.o,$(BMHOST_RT) $(BMHOST_LUA))
