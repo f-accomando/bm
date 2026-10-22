@@ -9,6 +9,35 @@ Rules for this list:
 - A task that needs the Pi: prepare it, put the exact steps in "Waiting for the user", go on.
 - When a task closes, remove the finished item from `docs/ROADMAP.md`, `## Open work` of the area sheet, and this file.
 
+## Schedule (22-23 Oct)
+Rules:
+- Use WSL (`make`, QEMU) in at most 2 sessions at once. A third session does only light jobs: docs, Python tools, JavaScript, no `make`.
+- Only ONE session uses the Pi. It is the SPV session.
+- The user is away. The SPV opens WSL and the Pi bridge by itself. The bridge reads the password from the owner's 0600 file `~/.pi_bridge.pw` or from `BM_PASSWORD`. No agent reads or prints it.
+- For every item: open a branch, develop, integrate into `bm-core`, close, delete the branches and worktrees, update the docs, remove the item from `docs/ROADMAP.md`, update this file.
+- If all items are done before Fri 23 Oct 20:00, take the next open item from `docs/ROADMAP.md`.
+- The user does the RGB30 hardware tests and the Pi runs. Write the results into the sheets when the user gives them.
+
+Thursday evening:
+- Close the work in flight: multitasking stages 3-5, cel stages 3-4 on V3D, bench for hero, VS and cel, herocart LOD triangles.
+- Load the kernel and bmweb on the Pi.
+- Publish bmweb to bm-market.
+- Run the hero benchmark on the Pi. Write the numbers into the sheets.
+
+Friday morning:
+- APP-7: dev kit for weight and performance.
+- SYS-7: security findings of OS-CAPABILITIES (`lua_load` bytecode, net password entropy, `ls` and `cart_read` prompt, FAT dates).
+- The three tools from the bundle (done).
+
+Friday afternoon:
+- API-3: triangle throughput. Decide the default of `gpu3d_queue` from the benchmark numbers.
+- API-4: VID-REC MJPEG or RLE encoder for 30 fps.
+
+Friday evening:
+- SYS-8: first stage of single-bm (compat header bytes 120..127, remove the 8 MiB limits).
+- Clean up branches and worktrees.
+- Read this file, update `docs/ROADMAP.md`, write the summary.
+
 ## Waiting for the user (decisions and Pi runs)
 - RGB30 runs (the user does them; exact steps in `docs/progress/graphics-mali.md` `Open work`): Dev > GPU test with the variant probe, then 3D Bench with `mali3d=1`.
 - Pi runs (the user does them; the test integration `claude/pi-test-integration` of 22 Oct is on the Pi; `herocart.bm` stage 1 is on the SD):
@@ -21,7 +50,7 @@ Rules for this list:
 
 ## Queue (development, in order)
 2. Remote branches left: `api-particles3d`, `beta1-c4-ring2`, `beta1-c4-ring3`, `gpu3d-fade`, `stages3d-budget`, `stages3d-qemu-test`, `v3d-compact-tex-attrs`, `reports`, `sync-handshake`. The Mali work is in `bm-core` (sheet `docs/progress/graphics-mali.md`, `Open work`: the device runs).
-3. Old work in the archive: 23 old unmerged branches are in `C:\Users\Utente\Documents\GitHub\bm-archive\branches-2026-10-22.bundle` and are deleted from the repository. Port their content on demand from the bundle: `carts_layout.py`, `sdlog_scan.py`, `public_export.py`, budget cart and `perf_table.py`, RGB30 cover job D10, xmenu close game, RGB30 QEMU freeze and delete tests, bench-vs-etc1 VSE column, 3D budget table, PROP-1 and PROP-2 docs, gfx-backends rule.
+3. Old work in the archive: 23 old unmerged branches are in `C:\Users\Utente\Documents\GitHub\bm-archive\branches-2026-10-22.bundle` and are deleted from the repository. Port their content on demand from the bundle: budget cart and `perf_table.py`, RGB30 cover job D10, xmenu close game, RGB30 QEMU freeze and delete tests, bench-vs-etc1 VSE column, 3D budget table, PROP-1 and PROP-2 docs, gfx-backends rule.
 5. Multitasking stages 3 (SD writer lock; `file_write` is synchronous and stops the frame until then), 4 (keep-alive), 5 (Range resume `.part`).
 6. Cel shader stage 3 (V3D vertex programs) and stage 4 (outline by inverted hull); Mali uses the ARM path.
 7. Dev kit for weight and performance (user, 22 Oct): weight report of a `.bme`/`.bm` (bytes per section and asset, biggest first) and a performance analysis during development (frame time, draw and 3D cost, memory, SD reads), reusing the dev kit and bench tools. Compat policy table per kernel (show, grey, hide) as editable data.
