@@ -579,7 +579,7 @@ local function finish_edit(what)
   if #it.v > LIMIT_V or #it.f > LIMIT_F then
     local s = table.remove(undo)
     if s then restore(s) end
-    say("cannot: at most " .. LIMIT_V .. " vertices and " .. LIMIT_F .. " triangles", C_ERR)
+    say("cannot: format limit " .. LIMIT_V .. " vertices and " .. LIMIT_F .. " triangles", C_ERR)
     return false
   end
   changed(it)
@@ -2033,7 +2033,7 @@ function draw_edit()
   rectfill(0, 16, W, 32, C_BG)
   local nsel = ed.mode == "v" and count(ed.sv) or count(ed.sf)
   print(it.name, 8, 16, KIND_C[it.kind])
-  print(string.format("%d vertices  %d triangles   %s: %d chosen", #it.v, #it.f,
+  print(string.format("%d of 65535 vertices  %d triangles   %s: %d chosen", #it.v, #it.f,
                       ed.mode == "v" and "VERTICES" or "FACES", nsel), 8 + (#it.name + 2) * 8, 16, C_TEXT)
   if ed.tool then
     print(tool_text(), 8, 32, C_ACC)

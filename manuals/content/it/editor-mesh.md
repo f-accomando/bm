@@ -220,7 +220,7 @@ Premi **g** per spostare, **r** per ruotare, **t** per scalare la scelta (si muo
 ## Attenzione
 
 - Modificare una mesh **G** prima ne crea una copia come modello; il codice del gioco non viene riscritto. La barra di stato dice il nome della copia.
-- Le modifiche che supererebbero 65535 vertici o 65535 triangoli vengono rifiutate e annullate.
+- Le modifiche che supererebbero il limite del formato di 65535 vertici o 65535 triangoli vengono rifiutate e annullate.
 
 # L'anteprima e cart_meshes
 
@@ -322,7 +322,7 @@ Per uscire dal gioco e tornare a bm Mesh premi Start + Select sul pad o Ctrl+Esc
 
 ## Limiti
 
-- Al massimo 65535 vertici e 65535 triangoli in una mesh.
+- Il limite del formato di una mesh è 65535 vertici e 65535 triangoli. La pagina di modifica mostra il conteggio dei vertici rispetto a esso.
 - Al massimo 256 modelli in una cartuccia.
 - Una mesh G non si può rinominare né cancellare: cambia il codice con bm Code.
 - Una copia come codice non conserva lo scheletro.

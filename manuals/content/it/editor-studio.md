@@ -346,7 +346,7 @@ Se il conteggio supera 1200, la riga dice `heavy for 60 fps`. Riduci finché l'a
 
 - Circa 1200 triangoli in una scena è ciò che la console disegna a 60 fps. Un modello ridotto è il modo più economico per restare sotto.
 - Le celle del cursore vanno da -64 a 63 su ogni asse.
-- Il pannello conta vertici e triangoli. Il salvataggio non ha un tetto di dimensione; resta solo il limite del formato di 65535 vertici per mesh.
+- Il pannello conta vertici e triangoli. Il salvataggio non ha un tetto di dimensione; resta solo il limite del formato di 65535 vertici e 65535 triangoli per mesh. Il contatore dei vertici lo mostra ("of 65535").
 - Le facce con texture richiedono lo sprite sheet: le texture ne sono dei pezzi.
 - Usa spesso **F5**: salva e mostra il modello nel gioco.
 - Un gioco e un progetto non sono la stessa cosa: il menu mostra il percorso del file su cui lavori, quindi controlla che sia la copia `.BME` prima di proseguire.
