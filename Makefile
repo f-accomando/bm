@@ -247,6 +247,16 @@ $(BUILD)/carts/kitchen.bm: $(BUILD)/kitchen/main.lua carts/kitchen/assets/sheet.
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/kitchen/bm.info \
 	    --sheet carts/kitchen/assets/sheet.png --cover carts/kitchen/cover.png
 
+# bm Web (carts/bmweb): the modules in src/ and main.lua are joined by build/build.py. The project
+# (.bme) is the source the Dev tab edits; the .bm is the same cartridge to play. Not in GAMES.
+BMWEB_SRC := $(sort $(wildcard carts/bmweb/src/*.lua)) carts/bmweb/main.lua
+$(BUILD)/bmweb/main.lua: $(BMWEB_SRC) carts/bmweb/build/build.py
+	$(PYTHON) carts/bmweb/build/build.py $@
+
+$(BUILD)/carts/bmweb.bm $(BUILD)/carts/bmweb.bme: $(BUILD)/carts/bmweb.%: $(BUILD)/bmweb/main.lua scripts/mkbm.py carts/bmweb/bm.info
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/bmweb/bm.info
+
 # Titan Clash (M20): several Lua files too; its sheet has more colours than
 # fit in RGBA sections, so it goes as SHEET8 (a palette and RLE)
 TITAN_SRC := $(sort $(wildcard carts/titan/src/*.lua))
