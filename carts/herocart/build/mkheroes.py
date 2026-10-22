@@ -111,6 +111,18 @@ def hull(model):
             "faces": [(a, c, b, HULL_COLOUR, (0,) * 6) for a, b, c, *_ in faces]}
 
 
+TRIS_LUA = os.path.join(HERE, "..", "src", "05_tris.lua")
+
+
+def tris_lua(count):
+    """the text of src/05_tris.lua: the triangles of hero0..hero3, read by the options panel"""
+    t = ", ".join(str(count[f"hero{i}"]) for i in range(len(RATIOS)))
+    return ("-- Made by build/mkheroes.py from models.bm: do not edit. The triangles of one hero, level 0..3."
+            "\n"
+            f"H.lod_tris = {{ {t} }}"
+            "\n")
+
+
 def build():
     import bmdecimate
     data = source()
@@ -145,6 +157,9 @@ def build():
     secs[bmmesh.SEC_ANIM] = bmmesh.encode_anim(rigs)
     with open(OUT, "wb") as f:
         f.write(bmmesh.rewrite_cart(data, secs))
+    models2, _ = bmmesh.decode(dict(bmmesh.cart_sections(open(OUT, "rb").read()))[bmmesh.SEC_MESH])
+    with open(TRIS_LUA, "w", encoding="utf-8", newline="\n") as f:
+        f.write(tris_lua({m["name"]: len(m["faces"]) for m in models2}))
     return check(full)
 
 
@@ -168,6 +183,13 @@ def check(full=None):
             print(f"{n:9s} {got:5d} triangles (target {want:6.0f}) {mixed} faces on two bones {'ok' if ok else 'OFF'}")
             if not ok:
                 bad.append(n)
+    try:
+        same = open(TRIS_LUA, encoding="utf-8").read() == tris_lua(count)
+    except OSError:
+        same = False
+    if not same:
+        print("src/05_tris.lua does not match models.bm: run mkheroes.py")
+        bad.append("05_tris.lua")
     print(f"8 models, {total} triangles, {os.path.getsize(OUT)} bytes")
     return 1 if bad else 0
 
