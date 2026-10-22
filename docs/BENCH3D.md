@@ -81,7 +81,7 @@ the Pi's numbers with the earlier drivers are the historical bars.
   `bilinear`: quads with filtered textures (bm3D 4.9, an option off by default);
 - `big`, `big_logic`: models of 10 080 triangles on a map of 14 112 (larger indexed meshes, bm3D 5.0), the second with the
   logic of `queue`;
-- the 2D scenes `map8`, `sprites`, `stack`, `fade`, `light` (see *The 2D scenes*), `herotris` and `cel` (see *herotris*): they run only when `tests=` names them.
+- the 2D scenes `map8`, `sprites`, `stack`, `fade`, `light` (see *The 2D scenes*), `herotris`, `cel` (see *herotris*) and `stress` (see *stress*): they run only when `tests=` names them.
 
 The maximum loads are far beyond what the drivers do today (up to 8000 spheres, 512
 heroes, 40 000 calls): they leave headroom for the drivers to come.
@@ -369,7 +369,45 @@ Not developed here: `stackv` and the 3D particles. Their scenes wait for their c
 The hook is the comment at the top of the block "the 2D scenes" in `src/bm/b3d.c`.
 The test of the triangle count is a different work (`docs/design/triangle-throughput.md`).
 
-On the PC, `make test-b3d` runs them (`herotris` and `cel`) for a few frames and checks that the fields, the `H` lines and the `C` lines exist.
+On the PC, `make test-b3d` runs them (`herotris`, `cel` and `stress`) for a few frames and checks that the fields, the `H` lines, the `C` lines and the `T` lines exist.
+
+## stress
+
+`stress` answers: does the frame stay stable at twice the load that holds 60 fps? It is **opt-in** like `herotris`: the default run, the score and the old numbers do not change.
+
+```
+./easy_install.sh line "gpu; b3d tests=stress; send"
+```
+
+The test runs on one profile only: `GPU+VS+Q` (the GPU, the vertex shader and the queue: the default path of the games on the Pi). It has two stages.
+
+1. The ramp. It is the ramp of `herotris` in finer steps: the load `n` is a number of quarter sets. A quarter set is 25 map pieces of 50 triangles. A hero with its shadow (3072 triangles) is added for every 4 quarters, or part of them. So 4 quarters are one `herotris` set (8036 triangles). The 2D (parallax, HUD, text) and the 4M instructions of logic are the ones of `herotris`. The ramp gives `n60`, the load at 60 fps.
+2. The two loads. The frame runs for 3 s at 1x (`n60` rounded down to whole quarters, at least 1) and then for 3 s at 2x (twice that `n`). If the driver gives up at 1x (`v3d_failed=1`), the 2x load does not run (`T,GPU+VS+Q,2x,not_run`).
+
+The report has the usual `R` row of the ramp and, after the `C` lines, these lines:
+
+```
+stress path=GPU+VS+Q n60=<quarter sets> (quarter sets: 4 are one herotris set of 8036 triangles) secs=3 each
+columns T,profile,load,n,tris_in,frames,secs,ms,worst,drops,arm_ms,gpu_ms,jobs,pool_kb,ovf_kb,ovf_jobs,v3d_failed
+T,GPU+VS+Q,1x,...
+T,GPU+VS+Q,2x,...
+```
+
+| Column | Meaning |
+|---|---|
+| `load` | `1x` or `2x` |
+| `n`, `tris_in` | quarter sets, and the triangles given to r3d in a frame |
+| `frames`, `secs` | frames run and seconds of the load |
+| `ms`, `worst` | mean ms of a frame (with the copy to the screen) and the slowest frame |
+| `drops` | frames over 16.7 ms (they missed 60 fps) |
+| `arm_ms` | ms less the ARM's wait for the GPU in `gpu3d_sync` |
+| `gpu_ms`, `jobs` | the V3D's busy time and the jobs, a frame |
+| `pool_kb`, `ovf_kb`, `ovf_jobs` | the binner's memory: the most a job used, the overflow memory, the jobs in the overflow |
+| `v3d_failed` | 1 if the driver gave up (V3D hang or timeout) during the load |
+
+How to read it. The 2x load is stable if `v3d_failed` is 0, the bench finished (no freeze), and `pool_kb` and `ovf_kb` stay inside the pool the driver has. At 2x the frame is expected to miss 60 fps: `ms` is then about the double of 1x and `drops` is near `frames`. What is looked for is a clean slow-down (`worst` near `ms`) and no `v3d_failed`. The test has no pass or fail mark of its own: the SPV reads the columns. Without the V3D (QEMU) the profile does not run and the report has no `stress` line.
+
+On the PC, `make test-b3d` runs the test for 6 frames a load and checks the `T` lines (the PC's ms do not count). Not verified on hardware.
 
 ## On the PC
 

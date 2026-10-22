@@ -5683,6 +5683,13 @@ def test_monitor_line(b, opts):
         assert "qpufade key=0 path=arm" in out, out[-2000:]
         q.expect("the line is done", timeout=30)
         q.expect("> ")
+        # the stress test needs the V3D (GPU+VS+Q): QEMU has none, so the line runs and the report has no stress rows
+        q.send(":b3d tests=stress; send\r")
+        out = q.expect("3D Bench: done", timeout=240).decode(errors="replace")
+        assert "only tests stress, profiles all" in out, out[-2000:]
+        assert "R,stress," not in out and "stress path=" not in out, out[-2000:]
+        q.expect("the line is done", timeout=30)
+        q.expect("> ")
         q.send(":play bad; err\r")
         out = q.expect("the line is done", timeout=30).decode(errors="replace")
         assert "attempt to call a nil value" in out, out
