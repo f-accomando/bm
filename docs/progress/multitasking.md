@@ -45,6 +45,7 @@ fibers probably off or used differently (job per core, real threads for download
 - Failing tests: RGB30 `test_update_from_sd` flaky,
   `make test-net` link failure in `test_config` (pre-existing).
 ## Considerations
+- Alternatives to R49 for every Open item, ranked, with a staged plan and Pi numbers to collect: [`docs/design/multitasking-alternatives.md`](../design/multitasking-alternatives.md).
 - Quotas matter little on a 14-game card: the value is the measurement and removing the long stalls
   (FAT, handshake, SD timeout), not the share table. With real multicore the idle-slice model gives
   way to real concurrency; the cancellation/lock rules (`background_stop`, card writer) carry over.
