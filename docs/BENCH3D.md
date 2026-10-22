@@ -81,7 +81,7 @@ the Pi's numbers with the earlier drivers are the historical bars.
   `bilinear`: quads with filtered textures (bm3D 4.9, an option off by default);
 - `big`, `big_logic`: models of 10 080 triangles on a map of 14 112 (larger indexed meshes, bm3D 5.0), the second with the
   logic of `queue`;
-- the 2D scenes `map8`, `sprites`, `stack`, `fade`, `light` (see *The 2D scenes*) and `herotris` (see *herotris*): they run only when `tests=` names them.
+- the 2D scenes `map8`, `sprites`, `stack`, `fade`, `light` (see *The 2D scenes*) `herotris` and `cel` (see *herotris*): they run only when `tests=` names them.
 
 The maximum loads are far beyond what the drivers do today (up to 8000 spheres, 512
 heroes, 40 000 calls): they leave headroom for the drivers to come.
@@ -259,22 +259,87 @@ the old numbers do not change. It answers: how many triangles at 60 fps does a h
 
 Load `n` = sets (1 to 64). A set is a hero (1536 triangles, 16 bones, a 64x32 texture, lit, with its shadow) and a map of
 100 pieces of 50 triangles (baked light, two 64x32 sheets), so a step adds 6500 triangles (8036 with the shadow). The sets share
-the map's place and the camera sees them all. Over the 3D: two parallax bands (top opaque, bottom with holes, 16x16 pieces), 20
-sprites and 3 lines of text. After the 3D: 4M instructions of logic (`work`, as `queue`). Resolution 640x360. The bench steps the
-load up until the frame misses 60 fps: `tris60` of the `R` line is the maximum triangles at 60 fps (`drawn60` after the ARM
-clip); `ms` and `gpu_ms` are the step's numbers; `ms - gpu_ms` is the ARM side (`A` in the design file).
+the map's place and the camera sees them all. Each of the 16 parts of the hero is on one bone, so every face is on one bone: the
+mesh path of the vertex shader takes the mesh (it refuses a face on two bones unless the face is textured and lit).
 
-Profiles: `GPU+VS` (no FS2), `GPU+VS+FS2` (the driver as games get it), `GPU+VS+Q`, `GPU+VS+Q2`, `GPU+VS+A8` and the new `GPU+VS+A8+Q`
-(compact attributes with the queue; short name `VSAQ`). Run each three times.
+After the 3D job: 4M instructions of logic (`work`, as `queue`), then the 2D (two parallax bands, top opaque and bottom with holes,
+20 sprites and 3 lines of text). The 2D runs after the job and not inside the scene, as the 2D records of a game play after the job. With
+the queue profiles the ARM then does the logic while the GPU draws. The bands are drawn over the 3D, not behind it: a page cleared by
+the GPU job would lose the ARM's layer. Resolution 640x360 (the report says it on the `size` line; the bench has no 720x405 and no
+1080p mode). The bench steps the load up until the frame misses 60 fps.
 
-The bands are drawn over the 3D, not behind it: a page cleared by the GPU job would lose the ARM's layer. Their cost is the same
-sprite path.
+Profiles: `ARM`, `GPU`, `GPU+VS` (no FS2), `GPU+VS+FS2` (the driver as games get it), `GPU+VS+Q`, `GPU+VS+Q2`, `GPU+VS+A8` and
+`GPU+VS+A8+Q` (compact attributes with the queue; short name `VSAQ`). Run each three times. The ARM row can miss 60 fps at one set:
+its numbers then scale the first step (`tris60` of the `R` line).
+
+### The hero triangles at 60 fps (Q1)
+
+After the `P` lines the report has the `H` lines, one for each profile of `herotris`:
+
+```
+columns H,test,profile,sets60,hero_tris60,hero_shadow_tris60,submitted60,drawn60,ms,gpu_ms,arm_ms,mesh,probe_gltris,probe_meshes,vs_probe,later_submitted60,later_drawn60
+```
+
+| Column | Meaning |
+|---|---|
+| `sets60` | Sets a frame of 60 fps holds. |
+| `hero_tris60` | Hero triangles in them (1536 a set). `hero_shadow_tris60`: with the shadow, which is the hero drawn again. |
+| `submitted60` | Triangles given to r3d (hero, shadow, map). It is `tris60` of the `R` line. |
+| `drawn60` | Triangles r3d keeps after its clip and cull. The GPU throws back faces away later. |
+| `ms`, `gpu_ms`, `arm_ms` | At the last step of 60 fps. `arm_ms` is `ms` less the time the ARM waits inside `gpu3d_sync`. |
+| `mesh` | What the vertex shader did with one hero drawn alone before the ramp. `ACCEPTED`: the mesh path placed all 1536 triangles. `FALLBACK`: it placed 0, the triangles went one by one through the ARM. `PARTIAL`: some. `NA`: the profile has no vertex shader. |
+| `probe_gltris`, `probe_meshes` | The counters behind `mesh` (`gltris` and `glmeshes` of `gpu3d_stats_t`). |
+| `vs_probe` | `gpu3d_vshader()` of the start-up probe: 0 none, 1 scenery only, 2 heroes too. A profile that needs level 2 has no row if it is 1. The header line `vsprobe` shows it too. |
+| `later_*` | `GPU+VS+Q2` only. See below. |
+
+**Frame shown a frame later.** The bench has one page, so it cannot show a frame a frame later (`gpu3d_later`). The `later_` columns are a
+model of it: the frame costs the larger of the ARM side (`ms` less the wait in `gpu3d_sync`) and the GPU time (`gpu_ms`). The ramp
+is read again at 60 fps with these times. The model gives the best case. With the queue the job times are not exact (a job that ended before the ARM looked
+counts at the mean). Check the model with a cart that sets `gpu3d_later=1`.
+
+The four rows asked for: ARM, GPU, GPU+VS (level 2), and GPU+VS+Q2 (queue 2) with its `later_` columns.
+
+A note on the old numbers: before this change the 2D ran inside the scene, so the 3D job was flushed before the 2D, and the queue profiles
+had nothing to overlap. The `Q`, `Q2` and `VSAQ` rows of `herotris` are now different from the first runs. Do not compare them.
+
+### The cel shader (Q2)
+
+`cel` is an opt-in group of four tests, the same scene: `n` heroes (the textured hero, 1536 triangles, 16 bones, lit by the sun) in
+rows of 8. Profiles: `ARM` and `GPU+VS`.
+
+| Test | Light | Dither of the ARM raster |
+|---|---|---|
+| `cel_lit` | the sun, no cel | on |
+| `cel` | cel, 4 bands (`r3d_cel`, floor 0.35, no outline) | on |
+| `cel_lit_nd` | the sun, no cel | off (`r3d_dither(0)`) |
+| `cel_nd` | cel, 4 bands | off |
+
+```
+./easy_install.sh line "gpu; b3d tests=cel; send"
+```
+
+`tests=cel` runs the four. A cel draw forces the ARM path (`r3d.c`: the QPU programs have no cel cut yet), so on `GPU+VS` the lit hero goes
+through the mesh path and the cel hero does not: the `GPU+VS` rows show what the fall back costs. After the `H` lines the report has
+the `C` lines, one for each profile and n from 1 to 4 (the same steps in the four tests):
+
+```
+columns C,profile,n,tris,lit,cel,lit_nd,cel_nd,cel_over_lit,cel_nd_over_lit_nd
+```
+
+`lit`, `cel`, `lit_nd`, `cel_nd` are the ms a frame of the four tests. `-1.00` is a step that did not run. The ratios are `cel / lit`
+and `cel_nd / lit_nd`. The `R` lines of the four tests have the usual fields (`n60` is the heroes at 60 fps).
+
+### Both together
+
+```
+./easy_install.sh line "gpu; b3d tests=herotris,cel; send"
+```
 
 Not developed here: `stackv` and the 3D particles. Their scenes wait for their code in `bm-core`.
 The hook is the comment at the top of the block "the 2D scenes" in `src/bm/b3d.c`.
 The test of the triangle count is a different work (`docs/design/triangle-throughput.md`).
 
-On the PC, `make test-b3d` runs them (and `herotris`) for a few frames and checks that the fields exist.
+On the PC, `make test-b3d` runs them (`herotris` and `cel`) for a few frames and checks that the fields, the `H` lines and the `C` lines exist.
 
 ## On the PC
 
