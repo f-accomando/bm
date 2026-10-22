@@ -41,6 +41,9 @@ typedef struct {
     uint32_t failures;          /* v3d_qpu_run calls that failed */
     uint32_t jobs;              /* QPU jobs launched */
     uint32_t probe_bad;         /* programs the probe turned off */
+    uint32_t busy_skips;        /* runs skipped because a 3D job was running (the ARM did them; not a failure) */
+    uint32_t fade_arm_align;    /* qpu_fade_apply calls done by the ARM: a picture or table not on a 64-byte line */
+    uint32_t fade_arm_shape;    /* ... by the ARM: another shape (stride, size, levels) */
 } qpu_stats_t;
 extern qpu_stats_t qpu_stats;
 
@@ -84,6 +87,15 @@ int  qpu_fade(const qpu_fade_t *f);
  * back: a run that fails leaves g as it was for the ARM. 1 if the QPUs did
  * it, 0 if the ARM did. */
 int qpu_fade_apply(g16_t *g, const g16_fade_t *f);
+
+/* The hook of the runtime (bm_fade_accel, src/bm/runtime.h) for the config key
+ * gpu3d_qpu=1: qpu_init on the first call, then qpu_fade_apply. If qpu_init fails
+ * or one run fails (a timeout too), the picture is done by the ARM and every
+ * later call goes to the ARM at once (the QPU path is off for good). A run
+ * skipped because a 3D job is running is not a failure: the ARM does that call
+ * and the next call tries the QPUs again. Returns 1
+ * if the QPUs did it, 0 if the ARM did. Never waits more than QPU_TIMEOUT_US. */
+int qpu_fade_hook(g16_t *g, const g16_fade_t *f);
 
 /* Runs the queued requests; 0, or the number of requests the ARM had to do. */
 int qpu_flush(void);

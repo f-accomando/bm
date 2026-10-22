@@ -534,6 +534,43 @@ function _update()
 end
 function _draw() cls(0) M:draw(260, 140) end
 
+== lib.input
+kind: api
+name: lib.input
+title: lib.input([over]) - lo standard di input dei giochi (stessi tasti in ogni gioco)
+title_en: lib.input([over]) - the games' input standard (same buttons in every game)
+ask: tasti standard del gioco | confermare e annullare con gli stessi tasti | standard di input
+ask: keymap pronta per il gioco | conferma annulla pausa azione | lib input
+ask: quale tasto e conferma | quale tasto e pausa | input standard dei giochi
+keys: input, keymap, standard, conferma, annulla
+see: keymap, lib.pause
+text:
+lib.input() mette sulla keymap confirm, cancel, pause e le azioni dello
+schema del gioco, e restituisce la tabella. lib.input({ scheme = ... })
+sceglie lo schema: "scroller" (predefinito: act1 salto = B, act2 attacco = Y,
+act3 = l'altro tasto A/B, act4 = X, spalle L1/R1), "topdown" (act1 = B,
+act2 = l'altro A/B, act3 = Y, act4 = X) o "stick" (act1 R2, act2 L2, act3 L1,
+act4 R1, act5..act8 = B A Y X). Le altre chiavi, per esempio { act3 = "x" },
+cambiano singole azioni: sono le eccezioni del gioco, elencate in
+lib.input_exceptions (da dichiarare nel suo docs/progress/<gioco>.md).
+lib.input_scheme dice quale schema gira. lib.INPUT_STD è la parte comune.
+text_en:
+lib.input() puts confirm, cancel, pause and the actions of the game's
+scheme on the keymap and returns the table. lib.input({ scheme = ... })
+picks the scheme: "scroller" (default: act1 jump = B, act2 attack = Y,
+act3 = the other A/B button, act4 = X, shoulders L1/R1), "topdown" (act1 = B,
+act2 = the other A/B button, act3 = Y, act4 = X) or "stick" (act1 R2, act2 L2,
+act3 L1, act4 R1, act5..act8 = B A Y X). The other keys, for example
+{ act3 = "x" }, change single actions: those are the game's exceptions,
+listed in lib.input_exceptions (declare them in its docs/progress/<game>.md).
+lib.input_scheme says which scheme runs. lib.INPUT_STD is the common part.
+code:
+lib.input()                          -- in _init
+if btnp("confirm") then start() end
+if btnp("pause") then paused = true end
+lib.input({ scheme = "topdown" })    -- uno schema diverso
+lib.input({ act3 = "x" })            -- una eccezione dichiarata
+
 == lib.pause
 kind: api
 name: lib.pause

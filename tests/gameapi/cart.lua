@@ -80,13 +80,14 @@ local function map_api()
   check(not pcall(msize, 0, 10), "msize(0, h): an error")
 
   -- the named zones (sprites.txt)
-  check(same(zones(), { "coin", "big", "rgb" }), "zones()")
+  check(same(zones(), { "coin", "big", "rgb", "rgbv" }), "zones()")
   local x, y, zw, zh, fr, fps = zone("coin")
   check(x == 0 and y == 8 and zw == 8 and zh == 8 and fr == 3 and fps == 10, "zone(coin)")
   local bx, by, bw, bh, bf, bfps = zone("big")
   check(bx == 0 and by == 16 and bw == 16 and bh == 16 and bf == 1 and bfps == 0, "zone(big)")
   local _, _, _, _, _, _, sl = zone("rgb")
   check(select(7, zone("coin")) == 0 and select(7, zone("big")) == 0 and sl == 3, "zone(): slices (0 for a plain zone)")
+  check(select(7, zone("rgbv")) == 3, "zone(): slices of a stackv zone")
   check(zone("none") == nil and not pcall(zspr, "none", 0, 0), "an unknown zone")
   -- their hitboxes and hurtboxes (zboxes: the boxes under the zones)
   local all = zboxes("coin")
@@ -169,12 +170,38 @@ local function draw_checks()
   stack(8, 0, 8, 8, 2, 100, 100, 0, 65)
   stack(60, 0, 8, 8, 1, 100, 100)
   check(pget(96, 103) == 0 and pget(100, 100) == 0, "stack: scale <= 0 or > 64, and a slice off the sheet")
+  -- stackv(): the same slices one under the other on the sheet (cells 7, 15, 23 at x 56)
+  cls(0)
+  stackv(56, 0, 8, 8, 3, 100, 100, 0, 1, 4)
+  check(pget(96, 102) == RED and pget(96, 98) == GREEN and pget(96, 94) == BLUE and pget(104, 100) == 0,
+        "stackv: the top slice of the sheet is the bottom, each one 4 pixels higher")
+  for _, a in ipairs({ { 0, 1, 1 }, { 0.7, 2, 3 } }) do
+    cls(0)
+    stack(8, 0, 8, 8, 3, 150, 100, a[1], a[2], a[3])
+    local want = {}
+    for yy = 40, 160 do for xx = 100, 200 do want[#want + 1] = pget(xx, yy) or -1 end end
+    cls(0)
+    stackv(56, 0, 8, 8, 3, 150, 100, a[1], a[2], a[3])
+    local got = {}
+    for yy = 40, 160 do for xx = 100, 200 do got[#got + 1] = pget(xx, yy) or -1 end end
+    check(same(got, want), "stackv: as stack() of the same slices, rotation " .. a[1] .. " scale " .. a[2])
+  end
+  cls(0)
+  stackv(56, 28, 8, 8, 1, 100, 100)   -- the slice would end under the sheet (32 high)
+  check(pget(96, 103) == 0 and pget(100, 100) == 0, "stackv: a slice off the sheet is skipped")
+  cls(0)
+  stackv(60, 0, 8, 8, 3, 100, 100)
+  check(pget(96, 103) == 0, "stackv: a slice that crosses the right edge draws nothing")
   -- zstack(): the stack zone "rgb" (slices 8x8 at (8, 0)), the same as stack() with step 1
   local function grab(x0, y0, x1, y1)
     local t = {}
     for yy = y0, y1 do for xx = x0, x1 do t[#t + 1] = pget(xx, yy) or -1 end end
     return t
   end
+  cls(0)
+  zstack("rgbv", 100, 100)
+  check(pget(96, 103) == RED and pget(96, 102) == GREEN and pget(96, 101) == BLUE and pget(96, 93) == 0,
+        "zstack: a stackv zone goes down the sheet")
   cls(0)
   zstack("rgb", 100, 100)
   check(pget(96, 103) == RED and pget(96, 102) == GREEN and pget(96, 101) == BLUE and pget(96, 94) == BLUE
@@ -245,8 +272,11 @@ local function save_checks()
   check(p and same(p.layers, { "main", "front", "extra" }), "cart_load: the layers' names")
   check(mget(3, 3, "extra") == 7 and mget(5, 5, "front") == 4 and mget(0, 20) == 1, "cart_load: the layers' cells")
   check(fget(5, 7) and fget(1) == 1 and fget(3) == 4, "cart_load: the flags")
-  check(same(zones(), { "coin", "big", "rgb" }), "cart_load: the zones")
+  check(same(zones(), { "coin", "big", "rgb", "rgbv" }), "cart_load: the zones")
   check(select(7, zone("rgb")) == 3 and select(7, zone("coin")) == 0, "cart_load: the slices of a stack zone")
+  cls(0)
+  zstack("rgbv", 100, 100)
+  check(pget(96, 102) == GREEN and pget(96, 101) == BLUE, "cart_load: the direction of a stackv zone")
   check(#zboxes("coin") == 2 and zboxes("big")[1].x == -2, "cart_load: the boxes")
   -- cart_write(sheet = true) writes the flags changed since
   fset(6, 2, true)
@@ -590,6 +620,32 @@ local function lib_hits()
 end
 
 -- players on one console: colours, views
+local function lib_input()
+  local t = lib.input()
+  local km = keymap()
+  local other = controller().ok == "a" and "b" or "a"
+  check(km.confirm[1] == "ok" and km.cancel[1] == "back" and km.pause[1] == "start" and km.act1[1] == "ok" and
+        km.act2[1] == "y" and km.act3[1] == other and km.act4[1] == "x" and km.shoulder_l[1] == "l1" and
+        t.act2 == "y" and lib.input_scheme == "scroller", "lib.input: the scroller scheme is the default")
+  check(#lib.input_exceptions == 0, "lib.input: no exceptions by default")
+  lib.input({ scheme = "topdown" })
+  check(controls().scheme == "topdown", "lib.input: the runtime knows the scheme (the player's remap of it applies)")
+  km = keymap()
+  check(km.act1[1] == "ok" and km.act2[1] == other and km.act3[1] == "y" and km.act4[1] == "x" and
+        #lib.input_exceptions == 0, "lib.input: the topdown scheme")
+  lib.input({ scheme = "stick" })
+  km = keymap()
+  check(km.act1[1] == "r2" and km.act2[1] == "l2" and km.act3[1] == "l1" and km.act4[1] == "r1" and
+        km.act5[1] == "ok" and km.act6[1] == other and km.act7[1] == "y" and km.act8[1] == "x" and
+        km.shoulder_l == nil, "lib.input: the stick scheme")
+  lib.input({ act2 = "x" })
+  check(keymap().act2[1] == "x" and lib.input_exceptions[1] == "act2" and #lib.input_exceptions == 1,
+        "lib.input: an override is a declared exception")
+  lib.input()
+  check(controls().scheme == "scroller", "lib.input: back to the default scheme")
+end
+
+
 local function lib_players()
   check(#lib.PLAYER_COLORS == 4 and controller(2).color == lib.PLAYER_COLORS[2] and
         controller().color == lib.PLAYER_COLORS[1], "controller(p).color: the player's colour")
@@ -643,6 +699,7 @@ function _init()
   lib_things()
   lib_hits()
   lib_players()
+  lib_input()
   party = lib.party({ min = 2 })
   menu = lib.menu({ "one", { label = "two", off = true }, { label = "three", value = "3" } }, { wrap = false })
   volume0 = volume()

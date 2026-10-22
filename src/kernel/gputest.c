@@ -1,5 +1,6 @@
 #include "gputest.h"
 #include "crumbs.h"
+#include "config.h"
 #include "input.h"
 #include "drivers/prop.h"
 #include "drivers/timer.h"
@@ -7,6 +8,7 @@
 #include "bm/r3d.h"
 #include "gfx/font.h"
 #include "gpu/gpu3d.h"
+#include "gpu/qpucheck.h"
 #include "gpu/shaders.h"
 #include "gpu/v3d.h"
 #include "lib/printf.h"
@@ -1220,6 +1222,39 @@ static int step_vshader(framebuffer_t *fb)
     return err ? -1 : 0;
 }
 
+static uint32_t qpu_us(void)
+{
+    return timer_ticks();
+}
+
+int gpu_qpu_key(void)
+{
+    const char *v = config_get("gpu3d_qpu");
+    return v && strcmp(v, "1") == 0;
+}
+
+void gpu_qpu_row(char *line, size_t n)
+{
+    qpucheck_t r;
+    const int all = qpu_check(&r, qpu_us);
+    qpu_check_line(&r, all, line, (unsigned)n);
+}
+
+/* step 'QPU programs' (gpu3d_qpu=1): qpu_init once, the particle and the fade
+ * programs on a small array against the ARM versions. SKIP is not a failure. */
+static void step_qpu(void)
+{
+    step("QPU programs (gpu3d_qpu=1)");
+    qpucheck_t r;
+    const int all = qpu_check(&r, qpu_us);
+    char line[256];
+    qpu_check_line(&r, all, line, sizeof line);
+    if (all == QPUCHECK_FAIL)
+        fail(line);
+    else
+        kprintf("%s\n", line);
+}
+
 void gpu_test(framebuffer_t *fb)
 {
     failed = 0;
@@ -1254,6 +1289,8 @@ void gpu_test(framebuffer_t *fb)
         step_queue(fb);
     if (ok && gpu3d_ready())
         step_gpu2d(fb);
+    if (gpu_qpu_key())
+        step_qpu();
     probe_lines();
     char opts[160];
     gpu3d_options_line(opts, sizeof opts);
