@@ -68,7 +68,7 @@ ffmpeg/libass; storyboard and script come from the same key script. Series *Skyv
 tool; `make bmhost-ai` builds `bmhost` with the real `ai` table. On the PC: no kernel menu.
 
 ### Tests on a real Pi (`tools/pi_bridge.py`, `tools/pi.py`, `tools/pi_test.py`)
-The owner types the console password once in `pi_bridge.py`; a client (Claude Code, `pi_test.py`) then sends `line`, `send`, `play`, `kernel` through a local socket without seeing the password. It can run `gpu`/`b3d`, send a cartridge or a kernel and restore the normal one. It sees the error of a stopped cartridge (`err`, R-NET1) and the screen (`shot OUT.png`, R-NET2: transfer ops `T`/`G`): [`design/pi-test.md`](../design/pi-test.md).
+The owner types the console password once in `pi_bridge.py`; a client (Claude Code, `pi_test.py`) then sends `line`, `send`, `play`, `kernel` through a local socket without seeing the password. It can run `gpu`/`b3d`, send a cartridge or a kernel and restore the normal one. `./easy_install.sh bridge [profile]` (menu 9) starts it for a saved profile with its board (`--board pi|zero2|rgb30`: `kernel FILE` takes only that board's kernel file; the RGB30 has no monitor, so its crash/freeze/reboot keys answer "not for this board"; test `tests/net/check_pi_bridge_board.py`, not tried on the RGB30). It sees the error of a stopped cartridge (`err`, R-NET1) and the screen (`shot OUT.png`, R-NET2: transfer ops `T`/`G`): [`design/pi-test.md`](../design/pi-test.md).
 
 ### CI (`.github/workflows/ci.yml`)
 Build; host tests (`make test-host`); QEMU in four shards (`make test-qemu SHARD=K/4`); RGB30 build and QEMU
@@ -77,6 +77,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 ## Open work (`docs/ROADMAP.md`)
 
 - **Pi tests from the PC** ([`design/pi-test.md`](../design/pi-test.md)): R-NET3 a limited test token (R-NET1 `err`, R-NET2 screenshot via ops `T`/`G` and R-NET5 bridge `status`/`freeze`/`reboot`/`--detach` are done; the test on the real Pi is the owner's). To plan with `bm-planner` (kernel change, branch `claude/net-test-*`).
+- **Bridge tools ported** (`line` allowlist with `crc`, password from `BM_PASSWORD_FILE`, `--board pi|zero2|rgb30`, `easy_install.sh bridge [profile]`, monitor `crc`): run `tests/net/check_bm_net_config.py` and `tests/net/check_pi_bridge_board.py` in WSL (Unix sockets); add `check_pi_bridge_board.py` to `make test-net`; build the Pi kernel with the monitor `crc` command (not built yet) and run `test_monitor_crc` in `tests/qemu_test.py`; check `crc` and `--board` on the real Pi and RGB30 (not verified on hardware). Decide whether `stack` joins `LINE_CMDS` in `tools/pi_bridge.py`.
 - **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet.
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
@@ -98,7 +99,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 
 ## Rules (do not break)
 
-- Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a dialog frame never crosses the title row (QEMU tests read it). API list: one source `src/ai/api.tsv` → `build/words.lua` (`api`, `allow`), never edited by hand; the Lua lint in `src/ai/predict.lua` keeps the output of `scripts/api_lint.py` (diff check APP-5b-2). `api.tsv` has one line per signature of a name (`music(n, ...)`, `music(-1)`, `music()`); `predict.api(name).forms` lists them and Ctrl+Q shows all. CI: `make test-api` (`mkapi.py --check`, tests of mkapi and api_lint). The help screen is not verified on hardware.
+- Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a dialog frame never crosses the title row (QEMU tests read it). API list: one source `src/ai/api.tsv` → `build/words.lua` (`api`, `allow`), never edited by hand; the Lua lint in `src/ai/predict.lua` keeps the output of `scripts/api_lint.py` (diff check APP-5b-2). `api.tsv` has one line per signature of a name (`music(n, ...)`, `music(-1)`, `music()`); `predict.api(name).forms` lists them and Ctrl+Q shows all. CI: `make test-api` (`mkapi.py --check`, tests of mkapi and api_lint). The help screen is not verified on hardware. `tools/pi_bridge.py` `line`: allowlist `LINE_CMDS` per `;`-command, no `set`/`save`/`play`; widening it needs SPV (R-NET6). Bridge password: only `BM_PASSWORD`, the owner's file `~/.pi_bridge.pw` / `$BM_PASSWORD_FILE` (0600, written by the owner; assistants never create, read or print it) or the prompt (R-NET10).
 - bm Mesh rewrites only the lines between `-- [bm Mesh begin]` and `-- [bm Mesh end]`.
 - Mouse (`require "bmui"`, `src/script/bmui.lua`): the mouse does what the keys do: zones
   registered while drawing, chips that press the key, `U.press` before `keyp()`, a context menu

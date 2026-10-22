@@ -5285,6 +5285,52 @@ def test_monitor_line(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_monitor_crc(b, opts):
+    """The monitor's ':crc' (R-NET7): the CRC32 of the page on screen, in the
+    line's fixed format; the same screen gives the same value, another screen
+    another one."""
+    tmp = tempfile.mkdtemp(prefix="bm-crc-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+
+        def crc():
+            q.send(":crc\r")
+            out = q.expect("the line is done", timeout=10).decode(errors="replace")
+            m = re.search(r"crc: (\d+)x(\d+) bpp=(\d+) pitch=(\d+) crc32=0x([0-9a-f]{8})\b", out)
+            assert m, out
+            q.expect("> ")
+            return m
+
+        m = crc()
+        w, h, bpp, pitch = map(int, m.group(1, 2, 3, 4))
+        assert w > 0 and h > 0 and bpp == 32 and pitch >= w * 4, m.group(0)
+        first = m.group(5)
+        assert first != "00000000", m.group(0)
+        # console_clear() gives the same screen, but for the status line: it shows
+        # the uptime in seconds (src/kernel/input.c update_uptime), so two clears on
+        # either side of a second differ. Clear and ask until two in a row agree: they
+        # do within one second, and a CRC that did not follow the screen never would.
+        seen = []
+        for _ in range(20):
+            q.send("c")
+            q.expect("> ")
+            seen.append(crc().group(5))
+            if len(seen) > 1 and seen[-1] == seen[-2]:
+                break
+        assert len(seen) > 1 and seen[-1] == seen[-2], f"the same screen, never the same value: {seen}"
+        assert first != seen[-1], f"the screen with ':crc' printed and the cleared one give the same value {first}"
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_reports(b, opts):
     """The reports (src/kernel/reports.c, 2026-10-04): Z in the monitor makes
     one of the log, saved as bm/reports/RPT00001.TXT with its header (kernel,
