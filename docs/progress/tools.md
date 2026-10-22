@@ -85,6 +85,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
 - **Sprite stacking, step 3**: a *Stack* page in bm Pixel.
+- **Stack to mesh** (`tools/stack2mesh.py`, host tool, tests `tests/tools/test_stack2mesh.py`): done. It reads a sprite sheet PNG and a stack (`--size W H -n N --at X Y`, `--dir h` for `stack`, `--dir v` for one slice under the other), and writes a `.bmm` with one MESH model. Each opaque pixel is a voxel. Voxels of the same colour join into boxes: rectangles in a slice first, then equal rectangles on neighbouring slices. A box costs 8 vertices and 12 triangles. The default limit is 4096 vertices, so 512 boxes; `--kernel-limits` allows 8191 boxes. A stack that is too big exits with 1 and gives the limit. The round trip is tested: mesh back to slices equals the source. Not done: only the outer faces (fewer triangles for a solid volume), a button in bm Pixel and bm Studio, the `stackv` direction flag of the Lua call (the PNG layout `--dir v` exists), a check on the Pi.
 - Yharnam's map on the Pi: open `yharnam.bm` in the SDK, F3 F3, edit ground,lamps/barricades/gates/bosses on `objects`,
   Ctrl+S (`YHARNAM.BME`, about 6 MB), F5; then `mkmap.py --from` and commit the CSVs. A house
   stays in its 16×16-tile block.
