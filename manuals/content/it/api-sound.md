@@ -359,7 +359,7 @@ Il banco è la sezione **AUDIO** del `.bm` (formato in `src/audio/player.h`, ver
 - 64 effetti sonori;
 - 64 pattern;
 - 8 brani (ognuno con l'eco a tempo, in passi, e la dimensione della stanza);
-- fino a 64 **campioni**: 8, 16, 24, 32 bit o float, mono o stereo, qualunque frequenza, con una nota base e un loop (avanti o ping-pong); 2 MiB a banco, circa 22 s di mono a 48 kHz.
+- fino a 64 **campioni**: 8, 16, 24, 32 bit o float, mono o stereo, qualunque frequenza, con una nota base e un loop (avanti o ping-pong); 16 MiB a banco, circa 174 s di mono a 48 kHz.
 
 ## L'editor Sound
 

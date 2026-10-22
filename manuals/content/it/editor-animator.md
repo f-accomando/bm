@@ -331,7 +331,7 @@ Premi **Invio**. Lo schermo dice `drawing the sprites...` mentre lavora, a tappe
 
 - Gli sprite vanno **sotto ciò che lo sheet ha già**, allargando lo sheet se serve (mai oltre 4096 pixel).
 - Una riga di fotogrammi per direzione: il fotogramma `f` della direzione `d` sta a `x0 + f * size`, `y0 + d * size`.
-- La pagina aggiunge allo sheet una **zona**, col nome del modello e dell'animazione in minuscolo (`model_animation`, fino a 16 caratteri), con il numero di fotogrammi e la velocità (fotogrammi divisi per la durata dell'animazione). Una zona con lo stesso nome viene sostituita.
+- La pagina aggiunge allo sheet una **zona**, col nome del modello e dell'animazione in minuscolo (`model_animation`, fino a 16 caratteri), con il numero di fotogrammi e la velocità (fotogrammi divisi per la durata dell'animazione). Una zona con lo stesso nome viene sostituita. Se era una zona stack, conserva le sue fette quando la nuova zona sta ancora nello sheet.
 - I box sono creati nella sessione dell'editor (sezione BOXES della cartuccia), per la zona, fotogramma per fotogramma (dal fotogramma 1), presi dalla prima direzione. Non è confermato che Ctrl+S li scriva nel file.
 - Una riga in basso mostra la zona e la chiamata `sspr()` per disegnare i fotogrammi.
 
@@ -400,7 +400,7 @@ Tutte queste chiamate sono nell'API 3D (`docs/api/light3d.md`). L'animazione fa 
 | Chiamata | Cosa fa |
 |---|---|
 | `zspr(name, x, y, [frame, flip_x, flip_y, zoom])` | disegna la zona creata da F4; senza `frame` va da sola alla velocità della zona |
-| `zone(name)` | `x, y, w, h, frames, fps` della zona |
+| `zone(name)` | `x, y, w, h, frames, fps, slices` della zona; `slices` è 0 se non è una zona stack |
 | `zboxes(name, [frame, kind])` | i box della zona: `{x, y, w, h, kind, frame}`, con `kind` `"hurt"`, `"hit"` o `"body"` |
 
 `zspr` disegna la prima direzione. Per le altre direzioni usa `sspr()` con i numeri della riga in basso in F4.

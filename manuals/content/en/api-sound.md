@@ -359,7 +359,7 @@ The bank is the **AUDIO** section of the `.bm` (format in `src/audio/player.h`, 
 - 64 sound effects;
 - 64 patterns;
 - 8 songs (each with the echo on the beat, in steps, and the room's size);
-- up to 64 **samples**: 8, 16, 24, 32-bit or float, mono or stereo, any rate, with a root note and a loop (forward or ping-pong); 2 MiB a bank, about 22 s of mono at 48 kHz.
+- up to 64 **samples**: 8, 16, 24, 32-bit or float, mono or stereo, any rate, with a root note and a loop (forward or ping-pong); 16 MiB a bank, about 174 s of mono at 48 kHz.
 
 ## The Sound editor
 

@@ -57,7 +57,6 @@ Friday evening:
 9. QPU step 4: re-run the `v3d_init` register block after a QPU reset; lock for `v3d_qpu_run` (needs a Pi run).
 10. R41 and R42 only if the R40 numbers (`stat(17)`, `stat(18)`) show a gain.
 11. Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
-12. BETA-7 (manuals): re-read the manuals that `python scripts/manuals.py status` still lists with "sources changed" (boot-os, riff, api-sound, api-lib, the editors, characters, levels), stamp them, rebuild their PDFs with `python scripts/manuals.py build -o manuals/pdf <id>`, then remove BETA-7 from `docs/ROADMAP.md`. The PDFs were not looked at in a viewer (no `pdftoppm` on the host).
 
 ## Open issues
 - The Pi froze once on `b3d tests=herotris` with all profiles in one line (8 profiles in one run). The user power-cycled the Pi. The same profiles run one at a time did not freeze. Cause unknown, no fix. Command: `b3d tests=herotris` (no profile named, so all 8 profiles in one line). To reproduce, run it again and note the profile that is running at the freeze.

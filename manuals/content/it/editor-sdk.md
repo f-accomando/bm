@@ -127,7 +127,7 @@ Un eroe che corre e salta su una mappa con terreno e assi. La camera lo segue.
 6. Premi **F2** per leggere il codice. Usa `bmlib`: `lib.step(hero)` gestisce gravità e collisioni con la mappa, `lib.camera` segue l'eroe.
 7. Premi **F3** finché compare la mappa. Porta il cursore su una cella vuota in aria, scegli le assi con `x` su un'asse, e premi **Spazio** per piazzare una nuova asse.
 8. Premi **Esc**, **Save as...**, scrivi un nome e premi **Invio**.
-9. Premi **F5**. L'eroe sta sul terreno. Le frecce corrono, **A** (Spazio sulla tastiera) salta, **giù** scende attraverso un'asse.
+9. Premi **F5**. L'eroe sta sul terreno. Le frecce corrono, **act1** (Spazio sulla tastiera; lo schermo mostra il tasto) salta, **giù** scende attraverso un'asse.
 10. Corri fino al primo buco: se cadi, l'eroe torna all'inizio. Trova la tua nuova asse.
 11. Esci dal gioco e sei di nuovo nell'SDK. I tasti sono al passo 8 di Empty 2D.
 
@@ -149,13 +149,13 @@ Premi `z` sulla mappa per passare al pennello 16x16, oppure piazza un'asse più 
 1. Premi **Ctrl+N** e scegli **Shooter 2D**.
 2. Premi **F3** per vedere i due sprite: la nave (1) e il nemico (5).
 3. Premi **Esc**, **Save as...**, scrivi un nome e premi Invio.
-4. Premi **F5**. Le frecce pilotano la nave, **A** spara; i nemici arrivano da destra. A game over, **A** ricomincia.
+4. Premi **F5**. Le frecce pilotano la nave, **act1** (Spazio sulla tastiera) spara; i nemici arrivano da destra. A game over, **act1** ricomincia.
 
 ## Tutorial: Versus 2D
 
 1. Premi **Ctrl+N** e scegli **Versus 2D**.
 2. Premi **Esc**, **Save as...**, scrivi un nome e premi Invio.
-3. Premi **F5**. Due combattenti: ognuno con il suo controller; da solo, il secondo lo gioca il computer. Sinistra e destra camminano, **A** dà un pugno, **B** salta. I pugni sono hitbox e i corpi hurtbox.
+3. Premi **F5**. Due combattenti: ognuno con il suo controller; da solo, il secondo lo gioca il computer. Sinistra e destra camminano, **act2** (X sulla tastiera) dà un pugno, **act1** (Spazio) salta. I pugni sono hitbox e i corpi hurtbox.
 
 ## Tutorial: Online 2D
 
@@ -172,7 +172,7 @@ I numeri casuali del gioco vengono dal seme della partita (`lib.rng`), mai da `m
 
 1. Premi **Ctrl+N** e scegli **3D scene**.
 2. Premi **Esc**, **Save as...**, scrivi un nome e premi Invio.
-3. Premi **F5**. Un pavimento, quattro cubi e una palla con la sua ombra. Le frecce muovono la palla, **A** salta e la camera segue. In alto a sinistra compare il numero di triangoli.
+3. Premi **F5**. Un pavimento, quattro cubi e una palla con la sua ombra. Le frecce muovono la palla, **act1** (Spazio sulla tastiera) salta e la camera segue. In alto a sinistra compare il numero di triangoli.
 
 ## Tutorial: 3D with models
 
@@ -260,7 +260,7 @@ Premi **F1** nella pagina del progetto, poi ancora **F1**. La seconda pagina è 
 
 - **CODE**: token, righe, KiB, numero di funzioni e le più grandi.
 - **DATA IN MEMORY WHILE IT RUNS**: sheet, mappa, modelli, scheletri, suono e z-buffer, e il totale. Il Lua si aggiunge sopra. È la stessa somma di `stat(13)`.
-- **CARTRIDGE FILE**: la dimensione del file salvato rispetto al segno degli 8 MiB di un `.b16`. Il segno è solo una guida: la build non rifiuta un file più grande. Prima del primo salvataggio dice `not saved yet: Save as, then the size of the file`.
+- **CARTRIDGE FILE**: la dimensione del file salvato rispetto al segno di 100 MiB, il massimo che il Market accetta per un file. Il segno è solo una guida: la build non rifiuta un file più grande e il kernel non ha un tetto di dimensione. Prima del primo salvataggio dice `not saved yet: Save as, then the size of the file`.
 - Con il target `.b16`: le righe del codice che il `.b16` non avrà (`math.random`, `time()`, file...). Con `.bm`: `.bm has no cap`.
 - **LAST TRY (F5)**: fps, millisecondi medi e massimi di un frame, frame oltre 16,7 ms, la RAM di picco (Lua e dati), le istruzioni del frame più pesante, token, triangoli, e se il 3D è stato disegnato dalla GPU o dall'ARM.
 
@@ -290,7 +290,7 @@ Premi **F1** nella pagina del progetto, poi ancora **F1**. La seconda pagina è 
 ## Da sapere
 
 - Un gioco si costruisce dal suo progetto. Se è aperto un gioco, l'SDK ne salva prima la copia modificabile.
-- Portare il target su `.b16` (tasto `b` nella pagina del progetto) cambia lo schermo in `360x360` se non era quadrato, e mostra il segno degli 8 MiB. Il segno è una guida, non un limite.
+- Portare il target su `.b16` (tasto `b` nella pagina del progetto) cambia lo schermo in `360x360` se non era quadrato, e mostra la dimensione del file rispetto al segno di 100 MiB. Il segno è una guida, non un limite.
 - Il target viene ricordato per ogni file di progetto.
 - Sull'RGB30, esportare un `.b16` da `/carts` lo copia anche in `/bm/`, così compare subito in Games. Sull'RGB30 la scheda Games elenca `/bm/` e `/carts`; se il gioco è scritto altrove, la riga di stato aggiunge `(not in the Games tab)`.
 

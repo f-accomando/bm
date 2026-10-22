@@ -231,7 +231,7 @@ The SPRITES section gives names to rectangles of the sheet, with their frames (t
 | Function | What it does |
 |---|---|
 | `zspr(name, x, y, [frame, flip_x, flip_y, zoom])` | draws a **named zone** of the sheet: `frame` from 1 to the number of frames (beyond it starts again), or `nil`: the one its fps give at `time()`, so the animation runs by itself. Returns the frame drawn. A zone that is not there is an error |
-| `zone(name)` | returns `x, y, w, h, frames, fps` of the zone (its first frame, in sheet pixels), or `nil` |
+| `zone(name)` | returns `x, y, w, h, frames, fps, slices` of the zone (its first frame, in sheet pixels; `slices` is 0 for a plain zone, 2 to 255 for a stack zone), or `nil` |
 | `zones()` | the names of the zones, in order (`{}` if there are none) |
 | `zboxes(name, [frame, kind])` | the **hitboxes and hurtboxes** of the frames of a zone (see below) |
 
