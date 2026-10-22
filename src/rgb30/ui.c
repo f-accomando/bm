@@ -822,7 +822,7 @@ static void game_panel(int i, home_panel_t *p)
     home_row(p, MENU_ROW_ACTION, G_SDK, "Open in bm SDK", "Saving it makes its editable copy", NULL);
     if (games[i].is_bm)
         home_row(p, MENU_ROW_ACTION, G_BUILD_B16, "Export .b16",
-                 "Exports a .b16 edition (up to 8 MiB) without changing the .bm", NULL);
+                 "Exports a .b16 edition without changing the .bm", NULL);
     home_row(p, MENU_ROW_ACTION, G_SEND, "Send to a nearby console",
              "To a console on this network with the Market tab open", NULL);
     home_row(p, MENU_ROW_INFO, G_TYPE, "Type", "Lua 5.4 on bm", "%s", games[i].is_bm ? "bm (Pi)" : "b16 (handheld)");

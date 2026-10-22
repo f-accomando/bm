@@ -1343,6 +1343,89 @@ static void test_type_bits(void)
     CHECK(strcmp(bm_type_name(BM_TYPE_APP), "app") == 0, "type name");
 }
 
+/* the compatibility block (bytes 120..127, flag bit 4), the old files, the writers, no 8 MiB limit */
+static void test_compat(void)
+{
+    static const char code[] = "function _draw() cls(0) end\n";
+    size_t n = 0;
+    uint8_t *d = bm_rewrite(NULL, 0, code, sizeof code - 1, "Compat", "t", 640, &n);
+    char err[96];
+    bm_cart_t c;
+    CHECK(d && bm_parse(d, n, &c, err, sizeof err) == 0, "compat: a new cartridge parses (%s)", err);
+    if (!d)
+        return;
+    CHECK(!c.compat.declared && c.compat.targets == BM_TARGET_PI && !c.compat.input && !c.compat.min_ram_mib,
+          "an old .bm (zeros at 120..127) reads as the old rules: Pi only, nothing declared");
+    d[18] |= BM_FLAG_B16;
+    bm_compat_read(d, &c.compat);
+    CHECK(!c.compat.declared && c.compat.targets == BM_TARGET_ALL, "an old .b16 reads as the Pi and the RGB30");
+    d[18] &= (uint8_t)~BM_FLAG_B16;
+
+    bm_compat_t w = { 1, BM_TARGET_RGB30, BM_IN_PAD | BM_IN_KEYBOARD, BM_ASPECT_SQUARE | BM_ASPECT_SAFE,
+                      BM_NEED_3D | BM_NEED_AUDIO, 700, 4, 45 };
+    bm_compat_write(d, &w);
+    CHECK((d[18] & BM_FLAG_COMPAT) && d[120] == 2 && d[121] == 3 && d[122] == 10 && d[123] == 3 &&
+          d[124] == (700 & 255) && d[125] == (700 >> 8) && d[126] == 4 && d[127] == 45,
+          "the block is written at the bytes of docs/BM-FORMAT.md");
+    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "the header block is not covered by the CRC: the file still parses");
+    bm_cart_t r;
+    CHECK(bm_parse(d, n, &r, err, sizeof err) == 0, "a cartridge with the block parses (%s)", err);
+    CHECK(r.compat.declared && r.compat.targets == BM_TARGET_RGB30 && r.compat.input == w.input &&
+          r.compat.aspect == w.aspect && r.compat.needs == w.needs && r.compat.min_ram_mib == 700 &&
+          r.compat.min_spec == 4 && r.compat.min_w16 == 45,
+          "round trip: write then read gives the same fields");
+    CHECK(bm_compat_runs_on(&r.compat, BM_TARGET_RGB30) && !bm_compat_runs_on(&r.compat, BM_TARGET_PI),
+          "targets: RGB30 only");
+
+    /* a flag with targets 0 is invalid: it reads as the old rules */
+    uint8_t save = d[120];
+    d[120] = 0;
+    bm_compat_read(d, &r.compat);
+    CHECK(!r.compat.declared && r.compat.targets == BM_TARGET_PI, "bit 4 with targets 0: the old rules");
+    d[120] = save;
+    /* bytes set but bit 4 clear: ignored (an old file with junk in the reserved bytes) */
+    d[18] &= (uint8_t)~BM_FLAG_COMPAT;
+    bm_compat_read(d, &r.compat);
+    CHECK(!r.compat.declared && r.compat.targets == BM_TARGET_PI, "bytes 120..127 without bit 4: ignored");
+    d[18] |= BM_FLAG_COMPAT;
+
+    /* the writers keep the block: bm_rewrite_with (Studio, Pixel, Code save) */
+    size_t n2 = 0;
+    uint8_t *e = bm_rewrite(d, n, "-- new\n", 7,"Compat", "t", 640, &n2);
+    CHECK(e && bm_parse(e, n2, &r, err, sizeof err) == 0 && r.compat.declared &&
+          r.compat.targets == BM_TARGET_RGB30 && r.compat.min_ram_mib == 700 && r.compat.min_w16 == 45,
+          "bm_rewrite keeps the compatibility block");
+    free(e);
+    /* the "built from" field of project.c: only bytes 104..119 change */
+    bm_set_built_from(d, "PONG.BME");
+    CHECK(memcmp(d + BM_BUILT_FROM, "PONG.BME", 9) == 0 && d[120] == 2 && d[127] == 45 && (d[18] & BM_FLAG_COMPAT),
+          "bm_set_built_from keeps bytes 120..127 and bit 4");
+    bm_set_built_from(d, NULL);
+    CHECK(d[BM_BUILT_FROM] == 0 && d[119] == 0 && d[120] == 2 && d[127] == 45, "built from cleared, the block stays");
+    bm_set_built_from(d, "0123456789ABCDEFXYZ");
+    CHECK(memcmp(d + BM_BUILT_FROM, "0123456789ABCDEF", 16) == 0 && d[120] == 2, "a long name is cut at 16 bytes");
+    /* declared = 0 clears bit 4 and the bytes */
+    bm_compat_t none = { 0 };
+    bm_compat_write(d, &none);
+    CHECK(!(d[18] & BM_FLAG_COMPAT) && d[120] == 0 && d[127] == 0, "declared 0 clears the block and the flag");
+    free(d);
+
+    /* no 8 MiB limit: a cartridge of 9 MiB (and its code) loads */
+    const size_t big = (size_t)9 << 20;
+    char *lua = malloc(big);
+    CHECK(lua != NULL, "9 MiB of code allocated");
+    if (!lua)
+        return;
+    memset(lua, 'x', big);
+    memcpy(lua, "-- ", 3);
+    size_t nb = 0;
+    uint8_t *g = bm_rewrite(NULL, 0, lua, big, "Big", "t", 640, &nb);
+    CHECK(g && nb > ((size_t)8 << 20), "a cartridge file above 8 MiB is made");
+    CHECK(g && bm_parse(g, nb, &c, err, sizeof err) == 0 && c.lua_size == big, "a cartridge above 8 MiB loads (%s)", err);
+    free(g);
+    free(lua);
+}
+
 int main(int argc, char **argv)
 {
     test_primitives();
@@ -1357,6 +1440,7 @@ int main(int argc, char **argv)
     test_format(argc > 1 ? argv[1] : "build/demo.bm");
     test_cover_peek();
     test_type_bits();
+    test_compat();
     test_sheet8();
     test_mesh();
     test_pixel();

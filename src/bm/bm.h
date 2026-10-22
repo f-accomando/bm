@@ -11,14 +11,18 @@
  *                a 640x360 one (360x360, the .b16's) or a 1280x720 one (720x720); whole on a square panel)
  *   16  u8       pixel format (1 = RGB565; 2 = XRGB8888, reserved)
  *   17  u8       section count
- *   18  u16      flags: bit 0 a project (.bme), bit 1 a .b16 edition (src/bm/project.h); the other bits
- *                are kept as they are by every writer. Nothing reads them: the kind is told by the file's
- *                extension
+ *   18  u16      flags: bit 0 a project (.bme), bit 1 a .b16 edition (src/bm/project.h), bits 2-3 the
+ *                type (game, app, utility), bit 4 BM_FLAG_COMPAT: the compatibility block at 120 is
+ *                present; the other bits are kept as they are by every writer. The kind (project,
+ *                .b16) is told by the file's extension
  *   20  u32      CRC-32 of everything after the header
  *   24  char[48] title
  *   72  char[32] author
  *   104 char[16] built from: the 8.3 name of the project a game was built from (src/bm/project.h); 0 if none
- *   120 ...      reserved (0) up to 128
+ *   120 u8[8]    compatibility block, valid only when flag bit 4 is set (else all 0 = an old file):
+ *                120 targets (BM_TARGET_*), 121 input (BM_IN_*), 122 aspect (BM_ASPECT_*),
+ *                123 needs (BM_NEED_*), 124 u16 min RAM in MiB (0 = none), 126 min spec revision,
+ *                127 min screen width in units of 16 pixels. Not covered by the CRC. See bm_compat_t.
  *   128 section table: count x { u32 type, u32 offset, u32 size, u32 reserved }
  *
  * Section types:
@@ -194,6 +198,35 @@ enum { BM_RES_CART, BM_RES_MODEL, BM_RES_IMAGE, BM_RES_SOUND, BM_RES_MAP, BM_RES
 #define BM_BONE_SIZE       44              /* bytes of a bone in ANIM */
 #define BM_POSE_SIZE       28              /* bytes of one bone of a key */
 
+/* The compatibility block of the header (bytes 120..127, flag bit 4). docs/BM-FORMAT.md. */
+#define BM_FLAG_COMPAT      16              /* u16 at 18: the block at 120 is present */
+#define BM_COMPAT_AT        120             /* offset of the block in the header */
+#define BM_TARGET_PI        1               /* targets: the Pi Zero W (kernel.img) */
+#define BM_TARGET_RGB30     2               /* targets: the RGB30 (kernel8.img) */
+#define BM_TARGET_ALL       (BM_TARGET_PI | BM_TARGET_RGB30)
+#define BM_IN_PAD           1               /* input: playable with a pad alone */
+#define BM_IN_KEYBOARD      2               /* input: playable with a keyboard */
+#define BM_IN_TEXT          4               /* input: needs real text entry */
+#define BM_IN_MOUSE         8               /* input: uses mouse() as the main control */
+#define BM_IN_MOUSE_OPT     16              /* input: uses the mouse, works without it */
+#define BM_ASPECT_WIDE      1               /* aspect: made for 16:9 */
+#define BM_ASPECT_SQUARE    2               /* aspect: made for 1:1 */
+#define BM_ASPECT_ANY       4               /* aspect: elastic layout */
+#define BM_ASPECT_SAFE      8               /* aspect: uses safe_area() */
+#define BM_NEED_3D          1               /* needs: 3D */
+#define BM_NEED_AUDIO       2               /* needs: audio */
+#define BM_NEED_NET         4               /* needs: network */
+#define BM_NEED_MOUSE_HW    8               /* needs: a mouse device */
+typedef struct {
+    uint8_t declared;               /* 1 if flag bit 4 is set: the fields below are the file's own */
+    uint8_t targets;                /* BM_TARGET_* bits */
+    uint8_t input;                  /* BM_IN_* bits (0 = not declared) */
+    uint8_t aspect;                 /* BM_ASPECT_* bits (0 = not declared) */
+    uint8_t needs;                  /* BM_NEED_* bits */
+    uint16_t min_ram_mib;           /* 0 = none */
+    uint8_t min_spec;               /* 0 = none */
+    uint8_t min_w16;                /* minimum screen width / 16, 0 = none */
+} bm_compat_t;
 typedef struct {
     char title[49];
     char author[33];
@@ -227,6 +260,7 @@ typedef struct {
     uint8_t nlayers;                /* the map's layers: 0 without a map, else 1..8 */
     const uint8_t *flags;           /* FLAGS: the bytes, row by row, or NULL */
     uint16_t flags_per_row, flags_rows;
+    bm_compat_t compat;             /* the header's compatibility block (old rules for an old file) */
 } bm_cart_t;
 
 /* A zone of the SPRITES section. */
@@ -351,6 +385,15 @@ float bm_clip_key(const bm_clip_t *c, int nbones, int k, float (*q)[4], float (*
 
 /* 1 if these first 8 bytes are the magic of a .bm cartridge. */
 int bm_is_cart(const void *head8);
+
+/* Reads the block from a header (at least 128 bytes). An old file (bit 4 clear) gives declared = 0 and
+ * the old rules: targets = Pi for a .bm, Pi + RGB30 for a .b16 (flag bit 1); the other fields are 0.
+ * A set bit 4 with targets 0 is invalid and reads as the old rules too. */
+void bm_compat_read(const uint8_t *head, bm_compat_t *out);
+/* Writes `in` into a header (at least 128 bytes): the bytes 120..127 and flag bit 4. A `declared` of 0 clears both. */
+void bm_compat_write(uint8_t *head, const bm_compat_t *in);
+/* 1 if a cartridge with these targets may run on the kernel `kernel` (BM_TARGET_PI or BM_TARGET_RGB30). */
+static inline int bm_compat_runs_on(const bm_compat_t *c, unsigned kernel) { return (c->targets & kernel) != 0; }
 
 /* A cartridge with new code, title, author and resolution, and every other
  * section of `old` copied as it is (sheet, map, cover, and the sections this

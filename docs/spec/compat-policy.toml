@@ -49,18 +49,18 @@ action = "grey"
 market_action = "grey"
 reason = "made for the Pi Zero W only"
 
-# The sound bank limit of the kernel today: 1,048,576 PCM values (2 MiB). 8,388,608 is decided and not built.
+# The sound bank limit of the kernel: 8,388,608 PCM values (16 MiB, AU_PCM_MAX).
 [[rule]]
 kernel = "pi-zero-w"
-audio_bytes_over = 2097152
+audio_bytes_over = 16777216
 action = "grey"
-reason = "the sound bank may pass the PCM limit of this kernel (1,048,576 values)"
+reason = "the sound bank may pass the PCM limit of this kernel (8,388,608 values)"
 
 [[rule]]
 kernel = "rgb30"
-audio_bytes_over = 2097152
+audio_bytes_over = 16777216
 action = "grey"
-reason = "the sound bank may pass the PCM limit of this kernel (1,048,576 values)"
+reason = "the sound bank may pass the PCM limit of this kernel (8,388,608 values)"
 
 # The Market ceiling is 100 MiB per file (src/net/catalog.h). The local menu has no size limit.
 [[rule]]

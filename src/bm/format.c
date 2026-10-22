@@ -568,6 +568,7 @@ static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t e
     }
     memcpy(c->title, d + 24, 48);
     memcpy(c->author, d + 72, 32);
+    bm_compat_read(d, &c->compat);
 
     unsigned count = d[17];
     if (BM_HEADER_SIZE + (uint64_t)count * 16 > len)
@@ -885,6 +886,46 @@ uint8_t *bm_rewrite(const uint8_t *old, size_t oldlen, const char *lua, size_t l
     return bm_rewrite_with(old, oldlen, lua, lua_len, title, author, width, NULL, 0, outlen);
 }
 
+void bm_compat_read(const uint8_t *head, bm_compat_t *out)
+{
+    memset(out, 0, sizeof *out);
+    const unsigned flags = rd16(head + 18);
+    const uint8_t *b = head + BM_COMPAT_AT;
+    if ((flags & BM_FLAG_COMPAT) && (b[0] & BM_TARGET_ALL)) {
+        out->declared = 1;
+        out->targets = b[0] & BM_TARGET_ALL;
+        out->input = b[1];
+        out->aspect = b[2];
+        out->needs = b[3];
+        out->min_ram_mib = rd16(b + 4);
+        out->min_spec = b[6];
+        out->min_w16 = b[7];
+        return;
+    }
+    /* an old file: a .bm is for the Pi, a .b16 (flag bit 1) for the Pi and the RGB30 */
+    out->targets = (flags & 2) ? BM_TARGET_ALL : BM_TARGET_PI;
+}
+
+void bm_compat_write(uint8_t *head, const bm_compat_t *in)
+{
+    unsigned flags = rd16(head + 18) & ~(unsigned)BM_FLAG_COMPAT;
+    uint8_t *b = head + BM_COMPAT_AT;
+    memset(b, 0, 8);
+    if (in->declared) {
+        flags |= BM_FLAG_COMPAT;
+        b[0] = in->targets & BM_TARGET_ALL;
+        b[1] = in->input;
+        b[2] = in->aspect;
+        b[3] = in->needs;
+        b[4] = (uint8_t)in->min_ram_mib;
+        b[5] = (uint8_t)(in->min_ram_mib >> 8);
+        b[6] = in->min_spec;
+        b[7] = in->min_w16;
+    }
+    head[18] = (uint8_t)flags;
+    head[19] = (uint8_t)(flags >> 8);
+}
+
 uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
                          const char *title, const char *author, int width, const bm_put_t *put, int nput,
                          size_t *outlen)
@@ -977,6 +1018,10 @@ uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, siz
     buf[17] = (uint8_t)n;
     strncpy((char *)buf + 24, title ? title : "", 47);
     strncpy((char *)buf + 72, author ? author : "", 31);
+    if (old) {                          /* the compatibility block stays: flag bit 4 and bytes 120..127 */
+        buf[18] |= old[18] & BM_FLAG_COMPAT;
+        memcpy(buf + BM_COMPAT_AT, old + BM_COMPAT_AT, 8);
+    }
     wr32(buf + 20, crc32(buf + BM_HEADER_SIZE, (uint32_t)(total - BM_HEADER_SIZE)));
     *outlen = total;
     return buf;

@@ -55,7 +55,7 @@
  *   register 17; 128.. the console's kit, synth.h), MOD2 where it starts.
  *   The samples are made 16-bit mono or stereo when the bank is read: at
  *   most AU_PCM_MAX values (frames x channels, SYNTH_SAMPLE_GUARD frames
- *   more each) in a bank: 22 s of mono at 48 kHz, 47 s at 22 kHz.
+ *   more each) in a bank: 174 s of mono at 48 kHz, 380 s at 22 kHz.
  *
  *   A step is 4 bytes: note (0 nothing new, the note goes on; 1..127 a
  *   MIDI note, 60 = C4, 69 = A4 440 Hz; 128 off: the note is released),
@@ -78,7 +78,7 @@
 #define AU_MAGIC        "BMAU"
 #define AU_VERSION      3           /* with samples; without, 2 is written */
 #define AU_SAMPLES      64
-#define AU_PCM_MAX      (1u << 20)  /* 16-bit values of a bank's samples: 2 MiB */
+#define AU_PCM_MAX      (8u << 20)  /* 16-bit values of a bank's samples: 16 MiB */
 enum { AU_PCM_U8, AU_PCM_S16, AU_PCM_S24, AU_PCM_S32, AU_PCM_F32 };
 #define AU_SOUND_BYTES  48          /* 24 in version 1 */
 #define AU_TONE         (SYNTH_VOICE_BYTES - SYNTH_CUTOFF)    /* registers 11..31 */

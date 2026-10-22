@@ -11,10 +11,10 @@
 #define BM_PROJECT_H
 
 #include <stddef.h>
+#include <string.h>
 
 #define BM_FLAG_PROJECT    1               /* u16 at 18: a project (.bme) */
 #define BM_FLAG_B16        2               /* u16 at 18: the .b16 profile */
-#define BM_B16_MAX         (8u << 20)      /* 8 MiB ceiling of a .b16 cartridge */
 #define BM_FLAG_TYPE_SHIFT 2               /* u16 at 18, bits 2-3: the type of bm.info (game, app, utility) */
 enum { BM_TYPE_GAME = 0, BM_TYPE_APP = 1, BM_TYPE_UTILITY = 2 };
 /* The type in a header (at least 20 bytes); the reserved value 3 reads as a game. */
@@ -28,6 +28,17 @@ static inline const char *bm_type_name(int type)
     return type == BM_TYPE_APP ? "app" : type == BM_TYPE_UTILITY ? "utility" : "game";
 }
 #define BM_BUILT_FROM      104             /* char[16]: the project a game was built from */
+/* Sets the "built from" field of a header (at least 128 bytes) to `from`, or clears it (from NULL).
+ * Only bytes 104..119 change: the compatibility block at 120..127 (bm.h) stays as it is. */
+static inline void bm_set_built_from(unsigned char *head, const char *from)
+{
+    size_t n = 0;
+    while (from && from[n] && n < 16)
+        n++;
+    memset(head + BM_BUILT_FROM, 0, 16);
+    if (n)
+        memcpy(head + BM_BUILT_FROM, from, n);
+}
 
 /* by the file's name: a project (.bme), a game (.bm, .b16) */
 int bm_is_project(const char *path);
@@ -50,7 +61,7 @@ int bm_make_copy(const char *game, const char *to, char *err, size_t en);
 int bm_build(const char *project, char *out, size_t n, char *err, size_t en);
 
 /* Builds or exports the .b16 edition of a project (.bme) or a game (.bm) within
- * the 8 MiB limit of a .b16. Never replaces a .bm (separate editions): writes
+ * no size limit of its own. Never replaces a .bm (separate editions): writes
  * .B16 next to it (or in /bm on the RGB30), replacing only the .B16 built from
  * the same source before. */
 int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en);

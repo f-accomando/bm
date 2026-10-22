@@ -140,7 +140,7 @@ int bm_make_copy(const char *game, const char *to, char *err, size_t en)
     if (!data)
         return -1;
     set_flags(data, 1);
-    memset(data + BM_BUILT_FROM, 0, BM_HEADER_SIZE - BM_BUILT_FROM);
+    bm_set_built_from(data, NULL);
     const int r = store(to, data, len, err, en);
     free(data);
     return r;
@@ -175,8 +175,7 @@ int bm_build(const char *project, char *out, size_t n, char *err, size_t en)
         if (*p >= 'a' && *p <= 'z')
             *p = (char)(*p - 32);
     set_flags(data, 0);
-    memset(data + BM_BUILT_FROM, 0, BM_HEADER_SIZE - BM_BUILT_FROM);
-    memcpy(data + BM_BUILT_FROM, from, strlen(from));
+    bm_set_built_from(data, from);
     /* the game it built before, else the first free name */
     int k, found = 0;
     for (k = 0; k < 10 && !found; k++) {
@@ -200,10 +199,6 @@ int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en)
     uint8_t *data = load(src, &len, err, en);
     if (!data)
         return -1;
-    if (len > 8 * 1024 * 1024) {
-        free(data);
-        return say(err, en, "over a .b16's 8 MiB");
-    }
     char dir[64], base[9], from[17];
     split(src, dir, sizeof dir, base);
 #ifdef BM_RGB30
@@ -222,8 +217,7 @@ int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en)
         data[12] = 360 & 0xff; data[13] = 360 >> 8;
         data[14] = 360 & 0xff; data[15] = 360 >> 8;
     }
-    memset(data + BM_BUILT_FROM, 0, BM_HEADER_SIZE - BM_BUILT_FROM);
-    memcpy(data + BM_BUILT_FROM, from, strlen(from));
+    bm_set_built_from(data, from);
     int k, found = 0;
     for (k = 0; k < 10 && !found; k++) {
         candidate(dir, base, ".B16", k, out, n);

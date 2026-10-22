@@ -206,7 +206,7 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 | File dates | the SNTP time (UTC) when the network has set it. Else fixed at 2026-01-01. The kernel registers the clock with `fat_set_clock(net_time)` after the card is mounted. | `src/fs/fat.c` (`fat_stamp`), `src/kernel/carts.c` (`carts_init`), `src/rgb30/main.c` |
 | Reading a file | the whole file goes into a `malloc` buffer. | `src/fs/fat.c:409` |
 | File size | 32-bit size field in FAT. A transfer is limited to 100 MiB. A Market file is limited to 100 MiB. | `src/net/netxfer.c:44`, `src/net/catalog.h:19` |
-| `.b16` size | 8 MiB. **It is checked when the file is built, not when it is loaded.** | `scripts/mkbm.py:700`, `src/bm/project.c:203`, `src/bm/project.h:17` |
+| `.b16` size | no limit. The 8 MiB build check is removed. | `docs/BM-FORMAT.md` (File size) |
 | `.bm` size | no limit in the loader except RAM and the 100 MiB transfer limit | `src/net/netxfer.c:44` |
 | Nano8 cart | 4 MiB | `src/bm/runtime.c:4904` |
 | Save | `/bm/save`, 32 KiB per slot, up to 8 slots (`BM_SAVE_SLOTS`) | `src/bm/runtime.c:3382-3384`, `src/bm/runtime.h:150` |
@@ -401,7 +401,7 @@ Legend: **measured**, **from code**, **estimate**.
 - `docs/progress/b16.md` section 1 said the `.b16` Lua heap is **4 MiB**, the save **64 KiB** and that there is a sandbox. The code gives every cartridge **64 MiB**, saves of **32 KiB**, and no sandbox (`src/script/luavm.c:13`, `src/bm/runtime.c:3566`). The section is fixed from the code.
 - `README.md:26` and `README.md:35` say the console boots in about 2 seconds. No document records a measurement. The code has fixed waits in USB start-up (`src/usb/dwc2.c:93-175`, `src/usb/usb.c:453,513`). The claim stays an estimate.
 - `README.md:34` says "448 MiB RAM". The code reads the real split from the firmware (`src/kernel/main.c:125-139`). `boot/config.txt` sets no `gpu_mem`. `docs/HARDWARE.md:34` gives 448 MiB with `gpu_mem=64`. The number depends on the firmware default of the card used.
-- `docs/B16.md:10` says the 8 MiB limit applies at build time. This is correct in the code (`scripts/mkbm.py:700`). The macro `BM_B16_MAX` in `src/bm/project.h:17` is **not used** by any code. The check in `src/bm/project.c:203` uses its own constant.
+- The 8 MiB `.b16` check is removed. `BM_B16_MAX` no longer exists.
 - The user-facing description of the RGB30 as "720x720" is the panel size. The menu framebuffer is **360 x 360** (`src/rgb30/main.c:55-56`). Games choose their own size and the display scales it.
 - `README.md:40` says "FAT32 SD card file system". The code also handles FAT16 (`src/fs/fat.c:2`).
 - `CLAUDE.md` says the `kernel7` target is disabled. The Makefile agrees (`Makefile:45-47`).
