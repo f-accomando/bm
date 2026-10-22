@@ -10,6 +10,7 @@ Rules for this list:
 - When a task closes, remove the finished item from `docs/ROADMAP.md`, `## Open work` of the area sheet, and this file.
 
 ## Waiting for the user (decisions and Pi runs)
+- RGB30 runs (the user does them; exact steps in `docs/progress/graphics-mali.md` `Open work`): Dev > GPU test with the variant probe, then 3D Bench with `mali3d=1`.
 - Pi runs (the user does them; the test integration `claude/pi-test-integration` of 22 Oct is on the Pi; `herocart.bm` stage 1 is on the SD):
   - Scenes: `b3d tests=map8,sprites,stack,fade,light,herotris` (3 runs for herotris). Not in the 22 Oct report.
   - Herocart sweep (Start+A, Start saves `HEROCART.TXT` in `/docs`): GPU on/off; after the fix also VS 2 and Cel (4 bands) / Dither off.
@@ -22,7 +23,7 @@ Rules for this list:
 - Publishing to the external repo `bm-market`: the 7 editors are on `main` (commit 3add43a, in `games/`). Later move the 9 apps to `apps/` (`git mv games/<id> apps/<id>` for editor code pixel studio animator mesh sound typing write) and push the new workflow and README, only after the user's go and after `market-apps-folder` is in `bm-core`. "Send to Market" (`src/net/github.c`) still opens PRs under `games/`.
 
 ## Queue (development, in order)
-2. Remote branches left: `api-particles3d`, `b3d-mali`, `beta1-c4-ring2`, `beta1-c4-ring3`, `docs-3d-beta5`, `gpu3d-fade`, `integrazione-ottobre` (holds the Mali W15c commits 1b5d866a, 2df74a77, 67447ba8), `mali-matrix`, `mali-triangle-batch`, `mali-variant-probe`, `spec-3d-beta5`, `stages3d-budget`, `stages3d-qemu-test`, `v3d-compact-tex-attrs`, `reports`, `sync-handshake`. The branches `controls-remap` and `pad-y-cancel` are deleted. Their Mali work is in `integrazione-ottobre`.
+2. Remote branches left: `api-particles3d`, `beta1-c4-ring2`, `beta1-c4-ring3`, `gpu3d-fade`, `stages3d-budget`, `stages3d-qemu-test`, `v3d-compact-tex-attrs`, `reports`, `sync-handshake`. The Mali work is in `bm-core` (sheet `docs/progress/graphics-mali.md`, `Open work`: the device runs).
 3. Old work in the archive: 23 old unmerged branches are in `C:\Users\Utente\Documents\GitHub\bm-archive\branches-2026-10-22.bundle` and are deleted from the repository. Port their content on demand from the bundle: `carts_layout.py`, `sdlog_scan.py`, `public_export.py`, budget cart and `perf_table.py`, RGB30 cover job D10, xmenu close game, RGB30 QEMU freeze and delete tests, bench-vs-etc1 VSE column, 3D budget table, PROP-1 and PROP-2 docs, gfx-backends rule.
 4. `bmweb` stages 2b-5 as a `.bme` project (generic browser, https only, human pace, no site name in the cart; API `web_get`/`image_load`/`file_write`). Fix `docs/design/web-browser-cart.md`: the download folder is `bm/web` (8.3 names), not `bm/downloads`. D49 (web_get on RGB30) is `todo/untested`.
 5. Multitasking stages 3 (SD writer lock; `file_write` is synchronous and stops the frame until then), 4 (keep-alive), 5 (Range resume `.part`).
@@ -37,12 +38,11 @@ Rules for this list:
 14. Docs: `docs/progress/tools.md` is 133 lines (audit limit about 120); the label "Default (Y)" in `docs/progress/lua.md`.
 
 ## Never delete
-`bm-core`, `reports`, `sync-handshake`, `claude/mali-variant-probe`, `claude/integrazione-ottobre`, `claude/beta1-c4-ring2`, `claude/beta1-c4-ring3`, and the graphics branches below until their commits are ported or the user says go.
+`bm-core`, `reports`, `sync-handshake`, `claude/beta1-c4-ring2`, `claude/beta1-c4-ring3`, and the graphics branches below until their commits are ported or the user says go.
 
 ## Useful commits on graphics branches (keep the branch until the commit is ported)
 - `claude/gpu3d-fade`: a2c1e904 and 4f7fbc3b (fade through the `g16_fade_accel` hook).
 - `claude/api-particles3d`: a2795d0f (runtime 3D particles), ea7e0d2e and 0c543cc6 (API docs).
-- Mali, parked until the Mali alignment: `claude/mali-matrix` (62e46d04, 4235bfde, c6a57ec8 async frames, 515c3b40, 276c2a4c, 1b5d866a, 2df74a77, 44cf34df), `claude/b3d-mali`, `claude/mali-triangle-batch`. The triangle fails with `JS_STATUS 58`; `claude/mali-variant-probe` (e64e3028) waits for a run on the device.
 - `claude/v3d-compact-tex-attrs` (b8f01430, 1ced7d02): for the `gpu3d_attr` decision.
 - `v3d-async-proposal` (2c383089, 69ef8453, 23b9c7bf): read before any V3D async work.
 - `claude/stages3d-qemu-test` (eddfd2e6, 628739b7, 26671568, c0ca055a) and `claude/stages3d-budget` (342a8018, bb9d2a12): Stages 3D carts and governor.
