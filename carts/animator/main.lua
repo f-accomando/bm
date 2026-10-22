@@ -1538,28 +1538,30 @@ local function register_zone_boxes(zn, zx, zy, zw, zh, zframes, zfps, bxs)
   -- 1. SPRITES section (11)
   local cur_sprites = cart_data(11)
   local zlist = {}
-  local keep_slices = 0   -- slices of the zone that is replaced stay
+  local keep_slices, keep_down = 0, 0   -- slices of the zone that is replaced stay (and their direction)
   if cur_sprites and #cur_sprites >= 4 then
     local n = sunpack("<I2", cur_sprites, 1)
     for i = 0, n - 1 do
       local off = 5 + i * 28
-      local name, x, y, w, h, frames, fps, slices = sunpack("<c16I2I2I2I2BBB", cur_sprites, off)
+      local name, x, y, w, h, frames, fps, slices, down = sunpack("<c16I2I2I2I2BBBB", cur_sprites, off)
       name = name:match("^[^\0]*")
-      if name == zn then keep_slices = slices end
+      if name == zn then keep_slices, keep_down = slices, down & 1 end
       if name ~= zn then
-        zlist[#zlist + 1] = { name = name, x = x, y = y, w = w, h = h, frames = frames, fps = fps, slices = slices }
+        zlist[#zlist + 1] = { name = name, x = x, y = y, w = w, h = h, frames = frames, fps = fps, slices = slices, down = down & 1 }
       end
     end
   end
   -- keep the old slices only if the re-baked zone still fits the sheet
-  local sheet_w = cart_sheet()
-  if keep_slices > 0 and sheet_w and zx + zw * max(zframes, keep_slices) > sheet_w then
-    keep_slices = 0
+  local sheet_w, sheet_h = cart_sheet()
+  if keep_slices > 0 and sheet_w then
+    local ww, hh = zw * max(zframes, keep_slices), zh   -- stack: slices to the right
+    if keep_down == 1 then ww, hh = zw * zframes, zh * keep_slices end   -- stackv: slices going down
+    if zx + ww > sheet_w or (sheet_h and zy + hh > sheet_h) then keep_slices, keep_down = 0, 0 end
   end
-  zlist[#zlist + 1] = { name = zn, x = zx, y = zy, w = zw, h = zh, frames = zframes, fps = zfps, slices = keep_slices }
+  zlist[#zlist + 1] = { name = zn, x = zx, y = zy, w = zw, h = zh, frames = zframes, fps = zfps, slices = keep_slices, down = keep_down }
   local zparts = { spack("<I2I2", #zlist, 0) }
   for _, z in ipairs(zlist) do
-    zparts[#zparts + 1] = spack("<c16I2I2I2I2BBBx", z.name, z.x, z.y, z.w, z.h, z.frames, z.fps, z.slices)
+    zparts[#zparts + 1] = spack("<c16I2I2I2I2BBBB", z.name, z.x, z.y, z.w, z.h, z.frames, z.fps, z.slices, z.down)
   end
   cart_data(11, table.concat(zparts))
 

@@ -400,7 +400,7 @@ int v3d_qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us)
     }
     if (job.busy) {
         qpu_why = "a 3D job is running";
-        return -1;
+        return -2;
     }
     if (n <= 0 || n > V3D_QPU_MAX) {
         qpu_why = "bad job count";
