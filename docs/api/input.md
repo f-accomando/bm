@@ -81,6 +81,8 @@ colours (`lib.PLAYER_COLORS`): [Players on one console](bmlib.md#players-on-one-
 Start+Select together (or the PS button) always close the cartridge: Start alone is free for
 the game's pause.
 
+**Standard for games.** Which logical action (confirm, cancel, pause, act1, act2, shoulders) goes on which button, on the RGB30 and the Pi: [games-input-standard.md](../design/games-input-standard.md).
+
 A cartridge that never asks `btn(6)`/`btn(7)` (or `btnp`) gets X as A and Y as B: games
 with two buttons work with all four.
 

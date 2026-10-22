@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Calibration stats for the sub-agent ledger (read-only).
+"""Calibration stats for the sub-agent ledger.
 
-  agent_audit.py [--ledger PATH] [--agent NAME]
+  agent_audit.py [--ledger PATH] [--agent NAME] [--area NAME] [--since YYYY-MM-DD]
+                 [--save-baseline PATH] [--baseline PATH]
 
 Reads docs/agents/ledger.txt (one line per subagent run):
   date|agent|model|task|area|gate|necessity|outcome|tokens|tools|secs
-Prints per-agent outcome shares and median tokens/secs, %DONE by gate and by
-necessity, and a warning when runs with gate<=2 fail too often.
+Prints per-agent outcome shares and median tokens/secs, %DONE by gate, necessity,
+model and area, and a warning when runs with gate<=2 fail too often.
 Invalid lines go to stderr as "line N: reason" (exit 1; the report still covers
-the valid rows). Nothing here writes files."""
+the valid rows). Writes a file only with --save-baseline."""
 import argparse, os, re, statistics, sys
 
 if hasattr(sys.stdout, 'reconfigure'):
@@ -46,7 +47,11 @@ def _typed(row):
     def num(value):
         return None if value == "-" else int(value)
     return {
+        "date": row["date"][:10],
         "agent": row["agent"],
+        "model": row["model"],
+        "task": row["task"],
+        "area": row["area"],
         "gate": num(row["gate"]),
         "necessity": num(row["necessity"]),
         "outcome": row["outcome"],
@@ -86,6 +91,8 @@ def _outcome_pct(rows, outcome):
 
 
 def _median_text(values):
+    if not values:
+        return "0"
     med = statistics.median(values)
     return str(int(med)) if med == int(med) else f"{med:.1f}"
 
@@ -98,49 +105,184 @@ def _share_table(title, rows, key):
     return out
 
 
-def report(rows, agent=None):
-    if agent is not None:
-        rows = [r for r in rows if r["agent"] == agent]
-    if not rows:
-        return "no rows"
-    out = [f"{'agent':<16}{'runs':>6}{'%DONE':>8}{'%BLOCKED':>10}{'%FAILED':>9}{'%ESCALATED':>12}{'tok_med':>10}{'secs_med':>10}"]
+def _fmt_delta(val, is_pct=False):
+    if is_pct:
+        return f"{val:+.1f}"
+    if isinstance(val, float) and not val.is_integer():
+        return f"{val:+.1f}"
+    return f"{int(val):+d}"
+
+
+def save_baseline(rows, ledger_name, out_path):
+    last_date = max((r["date"] for r in rows), default="")
+    try:
+        rel_ledger = os.path.relpath(ledger_name, ROOT).replace("\\", "/")
+    except ValueError:
+        rel_ledger = ledger_name
+    lines = [f"# baseline of {rel_ledger}, rows {len(rows)}, last date {last_date}"]
     for name in sorted({r["agent"] for r in rows}):
         sub = [r for r in rows if r["agent"] == name]
-        out.append(
-            f"{name:<16}{len(sub):>6}"
-            f"{_outcome_pct(sub, 'DONE'):>8.1f}"
-            f"{_outcome_pct(sub, 'BLOCKED'):>10.1f}"
-            f"{_outcome_pct(sub, 'FAILED x2'):>9.1f}"
-            f"{_outcome_pct(sub, 'ESCALATED'):>12.1f}"
-            f"{_median_text([r['tokens'] for r in sub]):>10}"
-            f"{_median_text([r['secs'] for r in sub]):>10}"
-        )
-    out.append("")
-    out += _share_table("gate", rows, "gate")
-    out.append("")
-    out += _share_table("necessity", rows, "necessity")
-    low = [r for r in rows if r["gate"] is not None and r["gate"] <= WARN_MAX_GATE]
-    failed = sum(r["outcome"] != "DONE" for r in low)
-    if len(low) >= WARN_MIN_RUNS and failed * 5 > len(low):  # failed/len > 20%, exact integer test
+        pct = f"{_outcome_pct(sub, 'DONE'):.1f}"
+        tok_med = _median_text([r["tokens"] for r in sub])
+        secs_med = _median_text([r["secs"] for r in sub])
+        lines.append(f"{name}|{len(sub)}|{pct}|{tok_med}|{secs_med}")
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
+    with open(out_path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write("\n".join(lines) + "\n")
+
+
+def load_baseline(path):
+    base_data = {}
+    with open(path, encoding="utf-8") as fh:
+        lines = fh.read().splitlines()
+    for lno, line in enumerate(lines, 1):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("|")
+        if len(parts) != 5:
+            return None, f"baseline line {lno}: expected 5 fields, got {len(parts)}"
+        agent, runs_s, pct_s, tok_s, secs_s = parts
+        try:
+            runs = int(runs_s)
+            pct = float(pct_s)
+            tok = float(tok_s)
+            secs = float(secs_s)
+        except ValueError:
+            return None, f"baseline line {lno}: invalid numerical value"
+        base_data[agent] = {
+            "runs": runs,
+            "pct": pct,
+            "tok": tok,
+            "secs": secs,
+        }
+    return base_data, None
+
+
+def report(rows, agent=None, area=None, since=None, baseline=None):
+    if agent is not None:
+        rows = [r for r in rows if r["agent"] == agent]
+    if area is not None:
+        rows = [r for r in rows if r["area"] == area]
+    if since is not None:
+        rows = [r for r in rows if r["date"] >= since]
+    if not rows and baseline is None:
+        return "no rows"
+
+    out = []
+    if rows:
+        out.append(f"{'agent':<16}{'runs':>6}{'%DONE':>8}{'%BLOCKED':>10}{'%FAILED':>9}{'%ESCALATED':>12}{'tok_med':>10}{'secs_med':>10}")
+        for name in sorted({r["agent"] for r in rows}):
+            sub = [r for r in rows if r["agent"] == name]
+            out.append(
+                f"{name:<16}{len(sub):>6}"
+                f"{_outcome_pct(sub, 'DONE'):>8.1f}"
+                f"{_outcome_pct(sub, 'BLOCKED'):>10.1f}"
+                f"{_outcome_pct(sub, 'FAILED x2'):>9.1f}"
+                f"{_outcome_pct(sub, 'ESCALATED'):>12.1f}"
+                f"{_median_text([r['tokens'] for r in sub]):>10}"
+                f"{_median_text([r['secs'] for r in sub]):>10}"
+            )
         out.append("")
-        out.append(f"gate troppo ottimista: non-DONE {failed}/{len(low)} "
-                   f"({_pct(failed, len(low)):.1f}%) with gate<=2, threshold 20%")
-    return "\n".join(out)
+        out += _share_table("gate", rows, "gate")
+        out.append("")
+        out += _share_table("necessity", rows, "necessity")
+        out.append("")
+        out += _share_table("model", rows, "model")
+        out.append("")
+        out += _share_table("area", rows, "area")
+
+        low = [r for r in rows if r["gate"] is not None and r["gate"] <= WARN_MAX_GATE]
+        failed = sum(r["outcome"] != "DONE" for r in low)
+        if len(low) >= WARN_MIN_RUNS and failed * 5 > len(low):  # failed/len > 20%, exact integer test
+            out.append("")
+            out.append(f"gate troppo ottimista: non-DONE {failed}/{len(low)} "
+                       f"({_pct(failed, len(low)):.1f}%) with gate<=2, threshold 20%")
+
+    if baseline is not None:
+        if out:
+            out.append("")
+        out.append("vs baseline")
+        out.append(f"{'agent':<16}{'Δruns':>8}{'Δ%DONE':>10}{'Δtok_med':>12}{'Δsecs_med':>12}")
+
+        cur_stats = {}
+        for name in sorted({r["agent"] for r in rows}):
+            sub = [r for r in rows if r["agent"] == name]
+            cur_stats[name] = {
+                "runs": len(sub),
+                "pct": _outcome_pct(sub, "DONE"),
+                "tok": float(statistics.median([r["tokens"] for r in sub])),
+                "secs": float(statistics.median([r["secs"] for r in sub])),
+            }
+
+        all_agents = sorted(set(cur_stats.keys()) | set(baseline.keys()))
+        for name in all_agents:
+            if name in cur_stats and name in baseline:
+                c = cur_stats[name]
+                b = baseline[name]
+                d_runs = c["runs"] - b["runs"]
+                d_pct = c["pct"] - b["pct"]
+                d_tok = c["tok"] - b["tok"]
+                d_secs = c["secs"] - b["secs"]
+                out.append(
+                    f"{name:<16}"
+                    f"{_fmt_delta(d_runs):>8}"
+                    f"{_fmt_delta(d_pct, is_pct=True):>10}"
+                    f"{_fmt_delta(d_tok):>12}"
+                    f"{_fmt_delta(d_secs):>12}"
+                )
+            elif name in cur_stats:
+                out.append(f"{name:<16}{'new':>8}")
+            else:
+                out.append(f"{name:<16}{'gone':>8}")
+
+    return "\n".join(out) if out else "no rows"
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Calibration stats for docs/agents/ledger.txt (read-only).")
+    ap = argparse.ArgumentParser(description="Calibration stats for docs/agents/ledger.txt.")
     ap.add_argument("--ledger", default=DEFAULT_LEDGER, help="ledger file (default: docs/agents/ledger.txt)")
     ap.add_argument("--agent", help="report only this agent")
+    ap.add_argument("--area", help="report only this area")
+    ap.add_argument("--since", help="filter runs on or after YYYY-MM-DD")
+    ap.add_argument("--save-baseline", help="save current baseline stats to PATH")
+    ap.add_argument("--baseline", help="compare with baseline stats from PATH")
     args = ap.parse_args(argv)
+
+    if args.since:
+        if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", args.since):
+            print("bad --since", file=sys.stderr)
+            return 2
+
     try:
         rows, errors = parse(args.ledger)
     except OSError as exc:
         print(f"cannot read ledger: {exc}", file=sys.stderr)
         return 2
+
     for lineno, reason in errors:
         print(f"line {lineno}: {reason}", file=sys.stderr)
-    print(report(rows, args.agent))
+
+    if args.save_baseline:
+        try:
+            save_baseline(rows, args.ledger, args.save_baseline)
+        except OSError as exc:
+            print(f"cannot write baseline: {exc}", file=sys.stderr)
+            return 2
+        return 1 if errors else 0
+
+    base_data = None
+    if args.baseline:
+        try:
+            base_data, base_err = load_baseline(args.baseline)
+        except OSError as exc:
+            print(f"cannot read baseline: {exc}", file=sys.stderr)
+            return 2
+        if base_err:
+            print(base_err, file=sys.stderr)
+            return 2
+
+    print(report(rows, agent=args.agent, area=args.area, since=args.since, baseline=base_data))
     return 1 if errors else 0
 
 

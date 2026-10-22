@@ -84,6 +84,18 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
      and repeated (menu stacked in copies), gone at the next start. Probably the panel state
      left by the previous shutdown. If it returns, note when and read the `display:` lines
      of `bm/bootlog.txt`.
+- RGB30 planned restart, kernel `bm dev`, 2026-10-20 (18b71f8d, 6de90f0b): the console came back
+  after 14 s (idle soak of more than 2.5 h, BETA1-A1) and after 17 s (bridge update). Both bootlogs show
+  `display:` DSI link and panel on, dclk 36562 kHz, PHY locked, errors 0; BOOTPREV says the run ended
+  cleanly. The screen was not seen in these two runs (the 21 Oct check above covers it).
+- RGB30 network bridge, real console, 2026-10-20 (c6593655): `bm_net.py --kernel` sent a 1980016-byte
+  `kernel8.img` at 237 KiB/s (8.2 s), then a clean restart after a 3 s countdown. `line` is refused (the keys go
+  to the buttons, no monitor). `--get bm/BOOTLOG.TXT`, `BOOTPREV.TXT`, `LASTRUN.TXT` work (583, 726, 2657 bytes).
+  `--shot` answers `no game drew a frame` until a game runs. A kernel older than Op T/G refuses logs and shot.
+- RGB30 QEMU test `test_wifi_page_without_chip` is flaky (3 fails in 7 local runs, 0 in 6 CI runs, 2026-10-20,
+  68cb9b5d, 4846fbd6): it sends a fixed key path with 0.3 s gaps, and a key that lands during a redraw moves the
+  cursor. Fix: loop on `screen_text` as `test_confirm_button` does. A full `/tmp` (tmpfs) in WSL fails any test
+  that writes an SD image: delete `/tmp/bm64*` between runs. `test_update_from_sd` and `test_crash_report` passed 3 of 3.
 
 ## Rules (do not break)
 
