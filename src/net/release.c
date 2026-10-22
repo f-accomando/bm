@@ -222,10 +222,27 @@ int release_parse(const uint8_t *m, size_t len, release_t *r, char *err, size_t 
     return 0;
 }
 
+void (*release_hash_tick)(void);
+
+#define HASH_PIECE (16u << 10)
+
 int release_check_file(const release_file_t *f, const uint8_t *data, size_t len)
 {
     unsigned char hash[32];
-    if (len != f->size || mbedtls_sha256(data, len, hash, 0) != 0)
+    if (len != f->size)
+        return -1;
+    mbedtls_sha256_context ctx;
+    mbedtls_sha256_init(&ctx);
+    int rc = mbedtls_sha256_starts(&ctx, 0);
+    for (size_t at = 0; rc == 0 && at < len; at += HASH_PIECE) {
+        rc = mbedtls_sha256_update(&ctx, data + at, len - at < HASH_PIECE ? len - at : HASH_PIECE);
+        if (release_hash_tick && len - at > HASH_PIECE)
+            release_hash_tick();
+    }
+    if (rc == 0)
+        rc = mbedtls_sha256_finish(&ctx, hash);
+    mbedtls_sha256_free(&ctx);
+    if (rc != 0)
         return -1;
     return memcmp(hash, f->sha256, sizeof hash) == 0 ? 0 : -1;
 }

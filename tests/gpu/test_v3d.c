@@ -207,7 +207,7 @@ int main(void)
               "a bad job count was accepted");
         rnd_delay = 0;
         CHECK(v3d_start(0, 0, 0x40200000u, 0x40200100u) == 0, "start for the busy check");
-        CHECK(v3d_qpu_run(jobs, 1, 1000) == -1 && !strcmp(v3d_qpu_status(), "a 3D job is running"),
+        CHECK(v3d_qpu_run(jobs, 1, 1000) == -2 && !strcmp(v3d_qpu_status(), "a 3D job is running"),
               "a QPU run during a 3D job: %s", v3d_qpu_status());
         v3d_wait(1000, NULL, NULL);
         qpu_delay = 1;
