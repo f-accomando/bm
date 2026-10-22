@@ -28,7 +28,7 @@ The page loads React 18.3.1 and ReactDOM 18.3.1 (MIT) from `cdnjs.cloudflare.com
 
 ## Player (stage 3)
 
-`make web-player` (Emscripten in WSL: `source ~/emsdk/emsdk_env.sh`) writes `build/web/player/` with this page, `bmweb.js` and `bmweb.wasm`. Serve that folder with a static server and open a `.bm` with "Open a .bm file", then press "Start bm". `player.js` defines `window.bmLauncher` (`start(url)`, `startBytes(bytes, name)`, `stop()`). Without `bmweb.js` the launcher says that the runtime is not built. `launcher-mock.js` stays for reference and `player.js` replaces it.
+`make web-player` (Emscripten in WSL: `source ~/emsdk/emsdk_env.sh`) writes `build/web/player/` with this page, `bmweb.js` and `bmweb.wasm`. Serve that folder with a static server and open a `.bm` with "Open a .bm file", then press "Start bm". `player.js` defines `window.bmLauncher` (`start(url)`, `startBytes(bytes, name)`, `stop()`). The saves of the cartridges stay in the browser (IndexedDB). Without `bmweb.js` the launcher says that the runtime is not built. `launcher-mock.js` stays for reference and `player.js` replaces it.
 
 ## Cartridge reader (stage 1)
 
