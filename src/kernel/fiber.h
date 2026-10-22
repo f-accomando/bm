@@ -50,6 +50,10 @@ void fiber_slice(void);
 /* fiber_slice as a FAT tick (fat_write_tick, set once at boot): a long
  * write in a fiber gives the CPU back between its pieces; 0: it goes on */
 int  fiber_slice_tick(void);
+/* Microseconds left in the slice of the running fiber (0 once it is over), for a long loop to
+ * size its next piece. Outside fibers there is no budget: UINT32_MAX, the loop runs through.
+ * Cost: one timer_ticks read. */
+uint32_t fiber_budget_us(void);
 
 /* A job of the menu: a fiber with a stack of its own (allocated the first
  * time), started again for each piece of work. */

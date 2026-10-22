@@ -120,6 +120,15 @@ void fiber_slice(void)
         fiber_yield();
 }
 
+uint32_t fiber_budget_us(void)
+{
+    const fiber_t *f = current;
+    if (!f)
+        return UINT32_MAX;
+    const int32_t left = (int32_t)(f->until - timer_ticks());
+    return left > 0 ? (uint32_t)left : 0;
+}
+
 int fiber_slice_tick(void)
 {
     fiber_slice();
@@ -255,14 +264,17 @@ int fiber_jobs_report(char *buf, size_t n)
 /* Boot diagnostics (measurement build): a job that spins 8 ms with no yield and uses 2 KiB of
  * stack. The tick must set fiber_over, the report must print the stack, the log must show
  * "did not yield". */
+static uint32_t spin_budget_in, spin_budget_out;
 static void selftest_spin(void *arg)
 {
     (void)arg;
+    spin_budget_in = fiber_budget_us();
     volatile uint8_t pad[2048];
     for (size_t i = 0; i < sizeof pad; i += 64)
         pad[i] = (uint8_t)i;
     for (uint32_t t0 = timer_ticks(); timer_ticks() - t0 < 8000;)
         ;
+    spin_budget_out = fiber_budget_us();
 }
 
 int fiber_selftest(void)
@@ -273,7 +285,9 @@ int fiber_selftest(void)
         return 1;
     fiber_job_run(&job, timer_ticks() + 1000);
     const int ran = fiber_jobs_report(rep, sizeof rep);
-    const int ok = ran && !job.busy && job.longest >= FIBER_STALL_US && job.hw >= 2048 && job.hw < 4096;
+    const int ok = ran && !job.busy && job.longest >= FIBER_STALL_US && job.hw >= 2048 && job.hw < 4096 &&
+                    spin_budget_in > 0 && spin_budget_in <= 1000 && spin_budget_out == 0 &&
+                    fiber_budget_us() == UINT32_MAX;
     kprintf("fiber selftest: %s\x1b[0m: %s\n", ok ? "\x1b[92mok" : "\x1b[91mFAILED", ran ? rep : "no report");
     return !ok;
 }
