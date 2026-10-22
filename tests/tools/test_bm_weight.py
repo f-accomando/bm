@@ -135,15 +135,33 @@ class PolicyTest(unittest.TestCase):
     def test_unknown_kernel_and_default_row(self):
         with self.assertRaises(ValueError):
             bm_weight.classify(self.facts(), "nope", self.policy)
-        policy = {"kernels": {"k": {"default_action": "grey", "default_reason": "d"}}, "rules": []}
+        policy = {"kernels": {"k": {"target": 1, "default_action": "grey", "default_reason": "d"}}, "rules": []}
         self.assertEqual(bm_weight.classify(self.facts(), "k", policy), ("grey", "d", 0))
+
+    def test_declared_header_and_kernel_not_listed(self):
+        """a cartridge with the compatibility block: only the kernels it lists run it; the old-.bm rule does not apply"""
+        both = self.facts(declared=True, targets=3)
+        pi_only = self.facts(declared=True, targets=1)
+        rgb_only = self.facts(declared=True, targets=2)
+        for k in ("pi-zero-w", "rgb30"):
+            self.assertEqual(bm_weight.classify(both, k, self.policy)[0], "show")
+        self.assertEqual(bm_weight.classify(pi_only, "pi-zero-w", self.policy)[0], "show")
+        act, why, _ = bm_weight.classify(pi_only, "rgb30", self.policy)
+        self.assertEqual((act, why), ("grey", "made for the Pi Zero W only"))
+        act, why, _ = bm_weight.classify(rgb_only, "pi-zero-w", self.policy)
+        self.assertEqual((act, why), ("grey", "made for the RGB30 only"))
+        self.assertEqual(bm_weight.classify(self.facts(declared=False, targets=1), "rgb30", self.policy)[0], "grey")
+
+    def test_reason_is_short(self):
+        for r in self.policy["rules"]:
+            self.assertLessEqual(len(r["reason"]), bm_weight.REASON_MAX)
 
     def test_bad_tables_are_refused(self):
         bad = {
-            "action": '[[kernel]]\nid="k"\nname="K"\ndefault_action="maybe"\ndefault_reason="r"\n',
-            "kernel": '[[kernel]]\nid="k"\nname="K"\ndefault_action="show"\ndefault_reason="r"\n'
+            "action": '[[kernel]]\nid="k"\ntarget=1\nname="K"\ndefault_action="maybe"\ndefault_reason="r"\n',
+            "kernel": '[[kernel]]\nid="k"\ntarget=1\nname="K"\ndefault_action="show"\ndefault_reason="r"\n'
                       '[[rule]]\nkernel="zz"\naction="hide"\nreason="r"\n',
-            "key": '[[kernel]]\nid="k"\nname="K"\ndefault_action="show"\ndefault_reason="r"\n'
+            "key": '[[kernel]]\nid="k"\ntarget=1\nname="K"\ndefault_action="show"\ndefault_reason="r"\n'
                    '[[rule]]\nkernel="k"\naction="hide"\nreason="r"\ncolour="red"\n',
         }
         with tempfile.TemporaryDirectory() as tmp:

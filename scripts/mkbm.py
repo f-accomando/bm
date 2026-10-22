@@ -560,12 +560,31 @@ def lua_code_only(text):
     return "".join(out)
 
 
+def b16_profile_warnings(data):
+    """the header facts that break the .b16 profile (a .b16 is the same on the Pi and the RGB30,
+    docs/B16.md): a list of messages, empty when the profile holds. Warnings only"""
+    out = []
+    w, h = struct.unpack_from("<HH", data, 12)
+    if (w, h) not in ((360, 360), (720, 720)):
+        out.append(f"screen {w}x{h}: a .b16 is 360x360 or 720x720")
+    if struct.unpack_from("<H", data, 18)[0] & FLAG_COMPAT:
+        targets, _inp, _asp, needs = data[COMPAT_AT:COMPAT_AT + 4]
+        if targets & 3 != 3:
+            only = "the Pi" if targets & 1 else "the RGB30"
+            out.append(f"targets list only {only}: a .b16 runs on the Pi and the RGB30")
+        if needs & COMPAT_BITS["needs"]["mouse_hw"]:
+            out.append("needs mouse_hw: the RGB30 has no mouse")
+    return out
+
+
 def b16_lint(data, label):
     """checks of a .b16 cartridge: raises SystemExit for a sheet of
     more than 256 colours, prints a warning (first occurrence only) for
     each system call of B16_LUA_CHECKS in its Lua"""
     secs = bmmesh.cart_sections(data)
     types = {t for t, _ in secs}
+    for msg in b16_profile_warnings(data):
+        print(f"warning: {label}: {msg}", file=sys.stderr)
     sheet = next((body for t, body in secs if t == SEC_SHEET), None)
     if sheet is not None and SEC_SHEET8 not in types:
         w, h = struct.unpack_from("<HH", sheet, 0)
@@ -741,8 +760,6 @@ def main():
                 raise SystemExit(f"{a.info}: type: {info['type']!r} must be game, app or utility")
             data = mark_type(data, info["type"])
         title, res_str = a.title, a.res
-    if a.b16 or a.output.lower().endswith(".b16"):
-        b16_lint(data, a.output)
     # no size limit here: the Market takes 100 MiB a file (scripts/mkmarket.py), the console loads what fits in RAM
     if a.targets:
         data = mark_compat(data, compat_bits("targets", a.targets), compat_bits("input", a.input),
@@ -750,6 +767,8 @@ def main():
                            a.min_spec, (a.min_width + 15) // 16)
     elif a.input or a.aspect or a.needs or a.min_ram or a.min_spec or a.min_width:
         ap.error("--input, --aspect, --needs and the minimums go with --targets")
+    if a.b16 or a.output.lower().endswith(".b16"):
+        b16_lint(data, a.output)            # after the compatibility block: the lint reads it
     if a.output and os.path.dirname(a.output):
         os.makedirs(os.path.dirname(os.path.abspath(a.output)), exist_ok=True)
     open(a.output, "wb").write(data)

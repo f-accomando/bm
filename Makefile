@@ -657,6 +657,17 @@ $(BUILD)/host/test_res: tests/bm/test_res.c src/bm/format.c src/lib/crc32.c src/
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/bm/test_res.c src/bm/format.c src/lib/crc32.c
 
+# The compatibility policy: the C table is made from docs/spec/compat-policy.toml (mkcompat --check); the C test
+# checks every rule; the grid of facts must give the same verdicts as the toml (scripts/bm_weight.py classify)
+test-compat: $(BUILD)/host/test_compat docs/spec/compat-policy.toml
+	$(PYTHON) scripts/mkcompat.py --check
+	$(BUILD)/host/test_compat
+	$(PYTHON) tests/tools/test_compat_policy.py $(BUILD)/host/test_compat
+
+$(BUILD)/host/test_compat: tests/bm/test_compat.c src/bm/format.c src/bm/compat_table.h src/lib/crc32.c src/bm/bm.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/bm/test_compat.c src/bm/format.c src/lib/crc32.c
+
 # nano8 on the PC: the loader on every cart, the translator, the API test
 # cart, then each shipped cart played for a while (tests/nano8/run.py)
 N8_HOST_SRC := src/bm/n8.c src/bm/n8font.c src/bm/n8cart.c src/bm/png.c src/bm/n8lua.c src/audio/n8snd.c \
@@ -944,7 +955,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 # test-nano8 stays a target to run by hand; it is not in the CI list
-HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
+HOST_TESTS := test-bm test-res test-compat test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-controls test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
 	test-studio test-prompts test-docs test-api test-webp test-web test-webapi test-crumbs test-vid $(if $(K7),test-hyp)
