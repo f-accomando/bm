@@ -1,0 +1,20 @@
+bm report
+kind: video
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: 2026-10-22 09:13:02
+file: 20261022-091302_video_pi-zero-w_dev.txt
+
+bm > Video bench: SD write and read, JPEG decode
+
+Video bench: SD write and read, JPEG decode
+SD write: 128 files of 256 KiB in /bm/vidbench
+  128 writes, 2.50 MB/s mean
+  best 52.63 ms   worst 603.61 ms   writes over 100 ms: 29
+  raw 15 fps (go if >= 5.00 MB/s and worst <= 100 ms): NO GO
+SD read: 16 files, 5.14 MB/s
+JPEG decode, 100 calls each (go if mean <= 66 ms for 15 fps):
+320x180 (10582 bytes):  mean 53.14 ms  best 53.11 ms  worst 53.33 ms  (malloc and free of the 24-bit picture included)
+480x270 (18990 bytes):  mean 115.82 ms  best 115.73 ms  worst 115.86 ms  (malloc and free of the 24-bit picture included)
+Video bench done
