@@ -5563,41 +5563,50 @@ def test_herocart(b, opts):
             nonlocal seen
             seen += q.expect(needle, timeout=timeout).decode(errors="replace")
 
+        def state():
+            """The cart's last printed state: (frame, cursor row, the 1 s line)."""
+            f = list(re.finditer(r"hkeys f=(\d+) row=(\d+)", seen))[-1]
+            return int(f.group(1)), int(f.group(2)), seen[f.end():]
+
+        def settle(timeout=240):
+            """Returns after a 1 s line printed 11 frames or more after the second one that follows
+            now (the first can be one that was printed before the key was sent). A serial key counts as held for 10 frames (HOLD_FRAMES in runtime.c); the same key
+            sent inside that time makes no new press. QEMU runs the cart at 2 to 3 fps, so the
+            time of that hold is seconds: the test counts frames, not time."""
+            wait("kb=", timeout=timeout)
+            wait("kb=", timeout=timeout)
+            first = state()[0]
+            while True:
+                wait("kb=", timeout=timeout)
+                if state()[0] >= first + 11:
+                    return state()
+
+        def key(k, reached, tries=6):
+            """Sends k and waits until the printed state shows it was taken (reached(row, line));
+            sends it again, after the hold, if not (a key can be lost while the machine is busy)."""
+            for _ in range(tries):
+                q.send(k)
+                _, row, line = settle()
+                if reached(row, line):
+                    return
+            raise AssertionError(f"key {k!r}: the state never came\n{seen[-1500:]}")
+
         wait(" n=20 lod=auto res=640x360 opt=")
         wait("kb=")
         wait("herocart 1 t=")          # frames go on: a second and another line
         wait("kb=")
-        q.send("o")                    # R1: a hero more
-        wait(" n=21 lod=auto ")
-        q.send("c")                    # X: the level before auto: 3
-        wait(" n=21 lod=3 ")
-        q.send("s")                    # down to the LOD row
-        time.sleep(0.8)
-        q.send("d")                    # right: the next value, auto
-        wait(" n=21 lod=auto ")
-        wait("kb=")
-        q.send("w")                    # up twice: the first row, then the last (cel bands)
-        wait("kb=")
-        wait("kb=")
-        q.send("w")
-        wait("kb=")
-        wait("kb=")
-        q.send("d")                    # right: 2 bands (cel light on the ARM raster)
-        wait(",cel2,")
-        wait("kb=")
-        q.send("w")                    # up twice: the Resolution row; right three times: 1920x1080
-        wait("kb=")
-        wait("kb=")
-        q.send("w")
-        wait("kb=")
-        wait("kb=")
-        for _ in range(8):             # a key can be lost at 1 fps: press again until the mode is in force
-            q.send("d")
-            wait("kb=", timeout=240)
-            wait("kb=", timeout=240)
-            if " res=1920x1080 " in seen[-700:]:
-                break
-        assert " res=1920x1080 " in seen[-700:], seen[-1500:]
+        settle()
+        key("o", lambda r, s: " n=21 lod=auto " in s)      # R1: a hero more
+        key("c", lambda r, s: " n=21 lod=3 " in s)         # X: the level before auto: 3
+        key("s", lambda r, s: r == 2)                      # down to the LOD row
+        key("d", lambda r, s: " n=21 lod=auto " in s)      # right: the next value, auto
+        key("w", lambda r, s: r == 1)                      # up twice: the first row, then the last (cel bands)
+        key("w", lambda r, s: r == 20)
+        key("d", lambda r, s: ",cel2," in s)               # right: 2 bands (cel light on the ARM raster)
+        key("w", lambda r, s: r == 19)                     # up twice: the Resolution row
+        key("w", lambda r, s: r == 18)
+        for res in ("960x540", "1280x720", "1920x1080"):   # right three times: 1920x1080
+            key("d", lambda r, s, res=res: f" res={res} " in s)
         q.send("q")
         q.expect("update+draw", timeout=10)
         assert "stopped with an error" not in seen, seen[-1500:]

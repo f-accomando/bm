@@ -60,7 +60,6 @@ Friday evening:
 
 ## Open issues
 - The Pi froze once on `b3d tests=herotris` with all profiles in one line (8 profiles in one run). The user power-cycled the Pi. The same profiles run one at a time did not freeze. Cause unknown, no fix. Command: `b3d tests=herotris` (no profile named, so all 8 profiles in one line). To reproduce, run it again and note the profile that is running at the freeze.
-- `qemu_test.py -k herocart` is red on bm-core 4c65205d (res=1920x1080 assert or timeout at `,cel2,`); same without the LOD change; needs its own fix.
 
 ## Never delete
 `bm-core`, `reports`, `sync-handshake`, `claude/beta1-c4-ring2`, `claude/beta1-c4-ring3`, and the graphics branches below until their commits are ported or the user says go.
