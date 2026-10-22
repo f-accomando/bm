@@ -4297,16 +4297,14 @@ def test_usb_mouse(b, opts):
         q.click("wheel-down")
         assert MOUSE_TITLES[7] in screen_text(wait_screen(q, title_is(MOUSE_TITLES[7])))[4]
         # the keys move the selection: the arrow goes away until it moves
-        # press and release in one QMP call (sendkey holds the key 100 ms). A frame
-        # of the menu (the blur of a new cover) can take over 500 ms in QEMU and
-        # the keyboard repeat (hid.c, 500 ms) then moves a second cover: one cover
-        # left of the last one, or two, is the keys moving the selection
+        # press and release in one QMP call (sendkey holds the key 100 ms): the
+        # key is up before the 500 ms repeat (hid.c), so it moves one cover
         q.input_events([{"type": "key", "data": {"down": d_, "key": {"type": "qcode", "data": "left"}}}
                         for d_ in (True, False)])
-        moved = lambda s_: any(title_is(MOUSE_TITLES[i])(s_) for i in (6, 5))
+        moved = lambda s_: title_is(MOUSE_TITLES[6])(s_)
         shot_ = wait_screen(q, lambda s_: not arrow_at(s_, x, y) and moved(s_))
         assert not arrow_at(shot_, x, y), "the arrow stayed with the keys"
-        assert any(MOUSE_TITLES[i] in screen_text(shot_)[4] for i in (6, 5)), screen_text(shot_)[4]
+        assert MOUSE_TITLES[6] in screen_text(shot_)[4], screen_text(shot_)[4]
 
         def click_at(px, py, button="left"):        # once the arrow is there
             q.pointer(px, py)

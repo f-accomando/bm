@@ -52,7 +52,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   in [lua](lua.md).
 
 ### Assistant (`src/ai/`)
-Details: [tools-assistant](tools-assistant.md).
+Details: [tools-assistant](tools-assistant.md). Tutorial videos (`video/`, series *Skyvale World*): [video](video.md).
 
 ### Market (`market/`, repo `f-accomando/bm-market`)
 Games (`MARKET_GAMES`: `GAMES` without `MARKET_NOT`, so without `village`) and the bm editors
@@ -68,18 +68,12 @@ in `games/` and the apps (the editors, `typing`, `write`) in `apps/`. Then commi
 `git rm -r games/<id>` there. The Market UI separates **Games** and **Apps** pages (`Y` / `V` or
 subtab click) and shows `.bm` / `.b16` format badges on covers, title row and details panel.
 
-### Tutorial videos (`video/`, skill `claude/skills/bm-video-tutorial`)
-`video/lib/bmvideo.py` drives `bmhost` from a key script and lays out the page with
-ffmpeg/libass; storyboard and script come from the same key script. Series *Skyvale World*
-(`video/SERIE.md`), episodes 01–07 complete, each with a `verify.py`. `bmhost --tool` runs a
-tool; `make bmhost-ai` builds `bmhost` with the real `ai` table. On the PC: no kernel menu.
-
 ### Tests on a real Pi (`tools/pi_bridge.py`, `tools/pi.py`, `tools/pi_test.py`)
 The owner types the console password once in `pi_bridge.py`; a client (Claude Code, `pi_test.py`) then sends `line`, `send`, `play`, `kernel` through a local socket without seeing the password. It can run `gpu`/`b3d`, send a cartridge or a kernel and restore the normal one. `./easy_install.sh bridge [profile]` (menu 9) starts it for a saved profile with its board (`--board pi|zero2|rgb30`: `kernel FILE` takes only that board's kernel file; the RGB30 has no monitor, so its crash/freeze/reboot keys answer "not for this board"; test `tests/net/check_pi_bridge_board.py`, not tried on the RGB30). It sees the error of a stopped cartridge (`err`, R-NET1) and the screen (`shot OUT.png`, R-NET2: transfer ops `T`/`G`): [`design/pi-test.md`](../design/pi-test.md).
 
 ### CI (`.github/workflows/ci.yml`)
 Build; host tests (`make test-host`); QEMU in four shards (`make test-qemu SHARD=K/4`); RGB30 build and QEMU
-tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes in `SLOW`. Three QEMU tests were steadied against flaky timing: `test_studio_animator` (short gap, the toast is brief), `test_usb_mouse` (wait for one icon), `test_code_completion` (wait for the colour). `test_code_completion`, `test_sd_cartridges` and `test_monitor_line` failed at times on CI and did not fail in 81 local runs (idle and under CPU load). The code read showed keys sent before the screen had changed. The tests now wait for the menu (`wait_menu`), for the cover after each key, and for "Tab:" to leave the status line. On a miss `test_code_completion` prints the screen text and colour counts and saves `build/diag/code-complete-miss.png`; `wait_menu` saves `build/diag/menu-not-drawn.png` and `.txt`; CI uploads `build/diag/`. Read these files when a test fails again. `test_code_editor` (failed once on CI: the two-page screen after F4) and `test_usb_mouse` (failed once on CI) were steadied the same way. Under CPU load `test_code_editor` failed in 7 of 12 local runs, always at "bm: copied": the answer key was sent before the question box was drawn, and the question's first poll ignores a key held at the start. The test now waits for the box (`copy_asked`). It also waits for the file list before Down and Enter and for each new tab before the next key, and `see` waits 20 s. `test_usb_mouse` failed in 1 of 12 runs, idle or loaded: the Left key moved two covers, because a slow menu frame lets the 500 ms key repeat (`hid.c`) fire. The test accepts one or two covers and waits 15 s for each screen. On a miss `test_code_editor` saves `build/diag/code-editor-miss.png` and `.txt`. The artifact upload may fail without failing the job.
+tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes in `SLOW`. Three QEMU tests were steadied against flaky timing: `test_studio_animator` (short gap, the toast is brief), `test_usb_mouse` (wait for one icon), `test_code_completion` (wait for the colour). `test_code_completion`, `test_sd_cartridges` and `test_monitor_line` failed at times on CI and did not fail in 81 local runs (idle and under CPU load). The code read showed keys sent before the screen had changed. The tests now wait for the menu (`wait_menu`), for the cover after each key, and for "Tab:" to leave the status line. On a miss `test_code_completion` prints the screen text and colour counts and saves `build/diag/code-complete-miss.png`; `wait_menu` saves `build/diag/menu-not-drawn.png` and `.txt`; CI uploads `build/diag/`. Read these files when a test fails again. `test_code_editor` (failed once on CI: the two-page screen after F4) and `test_usb_mouse` (failed once on CI) were steadied the same way. Under CPU load `test_code_editor` failed in 7 of 12 local runs, always at "bm: copied": the answer key was sent before the question box was drawn, and the question's first poll ignores a key held at the start. The test now waits for the box (`copy_asked`). It also waits for the file list before Down and Enter and for each new tab before the next key, and `see` waits 20 s. `test_usb_mouse` failed in 1 of 12 runs, idle or loaded: the Left key moved two covers, because a slow menu frame lets the 500 ms key repeat (`hid.c`) fire. The test keeps a strict check (user decision, 22 Oct): the Left key is sent as press and release in one call, and it moves exactly one cover. It waits 15 s for each screen. On a miss `test_code_editor` saves `build/diag/code-editor-miss.png` and `.txt`. The artifact upload may fail without failing the job.
 
 ## Open work (`docs/ROADMAP.md`)
 
@@ -89,9 +83,6 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet. Install-sd, boot-os, api-3d (`map3d_*`), editor-animator (test pose), levels (Stages 2D) and api-tools (`bm_net --shot/--get`) were already current on bm-core; boot-os now has the SD map and the RGB30 game option *Send to a nearby console*. The other manuals are not re-read against sources changed since their stamp.
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
-- **Market apps** (branch `claude/market-apps-folder`): the owner moves the items of `games/` that are
-  apps to `apps/` in `bm-market` and removes `village` (commands in the pull request). The other
-  RGB30 editors have no `.b16` edition yet, so only the SDK appears on the RGB30 Apps page.
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
@@ -99,13 +90,6 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **Stack page of bm Pixel**: try it on the Pi and the RGB30 (keyboard and pad). Not done: delete a stack zone, a vertical layout (`stackv`, branch `claude/stackv`: the page keeps `sp.dir` and `cell()` ready), mouse drag. Pad and mouse are not tested in QEMU.
 - **Web player mock** ([`web/README.md`](../../web/README.md)): static page, no kernel code. It shows the Start, 2D, 3D and Sound tabs and calls `window.bmLauncher.start(cartUrl)`. React 18.3.1 (MIT) loads from cdnjs without SRI; the 24 PNG previews are placeholders. To do: add SRI or vendor React, set the licence policy for real assets, connect the WebAssembly runtime.
 - **Stack to mesh** (`tools/stack2mesh.py`, host tool, tests `tests/tools/test_stack2mesh.py`): done. It reads a sprite sheet PNG and a stack (`--size W H -n N --at X Y`, `--dir h` for `stack`, `--dir v` for one slice under the other), and writes a `.bmm` with one MESH model. Each opaque pixel is a voxel. Voxels of the same colour join into boxes: rectangles in a slice first, then equal rectangles on neighbouring slices. A box costs 8 vertices and 12 triangles. The default limit is 4096 vertices, so 512 boxes; `--kernel-limits` allows 8191 boxes. A stack that is too big exits with 1 and gives the limit. The round trip is tested: mesh back to slices equals the source. Not done: only the outer faces (fewer triangles for a solid volume), a button in bm Pixel and bm Studio, the `stackv` direction flag of the Lua call (the PNG layout `--dir v` exists), a check on the Pi.
-- Yharnam's map on the Pi: open `yharnam.bm` in the SDK, F3 F3, edit ground,lamps/barricades/gates/bosses on `objects`,
-  Ctrl+S (`YHARNAM.BME`, about 6 MB), F5; then `mkmap.py --from` and commit the CSVs. A house
-  stays in its 16×16-tile block.
-- Overbit's mech pilots from pictures (D.Va `ref/rally_pilot.png`, D.Mon `ref/kaiju_pilot.png`):
-  run `tools/meshy_text.py` with your own key (the `request.txt` lines), then `pack.py out rally_pilot kaiju_pilot`;
-  optionally `rig=` lines with the ids of `out/NAME.task.txt` and `pack.py --rig`. Until then
-  the text-to-3D pilots stay. The image-to-3D heroes are not rigged (no task ids kept).
 - **3D maps in bm SDK** (Tropic Trail, completed): C module `src/bm/map3d.c` with Lua API `map3d_*` (mesh in 16×16-tile pieces with frustum culling `r3d_visible`, floor height queries, wall/step collisions, object placeholders); 3D view in the editor with the `v` key and an orbit camera; straight path tools `Shift+P` (width 1–5 with `Shift+W`), apple rows `Shift+A`, crates `Shift+C`, lamps `Shift+O`, entity count and triangle budget in the status bar.
 - **Live reload / auto-watch from the PC**: `bm_net.py --watch` to automatically send and relaunch the cartridge at every local save of `main.lua`.
 - **Native hardware mouse in nano8**: `mouse(true)` support for `.p8` cartridges that enable the pointer with `poke(0x5f2d, 1)`, exporting coordinates and wheel on `stat(32)`–`stat(36)`.
