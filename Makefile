@@ -839,7 +839,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
-      test-studio test-prompts test-docs test-api $(if $(K7),test-hyp)
+      test-studio test-prompts test-docs test-api test-webp $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
@@ -1025,6 +1025,15 @@ test-img3d: $(BUILD)/host/test_img3d
 $(BUILD)/host/test_img3d: tests/net/test_img3d.c src/net/img3d.c src/net/http.c src/net/*.h $(GLB_SRCS) src/bm/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -Wall -Wextra -Isrc -Isrc/bm -DHTTP_USER_AGENT='"test"' -o $@ tests/net/test_img3d.c src/net/img3d.c src/net/http.c $(GLB_SRCS) -lm
+
+# the WebP decoder (src/bm/webp.c): lossy and lossless pictures against libwebp's decode, then truncated and
+# damaged files, under the address and undefined-behaviour sanitizers
+test-webp: $(BUILD)/host/test_webp
+	$(PYTHON) tests/webp/run_webp_test.py $(BUILD)/host/test_webp
+
+$(BUILD)/host/test_webp: tests/webp/test_webp.c src/bm/webp.c src/bm/webp.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -std=c11 -O1 -g -Wall -Wextra -fsanitize=address,undefined -fno-sanitize-recover=undefined -Isrc/bm -o $@ tests/webp/test_webp.c src/bm/webp.c
 
 test-http: $(BUILD)/host/test_http
 	$(PYTHON) tests/net/run_http_test.py $(BUILD)/host/test_http
