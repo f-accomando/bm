@@ -1,0 +1,40 @@
+page w=240 h=180 lines=10 links=8 images=0 controls=0 forms=0 rects=0 cut=false title="Links"
+line y=12 h=12
+  t x=4 y=12 w=30 h=12 "Go to" 
+  t x=40 y=12 w=78 h=12 "the next page" u c=0000ee link=1
+  t x=124 y=12 w=12 h=12 "or" 
+  t x=142 y=12 w=36 h=12 "up one" u c=0000ee link=2
+  t x=184 y=12 w=12 h=12 "or" 
+line y=24 h=12
+  t x=4 y=24 w=78 h=12 "absolute path" u c=0000ee link=3
+  t x=88 y=24 w=12 h=12 "or" 
+  t x=106 y=24 w=60 h=12 "other host" u c=0000ee link=4
+  t x=166 y=24 w=6 h=12 "." 
+line y=48 h=12
+  t x=4 y=48 w=60 h=12 "query only" u c=0000ee link=5
+  t x=70 y=48 w=78 h=12 "fragment only" u c=0000ee link=6
+  t x=154 y=48 w=48 h=12 "full URL" u c=0000ee link=7
+line y=72 h=12
+  t x=4 y=72 w=216 h=12 "Refused: script mail file data plain" 
+line y=84 h=12
+  t x=4 y=84 w=48 h=12 "http ftp" 
+line y=108 h=12
+  t x=4 y=108 w=222 h=12 "A long link that has to wrap over two" 
+line y=120 h=12
+  t x=4 y=120 w=36 h=12 "lines:" 
+  t x=46 y=120 w=186 h=12 "this anchor text is longer than" u c=0000ee link=8
+line y=132 h=12
+  t x=4 y=132 w=210 h=12 "the space that is left on the first" u c=0000ee link=8
+line y=144 h=12
+  t x=4 y=144 w=126 h=12 "line of the paragraph" u c=0000ee link=8
+  t x=136 y=144 w=24 h=12 "end." 
+line y=168 h=12
+  t x=4 y=168 w=114 h=12 "anchor without href" 
+link 1 https://example.test/dir/page2.html "the next page" boxes=40,12,78,12
+link 2 https://example.test/up.html?x=1#top "up one" boxes=142,12,36,12
+link 3 https://example.test/root/abs.html "absolute path" boxes=4,24,78,12
+link 4 https://cdn.example.test/lib "other host" boxes=106,24,60,12
+link 5 https://example.test/dir/base.html?q=tree "query only" boxes=4,48,60,12
+link 6 https://example.test/dir/base.html#frag "fragment only" boxes=70,48,78,12
+link 7 https://other.test:8443/a/c "full URL" boxes=154,48,48,12
+link 8 https://example.test/dir/long.html "this anchor text is longer than the spac..." boxes=46,120,186,12 4,132,210,12 4,144,126,12

@@ -546,6 +546,12 @@ test-online: $(BUILD)/host/bmhost-bin $(BUILD)/online-test.bm tests/online/input
 test-bmnet: $(BUILD)/host/bmhost-bin tests/bmnet/cart.lua tests/bmnet/run.py src/script/bmnet.lua
 	$(PYTHON) tests/bmnet/run.py $(BUILD)
 
+# bmweb (carts/bmweb/src): HTML, CSS, layout and URL in pure Lua. No build
+# dir needed: run.sh uses build/host/luahost, a Lua in the PATH, or builds a
+# private one in a temp folder.
+test-web:
+	sh tests/web/run.sh
+
 test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 	$< tests/sound/sim.lua carts/sound/main.lua $(BUILD)/demo.bmau
 
@@ -638,7 +644,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-keymap test-gameapi test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-keymap test-gameapi test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
@@ -830,7 +836,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
-      test-studio test-prompts test-docs test-api $(if $(K7),test-hyp)
+      test-studio test-prompts test-docs test-api test-web $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
