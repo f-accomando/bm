@@ -127,7 +127,7 @@ A hero that runs and jumps on a map with ground and planks. The camera follows i
 6. Press **F2** to read the code. It uses `bmlib`: `lib.step(hero)` does gravity and collisions with the map, `lib.camera` follows the hero.
 7. Press **F3** until the map shows. Move the cursor to an empty cell in the air, choose the planks with `x` on a plank, and press **Space** to place a new plank.
 8. Press **Esc**, **Save as...**, type a name and press **Enter**.
-9. Press **F5**. The hero stands on the ground. The arrows run, **A** (Space on the keyboard) jumps, **down** drops through a plank.
+9. Press **F5**. The hero stands on the ground. The arrows run, **act1** (Space on the keyboard; the screen shows the button) jumps, **down** drops through a plank.
 10. Run to the first gap: if you fall, the hero comes back to the start. Find your new plank.
 11. Leave the game and you are back in the SDK. See step 8 of Empty 2D for the keys.
 
@@ -149,13 +149,13 @@ Press `z` on the map to switch to the 16x16 brush, or place a plank higher up an
 1. Press **Ctrl+N** and choose **Shooter 2D**.
 2. Press **F3** to see the two sprites: the ship (1) and the enemy (5).
 3. Press **Esc**, **Save as...**, type a name and press Enter.
-4. Press **F5**. The arrows fly the ship, **A** fires; the enemies come from the right. When the game is over, **A** starts again.
+4. Press **F5**. The arrows fly the ship, **act1** (Space on the keyboard) fires; the enemies come from the right. When the game is over, **act1** starts again.
 
 ## Tutorial: Versus 2D
 
 1. Press **Ctrl+N** and choose **Versus 2D**.
 2. Press **Esc**, **Save as...**, type a name and press Enter.
-3. Press **F5**. Two fighters: each with a controller; alone, the computer plays the second. Left and right walk, **A** punches, **B** jumps. The punches are hitboxes and the bodies hurtboxes.
+3. Press **F5**. Two fighters: each with a controller; alone, the computer plays the second. Left and right walk, **act2** (X on the keyboard) punches, **act1** (Space) jumps. The punches are hitboxes and the bodies hurtboxes.
 
 ## Tutorial: Online 2D
 
@@ -172,7 +172,7 @@ The game's random numbers come from the match's seed (`lib.rng`), never from `ma
 
 1. Press **Ctrl+N** and choose **3D scene**.
 2. Press **Esc**, **Save as...**, type a name and press Enter.
-3. Press **F5**. A floor, four cubes and a ball with its shadow. The arrows move the ball, **A** jumps, and the camera follows. The top left shows the number of triangles.
+3. Press **F5**. A floor, four cubes and a ball with its shadow. The arrows move the ball, **act1** (Space on the keyboard) jumps, and the camera follows. The top left shows the number of triangles.
 
 ## Tutorial: 3D with models
 
@@ -260,7 +260,7 @@ Press **F1** on the project page, then **F1** again. The second page is the **de
 
 - **CODE**: tokens, lines, KiB, number of functions and the biggest ones.
 - **DATA IN MEMORY WHILE IT RUNS**: sheet, map, models, skeletons, sound and z-buffer, and the total. The Lua comes on top. This is the same sum as `stat(13)`.
-- **CARTRIDGE FILE**: the size of the saved file against the 8 MiB of a `.b16`. Before the first save it says `not saved yet: Save as, then the size of the file`.
+- **CARTRIDGE FILE**: the size of the saved file against the mark of 100 MiB, the most the Market takes for one file. The mark is only a guide: the build does not refuse a larger file and the kernel has no size cap. Before the first save it says `not saved yet: Save as, then the size of the file`.
 - With the target `.b16`: the lines of the code that the `.b16` will not have (`math.random`, `time()`, files...). With `.bm`: `.bm has no cap`.
 - **LAST TRY (F5)**: fps, average and maximum milliseconds of a frame, frames over 16.7 ms, the peak RAM (Lua and data), the instructions of the heaviest frame, tokens, triangles, and whether the 3D was drawn on the GPU or the ARM.
 
@@ -290,7 +290,7 @@ Press **F1** on the project page, then **F1** again. The second page is the **de
 ## Good to know
 
 - A game is built from its project. If a game is open, the SDK saves its editable copy first.
-- Setting the target to `.b16` (key `b` on the project page) changes the screen to `360x360` if it was not square, and tells you the 8 MiB limit.
+- Setting the target to `.b16` (key `b` on the project page) changes the screen to `360x360` if it was not square, and shows the size of the file against the 100 MiB mark. The mark is a guide, not a limit.
 - The target is remembered for each project file.
 - On the RGB30, exporting a `.b16` from `/carts` also copies it to `/bm/`, so it appears at once in Games. On the RGB30 the Games tab lists `/bm/` and `/carts`; if the game is written somewhere else, the status line adds `(not in the Games tab)`.
 

@@ -211,6 +211,9 @@ Lo **sprite sheet** è un'immagine divisa in celle 8×8: la cella `n` sta alla c
 |---|---|
 | `spr(n, x, y, [w, h, flip_x, flip_y])` | disegna la cella `n` (w×h celle, predefinito 1×1), anche specchiata |
 | `sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom])` | copia un rettangolo qualsiasi dello sheet; con `zoom` (predefinito 1) lo disegna più grande (`2`, `3`…) o più piccolo (`0.5`), pixel per pixel: copre `sw * zoom` × `sh * zoom` pixel |
+| `stack(sx, sy, w, h, n, x, y, [rz, scale, step])` | sprite stacking: disegna `n` fette di `w`×`h` pixel, una accanto all'altra sullo sheet da `(sx, sy)`, da sinistra a destra. La fetta 1 è la più bassa. `(x, y)` è il centro della fetta più bassa. Ogni fetta ruota di `rz` radianti attorno al suo centro, è `scale` volte più grande e sta `step * scale` pixel sopra quella sotto (`step` 1 di norma). Il colore 0 è trasparente |
+| `stackv(sx, sy, w, h, n, x, y, [rz, scale, step])` | come `stack`, ma le fette stanno una sotto l'altra sullo sheet, dall'alto in basso; quella in alto è la fetta 1 |
+| `zstack(name, x, y, [rz, scale])` | disegna una zona stack del file delle zone (la riga `stack name x y w h n`, o `stackv` per fette una sotto l'altra) |
 | `sget(x, y)` | legge un pixel dello sheet (`nil` = trasparente) |
 | `sset(x, y, [c])` | scrive un pixel dello sheet (`nil` = trasparente) |
 
@@ -228,7 +231,7 @@ La sezione SPRITES dà un nome a rettangoli dello sheet, con i loro fotogrammi (
 | Funzione | Cosa fa |
 |---|---|
 | `zspr(name, x, y, [frame, flip_x, flip_y, zoom])` | disegna una **zona con nome** dello sheet: `frame` da 1 al numero di fotogrammi (oltre ricomincia), oppure `nil`: quello che i suoi fps danno a `time()`, così l'animazione va da sola. Restituisce il fotogramma disegnato. Una zona che non c'è è un errore |
-| `zone(name)` | restituisce `x, y, w, h, frames, fps` della zona (il suo primo fotogramma, in pixel dello sheet), oppure `nil` |
+| `zone(name)` | restituisce `x, y, w, h, frames, fps, slices` della zona (il suo primo fotogramma, in pixel dello sheet; `slices` è 0 per una zona normale, da 2 a 255 per una zona stack), oppure `nil` |
 | `zones()` | i nomi delle zone, in ordine (`{}` se non ce ne sono) |
 | `zboxes(name, [frame, kind])` | gli **hitbox e hurtbox** dei fotogrammi di una zona (vedi sotto) |
 
@@ -572,7 +575,7 @@ Quando un gioco finisce il dev kit scrive un file per gioco nei report, `reports
 
 - In `bm/config.txt`: `session_report=0` mai, `=1` sempre; senza la riga, solo con un `github_token`.
 - Dal codice usi `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(16)`, `devkit()` e `profile()`. Il limite è 20 milioni di istruzioni per chiamata.
-- Il **dev kit dell'SDK** (F1 due volte) ha gli stessi numeri per il progetto: token, le funzioni più grandi, la memoria dei dati, il file contro gli 8 MiB di un `.b16` e i numeri dell'ultima prova (F5).
+- Il **dev kit dell'SDK** (F1 due volte) ha gli stessi numeri per il progetto: token, le funzioni più grandi, la memoria dei dati, il file contro il segno degli 8 MiB di un `.b16` (una guida, non un limite) e i numeri dell'ultima prova (F5).
 - A fine esecuzione la linea seriale scrive anche la riga `dev kit: Lua peak ... KiB, data ... KiB, busiest frame ...k instructions, ... frames over 16.7 ms, ... tokens`.
 
 ## Esempi
@@ -730,3 +733,42 @@ end
 ```
 
 [DA COMPLETARE: un esempio di due console che si trovano con queste funzioni; le fonti descrivono per questo solo bmnet]
+
+# Il web
+
+Per una cartuccia che mostra pagine web. Una richiesta gira in background: il gioco continua a disegnare mentre la pagina arriva. Il kernel fa rispettare le regole qui sotto. Una cartuccia non può cambiarle.
+
+- Il giocatore deve consentire la rete, come per `udp_open`. Senza rete `web_get` restituisce `nil, "no network"`.
+- Solo indirizzi `https://`, al massimo 1024 caratteri. Il kernel segue al massimo 3 redirect e rifiuta un redirect verso `http://`.
+- Il kernel aspetta che sia passato 1 secondo dall'ultima richiesta allo stesso host. Nel frattempo lo stato è `"wait"`.
+- Il corpo si ferma a 4 MiB. `web_max_kib` in `bm/config.txt` lo cambia (fino a 32768). Una richiesta può chiedere meno con `max`.
+- Una sola richiesta gira alla volta. I risultati di al massimo 3 richieste restano in memoria fino a `web_cancel` o alla fine della cartuccia.
+- `web_poll` lavora per circa 4 ms. Una nuova connessione TLS può richiedere circa 100 ms sul Pi Zero W, e il fotogramma aspetta. Mostra un messaggio "connecting" prima del primo `web_poll`.
+- Dopo una risposta completa il kernel tiene la connessione per la richiesta successiva allo stesso host (keep-alive). Le chiamate non cambiano.
+- Con `resume = "NAME.EXT"` una richiesta fallita o annullata conserva la parte ricevuta in `bm/web/NAME.PRT`. Il `web_get` successivo per lo stesso indirizzo con lo stesso nome chiede al server il resto (`Range`). Il server deve mandare `Accept-Ranges` e una dimensione. Il corpo è sempre il file intero: controlla la dimensione o un hash prima di usarlo.
+- In bmhost `web_get` restituisce `nil` e un motivo. `image_load` e `file_write` funzionano.
+
+| Funzione | Che cosa fa |
+|---|---|
+| `id = web_get(url, [opts])` | avvia una richiesta GET. `opts`: `max` (un tetto del corpo in byte), `timeout` (millisecondi per una lettura, da 1000 a 60000, predefinito 15000), `resume` (un nome 8.3 semplice). Restituisce l'`id`, o `nil` e il motivo |
+| `state, size, length = web_poll(id)` | fa lavorare la richiesta per circa 4 ms. `state` è `"wait"`, `"busy"`, `"done"` o `"error"`. Chiamala una volta a fotogramma |
+| `web_info(id)` | una tabella con `state`, `status` (lo stato HTTP), `type`, `length`, `location`, `url`, `size`, `resumed` ed `error`. Un 404 finisce in `"done"`: guarda `status` |
+| `web_body(id)` | il corpo come stringa, o `nil` e il motivo. Copia i byte nella memoria di Lua: per decodificare un'immagine o scrivere un file, dai l'`id` a `image_load` o `file_write` |
+| `web_cancel(id)` | ferma la richiesta e libera il risultato |
+| `img = image_load(bytes_or_id, sx, sy, [maxw, maxh])` | decodifica un JPEG baseline, PNG o WebP nello sprite sheet con l'angolo in alto a sinistra in `(sx, sy)`. JPEG progressivi e immagini sopra i 4 megapixel sono rifiutati. Restituisce `{x =, y =, w =, h =}`, o `nil` e il motivo. Disegnala con `sspr`. Se serve, ingrandisci prima lo sheet con `cart_sheet(w, h)` |
+| `file_write(name, bytes_or_id, [async])` | scrive un file in `bm/web` sulla scheda SD. `name` è un nome 8.3 semplice. Mai un file `.bm`, `.bme` o `.b16`. Al massimo 8 MiB (`file_write_max_kib`, fino a 32768) e 128 file nella cartella. Con `async = true` i dati vanno in coda, fino a 4 file aspettano, e i pezzi (fino a 32 KiB) vanno sulla scheda mentre la cartuccia chiama `web_poll` o `file_state` |
+| `state, info = file_state(name)` | l'ultima scrittura in coda con quel nome: `"queued"`, `"writing"`, `"done"` o `"error"`. Chiamala una volta a fotogramma mentre una scrittura è in coda |
+
+```lua
+if btnp(4) and not req then req = web_get("https://example.org/pic.webp") end
+if req then
+  local state = web_poll(req)
+  if state == "done" then
+    img = image_load(req, 0, 64, 160, 90)
+    web_cancel(req); req = nil
+  elseif state == "error" then
+    msg = web_info(req).error
+    web_cancel(req); req = nil
+  end
+end
+```

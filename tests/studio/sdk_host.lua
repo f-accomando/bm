@@ -778,7 +778,7 @@ key("^b")
 check(built == "/carts/T4.B16" and status():find("built /carts/T4.B16", 1, true), "Ctrl+B with target .b16 builds .B16: " .. status())
 key("f1")
 frames(5)
-check(sees("of 8M (.b16)") and sees("math.random"), "the dev kit for a .b16: the cap, math.random")
+check(sees("of 100M (Market)") and sees("math.random"), "the dev kit for a .b16: the cap, math.random")
 check(saved_t.targets and saved_t.targets["/CARTS/T4.BME"] == "b16", "the target remembered for the file")
 
 -- an error in the game: the code page on its line

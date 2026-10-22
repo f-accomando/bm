@@ -253,10 +253,13 @@ Each option is a key in `bm/config.txt` and a row in *Settings > Screen and soun
 | `gpu3d_fs2` | textured pixel shaders with two threads | on (`0` turns it off) |
 | `gpu3d_sort` | meshes nearest first, triangles in vertex-cache order | off |
 | `gpu3d_attr` | compact vertex attributes | off |
+| `gpu3d_qpu` | `1`: the GPU test and the 3D Bench also run the QPU programs against the ARM versions (a first check on the Pi) | off |
 | `r3d_fast` | ARM renderer: one matrix and light in model space (pixels no longer bit-identical) | `r3d_fast=1` to turn on |
 | `r3d_impostor` | far models as one quad (2 to 64 pixels of a 1080-line screen) | off |
 
 In the Settings the rows are named *3D of the games*, *3D anti-aliasing*, *3D vertices*, *3D frame queue*, *3D frame shown*, *2D over the 3D*, *3D textures*, *3D job memory*, *3D pixel shaders*, *3D draw order*, *3D corners*, *3D impostors* and *3D on the ARM* (source: `src/kernel/settings.c`).
+
+The cel light of `cel3d` (see the 3D volume) also runs on the Pi's GPU: with `gpu3d_vs=2` the lit vertex programs cut the light into the same bands. The game draws the same picture with the ARM lighting when `gpu3d_vs` is 0 or 1, or when the boot test sees the cel programs fail.
 
 Limits you meet:
 

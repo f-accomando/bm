@@ -38,7 +38,7 @@ Your game is never overwritten by a tool by accident. You edit the project, and 
 - *Build the game (.bm)* is in a project's options. In the SDK the key is **Ctrl+B**.
 - A build writes the game next to the project, with the project's name stored at offset 104 of the header. The next build replaces that game and only that one. A game of the same name that it did not build stays, and the new one takes a digit (`PONG1.BM`).
 - The `.bm` and the `.b16` are separate editions. A `.b16` never replaces the `.bm`, and the `.bm` sources are never overwritten to make a `.b16`.
-- A `.b16` file is limited to 8 MiB. Its screen is 360x360 (or 720x720, the profile says), the same on the Pi and on the RGB30.
+- A `.b16` file has no size limit of its own: the build tools no longer refuse a large file. The Market takes up to 100 MiB a file. Its screen is 360x360 (or 720x720, the profile says), the same on the Pi and on the RGB30.
 - Other cartridges write only `.bm` and `.bme` files in `/carts`, and only ones they made in the same run.
 
 ## Caveats
@@ -70,7 +70,7 @@ python3 scripts/mkbm.py --from ball.bm --b16
 :::
 
 ::: warn
-A `.b16` over 8 MiB is refused with a message. With `--from` and `--b16` and no `-o`, the file is written next to the source with the `.b16` extension.
+Nothing refuses a large `.b16` at build time. With `--from` and `--b16` and no `-o`, the file is written next to the source with the `.b16` extension.
 :::
 
 # The sections of a cartridge

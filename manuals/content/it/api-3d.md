@@ -130,6 +130,8 @@ I flag si sommano (per esempio 4 + 128).
 | 16, 32, 48 | **livello di dettaglio** 2, 1, 0 (solo le facce di quel livello, vedi i bit di materiale); senza: 3, tutte |
 | 64 | **davanti** (armi e braccia in prima persona): lo z-buffer sotto viene azzerato, profondità precise da 0.1 unità |
 | 128 | **texture piatte**: le facce con texture sono disegnate come colori piatti, ognuno la media dei suoi texel. I texel trasparenti sono saltati, e una faccia di soli buchi è grigia. La mesh, le ossa e l'animazione sono le stesse; le facce illuminate conservano la loro luce, le altre facce non cambiano. Sulla GPU una mesh così va triangolo per triangolo, un po' più lenta. I colori sono conservati per mesh e per versione della texture (bm3d 7.0) |
+| 256 | **luce cel**: la luce del sole di questo disegno è divisa nelle fasce di `cel3d`. Non succede nulla finché `cel3d` è spento. 4 + 256 è cel smooth |
+| 512 | **contorno**: dopo la mesh, il suo contorno (uno scafo rovesciato) nel colore e nello spessore del contorno di `cel3d`. Funziona con o senza 256. Non si disegna nulla finché `cel3d` non ha un colore di contorno |
 
 ## Bit di materiale
 
@@ -160,6 +162,7 @@ Le facce che sono insieme con texture e screen door fanno rinunciare la GPU: la 
 | `light3d(x, y, z, [ambient])` | la direzione della luce e la luce ambiente (0-1) |
 | `sky3d(sun, sky, ground)` | colori (0xRRGGBB) della luce del sole e della luce ambiente che viene da sopra e da sotto (le facce rivolte in su prendono il cielo, quelle rivolte in giù il suolo); `sky3d()` torna al bianco |
 | `shine3d(spec, exponent, rim)` | i riflessi del sole sulle facce lucide (`spec` 0-2, `exponent` 4-64: più alto, più piccolo) e la luce sul bordo delle forme (`rim` 0-1) |
+| `cel3d([bands, floor, outline_rgb, outline_width])` | luce cel: `bands` 0 o `false` è spenta (predefinito); da 2 a 8 divide la luce del sole dei `draw3d` con flag 256 in quel numero di fasce. `floor` da 0 a 1 (predefinito 0.35) è il termine del sole della fascia più scura. `outline_rgb` (`0xRRGGBB`, `nil` o `false`: nessuno) e `outline_width` (da 0.005 a 0.05, predefinito 0.02) servono al flag 512. Ogni chiamata imposta tutti e quattro i valori. Senza argomenti restituisce i valori in vigore. Torna spenta quando la cartuccia finisce. La luce ambiente e del cielo restano morbide, e le lampade non vengono divise |
 | `fog3d(colour, near, far)` | nebbia: le facce sfumano nel colore tra le due distanze; `fog3d()` la toglie |
 | `lamp3d(i, x, y, z, radius, [k, colour])` | luce puntiforme `i` (1-4): le facce con il centro entro `radius` si illuminano, fino a `k` in più (predefinito 1) al centro, del `colour` dato (bianco se manca); `lamp3d(i)` la spegne, `lamp3d()` tutte. Con `light3d` a una luce ambiente bassa fa scene buie con lanterne |
 | `shadow3d(style)` | le ombre di `draw3d` con flag 8: 0 scurisce (predefinito), 1 nero con dithering (senza leggere lo schermo) |

@@ -331,7 +331,7 @@ Press **Enter**. The screen says `drawing the sprites...` while it works, in ste
 
 - The sprites go **below what the sheet already has**, enlarging the sheet if needed (never past 4096 pixels).
 - One row of frames per direction: frame `f` of direction `d` is at `x0 + f * size`, `y0 + d * size`.
-- The page adds a **zone** to the sheet, named after the model and the animation in small letters (`model_animation`, up to 16 characters), with the frame count and the speed (frames divided by the animation's length). A zone with the same name is replaced.
+- The page adds a **zone** to the sheet, named after the model and the animation in small letters (`model_animation`, up to 16 characters), with the frame count and the speed (frames divided by the animation's length). A zone with the same name is replaced. If it was a stack zone, it keeps its slices when the new zone still fits the sheet.
 - The boxes are made in the editor session (the cartridge's BOXES section), for the zone, frame by frame (from frame 1), taken from the first direction. It was not confirmed that Ctrl+S writes them to the file.
 - A line at the bottom shows the zone and the `sspr()` call to draw the frames.
 
@@ -400,7 +400,7 @@ All these calls are in the 3D API (`docs/api/light3d.md`). The animation is part
 | Call | What it does |
 |---|---|
 | `zspr(name, x, y, [frame, flip_x, flip_y, zoom])` | draws the zone made by F4; without `frame` it runs by itself at the zone's speed |
-| `zone(name)` | `x, y, w, h, frames, fps` of the zone |
+| `zone(name)` | `x, y, w, h, frames, fps, slices` of the zone; `slices` is 0 unless it is a stack zone |
 | `zboxes(name, [frame, kind])` | the boxes of the zone: `{x, y, w, h, kind, frame}`, with `kind` `"hurt"`, `"hit"` or `"body"` |
 
 `zspr` draws the first direction. For the other directions use `sspr()` with the numbers on the line at the bottom of F4.

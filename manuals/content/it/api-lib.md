@@ -322,10 +322,20 @@ end)
 | `P:burst(x, y, n, [opt])` | `n` particelle da `x, y`: `speed` (2), `angle` e `spread` (in radianti; tutto intorno se mancano), `life` (0.5 s), `color` o `colors`, e le opzioni di `:add` |
 | `P:update()` / `P:draw()` | in `_update` / in `_draw` |
 | `P:count()` / `P:clear()` | quante ce ne sono / via tutte |
+| `lib.particles3d([max])` | la sorella 3D di `lib.particles`: un pool di al più `max` particelle (1024). Avvolge le funzioni delle particelle 3D (`particles`, `particles_add`, `particles_step`, `particles_draw`, `particles_count`) |
+| `P3:add(x, y, z, vx, vy, vz, life, color)` | una particella 3D |
+| `P3:burst(x, y, z, n, [opt])` | `n` particelle da `x, y, z`: `speed` (2), `life` (30 update), `color` (0xFFFFFF), `up` (0) |
+| `P3:update([gravity])` / `P3:draw([radius])` | in `_update` (gravità 0.02) / in `_draw` (raggio 0.1) |
+| `P3:count()` | quante particelle 3D sono vive |
 
 ```lua
 local fx = lib.particles(300)
 fx:burst(x, y, 20, { speed = 3, colors = { 0xFFFFFF, 0xFFD050, 0xFF6020 }, gravity = 0.1 })
+
+local p3 = lib.particles3d(500)
+p3:burst(x, y, z, 20, { speed = 2, life = 30, color = 0xFFA020 })
+p3:update()
+p3:draw()
 ```
 
 # bmlib: la camera
@@ -367,6 +377,7 @@ function _draw() S:draw() end
 
 | Funzione | Descrizione |
 |---|---|
+| `lib.input([over])` | lo standard di input dei giochi: mette `confirm`, `cancel`, `pause` e le azioni dello schema del gioco nella keymap e restituisce la tabella. `over.scheme` sceglie lo schema: `"scroller"` (il predefinito: `act1` salto = B, `act2` attacco = Y, `act3` = il tasto A/B che non è ok, `act4` = X, spalle L1/R1), `"topdown"` (`act1` = B, `act2` = l'altro tasto A/B, `act3` = Y, `act4` = X) o `"stick"` (`act1` R2, `act2` L2, `act3` L1, `act4` R1, da `act5` a `act8` = B, A, Y, X). `lib.input_scheme` dice quale gira. Le altre chiavi di `over` (`{ act3 = "x" }`) cambiano singole azioni e sono elencate in `lib.input_exceptions` |
 | `lib.textw(text, [scale])` | larghezza e altezza in pixel con il font di `print` in questo momento (la riga più lunga) |
 | `lib.printc(text, y, [c, scale, x, w, grid])` | al centro dello schermo (o di `x..x + w`); `grid`: sulle colonne del font (testo che sta fermo, come i menu). Restituisce la x |
 | `lib.printr(text, x, y, [c, scale])` | che finisce in `x` (numeri allineati a destra) |

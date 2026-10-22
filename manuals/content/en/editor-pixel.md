@@ -93,7 +93,7 @@ All the colours, up to 256, with the red, green and blue value of the one chosen
 
 ## F4: the stack
 
-A *stack zone* is a zone with *n* slices of the same size that lie side by side on the sheet, from left to right. Slice 1 is the bottom. In the cartridge it is the line `stack name x y w h n`; a game draws it with `zstack`. The Stack page shows one slice, zoomed, on the left. On the right it shows the stack zones, a row of small pictures of the slices, and the whole stack as it turns (`stack` with a rotation angle). The stack reads the sheet each frame, so a change to a slice shows at once.
+A *stack zone* is a zone with *n* slices of the same size that lie side by side on the sheet, from left to right. Slice 1 is the bottom. In the cartridge it is the line `stack name x y w h n`; a game draws it with `zstack`. The Stack page shows one slice, zoomed, on the left. On the right it shows the stack zones, a row of small pictures of the slices, and the whole stack as it turns (`stack` with a rotation angle). The stack reads the sheet each frame, so a change to a slice shows at once. A game can also use a `stackv` zone, with the slices one under the other on the sheet.
 
 | Key | Action |
 |---|---|

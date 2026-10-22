@@ -59,7 +59,6 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 ## Editors and apps
 
-- APP-5 - P0 - to do - API integrated in the editor. In bm Code a key shows the signature and description of the function under the cursor. A check flags nonexistent API names. The API list has a single source generated from `docs/api/` and also used by `predict`. [tools](progress/tools.md), [PREDICT](PREDICT.md), [API](API.md)
 - APP-6 - P1 - to do - Develop a game without a PC. On RGB30 and Pi the SDK makes a project with sprite, map, sounds and code, saves it and builds it. The resources are made inside the SDK pages (the Lib tab is closed by decision). Acceptance test: a person who does not know the bm code makes a game with title, 3 stages and ending (2D and 3D) with the suite tools only. [tools](progress/tools.md) `bm SDK (RGB30)`, [CONSISTENCY](spec/CONSISTENCY.md)
 - M48 - P2 - in progress - Mouse across the whole suite (USB and Bluetooth). Every program selects, draws and navigates with the pointer without a keyboard. [tools](progress/tools.md)
 - M45 - P2 - in progress - bm Write: `.BMD` documents, TXT/MD/HTM/PDF export. A formatted document exported to PDF is identical on the PC. [tools](progress/tools.md)
@@ -74,7 +73,6 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 ## Process and docs
 
-- BETA-7 - P1 - to do - Manuals up to date. Each manual in `manuals/content/` (English and Italian) matches the code, and `python scripts/manuals.py status` shows no open item. No tester guide and no feedback channel: users send feedback to the owner in private. After APP-3.
 - APP-3 - P3 - to do - PDF manuals and project structure. EN/IT manuals aligned; layout of `docs/PROJECT-LAYOUT.md` respected. [tools](progress/tools.md) `PDF manuals`, `Project layout`
 - SYS-4 - P1 - to do - Measurable multi-agent coordination. Ledger and `agent_audit.py` with a baseline; work order scope checked by script. [archive](archive/sync/README.md)
 

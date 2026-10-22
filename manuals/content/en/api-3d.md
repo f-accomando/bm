@@ -130,6 +130,8 @@ Flags add up (for example 4 + 128).
 | 16, 32, 48 | **level of detail** 2, 1, 0 (only that level's faces, see the material bits); without: 3, all |
 | 64 | **in front** (first-person weapons and arms): the z-buffer under it is cleared, precise depths from 0.1 units |
 | 128 | **flat textures**: the textured faces are drawn as flat colours, each the average of its texels. Transparent texels are skipped, and a face of holes only is grey. The mesh, bones and animation are the same; lit faces keep their light, the other faces are unchanged. On the GPU such a mesh goes triangle by triangle, a little slower. The colours are kept per mesh and texture version (bm3d 7.0) |
+| 256 | **cel light**: the sun light of this draw is cut into the bands of `cel3d`. Nothing happens while `cel3d` is off. 4 + 256 is smooth cel |
+| 512 | **outline**: after the mesh, its outline (an inverted hull) in the `cel3d` outline colour and width. It works with or without 256. Nothing is drawn while `cel3d` has no outline colour |
 
 ## Material bits
 
@@ -160,6 +162,7 @@ Faces that are both textured and screen door make the GPU give up: the cartridge
 | `light3d(x, y, z, [ambient])` | the light's direction and the ambient light (0-1) |
 | `sky3d(sun, sky, ground)` | colours (0xRRGGBB) of the sun's light and of the ambient light coming from above and below (faces turned up take the sky, those turned down the ground); `sky3d()` goes back to white |
 | `shine3d(spec, exponent, rim)` | the sun's reflections on glossy faces (`spec` 0-2, `exponent` 4-64: higher, smaller) and light on the shapes' rim (`rim` 0-1) |
+| `cel3d([bands, floor, outline_rgb, outline_width])` | cel light: `bands` 0 or `false` is off (default); 2 to 8 cuts the sun light of the `draw3d` calls with flag 256 into that many bands. `floor` 0 to 1 (default 0.35) is the sun term of the darkest band. `outline_rgb` (`0xRRGGBB`, `nil` or `false`: none) and `outline_width` (0.005 to 0.05, default 0.02) are for flag 512. Every call sets all four values. With no argument it returns the values in force. It goes back to off when the cartridge ends. The ambient and sky light stay smooth, and lamps are not cut |
 | `fog3d(colour, near, far)` | fog: the faces fade into the colour between the two distances; `fog3d()` takes it away |
 | `lamp3d(i, x, y, z, radius, [k, colour])` | point light `i` (1-4): the faces with their centre within `radius` get brighter, up to `k` more (default 1) in the middle, of the `colour` given (white if missing); `lamp3d(i)` turns it off, `lamp3d()` all. With `light3d` at a low ambient it makes dark scenes with lanterns |
 | `shadow3d(style)` | the shadows of `draw3d` with flag 8: 0 darken (default), 1 dithered black (without reading the screen) |
