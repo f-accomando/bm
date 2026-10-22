@@ -125,6 +125,7 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
 2. Impostors: Pi runs at `r3d_impostor` 16, 32 with the new threshold (8 = 2.7 render px
    at 640x360, no effect: session at 8 gave 57.7 fps, GPU 7.8 ms a frame, 8588 tris), photo of
    far heroes; then the default for crowds (billboard impostors).
+2a. Stress test at double the load of 60 fps (22 Oct, Pi Zero W, one run, report `20261022-191158_bench3d_pi-zero-w_dev.txt`; `docs/BENCH3D.md`, *stress*): `n60` = 24.8 quarter sets. At 1x (24 quarters, 48 432 triangles in): 13.3 ms a frame, worst 13.5 ms, 0 drops, ARM 13.1 ms, GPU 6.8 ms, pool 122 KiB, no overflow. At 2x (48 quarters, 96 864 triangles in): 25.2 ms, worst 25.3 ms, all 116 frames over 16.7 ms (about 40 fps), ARM 25.2 ms (ARM-bound), GPU 16.1 ms, 2 jobs, pool 142 KiB, `ovf_kb` 0, `v3d_failed` 0. The Pi did not hang. Tests: `make test-b3d` (PC emulator), `test_monitor_line` (QEMU, no `stress` rows). Open: a second run to confirm the numbers.
 3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs. Read `bin_us`, `rnd_us` first (`b3d tests=herotris`; run on 22 Oct: with the queue the frame is ARM-bound, `arm_ms` 12.6 against `gpu_ms` 7.1, so the GPU is not idle and chaining is not the next step).
 4. Remaining work of bm3D 5.0-7.3. 16-bit and ETC1 textures: the Pi shows no gain (21 Oct), so
    they stay off. Reopen them only if a played Overbit at 1080p shows a gain. Attributes:

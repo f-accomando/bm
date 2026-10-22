@@ -13,7 +13,7 @@ FUTURE = []
 TESTS2D = {"map8": {"ARM"}, "sprites": {"ARM", "GPU+2D"}, "stack": {"ARM"}, "fade": {"ARM", "QPU"}, "light": {"ARM"},
            "herotris": {"ARM", "GPU", "GPU+VS", "GPU+VS+Q", "GPU+VS+Q2", "GPU+VS+A8", "GPU+VS+A8+Q", "GPU+VS+FS2"},
            "cel_lit": {"ARM", "GPU+VS"}, "cel": {"ARM", "GPU+VS"}, "cel_lit_nd": {"ARM", "GPU+VS"}, "cel_nd": {"ARM", "GPU+VS"},
-           "cel_outline": {"ARM", "GPU+VS"}}
+           "cel_outline": {"ARM", "GPU+VS"}, "stress": {"GPU+VS+Q"}}
 
 
 def check_2d(d):
@@ -54,6 +54,15 @@ def check_2d(d):
     ok = bool(crows) and {"ARM", "GPU+VS"} <= {r[1] for r in crows} and all(len(r) == 12 for r in crows)
     ok = ok and all(float(r[4]) >= 0 and float(r[5]) >= 0 and int(r[3]) > 0 for r in crows if r[2] == "1")
     print(("ok   " if ok else "FAIL ") + f"C lines (cel cost): {len(crows)} rows")
+    fails += not ok
+    # the stress test: the ramp's row, then a T line for 1x and 2x of its load at 60 fps (2x has twice the quarter sets)
+    tline = [l for l in text.splitlines() if l.startswith("stress path=")]
+    trows = [l.split(",") for l in text.splitlines() if l.startswith("T,")]
+    ok = len(tline) == 1 and "path=GPU+VS+Q" in tline[0] and [r[2] for r in trows] == ["1x", "2x"]
+    ok = ok and all(len(r) == 17 and int(r[5]) > 0 and 0 < float(r[7]) <= float(r[8]) and int(r[9]) >= 0 and float(r[11]) >= 0
+                    and int(r[13]) >= 0 and int(r[14]) >= 0 and r[16] == "0" for r in trows)
+    ok = ok and len(trows) == 2 and int(trows[1][3]) == 2 * int(trows[0][3]) and int(trows[1][4]) > int(trows[0][4])
+    print(("ok   " if ok else "FAIL ") + f"stress (T lines, 1x and 2x): {tline[0] if tline else 'missing'}; {len(trows)} rows")
     fails += not ok
     hdr = "size 640x360" in text and "vsprobe gpu3d_vshader=" in text
     print(("ok   " if hdr else "FAIL ") + "size and vsprobe lines in the header")

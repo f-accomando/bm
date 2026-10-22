@@ -815,6 +815,33 @@ static void herotris_probe(int *gl, int *meshes)
     scene_light();
 }
 
+/* ------------------------------------------------- stress (opt-in)
+ * The load of herotris in finer steps, for the stress test (stress_phase): n is a number of quarter sets. A
+ * quarter set is 25 map pieces; a hero with its shadow is added for every 4 quarters (or part of them). So 4
+ * quarters are one herotris set (8036 triangles), 8 are two. The 2D and the logic are the ones of herotris. */
+
+static void stress_scene(int n, int f)
+{
+    const int pieces = 25 * n, heroes = (n + 3) / 4;
+    cls3d();
+    r3d_camera(&R, 0.3f * sinf((float)f * 0.02f), 1.7f, -5, 0.05f, -0.12f, 70);
+    shine_light();
+    R.shadow_style = 1;
+    for (int s = 0; s < heroes; s++) {
+        for (int p = 100 * s; p < pieces && p < 100 * s + 100; p++) {
+            const int i = p % 100 / 10, j = p % 10;
+            r3d_draw_flags(&R, (i + j) & 1 ? &map_b : &map_a,
+                           (v3_t){ -6.3f + 1.4f * (float)i, -0.003f * (float)s, -1.5f + 1.4f * (float)j }, 0, 0, 0,
+                           1.4f, 0);
+        }
+        const float x = -4.2f + 1.2f * (float)(s % 8) + 0.6f * (float)((s / 8) % 2), z = 1.0f + 1.5f * (float)(s / 8);
+        pose((float)f * 0.05f + (float)s);
+        r3d_draw_flags(&R, &hero_h, (v3_t){ x, 0, z }, 0, (float)s, 0, 1, R3D_SHADOW);
+        r3d_draw_flags(&R, &hero_h, (v3_t){ x, 0, z }, 0, (float)s, 0, 1, R3D_SMOOTH);
+    }
+    scene_light();
+}
+
 /* ------------------------------------------------- cel (opt-in)
  * Q: what the cel shader costs on top of the lit hero. The scene is `heroes` with the textured hero
  * (1536 triangles, 16 bones, lit by the sun): n heroes in rows of 8. Five tests, the same scene:
@@ -1098,6 +1125,7 @@ typedef struct {
     void (*frame2d)(int n, int f);      /* the frame's 2D, drawn after its 3D job has ended (NULL: the frame has it) */
     const char *group;                  /* `tests=<group>` runs this test too */
     void (*probe)(int *gl, int *meshes);    /* one hero alone before the ramp: what the vertex shader placed */
+    int stress;                         /* after the ramp: the frame at 1x and 2x the load of 60 fps (stress_phase) */
 } test_t;
 
 static const test_t tests[] = {
@@ -1159,6 +1187,9 @@ static const test_t tests[] = {
     { "herotris", "hero + map + parallax + HUD + 4M instr of logic", "sets", 1, 64,
       M_ARM | M_GPU | M_VS | M_VSQ | M_VSQ2 | M_VSA | M_VSAQ, herotris_setup, herotris_scene, herotris_free, NULL, 0,
       1300, 1, herotris_2d, NULL, herotris_probe },
+    /* stress: the ramp of herotris in quarter sets on the default path, then the frame at 1x and 2x the load of 60 fps */
+    { "stress", "stress: herotris at 1x and 2x the load of 60 fps", "quarters", 1, 256, M_VSQ, herotris_setup,
+      stress_scene, herotris_free, NULL, 0, 1300, 1, herotris_2d, NULL, NULL, 1 },
     /* cel (Q2): the lit hero against the cel hero, the dither on or off; `tests=cel` runs the four */
     { "cel_lit", "cel: lit hero (reference)", "heroes", 1, 64, M_ARM | M_VS, cel_setup_lit, cel_scene, cel_free, NULL, 0, 0, 1,
       NULL, "cel" },
@@ -1338,42 +1369,64 @@ static int stopping(void)
     return halted;
 }
 
+/* the profile's switches on the driver; -1: the profile cannot run here (no row). *colour_only: the backend is
+ * the Mali's (flat colours) */
+static int prof_on(int pf, int *colour_only)
+{
+    *colour_only = 0;
+    if (prof[pf].gpu) {
+        if (gpu3d_init() != 0 || !gpu3d_backend())
+            return -1;
+        if ((prof[pf].aa && !gpu3d_msaa()) || (prof[pf].vs > gpu3d_vshader()) ||
+            (prof[pf].queue && !gpu3d_queue_ok()))
+            return -1;                  /* not on this GPU: no row */
+        R.backend = gpu3d_backend();
+        *colour_only = R.backend->colour_only;
+        gpu3d_drop();
+        gpu3d_set_msaa(prof[pf].aa);
+        gpu3d_set_vshader(prof[pf].vs);
+        gpu3d_set_wc(prof[pf].wc);
+        if (prof[pf].wc && !gpu3d_wc())
+            return -1;                  /* the MMU did not change it: no row */
+        gpu3d_set_tex16(prof[pf].t16);
+        if (prof[pf].t16 && !gpu3d_tex16())
+            return -1;                  /* the probe did not learn the layout: no row */
+        gpu3d_set_etc1(prof[pf].etc1);
+        if (prof[pf].etc1 && !gpu3d_etc1())
+            return -1;                  /* the probe did not learn ETC1's layout: no row */
+        gpu3d_set_fs2(prof[pf].fs2);
+        if (prof[pf].fs2 && !gpu3d_fs2())
+            return -1;                  /* the probe saw them differ: no row */
+        gpu3d_set_sort(prof[pf].sort);
+        gpu3d_set_attr(prof[pf].attr);
+        if (prof[pf].attr && !gpu3d_attr())
+            return -1;                  /* the probe saw them differ: no row */
+    } else {
+        R.backend = NULL;
+    }
+    return 0;
+}
+
+static void prof_off(void)
+{
+    gpu3d_set_msaa(0);
+    gpu3d_set_vshader(0);
+    gpu3d_set_wc(0);
+    gpu3d_set_tex16(0);
+    gpu3d_set_etc1(0);
+    gpu3d_set_fs2(0);
+    gpu3d_set_sort(0);
+    gpu3d_set_attr(0);
+}
+
 static void ramp(int ti, int pf)
 {
     const test_t *t = &tests[ti];
     result_t *r = &res[ti][pf];
     static sample_t s[64];
     int ns = 0, colour_only = 0;        /* colour_only: the backend is the Mali's (flat colours) */
-    if (prof[pf].gpu) {
-        if (gpu3d_init() != 0 || !gpu3d_backend())
-            return;
-        if ((prof[pf].aa && !gpu3d_msaa()) || (prof[pf].vs > gpu3d_vshader()) ||
-            (prof[pf].queue && !gpu3d_queue_ok()))
-            return;                     /* not on this GPU: no row */
-        R.backend = gpu3d_backend();
-        colour_only = R.backend->colour_only;
-        gpu3d_drop();
-        gpu3d_set_msaa(prof[pf].aa);
-        gpu3d_set_vshader(prof[pf].vs);
-        gpu3d_set_wc(prof[pf].wc);
-        if (prof[pf].wc && !gpu3d_wc())
-            return;                     /* the MMU did not change it: no row */
-        gpu3d_set_tex16(prof[pf].t16);
-        if (prof[pf].t16 && !gpu3d_tex16())
-            return;                     /* the probe did not learn the layout: no row */
-        gpu3d_set_etc1(prof[pf].etc1);
-        if (prof[pf].etc1 && !gpu3d_etc1())
-            return;                     /* the probe did not learn ETC1's layout: no row */
-        gpu3d_set_fs2(prof[pf].fs2);
-        if (prof[pf].fs2 && !gpu3d_fs2())
-            return;                     /* the probe saw them differ: no row */
-        gpu3d_set_sort(prof[pf].sort);
-        gpu3d_set_attr(prof[pf].attr);
-        if (prof[pf].attr && !gpu3d_attr())
-            return;                     /* the probe saw them differ: no row */
-    } else {
-        R.backend = NULL;
-    }
+    if (prof_on(pf, &colour_only))
+        return;
     cur_2d = prof[pf].two_d;
     cur_qpu = pf == PF_QPU;
     if (t->setup)
@@ -1485,14 +1538,7 @@ static void ramp(int ti, int pf)
     }
     if (t->teardown)
         t->teardown();
-    gpu3d_set_msaa(0);
-    gpu3d_set_vshader(0);
-    gpu3d_set_wc(0);
-    gpu3d_set_tex16(0);
-    gpu3d_set_etc1(0);
-    gpu3d_set_fs2(0);
-    gpu3d_set_sort(0);
-    gpu3d_set_attr(0);
+    prof_off();
     cur_2d = 0;
     r->ran = ns > 0;
     r->nsamples = ns;
@@ -1561,6 +1607,112 @@ static void ramp(int ti, int pf)
             r->drawn60_l = s[0].tris * k;
         }
     }
+}
+
+/* ---------------------------------------------------------------- the stress test */
+
+#define STRESS_US 3000000u              /* each load runs 3 s (6 frames in the quick run of the PC) */
+
+typedef struct {
+    int ran, n, frames, drops, failed;  /* failed: the driver gave up (V3D hang or timeout) during the load */
+    float secs, tris_in, ms, worst, arm_ms, gpu_ms, jobs;
+    uint32_t pool_kb, ovf_kb, ovf_jobs;
+} stress_t;
+
+static stress_t stress_r[2];            /* 1x, 2x */
+static int stress_pf = -1;              /* the profile of the rows (-1: the test did not run) */
+static float stress_n60;                /* the ramp's load at 60 fps, in quarter sets (-1: below the first step) */
+
+/* the frame of test ti on profile pf with n quarter sets, for STRESS_US: the mean ms, the worst, the frames over
+ * 16.7 ms (drops), the ARM's ms (less the wait for the GPU), the GPU's ms and the binner's memory */
+static void stress_run(int ti, int pf, int n, stress_t *o)
+{
+    const test_t *t = &tests[ti];
+    int colour_only = 0;
+    memset(o, 0, sizeof *o);
+    o->n = n;
+    if (prof_on(pf, &colour_only))
+        return;
+    cur_2d = prof[pf].two_d;
+    cur_qpu = 0;
+    if (t->setup)
+        t->setup();
+    gpu3d_stats_t st;
+    t->frame(n, 0);
+    if (R.backend)
+        gpu3d_flush(g, 0);
+    if (t->frame2d)
+        t->frame2d(n, 0);
+    gpu3d_set_queue(prof[pf].queue);
+    gpu3d_take_stats(&st);
+    fill_px = 0;
+    float sync_ms = 0, sum_ms = 0;
+    const uint32_t t0 = P->us();
+    for (int f = 1; !stopping(); f++) {
+        const uint32_t u0 = P->us();
+        t->frame(n, f);
+        if (R.backend && prof[pf].queue) {
+            gpu3d_submit(g, 0);
+            work(t->work);
+            const uint32_t w0 = P->us();
+            gpu3d_sync();
+            sync_ms += (float)(P->us() - w0) / 1000.0f;
+        } else {
+            if (R.backend)
+                gpu3d_flush(g, 0);
+            work(t->work);
+        }
+        if (t->frame2d)
+            t->frame2d(n, f);
+        const uint32_t u1 = P->us();
+        o->tris_in += (float)R.tris_in;
+        overlay(t, pf, n, sum_ms / (float)(f > 1 ? f - 1 : 1), ti);
+        const float ms = (float)(u1 - u0 + P->present()) / 1000.0f;
+        sum_ms += ms;
+        if (ms > o->worst)
+            o->worst = ms;
+        if (ms > MS60)
+            o->drops++;
+        o->frames = f;
+        if (R.backend && gpu3d_failed()) {
+            o->failed = 1;
+            break;
+        }
+        if (P->quick ? f >= 6 : P->us() - t0 >= STRESS_US)
+            break;
+    }
+    gpu3d_set_queue(0);
+    gpu3d_take_stats(&st);
+    const float k = o->frames > 0 ? 1.0f / (float)o->frames : 0;
+    o->secs = (float)(P->us() - t0) / 1e6f;
+    o->ms = sum_ms * k;
+    o->tris_in *= k;
+    o->arm_ms = (sum_ms - sync_ms) * k;
+    o->gpu_ms = (float)gpu3d_busy_us(&st) * k / 1000.0f;
+    o->jobs = (float)st.jobs * k;
+    o->pool_kb = (st.pool_max + 1023) / 1024;
+    o->ovf_kb = (st.ovf_max + 1023) / 1024;
+    o->ovf_jobs = st.ovf_jobs;
+    o->ran = o->frames > 0;
+    if (t->teardown)
+        t->teardown();
+    prof_off();
+    cur_2d = 0;
+}
+
+/* after the ramp of the stress test: 1x = the ramp's load at 60 fps (whole quarter sets, at least 1), then 2x.
+ * After a failure of the driver at 1x the 2x load does not run. */
+static void stress_phase(int ti, int pf)
+{
+    const result_t *r = &res[ti][pf];
+    if (!r->ran || halted)
+        return;
+    stress_pf = pf;
+    stress_n60 = r->n60;
+    const int n1 = r->n60 >= 1.0f ? (int)r->n60 : 1;
+    stress_run(ti, pf, n1, &stress_r[0]);
+    if (!stress_r[0].failed && !halted)
+        stress_run(ti, pf, 2 * n1, &stress_r[1]);
 }
 
 /* ---------------------------------------------------------------- the score */
@@ -1857,6 +2009,31 @@ static void report_cel(void)
     }
 }
 
+/* The stress test: the ramp's load at 60 fps (n60, quarter sets) and the frame at 1x and 2x of it. One T line a
+ * load; ms the mean, worst the slowest frame, drops the frames over 16.7 ms, arm_ms the ARM's work less its wait for
+ * the GPU, gpu_ms the V3D's busy time, pool_kb and ovf_kb the binner's memory, v3d_failed 1 if the driver gave up. */
+static void report_stress(void)
+{
+    if (stress_pf < 0)
+        return;
+    char a[16];
+    put("stress path=%s n60=%s (quarter sets: 4 are one herotris set of 8036 triangles) secs=%d each\n",
+        prof[stress_pf].name, f1(a, stress_n60), P->quick ? 0 : (int)(STRESS_US / 1000000u));
+    put("columns T,profile,load,n,tris_in,frames,secs,ms,worst,drops,arm_ms,gpu_ms,jobs,pool_kb,ovf_kb,ovf_jobs,v3d_failed\n");
+    for (int k = 0; k < 2; k++) {
+        const stress_t *o = &stress_r[k];
+        if (!o->ran) {
+            put("T,%s,%dx,not_run\n", prof[stress_pf].name, k + 1);
+            continue;
+        }
+        char b[6][16];
+        put("T,%s,%dx,%d,%d,%d,%s,%s,%s,%d,%s,%s,%s,%lu,%lu,%lu,%d\n", prof[stress_pf].name, k + 1, o->n, (int)o->tris_in,
+            o->frames, f1(b[0], o->secs), f1(b[1], o->ms), f1(b[2], o->worst), o->drops, f1(b[3], o->arm_ms),
+            f1(b[4], o->gpu_ms), f1(b[5], o->jobs), (unsigned long)o->pool_kb, (unsigned long)o->ovf_kb,
+            (unsigned long)o->ovf_jobs, o->failed);
+    }
+}
+
 static void report(void)
 {
     rep_len = 0;
@@ -1932,6 +2109,7 @@ static void report(void)
     }
     report_hero();
     report_cel();
+    report_stress();
     if (qpu_line[0])
         put("qpu row (gpu3d_qpu=1): %s\n", qpu_line);
     report_qpufade();
@@ -2440,6 +2618,8 @@ int b3d_run(const b3d_platform_t *plat)
     P = plat;
     g = P->g;
     memset(res, 0, sizeof res);
+    memset(stress_r, 0, sizeof stress_r);
+    stress_pf = -1;
     memset(prev, 0, sizeof prev);
     prev_name[0] = 0;
     prev_score = 0;
@@ -2455,8 +2635,11 @@ int b3d_run(const b3d_platform_t *plat)
         for (int pf = 0; pf < NPROF && !stopping(); pf++)
             if (!tests[ti].future && (!tests[ti].optin || P->only_tests) && runs(&tests[ti], pf) &&
                 (listed(P->only_tests, tests[ti].id) || (tests[ti].group && listed(P->only_tests, tests[ti].group))) &&
-                prof_listed(pf))
+                prof_listed(pf)) {
                 ramp(ti, pf);
+                if (tests[ti].stress)
+                    stress_phase(ti, pf);
+            }
     R.backend = NULL;
     meshes_free();
     r3d_free(&R);

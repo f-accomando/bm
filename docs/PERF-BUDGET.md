@@ -45,6 +45,7 @@ Pi Zero W, kernel `dev`. Each file name is `20261022-<time>_<kind>_pi-zero-w_dev
 | `b3d-180857` | `20261022-180857_bench3d_...` | 2D scene `sprites` |
 | `b3d-180905` | `20261022-180905_bench3d_...` | 2D scene `stack` |
 | `b3d-180913` | `20261022-180913_bench3d_...` | 2D scene `fade` |
+| `b3d-191158` | `20261022-191158_bench3d_pi-zero-w_dev.txt` | `stress`, profile GPU+VS+Q (one run) |
 | `b3d-184933` | `20261022-184933_bench3d_pi-zero-w_dev.txt` | 2D scene `fade`, profiles ARM and QPU (one run) |
 | `b3d-180925` | `20261022-180925_bench3d_...` | 2D scene `light` |
 | `b3d-180940` | `20261022-180940_bench3d_...` | `gpu2d`, all four profiles |
@@ -73,6 +74,7 @@ All 2D rows are drawn by the ARM, unless the row says GPU. The scenes are fixed:
 | Full-screen fade (`g16_fade_glow` lamps and `g16_fade_apply`) | misses: 20.3 ms with 1 lamp (worst 20.5 ms). At 30 fps: 24.7 lamps | `b3d-180913` | `fade`, ARM | not verified on hardware |
 | Full-screen fade on the QPU (`dark_end` hook, `gpu3d_qpu=1`) | 9.3 ms with 1 lamp (ARM 20.4 ms in the same run, 2.2 times faster). 14.3 lamps at 60 fps (ARM misses) | `b3d-184933` | `fade`, QPU; one run, all 98 frames on the QPU | not verified on hardware beyond this run |
 | Full-screen light (`g16_light_add` lamps and `g16_light_apply`) | misses: 30.7 ms with 1 lamp. At 30 fps: 20.3 lamps | `b3d-180925` | `light`, ARM | not verified on hardware |
+| Double the load of 60 fps (`herotris`-like scene, quarter sets), GPU+VS+Q | the V3D holds 2x the 60 fps load without a failure, at about 40 fps (25.2 ms, worst 25.3 ms), ARM-bound (ARM 25.2 ms, GPU 16.1 ms). 1x: 13.3 ms, 0 drops. `n60` = 24.8 quarter sets. Pool 142 KiB, no overflow, `v3d_failed` 0 | `b3d-191158` | `stress`, GPU+VS+Q; one run | not verified on hardware |
 | 2D over 3D: sprites and 3 lines of text over spheres | ARM 1592 sprites. GPU 1886. GPU+2D 2013. GPU+VS+FS2 1932 | `b3d-180940` | `gpu2d` | not verified on hardware |
 | 2D particles | not measured (a particle is a sprite: use the sprite rows) | - | - | not verified on hardware |
 

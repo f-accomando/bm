@@ -1,6 +1,6 @@
 # bm web player: run bm in a web browser (WEB-1)
 
-Status: study, with stages 1, 2 and 3 built. This page lists what exists, what is missing, the stages, the risks
+Status: study, with stages 1 to 3 built, and saves and 3D checked. This page lists what exists, what is missing, the stages, the risks
 and the test plan. It does not change the kernel API.
 
 ## 1. What we already decided (recovered, not redone)
@@ -84,7 +84,7 @@ generated C array instead.
 | 2 | wasm build of the runtime (done) | `make bmhost-wasm` builds `bmhost` to `build/web/bmhost.wasm` (1.5 MB, 0.57 MB gzip); `make test-wasm` runs a cartridge under Node and the frames equal the PC build byte for byte | emsdk |
 | 3 | Canvas, input, sound (done) | `make web-player` writes `build/web/player/`; the page plays a `.bm` from the file input: canvas, keyboard, Gamepad API, AudioWorklet | stage 2 |
 | 4 | Check of sound and speed | listen to `sfx()` and `music()`, measure the frame time in a visible tab | the user, or a visible browser |
-| 5 | Storage and 3D | IndexedDB saves; a 3D cartridge on `r3d.c` | stage 4 |
+| 5 | Storage and 3D (done) | IndexedDB saves; a 3D cartridge on `r3d.c` | stage 4 |
 | 6 | Release page | SRI or vendored React, licence policy, size check, `bmLauncher.start` connected | the user decides where to host |
 
 ## 6. Risks
@@ -128,8 +128,14 @@ build. It skips when Node is missing. Run result on 22 Oct: ok, equal to the PC 
   moves the square, about 800 audio frames per video frame, quit). In the built-in browser pane the page drew
   frames, the arrow keys moved the square, 252 frames came in 6 s (the pane was hidden, so its timers are
   slowed: this is not the real rate), the audio context ran and `stop()` ended the run.
-- Not checked: the sound itself, the 60 Hz rate in a visible tab, a gamepad, a 3D cartridge, a cartridge with
-  `save()` (the SD card is a memory file system; saves are lost on reload).
+- Not checked: the sound itself, the 60 Hz rate in a visible tab, a gamepad.
+- Saves: `/sd/bm/save` is an IDBFS mount (`-lidbfs.js`). `player.js` reads it before a start and writes it every
+  3 s and when the cartridge ends. Checked in the built-in browser with `tests/webplayer/save.lua`: the file
+  `5B2B419C.SAV` was written, a reload of the page gave `runs=2` (it was 1), and a press of A saved 102. This
+  check is by hand: IDBFS needs a browser.
+- 3D: `make test-wasm-3d` plays the 3D stages cartridge (`tests/stages3d/input.txt`, 20 s) on the PC build and
+  on the wasm build and compares one frame in 60: 20 frames, all byte-equal. So `r3d.c` and the float maths
+  give the same pixels in wasm. The speed of 3D in wasm is not measured.
 
 ## 9. What stage 2 found
 
