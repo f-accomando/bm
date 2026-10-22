@@ -1,11 +1,16 @@
 /*
- * Cel light on the ARM raster (cel3d, draw3d flag 256, dither3d; bm3D 7.4).
+ * Cel light on the ARM raster (cel3d, draw3d flag 256, dither3d; bm3D 7.4) and the outline by the
+ * inverted hull (flag 512; bm3D 7.5):
  *   - the table: N bands, the floor, the edges of the bands (exact for 2, 4, 8 bands);
  *   - a lit sphere with no ambient light: a flat cel draw shows exactly N grey levels, the
  *     darkest is the floor; a smooth cel draw shows more (the blend) and differs from the flat one;
  *   - off: bands 0 with the flag, bands N without the flag, and unlit with the flag give the
  *     picture of a draw with no cel (OFF_*_SUM are those pictures made by the code before cel);
- *   - dither3d(false) changes a smooth picture, dither3d(true) brings the first one back.
+ *   - dither3d(false) changes a smooth picture, dither3d(true) brings the first one back;
+ *   - outline: with no outline colour the flag draws nothing; with one, the outline pixels are
+ *     that colour, they are all outside the silhouette of the mesh, the mesh itself is not
+ *     changed, a wider width draws more, a mesh seen from inside, a shadow and a first-person
+ *     model have none, and the hull follows a new version of the mesh.
  * Built with -DOLD_BUILD against the r3d.c before cel, it only prints the checksums of the
  * plain scenes (to make OFF_*_SUM).
  */
@@ -138,6 +143,105 @@ static void table(void)
 }
 #endif
 
+#ifndef OLD_BUILD
+/* the pixels of the picture in fb that are the outline colour */
+static int count_rgb(uint16_t c)
+{
+    int n = 0;
+    for (int i = 0; i < W * H; i++)
+        n += fb[i] == c;
+    return n;
+}
+
+static void outline(void)
+{
+    static uint16_t base[W * H];
+    const uint16_t RED = g16_rgb(255, 0, 0);
+    r3d_cel(&r, 4, 0.35f);
+    draw(&sphere, R3D_CEL, 0.0f);
+    memcpy(base, fb, sizeof base);
+    /* an outline colour: red ring round the sphere, nothing else moved */
+    r.cel_rgb = 0xFF0000;
+    r.cel_width = 0.02f;
+    draw(&sphere, R3D_CEL | R3D_OUTLINE, 0.0f);
+    const int ring = count_rgb(RED);
+    int inside = 0, moved = 0;
+    for (int i = 0; i < W * H; i++) {
+        if (fb[i] == RED && base[i] != BG)
+            inside++;                   /* red on the mesh itself */
+        if (fb[i] != RED && fb[i] != base[i])
+            moved++;                    /* the mesh changed */
+    }
+    CHECK(ring > 100, "outline: %d red pixels", ring);
+    CHECK(inside == 0, "outline: %d red pixels on the mesh", inside);
+    CHECK(moved == 0, "outline: %d pixels of the mesh changed", moved);
+    /* the same picture twice (the hull is kept), a wider one draws more, a narrow one fewer */
+    const uint32_t first = checksum();
+    draw(&sphere, R3D_CEL | R3D_OUTLINE, 0.0f);
+    CHECK(checksum() == first, "outline: the second draw is another picture");
+    r.cel_width = 0.05f;
+    draw(&sphere, R3D_CEL | R3D_OUTLINE, 0.0f);
+    const int wide = count_rgb(RED);
+    r.cel_width = 0.005f;
+    draw(&sphere, R3D_CEL | R3D_OUTLINE, 0.0f);
+    const int thin = count_rgb(RED);
+    CHECK(wide > ring && ring > thin && thin > 0, "outline: widths %d (0.05) %d (0.02) %d (0.005)", wide, ring, thin);
+    /* the outline needs no cel light: the flag alone */
+    r3d_cel(&r, 0, 0.35f);
+    r.cel_width = 0.02f;
+    draw(&sphere, R3D_OUTLINE, 0.0f);
+    CHECK(count_rgb(RED) == ring, "outline: without cel %d red pixels, with %d", count_rgb(RED), ring);
+    /* the colour changes: the hull takes it */
+    r.cel_rgb = 0x00FF00;
+    draw(&sphere, R3D_OUTLINE, 0.0f);
+    CHECK(count_rgb(g16_rgb(0, 255, 0)) == ring && count_rgb(RED) == 0, "outline: the new colour: %d green, %d red",
+          count_rgb(g16_rgb(0, 255, 0)), count_rgb(RED));
+    /* a smooth draw has the same ring */
+    r.cel_rgb = 0xFF0000;
+    draw(&sphere, R3D_SMOOTH | R3D_OUTLINE, 0.0f);
+    CHECK(count_rgb(RED) == ring, "outline: smooth %d red pixels, flat %d", count_rgb(RED), ring);
+    /* a mesh with levels of detail keeps them: the hull of a lower level has its faces only */
+    draw(&sphere, R3D_DETAIL(0) | R3D_OUTLINE, 0.0f);
+    CHECK(count_rgb(RED) == ring, "outline: a detail level: %d red pixels, %d", count_rgb(RED), ring);
+    /* no outline: on a shadow, on a first-person model, with no colour, and from inside */
+    draw(&sphere, R3D_SHADOW | R3D_OUTLINE, 0.0f);
+    CHECK(count_rgb(RED) == 0, "outline: a shadow has one");
+    draw(&sphere, R3D_FRONT | R3D_OUTLINE, 0.0f);
+    CHECK(count_rgb(RED) == 0, "outline: a first-person model has one: %d", count_rgb(RED));
+    r.cel_rgb = R3D_CEL_NO_OUTLINE;
+    draw(&sphere, R3D_OUTLINE, 0.0f);
+    CHECK(count_rgb(RED) == 0, "outline: no colour, but %d red pixels", count_rgb(RED));
+    r.cel_rgb = 0xFF0000;
+    g16_cls(&g, BG);
+    r3d_zclear(&r);
+    r3d_camera(&r, 0, 0, 0, 0, 0, 80);          /* in the middle of a big box */
+    r3d_light(&r, 0.3f, 0.4f, -1, 0);
+    r3d_draw_flags(&r, &box, (v3_t){ 0, 0, 0 }, 0, 0, 0, 6, R3D_UNLIT | R3D_OUTLINE);
+    CHECK(count_rgb(RED) == 0, "outline: from inside, %d red pixels", count_rgb(RED));
+    /* a new version of the mesh (r3d_mesh_normals): a new hull */
+    draw(&sphere, R3D_OUTLINE, 0.0f);
+    const int before = count_rgb(RED);
+    for (int i = 0; i < sphere.nverts; i++) {
+        sphere.verts[i].x *= 0.5f;
+        sphere.verts[i].y *= 0.5f;
+        sphere.verts[i].z *= 0.5f;
+    }
+    r3d_mesh_normals(&sphere);
+    draw(&sphere, R3D_OUTLINE, 0.0f);
+    CHECK(count_rgb(RED) > 0 && count_rgb(RED) < before, "outline: the mesh is half the size: %d red pixels, %d",
+          count_rgb(RED), before);
+    for (int i = 0; i < sphere.nverts; i++) {        /* back to the sphere of the other tests */
+        sphere.verts[i].x *= 2.0f;
+        sphere.verts[i].y *= 2.0f;
+        sphere.verts[i].z *= 2.0f;
+    }
+    r3d_mesh_normals(&sphere);
+    r.cel_rgb = R3D_CEL_NO_OUTLINE;
+    printf("outline: ok (ring %d pixels at 0.02, %d at 0.05, %d at 0.005)\n", ring, wide, thin);
+}
+
+#endif
+
 int main(void)
 {
     fb = malloc((size_t)W * H * 2 + 64);
@@ -190,7 +294,7 @@ int main(void)
     draw(&sphere, R3D_UNLIT, 0.0f);
     CHECK(unlit_cel == checksum(), "unlit with the flag changes the picture");
     draw(&sphere, R3D_OUTLINE, 0.0f);
-    CHECK(checksum() == plain, "the outline flag (reserved) changes the picture");
+    CHECK(checksum() == plain, "the outline flag with no outline colour changes the picture");
 
     /* bands and floor on the sphere */
     for (int bands = 2; bands <= 8; bands++) {
@@ -223,6 +327,8 @@ int main(void)
     CHECK(checksum() != box_sum, "textured box: the cel light changes nothing");
     printf("cel: ok (plain %d levels, smooth cel %d, box %d -> %d)\n", plain_levels, smooth_levels, box_plain,
            box_cel);
+
+    outline();
 
     /* dither3d */
     r3d_cel(&r, 0, 0.35f);

@@ -463,6 +463,98 @@ static void s_vshader_skin(r3d_t *r, g16_t *g, int gpu)
     hero_m = &hero;
 }
 
+/* bm3d 7.5: the cel light (cel3d, flag 256) by the vertex programs against the ARM's table: the
+ * heroes alone (no mesh but the cel ones, so a GPU that drew nothing by the vertex shader is
+ * seen), flat and smooth, 4 bands; the sun at 0.5 so that most faces are well inside a band; a
+ * lamp and the fog on top (they are not cut), the highlight a step */
+static int cel_bands = 4;
+static float cel_floor = 0.35f;
+static unsigned cel_outline;            /* R3D_OUTLINE with the colour and width of cel3d (bm3d 7.5) */
+static void s_vshader_cel(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 0.6f, -5, 0, -0.05f, 60);
+    r3d_light(r, -0.4f, 0.7f, -0.6f, 0.35f);
+    r3d_sky(r, 0xFFF0D0, 0x90B0FF, 0x806040);
+    r3d_shine(r, 0.6f, 16, 0.5f);
+    r3d_fog(r, 0xC0A080, 4, 14);
+    r3d_lamp_rgb(r, 0, -1.6f, 0.5f, -1.2f, 2.0f, 0.9f, 0xFF8040);
+    r3d_cel(r, cel_bands, cel_floor);
+    if (cel_outline) {
+        r->cel_rgb = 0x2030A0;
+        r->cel_width = 0.03f;
+    }
+    gpu3d_set_vshader(gpu && !vs_off ? 2 : 0);
+    for (int i = 0; i < 4; i++) {
+        const float a = 0.5f * (float)i;
+        const float b0[12] = { cosf(a), 0, sinf(a), 0, 0, 1, 0, 0, -sinf(a), 0, cosf(a), 0 };
+        const float b1[12] = { 1, 0, 0, 0.2f * (float)i, 0, cosf(a), -sinf(a), 0, 0, sinf(a), cosf(a), 0 };
+        memcpy(hero_bones[0], b0, sizeof b0);
+        memcpy(hero_bones[1], b1, sizeof b1);
+        const v3_t at[4] = { { -1.8f, -0.4f, 1 }, { 0, -0.3f, 0 }, { 1.8f, -0.4f, 1.5f }, { 0.3f, 0.2f, -4.6f } };
+        r3d_draw_flags(r, hero_m, at[i], 0, 0.3f * (float)i, 0, 0.7f,
+                       R3D_CEL | cel_outline | (i == 2 ? 0 : R3D_SMOOTH));
+    }
+    r3d_draw_flags(r, hero_m, (v3_t){ 0.9f, -0.2f, -3.2f }, 0.3f, 0.5f, 0, 0.3f, R3D_CEL | R3D_FRONT | R3D_SMOOTH);
+    flush(r, g, gpu);
+    gpu3d_set_vshader(0);
+    r3d_cel(r, 0, 0.35f);
+    r->cel_rgb = R3D_CEL_NO_OUTLINE;
+    r->cel_width = 0.02f;
+    r3d_lamp(r, 0, 0, 0, 0, 0, 0);
+    r3d_fog(r, 0, 0, 0);
+    r3d_shine(r, 0.6f, 16, 0);
+    r3d_sky(r, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF);
+}
+
+/* the outline by the inverted hull (flag 512): the heroes with it, flat and smooth, one through the
+ * near plane, cel and not; the hull is an unlit mesh of the same bones (bm3d 7.5) */
+static void s_vshader_outline(r3d_t *r, g16_t *g, int gpu)
+{
+    cel_outline = R3D_OUTLINE;
+    s_vshader_cel(r, g, gpu);
+    cel_outline = 0;
+}
+
+static void s_vshader_outline_skin(r3d_t *r, g16_t *g, int gpu)
+{
+    hero_m = &hero_skin;
+    s_vshader_outline(r, g, gpu);
+    hero_m = &hero;
+}
+
+static void s_vshader_cel_tex(r3d_t *r, g16_t *g, int gpu)
+{
+    hero_m = &hero_tex;
+    s_vshader_cel(r, g, gpu);
+    hero_m = &hero;
+}
+
+static void s_vshader_cel_skin(r3d_t *r, g16_t *g, int gpu)
+{
+    hero_m = &hero_skin;
+    s_vshader_cel(r, g, gpu);
+    hero_m = &hero;
+}
+
+/* 2 bands with no floor, and 8 with the floor at 1: the ends of cel3d's range */
+static void s_vshader_cel_2(r3d_t *r, g16_t *g, int gpu)
+{
+    cel_bands = 2;
+    cel_floor = 0;
+    s_vshader_cel(r, g, gpu);
+    cel_bands = 4;
+    cel_floor = 0.35f;
+}
+
+static void s_vshader_cel_8(r3d_t *r, g16_t *g, int gpu)
+{
+    cel_bands = 8;
+    cel_floor = 0.1f;
+    s_vshader_cel(r, g, gpu);
+    cel_bands = 4;
+    cel_floor = 0.35f;
+}
+
 static void s_spheres(r3d_t *r, g16_t *g, int gpu)
 {
     r3d_camera(r, 0, 0, -6, 0, 0, 60);
@@ -770,6 +862,13 @@ static const struct { const char *name; scene_fn fn; int w, h; float limit; int 
     { "vshader heroes", s_vshader_heroes, 640, 360, 0.04f, 1 },
     { "vshader textured", s_vshader_heroes_tex, 640, 360, 0.04f, 1 },
     { "vshader skin", s_vshader_skin, 640, 360, 0.04f, 1 },
+    { "cel heroes", s_vshader_cel, 640, 360, 0.04f, 1 },
+    { "cel textured", s_vshader_cel_tex, 640, 360, 0.04f, 1 },
+    { "cel skin", s_vshader_cel_skin, 640, 360, 0.04f, 1 },
+    { "cel 2 bands", s_vshader_cel_2, 640, 360, 0.04f, 1 },
+    { "cel 8 bands", s_vshader_cel_8, 640, 360, 0.04f, 1 },
+    { "outline", s_vshader_outline, 640, 360, 0.04f, 1 },
+    { "outline skin", s_vshader_outline_skin, 640, 360, 0.04f, 1 },
     { "10 sheets", s_sheets10, 640, 360, 0.02f, 0 },
     { "vshader sheets", s_vshader_sheets, 640, 360, 0.02f, 0 },
     { "vshader groups", s_vshader_groups, 640, 360, 0.02f, 0 },
@@ -888,7 +987,11 @@ static void run_scene(int s)
                 CHECK(emu_stats.zstores > zstores, "3D 2D 3D: the depth was not kept");
             if (scenes[s].fn == s_vshader || scenes[s].fn == s_vshader_lit ||
                 ((scenes[s].fn == s_vshader_clip || scenes[s].fn == s_vshader_heroes ||
-                  scenes[s].fn == s_vshader_heroes_tex || scenes[s].fn == s_vshader_skin) && emu_clip != 1))
+                  scenes[s].fn == s_vshader_heroes_tex || scenes[s].fn == s_vshader_skin ||
+                  scenes[s].fn == s_vshader_cel || scenes[s].fn == s_vshader_cel_tex ||
+                  scenes[s].fn == s_vshader_cel_skin || scenes[s].fn == s_vshader_cel_2 ||
+                  scenes[s].fn == s_vshader_cel_8 || scenes[s].fn == s_vshader_outline ||
+                  scenes[s].fn == s_vshader_outline_skin) && emu_clip != 1))
                 CHECK(emu_stats.glverts > glverts, "vshader: no mesh placed by the vertex shader");
             if (s == CLEARED)
                 CHECK(emu_stats.loads == loads && emu_stats.jobs > jobs, "cleared: the page was loaded");
@@ -948,7 +1051,7 @@ int main(int argc, char **argv)
              "two-thread shaders %s, vertex shader %s, "
              "indexed yes, clipping %s, "
              "lit models yes, queue yes, zclear in job %s, compact attributes yes, alpha textures %s, "
-             "ETC1 textures %s)",
+             "ETC1 textures %s, cel light yes)",
              emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
              emu_tformat == 2 ? "rows" : "tiles", emu_ms_load_one ? "on cleared pages" : "on any page",
              emu_tformat == 2 ? "no" : "yes", emu_no_threads ? "no" : "yes",

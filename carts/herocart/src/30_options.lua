@@ -115,14 +115,20 @@ do
     local w, h = RES[i]:match("(%d+)x(%d+)")
     screen(tonumber(w), tonumber(h))
   end, function() return SCREEN_W .. "x" .. SCREEN_H end)
-  local outline = choice("Outline hull", { "off", "on" }, 1, function() end)
+  -- the outline: draw3d flag 512 (the inverted hull made by the console, cel3d's colour and width)
+  -- or the baked hull models (stage 1), to compare their cost
+  local outline, cel
+  H.cel = 0
+  local function apply_cel()
+    cel3d(H.cel, 0.35, outline and outline.i == 3 and 0x14141E or nil, 0.02)
+  end
+  outline = choice("Outline", { "off", "hull (baked)", "flag 512" }, 1, apply_cel)
   -- the ARM raster's dither (dither3d) and the cel light (cel3d, draw3d flag 256, heroes only)
   local dither = choice("Dither", { "on", "off" }, 1, function(i) dither3d(i == 1) end)
   local CEL = { "off", "2", "3", "4", "5", "6", "8" }
-  H.cel = 0
-  local cel = choice("Cel bands", CEL, 1, function(i)
+  cel = choice("Cel bands", CEL, 1, function(i)
     H.cel = i == 1 and 0 or tonumber(CEL[i])
-    cel3d(H.cel, 0.35)
+    apply_cel()
   end)
 
   ROWS = {
@@ -150,7 +156,7 @@ do
     return ({ 2, 0, 4 })[light.i]
   end
   function H.draw_opts()
-    return { cel = H.cel > 0, noz = zt.i == 2, shadow = shadow.i == 2, outline = outline.i == 2 }
+    return { cel = H.cel > 0, noz = zt.i == 2, shadow = shadow.i == 2, hull = outline.i == 2, flag512 = outline.i == 3 }
   end
 
   -- the options in force, for the printed line
@@ -185,8 +191,8 @@ do
     ["Shadows"] = { "A flat shadow under each hero.", "One more draw a hero: gpu ms rises." },
     ["Alpha"] = { "Not in this cart (needs a cape model).", "" },
     ["Resolution"] = { "screen() mode. 1920x1080: use Backend GPU.", "Label shows the mode in force after ->." },
-    ["Outline hull"] = { "Dark hull behind each hero.", "tri about doubles." },
-    ["Cel bands"] = { "Toon bands on the heroes (ARM draws them).", "With Backend GPU they leave the VS path." },
+    ["Outline"] = { "Dark outline: baked hull model or flag 512.", "tri about doubles; compare the two." },
+    ["Cel bands"] = { "Toon bands on the heroes (flag 256).", "VS 2 cuts them in the vertex program." },
   }
 
   -- the sweep and the keys use these

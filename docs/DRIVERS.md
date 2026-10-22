@@ -339,6 +339,25 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   ARM raster's 4x4 dither. A cel draw on the GPU is lit by the ARM (the vertex shader has no
   cel cut yet): the triangles go one by one with their colours, as with `vs` 1. Draws without
   the flag do not change. Not measured on the Pi.
+- **7.5** (2026-10-22): **cel light on the V3D, outline by the inverted hull**. `tools/qpuasm.py`
+  makes a `_cel` variant of each lit vertex program (`vs_lit`, `vs_lit8`, `vs_lit_tex`,
+  `vs_lit_tex2`): the same text with a cut block after the sun term `max(n.sun, 0)`: the band
+  `min(N - 1, floor(d * N))` (`ftoi`, `min`, `itof`), then `floor + (1 - floor) * b / (N - 1)`;
+  four more uniforms (N, N - 1 as an integer, the scale, the floor) after the highlight's `p`. The
+  highlight of `vs_lit`, `vs_lit8` becomes one step (on above 0.5). The programs are 2 KiB slots
+  of the code block, which grows from 40 to 48 KiB. `gpu3d.c` takes the `_cel` program of a lit
+  group when `r3d_env_t.cel` is set (`r3d_backend_t.cel` tells `r3d.c` that the backend can);
+  the boot probe `probe_lit(…, 1)` draws two faces in the top band and the second band and
+  refuses the cel programs if the pixels are not r3d's (status `cel light yes/no`): then a cel
+  draw is lit by the ARM, as in 7.4. The band edges are r3d's table without its rounding to 1/255
+  (the pictures differ by at most a step of RGB565). Flag 512: `r3d.c` makes the hull of a mesh
+  once (a mesh of the same faces turned round, each vertex pushed along the normal averaged over
+  the faces round its position, by `cel3d`'s width times the mesh's diameter; the faces keep their
+  level of detail bits and the bones), caches it in the mesh (`r3d_mesh_t.hull`, freed with it)
+  and draws it after the mesh as an unlit mesh in the outline colour, so the ARM, the V3D mesh path
+  and the Mali take it through their ordinary mesh calls. No outline for a shadow, a first-person
+  model, an impostor, or a camera inside the mesh's sphere. Not measured on the Pi; the hull costs
+  the vertex and bin work of the mesh again (the design estimates +40-60% of a hero draw).
 
 ## The modes: old versions on today's code
 
@@ -360,7 +379,9 @@ The settings reproduce the earlier versions, so they can be compared on the same
 - with each frame shown a frame later (`gpu3d_later=1`, with `gpu3d_queue=2`): **6.9**;
 - with compact attributes (`gpu3d_attr=1`, with the vertex shader): **7.1**;
 - with the opaque sheets as ETC1 (`gpu3d_etc1=1`, with `gpu3d_tex16=1`): **7.3**;
-- with cel draws (`cel3d`, flag 256), the ARM lighting of the same version: **7.4** (no setting).
+- with cel draws (`cel3d`, flag 256), the ARM lighting of the same version: **7.4** (no setting);
+  with `gpu3d_vs=2` the cut is in the vertex programs and the outline (flag 512) is the hull: **7.5**
+  (no setting).
 
 What 4.2, 4.3, 4.4 and 4.6 added (screens up to 1080p, the GPU's `cls()`, the
 GL record in bytes, no early z after a `zclear()` in the job, 8 textures in a job)

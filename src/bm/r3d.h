@@ -20,7 +20,7 @@
 
 typedef struct { float x, y, z; } v3_t;
 
-typedef struct {
+typedef struct r3d_mesh_s {
     int nverts, nfaces;
     v3_t *verts;
     uint16_t *faces;            /* 3 vertex indices per face */
@@ -69,6 +69,12 @@ typedef struct {
         uint32_t key;
         int nbones, cap, ok;
     } bimp;
+    /* the outline (flag R3D_OUTLINE, bm3d 7.5): the inverted hull, made by the first draw that wants
+     * it (a mesh of the same bones and levels of detail, its faces turned round, each vertex pushed
+     * out along the smooth normal by the width), again after r3d_mesh_normals or a new width;
+     * freed by r3d_mesh_free */
+    struct r3d_mesh_s *hull;
+    struct { uint32_t key, rgb; float width; } hullk;
 } r3d_mesh_t;
 
 /* Face colours: 0xRRGGBB in the low 24 bits; the high bits are the
@@ -136,6 +142,11 @@ typedef struct {
     int lit, smooth;
     float sun[3], view[3], half[3];     /* world axes */
     float A[3], B[3], D[3], R[3], S[3], spec_p;
+    /* bm3d 7.5, the cel light on a model lit by the sun (r3d_t.cel_bands > 0, flag R3D_CEL): the
+     * number of bands (0: none) and the sun term of the darkest one; the highlight becomes a step
+     * (on above 0.5). Only to a backend with cel */
+    int cel;
+    float cel_floor;
 } r3d_env_t;
 
 typedef struct {
@@ -161,6 +172,8 @@ typedef struct {
     float guard;                /* pixels around the screen for R3D_INSIDE; 0: never */
     int tex_screen;             /* draws textured screen-door faces (R3D_TEX_SCREEN, M34); else
                                  * they go to the ARM */
+    int cel;                    /* bm3d 7.5: its mesh cuts the sun's light by the bands of r3d_env_t.cel
+                                 * (cel3d); else a lit cel draw goes to the ARM triangle by triangle */
     int colour_only;            /* M41: draws flat colours with depth R3D_DEPTH_WRITE only (the Mali, phase 2): anything
                                  * else makes r3d hand over to the ARM (to_arm) */
 } r3d_backend_t;
@@ -265,7 +278,11 @@ void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float r
  * left grey. Also set for every draw by r3d_t.notex. */
 #define R3D_FLATTEX 128u
 /* R3D_CEL: this draw uses the cel light (r3d_cel; nothing happens with the bands at 0).
- * R3D_OUTLINE: reserved for the outline stage; no effect today. */
+ * R3D_OUTLINE (bm3d 7.5): after the mesh, its outline by the inverted hull: the mesh again with
+ * its faces turned round, pushed out along its normals by r3d_t.cel_width (a share of the mesh's
+ * size), flat in r3d_t.cel_rgb, unlit. Nothing happens without an outline colour (cel_rgb), for
+ * a shadow, a first-person model (R3D_FRONT), a mesh drawn as an impostor or a camera inside the
+ * mesh's sphere. The levels of detail and the bones are the mesh's. */
 #define R3D_CEL     256u
 #define R3D_OUTLINE 512u
 #define R3D_CEL_NO_OUTLINE 0xFFFFFFFFu
