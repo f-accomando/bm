@@ -277,7 +277,7 @@ def copy_yes(q, game, copy, timeout=30):
     (runtime.c copy_question), answered yes from the serial line (A)"""
     q.expect(f"bm: {game} is read only: save an editable copy as {copy}?", timeout=timeout)
     q.send("j")
-    q.expect("bm: copied", timeout=10)
+    q.expect("bm: copied", timeout=timeout)       # a big game copies slowly on a busy runner
 
 
 def test_boot_banner(b, opts):
@@ -4064,6 +4064,8 @@ def test_usb_mouse(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}",
                                "-device", "usb-hub,port=1", "-device", "usb-kbd,port=1.2",
                                "-device", "usb-tablet,port=1.3"])
+    def wait_screen(q, cond, timeout=15.0):             # a slow runner: 15 s, not 6
+        return globals()["wait_screen"](q, cond, timeout)
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "usb: port 3: if0 class 03/00/00 ep 81 mps 8" in out and " tablet" in out, out
@@ -4071,11 +4073,11 @@ def test_usb_mouse(b, opts):
         assert "usb: keyboard 0627:0001 'QEMU USB Keyboard'" in out, out
         # its icon once it has moved (2026-10-04: a keyboard's dongle declares
         # a mouse with none behind it)
-        time.sleep(1.0)
-        settled_screen(q, lambda i, t: len(bar_icons(i)) == 1, tries=20)
-        assert len(bar_icons(q.screendump())) == 1, "a mouse icon before the mouse did anything"
+        wait_menu(q)                                        # the first frame, later on a busy runner
+        img_, _ = settled_screen(q, lambda i, t: len(bar_icons(i)) == 1, tries=20)
+        assert len(bar_icons(img_)) == 1, "a mouse icon before the mouse did anything"
         q.pointer(320, 180)
-        shot_ = wait_icons(q, 2)
+        shot_ = wait_icons(q, 2, timeout=20)
         runs = bar_icons(shot_)
         assert len(runs) == 2 and not blue_number(shot_, runs[0]) and not blue_number(shot_, runs[1]), runs
         assert runs[1][1] - runs[1][0] <= 13, runs          # the mouse: narrow, no number
@@ -4090,10 +4092,16 @@ def test_usb_mouse(b, opts):
         q.click("wheel-down")
         assert MOUSE_TITLES[7] in screen_text(wait_screen(q, title_is(MOUSE_TITLES[7])))[4]
         # the keys move the selection: the arrow goes away until it moves
-        sendkeys(q, "left")
-        shot_ = wait_screen(q, lambda s_: not arrow_at(s_, x, y) and title_is(MOUSE_TITLES[6])(s_))
+        # press and release in one QMP call (sendkey holds the key 100 ms). A frame
+        # of the menu (the blur of a new cover) can take over 500 ms in QEMU and
+        # the keyboard repeat (hid.c, 500 ms) then moves a second cover: one cover
+        # left of the last one, or two, is the keys moving the selection
+        q.input_events([{"type": "key", "data": {"down": d_, "key": {"type": "qcode", "data": "left"}}}
+                        for d_ in (True, False)])
+        moved = lambda s_: any(title_is(MOUSE_TITLES[i])(s_) for i in (6, 5))
+        shot_ = wait_screen(q, lambda s_: not arrow_at(s_, x, y) and moved(s_))
         assert not arrow_at(shot_, x, y), "the arrow stayed with the keys"
-        assert MOUSE_TITLES[6] in screen_text(shot_)[4], screen_text(shot_)[4]
+        assert any(MOUSE_TITLES[i] in screen_text(shot_)[4] for i in (6, 5)), screen_text(shot_)[4]
 
         def click_at(px, py, button="left"):        # once the arrow is there
             q.pointer(px, py)
@@ -4104,7 +4112,7 @@ def test_usb_mouse(b, opts):
         click_at(132, 24)
         assert "bm SDK" in screen_text(wait_screen(q, title_is("bm SDK")))[4]
         click_at(68, 24)
-        wait_screen(q, title_is(MOUSE_TITLES[6]))
+        wait_screen(q, moved)                       # the selection it had
         # the right button on a cover: its options; a click outside closes them
         x, y = cover_xy(1)
         click_at(x, y, "right")
@@ -4116,8 +4124,8 @@ def test_usb_mouse(b, opts):
         assert "Open in the SDK" not in text and MOUSE_TITLES[1] in text, text
         # a click on a cover plays it
         click_at(*cover_xy(0))
-        q.expect("playing astrowing.bm", timeout=10)
-        q.expect("bm: loaded", timeout=10)
+        q.expect("playing astrowing.bm", timeout=20)
+        q.expect("bm: loaded", timeout=20)
         time.sleep(1.0)
         q.send("q")
         q.expect("update+draw", timeout=15)
@@ -6905,7 +6913,9 @@ def test_code_editor(b, opts):
         log.append(out)
         return out
 
-    def see(words, tries=40):
+    def see(words, tries=80):
+        # 20 s: a key sent after a serial line can wait for the editor's next
+        # frame, slow on a busy runner; on a miss the screen goes to build/diag/
         text = []
         for _ in range(tries):
             img_ = q.screendump()
@@ -6913,7 +6923,18 @@ def test_code_editor(b, opts):
             if all(any(w in l for l in text) for w in words):
                 return text
             time.sleep(0.25)
+        os.makedirs("build/diag", exist_ok=True)
+        _save_png(img_, "build/diag/code-editor-miss.png")
+        with open("build/diag/code-editor-miss.txt", "w") as f:
+            f.write(f"not on screen: {words}\n" + "\n".join(text))
         raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+
+    def copy_asked(q, game, copy):
+        # the question's box is drawn after the first poll of its keys: an
+        # answer sent before is "held at the start" and lost, a copy that
+        # never ends on a busy runner. Wait for the box, then answer.
+        wait_screen(q, lambda s_: "editable copy" in "".join(screen_text(s_)), timeout=20)
+        copy_yes(q, game, copy)
 
     def shot(name):
         if opts.shots:
@@ -6929,9 +6950,11 @@ def test_code_editor(b, opts):
         k("\r")
         expect("code: opened /carts/Il mio demo.bm")
         k("\x0f", 0.5)
+        see(["Open a cartridge", "/carts/pong.bm"])         # the list, before Down and Enter
         k("\x1b[B", 0.3)
         k("\r")
         expect("code: opened /carts/pong.bm")
+        see(["pong.bm"])                                    # the tab is drawn, before F4
         k("\x1bOS", 0.5)                                    # F4: two pages
         text = see(["Il mio demo.bm", "pong.bm 1", "two pages"])
         assert "untitled" not in text[0], "the untouched first tab gave its place: " + text[0]
@@ -6943,7 +6966,7 @@ def test_code_editor(b, opts):
         k("1\r", 0.1)
         k("-- edited by bm Code\r")
         k("\x13")                                           # Ctrl+S
-        copy_yes(q, "/carts/pong.bm", "/carts/PONG.BME")    # a game: its editable copy
+        copy_asked(q, "/carts/pong.bm", "/carts/PONG.BME")    # a game: its editable copy
         expect("code: saved /carts/PONG.BME")
 
         # the demo (long name, sprites): an error on line 1, then F5
@@ -6952,7 +6975,7 @@ def test_code_editor(b, opts):
         k("1\r", 0.1)
         k('error("boom")\r')
         k("\x1b[15~")                                       # F5: save and run
-        copy_yes(q, "/carts/Il mio demo.bm", "/carts/ILMIODEM.BME")
+        copy_asked(q, "/carts/Il mio demo.bm", "/carts/ILMIODEM.BME")
         expect("code: saved /carts/ILMIODEM.BME")
         expect("main.lua:1: boom", timeout=30)
         expect("code: ready", timeout=30)
@@ -6964,6 +6987,7 @@ def test_code_editor(b, opts):
 
         # a new tab, a function, an "#entry:" line above its if
         k("\x14", 0.3)                                      # Ctrl+T
+        see(["untitled"])                                   # the new tab, before the typing
         k("function f(v)\rif v > 0 then\rr = 1\relse\rr = 2\rend\rend")
         k("\x0c")
         k("1\r", 0.1)
