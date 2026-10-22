@@ -5,6 +5,7 @@
  * the keys and the pad.
  */
 #include "b3dpi.h"
+#include "gputest.h"
 #include "input.h"
 #include "pmu.h"
 #include "reports.h"
@@ -186,6 +187,7 @@ int bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles, 
         .date = net_time() ? net_time_text() : "",
         .only_tests = tests, .only_profiles = profiles, .no_wait = no_wait, .clocks = real ? clocks : NULL,
         .stop = syskeys_test_stop,
+        .qpu_row = gpu_qpu_key() ? gpu_qpu_row : NULL,      /* gpu3d_qpu=1 only (default off) */
     };
     free(sent);                         /* (nothing left from a run before) */
     sent = NULL;

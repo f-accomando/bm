@@ -83,6 +83,10 @@ void g16_sspr_zoom(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int s
  * of g16_sspr. */
 void g16_stack(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
                int n, int x, int y, float rz, float scale, float step);
+/* The same with the slices one under the other on the sheet from (sx, sy), top to
+ * bottom; the top one is slice 0 (the bottom of the stack). */
+void g16_stackv(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                int n, int x, int y, float rz, float scale, float step);
 /* Map cells [mx, mx+mw) x [my, my+mh) drawn at (x, y); cell 0 is skipped. */
 void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
              int mx, int my, int x, int y, int mw, int mh);

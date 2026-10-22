@@ -84,6 +84,9 @@ void bm_print_stats(const bm_stats_t *st);
 uint32_t bm_bench(framebuffer_t *fb, uint32_t frames);
 /* bm_bench drawing directly and via RAM; prints one line. */
 void bm_bench_report(framebuffer_t *fb, uint32_t frames);
+/* Sprite stacking benchmark: g16_stack with 16, 64 and 128 stacks of 8 and 16 slices, turning;
+ * a table of us a frame (drawing only), stacks a second and slices a second. */
+void bm_stack_bench(framebuffer_t *fb, uint32_t frames);
 
 /* Switches the screen to w x h RGB565 double buffered and points g at the
  * back page, or at a cached RAM buffer when "via RAM" is on (console
@@ -146,5 +149,11 @@ void bm_save_path(const char *title, const char *author, char *out, size_t n);
  * name with ".S02" ... ".S08" (save(t, slot) of the cartridges). */
 #define BM_SAVE_SLOTS 8
 void bm_save_slot(const char *path, int slot, char *out, size_t n);
+
+/* dark_end() fades the page with this when it is set (the Pi kernel sets it
+ * only with gpu3d_qpu=1; default NULL = g16_fade_apply, no extra work). It
+ * returns 1 if it did the fade on the GPU, 0 if the ARM did it; either way
+ * the page is the picture of g16_fade_apply. It does the ARM fallback itself. */
+extern int (*bm_fade_accel)(g16_t *g, const g16_fade_t *f);
 
 #endif

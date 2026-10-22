@@ -13,6 +13,7 @@
 #include "irq.h"
 #include "tick.h"
 #include "exceptions.h"
+#include "fiber.h"
 #include "monitor.h"
 #include "selftest.h"
 #include "sysinfo.h"
@@ -36,6 +37,8 @@
 #include "usb/usb.h"
 #include "carts.h"
 #include "config.h"
+#include "gputest.h"
+#include "gpu/qpu.h"
 #include "bt/bt.h"
 #include "audio/audio.h"
 #include "crumbs.h"
@@ -77,6 +80,7 @@ static void print_palette(void)
 
 static void heartbeat(uint32_t tick)
 {
+    fiber_tick();                               /* fiber_over: a fiber past its slice (fiber.h) */
     ledstate_tick(tick * (1000 / TICK_HZ));     /* on, or a slow blink (ledstate.h) */
     if (tick % (TICK_HZ / 10) == 0) {       /* 10 Hz: freeze guard */
         watchdog_pet();
@@ -153,6 +157,7 @@ void diagnostics_run(void)
     bench_run(&bench, &fb, "max + cache");
     bench_print(&bench, 1);
     libc_selftest();
+    fiber_selftest();
 
     kprintf("bm: C benchmark and native demo cart ('q' or Esc skips)...\n");
     bm_bench_report(&fb, 120);
@@ -276,6 +281,8 @@ void kernel_main(uint32_t atags)
     usb_print();
     carts_init();
     config_load();
+    if (gpu_qpu_key())                  /* gpu3d_qpu=1 (default off): Yharnam's darkness on the QPUs, ARM fallback */
+        bm_fade_accel = qpu_fade_hook;
     sdlog_prev();
     watchdog_before_reboot(pi_lastrun);
     sdlog_boot(0);

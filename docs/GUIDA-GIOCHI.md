@@ -677,7 +677,11 @@ Altre cose utili: `lib.script` per le scene scritte in fila (`lib.wait(1)`,
 `lib.waitfor(...)`), `lib.tween` per scritte e menu che entrano, `lib.menu` per i menu
 propri, `lib.btnr` per i tasti che si ripetono, `lib.rng(seme)` per mondi sempre uguali
 dallo stesso seme, `lib.ray` per vedere se un nemico vede l'eroe, `lib.dir8` per gli sprite
-a 8 direzioni.
+a 8 direzioni, `lib.input()` per lo standard di input dei giochi (`confirm`, `cancel`,
+`pause` e `act1`..`act4` sugli stessi tasti in ogni gioco di uno schema: `lib.input({ scheme =
+"scroller" | "topdown" | "stick" })`, predefinito `"scroller"`; le altre chiavi, come `{ act3 = "x" }`,
+cambiano singole azioni, elencate in `lib.input_exceptions` e dichiarate nel
+`docs/progress/<gioco>.md`; `lib.INPUT_STD` è la parte comune; vedi [design/games-input-standard.md](design/games-input-standard.md)).
 
 ## 12. Colpi: hitbox e hurtbox
 
