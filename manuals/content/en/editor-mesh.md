@@ -220,7 +220,7 @@ Press **g** to move, **r** to rotate, **t** to scale the choice (the corners of 
 ## Caveats
 
 - Editing a **G** mesh first makes a copy of it as a model; the game's code is not rewritten. The status bar tells the name of the copy.
-- Edits that would pass 65535 vertices or 65535 triangles are refused and undone.
+- Edits that would pass the format limit of 65535 vertices or 65535 triangles are refused and undone.
 
 # The preview and cart_meshes
 
@@ -322,7 +322,7 @@ To leave the game and come back to bm Mesh, press Start + Select on the pad or C
 
 ## Limits
 
-- At most 65535 vertices and 65535 triangles in a mesh.
+- The format limit of a mesh is 65535 vertices and 65535 triangles. The edit page shows the count of vertices against it.
 - At most 256 models in a cartridge.
 - A G mesh cannot be renamed or deleted: change the code with bm Code.
 - A copy as code does not keep the skeleton.

@@ -65,8 +65,8 @@ Each tool is described in plain words, as in Blender.
 
 - Both editors show the number of vertices and the number of triangles all the time.
 - The hint "heavy for N triangles at 60 fps on the Pi Zero W" (`T.TRIS_60FPS`) stays as a warning only. It never blocks an action. What does not run well on the Pi can run on a faster board.
-- The only limit is technical: indices are u16, so one mesh has at most 65535 vertices. The counter shows it ("of 65535"). Docs and the manuals say so.
-- The Studio save cap is removed in these docs now, as a decision. The code changes in the first APP-10 steps:
+- The only limit is technical: indices and counts are u16, so one mesh has at most 65535 vertices and 65535 triangles. The counter shows it ("of 65535"). Docs and the manuals say so.
+- The Studio save cap is removed (done, step 1 of APP-10: `claude/app10-counters-caps`). The code changes were:
   - `src/script/bm3d.lua`: `T.LIMIT_V` and `T.LIMIT_T` (line 34), the check in the save function (lines 187-188) and the red panel (line 1053). Keep a 65535 vertex check.
   - `carts/mesh/main.lua`: `LIMIT_V` and `LIMIT_F` (65535) are the format limit. The messages say "format limit".
   - bm Studio reducer (`carts/studio/main.lua`, line 1659): the text "at most N a scene" becomes a hint.

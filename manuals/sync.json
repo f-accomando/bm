@@ -629,8 +629,8 @@
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "37c4936d067f",
-    "it": "2a9a6a654f7e",
+    "en": "30a5d2e0e427",
+    "it": "2ea9eded49c3",
     "title": "Selecting and moving"
    },
    "5": {
@@ -649,16 +649,16 @@
     "title": "Tutorials"
    },
    "8": {
-    "en": "783dcabf58b5",
-    "it": "cc4983c32daa",
+    "en": "ac901b269df9",
+    "it": "8c0efff625eb",
     "title": "Tips and limits"
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "0f67d24de65f",
+   "carts/mesh/main.lua": "f5e4fae8b0df",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "80547a3b408d",
+   "docs/progress/tools.md": "ee59eceb703a",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -843,8 +843,8 @@
     "title": "What bm Studio is"
    },
    "10": {
-    "en": "2aea4c78549b",
-    "it": "d9807bc44eae",
+    "en": "c197a3f9f4a5",
+    "it": "2d669c9c1fcc",
     "title": "Tips and limits"
    },
    "2": {
@@ -889,10 +889,10 @@
    }
   },
   "sources": {
-   "carts/studio/main.lua": "4ad32dad9ad3",
+   "carts/studio/main.lua": "d8500c830f1e",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "80547a3b408d",
+   "docs/progress/tools.md": "ee59eceb703a",
    "sdk/README.md": "f56faae98658"
   }
  },

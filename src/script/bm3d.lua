@@ -31,7 +31,7 @@ T.C = C
 T.FOCAL = (W / 2) / math.tan(math.rad(30))      -- camera3d with fov 60
 T.FPS = 12                                       -- the timeline's frames, as in bm Animator
 T.MODES = { [0] = "linear", "smooth", "step" }
-T.LIMIT_V, T.LIMIT_T = 4096, 16384
+T.LIMIT_V, T.LIMIT_T = 65535, 65535              -- u16 format limit
 T.TRIS_60FPS = 1200                              -- about what the console draws at 60 fps
 -- text on rows of 16 pixels and columns of 8: the hint row, the status bar
 T.HINT_Y, T.STATUS_Y = H - 40, H - 24
@@ -184,8 +184,8 @@ function T.encode_mesh(m)
     end
   end
   if #tris == 0 then return true end
-  if #verts > T.LIMIT_V then return false, #verts .. " vertices, at most " .. T.LIMIT_V end
-  if #tris > T.LIMIT_T then return false, #tris .. " triangles, at most " .. T.LIMIT_T end
+  if #verts > T.LIMIT_V then return false, #verts .. " vertices: format limit " .. T.LIMIT_V end
+  if #tris > T.LIMIT_T then return false, #tris .. " triangles: format limit " .. T.LIMIT_T end
   m.mc = name16(m.name) .. spack("<I2I2I4", #verts, #tris, 0) .. table.concat(verts) .. table.concat(tris)
   m.vb, m.nv, m.nt = table.concat(vb), #verts, #tris
   return true
@@ -1050,7 +1050,7 @@ function T.counts(m, x, y, narrow)
   x = print((m and #m.faces or 0) .. " faces", x, y, C.TEXT) + 8
   x = print(nt .. " tri", x, y, nt > T.TRIS_60FPS and C.ACC or C.TEXT) + 8
   if narrow then x, y = x0, y + 16 end
-  print(nv .. " vertices", x, y, nv > T.LIMIT_V and C.ERR or C.TEXT)
+  print(nv .. " of " .. T.LIMIT_V .. " vertices", x, y, nv > T.LIMIT_V and C.ERR or C.TEXT)
   if nt > T.TRIS_60FPS then return "heavy for 60 fps (" .. T.TRIS_60FPS .. " triangles a scene)" end
 end
 

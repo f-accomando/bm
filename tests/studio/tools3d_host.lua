@@ -1216,5 +1216,35 @@ click(mx, my)
 mouse(100, 80, 0, 1)
 check(sees("SPRITES"), "mouse: the sprites page, the wheel on a row")
 
+-- the format limit: 65535 vertices and 65535 triangles (the u16 counts of the MESH record)
+do
+  local B = assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
+  check(B.LIMIT_V == 65535 and B.LIMIT_T == 65535, "limits: the u16 format limit")
+  local function quads(n)               -- n quads on their own corners: 4n vertices, 2n triangles
+    local faces = {}
+    for i = 1, n do
+      local x = i * 2
+      faces[i] = { p = { { x, 0, 0 }, { x + 1, 0, 0 }, { x + 1, 1, 0 }, { x, 1, 0 } }, c = 0xFF0000 }
+    end
+    return { name = "big", faces = faces }
+  end
+  local ok = B.encode_mesh(quads(1250))
+  check(ok == true, "encode_mesh: 5000 vertices are written")
+  local ok2, why = B.encode_mesh(quads(16384))
+  check(ok2 == false and why and why:find("format limit", 1, true) and why:find("65536", 1, true),
+        "encode_mesh: 65536 vertices are refused with the format limit (" .. tostring(why) .. ")")
+  local faces = {}                      -- a grid of 200 x 200 vertices, 79202 triangles
+  local function g(i, j) return { i, j, 0 } end
+  for i = 0, 198 do
+    for j = 0, 198 do
+      faces[#faces + 1] = { p = { g(i, j), g(i + 1, j), g(i + 1, j + 1) }, c = 0xFF0000 }
+      faces[#faces + 1] = { p = { g(i, j), g(i + 1, j + 1), g(i, j + 1) }, c = 0xFF0000 }
+    end
+  end
+  ok2, why = B.encode_mesh({ name = "grid", faces = faces })
+  check(ok2 == false and why and why:find("format limit", 1, true) and why:find("triangles", 1, true),
+        "encode_mesh: more than 65535 triangles are refused with the format limit (" .. tostring(why) .. ")")
+end
+
 io.write(string.format("bm Studio and bm Animator host: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)
