@@ -60,11 +60,10 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
 
 ## Open work (`docs/ROADMAP.md`)
 
-- **GAME-INPUT-1** (input standard for games: the design note games-input-standard (on that branch),
-  `lib.INPUT_STD` / `lib.input`): parts A-C reviewed on branch `claude/games-input-standard`,
-  not merged. Open: document `lib.input` in `API.md`, `API-IT.md`, `GAME-GUIDE.md`,
-  `GUIDA-GIOCHI.md` and `src/ai/kb`; migrate existing games one by one. Keys decided 19 Oct:
-  menus B ok / Y cancel; keyboard Enter = ok, Esc = back and pause.
+- **GAME-INPUT-1** (input standard for games: [games-input-standard](../design/games-input-standard.md),
+  `lib.input` with the schemes scroller, topdown and stick): the library, the docs, the kb and the
+  templates are merged. Open: migrate the existing games one by one (list: `python scripts/input_inventory.py --games`);
+  open decisions in the standard, section 7. Keys decided 19 Oct: menus B ok / Y cancel; keyboard Enter = ok, Esc = back and pause.
 - **CONTROLS-1** (planned, deferred to the next session): bindings mappable through an API
   from the menu Controls; three default schemes per game (pad, stick, 2D scroller / top-down)
   as written in the CONTROLS-1 work order on the sync branch.
@@ -92,3 +91,4 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
   do not reuse them.
 - Tests: `make test-gameapi`, `test-bm`, `test-profile`, `test-bmnet`, `test-online`,
   `test-loading`; QEMU `-k <name>` for the piece touched.
+- New games start from `lib.input()` (the standard in [games-input-standard](../design/games-input-standard.md)); a different binding goes only through its override table and is listed in the game's `docs/progress/<game>.md`.
