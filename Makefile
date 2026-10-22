@@ -703,6 +703,18 @@ $(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/host
 	    -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/libs.S $(BMHOST_OBJS) -lm
 bmhost: $(BUILD)/host/bmhost-bin
 
+# bm web player stage 2 (docs/design/bm-web-player.md): the bmhost runner built to
+# WebAssembly with Emscripten (source ~/emsdk/emsdk_env.sh first), run under Node.
+# libs.S cannot be assembled for wasm: scripts/mkweblibs.py writes the same data as C.
+EMCC ?= emcc
+$(BUILD)/web/libs.c: scripts/mkweblibs.py $(BUILD)/words.lua src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua                      src/ai/predict.lua src/ai/padtype.lua src/script/riff.lua src/script/bmui.lua
+	$(PYTHON) scripts/mkweblibs.py -o $@ --words $(BUILD)/words.lua
+$(BUILD)/web/bmhost.js: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/audio/wavout.h                         $(BMHOST_RT) $(BMHOST_LUA) $(BUILD)/web/libs.c
+	$(EMCC) -std=gnu11 -O2 -w -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) 	    -sNODERAWFS -sENVIRONMENT=node -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=134217728 -sSTACK_SIZE=2097152 	    -o $@ 	    tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c $(BUILD)/web/libs.c $(BMHOST_RT) $(BMHOST_LUA) -lm
+bmhost-wasm: $(BUILD)/web/bmhost.js
+test-wasm: $(BUILD)/web/bmhost.js
+	$(PYTHON) tests/webplayer/run_wasm.py $(BUILD)
+
 # bmhost-gpu: the same with the GPU's 3D (src/gpu/gpu3d.c) on the V3D
 # emulator of the tests (tests/gpu/v3d_emu.c): the frames as the GPU draws
 # them, to set them beside the ARM's (slower: the emulator is plain C)
@@ -733,7 +745,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-webplayer test-cel test-herocart test-controls test-keymap test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-webplayer test-wasm bmhost-wasm test-cel test-herocart test-controls test-keymap test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \

@@ -1,6 +1,6 @@
 # bm web player: run bm in a web browser (WEB-1)
 
-Status: study, with stage 1 built. This page lists what exists, what is missing, the stages, the risks
+Status: study, with stages 1 and 2 built. This page lists what exists, what is missing, the stages, the risks
 and the test plan. It does not change the kernel API.
 
 ## 1. What we already decided (recovered, not redone)
@@ -42,8 +42,8 @@ generated C array instead.
 
 ## 3. What is missing
 
-1. A WebAssembly toolchain. WSL on the development PC has `gcc` and `python3` only: no `emcc`, and no
-   `clang` with the wasm32 target. The Windows side has Node 24. An install needs the user's OK.
+1. A WebAssembly toolchain. Done: the user allowed a local install. Emscripten 6.0.13 (emsdk) is in
+   `~/emsdk` in WSL, outside the repository. Run `source ~/emsdk/emsdk_env.sh` before `make bmhost-wasm`.
 2. A frame-step entry. `bmhost.c` runs a blocking loop. A browser needs `bmweb_frame(ms)` called from
    `requestAnimationFrame`. This entry belongs in a new runner file for the web, not in the kernel.
 3. Fibers. `src/kernel/fiber.c` is cooperative and uses its own stacks. wasm cannot switch stacks without
@@ -81,7 +81,7 @@ generated C array instead.
 | # | Stage | Result | Needs |
 |---|---|---|---|
 | 1 | Cartridge reader in JavaScript (done) | `web/bmcart.js`; the mock shows title, author, cover, sections, CRC; `tests/webplayer/test_bmcart.js` | Node |
-| 2 | wasm toolchain and a minimal runtime | the runtime builds to wasm; `bmweb_frame` returns the first frame of a cartridge that calls `cls()` | emcc, or clang with wasm-ld (the user decides) |
+| 2 | wasm build of the runtime (done) | `make bmhost-wasm` builds `bmhost` to `build/web/bmhost.wasm` (1.5 MB, 0.57 MB gzip); `make test-wasm` runs a cartridge under Node and the frames equal the PC build byte for byte | emsdk |
 | 3 | Canvas and input | a 2D cartridge draws and moves with keyboard and pad | stage 2 |
 | 4 | Audio | an AudioWorklet plays `sfx()` and `music()` | stage 3 |
 | 5 | Storage and 3D | IndexedDB saves; a 3D cartridge on `r3d.c` | stage 4 |
@@ -89,8 +89,6 @@ generated C array instead.
 
 ## 6. Risks
 
-- **No toolchain here.** Stage 2 cannot start before the user allows an install (emsdk, or `clang` and `lld`
-  in WSL).
 - **Speed.** The Pi Zero W is the benchmark. A PC browser is much faster. A web run proves nothing about the
   Pi. Never use it as a benchmark.
 - **Fibers and blocking calls** in `runtime.c` may need Asyncify or stubs.
@@ -109,5 +107,18 @@ flag, sections, INFO lines, cover, Lua), a bad magic, a resource file, a short f
 wrong size, a wrong CRC, and a cartridge packed by `scripts/mkbm.py`. The page was also loaded in the
 browser pane, and a file was opened through the file input.
 
-Stage 2: build `bmweb.wasm` from the `BMHOST_RT` sources plus a web runner. Run it under Node with a fixture
-cartridge. Compare the first frame with the PNG that `bmhost --shots` writes for the same cartridge.
+Stage 2 (done): `make test-wasm` (`tests/webplayer/run_wasm.py`). It packs `tests/webplayer/cart.lua`, runs
+`build/web/bmhost.js` under Node and checks that the run ends ok, that the two frames match the SHA-256 in
+`tests/webplayer/expected.sha256`, and, when `build/host/bmhost-bin` exists, that they are byte-equal to the PC
+build. It skips when Node is missing. Run result on 22 Oct: ok, equal to the PC build.
+
+## 8. What stage 2 found
+
+- The unchanged `src/bm/*` sources and `tests/host/stubs.c` compile with Emscripten. No kernel change was
+  needed. Only the runner links `-sNODERAWFS` so that the SD card is a host folder under Node.
+- `wasm-ld` has no `--defsym`. `scripts/mkweblibs.py` writes the Lua libraries as one C array and defines the
+  `bm_lib_*` and `bm_lib_*_end` symbols with module assembly `.set`. `tests/host/libs.S` is not used.
+- `bm_play()` is a blocking loop. For a browser, link with `-sASYNCIFY` and make `fb_flip` yield with
+  `emscripten_sleep(0)`, or move the loop to a frame-step function. The first option needs no kernel change.
+  This is stage 3.
+- The frame colours are 0xRRGGBB values, so a fixture cartridge must not use small numbers.
