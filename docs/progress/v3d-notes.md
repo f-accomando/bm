@@ -93,6 +93,8 @@ The QPU check is behind the config key `gpu3d_qpu` (default off). With the key o
    - `QPU FAIL` = a QPU result differs from the ARM result. The line names the first word or pixel.
 4. Open Dev > 3D Bench and run it. The log has one `QPU ...` line after the ramps. The saved report has one `qpu row (gpu3d_qpu=1)` line before the score.
 5. Copy back: a photo of the GPU test lines (or the console text) and the new report in `bm/bench` (the console also sends it to the `reports` branch). The times are the numbers to read: ARM us and QPU us for 1024 particles and for 1024 pixels of fade.
-6. Set `gpu3d_qpu=0` again (or delete the line) after the run.
+6. Play Yharnam (it lights by levels) with `gpu3d_qpu=1`. The darkness (`dark_end()`) now runs on the QPUs. Compare the look with `gpu3d_qpu=0`: it must be the same picture. Read the fps in the performance overlay (F11 or the dev kit) for both settings.
+7. If the picture is wrong or the game stalls, note it and set `gpu3d_qpu=0`. After a failed QPU run the game goes on with the ARM fade by itself.
+8. Set `gpu3d_qpu=0` again (or delete the line) after the run.
 
 If the Pi freezes, the last line on the screen shows the step that stopped. Each QPU run has a timeout of 50 ms, so a freeze means a hang outside the QPU code (for example the mailbox call in `qpu_init`).

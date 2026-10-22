@@ -1414,6 +1414,7 @@ test-qpurun: $(BUILD)/host/test_qpurun
 	$< 0
 	$< 1
 	$< 2
+	$< 3
 
 # bm3d 7.x: the QPU check (src/gpu/qpucheck.c, config key gpu3d_qpu) on the V3D emulator: PASS, SKIP (no answer), SKIP (probe off)
 $(BUILD)/host/test_qpucheck: tests/gpu/test_qpucheck.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/qpu.c src/gpu/qpu.h src/gpu/qpucheck.c src/gpu/qpucheck.h src/gpu/qpuprog.h src/gpu/v3d.h src/bm/gfx16.c src/bm/gfx16.h

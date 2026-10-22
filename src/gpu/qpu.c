@@ -316,6 +316,24 @@ int qpu_fade_apply(g16_t *g, const g16_fade_t *f)
     return 1;
 }
 
+int qpu_fade_hook(g16_t *g, const g16_fade_t *f)
+{
+    static int state;                   /* 0 not tried, 1 ready, -1 off for good */
+    if (state == 0)
+        state = qpu_init() == 0 && qpu_fade_ok() ? 1 : -1;
+    if (state < 0) {
+        g16_fade_apply(g, f);
+        return 0;
+    }
+    const uint32_t fails = qpu_stats.failures;
+    const int r = qpu_fade_apply(g, f);
+    if (qpu_stats.failures != fails || !qpu_fade_ok()) {
+        qpu_disable();                  /* the first failure is enough: the ARM from now on */
+        state = -1;
+    }
+    return r;
+}
+
 /* ---------------------------------------------------------------------- probe */
 
 static uint32_t lcg(uint32_t *s)

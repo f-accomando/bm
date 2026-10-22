@@ -85,6 +85,13 @@ int  qpu_fade(const qpu_fade_t *f);
  * it, 0 if the ARM did. */
 int qpu_fade_apply(g16_t *g, const g16_fade_t *f);
 
+/* The hook of the runtime (bm_fade_accel, src/bm/runtime.h) for the config key
+ * gpu3d_qpu=1: qpu_init on the first call, then qpu_fade_apply. If qpu_init fails
+ * or one run fails (a timeout too), the picture is done by the ARM and every
+ * later call goes to the ARM at once (the QPU path is off for good). Returns 1
+ * if the QPUs did it, 0 if the ARM did. Never waits more than QPU_TIMEOUT_US. */
+int qpu_fade_hook(g16_t *g, const g16_fade_t *f);
+
 /* Runs the queued requests; 0, or the number of requests the ARM had to do. */
 int qpu_flush(void);
 
