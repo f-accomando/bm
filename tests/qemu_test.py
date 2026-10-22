@@ -3538,7 +3538,7 @@ def test_update(b, opts):
             time.sleep(0.5)
             keys("5")                               # Settings, then Updates
             screen(["Settings", "Controllers", "Updates"])
-            keys("sss")
+            keys("ssss")                              # Controllers, Controls, WiFi, Screen, Updates
             keys("\r")
             screen(["Settings > Updates", "Version"])
             keys("s")
