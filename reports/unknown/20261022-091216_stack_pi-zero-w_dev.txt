@@ -1,0 +1,19 @@
+bm report
+kind: stack
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: 2026-10-22 09:12:16
+file: 20261022-091216_stack_pi-zero-w_dev.txt
+
+bm > Stack bench: sprite stacking
+
+Stack bench: g16_stack (stack/zstack), 16x16 slices, turning, scale 1, 30 frames a case
+  stacks  slices     us/frame     stacks/s     slices/s
+      16       8         3245         4930        39445
+      16      16         5398         2964        47424
+      64       8         9685         6608        52865
+      64      16        18267         3503        56057
+     128       8        18270         7006        56048
+     128      16        35431         3612        57802
+Stack bench done
