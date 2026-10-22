@@ -243,7 +243,7 @@ Ogni opzione è una chiave in `bm/config.txt` e una riga in *Settings > Screen a
 | `gpu3d` | la GPU disegna il 3D (0 = ARM) | attivo dove risponde un V3D |
 | `gpu3d_aa` | MSAA 4x | spento |
 | `gpu3d_vs` | vertex shader: 0 ARM, 1 scenario, 2 tutti i modelli | 2 |
-| `gpu3d_queue` | 1: il job parte e il prossimo `_update` gira intanto; 2: due job in volo | spento |
+| `gpu3d_queue` | 1: il job parte e il prossimo `_update` gira intanto; 2: due job in volo; 0 la spegne | 1 (attiva) |
 | `gpu3d_later` | ogni frame mostrato un frame dopo (richiede `gpu3d_queue=2`) | spento |
 | `gpu3d_2d` | 2D sopra il 3D dentro il job GPU | spento |
 | `gpu3d_filter` | texture bilineari (l'aspetto cambia) | spento |

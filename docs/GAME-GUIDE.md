@@ -380,7 +380,7 @@ end
   `_update`, the HUD after the 3D (`docs/API.md`, *A frame later*). `queue` comes back as the
   level in force (`1`, `2`) or `false`; asking for it with `true` (`gpu3d(true, false, 2, true)`)
   keeps the console's own level, so a game that picks its renderer does not undo the player's
-  `gpu3d_queue=2` or `gpu3d_later`.
+  `gpu3d_queue=2` or `gpu3d_later`. The frame queue (`gpu3d_queue=1`) is on by default on the Pi; `gpu3d_queue=0` turns it off.
 
 **With bm Studio** ([sdk/README.md](../sdk/README.md)): models are made on the console
 placing the sprite sheet's tiles on a grid, and they live in the `.bm` itself; in the game

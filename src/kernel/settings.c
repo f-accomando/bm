@@ -238,11 +238,12 @@ static const char *vs_choice(void)
 }
 
 /* gpu3d_queue=1 (bm3d 4.1): the end of a frame's 3D starts on the GPU and the
- * game's next _update runs meanwhile; 2 (bm3d 5.1): and two jobs in flight */
+ * game's next _update runs meanwhile; 2 (bm3d 5.1): and two jobs in flight.
+ * Without the key the queue is on (1); gpu3d_queue=0 turns it off. */
 static int queue_on(void)
 {
     const char *on = config_get("gpu3d_queue");
-    return on && (on[0] == '1' || on[0] == '2') ? on[0] - '0' : 0;
+    return !on ? 1 : (on[0] == '1' || on[0] == '2') ? on[0] - '0' : 0;
 }
 
 static const char *queue_choice(void)

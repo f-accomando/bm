@@ -7,6 +7,7 @@ Tracking for bm3D 3.0-7.3. Rest of the graphics stack: [graphics](graphics.md). 
 - `v3d_start` / `v3d_busy` / `v3d_wait` (`src/gpu/v3d.c`) are async and polled. No IRQ:
   `INTENA` is never written and `src/kernel/irq.h` has no V3D line.
 - Bin then render are sequenced in hardware by a semaphore.
+- Rule: `gpu3d_queue=1` is the default on the Pi (22 Oct). Without the key the runtime and the Settings row use 1. `gpu3d_queue=0` is the off switch and the fallback. The queue works only where the boot probe passes (`gpu3d_queue_ok`). The Mali (RGB30) has no queue. The check of Overbit with queue 0 and 1 is not measured (graphics data comes only from benchmarks).
 - `queue=2` = two job memory blocks (`JOB_BLOCK` / `JOB2_BLOCK`, `gpu3d.c`): the ARM fills
   N+1 while the GPU renders N. `run_async` / `gpu3d_submit` still call `job_wait()` before
   `v3d_start`, so one GPU job runs at a time (`v3d_start` rejects a second).

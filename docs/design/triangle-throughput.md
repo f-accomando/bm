@@ -70,7 +70,8 @@ Gain = more triangles at 60 fps in the tests the option helps. Ranges are *E* un
 - Mechanism: the end of the frame's 3D starts on the GPU. The next `_update` runs while it draws. Exists as `gpu3d_queue=1` (bm3d 4.1). The old proposal `v3d-async-proposal` is this feature (and it is already built). Triple buffering and `v3d_async.c`: skip (finding 8).
 - Helps: tests with GPU time and ARM time of the same size: `mix`, `match`, `heroes`, `spheres`. Little where one side is 4 times the other (`tiny`, `big`, `quad_*`: `A` is 1.5-3 ms, hidden at most).
 - Gain: +11% *(M)* in test `queue` (logic scene). Formula for a scene with no logic: `N_on / N_off = (a + g) / max(a, g)` at `F` small. `mix`: (47 + 138) / 138 = 1.34 (+34%). `heroes_tex`: a = (6.1 - 2.5) ms / 101 376 = 36 ns, g = 82 ns: +44%. `spheres`: a = 43 ns, g = 124 ns: +35%. With the logic `L` of a game (7-9 ms of ARM for 4 M instructions, *E*), `N` is capped by the ARM: `(T - F - L) / a`. Range: **+10% to +45%**. Finding 6 says only half of the GPU time was hidden in test `queue`: use the low end until a scene with logic is measured.
-- Cost: 0 bytes of RAM, 0 lines of code to turn on; about 10 lines to make the Settings default. Risk: late frames; some carts draw after `flush3d`; `rt.no_early`. Overbit with `gpu3d_queue` 0 and 1 is not measured.
+- Cost: 0 bytes of RAM; about 10 lines to make the default. Risk: late frames; some carts draw after `flush3d`; `rt.no_early`. Overbit with `gpu3d_queue` 0 and 1 is not measured (graphics data comes only from benchmarks).
+- Decision (22 Oct): done. `gpu3d_queue=1` is the default on the Pi (V3D). `gpu3d_queue=0` turns it off and is the fallback. See section 7.
 - QEMU test: `make test-queue2d` (same pictures with and without the queue). Extra: add a `queue` row in `tests/qemu_test.py` if none exists (`not verified`).
 - Measure on the Pi: new scene (section 4) with `gpu3d_queue` 0 and 1 and 2: triangles at 60 fps, `ms`, `gpu_ms`, `wait_instr`, `stat(18)`.
 
@@ -192,7 +193,7 @@ Pass line for the plan: every stage in section 5 must raise the report's maximum
 | Stage | PR content | Bench scene shows | Gate |
 |---|---|---|---|
 | 0 | Add the `herotris` scene, `bin_us`/`rnd_us` columns, GPU+VS+A8+Q profile. No driver change. | The baseline, and who is bound (ARM or GPU) at a hero + map load. | Runs in `make test-b3d`; Pi report. |
-| 1 | `gpu3d_queue=1` by default in Settings (Opt 1). Keep `gpu3d_later` off. | `herotris`: GPU+VS+FS2 against GPU+VS+Q. | +10% at least, Overbit played with 0 and 1: no late frames. |
+| 1 | Done (22 Oct): `gpu3d_queue=1` by default (Opt 1). `gpu3d_later` stays off. | `herotris`: GPU+VS+FS2 against GPU+VS+Q. | +10% at least (passed: x1.75). |
 | 2 | `gpu3d_attr=1` by default where `probe_attr` passes (Opt 2a). | `herotris` A8 against plain; `heroes`, `match`. | +3% at least; user decides (v3d.md). |
 | 3 | Draw merging for static map pieces (Opt 3). Count of calls in the scene: 1, 10, 100. | `herotris` with 100 / 10 / 1 map pieces. | Fewer calls, same pixels. |
 | 4 | Compact attributes for lit textured faces (Opt 2b). | `herotris` and `heroes_tex`. | `make test-gpu3d` same pixels; +3% at least. |
@@ -206,7 +207,7 @@ Do stages 1 and 2 first. They cost almost no code and have measured gains. Stage
 1. Stage 0 baseline: `herotris` max triangles at 60 fps, `ms`, `gpu_ms`, `A`, for GPU+VS+FS2, +Q, +Q2, +A8, +A8+Q. Three runs each (noise of `n60` steps is 3-6% in some tests).
 2. `bin_us` and `rnd_us` of a job in `tiny`, `big`, `herotris`. Share of binning in `gpu_ms` (Opt 7). Idle time of the GPU between jobs with queue 2.
 3. Why the queue hides 3.5 of 6.6 ms in test `queue`: time of the ARM wait in `flush3d`, the time from the end of the 3D to `v3d_start`, `stat(16)`/`stat(18)` per frame.
-4. Overbit played at 640x360: `gpu3d_queue` 0 / 1, `gpu3d_attr` 0 / 1; `GPU 3D` ms, triangles drawn, fps. Find why 908 ns a triangle: GPU `gpu_ms` split into fill (`fill_px`, 1.5-2.0 ns/px), setup and 2D.
+4. Overbit played at 640x360 (only if a benchmark asks for it): `gpu3d_queue` 0 / 1, `gpu3d_attr` 0 / 1; `GPU 3D` ms, triangles drawn, fps. Find why 908 ns a triangle: GPU `gpu_ms` split into fill (`fill_px`, 1.5-2.0 ns/px), setup and 2D.
 5. Hardware-culled triangles: the share of back faces in `heroes` and `herotris` (counter `gltris` against `tris`), to know the real GPU load.
 6. Cost of a draw call on the real map: calls a frame, `A` per call, in `herotris` with 1 / 10 / 100 map pieces.
 7. `r3d_impostor` 16 and 32 with far heroes (v3d-notes list), and `herotris` at 480x270.
@@ -226,7 +227,9 @@ Do stages 1 and 2 first. They cost almost no code and have measured gains. Stage
 | GPU+VS+A8+Q | 6.75 | 10364 | 50809 | 13.2 | 7.1 |
 | GPU+VS+Q2 | 6.74 | 10353 | 50755 | 13.3 | 7.1 |
 
-- Opt 1 (queue): x1.75 (3.85 -> 6.74 sets). The range of section 2 was +10% to +45%. The stage 1 gate (+10% at least) passes on `herotris`. The second part of the gate (Overbit played with 0 and 1, no late frames) is not measured.
+- Opt 1 (queue): x1.75 (3.85 -> 6.74 sets). The range of section 2 was +10% to +45%. The stage 1 gate (+10% at least) passes on `herotris`.
+- All tests with profiles GPU and GPU+Q (report `20261022-172217`): the queue never made a test worse. Test `queue`: 83.7 -> 101.5 n60. `big_logic`: 66.0 -> 59.4 ms. `split` and `match`: equal.
+- Decision (22 Oct): `gpu3d_queue=1` is the default on the Pi (V3D). The key stays as the off switch: `gpu3d_queue=0` is the fallback. The Mali (RGB30) has no queue and does not change. The check of Overbit with queue 0 and 1 is not measured (graphics data comes only from benchmarks).
 - Opt 2a (A8): +4.7% without the queue, 0% with it. It stays off.
 - Queue 2 (frame later): no gain over queue 1.
 - Without the queue the frame is ARM-bound (`gpu_ms` 3.9 of 14.9 ms). With the queue it is still ARM-bound (`arm_ms` 12.6, `gpu_ms` 7.1). Opt 7 and the job chain help a GPU-bound frame, so they do not apply at this load.

@@ -52,7 +52,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   `vs_lit_tex`, `vs_lit_tex2`, compact `vs_baked8`, `vs_lit8`, shadows `vs_shadow*`, coordinate `cs_*`, `fs_zclear`.
 - Options (each a `bm/config.txt` key, a Settings row and, for the main ones, an argument of
   `gpu3d([on, aa, vs, queue])`): `gpu3d`, `gpu3d_aa`, `gpu3d_vs` (0/1/2), `gpu3d_queue`
-  (1, 2 = two jobs in flight), `gpu3d_wc`, `gpu3d_2d`, `gpu3d_filter`, `gpu3d_tex16`,
+  (1 = default on the Pi, 0 = off, 2 = two jobs in flight), `gpu3d_wc`, `gpu3d_2d`, `gpu3d_filter`, `gpu3d_tex16`,
   `gpu3d_fs2`, `gpu3d_sort`, `gpu3d_attr`, `gpu3d_etc1`.
 - Textures: RGBA8888 in T-tiles; with `gpu3d_tex16` opaque sheets as RGB565 and cut-out
   sheets (1-bit alpha) as RGBA5551 (bm3d 7.2); with `gpu3d_etc1` opaque sheets as ETC1

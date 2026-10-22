@@ -243,7 +243,7 @@ Each option is a key in `bm/config.txt` and a row in *Settings > Screen and soun
 | `gpu3d` | the GPU draws the 3D (0 = ARM) | on where a V3D answers |
 | `gpu3d_aa` | 4x MSAA | off |
 | `gpu3d_vs` | vertex shader: 0 ARM, 1 scenery, 2 all models | 2 |
-| `gpu3d_queue` | 1: the job starts and the next `_update` runs meanwhile; 2: two jobs in flight | off |
+| `gpu3d_queue` | 1: the job starts and the next `_update` runs meanwhile; 2: two jobs in flight; 0 turns it off | 1 (on) |
 | `gpu3d_later` | each frame shown a frame later (needs `gpu3d_queue=2`) | off |
 | `gpu3d_2d` | 2D over the 3D inside the GPU job | off |
 | `gpu3d_filter` | bilinear textures (the look changes) | off |

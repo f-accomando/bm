@@ -26,7 +26,6 @@ Friday morning:
 - The three tools from the bundle (done).
 
 Friday afternoon:
-- API-3: triangle throughput. Decide the default of `gpu3d_queue` from the benchmark numbers.
 - API-4: run the Video bench on the Pi Zero W (Dev tab, or the monitor line `:video`) and send the RLE565 lines of the report.
 
 Friday after the Mali device runs (done by the SPV through the RGB30 bridge, one session only on the RGB30):
@@ -54,7 +53,7 @@ Friday evening:
 4. Single-bm implementation by the stages of the design: remove the 8 MiB limits (and palette/audio limits), per-system input chips, aspect modes, compat header in bytes 120..127 (change the `memset` in `project.c:143,178,225`).
 5. VID-REC next slices: real 8-bit palette, audio (the RLE565 encoder is done; the Pi numbers are the API-4 item above).
 6. Web player (WEB-1): stages 1 and 2 are done (emsdk is in `~/emsdk` in WSL). Next: stage 3, the browser runner (`-sASYNCIFY`, canvas, keyboard and pad). Plan in `docs/design/bm-web-player.md`.
-7. Triangle throughput: stage 1, make `gpu3d_queue=1` the default in a code change (the benchmark of 22 Oct gave x1.75 on `herotris`; see `docs/design/triangle-throughput.md` section 7). `gpu3d_attr` stays off (decided 22 Oct). The V3D async proposal is decided "skip" (12 Oct, `docs/progress/v3d-notes.md`: interrupts, triple buffering, `v3d_async.c`). `queue=2` and `gpu3d_later` replaced it. Chain jobs (CT0/CT1) only if a measurement shows the GPU idle between jobs.
+7. Triangle throughput: `gpu3d_attr` stays off (decided 22 Oct). The V3D async proposal is decided "skip" (12 Oct, `docs/progress/v3d-notes.md`: interrupts, triple buffering, `v3d_async.c`). `queue=2` and `gpu3d_later` replaced it. Chain jobs (CT0/CT1) only if a measurement shows the GPU idle between jobs.
 8. Evaluate the security findings of `docs/OS-CAPABILITIES.md`: `lua_load(..., NULL)` at `runtime.c:9438` may accept bytecode; default net password is 6 digits from `srand(timer_ticks())` (`netcon.c:183`), plaintext on TCP 3334; carts can `ls` the SD and `cart_read` any `.bm` without a prompt; FAT dates fixed at 2026-01-01 (`fat.c:682`); docs disagree (`docs/progress/b16.md:16` says 4 MiB heap, code 64 MiB; RGB30 menu framebuffer 360x360).
 9. QPU step 4: re-run the `v3d_init` register block after a QPU reset; lock for `v3d_qpu_run` (needs a Pi run).
 10. R41 and R42 only if the R40 numbers (`stat(17)`, `stat(18)`) show a gain.

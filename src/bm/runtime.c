@@ -2003,8 +2003,9 @@ static void gpu3d_maybe(void)
         gpu3d_set_vshader(vs ? atoi(vs) : 2);           /* vertex shader: Settings (0, 1, 2; every model
                                                          * from bm3d 6.6, where the boot's probes saw it) */
         const char *q = config_get("gpu3d_queue");
-        gpu3d_set_queue(q && (q[0] == '1' || q[0] == '2') ? q[0] - '0' : 0);  /* the frame in the queue (bm3d 4.1),
-                                                                                 two jobs in flight (bm3d 5.1) */
+        gpu3d_set_queue(!q ? 1 : (q[0] == '1' || q[0] == '2') ? q[0] - '0' : 0);  /* the frame in the queue (bm3d 4.1,
+                                                                                     on without the key; "0" = off),
+                                                                                     two jobs in flight (bm3d 5.1) */
         const char *wc = config_get("gpu3d_wc");
         gpu3d_set_wc(wc && strcmp(wc, "1") == 0);       /* the jobs' memory uncached (bm3d 4.1): Settings */
         const char *bf = config_get("gpu3d_filter");
