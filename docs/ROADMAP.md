@@ -59,7 +59,6 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 ## Editors and apps
 
-- APP-6 - P1 - to do - Develop a game without a PC. On RGB30 and Pi the SDK makes a project with sprite, map, sounds and code, saves it and builds it. The resources are made inside the SDK pages (the Lib tab is closed by decision). Acceptance test: a person who does not know the bm code makes a game with title, 3 stages and ending (2D and 3D) with the suite tools only. [tools](progress/tools.md) `bm SDK (RGB30)`, [CONSISTENCY](spec/CONSISTENCY.md)
 - M48 - P2 - in progress - Mouse across the whole suite (USB and Bluetooth). Every program selects, draws and navigates with the pointer without a keyboard. [tools](progress/tools.md)
 - M45 - P2 - in progress - bm Write: `.BMD` documents, TXT/MD/HTM/PDF export. A formatted document exported to PDF is identical on the PC. [tools](progress/tools.md)
 - APP-2 - P2 - to do - 3D maps in bm SDK; bm Pixel for stacks (M43 step 3). Done when a 3D map is saved and reloaded. [tools](progress/tools.md) `Mappe 3D in bm SDK`, [suite-sdk](design/suite-sdk.md), [suite-pixel](design/suite-pixel.md)

@@ -6,7 +6,7 @@
 [[accept]]
 id = "platform-menu:tabs"
 kind = "intended"
-because = "the Pi's menu has a Lib tab (resource files, hidden unless lib_tab=1); the RGB30's has none. Accepted 2026-10-22: the Lib tab is closed by the owner's decision (2026-10-06, docs/RISORSE.md section 7); the resources are made inside the SDK pages (APP-6)"
+because = "the Pi's menu has a Lib tab (resource files, hidden unless lib_tab=1); the RGB30's has none. Accepted 2026-10-22: the Lib tab is closed by the owner's decision (2026-10-06, docs/RISORSE.md section 7); the resources are made inside the SDK pages"
 
 [[accept]]
 id = "platform-screen:modes"
