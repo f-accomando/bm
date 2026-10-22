@@ -85,6 +85,11 @@ Complete example: `carts/yharnam`; a small one: `SQUARE_CART` in `tests/qemu_tes
 | `point3d(x, y, z, radius, colour, [flags])` | a round point of that radius in the world, behind the closer things (it does not write the z-buffer): particles, sparks, bullets. `flags` 1 = every other pixel. Returns the pixels |
 | `line3d(x0, y0, z0, x1, y1, z1, colour, [width, flags])` | a 3D line, cut by the near plane and hidden by the closer things: tracers, beams |
 | `sprite3d(sx, sy, sw, sh, x, y, z, width, [flags])` | a rectangle of the sprite sheet facing the camera, `width` units wide in the world, hidden by the closer things: explosions, smoke, icons over the characters |
+| `particles([max])` | creates the cartridge's 3D pool, capacity rounded up to 16 (default 1024); a value above 4096 makes `particles` return 0; returns the capacity; replaces a previous pool |
+| `particles_add(x, y, z, vx, vy, vz, life, [rgb])` | life in updates; returns the slot, the oldest is replaced when full |
+| `particles_step([gravity])` | one step: `vy = vy - g; x = x + vx; y = y + vy; z = z + vz; life = life - 1`. The ARM does the step; a particle with `life <= 0` is not stepped and not drawn, and a cartridge without a pool pays nothing |
+| `particles_draw([radius])` | a point per live particle with `point3d`'s rules; returns the pixels |
+| `particles_count()` | how many live particles are currently in the 3D pool |
 | `camera3d(x, y, z, [yaw, pitch, fov, roll])` | the camera (default at z = −5, fov 60°); `roll` tilts the view (radians) |
 | `light3d(x, y, z, [ambient])` | the light's direction and the ambient light (0–1) |
 | `zclear()` | clears the z-buffer (every frame, before `draw3d`) |

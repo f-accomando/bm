@@ -1,0 +1,72 @@
+html
+  head
+    title
+      "Tables"
+  body
+    "\n"
+    table border="1"
+      "\n"
+      caption
+        "Prices"
+      "\n"
+      tr
+        th
+          "Name"
+        th
+          "Qty"
+        th
+          "Price"
+      "\n"
+      tr
+        td
+          "Apple"
+        td
+          "3"
+        td
+          "1.20"
+      "\n"
+      tr
+        td
+          "Watermelon slice"
+        td
+          "12"
+        td
+          a href="/buy"
+            "buy"
+      "\n"
+      tr
+        td colspan="2"
+          "Spans two"
+        td
+          "x"
+      "\n"
+    "\n"
+    p
+      "Between tables."
+    "\n"
+    table
+      "\n"
+      tr
+        td
+          "This cell has a lot of text that must wrap inside a narrow c..."
+        "\n"
+        td
+          "Second column also has a quite long text to share the width ..."
+      "\n"
+      tr
+        td
+          "short"
+      "\n"
+    "\n"
+    table
+      tr
+        td
+          "one"
+        td
+          "two"
+      tr
+        td
+          "three"
+        td
+          "four"
+    "\n\n"

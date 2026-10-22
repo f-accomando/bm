@@ -31,13 +31,13 @@ A game looks like what is on its sheet. With bm Pixel you draw on the console it
 
 ## Good to know
 
-- There are three pages: **F1** draw, **F2** sheet, **F3** palette. **Esc** opens the menu.
+- There are four pages: **F1** draw, **F2** sheet, **F3** palette, **F4** stack. **Esc** opens the menu.
 - Hold **F12**, or press **?**, to see the keys of the page. **Tab** (on the pad **X**) opens the list of the page's commands.
 - With a mouse, the mouse does what the keys do.
 
 ## Caveats
 
-- bm Pixel edits the sheet and the palette. It does not name zones, draw hitboxes or set tile flags (see the chapters on them).
+- bm Pixel edits the sheet and the palette. It makes only stack zones (F4). It does not name other zones, draw hitboxes or set tile flags (see the chapters on them).
 
 # Opening a file
 
@@ -91,6 +91,23 @@ The whole sheet. The arrows choose a sprite (in the chosen size), **Enter** draw
 
 All the colours, up to 256, with the red, green and blue value of the one chosen. See the chapter on palettes.
 
+## F4: the stack
+
+A *stack zone* is a zone with *n* slices of the same size that lie side by side on the sheet, from left to right. Slice 1 is the bottom. In the cartridge it is the line `stack name x y w h n`; a game draws it with `zstack`. The Stack page shows one slice, zoomed, on the left. On the right it shows the stack zones, a row of small pictures of the slices, and the whole stack as it turns (`stack` with a rotation angle). The stack reads the sheet each frame, so a change to a slice shows at once.
+
+| Key | Action |
+|---|---|
+| left / right | the slice before / after |
+| up / down | the stack zone before / after |
+| PgUp / PgDn | 8 slices |
+| Enter | draw the slice on F1 (square slices only; **F4** comes back) |
+| n | new zone: name, x, y, w, h, n (for example `tree 0 0 16 16 8`) |
+| e | change the zone (the same line; a new name makes a new zone) |
+| p | the stack turns or stops |
+| , and . | turn the stack by hand |
+
+When no stack zone exists, **n** makes the first one. The line starts with the sprite chosen on F1. **Ctrl+S** writes the zones and the slice count (byte 26 of the zone) with the sheet. There is no undo for the zone line. On the pad: left / right the slice, up / down the zone, **A** draw the slice, **B** turn or stop, **X** + left / right turn by hand, **X** (tap) the list of commands.
+
 ## The hitbox preview (j)
 
 Press **j** on F1 or F2 to show or hide the boxes of the `BOXES` section of the file. The message says `hitboxes on (BOXES)` or `hitboxes off`. See the chapter on hitboxes.
@@ -99,7 +116,7 @@ Press **j** on F1 or F2 to show or hide the boxes of the `BOXES` section of the 
 
 | Keys | Action |
 |---|---|
-| Y + left / right | change page |
+| Y + left / right | change page (F4 is a page) |
 | Y + B | menu |
 | Y + A | undo |
 | Y + up / down | the sprite before / after |

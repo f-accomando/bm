@@ -1,0 +1,9 @@
+# Stages 3D (make test-stages3d): A starts, up is held through the three stages, A on the finale and on the record
+5 pad 1 a
+7 pad 1 none
+10 pad 1 up
+700 pad 1 none
+710 pad 1 a
+712 pad 1 none
+760 pad 1 a
+762 pad 1 none

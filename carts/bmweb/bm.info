@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
+# Stage 1 holds the pure Lua parts only (carts/bmweb/src). main.lua comes in stage 2b.
+name: bm Web
+desc: A text web browser for HTML without JavaScript.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 0.1
+tags: tool, web
+resolution: 640x360

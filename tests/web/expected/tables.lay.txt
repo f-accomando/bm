@@ -1,0 +1,69 @@
+page w=240 h=234 lines=28 links=1 images=0 controls=0 forms=0 rects=11 cut=false title="Tables"
+line y=4 h=12
+  t x=102 y=4 w=36 h=12 "Prices" 
+line y=18 h=12
+  t x=44 y=18 w=24 h=12 "Name" b
+line y=18 h=12
+  t x=111 y=18 w=18 h=12 "Qty" b
+line y=18 h=12
+  t x=136 y=18 w=30 h=12 "Price" b
+line y=34 h=12
+  t x=8 y=34 w=30 h=12 "Apple" 
+line y=34 h=12
+  t x=111 y=34 w=6 h=12 "3" 
+line y=34 h=12
+  t x=136 y=34 w=24 h=12 "1.20" 
+line y=50 h=12
+  t x=8 y=50 w=96 h=12 "Watermelon slice" 
+line y=50 h=12
+  t x=111 y=50 w=12 h=12 "12" 
+line y=50 h=12
+  t x=136 y=50 w=18 h=12 "buy" u c=0000ee link=1
+line y=66 h=12
+  t x=8 y=66 w=54 h=12 "Spans two" 
+line y=66 h=12
+  t x=136 y=66 w=6 h=12 "x" 
+line y=92 h=12
+  t x=4 y=92 w=90 h=12 "Between tables." 
+line y=118 h=12
+  t x=7 y=118 w=90 h=12 "This cell has a" 
+line y=118 h=12
+  t x=125 y=118 w=108 h=12 "Second column also" 
+line y=130 h=12
+  t x=7 y=130 w=96 h=12 "lot of text that" 
+line y=130 h=12
+  t x=125 y=130 w=96 h=12 "has a quite long" 
+line y=142 h=12
+  t x=7 y=142 w=108 h=12 "must wrap inside a" 
+line y=142 h=12
+  t x=125 y=142 w=102 h=12 "text to share the" 
+line y=154 h=12
+  t x=7 y=154 w=96 h=12 "narrow column of" 
+line y=154 h=12
+  t x=125 y=154 w=84 h=12 "width with the" 
+line y=166 h=12
+  t x=7 y=166 w=54 h=12 "the table" 
+line y=166 h=12
+  t x=125 y=166 w=30 h=12 "first" 
+line y=182 h=12
+  t x=7 y=182 w=30 h=12 "short" 
+line y=204 h=12
+  t x=7 y=204 w=18 h=12 "one" 
+line y=204 h=12
+  t x=43 y=204 w=18 h=12 "two" 
+line y=220 h=12
+  t x=7 y=220 w=30 h=12 "three" 
+line y=220 h=12
+  t x=43 y=220 w=24 h=12 "four" 
+rect border 4,16,103,16 c=808080
+rect border 107,16,25,16 c=808080
+rect border 132,16,37,16 c=808080
+rect border 4,32,103,16 c=808080
+rect border 107,32,25,16 c=808080
+rect border 132,32,37,16 c=808080
+rect border 4,48,103,16 c=808080
+rect border 107,48,25,16 c=808080
+rect border 132,48,37,16 c=808080
+rect border 4,64,128,16 c=808080
+rect border 132,64,37,16 c=808080
+link 1 https://example.test/buy "buy" boxes=136,50,18,12
