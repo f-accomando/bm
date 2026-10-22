@@ -354,6 +354,23 @@ def test_console_ansi_and_status(b, opts):
         q.close()
 
 
+def test_fiber_measure(b, opts):
+    """Multitasking stage 1 (measurement): a job that spins 8 ms without a yield logs
+    "did not yield", and the job report prints the stack high-water mark (fiber.c)."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        out = q.diagnostics()
+        plain = re.sub(rb"\x1b\[[0-9;]*m", b"", out).decode(errors="replace")
+        m = re.search(r"fiber: selftest did not yield: (\d+)\.\d ms past its slice", plain)
+        assert m and int(m.group(1)) >= 5, f"no 'did not yield' line:\n{plain[-1500:]}"
+        m = re.search(r"fiber selftest: ok: selftest \d+ ms \(\+\d+\.\d, stk (\d+)\.(\d)/8K\)", plain)
+        assert m, f"no ok line with the stack mark:\n{plain[-1500:]}"
+        assert 2.0 <= int(m.group(1)) + int(m.group(2)) / 10 < 4.0, m.group(0)
+    finally:
+        q.close()
+
+
 def test_pager(b, opts):
     """'h' is longer than the screen: it scrolls (s / arrows) and q returns;
     'o' shows everything printed since boot, from the first line."""

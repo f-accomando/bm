@@ -30,6 +30,20 @@ fibers probably off or used differently (job per core, real threads for download
   sd retried/timed out; leaving the Market tab during a write still installs; a kernel from the PC
   (`bm_net.py --kernel`) must not report a freeze at the next boot; no "no job" line every 5 s.
 
+## Measurement build (stage 1 of docs/design/multitasking-alternatives.md; no behavior change, 2026-10-22)
+- Stack high-water per job: the stack is painted at its first allocation (`fiber_job_start`);
+  `fiber_jobs_report` scans it and prints `stk 3.4/16K` after `(+x.y` in the `menu idle:` line.
+- `fiber_over` flag: `fiber_tick()` (in the 1 kHz tick hook, Pi and RGB30) sets it when the running
+  fiber is past its slice. `fiber_job_run` logs `fiber: <job> did not yield: x.y ms past its slice`
+  for a slice over `FIBER_STALL_US` (5 ms), once for each new record of a job.
+- `menu stalls:` line (after `menu idle:`, same window): TLS handshake (`tls.c`), `release_verify`
+  and `release_check_file` (`update.c`): count, last and worst ms, KiB hashed (`src/kernel/stalls.h`).
+- Boot diagnostics (monitor B) run `fiber_selftest()`; QEMU test `test_fiber_measure`.
+- Pi numbers not collected. To collect with this build (section 6 of the design doc): 1 handshake ms
+  (`menu stalls:`), 2 verify ms (`menu stalls:`), 3 hash speed (`menu stalls:` file hash KiB / ms),
+  5 worst `+x` per job (`menu idle:`), 6 stack `stk` per job after a full Market session and a report.
+  Items 4 and 7-12 need other measurements.
+
 ## Open
 - A download inside a tool or game (jobs stop before an app: `background_stop`, `market_set_active(0)`;
   a fetch starts at byte 0, no `Range`, one request per connection, wall-clock read timeouts): needs

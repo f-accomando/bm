@@ -6,11 +6,13 @@
 #include <string.h>
 
 #define GUARD 0xF1BE5AFEu
+#define PAINT 0x57ACC0DEu      /* unused stack of a job (high-water mark) */
 
 void fiber_switch(uint32_t **save, uint32_t *load);
 void fiber_start(void);
 
-static fiber_t *current;
+static fiber_t *volatile current;     /* read by the tick (fiber_tick) */
+volatile uint8_t fiber_over;
 
 static void fiber_main(fiber_t *f)
 {
@@ -59,6 +61,7 @@ int fiber_resume(fiber_t *f)
     if (f->done || current)
         return !f->done;
     current = f;
+    fiber_over = 0;
     fiber_switch(&f->back, f->sp);
     current = NULL;
     for (int i = 0; i < 16; i++)
@@ -79,6 +82,14 @@ void fiber_yield(void)
     current = NULL;
     fiber_switch(&f->sp, f->back);
     current = f;
+}
+
+/* In the 1 kHz tick (IRQ): one timer read, and a store when the running fiber is late. */
+void fiber_tick(void)
+{
+    fiber_t *f = current;
+    if (f && (int32_t)(timer_ticks() - f->until) >= 0)
+        fiber_over = 1;
 }
 
 fiber_t *fiber_current(void)
@@ -126,6 +137,9 @@ int fiber_job_start(fiber_job_t *j, size_t stack, void (*fn)(void *), void *arg)
         if (!(j->stack = malloc(stack)))
             return -1;
         j->size = stack;
+        /* painted once: the report finds how far down the stack went (never repainted) */
+        for (size_t i = 16; i < stack / 4; i++)
+            ((uint32_t *)j->stack)[i] = PAINT;
         if (njobs < JOBS_MAX)
             jobs[njobs++] = j;
     }
@@ -139,6 +153,9 @@ static void account(fiber_job_t *j, uint32_t t0, uint32_t until)
 {
     const uint32_t now = timer_ticks();
     const int32_t over = (int32_t)(now - until);
+    if (fiber_over && over > (int32_t)FIBER_STALL_US && over > (int32_t)j->longest)
+        kprintf("fiber: %s did not yield: %lu.%lu ms past its slice\n", j->name ? j->name : "job",
+                (unsigned long)(over / 1000), (unsigned long)(over / 100 % 10));
     j->took += now - t0;
     if (over > (int32_t)j->worst)
         j->worst = (uint32_t)over;
@@ -212,6 +229,18 @@ int fiber_jobs_report(char *buf, size_t n)
             k += (size_t)ksnprintf(buf + k, n - k, "%s%s %lu ms (+%lu.%lu", any ? ", " : "",
                                    j->name ? j->name : "job", (unsigned long)(j->took / 1000),
                                    (unsigned long)(j->worst / 1000), (unsigned long)(j->worst / 100 % 10));
+        if (n > k) {
+            /* the stack: from the first word below the top that is not paint */
+            const uint32_t *w = (const uint32_t *)j->stack;
+            size_t i = 16;
+            while (i < j->size / 4 && w[i] == PAINT)
+                i++;
+            const size_t used = j->size - i * 4;
+            if (used > j->hw)
+                j->hw = (uint32_t)used;
+            k += (size_t)ksnprintf(buf + k, n - k, ", stk %lu.%lu/%luK", (unsigned long)(j->hw / 1024),
+                                   (unsigned long)(j->hw * 10 / 1024 % 10), (unsigned long)(j->size / 1024));
+        }
         if (n > k && j->stopped)
             k += (size_t)ksnprintf(buf + k, n - k, ", stop %lu.%lu", (unsigned long)(j->stopped / 1000),
                                    (unsigned long)(j->stopped / 100 % 10));
@@ -221,4 +250,30 @@ int fiber_jobs_report(char *buf, size_t n)
         j->took = j->worst = j->stopped = 0;
     }
     return any;
+}
+
+/* Boot diagnostics (measurement build): a job that spins 8 ms with no yield and uses 2 KiB of
+ * stack. The tick must set fiber_over, the report must print the stack, the log must show
+ * "did not yield". */
+static void selftest_spin(void *arg)
+{
+    (void)arg;
+    volatile uint8_t pad[2048];
+    for (size_t i = 0; i < sizeof pad; i += 64)
+        pad[i] = (uint8_t)i;
+    for (uint32_t t0 = timer_ticks(); timer_ticks() - t0 < 8000;)
+        ;
+}
+
+int fiber_selftest(void)
+{
+    static fiber_job_t job = {.name = "selftest"};
+    char rep[96];
+    if (fiber_job_start(&job, 8192, selftest_spin, NULL) != 0)
+        return 1;
+    fiber_job_run(&job, timer_ticks() + 1000);
+    const int ran = fiber_jobs_report(rep, sizeof rep);
+    const int ok = ran && !job.busy && job.longest >= FIBER_STALL_US && job.hw >= 2048 && job.hw < 4096;
+    kprintf("fiber selftest: %s\x1b[0m: %s\n", ok ? "\x1b[92mok" : "\x1b[91mFAILED", ran ? rep : "no report");
+    return !ok;
 }
