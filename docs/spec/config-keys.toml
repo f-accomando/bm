@@ -104,11 +104,20 @@ read_in = "src/bt/bt.c:217"
 [[key]]
 name = "confirm"
 scope = "rgb30"
-values = "a or A = A confirms and B goes back; anything else = B confirms, A goes back"
-default = "B confirms, A goes back"
+values = "a or A = A confirms and B goes back; anything else = B confirms, Y goes back"
+default = "B confirms, Y goes back"
 meaning = "Confirm button of the RGB30 menus."
-settings = "Settings > Controllers > Confirm button"
-read_in = "src/rgb30/pad.c:14"
+settings = "Settings > Controls > Pause and menus > OK (mo of controls=)"
+read_in = "src/rgb30/pad.c:pad_config"
+
+[[key]]
+name = "controls"
+scope = "both"
+values = "space-separated code:button pairs: c1-c4 (scroller), t1-t4 (top-down), s1-s8 (stick), pa (pause), mo and mc (the RGB30 menus' OK and Cancel: a b x y); buttons a b x y l1 r1 l2 r2 st se"
+default = "empty: every action on the game's own button"
+meaning = "The player's remap of the game buttons (CONTROLS-1); mo wins over confirm=."
+settings = "Settings > Controls"
+read_in = "src/kernel/controls.c:controls_get"
 
 [[key]]
 name = "dma_zclear"
