@@ -17,6 +17,11 @@ typedef struct {
     char url[512];              /* after redirects (cut short if longer) */
     char location[256];         /* the last Location header seen (a redirect followed or refused) */
     char error[192];            /* when the request itself failed */
+    char validator[96];         /* ETag (a strong one), else Last-Modified: for If-Range */
+    long long range_start;      /* Content-Range of a 206: first byte, else -1 */
+    long long range_total;      /* ... and the whole size (-1 if "*" or none) */
+    int ranges;                 /* the answer had "Accept-Ranges: bytes" */
+    int reused;                 /* the answer came over a connection kept from before */
 } http_info_t;
 
 /* The body in pieces; a non-zero return stops the transfer. */
@@ -36,12 +41,29 @@ typedef struct {
      * about to be opened. Non-zero stops the request: it fails with the text put in err. */
     int (*before)(void *ctx, const char *url, char *err, size_t err_len);
     void *before_ctx;
+    /* Keep-alive (multitasking stage 4): 1 keeps the connection after a complete answer (a
+     * length or chunks, no "Connection: close") and uses it for the next request with
+     * keep_alive to the same host, port and scheme. One connection is kept; a request to
+     * another host closes it. A connection that the server closed meanwhile is opened again
+     * once, when the request could not be sent or no answer byte came (as curl does). */
+    int keep_alive;
+    /* Range resume (stage 5): range_from > 0 asks for "Range: bytes=N-"; if_range (an ETag
+     * or a date, or NULL) is sent as If-Range, so a changed file comes back whole (200). */
+    long long range_from;
+    const char *if_range;
+    /* Called once the final answer's headers are read (not for a redirect), before the body.
+     * Non-zero stops the request: it returns with the status and info->error "stopped...". */
+    int (*on_headers)(void *ctx, const http_info_t *info);
+    void *on_headers_ctx;
 } http_req_t;
 
 /* Returns the HTTP status (>= 100), or -1 with info->error set. req may be
  * NULL (a plain GET). */
 int http_request(const char *url, const http_req_t *req, http_sink_t sink, void *ctx,
                  http_info_t *info);
+
+/* Closes the connection kept by keep_alive, if any (a cartridge ends, a long pause). */
+void http_idle_close(void);
 
 /* A GET into a malloc'd buffer (NUL-terminated, at most max bytes); the
  * caller frees *data. */

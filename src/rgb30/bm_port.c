@@ -18,26 +18,64 @@
 #include "usb/usb.h"
 #include "lua.h"
 #include "lauxlib.h"
+#include "gputest_rgb30.h"
+#include "mali.h"
+#include "kernel/config.h"
 
 #include <string.h>
 
-/* --- the V3D: absent, so r3d draws on the ARM --- */
+/* --- the 3D GPU: the V3D is absent, so r3d draws on the ARM; with mali3d=1 in bm/config.txt the Mali (M41, phase 2)
+ * draws the flat-coloured triangles, the ARM the rest (see mali_backend in mali.c) --- */
 
-int gpu3d_init(void)                                    { return -1; }
-const char *gpu3d_status(void)                          { return "no GPU driver on the RGB30 yet"; }
-int gpu3d_ready(void)                                   { return 0; }
-int gpu3d_failed(void)                                  { return 1; }
-const r3d_backend_t *gpu3d_backend(void)                { return NULL; }
+static const r3d_backend_t *mali_be;
+/* The key is read on every init (the 3D Bench switches it on and back): off drops the backend and what it holds, on probes
+ * the Mali once (a probe that failed is not repeated) and keeps the backend while the key stays on. */
+int gpu3d_init(void)
+{
+    const char *k = config_get("mali3d");
+    if (!k || strcmp(k, "1")) {
+        if (mali_be)
+            mali_backend_drop();
+        mali_be = NULL;
+        return -1;
+    }
+    if (mali_be)
+        return 0;
+    const mali_hw_t *hw = rgb30_mali_hw();
+    int r = hw ? rgb30_gpu_result(NULL) : MALI_E_POWER;     /* 1: not probed yet; a failure stays until the next boot */
+    if (r == 1)
+        r = rgb30_mali_probe();
+    if (r != MALI_OK)
+        return -1;
+    mali_be = mali_backend(hw);
+    return mali_be ? 0 : -1;
+}
+const char *gpu3d_status(void)
+{
+    return mali_be ? "the Mali draws flat colours (mali3d=1)" : "no GPU driver on the RGB30 yet";
+}
+int gpu3d_ready(void)                                   { return mali_be != NULL; }
+int gpu3d_failed(void)                                  { return mali_be == NULL; }
+const r3d_backend_t *gpu3d_backend(void)                { return mali_be; }
 void gpu3d_set_fb(const void *mem, uint32_t size, uint32_t bus)
 {
     (void)mem; (void)size; (void)bus;
 }
 void gpu3d_set_size(int w, int h)                       { (void)w; (void)h; }
-int gpu3d_pending(void)                                 { return 0; }
+int gpu3d_pending(void)                                 { return mali_be ? mali_backend_pending() : 0; }
 void gpu3d_page(int uniform, uint16_t c)                { (void)uniform; (void)c; }
 int gpu3d_cleared(void)                                 { return 0; }
-void gpu3d_drop(void)                                   { }
-int gpu3d_flush(const g16_t *g, int keep)               { (void)g; (void)keep; return 0; }
+void gpu3d_drop(void)
+{
+    if (mali_be)
+        mali_backend_drop();
+}
+/* (the page's px is writable through the const struct: g16_t holds it by pointer) */
+int gpu3d_flush(const g16_t *g, int keep)
+{
+    (void)keep;
+    return mali_be ? mali_backend_flush((g16_t *)g) : 0;
+}
 int gpu3d_submit(const g16_t *g, int keep)              { (void)g; (void)keep; return 0; }
 int gpu3d_sync(void)                                    { return 0; }
 int gpu3d_sync_page(const void *px)                     { (void)px; return 0; }

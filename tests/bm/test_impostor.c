@@ -492,8 +492,8 @@ static void sizes(void)
     free(b.px);
 }
 
-/* cel light (bm3D 7.4): a lit mesh drawn with R3D_CEL goes to the ARM's lighting also on the GPU
- * (vertex shader 2 has no cel cut): the same bands as the ARM's picture, not the smooth light */
+/* cel light (bm3D 7.4, 7.5): a lit mesh drawn with R3D_CEL has the same bands on the GPU (the vertex
+ * programs cut the light; the ARM lights it where the probe says no) as on the ARM, not the smooth light */
 static void cel_scene(void)
 {
     g16_cls(&g, g16_rgb(10, 10, 30));

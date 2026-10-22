@@ -81,7 +81,7 @@ the Pi's numbers with the earlier drivers are the historical bars.
   `bilinear`: quads with filtered textures (bm3D 4.9, an option off by default);
 - `big`, `big_logic`: models of 10 080 triangles on a map of 14 112 (larger indexed meshes, bm3D 5.0), the second with the
   logic of `queue`;
-- the 2D scenes `map8`, `sprites`, `stack`, `fade`, `light` (see *The 2D scenes*) `herotris` and `cel` (see *herotris*): they run only when `tests=` names them.
+- the 2D scenes `map8`, `sprites`, `stack`, `fade`, `light` (see *The 2D scenes*), `herotris` and `cel` (see *herotris*): they run only when `tests=` names them.
 
 The maximum loads are far beyond what the drivers do today (up to 8000 spheres, 512
 heroes, 40 000 calls): they leave headroom for the drivers to come.
@@ -304,30 +304,31 @@ had nothing to overlap. The `Q`, `Q2` and `VSAQ` rows of `herotris` are now diff
 
 ### The cel shader (Q2)
 
-`cel` is an opt-in group of four tests, the same scene: `n` heroes (the textured hero, 1536 triangles, 16 bones, lit by the sun) in
-rows of 8. Profiles: `ARM` and `GPU+VS`.
+`cel` is an opt-in group of five tests, the same scene: `n` heroes (the textured hero, 1536 triangles, 16 bones, lit by the sun) in
+rows of 8. Profiles: `ARM` and `GPU+VS` (and `GPU+VS+FS2`, the driver as games get it).
 
 | Test | Light | Dither of the ARM raster |
 |---|---|---|
 | `cel_lit` | the sun, no cel | on |
-| `cel` | cel, 4 bands (`r3d_cel`, floor 0.35, no outline) | on |
+| `cel` | cel, 4 bands (`r3d_cel`, floor 0.35), flag `R3D_CEL` | on |
 | `cel_lit_nd` | the sun, no cel | off (`r3d_dither(0)`) |
 | `cel_nd` | cel, 4 bands | off |
+| `cel_outline` | the sun, no cel, outline: flag `R3D_OUTLINE`, colour 0x2030A0, width 0.03 (the inverted hull) | on |
 
 ```
 ./easy_install.sh line "gpu; b3d tests=cel; send"
 ```
 
-`tests=cel` runs the four. A cel draw forces the ARM path (`r3d.c`: the QPU programs have no cel cut yet), so on `GPU+VS` the lit hero goes
-through the mesh path and the cel hero does not: the `GPU+VS` rows show what the fall back costs. After the `H` lines the report has
-the `C` lines, one for each profile and n from 1 to 4 (the same steps in the four tests):
+`tests=cel` runs the five. Since bm3d 7.5 the vertex programs of `GPU+VS` cut the light, so the cel hero keeps the mesh path there.
+`cel_outline` draws the mesh again as a hull: its ms against `cel_lit` is the cost of the outline. The `ARM` rows are the ARM raster.
+After the `H` lines the report has the `C` lines, one for each profile and n from 1 to 4 (the same steps in the five tests):
 
 ```
-columns C,profile,n,tris,lit,cel,lit_nd,cel_nd,cel_over_lit,cel_nd_over_lit_nd
+columns C,profile,n,tris,lit,cel,lit_nd,cel_nd,outline,cel_over_lit,cel_nd_over_lit_nd,outline_over_lit
 ```
 
-`lit`, `cel`, `lit_nd`, `cel_nd` are the ms a frame of the four tests. `-1.00` is a step that did not run. The ratios are `cel / lit`
-and `cel_nd / lit_nd`. The `R` lines of the four tests have the usual fields (`n60` is the heroes at 60 fps).
+`lit`, `cel`, `lit_nd`, `cel_nd`, `outline` are the ms a frame of the five tests. `-1.00` is a step that did not run. The ratios are
+`cel / lit`, `cel_nd / lit_nd` and `outline / lit`. The `R` lines of the tests have the usual fields (`n60` is the heroes at 60 fps).
 
 ### Both together
 

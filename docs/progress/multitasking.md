@@ -30,48 +30,37 @@ fibers probably off or used differently (job per core, real threads for download
   sd retried/timed out; leaving the Market tab during a write still installs; a kernel from the PC
   (`bm_net.py --kernel`) must not report a freeze at the next boot; no "no job" line every 5 s.
 
-## Measurement build (stage 1 of docs/design/multitasking-alternatives.md; no behavior change, 2026-10-22)
-- Stack high-water per job: the stack is painted at its first allocation (`fiber_job_start`);
-  `fiber_jobs_report` scans it and prints `stk 3.4/16K` after `(+x.y` in the `menu idle:` line.
-- `fiber_over` flag: `fiber_tick()` (in the 1 kHz tick hook, Pi and RGB30) sets it when the running
-  fiber is past its slice. `fiber_job_run` logs `fiber: <job> did not yield: x.y ms past its slice`
-  for a slice over `FIBER_STALL_US` (5 ms), once for each new record of a job.
-- `menu stalls:` line (after `menu idle:`, same window): TLS handshake (`tls.c`), `release_verify`
-  and `release_check_file` (`update.c`): count, last and worst ms, KiB hashed (`src/kernel/stalls.h`).
-- Boot diagnostics (monitor B) run `fiber_selftest()`; QEMU test `test_fiber_measure`.
-- Pi numbers not collected. To collect with this build (section 6 of the design doc): 1 handshake ms
-  (`menu stalls:`), 2 verify ms (`menu stalls:`), 3 hash speed (`menu stalls:` file hash KiB / ms),
-  5 worst `+x` per job (`menu idle:`), 6 stack `stk` per job after a full Market session and a report.
-  Items 4 and 7-12 need other measurements.
-
-## Stage 2: hash steps (stage 2 of the design doc, 2026-10-22)
-- `release_check_file` (`src/net/release.c`) hashes in 16 KiB pieces and calls `release_hash_tick`
-  between them; `update_start` sets it to `fiber_slice` (like `catalog_hash_tick` in `market.c`).
-  Same digest and errors; with no hook (host, main loop) it runs through.
-- `fiber_budget_us()` (`fiber.h`): microseconds left in the slice, 0 when over, `UINT32_MAX`
-  outside a fiber (no budget). One `timer_ticks` read. No caller sizes pieces with it yet.
-- Hash while receiving: not done. `fetch` in `update.c` also reads from the SD card, and a piece
-  hash in the HTTP sink would run inside the receive path. Only the chunked hash is in.
-- Tests: `make test-release` (6 MB file: 383 hook calls, same digest as one-shot, changed byte and
-  short file refused); `test_fiber_measure` checks `fiber_budget_us` (in a slice, over a slice,
-  outside a fiber).
-- Pi timing not measured. To collect: worst `+x` of the `update` job during a full install
-  (`menu idle:`), and hash speed from the `hash` line of `menu stalls:` (it times the whole check, yields included).
+## Stages 1-5 of the plan
+Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Range resume (5) are done. The detail, the tests and the Pi numbers still to collect are in [multitasking-stages](multitasking-stages.md). The rules they add are in `## Rules (do not break)` below.
 
 ## Open
 - A download inside a tool or game (jobs stop before an app: `background_stop`, `market_set_active(0)`;
-  a fetch starts at byte 0, no `Range`, one request per connection, wall-clock read timeouts): needs
-  a pause keeping the bytes + `Range` resume (catalog SHA-256 checks the whole), a `FIBER_TOOL` call
-  in `runtime.c` `present()` before its vsync wait, SD writers kept apart (a game save and a fiber
-  write may already meet: `store()`), RAM for 128 KiB stacks. Games: opt-in only, never lockstep.
+  the Market fetch starts at byte 0 and has no `Range` yet; wall-clock read timeouts): needs the part file of
+  stage 5 in `market.c` (catalog SHA-256 checks the whole) and a `FIBER_TOOL` call
+  in `runtime.c` `present()` before its vsync wait, RAM for 128 KiB stacks. Games: opt-in only, never lockstep.
 - Still holding the CPU: TLS handshake (one per HTTPS request), ECDSA verify of a catalog or
   release (needs mbedTLS restartable ECC), a decoded cover, a directory growing by one
   cluster (written sector by sector).
-- TLS session reuse for the 3 requests of a report (proposal: 2-4 `mbedtls_ssl_session` cached
-  by host:port in `tls.c`, `MBEDTLS_SSL_SESSION_TICKETS`, ~60+40 lines; or HTTP keep-alive).
-- Synchronous menu SD writes (`config_save`) vs a paused netxfer write at card wrap-around: `netxfer.h` says pause first, Settings does not.
+- TLS session reuse for a new connection (proposal: 2-4 `mbedtls_ssl_session` cached
+  by host:port in `tls.c`, `MBEDTLS_SSL_SESSION_TICKETS`, ~60+40 lines). Keep-alive is in; do it only if the handshake time
+  per new connection on the Pi justifies it.
+- Pi numbers for stages 3-5: handshakes per report (before 3, now 1), the longest frame during a queued `file_write`
+  of 4 MiB (`menu stalls:` is menu only; use a cart that logs `timer_ticks`), `Accept-Ranges` and 206 of the catalog host
+  and the release CDN, the real cost of a part file save of 4 MiB.
 - Failing tests: RGB30 `test_update_from_sd` flaky,
   `make test-net` link failure in `test_config` (pre-existing).
+## Rules (do not break)
+- Every SD write from a cartridge, the settings or a fiber that gives the CPU back goes through `sd_writer_begin` /
+  `sd_writer_end` (or `sd_write_file`). A writer that gives the CPU back registers a pause hook and is safe to stop at
+  any tick; it starts again from its first byte.
+- `sd_writer_begin` never pauses another writer from inside a fiber: the hook runs fibers.
+- A queued write keeps its own copy of the data (the web slot may be freed meanwhile); at most 4 jobs.
+- Keep-alive is opt-in per request (`keep_alive`). The kept connection is closed at `web_reset`; a request to another host closes it.
+  A request that fails on a reused connection before any answer byte is sent again once on a new one.
+- A part file is written only when the server sent `Accept-Ranges` (or 206) and a size, and is checked by the address hash and the total.
+  The whole file is checked by the caller (SHA-256 or size).
+- The limits of the web API stay: https only, 3 redirects, 1 s per host, 4 MiB `web_get`, 8 MiB `file_write`, 128 files (a part file counts), no `.bm`/`.bme`/`.b16`.
+
 ## Considerations
 - Triage of the failing tests (cause, evidence, owner) and the roadmap cleanup list for open PRs 80-100: [`docs/design/triage-and-roadmap-cleanup.md`](../design/triage-and-roadmap-cleanup.md).
 - Alternatives to R49 for every Open item, ranked, with a staged plan and Pi numbers to collect: [`docs/design/multitasking-alternatives.md`](../design/multitasking-alternatives.md).

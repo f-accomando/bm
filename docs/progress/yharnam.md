@@ -52,3 +52,8 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 - **To be completed**:
   - Constrain each house within its own 16×16 block.
   - The boundaries of named areas still live in `MAP.areas` in the code: consider moving them to map file metadata.
+
+## 4. Map on the Pi (moved from tools)
+- Map on the Pi: open `yharnam.bm` in the SDK, F3 F3, edit ground,lamps/barricades/gates/bosses on `objects`,
+  Ctrl+S (`YHARNAM.BME`, about 6 MB), F5; then `mkmap.py --from` and commit the CSVs. A house
+  stays in its 16×16-tile block.

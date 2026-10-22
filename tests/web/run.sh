@@ -18,4 +18,11 @@ else
     ${CC:-cc} -O2 -w -Ithird_party/lua -o "$LUA" tests/kitchen/luahost.c third_party/lua/*.c -lm
   fi
 fi
-exec "$LUA" tests/web/run.lua "$@"
+"$LUA" tests/web/run.lua "$@"
+# The cart (stages 2b-5): the browser state, loader, downloads and view against a mock kernel.
+J="${TMPDIR:-/tmp}/bmweb-joined-$$.lua"
+python3 carts/bmweb/build/build.py "$J" 2>/dev/null || python carts/bmweb/build/build.py "$J"
+BMWEB_MAIN="$J" "$LUA" tests/web/cart.lua
+rc=$?
+rm -f "$J"
+exit $rc

@@ -182,7 +182,7 @@ static int call(gh_t *g, const char *method, const char *path, const char *json,
     memset(&g->body, 0, sizeof g->body);
     g->body.max = 1 << 20;
     http_req_t req = { .method = method, .headers = head, .body = json, .body_len = json_len,
-                       .timeout_ms = json_len > 65536 ? 90000 : 20000, .any_status = 1 };
+                       .timeout_ms = json_len > 65536 ? 90000 : 20000, .any_status = 1, .keep_alive = 1 };
     http_info_t info;
     int st = http_request(url, &req, to_body, &g->body, &info);
     g->status = st;

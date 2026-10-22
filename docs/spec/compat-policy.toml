@@ -1,0 +1,97 @@
+# Compat policy: what a kernel does with a cartridge it may not be made for. EDITABLE DATA, not code.
+# Decided 22 Oct 2026 (docs/design/single-bm-and-adaptive-screen.md, decisions 1 and 4): the rule is one table.
+# A new kernel or a new rule changes this file, not the client. Grey is not a lock: the user may start a greyed
+# cart after a confirm. Read by scripts/bm_weight.py (load_policy, classify). Not read by the kernel or the Market yet.
+#
+# [[kernel]]  id          kernel name as in docs/spec/platforms.toml
+#             default_action / default_reason   used when no rule of that kernel matches
+# [[rule]]    kernel      id of a [[kernel]]
+#             action      what the local menu (Games, Apps) does: show, grey or hide
+#             market_action   optional, what the Market list does; default = action
+#             reason      short text the user reads next to a greyed or hidden item
+#             Match keys (all optional; every key present must match; the FIRST matching rule of the kernel wins):
+#               edition = "bm" | "b16" | "project"   from the header flags: bit 1 = b16, bit 0 = project (docs/BM-FORMAT.md)
+#               res = ["640x360", ...]               the cartridge size in the header
+#               uses_3d = true | false               the cart has a MESH section
+#               audio_bytes_over = N                 the AUDIO section is larger than N bytes
+#               size_over_mib = N                    the file is larger than N MiB
+
+[[kernel]]
+id = "pi-zero-w"
+name = "Raspberry Pi Zero W (kernel.img)"
+default_action = "show"
+default_reason = "made for this kernel"
+
+[[kernel]]
+id = "rgb30"
+name = "PowKiddy RGB30 (kernel8.img)"
+default_action = "show"
+default_reason = "made for this kernel"
+
+# A project is edited by the tools. It is not a game.
+[[rule]]
+kernel = "pi-zero-w"
+edition = "project"
+action = "hide"
+reason = "a .bme project is opened by the editors, not started as a game"
+
+[[rule]]
+kernel = "rgb30"
+edition = "project"
+action = "hide"
+reason = "a .bme project is opened by the editors, not started as a game"
+
+# An old .bm is for the Pi only (decided 22 Oct). Grey, with the reason; the user can start it after a confirm.
+[[rule]]
+kernel = "rgb30"
+edition = "bm"
+action = "grey"
+market_action = "grey"
+reason = "made for the Pi Zero W only"
+
+# The sound bank limit of the kernel today: 1,048,576 PCM values (2 MiB). 8,388,608 is decided and not built.
+[[rule]]
+kernel = "pi-zero-w"
+audio_bytes_over = 2097152
+action = "grey"
+reason = "the sound bank may pass the PCM limit of this kernel (1,048,576 values)"
+
+[[rule]]
+kernel = "rgb30"
+audio_bytes_over = 2097152
+action = "grey"
+reason = "the sound bank may pass the PCM limit of this kernel (1,048,576 values)"
+
+# The Market ceiling is 100 MiB per file (src/net/catalog.h). The local menu has no size limit.
+[[rule]]
+kernel = "pi-zero-w"
+size_over_mib = 100
+action = "show"
+market_action = "hide"
+reason = "over the Market ceiling of 100 MiB"
+
+[[rule]]
+kernel = "rgb30"
+size_over_mib = 100
+action = "show"
+market_action = "hide"
+reason = "over the Market ceiling of 100 MiB"
+
+# The old .b16 runs on the Pi and on the RGB30 (decided 22 Oct, option 1).
+[[rule]]
+kernel = "pi-zero-w"
+edition = "b16"
+action = "show"
+reason = "the Pi plays .b16 (carts.c lists it)"
+
+[[rule]]
+kernel = "rgb30"
+edition = "b16"
+action = "show"
+reason = "the RGB30 plays .b16 by default"
+
+[[rule]]
+kernel = "pi-zero-w"
+edition = "bm"
+action = "show"
+reason = "an old .bm is for the Pi"

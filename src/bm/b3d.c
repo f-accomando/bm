@@ -815,31 +815,38 @@ static void herotris_probe(int *gl, int *meshes)
 
 /* ------------------------------------------------- cel (opt-in)
  * Q: what the cel shader costs on top of the lit hero. The scene is `heroes` with the textured hero
- * (1536 triangles, 16 bones, lit by the sun): n heroes in rows of 8. Four tests, the same scene:
- * lit or cel (4 bands), with the ARM raster's dither on or off (r3d_dither). A cel draw is lit
- * on the ARM (r3d.c: the QPU programs have no cel cut), so the GPU+VS row shows the fall back. The
- * report's C lines give the ms of the same n in the four tests. */
+ * (1536 triangles, 16 bones, lit by the sun): n heroes in rows of 8. Five tests, the same scene:
+ * lit or cel (4 bands), with the ARM raster's dither on or off (r3d_dither). The vertex programs
+ * of GPU+VS cut the light (bm3d 7.5); the ARM and the Mali keep the ARM path. `cel_outline` is the lit
+ * hero with the outline: flag R3D_OUTLINE, colour 0x2030A0, width 0.03, the mesh again as an inverted hull.
+ * The report's C lines give the ms of the same n in the five tests. */
 
-static int cel_bands, cel_dither_off;
+static int cel_bands, cel_dither_off, cel_outline;
 
-static void cel_on_(int bands, int dither_off)
+static void cel_on_(int bands, int dither_off, int outline)
 {
     cel_bands = bands;
     cel_dither_off = dither_off;
+    cel_outline = outline;
     r3d_cel(&R, bands, 0.35f);
     r3d_dither(!dither_off);
+    R.cel_rgb = outline ? 0x2030A0u : R3D_CEL_NO_OUTLINE;       /* cel3d(0, 0.35, 0x2030A0, 0.03) */
+    R.cel_width = 0.03f;
 }
 
-static void cel_setup_lit(void)  { cel_on_(0, 0); }
-static void cel_setup_cel(void)  { cel_on_(4, 0); }
-static void cel_setup_lit_nd(void) { cel_on_(0, 1); }
-static void cel_setup_cel_nd(void) { cel_on_(4, 1); }
+static void cel_setup_lit(void)  { cel_on_(0, 0, 0); }
+static void cel_setup_cel(void)  { cel_on_(4, 0, 0); }
+static void cel_setup_lit_nd(void) { cel_on_(0, 1, 0); }
+static void cel_setup_cel_nd(void) { cel_on_(4, 1, 0); }
+static void cel_setup_outline(void) { cel_on_(0, 0, 1); }
 
 static void cel_free(void)
 {
     r3d_cel(&R, 0, 0.35f);
     r3d_dither(1);
-    cel_bands = cel_dither_off = 0;
+    R.cel_rgb = R3D_CEL_NO_OUTLINE;
+    R.cel_width = 0.02f;
+    cel_bands = cel_dither_off = cel_outline = 0;
 }
 
 static void cel_scene(int n, int f)
@@ -850,7 +857,7 @@ static void cel_scene(int n, int f)
     for (int i = 0; i < n; i++) {
         const float x = -4.2f + 1.2f * (float)(i % 8) + 0.6f * (float)((i / 8) % 2), z = 1.0f + 1.5f * (float)(i / 8);
         pose((float)f * 0.05f + (float)i);
-        r3d_draw_flags(&R, &hero_tex, (v3_t){ x, 0, z }, 0, (float)i, 0, 1, R3D_SMOOTH | (cel_bands ? R3D_CEL : 0u));
+        r3d_draw_flags(&R, &hero_tex, (v3_t){ x, 0, z }, 0, (float)i, 0, 1, R3D_SMOOTH | (cel_bands ? R3D_CEL : 0u) | (cel_outline ? R3D_OUTLINE : 0u));
     }
     scene_light();
 }
@@ -1140,6 +1147,8 @@ static const test_t tests[] = {
       0, 1, NULL, "cel" },
     { "cel_nd", "cel: 4 bands, dither off", "heroes", 1, 64, M_ARM | M_VS, cel_setup_cel_nd, cel_scene, cel_free, NULL, 0, 0, 1,
       NULL, "cel" },
+    { "cel_outline", "cel: lit hero with the outline (inverted hull)", "heroes", 1, 64, M_ARM | M_VS, cel_setup_outline, cel_scene,
+      cel_free, NULL, 0, 0, 1, NULL, "cel" },
 };
 #define NTESTS ((int)(sizeof tests / sizeof tests[0]))
 
@@ -1313,7 +1322,7 @@ static void ramp(int ti, int pf)
     const test_t *t = &tests[ti];
     result_t *r = &res[ti][pf];
     static sample_t s[64];
-    int ns = 0;
+    int ns = 0, colour_only = 0;        /* colour_only: the backend is the Mali's (flat colours) */
     if (prof[pf].gpu) {
         if (gpu3d_init() != 0 || !gpu3d_backend())
             return;
@@ -1321,6 +1330,7 @@ static void ramp(int ti, int pf)
             (prof[pf].queue && !gpu3d_queue_ok()))
             return;                     /* not on this GPU: no row */
         R.backend = gpu3d_backend();
+        colour_only = R.backend->colour_only;
         gpu3d_drop();
         gpu3d_set_msaa(prof[pf].aa);
         gpu3d_set_vshader(prof[pf].vs);
@@ -1413,6 +1423,11 @@ static void ramp(int ti, int pf)
         gpu3d_set_queue(0);
         if (halted)
             break;                      /* a step not finished: not a sample */
+        if (colour_only && !R.backend) {
+            ns = 0;                     /* the backend handed over to the ARM during the step (r3d to_arm): these are
+                                         * the ARM's numbers, no GPU row */
+            break;
+        }
         gpu3d_take_stats(&st);
         const float k = 1.0f / (float)frames;
         a.ms = b3d_median(fms, frames);     /* the counters below: the mean */
@@ -1763,12 +1778,12 @@ static void report_hero(void)
 }
 
 /* Q2, the cost of the cel shader: one C line a profile and step n (1 to 4): the ms of the same n heroes in
- * the four cel tests (lit, cel with 4 bands; dither on, off) and the ratios against the lit hero. */
+ * the five cel tests (lit, cel with 4 bands; dither on, off; outline) and the ratios against the lit hero. */
 static void report_cel(void)
 {
-    static const char *const id[4] = { "cel_lit", "cel", "cel_lit_nd", "cel_nd" };
-    int ti[4], ok = 1;
-    for (int k = 0; k < 4; k++) {
+    static const char *const id[5] = { "cel_lit", "cel", "cel_lit_nd", "cel_nd", "cel_outline" };
+    int ti[5], ok = 1;
+    for (int k = 0; k < 5; k++) {
         ti[k] = test_idx(id[k]);
         ok = ok && ti[k] >= 0;
     }
@@ -1779,28 +1794,29 @@ static void report_cel(void)
         if (!res[ti[0]][pf].ran && !res[ti[1]][pf].ran)
             continue;
         for (int n = 1; n <= 4; n++) {
-            float ms[4];
-            for (int k = 0; k < 4; k++)
+            float ms[5];
+            for (int k = 0; k < 5; k++)
                 ms[k] = res[ti[k]][pf].ran ? res[ti[k]][pf].ms_n[n - 1] : -1;
             if (ms[0] < 0 && ms[1] < 0)
                 continue;
             if (!head) {
                 put("cel cost: the same n heroes (1536 triangles each, lit by the sun), ms a frame; "
-                    "cel = 4 bands, floor 0.35, no outline; nd = dither off\n");
-                put("columns C,profile,n,tris,lit,cel,lit_nd,cel_nd,cel_over_lit,cel_nd_over_lit_nd\n");
+                    "cel = 4 bands, floor 0.35; nd = dither off; outline = hull 0.03, colour 0x2030A0, no bands\n");
+                put("columns C,profile,n,tris,lit,cel,lit_nd,cel_nd,outline,cel_over_lit,cel_nd_over_lit_nd,outline_over_lit\n");
                 head = 1;
             }
-            char v[4][16], q1[16], q2[16];
+            char v[5][16], q1[16], q2[16], q3[16];
             float tr = 0;                       /* the triangles given at this n (the same in the four tests) */
-            for (int k = 0; k < 4; k++) {
+            for (int k = 0; k < 5; k++) {
                 f2(v[k], ms[k]);
                 if (res[ti[k]][pf].ran && res[ti[k]][pf].tris_n[n - 1] > tr)
                     tr = res[ti[k]][pf].tris_n[n - 1];
             }
             f2(q1, ms[0] > 0 && ms[1] > 0 ? ms[1] / ms[0] : -1);
             f2(q2, ms[2] > 0 && ms[3] > 0 ? ms[3] / ms[2] : -1);
-            put("C,%s,%d,%d,%s,%s,%s,%s,%s,%s\n", prof[pf].name, n, (int)(tr + 0.5f), v[0], v[1],
-                v[2], v[3], q1, q2);
+            f2(q3, ms[0] > 0 && ms[4] > 0 ? ms[4] / ms[0] : -1);
+            put("C,%s,%d,%d,%s,%s,%s,%s,%s,%s,%s,%s\n", prof[pf].name, n, (int)(tr + 0.5f), v[0], v[1],
+                v[2], v[3], v[4], q1, q2, q3);
         }
     }
 }

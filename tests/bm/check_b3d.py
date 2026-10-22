@@ -12,7 +12,8 @@ FUTURE = []
 # the 2D scenes: only when `tests=` names them (the default run has no row of them)
 TESTS2D = {"map8": {"ARM"}, "sprites": {"ARM", "GPU+2D"}, "stack": {"ARM"}, "fade": {"ARM"}, "light": {"ARM"},
            "herotris": {"ARM", "GPU", "GPU+VS", "GPU+VS+Q", "GPU+VS+Q2", "GPU+VS+A8", "GPU+VS+A8+Q", "GPU+VS+FS2"},
-           "cel_lit": {"ARM", "GPU+VS"}, "cel": {"ARM", "GPU+VS"}, "cel_lit_nd": {"ARM", "GPU+VS"}, "cel_nd": {"ARM", "GPU+VS"}}
+           "cel_lit": {"ARM", "GPU+VS"}, "cel": {"ARM", "GPU+VS"}, "cel_lit_nd": {"ARM", "GPU+VS"}, "cel_nd": {"ARM", "GPU+VS"},
+           "cel_outline": {"ARM", "GPU+VS"}}
 
 
 def check_2d(d):
@@ -50,7 +51,7 @@ def check_2d(d):
     fails += not ok
     # Q2: C lines, the four cel tests at the same n, ms and ratios
     crows = [l.split(",") for l in text.splitlines() if l.startswith("C,")]
-    ok = bool(crows) and {"ARM", "GPU+VS"} <= {r[1] for r in crows} and all(len(r) == 10 for r in crows)
+    ok = bool(crows) and {"ARM", "GPU+VS"} <= {r[1] for r in crows} and all(len(r) == 12 for r in crows)
     ok = ok and all(float(r[4]) >= 0 and float(r[5]) >= 0 and int(r[3]) > 0 for r in crows if r[2] == "1")
     print(("ok   " if ok else "FAIL ") + f"C lines (cel cost): {len(crows)} rows")
     fails += not ok

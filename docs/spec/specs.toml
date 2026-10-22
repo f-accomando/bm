@@ -157,13 +157,13 @@ id = "api-cel3d"
 since = 3
 status = "implemented"
 platforms = "all"
-where = ["src/bm/runtime.c", "src/bm/r3d.c", "src/gpu/version3d.h", "docs/api/light3d.md"]
-note = "cel3d(), dither3d() and draw3d flag 256 (bm3D 7.4): the sun light cut into bands in the ARM lighting stage; a GPU draw with the flag is lit by the ARM; flag 512 (outline) is reserved. The owner decides whether BM_SPEC_REV goes to 4 and the cart then writes spec: 4. Not measured on a Pi or an RGB30"
+where = ["src/bm/runtime.c", "src/bm/r3d.c", "src/gpu/gpu3d.c", "src/gpu/version3d.h", "docs/api/light3d.md"]
+note = "cel3d(), dither3d() and draw3d flags 256 and 512 (bm3D 7.4, 7.5): the sun light cut into bands in the ARM lighting stage and in the V3D lit vertex programs; flag 512 draws the outline by the inverted hull (colour and width of cel3d) on the ARM, the V3D and the Mali (the ARM path). The owner decides whether BM_SPEC_REV goes to 4 and the cart then writes spec: 4. Not measured on a Pi or an RGB30"
 
 [[item]]
 id = "web-api"
 since = 4
 status = "implemented"
 platforms = "all"
-where = ["src/bm/webget.c", "src/bm/webpolicy.c", "src/bm/webimg.c", "src/bm/runtime.c", "src/net/http.c", "docs/api/system.md"]
+where = ["src/bm/webget.c", "src/bm/webfile.c", "src/fs/sdlock.c", "src/bm/webpolicy.c", "src/bm/webimg.c", "src/bm/runtime.c", "src/net/http.c", "docs/api/system.md"]
 note = "docs/api/system.md, section The web. Tested in QEMU for image_load, file_write and the address rules (test_web_api) and on the PC for the request itself (make test-webapi). Not tried on the Pi or the RGB30 with a real server. The folder is bm/web because the FAT writer makes 8.3 names only"
