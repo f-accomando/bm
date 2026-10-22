@@ -56,6 +56,7 @@ Each tool is described in plain words, as in Blender.
 ## Data and code
 
 - All the editing functions live in `src/script/bm3d.lua`, shared by the three editors. A new tool is one function there, with a host test that calls it without a screen.
+- The pure geometry of a model is the table `T.G` in `src/script/bm3d.lua` (done, step 2 of APP-10: `claude/app10-shared-geo`). It holds `model_item`, `encode_model`, `orient`, `normal_of`, `unit`, `flip`, `compact`, `drop_degenerate` and `add_vertex`. They work on the Mesh shape `{v, f, vb}` and never touch an editor state: `G.compact(it, sv)` takes the selection and returns the remapped one. bm Mesh calls `require "bm3d"` and keeps the same names as aliases of `B.G`. Studio has not moved to `T.G` yet.
 - One shared import function reads a model for the three editors: `.bmm` directly, `.glb` through the converter (`src/bm/glb.c`; on the PC `scripts/bmres.py convert IN.glb OUT.bmm`). No editor has its own copy.
 - The model data stay as they are: the MESH section (vertices, u16 triangle indices, colour or tile per face, bone per vertex). The ghost reference is a separate, unsaved layer. Reference images are paths in the project; they are not inside the model.
 - Edges are not stored. They are derived from the triangles when needed.

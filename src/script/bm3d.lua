@@ -139,6 +139,129 @@ end
 
 local function cname(b, pos) return b:sub(pos, pos + 15):match("^[^\0]*") end
 
+----------------------------------------------------------------- G: the pure geometry of a model
+
+-- The model shape is { v = { {x, y, z}, ... }, f = { {a, b, c, colour, uv}, ... }, vb }
+-- (bm Mesh's item). Nothing here touches an editor state.
+local G = {}
+T.G = G
+
+-- the model as the program reads it: the MESH part (and the ANIM part)
+function G.model_item(name, mc, ac)
+  local nv, nf = sunpack("<I2I2", mc, 17)
+  local it = { kind = "model", name = name, v = {}, f = {}, mc = mc, mc_name = name }
+  local pos = 25
+  for i = 1, nv do
+    local x, y, z = sunpack("<fff", mc, pos)
+    it.v[i] = { x, y, z }
+    pos = pos + 12
+  end
+  for i = 1, nf do
+    local a, b, c, _, col, u0, v0, u1, v1, u2, v2 = sunpack("<I2I2I2I2I4I2I2I2I2I2I2", mc, pos)
+    local f = { a + 1, b + 1, c + 1, col & 0xFFFFFF }
+    if col & TEXTURED ~= 0 then f[4], f[5] = -1, { u0 / 8, v0 / 8, u1 / 8, v1 / 8, u2 / 8, v2 / 8 } end
+    it.f[i] = f
+    pos = pos + 24
+  end
+  if ac then
+    local nb, nc, anv = sunpack("<I2I2I2", ac, 17)
+    it.ac, it.bones, it.clips = ac, nb, nc
+    if anv == nv then
+      it.vb = {}
+      local p = 25 + nb * 44
+      for i = 1, nv do it.vb[i] = ac:byte(p + i - 1) end
+    end
+  end
+  return it
+end
+
+-- the model's part of the MESH section
+function G.encode_model(it)
+  if not it.dirty and it.mc then
+    return it.mc_name == it.name and it.mc or name16(it.name) .. it.mc:sub(17)
+  end
+  local out = { name16(it.name), spack("<I2I2I4", #it.v, #it.f, 0) }
+  for _, p in ipairs(it.v) do out[#out + 1] = spack("<fff", p[1], p[2], p[3]) end
+  for _, f in ipairs(it.f) do
+    local col, u, t = f[4], f[5], { 0, 0, 0, 0, 0, 0 }
+    if col == -1 then
+      col = TEXTURED
+      if u then for k = 1, 6 do t[k] = clamp(round(u[k] * 8), 0, 65535) end end
+    else
+      col = col & 0xFFFFFF
+    end
+    out[#out + 1] = spack("<I2I2I2I2I4I2I2I2I2I2I2", f[1] - 1, f[2] - 1, f[3] - 1, 0, col,
+                          t[1], t[2], t[3], t[4], t[5], t[6])
+  end
+  return table.concat(out)
+end
+
+-- every face looks away from the point c
+function G.orient(it, c)
+  for _, f in ipairs(it.f) do
+    local a, b, d = it.v[f[1]], it.v[f[2]], it.v[f[3]]
+    local ux, uy, uz = b[1] - a[1], b[2] - a[2], b[3] - a[3]
+    local vx, vy, vz = d[1] - a[1], d[2] - a[2], d[3] - a[3]
+    local nx, ny, nz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
+    local mx, my, mz = (a[1] + b[1] + d[1]) / 3 - c[1], (a[2] + b[2] + d[2]) / 3 - c[2], (a[3] + b[3] + d[3]) / 3 - c[3]
+    if nx * mx + ny * my + nz * mz < 0 then f[2], f[3] = f[3], f[2] end
+  end
+end
+
+function G.normal_of(it, f)
+  local a, b, c = it.v[f[1]], it.v[f[2]], it.v[f[3]]
+  local ux, uy, uz = b[1] - a[1], b[2] - a[2], b[3] - a[3]
+  local vx, vy, vz = c[1] - a[1], c[2] - a[2], c[3] - a[3]
+  return { uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx }
+end
+
+function G.unit(v)
+  local l = sqrt(v[1] * v[1] + v[2] * v[2] + v[3] * v[3])
+  if l < 1e-9 then return { 0, 1, 0 } end
+  return { v[1] / l, v[2] / l, v[3] / l }
+end
+
+function G.flip(f)
+  f[2], f[3] = f[3], f[2]
+  local u = f[5]
+  if u then u[3], u[4], u[5], u[6] = u[5], u[6], u[3], u[4] end
+end
+
+-- vertices no face uses go away (the bones follow). sv is a selection
+-- { [vertex] = order }; the function returns it with the new numbers.
+function G.compact(it, sv)
+  local used, map, nv, vb = {}, {}, {}, it.vb and {} or nil
+  for _, f in ipairs(it.f) do used[f[1]], used[f[2]], used[f[3]] = true, true, true end
+  for i, p in ipairs(it.v) do
+    if used[i] then
+      nv[#nv + 1] = p
+      map[i] = #nv
+      if vb then vb[#nv] = it.vb[i] end
+    end
+  end
+  for _, f in ipairs(it.f) do f[1], f[2], f[3] = map[f[1]], map[f[2]], map[f[3]] end
+  it.v = nv
+  if vb then it.vb = vb end
+  local out = {}
+  for i, o in pairs(sv or {}) do if map[i] then out[map[i]] = o end end
+  return out
+end
+
+-- the faces with two equal corners go away; returns how many
+function G.drop_degenerate(it)
+  local out = {}
+  for _, f in ipairs(it.f) do if f[1] ~= f[2] and f[2] ~= f[3] and f[1] ~= f[3] then out[#out + 1] = f end end
+  local n = #it.f - #out
+  it.f = out
+  return n
+end
+
+function G.add_vertex(it, p, from)
+  it.v[#it.v + 1] = { p[1], p[2], p[3] }
+  if it.vb then it.vb[#it.v] = it.vb[from] or 0 end
+  return #it.v
+end
+
 local QUAD, TRI = { { 1, 2, 3 }, { 1, 3, 4 } }, { { 1, 2, 3 } }
 T.QUAD, T.TRI = QUAD, TRI
 
