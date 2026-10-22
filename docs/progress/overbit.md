@@ -19,3 +19,7 @@ game any more (removed upstream); a change needs `make market-seed MARKET=<clone
   moved back. Speed: `MOUSE_TURN` (π per screen width) × `Input.mouse_sens`. The arrow shows
   only in the pause menu.
 - The V3D side (queue, impostors, measurements): [v3d](v3d.md).
+- Overbit's mech pilots from pictures (D.Va `ref/rally_pilot.png`, D.Mon `ref/kaiju_pilot.png`):
+  run `tools/meshy_text.py` with your own key (the `request.txt` lines), then `pack.py out rally_pilot kaiju_pilot`;
+  optionally `rig=` lines with the ids of `out/NAME.task.txt` and `pack.py --rig`. Until then
+  the text-to-3D pilots stay. The image-to-3D heroes are not rigged (no task ids kept).
