@@ -47,8 +47,7 @@ Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Ra
 - Pi numbers for stages 3-5: handshakes per report (before 3, now 1), the longest frame during a queued `file_write`
   of 4 MiB (`menu stalls:` is menu only; use a cart that logs `timer_ticks`), `Accept-Ranges` and 206 of the catalog host
   and the release CDN, the real cost of a part file save of 4 MiB.
-- Failing tests: RGB30 `test_update_from_sd` flaky,
-  `make test-net` link failure in `test_config` (pre-existing).
+- Failing tests: RGB30 `test_update_from_sd` flaky.
 ## Rules (do not break)
 - Every SD write from a cartridge, the settings or a fiber that gives the CPU back goes through `sd_writer_begin` /
   `sd_writer_end` (or `sd_write_file`). A writer that gives the CPU back registers a pause hook and is safe to stop at
