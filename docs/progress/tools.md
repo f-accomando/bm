@@ -77,7 +77,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 ## Open work (`docs/ROADMAP.md`)
 
 - **Pi tests from the PC** ([`design/pi-test.md`](../design/pi-test.md)): R-NET3 a limited test token (R-NET1 `err`, R-NET2 screenshot via ops `T`/`G` and R-NET5 bridge `status`/`freeze`/`reboot`/`--detach` are done; the test on the real Pi is the owner's). To plan with `bm-planner` (kernel change, branch `claude/net-test-*`).
-- **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet.
+- **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet. Install-sd, boot-os, api-3d (`map3d_*`), editor-animator (test pose), levels (Stages 2D) and api-tools (`bm_net --shot/--get`) were already current on bm-core; boot-os now has the SD map and the RGB30 game option *Send to a nearby console*. The other manuals are not re-read against sources changed since their stamp.
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.
