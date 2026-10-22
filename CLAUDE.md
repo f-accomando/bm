@@ -23,6 +23,7 @@ Read files in small slices (`grep`, or `offset` and `limit`). The current state 
 - When: Open a branch only when the user asks for development work (feature, fix, or refactor). For questions, analysis, research, and reads, stay on the current branch.
 - Name: Use `claude/<descriptive-name>`. Make the name descriptive, even when you start the work on your own initiative. If the purpose, area, or name is not clear, ask the user for the name before you create the branch or change files.
 - Base: Start from an up-to-date `bm-core`.
+- Integrate: When the work is done and the build and selective tests pass, merge the branch into `bm-core` with a fast-forward and push `bm-core`. Do not open a pull request. Then delete the branch (remote and local) and its worktree, each by name.
 - Exception: If the session names a branch, use only that branch.
 
 **Selective tests.** Run only the tests that the change affects. Examples: `tests/qemu_test.py -k <name>`, `make test-b3d` (GPU), or a specific unit test. The `kernel7` target is disabled.
