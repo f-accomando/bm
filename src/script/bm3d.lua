@@ -262,6 +262,77 @@ function G.add_vertex(it, p, from)
   return #it.v
 end
 
+-- A primitive ("cube", "plane", "sphere" or "cylinder") of the width size, in
+-- the colour col, with its middle at centre, added to the model it as a new
+-- part. The faces look out. The new vertices take the bone given (or 0) when
+-- the model has bones. Returns the list of the new vertex numbers.
+function G.primitive(it, shape, centre, size, col, bone)
+  size = size or 1
+  local v, f = {}, {}
+  if shape == "cube" then
+    for _, p in ipairs({ { -0.5, -0.5, -0.5 }, { 0.5, -0.5, -0.5 }, { 0.5, 0.5, -0.5 }, { -0.5, 0.5, -0.5 },
+                         { -0.5, -0.5, 0.5 }, { 0.5, -0.5, 0.5 }, { 0.5, 0.5, 0.5 }, { -0.5, 0.5, 0.5 } }) do v[#v + 1] = p end
+    for _, t in ipairs({ { 1, 4, 3 }, { 1, 3, 2 }, { 5, 6, 7 }, { 5, 7, 8 }, { 1, 2, 6 }, { 1, 6, 5 },
+                         { 4, 8, 7 }, { 4, 7, 3 }, { 1, 5, 8 }, { 1, 8, 4 }, { 2, 3, 7 }, { 2, 7, 6 } }) do
+      f[#f + 1] = { t[1], t[2], t[3], col }
+    end
+  elseif shape == "plane" then
+    v = { { -0.5, 0, -0.5 }, { 0.5, 0, -0.5 }, { 0.5, 0, 0.5 }, { -0.5, 0, 0.5 } }
+    f = { { 1, 4, 3, col }, { 1, 3, 2, col } }
+  elseif shape == "cylinder" then
+    local segs = 8
+    for s = 0, segs - 1 do
+      local b = s / segs * 2 * pi
+      v[#v + 1] = { 0.5 * cos(b), 0.5, 0.5 * sin(b) }
+    end
+    for s = 0, segs - 1 do
+      local b = s / segs * 2 * pi
+      v[#v + 1] = { 0.5 * cos(b), -0.5, 0.5 * sin(b) }
+    end
+    v[#v + 1] = { 0, 0.5, 0 }
+    v[#v + 1] = { 0, -0.5, 0 }
+    local top, bot = 2 * segs + 1, 2 * segs + 2
+    for s = 0, segs - 1 do
+      local n = (s + 1) % segs
+      f[#f + 1] = { top, s + 1, n + 1, col }
+      f[#f + 1] = { bot, segs + n + 1, segs + s + 1, col }
+      f[#f + 1] = { s + 1, segs + s + 1, segs + n + 1, col }
+      f[#f + 1] = { s + 1, segs + n + 1, n + 1, col }
+    end
+  else
+    local rings, segs = 6, 12
+    v[1] = { 0, 0.5, 0 }
+    for r = 1, rings - 1 do
+      local a = r / rings * pi
+      for s = 0, segs - 1 do
+        local b = s / segs * 2 * pi
+        v[#v + 1] = { 0.5 * sin(a) * cos(b), 0.5 * cos(a), 0.5 * sin(a) * sin(b) }
+      end
+    end
+    v[#v + 1] = { 0, -0.5, 0 }
+    local last = #v
+    local function at(r, s) return 2 + (r - 1) * segs + s % segs end
+    for s = 0, segs - 1 do
+      f[#f + 1] = { 1, at(1, s), at(1, s + 1), col }
+      f[#f + 1] = { last, at(rings - 1, s + 1), at(rings - 1, s), col }
+      for r = 1, rings - 2 do
+        f[#f + 1] = { at(r, s), at(r + 1, s), at(r + 1, s + 1), col }
+        f[#f + 1] = { at(r, s), at(r + 1, s + 1), at(r, s + 1), col }
+      end
+    end
+  end
+  if shape ~= "plane" then G.orient({ v = v, f = f }, { 0, 0, 0 }) end
+  centre = centre or { 0, 0, 0 }
+  local base, out = #it.v, {}
+  for i, p in ipairs(v) do
+    it.v[base + i] = { centre[1] + p[1] * size, centre[2] + p[2] * size, centre[3] + p[3] * size }
+    if it.vb then it.vb[base + i] = bone or 0 end
+    out[i] = base + i
+  end
+  for _, t in ipairs(f) do it.f[#it.f + 1] = { t[1] + base, t[2] + base, t[3] + base, t[4] } end
+  return out
+end
+
 local QUAD, TRI = { { 1, 2, 3 }, { 1, 3, 4 } }, { { 1, 2, 3 } }
 T.QUAD, T.TRI = QUAD, TRI
 

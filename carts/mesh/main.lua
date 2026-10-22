@@ -42,7 +42,7 @@ local function clamp(v, a, b) if v < a then return a elseif v > b then return b 
 local function round(v) return floor(v + 0.5) end
 
 -- the pure geometry (bm3d.lua, B.G)
-local model_item, encode_model, orient = B.G.model_item, B.G.encode_model, B.G.orient
+local model_item, encode_model = B.G.model_item, B.G.encode_model
 local normal_of, unit, flip, add_vertex = B.G.normal_of, B.G.unit, B.G.flip, B.G.add_vertex
 
 local PALETTE = {
@@ -895,43 +895,11 @@ local function delete()
   say("deleted " .. it.name .. " (Ctrl+S saves)", C_ACC)
 end
 
--- new models: a cube, a plane, a sphere (in the colour of the edit page)
+-- new models: a cube, a plane, a sphere, a cylinder (in the colour of the edit page)
 local function new_shape(shape)
   if not proj.path then say("open a .bm first: Esc > Open", C_ERR); return end
-  local col = ed.colour
   local it = { kind = "model", name = unique_name("model", shape), v = {}, f = {}, dirty = true }
-  if shape == "cube" then
-    for _, p in ipairs({ { -0.5, 0, -0.5 }, { 0.5, 0, -0.5 }, { 0.5, 1, -0.5 }, { -0.5, 1, -0.5 },
-                         { -0.5, 0, 0.5 }, { 0.5, 0, 0.5 }, { 0.5, 1, 0.5 }, { -0.5, 1, 0.5 } }) do it.v[#it.v + 1] = p end
-    for _, t in ipairs({ { 1, 4, 3 }, { 1, 3, 2 }, { 5, 6, 7 }, { 5, 7, 8 }, { 1, 2, 6 }, { 1, 6, 5 },
-                         { 4, 8, 7 }, { 4, 7, 3 }, { 1, 5, 8 }, { 1, 8, 4 }, { 2, 3, 7 }, { 2, 7, 6 } }) do
-      it.f[#it.f + 1] = { t[1], t[2], t[3], col }
-    end
-  elseif shape == "plane" then
-    it.v = { { -0.5, 0, -0.5 }, { 0.5, 0, -0.5 }, { 0.5, 0, 0.5 }, { -0.5, 0, 0.5 } }
-    it.f = { { 1, 4, 3, col }, { 1, 3, 2, col } }
-  else
-    local rings, segs = 6, 12
-    it.v[1] = { 0, 1, 0 }
-    for r = 1, rings - 1 do
-      local a = r / rings * pi
-      for s = 0, segs - 1 do
-        local b = s / segs * 2 * pi
-        it.v[#it.v + 1] = { 0.5 * sin(a) * cos(b), 0.5 + 0.5 * cos(a), 0.5 * sin(a) * sin(b) }
-      end
-    end
-    it.v[#it.v + 1] = { 0, 0, 0 }
-    local function at(r, s) return 2 + (r - 1) * segs + s % segs end
-    for s = 0, segs - 1 do
-      it.f[#it.f + 1] = { 1, at(1, s), at(1, s + 1), col }
-      it.f[#it.f + 1] = { #it.v, at(rings - 1, s + 1), at(rings - 1, s), col }
-      for r = 1, rings - 2 do
-        it.f[#it.f + 1] = { at(r, s), at(r + 1, s), at(r + 1, s + 1), col }
-        it.f[#it.f + 1] = { at(r, s), at(r + 1, s + 1), at(r, s + 1), col }
-      end
-    end
-    orient(it, { 0, 0.5, 0 })
-  end
+  B.G.primitive(it, shape, { 0, shape == "plane" and 0 or 0.5, 0 }, 1, ed.colour)
   dirty = true
   select_item(insert_item(it))
   say("new model " .. it.name .. ": F2 edits it", C_ACC)
@@ -949,8 +917,9 @@ function list_actions()
     { "New model: cube (n)", function() new_shape("cube") end },
     { "New model: plane", function() new_shape("plane") end },
     { "New model: sphere", function() new_shape("sphere") end },
+    { "New model: cylinder", function() new_shape("cylinder") end },
   }
-  if not it then rows = { rows[7], rows[8], rows[9] } end
+  if not it then rows = { rows[7], rows[8], rows[9], rows[10] } end
   choose("the mesh" .. (it and (": " .. it.name) or ""), rows)
 end
 
@@ -1401,6 +1370,30 @@ local function op_duplicate()
   say("copied " .. #fs .. " faces: move the copy, Enter done", C_ACC, 300)
 end
 
+-- a cube, cylinder, sphere or plane as a new part of the model: at the
+-- middle of the choice (or at 0), in the colour of the page, on the bone of
+-- the first chosen vertex; the new vertices are the choice
+local function add_part(shape)
+  local vs = sel_verts()
+  local first = vs[1]
+  local it = begin_edit()
+  local centre = #vs > 0 and centre_of(it, vs) or { 0, 0, 0 }
+  local bone = it.vb and first and it.vb[first] or 0
+  local nv = B.G.primitive(it, shape, centre, 1, ed.colour, bone)
+  ed.mode, ed.sv, ed.sf, ed.order = "v", {}, {}, 0
+  for _, i in ipairs(nv) do select_v(i, true) end
+  finish_edit("added a " .. shape .. ": " .. #nv .. " vertices chosen")
+end
+
+local function op_add_part()
+  choose("add a part", {
+    { "Cube", function() add_part("cube") end },
+    { "Cylinder", function() add_part("cylinder") end },
+    { "Sphere", function() add_part("sphere") end },
+    { "Plane", function() add_part("plane") end },
+  })
+end
+
 -- left-right on the screen (x or z), through the middle of the choice
 local function op_mirror()
   local vs = sel_verts()
@@ -1721,7 +1714,7 @@ end
 
 local COMMANDS = {
   { "Move (g)", "g" }, { "Rotate (r)", "r" }, { "Scale (t)", "t" }, { "Extrude faces (x)", "x" },
-  { "Duplicate (d)", "d" }, { "Mirror left-right (m)", "m" }, { "Mirror copy across 0 (M)", "M" },
+  { "Duplicate (d)", "d" }, { "Add a part (A)", "A" }, { "Mirror left-right (m)", "m" }, { "Mirror copy across 0 (M)", "M" },
   { "New face on 3-4 vertices (j)", "j" }, { "Merge vertices (k)", "k" }, { "Weld equal vertices (K)", "K" },
   { "Subdivide faces (u)", "u" }, { "Turn faces over (i)", "i" }, { "Paint faces (p)", "p" },
   { "Colour from the face (o)", "o" }, { "Palette (c)", "c" }, { "Delete (Del)", "del" },
@@ -1807,6 +1800,7 @@ function edit_key(k)
   elseif k == "t" then tool_start("scale")
   elseif k == "x" then op_extrude()
   elseif k == "d" then op_duplicate()
+  elseif k == "A" then op_add_part()
   elseif k == "m" then op_mirror()
   elseif k == "M" then op_mirror_copy()
   elseif k == "j" then op_join()
@@ -1975,7 +1969,7 @@ local HELP = {
     { "c", "copy as code: model -> mesh_name()" },
     { "r / d", "rename / duplicate" },
     { "del", "delete" },
-    { "n", "a new model (a cube; f3: plane, sphere)" },
+    { "n", "a new model (a cube; f3: plane, sphere, cylinder)" },
     { "q / e", "turn the view" },
     { "w / s", "tilt" },
     { "+ / -", "zoom" },
@@ -1991,6 +1985,7 @@ local HELP = {
     { "tab / l", "vertices or faces / all linked" },
     { "g / r / t", "move / rotate / scale" },
     { "x / d", "extrude faces / duplicate (then move)" },
+    { "shift a", "add a part: cube, cylinder, sphere, plane" },
     { "m / shift m", "mirror left-right / copy across 0" },
     { "j", "new face on 3-4 vertices" },
     { "k / shift k", "merge / weld equal vertices" },

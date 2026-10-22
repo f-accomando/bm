@@ -693,6 +693,61 @@ check(cp and section(cp, 8) == section(v1, 8) and section(cp, 9) == section(v1, 
 check(file("astrowing.bm") == astro0 and file("village.bm") == village0,
       "the games stay as they were: the saves went into their editable copies (.bme)")
 
+-- Shift+A: a primitive as a new part of the model (the villager has bones)
+do
+  key("f1")
+  goto_item("M villager")
+  key("f2", "a", "a")
+  local before = model_of("meshcopy.bme", "villager")
+  local rb = anim_rigs(section(file("meshcopy.bme"), 9)).villager
+  key("A")
+  check(sees("add a part") and sees("Cylinder"), "Shift+A: the four shapes")
+  key("\n")
+  check(sees("VERTICES: 8 chosen") and status():find("added a cube", 1, true), "a cube: its 8 vertices are chosen: " .. status())
+  key("^z")
+  check(sees("VERTICES: 0 chosen"), "undo: the new vertices are not chosen any more")
+  key("^s")
+  local same = model_of("meshcopy.bme", "villager")
+  check(same and same.nv == before.nv and same.nf == before.nf, "undo: the count as before (one step)")
+  local shapes = { { "cube", 8, 12, 0 }, { "cylinder", 18, 32, 1 }, { "sphere", 62, 120, 2 }, { "plane", 4, 2, 3 } }
+  for _, sh in ipairs(shapes) do
+    key("a", "a", "A")
+    for _ = 1, sh[4] do key("down") end
+    key("\n", "^s")
+    local m = model_of("meshcopy.bme", "villager")
+    check(m and m.nv == before.nv + sh[2] and m.nf == before.nf + sh[3], sh[1] .. ": " .. sh[2] .. " vertices, " .. sh[3] ..
+          " faces (" .. (m and (m.nv - before.nv) .. "/" .. (m.nf - before.nf) or "-") .. ")")
+    check(sees("VERTICES: " .. sh[2] .. " chosen"), sh[1] .. ": the new vertices are chosen")
+    key("^z", "^s")
+    m = model_of("meshcopy.bme", "villager")
+    check(m and m.nv == before.nv and m.nf == before.nf, sh[1] .. ": one undo takes it away")
+  end
+  -- on a chosen vertex: the part goes to its middle and takes its bone
+  key("a", "a", "n", " ")
+  check(sees("VERTICES: 1 chosen"), "one vertex chosen")
+  key("A", "\n", "^s")
+  local m = model_of("meshcopy.bme", "villager")
+  local rg = anim_rigs(section(file("meshcopy.bme"), 9)).villager
+  local c, ok = { 0, 0, 0 }, m and m.nv == before.nv + 8 and rg and rg.nv == m.nv
+  if ok then
+    for i = before.nv + 1, m.nv do for k = 1, 3 do c[k] = c[k] + m.verts[i][k] / 8 end end
+    local bone, hit = rg.vb[m.nv], false
+    for i = before.nv + 1, m.nv do if rg.vb[i] ~= bone then ok = false end end
+    for j, q in ipairs(before.verts) do
+      if math.abs(q[1] - c[1]) < 1e-5 and math.abs(q[2] - c[2]) < 1e-5 and math.abs(q[3] - c[3]) < 1e-5 then
+        hit = true
+        if rb.vb[j] ~= bone then ok = false end
+      end
+    end
+    ok = ok and hit
+  end
+  check(ok, "a part on a chosen vertex: at its place, on its bone")
+  check(m and outward({ nv = 8, verts = { table.unpack(m.verts, before.nv + 1, m.nv) },
+        faces = (function() local t = {} for i = before.nf + 1, m.nf do local f = m.faces[i]; t[#t + 1] = { f[1] - before.nv, f[2] - before.nv, f[3] - before.nv } end return t end)() }),
+        "the cube part looks out")
+  key("^z", "^s")
+end
+
 -- F12 held: the keys of the page (keyhelp(), the kernel draws them)
 local function in_help(keys, what)
   for _, e in ipairs(keyhelp_list or {}) do
@@ -779,6 +834,37 @@ do
   local again = G.encode_model({ name = "tri", v = back.v, f = back.f, dirty = true })
   check(#back.v == 3 and #back.f == 2 and back.f[2][4] == -1 and back.f[2][5][3] == 1.5, "T.G.model_item: reads what encode_model wrote")
   check(again == bin, "T.G.encode_model, model_item, encode_model: byte-equal")
+end
+
+-- T.G.primitive: counts, winding, bones
+do
+  local G = E.require("bm3d").G
+  local want = { cube = { 8, 12 }, plane = { 4, 2 }, sphere = { 62, 120 }, cylinder = { 18, 32 } }
+  for shape, w in pairs(want) do
+    local it = { v = { { 5, 5, 5 } }, f = {}, vb = { 7 } }
+    local nv = G.primitive(it, shape, { 1, 2, 3 }, 2, 0x123456, 4)
+    check(#nv == w[1] and #it.v == 1 + w[1] and #it.f == w[2], "T.G.primitive " .. shape .. ": " .. w[1] .. " vertices, " .. w[2] .. " faces")
+    check(nv[1] == 2 and nv[#nv] == #it.v, "T.G.primitive " .. shape .. ": returns the new numbers")
+    check(it.vb[1] == 7 and it.vb[2] == 4 and it.vb[#it.v] == 4, "T.G.primitive " .. shape .. ": the bone of the new vertices")
+    local mx = 0
+    for _, i in ipairs(nv) do mx = math.max(mx, math.abs(it.v[i][1] - 1)) end
+    check(math.abs(mx - 1) < 1e-6 or shape == "cylinder" or shape == "sphere", "T.G.primitive " .. shape .. ": size 2 about the centre")
+    local ok = true
+    local cc = { 1, 2, 3 }
+    for _, f in ipairs(it.f) do
+      if f[1] < 2 or f[4] ~= 0x123456 then ok = false end
+      if shape ~= "plane" then
+        local a, b, d = it.v[f[1]], it.v[f[2]], it.v[f[3]]
+        local n = G.normal_of(it, f)
+        local m = { (a[1] + b[1] + d[1]) / 3 - cc[1], (a[2] + b[2] + d[2]) / 3 - cc[2], (a[3] + b[3] + d[3]) / 3 - cc[3] }
+        if n[1] * m[1] + n[2] * m[2] + n[3] * m[3] <= 0 then ok = false end
+      end
+    end
+    check(ok, "T.G.primitive " .. shape .. ": the faces look out, in the colour")
+  end
+  local plain = { v = {}, f = {} }
+  G.primitive(plain, "cube")
+  check(plain.vb == nil and #plain.v == 8 and plain.v[1][1] == -0.5, "T.G.primitive: no bones, no centre: at 0, size 1")
 end
 
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))
