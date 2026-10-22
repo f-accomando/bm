@@ -1,7 +1,7 @@
 # V3D driver (Pi Zero W, ARM1176 only)
 
 Tracking for bm3D 3.0-7.3. Rest of the graphics stack: [graphics](graphics.md).
-Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
+Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here). Triangles at 60 fps, ranked options: [triangle-throughput](../design/triangle-throughput.md).
 
 ## Today
 
