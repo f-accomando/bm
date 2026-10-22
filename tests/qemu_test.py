@@ -5213,6 +5213,43 @@ def test_square_lights(b, opts):
         q.close()
 
 
+def test_herocart(b, opts):
+    """Hero Stress (carts/herocart, stage 1 of docs/design/hero-stress-cart-and-cel-shader.md) on the
+    ARM raster of QEMU: it starts, prints its 1 s line for 4 seconds with no Lua error; R1 ('o' from the
+    serial line) draws one hero more, X ('c') changes the polygon level, down ('s') and right ('d') change the row's value"""
+    q = Qemu(b("kernel.img"))
+    seen = ""
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        with open(b("carts/herocart.bm"), "rb") as f:
+            assert _upload(q, f.read())
+
+        def wait(needle, timeout=90):
+            nonlocal seen
+            seen += q.expect(needle, timeout=timeout).decode(errors="replace")
+
+        wait(" n=20 lod=auto res=640x360 opt=")
+        wait("kb=")
+        wait("herocart 1 t=")          # frames go on: a second and another line
+        wait("kb=")
+        q.send("o")                    # R1: a hero more
+        wait(" n=21 lod=auto ")
+        q.send("c")                    # X: the level before auto: 3
+        wait(" n=21 lod=3 ")
+        q.send("s")                    # down to the LOD row
+        time.sleep(0.8)
+        q.send("d")                    # right: the next value, auto
+        wait(" n=21 lod=auto ")
+        wait("kb=")
+        q.send("q")
+        q.expect("update+draw", timeout=10)
+        assert "stopped with an error" not in seen, seen[-1500:]
+        assert "kb=" in seen
+    finally:
+        q.close()
+
+
 SCREEN_CART = r"""
 local cube, f, i = nil, 0, 0
 local MODES = { { 640, 360 }, { 1920, 1080 }, { 320, 180 }, { 960, 540 } }

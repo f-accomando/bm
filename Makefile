@@ -287,6 +287,19 @@ $(BUILD)/carts/nano8.bm: $(BUILD)/nano8/main.lua carts/nano8/cover.png scripts/m
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/nano8/bm.info \
 	    --cover carts/nano8/cover.png
 
+# Hero Stress (docs/design/hero-stress-cart-and-cel-shader.md, stage 1): a plaza with walking heroes, to
+# compare the 3D options on the Pi. Not in GAMES: it does not go in dist/bm or the Market.
+# The models and the plaza are committed (carts/herocart/assets/, made by build/mkheroes.py and
+# build/mkplaza.py); the sources are carts/herocart/src/*.lua joined by build/build.py.
+HEROCART_SRC := $(sort $(wildcard carts/herocart/src/*.lua))
+HEROCART_ASSETS := $(addprefix carts/herocart/assets/,sheet.png models.bm map_floor.csv map_height.csv map_walls.csv)
+$(BUILD)/herocart/main.lua: $(HEROCART_SRC) carts/herocart/build/build.py
+	$(PYTHON) carts/herocart/build/build.py $@ --map $(BUILD)/herocart/main.map
+
+$(BUILD)/carts/herocart.bm: $(BUILD)/herocart/main.lua $(HEROCART_ASSETS) scripts/mkbm.py carts/herocart/bm.info
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/herocart/bm.info --sheet carts/herocart/assets/sheet.png 	    --map floor=carts/herocart/assets/map_floor.csv --map height=carts/herocart/assets/map_height.csv 	    --map walls=carts/herocart/assets/map_walls.csv --models carts/herocart/assets/models.bm
+
 # Overbit (M38): a hero shooter in 3D. Several Lua files joined by its
 # build.py; the heroes' models and animations (MESH, ANIM) made by
 # carts/overbit/art/models.py, the sounds by art/sounds.py.
@@ -483,6 +496,10 @@ test-riff: $(BUILD)/host/bmhost-bin $(BUILD)/riff-test.bm
 	$< $(BUILD)/riff-test.bm --seconds 7 --wav $(BUILD)/riff/riff.wav 2>&1 | tee $(BUILD)/riff-test.log | grep "^riff"
 	grep -q "^riff: \([0-9]*\)/\1 checks passed" $(BUILD)/riff-test.log
 
+# Hero Stress (stage 1): the models' counts, the printed line, the keys and the sweep, in bmhost
+test-herocart: $(BUILD)/host/bmhost-bin $(BUILD)/carts/herocart.bm tests/herocart/check.py carts/herocart/build/mkheroes.py
+	$(PYTHON) tests/herocart/check.py $< $(BUILD)/carts/herocart.bm $(BUILD)/herocart/test
+
 test-keymap: $(BUILD)/host/bmhost-bin $(BUILD)/keymap-test.bm tests/keymap/input.txt
 	$< $(BUILD)/keymap-test.bm --input tests/keymap/input.txt --seconds 8 2>&1 | tee $(BUILD)/keymap-test.log | grep "^keymap"
 	grep -q "^keymap: \([0-9]*\)/\1 checks passed" $(BUILD)/keymap-test.log
@@ -638,7 +655,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-keymap test-gameapi test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-herocart test-keymap test-gameapi test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
@@ -832,7 +849,7 @@ HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff
       test-release test-smp test-qpu test-qpurun test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-docs test-api $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
-QEMU_DEPS := $(BUILD)/host/meshview
+QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/herocart.bm
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
 
 test: all $(HOST_TESTS) $(QEMU_DEPS)

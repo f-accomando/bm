@@ -279,7 +279,9 @@ Way A details:
 
 Each PR runs the checks of the closing list in `CLAUDE.md`: `python scripts/docs_audit.py score`, `python scripts/consistency.py check`, and (stages 2, 3) `consistency.py gate`.
 
-### Stage 1: the cart, existing options only (recommended first)
+### Stage 1: the cart, existing options only (done; state in [herocart](../progress/herocart.md))
+
+Built as described below, with these differences: one hero (`charkit` rango, 984 triangles, flat colours), so the Texture row switches the plaza; rows 17 (alpha) is greyed too; the test is `tests/herocart/check.py` (`make test-herocart`) and `-k herocart` in QEMU; the console `options` line is not read by Lua.
 
 Scope:
 

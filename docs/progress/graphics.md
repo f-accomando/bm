@@ -80,7 +80,7 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 - Mali-G52 driver: [graphics-mali](graphics-mali.md) (the triangle to run on the device).
 - Sprite stacking: `stack()`, stack zones (`stack name x y w h n` in the zones file, `zone()` 7th value) and `zstack()` are done (`g16_stack` in `gfx16.c`, CPU only, no memory per stack; Pi speed not measured). Not done: `stackv`, the bm Pixel page, the mesh conversion, the Pi speed.
 - QPU programs outside 3D: the driver, the queue, a particle step and the fade by levels are done on the emulator (`src/gpu/qpu.c`, [v3d](v3d.md) item 5). Nothing calls them in the runtime; not run on the Pi.
-- Hero stress cart (plaza, LOD, option toggles) and cel shader API: design in [hero-stress-cart-and-cel-shader](../design/hero-stress-cart-and-cel-shader.md) (five stages, none started).
+- Hero stress cart (plaza, LOD, option toggles) and cel shader API: design in [hero-stress-cart-and-cel-shader](../design/hero-stress-cart-and-cel-shader.md) (five stages). Stage 1 (the cart) is done: [herocart](herocart.md). Stages 2 to 5 are not started.
 
 ## Rules (do not break)
 
