@@ -24,9 +24,10 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   (the TLS handshake still stalls one frame), `webimg.c` decodes JPEG, PNG and WebP into the sheet.
   `http.c` got `max_redirects`, `same_scheme`, a `before` hook and `info->location` for it. The
   folder is `bm/web` because the FAT writer makes 8.3 names only (`downloads` has 9 letters).
-  `file_write` is synchronous: a big file stops the frame; the writer lock is `fat_writing()`
-  (the card is refused while another write runs), there is no pause hook yet (stage 3 of
-  [multitasking-alternatives](../design/multitasking-alternatives.md)). Tests: `make test-webapi`
+  `file_write` is synchronous by default; `file_write(name, data, true)` queues it (writer fiber, pieces of 32 KiB, `file_state`),
+  and the SD writer lock (`sdlock.c`) lets a game save pause it. `http.c` keeps one connection (keep-alive) and
+  `web_get(url, {resume = "NAME.EXT"})` resumes with `Range` from `bm/web/NAME.PRT` (stages 3-5 in
+  [multitasking](multitasking.md)). Tests: `make test-webapi`
   (PC, ucontext fibers, local server), QEMU `test_web_api`. Not tried on a Pi or an RGB30 with a
   real server (divergence D49). Not done: PNG/JPEG decoding in bands, progressive JPEG.
 - PC link (`netcon.c` console, `netxfer.c` files) for `tools/bm_net.py`: a file is answered

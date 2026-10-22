@@ -165,5 +165,5 @@ id = "web-api"
 since = 4
 status = "implemented"
 platforms = "all"
-where = ["src/bm/webget.c", "src/bm/webpolicy.c", "src/bm/webimg.c", "src/bm/runtime.c", "src/net/http.c", "docs/api/system.md"]
+where = ["src/bm/webget.c", "src/bm/webfile.c", "src/fs/sdlock.c", "src/bm/webpolicy.c", "src/bm/webimg.c", "src/bm/runtime.c", "src/net/http.c", "docs/api/system.md"]
 note = "docs/api/system.md, section The web. Tested in QEMU for image_load, file_write and the address rules (test_web_api) and on the PC for the request itself (make test-webapi). Not tried on the Pi or the RGB30 with a real server. The folder is bm/web because the FAT writer makes 8.3 names only"
