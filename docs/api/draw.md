@@ -35,9 +35,10 @@ pixel, decoded at loading (Titan Clash: 2048×3376 pixels in 1.7 MB).
 | `spr(n, x, y, [w, h, flip_x, flip_y])` | draws cell `n` (w×h cells, default 1×1), mirrored too |
 | `sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom])` | copies any rectangle of the sheet; with `zoom` (default 1) it draws it bigger (`2`, `3`…) or smaller (`0.5`), pixel by pixel: it covers `sw * zoom` × `sh * zoom` pixels |
 | `stack(sx, sy, w, h, n, x, y, [rz, scale, step])` | sprite stacking: draws `n` slices of `w`×`h` pixels that lie side by side on the sheet from `(sx, sy)`, left to right. Slice 1 is the bottom and is drawn first. `(x, y)` is the centre of the bottom slice on the ground. Each slice turns by `rz` radians (default 0) around its centre, is `scale` times bigger (default 1) and sits `step * scale` pixels above the slice below (default `step` 1). Colour 0 is transparent. It reads the sheet each call and keeps no memory. At `rz` 0 and `scale` 1 it equals `n` calls of `sspr`. A slice that is not wholly inside the sheet is skipped. `scale` of 0 or less, or above 64, draws nothing. `rz`, `scale` or `step` that is NaN or infinite draws nothing |
+| `stackv(sx, sy, w, h, n, x, y, [rz, scale, step])` | as `stack`, but the `n` slices lie one under the other on the sheet from `(sx, sy)`, top to bottom: the top one is slice 1, the bottom of the stack. The same drawing, the same limits (a slice that is not wholly inside the sheet is skipped), the same cost |
 | `sget(x, y)` / `sset(x, y, [c])` | reads / writes a pixel of the sheet (`nil` = transparent) |
 | `zspr(name, x, y, [frame, flip_x, flip_y, zoom])` | draws a **named zone** of the sheet (below): `frame` from 1 to the number of frames (beyond it starts again), or `nil`: the one its fps give at `time()`, so the animation runs by itself. Returns the frame drawn. A zone that is not there is an error |
-| `zstack(name, x, y, [rz, scale])` | draws a **stack zone** (a zone with slices, below) as `stack` does, with `step` 1: the slices of the zone, `(x, y)` the centre of the bottom one. A zone without slices (or one that is not there) is an error |
+| `zstack(name, x, y, [rz, scale])` | draws a **stack zone** (a zone with slices, below) as `stack` does (as `stackv` for a `stackv` zone), with `step` 1: the slices of the zone, `(x, y)` the centre of the bottom one. A zone without slices (or one that is not there) is an error |
 | `zone(name)` | `x, y, w, h, frames, fps, slices` of the zone (its first frame, in sheet pixels), or `nil`. `slices` is 0 for a plain zone, 2 to 255 for a stack zone |
 | `zones()` | the names of the zones, in order (`{}` if there are none) |
 | `zboxes(name, [frame, kind])` | the **hitboxes and hurtboxes** of the frames of a zone (the BOXES section, 2026-10-04): a list of `{x, y, w, h, kind, frame}`, `x` and `y` from the frame's top left corner (they may stick out), `kind` `"hurt"` (where it can be hit), `"hit"` (where it hurts), `"body"` (the room the body takes) or a number of the game (3–255), `frame` 0 for a box of every frame. With `frame` (from 1; past the last it starts again) its boxes and those of every frame; without, all the zone's. `kind` (a name or a number) keeps one kind. `{}` if there are none; a zone that is not there is an error |
@@ -88,7 +89,9 @@ local _, _, w, h = zone("hero_run")    -- its size, for collisions
 A **stack zone** names the slices of a sprite stack: in the zones file the line
 `stack name x y w h n` gives `n` slices (2 to 255) of `w`×`h` pixels, side by side from
 `(x, y)`, the bottom slice first. `zstack("tree", x, y, rz, scale)` draws it. The zone has
-one frame; `zone` returns the number of slices as its 7th value.
+one frame; `zone` returns the number of slices as its 7th value. The line
+`stackv name x y w h n` is the same with the slices one under the other, from `(x, y)` down (the
+sheet must hold `h`×`n` pixels below); `zstack` then draws as `stackv`.
 
 **Hitboxes and hurtboxes of the frames.** Under a zone, in the zones file, its boxes:
 `hurt` where the character can be hit, `hit` where its blow hurts, `body` the room it

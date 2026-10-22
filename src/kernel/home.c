@@ -20,6 +20,7 @@
 #include "audio/audio.h"
 #include "bm/bm.h"
 #include "bm/roombench.h"
+#include "bm/vidbench.h"
 #include "bm/runtime.h"
 #include "bm/stress.h"
 #include "bt/bt.h"
@@ -182,6 +183,13 @@ static void t_room(framebuffer_t *fb)
     bm_room_bench(fb);
 }
 
+static void t_video(framebuffer_t *fb)
+{
+    (void)fb;
+    heading("Video bench: SD write and read, JPEG decode");
+    bm_video_bench(0);
+}
+
 static void t_stack(framebuffer_t *fb)
 {
     heading("Stack bench: sprite stacking");
@@ -272,6 +280,7 @@ static tool_t tools[] = {
     { "3D Bench", "every 3D test, every driver: bars, report on the SD", MENU_ICON_GAUGE, 0x2A6A8A, t_bench3d, 1,
       { 0 }, NULL },
     { "Texture Room", "3D bench: crates doubled to 30 fps, ARM and GPU", MENU_ICON_GAUGE, 0x9A6A2A, t_room, 1, { 0 }, "room" },
+    { "Video bench", "SD write and read speed, JPEG decode time", MENU_ICON_GAUGE, 0x3A7A9A, t_video, 1, { 0 }, "video" },
     { "Stack bench", "sprite stacking: us a frame and stacks a second", MENU_ICON_GAUGE, 0x6A3A9A, t_stack, 1, { 0 }, "stack" },
     { "Demo", "the 60 fps animation demo, 10 s", MENU_ICON_PLAY, 0x3A8A3A, t_demo, 1, { 0 }, "demo" },
     { "Test pattern", "HDMI colour bars; any button returns", MENU_ICON_BARS, 0x404050, t_pattern, 0, { 0 }, NULL },

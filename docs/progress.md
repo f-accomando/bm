@@ -29,6 +29,7 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 | [b16](progress/b16.md) | `.b16` standard profile (360×360, 256 colours, 4 MiB Lua, sandbox) | `src/bm/project.c`, `src/bm/runtime.c` |
 | [tools](progress/tools.md) (+ [assistant](progress/tools-assistant.md)) | the suite, editors, PC scripts, Market, CI (design: [suite specs](design/)) | `carts/`, `src/ai/`, `scripts/`, `tools/` |
 | [tropic-trail-final-report](progress/tropic-trail-final-report.md) | final report of the 3D video series: deliveries, grades of the operators, estimated vs actual times, lessons | `video/3d/` |
+| [video](progress/video.md) | clips for cartridges (container, MJPEG, RLE+delta) and chunked screen recording; study and spikes | `src/bm/jpeg.c`, `docs/bench/video-feasibility-2026-10.md` |
 
 ## Which section to open
 
@@ -44,6 +45,7 @@ file ends with *Open work* and *Rules (do not break)*.
 - Pi Zero W, Pi Zero 2 W, RGB30, PC and QEMU: [platforms](progress/platforms.md).
 - Suite (SDK, Studio, Animator, Mesh, Pixel, Code, Sound, Write): [tools](progress/tools.md) (future suite evolution: `docs/design/suite-*.md`).
 - Games (Overbit, Yharnam): [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) (gameplay architecture: [`docs/design/games-architecture.md`](design/games-architecture.md)).
+- Input standard for games (actions on buttons, RGB30 and Pi): [`docs/design/games-input-standard.md`](design/games-input-standard.md).
 - Game API reference (not progress): [API.md](API.md) → `docs/api/<area>.md`.
 
 ## Navigation (how to read, where things are)
