@@ -35,7 +35,7 @@ For `cel`, with the vertex shader (n heroes of 1536 triangles, 50 heroes): lit 1
 - `make test-herocart` (bmhost): model counts, one bone for each face, the Resolution row to 1920x1080, one help text of at most two lines for each row, line format, `tri` rises with `n` and falls with the level, the cel and dither rows change the printed options, the sweep prints 10 lines.
 - `make test-cel`: the 64-entry table (bands, floor, band edges), a lit sphere shows exactly N grey levels, the light off gives the picture of before cel, `dither3d`.
 - `make test-impostor`: also a cel draw on the GPU (vertex shader 1 and 2) gives the ARM's bands.
-- `python tests/qemu_test.py -k herocart` (QEMU, ARM raster): starts, prints its line, R1, X and a row change work, and Cel bands 2 shows in the printed options.
+- `python tests/qemu_test.py -k herocart` (QEMU, ARM raster): starts, prints its line, R1, X and a row change work, and Cel bands 2 shows in the printed options. The cart prints `hkeys f=<frame> row=<cursor row>` before each 1 s line. The test sends a key, waits for 11 more frames, and sends the key again if the printed state did not change. A serial key counts as held for 10 frames (`HOLD_FRAMES`), and QEMU runs the cart at 2 to 6 fps, so a time-based wait lost the second of two equal keys.
 
 ## How the user measures on the Pi
 
@@ -62,3 +62,4 @@ Copy `herocart.bm` to the SD card (`bm/`). Run it at 640x360. To check the verte
 - The logic of the 64 heroes runs every frame, whatever the count.
 - `stat(16)` to `stat(18)` are read only for display and the printed line. No quality governor.
 - The `.b16` edition, when it comes, is built from its own sources.
+- Keep the `hkeys f= row=` line. `tests/qemu_test.py` test_herocart reads it. `tests/herocart/check.py` ignores it.

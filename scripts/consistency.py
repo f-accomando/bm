@@ -230,8 +230,10 @@ def rule_divergences():
     for d in divergences():
         if d["cause"] == "hardware" and d.get("capability") not in caps:
             out.append(Finding("divergence", f"capability:{d['id']}", f"{d['id']} is a hardware difference with no capability of platforms.toml ({d.get('capability')})"))
-        if d["cause"] not in KINDS or d["status"] not in ("open", "suspended", "untested", "resolved"):
+        if d["cause"] not in KINDS or d["status"] not in ("open", "suspended", "untested", "resolved", "accepted"):
             out.append(Finding("divergence", f"fields:{d['id']}", f"{d['id']}: cause or status is not valid"))
+        if d["status"] == "accepted" and not d.get("note"):
+            out.append(Finding("divergence", f"accepted:{d['id']}", f"{d['id']} is accepted with no reason in `note`"))
         for ev in d["evidence"].split(";"):
             path = ev.strip().split(":")[0]
             if path and not os.path.exists(os.path.join(ROOT, path)):
@@ -271,7 +273,7 @@ def run(verbose):
     return 1 if bad or stale else 0
 
 
-KINDS = ("hardware", "history", "todo", "unknown", "text")
+KINDS = ("hardware", "history", "todo", "unknown", "text", "intended")   # intended: accepted in writing, with a reason
 BLOCKING = ("history", "todo", "unknown")          # kinds that must be gone before 1.0.0: only hardware and noise may stay
 
 

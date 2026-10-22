@@ -66,11 +66,15 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 
 ## Open work
 
+- Kernel consistency, what the gate still lists (22 Oct 2026, `python scripts/consistency.py gate`, [CONSISTENCY](../spec/CONSISTENCY.md)):
+  - Large or waiting for a device: D10 (background covers: `carts.c:182-290`, about 110 lines, needs a timing check on the console); D14 (stress, room and video benches need the 3D path, D23); D15 (RK3566 thermal and clock drivers do not exist); D17 (on-screen keyboard); D23, D24 (Mali driver).
+  - Waiting for the owner: D03 and D05 (suspended); D49 (do the Pi menus follow `mo` and `mc`? `carts.c` fixes A and B); D48 follows the monitor (D22).
+  - Written, not tried on a console: D01, D02, D18, D26. Specification items still partial: resource files, project layout, cart type, `/bme` folder.
 - RGB30 menu keys, user decision 19 Oct 2026 (target, not implemented): B = ok, Y = cancel,
   A is not a second back (games that rely on A as back are fixed one by one). Today the code
   still maps A to back (`pad_back`). Per-device key reference: branch `claude/ui-reference`
   (file ui-reference.md under docs/spec there, UI-REF-1, reviewed, not merged).
-- RGB30 game options (X): "Send to a nearby console" works (same code as the Pi; not verified on hardware). Publish stays off by decision. The tool rows wait for D13 (divergence D11).
+- RGB30 game options (X): "Send to a nearby console" works (same code as the Pi; not verified on hardware). Publish stays off by decision; the tool rows are 'Open in bm SDK' and 'Export .b16' (divergence D11 accepted).
 - **Mali-G52 driver** (RGB30): Overbit in `.b16` at 360×360 and 720×720, ARM benchmark and Mali driver (details in [graphics-mali](graphics-mali.md)).
 - **`.b16` profile**: unified `.b16` profile (details in [b16](b16.md)).
 - **Handheld shell for the Pi Zero**: support for handheld setups based on the Pi Zero (reading keys and pad directly on GPIO pins, compact display on a DPI or SPI bus).

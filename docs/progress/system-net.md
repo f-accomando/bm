@@ -29,7 +29,7 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   `web_get(url, {resume = "NAME.EXT"})` resumes with `Range` from `bm/web/NAME.PRT` (stages 3-5 in
   [multitasking](multitasking.md)). Tests: `make test-webapi`
   (PC, ucontext fibers, local server), QEMU `test_web_api`. Not tried on a Pi or an RGB30 with a
-  real server (divergence D49). Not done: PNG/JPEG decoding in bands, progressive JPEG.
+  real server (divergence D50). Not done: PNG/JPEG decoding in bands, progressive JPEG.
 - PC link (`netcon.c` console, `netxfer.c` files) for `tools/bm_net.py`: a file is answered
   `QD` once received and checked, written from the menu in a fiber
   (`netxfer_write_tick`); one at a time, another gets `BY`. An open or suspended game is

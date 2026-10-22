@@ -913,6 +913,69 @@ def test_sdk_stages_build(b, opts):
     assert b"stages: title best" in lua, lua[:200]
 
 
+def test_frozen_game_menu(b, opts):
+    """A frozen game in the menu, as on the Pi (D06, D07, D08) and the Games order (D09): the list is sorted by
+    title, not by file name; a frozen game has the 'Playing' badge, Resume and 'Close the game' in its options;
+    starting another game asks 'Close <game>?' first (back keeps the frozen one); deleting the frozen game closes
+    it, so the next game starts with no question."""
+    tmp = mktmp(prefix="bm64frozen-")
+    sd = make_sd(tmp, {"bm/a_zulu.bm": mkbm.pack(PI_CART.encode(), title="Zulu", author="tests", res=(360, 360)),
+                       "bm/b_alpha.bm": mkbm.pack(PI_CART.encode(), title="Alpha", author="tests", res=(360, 360))})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        wait_screen(q, ["b_alpha.bm"])          # the first cover is Alpha (b_alpha.bm), not a_zulu.bm: sorted by title
+        q.send("\r")                            # the first cover: Alpha
+        q.expect("play: /bm/b_alpha.bm", timeout=10)
+        q.expect("bm: loaded", timeout=30)
+        time.sleep(2)
+        q.send("q")                             # Start + Select: frozen, back in the menu
+        q.expect("suspended", timeout=10)
+        wait_screen(q, ["Playing", "Resume"])    # the badge on the cover, and Resume for A
+        keys(q, "x")                            # its options
+        wait_screen(q, ["Resume", "Close the game"])
+        keys(q, "y")                            # back
+        keys(q, "d")                            # Zulu
+        wait_screen(q, ["Zulu"])
+        keys(q, "\r")                           # another game while Alpha is frozen: the question
+        wait_screen(q, ["Close Alpha?", "Close it"])
+        keys(q, "y")                            # back: Alpha stays frozen
+        text = wait_screen(q, ["Zulu"])
+        assert "Close it" not in text, text
+        keys(q, "a")                            # Alpha again
+        wait_screen(q, ["Playing", "Resume"])
+        keys(q, "x")
+        wait_screen(q, ["Resume"])
+        keys(q, "w")                            # up from the first row: the last row, Delete from the SD card
+        wait_screen(q, ["Delete from the SD card"])
+        keys(q, "\r")
+        wait_screen(q, ["Delete the game?"])
+        keys(q, "\r")                           # Delete: the frozen copy goes with the file
+        wait_screen(q, ["Zulu"])
+        assert "b_alpha" not in screen_all(q.screendump()), "Alpha is gone"
+        keys(q, "\r")                           # Zulu starts with no question
+        q.expect("play: /bm/a_zulu.bm", timeout=10)
+    finally:
+        q.close()
+
+
+def test_tool_not_a_game(b, opts):
+    """A tool installed from Market > Apps (a file named like a bm tool) is not a game on the RGB30 (D13), as on
+    the Pi (carts.c tool_id_of): bm/studio.b16 stays out of Games, racer.b16 is a game."""
+    tmp = mktmp(prefix="bm64tool-")
+    sd = make_sd(tmp, {"bm/racer.b16": b"B16" + bytes(100), "bm/studio.b16": b"B16" + bytes(100),
+                       "bm/Mesh.BM": b"BMCART" + bytes(64)})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        out = boot(q)
+        assert "cartridge menu: 1 games" in out, out
+        time.sleep(0.5)
+        text = screen_all(q.screendump()).lower()
+        assert "racer.b16" in text and "studio" not in text and "mesh" not in text, text
+    finally:
+        q.close()
+
+
 def test_cover_details_perf(b, opts):
     """Cover details show author, size, path and performance note after a game (D12)."""
     import shutil
@@ -1044,14 +1107,8 @@ function _draw() cls(1) print("pocket", 8, 8, 7) end
 """
 
 
-def test_market_b16(b, opts):
-    """The Market tab, as on the Pi (src/kernel/market.c in fibers, the
-    AArch64 ones of src/rgb30/fiber.S), with a catalog on the SD card
-    (market_url=sd:/market/, slowed by market_delay): first, off the screen
-    until it is the tab, nothing loads before; of the catalog only the .b16
-    (the user's choice for the RGB30); one downloads after a question, goes
-    to bm/ as POCKET.B16, plays, and the Games tab has it."""
-    tmp = mktmp(prefix="bm64mk-")
+def market_sd(tmp, extra=b""):
+    """An SD image with a signed catalog of two games (pocket.b16 and bigpi.bm) at sd:/market/; extra: more lines for bm/config.txt."""
     key, pub = os.path.join(tmp, "key.pem"), os.path.join(tmp, "pub.pem")
     subprocess.run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256",
                     "-out", key], check=True, capture_output=True)
@@ -1067,12 +1124,23 @@ def test_market_b16(b, opts):
     r = subprocess.run([sys.executable, os.path.join(HERE, "..", "..", "scripts", "mkmarket.py"), games,
                         "-o", site, "--key", key, "--serial", "20261005120000"], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
-    files = {"bm/config.txt": b"market_url=sd:/market/\nmarket_delay=100\n", "bm/market.pem": open(pub, "rb").read()}
+    files = {"bm/config.txt": b"market_url=sd:/market/\nmarket_delay=100\n" + extra, "bm/market.pem": open(pub, "rb").read()}
     for dp, _, fs in os.walk(site):
         for f in fs:
             src = os.path.join(dp, f)
             files["market/" + os.path.relpath(src, site).replace(os.sep, "/")] = open(src, "rb").read()
-    sd = make_sd(tmp, files)
+    return make_sd(tmp, files)
+
+
+def test_market_b16(b, opts):
+    """The Market tab, as on the Pi (src/kernel/market.c in fibers, the
+    AArch64 ones of src/rgb30/fiber.S), with a catalog on the SD card
+    (market_url=sd:/market/, slowed by market_delay): first, off the screen
+    until it is the tab, nothing loads before; of the catalog only the .b16
+    (the user's choice for the RGB30); one downloads after a question, goes
+    to bm/ as POCKET.B16, plays, and the Games tab has it."""
+    tmp = mktmp(prefix="bm64mk-")
+    sd = market_sd(tmp)
     size = os.path.getsize(sd)
     dump = os.path.join(tmp, "after.img")
 
@@ -1128,6 +1196,27 @@ def test_market_b16(b, opts):
     owned = subprocess.run(["mtype", "-i", part, "::/bm/market/GAMES.TXT"], capture_output=True,
                            env=env, check=True).stdout.decode()
     assert owned.startswith("pocket ") and owned.rstrip().endswith(" /bm/POCKET.B16"), owned
+
+
+def test_market_bm_key(b, opts):
+    """D16: the Market of the RGB30 lists .bm cartridges only with market_bm=1 (the Games tab has its own key,
+    show_bm); the old show_bm=1 still works for the Market."""
+    for extra, bm_listed in ((b"market_bm=1\n", True), (b"show_bm=1\n", True), (b"show_bm=1\nmarket_bm=0\n", False)):
+        tmp = mktmp(prefix="bm64mkbm-")
+        q = Qemu(os.path.join(b, "kernel.elf"), sd=market_sd(tmp, extra))
+        try:
+            boot(q)
+            keys(q, "l")
+            q.expect("market: catalog 20261005120000", timeout=20)
+            for _ in range(40):
+                text = screen_all(q.screendump())
+                if "Pocket" in text or "Big Pi Game" in text:      # the carousel shows one cover: Big Pi Game comes first
+                    break
+                time.sleep(0.2)
+            assert "Pocket" in text or "Big Pi Game" in text, text
+            assert ("Big Pi Game" in text) == bm_listed, (extra, text)
+        finally:
+            q.close()
 
 
 TRY_ME = r"""

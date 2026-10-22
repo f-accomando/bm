@@ -66,11 +66,12 @@ the right scope; that every divergence names a capability and real evidence file
 ## The gate for 1.0.0
 
 `python3 scripts/consistency.py gate` must print **0 blockers**: no open divergence of cause `history`, `todo` or `unknown`
-(only `hardware` may stay), no item of the specification that is not `implemented`, no accepted drift except hardware and
+(only `hardware` may stay; a divergence with status `accepted` and a `known.toml` entry of kind `intended` are accepted in
+writing, with their reason), no item of the specification that is not `implemented`, no accepted drift except hardware and
 documentation noise. From 1.0.0 on: container version 1 stays readable by every 1.x kernel; a new revision only **adds**;
 removing or changing a promise is a 2.0.0.
 
-## Where we are (2026-10-13, read from the code; `untested` = fixed and compiled, not tried on the hardware)
+## Where we are (2026-10-22, read from the code; `resolved` = proved by a test or tried, the record's note says which and what is not verified on the hardware; `untested` = fixed and compiled, not tried; `accepted` = intended, with its reason in the record)
 
 **1. First: devices that silently stop working**
 
@@ -83,22 +84,22 @@ removing or changing a promise is a 2.0.0.
 
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
-| D06 | untested | history | launch | Pi: asks to close a game that is frozen (suspended) before starting another. RGB30: closes it silently: the frozen game's progress is lost | add the question |
-| D07 | untested | history | frozen game | Pi: shows a 'running' badge and a Close row. RGB30: no badge, no Close row | set the badge and add the row |
-| D08 | untested | history | delete a game | Pi: closes the suspended copy; refuses while a download is updating it. RGB30: does neither | port the two checks |
+| D06 | resolved | history | launch | Pi: asks to close a game that is frozen (suspended) before starting another. RGB30: closes it silently: the frozen game's progress is lost | add the question |
+| D07 | resolved | history | frozen game | Pi: shows a 'running' badge and a Close row. RGB30: no badge, no Close row | set the badge and add the row |
+| D08 | resolved | history | delete a game | Pi: closes the suspended copy; refuses while a download is updating it. RGB30: does neither | port the two checks |
 
 **3. One key, one default**
 
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
-| D16 | untested | history | Market formats and show_bm / show_b16 | Pi: shows .bm; .b16 only without a .bm twin, or show_b16=1. RGB30: shows .b16; show_bm=1 adds .bm; in Games the same key show_bm has the opposite default | one key, one default; document it in RGB30.md and B16.md |
+| D16 | resolved | history | Market formats and show_bm / show_b16 | Pi: shows .bm; .b16 only without a .bm twin, or show_b16=1. RGB30: shows .b16; show_bm=1 adds .bm; in Games the same key show_bm has the opposite default | one key, one default; document it in RGB30.md and B16.md |
 
 **4. Developer workflow**
 
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
-| D09 | untested | history | game list | Pi: sorted by title; scans / and /carts; shows .bme projects in Dev. RGB30: sorted by title; scans /bm and /carts; .bme projects are D44 | try the title order on the RGB30 |
-| D13 | untested | history | Dev tab and Market Apps | Pi: tools recognised by name (tool_id_of), apps installed from the Market appear in Dev. RGB30: 7 fixed entries; a Market App installed on the RGB30 is not recognised as a tool and shows up as a game | same recognition on the RGB30, or filter apps out of Games |
+| D09 | resolved | history | game list | Pi: sorted by title; scans / and /carts; shows .bme projects in Dev. RGB30: sorted by title; scans /bm and /carts; .bme projects are D44 | try the title order on the RGB30 |
+| D13 | resolved | history | Dev tab and Market Apps | Pi: tools recognised by name (tool_id_of), apps installed from the Market appear in Dev. RGB30: 7 fixed entries; a Market App installed on the RGB30 is not recognised as a tool and shows up as a game | same recognition on the RGB30, or filter apps out of Games |
 
 **5. Robustness**
 
@@ -112,10 +113,10 @@ removing or changing a promise is a 2.0.0.
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
 | D03 | suspended | unknown | players | Pi: up to 4 BT pads plus USB: local multiplayer. RGB30: one player only; Settings shows only Player 1 | decide whether the RGB30 has local multiplayer; if so map BT pads to players |
-| D04 | open | history | menu keys | Pi: Start confirms; Tab and 1-5 jump tabs; U uploads a cart. RGB30: Start does nothing in the menu; no keyboard keys | align Start and Tab for BT keyboards |
+| D04 | resolved | history | menu keys | Pi: Start confirms; Tab and 1-5 jump tabs; U uploads a cart. RGB30: Start does nothing in the menu; no keyboard keys | align Start and Tab for BT keyboards |
 | D05 | suspended | unknown | menu pointer | Pi: mouse: hover, click, wheel, right-click for options. RGB30: none; Settings still offers the mouse rows | port the block (pointer.c is built into the RGB30) or hide the mouse rows |
-| D11 | open | history | game options (X / C) | Pi: Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close. RGB30: Play, Open in bm SDK, Export .b16, Send to a nearby console, info, delete save, delete | add Publish (the owner decided Publish stays off on the RGB30); the tool rows depend on D13 |
-| D12 | open | history | cover details | Pi: author, kind, size, path; a performance note after a game. RGB30: only the hint line; no performance note | add the note |
+| D11 | accepted | history | game options (X / C) | Pi: Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close. RGB30: Play, Open in bm SDK, Export .b16, Send to a nearby console, info, delete save, delete | add Publish (the owner decided Publish stays off on the RGB30); the tool rows depend on D13 |
+| D12 | resolved | history | cover details | Pi: author, kind, size, path; a performance note after a game. RGB30: only the hint line; no performance note | add the note |
 | D14 | open | todo | Dev tab extras | Pi: CPU bench, Stress test, Texture Room, Demo. RGB30: not built (stress.c and roombench.c are excluded) | port when the RGB30 3D bench matters |
 | D15 | open | todo | Settings > System | Pi: CPU clock and temperature; 3D driver row; open the monitor. RGB30: CPU name only | add what the RK3566 can report |
 | D17 | open | todo | WiFi connect | Pi: scan and type the password with a keyboard. RGB30: only wifi_ssid / wifi_psk from config.txt; no on-screen keyboard | needs the on-screen keyboard (R1/R2) |
@@ -125,9 +126,9 @@ removing or changing a promise is a 2.0.0.
 | D22 | open | hardware | monitor | Pi: text console and Dev tab entry. RGB30: none by design (no_monitor); the serial line has a Lua REPL | the user builds a terminal monitor for the RGB30 after the beta; study: mini-HDMI detection, external monitor, BT keyboard and mouse |
 | D23 | open | todo | 3D on the GPU | Pi: V3D draws the 3D. RGB30: Mali-G52 present but the 3D is on the ARM | Mali driver |
 | D24 | open | todo | Overbit .b16 and Mali benchmark | Pi: -. RGB30: not done | Overbit in .b16 on the RGB30 |
-| D25 | open | todo | multicore, fibers | Pi: -. RGB30: RGB30 uses one core; fibers in the menu only | later |
-| D26 | open | todo | SDK layout 720x720 | Pi: -. RGB30: not done (R39) | R39 |
-| D27 | open | todo | screenshot of the menu's own screens | Pi: not done. RGB30: not done | extend the screenshot to the menu |
+| D25 | accepted | todo | multicore, fibers | Pi: -. RGB30: RGB30 uses one core; fibers in the menu only | later |
+| D26 | untested | todo | SDK layout 720x720 | Pi: -. RGB30: not done (R39) | R39 |
+| D27 | accepted | todo | screenshot of the menu's own screens | Pi: not done. RGB30: not done | extend the screenshot to the menu |
 | D28 | open | todo | a game built in /carts and the Games tab | Pi: a game built in /carts is not in Games (R41). RGB30: - | R41 |
 | D44 | resolved | todo | Dev tab lists .bme projects | Projects (.bme) are not listed in the menu tabs on either kernel (user decision 21 Oct 2026). Pi Dev tab fixed in PR 58 (src/kernel/carts.c tab_items; test_projects walks the Dev tab). | none |
 
@@ -155,6 +156,7 @@ RGB30 has no Lib tab), and the common project layout is migrated for 3 games out
 
 - Version numbering: a baseline tag for the current line (for example `v0.3.0`) and `v1.0.0` when `gate` is empty. Tagging is
   outward-facing: waiting for a yes.
-- D03 and D05: should the RGB30 have local multiplayer and the menu pointer, or are they hardware choices (then the Settings rows go)?
+- D03 and D05: should the RGB30 have local multiplayer and the menu pointer, or are they hardware choices (then the Settings rows go)? The owner keeps both suspended.
+- D49: do the Pi menus follow `mo` and `mc` (Settings > Controls)? Today the Pi menus keep A and B in `carts.c`.
 - D16 is decided: `show_bm` is the Games tab, `market_bm` the Market (RGB30), `show_b16` the Market (Pi).
-- D13 and the Lib tab: the tools on the RGB30 come from Market > Apps; they must be recognised as tools, and the Lib tab needs a pad UI.
+- The Lib tab: accepted as closed on both kernels (owner's decision, 2026-10-06). The tools on the RGB30 come from Market > Apps and are recognised as tools (D13).

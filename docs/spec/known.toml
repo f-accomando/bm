@@ -1,11 +1,12 @@
 # Divergences that are accepted: each has a reason and a kind (hardware = the platform really differs;
-# history = built at different times, to align; todo = missing on purpose for now; text = noise in the docs).
+# history = built at different times, to align; todo = missing on purpose for now; text = noise in the docs;
+# intended = accepted in writing, the reason is in `because`).
 # `scripts/consistency.py check` fails on anything NOT listed here, and on an entry that is no longer found.
 
 [[accept]]
 id = "platform-menu:tabs"
-kind = "todo"
-because = "the Pi's menu has a Lib tab (resource files, hidden unless lib_tab=1); the RGB30's has none: the Lib tab is not built for the handheld"
+kind = "intended"
+because = "the Pi's menu has a Lib tab (resource files, hidden unless lib_tab=1); the RGB30's has none. Accepted 2026-10-22: the Lib tab is closed by the owner's decision (2026-10-06, docs/RISORSE.md section 7); the resources are made inside the SDK pages (APP-6)"
 
 [[accept]]
 id = "platform-screen:modes"
@@ -14,8 +15,8 @@ because = "a 16:9 TV on the Pi (screen() offers the 16:9 modes), a square 720x72
 
 [[accept]]
 id = "platform-tools:embedded"
-kind = "history"
-because = "the Pi kernel embeds all the tools; the RGB30 kernel embeds only the SDK (sdk_b16), the other tools come from Market > Apps"
+kind = "intended"
+because = "the Pi kernel embeds all the tools; the RGB30 kernel embeds only the SDK (sdk_b16), the other tools come from Market > Apps. Accepted 2026-10-22: the owner accepted this in writing on 2026-10-21 (divergence D20)"
 
 [[accept]]
 id = "api-missing:a"

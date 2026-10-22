@@ -96,6 +96,8 @@ do
       if H.n == 0 then H.map_tris = L.tri end
       H.seconds = H.seconds + 1
       local d = H.drawn or { 0, 0, 0, 0 }
+      -- the frame count and the cursor row: a test that sends keys waits on them (a serial key is held 10 frames)
+      log(string.format("hkeys f=%d row=%d", H.frame, H.cur))
       add_line(string.format(
         "herocart 1 t=%d n=%d lod=%s res=%dx%d opt=%s | ms=%s max=%s fps=%d gpu=%s wait=%s anim=%s tri=%d vtx=%d lua=%d kb=%d",
         math.floor(now), H.n, H.lod_name(), SCREEN_W, SCREEN_H, H.opt_string(), fmt(L.ms), fmt(L.max), math.floor(L.fps),

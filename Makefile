@@ -986,9 +986,9 @@ test-net: $(BUILD)/host/test_netcon $(BUILD)/host/test_ethnet $(BUILD)/host/test
 
 # bm/config.txt (src/kernel/config.c): the file, and the settings from the PC
 # (netxfer's C, bm_net.py --config, easy_install.sh)
-$(BUILD)/host/test_config: tests/kernel/test_config.c src/kernel/config.c src/kernel/config.h src/lib/printf.c
+$(BUILD)/host/test_config: tests/kernel/test_config.c src/kernel/config.c src/kernel/config.h src/lib/printf.c src/fs/sdlock.c src/fs/sdlock.h
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/kernel/test_config.c src/kernel/config.c src/lib/printf.c
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/kernel/test_config.c src/kernel/config.c src/lib/printf.c src/fs/sdlock.c
 
 $(BUILD)/host/test_ethnet: tests/net/test_ethnet.c src/net/net.c src/net/net.h src/net/cartnet.c src/net/cartnet.h \
                            src/kernel/fiber.h src/usb/smsc95xx.c src/usb/smsc95xx.h tests/usb/lan9512_sim.c \
