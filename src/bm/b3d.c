@@ -771,6 +771,13 @@ static void herotris_scene(int n, int f)
         r3d_draw_flags(&R, &hero_h, (v3_t){ x, 0, z }, 0, (float)s, 0, 1, R3D_SMOOTH);
     }
     scene_light();
+}
+
+/* the 2D of the frame, after the 3D has ended (the runner calls it after the job: with the queue the
+ * ARM's logic runs while the GPU draws, then the 2D, as a game's d2 records play after the job) */
+static void herotris_2d(int n, int f)
+{
+    (void)n;
     /* the parallax bands of 16 x 16 pieces, 40 across: 4 rows at the top, 3 at the bottom */
     for (int r = 0; r < 4; r++)
         for (int c = 0; c < 40; c++)
@@ -784,6 +791,75 @@ static void herotris_scene(int n, int f)
     text2d(W / 2 - 40, 70, "ROUND 3", 0xFFFF);
     for (int k = 0; k < 20; k++)
         spr2d(&sheet[1], (k % 8) * 16, 0, 16, 16, 8 + 18 * k, H - 112);
+}
+
+/* One hero alone, lit, drawn once on the profile's path: gl = the triangles the GPU's vertex shader placed
+ * (a whole mesh, 1536, when the mesh path took it; 0 when it fell back to the triangles one by one),
+ * meshes = the meshes it placed. The ramp calls it before the first step. */
+static void herotris_probe(int *gl, int *meshes)
+{
+    gpu3d_stats_t st;
+    cls3d();
+    r3d_camera(&R, 0, 1.7f, -5, 0.05f, -0.12f, 70);
+    shine_light();
+    pose(0);
+    gpu3d_flush(g, 0);
+    gpu3d_take_stats(&st);
+    r3d_draw_flags(&R, &hero_h, (v3_t){ 0, 0, 1 }, 0, 0, 0, 1, R3D_SMOOTH);
+    gpu3d_flush(g, 0);
+    gpu3d_take_stats(&st);
+    *gl = (int)st.gltris;
+    *meshes = (int)st.glmeshes;
+    scene_light();
+}
+
+/* ------------------------------------------------- cel (opt-in)
+ * Q: what the cel shader costs on top of the lit hero. The scene is `heroes` with the textured hero
+ * (1536 triangles, 16 bones, lit by the sun): n heroes in rows of 8. Five tests, the same scene:
+ * lit or cel (4 bands), with the ARM raster's dither on or off (r3d_dither). The vertex programs
+ * of GPU+VS cut the light (bm3d 7.5); the ARM and the Mali keep the ARM path. `cel_outline` is the lit
+ * hero with the outline: flag R3D_OUTLINE, colour 0x2030A0, width 0.03, the mesh again as an inverted hull.
+ * The report's C lines give the ms of the same n in the five tests. */
+
+static int cel_bands, cel_dither_off, cel_outline;
+
+static void cel_on_(int bands, int dither_off, int outline)
+{
+    cel_bands = bands;
+    cel_dither_off = dither_off;
+    cel_outline = outline;
+    r3d_cel(&R, bands, 0.35f);
+    r3d_dither(!dither_off);
+    R.cel_rgb = outline ? 0x2030A0u : R3D_CEL_NO_OUTLINE;       /* cel3d(0, 0.35, 0x2030A0, 0.03) */
+    R.cel_width = 0.03f;
+}
+
+static void cel_setup_lit(void)  { cel_on_(0, 0, 0); }
+static void cel_setup_cel(void)  { cel_on_(4, 0, 0); }
+static void cel_setup_lit_nd(void) { cel_on_(0, 1, 0); }
+static void cel_setup_cel_nd(void) { cel_on_(4, 1, 0); }
+static void cel_setup_outline(void) { cel_on_(0, 0, 1); }
+
+static void cel_free(void)
+{
+    r3d_cel(&R, 0, 0.35f);
+    r3d_dither(1);
+    R.cel_rgb = R3D_CEL_NO_OUTLINE;
+    R.cel_width = 0.02f;
+    cel_bands = cel_dither_off = cel_outline = 0;
+}
+
+static void cel_scene(int n, int f)
+{
+    cls3d();
+    r3d_camera(&R, 0, 2.2f, -4, 0, -0.18f, 60);
+    shine_light();
+    for (int i = 0; i < n; i++) {
+        const float x = -4.2f + 1.2f * (float)(i % 8) + 0.6f * (float)((i / 8) % 2), z = 1.0f + 1.5f * (float)(i / 8);
+        pose((float)f * 0.05f + (float)i);
+        r3d_draw_flags(&R, &hero_tex, (v3_t){ x, 0, z }, 0, (float)i, 0, 1, R3D_SMOOTH | (cel_bands ? R3D_CEL : 0u) | (cel_outline ? R3D_OUTLINE : 0u));
+    }
+    scene_light();
 }
 
 /* ------------------------------------------------- the 2D scenes (opt-in)
@@ -998,6 +1074,9 @@ typedef struct {
     int work;                           /* the ARM's work of a frame after its 3D (a game's logic),
                                          * thousands of steps of 3 instructions */
     int optin;                          /* runs only when `tests=` names it (the 2D scenes) */
+    void (*frame2d)(int n, int f);      /* the frame's 2D, drawn after its 3D job has ended (NULL: the frame has it) */
+    const char *group;                  /* `tests=<group>` runs this test too */
+    void (*probe)(int *gl, int *meshes);    /* one hero alone before the ramp: what the vertex shader placed */
 } test_t;
 
 static const test_t tests[] = {
@@ -1057,7 +1136,19 @@ static const test_t tests[] = {
     { "light", "2D: full-screen light, ARM", "lamps", 1, 64, M_ARM, light_setup, light_scene, light_free, NULL, 2, 0, 1 },
     /* herotris (docs/design/triangle-throughput.md): how many triangles a hero and a map hold at 60 fps */
     { "herotris", "hero + map + parallax + HUD + 4M instr of logic", "sets", 1, 64,
-      M_VS | M_VSQ | M_VSQ2 | M_VSA | M_VSAQ, herotris_setup, herotris_scene, herotris_free, NULL, 0, 1300, 1 },
+      M_ARM | M_GPU | M_VS | M_VSQ | M_VSQ2 | M_VSA | M_VSAQ, herotris_setup, herotris_scene, herotris_free, NULL, 0,
+      1300, 1, herotris_2d, NULL, herotris_probe },
+    /* cel (Q2): the lit hero against the cel hero, the dither on or off; `tests=cel` runs the four */
+    { "cel_lit", "cel: lit hero (reference)", "heroes", 1, 64, M_ARM | M_VS, cel_setup_lit, cel_scene, cel_free, NULL, 0, 0, 1,
+      NULL, "cel" },
+    { "cel", "cel: 4 bands, dither on", "heroes", 1, 64, M_ARM | M_VS, cel_setup_cel, cel_scene, cel_free, NULL, 0, 0, 1, NULL,
+      "cel" },
+    { "cel_lit_nd", "cel: lit hero, dither off", "heroes", 1, 64, M_ARM | M_VS, cel_setup_lit_nd, cel_scene, cel_free, NULL, 0,
+      0, 1, NULL, "cel" },
+    { "cel_nd", "cel: 4 bands, dither off", "heroes", 1, 64, M_ARM | M_VS, cel_setup_cel_nd, cel_scene, cel_free, NULL, 0, 0, 1,
+      NULL, "cel" },
+    { "cel_outline", "cel: lit hero with the outline (inverted hull)", "heroes", 1, 64, M_ARM | M_VS, cel_setup_outline, cel_scene,
+      cel_free, NULL, 0, 0, 1, NULL, "cel" },
 };
 #define NTESTS ((int)(sizeof tests / sizeof tests[0]))
 
@@ -1113,6 +1204,7 @@ typedef struct {
     float bin_us, rnd_us;               /* the binner's and the renderer's time of the jobs, a frame */
     float instr, wait_instr, dmiss, cycles;  /* the ARM's counters, a frame */
     float tris_in, tris, verts, pixels, gltris;
+    float sync_ms;                      /* the ARM inside gpu3d_sync() waiting for the job, a frame (queue only) */
     float fill;                         /* the pixels the frame asked to fill (fill_px) */
     uint32_t core_mhz, gpu_mhz;         /* measured after the step's frames (0: unknown) */
     float clean_kcyc, inval_kcyc;       /* the ARM's whole-cache upkeep around the jobs, a frame */
@@ -1132,6 +1224,14 @@ typedef struct {
      * time and of the frame, and the GPU's time with no pixel (the line's
      * intercept: binning, clear, tile stores of 640x360) */
     float ns_gpu, ns_ms, gpu0_ms;
+    /* queue 2 only: the same ramp if the frame were shown a frame later (the bench has one page, so it is
+     * a model): a frame costs the larger of the ARM's side (ms less the wait in gpu3d_sync) and the GPU's */
+    int later;
+    float tris60_l, drawn60_l;
+    /* the steps n = 1..4 (-1: not run): the median ms and the triangles given, for the same-n comparisons */
+    float ms_n[4], tris_n[4];
+    /* the vertex shader's mesh path on one hero alone (a test with a probe): the triangles and meshes it placed */
+    int probed, probe_gl, probe_meshes, vs_probe;
 } result_t;
 
 static result_t res[NTESTS][NPROF];
@@ -1256,6 +1356,13 @@ static void ramp(int ti, int pf)
     cur_2d = prof[pf].two_d;
     if (t->setup)
         t->setup();
+    for (int k = 0; k < 4; k++)
+        r->ms_n[k] = r->tris_n[k] = -1;
+    if (t->probe && R.backend) {
+        t->probe(&r->probe_gl, &r->probe_meshes);
+        r->probed = 1;
+        r->vs_probe = gpu3d_vshader();
+    }
     const int frames = P->quick ? 1 : 6, max = P->quick ? (t->start + 3 > 8 ? t->start + 3 : 8) : t->max;
     const uint32_t t0 = P->us();
     gpu3d_stats_t st;
@@ -1267,6 +1374,8 @@ static void ramp(int ti, int pf)
         t->frame(n, 0);                 /* warm: textures, corners, caches */
         if (R.backend)
             gpu3d_flush(g, 0);
+        if (t->frame2d)
+            t->frame2d(n, 0);
         gpu3d_set_queue(prof[pf].queue);
         gpu3d_take_stats(&st);
         fill_px = 0;
@@ -1279,12 +1388,16 @@ static void ramp(int ti, int pf)
             if (R.backend && prof[pf].queue) {
                 gpu3d_submit(g, 0);     /* the GPU draws while the ARM works (bm3d 4.1) */
                 work(t->work);
+                const uint32_t w0 = P->us();
                 gpu3d_sync();
+                a.sync_ms += (float)(P->us() - w0) / 1000.0f;
             } else {
                 if (R.backend)
                     gpu3d_flush(g, 0);
                 work(t->work);
             }
+            if (t->frame2d)
+                t->frame2d(n, f);       /* the 2D on the page the job has finished */
             counts(&c1);
             const uint32_t u1 = P->us();
             a.tris_in += (float)R.tris_in;
@@ -1321,6 +1434,7 @@ static void ramp(int ti, int pf)
         a.instr *= k; a.wait_instr *= k; a.dmiss *= k; a.cycles *= k;
         a.tris_in *= k; a.tris *= k; a.verts *= k; a.pixels *= k;
         a.fill = fill_px * k;
+        a.sync_ms *= k;
         a.gpu_ms = (float)gpu3d_busy_us(&st) * k / 1000.0f;
         a.wait_ms = a.gpu_ms;           /* the ARM waits for every job (with the queue: at most) */
         a.jobs = (float)st.jobs * k;
@@ -1405,6 +1519,26 @@ static void ramp(int ti, int pf)
     for (int i = 0; i < ns; i++)
         if (s[i].ms <= MS60)
             r->at = s[i];
+    for (int i = 0; i < ns; i++)
+        if (s[i].n >= 1 && s[i].n <= 4) {
+            r->ms_n[s[i].n - 1] = s[i].ms;
+            r->tris_n[s[i].n - 1] = s[i].tris_in;
+        }
+    if (prof[pf].queue == 2) {
+        float sl[64];
+        for (int i = 0; i < ns; i++) {
+            const float arm = s[i].ms - s[i].sync_ms;
+            sl[i] = arm > s[i].gpu_ms ? arm : s[i].gpu_ms;
+        }
+        r->later = 1;
+        r->tris60_l = b3d_load_at(stri, sl, ns, MS60);
+        r->drawn60_l = b3d_load_at(sdrawn, sl, ns, MS60);
+        if (b3d_load_at(sn, sl, ns, MS60) < 0) {
+            const float k = sl[0] > 0 ? MS60 / sl[0] : 0;
+            r->tris60_l = s[0].tris_in * k;
+            r->drawn60_l = s[0].tris * k;
+        }
+    }
 }
 
 /* ---------------------------------------------------------------- the score */
@@ -1598,6 +1732,95 @@ static const char *f2(char *b, float v)
     return b;
 }
 
+static int test_idx(const char *id)
+{
+    for (int ti = 0; ti < NTESTS; ti++)
+        if (!strcmp(tests[ti].id, id))
+            return ti;
+    return -1;
+}
+
+/* Q1, how many hero triangles hold 60 fps: one H line a profile of a test with a probe (herotris).
+ * sets60 = the sets (a hero, its shadow, a map of 100 pieces) a frame of 60 fps holds; hero_tris60 the hero
+ * mesh's triangles in them (1536 a set, without the shadow), hero_shadow_tris60 with the shadow; submitted60
+ * and drawn60 the triangles given to r3d and the ones left after its clip (tris60 and drawn60 of the R line);
+ * mesh: what the vertex shader did with one hero alone (ACCEPTED: 1536 triangles placed by the mesh path;
+ * FALLBACK: 0, the triangles went one by one; PARTIAL; NA: no vertex shader in the profile). arm_ms is ms
+ * less the wait in gpu3d_sync(). The later_ columns (queue 2) are a model, see BENCH3D.md. */
+static void report_hero(void)
+{
+    char a[16], b[16], c[16], d[16], e[16], f[16];
+    int head = 0;
+    for (int ti = 0; ti < NTESTS; ti++) {
+        if (!tests[ti].probe)
+            continue;
+        for (int pf = 0; pf < NPROF; pf++) {
+            const result_t *r = &res[ti][pf];
+            if (!r->ran)
+                continue;
+            if (!head) {
+                put("hero triangles at 60 fps (640x360; a set is a hero of 1536 triangles, its shadow and a map of 5000)\n");
+                put("columns H,test,profile,sets60,hero_tris60,hero_shadow_tris60,submitted60,drawn60,ms,gpu_ms,arm_ms,mesh,"
+                    "probe_gltris,probe_meshes,vs_probe,later_submitted60,later_drawn60\n");
+                head = 1;
+            }
+            const sample_t *s = &r->at;
+            const float per = s->n > 0 && s->tris_in > 0 ? s->tris_in / (float)s->n : 8036.0f;
+            const float sets = r->tris60 / per;
+            const char *mesh = !prof[pf].vs || !r->probed ? "NA" : r->probe_gl >= 1536 ? "ACCEPTED"
+                               : r->probe_gl == 0 ? "FALLBACK" : "PARTIAL";
+            put("H,%s,%s,%s,%d,%d,%d,%d,%s,%s,%s,%s,%d,%d,%d,%s,%s\n", tests[ti].id, prof[pf].name, f2(a, sets),
+                (int)(sets * 1536.0f + 0.5f), (int)(sets * 3072.0f + 0.5f), (int)(r->tris60 + 0.5f),
+                (int)(r->drawn60 + 0.5f), f1(b, s->ms), f1(c, s->gpu_ms), f1(d, s->ms - s->sync_ms), mesh, r->probe_gl,
+                r->probe_meshes, r->vs_probe, r->later ? f1(e, r->tris60_l) : "-", r->later ? f1(f, r->drawn60_l) : "-");
+        }
+    }
+}
+
+/* Q2, the cost of the cel shader: one C line a profile and step n (1 to 4): the ms of the same n heroes in
+ * the five cel tests (lit, cel with 4 bands; dither on, off; outline) and the ratios against the lit hero. */
+static void report_cel(void)
+{
+    static const char *const id[5] = { "cel_lit", "cel", "cel_lit_nd", "cel_nd", "cel_outline" };
+    int ti[5], ok = 1;
+    for (int k = 0; k < 5; k++) {
+        ti[k] = test_idx(id[k]);
+        ok = ok && ti[k] >= 0;
+    }
+    if (!ok)
+        return;
+    int head = 0;
+    for (int pf = 0; pf < NPROF; pf++) {
+        if (!res[ti[0]][pf].ran && !res[ti[1]][pf].ran)
+            continue;
+        for (int n = 1; n <= 4; n++) {
+            float ms[5];
+            for (int k = 0; k < 5; k++)
+                ms[k] = res[ti[k]][pf].ran ? res[ti[k]][pf].ms_n[n - 1] : -1;
+            if (ms[0] < 0 && ms[1] < 0)
+                continue;
+            if (!head) {
+                put("cel cost: the same n heroes (1536 triangles each, lit by the sun), ms a frame; "
+                    "cel = 4 bands, floor 0.35; nd = dither off; outline = hull 0.03, colour 0x2030A0, no bands\n");
+                put("columns C,profile,n,tris,lit,cel,lit_nd,cel_nd,outline,cel_over_lit,cel_nd_over_lit_nd,outline_over_lit\n");
+                head = 1;
+            }
+            char v[5][16], q1[16], q2[16], q3[16];
+            float tr = 0;                       /* the triangles given at this n (the same in the four tests) */
+            for (int k = 0; k < 5; k++) {
+                f2(v[k], ms[k]);
+                if (res[ti[k]][pf].ran && res[ti[k]][pf].tris_n[n - 1] > tr)
+                    tr = res[ti[k]][pf].tris_n[n - 1];
+            }
+            f2(q1, ms[0] > 0 && ms[1] > 0 ? ms[1] / ms[0] : -1);
+            f2(q2, ms[2] > 0 && ms[3] > 0 ? ms[3] / ms[2] : -1);
+            f2(q3, ms[0] > 0 && ms[4] > 0 ? ms[4] / ms[0] : -1);
+            put("C,%s,%d,%d,%s,%s,%s,%s,%s,%s,%s,%s\n", prof[pf].name, n, (int)(tr + 0.5f), v[0], v[1],
+                v[2], v[3], v[4], q1, q2, q3);
+        }
+    }
+}
+
 static void report(void)
 {
     rep_len = 0;
@@ -1608,6 +1831,9 @@ static void report(void)
     put("machine %s\n", P->machine ? P->machine : "?");
     put("gpu %s\n", gpu3d_status());
     put("probes %s\n", gpu3d_probe_log()[0] ? gpu3d_probe_log() : "none");
+    put("size %dx%d (the page and the render; the bench has no other output size: no 720x405 and no 1080p mode)\n", W, H);
+    put("vsprobe gpu3d_vshader=%d (0 none, 1 scenery, 2 heroes) queue_ok=%d queue2=%d\n", gpu3d_vshader(), gpu3d_queue_ok(),
+        gpu3d_queue2());
     put("options %s (at the start; each profile sets its own)\n", opts_start);
     put("counters %s\n",P->counting ? pmu_name() : "none");
     put("previous %s\n", prev_name[0] ? prev_name : "none");
@@ -1668,6 +1894,8 @@ static void report(void)
                 f2(v[1], r->ns_ms), f2(v[2], r->gpu0_ms), v[3], v[4], v[5], v[6], v[7], v[8]);
         }
     }
+    report_hero();
+    report_cel();
     if (qpu_line[0])
         put("qpu row (gpu3d_qpu=1): %s\n", qpu_line);
     /* the score (its S lines read by the next run) and the triangles at 60 fps */
@@ -2189,7 +2417,8 @@ int b3d_run(const b3d_platform_t *plat)
     for (int ti = 0; ti < NTESTS && !stopping(); ti++)
         for (int pf = 0; pf < NPROF && !stopping(); pf++)
             if (!tests[ti].future && (!tests[ti].optin || P->only_tests) && runs(&tests[ti], pf) &&
-                listed(P->only_tests, tests[ti].id) && prof_listed(pf))
+                (listed(P->only_tests, tests[ti].id) || (tests[ti].group && listed(P->only_tests, tests[ti].group))) &&
+                prof_listed(pf))
                 ramp(ti, pf);
     R.backend = NULL;
     meshes_free();

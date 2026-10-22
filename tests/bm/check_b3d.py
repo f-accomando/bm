@@ -11,7 +11,9 @@ TESTS = ["spheres", "spheres_smooth", "spheres_tex", "spheres_unlit", "spheres_b
 FUTURE = []
 # the 2D scenes: only when `tests=` names them (the default run has no row of them)
 TESTS2D = {"map8": {"ARM"}, "sprites": {"ARM", "GPU+2D"}, "stack": {"ARM"}, "fade": {"ARM"}, "light": {"ARM"},
-           "herotris": {"GPU+VS", "GPU+VS+Q", "GPU+VS+Q2", "GPU+VS+A8", "GPU+VS+A8+Q", "GPU+VS+FS2"}}
+           "herotris": {"ARM", "GPU", "GPU+VS", "GPU+VS+Q", "GPU+VS+Q2", "GPU+VS+A8", "GPU+VS+A8+Q", "GPU+VS+FS2"},
+           "cel_lit": {"ARM", "GPU+VS"}, "cel": {"ARM", "GPU+VS"}, "cel_lit_nd": {"ARM", "GPU+VS"}, "cel_nd": {"ARM", "GPU+VS"},
+           "cel_outline": {"ARM", "GPU+VS"}}
 
 
 def check_2d(d):
@@ -25,12 +27,37 @@ def check_2d(d):
         for r in got.values():
             # ms, worst, gpu_ms, clean_kcyc, inval_kcyc, fill_px, ns_px_frame (the PC has no ARM counters: instr is 0)
             ok = ok and len(r) == 36 and 0 <= float(r[7]) <= float(r[8]) and float(r[15]) >= 0
-            ok = ok and float(r[25]) >= 0 and float(r[26]) >= 0 and int(r[30]) > 0 and float(r[32]) >= -1
+            ok = ok and float(r[25]) >= 0 and float(r[26]) >= 0 and float(r[32]) >= -1
+            if not t.startswith("cel"):             # the cel tests draw no 2D: no pixels counted
+                ok = ok and int(r[30]) > 0
             ok = ok and float(r[34]) >= 0 and float(r[35]) >= 0       # bin_us, rnd_us
             if t == "herotris":
-                ok = ok and float(r[34]) > 0 and float(r[35]) > 0 and int(r[10]) > 6000 and float(r[14]) > 0
+                ok = ok and int(r[9]) > 6000        # triangles given (a plain GPU keeps fewer after the cull)
+                if r[2] != "ARM":
+                    ok = ok and float(r[35]) > 0 and float(r[14]) > 0
+                    if "+Q" not in r[2]:        # a queued job that ended before the ARM looked is not timed
+                        ok = ok and float(r[34]) > 0
         print(("ok   " if ok else "FAIL ") + f"2D scene {t}: {' '.join(sorted(got))}")
         fails += not ok
+    # Q1: an H line for every herotris profile; the VS profiles say what the mesh path did with the hero
+    hrows = [l.split(",") for l in text.splitlines() if l.startswith("H,")]
+    hgot = {r[2]: r for r in hrows if r[1] == "herotris"}
+    ok = set(TESTS2D["herotris"]) <= set(hgot) and all(len(r) == 17 for r in hrows)
+    for p, r in hgot.items():
+        want = "ACCEPTED" if "VS" in p else "NA"
+        ok = ok and r[11] == want and int(r[4]) > 0 and int(r[6]) > 0 and int(r[7]) > 0
+        ok = ok and (r[15] != "-") == (p in ("GPU+VS+Q2",))
+    print(("ok   " if ok else "FAIL ") + f"H lines (hero triangles at 60 fps): {len(hgot)} profiles, mesh path ACCEPTED on the VS ones")
+    fails += not ok
+    # Q2: C lines, the four cel tests at the same n, ms and ratios
+    crows = [l.split(",") for l in text.splitlines() if l.startswith("C,")]
+    ok = bool(crows) and {"ARM", "GPU+VS"} <= {r[1] for r in crows} and all(len(r) == 12 for r in crows)
+    ok = ok and all(float(r[4]) >= 0 and float(r[5]) >= 0 and int(r[3]) > 0 for r in crows if r[2] == "1")
+    print(("ok   " if ok else "FAIL ") + f"C lines (cel cost): {len(crows)} rows")
+    fails += not ok
+    hdr = "size 640x360" in text and "vsprobe gpu3d_vshader=" in text
+    print(("ok   " if hdr else "FAIL ") + "size and vsprobe lines in the header")
+    fails += not hdr
     others = {r[1] for r in rows} - set(TESTS2D)
     print(("ok   " if not others else "FAIL ") + "2D scenes: only the named tests ran")
     fails += bool(others)

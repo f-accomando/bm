@@ -146,7 +146,7 @@ static int is_known_app(const char *id)
 {
     static const char *const apps[] = {
         "sdk", "editor", "sdk-b16", "code", "pixel", "studio",
-        "animator", "mesh", "sound", "assistant", "write", "typing"
+        "animator", "mesh", "sound", "assistant", "write", "typing", "bmweb"
     };
     for (size_t i = 0; i < sizeof apps / sizeof apps[0]; i++)
         if (strcmp(id, apps[i]) == 0)
