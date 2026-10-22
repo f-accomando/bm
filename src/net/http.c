@@ -1,7 +1,8 @@
 /*
- * The HTTP client: one request per connection ("Connection: close"),
- * headers read line by line, then the body by length, by chunks or until
- * the server closes. Up to 5 redirects, or req->max_redirects (GitHub
+ * The HTTP client: one request per connection ("Connection: close") or, on
+ * request (keep_alive), one connection kept for the next GET to the same
+ * host. Headers read line by line, then the body by length, by chunks or
+ * until the server closes. Up to 5 redirects, or req->max_redirects (GitHub
  * sends release downloads to another host, with a signed address of about
  * a thousand characters).
  */
@@ -77,6 +78,31 @@ typedef struct {
     uint16_t port;
     const char *path;           /* in the address parsed; "" or "?..." need a "/" */
 } url_t;
+
+/* the connection kept for the next request (keep_alive), at most one */
+static struct {
+    void *c;
+    char host[128];
+    uint16_t port;
+    int tls;
+} idle;
+
+void http_idle_close(void)
+{
+    if (idle.c)
+        http_transport->close(idle.c);
+    idle.c = NULL;
+}
+
+/* 1 if the header value v has the word w (case ignored): "keep-alive, Close" has "close" */
+static int has_token(const char *v, const char *w)
+{
+    const size_t n = strlen(w);
+    for (; *v; v++)
+        if (strncasecmp(v, w, n) == 0)
+            return 1;
+    return 0;
+}
 
 static int parse_url(const char *u, url_t *p)
 {
@@ -174,16 +200,37 @@ int http_request(const char *url, const http_req_t *req, http_sink_t sink, void 
         }
         if (req->before && req->before(req->before_ctx, where, info->error, sizeof info->error))
             return -1;
-        void *c = http_transport->open(u.host, u.port, u.tls, info->error, sizeof info->error);
-        if (!c)
-            return -1;
         const char *method = req->method ? req->method : "GET";
+        const int keep = req->keep_alive;
+        int retried = 0;
+        void *c;
+        int reused;
         static char head[URL_MAX + 1024];
-        int hl = snprintf(head, sizeof head,
-                          "%s %s%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: bm/%s\r\n"
-                          "Accept: */*\r\nConnection: close\r\n%s",
-                          method, u.path[0] == '/' ? "" : "/", u.path, u.host, HTTP_USER_AGENT,
-                          req->headers ? req->headers : "");
+        int hl;
+again:
+        c = NULL;
+        reused = 0;
+        if (keep && idle.c && idle.port == u.port && idle.tls == u.tls && strcmp(idle.host, u.host) == 0 &&
+            !retried) {
+            c = idle.c;
+            idle.c = NULL;
+            reused = 1;
+        } else {
+            http_idle_close();
+            c = http_transport->open(u.host, u.port, u.tls, info->error, sizeof info->error);
+            if (!c)
+                return -1;
+        }
+        hl = snprintf(head, sizeof head,
+                      "%s %s%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: bm/%s\r\n"
+                      "Accept: */*\r\nConnection: %s\r\n%s",
+                      method, u.path[0] == '/' ? "" : "/", u.path, u.host, HTTP_USER_AGENT,
+                      keep ? "keep-alive" : "close", req->headers ? req->headers : "");
+        if (req->range_from > 0) {
+            hl += snprintf(head + hl, sizeof head - (size_t)hl, "Range: bytes=%lld-\r\n", req->range_from);
+            if (req->if_range && req->if_range[0])
+                hl += snprintf(head + hl, sizeof head - (size_t)hl, "If-Range: %s\r\n", req->if_range);
+        }
         if (req->body)
             hl += snprintf(head + hl, sizeof head - (size_t)hl, "Content-Length: %u\r\n",
                            (unsigned)req->body_len);
@@ -192,6 +239,10 @@ int http_request(const char *url, const http_req_t *req, http_sink_t sink, void 
             || http_transport->write(c, head, (size_t)hl)
             || (req->body && req->body_len && http_transport->write(c, req->body, req->body_len))) {
             http_transport->close(c);
+            if (reused && !retried) {           /* the server closed it meanwhile */
+                retried = 1;
+                goto again;
+            }
             snprintf(info->error, sizeof info->error, "could not send the request");
             return -1;
         }
@@ -203,12 +254,21 @@ int http_request(const char *url, const http_req_t *req, http_sink_t sink, void 
         static char line[URL_MAX + 64];
         if (read_line(&r, line, sizeof line) < 0 || strncmp(line, "HTTP/1.", 7) != 0) {
             http_transport->close(c);
+            if (reused && !retried) {           /* closed by the server while idle: once more, new */
+                retried = 1;
+                goto again;
+            }
             snprintf(info->error, sizeof info->error, "no HTTP answer");
             return -1;
         }
         info->status = atoi(line + 9);
         info->length = -1;
-        int chunked = 0;
+        info->reused = reused;
+        info->range_start = info->range_total = -1;
+        info->validator[0] = 0;
+        info->ranges = 0;
+        char etag[96] = "", lastmod[96] = "";
+        int chunked = 0, close_it = !keep || strncmp(line, "HTTP/1.1", 8) != 0;
         location[0] = 0;
         info->location[0] = 0;
         int too_long = 0;
@@ -225,15 +285,36 @@ int http_request(const char *url, const http_req_t *req, http_sink_t sink, void 
                 chunked = 1;
             else if (!strcasecmp(line, "Content-Type"))
                 snprintf(info->type, sizeof info->type, "%s", v);
-            else if (!strcasecmp(line, "Location")) {
+            else if (!strcasecmp(line, "Connection") && has_token(v, "close"))
+                close_it = 1;
+            else if (!strcasecmp(line, "Accept-Ranges") && has_token(v, "bytes"))
+                info->ranges = 1;
+            else if (!strcasecmp(line, "ETag") && strncmp(v, "W/", 2) != 0)
+                snprintf(etag, sizeof etag, "%s", v);
+            else if (!strcasecmp(line, "Last-Modified"))
+                snprintf(lastmod, sizeof lastmod, "%s", v);
+            else if (!strcasecmp(line, "Content-Range")) {     /* "bytes 100-199/200" */
+                char *end;
+                if (strncmp(v, "bytes ", 6) == 0) {
+                    const long long a = strtoll(v + 6, &end, 10);
+                    if (*end == '-') {
+                        info->range_start = a;
+                        end = strchr(end, '/');
+                        info->range_total = end && end[1] >= '0' && end[1] <= '9' ? strtoll(end + 1, NULL, 10) : -1;
+                    }
+                }
+            } else if (!strcasecmp(line, "Location")) {
                 too_long = snprintf(location, sizeof location, "%s", v) >= (int)sizeof location;
                 snprintf(info->location, sizeof info->location, "%s", v);
             }
         }
+        snprintf(info->validator, sizeof info->validator, "%s", etag[0] ? etag : lastmod);
+        if (info->status == 204 || info->status == 304 || info->status < 200)
+            info->length = 0;                   /* no body, whatever the headers say */
         int redirect = info->status == 301 || info->status == 302 || info->status == 303 ||
                        info->status == 307 || info->status == 308;
         if (redirect && location[0]) {
-            http_transport->close(c);
+            http_transport->close(c);           /* the body is not read: the connection goes */
             if (location[0] == '/')             /* same host */
                 too_long |= snprintf(where, sizeof where, "%s://%s:%u%s", u.tls ? "https" : "http",
                                      u.host, u.port, location) >= (int)sizeof where;
@@ -250,10 +331,23 @@ int http_request(const char *url, const http_req_t *req, http_sink_t sink, void 
             }
             continue;
         }
+        if (req->on_headers && req->on_headers(req->on_headers_ctx, info)) {
+            http_transport->close(c);
+            snprintf(info->error, sizeof info->error, "stopped after the headers");
+            return info->status;
+        }
         int e = body_to_sink(&r, info->length, chunked,
                              (info->status >= 200 && info->status < 300) || req->any_status ? sink : NULL,
                              ctx, info);
-        http_transport->close(c);
+        if (e == 0 && !close_it && (info->length >= 0 || chunked) && r.pos == r.len) {
+            http_idle_close();                  /* keep it for the next GET */
+            idle.c = c;
+            idle.port = u.port;
+            idle.tls = u.tls;
+            snprintf(idle.host, sizeof idle.host, "%s", u.host);
+        } else {
+            http_transport->close(c);
+        }
         if (e == -2)
             snprintf(info->error, sizeof info->error, "stopped after %lu bytes (too big?)",
                      (unsigned long)info->received);

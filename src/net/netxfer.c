@@ -29,6 +29,7 @@
 #include "drivers/watchdog.h"
 #include "wifi/wifi.h"
 #include "fs/fat.h"
+#include "fs/sdlock.h"
 #include "kernel/crumbs.h"
 #include "kernel/fiber.h"
 #include "kernel/notice.h"
@@ -661,7 +662,9 @@ static void write_main(void *arg)
     (void)arg;
     int (*was)(void) = fat_write_tick;
     fat_write_tick = write_tick;
+    sd_writer_begin("netxfer", netxfer_write_pause);    /* a writer that begins later pauses this one */
     write_rc = save(q.path, q.data, q.len);
+    sd_writer_end("netxfer");
     fat_write_tick = was;
     write_stopped = write_rc != 0 && fiber_cancelled();
 }

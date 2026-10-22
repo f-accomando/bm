@@ -3,6 +3,7 @@
 #include "audio/audio.h"
 #include "bm/runtime.h"
 #include "fs/fat.h"
+#include "fs/sdlock.h"
 #include "lib/printf.h"
 #include "usb/hid.h"
 
@@ -146,7 +147,7 @@ void config_save(void)
     int n = ksnprintf(buf, 64, "# bm settings (key=value)\n");
     for (int i = 0; i < nkv; i++)
         n += ksnprintf(buf + n, LINE, "%s=%s\n", kv[i].key, kv[i].value);
-    if (fat_mkdirs(DIR) != 0 || fat_write_file(DIR, FILE_, buf, (size_t)n) != 0)
+    if (sd_write_file("config", DIR, FILE_, buf, (size_t)n) != 0)
         kprintf("\x1b[91mconfig: cannot save (%s)\x1b[0m\n", fat_error());
     free(buf);
 }

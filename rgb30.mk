@@ -64,7 +64,7 @@ SHARED_SRCS := src/gfx/console.c src/gfx/draw.c src/gfx/font8x16.c src/gfx/font8
                src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c \
                src/script/luavm.c src/script/lib_bm.c \
                src/kernel/version.c src/kernel/crumbs.c src/kernel/config.c src/kernel/sdlog.c \
-               src/fs/fat.c src/kernel/fiber.c
+               src/fs/fat.c src/fs/sdlock.c src/kernel/fiber.c
 # Bluetooth: the Pi's stack (HCI, L2CAP, HID, BLE + SMP) over H5 to the
 # Realtek chip; SMP's elliptic curves come from mbedTLS, and WPA2's SHA-1
 # and AES (src/rgb30/wpa.c)
@@ -266,7 +266,7 @@ test-audio: build/rgb30-host/audio_sim_test
 	build/rgb30-host/audio_sim_test 1188 32 31
 
 # M41: the Mali probe (mali.c) on a simulated G52, CRU and PMU
-build/rgb30-host/mali_test: tests/rgb30/mali_test.c src/rgb30/mali.c src/rgb30/mali.h src/rgb30/mali_desc.c src/rgb30/mali_desc.h src/rgb30/mali_shaders.h
+build/rgb30-host/mali_test: tests/rgb30/mali_test.c src/rgb30/mali.c src/rgb30/mali.h src/rgb30/mali_desc.c src/rgb30/mali_desc.h src/rgb30/mali_shaders.h src/rgb30/mali_variants.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -Wall -Wextra -Isrc -Isrc/rgb30 -o $@ tests/rgb30/mali_test.c src/rgb30/mali.c src/rgb30/mali_desc.c
 

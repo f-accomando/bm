@@ -11,6 +11,41 @@ function App() {
 
   const [activeTab, setActiveTab] = React.useState(getTabFromHash);
   const [launcherNotice, setLauncherNotice] = React.useState("");
+  const [cart, setCart] = React.useState(null);
+  const [cartCover, setCartCover] = React.useState("");
+
+  // Stage 1 of the web player: read a .bm file in the page (web/bmcart.js). Nothing is sent anywhere.
+  const handleCartFile = (ev) => {
+    const file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    file.arrayBuffer().then((buf) => {
+      const result = window.bmCart ? window.bmCart.parse(buf, file.name) : { ok: false, error: "The cartridge reader is missing." };
+      result.fileName = file.name;
+      setCart(result);
+      setCartCover("");
+      if (result.ok && result.cover) {
+        const c = document.createElement("canvas");
+        c.width = result.cover.width;
+        c.height = result.cover.height;
+        c.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(result.cover.rgba), c.width, c.height), 0, 0);
+        setCartCover(c.toDataURL());
+      }
+    });
+  };
+
+  const renderCart = () => {
+    if (!cart) return null;
+    if (!cart.ok) return e("p", { className: "notice", id: "cart-error" }, cart.error);
+    return e("div", { className: "cart-info", id: "cart-info" },
+      cartCover ? e("img", { src: cartCover, alt: "Cartridge cover", width: 88, height: 88 }) : null,
+      e("div", null,
+        e("strong", null, cart.title || cart.fileName),
+        e("p", null, (cart.author ? "by " + cart.author + " — " : "") + cart.width + "×" + cart.height + (cart.b16 ? " (.b16)" : "") + ", " + cart.size + " bytes"),
+        e("p", null, "Sections: " + cart.sections.map((x) => x.name).join(", ")),
+        cart.crcOk ? null : e("p", { className: "notice" }, "The CRC-32 does not match: the file may be damaged.")
+      )
+    );
+  };
 
   React.useEffect(() => {
     const onHashChange = () => {
@@ -101,7 +136,10 @@ function App() {
         ),
         e("div", { className: "controls" },
           e("button", { className: "primary-btn", onClick: handleStart }, "Start bm"),
-          launcherNotice ? e("p", { className: "notice" }, launcherNotice) : null
+          launcherNotice ? e("p", { className: "notice" }, launcherNotice) : null,
+          e("label", { className: "file-btn" }, "Open a .bm file ",
+            e("input", { type: "file", accept: ".bm,.b16", onChange: handleCartFile })),
+          renderCart()
         )
       )
     );

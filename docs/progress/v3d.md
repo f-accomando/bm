@@ -81,7 +81,7 @@ Tracking for bm3D 3.0-7.3. Rest of the graphics stack: [graphics](graphics.md). 
 - Decision (user, 22 Oct): `gpu3d_attr` stays OFF by default. A8 gains only 3.8% on the
   spheres and it is a compact-attribute path with its own probe. Turn it ON only for the
   heavy-mesh games where the Pi reports above (heroes, match) show a gain.
-- Mali: the RGB30 triangle fails (`JS_STATUS` 58). It is parked. The user will align Mali later.
+- Mali: the RGB30 triangle fails (`JS_STATUS` 58); the variant probe is ready, the next Dev > GPU test run is in [graphics-mali](graphics-mali.md) `Open work`.
 - Sprite stacking (`stack()`, stack zones, `zstack()`) is done. It runs on the CPU only.
 Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [v3d-notes](v3d-notes.md). First QPU run (key `gpu3d_qpu`): same file, "Waiting for the user".
 

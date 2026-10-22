@@ -1,0 +1,2 @@
+240 shot first
+250 shot second

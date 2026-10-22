@@ -8,6 +8,7 @@ The server has the pages the test asks for: a short page, a 404, a chunked body,
 """
 import http.server
 import os
+import socket
 import socketserver
 import subprocess
 import sys
@@ -16,10 +17,55 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BIG = bytes((i * 31 + (i >> 12)) & 0xFF for i in range(3 << 20))
+PART = bytes((i * 7 + 3) & 0xFF for i in range(200000))      # the file of the Range tests
+CUT_AT = 80000                                              # bytes sent before a cut connection
+conns = [0]                                                 # connections accepted (keep-alive tests)
+seen = {}                                                   # path -> the Range header of its last request
+firsts = set()                                              # paths already asked once
 
 
 class H(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
+
+    def handle(self):
+        try:
+            super().handle()
+        except ConnectionResetError:        # the client dropped a kept connection
+            pass
+
+    def setup(self):
+        super().setup()
+        self.request.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        conns[0] += 1
+
+    def range_page(self, p):
+        """/cut: the first answer stops at CUT_AT bytes; later ones honor Range and If-Range.
+        /cutlie: advertises ranges but always answers 200 in full. /cut416: answers 416 to a Range.
+        /cutchg: the file changes (another ETag) once the first answer was cut."""
+        rng = self.headers.get("Range")
+        seen[p] = rng
+        first = p not in firsts
+        firsts.add(p)
+        etag = '"v2"' if (p == "/cutchg" and not first) else '"v1"'
+        hdr = [("Accept-Ranges", "bytes"), ("ETag", etag), ("Content-Type", "application/octet-stream")]
+        if first:
+            self.send_response(200)
+            for k, v in hdr:
+                self.send_header(k, v)
+            self.send_header("Content-Length", str(len(PART)))
+            self.end_headers()
+            self.wfile.write(PART[:CUT_AT])
+            self.wfile.flush()
+            self.close_connection = True
+            return
+        start = int(rng.split("=")[1].rstrip("-")) if rng else 0
+        ifr = self.headers.get("If-Range")
+        if p == "/cut416" and rng:
+            self.send(416, b"", extra=hdr + [("Content-Range", "bytes */%d" % len(PART))])
+        elif p == "/cutlie" or not rng or (ifr and ifr != etag):
+            self.send(200, PART, extra=hdr)
+        else:
+            self.send(206, PART[start:], extra=hdr + [("Content-Range", "bytes %d-%d/%d" % (start, len(PART) - 1, len(PART)))])
 
     def log_message(self, *a):
         pass
@@ -40,6 +86,17 @@ class H(http.server.BaseHTTPRequestHandler):
         try:
             if p == "/hello":
                 self.send(200, b"hello, bm\n")
+            elif p == "/conns":
+                self.send(200, str(conns[0]).encode())
+            elif p == "/close":
+                self.send(200, b"bye", extra=[("Connection", "close")])
+            elif p == "/once":              # keep-alive promised, then the socket is closed
+                self.send(200, b"once")
+                self.close_connection = True
+            elif p in ("/cut", "/cutlie", "/cut416", "/cutchg", "/cutn"):
+                self.range_page(p)
+            elif p.startswith("/lastrange"):
+                self.send(200, str(seen.get(p[10:])).encode())
             elif p in chain:
                 self.send(302, b"", extra=[("Location", chain[p])])
             elif p == "/redirect-rel":
