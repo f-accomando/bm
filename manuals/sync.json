@@ -409,8 +409,8 @@
     "title": "What this manual covers"
    },
    "10": {
-    "en": "3f8d29be2d44",
-    "it": "4039b8fabb38",
+    "en": "a2d380932907",
+    "it": "b80ed9257eef",
     "title": "3D models"
    },
    "11": {
@@ -472,8 +472,8 @@
   "sources": {
    "carts/animator/main.lua": "6bc4c3631506",
    "carts/hunt/main.lua": "9626c44827de",
-   "carts/mesh/main.lua": "ff0571ab3624",
-   "carts/pixel/main.lua": "1dde0b77a6df",
+   "carts/mesh/main.lua": "0f67d24de65f",
+   "carts/pixel/main.lua": "4f25aed5dd88",
    "carts/studio/main.lua": "4ad32dad9ad3",
    "carts/titan/build/mkrobot.py": "72c7aff21afd",
    "carts/yharnam/build/mkassets.py": "efc8086470ce",
@@ -482,8 +482,8 @@
    "docs/design/games-architecture.md": "9591e1a86ca1",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
    "docs/design/suite-pixel.md": "169370731398",
-   "docs/progress/graphics.md": "6240128d72c0",
-   "docs/progress/tools.md": "ebf31668470e",
+   "docs/progress/graphics.md": "076009fe8f5f",
+   "docs/progress/tools.md": "17bea9cc5afe",
    "docs/progress/yharnam.md": "2b2e4072a162",
    "tools/cutout2mesh.py": "a2a57f9737c1",
    "tools/img2mesh.py": "db3364221d4a"

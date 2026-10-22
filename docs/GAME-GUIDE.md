@@ -421,9 +421,9 @@ head, then the tail: to attach a sword or a light to it). bm Animator also makes
 **pre-rendered sprites**: the animation drawn from 1 to 8 directions in the sprite sheet, to
 use with `sspr()` in a 2D game (it prepares the Lua code that draws them).
 
-**From Blender** (or other programs): a `.glb` is imported into bm Studio (its textures end
-up in the sprite sheet) and from there into the `.bm`; for a game of the repository putting
-`models.glb` in its folder is enough (see `carts/village`).
+**From Blender** (or other programs): a local `.glb` does not open in the editors yet (planned: APP-9). On the PC,
+`python3 scripts/bmres.py convert IN.glb OUT.bmm` converts it to a `.bmm`. For a game of the repository,
+the build reads `assets/models.bm` or `assets/models.glb` (`models.bm` first). `carts/village/assets` holds `models.bm`.
 
 ## 7. Sound
 

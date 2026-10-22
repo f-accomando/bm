@@ -158,7 +158,7 @@ since = 3
 status = "partial"
 platforms = "all"
 where = ["src/kernel/sdmap_core.c", "src/bm/project.c", "src/bm/project.h", "src/bm/runtime.c", "src/kernel/carts.c", "src/script/bmui.lua"]
-note = "Done (QEMU test_projects, test_sd_cartridges, test_sdk_stages_pi, host test_fat and test-studio): a new .bme is written in /bme (bm_project_path, bm_copy_name; the copy of a game, a new project, Save as, the sound packs); the Pi menu scans /bme; the tools list /bme first (bmui project_files) and still read a .bme next to its game, saving it where it is with a status line that says so; Ctrl+B builds into the games folder (bm_games_dir: /carts on the Pi, /bm on the RGB30); the SD map counts /bm and /bme. Not done: /carts is still scanned (carts.c scan of / and /carts; rgb30/ui.c scan of /bm and /carts); the Pi does not scan /bm; the RGB30 menu lists no project (the SDK opens them); not verified on hardware"
+note = "Done (QEMU test_projects, test_sd_cartridges, test_sdk_stages_pi, host test_fat and test-studio): a new .bme is written in /bme (bm_project_path, bm_copy_name; the copy of a game, a new project, Save as, the sound packs); the Pi menu scans /bme; the tools list /bme first (bmui project_files) and still read a .bme next to its game, saving it where it is with a status line that says so; Ctrl+B builds into the games folder (bm_games_dir: /carts on the Pi, /bm on the RGB30); the SD map counts /bm and /bme. Not done: /carts is still scanned (carts.c scan of / and /carts; rgb30/ui.c scan of /bm and /carts); the Pi does not scan /bm; the RGB30 menu lists no project (the SDK opens them); not done: /glb and /bmm (APP-9); not verified on hardware"
 
 [[item]]
 id = "sd-map"
