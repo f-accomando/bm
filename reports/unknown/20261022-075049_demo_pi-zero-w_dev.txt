@@ -1,0 +1,12 @@
+bm report
+kind: demo
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: 2026-10-22 07:50:49
+file: 20261022-075049_demo_pi-zero-w_dev.txt
+
+bm > Animation demo (10 s)
+
+demo: 600 frames in 10.00 s = 60.0 fps (timer)
+      frame 16667-16667 us, 0 dropped, draw avg 2679 us
