@@ -70,6 +70,16 @@ def main():
     assert tri[(20, "3")] < tri[(20, "0")], tri
     assert tri[(0, "0")] > 1000, tri             # the plaza: the base cost the panel prints as `map`
 
+    # 2b. rows 20 (cel bands) and 12 (dither) are live: up from row 1 wraps to row 20,
+    # right three times gives 4 bands, up eight times reaches row 12, A turns the dither off
+    taps = [(10, "up")] + [(16 + 6 * k, "right") for k in range(3)]
+    taps += [(40 + 6 * k, "up") for k in range(8)] + [(100, "a")]
+    lines = run(host, cart, work, "cel", taps, 5)
+    opts = [LINE.match(l).group(6) for l in lines if LINE.match(l)]
+    assert opts and any("cel4" in o and ",dith," in o for o in opts), opts
+    assert "cel4" in opts[-1] and "nodith" in opts[-1], opts
+    print("cel/dither rows:", opts[0].split(",")[-4:], "->", opts[-1].split(",")[-4:])
+
     # 3. the sweep
     inp = os.path.join(work, "sweep.txt")
     with open(inp, "w") as f:

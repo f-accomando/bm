@@ -331,6 +331,14 @@ stress test, the 3D Bench, the Overbit benchmark and the fourth value of `gpu3d(
   `ETC1 textures yes (utiles 2x4, bytes BE)` (the layout found) or `no`; options line
   `etc1=1`; `gpu3d_stats_t.etc1` counts the sheets made. Which candidate the Pi's TMU takes is
   not known until the Pi runs the probe.
+- **7.4** (2026-10-22): **cel light on the ARM**. `cel3d(bands, floor)` and `draw3d` flag 256 cut
+  the sun term of the light into 2-8 bands with a table of 64 bytes (`r3d_cel`). The ARM
+  lighting stage (`light_fast`, `light_obj`, the impostor's light of the whole) reads the table
+  once per face (flat draw) or per vertex (smooth draw). The ambient light stays smooth. The
+  highlight of `shine3d` becomes one step. Lamps are not cut. `dither3d(false)` turns off the
+  ARM raster's 4x4 dither. A cel draw on the GPU is lit by the ARM (the vertex shader has no
+  cel cut yet): the triangles go one by one with their colours, as with `vs` 1. Draws without
+  the flag do not change. Not measured on the Pi.
 
 ## The modes: old versions on today's code
 
@@ -351,7 +359,8 @@ The settings reproduce the earlier versions, so they can be compared on the same
   vertex shader): **5.4** and **5.6**;
 - with each frame shown a frame later (`gpu3d_later=1`, with `gpu3d_queue=2`): **6.9**;
 - with compact attributes (`gpu3d_attr=1`, with the vertex shader): **7.1**;
-- with the opaque sheets as ETC1 (`gpu3d_etc1=1`, with `gpu3d_tex16=1`): **7.3**.
+- with the opaque sheets as ETC1 (`gpu3d_etc1=1`, with `gpu3d_tex16=1`): **7.3**;
+- with cel draws (`cel3d`, flag 256), the ARM lighting of the same version: **7.4** (no setting).
 
 What 4.2, 4.3, 4.4 and 4.6 added (screens up to 1080p, the GPU's `cls()`, the
 GL record in bytes, no early z after a `zclear()` in the job, 8 textures in a job)

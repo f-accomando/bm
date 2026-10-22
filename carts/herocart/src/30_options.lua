@@ -91,11 +91,19 @@ do
     screen(tonumber(w), tonumber(h))
   end, function() return SCREEN_W .. "x" .. SCREEN_H end)
   local outline = choice("Outline hull", { "off", "on" }, 1, function() end)
+  -- the ARM raster's dither (dither3d) and the cel light (cel3d, draw3d flag 256, heroes only)
+  local dither = choice("Dither", { "on", "off" }, 1, function(i) if dither3d then dither3d(i == 1) end end)
+  local CEL = { "off", "2", "3", "4", "5", "6", "8" }
+  H.cel = 0
+  local cel = choice("Cel bands", CEL, 1, function(i)
+    H.cel = i == 1 and 0 or tonumber(CEL[i])
+    if cel3d then cel3d(H.cel, 0.35) end
+  end)
 
   ROWS = {
     heroes, lod, backend, aa, vs, queue, later, imp, tex, light, zt,
-    grey("Dither", "n/a (stage 2)"), fog, sky, lamp, shadow,
-    grey("Alpha", "n/a (needs a cape)"), res, outline, grey("Cel bands", "n/a (stage 2)"),
+    dither, fog, sky, lamp, shadow,
+    grey("Alpha", "n/a (needs a cape)"), res, outline, cel,
   }
   H.ROW = { heroes = 1, lod = 2, backend = 3, aa = 4, vs = 5, queue = 6, later = 7, imp = 8, tex = 9, light = 10,
             zt = 11, fog = 13, sky = 14, lamp = 15, shadow = 16, res = 18, outline = 19 }
@@ -117,7 +125,7 @@ do
     return ({ 2, 0, 4 })[light.i]
   end
   function H.draw_opts()
-    return { noz = zt.i == 2, shadow = shadow.i == 2, outline = outline.i == 2 }
+    return { cel = H.cel > 0 and cel3d ~= nil, noz = zt.i == 2, shadow = shadow.i == 2, outline = outline.i == 2 }
   end
 
   -- the options in force, for the printed line
@@ -126,8 +134,8 @@ do
     return table.concat({
       on and "gpu" or "arm", "vs" .. (v or 0), "q" .. (q and (tonumber(q) or 1) or 0), "lat" .. (l and 1 or 0),
       "aa" .. (a and 1 or 0), "imp" .. (p and p > 0 and p or 0),
-      tex.i == 1 and "tex" or "flat", ({ "unlit", "flat", "smooth" })[light.i], zt.i == 1 and "z" or "noz", "dith",
-      "fog" .. (fog.i - 1), "shd" .. (shadow.i - 1), "lamp" .. (lamp.i - 1) * 2, "sky" .. (sky.i - 1), "cel0",
+      tex.i == 1 and "tex" or "flat", ({ "unlit", "flat", "smooth" })[light.i], zt.i == 1 and "z" or "noz", dither.i == 1 and "dith" or "nodith",
+      "fog" .. (fog.i - 1), "shd" .. (shadow.i - 1), "lamp" .. (lamp.i - 1) * 2, "sky" .. (sky.i - 1), "cel" .. H.cel,
       "out" .. (outline.i - 1) }, ",")
   end
 

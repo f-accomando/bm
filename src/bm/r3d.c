@@ -282,6 +282,18 @@ static const uint32_t bayer4_pk[4][4] = {
     { DPK(3), DPK(11), DPK(1), DPK(9) }, { DPK(15), DPK(7), DPK(13), DPK(5) },
 };
 
+/* dither3d(false): the offsets are one constant half step, so the picture has the same mean level */
+static int dither_off;
+static const uint8_t bayer4_flat[4] = { 8, 8, 8, 8 };
+static const uint32_t bayer4_flat_pk[4] = { DPK(8), DPK(8), DPK(8), DPK(8) };
+
+int r3d_dither(int on)
+{
+    const int old = !dither_off;
+    dither_off = !on;
+    return old;
+}
+
 /* r, g, b: 0..248 / 0..252 / 0..248 (the vertex colours are limited so that
  * the dither never overflows: 248 + 7 still rounds to the top level) */
 static inline uint16_t dither565(uint32_t r, uint32_t g, uint32_t b, uint32_t d)
@@ -360,7 +372,7 @@ static uint32_t raster_gouraud(g16_t *g, uint16_t *zbuf, gv_t a, gv_t b, gv_t c,
         cr = cr < 163840 ? 163840 : cr > 16154624 ? 16154624 : cr;         /* 2.5 .. 246.5 */
         cg = cg < 98304 ? 98304 : cg > 16482304 ? 16482304 : cg;           /* 1.5 .. 251.5 */
         cb = cb < 98304 ? 98304 : cb > 16220160 ? 16220160 : cb;           /* 1.5 .. 247.5 */
-        const uint8_t *dith = bayer4[y & 3];
+        const uint8_t *dith = dither_off ? bayer4_flat : bayer4[y & 3];
         uint16_t *row = g->px + (uint32_t)y * g->stride;
         if (!zbuf) {
             for (int x = x0; x < x1; x += step, cr += ir, cg += ig, cb += ib)
@@ -382,7 +394,7 @@ static uint32_t raster_gouraud(g16_t *g, uint16_t *zbuf, gv_t a, gv_t b, gv_t c,
              * level off: the margins of climit); the dither by the address
              * (the rows of a screen start on 8 bytes; if not, the pattern
              * is only shifted) */
-            const uint32_t *dpk = bayer4_pk[y & 3];
+            const uint32_t *dpk = dither_off ? bayer4_flat_pk : bayer4_pk[y & 3];
 #if defined(__GNUC__)
             __asm__("" : "+r"(dpk));        /* one register (not rebuilt every pixel) */
 #endif
@@ -784,6 +796,10 @@ void g16_tri_gouraud(g16_t *g, int x0, int y0, int x1, int y1, int x2, int y2,
 int r3d_init(r3d_t *r, g16_t *g)
 {
     memset(r, 0, sizeof *r);
+    dither_off = 0;
+    r->cel_floor = 0.35f;
+    r->cel_width = 0.02f;
+    r->cel_rgb = R3D_CEL_NO_OUTLINE;
     r->g = g;
     r->zbuf = malloc((size_t)g->w * g->h * 2);
     if (!r->zbuf)
@@ -1328,13 +1344,48 @@ typedef struct {
     v3_t V, H;                  /* towards the camera; half way between it and the sun */
     v3_t L, U;                  /* light_obj (bm3d 4.9, r3d_t.fast): the sun and the up axis; all four in
                                  * the object's axes, its normals not turned */
+    const uint8_t *cel;         /* the cel table (R3D_CEL on, bands > 0), else NULL */
 } shine_t;
+
+/* cel: the sun term cut by the table (one index, no float work per pixel) */
+static inline float cel_cut(const uint8_t *lut, float dd)
+{
+    int i = (int)(dd * 64.0f);
+    if (i > 63) i = 63;
+    return lut[i] * (1.0f / 255.0f);
+}
+
+int r3d_cel(r3d_t *r, int bands, float floor_)
+{
+    if (bands < 2) {
+        r->cel_bands = 0;
+        return 0;
+    }
+    if (bands > 8) bands = 8;
+    if (!(floor_ >= 0)) floor_ = 0;
+    if (floor_ > 1) floor_ = 1;
+    r->cel_bands = bands;
+    r->cel_floor = floor_;
+    for (int i = 0; i < 64; i++) {
+        const int b = i * bands / 64;           /* the band of the lower edge of step i */
+        const float v = floor_ + (1.0f - floor_) * (float)b / (float)(bands - 1);
+        r->cel_lut[i] = (uint8_t)(v * 255.0f + 0.5f);
+    }
+    return bands;
+}
+
+float r3d_cel_cut(const r3d_t *r, float dd)
+{
+    return cel_cut(r->cel_lut, dd < 0 ? 0 : dd);
+}
 
 static void light_fast(const r3d_t *r, const lamps_t *L, const shine_t *sh, v3_t n, float px, float py, float pz,
                        int glossy, lit_t *out)
 {
     const float d = n.x * r->light.x + n.y * r->light.y + n.z * r->light.z;
-    const float dd = d > 0 ? d : 0, a = r->ambient, t = 0.5f + 0.5f * n.y, ka = (1.0f - a) * dd;
+    float dd = d > 0 ? d : 0;
+    if (sh->cel) dd = cel_cut(sh->cel, dd);
+    const float a = r->ambient, t = 0.5f + 0.5f * n.y, ka = (1.0f - a) * dd;
     out->l.r = a * (r->ground.r + (r->sky.r - r->ground.r) * t) + ka * r->sun.r;
     out->l.g = a * (r->ground.g + (r->sky.g - r->ground.g) * t) + ka * r->sun.g;
     out->l.b = a * (r->ground.b + (r->sky.b - r->ground.b) * t) + ka * r->sun.b;
@@ -1361,7 +1412,7 @@ static void light_fast(const r3d_t *r, const lamps_t *L, const shine_t *sh, v3_t
         if (nh > 0) {
             for (int i = 0; i < r->spec_shift; i++)
                 nh *= nh;
-            float k = nh * r->spec_k;
+            float k = sh->cel ? (nh > 0.5f ? r->spec_k : 0.0f) : nh * r->spec_k;
             out->s.r = k * r->sun.r;
             out->s.g = k * r->sun.g;
             out->s.b = k * r->sun.b;
@@ -1375,7 +1426,9 @@ static void light_obj(const r3d_t *r, const lamps_t *L, const shine_t *sh, v3_t 
                        int glossy, lit_t *out)
 {
     const float d = n.x * sh->L.x + n.y * sh->L.y + n.z * sh->L.z, ny = n.x * sh->U.x + n.y * sh->U.y + n.z * sh->U.z;
-    const float dd = d > 0 ? d : 0, a = r->ambient, t = 0.5f + 0.5f * ny, ka = (1.0f - a) * dd;
+    float dd = d > 0 ? d : 0;
+    if (sh->cel) dd = cel_cut(sh->cel, dd);
+    const float a = r->ambient, t = 0.5f + 0.5f * ny, ka = (1.0f - a) * dd;
     out->l.r = a * (r->ground.r + (r->sky.r - r->ground.r) * t) + ka * r->sun.r;
     out->l.g = a * (r->ground.g + (r->sky.g - r->ground.g) * t) + ka * r->sun.g;
     out->l.b = a * (r->ground.b + (r->sky.b - r->ground.b) * t) + ka * r->sun.b;
@@ -1402,7 +1455,7 @@ static void light_obj(const r3d_t *r, const lamps_t *L, const shine_t *sh, v3_t 
         if (nh > 0) {
             for (int i = 0; i < r->spec_shift; i++)
                 nh *= nh;
-            float k = nh * r->spec_k;
+            float k = sh->cel ? (nh > 0.5f ? r->spec_k : 0.0f) : nh * r->spec_k;
             out->s.r = k * r->sun.r;
             out->s.g = k * r->sun.g;
             out->s.b = k * r->sun.b;
@@ -1721,6 +1774,8 @@ static int impostor(r3d_t *r, const r3d_mesh_t *m, const view_t *v, const float 
             const float l = sqrtf(wx * wx + wy * wy + wz * wz);
             const v3_t V = l > 1e-6f ? (v3_t){ -wx / l, -wy / l, -wz / l } : (v3_t){ -C[6], -C[7], -C[8] };
             float dd = (1.0f + V.x * r->light.x + V.y * r->light.y + V.z * r->light.z) * (1.0f / 3);
+            if ((flags & R3D_CEL) && r->cel_bands > 0)
+                dd = cel_cut(r->cel_lut, dd);
             const float a = r->ambient, t = 0.5f + (1.0f / 3) * V.y, ka = (1.0f - a) * dd, rim = r->rim_k / 6;
             k.l.r = a * (r->ground.r + (r->sky.r - r->ground.r) * t) + ka * r->sun.r + rim * r->sky.r;
             k.l.g = a * (r->ground.g + (r->sky.g - r->ground.g) * t) + ka * r->sun.g + rim * r->sky.g;
@@ -1925,6 +1980,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     /* one view direction for the whole object (its middle, about a unit
      * above where it stands; the camera's own back for a first-person model) */
     shine_t sh;
+    sh.cel = (flags & R3D_CEL) && r->cel_bands > 0 && !unlit ? r->cel_lut : NULL;
     {
         float wx = r->cam_pos.x - p.x, wy = r->cam_pos.y - (p.y + (front ? 0 : scale)), wz = r->cam_pos.z - p.z;
         float l = sqrtf(wx * wx + wy * wy + wz * wz);
@@ -1950,6 +2006,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     /* bm3d 4.9, r->fast: a model without bones lit in its own axes (the sun, up,
      * V and H turned back once, its normals not turned at all) */
     shine_t sho;
+    sho.cel = sh.cel;
     const int objlight = r->fast && !skinned;
     if (objlight) {
         const float *N = X.n[0];
@@ -1974,7 +2031,9 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
      * bones: unlit, a "lit" model (light baked at its corners: the world of
      * a map), or lit by the sun and the sky (heroes), with the fog and the
      * lamps; the backend may say no */
-    if (r->backend && r->backend->mesh && !fcol) {     /* (the backend's copy has the textures: the triangles go one by one) */
+    /* cel: the QPU vertex programs have no cel cut yet, so a lit cel draw is lit on the ARM
+     * (the triangles go one by one with their colours, as with vs 1) */
+    if (r->backend && r->backend->mesh && !fcol && !(sh.cel && !m->clight)) {     /* (the backend's copy has the textures: the triangles go one by one) */
         r3d_env_t env;
         env.f = v.f;
         env.cx = v.hw;

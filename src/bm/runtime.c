@@ -2724,6 +2724,43 @@ static int l_draw3d(lua_State *L)
     return 0;
 }
 
+/* cel3d([bands, [floor, outline_rgb, outline_width]]) -> bands, floor, outline_rgb, outline_width:
+ * cuts the sun light of draw3d calls with flag 256 into 2..8 bands (0 or false off, the default);
+ * floor 0..1 (default 0.35) is the sun term of the darkest band; the outline values (rgb or
+ * nil/false none, width 0.005..0.05, default 0.02) are kept for flag 512 (no effect yet).
+ * No argument: only the values in force. State of the cart: it resets when the cart ends. */
+static int l_cel3d(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    if (lua_gettop(L) > 0) {
+        int bands = lua_isboolean(L, 1) || lua_isnil(L, 1) ? 0 : (int)luaL_checkinteger(L, 1);
+        r3d_cel(r, bands, fnum(L, 2, 0.35f));
+        r->cel_rgb = lua_isnoneornil(L, 3) || lua_isboolean(L, 3) ? R3D_CEL_NO_OUTLINE
+                                                                   : (uint32_t)luaL_checkinteger(L, 3) & 0xFFFFFF;
+        float w = fnum(L, 4, 0.02f);
+        r->cel_width = w < 0.005f ? 0.005f : w > 0.05f ? 0.05f : w;
+    }
+    lua_pushinteger(L, r->cel_bands);
+    lua_pushnumber(L, r->cel_floor);
+    if (r->cel_rgb == R3D_CEL_NO_OUTLINE)
+        lua_pushboolean(L, 0);
+    else
+        lua_pushinteger(L, r->cel_rgb);
+    lua_pushnumber(L, r->cel_width);
+    return 4;
+}
+
+/* dither3d([on]) -> the old state: the ARM raster's 4x4 dither of smooth faces (default on).
+ * The GPU ignores it. */
+static int l_dither3d(lua_State *L)
+{
+    r3d(L);
+    const int old = r3d_dither(1);
+    r3d_dither(lua_isnoneornil(L, 1) ? old : lua_toboolean(L, 1));
+    lua_pushboolean(L, old);
+    return 1;
+}
+
 /* sky3d(sun, sky, ground): colours (0xRRGGBB) of the sunlight and of the
  * ambient light from above and from below; sky3d() back to white */
 static int l_sky3d(lua_State *L)
@@ -4810,7 +4847,7 @@ static const luaL_Reg api[] = {
     { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
     { "animate", l_animate }, { "clips", l_clips }, { "bone3d", l_bone3d },
     { "draw3d", l_draw3d }, { "textures3d", l_textures3d }, { "camera3d", l_camera3d }, { "light3d", l_light3d },
-    { "sky3d", l_sky3d }, { "shine3d", l_shine3d }, { "shadow3d", l_shadow3d },
+    { "sky3d", l_sky3d }, { "cel3d", l_cel3d }, { "dither3d", l_dither3d }, { "shine3d", l_shine3d }, { "shadow3d", l_shadow3d },
     { "point3d", l_point3d }, { "line3d", l_line3d }, { "sprite3d", l_sprite3d },
     { "bone_turn", l_bone_turn }, { "bones3d", l_bones3d }, { "hit3d", l_hit3d },
     { "world3d", l_world3d }, { "world_box", l_world_box }, { "world_ray", l_world_ray },

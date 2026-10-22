@@ -5242,6 +5242,15 @@ def test_herocart(b, opts):
         q.send("d")                    # right: the next value, auto
         wait(" n=21 lod=auto ")
         wait("kb=")
+        q.send("w")                    # up twice: the first row, then the last (cel bands)
+        wait("kb=")
+        wait("kb=")
+        q.send("w")
+        wait("kb=")
+        wait("kb=")
+        q.send("d")                    # right: 2 bands (cel light on the ARM raster)
+        wait(",cel2,")
+        wait("kb=")
         q.send("q")
         q.expect("update+draw", timeout=10)
         assert "stopped with an error" not in seen, seen[-1500:]

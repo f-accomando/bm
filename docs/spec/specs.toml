@@ -146,3 +146,11 @@ status = "implemented"
 platforms = "all"
 where = ["src/kernel/sdmap_core.c", "src/kernel/sdmap.c", "src/kernel/settings.c", "src/kernel/menu_ui.c", "src/fs/fat.c"]
 note = "Settings > System > SD map: bar kernel/bm/bme/other/free, folders, other files; incremental scan in a menu fiber; cache bm/sdmap.txt"
+
+[[item]]
+id = "api-cel3d"
+since = 3
+status = "implemented"
+platforms = "all"
+where = ["src/bm/runtime.c", "src/bm/r3d.c", "src/gpu/version3d.h", "docs/api/light3d.md"]
+note = "cel3d(), dither3d() and draw3d flag 256 (bm3D 7.4): the sun light cut into bands in the ARM lighting stage; a GPU draw with the flag is lit by the ARM; flag 512 (outline) is reserved. The owner decides whether BM_SPEC_REV goes to 4 and the cart then writes spec: 4. Not measured on a Pi or an RGB30"

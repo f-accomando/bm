@@ -309,7 +309,9 @@ Pi numbers to collect (copy `HEROCART.TXT` from `/docs`; one run per row, 640x36
 | 5 | n 20, resolution 320x180 ... 960x540 | ms, gpu |
 | 6 | n 20, LOD 0 and 1, outline on / off | the hull cost (gate of stage 4) |
 
-### Stage 2: cel on the ARM raster
+### Stage 2: cel on the ARM raster (done; state in [herocart](../progress/herocart.md))
+
+Built as described below, with these differences: bm3D 7.4. The table is built by `r3d_cel`; `cel3d` sets all four values at each call; flag 512 and the outline arguments are kept and draw nothing (stage 4). A cel draw on a backend skips `backend->mesh` and goes triangle by triangle, as with `vs` 1. `dither3d(false)` replaces the dither by a constant half step: it saves no fill time. `herocost.py` was not run; the lighting cost is not measured.
 
 - `r3d.c`: the band table, hooks in `light_fast`, `light_obj`, the whole-model light; flag 256 in `r3d_draw_flags`; `dither3d`.
 - `runtime.c`: `cel3d`, `dither3d`, flag 256 passed through `draw3d`. A cel draw with `vs` 2 is lit on the ARM (4.3).

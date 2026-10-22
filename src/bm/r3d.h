@@ -186,6 +186,12 @@ typedef struct {
     int fast;                   /* bm3d 4.9: object -> camera in one matrix and a model without bones lit
                                  * in its own axes, also on the ARM (fewer instructions a vertex;
                                  * the pixels not bit for bit as before): r3d_fast=1 */
+    /* cel light (bm3d 7.4): the sun term cut into cel_bands steps by a table of 64 bytes (0 = off);
+     * the outline values are kept for the outline stage (flag R3D_OUTLINE, not drawn yet) */
+    int cel_bands;
+    float cel_floor, cel_width;
+    uint32_t cel_rgb;           /* 0xRRGGBB, or CEL_NO_OUTLINE */
+    uint8_t cel_lut[64];        /* the sun term (0..255) for n.L in steps of 1/64 */
     int impostor;               /* impostors: a mesh whose box on the screen is at most this many
                                  * pixels wide and high, pixels of a 1080-line picture (g->h * this
                                  * / 1080 of the target's), is drawn as one quad facing the camera in
@@ -256,6 +262,19 @@ void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float r
  * faces keep their light). Faces of the sheet's holes (transparent) are
  * left grey. Also set for every draw by r3d_t.notex. */
 #define R3D_FLATTEX 128u
+/* R3D_CEL: this draw uses the cel light (r3d_cel; nothing happens with the bands at 0).
+ * R3D_OUTLINE: reserved for the outline stage; no effect today. */
+#define R3D_CEL     256u
+#define R3D_OUTLINE 512u
+#define R3D_CEL_NO_OUTLINE 0xFFFFFFFFu
+/* cel light: bands 0 (off) or 2..8, floor 0..1 = the sun term of the darkest band. Builds the
+ * 64-entry table; returns the bands in force. */
+int r3d_cel(r3d_t *r, int bands, float floor_);
+/* the cut of one sun term dd (0..1) by the table of r3d_cel (for the tests) */
+float r3d_cel_cut(const r3d_t *r, float dd);
+/* the ARM raster's 4x4 ordered dither: on (default) or off (a constant half step instead);
+ * returns the old state. Reset by r3d_init. */
+int r3d_dither(int on);
 void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
                     float scale, unsigned flags);
 
