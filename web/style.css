@@ -365,3 +365,8 @@ button.sound-play-btn {
 button.sound-play-btn:hover {
   background-color: var(--border-color);
 }
+
+.file-btn { display: inline-block; margin-top: 12px; cursor: pointer; }
+.cart-info { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; text-align: left; }
+.cart-info img { image-rendering: pixelated; flex: none; }
+.cart-info p { margin: 4px 0; }

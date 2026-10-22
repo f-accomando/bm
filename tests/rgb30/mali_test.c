@@ -15,6 +15,9 @@
 #include <string.h>
 
 #include "rgb30/mali.h"
+#include "rgb30/mali_variants.h"
+#include "rgb30/mali_desc.h"
+#include "rgb30/mali_shaders.h"
 
 static int checks, failures;
 #define CHECK(c, ...) do { checks++; if (!(c)) { failures++; printf("FAIL %s:%d: ", __FILE__, __LINE__); \
@@ -46,6 +49,12 @@ static uint8_t *screen;
 static struct {
     /* variants */
     int pd_stuck, soft_reset_dead, bad_job_type_bit, cores_dead, frag_no_write;
+    uint32_t fail_runs;                 /* tri_mode: bit n: the n-th run of a vertex or tiler job fails (0: base, 1 + n: variant n) */
+    int tri_runs, tri_mode;             /* those runs so far; the triangle probe is on */
+    int accept_vt;                      /* vertex and tiler jobs (types 5, 7) complete as no-ops; a fragment job may carry a tiler */
+    int fault_vt;                       /* the next vertex job faults (once) */
+    int hold;                           /* bit n: a start on job slot n is kept back until release() */
+    int held[2];
     /* SoC */
     uint32_t gates;                     /* CRU_CLKGATE_CON2 (1: gated) */
     uint32_t pmu_off, pmu_req;          /* PD_GPU off; bus idle requested */
@@ -146,7 +155,7 @@ static uint32_t fragment(const uint8_t *h)
     const uint32_t w11 = rd32(f + 44);
     if (rd32(f) & 0x1ff || !rd64(f + 16) || !va_ptr(rd64(f + 16), 256, 0) || (w11 >> 9 & 15) > 8 ||
         (w11 >> 9 & 15) < 4 || ((w11 >> 24) & 255) * 1024u < 4u << (w11 >> 9 & 15) || (w11 >> 19 & 15) ||
-        rd64(f + 56))
+        (rd64(f + 56) && !S.accept_vt))
         return 0x40;                    /* frame shaders, no sample locations, tile size, colour room, tiler */
     const uint32_t fw = (rd32(f + 32) & 0xffff) + 1, fh = (rd32(f + 32) >> 16) + 1;
     const uint8_t *rt = f + 128;
@@ -170,6 +179,13 @@ static uint32_t fragment(const uint8_t *h)
                 return 0x43;
             memcpy(d, px, 4);
         }
+    if (S.tri_mode && rd64(f + 56)) {   /* the tiled triangle: one pixel inside it (the sim has no rasterizer) */
+        static const uint8_t orange[4] = { 0x19, 0x80, 0xff, 0 };
+        uint8_t *d = va_ptr(base + 61 * (uint64_t)stride + 48 * 4, 4, 1);
+        if (!d)
+            return 0x43;
+        memcpy(d, orange, 4);
+    }
     S.frags_run++;
     return 0;
 }
@@ -186,6 +202,17 @@ static void run_chain(int js)
         return;
     }
     uint64_t job = S.js_head[js][0] | (uint64_t)S.js_head[js][1] << 32;
+    {
+        const uint8_t *h0 = va_ptr(job, 64, 0);
+        const int t0 = h0 ? (int)(rd32(h0 + 16) >> 1 & 0x7f) : 0;
+        if (S.tri_mode && js == 1 && (t0 == 5 || t0 == 7)) {  /* a run of the triangle's jobs */
+            const int run = S.tri_runs++;
+            if (S.fail_runs >> run & 1) {
+                fault(js, 0x58);        /* DATA_INVALID_FAULT */
+                return;
+            }
+        }
+    }
     uint32_t done[8] = { 0 };
     for (int n = 0; job && n < 64; n++) {
         uint8_t *h = va_ptr(job, 64, 0);
@@ -223,6 +250,12 @@ static void run_chain(int js)
                 fault(js, f);
                 return;
             }
+        } else if (S.accept_vt && (type == 5 || type == 7)) {
+            if (S.fault_vt && type == 5) {
+                S.fault_vt = 0;
+                fault(js, 0x58);        /* DATA_INVALID_FAULT */
+                return;
+            }
         } else if (type != 1 && type != 3) {
             fault(js, 0x40);            /* only NULL, WRITE_VALUE, CACHE_FLUSH, FRAGMENT here */
             return;
@@ -237,6 +270,28 @@ static void run_chain(int js)
     }
     S.js_status[js] = 0x01;
     S.job_raw |= 1u << js;
+}
+
+/* a start on a slot: at once, or kept back while S.hold has the slot's bit */
+static void start_chain(int js)
+{
+    if (S.hold >> js & 1) {
+        S.js_status[js] = 0x08;         /* running */
+        S.held[js] = 1;
+        return;
+    }
+    run_chain(js);
+}
+
+/* lets the held slots in mask go: the chains they were asked to run run now */
+static void release(int mask)
+{
+    S.hold &= ~mask;
+    for (int js = 0; js < 2; js++)
+        if (mask >> js & 1 && S.held[js]) {
+            S.held[js] = 0;
+            run_chain(js);
+        }
 }
 
 static uint32_t rd(uintptr_t a)
@@ -337,7 +392,7 @@ static void wr(uintptr_t a, uint32_t v)
     case 0x1800 + 0x50: case 0x1800 + 0x80 + 0x50: S.js_aff[r >= 0x1880][0] = v; break;
     case 0x1800 + 0x54: case 0x1800 + 0x80 + 0x54: S.js_aff[r >= 0x1880][1] = v; break;
     case 0x1800 + 0x58: case 0x1800 + 0x80 + 0x58: S.js_cfg[r >= 0x1880] = v; break;
-    case 0x1800 + 0x60: case 0x1800 + 0x80 + 0x60: if (v == 1) run_chain(r >= 0x1880); break;
+    case 0x1800 + 0x60: case 0x1800 + 0x80 + 0x60: if (v == 1) start_chain(r >= 0x1880); break;
     case 0x2400 + 0x00: S.as_transtab[0] = v; break;
     case 0x2400 + 0x04: S.as_transtab[1] = v; break;
     case 0x2400 + 0x08: S.as_memattr[0] = v; break;
@@ -360,13 +415,17 @@ static void wr(uintptr_t a, uint32_t v)
 static int supply = 900;
 static int supply_mv(void) { return supply; }
 
-static char lines[4096];
+static char lines[16384];
 static void log_line(const char *s)
 {
     printf("  %s\n", s);
     strncat(lines, s, sizeof lines - strlen(lines) - 2);
     strcat(lines, "\n");
 }
+
+static mali_hw_t G;                     /* the hw of the last probe (mali_frame wants the same one) */
+
+static int tri_on;                      /* the probe also draws the triangle */
 
 static int probe(mali_info_t *in)
 {
@@ -376,11 +435,415 @@ static int probe(mali_info_t *in)
     S.pmu_off = 1;
     S.pmu_req = 1;
     memset(screen, 0x10, SCREEN_PITCH * SCREEN_H);
-    const mali_hw_t hw = { .rd = rd, .wr = wr, .us = us, .log = log_line, .supply_mv = supply_mv, .mem = mem,
+    G = (mali_hw_t){ .rd = rd, .wr = wr, .us = us, .log = log_line, .supply_mv = supply_mv, .mem = mem,
                            .mem_pa = MEM_PA, .mem_size = MEM_SIZE, .map_pa = MAP_PA, .map_size = MAP_SIZE,
                            .screen = screen, .screen_pa = SCREEN_PA, .screen_w = SCREEN_W, .screen_h = SCREEN_H,
-                           .screen_pitch = SCREEN_PITCH };
-    return mali_probe(&hw, in);
+                           .screen_pitch = SCREEN_PITCH, .triangle = tri_on };
+    return mali_probe(&G, in);
+}
+
+/* --- the triangle's variants (src/rgb30/mali_variants.h) --- */
+
+/* a pointer field: 0 (if zero_ok) or inside the GPU's memory, aligned */
+static int ptr_ok(uint64_t v, unsigned align, int zero_ok)
+{
+    if (!v)
+        return zero_ok;
+    return v >= MEM_PA && v < (uint64_t)MEM_PA + MEM_SIZE && !(v % align);
+}
+
+/* the pointers of the vertex job, the tiler job, the heap and the tables in a built triangle */
+static int pointers_ok(const uint8_t *b)
+{
+    int ok = ptr_ok(rd64(b + MV_VJOB + 24), 8, 1) && ptr_ok(rd64(b + MV_TJOB + 24), 8, 1);
+    static const int words[] = { 4, 6, 12, 14, 16, 18, 20, 22, 24, 28 };   /* a Draw's addresses */
+    for (int d = 0; d < 2; d++)
+        for (unsigned i = 0; i < sizeof words / sizeof words[0]; i++) {
+            const uint64_t v = rd64(b + (d ? MV_TJOB + 128 : MV_VJOB + 64) + 4 * words[i]);
+            ok = ok && ptr_ok(v, 8, 1) && (words[i] != 14 || ptr_ok(v, 64, 1));    /* a Renderer State: 64-aligned */
+        }
+    const uint64_t hbase = rd64(b + MV_HEAPD + 8), hbot = rd64(b + MV_HEAPD + 16), htop = rd64(b + MV_HEAPD + 24);
+    ok = ok && hbase == (uint64_t)MEM_PA + MV_HEAP && hbot >= hbase && hbot < htop && !(hbot % 64) &&
+         htop == hbase + HEAP_SIZE && ptr_ok(rd64(b + MV_TCTX + 24), 64, 0);
+    for (int e = 0; e < 3; e++) {                                   /* varying buffers: the pointer is shifted by 6 */
+        const uint64_t v = (rd64(b + MV_VBUFS + 16 * e) >> 6 & ((1ull << 50) - 1)) << 6;
+        ok = ok && ptr_ok(v, 64, 1);
+    }
+    return ok;
+}
+
+static void variant_checks(void)
+{
+    uint8_t *base = calloc(1, MEM_SIZE), *v = calloc(1, MEM_SIZE), *w = calloc(1, MEM_SIZE);
+    mali_hw_t hw = { .mem = base, .mem_pa = MEM_PA, .mem_size = MEM_SIZE, .map_pa = MAP_PA, .map_size = MAP_SIZE,
+                     .screen = screen, .screen_pa = SCREEN_PA, .screen_w = SCREEN_W, .screen_h = SCREEN_H,
+                     .screen_pitch = SCREEN_PITCH, .triangle = 1 };
+    mali_tri_build(&hw);
+    CHECK(pointers_ok(base), "the base triangle's pointers");
+    for (int a = 0; a < MV_COUNT; a++) {
+        CHECK(mv_table[a].name && mv_table[a].name[0], "variant %d has a name", a);
+        for (int b = a + 1; b < MV_COUNT; b++)
+            CHECK(strcmp(mv_table[a].name, mv_table[b].name), "variants %d and %d have the name %s", a, b,
+                  mv_table[a].name);
+    }
+    for (int n = 0; n < MV_COUNT; n++) {
+        const struct mv_patch *t = &mv_table[n];
+        memcpy(v, base, MEM_SIZE);
+        mv_apply(v, MEM_PA, n);
+        const unsigned lo = t->block * 8u + t->bit, hi = lo + t->nbits;
+        int diff = 0, outside = 0;
+        for (size_t i = 0; i < MEM_SIZE; i++)
+            if (v[i] != base[i])
+                for (unsigned k = 0; k < 8; k++)
+                    if ((v[i] ^ base[i]) >> k & 1) {
+                        const unsigned ab = (unsigned)i * 8 + k;
+                        diff++;
+                        outside += ab < lo || ab >= hi;
+                    }
+        CHECK(diff > 0, "variant %d %s changes nothing", n, t->name);
+        CHECK(!outside, "variant %d %s changes %d bits outside [%u, %u)", n, t->name, outside, lo, hi);
+        CHECK(pointers_ok(v), "variant %d %s: a pointer is outside the memory or misaligned", n, t->name);
+        memcpy(w, v, MEM_SIZE);
+        mv_apply(v, MEM_PA, n);
+        CHECK(!memcmp(v, w, MEM_SIZE), "variant %d %s: a second mv_apply changes the bytes", n, t->name);
+    }
+    free(base);
+    free(v);
+    free(w);
+}
+
+/* the probe with the triangle on, the runs of the vertex and tiler jobs in `fail` failing; the log has the variants' lines */
+static int tri_probe(uint32_t fail, mali_info_t *in)
+{
+    memset(&S, 0, sizeof S);
+    S.fail_runs = fail;
+    S.tri_mode = S.accept_vt = 1;
+    tri_on = 1;
+    const int r = probe(in);
+    tri_on = 0;
+    return r;
+}
+
+static int has_variant(int n, const char *what)
+{
+    char key[96];
+    snprintf(key, sizeof key, "mali: variant %d %s: %s", n, mv_table[n].name, what);
+    return strstr(lines, key) != NULL;
+}
+
+static uint32_t word(const uint8_t *p)
+{
+    uint32_t v;
+    memcpy(&v, p, 4);
+    return v;
+}
+
+static uint64_t word64(const uint8_t *p)
+{
+    uint64_t v;
+    memcpy(&v, p, 8);
+    return v;
+}
+
+/* mali_frame: the memory image the jobs are built from (the simulated GPU has no tiler, so what it draws is not checked) */
+static void test_frame_image(void)
+{
+    /* the layout of mali.c: draw d at MEM_DRAWS + 0x800 d, its Vertex job at +0, its Tiler job at +0x100 */
+    const uint32_t DRAWS = MALI_FRAME_DRAWS, DSIZE = 0x800, TJ = 0x100;
+    static const float t0[3][3] = { { 4, 4, 0.25f }, { 40, 4, 0.25f }, { 4, 40, 0.25f } };
+    static const float t1[6][3] = { { 8, 8, 0.5f }, { 50, 8, 0.5f }, { 8, 50, 0.5f },
+                                    { 10, 10, 0.75f }, { 20, 10, 0.75f }, { 10, 20, 0.75f } };
+    static const float t2[3][3] = { { 30, 30, 0.125f }, { 60, 30, 0.125f }, { 30, 60, 0.125f } };
+    const mali_draw_t d[3] = { { t0, 1, 0xff0000, NULL }, { t1, 2, 0x00ff00, NULL }, { t2, 1, 0x0000ff, NULL } };
+    const float *flat[12] = { t0[0], t0[1], t0[2], t1[0], t1[1], t1[2], t1[3], t1[4], t1[5], t2[0], t2[1], t2[2] };
+
+    printf("mali: mali_frame, the memory image of three draws\n");
+    memset(&S, 0, sizeof S);
+    mali_info_t in;
+    CHECK(probe(&in) == MALI_OK, "probe before the frame");
+    const uint32_t surf_pa_off = 0x200000;              /* inside mem, 64-aligned, after the heap */
+    uint8_t *surf = mem + surf_pa_off;
+    const int r = mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0x102050, d, 3);
+    (void)r;                                            /* the simulator has no tiler: the result is not asked */
+
+    int bad = 0;                                        /* (a) the vertices as (x y z 1) */
+    for (int i = 0; i < 12; i++) {
+        const float want[4] = { flat[i][0], flat[i][1], flat[i][2], 1.0f };
+        bad += memcmp(mem + MALI_FRAME_VERTS + 16 * i, want, 16) != 0;
+    }
+    CHECK(bad == 0, "frame: %d of 12 vertices differ from (x y z 1)", bad);
+
+    static const float col[3][4] = { { 1, 0, 0, 1 }, { 0, 1, 0, 1 }, { 0, 0, 1, 1 } };      /* (b) the pushed colours */
+    bad = 0;
+    for (int k = 0; k < 3; k++)
+        bad += memcmp(mem + MALI_FRAME_PUSH + 64 * k + 16, col[k], 16) != 0;
+    CHECK(bad == 0, "frame: %d of 3 pushed colours differ", bad);
+
+    uint8_t tmp[64];                                    /* (c) draw 1's vertex job carries 6 vertices; the job chain */
+    memset(tmp, 0, sizeof tmp);
+    md_invocation(tmp, 6);
+    CHECK(memcmp(mem + DRAWS + DSIZE + 32, tmp, 8) == 0, "frame: draw 1's vertex job invocation is not md_invocation(6)");
+    bad = 0;
+    for (uint32_t k = 0; k < 3; k++) {
+        const uint8_t *v = mem + DRAWS + DSIZE * k, *t = v + TJ;
+        const uint32_t vidx = word(v + 16) >> 16, tidx = word(t + 16) >> 16;
+        bad += vidx != 2 * k + 1 || word(v + 20) != (k ? 2 * k : 0);                    /* Vertex 2k+1, after Tiler 2k */
+        bad += tidx != 2 * k + 2 || word(t + 20) != 2 * k + 1;                          /* Tiler 2k+2, after its Vertex */
+        bad += word64(v + 24) != MEM_PA + DRAWS + DSIZE * k + TJ;                       /* Vertex -> its Tiler */
+        bad += word64(t + 24) != (k < 2 ? MEM_PA + DRAWS + DSIZE * (k + 1) : 0);        /* Tiler -> next Vertex, or end */
+    }
+    CHECK(bad == 0, "frame: %d job-chain fields wrong (index, dependency, next)", bad);
+
+    printf("mali: mali_frame refuses\n");
+    const mali_draw_t none = { t0, 0, 0, NULL };
+    mali_draw_t big[2] = { { t0, 1000, 0, NULL }, { t0, 25, 0, NULL } };       /* 1025 triangles (the vertices are not read: refused first) */
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, d, 0) == -1, "frame: 0 draws refused");
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, &none, 1) == -1, "frame: a draw of 0 refused");
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 60, 64, 0, d, 3) == -1, "frame: w = 60 refused");
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, big, 2) == -1, "frame: 1025 triangles refused");
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off + 4, 256, 64, 64, 0, d, 3) == -1, "frame: unaligned target_pa refused");
+    memset(&S, 0, sizeof S);
+    S.pd_stuck = 1;                                                 /* a probe that fails: no frame after it */
+    CHECK(probe(&in) == MALI_E_POWER, "probe fails (power)");
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, d, 3) == -1, "frame: refused before a good probe");
+    memset(&S, 0, sizeof S);
+    CHECK(probe(&in) == MALI_OK, "probe again");
+    mali_hw_t other = G;                                            /* another hw than the probed one */
+    CHECK(mali_frame(&other, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, d, 3) == -1, "frame: another hw refused");
+}
+
+/* phase 3: a draw with a matrix runs BM_VS3 with the matrix pushed; a draw without is the phase-2 draw */
+static void test_matrix_image(void)
+{
+    const uint32_t SB = MALI_SET_BASE(0), DRAWS = MALI_FRAME_DRAWS, DSIZE = 0x800, VRSD = 0xa00, DV_VRSD = 0x500, DV_VUBO = 0x480,
+                   VS = 0x8000, VS3 = 0x8400;                     /* the layout of mali.c (SO_*, D_*) */
+    static const float t0[3][3] = { { 4, 4, 0.25f }, { 40, 4, 0.25f }, { 4, 40, 0.25f } };
+    static const float t1[3][3] = { { 8, 8, 0.5f }, { 50, 8, 0.5f }, { 8, 50, 0.5f } };
+    static const float m[16] = { 2, 0, 0, 10, 0, 3, 0, 20, 0, 0, 1, 0, 0, 0, 0, 1 };
+    const mali_draw_t both[2] = { { t0, 1, 0xff0000, m }, { t1, 1, 0x00ff00, NULL } };
+    const mali_draw_t plain[2] = { { t0, 1, 0xff0000, NULL }, { t1, 1, 0x00ff00, NULL } };
+
+    printf("mali: mali_frame, a draw with a matrix\n");
+    memset(&S, 0, sizeof S);
+    mali_info_t in;
+    CHECK(probe(&in) == MALI_OK, "probe before the matrix frame");
+    const uint32_t surf_pa_off = 0x200000;
+    uint8_t *surf = mem + surf_pa_off;
+    memset(mem + SB, 0, 0x90000);
+    (void)mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0x102050, both, 2);
+
+    CHECK(memcmp(mem + MALI_FRAME_VPUSH, m, sizeof m) == 0, "matrix: the 16 floats at MALI_FRAME_VPUSH differ from the matrix");
+
+    uint8_t tmp[128];                                               /* (b) the Renderer States and the vertex Draws */
+    md_renderer_state_t v3 = { .shader = MEM_PA + SB + VS3, .attribute_count = BM_VS3_ATTRIBUTE_COUNT,
+                               .varying_count = BM_VS3_VARYING_COUNT, .ubo_count = BM_VS3_UBO_COUNT,
+                               .work_regs = BM_VS3_WORK_REGS, .preload_regs = BM_VS3_PRELOAD, .push_count = BM_VS3_PUSH_COUNT };
+    memset(tmp, 0, sizeof tmp);
+    md_renderer_state(tmp, &v3);
+    CHECK(memcmp(mem + DRAWS + DV_VRSD, tmp, MD_RENDERER_STATE_SIZE) == 0, "matrix: draw 0's Renderer State is not BM_VS3's");
+    CHECK(memcmp(mem + SB + VS3, BM_VS3_bin, sizeof BM_VS3_bin) == 0, "matrix: BM_VS3 is not at its place");
+    md_renderer_state_t v1 = { .shader = MEM_PA + SB + VS, .attribute_count = BM_VS_ATTRIBUTE_COUNT,
+                               .varying_count = BM_VS_VARYING_COUNT, .ubo_count = BM_VS_UBO_COUNT,
+                               .work_regs = BM_VS_WORK_REGS, .preload_regs = BM_VS_PRELOAD, .push_count = BM_VS_PUSH_COUNT };
+    memset(tmp, 0, sizeof tmp);
+    md_renderer_state(tmp, &v1);
+    CHECK(memcmp(mem + SB + VRSD, tmp, MD_RENDERER_STATE_SIZE) == 0, "matrix: the shared Renderer State is not BM_VS's");
+
+    const uint64_t d0 = MEM_PA + DRAWS, d1 = d0 + DSIZE;
+    md_draw_t vd0 = { .state = d0 + DV_VRSD, .attribute_buffers = d0 + 0x380, .attributes = MEM_PA + SB + 0xbc0,
+                      .varying_buffers = d0 + 0x3c0, .varyings = MEM_PA + SB + 0xc40, .thread_storage = MEM_PA + SB + 0xb00,
+                      .uniform_buffers = d0 + DV_VUBO, .push_uniforms = MEM_PA + MALI_FRAME_VPUSH };
+    memset(tmp, 0, sizeof tmp);
+    md_draw(tmp, &vd0);
+    CHECK(memcmp(mem + DRAWS + MD_VJ_DRAW, tmp, MD_DRAW_SIZE) == 0, "matrix: draw 0's vertex Draw (state, uniform buffer, push) differs");
+    md_draw_t vd1 = { .state = MEM_PA + SB + VRSD, .attribute_buffers = d1 + 0x380, .attributes = MEM_PA + SB + 0xbc0,
+                      .varying_buffers = d1 + 0x3c0, .varyings = MEM_PA + SB + 0xc40, .thread_storage = MEM_PA + SB + 0xb00 };
+    memset(tmp, 0, sizeof tmp);
+    md_draw(tmp, &vd1);
+    CHECK(memcmp(mem + DRAWS + DSIZE + MD_VJ_DRAW, tmp, MD_DRAW_SIZE) == 0, "matrix: draw 1's vertex Draw is not the phase-2 one");
+    uint8_t ub[16] = { 0 };
+    md_uniform_buffer(ub, MEM_PA + MALI_FRAME_VPUSH, 4);
+    CHECK(memcmp(mem + DRAWS + DV_VUBO, ub, 8) == 0, "matrix: draw 0's uniform buffer descriptor differs");
+
+    memset(mem + SB, 0, 0x90000);                                   /* (c) no matrix: BM_VS3 stays out, the phase-2 state */
+    (void)mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0x102050, plain, 2);
+    int nz = 0;
+    for (uint32_t i = 0; i < sizeof BM_VS3_bin; i++)
+        nz += mem[SB + VS3 + i] != 0;
+    CHECK(nz == 0, "matrix: a frame without a matrix wrote %d bytes of BM_VS3", nz);
+    memset(tmp, 0, sizeof tmp);
+    md_renderer_state(tmp, &v1);
+    CHECK(memcmp(mem + SB + VRSD, tmp, MD_RENDERER_STATE_SIZE) == 0, "matrix: the plain frame's Renderer State changed");
+
+    mali_draw_t bad[1] = { { t0, 1025, 0, m } };                    /* (d) the limit holds with a matrix */
+    CHECK(mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0, bad, 1) == -1, "matrix: 1025 triangles with a matrix refused");
+}
+
+/* frames in flight: two sets, submit / busy / wait, on the simulator with vertex and tiler jobs accepted as no-ops */
+static void test_async(void)
+{
+    static const float t0[3][3] = { { 4, 4, 0.25f }, { 40, 4, 0.25f }, { 4, 40, 0.25f } };
+    const mali_draw_t d = { t0, 1, 0xff0000, NULL };
+    mali_info_t in;
+    uint8_t *s0 = NULL, *s1 = NULL, *s2 = NULL;
+    uint32_t p0 = 0, p1 = 0, p2 = 0;
+
+    printf("mali: frames in flight (two sets)\n");
+    memset(&S, 0, sizeof S);
+    CHECK(probe(&in) == MALI_OK, "async: probe");
+    S.accept_vt = 1;
+    S.hold = 3;                                         /* both slots keep their start back */
+    const int base_frags = S.frags_run;
+    CHECK(mali_frame_busy() == 0, "async: nothing in flight at first");
+    CHECK(mali_frame_submit(&G, 64, 64, 0x102050, &d, 1, &s0, &p0) == 0, "async: first submit");
+    CHECK(mali_frame_submit(&G, 64, 64, 0x304050, &d, 1, &s1, &p1) == 0, "async: second submit");
+    CHECK(mali_frame_busy() == 2, "async: two frames in flight (%d)", mali_frame_busy());
+    CHECK(mali_frame_submit(&G, 64, 64, 0, &d, 1, &s2, &p2) == -1, "async: a third submit while both sets are busy");      /* (b) */
+    CHECK(mali_frame_submit(&G, 400, 400, 0, &d, 1, &s2, &p2) == -1, "async: a 400 x 400 surface is too big for a set");  /* (c) */
+    CHECK(s0 != s1 && s0 == mem + MALI_SET_BASE(0) + 0x100000 && s1 == mem + MALI_SET_BASE(1) + 0x100000,
+          "async: the surfaces sit at the sets' +0x100000 (%p %p)", (void *)s0, (void *)s1);                                  /* (d) */
+    CHECK(p0 == 256 && p1 == 256, "async: pitch %u %u", p0, p1);
+
+    /* only set 0's vertex job is on slot 1; set 1 waits for the slot */
+    CHECK(S.held[1] == 1 && S.held[0] == 0, "async: one chain on slot 1, none on slot 0 yet");
+    /* let slot 1 go, keep slot 0 back: set 0's fragment job starts and stays; set 1's vertex work ends behind it */
+    release(2);
+    CHECK(mali_frame_busy() == 2 && S.held[0] == 1 && S.held[1] == 0, "async: set 0 on slot 0, set 1's vertex jobs ran");
+    CHECK(mali_frame_busy() == 2 && S.frags_run == base_frags, "async: set 1 waits for slot 0 (fragment jobs run: %d)",
+          S.frags_run - base_frags);
+    release(1);                                         /* slot 0 free: set 0 ends, set 1's fragment job starts and ends */
+    CHECK(mali_frame_wait(1000000) == 0, "async: wait ends");                                                                  /* (a) */
+    CHECK(S.frags_run == base_frags + 2 && mali_frame_busy() == 0, "async: two fragment jobs ran (%d)",
+          S.frags_run - base_frags);
+    CHECK((word(s0) & 0xffffff) == 0x102050 && (word(s1) & 0xffffff) == 0x304050,
+          "async: each surface holds its own clear (%06x %06x)", word(s0) & 0xffffff, word(s1) & 0xffffff);
+
+    /* the synchronous frame is refused while a frame flies, and works after */
+    S.hold = 3;
+    CHECK(mali_frame_submit(&G, 64, 64, 0, &d, 1, &s2, &p2) == 0, "async: submit again after the wait");
+    CHECK(mali_frame(&G, mem + 0x200000, MEM_PA + 0x200000, 256, 64, 64, 0, &d, 1) == -1,
+          "async: mali_frame refused while a frame flies");
+    release(3);
+    CHECK(mali_frame_wait(1000000) == 0, "async: that frame ends");
+
+    /* (e) a job that faults */
+    S.fault_vt = 1;
+    CHECK(mali_frame_submit(&G, 64, 64, 0, &d, 1, &s2, &p2) == 0, "async: submit that will fault");
+    CHECK(mali_frame_wait(1000000) == -1 && strstr(lines, "the vertex and tiler jobs of a queued frame: failed"),
+          "async: a fault: wait says -1");
+    CHECK(mali_frame_busy() == 0, "async: nothing flies after the fault");
+    CHECK(mali_frame_submit(&G, 64, 64, 0x405060, &d, 1, &s2, &p2) == 0 && mali_frame_wait(1000000) == 0 &&
+          (word(s2) & 0xffffff) == 0x405060, "async: the next frame works and is drawn");
+
+    /* a frame that never ends: wait times out */
+    S.hold = 3;
+    CHECK(mali_frame_submit(&G, 64, 64, 0, &d, 1, &s2, &p2) == 0 && mali_frame_wait(1000) == -1,
+          "async: wait times out while the GPU holds the frame");
+    release(3);
+    CHECK(mali_frame_wait(1000000) == 0, "async: and the frame ends after the release");
+    CHECK(mali_frame(&G, mem + 0x200000, MEM_PA + 0x200000, 256, 64, 64, 0, &d, 1) >= 0,
+          "async: mali_frame works again when none flies");
+}
+
+/* the r3d backend against a mock of mali_frame: which draws it makes, in which order, and what it copies into the page */
+static int m_calls, m_nd, m_draws[8], m_rgb[8], m_total, m_firsts[8], m_nfirst;
+
+static int mock_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,
+                      uint32_t clear, const mali_draw_t *d, uint32_t nd)
+{
+    (void)hw; (void)target_pa;
+    m_calls++;
+    m_nd = (int)nd;
+    m_total = 0;
+    m_nfirst = 0;
+    for (uint32_t k = 0; k < nd; k++) {
+        if (k < 8) {
+            m_draws[k] = (int)d[k].n;
+            m_rgb[k] = (int)d[k].rgb;
+        }
+        for (uint32_t j = 0; j < d[k].n; j++) {
+            if (m_nfirst < 8)
+                m_firsts[m_nfirst++] = (int)d[k].xyz[3 * j][0];
+            m_total++;
+        }
+    }
+    for (uint32_t y = 0; y < h; y++)
+        for (uint32_t x = 0; x < w; x++) {
+            const uint32_t v = (x >= 8 && x < 12 && y >= 8 && y < 12) ? 0x336699u :
+                               (x >= 20 && x < 24 && y >= 8 && y < 12) ? 0xFFEE00u : clear;   /* above the key too */
+            memcpy(target + (size_t)y * pitch + 4 * x, &v, 4);
+        }
+    return 0;
+}
+
+static void feed(const r3d_backend_t *be, const g16_t *g, float x, float r, float gg, float b, float z, int kind, int depth)
+{
+    r3d_corner_t c[3];
+    memset(c, 0, sizeof c);
+    for (int i = 0; i < 3; i++) {
+        c[i].x = x + (float)i;
+        c[i].y = 4;
+        c[i].z = z;
+        c[i].a = r;
+        c[i].b = gg;
+        c[i].c = b;
+    }
+    be->tri(be->ctx, g, c, kind, NULL, depth);
+}
+
+static void test_backend(void)
+{
+    static uint16_t page[64 * 64];
+    printf("mali: the r3d backend (a mock of mali_frame)\n");
+    memset(&S, 0, sizeof S);
+    mali_info_t in;
+    CHECK(probe(&in) == MALI_OK, "backend: probe");
+    mali_hw_t other = G;
+    CHECK(mali_backend(&other) == NULL, "backend: NULL for a hw that was not probed");
+    const r3d_backend_t *be = mali_backend(&G);
+    CHECK(be != NULL && be->colour_only == 1 && be->tri && be->zclear, "backend: after a probe, colour_only");
+    if (!be)
+        return;
+    g16_t g = { .px = page, .stride = 64, .w = 64, .h = 64 };
+    for (int i = 0; i < 64 * 64; i++)
+        page[i] = 0xFFFF;
+    mali_backend_set_frame(mock_frame);
+    mali_backend_drop();
+    m_calls = 0;
+
+    feed(be, &g, 10, 1, 0, 0, 0.5f, R3D_KIND_COLOUR, R3D_DEPTH_WRITE);       /* A: red, z 0.5 */
+    feed(be, &g, 20, 0, 1, 0, 0.1f, R3D_KIND_COLOUR, R3D_DEPTH_WRITE);       /* B: green, far */
+    feed(be, &g, 30, 1, 0, 0, 0.3f, R3D_KIND_COLOUR, R3D_DEPTH_WRITE);       /* C: red, z 0.3 */
+    feed(be, &g, 40, 0, 0, 1, 0.9f, R3D_KIND_COLOUR, R3D_DEPTH_WRITE);       /* D: blue, near */
+    CHECK(mali_backend_pending() == 4, "backend: 4 waiting (%d)", mali_backend_pending());
+    feed(be, &g, 50, 1, 1, 1, 0.5f, R3D_KIND_TEXTURE, R3D_DEPTH_WRITE);      /* not flat: ignored */
+    feed(be, &g, 50, 1, 1, 1, 0.5f, R3D_KIND_COLOUR, R3D_DEPTH_TEST);        /* not depth-written: ignored */
+    CHECK(mali_backend_pending() == 4, "backend: a texture and a tested triangle add nothing (%d)", mali_backend_pending());
+
+    CHECK(mali_backend_flush(&g) == 0 && mali_backend_pending() == 0, "backend: flush");
+    CHECK(m_calls == 1 && m_nd == 3 && m_draws[0] == 1 && m_draws[1] == 2 && m_draws[2] == 1,
+          "backend: 3 draws of 1, 2, 1 triangles (%d: %d %d %d)", m_nd, m_draws[0], m_draws[1], m_draws[2]);
+    CHECK(m_rgb[0] == 0x00FF00 && m_rgb[1] == 0xFF0000 && m_rgb[2] == 0x0000FF,
+          "backend: green, red, blue far to near (%06x %06x %06x)", m_rgb[0], m_rgb[1], m_rgb[2]);
+    CHECK(m_firsts[0] == 20 && m_firsts[1] == 30 && m_firsts[2] == 10 && m_firsts[3] == 40,
+          "backend: B, C, A, D (%d %d %d %d)", m_firsts[0], m_firsts[1], m_firsts[2], m_firsts[3]);
+    const uint16_t want = (uint16_t)((0x33 >> 3) << 11 | (0x66 >> 2) << 5 | (0x99 >> 3));
+    const uint16_t want2 = (uint16_t)((0xFF >> 3) << 11 | (0xEE >> 2) << 5 | (0x00 >> 3));
+    CHECK(page[8 * 64 + 20] == want2, "backend: a covered pixel above the key colour is %04x (want %04x)", page[8 * 64 + 20], want2);
+    CHECK(page[8 * 64 + 8] == want && page[0] == 0xFFFF && page[63 * 64 + 63] == 0xFFFF,
+          "backend: the covered pixel is %04x (want %04x), the others stay (%04x)", page[8 * 64 + 8], want, page[0]);
+
+    feed(be, &g, 10, 1, 0, 1, 0.5f, R3D_KIND_COLOUR, R3D_DEPTH_WRITE);       /* exactly the key colour ff00ff */
+    CHECK(mali_backend_flush(&g) == 0 && m_rgb[0] == 0xFF01FF, "backend: the key colour is nudged (%06x)", m_rgb[0]);
+
+    m_calls = 0;
+    for (int i = 0; i < 1025; i++)
+        feed(be, &g, 4, 0, 1, 0, 0.5f, R3D_KIND_COLOUR, R3D_DEPTH_WRITE);
+    CHECK(m_calls == 1 && m_total == 1024 && mali_backend_pending() == 1,
+          "backend: the 1025th flushes 1024 (%d calls, %d drawn, %d waiting)", m_calls, m_total, mali_backend_pending());
+    be->zclear(be->ctx, &g);
+    CHECK(mali_backend_pending() == 0, "backend: zclear forgets what waits");
+    mali_backend_set_frame(NULL);
 }
 
 int main(void)
@@ -466,6 +929,46 @@ int main(void)
     S.frag_no_write = 1;
     r = probe(&in);
     CHECK(r == MALI_E_FRAGMENT && strstr(lines, "of 4096 pixels are not"), "the clear lost, said (%d)", r);
+
+    test_frame_image();
+    test_backend();
+    test_matrix_image();
+    test_async();
+
+    printf("mali: the triangle's variants (the patches)\n");
+    variant_checks();
+
+    printf("mali: the triangle's base jobs work: no variant runs\n");
+    r = tri_probe(0, &in);
+    CHECK(r == MALI_OK && !strstr(lines, "variant") && S.tri_runs == 1 && in.tri_in == 0xff8019u &&
+          in.tri_out == 0x102050u, "base path (%d, %d runs, %06x, %06x)", r, S.tri_runs, in.tri_in, in.tri_out);
+
+    printf("mali: the triangle's base jobs fail, every variant works\n");
+    r = tri_probe(1u << 0, &in);
+    CHECK(r == MALI_OK && strstr(lines, "mali: variant base: JS_STATUS 0x58"), "base failed, said (%d)", r);
+    for (int n = 0; n < MV_COUNT; n++)
+        CHECK(has_variant(n, "ok"), "variant %d %s: ok said", n, mv_table[n].name);
+    CHECK(strstr(lines, "mali: variant 2 heap-bottom64 goes on to the fragment job") && S.tri_runs == 10 &&
+          in.tri_in == 0xff8019u, "the first non-isolating variant goes on (%d runs)", S.tri_runs);
+
+    printf("mali: the triangle's base jobs and variants 2 and 3 fail\n");
+    r = tri_probe(1u << 0 | 1u << 3 | 1u << 4, &in);
+    CHECK(r == MALI_OK && has_variant(2, "JS_STATUS 0x58") && has_variant(3, "JS_STATUS 0x58") &&
+          has_variant(0, "ok") && has_variant(1, "ok") && has_variant(4, "ok") && has_variant(7, "ok") &&
+          strstr(lines, "mali: variant 4 mask-ff goes on to the fragment job"), "variant 4 is the one (%d)", r);
+
+    printf("mali: every run of the triangle's jobs fails\n");
+    r = tri_probe(0x1ffu, &in);
+    CHECK(r == MALI_E_TRIANGLE && strstr(lines, "mali: variant base: JS_STATUS 0x58") &&
+          strstr(lines, "mali: a triangle (vertex, tiler and fragment jobs): failed") && !strstr(lines, "goes on"),
+          "all failed, said (%d)", r);
+    for (int n = 0; n < MV_COUNT; n++)
+        CHECK(has_variant(n, "JS_STATUS 0x58"), "variant %d %s: the status said", n, mv_table[n].name);
+
+    printf("mali: only the two isolation runs work (variants 0 and 1)\n");
+    r = tri_probe(0x1ffu & ~(1u << 1 | 1u << 2), &in);
+    CHECK(r == MALI_E_TRIANGLE && has_variant(0, "ok") && has_variant(1, "ok") && !strstr(lines, "goes on"),
+          "they never count as the one that works (%d)", r);
 
     CHECK(!strcmp(mali_exception(0xc1), "TRANSLATION_FAULT") && !strcmp(mali_exception(0x43), "JOB_WRITE_FAULT"),
           "exception names");

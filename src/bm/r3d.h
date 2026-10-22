@@ -161,6 +161,8 @@ typedef struct {
     float guard;                /* pixels around the screen for R3D_INSIDE; 0: never */
     int tex_screen;             /* draws textured screen-door faces (R3D_TEX_SCREEN, M34); else
                                  * they go to the ARM */
+    int colour_only;            /* M41: draws flat colours with depth R3D_DEPTH_WRITE only (the Mali, phase 2): anything
+                                 * else makes r3d hand over to the ARM (to_arm) */
 } r3d_backend_t;
 
 typedef struct { float r, g, b; } r3d_rgb_t;

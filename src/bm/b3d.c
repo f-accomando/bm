@@ -1222,7 +1222,7 @@ static void ramp(int ti, int pf)
     const test_t *t = &tests[ti];
     result_t *r = &res[ti][pf];
     static sample_t s[64];
-    int ns = 0;
+    int ns = 0, colour_only = 0;        /* colour_only: the backend is the Mali's (flat colours) */
     if (prof[pf].gpu) {
         if (gpu3d_init() != 0 || !gpu3d_backend())
             return;
@@ -1230,6 +1230,7 @@ static void ramp(int ti, int pf)
             (prof[pf].queue && !gpu3d_queue_ok()))
             return;                     /* not on this GPU: no row */
         R.backend = gpu3d_backend();
+        colour_only = R.backend->colour_only;
         gpu3d_drop();
         gpu3d_set_msaa(prof[pf].aa);
         gpu3d_set_vshader(prof[pf].vs);
@@ -1309,6 +1310,11 @@ static void ramp(int ti, int pf)
         gpu3d_set_queue(0);
         if (halted)
             break;                      /* a step not finished: not a sample */
+        if (colour_only && !R.backend) {
+            ns = 0;                     /* the backend handed over to the ARM during the step (r3d to_arm): these are
+                                         * the ARM's numbers, no GPU row */
+            break;
+        }
         gpu3d_take_stats(&st);
         const float k = 1.0f / (float)frames;
         a.ms = b3d_median(fms, frames);     /* the counters below: the mean */

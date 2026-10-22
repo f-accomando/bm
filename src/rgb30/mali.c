@@ -8,6 +8,7 @@
 #include "mali.h"
 #include "mali_desc.h"
 #include "mali_shaders.h"
+#include "mali_variants.h"
 
 #include <string.h>
 
@@ -384,36 +385,42 @@ static void job_write(uint8_t *p, int index, int dep, uint64_t next, uint64_t ad
     put64(p + 48, value);
 }
 
-/* the chain from head on job slot js (0 fragment, 1 the others); 0 done,
- * -1 failed (lines said) */
-static int run_on(int js, uint64_t head, uint32_t *us, uint32_t *status, const char *what)
+/* start the chain from head on job slot js (0 fragment, 1 the others); only this slot's interrupt bits are cleared (the
+ * other slot may be running a frame) */
+static void job_kick(int js, uint64_t head)
 {
-    gw(JOB_INT_CLEAR, 0xffffffffu);
-    gw(MMU_INT_CLEAR, 0xffffffffu);
+    gw(JOB_INT_CLEAR, 1u << js | 1u << (16 + js));
     gw(JS(js, JS_HEAD_NEXT), (uint32_t)head);
     gw(JS(js, JS_HEAD_NEXT) + 4, (uint32_t)(head >> 32));
     gw(JS(js, JS_AFFINITY_NEXT), gr(GPU_SHADER_PRESENT));
     gw(JS(js, JS_AFFINITY_NEXT) + 4, gr(GPU_SHADER_PRESENT + 4));
     gw(JS(js, JS_CONFIG_NEXT), 0 /* AS 0 */ | JS_CFG_THREAD_PRI(8) | JS_CFG_START_FLUSH_CLEAN_INV |
                                JS_CFG_END_FLUSH_CLEAN_INV);
-    const uint32_t t0 = H->us();
     gw(JS(js, JS_COMMAND_NEXT), JS_CMD_START);
+}
+
+/* has the slot's chain ended? 0 running, 1 done, -1 failed; *raw the job interrupts' state, *status the slot's */
+static int job_poll(int js, uint32_t *status, uint32_t *raw)
+{
     const uint32_t done = 1u << js, failed = 1u << (16 + js);
-    uint32_t raw = 0;
-    while (!((raw = gr(JOB_INT_RAWSTAT)) & (done | failed)) && H->us() - t0 < 100000)
-        ;
-    *us = H->us() - t0;
-    *status = gr(JS(js, JS_STATUS));
-    const uint32_t mmu_raw = gr(MMU_INT_RAWSTAT);
-    gw(JOB_INT_CLEAR, done | failed);
-    if (raw & done && !(raw & failed))
+    *raw = gr(JOB_INT_RAWSTAT);
+    if (!(*raw & (done | failed)))
         return 0;
-    if (!(raw & (done | failed)))
+    *status = gr(JS(js, JS_STATUS));
+    gw(JOB_INT_CLEAR, done | failed);
+    return *raw & done && !(*raw & failed) ? 1 : -1;
+}
+
+/* the lines for a chain that failed (raw without the slot's bits: it never ended) */
+static void job_fail(int js, const char *what, uint32_t status, uint32_t raw)
+{
+    const uint32_t mmu_raw = gr(MMU_INT_RAWSTAT);
+    if (!(raw & (1u << js | 1u << (16 + js))))
         ksnprintf(line, sizeof line, "mali: %s: no end after 100 ms (JS_STATUS %02x %s, job raw %08x)", what,
-                  (unsigned)*status, mali_exception(*status), (unsigned)raw);
+                  (unsigned)status, mali_exception(status), (unsigned)raw);
     else
-        ksnprintf(line, sizeof line, "mali: %s: failed, JS_STATUS %02x %s", what, (unsigned)*status,
-                  mali_exception(*status));
+        ksnprintf(line, sizeof line, "mali: %s: failed, JS_STATUS %02x %s", what, (unsigned)status,
+                  mali_exception(status));
     say();
     if (mmu_raw & 0x10001u) {
         const uint32_t fs = gr(AS(0, AS_FAULTSTATUS));
@@ -421,6 +428,25 @@ static int run_on(int js, uint64_t head, uint32_t *us, uint32_t *status, const c
                   mali_exception(fs), (unsigned)gr(AS(0, AS_FAULTADDRESS) + 4), (unsigned)gr(AS(0, AS_FAULTADDRESS)));
         say();
     }
+    gw(MMU_INT_CLEAR, 0xffffffffu);
+}
+
+/* the chain from head on job slot js and the wait for its end; 0 done, -1 failed (lines said) */
+static int run_on(int js, uint64_t head, uint32_t *us, uint32_t *status, const char *what)
+{
+    gw(MMU_INT_CLEAR, 0xffffffffu);
+    const uint32_t t0 = H->us();
+    job_kick(js, head);
+    uint32_t raw = 0;
+    int r;
+    while (!(r = job_poll(js, status, &raw)) && H->us() - t0 < 100000)
+        ;
+    *us = H->us() - t0;
+    if (!r)
+        *status = gr(JS(js, JS_STATUS));
+    if (r > 0)
+        return 0;
+    job_fail(js, what, *status, raw);
     return -1;
 }
 
@@ -622,29 +648,12 @@ static int fragment(mali_info_t *in)
  * mali_desc.c, the shaders of mali_shaders.h (tools/mali/mkshader.c). A 96 x 96 square of the screen, under
  * the clear's square: dark blue, an orange triangle on it. The jobs run as Mesa's panvk submits them
  * (vertex then tiler on one slot, the fragment job on its own once they have ended). */
-#define MEM_VJOB        0x4000
-#define MEM_TJOB        0x4100
-#define MEM_HEAPD       0x4300      /* Tiler Heap */
-#define MEM_TCTX        0x4380      /* Tiler Context */
-#define MEM_VRSD        0x4500      /* the vertex shader's Renderer State */
-#define MEM_FRSD        0x4580      /* the fragment shader's, then its Blend */
-#define MEM_LS          0x4600      /* Local Storage */
-#define MEM_VIEWPORT    0x4640
-#define MEM_ABUFS       0x4680      /* attribute buffers: the vertices, a continuation, an end */
-#define MEM_ATTR        0x46c0
-#define MEM_VBUFS       0x4700      /* varying buffers: general, position, point size, an end */
-#define MEM_VATTR       0x4740      /* the position's varying attribute */
-#define MEM_UBO         0x4780      /* the fragment shader's uniform buffer descriptor */
-#define MEM_PUSH        0x47c0      /* its pushed words */
-#define MEM_COLOUR      0x47e0      /* the draw's colour: the buffer's content */
-#define MEM_VS          0x4800
-#define MEM_FS          0x4900
-#define MEM_VERTS       0x5000      /* three positions (x y z w floats) */
-#define MEM_POSITIONS   0x5100      /* what the vertex job wrote */
-#define MEM_HEAP        0x100000
-#define HEAP_SIZE       0x100000
-#define TRI             96          /* the square's side in pixels */
-#define HIERARCHY_MASK  0xee        /* Mesa's default_mask[6]: 6 levels, the one over the whole frame */
+
+/* --- a frame: up to MALI_MAX_DRAWS draws (M41 phase 2) ---
+ * Draw d has its Vertex job, its Tiler job and its own tables at SO_DRAWS + MEM_DRAW_SIZE * d of the set; the pieces every
+ * draw shares (heap, tiler context, vertex Renderer State, local storage, viewport, the attribute descriptors, the shader
+ * code) are in the set's first 0x1000 bytes and at SO_VS. The vertices, the positions the vertex jobs write and the pushed
+ * words are at the places mali.h names (MALI_FRAME_*, set 0's), draw after draw. */
 
 static void put_f(uint8_t *p, float v)
 {
@@ -658,101 +667,431 @@ static uint32_t rd32(const uint8_t *p)
     return v;
 }
 
-/* 0 drawn, 1 the jobs ended but the triangle is not there, -1 failed */
-static int triangle(mali_info_t *in)
+/* Everything for the frame in the GPU memory: the draws (valid, checked by the caller) into a w x h surface at target_pa,
+ * cleared to `clear` first. The jobs are chained from the set's SO_DRAWS (the first Vertex job); the Fragment job is at its SO_FJOB. */
+static void frame_build(uint32_t set, const mali_draw_t *draws, uint32_t ndraws, uint32_t w, uint32_t h,
+                        uint64_t target_pa, uint32_t pitch, uint32_t clear)
 {
+    const uint32_t sb = MALI_SET_BASE(set);
     uint8_t *m = H->mem;
     const uint64_t pa = H->mem_pa;
-    const uint32_t x0 = (H->screen_w - 112) & ~15u, y0 = 96;
-    const uint64_t base = H->screen_pa + (uint64_t)y0 * H->screen_pitch + x0 * 4;
-    const uint32_t clear = 0x102050;
+    const uint32_t verts = sb + (MALI_FRAME_VERTS - MALI_SET_BASE(0)), positions = sb + (MALI_FRAME_POSITIONS - MALI_SET_BASE(0)),
+                   push = sb + (MALI_FRAME_PUSH - MALI_SET_BASE(0));
 
-    memset(m + MEM_VJOB, 0, 0x2000);
-    memcpy(m + MEM_VS, BM_VS_bin, sizeof BM_VS_bin);
-    memcpy(m + MEM_FS, BM_FS_bin, sizeof BM_FS_bin);
-
-    /* the data: three positions, one colour */
-    static const float v[3][4] = { { 8, 88, 0.5f, 1 }, { 88, 88, 0.5f, 1 }, { 48, 8, 0.5f, 1 } };
-    for (int i = 0; i < 3; i++)
-        for (int k = 0; k < 4; k++)
-            put_f(m + MEM_VERTS + 16 * i + 4 * k, v[i][k]);
-    const float col[4] = { 1.0f, 0.5f, 0.1f, 1.0f };
-    for (int k = 0; k < 4; k++) {
-        put_f(m + MEM_COLOUR + 4 * k, col[k]);
-        put_f(m + MEM_PUSH + 16 + 4 * k, col[k]);     /* words 4-7: BM_FS_push says ubo 0 offsets 0, 4, 8, 12 */
-    }
+    memset(m + sb, 0, 0x1000);
+    memset(m + sb + SO_DRAWS, 0, (size_t)MEM_DRAW_SIZE * ndraws);
+    memcpy(m + sb + SO_VS, BM_VS_bin, sizeof BM_VS_bin);
+    memcpy(m + sb + SO_FS, BM_FS_bin, sizeof BM_FS_bin);
+    const uint32_t vpush = sb + (MALI_FRAME_VPUSH - MALI_SET_BASE(0));
+    for (uint32_t d = 0; d < ndraws; d++)
+        if (draws[d].mvp) {
+            memcpy(m + sb + SO_VS3, BM_VS3_bin, sizeof BM_VS3_bin);
+            break;
+        }
 
     /* tiler: the heap and the context */
-    md_tiler_heap(m + MEM_HEAPD, pa + MEM_HEAP, HEAP_SIZE);
-    md_tiler_context(m + MEM_TCTX, TRI, TRI, HIERARCHY_MASK, pa + MEM_HEAPD);
+    md_tiler_heap(m + sb + SO_HEAPD, pa + sb + SO_HEAP, HEAP_SIZE);
+    md_tiler_context(m + sb + SO_TCTX, w, h, HIERARCHY_MASK, pa + sb + SO_HEAPD);
 
     /* the shaders' states */
-    md_renderer_state_t vrs = { .shader = pa + MEM_VS, .attribute_count = BM_VS_ATTRIBUTE_COUNT,
+    md_renderer_state_t vrs = { .shader = pa + sb + SO_VS, .attribute_count = BM_VS_ATTRIBUTE_COUNT,
                                 .varying_count = BM_VS_VARYING_COUNT, .ubo_count = BM_VS_UBO_COUNT,
                                 .work_regs = BM_VS_WORK_REGS, .preload_regs = BM_VS_PRELOAD,
                                 .push_count = BM_VS_PUSH_COUNT };
-    md_renderer_state(m + MEM_VRSD, &vrs);
-    md_renderer_state_t frs = { .fragment = 1, .shader = pa + MEM_FS, .attribute_count = BM_FS_ATTRIBUTE_COUNT,
+    md_renderer_state(m + sb + SO_VRSD, &vrs);
+    md_renderer_state_t frs = { .fragment = 1, .shader = pa + sb + SO_FS, .attribute_count = BM_FS_ATTRIBUTE_COUNT,
                                 .varying_count = BM_FS_VARYING_COUNT, .ubo_count = BM_FS_UBO_COUNT,
                                 .work_regs = BM_FS_WORK_REGS, .preload_regs = BM_FS_PRELOAD,
                                 .push_count = BM_FS_PUSH_COUNT, .pixel_kill = MD_KILL_WEAK_EARLY,
                                 .zs_update = MD_KILL_WEAK_EARLY, .wait6 = BM_FS_WAIT6, .wait7 = BM_FS_WAIT7 };
-    md_renderer_state(m + MEM_FRSD, &frs);
-    md_blend_opaque(m + MEM_FRSD + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
-    md_local_storage(m + MEM_LS);
-    md_viewport(m + MEM_VIEWPORT, 0, 0, TRI, TRI, 0, 0, TRI - 1, TRI - 1);
+    md_local_storage(m + sb + SO_LS);
+    md_viewport(m + sb + SO_VIEWPORT, 0, 0, w, h, 0, 0, w - 1, h - 1);
+    md_attribute(m + sb + SO_ATTR, 0, MD_FMT_RGBA32F | MD_ORDER_RGBA, 0, 1);
+    md_attribute(m + sb + SO_VATTR, 1, MD_FMT_SNAP4 | MD_ORDER_RGBA, 0, 0);
 
-    /* the vertex job's tables: attribute buffer 0 (entries come in twos), the attribute; the position varying */
-    md_attribute_buffer(m + MEM_ABUFS, pa + MEM_VERTS, 16, 3 * 16);
-    md_attribute(m + MEM_ATTR, 0, MD_FMT_RGBA32F | MD_ORDER_RGBA, 0, 1);
-    md_attribute_buffer(m + MEM_VBUFS, 0, 0, 0);
-    md_attribute_buffer(m + MEM_VBUFS + 16, pa + MEM_POSITIONS, 16, 3 * 16);
-    md_attribute_buffer(m + MEM_VBUFS + 32, 0, 0, 0);
-    md_attribute(m + MEM_VATTR, 1, MD_FMT_SNAP4 | MD_ORDER_RGBA, 0, 0);
-    md_uniform_buffer(m + MEM_UBO, pa + MEM_COLOUR, 1);
+    uint32_t first = 0;                         /* the draw's first vertex, in the frame's arrays */
+    for (uint32_t d = 0; d < ndraws; d++) {
+        uint8_t *dm = m + sb + SO_DRAWS + (size_t)MEM_DRAW_SIZE * d;
+        const uint64_t dpa = pa + sb + SO_DRAWS + (uint64_t)MEM_DRAW_SIZE * d;
+        const uint32_t nv = 3 * draws[d].n;
+        const uint32_t rgb = draws[d].rgb;
 
-    /* the jobs */
-    md_draw_t vd = { .state = pa + MEM_VRSD, .attribute_buffers = pa + MEM_ABUFS, .attributes = pa + MEM_ATTR,
-                     .varying_buffers = pa + MEM_VBUFS, .varyings = pa + MEM_VATTR, .thread_storage = pa + MEM_LS };
-    job_header(m + MEM_VJOB, MD_JOB_VERTEX, 1, 0, pa + MEM_TJOB);
-    md_vertex_job(m + MEM_VJOB, 3, &vd);
-    md_draw_t td = { .position = pa + MEM_POSITIONS, .state = pa + MEM_FRSD, .viewport = pa + MEM_VIEWPORT,
-                     .uniform_buffers = pa + MEM_UBO, .push_uniforms = pa + MEM_PUSH,
-                     .thread_storage = pa + MEM_LS };
-    md_primitive_t prim = { .mode = MD_TRIANGLES, .index_count = 3 };
-    job_header(m + MEM_TJOB, MD_JOB_TILER, 2, 1, 0);
-    md_tiler_job(m + MEM_TJOB, &prim, pa + MEM_TCTX, &td);
+        /* the data: the positions as (x y z 1), the colour twice (the buffer and the pushed words 4-7) */
+        for (uint32_t i = 0; i < nv; i++) {
+            for (int k = 0; k < 3; k++)
+                put_f(m + verts + 16 * (first + i) + 4 * k, draws[d].xyz[i][k]);
+            put_f(m + verts + 16 * (first + i) + 12, 1.0f);
+        }
+        const float col[4] = { (float)(rgb >> 16 & 0xff) / 255.0f, (float)(rgb >> 8 & 0xff) / 255.0f,
+                               (float)(rgb & 0xff) / 255.0f, 1.0f };
+        for (int k = 0; k < 4; k++) {
+            put_f(dm + D_COLOUR + 4 * k, col[k]);
+            put_f(m + push + 64 * d + 16 + 4 * k, col[k]);   /* BM_FS_push says ubo 0 offsets 0, 4, 8, 12 */
+        }
+
+        /* the draw's tables */
+        md_renderer_state(dm + D_FRSD, &frs);
+        md_blend_opaque(dm + D_FRSD + MD_RENDERER_STATE_SIZE, 0, MD_FMT_RGBA8_UNORM | MD_ORDER_RGBA, MD_REG_F32);
+        md_attribute_buffer(dm + D_ABUFS, pa + verts + 16 * first, 16, 16 * nv);
+        md_attribute_buffer(dm + D_VBUFS, 0, 0, 0);
+        md_attribute_buffer(dm + D_VBUFS + 16, pa + positions + 16 * first, 16, 16 * nv);
+        md_attribute_buffer(dm + D_VBUFS + 32, 0, 0, 0);
+        md_uniform_buffer(dm + D_UBO, dpa + D_COLOUR, 1);
+        if (draws[d].mvp) {   /* phase 3: BM_VS3 with the matrix pushed (BM_VS3_push: words 0..15 are bytes 0..60 of ubo 0) */
+            md_renderer_state_t vrs3 = { .shader = pa + sb + SO_VS3, .attribute_count = BM_VS3_ATTRIBUTE_COUNT,
+                                         .varying_count = BM_VS3_VARYING_COUNT, .ubo_count = BM_VS3_UBO_COUNT,
+                                         .work_regs = BM_VS3_WORK_REGS, .preload_regs = BM_VS3_PRELOAD,
+                                         .push_count = BM_VS3_PUSH_COUNT };
+            md_renderer_state(dm + D_VRSD, &vrs3);
+            for (int k = 0; k < 16; k++)
+                put_f(m + vpush + 64 * d + BM_VS3_push[k][1], draws[d].mvp[k]);
+            md_uniform_buffer(dm + D_VUBO, pa + vpush + 64 * d, 4);
+        }
+
+        /* the jobs: Vertex 2d + 1 (after the previous Tiler job), Tiler 2d + 2 (after its Vertex job) */
+        md_draw_t vd = { .state = pa + sb + SO_VRSD, .attribute_buffers = dpa + D_ABUFS, .attributes = pa + sb + SO_ATTR,
+                         .varying_buffers = dpa + D_VBUFS, .varyings = pa + sb + SO_VATTR, .thread_storage = pa + sb + SO_LS };
+        if (draws[d].mvp) {
+            vd.state = dpa + D_VRSD;
+            vd.uniform_buffers = dpa + D_VUBO;
+            vd.push_uniforms = pa + vpush + 64 * d;
+        }
+        job_header(dm + D_VJOB, MD_JOB_VERTEX, 2 * (int)d + 1, d ? 2 * (int)d : 0, dpa + D_TJOB);
+        md_vertex_job(dm + D_VJOB, nv, &vd);
+        md_draw_t td = { .position = pa + positions + 16 * first, .state = dpa + D_FRSD,
+                         .viewport = pa + sb + SO_VIEWPORT, .uniform_buffers = dpa + D_UBO,
+                         .push_uniforms = pa + push + 64 * d, .thread_storage = pa + sb + SO_LS };
+        md_primitive_t prim = { .mode = MD_TRIANGLES, .index_count = nv };
+        job_header(dm + D_TJOB, MD_JOB_TILER, 2 * (int)d + 2, 2 * (int)d + 1,
+                   d + 1 < ndraws ? dpa + MEM_DRAW_SIZE + D_VJOB : 0);
+        md_tiler_job(dm + D_TJOB, &prim, pa + sb + SO_TCTX, &td);
+        first += nv;
+    }
 
     /* the fragment job: the clear's descriptor with the tiler's context */
-    samples(m + MEM_SAMPLES);
-    fbd(m + MEM_FBD, pa + MEM_SAMPLES, TRI, TRI, base, H->screen_pitch, clear);
-    put64(m + MEM_FBD + 56, pa + MEM_TCTX);
-    job_fragment(m + MEM_FJOB, TRI, TRI, pa + MEM_FBD);
+    samples(m + sb + SO_SAMPLES);
+    fbd(m + sb + SO_FBD, pa + sb + SO_SAMPLES, w, h, target_pa, pitch, clear);
+    put64(m + sb + SO_FBD + 56, pa + sb + SO_TCTX);
+    job_fragment(m + sb + SO_FJOB, w, h, pa + sb + SO_FBD);
+}
 
-    uint32_t st;
-    if (run_on(1, pa + MEM_VJOB, &in->tri_us, &st, "a vertex and a tiler job") != 0)
-        return -1;
+#define TRI_X0      ((H->screen_w - 112) & ~15u)
+#define TRI_Y0      96u
+#define TRI_CLEAR   0x102050u
+
+/* the triangle's three jobs, the tables and the fragment job's descriptor into hw->mem: set 0, one draw, the screen as target */
+static void tri_build(void)
+{
+    static const float v[3][3] = { { 8, 88, 0.5f }, { 88, 88, 0.5f }, { 48, 8, 0.5f } };
+    const mali_draw_t d = { .xyz = v, .n = 1, .rgb = 0xff8019 };
+    frame_build(0, &d, 1, TRI, TRI, H->screen_pa + (uint64_t)TRI_Y0 * H->screen_pitch + TRI_X0 * 4, H->screen_pitch, TRI_CLEAR);
+}
+
+void mali_tri_build(const mali_hw_t *hw)
+{
+    H = hw;
+    tri_build();
+}
+
+static void vertex_words(void)
+{
     uint32_t out[4];
     for (int k = 0; k < 4; k++)
-        out[k] = rd32(m + MEM_POSITIONS + 4 * k);
+        out[k] = rd32(H->mem + MALI_FRAME_POSITIONS + 4 * k);
     ksnprintf(line, sizeof line, "mali: the vertex job wrote %08x %08x %08x %08x (8.0 88.0 0.5 1.0 are 41000000 "
               "42b00000 3f000000 3f800000)", (unsigned)out[0], (unsigned)out[1], (unsigned)out[2], (unsigned)out[3]);
     say();
+}
+
+/* build the jobs and run the vertex and tiler jobs. n < 0: the base path; else variant n of mv_table.
+ * 0 done, -1 failed (lines said); *st is JS_STATUS */
+static int tri_try(mali_info_t *in, int n, uint32_t *st)
+{
+    const uint64_t pa = H->mem_pa;
+    uint64_t head = pa + MV_VJOB;
+    char what[48];
+    uint32_t us;
+
+    tri_build();
+    if (n >= 0) {
+        mv_apply(H->mem, pa, n);
+        if (mv_table[n].flags & MV_TILER_ONLY) {
+            memcpy(H->mem + MALI_FRAME_POSITIONS, H->mem + MALI_FRAME_VERTS, 3 * 16);   /* what the vertex job would write */
+            head = pa + MV_TJOB;
+        }
+        ksnprintf(what, sizeof what, "variant %d %s", n, mv_table[n].name);
+    } else {
+        ksnprintf(what, sizeof what, "a vertex and a tiler job");
+    }
+    if (run_on(1, head, &us, st, what) != 0)
+        return -1;
+    in->tri_us += us;
+    if (n == -1 || n == 0)
+        vertex_words();
+    return 0;
+}
+
+/* after a failed job: reset, cores and MMU again, so the next try starts from a known GPU; 0 or -1 */
+static int tri_recover(const mali_info_t *in)
+{
+    return reset() == 0 && cores(in) == 0 && mmu() == 0 ? 0 : -1;
+}
+
+/* 0 drawn, 1 the jobs ended but the triangle is not there, -1 failed.
+ * The base path first; if its jobs fail, every variant of mv_table runs once and says its result (the first
+ * one of them that ends, other than the two that run one job alone, goes on to the fragment job). */
+static int triangle(mali_info_t *in)
+{
+    uint8_t *m = H->mem;
+    const uint64_t pa = H->mem_pa;
+    uint32_t st;
+    int pick = -1;
+
+    in->tri_us = 0;
+    if (tri_try(in, -1, &st) != 0) {
+        ksnprintf(line, sizeof line, "mali: variant base: JS_STATUS 0x%02x", (unsigned)st);
+        say();
+        if (tri_recover(in) != 0)
+            return -1;
+        for (int n = 0; n < MV_COUNT; n++) {
+            const int bad = tri_try(in, n, &st) != 0;
+            if (bad)
+                ksnprintf(line, sizeof line, "mali: variant %d %s: JS_STATUS 0x%02x", n, mv_table[n].name,
+                          (unsigned)st);
+            else
+                ksnprintf(line, sizeof line, "mali: variant %d %s: ok", n, mv_table[n].name);
+            say();
+            if (bad && tri_recover(in) != 0)
+                return -1;
+            if (!bad && pick < 0 && !(mv_table[n].flags & MV_ISOLATE))
+                pick = n;
+        }
+        if (pick < 0)
+            return -1;
+        ksnprintf(line, sizeof line, "mali: variant %d %s goes on to the fragment job", pick, mv_table[pick].name);
+        say();
+        if (tri_try(in, pick, &st) != 0)
+            return -1;
+    }
     uint32_t us2;
-    if (run_on(0, pa + MEM_FJOB, &us2, &st, "the fragment job of the triangle") != 0)
+    if (run_on(0, pa + MALI_SET_BASE(0) + SO_FJOB, &us2, &st, "the fragment job of the triangle") != 0)
         return -1;
     in->tri_us += us2;
-    const uint8_t *screen = H->screen + (size_t)y0 * H->screen_pitch + x0 * 4;
+    const uint8_t *screen = H->screen + (size_t)TRI_Y0 * H->screen_pitch + TRI_X0 * 4;
     in->tri_in = rd32(screen + (size_t)61 * H->screen_pitch + 48 * 4) & 0xffffff;
     in->tri_out = rd32(screen + (size_t)3 * H->screen_pitch + 3 * 4) & 0xffffff;
     ksnprintf(line, sizeof line, "mali: a triangle: inside %06x, outside %06x (the clear is %06x, the colour ff8019), "
-              "heap bottom %08x%08x", (unsigned)in->tri_in, (unsigned)in->tri_out, (unsigned)clear,
-              (unsigned)rd32(m + MEM_HEAPD + 20), (unsigned)rd32(m + MEM_HEAPD + 16));
+              "heap bottom %08x%08x", (unsigned)in->tri_in, (unsigned)in->tri_out, (unsigned)TRI_CLEAR,
+              (unsigned)rd32(m + MALI_SET_BASE(0) + SO_HEAPD + 20), (unsigned)rd32(m + MALI_SET_BASE(0) + SO_HEAPD + 16));
     say();
-    return in->tri_in != clear && in->tri_out == clear ? 0 : 1;
+    return in->tri_in != TRI_CLEAR && in->tri_out == TRI_CLEAR ? 0 : 1;
 }
 
 static int probed_ok;
+static int frames_step(void);
+
+/* why the draws are refused (NULL: good); *tris their triangles */
+static const char *draws_check(const mali_draw_t *draws, uint32_t ndraws, uint32_t *tris)
+{
+    *tris = 0;
+    if (ndraws == 0 || ndraws > MALI_MAX_DRAWS)
+        return "the number of draws is 0 or over the maximum";
+    if (!draws)
+        return "no target or no draws";
+    for (uint32_t d = 0; d < ndraws; d++) {
+        if (draws[d].n == 0 || !draws[d].xyz)
+            return "a draw of no triangles";
+        if ((*tris += draws[d].n) > MALI_BATCH_MAX)
+            return "more than MALI_BATCH_MAX triangles";
+    }
+    return NULL;
+}
+
+int mali_frame(const mali_hw_t *hw, uint8_t *target, uint64_t target_pa, uint32_t pitch, uint32_t w, uint32_t h,
+               uint32_t clear, const mali_draw_t *draws, uint32_t ndraws)
+{
+    const char *why = NULL;
+    uint32_t tris = 0;
+    if (!probed_ok || hw != H)
+        why = "no good probe with this hw";
+    else if (hw->mem_size < MALI_SET_BASE(1))
+        why = "the GPU memory is smaller than set 0";
+    else if (frames_step() != 0)
+        why = "frames are in flight (mali_frame_submit): wait for them";
+    else if (!target)
+        why = "no target or no draws";
+    else if (w == 0 || h == 0 || (w & 15) || (h & 15) || w > 1920 || h > 1080 || pitch < w * 4 || (pitch & 3))
+        why = "the surface is not as stated (w, h multiples of 16 up to 1920 x 1080, pitch at least 4 w)";
+    else if (target_pa & 63)
+        why = "target_pa is not 64-aligned";
+    if (!why)
+        why = draws_check(draws, ndraws, &tris);
+    if (why) {
+        ksnprintf(line, sizeof line, "mali: frame refused: %s", why);
+        say();
+        return -1;
+    }
+    frame_build(0, draws, ndraws, w, h, target_pa, pitch, clear);
+    uint32_t us, st, us2;
+    if (run_on(1, H->mem_pa + MALI_SET_BASE(0) + SO_DRAWS, &us, &st, "the vertex and tiler jobs of a frame") != 0 ||
+        run_on(0, H->mem_pa + MALI_SET_BASE(0) + SO_FJOB, &us2, &st, "the fragment job of a frame") != 0)
+        return -1;
+    /* the centre of the first triangle's bounding box */
+    float lo[2] = { draws[0].xyz[0][0], draws[0].xyz[0][1] }, hi[2] = { lo[0], lo[1] };
+    for (int i = 1; i < 3; i++)
+        for (int k = 0; k < 2; k++) {
+            if (draws[0].xyz[i][k] < lo[k]) lo[k] = draws[0].xyz[i][k];
+            if (draws[0].xyz[i][k] > hi[k]) hi[k] = draws[0].xyz[i][k];
+        }
+    uint32_t cx = (uint32_t)((lo[0] + hi[0]) / 2), cy = (uint32_t)((lo[1] + hi[1]) / 2);
+    if (cx >= w) cx = w - 1;
+    if (cy >= h) cy = h - 1;
+    const uint32_t px = rd32(target + (size_t)cy * pitch + cx * 4) & 0xffffff;
+    ksnprintf(line, sizeof line, "mali: frame of %u draws, %u triangles: %u + %u us, the first triangle's centre is %06x "
+              "(the clear is %06x)", (unsigned)ndraws, (unsigned)tris, (unsigned)us, (unsigned)us2, (unsigned)px,
+              (unsigned)(clear & 0xffffff));
+    say();
+    return px != (clear & 0xffffff) ? 0 : 1;
+}
+
+/* --- frames in flight (M41 phase 4) ---
+ * A set goes QUEUED (built, waiting for slot 1) -> VT (the vertex and tiler jobs on slot 1) -> VT_DONE (waiting for slot 0)
+ * -> FRAG (the fragment job on slot 0) -> DONE. A slot runs one set's chain at a time, so the second set's vertex work
+ * overlaps the first one's fragment job, and the ARM builds the next frame meanwhile. The state machine moves only when
+ * the caller polls (mali_frame_busy / mali_frame_wait / the next submit). */
+enum { SET_IDLE, SET_QUEUED, SET_VT, SET_VT_DONE, SET_FRAG, SET_DONE };
+
+static struct {
+    int state;
+    uint32_t seq;                       /* the order of submission: the older set gets the slot first */
+    uint32_t pitch;
+} sets[2];
+static uint32_t set_seq;
+static int slot_owner[2] = { -1, -1 };  /* the set whose chain runs on the slot (-1: none) */
+static int fault_seen;                  /* a job failed since mali_frame_wait last said so */
+
+static void set_fail(int s, int js, const char *what, uint32_t status, uint32_t raw)
+{
+    job_fail(js, what, status, raw);
+    sets[s].state = SET_DONE;
+    slot_owner[js] = -1;
+    fault_seen = 1;
+}
+
+/* the set to start next on a slot: the oldest in `state` */
+static int oldest(int state)
+{
+    int best = -1;
+    for (int s = 0; s < 2; s++)
+        if (sets[s].state == state && (best < 0 || (int32_t)(sets[s].seq - sets[best].seq) < 0))
+            best = s;
+    return best;
+}
+
+static void set_start_vt(int s)
+{
+    job_kick(1, H->mem_pa + MALI_SET_BASE(s) + SO_DRAWS);
+    sets[s].state = SET_VT;
+    slot_owner[1] = s;
+}
+
+/* moves every set as far as the GPU has got; the number of sets still drawing */
+static int frames_step(void)
+{
+    uint32_t st = 0, raw = 0;
+    for (int s = 0; s < 2; s++) {
+        if (sets[s].state == SET_VT) {
+            const int r = job_poll(1, &st, &raw);
+            if (r > 0) {
+                sets[s].state = SET_VT_DONE;
+                slot_owner[1] = -1;
+            } else if (r < 0) {
+                set_fail(s, 1, "the vertex and tiler jobs of a queued frame", st, raw);
+            }
+        } else if (sets[s].state == SET_FRAG) {
+            const int r = job_poll(0, &st, &raw);
+            if (r > 0) {
+                sets[s].state = SET_DONE;
+                slot_owner[0] = -1;
+            } else if (r < 0) {
+                set_fail(s, 0, "the fragment job of a queued frame", st, raw);
+            }
+        }
+    }
+    int s = oldest(SET_VT_DONE);
+    if (s >= 0 && slot_owner[0] < 0) {                  /* slot 0 is free: this set's fragment job */
+        job_kick(0, H->mem_pa + MALI_SET_BASE(s) + SO_FJOB);
+        sets[s].state = SET_FRAG;
+        slot_owner[0] = s;
+    }
+    s = oldest(SET_QUEUED);
+    if (s >= 0 && slot_owner[1] < 0)
+        set_start_vt(s);
+    int n = 0;
+    for (s = 0; s < 2; s++)
+        n += sets[s].state != SET_IDLE && sets[s].state != SET_DONE;
+    return n;
+}
+
+int mali_frame_busy(void)
+{
+    return probed_ok ? frames_step() : 0;
+}
+
+int mali_frame_wait(uint32_t timeout_us)
+{
+    if (!probed_ok)
+        return 0;
+    const uint32_t t0 = H->us();
+    while (frames_step() != 0)
+        if (H->us() - t0 >= timeout_us)
+            return -1;
+    const int bad = fault_seen;
+    fault_seen = 0;
+    return bad ? -1 : 0;
+}
+
+int mali_frame_submit(const mali_hw_t *hw, uint32_t w, uint32_t h, uint32_t clear, const mali_draw_t *draws,
+                      uint32_t ndraws, uint8_t **surface, uint32_t *pitch)
+{
+    const char *why = NULL;
+    uint32_t tris = 0;
+    const uint32_t pit = (w * 4 + 63) & ~63u;
+    if (!probed_ok || hw != H)
+        why = "no good probe with this hw";
+    else if (hw->mem_size < MALI_SET_BASE(2))
+        why = "the GPU memory is smaller than two sets";
+    else if (!surface || !pitch)
+        why = "no surface or pitch pointer";
+    else if (w == 0 || h == 0 || (w & 15) || (h & 15) || w > 1920 || h > 1080)
+        why = "the surface is not as stated (w, h multiples of 16)";
+    else if ((uint64_t)pit * h > MALI_SET_SURF_MAX)
+        why = "the surface is too big for a set (368 x 368 at most): use mali_frame";
+    else
+        why = draws_check(draws, ndraws, &tris);
+    if (why) {
+        ksnprintf(line, sizeof line, "mali: frame submit refused: %s", why);
+        say();
+        return -1;
+    }
+    frames_step();                                      /* retires the frames that have ended */
+    int s = -1;
+    for (int i = 0; i < 2 && s < 0; i++)
+        if (sets[i].state == SET_IDLE || sets[i].state == SET_DONE)
+            s = i;
+    if (s < 0)
+        return -1;                                      /* both sets busy */
+    sets[s].seq = set_seq++;
+    sets[s].pitch = pit;
+    uint8_t *surf = H->mem + MALI_SET_BASE(s) + SO_SURF;
+    frame_build(s, draws, ndraws, w, h, H->mem_pa + MALI_SET_BASE(s) + SO_SURF, pit, clear);
+    sets[s].state = SET_QUEUED;
+    if (slot_owner[1] < 0 && oldest(SET_QUEUED) == s)   /* slot 1 is free: the vertex and tiler jobs start now */
+        set_start_vt(s);
+    *surface = surf;
+    *pitch = pit;
+    return 0;
+}
 
 int mali_square(const mali_hw_t *hw, uint32_t rgb)
 {
@@ -767,6 +1106,9 @@ int mali_probe(const mali_hw_t *hw, mali_info_t *info)
     mali_info_t *in = info ? info : &dummy;
     memset(in, 0, sizeof *in);
     H = hw;
+    memset(sets, 0, sizeof sets);                       /* (a new probe resets the GPU: nothing is in flight) */
+    slot_owner[0] = slot_owner[1] = -1;
+    fault_seen = 0;
     if (supply(in) != 0) {
         in->step = MALI_E_SUPPLY;
         return MALI_E_SUPPLY;
@@ -786,4 +1128,161 @@ int mali_probe(const mali_hw_t *hw, mali_info_t *info)
     }
     in->step = r;
     return r;
+}
+
+/* --- the r3d backend (M41 phase 2) ---
+ * r3d hands this backend flat-coloured, depth-written triangles only (colour_only, W13b). They are buffered, sorted far to
+ * near (painter's order: the Mali draws without a depth test here), drawn by mali_frame into an XRGB surface cleared to a key
+ * colour, and the pixels the GPU covered are copied into the RGB565 page. */
+#define BE_SURF_OFF     0x200000    /* the surface in hw->mem when it does not fit set 0's (frames are never in flight then) */
+#define BE_KEY          0xFF00FF    /* "not covered" */
+
+typedef struct { float v[3][3]; float key; uint32_t rgb; } be_tri_t;
+
+static be_tri_t be_tris[MALI_BATCH_MAX];
+static int be_n;
+static const mali_hw_t *be_hw;
+static int (*be_frame)(const mali_hw_t *, uint8_t *, uint64_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                       const mali_draw_t *, uint32_t);
+
+void mali_backend_set_frame(int (*frame)(const mali_hw_t *, uint8_t *, uint64_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                                         const mali_draw_t *, uint32_t))
+{
+    be_frame = frame;
+}
+
+int mali_backend_pending(void)
+{
+    return be_n;
+}
+
+void mali_backend_drop(void)
+{
+    be_n = 0;
+}
+
+/* the pixels of the surface that are not the key, into the page */
+static void be_resolve(const g16_t *g, const uint8_t *surf, uint32_t pitch)
+{
+    for (int y = 0; y < g->h; y++)
+        for (int x = 0; x < g->w; x++) {
+            const uint32_t p = rd32(surf + (size_t)y * pitch + 4 * (size_t)x) & 0xFFFFFF;
+            if (p != BE_KEY)
+                g->px[(size_t)y * g->stride + x] = (uint16_t)((p >> 19 & 31) << 11 | (p >> 10 & 63) << 5 | (p >> 3 & 31));
+        }
+}
+
+/* one frame of the draws so far, resolved into the page; 0, or -1 */
+static int be_run(const g16_t *g, uint8_t *surf, uint64_t pa, uint32_t pitch, uint32_t sw, uint32_t sh,
+                  const mali_draw_t *dr, uint32_t nd)
+{
+    int (*frame)(const mali_hw_t *, uint8_t *, uint64_t, uint32_t, uint32_t, uint32_t, uint32_t, const mali_draw_t *,
+                 uint32_t) = be_frame ? be_frame : mali_frame;
+    if (frame(be_hw, surf, pa, pitch, sw, sh, BE_KEY, dr, nd) < 0)      /* 0 and 1 both count as done */
+        return -1;
+    be_resolve(g, surf, pitch);
+    return 0;
+}
+
+static int be_flush(const g16_t *g)
+{
+    static float vbuf[MALI_BATCH_MAX * 3][3];
+    static mali_draw_t dr[MALI_MAX_DRAWS];
+    static int idx[MALI_BATCH_MAX];
+    const int n = be_n;
+    if (n == 0)
+        return 0;
+    be_n = 0;
+    const mali_hw_t *hw = be_hw;
+    const uint32_t sw = ((uint32_t)g->w + 15) & ~15u, sh = ((uint32_t)g->h + 15) & ~15u;
+    const uint32_t pitch = (sw * 4 + 63) & ~63u;
+    if (!hw || sw > 1920 || sh > 1080)
+        return -1;
+    const int in_set = (uint64_t)pitch * sh <= MALI_SET_SURF_MAX && hw->mem_size >= MALI_SET_BASE(1);
+    const uint32_t surf_off = in_set ? MALI_SET_BASE(0) + MALI_SET_SURFACE : BE_SURF_OFF;
+    if (surf_off + (uint64_t)pitch * sh > hw->mem_size)
+        return -1;
+    for (int i = 0; i < n; i++)
+        idx[i] = i;
+    for (int i = 1; i < n; i++) {                   /* stable insertion sort: far (small key) first */
+        const int k = idx[i];
+        int j = i - 1;
+        while (j >= 0 && be_tris[idx[j]].key > be_tris[k].key) {
+            idx[j + 1] = idx[j];
+            j--;
+        }
+        idx[j + 1] = k;
+    }
+    uint8_t *surf = hw->mem + surf_off;
+    const uint64_t pa = hw->mem_pa + surf_off;
+    uint32_t nd = 0, nv = 0;
+    for (int i = 0; i < n; i++) {
+        const be_tri_t *t = &be_tris[idx[i]];
+        if (nd > 0 && dr[nd - 1].rgb == t->rgb) {
+            dr[nd - 1].n++;
+        } else {
+            if (nd == MALI_MAX_DRAWS) {             /* a full frame: draw it, go on with a fresh one */
+                if (be_run(g, surf, pa, pitch, sw, sh, dr, nd) != 0)
+                    return -1;
+                nd = 0;
+                nv = 0;
+            }
+            dr[nd].xyz = (const float (*)[3])vbuf[nv];
+            dr[nd].n = 1;
+            dr[nd].rgb = t->rgb;
+            nd++;
+        }
+        memcpy(vbuf[nv], t->v, sizeof t->v);
+        nv += 3;
+    }
+    return be_run(g, surf, pa, pitch, sw, sh, dr, nd);
+}
+
+int mali_backend_flush(g16_t *g)
+{
+    return be_flush(g);
+}
+
+static void be_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind, const g16_sheet_t *tex, int depth)
+{
+    (void)ctx;
+    (void)tex;
+    if (kind != R3D_KIND_COLOUR || depth != R3D_DEPTH_WRITE)    /* r3d sends nothing else (colour_only): the guard */
+        return;
+    if (be_n == MALI_BATCH_MAX)
+        be_flush(g);                                /* (g16_t holds the page by pointer: const does not stop the copy) */
+    be_tri_t *t = &be_tris[be_n++];
+    float r = 0, gr = 0, b = 0, z = 0;
+    for (int i = 0; i < 3; i++) {
+        t->v[i][0] = v[i].x;
+        t->v[i][1] = v[i].y;
+        t->v[i][2] = 0.5f;
+        r += v[i].a;
+        gr += v[i].b;
+        b += v[i].c;
+        z += v[i].z;
+    }
+    const uint32_t cr = (uint32_t)(r / 3 * 255 + 0.5f), cg = (uint32_t)(gr / 3 * 255 + 0.5f),
+                   cb = (uint32_t)(b / 3 * 255 + 0.5f);
+    uint32_t rgb = (cr > 255 ? 255 : cr) << 16 | (cg > 255 ? 255 : cg) << 8 | (cb > 255 ? 255 : cb);
+    if (rgb == BE_KEY)
+        rgb = 0xFF01FF;                             /* the key means "not covered" */
+    t->rgb = rgb;
+    t->key = z / 3;                                 /* 1/depth: larger is nearer */
+}
+
+static void be_zclear(void *ctx, const g16_t *g)
+{
+    (void)ctx;
+    (void)g;
+    mali_backend_drop();
+}
+
+const r3d_backend_t *mali_backend(const mali_hw_t *hw)
+{
+    static const r3d_backend_t be = { .tri = be_tri, .zclear = be_zclear, .colour_only = 1 };
+    if (!probed_ok || hw != H)
+        return NULL;
+    be_hw = hw;
+    return &be;
 }
