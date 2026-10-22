@@ -229,10 +229,11 @@ def read_sprite_file(path, sheet_w=None, sheet_h=None):
                 raise SystemExit(f"{path}:{i}: frame 1-{frames} or *, w and h >= 1")
             boxes.append((zname, fr, kind, x, y, w, h))
             continue
-        slices = 0
-        if f[0] == "stack":                     # stack name x y w h n: n slices of w x h side by side
+        slices, down = 0, False
+        if f[0] in ("stack", "stackv"):         # stack name x y w h n: n slices of w x h side by side;
+            down = f[0] == "stackv"             # stackv: one under the other (bit 0 of byte 27)
             if len(f) != 7 or not f[6].isdigit() or not 2 <= int(f[6]) <= 255:
-                raise SystemExit(f"{path}:{i}: stack name x y w h n (n 2-255)")
+                raise SystemExit(f"{path}:{i}: {f[0]} name x y w h n (n 2-255)")
             slices, f = int(f[6]), f[1:6]
         if len(f) < 5 or len(f) > 7:
             raise SystemExit(f"{path}:{i}: name x y w h [frames [fps]]")
@@ -242,9 +243,10 @@ def read_sprite_file(path, sheet_w=None, sheet_h=None):
             raise SystemExit(f"{path}:{i}: {name!r}: names are unique, at most {ZONE_NAME} bytes")
         if w < 1 or h < 1 or not 1 <= frames <= 16 or not 0 <= fps <= 255 or x < 0 or y < 0:
             raise SystemExit(f"{path}:{i}: w, h >= 1, frames 1-16, fps 0-255")
-        if sheet_w and (x + w * max(frames, slices) > sheet_w or y + h > sheet_h):
+        if sheet_w and (x + w * (frames if down else max(frames, slices)) > sheet_w
+                        or y + h * (slices if down else 1) > sheet_h):
             raise SystemExit(f"{path}:{i}: {name!r} is out of the sheet ({sheet_w}x{sheet_h})")
-        zones.append((name, x, y, w, h, frames, fps, slices))
+        zones.append((name, x, y, w, h, frames, fps, slices | 0x100 if down else slices))
     if not 1 <= len(zones) <= SPRITES_MAX:
         raise SystemExit(f"{path}: 1 to {SPRITES_MAX} zones")
     if len(boxes) > BOXES_MAX:

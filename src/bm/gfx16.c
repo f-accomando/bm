@@ -263,15 +263,17 @@ void g16_sspr_zoom(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int s
     }
 }
 
-/* Sprite stacking: slice i of `n` (left to right on the sheet, slice 0 is the
+/* Sprite stacking: slice i of `n` (left to right on the sheet, or top to bottom for
+ * g16_stackv; slice 0 is the
  * bottom) is drawn turned by `rz` radians around its centre, `scale` times
  * bigger, and lifted by i * step * scale pixels.  Inverse mapping: for each
  * screen pixel of the bounding box, the source pixel comes from 16.16 fixed
  * point steps (sin and cos are read once per call). */
-void g16_stack(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
-               int n, int x, int y, float rz, float scale, float step)
+static inline void stack_core(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                              int n, int x, int y, float rz, float scale, float step, int vert)
 {
-    if (!s->px || n <= 0 || sw <= 0 || sh <= 0 || sx < 0 || sy < 0 || sy + sh > s->h) return;
+    if (!s->px || n <= 0 || sw <= 0 || sh <= 0 || sx < 0 || sy < 0) return;
+    if (vert ? sx + sw > s->w : sy + sh > s->h) return;
     if (!isfinite(rz) || !isfinite(scale) || !isfinite(step)) return;   /* NaN or inf from Lua */
     if (!(scale > 0.0f) || scale > 64.0f) return;
     const float c = cosf(rz), sn = sinf(rz);
@@ -287,8 +289,11 @@ void g16_stack(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
     const float cy0 = (float)(y - g->cam_y - sh / 2) + (float)(sh - 1) * 0.5f;
     const float hw = (float)(sw - 1) * 0.5f, hh = (float)(sh - 1) * 0.5f;
     for (int i = 0; i < n; i++) {
-        const int fx = sx + i * sw;
-        if (fx + sw > s->w) break;
+        /* the slice's box on the sheet: to the right (stack) or below (stackv); a per-slice
+         * cost only, the pixel loop is the same */
+        const int fx = vert ? sx : sx + i * sw;
+        const int fy = vert ? sy + i * sh : sy;
+        if (fx + sw > s->w || fy + sh > s->h) break;
         /* a lift beyond 1e6 pixels is off screen anyway: the clamp keeps the cast defined */
         float lift = floorf((float)i * step * scale + 0.5f);
         if (!(lift > -1.0e6f)) lift = -1.0e6f;
@@ -312,11 +317,23 @@ void g16_stack(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
             for (int px = x0; px < x1; px++, u += cf, v -= sf) {
                 const uint32_t lx = (uint32_t)(u >> 16), ly = (uint32_t)(v >> 16);
                 if (u < 0 || v < 0 || lx >= (uint32_t)sw || ly >= (uint32_t)sh) continue;
-                const uint32_t k = (uint32_t)(sy + (int)ly) * s->w + (uint32_t)(fx + (int)lx);
+                const uint32_t k = (uint32_t)(fy + (int)ly) * s->w + (uint32_t)(fx + (int)lx);
                 if (s->alpha[k]) dst[px] = s->px[k];
             }
         }
     }
+}
+
+void g16_stack(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+               int n, int x, int y, float rz, float scale, float step)
+{
+    stack_core(g, s, sx, sy, sw, sh, n, x, y, rz, scale, step, 0);
+}
+
+void g16_stackv(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                int n, int x, int y, float rz, float scale, float step)
+{
+    stack_core(g, s, sx, sy, sw, sh, n, x, y, rz, scale, step, 1);
 }
 
 void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,

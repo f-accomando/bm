@@ -829,6 +829,35 @@ static void test_pixel(void)
     g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, 0.0f, 1.0f, 2.0f);
     CHECK(at(38, 41) == 124 && at(38, 39) == 128 && at(38, 37) == 132 && at(39, 38) == 0,
           "stack order: the upper slice covers the lower one, a transparent pixel shows nothing");
+    /* stackv: the same slices one under the other (the 4x3 boxes of the sheet above, moved down) */
+    {
+        g16_sheet_t v;
+        CHECK(g16_sheet_alloc(&v, 4, 9) == 0, "stackv sheet");
+        for (int i = 0; i < 3; i++)
+            for (int y = 0; y < 3; y++)
+                for (int x = 0; x < 4; x++)
+                    g16_sheet_set(&v, x, i * 3 + y, (uint16_t)(100 + i * 4 + x + y * 12), !(i * 4 + x == 5 && y == 1));
+        static uint16_t refh[W * H];
+        const float rots[3][3] = { { 0.0f, 1.0f, 2.0f }, { 0.7f, 2.0f, 1.0f }, { 1.57079633f, 1.0f, 3.0f } };
+        for (int k = 0; k < 3; k++) {
+            g16_cls(&g, 0x7777);
+            g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, rots[k][0], rots[k][1], rots[k][2]);
+            memcpy(refh, fb, sizeof refh);
+            g16_cls(&g, 0x7777);
+            g16_stackv(&g, &v, 0, 0, 4, 3, 3, 40, 40, rots[k][0], rots[k][1], rots[k][2]);
+            CHECK(memcmp(refh, fb, sizeof refh) == 0, "stackv equals stack of the same slices (case %d)", k);
+        }
+        g16_cls(&g, 0);
+        g16_stackv(&g, &v, 0, 0, 4, 3, 3, 40, 40, 0.0f, 1.0f, 2.0f);
+        CHECK(at(38, 41) == 124 && at(38, 37) == 132, "stackv order: the upper slice covers the lower one");
+        g16_cls(&g, 0);
+        g16_stackv(&g, &v, 0, 14, 4, 3, 1, 40, 40, 0.0f, 1.0f, 2.0f);   /* the sheet is 16 high: 14 + 3 is under it */
+        CHECK(at(38, 41) == 0, "stackv: a slice under the sheet is skipped");
+        g16_cls(&g, 0);
+        g16_stackv(&g, &v, 6, 0, 4, 3, 3, 40, 40, 0.0f, 1.0f, 2.0f);     /* the sheet is 8 wide: 6 + 4 is over it */
+        CHECK(at(38, 41) == 0, "stackv: a box over the right edge draws nothing");
+        g16_sheet_free(&v);
+    }
     g16_cls(&g, 0);
     g16_stack(&g, &s, 0, 0, 4, 3, 0, 40, 40, 0.0f, 1.0f, 2.0f);
     memset(ref, 0, sizeof ref);
