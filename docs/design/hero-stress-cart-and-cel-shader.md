@@ -324,7 +324,9 @@ Built as described below, with these differences: bm3D 7.4. The table is built b
   - QEMU: `-k herocart` with cel rows on.
 - Pi numbers: runs 3 and 4 again with `Cel` on and `Dither` off; expected delta near 0 for cel. `Dither` off: ARM fill saving, size not known.
 
-### Stage 3: cel on the V3D
+### Stage 3: cel on the V3D (done, bm3D 7.5; state in [herocart](../progress/herocart.md))
+
+Built as way A, with these differences: the `_cel` programs are four copies of the lit programs with the cut block after the `max(d, 0)` line (`cel_variant` in `tools/qpuasm.py`), four more uniforms (N, N - 1 as an integer, the scale, the floor); the code block grows from 40 to 48 KiB; the probe is `probe_lit(…, 1)` (status `cel light yes/no`); the cut is not rounded to 1/255 as the ARM table is. `r3d_backend_t.cel` and `r3d_env_t.cel` carry the request. No `heroes_cel` bench test in this change (the 3D Bench is in another branch). The host test is the scenes `cel *` of `tests/gpu/test_gpu3d.c` (ARM against the V3D emulator).
 
 - `tools/qpuasm.py`: `CEL` variants of the four vertex programs, regenerate `src/gpu/shaders.h`; `gpu3d.c`: choose the variant, probe it, fall back to the ARM light.
 - A bench test `heroes_cel` in `b3d.c` (heroes with cel off/on, same profiles) so the 3D Bench tracks it; `BENCH3D.md` line.
@@ -335,7 +337,9 @@ Built as described below, with these differences: bm3D 7.4. The table is built b
   - QEMU: `-k herocart` (no GPU in QEMU: only the fallback is exercised).
 - Pi numbers: run 2 with `Cel` on / off at `vs` 2; ms and `gpu` delta (expected within 3%); the `heroes_cel` row of the bench; probe result in `gpu` status. Stage 3b (way C) only if flat cel looks wrong in smooth draws.
 
-### Stage 4: outline
+### Stage 4: outline (done, bm3D 7.5)
+
+Built as the inverted hull in `r3d.c` for every backend: `hull_get` makes a second mesh (faces turned, vertices pushed along the position-welded normal, levels of detail kept), caches it in `r3d_mesh_t.hull`, and `r3d_draw_flags` draws it unlit in `cel_rgb` after the mesh. It goes through the ordinary mesh call, so the V3D takes it with its unlit vertex program; no new shader and no `grow` uniform. Mali takes it as any unlit mesh (not touched, not tested). The distance rule of the gate was not applied (the stage 1 hull cost was not measured on the Pi): only the impostor rule, the shadow, the first-person model and the camera inside the mesh's sphere have no outline. Cart row 19 is `Outline`: off / hull (baked) / flag 512.
 
 - Flag 512 in `r3d.c` and `gpu3d.c`; `cel3d` outline arguments; normal cache; the distance/impostor rule from the stage 1 gate.
 - Cart row 19 changes from the baked hull to the flag; the baked hull stays as row 19b "hull (baked)" to compare.

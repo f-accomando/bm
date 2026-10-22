@@ -1877,8 +1877,8 @@ static const uint32_t *flat_prepare(const r3d_mesh_t *cm)
     return m->flatcol;
 }
 
-void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
-                    float scale, unsigned flags)
+static void draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
+                       float scale, unsigned flags)
 {
     if (r->notex)
         flags |= R3D_FLATTEX;
@@ -2031,9 +2031,10 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
      * bones: unlit, a "lit" model (light baked at its corners: the world of
      * a map), or lit by the sun and the sky (heroes), with the fog and the
      * lamps; the backend may say no */
-    /* cel: the QPU vertex programs have no cel cut yet, so a lit cel draw is lit on the ARM
-     * (the triangles go one by one with their colours, as with vs 1) */
-    if (r->backend && r->backend->mesh && !fcol && !(sh.cel && !m->clight)) {     /* (the backend's copy has the textures: the triangles go one by one) */
+    /* cel (bm3d 7.5): a backend with cel cuts the light itself (its vertex programs); else a lit
+     * cel draw is lit on the ARM (the triangles go one by one with their colours, as with vs 1) */
+    if (r->backend && r->backend->mesh && !fcol &&
+        !(sh.cel && !m->clight && !r->backend->cel)) {     /* (the backend's copy has the textures: the triangles go one by one) */
         r3d_env_t env;
         env.f = v.f;
         env.cx = v.hw;
@@ -2054,6 +2055,8 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
         env.unlit = unlit;
         env.inside = inside != 0;
         env.lit = !unlit && !m->clight;
+        env.cel = env.lit && sh.cel ? r->cel_bands : 0;
+        env.cel_floor = r->cel_floor;
         env.smooth = smooth;
         env.front = front;
         if (front && zbuf)
@@ -2726,6 +2729,123 @@ uint32_t r3d_sprite(r3d_t *r, const g16_sheet_t *s, int sx, int sy, int sw, int 
     return n;
 }
 
+/* ---------------------------------------------------------------- outline (bm3d 7.5) */
+
+static uint32_t mesh_stamp;             /* the last version given to a mesh */
+
+/* the vertices in the order of their position (equal points together): the corners of a
+ * mesh that the artist did not weld must still be pushed the same way, or the hull cracks */
+static const v3_t *hull_pos;
+static int hull_cmp(const void *pa, const void *pb)
+{
+    const v3_t a = hull_pos[*(const int *)pa], b = hull_pos[*(const int *)pb];
+    return a.x < b.x ? -1 : a.x > b.x ? 1 : a.y < b.y ? -1 : a.y > b.y ? 1 : a.z < b.z ? -1 : a.z > b.z ? 1 : 0;
+}
+
+/* the hull of m for this width and colour; NULL if there is no memory */
+static r3d_mesh_t *hull_get(r3d_mesh_t *m, float width, uint32_t rgb)
+{
+    r3d_mesh_t *h = m->hull;
+    if (h && m->hullk.key == m->version && m->hullk.width == width) {
+        if (m->hullk.rgb != rgb) {
+            for (int t = 0; t < h->nfaces; t++)
+                h->colors[t] = (h->colors[t] & 0x07000000u) | rgb;
+            m->hullk.rgb = rgb;
+            h->version = ++mesh_stamp;      /* a new colour for the backend's copy */
+        }
+        return h;
+    }
+    if (!h) {
+        h = calloc(1, sizeof *h);
+        if (!h)
+            return NULL;
+        m->hull = h;
+    } else {
+        r3d_mesh_free(h);
+    }
+    m->hullk.key = 0;
+    int *order = malloc((size_t)m->nverts * sizeof *order);
+    v3_t *sum = calloc((size_t)m->nverts, sizeof *sum);
+    if (!order || !sum || r3d_mesh_alloc(h, m->nverts, m->nfaces) != 0) {
+        free(order);
+        free(sum);
+        free(m->hull);
+        m->hull = NULL;
+        return NULL;
+    }
+    /* the faces' normals (2 x area long) added at their corners, whatever their material */
+    for (int t = 0; t < m->nfaces; t++) {
+        const v3_t a = m->verts[m->faces[t * 3]], b = m->verts[m->faces[t * 3 + 1]], c = m->verts[m->faces[t * 3 + 2]];
+        const v3_t u = { b.x - a.x, b.y - a.y, b.z - a.z }, v = { c.x - a.x, c.y - a.y, c.z - a.z };
+        const v3_t n = { u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x };
+        for (int k = 0; k < 3; k++) {
+            v3_t *s = &sum[m->faces[t * 3 + k]];
+            s->x += n.x; s->y += n.y; s->z += n.z;
+        }
+    }
+    for (int i = 0; i < m->nverts; i++)
+        order[i] = i;
+    hull_pos = m->verts;
+    qsort(order, (size_t)m->nverts, sizeof *order, hull_cmp);
+    const float dist = width * 2.0f * (m->radius > 0 ? m->radius : 0);
+    for (int i = 0; i < m->nverts;) {
+        int j = i;
+        v3_t n = { 0, 0, 0 };
+        while (j < m->nverts && hull_cmp(&order[i], &order[j]) == 0) {
+            n.x += sum[order[j]].x; n.y += sum[order[j]].y; n.z += sum[order[j]].z;
+            j++;
+        }
+        float l = sqrtf(n.x * n.x + n.y * n.y + n.z * n.z);
+        l = l > 1e-12f ? dist / l : 0;
+        for (int k = i; k < j; k++) {
+            const v3_t o = m->verts[order[k]];
+            h->verts[order[k]] = (v3_t){ o.x + n.x * l, o.y + n.y * l, o.z + n.z * l };
+        }
+        i = j;
+    }
+    free(order);
+    free(sum);
+    for (int t = 0; t < m->nfaces; t++) {
+        h->faces[t * 3] = m->faces[t * 3];
+        h->faces[t * 3 + 1] = m->faces[t * 3 + 2];      /* turned round */
+        h->faces[t * 3 + 2] = m->faces[t * 3 + 1];
+        h->colors[t] = (m->colors[t] & 0x07000000u) | rgb;      /* the levels of detail, the colour */
+    }
+    h->bones = m->bones;
+    h->vbone = m->vbone;
+    h->nbones = m->nbones;
+    r3d_mesh_normals(h);
+    m->hullk.key = m->version;
+    m->hullk.width = width;
+    m->hullk.rgb = rgb;
+    return h;
+}
+
+/* flag R3D_OUTLINE: the mesh, then its hull (a mesh drawn as an impostor, a shadow and a
+ * first-person model have none) */
+void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
+                    float scale, unsigned flags)
+{
+    const uint32_t imps = r->impostors;
+    draw_flags(r, m, p, rx, ry, rz, scale, flags);
+    if (!(flags & R3D_OUTLINE) || r->cel_rgb == R3D_CEL_NO_OUTLINE || (flags & (R3D_SHADOW | R3D_FRONT)) ||
+        r->impostors != imps || m->radius <= 0 || m->nfaces < 1 || m->nverts > MAX_VERTS)
+        return;
+    /* the camera inside the mesh's sphere: its turned faces would fill the view (a mesh seen from
+     * inside has no outline) */
+    float R[9];
+    rot_matrix(R, rx, ry, rz);
+    const float wx = p.x + scale * (R[0] * m->centre.x + R[1] * m->centre.y + R[2] * m->centre.z) - r->cam_pos.x,
+                wy = p.y + scale * (R[3] * m->centre.x + R[4] * m->centre.y + R[5] * m->centre.z) - r->cam_pos.y,
+                wz = p.z + scale * (R[6] * m->centre.x + R[7] * m->centre.y + R[8] * m->centre.z) - r->cam_pos.z;
+    const float rad = m->radius * fabsf(scale);
+    if (wx * wx + wy * wy + wz * wz < rad * rad)
+        return;
+    r3d_mesh_t *h = hull_get((r3d_mesh_t *)m, r->cel_width, r->cel_rgb & 0xFFFFFF);
+    if (h)
+        draw_flags(r, h, p, rx, ry, rz, scale, (flags & (R3D_NOZ | (3u << 4))) | R3D_UNLIT);
+}
+
 /* ---------------------------------------------------------------- meshes */
 
 int r3d_mesh_alloc(r3d_mesh_t *m, int nverts, int nfaces)
@@ -2756,6 +2876,10 @@ int r3d_mesh_alloc_uv(r3d_mesh_t *m)
 
 void r3d_mesh_free(r3d_mesh_t *m)
 {
+    if (m->hull) {
+        r3d_mesh_free(m->hull);
+        free(m->hull);
+    }
     free(m->flatcol);
     free(m->verts); free(m->faces); free(m->colors); free(m->normals); free(m->vnormals); free(m->uv);
     free(m->vlod); free(m->clight); free(m->bimp.box);
@@ -2764,8 +2888,7 @@ void r3d_mesh_free(r3d_mesh_t *m)
 
 void r3d_mesh_normals(r3d_mesh_t *m)
 {
-    static uint32_t stamp;
-    m->version = ++stamp;          /* a new mesh for the backend's copies */
+    m->version = ++mesh_stamp;     /* a new mesh for the backend's copies */
     v3_t lo = { 0, 0, 0 }, hi = { 0, 0, 0 };
     for (int i = 0; i < m->nverts; i++) {
         v3_t v = m->verts[i];

@@ -2803,7 +2803,7 @@ static int l_draw3d(lua_State *L)
 /* cel3d([bands, [floor, outline_rgb, outline_width]]) -> bands, floor, outline_rgb, outline_width:
  * cuts the sun light of draw3d calls with flag 256 into 2..8 bands (0 or false off, the default);
  * floor 0..1 (default 0.35) is the sun term of the darkest band; the outline values (rgb or
- * nil/false none, width 0.005..0.05, default 0.02) are kept for flag 512 (no effect yet).
+ * nil/false none, width 0.005..0.05, default 0.02) are used by flag 512 (the inverted hull).
  * No argument: only the values in force. State of the cart: it resets when the cart ends. */
 static int l_cel3d(lua_State *L)
 {

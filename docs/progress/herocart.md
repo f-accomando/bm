@@ -35,15 +35,16 @@ Copy `herocart.bm` to the SD card (`bm/`). Run it at 640x360. To check the verte
 - Heroes have flat colours. The Texture row switches the plaza only. Four tints and a textured hero are not done.
 - The `options` line of the console (`tex16`, `fs2`) is not read by Lua. `report()` adds it. The panel shows the 3D driver version.
 - Free camera: the arrow keys also move the row cursor.
-- The Pi has not run the models with one bone for each face: not verified on hardware. With `Cel bands` on, the heroes are lit by the ARM even with Backend GPU.
-- Stages 3 to 5 (cel on the V3D, outline, RGB30 edition): see the design. On the V3D a cel draw is lit by the ARM today (the triangles go one by one), so the cost on the GPU rows is not the final one.
+- The Pi has not run the models with one bone for each face: not verified on hardware.
+- Stage 5 (RGB30 edition): see the design. Stages 3 and 4 (cel in the V3D vertex programs, outline by the inverted hull, bm3D 7.5) are built and tested on the V3D emulator only. Not verified on the Pi: the probe result (`cel light` in the status), the cost of cel at `vs` 2, the cost of the hull (design estimate +40-60% of a hero draw; the gate that limits it by distance is not applied).
 - Cel and dither costs on the Pi are not measured (runs 3 and 4 of the design with `Cel bands` on and `Dither` off).
 - `dither3d(false)` adds a constant half step. It saves no fill time. The ARM fill saving of the design is not real; the row shows the look only.
-- The outline flag 512 and the `cel3d` outline arguments are kept but draw nothing. Row 19 is still the baked hull (stage 4).
+- Row 19 `Outline` has three values: off, hull (baked), flag 512. The printed line has `out0` to `out2` (0 off, 1 baked, 2 flag).
 
 ## Rules (do not break)
 
-- A cel draw (flag 256) with `cel3d` above 0 is lit by the ARM on every backend. Light it on the ARM until the QPU vertex programs have the cel cut (stage 3).
+- A cel draw (flag 256) with `cel3d` above 0 is lit in the `_cel` vertex programs on the V3D with `Vertex shader` 2 when the boot probe passed, else by the ARM; the Mali backend has no cel and its draws go to the ARM. A `cel` program change in `tools/qpuasm.py` goes with `probe_lit(…, 1)` and the `cel *` scenes of `test_gpu3d`.
+- The outline (flag 512) is a hull mesh drawn through the ordinary mesh call. Keep it free of backend code: the Mali session depends on that.
 - `cel3d` and `dither3d` are cart state. `r3d_init` resets them.
 - The logic of the 64 heroes runs every frame, whatever the count.
 - `stat(16)` to `stat(18)` are read only for display and the printed line. No quality governor.

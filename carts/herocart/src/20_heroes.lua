@@ -83,9 +83,11 @@ do
       local a = stat(8)
       animate(mesh, "walk", ph)
       H.anim_ms = H.anim_ms + stat(8) - a
-      draw3d(mesh, x, y, z, 0, ry, 0, 1, opt.cel and (flags | 256) or flags)
+      local f = opt.cel and (flags | 256) or flags
+      if opt.flag512 then f = f | 512 end
+      draw3d(mesh, x, y, z, 0, ry, 0, 1, f)
       if opt.shadow then draw3d(mesh, x, y, z, 0, ry, 0, 1, 8) end
-      if opt.outline then
+      if opt.hull then
         local hull = H.hull[lv + 1]
         a = stat(8)
         animate(hull, "walk", ph)

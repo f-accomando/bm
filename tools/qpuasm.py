@@ -1667,6 +1667,42 @@ SHADERS["cs_shadow"] = """
         nop                 ; nop
 """
 
+# bm3d 7.5: the cel light in the vertex shaders (cel3d, draw3d flag 256). The sun term
+# max(d, 0) (r3) is cut into bands as r3d's table does: the band
+# b = min(N - 1, floor(d * N)), the term floor + (1 - floor) * b / (N - 1). Four more
+# uniforms, after those the shader reads before B D R A: N (a float), N - 1 (an
+# integer), (1 - floor) / (N - 1), floor. A highlight (vs_lit, vs_lit8) becomes one
+# step as on the ARM: on where (n.H)^p is above 0.5, else off. The rest of each
+# program is the original text.
+CEL_E2 = "        nop                 ; fmul r2, r2, r2           # e^2: the rim\n"
+CEL_CUT = """        nop                 ; fmul r0, r3, unif         # cel: d * N
+        ftoi r0, r0         ; nop                       # the band, 0..N
+        min r0, r0, unif    ; nop                       # at most N - 1
+        itof r0, r0         ; nop
+        nop                 ; fmul r0, r0, unif         # band * (1 - floor) / (N - 1)
+        fadd r3, r0, unif   ; nop                       # + floor
+"""
+CEL_SPEC_AT = "        nop                 ; fmul ra16, r1, rb5        # the highlight of a glossy corner\n"
+CEL_SPEC = """        fsub.setf nop, r1, 0.5 ; nop                    # cel: the highlight is on above 0.5
+        mov.ifnn r1, 1.0    ; nop
+        mov.ifz r1, 0       ; nop
+        mov.ifn r1, 0       ; nop
+"""
+
+
+def cel_variant(src, spec):
+    assert src.count(CEL_E2) == 1
+    out = src.replace(CEL_E2, CEL_E2 + CEL_CUT)
+    if spec:
+        assert out.count(CEL_SPEC_AT) == 1
+        out = out.replace(CEL_SPEC_AT, CEL_SPEC + CEL_SPEC_AT)
+    return out
+
+
+for _name, _spec in (("vs_lit", 1), ("vs_lit8", 1), ("vs_lit_tex", 0), ("vs_lit_tex2", 0)):
+    SHADERS[_name + "_cel"] = cel_variant(SHADERS[_name], _spec)
+
+
 # shaders run on a Pi (Zero W) by others, as the reference of the encoding
 REFERENCE = [
     # Peter Lemon, V3D/ControlList/NV/Vertex_Array/Triangle/VertexColor

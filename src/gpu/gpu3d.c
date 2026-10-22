@@ -19,7 +19,7 @@
 #define JOB_RCL      (128u << 10)   /* up to 44 bytes a tile: 2040 tiles (1080p with MSAA) */
 #define JOB_RECS     (64u << 10)    /* shader records: NV 16 bytes, GL 64 */
 #define JOB_UNIF     (256u << 10)   /* uniforms of the vertex shaders (a hero: one block a bone) */
-#define JOB_CODE     (40u << 10)    /* the shaders: 1 KiB each, 2 KiB for a vertex shader */
+#define JOB_CODE     (48u << 10)    /* the shaders: 1 KiB each, 2 KiB for a vertex shader */
 #define JOB_VERTS    (4u << 20)
 #define PROBE_W      64
 #define PROBE_H      64
@@ -60,17 +60,21 @@ enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA,
 #define DEPTH_ZCLEAR 3                  /* after R3D_DEPTH_*: always passes, writes (fs_zclear) */
 /* the vertex shaders of meshes (bm3d 3.0); GV_LIT_TEX2: faces on two bones (a
  * skin); GV_BAKED8, GV_LIT8: GV_BAKED, GV_LIT with compact attributes (bm3d 7.1,
- * gpu3d_attr: bytes packed in words, unpacked by the shader) */
-enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_BAKED8, GV_LIT8, GV_COUNT };
+ * gpu3d_attr: bytes packed in words, unpacked by the shader). bm3d 7.5: GV_*_CEL, the lit
+ * programs with the cel light (cel3d): the same corners, four uniforms more; a draw with
+ * the cel light takes them in place of the others (cel_vs), they are never in a mesh */
+enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_BAKED8, GV_LIT8,
+       GV_LIT_CEL, GV_LIT_TEX_CEL, GV_LIT_TEX2_CEL, GV_LIT8_CEL, GV_COUNT };
 #define CODE_CS SH_COUNT                /* the coordinate shader's kilobyte of G.code */
 #define CODE_VS (CODE_CS + 1)           /* and the vertex shaders' (two each) */
 #define CODE_SHADOW (CODE_VS + 2 * GV_COUNT)    /* the shadows' vertex shader (2), coordinate shader (1) */
 #define CODE_CS2 (CODE_SHADOW + 3)      /* on two bones: the coordinate shader, the shadow's two */
 #define CODE_SHADOW2 (CODE_CS2 + 1)
-#define TWO_BONES(vs) ((vs) == GV_LIT_TEX2)
+#define TWO_BONES(vs) ((vs) == GV_LIT_TEX2 || (vs) == GV_LIT_TEX2_CEL)
 _Static_assert(sizeof vs_baked <= 2048 && sizeof vs_tex_rgb <= 2048 && sizeof vs_lit <= 2048 &&
                sizeof vs_lit_tex <= 2048 && sizeof vs_lit_tex2 <= 2048 && sizeof vs_shadow <= 2048 &&
-               sizeof vs_baked8 <= 2048 && sizeof vs_lit8 <= 2048 &&
+               sizeof vs_baked8 <= 2048 && sizeof vs_lit8 <= 2048 && sizeof vs_lit_cel <= 2048 &&
+               sizeof vs_lit_tex_cel <= 2048 && sizeof vs_lit_tex2_cel <= 2048 && sizeof vs_lit8_cel <= 2048 &&
                sizeof cs_colour <= 1024 && sizeof cs_shadow <= 1024 && sizeof cs_colour2 <= 1024 &&
                sizeof vs_shadow2 <= 1024 && sizeof cs_shadow2 <= 1024 &&
                CODE_SHADOW2 + 2 <= JOB_CODE / 1024, "shader code slots");
@@ -231,6 +235,7 @@ static struct {
                                      * light, 2 also the models lit by the sun (heroes) */
     int clip_ok;                    /* the probe saw the GPU clip: 1, 2 with Z_MIN_MAX_CLIPPING_PLANES */
     int lit_ok;                     /* the probe saw vs_lit light as r3d (models lit by the sun) */
+    int cel_ok;                     /* bm3d 7.5: and vs_lit_cel cut the sun's light as r3d's cel table does */
     int queue_ok;                   /* bm3d 4.1: the probe saw a started job end right (semaphores) */
     int queue_on;                   /* asked for (gpu3d_set_queue) */
     int inflight;                   /* a job started (v3d_start), not waited for yet */
@@ -1198,7 +1203,18 @@ static const struct { const uint32_t *code; size_t size; uint8_t words, kb; } vs
     { vs_lit_tex2, sizeof vs_lit_tex2, 11, CODE_VS + 8 },   /* w, normal, s t, emissive, normal's w */
     { vs_baked8, sizeof vs_baked8, 5, CODE_VS + 10 },   /* colour bytes, light bytes */
     { vs_lit8, sizeof vs_lit8, 10, CODE_VS + 12 },      /* normal, colour bytes and flags, lamp point */
+    { vs_lit_cel, sizeof vs_lit_cel, 14, CODE_VS + 14 },            /* (the cel light, bm3d 7.5: as above) */
+    { vs_lit_tex_cel, sizeof vs_lit_tex_cel, 12, CODE_VS + 16 },
+    { vs_lit_tex2_cel, sizeof vs_lit_tex2_cel, 11, CODE_VS + 18 },
+    { vs_lit8_cel, sizeof vs_lit8_cel, 10, CODE_VS + 20 },
 };
+
+/* bm3d 7.5: the program of a lit group for a draw with the cel light */
+static int cel_vs(int vs)
+{
+    return vs == GV_LIT ? GV_LIT_CEL : vs == GV_LIT_TEX ? GV_LIT_TEX_CEL : vs == GV_LIT_TEX2 ? GV_LIT_TEX2_CEL
+         : vs == GV_LIT8 ? GV_LIT8_CEL : vs;
+}
 
 /* bm3d 7.1: the compact attributes in force (asked for, and the probe saw them) */
 static int attr_now(void) { return G.attr_on && G.attr_ok; }
@@ -1714,7 +1730,7 @@ typedef struct {
     uint32_t *cs, *vs_u;
 } gunif_t;
 
-#define GL_UNIF_MAX (32 + 96)           /* words of uniforms of a draw, at most */
+#define GL_UNIF_MAX (32 + 104)          /* words of uniforms of a draw, at most */
 
 /* v (world axes) in the axes of a bone whose normals turn by N (3x3 by
  * rows): N^T v */
@@ -1728,7 +1744,21 @@ static void bone_axes(float *o, const float N[9], const float *v)
  * of vs_lit, vs_baked8 those of vs_baked */
 static int unif_kind(int vs)
 {
-    return vs == GV_LIT_TEX || vs == GV_LIT8 ? GV_LIT : vs == GV_BAKED8 ? GV_BAKED : vs;
+    return vs == GV_LIT_TEX || vs == GV_LIT8 ? GV_LIT : vs == GV_BAKED8 ? GV_BAKED
+         : vs == GV_LIT_TEX_CEL || vs == GV_LIT8_CEL ? GV_LIT_CEL : vs;
+}
+
+/* the cel light's four uniforms (bm3d 7.5; tools/qpuasm.py cel_variant): N, N - 1 (an
+ * integer), (1 - floor) / (N - 1), floor */
+static void put_cel(float *fo, const r3d_env_t *env)
+{
+    const int n = env->cel;
+    const float k = 1.0f / (float)(n - 1);
+    const int32_t top = n - 1;
+    fo[0] = (float)n;
+    memcpy(fo + 1, &top, sizeof top);
+    fo[2] = (1.0f - env->cel_floor) * k;
+    fo[3] = env->cel_floor;
 }
 
 /* the uniforms of a group on two bones (vs_lit_tex2, cs_colour2): the two
@@ -1736,8 +1766,8 @@ static int unif_kind(int vs)
  * coordinate shader then f/(w/2), f/(h/2)); the vertex shader then the
  * sun, up and V in A's axes and in B's, per byte of the colour B D R A,
  * the fog (near, k), four lamps */
-static void gl_uniforms2(gunif_t *u, const ggroup_t *gr, const float MA[12], const float NA[9], const float MB[12],
-                         const float NB[9], const r3d_env_t *env)
+static void gl_uniforms2(gunif_t *u, const ggroup_t *gr, int vs_kind, const float MA[12], const float NA[9],
+                         const float MB[12], const float NB[9], const r3d_env_t *env)
 {
     uint32_t *cs = G.unif_next, *vs = cs + 32;
     float *fc = (float *)cs, *fo = (float *)vs;
@@ -1755,6 +1785,10 @@ static void gl_uniforms2(gunif_t *u, const ggroup_t *gr, const float MA[12], con
         bone_axes(fo, NA, dirs[d]);
         bone_axes(fo + 3, NB, dirs[d]);
         fo += 6;
+    }
+    if (vs_kind == GV_LIT_TEX2_CEL) {   /* bm3d 7.5: the cel light's four */
+        put_cel(fo, env);
+        fo += 4;
     }
     for (int c = 0; c < 3; c++) {
         const int rgb = c == 1 ? 1 : c == G.ia ? 0 : 2;     /* byte c of the colour */
@@ -1778,7 +1812,7 @@ static void gl_uniforms2(gunif_t *u, const ggroup_t *gr, const float MA[12], con
     u->job = G.job_no;
     u->bone = gr->bone;
     u->bone2 = gr->bone2;
-    u->vs = gr->vs;
+    u->vs = vs_kind;
     u->lamps = gr->lamps;
     u->cs = cs;
     u->vs_u = vs;
@@ -1786,7 +1820,8 @@ static void gl_uniforms2(gunif_t *u, const ggroup_t *gr, const float MA[12], con
 
 /* the uniforms of a group: the coordinate shader's (cs) and the vertex
  * shader's, in the order the shaders read them (tools/qpuasm.py) */
-static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const float N[9], const r3d_env_t *env)
+static void gl_uniforms(gunif_t *u, const ggroup_t *gr, int vs_kind, const float M[12], const float N[9],
+                        const r3d_env_t *env)
 {
     /* the matrix, f*16, 0.5 (rounding), -f*16, 0.5, -NEAR; the coordinate
      * shader's f/(w/2), f/(h/2) */
@@ -1800,9 +1835,11 @@ static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const
     memcpy(o, place, sizeof place);
     o += 17;
     float *fo = (float *)o;
-    if (unif_kind(gr->vs) == GV_LIT) {
+    const int lit = vs_kind == GV_LIT || vs_kind == GV_LIT_CEL;
+    if (lit) {
         /* the matrix again (the lamps' point); H, the sun, up and V in the
-         * bone's axes; p; per byte of the colour B D R A */
+         * bone's axes; p; (bm3d 7.5, the cel light: its four uniforms); per byte of the
+         * colour B D R A */
         static const float up[3] = { 0, 1, 0 };
         memcpy(fo, M, 12 * sizeof *fo);
         fo += 12;
@@ -1811,12 +1848,17 @@ static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const
         bone_axes(fo + 6, N, up);
         bone_axes(fo + 9, N, env->view);
         fo[12] = env->spec_p;
+        fo += 13;
+        if (vs_kind == GV_LIT_CEL) {
+            put_cel(fo, env);
+            fo += 4;
+        }
         for (int c = 0; c < 3; c++) {
             const int rgb = c == 1 ? 1 : c == G.ia ? 0 : 2;     /* byte c of the colour */
-            float *k = fo + 13 + 4 * c;
+            float *k = fo + 4 * c;
             k[0] = env->B[rgb]; k[1] = env->D[rgb]; k[2] = env->R[rgb]; k[3] = env->A[rgb];
         }
-        fo += 25;
+        fo += 12;
     }
     /* the fog: near, k, colour (bytes a b c); four lamps (k 0: none) */
     fo[0] = env->fog_near;
@@ -1836,7 +1878,7 @@ static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const
         }
     }
     fo += 5 + 28;
-    if (unif_kind(gr->vs) == GV_LIT) {  /* the highlight's colour */
+    if (lit) {                          /* the highlight's colour */
         fo[G.ia] = env->S[0];
         fo[1] = env->S[1];
         fo[2 - G.ia] = env->S[2];
@@ -1846,7 +1888,7 @@ static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const
     u->job = G.job_no;
     u->bone = gr->bone;
     u->bone2 = gr->bone2;
-    u->vs = unif_kind(gr->vs);
+    u->vs = vs_kind;
     u->lamps = gr->lamps;
     u->cs = cs;
     u->vs_u = vs;
@@ -1938,13 +1980,15 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
         G.clipper[0] = env->cx;
         G.clipper[1] = env->cy;
     }
-    const int two = TWO_BONES(gr->vs);
-    if (u->job != G.job_no || u->bone != gr->bone || u->bone2 != gr->bone2 || u->vs != unif_kind(gr->vs) ||
+    /* bm3d 7.5: a lit group of a draw with the cel light runs its _CEL program */
+    const int vsx = env->cel && env->lit ? cel_vs(gr->vs) : gr->vs;
+    const int two = TWO_BONES(vsx), vkind = two ? vsx : unif_kind(vsx);
+    if (u->job != G.job_no || u->bone != gr->bone || u->bone2 != gr->bone2 || u->vs != vkind ||
         u->lamps != gr->lamps) {
         if (two)
-            gl_uniforms2(u, gr, M, N, M2, N2, env);
+            gl_uniforms2(u, gr, vkind, M, N, M2, N2, env);
         else
-            gl_uniforms(u, gr, M, N, env);
+            gl_uniforms(u, gr, vkind, M, N, env);
     }
     uint32_t *cs = u->cs, *vs = u->vs_u;
     /* GL shader record: flags (clipping for meshes not inside the guard
@@ -1965,7 +2009,7 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
      * shader's too */
     const uint32_t head = two ? 16 : 12;
     r[14] = 3; r[15] = vpm_size(stride);
-    a = v3d_bus(G.code + 1024 * vshaders[gr->vs].kb); memcpy(r + 16, &a, 4);
+    a = v3d_bus(G.code + 1024 * vshaders[vsx].kb); memcpy(r + 16, &a, 4);
     a = v3d_bus(vs); memcpy(r + 20, &a, 4);
     r[26] = 1; r[27] = vpm_size(head);
     a = v3d_bus(G.code + 1024 * (two ? CODE_CS2 : CODE_CS)); memcpy(r + 28, &a, 4);
@@ -2000,6 +2044,8 @@ static int cb_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (
     (void)ctx;
     if (!G.gl_ok || !G.gl_on || G.failed || (!env->inside && !G.clip_ok) || (env->lit && (G.gl_on < 2 || !G.lit_ok)))
         return 0;
+    if (env->cel && env->lit && !G.cel_ok)
+        return 0;                       /* bm3d 7.5: the cel light is the ARM's, as before */
     if (m->bones && m->nbones > nbones)
         return 0;
     gmesh_t *e = mesh_get(g, m, env->unlit, env->lit && env->smooth);
@@ -3667,8 +3713,11 @@ static int probe_clip(const g16_t *pg)
 
 /* bm3d 3.0: vs_lit against r3d's light_fast, worked out here: a grey face lit
  * by the sun from the front with a highlight (n.H = 0.8, p 4), and one lit
- * from behind (no sun, no highlight: the ambient and the rim) */
-static int probe_lit(const g16_t *pg)
+ * from behind (no sun, no highlight: the ambient and the rim).
+ * bm3d 7.5, cel: vs_lit_cel against r3d's cel table, two faces with the sun at 0.8
+ * and 0.436 of full (4 bands, floor 0.3: the top band and the second one),
+ * not glossy */
+static int probe_lit(const g16_t *pg, int cel)
 {
     static r3d_mesh_t m;
     static v3_t v[6], n[2];
@@ -3679,13 +3728,18 @@ static int probe_lit(const g16_t *pg)
         v[i] = (v3_t){ (s[i][0] - 32) / 16.0f, (32 - s[i][1]) / 16.0f, 0 };
     n[0] = (v3_t){ 0, 0, -1 };
     n[1] = (v3_t){ 0, 0, 1 };
+    c[0] = c[1] = 0x808080 | (cel ? 0 : R3D_GLOSSY);
+    if (cel) {
+        n[0] = (v3_t){ 0, 0.6f, -0.8f };
+        n[1] = (v3_t){ 0, 0.9f, -0.435889894f };
+    }
     m.nverts = 6;
     m.nfaces = 2;
     m.verts = v;
     m.faces = f;
     m.colors = c;
     m.normals = n;
-    m.version = 0xFFFFFFFDu;
+    m.version = cel ? 0xFFFFFFF9u : 0xFFFFFFFDu;
     const float M[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 2 };
     r3d_env_t env;
     memset(&env, 0, sizeof env);
@@ -3700,7 +3754,16 @@ static int probe_lit(const g16_t *pg)
     for (int k = 0; k < 3; k++) {
         env.A[k] = 0.2f; env.B[k] = 0.3f; env.D[k] = 0.4f; env.R[k] = 0.5f; env.S[k] = 0.25f;
     }
-    const float grey = 128.0f / 255.0f, want[2] = { grey * 0.6f + 0.25f * 0.4096f, grey * 0.7f };
+    const float grey = 128.0f / 255.0f;
+    float want[2] = { grey * 0.6f + 0.25f * 0.4096f, grey * 0.7f };
+    if (cel) {
+        /* l = ny * B + cut(d) * D + (1 - n.V)^2 * R + A; the bands 3 and 1 of 4 */
+        env.cel = 4;
+        env.cel_floor = 0.3f;
+        const float top = 1.0f, second = 0.3f + 0.7f / 3.0f;
+        want[0] = grey * (0.6f * 0.3f + top * 0.4f + 0.04f * 0.5f + 0.2f);
+        want[1] = grey * (0.9f * 0.3f + second * 0.4f + 0.2f + 0.5f * (1.0f - 0.435889894f) * (1.0f - 0.435889894f));
+    }
     memset(G.probe, 0, JOB_PROBE);
     gmesh_t *e = mesh_get(pg, &m, 0, 0);
     gunif_t u = { .job = 0, .bone = -1 };
@@ -3713,7 +3776,8 @@ static int probe_lit(const g16_t *pg)
         const int wr = (int)(want[i] * 31 + 0.5f), wg = (int)(want[i] * 63 + 0.5f);
         if (r < wr - 2 || r > wr + 2 || b < wr - 2 || b > wr + 2 || g < wg - 3 || g > wg + 3) {
             char line[96];
-            ksnprintf(line, sizeof line, "lit probe: face %d %04x, expected about %02x %02x %02x", i, px, wr, wg, wr);
+            ksnprintf(line, sizeof line, "%s probe: face %d %04x, expected about %02x %02x %02x", cel ? "cel" : "lit", i,
+                      px, wr, wg, wr);
             plog(line);
             return 0;
         }
@@ -4053,7 +4117,8 @@ static int probe(void)
     G.gl_ok = soft(probe_gl(&pg), "the vertex shader's probe");
     G.idx_ok = G.gl_ok && !G.failed ? soft(probe_index(&pg), "the indexed meshes' probe") : 0;
     G.clip_ok = G.gl_ok && !G.failed ? soft(probe_clip(&pg), "the clipping probe") : 0;
-    G.lit_ok = G.gl_ok && !G.failed ? soft(probe_lit(&pg), "the lit models' probe") : 0;
+    G.lit_ok = G.gl_ok && !G.failed ? soft(probe_lit(&pg, 0), "the lit models' probe") : 0;
+    G.cel_ok = G.lit_ok && !G.failed ? soft(probe_lit(&pg, 1), "the cel light's probe") : 0;      /* bm3d 7.5 */
     G.queue_ok = !G.failed ? soft(probe_queue(&pg), "the queue's probe") : 0;
     G.zclear_ok = !G.failed ? soft(probe_zclear(&pg), "the probe of zclear() in a job") : 0;
     G.fs2_ok = !G.failed ? soft(probe_fs2(&pg, &pt), "the two-thread shaders' probe") : 0;
@@ -4101,6 +4166,7 @@ int gpu3d_init(void)
     G.backend.shadow = cb_shadow;
     G.backend.zclear = cb_zclear;
     G.backend.tex_screen = 1;
+    G.backend.cel = 1;                  /* (cb_mesh says no where the probe saw the cel programs fail) */
     set_guard(G.scr_w ? G.scr_w : 640, G.scr_h ? G.scr_h : 360);   /* r3d's bound too */
     if (probe() != 0)
         return -1;
@@ -4119,7 +4185,7 @@ int gpu3d_init(void)
     ksnprintf(G.why, sizeof G.why, "bm3d " BM3D_VERSION " ready (byte a = %s, texels %s, textures %s, MSAA %s, "
               "16-bit textures %s, two-thread shaders %s, vertex shader %s%s, indexed %s, "
               "clipping %s, lit models %s, queue %s, zclear in job %s, compact attributes %s, alpha textures %s, "
-              "ETC1 textures %s)",
+              "ETC1 textures %s, cel light %s)",
               G.red_a ? "red" : "blue",
               G.tex_swap ? "swapped" : "in place", G.tformat ? "in tiles" : "in rows", ms[G.ms_ok],
               G.tf16 ? "yes" : "no", G.fs2_ok ? "yes" : "no",
@@ -4128,7 +4194,7 @@ int gpu3d_init(void)
               G.gl_ok && G.gl_clip_all ? " (clipper always on)" : "", G.idx_ok ? "yes" : "no", clips[G.clip_ok], G.lit_ok ? "yes" : "no",
               G.queue_ok ? "yes" : "no", G.zclear_ok ? "yes" : "no", G.attr_ok ? "yes" : "no",
               G.cut_ok[0] ? (G.cut_ok[1] ? "RGBA5551 RGBA4444" : "RGBA5551") : G.cut_ok[1] ? "RGBA4444" : "no",
-              G.etc1_ok ? e1 : "no");
+              G.etc1_ok ? e1 : "no", G.cel_ok ? "yes" : "no");
     G.status = G.why;
     G.ready = 1;
     return 0;
