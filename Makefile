@@ -499,6 +499,8 @@ test-riff: $(BUILD)/host/bmhost-bin $(BUILD)/riff-test.bm
 # Hero Stress (stage 1): the models' counts, the printed line, the keys and the sweep, in bmhost
 test-herocart: $(BUILD)/host/bmhost-bin $(BUILD)/carts/herocart.bm tests/herocart/check.py carts/herocart/build/mkheroes.py
 	$(PYTHON) tests/herocart/check.py $< $(BUILD)/carts/herocart.bm $(BUILD)/herocart/test
+	$(MAKE) $(BUILD)/host/test_herocart_mesh
+	$(BUILD)/host/test_herocart_mesh carts/herocart/assets/models.bm
 
 test-keymap: $(BUILD)/host/bmhost-bin $(BUILD)/keymap-test.bm tests/keymap/input.txt
 	$< $(BUILD)/keymap-test.bm --input tests/keymap/input.txt --seconds 8 2>&1 | tee $(BUILD)/keymap-test.log | grep "^keymap"
@@ -1365,6 +1367,16 @@ $(BUILD)/host/test_impostor: tests/bm/test_impostor.c tests/gpu/v3d_emu.c tests/
 
 test-impostor: $(BUILD)/host/test_impostor
 	$<
+
+# The heroes of carts/herocart through the vertex shader's mesh path (V3D emulator)
+$(BUILD)/host/test_herocart_mesh: tests/bm/test_herocart_mesh.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/gpu3d.c \
+                                  src/gpu/gpu3d.h src/gpu/v3d_cl.c src/gpu/v3d.h src/gpu/shaders.h src/bm/r3d.c \
+                                  src/bm/gfx16.c src/bm/format.c src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free \
+	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/bm/test_herocart_mesh.c tests/gpu/v3d_emu.c \
+	    src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/r3d.c src/bm/gfx16.c src/bm/format.c src/lib/crc32.c $@-gpu3d.o -lm
 
 # Cel light on the ARM raster (cel3d, draw3d flag 256, dither3d): the table, the bands on a sphere,
 # off = the picture of before, the ARM dither switch

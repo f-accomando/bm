@@ -9,7 +9,9 @@ sections 3.2 and 3.3).
      collapse) makes hero1, hero2, hero3 from hero0 (the source);
   3. each level gets a hull, hero0_o ... hero3_o: the same mesh, vertices moved
      out along the vertex normal, winding reversed, one dark emissive colour.
-     Every model has the same skeleton and clip (the walk).
+     Every model has the same skeleton and clip (the walk);
+  4. every face has its three corners on one bone (vertices split at the joints): the console's
+     vertex shader takes a mesh of plain lit faces only then (one_bone_faces).
 
   mkheroes.py            make assets/models.bm (needs build/host/libbmdecimate.so:
                          `make build/host/libbmdecimate.so`, in WSL on Windows)
@@ -49,6 +51,41 @@ def source():
                         os.path.join(FORGE, "examples", "walk.json"), "--in", raw, "-o", rigged],
                        check=True, stdout=subprocess.DEVNULL)
         return open(rigged, "rb").read()
+
+
+def one_bone_faces(model, vb):
+    """splits the vertices so that every face has all its corners on one bone.
+
+    The console's vertex shader (gpu3d.c, mesh_build) draws a face on two bones only when it is
+    textured and lit; a hero of plain coloured faces on two bones sends the whole mesh back to the
+    ARM, one triangle at a time. A face takes the bone of two of its corners (of its first corner
+    when the three differ, the lowest bone number for a tie that has no majority). A corner on
+    another bone becomes a copy of the vertex on the face's bone. The copies lie at the same rest
+    position, so the pose of a joint opens a thin gap, as the rigid parts of the bench hero do."""
+    verts, faces = model["verts"], model["faces"]
+    out_v, out_b, seen, out_f = list(verts), list(vb), {}, []
+    for a, b, c, *rest in faces:
+        bs = (vb[a], vb[b], vb[c])
+        if bs[0] == bs[1] or bs[0] == bs[2]:
+            bone = bs[0]
+        elif bs[1] == bs[2]:
+            bone = bs[1]
+        else:
+            bone = min(bs)
+        corner = []
+        for v in (a, b, c):
+            if vb[v] != bone:
+                key = (v, bone)
+                if key not in seen:
+                    seen[key] = len(out_v)
+                    out_v.append(verts[v])
+                    out_b.append(bone)
+                v = seen[key]
+            corner.append(v)
+        out_f.append((*corner, *rest))
+    m = dict(model)
+    m["verts"], m["faces"] = out_v, out_f
+    return m, out_b
 
 
 def hull(model):
@@ -91,12 +128,17 @@ def build():
         m["name"] = f"hero{i}"
         levels.append((m, v))
     out_models, rigs = [], []
+    split = []
     for m, v in levels:
-        out_models.append(m)
-        rigs.append((m["name"], bones, v, clips))
-    for m, v in levels:
+        # the hull is made from the model whole (its normals are smooth across the joints), then
+        # both are split in the same way: the hull's vertex k is the model's vertex k
         h = hull(m)
         h["name"] = m["name"] + "_o"
+        split.append((one_bone_faces(m, v), one_bone_faces(h, v)))
+    for (m, v), _ in split:
+        out_models.append(m)
+        rigs.append((m["name"], bones, v, clips))
+    for _, (h, v) in split:
         out_models.append(h)
         rigs.append((h["name"], bones, v, clips))
     secs[bmmesh.SEC_MESH] = bmmesh.encode(out_models, inset)
@@ -109,6 +151,7 @@ def build():
 def check(full=None):
     secs = dict(bmmesh.cart_sections(open(OUT, "rb").read()))
     models, _ = bmmesh.decode(secs[bmmesh.SEC_MESH])
+    by_name = {m["name"]: m for m in models}
     count = {m["name"]: len(m["faces"]) for m in models}
     rigs = {r[0]: r for r in bmmesh.decode_anim(secs[bmmesh.SEC_ANIM])}
     full = full or count["hero0"]
@@ -119,8 +162,10 @@ def check(full=None):
         for n in (f"hero{i}", f"hero{i}_o"):
             got = count[n]
             total += got
-            ok = abs(got - want) <= 0.15 * want and n in rigs and rigs[n][3][0]["name"] == "walk"
-            print(f"{n:9s} {got:5d} triangles (target {want:6.0f}) {'ok' if ok else 'OFF'}")
+            vb = rigs[n][2]
+            mixed = sum(1 for f in by_name[n]["faces"] if len({vb[f[0]], vb[f[1]], vb[f[2]]}) > 1)
+            ok = abs(got - want) <= 0.15 * want and n in rigs and rigs[n][3][0]["name"] == "walk" and mixed == 0
+            print(f"{n:9s} {got:5d} triangles (target {want:6.0f}) {mixed} faces on two bones {'ok' if ok else 'OFF'}")
             if not ok:
                 bad.append(n)
     print(f"8 models, {total} triangles, {os.path.getsize(OUT)} bytes")

@@ -77,16 +77,23 @@ do
     rectfill(bx, 4, full, 8, 0x202830)
     rectfill(bx, 4, math.min(w, full), 8, 0x40C060)
     if w > full then rectfill(bx + full, 4, math.min(w - full, 20), 8, 0xE04040) end
-    local on, aa, vs, ver = H.gpu_state()
+    local on, aa, vs, ver, _, _, _, probe = H.gpu_state()
     if Hh >= 270 then
-      rectfill(0, 0, 222, 12 * (#ROWS + 2) + 6, 0x101820)
+      local help = Hh >= 330 and H.HELP[ROWS[H.cur].name]       -- two lines under the panel, if the screen has room
+      rectfill(0, 0, 264, 12 * (#ROWS + (help and 5 or 2)) + 6, 0x101820)
       print("HERO STRESS  " .. (on and "gpu" or "arm") .. " " .. H.CAMS[H.cam], 4, 4, TEXT)
       for i, r in ipairs(ROWS) do
         local y = 4 + 12 * i
         local c = r.grey and DIM or (i == H.cur and CUR or TEXT)
         print((i == H.cur and ">" or " ") .. string.format("%-14s", r.name) .. " " .. r.get(), 4, y, c)
       end
-      print("3D drivers " .. tostring(ver) .. "  console: Settings", 4, 4 + 12 * (#ROWS + 1), DIM)
+      local drv = on and ("  vs probe " .. probe) or "  (ARM: no probe)"
+      print("GPU driver bm3d " .. tostring(ver) .. drv, 4, 4 + 12 * (#ROWS + 1), DIM)
+      if help then
+        print("(console options: Settings)", 4, 4 + 12 * (#ROWS + 2), DIM)
+        print(help[1], 4, 4 + 12 * (#ROWS + 3), CUR)
+        print(help[2], 4, 4 + 12 * (#ROWS + 4), CUR)
+      end
     else
       local r = ROWS[H.cur]
       rectfill(0, 0, 160, 16, 0x101820)

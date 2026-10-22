@@ -5251,6 +5251,19 @@ def test_herocart(b, opts):
         q.send("d")                    # right: 2 bands (cel light on the ARM raster)
         wait(",cel2,")
         wait("kb=")
+        q.send("w")                    # up twice: the Resolution row; right three times: 1920x1080
+        wait("kb=")
+        wait("kb=")
+        q.send("w")
+        wait("kb=")
+        wait("kb=")
+        for _ in range(8):             # a key can be lost at 1 fps: press again until the mode is in force
+            q.send("d")
+            wait("kb=", timeout=240)
+            wait("kb=", timeout=240)
+            if " res=1920x1080 " in seen[-700:]:
+                break
+        assert " res=1920x1080 " in seen[-700:], seen[-1500:]
         q.send("q")
         q.expect("update+draw", timeout=10)
         assert "stopped with an error" not in seen, seen[-1500:]

@@ -80,6 +80,24 @@ def main():
     assert "cel4" in opts[-1] and "nodith" in opts[-1], opts
     print("cel/dither rows:", opts[0].split(",")[-4:], "->", opts[-1].split(",")[-4:])
 
+    # 2c. the Resolution row (18: up three from row 1) goes through the labels to 1920x1080 and the
+    # printed res= is the mode really in force; the opt string has the probe level ("vs0p0": nothing
+    # asked, no probe on the ARM)
+    taps = [(10, "up"), (16, "up"), (22, "up")] + [(30 + 40 * k, "right") for k in range(3)]
+    lines = run(host, cart, work, "res", taps, 8)
+    rows = [LINE.match(l).groups() for l in lines if LINE.match(l)]
+    assert rows and all(re.search(r"^arm,vs0p0,", r[5]) for r in rows), rows[0][5]
+    assert (rows[-1][3], rows[-1][4]) == ("1920", "1080"), [r[3:5] for r in rows]
+    print("resolution row:", "x".join(rows[0][3:5]), "->", "x".join(rows[-1][3:5]))
+
+    # 2d. the help of the panel: one table, a text of at most two lines of 44 characters for every row
+    src = open(os.path.join(ROOT, "carts", "herocart", "src", "30_options.lua"), encoding="utf-8").read()
+    names = re.findall(r'(?:choice|grey|heroes = \{ name =) ?\(?"([^"]+)"', src) + ["Heroes"]
+    help_ = {k: (a, b) for k, a, b in re.findall(r'\["([^"]+)"\] = \{ "([^"]*)", "([^"]*)" \}', src)}
+    assert set(names) == set(help_), (sorted(set(names) ^ set(help_)))
+    assert all(len(a) <= 44 and len(b) <= 44 for a, b in help_.values()), help_
+    print("help:", len(help_), "rows")
+
     # 3. the sweep
     inp = os.path.join(work, "sweep.txt")
     with open(inp, "w") as f:

@@ -3037,7 +3037,7 @@ static int l_zclear(lua_State *L)
     return 0;
 }
 
-/* gpu3d([on, [aa, [vs, [queue, [impostor, [later]]]]]]) -> on, aa, vs, version, queue, impostor, later:
+/* gpu3d([on, [aa, [vs, [queue, [impostor, [later]]]]]]) -> on, aa, vs, version, queue, impostor, later, probe:
  * whether the GPU draws the 3D, whether with anti-aliasing (MSAA 4x, where the GPU allows it) and whether
  * its vertex shader places the corners of the models (bm3d 3.0, where the GPU's
  * probe drew with it): false, 1 the scenery (meshes unlit or with baked
@@ -3055,7 +3055,9 @@ static int l_zclear(lua_State *L)
  * the ARM; false or 0 off (the default, or r3d_impostor in bm/config.txt);
  * returned sixth. later (bm3d 6.9): each frame shown a frame later, so
  * the next _update and _draw run while the GPU draws it (with queue 2; not
- * online); returned seventh. */
+ * online); returned seventh. probe (eighth): the level the console's boot test saw work
+ * (0 or false: none, 1 meshes unlit or with baked light, 2 also lit models), whatever vs asks for:
+ * vs 2 asked on a console whose probe saw 1 draws the lit models one triangle at a time. */
 static int l_gpu3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
@@ -3103,7 +3105,12 @@ static int l_gpu3d(lua_State *L)
         lua_pushboolean(L, 0);
     lua_pushinteger(L, r->impostor);
     lua_pushboolean(L, later);
-    return 7;
+    const int probe = gpu ? gpu3d_vshader() : 0;     /* what the boot test saw, not what was asked */
+    if (probe)
+        lua_pushinteger(L, probe);
+    else
+        lua_pushboolean(L, 0);
+    return 8;
 }
 
 /* The resolutions screen() can change to: 16:9, whole pixels on a 1080p

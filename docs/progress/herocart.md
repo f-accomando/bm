@@ -7,6 +7,9 @@ A separate cart, `carts/herocart/`: 64 heroes walk in a plaza. The player change
 - Build: `make build/carts/herocart.bm`. The cart is not in `GAMES`. It has no `.b16` edition.
 - Sources: `carts/herocart/src/*.lua`, joined by `build/build.py`. Assets are committed in `carts/herocart/assets/`. `build/mkheroes.py` makes `models.bm`. `build/mkplaza.py` makes `sheet.png` and the three map layers.
 - Hero: the bm-forge `charkit` preset `rango` with the bm-forge walk clip (984 triangles, flat colours). Levels `hero0` to `hero3`: 984, 492, 246, 97 triangles (quadric reducer). Hulls `hero0_o` to `hero3_o` for the outline row.
+- Every face of every hero model has its three corners on one bone (`one_bone_faces` in `mkheroes.py` splits the vertices at the joints). The vertex shader of the console takes a plain lit face only on one bone. With the first models (216 faces of `hero0` on two bones) every hero went back to the ARM, one triangle at a time, whatever Vertex shader said. The split opens a thin gap at a joint in some poses, as the rigid parts of the bench hero do.
+- Panel: the rows show what the console really gave. Vertex shader shows `asked -> applied (probe N)` when the boot test saw less than was asked (`gpu3d()` eighth value). With Backend ARM, the rows AA, Vertex shader, Queue and Frame later show `ignored (ARM)`. The footer shows `GPU driver bm3d X.Y` and the probe level. On screens 330 lines or taller, two lines of help for the row under the cursor (table `H.HELP` in `30_options.lua`).
+- Resolution row: 320x180 to 1920x1080 (`screen()`). The label shows the mode really in force after `->`. 640x360 is the default.
 - Plaza: a 32 x 32 cell `map3d` (ring wall, fountain, 8 pillars). About 3000 triangles.
 - Rows 1-16, 18, 19 and 20 are live. Row 17 (alpha) is greyed. Row 12 is `dither3d`. Row 20 is `cel3d` (off, 2, 3, 4, 5, 6, 8 bands, floor 0.35); the heroes get draw3d flag 256, the plaza does not.
 - Keys: up and down choose a row. Left and right change it. A toggles it. L1 and R1 change the hero count by 1, L2 and R2 by 5 (keyboard: `[` and `]`). X and Y change the level (`,` and `.`). Select (Tab) changes the camera. B hides the panel. Start + A runs the sweep (F5). Start alone saves `HEROCART.TXT` in `/docs` and sends a report (F6). Pad serial keys: `u`/`o` L1/R1, `c`/`v` X/Y, `j` A.
@@ -15,14 +18,15 @@ A separate cart, `carts/herocart/`: 64 heroes walk in a plaza. The player change
 
 ## Tests
 
-- `make test-herocart` (bmhost): model counts, line format, `tri` rises with `n` and falls with the level, the cel and dither rows change the printed options, the sweep prints 10 lines.
+- `make test-herocart` also runs `build/host/test_herocart_mesh` (V3D emulator): every hero model and hull goes through the mesh path with Vertex shader 2 (`glmeshes`, `gltris`), none with it off or at 1. On the models made before the one-bone rule, `test_herocart_mesh OLD.bm --expect-fallback` shows the fallback.
+- `make test-herocart` (bmhost): model counts, one bone for each face, the Resolution row to 1920x1080, one help text of at most two lines for each row, line format, `tri` rises with `n` and falls with the level, the cel and dither rows change the printed options, the sweep prints 10 lines.
 - `make test-cel`: the 64-entry table (bands, floor, band edges), a lit sphere shows exactly N grey levels, the light off gives the picture of before cel, `dither3d`.
 - `make test-impostor`: also a cel draw on the GPU (vertex shader 1 and 2) gives the ARM's bands.
 - `python tests/qemu_test.py -k herocart` (QEMU, ARM raster): starts, prints its line, R1, X and a row change work, and Cel bands 2 shows in the printed options.
 
 ## How the user measures on the Pi
 
-Copy `herocart.bm` to the SD card (`bm/`). Run it at 640x360. Start the sweep (Start + A), then Start to save. Copy `HEROCART.TXT` from `/docs`. Do the runs of the design, stage 1 table. For the cel cost: at 20 heroes and level 0, run the sweep with `Cel bands` off, then `4` bands, then with `Dither` off, and compare the `ms` columns of `HEROCART.TXT` (ARM backend, then GPU). Expected: cel near 0 on the ARM. Not verified on hardware.
+Copy `herocart.bm` to the SD card (`bm/`). Run it at 640x360. To check the vertex shader: set Backend GPU and Vertex shader 2, and read the panel: the row must show `2` with no `->`, and the footer a probe of 2. Then run the sweep with Backend GPU and Vertex shader off, then 2, and compare `tri` at 60 fps and `gpu` (expected: `tri` and fps rise at 2). Start the sweep (Start + A), then Start to save. Copy `HEROCART.TXT` from `/docs`. Do the runs of the design, stage 1 table. For the cel cost: at 20 heroes and level 0, run the sweep with `Cel bands` off, then `4` bands, then with `Dither` off, and compare the `ms` columns of `HEROCART.TXT` (ARM backend, then GPU). Expected: cel near 0 on the ARM. Not verified on hardware.
 
 ## Open work
 
@@ -31,6 +35,7 @@ Copy `herocart.bm` to the SD card (`bm/`). Run it at 640x360. Start the sweep (S
 - Heroes have flat colours. The Texture row switches the plaza only. Four tints and a textured hero are not done.
 - The `options` line of the console (`tex16`, `fs2`) is not read by Lua. `report()` adds it. The panel shows the 3D driver version.
 - Free camera: the arrow keys also move the row cursor.
+- The Pi has not run the models with one bone for each face: not verified on hardware. With `Cel bands` on, the heroes are lit by the ARM even with Backend GPU.
 - Stages 3 to 5 (cel on the V3D, outline, RGB30 edition): see the design. On the V3D a cel draw is lit by the ARM today (the triangles go one by one), so the cost on the GPU rows is not the final one.
 - Cel and dither costs on the Pi are not measured (runs 3 and 4 of the design with `Cel bands` on and `Dither` off).
 - `dither3d(false)` adds a constant half step. It saves no fill time. The ARM fill saving of the design is not real; the row shows the look only.
