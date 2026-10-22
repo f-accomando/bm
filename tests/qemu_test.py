@@ -5582,6 +5582,56 @@ def test_frameskip(b, opts):
         q.close()
 
 
+STATPERF_CART = r"""
+local n = 0
+function _init() log("statperf start") end
+function _update() end
+function _draw()
+  n = n + 1
+  cls(1)
+  if n == 30 then
+    local a, b, c = stat(16), stat(17), stat(18)
+    log(string.format("statperf %s %s %s | %.3f %.3f %.3f", type(a), type(b), type(c), a, b, c))
+  end
+end
+"""
+
+
+def test_stat_perf(b, opts):
+    """stat(16), stat(17), stat(18) (GPU job time, audio time, GPU wait of the
+    last frame, in ms): numbers, not negative, below one second. A
+    measurement only: no value is asserted exactly (QEMU has no GPU) and no
+    cartridge may use them in game logic (a lockstep match falls apart)"""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        assert _upload(q, mkbm.pack(STATPERF_CART.encode(), title="statperf"))
+        q.expect("statperf start", timeout=30)
+        out = q.expect("statperf number", timeout=30).decode(errors="replace")
+        out += q.expect("\n", timeout=5).decode(errors="replace")
+        m = re.search(r"statperf number number number \| ([\d.-]+) ([\d.-]+) ([\d.-]+)", out)
+        assert m, out[-400:]
+        for name, g in zip((16, 17, 18), m.groups()):
+            v = float(g)
+            print(f"     stat({name}) = {v:.3f} ms")
+            assert 0 <= v < 1000, (name, v)
+        q.send("q")
+        out = q.expect("update+draw", timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+    finally:
+        q.close()
+    # not for logic: a cartridge that reads them stays away from netplay
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for d, _, files in os.walk(os.path.join(root, "carts")):
+        for f in files:
+            if f.endswith(".lua"):
+                with open(os.path.join(d, f), encoding="utf-8", errors="replace") as fh:
+                    t = fh.read()
+                if re.search(r"stat\(1[678]\)", t):
+                    assert not re.search(r"net\.|lockstep|netplay|send_input", t), f"{f}: stat(16-18) in a netplay file"
+
+
 DEVKIT_CART = r"""
 function _init()
   log("devkit was " .. devkit(2) .. ", now " .. devkit())
