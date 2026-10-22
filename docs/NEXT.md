@@ -20,8 +20,6 @@ Rules:
 
 Thursday evening:
 - Close the work in flight: multitasking stages 3-5, bench for hero, VS and cel, herocart LOD triangles.
-- Load the kernel and bmweb on the Pi.
-- Publish bmweb to bm-market.
 - Run the hero benchmark on the Pi. Write the numbers into the sheets.
 
 Friday morning:
