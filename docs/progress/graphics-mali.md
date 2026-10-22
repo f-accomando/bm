@@ -60,3 +60,17 @@ a simulated GPU (no tiler there): `make TARGET=rgb30 test-mali`. The 3D on the R
    - *Phase 4*: asynchronous job queue with multi-buffering support (written, not run).
 - **Completion criterion**: On the RGB30 Overbit `.b16` runs stably at 360×360 and at 720×720, the benchmark produces the performance report (first with ARM, then with Mali) and the RGB30 3D Bench table reports the GPU column data.
 
+## Open work
+All of it needs the RGB30 (not verified on hardware). The user runs these; nothing here starts a device run.
+1. Dev > GPU test (the triangle, with the variant probe). Read the `mali: variant N <name>` lines in the report on the SD card. If a variant is `ok`, apply its patch to `frame_build` and delete the probe.
+2. If the triangle draws: `mali3d=1` in `config.txt`, then 3D Bench (`b3d`) scenes of flat colours. The `GPU` profile row appears only for those scenes; the others show the ARM.
+3. Then the phases written but not run: phase 2 (`mali_backend`), phase 3 (`BM_VS3` with a matrix), phase 4 (`mali_frame_submit` and two sets). Run them in this order, one report each.
+4. If all three run: `mali3d` default decision (divergence D45 in `docs/spec/divergences.toml`) and a bm3D version with a row in `docs/DRIVERS.md`.
+5. A shader for textured triangles is not started: textures and effects stay on the ARM (`colour_only`).
+
+## Rules (do not break)
+- `mali3d` is off by default. With the key off, or after any Mali failure, `gpu3d_*` goes to the ARM (`gpu3d_init` reads the key on every init).
+- The Mali draws flat colours only. `r3d` hands textures and effects to the ARM (`colour_only`).
+- A frame uses one of two sets of the GPU memory (`MALI_SET_BASE`); the layout macros (`SO_*`, `D_*`) are in `mali_variants.h` and the variant patches use them. Change a layout macro and `make TARGET=rgb30 test-mali` must still pass.
+- The variant probe runs only after the base jobs fail. It resets the GPU between variants.
+- Report hardware behaviour only from a report file. Without one, write `not verified on hardware`.
