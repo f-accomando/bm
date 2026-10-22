@@ -19,7 +19,7 @@ Rules:
 - The user does the RGB30 hardware tests and the Pi runs. Write the results into the sheets when the user gives them.
 
 Thursday evening:
-- Close the work in flight: multitasking stages 3-5, cel stages 3-4 on V3D, bench for hero, VS and cel, herocart LOD triangles.
+- Close the work in flight: multitasking stages 3-5, bench for hero, VS and cel, herocart LOD triangles.
 - Load the kernel and bmweb on the Pi.
 - Publish bmweb to bm-market.
 - Run the hero benchmark on the Pi. Write the numbers into the sheets.
@@ -32,7 +32,7 @@ Friday afternoon:
 - API-3: triangle throughput. Decide the default of `gpu3d_queue` from the benchmark numbers.
 - API-4: VID-REC MJPEG or RLE encoder for 30 fps.
 
-Friday after the Mali device runs (done by the user through the RGB30 bridge, one session only on the RGB30):
+Friday after the Mali device runs (done by the SPV through the RGB30 bridge, one session only on the RGB30):
 - Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
 
 Friday evening:
