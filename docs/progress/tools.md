@@ -33,7 +33,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   (`predict`, [`docs/PREDICT.md`](../PREDICT.md)), pad typing (`padtype`,
   [`docs/PADTYPE.md`](../PADTYPE.md)), F6 assistant and `#entry: … #` lines, F8
   breakpoints, Ctrl+Enter plays riff.
-- **bm Pixel** (`carts/pixel`): F1 draw, F2 sheet, F3 palette; hitboxes of BOXES on the canvas, previews and sheet view (toggle j).
+- **bm Pixel** (`carts/pixel`): F1 draw, F2 sheet, F3 palette, F4 stack (stack zones: slices one by one, the stack turning, make or change a zone, draw a slice on F1; save writes SPRITES with `cart_write` `sections[11]`); hitboxes of BOXES on the canvas, previews and sheet view (toggle j).
 - **bm Studio** (`carts/studio`): models from tiles and blocks (block, tile, select, vertex,
   paint), reduce. **bm Animator** (`carts/animator`): rig and skin (`t` test pose: [tools-assistant](tools-assistant.md)), keyframes, sprites from an
   animation (F4: bone hitboxes previewed and baked into SPRITES and BOXES). **bm Mesh** (`carts/mesh`): vertices and faces of MESH models and of meshes the
@@ -84,7 +84,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
-- **Sprite stacking, step 3**: a *Stack* page in bm Pixel.
+- **Stack page of bm Pixel**: try it on the Pi and the RGB30 (keyboard and pad). Not done: delete a stack zone, a vertical layout (`stackv`, branch `claude/stackv`: the page keeps `sp.dir` and `cell()` ready), mouse drag. Pad and mouse are not tested in QEMU.
 - Yharnam's map on the Pi: open `yharnam.bm` in the SDK, F3 F3, edit ground,lamps/barricades/gates/bosses on `objects`,
   Ctrl+S (`YHARNAM.BME`, about 6 MB), F5; then `mkmap.py --from` and commit the CSVs. A house
   stays in its 16×16-tile block.
@@ -99,6 +99,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 ## Rules (do not break)
 
 - Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a dialog frame never crosses the title row (QEMU tests read it). API list: one source `src/ai/api.tsv` → `build/words.lua` (`api`, `allow`), never edited by hand; the Lua lint in `src/ai/predict.lua` keeps the output of `scripts/api_lint.py` (diff check APP-5b-2). `api.tsv` has one line per signature of a name (`music(n, ...)`, `music(-1)`, `music()`); `predict.api(name).forms` lists them and Ctrl+Q shows all. CI: `make test-api` (`mkapi.py --check`, tests of mkapi and api_lint). The help screen is not verified on hardware.
+- bm Pixel writes the zones only when the Stack page changed them (`sp.zdirty`): `cart_write(..., {sections = {[11] = cart_data(11)}})`. A save without a zone change keeps the file's SPRITES as it is.
 - bm Mesh rewrites only the lines between `-- [bm Mesh begin]` and `-- [bm Mesh end]`.
 - Mouse (`require "bmui"`, `src/script/bmui.lua`): the mouse does what the keys do: zones
   registered while drawing, chips that press the key, `U.press` before `keyp()`, a context menu

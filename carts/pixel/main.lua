@@ -283,6 +283,7 @@ end
 local function save_to(path, from, after)
   if not path then say("no name yet: Esc > Save as", C_ERR); return end
   local t = { sheet = true, palette = pal(), from = from }
+  if sp and sp.zdirty then t.sections = { [11] = cart_data(11) or false } end   -- the zones changed (Stack page)
   if not proj.path then
     t.lua = VIEWER
     t.title = path:match("([^/]+)%.[^.]*$") or "sprites"
@@ -294,6 +295,7 @@ local function save_to(path, from, after)
     if type(e) == "string" then path = e end    -- the editable copy of a game, or a new project
     proj.path = path
     dirty = false
+    sp.zdirty = false
     remember()
     say("saved " .. path, C_ACC)
     if after then after() end
@@ -1467,6 +1469,291 @@ function draw_palette()
 end
 end
 
+----------------------------------------------------------------- stack page
+-- Sprite stacking: a stack zone ("stack name x y w h n" in the SPRITES
+-- section) is n slices of w x h that lie side by side on the sheet. The
+-- page shows one slice, the stack turning (stack()) and the zones; Enter
+-- draws the slice on F1. sp.dir "h" is the only layout today: slices from
+-- left to right (a vertical layout comes later, with cell() and fits()).
+do
+
+sp = { zi = 1, k = 1, rot = 0, spin = true, dir = "h", zdirty = false }
+local PREV_X, PREV_Y, PREV_W, PREV_H = 312, 144, 320, 160
+local TWO_PI = 2 * math.pi
+
+-- the stack zones of the file (SPRITES with 2 or more slices)
+local function stack_zones()
+  local list = {}
+  if not zones or not zone then return list end
+  for _, zn in ipairs(zones() or {}) do
+    local x, y, w, h, fr, fps, n = zone(zn)
+    if x and n and n >= 2 then list[#list + 1] = { name = zn, x = x, y = y, w = w, h = h, frames = fr, fps = fps, n = n } end
+  end
+  return list
+end
+
+-- the corner of slice k (1 is the bottom one)
+local function cell(z, k)
+  if sp.dir == "v" then return z.x, z.y + (k - 1) * z.h end
+  return z.x + (k - 1) * z.w, z.y
+end
+
+local function fits(x, y, w, h, n)
+  if sp.dir == "v" then return x + w <= sw and y + h * n <= sh end
+  return x + w * n <= sw and y + h <= sh
+end
+
+local function current()
+  local list = stack_zones()
+  sp.zi = clamp(sp.zi, 1, max(1, #list))
+  local z = list[sp.zi]
+  if z then sp.k = clamp(sp.k, 1, z.n) end
+  return z, list
+end
+
+-- the stack zone and slice that the F1 sprite is (for the status line)
+function stack_at()
+  for _, z in ipairs(stack_zones()) do
+    if z.w == z.h and rs == z.w then
+      for k = 1, z.n do
+        local cx, cy = cell(z, k)
+        if cx == rx and cy == ry then return z.name, k, z.n end
+      end
+    end
+  end
+  return nil
+end
+
+function stack_reset()
+  sp.zi, sp.k, sp.zdirty = 1, 1, false
+end
+
+function stack_enter()
+  current()
+end
+
+-- one zone into the SPRITES section (a new one at the end, or in place of
+-- the one of that name); the file is written by the next save
+local function put_zone(z)
+  if not cart_data then return false, "this kernel has no cart_data" end
+  local cur = cart_data(11)
+  local parts, done, count = {}, false, 0
+  local function add(name, x, y, w, h, fr, fps, sl)
+    parts[#parts + 1] = spack("<c16I2I2I2I2BBBx", name, x, y, w, h, fr, fps, sl)
+    count = count + 1
+  end
+  if cur and #cur >= 4 then
+    for i = 0, sunpack("<I2", cur, 1) - 1 do
+      local name, x, y, w, h, fr, fps, sl = sunpack("<c16I2I2I2I2BBB", cur, 5 + i * 28)
+      name = name:match("^[^\0]*")
+      if name == z.name then
+        add(z.name, z.x, z.y, z.w, z.h, fr, fps, z.n)
+        done = true
+      else
+        add(name, x, y, w, h, fr, fps, sl)
+      end
+    end
+  end
+  if not done then add(z.name, z.x, z.y, z.w, z.h, 1, 0, z.n) end
+  local ok, e = cart_data(11, spack("<I2I2", count, 0) .. table.concat(parts))
+  if not ok then return false, tostring(e) end
+  sp.zdirty, dirty = true, true
+  return true
+end
+
+local function find_zone(name)
+  for _, zn in ipairs(zones and zones() or {}) do
+    if zn == name then
+      local x, y, w, h, fr, fps, n = zone(zn)
+      return { x = x, y = y, w = w, h = h, n = n or 0 }
+    end
+  end
+end
+
+local function define_zone(t)
+  local name, x, y, w, h, n = t:match("^%s*(%S+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s*$")
+  if not name then say("name x y w h n, like: tree 0 0 16 16 8", C_ERR, 300); return end
+  x, y, w, h, n = tonumber(x), tonumber(y), tonumber(w), tonumber(h), tonumber(n)
+  if #name > 15 then say("the name has at most 15 letters", C_ERR); return end
+  if w < 1 or h < 1 or n < 2 or n > 255 then say("w and h at least 1, n (slices) from 2 to 255", C_ERR); return end
+  if not fits(x, y, w, h, n) then say("out of the sheet (" .. sw .. "x" .. sh .. ")", C_ERR); return end
+  local old = find_zone(name)
+  if old and old.n < 2 then say("the zone " .. name .. " is not a stack: use another name", C_ERR, 300); return end
+  local z = { name = name, x = x, y = y, w = w, h = h, n = n }
+  local ok, e = put_zone(z)
+  if not ok then say("the zone: " .. e, C_ERR, 300); return end
+  for i, s in ipairs(stack_zones()) do if s.name == name then sp.zi = i end end
+  sp.k = 1
+  say(string.format("stack %s: %d slices of %dx%d (Ctrl+S saves)", name, n, w, h), C_ACC)
+end
+
+local function new_zone()
+  local k, name = 1, "stack"
+  while find_zone(name) do k = k + 1; name = "stack" .. k end
+  ask("new stack zone: name x y w h n", string.format("%s %d %d %d %d 8", name, rx, ry, rs, rs), define_zone)
+end
+
+local function change_zone()
+  local z = current()
+  if not z then new_zone(); return end
+  ask("stack zone: name x y w h n", string.format("%s %d %d %d %d %d", z.name, z.x, z.y, z.w, z.h, z.n), define_zone)
+end
+
+local function edit_slice()
+  local z = current()
+  if not z then say("no stack zone yet: n makes one", C_ERR); return end
+  local cx, cy = cell(z, sp.k)
+  if z.w ~= z.h then say("F1 draws square sprites: this zone is " .. z.w .. "x" .. z.h, C_ERR, 300); return end
+  if z.w > CANVAS or cx + z.w > sw or cy + z.h > sh then say("this slice does not fit F1 or the sheet", C_ERR); return end
+  rs, rx, ry = z.w, cx, cy
+  draw_reset()
+  go("draw")
+  say(string.format("%s slice %d/%d: F4 goes back to the stack", z.name, sp.k, z.n), C_ACC, 300)
+end
+
+local function slice_by(d)
+  local z = current()
+  if z then sp.k = (sp.k - 1 + d) % z.n + 1 end
+end
+
+local function zone_by(d)
+  local z, list = current()
+  if z then sp.zi = (sp.zi - 1 + d) % #list + 1; sp.k = 1 end
+end
+
+local function turn_by(d)
+  sp.spin = false
+  sp.rot = (sp.rot + d * TWO_PI / 24) % TWO_PI
+end
+
+function stack_actions()
+  choose("stack", {
+    { "Draw this slice (Enter)", function() stack_key("\n") end },
+    { "Next slice (right)", function() stack_key("right") end },
+    { "Previous slice (left)", function() stack_key("left") end },
+    { "Next zone (down)", function() stack_key("down") end },
+    { "Previous zone (up)", function() stack_key("up") end },
+    { "New zone (n)", new_zone },
+    { "Change the zone (e)", change_zone },
+    { "Turn or stop the stack (p)", function() stack_key("p") end },
+    { "Turn the stack by hand (. and ,)", function() stack_key(".") end },
+  })
+end
+
+function stack_key(k)
+  if k == "left" then slice_by(-1)
+  elseif k == "right" then slice_by(1)
+  elseif k == "up" then zone_by(-1)
+  elseif k == "down" then zone_by(1)
+  elseif k == "pgup" then slice_by(-8)
+  elseif k == "pgdn" then slice_by(8)
+  elseif k == "home" then sp.k = 1
+  elseif k == "end" then local z = current(); if z then sp.k = z.n end
+  elseif k == "\n" or k == " " then edit_slice()
+  elseif k == "n" then new_zone()
+  elseif k == "e" then change_zone()
+  elseif k == "p" then sp.spin = not sp.spin
+  elseif k == "," then turn_by(-1)
+  elseif k == "." then turn_by(1)
+  end
+end
+
+function stack_pad()
+  if btn(6) then                       -- X + left/right: turn the stack by hand
+    if rp[0] then turn_by(-1) end
+    if rp[1] then turn_by(1) end
+    return
+  end
+  if rp[0] then stack_key("left") end
+  if rp[1] then stack_key("right") end
+  if rp[2] then stack_key("up") end
+  if rp[3] then stack_key("down") end
+  if btnp(4) then stack_key("\n") end
+  if btnp(5) then stack_key("p") end
+  if tap[6] then stack_actions() end
+end
+
+function stack_mouse()
+  if U.wheel ~= 0 then slice_by(U.wheel > 0 and -1 or 1) end
+  local z = U.click(0)
+  if z and z.kind == "stackzone" then sp.zi, sp.k = z.a, 1
+  elseif z and z.kind == "stackslice" then
+    if U.double and sp.k == z.a then stack_key("\n") else sp.k = z.a end
+  end
+end
+
+-- every frame on this page: the stack turns
+function stack_update()
+  if sp.spin then sp.rot = (sp.rot + 0.03) % TWO_PI end
+end
+
+function draw_stack()
+  cls(C_BG)
+  local z, list = current()
+  if not z then
+    print("This file has no stack zone.", 8, 32, C_TEXT)
+    print("A stack zone is n slices of the same size that", 8, 64, C_DIM)
+    print("lie side by side on the sheet, from left to right.", 8, 80, C_DIM)
+    print("Press n to make one: name x y w h n, for example", 8, 96, C_DIM)
+    print("tree 0 0 16 16 8 (slice 1 is the bottom).", 8, 112, C_DIM)
+    hint({ { { "n" }, "new zone" } })
+    return
+  end
+  -- the slice, zoomed
+  local m = max(z.w, z.h)
+  local zz = CANVAS // m
+  if zz < 1 then zz = CANVAS / m end
+  local cw, ch = floor(z.w * zz), floor(z.h * zz)
+  local cx, cy = cell(z, sp.k)
+  checker(CANVAS_X, CANVAS_Y, cw, ch, 8)
+  if fits(z.x, z.y, z.w, z.h, z.n) then
+    sspr(cx, cy, z.w, z.h, CANVAS_X, CANVAS_Y, false, false, zz)
+  end
+  rect(CANVAS_X - 1, CANVAS_Y - 1, cw + 2, ch + 2, C_GRID8)
+  -- the zones
+  local top = clamp(sp.zi - 2, 0, max(0, #list - 4))
+  for i = 1, min(#list, 4) do
+    local zi = i + top
+    local s = list[zi]
+    local y = 32 + (i - 1) * 16
+    U.zone(PANEL_X, y, 320, 16, "stackzone", zi)
+    if zi == sp.zi then rectfill(PANEL_X, y, 320, 16, C_SEL) end
+    print(string.format("%s  %dx%d  %d slices", s.name, s.w, s.h, s.n):sub(1, 38), PANEL_X + 4, y,
+          zi == sp.zi and 0xFFFFFF or C_TEXT)
+  end
+  -- the slices: a row of thumbnails around the chosen one
+  local first = clamp(sp.k - 4, 1, max(1, z.n - 9))
+  local tz = min(2, 24 / m)
+  for i = 0, min(10, z.n) - 1 do
+    local k = first + i
+    local x = PANEL_X + i * 28
+    local tx, ty = cell(z, k)
+    U.zone(x, 104, 28, 28, "stackslice", k)
+    rectfill(x, 104, 26, 26, C_PANEL)
+    if fits(z.x, z.y, z.w, z.h, z.n) then
+      sspr(tx, ty, z.w, z.h, x + 1, 105, false, false, tz)
+    end
+    if k == sp.k then rect(x, 104, 26, 26, (frame // 10) % 2 == 0 and C_PT or 0xFFFFFF) end
+  end
+  -- the stack, turning
+  rectfill(PREV_X, PREV_Y, PREV_W, PREV_H, C_PANEL)
+  rect(PREV_X, PREV_Y, PREV_W, PREV_H, C_GRID8)
+  local s = clamp(min(105 // (z.n + z.h), 150 // max(1, floor(z.w * 1.5))), 1, 4)
+  if fits(z.x, z.y, z.w, z.h, z.n) then
+    stack(z.x, z.y, z.w, z.h, z.n, PREV_X + PREV_W // 2, PREV_Y + PREV_H - 28 - z.h * s // 2, sp.rot, s)
+  end
+  -- text over what the stack may have covered
+  rectfill(0, 16, W, 16, C_BG)
+  print(string.format("stack %s  slice %d/%d  at (%d,%d)  %dx%d  zstack(\"%s\", x, y, rz)", z.name, sp.k, z.n, cx, cy, z.w,
+                      z.h, z.name):sub(1, 79), 8, 16, C_TEXT)
+  rectfill(PANEL_X, 304, W - PANEL_X, 16, C_BG)
+  print(string.format("turn %d deg%s  x%d", floor(sp.rot * 180 / math.pi), sp.spin and " (turning)" or "", s), PREV_X, 304, C_DIM)
+  rectfill(0, HINT_Y, W, 16, C_BG)
+  hint({ { { "left", "right" }, "slice" }, { { "up", "down" }, "zone" }, { { "enter" }, "draw it" }, { { "n" }, "new" },
+         { { "e" }, "change" }, { { "p" }, "turn" }, { { ",", "." }, "by hand" } })
+end
+end
+
 ----------------------------------------------------------------- menu
 
 local msel = 1
@@ -1476,7 +1763,7 @@ local last_page = "draw"
 -- shows them): keyboard keys in lower case, the pad's buttons in upper case
 local HELP = {
   all = {
-    { "f1 / f2 / f3", "draw / sheet / palette" },
+    { "f1 / f2 / f3 / f4", "draw / sheet / palette / stack" },
     { "tab", "the commands" },
   },
   draw = {
@@ -1510,6 +1797,15 @@ local HELP = {
     { "ctrl c / ctrl v", "copy, paste here" },
     { "del", "clear" },
     { "shift r", "the sheet's size (keeps what fits)" },
+  },
+  stack = {
+    { "left / right", "the slice before / after" },
+    { "up / down", "the stack zone" },
+    { "enter", "draw the slice on F1" },
+    { "n / e", "new zone / change it (name x y w h n)" },
+    { "p", "the stack turns / stops" },
+    { ", / .", "turn it by hand" },
+    { "pgup / pgdn", "8 slices" },
   },
   palette = {
     { "up down left right", "the colour" },
@@ -1552,6 +1848,7 @@ go = function(p)
   else last_page = p end
   page = p
   if p == "palette" then pal_reset() end
+  if p == "stack" then stack_enter() end
   pixel_keyhelp(p)
 end
 
@@ -1559,6 +1856,7 @@ reset_pages = function()
   draw_reset()
   sheet_reset()
   pal_reset()
+  stack_reset()
 end
 
 local function open_chooser()
@@ -1681,9 +1979,10 @@ local function global_key(k)
   if k == "f1" then go("draw"); return true
   elseif k == "f2" then go("sheet"); return true
   elseif k == "f3" then go("palette"); return true
+  elseif k == "f4" then go("stack"); return true
   elseif k == "\t" then
     if page == "draw" then draw_actions() elseif page == "sheet" then sheet_actions()
-    elseif page == "palette" then pal_actions() end
+    elseif page == "palette" then pal_actions() elseif page == "stack" then stack_actions() end
     return true
   elseif k == "esc" and page ~= "menu" and not (page == "draw" and (dp.float or dp.anchor or dp.sel)) and
          not (page == "palette" and pp.edit) then go("menu"); return true
@@ -1702,7 +2001,7 @@ local function global_key(k)
   return false
 end
 
-local PAGES = { "draw", "sheet", "palette", "menu" }
+local PAGES = { "draw", "sheet", "palette", "stack", "menu" }
 
 -- Ctrl+Esc or PS (the system's keys): back to bm's menu; with unsaved
 -- changes it asks first, and the same again leaves without saving
@@ -1722,6 +2021,7 @@ local function mouse_frame()
   if page == "draw" then draw_mouse()
   elseif page == "sheet" then sheet_mouse()
   elseif page == "palette" then pal_mouse()
+  elseif page == "stack" then stack_mouse()
   else
     if U.wheel ~= 0 then msel = clamp(msel - U.wheel, 1, #MENU) end
     local z = U.click(0)
@@ -1735,6 +2035,8 @@ local function mouse_frame()
              { "Copy", "^c" }, { "Cut", "^x" }, { "Paste", "^v" }, { "Mirror", "h" }, { "Upside down", "v" },
              { "Turn", "r" }, { "Clear", "del" }, "-", { "Mirror drawing", "y" }, { "Grid", "t" }, { "Onion skin", "k" },
              { "Play", "p" }, { "Size", "z" } }
+  elseif page == "stack" then
+    list = { { "Draw this slice", "\n" }, { "New zone", "n" }, { "Change the zone", "e" }, { "Turn or stop", "p" } }
   elseif page == "sheet" then
     list = { { "Draw it", "\n" }, { "Size", "z" }, { "Zoom in", "+" }, { "Zoom out", "-" }, { "Copy", "^c" },
              { "Paste", "^v" }, { "Clear", "del" }, { "Sheet size...", "R" } }
@@ -1780,6 +2082,7 @@ function _update()
       if page == "draw" then draw_key(k)
       elseif page == "sheet" then sheet_key(k)
       elseif page == "palette" then pal_key(k)
+      elseif page == "stack" then stack_key(k)
       else menu_key(k) end
     end
   end
@@ -1805,9 +2108,11 @@ function _update()
     elseif btnp(4) then menu_key("ok") elseif btnp(5) then menu_key("back") end
   elseif page == "draw" then draw_pad()
   elseif page == "sheet" then sheet_pad()
-  elseif page == "palette" then pal_pad() end
+  elseif page == "palette" then pal_pad()
+  elseif page == "stack" then stack_pad() end
 
   if page == "draw" then draw_update(dt) elseif anim.play then anim.t = anim.t + dt end
+  if page == "stack" then stack_update() end
 end
 
 function _draw()
@@ -1815,11 +2120,12 @@ function _draw()
   if page == "draw" then draw_draw()
   elseif page == "sheet" then draw_sheet()
   elseif page == "palette" then draw_palette()
+  elseif page == "stack" then draw_stack()
   else draw_menu() end
 
   rectfill(0, 0, W, 16, C_BAR)               -- the tabs: each page with its key
   local tabs = { { "draw", "f1", "draw" }, { "sheet", "f2", "sheet" }, { "palette", "f3", "palette" },
-                 { "menu", "esc", "menu" } }
+                 { "stack", "f4", "stack" }, { "menu", "esc", "menu" } }
   local x = 4
   for _, t in ipairs(tabs) do
     local lx = snap(x + prompt(t[2]) + 3)
@@ -1830,15 +2136,19 @@ function _draw()
     print(t[3], lx, 0, t[1] == page and 0xFFFFFF or C_DIM)
     x = x + w + 20
   end
-  print("bm Pixel", snap(x + 4), 0, C_ACC)
   local name = (proj.path or "new sheet") .. (dirty and "*" or "")
+  if snap(x + 4) + 72 <= W - #name * 8 - 8 then print("bm Pixel", snap(x + 4), 0, C_ACC) end   -- (the file's name has the room first)
   print(name, W - #name * 8 - 8, 0, dirty and C_ACC or C_DIM)
 
   rectfill(0, STATUS_Y, W, H - STATUS_Y, C_BAR)
   local status
   if msg_t > 0 and msg then status = msg
   elseif page == "menu" then status = "up/down choose, Enter select"
-  else status = string.format("sprite %d  %s  colour %s", sprite_index(), tool, colour_name(colour())) end
+  else
+    local sn, sk, sc = stack_at()
+    status = string.format("%s  %s  colour %s", sn and string.format("stack %s %d/%d", sn, sk, sc) or ("sprite " .. sprite_index()),
+                           tool, colour_name(colour()))
+  end
   print(status:sub(1, 79), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
   if #status <= 62 then                  -- room on the right: F12 held for the keys
     chip_hint("f12", nil, "held: keys", 528, STATUS_Y)

@@ -31,13 +31,13 @@ Un gioco ha l'aspetto di ciò che c'è sul suo sheet. Con bm Pixel disegni sulla
 
 ## Da sapere
 
-- Le pagine sono tre: **F1** disegno, **F2** sheet, **F3** palette. **Esc** apre il menu.
+- Le pagine sono quattro: **F1** disegno, **F2** sheet, **F3** palette, **F4** stack. **Esc** apre il menu.
 - Tieni premuto **F12**, o premi **?**, per vedere i tasti della pagina. **Tab** (sul pad **X**) apre l'elenco dei comandi della pagina.
 - Con il mouse, il mouse fa ciò che fanno i tasti.
 
 ## Attenzione
 
-- bm Pixel modifica lo sheet e la palette. Non dà nomi alle zone, non disegna hitbox e non imposta i flag delle tile (vedi i capitoli dedicati).
+- bm Pixel modifica lo sheet e la palette. Crea solo zone stack (F4). Non dà nomi alle altre zone, non disegna hitbox e non imposta i flag delle tile (vedi i capitoli dedicati).
 
 # Aprire un file
 
@@ -91,6 +91,23 @@ Tutto lo sheet. Le frecce scelgono uno sprite (nella misura scelta), **Enter** l
 
 Tutti i colori, fino a 256, con i valori di rosso, verde e blu di quello scelto. Vedi il capitolo sulle palette.
 
+## F4: lo stack
+
+Una *zona stack* è una zona con *n* fette della stessa misura, una accanto all'altra sullo sheet, da sinistra a destra. La fetta 1 è la più bassa. Nella cartuccia è la riga `stack nome x y w h n`; un gioco la disegna con `zstack`. La pagina Stack mostra a sinistra una fetta, ingrandita. A destra mostra le zone stack, una fila di piccole immagini delle fette e lo stack intero che gira (`stack` con un angolo di rotazione). Lo stack legge lo sheet a ogni fotogramma: una modifica a una fetta si vede subito.
+
+| Tasto | Azione |
+|---|---|
+| sinistra / destra | la fetta prima / dopo |
+| su / giù | la zona stack prima / dopo |
+| PgUp / PgDn | 8 fette |
+| Enter | disegna la fetta in F1 (solo fette quadrate; **F4** torna qui) |
+| n | nuova zona: nome, x, y, w, h, n (per esempio `tree 0 0 16 16 8`) |
+| e | modifica la zona (la stessa riga; un nome nuovo crea una zona nuova) |
+| p | lo stack gira o si ferma |
+| , e . | gira lo stack a mano |
+
+Se non esiste nessuna zona stack, **n** crea la prima. La riga parte dallo sprite scelto in F1. **Ctrl+S** scrive le zone e il numero di fette (byte 26 della zona) insieme allo sheet. La riga della zona non ha l'annulla. Sul pad: sinistra / destra la fetta, su / giù la zona, **A** disegna la fetta, **B** gira o ferma, **X** + sinistra / destra gira a mano, **X** (tocco) l'elenco dei comandi.
+
 ## L'anteprima delle hitbox (j)
 
 Premi **j** in F1 o F2 per mostrare o nascondere i box della sezione `BOXES` del file. Il messaggio dice `hitboxes on (BOXES)` oppure `hitboxes off`. Vedi il capitolo sulle hitbox.
@@ -99,7 +116,7 @@ Premi **j** in F1 o F2 per mostrare o nascondere i box della sezione `BOXES` del
 
 | Tasti | Azione |
 |---|---|
-| Y + sinistra / destra | cambia pagina |
+| Y + sinistra / destra | cambia pagina (F4 è una pagina) |
 | Y + B | menu |
 | Y + A | annulla |
 | Y + su / giù | lo sprite prima / dopo |
