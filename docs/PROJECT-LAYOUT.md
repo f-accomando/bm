@@ -66,7 +66,6 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 |---|---|
 | `pong` | `bm.info` |
 | `yharnam` | `bm.info`; `sheet.png`, `map_*.csv` in `assets/`; `mk*.py`, `mapview.py`, `art/` in `build/` (they find `main.lua` and `assets/` from there) |
-| `stages3d` | `bm.info` in `bm/` (the `.bm` front); logic in `common/`, `assets/` shared, `build.py` joins an edition's sources; `b16/` has the RGB30 front and its own `bm.info` ([stages3d](progress/stages3d.md)) |
 | `hunt` | `bm.info`; `sheet.png`, `map.csv` moved to `assets/`; `mkassets.py` moved to `build/` (writes `assets/`) |
 | `snake`, `shooter`, `astrowing`, `typing`, `write` | `bm.info` (their `title_<id>` lines left the Makefile) |
 | `village` | `bm.info`; `models.bm` moved to `assets/` |
@@ -75,6 +74,9 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `overbit` | `bm.info`; `build.py`, `mkcover.py`, `reel.py` and `viewer.lua` in `build/`; `art/` stays at the top (generators and Meshy figures, like `yharnam`). The `.b16` rules keep `--title`/`--res` |
 | `code`, `assistant`, `editor` (bm SDK), `sound`, `animator`, `mesh`, `pixel` | `bm.info` used by their rule (`--info`); built into the kernel or installed on the SD as before |
 | `studio` | `bm.info`; `sheet.png` moved to `assets/` |
+| `bmweb`, `herocart` | `bm.info`; `src/` holds the modules and `build/` the build script |
+
+`stages3d` is not a project of this layout. It has one front per edition, and each front has its own `bm.info` (`bm/bm.info` and `b16/bm.info`). Logic is in `common/`, assets are shared, and `build.py` joins an edition's sources ([stages3d](progress/stages3d.md)). The tool does not list it.
 
 ## Files the console writes on the SD card
 
