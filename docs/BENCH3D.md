@@ -80,7 +80,8 @@ the Pi's numbers with the earlier drivers are the historical bars.
 - `gpu2d`: sprites and text over the 3D (bm3D 4.8; with GPU+2D in the GPU job, otherwise the ARM);
   `bilinear`: quads with filtered textures (bm3D 4.9, an option off by default);
 - `big`, `big_logic`: models of 10 080 triangles on a map of 14 112 (larger indexed meshes, bm3D 5.0), the second with the
-  logic of `queue`.
+  logic of `queue`;
+- the 2D scenes `map8`, `sprites`, `stack`, `fade`, `light` (see *The 2D scenes*): they run only when `tests=` names them.
 
 The maximum loads are far beyond what the drivers do today (up to 8000 spheres, 512
 heroes, 40 000 calls): they leave headroom for the drivers to come.
@@ -216,6 +217,38 @@ The line can also be typed in the menu: the `:` takes it to the monitor. From th
 writes until it says `the line is done`; in the easy_install monitor (6) paste `:gpu;
 b3d; send` and Enter. The console tells the PC where the keys go (the menu, which does not repeat them, or the
 monitor).
+
+## The 2D scenes
+
+Five tests measure 2D work, so a 2D change can be compared on the Pi Zero W. They are **opt-in**:
+the default run does not run them, and they are not in the score. Run them by name:
+
+```
+./easy_install.sh line "gpu; b3d tests=map8,sprites,stack,fade,light; send"
+```
+
+Each scene is fixed. The positions come from a hash of the item number and the frame number: no
+time, no random seed. The report has the usual fields (`ms`, `worst`, `instr`, `gpu_ms`,
+`clean_kcyc`, `inval_kcyc`) and a `P` line with `ns_px_frame`, the cost of one pixel of the
+frame. Compare the same test before and after a change, on the same console, ARM at 1000 MHz.
+
+| Test | Load `n` | Scene | Profiles |
+|---|---|---|---|
+| `map8` | layers, 1 to 8 | 8 layers of `map()` at 640x360, parallax scroll. Layers 0-2: every cell, opaque tiles. Layers 3-7: half the cells, tiles with holes (alpha). | ARM |
+| `sprites` | sprites, from 16 | 16x16 `sspr` with flip, half opaque and half with alpha. | ARM, GPU+2D |
+| `stack` | stacks, from 1 | `g16_stack`: stacks of 8 slices, three sizes, turning. A fixed pile. | ARM |
+| `fade` | lamps, from 1 | `g16_fade_glow` lamps and `g16_fade_apply` over the whole screen (the ARM path of `dark_end`). | ARM |
+| `light` | lamps, from 1 | `g16_light_add` lamps and `g16_light_apply` over the whole screen. | ARM |
+
+Every frame starts with `cls` of the 640x360 page. `fade` and `light` also draw 12 blocks of
+colour first, so the pass over the whole screen has a picture to work on. The cost of the `cls` is
+in every row, so compare rows of the same test only.
+
+Not developed here: `stackv` and the 3D particles. Their scenes wait for their code in `bm-core`.
+The hook is the comment at the top of the block "the 2D scenes" in `src/bm/b3d.c`.
+The test of the triangle count is a different work (`docs/design/triangle-throughput.md`).
+
+On the PC, `make test-b3d` runs them for a few frames and checks that the fields exist.
 
 ## On the PC
 
