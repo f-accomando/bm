@@ -1,6 +1,7 @@
 # The games and apps of the bm project in the Market: id: license | about (one
-# line, at most 120 characters). make market-seed puts them in the market's
-# repository with scripts/mkmarket.py --add.
+# line, at most 120 characters). One list for both folders: make market-seed
+# puts the games in games/ and the apps in apps/ of the market's repository
+# with scripts/mkmarket.py --add.
 pong: BM Community License 1.0 | You against the console, or two players with two controllers. First to 7 wins.
 snake: BM Community License 1.0 | Eat the apples, do not bite yourself or the walls. The snake speeds up as it grows.
 shooter: BM Community License 1.0 | Waves of alien ships and three lives. Hold A for auto fire, B for a burst of speed.
