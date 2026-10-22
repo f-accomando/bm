@@ -118,7 +118,7 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 - `btn(i,[p])`, `btnp(i,[p])`; `i` a number (0–3 dirs, 4 A, 5 B, 6 X, 7 Y:
   `docs/GAME-GUIDE.md:106-112`) or a name (`"a"`…`"r3"`, `"ok"`, `"back"`, a `keymap`
   action) (`docs/api/input.md:9-10`).
-- `keymap(t)`, `controller([p])`, `online([on,note])`, `players()`, `stick([p,n])`
+- `keymap(t)`, `controls([scheme])` (the player's remap, `docs/api/input.md`), `controller([p])`, `online([on,note])`, `players()`, `stick([p,n])`
   (`docs/api/input.md:11-15`); `mouse(on,[arrow])`, `mouse()`, `mousep([i])`
   (`docs/api/input.md:24-26`).
 - RGB30 rule: confirm/back via `"ok"`/`"back"`, never raw A/B (`CLAUDE.md`, *Invarianti*;
