@@ -199,6 +199,35 @@ def wait_screen(q, want, tries=80):
     raise AssertionError(f"want {want} on the screen:\n{text}")
 
 
+def press(q, k, want, tries=6, wait=6.0):
+    """Send the button `k` and wait until all the words of `want` are on the screen; send it again if they do not
+    come within `wait` seconds. The menu reads a serial key as held for PAD_SERIAL_MS (120 ms): a frame
+    longer than that, as under load, drops the press, and two presses of one key close together merge. So the test
+    waits for the state that the key makes, not for a fixed time. `want` must not be on the screen before the key.
+    Returns the text of the screen."""
+    text = ""
+    for _ in range(tries):
+        q.send(k)
+        end = time.time() + wait
+        while time.time() < end:
+            text = screen_all(q.screendump())
+            if all(w in text for w in want):
+                return text
+            time.sleep(0.25)
+    raise AssertionError(f"key {k!r}: {want} never came on the screen:\n{text}")
+
+
+def press_serial(q, k, needle, tries=6, wait=10.0):
+    """As press(), for a key whose effect is a line on the serial port; returns the serial text up to `needle`."""
+    for _ in range(tries):
+        q.send(k)
+        try:
+            return q.expect(needle, timeout=wait).decode(errors="replace")
+        except AssertionError:
+            pass
+    raise AssertionError(f"key {k!r}: {needle!r} never came on the serial port:\n" + q.buf.decode(errors="replace"))
+
+
 def walk_until(q, key, needle, limit=120.0):
     """Send `key` (one press every 0.2 s) until `needle` shows on the serial port; returns the serial text seen."""
     end = time.time() + limit
@@ -457,27 +486,26 @@ def test_update_from_sd(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
-        keys(q, "rrssss")                       # Settings: Controllers, Controls, WiFi, Screen, Updates
-        q.send("\r")
-        time.sleep(0.5)
-        keys(q, "s")                            # Check for updates
-        q.send("\r")
-        out = q.expect("can be installed", timeout=30).decode(errors="replace")
+        press(q, "r", ["3D Bench"])             # the Dev tab
+        press(q, "r", ["Controllers", "built in"])      # the Settings tab
+        press(q, "s", ["Which button does what"])       # Controls
+        press(q, "s", ["The link, the address"])        # WiFi
+        press(q, "s", ["Screen modes, performance"])    # Screen
+        press(q, "s", ["The latest bm from GitHub"])    # Updates
+        press(q, "\r", ["Settings > Updates"])
+        press(q, "s", ["The latest release on GitHub"])  # Check for updates
+        out = press_serial(q, "\r", "releases: ")      # the check starts (the line is printed before the list)
+        out += q.expect("can be installed", timeout=60).decode(errors="replace")
         for want in ("releases: sd:/release/", "v9.9.9", "commit abc1234, signed: good"):
             assert want in out, out
         # a build of the sources, or a later commit than a tag (git describe)
         assert "newer than this kernel" in out or "a build of the sources" in out, out
         lines = {l.split()[0]: l for l in out.splitlines() if l.strip().startswith("/")}
         assert lines["/kernel8.img"].endswith("changed") and lines["/bm/ca.pem"].endswith("changed"), lines
-        time.sleep(0.8)                         # the panel stayed: Install the update under Check
-        keys(q, "s")
-        text = screen_all(q.screendump())
-        assert "Install the update" in text and "v9.9.9" in text, text
-        q.send("\r")                           # the question
-        time.sleep(0.5)
-        assert "Install bm v9.9.9?" in screen_all(q.screendump())
-        q.send("\r")                           # confirm: install
-        out = q.expect("Restarting in 1", timeout=60).decode(errors="replace")
+        press(q, "s", ["Install the update", "v9.9.9", "Keeps the old kernels"])   # the panel stayed
+        press(q, "\r", ["Install bm v9.9.9?"])   # the question
+        out = press_serial(q, "\r", "installing v9.9.9")   # confirm: install
+        out += q.expect("Restarting in 1", timeout=120).decode(errors="replace")
         assert "Restarting in 3" in out, out    # counted down
         dump = os.path.join(tmp, "after.img")
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
