@@ -54,6 +54,9 @@ int release_verify(const uint8_t *manifest, size_t len, const uint8_t *sig, size
 /* Reads a manifest (checked first with release_verify). 0, or -1 with err. */
 int release_parse(const uint8_t *manifest, size_t len, release_t *r, char *err, size_t err_len);
 /* 0 if data is the file the manifest describes (size and SHA-256). */
+/* Called between the pieces of a file's hash (the kernel sets fiber_slice: a big file gives the
+ * CPU back; NULL: the hash runs through). */
+extern void (*release_hash_tick)(void);
 int release_check_file(const release_file_t *f, const uint8_t *data, size_t len);
 
 #endif

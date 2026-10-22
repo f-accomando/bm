@@ -206,11 +206,12 @@ end
       for y = 0, base + 4 do mset(127, y, 2) end
     end,
     code = [==[
--- platform: arrows run, A (space) jumps, down drops through a plank.
+-- platform: arrows run, act1 jumps, down drops through a plank.
 -- Sprite 1 is the hero; what stops it are the flags of the tiles (F3,
 -- keys 0-7): 2 the ground has flag 0 (solid), 6 the planks flag 1
 -- (platform: from above only). bmlib does the rest.
 local lib = require "bmlib"
+lib.input()
 local hero = { x = 64, y = 40, w = 8, h = 8 }
 local cam = lib.camera({ bounds = { 0, 0, 128 * 8, SCREEN_H } })
 
@@ -219,7 +220,7 @@ function _update()
   if btn(0) then hero.vx = -2 end
   if btn(1) then hero.vx = 2 end
   hero.drop = btn(3)                     -- down: through the planks
-  if hero.ground and btnp(4) then hero.vy = -5 end
+  if hero.ground and btnp("act1") then hero.vy = -5 end
   lib.step(hero)                         -- gravity and the map: hero.ground
   if hero.y > SCREEN_H + 64 then         -- fell: again
     hero.x, hero.y, hero.vy = 64, 40, 0
@@ -233,7 +234,8 @@ function _draw()
   cam:map()
   spr(1, hero.x, hero.y)
   camera()
-  print("arrows: run   A: jump   down: drop", 8, 8, 0xFFFFFF)
+  local x = prompt("act1", 8, 8, true)
+  print(" jump   arrows: run   down: drop", x + 4, 8, 0xFFFFFF)
 end
 ]==] },
   { id = "topdown", name = "Top-down 2D", desc = "walk among walls and pick up the coins",
@@ -250,9 +252,10 @@ end
       end
     end,
     code = [==[
--- top-down: arrows walk, pick up the coins; walls and coins: the map.
+-- top-down: the arrows walk, pick up the coins; walls and coins: the map.
 -- Sprite 1 is the hero, 3 a coin, 4 a wall (flag 0: solid, F3 key 0)
 local lib = require "bmlib"
+lib.input()
 local hero = { x = 40, y = 48, w = 8, h = 8 }
 local score = 0
 
@@ -281,9 +284,10 @@ end
   { id = "shooter", name = "Shooter 2D", desc = "fly, fire, waves of enemies, game over",
     paint = function() paint(1, ART.ship); paint(5, ART.foe) end,
     code = [==[
--- shooter: arrows fly, A (space) fires; the enemies come from the right.
+-- shooter: arrows fly, act1 fires; the enemies come from the right.
 -- Sprite 1 is the ship, 5 an enemy
 local lib = require "bmlib"
+lib.input()
 local ship = { x = 40, y = SCREEN_H // 2 }
 local shots, foes, t, score, over = {}, {}, 0, 0, false
 local fx = lib.particles(200)
@@ -296,7 +300,7 @@ end
 function _update()
   fx:update()
   if over then
-    if btnp(4) then restart() end
+    if btnp("act1") then restart() end
     return
   end
   t = t + 1
@@ -304,7 +308,7 @@ function _update()
   if btn(1) then ship.x = math.min(SCREEN_W // 2, ship.x + 3) end
   if btn(2) then ship.y = math.max(16, ship.y - 3) end
   if btn(3) then ship.y = math.min(SCREEN_H - 16, ship.y + 3) end
-  if btnp(4) then shots[#shots + 1] = { x = ship.x + 8, y = ship.y + 3, w = 4, h = 2 } end
+  if btnp("act1") then shots[#shots + 1] = { x = ship.x + 8, y = ship.y + 3, w = 4, h = 2 } end
   if t % 40 == 0 then
     foes[#foes + 1] = { x = SCREEN_W, y = math.random(16, SCREEN_H - 24), s = math.random(2, 4) }
   end
@@ -348,10 +352,11 @@ end
   { id = "versus", name = "Versus 2D", desc = "two players on one console: punches with hitboxes",
     code = [==[
 -- versus: two fighters on one console, each with a controller; alone,
--- the computer plays the second. Left/right walk, A punches, B jumps.
+-- the computer plays the second. Left/right walk, act2 punches, act1 jumps.
 -- The punches are hitboxes and the bodies hurtboxes (lib.hits): a punch
 -- hits once, the one hit flashes and is pushed back.
 local lib = require "bmlib"
+lib.input()
 local FLOOR = SCREEN_H - 64
 local party = lib.party({ min = 1, max = 2 })
 local hits = lib.hits()
@@ -368,7 +373,7 @@ local function controls(f, o)
     local d = o.x - f.x
     return d < -20, d > 20, math.abs(d) < 30 and lib.chance(0.06), lib.chance(0.01)
   end
-  return btn("left", f.pad), btn("right", f.pad), btnp("a", f.pad), btnp("b", f.pad)
+  return btn("left", f.pad), btn("right", f.pad), btnp("act2", f.pad), btnp("act1", f.pad)
 end
 
 local function play(f, o)
@@ -452,6 +457,7 @@ end
 -- "relay" option of net.open (tools/overbit_relay.py).
 local net = require "bmnet"
 local lib = require "bmlib"
+lib.input()
 local sel, msg, squares, rng = 1, "", {}, nil
 
 function _init()
@@ -528,7 +534,9 @@ end
 ]==] },
   { id = "scene3d", name = "3D scene", desc = "floor, cubes, a ball with its shadow, a camera that follows",
     code = [==[
--- 3D scene: arrows move the ball, A (space) jumps, the camera follows
+-- 3D scene: arrows move the ball, act1 jumps, the camera follows
+local lib = require "bmlib"
+lib.input()
 local floor, cube, ball
 local bx, by, bz, vy, t = 0, 0.5, 0, 0, 0
 local boxes = { { -3, 2 }, { 2, 4 }, { 4, -2 }, { -4, -3 } }
@@ -546,7 +554,7 @@ function _update()
   if btn(1) then bx = bx + 0.1 end
   if btn(2) then bz = bz + 0.1 end
   if btn(3) then bz = bz - 0.1 end
-  if btnp(4) and by <= 0.5 then vy = 0.18 end
+  if btnp("act1") and by <= 0.5 then vy = 0.18 end
   vy = vy - 0.01
   by = math.max(0.5, by + vy)
 end
@@ -563,7 +571,8 @@ function _draw()
   end
   draw3d(ball, bx, by, bz, 0, 0, 0, 1, 8) -- flag 8: its shadow
   draw3d(ball, bx, by, bz)
-  print("arrows: move   A: jump   " .. stat(4) .. " triangles", 8, 8)
+  local x = prompt("act1", 8, 8, true)
+  print(" jump   arrows: move   " .. stat(4) .. " triangles", x + 4, 8)
 end
 ]==] },
   { id = "models3d", name = "3D with models", desc = "the models of bm Studio, animated (bm Animator)",

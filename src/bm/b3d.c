@@ -1112,6 +1112,8 @@ float b3d_slope(const float *x, const float *y, int count, float *at0)
     return (float)b;
 }
 
+static char qpu_line[256];              /* the QPU row (bm3d 7.x); empty without the key */
+
 /* the user stopped the run (P->stop): the ramps end, nothing is saved */
 static int halted;
 
@@ -1564,6 +1566,8 @@ static void report(void)
                 f2(v[1], r->ns_ms), f2(v[2], r->gpu0_ms), v[3], v[4], v[5], v[6], v[7], v[8]);
         }
     }
+    if (qpu_line[0])
+        put("qpu row (gpu3d_qpu=1): %s\n", qpu_line);
     /* the score (its S lines read by the next run) and the triangles at 60 fps */
     int sc[NDRV], nt[NDRV];
     for (int d = 0; d < NDRV; d++)
@@ -2088,6 +2092,12 @@ int b3d_run(const b3d_platform_t *plat)
     R.backend = NULL;
     meshes_free();
     r3d_free(&R);
+    qpu_line[0] = 0;
+    if (P->qpu_row && !stopping()) {    /* the QPU row: gpu3d_qpu=1 only */
+        P->qpu_row(qpu_line, sizeof qpu_line);
+        if (P->log && qpu_line[0])
+            P->log(qpu_line);
+    }
     if (stopping()) {                   /* stopped (or the key came with the last frame): no report */
         if (P->log)
             P->log("b3d stopped by the user: no report");

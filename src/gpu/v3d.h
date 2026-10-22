@@ -87,7 +87,8 @@ int v3d_uncached(void *p, uint32_t size, int on);
  * run: the bus address of its code, of its uniforms and their count.
  * v3d_qpu_run starts the n jobs (n <= V3D_QPU_MAX), reserves part of the
  * VPM for them while they run, and waits at most timeout_us for all of them
- * to end. It fails (-1) with a 3D job running, without V3D, or on a timeout
+ * to end. It returns -2 with a 3D job running (nothing started, no harm
+ * done: the caller tries again later). It fails (-1) without V3D, or on a timeout
  * or a queue error (the V3D's QPUs are then reset; v3d_qpu_status says why).
  * The data cache is cleaned before and invalidated after: what the programs
  * write reaches ARM memory only through the VPM's DMA store. */
