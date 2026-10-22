@@ -524,7 +524,7 @@ evidence = "carts/sound/main.lua; carts/sdk_b16/main.lua"
 action = "none: the screen and the pad set the limit; Lib of sprites and maps is a separate system WO"
 
 [[divergence]]
-id = "D48"
+id = "D49"
 area = "menu OK and Cancel remap (Settings > Controls)"
 pi = "menus keep A (OK) and B (back); the Pause and menus panel hides the OK and Cancel rows"
 rgb30 = "mo and mc of controls= set the menus' OK and Cancel (a, b, x or y); default B and Y"

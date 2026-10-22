@@ -1096,6 +1096,7 @@ function lib.input(over)
   local c = controller and controller()
   local other = (c and c.ok == "a") and "b" or "a"
   local scheme = over and over.scheme or "scroller"
+  if scheme ~= "stick" and scheme ~= "topdown" then scheme = "scroller" end -- a typo keeps the old default
   if scheme == "stick" then
     t.act1, t.act2, t.act3, t.act4 = "r2", "l2", "l1", "r1"
     t.act5, t.act6, t.act7, t.act8 = "ok", other, "y", "x"

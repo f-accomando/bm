@@ -64,6 +64,7 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
   `lib.input` with the schemes scroller, topdown and stick): the library, the docs, the kb and the
   templates are merged. Open: migrate the existing games one by one (list: `python scripts/input_inventory.py --games`);
   open decisions in the standard, section 7. Keys decided 19 Oct: menus B ok / Y cancel; keyboard Enter = ok, Esc = back and pause.
+- Controls (Settings > Controls > Pause and menus): the Cancel row shows "Default (Y)" when `mc` is unset, but `pad_config` (`src/rgb30/pad.c`) falls back to A when OK is Y, or when `mc` equals `mo`. Open: show the real fallback button and warn when `mo` equals `mc`.
 - **CONTROLS-1** (planned, deferred to the next session): bindings mappable through an API
   from the menu Controls; three default schemes per game (pad, stick, 2D scroller / top-down)
   as written in the CONTROLS-1 work order on the sync branch.

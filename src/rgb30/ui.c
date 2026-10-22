@@ -1271,7 +1271,7 @@ void ui_home(framebuffer_t *f)
             int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
             if (dy && gpb.n)
                 gopt_sel = (gopt_sel + dy + gpb.n) % gpb.n;
-            if (p & (pad_back | PAD_X)) {
+            if ((p & pad_back) || ((p & PAD_X) && pad_ok != PAD_X)) {
                 gsend = 0;
                 gopt_sel = 0;
             } else if ((p & pad_ok) && gpb.n && gpb.rows[gopt_sel].kind != MENU_ROW_INFO) {
@@ -1290,7 +1290,7 @@ void ui_home(framebuffer_t *f)
             int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
             if (dy && gpb.n)
                 gopt_sel = (gopt_sel + dy + gpb.n) % gpb.n;
-            if (p & (pad_back | PAD_X)) {
+            if ((p & pad_back) || ((p & PAD_X) && pad_ok != PAD_X)) {
                 gopt = -1;
             } else if ((p & pad_ok) && gpb.n && gpb.rows[gopt_sel].kind != MENU_ROW_INFO) {
                 const int row = gpb.ids[gopt_sel], g = gopt;
