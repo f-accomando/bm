@@ -6693,8 +6693,9 @@ static int l_picture3d(lua_State *L)
  * sheet=, palette=]}) -> true, or false and a message. Changes only the
  * code (and the fields given) of the cartridge: its sheet, map, cover, sound
  * bank and any other section stay as they are. lua absent: the code stays
- * too. sections: {[8] = MESH bytes, [9] = ANIM bytes} (false takes them
- * away), checked first (bm Mesh, the 3D tools). sheet = true: the project's
+ * too. sections: {[8] = MESH bytes, [9] = ANIM bytes, [11] = SPRITES bytes}
+ * (false takes them away), checked first (bm Mesh, the 3D tools, bm Pixel's
+ * Stack page). sheet = true: the project's
  * sprite sheet (cart_load, sset, cart_sheet) takes the place of the file's,
  * as SHEET8 with `palette` ({0xRRGGBB, ...}) first in its palette when it
  * has at most 256 colours (sheet_section; bm Pixel). from: take the
@@ -6712,20 +6713,20 @@ static int l_cart_write(lua_State *L)
     lua_getfield(L, 2, "lua");
     size_t lua_len = 0;
     const char *lua = lua_isnil(L, -1) ? NULL : luaL_checklstring(L, -1, &lua_len);
-    bm_put_t put[4];
+    bm_put_t put[5];
     int nput = 0;
     lua_getfield(L, 2, "sections");
     if (!lua_isnil(L, -1)) {
         luaL_checktype(L, -1, LUA_TTABLE);
-        static const uint32_t kinds[2] = { BM_SEC_MESH, BM_SEC_ANIM };
+        static const uint32_t kinds[3] = { BM_SEC_MESH, BM_SEC_ANIM, BM_SEC_SPRITES };
         lua_pushnil(L);
         while (lua_next(L, -2)) {
             lua_Integer t = lua_isinteger(L, -2) ? lua_tointeger(L, -2) : -1;
-            if (t != BM_SEC_MESH && t != BM_SEC_ANIM)
-                return luaL_error(L, "sections: only 8 (MESH) and 9 (ANIM)");
+            if (t != BM_SEC_MESH && t != BM_SEC_ANIM && t != BM_SEC_SPRITES)
+                return luaL_error(L, "sections: only 8 (MESH), 9 (ANIM) and 11 (SPRITES)");
             lua_pop(L, 1);
         }
-        for (int k = 0; k < 2; k++) {
+        for (int k = 0; k < 3; k++) {
             lua_rawgeti(L, -1, kinds[k]);
             if (lua_isnil(L, -1)) {
                 lua_pop(L, 1);
@@ -6734,9 +6735,11 @@ static int l_cart_write(lua_State *L)
             size_t n = 0;
             const uint8_t *s = lua_toboolean(L, -1) ? (const uint8_t *)luaL_checklstring(L, -1, &n) : NULL;
             if (s && (n > 0x1000000 || (kinds[k] == BM_SEC_MESH ? bm_mesh_check(s, (uint32_t)n)
-                                                                 : bm_anim_check(s, (uint32_t)n)) < 0)) {
+                                        : kinds[k] == BM_SEC_SPRITES ? bm_sprites_check(s, (uint32_t)n)
+                                                                     : bm_anim_check(s, (uint32_t)n)) < 0)) {
                 lua_pushboolean(L, 0);
-                lua_pushstring(L, kinds[k] == BM_SEC_MESH ? "broken MESH section" : "broken ANIM section");
+                lua_pushstring(L, kinds[k] == BM_SEC_MESH ? "broken MESH section"
+                                  : kinds[k] == BM_SEC_SPRITES ? "broken SPRITES section" : "broken ANIM section");
                 return 2;
             }
             put[nput++] = (bm_put_t){ kinds[k], s, (uint32_t)n };

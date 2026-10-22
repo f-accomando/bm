@@ -32,5 +32,6 @@ size_t klog_captured(void);
  * none): the last lines kept for after a crash (src/kernel/crumbs.c). */
 void klog_set_ring(void (*ring)(char c));
 int klog_ring_is(void (*ring)(char c));
+void *klog_ring_get(void);          /* the ring sink as set, NULL if none */
 
 #endif
