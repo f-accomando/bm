@@ -1,8 +1,10 @@
 /* web_get for cartridges: see webget.h. */
 #include "webget.h"
 
+#include "webfile.h"
 #include "webpolicy.h"
 #include "drivers/timer.h"
+#include "fs/fat.h"
 #include "kernel/fiber.h"
 #include "net/http.h"
 #include "net/net.h"
@@ -13,6 +15,10 @@
 
 #define WEB_STACK       (128u * 1024u)  /* as the Market's fibers: TLS needs the room */
 #define WEB_SLICE_US    4000u
+#define PUMP_US         3000u           /* a queued file_write gets this much of each web_poll */
+#define PART_HEAD       1280u           /* the part file: this header, then the bytes */
+#define PART_STEP       (1u << 20)      /* saved about every 1 MiB */
+#define PART_MIN        16384u          /* less than this is not worth a file */
 
 static web_req_t slots[WEB_SLOTS];
 static int next_id;
@@ -47,6 +53,127 @@ static int sink(void *ctx, const uint8_t *d, size_t n)
     memcpy(b + r->size, d, n);
     r->size += n;
     b[r->size] = 0;
+    if (r->can_resume && r->size - r->persisted >= PART_STEP)
+        r->snap_due = 1;
+    return 0;
+}
+
+/* ---- the part file (stage 5): "BMPART1\n<total>\n<validator>\n<url hash>\n", zeros to PART_HEAD, bytes ---- */
+
+static uint32_t hash_url(const char *s)
+{
+    uint32_t x = 2166136261u;
+    for (; *s; s++)
+        x = (x ^ (uint8_t)*s) * 16777619u;
+    return x;
+}
+
+static void part_path(const web_req_t *r, char *p, size_t n)
+{
+    snprintf(p, n, "%s/%s", WEB_FILES_DIR, r->part);
+}
+
+/* in the fiber, before the request: the bytes of an earlier try become the start of the body */
+static void part_load(web_req_t *r)
+{
+    char path[32];
+    part_path(r, path, sizeof path);
+    fat_entry_t e;
+    if (fat_find(path, &e) || e.is_dir || e.size <= PART_HEAD || e.size - PART_HEAD > r->max)
+        return;
+    uint8_t *d = NULL;
+    size_t n = 0;
+    int (*was)(void) = fat_load_tick;
+    fat_load_tick = fiber_slice_tick;               /* the frame goes on while the card is read */
+    const int rc = fat_load(&e, &d, &n);
+    fat_load_tick = was;
+    if (rc || n <= PART_HEAD || !d)
+        return free(d);
+    char *h = (char *)d;
+    char *end;
+    int ok = memchr(d, 0, PART_HEAD) != NULL && strncmp(h, "BMPART1\n", 8) == 0;
+    long long total = ok ? strtoll(h + 8, &end, 10) : 0;
+    char *val = ok && *end == '\n' ? end + 1 : NULL;
+    char *nl = val ? strchr(val, '\n') : NULL;
+    ok = ok && nl && (size_t)(nl - val) < sizeof r->validator && total > (long long)(n - PART_HEAD) &&
+         strtoul(nl + 1, NULL, 16) == r->url_hash;
+    if (!ok) {
+        free(d);
+        return;
+    }
+    *nl = 0;
+    snprintf(r->validator, sizeof r->validator, "%s", val);
+    r->total = total;
+    memmove(d, d + PART_HEAD, n - PART_HEAD);
+    r->size = n - PART_HEAD;
+    uint8_t *b = realloc(d, r->size + 1);
+    r->body = b ? b : d;
+    r->body[r->size] = 0;
+    r->resumed = r->persisted = r->size;
+    r->resume_from = (long long)r->size;
+}
+
+/* from web_poll or web_cancel (not in the fiber): what came so far, queued to be written */
+static void part_snapshot(web_req_t *r)
+{
+    if (!r->part[0] || !r->can_resume || r->total <= 0 || !r->body || r->size < PART_MIN || r->size <= r->persisted ||
+        (long long)r->size >= r->total)
+        return;
+    uint8_t *b = calloc(1, PART_HEAD + r->size);
+    if (!b)
+        return;
+    snprintf((char *)b, PART_HEAD, "BMPART1\n%lld\n%s\n%08lx\n", r->total, r->validator, (unsigned long)r->url_hash);
+    memcpy(b + PART_HEAD, r->body, r->size);
+    char err[96];
+    if (webfile_queue_own(r->part, b, PART_HEAD + r->size, (size_t)-1, err, sizeof err) == 0)
+        r->persisted = r->size;
+}
+
+static void part_forget(web_req_t *r)
+{
+    char path[32];
+    part_path(r, path, sizeof path);
+    webfile_forget(r->part);
+    fat_entry_t e;
+    if (fat_find(path, &e) == 0 && !e.is_dir)
+        fat_delete(path);
+    r->persisted = 0;
+}
+
+/* the request is over (not running any more): the part file is deleted, or saved for later */
+static void part_finish(web_req_t *r)
+{
+    if (!r->part[0])
+        return;
+    if (r->state == WEB_DONE && r->status >= 200 && r->status < 300)
+        part_forget(r);
+    else if (r->state != WEB_DONE)
+        part_snapshot(r);
+}
+
+/* after the headers of the final answer: is it the rest we asked for? */
+static int on_headers(void *ctx, const http_info_t *i)
+{
+    web_req_t *r = ctx;
+    const int ok2xx = i->status >= 200 && i->status < 300;
+    r->can_resume = 0;
+    if (r->part[0] && ok2xx) {
+        r->total = i->status == 206 ? i->range_total : i->length;
+        snprintf(r->validator, sizeof r->validator, "%s", i->validator);
+        r->can_resume = (i->ranges || i->status == 206) && r->total > 0;
+    }
+    if (r->resume_from <= 0)
+        return 0;
+    if (i->status == 206 && i->range_start == r->resume_from)
+        return 0;                       /* the rest: appended to the bytes we have */
+    if (i->status == 416 || i->status == 206) {
+        r->restart = 1;                 /* not what we asked: again from the start */
+        return 1;
+    }
+    free(r->body);                      /* 200 (the file changed, or no Range) or an error: its own body */
+    r->body = NULL;
+    r->size = r->resumed = r->persisted = 0;
+    r->resume_from = 0;
     return 0;
 }
 
@@ -84,7 +211,25 @@ static void run(void *arg)
     q.before = before;
     q.before_ctx = r;
     q.timeout_ms = r->timeout_ms;
-    const int st = http_request(r->url, &q, sink, r, &info);
+    q.keep_alive = 1;
+    q.on_headers = on_headers;
+    q.on_headers_ctx = r;
+    if (r->part[0])
+        part_load(r);
+    int st;
+    for (int attempt = 0;; attempt++) {
+        q.range_from = r->resume_from;
+        q.if_range = r->validator[0] ? r->validator : NULL;
+        st = http_request(r->url, &q, sink, r, &info);
+        if (!r->restart || attempt)
+            break;
+        free(r->body);                  /* the range was refused: forget the part, ask for the whole */
+        r->body = NULL;
+        r->size = r->resumed = r->persisted = 0;
+        r->resume_from = 0;
+        r->restart = 0;
+        r->validator[0] = 0;
+    }
     snprintf(r->url, sizeof r->url, "%s", info.url);
     snprintf(r->type, sizeof r->type, "%s", info.type);
     snprintf(r->location, sizeof r->location, "%s", info.location);
@@ -119,7 +264,19 @@ static void end_fiber(void)
 
 int web_start(const char *url, size_t max, uint32_t timeout_ms, char *err, size_t en)
 {
-    char host[128];
+    return web_start_resume(url, max, timeout_ms, NULL, err, en);
+}
+
+int web_start_resume(const char *url, size_t max, uint32_t timeout_ms, const char *stem, char *err, size_t en)
+{
+    char host[128], part[13] = "";
+    if (stem) {
+        char name[13];
+        if (web_file_name(stem, name, err, en))
+            return -1;
+        const char *dot = strchr(name, '.');
+        snprintf(part, sizeof part, "%.*s.PRT", (int)(dot ? (size_t)(dot - name) : strlen(name)), name);
+    }
     if (web_url_check(url, host, sizeof host, err, en))
         return -1;
     if (fiber_current()) {
@@ -148,6 +305,9 @@ int web_start(const char *url, size_t max, uint32_t timeout_ms, char *err, size_
     r->max = max;
     r->length = -1;
     r->timeout_ms = timeout_ms;
+    r->total = -1;
+    snprintf(r->part, sizeof r->part, "%s", part);
+    r->url_hash = hash_url(url);
     snprintf(r->url, sizeof r->url, "%s", url);
     running = r;
     fiber_prepare(&fib, fib_stack, WEB_STACK, run, r);
@@ -156,6 +316,8 @@ int web_start(const char *url, size_t max, uint32_t timeout_ms, char *err, size_
 
 web_state_t web_poll(int id)
 {
+    if (webfile_busy())
+        webfile_pump(PUMP_US);              /* a queued file_write goes on while the cartridge polls */
     web_req_t *r = slot_of(id);
     if (!r)
         return WEB_FREE;
@@ -171,6 +333,10 @@ web_state_t web_poll(int id)
                 snprintf(r->error, sizeof r->error, "cancelled");
                 r->state = WEB_ERROR;
             }
+            part_finish(r);
+        } else if (r->snap_due) {
+            r->snap_due = 0;
+            part_snapshot(r);
         }
     }
     return r->state;
@@ -186,6 +352,9 @@ void web_cancel(int id)
         while (fiber_run(&fib, 0))
             ;
         end_fiber();
+        if (r->state == WEB_WAIT || r->state == WEB_BUSY)
+            r->state = WEB_ERROR;
+        part_finish(r);
     }
     free_slot(r);
 }
@@ -195,4 +364,6 @@ void web_reset(void)
     for (int i = 0; i < WEB_SLOTS; i++)
         if (slots[i].id)
             web_cancel(slots[i].id);
+    webfile_reset();                    /* the part files and the queued file_write calls reach the card */
+    http_idle_close();
 }

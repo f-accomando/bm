@@ -68,6 +68,14 @@ All of it needs the RGB30 (not verified on hardware). The user runs these; nothi
 4. If all three run: `mali3d` default decision (divergence D45 in `docs/spec/divergences.toml`) and a bm3D version with a row in `docs/DRIVERS.md`.
 5. A shader for textured triangles is not started: textures and effects stay on the ARM (`colour_only`).
 
+Alignment with the V3D driver (API-5). Do the steps in this order. Test each step on the RGB30 through the bridge (`--dev rgb30`).
+1. The user's triangle run (H1) and the 3D Bench run (H6), with the bridge.
+2. Textures and lit faces: remove `colour_only`.
+3. The vertex-shader mesh path (`BM_VS3`).
+4. The draw queue.
+5. The cel shader.
+6. The 3D Bench scenes (heroes, herotris) and the ARM, GPU and GPU+VS columns.
+
 ## Rules (do not break)
 - `mali3d` is off by default. With the key off, or after any Mali failure, `gpu3d_*` goes to the ARM (`gpu3d_init` reads the key on every init).
 - The Mali draws flat colours only. `r3d` hands textures and effects to the ARM (`colour_only`).

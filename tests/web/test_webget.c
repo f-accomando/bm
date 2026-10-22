@@ -13,8 +13,12 @@
 #include "kernel/fiber.h"
 #include "net/http.h"
 #include "net/net.h"
+#include "webfile.h"
+#include "fs/fat.h"
+#include "fs/sdlock.h"
 
 #include <poll.h>
+#include <strings.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,7 +49,9 @@ uint32_t timer_ticks(void)
 }
 
 static fiber_t *cur;
-static ucontext_t uc_f, uc_m;
+
+/* each fiber has its own two contexts (the web request and the file writer live together) */
+typedef struct { ucontext_t ctx, back; } uc_pair;
 
 static void tramp(void)
 {
@@ -61,24 +67,35 @@ void fiber_prepare(fiber_t *f, void *stack, size_t size, void (*fn)(void *), voi
     f->size = size;
     f->fn = fn;
     f->arg = arg;
-    getcontext(&uc_f);
-    uc_f.uc_stack.ss_sp = stack;
-    uc_f.uc_stack.ss_size = size;
-    uc_f.uc_link = &uc_m;
-    makecontext(&uc_f, tramp, 0);
+    uc_pair *u = calloc(1, sizeof *u);
+    f->sp = (uint32_t *)u;
+    getcontext(&u->ctx);
+    u->ctx.uc_stack.ss_sp = stack;
+    u->ctx.uc_stack.ss_size = size;
+    u->ctx.uc_link = &u->back;
+    makecontext(&u->ctx, tramp, 0);
 }
 
 int fiber_resume(fiber_t *f)
 {
     if (f->done)
         return 0;
+    uc_pair *u = (uc_pair *)f->sp;
     cur = f;
-    swapcontext(&uc_m, &uc_f);
+    swapcontext(&u->back, &u->ctx);
     cur = NULL;
+    if (f->done) {
+        free(u);
+        f->sp = NULL;
+    }
     return !f->done;
 }
 
-void fiber_yield(void) { swapcontext(&uc_f, &uc_m); }
+void fiber_yield(void)
+{
+    uc_pair *u = (uc_pair *)cur->sp;
+    swapcontext(&u->ctx, &u->back);
+}
 fiber_t *fiber_current(void) { return cur; }
 void fiber_cancel(fiber_t *f) { f->cancel = 1; }
 int fiber_cancelled(void) { return cur && cur->cancel; }
@@ -86,6 +103,16 @@ int fiber_run(fiber_t *f, uint32_t until)
 {
     f->until = until;
     return fiber_resume(f);
+}
+void fiber_slice(void)
+{
+    if (cur && (int32_t)(timer_ticks() - cur->until) >= 0)
+        fiber_yield();
+}
+int fiber_slice_tick(void)
+{
+    fiber_slice();
+    return 0;
 }
 
 int net_wait_step(void)
@@ -334,10 +361,12 @@ static void test_web(void)
 
     /* the pause of 1 s per host */
     web_gap_reset();
+    const uint32_t gap0 = timer_ticks();
     fetch("/hello", 1 << 20, &r);
     fetch("/hello", 1 << 20, &r);
-    CHECK(r.state == WEB_DONE && r.saw_wait && r.took_ms >= 900 && r.took_ms < 3000,
-          "second request to the same host waits: %u ms, state wait seen", r.took_ms);
+    const uint32_t gap_ms = (timer_ticks() - gap0) / 1000;
+    CHECK(r.state == WEB_DONE && r.saw_wait && gap_ms >= 950 && gap_ms < 3000,
+          "second request to the same host waits: %u ms for the two, state wait seen", gap_ms);
 
     /* a redirect to the same host also waits */
     web_gap_reset();
@@ -445,6 +474,318 @@ static void test_image(const char *dir)
     CHECK(webimg_decode((const uint8_t *)"", 0, 0, 0, &im, err, sizeof err) != 0, "empty is refused");
 }
 
+
+/* ---- the SD card: files in memory; every 32 KiB piece takes 1 ms and calls fat_write_tick ---- */
+
+#define MAXF 16
+static struct { char path[48]; uint8_t *d; size_t n; int dir; } files[MAXF];
+int (*fat_write_tick)(void);
+int (*fat_load_tick)(void);
+size_t fat_write_done;
+static const char *ferr = "";
+
+const char *fat_error(void) { return ferr; }
+
+static int ff(const char *path)
+{
+    for (int i = 0; i < MAXF; i++)
+        if (files[i].path[0] && strcasecmp(files[i].path, path) == 0)
+            return i;
+    return -1;
+}
+
+static int fnew(const char *path)
+{
+    for (int i = 0; i < MAXF; i++)
+        if (!files[i].path[0]) {
+            snprintf(files[i].path, sizeof files[i].path, "%s", path);
+            for (char *c = files[i].path; *c; c++)
+                if (*c >= 'a' && *c <= 'z')
+                    *c = (char)(*c - 32);
+            return i;
+        }
+    return -1;
+}
+
+int fat_find(const char *path, fat_entry_t *e)
+{
+    const int i = ff(path);
+    if (i < 0) {
+        ferr = "not found";
+        return -1;
+    }
+    memset(e, 0, sizeof *e);
+    snprintf(e->name, sizeof e->name, "%s", files[i].path);
+    e->size = (uint32_t)files[i].n;
+    e->is_dir = files[i].dir;
+    e->cluster = (uint32_t)i + 1;
+    return 0;
+}
+
+int fat_opendir(fat_dir_t *d, const char *path)
+{
+    d->cluster = 1;
+    d->index = 0;
+    return ff(path) >= 0 ? 0 : -1;
+}
+
+int fat_readdir(fat_dir_t *d, fat_entry_t *e)
+{
+    while (d->index < MAXF) {
+        const int i = (int)d->index++;
+        if (files[i].path[0] && strncmp(files[i].path, "/BM/WEB/", 8) == 0) {
+            fat_find(files[i].path, e);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
+{
+    const int i = (int)e->cluster - 1;
+    *data = malloc(files[i].n + 1);
+    memcpy(*data, files[i].d, files[i].n);
+    *len = files[i].n;
+    return 0;
+}
+
+int fat_mkdirs(const char *path)
+{
+    if (ff(path) < 0) {
+        const int i = fnew(path);
+        if (i >= 0)
+            files[i].dir = 1;
+    }
+    return 0;
+}
+
+static int store_file(const char *path, const void *data, size_t len)
+{
+    uint8_t *copy = malloc(len + 1);
+    memcpy(copy, data, len);
+    fat_write_done = 0;
+    for (size_t at = 0; at < len; at += 32768) {
+        usleep(1000);
+        fat_write_done = at + 32768 < len ? at + 32768 : len;
+        if (fat_write_tick && fat_write_tick()) {
+            free(copy);
+            ferr = "stopped";
+            return -1;
+        }
+    }
+    int i = ff(path);
+    if (i < 0 && (i = fnew(path)) < 0) {
+        free(copy);
+        ferr = "full";
+        return -1;
+    }
+    free(files[i].d);
+    files[i].d = copy;
+    files[i].n = len;
+    return 0;
+}
+
+int fat_replace(const char *path, const void *data, size_t len) { return store_file(path, data, len); }
+
+int fat_write_file(const char *dir, const char *name, const void *data, size_t len)
+{
+    char path[80];
+    snprintf(path, sizeof path, "%s/%s", dir, name);
+    return store_file(path, data, len);
+}
+
+int fat_delete(const char *path)
+{
+    const int i = ff(path);
+    if (i < 0)
+        return -1;
+    free(files[i].d);
+    memset(&files[i], 0, sizeof files[i]);
+    return 0;
+}
+
+/* ---- stage 4 (keep-alive), 3 (the writer lock) and 5 (Range resume) ---- */
+
+static long conns_now(void)
+{
+    result_t r;
+    web_gap_reset();
+    fetch("/conns", 1 << 20, &r);
+    return atol(r.body);
+}
+
+static void test_keepalive(void)
+{
+    result_t r;
+    const long c0 = conns_now();
+    for (int i = 0; i < 3; i++) {
+        web_gap_reset();
+        fetch("/hello", 1 << 20, &r);
+        CHECK(r.state == WEB_DONE && r.r.size == 10, "keep-alive: request %d answered", i + 1);
+    }
+    long c1 = conns_now();
+    CHECK(c1 == c0, "keep-alive: 3 requests over the same connection (connections %ld -> %ld)", c0, c1);
+    web_gap_reset();
+    fetch("/close", 1 << 20, &r);
+    CHECK(r.state == WEB_DONE && strcmp(r.body, "bye") == 0, "a \"Connection: close\" answer is read");
+    c1 = conns_now();
+    CHECK(c1 == c0 + 1, "keep-alive: after a close answer the next request opens a new connection (%ld)", c1 - c0);
+    web_gap_reset();
+    fetch("/once", 1 << 20, &r);
+    web_gap_reset();
+    fetch("/hello", 1 << 20, &r);
+    CHECK(r.state == WEB_DONE && r.r.size == 10, "a connection the server closed meanwhile: the request is sent again on a new one");
+    c1 = conns_now();
+    CHECK(c1 == c0 + 2, "keep-alive: the stale connection cost one new connection (%ld since the start)", c1 - c0);
+    http_idle_close();
+}
+
+static uint8_t *pattern(size_t n, int seed)
+{
+    uint8_t *b = malloc(n);
+    for (size_t i = 0; i < n; i++)
+        b[i] = (uint8_t)(i * 7 + seed);
+    return b;
+}
+
+static void pump_until_done(const char *name, int *pumps)
+{
+    char err[96];
+    for (int i = 0; i < 2000; i++) {
+        wf_state_t st = webfile_state(name, err, sizeof err, NULL);
+        if (st == WF_DONE || st == WF_ERROR || st == WF_NONE)
+            return;
+        webfile_pump(2000);
+        (*pumps)++;
+    }
+}
+
+static int file_is(const char *path, const uint8_t *d, size_t n)
+{
+    const int i = ff(path);
+    return i >= 0 && files[i].n == n && memcmp(files[i].d, d, n) == 0;
+}
+
+static void test_filewrite(void)
+{
+    char err[96];
+    const size_t cap = 8u << 20;
+    uint8_t *a = pattern(300000, 5), *b = pattern(700000, 9), *c = pattern(1000, 1);
+    int pumps = 0;
+    CHECK(webfile_queue("A.BIN", a, 300000, cap, err, sizeof err) == 0, "queued a 300 KB write");
+    CHECK(webfile_state("A.BIN", err, sizeof err, NULL) == WF_QUEUED && ff("/bm/web/A.BIN") < 0, "queued: nothing on the card yet");
+    pump_until_done("A.BIN", &pumps);
+    CHECK(webfile_state("A.BIN", err, sizeof err, NULL) == WF_DONE && file_is("/bm/web/A.BIN", a, 300000) && pumps >= 2,
+          "the file is written in pieces (%d pumps of 2 ms)", pumps);
+    CHECK(sd_writer_who() == NULL, "the card is free again");
+
+    /* a game save while a queued write is half way: the write pauses and starts again */
+    CHECK(webfile_queue("B.BIN", b, 700000, cap, err, sizeof err) == 0, "queued a 700 KB write");
+    webfile_pump(3000);
+    CHECK(webfile_state("B.BIN", err, sizeof err, NULL) == WF_WRITING && sd_writer_who() &&
+              strcmp(sd_writer_who(), "file_write") == 0, "half way: writing, the card is held by file_write");
+    CHECK(sd_write_file("save", "/bm/save", "S1.LUA", c, 1000) == 0 && file_is("/bm/save/S1.LUA", c, 1000),
+          "the save went through while the queued write was half way");
+    CHECK(webfile_state("B.BIN", err, sizeof err, NULL) == WF_QUEUED && ff("/bm/web/B.BIN") < 0,
+          "the queued write paused: it waits, nothing of it is on the card");
+    pumps = 0;
+    pump_until_done("B.BIN", &pumps);
+    CHECK(webfile_state("B.BIN", err, sizeof err, NULL) == WF_DONE && file_is("/bm/web/B.BIN", b, 700000),
+          "it started again and the whole file is there (%d pumps)", pumps);
+
+    /* a writer that cannot be paused */
+    CHECK(sd_writer_begin("one", NULL) == 0 && sd_writer_begin("two", NULL) == -1, "a second writer is refused while one cannot be paused");
+    CHECK(webfile_write("C.BIN", c, 1000, cap, err, sizeof err) != 0 && strstr(err, "busy"), "sync file_write says the card is busy: %s", err);
+    sd_writer_end("two");
+    CHECK(sd_writer_who() != NULL, "a writer that did not get the card cannot end it");
+    sd_writer_end("one");
+    CHECK(webfile_write("C.BIN", c, 1000, cap, err, sizeof err) == 0 && file_is("/bm/web/C.BIN", c, 1000), "sync file_write after");
+
+    /* limits */
+    CHECK(webfile_queue("D.BIN", a, 300000, 1000, err, sizeof err) != 0 && strstr(err, "cap"), "queue: over the cap refused: %s", err);
+    static const char *const n[5] = { "N1.BIN", "N2.BIN", "N3.BIN", "N4.BIN", "N5.BIN" };
+    for (int i = 0; i < 4; i++)
+        CHECK(webfile_queue(n[i], c, 1000, cap, err, sizeof err) == 0, "queue slot %d", i + 1);
+    CHECK(webfile_queue(n[4], c, 1000, cap, err, sizeof err) != 0 && strstr(err, "full"), "a fifth write is refused: %s", err);
+    CHECK(webfile_queue(n[1], a, 300000, cap, err, sizeof err) == 0, "a waiting write of the same name is replaced");
+    webfile_flush();
+    CHECK(!webfile_busy() && file_is("/bm/web/N1.BIN", c, 1000) && file_is("/bm/web/N2.BIN", a, 300000), "flush writes them all");
+    CHECK(webfile_queue(n[4], c, 1000, cap, err, sizeof err) == 0, "finished results make room");
+    webfile_reset();
+    CHECK(webfile_state("N1.BIN", err, sizeof err, NULL) == WF_NONE, "reset forgets the results");
+    free(a);
+    free(b);
+    free(c);
+}
+
+static int part_run(const char *path, const char *stem, size_t *size, size_t *resumed, char *err, size_t en, uint8_t **body)
+{
+    char url[256];
+    snprintf(url, sizeof url, "%s%s", base, path);
+    web_gap_reset();
+    const int id = web_start_resume(url, 4u << 20, 15000, stem, err, en);
+    if (id < 0)
+        return -1;
+    web_state_t st;
+    const uint32_t t0 = timer_ticks();
+    do {
+        st = web_poll(id);
+        usleep(500);
+    } while (st != WEB_DONE && st != WEB_ERROR && timer_ticks() - t0 < 20u * 1000000u);
+    const web_req_t *r = web_find(id);
+    *size = r->size;
+    *resumed = r->resumed;
+    snprintf(err, en, "%s", r->error);
+    if (body) {
+        *body = malloc(r->size + 1);
+        memcpy(*body, r->body, r->size);
+    }
+    web_cancel(id);
+    return (int)st;
+}
+
+static void test_resume(void)
+{
+    uint8_t *want = pattern(200000, 3);
+    static const char *const paths[] = { "/cut", "/cutlie", "/cut416", "/cutchg" };
+    static const char *const stems[] = { "CUT.BIN", "LIE.BIN", "R416.BIN", "CHG.BIN" };
+    for (int k = 0; k < 4; k++) {
+        size_t size, resumed;
+        char err[192], part[40], rp[40];
+        uint8_t *body = NULL;
+        snprintf(part, sizeof part, "/bm/web/%.*s.PRT", (int)(strchr(stems[k], '.') - stems[k]), stems[k]);
+        int st = part_run(paths[k], stems[k], &size, &resumed, err, sizeof err, NULL);
+        CHECK(st == WEB_ERROR && size == 80000, "%s: the first try is cut after %zu bytes (%s)", paths[k], size, err);
+        webfile_flush();
+        CHECK(ff(part) >= 0 && files[ff(part)].n == 1280 + 80000, "%s: the part file is on the card (%zu bytes)", paths[k],
+              ff(part) >= 0 ? files[ff(part)].n : 0);
+        st = part_run(paths[k], stems[k], &size, &resumed, err, sizeof err, &body);
+        CHECK(st == WEB_DONE && size == 200000 && memcmp(body, want, 200000) == 0, "%s: the whole file, same bytes (%zu, %s)", paths[k], size, err);
+        const int rest = k == 0;
+        CHECK(rest ? resumed == 80000 : resumed == 0, "%s: %s (resumed %zu)", paths[k],
+              rest ? "only the rest was asked for" : "the start was dropped and the file read whole", resumed);
+        free(body);
+        webfile_flush();
+        CHECK(ff(part) < 0, "%s: the part file is deleted when the file is whole", paths[k]);
+        if (k == 0) {
+            result_t r;
+            snprintf(rp, sizeof rp, "/lastrange%s", paths[k]);
+            web_gap_reset();
+            fetch(rp, 1 << 20, &r);
+            CHECK(strcmp(r.body, "bytes=80000-") == 0, "/cut: the request was \"Range: %s\"", r.body);
+        }
+    }
+    /* no resume name: nothing is kept */
+    size_t size, resumed;
+    char err[192];
+    int st = part_run("/cutn", NULL, &size, &resumed, err, sizeof err, NULL);
+    webfile_flush();
+    CHECK(st == WEB_ERROR && ff("/bm/web/CUTN.PRT") < 0, "no resume name: no part file");
+    CHECK(part_run("/hello", "../X.BIN", &size, &resumed, err, sizeof err, NULL) == -1, "a resume name is checked like a file name: %s", err);
+    free(want);
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 3) {
@@ -455,6 +796,9 @@ int main(int argc, char **argv)
     test_policy();
     test_image(argv[2]);
     test_web();
+    test_keepalive();
+    test_filewrite();
+    test_resume();
     printf("%s\n", fails ? "FAILED" : "all passed");
     return fails ? 1 : 0;
 }
