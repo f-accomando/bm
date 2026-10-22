@@ -73,7 +73,7 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 
 ## Open work
 
-- **C4:** the RAM ring stops before the crash (BOOTPREV ends at the netcon prompt). BETA1-C4-RING is merged (PR 50): the crash record holds `ring_at` and the sink state, and a nested exception leaves the crumb `nested exception`. The item stays open until the Pi run reads them. Details: [beta1-c4-diag.md](beta1-c4-diag.md).
+- **C4:** the RAM ring stops before the crash (BOOTPREV ends at the netcon prompt). BETA1-C4-RING is merged (PR 50): the crash record holds `ring_at` and the sink state, and a nested exception leaves the crumb `nested exception`. BETA1-C4-RING3: the timer IRQ is on before `crumbs_boot()`, and `flush()` then wrote the new boot's state over the old freeze record (the header said `ring 3601, sink off`). The writers of the record now do nothing until `crumbs_boot()` has copied it (`cr_live`), and `flush()` stores the live ring state until the first crash call (`crash_noted`). `make test-crumbs` covers this on the PC. The item stays open until a Pi run shows a crash header with `ring N, sink on` (N above 0) and handler lines. A real crash (Xu) that still showed `sink off` is not explained yet. Details: [beta1-c4-diag.md](beta1-c4-diag.md).
 - Measurements to redo, stalls that still hold the CPU, downloads inside an app: [multitasking](multitasking.md).
 - Try the SD map (Settings > System) on the Pi Zero W (speed of the scan, stutter of the menu) and on the RGB30: not verified on hardware.
 
@@ -91,6 +91,7 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 ## Rules (do not break)
 
 - All SD logs only via `src/kernel/sdlog.c`.
+- A cartridge writes files only through `file_write` into `bm/web` (a bare 8.3 name, never `.bm`, `.bme` or `.b16`), and fetches only `https://` addresses through `web_get`: the rules live in `src/bm/webpolicy.c`, nowhere else.
 - Planned restarts only via `crumbs_restart()`.
 - SD logs masked with `reports_mask_secrets()`.
 - The SD map scan never runs while a game or a tool runs (`sdmap_stop` in `background_stop` on the Pi, in `run_page` on the RGB30).

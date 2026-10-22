@@ -210,6 +210,30 @@ code:
 local c = controller(2)
 if c.kind ~= "none" then print("P2: " .. c.kind, 8, 8, c.color) end
 
+== controls
+kind: api
+name: controls
+title: controls([schema]) - la rimappatura dei tasti del giocatore
+title_en: controls([scheme]) - the player's button remap
+ask: tasti scelti dal giocatore | rimappare i controlli | player remap | Settings Controls
+keys: controls, rimappare, schema
+see: keymap, lib.input
+text:
+controls() legge le scelte del giocatore (Impostazioni > Controls) come tabella
+{ scheme, c1..c4, t1..t4, s1..s8, pa, mo, mc }: "default" o un tasto.
+controls("scroller" | "topdown" | "stick") dice quale schema usa il gioco
+(lib.input lo fa da solo): i tasti del giocatore per quello schema
+sostituiscono quelli del gioco in keymap().
+text_en:
+controls() reads the player's choices (Settings > Controls) as a table
+{ scheme, c1..c4, t1..t4, s1..s8, pa, mo, mc }: "default" or a button.
+controls("scroller" | "topdown" | "stick") says which scheme the game uses
+(lib.input does it by itself): the player's buttons for that scheme replace
+the game's in keymap().
+code:
+lib.input({ scheme = "topdown" })   -- the player's remap applies
+if btnp("act1") then attack() end
+
 == keymap
 kind: api
 name: keymap

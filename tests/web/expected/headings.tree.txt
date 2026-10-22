@@ -1,0 +1,30 @@
+html
+  head
+    title
+      "  Headings   test "
+    style
+  body
+    "\n"
+    h1
+      "Main heading"
+    "\n"
+    h2
+      "Second level heading"
+    "\n"
+    h3
+      "Third"
+    "\n"
+    h4
+      "Fourth"
+    "\n"
+    h5
+      "Fifth"
+    "\n"
+    h6
+      "Sixth"
+    "\n"
+    hr
+    "\n"
+    p class="note"
+      "Note text after a rule."
+    "\n\n\n"

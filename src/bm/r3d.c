@@ -2505,6 +2505,110 @@ uint32_t r3d_point(r3d_t *r, v3_t p, float radius, uint32_t rgb, unsigned flags)
     return n;
 }
 
+r3d_pfx_t *r3d_pfx_new(int cap)
+{
+    if (cap < 1 || cap > R3D_PFX_MAX)
+        return NULL;
+    cap = (cap + 15) & ~15;
+    r3d_pfx_t *p = malloc(sizeof(*p));
+    if (!p)
+        return NULL;
+    p->cap = cap;
+    p->next = 0;
+    size_t a_bytes = 7 * (size_t)cap * sizeof(float);
+    p->a = malloc(a_bytes);
+    p->rgb = calloc((size_t)cap, sizeof(uint32_t));
+    if (!p->a || !p->rgb) {
+        r3d_pfx_free(p);
+        return NULL;
+    }
+    memset(p->a, 0, a_bytes);
+    return p;
+}
+
+void r3d_pfx_free(r3d_pfx_t *p)
+{
+    if (!p)
+        return;
+    free(p->a);
+    free(p->rgb);
+    free(p);
+}
+
+int r3d_pfx_add(r3d_pfx_t *p, v3_t pos, v3_t vel, float life, uint32_t rgb)
+{
+    if (!p || p->cap <= 0)
+        return -1;
+    int idx = p->next;
+    p->next = (p->next + 1) % p->cap;
+    const int cap = p->cap;
+    p->a[0 * cap + idx] = pos.x;
+    p->a[1 * cap + idx] = pos.y;
+    p->a[2 * cap + idx] = pos.z;
+    p->a[3 * cap + idx] = vel.x;
+    p->a[4 * cap + idx] = vel.y;
+    p->a[5 * cap + idx] = vel.z;
+    p->a[6 * cap + idx] = life;
+    p->rgb[idx] = rgb;
+    return idx;
+}
+
+void r3d_pfx_step(r3d_pfx_t *p, float gravity)
+{
+    if (!p || p->cap <= 0)
+        return;
+    const int cap = p->cap;
+    float *x = p->a;
+    float *y = p->a + cap;
+    float *z = p->a + 2 * cap;
+    float *vx = p->a + 3 * cap;
+    float *vy = p->a + 4 * cap;
+    float *vz = p->a + 5 * cap;
+    float *life = p->a + 6 * cap;
+    for (int i = 0; i < cap; i++) {
+        if (life[i] <= 0.0f)
+            continue;           /* a dead entry stays as it is: no cost for the unused part of the pool */
+        vy[i] = vy[i] - gravity;
+        x[i] = x[i] + vx[i];
+        y[i] = y[i] + vy[i];
+        z[i] = z[i] + vz[i];
+        life[i] = life[i] - 1.0f;
+    }
+}
+
+uint32_t r3d_pfx_draw(r3d_t *r, const r3d_pfx_t *p, float radius)
+{
+    if (!r || !p || p->cap <= 0)
+        return 0;
+    const int cap = p->cap;
+    const float *x = p->a;
+    const float *y = p->a + cap;
+    const float *z = p->a + 2 * cap;
+    const float *life = p->a + 6 * cap;
+    uint32_t total = 0;
+    for (int i = 0; i < cap; i++) {
+        if (life[i] > 0.0f) {
+            v3_t pos = { x[i], y[i], z[i] };
+            total += r3d_point(r, pos, radius, p->rgb[i], 0);
+        }
+    }
+    return total;
+}
+
+int r3d_pfx_live(const r3d_pfx_t *p)
+{
+    if (!p || p->cap <= 0)
+        return 0;
+    const int cap = p->cap;
+    const float *life = p->a + 6 * cap;
+    int live = 0;
+    for (int i = 0; i < cap; i++) {
+        if (life[i] > 0.0f)
+            live++;
+    }
+    return live;
+}
+
 uint32_t r3d_line(r3d_t *r, v3_t a, v3_t b, uint32_t rgb, int width, unsigned flags)
 {
     view_t v;

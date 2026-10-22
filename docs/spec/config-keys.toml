@@ -104,11 +104,20 @@ read_in = "src/bt/bt.c:217"
 [[key]]
 name = "confirm"
 scope = "rgb30"
-values = "a or A = A confirms and B goes back; anything else = B confirms, A goes back"
-default = "B confirms, A goes back"
+values = "a or A = A confirms and B goes back; anything else = B confirms, Y goes back"
+default = "B confirms, Y goes back"
 meaning = "Confirm button of the RGB30 menus."
-settings = "Settings > Controllers > Confirm button"
-read_in = "src/rgb30/pad.c:14"
+settings = "Settings > Controls > Pause and menus > OK (mo of controls=)"
+read_in = "src/rgb30/pad.c:pad_config"
+
+[[key]]
+name = "controls"
+scope = "both"
+values = "space-separated code:button pairs: c1-c4 (scroller), t1-t4 (top-down), s1-s8 (stick), pa (pause), mo and mc (the RGB30 menus' OK and Cancel: a b x y); buttons a b x y l1 r1 l2 r2 st se"
+default = "empty: every action on the game's own button"
+meaning = "The player's remap of the game buttons (CONTROLS-1); mo wins over confirm=."
+settings = "Settings > Controls"
+read_in = "src/kernel/controls.c:controls_get"
 
 [[key]]
 name = "dma_zclear"
@@ -127,6 +136,15 @@ default = "direct (the variable starts at 0)"
 meaning = "Drawing mode of the .bm games."
 settings = "Settings > Screen and sound > Game drawing (.bm)"
 read_in = "src/kernel/config.c:105"
+
+[[key]]
+name = "file_write_max_kib"
+scope = "all"
+values = "KiB, a whole number from 1 to 32768; anything else = default"
+default = "8192 (8 MiB)"
+meaning = "Largest file that file_write() writes in bm/web."
+settings = ""
+read_in = "src/bm/runtime.c:4068"
 
 [[key]]
 name = "game_buttons"
@@ -235,6 +253,15 @@ default = "at once"
 meaning = "Shows the GPU frame one frame later."
 settings = "Settings > Screen and sound > 3D frame shown"
 read_in = "src/bm/runtime.c:1889"
+
+[[key]]
+name = "gpu3d_qpu"
+scope = "pi"
+values = "1 = the GPU test (g) and the 3D Bench run the QPU programs against the ARM versions, and the games' dark_end() (Yharnam) runs on the QPUs; anything else = off"
+default = "off (no qpu_init call, no new work)"
+meaning = "QPU check: a step in the GPU test and a row in the 3D Bench; the darkness levels of dark_end() on the QPUs with the ARM as fallback. For the first run on the Pi."
+settings = ""
+read_in = "src/kernel/gputest.c:1232"
 
 [[key]]
 name = "gpu3d_queue"
@@ -525,6 +552,15 @@ settings = "Settings > Screen and sound > Volume"
 read_in = "src/kernel/config.c:109"
 
 [[key]]
+name = "web_max_kib"
+scope = "all"
+values = "KiB, a whole number from 1 to 32768; anything else = default"
+default = "4096 (4 MiB)"
+meaning = "Largest answer body that web_get() keeps. A cartridge can ask for less, never more."
+settings = ""
+read_in = "src/bm/runtime.c:3884"
+
+[[key]]
 name = "wifi_boot"
 scope = "all"
 values = "0 = do not join the saved network at boot; anything else = join"
@@ -588,3 +624,48 @@ default = "cart_config(key) returns nil when missing or empty"
 meaning = "Flags of one game, read and written only by the Lua cart_config(key [, value]); a key with another prefix is an error. Set from the monitor line (set overbit_bench=1080) or easy_install."
 settings = ""
 read_in = "src/bm/runtime.c:3511 (l_cart_config)"
+
+[[key]]
+name = "rec"
+scope = "all"
+values = "on or 1 = record every game run to /bm/rec; anything else = off"
+default = "off"
+meaning = "Screen recorder (VID-REC): the game's frames go to .bmv chunk files; the report is printed when the game ends."
+settings = ""
+read_in = "src/bm/rec.c"
+
+[[key]]
+name = "rec_fps"
+scope = "all"
+values = "1 to 30"
+default = "15"
+meaning = "Frames a second of the recording."
+settings = ""
+read_in = "src/bm/rec.c"
+
+[[key]]
+name = "rec_size"
+scope = "all"
+values = "WxH, 16x16 to 1920x1080 (the frame is scaled by nearest pixel)"
+default = "320x180"
+meaning = "Size of the recording."
+settings = ""
+read_in = "src/bm/rec.c"
+
+[[key]]
+name = "rec_format"
+scope = "all"
+values = "rgb565 or rgb332"
+default = "rgb565"
+meaning = "Pixel format of the recording (rgb332 is half the size)."
+settings = ""
+read_in = "src/bm/rec.c"
+
+[[key]]
+name = "rec_ring_mb"
+scope = "all"
+values = "1 to 256"
+default = "64 (smaller if memory is short)"
+meaning = "RAM that holds the chunks that wait for the card."
+settings = ""
+read_in = "src/bm/rec.c"

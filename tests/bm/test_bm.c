@@ -117,6 +117,144 @@ static void test_sprites(void)
     g16_sheet_free(&s);
 }
 
+
+/* Reference for the map() equivalence test: the routine as it was before
+ * the tile path was made fast (one div/mod per tile, blit with memcpy rows).
+ * Kept only here. */
+static void ref_blit(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                     int dx, int dy, int flip_x, int flip_y, int opaque)
+{
+    int x0 = dx, y0 = dy, x1 = dx + sw, y1 = dy + sh;
+    if (x0 < g->cx0) x0 = g->cx0;
+    if (y0 < g->cy0) y0 = g->cy0;
+    if (x1 > g->cx1) x1 = g->cx1;
+    if (y1 > g->cy1) y1 = g->cy1;
+    if (x0 >= x1 || y0 >= y1)
+        return;
+    const int n = x1 - x0;
+    for (int y = y0; y < y1; y++) {
+        int ly = y - dy;
+        int srow = sy + (flip_y ? sh - 1 - ly : ly);
+        uint16_t *dst = g->px + (uint32_t)y * g->stride + x0;
+        const uint32_t sbase = (uint32_t)srow * s->w;
+        if (!flip_x) {
+            const uint16_t *src = s->px + sbase + sx + (x0 - dx);
+            if (opaque) {
+                memcpy(dst, src, (size_t)n * 2);
+            } else {
+                const uint8_t *a = s->alpha + sbase + sx + (x0 - dx);
+                for (int i = 0; i < n; i++)
+                    if (a[i]) dst[i] = src[i];
+            }
+        } else {
+            int scol = sx + sw - 1 - (x0 - dx);
+            const uint16_t *src = s->px + sbase;
+            const uint8_t *a = s->alpha + sbase;
+            for (int i = 0; i < n; i++, scol--)
+                if (opaque || a[scol]) dst[i] = src[scol];
+        }
+    }
+}
+
+static void ref_map_mask(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
+                         int mx, int my, int x, int y, int mw, int mh, const uint8_t *flags, uint8_t mask)
+{
+    if (!s->px || !m->cells) return;
+    if (!flags) mask = 0;
+    const int per_row = s->w / G16_CELL, ncells = per_row * (s->h / G16_CELL);
+    x -= g->cam_x;
+    y -= g->cam_y;
+    for (int cy = 0; cy < mh; cy++) {
+        int row = my + cy, py = y + cy * G16_CELL;
+        if (row < 0 || row >= m->h || py >= g->cy1 || py + G16_CELL <= g->cy0) continue;
+        for (int cx = 0; cx < mw; cx++) {
+            int col = mx + cx, px = x + cx * G16_CELL;
+            if (col < 0 || col >= m->w || px >= g->cx1 || px + G16_CELL <= g->cx0) continue;
+            int n = m->cells[row * m->w + col];
+            if (n == 0 || n >= ncells || (mask && !(flags[n] & mask))) continue;
+            ref_blit(g, s, n % per_row * G16_CELL, n / per_row * G16_CELL, G16_CELL, G16_CELL,
+                     px, py, 0, 0, s->cell_opaque[n]);
+        }
+    }
+}
+
+static uint32_t rng_state = 12345;
+static uint32_t rnd(void)
+{
+    rng_state = rng_state * 1664525u + 1013904223u;
+    return rng_state >> 8;
+}
+
+/* g16_map_mask must draw the same bytes as the reference, for random sheets
+ * (any width, opaque and transparent cells), tilemaps, flags, cameras, clip
+ * rectangles, offsets (off-screen too) and target alignment. */
+static void test_map_equiv(void)
+{
+    enum { TW = 61, TH = 53, CASES = 600 };
+    static uint16_t ba[TH * TW + 4], bb[TH * TW + 4];
+    int bad = 0, drawn = 0;
+    for (int it = 0; it < CASES; it++) {
+        g16_sheet_t s;
+        int sw = (1 + (int)(rnd() % 11)) * 8, sh = (1 + (int)(rnd() % 5)) * 8;
+        if (g16_sheet_alloc(&s, sw, sh) != 0) { CHECK(0, "sheet alloc"); return; }
+        int per_row = sw / 8, nc = per_row * (sh / 8);
+        for (int c = 0; c < nc; c++) {
+            int mode = (int)(rnd() % 3);          /* 0 opaque, 1 random alpha, 2 all clear */
+            for (int y = 0; y < 8; y++)
+                for (int x = 0; x < 8; x++)
+                    g16_sheet_set(&s, c % per_row * 8 + x, c / per_row * 8 + y,
+                                  (uint16_t)rnd(), mode == 0 ? 1 : mode == 1 ? (int)(rnd() & 1) : 0);
+            g16_sheet_update_cell(&s, c % per_row, c / per_row);
+        }
+        int mw = 1 + (int)(rnd() % 12), mh = 1 + (int)(rnd() % 10);
+        uint16_t cells[12 * 10];
+        for (int i = 0; i < mw * mh; i++) cells[i] = (uint16_t)(rnd() % (nc + 3));   /* 0 and out of range too */
+        g16_map_t map = { mw, mh, cells };
+        uint8_t flags[64];
+        for (int i = 0; i < 64; i++) flags[i] = (uint8_t)rnd();
+        uint8_t mask = (uint8_t)(rnd() % 4 ? 1 << (rnd() % 8) : 0);
+        int use_flags = (int)(rnd() % 2);
+
+        int off = (int)(rnd() & 1), stride = TW - (int)(rnd() % 3);   /* odd start / odd stride: unaligned rows */
+        for (int i = 0; i < TH * TW + 4; i++) ba[i] = bb[i] = (uint16_t)(i * 7 + 1);
+        g16_t ga, gb;
+        g16_target(&ga, ba + off, (uint32_t)stride, stride - off > 0 ? stride - off : stride, TH, &font);
+        g16_target(&gb, bb + off, (uint32_t)stride, ga.w, TH, &font);
+        if (rnd() % 2) {
+            int cx = (int)(rnd() % 20), cy = (int)(rnd() % 20), cw = 1 + (int)(rnd() % 50), ch = 1 + (int)(rnd() % 40);
+            g16_clip(&ga, cx, cy, cw, ch);
+            g16_clip(&gb, cx, cy, cw, ch);
+        }
+        int camx = (int)(rnd() % 30) - 10, camy = (int)(rnd() % 30) - 10;
+        g16_camera(&ga, camx, camy);
+        g16_camera(&gb, camx, camy);
+        int mx = (int)(rnd() % 7) - 3, my = (int)(rnd() % 7) - 3;
+        int x = (int)(rnd() % 90) - 25, y = (int)(rnd() % 80) - 25;
+        const uint8_t *fl = use_flags ? flags : NULL;
+
+        ref_map_mask(&ga, &s, &map, mx, my, x, y, mw, mh, fl, mask);
+        g16_map_mask(&gb, &s, &map, mx, my, x, y, mw, mh, fl, mask);
+        if (memcmp(ba, bb, sizeof ba) != 0) {
+            bad++;
+            printf("map case %d differs (sheet %dx%d, off %d, stride %d)\n", it, sw, sh, off, stride);
+        }
+        for (int i = 0; i < TH * TW; i++)
+            if (bb[i] != (uint16_t)(i * 7 + 1)) { drawn++; break; }
+        g16_sheet_free(&s);
+    }
+    CHECK(bad == 0, "map() matches the reference on %d random cases (%d differ)", CASES, bad);
+    CHECK(drawn > CASES / 4, "map equivalence cases draw something (%d of %d)", drawn, CASES);
+
+    /* the reciprocal used for n / per_row is exact for every cell index */
+    int rbad = 0;
+    for (uint32_t d = 2; d < 400; d++) {   /* per_row 1 wraps to 0: the code divides there */
+        uint32_t r = 0xFFFFFFFFu / d + 1u;
+        for (uint32_t n = 0; n < 65536; n++)
+            if ((uint32_t)(((uint64_t)n * r) >> 32) != n / d) rbad++;
+    }
+    CHECK(rbad == 0, "n / per_row by reciprocal is exact (%d wrong)", rbad);
+}
+
 static void test_text(void)
 {
     g16_t g;
@@ -358,6 +496,87 @@ static void test_3d(void)
     r3d_mesh_free(&sphere);
     r3d_mesh_free(&cube);
     r3d_free(&r);
+}
+
+static void test_pfx(void)
+{
+    /* (a) r3d_pfx_new(100) gives cap == 112; r3d_pfx_new(5000) == NULL */
+    r3d_pfx_t *p100 = r3d_pfx_new(100);
+    CHECK(p100 != NULL && p100->cap == 112, "pfx_new(100) cap 112 (%d)", p100 ? p100->cap : 0);
+    r3d_pfx_free(p100);
+    CHECK(r3d_pfx_new(5000) == NULL, "pfx_new(5000) returns NULL");
+    CHECK(r3d_pfx_new(0) == NULL, "pfx_new(0) returns NULL");
+
+    /* (b) add 3 particles, step twice with g = 0.5f and compare every float with closed form */
+    r3d_pfx_t *p = r3d_pfx_new(16);
+    CHECK(p != NULL && p->cap == 16, "pfx_new(16)");
+    v3_t pos0[3] = { { 1.0f, 10.0f, 2.0f }, { -3.0f, 5.0f, 0.0f }, { 0.5f, 20.0f, -4.0f } };
+    v3_t vel0[3] = { { 0.1f, 2.0f, 0.5f }, { -0.2f, -1.0f, 0.0f }, { 1.0f, 0.0f, -0.5f } };
+    float life0[3] = { 10.0f, 5.0f, 1.5f };
+    uint32_t col0[3] = { 0xFF0000, 0x00FF00, 0x0000FF };
+    for (int i = 0; i < 3; i++) {
+        int idx = r3d_pfx_add(p, pos0[i], vel0[i], life0[i], col0[i]);
+        CHECK(idx == i, "pfx_add index %d", idx);
+    }
+    CHECK(r3d_pfx_live(p) == 3, "3 live particles");
+
+    float g = 0.5f;
+    r3d_pfx_step(p, g);
+    r3d_pfx_step(p, g);
+
+    int cap = p->cap;
+    for (int i = 0; i < 3; i++) {
+        float expected_vy = vel0[i].y - 2 * g;
+        float expected_x = pos0[i].x + 2 * vel0[i].x;
+        float expected_y = pos0[i].y + (vel0[i].y - g) + (vel0[i].y - 2 * g);
+        float expected_z = pos0[i].z + 2 * vel0[i].z;
+        float expected_vx = vel0[i].x;
+        float expected_vz = vel0[i].z;
+        float expected_life = life0[i] - 2.0f;
+
+        CHECK(p->a[0 * cap + i] == expected_x, "particle %d x (%f vs %f)", i, p->a[0 * cap + i], expected_x);
+        CHECK(p->a[1 * cap + i] == expected_y, "particle %d y (%f vs %f)", i, p->a[1 * cap + i], expected_y);
+        CHECK(p->a[2 * cap + i] == expected_z, "particle %d z (%f vs %f)", i, p->a[2 * cap + i], expected_z);
+        CHECK(p->a[3 * cap + i] == expected_vx, "particle %d vx (%f vs %f)", i, p->a[3 * cap + i], expected_vx);
+        CHECK(p->a[4 * cap + i] == expected_vy, "particle %d vy (%f vs %f)", i, p->a[4 * cap + i], expected_vy);
+        CHECK(p->a[5 * cap + i] == expected_vz, "particle %d vz (%f vs %f)", i, p->a[5 * cap + i], expected_vz);
+        CHECK(p->a[6 * cap + i] == expected_life, "particle %d life (%f vs %f)", i, p->a[6 * cap + i], expected_life);
+    }
+
+    /* (c) with life = 1.5f, after two steps r3d_pfx_live() == 0 and r3d_pfx_draw returns 0 */
+    r3d_pfx_t *p_dead = r3d_pfx_new(16);
+    r3d_pfx_add(p_dead, (v3_t){ 0, 0, 0 }, (v3_t){ 0, 0, 0 }, 1.5f, 0xFFFFFF);
+    CHECK(r3d_pfx_live(p_dead) == 1, "1 live before steps");
+    r3d_pfx_step(p_dead, g);
+    CHECK(r3d_pfx_live(p_dead) == 1, "still live after 1 step (life 0.5)");
+    r3d_pfx_step(p_dead, g);
+    CHECK(r3d_pfx_live(p_dead) == 0, "0 live after 2 steps (life -0.5)");
+
+    static uint16_t fb[360 * 640];
+    g16_t gtarget;
+    r3d_t rtarget;
+    g16_target(&gtarget, fb, 640, 640, 360, &font);
+    CHECK(r3d_init(&rtarget, &gtarget) == 0, "r3d init for draw");
+    r3d_camera(&rtarget, 0, 0, -5, 0, 0, 60);
+    uint32_t px_dead = r3d_pfx_draw(&rtarget, p_dead, 1.0f);
+    CHECK(px_dead == 0, "dead particles draw 0 pixels (%u)", px_dead);
+
+    /* (e) a particle in front of a camera set as test_3d draws more than 0 pixels */
+    r3d_pfx_t *p_live = r3d_pfx_new(16);
+    r3d_pfx_add(p_live, (v3_t){ 0, 0, 0 }, (v3_t){ 0, 0, 0 }, 10.0f, 0xFF0000);
+    g16_cls(&gtarget, 0);
+    r3d_zclear(&rtarget);
+    uint32_t drawn = r3d_pfx_draw(&rtarget, p_live, 0.5f);
+    CHECK(drawn > 0, "live particle draws pixels (%u)", drawn);
+    r3d_pfx_free(p_live);
+
+    /* (f) a dead entry is not stepped: its position stays */
+    float dead_x = p_dead->a[0];
+    r3d_pfx_step(p_dead, 1.0f);
+    CHECK(p_dead->a[0] == dead_x && p_dead->a[6 * p_dead->cap] == -0.5f, "dead entry untouched by the step");
+    r3d_free(&rtarget);
+    r3d_pfx_free(p_dead);
+    r3d_pfx_free(p);
 }
 
 static uint8_t *read_file(const char *p, size_t *n)
@@ -829,6 +1048,35 @@ static void test_pixel(void)
     g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, 0.0f, 1.0f, 2.0f);
     CHECK(at(38, 41) == 124 && at(38, 39) == 128 && at(38, 37) == 132 && at(39, 38) == 0,
           "stack order: the upper slice covers the lower one, a transparent pixel shows nothing");
+    /* stackv: the same slices one under the other (the 4x3 boxes of the sheet above, moved down) */
+    {
+        g16_sheet_t v;
+        CHECK(g16_sheet_alloc(&v, 4, 9) == 0, "stackv sheet");
+        for (int i = 0; i < 3; i++)
+            for (int y = 0; y < 3; y++)
+                for (int x = 0; x < 4; x++)
+                    g16_sheet_set(&v, x, i * 3 + y, (uint16_t)(100 + i * 4 + x + y * 12), !(i * 4 + x == 5 && y == 1));
+        static uint16_t refh[W * H];
+        const float rots[3][3] = { { 0.0f, 1.0f, 2.0f }, { 0.7f, 2.0f, 1.0f }, { 1.57079633f, 1.0f, 3.0f } };
+        for (int k = 0; k < 3; k++) {
+            g16_cls(&g, 0x7777);
+            g16_stack(&g, &s, 0, 0, 4, 3, 3, 40, 40, rots[k][0], rots[k][1], rots[k][2]);
+            memcpy(refh, fb, sizeof refh);
+            g16_cls(&g, 0x7777);
+            g16_stackv(&g, &v, 0, 0, 4, 3, 3, 40, 40, rots[k][0], rots[k][1], rots[k][2]);
+            CHECK(memcmp(refh, fb, sizeof refh) == 0, "stackv equals stack of the same slices (case %d)", k);
+        }
+        g16_cls(&g, 0);
+        g16_stackv(&g, &v, 0, 0, 4, 3, 3, 40, 40, 0.0f, 1.0f, 2.0f);
+        CHECK(at(38, 41) == 124 && at(38, 37) == 132, "stackv order: the upper slice covers the lower one");
+        g16_cls(&g, 0);
+        g16_stackv(&g, &v, 0, 14, 4, 3, 1, 40, 40, 0.0f, 1.0f, 2.0f);   /* the sheet is 16 high: 14 + 3 is under it */
+        CHECK(at(38, 41) == 0, "stackv: a slice under the sheet is skipped");
+        g16_cls(&g, 0);
+        g16_stackv(&g, &v, 6, 0, 4, 3, 3, 40, 40, 0.0f, 1.0f, 2.0f);     /* the sheet is 8 wide: 6 + 4 is over it */
+        CHECK(at(38, 41) == 0, "stackv: a box over the right edge draws nothing");
+        g16_sheet_free(&v);
+    }
     g16_cls(&g, 0);
     g16_stack(&g, &s, 0, 0, 4, 3, 0, 40, 40, 0.0f, 1.0f, 2.0f);
     memset(ref, 0, sizeof ref);
@@ -1015,10 +1263,12 @@ int main(int argc, char **argv)
 {
     test_primitives();
     test_sprites();
+    test_map_equiv();
     test_text();
     test_light();
     test_fade();
     test_3d();
+    test_pfx();
     test_format(argc > 1 ? argv[1] : "build/demo.bm");
     test_cover_peek();
     test_type_bits();

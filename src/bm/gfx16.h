@@ -52,6 +52,10 @@ void g16_target(g16_t *g, uint16_t *px, uint32_t stride, int w, int h, const fon
 void g16_clip(g16_t *g, int x, int y, int w, int h);    /* w or h <= 0: full screen */
 void g16_camera(g16_t *g, int x, int y);
 
+/* A w x h RGB565 picture (rows w apart) copied whole to (x, y), each pixel scale x scale (1..8), the camera
+ * and the clip as for g16_rectfill. */
+void g16_blit565(g16_t *g, const uint16_t *src, int w, int h, int x, int y, int scale);
+
 void g16_cls(g16_t *g, uint16_t c);
 void g16_pset(g16_t *g, int x, int y, uint16_t c);
 int  g16_pget(const g16_t *g, int x, int y);             /* -1 outside */
@@ -79,6 +83,10 @@ void g16_sspr_zoom(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int s
  * of g16_sspr. */
 void g16_stack(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
                int n, int x, int y, float rz, float scale, float step);
+/* The same with the slices one under the other on the sheet from (sx, sy), top to
+ * bottom; the top one is slice 0 (the bottom of the stack). */
+void g16_stackv(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                int n, int x, int y, float rz, float scale, float step);
 /* Map cells [mx, mx+mw) x [my, my+mh) drawn at (x, y); cell 0 is skipped. */
 void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
              int mx, int my, int x, int y, int mw, int mh);

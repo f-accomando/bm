@@ -171,3 +171,5 @@ The specific details, current technical gaps and evolution proposals for each su
 - [`docs/progress/suite-animator.md`](suite-animator.md): Evolution of **bm Animator** (automatic `BOXES` export from bones, multidirectional batch bake, timeline event markers).
 - [`docs/progress/suite-studio-mesh.md`](suite-studio-mesh.md): Evolution of **bm Studio** and **bm Mesh** (low-poly collider generation, modular prefabs for scenery).
 - [`docs/progress/suite-sound.md`](suite-sound.md): Evolution of **bm Sound** (named audio event dictionary, pitch/volume randomization, synchronization with animations).
+
+Input standard for games (logical actions on buttons, RGB30 and Pi): [`games-input-standard.md`](games-input-standard.md).

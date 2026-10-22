@@ -57,6 +57,15 @@ COMMON  = $(ARCH) $(SOC) -std=c11 -O2 -Wall -Wextra -g -Isrc \
 CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
           -Ithird_party/lwip/src/include -Isrc/net \
           -Ithird_party/mbedtls/include -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' $(WARN)
+# PI_O3_FILES: source files built with -O3 instead of -O2 (default empty: every file -O2,
+# the output does not change). Example: make PI_O3_FILES="src/bm/gfx16.c src/bm/r3d.c".
+# Paths as in KERNEL_SRCS. The flags are not a prerequisite: after you change the
+# variable, run make clean (or delete the .o files) so the files are built again.
+# Off for now; the accept rule is in docs/progress/graphics.md (Open work).
+PI_O3_FILES ?=
+ifneq ($(strip $(PI_O3_FILES)),)
+$(patsubst %,$(BUILD)/k/%.o,$(PI_O3_FILES)): CFLAGS += -O3
+endif
 # Chainloader: freestanding, no libc.
 LCFLAGS := $(COMMON) -Os -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
 ASFLAGS = $(ARCH) $(SOC) $(CLEAN_DEFS) -g -Isrc -Isrc/kernel -Wa,-I$(BUILD)
@@ -259,6 +268,30 @@ $(BUILD)/carts/titanex.bm: $(BUILD)/titan_ex/main.lua carts/titan/assets/sheet.p
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "Titan Clash EX" --author bm \
 	    --sheet carts/titan/assets/sheet.png --sheet8 --cover carts/titan/cover.png --res 360x360
+
+# Stages 3D (W03): shared logic in carts/stages3d/common, one front per edition (bm/ now, b16/ later)
+STAGES3D_SRC := $(sort $(wildcard carts/stages3d/common/*.lua carts/stages3d/bm/*.lua))
+STAGES3D_ASSETS := carts/stages3d/assets/sheet.png $(addprefix carts/stages3d/assets/map_,floor.csv height.csv walls.csv objects.csv)
+$(BUILD)/stages3d/bm/main.lua: $(STAGES3D_SRC) carts/stages3d/build/build.py
+	$(PYTHON) carts/stages3d/build/build.py bm $@ --map $(BUILD)/stages3d/bm/main.map
+
+$(BUILD)/carts/stages3d.bm: $(BUILD)/stages3d/bm/main.lua $(STAGES3D_ASSETS) carts/stages3d/bm/bm.info scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stages3d/bm/bm.info --sheet carts/stages3d/assets/sheet.png \
+	    --map floor=carts/stages3d/assets/map_floor.csv --map height=carts/stages3d/assets/map_height.csv \
+	    --map walls=carts/stages3d/assets/map_walls.csv --map objects=carts/stages3d/assets/map_objects.csv
+
+# Stages 3D .b16 (RGB30, 360x360): the same common/ copied into its own src, its own front and bm.info
+STAGES3D_B16_SRC := $(sort $(wildcard carts/stages3d/common/*.lua carts/stages3d/b16/*.lua))
+$(BUILD)/stages3d/b16/main.lua: $(STAGES3D_B16_SRC) carts/stages3d/build/build.py
+	$(PYTHON) carts/stages3d/build/build.py b16 $@ --map $(BUILD)/stages3d/b16/main.map
+
+$(BUILD)/carts/stages3d.b16: $(BUILD)/stages3d/b16/main.lua $(STAGES3D_ASSETS) carts/stages3d/b16/bm.info scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stages3d/b16/bm.info --sheet carts/stages3d/assets/sheet.png \
+	    --map floor=carts/stages3d/assets/map_floor.csv --map height=carts/stages3d/assets/map_height.csv \
+	    --map walls=carts/stages3d/assets/map_walls.csv --map objects=carts/stages3d/assets/map_objects.csv
+	@test `wc -c < $@` -le 8388608 || { echo "stages3d.b16 is over a .b16's 8 MiB"; rm -f $@; exit 1; }
 
 # bm SDK (RGB30): the SDK's second edition, 360x360 and the pad, with its own
 # sources in carts/sdk_b16/ (layout.lua + main.lua, joined by its build.py). A tool
@@ -473,6 +506,9 @@ $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py
 $(BUILD)/keymap-test.bm: tests/keymap/cart.lua scripts/mkbm.py
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "keymap test"
 
+$(BUILD)/controls-test.bm: tests/controls/cart.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "controls test"
+
 # The games' loading screen (src/bm/loading.c, 2026-10-04): the retro intro,
 # its jingle, the console's page then the game's; the frames in build/loading/
 $(BUILD)/host/test_loading: tests/bm/test_loading.c src/bm/loading.c src/bm/loading_logo.c src/bm/loading.h \
@@ -502,6 +538,11 @@ test-herocart: $(BUILD)/host/bmhost-bin $(BUILD)/carts/herocart.bm tests/herocar
 	$(MAKE) $(BUILD)/host/test_herocart_mesh
 	$(BUILD)/host/test_herocart_mesh carts/herocart/assets/models.bm
 
+# The player's remap of the game buttons (CONTROLS-1): controls= of the config
+test-controls: $(BUILD)/host/bmhost-bin $(BUILD)/controls-test.bm tests/controls/input.txt
+	BMHOST_CONFIG="controls=c1:x t2:l1 s1:y pa:se mc:x" $< $(BUILD)/controls-test.bm --input tests/controls/input.txt --seconds 4 2>&1 | tee $(BUILD)/controls-test.log | grep "^controls"
+	grep -q "^controls: \([0-9]*\)/\1 checks passed" $(BUILD)/controls-test.log
+
 test-keymap: $(BUILD)/host/bmhost-bin $(BUILD)/keymap-test.bm tests/keymap/input.txt
 	$< $(BUILD)/keymap-test.bm --input tests/keymap/input.txt --seconds 8 2>&1 | tee $(BUILD)/keymap-test.log | grep "^keymap"
 	grep -q "^keymap: \([0-9]*\)/\1 checks passed" $(BUILD)/keymap-test.log
@@ -524,6 +565,21 @@ test-gameapi: $(BUILD)/host/bmhost-bin $(BUILD)/gameapi-test.bm tests/gameapi/in
 	$< $(BUILD)/gameapi-test.bm --input tests/gameapi/input.txt --seconds 8 --shots $(BUILD)/gameapi 2>&1 \
 	    | tee $(BUILD)/gameapi-test.log | grep "^gameapi"
 	grep -q "^gameapi: \([0-9]*\)/\1 checks passed" $(BUILD)/gameapi-test.log
+
+# Stages 3D (W03): the three stages played in bmhost with tests/stages3d/input.txt, then
+# the finale and the record (saved and read back); check.py reads the log
+test-stages3d: $(BUILD)/host/bmhost-bin $(BUILD)/carts/stages3d.bm tests/stages3d/input.txt tests/stages3d/check.py
+	rm -rf $(BUILD)/stages3d-sd $(BUILD)/stages3d-shots && mkdir -p $(BUILD)/stages3d-sd $(BUILD)/stages3d-shots
+	$< $(BUILD)/carts/stages3d.bm --sd $(BUILD)/stages3d-sd --input tests/stages3d/input.txt --seconds 20 \
+	    --shots $(BUILD)/stages3d-shots > $(BUILD)/stages3d-test.log 2>&1
+	$(PYTHON) tests/stages3d/check.py $(BUILD)/stages3d-test.log
+
+# Stages 3D .b16: the same script and the same check.py as the .bm; a .b16 is the .bm container (src/bm/format.c:10)
+test-stages3d-b16: $(BUILD)/host/bmhost-bin $(BUILD)/carts/stages3d.b16 tests/stages3d/input.txt tests/stages3d/check.py
+	rm -rf $(BUILD)/stages3d16-sd $(BUILD)/stages3d16-shots && mkdir -p $(BUILD)/stages3d16-sd $(BUILD)/stages3d16-shots
+	$< $(BUILD)/carts/stages3d.b16 --sd $(BUILD)/stages3d16-sd --input tests/stages3d/input.txt --seconds 20 \
+	    --shots $(BUILD)/stages3d16-shots > $(BUILD)/stages3d16-test.log 2>&1
+	$(PYTHON) tests/stages3d/check.py $(BUILD)/stages3d16-test.log
 
 # bm Write (carts/write, 2026-10-06): a document typed, styled, saved in
 # /docs and exported in bmhost, then opened again (the session, the
@@ -565,6 +621,12 @@ test-online: $(BUILD)/host/bmhost-bin $(BUILD)/online-test.bm tests/online/input
 test-bmnet: $(BUILD)/host/bmhost-bin tests/bmnet/cart.lua tests/bmnet/run.py src/script/bmnet.lua
 	$(PYTHON) tests/bmnet/run.py $(BUILD)
 
+# bmweb (carts/bmweb/src): HTML, CSS, layout and URL in pure Lua. No build
+# dir needed: run.sh uses build/host/luahost, a Lua in the PATH, or builds a
+# private one in a temp folder.
+test-web:
+	sh tests/web/run.sh
+
 test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 	$< tests/sound/sim.lua carts/sound/main.lua $(BUILD)/demo.bmau
 
@@ -605,13 +667,13 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
 BMHOST_RT := src/bm/runtime.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c \
-             src/kernel/syskeys.c \
+             src/kernel/syskeys.c src/kernel/controls.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c \
              src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c src/audio/audio.c src/audio/synth.c \
              src/audio/player.c src/audio/presets.c src/audio/lua_tone.c src/ai/net.c src/ai/nn.c \
              src/bm/decimate.c src/bm/cutout.c \
-             src/bm/glb.c src/bm/json.c src/bm/png.c src/bm/jpeg.c src/bm/loading.c src/bm/loading_logo.c \
-             src/bm/profile.c src/bm/project.c src/bm/shot.c
+             src/bm/glb.c src/bm/json.c src/bm/png.c src/bm/jpeg.c src/bm/vid.c src/bm/loading.c src/bm/loading_logo.c \
+             src/bm/profile.c src/bm/project.c src/bm/shot.c src/bm/webp.c src/bm/webimg.c src/bm/webpolicy.c
 BMHOST_LUA := $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS))
 BMHOST_OBJS := $(patsubst %,$(BUILD)/host/bmhost/%.o,$(BMHOST_RT) $(BMHOST_LUA))
 $(BUILD)/host/bmhost/%.c.o: %.c
@@ -657,14 +719,14 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-cel test-herocart test-keymap test-gameapi test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-cel test-herocart test-controls test-keymap test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
         test-fat test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
-        release disasm wav test-studio test-prompts test-docs test-api test-hyp test-zero2 \
+        release disasm wav test-studio test-prompts test-docs test-api test-crumbs test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
-        test-catalog test-github test-lan market-seed test-host test-qemu
+        test-catalog test-github test-lan market-seed test-host test-qemu test-vid
 
 all: $(BUILD)/kernel.img $(K7) $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -847,9 +909,9 @@ qemu-screenshot: $(BUILD)/kernel.img
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 # test-nano8 stays a target to run by hand; it is not in the CI list
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
-      test-release test-smp test-qpu test-qpurun test-etc1 test-gpu3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
-      test-studio test-prompts test-docs test-api $(if $(K7),test-hyp)
+      test-catalog test-github test-lan test-controls test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
+      test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
+	test-studio test-prompts test-docs test-api test-webp test-web test-webapi test-crumbs test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/herocart.bm
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
@@ -989,21 +1051,33 @@ MARKET_VERSION := $(shell date -u +%Y.%m.%d)
 # Overbit has a .bm too (the Pi's), Yharnam and Titan Clash EX only their .b16
 # (MARKET_NO_BM: no .bm in the Market); the last one is not in GAMES (no .bm for the
 # Pi's card): MARKET_ONLY. The tools are in the kernels, not here.
-MARKET_B16 := overbit yharnam titanex
+MARKET_B16 := overbit yharnam titanex editor
 MARKET_NO_BM := yharnam titanex
 MARKET_ONLY := titanex
-market-seed: $(GAME_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
+# The Market has its own list of games: GAMES minus the games kept out of it
+# (Studio Village is a test asset, not a Market game).
+# typing and write are apps: they go to the apps/ folder of the Market.
+MARKET_NOT := village
+MARKET_APPS_OF_GAMES := typing write
+MARKET_GAMES := $(filter-out $(MARKET_NOT) $(MARKET_APPS_OF_GAMES),$(GAMES))
+# The apps (the bm editors): each one is a built-in cartridge, built as
+# build/<id>.bm and seeded in the apps/ folder of the Market. The RGB30 gets
+# the SDK as .b16 (carts/sdk_b16, its own sources) under the id "editor".
+MARKET_APPS := editor code pixel studio animator mesh sound
+MARKET_APP_CARTS := $(patsubst %,$(BUILD)/%.bm,$(MARKET_APPS))
+$(BUILD)/carts/editor.b16: $(BUILD)/carts/sdk_b16.bm
+	$(PYTHON) scripts/mkbm.py --from $< --b16 -o $@
+	@test `wc -c < $@` -le 8388608 || { echo "$@ is over a .b16's 8 MiB"; rm -f $@; exit 1; }
+market-seed: $(filter-out $(BUILD)/carts/village.bm,$(GAME_CARTS)) $(MARKET_APP_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
 	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
-	mkdir -p $(MARKET)/.github/workflows
+	mkdir -p $(MARKET)/.github/workflows $(MARKET)/games $(MARKET)/apps
 	cp market/README.md market/.gitignore $(MARKET)/
 	cp market/.github/workflows/market.yml $(MARKET)/.github/workflows/
-	for g in $(GAMES) $(MARKET_ONLY); do \
-		case " $(MARKET_NO_BM) " in *" $$g "*) ;; *) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/carts/$$g.bm --id $$g \
-			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1;; esac; \
-		case " $(MARKET_B16) " in *" $$g "*) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/carts/$$g.b16 --id $$g \
-			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1;; esac; \
-	done
-	$(PYTHON) scripts/mkmarket.py $(MARKET)/games --check
+	for g in $(MARKET_GAMES) $(MARKET_ONLY); do 		case " $(MARKET_NO_BM) " in *" $$g "*) ;; *) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add $(BUILD)/carts/$$g.bm --id $$g 			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1;; esac; 		case " $(MARKET_B16) " in *" $$g "*) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add $(BUILD)/carts/$$g.b16 --id $$g 			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1;; esac; 	done
+	for a in $(MARKET_APPS_OF_GAMES); do 		$(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add $(BUILD)/carts/$$a.bm --id $$a --kind app 			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1; 	done
+	for a in $(MARKET_APPS); do 		$(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add $(BUILD)/$$a.bm --id $$a --kind app 			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1; 	done
+	$(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add $(BUILD)/carts/editor.b16 --id editor --kind app 		--version $(MARKET_VERSION) --about-file market/about.txt
+	$(PYTHON) scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --check
 # kernel7.img's start in Hyp mode, as the Pi Zero 2 W's firmware does it:
 # start.S and vectors.S in QEMU's virt machine with the virtualization
 # extensions (raspi2b starts in SVC), tests/boot/hyp_main.c on its PL011
@@ -1035,6 +1109,33 @@ test-img3d: $(BUILD)/host/test_img3d
 $(BUILD)/host/test_img3d: tests/net/test_img3d.c src/net/img3d.c src/net/http.c src/net/*.h $(GLB_SRCS) src/bm/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -Wall -Wextra -Isrc -Isrc/bm -DHTTP_USER_AGENT='"test"' -o $@ tests/net/test_img3d.c src/net/img3d.c src/net/http.c $(GLB_SRCS) -lm
+
+# the WebP decoder (src/bm/webp.c): lossy and lossless pictures against libwebp's decode, then truncated and
+# damaged files, under the address and undefined-behaviour sanitizers
+test-webp: $(BUILD)/host/test_webp
+	$(PYTHON) tests/webp/run_webp_test.py $(BUILD)/host/test_webp
+
+$(BUILD)/host/test_webp: tests/webp/test_webp.c src/bm/webp.c src/bm/webp.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -std=c11 -O1 -g -Wall -Wextra -fsanitize=address,undefined -fno-sanitize-recover=undefined -Isrc/bm -o $@ tests/webp/test_webp.c src/bm/webp.c
+
+# the web API for cartridges (web_get, image_load, file_write): the rules (src/bm/webpolicy.c), the request in a
+# fiber (webget.c, ucontext fibers here, plain sockets for the transport) and the picture decoders
+# (webimg.c) against a local server
+test-webapi: $(BUILD)/host/test_webget
+	$(PYTHON) tests/web/run_webget_test.py $(BUILD)/host/test_webget
+
+$(BUILD)/host/test_webget: tests/web/test_webget.c tests/web/run_webget_test.py src/bm/webget.c src/bm/webget.h src/bm/webpolicy.c                            src/bm/webpolicy.h src/bm/webimg.c src/bm/webimg.h src/bm/jpeg.c src/bm/png.c src/bm/webp.c                            src/net/http.c src/net/http.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -std=gnu11 -O1 -g -Wall -Wextra -fsanitize=address,undefined -fno-sanitize-recover=undefined -DBM_HOST_TEST 		-DHTTP_USER_AGENT='"test"' -Isrc -Isrc/bm -Isrc/net -o $@ tests/web/test_webget.c src/bm/webget.c src/bm/webpolicy.c 		src/bm/webimg.c src/bm/jpeg.c src/bm/png.c src/bm/webp.c src/net/http.c -lm
+
+# the .bmv reader (src/bm/vid.c), jpeg_decode565 and scripts/mkvid.py
+test-vid: $(BUILD)/host/test_vid scripts/mkvid.py tests/video/run_vid_test.py
+	$(PYTHON) tests/video/run_vid_test.py $(BUILD)/host/test_vid $(BUILD)/vid
+
+$(BUILD)/host/test_vid: tests/video/test_vid.c src/bm/vid.c src/bm/jpeg.c src/bm/vidbench_data.c src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -Isrc/bm -o $@ tests/video/test_vid.c src/bm/vid.c src/bm/jpeg.c src/bm/vidbench_data.c -lm
 
 test-http: $(BUILD)/host/test_http
 	$(PYTHON) tests/net/run_http_test.py $(BUILD)/host/test_http
@@ -1191,6 +1292,14 @@ $(BUILD)/host/test_prompts: tests/ui/test_prompts.c src/kernel/prompts.c src/ker
 test-prompts: $(BUILD)/host/test_prompts
 	@mkdir -p $(BUILD)/prompts
 	$< $(BUILD)/prompts
+
+# The crash record (src/kernel/crumbs.c): the old record is not written before crumbs_boot()
+test-crumbs: $(BUILD)/host/test_crumbs
+	$(BUILD)/host/test_crumbs
+
+$(BUILD)/host/test_crumbs: tests/kernel/test_crumbs.c src/kernel/crumbs.c src/kernel/crumbs.h src/lib/printf.c src/lib/printf.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/kernel/test_crumbs.c src/lib/printf.c
 
 # The API list of the code editor: api.tsv is made from docs/api, the lint and
 # the generator have unit tests
@@ -1407,6 +1516,9 @@ test-b3d: $(BUILD)/host/b3d_host
 	$< $(BUILD)/b3d
 	$< $(BUILD)/b3d
 	$(PYTHON) tests/bm/check_b3d.py $(BUILD)/b3d
+	rm -rf $(BUILD)/b3d2d && mkdir -p $(BUILD)/b3d2d
+	$< $(BUILD)/b3d2d --tests=map8,sprites,stack,fade,light,herotris
+	$(PYTHON) tests/bm/check_b3d.py $(BUILD)/b3d2d --2d
 
 # The V3D driver's job runner against a model of the V3D's registers
 $(BUILD)/host/test_v3d: tests/gpu/test_v3d.c tests/gpu/mock/drivers/mmio.h src/gpu/v3d.c src/gpu/v3d.h
@@ -1446,9 +1558,23 @@ test-qpu:
 $(BUILD)/host/test_qpurun: tests/gpu/test_qpu.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/qpu.c src/gpu/qpu.h                            src/gpu/qpuprog.h src/gpu/v3d.h src/bm/gfx16.c src/bm/gfx16.h
 	mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free 	    -c src/gpu/qpu.c -o $@-qpu.o
-	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_qpu.c tests/gpu/v3d_emu.c 	    src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/gfx16.c $@-qpu.o -lm
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free -include v3d_emu.h -c src/bm/gfx16.c -o $@-g16.o
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_qpu.c tests/gpu/v3d_emu.c 	    src/gpu/v3d_cl.c src/gpu/etc1.c $@-g16.o $@-qpu.o -lm
 
 test-qpurun: $(BUILD)/host/test_qpurun
+	$< 0
+	$< 1
+	$< 2
+	$< 3
+
+# bm3d 7.x: the QPU check (src/gpu/qpucheck.c, config key gpu3d_qpu) on the V3D emulator: PASS, SKIP (no answer), SKIP (probe off)
+$(BUILD)/host/test_qpucheck: tests/gpu/test_qpucheck.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/qpu.c src/gpu/qpu.h src/gpu/qpucheck.c src/gpu/qpucheck.h src/gpu/qpuprog.h src/gpu/v3d.h src/bm/gfx16.c src/bm/gfx16.h
+	mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free -c src/gpu/qpu.c -o $@-qpu.o
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free -c src/gpu/qpucheck.c -o $@-chk.o
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_qpucheck.c tests/gpu/v3d_emu.c src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/gfx16.c $@-qpu.o $@-chk.o -lm
+
+test-qpucheck: $(BUILD)/host/test_qpucheck
 	$< 0
 	$< 1
 	$< 2

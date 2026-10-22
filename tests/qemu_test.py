@@ -64,12 +64,13 @@ BCM2835_ONLY = {
 # tests over 20 s; the others count 5. A test missing here only makes the
 # groups less even.
 SLOW = {
+    "test_web_api": 83,
     "test_chainloader": 70, "test_studio_animator": 61,
     "test_home_ui": 66, "test_stress_monitor": 48, "test_pad_typing": 48, "test_lib_tab": 46,
     "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
-    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_stack_bench": 30, "test_bench_stop": 35, "test_bm_boot_demo": 22,
+    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_video_bench": 30, "test_video_player": 25, "test_video_rec": 60, "test_video_rec_drops": 40, "test_stack_bench": 30, "test_bench_stop": 35, "test_bm_boot_demo": 22,
     "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100, "test_projects": 45, "test_editor_mouse": 40,
 }
 
@@ -277,7 +278,7 @@ def copy_yes(q, game, copy, timeout=30):
     (runtime.c copy_question), answered yes from the serial line (A)"""
     q.expect(f"bm: {game} is read only: save an editable copy as {copy}?", timeout=timeout)
     q.send("j")
-    q.expect("bm: copied", timeout=10)
+    q.expect("bm: copied", timeout=timeout)       # a big game copies slowly on a busy runner
 
 
 def test_boot_banner(b, opts):
@@ -350,6 +351,23 @@ def test_console_ansi_and_status(b, opts):
         assert not any("back to the monitor" in l for l in text), "console did not scroll"
         assert text[0].startswith(" bm "), "status bar scrolled away"
         assert any("unknown command (0x78)" in l for l in text)
+    finally:
+        q.close()
+
+
+def test_fiber_measure(b, opts):
+    """Multitasking stage 1 (measurement): a job that spins 8 ms without a yield logs
+    "did not yield", and the job report prints the stack high-water mark (fiber.c)."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        out = q.diagnostics()
+        plain = re.sub(rb"\x1b\[[0-9;]*m", b"", out).decode(errors="replace")
+        m = re.search(r"fiber: selftest did not yield: (\d+)\.\d ms past its slice", plain)
+        assert m and int(m.group(1)) >= 5, f"no 'did not yield' line:\n{plain[-1500:]}"
+        m = re.search(r"fiber selftest: ok: selftest \d+ ms \(\+\d+\.\d, stk (\d+)\.(\d)/8K\)", plain)
+        assert m, f"no ok line with the stack mark:\n{plain[-1500:]}"
+        assert 2.0 <= int(m.group(1)) + int(m.group(2)) / 10 < 4.0, m.group(0)
     finally:
         q.close()
 
@@ -703,6 +721,26 @@ def settled_screen(q, ok, tries=15):
     return img, text
 
 
+def wait_menu(q, timeout=15.0):
+    """The cartridge menu once it is drawn (its tab row says "Games"): the
+    serial line "cartridge menu" comes before the first frame, later on a
+    busy runner, and a key typed before the menu runs is lost. Writes the
+    screen text and a PNG to build/diag/ when the menu never shows."""
+    deadline = time.time() + timeout
+    while True:
+        img = q.screendump()
+        text = screen_text(img)
+        if "Games" in text[1]:
+            return img, text
+        if time.time() > deadline:
+            os.makedirs("build/diag", exist_ok=True)
+            _save_png(img, "build/diag/menu-not-drawn.png")
+            with open("build/diag/menu-not-drawn.txt", "w") as f:
+                f.write("\n".join(text))
+            raise AssertionError("the menu is not drawn after %.0f s:\n%s" % (timeout, "\n".join(text)))
+        time.sleep(0.2)
+
+
 def test_bm_boot_demo(b, opts):
     q = Qemu(b("kernel.img"))
     try:
@@ -970,7 +1008,7 @@ def test_sd_cartridges(b, opts):
         q.expect("> ")
         q.send("M")
         q.expect("cartridge menu")
-        time.sleep(0.5)
+        wait_menu(q)
         want = ("Games", "bm native demo", "/Il mio gioco lungo.bm")
         _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
         screen = "\n".join(text)
@@ -982,6 +1020,9 @@ def test_sd_cartridges(b, opts):
         screen = "\n".join(text)
         assert all(w in screen for w in want), screen
         q.send("a")
+        want = ("bm native demo", "/Il mio gioco lungo.bm")   # the cover is back before Enter starts it
+        _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
+        assert all(any(w in l for l in text) for w in want), "\n".join(text)
         q.send("\r")                          # SD cartridges come first, by title
         q.expect("playing Il mio gioco lungo.bm", timeout=10)
         q.expect("bm: loaded", timeout=10)    # the system's splash, then the game
@@ -989,7 +1030,12 @@ def test_sd_cartridges(b, opts):
         q.send("q")
         out = q.expect("update+draw", timeout=15).decode(errors="replace")
         assert '"bm native demo"' in out, out
-        q.send("d\r")                         # next: /carts/demo2.bm
+        wait_menu(q)                          # the menu is back (the game is suspended) before the keys
+        q.send("d")                           # next: /carts/demo2.bm
+        want = ("Pong", "/carts/demo2.bm")
+        _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
+        assert all(any(w in l for l in text) for w in want), "\n".join(text)
+        q.send("\r")
         _, text = settled_screen(q, lambda i, t: any("Close bm native demo?" in l for l in t))
         assert any("Close bm native demo?" in l for l in text), "\n".join(text)
         q.send("\r")                          # the demo was suspended: close it
@@ -1240,7 +1286,7 @@ def test_home_ui(b, opts):
         # keyboard layout changes and is saved; the submenus
         keys("5")
         net = "Network" if KERNEL7 else "WiFi and network"     # raspi2b: a Pi 2 B, Ethernet only
-        screen(["Settings", "Controllers", net, "Screen and sound", "Updates", "Reports", "System"])
+        screen(["Settings", "Controllers", "Controls", net, "Screen and sound", "Updates", "Reports"])    # System is below the fold with the Controls row
         shot("settings")
         keys("\r")                              # Controllers
         screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Bluetooth keyboard",
@@ -1257,6 +1303,10 @@ def test_home_ui(b, opts):
         screen([f"< {after} >", "keyboard layout: "])
         keys("\r")                              # A changes it too: back as it was
         screen([f"< {before} >"])
+        keys("q")
+        keys("s")
+        keys("\r")                              # Controls (CONTROLS-1; the RGB30 has the test of its panels)
+        screen(["Settings > Controls", "Scroller games", "Top-down games", "Stick games", "Pause and menus", "Reset all"])
         keys("q")
         keys("s")
         keys("\r")
@@ -1721,6 +1771,206 @@ def test_cart_write_limits(b, opts):
         cfg_txt = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"], capture_output=True,
                                  text=True, env=env).stdout
         assert "wifi_boot=0" in cfg_txt, cfg_txt
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+WEB_FIX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "fixtures")
+WEBP_FIX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "webp", "fixtures")
+
+
+def _lua_bytes(data):
+    """A Lua string literal with every byte escaped."""
+    return '"' + "".join("\\%03d" % b for b in data) + '"'
+
+
+def _web_fixture(path):
+    with open(path, "rb") as f:
+        return f.read()
+
+
+WEB_API_CART = r"""
+local JPG, PROG, PNG, WEBPLL, WEBPLY = %(jpg)s, %(prog)s, %(png)s, %(webpll)s, %(webply)s
+
+local function hx(v) return v and string.format("%%06x", v) or "nil" end
+
+function _init()
+  -- image_load: JPEG, the size and three pixels
+  local im, err = image_load(JPG, 0, 0)
+  log("jpg", im and im.w, im and im.h, err)
+  log("jpgpx", hx(sget(2, 10)), hx(sget(16, 10)), hx(sget(28, 5)))
+  -- cut to maxw x maxh, placed away from the corner
+  im, err = image_load(JPG, 100, 100, 16, 10)
+  log("jpgcut", im and im.x, im and im.y, im and im.w, im and im.h, err, hx(sget(102, 103)), sget(116, 103) == nil)
+  -- what does not fit the sheet is cut
+  im, err = image_load(JPG, 250, 250)
+  log("jpgedge", im and im.w, im and im.h, err)
+  im, err = image_load(JPG, 256, 0)
+  log("jpgout", im, err)
+  im, err = image_load(PROG, 0, 0)
+  log("prog", im, err)
+  -- PNG: the opaque and the transparent pixels
+  im, err = image_load(PNG, 40, 0)
+  log("png", im and im.w, im and im.h, err)
+  log("pngpx", hx(sget(40, 0)), hx(sget(43, 3)), sget(52, 3) == nil)
+  -- WebP: lossless (exact pixels), lossy (size)
+  im, err = image_load(WEBPLL, 0, 40)
+  log("webpll", im and im.w, im and im.h, err)
+  log("webpllpx", hx(sget(0, 40)), hx(sget(10, 50)), hx(sget(63, 87)))
+  im, err = image_load(WEBPLY, 100, 40)
+  log("webply", im and im.w, im and im.h, err)
+  -- not a picture, a handle that is not there
+  im, err = image_load("this is not a picture", 0, 0)
+  log("junk", im, err)
+  im, err = image_load(77, 0, 0)
+  log("noid", im, err)
+  -- the picture is a part of the sheet that sspr draws
+  local ok = pcall(sspr, 0, 40, 64, 48, 10, 10)
+  log("sspr", ok)
+
+  -- file_write: the sandbox
+  log("fw1", file_write("hello.txt", "hi"))
+  log("fw2", file_write("bm/web/model.glb", string.rep("x", 100000)))
+  log("fw3", file_write("/bm/web/hello.txt", "hi again"))
+  for _, p in ipairs({ "../x.txt", "/kernel.img", "/bm/config.txt", "game.bm", "x.BME", "x.b16", "sub/a.txt",
+                       "bm/web/sub/a.txt", "toolongname.txt", ".hid", "a/../b.txt", "" }) do
+    local r, e = file_write(p, "no")
+    log("fwno", p, r, e)
+  end
+  log("fwid", file_write("x.txt", 12345))
+  local r, e = file_write("big.bin", string.rep("a", 9 * 1024 * 1024))
+  log("fwbig", r, e)
+  -- the folder keeps at most 128 files (hello.txt and model.glb are two of them)
+  local n = 0
+  for i = 1, 130 do
+    local ok2, e2 = file_write(string.format("f%%03d.txt", i), "x")
+    if not ok2 then log("fwmax", n, e2) break end
+    n = n + 1
+  end
+
+  -- web_get: a request that cannot start never touches the network
+  log("wg1", web_get("http://example.org/"))
+  log("wg2", web_get("https://exa mple.org/"))
+  log("wg3", web_get("https://example.org/#frag"))
+  log("wg4", web_get("https://example.org/"))
+  log("wp", web_poll(99))
+  log("wi", web_info(99))
+  log("wb", web_body(99))
+  log("wc", web_cancel(99))
+  log("end")
+  quit()
+end
+"""
+
+
+def test_web_api(b, opts):
+    """bm3D 7.x web API for a browser cart: image_load (JPEG, PNG, WebP into the sprite sheet),
+    file_write (only a bare 8.3 name in bm/web, never .bm/.bme/.b16, capped, 128 files) and the
+    web_get address rules. The QEMU machine has no network: web_get stops at "no network" (the
+    request itself is tested on the PC by make test-webapi)."""
+    import zlib
+    tmp = tempfile.mkdtemp(prefix="bm-webapi-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    fx = {
+        "jpg": _web_fixture(os.path.join(WEB_FIX, "block_32x24.jpg")),
+        "prog": _web_fixture(os.path.join(WEB_FIX, "block_prog.jpg")),
+        "png": _web_fixture(os.path.join(WEB_FIX, "alpha_16x8.png")),
+        "webpll": _web_fixture(os.path.join(WEBP_FIX, "lossless_64x48.webp")),
+        "webply": _web_fixture(os.path.join(WEBP_FIX, "lossy_q75_64x48.webp")),
+    }
+    src = WEB_API_CART % {k: _lua_bytes(v) for k, v in fx.items()}
+    ref = zlib.decompress(_web_fixture(os.path.join(WEBP_FIX, "lossless_64x48.ref.z")))
+
+    def rgb24(x, y):                    # the reference pixel as the sheet gives it back (RGB565 widened)
+        o = (y * 64 + x) * 3
+        r, g, bl = ref[o] >> 3, ref[o + 1] >> 2, ref[o + 2] >> 3
+        return "%02x%02x%02x" % ((r << 3) | (r >> 2), (g << 2) | (g >> 4), (bl << 3) | (bl >> 2))
+
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+        assert _upload(q, mkbm.pack(src.encode(), title="webapi"))
+        out = q.expect("end", timeout=400)
+        text = out.decode(errors="replace").replace("\r", "")
+        q.expect("> ", timeout=20)
+    finally:
+        q.close()
+
+    def line(tag):
+        m = [l for l in text.split("\n") if l.startswith(tag + "\t")]
+        assert m, (tag, text[-3000:])
+        return m[-1].split("\t")[1:]
+
+    def near(hexv, rgb, tol=24):
+        v = int(hexv, 16)
+        return all(abs(((v >> s) & 255) - c) <= tol for s, c in ((16, rgb[0]), (8, rgb[1]), (0, rgb[2])))
+
+    assert line("jpg") == ["32", "24", "nil"], line("jpg")
+    px = line("jpgpx")
+    assert near(px[0], (255, 0, 0)) and near(px[1], (0, 200, 0)) and near(px[2], (0, 0, 255)), px
+    cut = line("jpgcut")
+    assert cut[:5] == ["100", "100", "16", "10", "nil"] and near(cut[5], (255, 0, 0)) and cut[6] == "true", cut
+    assert line("jpgedge") == ["6", "6", "nil"], line("jpgedge")
+    out_of = line("jpgout")
+    assert out_of[0] == "nil" and "outside the sprite sheet" in out_of[1], out_of
+    prog = line("prog")
+    assert prog[0] == "nil" and "progressive" in prog[1], prog
+    assert line("png") == ["16", "8", "nil"], line("png")
+    pp = line("pngpx")
+    assert near(pp[0], (255, 0, 255)) and near(pp[1], (255, 255, 0)) and pp[2] == "true", pp
+    assert line("webpll") == ["64", "48", "nil"], line("webpll")
+    assert line("webpllpx") == [rgb24(0, 0), rgb24(10, 10), rgb24(63, 47)], (line("webpllpx"), rgb24(0, 0))
+    assert line("webply") == ["64", "48", "nil"], line("webply")
+    junk = line("junk")
+    assert junk[0] == "nil" and "not a JPEG, PNG or WebP" in junk[1], junk
+    noid = line("noid")
+    assert noid[0] == "nil" and "no such request" in noid[1], noid
+    assert line("sspr") == ["true"], line("sspr")
+
+    assert line("fw1") == ["true", "bm/web/HELLO.TXT"], line("fw1")
+    assert line("fw2") == ["true", "bm/web/MODEL.GLB"], line("fw2")
+    assert line("fw3") == ["true", "bm/web/HELLO.TXT"], line("fw3")
+    refused = [l.split("\t")[1:] for l in text.split("\n") if l.startswith("fwno\t")]
+    assert len(refused) == 12, refused
+    for p, r, e in refused:
+        assert r == "nil" and e not in ("nil", ""), (p, r, e)
+    assert "no such request" in line("fwid")[1], line("fwid")
+    big = line("fwbig")
+    assert big[0] == "nil" and "over the cap" in big[1], big
+    fmax = line("fwmax")
+    assert fmax[0] == "126" and "128 files" in fmax[1], fmax      # 126 + hello.txt + model.glb = 128
+    assert "only https" in line("wg1")[1], line("wg1")
+    assert "nil" == line("wg2")[0] and "space" in line("wg2")[1], line("wg2")
+    assert "nil" == line("wg3")[0] and "fragment" in line("wg3")[1], line("wg3")
+    assert line("wg4") == ["nil", "no network"], line("wg4")
+    assert line("wp")[0] == "nil" and "no such request" in line("wp")[1], line("wp")
+    assert line("wi")[0] == "nil" and line("wb")[0] == "nil", (line("wi"), line("wb"))
+    assert line("wc") == ["false"], line("wc")
+
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/BM/WEB"], capture_output=True, text=True,
+                               env=env).stdout.upper().split()
+        assert len(names) == 128, len(names)
+        assert "::/BM/WEB/HELLO.TXT" in names and "::/BM/WEB/MODEL.GLB" in names, names[:5]
+        hello = subprocess.run(["mtype", "-i", part, "::/BM/WEB/HELLO.TXT"], capture_output=True, env=env).stdout
+        assert hello == b"hi again", hello
+        glb = subprocess.run(["mtype", "-i", part, "::/BM/WEB/MODEL.GLB"], capture_output=True, env=env).stdout
+        assert glb == b"x" * 100000, len(glb)
+        root = subprocess.run(["mdir", "-b", "-i", part, "::/"], capture_output=True, text=True, env=env).stdout.upper()
+        assert "KERNEL.IMG" not in root and "X.TXT" not in root and "BIG.BIN" not in root, root
+        bm_dir = subprocess.run(["mdir", "-b", "-i", part, "::/BM"], capture_output=True, text=True, env=env).stdout.upper()
+        assert "A.TXT" not in bm_dir and "SUB" not in bm_dir, bm_dir
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -3534,7 +3784,7 @@ def test_update(b, opts):
             time.sleep(0.5)
             keys("5")                               # Settings, then Updates
             screen(["Settings", "Controllers", "Updates"])
-            keys("sss")
+            keys("ssss")                              # Controllers, Controls, WiFi, Screen, Updates
             keys("\r")
             screen(["Settings > Updates", "Version"])
             keys("s")
@@ -4019,6 +4269,8 @@ def test_usb_mouse(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}",
                                "-device", "usb-hub,port=1", "-device", "usb-kbd,port=1.2",
                                "-device", "usb-tablet,port=1.3"])
+    def wait_screen(q, cond, timeout=15.0):             # a slow runner: 15 s, not 6
+        return globals()["wait_screen"](q, cond, timeout)
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "usb: port 3: if0 class 03/00/00 ep 81 mps 8" in out and " tablet" in out, out
@@ -4026,11 +4278,11 @@ def test_usb_mouse(b, opts):
         assert "usb: keyboard 0627:0001 'QEMU USB Keyboard'" in out, out
         # its icon once it has moved (2026-10-04: a keyboard's dongle declares
         # a mouse with none behind it)
-        time.sleep(1.0)
-        settled_screen(q, lambda i, t: len(bar_icons(i)) == 1, tries=20)
-        assert len(bar_icons(q.screendump())) == 1, "a mouse icon before the mouse did anything"
+        wait_menu(q)                                        # the first frame, later on a busy runner
+        img_, _ = settled_screen(q, lambda i, t: len(bar_icons(i)) == 1, tries=20)
+        assert len(bar_icons(img_)) == 1, "a mouse icon before the mouse did anything"
         q.pointer(320, 180)
-        shot_ = wait_icons(q, 2)
+        shot_ = wait_icons(q, 2, timeout=20)
         runs = bar_icons(shot_)
         assert len(runs) == 2 and not blue_number(shot_, runs[0]) and not blue_number(shot_, runs[1]), runs
         assert runs[1][1] - runs[1][0] <= 13, runs          # the mouse: narrow, no number
@@ -4045,10 +4297,16 @@ def test_usb_mouse(b, opts):
         q.click("wheel-down")
         assert MOUSE_TITLES[7] in screen_text(wait_screen(q, title_is(MOUSE_TITLES[7])))[4]
         # the keys move the selection: the arrow goes away until it moves
-        sendkeys(q, "left")
-        shot_ = wait_screen(q, lambda s_: not arrow_at(s_, x, y) and title_is(MOUSE_TITLES[6])(s_))
+        # press and release in one QMP call (sendkey holds the key 100 ms). A frame
+        # of the menu (the blur of a new cover) can take over 500 ms in QEMU and
+        # the keyboard repeat (hid.c, 500 ms) then moves a second cover: one cover
+        # left of the last one, or two, is the keys moving the selection
+        q.input_events([{"type": "key", "data": {"down": d_, "key": {"type": "qcode", "data": "left"}}}
+                        for d_ in (True, False)])
+        moved = lambda s_: any(title_is(MOUSE_TITLES[i])(s_) for i in (6, 5))
+        shot_ = wait_screen(q, lambda s_: not arrow_at(s_, x, y) and moved(s_))
         assert not arrow_at(shot_, x, y), "the arrow stayed with the keys"
-        assert MOUSE_TITLES[6] in screen_text(shot_)[4], screen_text(shot_)[4]
+        assert any(MOUSE_TITLES[i] in screen_text(shot_)[4] for i in (6, 5)), screen_text(shot_)[4]
 
         def click_at(px, py, button="left"):        # once the arrow is there
             q.pointer(px, py)
@@ -4059,7 +4317,7 @@ def test_usb_mouse(b, opts):
         click_at(132, 24)
         assert "bm SDK" in screen_text(wait_screen(q, title_is("bm SDK")))[4]
         click_at(68, 24)
-        wait_screen(q, title_is(MOUSE_TITLES[6]))
+        wait_screen(q, moved)                       # the selection it had
         # the right button on a cover: its options; a click outside closes them
         x, y = cover_xy(1)
         click_at(x, y, "right")
@@ -4071,8 +4329,8 @@ def test_usb_mouse(b, opts):
         assert "Open in the SDK" not in text and MOUSE_TITLES[1] in text, text
         # a click on a cover plays it
         click_at(*cover_xy(0))
-        q.expect("playing astrowing.bm", timeout=10)
-        q.expect("bm: loaded", timeout=10)
+        q.expect("playing astrowing.bm", timeout=20)
+        q.expect("bm: loaded", timeout=20)
         time.sleep(1.0)
         q.send("q")
         q.expect("update+draw", timeout=15)
@@ -4932,7 +5190,7 @@ def test_pixel(b, opts):
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, f"pixel-{name}.png"))
 
-    F2, F3, UP, RIGHT, ESC, SAVE = "\x1bOQ", "\x1bOR", "\x1b[A", "\x1b[C", "\x1b", "\x13"
+    F2, F3, F4, UP, RIGHT, ESC, SAVE = "\x1bOQ", "\x1bOR", "\x1bOS", "\x1b[A", "\x1b[C", "\x1b", "\x13"
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
@@ -4951,6 +5209,26 @@ def test_pixel(b, opts):
         keys(F2, gap=0.5)
         screen(["sheet 256x256", "sprite 0 at (0,0)"])
         shot("sheet")
+        keys(F4, gap=0.5)                       # the Stack page: no stack zone yet, n makes one
+        screen(["stack", "This file has no stack zone"])
+        keys("n", gap=0.5)
+        screen(["new stack zone: name x y w h n", "stack 0 0 16 16 8"])
+        keys("\r", gap=0.6)                     # (the sprite at the corner of the sheet, 8 slices)
+        screen(["stack stack  slice 1/8", "at (0,0)  16x16"])
+        keys(RIGHT, gap=0.4)
+        screen(["slice 2/8", "at (16,0)"])
+        shot("stack")
+        view = q.screendump()                   # the stack turns in its box: it is not empty
+        counts = {}
+        for x in range(320, 630, 2):
+            for y in range(150, 300, 2):
+                c = pixel(view, x, y)
+                counts[c] = counts.get(c, 0) + 1
+        assert sum(counts.values()) - max(counts.values()) > 60, "the stack preview is empty"
+        keys("\r", gap=0.5)                     # Enter draws the slice on F1
+        screen(["stack stack 2/8"])
+        keys(F4, gap=0.4)
+        screen(["slice 2/8"])
         keys(F3, gap=0.5)
         screen(["PALETTE", "edit", "add", "remove"])
         shot("palette")
@@ -4976,6 +5254,10 @@ def test_pixel(b, opts):
         for t in (1, 4, 8, 9):
             assert secs[t] == secs0[t], f"section {t} changed"
         assert 5 in secs and 2 not in secs, sorted(secs)
+        zs = secs[11]                           # the Stack page's zone: "stack" 0 0 16 16, 8 slices (byte 26)
+        ents = [zs[4 + i * 28:4 + (i + 1) * 28] for i in range(zs[0] | zs[1] << 8)]
+        mine = [e for e in ents if e[:5] == b"stack" and e[5] == 0]
+        assert len(mine) == 1 and mine[0][26] == 8, ents
         w, h, px, pal = _sheet_pixels(saved)
         w0, h0, px0, pal0 = _sheet_pixels(village0)
         assert (w, h) == (w0, h0), (w, h)
@@ -5316,7 +5598,7 @@ def test_monitor_line(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
-        time.sleep(0.5)
+        wait_menu(q)                            # a ':' typed before the menu runs is lost
         q.send(":err\r")
         out = q.expect("the line is done", timeout=10).decode(errors="replace")
         assert "err: none" in out, out
@@ -5339,6 +5621,52 @@ def test_monitor_line(b, opts):
         q.expect("> ")
         q.send("l")                             # the key is set for now
         q.expect("lua> ")
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_monitor_crc(b, opts):
+    """The monitor's ':crc' (R-NET7): the CRC32 of the page on screen, in the
+    line's fixed format; the same screen gives the same value, another screen
+    another one."""
+    tmp = tempfile.mkdtemp(prefix="bm-crc-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+
+        def crc():
+            q.send(":crc\r")
+            out = q.expect("the line is done", timeout=10).decode(errors="replace")
+            m = re.search(r"crc: (\d+)x(\d+) bpp=(\d+) pitch=(\d+) crc32=0x([0-9a-f]{8})\b", out)
+            assert m, out
+            q.expect("> ")
+            return m
+
+        m = crc()
+        w, h, bpp, pitch = map(int, m.group(1, 2, 3, 4))
+        assert w > 0 and h > 0 and bpp == 32 and pitch >= w * 4, m.group(0)
+        first = m.group(5)
+        assert first != "00000000", m.group(0)
+        # console_clear() gives the same screen, but for the status line: it shows
+        # the uptime in seconds (src/kernel/input.c update_uptime), so two clears on
+        # either side of a second differ. Clear and ask until two in a row agree: they
+        # do within one second, and a CRC that did not follow the screen never would.
+        seen = []
+        for _ in range(20):
+            q.send("c")
+            q.expect("> ")
+            seen.append(crc().group(5))
+            if len(seen) > 1 and seen[-1] == seen[-2]:
+                break
+        assert len(seen) > 1 and seen[-1] == seen[-2], f"the same screen, never the same value: {seen}"
+        assert first != seen[-1], f"the screen with ':crc' printed and the cleared one give the same value {first}"
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -5593,6 +5921,56 @@ def test_frameskip(b, opts):
         assert "stopped with an error" not in out, out
     finally:
         q.close()
+
+
+STATPERF_CART = r"""
+local n = 0
+function _init() log("statperf start") end
+function _update() end
+function _draw()
+  n = n + 1
+  cls(1)
+  if n == 30 then
+    local a, b, c = stat(16), stat(17), stat(18)
+    log(string.format("statperf %s %s %s | %.3f %.3f %.3f", type(a), type(b), type(c), a, b, c))
+  end
+end
+"""
+
+
+def test_stat_perf(b, opts):
+    """stat(16), stat(17), stat(18) (GPU job time, audio time, GPU wait of the
+    last frame, in ms): numbers, not negative, below one second. A
+    measurement only: no value is asserted exactly (QEMU has no GPU) and no
+    cartridge may use them in game logic (a lockstep match falls apart)"""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        assert _upload(q, mkbm.pack(STATPERF_CART.encode(), title="statperf"))
+        q.expect("statperf start", timeout=30)
+        out = q.expect("statperf number", timeout=30).decode(errors="replace")
+        out += q.expect("\n", timeout=5).decode(errors="replace")
+        m = re.search(r"statperf number number number \| ([\d.-]+) ([\d.-]+) ([\d.-]+)", out)
+        assert m, out[-400:]
+        for name, g in zip((16, 17, 18), m.groups()):
+            v = float(g)
+            print(f"     stat({name}) = {v:.3f} ms")
+            assert 0 <= v < 1000, (name, v)
+        q.send("q")
+        out = q.expect("update+draw", timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+    finally:
+        q.close()
+    # not for logic: a cartridge that reads them stays away from netplay
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for d, _, files in os.walk(os.path.join(root, "carts")):
+        for f in files:
+            if f.endswith(".lua"):
+                with open(os.path.join(d, f), encoding="utf-8", errors="replace") as fh:
+                    t = fh.read()
+                if re.search(r"stat\(1[678]\)", t):
+                    assert not re.search(r"net\.|lockstep|netplay|send_input", t), f"{f}: stat(16-18) in a netplay file"
 
 
 DEVKIT_CART = r"""
@@ -6176,6 +6554,282 @@ def test_room_bench(b, opts):
         q.expect("> ", timeout=10)
     finally:
         q.close()
+
+
+def test_video_bench(b, opts):
+    """The Video bench (monitor line word `video`, Dev tab Video bench): the
+    SD write and read figures and the JPEG decode times print, the files
+    it writes are gone and it runs to the end without an error."""
+    tmp = tempfile.mkdtemp(prefix="bm-vid-")
+    try:
+        img = os.path.join(tmp, "sd.img")
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        mksd.build(img, [(cfg, "bm/config.txt")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            q.send(":video quick\r")
+            out = q.expect("Video bench done", timeout=300).decode(errors="replace")
+            plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
+            assert re.search(r"8 writes, \d+\.\d\d MB/s mean", plain), plain
+            assert re.search(r"SD read: 2 files, \d+\.\d\d MB/s", plain), plain
+            assert re.search(r"320x180 \(\d+ bytes\): +mean \d+\.\d\d ms", plain), plain
+            assert re.search(r"480x270 \(\d+ bytes\): +mean \d+\.\d\d ms", plain), plain
+            assert "failed" not in plain and "stopped" not in plain, plain
+            q.expect("the line is done", timeout=10)
+            time.sleep(1)
+        finally:
+            q.close()
+        part = _sd_files(img)
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        left = subprocess.run(["mdir", "-i", part, "::/BM/VIDBENCH"], capture_output=True, text=True, env=env).stdout
+        assert "VB" not in left, left
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+VIDEO_CART = r"""
+local c, n
+function _init()
+  local err
+  c, err = video_open("test.bmv")
+  if not c then log("open failed " .. tostring(err)) return end
+  log(string.format("info %d %d %d %d %d %s", c:info()))
+  log("frame_at " .. c:frame_at(0) .. " " .. c:frame_at(70) .. " " .. c:frame_at(9999))
+  log("missing " .. tostring(select(2, video_open("nope.bmv"))))
+  log("badname " .. tostring(pcall(video_open, "../x")))
+  n = 0
+end
+function _draw()
+  cls(0)
+  if not c then return end
+  c:draw(2, 0, 0)
+  n = n + 1
+  if n == 3 then
+    for _, p in ipairs({ { 20, 20 }, { 160, 90 }, { 300, 40 }, { 100, 150 }, { 250, 160 } }) do
+      log(string.format("px %d %d %06X", p[1], p[2], pget(p[1], p[2])))
+    end
+    log("again " .. tostring(c:draw(0, 0, 0, 1)))
+    log("badframe " .. tostring(pcall(c.draw, c, 3, 0, 0)))
+    c:close()
+    log("closed " .. tostring(pcall(c.info, c)))
+    log("clip done")
+  end
+end
+"""
+
+# the bench frame (a 320x180 baseline JPEG) from vidbench_data.c, and its colours at five points (ffmpeg's decode)
+VIDEO_PIXELS = {(20, 20): (40, 32, 15), (160, 90): (87, 79, 104), (300, 40): (86, 91, 106),
+                (100, 150): (97, 98, 128), (250, 160): (18, 12, 8)}
+
+
+def _bench_jpeg():
+    src = open(os.path.join(HERE, "..", "src", "bm", "vidbench_data.c")).read()
+    body = src.split("vidbench_jpg320[] = {")[1].split("};")[0]
+    return bytes(int(x) for x in re.findall(r"\d+", body))
+
+
+def test_video_player(b, opts):
+    """The clip player of the cartridge API (VID-FMT slice 2): video_open of a .bmv in /bm/clips, clip:info,
+    frame_at, draw (the colours at five points match the picture), the same frame again, a bad frame and a
+    bad name refused, close."""
+    import mkvid
+    tmp = tempfile.mkdtemp(prefix="bm-vidplay-")
+    try:
+        jpg = _bench_jpeg()
+        clip = os.path.join(tmp, "test.bmv")
+        with open(clip, "wb") as f:
+            f.write(mkvid.pack([jpg, jpg, jpg], 15))
+        cart = os.path.join(tmp, "vid.bm")
+        with open(cart, "wb") as f:
+            f.write(mkbm.pack(VIDEO_CART.encode(), title="Vid test", res=(320, 180)))
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        img = os.path.join(tmp, "sd.img")
+        mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/vid.bm"), (clip, "bm/clips/test.bmv")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            q.send(":play vid\r")
+            out = q.expect("clip done", timeout=60).decode(errors="replace")
+            plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
+            assert "info 320 180 15 3 200 false" in plain, plain
+            assert "frame_at 0 1 2" in plain, plain
+            assert "missing no such clip" in plain, plain
+            assert "badname false" in plain, plain
+            assert "again true" in plain and "badframe false" in plain and "closed false" in plain, plain
+            for (x, y), want in VIDEO_PIXELS.items():
+                m = re.search(r"px %d %d ([0-9A-F]{6})" % (x, y), plain)
+                assert m, plain
+                got = tuple(int(m.group(1)[i:i + 2], 16) for i in (0, 2, 4))
+                assert all(abs(g - w) <= 16 for g, w in zip(got, want)), (x, y, got, want)
+        finally:
+            q.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+REC_CART = r"""
+local n = 0
+function _draw()
+  n = n + 1
+  cls(rgb((n * 7) % 256, (n * 13) % 256, 128))
+  if SAVE_EVERY_FRAME then save({ n = n }) end
+  if time() > 2.2 then quit() end
+end
+"""
+
+PLAY_REC_CART = r"""
+local c, n
+function _init()
+  local err
+  c, err = video_open("rec/R0010001.BMV")
+  if not c then log("open failed " .. tostring(err)) return end
+  log(string.format("info %d %d %d %d", c:info()))
+  n = 0
+end
+function _draw()
+  cls(0)
+  if not c then return end
+  local w, h, fps, frames = c:info()
+  n = n + 1
+  if n <= frames then
+    c:draw(n - 1, 0, 0)
+    log(string.format("frame %d %06X", n - 1, pget(10, 10)))
+  elseif n == frames + 1 then
+    log("play done")
+  end
+end
+"""
+
+
+def _rgb565_to_888(c):
+    r, g, b = c >> 11, c >> 5 & 63, c & 31
+    return (r << 3 | r >> 2) << 16 | (g << 2 | g >> 4) << 8 | (b << 3 | b >> 2)
+
+
+def _bmv_frames(data):
+    """(width, height, fps, [colour of each frame, or None if it is not one colour]) of a raw RGB565 .bmv chunk"""
+    assert data[:4] == b"BMV1" and data[4] == 1 and data[5] == 2, data[:8]
+    w, h, fps = struct.unpack("<HHH", data[8:14])
+    frames, index_off = struct.unpack("<II", data[16:24])
+    cols = []
+    for k in range(frames):
+        off, size = struct.unpack("<II", data[index_off + 8 * k:index_off + 8 * k + 8])
+        assert size == w * h * 2 and off + size <= len(data)
+        px = struct.unpack("<%dH" % (w * h), data[off:off + size])
+        cols.append(px[0] if all(p == px[0] for p in px) else None)
+    return w, h, fps, cols
+
+
+def _rec_session(b, cart_src, config, tmp):
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n" + config)
+    cart = os.path.join(tmp, "rec.bm")
+    with open(cart, "wb") as f:
+        f.write(mkbm.pack(cart_src.encode(), title="Rec test", res=(320, 180)))
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/rec.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        q.send(":play rec\r")
+        out = q.expect("chunks.", timeout=120).decode(errors="replace")
+        time.sleep(1)
+    finally:
+        q.close()
+    return img, re.sub(r"\x1b\[[0-9;]*m", "", out)
+
+
+def _rec_chunks(img):
+    part = _sd_files(img)
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    ls = subprocess.run(["mdir", "-b", "-i", part, "::/BM/REC"], capture_output=True, text=True, env=env).stdout
+    names = sorted(re.findall(r"R\d{7}\.BMV", ls.upper()))
+    chunks = []
+    for nme in names:
+        chunks.append(subprocess.run(["mtype", "-i", part, "::/BM/REC/" + nme], capture_output=True, env=env,
+                                     check=True).stdout)
+    return names, chunks
+
+
+REC_DONE = r"run 1 done: (\d+) frames in [\d.]+ s, dropped (\d+) \(ring full\), (\d+) chunks \((\d+) failed\)"
+
+
+def test_video_rec(b, opts):
+    """The screen recorder (VID-REC, rec=on): 2 s of a cart at 15 fps are written as .bmv chunks in /bm/rec,
+    the report line has the counters, every frame is one colour and consecutive frames differ; then a cart
+    plays the first chunk through video_open("rec/...") and sees the same colours."""
+    tmp = tempfile.mkdtemp(prefix="bm-rec-")
+    try:
+        img, out = _rec_session(b, "SAVE_EVERY_FRAME = false\n" + REC_CART, "rec=on\nrec_fps=15\nrec_ring_mb=8\n", tmp)
+        m = re.search(REC_DONE, out)
+        assert m, out
+        captured, dropped, nchunks, failed = (int(x) for x in m.groups())
+        assert captured >= 8 and failed == 0 and nchunks >= 2, out
+        assert re.search(r"card \d+\.\d\d MB/s while writing, worst chunk [\d.]+ ms, game waited at most [\d.]+ ms", out), out
+        names, chunks = _rec_chunks(img)
+        assert len(chunks) == nchunks and names[0] == "R0010001.BMV", (names, out)
+        cols = []
+        for data in chunks:
+            w, h, fps, c = _bmv_frames(data)
+            assert (w, h, fps) == (320, 180, 15), (w, h, fps)
+            cols += c
+        assert len(cols) == captured, (len(cols), captured)
+        assert all(c is not None for c in cols), cols
+        assert all(a != b_ for a, b_ in zip(cols, cols[1:])), cols
+        # the first chunk through the cart's player (video_open("rec/R0010001.BMV"))
+        first = os.path.join(tmp, "c1.bmv")
+        with open(first, "wb") as f:
+            f.write(chunks[0])
+        pcart = os.path.join(tmp, "play.bm")
+        with open(pcart, "wb") as f:
+            f.write(mkbm.pack(PLAY_REC_CART.encode(), title="Rec play", res=(320, 180)))
+        img2 = os.path.join(tmp, "sd2.img")
+        mksd.build(img2, [(os.path.join(tmp, "config.txt"), "bm/config.txt"), (pcart, "carts/play.bm"),
+                          (first, "bm/rec/R0010001.BMV")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img2}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            q.send(":play play\r")
+            out2 = q.expect("play done", timeout=60).decode(errors="replace")
+        finally:
+            q.close()
+        plain2 = re.sub(r"\x1b\[[0-9;]*m", "", out2)
+        first_cols = _bmv_frames(chunks[0])[3]
+        assert "open failed" not in plain2, plain2
+        got = re.findall(r"frame (\d+) ([0-9A-F]{6})", plain2)
+        assert len(got) == len(first_cols), (len(got), len(first_cols), plain2)
+        for (k, hexc), want in zip(got, first_cols):
+            assert int(hexc, 16) == _rgb565_to_888(want), (k, hexc, want)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_video_rec_drops(b, opts):
+    """A game that saves to the card on every frame keeps the recorder from writing (the card is the game's
+    for 300 ms after each save): the ring of 1 MiB (3 chunks) fills, frames are dropped and counted, nothing
+    blocks, and the chunks are all written when the game ends."""
+    tmp = tempfile.mkdtemp(prefix="bm-recdrop-")
+    try:
+        img, out = _rec_session(b, "SAVE_EVERY_FRAME = true\n" + REC_CART, "rec=on\nrec_fps=15\nrec_ring_mb=1\n", tmp)
+        m = re.search(REC_DONE, out)
+        assert m, out
+        captured, dropped, nchunks, failed = (int(x) for x in m.groups())
+        assert dropped >= 1 and failed == 0 and captured >= 6, out
+        assert re.search(r"ring high 3 of 3 chunks.", out), out
+        names, chunks = _rec_chunks(img)
+        assert len(chunks) == nchunks == (captured + 2) // 3, (len(chunks), nchunks, captured)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_stack_bench(b, opts):
@@ -6823,7 +7477,9 @@ def test_code_editor(b, opts):
         log.append(out)
         return out
 
-    def see(words, tries=40):
+    def see(words, tries=80):
+        # 20 s: a key sent after a serial line can wait for the editor's next
+        # frame, slow on a busy runner; on a miss the screen goes to build/diag/
         text = []
         for _ in range(tries):
             img_ = q.screendump()
@@ -6831,7 +7487,18 @@ def test_code_editor(b, opts):
             if all(any(w in l for l in text) for w in words):
                 return text
             time.sleep(0.25)
+        os.makedirs("build/diag", exist_ok=True)
+        _save_png(img_, "build/diag/code-editor-miss.png")
+        with open("build/diag/code-editor-miss.txt", "w") as f:
+            f.write(f"not on screen: {words}\n" + "\n".join(text))
         raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+
+    def copy_asked(q, game, copy):
+        # the question's box is drawn after the first poll of its keys: an
+        # answer sent before is "held at the start" and lost, a copy that
+        # never ends on a busy runner. Wait for the box, then answer.
+        wait_screen(q, lambda s_: "editable copy" in "".join(screen_text(s_)), timeout=20)
+        copy_yes(q, game, copy)
 
     def shot(name):
         if opts.shots:
@@ -6847,9 +7514,11 @@ def test_code_editor(b, opts):
         k("\r")
         expect("code: opened /carts/Il mio demo.bm")
         k("\x0f", 0.5)
+        see(["Open a cartridge", "/carts/pong.bm"])         # the list, before Down and Enter
         k("\x1b[B", 0.3)
         k("\r")
         expect("code: opened /carts/pong.bm")
+        see(["pong.bm"])                                    # the tab is drawn, before F4
         k("\x1bOS", 0.5)                                    # F4: two pages
         text = see(["Il mio demo.bm", "pong.bm 1", "two pages"])
         assert "untitled" not in text[0], "the untouched first tab gave its place: " + text[0]
@@ -6861,7 +7530,7 @@ def test_code_editor(b, opts):
         k("1\r", 0.1)
         k("-- edited by bm Code\r")
         k("\x13")                                           # Ctrl+S
-        copy_yes(q, "/carts/pong.bm", "/carts/PONG.BME")    # a game: its editable copy
+        copy_asked(q, "/carts/pong.bm", "/carts/PONG.BME")    # a game: its editable copy
         expect("code: saved /carts/PONG.BME")
 
         # the demo (long name, sprites): an error on line 1, then F5
@@ -6870,7 +7539,7 @@ def test_code_editor(b, opts):
         k("1\r", 0.1)
         k('error("boom")\r')
         k("\x1b[15~")                                       # F5: save and run
-        copy_yes(q, "/carts/Il mio demo.bm", "/carts/ILMIODEM.BME")
+        copy_asked(q, "/carts/Il mio demo.bm", "/carts/ILMIODEM.BME")
         expect("code: saved /carts/ILMIODEM.BME")
         expect("main.lua:1: boom", timeout=30)
         expect("code: ready", timeout=30)
@@ -6882,6 +7551,7 @@ def test_code_editor(b, opts):
 
         # a new tab, a function, an "#entry:" line above its if
         k("\x14", 0.3)                                      # Ctrl+T
+        see(["untitled"])                                   # the new tab, before the typing
         k("function f(v)\rif v > 0 then\rr = 1\relse\rr = 2\rend\rend")
         k("\x0c")
         k("1\r", 0.1)
@@ -7164,6 +7834,17 @@ def test_code_completion(b, opts):
             time.sleep(0.25)
         raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
 
+    def see_gone(words, gone, tries=40):
+        """see(), and none of `gone` on the screen: the first frame after a key can still be the one
+        before it (the text is the same), so one sample proves nothing"""
+        text = []
+        for _ in range(tries):
+            text = screen_text(q.screendump(), 6, 12)
+            if all(any(w in l for l in text) for w in words) and not any(g in l for l in text for g in gone):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {words}, or still there: {gone}\n" + "\n".join(text))
+
     def coloured(rgb, tol=12):
         """the pixels of about that colour on the screen"""
         w, h, px = q.screendump()
@@ -7174,7 +7855,7 @@ def test_code_completion(b, opts):
                 n += 1
         return n
 
-    def wait_coloured(rgb, tries=20):
+    def wait_coloured(rgb, tries=40):
         """the count of that colour on the first screen with more than 20 pixels of it, or of the last one.
         One sample is not enough: under load a screendump can catch a frame the guest is still drawing,
         without the colour, though the frames before and after have it (CI misses of this test)"""
@@ -7202,8 +7883,7 @@ def test_code_completion(b, opts):
         assert wait_coloured(GHOST) > 20, "the suggestion in grey-blue"
         shot("ghost")
         k("\t", 0.4)
-        text = see(["  1 function"])
-        assert not any("Tab:" in l for l in text), "written: no suggestion left"
+        text = see_gone(["  1 function"], ["Tab:"])           # the status line drops "Tab: word" a frame later
         for _ in range(20):                                 # the grey-blue rest is gone once Tab is done
             if coloured(GHOST) < 20:
                 break

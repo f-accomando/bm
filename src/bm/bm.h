@@ -141,8 +141,9 @@
  * the INFO key "spec: N" (bm.info); an older kernel then refuses it with a message instead of failing half way.
  * Revision 1: everything of 2026-10-11 (container v1, sections 1-14, resource files, projects, the .b16 marker).
  * Revision 2 (2026-10-13): 720x720 cartridges, shot(), the INFO key "spec", tool names reserved against games.
- * Revision 3 (2026-10-17): the cartridge type in bits 2-3 of the flags (bm.info "type"), the /bme folder for projects. */
-#define BM_SPEC_REV 3
+ * Revision 3 (2026-10-17): the cartridge type in bits 2-3 of the flags (bm.info "type"), the /bme folder for projects.
+ * Revision 4 (2026-10-22): the web API for cartridges (web_get, web_poll, web_info, web_body, web_cancel, image_load, file_write), the folder bm/web. */
+#define BM_SPEC_REV 4
 
 #include <stddef.h>
 #include <stdint.h>
@@ -234,6 +235,7 @@ typedef struct {
     uint16_t x, y, w, h;            /* the first frame, sheet pixels */
     uint8_t frames, fps;            /* the next frames: w x h boxes to the right */
     uint8_t slices;                 /* 0 for a plain zone; 2..255 for a stack zone (w x h slices to the right) */
+    uint8_t vertical;               /* 1 for a stack zone whose slices lie one under the other (stackv) */
 } bm_zone_t;
 
 /* A box of the BOXES section. */

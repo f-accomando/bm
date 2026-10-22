@@ -1,7 +1,6 @@
 # V3D driver (Pi Zero W, ARM1176 only)
 
-Tracking for bm3D 3.0-7.3. Rest of the graphics stack: [graphics](graphics.md).
-Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
+Tracking for bm3D 3.0-7.3. Rest of the graphics stack: [graphics](graphics.md). Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here). Triangles at 60 fps, ranked options: [triangle-throughput](../design/triangle-throughput.md).
 
 ## Today
 
@@ -20,7 +19,7 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   includes the wait before the ARM looks: trust it only without the queue.
 - `stat(17)`: ms of audio interrupt time in the last frame. `stat(18)`: ms the ARM waited for the GPU
   in the last frame (0 on the ARM, RGB30 and QEMU). Both: `gpu_frame_account` in `runtime.c`.
-  Measurements only. The overlay already shows both as its audio and wait bars.
+  Measurements only (QEMU test: `-k stat_perf`, range only). The overlay already shows both as its audio and wait bars.
 - `r3d_impostor=N` (off; 2..64 px of a 1080-line screen, threshold N*h/1080: `imp_threshold`
   in `r3d.c`; `gpu3d()` 5th; skinned meshes by their pose box). Host test: `make test-impostor`.
 - `gpu3d_attr=1` (bm3d 7.1, off; Settings *3D corners*, 3D Bench GPU+VS+A8): compact
@@ -83,7 +82,7 @@ Numbers: `docs/DRIVERS.md`, `docs/BENCH3D.md` (none here).
   heavy-mesh games where the Pi reports above (heroes, match) show a gain.
 - Mali: the RGB30 triangle fails (`JS_STATUS` 58). It is parked. The user will align Mali later.
 - Sprite stacking (`stack()`, stack zones, `zstack()`) is done. It runs on the CPU only.
-Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [v3d-notes](v3d-notes.md).
+Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [v3d-notes](v3d-notes.md). First QPU run (key `gpu3d_qpu`): same file, "Waiting for the user".
 
 ## To do, in order
 
@@ -95,7 +94,7 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
 2. Impostors: Pi runs at `r3d_impostor` 16, 32 with the new threshold (8 = 2.7 render px
    at 640x360, no effect: session at 8 gave 57.7 fps, GPU 7.8 ms a frame, 8588 tris), photo of
    far heroes; then the default for crowds (billboard impostors).
-3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs.
+3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs. Read `bin_us`, `rnd_us` first (`b3d tests=herotris`, 3 runs; not run on the Pi).
 4. Remaining work of bm3D 5.0-7.3. 16-bit and ETC1 textures: the Pi shows no gain (21 Oct), so
    they stay off. Reopen them only if a played Overbit at 1080p shows a gain. Attributes:
    `vs_tex_rgb` light as bytes (8 -> 6 words), `vs_lit_tex`/`vs_lit_tex2` flags
@@ -103,10 +102,11 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
    a separate x y z stream for the coordinate shader).
 5. **QPUs as a coprocessor: programs on the QPUs**:
    The 12 QPUs run SIMD operations on 16 floats at a time: parallel computation on large masses of data, when 3D does not saturate them (2D games, menus) or by reserving some QPUs in 3D games.
-   - **Step 1 (Driver)**: Done on the emulator. Not verified on hardware. `v3d_qpu_run` (`src/gpu/v3d.c`) starts user programs through the SRQ registers and waits with a timeout. `src/gpu/qpu.c` adds the queue, the probe at start and the ARM fallback. Tests: `make test-v3d`, `make test-qpurun`, `make test-qpu`.
-   - Open (step 1): a step in test `g` and a profile row in the 3D Bench. Check on the Pi: SRQCS bits, VPMBASE unit, VPM rows of a user program, TMU raw lookup, DMA store setup words, run time of 12 QPUs. After a failed run the mailbox QPU off/on may power-cycle the V3D, and the `v3d_init` registers (INTDIS, INTCTL, CT0CS, CT1CS, BFC, RFC) are not set again while `ready` stays 1: run that block again before the first caller, and check that `prop_query` has a timeout. The first caller of `qpu_init` must sit behind a config key that is OFF by default. `v3d_qpu_run` has no lock: one core only.
+   - **Step 1 (Driver)**: Done on the emulator. Not verified on hardware. `v3d_qpu_run` (`src/gpu/v3d.c`) starts user programs through the SRQ registers and waits with a timeout. `src/gpu/qpu.c` adds the queue, the probe at start and the ARM fallback. Tests: `make test-v3d`, `make test-qpurun`, `make test-qpu`, `make test-qpucheck`.
+   - Done on the emulator: key `gpu3d_qpu` (default 0) adds a GPU test step and a `qpu row` line in the 3D Bench report (`src/gpu/qpucheck.c`; PASS/FAIL/SKIP). Key off: no `qpu_init` call. The row is a report line, not a profile column (a profile changes the summary for every user).
+   - Open (step 1): the Pi run above. Check on the Pi: SRQCS bits, VPMBASE unit, VPM rows of a user program, TMU raw lookup, DMA store setup words, run time of 12 QPUs. After a failed run the mailbox QPU off/on may power-cycle the V3D, and the `v3d_init` registers (INTDIS, INTCTL, CT0CS, CT1CS, BFC, RFC) are not set again while `ready` stays 1: run that block again before the first caller, and check that `prop_query` has a timeout. `v3d_qpu_run` has no lock: one core only.
    - **Step 2 (Particles on GPU)**: half done. The update is done (`qp_particles` in `tools/qpuprogs.py`, `qpu_particles` with its ARM version `qpu_particles_arm`; blocks of 16 particles with x, y, vx, vy, life; on the emulator the QPU result equals the ARM result to the bit). Open: the Lua `particles()` call and the `lib.particles` module in bmlib (they keep their Lua pool today), and the drawing on the GPU (the ARM draws).
-   - **Step 3 (Full-screen 2D effects)**: half done. The darkness levels of Yharnam are done (`qp_fade`, `qpu_fade`, `qpu_fade_apply` for `g16_fade_t`: the same picture as `g16_fade_apply`, tested at 640x360 and with a tail of pixels). Open: the call in the runtime (nothing calls it), fades, blurs, CRT and scanline filters.
+   - **Step 3 (Full-screen 2D effects)**: half done. The darkness levels of Yharnam are done (`qp_fade`, `qpu_fade`, `qpu_fade_apply` for `g16_fade_t`: the same picture as `g16_fade_apply`, tested at 640x360 and with a tail of pixels). The runtime call is done on the emulator (not verified on hardware): `dark_end()` calls `bm_fade_accel` = `qpu_fade_hook` only with `gpu3d_qpu=1` (set in `src/kernel/main.c`; key off = `g16_fade_apply`, no call). The hook runs `qpu_init` on the first call. After a failed `qpu_init`, a failed run or a timeout it uses the ARM for good. Test: `make test-qpurun` (mode 3: the V3D stops answering). Open: the Pi run (time of the Yharnam fade, ARM against QPU), fades, blurs, CRT and scanline filters.
    - **Step 4 (Block audio effects)**: FDN reverb, echo and filters processed in blocks on the QPUs (also for nano8).
    - **Step 5 (Ray tracing)**: batched `hit3d` and lines of sight for AI bots.
    - *Toolkit and hardware registers needed (from research 2026-10-12)*:

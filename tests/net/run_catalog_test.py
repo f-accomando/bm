@@ -179,6 +179,38 @@ with tempfile.TemporaryDirectory() as tmp:
           "--add --kind app: writes kind: app in info.txt")
     check(mkmarket(add, "--check").returncode == 0, "--add: the folder passes --check")
 
+    # games/ and apps/ (--apps): one catalog, the apps with "kind app"
+    sp_games, sp_apps = os.path.join(tmp, "sp", "games"), os.path.join(tmp, "sp", "apps")
+    lic_mit = "version: 1\nlicense: MIT\n"
+    game(sp_games, "snake", "snake.bm", mkbm.pack(code, title="Snake", author="bm"), lic_mit)
+    game(sp_games, "oldapp", "oldapp.bm", mkbm.pack(code, title="Old App", author="bm"), lic_mit + "kind: app\n")
+    game(sp_apps, "paint", "paint.bm", mkbm.pack(code, title="Paint", author="bm"), lic_mit)
+    r = mkmarket(sp_games, "--apps", sp_apps, "-o", os.path.join(tmp, "sp-out"), "--serial", "1")
+    idx = open(os.path.join(tmp, "sp-out", "index.txt"), "rb").read().decode("cp437") if r.returncode == 0 else ""
+    check(r.returncode == 0 and "game paint\nkind app\n" in idx and "game oldapp\nkind app\n" in idx
+          and "game snake\ntitle" in idx and "file apps/paint/paint.bm " in idx
+          and "file games/snake/snake.bm " in idx, "--apps: apps get kind app, games stay games")
+    check(os.path.exists(os.path.join(tmp, "sp-out", "apps", "paint", "paint.bm")),
+          "--apps: the app is served under apps/")
+    r = mkmarket(sp_games, "--check")
+    check(r.returncode == 0 and "2 games" in r.stdout, "old call (one folder): unchanged")
+    game(sp_apps, "snake", "snake.bm", mkbm.pack(code, title="Snake 2", author="bm"), lic_mit)
+    r = mkmarket(sp_games, "--apps", sp_apps, "--check")
+    check(r.returncode != 0 and "one folder only" in r.stderr, "--apps: an id in both folders is an error")
+    shutil.rmtree(os.path.join(sp_apps, "snake"))
+    r = mkmarket(sp_games, "--apps", os.path.join(tmp, "nothing"), "--check")
+    check(r.returncode == 0, "--apps: a missing apps/ folder is an empty one")
+    sp_cart = os.path.join(tmp, "Sound.bm")
+    with open(sp_cart, "wb") as f:
+        f.write(mkbm.pack(code, title="Sound", author="bm"))
+    r = mkmarket(sp_games, "--apps", sp_apps, "--add", sp_cart, "--id", "sound", "--kind", "app",
+                 "--version", "1", "--license", "MIT")
+    check(r.returncode == 0 and os.path.exists(os.path.join(sp_apps, "sound", "Sound.bm"))
+          and not os.path.exists(os.path.join(sp_games, "sound")), "--add --kind app --apps: goes in apps/")
+    r = mkmarket(sp_games, "--apps", sp_apps, "--add", sp_cart, "--id", "snake", "--kind", "app", "--version", "1")
+    check(r.returncode != 0 and "already in" in r.stderr, "--add --kind app: an id of games/ is refused")
+    check(mkmarket(sp_games, "--apps", sp_apps, "--check").returncode == 0, "--add --apps: --check passes on both")
+
     covers = []
     for gid, (_, _, rgba) in (("snake", snake_cover), ("pong-2", pong_cover)):
         p = os.path.join(tmp, gid + ".rgba")

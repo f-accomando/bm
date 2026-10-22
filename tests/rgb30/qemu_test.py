@@ -177,6 +177,32 @@ def make_sd(tmp, files):
     return out
 
 
+def wait_screen(q, want, tries=80):
+    """Poll the screen until all the words of `want` are on it (the menu's row must be there BEFORE Enter)."""
+    text = ""
+    for _ in range(tries):
+        text = screen_all(q.screendump())
+        if all(w in text for w in want):
+            return text
+        time.sleep(0.25)
+    raise AssertionError(f"want {want} on the screen:\n{text}")
+
+
+def walk_until(q, key, needle, limit=120.0):
+    """Send `key` (one press every 0.2 s) until `needle` shows on the serial port; returns the serial text seen."""
+    end = time.time() + limit
+    seen = b""
+    while time.time() < end:
+        q.send(key)
+        time.sleep(0.2)
+        try:
+            seen += q.expect(needle, timeout=0.1)
+            return seen.decode(errors="replace")
+        except AssertionError:
+            pass
+    raise AssertionError(f"{needle!r} not seen in {limit:.0f} s; serial output:\n" + q.buf.decode(errors="replace"))
+
+
 def test_boot_banner(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
@@ -210,7 +236,7 @@ def test_screen_console(b, opts):
             assert name in text and in_menu(text), f"{name!r} not selected on the Dev tab:\n{text}"
         keys(q, "r")                            # Settings: its panel, the Pi's sections (settings.c)
         text = screen_all(q.screendump())
-        for needle in ("Controllers", "WiFi and network", "Screen and sound", "Updates", "Reports", "System"):
+        for needle in ("Controllers", "Controls", "WiFi and network", "Screen and sound", "Updates", "Reports"):   # System is below the sixth row (Controls added one)
             assert needle in text, f"{needle!r} not in Settings:\n{text}"
         assert "none waiting" in text, text    # no reports waiting
         keys(q, "w")                            # up from the first row: round to the last
@@ -420,7 +446,7 @@ def test_update_from_sd(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
-        keys(q, "rrsss")                        # Settings: Controllers, WiFi, Screen, Updates
+        keys(q, "rrssss")                       # Settings: Controllers, Controls, WiFi, Screen, Updates
         q.send("\r")
         time.sleep(0.5)
         keys(q, "s")                            # Check for updates
@@ -527,13 +553,40 @@ def test_bluetooth_page_without_chip(b, opts):
         q.close()
 
 
+def test_y_goes_back(b, opts):
+    """Y goes back like A (the back button): a Settings page opened with
+    Enter closes with Y, in both confirm settings (the serial port's y is the
+    Y button)."""
+    for config in (b"layout=us\n", b"confirm=a\n"):
+        tmp = tempfile.mkdtemp(prefix="bm64sd-")
+        sd = make_sd(tmp, {"bm/config.txt": config})
+        q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+        try:
+            boot(q)
+            for _ in range(6):                  # to the Settings tab
+                if "Controllers" in screen_all(q.screendump()):
+                    break
+                keys(q, "r", 0.5)
+            q.send("\r")                        # Controllers
+            time.sleep(0.5)
+            text = screen_all(q.screendump())
+            assert "Settings > Controllers" in text, text
+            q.send("y")                         # back, as A
+            time.sleep(0.6)
+            text = screen_all(q.screendump())
+            assert in_menu(text) and "Settings > Controllers" not in text, (config, text)
+        finally:
+            q.close()
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_wifi_page_without_chip(b, opts):
     """Settings > WiFi and network > Connect to a network starts the chip;
     QEMU has none: it says so, B goes back."""
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        keys(q, "rrs")                          # Settings: Controllers, WiFi and network
+        keys(q, "rrss")                         # Settings: Controllers, Controls, WiFi and network
         q.send("\r")
         time.sleep(0.5)
         keys(q, "ss")                           # Connect to a network, after State
@@ -582,19 +635,26 @@ def test_display_modes(b, opts):
 
 
 def test_confirm_button(b, opts):
-    """B (the RGB30's lower face button) confirms and A goes back by
-    default: the hints of the Settings panel say so (Open on one chip,
-    Back on the other, swapped by confirm=a in bm/config.txt) and the
+    """B (the RGB30's lower face button) confirms and Y goes back by
+    default: the hints of the Settings panel say so (Open on the B chip, or
+    the A chip with confirm=a in bm/config.txt, or what mo= and mc= of controls= set;
+    Back on the Y chip) and the
     serial port's Enter presses the confirm button."""
     chips = {}
-    for config, ok, held in ((b"layout=us\n", "B", "00000020"), (b"confirm=a\n", "A", "00000010")):
+    for config, ok, held in ((b"layout=us\n", "B", "00000020"), (b"confirm=a\n", "A", "00000010"),
+                             (b"controls=mo:x mc:a\n", "X", "00000040")):
         tmp = mktmp(prefix="bm64sd-")
         sd = make_sd(tmp, {"bm/config.txt": config})     # no games: Dev is one tab away
         q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
         try:
             boot(q)
             time.sleep(0.4)
-            keys(q, "rr")                      # the Settings panel: Open and Back
+            for _ in range(6):                 # to the Settings tab
+                if "Controllers" in screen_all(q.screendump()):
+                    break
+                keys(q, "r", 0.5)
+            keys(q, "s")
+            keys(q, "w")                       # the Settings panel: Open and Back
             img = q.screendump()
             rows = screen_text(img)
             assert "Open" in rows[21] and "Back" in rows[21], "\n".join(rows)
@@ -609,7 +669,62 @@ def test_confirm_button(b, opts):
             assert "Input test" in text and f"held: {held}" in text, text
         finally:
             q.close()
-    assert chips["B"] == chips["A"][::-1], "confirm=a does not swap the chips of Open and Back"
+    assert chips["B"][0] != chips["A"][0], "confirm=a does not change the chip of Open"
+    assert chips["B"][1] == chips["A"][1], "the chip of Back (Y) is the same in both settings"
+    assert chips["X"][0] != chips["B"][0] and chips["X"][1] != chips["B"][1], "controls=mo:x mc:a: the chips of Open (X) and Back (A) change"
+
+
+def test_controls_menu(b, opts):
+    """Settings > Controls (CONTROLS-1): a scheme's actions show the button the
+    config sets (controls= in bm/config.txt) or Default with the game's own;
+    Right changes the button of the row (X -> Y here) and Reset all (asked)
+    puts every action back on Default."""
+    def open_scroller(q):
+        for _ in range(6):                      # to the Settings tab
+            if "Controllers" in screen_all(q.screendump()):
+                break
+            keys(q, "r", 0.5)
+        keys(q, "s")                            # Controllers -> Controls
+        q.send("\r")
+        time.sleep(0.5)
+        text = screen_all(q.screendump())
+        assert "Settings > Controls" in text and "Stick games" in text and "Reset all" in text, text
+        q.send("\r")                            # Scroller games
+        time.sleep(0.5)
+        return screen_all(q.screendump())
+
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    sd = make_sd(tmp, {"bm/config.txt": b"layout=us\ncontrols=c1:x\n"})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        text = open_scroller(q)
+        assert "Settings > Controls > Scroller games" in text, text
+        a1 = [l for l in text.split("\n") if "Action 1" in l]
+        a2 = [l for l in text.split("\n") if "Action 2" in l]
+        assert a1 and "< X >" in a1[0] and "Default" not in a1[0], text
+        assert a2 and "Default (Y)" in a2[0], text
+        keys(q, "d")                            # Right: X -> Y on the first row
+        text = screen_all(q.screendump())
+        a1 = [l for l in text.split("\n") if "Action 1" in l]
+        assert a1 and "< Y >" in a1[0], text
+        q.send("\x7f")                          # back, then Reset all
+        time.sleep(0.4)
+        keys(q, "w")                            # up from the first row: the last, Reset all
+        q.send("\r")
+        time.sleep(0.4)
+        assert "Reset all the controls?" in screen_all(q.screendump())
+        q.send("\r")                            # yes
+        time.sleep(0.4)
+        assert "0 changed" in screen_all(q.screendump())
+        keys(q, "wwwww")                        # up to Scroller games
+        q.send("\r")
+        time.sleep(0.4)
+        text = screen_all(q.screendump())
+        a1 = [l for l in text.split("\n") if "Action 1" in l]
+        assert a1 and "Default (B)" in a1[0], text
+    finally:
+        q.close()
 
 
 PI_CART = r"""
@@ -1769,7 +1884,7 @@ def test_sound(b, opts):
         quarter = tone()
         assert 0.2 * full <= quarter <= 0.3 * full, (full, quarter)
         keys(q, "rr")                           # Settings; down to Screen and sound
-        keys(q, "ss\r")
+        keys(q, "sss\r")
         # its rows longer than the screen since Sound style and 3D on the ARM:
         # seven down to the last (Bit depth before it), Test the sound, the
         # list scrolling with it
@@ -1786,6 +1901,58 @@ def test_sound(b, opts):
     cfg = subprocess.run(["mtype", "-i", f"{dump}@@{1024 * 1024}", "::/bm/config.txt"], capture_output=True,
                          env=env, check=True).stdout.decode(errors="replace")
     assert "volume=5" in cfg, cfg
+
+
+def test_stages3d_b16(b, opts):
+    """Stages 3D (carts/stages3d, the .b16 edition): the game is on the Games tab, the Dev tab is still reachable,
+    A starts it and the keys reach stage 3 with no exception; q leaves for the menu. Needs
+    build/carts/stages3d.b16 (make build/carts/stages3d.b16)."""
+    cart = os.path.join(os.path.dirname(os.path.normpath(b)), "carts", "stages3d.b16")
+    if not os.path.exists(cart):
+        print(f"SKIP test_stages3d_b16: {cart} missing (make build/carts/stages3d.b16)")
+        return
+    tmp = tempfile.mkdtemp(prefix="bm64s3d-")
+    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n", "bm/stages3d.b16": open(cart, "rb").read()})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    serial = ""
+    try:
+        out = boot(q)
+        assert "cartridge menu: 1 games" in out, out
+        time.sleep(0.5)
+        wait_screen(q, ["Stages 3D"])
+        keys(q, "r")
+        text = wait_screen(q, ["3D Bench"])
+        assert in_menu(text), text
+        keys(q, "l")
+        wait_screen(q, ["Stages 3D"])
+        q.buf = b""
+        q.send("\r")
+        serial += q.expect("play: /bm/stages3d.b16", timeout=10).decode(errors="replace")
+        serial += q.expect("stages3d: title gpu3d=", timeout=60).decode(errors="replace")
+        time.sleep(1)
+        img = q.screendump()
+        assert img[0] == 360 and img[1] == 360, f"screen {img[0]}x{img[1]}"
+        colours = {img[2][i:i + 3] for i in range(0, len(img[2]), 3)}
+        assert len(colours) > 3, f"{len(colours)} colours: not the title"
+        serial += walk_until(q, " ", "stages3d: stage 1 start", limit=30)
+        serial += walk_until(q, "w", "stages3d: stage 2 start", limit=180)
+        serial += walk_until(q, "w", "stages3d: stage 3 start", limit=180)
+        time.sleep(1.5)
+        img = q.screendump()
+        colours = {img[2][i:i + 3] for i in range(0, len(img[2]), 3)}
+        assert len(colours) > 8, f"{len(colours)} colours: the 3D view is not drawn"
+        q.send("q")
+        serial += q.expect("suspended", timeout=10).decode(errors="replace")
+        time.sleep(1)
+        img = q.screendump()
+        assert img[0] == SCREEN and img[1] == SCREEN
+        assert in_menu(screen_all(img))
+        serial += q.buf.decode(errors="replace")
+        low = serial.lower()
+        for bad in ("exception", "panic", "stopped with an error", "traceback"):
+            assert bad not in low, f"{bad!r} in the serial output:\n{serial[-3000:]}"
+    finally:
+        q.close()
 
 
 TESTS = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

@@ -799,6 +799,47 @@ end
 function Parts:count() return #self.list end
 function Parts:clear() self.list = {} end
 
+----------------------------------------------------------------- particles3d
+
+local P3 = {}
+P3.__index = P3
+
+function lib.particles3d(maxn)
+  particles(maxn or 1024)
+  return setmetatable({}, P3)
+end
+
+function P3:add(x, y, z, vx, vy, vz, life, color)
+  return particles_add(x, y, z, vx, vy, vz, life, color)
+end
+
+function P3:burst(x, y, z, n, o)
+  o = o or {}
+  local speed = o.speed or 2
+  local life = o.life or 30
+  local color = o.color or 0xFFFFFF
+  local up = o.up or 0
+  for _ = 1, n do
+    local a = random() * lib.TAU
+    local u = random() * 2 - 1
+    local s = sqrt(1 - u * u)
+    local sp = speed * (0.3 + 0.7 * random())
+    self:add(x, y, z, sp * cos(a) * s, sp * (u + up), sp * sin(a) * s, life * (0.7 + 0.6 * random()), color)
+  end
+end
+
+function P3:update(gravity)
+  return particles_step(gravity or 0.02)
+end
+
+function P3:draw(radius)
+  return particles_draw(radius or 0.1)
+end
+
+function P3:count()
+  return particles_count()
+end
+
 ----------------------------------------------------------------- camera
 
 local Cam = {}
@@ -1071,6 +1112,56 @@ function lib.btnr(i, p, delay, rate)
   end
   delay, rate = delay or 15, rate or 4
   return r.n == 1 or (r.n > delay and (r.n - delay) % rate == 0)
+end
+
+-- The input standard for games (docs/design/games-input-standard.md): the
+-- same actions on the same buttons in every game of a scheme. A game picks
+-- its scheme (decided by the user, 19 Oct 2026):
+--   "scroller" (default): act1 jump = ok (B on the RGB30), act2 attack = y,
+--                         act3 = the A/B button that is not ok, act4 = x
+--   "topdown":            act1 attack/interact = ok, act2 dodge = the A/B
+--                         button that is not ok, act3 = y, act4 = x
+--   "stick":              act1 = r2, act2 = l2, act3 = l1, act4 = r1 and the
+--                         face buttons ok, the other A/B, y, x as act5..act8
+-- Everywhere: confirm = "ok", cancel = "back", pause = "start"; scroller and
+-- topdown also have shoulder_l = "l1", shoulder_r = "r1". The other A/B
+-- button is "a" when controller().ok is "b", else "b" (no controller: "a").
+-- over = { scheme = "stick", act1 = "x" } picks the scheme and changes single
+-- actions: those keys are the game's declared exceptions (lib.input_exceptions,
+-- to list in its docs/progress/<game>.md). Returns the keymap table.
+lib.INPUT_STD = { confirm = "ok", cancel = "back", pause = "start" }
+
+function lib.input(over)
+  local t = {}
+  for k, v in pairs(lib.INPUT_STD) do t[k] = v end
+  local c = controller and controller()
+  local other = (c and c.ok == "a") and "b" or "a"
+  local scheme = over and over.scheme or "scroller"
+  if scheme ~= "stick" and scheme ~= "topdown" then scheme = "scroller" end -- a typo keeps the old default
+  if scheme == "stick" then
+    t.act1, t.act2, t.act3, t.act4 = "r2", "l2", "l1", "r1"
+    t.act5, t.act6, t.act7, t.act8 = "ok", other, "y", "x"
+  elseif scheme == "topdown" then
+    t.act1, t.act2, t.act3, t.act4 = "ok", other, "y", "x"
+    t.shoulder_l, t.shoulder_r = "l1", "r1"
+  else
+    t.act1, t.act2, t.act3, t.act4 = "ok", "y", other, "x"
+    t.shoulder_l, t.shoulder_r = "l1", "r1"
+  end
+  lib.input_scheme = scheme
+  lib.input_exceptions = {}
+  if over then
+    for k, v in pairs(over) do
+      if k ~= "scheme" then
+        t[k] = v
+        lib.input_exceptions[#lib.input_exceptions + 1] = k
+      end
+    end
+    table.sort(lib.input_exceptions)
+  end
+  if keymap then keymap(t) end          -- a host without the keymap (the tools' tests) just gets the table
+  if controls then controls(scheme) end -- restored
+  return t
 end
 
 local Menu = {}

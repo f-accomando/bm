@@ -285,6 +285,17 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
  * every other pixel. Each returns the pixels drawn. */
 #define R3D_FX_SCREEN 1u
 uint32_t r3d_point(r3d_t *r, v3_t p, float radius, uint32_t rgb, unsigned flags);
+/* A pool of 3D particles in structure-of-arrays form (7 float arrays of cap entries: x y z vx vy vz life; cap a
+ * multiple of 16, at most 4096). One step, single precision: vy = vy - g; x = x + vx; y = y + vy; z = z + vz;
+ * life = life - 1.0f. Entries with life <= 0 are skipped. The ARM does the step; there is no cost without a pool. */
+#define R3D_PFX_MAX 4096
+typedef struct { int cap, next; float *a; uint32_t *rgb; } r3d_pfx_t;
+r3d_pfx_t *r3d_pfx_new(int cap);                 /* NULL if cap < 1 or > R3D_PFX_MAX or no memory; cap rounded up to 16 */
+void r3d_pfx_free(r3d_pfx_t *p);
+int r3d_pfx_add(r3d_pfx_t *p, v3_t pos, v3_t vel, float life, uint32_t rgb);   /* the next slot, round robin; its index */
+void r3d_pfx_step(r3d_pfx_t *p, float gravity);
+uint32_t r3d_pfx_draw(r3d_t *r, const r3d_pfx_t *p, float radius);   /* r3d_point for each entry with life > 0; the pixels */
+int r3d_pfx_live(const r3d_pfx_t *p);            /* entries with life > 0 */
 uint32_t r3d_line(r3d_t *r, v3_t a, v3_t b, uint32_t rgb, int width, unsigned flags);
 uint32_t r3d_sprite(r3d_t *r, const g16_sheet_t *s, int sx, int sy, int sw, int sh, v3_t p,
                     float size, unsigned flags);

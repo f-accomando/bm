@@ -80,7 +80,8 @@ the Pi's numbers with the earlier drivers are the historical bars.
 - `gpu2d`: sprites and text over the 3D (bm3D 4.8; with GPU+2D in the GPU job, otherwise the ARM);
   `bilinear`: quads with filtered textures (bm3D 4.9, an option off by default);
 - `big`, `big_logic`: models of 10 080 triangles on a map of 14 112 (larger indexed meshes, bm3D 5.0), the second with the
-  logic of `queue`.
+  logic of `queue`;
+- the 2D scenes `map8`, `sprites`, `stack`, `fade`, `light` (see *The 2D scenes*) and `herotris` (see *herotris*): they run only when `tests=` names them.
 
 The maximum loads are far beyond what the drivers do today (up to 8000 spheres, 512
 heroes, 40 000 calls): they leave headroom for the drivers to come.
@@ -161,7 +162,11 @@ driver, date if there is a network, machine, GPU status) and one CSV line per te
 run reads the last report and compares against it (white ticks, "x last" column). To
 keep their history in the repository, copy them to `docs/bench/`.
 
-The last five columns are measurements only (they change nothing): `clean_kcyc` and
+The columns `bin_us` and `rnd_us` (last two) are the binner's and the renderer's time of the GPU jobs, in
+microseconds a frame (the jobs' `bin_us` and `render_us` of `gpu3d_stats_t`, the same counters as `gpu_ms`). They are 0 on the ARM
+and small on the PC. With the queue, jobs that had ended before the ARM looked are not timed (see below): read both columns on the profiles without `Q`.
+
+Five columns before them are measurements only (they change nothing): `clean_kcyc` and
 `inval_kcyc` are the ARM cycles (thousands, a frame; 0 without the PMU) of the whole data
 cache clean + invalidate before each job and after it; `pool_kb` and `ovf_kb` the most of
 the binner's tile-list pool (4096 KiB) and of its overflow area (2048 KiB) one job used,
@@ -216,6 +221,60 @@ The line can also be typed in the menu: the `:` takes it to the monitor. From th
 writes until it says `the line is done`; in the easy_install monitor (6) paste `:gpu;
 b3d; send` and Enter. The console tells the PC where the keys go (the menu, which does not repeat them, or the
 monitor).
+
+## The 2D scenes
+
+Five tests measure 2D work, so a 2D change can be compared on the Pi Zero W. They are **opt-in**:
+the default run does not run them, and they are not in the score. Run them by name:
+
+```
+./easy_install.sh line "gpu; b3d tests=map8,sprites,stack,fade,light; send"
+```
+
+Each scene is fixed. The positions come from a hash of the item number and the frame number: no
+time, no random seed. The report has the usual fields (`ms`, `worst`, `instr`, `gpu_ms`,
+`clean_kcyc`, `inval_kcyc`) and a `P` line with `ns_px_frame`, the cost of one pixel of the
+frame. Compare the same test before and after a change, on the same console, ARM at 1000 MHz.
+
+| Test | Load `n` | Scene | Profiles |
+|---|---|---|---|
+| `map8` | layers, 1 to 8 | 8 layers of `map()` at 640x360, parallax scroll. Layers 0-2: every cell, opaque tiles. Layers 3-7: half the cells, tiles with holes (alpha). | ARM |
+| `sprites` | sprites, from 16 | 16x16 `sspr` with flip, half opaque and half with alpha. | ARM, GPU+2D |
+| `stack` | stacks, from 1 | `g16_stack`: stacks of 8 slices, three sizes, turning. A fixed pile. | ARM |
+| `fade` | lamps, from 1 | `g16_fade_glow` lamps and `g16_fade_apply` over the whole screen (the ARM path of `dark_end`). | ARM |
+| `light` | lamps, from 1 | `g16_light_add` lamps and `g16_light_apply` over the whole screen. | ARM |
+
+Every frame starts with `cls` of the 640x360 page. `fade` and `light` also draw 12 blocks of
+colour first, so the pass over the whole screen has a picture to work on. The cost of the `cls` is
+in every row, so compare rows of the same test only.
+
+## herotris
+
+`herotris` is stage 0 of `docs/design/triangle-throughput.md`. It is **opt-in** like the 2D scenes: the default run, the score and
+the old numbers do not change. It answers: how many triangles at 60 fps does a hero and a map hold, with a game's 2D and logic?
+
+```
+./easy_install.sh line "gpu; b3d tests=herotris; send"
+```
+
+Load `n` = sets (1 to 64). A set is a hero (1536 triangles, 16 bones, a 64x32 texture, lit, with its shadow) and a map of
+100 pieces of 50 triangles (baked light, two 64x32 sheets), so a step adds 6500 triangles (8036 with the shadow). The sets share
+the map's place and the camera sees them all. Over the 3D: two parallax bands (top opaque, bottom with holes, 16x16 pieces), 20
+sprites and 3 lines of text. After the 3D: 4M instructions of logic (`work`, as `queue`). Resolution 640x360. The bench steps the
+load up until the frame misses 60 fps: `tris60` of the `R` line is the maximum triangles at 60 fps (`drawn60` after the ARM
+clip); `ms` and `gpu_ms` are the step's numbers; `ms - gpu_ms` is the ARM side (`A` in the design file).
+
+Profiles: `GPU+VS` (no FS2), `GPU+VS+FS2` (the driver as games get it), `GPU+VS+Q`, `GPU+VS+Q2`, `GPU+VS+A8` and the new `GPU+VS+A8+Q`
+(compact attributes with the queue; short name `VSAQ`). Run each three times.
+
+The bands are drawn over the 3D, not behind it: a page cleared by the GPU job would lose the ARM's layer. Their cost is the same
+sprite path.
+
+Not developed here: `stackv` and the 3D particles. Their scenes wait for their code in `bm-core`.
+The hook is the comment at the top of the block "the 2D scenes" in `src/bm/b3d.c`.
+The test of the triangle count is a different work (`docs/design/triangle-throughput.md`).
+
+On the PC, `make test-b3d` runs them (and `herotris`) for a few frames and checks that the fields exist.
 
 ## On the PC
 
