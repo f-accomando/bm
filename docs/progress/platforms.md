@@ -96,15 +96,13 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   `kernel8.img` at 237 KiB/s (8.2 s), then a clean restart after a 3 s countdown. `line` is refused (the keys go
   to the buttons, no monitor). `--get bm/BOOTLOG.TXT`, `BOOTPREV.TXT`, `LASTRUN.TXT` work (583, 726, 2657 bytes).
   `--shot` answers `no game drew a frame` until a game runs. A kernel older than Op T/G refuses logs and shot.
-- RGB30 QEMU tests and keys (22 Oct). The menu reads a serial key as held for `PAD_SERIAL_MS` (120 ms,
-  `src/rgb30/pad.c`). A frame longer than that, as under load, loses the key. A test must not send blind keys or wait
-  a fixed time. Use `press` (resend the key until the words of the new state are on the screen), `press_serial` (the
-  same for a line on the serial port) and `wait_screen` (`tests/rgb30/qemu_test.py`). Fixed with these helpers:
-  `test_update_from_sd`, `test_gpu_test`, `test_menu_input_page`, `test_sdk_stages_build`,
-  `test_wifi_page_without_chip`. Each passed 5 of 5 alone and 3 of 3 with 14 busy loops beside it (load average 16
-  on 8 cores). `test_menu_input_page` sends X again, with a changing delay, until a screen shows `held: 00000040`:
-  a screen taken before the frame reads the key, or after the 120 ms, misses it. A full `/tmp` (tmpfs) in WSL fails any
-  test that writes an SD image: delete `/tmp/bm64*` between runs.
+- RGB30 QEMU tests (22 Oct). The menu reads a serial key as held for `PAD_SERIAL_MS` (120 ms, `src/rgb30/pad.c`): a
+  frame longer than that, as under load, loses the key. Use `press`, `press_serial` and `wait_screen` in
+  `tests/rgb30/qemu_test.py`, no blind keys or fixed sleeps. Fixed so: `test_update_from_sd`, `test_gpu_test`,
+  `test_menu_input_page` (sends X again until a screen shows `held: 00000040`), `test_sdk_stages_build`,
+  `test_wifi_page_without_chip`: 5 of 5 alone, 3 of 3 with 14 busy loops (load 16 on 8 cores). Still blind:
+  `test_bluetooth_page_without_chip`, `test_games_in_carts`, `test_menu_games_and_hidden_bm`, `test_screen_console`.
+  A full `/tmp` (tmpfs) in WSL fails any test that writes an SD image: delete `/tmp/bm64*` or set `TMPDIR`.
 
 ## Rules (do not break)
 

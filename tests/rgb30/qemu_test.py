@@ -965,10 +965,10 @@ def test_sdk_stages_build(b, opts):
         for desc in ("run and jump", "pick up the coins", "waves of enemies", "punches with",
                      "two to four consoles", "floor, cubes", "the models of bm Studio",
                      "three stages"):           # down (arrow) to the ninth row; each row shows its text
-            press(q, "\x1b[B", [desc], wait=10.0)
-        press(q, "\r", ["new project (Stages 2D)"], wait=10.0)
-        press(q, "\x02", ["file name", "MYGAME.BME"], wait=10.0)     # Ctrl+B: Save as
-        press(q, "\r", ["built /bm/MYGAME.BM"], wait=20.0)
+            press(q, "\x1b[B", [desc], tries=1, wait=90.0)      # the SDK reads text bytes: none is lost,
+        press(q, "\r", ["new project (Stages 2D)"], tries=1, wait=90.0)     # so none is sent again (a second
+        press(q, "\x02", ["file name", "MYGAME.BME"], tries=1, wait=90.0)   # arrow would skip a row)
+        press(q, "\r", ["built /bm/MYGAME.BM"], tries=1, wait=90.0)         # Ctrl+B: Save as, then the name
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
                   until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
         press(q, "\x1c", ["Games", "Dev", "Settings"], wait=10.0)     # Ctrl+\: leave the SDK
