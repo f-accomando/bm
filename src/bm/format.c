@@ -926,6 +926,138 @@ void bm_compat_write(uint8_t *head, const bm_compat_t *in)
     head[19] = (uint8_t)(flags >> 8);
 }
 
+/* ---- the compatibility policy (docs/spec/compat-policy.toml) ---- */
+
+typedef struct {
+    uint8_t kernel, default_action;
+    const char *default_reason;
+} bm_policy_kernel_t;
+
+typedef struct {
+    uint8_t kernel, action, market_action, edition;
+    uint8_t declared, not_listed, uses_3d;      /* 0: not asked, 1: must be false, 2: must be true */
+    const uint32_t *res;                        /* w << 16 | h */
+    uint8_t nres;
+    int64_t audio_over, size_over_mib;          /* -1: not asked */
+    const char *reason;
+} bm_policy_rule_t;
+
+#include "compat_table.h"
+
+static int name_ends(const char *name, const char *ext)
+{
+    const size_t n = strlen(name), m = strlen(ext);
+    if (n <= m)
+        return 0;
+    for (size_t i = 0; i < m; i++) {
+        char c = name[n - m + i];
+        if (c >= 'A' && c <= 'Z')
+            c = (char)(c + 32);
+        if (c != ext[i])
+            return 0;
+    }
+    return 1;
+}
+
+void bm_compat_facts(const uint8_t *head, size_t n, uint32_t file_size, const char *name, bm_compat_facts_t *f)
+{
+    memset(f, 0, sizeof *f);
+    f->size_bytes = file_size;
+    if (n < BM_HEADER_SIZE)
+        return;
+    bm_compat_t c;
+    bm_compat_read(head, &c);
+    const unsigned flags = rd16(head + 18);
+    f->edition = (flags & 1) ? BM_EDITION_PROJECT : (flags & 2) ? BM_EDITION_B16 : BM_EDITION_BM;
+    if (name && name_ends(name, ".bme"))
+        f->edition = BM_EDITION_PROJECT;
+    else if (name && name_ends(name, ".b16"))
+        f->edition = BM_EDITION_B16;
+    else if (name && name_ends(name, ".bm"))
+        f->edition = BM_EDITION_BM;
+    f->declared = c.declared;
+    f->targets = c.declared ? c.targets : f->edition == BM_EDITION_B16 ? BM_TARGET_ALL : BM_TARGET_PI;
+    f->w = rd16(head + 12);
+    f->h = rd16(head + 14);
+    const unsigned count = head[17];
+    for (unsigned i = 0; i < count && BM_HEADER_SIZE + 16u * (i + 1) <= n; i++) {
+        const uint8_t *e = head + BM_HEADER_SIZE + 16u * i;
+        const uint32_t type = rd32(e), size = rd32(e + 8);
+        if (type == BM_SEC_MESH)
+            f->uses_3d = 1;
+        else if (type == BM_SEC_AUDIO && f->audio_bytes + size >= f->audio_bytes)
+            f->audio_bytes += size;
+    }
+}
+
+void bm_compat_facts_named(int b16, uint32_t file_size, bm_compat_facts_t *f)
+{
+    memset(f, 0, sizeof *f);
+    f->edition = b16 ? BM_EDITION_B16 : BM_EDITION_BM;
+    f->targets = b16 ? BM_TARGET_ALL : BM_TARGET_PI;
+    f->size_bytes = file_size;
+}
+
+static int policy_tri(int want, int is)
+{
+    return want == 0 || (want == 2) == (is != 0);
+}
+
+static int policy_matches(const bm_policy_rule_t *r, const bm_compat_facts_t *f)
+{
+    if (r->edition != BM_EDITION_ANY && r->edition != f->edition)
+        return 0;
+    if (!policy_tri(r->declared, f->declared))
+        return 0;
+    if (!policy_tri(r->not_listed, f->declared && !(f->targets & r->kernel)))
+        return 0;
+    if (!policy_tri(r->uses_3d, f->uses_3d))
+        return 0;
+    if (r->nres) {
+        int hit = 0;
+        for (int i = 0; i < r->nres; i++)
+            hit |= r->res[i] == ((uint32_t)f->w << 16 | f->h);
+        if (!hit)
+            return 0;
+    }
+    if (r->audio_over >= 0 && !((int64_t)f->audio_bytes > r->audio_over))
+        return 0;
+    if (r->size_over_mib >= 0 && !((int64_t)f->size_bytes > r->size_over_mib * (1 << 20)))
+        return 0;
+    return 1;
+}
+
+int bm_compat_classify(const bm_compat_facts_t *f, unsigned kernel, int market, const char **reason, int *rule)
+{
+    const char *why = "";
+    int act = BM_ACT_SHOW, num = 0, known = 0;
+    for (unsigned i = 0; i < sizeof bm_policy_kernels / sizeof *bm_policy_kernels; i++)
+        if (bm_policy_kernels[i].kernel == kernel) {
+            known = 1;
+            act = bm_policy_kernels[i].default_action;
+            why = bm_policy_kernels[i].default_reason;
+        }
+    for (unsigned i = 0; known && i < sizeof bm_policy_rules / sizeof *bm_policy_rules; i++) {
+        const bm_policy_rule_t *r = &bm_policy_rules[i];
+        if (r->kernel == kernel && policy_matches(r, f)) {
+            act = market ? r->market_action : r->action;
+            why = r->reason;
+            num = (int)i + 1;
+            break;
+        }
+    }
+    if (reason)
+        *reason = why;
+    if (rule)
+        *rule = num;
+    return act;
+}
+
+int bm_compat_rule_count(void)
+{
+    return (int)(sizeof bm_policy_rules / sizeof *bm_policy_rules);
+}
+
 uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
                          const char *title, const char *author, int width, const bm_put_t *put, int nput,
                          size_t *outlen)

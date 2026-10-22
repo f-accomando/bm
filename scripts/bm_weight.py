@@ -76,6 +76,13 @@ def pct(part, whole):
     return round(100.0 * part / whole, 2) if whole else 0.0
 
 
+def compat_of(data, flags):
+    """the targets of a header, as bm_compat_read does: (declared, targets); an old .bm = Pi, an old .b16 = Pi + RGB30"""
+    if flags & 16 and data[120] & 3:
+        return True, data[120] & 3
+    return False, 3 if flags & 2 else 1
+
+
 def parse(data, name=""):
     """a .bm/.b16/.bme file -> {size, title, author, res, flags, edition, sections: [(type, body)], overhead}"""
     if len(data) < HEADER:
@@ -91,7 +98,7 @@ def parse(data, name=""):
         "size": len(data), "title": data[24:72].split(b"\0")[0].decode(errors="replace"),
         "author": data[72:104].split(b"\0")[0].decode(errors="replace"), "res": (w, h), "flags": flags,
         "edition": edition, "sections": secs, "overhead": len(data) - body_sum,
-        "table_bytes": ENTRY * len(secs),
+        "table_bytes": ENTRY * len(secs), "compat": compat_of(data, flags),
     }
 
 
@@ -279,7 +286,8 @@ def plan(info, w):
 # --- compat policy -----------------------------------------------------------------------------------------
 
 ACTIONS = ("show", "grey", "hide")
-MATCH_KEYS = ("edition", "res", "uses_3d", "audio_bytes_over", "size_over_mib")
+REASON_MAX = 31                 # "Not here: " and the reason must fit the 41 characters of the RGB30's details line
+MATCH_KEYS = ("edition", "res", "uses_3d", "audio_bytes_over", "size_over_mib", "declared", "kernel_not_listed")
 
 
 def load_policy(path=POLICY_PATH):
@@ -288,11 +296,15 @@ def load_policy(path=POLICY_PATH):
         raw = tomllib.load(f)
     kernels = {}
     for k in raw.get("kernel", []):
-        for key in ("id", "name", "default_action", "default_reason"):
+        for key in ("id", "name", "target", "default_action", "default_reason"):
             if key not in k:
                 raise ValueError(f"{path}: a [[kernel]] row lacks '{key}'")
         if k["default_action"] not in ACTIONS:
             raise ValueError(f"{path}: kernel {k['id']}: default_action must be one of {ACTIONS}")
+        if k["target"] not in range(1, 256) or k["target"] & (k["target"] - 1):
+            raise ValueError(f"{path}: kernel {k['id']}: target must be one bit (1, 2, 4 ...)")
+        if len(k["default_reason"]) > REASON_MAX:
+            raise ValueError(f"{path}: kernel {k['id']}: default_reason is longer than {REASON_MAX} characters")
         if k["id"] in kernels:
             raise ValueError(f"{path}: kernel {k['id']} is listed twice")
         kernels[k["id"]] = k
@@ -308,6 +320,11 @@ def load_policy(path=POLICY_PATH):
         for key in ("action", "market_action"):
             if key in r and r[key] not in ACTIONS:
                 raise ValueError(f"{path}: rule {i + 1}: {key} must be one of {ACTIONS}")
+        if len(r["reason"]) > REASON_MAX:
+            raise ValueError(f"{path}: rule {i + 1}: reason is longer than {REASON_MAX} characters")
+        for key in ("uses_3d", "declared", "kernel_not_listed"):
+            if key in r and not isinstance(r[key], bool):
+                raise ValueError(f"{path}: rule {i + 1}: {key} must be true or false")
         unknown = set(r) - {"kernel", "action", "market_action", "reason"} - set(MATCH_KEYS)
         if unknown:
             raise ValueError(f"{path}: rule {i + 1}: unknown keys {sorted(unknown)}")
@@ -318,10 +335,11 @@ def facts_of(info, w):
     """the facts a rule can match, from a parsed cart"""
     audio = sum(s["bytes"] for s in w["sections"] if s["name"] == "AUDIO")
     return {"edition": info["edition"], "res": "%dx%d" % info["res"], "uses_3d": any(s["name"] == "MESH" for s in w["sections"]),
-            "audio_bytes": audio, "size_bytes": info["size"]}
+            "audio_bytes": audio, "size_bytes": info["size"],
+            "declared": info["compat"][0], "targets": info["compat"][1]}
 
 
-def _matches(rule, facts):
+def _matches(rule, facts, kbit=0):
     if "edition" in rule and facts["edition"] != rule["edition"]:
         return False
     if "res" in rule and facts["res"] not in rule["res"]:
@@ -332,6 +350,12 @@ def _matches(rule, facts):
         return False
     if "size_over_mib" in rule and not facts["size_bytes"] > rule["size_over_mib"] * (1 << 20):
         return False
+    if "declared" in rule and facts.get("declared", False) != rule["declared"]:
+        return False
+    if "kernel_not_listed" in rule:
+        not_listed = bool(facts.get("declared", False)) and not facts.get("targets", 0) & kbit
+        if not_listed != rule["kernel_not_listed"]:
+            return False
     return True
 
 
@@ -339,8 +363,9 @@ def classify(facts, kernel, policy, where="menu"):
     """-> (action, reason, row) for one kernel; where is "menu" or "market". The first matching rule wins."""
     if kernel not in policy["kernels"]:
         raise ValueError(f"unknown kernel {kernel!r}")
+    kbit = policy["kernels"][kernel]["target"]
     for i, r in enumerate(policy["rules"]):
-        if r["kernel"] == kernel and _matches(r, facts):
+        if r["kernel"] == kernel and _matches(r, facts, kbit):
             act = r.get("market_action", r["action"]) if where == "market" else r["action"]
             return act, r["reason"], i + 1
     k = policy["kernels"][kernel]

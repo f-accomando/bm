@@ -26,6 +26,11 @@
 #else
 #define GAMES_DIR   "/carts"
 #endif
+#ifdef BM_RGB30
+#define MY_KERNEL   BM_TARGET_RGB30             /* the kernel of docs/spec/compat-policy.toml */
+#else
+#define MY_KERNEL   BM_TARGET_PI
+#endif
 #define CACHE_DIR   "/bm/market"
 #define STACK_SIZE  (128 * 1024)                /* TLS, and the interrupts on top */
 #define REFRESH_US  (10u * 60 * 1000000)        /* the catalog again after 10 minutes */
@@ -239,6 +244,15 @@ static int is_b16(const char *path)
 static const char *kind_of(const catalog_game_t *g)
 {
     return is_b16(g->file.path) ? "b16" : "bm";
+}
+
+/* The policy for a catalog entry (compat-policy.toml, the Market list): a catalog line has no header yet, so the
+ * file name tells the edition. 1 if the entry is grey on this kernel; *why is its reason. */
+static int entry_grey(const catalog_game_t *g, const char **why)
+{
+    bm_compat_facts_t f;
+    bm_compat_facts_named(is_b16(g->file.path), g->file.size, &f);
+    return bm_compat_classify(&f, MY_KERNEL, 1, why, NULL) == BM_ACT_GREY;
 }
 
 static owned_t *owned_find(const char *id, int b16)
@@ -829,7 +843,9 @@ int market_items(menu_item_t *items, int max)
         const slot_t *s = &slots[i];
         int ready = s->cover_state == COVER_READY && s->cover.px;
         int b16 = is_b16(g->file.path);
+        const char *why;
         items[n++] = (menu_item_t){
+            .grey = entry_grey(g, &why),
             .title = g->title, .author = g->author, .path = s->path, .kind = "market",
             .format = b16 ? "b16" : "bm",
             .size = g->file.size, .cover = ready ? &s->cover : NULL, .loading = !ready,
@@ -895,9 +911,12 @@ void market_details(int i, char *buf, size_t n)
         return;
     const catalog_game_t *g = &cat.games[ci];
     const slot_t *s = &slots[ci];
+    const char *why;
     if (s->busy)
         ksnprintf(buf, n, "downloading %lu of %lu KiB", (unsigned long)(s->got / 1024),
                   (unsigned long)((g->file.size + 1023) / 1024));
+    else if (entry_grey(g, &why))
+        ksnprintf(buf, n, "Not here: %s", why);
     else
         ksnprintf(buf, n, "%s   v%s   %s   %s   %lu KiB", g->author[0] ? g->author : "-", g->version, g->license,
                   kind_of(g), (unsigned long)((g->file.size + 1023) / 1024));

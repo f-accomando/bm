@@ -164,10 +164,21 @@ def lua_prompt(q):
     q.expect("\n> ", timeout=5)
 
 
-def make_sd(tmp, files):
-    """files: {"bm/name": bytes}; returns the image path."""
+def declare_both(data):
+    """A real .bm (not a stub) with no compatibility block gets one for the Pi and the RGB30: the policy
+    (docs/spec/compat-policy.toml) greys an old .bm on the RGB30 and asks before it starts."""
+    if len(data) >= 128 and data[:6] == b"BMCART" and not data[18] & 16:        # flag bit 4, BM_FLAG_COMPAT
+        return mkbm.mark_compat(data, 3)
+    return data
+
+
+def make_sd(tmp, files, declare=True):
+    """files: {"bm/name": bytes}; returns the image path. declare: the .bm carts of bm/ and carts/ are made
+    for both kernels (declare_both), so the menu starts them with no question; False leaves them as they are."""
     src = []
     for i, (dest, data) in enumerate(files.items()):
+        if declare and dest.lower().endswith(".bm") and dest.split("/")[0] in ("bm", "carts"):
+            data = declare_both(data)
         path = os.path.join(tmp, f"f{i}")
         with open(path, "wb") as f:
             f.write(data)
@@ -774,6 +785,55 @@ def test_bm_cartridge(b, opts):
         img = q.screendump()
         assert img[0] == SCREEN and img[1] == SCREEN, f"screen {img[0]}x{img[1]}"
         assert in_menu(screen_all(img))
+    finally:
+        q.close()
+
+
+def test_grey_cart_and_confirm(b, opts):
+    """A cartridge that is not made for the RGB30 (an old .bm, or a header that lists the Pi only) is not hidden:
+    its cover is grey with the pill 'Not here', the details line says why, and the start asks first
+    ('Start it anyway?', the reason); back cancels, the confirm button starts it (docs/spec/compat-policy.toml).
+    A cartridge made for both starts with no question."""
+    tmp = mktmp(prefix="bm64grey-")
+    old = mkbm.pack(PI_CART.encode(), title="Old Pi cart", author="tests", res=(360, 360))
+    both = mkbm.pack(PI_CART.encode(), title="Both", author="tests", res=(360, 360))
+    pi_only = mkbm.pack(PI_CART.encode(), title="Pi only", author="tests", res=(360, 360))
+    sd = make_sd(tmp, {"bm/old.bm": old, "bm/both.bm": mkbm.mark_compat(both, 3),
+                       "bm/pionly.bm": mkbm.mark_compat(pi_only, 1)}, declare=False)
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        text = wait_screen(q, ["Both"])                     # sorted by title: Both, Old Pi cart, Pi only
+        assert "Not here:" not in text, text                # the first cover is made for both: no reason
+        keys(q, "d")                                        # Old Pi cart: an old .bm is for the Pi only
+        text = wait_screen(q, ["Not here: made for the Pi Zero W"])
+        keys(q, "\r")                                       # confirm: the question, the game does not start
+        text = wait_screen(q, ["Start it anyway?", "made for the Pi Zero W only", "Start"])
+        assert b"play: /bm/old.bm" not in q.buf, "it started before the answer"
+        keys(q, "y")                                        # back: no
+        text = wait_screen(q, ["Old Pi cart"])
+        assert "Start it anyway?" not in text, text
+        assert b"play: /bm/old.bm" not in q.buf, "back must not start it"
+        keys(q, "d")                                        # Pi only: the header lists the Pi alone
+        wait_screen(q, ["Not here: made for the Pi Zero W"])
+        keys(q, "\r")
+        wait_screen(q, ["Start it anyway?"])
+        keys(q, "\r")                                       # yes: it starts (grey is not a lock)
+        q.expect("play: /bm/pionly.bm", timeout=10)
+        time.sleep(1.5)
+        q.send("q")                                         # Start + Select: back to the menu
+        q.expect("suspended", timeout=10)
+        wait_screen(q, ["Playing"])                         # back in the menu, Pi only is frozen
+        for _ in range(4):                                  # to Both, a key at a time (one can fall in the return)
+            if "bm/both.bm" in screen_all(q.screendump()):
+                break
+            keys(q, "a", pause=0.6)
+        wait_screen(q, ["bm/both.bm"])                      # Both: made for the RGB30, so only the question about the frozen game
+        keys(q, "\r")
+        text = wait_screen(q, ["Close Pi only?"])
+        assert "Start it anyway?" not in text, text
+        keys(q, "\r")
+        q.expect("play: /bm/both.bm", timeout=10)
     finally:
         q.close()
 

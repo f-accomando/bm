@@ -22,7 +22,7 @@ what = "the cartridge type (game, app, utility) declared in bm.info and mirrored
 [[revision]]
 rev = 4
 date = "2026-10-22"
-what = "the compatibility block in header bytes 120..127 with flag bit 4 (targets, input, aspect, needs, minimums; read and written, not acted on yet), no 8 MiB cartridge limit, the sound bank limit 8,388,608 values; the web API for cartridges: web_get with web_poll, web_info, web_body and web_cancel (https only, a pause per host, a size cap), image_load (JPEG, PNG, WebP into the sprite sheet), file_write (bm/web only); the config keys web_max_kib and file_write_max_kib"
+what = "the compatibility block in header bytes 120..127 with flag bit 4 (targets, input, aspect, needs, minimums; read and written; the menus act on the targets, see the item compat-policy), no 8 MiB cartridge limit, the sound bank limit 8,388,608 values; the web API for cartridges: web_get with web_poll, web_info, web_body and web_cancel (https only, a pause per host, a size cap), image_load (JPEG, PNG, WebP into the sprite sheet), file_write (bm/web only); the config keys web_max_kib and file_write_max_kib"
 
 [[item]]
 id = "container-v1"
@@ -70,7 +70,15 @@ since = 4
 status = "implemented"
 platforms = "all"
 where = ["docs/BM-FORMAT.md", "src/bm/bm.h", "src/bm/format.c", "scripts/mkbm.py"]
-note = "bytes 120..127 and flag bit 4: targets, input, aspect, needs, min RAM, min spec, min width. Read and written, kept by every writer, not acted on yet (no grey menu, no Market filter)"
+note = "bytes 120..127 and flag bit 4: targets, input, aspect, needs, min RAM, min spec, min width. Read and written, kept by every writer. The menus and the Market list act on it through the item compat-policy"
+
+[[item]]
+id = "compat-policy"
+since = 4
+status = "partial"
+platforms = "all"
+where = ["docs/spec/compat-policy.toml", "scripts/mkcompat.py", "src/bm/compat_table.h", "src/bm/format.c", "src/kernel/carts.c", "src/rgb30/ui.c", "src/kernel/market.c"]
+note = "one table says per kernel whether a cartridge shows, greys or hides; the C table is made from it. The Pi and RGB30 menus grey a not-compatible cartridge with a reason and ask before the start; the Market list greys by the file name. Open: the Market targets line, the load-time message, the RGB30 Market default for .bm"
 
 [[item]]
 id = "info-keys"

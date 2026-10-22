@@ -1,9 +1,11 @@
 # Compat policy: what a kernel does with a cartridge it may not be made for. EDITABLE DATA, not code.
 # Decided 22 Oct 2026 (docs/design/single-bm-and-adaptive-screen.md, decisions 1 and 4): the rule is one table.
 # A new kernel or a new rule changes this file, not the client. Grey is not a lock: the user may start a greyed
-# cart after a confirm. Read by scripts/bm_weight.py (load_policy, classify). Not read by the kernel or the Market yet.
+# cart after a confirm. Read by scripts/bm_weight.py (load_policy, classify) and, as the C table src/bm/compat_table.h
+# made by scripts/mkcompat.py (--check fails when the table is old), by both kernels (bm_compat_classify in src/bm/format.c).
 #
 # [[kernel]]  id          kernel name as in docs/spec/platforms.toml
+#             target      the BM_TARGET_* bit of the kernel (src/bm/bm.h): 1 Pi Zero W, 2 RGB30
 #             default_action / default_reason   used when no rule of that kernel matches
 # [[rule]]    kernel      id of a [[kernel]]
 #             action      what the local menu (Games, Apps) does: show, grey or hide
@@ -15,15 +17,20 @@
 #               uses_3d = true | false               the cart has a MESH section
 #               audio_bytes_over = N                 the AUDIO section is larger than N bytes
 #               size_over_mib = N                    the file is larger than N MiB
+#               declared = true | false              the header has the compatibility block (flag bit 4)
+#               kernel_not_listed = true | false     the block is there and its targets do not list this kernel
+# A reason is read on a small screen: at most 31 characters (the RGB30 details line is 41 characters; "Not here: " takes 10).
 
 [[kernel]]
 id = "pi-zero-w"
+target = 1
 name = "Raspberry Pi Zero W (kernel.img)"
 default_action = "show"
 default_reason = "made for this kernel"
 
 [[kernel]]
 id = "rgb30"
+target = 2
 name = "PowKiddy RGB30 (kernel8.img)"
 default_action = "show"
 default_reason = "made for this kernel"
@@ -33,18 +40,32 @@ default_reason = "made for this kernel"
 kernel = "pi-zero-w"
 edition = "project"
 action = "hide"
-reason = "a .bme project is opened by the editors, not started as a game"
+reason = "a project: the editors open it"
 
 [[rule]]
 kernel = "rgb30"
 edition = "project"
 action = "hide"
-reason = "a .bme project is opened by the editors, not started as a game"
+reason = "a project: the editors open it"
+
+# A cartridge with the compatibility block that does not list this kernel (decided 22 Oct: grey, start after a confirm).
+[[rule]]
+kernel = "pi-zero-w"
+kernel_not_listed = true
+action = "grey"
+reason = "made for the RGB30 only"
+
+[[rule]]
+kernel = "rgb30"
+kernel_not_listed = true
+action = "grey"
+reason = "made for the Pi Zero W only"
 
 # An old .bm is for the Pi only (decided 22 Oct). Grey, with the reason; the user can start it after a confirm.
 [[rule]]
 kernel = "rgb30"
 edition = "bm"
+declared = false
 action = "grey"
 market_action = "grey"
 reason = "made for the Pi Zero W only"
@@ -54,13 +75,13 @@ reason = "made for the Pi Zero W only"
 kernel = "pi-zero-w"
 audio_bytes_over = 16777216
 action = "grey"
-reason = "the sound bank may pass the PCM limit of this kernel (8,388,608 values)"
+reason = "sound bank over the limit"
 
 [[rule]]
 kernel = "rgb30"
 audio_bytes_over = 16777216
 action = "grey"
-reason = "the sound bank may pass the PCM limit of this kernel (8,388,608 values)"
+reason = "sound bank over the limit"
 
 # The Market ceiling is 100 MiB per file (src/net/catalog.h). The local menu has no size limit.
 [[rule]]
@@ -68,21 +89,21 @@ kernel = "pi-zero-w"
 size_over_mib = 100
 action = "show"
 market_action = "hide"
-reason = "over the Market ceiling of 100 MiB"
+reason = "over the Market's 100 MiB limit"
 
 [[rule]]
 kernel = "rgb30"
 size_over_mib = 100
 action = "show"
 market_action = "hide"
-reason = "over the Market ceiling of 100 MiB"
+reason = "over the Market's 100 MiB limit"
 
 # The old .b16 runs on the Pi and on the RGB30 (decided 22 Oct, option 1).
 [[rule]]
 kernel = "pi-zero-w"
 edition = "b16"
 action = "show"
-reason = "the Pi plays .b16 (carts.c lists it)"
+reason = "the Pi plays a .b16"
 
 [[rule]]
 kernel = "rgb30"

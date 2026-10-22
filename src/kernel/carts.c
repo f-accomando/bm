@@ -68,6 +68,8 @@ typedef struct {
     uint8_t cover_read;         /* the covers' fiber has been at it (else a placeholder) */
     char path[FAT_NAME_MAX + 10];
     char save[32];              /* its save file (.bm), "" if none */
+    uint8_t grey;               /* not made for this kernel (bm_compat_classify): faded, starts after a question */
+    const char *why;            /* the reason of the grey, a short static text */
 } cart_t;
 
 static cart_t carts[MAX_CARTS];
@@ -123,6 +125,14 @@ static void read_header(cart_t *c, const uint8_t *h, uint32_t len)
         memcpy(c->author, h + aoff, alen < sizeof c->author - 1 ? alen : sizeof c->author - 1);
         c->author[sizeof c->author - 1] = 0;
         bm_save_path(c->title, c->author, c->save, sizeof c->save);   /* as the runtime names it */
+    }
+    c->grey = 0;
+    c->why = "";
+    if (tlen && !c->builtin) {                  /* the policy of docs/spec/compat-policy.toml, from the header read */
+        bm_compat_facts_t f;
+        bm_compat_facts(h, len, c->size, c->name, &f);
+        if (bm_compat_classify(&f, BM_TARGET_PI, 0, &c->why, NULL) == BM_ACT_GREY)
+            c->grey = 1;
     }
     for (char *p = c->title; *p; p++)           /* the console font is CP437 */
         if ((unsigned char)*p < 32) *p = ' ';
@@ -1115,7 +1125,7 @@ static const lib_item_t *lib_current(void)
     return r >= 0 && r < lib_nrows && lib_row_item[r] >= 0 ? lib_item(lib_row_item[r]) : NULL;
 }
 
-enum { ASK_NONE, ASK_SWITCH, ASK_PANEL, ASK_MARKET, ASK_OFFER };
+enum { ASK_NONE, ASK_SWITCH, ASK_PANEL, ASK_MARKET, ASK_OFFER, ASK_COMPAT };
 enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO, GO_ANIMATOR, GO_MESH, GO_PIXEL, GO_TEXT, GO_UPLOAD,
        GO_NETPLAY };
 
@@ -1158,6 +1168,7 @@ void carts_menu(framebuffer_t *fb)
     int depth = 0, built = -1, frame = 0;
     char details[128], susp_title[49];
     int ask = ASK_NONE, ask_cart = -1, ask_go = GO_NONE, ask_row = 0;
+    int compat_ok = -1;                      /* the greyed game the user has said yes to (ASK_COMPAT) */
     char ask_q[64] = "", ask_d[64] = "", ask_y[16] = "";
     int gfx = menu_ui_open(fb) == 0;         /* else the text menu */
     if (gfx)
@@ -1224,7 +1235,7 @@ void carts_menu(framebuffer_t *fb)
                 items[i] = (menu_item_t){ .title = c->title, .author = c->author, .path = c->path, .kind = kind_of(c),
                                           .size = c->size, .cover = c->cover.px ? &c->cover : NULL,
                                           .loading = !c->cover_read, .running = is_suspended(c),
-                                          .badge = NULL };
+                                          .badge = NULL, .grey = c->grey };
                 /* a file from the PC on its way (bm_net.py --send) */
                 const int up = netxfer_updating(c->path);
                 if (up) {
@@ -1247,9 +1258,12 @@ void carts_menu(framebuffer_t *fb)
                 ksnprintf(details, sizeof details, "%s", home_tool_about(-1 - idx[tsel[tab]]));
             } else if (n) {
                 const cart_t *c = &carts[idx[tsel[tab]]];
-                ksnprintf(details, sizeof details, "%s   %s   %lu KiB   %s",
-                          c->author[0] ? c->author : "-", kind_of(c),
-                          (c->size + 1023) / 1024, c->path);
+                if (c->grey)
+                    ksnprintf(details, sizeof details, "Not here: %s", c->why);
+                else
+                    ksnprintf(details, sizeof details, "%s   %s   %lu KiB   %s",
+                              c->author[0] ? c->author : "-", kind_of(c),
+                              (c->size + 1023) / 1024, c->path);
             }
             const char *a_label = NULL;
             if (tab == TAB_MARKET) {
@@ -1376,7 +1390,7 @@ void carts_menu(framebuffer_t *fb)
                 v.ask = ask_q;
                 v.ask_detail = "It is suspended: what was not saved is lost.";
                 v.ask_yes = "Close it";
-            } else if (ask == ASK_PANEL || ask == ASK_MARKET || ask == ASK_OFFER) {
+            } else if (ask == ASK_PANEL || ask == ASK_MARKET || ask == ASK_OFFER || ask == ASK_COMPAT) {
                 v.ask = ask_q;
                 v.ask_detail = ask_d;
                 v.ask_yes = ask_y;
@@ -1600,6 +1614,16 @@ void carts_menu(framebuffer_t *fb)
                 if (ask == ASK_OFFER)
                     market_offer_answer(0);
                 ask = ASK_NONE;
+                compat_ok = -1;
+            } else if (yes && ask == ASK_COMPAT) {
+                compat_ok = ask_cart;           /* the user knows: the other questions go on */
+                if (bm_suspended(NULL, 0) && !is_suspended(&carts[ask_cart])) {
+                    ask = ASK_SWITCH;
+                } else {
+                    ask = ASK_NONE;
+                    go = ask_go;
+                    go_cart = ask_cart;
+                }
             } else if (yes && ask == ASK_OFFER) {
                 ask = ASK_NONE;
                 market_offer_answer(1);
@@ -1894,6 +1918,20 @@ void carts_menu(framebuffer_t *fb)
             }
         }
 
+        /* a game that is not made for this kernel (docs/spec/compat-policy.toml): a question first, before the
+         * one about a suspended game. It is not a lock: yes starts it. */
+        {
+            const int gi = ask == ASK_SWITCH && ask_go == GO_PLAY ? ask_cart : go == GO_PLAY ? go_cart : -1;
+            if (gfx && gi >= 0 && carts[gi].grey && compat_ok != gi && !is_suspended(&carts[gi])) {
+                ksnprintf(ask_q, sizeof ask_q, "Start it anyway?");
+                ksnprintf(ask_d, sizeof ask_d, "%s", carts[gi].why);
+                ksnprintf(ask_y, sizeof ask_y, "Start");
+                ask = ASK_COMPAT;
+                ask_go = GO_PLAY;
+                ask_cart = gi;
+                go = GO_NONE;
+            }
+        }
         if (go != GO_NONE && go_cart >= 0 && netxfer_updating(carts[go_cart].path)) {
             ksnprintf(last_msg, sizeof last_msg, "Updating, wait for the end of the download");
             go = GO_NONE;
@@ -1909,6 +1947,7 @@ void carts_menu(framebuffer_t *fb)
         }
         if (go != GO_NONE) {
             ask = ASK_NONE;
+            compat_ok = -1;
             market_set_active(0);               /* nothing loads behind a game */
             market_lan(0);
             background_stop();                  /* the covers, the Lib tab: later */

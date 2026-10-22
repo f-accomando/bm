@@ -395,6 +395,34 @@ void bm_compat_write(uint8_t *head, const bm_compat_t *in);
 /* 1 if a cartridge with these targets may run on the kernel `kernel` (BM_TARGET_PI or BM_TARGET_RGB30). */
 static inline int bm_compat_runs_on(const bm_compat_t *c, unsigned kernel) { return (c->targets & kernel) != 0; }
 
+/* The compatibility policy: what a kernel does with a cartridge (docs/spec/compat-policy.toml; the C table
+ * src/bm/compat_table.h is made from it by scripts/mkcompat.py). Both kernels, the menu and the Market, ask here. */
+enum { BM_EDITION_BM, BM_EDITION_B16, BM_EDITION_PROJECT, BM_EDITION_ANY };     /* flag bit 0 = project, bit 1 = b16 */
+enum { BM_ACT_SHOW, BM_ACT_GREY, BM_ACT_HIDE };
+#define BM_REASON_MAX 31                /* characters of a reason: "Not here: " and the reason fit the 41 of the RGB30 line */
+typedef struct {
+    uint8_t edition;                    /* BM_EDITION_* of the header flags (the extension is not used) */
+    uint8_t declared;                   /* the header has the compatibility block */
+    uint8_t targets;                    /* BM_TARGET_* bits, with the old rules for an old file */
+    uint8_t uses_3d;                    /* the file has a MESH section */
+    uint16_t w, h;                      /* the size in the header */
+    uint32_t audio_bytes;               /* bytes of the AUDIO sections */
+    uint32_t size_bytes;                /* the whole file */
+} bm_compat_facts_t;
+/* The facts of a file from its first bytes: the header and as much of the section table as `n` holds (a
+ * table cut short counts only the sections it shows). `file_size` is the size of the whole file. n < 128: all 0.
+ * `name` (may be NULL) is the file name: as everywhere in the kernel, the extension (.bm, .b16, .bme) tells the
+ * edition; without a known extension the header flags do (an old .b16 may lack the flag bit). */
+void bm_compat_facts(const uint8_t *head, size_t n, uint32_t file_size, const char *name, bm_compat_facts_t *f);
+/* The facts of a Market entry, which has no header yet: the edition from its file name, the size, nothing declared. */
+void bm_compat_facts_named(int b16, uint32_t file_size, bm_compat_facts_t *f);
+/* What `kernel` (BM_TARGET_PI or BM_TARGET_RGB30) does with a file: BM_ACT_*. market = 1 asks for the Market list.
+ * *reason (may be NULL) is the short text of the rule that matched (at most BM_REASON_MAX characters), *rule its
+ * number from 1 in the table (0: the kernel's default row). An unknown kernel shows. */
+int bm_compat_classify(const bm_compat_facts_t *f, unsigned kernel, int market, const char **reason, int *rule);
+/* The number of rules of the table (a host test compares it with the toml). */
+int bm_compat_rule_count(void);
+
 /* A cartridge with new code, title, author and resolution, and every other
  * section of `old` copied as it is (sheet, map, cover, and the sections this
  * kernel does not know, in their order). old == NULL: a new cartridge with

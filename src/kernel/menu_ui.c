@@ -576,8 +576,9 @@ static void round_ring(int x, int y, int w, int h, int r, int t, uint16_t c)
 }
 
 /* the cover with rounded corners, clipped to the grid rows */
-static void card(const g16_sheet_t *s, int x, int y)
+static void card(const g16_sheet_t *s, int x, int y, int grey)
 {
+    const int fade = dim || grey;
     for (int j = 0; j < CARD_H; j++) {
         int yy = y + j;
         if (yy < g.cy0 || yy >= g.cy1)
@@ -585,7 +586,7 @@ static void card(const g16_sheet_t *s, int x, int y)
         int dy = j < CARD_H / 2 ? j : CARD_H - 1 - j;
         int in = corner_inset(RADIUS, dy);
         uint16_t *dst = g.px + (uint32_t)yy * g.stride + x + in;
-        if (s && s->px && s->w >= CARD_W && s->h >= CARD_H && !dim) {
+        if (s && s->px && s->w >= CARD_W && s->h >= CARD_H && !fade) {
             memcpy(dst, s->px + j * s->w + in, (size_t)(CARD_W - 2 * in) * 2);
         } else if (s && s->px && s->w >= CARD_W && s->h >= CARD_H) {
             const uint16_t *src = s->px + j * s->w + in;
@@ -593,7 +594,7 @@ static void card(const g16_sheet_t *s, int x, int y)
                 dst[i] = half(src[i]);
         } else {
             for (int i = 0; i < CARD_W - 2 * in; i++)
-                dst[i] = dim ? half(c16(0x303040)) : c16(0x303040);
+                dst[i] = fade ? half(c16(0x303040)) : c16(0x303040);
         }
     }
 }
@@ -1392,7 +1393,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             round_ring(x - 6, y - 6, CARD_W + 12, CARD_H + 12, RADIUS + 6, 3,
                        dim ? c16(0x45454B) : pulse(t));
         const menu_item_t *it = &v->items[i];
-        card(it->cover, x, y);
+        card(it->cover, x, y, it->grey);
         if (it->loading && !it->cover)
             placeholder(it, x, y, t, i);
         if (it->format && it->format[0] && (!it->loading || it->cover))
@@ -1406,6 +1407,8 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             cover_badge(x, y, "Playing", 0);
         } else if (it->badge) {
             cover_badge(x, y, it->badge, strcmp(it->badge, "Update") == 0);
+        } else if (it->grey) {
+            cover_badge(x, y, "Not here", 0);
         }
     }
     g16_clip(&g, 0, 0, 0, 0);

@@ -51,7 +51,7 @@ Flag bit 4 (`BM_FLAG_COMPAT`, value 16) says the block is present. The header is
 
 Reading (`bm_compat_read`, and `bm_cart_t.compat` after `bm_parse`): a file with bit 4 clear is an old file.
 An old `.bm` reads as targets = Pi. An old `.b16` (flag bit 1) reads as targets = Pi + RGB30. `declared` is 0 for both.
-The kernel does not act on the block yet. The menu and the Market still use the extension.
+The menus (Pi, RGB30) act on the block: `bm_compat_classify` applies `docs/spec/compat-policy.toml` and greys a cartridge that does not list the kernel, with a reason and a question before the start. The Market list uses the file name (it has no header yet). The load check in `runtime.c` does not read the block yet.
 
 Writing: `mkbm.py --targets pi,rgb30 [--input ..] [--aspect ..] [--needs ..] [--min-ram MiB] [--min-spec N] [--min-width PX]`,
 and `bm_compat_write`. Every writer keeps the block: `bm_rewrite_with` copies it from the old file, `project.c` clears only

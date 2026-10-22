@@ -3589,6 +3589,52 @@ def test_b16_on_pi(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_grey_cart_on_pi(b, opts):
+    """A cartridge whose header lists only the RGB30 is not hidden on the Pi (docs/spec/compat-policy.toml): the
+    details line says why, the start asks first ('Start it anyway?', the reason), back cancels, the confirm key
+    starts it. A .b16 and an old .bm start with no question (test_b16_on_pi, test_stages_template)."""
+    tmp = tempfile.mkdtemp(prefix="bm-grey-")
+    try:
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        cart = os.path.join(tmp, "rgbonly.bm")
+        with open(cart, "wb") as f:
+            f.write(mkbm.mark_compat(mkbm.pack(B16_GAME.encode(), title="RGB30 only", author="tests"), 2))
+        img = os.path.join(tmp, "sd.img")
+        mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/rgbonly.bm")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+        def screen_has(*words):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in words))
+            joined = "\n".join(text)
+            for w in words:
+                assert w in joined, f"{w!r} not on the screen:\n{joined}"
+            return joined
+
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.8)
+            screen_has("RGB30 only", "Not here: made for the RGB30 only")
+            q.send("\r")                                # the first game: the question, it does not start
+            text = screen_has("Start it anyway?", "made for the RGB30 only", "Start")
+            time.sleep(1.0)
+            assert b"the b16 runs" not in q.buf, "it started before the answer"
+            q.send("q")                                 # no
+            _, text = settled_screen(q, lambda i, t: not any("Start it anyway?" in l for l in t))
+            assert "Start it anyway?" not in "\n".join(text), text
+            time.sleep(0.5)
+            assert b"the b16 runs" not in q.buf, "back must not start it"
+            q.send("\r")
+            screen_has("Start it anyway?")
+            q.send("\r")                                # yes: it starts (grey is not a lock)
+            q.expect("the b16 runs", timeout=30)
+        finally:
+            q.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_stages_template(b, opts):
     """The SDK's 'stages' template (carts/sdk_b16/main.lua) on the Pi: listed
     in the menu and played from it; the title logs its best time, the ok
