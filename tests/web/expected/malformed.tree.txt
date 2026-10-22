@@ -1,0 +1,55 @@
+html
+  body class="main" id="top"
+    "\n"
+    p
+      "Unclosed paragraph one\n"
+    p
+      "Paragraph two with "
+      b
+        "bold "
+        i
+          "bold italic"
+      " still italic? text\n"
+    div
+      "A div stray end tag  text after\n"
+      style
+      "\n"
+      ul
+        li
+          "one"
+        li
+          "two"
+      "\n"
+      table
+        tr
+          td
+            "a"
+          td
+            "b"
+        tr
+          td
+            "c"
+      "\n"
+      a class="x" href="unquoted.html"
+        "unquoted attr"
+      " "
+      a href="single.html"
+        "single"
+      "\n"
+      img alt="pic" height="10/" src="pic.png" width="10"
+      "\n"
+      span data-x="1"
+        "custom "
+        b
+          "inside"
+      "\n\n\n\n"
+      p
+        "3 < 4 and a <3 heart"
+      "\n"
+      div
+        span
+          "unclosed span"
+          div
+            "nested block inside span\n after comment\n"
+            p
+              "Last paragraph "

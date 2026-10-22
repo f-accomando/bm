@@ -5190,7 +5190,7 @@ def test_pixel(b, opts):
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, f"pixel-{name}.png"))
 
-    F2, F3, UP, RIGHT, ESC, SAVE = "\x1bOQ", "\x1bOR", "\x1b[A", "\x1b[C", "\x1b", "\x13"
+    F2, F3, F4, UP, RIGHT, ESC, SAVE = "\x1bOQ", "\x1bOR", "\x1bOS", "\x1b[A", "\x1b[C", "\x1b", "\x13"
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
@@ -5209,6 +5209,26 @@ def test_pixel(b, opts):
         keys(F2, gap=0.5)
         screen(["sheet 256x256", "sprite 0 at (0,0)"])
         shot("sheet")
+        keys(F4, gap=0.5)                       # the Stack page: no stack zone yet, n makes one
+        screen(["stack", "This file has no stack zone"])
+        keys("n", gap=0.5)
+        screen(["new stack zone: name x y w h n", "stack 0 0 16 16 8"])
+        keys("\r", gap=0.6)                     # (the sprite at the corner of the sheet, 8 slices)
+        screen(["stack stack  slice 1/8", "at (0,0)  16x16"])
+        keys(RIGHT, gap=0.4)
+        screen(["slice 2/8", "at (16,0)"])
+        shot("stack")
+        view = q.screendump()                   # the stack turns in its box: it is not empty
+        counts = {}
+        for x in range(320, 630, 2):
+            for y in range(150, 300, 2):
+                c = pixel(view, x, y)
+                counts[c] = counts.get(c, 0) + 1
+        assert sum(counts.values()) - max(counts.values()) > 60, "the stack preview is empty"
+        keys("\r", gap=0.5)                     # Enter draws the slice on F1
+        screen(["stack stack 2/8"])
+        keys(F4, gap=0.4)
+        screen(["slice 2/8"])
         keys(F3, gap=0.5)
         screen(["PALETTE", "edit", "add", "remove"])
         shot("palette")
@@ -5234,6 +5254,10 @@ def test_pixel(b, opts):
         for t in (1, 4, 8, 9):
             assert secs[t] == secs0[t], f"section {t} changed"
         assert 5 in secs and 2 not in secs, sorted(secs)
+        zs = secs[11]                           # the Stack page's zone: "stack" 0 0 16 16, 8 slices (byte 26)
+        ents = [zs[4 + i * 28:4 + (i + 1) * 28] for i in range(zs[0] | zs[1] << 8)]
+        mine = [e for e in ents if e[:5] == b"stack" and e[5] == 0]
+        assert len(mine) == 1 and mine[0][26] == 8, ents
         w, h, px, pal = _sheet_pixels(saved)
         w0, h0, px0, pal0 = _sheet_pixels(village0)
         assert (w, h) == (w0, h0), (w, h)

@@ -158,10 +158,23 @@ end)
 | `P:burst(x, y, n, [opt])` | `n` particles from `x, y`: `speed` (2), `angle` and `spread` (in radians; all round if missing), `life` (0.5 s), `color` or `colors`, and the options of `:add` |
 | `P:update()` / `P:draw()` | in `_update` / in `_draw` |
 | `P:count()` / `P:clear()` | how many there are / all away |
+| `lib.particles3d([max])` | 3D sibling of `lib.particles` that wraps the 3D particle functions; pool of at most `max` particles (default 1024) |
+| `P3:add(x, y, z, vx, vy, vz, life, color)` | adds one 3D particle |
+| `P3:burst(x, y, z, n, o)` | `n` particles from `x, y, z`: `o.speed` (2), `o.life` (30 updates), `o.color` (0xFFFFFF), `o.up` (0) |
+| `P3:update([gravity])` | steps the 3D particles with `gravity` (0.02) |
+| `P3:draw([radius])` | draws the 3D particles with `radius` (0.1) |
+| `P3:count()` | how many live 3D particles |
+
+`lib.particles3d` is the 3D sibling of `lib.particles` and wraps the 3D particle functions (`particles`, `particles_add`, `particles_step`, `particles_draw`, `particles_count`).
 
 ```lua
 local fx = lib.particles(300)
 fx:burst(x, y, 20, { speed = 3, colors = { 0xFFFFFF, 0xFFD050, 0xFF6020 }, gravity = 0.1 })
+
+local p3 = lib.particles3d(500)
+p3:burst(x, y, z, 20, { speed = 2, life = 30, color = 0xFFA020 })
+p3:update()
+p3:draw()
 ```
 
 ### Camera

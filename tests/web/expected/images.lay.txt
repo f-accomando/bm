@@ -1,0 +1,62 @@
+page w=240 h=452 lines=10 links=1 images=16 controls=0 forms=0 rects=0 cut=false title="Images"
+line y=12 h=50
+  t x=4 y=50 w=36 h=12 "Sized:" 
+  img x=46 y=12 w=100 h=50 "Sized image" img=1
+  t x=152 y=50 w=36 h=12 "after." 
+line y=74 h=24
+  t x=4 y=86 w=54 h=12 "Alt only:" 
+  img x=64 y=74 w=90 h=24 "Alt text only" img=2
+line y=110 h=24
+  t x=4 y=122 w=42 h=12 "No alt:" 
+  img x=52 y=110 w=48 h=24 "" img=3
+line y=146 h=12
+  t x=4 y=146 w=30 h=12 "Wide:" 
+line y=158 h=136
+  img x=4 y=158 w=232 h=136 "Wide" img=4
+line y=306 h=12
+  t x=4 y=306 w=42 h=12 "Hidden:" 
+line y=330 h=24
+  t x=4 y=342 w=42 h=12 "Unsafe:" 
+  img x=52 y=330 w=78 h=24 "inline data" 
+  img x=136 y=330 w=48 h=24 "script" 
+line y=366 h=30
+  img x=4 y=366 w=40 h=30 "Linked" c=0000ee link=1 img=5
+line y=408 h=20
+  t x=4 y=416 w=24 h=12 "svg:" 
+  svg x=34 y=408 w=30 h=20 "logo" 
+line y=440 h=12
+  img x=4 y=444 w=8 h=8 "" img=6
+  img x=12 y=444 w=8 h=8 "" img=7
+  img x=26 y=444 w=8 h=8 "" img=8
+  img x=34 y=444 w=8 h=8 "" img=9
+  img x=48 y=444 w=8 h=8 "" img=10
+  img x=56 y=444 w=8 h=8 "" img=11
+  img x=70 y=444 w=8 h=8 "" img=12
+  img x=78 y=444 w=8 h=8 "" img=13
+  img x=92 y=444 w=8 h=8 "" img=14
+  img x=100 y=444 w=8 h=8 "" img=15
+  img x=114 y=444 w=8 h=8 "" img=16
+  img x=122 y=444 w=8 h=8 "" 
+  img x=136 y=444 w=8 h=8 "" 
+  img x=144 y=444 w=8 h=8 "" 
+  img x=158 y=444 w=8 h=8 "" 
+  img x=166 y=444 w=8 h=8 "" 
+  img x=180 y=444 w=8 h=8 "" 
+  img x=188 y=444 w=8 h=8 "" 
+link 1 https://example.test/m/1 "" boxes=4,366,40,30
+image 1 https://example.test/a.png alt="Sized image" 100x50 box=46,12,100,50
+image 2 https://example.test/b.png alt="Alt text only" 90x24 box=64,74,90,24
+image 3 https://example.test/c.png alt="" 48x24 box=52,110,48,24
+image 4 https://static.example.test/wide.webp alt="Wide" 232x136 box=4,158,232,136
+image 5 https://example.test/linked.png alt="Linked" 40x30 box=4,366,40,30
+image 6 https://example.test/i01.png alt="" 8x8 box=4,444,8,8
+image 7 https://example.test/i02.png alt="" 8x8 box=12,444,8,8
+image 8 https://example.test/i03.png alt="" 8x8 box=26,444,8,8
+image 9 https://example.test/i04.png alt="" 8x8 box=34,444,8,8
+image 10 https://example.test/i05.png alt="" 8x8 box=48,444,8,8
+image 11 https://example.test/i06.png alt="" 8x8 box=56,444,8,8
+image 12 https://example.test/i07.png alt="" 8x8 box=70,444,8,8
+image 13 https://example.test/i08.png alt="" 8x8 box=78,444,8,8
+image 14 https://example.test/i09.png alt="" 8x8 box=92,444,8,8
+image 15 https://example.test/i10.png alt="" 8x8 box=100,444,8,8
+image 16 https://example.test/i11.png alt="" 8x8 box=114,444,8,8

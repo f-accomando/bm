@@ -1,0 +1,71 @@
+html
+  head
+    title
+      "Images"
+  body
+    "\n"
+    p
+      "Sized: "
+      img alt="Sized image" height="50" src="a.png" width="100"
+      " after."
+    "\n"
+    p
+      "Alt only: "
+      img alt="Alt text only" src="b.png"
+    "\n"
+    p
+      "No alt: "
+      img src="c.png"
+    "\n"
+    p
+      "Wide: "
+      img alt="Wide" height="720" src="https://static.example.test/wide.webp" width="1220"
+    "\n"
+    p
+      "Hidden: "
+      img alt="never shown" class="hidden" src="hidden.png"
+    "\n"
+    p
+      "Unsafe: "
+      img alt="inline data" src="data:image/png;base64,AAAA"
+      " "
+      img alt="script" src="javascript:x"
+    "\n"
+    p
+      a href="/m/1"
+        img alt="Linked" height="30" src="linked.png" width="40"
+    "\n"
+    p
+      "svg: "
+      svg aria-label="logo" height="20" width="30"
+    "\n"
+    p
+      "\n"
+      img height="8" src="i01.png" width="8"
+      img height="8" src="i02.png" width="8"
+      "\n"
+      img height="8" src="i03.png" width="8"
+      img height="8" src="i04.png" width="8"
+      "\n"
+      img height="8" src="i05.png" width="8"
+      img height="8" src="i06.png" width="8"
+      "\n"
+      img height="8" src="i07.png" width="8"
+      img height="8" src="i08.png" width="8"
+      "\n"
+      img height="8" src="i09.png" width="8"
+      img height="8" src="i10.png" width="8"
+      "\n"
+      img height="8" src="i11.png" width="8"
+      img height="8" src="i12.png" width="8"
+      "\n"
+      img height="8" src="i13.png" width="8"
+      img height="8" src="i14.png" width="8"
+      "\n"
+      img height="8" src="i15.png" width="8"
+      img height="8" src="i16.png" width="8"
+      "\n"
+      img height="8" src="i17.png" width="8"
+      img height="8" src="i18.png" width="8"
+      "\n"
+    "\n\n"
