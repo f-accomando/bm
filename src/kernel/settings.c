@@ -9,6 +9,7 @@
  */
 #include "home.h"
 #include "config.h"
+#include "controls.h"
 #include "pointer.h"
 #include "reports.h"
 #include "update.h"
@@ -112,9 +113,11 @@ enum {
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
-    R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
+    R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
     R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR, R_ATTR, R_UTILS,
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
+    R_CONTROLS, R_CTL_SCROLLER, R_CTL_TOPDOWN, R_CTL_STICK, R_CTL_SYSTEM, R_CTL_KEYS, R_CTL_RESET,
+    R_CTL = 300,                /* + the index of the action in kernel/controls.c (R_UTIL_BASE uses 200..223) */
 };
 #define R_UTIL_BASE 200   /* the rows of HOME_UTILITIES: R_UTIL_BASE + i */
 
@@ -355,6 +358,46 @@ static void reports_row(home_panel_t *p, int kind, int id, const char *label, co
         home_row(p, kind, id, label, help, "none waiting");
 }
 
+/* Settings > Controls */
+static const char *ctl_button(const char *b)
+{
+    static const struct { const char *code, *name; } n[] = {
+        { "a", "A" }, { "b", "B" }, { "x", "X" }, { "y", "Y" }, { "l1", "L1" }, { "r1", "R1" },
+        { "l2", "L2" }, { "r2", "R2" }, { "st", "Start" }, { "se", "Select" },
+    };
+    for (unsigned k = 0; k < sizeof n / sizeof n[0]; k++)
+        if (!strcmp(b, n[k].code))
+            return n[k].name;
+    return b;
+}
+
+static int ctl_changed(const char *scheme)
+{
+    int c = 0;
+    for (int i = 0; i < controls_count(); i++)
+        if (!strcmp(controls_scheme(i), scheme) && controls_get(i))
+            c++;
+    return c;
+}
+
+/* the next (dir 1) or previous (-1) of: Default, a, b, x, y, l1, r1, l2, r2, st, se */
+static void ctl_step(int i, int dir)
+{
+    static const char *const cycle[] = { NULL, "a", "b", "x", "y", "l1", "r1", "l2", "r2", "st", "se" };
+    const int menu = !strcmp(controls_scheme(i), "system") && strcmp(controls_code(i), "pa");
+    const int n = menu ? 5 : (int)(sizeof cycle / sizeof cycle[0]);        /* the menus' OK and Cancel: a face button */
+    const char *now = controls_get(i);
+    int at = 0;
+    for (int k = 1; now && k < n; k++)
+        if (!strcmp(now, cycle[k]))
+            at = k;
+    at = (at + dir + n) % n;
+    controls_set(i, cycle[at]);
+#ifdef BM_RGB30
+    pad_config();
+#endif
+}
+
 void home_panel(int id, home_panel_t *p)
 {
     memset(p, 0, sizeof *p);
@@ -371,6 +414,8 @@ void home_panel(int id, home_panel_t *p)
                  "Pads, keyboards, mice, the buttons",
                  pads ? "%d connected" : "none connected", pads);
 #endif
+        home_row(p, MENU_ROW_SUB, R_CONTROLS, "Controls",
+                 "Which button does what in the games and the menus", "remap");
         home_row(p, MENU_ROW_SUB, R_WIFI, wireless() ? "WiFi and network" : "Network",
                  "The link, the address, a test", "%s", net_word());
 #ifdef BM_RGB30
@@ -455,9 +500,6 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_ACTION, R_TEST, "Test the buttons",
 #ifdef BM_RGB30
                  "Every button and both sticks, live (Start + Select: back)", NULL);
-        home_row(p, MENU_ROW_CHOICE, R_CONFIRM, "Confirm button",
-                 "The button that says yes; the other goes back (confirm= in bm/config.txt)",
-                 "%s", pad_ok == PAD_A ? "A (B back)" : "B (A back)");
 #else
                  "The buttons each player holds, for 10 s", NULL);
 #endif
@@ -473,6 +515,44 @@ void home_panel(int id, home_panel_t *p)
 #endif
         home_row(p, MENU_ROW_ACTION, R_FORGET, "Forget all controllers",
                  "Removes every pairing; pair them again after", NULL);
+        break;
+    }
+    case HOME_CONTROLS: {
+        ksnprintf(p->title, sizeof p->title, "Settings > Controls");
+        home_row(p, MENU_ROW_SUB, R_CTL_SCROLLER, "Scroller games", "Platformers and side-scrollers: actions 1 to 4",
+                 "%d changed", ctl_changed("scroller"));
+        home_row(p, MENU_ROW_SUB, R_CTL_TOPDOWN, "Top-down games", "Adventures seen from above: actions 1 to 4",
+                 "%d changed", ctl_changed("topdown"));
+        home_row(p, MENU_ROW_SUB, R_CTL_STICK, "Stick games", "Twin-stick shooters: actions 1 to 8",
+                 "%d changed", ctl_changed("stick"));
+        home_row(p, MENU_ROW_SUB, R_CTL_SYSTEM, "Pause and menus", "Pause, and the menus' OK and Cancel",
+                 "%d changed", ctl_changed("system"));
+        home_row(p, MENU_ROW_INFO, R_CTL_KEYS, "Keyboard", "Fixed for now: Enter is OK, Esc goes back and pauses",
+                 "Enter, Esc");
+        home_row(p, MENU_ROW_ACTION, R_CTL_RESET, "Reset all", "Every action back to the game's own button", NULL);
+        break;
+    }
+    case HOME_CTL_SCROLLER: case HOME_CTL_TOPDOWN: case HOME_CTL_STICK: case HOME_CTL_SYSTEM: {
+        const char *scheme = id == HOME_CTL_SCROLLER ? "scroller" : id == HOME_CTL_TOPDOWN ? "topdown" :
+                             id == HOME_CTL_STICK ? "stick" : "system";
+        ksnprintf(p->title, sizeof p->title, "Settings > Controls > %s",
+                  id == HOME_CTL_SCROLLER ? "Scroller games" : id == HOME_CTL_TOPDOWN ? "Top-down games" :
+                  id == HOME_CTL_STICK ? "Stick games" : "Pause and menus");
+        for (int i = 0; i < controls_count(); i++) {
+            if (strcmp(controls_scheme(i), scheme))
+                continue;
+#ifndef BM_RGB30
+            if (!strcmp(controls_code(i), "mo") || !strcmp(controls_code(i), "mc"))
+                continue;               /* the Pi's menus keep their buttons */
+#endif
+            const char *b = controls_get(i);
+            if (b)
+                home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Left or right: another button; Default is the game's own",
+                         "%s", ctl_button(b));
+            else
+                home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Left or right: another button; Default is the game's own",
+                         "Default (%s)", ctl_button(controls_default(i)));
+        }
         break;
     }
     case HOME_WIFI: {
@@ -760,6 +840,11 @@ int home_sub_panel(int row)
     case R_UTILS: return HOME_UTILITIES;
     case R_SDMAP: return HOME_SDMAP;
     case R_SDFILES: return HOME_SDFILES;
+    case R_CONTROLS: return HOME_CONTROLS;
+    case R_CTL_SCROLLER: return HOME_CTL_SCROLLER;
+    case R_CTL_TOPDOWN: return HOME_CTL_TOPDOWN;
+    case R_CTL_STICK: return HOME_CTL_STICK;
+    case R_CTL_SYSTEM: return HOME_CTL_SYSTEM;
     }
     return 0;
 }
@@ -956,11 +1041,19 @@ void home_act(int id, int row, int how, home_do_t *d)
         return;
     }
     switch (row) {
+    case R_CONTROLS: case R_CTL_SCROLLER: case R_CTL_TOPDOWN: case R_CTL_STICK: case R_CTL_SYSTEM:
     case R_CONTROLLERS: case R_WIFI: case R_SYSTEM: case R_SCREEN: case R_UPDATES: case R_REPORTS_SUB: case R_UTILS:
     case R_SDMAP: case R_SDFILES:
         d->what = HOME_OPEN;
         d->panel = home_sub_panel(row);
         break;
+    case R_CTL ... R_CTL + CONTROLS_COUNT - 1: {
+        const int i = row - R_CTL;
+        ctl_step(i, how < 0 ? -1 : 1);
+        const char *b = controls_get(i);
+        ksnprintf(d->note, sizeof d->note, "%s: %s", controls_label(i), b ? ctl_button(b) : "the game's own button");
+        break;
+    }
     case R_LAYOUT:
         hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
         config_save();
@@ -1012,6 +1105,14 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     case R_LOG:
         if (how == 0) text(d, x_log, 0, 1);
+        break;
+    case R_CTL_RESET:
+        if (how == HOME_YES) {
+            controls_reset();
+            ksnprintf(d->note, sizeof d->note, "every action is back on the game's own button");
+        } else if (how == 0) {
+            ask(d, "Reset all the controls?", "Every action goes back to the game's own button.", "Reset");
+        }
         break;
     case R_FORGET:
         if (how == HOME_YES) {
@@ -1119,12 +1220,6 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     }
 #ifdef BM_RGB30
-    case R_CONFIRM:
-        config_set("confirm", pad_ok == PAD_A ? "b" : "a");
-        config_save();
-        pad_config();
-        ksnprintf(d->note, sizeof d->note, "%s confirms, %s goes back", pad_ok_name(), pad_back_name());
-        break;
     case R_MODES:
         if (how == 0) text(d, x_modes, 0, 1);
         break;

@@ -124,6 +124,7 @@ typedef struct {
     int charging;               /* ...and the bolt on the charger */
     int prompts;                /* MENU_PROMPTS_*: the device pressed last... */
     int prompts_colour;         /* ...the DS4's face buttons in their colours */
+    const char *ok_btn, *back_btn;  /* MENU_PROMPTS_RGB30: the face buttons ("A".."Y") of OK and Cancel; NULL: B and Y */
     int confirm_b;              /* MENU_PROMPTS_PAD, _RGB30: confirm is B, back A (the RGB30) */
     int no_monitor;             /* no monitor to go to (the RGB30): no hint for it */
     int keys_help;              /* F12 is held: the keys over everything (the system's, the menu's) */

@@ -1,0 +1,70 @@
+# italian<TAB>english<TAB>example file (merge of PR 19, claude/docs-english)
+# Comparison is case-insensitive on word boundaries; the English side also matches a plural -s/-es.
+# Add a pair only when the term recurs in real translations; delete a retired pair.
+Gate di Prontezza	Readiness Gate	CLAUDE.md
+ordini di lavoro	work orders	CLAUDE.md
+ordine di lavoro	work order	.claude/agents/bm-coder.md
+Formato Work Order	Work Order Format	CLAUDE.md
+Template Ufficiale del Work Order	Official Work Order Template	.claude/skills/bm-work-order/SKILL.md
+Esito del Gate	Gate Outcome	.claude/skills/bm-work-order/SKILL.md
+Stati di Chiusura	Closing States	.claude/agents/bm-coder.md
+Escalation Basata su Evidenze	Evidence-Based Escalation	CLAUDE.md
+Recupero Mirato delle Informazioni	Targeted Information Retrieval	CLAUDE.md
+Zero Spreco Token	Zero Token Waste	CLAUDE.md
+Comandi Rapidi di Consultazione	Quick Lookup Commands	CLAUDE.md
+Regole di Ingaggio e Sviluppo	Rules of Engagement and Development	CLAUDE.md
+Test Selettivi	Selective Tests	CLAUDE.md
+Architettura Subagent & Routing Intelligente	Subagent Architecture & Smart Routing	CLAUDE.md
+Separare Decidere da Eseguire	Separate Deciding from Executing	CLAUDE.md
+Invarianti Globali	Global Invariants	CLAUDE.md
+Sezioni Cartuccia	Cartridge Sections	CLAUDE.md
+Flag Tile	Tile Flags	CLAUDE.md
+Manutenzione Continua dello Scaffolding	Continuous Scaffolding Maintenance	CLAUDE.md
+Casella e controllo	Inbox and check	CLAUDE.md
+Costo dei battiti	Heartbeat cost	CLAUDE.md
+battito	heartbeat	CLAUDE.md
+casella	inbox	CLAUDE.md
+supervisore	supervisor	CLAUDE.md
+Regole fisse	Fixed rules	CLAUDE.md
+un solo scrittore per file	a single writer per file	CLAUDE.md
+Consegna	Delivery	CLAUDE.md
+Necessità del modello costoso	Necessity of the expensive model	CLAUDE.md
+Pregresso di errore	Prior failure	CLAUDE.md
+Costo alto dell'errore	High cost of error	CLAUDE.md
+soglia di autonomia	autonomy threshold	CLAUDE.md
+Preferenza dell'utente	User preference	CLAUDE.md
+Ambito	Scope	.claude/agents/bm-coder.md
+Mandato	Mandate	.claude/agents/bm-planner.md
+Vincoli Assoluti	Absolute Constraints	.claude/agents/bm-planner.md
+Formato di Output	Output Format	.claude/agents/bm-planner.md
+Regole di Esecuzione	Execution Rules	.claude/agents/bm-coder.md
+Nessun Design Aperto	No Open Design	.claude/agents/bm-coder.md
+Minimalità	Minimality	.claude/agents/bm-coder.md
+Verifica Obbligatoria	Mandatory Verification	.claude/agents/bm-coder.md
+Sola Lettura	Read-Only	.claude/agents/bm-planner.md
+Navigazione Efficace	Effective Navigation	.claude/agents/bm-research.md
+Cosa fai	What you do	.claude/agents/bm-ops.md
+non derogabili	non-negotiable	.claude/agents/bm-ops.md
+Determinismo del Diff	Diff determinism	.claude/skills/bm-work-order/SKILL.md
+Criterio Verificabile	Verifiable criterion	.claude/skills/bm-work-order/SKILL.md
+Scope Contenuto	Contained scope	.claude/skills/bm-work-order/SKILL.md
+Zero Dipendenze Sospese	Zero pending dependencies	.claude/skills/bm-work-order/SKILL.md
+Workflow ripetuti	Repeated workflows	.claude/skills/docs-loop/SKILL.md
+Se qualcosa non va	If something goes wrong	.claude/skills/bm-wsl/SKILL.md
+Script temporanei	Temporary scripts	.claude/skills/bm-wsl/SKILL.md
+Flusso di lavoro	Workflow	claude/skills/bm-video-tutorial/SKILL.md
+Quale registratore	Which recorder	claude/skills/bm-video-tutorial/SKILL.md
+Cosa consegnare	What to deliver	claude/skills/bm-video-tutorial/SKILL.md
+Budget di memoria	Memory budget	docs/progress/b16.md
+Risoluzione fissa	Fixed resolution	docs/progress/b16.md
+Criterio di Completamento	Completion Criterion	docs/progress/b16.md
+Fatto quando	Done when	docs/progress/b16.md
+Obiettivo e Filosofia di Progetto	Project Goal and Philosophy	docs/progress/b16.md
+Pipeline Grafica	Graphics Pipeline	docs/progress/yharnam.md
+Da completare	To be completed	docs/progress/yharnam.md
+Proposte di Sviluppo	Development Proposals	docs/design/suite-sound.md
+Stato Attuale	Current State	docs/design/suite-sound.md
+Cosa Manca per l'Integrazione nei Giochi	What Is Missing for Game Integration	docs/design/suite-sound.md
+Esigenza	Need	CLAUDE.md
+Comando da eseguire	Command to run	CLAUDE.md
+Significato	Meaning	CLAUDE.md

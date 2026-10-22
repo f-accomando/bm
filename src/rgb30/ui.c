@@ -320,7 +320,7 @@ int carts_has_path(const char *path)
 
 static void wait_back(void)
 {
-    while (!(pad_pressed() & (PAD_B | PAD_A)))
+    while (!(pad_pressed() & (pad_ok | pad_back)))
         timer_delay_ms(10);
 }
 
@@ -1075,7 +1075,8 @@ void ui_home(framebuffer_t *f)
             .tabs = tab_names, .ntabs = 3, .tab = shown, .on_gear = on_gear, .peek_first = 1,
             .subtabs = on_market ? market_pages : NULL, .nsubtabs = on_market ? 2 : 0, .subtab = market_page(),
             .items = items, .n = n, .sel = *s,
-            .prompts = MENU_PROMPTS_RGB30, .confirm_b = pad_ok == PAD_B, .no_monitor = 1,
+            .prompts = MENU_PROMPTS_RGB30, .confirm_b = pad_ok == PAD_B,
+            .ok_btn = pad_ok_name(), .back_btn = pad_back_name(), .no_monitor = 1,
             .y_label = on_market ? (market_page() == MARKET_PAGE_APPS ? "Games" : "Apps") : NULL,
             .idle = menu_idle,
         };
@@ -1270,7 +1271,7 @@ void ui_home(framebuffer_t *f)
             int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
             if (dy && gpb.n)
                 gopt_sel = (gopt_sel + dy + gpb.n) % gpb.n;
-            if (p & (pad_back | PAD_X)) {
+            if ((p & pad_back) || ((p & PAD_X) && pad_ok != PAD_X)) {
                 gsend = 0;
                 gopt_sel = 0;
             } else if ((p & pad_ok) && gpb.n && gpb.rows[gopt_sel].kind != MENU_ROW_INFO) {
@@ -1289,7 +1290,7 @@ void ui_home(framebuffer_t *f)
             int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
             if (dy && gpb.n)
                 gopt_sel = (gopt_sel + dy + gpb.n) % gpb.n;
-            if (p & (pad_back | PAD_X)) {
+            if ((p & pad_back) || ((p & PAD_X) && pad_ok != PAD_X)) {
                 gopt = -1;
             } else if ((p & pad_ok) && gpb.n && gpb.rows[gopt_sel].kind != MENU_ROW_INFO) {
                 const int row = gpb.ids[gopt_sel], g = gopt;

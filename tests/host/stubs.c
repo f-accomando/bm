@@ -261,6 +261,7 @@ int config_find_file(const char *name, fat_entry_t *e)
 
 void config_save(void) { }
 void config_set(const char *key, const char *value) { (void)key; (void)value; }
+void config_unset(const char *key) { (void)key; }
 /* bm/config.txt: BMHOST_CONFIG="key=value,key=value" (gpu3d_vs=2, gpu3d_queue=1...) */
 const char *config_get(const char *key)
 {

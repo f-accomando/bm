@@ -4,6 +4,7 @@
 #include "fiber.h"
 #include "input.h"
 #include "notice.h"
+#include "stalls.h"
 #include "version.h"
 #include "ledstate.h"
 #include "drivers/timer.h"
@@ -122,6 +123,23 @@ static int sink(void *p, const uint8_t *d, size_t n)
     return 0;
 }
 
+/* the same calls, timed (stalls.h): they hold the CPU until they return */
+static int check_timed(const release_file_t *f, const uint8_t *d, size_t len)
+{
+    const uint32_t t0 = timer_ticks();
+    const int rc = release_check_file(f, d, len);
+    stall_note(&stall_hash, t0, (uint32_t)len);
+    return rc;
+}
+
+static int verify_timed(const uint8_t *man, size_t ml, const uint8_t *sig, size_t sl, char *err, size_t err_len)
+{
+    const uint32_t t0 = timer_ticks();
+    const int rc = release_verify(man, ml, sig, sl, err, err_len);
+    stall_note(&stall_verify, t0, 0);
+    return rc;
+}
+
 /* A file of the release (a URL's tail, or a name in the SD folder), at most
  * max bytes, into a malloc'd buffer. 0, or -1 with err. */
 static int fetch(const char *url_tail, const char *sd_name, size_t max, const char *show,
@@ -228,7 +246,7 @@ static void plan(void)
              * it); a kernel or the certificates go there anyway */
             w = strncmp(f->path, "/carts/", 7) == 0 ? F_ABSENT_GAME : F_NEW;
         } else if (e.size == f->size && fat_load(&e, &d, &len) == 0) {
-            w = release_check_file(f, d, len) == 0 ? F_SAME : F_CHANGED;
+            w = check_timed(f, d, len) == 0 ? F_SAME : F_CHANGED;
             free(d);
         } else {
             w = F_CHANGED;
@@ -262,7 +280,7 @@ void update_check(framebuffer_t *fb)
     kprintf("  reading the latest release...\n");
     if (fetch("latest/download/" MANIFEST ".txt", MANIFEST ".txt", 16384, NULL, &man, &ml, err, sizeof err) != 0 ||
         fetch("latest/download/" MANIFEST ".sig", MANIFEST ".sig", 1024, NULL, &sig, &sl, err, sizeof err) != 0 ||
-        release_verify(man, ml, sig, sl, err, sizeof err) != 0 ||
+        verify_timed(man, ml, sig, sl, err, sizeof err) != 0 ||
         release_parse(man, ml, &up.rel, err, sizeof err) != 0) {
         free(man);
         free(sig);
@@ -370,7 +388,7 @@ void update_install(framebuffer_t *fb)
         if (fetch(tail, f->asset, f->size, f->asset, &data[i], &len[i], err, sizeof err) != 0) {
             kprintf("\x1b[91m%s: %s\x1b[0m\n", f->asset, err);
             failed = 1;
-        } else if (release_check_file(f, data[i], len[i]) != 0) {
+        } else if (check_timed(f, data[i], len[i]) != 0) {
             kprintf("\x1b[91m%s: not the file of the manifest (size or SHA-256)\x1b[0m\n", f->asset);
             ksnprintf(err, sizeof err, "%s is not the manifest's", f->asset);
             failed = 1;
@@ -523,6 +541,7 @@ int update_start(int install)
     if (task.busy || (install && !update_ready()))
         return -1;
     task_install = install;
+    release_hash_tick = fiber_slice;    /* a big file's hash gives the CPU back between pieces */
     if (fiber_job_start(&task, TASK_STACK, task_main, NULL) != 0)
         return -1;
     if (!install) {                     /* the row says so at once */
