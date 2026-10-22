@@ -301,7 +301,6 @@ $(BUILD)/carts/stages3d.b16: $(BUILD)/stages3d/b16/main.lua $(STAGES3D_ASSETS) c
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stages3d/b16/bm.info --sheet carts/stages3d/assets/sheet.png \
 	    --map floor=carts/stages3d/assets/map_floor.csv --map height=carts/stages3d/assets/map_height.csv \
 	    --map walls=carts/stages3d/assets/map_walls.csv --map objects=carts/stages3d/assets/map_objects.csv
-	@test `wc -c < $@` -le 8388608 || { echo "stages3d.b16 is over a .b16's 8 MiB"; rm -f $@; exit 1; }
 
 # bm SDK (RGB30): the SDK's second edition, 360x360 and the pad, with its own
 # sources in carts/sdk_b16/ (layout.lua + main.lua, joined by its build.py). A tool
@@ -401,7 +400,7 @@ $(BUILD)/carts/overbit.bm: $(BUILD)/overbit/main.lua $(BUILD)/overbit/models.bm 
 	    $(if $(wildcard carts/overbit/cover.png),--cover carts/overbit/cover.png)
 
 # the optimized release, the .b16 of the Market for the Pi and the RGB30 (the
-# same container, docs/B16.md §0; under its 8 MiB): the script without comment
+# same container, docs/B16.md §0): the script without comment
 # and blank lines, 360x360 in the header (a .b16's size). The game sets its own
 # screen, quality and renderer (85_quality): on the RGB30 360x360 or 720x720,
 # on the Pi's TV 1080p on the GPU or 640x360 (the square page left at the
@@ -416,15 +415,13 @@ $(BUILD)/carts/overbit.b16: $(BUILD)/overbit/main.min.lua $(BUILD)/overbit/model
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_overbit)" --author bm --res $(OVERBIT_B16_RES) \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json \
 	    $(if $(wildcard carts/overbit/cover.png),--cover carts/overbit/cover.png)
-	@test `wc -c < $@` -le 8388608 || { echo "overbit.b16 is over a .b16's 8 MiB"; exit 1; }
 
 # the .b16 that is the .bm's very bytes (docs/B16.md §0: the same container): a
-# 360x360 or 720x720 game within the 8 MiB, built as its .bm (Yharnam: 360x360,
+# 360x360 or 720x720 game, built as its .bm (Yharnam: 360x360,
 # its menus on "ok" / "back", the RGB30's B and A)
 B16_AS_BM := yharnam titanex
 $(patsubst %,$(BUILD)/carts/%.b16,$(B16_AS_BM)): $(BUILD)/carts/%.b16: $(BUILD)/carts/%.bm
 	$(PYTHON) scripts/mkbm.py --from $< --b16 -o $@
-	@test `wc -c < $@` -le 8388608 || { echo "$@ is over a .b16's 8 MiB"; rm -f $@; exit 1; }
 
 # variants that start in a mode: the reel (for docs/img) and the benchmark
 $(BUILD)/overbit/%.bm: $(OVERBIT_SRC) carts/overbit/build/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
@@ -712,7 +709,17 @@ $(BUILD)/web/libs.c: scripts/mkweblibs.py $(BUILD)/words.lua src/ai/assist.lua s
 $(BUILD)/web/bmhost.js: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/audio/wavout.h                         $(BMHOST_RT) $(BMHOST_LUA) $(BUILD)/web/libs.c
 	$(EMCC) -std=gnu11 -O2 -w -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) 	    -sNODERAWFS -sENVIRONMENT=node -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=134217728 -sSTACK_SIZE=2097152 	    -o $@ 	    tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c $(BUILD)/web/libs.c $(BMHOST_RT) $(BMHOST_LUA) -lm
 bmhost-wasm: $(BUILD)/web/bmhost.js
-test-wasm: $(BUILD)/web/bmhost.js
+
+# bm web player stage 3: the browser runner (web/runner/bmweb.c, Asyncify) and the page. make web-player
+# writes build/web/player/ (index.html, player.js, bmweb.js, bmweb.wasm): serve it with any static server.
+WEB_PLAYER := $(BUILD)/web/player
+$(WEB_PLAYER)/bmweb.js: web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h $(BMHOST_RT) $(BMHOST_LUA) $(BUILD)/web/libs.c
+	@mkdir -p $(WEB_PLAYER)
+	$(EMCC) -std=gnu11 -O2 -w -D_DEFAULT_SOURCE -Itests/host -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) 	    -sASYNCIFY -sASYNCIFY_STACK_SIZE=65536 -sENVIRONMENT=web,node -sMODULARIZE -sEXPORT_NAME=createBmWeb 	    -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=134217728 -sSTACK_SIZE=2097152 	    -sEXPORTED_FUNCTIONS=_malloc,_free,_bmweb_start,_bmweb_input,_bmweb_quit -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPF32,FS 	    -o $@ web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet.c $(BUILD)/web/libs.c $(BMHOST_RT) $(BMHOST_LUA) -lm
+web-player: $(WEB_PLAYER)/bmweb.js $(wildcard web/*.html web/*.js web/*.css web/assets/*)
+	cp web/index.html web/style.css web/app.js web/launcher-mock.js web/bmcart.js web/player.js $(WEB_PLAYER)/
+	cp -r web/assets $(WEB_PLAYER)/
+test-wasm: $(BUILD)/web/bmhost.js $(BUILD)/web/player/bmweb.js
 	$(PYTHON) tests/webplayer/run_wasm.py $(BUILD)
 
 # bmhost-gpu: the same with the GPU's 3D (src/gpu/gpu3d.c) on the V3D
@@ -745,7 +752,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-webplayer test-wasm bmhost-wasm test-cel test-herocart test-controls test-keymap test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-webplayer test-wasm bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
@@ -1093,7 +1100,6 @@ MARKET_APPS := editor code pixel studio animator mesh sound
 MARKET_APP_CARTS := $(patsubst %,$(BUILD)/%.bm,$(MARKET_APPS))
 $(BUILD)/carts/editor.b16: $(BUILD)/carts/sdk_b16.bm
 	$(PYTHON) scripts/mkbm.py --from $< --b16 -o $@
-	@test `wc -c < $@` -le 8388608 || { echo "$@ is over a .b16's 8 MiB"; rm -f $@; exit 1; }
 market-seed: $(filter-out $(BUILD)/carts/village.bm,$(GAME_CARTS)) $(MARKET_APP_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
 	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
 	mkdir -p $(MARKET)/.github/workflows $(MARKET)/games $(MARKET)/apps

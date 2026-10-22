@@ -168,7 +168,7 @@ def main():
     check(all(back[k] == v for k, v in fx.items()) and bmaudio.pack(bmaudio.unpack(fb)) == fb,
           "the effects' keys back, the same bytes")
     try:
-        bmaudio.pack({"samples": [{"name": "BIG", "pcm": "AAAA" * 700000, "format": "s16", "rate": 48000}]})
+        bmaudio.pack({"samples": [{"name": "BIG", "pcm": "AAAA" * 6000000, "format": "s16", "rate": 48000}]})
         check(False, "too long: refused")
     except ValueError:
         check(True, "")

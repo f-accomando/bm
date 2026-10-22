@@ -1,6 +1,6 @@
 # bm web player: run bm in a web browser (WEB-1)
 
-Status: study, with stages 1 and 2 built. This page lists what exists, what is missing, the stages, the risks
+Status: study, with stages 1, 2 and 3 built. This page lists what exists, what is missing, the stages, the risks
 and the test plan. It does not change the kernel API.
 
 ## 1. What we already decided (recovered, not redone)
@@ -82,8 +82,8 @@ generated C array instead.
 |---|---|---|---|
 | 1 | Cartridge reader in JavaScript (done) | `web/bmcart.js`; the mock shows title, author, cover, sections, CRC; `tests/webplayer/test_bmcart.js` | Node |
 | 2 | wasm build of the runtime (done) | `make bmhost-wasm` builds `bmhost` to `build/web/bmhost.wasm` (1.5 MB, 0.57 MB gzip); `make test-wasm` runs a cartridge under Node and the frames equal the PC build byte for byte | emsdk |
-| 3 | Canvas and input | a 2D cartridge draws and moves with keyboard and pad | stage 2 |
-| 4 | Audio | an AudioWorklet plays `sfx()` and `music()` | stage 3 |
+| 3 | Canvas, input, sound (done) | `make web-player` writes `build/web/player/`; the page plays a `.bm` from the file input: canvas, keyboard, Gamepad API, AudioWorklet | stage 2 |
+| 4 | Check of sound and speed | listen to `sfx()` and `music()`, measure the frame time in a visible tab | the user, or a visible browser |
 | 5 | Storage and 3D | IndexedDB saves; a 3D cartridge on `r3d.c` | stage 4 |
 | 6 | Release page | SRI or vendored React, licence policy, size check, `bmLauncher.start` connected | the user decides where to host |
 
@@ -112,7 +112,26 @@ Stage 2 (done): `make test-wasm` (`tests/webplayer/run_wasm.py`). It packs `test
 `tests/webplayer/expected.sha256`, and, when `build/host/bmhost-bin` exists, that they are byte-equal to the PC
 build. It skips when Node is missing. Run result on 22 Oct: ok, equal to the PC build.
 
-## 8. What stage 2 found
+## 8. Stage 3: the browser runner
+
+- `web/runner/bmweb.c` plays a cartridge with `bm_play()` and the PC stubs. It is linked with `-sASYNCIFY`:
+  each frame flip calls a JavaScript promise (`Module.bmPace`), so the page gets its time between frames.
+  An export that sleeps returns at once, so the runner calls `Module.bmDone` when the cartridge ends.
+- `web/player.js` defines `window.bmLauncher` (`start(url)`, `startBytes(bytes, name)`, `stop()`). It paces at
+  60 Hz with a timer, draws the RGBA frame on `canvas#bm-canvas`, maps the keyboard and the Gamepad API to the
+  `HID_*` bits, and plays the 48 kHz mix through an AudioWorklet. Keys: arrows, Space or J = A, K or X = B,
+  U = X, I = Y, Enter = Start, Backspace or right Shift = Select, Q and E = L1 and R1, 1 and 3 = L2 and R2,
+  Esc = leave. Gamepad: standard mapping.
+- The mock page uses it: open a `.bm` with "Open a .bm file", then press "Start bm".
+- `bm_play(..., seconds)` stops at 0 seconds, so the runner passes one year.
+- Checked: `tests/webplayer/test_bmweb.js` runs the runner under Node with the same hooks (150 frames, the pad
+  moves the square, about 800 audio frames per video frame, quit). In the built-in browser pane the page drew
+  frames, the arrow keys moved the square, 252 frames came in 6 s (the pane was hidden, so its timers are
+  slowed: this is not the real rate), the audio context ran and `stop()` ended the run.
+- Not checked: the sound itself, the 60 Hz rate in a visible tab, a gamepad, a 3D cartridge, a cartridge with
+  `save()` (the SD card is a memory file system; saves are lost on reload).
+
+## 9. What stage 2 found
 
 - The unchanged `src/bm/*` sources and `tests/host/stubs.c` compile with Emscripten. No kernel change was
   needed. Only the runner links `-sNODERAWFS` so that the SD card is a host folder under Node.

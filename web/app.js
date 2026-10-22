@@ -13,6 +13,7 @@ function App() {
   const [launcherNotice, setLauncherNotice] = React.useState("");
   const [cart, setCart] = React.useState(null);
   const [cartCover, setCartCover] = React.useState("");
+  const cartBytes = React.useRef(null);
 
   // Stage 1 of the web player: read a .bm file in the page (web/bmcart.js). Nothing is sent anywhere.
   const handleCartFile = (ev) => {
@@ -21,6 +22,7 @@ function App() {
     file.arrayBuffer().then((buf) => {
       const result = window.bmCart ? window.bmCart.parse(buf, file.name) : { ok: false, error: "The cartridge reader is missing." };
       result.fileName = file.name;
+      cartBytes.current = result.ok ? new Uint8Array(buf) : null;
       setCart(result);
       setCartCover("");
       if (result.ok && result.cover) {
@@ -63,7 +65,12 @@ function App() {
   const handleStart = () => {
     if (window.bmLauncher && typeof window.bmLauncher.start === "function") {
       setLauncherNotice("");
-      window.bmLauncher.start("demo.bm");
+      const failed = (err) => setLauncherNotice(String(err && err.message ? err.message : err));
+      // a cartridge opened with the file input is played from memory; else the launcher gets a URL
+      const run = cartBytes.current && window.bmLauncher.startBytes
+        ? window.bmLauncher.startBytes(cartBytes.current, cart ? cart.fileName : "")
+        : window.bmLauncher.start("demo.bm");
+      if (run && typeof run.catch === "function") run.catch(failed);
     } else {
       setLauncherNotice("The bm player is not connected yet.");
     }

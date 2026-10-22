@@ -7,6 +7,8 @@ mkbm.py - packs a native bm cartridge (.bm). Standard library only.
            [--audio bank.json|bank.bmau] [--models models.glb|pack.bm]
            [--title "My game"] [--author me]
            [--res 640x360|480x270|320x180|256x256|360x360]
+           [--targets pi,rgb30 [--input pad,keyboard] [--aspect wide] [--needs 3d] [--min-ram MiB]
+            [--min-spec N] [--min-width PX]]   the compatibility block (header bytes 120..127)
 
 sheet.png: 8-bit RGB or RGBA PNG (non-interlaced); size multiple of 8 recommended.
 --sheet8:  store the sheet with a palette and runs (at most 256 colours): big
@@ -465,6 +467,40 @@ def mark_b16(data):
     return bytes(out)
 
 
+COMPAT_AT = 120                     # the compatibility block, bytes 120..127; flag bit 4 (src/bm/bm.h)
+FLAG_COMPAT = 16
+COMPAT_BITS = {
+    "targets": {"pi": 1, "rgb30": 2},
+    "input": {"pad": 1, "keyboard": 2, "text": 4, "mouse": 8, "mouse_optional": 16},
+    "aspect": {"wide": 1, "square": 2, "any": 4, "safe_area": 8},
+    "needs": {"3d": 1, "audio": 2, "net": 4, "mouse_hw": 8},
+}
+
+
+def compat_bits(kind, text):
+    """'pad,keyboard' -> the bits of COMPAT_BITS[kind]; SystemExit on an unknown name"""
+    bits = 0
+    for name in (t.strip().lower() for t in text.split(",") if t.strip()):
+        if name not in COMPAT_BITS[kind]:
+            raise SystemExit(f"--{kind}: {name!r} is not one of {', '.join(COMPAT_BITS[kind])}")
+        bits |= COMPAT_BITS[kind][name]
+    return bits
+
+
+def mark_compat(data, targets, input_=0, aspect=0, needs=0, min_ram=0, min_spec=0, min_w16=0):
+    """the compatibility block: bytes 120..127 and flag bit 4 (docs/BM-FORMAT.md). targets is a bit set
+    (1 Pi, 2 RGB30) and must not be 0; the other bytes are 0 when a cartridge does not declare them"""
+    if not targets & 3:
+        raise SystemExit("compatibility block: targets must name pi, rgb30 or both")
+    if not 0 <= min_ram <= 0xFFFF or not 0 <= min_spec <= 255 or not 0 <= min_w16 <= 255:
+        raise SystemExit("compatibility block: min RAM is 0..65535 MiB, min spec 0..255, min width 0..4080")
+    out = bytearray(data)
+    struct.pack_into("<H", out, 18, struct.unpack_from("<H", out, 18)[0] | FLAG_COMPAT)
+    struct.pack_into("<BBBBHBB", out, COMPAT_AT, targets & 3, input_ & 255, aspect & 255, needs & 255,
+                     min_ram, min_spec, min_w16)
+    return bytes(out)
+
+
 def mark_type(data, name):
     """bits 2-3 of the u16 at 18: the type of bm.info (game 0, app 1, utility 2; src/bm/project.h)"""
     out = bytearray(data)
@@ -575,7 +611,7 @@ def export_from(src, a, out):
     if is_b16:
         flags |= 2
     struct.pack_into("<H", raw, 18, flags)
-    raw[104:128] = b"\0" * 24
+    raw[104:120] = b"\0" * 16               # built from; the compatibility block at 120..127 stays
     if a.sheet8:
         secs = list(bmmesh.cart_sections(bytes(raw)))
         if any(t == SEC_SHEET for t, _ in secs) and not any(t == SEC_SHEET8 for t, _ in secs):
@@ -608,7 +644,15 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("-o", "--output", help="output cartridge (.bm, .bme, or .b16)")
     ap.add_argument("--from", dest="src", help="source .bm or .bme to export or repack (e.g. to .b16)")
-    ap.add_argument("--b16", action="store_true", help="export a .b16 edition (checks the 8 MiB limit)")
+    ap.add_argument("--b16", action="store_true", help="export a .b16 edition (360x360 header)")
+    ap.add_argument("--targets", help="compatibility block: the kernels the cartridge runs on, pi,rgb30 "
+                                      "(flag bit 4, bytes 120..127). Needed by the options below")
+    ap.add_argument("--input", default="", help="pad,keyboard,text,mouse,mouse_optional")
+    ap.add_argument("--aspect", default="", help="wide,square,any,safe_area")
+    ap.add_argument("--needs", default="", help="3d,audio,net,mouse_hw")
+    ap.add_argument("--min-ram", type=int, default=0, help="minimum RAM in MiB")
+    ap.add_argument("--min-spec", type=int, default=0, help="minimum spec revision (BM_SPEC_REV)")
+    ap.add_argument("--min-width", type=int, default=0, help="minimum screen width in pixels (stored in units of 16)")
     ap.add_argument("--lua")
     ap.add_argument("--sheet")
     ap.add_argument("--sheet8", action="store_true", help="store the sheet with a palette and runs")
@@ -699,8 +743,13 @@ def main():
         title, res_str = a.title, a.res
     if a.b16 or a.output.lower().endswith(".b16"):
         b16_lint(data, a.output)
-    if (a.b16 or a.output.lower().endswith(".b16")) and len(data) > 8 * 1024 * 1024:
-        raise SystemExit(f"{a.output}: {len(data)} bytes is over a .b16's 8 MiB limit")
+    # no size limit here: the Market takes 100 MiB a file (scripts/mkmarket.py), the console loads what fits in RAM
+    if a.targets:
+        data = mark_compat(data, compat_bits("targets", a.targets), compat_bits("input", a.input),
+                           compat_bits("aspect", a.aspect), compat_bits("needs", a.needs), a.min_ram,
+                           a.min_spec, (a.min_width + 15) // 16)
+    elif a.input or a.aspect or a.needs or a.min_ram or a.min_spec or a.min_width:
+        ap.error("--input, --aspect, --needs and the minimums go with --targets")
     if a.output and os.path.dirname(a.output):
         os.makedirs(os.path.dirname(os.path.abspath(a.output)), exist_ok=True)
     open(a.output, "wb").write(data)

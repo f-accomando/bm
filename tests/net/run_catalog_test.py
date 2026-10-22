@@ -144,8 +144,15 @@ with tempfile.TemporaryDirectory() as tmp:
     refused("x", "x.bm", b"PNG...", ok_info, "not a .bm", "not a cartridge: refused")
     refused("x", "x y.bm", good, ok_info, "file names", "a space in the file name: refused")
     refused("x", "", None, None, "no cartridge", "a folder without a cartridge: refused")
-    refused("x", "x.b16", mkbm.pack(code + b"--" + os.urandom(9 << 20).hex().encode()[:9 << 20], title="Huge"),
-            ok_info, "more than a .b16's 8 MiB", "a .b16 over 8 MiB: refused")
+    refused("x", "x.b16", mkbm.pack(code + b"--" + b"x" * (100 << 20), title="Huge"),
+            ok_info, "more than GitHub takes", "a cartridge over the Market's 100 MiB: refused")
+    # no 8 MiB limit any more: a 9 MiB .b16 passes the check (the Market ceiling is 100 MiB)
+    big = os.path.join(tmp, "big")
+    shutil.copytree(games, big)
+    game(big, "big", "big.b16", mkbm.pack(code + b"--" + b"x" * (9 << 20), title="Big9", author="x"), ok_info)
+    r = mkmarket(big, "--check")
+    check(r.returncode == 0, "a 9 MiB .b16 is listed: " + r.stderr[-200:])
+    shutil.rmtree(big)
     refused("x", "x.bm", mkbm.pack(code), ok_info, "no title", "no title: refused")
     refused("x", "x.bm", good, ok_info + "about: " + "a" * 121 + "\n", "about", "about too long: refused")
 

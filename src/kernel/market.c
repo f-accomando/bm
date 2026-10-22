@@ -1005,7 +1005,7 @@ void market_panel(int i, home_panel_t *p)
     home_row(p, MENU_ROW_INFO, M_FILE, "File", s->path[0] ? "On the SD card" : "Not on the SD card yet",
              "%s", s->path[0] ? s->path : "-");
     home_row(p, MENU_ROW_INFO, M_TYPE, "Format",
-             is_b16(g->file.path) ? "Handheld edition (.b16, 8 MiB ceiling)" : "Native cartridge (.bm)",
+             is_b16(g->file.path) ? "Handheld edition (.b16)" : "Native cartridge (.bm)",
              "%s (%s)", kind_of(g), g->is_app ? "app" : "game");
     if (s->path[0] && !s->busy)
         home_row(p, MENU_ROW_ACTION, M_DELETE, "Delete from the SD card",

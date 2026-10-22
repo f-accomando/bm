@@ -174,7 +174,7 @@ The reference is split by area. **Read only the file you need** (and grep inside
   From the code: `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(18)`,
   `devkit()`, `profile()`. The limit is 20 million instructions per call. The
   **SDK's dev kit** (F1 twice) has the same numbers for the project: tokens, the biggest
-  functions, the data's memory, the file against the 8 MiB of a `.b16` and the numbers of
+  functions, the data's memory, the file size and the numbers of
   the last try (F5). At the end of a run the serial line also writes the line `dev kit:
   Lua peak ... KiB, data ... KiB, busiest frame ...k instructions, ... frames over 16.7 ms,
   ... tokens`.
