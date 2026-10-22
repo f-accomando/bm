@@ -129,7 +129,7 @@ Il Market si carica solo mentre la sua scheda è attiva e non blocca mai il menu
 | `r` | rileggi la scheda SD |
 | mouse | il clic gioca; il clic destro torna indietro |
 
-Le opzioni del gioco (`c`) mostrano i byte dei salvataggi e una riga *Delete the save data*.
+Le opzioni del gioco (`c`) mostrano i byte dei salvataggi e una riga *Delete the save data*. Sull'RGB30 le stesse opzioni si aprono con **X** e hanno anche *Send to a nearby console*; provato solo in QEMU (non verificato su hardware).
 
 ## Da sapere
 
@@ -140,6 +140,8 @@ Le opzioni del gioco (`c`) mostrano i byte dei salvataggi e una riga *Delete the
 ## Impostazioni
 
 Le Impostazioni hanno queste pagine: Controllers, WiFi and network (Network su una scheda senza radio), Screen and sound, Updates, Reports e System, poi le righe *Restart* e *Shut down*. System mostra la versione, la scheda, il tempo di accensione, la memoria in uso, la CPU, la scheda SD e la batteria, e ha *Log since boot* e *Open the monitor*.
+
+System ha anche *SD map*: una barra di ciò che c'è sulla scheda, divisa in Kernel, bm (giochi), bme (progetti), Other e Free, la dimensione di ciascuno, i file e i kilobyte di ogni cartella, e un elenco *Other files* con i file che il menu non sa mostrare, i più grandi per primi. Il menu legge la scheda quando è libero e mai mentre gira un gioco o uno strumento; la riga *Scan* mostra lo stato e la percentuale. La console tiene l'ultimo risultato in `bm/sdmap.txt`. La SD map non è verificata su hardware (Pi Zero W o RGB30).
 
 ![Le impostazioni, pagina System](shots/boot-os-settings.png)
 

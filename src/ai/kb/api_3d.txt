@@ -564,6 +564,88 @@ the world and hidden by the closer things: explosions, smoke, icons.
 code:
 sprite3d(0, 32, 16, 16, x, y + 2, z, 1)
 
+== particles_pool
+kind: api
+name: particles
+title: particles([max]) - crea o azzera il pool di particelle 3D
+title_en: particles([max]) - creates or resets the 3D particle pool
+ask: particelle 3d | creare pool particelle 3d | init 3d particles | particles pool
+see: particles_add, particles_step, particles_draw, particles_count, point3d
+text:
+Alloca o azzera il pool di particelle 3D per la cartuccia, con capacita' arrotondata
+a 16 (default 1024). Con un valore sopra 4096 restituisce 0. Restituisce la capacita'.
+text_en:
+Allocates or resets the 3D particle pool for the cartridge, capacity rounded
+up to 16 (default 1024). A value above 4096 returns 0. Returns the capacity.
+code:
+particles(1024)
+
+== particles_add
+kind: api
+name: particles_add
+title: particles_add(x, y, z, vx, vy, vz, life, [rgb]) - aggiunge una particella 3D
+title_en: particles_add(x, y, z, vx, vy, vz, life, [rgb]) - adds a 3D particle
+ask: emettere particella 3d | lanciare particelle 3d | add 3d particle | spawn 3d particle
+see: particles_pool, particles_step, particles_draw, particles_count
+text:
+Aggiunge una particella 3D in (x, y, z) con velocita' (vx, vy, vz), durata life
+in frame/aggiornamenti e colore rgb (default 0xFFFFFF). Quando il pool e' pieno,
+sostituisce la particella piu' vecchia. Restituisce lo slot assegnato.
+text_en:
+Adds a 3D particle at (x, y, z) with velocity (vx, vy, vz), life in
+updates and colour rgb (default 0xFFFFFF). When full, replaces the oldest.
+Returns the assigned slot.
+code:
+particles_add(x, y, z, 0, 0.5, 0, 30, 0xFFCC00)
+
+== particles_step
+kind: api
+name: particles_step
+title: particles_step([gravita]) - fa avanzare la fisica delle particelle 3D
+title_en: particles_step([gravity]) - steps the 3D particle simulation
+ask: muovere particelle 3d | gravita particelle 3d | update 3d particles | step particles
+see: particles_pool, particles_add, particles_draw, particles_count
+text:
+Fa avanzare di un passo le particelle 3D applicando gravita (default grezzo 0.0; lib.particles3d:update usa 0.02):
+vy = vy - g; x = x + vx; y = y + vy; z = z + vz; life = life - 1. Il calcolo
+gira su ARM; le particelle morte (life <= 0) non vengono toccate.
+text_en:
+Steps the 3D particles by applying gravity (raw default 0.0; lib.particles3d:update uses 0.02):
+vy = vy - g; x = x + vx; y = y + vy; z = z + vz; life = life - 1. The ARM
+does the step; dead particles (life <= 0) are not touched.
+code:
+particles_step(0.02)
+
+== particles_draw
+kind: api
+name: particles_draw
+title: particles_draw([raggio]) - disegna le particelle 3D attive
+title_en: particles_draw([radius]) - draws the active 3D particles
+ask: disegnare particelle 3d | render 3d particles | draw particles 3d
+see: particles_pool, particles_add, particles_step, particles_count, point3d
+text:
+Disegna un punto per ciascuna particella 3D viva usando le regole di point3d
+con raggio dato (default 0.1). Restituisce il numero di pixel disegnati.
+text_en:
+Draws a point per live 3D particle following point3d rules with the given
+radius (default 0.1). Returns the number of drawn pixels.
+code:
+particles_draw(0.1)
+
+== particles_count
+kind: api
+name: particles_count
+title: particles_count() - restituisce il numero di particelle 3D vive
+title_en: particles_count() - returns the count of live 3D particles
+ask: quante particelle 3d attive | contare particelle 3d | 3d particle count
+see: particles_pool, particles_add, particles_step, particles_draw
+text:
+Restituisce il numero di particelle attualmente vive nel pool 3D della cartuccia.
+text_en:
+Returns the number of currently live particles in the cartridge 3D pool.
+code:
+local n = particles_count()
+
 == gpu3d
 kind: api
 name: gpu3d
