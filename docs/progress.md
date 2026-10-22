@@ -48,6 +48,7 @@ file ends with *Open work* and *Rules (do not break)*.
 - Games (Overbit, Yharnam): [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) (gameplay architecture: [`docs/design/games-architecture.md`](design/games-architecture.md)).
 - Input standard for games (actions on buttons, RGB30 and Pi): [`docs/design/games-input-standard.md`](design/games-input-standard.md).
 - Game API reference (not progress): [API.md](API.md) → `docs/api/<area>.md`.
+- Next tasks and open decisions of the whole repository: [`docs/NEXT.md`](NEXT.md).
 
 ## Navigation (how to read, where things are)
 
