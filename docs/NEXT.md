@@ -64,6 +64,9 @@ Friday evening:
 10. R41 and R42 only if the R40 numbers (`stat(17)`, `stat(18)`) show a gain.
 11. Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
 
+## Open issues
+- `qemu_test.py -k herocart` is red on bm-core 4c65205d (res=1920x1080 assert or timeout at `,cel2,`); same without the LOD change; needs its own fix.
+
 ## Never delete
 `bm-core`, `reports`, `sync-handshake`, `claude/beta1-c4-ring2`, `claude/beta1-c4-ring3`, and the graphics branches below until their commits are ported or the user says go.
 
