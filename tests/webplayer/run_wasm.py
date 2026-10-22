@@ -8,7 +8,7 @@ WebAssembly (make bmhost-wasm) draws the same frames as the PC build (make bmhos
 Packs tests/webplayer/cart.lua, runs build/web/bmhost.js under Node, and checks that
 (1) the run ends ok, (2) the two frames are equal to the expected SHA-256 in
 tests/webplayer/expected.sha256, (3) when build/host/bmhost-bin exists, its frames are
-byte-equal to the WebAssembly ones. Exit 0 and a message "skipped" when Node is missing.
+byte-equal to the WebAssembly ones, then (4) the browser runner (make web-player) in test_bmweb.js. Exit 0 and a message "skipped" when Node is missing.
 """
 import hashlib
 import os
@@ -75,7 +75,16 @@ def main():
     if fails:
         return 1
     print("test-wasm: ok, 2 frames match the expected hashes (%s)" % how)
-    return 0
+    # the browser runner (web/runner/bmweb.c) under Node, with the hooks of web/player.js
+    if not os.path.exists(os.path.join(build, "web", "player", "bmweb.js")):
+        print("test-wasm: skipped the browser runner (make web-player)")
+        return 0
+    subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "mkbm.py"), "-o", os.path.join(work, "play.bm"),
+                    "--lua", os.path.join(HERE, "play.lua"), "--title", "play test", "--author", "tests",
+                    "--res", "360x360"], check=True, stdout=subprocess.DEVNULL)
+    r = subprocess.run([node, os.path.join(HERE, "test_bmweb.js"), build], capture_output=True, text=True)
+    print((r.stdout + r.stderr).strip())
+    return r.returncode
 
 
 if __name__ == "__main__":

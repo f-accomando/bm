@@ -26,6 +26,10 @@ Mock only. Assets need the licence policy before real content.
 
 The page loads React 18.3.1 and ReactDOM 18.3.1 (MIT) from `cdnjs.cloudflare.com`. The page has no `fetch`, no storage, and sends no data. The only link is "Buy me a coffee" (a plain `<a>`).
 
+## Player (stage 3)
+
+`make web-player` (Emscripten in WSL: `source ~/emsdk/emsdk_env.sh`) writes `build/web/player/` with this page, `bmweb.js` and `bmweb.wasm`. Serve that folder with a static server and open a `.bm` with "Open a .bm file", then press "Start bm". `player.js` defines `window.bmLauncher` (`start(url)`, `startBytes(bytes, name)`, `stop()`). Without `bmweb.js` the launcher says that the runtime is not built. `launcher-mock.js` stays for reference and `player.js` replaces it.
+
 ## Cartridge reader (stage 1)
 
 `bmcart.js` reads a `.bm` or `.b16` file in the page (header, CRC-32, sections, INFO lines, cover). The Start tab has an "Open a .bm file" input that shows the result. The file stays in the browser. Test: `node tests/webplayer/test_bmcart.js`. The plan is in `docs/design/bm-web-player.md`.

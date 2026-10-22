@@ -712,7 +712,17 @@ $(BUILD)/web/libs.c: scripts/mkweblibs.py $(BUILD)/words.lua src/ai/assist.lua s
 $(BUILD)/web/bmhost.js: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/audio/wavout.h                         $(BMHOST_RT) $(BMHOST_LUA) $(BUILD)/web/libs.c
 	$(EMCC) -std=gnu11 -O2 -w -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) 	    -sNODERAWFS -sENVIRONMENT=node -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=134217728 -sSTACK_SIZE=2097152 	    -o $@ 	    tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c $(BUILD)/web/libs.c $(BMHOST_RT) $(BMHOST_LUA) -lm
 bmhost-wasm: $(BUILD)/web/bmhost.js
-test-wasm: $(BUILD)/web/bmhost.js
+
+# bm web player stage 3: the browser runner (web/runner/bmweb.c, Asyncify) and the page. make web-player
+# writes build/web/player/ (index.html, player.js, bmweb.js, bmweb.wasm): serve it with any static server.
+WEB_PLAYER := $(BUILD)/web/player
+$(WEB_PLAYER)/bmweb.js: web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h $(BMHOST_RT) $(BMHOST_LUA) $(BUILD)/web/libs.c
+	@mkdir -p $(WEB_PLAYER)
+	$(EMCC) -std=gnu11 -O2 -w -D_DEFAULT_SOURCE -Itests/host -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) 	    -sASYNCIFY -sASYNCIFY_STACK_SIZE=65536 -sENVIRONMENT=web,node -sMODULARIZE -sEXPORT_NAME=createBmWeb 	    -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=134217728 -sSTACK_SIZE=2097152 	    -sEXPORTED_FUNCTIONS=_malloc,_free,_bmweb_start,_bmweb_input,_bmweb_quit -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPF32,FS 	    -o $@ web/runner/bmweb.c tests/host/stubs.c tests/host/hostnet.c $(BUILD)/web/libs.c $(BMHOST_RT) $(BMHOST_LUA) -lm
+web-player: $(WEB_PLAYER)/bmweb.js $(wildcard web/*.html web/*.js web/*.css web/assets/*)
+	cp web/index.html web/style.css web/app.js web/launcher-mock.js web/bmcart.js web/player.js $(WEB_PLAYER)/
+	cp -r web/assets $(WEB_PLAYER)/
+test-wasm: $(BUILD)/web/bmhost.js $(BUILD)/web/player/bmweb.js
 	$(PYTHON) tests/webplayer/run_wasm.py $(BUILD)
 
 # bmhost-gpu: the same with the GPU's 3D (src/gpu/gpu3d.c) on the V3D
@@ -745,7 +755,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-web test-webplayer test-wasm bmhost-wasm test-cel test-herocart test-controls test-keymap test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-web test-webplayer test-wasm bmhost-wasm web-player test-cel test-herocart test-controls test-keymap test-gameapi test-stages3d test-stages3d-b16 test-write test-shot test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
