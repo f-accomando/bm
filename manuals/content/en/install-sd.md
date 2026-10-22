@@ -332,7 +332,9 @@ The console writes it when you change a setting. You can also edit it on the PC,
 | `wifi_ssid` | the WiFi network |
 | `wifi_psk` | its password |
 | `wifi_boot` | `0`: no WiFi at the start; `1`: the console joins at every start |
-| `net_password` | the 6-digit Console password, used from the next start |
+| `net_password` | the Console password. If the key is missing, the console makes a random 6-digit number when the network console starts and saves it here. Edit it to choose your own; it is used from the next start |
+| `rec` | `on`: the screen recorder writes every game run to `/bm/rec` (off by default) |
+| `rec_format` | the pixel format of the recorder: `rle565` (the default, lossless), `rgb565` or `rgb332` |
 | `layout` | `it` or `us`: the keyboard |
 | `volume` | 0 to 10 |
 | `confirm` | `a`: A confirms (RGB30) |

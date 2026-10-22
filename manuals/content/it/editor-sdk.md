@@ -260,7 +260,7 @@ Premi **F1** nella pagina del progetto, poi ancora **F1**. La seconda pagina è 
 
 - **CODE**: token, righe, KiB, numero di funzioni e le più grandi.
 - **DATA IN MEMORY WHILE IT RUNS**: sheet, mappa, modelli, scheletri, suono e z-buffer, e il totale. Il Lua si aggiunge sopra. È la stessa somma di `stat(13)`.
-- **CARTRIDGE FILE**: la dimensione del file salvato rispetto agli 8 MiB di un `.b16`. Prima del primo salvataggio dice `not saved yet: Save as, then the size of the file`.
+- **CARTRIDGE FILE**: la dimensione del file salvato rispetto al segno degli 8 MiB di un `.b16`. Il segno è solo una guida: la build non rifiuta un file più grande. Prima del primo salvataggio dice `not saved yet: Save as, then the size of the file`.
 - Con il target `.b16`: le righe del codice che il `.b16` non avrà (`math.random`, `time()`, file...). Con `.bm`: `.bm has no cap`.
 - **LAST TRY (F5)**: fps, millisecondi medi e massimi di un frame, frame oltre 16,7 ms, la RAM di picco (Lua e dati), le istruzioni del frame più pesante, token, triangoli, e se il 3D è stato disegnato dalla GPU o dall'ARM.
 
@@ -290,7 +290,7 @@ Premi **F1** nella pagina del progetto, poi ancora **F1**. La seconda pagina è 
 ## Da sapere
 
 - Un gioco si costruisce dal suo progetto. Se è aperto un gioco, l'SDK ne salva prima la copia modificabile.
-- Portare il target su `.b16` (tasto `b` nella pagina del progetto) cambia lo schermo in `360x360` se non era quadrato, e ti dice il limite di 8 MiB.
+- Portare il target su `.b16` (tasto `b` nella pagina del progetto) cambia lo schermo in `360x360` se non era quadrato, e mostra il segno degli 8 MiB. Il segno è una guida, non un limite.
 - Il target viene ricordato per ogni file di progetto.
 - Sull'RGB30, esportare un `.b16` da `/carts` lo copia anche in `/bm/`, così compare subito in Games. Sull'RGB30 la scheda Games elenca `/bm/` e `/carts`; se il gioco è scritto altrove, la riga di stato aggiunge `(not in the Games tab)`.
 

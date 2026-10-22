@@ -211,6 +211,9 @@ The **sprite sheet** is a picture divided into 8×8 cells: cell `n` is at column
 |---|---|
 | `spr(n, x, y, [w, h, flip_x, flip_y])` | draws cell `n` (w×h cells, default 1×1), mirrored too |
 | `sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom])` | copies any rectangle of the sheet; with `zoom` (default 1) it draws it bigger (`2`, `3`…) or smaller (`0.5`), pixel by pixel: it covers `sw * zoom` × `sh * zoom` pixels |
+| `stack(sx, sy, w, h, n, x, y, [rz, scale, step])` | sprite stacking: draws `n` slices of `w`×`h` pixels that lie side by side on the sheet from `(sx, sy)`, left to right. Slice 1 is the bottom. `(x, y)` is the centre of the bottom slice. Each slice turns by `rz` radians around its centre, is `scale` times bigger and sits `step * scale` pixels above the one below (`step` 1 by default). Colour 0 is transparent |
+| `stackv(sx, sy, w, h, n, x, y, [rz, scale, step])` | the same as `stack`, but the slices lie one under the other on the sheet, top to bottom; the top one is slice 1 |
+| `zstack(name, x, y, [rz, scale])` | draws a stack zone of the zones file (the line `stack name x y w h n`, or `stackv` for slices one under the other) |
 | `sget(x, y)` | reads a pixel of the sheet (`nil` = transparent) |
 | `sset(x, y, [c])` | writes a pixel of the sheet (`nil` = transparent) |
 
@@ -572,7 +575,7 @@ When a game ends the dev kit writes one file per game into the reports, `reports
 
 - In `bm/config.txt`: `session_report=0` never, `=1` always; without the line, only with a `github_token`.
 - From the code you use `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(16)`, `devkit()` and `profile()`. The limit is 20 million instructions per call.
-- The **SDK's dev kit** (F1 twice) has the same numbers for the project: tokens, the biggest functions, the data's memory, the file against the 8 MiB of a `.b16` and the numbers of the last try (F5).
+- The **SDK's dev kit** (F1 twice) has the same numbers for the project: tokens, the biggest functions, the data's memory, the file against the 8 MiB mark of a `.b16` (a guide, not a limit) and the numbers of the last try (F5).
 - At the end of a run the serial line also writes the line `dev kit: Lua peak ... KiB, data ... KiB, busiest frame ...k instructions, ... frames over 16.7 ms, ... tokens`.
 
 ## Examples
@@ -730,3 +733,42 @@ end
 ```
 
 [TO FILL: an example of two consoles finding each other with these functions; the sources only describe bmnet for it]
+
+# The web
+
+For a cartridge that shows web pages. A request runs in the background: the game keeps drawing while the page arrives. The kernel enforces the rules below. A cartridge cannot change them.
+
+- The player must allow the network, as for `udp_open`. Without a network `web_get` returns `nil, "no network"`.
+- Only `https://` addresses, at most 1024 characters. The kernel follows at most 3 redirects and refuses a redirect to `http://`.
+- The kernel waits until 1 second has passed since the last request to the same host. The state is `"wait"` meanwhile.
+- The body stops at 4 MiB. `web_max_kib` in `bm/config.txt` changes this (up to 32768). A request can ask for less with `max`.
+- One request runs at a time. The results of up to 3 requests stay in memory until `web_cancel` or the end of the cartridge.
+- `web_poll` works for about 4 ms. A new TLS connection can take about 100 ms on the Pi Zero W, and the frame waits. Show a "connecting" message before the first `web_poll`.
+- After a complete answer the kernel keeps the connection for the next request to the same host (keep-alive). The calls do not change.
+- With `resume = "NAME.EXT"` a failed or cancelled request keeps the part it received in `bm/web/NAME.PRT`. The next `web_get` for the same address with the same name asks the server for the rest (`Range`). The server must send `Accept-Ranges` and a size. The body is always the whole file: check its size or a hash before you use it.
+- In bmhost `web_get` returns `nil` and a reason. `image_load` and `file_write` work.
+
+| Function | What it does |
+|---|---|
+| `id = web_get(url, [opts])` | starts a GET request. `opts`: `max` (a body cap in bytes), `timeout` (milliseconds for one read, 1000 to 60000, default 15000), `resume` (a bare 8.3 name). Returns the `id`, or `nil` and the reason |
+| `state, size, length = web_poll(id)` | works the request for about 4 ms. `state` is `"wait"`, `"busy"`, `"done"` or `"error"`. Call it once a frame |
+| `web_info(id)` | a table with `state`, `status` (the HTTP status), `type`, `length`, `location`, `url`, `size`, `resumed` and `error`. A 404 ends in `"done"`: look at `status` |
+| `web_body(id)` | the body as a string, or `nil` and the reason. It copies the bytes into Lua memory: to decode a picture or write a file, give the `id` to `image_load` or `file_write` |
+| `web_cancel(id)` | stops the request and frees its result |
+| `img = image_load(bytes_or_id, sx, sy, [maxw, maxh])` | decodes a baseline JPEG, PNG or WebP into the sprite sheet with its top left corner at `(sx, sy)`. Progressive JPEG and pictures over 4 megapixels are refused. Returns `{x =, y =, w =, h =}`, or `nil` and the reason. Draw it with `sspr`. If needed, make the sheet bigger first with `cart_sheet(w, h)` |
+| `file_write(name, bytes_or_id, [async])` | writes a file in `bm/web` on the SD card. `name` is a bare 8.3 name. Never a `.bm`, `.bme` or `.b16` file. At most 8 MiB (`file_write_max_kib`, up to 32768) and 128 files in the folder. With `async = true` the data is queued, up to 4 files wait, and the pieces (up to 32 KiB) go to the card while the cartridge calls `web_poll` or `file_state` |
+| `state, info = file_state(name)` | the last queued write of that name: `"queued"`, `"writing"`, `"done"` or `"error"`. Call it once a frame while a write is queued |
+
+```lua
+if btnp(4) and not req then req = web_get("https://example.org/pic.webp") end
+if req then
+  local state = web_poll(req)
+  if state == "done" then
+    img = image_load(req, 0, 64, 160, 90)
+    web_cancel(req); req = nil
+  elseif state == "error" then
+    msg = web_info(req).error
+    web_cancel(req); req = nil
+  end
+end
+```

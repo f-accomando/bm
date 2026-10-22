@@ -93,7 +93,7 @@ Tutti i colori, fino a 256, con i valori di rosso, verde e blu di quello scelto.
 
 ## F4: lo stack
 
-Una *zona stack* è una zona con *n* fette della stessa misura, una accanto all'altra sullo sheet, da sinistra a destra. La fetta 1 è la più bassa. Nella cartuccia è la riga `stack nome x y w h n`; un gioco la disegna con `zstack`. La pagina Stack mostra a sinistra una fetta, ingrandita. A destra mostra le zone stack, una fila di piccole immagini delle fette e lo stack intero che gira (`stack` con un angolo di rotazione). Lo stack legge lo sheet a ogni fotogramma: una modifica a una fetta si vede subito.
+Una *zona stack* è una zona con *n* fette della stessa misura, una accanto all'altra sullo sheet, da sinistra a destra. La fetta 1 è la più bassa. Nella cartuccia è la riga `stack nome x y w h n`; un gioco la disegna con `zstack`. La pagina Stack mostra a sinistra una fetta, ingrandita. A destra mostra le zone stack, una fila di piccole immagini delle fette e lo stack intero che gira (`stack` con un angolo di rotazione). Lo stack legge lo sheet a ogni fotogramma: una modifica a una fetta si vede subito. Un gioco può usare anche una zona `stackv`, con le fette una sotto l'altra sullo sheet.
 
 | Tasto | Azione |
 |---|---|

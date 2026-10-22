@@ -260,7 +260,7 @@ Press **F1** on the project page, then **F1** again. The second page is the **de
 
 - **CODE**: tokens, lines, KiB, number of functions and the biggest ones.
 - **DATA IN MEMORY WHILE IT RUNS**: sheet, map, models, skeletons, sound and z-buffer, and the total. The Lua comes on top. This is the same sum as `stat(13)`.
-- **CARTRIDGE FILE**: the size of the saved file against the 8 MiB of a `.b16`. Before the first save it says `not saved yet: Save as, then the size of the file`.
+- **CARTRIDGE FILE**: the size of the saved file against the 8 MiB mark of a `.b16`. The mark is only a guide: the build does not refuse a larger file. Before the first save it says `not saved yet: Save as, then the size of the file`.
 - With the target `.b16`: the lines of the code that the `.b16` will not have (`math.random`, `time()`, files...). With `.bm`: `.bm has no cap`.
 - **LAST TRY (F5)**: fps, average and maximum milliseconds of a frame, frames over 16.7 ms, the peak RAM (Lua and data), the instructions of the heaviest frame, tokens, triangles, and whether the 3D was drawn on the GPU or the ARM.
 
@@ -290,7 +290,7 @@ Press **F1** on the project page, then **F1** again. The second page is the **de
 ## Good to know
 
 - A game is built from its project. If a game is open, the SDK saves its editable copy first.
-- Setting the target to `.b16` (key `b` on the project page) changes the screen to `360x360` if it was not square, and tells you the 8 MiB limit.
+- Setting the target to `.b16` (key `b` on the project page) changes the screen to `360x360` if it was not square, and shows the 8 MiB mark. The mark is a guide, not a limit.
 - The target is remembered for each project file.
 - On the RGB30, exporting a `.b16` from `/carts` also copies it to `/bm/`, so it appears at once in Games. On the RGB30 the Games tab lists `/bm/` and `/carts`; if the game is written somewhere else, the status line adds `(not in the Games tab)`.
 

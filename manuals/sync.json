@@ -37,13 +37,13 @@
     "title": "Meshes and models"
    },
    "4": {
-    "en": "e246534e6225",
-    "it": "ae5b7a491d81",
+    "en": "fa07c8088837",
+    "it": "7c875cca6bc3",
     "title": "Drawing and material bits"
    },
    "5": {
-    "en": "56e63cdfbb56",
-    "it": "f1cc82197974",
+    "en": "fb9801c9cc10",
+    "it": "756dd061f2ae",
     "title": "Camera, light and fog"
    },
    "6": {
@@ -68,8 +68,8 @@
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "1adaf5f48818",
-   "docs/api/light3d.md": "768fc91992e3"
+   "docs/BENCH3D.md": "6403d2e72032",
+   "docs/api/light3d.md": "e598e3265d36"
   }
  },
  "api-core": {
@@ -79,24 +79,29 @@
     "it": "b3233c481bae",
     "title": "How a cartridge works"
    },
+   "10": {
+    "en": "51974edbd6ae",
+    "it": "09733c974a00",
+    "title": "The web"
+   },
    "2": {
     "en": "02419f62c6ab",
     "it": "c7f4b75b2bed",
     "title": "Your first game"
    },
    "3": {
-    "en": "a370171aeed0",
-    "it": "7a246bf56f1c",
+    "en": "fc8638e9e148",
+    "it": "fbc9892581f6",
     "title": "Drawing"
    },
    "4": {
-    "en": "7dc767bd32b8",
-    "it": "2bb7f966d833",
+    "en": "863a264ed7c6",
+    "it": "19494300aec6",
     "title": "Input"
    },
    "5": {
-    "en": "f0f971557fcd",
-    "it": "9af0d71f1227",
+    "en": "5a2a03816618",
+    "it": "2f5bc6eaf066",
     "title": "Time and system"
    },
    "6": {
@@ -121,11 +126,11 @@
    }
   },
   "sources": {
-   "docs/API.md": "a6cc5a554136",
-   "docs/GAME-GUIDE.md": "f1c97c4052fd",
-   "docs/api/draw.md": "61932a4cb329",
-   "docs/api/input.md": "01f2a82443ca",
-   "docs/api/system.md": "fb5e23858131"
+   "docs/API.md": "e985f0ef8b5c",
+   "docs/GAME-GUIDE.md": "958000b2bd91",
+   "docs/api/draw.md": "bc14d3e027f6",
+   "docs/api/input.md": "4a75b07df3da",
+   "docs/api/system.md": "077e89b9faeb"
   }
  },
  "api-lib": {
@@ -283,8 +288,8 @@
  "api-tools": {
   "chapters": {
    "1": {
-    "en": "6623cb3a44e8",
-    "it": "64ea78b0fe3a",
+    "en": "a0362d4b7315",
+    "it": "208617790b17",
     "title": "The cartridge file"
    },
    "2": {
@@ -314,10 +319,10 @@
    }
   },
   "sources": {
-   "docs/PROJECT-LAYOUT.md": "17c4ea9e1d20",
-   "docs/RISORSE.md": "5e859959104d",
+   "docs/PROJECT-LAYOUT.md": "7f0aeb1174ff",
+   "docs/RISORSE.md": "4b94efc50686",
    "docs/SCREENSHOTS.md": "34e487f54164",
-   "docs/api/tools.md": "8a4b1eea899a"
+   "docs/api/tools.md": "fbb7c433b4eb"
   }
  },
  "boot-os": {
@@ -660,8 +665,8 @@
  "editor-pixel": {
   "chapters": {
    "1": {
-    "en": "8505d9f9aeae",
-    "it": "a38df27e915a",
+    "en": "976e904ffe06",
+    "it": "2ad155188215",
     "title": "What bm Pixel is"
    },
    "10": {
@@ -685,8 +690,8 @@
     "title": "Opening a file"
    },
    "3": {
-    "en": "87ef00dca7eb",
-    "it": "1542b5ee0b65",
+    "en": "74f05bdf23eb",
+    "it": "1b4b8bdcda93",
     "title": "The pages"
    },
    "4": {
@@ -721,11 +726,11 @@
    }
   },
   "sources": {
-   "carts/pixel/main.lua": "15d532849ab9",
-   "docs/RISORSE.md": "5e859959104d",
-   "docs/design/suite-pixel.md": "f7a42429b14b",
-   "docs/progress/tools.md": "78aaf20324a6",
-   "sdk/README.md": "97ca3fe22090"
+   "carts/pixel/main.lua": "1dde0b77a6df",
+   "docs/RISORSE.md": "4b94efc50686",
+   "docs/design/suite-pixel.md": "169370731398",
+   "docs/progress/tools.md": "f57c86e15146",
+   "sdk/README.md": "f56faae98658"
   }
  },
  "editor-sdk": {
@@ -756,13 +761,13 @@
     "title": "The map editor"
    },
    "6": {
-    "en": "2e38e41b5c82",
-    "it": "0ad37f99bbcf",
+    "en": "ec6568511233",
+    "it": "61e0f081b606",
     "title": "Budgets and the dev kit report"
    },
    "7": {
-    "en": "72d7ef6f099a",
-    "it": "8aa4685261fc",
+    "en": "c0af75ac2ea3",
+    "it": "5bfa614f4901",
     "title": "Building and exporting"
    },
    "8": {
@@ -777,11 +782,11 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "0548c690b34e",
-   "docs/RISORSE.md": "5e859959104d",
+   "carts/editor/main.lua": "9e185d2cfe94",
+   "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-sdk.md": "6a8b4424e3fa",
-   "docs/progress/tools.md": "78aaf20324a6",
-   "sdk/README.md": "97ca3fe22090"
+   "docs/progress/tools.md": "f57c86e15146",
+   "sdk/README.md": "f56faae98658"
   }
  },
  "editor-sound": {
@@ -969,8 +974,8 @@
     "title": "The Market and getting games"
    },
    "7": {
-    "en": "d0a7e8b16174",
-    "it": "23f8e0f0a2c3",
+    "en": "1efbed9dddfb",
+    "it": "69fad9054289",
     "title": "The config.txt keys that matter"
    },
    "8": {
@@ -980,9 +985,9 @@
    }
   },
   "sources": {
-   "docs/RGB30.md": "aac642c7a39a",
-   "docs/progress/platforms.md": "9942f2bb6202",
-   "easy_install.sh": "3fc0a62e5b07",
+   "docs/RGB30.md": "852986301dff",
+   "docs/progress/platforms.md": "392ae24c0bb7",
+   "easy_install.sh": "4bf8bc567aea",
    "scripts/copy-sd-rgb30.sh": "38f59e3439e0",
    "scripts/mksd.py": "6ed865802e51"
   }
@@ -1073,8 +1078,8 @@
     "title": "The GPU and the 2D"
    },
    "4": {
-    "en": "a13ffa86d3d0",
-    "it": "1eefcdc23460",
+    "en": "e462d5c50c18",
+    "it": "9e6d81e9e7ff",
     "title": "The GPU and the 3D"
    },
    "5": {
@@ -1099,12 +1104,12 @@
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "1adaf5f48818",
-   "docs/DRIVERS.md": "0101d07d66eb",
-   "docs/HARDWARE.md": "e7d2cc4e6cea",
+   "docs/BENCH3D.md": "6403d2e72032",
+   "docs/DRIVERS.md": "e7e7672fc2c2",
+   "docs/HARDWARE.md": "1412f8591e74",
    "docs/PERFORMANCE.md": "1c3fc264eae4",
-   "docs/progress/graphics.md": "b96f51676fd8",
-   "docs/progress/v3d.md": "71c6d083c4d6"
+   "docs/progress/graphics.md": "6240128d72c0",
+   "docs/progress/v3d.md": "f43dce1448d8"
   }
  },
  "riff": {

@@ -38,7 +38,7 @@ Uno strumento non sovrascrive mai il tuo gioco per sbaglio. Modifichi il progett
 - *Build the game (.bm)* è nelle opzioni di un progetto. Nell'SDK il tasto è **Ctrl+B**.
 - Una compilazione scrive il gioco accanto al progetto, con il nome del progetto salvato all'offset 104 dell'intestazione. La compilazione successiva sostituisce quel gioco e solo quello. Un gioco con lo stesso nome che non è stato compilato dal progetto resta, e il nuovo prende una cifra (`PONG1.BM`).
 - Il `.bm` e il `.b16` sono edizioni separate. Un `.b16` non sostituisce mai il `.bm`, e i sorgenti del `.bm` non vengono mai sovrascritti per fare il `.b16`.
-- Un file `.b16` è limitato a 8 MiB. Il suo schermo è 360x360 (o 720x720, lo dice il profilo), uguale su Pi e su RGB30.
+- Un file `.b16` non ha un limite di dimensione proprio: gli strumenti di build non rifiutano più un file grande. Il Market accetta fino a 100 MiB a file. Il suo schermo è 360x360 (o 720x720, lo dice il profilo), uguale su Pi e su RGB30.
 - Le altre cartucce scrivono in `/carts` solo file `.bm` e `.bme`, e solo quelli che hanno creato nella stessa esecuzione.
 
 ## Attenzione
@@ -70,7 +70,7 @@ python3 scripts/mkbm.py --from ball.bm --b16
 :::
 
 ::: warn
-Un `.b16` sopra gli 8 MiB viene rifiutato con un messaggio. Con `--from` e `--b16` e senza `-o`, il file viene scritto accanto al sorgente con l'estensione `.b16`.
+Nessun controllo rifiuta un `.b16` grande in fase di build. Con `--from` e `--b16` e senza `-o`, il file viene scritto accanto al sorgente con l'estensione `.b16`.
 :::
 
 # Le sezioni di una cartuccia
