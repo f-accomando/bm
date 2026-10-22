@@ -56,7 +56,6 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 - SYS-1 - P0 - in progress - CI green on `bm-core`. All `ci.yml` jobs (host, qemu 1-4, rgb30) are green and `scripts/ci_audit.py` exits 0. [tools](progress/tools.md)
 - M47 - P1 - in progress - Editable `.bme` projects, read-only `.bm`. The tools open a `.bm` read-only and ask for the `.bme` copy. `Ctrl+B` generates the `.bm` in Games. [tools](progress/tools.md), [lua](progress/lua.md)
-- APP-7 - P2 - to do - Dev kit for weight and performance. Weight report of a `.bme`/`.bm` (bytes per section and asset, biggest first). Performance analysis during development (frame time, draw and 3D cost, memory, SD reads), reusing the dev kit and bench tools. Compat policy table per kernel (show, grey, hide) as editable data.
 - R15, R16, R26 - P3 - idea - Live reload from the PC, bm Code templates, mouse in nano8. [tools](progress/tools.md), [suite-code](design/suite-code.md)
 
 ## Editors and apps
