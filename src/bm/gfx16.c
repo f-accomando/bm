@@ -116,6 +116,31 @@ void g16_rectfill(g16_t *g, int x, int y, int w, int h, uint16_t c)
         hline(g, x, x1, y, c);
 }
 
+void g16_blit565(g16_t *g, const uint16_t *src, int w, int h, int x, int y, int scale)
+{
+    if (w <= 0 || h <= 0 || scale < 1 || scale > 8)
+        return;
+    const int64_t lx = (int64_t)x - g->cam_x, ly = (int64_t)y - g->cam_y;
+    const int dw = w * scale, dh = h * scale;
+    if (lx >= g->cx1 || ly >= g->cy1 || lx + dw <= g->cx0 || ly + dh <= g->cy0)
+        return;                         /* off the clip (and no overflow below) */
+    x = (int)lx;
+    y = (int)ly;
+    int x0 = x < g->cx0 ? g->cx0 : x, x1 = x + dw > g->cx1 ? g->cx1 : x + dw;
+    int y0 = y < g->cy0 ? g->cy0 : y, y1 = y + dh > g->cy1 ? g->cy1 : y + dh;
+    if (x0 >= x1 || y0 >= y1)
+        return;
+    for (int yy = y0; yy < y1; yy++) {
+        const uint16_t *row = src + (size_t)((yy - y) / scale) * w;
+        uint16_t *out = g->px + (size_t)yy * g->stride;
+        if (scale == 1)
+            memcpy(out + x0, row + (x0 - x), (size_t)(x1 - x0) * 2);
+        else
+            for (int xx = x0; xx < x1; xx++)
+                out[xx] = row[(xx - x) / scale];
+    }
+}
+
 void g16_rect(g16_t *g, int x, int y, int w, int h, uint16_t c)
 {
     if (w <= 0 || h <= 0) return;

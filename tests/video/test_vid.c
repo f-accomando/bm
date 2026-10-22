@@ -1,6 +1,7 @@
 /*
  * Host test of the .bmv reader (src/bm/vid.c) and of jpeg_decode565.
  *   test_vid dump DIR     writes DIR/f0..f2.jpg (the Video bench's 320x180 frame) and DIR/a.raw
+ *   test_vid raw          the raw codecs of the recorder, built in memory
  *   test_vid check FILE CHANNELS BITS   reads a clip made by scripts/mkvid.py from those files
  * run_vid_test.py runs both with mkvid.py in between.
  */
@@ -187,8 +188,70 @@ static int check(const char *file, int channels, int bits)
     return fails != 0;
 }
 
+/* the recorder's raw codecs: 16x4, 2 frames, built here */
+static void w32(uint8_t *p, uint32_t v)
+{
+    for (int i = 0; i < 4; i++)
+        p[i] = (uint8_t)(v >> (8 * i));
+}
+
+static int raw(void)
+{
+    char err[80];
+    for (int codec = BMV_CODEC_RAW565; codec <= BMV_CODEC_RGB332; codec++) {
+        const uint32_t bpp = codec == BMV_CODEC_RAW565 ? 2 : 1, fb = 16 * 4 * bpp;
+        uint8_t buf[BMV_HEADER + 2 * 128 + 16];
+        memset(buf, 0, sizeof buf);
+        memcpy(buf, "BMV1", 4);
+        buf[4] = 1;
+        buf[5] = (uint8_t)codec;
+        buf[8] = 16;
+        buf[10] = 4;
+        buf[12] = 15;
+        w32(buf + 16, 2);
+        w32(buf + 20, BMV_HEADER + 2 * fb);
+        for (int k = 0; k < 2; k++) {
+            w32(buf + BMV_HEADER + 2 * fb + k * 8, BMV_HEADER + (uint32_t)k * fb);
+            w32(buf + BMV_HEADER + 2 * fb + k * 8 + 4, fb);
+        }
+        const size_t len = BMV_HEADER + 2 * fb + 16;
+        if (codec == BMV_CODEC_RAW565)
+            for (int k = 0; k < 64; k++) {              /* frame 0: 0x1234 + k; frame 1: all 0xF800 */
+                buf[BMV_HEADER + 2 * k] = (uint8_t)(0x1234 + k);
+                buf[BMV_HEADER + 2 * k + 1] = (uint8_t)((0x1234 + k) >> 8);
+                buf[BMV_HEADER + fb + 2 * k] = 0x00;
+                buf[BMV_HEADER + fb + 2 * k + 1] = 0xF8;
+            }
+        else
+            for (int k = 0; k < 64; k++) {              /* frame 0: k * 4; frame 1: 0xE0 (red) */
+                buf[BMV_HEADER + k] = (uint8_t)(k * 4);
+                buf[BMV_HEADER + fb + k] = 0xE0;
+            }
+        bmv_t v;
+        CHECK(bmv_open(&v, buf, len, err, sizeof err) == 0);
+        if (fails)
+            return 1;
+        uint16_t px[64];
+        CHECK(bmv_decode(&v, 0, px, err, sizeof err) == 0);
+        if (codec == BMV_CODEC_RAW565) {
+            CHECK(px[0] == 0x1234 && px[63] == 0x1234 + 63);
+        } else {                                        /* 0xE0 -> r 7 g 0 b 0 -> 0xF800; k*4 = 0: black */
+            CHECK(px[0] == 0 && px[1] == 0x0120 && px[63] == 0xFFE0);
+        }
+        CHECK(bmv_decode(&v, 1, px, err, sizeof err) == 0 && px[0] == 0xF800 && px[63] == 0xF800);
+        /* a raw frame of the wrong size is refused */
+        w32(buf + BMV_HEADER + 2 * fb + 4, fb - 1);
+        CHECK(bmv_open(&v, buf, len, err, sizeof err) != 0);
+    }
+    if (!fails)
+        printf("test_vid raw: all passed\n");
+    return fails != 0;
+}
+
 int main(int argc, char **argv)
 {
+    if (argc == 2 && !strcmp(argv[1], "raw"))
+        return raw();
     if (argc == 3 && !strcmp(argv[1], "dump"))
         return dump(argv[2]);
     if (argc == 5 && !strcmp(argv[1], "check"))

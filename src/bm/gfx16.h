@@ -52,6 +52,10 @@ void g16_target(g16_t *g, uint16_t *px, uint32_t stride, int w, int h, const fon
 void g16_clip(g16_t *g, int x, int y, int w, int h);    /* w or h <= 0: full screen */
 void g16_camera(g16_t *g, int x, int y);
 
+/* A w x h RGB565 picture (rows w apart) copied whole to (x, y), each pixel scale x scale (1..8), the camera
+ * and the clip as for g16_rectfill. */
+void g16_blit565(g16_t *g, const uint16_t *src, int w, int h, int x, int y, int scale);
+
 void g16_cls(g16_t *g, uint16_t c);
 void g16_pset(g16_t *g, int x, int y, uint16_t c);
 int  g16_pget(const g16_t *g, int x, int y);             /* -1 outside */

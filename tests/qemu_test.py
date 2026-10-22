@@ -69,7 +69,7 @@ SLOW = {
     "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
-    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_video_bench": 30, "test_stack_bench": 30, "test_bench_stop": 35, "test_bm_boot_demo": 22,
+    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_video_bench": 30, "test_video_player": 25, "test_video_rec": 60, "test_video_rec_drops": 40, "test_stack_bench": 30, "test_bench_stop": 35, "test_bm_boot_demo": 22,
     "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100, "test_projects": 45, "test_editor_mouse": 40,
 }
 
@@ -6327,6 +6327,247 @@ def test_video_bench(b, opts):
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
         left = subprocess.run(["mdir", "-i", part, "::/BM/VIDBENCH"], capture_output=True, text=True, env=env).stdout
         assert "VB" not in left, left
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+VIDEO_CART = r"""
+local c, n
+function _init()
+  local err
+  c, err = video_open("test.bmv")
+  if not c then log("open failed " .. tostring(err)) return end
+  log(string.format("info %d %d %d %d %d %s", c:info()))
+  log("frame_at " .. c:frame_at(0) .. " " .. c:frame_at(70) .. " " .. c:frame_at(9999))
+  log("missing " .. tostring(select(2, video_open("nope.bmv"))))
+  log("badname " .. tostring(pcall(video_open, "../x")))
+  n = 0
+end
+function _draw()
+  cls(0)
+  if not c then return end
+  c:draw(2, 0, 0)
+  n = n + 1
+  if n == 3 then
+    for _, p in ipairs({ { 20, 20 }, { 160, 90 }, { 300, 40 }, { 100, 150 }, { 250, 160 } }) do
+      log(string.format("px %d %d %06X", p[1], p[2], pget(p[1], p[2])))
+    end
+    log("again " .. tostring(c:draw(0, 0, 0, 1)))
+    log("badframe " .. tostring(pcall(c.draw, c, 3, 0, 0)))
+    c:close()
+    log("closed " .. tostring(pcall(c.info, c)))
+    log("clip done")
+  end
+end
+"""
+
+# the bench frame (a 320x180 baseline JPEG) from vidbench_data.c, and its colours at five points (ffmpeg's decode)
+VIDEO_PIXELS = {(20, 20): (40, 32, 15), (160, 90): (87, 79, 104), (300, 40): (86, 91, 106),
+                (100, 150): (97, 98, 128), (250, 160): (18, 12, 8)}
+
+
+def _bench_jpeg():
+    src = open(os.path.join(HERE, "..", "src", "bm", "vidbench_data.c")).read()
+    body = src.split("vidbench_jpg320[] = {")[1].split("};")[0]
+    return bytes(int(x) for x in re.findall(r"\d+", body))
+
+
+def test_video_player(b, opts):
+    """The clip player of the cartridge API (VID-FMT slice 2): video_open of a .bmv in /bm/clips, clip:info,
+    frame_at, draw (the colours at five points match the picture), the same frame again, a bad frame and a
+    bad name refused, close."""
+    import mkvid
+    tmp = tempfile.mkdtemp(prefix="bm-vidplay-")
+    try:
+        jpg = _bench_jpeg()
+        clip = os.path.join(tmp, "test.bmv")
+        with open(clip, "wb") as f:
+            f.write(mkvid.pack([jpg, jpg, jpg], 15))
+        cart = os.path.join(tmp, "vid.bm")
+        with open(cart, "wb") as f:
+            f.write(mkbm.pack(VIDEO_CART.encode(), title="Vid test", res=(320, 180)))
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        img = os.path.join(tmp, "sd.img")
+        mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/vid.bm"), (clip, "bm/clips/test.bmv")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            q.send(":play vid\r")
+            out = q.expect("clip done", timeout=60).decode(errors="replace")
+            plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
+            assert "info 320 180 15 3 200 false" in plain, plain
+            assert "frame_at 0 1 2" in plain, plain
+            assert "missing no such clip" in plain, plain
+            assert "badname false" in plain, plain
+            assert "again true" in plain and "badframe false" in plain and "closed false" in plain, plain
+            for (x, y), want in VIDEO_PIXELS.items():
+                m = re.search(r"px %d %d ([0-9A-F]{6})" % (x, y), plain)
+                assert m, plain
+                got = tuple(int(m.group(1)[i:i + 2], 16) for i in (0, 2, 4))
+                assert all(abs(g - w) <= 16 for g, w in zip(got, want)), (x, y, got, want)
+        finally:
+            q.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+REC_CART = r"""
+local n = 0
+function _draw()
+  n = n + 1
+  cls(rgb((n * 7) % 256, (n * 13) % 256, 128))
+  if SAVE_EVERY_FRAME then save({ n = n }) end
+  if time() > 2.2 then quit() end
+end
+"""
+
+PLAY_REC_CART = r"""
+local c, n
+function _init()
+  local err
+  c, err = video_open("rec/R0010001.BMV")
+  if not c then log("open failed " .. tostring(err)) return end
+  log(string.format("info %d %d %d %d", c:info()))
+  n = 0
+end
+function _draw()
+  cls(0)
+  if not c then return end
+  local w, h, fps, frames = c:info()
+  n = n + 1
+  if n <= frames then
+    c:draw(n - 1, 0, 0)
+    log(string.format("frame %d %06X", n - 1, pget(10, 10)))
+  elseif n == frames + 1 then
+    log("play done")
+  end
+end
+"""
+
+
+def _rgb565_to_888(c):
+    r, g, b = c >> 11, c >> 5 & 63, c & 31
+    return (r << 3 | r >> 2) << 16 | (g << 2 | g >> 4) << 8 | (b << 3 | b >> 2)
+
+
+def _bmv_frames(data):
+    """(width, height, fps, [colour of each frame, or None if it is not one colour]) of a raw RGB565 .bmv chunk"""
+    assert data[:4] == b"BMV1" and data[4] == 1 and data[5] == 2, data[:8]
+    w, h, fps = struct.unpack("<HHH", data[8:14])
+    frames, index_off = struct.unpack("<II", data[16:24])
+    cols = []
+    for k in range(frames):
+        off, size = struct.unpack("<II", data[index_off + 8 * k:index_off + 8 * k + 8])
+        assert size == w * h * 2 and off + size <= len(data)
+        px = struct.unpack("<%dH" % (w * h), data[off:off + size])
+        cols.append(px[0] if all(p == px[0] for p in px) else None)
+    return w, h, fps, cols
+
+
+def _rec_session(b, cart_src, config, tmp):
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n" + config)
+    cart = os.path.join(tmp, "rec.bm")
+    with open(cart, "wb") as f:
+        f.write(mkbm.pack(cart_src.encode(), title="Rec test", res=(320, 180)))
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/rec.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        q.send(":play rec\r")
+        out = q.expect("chunks.", timeout=120).decode(errors="replace")
+        time.sleep(1)
+    finally:
+        q.close()
+    return img, re.sub(r"\x1b\[[0-9;]*m", "", out)
+
+
+def _rec_chunks(img):
+    part = _sd_files(img)
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    ls = subprocess.run(["mdir", "-b", "-i", part, "::/BM/REC"], capture_output=True, text=True, env=env).stdout
+    names = sorted(re.findall(r"R\d{7}\.BMV", ls.upper()))
+    chunks = []
+    for nme in names:
+        chunks.append(subprocess.run(["mtype", "-i", part, "::/BM/REC/" + nme], capture_output=True, env=env,
+                                     check=True).stdout)
+    return names, chunks
+
+
+REC_DONE = r"run 1 done: (\d+) frames in [\d.]+ s, dropped (\d+) \(ring full\), (\d+) chunks \((\d+) failed\)"
+
+
+def test_video_rec(b, opts):
+    """The screen recorder (VID-REC, rec=on): 2 s of a cart at 15 fps are written as .bmv chunks in /bm/rec,
+    the report line has the counters, every frame is one colour and consecutive frames differ; then a cart
+    plays the first chunk through video_open("rec/...") and sees the same colours."""
+    tmp = tempfile.mkdtemp(prefix="bm-rec-")
+    try:
+        img, out = _rec_session(b, "SAVE_EVERY_FRAME = false\n" + REC_CART, "rec=on\nrec_fps=15\nrec_ring_mb=8\n", tmp)
+        m = re.search(REC_DONE, out)
+        assert m, out
+        captured, dropped, nchunks, failed = (int(x) for x in m.groups())
+        assert captured >= 8 and failed == 0 and nchunks >= 2, out
+        assert re.search(r"card \d+\.\d\d MB/s while writing, worst chunk [\d.]+ ms, game waited at most [\d.]+ ms", out), out
+        names, chunks = _rec_chunks(img)
+        assert len(chunks) == nchunks and names[0] == "R0010001.BMV", (names, out)
+        cols = []
+        for data in chunks:
+            w, h, fps, c = _bmv_frames(data)
+            assert (w, h, fps) == (320, 180, 15), (w, h, fps)
+            cols += c
+        assert len(cols) == captured, (len(cols), captured)
+        assert all(c is not None for c in cols), cols
+        assert all(a != b_ for a, b_ in zip(cols, cols[1:])), cols
+        # the first chunk through the cart's player (video_open("rec/R0010001.BMV"))
+        first = os.path.join(tmp, "c1.bmv")
+        with open(first, "wb") as f:
+            f.write(chunks[0])
+        pcart = os.path.join(tmp, "play.bm")
+        with open(pcart, "wb") as f:
+            f.write(mkbm.pack(PLAY_REC_CART.encode(), title="Rec play", res=(320, 180)))
+        img2 = os.path.join(tmp, "sd2.img")
+        mksd.build(img2, [(os.path.join(tmp, "config.txt"), "bm/config.txt"), (pcart, "carts/play.bm"),
+                          (first, "bm/rec/R0010001.BMV")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img2}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            q.send(":play play\r")
+            out2 = q.expect("play done", timeout=60).decode(errors="replace")
+        finally:
+            q.close()
+        plain2 = re.sub(r"\x1b\[[0-9;]*m", "", out2)
+        first_cols = _bmv_frames(chunks[0])[3]
+        assert "open failed" not in plain2, plain2
+        got = re.findall(r"frame (\d+) ([0-9A-F]{6})", plain2)
+        assert len(got) == len(first_cols), (len(got), len(first_cols), plain2)
+        for (k, hexc), want in zip(got, first_cols):
+            assert int(hexc, 16) == _rgb565_to_888(want), (k, hexc, want)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_video_rec_drops(b, opts):
+    """A game that saves to the card on every frame keeps the recorder from writing (the card is the game's
+    for 300 ms after each save): the ring of 1 MiB (3 chunks) fills, frames are dropped and counted, nothing
+    blocks, and the chunks are all written when the game ends."""
+    tmp = tempfile.mkdtemp(prefix="bm-recdrop-")
+    try:
+        img, out = _rec_session(b, "SAVE_EVERY_FRAME = true\n" + REC_CART, "rec=on\nrec_fps=15\nrec_ring_mb=1\n", tmp)
+        m = re.search(REC_DONE, out)
+        assert m, out
+        captured, dropped, nchunks, failed = (int(x) for x in m.groups())
+        assert dropped >= 1 and failed == 0 and captured >= 6, out
+        assert re.search(r"ring high 3 of 3 chunks.", out), out
+        names, chunks = _rec_chunks(img)
+        assert len(chunks) == nchunks == (captured + 2) // 3, (len(chunks), nchunks, captured)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

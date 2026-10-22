@@ -12,6 +12,8 @@
 
 #define BMV_HEADER      32
 #define BMV_CODEC_MJPEG 1
+#define BMV_CODEC_RAW565 2      /* a frame is width*height RGB565 values (the recorder) */
+#define BMV_CODEC_RGB332 3      /* a frame is width*height bytes, rrrgggbb */
 #define BMV_VERSION     1
 
 typedef struct {
@@ -36,7 +38,7 @@ int bmv_open(bmv_t *v, const uint8_t *data, size_t len, char *err, size_t errlen
 int bmv_frame(const bmv_t *v, uint32_t i, const uint8_t **p, size_t *n);
 /* The frame to show at ms milliseconds from the start (the last one past the end). */
 uint32_t bmv_frame_at(const bmv_t *v, uint32_t ms);
-/* Frame i decoded to RGB565 into out (width x height values, rows width apart). */
+/* Frame i decoded to RGB565 (a raw codec is copied or expanded) into out (width x height values, rows width apart). */
 int bmv_decode(const bmv_t *v, uint32_t i, uint16_t *out, char *err, size_t errlen);
 /* Length of the clip in milliseconds. */
 uint32_t bmv_duration_ms(const bmv_t *v);

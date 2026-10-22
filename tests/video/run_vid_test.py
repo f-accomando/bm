@@ -22,6 +22,8 @@ def run(*a, ok=True):
 def main():
     exe, work = sys.argv[1], sys.argv[2]
     os.makedirs(work, exist_ok=True)
+    r = run(exe, "raw")
+    print(r.stdout.strip())
     run(exe, "dump", work)
     out = os.path.join(work, "clip.bmv")
     run(sys.executable, mkvid, "-o", out, "--jpegs", work, "--fps", "15", "--pcm", os.path.join(work, "a.raw"),

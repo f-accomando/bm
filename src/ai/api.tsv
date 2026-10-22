@@ -119,6 +119,10 @@ chorus	chorus([rate_hz], [depth_ms], [wet])	sound	the chorus (two delays that sw
 circ	circ(x, y, r, c)	draw	an empty / filled circle
 circfill	circfill(x, y, r, c)	draw	an empty / filled circle
 clip	clip([x, y, w, h])	draw	limits drawing to the rectangle; without arguments the whole screen
+clip:close	clip:close()	video	frees the clip. Any other call on it is then an error
+clip:draw	clip:draw(frame, x, y, [scale])	video	decodes frame `frame` (from 0) to RGB565 and copies it, opaque, with its top left corner at (x, y); `scale` 1 to 8 makes each pixel `scale` times bigger. The camera and the clip rectangle apply. The same frame again costs only the copy. Returns `true`, or `false` and a message if the frame cannot be decoded. A frame number outside the clip is an error
+clip:frame_at	clip:frame_at(ms)	video	the frame number (from 0) to show `ms` milliseconds after the start. After the end it is the last frame
+clip:info	clip:info()	video	`width, height, fps, frames, milliseconds, has_audio`
 clips	clips(m)	light3d	a model's animations: `{ {name=, length=, loop=}, ... }` (`{}` without a skeleton)
 cls	cls([c])	draw	fills the screen (black if `c` is missing). With the 3D on the GPU the ARM does not fill it: the GPU's job clears the page to that colour (free even at 1080p); if 2D comes before the 3D the ARM fills it as always
 code_tokens	code_tokens(text)	system	the **tokens** of a piece of Lua code, counted as `stat(11)` and the SDK's dev kit do (`src/bm/tokens.c`): each name, keyword, number, string and operator is one; comments, spaces, `,` `.` `:` `;` `::`, closing brackets (`)` `]` `}`), `end` and `local` do not count, nor the minus sign in front of a number (`-1` is one token). Information, not a limit: bm puts no ceiling on tokens (nor does the `.b16`, [B16.md](../B16.md) §2.4)
@@ -349,6 +353,7 @@ udp_open	s, port = udp_open([port])	system	a socket on the port (0 or nothing: a
 udp_recv	data, address, port = udp_recv(s)	system	the next packet that arrived, or `nil`; up to 48 wait in the queue
 udp_send	udp_send(s, address, port, data)	system	sends a string (at most 1024 bytes); `true` if it left (UDP: it can be lost)
 vibrato	vibrato(v, [semitones], [hz])	sound	a vibrato `semitones` wide (for example 0.3) at `hz` swings a second (default 6); `vibrato(v)` takes it away
+video_open	video_open(name)	video	opens `bm/clips/<name>` (a file name, no path), or `bm/rec/<file>` for a recording when `name` starts with `"rec/"` (`"rec/R0010001.BMV"`). Returns a clip, or `nil` and a message ("no such clip", "the clip is over 48 MiB", "not a .bmv clip" ...). The clip is freed when it is closed or when the game ends
 visible3d	visible3d(x, y, z, r)	light3d	`false` if a sphere (centre, radius) cannot be seen: behind the camera, beyond an edge of the screen, or (after `pvs3d`) on pieces of the map that the camera's cell does not see. To skip the characters and effects hidden by the walls before drawing them (bm3d 5.5)
 volume	volume([level])	sound	the general volume 0–10 (with `level` it changes it). It is the console's: it holds for every game and stays in `bm/config.txt`
 world3d	world3d()	light3d	an empty collision world
