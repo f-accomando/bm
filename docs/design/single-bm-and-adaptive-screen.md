@@ -335,8 +335,8 @@ Hardware: nothing here is verified on a Pi or an RGB30. QEMU does not prove hard
 
 ## 8. Open questions for the user
 
-1. **Market and grey.** The local menu greys incompatible carts. The Market shows only compatible items. Is that right, or should the Market also list the others greyed with the reason ("for the RGB30 only")? The second way helps discovery; the first keeps the list short.
-2. **Soft limit.** Do you want a warning in the SDK above 32 MiB, and the Market ceiling at 100 MiB? Or no warning at all?
+1. **Market and grey.** Decided (user, 22 Oct, option 1 for now): the Market lists incompatible items greyed, with the reason ("for the RGB30 only"). The rule is data, not code: one editable table (a compat policy file) says, per kernel, whether an item shows, greys, or hides. A new kernel changes the table, not the client.
+2. **Soft limit.** Decided (user, 22 Oct, option 2): no size warning. The Market ceiling stays at 100 MiB. The user wants a developer kit instead: (a) a weight report of a `.bme` or `.bm` (bytes per section, per asset, biggest items first), and (b) a performance analysis of the game during development (frame time, draw and 3D cost, memory, SD reads) to guide optimization. Both reuse the dev kit and the benchmark tools. Staged in section 6.
 3. **Old `.b16` files.** Decided (user, 22 Oct, option 1): an old `.b16` gets targets Pi + RGB30 (kernel8), because the Pi plays `.b16` today and the RGB30 was the main target. Old `.bm` files stay Pi only.
 4. **Start a greyed cart?** Is grey a lock, or may the user start the cart after a confirm ("not made for this device")? The study proposes a confirm.
 5. **Audio.** Raise `AU_PCM_MAX` to 8M values in stage 1, or keep it for a separate PR?
