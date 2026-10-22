@@ -18,7 +18,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   click/arrow jump, `Tab` compact palette of used 16×16 tiles (`z` toggles full sheet), Home/End
   and PgUp/PgDn a page. Template *Stages 2D* as on the RGB30: `test_sdk_stages_pi`.
 - **bm SDK (RGB30)** (`carts/sdk_b16`, built into `kernel8.img` unless `CLEAN_KERNEL=1`, and
-  published as `sdk.b16` in the Market): the SDK's pages at 360×360 (`layout.lua`: `split` on
+  published as `editor.b16` in the Market): the SDK's pages at 360×360 (`layout.lua`: `split` on
   the 8×16 grid, joined before `main.lua` by `build.py`), the pad by names (`ok`/`back`, L1/R1,
   Start, X = the page's actions as a list, L2/R2), `padtype` for code and names, page `snd` (F7: Sounds with 7 fields and Lib import `i`, Effects with 32 steps; QEMU `test_sdk_pad_*` drive it by keyboard), map zoom in/out
   (`-`/`+`), `Overview` (`m`, full 256×256 at 1 px/cell), `Tab`/`Y` compact palette of used 16×16
@@ -55,10 +55,14 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
 Details: [tools-assistant](tools-assistant.md).
 
 ### Market (`market/`, repo `f-accomando/bm-market`)
-Games (`GAMES`) and suite apps (`sdk` `.bm`/`.b16`, `code`, `pixel`, `studio`, `animator`, `mesh`,
-`sound`, `assistant`, `write`, `typing`, tagged `kind: app`) reach the consoles from `bm-market`;
-`make market-seed MARKET=<clone>` packages both games and apps, then commit and push there
-(`scripts/market.sh` from WSL). The Market UI separates **Games** and **Apps** pages (`Y` / `V` or
+Games (`MARKET_GAMES`: `GAMES` without `MARKET_NOT`, so without `village`) and the bm editors
+(`MARKET_APPS`: `editor`, `code`, `pixel`, `studio`, `animator`, `mesh`, `sound`, each with an explicit
+`kind: app` line) reach the consoles from `bm-market`. The Pi gets each editor as `.bm` (built as
+`build/<id>.bm`); the RGB30 gets the SDK as `.b16` under the same id `editor` (from `carts/sdk_b16`).
+`assistant`, `write` and `typing` keep their place in the apps list of `is_known_app`.
+`make market-seed MARKET=<clone>` packages games and apps, then commit and push there
+(`scripts/market.sh` from WSL). Removing a game from the seed does not remove it from the clone: run
+`git rm -r games/<id>` there. The Market UI separates **Games** and **Apps** pages (`Y` / `V` or
 subtab click) and shows `.bm` / `.b16` format badges on covers, title row and details panel.
 
 ### Tutorial videos (`video/`, skill `claude/skills/bm-video-tutorial`)
@@ -82,6 +86,9 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **PDF manuals** ([`MANUALS.md`](../MANUALS.md)): 17 manuals in en and it are written and checked against the code; the pictures (`manuals/shots/`) are to take on the console and the gaps listed in each manual's last chapter to fill; the Assistant app has no manual yet. Install-sd, boot-os, api-3d (`map3d_*`), editor-animator (test pose), levels (Stages 2D) and api-tools (`bm_net --shot/--get`) were already current on bm-core; boot-os now has the SD map and the RGB30 game option *Send to a nearby console*. The other manuals are not re-read against sources changed since their stamp.
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
+- **Market apps** (branch `claude/market-apps-editors`): publish the editors and remove `village`
+  from `bm-market` (the owner runs the commands of the pull request). The other RGB30 editors have no
+  `.b16` edition yet, so only the SDK appears on the RGB30 Apps page.
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.
 - **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an

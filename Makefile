@@ -1032,20 +1032,38 @@ MARKET_VERSION := $(shell date -u +%Y.%m.%d)
 # Overbit has a .bm too (the Pi's), Yharnam and Titan Clash EX only their .b16
 # (MARKET_NO_BM: no .bm in the Market); the last one is not in GAMES (no .bm for the
 # Pi's card): MARKET_ONLY. The tools are in the kernels, not here.
-MARKET_B16 := overbit yharnam titanex
+MARKET_B16 := overbit yharnam titanex editor
 MARKET_NO_BM := yharnam titanex
 MARKET_ONLY := titanex
-market-seed: $(GAME_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
+# The Market has its own list of games: GAMES minus the games kept out of it
+# (Studio Village is a test asset, not a Market game).
+MARKET_NOT := village
+MARKET_GAMES := $(filter-out $(MARKET_NOT),$(GAMES))
+# The apps (the bm editors): each one is a built-in cartridge, built as
+# build/<id>.bm and seeded with an explicit "kind app" line. The RGB30 gets
+# the SDK as .b16 (carts/sdk_b16, its own sources) under the id "editor".
+MARKET_APPS := editor code pixel studio animator mesh sound
+MARKET_APP_CARTS := $(patsubst %,$(BUILD)/%.bm,$(MARKET_APPS))
+$(BUILD)/carts/editor.b16: $(BUILD)/carts/sdk_b16.bm
+	$(PYTHON) scripts/mkbm.py --from $< --b16 -o $@
+	@test `wc -c < $@` -le 8388608 || { echo "$@ is over a .b16's 8 MiB"; rm -f $@; exit 1; }
+market-seed: $(filter-out $(BUILD)/carts/village.bm,$(GAME_CARTS)) $(MARKET_APP_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
 	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
 	mkdir -p $(MARKET)/.github/workflows
 	cp market/README.md market/.gitignore $(MARKET)/
 	cp market/.github/workflows/market.yml $(MARKET)/.github/workflows/
-	for g in $(GAMES) $(MARKET_ONLY); do \
+	for g in $(MARKET_GAMES) $(MARKET_ONLY); do \
 		case " $(MARKET_NO_BM) " in *" $$g "*) ;; *) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/carts/$$g.bm --id $$g \
 			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1;; esac; \
 		case " $(MARKET_B16) " in *" $$g "*) $(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/carts/$$g.b16 --id $$g \
 			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1;; esac; \
 	done
+	for a in $(MARKET_APPS); do \
+		$(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/$$a.bm --id $$a --kind app \
+			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1; \
+	done
+	$(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/carts/editor.b16 --id editor --kind app \
+		--version $(MARKET_VERSION) --about-file market/about.txt
 	$(PYTHON) scripts/mkmarket.py $(MARKET)/games --check
 # kernel7.img's start in Hyp mode, as the Pi Zero 2 W's firmware does it:
 # start.S and vectors.S in QEMU's virt machine with the virtualization
