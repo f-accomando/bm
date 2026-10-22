@@ -973,9 +973,9 @@ $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/for
 test-fat: $(BUILD)/host/test_fat
 	$(PYTHON) tests/fs/run.py $<
 
-$(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/drivers/sd.h src/kernel/sdmap_core.c src/kernel/sdmap.h
+$(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/drivers/sd.h src/kernel/sdmap_core.c src/kernel/sdmap.h src/bm/project.c src/bm/project.h src/bm/format.c
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/fs/test_fat.c src/fs/fat.c src/kernel/sdmap_core.c
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/fs/test_fat.c src/fs/fat.c src/kernel/sdmap_core.c src/bm/project.c src/bm/format.c src/lib/crc32.c
 
 # Network console on lwIP's loopback interface (the WiFi chip is not in QEMU),
 # then lwIP on the Pi 1 B's Ethernet with a simulated LAN9512 and a DHCP peer
@@ -1427,32 +1427,32 @@ test-img2mesh: $(BUILD)/host/meshview
 test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm \
              $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap
 	$(BUILD)/host/luahost tests/studio/bmui_host.lua .
-	rm -rf $(BUILD)/studio3d-sd && mkdir -p $(BUILD)/studio3d-sd/carts
+	rm -rf $(BUILD)/studio3d-sd && mkdir -p $(BUILD)/studio3d-sd/carts $(BUILD)/studio3d-sd/bme
 	cp $(BUILD)/carts/village.bm $(BUILD)/studio3d-sd/carts/
 	$(BUILD)/host/luahost tests/studio/tools3d_host.lua . $(BUILD)/studio3d-sd
-	rm -rf $(BUILD)/mesh-sd && mkdir -p $(BUILD)/mesh-sd/carts
+	rm -rf $(BUILD)/mesh-sd && mkdir -p $(BUILD)/mesh-sd/carts $(BUILD)/mesh-sd/bme
 	cp $(BUILD)/carts/village.bm $(BUILD)/carts/astrowing.bm $(BUILD)/mesh-sd/carts/
 	$(BUILD)/host/luahost tests/studio/mesh_host.lua . $(BUILD)/mesh-sd
-	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/mesh-sd/carts/astrowin.bme ship \
-	    $(BUILD)/mesh-sd/carts/village.bme "" $(BUILD)/mesh-sd/carts/meshcopy.bme ""
-	$(PYTHON) scripts/bmmesh.py $(BUILD)/mesh-sd/carts/astrowin.bme $(BUILD)/mesh-sd/carts/village.bme >/dev/null
-	rm -rf $(BUILD)/sdk-sd && mkdir -p $(BUILD)/sdk-sd/carts
+	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/mesh-sd/bme/astrowin.bme ship \
+	    $(BUILD)/mesh-sd/bme/village.bme "" $(BUILD)/mesh-sd/bme/meshcopy.bme ""
+	$(PYTHON) scripts/bmmesh.py $(BUILD)/mesh-sd/bme/astrowin.bme $(BUILD)/mesh-sd/bme/village.bme >/dev/null
+	rm -rf $(BUILD)/sdk-sd && mkdir -p $(BUILD)/sdk-sd/carts $(BUILD)/sdk-sd/bme
 	cp $(BUILD)/carts/village.bm $(BUILD)/sdk-sd/carts/
 	$(BUILD)/host/luahost tests/studio/sdk_host.lua . $(BUILD)/sdk-sd
-	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/carts
+	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/carts $(BUILD)/pixel-sd/bme
 	cp $(BUILD)/carts/village.bm $(BUILD)/demo.bm $(BUILD)/pixel-sd/carts/
 	$(BUILD)/host/luahost tests/studio/pixel_host.lua . $(BUILD)/pixel-sd
-	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/pixel-sd/carts/village.bme "" $(BUILD)/pixel-sd/carts/newspr.bme ""
+	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/pixel-sd/bme/village.bme "" $(BUILD)/pixel-sd/bme/newspr.bme ""
 	$(PYTHON) tests/studio/check_files.py $(BUILD)/studio3d-sd $(BUILD)/mesh-sd $(BUILD)/pixel-sd $(BUILD)/carts/village.bm
 	$(PYTHON) tests/studio/anim_figure.py $(BUILD)/anim-figure.bm
-	$(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/anim-figure.bm $(BUILD)/studio3d-sd/carts/blocks.bme
+	$(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/anim-figure.bm $(BUILD)/studio3d-sd/bme/blocks.bme
 
 # bm SDK (RGB30), the .b16 edition, on the PC: its layout, every frame inside
 # 360x360 on the 8x16 grid, the RGB30's pad on every page and action, the saves,
 # build and try of the RGB30's kernel tool, none of the Pi's other programs. Not in
 # HOST_TESTS (the Pi's): run it when the edition changes.
 test-sdk-b16: $(BUILD)/host/luahost $(BUILD)/sdk_b16/main.lua $(BUILD)/carts/village.bm
-	rm -rf $(BUILD)/sdk-b16-sd && mkdir -p $(BUILD)/sdk-b16-sd/carts $(BUILD)/sdk-b16-sd/bm
+	rm -rf $(BUILD)/sdk-b16-sd && mkdir -p $(BUILD)/sdk-b16-sd/carts $(BUILD)/sdk-b16-sd/bme $(BUILD)/sdk-b16-sd/bm
 	cp $(BUILD)/carts/village.bm $(BUILD)/sdk-b16-sd/bm/village.b16
 	$(BUILD)/host/luahost tests/studio/sdk_b16_host.lua . $(BUILD)/sdk-b16-sd $(BUILD)/sdk_b16/main.lua
 

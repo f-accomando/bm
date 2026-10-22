@@ -43,7 +43,7 @@ A game looks like what is on its sheet. With bm Pixel you draw on the console it
 
 ## Where to start
 
-Start from the **Dev** tab of the menu, or press **X** on the cover of a game and choose **Open in bm Pixel**. If you start bm Pixel with no file, it shows the list of the `.bm` and `.bme` files it finds in `/carts` and in the root of the card, and a new empty sheet is ready behind it.
+Start from the **Dev** tab of the menu, or press **X** on the cover of a game and choose **Open in bm Pixel**. If you start bm Pixel with no file, it shows the list of the `.bme` projects of `/bme` and the `.bm` and `.bme` files it finds in `/carts` and in the root of the card, and a new empty sheet is ready behind it.
 
 ## Projects and games
 

@@ -389,20 +389,14 @@ local function bounds(it, list)
 end
 
 local function list_files()
-  local out = {}
-  for _, dir in ipairs({ "/carts", "/" }) do
-    for _, f in ipairs(ls(dir) or {}) do
-      local n = f.name:lower()
-      if not f.dir and (n:match("%.bm$") or n:match("%.bme$")) then out[#out + 1] = (dir == "/" and "" or dir) .. "/" .. f.name end
-    end
-  end
+  local out = U.project_files({ bm = true, bme = true })
   table.sort(out)
   return out
 end
 
 local function short_path(path)
   local dir, base = path:match("^(.*)/([^/]+)$")
-  dir = dir or "/carts"
+  dir = dir or U.PROJECTS
   if dir == "" then dir = "/" end
   local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
   if stem == "" then stem = "GAME" end
@@ -497,7 +491,7 @@ local function save_to(path, from)
   cart_data(SEC_ANIM, anim or nil)
   proj.path = path
   dirty, code_dirty = false, false
-  say("saved " .. path .. (skipped and ("  (" .. skipped .. " has no faces: left out)") or ""), C_ACC)
+  say(U.saved_text(path) .. (skipped and ("  (" .. skipped .. " has no faces: left out)") or ""), C_ACC)
   return true
 end
 
@@ -2180,8 +2174,8 @@ end
 
 local function save_as()
   if not proj.path then say("open a .bm first", C_ERR); return end
-  ask("file name (8.3, in /carts)", short_path(proj.path):match("([^/]+)$") or "MESHES.BME", function(t)
-    local to = short_path("/carts/" .. t)
+  ask("file name (8.3, in /bme)", short_path(proj.path):match("([^/]+)$") or "MESHES.BME", function(t)
+    local to = U.project_path(t)
     local from = proj.path
     code_dirty = true                    -- the new file gets all the code
     if save_to(to, from) then go("list") end

@@ -812,12 +812,13 @@ end
 local function is_project(path) return path and path:lower():match("%.bme$") ~= nil end
 local function is_game(path) return path and (path:lower():match("%.bm$") or path:lower():match("%.b16$")) ~= nil end
 
--- "/carts/pong.bme" -> "/carts/PONG.BME"; longer names are cut to 8
--- characters. A game stays as it is: the console makes its copy.
+-- "/bme/pong.bme" -> "/bme/PONG.BME"; longer names are cut to 8 characters. A name
+-- with no folder goes in /bme; an old project keeps its folder. A game stays as it
+-- is: the console makes its copy.
 local function short_path(path)
   if is_game(path) then return path end
   local dir, base = path:match("^(.*)/([^/]+)$")
-  dir = dir or "/carts"
+  dir = dir or U.PROJECTS
   if dir == "" then dir = "/" end
   local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
   if stem == "" then stem = "GAME" end
@@ -825,15 +826,7 @@ local function short_path(path)
 end
 
 local function list_files()
-  local out = {}
-  for _, dir in ipairs({ "/carts", "/" }) do
-    for _, f in ipairs(ls(dir)) do
-      local n = f.name:lower()
-      if not f.dir and (n:match("%.bm$") or n:match("%.bme$") or n:match("%.b16$")) then
-        out[#out + 1] = (dir == "/" and "" or dir) .. "/" .. f.name
-      end
-    end
-  end
+  local out = U.project_files({ bm = true, bme = true, b16 = true })
   table.sort(out)
   return out
 end
@@ -893,7 +886,7 @@ local function save_project()
       store_target()
     end
     S.proj.path = S.proj.path or S.proj.save
-    say("saved " .. S.proj.save, C.ACC)
+    say(U.saved_text(S.proj.save), C.ACC)
   else
     say("save failed: " .. tostring(e), C.ERR)
   end
@@ -913,10 +906,10 @@ end
 
 local function save_as(after)
   local def = S.proj.save and S.proj.save:match("([^/]+)$"):gsub("%.[Bb][Mm]$", ".BME"):gsub("%.[Bb]16$", ".BME") or "MYGAME.BME"
-  D.ask("file name (8.3, in /carts)", def, function(t)
+  D.ask("file name (8.3, in /bme)", def, function(t)
     if t == "" then return end
     if not t:upper():match("%.BME$") then t = t:gsub("%.[Bb][Mm]$", ""):gsub("%.[Bb]16$", "") .. ".BME" end
-    S.proj.save = short_path("/carts/" .. t)
+    S.proj.save = U.project_path(t)
     S.proj.path = nil                    -- (the new file, once written)
     if save_project() then
       store_target()

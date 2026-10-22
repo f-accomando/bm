@@ -456,6 +456,14 @@ def test_cli(village_path, out):
     check(open(game, "rb").read() == mkbm.pack(b"-- cli", title="cli"), "the game stays as it was")
     check(struct.unpack_from("<H", open(cart, "rb").read(), 18)[0] & 1 == 1, "the copy is a project (.bme)")
     check("well" in dict(bmres.mesh_parse(bmres.read(cart).get(bmres.SEC_MESH))[1]), "the model in the cartridge")
+    # a game in the carts/ or bm/ folder of an SD card: its copy goes to bme/ beside it (projects live in /bme)
+    sd = os.path.join(out, "sdcard")
+    os.makedirs(os.path.join(sd, "carts"), exist_ok=True)
+    sdgame = os.path.join(sd, "carts", "sd.bm")
+    open(sdgame, "wb").write(mkbm.pack(b"-- sd", title="sd"))
+    check(bmres.main(["add", sdgame, bmm]) == 0, "bmres add on a game of the SD layout")
+    check(os.path.isfile(os.path.join(sd, "bme", "sd.bme")) and not os.path.exists(os.path.join(sd, "carts", "sd.bme")),
+          "the copy of a game in carts/ is in bme/")
     origin = hashlib.sha256(open(bmm, "rb").read()).hexdigest()
     it = bmres.info_item(bmres.info_of(bmres.read(cart)), "model", "well")
     check(it and bmres.kv_get(it[2], "origin") == origin and bmres.kv_get(it[2], "license") == "CC0-1.0",

@@ -46,10 +46,9 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
   hidden until `lib_tab=1`.
 - Shared Lua: `bm3d` (Studio/Animator/Mesh), `bmui` (mouse: zones registered while drawing,
   chips that press keys, `U.press` before `keyp()`, a context menu of keys).
-- Projects (M47): tools edit `.bme`, never a `.bm`/`.b16`; saving a game asks for a copy.
-  `bm_build` builds `.bm` and `bm_build_b16` exports `.b16` from either a `.bme` or a `.bm`
-  (also in the console menu via *Export .b16*), never overwriting the other edition. Runtime side
-  in [lua](lua.md).
+- Projects (M47): tools edit `.bme` in `/bme`, never a `.bm`/`.b16`; saving a game asks for a copy. `bm_build` and
+  `bm_build_b16` build from a `.bme` or a `.bm` into the games folder, never over the other edition. Layout, pickers and
+  old cards: [`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md). Runtime side in [lua](lua.md).
 
 ### Assistant (`src/ai/`)
 Details: [tools-assistant](tools-assistant.md). Tutorial videos (`video/`, series *Skyvale World*): [video](video.md).
@@ -84,7 +83,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **Project layout** ([`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md)): `pong`, `hunt` and `yharnam` migrated; next
   the other games; `res:` with SHA-256 and licence check in `mkbm.py`. Open points: [`open-decisions.md`](../open-decisions.md).
 - **M45** bm Write: try on the Pi (keyboard and pad), open the PDF on the PC, publish in the Market.
-- **M47** projects: on the Pi, the copy question, copy from the menu, build twice.
+- **M47** projects: on the Pi, the copy question, copy from the menu, build twice. Also on the Pi and the RGB30: the copy lands in `/bme`, `Ctrl+B` builds into the games folder, an old `.bme` next to its game still opens (not verified on hardware).
 - **M48** mouse in the suite: try every tool with a USB/Bluetooth mouse; then maybe an
   I-beam cursor and dragging panels.
 - **Stack page of bm Pixel**: try it on the Pi and the RGB30 (keyboard and pad). Not done: delete a stack zone, a vertical layout (`stackv`, branch `claude/stackv`: the page keeps `sp.dir` and `cell()` ready), mouse drag. Pad and mouse are not tested in QEMU.
@@ -95,6 +94,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - **Native hardware mouse in nano8**: `mouse(true)` support for `.p8` cartridges that enable the pointer with `poke(0x5f2d, 1)`, exporting coordinates and wheel on `stat(32)`–`stat(36)`.
 
 ## Rules (do not break)
+- A new `.bme` is written in `/bme`, built with `bm_project_path()` (C) or `U.project_path()` (Lua). A `.bme` next to its game is read and saved where it is; the tool says so. Do not move a user file.
 - Public tree: `scripts/public_export.py export|check|build` prepares the public repo. It never pushes. `check` must be clean before publishing.
 - bm Web (`carts/bmweb`): no site name in the code, the texts or the Market text. Only `https://`. One request at a time, 3 s between two requests to one host, `robots.txt` read once per host and obeyed; no prefetch (pictures load only when the user presses X). Files go to `bm/web` only through `file_write`, after the user presses A; the name comes from `files.name` (8.3, never `.BM`, `.BME`, `.B16`). `browser.lua`, `loader.lua`, `robots.lua`, `files.lua` make no draw call and read no input: the host test runs them on a mock `api`. A module is added in `src/` and needs no change in the Makefile. Edit the sources in `carts/bmweb/`; `build/carts/bmweb.bme` is built.
 - Tool pages: one `do … end` exporting into `P`, under 200 locals, drawn on 16-px rows; a dialog frame never crosses the title row (QEMU tests read it). API list: one source `src/ai/api.tsv` → `build/words.lua` (`api`, `allow`), never edited by hand; the Lua lint in `src/ai/predict.lua` keeps the output of `scripts/api_lint.py` (diff check APP-5b-2). `api.tsv` has one line per signature of a name (`music(n, ...)`, `music(-1)`, `music()`); `predict.api(name).forms` lists them and Ctrl+Q shows all. CI: `make test-api` (`mkapi.py --check`, tests of mkapi and api_lint). The help screen is not verified on hardware. `tools/pi_bridge.py` `line`: allowlist `LINE_CMDS` per `;`-command, no `set`/`save`/`play`; widening it needs SPV (R-NET6). Bridge password: only `BM_PASSWORD`, the owner's file `~/.pi_bridge.pw` / `$BM_PASSWORD_FILE` (0600, written by the owner; assistants never create, read or print it) or the prompt (R-NET10).

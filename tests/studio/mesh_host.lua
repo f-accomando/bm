@@ -449,7 +449,7 @@ local function goto_item(label)
   check(false, "the list has " .. label)
 end
 
-local function file(name) return read_file(SD .. "/carts/" .. name) end
+local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/carts/") .. name) end
 local function models_of(name) return mesh_models(section(file(name), 8)) end
 local function model_of(name, m)
   for _, x in ipairs(models_of(name)) do if x.name == m then return x end end
@@ -488,7 +488,7 @@ check(sees("30 vertices, 32 triangles"), "the ship: 30 vertices, 32 triangles")
 key("m")
 check(chosen() == "M ship" and status():find('model("ship")', 1, true), "m: a copy as the model ship: " .. status())
 key("^s")
-check(status():find("saved /carts/ASTROWIN.BME", 1, true), "Ctrl+S: " .. status())
+check(status():find("saved /bme/ASTROWIN.BME", 1, true), "Ctrl+S: " .. status())
 local ship = model_of("astrowin.bme", "ship")
 check(ship and ship.nv == 30 and ship.nf == 32, "the file has the model ship, 30 vertices and 32 triangles")
 local cap_ship = captured[1]
@@ -637,7 +637,7 @@ goto_item("C ship")
 key("del", "del", "^s")
 check(section(file("astrowin.bme"), 1) == lua0, "no code meshes left: the code is the game's again, byte for byte")
 key("f5")
-check(ran and ran:upper() == "/CARTS/ASTROWIN.BME", "F5: the project runs: " .. tostring(ran))
+check(ran and ran:upper() == "/BME/ASTROWIN.BME", "F5: the project runs: " .. tostring(ran))
 
 -- the village: a model with a skeleton keeps it (the list: astrowin.bme,
 -- astrowing.bm, village.bm)
@@ -683,7 +683,7 @@ for _ = 1, 3 do key("down") end
 key("\n")
 check(sees("file name"), "Save as asks a name")
 type_text("MESHCOPY")
-check(status():find("saved /carts/MESHCOPY.BME", 1, true), "saved as: " .. status())
+check(status():find("saved /bme/MESHCOPY.BME", 1, true), "saved as: " .. status())
 local cp = file("meshcopy.bme")
 check(cp and section(cp, 8) == section(v1, 8) and section(cp, 9) == section(v1, 9) and section(cp, 5) == section(v1, 5),
       "the copy has the same models, skeletons and sheet")

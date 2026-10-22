@@ -79,12 +79,34 @@ static int exists(const char *path)
     return fat_find(path, &e) == 0;
 }
 
+const char *bm_games_dir(void)
+{
+#ifdef BM_RGB30
+    return "/bm";
+#else
+    return "/carts";
+#endif
+}
+
+int bm_project_path(const char *name, char *out, size_t n)
+{
+    char dir[64], base[9];
+    split(name, dir, sizeof dir, base);
+    candidate(BM_PROJECTS_DIR, base, ".BME", 0, out, n);
+    return 0;
+}
+
+static int in_projects_dir(const char *dir)
+{
+    return strcasecmp(dir, BM_PROJECTS_DIR) == 0;
+}
+
 int bm_copy_name(const char *game, char *out, size_t n)
 {
     char dir[64], base[9];
     split(game, dir, sizeof dir, base);
     for (int k = 0; k < 10; k++) {
-        candidate(dir, base, ".BME", k, out, n);
+        candidate(BM_PROJECTS_DIR, base, ".BME", k, out, n);
         if (!exists(out))
             return 0;
     }
@@ -169,6 +191,8 @@ int bm_build(const char *project, char *out, size_t n, char *err, size_t en)
         return -1;
     char dir[64], base[9], from[17];
     split(project, dir, sizeof dir, base);
+    if (in_projects_dir(dir))           /* a project in /bme: the game goes to the games folder */
+        ksnprintf(dir, sizeof dir, "%s", bm_games_dir());
     const char *slash = strrchr(project, '/');
     ksnprintf(from, sizeof from, "%s", slash ? slash + 1 : project);
     for (char *p = from; *p; p++)
@@ -201,8 +225,10 @@ int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en)
         return -1;
     char dir[64], base[9], from[17];
     split(src, dir, sizeof dir, base);
+    if (in_projects_dir(dir))
+        ksnprintf(dir, sizeof dir, "%s", bm_games_dir());
 #ifdef BM_RGB30
-    if (strcasecmp(dir, "/carts") == 0 && exists("/bm"))
+    else if (strcasecmp(dir, "/carts") == 0 && exists("/bm"))
         ksnprintf(dir, sizeof dir, "/bm");
 #endif
     const char *slash = strrchr(src, '/');

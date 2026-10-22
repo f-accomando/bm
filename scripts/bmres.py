@@ -1588,6 +1588,20 @@ def apply_info(f, a, item=None):
     info_store(f, info)
 
 
+
+def project_copy_path(game):
+    """The editable copy of a game: projects live in the /bme folder of the SD card
+    (docs/PROJECT-LAYOUT.md). A game in the SD card's bm/ or carts/ folder gets its copy in the
+    bme/ folder next to it (made if needed); a loose file gets it next to the file."""
+    folder = os.path.dirname(os.path.abspath(game))
+    name = os.path.splitext(os.path.basename(game))[0] + ".bme"
+    if os.path.basename(folder).lower() in ("bm", "carts"):
+        proj = os.path.join(os.path.dirname(folder), "bme")
+        os.makedirs(proj, exist_ok=True)
+        return os.path.join(proj, name)
+    return os.path.join(folder, name)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1659,7 +1673,7 @@ def main(argv=None):
             out = a.output or a.cart
             if not a.output and os.path.splitext(a.cart)[1].lower() in (".bm", ".b16"):
                 # a game is read only: the resources go into its editable copy
-                out = os.path.splitext(a.cart)[0] + ".bme"
+                out = project_copy_path(a.cart)
                 print(f"{a.cart} is a game, read only: its editable copy is {out}")
             data = write(out, cart)
             print(f"{out}: {len(data)} bytes")

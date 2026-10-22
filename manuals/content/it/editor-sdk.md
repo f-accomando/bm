@@ -104,7 +104,7 @@ Il gioco più piccolo: una palla che muovi con le frecce.
 3. Scegli **Empty 2D** con su e giù e premi **Invio**. La riga di stato dice `new project (Empty 2D): Esc > Save as gives it a name, F5 tries it`. Il titolo è `New game`.
 4. Premi **F2**. Vedi il codice del gioco: `_init`, `_update` e `_draw`.
 5. Con le frecce porta il cursore sulla riga `print("hello!", ...)` e cambia la parola `hello!` con un testo tuo.
-6. Premi **Esc**, scegli **Save as...** e premi Invio. Una casella chiede `file name (8.3, in /carts)` e propone `MYGAME.BME`. Scrivi un nome e premi **Invio**. La riga di stato dice `saved` e il nome del file.
+6. Premi **Esc**, scegli **Save as...** e premi Invio. Una casella chiede `file name (8.3, in /bme)` e propone `MYGAME.BME`. Scrivi un nome e premi **Invio**. La riga di stato dice `saved` e il nome del file.
 7. Premi **F5**. L'SDK salva e la console esegue il gioco: una palla gialla su sfondo scuro con il tuo testo. Le frecce muovono la palla.
 8. Esci dal gioco. Premi Start + Select, Ctrl+Maiusc+Esc o Ctrl+Esc (Esc da solo torna indietro dentro uno strumento).
 9. Sei di nuovo nell'SDK. Premi **F1**: la riga **LAST TRY** ora mostra fps e millisecondi.
@@ -284,7 +284,7 @@ Premi **F1** nella pagina del progetto, poi ancora **F1**. La seconda pagina è 
 
 - **Ctrl+B**, o *Build the game .bm* nel menu: costruisce il gioco del progetto. Quando il target è `.b16`, costruisce il `.b16` e la voce di menu lo dice.
 - **Ctrl+Shift+B**, o *Export .b16*: esporta il `.b16` qualunque sia il target.
-- Il gioco viene scritto accanto al progetto. Per un progetto in `/carts` il gioco è in `/carts` e la scheda **Games** elenca i giochi di `/carts`.
+- Un progetto sta in `/bme`; il suo gioco viene scritto nella cartella dei giochi: `/carts` sul Pi, `/bm` sull'RGB30. La scheda **Games** elenca quella cartella. Un progetto accanto al suo gioco su una scheda vecchia compila accanto.
 - Se va a buon fine l'SDK dice `built /carts/NAME.BM: it is in Games` (il percorso del gioco).
 
 ## Da sapere
@@ -344,7 +344,7 @@ La lista a sinistra ha 32 slot di suono, il pannello a destra i campi del suono 
 - `[` e `]` (o `,` e `.`; sul pad **L2 / R2**) scelgono il suono.
 - **Invio** (sul pad **ok**) suona il suono sulla nota A4.
 - `c` svuota il suono.
-- `i` apre *Sounds from a file (Lib)*: prima la lista dei file `.bm` e `.bme` con un banco suoni (da `/carts`, `/bm`, dalla radice della scheda e da `/bm/lib`), poi i suoni del file scelto. Il suono va nel primo slot vuoto; la riga di stato dice `sound N taken from the file`. Se non c'è nulla, dice `no .bm or .bme file with sounds` o `no empty sound slot`.
+- `i` apre *Sounds from a file (Lib)*: prima la lista dei file `.bm` e `.bme` con un banco suoni (da `/bme`, `/carts`, `/bm`, dalla radice della scheda e da `/bm/lib`), poi i suoni del file scelto. Il suono va nel primo slot vuoto; la riga di stato dice `sound N taken from the file`. Se non c'è nulla, dice `no .bm or .bme file with sounds` o `no empty sound slot`.
 
 ### Effetti
 
@@ -430,7 +430,7 @@ Tieni premuto **F12** nell'SDK per vedere i tasti della pagina in cui sei.
 
 - **F5 chiede un nome.** Un progetto che non ha ancora un file va salvato prima: F5 apre la casella **Save as**; scegli un nome e premi Invio. Il messaggio `no name yet: use Save as` compare solo quando usi il semplice **Save** su un progetto senza nome.
 - **`unsaved changes: choose again to confirm`.** Uscire, aprire o iniziare un nuovo progetto con modifiche non salvate chiede due volte: ripeti l'azione per confermare.
-- **`no .bm or .bme files on the SD card`.** *Open...* non ha trovato nulla in `/carts` né nella radice. Elenca i file `.bm`, `.bme` e `.b16`.
+- **`no .bm or .bme files on the SD card`.** *Open...* non ha trovato nulla in `/bme`, in `/carts` né nella radice. Elenca i file `.bm`, `.bme` e `.b16`.
 - **`cannot measure: ...` nella pagina del progetto.** L'SDK non è riuscito a leggere i numeri del file; salvalo e leggi il messaggio.
 - **`no error to explain`.** F9 funziona solo dopo una prova finita con un errore. **Ctrl+G** nel codice porta alla riga.
 - **Il mio gioco è lento.** Guarda il dev kit dopo una prova: i frame oltre 16,7 ms, il frame più pesante e la memoria ti dicono dove.

@@ -6082,8 +6082,8 @@ void bm_set_tool(int on)
 
 /* Where a cartridge may write a cartridge file. The tools built into the
  * kernel: projects (.bme) and any other file, but never a game (.bm, .b16:
- * read only, project.h): saving one asks to make its editable copy and
- * writes that, and a new one becomes a project (a game is made by building
+ * read only, project.h): saving one asks to make its editable copy (in /bme)
+ * and writes that, and a new one becomes a project in /bme (a game is made by building
  * one, cart_build). The others (SD card, Market): only .bm and .bme files in
  * /carts, new ones or the ones they made in this run, never the kernel, the
  * settings or another folder. 0 and the file to write in `to`, or -1 with a
@@ -6116,13 +6116,8 @@ static int write_target(lua_State *L, const char *path, char *to, size_t tn)
             return 0;
         fat_entry_t e;
         if (fat_find(path, &e) != 0) {
-            /* a new game: its project ("/carts/NEW.BM" -> "/carts/NEW.BME") */
-            const char *dot = strrchr(path, '.');
-            const size_t k = (size_t)(dot - path);
-            if (k + 5 >= tn)
-                goto long_name;
-            memcpy(to, path, k);
-            ksnprintf(to + k, tn - k, dot[1] == 'b' ? ".bme" : ".BME");
+            /* a new game: its project ("/carts/NEW.BM" -> "/bme/NEW.BME") */
+            bm_project_path(path, to, tn);
             return 0;
         }
         char copy[96], err[64];
@@ -6143,10 +6138,6 @@ static int write_target(lua_State *L, const char *path, char *to, size_t tn)
         }
         ksnprintf(to, tn, "%s", copy);
         return 0;
-    long_name:
-        lua_pushboolean(L, 0);
-        lua_pushfstring(L, "%s: the name is too long", path);
-        return -1;
     }
     const char *name = path;
     if (strncmp(path, "/carts/", 7) == 0)
@@ -8585,10 +8576,10 @@ static int perm_allowed(int what)
  * question of its editable copy, a project in Dev. 1 yes */
 static int copy_question(const char *game, const char *copy)
 {
-    const char *g = strrchr(game, '/'), *c = strrchr(copy, '/');
-    char title[48], last[48];
+    const char *g = strrchr(game, '/');
+    char title[48], last[64];
     ksnprintf(title, sizeof title, "%s is a game", g ? g + 1 : game);
-    ksnprintf(last, sizeof last, "Save an editable copy: %s?", c ? c + 1 : copy);
+    ksnprintf(last, sizeof last, "Save an editable copy: %s?", copy);     /* with its folder: /bme */
     const char *lines[5] = { title, "A game is read only: the tools", "read it and take its parts, they",
                              "do not change it.", last };
     kprintf("bm: %s is read only: save an editable copy as %s? (ok: copy, back: no)\n", game, copy);

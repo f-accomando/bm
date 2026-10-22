@@ -35,6 +35,19 @@ older kernel ignores INFO.
 `mkbm.py` mirrors `type` in bits 2-3 of the u16 flags at offset 18 of the header (`docs/BM-FORMAT.md`), so the menu
 groups a cartridge without reading its INFO. On the SD, `.bm` and `.b16` games live in `/bm` and `.bme` projects in `/bme`.
 
+## Where projects live on the SD card
+
+- A `.bme` project lives in `/bme`. The tools write there: the editable copy of a game, a new project, Save as, Ctrl+S.
+  The console makes the folder when it is missing. One helper builds the path: `bm_project_path()` in `src/bm/project.h`
+  for the kernel, `U.project_path()` in `src/script/bmui.lua` for the tools.
+- The menu and every open list of the tools read `/bme` first. They also read a `.bme` found next to its game (`/carts`
+  or the root, old SD cards). The console does not move it. The tool saves it where it is and the status line says so
+  (`old place`).
+- `Ctrl+B` builds the game from a project in `/bme` into the games folder: `/carts` on the Pi, `/bm` on the RGB30
+  (`bm_games_dir()`). An old project next to its game builds next to it, as before.
+- The Pi menu scans `/`, `/carts` and `/bme`. The RGB30 menu scans `/bm` and `/carts`: it does not list projects, the
+  SDK opens them. `/carts` stays as it is.
+
 ## Credits: reusing other people's assets
 
 Sharing among developers is free: nothing refuses a resource because of its licence. To keep the credit, list what you

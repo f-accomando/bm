@@ -1752,7 +1752,7 @@ end
 
 ----------------------------------------------------------------- files
 
-local PACK_DIR = "/bm/sounds"
+local PACK_DIR = "/bm/sounds"             -- where the packs of older versions are (read; new ones go in /bme)
 -- the Lua of a sound pack: a little player of its songs and effects
 local PACK_LUA = [[
 -- a sound pack made with bm Sound (Dev tab): open it there to edit it
@@ -1791,6 +1791,7 @@ local function list_files()
   end
   add("/carts", "game")
   add("/", "game")
+  add(U.PROJECTS, "game")                -- the projects, packs included (docs/PROJECT-LAYOUT.md)
   add(PACK_DIR, "pack")
   return out
 end
@@ -1873,7 +1874,7 @@ end
 
 local function save_as_pack(name)
   if name == "" then say("a pack needs a name", C.red) return end
-  local path = PACK_DIR .. "/" .. name .. ".BME"
+  local path = U.project_path(name)
   local ok, to = write_to(path, name)
   if ok then
     path = to
@@ -1893,7 +1894,8 @@ local function save()
   if ok then
     proj.path = to
     proj.dirty = false
-    say("saved " .. short_name(proj.path) .. (proj.is_game and ": the game plays the new sounds" or ""), C.green, 300)
+    say("saved " .. (U.is_old_place(proj.path) and proj.path .. " (old place: it stays there)" or short_name(proj.path)) ..
+        (proj.is_game and ": the game plays the new sounds" or ""), C.green, 300)
   end
 end
 

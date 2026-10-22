@@ -782,14 +782,14 @@ end
 
 local function new_cart()
   local n = 1
-  while find_tab("/carts/GAME" .. n .. ".BME") or cart_read("/carts/GAME" .. n .. ".BME") do n = n + 1 end
-  prompt("New project, file name (8.3 in /carts):", "GAME" .. n .. ".BME", function(name)
+  while find_tab(U.project_path("GAME" .. n)) or cart_read(U.project_path("GAME" .. n)) do n = n + 1 end
+  prompt("New project, file name (8.3 in /bme):", "GAME" .. n .. ".BME", function(name)
     name = project_name(name)
     if not name then
       say("8.3 name, like MYGAME.BME", C_ERR)
       return
     end
-    local path = "/carts/" .. name
+    local path = U.project_path(name)
     if cart_read(path) then say(path .. " exists: Ctrl+O opens it", C_ERR); return end
     local i = new_tab(path, TEMPLATE, { title = name:gsub("%.BME$", "") })
     tabs[i].dirty = true
@@ -800,14 +800,14 @@ end
 
 local function save_as(t)
   local suggest = t.path and project_name(base_name(t.path)) or "GAME.BME"
-  prompt("Save as (8.3 in /carts):", suggest, function(name)
+  prompt("Save as (8.3 in /bme):", suggest, function(name)
     name = project_name(name)
     if not name then
       say("8.3 name, like MYGAME.BME", C_ERR)
       return
     end
-    local ok, err = save_tab(t, "/carts/" .. name)
-    say(ok and "saved " .. t.path or "cannot save: " .. tostring(err), ok and C_OK or C_ERR)
+    local ok, err = save_tab(t, U.project_path(name))
+    say(ok and U.saved_text(t.path) or "cannot save: " .. tostring(err), ok and C_OK or C_ERR)
     if ok then lint_tab(t) end
   end)
 end
@@ -816,7 +816,7 @@ local function save_current()
   local t = current()
   if not t.path then save_as(t); return end
   local ok, err = save_tab(t)
-  say(ok and "saved " .. t.path or "cannot save: " .. tostring(err), ok and C_OK or C_ERR)
+  say(ok and U.saved_text(t.path) or "cannot save: " .. tostring(err), ok and C_OK or C_ERR)
   if ok then lint_tab(t) end
 end
 
@@ -878,14 +878,9 @@ end
 
 local function open_files()
   local items = { { label = "+ New project...", new = true } }
-  for _, dir in ipairs({ "/carts", "/" }) do
-    for _, f in ipairs(ls(dir)) do
-      local n = f.name:lower()
-      if not f.dir and (n:match("%.bm$") or n:match("%.bme$")) then
-        local path = (dir == "/" and "" or dir) .. "/" .. f.name
-        items[#items + 1] = { label = path, size = f.size, path = path }
-      end
-    end
+  local paths, sizes = U.project_files({ bm = true, bme = true })
+  for _, path in ipairs(paths) do
+    items[#items + 1] = { label = path, size = sizes[path], path = path }
   end
   overlay = { kind = "files", items = items, sel = math.min(2, #items), top = 1 }
 end

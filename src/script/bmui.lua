@@ -366,6 +366,60 @@ end
 -- keyp() takes the mouse's keys first: installed once, for every tool that
 -- requires this library
 if raw_keyp and _ENV.keyp == raw_keyp then _ENV.keyp = mkeyp end
+----------------------------------------------------------------- projects (.bme)
+
+-- The one place that knows where projects live (docs/PROJECT-LAYOUT.md, the C side:
+-- src/bm/project.h). New projects are written in /bme; a project found next to its game
+-- (an old SD card) is still read, and saved where it is.
+U.PROJECTS = "/bme"
+local OLD_DIRS = { "/carts", "/" }
+
+-- "/carts/my game.bm", "MYGAME.BME" or "my game" -> "/bme/MYGAME.BME" (8.3)
+function U.project_path(name)
+  local base = name:match("([^/]+)$") or name
+  local stem = base:gsub("%.[^.]*$", ""):upper():gsub("[^%w_%-]", "")
+  if stem == "" then stem = "GAME" end
+  return U.PROJECTS .. "/" .. stem:sub(1, 8) .. ".BME"
+end
+
+-- a project file (by its extension)
+function U.is_project(path) return path ~= nil and path:lower():match("%.bme$") ~= nil end
+
+-- a project that is not in /bme (an old card): it is saved where it is
+function U.is_old_place(path)
+  return U.is_project(path) and path:lower():match("^/bme/") == nil
+end
+
+-- the words for the status line after a save: "saved /bme/GAME.BME", and where an old project is
+function U.saved_text(path)
+  if U.is_old_place(path) then
+    return "saved " .. path .. " (old place: projects go in /bme, this one stays here)"
+  end
+  return "saved " .. path
+end
+
+-- The files a picker lists: /bme first, then the old places. exts: { bm = true, bme = true,
+-- b16 = true } (a set of lower case extensions); extra: more folders to read after those.
+-- A path once only (case does not matter). Returns the paths, and a table of their sizes.
+function U.project_files(exts, extra)
+  local dirs = { U.PROJECTS }
+  for _, d in ipairs(OLD_DIRS) do dirs[#dirs + 1] = d end
+  for _, d in ipairs(extra or {}) do dirs[#dirs + 1] = d end
+  local out, seen, sizes = {}, {}, {}
+  for _, dir in ipairs(dirs) do
+    for _, f in ipairs(ls(dir) or {}) do
+      local ext = f.name:lower():match("%.(%w+)$")
+      local p = (dir == "/" and "" or dir) .. "/" .. f.name
+      if not f.dir and ext and exts[ext] and not (dir == U.PROJECTS and ext ~= "bme") and not seen[p:upper()] then
+        seen[p:upper()] = true
+        out[#out + 1] = p
+        sizes[p] = f.size
+      end
+    end
+  end
+  return out, sizes
+end
+
 U.keyp = mkeyp
 
 return U

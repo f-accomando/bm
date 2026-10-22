@@ -543,10 +543,10 @@ function T.is_game(path)
   return p:match("%.bm$") ~= nil or p:match("%.b16$") ~= nil
 end
 
--- "/carts/my 3d.bme" -> "/carts/MY3D.BME" (8.3)
+-- "/bme/my 3d.bme" -> "/bme/MY3D.BME" (8.3); no folder: /bme; an old project keeps its folder
 function T.short_path(path)
   local dir, base = path:match("^(.*)/([^/]+)$")
-  dir = dir or "/carts"
+  dir = dir or U.PROJECTS
   if dir == "" then dir = "/" end
   local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
   if stem == "" then stem = "GAME" end
@@ -554,15 +554,7 @@ function T.short_path(path)
 end
 
 function T.list_files()
-  local out = {}
-  for _, dir in ipairs({ "/carts", "/" }) do
-    for _, f in ipairs(ls(dir)) do
-      local n = f.name:lower()
-      if not f.dir and (n:match("%.bm$") or n:match("%.bme$")) then
-        out[#out + 1] = (dir == "/" and "" or dir) .. "/" .. f.name
-      end
-    end
-  end
+  local out = U.project_files({ bm = true, bme = true })
   table.sort(out)
   return out
 end
@@ -632,7 +624,7 @@ function T.save_to(path, from)
   if type(e) == "string" then path = e end      -- the editable copy of a game, or a new project
   S.proj.path = path
   S.dirty, S.sheet_dirty = false, false
-  say("saved " .. path, C.ACC)
+  say(U.saved_text(path), C.ACC)
   return true
 end
 
@@ -640,9 +632,9 @@ local ask
 
 function T.save_as(after)
   local p = S.proj.path
-  ask("file name (8.3, in /carts)", p and T.short_path(p):match("([^/]+)$") or "MY3D.BME", function(t)
+  ask("file name (8.3, in /bme)", p and T.short_path(p):match("([^/]+)$") or "MY3D.BME", function(t)
     if t == "" then return end
-    if T.save_to(T.short_path("/carts/" .. t), p) and after then after() end
+    if T.save_to(U.project_path(t), p) and after then after() end
   end)
 end
 

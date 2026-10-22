@@ -288,8 +288,8 @@
  "api-tools": {
   "chapters": {
    "1": {
-    "en": "a0362d4b7315",
-    "it": "208617790b17",
+    "en": "45fdd7698851",
+    "it": "94f5395642b7",
     "title": "The cartridge file"
    },
    "2": {
@@ -298,8 +298,8 @@
     "title": "The sections of a cartridge"
    },
    "3": {
-    "en": "0ef4604919fe",
-    "it": "0a6505f4445e",
+    "en": "42a81befb7d6",
+    "it": "f4e44aa1a0c4",
     "title": "The API for tools"
    },
    "4": {
@@ -319,10 +319,10 @@
    }
   },
   "sources": {
-   "docs/PROJECT-LAYOUT.md": "7f0aeb1174ff",
+   "docs/PROJECT-LAYOUT.md": "a44281867d52",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/SCREENSHOTS.md": "34e487f54164",
-   "docs/api/tools.md": "fbb7c433b4eb"
+   "docs/api/tools.md": "6dafeeb73022"
   }
  },
  "boot-os": {
@@ -502,8 +502,8 @@
     "title": "Tips and limits"
    },
    "2": {
-    "en": "fa6fad309e5c",
-    "it": "fca77a561533",
+    "en": "f58376cbd850",
+    "it": "0482cebb6cb3",
     "title": "Opening"
    },
    "3": {
@@ -527,8 +527,8 @@
     "title": "Hitboxes and baking sprites (F4)"
    },
    "7": {
-    "en": "8f4756618174",
-    "it": "394772213463",
+    "en": "d1536d8e2bba",
+    "it": "734eeeb3a490",
     "title": "Saving and exporting"
    },
    "8": {
@@ -546,7 +546,7 @@
    "carts/animator/main.lua": "6bc4c3631506",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
-   "docs/progress/tools.md": "ebf31668470e",
+   "docs/progress/tools.md": "cfe67dd19cbf",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -563,8 +563,8 @@
     "title": "Tips and limits"
    },
    "2": {
-    "en": "825b01f44979",
-    "it": "2eb5cab58ca3",
+    "en": "cfb71d25c6a9",
+    "it": "dcff2e98ffe0",
     "title": "Opening and saving"
    },
    "3": {
@@ -598,16 +598,16 @@
     "title": "Running the game and reading errors"
    },
    "9": {
-    "en": "7c71bc1c4ac4",
-    "it": "733f38f92fa2",
+    "en": "b5d056864bd5",
+    "it": "014a22ccf0a6",
     "title": "Guided tutorials"
    }
   },
   "sources": {
-   "carts/code/main.lua": "e0d968f29b85",
+   "carts/code/main.lua": "a9433a85ef31",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-code.md": "9def238703df",
-   "docs/progress/tools.md": "ebf31668470e",
+   "docs/progress/tools.md": "cfe67dd19cbf",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -619,8 +619,8 @@
     "title": "What bm Mesh is"
    },
    "2": {
-    "en": "a31b6882fcb5",
-    "it": "c7732d6d5ac1",
+    "en": "16dc963d03e7",
+    "it": "e6fd0d268749",
     "title": "Opening"
    },
    "3": {
@@ -639,8 +639,8 @@
     "title": "The preview and cart_meshes"
    },
    "6": {
-    "en": "05e0ba316067",
-    "it": "f409b3e252b4",
+    "en": "01467c56bae1",
+    "it": "d10c4b199e0b",
     "title": "Saving"
    },
    "7": {
@@ -655,10 +655,10 @@
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "ff0571ab3624",
+   "carts/mesh/main.lua": "0f67d24de65f",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "ebf31668470e",
+   "docs/progress/tools.md": "cfe67dd19cbf",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -685,8 +685,8 @@
     "title": "Tips and limits"
    },
    "2": {
-    "en": "f79a72634801",
-    "it": "ad8096bcbd34",
+    "en": "0db2e1f8fc7d",
+    "it": "7a99f60fbe4a",
     "title": "Opening a file"
    },
    "3": {
@@ -726,10 +726,10 @@
    }
   },
   "sources": {
-   "carts/pixel/main.lua": "1dde0b77a6df",
+   "carts/pixel/main.lua": "4f25aed5dd88",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-pixel.md": "169370731398",
-   "docs/progress/tools.md": "ebf31668470e",
+   "docs/progress/tools.md": "cfe67dd19cbf",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -751,8 +751,8 @@
     "title": "The screen"
    },
    "4": {
-    "en": "e84e6cbd6622",
-    "it": "ebf595051e0f",
+    "en": "e250164f2f20",
+    "it": "21208c6088ca",
     "title": "Creating a project from a template"
    },
    "5": {
@@ -766,8 +766,8 @@
     "title": "Budgets and the dev kit report"
    },
    "7": {
-    "en": "2f0828efa858",
-    "it": "f141287f1f21",
+    "en": "8844e118996f",
+    "it": "f011c3b2a833",
     "title": "Building and exporting"
    },
    "8": {
@@ -776,16 +776,16 @@
     "title": "Keys"
    },
    "9": {
-    "en": "52ec4fecf34f",
-    "it": "20a7b9e5ad21",
+    "en": "cf62bc1fe27c",
+    "it": "fc6f44acc254",
     "title": "Tips and troubleshooting"
    }
   },
   "sources": {
-   "carts/editor/main.lua": "ab477092a544",
+   "carts/editor/main.lua": "6b12b2c76658",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-sdk.md": "6a8b4424e3fa",
-   "docs/progress/tools.md": "ebf31668470e",
+   "docs/progress/tools.md": "cfe67dd19cbf",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -797,8 +797,8 @@
     "title": "What bm Sound is"
    },
    "2": {
-    "en": "4060de18d10e",
-    "it": "5b6340451d44",
+    "en": "86bb15ef6ed3",
+    "it": "699db0ac7152",
     "title": "Opening bm Sound"
    },
    "3": {
@@ -807,8 +807,8 @@
     "title": "The pages"
    },
    "4": {
-    "en": "38535d32c643",
-    "it": "b5e4b4c15984",
+    "en": "c6893bbf2f7e",
+    "it": "e939650dcaf1",
     "title": "Controls"
    },
    "5": {
@@ -817,8 +817,8 @@
     "title": "Tutorials"
    },
    "6": {
-    "en": "9acd2ff696fe",
-    "it": "8d7a95d21e28",
+    "en": "07d8678cfccd",
+    "it": "a1ac7d545368",
     "title": "Saving and exporting"
    },
    "7": {
@@ -828,10 +828,10 @@
    }
   },
   "sources": {
-   "carts/sound/main.lua": "7a6c6b71ed97",
+   "carts/sound/main.lua": "371e2584d9c8",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-sound.md": "d9e2be743e24",
-   "docs/progress/tools.md": "ebf31668470e",
+   "docs/progress/tools.md": "cfe67dd19cbf",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -848,8 +848,8 @@
     "title": "Tips and limits"
    },
    "2": {
-    "en": "cd4f150760a3",
-    "it": "1da9e174a7a3",
+    "en": "e541686d9f3d",
+    "it": "2a0f3dc9bce2",
     "title": "Opening a project or a game"
    },
    "3": {
@@ -873,8 +873,8 @@
     "title": "The models page and mesh reduction"
    },
    "7": {
-    "en": "f50d0730d166",
-    "it": "e008f68c19ce",
+    "en": "93b96b5091d1",
+    "it": "25ef7588f109",
     "title": "Saving and exporting"
    },
    "8": {
@@ -892,7 +892,7 @@
    "carts/studio/main.lua": "4ad32dad9ad3",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "ebf31668470e",
+   "docs/progress/tools.md": "cfe67dd19cbf",
    "sdk/README.md": "f56faae98658"
   }
  },

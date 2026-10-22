@@ -427,6 +427,7 @@ static void rescan(void)
     if (sd_ok) {
         scan_dir("/");
         scan_dir("/carts");
+        scan_dir(BM_PROJECTS_DIR);          /* the projects (.bme): project.h */
         qsort(carts, (size_t)ncarts, sizeof *carts, title_cmp);
     }
     nsd = ncarts;
