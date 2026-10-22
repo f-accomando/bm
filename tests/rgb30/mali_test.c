@@ -615,7 +615,7 @@ static void test_frame_image(void)
 /* phase 3: a draw with a matrix runs BM_VS3 with the matrix pushed; a draw without is the phase-2 draw */
 static void test_matrix_image(void)
 {
-    const uint32_t SB = MALI_SET_BASE(0), DRAWS = MALI_FRAME_DRAWS, DSIZE = 0x800, VRSD = 0xa00, D_VRSD = 0x500, D_VUBO = 0x480,
+    const uint32_t SB = MALI_SET_BASE(0), DRAWS = MALI_FRAME_DRAWS, DSIZE = 0x800, VRSD = 0xa00, DV_VRSD = 0x500, DV_VUBO = 0x480,
                    VS = 0x8000, VS3 = 0x8400;                     /* the layout of mali.c (SO_*, D_*) */
     static const float t0[3][3] = { { 4, 4, 0.25f }, { 40, 4, 0.25f }, { 4, 40, 0.25f } };
     static const float t1[3][3] = { { 8, 8, 0.5f }, { 50, 8, 0.5f }, { 8, 50, 0.5f } };
@@ -640,7 +640,7 @@ static void test_matrix_image(void)
                                .work_regs = BM_VS3_WORK_REGS, .preload_regs = BM_VS3_PRELOAD, .push_count = BM_VS3_PUSH_COUNT };
     memset(tmp, 0, sizeof tmp);
     md_renderer_state(tmp, &v3);
-    CHECK(memcmp(mem + DRAWS + D_VRSD, tmp, MD_RENDERER_STATE_SIZE) == 0, "matrix: draw 0's Renderer State is not BM_VS3's");
+    CHECK(memcmp(mem + DRAWS + DV_VRSD, tmp, MD_RENDERER_STATE_SIZE) == 0, "matrix: draw 0's Renderer State is not BM_VS3's");
     CHECK(memcmp(mem + SB + VS3, BM_VS3_bin, sizeof BM_VS3_bin) == 0, "matrix: BM_VS3 is not at its place");
     md_renderer_state_t v1 = { .shader = MEM_PA + SB + VS, .attribute_count = BM_VS_ATTRIBUTE_COUNT,
                                .varying_count = BM_VS_VARYING_COUNT, .ubo_count = BM_VS_UBO_COUNT,
@@ -650,9 +650,9 @@ static void test_matrix_image(void)
     CHECK(memcmp(mem + SB + VRSD, tmp, MD_RENDERER_STATE_SIZE) == 0, "matrix: the shared Renderer State is not BM_VS's");
 
     const uint64_t d0 = MEM_PA + DRAWS, d1 = d0 + DSIZE;
-    md_draw_t vd0 = { .state = d0 + D_VRSD, .attribute_buffers = d0 + 0x380, .attributes = MEM_PA + SB + 0xbc0,
+    md_draw_t vd0 = { .state = d0 + DV_VRSD, .attribute_buffers = d0 + 0x380, .attributes = MEM_PA + SB + 0xbc0,
                       .varying_buffers = d0 + 0x3c0, .varyings = MEM_PA + SB + 0xc40, .thread_storage = MEM_PA + SB + 0xb00,
-                      .uniform_buffers = d0 + D_VUBO, .push_uniforms = MEM_PA + MALI_FRAME_VPUSH };
+                      .uniform_buffers = d0 + DV_VUBO, .push_uniforms = MEM_PA + MALI_FRAME_VPUSH };
     memset(tmp, 0, sizeof tmp);
     md_draw(tmp, &vd0);
     CHECK(memcmp(mem + DRAWS + MD_VJ_DRAW, tmp, MD_DRAW_SIZE) == 0, "matrix: draw 0's vertex Draw (state, uniform buffer, push) differs");
@@ -663,7 +663,7 @@ static void test_matrix_image(void)
     CHECK(memcmp(mem + DRAWS + DSIZE + MD_VJ_DRAW, tmp, MD_DRAW_SIZE) == 0, "matrix: draw 1's vertex Draw is not the phase-2 one");
     uint8_t ub[16] = { 0 };
     md_uniform_buffer(ub, MEM_PA + MALI_FRAME_VPUSH, 4);
-    CHECK(memcmp(mem + DRAWS + D_VUBO, ub, 8) == 0, "matrix: draw 0's uniform buffer descriptor differs");
+    CHECK(memcmp(mem + DRAWS + DV_VUBO, ub, 8) == 0, "matrix: draw 0's uniform buffer descriptor differs");
 
     memset(mem + SB, 0, 0x90000);                                   /* (c) no matrix: BM_VS3 stays out, the phase-2 state */
     (void)mali_frame(&G, surf, MEM_PA + surf_pa_off, 256, 64, 64, 0x102050, plain, 2);
