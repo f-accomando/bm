@@ -212,4 +212,25 @@ Do stages 1 and 2 first. They cost almost no code and have measured gains. Stage
 7. `r3d_impostor` 16 and 32 with far heroes (v3d-notes list), and `herotris` at 480x270.
 8. All with `throttled 0`, core 250 MHz, V3D measured clock (300 MHz in the last report), temperature below 50 C.
 
-Hardware behaviour in this file is `not verified` for every *(E)* value. No kernel was run on the Pi for this document.
+## 7. Measured on the Pi, 22 Oct (stage 0)
+
+`herotris`, one profile for each run, 640x360, ARM 1000 MHz, V3D 250 MHz (measured 300). A set is a hero of 1536 triangles, its shadow and a map of 5000 triangles.
+
+| Profile | Sets at 60 fps | Hero tris at 60 fps | Drawn at 60 fps | ms | gpu_ms |
+|---|---:|---:|---:|---:|---:|
+| ARM | 0.41 | 630 | 2393 | 40.7 | - |
+| GPU | 0.56 | 859 | 3265 | 29.8 | 2.1 |
+| GPU+VS | 3.85 | 5907 | 28961 | 14.9 | 3.9 |
+| GPU+VS+Q | 6.74 | 10351 | 50746 | 13.0 | 7.1 |
+| GPU+VS+A8 | 4.03 | 6182 | 30310 | 16.6 | 5.1 |
+| GPU+VS+A8+Q | 6.75 | 10364 | 50809 | 13.2 | 7.1 |
+| GPU+VS+Q2 | 6.74 | 10353 | 50755 | 13.3 | 7.1 |
+
+- Opt 1 (queue): x1.75 (3.85 -> 6.74 sets). The range of section 2 was +10% to +45%. The stage 1 gate (+10% at least) passes on `herotris`. The second part of the gate (Overbit played with 0 and 1, no late frames) is not measured.
+- Opt 2a (A8): +4.7% without the queue, 0% with it. It stays off.
+- Queue 2 (frame later): no gain over queue 1.
+- Without the queue the frame is ARM-bound (`gpu_ms` 3.9 of 14.9 ms). With the queue it is still ARM-bound (`arm_ms` 12.6, `gpu_ms` 7.1). Opt 7 and the job chain help a GPU-bound frame, so they do not apply at this load.
+- Not collected yet: three runs for each profile (the table is one run each), the items 3 to 7 of section 6.
+- Pi freeze: see `docs/NEXT.md`, Open issues.
+
+Hardware behaviour in this file is `not verified` for every *(E)* value. Section 7 is a measurement; the rest of the file is an estimate.
