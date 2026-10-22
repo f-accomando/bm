@@ -654,7 +654,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
         test-fat test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-prompts test-docs test-api test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
-        test-catalog test-github test-lan market-seed test-host test-qemu
+        test-catalog test-github test-lan market-seed test-host test-qemu test-vid
 
 all: $(BUILD)/kernel.img $(K7) $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -839,7 +839,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
-      test-studio test-prompts test-docs test-api $(if $(K7),test-hyp)
+      test-studio test-prompts test-docs test-api test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
@@ -1025,6 +1025,14 @@ test-img3d: $(BUILD)/host/test_img3d
 $(BUILD)/host/test_img3d: tests/net/test_img3d.c src/net/img3d.c src/net/http.c src/net/*.h $(GLB_SRCS) src/bm/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -Wall -Wextra -Isrc -Isrc/bm -DHTTP_USER_AGENT='"test"' -o $@ tests/net/test_img3d.c src/net/img3d.c src/net/http.c $(GLB_SRCS) -lm
+
+# the .bmv reader (src/bm/vid.c), jpeg_decode565 and scripts/mkvid.py
+test-vid: $(BUILD)/host/test_vid scripts/mkvid.py tests/video/run_vid_test.py
+	$(PYTHON) tests/video/run_vid_test.py $(BUILD)/host/test_vid $(BUILD)/vid
+
+$(BUILD)/host/test_vid: tests/video/test_vid.c src/bm/vid.c src/bm/jpeg.c src/bm/vidbench_data.c src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -Isrc/bm -o $@ tests/video/test_vid.c src/bm/vid.c src/bm/jpeg.c src/bm/vidbench_data.c -lm
 
 test-http: $(BUILD)/host/test_http
 	$(PYTHON) tests/net/run_http_test.py $(BUILD)/host/test_http
