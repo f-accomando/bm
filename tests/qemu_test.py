@@ -64,6 +64,7 @@ BCM2835_ONLY = {
 # tests over 20 s; the others count 5. A test missing here only makes the
 # groups less even.
 SLOW = {
+    "test_web_api": 83,
     "test_chainloader": 70, "test_studio_animator": 61,
     "test_home_ui": 66, "test_stress_monitor": 48, "test_pad_typing": 48, "test_lib_tab": 46,
     "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
@@ -1766,6 +1767,206 @@ def test_cart_write_limits(b, opts):
         cfg_txt = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"], capture_output=True,
                                  text=True, env=env).stdout
         assert "wifi_boot=0" in cfg_txt, cfg_txt
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+WEB_FIX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "fixtures")
+WEBP_FIX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "webp", "fixtures")
+
+
+def _lua_bytes(data):
+    """A Lua string literal with every byte escaped."""
+    return '"' + "".join("\\%03d" % b for b in data) + '"'
+
+
+def _web_fixture(path):
+    with open(path, "rb") as f:
+        return f.read()
+
+
+WEB_API_CART = r"""
+local JPG, PROG, PNG, WEBPLL, WEBPLY = %(jpg)s, %(prog)s, %(png)s, %(webpll)s, %(webply)s
+
+local function hx(v) return v and string.format("%%06x", v) or "nil" end
+
+function _init()
+  -- image_load: JPEG, the size and three pixels
+  local im, err = image_load(JPG, 0, 0)
+  log("jpg", im and im.w, im and im.h, err)
+  log("jpgpx", hx(sget(2, 10)), hx(sget(16, 10)), hx(sget(28, 5)))
+  -- cut to maxw x maxh, placed away from the corner
+  im, err = image_load(JPG, 100, 100, 16, 10)
+  log("jpgcut", im and im.x, im and im.y, im and im.w, im and im.h, err, hx(sget(102, 103)), sget(116, 103) == nil)
+  -- what does not fit the sheet is cut
+  im, err = image_load(JPG, 250, 250)
+  log("jpgedge", im and im.w, im and im.h, err)
+  im, err = image_load(JPG, 256, 0)
+  log("jpgout", im, err)
+  im, err = image_load(PROG, 0, 0)
+  log("prog", im, err)
+  -- PNG: the opaque and the transparent pixels
+  im, err = image_load(PNG, 40, 0)
+  log("png", im and im.w, im and im.h, err)
+  log("pngpx", hx(sget(40, 0)), hx(sget(43, 3)), sget(52, 3) == nil)
+  -- WebP: lossless (exact pixels), lossy (size)
+  im, err = image_load(WEBPLL, 0, 40)
+  log("webpll", im and im.w, im and im.h, err)
+  log("webpllpx", hx(sget(0, 40)), hx(sget(10, 50)), hx(sget(63, 87)))
+  im, err = image_load(WEBPLY, 100, 40)
+  log("webply", im and im.w, im and im.h, err)
+  -- not a picture, a handle that is not there
+  im, err = image_load("this is not a picture", 0, 0)
+  log("junk", im, err)
+  im, err = image_load(77, 0, 0)
+  log("noid", im, err)
+  -- the picture is a part of the sheet that sspr draws
+  local ok = pcall(sspr, 0, 40, 64, 48, 10, 10)
+  log("sspr", ok)
+
+  -- file_write: the sandbox
+  log("fw1", file_write("hello.txt", "hi"))
+  log("fw2", file_write("bm/web/model.glb", string.rep("x", 100000)))
+  log("fw3", file_write("/bm/web/hello.txt", "hi again"))
+  for _, p in ipairs({ "../x.txt", "/kernel.img", "/bm/config.txt", "game.bm", "x.BME", "x.b16", "sub/a.txt",
+                       "bm/web/sub/a.txt", "toolongname.txt", ".hid", "a/../b.txt", "" }) do
+    local r, e = file_write(p, "no")
+    log("fwno", p, r, e)
+  end
+  log("fwid", file_write("x.txt", 12345))
+  local r, e = file_write("big.bin", string.rep("a", 9 * 1024 * 1024))
+  log("fwbig", r, e)
+  -- the folder keeps at most 128 files (hello.txt and model.glb are two of them)
+  local n = 0
+  for i = 1, 130 do
+    local ok2, e2 = file_write(string.format("f%%03d.txt", i), "x")
+    if not ok2 then log("fwmax", n, e2) break end
+    n = n + 1
+  end
+
+  -- web_get: a request that cannot start never touches the network
+  log("wg1", web_get("http://example.org/"))
+  log("wg2", web_get("https://exa mple.org/"))
+  log("wg3", web_get("https://example.org/#frag"))
+  log("wg4", web_get("https://example.org/"))
+  log("wp", web_poll(99))
+  log("wi", web_info(99))
+  log("wb", web_body(99))
+  log("wc", web_cancel(99))
+  log("end")
+  quit()
+end
+"""
+
+
+def test_web_api(b, opts):
+    """bm3D 7.x web API for a browser cart: image_load (JPEG, PNG, WebP into the sprite sheet),
+    file_write (only a bare 8.3 name in bm/web, never .bm/.bme/.b16, capped, 128 files) and the
+    web_get address rules. The QEMU machine has no network: web_get stops at "no network" (the
+    request itself is tested on the PC by make test-webapi)."""
+    import zlib
+    tmp = tempfile.mkdtemp(prefix="bm-webapi-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    fx = {
+        "jpg": _web_fixture(os.path.join(WEB_FIX, "block_32x24.jpg")),
+        "prog": _web_fixture(os.path.join(WEB_FIX, "block_prog.jpg")),
+        "png": _web_fixture(os.path.join(WEB_FIX, "alpha_16x8.png")),
+        "webpll": _web_fixture(os.path.join(WEBP_FIX, "lossless_64x48.webp")),
+        "webply": _web_fixture(os.path.join(WEBP_FIX, "lossy_q75_64x48.webp")),
+    }
+    src = WEB_API_CART % {k: _lua_bytes(v) for k, v in fx.items()}
+    ref = zlib.decompress(_web_fixture(os.path.join(WEBP_FIX, "lossless_64x48.ref.z")))
+
+    def rgb24(x, y):                    # the reference pixel as the sheet gives it back (RGB565 widened)
+        o = (y * 64 + x) * 3
+        r, g, bl = ref[o] >> 3, ref[o + 1] >> 2, ref[o + 2] >> 3
+        return "%02x%02x%02x" % ((r << 3) | (r >> 2), (g << 2) | (g >> 4), (bl << 3) | (bl >> 2))
+
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+        assert _upload(q, mkbm.pack(src.encode(), title="webapi"))
+        out = q.expect("end", timeout=400)
+        text = out.decode(errors="replace").replace("\r", "")
+        q.expect("> ", timeout=20)
+    finally:
+        q.close()
+
+    def line(tag):
+        m = [l for l in text.split("\n") if l.startswith(tag + "\t")]
+        assert m, (tag, text[-3000:])
+        return m[-1].split("\t")[1:]
+
+    def near(hexv, rgb, tol=24):
+        v = int(hexv, 16)
+        return all(abs(((v >> s) & 255) - c) <= tol for s, c in ((16, rgb[0]), (8, rgb[1]), (0, rgb[2])))
+
+    assert line("jpg") == ["32", "24", "nil"], line("jpg")
+    px = line("jpgpx")
+    assert near(px[0], (255, 0, 0)) and near(px[1], (0, 200, 0)) and near(px[2], (0, 0, 255)), px
+    cut = line("jpgcut")
+    assert cut[:5] == ["100", "100", "16", "10", "nil"] and near(cut[5], (255, 0, 0)) and cut[6] == "true", cut
+    assert line("jpgedge") == ["6", "6", "nil"], line("jpgedge")
+    out_of = line("jpgout")
+    assert out_of[0] == "nil" and "outside the sprite sheet" in out_of[1], out_of
+    prog = line("prog")
+    assert prog[0] == "nil" and "progressive" in prog[1], prog
+    assert line("png") == ["16", "8", "nil"], line("png")
+    pp = line("pngpx")
+    assert near(pp[0], (255, 0, 255)) and near(pp[1], (255, 255, 0)) and pp[2] == "true", pp
+    assert line("webpll") == ["64", "48", "nil"], line("webpll")
+    assert line("webpllpx") == [rgb24(0, 0), rgb24(10, 10), rgb24(63, 47)], (line("webpllpx"), rgb24(0, 0))
+    assert line("webply") == ["64", "48", "nil"], line("webply")
+    junk = line("junk")
+    assert junk[0] == "nil" and "not a JPEG, PNG or WebP" in junk[1], junk
+    noid = line("noid")
+    assert noid[0] == "nil" and "no such request" in noid[1], noid
+    assert line("sspr") == ["true"], line("sspr")
+
+    assert line("fw1") == ["true", "bm/web/HELLO.TXT"], line("fw1")
+    assert line("fw2") == ["true", "bm/web/MODEL.GLB"], line("fw2")
+    assert line("fw3") == ["true", "bm/web/HELLO.TXT"], line("fw3")
+    refused = [l.split("\t")[1:] for l in text.split("\n") if l.startswith("fwno\t")]
+    assert len(refused) == 12, refused
+    for p, r, e in refused:
+        assert r == "nil" and e not in ("nil", ""), (p, r, e)
+    assert "no such request" in line("fwid")[1], line("fwid")
+    big = line("fwbig")
+    assert big[0] == "nil" and "over the cap" in big[1], big
+    fmax = line("fwmax")
+    assert fmax[0] == "126" and "128 files" in fmax[1], fmax      # 126 + hello.txt + model.glb = 128
+    assert "only https" in line("wg1")[1], line("wg1")
+    assert "nil" == line("wg2")[0] and "space" in line("wg2")[1], line("wg2")
+    assert "nil" == line("wg3")[0] and "fragment" in line("wg3")[1], line("wg3")
+    assert line("wg4") == ["nil", "no network"], line("wg4")
+    assert line("wp")[0] == "nil" and "no such request" in line("wp")[1], line("wp")
+    assert line("wi")[0] == "nil" and line("wb")[0] == "nil", (line("wi"), line("wb"))
+    assert line("wc") == ["false"], line("wc")
+
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/BM/WEB"], capture_output=True, text=True,
+                               env=env).stdout.upper().split()
+        assert len(names) == 128, len(names)
+        assert "::/BM/WEB/HELLO.TXT" in names and "::/BM/WEB/MODEL.GLB" in names, names[:5]
+        hello = subprocess.run(["mtype", "-i", part, "::/BM/WEB/HELLO.TXT"], capture_output=True, env=env).stdout
+        assert hello == b"hi again", hello
+        glb = subprocess.run(["mtype", "-i", part, "::/BM/WEB/MODEL.GLB"], capture_output=True, env=env).stdout
+        assert glb == b"x" * 100000, len(glb)
+        root = subprocess.run(["mdir", "-b", "-i", part, "::/"], capture_output=True, text=True, env=env).stdout.upper()
+        assert "KERNEL.IMG" not in root and "X.TXT" not in root and "BIG.BIN" not in root, root
+        bm_dir = subprocess.run(["mdir", "-b", "-i", part, "::/BM"], capture_output=True, text=True, env=env).stdout.upper()
+        assert "A.TXT" not in bm_dir and "SUB" not in bm_dir, bm_dir
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

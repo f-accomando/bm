@@ -43,6 +43,60 @@ consoles on the same PC, `--realtime` to play at 60 frames a second).
 | `net_ip()` | the console's address, or `nil` without a network |
 | `net_resolve(name)` | the address of a name: `nil` while it looks for it (call it again the frame after), `false` if it does not exist |
 
+### The web (web_get, image_load, file_write)
+
+For a cartridge that shows web pages (a browser cart). A request runs in the background: the game keeps
+drawing while the page arrives. The kernel enforces the rules below. A cartridge cannot change them.
+
+- **Network.** The player must allow the network, as for `udp_open`. Without a network `web_get` returns `nil, "no network"`.
+- **Only `https://`.** The address is `https://host[:port]/path?query`, at most 1024 characters. The host has letters, digits, `.` and `-`.
+  No user name, no space and no `#fragment` (remove them, or write `%XX`). The certificate must chain to `boot/ca.pem`.
+- **Redirects.** The kernel follows at most 3. A redirect to `http://` is refused. The error text says so, and `web_info` shows the `location`.
+- **A pause per host.** The kernel waits until 1 second has passed since the last request to the same host. A redirect to that host waits too.
+  While it waits, the state is `"wait"`. The cartridge sets its own pace on top of this minimum (a site can ask for more).
+- **User agent.** Fixed: `bm/<kernel version>`. A cartridge cannot change it or add headers.
+- **Size.** The body is cut off at the cap: 4 MiB by default. `web_max_kib` in `bm/config.txt` changes it (at most 32768). A cartridge can ask for less with `max`.
+  A body over the cap ends in the state `"error"` and nothing is kept.
+- **One request runs at a time.** The result of up to 3 requests stays in memory until `web_cancel` or the end of the cartridge.
+- **The cost of one frame.** `web_poll` works for about 4 ms. The TLS handshake of a new connection does not give the CPU back (about 100 ms on the Pi Zero W,
+  measured for the reports in `docs/progress/multitasking.md`; not measured inside a cartridge). Show a "connecting" message before the first `web_poll`.
+- **bmhost.** `web_get` returns `nil` and a reason. `image_load` and `file_write` work (the host folder is the card).
+
+| Function | Description |
+|---|---|
+| `id = web_get(url, [opts])` | starts a GET request. `opts` is a table: `max` (a body cap in bytes, lower than the configured cap), `timeout` (milliseconds for one read, 1000 to 60000, default 15000). Returns the request `id`, or `nil` and the reason (bad address, no network, the player said no, a request already runs, no free slot) |
+| `state, size, length = web_poll(id)` | works the request for about 4 ms. `state` is `"wait"` (the pause per host), `"busy"`, `"done"` or `"error"`. `size` is the body bytes received so far. `length` is the Content-Length (`nil` if the server did not give it). `nil` and a reason for an `id` that is not there. Call it once a frame |
+| `web_info(id)` | a table: `state`, `status` (the HTTP status), `type` (Content-Type), `length`, `location` (the Location header of the last answer), `url` (the address reached), `size` and `error`. Fields that are not known are left out. Any HTTP status ends in `"done"`, a 404 too: look at `status`. A failed request (no connection, a refused redirect, a body over the cap, a timeout) ends in `"error"` |
+| `web_body(id)` | the body of a finished request as a string, or `nil` and the reason. It copies the bytes into Lua memory: to decode a picture or write a file, give `id` to `image_load` or `file_write` instead |
+| `web_cancel(id)` | stops the request and frees its result. Returns `true` if it was there |
+| `img = image_load(bytes_or_id, sx, sy, [maxw, maxh])` | decodes a picture into the sprite sheet with its top left corner at `(sx, sy)`. The first argument is a string of bytes, or the `id` of a finished `web_get` (the body is not copied). It reads **baseline JPEG, PNG and WebP** (lossy and lossless). Progressive JPEG is refused. A picture over 4 megapixels is refused. A part that does not fit `maxw`×`maxh` or the sheet is cut at the right and the bottom. PNG pixels with alpha below 128 are transparent. Returns `{x =, y =, w =, h =}` (the part of the sheet used), or `nil` and the reason. Draw it with `sspr(img.x, img.y, img.w, img.h, dx, dy)`. The sheet is 256×256 by default: make it bigger with `cart_sheet(w, h)` first. The pixels are RGB565 |
+| `file_write(name, bytes_or_id)` | writes a file in `bm/web` on the SD card (the folder is made if needed). `name` is a bare 8.3 name (`"MODEL.GLB"`), or the same after `web/`, `bm/web/` or `/bm/web/`. No `..`, no other folder, no leading dot, never a `.bm`, `.bme` or `.b16` file. The second argument is a string, or the `id` of a finished `web_get`. A file with the same name is replaced. At most 8 MiB (`file_write_max_kib` in `bm/config.txt`, at most 32768) and 128 files in the folder. Returns `true` and the path (`"bm/web/MODEL.GLB"`), or `nil` and the reason. It waits for the card: a big file stops the frame. It refuses while another write is under way (`fat_writing`): try again next frame |
+
+```lua
+local req
+function _update()
+  if btnp(4) and not req then req = web_get("https://example.org/pic.webp") end
+  if req then
+    local state = web_poll(req)
+    if state == "done" then
+      local img = image_load(req, 0, 64, 160, 90)   -- into the sheet, at most 160x90
+      web_cancel(req)                               -- free the body
+      req = nil
+      shown = img
+    elseif state == "error" then
+      msg = web_info(req).error
+      web_cancel(req)
+      req = nil
+    end
+  end
+end
+
+function _draw()
+  cls(0)
+  if shown then sspr(shown.x, shown.y, shown.w, shown.h, 10, 10) end
+end
+```
+
 ### Saves
 
 | Function | Description |

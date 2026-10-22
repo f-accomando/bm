@@ -48,6 +48,9 @@
 #include "ai/lua_ai.h"
 #include "ai/net.h"
 #include "net/cartnet.h"
+#include "webget.h"
+#include "webimg.h"
+#include "webpolicy.h"
 #include "require.h"
 #include "meshcap.h"
 #include "tokens.h"
@@ -3863,6 +3866,237 @@ static int l_doc_delete(lua_State *L)
     return 1;
 }
 
+/* ---- the web (bm3D 7.x): web_get, image_load, file_write for a browser cart.
+ * The rules are in webpolicy.c, the request in webget.c, the pictures in webimg.c;
+ * docs/api/system.md "The web". ---- */
+
+static int web_nil(lua_State *L, const char *why)
+{
+    lua_pushnil(L);
+    lua_pushstring(L, why);
+    return 2;
+}
+
+/* web_get(url, [{max = bytes, timeout = ms}]) -> id, or nil and why. https only. */
+static int l_web_get(lua_State *L)
+{
+    const char *url = luaL_checkstring(L, 1);
+    size_t cap = web_cap_bytes(config_get("web_max_kib"), WEB_MAX_KIB_DEFAULT, WEB_MAX_KIB_LIMIT);
+    uint32_t timeout = 15000;
+    if (lua_istable(L, 2)) {
+        lua_getfield(L, 2, "max");
+        if (lua_isnumber(L, -1) && lua_tonumber(L, -1) >= 1 && (lua_Number)cap > lua_tonumber(L, -1))
+            cap = (size_t)lua_tonumber(L, -1);      /* a cartridge asks for less, never more */
+        lua_getfield(L, 2, "timeout");
+        if (lua_isnumber(L, -1)) {
+            const lua_Number t = lua_tonumber(L, -1);
+            timeout = (uint32_t)(t < 1000 ? 1000 : t > 60000 ? 60000 : t);
+        }
+        lua_pop(L, 2);
+    }
+    char err[200];
+    if (web_url_check(url, NULL, 0, err, sizeof err))
+        return web_nil(L, err);
+    if (!cartnet_ip())
+        return web_nil(L, "no network");
+    if (!perm_allowed(PERM_NET))
+        return web_nil(L, "the player did not allow this game the network");
+    const int id = web_start(url, cap, timeout, err, sizeof err);
+    if (id < 0)
+        return web_nil(L, err);
+    lua_pushinteger(L, id);
+    return 1;
+}
+
+static const char *const web_state_names[] = { "free", "wait", "busy", "done", "error" };
+
+/* web_poll(id) -> "wait" (the pause per host), "busy", "done" or "error", the bytes so far
+ * and the Content-Length (nil if unknown); nil and why for an id that is not there. Call it
+ * once a frame: it works the request for about 4 ms. */
+static int l_web_poll(lua_State *L)
+{
+    const int id = (int)luaL_checkinteger(L, 1);
+    const web_state_t st = web_poll(id);
+    if (st == WEB_FREE)
+        return web_nil(L, "no such request");
+    const web_req_t *r = web_find(id);
+    lua_pushstring(L, web_state_names[st]);
+    lua_pushinteger(L, (lua_Integer)r->size);
+    if (r->length >= 0)
+        lua_pushinteger(L, (lua_Integer)r->length);
+    else
+        lua_pushnil(L);
+    return 3;
+}
+
+/* web_info(id) -> { state =, status =, type =, length =, location =, url =, size =, error = }
+ * (the fields that are not known are left out); nil and why if there is no such request */
+static int l_web_info(lua_State *L)
+{
+    const web_req_t *r = web_find((int)luaL_checkinteger(L, 1));
+    if (!r)
+        return web_nil(L, "no such request");
+    lua_createtable(L, 0, 8);
+    lua_pushstring(L, web_state_names[r->state]);
+    lua_setfield(L, -2, "state");
+    if (r->status) {
+        lua_pushinteger(L, r->status);
+        lua_setfield(L, -2, "status");
+    }
+    if (r->type[0]) {
+        lua_pushstring(L, r->type);
+        lua_setfield(L, -2, "type");
+    }
+    if (r->length >= 0) {
+        lua_pushinteger(L, (lua_Integer)r->length);
+        lua_setfield(L, -2, "length");
+    }
+    if (r->location[0]) {
+        lua_pushstring(L, r->location);
+        lua_setfield(L, -2, "location");
+    }
+    lua_pushstring(L, r->url);
+    lua_setfield(L, -2, "url");
+    lua_pushinteger(L, (lua_Integer)r->size);
+    lua_setfield(L, -2, "size");
+    if (r->error[0]) {
+        lua_pushstring(L, r->error);
+        lua_setfield(L, -2, "error");
+    }
+    return 1;
+}
+
+/* web_body(id) -> the body (a string) of a finished request, or nil and why */
+static int l_web_body(lua_State *L)
+{
+    const web_req_t *r = web_find((int)luaL_checkinteger(L, 1));
+    if (!r)
+        return web_nil(L, "no such request");
+    if (r->state != WEB_DONE)
+        return web_nil(L, r->state == WEB_ERROR ? r->error : "the request is not finished");
+    lua_pushlstring(L, r->body ? (const char *)r->body : "", r->size);
+    return 1;
+}
+
+/* web_cancel(id): stops the request if it runs and frees its result. true if it was there. */
+static int l_web_cancel(lua_State *L)
+{
+    const int id = (int)luaL_checkinteger(L, 1);
+    lua_pushboolean(L, web_find(id) != NULL);
+    web_cancel(id);
+    return 1;
+}
+
+/* the bytes of argument idx: a string, or the id of a finished web_get (its body, not copied) */
+static const uint8_t *web_bytes(lua_State *L, int idx, size_t *len, const char **why)
+{
+    if (lua_type(L, idx) == LUA_TNUMBER) {
+        const web_req_t *r = web_find((int)luaL_checkinteger(L, idx));
+        if (!r || r->state != WEB_DONE) {
+            *why = !r ? "no such request" : "the request is not finished";
+            return NULL;
+        }
+        *len = r->size;
+        return r->body ? r->body : (const uint8_t *)"";
+    }
+    return (const uint8_t *)luaL_checklstring(L, idx, len);
+}
+
+/* image_load(bytes_or_id, sx, sy, [maxw, maxh]) -> { x =, y =, w =, h = }, or nil and why.
+ * Decodes a JPEG (baseline), PNG or WebP into the sprite sheet with its top left corner at
+ * (sx, sy); what does not fit the sheet or maxw x maxh is cut at the right and the bottom.
+ * Draw it with sspr(img.x, img.y, img.w, img.h, ...). */
+static int l_image_load(lua_State *L)
+{
+    size_t len = 0;
+    const char *why = NULL;
+    const uint8_t *data = web_bytes(L, 1, &len, &why);
+    if (!data)
+        return web_nil(L, why);
+    const int sx = ival(L, 2), sy = ival(L, 3);
+    if (!rt.sheet.px || sx < 0 || sy < 0 || sx >= rt.sheet.w || sy >= rt.sheet.h)
+        return web_nil(L, "outside the sprite sheet (cart_sheet(w, h) makes it bigger)");
+    int maxw = oval(L, 4, 0), maxh = oval(L, 5, 0);
+    if (maxw <= 0 || maxw > rt.sheet.w - sx)
+        maxw = rt.sheet.w - sx;
+    if (maxh <= 0 || maxh > rt.sheet.h - sy)
+        maxh = rt.sheet.h - sy;
+    webimg_t im;
+    char err[96];
+    if (webimg_decode(data, len, maxw, maxh, &im, err, sizeof err) != 0)
+        return web_nil(L, err);
+    later_paint();                      /* the frame held's sprites as they were (bm3d 6.9) */
+    sync3d();                           /* the waiting 3D may use the sheet as texture */
+    for (int y = 0; y < im.h; y++)
+        for (int x = 0; x < im.w; x++)
+            g16_sheet_set(&rt.sheet, sx + x, sy + y, im.px[(size_t)y * im.w + x], im.alpha[(size_t)y * im.w + x]);
+    const int per = rt.sheet.w / G16_CELL;
+    for (int cy = sy / G16_CELL; cy <= (sy + im.h - 1) / G16_CELL; cy++)
+        for (int cx = sx / G16_CELL; cx <= (sx + im.w - 1) / G16_CELL; cx++)
+            rt.cell_dirty[cy * per + cx] = 1;
+    rt.sheet_dirty = 1;
+    proj_sheet_drawn = 1;
+    sheet_commit();
+    lua_createtable(L, 0, 4);
+    lua_pushinteger(L, sx);
+    lua_setfield(L, -2, "x");
+    lua_pushinteger(L, sy);
+    lua_setfield(L, -2, "y");
+    lua_pushinteger(L, im.w);
+    lua_setfield(L, -2, "w");
+    lua_pushinteger(L, im.h);
+    lua_setfield(L, -2, "h");
+    webimg_free(&im);
+    return 1;
+}
+
+/* file_write(name, bytes_or_id) -> true and the path ("bm/web/NAME.EXT"), or nil and why.
+ * Writes a file in bm/web on the SD card (made if it is not there): an 8.3 name, no other
+ * folder, never .bm, .bme or .b16, at most file_write_max_kib (8 MiB) and 128 files in the
+ * folder. A name that is there is replaced. It waits for the card: a big file stops the
+ * frame for the time of the write. One SD writer at a time (fat_writing()). */
+static int l_file_write(lua_State *L)
+{
+    char name[13], err[96];
+    if (web_file_name(luaL_checkstring(L, 1), name, err, sizeof err) != 0)
+        return web_nil(L, err);
+    size_t len = 0;
+    const char *why = NULL;
+    const uint8_t *data = web_bytes(L, 2, &len, &why);
+    if (!data)
+        return web_nil(L, why);
+    const size_t cap = web_cap_bytes(config_get("file_write_max_kib"), FILE_MAX_KIB_DEFAULT, FILE_MAX_KIB_LIMIT);
+    if (len > cap)
+        return web_nil(L, "the file is over the cap (file_write_max_kib in bm/config.txt)");
+    if (fat_writing())
+        return web_nil(L, "the SD card is busy writing: try again");
+    char path[32];
+    ksnprintf(path, sizeof path, "%s/%s", WEB_FILES_DIR, name);
+    fat_entry_t e;
+    const int there = fat_find(path, &e) == 0;
+    if (there && e.is_dir)
+        return web_nil(L, "that name is a folder");
+    if (!there) {
+        int files = 0;
+        fat_dir_t d;
+        if (fat_opendir(&d, WEB_FILES_DIR) == 0)
+            while (fat_readdir(&d, &e) > 0)
+                files++;
+        if (files >= FILE_MAX_FILES)
+            return web_nil(L, "the bm/web folder has 128 files already");
+    }
+    int ok;
+    if (there)
+        ok = fat_replace(path, data, len) == 0;
+    else
+        ok = fat_mkdirs(WEB_FILES_DIR) == 0 && fat_write_file(WEB_FILES_DIR, name, data, len) == 0;
+    if (!ok)
+        return web_nil(L, fat_error());
+    lua_pushboolean(L, 1);
+    lua_pushstring(L, path + 1);
+    return 2;
+}
+
 /* ---------------------------------------------------------------- sound */
 
 static unsigned voice_arg(lua_State *L)
@@ -4843,6 +5077,8 @@ static const luaL_Reg api[] = {
     { "keymap", l_keymap }, { "controller", l_controller }, { "online", l_online },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
+    { "web_get", l_web_get }, { "web_poll", l_web_poll }, { "web_info", l_web_info }, { "web_body", l_web_body },
+    { "web_cancel", l_web_cancel }, { "image_load", l_image_load }, { "file_write", l_file_write },
     { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
     { "doc_list", l_doc_list }, { "doc_read", l_doc_read }, { "doc_write", l_doc_write }, { "doc_delete", l_doc_delete },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
@@ -7507,6 +7743,7 @@ static struct {
 static void release(lua_State *L)
 {
     cartnet_reset();            /* the cartridge's sockets */
+    web_reset();                /* its web requests and their results */
     audio_reset();
     audio_bank(NULL, 0, NULL, 0);
     set_copy(&own_audio, &own_audio_len, NULL, 0);

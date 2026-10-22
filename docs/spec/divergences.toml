@@ -533,3 +533,15 @@ priority = 6
 status = "open"
 evidence = "src/kernel/monitor.c; tests/qemu_test.py:test_monitor_crc"
 action = "decide whether the RGB30 needs a crc of its screen (a serial command, or the pad kernel's own tool); until then the screen check by CRC is Pi-only"
+
+[[divergence]]
+id = "D49"
+area = "web API"
+pi = "web_get, image_load and file_write run in every cartridge; web_get needs the WiFi and the TLS of the kernel"
+rgb30 = "the same sources are built (src/bm/webget.c is in the runtime, http.c and tls.c in the network code); web_get needs the RGB30 WiFi and returns nil and \"no network\" without it"
+cause = "todo"
+priority = 5
+status = "untested"
+note = "Built for both targets and tested in QEMU (Pi, no network) and on the PC (the request, with plain sockets). No run on a Pi or an RGB30 with a real server: the TLS handshake time inside a fiber, the throughput at 4 ms a frame, and the RGB30 WiFi path are not measured. If the RGB30 has no usable TLS path in a cartridge, web_get must return an error and this entry becomes a hardware divergence."
+evidence = "src/bm/webget.c; src/bm/runtime.c; rgb30.mk; tests/qemu_test.py:test_web_api; tests/web/run_webget_test.py"
+action = "run docs/api/system.md example against a real https server on a Pi Zero W and on an RGB30; note the handshake stall and the download speed in docs/progress/system-net.md"

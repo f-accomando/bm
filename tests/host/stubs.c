@@ -245,6 +245,8 @@ int fat_replace(const char *path, const void *data, size_t len)
     return write_host(hp, data, len);
 }
 
+int fat_writing(void) { return 0; }
+
 int fat_delete(const char *path)
 {
     char hp[512];
@@ -671,3 +673,17 @@ int reports_text(const char *kind, const char *text, size_t len)
     fclose(f);
     return 0;
 }
+
+/* web_get (src/bm/webget.c) needs fibers and TLS: bmhost has neither, the request fails. image_load
+ * and file_write are the real code (webimg.c, webpolicy.c, the host folder as the card). */
+#include "webget.h"
+int web_start(const char *url, size_t max, uint32_t timeout_ms, char *err, size_t en)
+{
+    (void)url; (void)max; (void)timeout_ms;
+    snprintf(err, en, "web_get does not run in bmhost");
+    return -1;
+}
+web_state_t web_poll(int id) { (void)id; return WEB_FREE; }
+const web_req_t *web_find(int id) { (void)id; return NULL; }
+void web_cancel(int id) { (void)id; }
+void web_reset(void) {}

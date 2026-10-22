@@ -19,6 +19,11 @@ rev = 3
 date = "2026-10-17"
 what = "the cartridge type (game, app, utility) declared in bm.info and mirrored in bits 2-3 of the header flags; projects (.bme) live in /bme; /carts is obsolete (scanned for one release, with a warning)"
 
+[[revision]]
+rev = 4
+date = "2026-10-22"
+what = "the web API for cartridges: web_get with web_poll, web_info, web_body and web_cancel (https only, a pause per host, a size cap), image_load (JPEG, PNG, WebP into the sprite sheet), file_write (bm/web only); the config keys web_max_kib and file_write_max_kib"
+
 [[item]]
 id = "container-v1"
 since = 1
@@ -146,3 +151,11 @@ status = "implemented"
 platforms = "all"
 where = ["src/kernel/sdmap_core.c", "src/kernel/sdmap.c", "src/kernel/settings.c", "src/kernel/menu_ui.c", "src/fs/fat.c"]
 note = "Settings > System > SD map: bar kernel/bm/bme/other/free, folders, other files; incremental scan in a menu fiber; cache bm/sdmap.txt"
+
+[[item]]
+id = "web-api"
+since = 4
+status = "implemented"
+platforms = "all"
+where = ["src/bm/webget.c", "src/bm/webpolicy.c", "src/bm/webimg.c", "src/bm/runtime.c", "src/net/http.c", "docs/api/system.md"]
+note = "docs/api/system.md, section The web. Tested in QEMU for image_load, file_write and the address rules (test_web_api) and on the PC for the request itself (make test-webapi). Not tried on the Pi or the RGB30 with a real server. The folder is bm/web because the FAT writer makes 8.3 names only"

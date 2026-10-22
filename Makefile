@@ -601,7 +601,7 @@ BMHOST_RT := src/bm/runtime.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm
              src/audio/player.c src/audio/presets.c src/audio/lua_tone.c src/ai/net.c src/ai/nn.c \
              src/bm/decimate.c src/bm/cutout.c \
              src/bm/glb.c src/bm/json.c src/bm/png.c src/bm/jpeg.c src/bm/loading.c src/bm/loading_logo.c \
-             src/bm/profile.c src/bm/project.c src/bm/shot.c
+             src/bm/profile.c src/bm/project.c src/bm/shot.c src/bm/webp.c src/bm/webimg.c src/bm/webpolicy.c
 BMHOST_LUA := $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS))
 BMHOST_OBJS := $(patsubst %,$(BUILD)/host/bmhost/%.o,$(BMHOST_RT) $(BMHOST_LUA))
 $(BUILD)/host/bmhost/%.c.o: %.c
@@ -839,7 +839,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
-      test-studio test-prompts test-docs test-api test-webp $(if $(K7),test-hyp)
+      test-studio test-prompts test-docs test-api test-webp test-webapi $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
@@ -1034,6 +1034,16 @@ test-webp: $(BUILD)/host/test_webp
 $(BUILD)/host/test_webp: tests/webp/test_webp.c src/bm/webp.c src/bm/webp.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -std=c11 -O1 -g -Wall -Wextra -fsanitize=address,undefined -fno-sanitize-recover=undefined -Isrc/bm -o $@ tests/webp/test_webp.c src/bm/webp.c
+
+# the web API for cartridges (web_get, image_load, file_write): the rules (src/bm/webpolicy.c), the request in a
+# fiber (webget.c, ucontext fibers here, plain sockets for the transport) and the picture decoders
+# (webimg.c) against a local server
+test-webapi: $(BUILD)/host/test_webget
+	$(PYTHON) tests/web/run_webget_test.py $(BUILD)/host/test_webget
+
+$(BUILD)/host/test_webget: tests/web/test_webget.c tests/web/run_webget_test.py src/bm/webget.c src/bm/webget.h src/bm/webpolicy.c                            src/bm/webpolicy.h src/bm/webimg.c src/bm/webimg.h src/bm/jpeg.c src/bm/png.c src/bm/webp.c                            src/net/http.c src/net/http.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -std=gnu11 -O1 -g -Wall -Wextra -fsanitize=address,undefined -fno-sanitize-recover=undefined -DBM_HOST_TEST 		-DHTTP_USER_AGENT='"test"' -Isrc -Isrc/bm -Isrc/net -o $@ tests/web/test_webget.c src/bm/webget.c src/bm/webpolicy.c 		src/bm/webimg.c src/bm/jpeg.c src/bm/png.c src/bm/webp.c src/net/http.c -lm
 
 test-http: $(BUILD)/host/test_http
 	$(PYTHON) tests/net/run_http_test.py $(BUILD)/host/test_http
