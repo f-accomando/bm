@@ -32,12 +32,21 @@ enum { SRQPC = 0x430, SRQUA = 0x434, SRQUL = 0x438, SRQCS = 0x43C, VPMBASE = 0x5
 static int qpu_delay, qpu_sent, qpu_done, qpu_reads, qpu_err, qpu_err_launch;
 static uint32_t qpu_ul[32], qpu_ua[32], qpu_pc[32], vpmbase_max, vpmbase_now_seen;
 
+static int reenter = 1, reenter_rc = 99;    /* a second caller while a run waits (another core) */
+static const char *reenter_why;
+static v3d_qpu_job_t reenter_job = { 0x40001000u, 0x40002000u, 1 };
+
 uint32_t mock_read(uint32_t addr)
 {
     uint32_t off = addr - V3D_BASE;
     if (off >= sizeof regs)
         return 0;
     if (off == SRQCS) {
+        if (!reenter) {
+            reenter = 1;
+            reenter_rc = v3d_qpu_run(&reenter_job, 1, 1000);
+            reenter_why = v3d_qpu_status();
+        }
         if (qpu_delay && qpu_done < qpu_sent && ++qpu_reads >= qpu_delay) {
             qpu_reads = 0;
             qpu_done++;
@@ -212,6 +221,29 @@ int main(void)
         v3d_wait(1000, NULL, NULL);
         qpu_delay = 1;
         CHECK(v3d_qpu_run(jobs, 3, 100000) == 0, "the run after the errors failed");
+
+        /* the lock: a second run while the first waits is refused, the first ends well */
+        reenter = 0;
+        qpu_delay = 2;
+        CHECK(v3d_qpu_run(jobs, 2, 100000) == 0, "the run with a second caller: %s", v3d_qpu_status());
+        CHECK(reenter_rc == -2 && !strcmp(reenter_why, "another QPU run"), "the second caller got %d (%s)", reenter_rc,
+              reenter_why);
+        CHECK(qpu_sent == 0, "the refused run left %d programs queued", qpu_sent);
+        reenter = 1;
+        qpu_delay = 1;
+        CHECK(v3d_qpu_run(jobs, 1, 100000) == 0, "the lock stayed taken after a run: %s", v3d_qpu_status());
+        qpu_delay = 0;
+        CHECK(v3d_qpu_run(jobs, 1, 1000) == -1, "a timeout");
+        qpu_delay = 1;
+        CHECK(v3d_qpu_run(jobs, 1, 100000) == 0, "the lock stayed taken after a timeout: %s", v3d_qpu_status());
+
+        /* after a failed run (QPU reset) the register block is written again */
+        regs[0x30 / 4] = regs[0x38 / 4] = 0;    /* INTCTL, INTDIS */
+        regs[CT0CS / 4] = regs[CT1CS / 4] = 0x1234;
+        qpu_delay = 0;
+        CHECK(v3d_qpu_run(jobs, 1, 1000) == -1, "a timeout for the register check");
+        CHECK(regs[0x30 / 4] == 0xF && regs[0x38 / 4] == 0xF && vpmbase_now_seen == 0 && regs[CT0CS / 4] == 0 && regs[CT1CS / 4] == 0,
+              "registers after a QPU reset: INTCTL %x INTDIS %x", regs[0x30 / 4], regs[0x38 / 4]);
     }
     printf("v3d: %d/%d checks passed\n", checks - failures, checks);
     return failures ? 1 : 0;

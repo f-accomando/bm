@@ -56,9 +56,8 @@ Friday evening:
 6. Web player (WEB-1): stages 1-3 are in bm-core (emsdk is in `~/emsdk` in WSL). Next: check sound and the 60 Hz rate in a visible tab, then saves in IndexedDB. Plan in `docs/design/bm-web-player.md`.
 7. Triangle throughput: stage 1, make `gpu3d_queue=1` the default in a code change (the benchmark of 22 Oct gave x1.75 on `herotris`; see `docs/design/triangle-throughput.md` section 7). `gpu3d_attr` stays off (decided 22 Oct). The V3D async proposal is decided "skip" (12 Oct, `docs/progress/v3d-notes.md`: interrupts, triple buffering, `v3d_async.c`). `queue=2` and `gpu3d_later` replaced it. Chain jobs (CT0/CT1) only if a measurement shows the GPU idle between jobs.
 8. Evaluate the security findings of `docs/OS-CAPABILITIES.md`: `lua_load(..., NULL)` at `runtime.c:9438` may accept bytecode; default net password is 6 digits from `srand(timer_ticks())` (`netcon.c:183`), plaintext on TCP 3334; carts can `ls` the SD and `cart_read` any `.bm` without a prompt; FAT dates fixed at 2026-01-01 (`fat.c:682`); docs disagree (`docs/progress/b16.md:16` says 4 MiB heap, code 64 MiB; RGB30 menu framebuffer 360x360).
-9. QPU step 4: re-run the `v3d_init` register block after a QPU reset; lock for `v3d_qpu_run` (needs a Pi run).
-10. R41 and R42 only if the R40 numbers (`stat(17)`, `stat(18)`) show a gain.
-11. Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
+9. R41 and R42 only if the R40 numbers (`stat(17)`, `stat(18)`) show a gain.
+10. Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
 
 ## Open issues
 - The Pi froze once on `b3d tests=herotris` with all profiles in one line (8 profiles in one run). The user power-cycled the Pi. The same profiles run one at a time did not freeze. Cause unknown, no fix. Command: `b3d tests=herotris` (no profile named, so all 8 profiles in one line). To reproduce, run it again and note the profile that is running at the freeze.

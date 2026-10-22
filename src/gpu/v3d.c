@@ -91,6 +91,22 @@ static void snapshot(void)
     snapped = 1;
 }
 
+/* The V3D's registers as the vertex pipeline wants them: all of the VPM to
+ * it (as Linux: no user programs), both control list threads stopped, counts
+ * and interrupts cleared. v3d_init runs it, and v3d_qpu_run runs it again
+ * after a QPU reset, as the reset may power-cycle the V3D. */
+static void regs_init(void)
+{
+    wr(V3D_VPMBASE, 0);
+    wr(V3D_INTDIS, 0xF);
+    wr(V3D_INTCTL, 0xF);
+    wr(V3D_CT0CS, CT_RESET);
+    wr(V3D_CT1CS, CT_RESET);
+    wr(V3D_BFC, 1);
+    wr(V3D_RFC, 1);
+    dmb();
+}
+
 int v3d_init(void)
 {
     static int absent;                  /* asked once: QEMU has none */
@@ -115,16 +131,7 @@ int v3d_init(void)
         absent = 1;
         return -1;
     }
-    /* all of the VPM to the vertex pipeline (as Linux: no user programs),
-     * both control list threads stopped, counts and interrupts cleared */
-    wr(V3D_VPMBASE, 0);
-    wr(V3D_INTDIS, 0xF);
-    wr(V3D_INTCTL, 0xF);
-    wr(V3D_CT0CS, CT_RESET);
-    wr(V3D_CT1CS, CT_RESET);
-    wr(V3D_BFC, 1);
-    wr(V3D_RFC, 1);
-    dmb();
+    regs_init();
     status = "ready";
     ready = 1;
     return 0;
@@ -382,6 +389,7 @@ int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
 /* ------------------------------------------------------------ QPU programs */
 
 static const char *qpu_why = "not run";
+static volatile int qpu_lock;
 
 const char *v3d_qpu_status(void)
 {
@@ -392,7 +400,23 @@ const char *v3d_qpu_status(void)
  * written in this order: the PC write queues the program). The counts of
  * sent and done programs are reset first; the VPM share is given for the
  * run only, as the vertex pipeline wants all of it. */
+static int qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us);
+
+/* One run at a time. The kernel's fibers are cooperative and this function
+ * never yields, so a second caller can only come from another core or an
+ * interrupt: it gets -2 (nothing started) and tries again later. */
 int v3d_qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us)
+{
+    if (__atomic_exchange_n(&qpu_lock, 1, __ATOMIC_ACQUIRE)) {
+        qpu_why = "another QPU run";
+        return -2;
+    }
+    const int r = qpu_run(jobs, n, timeout_us);
+    __atomic_store_n(&qpu_lock, 0, __ATOMIC_RELEASE);
+    return r;
+}
+
+static int qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us)
 {
     if (!ready) {
         qpu_why = "no V3D";
@@ -446,6 +470,8 @@ int v3d_qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us)
         uint32_t off[1] = { 0 }, on[1] = { 1 };
         prop_query(PROP_ENABLE_QPU, off, 1);    /* the firmware's reset of QPUs that do not end */
         prop_query(PROP_ENABLE_QPU, on, 1);
+        timer_delay_ms(1);
+        regs_init();                            /* the reset may have power-cycled the V3D */
     }
     wr(V3D_VPMBASE, 0);
     wr(V3D_SRQCS, SRQ_RESET);

@@ -81,9 +81,11 @@ Raw reports: branch `reports`, `reports/unknown/`. Source commits: 61dc9f73, 935
 - Fade (`g16_fade_apply`, cart `FADE.BM`): 16.55 ms a fade, 1542 fades. The CRC sample read 0 (`pget`), so the
   fade result is not proven. No QPU comparison yet.
 
-## Waiting for the user: first QPU run on the Pi
+## First QPU run on the Pi (done 22 Oct: QPU PASS)
 
-The QPU check is behind the config key `gpu3d_qpu` (default off). With the key off, nothing changes: no `qpu_init` call and no new work. Nothing here is verified on hardware.
+Result: [v3d](v3d.md) item 5. The steps below stay for the 3D Bench `qpu row` line, which is not run yet.
+
+The QPU check is behind the config key `gpu3d_qpu` (default off). With the key off, nothing changes: no `qpu_init` call and no new work. The GPU test step is verified on the Pi (22 Oct); the 3D Bench line is not.
 
 1. Edit `bm/config.txt` on the SD card. Add the line `gpu3d_qpu=1`.
 2. Put the card in the Pi Zero W. Do not use a serial connection.
