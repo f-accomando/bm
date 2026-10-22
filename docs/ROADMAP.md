@@ -73,7 +73,6 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 ## Process and docs
 
-- BETA-7 - P1 - partial - Manuals up to date. Done: no manual has an open ("to do") chapter; api-core (web API, stack), api-3d (cel3d), api-tools and editor-sdk (no 8 MiB limit), install-sd (net_password, rec_format), pi-zero-w (cel, gpu3d_qpu) match the code. Open: the manuals that `python scripts/manuals.py status` still lists with "sources changed" (boot-os, riff, api-sound, api-lib, the editors, characters, levels) are not re-read against their sources. Each manual in `manuals/content/` (English and Italian) matches the code, and `python scripts/manuals.py status` shows no open item. No tester guide and no feedback channel: users send feedback to the owner in private. After APP-3.
 - APP-3 - P3 - to do - PDF manuals and project structure. EN/IT manuals aligned; layout of `docs/PROJECT-LAYOUT.md` respected. [tools](progress/tools.md) `PDF manuals`, `Project layout`
 - SYS-4 - P1 - to do - Measurable multi-agent coordination. Ledger and `agent_audit.py` with a baseline; work order scope checked by script. [archive](archive/sync/README.md)
 

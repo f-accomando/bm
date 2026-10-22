@@ -73,7 +73,7 @@ Uno sprite è un pezzo dello **sprite sheet**, l'unica immagine che un gioco leg
 | `spr(n, x, y, [w, h, flip_x, flip_y])` | disegna la cella `n`, `w` per `h` celle, anche speculare |
 | `sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom])` | copia un rettangolo qualsiasi dello sheet, anche speculare, più grande o più piccolo con `zoom` |
 | `zspr(name, x, y, [frame, flip_x, flip_y, zoom])` | disegna una zona con nome; senza `frame` si anima da sola |
-| `zone(name)` | `x, y, w, h, frames, fps` della zona |
+| `zone(name)` | `x, y, w, h, frames, fps, slices` della zona |
 | `zboxes(name, [frame, kind])` | le hitbox e le hurtbox dei fotogrammi della zona |
 
 Una zona è un nome per un rettangolo dello sheet, i suoi fotogrammi (riquadri della stessa dimensione affiancati su una riga) e la sua velocità. Per i fotogrammi e gli fps mostrati nell'editor vedi il manuale di bm Pixel.
@@ -234,9 +234,39 @@ La luce di *Yharnam* non ridipinge gli sprite: ogni pixel ha un livello di luce 
 
 ## Sprite stacking
 
-::: warn
-**[IN SVILUPPO]** Lo sprite stacking: un oggetto pseudo-3D fatto di fette sovrapposte. Il progetto (traguardo M43) prevede `stack(sx, sy, w, h, n, x, y, [rz, scale, step])`, stack con nome (`zstack`), una pagina Stack in bm Pixel e la conversione di uno stack in mesh. Nulla di ciò esiste oggi in `src/bm/gfx16.c` né in bm Pixel. Previsto: beta rev 1.
+Uno stack di sprite è un oggetto pseudo-3D fatto di fette. Ogni fetta si disegna come un'immagine piatta. Le fette stanno una accanto all'altra nello sheet. Il gioco le disegna una sopra l'altra e può girare la pila con un angolo, così sembra un oggetto solido che ruota. Un albero, un barile o un'auto possono essere uno stack.
+
+| Chiamata | Cosa fa |
+|---|---|
+| `stack(sx, sy, w, h, n, x, y, [rz, scale, step])` | disegna `n` fette di `w` per `h` pixel che stanno una accanto all'altra nello sheet da `(sx, sy)`, da sinistra a destra. La fetta 1 è quella in fondo e si disegna per prima. `(x, y)` è il centro della fetta in fondo. Ogni fetta ruota di `rz` radianti, è `scale` volte più grande e sta `step * scale` pixel sopra quella sotto (`step` è 1 se manca). Il colore 0 è trasparente |
+| `stackv(sx, sy, w, h, n, x, y, [rz, scale, step])` | lo stesso, ma le fette stanno una sotto l'altra nello sheet, dall'alto in basso; quella in alto è la fetta 1 |
+| `zstack(name, x, y, [rz, scale])` | disegna una zona stack dal suo nome, con `step` 1 |
+| `zone(name)` | `x, y, w, h, frames, fps, slices` di una zona; `slices` è 0 per una zona normale e da 2 a 255 per una zona stack |
+
+Una **zona stack** è una riga del file delle zone: `stack name x y w h n` per `n` fette una accanto all'altra, oppure `stackv name x y w h n` per fette una sotto l'altra, da `(x, y)` verso il basso. La fetta in fondo viene per prima. La zona ha un solo fotogramma.
+
+- **bm Pixel, pagina F4** crea e cambia le zone `stack`, mostra le fette una per una e mostra l'intero stack che ruota. Una fetta si disegna su F1. Il capitolo "F4: the stack" del manuale di bm Pixel ha i tasti.
+- **bm Animator** conserva le fette di una zona quando si rifà il bake della zona, se la nuova zona sta ancora nello sheet.
+- **Da stack a mesh.** Sul PC, `python tools/stack2mesh.py SHEET.png -o OUT.bmm --size W H -n N --at X Y` legge uno stack e scrive un file `.bmm` con un modello. Ogni pixel opaco è un voxel e i voxel dello stesso colore si uniscono in box. `--dir v` serve per fette una sotto l'altra. Il limite predefinito è 4096 vertici; `--kernel-limits` ne permette 65535 per l'RGB30. Uno stack troppo grande si ferma con un errore che indica il limite.
+
+::: copy
+```lua
+-- un albero di 8 fette di 16x16 pixel, che ruota
+local a = 0
+function _update() a = a + 0.02 end
+function _draw()
+  cls(1)
+  zstack("tree", 80, 60, a, 2)
+end
+```
 :::
+
+### Avvertenze
+
+- `stack` disegna sulla CPU, legge lo sheet a ogni chiamata e non tiene memoria. La velocità sul Pi Zero W **non è verificata su hardware**.
+- Una fetta che non sta tutta nello sheet viene saltata. Uno `scale` pari o minore di 0, o sopra 64, non disegna nulla.
+- La pagina F4 di bm Pixel non cancella una zona stack e non crea zone `stackv`: scrivi quelle righe nel file delle zone.
+- **[IN SVILUPPO]** Un pulsante in bm Pixel o bm Studio per convertire uno stack in mesh: oggi si usa il comando qui sopra. Previsto: beta rev 1.
 
 # 2D pre-renderizzato
 
@@ -387,7 +417,7 @@ Usa **M** per costruire un personaggio simmetrico: modella metà, copiala dall'a
 
 - Al massimo 65535 vertici e 65535 triangoli in una mesh, e 256 modelli in una cartuccia.
 - bm Mesh mantiene lo scheletro di un modello: l'osso di ogni nuovo vertice è quello da cui nasce.
-- **[IN SVILUPPO]** La conversione automatica di uno stack di sprite in mesh (bm Studio / bm Mesh), parte del progetto dello sprite stacking. Previsto: beta rev 1.
+- Uno stack di sprite diventa un mesh con `tools/stack2mesh.py` (capitolo "Sprite stacking"). Un pulsante per farlo in bm Studio o bm Mesh non c'è ancora.
 
 # Modelli 3D
 
@@ -460,6 +490,7 @@ Tutte queste chiamate stanno nell'API 3D (`docs/api/light3d.md`).
 | `fog3d(colour, near, far)` | la nebbia |
 | `shadow3d(style)` | le ombre di `draw3d` con flag 8: 0 scurisce, 1 nero retinato |
 | `zclear()` | svuota lo z-buffer, a ogni fotogramma prima di `draw3d` |
+| `cel3d([bands, floor, outline_rgb, outline_width])` | luce cel per le chiamate `draw3d` con flag 256 (da 2 a 8 bande, spenta di default) e colore e spessore del contorno per il flag 512; senza argomenti restituisce i valori |
 
 ## I flag di `draw3d`
 
@@ -472,6 +503,8 @@ Tutte queste chiamate stanno nell'API 3D (`docs/api/light3d.md`).
 | 16, 32, 48 | livello di dettaglio 2, 1, 0 |
 | 64 | davanti (braccia e armi in prima persona) |
 | 128 | texture piatte (il texel medio) |
+| 256 | luce cel: la luce del sole di questo disegno è tagliata in bande (vedi `cel3d`) |
+| 512 | contorno della mesh, dopo di essa (vedi `cel3d`) |
 
 ## Materiali nel colore di una faccia
 

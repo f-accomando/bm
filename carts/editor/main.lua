@@ -984,7 +984,7 @@ end
 -- project page shows them: the code, the sheet and the map in use, the
 -- models, the sound bank, the memory the game's data takes, the file, the
 -- biggest functions and, for a .b16, what the format will not have
-local B16_LIMIT = 8 * 1024                -- KiB: the cap of a .b16 cartridge (docs/B16.md 5.1)
+local B16_LIMIT = 100 * 1024              -- KiB: the Market ceiling for one file (docs/BM-FORMAT.md, File size); the kernel has no cap
 local B16_CHECKS = {                     -- (whole names: %f, not "mytime(")
   { "%f[%w_]math%.random", "math.random: left out of the sandbox (the same game on every machine, 6.3)" },
   { "%f[%w_.:]time%(", "time(): no clock (2.9); count the ticks instead" },
@@ -2932,7 +2932,7 @@ local function set_target(t)
   if t == "b16" then
     local w, h = S.proj.res:match("(%d+)x(%d+)")
     if w ~= h then S.proj.res = "360x360"; touched() end
-    say("target .b16 (RGB30): 8 MiB limit; Ctrl+B builds the .b16 edition", C.ACC, 400)
+    say("target .b16 (RGB30): no size cap; Ctrl+B builds the .b16 edition", C.ACC, 400)
   else
     say("target .bm: the console's cartridge", C.ACC)
   end
@@ -3071,7 +3071,7 @@ do
   local function draw_devkit()
     local I, r = S.info, S.run
     strip(PANEL_W, "dev kit", "performance, memory and tokens",
-          "target ." .. S.target .. (S.target == "b16" and "   (RGB30, 8 MiB: Esc > Export .b16, docs/B16.md)" or
+          "target ." .. S.target .. (S.target == "b16" and "   (RGB30, no cap: Esc > Export .b16, docs/B16.md)" or
                                      "   F11 in any game: the overlay"))
     if not I or I.error then
       print(I and I.error and ("cannot measure: " .. I.error:sub(1, 40)) or "measuring...", INFO_X, 64, C.DIM)
@@ -3093,7 +3093,7 @@ do
       if I.file_kb then
         local frac = I.file_kb / B16_LIMIT
         bar(INFO_X, 176, 176, frac, frac > 1 and C.ERR or frac > 0.75 and C.ACC or C.OK)
-        print(kib(I.file_kb) .. " of 8M (.b16)", INFO_X + 192, 176, frac > 1 and C.ERR or C.TEXT)
+        print(kib(I.file_kb) .. " of 100M (Market)", INFO_X + 192, 176, frac > 1 and C.ERR or C.TEXT)
       else
         print("not saved yet: Save as, then the size of the file", INFO_X, 176, C.DIM)
       end

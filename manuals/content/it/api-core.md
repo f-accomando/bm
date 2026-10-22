@@ -231,7 +231,7 @@ La sezione SPRITES dà un nome a rettangoli dello sheet, con i loro fotogrammi (
 | Funzione | Cosa fa |
 |---|---|
 | `zspr(name, x, y, [frame, flip_x, flip_y, zoom])` | disegna una **zona con nome** dello sheet: `frame` da 1 al numero di fotogrammi (oltre ricomincia), oppure `nil`: quello che i suoi fps danno a `time()`, così l'animazione va da sola. Restituisce il fotogramma disegnato. Una zona che non c'è è un errore |
-| `zone(name)` | restituisce `x, y, w, h, frames, fps` della zona (il suo primo fotogramma, in pixel dello sheet), oppure `nil` |
+| `zone(name)` | restituisce `x, y, w, h, frames, fps, slices` della zona (il suo primo fotogramma, in pixel dello sheet; `slices` è 0 per una zona normale, da 2 a 255 per una zona stack), oppure `nil` |
 | `zones()` | i nomi delle zone, in ordine (`{}` se non ce ne sono) |
 | `zboxes(name, [frame, kind])` | gli **hitbox e hurtbox** dei fotogrammi di una zona (vedi sotto) |
 

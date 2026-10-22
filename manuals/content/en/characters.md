@@ -73,7 +73,7 @@ A sprite is a piece of the **sprite sheet**, the one picture a game reads. The s
 | `spr(n, x, y, [w, h, flip_x, flip_y])` | draws cell `n`, `w` by `h` cells, mirrored too |
 | `sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom])` | copies any rectangle of the sheet, mirrored too, bigger or smaller with `zoom` |
 | `zspr(name, x, y, [frame, flip_x, flip_y, zoom])` | draws a named zone; without `frame` it animates by itself |
-| `zone(name)` | `x, y, w, h, frames, fps` of the zone |
+| `zone(name)` | `x, y, w, h, frames, fps, slices` of the zone |
 | `zboxes(name, [frame, kind])` | the hitboxes and hurtboxes of the zone's frames |
 
 A zone is a name for a rectangle of the sheet, its frames (boxes of the same size side by side on a row) and its speed. See the manual of bm Pixel for the frames and fps shown in the editor.
@@ -234,9 +234,39 @@ The light of *Yharnam* does not repaint sprites: each pixel has a light level an
 
 ## Sprite stacking
 
-::: warn
-**[IN DEVELOPMENT]** Sprite stacking: a pseudo-3D object made of overlaid slices. The design (milestone M43) has `stack(sx, sy, w, h, n, x, y, [rz, scale, step])`, named stacks (`zstack`), a Stack page in bm Pixel and a conversion of a stack into a mesh. None of it exists in `src/bm/gfx16.c` or in bm Pixel today. Planned: beta rev 1.
+A sprite stack is a pseudo-3D object made of slices. You draw each slice as a flat picture. The slices lie side by side on the sheet. The game draws them one above the other and can turn the pile with an angle, so it looks like a solid object that turns. A tree, a barrel or a car can be a stack.
+
+| Call | What it does |
+|---|---|
+| `stack(sx, sy, w, h, n, x, y, [rz, scale, step])` | draws `n` slices of `w` by `h` pixels that lie side by side on the sheet from `(sx, sy)`, left to right. Slice 1 is the bottom and is drawn first. `(x, y)` is the centre of the bottom slice. Each slice turns by `rz` radians, is `scale` times bigger and sits `step * scale` pixels above the one below (`step` is 1 by default). Colour 0 is transparent |
+| `stackv(sx, sy, w, h, n, x, y, [rz, scale, step])` | the same, but the slices lie one under the other on the sheet, top to bottom; the top one is slice 1 |
+| `zstack(name, x, y, [rz, scale])` | draws a stack zone by its name, with `step` 1 |
+| `zone(name)` | `x, y, w, h, frames, fps, slices` of a zone; `slices` is 0 for a plain zone and 2 to 255 for a stack zone |
+
+A **stack zone** is a line of the zones file: `stack name x y w h n` for `n` slices side by side, or `stackv name x y w h n` for slices one under the other, from `(x, y)` down. The bottom slice comes first. The zone has one frame.
+
+- **bm Pixel, page F4** makes and changes `stack` zones, shows the slices one by one and shows the whole stack as it turns. A slice is drawn on F1. The chapter "F4: the stack" of the bm Pixel manual has the keys.
+- **bm Animator** keeps the slices of a zone when you bake the zone again, if the new zone still fits the sheet.
+- **From a stack to a mesh.** On the PC, `python tools/stack2mesh.py SHEET.png -o OUT.bmm --size W H -n N --at X Y` reads a stack and writes a `.bmm` file with one model. Each opaque pixel is a voxel, and voxels of one colour join into boxes. `--dir v` is for slices one under the other. The default limit is 4096 vertices; `--kernel-limits` allows 65535 for the RGB30. A stack that is too big stops with an error that gives the limit.
+
+::: copy
+```lua
+-- a tree of 8 slices of 16x16 pixels, turning
+local a = 0
+function _update() a = a + 0.02 end
+function _draw()
+  cls(1)
+  zstack("tree", 80, 60, a, 2)
+end
+```
 :::
+
+### Caveats
+
+- `stack` draws on the CPU, reads the sheet every call and keeps no memory. The speed on the Pi Zero W is **not verified on hardware**.
+- A slice that is not wholly inside the sheet is skipped. A `scale` of 0 or less, or above 64, draws nothing.
+- bm Pixel F4 does not delete a stack zone and does not make `stackv` zones: write those lines in the zones file.
+- **[IN DEVELOPMENT]** A button in bm Pixel or bm Studio for the conversion of a stack into a mesh: today it is the command above. Planned: beta rev 1.
 
 # Pre-rendered 2D
 
@@ -387,7 +417,7 @@ Use **M** to build a symmetrical character: model half, copy it to the other sid
 
 - At most 65535 vertices and 65535 triangles in a mesh, and 256 models in a cartridge.
 - bm Mesh keeps the skeleton of a model: the bone of each new vertex is the one it comes from.
-- **[IN DEVELOPMENT]** Automatic conversion of a sprite stack into a mesh (bm Studio / bm Mesh), part of the sprite stacking design. Planned: beta rev 1.
+- A sprite stack becomes a mesh with `tools/stack2mesh.py` (chapter "Sprite stacking"). A button for it in bm Studio or bm Mesh is not there yet.
 
 # 3D models
 
@@ -460,6 +490,7 @@ All these calls are in the 3D API (`docs/api/light3d.md`).
 | `fog3d(colour, near, far)` | fog |
 | `shadow3d(style)` | the shadows of `draw3d` with flag 8: 0 darken, 1 dithered black |
 | `zclear()` | clears the z-buffer, every frame before `draw3d` |
+| `cel3d([bands, floor, outline_rgb, outline_width])` | cel light for `draw3d` calls with flag 256 (2 to 8 bands, off by default) and the colour and width of the outline for flag 512; with no argument it returns the values |
 
 ## The flags of `draw3d`
 
@@ -472,6 +503,8 @@ All these calls are in the 3D API (`docs/api/light3d.md`).
 | 16, 32, 48 | level of detail 2, 1, 0 |
 | 64 | in front (first-person arms and weapons) |
 | 128 | flat textures (the average texel) |
+| 256 | cel light: the sun light of this draw is cut into bands (see `cel3d`) |
+| 512 | outline of the mesh, after it (see `cel3d`) |
 
 ## Materials in a face's colour
 
