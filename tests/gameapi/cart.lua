@@ -612,6 +612,7 @@ local function lib_input()
         t.act2 == "y" and lib.input_scheme == "scroller", "lib.input: the scroller scheme is the default")
   check(#lib.input_exceptions == 0, "lib.input: no exceptions by default")
   lib.input({ scheme = "topdown" })
+  check(controls().scheme == "topdown", "lib.input: the runtime knows the scheme (the player's remap of it applies)")
   km = keymap()
   check(km.act1[1] == "ok" and km.act2[1] == other and km.act3[1] == "y" and km.act4[1] == "x" and
         #lib.input_exceptions == 0, "lib.input: the topdown scheme")
@@ -624,6 +625,7 @@ local function lib_input()
   check(keymap().act2[1] == "x" and lib.input_exceptions[1] == "act2" and #lib.input_exceptions == 1,
         "lib.input: an override is a declared exception")
   lib.input()
+  check(controls().scheme == "scroller", "lib.input: back to the default scheme")
 end
 
 

@@ -179,6 +179,7 @@ make qemu
 - **Game Authoring Guide**: [`docs/GAME-GUIDE.md`](docs/GAME-GUIDE.md) (Italian: [`docs/GUIDA-GIOCHI.md`](docs/GUIDA-GIOCHI.md)).
 - **Architecture & Design RFCs**: [`docs/design/`](docs/design/).
 - **Performance & Drivers**: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md), [`docs/DRIVERS.md`](docs/DRIVERS.md), and [`docs/HARDWARE.md`](docs/HARDWARE.md).
+- **OS Capabilities**: [`docs/OS-CAPABILITIES.md`](docs/OS-CAPABILITIES.md) *(what bm can and cannot do, compared with Linux and Windows)*.
 - **AI Agent Guidelines**: [`CLAUDE.md`](CLAUDE.md) and [`GEMINI.md`](GEMINI.md).
 
 ---
