@@ -101,11 +101,14 @@ do
     end
     -- the numbers, bottom right
     local d = H.drawn or { 0, 0, 0, 0 }
+    local ht = 0                                  -- triangles of the heroes drawn: the count at each level x its model
+    for k = 1, 4 do ht = ht + d[k] * H.lod_tris[k] end
     local lines = {
       string.format("ms %s  max %s  fps %d", fmt(L.ms), fmt(L.max), math.floor(L.fps)),
       string.format("gpu %s  wait %s  anim %s", fmt(L.gpu), fmt(L.wait), fmt(L.anim)),
       string.format("tri %d  vtx %d  lua %dk", math.floor(L.tri), math.floor(L.vtx), math.floor(L.lua / 1000)),
       string.format("n %d  lod %s (0:%d 1:%d 2:%d 3:%d)", H.n, H.lod_name(), d[1], d[2], d[3], d[4]),
+      string.format("hero tris %d (n %d)", ht, H.n),
       string.format("%dx%d  map %s tri", SCREEN_W, SCREEN_H, H.map_tris and tostring(math.floor(H.map_tris)) or "-"),
     }
     local note = H.sweeping() and "SWEEP RUNNING" or H.sweep_note

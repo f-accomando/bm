@@ -19,9 +19,7 @@ Rules:
 - The user does the RGB30 hardware tests and the Pi runs. Write the results into the sheets when the user gives them.
 
 Thursday evening:
-- Close the work in flight: multitasking stages 3-5, cel stages 3-4 on V3D, bench for hero, VS and cel, herocart LOD triangles.
-- Load the kernel and bmweb on the Pi.
-- Publish bmweb to bm-market.
+- Close the work in flight: multitasking stages 3-5, bench for hero, VS and cel, herocart LOD triangles.
 - Run the hero benchmark on the Pi. Write the numbers into the sheets.
 
 Friday morning:
@@ -32,7 +30,7 @@ Friday afternoon:
 - API-3: triangle throughput. Decide the default of `gpu3d_queue` from the benchmark numbers.
 - API-4: VID-REC MJPEG or RLE encoder for 30 fps.
 
-Friday after the Mali device runs (done by the user through the RGB30 bridge, one session only on the RGB30):
+Friday after the Mali device runs (done by the SPV through the RGB30 bridge, one session only on the RGB30):
 - Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
 
 Friday evening:
@@ -62,6 +60,9 @@ Friday evening:
 9. QPU step 4: re-run the `v3d_init` register block after a QPU reset; lock for `v3d_qpu_run` (needs a Pi run).
 10. R41 and R42 only if the R40 numbers (`stat(17)`, `stat(18)`) show a gain.
 11. Mali alignment with the Pi driver (API-5), stage by stage, each stage tested on the RGB30 through the bridge `--dev rgb30`.
+
+## Open issues
+- `qemu_test.py -k herocart` is red on bm-core 4c65205d (res=1920x1080 assert or timeout at `,cel2,`); same without the LOD change; needs its own fix.
 
 ## Never delete
 `bm-core`, `reports`, `sync-handshake`, `claude/beta1-c4-ring2`, `claude/beta1-c4-ring3`, and the graphics branches below until their commits are ported or the user says go.

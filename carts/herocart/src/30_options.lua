@@ -63,6 +63,12 @@ do
   function heroes.toggle() H.n = H.n == 0 and 20 or 0 end
 
   local lod = choice("LOD", { "0", "1", "2", "3", "auto" }, 5, function(i) H.lod = i end)
+  -- beside the level: the triangles of one hero in the model it picks (H.lod_tris, 05_tris.lua)
+  function lod.get()
+    local T = H.lod_tris
+    if H.lod < 5 then return lod.labels[H.lod] .. "  " .. T[H.lod] .. " tris/hero" end
+    return "auto  " .. T[1] .. "-" .. T[#T] .. " tris/hero"
+  end
 
   local backend = choice("Backend", { "ARM", "GPU" }, 1, function(i) gpu3d(i == 2) end,
     function() return (gpu_state()) and "GPU" or "ARM" end)
@@ -168,7 +174,7 @@ do
   -- expect in the numbers. At most two lines of 42 characters. Edit the texts here.
   H.HELP = {
     ["Heroes"] = { "Heroes drawn (all 64 still move).", "tri rises with the count." },
-    ["LOD"] = { "Polygon level: 0 full ... 3 fewest.", "tri falls 0 to 3; auto: by distance." },
+    ["LOD"] = { "LOD is Level Of Detail: far heroes use", "models with fewer triangles." },
     ["Backend"] = { "ARM or GPU draws the 3D.", "ARM ignores AA, VS, Queue, Frame later." },
     ["AA"] = { "4x MSAA, GPU only.", "gpu ms rises; tri stays." },
     ["Vertex shader"] = { "GPU places vertices: tri at 60 fps rises.", "Needs GPU. Shows asked->applied (probe)." },
