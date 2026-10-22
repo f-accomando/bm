@@ -9,10 +9,35 @@ TESTS = ["spheres", "spheres_smooth", "spheres_tex", "spheres_unlit", "spheres_b
          "heroes_tex", "heroes_skin", "heroes_shadow", "clip", "tiny", "draws", "quad_flat", "quad_smooth", "quad_tex", "quad_alpha",
          "quad_screen", "quad_texscreen", "texswap", "split", "match", "mix", "queue", "bilinear", "gpu2d", "big", "big_logic"]
 FUTURE = []
+# the 2D scenes: only when `tests=` names them (the default run has no row of them)
+TESTS2D = {"map8": {"ARM"}, "sprites": {"ARM", "GPU+2D"}, "stack": {"ARM"}, "fade": {"ARM"}, "light": {"ARM"}}
+
+
+def check_2d(d):
+    """make test-b3d, third run: only the 2D scenes, by name; every report field there and sane."""
+    fails = 0
+    text = open(os.path.join(d, "3D0001.TXT")).read() if os.path.exists(os.path.join(d, "3D0001.TXT")) else ""
+    rows = [l.split(",") for l in text.splitlines() if l.startswith("R,")]
+    for t, need in TESTS2D.items():
+        got = {r[2]: r for r in rows if r[1] == t}
+        ok = need <= set(got)
+        for r in got.values():
+            # ms, worst, gpu_ms, clean_kcyc, inval_kcyc, fill_px, ns_px_frame (the PC has no ARM counters: instr is 0)
+            ok = ok and len(r) == 34 and 0 <= float(r[7]) <= float(r[8]) and float(r[15]) >= 0
+            ok = ok and float(r[25]) >= 0 and float(r[26]) >= 0 and int(r[30]) > 0 and float(r[32]) >= -1
+        print(("ok   " if ok else "FAIL ") + f"2D scene {t}: {' '.join(sorted(got))}")
+        fails += not ok
+    others = {r[1] for r in rows} - set(TESTS2D)
+    print(("ok   " if not others else "FAIL ") + "2D scenes: only the named tests ran")
+    fails += bool(others)
+    print(f"b3d 2D: {'all ok' if not fails else f'{fails} failed'}")
+    return 1 if fails else 0
 
 
 def main():
     d = sys.argv[1]
+    if len(sys.argv) > 2 and sys.argv[2] == "--2d":
+        return check_2d(d)
     fails = 0
 
     def check(ok, what):
@@ -46,6 +71,7 @@ def main():
         if t != "bilinear":
             need |= {"GPU+VS+FS2"}          # bm3d 6.6: the driver as the games get it, wherever the GPU runs
         check(need <= profs, f"{t}: {' '.join(sorted(profs))}")
+    check(not any(r[1] in TESTS2D for r in rows), "the 2D scenes: not in the default run")
     for t in FUTURE:
         check(any(l.startswith(f"F,{t},") for l in lines), f"{t}: shown as not developed yet")
     # the vertex shader's rows: the models it takes cost the ARM fewer instructions (here: fewer
@@ -71,7 +97,7 @@ def main():
     mix = [l for l in lines if l.startswith("triangles at 60 fps ")]
     check(len(mix) == 1 and int(mix[0].split()[4]) > 0, mix[0] if mix else "triangles at 60 fps: missing")
     pages = sorted(f for f in os.listdir(d) if f.startswith("page-"))
-    check(len(pages) == 4 + len(TESTS) + len(FUTURE), f"{len(pages)} pages drawn")
+    check(len(pages) == 4 + len(TESTS) + len(TESTS2D) + len(FUTURE), f"{len(pages)} pages drawn")
     print(f"b3d: {'all ok' if not fails else f'{fails} failed'}")
     return 1 if fails else 0
 
