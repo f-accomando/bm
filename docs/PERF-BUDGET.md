@@ -23,6 +23,7 @@ One thing alone fills the frame at the load given below. A game adds the costs, 
 | Sprite 16x16, GPU in the 2D job | 3569 or more | 4.7 us or less |
 | Sprite stack of 8 slices, ARM | 55 | 0.30 ms |
 | Full-screen fade, ARM | none (20.3 ms alone) | 20.3 ms |
+| Full-screen fade, QPU (`gpu3d_qpu=1`) | 14.3 lamps (one run) | 9.3 ms with 1 lamp |
 | Full-screen light, ARM | none (30.7 ms alone) | 30.7 ms |
 | Hero of 1536 triangles, vertex shader | 66 | 0.25 ms |
 | Hero set with map, 2D and logic (see herotris), vertex shader + queue | 6.7 sets | 2.5 ms |
@@ -44,6 +45,7 @@ Pi Zero W, kernel `dev`. Each file name is `20261022-<time>_<kind>_pi-zero-w_dev
 | `b3d-180857` | `20261022-180857_bench3d_...` | 2D scene `sprites` |
 | `b3d-180905` | `20261022-180905_bench3d_...` | 2D scene `stack` |
 | `b3d-180913` | `20261022-180913_bench3d_...` | 2D scene `fade` |
+| `b3d-184933` | `20261022-184933_bench3d_pi-zero-w_dev.txt` | 2D scene `fade`, profiles ARM and QPU (one run) |
 | `b3d-180925` | `20261022-180925_bench3d_...` | 2D scene `light` |
 | `b3d-180940` | `20261022-180940_bench3d_...` | `gpu2d`, all four profiles |
 | `b3d-172217` | `20261022-172217_bench3d_...` | all 24 tests, profiles GPU and Q (bm3d 7.5) |
@@ -69,6 +71,7 @@ All 2D rows are drawn by the ARM, unless the row says GPU. The scenes are fixed:
 | Sprite stacks of 8 slices (16x16, three sizes, turning) | 54.6 stacks (58.93 ns a pixel) | `b3d-180905` | `stack`, ARM | not verified on hardware |
 | Sprite stacks, scale 1, 30 frames a case | 64 stacks of 8 slices: 9.69 ms (6608 stacks a second). 128 stacks of 8 slices: 18.27 ms. 64 stacks of 16 slices: 18.27 ms. About 116 stacks of 8 slices fit 16.6 ms (derived) | `stack-091216` | Stack bench | not verified on hardware |
 | Full-screen fade (`g16_fade_glow` lamps and `g16_fade_apply`) | misses: 20.3 ms with 1 lamp (worst 20.5 ms). At 30 fps: 24.7 lamps | `b3d-180913` | `fade`, ARM | not verified on hardware |
+| Full-screen fade on the QPU (`dark_end` hook, `gpu3d_qpu=1`) | 9.3 ms with 1 lamp (ARM 20.4 ms in the same run, 2.2 times faster). 14.3 lamps at 60 fps (ARM misses) | `b3d-184933` | `fade`, QPU; one run, all 98 frames on the QPU | not verified on hardware beyond this run |
 | Full-screen light (`g16_light_add` lamps and `g16_light_apply`) | misses: 30.7 ms with 1 lamp. At 30 fps: 20.3 lamps | `b3d-180925` | `light`, ARM | not verified on hardware |
 | 2D over 3D: sprites and 3 lines of text over spheres | ARM 1592 sprites. GPU 1886. GPU+2D 2013. GPU+VS+FS2 1932 | `b3d-180940` | `gpu2d` | not verified on hardware |
 | 2D particles | not measured (a particle is a sprite: use the sprite rows) | - | - | not verified on hardware |

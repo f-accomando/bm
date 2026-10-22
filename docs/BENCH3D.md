@@ -265,6 +265,8 @@ qpufade key=1 path=qpu frames_qpu=<n> frames_arm=<n> n60_qpu=<n> ms_qpu=<ms> n60
 | `frames_qpu`, `frames_arm` | the frames of the `QPU` profile on each path. |
 | `n60_*`, `ms_*` | the load at 60 fps (lamps) and the median frame time at 1 lamp, for `QPU` and for `ARM`. `ms` at 1 lamp is the figure to compare: it is the full-screen fade plus the fixed part of the frame (`cls` and the 12 blocks). The gain of the QPU is `ms_arm - ms_qpu`. |
 
+Measured on the Pi Zero W (22 Oct, one run, report `20261022-184933_bench3d_pi-zero-w_dev.txt` on the `reports` branch): `qpufade key=1 path=qpu frames_qpu=98 frames_arm=0 n60_qpu=14.3 ms_qpu=9.3 n60_arm=-1 ms_arm=20.4`. The full-screen fade with 1 lamp takes 20.4 ms on ARM (misses 60 fps) and 9.3 ms on the QPU (2.2 times faster). The QPU path reaches 14.3 lamps at 60 fps. Every frame ran on the QPU. Not verified on hardware beyond this one run.
+
 The names are the usual ones: `profiles=ARM,QPU` (letters and digits, comma only). The `R,fade,QPU` line is the same format as every `R` line.
 
 Run it on the Pi (monitor line; `set` changes the key until a restart, so put it first: the GPU test then runs its QPU step too):
