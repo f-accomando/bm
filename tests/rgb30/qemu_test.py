@@ -945,7 +945,7 @@ def test_stages_template(b, opts):
 
 def test_sdk_stages_build(b, opts):
     """From the bm SDK to the game: Ctrl+N, the ninth template (Stages 2D),
-    Ctrl+B and a name build /carts/MYGAME.BM next to the project; its Lua is
+    Ctrl+B and a name build /bm/MYGAME.BM from the project in /bme; its Lua is
     the template's (the 'stages: title best' log)."""
     tmp = mktmp(prefix="bm64sdk-")
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n"})
@@ -968,7 +968,7 @@ def test_sdk_stages_build(b, opts):
             press(q, "\x1b[B", [desc], wait=10.0)
         press(q, "\r", ["new project (Stages 2D)"], wait=10.0)
         press(q, "\x02", ["file name", "MYGAME.BME"], wait=10.0)     # Ctrl+B: Save as
-        press(q, "\r", ["built /carts/MYGAME.BM"], wait=20.0)
+        press(q, "\r", ["built /bm/MYGAME.BM"], wait=20.0)
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
                   until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
         press(q, "\x1c", ["Games", "Dev", "Settings"], wait=10.0)     # Ctrl+\: leave the SDK
@@ -976,10 +976,12 @@ def test_sdk_stages_build(b, opts):
         q.close()
     env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
     part = f"{dump}@@{1024 * 1024}"
-    listing = subprocess.run(["mdir", "-i", part, "-b", "::/CARTS"], capture_output=True,
+    listing = subprocess.run(["mdir", "-i", part, "-b", "::/BM"], capture_output=True,
                              env=env, check=True).stdout.decode().upper()
-    assert "MYGAME.BME" in listing and "MYGAME.BM" in listing, listing
-    game = subprocess.run(["mtype", "-i", part, "::/CARTS/MYGAME.BM"], capture_output=True,
+    projects = subprocess.run(["mdir", "-i", part, "-b", "::/BME"], capture_output=True,
+                              env=env, check=True).stdout.decode().upper()
+    assert "MYGAME.BME" in projects and "MYGAME.BM" in listing, (projects, listing)   # project in /bme, game in /bm
+    game = subprocess.run(["mtype", "-i", part, "::/BM/MYGAME.BM"], capture_output=True,
                           env=env, check=True).stdout
     assert game[:8] == b"BMCART\x00\x00", game[:16]
     lua = next(body for t, body in mkbm.bmmesh.cart_sections(game) if t == 1)
@@ -1471,7 +1473,7 @@ def sdk_save_default(q):
     q.send("\x13")
     sdk_screen(q, ["file name", "MYGAME.BME"])
     q.send("\r")
-    sdk_screen(q, ["saved /carts/MYGAME.BME"])
+    sdk_screen(q, ["saved /bme/MYGAME.BME"])
 
 
 def sdk_exit_dump(q, tmp, size):
@@ -1500,7 +1502,7 @@ def cart_secs(data):
 
 def sdk_kb_run(b, drive, check):
     """A new Empty 2D project: drive(q), save, leave, check(cart_secs of
-    /carts/MYGAME.BME)."""
+    /bme/MYGAME.BME)."""
     tmp = mktmp(prefix="bm64kb-")
     q, size = sdk_session(b, tmp)
     try:
@@ -1511,7 +1513,7 @@ def sdk_kb_run(b, drive, check):
         dump = sdk_exit_dump(q, tmp, size)
     finally:
         q.close()
-    check(cart_secs(sd_read(dump, "/carts/MYGAME.BME")))
+    check(cart_secs(sd_read(dump, "/bme/MYGAME.BME")))
 
 
 def test_sdk_pad_sprite(b, opts):
@@ -1640,7 +1642,7 @@ def test_sdk_pad_lib(b, opts):
         dump = sdk_exit_dump(q, tmp, size)
     finally:
         q.close()
-    secs = cart_secs(sd_read(dump, "/carts/MYGAME.BME"))
+    secs = cart_secs(sd_read(dump, "/bme/MYGAME.BME"))
     assert 6 in secs, sorted(secs)
     sounds = bmaudio.unpack(secs[6])["sounds"]
     assert sounds[0]["name"] == "BELL" and sounds[0]["wave"] == "metal", sounds[:1]
@@ -1701,7 +1703,7 @@ def test_sdk_layers_b16(b, opts):
         dump = sdk_exit_dump(q, tmp, size)
     finally:
         q.close()
-    secs = cart_secs(sd_read(dump, "/carts/MYGAME.BME"))
+    secs = cart_secs(sd_read(dump, "/bme/MYGAME.BME"))
     lay = secs[12]
     w, h, n = struct.unpack_from("<HHH", lay, 0)
     assert n == 2, (w, h, n)
@@ -1753,7 +1755,7 @@ def test_sdk_pad_build(b, opts):
         sdk_screen(q, ["SINE"])
         sdk_save_default(q)
         q.send("\x02")                         # Ctrl+B: the game next to the project
-        sdk_screen(q, ["built /carts/MYGAME.BM"])
+        sdk_screen(q, ["built /bm/MYGAME.BM"])
         q.send("\x1b")                         # Esc: the menu; Export .b16 is the seventh row
         for _ in range(6):
             q.send(DOWN)
@@ -1764,8 +1766,8 @@ def test_sdk_pad_build(b, opts):
         dump = sdk_exit_dump(q, tmp, size)
     finally:
         q.close()
-    project = cart_secs(sd_read(dump, "/carts/MYGAME.BME"))
-    game_bytes = sd_read(dump, "/carts/MYGAME.BM")
+    project = cart_secs(sd_read(dump, "/bme/MYGAME.BME"))
+    game_bytes = sd_read(dump, "/bm/MYGAME.BM")
     game = cart_secs(game_bytes)
     for t in (1, 2, 3, 6):
         assert t in project, (t, sorted(project))

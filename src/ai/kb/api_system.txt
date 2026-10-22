@@ -538,14 +538,14 @@ ask: salvare una cartuccia | scrivere un file bm | save a cartridge | esportare 
 see: cart_load, cart_run
 text:
 Scrive un progetto con il codice dato e lo sprite sheet, la mappa e la
-copertina correnti. Nome 8.3, per esempio "/carts/GIOCO.BME". Un gioco (.bm)
+copertina correnti. Nome 8.3, per esempio "/bme/GIOCO.BME". Un gioco (.bm)
 non si cambia: diventa la sua copia .BME, il secondo valore.
 text_en:
 Writes a project with the code given and the current sprite sheet, map and
-cover. An 8.3 name, for example "/carts/GIOCO.BME". A game (.bm) does not
+cover. An 8.3 name, for example "/bme/GIOCO.BME". A game (.bm) does not
 change: it becomes its .BME copy, the second value.
 code:
-local ok, file = cart_save("/carts/GIOCO.BME", { title = "Gioco",
+local ok, file = cart_save("/bme/GIOCO.BME", { title = "Gioco",
   author = "io", res = "640x360", lua = code })
 
 == cart_run
@@ -672,7 +672,7 @@ sprite sheet, map, cover and every other section stay as they were. A new
 file becomes a cartridge with only the code (an 8.3 name). from: the other
 sections come from another file ("save as").
 code:
-local ok, err = cart_write("/carts/PONG.BME", { lua = code })
+local ok, err = cart_write("/bme/PONG.BME", { lua = code })
 if not ok then log("non salvato: " .. err) end
 
 == cart_build
@@ -687,13 +687,13 @@ keys: bme, progetto, project, build, copia, sola lettura, read only
 see: cart_write, cart_save
 text: Un .bm è un gioco: gli strumenti di bm lo leggono e ne prendono codice e
 asset, ma non lo cambiano. Si modifica un progetto, un .bme: salvando un gioco
-lo strumento chiede di farne la copia modificabile (NOME.BME accanto), e
+lo strumento chiede di farne la copia modificabile (NOME.BME in /bme), e
 cart_save / cart_write restituiscono anche il file scritto. cart_build fa il
 gioco del progetto in /carts (Ctrl+B nell'SDK, Build the game nel menu): la
 volta dopo sostituisce lo stesso file. Solo dagli strumenti della console.
 text_en: A .bm is a game: bm's tools read it and take its code and assets, but
 do not change it. What changes is a project, a .bme: saving a game, the tool
-asks to make its editable copy (NAME.BME next to it), and cart_save /
+asks to make its editable copy (NAME.BME in /bme), and cart_save /
 cart_write also return the file written. cart_build makes the project's game
 in /carts (Ctrl+B in the SDK, Build the game in the menu): the next time it
 replaces the same file. Only from the console's tools.

@@ -35,6 +35,19 @@ older kernel ignores INFO.
 `mkbm.py` mirrors `type` in bits 2-3 of the u16 flags at offset 18 of the header (`docs/BM-FORMAT.md`), so the menu
 groups a cartridge without reading its INFO. On the SD, `.bm` and `.b16` games live in `/bm` and `.bme` projects in `/bme`.
 
+## Where projects live on the SD card
+
+- A `.bme` project lives in `/bme`. The tools write there: the editable copy of a game, a new project, Save as, Ctrl+S.
+  The console makes the folder when it is missing. One helper builds the path: `bm_project_path()` in `src/bm/project.h`
+  for the kernel, `U.project_path()` in `src/script/bmui.lua` for the tools.
+- The menu and every open list of the tools read `/bme` first. They also read a `.bme` found next to its game (`/carts`
+  or the root, old SD cards). The console does not move it. The tool saves it where it is and the status line says so
+  (`old place`).
+- `Ctrl+B` builds the game from a project in `/bme` into the games folder: `/carts` on the Pi, `/bm` on the RGB30
+  (`bm_games_dir()`). An old project next to its game builds next to it, as before.
+- The Pi menu scans `/`, `/carts` and `/bme`. The RGB30 menu scans `/bm` and `/carts`: it does not list projects, the
+  SDK opens them. `/carts` stays as it is.
+
 ## Credits: reusing other people's assets
 
 Sharing among developers is free: nothing refuses a resource because of its licence. To keep the credit, list what you
@@ -53,7 +66,6 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 |---|---|
 | `pong` | `bm.info` |
 | `yharnam` | `bm.info`; `sheet.png`, `map_*.csv` in `assets/`; `mk*.py`, `mapview.py`, `art/` in `build/` (they find `main.lua` and `assets/` from there) |
-| `stages3d` | `bm.info` in `bm/` (the `.bm` front); logic in `common/`, `assets/` shared, `build.py` joins an edition's sources; `b16/` has the RGB30 front and its own `bm.info` ([stages3d](progress/stages3d.md)) |
 | `hunt` | `bm.info`; `sheet.png`, `map.csv` moved to `assets/`; `mkassets.py` moved to `build/` (writes `assets/`) |
 | `snake`, `shooter`, `astrowing`, `typing`, `write` | `bm.info` (their `title_<id>` lines left the Makefile) |
 | `village` | `bm.info`; `models.bm` moved to `assets/` |
@@ -62,6 +74,9 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `overbit` | `bm.info`; `build.py`, `mkcover.py`, `reel.py` and `viewer.lua` in `build/`; `art/` stays at the top (generators and Meshy figures, like `yharnam`). The `.b16` rules keep `--title`/`--res` |
 | `code`, `assistant`, `editor` (bm SDK), `sound`, `animator`, `mesh`, `pixel` | `bm.info` used by their rule (`--info`); built into the kernel or installed on the SD as before |
 | `studio` | `bm.info`; `sheet.png` moved to `assets/` |
+| `bmweb`, `herocart` | `bm.info`; `src/` holds the modules and `build/` the build script |
+
+`stages3d` is not a project of this layout. It has one front per edition, and each front has its own `bm.info` (`bm/bm.info` and `b16/bm.info`). Logic is in `common/`, assets are shared, and `build.py` joins an edition's sources ([stages3d](progress/stages3d.md)). The tool does not list it.
 
 ## Files the console writes on the SD card
 

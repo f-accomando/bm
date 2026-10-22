@@ -33,10 +33,10 @@ Your game is never overwritten by a tool by accident. You edit the project, and 
 
 ## Good to know
 
-- A tool that saves a game asks first: *Save an editable copy: NAME.BME?* The copy goes next to the game (`NAME.BME`, or `NAME1.BME` if that name is taken).
+- A tool that saves a game asks first: *Save an editable copy: NAME.BME?* The copy goes in `/bme` (`/bme/NAME.BME`, or `NAME1.BME` if that name is taken). A `.bme` found next to its game on an older card is still read, and saved where it is.
 - In the menu, *Make an editable copy* is in a game's options. The project is not listed in the menu tabs: open it from the SDK with *Open* (**Ctrl+O**).
 - *Build the game (.bm)* is in a project's options. In the SDK the key is **Ctrl+B**.
-- A build writes the game next to the project, with the project's name stored at offset 104 of the header. The next build replaces that game and only that one. A game of the same name that it did not build stays, and the new one takes a digit (`PONG1.BM`).
+- A build of a project in `/bme` writes the game in the games folder (`/carts` on the Pi, `/bm` on the RGB30); a project next to its game builds next to it. The game has the project's name stored at offset 104 of the header. The next build replaces that game and only that one. A game of the same name that it did not build stays, and the new one takes a digit (`PONG1.BM`).
 - The `.bm` and the `.b16` are separate editions. A `.b16` never replaces the `.bm`, and the `.bm` sources are never overwritten to make a `.b16`.
 - A `.b16` file has no size limit of its own: the build tools no longer refuse a large file. The Market takes up to 100 MiB a file. Its screen is 360x360 (or 720x720, the profile says), the same on the Pi and on the RGB30.
 - Other cartridges write only `.bm` and `.bme` files in `/carts`, and only ones they made in the same run.
@@ -141,8 +141,8 @@ Part of the game API. These functions are meant for the development tools (the e
 | `cart_load(path)` | opens a `.bm`: its sprite sheet (with flags, zones and boxes), map (with layers) and 3D models (with skeletons) take the place of the calling cartridge's. Returns `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h, layers, [palette]}` |
 | `cart_sheet([w, h])` | the size of the project's sprite sheet; with `w` and `h` (multiples of 8, from 8 to 4096) it resizes it: pixels that fit stay, new ones are transparent, flags stay with their tile |
 | `cart_new()` | an empty sprite sheet and map (256x256, one layer), no flags, zones, boxes or models |
-| `cart_save(path, {title, author, res, lua})` | writes a `.bm` with the code given and the current sheet, flags, zones, boxes, map, layers, cover, sound bank, models and skeletons. An 8.3 name, for example `"/carts/GAME.BME"`. Returns `true` (and the file written when it is not `path`), or `false` and a message |
-| `cart_build(project)` | builds the game of a project (`.bme`) into a `.BM` next to it. Returns `true` and the game's path, or `false` and a message |
+| `cart_save(path, {title, author, res, lua})` | writes a `.bm` with the code given and the current sheet, flags, zones, boxes, map, layers, cover, sound bank, models and skeletons. An 8.3 name, for example `"/bme/GAME.BME"`. Returns `true` (and the file written when it is not `path`), or `false` and a message |
+| `cart_build(project)` | builds the game of a project (`.bme`) into a `.BM` in the games folder (next to it for a project that is not in `/bme`). Returns `true` and the game's path, or `false` and a message |
 | `cart_read(path)` | the code and header of a `.bm`: `{title, author, res, lua, size}`, without touching the caller's sheet and map. For editors with several files open |
 | `cart_write(path, {[lua, title, author, res, from, sections]})` | changes only the code (and the data fields) of a `.bm`; sheet, map, cover, sound bank and unknown sections stay. Without `lua` the code stays. `from`: the other sections come from another file ("save as"); `from = false`: a new cartridge. `sections`: `{[8] = MESH bytes, [9] = ANIM bytes}` (`false` takes them away), checked first. `sheet = true`: the project's sprite sheet replaces the file's, as SHEET8 when it has at most 256 colours, with the colours of `palette` (`{0xRRGGBB, ...}`) first. Returns like `cart_save` |
 | `cart_data(kind, [bytes])` | the project's MESH (`kind` 8), ANIM (9), SPRITES (11) and BOXES (14) sections as strings in the format of `src/bm/bm.h`. Without `bytes` it returns them (`nil` if none); with `bytes` it replaces them (`nil` or `""` removes them) and returns `true`, or `false` and the reason |

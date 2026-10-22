@@ -53,11 +53,11 @@ If the file list is empty, the screen says `no .bm files: make models in bm Stud
 | `.bme` | a project | opens it, changes it, saves it in its place |
 | `.bm`, `.b16` | a game | only reads it |
 
-With a game open, the first save asks `Save an editable copy: NAME.BME?`. Answer yes: from then on you work on the copy, next to the game. The game itself is never changed.
+With a game open, the first save asks `Save an editable copy: NAME.BME?`. Answer yes: from then on you work on the copy, in `/bme`. The game itself is never changed.
 
 ## Good to know
 
-- The list of files shows the `.bm` and `.bme` files of `/carts` and of the root of the SD card.
+- The list of files shows the `.bme` projects of `/bme` and the `.bm` and `.bme` files of `/carts` and of the root of the SD card.
 - The menu page shows the file name and `*modified*` when there is something to save.
 
 ## Try it, step by step
@@ -363,7 +363,7 @@ Rename a bone to `sword` in F2, bake again and look at the preview: its box turn
 ## Good to know
 
 - A file opened and saved with no changes stays identical.
-- **Save as** (`Ctrl+Shift+S`) asks for an 8.3 name; the file goes to `/carts` with the `.BME` ending.
+- **Save as** (`Ctrl+Shift+S`) asks for an 8.3 name; the file goes to `/bme` with the `.BME` ending.
 - A game (`.bm`, `.b16`) is never overwritten: the first save makes a `.BME` copy.
 - **F5** saves first and plays the project. Start + Select (or Ctrl+Esc) leaves the game and brings you back to the same page.
 - To make the finished game, use **bm SDK** (Build, `Ctrl+B`): it writes the `.bm`. The menu of bm Animator has no build entry.

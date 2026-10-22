@@ -18,7 +18,6 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 - M37 - P1 - to test on the Pi - 2D and quality on the GPU (`gpu3d_2d`, `menu_scale=3`, bilinear). Done when the menu at 1080p is correct on the Pi. [v3d](progress/v3d.md)
 - API-1 - P1 - to test on the RGB30 - RGB30 numbers from the 3D Bench of the Mali and the 2D scenes, after the user's RGB30 runs. The Pi Zero W budget and the `profile(true)` guide are published. [PERF-BUDGET](PERF-BUDGET.md), [lua](progress/lua.md)
-- BETA-5 - P1 - to do - A multi-stage 3D game runs on the GPU (V3D on the Pi, Mali on the RGB30) within the budget. Needs API-1 and APP-2. [v3d](progress/v3d.md)
 - M41 - P2 - in progress - RGB30 Mali-G52 GPU and Overbit in `.b16`. Done when Overbit `.b16` runs at 60 fps with the Mali and 3D Bench reports GPU metrics (device runs H1, H6 open). [graphics-mali](progress/graphics-mali.md), [platforms](progress/platforms.md)
 - M39 - P2 - in progress - Toward the V3D limit. Pi 21 Oct: compact attributes +3.8% (kept off), 16-bit textures and ETC1 no gain (kept off). The 3D Bench test `stress` is done (Pi, 22 Oct, one run): 2x the load of 60 fps is stable at 40 fps, ARM-bound, pool 142 KiB ([BENCH3D](BENCH3D.md)); open: Overbit with 10 bots at 60 fps in HIGH. [v3d](progress/v3d.md) `To do`, [lua](progress/lua.md)
 - API-3 - P2 - to do - Triangle throughput: chain jobs (CT0/CT1) only if a measurement shows the GPU idle between jobs (22 Oct: the frame is ARM-bound, so not now). `gpu3d_attr` stays off. [triangle-throughput](design/triangle-throughput.md), [v3d](progress/v3d.md)
@@ -54,7 +53,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 ## Tools and SDK
 
 - SYS-1 - P0 - in progress - CI green on `bm-core`. All `ci.yml` jobs (host, qemu 1-4, rgb30) are green and `scripts/ci_audit.py` exits 0. [tools](progress/tools.md)
-- M47 - P1 - in progress - Editable `.bme` projects, read-only `.bm`. The tools open a `.bm` read-only and ask for the `.bme` copy. `Ctrl+B` generates the `.bm` in Games. [tools](progress/tools.md), [lua](progress/lua.md)
+- M47 - P1 - in progress - Editable `.bme` projects, read-only `.bm`. The tools open a `.bm` read-only and ask for the `.bme` copy. `Ctrl+B` generates the `.bm` in Games. Projects are written in `/bme` (done); left: the hardware check of `/bme` on the Pi and RGB30, the `/carts` retirement, the Pi menu scan of `/bm`. [tools](progress/tools.md), [lua](progress/lua.md)
 - R15, R16, R26 - P3 - idea - Live reload from the PC, bm Code templates, mouse in nano8. [tools](progress/tools.md), [suite-code](design/suite-code.md)
 
 ## Editors and apps
@@ -62,6 +61,8 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 - M48 - P2 - in progress - Mouse across the whole suite (USB and Bluetooth). Every program selects, draws and navigates with the pointer without a keyboard. [tools](progress/tools.md)
 - M45 - P2 - in progress - bm Write: `.BMD` documents, TXT/MD/HTM/PDF export. A formatted document exported to PDF is identical on the PC. [tools](progress/tools.md)
 - APP-2 - P2 - to do - 3D maps in bm SDK; bm Pixel for stacks (M43 step 3). Done when a 3D map is saved and reloaded. [tools](progress/tools.md) `Mappe 3D in bm SDK`, [suite-sdk](design/suite-sdk.md), [suite-pixel](design/suite-pixel.md)
+- APP-8 - P2 - to do - Multitab in bm Code for the source files of one project. Done when: A `.bme` project with several Lua modules opens as one tab per module in bm Code, each tab is saved to its own file, and the built `.bm` equals the one built from the same files today; the same tab bar is shared with bm SDK and the other editors that have a code page (one shared component in bmui, no copy). The tab layout is for readability only. [suite-code](design/suite-code.md), [tools](progress/tools.md)
+- APP-9 - P2 - to do - 3D model import in the suite from the SD folders `/glb` and `/bmm`. A `.glb` in `/glb` is read-only. The editors (bm Studio, bm Animator, bm Mesh) convert it to the equivalent `.bmm` and save it in `/bmm`; the `.glb` is never changed. The editors read the models from `/bmm` and `/glb`. The SD map (Settings > System > SD map) and the SD scan list `/glb` and `/bmm` as their own areas. Done when a `.glb` copied to `/glb` is listed in Studio, is converted to `/bmm/NAME.BMM`, opens in bm Animator, and the SD map counts both folders (host test and QEMU test, both kernels). [tools](progress/tools.md), [PROJECT-LAYOUT](PROJECT-LAYOUT.md)
 - R11, R37, R38, R39 - P3 - idea - Tiled, map palettes, 16×16 wizard, 720×720 SDK. [suite-sdk](design/suite-sdk.md), [sdk-720](design/sdk-720.md)
 
 ## Games

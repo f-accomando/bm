@@ -43,7 +43,7 @@ Un gioco ha l'aspetto di ciò che c'è sul suo sheet. Con bm Pixel disegni sulla
 
 ## Da dove partire
 
-Parti dalla scheda **Dev** del menu, oppure premi **X** sulla copertina di un gioco e scegli **Open in bm Pixel**. Se avvii bm Pixel senza file, mostra l'elenco dei file `.bm` e `.bme` che trova in `/carts` e nella radice della scheda, e dietro c'è già un nuovo sheet vuoto.
+Parti dalla scheda **Dev** del menu, oppure premi **X** sulla copertina di un gioco e scegli **Open in bm Pixel**. Se avvii bm Pixel senza file, mostra l'elenco dei progetti `.bme` di `/bme` e dei file `.bm` e `.bme` che trova in `/carts` e nella radice della scheda, e dietro c'è già un nuovo sheet vuoto.
 
 ## Progetti e giochi
 

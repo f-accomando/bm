@@ -104,7 +104,7 @@ The smallest game: a ball you move with the arrows.
 3. Choose **Empty 2D** with up and down and press **Enter**. The status line says `new project (Empty 2D): Esc > Save as gives it a name, F5 tries it`. The title is `New game`.
 4. Press **F2**. You see the code of the game: `_init`, `_update` and `_draw`.
 5. Move the cursor with the arrows to the line `print("hello!", ...)` and change the word `hello!` to your own text.
-6. Press **Esc**, choose **Save as...** and press Enter. A box asks `file name (8.3, in /carts)` and suggests `MYGAME.BME`. Type a name and press **Enter**. The status line says `saved` and the name of the file.
+6. Press **Esc**, choose **Save as...** and press Enter. A box asks `file name (8.3, in /bme)` and suggests `MYGAME.BME`. Type a name and press **Enter**. The status line says `saved` and the name of the file.
 7. Press **F5**. The SDK saves and the console plays the game: a yellow ball on a dark background with your text. The arrows move the ball.
 8. Leave the game. Press Start + Select, Ctrl+Shift+Esc or Ctrl+Esc (Esc alone goes back inside a tool).
 9. You are back in the SDK. Press **F1**: the **LAST TRY** line now shows fps and milliseconds.
@@ -284,7 +284,7 @@ Press **F1** on the project page, then **F1** again. The second page is the **de
 
 - **Ctrl+B**, or *Build the game .bm* in the menu: builds the game of the project. When the target is `.b16`, it builds the `.b16` and the menu entry says so.
 - **Ctrl+Shift+B**, or *Export .b16*: exports the `.b16` whatever the target.
-- The game is written next to the project. For a project in `/carts` the game is in `/carts` too, and the **Games** tab lists the games of `/carts`.
+- A project is in `/bme`; its game is written in the games folder: `/carts` on the Pi, `/bm` on the RGB30. The **Games** tab lists that folder. A project found next to its game on an older card builds next to it.
 - On success the SDK says `built /carts/NAME.BM: it is in Games` (the path of the game).
 
 ## Good to know
@@ -344,7 +344,7 @@ The left list has 32 sound slots, the right panel the fields of the chosen sound
 - `[` and `]` (or `,` and `.`; on the pad **L2 / R2**) choose the sound.
 - **Enter** (on the pad **ok**) plays the sound on the note A4.
 - `c` clears the sound.
-- `i` opens *Sounds from a file (Lib)*: first the list of the `.bm` and `.bme` files with a sound bank (from `/carts`, `/bm`, the root of the card and `/bm/lib`), then the sounds in the file you chose. The sound goes into the first empty slot; the status line says `sound N taken from the file`. If there is none, it says `no .bm or .bme file with sounds` or `no empty sound slot`.
+- `i` opens *Sounds from a file (Lib)*: first the list of the `.bm` and `.bme` files with a sound bank (from `/bme`, `/carts`, `/bm`, the root of the card and `/bm/lib`), then the sounds in the file you chose. The sound goes into the first empty slot; the status line says `sound N taken from the file`. If there is none, it says `no .bm or .bme file with sounds` or `no empty sound slot`.
 
 ### Effects
 
@@ -430,7 +430,7 @@ Hold **F12** in the SDK to see the keys of the page you are on.
 
 - **F5 asks for a name.** A project that has no file yet must be saved first: F5 opens the **Save as** box; choose a name and press Enter. The message `no name yet: use Save as` appears only when you use plain **Save** on a project with no name.
 - **`unsaved changes: choose again to confirm`.** Leaving, opening or starting a new project with unsaved changes asks twice: repeat the action to confirm.
-- **`no .bm or .bme files on the SD card`.** *Open...* found nothing in `/carts` or in the root. It lists `.bm`, `.bme` and `.b16` files.
+- **`no .bm or .bme files on the SD card`.** *Open...* found nothing in `/bme`, `/carts` or in the root. It lists `.bm`, `.bme` and `.b16` files.
 - **`cannot measure: ...` on the project page.** The SDK could not read the numbers of the file; save it and look at the message.
 - **`no error to explain`.** F9 works only after a try that ended with an error. **Ctrl+G** in the code goes to the line.
 - **My game is slow.** Look at the dev kit after a try: frames over 16.7 ms, the heaviest frame and the memory tell you where.

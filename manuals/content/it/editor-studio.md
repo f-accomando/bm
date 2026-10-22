@@ -46,7 +46,7 @@ bm Studio modifica **progetti** (`.bme`). Un **gioco** (`.bm` o `.b16`) è solo 
 
 ## Dentro bm Studio
 
-- Premi **Esc** per arrivare al menu. *Open...* elenca i file `.bm` e `.bme` di `/carts` e della radice della scheda SD. Scorciatoia: **Ctrl+O**.
+- Premi **Esc** per arrivare al menu. *Open...* elenca i progetti `.bme` di `/bme` e i file `.bm` e `.bme` di `/carts` e della radice della scheda SD. Scorciatoia: **Ctrl+O**.
 - *New project* (**Ctrl+N**) avvia un progetto vuoto. Porta con sé le tessere iniziali di bm Studio nello sprite sheet.
 - Un nuovo progetto non è ancora salvato: il menu mostra `(not saved yet)` accanto al nome. Salvalo con **Ctrl+S**.
 
@@ -237,7 +237,7 @@ La console disegna circa 1200 triangoli in una scena a 60 fps. Oltre, i conteggi
 | Tasto | Cosa fa |
 |---|---|
 | `Ctrl+S` | Salva sul posto |
-| `Ctrl+Shift+S` | Salva con nome: un nome in forma 8.3, in `/carts`, che finisce in `.BME` |
+| `Ctrl+Shift+S` | Salva con nome: un nome in forma 8.3, in `/bme`, che finisce in `.BME` |
 | `F5` | Salva, poi prova il gioco |
 
 ## Cosa viene salvato

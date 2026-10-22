@@ -58,7 +58,7 @@ Tutti gli strumenti della suite modificano solo **progetti** (`.bme`). Un **gioc
 - Dalla scheda **Dev** del menu della console.
 - Da un gioco: premi **X** sulla sua copertina, poi **Open in bm Mesh**.
 - Dal monitor: il tasto `4`.
-- Dall'interno dell'editor: Esc, poi **Open...** (Ctrl+O). L'elenco mostra i file `.bm` e `.bme` di `/carts` e della radice della SD.
+- Dall'interno dell'editor: Esc, poi **Open...** (Ctrl+O). L'elenco mostra i progetti `.bme` di `/bme` e i file `.bm` e `.bme` di `/carts` e della radice della SD.
 - Se hai avviato bm Mesh senza file, il selettore di file si apre da solo.
 
 ## Cosa vedi dopo l'apertura
@@ -236,7 +236,7 @@ Le mesh G vengono dalla funzione del kernel `cart_meshes(path)`. Esegue il codic
 
 # Salvare
 
-- **Ctrl+S** salva. **Ctrl+Shift+S** chiede un nome (8 lettere, salvato in `/carts` con l'estensione `.BME`).
+- **Ctrl+S** salva. **Ctrl+Shift+S** chiede un nome (8 lettere, salvato in `/bme` con l'estensione `.BME`).
 - Il menu (Esc) ha **Save**, **Save as...**, **Try the game (F5)** e **Exit bm Mesh**. Un segno `*` dopo il nome del file in alto significa modifiche non salvate.
 - Cambiano solo le sezioni MESH e ANIM e il blocco di bm Mesh nel codice. Sprite sheet, mappa, copertina, suono e il resto del codice restano esattamente come erano.
 - Un modello senza vertici o senza facce resta fuori dal file: il messaggio dice quale.

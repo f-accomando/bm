@@ -38,11 +38,11 @@ Studio and bm Animator it opens with F6.
 If the game stops with an error, the SDK goes back to the line in red (Ctrl+G finds it
 again). Everything else in this guide holds for the SDK too.
 
-**Projects and games**: what the tools change is a **project**, a `.bme` in `/carts` with an
+**Projects and games**: what the tools change is a **project**, a `.bme` in `/bme` with an
 8.3 name (e.g. `MYGAME.BME`). It is not listed in the menu tabs: the editors open it (the SDK's
 *Open*, Ctrl+O). A `.bm` is a **game**, in Games: the tools open it to read it and take its
 code, sprites, models and sounds, but do not change it. Saving one, they ask to make its
-**editable copy** (`NAME.BME`, next to it); the copy is also in a game's options (X), *Make an
+**editable copy** (`/bme/NAME.BME`); the copy is also in a game's options (X), *Make an
 editable copy*. When the project is ready, **Ctrl+B** in the SDK (or *Build the game (.bm)*
 in its options) makes its game: `MYGAME.BM` in Games, replaced at every build.
 
@@ -421,9 +421,9 @@ head, then the tail: to attach a sword or a light to it). bm Animator also makes
 **pre-rendered sprites**: the animation drawn from 1 to 8 directions in the sprite sheet, to
 use with `sspr()` in a 2D game (it prepares the Lua code that draws them).
 
-**From Blender** (or other programs): a `.glb` is imported into bm Studio (its textures end
-up in the sprite sheet) and from there into the `.bm`; for a game of the repository putting
-`models.glb` in its folder is enough (see `carts/village`).
+**From Blender** (or other programs): a local `.glb` does not open in the editors yet (planned: APP-9). On the PC,
+`python3 scripts/bmres.py convert IN.glb OUT.bmm` converts it to a `.bmm`. For a game of the repository,
+the build reads `assets/models.bm` or `assets/models.glb` (`models.bm` first). `carts/village/assets` holds `models.bm`.
 
 ## 7. Sound
 

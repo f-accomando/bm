@@ -158,5 +158,38 @@ frame(10, 330, 1, 0, { { 0, 320, 40, 16, "key", "^g" } })
 check(U.keys() and U.keyp() == "^g", "a click on a chip presses its key")
 frame(10, 330, 0, 0)
 
+-- projects live in /bme (docs/PROJECT-LAYOUT.md): the one helper for their paths and lists
+check(U.PROJECTS == "/bme", "projects: the folder is /bme")
+check(U.project_path("pong") == "/bme/PONG.BME", "project_path: a bare name")
+check(U.project_path("/carts/Il mio gioco.bm") == "/bme/ILMIOGIO.BME", "project_path: a game's path, 8.3")
+check(U.project_path("/bme/my-game.bme") == "/bme/MY-GAME.BME" and U.project_path("") == "/bme/GAME.BME", "project_path: a dash stays; no name: GAME")
+check(U.is_project("/bme/A.BME") and not U.is_project("/carts/a.bm") and not U.is_project(nil), "is_project: by the extension")
+check(not U.is_old_place("/bme/A.BME") and U.is_old_place("/carts/A.BME") and U.is_old_place("/A.bme") and not U.is_old_place("/carts/a.bm"),
+      "is_old_place: a project outside /bme")
+check(U.saved_text("/bme/A.BME") == "saved /bme/A.BME", "saved_text: a project in /bme")
+check(U.saved_text("/carts/A.BME"):find("saved /carts/A.BME", 1, true) and U.saved_text("/carts/A.BME"):find("old place", 1, true),
+      "saved_text: an old project says where it is")
+do
+  local card = {
+    ["/bme"] = { { name = "B.BME", size = 5 }, { name = "x.bm", size = 1 }, { name = "sub", dir = true } },
+    ["/carts"] = { { name = "old.bme", size = 7 }, { name = "g.bm", size = 9 }, { name = "g.b16", size = 3 } },
+    ["/"] = { { name = "R.BM", size = 2 } },
+    ["/bm"] = { { name = "g.b16", size = 3 } },
+  }
+  E.ls = function(dir) return card[dir] or {} end
+  local list, sizes = U.project_files({ bm = true, bme = true })
+  check(table.concat(list, " ") == "/bme/B.BME /carts/old.bme /carts/g.bm /R.BM" or table.concat(list, " ") == "/bme/B.BME /carts/old.bme /carts/g.bm /R.BM",
+        "project_files: /bme first, then the old places, only .bme in /bme: " .. table.concat(list, " "))
+  check(sizes["/bme/B.BME"] == 5 and sizes["/carts/g.bm"] == 9, "project_files: the sizes")
+  list = U.project_files({ bm = true, bme = true, b16 = true }, { "/bm" })
+  check(#list == 6 and list[#list] == "/bm/g.b16", "project_files: .b16, and an extra folder last: " .. table.concat(list, " "))
+  card["/carts"][#card["/carts"] + 1] = { name = "B.BME", size = 1 }
+  card["/bme"][#card["/bme"] + 1] = { name = "b.bme", size = 1 }
+  list = U.project_files({ bme = true })
+  local n = 0
+  for _, p in ipairs(list) do if p:upper() == "/BME/B.BME" then n = n + 1 end end
+  check(n == 1, "project_files: a path once, case does not matter")
+end
+
 print(fails == 0 and ("bmui: " .. checks .. "/" .. checks .. " checks passed") or (fails .. " of " .. checks .. " FAILED"))
 if fails > 0 then os.exit(1) end

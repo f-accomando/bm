@@ -53,11 +53,11 @@ Se l'elenco dei file è vuoto, lo schermo dice `no .bm files: make models in bm 
 | `.bme` | un progetto | lo apre, lo modifica, lo salva al suo posto |
 | `.bm`, `.b16` | un gioco | lo legge soltanto |
 
-Con un gioco aperto, il primo salvataggio chiede `Save an editable copy: NAME.BME?`. Rispondi sì: da lì lavori sulla copia, accanto al gioco. Il gioco non viene mai modificato.
+Con un gioco aperto, il primo salvataggio chiede `Save an editable copy: NAME.BME?`. Rispondi sì: da lì lavori sulla copia, in `/bme`. Il gioco non viene mai modificato.
 
 ## Da sapere
 
-- L'elenco dei file mostra i `.bm` e i `.bme` di `/carts` e della radice della scheda SD.
+- L'elenco dei file mostra i progetti `.bme` di `/bme` e i `.bm` e `.bme` di `/carts` e della radice della scheda SD.
 - La pagina del menu mostra il nome del file e `*modified*` quando c'è qualcosa da salvare.
 
 ## Provalo, passo per passo
@@ -363,7 +363,7 @@ Rinomina un osso in `sword` in F2, rifai il bake e guarda l'anteprima: il suo bo
 ## Da sapere
 
 - Un file aperto e salvato senza modifiche resta identico.
-- **Salva con nome** (`Ctrl+Shift+S`) chiede un nome 8.3; il file va in `/carts` con l'estensione `.BME`.
+- **Salva con nome** (`Ctrl+Shift+S`) chiede un nome 8.3; il file va in `/bme` con l'estensione `.BME`.
 - Un gioco (`.bm`, `.b16`) non viene mai sovrascritto: il primo salvataggio crea una copia `.BME`.
 - **F5** salva prima e avvia il progetto. Start + Select (o Ctrl+Esc) esce dal gioco e ti riporta alla stessa pagina.
 - Per creare il gioco finito usa **bm SDK** (Build, `Ctrl+B`): scrive il `.bm`. Il menu di bm Animator non ha una voce di build.

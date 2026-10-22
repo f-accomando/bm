@@ -58,7 +58,7 @@ All the tools of the suite change only **projects** (`.bme`). A **game** (`.bm` 
 - From the **Dev** tab of the console menu.
 - From a game: press **X** on its cover, then **Open in bm Mesh**.
 - From the monitor: the key `4`.
-- From inside the editor: Esc, then **Open...** (Ctrl+O). The list shows the `.bm` and `.bme` files of `/carts` and of the root of the SD card.
+- From inside the editor: Esc, then **Open...** (Ctrl+O). The list shows the `.bme` projects of `/bme` and the `.bm` and `.bme` files of `/carts` and of the root of the SD card.
 - If you started bm Mesh with no file, the file chooser opens by itself.
 
 ## What you see after opening
@@ -236,7 +236,7 @@ The G meshes come from the kernel function `cart_meshes(path)`. It runs the game
 
 # Saving
 
-- **Ctrl+S** saves. **Ctrl+Shift+S** asks for a name (8 letters, saved in `/carts` with the extension `.BME`).
+- **Ctrl+S** saves. **Ctrl+Shift+S** asks for a name (8 letters, saved in `/bme` with the extension `.BME`).
 - The menu (Esc) has **Save**, **Save as...**, **Try the game (F5)** and **Exit bm Mesh**. A mark `*` after the file name at the top means unsaved changes.
 - Only the MESH and ANIM sections and the bm Mesh block in the code change. Sprite sheet, map, cover, sound and the rest of the code stay exactly as they were.
 - A model with no vertices or no faces is left out of the file: the message says which one.

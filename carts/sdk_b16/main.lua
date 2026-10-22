@@ -907,37 +907,28 @@ end
 
 -- a project (.bme) is what the tools change; a game (.bm, .b16) is read
 -- only: saving it, the console asks and makes its editable copy (a project
--- next to it), and a project builds its game
+-- in /bme), and a project builds its game
 local function is_project(path) return path and path:lower():match("%.bme$") ~= nil end
 local function is_game(path) return path and (path:lower():match("%.bm$") or path:lower():match("%.b16$")) ~= nil end
 local function base_name(path) return (path or ""):match("([^/]+)$") or "" end
 
--- "/carts/pong.bme" -> "/carts/PONG.BME"; longer names are cut to 8
--- characters. A game keeps its path: saving it, the console asks and makes
--- its editable copy next to it (write_target), as with the Pi's SDK.
+-- "/bme/pong.bme" -> "/bme/PONG.BME"; longer names are cut to 8
+-- characters (no folder: /bme; an old project keeps its folder). A game keeps its path: saving it, the console asks and makes
+-- its editable copy in /bme (write_target), as with the Pi's SDK.
 local function short_path(path)
   if is_game(path) then return path end
   local dir, base = path:match("^(.*)/([^/]+)$")
-  dir = dir or "/carts"
+  dir = dir or U.PROJECTS
   if dir == "" then dir = "/" end
   local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
   if stem == "" then stem = "GAME" end
   return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BME"
 end
 
--- the cartridges on the card: the Pi's /carts, the RGB30's bm/, the root
+-- the cartridges and projects on the card: the projects in /bme first, then the Pi's
+-- /carts, the RGB30's bm/, the root
 local function list_files()
-  local out, seen = {}, {}
-  for _, dir in ipairs({ "/carts", "/bm", "/" }) do
-    for _, f in ipairs(ls(dir)) do
-      local n = f.name:lower()
-      local p = (dir == "/" and "" or dir) .. "/" .. f.name
-      if not f.dir and (n:match("%.bm$") or n:match("%.bme$") or n:match("%.b16$")) and not seen[p:upper()] then
-        seen[p:upper()] = true
-        out[#out + 1] = p
-      end
-    end
-  end
+  local out = U.project_files({ bm = true, bme = true, b16 = true }, { "/bm" })
   table.sort(out)
   return out
 end
@@ -1172,7 +1163,7 @@ local function save_project(after)
   end
   store_target()
   remember_last(S.proj.save)
-  say("saved " .. S.proj.save, C.ACC)
+  say(U.saved_text(S.proj.save), C.ACC)
   if after then after() end
   return true
 end
@@ -1188,10 +1179,10 @@ end
 
 function save_as(after, def)
   def = def and base_name(def) or S.proj.save and base_name(S.proj.save) or "MYGAME.BME"
-  D.ask("file name (8.3, in /carts)", def, function(t)
+  D.ask("file name (8.3, in /bme)", def, function(t)
     if t == "" then return end
     t = t:upper():gsub("%.[^.]*$", "") .. ".BME"
-    S.proj.save = short_path("/carts/" .. t)
+    S.proj.save = U.project_path(t)
     save_project(after)
   end)
 end
@@ -1203,9 +1194,8 @@ local function save_then(after)
 end
 
 -- Build .bm (Ctrl+B) or Export .b16 (Ctrl+Shift+B): the game of the project,
--- next to it (or in bm/ on the RGB30 for .b16). The RGB30's Games tab lists
--- bm/: a project in /carts builds its .bm there, which F5 tries (a project in
--- bm/ or an exported .b16 in bm/ is shown in Games)
+-- in the games folder (/carts on the Pi, bm/ on the RGB30) for a project in
+-- /bme; next to it for an old project. The Games tab lists that folder: F5 tries it
 local function build_project(b16)
   local function build()
     if not is_project(S.proj.save) then

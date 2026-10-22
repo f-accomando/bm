@@ -614,11 +614,15 @@ local function type_text(t)
 end
 
 local function open_file(name)
-  local list = {}
-  for _, f in ipairs(E.ls("/carts")) do list[#list + 1] = f.name end
+  local list = {}                        -- the picker's order: /bme, /carts, the root; sorted by path
+  for _, dir in ipairs({ "/bme", "/carts", "/" }) do
+    for _, f in ipairs(E.ls(dir)) do
+      if f.name:match("%.bm$") or f.name:match("%.bme$") then list[#list + 1] = (dir == "/" and "" or dir) .. "/" .. f.name end
+    end
+  end
   table.sort(list)
   key("pgup")                            -- the top of the list (the list goes round)
-  for i, n in ipairs(list) do if n == name then for _ = 2, i do key("down") end end end
+  for i, n in ipairs(list) do if n:match("([^/]+)$") == name then for _ = 2, i do key("down") end end end
   key("\n")
 end
 
@@ -745,8 +749,8 @@ check(#cur_models() == 8, "deleted again")
 menu_pick("Save as", EXIT_S)
 check(sees("file name"), "Save as asks a name")
 type_text("COPY3D")
-check(status():find("saved /carts/COPY3D.BME", 1, true), "saved: " .. status())
-local copy = read_file(SD .. "/carts/copy3d.bme")
+check(status():find("saved /bme/COPY3D.BME", 1, true), "saved: " .. status())
+local copy = read_file(SD .. "/bme/copy3d.bme")
 local got = {}
 for _, s in ipairs(sections_of(copy)) do got[s[1]] = s[2] end
 local vil = {}
@@ -899,13 +903,13 @@ check(#cur_models() == 1, "deleted again")
 -- save, then open it again
 menu_pick("Save as", EXIT_S)
 type_text("BLOCKS")
-check(status():find("saved /carts/BLOCKS.BME", 1, true), "saved: " .. status())
-local blocks = read_file(SD .. "/carts/blocks.bme")
+check(status():find("saved /bme/BLOCKS.BME", 1, true), "saved: " .. status())
+local blocks = read_file(SD .. "/bme/blocks.bme")
 check(blocks and blocks:sub(25, 38) == "New 3D project", "the title of a new project")
 local b8 = sec[8]
 menu_pick("Open...", EXIT_S)
 open_file("blocks.bme")
-check(sees("opened /carts/blocks.bme"), "opened again: " .. status())
+check(sees("opened /bme/blocks.bme"), "opened again: " .. status())
 check(sec[8] == b8, "the same models as saved")
 check(E.sget(8, 8) == 0xE84A5A or true, "the painted pixel saved with the sheet")
 
@@ -927,12 +931,12 @@ check(sees("MODELS 1"), "pad B: back where it was")
 
 -- bm Animator, on this file
 menu_pick("Open in bm Animator", EXIT_S)
-check(tooled and tooled[1] == "animator" and tooled[2]:lower() == "/carts/blocks.bme", "Open in bm Animator: cart_tool")
+check(tooled and tooled[1] == "animator" and tooled[2]:lower() == "/bme/blocks.bme", "Open in bm Animator: cart_tool")
 
 ----------------------------------------------------------------- bm Animator
 
 local ANIMATOR, EXIT_A = "/carts/animator/main.lua", "Exit bm Animator"
-run_cart(ANIMATOR, "/carts/blocks.bme")
+run_cart(ANIMATOR, "/bme/blocks.bme")
 E._init()
 frames(2)
 check(sees("MODELS") and sees("model") and sees("no skeleton yet"), "bm Animator on BLOCKS.BME: the player")
@@ -1091,7 +1095,7 @@ check(zone_slices()[zname] == 0, "zone fit: a plain zone stays plain after a re-
 
 -- save; the player shows the animation
 key("^s")
-check(status():find("saved /carts/blocks.bme", 1, true), "Ctrl+S: " .. status())
+check(status():find("saved /bme/blocks.bme", 1, true), "Ctrl+S: " .. status())
 key("f1")
 check(sees("anim1"), "the player: the new animation")
 

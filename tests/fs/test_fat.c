@@ -11,6 +11,8 @@
 #include "fs/fat.h"
 #include "drivers/sd.h"
 #include "kernel/sdmap.h"
+#include "bm/bm.h"
+#include "bm/project.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -320,6 +322,51 @@ static void test_sdmap(void)
     CHECK(sdmap_core_load("sdmap 1\nD x\n", 12) == 0);
 }
 
+/* Projects (.bme) live in /bme (src/bm/project.h): the paths, the copy of a game, the build */
+static void test_project(void)
+{
+    char out[96], err[64];
+    CHECK(bm_project_path("/carts/Il mio gioco.bm", out, sizeof out) == 0 && !strcmp(out, "/bme/ILMIOGIO.BME"));
+    CHECK(bm_project_path("pong.bm", out, sizeof out) == 0 && !strcmp(out, "/bme/PONG.BME"));
+    CHECK(bm_is_project("/bme/PONG.BME") && bm_is_project("/carts/old.bme") && !bm_is_project("/bm/pong.bm"));
+
+    /* a game in the games folder, as the card has it */
+    uint8_t cart[BM_HEADER_SIZE + 16];
+    memset(cart, 0, sizeof cart);
+    memcpy(cart, "BMCART\0\0", 8);
+    cart[8] = 1;
+    cart[10] = BM_HEADER_SIZE & 255;
+    cart[11] = BM_HEADER_SIZE >> 8;
+    CHECK(fat_mkdirs(bm_games_dir()) == 0);
+    CHECK(fat_write_file(bm_games_dir(), "PONGX.BM", cart, sizeof cart) == 0);
+    char game[40];
+    snprintf(game, sizeof game, "%s/PONGX.BM", bm_games_dir());
+
+    /* its editable copy: /bme/PONGX.BME, then /bme/PONGX1.BME when that is taken */
+    CHECK(bm_copy_name(game, out, sizeof out) == 0 && !strcmp(out, "/bme/PONGX.BME"));
+    CHECK(bm_make_copy(game, out, err, sizeof err) == 0);
+    fat_entry_t e;
+    CHECK(fat_find("/bme/PONGX.BME", &e) == 0 && !e.is_dir);
+    CHECK(bm_copy_name(game, out, sizeof out) == 0 && !strcmp(out, "/bme/PONGX1.BME"));
+
+    /* Ctrl+B: a project in /bme builds into the games folder, not next to itself */
+    CHECK(bm_build("/bme/PONGX.BME", out, sizeof out, err, sizeof err) == 0);
+    char want[40];
+    snprintf(want, sizeof want, "%s/PONGX1.BM", bm_games_dir());       /* PONGX.BM is a game it did not build */
+    CHECK(!strcmp(out, want));
+    CHECK(fat_find(want, &e) == 0);
+    CHECK(bm_build("/bme/PONGX.BME", out, sizeof out, err, sizeof err) == 0 && !strcmp(out, want));   /* its own game, replaced */
+    CHECK(fat_find("/bme/PONGX1.BM", &e) != 0);
+
+    /* an old project next to its game is built next to it, and is still a project */
+    CHECK(fat_write_file(bm_games_dir(), "OLDG.BME", cart, sizeof cart) == 0);
+    snprintf(game, sizeof game, "%s/OLDG.BME", bm_games_dir());
+    CHECK(bm_build(game, out, sizeof out, err, sizeof err) == 0);
+    snprintf(want, sizeof want, "%s/OLDG.BM", bm_games_dir());
+    CHECK(!strcmp(out, want));
+    CHECK(bm_build("/bme/PONGX.BM", out, sizeof out, err, sizeof err) != 0);     /* only a project is built */
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4) {
@@ -356,6 +403,7 @@ int main(int argc, char **argv)
     }
     test_free_count();
     test_sdmap();
+    test_project();
     test_clock();
 
     /* 200 files: the directory grows over several clusters */

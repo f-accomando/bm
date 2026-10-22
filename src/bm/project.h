@@ -44,9 +44,21 @@ static inline void bm_set_built_from(unsigned char *head, const char *from)
 int bm_is_project(const char *path);
 int bm_is_game(const char *path);
 
-/* The name the editable copy of a game takes: next to it, the game's name
+/* Projects (.bme) live in /bme. A project found next to its game (an old
+ * SD card) is still read, and saved where it is. */
+#define BM_PROJECTS_DIR "/bme"
+
+/* The folder that holds the games of this device: "/bm" on the RGB30,
+ * "/carts" on the Pi (the folders their menus read). */
+const char *bm_games_dir(void);
+
+/* The project path of a name or a game path, 8.3: "/carts/Il mio gioco.bm"
+ * -> "/bme/ILMIOGIO.BME". The one place that builds a project path in C. 0. */
+int bm_project_path(const char *name, char *out, size_t n);
+
+/* The name the editable copy of a game takes: in /bme, the game's name
  * with .BME, or with a digit at the end if that is taken ("/carts/
- * VILLAGE.BM" -> "/carts/VILLAGE.BME", "/carts/VILLAGE1.BME"...). 0, or -1
+ * VILLAGE.BM" -> "/bme/VILLAGE.BME", "/bme/VILLAGE1.BME"...). 0, or -1
  * if there is no free one. */
 int bm_copy_name(const char *game, char *out, size_t n);
 
@@ -55,14 +67,15 @@ int bm_copy_name(const char *game, char *out, size_t n);
 int bm_make_copy(const char *game, const char *to, char *err, size_t en);
 
 /* Builds the game of a project: the same bytes, marked as a game built
- * from it, in .BM next to it. The game it built before is replaced; a game
+ * from it, in .BM: in the games folder (bm_games_dir) for a project in /bme,
+ * next to it for an old project found next to its game. The game it built before is replaced; a game
  * of the same name that it did not build stays, and the new one takes a
  * digit ("PONG1.BM"). The game's path in out; 0, or -1 with the reason. */
 int bm_build(const char *project, char *out, size_t n, char *err, size_t en);
 
 /* Builds or exports the .b16 edition of a project (.bme) or a game (.bm) within
  * no size limit of its own. Never replaces a .bm (separate editions): writes
- * .B16 next to it (or in /bm on the RGB30), replacing only the .B16 built from
+ * .B16 in the games folder for a project in /bme (next to the source for an old project, or in /bm on the RGB30), replacing only the .B16 built from
  * the same source before. */
 int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en);
 

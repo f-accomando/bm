@@ -81,7 +81,7 @@ def centre(v, t):
 
 
 def studio3d(sd, village):
-    f = read(os.path.join(sd, "carts", "blocks.bme"))
+    f = read(os.path.join(sd, "bme", "blocks.bme"))
     ms = models(f)
     check([m["name"] for m in ms] == ["model"], "BLOCKS.BM: one model, \"model\"")
     m = ms[0]
@@ -114,7 +114,7 @@ def studio3d(sd, village):
               f"at 0.25 s the root is turned 15 degrees around x: {k}")
     sane("BLOCKS.BM", f)
 
-    a, b = read(os.path.join(sd, "carts", "copy3d.bme")), read(village)
+    a, b = read(os.path.join(sd, "bme", "copy3d.bme")), read(village)
     check([(m["name"], len(m["faces"])) for m in models(a)] == [(m["name"], len(m["faces"])) for m in models(b)],
           "COPY3D.BM has the models of the village")
     check(a.get(bmres.SEC_ANIM) == b.get(bmres.SEC_ANIM), "and the same skeletons")
@@ -122,7 +122,7 @@ def studio3d(sd, village):
 
 
 def mesh(sd, village):
-    files = {n: read(os.path.join(sd, "carts", n)) for n in ("astrowin.bme", "village.bme", "meshcopy.bme")}
+    files = {n: read(os.path.join(sd, "bme", n)) for n in ("astrowin.bme", "village.bme", "meshcopy.bme")}
     for n, f in files.items():
         sane(n, f)
     a = files["astrowin.bme"]
@@ -142,7 +142,7 @@ def mesh(sd, village):
 
 
 def pixel(sd, village):
-    f, f0 = read(os.path.join(sd, "carts", "village.bme")), read(village)
+    f, f0 = read(os.path.join(sd, "bme", "village.bme")), read(village)
     w, h, px = bmres.sheet_get(f)
     w0, h0, px0 = bmres.sheet_get(f0)
     check(w == w0 and h == h0 + 64, f"the sheet: {w}x{h}")
@@ -176,7 +176,7 @@ def pixel(sd, village):
         check(first > 0, f"the palette begins as the village's did ({first} colours)")
     for t in (bmres.SEC_LUA, bmres.SEC_COVER, bmres.SEC_MESH, bmres.SEC_ANIM):
         check(f.get(t) is not None and f.get(t) == f0.get(t), f"section {t} byte for byte as it was")
-    n = read(os.path.join(sd, "carts", "newspr.bme"))
+    n = read(os.path.join(sd, "bme", "newspr.bme"))
     w, h, px = bmres.sheet_get(n)
     check(b"bm Pixel: a new sprite sheet" in (n.get(bmres.SEC_LUA) or b"") and (w, h) == (256, 256),
           "NEWSPR.BM: the viewer and a 256x256 sheet")

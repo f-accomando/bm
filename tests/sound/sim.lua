@@ -398,11 +398,11 @@ type_keys("\n")                           -- yes
 type_keys("down", "\n")                   -- pong.bm
 type_keys("f3", "\n")
 type_keys("^s")
-check(puts[#puts] == "/carts/PONG.BME", "Save writes into the editable copy of the game opened")
+check(puts[#puts] == "/bme/PONG.BME", "Save writes into the editable copy of the game opened")
 check(files["/carts/pong.bm"].bank == false, "the game stays as it was")
-b = parse(files["/carts/PONG.BME"].bank)
+b = parse(files["/bme/PONG.BME"].bank)
 check(#b.pats >= 1 and b.pats[1].tracks[0], "the game got the pattern")
-check(logs[#logs]:find("saved /carts/PONG.BME", 1, true), "the save is in the log")
+check(logs[#logs]:find("saved /bme/PONG.BME", 1, true), "the save is in the log")
 
 -- 8. import a song (with its patterns and sounds) from the pack
 menu_item(6)
@@ -417,7 +417,7 @@ check(#b.songs >= 2 and #b.pats >= 10 and #b.sounds >= 6, "the song came with it
 menu_item(4)
 type_keys("\n")                           -- Save as a new sound pack...
 type_keys("\b", "\b", "\b", "\b", "\b", "\b", "\b", "\b", "M", "I", "N", "E", "\n")
-check(files["/bm/sounds/MINE.BME"] and files["/bm/sounds/MINE.BME"].bank, "a new sound pack is written (a project)")
+check(files["/bme/MINE.BME"] and files["/bme/MINE.BME"].bank, "a new sound pack is written (a project)")
 
 -- 9b. the assistant (F6): a backing track into new patterns and a song of its
 -- own, a melody over the pattern on the page, a sound effect into a free slot
