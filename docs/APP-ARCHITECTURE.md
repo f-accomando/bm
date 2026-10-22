@@ -71,7 +71,7 @@ models with the file's), `cart_read`, `cart_audio`, `cart_data(type[, bytes])` (
 **Project and game.** A `.bme` is the same container with bit 0 set. A tool writing to a game path makes an **editable
 copy** (`.bme`, after the question "Save an editable copy?"); `cart_build` copies a project to a game `.BM` next to it
 (the project's name goes to offset 104; a rebuild replaces only that file); `cart_build "b16"` writes a `.B16`, never
-touching the `.bm`, within 8 MiB (`project.c`).
+touching the `.bm` (`project.c`).
 
 ## 3. Shared libraries
 

@@ -70,8 +70,8 @@ Samples (version 3 of the bank; a bank with none is written as version 2):
   "store"      the format it is stored in ("u8" .. "f32"; default: the WAV's)
   "mono"       true: the two channels of a stereo file mixed into one
 The console reads them as 16-bit frames: at most PCM_MAX values (frames x
-channels, 4 frames more each) in a bank, 2 MiB of memory: 22 s of mono at
-48 kHz, 47 s at 22 kHz (the cartridge itself is on the SD card; the
+channels, 4 frames more each) in a bank, 16 MiB of memory: 174 s of mono at
+48 kHz, 380 s at 22 kHz (the cartridge itself is on the SD card; the
 console's memory is not).
 """
 import argparse
@@ -109,7 +109,7 @@ LIMITS = {"sounds": 32, "sfx": 64, "patterns": 64, "songs": 8, "samples": 64}
 FORMATS = ["u8", "s16", "s24", "s32", "f32"]
 SIZES = [1, 2, 3, 4, 4]
 LOOPS = ["off", "fwd", "pingpong"]
-PCM_MAX = 1 << 20           # 16-bit values of a bank's samples (AU_PCM_MAX)
+PCM_MAX = 8 << 20           # 16-bit values of a bank's samples (AU_PCM_MAX)
 GUARD = 4                   # frames the console adds to each (SYNTH_SAMPLE_GUARD)
 KIT = ["bd", "sd", "hh", "oh", "cp", "rim", "tom", "cb"]       # MOD1 128.. (SYNTH_KIT)
 SAMPLE_WAVE = WAVES.index("sample")

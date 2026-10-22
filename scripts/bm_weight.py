@@ -55,8 +55,7 @@ COSTS = {
     "tris60_high": (128282, "docs/design/triangle-throughput.md 1.1, row big A8 (measured)"),
     "tris60_arm": (1195, "docs/PERFORMANCE.md, Sept 2026 ARM rasterizer baseline (measured, old)"),
     "model_faces_max_measured": (10080, "docs/BENCH3D.md, scene big (largest model measured)"),
-    "audio_pcm_max": (1048576, "docs/design/single-bm-and-adaptive-screen.md 2.2, AU_PCM_MAX now; 8388608 decided, not built"),
-    "b16_max_bytes": (8 << 20, "docs/design/single-bm-and-adaptive-screen.md 2.1, old .b16 build limit"),
+    "audio_pcm_max": (8388608, "src/audio/player.h AU_PCM_MAX (16-bit values of a bank's samples)"),
 }
 
 BENCHMARKS = {
@@ -250,8 +249,6 @@ def plan(info, w):
         flags.append(f"estimated load read {read_s:.1f} s is above {LOAD_WARN_S} s (kit default, not a measured limit)")
     if total > MARKET_MAX:
         flags.append(f"file is {mb(total)}, above the Market ceiling of {mb(MARKET_MAX)} (src/net/catalog.h)")
-    if info["edition"] == "b16" and total > COSTS["b16_max_bytes"][0]:
-        flags.append(f"file is {mb(total)}, above the old .b16 build limit of 8 MiB [{COSTS['b16_max_bytes'][1]}]")
     for s in sheets:
         f = s["facts"]
         if f.get("w", 0) > SHEET_MAX or f.get("h", 0) > SHEET_MAX:

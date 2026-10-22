@@ -924,7 +924,7 @@ static void cart_panel(home_panel_t *p)
                  "Games are read only: open the copy (.bme) from an editor", NULL);
         if (strcmp(kind_of(c), "b16") != 0)
             home_row(p, MENU_ROW_ACTION, C_BUILD_B16, "Export .b16",
-                     "Exports a .b16 edition (up to 8 MiB) without changing the .bm", NULL);
+                     "Exports a .b16 edition without changing the .bm", NULL);
         home_row(p, MENU_ROW_ACTION, C_PUBLISH, "Publish to the Market",
                  "A pull request with your GitHub token: everyone can get it", NULL);
         home_row(p, MENU_ROW_ACTION, C_SEND, "Send to a nearby console",

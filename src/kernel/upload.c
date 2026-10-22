@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_CART    (16u << 20)
+#define MAX_CART    (100u << 20)    /* the Market ceiling (net/catalog.h): the hard limit of a cartridge */
 #define WAIT_US     15000000u
 #define BYTE_US     2000000u
 

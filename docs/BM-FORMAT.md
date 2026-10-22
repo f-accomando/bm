@@ -26,14 +26,44 @@ All numbers are little endian.
 | 12, 14 | u16, u16 | width, height | cartridge: only 640x360, 480x270, 320x180, 256x256, 360x360. In a resource file offset 12 is the **kind** (1..6) |
 | 16 | u8 | pixel format | only 1 (RGB565); 2 is reserved and refused |
 | 17 | u8 | number of sections | up to 255 |
-| 18 | u16 | flags | bit 0 project, bit 1 `.b16`, bits 2-3 the type declared in `bm.info` (0 game, 1 app, 2 utility, 3 reserved = game); defined in `project.h`, not in `bm.h`, whose comment still says "reserved (0)". `mkbm.py` writes the type bits and `bm_type_of_head()` reads them; no kernel uses them for the menu yet (D09). The project/`.b16` kind still comes from the extension. Writers keep the other bits |
+| 18 | u16 | flags | bit 0 project, bit 1 `.b16`, bits 2-3 the type declared in `bm.info` (0 game, 1 app, 2 utility, 3 reserved = game), bit 4 `BM_FLAG_COMPAT`: the compatibility block at 120 is present (bm.h); defined in `project.h`, not in `bm.h`, whose comment still says "reserved (0)". `mkbm.py` writes the type bits and `bm_type_of_head()` reads them; no kernel uses them for the menu yet (D09). The project/`.b16` kind still comes from the extension. Writers keep the other bits |
 | 20 | u32 | CRC-32 | of the bytes from 128 to the end of the file. The **header is not covered** |
 | 24 | 48 | title | UTF-8, up to 47 bytes + NUL; shown by the menu |
 | 72 | 32 | author | up to 31 bytes + NUL |
 | 104 | 16 | built from | 8.3 name of the project a game was built from (`project.h`); `bm.h` still says "reserved" |
-| 120 | 8 | reserved | zero |
+| 120 | 8 | compatibility block | Valid only when flag bit 4 is set. All zero in an old file. See the next section |
 
 The title and author are also the key of the saves (`/bm/save/<CRC32(title, author)>.SAV`).
+
+## Compatibility block (bytes 120..127)
+
+Flag bit 4 (`BM_FLAG_COMPAT`, value 16) says the block is present. The header is not covered by the CRC.
+
+| Byte | Field | Values |
+|---|---|---|
+| 120 | targets | bit 0 Pi Zero W, bit 1 RGB30 (`BM_TARGET_*`). Zero with bit 4 set is invalid and reads as an old file |
+| 121 | input | bit 0 pad, 1 keyboard, 2 text, 3 mouse, 4 mouse optional (`BM_IN_*`). Zero = not declared |
+| 122 | aspect | bit 0 wide, 1 square, 2 any, 3 uses `safe_area()` (`BM_ASPECT_*`). Zero = not declared |
+| 123 | needs | bit 0 3D, 1 audio, 2 network, 3 mouse device (`BM_NEED_*`) |
+| 124-125 | min RAM | u16, MiB. Zero = none |
+| 126 | min spec | the `BM_SPEC_REV` the cartridge needs. Zero = none |
+| 127 | min width | minimum screen width in units of 16 pixels. Zero = none |
+
+Reading (`bm_compat_read`, and `bm_cart_t.compat` after `bm_parse`): a file with bit 4 clear is an old file.
+An old `.bm` reads as targets = Pi. An old `.b16` (flag bit 1) reads as targets = Pi + RGB30. `declared` is 0 for both.
+The kernel does not act on the block yet. The menu and the Market still use the extension.
+
+Writing: `mkbm.py --targets pi,rgb30 [--input ..] [--aspect ..] [--needs ..] [--min-ram MiB] [--min-spec N] [--min-width PX]`,
+and `bm_compat_write`. Every writer keeps the block: `bm_rewrite_with` copies it from the old file, `project.c` clears only
+bytes 104..119 (`bm_set_built_from`), `mkbm.py --from` clears only bytes 104..119, `bmres.py` and `bmmesh.py` copy the header.
+
+## File size
+
+The kernel has no cartridge size limit of its own. It reads the whole file into RAM and checks the CRC in 64 KiB pieces.
+The hard ceiling is the Market: 100 MiB a file (`CATALOG_MAX_FILE`, `src/net/catalog.h`), which GitHub also enforces.
+A cartridge of 100 MiB must fit in the heap of the device. Load time on the Pi Zero W is `not verified`.
+The old 8 MiB check of the `.b16` is removed from `mkbm.py`, `project.c`, the Makefile and `mkmarket.py`.
+The sound bank holds at most 8,388,608 PCM values (`AU_PCM_MAX`, 16 MiB decoded).
 
 ## Section table and bodies
 

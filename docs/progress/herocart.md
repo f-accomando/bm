@@ -16,6 +16,19 @@ A separate cart, `carts/herocart/`: 64 heroes walk in a plaza. The player change
 - Once a second the cart prints one `herocart 1 ...` line with the options in force, `ms`, `fps`, `gpu`, `wait`, `anim`, `tri`, `vtx`, `lua`, `kb`.
 - The sweep runs 10 hero counts (0 to 64), 30 warm-up frames and 120 measured frames each, then prints the load at 60 and 30 fps.
 
+## Hero counts at 60 fps from the benchmark (22 Oct, Pi Zero W)
+
+These numbers come from the 3D Bench `herotris` and `cel` tests, not from the cart. Detail and report names: [v3d](v3d.md). A set is one hero of 1536 triangles, its shadow and a map of 5000 triangles, at 640x360.
+
+| profile | sets at 60 fps | hero triangles at 60 fps |
+|---|---:|---:|
+| ARM | 0.41 | 630 |
+| GPU | 0.56 | 859 |
+| GPU+VS | 3.85 | 5907 |
+| GPU+VS+Q | 6.74 | 10351 |
+
+For `cel`, with the vertex shader (n heroes of 1536 triangles, 50 heroes): lit 11.0 ms, cel 12.1 ms (+10%), outline 14.4 ms (+31%). On the ARM cel costs the same as lit (14.6 against 14.5 ms). The status line of the boot probe says `cel light yes`.
+
 ## Tests
 
 - `make test-herocart` also runs `build/host/test_herocart_mesh` (V3D emulator): every hero model and hull goes through the mesh path with Vertex shader 2 (`glmeshes`, `gltris`), none with it off or at 1. On the models made before the one-bone rule, `test_herocart_mesh OLD.bm --expect-fallback` shows the fallback.
@@ -36,8 +49,8 @@ Copy `herocart.bm` to the SD card (`bm/`). Run it at 640x360. To check the verte
 - The `options` line of the console (`tex16`, `fs2`) is not read by Lua. `report()` adds it. The panel shows the 3D driver version.
 - Free camera: the arrow keys also move the row cursor.
 - The Pi has not run the models with one bone for each face: not verified on hardware.
-- Stage 5 (RGB30 edition): see the design. Stages 3 and 4 (cel in the V3D vertex programs, outline by the inverted hull, bm3D 7.5) are built and tested on the V3D emulator only. Not verified on the Pi: the probe result (`cel light` in the status), the cost of cel at `vs` 2, the cost of the hull (design estimate +40-60% of a hero draw; the gate that limits it by distance is not applied).
-- Cel and dither costs on the Pi are not measured (runs 3 and 4 of the design with `Cel bands` on and `Dither` off).
+- Stage 5 (RGB30 edition): see the design. Stages 3 and 4 (cel in the V3D vertex programs, outline by the inverted hull, bm3D 7.5) are built and tested on the V3D emulator only. The 3D Bench of 22 Oct measured on the Pi: the probe says `cel light yes`, cel at `vs` 2 costs +10% over lit, the hull (flag 512) costs +31% over lit (under the +60% gate: the distance limit is not needed). Not verified on the Pi: the same costs in the cart itself (the sweep of `HEROCART.TXT`).
+- Cel and dither costs are measured by the 3D Bench (22 Oct: dither off equals dither on within 0.1 ms). The cart sweep with `Cel bands` on and `Dither` off (runs 3 and 4 of the design) is still open.
 - `dither3d(false)` adds a constant half step. It saves no fill time. The ARM fill saving of the design is not real; the row shows the look only.
 - Row 19 `Outline` has three values: off, hull (baked), flag 512. The printed line has `out0` to `out2` (0 off, 1 baked, 2 flag).
 

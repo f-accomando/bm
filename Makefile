@@ -301,7 +301,6 @@ $(BUILD)/carts/stages3d.b16: $(BUILD)/stages3d/b16/main.lua $(STAGES3D_ASSETS) c
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stages3d/b16/bm.info --sheet carts/stages3d/assets/sheet.png \
 	    --map floor=carts/stages3d/assets/map_floor.csv --map height=carts/stages3d/assets/map_height.csv \
 	    --map walls=carts/stages3d/assets/map_walls.csv --map objects=carts/stages3d/assets/map_objects.csv
-	@test `wc -c < $@` -le 8388608 || { echo "stages3d.b16 is over a .b16's 8 MiB"; rm -f $@; exit 1; }
 
 # bm SDK (RGB30): the SDK's second edition, 360x360 and the pad, with its own
 # sources in carts/sdk_b16/ (layout.lua + main.lua, joined by its build.py). A tool
@@ -401,7 +400,7 @@ $(BUILD)/carts/overbit.bm: $(BUILD)/overbit/main.lua $(BUILD)/overbit/models.bm 
 	    $(if $(wildcard carts/overbit/cover.png),--cover carts/overbit/cover.png)
 
 # the optimized release, the .b16 of the Market for the Pi and the RGB30 (the
-# same container, docs/B16.md §0; under its 8 MiB): the script without comment
+# same container, docs/B16.md §0): the script without comment
 # and blank lines, 360x360 in the header (a .b16's size). The game sets its own
 # screen, quality and renderer (85_quality): on the RGB30 360x360 or 720x720,
 # on the Pi's TV 1080p on the GPU or 640x360 (the square page left at the
@@ -416,15 +415,13 @@ $(BUILD)/carts/overbit.b16: $(BUILD)/overbit/main.min.lua $(BUILD)/overbit/model
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_overbit)" --author bm --res $(OVERBIT_B16_RES) \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json \
 	    $(if $(wildcard carts/overbit/cover.png),--cover carts/overbit/cover.png)
-	@test `wc -c < $@` -le 8388608 || { echo "overbit.b16 is over a .b16's 8 MiB"; exit 1; }
 
 # the .b16 that is the .bm's very bytes (docs/B16.md §0: the same container): a
-# 360x360 or 720x720 game within the 8 MiB, built as its .bm (Yharnam: 360x360,
+# 360x360 or 720x720 game, built as its .bm (Yharnam: 360x360,
 # its menus on "ok" / "back", the RGB30's B and A)
 B16_AS_BM := yharnam titanex
 $(patsubst %,$(BUILD)/carts/%.b16,$(B16_AS_BM)): $(BUILD)/carts/%.b16: $(BUILD)/carts/%.bm
 	$(PYTHON) scripts/mkbm.py --from $< --b16 -o $@
-	@test `wc -c < $@` -le 8388608 || { echo "$@ is over a .b16's 8 MiB"; rm -f $@; exit 1; }
 
 # variants that start in a mode: the reel (for docs/img) and the benchmark
 $(BUILD)/overbit/%.bm: $(OVERBIT_SRC) carts/overbit/build/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
@@ -1103,7 +1100,6 @@ MARKET_APPS := editor code pixel studio animator mesh sound
 MARKET_APP_CARTS := $(patsubst %,$(BUILD)/%.bm,$(MARKET_APPS))
 $(BUILD)/carts/editor.b16: $(BUILD)/carts/sdk_b16.bm
 	$(PYTHON) scripts/mkbm.py --from $< --b16 -o $@
-	@test `wc -c < $@` -le 8388608 || { echo "$@ is over a .b16's 8 MiB"; rm -f $@; exit 1; }
 market-seed: $(filter-out $(BUILD)/carts/village.bm,$(GAME_CARTS)) $(MARKET_APP_CARTS) $(patsubst %,$(BUILD)/carts/%.b16,$(MARKET_B16))
 	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
 	mkdir -p $(MARKET)/.github/workflows $(MARKET)/games $(MARKET)/apps
