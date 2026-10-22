@@ -703,6 +703,26 @@ def settled_screen(q, ok, tries=15):
     return img, text
 
 
+def wait_menu(q, timeout=15.0):
+    """The cartridge menu once it is drawn (its tab row says "Games"): the
+    serial line "cartridge menu" comes before the first frame, later on a
+    busy runner, and a key typed before the menu runs is lost. Writes the
+    screen text and a PNG to build/diag/ when the menu never shows."""
+    deadline = time.time() + timeout
+    while True:
+        img = q.screendump()
+        text = screen_text(img)
+        if "Games" in text[1]:
+            return img, text
+        if time.time() > deadline:
+            os.makedirs("build/diag", exist_ok=True)
+            _save_png(img, "build/diag/menu-not-drawn.png")
+            with open("build/diag/menu-not-drawn.txt", "w") as f:
+                f.write("\n".join(text))
+            raise AssertionError("the menu is not drawn after %.0f s:\n%s" % (timeout, "\n".join(text)))
+        time.sleep(0.2)
+
+
 def test_bm_boot_demo(b, opts):
     q = Qemu(b("kernel.img"))
     try:
@@ -970,7 +990,7 @@ def test_sd_cartridges(b, opts):
         q.expect("> ")
         q.send("M")
         q.expect("cartridge menu")
-        time.sleep(0.5)
+        wait_menu(q)
         want = ("Games", "bm native demo", "/Il mio gioco lungo.bm")
         _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
         screen = "\n".join(text)
@@ -982,6 +1002,9 @@ def test_sd_cartridges(b, opts):
         screen = "\n".join(text)
         assert all(w in screen for w in want), screen
         q.send("a")
+        want = ("bm native demo", "/Il mio gioco lungo.bm")   # the cover is back before Enter starts it
+        _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
+        assert all(any(w in l for l in text) for w in want), "\n".join(text)
         q.send("\r")                          # SD cartridges come first, by title
         q.expect("playing Il mio gioco lungo.bm", timeout=10)
         q.expect("bm: loaded", timeout=10)    # the system's splash, then the game
@@ -989,7 +1012,12 @@ def test_sd_cartridges(b, opts):
         q.send("q")
         out = q.expect("update+draw", timeout=15).decode(errors="replace")
         assert '"bm native demo"' in out, out
-        q.send("d\r")                         # next: /carts/demo2.bm
+        wait_menu(q)                          # the menu is back (the game is suspended) before the keys
+        q.send("d")                           # next: /carts/demo2.bm
+        want = ("Pong", "/carts/demo2.bm")
+        _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
+        assert all(any(w in l for l in text) for w in want), "\n".join(text)
+        q.send("\r")
         _, text = settled_screen(q, lambda i, t: any("Close bm native demo?" in l for l in t))
         assert any("Close bm native demo?" in l for l in text), "\n".join(text)
         q.send("\r")                          # the demo was suspended: close it
@@ -5257,7 +5285,7 @@ def test_monitor_line(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
-        time.sleep(0.5)
+        wait_menu(q)                            # a ':' typed before the menu runs is lost
         q.send(":err\r")
         out = q.expect("the line is done", timeout=10).decode(errors="replace")
         assert "err: none" in out, out
@@ -7105,6 +7133,17 @@ def test_code_completion(b, opts):
             time.sleep(0.25)
         raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
 
+    def see_gone(words, gone, tries=40):
+        """see(), and none of `gone` on the screen: the first frame after a key can still be the one
+        before it (the text is the same), so one sample proves nothing"""
+        text = []
+        for _ in range(tries):
+            text = screen_text(q.screendump(), 6, 12)
+            if all(any(w in l for l in text) for w in words) and not any(g in l for l in text for g in gone):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {words}, or still there: {gone}\n" + "\n".join(text))
+
     def coloured(rgb, tol=12):
         """the pixels of about that colour on the screen"""
         w, h, px = q.screendump()
@@ -7115,7 +7154,7 @@ def test_code_completion(b, opts):
                 n += 1
         return n
 
-    def wait_coloured(rgb, tries=20):
+    def wait_coloured(rgb, tries=40):
         """the count of that colour on the first screen with more than 20 pixels of it, or of the last one.
         One sample is not enough: under load a screendump can catch a frame the guest is still drawing,
         without the colour, though the frames before and after have it (CI misses of this test)"""
@@ -7143,8 +7182,7 @@ def test_code_completion(b, opts):
         assert wait_coloured(GHOST) > 20, "the suggestion in grey-blue"
         shot("ghost")
         k("\t", 0.4)
-        text = see(["  1 function"])
-        assert not any("Tab:" in l for l in text), "written: no suggestion left"
+        text = see_gone(["  1 function"], ["Tab:"])           # the status line drops "Tab: word" a frame later
         for _ in range(20):                                 # the grey-blue rest is gone once Tab is done
             if coloured(GHOST) < 20:
                 break
