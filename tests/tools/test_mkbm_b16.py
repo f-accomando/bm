@@ -116,6 +116,45 @@ class B16LintTest(unittest.TestCase):
             self.assertIn(mkbm.SEC_SHEET8, types)
             self.assertNotIn(mkbm.SEC_SHEET, types)
 
+    def test_profile_screen_other_than_360_or_720_warns(self):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            mkbm.b16_lint(mkbm.pack(b"local a = 1\n", res=(640, 360)), "x.b16")
+        self.assertIn("warning: x.b16: screen 640x360", err.getvalue())
+
+    def test_profile_screens_360_and_720_are_quiet(self):
+        for side in (360, 720):
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                mkbm.b16_lint(mkbm.pack(b"local a = 1\n", res=(side, side)), "x.b16")
+            self.assertEqual(err.getvalue(), "", side)
+
+    def test_profile_targets_of_one_kernel_warn(self):
+        for targets, who in ((1, "the Pi"), (2, "the RGB30")):
+            data = mkbm.mark_compat(mkbm.pack(b"", res=(360, 360)), targets)
+            self.assertEqual(len(mkbm.b16_profile_warnings(data)), 1)
+            self.assertIn("only " + who, mkbm.b16_profile_warnings(data)[0])
+
+    def test_profile_both_targets_are_quiet(self):
+        data = mkbm.mark_compat(mkbm.pack(b"", res=(360, 360)), 3, input_=1, aspect=2)
+        self.assertEqual(mkbm.b16_profile_warnings(data), [])
+
+    def test_profile_mouse_hardware_need_warns(self):
+        data = mkbm.mark_compat(mkbm.pack(b"", res=(360, 360)), 3, needs=8)
+        self.assertIn("mouse_hw", mkbm.b16_profile_warnings(data)[0])
+
+    def test_cli_warns_after_the_compat_block(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dst = os.path.join(tmp, "X.b16")
+            lua = os.path.join(tmp, "m.lua")
+            with open(lua, "wb") as f:
+                f.write(b"local x = 1\n")
+            proc = subprocess.run(
+                [sys.executable, MKBM_PATH, "--lua", lua, "--res", "360x360", "--targets", "pi", "-o", dst],
+                capture_output=True, text=True, cwd=ROOT)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertIn("targets list only the Pi", proc.stderr)
+
     def test_cli_leaves_bm_untouched(self):
         with tempfile.TemporaryDirectory() as tmp:
             src = os.path.join(tmp, "X.bm")
