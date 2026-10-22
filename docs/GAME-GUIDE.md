@@ -318,8 +318,10 @@ lists, adds and renames them. For movement with walls, platforms and gravity the
 ## 6. 3D models
 
 The 3D is software (in C on the ARM; the Pi's GPU draws it when it can): triangles with a
-z-buffer, per-face light, fog, textures. A rough budget: about 1200 triangles drawn at 60
-fps.
+z-buffer, per-face light, fog, textures. The budget depends on the path. On the Pi Zero W a
+game-like scene holds about 2300 drawn triangles at 60 fps with the ARM rasteriser, about 4500
+with the GPU, and about 78000 with the GPU and the vertex shader. The numbers for each thing
+(heroes, sprites, tiles, draw calls) are in [`docs/PERF-BUDGET.md`](PERF-BUDGET.md).
 
 **Ready-made shapes:** `mesh_cube(colour)`, `mesh_sphere(rings, segments, c1, c2)`.
 
@@ -855,11 +857,56 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
   (`_update`, `_draw`, the 3D calls, the audio, the wait for the GPU) and a GPU bar, in % of
   the 16.7 ms of a frame; the longest part is where to start. `profile(true)` measures the
   functions: `profile()` returns the costliest (ms a frame: their own time and with what
-  they call), and the session report lists the ten first.
+  they call), and the session report lists the ten first (see *The profiler* below).
+  Numbers for what a frame holds (tiles, sprites, meshes) are in
+  [`docs/PERF-BUDGET.md`](PERF-BUDGET.md).
   For stalls you cannot catch in time, at the end of a run the dev kit writes the last
   session's report into the reports (`session_<game>_<board>.txt`, replaced by every new run):
   the frame in its parts, the longest frames, and how much of each is `_update`, `_draw` and
   how much neither.
+- **The profiler** (`profile(true)`, `stat(17)`, `stat(18)`): use them to find the function or
+  the part of the frame that costs the most.
+  - `profile(true)` starts the profiler for this run. `profile(false)` stops it and forgets the
+    rows. Off, it costs nothing. The cost when it is on is `not measured`.
+  - `profile()` returns two values: a table and the number of frames measured. The table holds
+    up to 32 rows, the costliest first (by `self`). A row has `name`, `where` (`"main.lua:120"`,
+    or `"[C]"` for the console's functions), `c` (`true` for a function written in C), `self`
+    and `total` (ms a frame), and `calls` (calls a frame, C functions only).
+  - `self` is the own time of the function. `total` is the time with the functions that it
+    calls. A function with a big `total` and a small `self` spends its time in other functions.
+  - The values are the mean of the last 60 frames. In the first second the table is empty
+    and the frames number is `0`. After that the numbers change once a second.
+  - The console's functions are timed exactly. Lua functions are timed in pieces of 1000 VM
+    instructions, so a short Lua function can get a time that is a little wrong. Read the
+    biggest rows only.
+  - `_update` and `_draw` have the names `_update` and `_draw`. The main chunk is
+    `(main chunk)`.
+  - `stat(17)` is the ms of audio processing in the last frame (the audio interrupt).
+    `stat(18)` is the ms that the ARM waited for the GPU in the last frame. `stat(16)` is
+    the ms of the GPU job. Read them with `stat(1)` (the ms of the whole frame). A big
+    `stat(18)` means that the GPU sets the pace: draw fewer triangles or pixels. A small
+    `stat(18)` and a big `stat(1)` mean that the ARM sets the pace: look at `profile()`.
+    `stat(16)` and `stat(18)` are `0` when the ARM draws the 3D, on the RGB30 and in QEMU.
+    `stat(17)` is `0` where the console has no audio interrupt to time.
+  - These are measurements. They differ between consoles. Never use them in game logic,
+    or a lockstep match falls out of step.
+
+  ```lua
+  function _init() profile(true) end
+
+  function _draw()
+    -- ... the drawing ...
+    if stat(3) % 120 == 0 then
+      log("frame", stat(1), "gpu", stat(16), "audio", stat(17), "gpu wait", stat(18))
+      local rows, frames = profile()
+      for i = 1, math.min(5, #rows) do
+        log(rows[i].name, rows[i].where, rows[i].self, rows[i].total)
+      end
+    end
+  end
+  ```
+
+  Compare the numbers with the budget in [`docs/PERF-BUDGET.md`](PERF-BUDGET.md).
 - **Debugger** (bm Code): F8 puts a breakpoint on the line, F5 tries the game, which stops
   there and shows the variables and the stack; F10 the next line, F8 into a call, Shift+F8
   out, F5 goes on, Esc stops (back on the line). From the code `breakpoint("why")` stops the

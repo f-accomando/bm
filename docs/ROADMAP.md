@@ -17,7 +17,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 ## Graphics 3D
 
 - M37 - P1 - to test on the Pi - 2D and quality on the GPU (`gpu3d_2d`, `menu_scale=3`, bilinear). Done when the menu at 1080p is correct on the Pi. [v3d](progress/v3d.md)
-- API-1 - P1 - to do - Publish a 2D and 3D performance budget measured on Pi and RGB30 (sprites, tiles, meshes, particles at 60 fps). The RGB30 has no numbers today. Explain `profile(true)` in the guide. [PERFORMANCE](PERFORMANCE.md), [STRESS](STRESS.md), [lua](progress/lua.md)
+- API-1 - P1 - to test on the RGB30 - RGB30 numbers from the 3D Bench of the Mali and the 2D scenes, after the user's RGB30 runs. The Pi Zero W budget and the `profile(true)` guide are published. [PERF-BUDGET](PERF-BUDGET.md), [lua](progress/lua.md)
 - BETA-5 - P1 - to do - A multi-stage 3D game runs on the GPU (V3D on the Pi, Mali on the RGB30) within the budget. Needs API-1 and APP-2. [v3d](progress/v3d.md)
 - M41 - P2 - in progress - RGB30 Mali-G52 GPU and Overbit in `.b16`. Done when Overbit `.b16` runs at 60 fps with the Mali and 3D Bench reports GPU metrics (device runs H1, H6 open). [graphics-mali](progress/graphics-mali.md), [platforms](progress/platforms.md)
 - M39 - P2 - in progress - Toward the V3D limit. Pi 21 Oct: compact attributes +3.8% (kept off), 16-bit textures and ETC1 no gain (kept off). Open: stress test at double the triangles at 60 fps; Overbit with 10 bots at 60 fps in HIGH. [v3d](progress/v3d.md) `To do`, [lua](progress/lua.md)

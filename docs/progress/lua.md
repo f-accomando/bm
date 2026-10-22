@@ -60,6 +60,7 @@ toolkit), `bmui` (mouse in the tools), `riff` (music patterns, see
 
 ## Open work (`docs/ROADMAP.md`)
 
+- **API-1** (performance budget): the Pi Zero W budget is in [`docs/PERF-BUDGET.md`](../PERF-BUDGET.md) and `profile(true)` with `stat(17)`, `stat(18)` is in the guide. Open: the RGB30 numbers (Mali 3D Bench and the 2D scenes) after the user's RGB30 runs; flips and alpha alone, 2D particles and 3D particles are `not measured`; the cost of `profile(true)` when on.
 - **GAME-INPUT-1** (input standard for games: [games-input-standard](../design/games-input-standard.md),
   `lib.input` with the schemes scroller, topdown and stick): the library, the docs, the kb and the
   templates are merged. Open: migrate the existing games one by one (list: `python scripts/input_inventory.py --games`);
