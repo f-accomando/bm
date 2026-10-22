@@ -144,6 +144,7 @@ static struct {
                                  * for the next frame, and nothing has drawn on it since */
     g16_light_t light;          /* light_begin() .. light_end() */
     g16_fade_t fade;            /* fades(), dark_begin() .. dark_end() */
+    r3d_pfx_t *pfx;             /* particles() pool */
     int text_mode;              /* keyp() was called: the keyboard types */
     int raw_keys;               /* rawkeys(true): the keyboard is read with keydown() */
     lua_State *slice_thread;    /* timeslice(): this coroutine yields after slice_at */
@@ -2808,6 +2809,67 @@ static int l_sprite3d(lua_State *L)
     return 1;
 }
 
+/* particles([max=1024]) -> cap: alloc or replace the 3D particle pool */
+static int l_particles(lua_State *L)
+{
+    if (rt.pfx) {
+        r3d_pfx_free(rt.pfx);
+        rt.pfx = NULL;
+    }
+    int cap = (int)luaL_optinteger(L, 1, 1024);
+    rt.pfx = r3d_pfx_new(cap);
+    lua_pushinteger(L, rt.pfx ? rt.pfx->cap : 0);
+    return 1;
+}
+
+/* particles_add(x, y, z, vx, vy, vz, life, [rgb=0xFFFFFF]) -> slot or nil */
+static int l_particles_add(lua_State *L)
+{
+    if (!rt.pfx)
+        return 0;
+    v3_t pos = { fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) };
+    v3_t vel = { fnum(L, 4, 0), fnum(L, 5, 0), fnum(L, 6, 0) };
+    float life = fnum(L, 7, 0);
+    uint32_t rgb = (uint32_t)luaL_optinteger(L, 8, 0xFFFFFF);
+    int slot = r3d_pfx_add(rt.pfx, pos, vel, life, rgb);
+    lua_pushinteger(L, slot);
+    return 1;
+}
+
+/* particles_step([gravity=0.0]) */
+static int l_particles_step(lua_State *L)
+{
+    if (rt.pfx) {
+        float gravity = fnum(L, 1, 0.0f);
+        r3d_pfx_step(rt.pfx, gravity);
+    }
+    return 0;
+}
+
+/* particles_draw([radius=0.1]) -> pixels */
+static int l_particles_draw(lua_State *L)
+{
+    if (!rt.pfx) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    r3d_t *r = r3d(L);
+    settle2d();
+    zclear_dma_wait(1);
+    uint32_t t0 = timer_ticks();
+    uint32_t n = r3d_pfx_draw(r, rt.pfx, fnum(L, 1, 0.1f));
+    us3d_add(t0);
+    lua_pushinteger(L, n);
+    return 1;
+}
+
+/* particles_count() -> count */
+static int l_particles_count(lua_State *L)
+{
+    lua_pushinteger(L, rt.pfx ? r3d_pfx_live(rt.pfx) : 0);
+    return 1;
+}
+
 /* camera3d(x, y, z [, yaw, pitch, fov, roll]) */
 static int l_camera3d(lua_State *L)
 {
@@ -4812,6 +4874,8 @@ static const luaL_Reg api[] = {
     { "draw3d", l_draw3d }, { "textures3d", l_textures3d }, { "camera3d", l_camera3d }, { "light3d", l_light3d },
     { "sky3d", l_sky3d }, { "shine3d", l_shine3d }, { "shadow3d", l_shadow3d },
     { "point3d", l_point3d }, { "line3d", l_line3d }, { "sprite3d", l_sprite3d },
+    { "particles", l_particles }, { "particles_add", l_particles_add }, { "particles_step", l_particles_step },
+    { "particles_draw", l_particles_draw }, { "particles_count", l_particles_count },
     { "bone_turn", l_bone_turn }, { "bones3d", l_bones3d }, { "hit3d", l_hit3d },
     { "world3d", l_world3d }, { "world_box", l_world_box }, { "world_ray", l_world_ray },
     { "world_move", l_world_move }, { "world_floor", l_world_floor },
@@ -7508,6 +7572,10 @@ static void release(lua_State *L)
     zclear_dma_wait(1);         /* the DMA may still be clearing it */
     rt.zclear_seen = 0;
     g16_fade_free(&rt.fade);
+    if (rt.pfx) {
+        r3d_pfx_free(rt.pfx);
+        rt.pfx = NULL;
+    }
     if (rt.r3d_ready)
         r3d_free(&rt.r3d);
     rt.r3d_ready = 0;
@@ -9361,6 +9429,10 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
 
     bm_close_suspended();              /* one cartridge in memory at a time */
     memset(st, 0, sizeof *st);
+    if (rt.pfx) {
+        r3d_pfx_free(rt.pfx);
+        rt.pfx = NULL;
+    }
     memset(&rt, 0, sizeof rt);
     rt.audio_prev = audio_busy_us;     /* stat(17), stat(18) count from this run */
     rt.gpuwait_prev = gpu3d_wait_us();
@@ -9676,6 +9748,10 @@ uint32_t bm_bench(framebuffer_t *fb, uint32_t frames)
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
     bm_close_suspended();
+    if (rt.pfx) {
+        r3d_pfx_free(rt.pfx);
+        rt.pfx = NULL;
+    }
     memset(&rt, 0, sizeof rt);
     if (g16_sheet_alloc(&rt.sheet, 128, 128) != 0)
         return 0;

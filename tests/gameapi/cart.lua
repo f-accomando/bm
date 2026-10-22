@@ -211,6 +211,23 @@ local function draw_checks()
         "camera:apply(view): clipped to the view")
   check(pget(sx, sy) == WHITE and math.abs(sx - (v.x + v.w / 2)) <= 1 and math.abs(sy - (v.y + v.h / 2)) <= 1,
         "camera:screen(x, y, view): the target in the view's middle")
+  -- 3D particles: the pool, the step (life -1, gravity on vy), the draw and lib.particles3d
+  check(particles(100) == 112 and particles_count() == 0 and particles_draw() == 0, "particles(n): capacity 112, empty")
+  check(particles_add(0, 0, 0, 0, 0, 0, 2.5) == 0 and particles_count() == 1, "particles_add: slot 0, one live")
+  camera3d(0, 0, -5, 0, 0, 60)
+  zclear()
+  check(particles_draw(0.5) > 0, "particles_draw: a live particle draws pixels")
+  particles_step(0.5)
+  particles_step(0.5)
+  check(particles_count() == 1 and particles_draw() >= 0, "particles_step: life 0.5 after 2 steps")
+  particles_step(0.5)
+  check(particles_count() == 0, "particles_step: dead at life <= 0")
+  check(particles(5000) == 0 and particles_count() == 0, "particles(5000): 0, no pool")
+  local p3 = lib.particles3d(64)
+  p3:burst(0, 0, 0, 10, { life = 5 })
+  check(p3:count() == 10, "lib.particles3d: burst of 10")
+  p3:update()
+  check(p3:count() == 10 and p3:draw() >= 0, "lib.particles3d: update and draw")
 end
 
 -- saving: the layers, the flags and the zones go to the file and come back

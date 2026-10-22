@@ -360,6 +360,87 @@ static void test_3d(void)
     r3d_free(&r);
 }
 
+static void test_pfx(void)
+{
+    /* (a) r3d_pfx_new(100) gives cap == 112; r3d_pfx_new(5000) == NULL */
+    r3d_pfx_t *p100 = r3d_pfx_new(100);
+    CHECK(p100 != NULL && p100->cap == 112, "pfx_new(100) cap 112 (%d)", p100 ? p100->cap : 0);
+    r3d_pfx_free(p100);
+    CHECK(r3d_pfx_new(5000) == NULL, "pfx_new(5000) returns NULL");
+    CHECK(r3d_pfx_new(0) == NULL, "pfx_new(0) returns NULL");
+
+    /* (b) add 3 particles, step twice with g = 0.5f and compare every float with closed form */
+    r3d_pfx_t *p = r3d_pfx_new(16);
+    CHECK(p != NULL && p->cap == 16, "pfx_new(16)");
+    v3_t pos0[3] = { { 1.0f, 10.0f, 2.0f }, { -3.0f, 5.0f, 0.0f }, { 0.5f, 20.0f, -4.0f } };
+    v3_t vel0[3] = { { 0.1f, 2.0f, 0.5f }, { -0.2f, -1.0f, 0.0f }, { 1.0f, 0.0f, -0.5f } };
+    float life0[3] = { 10.0f, 5.0f, 1.5f };
+    uint32_t col0[3] = { 0xFF0000, 0x00FF00, 0x0000FF };
+    for (int i = 0; i < 3; i++) {
+        int idx = r3d_pfx_add(p, pos0[i], vel0[i], life0[i], col0[i]);
+        CHECK(idx == i, "pfx_add index %d", idx);
+    }
+    CHECK(r3d_pfx_live(p) == 3, "3 live particles");
+
+    float g = 0.5f;
+    r3d_pfx_step(p, g);
+    r3d_pfx_step(p, g);
+
+    int cap = p->cap;
+    for (int i = 0; i < 3; i++) {
+        float expected_vy = vel0[i].y - 2 * g;
+        float expected_x = pos0[i].x + 2 * vel0[i].x;
+        float expected_y = pos0[i].y + (vel0[i].y - g) + (vel0[i].y - 2 * g);
+        float expected_z = pos0[i].z + 2 * vel0[i].z;
+        float expected_vx = vel0[i].x;
+        float expected_vz = vel0[i].z;
+        float expected_life = life0[i] - 2.0f;
+
+        CHECK(p->a[0 * cap + i] == expected_x, "particle %d x (%f vs %f)", i, p->a[0 * cap + i], expected_x);
+        CHECK(p->a[1 * cap + i] == expected_y, "particle %d y (%f vs %f)", i, p->a[1 * cap + i], expected_y);
+        CHECK(p->a[2 * cap + i] == expected_z, "particle %d z (%f vs %f)", i, p->a[2 * cap + i], expected_z);
+        CHECK(p->a[3 * cap + i] == expected_vx, "particle %d vx (%f vs %f)", i, p->a[3 * cap + i], expected_vx);
+        CHECK(p->a[4 * cap + i] == expected_vy, "particle %d vy (%f vs %f)", i, p->a[4 * cap + i], expected_vy);
+        CHECK(p->a[5 * cap + i] == expected_vz, "particle %d vz (%f vs %f)", i, p->a[5 * cap + i], expected_vz);
+        CHECK(p->a[6 * cap + i] == expected_life, "particle %d life (%f vs %f)", i, p->a[6 * cap + i], expected_life);
+    }
+
+    /* (c) with life = 1.5f, after two steps r3d_pfx_live() == 0 and r3d_pfx_draw returns 0 */
+    r3d_pfx_t *p_dead = r3d_pfx_new(16);
+    r3d_pfx_add(p_dead, (v3_t){ 0, 0, 0 }, (v3_t){ 0, 0, 0 }, 1.5f, 0xFFFFFF);
+    CHECK(r3d_pfx_live(p_dead) == 1, "1 live before steps");
+    r3d_pfx_step(p_dead, g);
+    CHECK(r3d_pfx_live(p_dead) == 1, "still live after 1 step (life 0.5)");
+    r3d_pfx_step(p_dead, g);
+    CHECK(r3d_pfx_live(p_dead) == 0, "0 live after 2 steps (life -0.5)");
+
+    static uint16_t fb[360 * 640];
+    g16_t gtarget;
+    r3d_t rtarget;
+    g16_target(&gtarget, fb, 640, 640, 360, &font);
+    CHECK(r3d_init(&rtarget, &gtarget) == 0, "r3d init for draw");
+    r3d_camera(&rtarget, 0, 0, -5, 0, 0, 60);
+    uint32_t px_dead = r3d_pfx_draw(&rtarget, p_dead, 1.0f);
+    CHECK(px_dead == 0, "dead particles draw 0 pixels (%u)", px_dead);
+
+    /* (e) a particle in front of a camera set as test_3d draws more than 0 pixels */
+    r3d_pfx_t *p_live = r3d_pfx_new(16);
+    r3d_pfx_add(p_live, (v3_t){ 0, 0, 0 }, (v3_t){ 0, 0, 0 }, 10.0f, 0xFF0000);
+    g16_cls(&gtarget, 0);
+    r3d_zclear(&rtarget);
+    uint32_t drawn = r3d_pfx_draw(&rtarget, p_live, 0.5f);
+    CHECK(drawn > 0, "live particle draws pixels (%u)", drawn);
+    r3d_pfx_free(p_live);
+
+    /* (f) a dead entry is not stepped: its position stays */
+    float dead_x = p_dead->a[0];
+    r3d_pfx_step(p_dead, 1.0f);
+    CHECK(p_dead->a[0] == dead_x && p_dead->a[6 * p_dead->cap] == -0.5f, "dead entry untouched by the step");
+    r3d_free(&rtarget);
+    r3d_pfx_free(p_dead);
+    r3d_pfx_free(p);
+}
+
 static uint8_t *read_file(const char *p, size_t *n)
 {
     FILE *f = fopen(p, "rb");
@@ -1019,6 +1100,7 @@ int main(int argc, char **argv)
     test_light();
     test_fade();
     test_3d();
+    test_pfx();
     test_format(argc > 1 ? argv[1] : "build/demo.bm");
     test_cover_peek();
     test_type_bits();

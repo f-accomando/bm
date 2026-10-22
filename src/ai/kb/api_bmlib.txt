@@ -389,6 +389,28 @@ fx:burst(x, y, 20, { speed = 3, gravity = 0.1,
 fx:update()
 fx:draw()
 
+== lib.particles3d
+kind: api
+name: lib.particles3d
+title: lib.particles3d([max]) - particelle 3D pronte (bmlib)
+title_en: lib.particles3d([max]) - ready-made 3D particles (bmlib)
+ask: particelle 3d con bmlib | 3d particles bmlib | lib particles3d | burst 3d
+keys: particelle, 3d, burst, update, draw, bmlib
+see: lib.particles, particles_pool, particles_add, particles_step, particles_draw
+text:
+Equivalente 3D di lib.particles per gestire particelle nello spazio 3D:
+P:burst(x, y, z, n, {speed, life, color, up}), P:add(x, y, z, vx, vy, vz, life, color),
+P:update([gravity]) e P:draw([radius]). Incapsula le funzioni particles del runtime.
+text_en:
+3D sibling of lib.particles managing particles in 3D space:
+P:burst(x, y, z, n, {speed, life, color, up}), P:add(x, y, z, vx, vy, vz, life, color),
+P:update([gravity]) and P:draw([radius]). Wraps the runtime's particles functions.
+code:
+local p3 = lib.particles3d(500)
+p3:burst(x, y, z, 20, { speed = 2, life = 30, color = 0xFFA020 })
+p3:update(0.02)
+p3:draw(0.1)
+
 == lib.camera
 kind: api
 name: lib.camera

@@ -79,6 +79,7 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 - V3D (bm3D 3.0-7.3) on the Pi Zero W: [v3d](v3d.md).
 - Mali-G52 driver: [graphics-mali](graphics-mali.md) (the triangle to run on the device).
 - Sprite stacking: `stack()`, stack zones (`stack name x y w h n` in the zones file, `zone()` 7th value) and `zstack()` are done (`g16_stack` in `gfx16.c`, CPU only, no memory per stack; Pi speed not measured). Not done: `stackv`, the bm Pixel page, the mesh conversion, the Pi speed.
+- 3D particles: `particles*` and `lib.particles3d` are done (ARM step and draw in `r3d_pfx_*`, no cost without a pool; host test `test_pfx`, `make test-gameapi`). Not measured on the Pi Zero W. Not done: the QPU step (the idea is dropped for now).
 - QPU programs outside 3D: the driver, the queue, a particle step and the fade by levels are done on the emulator (`src/gpu/qpu.c`, [v3d](v3d.md) item 5). Nothing calls them in the runtime; not run on the Pi.
 
 ## Rules (do not break)
