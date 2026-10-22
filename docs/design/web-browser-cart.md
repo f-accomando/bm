@@ -250,16 +250,14 @@ stage 1b, optional).
 | Lua API for fetch is new | Kernel stage before any cart test on QEMU | Stage 2a first. Host tests (stage 1) do not wait for it. |
 | Hardware | All timings are estimates | `not verified on hardware` until the owner runs the cart on the Pi and RGB30. |
 
-## 6. What the project needs from the user
+## 6. Decisions of the user (22 Oct 2026)
 
-- Q1. Confirm the source form: `carts/bmweb/` (plain Lua folder, like `carts/write`), or a `.bme` project.
-- Q2. Terms of the site: allow a contact to the poly.pizza owner for permission or an API key? Or keep
-  the cart generic and do not name the site in Market text?
-- Q3. Accept a kernel PR for `web_get` (stage 2a), `image_load` and `file_write` (new Lua API, with docs and specs).
-- Q4. WebP: pay for the 1 200 line decoder, or use PNG model-page previews and text cards?
-- Q5. One Pi Zero W run per stage (or at least stage 2 and 5) for the timings in section 5.
-- Q6. Name and Market channel for the cart: `bmweb` or another name; `.bm` edition first, `.b16` later
-  from its own sources (CLAUDE.md rule).
+- Q1. Decided: the source is a `.bme` project (Dev tab). Stage 1 Lua modules stay in `carts/bmweb/` until the project exists; port them into the project at stage 2b.
+- Q2. Decided: bmweb is a generic web browser. Do not name poly.pizza in the cart, the Market text or the code. Use an honest User-Agent, human pace (one request per user action), `robots.txt` respected, https only by default. poly.pizza stays a test target by hand.
+- Q3. Decided: develop the kernel API: `web_get`, `image_load`, `file_write` (new Lua API, with docs and specs).
+- Q4. Decided: develop the WebP decoder (about 1 200 lines of C, host-tested).
+- Q5. Decided: one Pi Zero W run per stage 2 and stage 5. The assistant does not use the Pi password: the user runs these Pi checks and copies the numbers back.
+- Q6. Decided: name `bmweb`; `.bm` edition first. With a single `.bm` (PR 101) no separate `.b16` is planned.
 
 ## 7. Evidence log
 
