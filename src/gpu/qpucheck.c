@@ -147,6 +147,10 @@ int qpu_check(qpucheck_t *r, uint32_t (*us)(void))
         r->fade = check_fade(r, us);
     else
         note(r, "fade off");
+    if (qpu_stats.fade_arm_align)       /* the game's fades (hook) met a picture or table off a 64-byte line */
+        note(r, "fade: ARM (alignment)");
+    if (qpu_stats.busy_skips)
+        note(r, "fade: ARM while a 3D job ran");
     if (r->particles == QPUCHECK_FAIL || r->fade == QPUCHECK_FAIL)
         return QPUCHECK_FAIL;
     if (r->particles == QPUCHECK_PASS || r->fade == QPUCHECK_PASS)

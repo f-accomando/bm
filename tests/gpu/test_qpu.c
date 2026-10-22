@@ -153,7 +153,7 @@ static void fade_case(uint32_t pixels, int levels, int ntab, int expect_qpu)
 }
 
 /* g16_fade_apply of the 2D library against qpu_fade_apply, on lamps and colours made with its own calls */
-static void g16_case(int w, int h, int expect_qpu, int misalign)
+static void g16_case_with(int (*apply)(g16_t *, const g16_fade_t *), int w, int h, int expect_qpu, int misalign)
 {
     g16_fade_t f;
     g16_fade_init(&f, w, h);
@@ -176,9 +176,7 @@ static void g16_case(int w, int h, int expect_qpu, int misalign)
     memcpy(lv, f.lv, (size_t)w * h);
     memcpy(index, f.index, 65536);
     memcpy(tab, f.tab, G16_FADE_LEVELS * 256 * 2);
-    free(f.lv);
-    free(f.index);
-    free(f.tab);
+    g16_fade_free(&f);
     f.lv = lv;
     f.index = index;
     f.tab = tab;
@@ -198,7 +196,7 @@ static void g16_case(int w, int h, int expect_qpu, int misalign)
     gr.px = ref;
     g16_fade_apply(&gr, &f);
     const uint32_t jobs0 = emu_stats.qpu_jobs;
-    const int by_qpu = qpu_fade_apply(&g, &f);
+    const int by_qpu = apply(&g, &f);
     CHECK(!memcmp(px, ref, (size_t)w * h * 2), "g16 fade %dx%d: not the library's picture", w, h);
     CHECK(by_qpu == expect_qpu && (emu_stats.qpu_jobs > jobs0) == expect_qpu, "g16 fade %dx%d: by_qpu %d, jobs %u", w, h,
           by_qpu, emu_stats.qpu_jobs - jobs0);
@@ -209,10 +207,54 @@ static void g16_case(int w, int h, int expect_qpu, int misalign)
     qpu_free(tab);
 }
 
+static void g16_case(int w, int h, int expect_qpu, int misalign)
+{
+    g16_case_with(qpu_fade_apply, w, h, expect_qpu, misalign);
+}
+
+/* the runtime's hook (gpu3d_qpu=1): the same picture as g16_fade_apply, by the QPUs or by the ARM */
+static void hook_case(int w, int h, int expect_qpu, int misalign)
+{
+    g16_case_with(qpu_fade_hook, w, h, expect_qpu, misalign);
+}
+
+/* gpu3d_qpu off: bm_fade_accel is NULL and dark_end() is g16_fade_apply itself: no job, no QPU call */
+static void key_off_case(void)
+{
+    const int w = 160, h = 90;
+    g16_fade_t f;
+    g16_fade_init(&f, w, h);
+    g16_fade_reset(&f, 8);
+    uint16_t to[G16_FADE_LEVELS];
+    for (int k = 0; k < f.levels; k++)
+        to[k] = (uint16_t)(0x7BEF * (uint32_t)(k + 1) / (uint32_t)f.levels);
+    g16_fade_colour(&f, 0xFFFF, to);
+    g16_fade_done(&f);
+    g16_fade_clear(&f, 2);
+    g16_fade_glow(&f, 50, 40, 30, 7, 128);
+    uint16_t *a = malloc((size_t)w * h * 2), *b = malloc((size_t)w * h * 2);
+    for (int i = 0; i < w * h; i++)
+        a[i] = b[i] = (uint16_t)(i % 5 ? rnd() : 0xFFFF);
+    g16_t ga = { .px = a, .stride = (uint32_t)w, .w = w, .h = h }, gb = ga;
+    gb.px = b;
+    int (*accel)(g16_t *, const g16_fade_t *) = NULL;     /* what bm_fade_accel is with the key off */
+    const uint32_t jobs0 = emu_stats.qpu_jobs, runs0 = qpu_stats.runs;
+    g16_fade_apply(&ga, &f);
+    if (accel)
+        accel(&gb, &f);
+    else
+        g16_fade_apply(&gb, &f);
+    CHECK(!memcmp(a, b, (size_t)w * h * 2), "key off: the picture changed");
+    CHECK(emu_stats.qpu_jobs == jobs0 && qpu_stats.runs == runs0, "key off: the QPU code ran");
+    g16_fade_free(&f);
+    free(a);
+    free(b);
+}
+
 int main(int argc, char **argv)
 {
     const int mode = argc > 1 ? atoi(argv[1]) : 0;
-    emu_qpu = mode;
+    emu_qpu = mode == 3 ? 0 : mode;
     const int r = qpu_init();
     printf("qpu: %s\n", qpu_status());
     if (emu_error[0])
@@ -233,6 +275,40 @@ int main(int argc, char **argv)
         g16_case(20, 1, 0, 0);               /* less than a block */
         g16_case(64, 32, 0, 1);             /* a picture not on a 64-byte line: the ARM, same picture */
         CHECK(emu_stats.qpu_dma > 0, "no DMA store counted");
+        key_off_case();
+        hook_case(640, 360, 1, 0);          /* key on: the QPUs, the same picture as the ARM */
+        hook_case(100, 33, 1, 0);
+        hook_case(64, 32, 0, 1);            /* a shape the QPUs do not take: the ARM, no failure */
+        CHECK(qpu_fade_ok(), "the hook turned the QPUs off for a shape");
+        {   /* g16_fade_init gives arrays the QPUs take as they are (64-byte lines) */
+            g16_fade_t fi;
+            CHECK(g16_fade_init(&fi, 640, 360) == 0, "g16_fade_init failed");
+            CHECK((((uintptr_t)fi.lv | (uintptr_t)fi.index | (uintptr_t)fi.tab) & 63) == 0,
+                  "g16_fade_init arrays not on 64-byte lines");
+            uint16_t *px = qpu_alloc(640 * 360 * 2);
+            memset(px, 0x55, 640 * 360 * 2);
+            g16_t gi = { .px = px, .stride = 640, .w = 640, .h = 360 };
+            const uint32_t j0 = emu_stats.qpu_jobs, al0 = qpu_stats.fade_arm_align;
+            CHECK(qpu_fade_apply(&gi, &fi) == 1 && emu_stats.qpu_jobs > j0 && qpu_stats.fade_arm_align == al0,
+                  "fade arrays from g16_fade_init went to the ARM");
+            qpu_free(px);
+            g16_fade_free(&fi);
+        }
+        {   /* a picture off a 64-byte line: the ARM, counted as alignment */
+            const uint32_t al0 = qpu_stats.fade_arm_align;
+            hook_case(64, 32, 0, 1);
+            CHECK(qpu_stats.fade_arm_align == al0 + 1, "alignment fallback not counted");
+        }
+        {   /* a 3D job running: this call on the ARM, same picture, no failure, the next call tries the QPUs again */
+            const uint32_t f0 = qpu_stats.failures, b0 = qpu_stats.busy_skips;
+            emu_qpu_busy = 1;
+            hook_case(640, 360, 0, 0);
+            hook_case(640, 360, 0, 0);
+            emu_qpu_busy = 0;
+            CHECK(qpu_stats.failures == f0 && qpu_stats.busy_skips == b0 + 2 && qpu_fade_ok(),
+                  "busy counted as a failure: failures %u busy %u", qpu_stats.failures - f0, qpu_stats.busy_skips - b0);
+            hook_case(640, 360, 1, 0);      /* the 3D job is over: the QPUs again */
+        }
 
         /* a queue: three requests of different kinds, one flush, one launch each batch */
         const size_t n1 = 5 * QPU_PBLOCK, n2 = 9 * QPU_PBLOCK;
@@ -289,6 +365,21 @@ int main(int argc, char **argv)
         particles_case(7, 0);               /* off for good: no job even when the V3D answers again */
         fade_case(64, 8, 4, 0);
         g16_case(64, 32, 0, 0);
+    } else if (mode == 3) {
+        /* the probe passes, then the V3D stops answering (mode 3 runs as mode 0 for the emulator) */
+        emu_qpu = 0;
+        CHECK(r == 0 && qpu_fade_ok(), "probe failed: %s", qpu_status());
+        hook_case(640, 360, 1, 0);
+        emu_qpu = 1;
+        const uint32_t f0 = qpu_stats.failures;
+        hook_case(640, 360, 0, 0);          /* the fade job times out: the ARM's picture, no hang */
+        CHECK(qpu_stats.failures == f0 + 1 && !qpu_fade_ok(), "hook: failures %u, fade_ok %d", qpu_stats.failures - f0,
+              qpu_fade_ok());
+        emu_qpu = 0;                        /* the V3D answers again: the hook stays on the ARM for good */
+        const uint32_t j1 = emu_stats.qpu_jobs;
+        hook_case(640, 360, 0, 0);
+        hook_case(100, 33, 0, 0);
+        CHECK(emu_stats.qpu_jobs == j1, "the hook ran a job after a failure");
     } else {
         CHECK(r == -1 && !qpu_particles_ok() && !qpu_fade_ok(), "QPUs usable with emu_qpu=%d: %s", mode, qpu_status());
         if (mode == 1) {
@@ -301,6 +392,9 @@ int main(int argc, char **argv)
         particles_case(9, 0);
         fade_case(96, 8, 4, 0);
         g16_case(64, 32, 0, 0);
+        const uint32_t j2 = emu_stats.qpu_jobs;     /* the probe failed: the hook is the ARM, same picture, no job */
+        hook_case(640, 360, 0, 0);
+        CHECK(emu_stats.qpu_jobs == j2, "the hook ran a job with the QPUs off");
     }
     CHECK(test_arena_overruns() == 0, "a block was written past its end");
     printf("qpu: %d/%d checks passed (%u QPU jobs, %u instructions)\n", checks - failures, checks, emu_stats.qpu_jobs,

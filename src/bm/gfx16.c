@@ -607,9 +607,10 @@ int g16_fade_init(g16_fade_t *f, int w, int h)
     memset(f, 0, sizeof *f);
     f->w = w;
     f->h = h;
-    f->lv = malloc((size_t)w * h);
-    f->index = malloc(65536);
-    f->tab = malloc(G16_FADE_LEVELS * 256 * sizeof *f->tab);
+    /* 64-byte lines: the QPU fade (qpu_fade_apply) reads these arrays by DMA */
+    f->lv = aligned_alloc(64, ((size_t)w * h + 63) & ~(size_t)63);
+    f->index = aligned_alloc(64, 65536);
+    f->tab = aligned_alloc(64, G16_FADE_LEVELS * 256 * sizeof *f->tab);
     if (!f->lv || !f->index || !f->tab) {
         g16_fade_free(f);
         return -1;

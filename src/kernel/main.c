@@ -37,6 +37,8 @@
 #include "usb/usb.h"
 #include "carts.h"
 #include "config.h"
+#include "gputest.h"
+#include "gpu/qpu.h"
 #include "bt/bt.h"
 #include "audio/audio.h"
 #include "crumbs.h"
@@ -279,6 +281,8 @@ void kernel_main(uint32_t atags)
     usb_print();
     carts_init();
     config_load();
+    if (gpu_qpu_key())                  /* gpu3d_qpu=1 (default off): Yharnam's darkness on the QPUs, ARM fallback */
+        bm_fade_accel = qpu_fade_hook;
     sdlog_prev();
     watchdog_before_reboot(pi_lastrun);
     sdlog_boot(0);

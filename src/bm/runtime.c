@@ -4790,12 +4790,17 @@ static int l_glow(lua_State *L)
     return 0;
 }
 
+int (*bm_fade_accel)(g16_t *g, const g16_fade_t *f) = NULL;
+
 static int l_dark_end(lua_State *L)
 {
     (void)L;
     if (rt.fade.lv) {
         sync3d();                       /* it reads the page: the 3D (and a cls) on it first */
-        g16_fade_apply(&rt.g, &rt.fade);
+        if (bm_fade_accel)
+            bm_fade_accel(&rt.g, &rt.fade);
+        else
+            g16_fade_apply(&rt.g, &rt.fade);
     }
     return 0;
 }

@@ -1417,12 +1417,14 @@ test-qpu:
 $(BUILD)/host/test_qpurun: tests/gpu/test_qpu.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/qpu.c src/gpu/qpu.h                            src/gpu/qpuprog.h src/gpu/v3d.h src/bm/gfx16.c src/bm/gfx16.h
 	mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free 	    -c src/gpu/qpu.c -o $@-qpu.o
-	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_qpu.c tests/gpu/v3d_emu.c 	    src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/gfx16.c $@-qpu.o -lm
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free -include v3d_emu.h -c src/bm/gfx16.c -o $@-g16.o
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_qpu.c tests/gpu/v3d_emu.c 	    src/gpu/v3d_cl.c src/gpu/etc1.c $@-g16.o $@-qpu.o -lm
 
 test-qpurun: $(BUILD)/host/test_qpurun
 	$< 0
 	$< 1
 	$< 2
+	$< 3
 
 # bm3d 7.x: the QPU check (src/gpu/qpucheck.c, config key gpu3d_qpu) on the V3D emulator: PASS, SKIP (no answer), SKIP (probe off)
 $(BUILD)/host/test_qpucheck: tests/gpu/test_qpucheck.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/qpu.c src/gpu/qpu.h src/gpu/qpucheck.c src/gpu/qpucheck.h src/gpu/qpuprog.h src/gpu/v3d.h src/bm/gfx16.c src/bm/gfx16.h
