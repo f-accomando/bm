@@ -99,7 +99,8 @@ static uint32_t next_run(void)
     fat_entry_t e;
     if (fat_opendir(&d, REC_DIR) == 0)
         while (fat_readdir(&d, &e))
-            if ((e.name[0] == 'R' || e.name[0] == 'r') && e.name[1] >= '0' && e.name[1] <= '9') {
+            if ((e.name[0] == 'R' || e.name[0] == 'r') && e.name[1] >= '0' && e.name[1] <= '9' && e.name[2] >= '0' &&
+                e.name[2] <= '9' && e.name[3] >= '0' && e.name[3] <= '9') {
                 const uint32_t n = (uint32_t)((e.name[1] - '0') * 100 + (e.name[2] - '0') * 10 + (e.name[3] - '0'));
                 if (n > top)
                     top = n;
@@ -142,6 +143,12 @@ int rec_start(const rec_cfg_t *cfg)
     }
     R.st.slots = R.nslots;
     R.st.run = next_run();
+    if (R.st.run > 999) {
+        free(R.ring);
+        R.ring = NULL;
+        kprintf("rec: %s holds 999 runs: delete some\n", REC_DIR);
+        return -1;
+    }
     R.period = 1000000u / (uint32_t)cfg->fps;
     R.t_start = R.next_due = timer_ticks();
     R.on = 1;
