@@ -13,9 +13,11 @@ import contextlib
 import io
 import os
 import re
+import shutil
 import socket
 import struct
 import sys
+import tempfile
 import threading
 import time
 import zlib
@@ -297,6 +299,13 @@ def main():
     rc, out = run(kc, job=("-P", str(kc.port), "--keys", "X a"))
     check(rc == 1 and kc.keys == b"Xa", "--keys with a space: refused on the PC")
 
+    # --game-exit: the Ctrl-\ byte, in a game only
+    rc, out = run(app, job=("-P", str(app.port), "--game-exit"))
+    check(rc == 0 and app.keys == b"", "--game-exit in a game: the one byte 0x1C")
+    kc.keys = b""
+    rc, out = run(kc, job=("-P", str(kc.port), "--game-exit"))
+    check(rc == 2 and "game only" in out and kc.keys == b"", "--game-exit in the menu: exit 2, nothing sent")
+
     # the bridge: names only, from the fixed table, through bm_net --keys, password hidden
     import pi_bridge
     seen = []
@@ -327,12 +336,137 @@ def main():
         check("s3cret" not in out and "net_password=***" in out and "s3cret" not in kept,
               "bridge: logs bootprev: the password masked in the answer and in the file kept")
         pi_bridge.subprocess.run = lambda cmd, **kw: (seen.append(cmd), R())[1]
+        for name in ("freeze", "reboot", "crash-dabt"):
+            pi_bridge.run("1.2.3.4", "s3cret", "keys " + name)
+            check(seen[-1][-3] == "--in-monitor" and seen[-1][-2] == "--keys", f"bridge: keys {name} only when the monitor has the keys")
+        check(seen and pi_bridge.run("1.2.3.4", "s3cret", "keys freeze") is not None and seen[-1][-1] == "Xf", "bridge: keys freeze -> Xf")
+        pi_bridge.run("1.2.3.4", "s3cret", "keys reboot")
+        check(seen[-1][-3:] == ["--in-monitor", "--keys", "r"], "bridge: keys reboot -> r")
+        pi_bridge.run("1.2.3.4", "s3cret", "keys monitor")
+        check("--in-monitor" not in seen[-1], "bridge: keys monitor needs no monitor")
+        pi_bridge.run("1.2.3.4", "s3cret", "keys game-exit")
+        check(seen[-1][-1] == "--game-exit" and "--keys" not in seen[-1], "bridge: keys game-exit -> --game-exit")
+
+        # config: allowed keys go through, secret keys are refused before any child starts, the log never holds a value
+        pi_bridge.run("1.2.3.4", "s3cret", "config menu_scale=3")
+        check(seen[-1][-2:] == ["--config", "menu_scale=3"], "bridge: config menu_scale=3 goes through")
         n = len(seen)
-        for bad in ("logs foo", "logs ../x", "logs BOOTPREV.TXT", "logs", "keys foo", "keys Xa", "keys", "keys crash-freeze", "keys monitor Xa"):
+        out = pi_bridge.run("1.2.3.4", "s3cret", "config net_password=x")
+        check(len(seen) == n and "secret keys are not set" in out, "bridge: config net_password=x refused, child not started")
+        out = pi_bridge.run("1.2.3.4", "s3cret", "config menu_scale=3 WIFI_PSK=x")
+        check(len(seen) == n and "secret keys are not set" in out, "bridge: config wifi_psk=x (bm_net.SECRET) refused, child not started")
+        logged = pi_bridge.masked("config menu_scale=3 layout=it")
+        check("***" in logged and "=3" not in logged and "=it" not in logged, "bridge: the log line of a config holds *** and not the value")
+
+        # line: only the monitor commands of the list, ';' between them, b3d with tests=/profiles= (R-NET6)
+        for req, want in (("gpu", "gpu"), ("err", "err"), ("crc", "crc"),
+                          ("render; room; log; reboot", "render; room; log; reboot"),
+                          ("gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send", "gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send"),
+                          ("  gpu ;b3d   tests=quad_flat  profiles=FS2 ;  send ", "gpu; b3d tests=quad_flat profiles=FS2; send")):
+            pi_bridge.run("1.2.3.4", "s3cret", "line " + req)
+            check(seen[-1][-2:] == ["--line", want], f"bridge: line {req!r} -> {want!r}")
+        out = pi_bridge.run("1.2.3.4", "s3cret", "line set wifi_psk=x")
+        check(out.startswith("refused: line:") and "'set' is not allowed" in out, "bridge: line set wifi_psk=x refused, says why")
+        n0 = len(seen)
+        for req in ("save", "play pong", "gpu; set wifi_psk=x", "gpu; save", "err; play pong", "GPU", "Gpu",
+                    "gpu\tb3d", "gpu\rsave", "gpu\x1b", "err²", "gpu;;err", "gpu; ", "err now", "b3d tests=a-b", "b3d verbose=1",
+                    "b3d tests=", "x" * 200, "; gpu", "gpu x", "gpu,err", "", "gpu;", "b3d tests=a.b", "b3d foo=1"):
+            out = pi_bridge.run("1.2.3.4", "s3cret", "line " + req)
+            check(out.startswith("refused: line:"), f"bridge: line {req[:30]!r} refused")
+        check(len(seen) == n0, "bridge: the refused lines started nothing")
+
+        # the password: BM_PASSWORD, then a file of the owner (mode 0600, one line), then the prompt; the value never shown
+        pwdir = tempfile.mkdtemp(prefix="pipw-")
+        try:
+            pwf = os.path.join(pwdir, "pw")
+            asked = []
+            ask = lambda prompt: (asked.append(prompt), "typed-pw")[1]
+            with open(pwf, "w") as f:
+                f.write("file-pw\r\nsecond line\n")
+            os.chmod(pwf, 0o600)
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD_FILE": pwf}, ask)
+            check(pw == "file-pw" and why is None and pwf in where and not asked and "file-pw" not in where,
+                  "password: the file (mode 0600), first line only, CR stripped, the prompt not used, value not in the source text")
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD": "env-pw", "BM_PASSWORD_FILE": pwf}, ask)
+            check(pw == "env-pw" and where == "BM_PASSWORD" and not asked, "password: BM_PASSWORD wins over the file")
+            os.chmod(pwf, 0o644)
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD_FILE": pwf}, ask)
+            check(pw is None and why and "password file mode" in why and "file-pw" not in why and not asked,
+                  "password: a file others can read is refused, the value not in the message, no fallback to the prompt")
+            os.chmod(pwf, 0o600)
+            with open(pwf, "w") as f:
+                f.write("\n")
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD_FILE": pwf}, ask)
+            check(pw is None and why and "empty" in why, "password: an empty file is refused")
+            pw, where, why = pi_bridge.get_password("h", {"BM_PASSWORD_FILE": os.path.join(pwdir, "none")}, ask)
+            check(pw == "typed-pw" and where == "the prompt" and len(asked) == 1, "password: no file -> the prompt")
+        finally:
+            shutil.rmtree(pwdir, ignore_errors=True)
+
+        # status: down without a process; up with the version and the state of the run before, the password masked
+        real_cv = pi_bridge.bm_net.console_version
+        pi_bridge.bm_net.console_version = lambda host: None
+        n0 = len(seen)
+        out = pi_bridge.run("1.2.3.4", "s3cret", "status")
+        check(out.startswith("status: down") and len(seen) == n0, "bridge: status of a Pi that does not answer: down, nothing run")
+        pi_bridge.bm_net.console_version = lambda host: "v9"
+
+        def put_prev(cmd, **kw):
+            seen.append(cmd)
+            with open(cmd[-1], "w") as f:
+                f.write("x" + chr(10) + "--- the run before ended in a crash while: t, 12 s after boot, kernel k; the last lines it printed (RAM) ---"
+                        + chr(10) + "net_password=s3cret")
+            return R()
+        pi_bridge.subprocess.run = put_prev
+        out = pi_bridge.run("1.2.3.4", "s3cret", "status")
+        check("status: up - bm v9" in out and "previous run: ended in a crash while: t, 12 s after boot, kernel k" in out
+              and "checked: 20" in out and "s3cret" not in out, "bridge: status of a Pi that answers: version, previous run, time, password masked")
+        pi_bridge.bm_net.console_version = real_cv
+
+        def slow(cmd, **kw):
+            raise pi_bridge.subprocess.TimeoutExpired(cmd, 300)
+        pi_bridge.subprocess.run = slow
+        check(pi_bridge.run("1.2.3.4", "s3cret", "line err").startswith("timeout:"), "bridge: a request with no end: timeout message")
+        pi_bridge.subprocess.run = lambda cmd, **kw: (seen.append(cmd), R())[1]
+        n = len(seen)
+        for bad in ("status x", "logs foo", "logs ../x", "logs BOOTPREV.TXT", "logs", "keys foo", "keys Xa", "keys", "keys crash-freeze", "keys monitor Xa"):
             check(pi_bridge.run("1.2.3.4", "s3cret", bad).startswith("refused"), f"bridge: '{bad}' refused")
         check(len(seen) == n, "  nothing run")
     finally:
         pi_bridge.subprocess.run = real
+
+    # --in-monitor: the keys only where the monitor has them
+    mc = NetConsole("the menu (test)")
+    rc, out = run(mc, job=("-P", str(mc.port), "--in-monitor", "--keys", "Xf"))
+    check(rc == 2 and mc.keys == b"" and "monitor only" in out, "--in-monitor --keys in the menu: exit 2, nothing sent")
+    mo = NetConsole("the monitor ('h' for help, M the menu)")
+    rc, out = run(mo, job=("-P", str(mo.port), "--in-monitor", "--keys", "Xf"))
+    check(rc == 0 and mo.keys == b"Xf", "--in-monitor --keys in the monitor: Xf pressed")
+
+    # one bridge only: a live socket is respected, a stale file is removed
+    import tempfile
+    sock_path = os.path.join(tempfile.mkdtemp(prefix="bm-sock-"), "b.sock")
+    first = pi_bridge.claim_socket(sock_path)
+    try:
+        pi_bridge.claim_socket(sock_path)
+        check(False, "bridge: a second one on the same socket is refused")
+    except SystemExit as e:
+        check("already running" in str(e), "bridge: a second one on the same socket is refused")
+    first.close()
+    second = pi_bridge.claim_socket(sock_path)
+    check(second is not None, "bridge: a stale socket file is taken over")
+    second.close()
+
+    # a console that is off: a message and exit 3, no traceback
+    free = socket.socket()
+    free.bind(("127.0.0.1", 0))
+    dead_port = free.getsockname()[1]
+    free.close()
+    import subprocess
+    r = subprocess.run([sys.executable, os.path.join(os.path.dirname(bm_net.__file__), "bm_net.py"), "127.0.0.1", "-P", str(dead_port),
+                        "-p", "x", "--line", "err"], capture_output=True, text=True, timeout=60)
+    check(r.returncode == 3 and "does not answer" in r.stdout and "Traceback" not in r.stderr,
+          "a console that is off: exit 3, 'does not answer', no traceback")
 
     if fails:
         print(f"bm_net --config, --line: {fails} FAILED")

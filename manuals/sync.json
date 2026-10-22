@@ -12,11 +12,16 @@
     "title": "Collision worlds"
    },
    "11": {
+    "en": "84919c5e1589",
+    "it": "98ef212bb42a",
+    "title": "3D map terrain"
+   },
+   "12": {
     "en": "3d5ce41a52f7",
     "it": "d12b8bfe0a44",
     "title": "Light for 2D scenes"
    },
-   "12": {
+   "13": {
     "en": "24f58caa9063",
     "it": "c27c08de5682",
     "title": "Performance tips"
@@ -64,7 +69,7 @@
   },
   "sources": {
    "docs/BENCH3D.md": "1adaf5f48818",
-   "docs/api/light3d.md": "982e8d514f7f"
+   "docs/api/light3d.md": "768fc91992e3"
   }
  },
  "api-core": {
@@ -105,8 +110,8 @@
     "title": "Documents"
    },
    "8": {
-    "en": "cb359d20304d",
-    "it": "5563295507d1",
+    "en": "7714f06d5fdc",
+    "it": "4beaba48ac89",
     "title": "Screenshots"
    },
    "9": {
@@ -117,10 +122,10 @@
   },
   "sources": {
    "docs/API.md": "a6cc5a554136",
-   "docs/GAME-GUIDE.md": "426aea1ebf0b",
+   "docs/GAME-GUIDE.md": "f1c97c4052fd",
    "docs/api/draw.md": "61932a4cb329",
    "docs/api/input.md": "01f2a82443ca",
-   "docs/api/system.md": "16dfbcccd934"
+   "docs/api/system.md": "fb5e23858131"
   }
  },
  "api-lib": {
@@ -229,7 +234,7 @@
   "sources": {
    "docs/api/bmlib.md": "e1b5c355f388",
    "docs/api/bmnet.md": "31716bc331e1",
-   "docs/design/games-architecture.md": "dfb1cd8c948b"
+   "docs/design/games-architecture.md": "d55d35bd36ae"
   }
  },
  "api-sound": {
@@ -278,8 +283,8 @@
  "api-tools": {
   "chapters": {
    "1": {
-    "en": "c345d4d3d8f0",
-    "it": "8c2f11c84d2c",
+    "en": "6623cb3a44e8",
+    "it": "64ea78b0fe3a",
     "title": "The cartridge file"
    },
    "2": {
@@ -303,16 +308,16 @@
     "title": "The project layout"
    },
    "6": {
-    "en": "80b597e4e29b",
-    "it": "7363e118a384",
+    "en": "69a13c60ba6e",
+    "it": "05d9dcf7b64d",
     "title": "Screenshots for developers"
    }
   },
   "sources": {
-   "docs/PROJECT-LAYOUT.md": "1f6e3576984a",
+   "docs/PROJECT-LAYOUT.md": "17c4ea9e1d20",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/SCREENSHOTS.md": "113a60472a9c",
-   "docs/api/tools.md": "c74c6bef7484"
+   "docs/SCREENSHOTS.md": "34e487f54164",
+   "docs/api/tools.md": "8a4b1eea899a"
   }
  },
  "boot-os": {
@@ -323,8 +328,8 @@
     "title": "What bm is"
    },
    "10": {
-    "en": "3e5222d41409",
-    "it": "6d1885d1729f",
+    "en": "9171cee1ee05",
+    "it": "0de466f8b0a6",
     "title": "Screenshots"
    },
    "11": {
@@ -348,13 +353,13 @@
     "title": "The boot chain"
    },
    "3": {
-    "en": "9634303b735a",
-    "it": "3bbff31031fc",
+    "en": "e4669d77edba",
+    "it": "b5bbb494a69f",
     "title": "What the kernel does at start"
    },
    "4": {
-    "en": "4920d0e622b2",
-    "it": "f9cfe5131765",
+    "en": "3af415fec840",
+    "it": "1e7a52967282",
     "title": "The menu and its tabs"
    },
    "5": {
@@ -378,17 +383,105 @@
     "title": "The files on the SD card"
    },
    "9": {
-    "en": "566b1fbf7368",
-    "it": "24574955329d",
+    "en": "62baf58ad42a",
+    "it": "a1ed90e59d4f",
     "title": "Settings and config.txt"
    }
   },
   "sources": {
    "boot": "63490264ed76",
    "chainloader": "7feaaf3a501c",
-   "docs/HARDWARE.md": "8fc72a29a4fc",
-   "docs/progress/system.md": "e2cfcfb6a200",
+   "docs/HARDWARE.md": "1412f8591e74",
+   "docs/progress/system.md": "a228c61db524",
    "src/kernel/syskeys.c": "6299911b4014"
+  }
+ },
+ "characters": {
+  "chapters": {
+   "1": {
+    "en": "e1c1c6536e60",
+    "it": "777341ee4a7b",
+    "title": "What this manual covers"
+   },
+   "10": {
+    "en": "3f8d29be2d44",
+    "it": "4039b8fabb38",
+    "title": "3D models"
+   },
+   "11": {
+    "en": "db4b971764b9",
+    "it": "b4ddb3cfd34a",
+    "title": "Drawing and animating in the game"
+   },
+   "12": {
+    "en": "8365d99abcd5",
+    "it": "92f6a5528706",
+    "title": "Tutorials"
+   },
+   "13": {
+    "en": "44d5c676723f",
+    "it": "18b219c19bea",
+    "title": "Tips and limits"
+   },
+   "2": {
+    "en": "ab16820a9e91",
+    "it": "cb878f4bba28",
+    "title": "Choosing a technique"
+   },
+   "3": {
+    "en": "94418e6e64ce",
+    "it": "629fa4cf69a8",
+    "title": "Sprites by hand"
+   },
+   "4": {
+    "en": "276a9bf570b8",
+    "it": "e2ba3a6a4aba",
+    "title": "Side-scroller characters"
+   },
+   "5": {
+    "en": "c532dffe2b33",
+    "it": "a48638a4d3d8",
+    "title": "Top-down characters, 4 directions"
+   },
+   "6": {
+    "en": "1c32544d5967",
+    "it": "0c63658c5126",
+    "title": "Top-down characters, 8 directions"
+   },
+   "7": {
+    "en": "ceef6d1968fa",
+    "it": "d12f0adc44ab",
+    "title": "Optimising sprites"
+   },
+   "8": {
+    "en": "c906e56eee6f",
+    "it": "14249902483c",
+    "title": "Pre-rendered 2D"
+   },
+   "9": {
+    "en": "c6f0bd5c2907",
+    "it": "7ffecfaf2f13",
+    "title": "Meshes"
+   }
+  },
+  "sources": {
+   "carts/animator/main.lua": "fc5476e9d561",
+   "carts/hunt/main.lua": "9626c44827de",
+   "carts/mesh/main.lua": "ff0571ab3624",
+   "carts/pixel/main.lua": "15d532849ab9",
+   "carts/studio/main.lua": "4ad32dad9ad3",
+   "carts/titan/build/mkrobot.py": "72c7aff21afd",
+   "carts/yharnam/build/mkassets.py": "efc8086470ce",
+   "docs/api/draw.md": "61932a4cb329",
+   "docs/api/light3d.md": "768fc91992e3",
+   "docs/design/games-architecture.md": "d55d35bd36ae",
+   "docs/design/suite-animator.md": "be49ad9d4cf9",
+   "docs/design/suite-pixel.md": "f7a42429b14b",
+   "docs/progress/graphics.md": "b96f51676fd8",
+   "docs/progress/tools.md": "78aaf20324a6",
+   "docs/progress/yharnam.md": "81a77c0aef1c",
+   "tools/cutout2mesh.py": "a2a57f9737c1",
+   "tools/img2mesh.py": "db3364221d4a"
   }
  },
  "editor-animator": {
@@ -409,13 +502,13 @@
     "title": "Opening"
    },
    "3": {
-    "en": "50f31ec5ca8c",
-    "it": "4ec0236cfc67",
+    "en": "531c936e73d2",
+    "it": "3c8c40c3d9e9",
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "1a12ea2e5fac",
-    "it": "6c8cb023cdac",
+    "en": "a2c2b610d93f",
+    "it": "2f30cdb7ce3d",
     "title": "Bones and rigging"
    },
    "5": {
@@ -445,23 +538,23 @@
    }
   },
   "sources": {
-   "carts/animator/main.lua": "5875f7e092c5",
+   "carts/animator/main.lua": "fc5476e9d561",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/design/suite-animator.md": "555d36c2c592",
-   "docs/progress/tools.md": "6ae8072c3059",
+   "docs/design/suite-animator.md": "be49ad9d4cf9",
+   "docs/progress/tools.md": "78aaf20324a6",
    "sdk/README.md": "97ca3fe22090"
   }
  },
  "editor-code": {
   "chapters": {
    "1": {
-    "en": "f4891ee38a85",
-    "it": "9a329e7b00d6",
+    "en": "362b2a49a630",
+    "it": "0dbafaf01aee",
     "title": "What bm Code is"
    },
    "10": {
-    "en": "3a7011387475",
-    "it": "16a80e096a25",
+    "en": "b97545ee983f",
+    "it": "b3e228fcd8f5",
     "title": "Tips and limits"
    },
    "2": {
@@ -475,13 +568,13 @@
     "title": "The screen"
    },
    "4": {
-    "en": "8e2233d21633",
-    "it": "652574b8f4d1",
+    "en": "45490b36dc27",
+    "it": "bc71dae10d47",
     "title": "Editing keys"
    },
    "5": {
-    "en": "a72f8795f553",
-    "it": "8cb17a6486c3",
+    "en": "488a9d6aab1d",
+    "it": "4223442f9eca",
     "title": "Completion and the assistant"
    },
    "6": {
@@ -506,10 +599,10 @@
    }
   },
   "sources": {
-   "carts/code/main.lua": "63235604898f",
+   "carts/code/main.lua": "e0d968f29b85",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/design/suite-code.md": "212bb27f00d1",
-   "docs/progress/tools.md": "1db22dee08f7",
+   "docs/design/suite-code.md": "9def238703df",
+   "docs/progress/tools.md": "78aaf20324a6",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -559,8 +652,8 @@
   "sources": {
    "carts/mesh/main.lua": "ff0571ab3624",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/design/suite-studio-mesh.md": "ccf0c1f4a0a3",
-   "docs/progress/tools.md": "6ae8072c3059",
+   "docs/design/suite-studio-mesh.md": "30a26e82944b",
+   "docs/progress/tools.md": "78aaf20324a6",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -630,8 +723,8 @@
   "sources": {
    "carts/pixel/main.lua": "15d532849ab9",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/design/suite-pixel.md": "28b52021f032",
-   "docs/progress/tools.md": "6ae8072c3059",
+   "docs/design/suite-pixel.md": "f7a42429b14b",
+   "docs/progress/tools.md": "78aaf20324a6",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -648,18 +741,18 @@
     "title": "Opening bm SDK"
    },
    "3": {
-    "en": "b3fd9d36dd25",
-    "it": "dcc7cc5a6e5f",
+    "en": "b68edc35db15",
+    "it": "7222516d704a",
     "title": "The screen"
    },
    "4": {
-    "en": "0f9e63c7ab99",
-    "it": "34f438fb2e43",
+    "en": "df9bf8a3c292",
+    "it": "24b35366250b",
     "title": "Creating a project from a template"
    },
    "5": {
-    "en": "33d12c2c6908",
-    "it": "c8304caf5ccf",
+    "en": "605a685054fb",
+    "it": "c97a2f0aa049",
     "title": "The map editor"
    },
    "6": {
@@ -668,13 +761,13 @@
     "title": "Budgets and the dev kit report"
    },
    "7": {
-    "en": "ee81ba683aae",
-    "it": "d8f30b04dbb1",
+    "en": "72d7ef6f099a",
+    "it": "8aa4685261fc",
     "title": "Building and exporting"
    },
    "8": {
-    "en": "86b0001340c8",
-    "it": "665a68176268",
+    "en": "bae231287baf",
+    "it": "108703b0dfb0",
     "title": "Keys"
    },
    "9": {
@@ -684,10 +777,10 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "8de988e40572",
+   "carts/editor/main.lua": "0548c690b34e",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/design/suite-sdk.md": "ee9451f7a184",
-   "docs/progress/tools.md": "1db22dee08f7",
+   "docs/design/suite-sdk.md": "6a8b4424e3fa",
+   "docs/progress/tools.md": "78aaf20324a6",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -732,8 +825,8 @@
   "sources": {
    "carts/sound/main.lua": "7a6c6b71ed97",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/design/suite-sound.md": "5804300b49c2",
-   "docs/progress/tools.md": "6ae8072c3059",
+   "docs/design/suite-sound.md": "d9e2be743e24",
+   "docs/progress/tools.md": "78aaf20324a6",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -793,8 +886,8 @@
   "sources": {
    "carts/studio/main.lua": "4ad32dad9ad3",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/design/suite-studio-mesh.md": "ccf0c1f4a0a3",
-   "docs/progress/tools.md": "6ae8072c3059",
+   "docs/design/suite-studio-mesh.md": "30a26e82944b",
+   "docs/progress/tools.md": "78aaf20324a6",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -839,7 +932,7 @@
   "sources": {
    "carts/write/main.lua": "e147f39975a8",
    "docs/RISORSE.md": "5e859959104d",
-   "docs/progress/tools.md": "1db22dee08f7",
+   "docs/progress/tools.md": "78aaf20324a6",
    "sdk/README.md": "97ca3fe22090"
   }
  },
@@ -876,8 +969,8 @@
     "title": "The Market and getting games"
    },
    "7": {
-    "en": "ecefc88e9216",
-    "it": "5c14684107fc",
+    "en": "d0a7e8b16174",
+    "it": "23f8e0f0a2c3",
     "title": "The config.txt keys that matter"
    },
    "8": {
@@ -887,11 +980,79 @@
    }
   },
   "sources": {
-   "docs/RGB30.md": "201708e75617",
-   "docs/progress/platforms.md": "4510f0f460a8",
+   "docs/RGB30.md": "aac642c7a39a",
+   "docs/progress/platforms.md": "9942f2bb6202",
    "easy_install.sh": "3fc0a62e5b07",
    "scripts/copy-sd-rgb30.sh": "38f59e3439e0",
    "scripts/mksd.py": "6ed865802e51"
+  }
+ },
+ "levels": {
+  "chapters": {
+   "1": {
+    "en": "bec175b43299",
+    "it": "5c337177c840",
+    "title": "What a level is in bm"
+   },
+   "10": {
+    "en": "5597984ee246",
+    "it": "4463d1324cb3",
+    "title": "Tips and limits"
+   },
+   "2": {
+    "en": "a8949c98aa98",
+    "it": "a83ce732a01b",
+    "title": "The sprite sheet and the tiles"
+   },
+   "3": {
+    "en": "b74eca2809f1",
+    "it": "7a41101dd02c",
+    "title": "The 2D map in bm SDK"
+   },
+   "4": {
+    "en": "a940f4a25af9",
+    "it": "26246a799425",
+    "title": "The linear level tools (path, apples, crates, lamps)"
+   },
+   "5": {
+    "en": "5d6be86b34db",
+    "it": "98d249bb1607",
+    "title": "3D levels"
+   },
+   "6": {
+    "en": "05c65c1e45fc",
+    "it": "c1ddb94a8382",
+    "title": "Building a game with the suite"
+   },
+   "7": {
+    "en": "889bb2163038",
+    "it": "05260c526d19",
+    "title": "Several stages in a 2D game"
+   },
+   "8": {
+    "en": "507c64925fcf",
+    "it": "5652a134a2df",
+    "title": "Several stages in a 3D game"
+   },
+   "9": {
+    "en": "4b35fdfcd141",
+    "it": "5fc5f2ec1da1",
+    "title": "Switching levels in the game"
+   }
+  },
+  "sources": {
+   "carts/editor/main.lua": "0548c690b34e",
+   "docs/GAME-GUIDE.md": "f1c97c4052fd",
+   "docs/ROADMAP.md": "8bd94d2f10c9",
+   "docs/api/bmlib.md": "e1b5c355f388",
+   "docs/api/draw.md": "61932a4cb329",
+   "docs/api/light3d.md": "768fc91992e3",
+   "docs/design/games-architecture.md": "d55d35bd36ae",
+   "docs/design/suite-sdk.md": "6a8b4424e3fa",
+   "docs/progress/graphics.md": "b96f51676fd8",
+   "docs/progress/tools.md": "78aaf20324a6",
+   "docs/progress/v3d.md": "71c6d083c4d6",
+   "src/bm/map3d.c": "83e5e8666802"
   }
  },
  "pi-zero-w": {
@@ -940,10 +1101,10 @@
   "sources": {
    "docs/BENCH3D.md": "1adaf5f48818",
    "docs/DRIVERS.md": "0101d07d66eb",
-   "docs/HARDWARE.md": "8fc72a29a4fc",
+   "docs/HARDWARE.md": "e7d2cc4e6cea",
    "docs/PERFORMANCE.md": "1c3fc264eae4",
    "docs/progress/graphics.md": "b96f51676fd8",
-   "docs/progress/v3d.md": "4238c5bee8d8"
+   "docs/progress/v3d.md": "71c6d083c4d6"
   }
  },
  "riff": {

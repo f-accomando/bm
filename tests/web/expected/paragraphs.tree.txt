@@ -1,0 +1,44 @@
+html
+  head
+    title
+      "Paragraphs"
+  body
+    "\n"
+    p
+      "This is the first paragraph. It has enough words to wrap on ..."
+    "\n"
+    p
+      "Second with "
+      b
+        "bold"
+      ", "
+      i
+        "italic"
+      ", "
+      u
+        "underline"
+      " and "
+      code
+        "code"
+      " text."
+      br
+      "\nA line after a break."
+      br
+      br
+      "Two breaks above."
+    "\n"
+    p style="text-align:center"
+      "Centered line"
+    "\n"
+    p style="text-align:right"
+      "Right"
+    "\n"
+    blockquote
+      "Quoted text in a block."
+    "\n"
+    pre
+      "\nline one\n  indented line two\n\nafter blank"
+    "\n"
+    div style="background-color:#eeeeee;padding:4px"
+      "Box with background and padding"
+    "\nLoose text in the body with a verylongwordthatdoesnotfiton..."

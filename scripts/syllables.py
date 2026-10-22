@@ -96,16 +96,16 @@ def main():
     words = [plain(w.lower()) for t in texts for w in WORD.findall(t.replace("'", ''))]
     vocab = set(words) | {plain(w.lower().replace("'", '')) for w in lexicon}
 
-    print('Le sillabe dell\'italiano, accenti esclusi')
-    print('\nIn teoria (scrittura):')
+    print("The syllables of Italian, accents excluded")
+    print('\nIn theory (spelling):')
     simple = len(ITALIAN) * len(V)
     digraph = {'che chi ghe ghi': 4, 'gna gne gni gno gnu': 5, 'glia glie gli glio gliu': 5,
                'sce sci scia scio sciu sche schi': 7, 'cia cio ciu gia gio giu': 6, 'qua que qui quo': 4}
-    print('  %d consonanti italiane (%s) per 5 vocali: %d sillabe consonante + vocale, %d con le vocali da sole'
+    print('  %d Italian consonants (%s) times 5 vowels: %d consonant + vowel syllables, %d with the vowels alone'
           % (len(ITALIAN), ' '.join(ITALIAN), simple, simple + 5))
-    print('  piu\' %d scritte con due o tre lettere per un suono: %s'
+    print('  plus %d written with two or three letters for one sound: %s'
           % (sum(digraph.values()), '; '.join(digraph)))
-    print('  (la q va solo con la u, la h quasi solo in ha, ho, hanno e dentro ch e gh)')
+    print('  (q only goes with u, h almost only in ha, ho, hanno and inside ch and gh)')
 
     tok, onset, nuc, coda = collections.Counter(), collections.Counter(), collections.Counter(), collections.Counter()
     for w in words:
@@ -119,27 +119,27 @@ def main():
         for o, n, c in syllables(w):
             types[o + n + c] += 1
     total = sum(tok.values())
-    print('\nNei testi di src/ai/words (%d parole, %d diverse; con il lessico %d parole diverse):'
+    print('\nIn the texts of src/ai/words (%d words, %d distinct; with the lexicon %d distinct words):'
           % (len(words), len(set(words)), len(vocab)))
-    print('  %d sillabe, %.2f per parola; %d sillabe diverse nei testi, %d con il lessico'
+    print('  %d syllables, %.2f per word; %d distinct syllables in texts, %d with the lexicon'
           % (total, total / len(words), len(tok), len(types)))
     acc, marks = 0, [0.5, 0.8, 0.9, 0.95, 0.99]
     for k, (_, c) in enumerate(tok.most_common()):
         acc += c
         while marks and acc >= marks[0] * total:
-            print('  le %d piu\' frequenti fanno il %d%% delle sillabe scritte' % (k + 1, marks.pop(0) * 100))
+            print('  the %d most frequent make up %d%% of the written syllables' % (k + 1, marks.pop(0) * 100))
     cv = sum(c for s, c in tok.items() if len(s) == 2 and s[0] not in V and s[1] in V)
     v1 = sum(c for s, c in tok.items() if len(s) == 1 and s in V)
-    print('  consonante + vocale: %.1f%%; una vocale sola: %.1f%%; insieme %.1f%%'
+    print('  consonant + vowel: %.1f%%; a single vowel: %.1f%%; together %.1f%%'
           % (100 * cv / total, 100 * v1 / total, 100 * (cv + v1) / total))
-    print('  le prime 40:', ' '.join('%s %.1f%%' % (s, 100 * c / total) for s, c in tok.most_common(40)))
+    print('  top 40:', ' '.join('%s %.1f%%' % (s, 100 * c / total) for s, c in tok.most_common(40)))
     on_total = sum(onset.values())
-    print('\nInizio della sillaba (%d diversi):' % len(onset))
-    print('  ' + ' '.join('%s %.1f%%' % (o or '(vocale)', 100 * c / on_total) for o, c in onset.most_common(32)))
-    print('Vocali e dittonghi (%d diversi):' % len(nuc))
+    print('\nSyllable onset (%d distinct):' % len(onset))
+    print('  ' + ' '.join('%s %.1f%%' % (o or '(vowel)', 100 * c / on_total) for o, c in onset.most_common(32)))
+    print('Vowels and diphthongs (%d distinct):' % len(nuc))
     print('  ' + ' '.join('%s %.1f%%' % (n or '-', 100 * c / total) for n, c in nuc.most_common(14)))
-    print('Fine della sillaba (%d diverse):' % len(coda))
-    print('  ' + ' '.join('%s %.1f%%' % (c or '(aperta)', 100 * k / total) for c, k in coda.most_common(12)))
+    print('Syllable coda (%d distinct):' % len(coda))
+    print('  ' + ' '.join('%s %.1f%%' % (c or '(open)', 100 * k / total) for c, k in coda.most_common(12)))
 
     # the most frequent, in groups of four
     cv_tok = collections.Counter({s: c for s, c in tok.items() if len(s) == 2 and s[0] not in V and s[1] in V})
@@ -147,16 +147,16 @@ def main():
     for o, c in onset.items():
         if o:
             first[o[0]] += c
-    for title, cnt, of in (('Sillabe', tok, total), ('Consonante + vocale', cv_tok, total),
-                           ('Consonante iniziale (sulle sillabe che cominciano con una consonante)',
+    for title, cnt, of in (('Syllables', tok, total), ('Consonant + vowel', cv_tok, total),
+                           ('Initial consonant (on syllables starting with a consonant)',
                             first, sum(first.values()))):
-        print('\n%s, a gruppi di 4 per frequenza:' % title)
+        print('\n%s, in groups of 4 by frequency:' % title)
         items, acc = cnt.most_common(16), 0
         for g in range(4):
             part = items[4 * g:4 * g + 4]
             share = 100 * sum(c for _, c in part) / of
             acc += share
-            print('  %d) %s   = %.1f%% (in tutto %.1f%%)'
+            print('  %d) %s   = %.1f%% (in all %.1f%%)'
                   % (g + 1, '  '.join('%s %.1f%%' % (x, 100 * c / of) for x, c in part), share, acc))
 
 

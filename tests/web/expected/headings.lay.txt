@@ -1,0 +1,16 @@
+page w=240 h=181 lines=7 links=0 images=0 controls=0 forms=0 rects=1 cut=false title="Headings test"
+line y=12 h=12
+  t x=4 y=12 w=72 h=12 "Main heading" b
+line y=36 h=12
+  t x=4 y=36 w=120 h=12 "Second level heading" b c=336699
+line y=60 h=12
+  t x=4 y=60 w=30 h=12 "Third" b
+line y=84 h=12
+  t x=4 y=84 w=36 h=12 "Fourth" b
+line y=108 h=12
+  t x=4 y=108 w=30 h=12 "Fifth" b
+line y=132 h=12
+  t x=4 y=132 w=30 h=12 "Sixth" b
+line y=169 h=12
+  t x=16 y=169 w=138 h=12 "Note text after a rule." c=ff0000
+rect hr 4,156,232,1 c=808080

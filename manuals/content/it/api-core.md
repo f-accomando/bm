@@ -361,6 +361,7 @@ Pulsanti, tastiera, mouse e giocatori.
 | `keymap(t)` | assegna le **azioni** del gioco ai pulsanti (vedi sotto) |
 | `keymap()` | restituisce la tabella |
 | `keymap(nil)` | toglie la tabella |
+| `controls([scheme])` | la rimappatura del giocatore da Impostazioni > Controls: `controls()` la legge, `controls("scroller"\|"topdown"\|"stick")` sceglie lo schema del gioco (lo fa `lib.input`) |
 | `controller([p])` | restituisce con cosa gioca il giocatore `p` (1–4, il primo se manca) (vedi sotto) |
 | `online([on, note])` | dice al sistema che la partita si gioca in **rete** (vedi sotto) |
 | `players()` | quanti giocatori hanno un controller (almeno 1) e, come secondo valore, quali: il bit `n` = giocatore `n+1` (per esempio `3, 7` = giocatori 1, 2 e 3) |
@@ -664,7 +665,7 @@ Un gioco o un'app salva il fotogramma che sta disegnando come PNG sulla scheda S
 | Come | Dove |
 |---|---|
 | **Print Screen** sulla tastiera | `bm/shots/` sulla scheda SD |
-| **Select + L1 + R1** insieme su un pad (Share + L1 + R1 su un DS4) | `bm/shots/` sulla scheda SD |
+| **Select** tenuto premuto per 3 secondi su un pad (Share su un DS4) | `bm/shots/` sulla scheda SD |
 
 Un riquadro dice `Screenshot saved` e il nome del file per due secondi. L'immagine è lo schermo del gioco com'era stato disegnato: gli overlay del dev kit, l'icona della batteria, il puntatore e quel riquadro **non** ci sono.
 
@@ -672,7 +673,7 @@ Un riquadro dice `Screenshot saved` e il nome del file per due secondi. L'immagi
 I giochi e le app avviati dal menu di bm la prendono; le schermate del menu stesso non ancora.
 :::
 
-[DA COMPLETARE: verificare Select + L1 + R1 sul PowKiddy RGB30; non ancora provato sulla console]
+[DA COMPLETARE: verificare Select tenuto 3 s sul PowKiddy RGB30; non ancora provato sulla console]
 
 ## Per un'app
 
@@ -697,7 +698,7 @@ local path = shot("menu")    -- "bm/shots/MENU0001.png"
 ## Provalo, passo per passo
 
 1. Avvia un gioco qualsiasi dal menu, per esempio **Pong**.
-2. Premi **Print Screen** sulla tastiera, oppure tieni premuti **Select + L1 + R1** sul pad.
+2. Premi **Print Screen** sulla tastiera, oppure tieni premuto **Select** per 3 secondi sul pad.
 3. Aspetta il riquadro che dice `Screenshot saved`.
 4. Spegni la console e metti la scheda SD nel computer.
 5. Apri la cartella `bm/shots/`: l'immagine è lì, per esempio `PONG0001.PNG`.

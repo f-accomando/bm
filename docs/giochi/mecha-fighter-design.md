@@ -1,6 +1,6 @@
 # Titan Clash — design (M20)
 
-Italian version: [mecha-fighter-design-IT.md](mecha-fighter-design-IT.md).
+
 
 Answer to point 25 of the [concept](mecha-fighter-concept.md). On 2026-09-29 the author
 asked to start right away with a playable base (MVP): **a single robot** for all

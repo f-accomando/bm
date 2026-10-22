@@ -492,6 +492,43 @@ static void sizes(void)
     free(b.px);
 }
 
+/* cel light (bm3D 7.4): a lit mesh drawn with R3D_CEL goes to the ARM's lighting also on the GPU
+ * (vertex shader 2 has no cel cut): the same bands as the ARM's picture, not the smooth light */
+static void cel_scene(void)
+{
+    g16_cls(&g, g16_rgb(10, 10, 30));
+    r3d_zclear(&r);
+    r3d_camera(&r, 0, 0, -6, 0, 0, 40);
+    r3d_light(&r, 0.3f, 0.4f, -1, 0.2f);
+    r3d_shine(&r, 0.6f, 16, 0);
+    for (int i = 0; i < 3; i++)
+        r3d_draw_flags(&r, &sphere, (v3_t){ (i - 1) * 2.5f, 0, 0 }, 0, 0, 0, 1.0f, (i == 2 ? R3D_SMOOTH : 0) | R3D_CEL);
+}
+
+static void cel_gpu(void)
+{
+    r3d_cel(&r, 4, 0.35f);
+    draw_scene = cel_scene;
+    const shot_t arm = draw(0, 0, 0), gpu = draw(1, 2, 0), gpu1 = draw(1, 1, 0);
+    r3d_cel(&r, 0, 0.35f);
+    const shot_t smooth = draw(1, 2, 0);
+    draw_scene = scene;
+    int far, far1, far_s;
+    float mean, mean1, mean_s;
+    compare(&arm, &gpu, &far, &mean);
+    compare(&arm, &gpu1, &far1, &mean1);
+    compare(&gpu, &smooth, &far_s, &mean_s);
+    printf("cel on the GPU: vs2 %d px differ from the ARM (mean %.3f), vs1 %d (%.3f); smooth light %d px away\n", far,
+           mean, far1, mean1, far_s);
+    CHECK(far < W * H / 100 && mean < 1.5f, "cel with vs 2: %d px differ from the ARM, mean %.3f", far, mean);
+    CHECK(far1 < W * H / 100 && mean1 < 1.5f, "cel with vs 1: %d px differ from the ARM, mean %.3f", far1, mean1);
+    CHECK(far_s > 200, "cel and smooth light look alike on the GPU (%d px)", far_s);
+    free(arm.px);
+    free(gpu.px);
+    free(gpu1.px);
+    free(smooth.px);
+}
+
 int main(void)
 {
     fb = test_aligned_alloc(64, 1920 * 1080 * 2);
@@ -524,6 +561,7 @@ int main(void)
     free(arm_on.px);
     crowd_steps();
     sizes();
+    cel_gpu();
     if (failed)
         return 1;
     printf("impostors: ok\n");

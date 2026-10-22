@@ -8,12 +8,33 @@
     "anthropic-skills:xlsx": "off"
   },
   "hooks": {
-    "UserPromptSubmit": [
+    "SubagentStop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/ctx_guard.py\""
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/ledger_subagent.py\""
+          }
+        ]
+      }
+    ],
+	"SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/branch_cleanup.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/branch_cleanup.py\""
           }
         ]
       }

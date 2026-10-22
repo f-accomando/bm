@@ -21,7 +21,8 @@ code page 437 like the console's:
   big  "prev total next count next count ..." per line: the words that
        follow prev ("^" = the start of a sentence, or of an indented line
        of code; "^0" = a line of code that is not indented)
-  api  "name signature" per line (code)
+  api  "name, signature, area, text" per line, tab-separated (code): src/ai/api.tsv
+  allow  one name per line (code): the API names the lint accepts as they are
 
   mkwords.py -o build/words.lua
 """
@@ -131,6 +132,51 @@ def kb_api():
     return api
 
 
+def tsv_api():
+    """name -> (signature, area, text) from src/ai/api.tsv (lines starting with # left out)."""
+    api = {}
+    for line in open(os.path.join(ROOT, 'src/ai/api.tsv'), encoding='utf-8'):
+        if line.startswith('#'):
+            continue
+        name, sig, area, text = line.rstrip('\n').split('\t')
+        api.setdefault(name, []).append((sig, area, text))     # one line per signature of the name
+    return api
+
+
+API_REPL = [('—', '-'), ('–', '-'), ('→', '->'), ('←', '<-'), ('×', 'x'), ('≤', '<='), ('≥', '>='),
+            ('…', '...'), ('’', "'"), ('‘', "'"), ('“', '"'), ('”', '"'), ('·', '.'), (' ', ' ')]
+API_MAX = 480           # characters of a signature or a text in the kernel
+
+
+def api_text(s):
+    """A signature or a text of the API for the kernel: code page 437, at most API_MAX characters."""
+    s = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', s)
+    for br in ('<br>', '<br/>', '<br />'):
+        s = s.replace(br, ' ')
+    s = s.replace('**', '').replace('`', '')
+    s = re.sub(' +', ' ', s).strip()
+    for a, b in API_REPL:
+        s = s.replace(a, b)
+    s = ''.join(ch if ord(ch) < 128 or ch in CP437 else '?' for ch in s)
+    if len(s) > API_MAX:
+        cut = s.rfind(' ', 0, 478)
+        if cut < 0:
+            cut = 477
+        s = s[:cut] + '...'
+    return s
+
+
+def allow_names():
+    """The names of scripts/api_lint_allow.txt, in file order (a # starts a comment)."""
+    names = []
+    for line in open(os.path.join(ROOT, 'scripts/api_lint_allow.txt'), encoding='utf-8'):
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        names.append(line.split('#')[0].strip())
+    return names
+
+
 def kb_questions():
     """The questions of the knowledge base, one per line, as prose."""
     out = []
@@ -195,7 +241,7 @@ def main():
     for d in ('kitchen', 'titan'):
         lua += [open(f, encoding='utf-8').read() for f in sorted(glob.glob(os.path.join(ROOT, 'carts', d, 'src', '*.lua')))]
     lua.append(kb_code())
-    api = kb_api()
+    api = tsv_api()
 
     parts = ['-- The dictionaries of the word completion, made by scripts/mkwords.py',
              '-- from src/ai/words and the Lua of the games: do not edit.', 'return {']
@@ -203,17 +249,22 @@ def main():
                                     ('lua', code_counts(lua)), ('ask', prose_counts([kb_questions()]))):
         if lang == 'lua':
             for name in api:                # every API name, used or not
-                uni.setdefault(name, 0)
-                funcs.add(name)
+                if ':' not in name:
+                    uni.setdefault(name, 0)
+                    funcs.add(name)
         u, b = table(uni, big, funcs)
         parts.append('%s = {' % lang)
         parts.append('uni = ' + long_string(u) + ',')
         parts.append('big = ' + long_string(b) + ',')
         if lang == 'lua':
-            parts.append('api = ' + long_string(''.join('%s %s\n' % (n, s) for n, s in sorted(api.items()))) + ',')
+            parts.append('api = ' + long_string(''.join('%s\t%s\t%s\t%s\n' % (n, api_text(s), ar, api_text(t)) for n, forms in sorted(api.items()) for (s, ar, t) in forms)) + ',')
+            parts.append('allow = ' + long_string(''.join('%s\n' % n for n in allow_names())) + ',')
         parts.append('},')
         if a.stats:
             print('%s: %d words, %d with followers, %d KB' % (lang, len(uni), b.count('\n'), (len(u) + len(b)) // 1024))
+    if a.stats:
+        missing = sorted(set(kb_api()) - set(api))
+        print('api: %d names; kb names missing from api.tsv: %d %s' % (len(api), len(missing), ' '.join(missing)))
     parts.append('}\n')
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, 'wb') as f:

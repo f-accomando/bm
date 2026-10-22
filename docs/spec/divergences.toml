@@ -46,12 +46,13 @@ action = "decide whether the RGB30 has local multiplayer; if so map BT pads to p
 id = "D04"
 area = "menu keys"
 pi = "Start confirms; Tab and 1-5 jump tabs; U uploads a cart"
-rgb30 = "Start does nothing in the menu; no keyboard keys"
+rgb30 = "Start confirms unless Select is held; Tab and 1 2 3 5 of a keyboard jump tabs (4 is the Pi's Lib tab: absent, ignored); U (upload) is not ported"
 cause = "history"
 priority = 6
-status = "open"
-evidence = "src/kernel/carts.c:1491,1504-1511; src/rgb30/ui.c:1035-1219"
-action = "align Start and Tab for BT keyboards"
+status = "untested"
+note = "src/rgb30/ui.c: Start confirms in the menu unless Select is held (QEMU test_menu_start_confirms); Tab (wraps after the last tab) and 1/2/3/5 of a Bluetooth or USB keyboard jump tabs; the serial line's 1/2/3/5 do the same (QEMU test_menu_tab_keys; Tab has no QEMU test: on the serial line it is Select and QEMU has no keyboard); 4 is the Pi's Lib, absent. U (upload) not ported. Not tried with a Bluetooth keyboard."
+evidence = "src/kernel/carts.c:1421-1427,1479-1482; src/rgb30/ui.c:1187-1189,1198-1214"
+action = "port U (upload) if wanted"
 
 [[divergence]]
 id = "D05"
@@ -105,13 +106,13 @@ action = "port the two checks"
 id = "D09"
 area = "game list"
 pi = "sorted by title; scans / and /carts; shows .bme projects in Dev"
-rgb30 = "FAT order; only /bm; ignores .bme"
+rgb30 = "sorted by title (src/rgb30/ui.c:281 qsort with title_cmp); scans /bm and /carts (scan_games, src/rgb30/ui.c:278-279); .bme projects: see D44"
 cause = "history"
 priority = 4
-status = "open"
-note = "the RGB30 list is now sorted by title (untested). /carts is not scanned: accepted, the RGB30 keeps everything in /bm (capability storage-path, decided 2026-10-13). What is left: .bme projects are not listed in Dev on the RGB30 (src/rgb30/ui.c has no .bme at all; a project opens in the SDK, which there is a Market app): to do together with the on-screen keyboard work, and to try on the hardware."
-evidence = "src/kernel/carts.c:143-169; src/rgb30/ui.c:230-263"
-action = "sort by title; decide on /carts and on projects"
+status = "untested"
+note = "The RGB30 list is sorted by title: qsort with title_cmp at src/rgb30/ui.c:281 (commit 88c914c5). Compiles; not tried on an RGB30. scan_games() scans both /bm and /carts (src/rgb30/ui.c:278-279), as the Pi does; the game list is the same on both. The .bme projects in Dev are tracked by D44, not here."
+evidence = "src/kernel/carts.c:143-169; src/rgb30/ui.c:234-237,277-281"
+action = "try the title order on the RGB30; the projects are D44"
 
 [[divergence]]
 id = "D10"
@@ -128,12 +129,12 @@ action = "port the background cover job"
 id = "D11"
 area = "game options (X / C)"
 pi = "Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close"
-rgb30 = "Play, Open in bm SDK, Export .b16, info, delete save, delete"
+rgb30 = "Play, Open in bm SDK, Export .b16, Send to a nearby console, info, delete save, delete"
 cause = "history"
 priority = 6
 status = "open"
 evidence = "src/kernel/carts.c:913-956; src/rgb30/ui.c:722-746"
-action = "add Send and Publish; the tool rows depend on D13"
+action = "add Publish (the owner decided Publish stays off on the RGB30); the tool rows depend on D13"
 
 [[divergence]]
 id = "D12"
@@ -142,8 +143,9 @@ pi = "author, kind, size, path; a performance note after a game"
 rgb30 = "only the hint line; no performance note"
 cause = "history"
 priority = 6
-status = "open"
-evidence = "src/kernel/carts.c:544-555,1277; src/rgb30/ui.c:969"
+status = "untested"
+note = "src/rgb30/ui.c: the cover of a game shows author, kind, size and path, and the note 'last: <file>, X fps, update+draw ...' after a game (QEMU test_cover_details_perf). On the narrow screen the note takes the details line until the cover or the tab changes, then the details return (menu_ui.c:1485 shows the note only when that line is free). Not tried on an RGB30."
+evidence = "src/kernel/carts.c:530-541,693; src/rgb30/ui.c:345,409-418,1098-1115; src/kernel/menu_ui.c:1485"
 action = "add the note"
 
 [[divergence]]
@@ -161,8 +163,8 @@ action = "same recognition on the RGB30, or filter apps out of Games"
 [[divergence]]
 id = "D14"
 area = "Dev tab extras"
-pi = "CPU bench, Stress test, Texture Room, Demo"
-rgb30 = "not built (stress.c and roombench.c are excluded)"
+pi = "CPU bench, Stress test, Texture Room, Video bench, Stack bench, Demo"
+rgb30 = "not built (stress.c, roombench.c and vidbench.c are excluded; the Stack bench is not in its Dev tab)"
 cause = "todo"
 priority = 6
 status = "open"
@@ -201,19 +203,20 @@ cause = "todo"
 priority = 6
 status = "open"
 note = "depends on the on-screen keyboard and the pad typing, which the owner is working on."
-evidence = "src/rgb30/rtw_sta.c:643; docs/progress/system.md:107"
+evidence = "src/rgb30/rtw_sta.c:643; docs/progress/system.md:82-83"
 action = "needs the on-screen keyboard (R1/R2)"
 
 [[divergence]]
 id = "D18"
 area = "crash screen"
 pi = "red screen, restart after 60 s (after 20 s of uptime), report at the next boot"
-rgb30 = "red screen, LED code, halts for ever; no report"
+rgb30 = "red screen, restart after 60 s (after 20 s of uptime), crash report at the next boot"
 cause = "history"
 priority = 5
-status = "open"
-evidence = "src/kernel/exceptions.c:87-110; src/rgb30/exc.c:80"
-action = "port the restart and the report"
+status = "untested"
+note = "RGB30 files crash reports only, not freezes: no watchdog yet"
+evidence = "src/kernel/exceptions.c:87-110; src/rgb30/exc.c:65-88; src/rgb30/main.c:258-268; tests/rgb30/qemu_test.py:406"
+action = "try on the hardware"
 
 [[divergence]]
 id = "D19"
@@ -223,7 +226,7 @@ rgb30 = "bootlog.txt, bootprev.txt, lastrun.txt in bm/"
 cause = "history"
 priority = 6
 status = "resolved"
-note = "provato dall'utente su Pi Zero W il 2026-10-15 dopo SDLOG-FIX: lastrun, bootlog e bootprev corretti dopo reboot e shutdown; bootprev mostra la run prima. Crash volontario coperto da test_crash_report (QEMU), non provato a mano. Watchdog assente sul Pi Zero W: tempo di scrittura prima del reset non misurabile. Le password della console compaiono in chiaro nei log su SD"
+note = "Tested by the user on Pi Zero W on 2026-10-15 after SDLOG-FIX: lastrun, bootlog, and bootprev correct after reboot and shutdown; bootprev shows the prior run. Voluntary crash covered by test_crash_report (QEMU), not tested by hand. Watchdog absent on Pi Zero W: write time before reset not measurable. Console secrets are masked in SD logs via reports_mask_secrets() (src/kernel/sdlog.c:53,71,108; tests/qemu_test.py:5776-5777). AGY-B1 verified planned reboot on RGB30 (2026-10-20): bootprev recorded the prior run ended cleanly ('the run before' and 'ended cleanly' present, 'froze' = 0), with DSI link on."
 evidence = "src/kernel/sdlog.c:1-85; src/kernel/main.c:275-277; src/rgb30/main.c:161-240"
 action = "shared module src/kernel/sdlog.c gives both platforms identical logs"
 
@@ -232,21 +235,24 @@ id = "D20"
 area = "release content"
 pi = "manifest.txt: kernel.img, kernel7.img, games in /carts, ca.pem"
 rgb30 = "manifest-rgb30: kernel8.img and ca.pem only"
-cause = "unknown"
+cause = "hardware"
+capability = "board-boot"
 priority = 6
-status = "open"
-evidence = "Makefile:766-774"
-action = "confirm it is intended"
+status = "resolved"
+note = "Kernels ship bare: no games, no apps. Exception until the apps move to the Market: kernel.img carries the bm editor suite and kernel8.img carries the bm SDK. The benchmarks (Texture Room, built into the kernel) stay in both. Accepted in writing by the user, 21 Oct 2026. Intended."
+evidence = "Makefile:766-775; tests/rgb30/qemu_test.py:335-352"
+action = "none"
 
 [[divergence]]
 id = "D21"
 area = "run from the PC without saving"
 pi = "bm_net.py --play wired (GO_NETPLAY)"
-rgb30 = "not wired"
+rgb30 = "bm_net.py --play wired (play_net in the menu loop)"
 cause = "todo"
 priority = 6
-status = "open"
-evidence = "src/kernel/carts.c:1860,1878,2032"
+status = "resolved"
+note = "src/rgb30/ui.c play_net: the menu takes netxfer_take_play and plays with bm_play, as GO_NETPLAY on the Pi; a frozen game is closed without a question, as on the Pi. Proved on RGB30 hardware with the user 2026-10-21: sent .bm and .b16 with bm_net.py --play, both start from the menu, return with Start+Select, frozen game (Snake) closed without questions, cartridge not saved on SD."
+evidence = "src/kernel/carts.c:1843,1861,2015; src/rgb30/ui.c:426,1004"
 action = "wire it into ui_home (developer feature)"
 
 [[divergence]]
@@ -254,11 +260,13 @@ id = "D22"
 area = "monitor"
 pi = "text console and Dev tab entry"
 rgb30 = "none by design (no_monitor); the serial line has a Lua REPL"
-cause = "history"
+cause = "hardware"
+capability = "no-keyboard"
 priority = 6
 status = "open"
+note = "RGB30 has no monitor console by design (no USB host / no keyboard; serial line has a Lua REPL)."
 evidence = "src/rgb30/ui.c:946; src/kernel/settings.c:652"
-action = "keep; tell developers"
+action = "the user builds a terminal monitor for the RGB30 after the beta; study: mini-HDMI detection, external monitor, BT keyboard and mouse"
 
 [[divergence]]
 id = "D23"
@@ -269,7 +277,7 @@ cause = "todo"
 priority = 6
 status = "open"
 evidence = "docs/progress/graphics-mali.md:5-11"
-action = "Mali driver (M41)"
+action = "Mali driver"
 
 [[divergence]]
 id = "D24"
@@ -280,7 +288,7 @@ cause = "todo"
 priority = 6
 status = "open"
 evidence = "docs/progress/platforms.md:68"
-action = "M41"
+action = "Overbit in .b16 on the RGB30"
 
 [[divergence]]
 id = "D25"
@@ -312,7 +320,7 @@ rgb30 = "not done"
 cause = "todo"
 priority = 6
 status = "open"
-evidence = "docs/progress/system.md:110"
+evidence = "docs/progress/system.md:85"
 action = "extend the screenshot to the menu"
 
 [[divergence]]
@@ -322,8 +330,8 @@ pi = "-"
 rgb30 = "Games read only bm/: a game built by bm SDK's Ctrl+B in /carts was not listed"
 cause = "history"
 status = "resolved"
-note = "test QEMU test_games_in_carts OK; provato dall'utente su RGB30 fisica il 2026-10-15 (.bm e .b16, cartelle bm/ e /carts, menu Games); limite noto: stesso nome in /bm e in /carts appaiono entrambi running se uno e' sospeso"
-evidence = "src/rgb30/ui.c:248; src/bm/project.c:162-193; carts/sdk_b16/main.lua:724,873"
+note = "QEMU proves (both kernels): test_games_in_carts (Games lists /carts); the SDK on the Pi (test_sdk_layers, test_sdk_code_pi, test_sdk_stages_pi, test_sdk_suite, test_sdk_keeps_models) and on the RGB30 (test_sdk_tool, test_sdk_pad_*, test_sdk_layers_b16, test_sdk_stages_build); not proven by QEMU: the pad (QEMU virt has no pad), the console screen and sound; provato dall'utente su RGB30 fisica il 2026-10-15 (.bm e .b16, cartelle bm/ e /carts, menu Games); limite noto: stesso nome in /bm e in /carts appaiono entrambi running se uno e' sospeso. On 2026-10-21 the user ran the 12 steps of BETA2-SDK-HW on a real Pi Zero W and a real RGB30: the game built by the SDK is listed in Games and plays on both (steps 6, 11, 12), and the RGB30 sound is heard (step 9)."
+evidence = "src/rgb30/ui.c:248; src/bm/project.c:162-193; carts/sdk_b16/main.lua:724,873; tests/rgb30/qemu_test.py:test_sdk_layers_b16; tests/qemu_test.py:test_sdk_code_pi"
 action = "scan_games lists /carts too (as carts.c rescan)"
 
 [[divergence]]
@@ -374,7 +382,7 @@ action = "none"
 id = "D34"
 area = "system keys"
 pi = "F11, F12 (held: the key list), Print Screen, Ctrl+Esc"
-rgb30 = "only on a BT keyboard; the pad has Select+L1+R1 (screenshot) and Start+Select (leave)"
+rgb30 = "only on a BT keyboard; the pad has Select held 3 s (screenshot) and Start+Select (leave)"
 cause = "hardware"
 capability = "no-keyboard"
 status = "open"
@@ -434,7 +442,7 @@ rgb30 = "icon, low-battery overlay, Settings row, LED"
 cause = "hardware"
 capability = "battery"
 status = "open"
-evidence = "docs/progress/platforms.md:41-45"
+evidence = "docs/progress/platforms.md:40-45"
 action = "none"
 
 [[divergence]]
@@ -477,6 +485,7 @@ pi = "T (screenshot of the running game) and G (a file of bm/shots) in shared co
 rgb30 = "same shared code (src/net/netxfer.c, src/bm/runtime.c), not yet verified on the console"
 cause = "todo"
 status = "untested"
+note = "Op G read bm/ on the RGB30 on 2026-10-20 (RGB30-BRIDGE-TRY, c6593655) and Op T answered 'no game drew a frame (start a game first)'."
 evidence = "src/net/netxfer.c; docs/design/pi-test.md"
 action = "try bm_net.py --shot on an RGB30 with a game running"
 
@@ -487,6 +496,62 @@ pi = "Dev lists .bme projects"
 rgb30 = "Dev tab does not list .bme projects"
 cause = "todo"
 priority = 6
+status = "resolved"
+evidence = "src/kernel/carts.c:577-579,837,1885-1888; tests/qemu_test.py:test_projects"
+note = "Projects (.bme) are not listed in the menu tabs on either kernel (user decision 21 Oct 2026). Pi Dev tab fixed in PR 58 (src/kernel/carts.c tab_items; test_projects walks the Dev tab)."
+action = "none"
+
+[[divergence]]
+id = "D46"
+area = "SDK templates"
+pi = "carts/editor offers the Stages 2D template, as carts/sdk_b16"
+rgb30 = "carts/sdk_b16 has the Stages 2D template"
+cause = "todo"
+capability = "sdk-templates"
+status = "resolved"
+evidence = "carts/editor/main.lua; tests/studio/sdk_host.lua; tests/qemu_test.py:test_sdk_stages_pi; tests/rgb30/qemu_test.py:test_sdk_stages_build"
+action = "none: the same template on both consoles, two tests"
+
+[[divergence]]
+id = "D47"
+area = "Sound authoring"
+pi = "sounds are made in bm Sound (suite program)"
+rgb30 = "sounds are made in the SDK page snd (360x360, pad only, no suite programs in the kernel)"
+cause = "hardware"
+capability = "pad-only"
 status = "open"
-evidence = "src/kernel/carts.c:842-844; src/rgb30/ui.c"
-action = "decide whether RGB30 Dev lists .bme"
+evidence = "carts/sound/main.lua; carts/sdk_b16/main.lua"
+action = "none: the screen and the pad set the limit; Lib of sprites and maps is a separate system WO"
+
+[[divergence]]
+id = "D49"
+area = "menu OK and Cancel remap (Settings > Controls)"
+pi = "menus keep A (OK) and B (back); the Pause and menus panel hides the OK and Cancel rows"
+rgb30 = "mo and mc of controls= set the menus' OK and Cancel (a, b, x or y); default B and Y"
+cause = "todo"
+status = "open"
+evidence = "src/rgb30/pad.c; src/kernel/settings.c"
+action = "decide whether the Pi menus follow mo and mc; the game buttons and the pause remap on both"
+
+[[divergence]]
+id = "D48"
+area = "monitor"
+pi = "the monitor line `crc` prints the CRC32 of the page on screen (fixed format), to compare with a value taken from the same Pi"
+rgb30 = "none: the RGB30 kernel does not compile src/kernel/monitor.c (see D22)"
+cause = "todo"
+priority = 6
+status = "open"
+evidence = "src/kernel/monitor.c; tests/qemu_test.py:test_monitor_crc"
+action = "decide whether the RGB30 needs a crc of its screen (a serial command, or the pad kernel's own tool); until then the screen check by CRC is Pi-only"
+
+[[divergence]]
+id = "D49"
+area = "web API"
+pi = "web_get, image_load and file_write run in every cartridge; web_get needs the WiFi and the TLS of the kernel"
+rgb30 = "the same sources are built (src/bm/webget.c is in the runtime, http.c and tls.c in the network code); web_get needs the RGB30 WiFi and returns nil and \"no network\" without it"
+cause = "todo"
+priority = 5
+status = "untested"
+note = "Built for both targets and tested in QEMU (Pi, no network) and on the PC (the request, with plain sockets). No run on a Pi or an RGB30 with a real server: the TLS handshake time inside a fiber, the throughput at 4 ms a frame, and the RGB30 WiFi path are not measured. If the RGB30 has no usable TLS path in a cartridge, web_get must return an error and this entry becomes a hardware divergence."
+evidence = "src/bm/webget.c; src/bm/runtime.c; rgb30.mk; tests/qemu_test.py:test_web_api; tests/web/run_webget_test.py"
+action = "run docs/api/system.md example against a real https server on a Pi Zero W and on an RGB30; note the handshake stall and the download speed in docs/progress/system-net.md"

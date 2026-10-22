@@ -80,11 +80,14 @@ local function map_api()
   check(not pcall(msize, 0, 10), "msize(0, h): an error")
 
   -- the named zones (sprites.txt)
-  check(same(zones(), { "coin", "big" }), "zones()")
+  check(same(zones(), { "coin", "big", "rgb", "rgbv" }), "zones()")
   local x, y, zw, zh, fr, fps = zone("coin")
   check(x == 0 and y == 8 and zw == 8 and zh == 8 and fr == 3 and fps == 10, "zone(coin)")
   local bx, by, bw, bh, bf, bfps = zone("big")
   check(bx == 0 and by == 16 and bw == 16 and bh == 16 and bf == 1 and bfps == 0, "zone(big)")
+  local _, _, _, _, _, _, sl = zone("rgb")
+  check(select(7, zone("coin")) == 0 and select(7, zone("big")) == 0 and sl == 3, "zone(): slices (0 for a plain zone)")
+  check(select(7, zone("rgbv")) == 3, "zone(): slices of a stackv zone")
   check(zone("none") == nil and not pcall(zspr, "none", 0, 0), "an unknown zone")
   -- their hitboxes and hurtboxes (zboxes: the boxes under the zones)
   local all = zboxes("coin")
@@ -125,6 +128,99 @@ local function draw_checks()
   cls(0)
   zspr("coin", 0, 0, 1, false, false, 2)
   check(pget(15, 15) == CYAN and pget(16, 16) == 0, "zspr zoom 2")
+  -- stack(): red, green and blue slices (cells 1-3) of 8x8, each 4 pixels above the one below
+  cls(0)
+  stack(8, 0, 8, 8, 3, 100, 100, 0, 1, 4)
+  check(pget(96, 102) == RED and pget(103, 103) == RED and pget(104, 100) == 0 and pget(95, 100) == 0,
+        "stack: the bottom slice is centred on (x, y)")
+  check(pget(96, 98) == GREEN and pget(96, 94) == BLUE and pget(96, 88) == BLUE and pget(96, 87) == 0,
+        "stack: each slice 4 pixels higher, the upper one over the lower")
+  cls(0)
+  stack(8, 0, 8, 8, 2, 100, 100)
+  check(pget(96, 103) == RED and pget(96, 95) == GREEN and pget(96, 94) == 0, "stack: step 1 by default")
+  cls(0)
+  stack(0, 16, 16, 16, 1, 100, 100, math.pi / 2)
+  check(pget(104, 96) == RED and pget(96, 96) == WHITE and pget(96, 104) == WHITE and pget(104, 104) == WHITE,
+        "stack: a quarter turn moves the red corner to the top right")
+  cls(0)
+  stack(0, 16, 16, 16, 1, 100, 100, 0, 2)
+  check(pget(84, 84) == RED and pget(100, 100) == WHITE and pget(115, 115) == WHITE and pget(116, 116) == 0,
+        "stack: scale 2 doubles the slice")
+  cls(0)
+  clip(90, 90, 10, 10)
+  stack(8, 0, 8, 8, 1, 100, 100)
+  clip()
+  check(pget(99, 99) == RED and pget(100, 100) == 0 and pget(95, 89) == 0, "stack: clipped to the clip rectangle")
+  cls(0)
+  stack(8, 0, 8, 8, 1, 0, 0)
+  stack(8, 0, 8, 8, 0, 300, 300)
+  check(pget(0, 0) == RED and pget(3, 3) == RED and pget(4, 4) == 0 and pget(300, 300) == 0,
+        "stack: at the edge of the screen, and n = 0 draws nothing")
+  -- NaN and inf from Lua draw nothing
+  cls(0)
+  stack(8, 0, 8, 8, 3, 100, 100, 0 / 0, 1, 1)
+  stack(8, 0, 8, 8, 3, 100, 100, 0, math.huge, 1)
+  stack(8, 0, 8, 8, 3, 100, 100, 0, 1, math.huge)
+  stack(8, 0, 8, 8, 3, 100, 100, -math.huge)
+  check(pget(96, 103) == 0 and pget(100, 100) == 0, "stack: NaN and inf draw nothing")
+  -- a slice outside the sheet is skipped; scale <= 0 or > 64 draws nothing
+  cls(0)
+  stack(8, 0, 8, 8, 2, 100, 100, 0, 0)
+  stack(8, 0, 8, 8, 2, 100, 100, 0, -1)
+  stack(8, 0, 8, 8, 2, 100, 100, 0, 65)
+  stack(60, 0, 8, 8, 1, 100, 100)
+  check(pget(96, 103) == 0 and pget(100, 100) == 0, "stack: scale <= 0 or > 64, and a slice off the sheet")
+  -- stackv(): the same slices one under the other on the sheet (cells 7, 15, 23 at x 56)
+  cls(0)
+  stackv(56, 0, 8, 8, 3, 100, 100, 0, 1, 4)
+  check(pget(96, 102) == RED and pget(96, 98) == GREEN and pget(96, 94) == BLUE and pget(104, 100) == 0,
+        "stackv: the top slice of the sheet is the bottom, each one 4 pixels higher")
+  for _, a in ipairs({ { 0, 1, 1 }, { 0.7, 2, 3 } }) do
+    cls(0)
+    stack(8, 0, 8, 8, 3, 150, 100, a[1], a[2], a[3])
+    local want = {}
+    for yy = 40, 160 do for xx = 100, 200 do want[#want + 1] = pget(xx, yy) or -1 end end
+    cls(0)
+    stackv(56, 0, 8, 8, 3, 150, 100, a[1], a[2], a[3])
+    local got = {}
+    for yy = 40, 160 do for xx = 100, 200 do got[#got + 1] = pget(xx, yy) or -1 end end
+    check(same(got, want), "stackv: as stack() of the same slices, rotation " .. a[1] .. " scale " .. a[2])
+  end
+  cls(0)
+  stackv(56, 28, 8, 8, 1, 100, 100)   -- the slice would end under the sheet (32 high)
+  check(pget(96, 103) == 0 and pget(100, 100) == 0, "stackv: a slice off the sheet is skipped")
+  cls(0)
+  stackv(60, 0, 8, 8, 3, 100, 100)
+  check(pget(96, 103) == 0, "stackv: a slice that crosses the right edge draws nothing")
+  -- zstack(): the stack zone "rgb" (slices 8x8 at (8, 0)), the same as stack() with step 1
+  local function grab(x0, y0, x1, y1)
+    local t = {}
+    for yy = y0, y1 do for xx = x0, x1 do t[#t + 1] = pget(xx, yy) or -1 end end
+    return t
+  end
+  cls(0)
+  zstack("rgbv", 100, 100)
+  check(pget(96, 103) == RED and pget(96, 102) == GREEN and pget(96, 101) == BLUE and pget(96, 93) == 0,
+        "zstack: a stackv zone goes down the sheet")
+  cls(0)
+  zstack("rgb", 100, 100)
+  check(pget(96, 103) == RED and pget(96, 102) == GREEN and pget(96, 101) == BLUE and pget(96, 94) == BLUE
+        and pget(96, 93) == 0 and pget(104, 100) == 0, "zstack: position, the upper slice over the lower")
+  for _, a in ipairs({ { 0.7, 1 }, { 1.2, 2 } }) do
+    cls(0)
+    stack(8, 0, 8, 8, 3, 150, 100, a[1], a[2], 1)
+    local want = grab(100, 60, 200, 140)
+    cls(0)
+    zstack("rgb", 150, 100, a[1], a[2])
+    check(same(grab(100, 60, 200, 140), want), "zstack: rotation " .. a[1] .. " scale " .. a[2] .. " as stack()")
+  end
+  cls(0)
+  zstack("rgb", 150, 100, math.pi / 2)
+  check(pget(146, 103) == RED and pget(153, 103) == RED and pget(150, 70) == 0, "zstack: drawn turned")
+  check(not pcall(zstack, "coin", 10, 10) and not pcall(zstack, "big", 10, 10) and not pcall(zstack, "none", 10, 10),
+        "zstack: a zone without slices, or none, is an error")
+  local _, msg = pcall(zstack, "coin", 10, 10)
+  check(tostring(msg):find("no slices", 1, true) ~= nil, "zstack: the error says there are no slices")
   local f = zspr("coin", 0, 0)                 -- by the clock: 10 frames a second
   check(f == math.floor(time() * 10) % 3 + 1, "zspr animated by time()")
   -- a camera in a player's view (lib.split): drawing stays in the view
@@ -142,6 +238,23 @@ local function draw_checks()
         "camera:apply(view): clipped to the view")
   check(pget(sx, sy) == WHITE and math.abs(sx - (v.x + v.w / 2)) <= 1 and math.abs(sy - (v.y + v.h / 2)) <= 1,
         "camera:screen(x, y, view): the target in the view's middle")
+  -- 3D particles: the pool, the step (life -1, gravity on vy), the draw and lib.particles3d
+  check(particles(100) == 112 and particles_count() == 0 and particles_draw() == 0, "particles(n): capacity 112, empty")
+  check(particles_add(0, 0, 0, 0, 0, 0, 2.5) == 0 and particles_count() == 1, "particles_add: slot 0, one live")
+  camera3d(0, 0, -5, 0, 0, 60)
+  zclear()
+  check(particles_draw(0.5) > 0, "particles_draw: a live particle draws pixels")
+  particles_step(0.5)
+  particles_step(0.5)
+  check(particles_count() == 1 and particles_draw() >= 0, "particles_step: life 0.5 after 2 steps")
+  particles_step(0.5)
+  check(particles_count() == 0, "particles_step: dead at life <= 0")
+  check(particles(5000) == 0 and particles_count() == 0, "particles(5000): 0, no pool")
+  local p3 = lib.particles3d(64)
+  p3:burst(0, 0, 0, 10, { life = 5 })
+  check(p3:count() == 10, "lib.particles3d: burst of 10")
+  p3:update()
+  check(p3:count() == 10 and p3:draw() >= 0, "lib.particles3d: update and draw")
 end
 
 -- saving: the layers, the flags and the zones go to the file and come back
@@ -159,7 +272,11 @@ local function save_checks()
   check(p and same(p.layers, { "main", "front", "extra" }), "cart_load: the layers' names")
   check(mget(3, 3, "extra") == 7 and mget(5, 5, "front") == 4 and mget(0, 20) == 1, "cart_load: the layers' cells")
   check(fget(5, 7) and fget(1) == 1 and fget(3) == 4, "cart_load: the flags")
-  check(same(zones(), { "coin", "big" }), "cart_load: the zones")
+  check(same(zones(), { "coin", "big", "rgb", "rgbv" }), "cart_load: the zones")
+  check(select(7, zone("rgb")) == 3 and select(7, zone("coin")) == 0, "cart_load: the slices of a stack zone")
+  cls(0)
+  zstack("rgbv", 100, 100)
+  check(pget(96, 102) == GREEN and pget(96, 101) == BLUE, "cart_load: the direction of a stackv zone")
   check(#zboxes("coin") == 2 and zboxes("big")[1].x == -2, "cart_load: the boxes")
   -- cart_write(sheet = true) writes the flags changed since
   fset(6, 2, true)
@@ -356,6 +473,12 @@ local function lib_things()
   local x, y = d:apply()
   check(x == 30 and y == 0, "camera: the shake is over")
   camera()
+  -- stat(16..18): measurements only; check the type and the range, never a value
+  for n = 16, 18 do
+    local v = stat(n)
+    check(type(v) == "number" and v >= 0, "stat(" .. n .. "): a number, 0 or more")
+  end
+  check(stat(19) == nil, "stat(19): nil, no such value")
   -- states
   local log_ = {}
   local defs = {
@@ -497,6 +620,32 @@ local function lib_hits()
 end
 
 -- players on one console: colours, views
+local function lib_input()
+  local t = lib.input()
+  local km = keymap()
+  local other = controller().ok == "a" and "b" or "a"
+  check(km.confirm[1] == "ok" and km.cancel[1] == "back" and km.pause[1] == "start" and km.act1[1] == "ok" and
+        km.act2[1] == "y" and km.act3[1] == other and km.act4[1] == "x" and km.shoulder_l[1] == "l1" and
+        t.act2 == "y" and lib.input_scheme == "scroller", "lib.input: the scroller scheme is the default")
+  check(#lib.input_exceptions == 0, "lib.input: no exceptions by default")
+  lib.input({ scheme = "topdown" })
+  check(controls().scheme == "topdown", "lib.input: the runtime knows the scheme (the player's remap of it applies)")
+  km = keymap()
+  check(km.act1[1] == "ok" and km.act2[1] == other and km.act3[1] == "y" and km.act4[1] == "x" and
+        #lib.input_exceptions == 0, "lib.input: the topdown scheme")
+  lib.input({ scheme = "stick" })
+  km = keymap()
+  check(km.act1[1] == "r2" and km.act2[1] == "l2" and km.act3[1] == "l1" and km.act4[1] == "r1" and
+        km.act5[1] == "ok" and km.act6[1] == other and km.act7[1] == "y" and km.act8[1] == "x" and
+        km.shoulder_l == nil, "lib.input: the stick scheme")
+  lib.input({ act2 = "x" })
+  check(keymap().act2[1] == "x" and lib.input_exceptions[1] == "act2" and #lib.input_exceptions == 1,
+        "lib.input: an override is a declared exception")
+  lib.input()
+  check(controls().scheme == "scroller", "lib.input: back to the default scheme")
+end
+
+
 local function lib_players()
   check(#lib.PLAYER_COLORS == 4 and controller(2).color == lib.PLAYER_COLORS[2] and
         controller().color == lib.PLAYER_COLORS[1], "controller(p).color: the player's colour")
@@ -513,7 +662,7 @@ local function lib_players()
         "split(3, 4): the corners")
 end
 
----------------------------------------------------------------- 3D visibility (M39)
+---------------------------------------------------------------- 3D visibility (bm3d 5.5)
 
 -- visible3d: the camera's view, then the map's visibility of pvs3d (two
 -- cells along x: from the first the pieces 1 and 2, from the second 3)
@@ -550,6 +699,7 @@ function _init()
   lib_things()
   lib_hits()
   lib_players()
+  lib_input()
   party = lib.party({ min = 2 })
   menu = lib.menu({ "one", { label = "two", off = true }, { label = "three", value = "3" } }, { wrap = false })
   volume0 = volume()

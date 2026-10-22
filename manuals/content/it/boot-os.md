@@ -81,7 +81,7 @@ Sul Pi, `main.c` fa queste cose, in quest'ordine:
 2. Prepara la memoria: lo heap, il clock dell'ARM al massimo offerto dal firmware e la MMU.
 3. Riconosce la scheda e la stampa con il suo SoC e il codice di revisione.
 4. Prepara il LED della scheda, poi gli interrupt e il timer.
-5. Prova ad armare il watchdog (3 secondi). Sul Pi Zero W il log di avvio dice "not available, no freeze guard".
+5. Prova ad armare il watchdog (3 secondi). Il log di avvio dice `watchdog: on, 3000 ms` quando è armato. Se il controllo fallisce, dice "not available, no freeze guard" (in un emulatore: "resets at once on RSTC (emulator), no freeze guard"). Il Pi Zero W è armato; questo manuale non lo ha verificato su una console vera.
 6. Avvia l'audio, il DMA e l'USB.
 7. Carica l'elenco delle cartucce e `bm/config.txt`.
 8. Trasforma il resoconto di crash dell'avvio precedente in un report (capitolo 12).
@@ -129,17 +129,19 @@ Il Market si carica solo mentre la sua scheda è attiva e non blocca mai il menu
 | `r` | rileggi la scheda SD |
 | mouse | il clic gioca; il clic destro torna indietro |
 
-Le opzioni del gioco (`c`) mostrano i byte dei salvataggi e una riga *Delete the save data*.
+Le opzioni del gioco (`c`) mostrano i byte dei salvataggi e una riga *Delete the save data*. Sull'RGB30 le stesse opzioni si aprono con **X** e hanno anche *Send to a nearby console*; provato solo in QEMU (non verificato su hardware).
 
 ## Da sapere
 
 - Sull'RGB30, **B** conferma e **A** torna indietro. Imposta `confirm=a` in `bm/config.txt` per scambiarli, oppure usa Settings > Controllers > *Confirm button*.
-- Sull'RGB30 la barra in alto mostra solo WiFi e batteria. Il Market e Games elencano i file `.b16`; i file `.bm` si vedono per le prove, e `show_bm=0` li nasconde.
+- Sull'RGB30 la barra in alto mostra solo WiFi e batteria. Games elenca i file `.b16` e mostra i `.bm` per le prove: `show_bm=0` li nasconde. Il Market elenca solo i `.b16`: `market_bm=1` aggiunge i `.bm`.
 - Gli editor lavorano solo sui progetti. Un `.bm` è in sola lettura; Ctrl+B in un editor costruisce il `.bm` definitivo.
 
 ## Impostazioni
 
 Le Impostazioni hanno queste pagine: Controllers, WiFi and network (Network su una scheda senza radio), Screen and sound, Updates, Reports e System, poi le righe *Restart* e *Shut down*. System mostra la versione, la scheda, il tempo di accensione, la memoria in uso, la CPU, la scheda SD e la batteria, e ha *Log since boot* e *Open the monitor*.
+
+System ha anche *SD map*: una barra di ciò che c'è sulla scheda, divisa in Kernel, bm (giochi), bme (progetti), Other e Free, la dimensione di ciascuno, i file e i kilobyte di ogni cartella, e un elenco *Other files* con i file che il menu non sa mostrare, i più grandi per primi. Il menu legge la scheda quando è libero e mai mentre gira un gioco o uno strumento; la riga *Scan* mostra lo stato e la percentuale. La console tiene l'ultimo risultato in `bm/sdmap.txt`. La SD map non è verificata su hardware (Pi Zero W o RGB30).
 
 ![Le impostazioni, pagina System](shots/boot-os-settings.png)
 
@@ -299,7 +301,8 @@ Le Impostazioni, `set`/`save` della riga del monitor e gli strumenti del PC scri
 | `wifi_ssid`, `wifi_psk` | la rete a cui collegarsi |
 | `wifi_boot=0` | non collegarsi alla rete all'avvio |
 | `lib_tab=1` | mostra la scheda Lib |
-| `show_bm=0` | nasconde i file `.bm` sull'RGB30 |
+| `show_bm=0` | nasconde i file `.bm` nella scheda Games dell'RGB30 |
+| `market_bm=1` | elenca i file `.bm` anche nel Market dell'RGB30 |
 | `menu_scale=3` | un menu 1920x1080 sul Pi (una prova) |
 | `battery_icon=0` | spegne l'icona di batteria scarica (RGB30) |
 | `mouse=off` | spegne il puntatore |
@@ -324,7 +327,7 @@ python3 tools/bm_net.py IP --config
 
 # Schermate
 
-Premi `Print Screen` sulla tastiera, oppure tieni premuti **Select + L1 + R1** su un pad (Share + L1 + R1 su un DS4). La console salva lo schermo del gioco, com'è stato disegnato, come PNG in `bm/shots/`. Gli overlay, l'icona della batteria, il puntatore e il riquadro del messaggio non sono nell'immagine.
+Premi `Print Screen` sulla tastiera, oppure tieni premuto **Select** per 3 secondi su un pad (Share su un DS4). La console salva lo schermo del gioco, com'è stato disegnato, come PNG in `bm/shots/`. Gli overlay, l'icona della batteria, il puntatore e il riquadro del messaggio non sono nell'immagine.
 
 ## Da sapere
 
@@ -344,7 +347,7 @@ Premi `Print Screen` sulla tastiera, oppure tieni premuti **Select + L1 + R1** s
 Scatta tre immagini dello stesso gioco. Ottieni `0001`, `0002` e `0003` con lo stesso prefisso.
 :::
 
-[DA COMPLETARE: verificare Select + L1 + R1 sul PowKiddy RGB30; non ancora provato sulla console]
+[DA COMPLETARE: verificare Select tenuto 3 s sul PowKiddy RGB30; non ancora provato sulla console]
 
 Un gioco scatta da solo con `shot()`; vedi il manuale dell'API.
 

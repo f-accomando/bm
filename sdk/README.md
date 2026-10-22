@@ -38,7 +38,7 @@ end
 
 - `model(name)` (or `model(n)`, from 1) gives the mesh, `nil` if it isn't there; `models()` the
   list of names; `bounds3d(m)` the box `x0, y0, z0, x1, y1, z1` (for centering or for
-  collisions). Reference: [docs/API.md](../docs/API.md) ([API-IT.md](../docs/API-IT.md) in Italian).
+  collisions). Reference: [docs/API.md](../docs/API.md).
 - The origin of the grid (the three colored lines) goes at the point `x, y, z` of `draw3d`; one
   square is one unit.
 - Textured faces use the cartridge's sprite sheet: if the game changes the sheet

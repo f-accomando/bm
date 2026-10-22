@@ -47,6 +47,11 @@ COMMON  := $(ARCH) --specs=picolibc.specs $(SYSINC) -std=c11 -O2 -Wall -Wextra -
 CFLAGS   = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
            -Ithird_party/mbedtls/include -Ithird_party/lwip/src/include -Isrc/net \
            -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' $(WARN)
+# PI_O3_FILES: same knob as the Pi build (see Makefile); default empty, nothing changes.
+PI_O3_FILES ?=
+ifneq ($(strip $(PI_O3_FILES)),)
+$(patsubst %,$(BUILD)/k/%.o,$(PI_O3_FILES)): CFLAGS += -O3
+endif
 # -Wa,-I$(BUILD): the cartridges built here that bm_embed.S takes with .incbin
 ASFLAGS := $(ARCH) $(PLAT_DEF) $(CLEAN_DEFS) -g -Isrc -Isrc/rgb30 -Wa,-I$(BUILD)
 LDFLAGS := $(ARCH) --specs=picolibc.specs -nostartfiles -static -no-pie -Wl,--gc-sections \
@@ -84,12 +89,13 @@ NET_SRCS += src/net/catalog.c src/net/lan.c src/kernel/market.c
 # the Pi's cartridges (.bm, listed for testing; show_bm=0 hides them): the runtime unchanged,
 # the Pi's drivers it calls replaced by src/rgb30/bm_port.c and bm_input.c; the menu is
 # the Pi's (menu_ui.c, its icons) at 360x360
-BM_SRCS := $(filter-out src/bm/stress.c src/bm/roombench.c,$(wildcard src/bm/*.c)) \
+BM_SRCS := $(filter-out src/bm/stress.c src/bm/roombench.c src/bm/vidbench.c src/bm/vidbench_data.c,$(wildcard src/bm/*.c)) \
            src/audio/audio.c src/audio/synth.c src/audio/player.c src/audio/n8snd.c \
            src/audio/presets.c src/audio/lua_tone.c \
            src/ai/music.c src/ai/music_net.c src/ai/lua_music.c src/ai/nn.c src/ai/net.c \
            src/kernel/prompts.c src/kernel/pointer.c \
-           src/kernel/menu_ui.c src/kernel/icons.c src/kernel/syskeys.c src/kernel/settings.c \
+           src/kernel/menu_ui.c src/kernel/icons.c src/kernel/syskeys.c src/kernel/settings.c src/kernel/controls.c \
+           src/kernel/sdmap.c src/kernel/sdmap_core.c \
            src/kernel/ledstate.c src/kernel/notice.c src/kernel/splash.c src/kernel/logo_data.c
 # the Dev tab's bm SDK (RGB30) runs as a tool, as the Pi's suite: the same loop
 BM_SRCS += src/kernel/devtool.c

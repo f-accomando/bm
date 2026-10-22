@@ -15,7 +15,7 @@ pixel's x), y_coord (regfile B 41: its y), small immediates (0..15,
 ra0-ra31, rb0-rb31, tlbc (colour), tlb_z, t0s t0t t0r t0b, t1s ..., nop;
 a mul destination can pack a float into one byte of a colour: r3.8a ..
 r3.8d, or into all four with .8888. A regfile A source can be unpacked
-on its read (M39): ra5.8a .. ra5.8d (a byte: 0..1 to a float op, 0..255
+on its read (bm3d 7.1): ra5.8a .. ra5.8d (a byte: 0..1 to a float op, 0..255
 to an integer op), ra5.16a / .16b, ra5.8dr (UNPACK_A). Signals: thrend sbwait sbdone ldtmu0
 ldtmu1 loadc; "small" is added by itself with an immediate.
 Reference: VideoCore IV 3D Architecture Reference Guide (Broadcom), chapter 3.
@@ -39,7 +39,8 @@ WADDR = {"r0": 32, "r1": 33, "r2": 34, "r3": 35, "tmu_noswap": 36, "r5": 37, "ho
          "tlb_alpha": 47, "vpm": 48, "mutex_release": 51, "sfu_recip": 52, "sfu_recipsqrt": 53,
          "sfu_exp": 54, "sfu_log": 55, "t0s": 56, "t0t": 57, "t0r": 58, "t0b": 59, "t1s": 60,
          "t1t": 61, "t1r": 62, "t1b": 63}
-RADDR = {"unif": 32, "vary": 35, "elem_num": 38, "nop": 39, "vpm": 48}   # readable from file A or B
+RADDR = {"unif": 32, "vary": 35, "elem_num": 38, "nop": 39, "vpm": 48,   # readable from file A or B
+         "mutex_acquire": 51}       # bm3d 7.x user programs: the read waits until the VPM mutex is ours
 # written through one register file: (address, file)
 WFILE = {"vr_setup": (49, "A"), "vw_setup": (49, "B"), "vr_addr": (50, "A"), "vw_addr": (50, "B")}
 PACK_A = {"16a": 1, "16b": 2}           # regfile A pack (pm 0): the low or high half of the register
@@ -116,9 +117,29 @@ def load_imm(line, lineno):
     return imm, hi
 
 
-def assemble_line(line, lineno):
+# bm3d 7.x: branches of user programs, relative, 3 delay slots. The condition
+# looks at the flags of all 16 lanes: all/any lanes with Z (or N) set / clear.
+BRANCH_COND = {"allz": 0, "allnz": 1, "anyz": 2, "anynz": 3, "alln": 4, "allnn": 5, "anyn": 6,
+               "anynn": 7, "always": 15}
+
+
+def branch(line, lineno, labels, at):
+    """bra[.cond] label: the target relative to the instruction 4 on, in bytes"""
+    m = re.fullmatch(r"bra(?:\.(\w+))?\s+(\w+)", line)
+    if not m or (m[1] or "always") not in BRANCH_COND:
+        raise SyntaxError(f"line {lineno}: bra[.allz|allnz|anyz|anynz|alln|allnn|anyn|anynn] label: {line}")
+    if labels is None or m[2] not in labels:
+        raise SyntaxError(f"line {lineno}: unknown label {m[2]}")
+    imm = (labels[m[2]] - (at + 4)) * 8 & 0xFFFFFFFF
+    hi = 15 << 28 | BRANCH_COND[m[1] or "always"] << 20 | 1 << 19 | WADDR["nop"] << 6 | WADDR["nop"]
+    return imm, hi
+
+
+def assemble_line(line, lineno, labels=None, at=0):
     if line.startswith("ldi "):
         return load_imm(line, lineno)
+    if line.startswith("bra"):
+        return branch(line, lineno, labels, at)
     parts = [p.strip() for p in line.split(";")]
     if len(parts) < 2 or len(parts) > 3:
         raise SyntaxError(f"line {lineno}: need 'add ; mul [; signal]': {line}")
@@ -158,6 +179,11 @@ def assemble_line(line, lineno):
             if ins.raddr_b not in (None, n) or ins.small is not None:
                 raise SyntaxError(f"line {lineno}: two regfile B reads")
             ins.raddr_b = n
+            return MUX_B
+        if tok == "vw_wait":                # the DMA store's end (regfile B read 50)
+            if ins.raddr_b not in (None, 50) or ins.small is not None:
+                raise SyntaxError(f"line {lineno}: two regfile B reads")
+            ins.raddr_b = 50
             return MUX_B
         if tok == "x_coord":                # X_PIXEL_COORD: regfile A only
             if ins.raddr_a not in (None, 41):
@@ -277,12 +303,15 @@ def assemble_line(line, lineno):
 
 
 def assemble(src):
-    out = []
+    """the instructions of src: (lo, hi) and their text; "name:" lines are labels"""
+    lines, labels = [], {}
     for n, line in enumerate(src.splitlines(), 1):
         line = line.split("#")[0].strip()
-        if line:
-            out.append((assemble_line(line, n), line))
-    return out
+        if line.endswith(":") and re.fullmatch(r"\w+:", line):
+            labels[line[:-1]] = len(lines)
+        elif line:
+            lines.append((n, line))
+    return [(assemble_line(line, n, labels, k), line) for k, (n, line) in enumerate(lines)]
 
 
 # ---------------------------------------------------------------- shaders of bm
@@ -580,7 +609,7 @@ SHADERS = {
         nop                 ; nop
         nop                 ; nop           ; sbdone
     """,
-    # M37, 2D on the GPU: text, the glyph's texel (white, alpha 0 where the
+    # bm3d 4.8, 2D on the GPU: text, the glyph's texel (white, alpha 0 where the
     # glyph is not lit) and the colour of the varyings (3): the colour where
     # the texel is opaque, nothing elsewhere (s, t, then the colour)
     "fs_text": """
@@ -614,7 +643,7 @@ SHADERS = {
         nop                 ; nop
         nop                 ; nop           ; sbdone
     """,
-    # zclear() inside a job (M35): a quad over the page at depth 1 (no
+    # zclear() inside a job (bm3d 4.1): a quad over the page at depth 1 (no
     # varyings) writes the far depth and gives each pixel back its colour
     # (the colour load signal reads the tile buffer into r4), so the 3D
     # after it sees a clear depth over what was drawn
@@ -630,7 +659,7 @@ SHADERS = {
     """,
 }
 
-# M39: the textured shaders with a thread switch: while the TMU fetches
+# bm3d 5.3: the textured shaders with a thread switch: while the TMU fetches
 # the texel the QPU runs the other thread (the record's flag 0 lets two
 # fragment shaders share a QPU). After the switch (two delay slots) the
 # accumulators are lost, so what the end needs is in the register file
@@ -897,7 +926,7 @@ def check_threaded(name, code):
         raise SyntaxError(f"{name}: no lthrsw")
 
 
-# Vertex and coordinate shaders for the GL shader state (M36): the V3D
+# Vertex and coordinate shaders for the GL shader state (bm3d 3.0): the V3D
 # reads the vertices of a mesh, the QPUs place them. The VCD puts word k of
 # the attributes of 16 vertices in row k of the VPM; a read of "vpm" gives
 # the next row (vr_setup), a write fills the next (vw_setup). Uniforms, in
@@ -945,7 +974,7 @@ XFORM = """
         fadd rb9, r2, 1.0   ; nop                       # z = 1 - NEAR / depth
 """
 
-# The lamps (M36): four, each read as x y z (camera space), 1/r^2 and its
+# The lamps (bm3d 3.0): four, each read as x y z (camera space), 1/r^2 and its
 # colour times k (bytes a b c): s = max(0, 1 - d^2/r^2), the light in
 # ra5 rb3 rb4 (bytes a b c) += s * colour. A lamp that is off has k 0.
 LAMP = """
@@ -1070,7 +1099,7 @@ SHADERS["vs_baked"] = """
         nop                 ; nop
 """
 
-# M39 (gpu3d_attr): vs_baked with compact attributes, x y z and two words
+# bm3d 7.1 (gpu3d_attr): vs_baked with compact attributes, x y z and two words
 # (5 instead of 9): the colour (bytes a b c, unpacked to byte / 255 as the
 # ARM writes it) and the light (bytes a b c, 128 = 1: unpacked as integers,
 # then exactly / 128 as the ARM's). The rest is vs_baked's.
@@ -1137,7 +1166,7 @@ def SHADE(dst):
         fadd {dst}, r0, unif ; nop
 """
 
-# Models lit by the sun (M36, the heroes): r3d's light_fast at each corner,
+# Models lit by the sun (bm3d 3.0, the heroes): r3d's light_fast at each corner,
 # with the corner's normal (the vertex's for Gouraud, the face's else) in
 # the axes of its bone: sky and ground by its height, the sun, the rim
 # (1 - n.V)^2, the highlight (n.H)^p where the sun lights it, the lamps;
@@ -1234,7 +1263,7 @@ SHADERS["vs_lit"] = """
         nop                 ; nop
 """
 
-# M39 (gpu3d_attr): vs_lit with compact attributes, 10 words instead of 14:
+# bm3d 7.1 (gpu3d_attr): vs_lit with compact attributes, 10 words instead of 14:
 # x y z, the normal, one word of the colour (bytes a b c, unpacked to byte
 # / 255) and the flags (byte d: 1 emissive, 2 glossy and not emissive,
 # unpacked as an integer), the point of the lamps. The rest is vs_lit's.
@@ -1472,7 +1501,7 @@ SHADERS["vs_lit_tex2"] = """
         nop                 ; nop
 """
 
-# Shadows (M36): the corner (ra0 ra1 ra2) into world axes relative to the
+# Shadows (bm3d 3.0): the corner (ra0 ra1 ra2) into world axes relative to the
 # camera by its bone (12 uniforms), then down along the sun to the ground's
 # plane, as r3d's draw_shadow: h = max(0, (y - plane) / Ly), x - Lx h,
 # plane + 0.01, z - Lz h, back into ra0 ra1 ra2 for XFORM (the camera's
@@ -1871,7 +1900,7 @@ def check_same_writes(name, code, base, base_code, n=300):
 
 
 def unpack_test():
-    """M39: the regfile A unpack, field by field as the reference guide
+    """bm3d 7.1: the regfile A unpack, field by field as the reference guide
     lays the instruction out (unpack bits 59:57, pm 56, raddr_a 23:18, the
     input muxes 6 = regfile A), and the lines it must refuse"""
     ok = True

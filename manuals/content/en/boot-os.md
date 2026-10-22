@@ -81,7 +81,7 @@ On the Pi, `main.c` does these things in this order:
 2. Sets up the memory: the heap, the ARM clock at the maximum the firmware offers, and the MMU.
 3. Detects the board and prints it with its SoC and revision code.
 4. Sets up the board's LED, then the interrupts and the timer.
-5. Tries to arm the watchdog (3 seconds). On the Pi Zero W the boot log says "not available, no freeze guard".
+5. Tries to arm the watchdog (3 seconds). The boot log says `watchdog: on, 3000 ms` when it is armed. If the check fails, it says "not available, no freeze guard" (in an emulator: "resets at once on RSTC (emulator), no freeze guard"). The Pi Zero W is armed; this is not verified on a real console by this manual.
 6. Starts the audio, the DMA and USB.
 7. Loads the cartridges list and `bm/config.txt`.
 8. Turns the crash report of the previous boot into a report (chapter 12).
@@ -129,17 +129,19 @@ The Market loads only while its tab is on and never blocks the menu.
 | `r` | read the SD card again |
 | mouse | click plays; right click goes back |
 
-Game options (`c`) show the bytes of the saves and a *Delete the save data* row.
+Game options (`c`) show the bytes of the saves and a *Delete the save data* row. On the RGB30 the same options open with **X** and also list *Send to a nearby console*; this is tried in QEMU only (not verified on hardware).
 
 ## Good to know
 
 - On the RGB30, **B** confirms and **A** goes back. Set `confirm=a` in `bm/config.txt` to swap them, or use Settings > Controllers > *Confirm button*.
-- On the RGB30 the top bar shows only WiFi and battery. The Market and Games list `.b16` files; `.bm` files are shown for testing, and `show_bm=0` hides them.
+- On the RGB30 the top bar shows only WiFi and battery. Games lists `.b16` files, and shows `.bm` files for testing: `show_bm=0` hides them. The Market lists only `.b16`: `market_bm=1` adds the `.bm`.
 - The editors work on projects only. A `.bm` is read-only; Ctrl+B in an editor builds the final `.bm`.
 
 ## Settings
 
 Settings has these pages: Controllers, WiFi and network (Network on a board without radio), Screen and sound, Updates, Reports and System, then the rows *Restart* and *Shut down*. System shows the version, the board, the uptime, the memory in use, the CPU, the SD card and the battery, and has *Log since boot* and *Open the monitor*.
+
+System also has *SD map*: a bar of what is on the card, split in Kernel, bm (games), bme (projects), Other and Free, the size of each, the files and kilobytes of each folder, and a list *Other files* with the files the menu cannot show, largest first. The menu reads the card while it is idle and never while a game or a tool runs; the *Scan* row shows the state and the percent. The console keeps the last result in `bm/sdmap.txt`. The SD map is not verified on hardware (Pi Zero W or RGB30).
 
 ![Settings, System page](shots/boot-os-settings.png)
 
@@ -299,7 +301,8 @@ Settings, the monitor line `set`/`save` and the PC tools write `bm/config.txt`. 
 | `wifi_ssid`, `wifi_psk` | the network to join |
 | `wifi_boot=0` | do not join the network at boot |
 | `lib_tab=1` | show the Lib tab |
-| `show_bm=0` | hide `.bm` files on the RGB30 |
+| `show_bm=0` | hide `.bm` files in the Games tab of the RGB30 |
+| `market_bm=1` | list `.bm` files also in the Market of the RGB30 |
 | `menu_scale=3` | a 1920x1080 menu on the Pi (a try) |
 | `battery_icon=0` | turn off the low-battery icon (RGB30) |
 | `mouse=off` | turn the pointer off |
@@ -324,7 +327,7 @@ python3 tools/bm_net.py IP --config
 
 # Screenshots
 
-Press `Print Screen` on the keyboard, or hold **Select + L1 + R1** on a pad (Share + L1 + R1 on a DS4). The console saves the game's own screen, as it was drawn, as a PNG in `bm/shots/`. The overlays, the battery icon, the pointer and the message box are not in the picture.
+Press `Print Screen` on the keyboard, or hold **Select** for 3 seconds on a pad (Share on a DS4). The console saves the game's own screen, as it was drawn, as a PNG in `bm/shots/`. The overlays, the battery icon, the pointer and the message box are not in the picture.
 
 ## Good to know
 
@@ -344,7 +347,7 @@ Press `Print Screen` on the keyboard, or hold **Select + L1 + R1** on a pad (Sha
 Take three pictures of the same game. You get `0001`, `0002` and `0003` with the same prefix.
 :::
 
-[TO FILL: check Select + L1 + R1 on the PowKiddy RGB30; not tried on the console yet]
+[TO FILL: check Select held 3 s on the PowKiddy RGB30; not tried on the console yet]
 
 A game takes a picture by itself with `shot()`; see the API manual.
 

@@ -1,0 +1,40 @@
+page w=240 h=266 lines=14 links=2 images=1 controls=0 forms=0 rects=0 cut=false title=-
+line y=12 h=12
+  t x=4 y=12 w=132 h=12 "Unclosed paragraph one" 
+line y=36 h=12
+  t x=4 y=36 w=108 h=12 "Paragraph two with" 
+  t x=118 y=36 w=24 h=12 "bold" b
+  t x=148 y=36 w=66 h=12 "bold italic" b i
+line y=48 h=12
+  t x=4 y=48 w=108 h=12 "still italic? text" 
+line y=72 h=12
+  t x=4 y=72 w=180 h=12 "A div stray end tag text after" 
+line y=96 h=12
+  t x=10 y=96 w=6 h=12 "*" 
+  t x=22 y=96 w=18 h=12 "one" 
+line y=108 h=12
+  t x=10 y=108 w=6 h=12 "*" 
+  t x=22 y=108 w=18 h=12 "two" 
+line y=134 h=12
+  t x=7 y=134 w=6 h=12 "a" 
+line y=134 h=12
+  t x=19 y=134 w=6 h=12 "b" 
+line y=150 h=12
+  t x=7 y=150 w=6 h=12 "c" 
+line y=170 h=12
+  t x=4 y=170 w=78 h=12 "unquoted attr" u c=008000 link=1
+  t x=88 y=170 w=36 h=12 "single" u c=0000ee link=2
+  img x=130 y=172 w=10 h=10 "p" img=1
+  t x=146 y=170 w=36 h=12 "custom" 
+  t x=188 y=170 w=36 h=12 "inside" b
+line y=194 h=12
+  t x=4 y=194 w=120 h=12 "3 < 4 and a <3 heart" 
+line y=218 h=12
+  t x=4 y=218 w=78 h=12 "unclosed span" 
+line y=230 h=12
+  t x=4 y=230 w=228 h=12 "nested block inside span after comment" 
+line y=254 h=12
+  t x=4 y=254 w=84 h=12 "Last paragraph" 
+link 1 https://example.test/unquoted.html "unquoted attr" boxes=4,170,78,12
+link 2 https://example.test/single.html "single" boxes=88,170,36,12
+image 1 https://example.test/pic.png alt="pic" 10x10 box=130,172,10,10

@@ -1,0 +1,51 @@
+html
+  head
+    title
+      "Lists"
+  body
+    "\n"
+    ul
+      "\n  "
+      li
+        "First item\n  "
+      li
+        "Second item\n  "
+      li
+        "Third item with "
+        a href="/three"
+          "a link"
+        "\n"
+    "\n"
+    ol start="3"
+      "\n  "
+      li
+        "Three"
+      "\n  "
+      li
+        "Four\n    "
+        ul
+          li
+            "Nested bullet"
+          li
+            "Another nested"
+        "\n  "
+      "\n  "
+      li
+        p
+          "Item with a paragraph"
+      "\n"
+    "\n"
+    dl
+      "\n  "
+      dt
+        "Term one\n  "
+      dd
+        "Definition one\n  "
+      dt
+        "Term two\n  "
+      dd
+        "Definition two\n"
+    "\n"
+    ul
+      li
+    "\n\n"

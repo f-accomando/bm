@@ -28,8 +28,8 @@ peripherals as device, the rest unmapped. `mmu_set_cached` switches ranges (GPU 
 ### Crashes and freezes (`exceptions.c`, `crumbs.c`, `src/drivers/watchdog.c`)
 Exceptions show a red screen with registers and the call trail. Breadcrumbs and the last 4 KiB
 printed live in `.noinit`, survive a reset and become a report at the next boot
-(`reports_text`), sent once the network is up. Watchdog: meant to be armed at 3 s, but the Pi Zero W boot log
-says "not available, no freeze guard" (see Open work).
+(`reports_text`), sent once the network is up. Watchdog: armed at 3 s (the Pi Zero W boot log says `watchdog: on, 3000 ms`).
+`exception_handler()` sets the crash flag before all other work, so a restart from a hang in the handler is reported as a crash.
 
 ### USB (`src/usb/`)
 Own DWC2 host stack (`dwc2.c`, `usb.c`). HID (`hid.c`): boot keyboards (IT/US layout),
@@ -73,27 +73,30 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 
 ## Open work
 
-- To confirm from a boot log on the device: whether a stale association after a reboot was
-  part of the missing WiFi (the fix that is in: retries and `wifi_leave()`).
-- **Freeze reports hardware checks (Pi Zero W):** verify real watchdog countdown on hardware (FRZ-3: boot log says "watchdog: on", monitor `X f` restarts within ~3 s with report "the Pi froze last time").
+- **C4:** the RAM ring stops before the crash (BOOTPREV ends at the netcon prompt). BETA1-C4-RING is merged (PR 50): the crash record holds `ring_at` and the sink state, and a nested exception leaves the crumb `nested exception`. BETA1-C4-RING3: the timer IRQ is on before `crumbs_boot()`, and `flush()` then wrote the new boot's state over the old freeze record (the header said `ring 3601, sink off`). The writers of the record now do nothing until `crumbs_boot()` has copied it (`cr_live`), and `flush()` stores the live ring state until the first crash call (`crash_noted`). `make test-crumbs` covers this on the PC. The item stays open until a Pi run shows a crash header with `ring N, sink on` (N above 0) and handler lines. A real crash (Xu) that still showed `sink off` is not explained yet. Details: [beta1-c4-diag.md](beta1-c4-diag.md).
 - Measurements to redo, stalls that still hold the CPU, downloads inside an app: [multitasking](multitasking.md).
+- Try the SD map (Settings > System) on the Pi Zero W (speed of the scan, stutter of the menu) and on the RGB30: not verified on hardware.
 
-### Console Standalone & Hardware Spunti (R1, R2, R3, R4, R6, R8, R19, R20)
-- **R1 — WiFi dal menu col pad**: Settings > WiFi and network con selezione reti via gamepad e inserimento credenziali tramite tastiera a schermo (R2).
-- **R2 — Tastiera a schermo kernel**: Trasformazione di `padtype` in servizio nativo C per il kernel (utilizzabile per configurazione WiFi, rinomina file, Market) ed esposto ai giochi via API Lua (`textinput(titolo, default)`).
-- **R3 — Traceback Lua su SD**: Traceback dell'ultimo errore Lua di una cartuccia salvato su SD (log di boot, bootprev e lastrun completati in D19).
-- **R4 — Screenshot**: done in the games' runtime (`shot()`, Print Screen, Select+L1+R1, `bm/shots/`: [`SCREENSHOTS.md`](../SCREENSHOTS.md)). To do: the menu's own screens, a try on the Pi and the RGB30 (3D `later` mode), the key's picture in the F12 list.
-- **R6 — Web Interface locale (`bm.local`)**: Server HTTP integrato e responder mDNS (`bm.local`) per consentire il caricamento di file `.bm`, il download di screenshot/salvataggi e la modifica di `bm/config.txt` direttamente dal browser del telefono o PC locale.
-- **R8 — Rumble e LED DualShock 4**: Esposizione delle API `rumble(p, forte, debole, ms)` e `padlight(p, colore)` sfruttando il report di uscita 0x11 già implementato in `bt.c`.
-- **R19 — Supporto Controller Bluetooth Esteso**: Integrazione profili per DualSense, Switch Pro Controller, 8BitDo e gamepad Xbox (Bluetooth LE tramite `ble.c`).
-- **R20 — Telecomando HDMI-CEC**: Supporto per le frecce direzionali e tasto Select/OK del telecomando della TV per navigare nei menu della console senza controller collegato.
-- **Rete & bmnet Multiplayer**: Test di due console Pi collegate su modello *Online 2D* (anche via relay) e porting definitivo del protocollo di rete di Overbit sopra la libreria unificata `bmnet`.
+### Standalone console and hardware ideas
+- **WiFi from the menu with the pad**: Settings > WiFi and network with network selection by gamepad. The user enters credentials with the on-screen keyboard.
+- **Kernel on-screen keyboard**: Turn `padtype` into a native C kernel service. Use it for WiFi setup, file renaming and the Market. Expose it to games through the Lua API (`textinput(title, default)`).
+- **Lua traceback on the SD card**: Save the traceback of the last Lua error of a cartridge on the SD card (boot log, bootprev and lastrun are done).
+- **Screenshot**: done in the games' runtime (`shot()`, Print Screen, Select held 3 s, `bm/shots/`: [`SCREENSHOTS.md`](../SCREENSHOTS.md)). To do: the menu's own screens, a try on the Pi and the RGB30 (3D `later` mode), the key's picture in the F12 list.
+- **Local web interface (`bm.local`)**: Built-in HTTP server and mDNS responder (`bm.local`). It lets you upload `.bm` files, download screenshots and saves, and edit `bm/config.txt` from the browser of a phone or PC on the local network.
+- **Rumble and LED on the DualShock 4**: Expose the APIs `rumble(p, strong, weak, ms)` and `padlight(p, color)`. Use the output report 0x11 that `bt.c` already implements.
+- **Extended Bluetooth controller support**: Add profiles for DualSense, Switch Pro Controller, 8BitDo and Xbox gamepads (Bluetooth LE through `ble.c`).
+- **HDMI-CEC remote control**: Use the direction arrows and the Select/OK key of the TV remote to move in the console menus without a controller.
+- **Network and bmnet multiplayer**: Test two Pi consoles on the *Online 2D* model (also through a relay). Port the Overbit network protocol to the unified `bmnet` library.
 
 ## Rules (do not break)
 
 - All SD logs only via `src/kernel/sdlog.c`.
+- A cartridge writes files only through `file_write` into `bm/web` (a bare 8.3 name, never `.bm`, `.bme` or `.b16`), and fetches only `https://` addresses through `web_get`: the rules live in `src/bm/webpolicy.c`, nowhere else.
 - Planned restarts only via `crumbs_restart()`.
 - SD logs masked with `reports_mask_secrets()`.
+- The SD map scan never runs while a game or a tool runs (`sdmap_stop` in `background_stop` on the Pi, in `run_page` on the RGB30).
+- The bar's categories are fixed: kernel, bm, bme, other, free (other = total - free - the rest).
+- Free space is counted from the FAT (`fat_free_step`), not from FSInfo.
 - Fibers (`background_stop()`, `net_wait_step`, update/publish vs apps): [multitasking](multitasking.md).
 - Tabs on the Pi: Market · Games · Dev · Lib · Settings, Lib hidden until `lib_tab=1`; the
   menu opens on Games; the Market never blocks the menu and loads only when its tab is on.
@@ -108,5 +111,7 @@ Details (`src/bt/`, `src/wifi/`, `src/net/`, lwIP, mbedTLS): [system-net](system
 - Transfer port read ops (`netxfer.c`): `G` serves only files of `bm/shots` (one level, no `..`) and the three logs `bm/BOOTPREV.TXT|BOOTLOG.TXT|LASTRUN.TXT` (exact names);
   `T` needs a game drawing frames and gives up after 3 s (`NG`). Details in [system-net](system-net.md).
 - Keys and tokens only in the environment or `bm/config.txt`, never in files.
+- Call `crumbs_crashed()` as the first statement of `exception_handler()` (`src/kernel/exceptions.c`). Harm if moved: a hang before `watchdog_stop()` is reported as a freeze (BETA-1 C4).
+- Clear SCTLR.A as the first step of `exception_handler`. Keep the re-entry guard: a nested exception does not print; it restarts (uptime 20 s or more) or blinks.
 - Tests: `make test-usb`, `test-fat`, `test-net`, `test-https`, `test-http`, `test-lan`,
   `test-github`, `test-release`, `test-catalog`, `test-hyp`; QEMU `-k <name>`.

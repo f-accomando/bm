@@ -1,5 +1,5 @@
 /*
- * The RGB30's Mali probe (src/rgb30/mali.c, M41) on a simulated GPU: the
+ * The RGB30's Mali probe (src/rgb30/mali.c) on a simulated GPU: the
  * RK3566's CRU and PMU (the GPU's clocks and power domain), the Mali's
  * registers (identity, reset, power of the cores, address space 0, job
  * slot 1) and its job manager running WRITE_VALUE jobs through the Mali

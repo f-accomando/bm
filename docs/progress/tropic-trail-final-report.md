@@ -2,7 +2,7 @@
 
 Eight English videos that teach the in-console editors of bm through a PSX-style 3D platformer (hero Pico, a mint gecko). Operators: SPV (Claude local, supervisor), CLD (Claude cloud, QEMU recordings), AGY (Antigravity), OP4 (a fourth operator on a second Windows machine, joined late), Grok (removed early). All eight mp4 (1920x1080, 60 fps) are made and were received by the owner; the upload to YouTube is the owner's.
 
-Times are the ones in the logs (Rome time), rounded; where a number was not measured it says so. The lessons on the sync protocol are in [`sync-workflow.md`](sync-workflow.md); the protocol as it ended is in [`sync.md`](sync.md).
+Times are the ones in the logs (Rome time), rounded; where a number was not measured it says so. The lessons on the sync protocol are in [`sync-workflow.md`](../archive/sync/progress/sync-workflow.md); the protocol as it ended is in [`sync.md`](../archive/sync/progress/sync.md).
 
 ## What was delivered
 

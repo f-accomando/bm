@@ -18,8 +18,8 @@ typedef struct {
     uint32_t copy_us_total;     /* frame copies to the framebuffer */
     uint32_t tris3d;            /* 3D triangles drawn in the last frame */
     int gpu3d;                  /* the GPU drew the 3D at the end */
-    uint32_t d2_ops;            /* 2D drawn after the GPU's 3D, recorded meanwhile (M35) */
-    uint32_t later;             /* frames shown a frame later (M39, gpu3d_later) */
+    uint32_t d2_ops;            /* 2D drawn after the GPU's 3D, recorded meanwhile (bm3d 4.1) */
+    uint32_t later;             /* frames shown a frame later (bm3d 6.9, gpu3d_later) */
     int ok;                     /* 0 = error (message printed), 1 = ran */
     /* the dev kit (the SDK's report of a test run: cart_arg().run) */
     uint32_t lua_peak_kb;       /* the most Lua memory seen at the end of a frame */
@@ -84,6 +84,9 @@ void bm_print_stats(const bm_stats_t *st);
 uint32_t bm_bench(framebuffer_t *fb, uint32_t frames);
 /* bm_bench drawing directly and via RAM; prints one line. */
 void bm_bench_report(framebuffer_t *fb, uint32_t frames);
+/* Sprite stacking benchmark: g16_stack with 16, 64 and 128 stacks of 8 and 16 slices, turning;
+ * a table of us a frame (drawing only), stacks a second and slices a second. */
+void bm_stack_bench(framebuffer_t *fb, uint32_t frames);
 
 /* Switches the screen to w x h RGB565 double buffered and points g at the
  * back page, or at a cached RAM buffer when "via RAM" is on (console
@@ -146,5 +149,11 @@ void bm_save_path(const char *title, const char *author, char *out, size_t n);
  * name with ".S02" ... ".S08" (save(t, slot) of the cartridges). */
 #define BM_SAVE_SLOTS 8
 void bm_save_slot(const char *path, int slot, char *out, size_t n);
+
+/* dark_end() fades the page with this when it is set (the Pi kernel sets it
+ * only with gpu3d_qpu=1; default NULL = g16_fade_apply, no extra work). It
+ * returns 1 if it did the fade on the GPU, 0 if the ARM did it; either way
+ * the page is the picture of g16_fade_apply. It does the ARM fallback itself. */
+extern int (*bm_fade_accel)(g16_t *g, const g16_fade_t *f);
 
 #endif

@@ -42,7 +42,7 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   `battery()` / `battery_low()` in Lua (`nil`/`false` on the Pi). Low from 20% off the
   charger until 23%: a red icon drawn by the runtime over games and tools (`battery_draw()`
   in `runtime.c`, after `flush3d`, outside lockstep); `battery_icon=0` turns it off. QEMU:
-  `test_battery_low_game` (`tests/rgb30/qemu_test.py`).
+  `test_battery_low_game` (`tests/rgb30/qemu_test.py`); `test_stages3d_b16` (Stages 3D `.b16`: three stages by keys, `-k stages3d`).
 - WiFi RTL8821CS over SDIO (`rtw_*.c`, `wpa.c`), Bluetooth RTL8821CS on UART1 (`rk_bt.c`,
   H5).
 - Logs on the SD for the run before: `bm/bootprev.txt` (its boot log + last 4 KiB printed),
@@ -66,14 +66,16 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 
 ## Open work
 
-- **M41** (RGB30): Overbit in `.b16` at 360×360 e 720×720, benchmark ARM e driver Mali (dettagli in [graphics-mali](graphics-mali.md)).
-- **M42**: profilo unificato `.b16` (dettagli in [b16](b16.md)).
-- **R22 — Guscio Portatile per Pi Zero**: supporto per configurazioni handheld basate su Pi Zero (lettura tasti/pad direttamente su pin GPIO, display compatto su bus DPI o SPI).
-- RGB30 Start+Select freezes the game as on the Pi (`play_bm` in `src/rgb30/ui.c`,
-  `bm_run(..., 1)`, `susp_name`); the cover then says Resume. To check on the console:
-  freeze, resume, freeze and start another game (memory freed), Overbit/online not frozen.
+- RGB30 menu keys, user decision 19 Oct 2026 (target, not implemented): B = ok, Y = cancel,
+  A is not a second back (games that rely on A as back are fixed one by one). Today the code
+  still maps A to back (`pad_back`). Per-device key reference: branch `claude/ui-reference`
+  (file ui-reference.md under docs/spec there, UI-REF-1, reviewed, not merged).
+- RGB30 game options (X): "Send to a nearby console" works (same code as the Pi; not verified on hardware). Publish stays off by decision. The tool rows wait for D13 (divergence D11).
+- **Mali-G52 driver** (RGB30): Overbit in `.b16` at 360×360 and 720×720, ARM benchmark and Mali driver (details in [graphics-mali](graphics-mali.md)).
+- **`.b16` profile**: unified `.b16` profile (details in [b16](b16.md)).
+- **Handheld shell for the Pi Zero**: support for handheld setups based on the Pi Zero (reading keys and pad directly on GPIO pins, compact display on a DPI or SPI bus).
 - RGB30 runs on one core (no PSCI `CPU_ON`), fibers in the menu only; multicore: [multitasking](multitasking.md).
-- RGB30 panel after a warm restart (to watch, `src/rgb30/rk_dsi.c`):
+- RGB30 panel after a warm restart: confirmed OK on hardware on 21 Oct 2026. Watch for a regression (`src/rgb30/rk_dsi.c`):
   1. The black screen after a restart or an update may come back now that the boot power
      cycle is withdrawn (power off/on recovers it). If it does: cut and restore the supply
      **before** `dphy_power_on`, never with the PHY or the link up; a power-mode readback
@@ -82,6 +84,18 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
      and repeated (menu stacked in copies), gone at the next start. Probably the panel state
      left by the previous shutdown. If it returns, note when and read the `display:` lines
      of `bm/bootlog.txt`.
+- RGB30 planned restart, kernel `bm dev`, 2026-10-20 (18b71f8d, 6de90f0b): the console came back
+  after 14 s (idle soak of more than 2.5 h, BETA1-A1) and after 17 s (bridge update). Both bootlogs show
+  `display:` DSI link and panel on, dclk 36562 kHz, PHY locked, errors 0; BOOTPREV says the run ended
+  cleanly. The screen was not seen in these two runs (the 21 Oct check above covers it).
+- RGB30 network bridge, real console, 2026-10-20 (c6593655): `bm_net.py --kernel` sent a 1980016-byte
+  `kernel8.img` at 237 KiB/s (8.2 s), then a clean restart after a 3 s countdown. `line` is refused (the keys go
+  to the buttons, no monitor). `--get bm/BOOTLOG.TXT`, `BOOTPREV.TXT`, `LASTRUN.TXT` work (583, 726, 2657 bytes).
+  `--shot` answers `no game drew a frame` until a game runs. A kernel older than Op T/G refuses logs and shot.
+- RGB30 QEMU test `test_wifi_page_without_chip` is flaky (3 fails in 7 local runs, 0 in 6 CI runs, 2026-10-20,
+  68cb9b5d, 4846fbd6): it sends a fixed key path with 0.3 s gaps, and a key that lands during a redraw moves the
+  cursor. Fix: loop on `screen_text` as `test_confirm_button` does. A full `/tmp` (tmpfs) in WSL fails any test
+  that writes an SD image: delete `/tmp/bm64*` between runs. `test_update_from_sd` and `test_crash_report` passed 3 of 3.
 
 ## Rules (do not break)
 
@@ -91,6 +105,8 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 
 - One menu (`src/kernel/menu_ui.c`) and one Settings (`src/kernel/settings.c`) for Pi and
   RGB30: a new row goes there for both.
+- Confirm and back go through `pad_ok` / `pad_back`, never a fixed button (rule 5 in
+  `docs/spec/CONSISTENCY.md`).
 - A kernel from the network must match the board (`bmK6`/`bmK7` at offset 4).
 - Numbers on the Pi or RGB30 come from the console's reports (`reports` branch,
   `reports/<branch>/…`): ask the user to run them.

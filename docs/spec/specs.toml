@@ -14,6 +14,16 @@ rev = 2
 date = "2026-10-13"
 what = "720x720 cartridges, shot() and the screenshot keys, the INFO key spec, tool names reserved against games, the .b16 flag set by every build, bm.info as the project's metadata"
 
+[[revision]]
+rev = 3
+date = "2026-10-17"
+what = "the cartridge type (game, app, utility) declared in bm.info and mirrored in bits 2-3 of the header flags; projects (.bme) live in /bme; /carts is obsolete (scanned for one release, with a warning)"
+
+[[revision]]
+rev = 4
+date = "2026-10-22"
+what = "the web API for cartridges: web_get with web_poll, web_info, web_body and web_cancel (https only, a pause per host, a size cap), image_load (JPEG, PNG, WebP into the sprite sheet), file_write (bm/web only); the config keys web_max_kib and file_write_max_kib"
+
 [[item]]
 id = "container-v1"
 since = 1
@@ -84,7 +94,7 @@ since = 2
 status = "implemented"
 platforms = "all"
 where = ["src/bm/runtime.c", "src/bm/shot.c", "docs/SCREENSHOTS.md"]
-note = "shot([prefix]); Print Screen and Select+L1+R1; not tried on a Pi or an RGB30"
+note = "shot([prefix]); Print Screen and Select held 3 s; not tried on a Pi or an RGB30"
 
 [[item]]
 id = "info-spec"
@@ -108,7 +118,7 @@ since = 2
 status = "implemented"
 platforms = "all"
 where = ["src/net/netxfer.c", "src/bm/runtime.c", "tools/bm_net.py"]
-note = "transfer port 3334 ops S send, P play, K kernel, C config, T take a screenshot of the running game (OK+len32+name, NG after 3 s), G get a file of bm/shots only (OK+len32+crc32+data; PA NF SZ PW); T and G not yet proved on the RGB30"
+note = "transfer port 3334 ops S send, P play, K kernel, C config, T take a screenshot of the running game (OK+len32+name, NG after 3 s), G get a file of bm/shots only (OK+len32+crc32+data; PA NF SZ PW); T and G not yet proved on the RGB30; P on the RGB30: the menu plays it (D21), proved on RGB30 hardware 2026-10-21"
 
 [[item]]
 id = "project-layout"
@@ -116,4 +126,44 @@ since = 2
 status = "partial"
 platforms = "all"
 where = ["docs/PROJECT-LAYOUT.md", "scripts/mkbm.py", "Makefile"]
-note = "bm.info + assets/ + res/ + build/; pong, hunt, yharnam migrated"
+note = "bm.info + assets/ + res/ + build/; 21 of the 26 folders in carts/ have bm.info; without it: demo, stress, texroom, sdk_b16, titan_ex (they still build the old way, see Makefile)"
+
+[[item]]
+id = "cart-type"
+since = 3
+status = "partial"
+platforms = "all"
+where = ["src/bm/project.h", "scripts/mkbm.py", "src/kernel/settings.c", "src/kernel/home.h"]
+note = "docs/BM-FORMAT.md. Done: the type bits in the header (project.h), written by mkbm.py from bm.info. Not done: no kernel code calls bm_type_of_head(), so the menu does not group by type (Games = game, Dev = app, Settings > System > Utilities = utility); home_utils() is a weak stub that returns 0 (settings.c:122) and home_tool_is_utility() has no definition (home.h:89)"
+
+[[item]]
+id = "folders-bm-bme"
+since = 3
+status = "partial"
+platforms = "all"
+where = ["src/kernel/sdmap_core.c", "src/bm/project.c"]
+note = "Done: the SD map counts /bm and /bme (sdmap_core.c, the only code that knows /bme); bm_is_project() tells a project by its extension. Not done: no scan of /bme, no project created in /bme (a copy goes next to its game), and /carts is still scanned (carts.c:428-429 scans / and /carts; rgb30/ui.c:278-279 scans /bm and /carts)"
+
+[[item]]
+id = "sd-map"
+since = 3
+status = "implemented"
+platforms = "all"
+where = ["src/kernel/sdmap_core.c", "src/kernel/sdmap.c", "src/kernel/settings.c", "src/kernel/menu_ui.c", "src/fs/fat.c"]
+note = "Settings > System > SD map: bar kernel/bm/bme/other/free, folders, other files; incremental scan in a menu fiber; cache bm/sdmap.txt"
+
+[[item]]
+id = "api-cel3d"
+since = 3
+status = "implemented"
+platforms = "all"
+where = ["src/bm/runtime.c", "src/bm/r3d.c", "src/gpu/version3d.h", "docs/api/light3d.md"]
+note = "cel3d(), dither3d() and draw3d flag 256 (bm3D 7.4): the sun light cut into bands in the ARM lighting stage; a GPU draw with the flag is lit by the ARM; flag 512 (outline) is reserved. The owner decides whether BM_SPEC_REV goes to 4 and the cart then writes spec: 4. Not measured on a Pi or an RGB30"
+
+[[item]]
+id = "web-api"
+since = 4
+status = "implemented"
+platforms = "all"
+where = ["src/bm/webget.c", "src/bm/webpolicy.c", "src/bm/webimg.c", "src/bm/runtime.c", "src/net/http.c", "docs/api/system.md"]
+note = "docs/api/system.md, section The web. Tested in QEMU for image_load, file_write and the address rules (test_web_api) and on the PC for the request itself (make test-webapi). Not tried on the Pi or the RGB30 with a real server. The folder is bm/web because the FAT writer makes 8.3 names only"

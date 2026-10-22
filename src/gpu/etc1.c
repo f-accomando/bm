@@ -1,5 +1,5 @@
 /*
- * ETC1 blocks (M39, bm3d 7.3): a fast encoder for the opaque sheets of
+ * ETC1 blocks (bm3d 7.3): a fast encoder for the opaque sheets of
  * gpu3d_etc1 and the decoder of the V3D emulator. The format is Khronos'
  * OES_compressed_ETC1_RGB8_texture: two halves of 2x4 (flip 0) or 4x2
  * (flip 1) texels, each a base colour (4 bits a channel, or 5 bits and the

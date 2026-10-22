@@ -327,19 +327,27 @@ static uint8_t clamp(float v)
     return (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v + 0.5f);
 }
 
-int jpeg_decode(const uint8_t *data, size_t len, uint8_t **rgb, int *pw, int *ph, char *err, size_t errlen)
+/* Reads the headers and the scan: the decoder with its planes (the caller
+ * frees it with jd_free), or NULL with a word in err. */
+static void jd_free(jd_t *d)
+{
+    for (int i = 0; i < 3; i++)
+        free(d->c[i].pix);
+    free(d);
+}
+
+static jd_t *jd_parse(const uint8_t *data, size_t len, char *err, size_t errlen)
 {
     jd_t *d = calloc(1, sizeof *d);
     if (!d)
-        return -1;
+        return NULL;
     d->err = err;
     d->errlen = errlen;
     if (err && errlen)
         err[0] = 0;
-    int ret = -1;
     if (!jpeg_is(data, len)) {
         fail(d, "not a JPEG file");
-        goto out;
+        goto bad;
     }
     idct_init();
     const uint8_t *p = data + 2;
@@ -360,40 +368,59 @@ int jpeg_decode(const uint8_t *data, size_t len, uint8_t **rgb, int *pw, int *ph
         int n = p[2] << 8 | p[3];
         if (n < 2 || p + 2 + n > d->end) {
             fail(d, "a broken segment");
-            goto out;
+            goto bad;
         }
         if (marker == 0xDA) {
             if (!d->w) {
                 fail(d, "a scan before the frame");
-                goto out;
+                goto bad;
             }
             if (scan(d, p + 4, n - 2) < 0)
-                goto out;
+                goto bad;
             scanned = 1;
         } else if (segment(d, marker, p + 4, n - 2) < 0)
-            goto out;
+            goto bad;
         p += 2 + n;
     }
     if (!scanned) {
         fail(d, "no picture data");
-        goto out;
+        goto bad;
     }
+    return d;
+bad:
+    jd_free(d);
+    return NULL;
+}
+
+/* the colour of pixel (x, y) as floats: Y, Cb, Cr */
+static void jd_ycc(const jd_t *d, int x, int y, float *yy, float *cb, float *cr)
+{
+    const comp_t *c = &d->c[0];
+    *yy = c->pix[(y * c->v / d->vmax) * c->bw * 8 + x * c->h / d->hmax];
+    *cb = *cr = 128;
+    if (d->nc == 3) {
+        c = &d->c[1];
+        *cb = c->pix[(y * c->v / d->vmax) * c->bw * 8 + x * c->h / d->hmax];
+        c = &d->c[2];
+        *cr = c->pix[(y * c->v / d->vmax) * c->bw * 8 + x * c->h / d->hmax];
+    }
+}
+
+int jpeg_decode(const uint8_t *data, size_t len, uint8_t **rgb, int *pw, int *ph, char *err, size_t errlen)
+{
+    jd_t *d = jd_parse(data, len, err, errlen);
+    if (!d)
+        return -1;
     uint8_t *out = malloc((size_t)d->w * d->h * 3);
     if (!out) {
         fail(d, "no memory for the picture");
-        goto out;
+        jd_free(d);
+        return -1;
     }
     for (int y = 0; y < d->h; y++)
         for (int x = 0; x < d->w; x++) {
-            float yy, cb = 128, cr = 128;
-            const comp_t *c = &d->c[0];
-            yy = c->pix[(y * c->v / d->vmax) * c->bw * 8 + x * c->h / d->hmax];
-            if (d->nc == 3) {
-                c = &d->c[1];
-                cb = c->pix[(y * c->v / d->vmax) * c->bw * 8 + x * c->h / d->hmax];
-                c = &d->c[2];
-                cr = c->pix[(y * c->v / d->vmax) * c->bw * 8 + x * c->h / d->hmax];
-            }
+            float yy, cb, cr;
+            jd_ycc(d, x, y, &yy, &cb, &cr);
             uint8_t *o = out + ((size_t)y * d->w + x) * 3;
             o[0] = clamp(yy + 1.402f * (cr - 128));
             o[1] = clamp(yy - 0.344136f * (cb - 128) - 0.714136f * (cr - 128));
@@ -402,10 +429,32 @@ int jpeg_decode(const uint8_t *data, size_t len, uint8_t **rgb, int *pw, int *ph
     *rgb = out;
     *pw = d->w;
     *ph = d->h;
-    ret = 0;
-out:
-    for (int i = 0; i < 3; i++)
-        free(d->c[i].pix);
-    free(d);
-    return ret;
+    jd_free(d);
+    return 0;
+}
+
+int jpeg_decode565(const uint8_t *data, size_t len, uint16_t *out, int cap_w, int cap_h, int *pw, int *ph, char *err,
+                   size_t errlen)
+{
+    jd_t *d = jd_parse(data, len, err, errlen);
+    if (!d)
+        return -1;
+    if (d->w > cap_w || d->h > cap_h) {
+        fail(d, "the picture is larger than the buffer");
+        jd_free(d);
+        return -1;
+    }
+    for (int y = 0; y < d->h; y++)
+        for (int x = 0; x < d->w; x++) {
+            float yy, cb, cr;
+            jd_ycc(d, x, y, &yy, &cb, &cr);
+            const uint32_t r = clamp(yy + 1.402f * (cr - 128));
+            const uint32_t g = clamp(yy - 0.344136f * (cb - 128) - 0.714136f * (cr - 128));
+            const uint32_t b = clamp(yy + 1.772f * (cb - 128));
+            out[(size_t)y * d->w + x] = (uint16_t)((r >> 3) << 11 | (g >> 2) << 5 | (b >> 3));
+        }
+    *pw = d->w;
+    *ph = d->h;
+    jd_free(d);
+    return 0;
 }

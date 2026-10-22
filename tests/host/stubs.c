@@ -245,6 +245,8 @@ int fat_replace(const char *path, const void *data, size_t len)
     return write_host(hp, data, len);
 }
 
+int fat_writing(void) { return 0; }
+
 int fat_delete(const char *path)
 {
     char hp[512];
@@ -261,6 +263,7 @@ int config_find_file(const char *name, fat_entry_t *e)
 
 void config_save(void) { }
 void config_set(const char *key, const char *value) { (void)key; (void)value; }
+void config_unset(const char *key) { (void)key; }
 /* bm/config.txt: BMHOST_CONFIG="key=value,key=value" (gpu3d_vs=2, gpu3d_queue=1...) */
 const char *config_get(const char *key)
 {
@@ -671,3 +674,29 @@ int reports_text(const char *kind, const char *text, size_t len)
     fclose(f);
     return 0;
 }
+
+/* the screen recorder (src/bm/rec.c) works on the console's card and fibers: off in bmhost */
+#include "bm/rec.h"
+int rec_config(rec_cfg_t *cfg) { (void)cfg; return 0; }
+int rec_start(const rec_cfg_t *cfg) { (void)cfg; return -1; }
+void rec_stop(void) {}
+int rec_active(void) { return 0; }
+int rec_due(void) { return 0; }
+void rec_frame(const uint16_t *px, uint32_t stride, int w, int h) { (void)px; (void)stride; (void)w; (void)h; }
+void rec_pump(uint32_t until) { (void)until; }
+void rec_note_game_io(void) {}
+void rec_overlay_text(char *buf, int n) { if (n > 0) buf[0] = 0; }
+
+/* web_get (src/bm/webget.c) needs fibers and TLS: bmhost has neither, the request fails. image_load
+ * and file_write are the real code (webimg.c, webpolicy.c, the host folder as the card). */
+#include "webget.h"
+int web_start(const char *url, size_t max, uint32_t timeout_ms, char *err, size_t en)
+{
+    (void)url; (void)max; (void)timeout_ms;
+    snprintf(err, en, "web_get does not run in bmhost");
+    return -1;
+}
+web_state_t web_poll(int id) { (void)id; return WEB_FREE; }
+const web_req_t *web_find(int id) { (void)id; return NULL; }
+void web_cancel(int id) { (void)id; }
+void web_reset(void) {}

@@ -34,7 +34,7 @@ Your game is never overwritten by a tool by accident. You edit the project, and 
 ## Good to know
 
 - A tool that saves a game asks first: *Save an editable copy: NAME.BME?* The copy goes next to the game (`NAME.BME`, or `NAME1.BME` if that name is taken).
-- In the menu, *Make an editable copy* is in a game's options. The project goes to the Dev tab with a "Project" badge. A on a project opens it in the SDK.
+- In the menu, *Make an editable copy* is in a game's options. The project is not listed in the menu tabs: open it from the SDK with *Open* (**Ctrl+O**).
 - *Build the game (.bm)* is in a project's options. In the SDK the key is **Ctrl+B**.
 - A build writes the game next to the project, with the project's name stored at offset 104 of the header. The next build replaces that game and only that one. A game of the same name that it did not build stays, and the new one takes a digit (`PONG1.BM`).
 - The `.bm` and the `.b16` are separate editions. A `.b16` never replaces the `.bm`, and the `.bm` sources are never overwritten to make a `.b16`.
@@ -50,8 +50,8 @@ Your game is never overwritten by a tool by accident. You edit the project, and 
 
 1. On the console, open the Games tab and select a game.
 2. Press **X** on the RGB30 pad (**C** on the Pi) to open its options and choose *Make an editable copy*.
-3. Open the Dev tab. You see the project with a "Project" badge.
-4. Press **A** on the project. It opens in the SDK.
+3. Open the Dev tab and start the **bm SDK**. The tab does not list projects.
+4. In the SDK press **Ctrl+O** and choose the project.
 5. In the SDK press **Ctrl+B** (*Build the game .bm*). The game appears in the Games tab.
 
 ![The options of a game, with Make an editable copy](shots/api-tools-editable-copy.png)
@@ -426,7 +426,7 @@ A game or an app saves the frame it is drawing as a PNG on the SD card. The play
 | How | Where |
 |---|---|
 | **Print Screen** on the keyboard | `bm/shots/` on the SD card |
-| **Select + L1 + R1** together on a pad (Share + L1 + R1 on a DS4) | `bm/shots/` on the SD card |
+| **Select** held for 3 seconds on a pad (Share on a DS4) | `bm/shots/` on the SD card |
 | `shot([prefix])` in your code | `bm/shots/` on the SD card |
 
 ## What it does
@@ -440,11 +440,13 @@ A box says `Screenshot saved` and the file name for two seconds. The picture is 
 - The name is `<PREFIX><NNNN>.PNG`, 8.3. The prefix is the first, up to 4, letters or digits of the game's title (`Pong` gives `PONG`, `Hunter's Night` gives `HUNT`, `SHOT` if there are none) or the `prefix` you gave.
 - The number is one more than the highest of that prefix already in `bm/shots/`, from 0001 to 9999. The Pi Zero has no clock, so there is no date.
 - The format is PNG, 8 bits RGB, the size of the game's screen (640x360, 360x360...). Nothing is lost: the console's 16-bit colours are widened to 8 bits. There is no JPG, because it spoils pixel art.
+- From the PC, over the network link, `python tools/bm_net.py IP --shot out.png` asks the console for a screenshot of the running game (the console asks for the Console password) and saves it as `out.png`. `python tools/bm_net.py IP --get bm/shots/PONG0007.PNG out.png` fetches a file that is already in `bm/shots/`. A game must be drawing frames: with none, the request fails after 3 seconds. Only files of `bm/shots/` can be fetched. This is not verified on an RGB30.
+- From the PC, `python tools/bm_net.py IP --play game.bm` sends a `.bm` to the console and plays it at once. The console asks for the Console password. The file is not saved on the SD card. The menu starts the game when it has the keys; if an update or a Market publish is running, it shows a message and does not start the game. `--send game.bm` saves the file on the SD card instead. This is not verified on an RGB30.
 - A flat screen takes a few KB; noise can take as much as the raw picture (about 0.7 MB at 640x360).
 
 ## Caveats
 
-- [TO FILL: check Select + L1 + R1 on the PowKiddy RGB30, and `shot()` with a 3D game on the GPU; the repository says neither was tried on a Pi or an RGB30.]
+- [TO FILL: check Select held 3 s on the PowKiddy RGB30, and `shot()` with a 3D game on the GPU; the repository says neither was tried on a Pi or an RGB30.]
 
 ## Try it, step by step
 

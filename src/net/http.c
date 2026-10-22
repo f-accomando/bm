@@ -1,8 +1,9 @@
 /*
  * The HTTP client: one request per connection ("Connection: close"),
  * headers read line by line, then the body by length, by chunks or until
- * the server closes. Up to 5 redirects (GitHub sends release downloads to
- * another host, with a signed address of about a thousand characters).
+ * the server closes. Up to 5 redirects, or req->max_redirects (GitHub
+ * sends release downloads to another host, with a signed address of about
+ * a thousand characters).
  */
 #include "http.h"
 
@@ -163,13 +164,16 @@ int http_request(const char *url, const http_req_t *req, http_sink_t sink, void 
     }
     snprintf(where, sizeof where, "%s", url);
 
-    for (int hop = 0; hop < 6; hop++) {
+    const int hops = req->max_redirects > 0 ? req->max_redirects : 5;
+    for (int hop = 0; hop <= hops; hop++) {
         snprintf(info->url, sizeof info->url, "%.*s", (int)sizeof info->url - 1, where);    /* shown only */
         url_t u;
         if (parse_url(where, &u)) {
             snprintf(info->error, sizeof info->error, "not an http(s) address");
             return -1;
         }
+        if (req->before && req->before(req->before_ctx, where, info->error, sizeof info->error))
+            return -1;
         void *c = http_transport->open(u.host, u.port, u.tls, info->error, sizeof info->error);
         if (!c)
             return -1;
@@ -206,6 +210,7 @@ int http_request(const char *url, const http_req_t *req, http_sink_t sink, void 
         info->length = -1;
         int chunked = 0;
         location[0] = 0;
+        info->location[0] = 0;
         int too_long = 0;
         while (read_line(&r, line, sizeof line) > 0) {
             char *v = strchr(line, ':');
@@ -220,8 +225,10 @@ int http_request(const char *url, const http_req_t *req, http_sink_t sink, void 
                 chunked = 1;
             else if (!strcasecmp(line, "Content-Type"))
                 snprintf(info->type, sizeof info->type, "%s", v);
-            else if (!strcasecmp(line, "Location"))
+            else if (!strcasecmp(line, "Location")) {
                 too_long = snprintf(location, sizeof location, "%s", v) >= (int)sizeof location;
+                snprintf(info->location, sizeof info->location, "%s", v);
+            }
         }
         int redirect = info->status == 301 || info->status == 302 || info->status == 303 ||
                        info->status == 307 || info->status == 308;
@@ -232,6 +239,11 @@ int http_request(const char *url, const http_req_t *req, http_sink_t sink, void 
                                      u.host, u.port, location) >= (int)sizeof where;
             else
                 snprintf(where, sizeof where, "%s", location);
+            if (req->same_scheme && !too_long &&
+                (strncmp(where, "https://", 8) == 0) != (u.tls != 0)) {
+                snprintf(info->error, sizeof info->error, "redirect to another scheme refused");
+                return -1;
+            }
             if (too_long) {
                 snprintf(info->error, sizeof info->error, "redirect to an address too long");
                 return -1;

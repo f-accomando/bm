@@ -4,6 +4,7 @@
 #include "icons.h"
 #include "pointer.h"
 #include "prompts.h"
+#include "stalls.h"
 #include "syskeys.h"
 #include "bm/bm.h"
 #include "drivers/sd.h"
@@ -33,7 +34,7 @@ static int sw = 640, sh = 360, cols = MENU_COLS;
  * 1920x1080), drawn in `frame` and enlarged at the flip */
 static int scale = 1;
 static uint16_t *frame;
-static int gpu_big;                     /* M37: the GPU enlarges it (else the ARM) */
+static int gpu_big;                     /* bm3d 4.8: the GPU enlarges it (else the ARM) */
 #define FRAME_US 16667
 
 /* layout: text sits on the 8x16 grid, on solid colours (the QEMU tests
@@ -741,8 +742,16 @@ static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[3], con
     }
     const int rgb30 = v->prompts == MENU_PROMPTS_RGB30;  /* the console's own A B X Y */
     int ds = v->prompts != MENU_PROMPTS_PAD && !rgb30;
-    if (!ds && v->confirm_b && (b == BTN_A || b == BTN_B))
-        b = b == BTN_A ? BTN_B : BTN_A;         /* confirm on B, back on A */
+    if (rgb30) {                                /* the console's OK is B and its back Y unless the player set others */
+        const char *face = b == BTN_A ? v->ok_btn : b == BTN_B ? v->back_btn : NULL;
+        if (b == BTN_B && !face)
+            face = "Y";
+        if (face)
+            b = face[0] == 'A' ? BTN_A : face[0] == 'B' ? BTN_B : face[0] == 'X' ? BTN_X : BTN_Y;
+        else if (v->confirm_b && b == BTN_A)
+            b = BTN_B;
+    } else if (!ds && v->confirm_b && (b == BTN_A || b == BTN_B))
+        b = b == BTN_A ? BTN_B : BTN_A;         /* confirm on B */
     switch (b) {
     case BTN_A: case BTN_B: case BTN_X:
         p[0] = ds ? prompt_get(ds4[b], v->prompts_colour)
@@ -833,11 +842,31 @@ static void draw_list(const menu_panel_t *p, int x0, int w, int faded, int hit, 
         if (sel)
             round_rect(x0 + 16, y - 6, w - 32, 28, 8, faded ? c16(C_LINE) : c16(C_TAB_ON));
         sel = sel && !faded;
-        uint16_t fg = sel ? c16(C_BAR) : r->kind == MENU_ROW_INFO ? c16(C_DIM) : c16(C_TEXT);
-        uint16_t fv = sel ? c16(0x4A4A56) : r->kind == MENU_ROW_INFO ? c16(C_TEXT) : c16(C_DIM);
+        const int info = r->kind == MENU_ROW_INFO || r->kind == MENU_ROW_BAR;
+        uint16_t fg = sel ? c16(C_BAR) : info ? c16(C_DIM) : c16(C_TEXT);
+        uint16_t fv = sel ? c16(0x4A4A56) : info ? c16(C_TEXT) : c16(C_DIM);
         ksnprintf(buf, sizeof buf, "%s", r->label ? r->label : "");
         buf[30] = 0;
+        if (r->swatch)
+            g16_rectfill(&g, label_col * 8 - 12, y + 3, 8, 8, c16(r->swatch));
         g16_text(&g, label_col * 8, y, buf, fg);
+        if (r->kind == MENU_ROW_BAR) {
+            static const uint32_t part_col[5] = { 0xE06C75, 0x61AFEF, 0x98C379, 0xE5C07B, 0x4A5060 };  /* kernel, bm, bme, other, free */
+            const int bx = (label_col + (int)strlen(buf) + 1) * 8, bw = value_end * 8 - bx;
+            if (r->bar && bw > 0) {
+                g16_rectfill(&g, bx, y + 2, bw, 10, c16(C_LINE));
+                int px = bx;
+                for (int k = 0; k < 5; k++) {
+                    int pw = bw * r->bar[k] / 1000;
+                    if (pw > bx + bw - px)
+                        pw = bx + bw - px;
+                    if (pw > 0)
+                        g16_rectfill(&g, px, y + 2, pw, 10, c16(part_col[k]));
+                    px += pw;
+                }
+            }
+            continue;
+        }
         const char *val = values && r->value ? r->value : "";
         if (r->kind == MENU_ROW_CHOICE && sel && values)
             ksnprintf(buf, sizeof buf, "< %s >", val);
@@ -1193,7 +1222,7 @@ static int screen_open(framebuffer_t *fb)
     if (scale > 1 && (!frame || fb_init_depth(fb, (uint32_t)(sw * scale), (uint32_t)(sh * scale), 3, 16) != 0))
         scale = 1;
     if (scale > 1) {
-        /* M37: the GPU enlarges the layout (a job a frame: the ARM's 4 MB
+        /* bm3d 4.8: the GPU enlarges the layout (a job a frame: the ARM's 4 MB
          * of writes gone), where there is one; else the ARM, as before */
         const int was = gpu_big;
         gpu_big = fb->pitch == fb->width * 2 && gpu3d_init() == 0;
@@ -1285,6 +1314,33 @@ static void enlarge(framebuffer_t *fb)
         for (int k = 1; k < scale; k++)
             memcpy(d + (uint32_t)k * stride, d, (size_t)(SW * scale) * 2);
     }
+}
+
+/* the long calls that hold the CPU (stalls.h), a line when one ran in the window: count,
+ * the last and the longest in ms; the hash adds the KiB. Starts counting again. */
+static void stall_print(const char *name, stall_t *s, char *buf, size_t n, size_t *k)
+{
+    if (!s->n)
+        return;
+    if (*k < n)
+        *k += (size_t)ksnprintf(buf + *k, n - *k, "%s%s %lux last %lu.%lu worst %lu.%lu ms", *k ? ", " : "", name,
+                                (unsigned long)s->n, (unsigned long)(s->last / 1000),
+                                (unsigned long)(s->last / 100 % 10), (unsigned long)(s->worst / 1000),
+                                (unsigned long)(s->worst / 100 % 10));
+    if (s->bytes && *k < n)
+        *k += (size_t)ksnprintf(buf + *k, n - *k, " (%lu KiB)", (unsigned long)(s->bytes / 1024));
+    *s = (stall_t){0};
+}
+
+static void stalls_report(void)
+{
+    char line[160];
+    size_t k = 0;
+    stall_print("tls handshake", &stall_tls, line, sizeof line, &k);
+    stall_print("verify", &stall_verify, line, sizeof line, &k);
+    stall_print("file hash", &stall_hash, line, sizeof line, &k);
+    if (k)
+        kprintf("menu stalls: %s\n", line);
 }
 
 void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
@@ -1476,7 +1532,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         col = WIDE ? 40 : hc;
         if (r && r->kind == MENU_ROW_CHOICE)
             col = hint(v, col, 21, BTN_CHANGE, "Change");
-        else if (r && r->kind != MENU_ROW_INFO)
+        else if (r && r->kind != MENU_ROW_INFO && r->kind != MENU_ROW_BAR)
             col = hint(v, col, 21, BTN_A, r->kind == MENU_ROW_SUB ? "Open" : "Select");
         hint(v, WIDE && col < 55 ? 55 : col, 21, BTN_B, "Back");
     } else if (v->on_gear) {
@@ -1619,7 +1675,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     else if (slack < idle_slack)
         idle_slack = slack;
     if (++idle_frames >= IDLE_FRAMES) {
-        char jobs[256], sd[48] = "";
+        char jobs[384], sd[48] = "";
         const int ran = fiber_jobs_report(jobs, sizeof jobs);
         uint32_t retries, timeouts;
         sd_counters(&retries, &timeouts);
@@ -1633,6 +1689,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
                     "min slack %d us, paced %d%s\n", idle_gave, idle_frames, (unsigned long)(idle_used / 1000),
                     (unsigned long)(idle_offered / 1000), (unsigned long)(idle_over / 1000),
                     (unsigned long)(idle_over / 100 % 10), ran ? jobs : "no job", (int)idle_slack, paced, sd);
+        stalls_report();
         idle_frames = idle_gave = 0;
         idle_offered = idle_used = idle_over = 0;
         idle_slack = SLACK_NONE;

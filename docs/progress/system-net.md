@@ -17,6 +17,18 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
 - lwIP with DHCP and SNTP (`net.c`), TLS with mbedTLS (`tls.c`), HTTP(S) (`http.c`): updates
   (`update.c`, `release.c`, signed releases), Market catalog (`catalog.c`), GitHub reports
   (`github.c`, `report.c`), 3D images (`img3d.c`), games' UDP and LAN (`lan.c`, `cartnet.c`).
+- Web API for cartridges (`web_get`, `image_load`, `file_write`; [docs/api/system.md](../api/system.md)):
+  `src/bm/webpolicy.c` has the rules (https only, 3 redirects of the same scheme, 1 s per host, body
+  cap 4 MiB `web_max_kib`, file names for `bm/web`, file cap 8 MiB `file_write_max_kib`), `webget.c` runs
+  one `http_request` in a fiber of its own (128 KiB stack) that `web_poll` advances for 4 ms a frame
+  (the TLS handshake still stalls one frame), `webimg.c` decodes JPEG, PNG and WebP into the sheet.
+  `http.c` got `max_redirects`, `same_scheme`, a `before` hook and `info->location` for it. The
+  folder is `bm/web` because the FAT writer makes 8.3 names only (`downloads` has 9 letters).
+  `file_write` is synchronous: a big file stops the frame; the writer lock is `fat_writing()`
+  (the card is refused while another write runs), there is no pause hook yet (stage 3 of
+  [multitasking-alternatives](../design/multitasking-alternatives.md)). Tests: `make test-webapi`
+  (PC, ucontext fibers, local server), QEMU `test_web_api`. Not tried on a Pi or an RGB30 with a
+  real server (divergence D49). Not done: PNG/JPEG decoding in bands, progressive JPEG.
 - PC link (`netcon.c` console, `netxfer.c` files) for `tools/bm_net.py`: a file is answered
   `QD` once received and checked, written from the menu in a fiber
   (`netxfer_write_tick`); one at a time, another gets `BY`. An open or suspended game is
@@ -30,7 +42,7 @@ set to the player colour) and a mouse; link keys in `bm/config.txt` (`bt_pad<n>`
   `bm_net.py --shot` (T then G), `--get`; `pi_test.py --shot`. Shared with the RGB30 but not
   yet proved there.
 - Monitor line commands (`src/kernel/monitor.c`: `:` prefix from menu/serial, `bm_net.py IP --line "..."`):
-  `gpu`, `b3d`, `play`, `set`, `save`, `render`, `room`, `log`, `err`, `send`, `reboot`.
+  `gpu`, `b3d`, `play`, `set`, `save`, `render`, `room`, `stack`, `log`, `err`, `send`, `reboot`.
   The `err` command (R-NET1) prints the last cartridge error (`err: <text>` or `err: none`,
   via `bm_last_error()`) and any suspended cartridge (`running: <title>`), allowing remote
   tests to distinguish a running/clean state from an execution halted with error.

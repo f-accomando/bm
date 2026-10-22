@@ -93,7 +93,7 @@ In the F4 page (or integrated in F1):
 
 ---
 
-## 5. Milestone M43 — Sprite Stacking (Overlaid Slices and Voxels)
+## 5. Sprite Stacking (Overlaid Slices and Voxels)
 
 The *sprite stacking* technique allows generating pseudo-3D volumes by overlaying scaled and rotated 2D slices, obtaining depth at the cost of classic 2D rendering:
 
@@ -105,7 +105,7 @@ The *sprite stacking* technique allows generating pseudo-3D volumes by overlayin
 3. **Dedicated Editor in bm Pixel**:
    - New **Stack** page: slice view both side by side in a grid and overlaid with vertical onion skin; real-time rotating 3D preview; automatic duplication of the slice onto the upper level to ease extrusion; quick creation of a stack starting from an existing zone.
 4. **Full x, y, z Rotation**:
-   - `stackv(...)` as a voxel volume with free 3D orientation along the axis closest to the camera.
+   - `stackv(...)` (done): `stack` with the slices one under the other on the sheet. A voxel volume with free 3D orientation along the axis closest to the camera stays open.
 5. **Export to the Other Suite Tools**:
    - Automatic conversion of the stack into `MESH` (colored outer voxel faces) for `bm Studio` and `bm Mesh`.
    - Automatic generation of pre-rendered 8-direction sprites for `bm Animator`.

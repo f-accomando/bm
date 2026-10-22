@@ -5,17 +5,23 @@
 
 ## What exists
 
-**The bridge.** The owner types the console password once in `python3 tools/pi_bridge.py <ip>` (WSL, `getpass`; or `BM_PASSWORD` in the environment of that process only). The bridge keeps it in memory and listens on a Unix socket `~/.pi_bridge.sock` (mode 0600). A client, such as Claude Code, sends one request per connection; the bridge runs `bm_net.py` with the password and returns the answer with the password replaced by `***`. The client never sees the password.
+**The bridge.** The owner types the console password once in `python3 tools/pi_bridge.py <ip>` (WSL, `getpass`; or `BM_PASSWORD` in the environment of that process only; or, so the owner types nothing, a one-line file `~/.pi_bridge.pw` or `$BM_PASSWORD_FILE` that the owner wrote, mode 0600; the order is `BM_PASSWORD`, the file, the prompt). The bridge keeps it in memory and listens on a Unix socket `~/.pi_bridge.sock` (mode 0600). A client, such as Claude Code, sends one request per connection; the bridge runs `bm_net.py` with the password and returns the answer with the password replaced by `***`. The client never sees the password.
 
 | Request | Does | Limits |
 |---|---|---|
-| `line TEXT` | a monitor line (`gpu`, `b3d`, `send`, `play`...) | at most 200 characters from `A-Z a-z 0-9 space _ - . =` |
+| `line TEXT` | monitor commands separated by `;`: `gpu`, `b3d tests=.. profiles=..`, `render`, `room`, `log`, `err`, `crc` (read-only CRC32 of the screen page), `send`, `reboot` | first word of each command from `LINE_CMDS` of `pi_bridge.py` (case-sensitive); only `b3d` takes arguments (`tests=`/`profiles=` with `A-Z a-z 0-9 _ ,`); characters `A-Z a-z 0-9 space _ , = ;` only, fewer than 200; `set`, `save`, `play` and the rest answer `refused: line: <why>` |
 | `send FILE` / `play FILE` | the cartridge to the SD card / played at once | FILE is a file inside the repo or in `~/bmk*` |
 | `kernel FILE` | a kernel written as `kernel.img`, then the Pi reboots (waited for) | same |
 | `shot OUT.png` | a screenshot of the running game (op `T`, then `G`), saved as OUT.png | OUT is a `.png` in a folder of the repo or in `~/bmk*` |
-| `keys NAME` | the keys of a fixed table pressed on the Pi, one by one (`bm_net.py --keys`): `monitor` = `q`, `crash-dabt` = `Xa`, `crash-undef` = `Xu`, `crash-prefetch` = `Xb` | the name must be in `KEYS` of `pi_bridge.py`; no free text, no freeze; refused when a game or page has the keys. `crash-*` makes the Pi fall: a Pi Zero W does not restart by itself, unplug the power |
+| `keys NAME` | the keys of a fixed table pressed on the Pi, one by one (`bm_net.py --keys`): `monitor` = `q`, `crash-dabt` = `Xa`, `crash-undef` = `Xu`, `crash-prefetch` = `Xb`, `freeze` = `Xf` (the watchdog restarts the Pi in about 3 s), `reboot` = `r` | the name must be in `KEYS` of `pi_bridge.py`; no free text; refused when a game or page has the keys. `crash-*`, `freeze` and `reboot` only when the monitor has the keys (`keys monitor` first), else exit 2 and nothing is pressed. `crash-*` makes the Pi fall: a Pi Zero W does not restart by itself, unplug the power |
+| `status` (exactly this) | is the Pi up (the greeting of the console, no login), its kernel version, how the run before ended (`BOOTPREV.TXT`), the time of the check | no uptime of the current boot (it would need a monitor line in the kernel) |
 | `logs NAME` | one of the logs the Pi writes on its SD card, read without taking the card out (`bm_net.py --get bm/NAME`): `bootprev` = `bm/BOOTPREV.TXT` (the run before), `bootlog` = `bm/BOOTLOG.TXT`, `lastrun` = `bm/LASTRUN.TXT`; saved as `out/pi_NAME.TXT` and shown | the name must be in `LOGS` of `pi_bridge.py`; the op `G` of the kernel allows these three exact names (and `bm/shots/*`), nothing else of `bm/` (`PA`) |
-| anything else (`--config`, secrets, WiFi) | **refused** | |
+| `config KEY=VALUE` | settings written to the Pi's `config.txt` (`bm_net.py --config`) | letters, digits and `_-.=` only; secret keys (`net_password`, `*_token`, `*_psk`, `*_password`, `*_key`) refused; the log shows `KEY=***` |
+| anything else (`set`/`save`/`play` lines, secrets, WiFi) | **refused** (`refused: line: <reason>` for lines) | |
+
+**Boards.** `--board pi|zero2|rgb30` sets the kernel file name that `kernel FILE` accepts (`kernel.img`, `kernel7.img`, `kernel8.img`). The RGB30 has no monitor, so its `crash-*`, `freeze` and `reboot` keys answer "not for this board". `easy_install.sh bridge [profile]` starts the bridge for a profile.
+
+**How long the bridge lives.** It survives the Pi's restarts (one connection per request, the password stays in the bridge's memory). With `python3 tools/pi_bridge.py --detach IP` it survives closing the shell (log in `out/pi_bridge.log`). It does not survive `wsl --shutdown`, a restart or suspend of Windows, nor WSL stopping its VM when the last window closes (`instanceIdleTimeout` / `vmIdleTimeout` in `%UserProfile%\.wslconfig`: to confirm on the real machine). A second instance is refused ("a bridge is already running"). Errors: `bm_net.py` exits 3 with "does not answer" when the Pi is off, restarting or frozen; a request with no end after 300 s answers "timeout: ...".
 
 Stop it with Ctrl-C (or `pkill -INT -f pi_bridge.py`): the socket is removed and nothing can be sent any more. After a session change the Pi's password (it is shown in clear in a terminal or a chat easily).
 
@@ -46,6 +52,8 @@ Reports (`gpu`, `b3d`) already leave the Pi alone: it uploads them to the branch
 
 ## Rules of the tools
 
-- The password is never written to a file, a log, a command line the assistant types or the chat; `pi_bridge.py` takes it with `getpass` or from `BM_PASSWORD` of its own process.
+- The password is never written to a log, a command line the assistant types or the chat; `pi_bridge.py` takes it from `BM_PASSWORD` of its own process, from the owner's file (below) or with `getpass`.
 - The bridge only runs the requests of the table and only on files of the repo or `~/bmk*`.
+- A `line` is checked command by command against a fixed list (`LINE_CMDS`); a command that changes the configuration (`set`, `save`) or starts a game (`play`) never passes.
+- The bridge never stores the password itself: no keyring, no persistent environment variable. The only file allowed is `~/.pi_bridge.pw` (or `$BM_PASSWORD_FILE`): the owner writes it (user's decision, 16 Oct 2026: a local device, only the handshake), mode 0600 and the owner's, one line; the bridge refuses it otherwise (`refused: password file mode`). The assistants never create, read or print that file.
 - A failing client counts as a failing step (a test never answers PASS when it could not talk to the Pi).

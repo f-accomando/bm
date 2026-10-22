@@ -38,8 +38,8 @@ Se il gioco si ferma con un errore, l'SDK torna sulla riga in rosso (Ctrl+G la
 ritrova). Tutto il resto di questa guida vale anche per l'SDK.
 
 **Progetti e giochi**: quello che gli strumenti cambiano è un **progetto**, un `.bme` in
-`/carts` con un nome 8.3 (es. `MIOGIOCO.BME`), nella scheda Dev con l'etichetta "Project" (A lo
-apre nell'SDK, *Try it* lo gioca). Un `.bm` è un **gioco**, in Games: gli strumenti lo aprono
+`/carts` con un nome 8.3 (es. `MIOGIOCO.BME`). Non è nelle schede del menu: lo aprono gli editor
+(*Open* dell'SDK, Ctrl+O). Un `.bm` è un **gioco**, in Games: gli strumenti lo aprono
 per leggerlo e prenderne codice, sprite, modelli e suoni, ma non lo cambiano. Salvandolo
 chiedono di farne la **copia modificabile** (`NOME.BME`, accanto); la copia c'è anche nelle
 opzioni di un gioco (X), *Make an editable copy*. Quando il progetto è pronto, **Ctrl+B**
@@ -116,7 +116,7 @@ Pulsanti: `btn(i)` finché è premuto, `btnp(i)` solo al momento della pressione
 Esc, Start+Select o il tasto PS tornano al menu, e il gioco resta **sospeso** in memoria
 (A sulla sua copertina lo riprende). `quit()` invece chiude davvero la cartuccia. Un gioco in
 rete chiama `online(true)`: lì PS chiede al giocatore se vuole uscire dalla partita e
-disconnettersi, e se sì chiama `_leave()` (vedi `docs/API-IT.md`).
+disconnettersi, e se sì chiama `_leave()` (vedi `docs/api/input.md`).
 
 **Icone dei tasti.** Per dire quale tasto fa che cosa, `prompt()` lo disegna come un piccolo
 chip nell'aspetto del controller in uso: i simboli del DS4, le lettere di un pad, i tasti
@@ -584,7 +584,7 @@ local lib = require "bmlib"
 
 Tempi in secondi, posizioni in pixel, velocità in pixel per fotogramma; tween, timer e
 jingle vanno avanti con `lib.update()`, una volta in `_update`. L'elenco completo è in
-[API-IT.md](API-IT.md#bmlib-la-libreria-comune-dei-giochi). Ecco un platform intero, senza
+[api/bmlib.md](api/bmlib.md#bmlib-the-games-shared-library). Ecco un platform intero, senza
 file a parte (le tile si disegnano nel codice e la mappa si costruisce con `mset`): titolo,
 partita, salto, piattaforme, monete con le scintille, camera, pausa, record.
 
@@ -677,7 +677,11 @@ Altre cose utili: `lib.script` per le scene scritte in fila (`lib.wait(1)`,
 `lib.waitfor(...)`), `lib.tween` per scritte e menu che entrano, `lib.menu` per i menu
 propri, `lib.btnr` per i tasti che si ripetono, `lib.rng(seme)` per mondi sempre uguali
 dallo stesso seme, `lib.ray` per vedere se un nemico vede l'eroe, `lib.dir8` per gli sprite
-a 8 direzioni.
+a 8 direzioni, `lib.input()` per lo standard di input dei giochi (`confirm`, `cancel`,
+`pause` e `act1`..`act4` sugli stessi tasti in ogni gioco di uno schema: `lib.input({ scheme =
+"scroller" | "topdown" | "stick" })`, predefinito `"scroller"`; le altre chiavi, come `{ act3 = "x" }`,
+cambiano singole azioni, elencate in `lib.input_exceptions` e dichiarate nel
+`docs/progress/<gioco>.md`; `lib.INPUT_STD` è la parte comune; vedi [design/games-input-standard.md](design/games-input-standard.md)).
 
 ## 12. Colpi: hitbox e hurtbox
 

@@ -16,7 +16,7 @@ monitor), the hub of the bm Suite. With a USB keyboard (and, if you like, a game
 | **F2** | the code (Ctrl+X or Ctrl+K cuts the line, Ctrl+C / Ctrl+V, Ctrl+D duplicates, Ctrl+G goes to the error, F9 the assistant explains it) |
 | **F3** | the sprites: arrows, space draws, `x` picks the colour, `f` fills, `,` `.` colour, Tab chooses on the sheet, `z` 8×8/16×16, `h`/`v` mirror, `u` undoes, `0`–`7` turn the tile's **flags** on and off (below: wall, platform...). **F3 again**: the map: space places the tile, `x` picks it, `f` fills, Tab chooses the tile, `z` 8×8/16×16 (a tile of 2×2 cells, on even cells), PgUp/PgDn and Home/End a page, `l` the next **layer**, Shift+L adds one (also *New map layer* in the menu), `o` that layer alone, `c` shows the flags |
 | **F4** | 3D: the project's models and animations, turning; `i` writes the code that draws them, Enter opens them in bm Studio |
-| **Ctrl+N** | a new project from a template: Empty 2D, Platform 2D, Top-down 2D, Shooter 2D, Versus 2D (two players on one console, punches with hitboxes), Online 2D (a lobby and a match over the network), 3D scene, 3D with models |
+| **Ctrl+N** | a new project from a template: Empty 2D, Platform 2D, Top-down 2D, Shooter 2D, Versus 2D (two players on one console, punches with hitboxes), Online 2D (a lobby and a match over the network), 3D scene, 3D with models, Stages 2D (title, 3 stages, ending, saved record; Pi and RGB30) |
 | **F5** / **Ctrl+R** | try the game (Esc or Ctrl+Esc back to the SDK; the try's numbers go to the dev kit) |
 | **F6** | the assistant (from the project page: the step-by-step guides) |
 | **F12** (held) | the list of the page's keys |
@@ -39,8 +39,8 @@ If the game stops with an error, the SDK goes back to the line in red (Ctrl+G fi
 again). Everything else in this guide holds for the SDK too.
 
 **Projects and games**: what the tools change is a **project**, a `.bme` in `/carts` with an
-8.3 name (e.g. `MYGAME.BME`), in the Dev tab with a "Project" badge (A opens it in the SDK,
-*Try it* plays it). A `.bm` is a **game**, in Games: the tools open it to read it and take its
+8.3 name (e.g. `MYGAME.BME`). It is not listed in the menu tabs: the editors open it (the SDK's
+*Open*, Ctrl+O). A `.bm` is a **game**, in Games: the tools open it to read it and take its
 code, sprites, models and sounds, but do not change it. Saving one, they ask to make its
 **editable copy** (`NAME.BME`, next to it); the copy is also in a game's options (X), *Make an
 editable copy*. When the project is ready, **Ctrl+B** in the SDK (or *Build the game (.bm)*
@@ -700,7 +700,12 @@ Other useful things: `lib.script` for scenes written in a row (`lib.wait(1)`,
 `lib.waitfor(...)`), `lib.tween` for titles and menus that come in, `lib.menu` for your
 own menus, `lib.btnr` for buttons that repeat, `lib.rng(seed)` for worlds that are always
 the same from the same seed, `lib.ray` to see whether an enemy sees the hero, `lib.dir8`
-for 8-direction sprites.
+for 8-direction sprites, `lib.input()` for the games' input standard (`confirm`, `cancel`,
+`pause` and `act1`..`act4` on the same buttons in every game of a scheme: `lib.input({ scheme =
+"scroller" | "topdown" | "stick" })`, default `"scroller"`; other keys such as `{ act3 = "x" }`
+change single actions, listed in `lib.input_exceptions` and declared in the game's
+`docs/progress/<game>.md`; `lib.INPUT_STD` is the common part; see
+[design/games-input-standard.md](design/games-input-standard.md)).
 
 ## 12. Hits: hitboxes and hurtboxes
 
@@ -892,6 +897,6 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
 | `carts/kitchen` | a big game: sources in several files joined by `build.py`, 3D with meshes built in code, 1–4 players (`btn(i, p)`, `players()`), and saves |
 | `carts/village` | 3D models made with bm Studio and a villager animated with bm Animator (`models.bm`): `model()`, `animate()` with two animations blended, `bone3d()`, terrain without z-buffer, night with `lamp3d` and fog, pre-rendered sprites |
 | `carts/titan` | big pre-rendered sprites (a 3D model made in Python becomes layered pixel art: one frame, many combinations of equipment), a big sheet with a palette (`--sheet8`), parallax, the states of a fighting game with per-frame hitboxes, a CPU opponent |
-| the SDK's templates (Ctrl+N) | *Platform 2D*, *Top-down 2D* and *Shooter 2D* with bmlib and the tiles' flags; *Versus 2D*: two players on one console, punches with hitboxes and hurtboxes; *Online 2D*: a lobby and lockstep with bmnet |
+| the SDK's templates (Ctrl+N) | *Platform 2D*, *Top-down 2D* and *Shooter 2D* with bmlib and the tiles' flags; *Versus 2D*: two players on one console, punches with hitboxes and hurtboxes; *Online 2D*: a lobby and lockstep with bmnet; *Stages 2D* (Pi and RGB30): title, 3 stages, ending and a saved record |
 | `tests/gameapi/cart.lua` | every function of the map's layers, the tiles' flags, the named zones and their boxes, bmlib (hits, the players' screen and the split screen too), with its cases |
 | `tests/bmnet/cart.lua` | bmnet between two consoles: the lobby, sure messages with lost packets, a lockstep match, a player leaving |

@@ -1,0 +1,25 @@
+html
+  head
+    title
+      "Fish & Chips ©"
+  body
+    "\n"
+    p
+      "<tag> & \"quotes\" 'apos' © ® ™ … — –"
+    "\n"
+    p
+      "Numeric: ABCD € 😀 bad: � � �"
+    "\n"
+    p
+      "Unknown &nosuchthing; and bare &amp and ampersand & alone, A..."
+    "\n"
+    p
+      "No break space and éüß."
+    "\n"
+    p
+      "Double &lt; stays as &lt; text."
+    "\n"
+    p
+      a href="/search?a=1&b=2" title="x < y"
+        "Attribute entities"
+    "\n\n"

@@ -1,9 +1,8 @@
 # Native `.bm` cartridges: API and first cartridge
 
-Italian version: [API-IT.md](API-IT.md).
 
 > A step-by-step practical guide (sprites, maps, 3D models, sound, lights, saves):
-> [GAME-GUIDE.md](GAME-GUIDE.md). In Italian: [API-IT.md](API-IT.md) and
+> [GAME-GUIDE.md](GAME-GUIDE.md). In Italian:
 > [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md).
 
 A `.bm` cartridge is a game for bm written in **Lua 5.4**. The kernel draws in C
@@ -119,6 +118,7 @@ The reference is split by area. **Read only the file you need** (and grep inside
 | [api/light3d.md](api/light3d.md) | nano8 · Light · Light by levels · 3D (software) · Collision worlds |
 | [api/bmlib.md](api/bmlib.md) | The games' shared library |
 | [api/riff.md](api/riff.md) | Music as patterns |
+| [api/video.md](api/video.md) | Video clips (.bmv) |
 | [api/bmnet.md](api/bmnet.md) | Games over the network |
 
 ## Budget and tips
@@ -171,7 +171,7 @@ The reference is split by area. **Read only the file you need** (and grep inside
   menu when there is a network. `bm/config.txt`: `session_report=0` never, `=1` always;
   without the line, only with a `github_token`.
 
-  From the code: `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(16)`,
+  From the code: `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(18)`,
   `devkit()`, `profile()`. The limit is 20 million instructions per call. The
   **SDK's dev kit** (F1 twice) has the same numbers for the project: tokens, the biggest
   functions, the data's memory, the file against the 8 MiB of a `.b16` and the numbers of

@@ -1,0 +1,26 @@
+# Who takes part in the sync (written only by SPV). A new operator = a new block; nobody edits another operator's file.
+# Each operator writes only its own file; the block at the top of the file (--- ... ---) is the truth for its state.
+# Profile fields (place, models, subagents, strengths, weak_points) come from the "## Profile" of each file (older files: "## Profilo") (SYNC.md 3c); SPV copies them here.
+# Write the status block with tools/sync_hdr.py. Times are ISO 8601 with a time zone; readers compare in UTC.
+schema = 1
+
+[[operator]]
+id = "SPV"
+name = "{supervisor}"
+kind = "ai"
+file = "sync/SPV.md"
+branches = ["{code branches}"]
+place = "{local | cloud, os}"
+models = "{models and what for}"
+subagents = "{yes (which) | no}"
+strengths = "{what it does best}"
+weak_points = "{limits, breaking points}"
+
+# [[operator]]
+# id = "{ID}"        # same shape as above; the file is sync/{ID}.md (copy sync/_template.md)
+# active = false    # set by SPV with a SIGNOFF row (SYNC.md 3c); signoff = "{reason}"
+
+[[operator]]
+id = "UTE"
+name = "user"
+kind = "human"

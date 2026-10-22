@@ -49,7 +49,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   (2D under the 3D stays), 24-bit depth, MSAA 4× option.
 - QPU shaders written in `tools/qpuasm.py` and generated into `src/gpu/shaders.h`: fragment
   `fs_*` (two-thread variants `fs_*_t`), vertex `vs_baked`, `vs_tex_rgb`, `vs_lit`,
-  `vs_lit_tex`, `vs_lit_tex2`, compact `vs_baked8`, `vs_lit8` (M39), shadows `vs_shadow*`, coordinate `cs_*`, `fs_zclear`.
+  `vs_lit_tex`, `vs_lit_tex2`, compact `vs_baked8`, `vs_lit8`, shadows `vs_shadow*`, coordinate `cs_*`, `fs_zclear`.
 - Options (each a `bm/config.txt` key, a Settings row and, for the main ones, an argument of
   `gpu3d([on, aa, vs, queue])`): `gpu3d`, `gpu3d_aa`, `gpu3d_vs` (0/1/2), `gpu3d_queue`
   (1, 2 = two jobs in flight), `gpu3d_wc`, `gpu3d_2d`, `gpu3d_filter`, `gpu3d_tex16`,
@@ -76,10 +76,19 @@ after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
 
 ## Open work (`docs/ROADMAP.md`)
 
-- **M35, M36, M37, M39** V3D on the Pi Zero W: [v3d](v3d.md).
-- **M41** Mali: [graphics-mali](graphics-mali.md) (the triangle to run on the device).
-- **M43** sprite stacking (`stack()` in `gfx16.c`, bm Pixel page) — not started.
-- **M44** QPU programs outside 3D (particles, full-screen 2D effects) — not started.
+- V3D (bm3D 3.0-7.3) on the Pi Zero W: [v3d](v3d.md).
+- Mali-G52 driver: [graphics-mali](graphics-mali.md) (the triangle to run on the device).
+- Sprite stacking: `stack()`, stack zones (`stack name x y w h n` in the zones file, `zone()` 7th value) and `zstack()` are done (`g16_stack` in `gfx16.c`, CPU only, no memory per stack; Pi speed not measured). `stackv` (the same call with the slices one under the other; zone line `stackv name x y w h n`, bit 0 of byte 27 of the SPRITES zone) is done. The mesh conversion is a host tool: `tools/stack2mesh.py` (see [tools](tools.md)). Not done: the bm Pixel page, a button for the conversion in bm Pixel and bm Studio, the Pi speed.
+- 3D particles: `particles*` and `lib.particles3d` are done (ARM step and draw in `r3d_pfx_*`, no cost without a pool; host test `test_pfx`, `make test-gameapi`). Not measured on the Pi Zero W. Not done: the QPU step (the idea is dropped for now).
+- 2D benchmarks: `b3d tests=map8,sprites,stack,fade,light` ([BENCH3D](../BENCH3D.md), *The 2D scenes*). Compare with them before and after `map()` (PR 105), the `-O3` knob (`PI_O3_FILES`, when it lands) and the fade. Not run on the Pi yet.
+- QPU programs outside 3D: the driver, the queue, a particle step and the fade by levels are done on the emulator (`src/gpu/qpu.c`, [v3d](v3d.md) item 5). Nothing calls them in the runtime; not run on the Pi.
+- Hero stress cart (plaza, LOD, option toggles) and cel shader API: design in [hero-stress-cart-and-cel-shader](../design/hero-stress-cart-and-cel-shader.md) (five stages). Stages 1 (the cart) and 2 (cel light and `dither3d` on the ARM raster, bm3D 7.4) are done: [herocart](herocart.md). Stages 3 to 5 (cel on the V3D, outline, RGB30 edition) are not started.
+- Pi speed, two checks for the user (`g16_map_mask` tile path and the per-file -O3 knob). Both are built and tested on the host and in QEMU; neither is measured on the Pi. Steps:
+  1. Baseline: build the kernel from `bm-core` before this PR. Run `b3d tests=mix,heroes_tex,tiny,gpu2d,queue,big_logic,quad_tex` twice, back to back. Baseline numbers: `git show d8b1290b:docs/bench/20261019_bench3d_pi-zero-w_7.3.txt`. Write down `ms` of `gpu2d` and `mix`, and the size of `kernel.img`.
+  2. map() change: build this branch with `make`. Run the same `b3d` line twice. The 3D Bench has no test made for the 2D tile layer (`map()` of `gfx16.c`). `gpu2d` and `mix` include layers, but how much `map()` they draw was not checked. The gain of the map() change is NOT measured. To measure it, run a cartridge with a large `map()` layer before and after, and compare the frame time.
+  3. -O3 knob: build with `make clean; make PI_O3_FILES="src/bm/gfx16.c src/bm/r3d.c"`. Run the same `b3d` line twice.
+  4. Accept the -O3 knob only if `ms` of `gpu2d` and of `mix` drop by at least 3 % and `kernel.img` grows by at most 5 %. Then make the list the default in the `Makefile`. If not, leave `PI_O3_FILES` empty.
+  5. The same variable exists in `rgb30.mk`; a dry run shows `-O3` on the listed files, nothing else was tried there.
 
 ## Rules (do not break)
 

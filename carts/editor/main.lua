@@ -147,6 +147,7 @@ local ART = {
   ship = { "........", "cc......", ".cccc...", ".cwwccc.", ".cccccrr", ".cccc...", "cc......", "........" },
   foe = { "...rr...", "..rrrr..", ".rkrrkr.", "rrrrrrrr", "r.rrrr.r", "..r..r..", ".r....r.", "........" },
   plank = { "pppppppp", "PpPPpPPp", "dpdddpdd", "........", "........", "........", "........", "........" },
+  flag = { "kwwwww..", "kwrrrw..", "kwwwww..", "k.......", "k.......", "k.......", "k.......", "k......." },
 }
 local INK = { y = 0xFFD050, k = 0x202030, g = 0x5CB048, G = 0x8AD860, b = 0x8A5A30, d = 0x6A4224,
               o = 0xF0B030, Y = 0xFFF4C0, s = 0x606878, S = 0x808898, c = 0x70B8F0, w = 0xFFFFFF,
@@ -205,11 +206,12 @@ end
       for y = 0, base + 4 do mset(127, y, 2) end
     end,
     code = [==[
--- platform: arrows run, A (space) jumps, down drops through a plank.
+-- platform: arrows run, act1 jumps, down drops through a plank.
 -- Sprite 1 is the hero; what stops it are the flags of the tiles (F3,
 -- keys 0-7): 2 the ground has flag 0 (solid), 6 the planks flag 1
 -- (platform: from above only). bmlib does the rest.
 local lib = require "bmlib"
+lib.input()
 local hero = { x = 64, y = 40, w = 8, h = 8 }
 local cam = lib.camera({ bounds = { 0, 0, 128 * 8, SCREEN_H } })
 
@@ -218,7 +220,7 @@ function _update()
   if btn(0) then hero.vx = -2 end
   if btn(1) then hero.vx = 2 end
   hero.drop = btn(3)                     -- down: through the planks
-  if hero.ground and btnp(4) then hero.vy = -5 end
+  if hero.ground and btnp("act1") then hero.vy = -5 end
   lib.step(hero)                         -- gravity and the map: hero.ground
   if hero.y > SCREEN_H + 64 then         -- fell: again
     hero.x, hero.y, hero.vy = 64, 40, 0
@@ -232,7 +234,8 @@ function _draw()
   cam:map()
   spr(1, hero.x, hero.y)
   camera()
-  print("arrows: run   A: jump   down: drop", 8, 8, 0xFFFFFF)
+  local x = prompt("act1", 8, 8, true)
+  print(" jump   arrows: run   down: drop", x + 4, 8, 0xFFFFFF)
 end
 ]==] },
   { id = "topdown", name = "Top-down 2D", desc = "walk among walls and pick up the coins",
@@ -249,9 +252,10 @@ end
       end
     end,
     code = [==[
--- top-down: arrows walk, pick up the coins; walls and coins: the map.
+-- top-down: the arrows walk, pick up the coins; walls and coins: the map.
 -- Sprite 1 is the hero, 3 a coin, 4 a wall (flag 0: solid, F3 key 0)
 local lib = require "bmlib"
+lib.input()
 local hero = { x = 40, y = 48, w = 8, h = 8 }
 local score = 0
 
@@ -280,9 +284,10 @@ end
   { id = "shooter", name = "Shooter 2D", desc = "fly, fire, waves of enemies, game over",
     paint = function() paint(1, ART.ship); paint(5, ART.foe) end,
     code = [==[
--- shooter: arrows fly, A (space) fires; the enemies come from the right.
+-- shooter: arrows fly, act1 fires; the enemies come from the right.
 -- Sprite 1 is the ship, 5 an enemy
 local lib = require "bmlib"
+lib.input()
 local ship = { x = 40, y = SCREEN_H // 2 }
 local shots, foes, t, score, over = {}, {}, 0, 0, false
 local fx = lib.particles(200)
@@ -295,7 +300,7 @@ end
 function _update()
   fx:update()
   if over then
-    if btnp(4) then restart() end
+    if btnp("act1") then restart() end
     return
   end
   t = t + 1
@@ -303,7 +308,7 @@ function _update()
   if btn(1) then ship.x = math.min(SCREEN_W // 2, ship.x + 3) end
   if btn(2) then ship.y = math.max(16, ship.y - 3) end
   if btn(3) then ship.y = math.min(SCREEN_H - 16, ship.y + 3) end
-  if btnp(4) then shots[#shots + 1] = { x = ship.x + 8, y = ship.y + 3, w = 4, h = 2 } end
+  if btnp("act1") then shots[#shots + 1] = { x = ship.x + 8, y = ship.y + 3, w = 4, h = 2 } end
   if t % 40 == 0 then
     foes[#foes + 1] = { x = SCREEN_W, y = math.random(16, SCREEN_H - 24), s = math.random(2, 4) }
   end
@@ -347,10 +352,11 @@ end
   { id = "versus", name = "Versus 2D", desc = "two players on one console: punches with hitboxes",
     code = [==[
 -- versus: two fighters on one console, each with a controller; alone,
--- the computer plays the second. Left/right walk, A punches, B jumps.
+-- the computer plays the second. Left/right walk, act2 punches, act1 jumps.
 -- The punches are hitboxes and the bodies hurtboxes (lib.hits): a punch
 -- hits once, the one hit flashes and is pushed back.
 local lib = require "bmlib"
+lib.input()
 local FLOOR = SCREEN_H - 64
 local party = lib.party({ min = 1, max = 2 })
 local hits = lib.hits()
@@ -367,7 +373,7 @@ local function controls(f, o)
     local d = o.x - f.x
     return d < -20, d > 20, math.abs(d) < 30 and lib.chance(0.06), lib.chance(0.01)
   end
-  return btn("left", f.pad), btn("right", f.pad), btnp("a", f.pad), btnp("b", f.pad)
+  return btn("left", f.pad), btn("right", f.pad), btnp("act2", f.pad), btnp("act1", f.pad)
 end
 
 local function play(f, o)
@@ -451,6 +457,7 @@ end
 -- "relay" option of net.open (tools/overbit_relay.py).
 local net = require "bmnet"
 local lib = require "bmlib"
+lib.input()
 local sel, msg, squares, rng = 1, "", {}, nil
 
 function _init()
@@ -527,7 +534,9 @@ end
 ]==] },
   { id = "scene3d", name = "3D scene", desc = "floor, cubes, a ball with its shadow, a camera that follows",
     code = [==[
--- 3D scene: arrows move the ball, A (space) jumps, the camera follows
+-- 3D scene: arrows move the ball, act1 jumps, the camera follows
+local lib = require "bmlib"
+lib.input()
 local floor, cube, ball
 local bx, by, bz, vy, t = 0, 0.5, 0, 0, 0
 local boxes = { { -3, 2 }, { 2, 4 }, { 4, -2 }, { -4, -3 } }
@@ -545,7 +554,7 @@ function _update()
   if btn(1) then bx = bx + 0.1 end
   if btn(2) then bz = bz + 0.1 end
   if btn(3) then bz = bz - 0.1 end
-  if btnp(4) and by <= 0.5 then vy = 0.18 end
+  if btnp("act1") and by <= 0.5 then vy = 0.18 end
   vy = vy - 0.01
   by = math.max(0.5, by + vy)
 end
@@ -562,7 +571,8 @@ function _draw()
   end
   draw3d(ball, bx, by, bz, 0, 0, 0, 1, 8) -- flag 8: its shadow
   draw3d(ball, bx, by, bz)
-  print("arrows: move   A: jump   " .. stat(4) .. " triangles", 8, 8)
+  local x = prompt("act1", 8, 8, true)
+  print(" jump   arrows: move   " .. stat(4) .. " triangles", x + 4, 8)
 end
 ]==] },
   { id = "models3d", name = "3D with models", desc = "the models of bm Studio, animated (bm Animator)",
@@ -606,6 +616,190 @@ function _draw()
   local x0, y0, z0, x1, y1, z1 = bounds3d(m)
   draw3d(m, -(x0 + x1) / 2, -y0, -(z0 + z1) / 2)
   print(list[i] .. "  " .. i .. "/" .. #list, 8, 8, 0xFFFFFF)
+end
+]==] },
+  { id = "stages", name = "Stages 2D", desc = "title, three stages, an ending and a saved record",
+    paint = function()
+      paint(1, ART.hero); paint(2, ART.ground); paint(6, ART.plank); paint(7, ART.flag)
+      fset(2, 0, true)                   -- the ground: solid (flag 0)
+      fset(6, 1, true)                   -- the planks: platforms (flag 1), from above only
+      local GAPS = { { { 30, 33 } }, { { 30, 33 }, { 70, 74 } }, { { 24, 27 }, { 50, 54 }, { 90, 94 } } }
+      local PLANKS = { { { 12, 6, 6 }, { 40, 5, 7 } }, { { 24, 4, 6 }, { 52, 5, 7 }, { 80, 6, 10 } },
+                       { { 12, 5, 6 }, { 40, 4, 7 }, { 64, 5, 6 }, { 100, 6, 8 } } }
+      for n = 1, 3 do
+        local top = (n - 1) * 48
+        for x = 0, 127 do
+          local gap = false
+          for _, g in ipairs(GAPS[n]) do if x >= g[1] and x <= g[2] then gap = true end end
+          if not gap then for y = top + 40, top + 44 do mset(x, y, 2) end end
+        end
+        for y = top, top + 44 do mset(127, y, 2) end
+        for _, p in ipairs(PLANKS[n]) do                -- (x, h, len): the row top + 40 - h
+          for x = p[1], p[1] + p[3] - 1 do mset(x, top + 40 - p[2], 6) end
+        end
+        mset(120, top + 38, 7); mset(120, top + 39, 7)  -- the exit
+      end
+    end,
+    code = [==[
+-- stages: three stages on one map, a band of 48 rows each (stage 1 rows
+-- 0-47, stage 2 rows 48-95, stage 3 rows 96-143). The exit (tile 7) at the
+-- right of each band takes the hero on to the next one. A fall down a gap
+-- costs a life (3 at the start) and the hero starts the stage again.
+-- Tile 2 is the ground (flag 0: solid), tile 6 a plank (flag 1: a platform,
+-- from above only; down drops through it). The time of stage 3 is the record.
+local lib = require "bmlib"
+local EXIT, ROWS, BAND = 7, 45, 48
+local state, sel, stage, top, hero, cam = "title", 1, 1, 0, nil, nil
+local timer, lives, from_start, best, reached = 0, 3, true, nil, 1
+
+local function mmss(f)
+  local s = f // 60
+  return (s // 60) .. ":" .. (s % 60 < 10 and "0" or "") .. (s % 60)
+end
+
+local function rows()
+  local r = { "NEW GAME" }
+  if reached >= 2 then r[2] = "CONTINUE STAGE " .. reached end
+  return r
+end
+
+local function to_title()
+  state, sel = "title", 1
+  log("stages: title best " .. tostring(best or "-"))
+end
+
+local function start_stage(n)
+  stage = n
+  top = (n - 1) * BAND
+  hero = { x = 16, y = (top + 30) * 8, w = 8, h = 8, vy = 0 }
+  cam = lib.camera({ bounds = { 0, top * 8, 128 * 8, (top + ROWS) * 8 } })
+  state = "play"
+  log("stages: stage " .. n)
+end
+
+local function update_title()
+  local r = rows()
+  if btnp(2) then sel = math.max(1, sel - 1) end
+  if btnp(3) then sel = math.min(#r, sel + 1) end
+  if btnp("ok") then
+    lives, timer = 3, 0
+    if sel == 1 then
+      from_start = true
+      start_stage(1)
+    else
+      from_start = false
+      start_stage(reached)
+    end
+  end
+end
+
+local function update_play()
+  timer = timer + 1
+  hero.vx = 0
+  if btn(0) then hero.vx = -2 end
+  if btn(1) then hero.vx = 2 end
+  hero.drop = btn(3)                     -- down: through the planks
+  if hero.ground and btnp(4) then hero.vy = -5 end
+  if mget((hero.x + 4) // 8, (hero.y + 4) // 8) == EXIT then
+    reached = math.max(reached, math.min(stage + 1, 3))
+    log("stages: clear " .. stage)
+    if stage < 3 then
+      save({ best = best, reached = reached })
+      state = "clear"
+      return
+    end
+    if from_start and (not best or timer < best) then best = timer end
+    local ok = save({ best = best, reached = reached })
+    log("stages: ending " .. timer)
+    if ok then log("stages: saved") end
+    state = "ending"
+    return
+  end
+  lib.step(hero)                         -- gravity and the map: hero.ground
+  if hero.y > (top + ROWS) * 8 then      -- fell
+    lives = lives - 1
+    log("stages: lost " .. lives)
+    if lives == 0 then
+      state = "gameover"
+      log("stages: gameover")
+    else
+      hero.x, hero.y, hero.vy = 16, (top + 30) * 8, 0
+    end
+  end
+  cam:follow(hero.x + 4, hero.y + 4)
+end
+
+local function update_clear()
+  if btnp("ok") then start_stage(stage + 1) end
+end
+
+local function update_gameover()
+  if btnp("ok") then to_title() end
+end
+
+local function update_ending()
+  if btnp("ok") then to_title() end
+end
+
+local function draw_title()
+  cls(0x101828)
+  lib.printc("STAGES", 60, 0xFFD050, 3)
+  for i, t in ipairs(rows()) do
+    print((sel == i and "> " or "  ") .. t, 96, 150 + i * 16, 0xFFFFFF)
+  end
+  if best then lib.printc("best " .. mmss(best), 260, 0x9098A8) end
+end
+
+local function draw_play()
+  cls(0x5080C0)
+  cam:apply()
+  cam:map()
+  spr(1, hero.x, hero.y)
+  camera()
+  print("stage " .. stage .. "/3  lives " .. lives .. "  " .. mmss(timer), 8, 8, 0xFFFFFF)
+end
+
+local function draw_clear()
+  cls(0x101828)
+  lib.printc("STAGE " .. stage .. " CLEAR", 150, 0xFFFFFF, 2)
+  lib.printc("ok: next stage", 200, 0x9098A8)
+end
+
+local function draw_gameover()
+  cls(0x101828)
+  lib.printc("GAME OVER", 150, 0xFF6060, 2)
+  lib.printc("ok: title", 200, 0x9098A8)
+end
+
+local function draw_ending()
+  cls(0x101828)
+  lib.printc("ALL CLEAR", 120, 0xFFD050, 2)
+  lib.printc("time " .. mmss(timer), 160, 0xFFFFFF)
+  if best then lib.printc("best " .. mmss(best), 180, 0x9098A8) end
+  lib.printc("ok: title", 220, 0x9098A8)
+end
+
+function _init()
+  local s = saved()
+  best = s and s.best
+  reached = s and s.reached or 1
+  to_title()
+end
+
+function _update()
+  if state == "title" then update_title()
+  elseif state == "play" then update_play()
+  elseif state == "clear" then update_clear()
+  elseif state == "gameover" then update_gameover()
+  elseif state == "ending" then update_ending() end
+end
+
+function _draw()
+  if state == "title" then draw_title()
+  elseif state == "play" then draw_play()
+  elseif state == "clear" then draw_clear()
+  elseif state == "gameover" then draw_gameover()
+  elseif state == "ending" then draw_ending() end
 end
 ]==] },
 }

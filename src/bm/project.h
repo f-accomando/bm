@@ -13,8 +13,20 @@
 #include <stddef.h>
 
 #define BM_FLAG_PROJECT    1               /* u16 at 18: a project (.bme) */
-#define BM_FLAG_B16        2               /* u16 at 18: the .b16 profile (M42) */
+#define BM_FLAG_B16        2               /* u16 at 18: the .b16 profile */
 #define BM_B16_MAX         (8u << 20)      /* 8 MiB ceiling of a .b16 cartridge */
+#define BM_FLAG_TYPE_SHIFT 2               /* u16 at 18, bits 2-3: the type of bm.info (game, app, utility) */
+enum { BM_TYPE_GAME = 0, BM_TYPE_APP = 1, BM_TYPE_UTILITY = 2 };
+/* The type in a header (at least 20 bytes); the reserved value 3 reads as a game. */
+static inline int bm_type_of_head(const unsigned char *head)
+{
+    const int t = ((head[18] | head[19] << 8) >> BM_FLAG_TYPE_SHIFT) & 3;
+    return t == 3 ? BM_TYPE_GAME : t;
+}
+static inline const char *bm_type_name(int type)
+{
+    return type == BM_TYPE_APP ? "app" : type == BM_TYPE_UTILITY ? "utility" : "game";
+}
 #define BM_BUILT_FROM      104             /* char[16]: the project a game was built from */
 
 /* by the file's name: a project (.bme), a game (.bm, .b16) */

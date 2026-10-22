@@ -96,7 +96,7 @@ removing or changing a promise is a 2.0.0.
 
 | Id | Status | Cause | Area | What differs | What to do |
 |---|---|---|---|---|---|
-| D09 | open | history | game list | Pi: sorted by title; scans / and /carts; shows .bme projects in Dev. RGB30: FAT order; only /bm; ignores .bme | sort by title; decide on /carts and on projects |
+| D09 | untested | history | game list | Pi: sorted by title; scans / and /carts; shows .bme projects in Dev. RGB30: sorted by title; scans /bm and /carts; .bme projects are D44 | try the title order on the RGB30 |
 | D13 | untested | history | Dev tab and Market Apps | Pi: tools recognised by name (tool_id_of), apps installed from the Market appear in Dev. RGB30: 7 fixed entries; a Market App installed on the RGB30 is not recognised as a tool and shows up as a game | same recognition on the RGB30, or filter apps out of Games |
 
 **5. Robustness**
@@ -113,21 +113,22 @@ removing or changing a promise is a 2.0.0.
 | D03 | suspended | unknown | players | Pi: up to 4 BT pads plus USB: local multiplayer. RGB30: one player only; Settings shows only Player 1 | decide whether the RGB30 has local multiplayer; if so map BT pads to players |
 | D04 | open | history | menu keys | Pi: Start confirms; Tab and 1-5 jump tabs; U uploads a cart. RGB30: Start does nothing in the menu; no keyboard keys | align Start and Tab for BT keyboards |
 | D05 | suspended | unknown | menu pointer | Pi: mouse: hover, click, wheel, right-click for options. RGB30: none; Settings still offers the mouse rows | port the block (pointer.c is built into the RGB30) or hide the mouse rows |
-| D11 | open | history | game options (X / C) | Pi: Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close. RGB30: Play, Open in bm SDK, Export .b16, info, delete save, delete | add Send and Publish; the tool rows depend on D13 |
+| D11 | open | history | game options (X / C) | Pi: Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close. RGB30: Play, Open in bm SDK, Export .b16, Send to a nearby console, info, delete save, delete | add Publish (the owner decided Publish stays off on the RGB30); the tool rows depend on D13 |
 | D12 | open | history | cover details | Pi: author, kind, size, path; a performance note after a game. RGB30: only the hint line; no performance note | add the note |
 | D14 | open | todo | Dev tab extras | Pi: CPU bench, Stress test, Texture Room, Demo. RGB30: not built (stress.c and roombench.c are excluded) | port when the RGB30 3D bench matters |
 | D15 | open | todo | Settings > System | Pi: CPU clock and temperature; 3D driver row; open the monitor. RGB30: CPU name only | add what the RK3566 can report |
 | D17 | open | todo | WiFi connect | Pi: scan and type the password with a keyboard. RGB30: only wifi_ssid / wifi_psk from config.txt; no on-screen keyboard | needs the on-screen keyboard (R1/R2) |
 | D19 | open | history | SD logs | Pi: none (only the crumbs report). RGB30: bootlog.txt, bootprev.txt, lastrun.txt in bm/ | give the Pi the same three files (R3) |
-| D20 | open | unknown | release content | Pi: manifest.txt: kernel.img, kernel7.img, games in /carts, ca.pem. RGB30: manifest-rgb30: kernel8.img and ca.pem only | confirm it is intended |
+| D20 | resolved | hardware | release content | Pi: manifest.txt: kernel.img, kernel7.img, games in /carts, ca.pem. RGB30: manifest-rgb30: kernel8.img and ca.pem only | none: intended; kernels ship bare (exception: kernel.img has the bm editor suite, kernel8.img the bm SDK, until the apps move to the Market); accepted by the user, 21 Oct 2026 |
 | D21 | open | todo | run from the PC without saving | Pi: bm_net.py --play wired (GO_NETPLAY). RGB30: not wired | wire it into ui_home (developer feature) |
-| D22 | open | history | monitor | Pi: text console and Dev tab entry. RGB30: none by design (no_monitor); the serial line has a Lua REPL | keep; tell developers |
-| D23 | open | todo | 3D on the GPU | Pi: V3D draws the 3D. RGB30: Mali-G52 present but the 3D is on the ARM | Mali driver (M41) |
-| D24 | open | todo | Overbit .b16 and Mali benchmark | Pi: -. RGB30: not done | M41 |
+| D22 | open | hardware | monitor | Pi: text console and Dev tab entry. RGB30: none by design (no_monitor); the serial line has a Lua REPL | the user builds a terminal monitor for the RGB30 after the beta; study: mini-HDMI detection, external monitor, BT keyboard and mouse |
+| D23 | open | todo | 3D on the GPU | Pi: V3D draws the 3D. RGB30: Mali-G52 present but the 3D is on the ARM | Mali driver |
+| D24 | open | todo | Overbit .b16 and Mali benchmark | Pi: -. RGB30: not done | Overbit in .b16 on the RGB30 |
 | D25 | open | todo | multicore, fibers | Pi: -. RGB30: RGB30 uses one core; fibers in the menu only | later |
 | D26 | open | todo | SDK layout 720x720 | Pi: -. RGB30: not done (R39) | R39 |
 | D27 | open | todo | screenshot of the menu's own screens | Pi: not done. RGB30: not done | extend the screenshot to the menu |
 | D28 | open | todo | a game built in /carts and the Games tab | Pi: a game built in /carts is not in Games (R41). RGB30: - | R41 |
+| D44 | resolved | todo | Dev tab lists .bme projects | Projects (.bme) are not listed in the menu tabs on either kernel (user decision 21 Oct 2026). Pi Dev tab fixed in PR 58 (src/kernel/carts.c tab_items; test_projects walks the Dev tab). | none |
 
 The differences that are hardware, with the capability that explains each:
 
@@ -137,7 +138,7 @@ The differences that are hardware, with the capability that explains each:
 | D31 | game screen | `square-panel` | Pi: square carts boxed in 16:9 black. RGB30: fb_init_game fills the panel; screen() offers only 360x360 and 720x720; bm_scale, bm_smooth |
 | D32 | confirm / back | `pad-only` | Pi: A confirms, B backs. RGB30: B confirms, A backs; confirm=a swaps |
 | D33 | game buttons | `pad-only` | Pi: DS4 by position. RGB30: built-in pad by the letters printed on it; game_buttons=position |
-| D34 | system keys | `no-keyboard` | Pi: F11, F12 (held: the key list), Print Screen, Ctrl+Esc. RGB30: only on a BT keyboard; the pad has Select+L1+R1 (screenshot) and Start+Select (leave) |
+| D34 | system keys | `no-keyboard` | Pi: F11, F12 (held: the key list), Print Screen, Ctrl+Esc. RGB30: only on a BT keyboard; the pad has Select held 3 s (screenshot) and Start+Select (leave) |
 | D35 | text input | `no-keyboard` | Pi: USB or BT keyboard and mouse. RGB30: BT only, no USB host; no on-screen keyboard |
 | D36 | storage paths | `storage-path` | Pi: cartridges in /carts and /, data in /bm. RGB30: everything in /bm; the mapping is done by hand in 4 places |
 | D37 | 3D settings | `no-3d-gpu-yet` | Pi: 12 rows (AA, VS, queue, textures...). RGB30: '3D on the ARM' only |

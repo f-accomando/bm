@@ -9,6 +9,7 @@
  */
 #include "home.h"
 #include "config.h"
+#include "controls.h"
 #include "pointer.h"
 #include "reports.h"
 #include "update.h"
@@ -17,6 +18,7 @@
 #include "bt/bt.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
+#include "sdmap.h"
 #include "gfx/console.h"
 #include "lib/heap.h"
 #include "lib/printf.h"
@@ -53,6 +55,30 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* ---------------------------------------------------------------- the SD map */
+
+static const char *sdmap_state_name(void)
+{
+    switch (sdmap_state()) {
+    case SDMAP_CACHED: return "cached";
+    case SDMAP_SCANNING: return "scanning";
+    case SDMAP_DONE: return "done";
+    }
+    return "";
+}
+
+static void fmt_size(char *out, size_t n, uint64_t bytes)
+{
+    if (bytes < (1u << 20))
+        ksnprintf(out, n, "%lu KiB", (unsigned long)(bytes >> 10));
+    else if (bytes < (1u << 30))
+        ksnprintf(out, n, "%lu.%lu MiB", (unsigned long)(bytes >> 20),
+                  (unsigned long)((bytes & 0xFFFFF) * 10 >> 20));
+    else
+        ksnprintf(out, n, "%lu.%02lu GiB", (unsigned long)(bytes >> 30),
+                  (unsigned long)((bytes & 0x3FFFFFFF) * 100 >> 30));
+}
+
 void home_row(home_panel_t *p, int kind, int id, const char *label, const char *help,
               const char *fmt, ...)
 {
@@ -67,7 +93,7 @@ void home_row(home_panel_t *p, int kind, int id, const char *label, const char *
         vsnprintf(p->value[i], sizeof p->value[i], fmt, ap);
         va_end(ap);
     }
-    p->rows[i] = (menu_row_t){ p->label[i], fmt ? p->value[i] : NULL, kind };
+    p->rows[i] = (menu_row_t){ p->label[i], fmt ? p->value[i] : NULL, kind, NULL, 0 };
     p->ids[i] = id;
     p->help[i] = help;
 }
@@ -87,9 +113,19 @@ enum {
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
-    R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
-    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR, R_ATTR,
+    R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
+    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR, R_ATTR, R_UTILS,
+    R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
+    R_CONTROLS, R_CTL_SCROLLER, R_CTL_TOPDOWN, R_CTL_STICK, R_CTL_SYSTEM, R_CTL_KEYS, R_CTL_RESET,
+    R_CTL = 300,                /* + the index of the action in kernel/controls.c (R_UTIL_BASE uses 200..223) */
 };
+#define R_UTIL_BASE 200   /* the rows of HOME_UTILITIES: R_UTIL_BASE + i */
+
+/* No utility until a kernel defines its own (home.c on the Pi, ui.c on the RGB30). */
+__attribute__((weak)) int home_utils(void) { return 0; }
+__attribute__((weak)) const char *home_util_title(int i) { (void)i; return ""; }
+__attribute__((weak)) const char *home_util_about(int i) { (void)i; return ""; }
+__attribute__((weak)) void home_util_start(int i, home_do_t *d) { (void)i; (void)d; }
 
 /* sound_depth: the bits of each sample at the output (what the output
  * really carries is in the row's help) */
@@ -182,7 +218,7 @@ static const char *aa_choice(void)
 }
 
 /* gpu3d_vs=1: the GPU's vertex shader places the corners of the scenery
- * (models unlit or with baked light), 2: of every model (M36; the default
+ * (models unlit or with baked light), 2: of every model (bm3d 3.4; the default
  * from bm3d 6.6), 0: the ARM places them */
 static int vs_on(void)
 {
@@ -201,8 +237,8 @@ static const char *vs_choice(void)
     return vs_on() == 1 ? "GPU: scenery" : "GPU: all models";
 }
 
-/* gpu3d_queue=1 (M35): the end of a frame's 3D starts on the GPU and the
- * game's next _update runs meanwhile; 2 (M39): and two jobs in flight */
+/* gpu3d_queue=1 (bm3d 4.1): the end of a frame's 3D starts on the GPU and the
+ * game's next _update runs meanwhile; 2 (bm3d 5.1): and two jobs in flight */
 static int queue_on(void)
 {
     const char *on = config_get("gpu3d_queue");
@@ -218,7 +254,7 @@ static const char *queue_choice(void)
     return queue_on() == 2 ? "On, 2 jobs" : "On";
 }
 
-/* gpu3d_later=1 (M39, bm3d 6.9): each frame shown a frame later, the
+/* gpu3d_later=1 (bm3d 6.9): each frame shown a frame later, the
  * game's next frame drawn while the GPU draws it; with gpu3d_queue=2 */
 static int later_on(void)
 {
@@ -237,21 +273,21 @@ static const char *later_choice(void)
     return "A frame later";
 }
 
-/* gpu3d_2d=1 (M37): the 2D over the 3D drawn by the GPU in its job */
+/* gpu3d_2d=1 (bm3d 4.8): the 2D over the 3D drawn by the GPU in its job */
 static int gpu2d_on(void)
 {
     const char *on = config_get("gpu3d_2d");
     return on && strcmp(on, "1") == 0;
 }
 
-/* gpu3d_filter=1 (M37): the GPU's textures filtered (bilinear) */
+/* gpu3d_filter=1 (bm3d 4.8): the GPU's textures filtered (bilinear) */
 static int filter_on(void)
 {
     const char *on = config_get("gpu3d_filter");
     return on && strcmp(on, "1") == 0;
 }
 
-/* gpu3d_wc=1 (M35): the memory of the GPU's jobs uncached, the ARM's
+/* gpu3d_wc=1 (bm3d 4.1): the memory of the GPU's jobs uncached, the ARM's
  * writes merged */
 static int wc_on(void)
 {
@@ -322,6 +358,46 @@ static void reports_row(home_panel_t *p, int kind, int id, const char *label, co
         home_row(p, kind, id, label, help, "none waiting");
 }
 
+/* Settings > Controls */
+static const char *ctl_button(const char *b)
+{
+    static const struct { const char *code, *name; } n[] = {
+        { "a", "A" }, { "b", "B" }, { "x", "X" }, { "y", "Y" }, { "l1", "L1" }, { "r1", "R1" },
+        { "l2", "L2" }, { "r2", "R2" }, { "st", "Start" }, { "se", "Select" },
+    };
+    for (unsigned k = 0; k < sizeof n / sizeof n[0]; k++)
+        if (!strcmp(b, n[k].code))
+            return n[k].name;
+    return b;
+}
+
+static int ctl_changed(const char *scheme)
+{
+    int c = 0;
+    for (int i = 0; i < controls_count(); i++)
+        if (!strcmp(controls_scheme(i), scheme) && controls_get(i))
+            c++;
+    return c;
+}
+
+/* the next (dir 1) or previous (-1) of: Default, a, b, x, y, l1, r1, l2, r2, st, se */
+static void ctl_step(int i, int dir)
+{
+    static const char *const cycle[] = { NULL, "a", "b", "x", "y", "l1", "r1", "l2", "r2", "st", "se" };
+    const int menu = !strcmp(controls_scheme(i), "system") && strcmp(controls_code(i), "pa");
+    const int n = menu ? 5 : (int)(sizeof cycle / sizeof cycle[0]);        /* the menus' OK and Cancel: a face button */
+    const char *now = controls_get(i);
+    int at = 0;
+    for (int k = 1; now && k < n; k++)
+        if (!strcmp(now, cycle[k]))
+            at = k;
+    at = (at + dir + n) % n;
+    controls_set(i, cycle[at]);
+#ifdef BM_RGB30
+    pad_config();
+#endif
+}
+
 void home_panel(int id, home_panel_t *p)
 {
     memset(p, 0, sizeof *p);
@@ -338,6 +414,8 @@ void home_panel(int id, home_panel_t *p)
                  "Pads, keyboards, mice, the buttons",
                  pads ? "%d connected" : "none connected", pads);
 #endif
+        home_row(p, MENU_ROW_SUB, R_CONTROLS, "Controls",
+                 "Which button does what in the games and the menus", "remap");
         home_row(p, MENU_ROW_SUB, R_WIFI, wireless() ? "WiFi and network" : "Network",
                  "The link, the address, a test", "%s", net_word());
 #ifdef BM_RGB30
@@ -422,9 +500,6 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_ACTION, R_TEST, "Test the buttons",
 #ifdef BM_RGB30
                  "Every button and both sticks, live (Start + Select: back)", NULL);
-        home_row(p, MENU_ROW_CHOICE, R_CONFIRM, "Confirm button",
-                 "The button that says yes; the other goes back (confirm= in bm/config.txt)",
-                 "%s", pad_ok == PAD_A ? "A (B back)" : "B (A back)");
 #else
                  "The buttons each player holds, for 10 s", NULL);
 #endif
@@ -440,6 +515,44 @@ void home_panel(int id, home_panel_t *p)
 #endif
         home_row(p, MENU_ROW_ACTION, R_FORGET, "Forget all controllers",
                  "Removes every pairing; pair them again after", NULL);
+        break;
+    }
+    case HOME_CONTROLS: {
+        ksnprintf(p->title, sizeof p->title, "Settings > Controls");
+        home_row(p, MENU_ROW_SUB, R_CTL_SCROLLER, "Scroller games", "Platformers and side-scrollers: actions 1 to 4",
+                 "%d changed", ctl_changed("scroller"));
+        home_row(p, MENU_ROW_SUB, R_CTL_TOPDOWN, "Top-down games", "Adventures seen from above: actions 1 to 4",
+                 "%d changed", ctl_changed("topdown"));
+        home_row(p, MENU_ROW_SUB, R_CTL_STICK, "Stick games", "Twin-stick shooters: actions 1 to 8",
+                 "%d changed", ctl_changed("stick"));
+        home_row(p, MENU_ROW_SUB, R_CTL_SYSTEM, "Pause and menus", "Pause, and the menus' OK and Cancel",
+                 "%d changed", ctl_changed("system"));
+        home_row(p, MENU_ROW_INFO, R_CTL_KEYS, "Keyboard", "Fixed for now: Enter is OK, Esc goes back and pauses",
+                 "Enter, Esc");
+        home_row(p, MENU_ROW_ACTION, R_CTL_RESET, "Reset all", "Every action back to the game's own button", NULL);
+        break;
+    }
+    case HOME_CTL_SCROLLER: case HOME_CTL_TOPDOWN: case HOME_CTL_STICK: case HOME_CTL_SYSTEM: {
+        const char *scheme = id == HOME_CTL_SCROLLER ? "scroller" : id == HOME_CTL_TOPDOWN ? "topdown" :
+                             id == HOME_CTL_STICK ? "stick" : "system";
+        ksnprintf(p->title, sizeof p->title, "Settings > Controls > %s",
+                  id == HOME_CTL_SCROLLER ? "Scroller games" : id == HOME_CTL_TOPDOWN ? "Top-down games" :
+                  id == HOME_CTL_STICK ? "Stick games" : "Pause and menus");
+        for (int i = 0; i < controls_count(); i++) {
+            if (strcmp(controls_scheme(i), scheme))
+                continue;
+#ifndef BM_RGB30
+            if (!strcmp(controls_code(i), "mo") || !strcmp(controls_code(i), "mc"))
+                continue;               /* the Pi's menus keep their buttons */
+#endif
+            const char *b = controls_get(i);
+            if (b)
+                home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Left or right: another button; Default is the game's own",
+                         "%s", ctl_button(b));
+            else
+                home_row(p, MENU_ROW_CHOICE, R_CTL + i, controls_label(i), "Left or right: another button; Default is the game's own",
+                         "Default (%s)", ctl_button(controls_default(i)));
+        }
         break;
     }
     case HOME_WIFI: {
@@ -522,7 +635,7 @@ void home_panel(int id, home_panel_t *p)
                  "Nearest first, triangles in cache order: the GPU skips work (vertex shader)", "%s",
                  config_on("gpu3d_sort") ? "Nearest first" : "As the game");
         home_row(p, MENU_ROW_CHOICE, R_ATTR, "3D corners",
-                 "Floats, or compact: colour and light bytes packed (vertex shader, M39)", "%s",
+                 "Floats, or compact: colour and light bytes packed (vertex shader, bm3d 7.1)", "%s",
                  config_on("gpu3d_attr") ? "Compact" : "Floats");
         home_row(p, MENU_ROW_CHOICE, R_IMPOSTOR, "3D impostors",
                  "Far small models as one quad of their colour; size in px of a 1080p screen", "%s", impostor_choice());
@@ -627,6 +740,7 @@ void home_panel(int id, home_panel_t *p)
 #endif
         home_row(p, MENU_ROW_INFO, R_SD, "SD card", "The card the console started from",
                  "%s", fat_describe());
+        home_row(p, MENU_ROW_SUB, R_SDMAP, "SD map", "What is on the card, by folder", "%s", sdmap_state_name());
 #ifdef BM_RGB30
         {
             int mv, charge;
@@ -647,12 +761,68 @@ void home_panel(int id, home_panel_t *p)
                      bm3d_mode_q(gpu, gpu ? vs_on() : 0, gpu && queue_on()));
         }
 #endif
+        home_row(p, MENU_ROW_SUB, R_UTILS, "Utilities", "Benchmarks, tests and controls", "%d", home_utils());
         home_row(p, MENU_ROW_ACTION, R_LOG, "Log since boot",
                  "Everything printed since the console started", NULL);
 #ifndef BM_RGB30
         home_row(p, MENU_ROW_ACTION, R_MONITOR, "Open the monitor",
                  "The text console with every command", NULL);
 #endif
+        break;
+    }
+    case HOME_UTILITIES: {
+        ksnprintf(p->title, sizeof p->title, "Settings > System > Utilities");
+        for (int i = 0; i < home_utils() && i < HOME_ROWS_MAX; i++)
+            home_row(p, MENU_ROW_ACTION, R_UTIL_BASE + i, home_util_title(i), home_util_about(i), NULL);
+        if (home_utils() == 0)
+            home_row(p, MENU_ROW_INFO, R_UTILS, "none", "This console has no utility yet", NULL);
+        break;
+    }
+    case HOME_SDMAP: {
+        static uint16_t parts[5];
+        static const uint32_t col[5] = { 0xE06C75, 0x61AFEF, 0x98C379, 0xE5C07B, 0x4A5060 };
+        static const char *const name[5] = { "Kernel", "bm (games)", "bme (projects)", "Other", "Free" };
+        ksnprintf(p->title, sizeof p->title, "Settings > System > SD map");
+        sdmap_request();
+        const sdmap_t *m = sdmap_result();
+        const uint64_t v[5] = { m->kernel, m->bm, m->bme, m->other, m->free };
+        for (int i = 0; i < 5; i++)
+            parts[i] = m->total ? (uint16_t)(v[i] * 1000 / m->total) : 0;
+        home_row(p, MENU_ROW_BAR, R_SDBAR, "SD card", "Kernel, games, projects, other files and free space", NULL);
+        p->rows[p->n - 1].bar = parts;
+        for (int i = 0; i < 5; i++) {
+            char sz[24];
+            fmt_size(sz, sizeof sz, v[i]);
+            home_row(p, MENU_ROW_INFO, R_SDINFO, name[i], "The colour of the bar", "%s", sz);
+            p->rows[p->n - 1].swatch = col[i];
+        }
+        home_row(p, MENU_ROW_INFO, R_SDINFO, "Scan", "The menu reads the card while it is idle",
+                 "%s %d%%", sdmap_state_name(), sdmap_permille() / 10);
+        for (int i = 0; i < m->ndirs; i++)
+            home_row(p, MENU_ROW_INFO, R_SDINFO, m->dirs[i].path, "Files directly in this folder",
+                     "%lu files, %lu KB", (unsigned long)m->dirs[i].files, (unsigned long)m->dirs[i].kb);
+        home_row(p, MENU_ROW_SUB, R_SDFILES, "Other files", "Files the menu cannot show, largest first",
+                 "%d", m->nfiles);
+        break;
+    }
+    case HOME_SDFILES: {
+        ksnprintf(p->title, sizeof p->title, "Settings > System > SD map > Other files");
+        const sdmap_t *m = sdmap_result();
+        for (int i = 0; i < m->nfiles; i++) {
+            const char *path = m->files[i].path;
+            size_t len = strlen(path);
+            char lab[32];
+            if (len > 31)
+                ksnprintf(lab, sizeof lab, "..%s", path + len - 29);
+            else
+                ksnprintf(lab, sizeof lab, "%s", path);
+            uint32_t kb = m->files[i].bytes / 1024;
+            if (kb == 0 && m->files[i].bytes)
+                kb = 1;
+            home_row(p, MENU_ROW_INFO, R_SDINFO, lab, "Its path and size", "%lu KB", (unsigned long)kb);
+        }
+        if (m->nfiles == 0)
+            home_row(p, MENU_ROW_INFO, R_SDINFO, "none", "Every file on the card is shown by the menu", NULL);
         break;
     }
     }
@@ -667,6 +837,14 @@ int home_sub_panel(int row)
     case R_UPDATES: return HOME_UPDATES;
     case R_REPORTS_SUB: return HOME_REPORTS;
     case R_SYSTEM: return HOME_SYSTEM;
+    case R_UTILS: return HOME_UTILITIES;
+    case R_SDMAP: return HOME_SDMAP;
+    case R_SDFILES: return HOME_SDFILES;
+    case R_CONTROLS: return HOME_CONTROLS;
+    case R_CTL_SCROLLER: return HOME_CTL_SCROLLER;
+    case R_CTL_TOPDOWN: return HOME_CTL_TOPDOWN;
+    case R_CTL_STICK: return HOME_CTL_STICK;
+    case R_CTL_SYSTEM: return HOME_CTL_SYSTEM;
     }
     return 0;
 }
@@ -857,11 +1035,25 @@ void home_act(int id, int row, int how, home_do_t *d)
     memset(d, 0, sizeof *d);
     d->what = HOME_STAY;
     (void)id;
+    if (row >= R_UTIL_BASE && row < R_UTIL_BASE + HOME_ROWS_MAX) {
+        if (how == 0 && row - R_UTIL_BASE < home_utils())
+            home_util_start(row - R_UTIL_BASE, d);
+        return;
+    }
     switch (row) {
-    case R_CONTROLLERS: case R_WIFI: case R_SYSTEM: case R_SCREEN: case R_UPDATES: case R_REPORTS_SUB:
+    case R_CONTROLS: case R_CTL_SCROLLER: case R_CTL_TOPDOWN: case R_CTL_STICK: case R_CTL_SYSTEM:
+    case R_CONTROLLERS: case R_WIFI: case R_SYSTEM: case R_SCREEN: case R_UPDATES: case R_REPORTS_SUB: case R_UTILS:
+    case R_SDMAP: case R_SDFILES:
         d->what = HOME_OPEN;
         d->panel = home_sub_panel(row);
         break;
+    case R_CTL ... R_CTL + CONTROLS_COUNT - 1: {
+        const int i = row - R_CTL;
+        ctl_step(i, how < 0 ? -1 : 1);
+        const char *b = controls_get(i);
+        ksnprintf(d->note, sizeof d->note, "%s: %s", controls_label(i), b ? ctl_button(b) : "the game's own button");
+        break;
+    }
     case R_LAYOUT:
         hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
         config_save();
@@ -913,6 +1105,14 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     case R_LOG:
         if (how == 0) text(d, x_log, 0, 1);
+        break;
+    case R_CTL_RESET:
+        if (how == HOME_YES) {
+            controls_reset();
+            ksnprintf(d->note, sizeof d->note, "every action is back on the game's own button");
+        } else if (how == 0) {
+            ask(d, "Reset all the controls?", "Every action goes back to the game's own button.", "Reset");
+        }
         break;
     case R_FORGET:
         if (how == HOME_YES) {
@@ -1020,12 +1220,6 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     }
 #ifdef BM_RGB30
-    case R_CONFIRM:
-        config_set("confirm", pad_ok == PAD_A ? "b" : "a");
-        config_save();
-        pad_config();
-        ksnprintf(d->note, sizeof d->note, "%s confirms, %s goes back", pad_ok_name(), pad_back_name());
-        break;
     case R_MODES:
         if (how == 0) text(d, x_modes, 0, 1);
         break;
@@ -1073,7 +1267,7 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "2D over the 3D of the next game: %s", gpu2d_on() ? "GPU" : "ARM");
         break;
     case R_FILTER: {
-        /* nearest, bilinear, nearest 16-bit, bilinear 16-bit (M37, M39),
+        /* nearest, bilinear, nearest 16-bit, bilinear 16-bit (bm3d 4.8, 5.2),
          * nearest ETC1, bilinear ETC1 (bm3d 7.3: the opaque sheets as ETC1,
          * the cut-outs in 16 bits) */
         const int level = config_on("gpu3d_etc1") ? 2 : config_on("gpu3d_tex16") ? 1 : 0;

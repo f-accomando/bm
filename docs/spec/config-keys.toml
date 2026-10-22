@@ -18,7 +18,7 @@ values = "it or en (fixes the assistant's language); anything else = auto"
 default = "auto: follows the language of the questions, last used"
 meaning = "Language of the assistant (ai_set_lang)."
 settings = ""
-read_in = "src/bm/runtime.c:4842"
+read_in = "src/bm/runtime.c:4897"
 
 [[key]]
 name = "battery_icon"
@@ -27,7 +27,7 @@ values = "0 = off; anything else = on"
 default = "on (the icon shows when the battery is low)"
 meaning = "Small red low-battery icon over games and tools."
 settings = "Settings > Screen and sound > Low battery icon"
-read_in = "src/bm/runtime.c:8331"
+read_in = "src/bm/runtime.c:8409"
 
 [[key]]
 name = "bm_scale"
@@ -54,7 +54,7 @@ values = "\"<address aa:bb:cc:dd:ee:ff> <type 0|1> <irk or ->\" (written when pa
 default = "no Bluetooth LE keyboard paired"
 meaning = "The paired Bluetooth LE keyboard (written by the pairing, removed by Forget)."
 settings = "Settings > Controllers > Pair a keyboard (written); Forget all controllers (removed)"
-read_in = "src/bt/ble.c:251"
+read_in = "src/bt/ble.c:245"
 
 [[key]]
 name = "bt_kbd_key"
@@ -63,7 +63,7 @@ values = "\"<ltk 32 hex> <ediv 4 hex> <rand 16 hex>\" (at least 54 chars)"
 default = "no bond"
 meaning = "Keys of the Bluetooth LE keyboard bond (secret: ends in _key)."
 settings = "Settings > Controllers > Pair a keyboard (written); Forget all controllers (removed)"
-read_in = "src/bt/ble.c:251"
+read_in = "src/bt/ble.c:246"
 
 [[key]]
 name = "bt_mouse"
@@ -72,7 +72,7 @@ values = "same format as bt_kbd"
 default = "no Bluetooth LE mouse paired"
 meaning = "The paired Bluetooth LE mouse."
 settings = "Settings > Controllers > Pair a mouse (written); Forget all controllers (removed)"
-read_in = "src/bt/ble.c:251"
+read_in = "src/bt/ble.c:245"
 
 [[key]]
 name = "bt_mouse_classic"
@@ -90,7 +90,7 @@ values = "same format as bt_kbd_key"
 default = "no bond"
 meaning = "Keys of the Bluetooth LE mouse bond (secret: ends in _key)."
 settings = "Settings > Controllers > Pair a mouse (written); Forget all controllers (removed)"
-read_in = "src/bt/ble.c:251"
+read_in = "src/bt/ble.c:246"
 
 [[key]]
 name = "bt_pad"
@@ -104,11 +104,20 @@ read_in = "src/bt/bt.c:217"
 [[key]]
 name = "confirm"
 scope = "rgb30"
-values = "a or A = A confirms and B goes back; anything else = B confirms, A goes back"
-default = "B confirms, A goes back"
+values = "a or A = A confirms and B goes back; anything else = B confirms, Y goes back"
+default = "B confirms, Y goes back"
 meaning = "Confirm button of the RGB30 menus."
-settings = "Settings > Controllers > Confirm button"
-read_in = "src/rgb30/pad.c:14"
+settings = "Settings > Controls > Pause and menus > OK (mo of controls=)"
+read_in = "src/rgb30/pad.c:pad_config"
+
+[[key]]
+name = "controls"
+scope = "both"
+values = "space-separated code:button pairs: c1-c4 (scroller), t1-t4 (top-down), s1-s8 (stick), pa (pause), mo and mc (the RGB30 menus' OK and Cancel: a b x y); buttons a b x y l1 r1 l2 r2 st se"
+default = "empty: every action on the game's own button"
+meaning = "The player's remap of the game buttons (CONTROLS-1); mo wins over confirm=."
+settings = "Settings > Controls"
+read_in = "src/kernel/controls.c:controls_get"
 
 [[key]]
 name = "dma_zclear"
@@ -117,7 +126,7 @@ values = "0 = off; anything else = on"
 default = "on (the z-buffer clear runs on the DMA when the DMA is ready; the RGB30 has none)"
 meaning = "DMA clear of the ARM 3D z-buffer during _update."
 settings = ""
-read_in = "src/bm/runtime.c:1948"
+read_in = "src/bm/runtime.c:1974"
 
 [[key]]
 name = "draw"
@@ -129,13 +138,22 @@ settings = "Settings > Screen and sound > Game drawing (.bm)"
 read_in = "src/kernel/config.c:105"
 
 [[key]]
+name = "file_write_max_kib"
+scope = "all"
+values = "KiB, a whole number from 1 to 32768; anything else = default"
+default = "8192 (8 MiB)"
+meaning = "Largest file that file_write() writes in bm/web."
+settings = ""
+read_in = "src/bm/runtime.c:4068"
+
+[[key]]
 name = "game_buttons"
 scope = "rgb30"
 values = "position = B A Y X swapped as a quarter turn; anything else = by letter"
 default = "by letter"
 meaning = "Button mapping of the .b16 games' face buttons on the RGB30."
 settings = ""
-read_in = "src/rgb30/bm_input.c:32"
+read_in = "src/rgb30/bm_input.c:34"
 
 [[key]]
 name = "game_intro"
@@ -171,7 +189,7 @@ values = "0 = the ARM draws the 3D; anything else = the V3D GPU (a game's own se
 default = "GPU"
 meaning = "GPU or ARM for the 3D of the games."
 settings = "Settings > Screen and sound > 3D of the games"
-read_in = "src/bm/runtime.c:1850"
+read_in = "src/bm/runtime.c:1852"
 
 [[key]]
 name = "gpu3d_2d"
@@ -180,7 +198,7 @@ values = "1 = the 2D over the 3D is drawn by the GPU in its job; anything else =
 default = "ARM"
 meaning = "Who draws the 2D over the GPU 3D."
 settings = "Settings > Screen and sound > 2D over the 3D"
-read_in = "src/bm/runtime.c:1885"
+read_in = "src/bm/runtime.c:1887"
 
 [[key]]
 name = "gpu3d_aa"
@@ -189,7 +207,7 @@ values = "1 = MSAA 4x; anything else = off"
 default = "off"
 meaning = "Anti-aliasing of the GPU 3D."
 settings = "Settings > Screen and sound > 3D anti-aliasing"
-read_in = "src/bm/runtime.c:1863"
+read_in = "src/bm/runtime.c:1865"
 
 [[key]]
 name = "gpu3d_attr"
@@ -198,7 +216,7 @@ values = "1 = compact vertex attributes; anything else = floats"
 default = "floats"
 meaning = "Vertex attribute format of the GPU 3D."
 settings = "Settings > Screen and sound > 3D corners"
-read_in = "src/bm/runtime.c:1883"
+read_in = "src/bm/runtime.c:1885"
 
 [[key]]
 name = "gpu3d_etc1"
@@ -207,7 +225,7 @@ values = "1 = opaque textures as ETC1; anything else = off"
 default = "off"
 meaning = "ETC1 compression of the opaque 3D textures."
 settings = "Settings > Screen and sound > 3D textures (the row cycles gpu3d_filter, gpu3d_tex16 and gpu3d_etc1)"
-read_in = "src/bm/runtime.c:1877"
+read_in = "src/bm/runtime.c:1879"
 
 [[key]]
 name = "gpu3d_filter"
@@ -216,7 +234,7 @@ values = "1 = bilinear; anything else = nearest"
 default = "nearest"
 meaning = "Texture filter of the GPU 3D."
 settings = "Settings > Screen and sound > 3D textures"
-read_in = "src/bm/runtime.c:1873"
+read_in = "src/bm/runtime.c:1875"
 
 [[key]]
 name = "gpu3d_fs2"
@@ -225,7 +243,7 @@ values = "0 = one-thread pixel shaders; anything else = two threads"
 default = "two threads (on)"
 meaning = "Two-thread pixel shaders of the GPU 3D."
 settings = "Settings > Screen and sound > 3D pixel shaders"
-read_in = "src/bm/runtime.c:1879"
+read_in = "src/bm/runtime.c:1881"
 
 [[key]]
 name = "gpu3d_later"
@@ -234,7 +252,16 @@ values = "1 = each frame shown a frame later (needs gpu3d_queue=2); anything els
 default = "at once"
 meaning = "Shows the GPU frame one frame later."
 settings = "Settings > Screen and sound > 3D frame shown"
-read_in = "src/bm/runtime.c:1887"
+read_in = "src/bm/runtime.c:1889"
+
+[[key]]
+name = "gpu3d_qpu"
+scope = "pi"
+values = "1 = the GPU test (g) and the 3D Bench run the QPU programs against the ARM versions, and the games' dark_end() (Yharnam) runs on the QPUs; anything else = off"
+default = "off (no qpu_init call, no new work)"
+meaning = "QPU check: a step in the GPU test and a row in the 3D Bench; the darkness levels of dark_end() on the QPUs with the ARM as fallback. For the first run on the Pi."
+settings = ""
+read_in = "src/kernel/gputest.c:1232"
 
 [[key]]
 name = "gpu3d_queue"
@@ -243,7 +270,7 @@ values = "1 = one job queued, 2 = two jobs in flight; anything else = 0 (off)"
 default = "0 (off)"
 meaning = "Frame queue: the game runs while the GPU draws the previous frame."
 settings = "Settings > Screen and sound > 3D frame queue"
-read_in = "src/bm/runtime.c:1868"
+read_in = "src/bm/runtime.c:1870"
 
 [[key]]
 name = "gpu3d_sort"
@@ -252,7 +279,7 @@ values = "1 = opaque meshes nearest first; anything else = as the game"
 default = "as the game"
 meaning = "Draw order of the opaque meshes."
 settings = "Settings > Screen and sound > 3D draw order"
-read_in = "src/bm/runtime.c:1881"
+read_in = "src/bm/runtime.c:1883"
 
 [[key]]
 name = "gpu3d_tex16"
@@ -261,7 +288,7 @@ values = "1 = opaque textures in 16 bits; anything else = off"
 default = "off"
 meaning = "16-bit opaque textures."
 settings = "Settings > Screen and sound > 3D textures"
-read_in = "src/bm/runtime.c:1875"
+read_in = "src/bm/runtime.c:1877"
 
 [[key]]
 name = "gpu3d_vs"
@@ -270,7 +297,7 @@ values = "0 = the ARM places the corners, 1 = GPU for scenery, 2 = GPU for every
 default = "2"
 meaning = "Vertex shader mode of the GPU 3D."
 settings = "Settings > Screen and sound > 3D vertices"
-read_in = "src/bm/runtime.c:1865"
+read_in = "src/bm/runtime.c:1867"
 
 [[key]]
 name = "gpu3d_wc"
@@ -279,7 +306,7 @@ values = "1 = job memory uncached (write-combined); anything else = cached"
 default = "cached"
 meaning = "Memory type of the GPU jobs."
 settings = "Settings > Screen and sound > 3D job memory"
-read_in = "src/bm/runtime.c:1871"
+read_in = "src/bm/runtime.c:1873"
 
 [[key]]
 name = "layout"
@@ -297,7 +324,7 @@ values = "1 = show the Lib tab; anything else = hidden"
 default = "Lib tab hidden"
 meaning = "Shows the Lib (resources) tab of the cartridge menu."
 settings = ""
-read_in = "src/kernel/carts.c:1167"
+read_in = "src/kernel/carts.c:1139"
 
 [[key]]
 name = "market_bm"
@@ -315,7 +342,7 @@ values = "milliseconds (strtol)"
 default = "0 (no delay)"
 meaning = "Slows a Market source down (for tests)."
 settings = ""
-read_in = "src/kernel/market.c:442"
+read_in = "src/kernel/market.c:443"
 
 [[key]]
 name = "market_repo"
@@ -333,7 +360,7 @@ values = "a URL; a final / is added if missing (empty counts as missing)"
 default = "https://f-accomando.github.io/bm-market/"
 meaning = "Base URL of the Market catalog."
 settings = ""
-read_in = "src/kernel/market.c:437"
+read_in = "src/kernel/market.c:438"
 
 [[key]]
 name = "menu_scale"
@@ -342,7 +369,7 @@ values = "3 = menu at 3x; anything else = 1 (the code tests only for \"3\")"
 default = "1"
 meaning = "Size of the menu on the Pi (3x enlarged, by the GPU where there is one)."
 settings = ""
-read_in = "src/kernel/menu_ui.c:1188"
+read_in = "src/kernel/menu_ui.c:1208"
 
 [[key]]
 name = "meshy_key"
@@ -369,7 +396,7 @@ values = "a text (empty counts as missing)"
 default = "bm-<last number of the IP address>"
 meaning = "Name of this console for the nearby consoles (LAN)."
 settings = ""
-read_in = "src/kernel/market.c:1091"
+read_in = "src/kernel/market.c:1092"
 
 [[key]]
 name = "net_password"
@@ -396,7 +423,7 @@ values = "colour = coloured button icons; anything else = white"
 default = "white"
 meaning = "Colour of the DS4 button icons in the hints."
 settings = "Settings > Controllers > Button icons"
-read_in = "src/kernel/settings.c:113"
+read_in = "src/kernel/settings.c:146"
 
 [[key]]
 name = "r3d_fast"
@@ -405,7 +432,7 @@ values = "1 = fast (one matrix a model); anything else = exact"
 default = "exact"
 meaning = "Mode of the ARM 3D (r3d)."
 settings = "Settings > Screen and sound > 3D on the ARM"
-read_in = "src/bm/runtime.c:1913"
+read_in = "src/bm/runtime.c:1915"
 
 [[key]]
 name = "r3d_impostor"
@@ -414,7 +441,7 @@ values = "number of pixels (atoi), limited to 2..64; 0 or less = off; the Settin
 default = "0 (off)"
 meaning = "Far small meshes drawn as one quad, up to that many pixels of a 1080-line screen."
 settings = "Settings > Screen and sound > 3D impostors (Pi only; the RGB30 reads the key but has no row)"
-read_in = "src/bm/runtime.c:1915"
+read_in = "src/bm/runtime.c:1917"
 
 [[key]]
 name = "report_branch"
@@ -450,7 +477,7 @@ values = "text starting with 0 = off; any other non-empty text = on"
 default = "on if github_token is set, else off"
 meaning = "A report with the frames of a game run, when it ends (30 frames or more)."
 settings = ""
-read_in = "src/bm/runtime.c:9375"
+read_in = "src/bm/runtime.c:9462"
 
 [[key]]
 name = "show_b16"
@@ -459,7 +486,7 @@ values = "1 = list the .b16 even when the game has a .bm; anything else = keep t
 default = "a game that has both editions shows only its .bm; .b16-only games are always shown"
 meaning = "Shows the .b16 editions in the Pi's catalog."
 settings = ""
-read_in = "src/kernel/market.c:367"
+read_in = "src/kernel/market.c:368"
 
 [[key]]
 name = "show_bm"
@@ -468,7 +495,7 @@ values = "0 = hide the .bm cartridges; anything else = show them"
 default = "shown (the Games tab lists .bm for testing, user's decision 2026-10-03)"
 meaning = "The Games tab of the RGB30: whether the Pi's .bm cartridges are listed. The Market has its own key, market_bm."
 settings = ""
-read_in = "src/rgb30/ui.c:238"
+read_in = "src/rgb30/ui.c:245"
 
 [[key]]
 name = "sound"
@@ -513,7 +540,7 @@ values = "text starting with m (max) = the GPU at the highest clock the firmware
 default = "the firmware's clock"
 meaning = "V3D GPU clock."
 settings = ""
-read_in = "src/kernel/main.c:266"
+read_in = "src/kernel/main.c:286"
 
 [[key]]
 name = "volume"
@@ -523,6 +550,15 @@ default = "10 (AUDIO_VOLUME_MAX)"
 meaning = "Sound volume."
 settings = "Settings > Screen and sound > Volume"
 read_in = "src/kernel/config.c:109"
+
+[[key]]
+name = "web_max_kib"
+scope = "all"
+values = "KiB, a whole number from 1 to 32768; anything else = default"
+default = "4096 (4 MiB)"
+meaning = "Largest answer body that web_get() keeps. A cartridge can ask for less, never more."
+settings = ""
+read_in = "src/bm/runtime.c:3884"
 
 [[key]]
 name = "wifi_boot"
@@ -588,3 +624,48 @@ default = "cart_config(key) returns nil when missing or empty"
 meaning = "Flags of one game, read and written only by the Lua cart_config(key [, value]); a key with another prefix is an error. Set from the monitor line (set overbit_bench=1080) or easy_install."
 settings = ""
 read_in = "src/bm/runtime.c:3511 (l_cart_config)"
+
+[[key]]
+name = "rec"
+scope = "all"
+values = "on or 1 = record every game run to /bm/rec; anything else = off"
+default = "off"
+meaning = "Screen recorder (VID-REC): the game's frames go to .bmv chunk files; the report is printed when the game ends."
+settings = ""
+read_in = "src/bm/rec.c"
+
+[[key]]
+name = "rec_fps"
+scope = "all"
+values = "1 to 30"
+default = "15"
+meaning = "Frames a second of the recording."
+settings = ""
+read_in = "src/bm/rec.c"
+
+[[key]]
+name = "rec_size"
+scope = "all"
+values = "WxH, 16x16 to 1920x1080 (the frame is scaled by nearest pixel)"
+default = "320x180"
+meaning = "Size of the recording."
+settings = ""
+read_in = "src/bm/rec.c"
+
+[[key]]
+name = "rec_format"
+scope = "all"
+values = "rgb565 or rgb332"
+default = "rgb565"
+meaning = "Pixel format of the recording (rgb332 is half the size)."
+settings = ""
+read_in = "src/bm/rec.c"
+
+[[key]]
+name = "rec_ring_mb"
+scope = "all"
+values = "1 to 256"
+default = "64 (smaller if memory is short)"
+meaning = "RAM that holds the chunks that wait for the card."
+settings = ""
+read_in = "src/bm/rec.c"

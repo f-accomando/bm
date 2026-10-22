@@ -1,4 +1,4 @@
-/* M41: the Mali-G52's descriptors for a draw (see mali_desc.h). Places from Mesa's v7.xml (MIT). */
+/* The Mali-G52's descriptors for a draw (see mali_desc.h). Places from Mesa's v7.xml (MIT). */
 #include "mali_desc.h"
 
 void md_bits(uint8_t *p, unsigned start, unsigned size, uint64_t v)

@@ -1,7 +1,7 @@
 # Tropic Trail — piano della serie video 3D
 
 Serie di 8 video YouTube (inglese) che insegna gli editor di bm costruendo un platform 3D lineare
-ispirato a un classico PSX. Coordinamento con Antigravity: [`SYNC.md`](../../SYNC.md). Stato di ogni
+ispirato a un classico PSX. Coordinamento con Antigravity: `SYNC.md` (archivio: `docs/archive/sync/SYNC.md`). Stato di ogni
 passo: [`STATUS.md`](STATUS.md). Cose da ricordare per la serie 2D già fatta: [`video/SERIE.md`](../../video/SERIE.md)
 e skill [`bm-video-tutorial`](../../claude/skills/bm-video-tutorial/SKILL.md).
 

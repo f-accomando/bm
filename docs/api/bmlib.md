@@ -158,10 +158,23 @@ end)
 | `P:burst(x, y, n, [opt])` | `n` particles from `x, y`: `speed` (2), `angle` and `spread` (in radians; all round if missing), `life` (0.5 s), `color` or `colors`, and the options of `:add` |
 | `P:update()` / `P:draw()` | in `_update` / in `_draw` |
 | `P:count()` / `P:clear()` | how many there are / all away |
+| `lib.particles3d([max])` | 3D sibling of `lib.particles` that wraps the 3D particle functions; pool of at most `max` particles (default 1024) |
+| `P3:add(x, y, z, vx, vy, vz, life, color)` | adds one 3D particle |
+| `P3:burst(x, y, z, n, o)` | `n` particles from `x, y, z`: `o.speed` (2), `o.life` (30 updates), `o.color` (0xFFFFFF), `o.up` (0) |
+| `P3:update([gravity])` | steps the 3D particles with `gravity` (0.02) |
+| `P3:draw([radius])` | draws the 3D particles with `radius` (0.1) |
+| `P3:count()` | how many live 3D particles |
+
+`lib.particles3d` is the 3D sibling of `lib.particles` and wraps the 3D particle functions (`particles`, `particles_add`, `particles_step`, `particles_draw`, `particles_count`).
 
 ```lua
 local fx = lib.particles(300)
 fx:burst(x, y, 20, { speed = 3, colors = { 0xFFFFFF, 0xFFD050, 0xFF6020 }, gravity = 0.1 })
+
+local p3 = lib.particles3d(500)
+p3:burst(x, y, z, 20, { speed = 2, life = 30, color = 0xFFA020 })
+p3:update()
+p3:draw()
 ```
 
 ### Camera
@@ -203,6 +216,7 @@ function _draw() S:draw() end
 
 | Function | Description |
 |---|---|
+| `lib.input([over])` | the games' input standard ([games-input-standard](../design/games-input-standard.md)): puts `confirm`, `cancel`, `pause` and the actions of the game's scheme on the keymap and returns the table. `over.scheme` picks the scheme: `"scroller"` (default: `act1` jump = B, `act2` attack = Y, `act3` = the A/B button that is not ok, `act4` = X, shoulders L1/R1), `"topdown"` (`act1` = B, `act2` = the other A/B button, `act3` = Y, `act4` = X) or `"stick"` (`act1` R2, `act2` L2, `act3` L1, `act4` R1, `act5`..`act8` = B, A, Y, X); `lib.input_scheme` tells which runs. The other keys of `over` (`{ act3 = "x" }`) change single actions and are listed in `lib.input_exceptions` (declare them in the game's `docs/progress/<game>.md`). `lib.INPUT_STD` is the common part (`confirm`, `cancel`, `pause`) |
 | `lib.textw(text, [scale])` | width and height in pixels with the font of `print` now (the longest line) |
 | `lib.printc(text, y, [c, scale, x, w, grid])` | in the middle of the screen (or of `x..x + w`); `grid`: on the font's columns (text that stays still, as the menus). Returns the x |
 | `lib.printr(text, x, y, [c, scale])` | ending at `x` (numbers aligned to the right) |

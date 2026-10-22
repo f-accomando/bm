@@ -1,0 +1,37 @@
+# Golden questions for the lookup recipes (area lua). Run: python scripts/recipe_bench.py bench --area lua
+# answer = substring the recipe output must contain; commands run from the repo root without a shell.
+
+[[entry]]
+question = "Which C function in src/bm/runtime.c implements the Lua rgb()?"
+area = "lua"
+answer = "l_rgb"
+baseline = "python -c \"print(open('src/bm/runtime.c',encoding='utf8').read())\""
+recipe = "python scripts/cindex.py src/bm/runtime.c l_rgb"
+
+[[entry]]
+question = "Which C function in src/bm/runtime.c implements the Lua stick()?"
+area = "lua"
+answer = "l_stick"
+baseline = "python -c \"print(open('src/bm/runtime.c',encoding='utf8').read())\""
+recipe = "python scripts/cindex.py src/bm/runtime.c l_stick"
+
+[[entry]]
+question = "What does mget() return outside the map?"
+area = "lua"
+answer = "outside the map `mget` gives 0"
+baseline = "python -c \"print(open('docs/api/draw.md',encoding='utf8').read())\""
+recipe = "python -c \"[print(l,end='') for l in open('docs/api/draw.md',encoding='utf8') if 'mget(' in l]\""
+
+[[entry]]
+question = "What is the signature of fog3d()?"
+area = "lua"
+answer = "fog3d(colour, near, far)"
+baseline = "python -c \"print(open('docs/api/light3d.md',encoding='utf8').read())\""
+recipe = "python -c \"[print(l,end='') for l in open('docs/api/light3d.md',encoding='utf8') if 'fog3d(' in l]\""
+
+[[entry]]
+question = "Where does the volume() setting persist?"
+area = "lua"
+answer = "stays in `bm/config.txt`"
+baseline = "python -c \"print(open('docs/api/sound.md',encoding='utf8').read())\""
+recipe = "python -c \"[print(l,end='') for l in open('docs/api/sound.md',encoding='utf8') if 'volume([' in l]\""

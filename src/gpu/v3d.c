@@ -33,6 +33,10 @@
 #define V3D_BPOA        0x308
 #define V3D_BPOS        0x30C
 #define V3D_VPMBASE     0x504
+#define V3D_SRQPC       0x430           /* user program queue: program counter (the write queues it) */
+#define V3D_SRQUA       0x434           /* uniforms address */
+#define V3D_SRQUL       0x438           /* uniforms length */
+#define V3D_SRQCS       0x43C           /* queue length 5:0, error 7, programs sent 15:8, done 23:16 */
 #define V3D_DBGE        0xF00
 #define V3D_FDBGO       0xF04
 #define V3D_FDBGB       0xF08
@@ -44,6 +48,10 @@
 #define CT_RESET        (1u << 15)
 #define CT_ERROR        (1u << 3)
 #define L2C_CLEAR       (1u << 2)
+#define SRQ_ERROR       (1u << 7)
+#define SRQ_RESET       (1u << 7 | 1u << 8 | 1u << 16)  /* clear the error, the sent and the done counts */
+#define SRQ_QLEN(cs)    ((cs) & 0x3Fu)
+#define SRQ_DONE(cs)    ((cs) >> 16 & 0xFFu)
 
 #define PROP_ENABLE_QPU 0x00030012u
 
@@ -277,7 +285,7 @@ int v3d_run(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end, uint
     return err;
 }
 
-/* M35: a job started and not waited for. The binning list ends with
+/* bm3d 4.1: a job started and not waited for. The binning list ends with
  * INCREMENT_SEMAPHORE and the rendering list waits on it before its first
  * tile, as Linux's vc4 does, so the two threads start together and the ARM
  * goes on. */
@@ -369,6 +377,81 @@ int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
     }
     cache_all(&cost.inval_cyc);
     return err;
+}
+
+/* ------------------------------------------------------------ QPU programs */
+
+static const char *qpu_why = "not run";
+
+const char *v3d_qpu_status(void)
+{
+    return qpu_why;
+}
+
+/* The V3D's QPUs: a queue of programs (code, uniforms address and length,
+ * written in this order: the PC write queues the program). The counts of
+ * sent and done programs are reset first; the VPM share is given for the
+ * run only, as the vertex pipeline wants all of it. */
+int v3d_qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us)
+{
+    if (!ready) {
+        qpu_why = "no V3D";
+        return -1;
+    }
+    if (job.busy) {
+        qpu_why = "a 3D job is running";
+        return -2;
+    }
+    if (n <= 0 || n > V3D_QPU_MAX) {
+        qpu_why = "bad job count";
+        return -1;
+    }
+    cache_all(&cost.clean_cyc);
+    dmb();
+    wr(V3D_L2CACTL, L2C_CLEAR);
+    wr(V3D_SLCACTL, 0x0F0F0F0Fu);       /* the instruction and uniform caches may hold the last program */
+    wr(V3D_SRQCS, SRQ_RESET);
+    wr(V3D_VPMBASE, V3D_QPU_VPM);
+    dmb();
+    for (int i = 0; i < n; i++) {
+        wr(V3D_SRQUL, jobs[i].nunif);
+        wr(V3D_SRQUA, jobs[i].unif);
+        wr(V3D_SRQPC, jobs[i].code);    /* the write queues the program */
+    }
+    dmb();
+    const uint32_t t0 = timer_ticks(), a0 = audio_busy_us;
+    int r = 0;
+    for (;;) {
+        dmb();
+        const uint32_t cs = rd(V3D_SRQCS);
+        dmb();
+        if (cs & SRQ_ERROR) {
+            qpu_why = "queue error";
+            r = -1;
+            break;
+        }
+        if (SRQ_DONE(cs) >= (uint32_t)n) {
+            qpu_why = "ok";
+            break;
+        }
+        if (timer_ticks() - t0 > timeout_us) {
+            qpu_why = "timeout";
+            r = -1;
+            break;
+        }
+    }
+    wait_add(t0, a0);
+    if (r) {
+        snapshot();
+        uint32_t off[1] = { 0 }, on[1] = { 1 };
+        prop_query(PROP_ENABLE_QPU, off, 1);    /* the firmware's reset of QPUs that do not end */
+        prop_query(PROP_ENABLE_QPU, on, 1);
+    }
+    wr(V3D_VPMBASE, 0);
+    wr(V3D_SRQCS, SRQ_RESET);
+    dmb();
+    cache_all(&cost.inval_cyc);
+    return r;
 }
 
 int v3d_uncached(void *p, uint32_t size, int on)

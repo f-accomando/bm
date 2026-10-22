@@ -1,5 +1,6 @@
 #include "gfx16.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -113,6 +114,31 @@ void g16_rectfill(g16_t *g, int x, int y, int w, int h, uint16_t c)
     if (y1 >= g->cy1) y1 = g->cy1 - 1;
     for (; y <= y1; y++)
         hline(g, x, x1, y, c);
+}
+
+void g16_blit565(g16_t *g, const uint16_t *src, int w, int h, int x, int y, int scale)
+{
+    if (w <= 0 || h <= 0 || scale < 1 || scale > 8)
+        return;
+    const int64_t lx = (int64_t)x - g->cam_x, ly = (int64_t)y - g->cam_y;
+    const int dw = w * scale, dh = h * scale;
+    if (lx >= g->cx1 || ly >= g->cy1 || lx + dw <= g->cx0 || ly + dh <= g->cy0)
+        return;                         /* off the clip (and no overflow below) */
+    x = (int)lx;
+    y = (int)ly;
+    int x0 = x < g->cx0 ? g->cx0 : x, x1 = x + dw > g->cx1 ? g->cx1 : x + dw;
+    int y0 = y < g->cy0 ? g->cy0 : y, y1 = y + dh > g->cy1 ? g->cy1 : y + dh;
+    if (x0 >= x1 || y0 >= y1)
+        return;
+    for (int yy = y0; yy < y1; yy++) {
+        const uint16_t *row = src + (size_t)((yy - y) / scale) * w;
+        uint16_t *out = g->px + (size_t)yy * g->stride;
+        if (scale == 1)
+            memcpy(out + x0, row + (x0 - x), (size_t)(x1 - x0) * 2);
+        else
+            for (int xx = x0; xx < x1; xx++)
+                out[xx] = row[(xx - x) / scale];
+    }
 }
 
 void g16_rect(g16_t *g, int x, int y, int w, int h, uint16_t c)
@@ -262,10 +288,99 @@ void g16_sspr_zoom(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int s
     }
 }
 
+/* Sprite stacking: slice i of `n` (left to right on the sheet, or top to bottom for
+ * g16_stackv; slice 0 is the
+ * bottom) is drawn turned by `rz` radians around its centre, `scale` times
+ * bigger, and lifted by i * step * scale pixels.  Inverse mapping: for each
+ * screen pixel of the bounding box, the source pixel comes from 16.16 fixed
+ * point steps (sin and cos are read once per call). */
+static inline void stack_core(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                              int n, int x, int y, float rz, float scale, float step, int vert)
+{
+    if (!s->px || n <= 0 || sw <= 0 || sh <= 0 || sx < 0 || sy < 0) return;
+    if (vert ? sx + sw > s->w : sy + sh > s->h) return;
+    if (!isfinite(rz) || !isfinite(scale) || !isfinite(step)) return;   /* NaN or inf from Lua */
+    if (!(scale > 0.0f) || scale > 64.0f) return;
+    const float c = cosf(rz), sn = sinf(rz);
+    const float ac = c < 0 ? -c : c, as = sn < 0 ? -sn : sn;
+    /* a turn of exactly 90 degrees must not leave a rounding trace */
+    const int32_t cf = (int32_t)lrintf(c / scale * 65536.0f);
+    const int32_t sf = (int32_t)lrintf(sn / scale * 65536.0f);
+    /* half size of the bounding box of the turned rectangle */
+    const float hx = scale * (ac * sw + as * sh) * 0.5f + 1.0f;
+    const float hy = scale * (as * sw + ac * sh) * 0.5f + 1.0f;
+    /* the centre of the slice, in the index space of the pixels */
+    const float cx0 = (float)(x - g->cam_x - sw / 2) + (float)(sw - 1) * 0.5f;
+    const float cy0 = (float)(y - g->cam_y - sh / 2) + (float)(sh - 1) * 0.5f;
+    const float hw = (float)(sw - 1) * 0.5f, hh = (float)(sh - 1) * 0.5f;
+    for (int i = 0; i < n; i++) {
+        /* the slice's box on the sheet: to the right (stack) or below (stackv); a per-slice
+         * cost only, the pixel loop is the same */
+        const int fx = vert ? sx : sx + i * sw;
+        const int fy = vert ? sy + i * sh : sy;
+        if (fx + sw > s->w || fy + sh > s->h) break;
+        /* a lift beyond 1e6 pixels is off screen anyway: the clamp keeps the cast defined */
+        float lift = floorf((float)i * step * scale + 0.5f);
+        if (!(lift > -1.0e6f)) lift = -1.0e6f;
+        if (lift > 1.0e6f) lift = 1.0e6f;
+        const float cy = cy0 - (float)(int)lift;
+        const float cx = cx0;
+        int x0 = (int)floorf(cx - hx), x1 = (int)ceilf(cx + hx) + 1;
+        int y0 = (int)floorf(cy - hy), y1 = (int)ceilf(cy + hy) + 1;
+        if (x0 < g->cx0) x0 = g->cx0;
+        if (y0 < g->cy0) y0 = g->cy0;
+        if (x1 > g->cx1) x1 = g->cx1;
+        if (y1 > g->cy1) y1 = g->cy1;
+        if (x0 >= x1 || y0 >= y1) continue;
+        /* source position (+0.5 so that the cut rounds to the nearest pixel) */
+        const float ox = (float)x0 - cx, oy = (float)y0 - cy;
+        int32_t u0 = (int32_t)lrintf((ox * (float)cf + oy * (float)sf) + (hw + 0.5f) * 65536.0f);
+        int32_t v0 = (int32_t)lrintf((oy * (float)cf - ox * (float)sf) + (hh + 0.5f) * 65536.0f);
+        for (int py = y0; py < y1; py++, u0 += sf, v0 += cf) {
+            int32_t u = u0, v = v0;
+            uint16_t *dst = g->px + (uint32_t)py * g->stride;
+            for (int px = x0; px < x1; px++, u += cf, v -= sf) {
+                const uint32_t lx = (uint32_t)(u >> 16), ly = (uint32_t)(v >> 16);
+                if (u < 0 || v < 0 || lx >= (uint32_t)sw || ly >= (uint32_t)sh) continue;
+                const uint32_t k = (uint32_t)(fy + (int)ly) * s->w + (uint32_t)(fx + (int)lx);
+                if (s->alpha[k]) dst[px] = s->px[k];
+            }
+        }
+    }
+}
+
+void g16_stack(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+               int n, int x, int y, float rz, float scale, float step)
+{
+    stack_core(g, s, sx, sy, sw, sh, n, x, y, rz, scale, step, 0);
+}
+
+void g16_stackv(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                int n, int x, int y, float rz, float scale, float step)
+{
+    stack_core(g, s, sx, sy, sw, sh, n, x, y, rz, scale, step, 1);
+}
+
 void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
              int mx, int my, int x, int y, int mw, int mh)
 {
     g16_map_mask(g, s, m, mx, my, x, y, mw, mh, NULL, 0);
+}
+
+/* Copy one 8-px row of an opaque tile: 4 words when both ends are 4-byte
+ * aligned (the common case), memcpy otherwise. Same bytes either way. */
+typedef uint32_t __attribute__((may_alias)) g16_w32;
+
+static inline void copy_row8(uint16_t *dst, const uint16_t *src)
+{
+    if ((((uintptr_t)dst | (uintptr_t)src) & 3) == 0) {
+        g16_w32 *d = (g16_w32 *)dst;
+        const g16_w32 *r = (const g16_w32 *)src;
+        uint32_t a = r[0], b = r[1], c = r[2], e = r[3];
+        d[0] = a; d[1] = b; d[2] = c; d[3] = e;
+    } else {
+        memcpy(dst, src, G16_CELL * 2);
+    }
 }
 
 void g16_map_mask(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
@@ -274,18 +389,40 @@ void g16_map_mask(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
     if (!s->px || !m->cells) return;
     if (!flags) mask = 0;
     const int per_row = s->w / G16_CELL, ncells = per_row * (s->h / G16_CELL);
+    /* n / per_row without a divide call: q = n * recip >> 32 is exact for
+     * n < 65536 and per_row < 65536 (checked in tests/bm/test_bm.c). */
+    const uint32_t recip = per_row > 0 && per_row < 65536 ? 0xFFFFFFFFu / (uint32_t)per_row + 1u : 0;
     x -= g->cam_x;
     y -= g->cam_y;
     for (int cy = 0; cy < mh; cy++) {
         int row = my + cy, py = y + cy * G16_CELL;
         if (row < 0 || row >= m->h || py >= g->cy1 || py + G16_CELL <= g->cy0) continue;
+        const uint16_t *crow = m->cells + (size_t)row * m->w;
+        const int ydone = py >= g->cy0 && py + G16_CELL <= g->cy1;
         for (int cx = 0; cx < mw; cx++) {
             int col = mx + cx, px = x + cx * G16_CELL;
             if (col < 0 || col >= m->w || px >= g->cx1 || px + G16_CELL <= g->cx0) continue;
-            int n = m->cells[row * m->w + col];
+            int n = crow[col];
             if (n == 0 || n >= ncells || (mask && !(flags[n] & mask))) continue;
-            blit(g, s, n % per_row * G16_CELL, n / per_row * G16_CELL, G16_CELL, G16_CELL,
-                 px, py, 0, 0, s->cell_opaque[n]);
+            int ty, tx;
+            if (recip) {
+                ty = (int)(((uint64_t)(uint32_t)n * recip) >> 32);
+                tx = n - ty * per_row;
+            } else {
+                ty = n / per_row;
+                tx = n % per_row;
+            }
+            tx *= G16_CELL;
+            ty *= G16_CELL;
+            if (s->cell_opaque[n] && ydone && px >= g->cx0 && px + G16_CELL <= g->cx1) {
+                /* whole tile inside the clip: 8 inline row copies */
+                const uint16_t *src = s->px + (size_t)ty * s->w + tx;
+                uint16_t *dst = g->px + (size_t)py * g->stride + px;
+                for (int r = 0; r < G16_CELL; r++, src += s->w, dst += g->stride)
+                    copy_row8(dst, src);
+            } else {
+                blit(g, s, tx, ty, G16_CELL, G16_CELL, px, py, 0, 0, s->cell_opaque[n]);
+            }
         }
     }
 }
@@ -495,9 +632,10 @@ int g16_fade_init(g16_fade_t *f, int w, int h)
     memset(f, 0, sizeof *f);
     f->w = w;
     f->h = h;
-    f->lv = malloc((size_t)w * h);
-    f->index = malloc(65536);
-    f->tab = malloc(G16_FADE_LEVELS * 256 * sizeof *f->tab);
+    /* 64-byte lines: the QPU fade (qpu_fade_apply) reads these arrays by DMA */
+    f->lv = aligned_alloc(64, ((size_t)w * h + 63) & ~(size_t)63);
+    f->index = aligned_alloc(64, 65536);
+    f->tab = aligned_alloc(64, G16_FADE_LEVELS * 256 * sizeof *f->tab);
     if (!f->lv || !f->index || !f->tab) {
         g16_fade_free(f);
         return -1;

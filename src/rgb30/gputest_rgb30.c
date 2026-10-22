@@ -1,5 +1,5 @@
 /*
- * Dev > GPU test on the RGB30 (M41): the Mali-G52 probed step by step
+ * Dev > GPU test on the RGB30: the Mali-G52 probed step by step
  * (mali.c), a line on the screen for each step, a report ("gpu") to send.
  * Only when asked: the boot never touches the GPU.
  */
@@ -68,7 +68,7 @@ int rgb30_gpu_result(const mali_info_t **in)
 void rgb30_gpu_test(framebuffer_t *fb, const char *back)
 {
     reports_begin("gpu");
-    kprintf("\n\x1b[1mGPU test\x1b[0m: the Mali-G52, step by step (bm3d " BM3D_VERSION ", M41)\n");
+    kprintf("\n\x1b[1mGPU test\x1b[0m: the Mali-G52, step by step (bm3d " BM3D_VERSION ")\n");
 #ifdef PLAT_RK3566
     /* the page shown, for the square the GPU clears (XRGB8888 only) */
     const uint32_t page = fb->buffers ? fb->size / fb->buffers : 0, off = fb->shown * page;

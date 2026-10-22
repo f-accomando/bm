@@ -42,7 +42,7 @@
  *            of each face that far inwards, so the next tile of the sheet
  *            never shows along the edges), u32 reserved (0), then per model:
  *              char[16] name (UTF-8, zero padded; unique in the section),
- *              u16 vertices (1..65535; 4096 before 2026-10-05, M39), u16 faces
+ *              u16 vertices (1..65535; 4096 before 2026-10-05, bm3d 5.0), u16 faces
  *              (1..65535; 16384 before), u32 flags (bit 0
  *              "lit": the light is baked in the faces, see below; else 0),
  *              vertices x { f32 x, y, z }: y up, like mesh();
@@ -140,8 +140,10 @@
  * the system keys or the config keys gain something a cartridge can depend on. A cartridge says what it needs with
  * the INFO key "spec: N" (bm.info); an older kernel then refuses it with a message instead of failing half way.
  * Revision 1: everything of 2026-10-11 (container v1, sections 1-14, resource files, projects, the .b16 marker).
- * Revision 2 (2026-10-13): 720x720 cartridges, shot(), the INFO key "spec", tool names reserved against games. */
-#define BM_SPEC_REV 2
+ * Revision 2 (2026-10-13): 720x720 cartridges, shot(), the INFO key "spec", tool names reserved against games.
+ * Revision 3 (2026-10-17): the cartridge type in bits 2-3 of the flags (bm.info "type"), the /bme folder for projects.
+ * Revision 4 (2026-10-22): the web API for cartridges (web_get, web_poll, web_info, web_body, web_cancel, image_load, file_write), the folder bm/web. */
+#define BM_SPEC_REV 4
 
 #include <stddef.h>
 #include <stdint.h>
@@ -182,7 +184,7 @@ enum { BM_RES_CART, BM_RES_MODEL, BM_RES_IMAGE, BM_RES_SOUND, BM_RES_MAP, BM_RES
  * menu fits any shape (menu_load_cover) */
 #define BM_COVER_SIZE      88
 #define BM_MODEL_NAME      16              /* bytes of a model name in MESH */
-#define BM_MODEL_VERTS     65535           /* M39 (bm3d 5.0): 4096 and 16384 before */
+#define BM_MODEL_VERTS     65535           /* bm3d 5.0: 4096 and 16384 before */
 #define BM_MODEL_FACES     65535
 #define BM_MODELS_MAX      256
 #define BM_MESH_FACE       24              /* bytes of a face in MESH */
@@ -232,6 +234,8 @@ typedef struct {
     char name[BM_MODEL_NAME + 1];
     uint16_t x, y, w, h;            /* the first frame, sheet pixels */
     uint8_t frames, fps;            /* the next frames: w x h boxes to the right */
+    uint8_t slices;                 /* 0 for a plain zone; 2..255 for a stack zone (w x h slices to the right) */
+    uint8_t vertical;               /* 1 for a stack zone whose slices lie one under the other (stackv) */
 } bm_zone_t;
 
 /* A box of the BOXES section. */

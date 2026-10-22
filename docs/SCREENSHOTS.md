@@ -9,7 +9,10 @@ also feed the PDF manuals.
 | How | Where |
 |---|---|
 | **Print Screen** on the keyboard | `bm/shots/` on the SD card |
-| **Select + L1 + R1** together on a pad (Share + L1 + R1 on a DS4) | |
+| **Select** held for 3 seconds on a pad (Share on a DS4) | |
+
+Hold Select alone. Another button, or letting go, starts the count again. One hold takes one
+picture: let go of Select before the next one.
 
 A box says `Screenshot saved` and the file name for two seconds. The picture is the game's
 own screen as it was drawn: the dev kit's overlays, the battery icon, the pointer and that box

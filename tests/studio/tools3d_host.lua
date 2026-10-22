@@ -1050,6 +1050,45 @@ for y = 0, sh - 1 do for x = 0, sw - 1 do if E.sget(x, y) then after = after + 1
 check(after < opaque, "undo: the sprites gone again (" .. after .. ")")
 key("^y")
 
+-- register_zone_boxes: a re-baked stack zone keeps its slices byte (byte 26 of
+-- the SPRITES entry) only if frames * width still fit the sheet width
+local function zone_slices()
+  local d, out = E.cart_data(11), {}
+  for i = 0, string.unpack("<I2", d, 1) - 1 do
+    local name = string.unpack("<c16", d, 5 + i * 28):match("^[^\0]*")
+    out[name] = d:byte(5 + i * 28 + 26)
+  end
+  return out
+end
+local function set_slices(zname, n)
+  local d, i = E.cart_data(11), 0
+  while string.unpack("<c16", d, 5 + i * 28):match("^[^\0]*") ~= zname do i = i + 1 end
+  local at = 5 + i * 28 + 26
+  E.cart_data(11, d:sub(1, at - 1) .. string.char(n) .. d:sub(at + 1))
+end
+local zs = zone_slices()
+local zname
+for n in pairs(zs) do zname = n end
+check(zname and zs[zname] == 0, "zone fit: a plain zone has slices 0")
+local fit_n = E.cart_sheet() // 32           -- slices that just fit (zone x = 0, 32 wide, 4 frames)
+check(fit_n > 4 and fit_n < 200, "zone fit: the sheet is wider than 4 frames (" .. fit_n .. " fit)")
+-- an unrelated zone is never touched by a re-bake
+local d11 = E.cart_data(11)
+E.cart_data(11, string.pack("<I2I2", 2, 0) .. d11:sub(5) ..
+  string.pack("<c16I2I2I2I2BBBx", "other", 0, 0, 16, 16, 1, 1, 9))
+set_slices(zname, fit_n)                      -- 32 * fit_n = the sheet width: fits
+key("\n"); frames(8)
+zs = zone_slices()
+check(zs[zname] == fit_n, "zone fit: a zone that still fits keeps its slices (" .. tostring(zs[zname]) .. ")")
+check(zs.other == 9, "zone fit: another zone keeps its own slices")
+set_slices(zname, fit_n + 1)                  -- one slice more than the sheet holds: no
+key("\n"); frames(8)
+zs = zone_slices()
+check(zs[zname] == 0, "zone fit: a zone that no longer fits drops its slices (" .. tostring(zs[zname]) .. ")")
+check(zs.other == 9, "zone fit: another zone keeps its own slices after the drop")
+key("\n"); frames(8)
+check(zone_slices()[zname] == 0, "zone fit: a plain zone stays plain after a re-bake")
+
 -- save; the player shows the animation
 key("^s")
 check(status():find("saved /carts/blocks.bme", 1, true), "Ctrl+S: " .. status())

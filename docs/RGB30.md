@@ -1,6 +1,6 @@
 # bm on the PowKiddy RGB30
 
-Italian version: [RGB30-IT.md](RGB30-IT.md).
+
 
 Bare metal version of bm for the **PowKiddy RGB30**: Rockchip **RK3566** SoC (4 × 64-bit
 Cortex-A55, 1 GiB LPDDR4), **720×720** IPS screen over MIPI-DSI (Sitronix ST7703 panel), two
@@ -176,7 +176,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   draw at 720×720 or at 360×360 shown ×2 (a quarter of the pixels for the GPU), sharp or
   smoothed; the menu is 360×360 ×2. **Display** page in the menu: the modes one after another
   with a test image (borders, tile grid, colour bars).
-- **Mali-G52 GPU, first step of the driver** (M41, bm3d 6.0; `src/rgb30/mali.c`, *Dev > GPU test*):
+- **Mali-G52 GPU, first step of the driver** (bm3d 6.0; `src/rgb30/mali.c`, *Dev > GPU test*):
   only when asked for (boot does not touch the GPU), one step at a time with a line on screen and
   a `gpu` report: vdd_gpu on (RK817 DCDC2, otherwise it stops at once), clocks of the
   PD_GPU domain (CRU) and domain on (PMU, like Linux's domains), GPU_ID and present parts, reset,
@@ -209,7 +209,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   screen to the left until it is the current tab: the same Market as the Pi, but only the
   catalogue's `.b16` games; B asks and downloads, the game goes into `bm/` and is played from there, X the details:
   play, download again, delete), **Games** (`.b16` games and the `.bm` ones, with their
-  cover; **X** opens a game's options, the Pi's C: play, open in bm SDK, type, size, author, save data and deleting it, deleting the file; with `show_bm=0` it says how many cartridges are hidden), **Dev** (3D Bench, Render bench,
+  cover; **X** opens a game's options, the Pi's C: play, open in bm SDK, send to a nearby console, type, size, author, save data and deleting it, deleting the file; with `show_bm=0` it says how many cartridges are hidden), **Dev** (3D Bench, Render bench,
   Display, Input test, Boot log, Lua on the serial port, GPU test, bm SDK) and **Settings**, the last, a page of its own:
   since 2026-10-04 the same sections as the Pi (`src/kernel/settings.c`): Controllers
   (Bluetooth, pairing pads, keyboards and mice, button test, *Confirm button*, keyboard

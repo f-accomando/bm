@@ -5,15 +5,23 @@ repository (f-accomando/bm-market), writes what its GitHub Pages serve and
 signs the index with the market's key (ECDSA P-256, SHA-256; the public
 half, keys/market-pub.pem, is built into the kernel).
 
-  mkmarket.py GAMES -o OUT [--key FILE | BM_MARKET_KEY=<pem>] [--pub keys/market-pub.pem]
+  mkmarket.py GAMES [--apps APPS] -o OUT [--key FILE | BM_MARKET_KEY=<pem>] [--pub keys/market-pub.pem]
               [--require-key] [--serial N]
-  mkmarket.py GAMES --check            only the checks (pull requests)
-  mkmarket.py GAMES --add game.bm --version 1.2 [--license L] [--about TEXT] [--id ID]
-              [--about-file market/about.txt]
+  mkmarket.py GAMES [--apps APPS] --check
+                                       only the checks (pull requests)
+  mkmarket.py GAMES [--apps APPS] --add game.bm --version 1.2 [--license L] [--about TEXT]
+              [--id ID] [--kind app] [--about-file market/about.txt]
                                        puts a cartridge in GAMES (a new folder, or
-                                       the same game updated); --about-file has
+                                       the same game updated); with --apps and
+                                       --kind app it goes in APPS; --about-file has
                                        "id: license | about" lines (the project's
                                        games, make market-seed)
+
+APPS is optional: a second folder with the same layout (apps/<id>/<id>.bm,
+.b16 and info.txt). Each item of APPS is an app (kind app), whatever its
+info.txt says. An id must not exist in both folders. Without --apps, GAMES
+alone works as before (an item there is an app with "kind: app" in info.txt,
+or by its id in APP_IDS).
 
 GAMES has one folder per game, named by its id (a-z, 0-9 and '-', at most
 23 characters), with its cartridges (one .bm, one .b16, or both: Overbit has
@@ -27,7 +35,7 @@ shows and what names the save file, so two games cannot share both.
 
 OUT gets:
   index.txt, index.sig     the catalog and its signature (DER)
-  games/<id>/<name>.bm     the cartridges (or <name>.b16: the handhelds' ones,
+  games/<id>/<name>.bm     the cartridges (apps of APPS: apps/<id>/...) (or <name>.b16: the handhelds' ones,
                            the same container, at most 8 MiB; the RGB30 lists only these,
                            the Pi only the .bm; a game with both is two records with one id)
   games/<id>/cover.png     the cover (88x88; 128x80 in older cartridges), when it has one
@@ -192,7 +200,7 @@ def console_text(s, what, limit):
     return b
 
 
-def read_game(games, gid):
+def read_game(games, gid, force_kind=None):
     """-> a list of dicts (one per cartridge: a .bm, a .b16, or both), or
     raises ValueError with what is wrong"""
     if not ID_RE.match(gid):
@@ -209,7 +217,7 @@ def read_game(games, gid):
         raise ValueError("no info.txt")
     info = read_info(os.path.join(d, "info.txt"))
     version, lic = info.get("version", ""), info.get("license", "")
-    kind = info.get("kind", "app" if gid in APP_IDS else "game").lower()
+    kind = force_kind or info.get("kind", "app" if gid in APP_IDS else "game").lower()
     if kind not in ("game", "app"):
         raise ValueError(f"kind {kind!r}: 'game' or 'app'")
     if not VERSION_RE.match(version):
@@ -235,25 +243,36 @@ def read_game(games, gid):
     return out
 
 
-def read_games(games):
+def read_games(games, apps=None):
+    """GAMES, then APPS (optional); the items of APPS are always apps"""
     if not os.path.isdir(games):
         die(f"{games}: no such folder")
-    out, errors, seen = [], [], {}
-    for gid in sorted(os.listdir(games)):
-        if gid.startswith(".") or not os.path.isdir(os.path.join(games, gid)):
-            continue
-        try:
-            gs = read_game(games, gid)
-        except (ValueError, OSError, UnicodeDecodeError) as e:
-            errors.append(f"{gid}: {e}")
-            continue
-        for g in gs:
-            who = (g["title"].lower(), g["author"].lower())
-            if who in seen and seen[who] != gid:
-                errors.append(f"{gid}: same title and author as {seen[who]} (the save files would mix)")
+    folders = [(games, "games", None)]
+    if apps:
+        if os.path.isdir(apps):         # a market without apps/ yet is fine
+            folders.append((apps, "apps", "app"))
+    out, errors, seen, ids = [], [], {}, {}
+    for folder, sub, force in folders:
+        for gid in sorted(os.listdir(folder)):
+            if gid.startswith(".") or not os.path.isdir(os.path.join(folder, gid)):
                 continue
-            seen[who] = gid
-            out.append(g)
+            if gid in ids:
+                errors.append(f"{gid}: the id is in {ids[gid]}/ and in {sub}/ (an id is in one folder only)")
+                continue
+            ids[gid] = sub
+            try:
+                gs = read_game(folder, gid, force)
+            except (ValueError, OSError, UnicodeDecodeError) as e:
+                errors.append(f"{gid}: {e}")
+                continue
+            for g in gs:
+                g["sub"] = sub
+                who = (g["title"].lower(), g["author"].lower())
+                if who in seen and seen[who] != gid:
+                    errors.append(f"{gid}: same title and author as {seen[who]} (the save files would mix)")
+                    continue
+                seen[who] = gid
+                out.append(g)
     if len(out) > MAX_GAMES:
         errors.append(f"{len(out)} games, the console reads at most {MAX_GAMES}")
     if errors:
@@ -272,11 +291,11 @@ def _render_cards(items):
         lic = html.escape(g["info"].get("license", ""))
         b16 = g["name"].lower().endswith(".b16")
         fmt = '<span class="badge b16">.b16 &middot; RGB30</span>' if b16 else '<span class="badge bm">.bm &middot; Pi</span>'
-        img = (f'<img src="games/{g["id"]}/cover.png" width="176" height="176" alt="">' if g["cover"]
+        img = (f'<img src="{g["sub"]}/{g["id"]}/cover.png" width="176" height="176" alt="">' if g["cover"]
                else f'<div class="nocover">{t}</div>')
         rows.append(f"""<li>{img}<div><h2>{t} {fmt}</h2><p class="by">{a} &middot; v{html.escape(g["version"].decode())}
  &middot; {lic} &middot; {(len(g["data"]) + 1023) // 1024} KiB</p><p>{about}</p>
-<p><a href="games/{g["id"]}/{g["name"]}" download>{g["name"]}</a></p></div></li>""")
+<p><a href="{g["sub"]}/{g["id"]}/{g["name"]}" download>{g["name"]}</a></p></div></li>""")
     return "\n".join(rows)
 
 
@@ -320,9 +339,9 @@ On the console: the <b>Market</b> tab of the menu (<b>Games</b> / <b>Apps</b>). 
 def build(games, out, serial):
     lines = [b"bm market", b"serial " + serial.encode()]
     for g in games:
-        gdir = os.path.join(out, "games", g["id"])
+        gdir = os.path.join(out, g["sub"], g["id"])
         os.makedirs(gdir, exist_ok=True)
-        rel = f"games/{g['id']}/{g['name']}"
+        rel = f"{g['sub']}/{g['id']}/{g['name']}"
         with open(os.path.join(out, rel), "wb") as f:
             f.write(g["data"])
         lines.append(b"game " + g["id"].encode())
@@ -335,7 +354,7 @@ def build(games, out, serial):
             p = png(*g["cover"])
             with open(os.path.join(gdir, "cover.png"), "wb") as f:
                 f.write(p)
-            lines.append(f"cover games/{g['id']}/cover.png {len(p)} {hashlib.sha256(p).hexdigest()}".encode())
+            lines.append(f"cover {g['sub']}/{g['id']}/cover.png {len(p)} {hashlib.sha256(p).hexdigest()}".encode())
     index = os.path.join(out, "index.txt")
     with open(index, "wb") as f:
         f.write(b"\n".join(lines) + b"\n")
@@ -344,9 +363,10 @@ def build(games, out, serial):
     return index
 
 
-def add(games, path, gid, version, lic, about, kind=None):
-    """a cartridge into GAMES: a new folder, or the same game updated (the
-    version changes only when the bytes do)"""
+def add(games, path, gid, version, lic, about, kind=None, apps=None):
+    """a cartridge into GAMES (APPS for an app, when APPS is given): a new
+    folder, or the same game updated (the version changes only when the
+    bytes do)"""
     data = open(path, "rb").read()
     try:
         title, author, _ = check_cart(data)
@@ -356,7 +376,11 @@ def add(games, path, gid, version, lic, about, kind=None):
     gid = gid or re.sub(r"[^a-z0-9-]+", "-", os.path.splitext(os.path.basename(path))[0].lower()).strip("-")[:23]
     if not ID_RE.match(gid):
         die(f"bad id {gid!r}: --id with a-z, 0-9 and '-'")
-    d = os.path.join(games, gid)
+    to_apps = bool(apps) and (kind == "app")
+    other = games if to_apps else apps
+    if other and os.path.isdir(os.path.join(other, gid)):
+        die(f"{gid}: the id is already in {other} (an id is in one folder only)")
+    d = os.path.join(apps if to_apps else games, gid)
     os.makedirs(d, exist_ok=True)
     name = os.path.basename(path)
     # the other kind (a .bm next to a .b16, Overbit or bm SDK) stays
@@ -376,7 +400,9 @@ def add(games, path, gid, version, lic, about, kind=None):
         info["license"] = lic
     if about:
         info["about"] = about
-    if kind:
+    if to_apps:
+        info.pop("kind", None)          # the folder says it
+    elif kind:
         info["kind"] = kind
     elif gid in APP_IDS:
         info.setdefault("kind", "app")
@@ -393,6 +419,7 @@ def add(games, path, gid, version, lic, about, kind=None):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("games")
+    ap.add_argument("--apps", help="second folder: the apps (same layout as GAMES)")
     ap.add_argument("-o", "--out")
     ap.add_argument("--check", action="store_true", help="only check the games")
     ap.add_argument("--serial", help="default: the time, YYYYMMDDhhmmss UTC")
@@ -405,7 +432,7 @@ def main():
     ap.add_argument("--license")
     ap.add_argument("--about")
     ap.add_argument("--about-file")
-    ap.add_argument("--kind", choices=("game", "app"), help="catalog page: game (default) or app")
+    ap.add_argument("--kind", choices=("game", "app"), help="catalog page: game (default) or app; app goes in --apps, if given")
     a = ap.parse_args()
 
     if a.add:
@@ -419,9 +446,9 @@ def main():
                 if sep and not line.startswith("#") and key.strip() == gid:
                     l_, _, ab = rest.partition("|")
                     lic, about = lic or l_.strip(), about or ab.strip()
-        add(a.games, a.add, a.id, a.version, lic, about, a.kind)
+        add(a.games, a.add, a.id, a.version, lic, about, a.kind, a.apps)
         return
-    games = read_games(a.games)
+    games = read_games(a.games, a.apps)
     if a.check:
         print(f"mkmarket: {len(games)} games, all right")
         return

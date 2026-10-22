@@ -56,6 +56,7 @@ SEC_SPRITES, SEC_LAYERS, SEC_FLAGS, SEC_BOXES = 11, 12, 13, 14
 SEC_INFO = 10
 INFO_MAX = 16 * 1024
 RESOLUTIONS = ["640x360", "480x270", "320x180", "256x256", "360x360", "720x720"]
+TYPES = {"game": 0, "app": 1, "utility": 2}   # bm.info "type:", bits 2-3 of the u16 at 18 (src/bm/project.h)
 
 
 def read_info(path):
@@ -228,6 +229,12 @@ def read_sprite_file(path, sheet_w=None, sheet_h=None):
                 raise SystemExit(f"{path}:{i}: frame 1-{frames} or *, w and h >= 1")
             boxes.append((zname, fr, kind, x, y, w, h))
             continue
+        slices, down = 0, False
+        if f[0] in ("stack", "stackv"):         # stack name x y w h n: n slices of w x h side by side;
+            down = f[0] == "stackv"             # stackv: one under the other (bit 0 of byte 27)
+            if len(f) != 7 or not f[6].isdigit() or not 2 <= int(f[6]) <= 255:
+                raise SystemExit(f"{path}:{i}: {f[0]} name x y w h n (n 2-255)")
+            slices, f = int(f[6]), f[1:6]
         if len(f) < 5 or len(f) > 7:
             raise SystemExit(f"{path}:{i}: name x y w h [frames [fps]]")
         name, (x, y, w, h), frames, fps = f[0], map(int, f[1:5]), int(f[5]) if len(f) > 5 else 1, \
@@ -236,16 +243,17 @@ def read_sprite_file(path, sheet_w=None, sheet_h=None):
             raise SystemExit(f"{path}:{i}: {name!r}: names are unique, at most {ZONE_NAME} bytes")
         if w < 1 or h < 1 or not 1 <= frames <= 16 or not 0 <= fps <= 255 or x < 0 or y < 0:
             raise SystemExit(f"{path}:{i}: w, h >= 1, frames 1-16, fps 0-255")
-        if sheet_w and (x + w * frames > sheet_w or y + h > sheet_h):
+        if sheet_w and (x + w * (frames if down else max(frames, slices)) > sheet_w
+                        or y + h * (slices if down else 1) > sheet_h):
             raise SystemExit(f"{path}:{i}: {name!r} is out of the sheet ({sheet_w}x{sheet_h})")
-        zones.append((name, x, y, w, h, frames, fps))
+        zones.append((name, x, y, w, h, frames, fps, slices | 0x100 if down else slices))
     if not 1 <= len(zones) <= SPRITES_MAX:
         raise SystemExit(f"{path}: 1 to {SPRITES_MAX} zones")
     if len(boxes) > BOXES_MAX:
         raise SystemExit(f"{path}: at most {BOXES_MAX} boxes")
     sprites = struct.pack("<HH", len(zones), 0) + b"".join(
-        n.encode().ljust(ZONE_NAME, b"\0") + struct.pack("<HHHHBBH", x, y, w, h, fr, fps, 0)
-        for n, x, y, w, h, fr, fps in zones)
+        n.encode().ljust(ZONE_NAME, b"\0") + struct.pack("<HHHHBBH", x, y, w, h, fr, fps, sl)
+        for n, x, y, w, h, fr, fps, sl in zones)
     return sprites, boxes_section(boxes)
 
 
@@ -448,12 +456,19 @@ def mark_project(data):
 
 
 def mark_b16(data):
-    """a .b16 cartridge (M42): bit 1 of the u16 at 18, square screen"""
+    """a .b16 cartridge: bit 1 of the u16 at 18, square screen"""
     out = bytearray(data)
     struct.pack_into("<H", out, 18, (struct.unpack_from("<H", out, 18)[0] & ~1) | 2)
     w, h = struct.unpack_from("<HH", out, 12)
     if w != h:
         struct.pack_into("<HH", out, 12, 360, 360)
+    return bytes(out)
+
+
+def mark_type(data, name):
+    """bits 2-3 of the u16 at 18: the type of bm.info (game 0, app 1, utility 2; src/bm/project.h)"""
+    out = bytearray(data)
+    struct.pack_into("<H", out, 18, (struct.unpack_from("<H", out, 18)[0] & ~12) | (TYPES[name] << 2))
     return bytes(out)
 
 
@@ -510,7 +525,7 @@ def lua_code_only(text):
 
 
 def b16_lint(data, label):
-    """checks of a .b16 cartridge (M42): raises SystemExit for a sheet of
+    """checks of a .b16 cartridge: raises SystemExit for a sheet of
     more than 256 colours, prints a warning (first occurrence only) for
     each system call of B16_LUA_CHECKS in its Lua"""
     secs = bmmesh.cart_sections(data)
@@ -677,6 +692,10 @@ def main():
             data = mark_project(data)
         elif a.b16 or a.output.lower().endswith(".b16"):
             data = mark_b16(data)
+        if info and info.get("type"):
+            if info["type"] not in TYPES:
+                raise SystemExit(f"{a.info}: type: {info['type']!r} must be game, app or utility")
+            data = mark_type(data, info["type"])
         title, res_str = a.title, a.res
     if a.b16 or a.output.lower().endswith(".b16"):
         b16_lint(data, a.output)

@@ -1,6 +1,6 @@
 # bm Market
 
-Free games for **bm**, the bare metal console for the Raspberry Pi Zero
+Free games and apps for **bm**, the bare metal console for the Raspberry Pi Zero
 ([f-accomando/bm](https://github.com/f-accomando/bm)).
 
 - On the console: the **Market** tab, first in the menu. A downloads a game,
@@ -10,9 +10,14 @@ Free games for **bm**, the bare metal console for the Raspberry Pi Zero
 
 Everything is free: no accounts, no payments.
 
-## Publishing a game
+## Publishing a game or an app
 
-Open a pull request that adds one folder to `games/`:
+The Market has two folders with the same layout: `games/` for games and
+`apps/` for apps (editors and tools, such as bm Code or bm Pixel). Put your
+item in the correct folder. Every item in `apps/` is an app. The console
+lists the apps in the **Apps** page of the Market.
+
+Open a pull request that adds one folder to `games/` (or to `apps/`):
 
 ```
 games/my-game/my-game.bm     the cartridge (a .bm for the Pi)
@@ -24,7 +29,8 @@ At most one `.bm` and one `.b16` per folder. The Pi lists the `.bm` games, the
 RGB30 the `.b16` ones.
 
 - **The folder's name is the game's id**: `a-z`, `0-9` and `-`, at most 23
-  characters. It never changes: the console recognises updates by it.
+  characters. It never changes: the console recognises updates by it. An id
+  exists in one folder only: `games/` or `apps/`, never both.
 - **info.txt**:
 
   ```
@@ -51,15 +57,18 @@ published: the consoles see the game the next time they open the Market.
 Locally, from a clone of bm next to this one:
 
 ```sh
-python3 ../bm/scripts/mkmarket.py games --check
-python3 ../bm/scripts/mkmarket.py games --add my-game.bm --version 1.0 --license MIT --about "..."
+python3 ../bm/scripts/mkmarket.py games --apps apps --check
+python3 ../bm/scripts/mkmarket.py games --apps apps --add my-game.bm --version 1.0 --license MIT --about "..."
+python3 ../bm/scripts/mkmarket.py games --apps apps --add my-app.bm --kind app --version 1.0 --license MIT --about "..."
 ```
 
 ## How it works
 
-- `games/` is the catalog. On every push to `main` the workflow
+- `games/` and `apps/` are the catalog. The two folders give one
+  `index.txt`: an app has a `kind app` line, so a console that is not new
+  sees the same format. On every push to `main` the workflow
   (`.github/workflows/market.yml`) runs `scripts/mkmarket.py` of bm: it
-  checks every game, writes `index.txt` (ids, titles, sizes, SHA-256 of
+  checks every item, writes `index.txt` (ids, titles, sizes, SHA-256 of
   every file), the covers (PNG) and `index.html`, signs `index.txt` with
   the secret `BM_MARKET_KEY` (ECDSA P-256) and publishes everything with
   GitHub Pages.

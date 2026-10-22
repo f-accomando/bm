@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
+name: Hero Stress
+desc: A plaza with walking heroes. Change the hero count, the polygon level and the 3D options in real time, and read the cost.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 0.1
+tags: tool, 3d, benchmark
+type: utility
+resolution: 640x360

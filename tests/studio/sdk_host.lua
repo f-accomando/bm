@@ -593,6 +593,8 @@ local function play_template(code, name)
   local G = {}
   for k, v in pairs(E) do G[k] = v end
   G._init, G._update, G._draw = nil, nil, nil       -- (the SDK's own)
+  G.save = function() return true end
+  G.saved = function() return nil end
   local held = {}
   G.btn = function(i) return held[i] == true end
   G.btnp = function(i) return held[i] == true end
@@ -634,7 +636,7 @@ check(sees("CONTENTS"), "F1 again: the project")
 -- each template: a new project with its code (which compiles and runs on
 -- the stand-ins), its sprites and its map
 local names = { "Empty 2D", "Platform 2D", "Top-down 2D", "Shooter 2D", "Versus 2D", "Online 2D", "3D scene",
-                "3D with models" }
+                "3D with models", "Stages 2D" }
 for i, nm in ipairs(names) do
   key("^n")
   check(sees("new project from a template"), "Ctrl+N: the templates")
@@ -766,7 +768,7 @@ frames(5)
 check(sees("59.9 fps") and sees("RAM 510k peak"), "the dev kit: the last try")
 
 -- the target .b16: the cap and what the format will not have (the shooter
--- uses math.random); M42 step 4: sets square 360x360 and Ctrl+B builds .b16
+-- uses math.random); .b16 profile, step 4: sets square 360x360 and Ctrl+B builds .b16
 run_sdk({ path = "/carts/T4.BME" })
 frames(10)
 check(sees("Shooter 2D"), "the shooter opened")

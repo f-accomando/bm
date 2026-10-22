@@ -2,6 +2,7 @@
 """Audit of the tracking docs, for the docs-loop skill.
 
   docs_audit.py score [--json]   one number (lower is better) and what makes it up
+  docs_audit.py check            list the broken links and the named files that are missing (exit 1 if any)
   docs_audit.py rereads          most re-read files and tips, from the crab-ledger report
   docs_audit.py repeats [DAYS]   prompts and commands repeated across sessions (skill candidates)
   docs_audit.py log SCORE keep|discard "what changed"   append to .claude/docs-loop/results.tsv
@@ -22,6 +23,8 @@ LOOP = os.path.join(ROOT, ".claude", "docs-loop", "results.tsv")
 INDEX = "docs/progress.md"
 LIMIT_LINES = 120
 P_ORPHAN, P_BROKEN, P_BIG, P_DUP = 500, 300, 200, 50
+CLAUDE_MD_LIMIT = 7500        # bytes; tests/tools/test_claude_glossary.py reads the same constant
+P_CLAUDE = 500
 
 
 def rd(rel):
@@ -50,6 +53,30 @@ def md_links(rel):
         yield os.path.normpath(os.path.join(base, m.group(1))).replace("\\", "/")
 
 
+def broken(files):
+    """Messages for the broken links and the missing files named in `files` (each one costs P_BROKEN in the score)."""
+    msgs = []
+    for f in files:
+        for l in md_links(f):
+            if not os.path.exists(os.path.join(ROOT, l)):
+                msgs.append(f"broken link in {f}: {l}")
+        for m in re.finditer(r"`((?:docs|scripts|src|carts|tests)/[\w./-]+\.\w+)`", rd(f)):
+            p = m.group(1)
+            vague = "/." in p or (not p.startswith(("docs/", "scripts/")) and p.count("/") < 2)
+            if not vague and "*" not in p and not os.path.exists(os.path.join(ROOT, p)) and not p.endswith(("-IT.md",)):
+                msgs.append(f"missing file named in {f}: {p}")
+    return msgs
+
+
+def cmd_check():
+    msgs = broken(tracked())
+    for m in msgs:
+        print("  !", m)
+    if msgs:
+        sys.exit(1)
+    print("docs_audit: 0 broken")
+
+
 def cmd_score(as_json):
     files = tracked()
     always = tok("CLAUDE.md") + tok(INDEX)
@@ -60,15 +87,8 @@ def cmd_score(as_json):
     for f in files[2:]:
         if f not in linked:
             pen.append((P_ORPHAN, f"orphan: {f} is not linked from the index"))
-    for f in files:
-        for l in md_links(f):
-            if not os.path.exists(os.path.join(ROOT, l)):
-                pen.append((P_BROKEN, f"broken link in {f}: {l}"))
-        for m in re.finditer(r"`((?:docs|scripts|src|carts|tests)/[\w./-]+\.\w+)`", rd(f)):
-            p = m.group(1)
-            vague = "/." in p or (not p.startswith(("docs/", "scripts/")) and p.count("/") < 2)
-            if not vague and "*" not in p and not os.path.exists(os.path.join(ROOT, p)) and not p.endswith(("-IT.md",)):
-                pen.append((P_BROKEN, f"missing file named in {f}: {p}"))
+    for m in broken(files):
+        pen.append((P_BROKEN, m))
     for f in files[2:]:
         n = rd(f).count("\n")
         if n > LIMIT_LINES:
@@ -82,6 +102,9 @@ def cmd_score(as_json):
     for t, fs in seen.items():
         if len(fs) > 1:
             pen.append((P_DUP, f"duplicated in {', '.join(sorted(fs))}: {t[:50]}…"))
+    claude_bytes = os.path.getsize(os.path.join(ROOT, "CLAUDE.md"))
+    if claude_bytes > CLAUDE_MD_LIMIT:
+        pen.append((P_CLAUDE, f"CLAUDE.md has {claude_bytes} bytes (limit {CLAUDE_MD_LIMIT}): move detail to docs/progress/"))
     entry = [f for f in ("docs/progress.md",) if "docs/progress.md" in rd("CLAUDE.md")]
     if not entry:
         pen.append((2000, "CLAUDE.md does not point to the single index docs/progress.md"))
@@ -89,12 +112,14 @@ def cmd_score(as_json):
     res = {
         "score": round(score), "always_loaded": round(always), "mean_area": round(mean_area),
         "penalty": sum(p for p, _ in pen), "penalties": [m for _, m in pen],
+        "claude_bytes": claude_bytes,
         "files": {f: round(tok(f)) for f in files},
     }
     if as_json:
         print(json.dumps(res, indent=1))
         return
     print(f"score {res['score']}  (always loaded {res['always_loaded']} + mean area {res['mean_area']} + penalties {res['penalty']})")
+    print(f"CLAUDE.md {res['claude_bytes']} bytes (limit {CLAUDE_MD_LIMIT})")
     for f, t in sorted(res["files"].items(), key=lambda x: -x[1])[:6]:
         print(f"  {t:6d} tok  {f}")
     for m in res["penalties"][:15]:
@@ -189,6 +214,8 @@ if __name__ == "__main__":
         cmd_repeats(int(a[0]) if a else 30)
     elif c == "log" and len(a) >= 2:
         cmd_log(a)
+    elif c == "check":
+        cmd_check()
     elif c == "best":
         cmd_best()
     else:

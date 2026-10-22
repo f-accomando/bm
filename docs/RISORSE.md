@@ -1,6 +1,6 @@
 # Resources: one file per resource and the Lib tab
 
-Italian version: [RISORSE-IT.md](RISORSE-IT.md).
+
 
 Proposal of 2026-10-03, in progress on the `claude/lib-risorse` branch. It describes the files
 that carry **a resource outside a `.bm`** (models, images, sounds, maps, palettes),

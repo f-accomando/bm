@@ -1,13 +1,13 @@
 # Agent workflow: review, audit, barriers and confidence (draft Work Orders)
 
-> Draft of 2026-10-14 by SPV (Claude local), to be planned with `bm-planner` before anyone codes it. Context: the owner asked how our subagents compare with another tool's autonomous workflow (one orchestrator, eight steps with a confidence gate, specialised agents including a reviewer, hard guardrails). What we already have is in `CLAUDE.md` §3 and `.claude/agents/`; lessons from running three operators are in [`progress/sync-workflow.md`](../progress/sync-workflow.md).
+> Draft of 2026-10-14 by SPV (Claude local), to be planned with `bm-planner` before anyone codes it. Context: the owner asked how our subagents compare with another tool's autonomous workflow (one orchestrator, eight steps with a confidence gate, specialised agents including a reviewer, hard guardrails). What we already have is in `docs/agents/routing.md` (CLAUDE.md Glossary: Roles) and `.claude/agents/`; lessons from running three operators are in [`progress/sync-workflow.md`](../progress/sync-workflow.md).
 
 ## What we already have that looks like review/audit
 
 | Tool | What it checks | Used by |
 |---|---|---|
 | `scripts/manuals.py` (`status`, `check <id>`, `stamp <id>`, `build`) and the skill `bm-manuals` | each manual against the code, that English and Italian say the same, and what is behind; `stamp` records the state that was checked | the PDF manuals work: *write, `check` until it passes, then `stamp`* is a review loop with a recorded result |
-| `scripts/docs_audit.py score` | broken links, orphan files, tokens always loaded | every task closing (`CLAUDE.md` §5) |
+| `scripts/docs_audit.py score` | broken links, orphan files, tokens always loaded | every task closing (`CLAUDE.md` §3) |
 | `scripts/consistency.py check` / `gate` | formats, API, config keys, `divergences.toml` against the code | every task touching formats, API or config |
 | `video/3d/check_series.py`, `video/3d/NN/verify.py` | the series docs against each other, and each recording against what it must contain | the video series |
 | `/code-review` | a diff, by a model | on request |
@@ -32,7 +32,7 @@ What is missing is **a step and an agent that ties them together**: today whoeve
 ## WO-REV-2 — agent `bm-reviewer` (`.claude/agents/bm-reviewer.md`)
 
 - **Objective**: a read-only reviewer that turns a diff into a verdict, using `review.py` and a fixed checklist.
-- **Files**: new `.claude/agents/bm-reviewer.md`; a mention in `CLAUDE.md` §3 table (one row) and §5 (step 0: "before closing a branch, `bm-reviewer`").
+- **Files**: new `.claude/agents/bm-reviewer.md`; a mention in the roles table of `docs/agents/routing.md` (`### Roles`, one row) and §5 (step 0: "before closing a branch, `bm-reviewer`").
 - **Definition**: model Sonnet, effort medium; tools `Read`, `Grep`, `Glob` and Bash limited to `python scripts/review.py`, `git diff`, `git log`, `make` and the verification commands of the Work Order. No `Edit`/`Write`.
 - **Input**: the Work Order (or a one-line goal) and the branch. **Checklist** (each item answered `ok`, `not ok: …` or `not checked: why`):
   1. the diff touches only the files the Work Order names (or says why more);
@@ -40,7 +40,7 @@ What is missing is **a step and an agent that ties them together**: today whoeve
   3. `review.py` plan: every `run` check passed, every `listed` check was run or is declared not run;
   4. the **old behaviour is unchanged**: for a change that adds a case (a new layout, a new key, a new target), the old case has a test or the same output; when it cannot be tested the report says so;
   5. the new code is **reachable**: something builds or calls it by default or by a documented option (the 360×360 hole of AGY-09 was code that nothing activated);
-  6. rules of the area (`## Rules (do not break)` of `docs/progress/<area>.md`) and the invariants of `CLAUDE.md` §4 are respected;
+  6. rules of the area (`## Rules (do not break)` of `docs/progress/<area>.md`) are respected;
   7. docs: the area's `## Open work` is updated and `docs_audit.py score` has no penalties;
   8. no secrets, no GPL code, no file larger than the repo's limits.
 - **Output**: `APPROVE`, `CHANGES: <list>` or `BLOCKED: <reason>` (the same vocabulary as the other agents), then at most 15 lines. It never edits; fixes go back to the executing agent.
@@ -76,7 +76,7 @@ Each takes under 45 minutes. WO-REV-2 is the one that would have saved most in t
 
 ## Readiness Gate and confidence gate: how they differ
 
-- The **Readiness Gate** (`CLAUDE.md` §3) is five yes/no questions about the **task as written**, asked *before* assigning it: files named, a deterministic diff, a verification command, ≤ 3 files, no pending decision. Anyone can check the answers on the text. Its result is a **routing**: ready → a cheap executor; not ready → the planner.
+- The **Readiness Gate** (`docs/agents/routing.md`, `### Readiness Gate`) is five yes/no questions about the **task as written**, asked *before* assigning it: files named, a deterministic diff, a verification command, ≤ 3 files, no pending decision. Anyone can check the answers on the text. Its result is a **routing**: ready → a cheap executor; not ready → the planner.
 - A **confidence gate** (the other tool's, as far as can be said from its name and description: we have not seen its definition) asks the **agent how sure it is** of its own analysis or result, at a step of the workflow, and stops or asks when it is low. It is about the output, it is a judgement of the agent and its meaning depends on how it is defined.
 - They overlap in the aim (do not go on when uncertain) and differ in the **subject** (the specification versus the agent's understanding), the **time** (before executing versus during/after each step) and the **objectivity** (checkable versus self-reported). A self-reported confidence is the weak one: models are often confident and wrong; this is why WO-CONF-1 ties `alta` to listed evidence and a baseline run, and why the other objective signals we have stay: `FAILED x2` escalation, `verify.py`, and the review.
 - Together: Readiness Gate (is it specified?) → planner with evidence-based confidence (do we know?) → a probe when confidence is not high → verification command → reviewer.

@@ -26,7 +26,7 @@ All numbers are little endian.
 | 12, 14 | u16, u16 | width, height | cartridge: only 640x360, 480x270, 320x180, 256x256, 360x360. In a resource file offset 12 is the **kind** (1..6) |
 | 16 | u8 | pixel format | only 1 (RGB565); 2 is reserved and refused |
 | 17 | u8 | number of sections | up to 255 |
-| 18 | u16 | flags | bit 0 project, bit 1 `.b16` (defined in `project.h`, not in `bm.h`, whose comment still says "reserved (0)"). **No code reads these bits**: the kind comes from the extension. Writers keep the other bits |
+| 18 | u16 | flags | bit 0 project, bit 1 `.b16`, bits 2-3 the type declared in `bm.info` (0 game, 1 app, 2 utility, 3 reserved = game); defined in `project.h`, not in `bm.h`, whose comment still says "reserved (0)". `mkbm.py` writes the type bits and `bm_type_of_head()` reads them; no kernel uses them for the menu yet (D09). The project/`.b16` kind still comes from the extension. Writers keep the other bits |
 | 20 | u32 | CRC-32 | of the bytes from 128 to the end of the file. The **header is not covered** |
 | 24 | 48 | title | UTF-8, up to 47 bytes + NUL; shown by the menu |
 | 72 | 32 | author | up to 31 bytes + NUL |
@@ -57,7 +57,7 @@ ignored. If a type is repeated, the **last** one wins in the kernel (the Python 
 | 8 | MESH | u16 models (1..256), u16 inset, u32 reserved; per model a 24-byte header, vertices (3 f32), faces (24 bytes) | vertices and faces 1..65535; first byte of the name nonzero; finite floats below 1e6; indices valid; size exact. Names are **not** checked to be unique |
 | 9 | ANIM | u16 rigs, then rigs | bones 1..64, clips 0..255, keys 1..1024, times non-decreasing and within the length, parents before children; size exact. The rig is **not** checked against its model |
 | 10 | INFO | UTF-8 text `key: value` lines, then `[type name]` blocks | at most 16 KiB (an oversized one is silently dropped in a cartridge, an error in a resource file). Keys: `name desc author license` (SPDX) `version tags origin` (SHA-256) `date`; unknown keys are kept. UTF-8 is not validated |
-| 11 | SPRITES | u16 zones (1..1024), u16 reserved, 28-byte zones | name unique and nonempty; w, h >= 1; frames 1..16; every zone inside the sheet. A broken one is dropped, not fatal, in a cartridge |
+| 11 | SPRITES | u16 zones (1..1024), u16 reserved, 28-byte zones | name unique and nonempty; w, h >= 1; frames 1..16; every zone inside the sheet. The u16 at byte 26 of a zone (zero before) is `slices`, its low byte: 0 for a plain zone, 2..255 for a stack zone (sprite stacking: `slices` boxes of w x h to the right, `frames` 1); the zone must fit `max(frames, slices)` boxes. Bit 0 of the high byte (byte 27) is `vertical`: the slices lie one under the other (`stackv`, the zone must fit `w x frames` by `h x slices`); it counts only with `slices` 2 or more, and the other bits stay zero. The field was reserved as zero, so the format version stays 1 and an older reader sees a plain zone. A broken one is dropped, not fatal, in a cartridge |
 | 12 | LAYERS | u16 w, h, nlayers (2..8, MAP counted), u16 reserved, names (16 each), cells of layers 2..n | needs MAP of the same size; **fatal** when wrong. Without it the map has one layer, `main` |
 | 13 | FLAGS | u16 per_row, u16 rows, bytes | size exact; **fatal** when wrong; not compared with the sheet |
 | 14 | BOXES | u16 n (1..4096), u16 reserved, 28-byte boxes | each box names a zone of SPRITES and a valid frame. A broken one is dropped, not fatal, in a cartridge |

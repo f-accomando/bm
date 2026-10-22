@@ -42,12 +42,15 @@ enum {
     MENU_ROW_SUB,               /* A opens another panel: "label  value >" */
     MENU_ROW_CHOICE,            /* left/right (or A) change the value: "< value >" */
     MENU_ROW_INFO,              /* only shows a value */
+    MENU_ROW_BAR,               /* only draws `bar`: the label on the left, up to 5 parts of the width on the right */
 };
 
 typedef struct {
     const char *label;
     const char *value;          /* on the right, or NULL */
     int kind;
+    const uint16_t *bar;        /* MENU_ROW_BAR: 5 parts of the bar in 1/1000, in order (the rest is the background) */
+    uint32_t swatch;            /* 0xRRGGBB square before the label, 0: none */
 } menu_row_t;
 
 #define MENU_PANEL_ROWS 6       /* rows visible at once; the list scrolls */
@@ -121,6 +124,7 @@ typedef struct {
     int charging;               /* ...and the bolt on the charger */
     int prompts;                /* MENU_PROMPTS_*: the device pressed last... */
     int prompts_colour;         /* ...the DS4's face buttons in their colours */
+    const char *ok_btn, *back_btn;  /* MENU_PROMPTS_RGB30: the face buttons ("A".."Y") of OK and Cancel; NULL: B and Y */
     int confirm_b;              /* MENU_PROMPTS_PAD, _RGB30: confirm is B, back A (the RGB30) */
     int no_monitor;             /* no monitor to go to (the RGB30): no hint for it */
     int keys_help;              /* F12 is held: the keys over everything (the system's, the menu's) */

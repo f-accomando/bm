@@ -1,5 +1,5 @@
 /*
- * The ETC1 blocks of src/gpu/etc1.c (M39, bm3d 7.3): the decoder against
+ * The ETC1 blocks of src/gpu/etc1.c (bm3d 7.3): the decoder against
  * blocks written by hand from the format's bit layout, the encoder's
  * blocks decoded back against their RGB565 texels (PSNR and the worst
  * channel), the same bits every time, and its speed.

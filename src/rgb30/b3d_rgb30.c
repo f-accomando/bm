@@ -3,7 +3,7 @@
  * the 640x360 video mode (made as big as the panel), the Cortex-A55's
  * counters (cycles, instructions, L1 data cache refills), the reports in
  * /bm/bench on the SD card, the console's buttons. The 3D is the ARM's
- * (the Mali runs jobs but does not draw yet, M41), so every GPU row is
+ * (the Mali runs jobs but does not draw yet), so every GPU row is
  * skipped.
  */
 #include "b3d_rgb30.h"
@@ -149,7 +149,7 @@ void rgb30_bench3d(framebuffer_t *fb)
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
     static char machine[96];
-    const int mali = rgb30_gpu_result(NULL);       /* M41: what Dev > GPU test found */
+    const int mali = rgb30_gpu_result(NULL);       /* what Dev > GPU test found */
     char ms[40];
     if (mali == 1)
         ksnprintf(ms, sizeof ms, "not tested (Dev > GPU test)");
