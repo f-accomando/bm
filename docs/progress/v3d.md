@@ -95,7 +95,7 @@ Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [
 2. Impostors: Pi runs at `r3d_impostor` 16, 32 with the new threshold (8 = 2.7 render px
    at 640x360, no effect: session at 8 gave 57.7 fps, GPU 7.8 ms a frame, 8588 tris), photo of
    far heroes; then the default for crowds (billboard impostors).
-3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs.
+3. Chain two jobs in hardware (CT0/CT1) only if a measurement shows the GPU idle between jobs. Read `bin_us`, `rnd_us` first (`b3d tests=herotris`, 3 runs; not run on the Pi).
 4. Remaining work of bm3D 5.0-7.3. 16-bit and ETC1 textures: the Pi shows no gain (21 Oct), so
    they stay off. Reopen them only if a played Overbit at 1080p shows a gain. Attributes:
    `vs_tex_rgb` light as bytes (8 -> 6 words), `vs_lit_tex`/`vs_lit_tex2` flags
