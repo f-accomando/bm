@@ -50,6 +50,10 @@ The editors keep their own keyboard model; the standard above is for games. See 
 
 ---
 
+## 6b. Player remap (CONTROLS-1)
+
+Settings > Controls (after Controllers) lets the player change, per scheme, the button of each action: Scroller games (act1-act4), Top-down games (act1-act4), Stick games (act1-act8), Pause and menus (pause, and on the RGB30 the menus' OK and Cancel). Movement and the shoulders of the scroller and top-down schemes are not remappable. The choice is global, stored in `controls=` of `bm/config.txt` (`docs/spec/config-keys.toml`); an action left on Default keeps the game's own button. A game declares its scheme with `lib.input({scheme=})`, which calls `controls(scheme)`; the runtime then replaces the game's buttons of the remapped actions in `keymap()` and again when the game resumes. The player's remap overrides a game's declared exception. The keyboard stays as is (the panel shows it). Access from inside a game: not yet.
+
 ## 7. Decided and Open
 
 Decided by the user on 19 Oct 2026: menus B ok / Y cancel with A no back; the three gameplay schemes of section 2 (each game declares its scheme); keyboard Enter = ok and Esc = back and pause; existing games migrate to `lib.input` one by one as they are fixed; the bindings become mappable from Settings > Controls (CONTROLS-1).

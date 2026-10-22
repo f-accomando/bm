@@ -361,6 +361,7 @@ Pulsanti, tastiera, mouse e giocatori.
 | `keymap(t)` | assegna le **azioni** del gioco ai pulsanti (vedi sotto) |
 | `keymap()` | restituisce la tabella |
 | `keymap(nil)` | toglie la tabella |
+| `controls([scheme])` | la rimappatura del giocatore da Impostazioni > Controls: `controls()` la legge, `controls("scroller"\|"topdown"\|"stick")` sceglie lo schema del gioco (lo fa `lib.input`) |
 | `controller([p])` | restituisce con cosa gioca il giocatore `p` (1–4, il primo se manca) (vedi sotto) |
 | `online([on, note])` | dice al sistema che la partita si gioca in **rete** (vedi sotto) |
 | `players()` | quanti giocatori hanno un controller (almeno 1) e, come secondo valore, quali: il bit `n` = giocatore `n+1` (per esempio `3, 7` = giocatori 1, 2 e 3) |
