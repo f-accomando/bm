@@ -338,12 +338,12 @@ Hardware: nothing here is verified on a Pi or an RGB30. QEMU does not prove hard
 1. **Market and grey.** Decided (user, 22 Oct, option 1 for now): the Market lists incompatible items greyed, with the reason ("for the RGB30 only"). The rule is data, not code: one editable table (a compat policy file) says, per kernel, whether an item shows, greys, or hides. A new kernel changes the table, not the client.
 2. **Soft limit.** Decided (user, 22 Oct, option 2): no size warning. The Market ceiling stays at 100 MiB. The user wants a developer kit instead: (a) a weight report of a `.bme` or `.bm` (bytes per section, per asset, biggest items first), and (b) a performance analysis of the game during development (frame time, draw and 3D cost, memory, SD reads) to guide optimization. Both reuse the dev kit and the benchmark tools. Staged in section 6.
 3. **Old `.b16` files.** Decided (user, 22 Oct, option 1): an old `.b16` gets targets Pi + RGB30 (kernel8), because the Pi plays `.b16` today and the RGB30 was the main target. Old `.bm` files stay Pi only.
-4. **Start a greyed cart?** Is grey a lock, or may the user start the cart after a confirm ("not made for this device")? The study proposes a confirm.
-5. **Audio.** Raise `AU_PCM_MAX` to 8M values in stage 1, or keep it for a separate PR?
-6. **Pad cursor.** May the kernel emulate the mouse with the right stick for carts that declare `mouse_optional`? It changes what `mouse()` returns on the RGB30 (today: no pointer).
-7. **Games on a new ratio.** For existing games, is "bars" (G1) acceptable on both devices, and is "extend the view" (G2) only for new games?
-8. **Aspect on the RGB30.** Add the 720x405 letterbox mode to `screen()`? It lets wide carts run, but the picture is 56% of the panel.
-9. **Name.** After the change, is the extension `.bm` for all, or do apps keep their own (`.bme` projects stay)?
+4. **Start a greyed cart?** Decided (user, 22 Oct, option 1): grey is not a lock. The user may start the cart after a confirm ("not made for this device").
+5. **Audio.** Decided (user, 22 Oct, option 1): raise `AU_PCM_MAX` to 8M values in stage 1, with the other limits.
+6. **Pad cursor.** Decided (user, 22 Oct, option 1): the kernel emulates the mouse with the right stick for carts that declare `mouse_optional`.
+7. **Games on a new ratio.** Decided (user, 22 Oct, option 1): existing games get bars (G1) on both devices. G2 (extend the view) is for new games only.
+8. **Aspect on the RGB30.** Decided (user, 22 Oct, option 1): add the 720x405 letterbox mode to `screen()`.
+9. **Name.** Decided (user, 22 Oct, option 1): the extension is `.bm` for all games and apps. `.bme` projects stay.
 
 ---
 
