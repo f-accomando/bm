@@ -1242,6 +1242,26 @@ local function centre_of(it, list)
   return c
 end
 
+-- The pivot of rotate and scale (APP-26, Shift+O): "centre" (the middle of the choice), "origin" (0, 0, 0)
+-- or "base" (the middle in x and z, the lowest y of the choice). src[i] is the position of vertex i.
+-- With the live mirror a counterpart is the mirror image of its vertex, so it turns about the mirrored pivot.
+ed.pivot = "centre"
+function ed.pivot_of(src, list)
+  if ed.pivot == "origin" then return { 0, 0, 0 } end
+  local c, lo = { 0, 0, 0 }, nil
+  for _, i in ipairs(list) do
+    for k = 1, 3 do c[k] = c[k] + src[i][k] end
+    if lo == nil or src[i][2] < lo then lo = src[i][2] end
+  end
+  for k = 1, 3 do c[k] = c[k] / max(1, #list) end
+  if ed.pivot == "base" then c[2] = lo or 0 end
+  return c
+end
+
+function ed.pivot_text()
+  return ed.pivot ~= "centre" and ("PIVOT " .. ed.pivot) or nil
+end
+
 ----------------------------------------------------------------- edges (select mode "e")
 -- ed.se is { [edge key] = order } (B.G.edge_key); ed.sv always holds the ends
 -- of the chosen edges, so the tools and the commands that work on vertices
@@ -1553,7 +1573,7 @@ local function tool_start(kind, axis, keep)
     local fn = unit(normal_of(it, it.f[fi]))
     for k = 1, 3 do n[k] = n[k] + fn[k] end
   end
-  ed.tool = { kind = kind, vs = vs, base = base, c = centre_of(it, vs), n = unit(n), axis = axis, buf = "",
+  ed.tool = { kind = kind, vs = vs, base = base, c = ed.pivot_of(it.v, vs), n = unit(n), axis = axis, buf = "",
               d = { 0, 0, 0 }, m = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }, s = { 1, 1, 1 }, deg = 0 }
   ed.tool.e = ed.tool.d                  -- the move after the snap (the same without it)
   ed.tool.lead = min(table.unpack(vs))   -- the leader: the snap works on this vertex
@@ -1662,6 +1682,15 @@ local function tool_apply()
   it.view = nil
 end
 
+function ed.cycle_pivot()
+  ed.pivot = ed.pivot == "centre" and "origin" or (ed.pivot == "origin" and "base" or "centre")
+  local t = ed.tool
+  if t and t.kind ~= "move" then t.c = ed.pivot_of(t.base, t.vs); tool_apply() end
+  say(ed.pivot == "centre" and "pivot: the middle of the choice (Shift+O: origin)" or
+      ("PIVOT " .. ed.pivot .. (ed.pivot == "origin" and " (0, 0, 0)" or " (the lowest point of the choice)") ..
+       " for rotate and scale (Shift+O: next)"), ed.pivot == "centre" and C_DIM or C_ACC, 140)
+end
+
 function ed.cycle_prop()
   ed.prop = (ed.prop + 1) % (#ed.prop_steps + 1)
   local t = ed.tool
@@ -1741,6 +1770,7 @@ local function tool_key(k)
   if k == "esc" or k == "back" then tool_cancel(); return end
   if ed.tool_type_key(t, k) then return end
   if k == "P" then ed.cycle_prop(); return end
+  if k == "O" then ed.cycle_pivot(); return end
   t.buf = ""
   if k == "x" or k == "y" or k == "z" then
     local a = (k == "x" and 1) or (k == "y" and 2) or 3
@@ -2684,6 +2714,7 @@ local COMMANDS = {
   { "Box select (z)", "z" }, { "Hide the choice (y)", "y" }, { "Isolate the choice (Y)", "Y" },
   { "Show all hidden", function() ed.show_all() end },
   { "Soft move: radius off, 0.25, 0.5, 1, 2 (P)", "P" },
+  { "Pivot of rotate and scale: centre, origin, base (O)", "O" },
   { "Reference pictures: front, side (R)", "R" },
   { "Import a model: /bmm, /glb (Ctrl+I)", "^i" }, { "Export to /bmm (Ctrl+E)", "^e" },
 }
@@ -2797,6 +2828,7 @@ function edit_key(k)
   elseif k == "y" then ed.hide_choice()
   elseif k == "Y" then ed.isolate_choice()
   elseif k == "P" then ed.cycle_prop()
+  elseif k == "O" then ed.cycle_pivot()
   elseif k == "R" then ed.ref_dialog()
   elseif k == "B" then ed.bone_dialog()
   elseif k == "v" then ed.toggle_bone_view()
@@ -2979,6 +3011,7 @@ function draw_edit()
   if ed.mirror then rectfill(W - 72, 16, 64, 8, C_BG); print("MIRROR X", W - 72, 16, C_ACC) end
   local st = {}                                 -- the tools' states, right of the second row
   if ed.snap ~= 0 then st[#st + 1] = ed.snap_text("") end
+  if ed.pivot_text() then st[#st + 1] = ed.pivot_text() end
   if ed.prop > 0 then st[#st + 1] = "SOFT " .. num(ed.prop_steps[ed.prop]) end
   local nh = ed.hidden_count(it)
   if nh > 0 then st[#st + 1] = nh .. " HIDDEN" end
@@ -3003,8 +3036,10 @@ function draw_edit()
   end
   if ed.pal then ed.draw_palette() end
   if ed.tool then
-    hint({ { { "up", "down", "left", "right" }, "change" }, { { "x", "y", "z", "n" }, "axis" }, { { "0" }, "number" }, { { "shift", "p" }, "soft" },
-           { { "enter" }, "done" }, { { "esc" }, "cancel" } })
+    local hl = { { { "up", "down", "left", "right" }, "change" }, { { "x", "y", "z", "n" }, "axis" }, { { "0" }, "number" }, { { "shift", "p" }, "soft" },
+                 { { "enter" }, "done" }, { { "esc" }, "cancel" } }
+    if ed.tool.kind ~= "move" then hl[#hl + 1] = { { "shift", "o" }, "pivot" } end
+    hint(hl)
   elseif ed.box then
     hint({ { { "up", "down", "left", "right" }, "corner" }, { { "enter" }, "choose" }, { { "space" }, "add" }, { { "esc" }, "cancel" } })
   elseif ed.pal then hint({ { { "up", "down", "left", "right" }, "colour" }, { { "enter" }, "take it" }, { { "esc" }, "close" } })
@@ -3063,6 +3098,7 @@ local HELP = {
     { "m / shift m", "mirror left-right / copy across 0" },
     { "z", "box select: the arrows move the corner, Enter chooses, Space adds (or drag the left mouse button)" },
     { "y / shift y", "hide the choice / isolate it (hide all else); with no choice they show all again" },
+    { "shift o", "pivot of rotate and scale: the middle of the choice, the origin (0, 0, 0), the base (lowest point); shown as PIVOT in the header; also inside r and t; not saved" },
     { "shift p", "soft move: the neighbours follow a move less and less (radius off, 0.25, 0.5, 1, 2; also inside g)" },
     { "0-9 . -", "in g r t: type the exact value (axis x y z n first; Backspace)" },
     { "shift r", "reference pictures: a front and a side from /pics behind the model (views 1 and 3)" },

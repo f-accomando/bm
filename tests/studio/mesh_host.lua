@@ -2428,6 +2428,91 @@ do
   key("a")                                       -- none
   check(#changed(m0, mdl()) == 0 and sees(": 0 chosen"), "numeric entry: the cube is as at the start")
 
+  ---------------------------------------------------------------- pivot of rotate and scale (APP-26, Shift+O)
+  do
+    local ly = math.huge
+    for i = 1, 8 do ly = math.min(ly, mr0.verts[i][2]) end
+    check(not sees("PIVOT"), "pivot: nothing in the header for the centre")
+    check(math.abs(cx) > 1e-4 or math.abs(cy) > 1e-4 or math.abs(cz) > 1e-4, "pivot: the test cube is not centred on the origin")
+    key("a")
+    check(sees("8 chosen"), "pivot: all 8 chosen")
+    key("O")
+    check(sees("PIVOT origin") and status():find("PIVOT origin", 1, true), "Shift+O: origin (" .. status() .. ")")
+    key("t", "2", "\n")
+    save()
+    local mo = mdl()
+    local ok = true
+    for i = 1, 8 do for k = 1, 3 do if not same(mo.verts[i][k], 2 * mr0.verts[i][k]) then ok = false end end end
+    check(ok, "pivot origin: scale 2 doubles the coordinates")
+    key("^z")
+    key("r", "y", "9", "0", "\n")
+    save()
+    mo = mdl()
+    ok = true
+    for i = 1, 8 do
+      local v = mr0.verts[i]
+      if not (same(mo.verts[i][1], v[3]) and same(mo.verts[i][2], v[2]) and same(mo.verts[i][3], -v[1])) then ok = false end
+    end
+    check(ok, "pivot origin: rotate y 90 about (0, 0, 0)")
+    key("^z")
+    key("O")
+    check(sees("PIVOT base"), "Shift+O: base (" .. status() .. ")")
+    key("t", "2", "\n")
+    save()
+    local mb = mdl()
+    ok = true
+    for i = 1, 8 do
+      local v = mr0.verts[i]
+      if not (same(mb.verts[i][1], cx + 2 * (v[1] - cx)) and same(mb.verts[i][2], ly + 2 * (v[2] - ly)) and same(mb.verts[i][3], cz + 2 * (v[3] - cz))) then ok = false end
+    end
+    check(ok, "pivot base: scale 2 about the middle in x and z, the lowest y stays")
+    local lo = math.huge
+    for i = 1, 8 do lo = math.min(lo, mb.verts[i][2]) end
+    check(same(lo, ly), "pivot base: the lowest y is the same")
+    key("^z")
+    -- inside the tool: the pivot changes the result at once
+    key("t", "2", "O")
+    check(sees("PIVOT") == false and status():find("pivot: the middle", 1, true), "Shift+O inside t: back to the centre (" .. status() .. ")")
+    key("\n")
+    save()
+    local mc = mdl()
+    check(same(mc.verts[1][1], cx + 2 * (mr0.verts[1][1] - cx)) and same(mc.verts[1][2], cy + 2 * (mr0.verts[1][2] - cy)), "pivot centre: scale 2 as before")
+    key("^z")
+    key("O", "t", "2", "O", "\n")
+    save()
+    mo = mdl()
+    check(sees("PIVOT base") and same(mo.verts[1][1], cx + 2 * (mr0.verts[1][1] - cx)) and same(mo.verts[1][2], ly + 2 * (mr0.verts[1][2] - ly)),
+          "Shift+O inside t: origin to base, the scale takes the new pivot")
+    key("^z")
+    key("O")                                       -- base -> centre
+    check(not sees("PIVOT"), "Shift+O: round to the centre")
+    -- the live mirror: the counterpart turns about the mirrored pivot
+    key("a")                                       -- none
+    local v1 = mr0.verts[1]
+    local twin
+    for i = 2, 8 do
+      local w = mr0.verts[i]
+      if same(w[1], -v1[1]) and same(w[2], v1[2]) and same(w[3], v1[3]) and not same(v1[1], 0) then twin = i end
+    end
+    check(twin ~= nil, "pivot mirror: the cube has a counterpart of v1")
+    if twin then
+      pick1(1)
+      key("X", "O", "t", "2", "\n")
+      save()
+      mo = mdl()
+      check(same(mo.verts[1][1], 2 * v1[1]) and same(mo.verts[1][2], 2 * v1[2]) and same(mo.verts[1][3], 2 * v1[3]), "pivot mirror: v1 doubled about the origin")
+      check(same(mo.verts[twin][1], -2 * v1[1]) and same(mo.verts[twin][2], 2 * v1[2]) and same(mo.verts[twin][3], 2 * v1[3]),
+            "pivot mirror: the counterpart is the mirror image of v1")
+      key("^z")
+      key("X")
+    end
+    key("O")                                       -- origin -> base
+    key("O")                                       -- base -> centre
+    check(not sees("PIVOT"), "pivot: back to the centre")
+    save()
+    check(#changed(mr0, mdl()) == 0, "pivot: the cube is as at the start")
+  end
+
   ---------------------------------------------------------------- soft (proportional) move
   local function prop_to(r)                      -- the soft radius: 0 (off), 0.25, 0.5, 1, 2
     for _ = 1, 6 do
