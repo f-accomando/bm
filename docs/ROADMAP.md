@@ -59,6 +59,9 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 - R3, R4 - P2 - to verify - SD log (D19) and screenshot (`shot`): close after the console tests. After SYS-2 and SYS-3. [system](progress/system.md)
 - R1, R2, R6, R8, R19, R20 - P3 - idea - Standalone console: WiFi from the pad, on-screen keyboard, web UI, DS4 rumble, BT pad, HDMI-CEC. [system](progress/system.md) `Open work`
 - R22 - P3 - idea - Portable Pi Zero shell (GPIO, DPI/SPI display). [platforms](progress/platforms.md)
+- SYS-12 - P2 - in specification - RGB30 HDMI output: with a mini HDMI cable plugged in, the RGB30 turns its own panel off and shows the picture on the HDMI screen; unplugged, the panel comes back. Needs a study first: RK3566 HDMI TX and PHY without a Linux driver, VOP2 scan-out to the second port, hot-plug detect, EDID and a mode that keeps the 360x360 and 720x405 pictures (scaler, bars). Hardware needed (the user tests with a cable). Done when the menu and a game show on an HDMI TV and the panel is off. [platforms](progress/platforms.md)
+- SYS-13 - P2 - to do - RGB30 Bluetooth keyboard and mouse for the bm SDK and the other tools: pair from Settings, use the same keys and mouse paths as on the Pi (M48 table in `docs/progress/tools.md`). After SYS-12 is useful but not required. Done when a paired keyboard and mouse drive bm SDK, Code, Pixel, Mesh and Write on the RGB30. [tools](progress/tools.md)
+- SYS-14 - P2 - to do - RGB30 multiplayer on one screen: more Bluetooth pads (players 2-4) and games with split screen or shared screen (the `lib` players' screen and split screen already exist: `docs/GAME-GUIDE.md`). Needs SYS-12 for a big shared screen, and a test with 2-4 real pads. Done when two pads play a split-screen game on the RGB30 and on an HDMI TV. [platforms](progress/platforms.md)
 
 ## Tools and SDK
 
