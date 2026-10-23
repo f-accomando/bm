@@ -37,7 +37,7 @@ bm Studio builds 3D models out of blocks and tiles, right on the console. You pl
 - bm Studio is a cartridge built into the kernel. You find it in the **Dev** tab of the menu.
 - You use it with the keyboard or the gamepad (Bluetooth or USB). The mouse also works when one is connected.
 - In a dialog line (for example the file name), a click puts the caret between the letters.
-- Hold **F12**, or press **?**, and the keys of the page you are on appear on the screen.
+- Hold **F12**, or press **?**, and the keys of the page you are on appear on the screen. The bar at the bottom ends with the chip F12 keys. Click it, or hold F12, to see every key of the page.
 
 # Opening a project or a game
 

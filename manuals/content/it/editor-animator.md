@@ -174,7 +174,7 @@ In modalità pelle: le frecce scelgono una faccia, spazio la segna, `c` segna qu
 | Backspace due volte | elimina l'animazione |
 | `Ctrl+Shift+I` | prendi le animazioni di un altro modello |
 
-La barra dei suggerimenti in fondo a F3 mostra solo i tasti principali. I tasti `,` `.` (keyframe prima e dopo), `m` (specchio) e `o` (onion skin) non sono sulla barra. Sono nell'aiuto: tieni premuto **F12**.
+La barra dei suggerimenti in fondo a F3 mostra solo i tasti principali. I tasti `,` `.` (keyframe prima e dopo), `m` (specchio) e `o` (onion skin) non sono sulla barra. Sono nell'aiuto: tieni premuto **F12**. La barra termina con il chip F12 keys. Fai clic su di esso, oppure tieni premuto F12, per vedere ogni tasto della pagina.
 
 ### Animazioni da un altro modello (Ctrl+Shift+I)
 

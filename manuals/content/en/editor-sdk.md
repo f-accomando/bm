@@ -239,7 +239,7 @@ Draw the 16 tiles of the set in this order on the sheet. Then:
 - **Backspace** erases the cell and fits its 4 neighbours again.
 - Each stroke works on the current layer. One stroke is one undo step (**u**).
 
-The status line shows `TERRAIN base N` while the brush is on. The hint bar shows the chip `t terrain` where it showed `m overview`. The key **m** still shows the whole map: it is in the help (**F12**).
+The status line shows `TERRAIN base N` while the brush is on. The hint bar shows the chip `t terrain`. The key **m** shows the whole map: it is in the help (**F12**). The bar ends with the chip F12 keys. Click it, or hold F12, to see every key of the page.
 
 The RGB30 SDK has the same brush. Press **t** on the map page, or choose *Terrain brush* in the **X** list. The status line shows `TERRAIN` and the base tile. Paint and erase work as on the Pi. The hint chip **c** (flags) became **t** (terrain) on a keyboard; **c** stays in the help and the menu.
 

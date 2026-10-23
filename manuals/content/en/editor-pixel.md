@@ -171,7 +171,7 @@ On F1 a pointer moves with the arrows. **Space** uses the tool. With the pencil 
 
 Colour 0 is transparent.
 
-The hint bar at the bottom of the drawing page shows only the main keys: the tools `b e g m w`, `Ctrl+E PNG`, the colour keys, **z** and **Tab**. The other keys (`u o l j q` and the rest) are in the **F12** help.
+The hint bar at the bottom of the drawing page shows only the main keys: the tools `b e g m w`, the shapes `l u o`, `Ctrl+E PNG`, the colour keys, **z** and **Tab**. The other keys (`j q` and the rest) are in the **F12** help. The bar ends with the chip F12 keys. Click it, or hold F12, to see every key of the page.
 
 ## Tile view (q)
 

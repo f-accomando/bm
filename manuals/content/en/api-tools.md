@@ -132,6 +132,7 @@ Part of the game API. These functions are meant for the development tools (the e
 | `keyheld(name)` | `true` while key `name` is held: `"f1"` to `"f12"`, `"tab"`, `"space"`, `"enter"`, `"esc"` |
 | `keyp()` | the next key typed: a character (`"a"`, `"\n"` Enter, `"\b"` Backspace, `"\t"`), a name (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"` to `"f10"`), `"^s"` for Ctrl+S, `"^S"` for Ctrl+Shift+S (also `"^i"`, `"^m"`); `nil` if none. F11 and F12 are the system's and never come. From the first call the keyboard types and no longer works as a gamepad for `btn()` |
 | `keyhelp(list, [title])` | shows the cartridge's keys under the system's while **F12** is held. `list` is `{ {"keys", "what they do"}, "subtitle", ... }`, keys as in `prompt()` (lower case the keyboard, upper case the pad). Returns how many entries name a key the system keeps for itself (F11, F12, Ctrl+Esc, Ctrl+Shift+Esc): they are shown in red and in the log. `keyhelp(nil)` takes it away |
+| `showkeys()` | opens the key list of the page as F12 held does, but the list stays open (for a mouse click on the chip F12 keys): a click, F12 or Esc closes it, the arrows turn the pages, and the cartridge gets no other key or button meanwhile. Returns `true` when open. `U.keys()` in `bmui` calls it for the fixed chip of the hint bars |
 | `ls([folder])` | the files of the SD card: `{ {name=, size=, dir=}, ... }` |
 
 ## Reading and writing cartridges

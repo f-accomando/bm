@@ -239,7 +239,7 @@ Disegna le 16 tile del set in questo ordine sul foglio. Poi:
 - **Backspace** cancella la cella e adatta di nuovo i suoi 4 vicini.
 - Ogni tratto lavora sul livello corrente. Un tratto è un passo di annullamento (**u**).
 
-La riga di stato mostra `TERRAIN base N` quando il pennello è attivo. La barra dei suggerimenti mostra il chip `t terrain` dove prima c'era `m overview`. Il tasto **m** mostra ancora l'intera mappa: è nell'aiuto (**F12**).
+La riga di stato mostra `TERRAIN base N` quando il pennello è attivo. La barra dei suggerimenti mostra il chip `t terrain`. Il tasto **m** mostra l'intera mappa: è nell'aiuto (**F12**). La barra termina con il chip F12 keys. Fai clic su di esso, oppure tieni premuto F12, per vedere ogni tasto della pagina.
 
 L'SDK RGB30 ha lo stesso pennello. Premi **t** nella pagina mappa, oppure scegli *Terrain brush* nella lista **X**. La riga di stato mostra `TERRAIN` e la tile base. Dipingere e cancellare funzionano come sul Pi. Il chip di suggerimento **c** (flags) è diventato **t** (terrain) su una tastiera; **c** resta nell'aiuto e nel menu.
 

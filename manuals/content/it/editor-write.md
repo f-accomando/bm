@@ -75,7 +75,7 @@ Premi **F1** in qualsiasi momento per vedere i tasti sullo schermo. Qualsiasi ta
 |---|---|---|
 | Barra | riga in alto | `bm Write`, il nome del documento (`Untitled` se nuovo, con `*` se ha modifiche), lo stile del paragrafo, le lettere `B` `I` `U` e `L` `C` `R` `J` |
 | Pagine | al centro | il documento su pagine A4, il cursore, la selezione e la parola grigio-blu che Tab scriverebbe |
-| Riga di stato | riga in basso | `Page N of M`, il numero di parole, `PAD` e la modalità del pad quando la scrittura col pad è attiva, la lingua |
+| Riga di stato | riga in basso | `Page N of M`, il numero di parole, `PAD` e la modalità del pad quando la scrittura col pad è attiva, la lingua e, a destra, il chip F12 keys (fai clic su di esso, oppure tieni premuto F12, per vedere ogni tasto della pagina) |
 
 Sulla barra, le lettere accese mostrano lo stato sul cursore: grassetto, corsivo, sottolineato e l'allineamento del paragrafo. Messaggi come `saved /docs/letter.bmd` prendono il posto della riga di stato per qualche secondo.
 

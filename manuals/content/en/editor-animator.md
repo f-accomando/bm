@@ -174,7 +174,7 @@ In skin mode: arrows choose a face, space marks it, `c` marks the connected ones
 | Backspace twice | delete the animation |
 | `Ctrl+Shift+I` | take the animations of another model |
 
-The hint bar at the bottom of F3 shows the main keys only. The keys `,` `.` (keyframe before and after), `m` (mirror) and `o` (onion skin) are not on the bar. They are in the help: hold **F12**.
+The hint bar at the bottom of F3 shows the main keys only. The keys `,` `.` (keyframe before and after), `m` (mirror) and `o` (onion skin) are not on the bar. They are in the help: hold **F12**. The bar ends with the chip F12 keys. Click it, or hold F12, to see every key of the page.
 
 ### Animations from another model (Ctrl+Shift+I)
 

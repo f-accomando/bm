@@ -174,7 +174,7 @@ F7 (oppure **Riff...** nel menu) apre un riquadro dove scrivi un pattern in una 
 
 # Comandi
 
-Il pad e la tastiera fanno le stesse cose. La riga in basso dello schermo mostra i tasti della pagina in cui sei. Tieni premuto F12 per vedere i tasti in qualsiasi momento.
+Il pad e la tastiera fanno le stesse cose. La riga in basso dello schermo mostra i tasti della pagina in cui sei. La barra termina con il chip F12 keys. Fai clic su di esso, oppure tieni premuto F12, per vedere ogni tasto della pagina.
 
 | Azione | Pad | Tastiera |
 |---|---|---|

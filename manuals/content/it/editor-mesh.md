@@ -97,7 +97,7 @@ Altri tasti. F3 funziona solo nelle pagine list ed edit, e `[` e `]` sono ignora
 |---|---|
 | F3 | i comandi della pagina, come menu |
 | `[` e `]` | la mesh precedente e la successiva |
-| F12 tenuto, oppure `?` | mostra i tasti della pagina |
+| F12 tenuto, oppure `?` | mostra i tasti della pagina. La barra in fondo termina con il chip F12 keys: fai clic per avere lo stesso elenco |
 | Ctrl+S | salva |
 | Ctrl+Shift+S | salva con nome (un nome di 8 lettere, in `/carts`) |
 | Ctrl+O | apre un altro file |

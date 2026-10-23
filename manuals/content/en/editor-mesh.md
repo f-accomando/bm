@@ -97,7 +97,7 @@ Other keys. F3 works only on the list and edit pages, and `[` and `]` are ignore
 |---|---|
 | F3 | the commands of the page, as a menu |
 | `[` and `]` | the previous and the next mesh |
-| F12 held, or `?` | shows the keys of the page |
+| F12 held, or `?` | shows the keys of the page. The bar at the bottom ends with the chip F12 keys: click it for the same list |
 | Ctrl+S | save |
 | Ctrl+Shift+S | save as (a name of 8 letters, in `/carts`) |
 | Ctrl+O | open another file |

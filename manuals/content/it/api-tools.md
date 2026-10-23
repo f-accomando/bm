@@ -132,6 +132,7 @@ Parte dell'API dei giochi. Queste funzioni sono pensate per gli strumenti di svi
 | `keyheld(name)` | `true` finché il tasto `name` è premuto: da `"f1"` a `"f12"`, `"tab"`, `"space"`, `"enter"`, `"esc"` |
 | `keyp()` | il prossimo tasto digitato: un carattere (`"a"`, `"\n"` Invio, `"\b"` Backspace, `"\t"`), un nome (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, da `"f1"` a `"f10"`), `"^s"` per Ctrl+S, `"^S"` per Ctrl+Shift+S (anche `"^i"`, `"^m"`); `nil` se non c'è nulla. F11 e F12 sono del sistema e non arrivano mai. Dalla prima chiamata la tastiera scrive e non funziona più come gamepad per `btn()` |
 | `keyhelp(list, [title])` | mostra i tasti della cartuccia sotto quelli del sistema mentre **F12** è premuto. `list` è `{ {"tasti", "che cosa fanno"}, "sottotitolo", ... }`, tasti come in `prompt()` (minuscolo la tastiera, maiuscolo il pad). Restituisce quante voci nominano un tasto che il sistema tiene per sé (F11, F12, Ctrl+Esc, Ctrl+Shift+Esc): sono mostrate in rosso e nel log. `keyhelp(nil)` lo toglie |
+| `showkeys()` | apre l'elenco dei tasti della pagina come F12 tenuto, ma l'elenco resta aperto (per un clic del mouse sul chip F12 keys): un clic, F12 o Esc lo chiude, le frecce girano le pagine, e la cartuccia non riceve altri tasti o pulsanti nel frattempo. Restituisce `true` quando è aperto. `U.keys()` in `bmui` la chiama per il chip fisso delle barre dei suggerimenti |
 | `ls([folder])` | i file della scheda SD: `{ {name=, size=, dir=}, ... }` |
 
 ## Leggere e scrivere cartucce

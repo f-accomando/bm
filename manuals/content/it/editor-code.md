@@ -142,7 +142,7 @@ Quando è stato l'SDK ad aprire il file, il menu ha anche **Back to bm SDK**: sa
 
 # Tasti di modifica
 
-Questi sono i tasti che esistono in bm Code. **F11** e **F12** appartengono al sistema e non arrivano mai all'editor. Un elenco dei tasti è sullo schermo mentre tieni premuto **F12**.
+Questi sono i tasti che esistono in bm Code. **F11** e **F12** appartengono al sistema e non arrivano mai all'editor. Un elenco dei tasti è sullo schermo mentre tieni premuto **F12**. bm Code mantiene il proprio chip F12 nella barra in alto.
 
 ## Muoversi
 

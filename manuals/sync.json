@@ -298,8 +298,8 @@
     "title": "The sections of a cartridge"
    },
    "3": {
-    "en": "2d25686d5a1d",
-    "it": "7a6939716cfd",
+    "en": "efe328b11a98",
+    "it": "ad077ccb2957",
     "title": "The API for tools"
    },
    "4": {
@@ -322,7 +322,7 @@
    "docs/PROJECT-LAYOUT.md": "9c51571709d1",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/SCREENSHOTS.md": "afdde1690440",
-   "docs/api/tools.md": "06bd502e269c"
+   "docs/api/tools.md": "d30ed209e509"
   }
  },
  "boot-os": {
@@ -507,8 +507,8 @@
     "title": "Opening"
    },
    "3": {
-    "en": "d8b5b38e6dc0",
-    "it": "8abeb6853b77",
+    "en": "83c6c919f265",
+    "it": "2bb29b53082c",
     "title": "The screen and the controls"
    },
    "4": {
@@ -543,7 +543,7 @@
    }
   },
   "sources": {
-   "carts/animator/main.lua": "afcd0cf4f015",
+   "carts/animator/main.lua": "a6e215fed192",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
    "docs/progress/tools.md": "672103c80976",
@@ -573,8 +573,8 @@
     "title": "The screen"
    },
    "4": {
-    "en": "9f07dc2da750",
-    "it": "7478aed0375a",
+    "en": "ab16d590fee9",
+    "it": "73f6b20ee50c",
     "title": "Editing keys"
    },
    "5": {
@@ -624,8 +624,8 @@
     "title": "Opening"
    },
    "3": {
-    "en": "2be057db2c47",
-    "it": "6af13f0060a7",
+    "en": "d4b37c78ff63",
+    "it": "a7f903e912a9",
     "title": "The screen and the controls"
    },
    "4": {
@@ -655,7 +655,7 @@
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "0bf2631cada4",
+   "carts/mesh/main.lua": "920e1936d817",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
    "docs/progress/tools.md": "672103c80976",
@@ -695,8 +695,8 @@
     "title": "The pages"
    },
    "4": {
-    "en": "2b97f2bb9e00",
-    "it": "2e462adf6d6e",
+    "en": "6a19b032d5ad",
+    "it": "81ec61d97ace",
     "title": "Drawing tools and keys"
    },
    "5": {
@@ -726,7 +726,7 @@
    }
   },
   "sources": {
-   "carts/pixel/main.lua": "e27f43bf4f8f",
+   "carts/pixel/main.lua": "c56ef2a834a3",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-pixel.md": "a0f942fe815a",
    "docs/progress/tools.md": "672103c80976",
@@ -756,8 +756,8 @@
     "title": "Creating a project from a template"
    },
    "5": {
-    "en": "a3620c3c4552",
-    "it": "d9de8586a702",
+    "en": "2e65909fce9a",
+    "it": "989b295b1869",
     "title": "The map editor"
    },
    "6": {
@@ -782,7 +782,7 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "0a5bbc0b24ec",
+   "carts/editor/main.lua": "3f705303f7c4",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-sdk.md": "7ad5c8c9fcc0",
    "docs/progress/tools.md": "672103c80976",
@@ -807,8 +807,8 @@
     "title": "The pages"
    },
    "4": {
-    "en": "3db5cf9c096c",
-    "it": "9734723d4eba",
+    "en": "2600eaeecc18",
+    "it": "d77cf12c2c21",
     "title": "Controls"
    },
    "5": {
@@ -828,18 +828,18 @@
    }
   },
   "sources": {
-   "carts/sound/main.lua": "708564aa8694",
+   "carts/sound/main.lua": "e0a80fe41be7",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-sound.md": "c2059f0520b0",
-   "docs/progress/tools.md": "8fac04edc9bd",
+   "docs/progress/tools.md": "672103c80976",
    "sdk/README.md": "f82ca797337d"
   }
  },
  "editor-studio": {
   "chapters": {
    "1": {
-    "en": "ac52368091db",
-    "it": "407005013e1d",
+    "en": "0fb79e190fcb",
+    "it": "c25ff6c127b3",
     "title": "What bm Studio is"
    },
    "10": {
@@ -892,7 +892,7 @@
    "carts/studio/main.lua": "285ae16f1382",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "8fac04edc9bd",
+   "docs/progress/tools.md": "672103c80976",
    "sdk/README.md": "f82ca797337d"
   }
  },
@@ -909,8 +909,8 @@
     "title": "First start"
    },
    "3": {
-    "en": "6dfa4f41f6e1",
-    "it": "f0a83fbe6a41",
+    "en": "16fe31172319",
+    "it": "8054ce9f1187",
     "title": "The screen and the keys"
    },
    "4": {
@@ -935,7 +935,7 @@
    }
   },
   "sources": {
-   "carts/write/main.lua": "c2b2e6df4954",
+   "carts/write/main.lua": "3cf293d3041f",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/progress/tools.md": "672103c80976",
    "sdk/README.md": "f82ca797337d"

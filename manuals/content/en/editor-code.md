@@ -142,7 +142,7 @@ When the SDK opened the file, the menu also has **Back to bm SDK**: it saves and
 
 # Editing keys
 
-These are the keys that exist in bm Code. **F11** and **F12** belong to the system and never reach the editor. A key list is on the screen while you hold **F12**.
+These are the keys that exist in bm Code. **F11** and **F12** belong to the system and never reach the editor. A key list is on the screen while you hold **F12**. bm Code keeps its own F12 chip in the top bar.
 
 ## Moving
 

@@ -174,7 +174,7 @@ F7 (or **Riff...** in the menu) opens a box where you write a pattern in one lin
 
 # Controls
 
-The pad and the keyboard do the same things. The bottom line of the screen shows the keys of the page you are on. Hold F12 to see the keys at any time.
+The pad and the keyboard do the same things. The bottom line of the screen shows the keys of the page you are on. The bar ends with the chip F12 keys. Click it, or hold F12, to see every key of the page.
 
 | Action | Pad | Keyboard |
 |---|---|---|
