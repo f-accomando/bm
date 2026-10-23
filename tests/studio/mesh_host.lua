@@ -1873,7 +1873,7 @@ do
   key("f2", "a", "a")
   local function one_vertex() key("a"); if not sees("VERTICES: 0 chosen") then key("a") end; key("n", " ") end
   local function header()
-    for _, t in ipairs(texts) do if t[3] == 40 and t[2] == 8 and t[1]:find("^BONE") then return t[1] end end
+    for _, t in ipairs(texts) do if t[3] == 32 and t[1]:find("^BONE") then return t[1] end end
     return ""
   end
   key("B")

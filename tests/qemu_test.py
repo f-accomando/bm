@@ -5540,6 +5540,58 @@ def test_mesh_import(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_mesh_bones(b, opts):
+    """APP-14: bm Mesh edit page, a model with a skeleton (the villager of Studio Village, 7 bones):
+    with all vertices chosen the header says BONES, Shift+B lists the bones of the skeleton ("0  " to
+    "6  "; hips to leg.R), Esc closes the list and changes nothing, and v turns the bone view on and off."""
+    tmp = tempfile.mkdtemp(prefix="bm-meshbones-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    DOWN, ESC = "\x1b[B", "\x1b"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "s", "s")
+        screen(["Open in bm Mesh"])
+        keys("\r")
+        screen(["list", "edit", "MESHES 8"])
+        keys(*([DOWN] * 7))                      # ground house tree bush well fence crates villager
+        keys("\r", gap=0.8)
+        screen(["of 65535 vertices", "villager"])
+        keys("a", gap=0.5)
+        text = screen(["BONES "])
+        assert re.search(r"BONES \d+: ", text), text
+        keys("B", gap=0.6)
+        screen(["0  hips", "3  arm.L", "6  leg.R"])
+        keys(ESC, gap=0.6)
+        text = screen(["of 65535 vertices"])
+        assert "6  leg.R" not in text, text
+        keys("v", gap=0.5)
+        screen(["bone view"])
+        keys("v", gap=0.5)
+        screen(["bone view off"])
+    finally:
+        q.close()
+
+
 def test_mesh_ghost(b, opts):
     """APP10-7: bm Mesh edit page: Shift+H lists /glb (here box.glb) as a ghost reference, which
     is read only (not converted to /bmm, not written); the screen says "ghost box.glb: 13 vertices,

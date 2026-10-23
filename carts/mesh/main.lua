@@ -2070,7 +2070,7 @@ function ed.bone_text(it)
   if not b then return nil end
   local rig = B.G.rig_bones(it)
   local name = rig[b + 1] and rig[b + 1].name or "?"
-  if n > 1 then return string.format("BONES %d: %s and more", n, name) end
+  if n > 1 then return string.format("BONES %d: %s+", n, name) end
   return string.format("BONE %d %s%s", b, name, own and "" or " (pointer)")
 end
 
@@ -2415,16 +2415,18 @@ function draw_edit()
   local nsel = ed.mode == "v" and count(ed.sv) or (ed.mode == "e" and count(ed.se) or count(ed.sf))
   if ed.mirror then rectfill(W - 72, 16, 64, 8, C_BG); print("MIRROR X", W - 72, 16, C_ACC) end
   if ed.snap ~= 0 then local s = ed.snap_text(""); print(s, W - 8 - #s * 8, 24, C_ACC) end
+  local gw = 0                                  -- the width the ghost line takes at the right of the second row
   if ed.ghost then
     local g = ed.ghost
     local s = string.format("GHOST %s%s x%.2f", g.name:sub(1, 8), g.on and "" or " (hidden)", g.scale)
     print(s, W - 8 - #s * 8, 32, g.on and C_ACC or C_DIM)
+    gw = #s * 8 + 8
   end
   print(it.name, 8, 16, KIND_C[it.kind])
   print(string.format("%d of 65535 vertices  %d triangles   %s: %d chosen", #it.v, #it.f,
                       ed.mode == "v" and "VERTICES" or (ed.mode == "e" and "EDGES" or "FACES"), nsel), 8 + (#it.name + 2) * 8, 16, C_TEXT)
-  local bt = ed.bone_text(it)
-  if bt then print(bt, 8, 40, C_ACC) end
+  local bt = not ed.tool and ed.bone_text(it)        -- the bone of the choice, right of the second row
+  if bt then print(bt, W - 8 - gw - #bt * 8, 32, C_ACC) end
   if ed.tool then
     print(tool_text(), 8, 32, C_ACC)
   else
