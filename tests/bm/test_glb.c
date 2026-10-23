@@ -3,7 +3,8 @@
  * and prints what came out; the model record, its flat twin and the
  * texture go to files for tests/bm/run_glb_test.py to check.
  *
- *   test_glb IN.glb [--faces N] [--height H] [--out PREFIX]
+ *   test_glb IN.glb [--faces N] [--height H] [--limit] [--out PREFIX]
+ *     --limit: only the format's limits (65535), as the Lua glb3d()
  *     PREFIX.rec (the record), PREFIX.flat (the flat twin, if textured),
  *     PREFIX.rgba (the texture, 256 x 256)
  */
@@ -27,13 +28,18 @@ static void save(const char *prefix, const char *ext, const uint8_t *data, size_
 int main(int argc, char **argv)
 {
     if (argc < 2) {
-        fprintf(stderr, "usage: test_glb IN.glb [--faces N] [--height H] [--out PREFIX]\n");
+        fprintf(stderr, "usage: test_glb IN.glb [--faces N] [--height H] [--limit] [--out PREFIX]\n");
         return 2;
     }
-    glb_opts_t o = { 2.0f, 0, 256 };
+    glb_opts_t o = { 2.0f, 0, 256, 0 };
     const char *prefix = NULL;
-    for (int i = 2; i + 1 < argc; i += 2) {
-        if (!strcmp(argv[i], "--faces"))
+    for (int i = 2; i < argc; i += 2) {
+        if (!strcmp(argv[i], "--limit")) {      /* only the format's limits, as glb3d() */
+            o.format_limit = 1;
+            i--;
+        } else if (i + 1 >= argc) {
+            break;
+        } else if (!strcmp(argv[i], "--faces"))
             o.max_faces = atoi(argv[i + 1]);
         else if (!strcmp(argv[i], "--height"))
             o.height = (float)atof(argv[i + 1]);

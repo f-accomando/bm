@@ -26,9 +26,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
 sys.path.insert(0, os.path.join(HERE, "studio"))
+sys.path.insert(0, os.path.join(HERE, "ai"))
 import anim_figure  # noqa: E402
 import bm_load  # noqa: E402
 import bmmesh  # noqa: E402
+import glbfix  # noqa: E402
 import mkbm  # noqa: E402
 import mksd  # noqa: E402
 
@@ -1771,6 +1773,84 @@ def test_cart_write_limits(b, opts):
         cfg_txt = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"], capture_output=True,
                                  text=True, env=env).stdout
         assert "wifi_boot=0" in cfg_txt, cfg_txt
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+GLB3D_CART = r"""
+local function show(tag, m, err)
+  if not m then log(tag, "nil", err) return end
+  log(tag, m.nv, m.nf, tostring(m.textured), #m.record, m.flat and #m.flat or 0, m.texture and #m.texture or 0)
+end
+
+function _init()
+  show("box", glb3d("/glb/box.glb"))
+  show("small", glb3d("/glb/box.glb", { name = "tiny", height = 4, faces = 8, sheet = 64 }))
+  show("sheet", glb3d("/glb/box.glb", { sheet = 4 }))
+  show("missing", glb3d("/glb/none.glb"))
+  show("text", glb3d("/glb/notes.glb"))
+  show("grid", glb3d("/glb/grid.glb"))
+  show("huge", glb3d("/glb/huge.glb"))
+  quit()
+end
+"""
+
+
+def test_glb3d(b, opts):
+    """APP9-a: glb3d(path, {name=, height=, faces=, sheet=}) reads a .glb from the
+    SD card (read only) and gives the model table of cutout3d, or nil and a message:
+    the box with its texture, the options, a missing file, a file that is not a .glb,
+    the format's limits (65535 triangles: refused; the reducer is in the host test) and the
+    file size limit of 16 MiB."""
+    tmp = tempfile.mkdtemp(prefix="bm-glb3d-")
+    img = os.path.join(tmp, "sd.img")
+    try:
+        files = {"box.glb": glbfix.build("png"), "notes.glb": b"just some text, not a glTF file",
+                 "grid.glb": glbfix.grid(200), "huge.glb": bytes((16 << 20) + 4096)}
+        cfg = os.path.join(tmp, "cfg")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        listing = [(cfg, "bm/config.txt")]
+        for name, data in files.items():
+            path = os.path.join(tmp, name)
+            with open(path, "wb") as f:
+                f.write(data)
+            listing.append((path, "glb/" + name))
+        mksd.build(img, listing)
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.boot()
+            assert _upload(q, mkbm.pack(GLB3D_CART.encode(), title="glb3d"))
+            out = q.expect("huge\t", timeout=120) + q.expect("\n")
+            text = out.decode(errors="replace").replace("\r", "")
+            rows = {}
+            for line in text.split("\n"):
+                f = line.split("\t")
+                if len(f) > 1:
+                    rows[f[0].split()[-1]] = f[1:]
+            box = rows["box"]
+            assert box[:3] == ["13", "18", "true"], text
+            assert int(box[3]) == 24 + 13 * 12 + 18 * 24, text            # the record: header, vertices, faces
+            assert int(box[4]) == int(box[3]) and int(box[5]) == 256 * 256 * 4, text
+            small = rows["small"]
+            assert small[2] == "true" and int(small[1]) <= 8 and int(small[5]) == 64 * 64 * 4, text
+            assert rows["sheet"][0] == "nil" and "sheet: 8 to 1024" in rows["sheet"][1], text
+            assert rows["missing"][0] == "nil" and "/glb/none.glb" in rows["missing"][1], text
+            assert rows["text"][0] == "nil" and "not a .glb" in rows["text"][1], text
+            assert rows["grid"][0] == "nil" and "more than 65535 triangles" in rows["grid"][1], text
+            assert rows["huge"][0] == "nil" and "limit is 16 MiB" in rows["huge"][1], text
+            q.expect("> ", timeout=10)
+        finally:
+            q.close()
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/GLB"], capture_output=True, text=True, env=env).stdout.upper()
+        assert "BOX.GLB" in names and len(names.split()) == 4, names     # nothing written in /glb
+        same = subprocess.run(["mtype", "-i", part, "::/GLB/BOX.GLB"], capture_output=True, env=env).stdout
+        assert same == files["box.glb"], "the .glb is not changed"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

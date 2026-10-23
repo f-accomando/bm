@@ -12,6 +12,7 @@
 #define TEXTURED 0x80000000u
 #define MAX_VERTS 4096
 #define MAX_FACES 16384
+#define FORMAT_MAX 65535        /* the MESH section: u16 counts */
 
 typedef struct {
     float p[3];
@@ -28,6 +29,7 @@ typedef struct {
     int nv, cap;
     int texture_image;          /* the image used by the textured faces, or -1 */
     int any_texture;
+    long corner_limit;          /* refuse more corners than this (0: no limit) */
     char *err;
     size_t errlen;
 } gl_t;
@@ -155,6 +157,8 @@ static float det3(const float *m)
 
 static int push_corner(gl_t *g, const vtx_t *v)
 {
+    if (g->corner_limit && g->nv >= g->corner_limit)
+        return fail(g, "more than 65535 triangles: the format holds 65535 per model; give faces to reduce it");
     if (g->nv == g->cap) {
         int cap = g->cap ? g->cap * 2 : 4096;
         vtx_t *nv = realloc(g->v, (size_t)cap * sizeof *nv);
@@ -377,6 +381,7 @@ int glb_pack(const char *name, const dec_mesh_t *m, const uint8_t *tex, int tw, 
 {
     memset(out, 0, sizeof *out);
     out->textured = tex != NULL;
+    out->sheet = tex ? side : 0;
     if (tex) {
         /* the texture on the sheet; the flat twin with the colours under each face */
         out->texture = resize(tex, tw, th, side);
@@ -430,6 +435,9 @@ int glb_to_model(const uint8_t *glb, size_t len, const char *name, const glb_opt
     g.err = err;
     g.errlen = errlen;
     g.texture_image = -1;
+    int maxv = opts->format_limit ? FORMAT_MAX : MAX_VERTS, maxf = opts->format_limit ? FORMAT_MAX : MAX_FACES;
+    if (opts->format_limit && opts->max_faces <= 0)
+        g.corner_limit = 3L * FORMAT_MAX;
     memset(out, 0, sizeof *out);
     if (err && errlen)
         err[0] = 0;
@@ -550,7 +558,7 @@ int glb_to_model(const uint8_t *glb, size_t len, const char *name, const glb_opt
         }
         if (id >= 65535) {
             free(table);
-            fail(&g, "more than 65535 vertices");
+            fail(&g, "more than 65535 vertices: the format holds 65535 per model");
             goto out;
         }
         m.f[i] = (uint16_t)id;
@@ -577,19 +585,19 @@ int glb_to_model(const uint8_t *glb, size_t len, const char *name, const glb_opt
     }
     /* fewer triangles: the reducer; the format's limits in any case */
     int target = opts->max_faces > 0 && opts->max_faces < nf ? opts->max_faces : 0;
-    if (!target && (nf > MAX_FACES || m.nv > MAX_VERTS))
-        target = MAX_FACES < nf ? MAX_FACES : nf;
+    if (!target && (nf > maxf || m.nv > maxv))
+        target = maxf < nf ? maxf : nf;
     while (target && target >= 4) {
         if (dec_reduce(&m, target, 0) < 0) {
             fail(&g, "no memory for the reducer");
             goto out;
         }
-        if (m.nv <= MAX_VERTS)
+        if (m.nv <= maxv)
             break;
         target /= 2;                            /* still too many vertices: fewer faces */
     }
-    if (m.nv > MAX_VERTS || m.nf > MAX_FACES) {
-        fail(&g, "too many vertices for a model (4096)");
+    if (m.nv > maxv || m.nf > maxf) {
+        fail(&g, opts->format_limit ? "too many vertices for a model (65535)" : "too many vertices for a model (4096)");
         goto out;
     }
     if (m.nf < 1) {

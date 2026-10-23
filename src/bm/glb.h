@@ -18,6 +18,7 @@ typedef struct {
     float height;               /* the model's height in blocks (0: as it is) */
     int max_faces;              /* reduce to at most this many triangles (0: no) */
     int sheet;                  /* the texture's side on the sheet (256) */
+    int format_limit;           /* 1: only the format's limits (65535 vertices and triangles), refused with a message; 0: 4096 / 16384, reduced */
 } glb_opts_t;
 
 typedef struct {
@@ -28,6 +29,7 @@ typedef struct {
     uint8_t *texture;           /* sheet x sheet RGBA, or NULL */
     int nv, nf;                 /* of the record */
     int textured;
+    int sheet;                  /* the side of the texture (0 without one) */
 } glb_model_t;
 
 /* 0, or -1 with err. glb_model_free(out) after. */

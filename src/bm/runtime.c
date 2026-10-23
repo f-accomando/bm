@@ -5091,6 +5091,7 @@ static int l_cart_meshes(lua_State *L);
 static int l_mesh_reduce(lua_State *L);
 static int l_picture3d(lua_State *L);
 static int l_cutout3d(lua_State *L);
+static int l_glb3d(lua_State *L);
 static int l_cart_sheet(lua_State *L);
 
 /* ---------------------------------------------------------------- light */
@@ -5438,7 +5439,7 @@ static const luaL_Reg api[] = {
     { "cart_save", l_cart_save }, { "cart_build", l_cart_build }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg }, { "cart_config", l_cart_config },
     { "cart_data", l_cart_data },
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
-    { "mesh_reduce", l_mesh_reduce }, { "picture3d", l_picture3d }, { "cutout3d", l_cutout3d },
+    { "mesh_reduce", l_mesh_reduce }, { "picture3d", l_picture3d }, { "cutout3d", l_cutout3d }, { "glb3d", l_glb3d },
     { "cart_sheet", l_cart_sheet },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow }, { "dark_end", l_dark_end },
@@ -6941,7 +6942,7 @@ static void push_glb_model(lua_State *L, glb_model_t *m)
         lua_setfield(L, -2, "flat");
     }
     if (m->texture) {
-        lua_pushlstring(L, (const char *)m->texture, 256 * 256 * 4);
+        lua_pushlstring(L, (const char *)m->texture, (size_t)(m->sheet > 0 ? m->sheet : 256) * (size_t)(m->sheet > 0 ? m->sheet : 256) * 4);
         lua_setfield(L, -2, "texture");
     }
     lua_pushinteger(L, m->nv);
@@ -6995,6 +6996,87 @@ static int l_cutout3d(lua_State *L)
     glb_model_t m;
     char err[128];
     int r = cutout_from_file(data, len, name, &o, &m, err, sizeof err);
+    free(data);
+    if (r < 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    push_glb_model(L, &m);
+    glb_model_free(&m);
+    return 1;
+}
+
+/* glb3d(path, {name=, height=, faces=, sheet=}) -> the same table as
+ * picture3d("take") and cutout3d, or nil and a message: a model from a
+ * .glb on the SD card (the editors use /glb/NAME.glb), read only, made here
+ * (src/bm/glb.c, no network). height: the model's height in blocks (2);
+ * faces: reduce to at most this many triangles (0: keep all); sheet: the
+ * side of the texture on the sheet (256; 8 to 1024). Only the format's
+ * limits: 65535 vertices and 65535 triangles per model, refused with a
+ * message. A file over GLB3D_MAX_FILE (16 MiB) is refused: the file, its
+ * decoded corners and the texture must fit in the RAM of the Pi Zero W. */
+#define GLB3D_MAX_FILE (16u << 20)
+static int l_glb3d(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    const char *name = NULL;
+    char base[17];
+    glb_opts_t o = { 2.0f, 0, 256, 1 };
+    if (lua_istable(L, 2)) {
+        lua_getfield(L, 2, "name");
+        if (lua_isstring(L, -1))
+            name = lua_tostring(L, -1);
+        lua_getfield(L, 2, "height");
+        if (lua_isnumber(L, -1))
+            o.height = (float)lua_tonumber(L, -1);
+        lua_getfield(L, 2, "faces");
+        if (lua_isinteger(L, -1))
+            o.max_faces = (int)lua_tointeger(L, -1);
+        lua_getfield(L, 2, "sheet");
+        if (lua_isinteger(L, -1))
+            o.sheet = (int)lua_tointeger(L, -1);
+        lua_pop(L, 4);
+    }
+    if (o.sheet < 8 || o.sheet > 1024) {
+        lua_pushnil(L);
+        lua_pushstring(L, "sheet: 8 to 1024");
+        return 2;
+    }
+    if (!name) {
+        /* the file's name without its folder and its extension */
+        const char *b = strrchr(path, '/');
+        b = b ? b + 1 : path;
+        size_t n = 0;
+        while (b[n] && b[n] != '.' && n < sizeof base - 1) {
+            base[n] = b[n];
+            n++;
+        }
+        base[n] = 0;
+        name = n ? base : "model";
+    }
+    fat_entry_t e;
+    uint8_t *data = NULL;
+    size_t len = 0;
+    memset(&e, 0, sizeof e);
+    if (fat_find(path, &e) != 0 || e.is_dir) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: %s", path, e.is_dir ? "a directory" : fat_error());
+        return 2;
+    }
+    if (e.size > GLB3D_MAX_FILE) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: %d MiB is too big, the limit is 16 MiB (the console RAM)", path, (int)(e.size >> 20));
+        return 2;
+    }
+    if (fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: %s", path, fat_error());
+        return 2;
+    }
+    glb_model_t m;
+    char err[128];
+    int r = glb_to_model(data, len, name, &o, &m, err, sizeof err);
     free(data);
     if (r < 0) {
         lua_pushnil(L);

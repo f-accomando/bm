@@ -119,3 +119,23 @@ def outward(model, faces, inside):
 if __name__ == "__main__":
     import sys
     open(sys.argv[1], "wb").write(build(sys.argv[2] if len(sys.argv) > 2 else "png"))
+
+
+def grid(n):
+    """a flat n x n grid of squares (2 n n triangles, (n + 1)^2 vertices), 16-bit indices when
+    they fit, 32-bit if not; vertex colours only. For the limits of the format."""
+    pos = [(x / n, 0.0, y / n) for y in range(n + 1) for x in range(n + 1)]
+    idx = []
+    for y in range(n):
+        for x in range(n):
+            a = y * (n + 1) + x
+            idx += [a, a + n + 1, a + 1, a + 1, a + n + 1, a + n + 2]
+    big = len(pos) > 65535
+    blob = b"".join(struct.pack("<3f", *p) for p in pos)
+    blob += b"".join(struct.pack("<I" if big else "<H", i) for i in idx)
+    views = [{"buffer": 0, "byteOffset": 0, "byteLength": len(pos) * 12},
+             {"buffer": 0, "byteOffset": len(pos) * 12, "byteLength": len(idx) * (4 if big else 2)}]
+    accessors = [{"bufferView": 0, "componentType": 5126, "count": len(pos), "type": "VEC3"},
+                 {"bufferView": 1, "componentType": 5125 if big else 5123, "count": len(idx), "type": "SCALAR"}]
+    return glb(nodes=[{"mesh": 0}], meshes=[{"primitives": [{"attributes": {"POSITION": 0}, "indices": 1}]}],
+               accessors=accessors, views=views, blob=blob)

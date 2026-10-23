@@ -92,3 +92,16 @@ open(bad, "wb").write(b"not a glb at all")
 r = subprocess.run([tool, bad], capture_output=True, text=True)
 assert r.returncode != 0 and "not a .glb" in r.stdout, r.stdout
 print("glb: a broken file is refused")
+
+# the format's limits only (--limit, the Lua glb3d): 39200 triangles stay (the old cap was 16384);
+# 80000 are refused with a clear message, or reduced if faces are given
+m, _, _, info = convert("grid140", glbfix.grid(140), "--limit")
+assert len(m["faces"]) == 2 * 140 * 140 and len(m["verts"]) == 141 * 141, info
+print(f"glb: --limit keeps {len(m['faces'])} triangles (more than the 16384 of the picture flow)")
+big = os.path.join(out_dir, "grid200.glb")
+open(big, "wb").write(glbfix.grid(200))
+r = subprocess.run([tool, big, "--limit"], capture_output=True, text=True)
+assert r.returncode != 0 and "more than 65535 triangles" in r.stdout and "faces" in r.stdout, r.stdout
+r = subprocess.run([tool, big, "--limit", "--faces", "5000"], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+print("glb: --limit refuses 80000 triangles with a message, reduces them with --faces")
