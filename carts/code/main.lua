@@ -915,6 +915,45 @@ function MOD.locate(t, line)
   return #t.mods, math.max(1, U.module_len(t.mods[#t.mods]))
 end
 
+-- find a text in every open tab and every module (Ctrl+Shift+F): the hits
+-- are a list "module:line text", Enter goes to one (MOD.jump); 200 at most
+function MOD.find_all(text)
+  if not text or text == "" then return end
+  local srcs = {}
+  for ti, t in ipairs(tabs) do
+    local tn = (t.path and base_name(t.path) or t.name):gsub("%.[bBmMeE]+$", "")
+    if t.mods then
+      MOD.flush(t)
+      for mi, m in ipairs(t.mods) do
+        srcs[#srcs + 1] = { name = (#tabs > 1 and tn .. "/" or "") .. m.name, lines = m.lines, tab = ti, mod = mi }
+      end
+    else
+      srcs[#srcs + 1] = { name = tn, lines = t.lines, tab = ti }
+    end
+  end
+  local hits = U.find_all(srcs, text)
+  if #hits == 0 then say("not found in the project: " .. text, C_ERR); return end
+  local items = {}
+  for i = 1, math.min(#hits, 200) do
+    local h, s = hits[i], srcs[hits[i].src]
+    items[i] = { label = s.name .. ":" .. h.line .. " " .. h.text, hit = { tab = s.tab, mod = s.mod, line = h.line, col = h.col } }
+  end
+  local n = #hits > 200 and (#hits .. " hits, 200 shown") or (#hits .. (#hits == 1 and " hit" or " hits"))
+  overlay = { kind = "files", title = "Find \"" .. text .. "\": " .. n .. " (Enter goes there)", items = items, sel = 1, top = 1 }
+end
+
+-- go to a hit of MOD.find_all: its tab, its module, its line and column
+function MOD.jump(h)
+  if not tabs[h.tab] then return end
+  show_tab(h.tab)
+  local t = tabs[h.tab]
+  if h.mod then MOD.switch(t, h.mod) end
+  local _, v = current()
+  v.cy, v.cx, v.mark, v.free = h.line, h.col - 1, nil, nil
+  clamp(t, v)
+  say("found at line " .. h.line)
+end
+
 local function module_taken(t, name)
   for _, m in ipairs(t.mods or { { name = "main" } }) do
     if m.name == name then return true end
@@ -1393,7 +1432,7 @@ local MENU = {
   { "Breakpoint", "F8" }, { "Debug from the start", "" }, { "Clear breakpoints", "" },
   { "Modules...", "Ctrl+P" },
   { "Split screen", "F4" }, { "Font size", "F10" }, { "Find", "Ctrl+F" },
-  { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
+  { "Find in the project...", "Ctrl+Shift+F" }, { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
   { "Explain the error", "F9" }, { "Play the music (riff)", "Ctrl+Enter" }, { "Stop the music", "Ctrl+." },
   { "Word completion", "" }, { "Words in comments", "" },
   { "Pad typing", "" }, { "Keys", "F12 held" }, { "Exit", "" },
@@ -1435,6 +1474,7 @@ local function menu_choose(name)
   elseif name == "Split screen" then do_command("f4")
   elseif name == "Font size" then do_command("f10")
   elseif name == "Find" then do_command("^f")
+  elseif name == "Find in the project..." then do_command("^F")
   elseif name == "Replace" then do_command("^h")
   elseif name == "Go to line" then do_command("^l")
   elseif name == "Assistant" then open_assistant(t, v)
@@ -1504,6 +1544,12 @@ do_command = function(k)
     prompt("Find:", find_text or word_at(t, v) or "", function(s)
       find_text = s
       find_next(t, v, s, true)
+    end, "code")
+    overlay.hint = "Ctrl+Shift+F: every module and tab"
+  elseif k == "^F" then
+    prompt("Find in the project:", find_text or word_at(t, v) or "", function(s)
+      find_text = s
+      MOD.find_all(s)
     end, "code")
   elseif k == "^g" then find_next(t, v, find_text)
   elseif k == "^h" then
@@ -1694,7 +1740,8 @@ local function overlay_key(k)
       else
         local it = o.items[o.sel]
         overlay = nil
-        if it.tpl then new_cart(it.tpl) elseif it.new then new_cart() else open_file(it.path) end
+        if it.tpl then new_cart(it.tpl) elseif it.new then new_cart()
+        elseif it.hit then MOD.jump(it.hit) else open_file(it.path) end
       end
     end
   end
@@ -2247,6 +2294,7 @@ local KEYHELP = {
   { "tab / ctrl u", "indent / unindent" },
   { "tab", "after a word: the grey-blue rest" },
   { "ctrl g", "find the next" },
+  { "ctrl shift f", "find in every module and tab" },
   { "ctrl h", "replace all" },
   { "ctrl l", "go to line" },
   { "enter", "on #entry: ... #: the assistant does it" },
@@ -2270,7 +2318,7 @@ local HELP = {
   "Editing", "Ctrl+Z undo, Ctrl+Y redo", "Ctrl+B start a selection", "Ctrl+C copy, Ctrl+X cut",
   "Ctrl+V paste (a line: above)", "Ctrl+K cut line, Ctrl+D duplicate", "Tab / Ctrl+U indent / unindent",
   "Tab after a word: the grey-blue rest",
-  "Ctrl+F find, Ctrl+G next", "Ctrl+H replace all", "Ctrl+L go to line", "",
+  "Ctrl+F find, Ctrl+G next", "Ctrl+Shift+F find in the project", "Ctrl+H replace all", "Ctrl+L go to line", "",
   "Assistant", "F6 ask (the word under the cursor)", "Ctrl+Q help on the API function", "F9 explain the game's error",
   "#entry: what to do #  then Enter:", "  the assistant does it here", "",
   "Music (riff, docs/RIFF.md)", "Ctrl+Enter play the tab, or the", "  riff.code [[ ]] under the cursor",
@@ -2326,7 +2374,8 @@ local function draw_overlay()
     if o.flash then print(shown:sub(-o.flash), tx + (#shown - math.min(o.flash, #shown)) * CW, ty, predict.C_PRED) end
     if o.comp then print(o.comp.rest, tx + #shown * CW, ty, predict.C_GHOST) end
     print(cur, tx + #shown * CW, ty, C_TEXT)
-    chips({ "esc" }, "cancel", chips({ "enter" }, "OK", (c0 + 1) * CW, (r0 + 2) * CH), (r0 + 2) * CH)
+    local hx = chips({ "esc" }, "cancel", chips({ "enter" }, "OK", (c0 + 1) * CW, (r0 + 2) * CH), (r0 + 2) * CH)
+    if o.hint then print(o.hint:sub(1, (c0 + cols) - hx // CW - 2), hx + CW, (r0 + 2) * CH, C_DIM) end
   elseif o.kind == "confirm" then
     local cols = math.min(COLS - 4, math.max(#o.question + 4, 50))
     local c0, r0 = (COLS - cols) // 2, ROWS // 2 - 2

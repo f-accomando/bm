@@ -308,6 +308,19 @@ do
   check(U.modules_join(m)[6] == "z", "modules: once typed in, it is")
   check(U.module_name_ok("gfx-2.lua_") and not U.module_name_ok("a b") and not U.module_name_ok("") and
         not U.module_name_ok(string.rep("x", 25)), "modules: a name is letters, digits, _ . -")
+  -- find in the project (APP-23)
+  local srcs = { { name = "main", lines = { "local Hero = 1", "  x = hero + HERO", "none" } },
+                 { name = "gfx", lines = { "", "	draw(hero)" } } }
+  local h = U.find_all(srcs, "hero")
+  check(#h == 3, "find_all: one hit per line, in every source (" .. #h .. ")")
+  check(h[1].src == 1 and h[1].line == 1 and h[1].col == 7 and h[1].text == "local Hero = 1",
+        "find_all: case-insensitive, source, line, 1-based column")
+  check(h[2].src == 1 and h[2].line == 2 and h[2].col == 7 and h[2].text == "x = hero + HERO",
+        "find_all: the indent is cut from the text, the column is in the line")
+  check(h[3].src == 2 and h[3].line == 2 and h[3].text == "draw(hero)", "find_all: the second source")
+  check(#U.find_all(srcs, "") == 0 and #U.find_all(srcs, "zzz") == 0 and #U.find_all({}, "a") == 0,
+        "find_all: empty text, no match, no source: no hits")
+  check(#U.find_all({ { name = "a", lines = { "a.b", "a+b" } } }, ".") == 1, "find_all: the text is plain, not a pattern")
 end
 
 -- a line of text with a caret: keys, click, draw

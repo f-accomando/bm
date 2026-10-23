@@ -559,6 +559,23 @@ function U.tabbar(o)
   return from, last
 end
 
+-- find a text in several sources (find in the project): sources is a list of
+-- { name =, lines = }; the text is plain and not case sensitive. Returns the
+-- hits in order, one per line: { src = the source's number, line =, col = (1
+-- based), text = the line without its indent }.
+function U.find_all(sources, text)
+  local out = {}
+  if not text or text == "" then return out end
+  local q = text:lower()
+  for si, s in ipairs(sources) do
+    for li, l in ipairs(s.lines) do
+      local p = l:lower():find(q, 1, true)
+      if p then out[#out + 1] = { src = si, line = li, col = p, text = (l:gsub("^%s+", "")) } end
+    end
+  end
+  return out
+end
+
 -- The Lua modules of one project (APP-8). The code of a project stays ONE
 -- LUA section; a line "--@module NAME" starts a module, which runs to the
 -- next such line. For the cartridge it is a comment, so the game, its bytes
