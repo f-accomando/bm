@@ -47,6 +47,7 @@ import zlib
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bmaudio  # noqa: E402
 import bmmesh  # noqa: E402
+import mklint  # noqa: E402
 
 # 6 is the sound bank; MESH and ANIM were 6 and 7 in the first bm Studio
 # files (bmmesh.cart_sections reads those as 8 and 9)
@@ -508,17 +509,8 @@ def mark_type(data, name):
     return bytes(out)
 
 
-B16_LUA_CHECKS = [
-    (r"(?<![\w])math\.random", "math.random: not the same game on every machine"),
-    (r"(?<![\w.:])time\(", "time(): no clock; count the ticks instead"),
-    (r"(?<![\w.:])save\(", "save(): saves are not designed yet"),
-    (r"(?<![\w.:])ls\(", "ls() and files: no file system"),
-    (r"(?<![\w.:])cart_\w+\(", "cart_*: the tools' functions, not a game's"),
-    (r"(?<![\w.:])udp_\w+\(", "udp: no network from the system"),
-    (r"(?<![\w.:])require(?![\w])", "require: not for a .b16"),
-    (r"(?<![\w.:])load\(", "load(): not for a .b16"),
-    (r"(?<![\w.:])screen\(", "screen(): one machine, one resolution"),
-]
+# the Lua rules of the .b16 lint: docs/spec/lint-rules.toml, the same list as the C table of the SDK export (scripts/mklint.py)
+B16_LUA_CHECKS = mklint.python_checks("b16")
 
 
 def lua_code_only(text):
