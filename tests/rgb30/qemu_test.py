@@ -550,7 +550,7 @@ def test_crash_report(b, opts):
         q.expect("*** EXCEPTION: synchronous exception - BRK (breakpoint) ***", timeout=10)
         q.expect("Restarting in 60 s", timeout=20)
         q.expect("the last run ended in a crash: saved as a report", timeout=120)
-        q.expect("RPT00001.TXT", timeout=30)
+        q.expect("rpt00001.txt", timeout=30)
         dump = os.path.join(tmp, "after.img")
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
                   until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
@@ -558,7 +558,7 @@ def test_crash_report(b, opts):
         q.close()
     env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
     part = f"{dump}@@{1024 * 1024}"
-    rep = subprocess.run(["mtype", "-i", part, "::/bm/reports/RPT00001.TXT"], capture_output=True, text=True,
+    rep = subprocess.run(["mtype", "-i", part, "::/bm/reports/rpt00001.txt"], capture_output=True, text=True,
                          env=env).stdout
     shutil.rmtree(tmp, ignore_errors=True)
     head, body = rep.split("\n\n", 1)
@@ -979,9 +979,9 @@ def test_sdk_stages_build(b, opts):
         q.send("\r")
         screen(["new project (Stages 2D)"])
         q.send("\x02")                          # Ctrl+B: Save as
-        screen(["file name", "MYGAME.BME"])
+        screen(["file name", "mygame.bme"])
         q.send("\r")
-        screen(["built /bm/MYGAME.BM"])
+        screen(["built /bm/mygame.bm"])
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
                   until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
         time.sleep(0.3)
@@ -1140,7 +1140,7 @@ def test_bench3d(b, opts):
                          capture_output=True, env=env, check=True).stdout.decode(errors="replace")
     assert rep.startswith("bm 3D Bench") and "R,spheres,ARM" in rep and "total " in rep, rep
     # and as a report (src/kernel/reports.c): no token here, it waits on the card
-    rpt = subprocess.run(["mtype", "-i", f"{dump}@@{1024 * 1024}", "::/bm/reports/RPT00001.TXT"],
+    rpt = subprocess.run(["mtype", "-i", f"{dump}@@{1024 * 1024}", "::/bm/reports/rpt00001.txt"],
                          capture_output=True, env=env, check=True).stdout.decode(errors="replace")
     head = rpt.split("\n\n", 1)[0]
     assert rpt.startswith("bm report\nkind: bench3d\n") and "board: QEMU virt" in head, rpt[:400]
@@ -1256,7 +1256,7 @@ def test_market_b16(b, opts):
         keys(q, "\r")                           # confirm: a question first
         screen(["Download Pocket?", "free, license MIT"])
         keys(q, "\r")
-        q.expect("market: games/pocket/pocket.b16 -> /bm/POCKET.B16", timeout=20)
+        q.expect("market: games/pocket/pocket.b16 -> /bm/pocket.b16", timeout=20)
         q.expect("market: Pocket installed", timeout=5)
         screen(["Installed", "Play"])
         keys(q, "x")                            # X: its details
@@ -1264,7 +1264,7 @@ def test_market_b16(b, opts):
         keys(q, "\x7f")                         # back: closed
         screen(["Installed"], gone=["Market > Pocket"])
         keys(q, "\r")                           # confirm: plays it, from the card
-        q.expect("play: /bm/POCKET.B16", timeout=10)
+        q.expect("play: /bm/pocket.b16", timeout=10)
         q.expect("the b16 runs", timeout=30)
         q.expect("bm: loaded", timeout=10)     # the system's splash, then the game
         time.sleep(1.0)
@@ -1285,7 +1285,7 @@ def test_market_b16(b, opts):
     assert "POCKET.B16" in listing and "BIGPI" not in listing, listing
     owned = subprocess.run(["mtype", "-i", part, "::/bm/market/GAMES.TXT"], capture_output=True,
                            env=env, check=True).stdout.decode()
-    assert owned.startswith("pocket ") and owned.rstrip().endswith(" /bm/POCKET.B16"), owned
+    assert owned.startswith("pocket ") and owned.rstrip().endswith(" /bm/pocket.b16"), owned
 
 
 def test_market_bm_key(b, opts):
@@ -1487,11 +1487,11 @@ def sdk_new_empty(q):
 
 
 def sdk_save_default(q):
-    """Ctrl+S, Enter (accepts MYGAME.BME)."""
+    """Ctrl+S, Enter (accepts mygame.bme)."""
     q.send("\x13")
-    sdk_screen(q, ["file name", "MYGAME.BME"])
+    sdk_screen(q, ["file name", "mygame.bme"])
     q.send("\r")
-    sdk_screen(q, ["saved /bme/MYGAME.BME"])
+    sdk_screen(q, ["saved /bme/mygame.bme"])
 
 
 def sdk_exit_dump(q, tmp, size):
@@ -1520,7 +1520,7 @@ def cart_secs(data):
 
 def sdk_kb_run(b, drive, check):
     """A new Empty 2D project: drive(q), save, leave, check(cart_secs of
-    /bme/MYGAME.BME)."""
+    /bme/mygame.bme)."""
     tmp = mktmp(prefix="bm64kb-")
     q, size = sdk_session(b, tmp)
     try:
@@ -1531,7 +1531,7 @@ def sdk_kb_run(b, drive, check):
         dump = sdk_exit_dump(q, tmp, size)
     finally:
         q.close()
-    check(cart_secs(sd_read(dump, "/bme/MYGAME.BME")))
+    check(cart_secs(sd_read(dump, "/bme/mygame.bme")))
 
 
 def test_sdk_pad_sprite(b, opts):
@@ -1660,7 +1660,7 @@ def test_sdk_pad_lib(b, opts):
         dump = sdk_exit_dump(q, tmp, size)
     finally:
         q.close()
-    secs = cart_secs(sd_read(dump, "/bme/MYGAME.BME"))
+    secs = cart_secs(sd_read(dump, "/bme/mygame.bme"))
     assert 6 in secs, sorted(secs)
     sounds = bmaudio.unpack(secs[6])["sounds"]
     assert sounds[0]["name"] == "BELL" and sounds[0]["wave"] == "metal", sounds[:1]
@@ -1721,7 +1721,7 @@ def test_sdk_layers_b16(b, opts):
         dump = sdk_exit_dump(q, tmp, size)
     finally:
         q.close()
-    secs = cart_secs(sd_read(dump, "/bme/MYGAME.BME"))
+    secs = cart_secs(sd_read(dump, "/bme/mygame.bme"))
     lay = secs[12]
     w, h, n = struct.unpack_from("<HHH", lay, 0)
     assert n == 2, (w, h, n)
@@ -1773,18 +1773,18 @@ def test_sdk_pad_build(b, opts):
         sdk_screen(q, ["SINE"])
         sdk_save_default(q)
         q.send("\x02")                         # Ctrl+B: the game next to the project
-        sdk_screen(q, ["built /bm/MYGAME.BM"])
+        sdk_screen(q, ["built /bm/mygame.bm"])
         q.send("\x1b")                         # Esc: the menu; Export .b16 is the seventh row
         for _ in range(6):
             q.send(DOWN)
             time.sleep(0.3)
         sdk_screen(q, ["Export .b16"])
         q.send("\r")
-        sdk_screen(q, [".B16"])
+        sdk_screen(q, [".b16"])
         dump = sdk_exit_dump(q, tmp, size)
     finally:
         q.close()
-    project = cart_secs(sd_read(dump, "/bme/MYGAME.BME"))
+    project = cart_secs(sd_read(dump, "/bme/mygame.bme"))
     game_bytes = sd_read(dump, "/bm/MYGAME.BM")
     game = cart_secs(game_bytes)
     for t in (1, 2, 3, 6):

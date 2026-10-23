@@ -191,9 +191,9 @@ local function short_path(path)
   local dir, base = path:match("^(.*)/([^/]+)$")
   dir = dir or U.PROJECTS
   if dir == "" then dir = "/" end
-  local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
-  if stem == "" then stem = "SPRITES" end
-  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BME"
+  local stem = (base or path):gsub("%.[^.]*$", ""):lower():gsub("[^%w_]", "")
+  if stem == "" then stem = "sprites" end
+  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".bme"
 end
 
 -- a game (.bm, .b16) is read only: saving it makes its editable copy
@@ -1887,7 +1887,7 @@ local function open_chooser()
 end
 
 local function save_as()
-  ask("file name (8.3, in /bme)", proj.path and short_path(proj.path):match("([^/]+)$") or "SPRITES.BME", function(t)
+  ask("file name (8.3, in /bme)", proj.path and short_path(proj.path):match("([^/]+)$") or "sprites.bme", function(t)
     if t == "" then return end
     local to = U.project_path(t)
     save_to(to, proj.path, function() go(last_page) end)

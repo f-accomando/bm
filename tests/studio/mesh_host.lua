@@ -488,7 +488,7 @@ check(sees("30 vertices, 32 triangles"), "the ship: 30 vertices, 32 triangles")
 key("m")
 check(chosen() == "M ship" and status():find('model("ship")', 1, true), "m: a copy as the model ship: " .. status())
 key("^s")
-check(status():find("saved /bme/ASTROWIN.BME", 1, true), "Ctrl+S: " .. status())
+check(status():find("saved /bme/astrowin.bme", 1, true), "Ctrl+S: " .. status())
 local ship = model_of("astrowin.bme", "ship")
 check(ship and ship.nv == 30 and ship.nf == 32, "the file has the model ship, 30 vertices and 32 triangles")
 local cap_ship = captured[1]
@@ -683,7 +683,7 @@ for _ = 1, 3 do key("down") end
 key("\n")
 check(sees("file name"), "Save as asks a name")
 type_text("MESHCOPY")
-check(status():find("saved /bme/MESHCOPY.BME", 1, true), "saved as: " .. status())
+check(status():find("saved /bme/meshcopy.bme", 1, true), "saved as: " .. status())
 local cp = file("meshcopy.bme")
 check(cp and section(cp, 8) == section(v1, 8) and section(cp, 9) == section(v1, 9) and section(cp, 5) == section(v1, 5),
       "the copy has the same models, skeletons and sheet")

@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 static FILE *img;
 static uint32_t writes, runs;           /* sectors written; writes of more than one */
@@ -326,8 +327,8 @@ static void test_sdmap(void)
 static void test_project(void)
 {
     char out[96], err[64];
-    CHECK(bm_project_path("/carts/Il mio gioco.bm", out, sizeof out) == 0 && !strcmp(out, "/bme/ILMIOGIO.BME"));
-    CHECK(bm_project_path("pong.bm", out, sizeof out) == 0 && !strcmp(out, "/bme/PONG.BME"));
+    CHECK(bm_project_path("/carts/Il mio gioco.bm", out, sizeof out) == 0 && !strcmp(out, "/bme/ilmiogio.bme"));
+    CHECK(bm_project_path("pong.bm", out, sizeof out) == 0 && !strcmp(out, "/bme/pong.bme"));
     CHECK(bm_is_project("/bme/PONG.BME") && bm_is_project("/carts/old.bme") && !bm_is_project("/bm/pong.bm"));
 
     /* a game in the games folder, as the card has it */
@@ -342,17 +343,17 @@ static void test_project(void)
     char game[40];
     snprintf(game, sizeof game, "%s/PONGX.BM", bm_games_dir());
 
-    /* its editable copy: /bme/PONGX.BME, then /bme/PONGX1.BME when that is taken */
-    CHECK(bm_copy_name(game, out, sizeof out) == 0 && !strcmp(out, "/bme/PONGX.BME"));
+    /* its editable copy: /bme/pongx.bme, then /bme/pongx1.bme when that is taken */
+    CHECK(bm_copy_name(game, out, sizeof out) == 0 && !strcmp(out, "/bme/pongx.bme"));
     CHECK(bm_make_copy(game, out, err, sizeof err) == 0);
     fat_entry_t e;
     CHECK(fat_find("/bme/PONGX.BME", &e) == 0 && !e.is_dir);
-    CHECK(bm_copy_name(game, out, sizeof out) == 0 && !strcmp(out, "/bme/PONGX1.BME"));
+    CHECK(bm_copy_name(game, out, sizeof out) == 0 && !strcmp(out, "/bme/pongx1.bme"));
 
     /* Ctrl+B: a project in /bme builds into the games folder, not next to itself */
     CHECK(bm_build("/bme/PONGX.BME", out, sizeof out, err, sizeof err) == 0);
     char want[40];
-    snprintf(want, sizeof want, "%s/PONGX1.BM", bm_games_dir());       /* PONGX.BM is a game it did not build */
+    snprintf(want, sizeof want, "%s/pongx1.bm", bm_games_dir());       /* PONGX.BM is a game it did not build */
     CHECK(!strcmp(out, want));
     CHECK(fat_find(want, &e) == 0);
     CHECK(bm_build("/bme/PONGX.BME", out, sizeof out, err, sizeof err) == 0 && !strcmp(out, want));   /* its own game, replaced */
@@ -362,9 +363,70 @@ static void test_project(void)
     CHECK(fat_write_file(bm_games_dir(), "OLDG.BME", cart, sizeof cart) == 0);
     snprintf(game, sizeof game, "%s/OLDG.BME", bm_games_dir());
     CHECK(bm_build(game, out, sizeof out, err, sizeof err) == 0);
-    snprintf(want, sizeof want, "%s/OLDG.BM", bm_games_dir());
+    snprintf(want, sizeof want, "%s/oldg.bm", bm_games_dir());
     CHECK(!strcmp(out, want));
     CHECK(bm_build("/bme/PONGX.BM", out, sizeof out, err, sizeof err) != 0);     /* only a project is built */
+}
+
+/* A new name is stored as an 8.3 entry in capitals with the NT lowercase
+ * flags (byte 12: 0x08 base, 0x10 extension): Windows, Linux and the console
+ * show lowercase. Lookups stay case-insensitive; an old file keeps its name. */
+static int nt_flags(const char *path, const char *short11)
+{
+    fat_entry_t e;
+    uint8_t sec[512];
+    if (fat_find(path, &e) != 0 || sd_read(e.dir_lba, 1, sec) != 0)
+        return -1;
+    if (memcmp(sec + e.dir_off, short11, 11) != 0)
+        return -2;
+    return sec[e.dir_off + 12];
+}
+
+static void test_lowercase(void)
+{
+    fat_entry_t e;
+    CHECK(fat_mkdirs("/lc") == 0);
+    CHECK(fat_write_file("/lc", "UPPER.TXT", "a", 1) == 0);         /* a caller in capitals */
+    CHECK(fat_write_file("/lc", "lower.txt", "b", 1) == 0);
+    CHECK(fat_write_file("/lc", "Mixed.Bin", "c", 1) == 0);
+    CHECK(fat_write_file("/lc", "noext", "d", 1) == 0);
+    CHECK(fat_write_file("/lc", "a1.dat", "e", 1) == 0);
+    CHECK(fat_write_file("/lc", "x.123", "f", 1) == 0);
+    CHECK(fat_write_file("/lc", "123.456", "g", 1) == 0);
+    CHECK(nt_flags("/lc/upper.txt", "UPPER   TXT") == 0x18);
+    CHECK(nt_flags("/lc/lower.txt", "LOWER   TXT") == 0x18);
+    CHECK(nt_flags("/lc/mixed.bin", "MIXED   BIN") == 0x18);
+    CHECK(nt_flags("/lc/noext", "NOEXT      ") == 0x08);
+    CHECK(nt_flags("/lc/a1.dat", "A1      DAT") == 0x18);
+    CHECK(nt_flags("/lc/x.123", "X       123") == 0x08);
+    CHECK(nt_flags("/lc/123.456", "123     456") == 0);
+    /* the directory listing gives the lowercase name */
+    fat_dir_t d;
+    int seen_upper = 0, seen_lower = 0;
+    CHECK(fat_opendir(&d, "/lc") == 0);
+    while (fat_readdir(&d, &e)) {
+        if (strcmp(e.name, "upper.txt") == 0) seen_lower++;
+        if (strcmp(e.name, "UPPER.TXT") == 0) seen_upper++;
+    }
+    CHECK(seen_lower == 1 && seen_upper == 0);
+    /* a lookup in any case finds it, and a replace keeps the one entry */
+    CHECK(fat_find("/LC/UPPER.TXT", &e) == 0 && fat_find("/lc/Upper.Txt", &e) == 0);
+    CHECK(fat_replace("/LC/upper.TXT", "zz", 2) == 0);
+    CHECK(read_back("/lc/upper.txt", (const uint8_t *)"zz", 2));
+    CHECK(fat_write_file("/lc", "UPPER.txt", "yyy", 3) == 0);       /* same file, found again */
+    CHECK(read_back("/LC/UPPER.TXT", (const uint8_t *)"yyy", 3));
+    CHECK(nt_flags("/lc/upper.txt", "UPPER   TXT") == 0x18);
+    int n = 0;
+    CHECK(fat_opendir(&d, "/lc") == 0);
+    while (fat_readdir(&d, &e))
+        n += strcasecmp(e.name, "upper.txt") == 0;
+    CHECK(n == 1);
+    /* a folder made in lowercase too */
+    CHECK(fat_mkdirs("/lc/sub") == 0);
+    CHECK(fat_find("/lc/sub", &e) == 0 && e.is_dir && strcmp(e.name, "sub") == 0);
+    CHECK(fat_opendir(&d, "/LC/SUB") == 0);
+    /* a file that was in capitals on the card of before is not renamed */
+    CHECK(fat_delete("/lc/lower.txt") == 0 && fat_find("/lc/lower.txt", &e) != 0);
 }
 
 int main(int argc, char **argv)
@@ -405,6 +467,7 @@ int main(int argc, char **argv)
     test_sdmap();
     test_project();
     test_clock();
+    test_lowercase();
 
     /* 200 files: the directory grows over several clusters */
     for (int i = 0; i < 200; i++) {
@@ -635,7 +698,7 @@ int main(int argc, char **argv)
             int twice = 0;
             CHECK(fat_opendir(&md, "/mix") == 0);
             while (fat_readdir(&md, &me))
-                twice += strcmp(me.name, "TWICE.BIN") == 0;
+                twice += strcasecmp(me.name, "twice.bin") == 0;
             CHECK(twice == 1);                  /* one entry, not two */
             CHECK(fat_delete("/mix/twice.bin") == 0);
             CHECK(fats_equal());

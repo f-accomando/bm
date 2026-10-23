@@ -526,15 +526,15 @@ does not start: put kernel8.img on its card once (2 [SD] update kernel, with the
     exit 0
 }
 
-short_name() {                                  # an 8.3 name for the SD card (PONG.BM): the file's if it is one
+short_name() {                                  # an 8.3 name for the SD card (pong.bm): the file's if it is one
     local b=$1 stem ext
     if [[ $b =~ ^[A-Za-z0-9_-]{1,8}(\.[A-Za-z0-9_-]{1,3})?$ ]]; then echo "$b"; return; fi
     stem=${b%.*}; ext=
     [ "$stem" = "$b" ] || ext=${b##*.}
     stem=$(tr -cd 'A-Za-z0-9_-' <<< "$stem"); ext=$(tr -cd 'A-Za-z0-9_-' <<< "$ext")
     stem=${stem:0:8}; ext=${ext:0:3}
-    [ -n "$stem" ] || stem=FILE
-    stem=${stem^^}; ext=${ext^^}
+    [ -n "$stem" ] || stem=file
+    stem=${stem,,}; ext=${ext,,}
     echo "$stem${ext:+.$ext}"
 }
 

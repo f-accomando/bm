@@ -44,7 +44,7 @@ You can write, try and fix a game without a computer: the loop is edit, F5, look
 
 bm Code edits only **projects**, files that end in `.bme`. A game (`.bm`) is read only: you can open it and read it, but never change it.
 
-When you save a game, bm Code does not touch it. It writes an editable copy in `/bme`, `NAME.BME`, and from then on the tab works on the copy. The tab name changes to the new file.
+When you save a game, bm Code does not touch it. It writes an editable copy in `/bme`, `name.bme`, and from then on the tab works on the copy. The tab name changes to the new file.
 
 ## Opening a cartridge
 
@@ -52,7 +52,7 @@ Press **Ctrl+O**. The list shows `+ New project...` and then the `.bme` projects
 
 ## A new project
 
-Press **Ctrl+N**. A line asks `New project, file name (8.3 in /bme):` and suggests `GAME1.BME`. The name must be 8.3: up to eight letters, digits, `_` or `-`, and the extension `.BME`. If the file already exists, bm Code says so and suggests Ctrl+O. The new tab has a small starter program; press **Ctrl+S** to write the file.
+Press **Ctrl+N**. A line asks `New project, file name (8.3 in /bme):` and suggests `game1.bme`. The name must be 8.3: up to eight letters, digits, `_` or `-`, and the extension `.BME`. If the file already exists, bm Code says so and suggests Ctrl+O. The new tab has a small starter program; press **Ctrl+S** to write the file.
 
 **Ctrl+T** opens a new empty tab with no file: the first save asks for a name.
 
@@ -316,8 +316,8 @@ Start from bm Code. On the console it is the entry **bm Code** of the bm menu. Y
 ## Write and run your first line
 
 1. Start bm Code. On the first start it shows a small starter program in an empty tab.
-2. Press **Ctrl+N**. A line asks for the file name and suggests `GAME1.BME`. Press **Enter**. The status line says `new: Ctrl+S writes /bme/GAME1.BME`.
-3. Press **Ctrl+S**. The status line says `saved /bme/GAME1.BME`.
+2. Press **Ctrl+N**. A line asks for the file name and suggests `game1.bme`. Press **Enter**. The status line says `new: Ctrl+S writes /bme/game1.bme`.
+3. Press **Ctrl+S**. The status line says `saved /bme/game1.bme`.
 4. Move the cursor to the line `print("hello!", 296, 40, 0xFFFFFF)` with the arrows. Change `hello!` into your own words. The `*` appears after the file name.
 5. Press **F5**. The game starts: a yellow circle, your words on the screen, and the d-pad moves the circle.
 6. Press **Start + Select** (or **Ctrl+Esc**) to leave. bm Code comes back with `back from the game`.
@@ -361,8 +361,8 @@ Put a breakpoint inside `_draw`, press F5, and press F10 line by line. Which var
 
 # Tips and limits
 
-- **Save with a short name.** A project file name is 8.3: `MYGAME.BME`.
-- **Work on the copy.** If you open a game (`.bm`), the first save makes `NAME.BME`; keep editing that one.
+- **Save with a short name.** A project file name is 8.3: `mygame.bme`.
+- **Work on the copy.** If you open a game (`.bm`), the first save makes `name.bme`; keep editing that one.
 - **Tokens.** The tokens of a program are counted as the dev kit counts them; `code_tokens(text)` gives the number for a piece of Lua. They are information, not a limit: bm puts no ceiling on tokens. bm Code does not show them: the bm SDK does, on its F1 page and in the status line of its quick editor.
 - **Text not saved is kept in a limited space.** When you leave or run the game, bm Code keeps the text of the tabs with changes (and of the tabs with no file) for the next time, up to 16000 characters in all; text beyond that is not kept. Save often.
 - **Undo** remembers the last 100 steps of each tab.

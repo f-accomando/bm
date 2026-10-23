@@ -187,13 +187,13 @@ Cosa c'è sulla scheda dipende dalla scheda madre. Il testo di `LEGGIMI.txt` sul
 | `bm/config.txt` | entrambe | le impostazioni di bm, righe `chiave=valore` |
 | `bm/ca.pem` | entrambe | i certificati per la rete |
 | `bm/save/` | entrambe | i salvataggi dei giochi (8 slot ciascuno, fino a 32 KiB a slot) |
-| `bm/shots/` | entrambe | gli screenshot (`PONG0001.PNG`) |
+| `bm/shots/` | entrambe | gli screenshot (`pong0001.png`) |
 | `bm/lib/` | entrambe | risorse (`.bmm`, `.bmi`, `.bms`...) che app e giochi possono condividere |
 | `bm/backup/` | entrambe | il kernel precedente, conservato da ogni aggiornamento |
 | `bm/reports/` | entrambe | rapporti di test in attesa di invio |
-| `bm/bench/` | entrambe | rapporti del bench 3D (`3D0001.TXT`) |
+| `bm/bench/` | entrambe | rapporti del bench 3D (`3d0001.txt`) |
 | `bm/bootlog.txt`, `bm/bootprev.txt`, `bm/lastrun.txt` | RGB30 | cosa ha scritto il kernel in questo avvio, in quello prima e nell'ultima sessione |
-| `docs/` | entrambe | i documenti delle app che li chiedono, come bm Write (`LETTER.BMD`) |
+| `docs/` | entrambe | i documenti delle app che li chiedono, come bm Write (`letter.bmd`) |
 
 Anche il firmware WiFi e Bluetooth sta in `bm/`: sul Pi i file `BCM43430A1.hcd` e `brcmfmac43430-sdio.*`; sull'RGB30 `rtl8821cs_fw.bin` e `rtl8821cs_config.bin`.
 

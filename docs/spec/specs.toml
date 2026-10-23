@@ -183,3 +183,11 @@ status = "implemented"
 platforms = "all"
 where = ["src/bm/webget.c", "src/bm/webfile.c", "src/fs/sdlock.c", "src/bm/webpolicy.c", "src/bm/webimg.c", "src/bm/runtime.c", "src/net/http.c", "docs/api/system.md"]
 note = "docs/api/system.md, section The web. Tested in QEMU for image_load, file_write and the address rules (test_web_api) and on the PC for the request itself (make test-webapi). Not tried on the Pi or the RGB30 with a real server. The folder is bm/web because the FAT writer makes 8.3 names only"
+
+[[item]]
+id = "lowercase-names"
+since = 4
+status = "implemented"
+platforms = "all"
+where = ["src/fs/fat.c", "src/bm/project.c", "src/bm/shot.c", "src/bm/webpolicy.c", "src/kernel/reports.c", "src/kernel/sdlog.c", "src/kernel/b3dpi.c", "src/rgb30/b3d_rgb30.c", "src/script/bmui.lua", "docs/PROJECT-LAYOUT.md"]
+note = "The system writes lowercase names and extensions; reads are case-insensitive. The FAT driver sets the NT lowercase flags (byte 12, 0x08 base, 0x10 extension) of the 8.3 entry; every writer builds a lowercase name (config.txt, bootlog.txt, rptNNNNN.txt, 3dNNNN.txt, shots, bmv, sav, prt, /bme/name.bme, .bm, .b16). Old files in capitals are read and replaced in place, never renamed. Tested by host test_fat (flags, lookup in any case, fsck.vfat and mtools) and the QEMU tests. Not verified on real cards in Windows, Linux and the console"

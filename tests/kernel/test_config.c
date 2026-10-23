@@ -47,7 +47,7 @@ static int has_file, writes;
 int fat_find(const char *path, fat_entry_t *e)
 {
     (void)e;
-    return has_file && strcmp(path, "/bm/CONFIG.TXT") == 0 ? 0 : -1;
+    return has_file && strcmp(path, "/bm/config.txt") == 0 ? 0 : -1;
 }
 int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
 {
@@ -60,7 +60,7 @@ int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
 int fat_mkdirs(const char *path) { (void)path; return 0; }
 int fat_write_file(const char *dir, const char *name, const void *data, size_t len)
 {
-    check(strcmp(dir, "/bm") == 0 && strcmp(name, "CONFIG.TXT") == 0, "written as /bm/CONFIG.TXT");
+    check(strcmp(dir, "/bm") == 0 && strcmp(name, "config.txt") == 0, "written as /bm/config.txt");
     memcpy(file, data, len);
     file[len] = 0;
     file_len = len;

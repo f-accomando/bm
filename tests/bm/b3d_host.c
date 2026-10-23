@@ -89,7 +89,7 @@ static int last_number(void)
     int best = 0;
     for (int k = 1; k < 10000; k++) {
         char path[512];
-        snprintf(path, sizeof path, "%s/3D%04d.TXT", dir, k);
+        snprintf(path, sizeof path, "%s/3d%04d.txt", dir, k);
         FILE *f = fopen(path, "r");
         if (!f)
             break;
@@ -103,7 +103,7 @@ static int save(const char *text, size_t len, char *name, size_t n)
 {
     char path[512];
     const int k = last_number() + 1;
-    snprintf(path, sizeof path, "%s/3D%04d.TXT", dir, k);
+    snprintf(path, sizeof path, "%s/3d%04d.txt", dir, k);
     FILE *f = fopen(path, "w");
     if (!f || fwrite(text, 1, len, f) != len) {
         if (f)
@@ -111,7 +111,7 @@ static int save(const char *text, size_t len, char *name, size_t n)
         return -1;
     }
     fclose(f);
-    snprintf(name, n, "3D%04d.TXT", k);
+    snprintf(name, n, "3d%04d.txt", k);
     return 0;
 }
 
@@ -121,7 +121,7 @@ static int load_last(char **text, char *name, size_t n)
     if (!k)
         return -1;
     char path[512];
-    snprintf(path, sizeof path, "%s/3D%04d.TXT", dir, k);
+    snprintf(path, sizeof path, "%s/3d%04d.txt", dir, k);
     FILE *f = fopen(path, "r");
     if (!f)
         return -1;
@@ -137,7 +137,7 @@ static int load_last(char **text, char *name, size_t n)
     t[len] = 0;
     fclose(f);
     *text = t;
-    snprintf(name, n, "3D%04d.TXT", k);
+    snprintf(name, n, "3d%04d.txt", k);
     return 0;
 }
 
@@ -262,6 +262,6 @@ int main(int argc, char **argv)
         fprintf(stderr, "b3d: the report was not saved\n");
         return 1;
     }
-    printf("b3d: report %s/3D%04d.TXT, pages in %s\n", dir, last_number(), dir);
+    printf("b3d: report %s/3d%04d.txt, pages in %s\n", dir, last_number(), dir);
     return 0;
 }

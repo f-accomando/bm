@@ -8,8 +8,8 @@ fixed operations without ever seeing the password.
   python3 tools/pi.py line gpu                        # the client (another shell, or Claude)
   python3 tools/pi.py status                          # is the Pi up, which kernel, how did the run before end
 
-Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.TXT and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, reboot: the last ones only when the monitor has the keys), line TEXT (monitor commands separated by ';', only gpu, b3d tests=.. profiles=.., render, room, log, err, send, reboot; set/save/play and anything else refused), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. (words of letters, digits and _-. only).
-One bridge per device: --dev NAME gives the socket ~/.pi_bridge.NAME.sock and the files out/pi_NAME_*.TXT.
+Operations: status, logs NAME (bootprev, bootlog, lastrun: saved in out/pi_*.txt and shown), keys NAME (monitor, game-exit: Ctrl-backslash ends the game, crash-*, freeze, reboot: the last ones only when the monitor has the keys), line TEXT (monitor commands separated by ';', only gpu, b3d tests=.. profiles=.., render, room, log, err, send, reboot; set/save/play and anything else refused), send FILE, play FILE, kernel FILE, shot OUT.png, config KEY=VALUE.. (words of letters, digits and _-. only).
+One bridge per device: --dev NAME gives the socket ~/.pi_bridge.NAME.sock and the files out/pi_NAME_*.txt.
 The board decides the kernel file kernel FILE takes (pi: any name, as before; zero2: kernel7.img, rgb30: kernel8.img); the RGB30 has no monitor, so its crash, freeze and reboot keys answer "not for this board".
 FILE must be inside the repo or in ~/bmk*/ (the build folders); OUT of shot is a .png in a folder there. The socket is ~/.pi_bridge.sock, mode 0600."""
 import datetime
@@ -32,8 +32,8 @@ import bm_net  # noqa: E402  (status asks the greeting of the console)
 KEYS = {"monitor": "q", "crash-dabt": "Xa", "crash-undef": "Xu", "crash-prefetch": "Xb", "freeze": "Xf", "reboot": "r"}
 # these keys mean something else in the menu (X opens the options, r is an action): only when the monitor has them
 MONITOR_ONLY = {"crash-dabt", "crash-undef", "crash-prefetch", "freeze", "reboot"}
-# the logs of the SD card the Pi writes at a crash or a boot (netxfer.c G allows these three names only)
-LOGS = {"bootprev": "BOOTPREV.TXT", "bootlog": "BOOTLOG.TXT", "lastrun": "LASTRUN.TXT"}
+# the logs of the SD card the Pi writes at a crash or a boot (netxfer.c G allows these three names only, in any case)
+LOGS = {"bootprev": "bootprev.txt", "bootlog": "bootlog.txt", "lastrun": "lastrun.txt"}
 # the monitor commands the line operation passes (src/kernel/monitor.c:291 lists them all; set, save and play are left out:
 # set writes any config key, wifi_psk and net_password included; play is the bridge's play FILE)
 LINE_CMDS = ("gpu", "b3d", "render", "room", "log", "err", "crc", "send", "reboot")
@@ -82,13 +82,13 @@ def allowed_dir(path):
 
 
 def status(host, pw):
-    """up or down (the greeting of the console), the version, the state of the run before (BOOTPREV.TXT)"""
+    """up or down (the greeting of the console), the version, the state of the run before (bootprev.txt)"""
     v = bm_net.console_version(host)
     if v is None:
         return "status: down - no answer from %s:%d (off, restarting, frozen, or another client connected)" % (host, bm_net.PORT)
-    out_file = os.path.join(ROOT, "out", "pi_" + (DEV + "_" if DEV else "") + "status_BOOTPREV.TXT")
+    out_file = os.path.join(ROOT, "out", "pi_" + (DEV + "_" if DEV else "") + "status_bootprev.txt")
     os.makedirs(os.path.dirname(out_file), exist_ok=True)
-    cmd = [sys.executable, os.path.join(HERE, "bm_net.py"), host, "--get", "bm/BOOTPREV.TXT", out_file]
+    cmd = [sys.executable, os.path.join(HERE, "bm_net.py"), host, "--get", "bm/bootprev.txt", out_file]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=dict(os.environ, BM_PASSWORD=pw))
     prev, first = None, (r.stdout + r.stderr).strip().split(chr(10))[0]
     if r.returncode == 0 and os.path.isfile(out_file):

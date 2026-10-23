@@ -598,7 +598,7 @@ log("frame ms", stat(1))                                         -- on the seria
 ## Good to know
 
 - Each cartridge has **8 save slots**, each a table of up to 32 KiB, in `/bm/save/` on the SD card.
-- Slot 1 is `XXXXXXXX.SAV` (the one of always: `save(t)` and `saved()` without a slot), the others `XXXXXXXX.S02` … `.S08`.
+- Slot 1 is `xxxxxxxx.sav` (the one of always: `save(t)` and `saved()` without a slot), the others `xxxxxxxx.s02` … `.S08`.
 - A common use: slot 1 for settings and records (`lib.store` uses it too), the others for the games in progress.
 - A table can hold numbers, strings, booleans and other tables (no functions).
 - The game's options in the menu (X on the cover) show the bytes of all the slots, and *Delete the save data* deletes them all.
@@ -643,18 +643,18 @@ The player's files, shared by the apps: `/docs` on the SD card (bm Write keeps i
 
 | Function | What it does |
 |---|---|
-| `doc_list()` | the files in `/docs`: `{ {name = "LETTER.BMD", size = 1234}, ... }` (empty if there are none); `nil` and the reason if the player did not allow it |
+| `doc_list()` | the files in `/docs`: `{ {name = "letter.bmd", size = 1234}, ... }` (empty if there are none); `nil` and the reason if the player did not allow it |
 | `doc_read(name)` | the bytes of a document (a string), or `nil` and the reason |
 | `doc_write(name, bytes)` | writes a document, new or replaced (at most 4 MiB); `true`, or `nil` and the reason |
 | `doc_delete(name)` | deletes a document; `true`, or `nil` and the reason |
 
 ## Good to know
 
-- Names are 8.3 without folders (`"LETTER.BMD"`; lower case is fine, the file is written in upper case). The folder is made by the first write.
+- Names are 8.3 without folders (`"letter.bmd"`; the file is always written in lower case, and a read finds it in any case). The folder is made by the first write.
 - The first time an app uses them the console asks the player, as for the network. The answer stays in `bm/config.txt` (`allow_...=docs=yes`), and after a no every call returns `nil` and the reason.
 
 ```lua
-local ok, why = doc_write("NOTES.TXT", "shopping:\nbread\nmilk\n")
+local ok, why = doc_write("notes.txt", "shopping:\nbread\nmilk\n")
 if not ok then msg = why end
 for _, d in ipairs(doc_list() or {}) do print(d.name .. " " .. d.size) end
 ```
@@ -704,7 +704,7 @@ local path = shot("menu")    -- "bm/shots/MENU0001.png"
 2. Press **Print Screen** on the keyboard, or hold **Select** for 3 seconds on the pad.
 3. Wait for the box that says `Screenshot saved`.
 4. Switch the console off and put the SD card in your computer.
-5. Open the folder `bm/shots/`: the picture is there, for example `PONG0001.PNG`.
+5. Open the folder `bm/shots/`: the picture is there, for example `pong0001.png`.
 
 # Network (UDP)
 
@@ -745,7 +745,7 @@ For a cartridge that shows web pages. A request runs in the background: the game
 - One request runs at a time. The results of up to 3 requests stay in memory until `web_cancel` or the end of the cartridge.
 - `web_poll` works for about 4 ms. A new TLS connection can take about 100 ms on the Pi Zero W, and the frame waits. Show a "connecting" message before the first `web_poll`.
 - After a complete answer the kernel keeps the connection for the next request to the same host (keep-alive). The calls do not change.
-- With `resume = "NAME.EXT"` a failed or cancelled request keeps the part it received in `bm/web/NAME.PRT`. The next `web_get` for the same address with the same name asks the server for the rest (`Range`). The server must send `Accept-Ranges` and a size. The body is always the whole file: check its size or a hash before you use it.
+- With `resume = "NAME.EXT"` a failed or cancelled request keeps the part it received in `bm/web/name.prt`. The next `web_get` for the same address with the same name asks the server for the rest (`Range`). The server must send `Accept-Ranges` and a size. The body is always the whole file: check its size or a hash before you use it.
 - In bmhost `web_get` returns `nil` and a reason. `image_load` and `file_write` work.
 
 | Function | What it does |

@@ -187,7 +187,7 @@ int rec_start(const rec_cfg_t *cfg)
     R.period = 1000000u / (uint32_t)cfg->fps;
     R.t_start = R.next_due = timer_ticks();
     R.on = 1;
-    kprintf("rec: run %u, %dx%d %s at %d fps, ring %u chunks of %u KiB (%u MiB), files %s/R%03u0001.BMV...\n",
+    kprintf("rec: run %u, %dx%d %s at %d fps, ring %u chunks of %u KiB (%u MiB), files %s/r%03u0001.bmv...\n",
             (unsigned)R.st.run, cfg->w, cfg->h, fmt_name(cfg->format), cfg->fps,
             (unsigned)R.nslots, (unsigned)(R.slot_bytes / 1024), (unsigned)(want >> 20), REC_DIR, (unsigned)R.st.run);
     return 0;
@@ -321,7 +321,7 @@ static void write_one(void)
     const uint32_t index_off = (uint32_t)s[20] | (uint32_t)s[21] << 8 | (uint32_t)s[22] << 16 | (uint32_t)s[23] << 24;
     const size_t len = (size_t)index_off + (size_t)n * 8;
     char name[16];
-    ksnprintf(name, sizeof name, "R%03u%04u.BMV", (unsigned)R.st.run % 1000u, (unsigned)(R.written + 1) % 10000u);
+    ksnprintf(name, sizeof name, "r%03u%04u.bmv", (unsigned)R.st.run % 1000u, (unsigned)(R.written + 1) % 10000u);
     const uint32_t t0 = timer_ticks();
     const int rc = R.written + 1 < 10000 ? fat_write_file(REC_DIR, name, s, len) : -1;
     const uint32_t dt = timer_ticks() - t0;

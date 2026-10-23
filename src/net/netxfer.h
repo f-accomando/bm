@@ -59,7 +59,7 @@ int  netxfer_write_pending(void);
 enum { NETXFER_RECEIVING = 1, NETXFER_QUEUED, NETXFER_WRITING };
 int  netxfer_updating(const char *path);
 /* The file arriving or being written: its state (above; 0 none), its name
- * ("PONG.BM", n bytes at most), the bytes in so far and its size. */
+ * ("pong.bm", n bytes at most), the bytes in so far and its size. */
 int  netxfer_file_state(char *name, size_t n, uint32_t *done, uint32_t *total);
 
 #endif

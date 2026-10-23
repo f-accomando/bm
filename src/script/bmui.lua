@@ -374,12 +374,12 @@ if raw_keyp and _ENV.keyp == raw_keyp then _ENV.keyp = mkeyp end
 U.PROJECTS = "/bme"
 local OLD_DIRS = { "/carts", "/" }
 
--- "/carts/my game.bm", "MYGAME.BME" or "my game" -> "/bme/MYGAME.BME" (8.3)
+-- "/carts/my game.bm", "mygame.bme" or "my game" -> "/bme/mygame.bme" (8.3)
 function U.project_path(name)
   local base = name:match("([^/]+)$") or name
-  local stem = base:gsub("%.[^.]*$", ""):upper():gsub("[^%w_%-]", "")
-  if stem == "" then stem = "GAME" end
-  return U.PROJECTS .. "/" .. stem:sub(1, 8) .. ".BME"
+  local stem = base:gsub("%.[^.]*$", ""):lower():gsub("[^%w_%-]", "")
+  if stem == "" then stem = "game" end
+  return U.PROJECTS .. "/" .. stem:sub(1, 8) .. ".bme"
 end
 
 -- a project file (by its extension)
@@ -390,7 +390,7 @@ function U.is_old_place(path)
   return U.is_project(path) and path:lower():match("^/bme/") == nil
 end
 
--- the words for the status line after a save: "saved /bme/GAME.BME", and where an old project is
+-- the words for the status line after a save: "saved /bme/game.bme", and where an old project is
 function U.saved_text(path)
   if U.is_old_place(path) then
     return "saved " .. path .. " (old place: projects go in /bme, this one stays here)"

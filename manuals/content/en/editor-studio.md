@@ -52,7 +52,7 @@ bm Studio changes **projects** (`.bme`). A **game** (`.bm` or `.b16`) is only re
 
 ## Caveats
 
-- Opening a game says `a game: saving makes its copy`. The first save asks `Save an editable copy: NAME.BME?`; from then on you work on the copy.
+- Opening a game says `a game: saving makes its copy`. The first save asks `Save an editable copy: name.bme?`; from then on you work on the copy.
 - A game without models can receive some: build them and save.
 - If the menu shows `*modified*`, there are changes not saved. *Open...*, *New project* and *Exit* ask before throwing them away.
 

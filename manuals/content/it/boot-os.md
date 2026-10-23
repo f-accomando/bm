@@ -331,7 +331,7 @@ Premi `Print Screen` sulla tastiera, oppure tieni premuto **Select** per 3 secon
 
 ## Da sapere
 
-- Il nome è formato dalle prime lettere del titolo del gioco e da un numero: `PONG0001.PNG`. Il numero sale da solo; bm non sovrascrive mai un'immagine. Il Pi non ha un orologio, quindi non c'è la data.
+- Il nome è formato dalle prime lettere del titolo del gioco e da un numero: `pong0001.png`. Il numero sale da solo; bm non sovrascrive mai un'immagine. Il Pi non ha un orologio, quindi non c'è la data.
 - Un riquadro dice `Screenshot saved` e il nome del file per due secondi.
 - Le schermate del menu stesso non si possono ancora salvare. Quelle di giochi e app sì.
 - Il tasto Print Screen non ha ancora la sua immagine nell'elenco di F12.
@@ -355,7 +355,7 @@ Un gioco scatta da solo con `shot()`; vedi il manuale dell'API.
 
 Un gioco conserva i suoi dati con `save()` e `saved()`. Ogni gioco ha **8 slot**, ciascuno una tabella fino a 32 KiB, in `bm/save/`.
 
-- Lo slot 1 è `XXXXXXXX.SAV`; gli slot da 2 a 8 sono da `.S02` a `.S08`.
+- Lo slot 1 è `xxxxxxxx.sav`; gli slot da 2 a 8 sono da `.S02` a `.S08`.
 - `XXXXXXXX` deriva dal titolo e dall'autore del gioco. Se cambi uno dei due, il gioco riparte da zero.
 - Le opzioni di un gioco (`c` sulla copertina) mostrano i byte usati e *Delete the save data* cancella tutti gli slot.
 - Gli aggiornamenti e `make install` non toccano mai impostazioni e salvataggi.

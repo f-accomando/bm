@@ -52,7 +52,7 @@ bm Studio modifica **progetti** (`.bme`). Un **gioco** (`.bm` o `.b16`) è solo 
 
 ## Avvertenze
 
-- Aprendo un gioco leggi `a game: saving makes its copy`. Il primo salvataggio chiede `Save an editable copy: NAME.BME?`; da lì in poi lavori sulla copia.
+- Aprendo un gioco leggi `a game: saving makes its copy`. Il primo salvataggio chiede `Save an editable copy: name.bme?`; da lì in poi lavori sulla copia.
 - Un gioco senza modelli può riceverne: costruiscili e salva.
 - Se il menu mostra `*modified*`, ci sono modifiche non salvate. *Open...*, *New project* ed *Exit* chiedono conferma prima di buttarle via.
 
