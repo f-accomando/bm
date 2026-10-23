@@ -14,7 +14,7 @@ Example:
 
 Exit codes: 0 ok (added, printed with --no-write, or duplicate skipped),
 2 bad usage, validation failure or I/O error."""
-import argparse, datetime, os, sys
+import argparse, datetime, os, shlex, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import agent_audit as aa  # AGENTS, FIELDS, _check live there
@@ -46,26 +46,78 @@ def build_row(args):
     return "|".join(values[k] for k in aa.FIELDS), None
 
 
-def main(argv=None):
+FIELD_DEFAULTS = {"gate": "-", "necessity": "-", "outcome": "DONE",
+                  "tokens": aa.UNKNOWN, "tools": aa.UNKNOWN, "secs": aa.UNKNOWN}
+MERGE_KEYS = ("agent", "model", "task", "area", "gate", "necessity", "outcome",
+              "tokens", "tools", "secs", "date")
+
+
+def make_parser():
     ap = argparse.ArgumentParser(description="Append a validated row to the sub-agent ledger.")
-    ap.add_argument("--agent", required=True)
-    ap.add_argument("--model", required=True)
-    ap.add_argument("--task", required=True)
-    ap.add_argument("--area", required=True)
-    ap.add_argument("--gate", default="-")
-    ap.add_argument("--necessity", default="-")
-    ap.add_argument("--outcome", default="DONE")
-    ap.add_argument("--tokens", required=True)
-    ap.add_argument("--tools", required=True)
-    ap.add_argument("--secs", required=True)
-    ap.add_argument("--date", default=datetime.date.today().isoformat())
+    for key in MERGE_KEYS:  # None = not given; defaults are applied after the merge
+        ap.add_argument("--" + key, default=None)
     ap.add_argument("--file", default=DEFAULT_LEDGER)
     ap.add_argument("--force", action="store_true", help="add even if an identical row exists")
     ap.add_argument("--no-write", action="store_true", help="only print the row")
+    ap.add_argument("--from-report", metavar="FILE",
+                    help="read the ledger_add.py line of a runner report (- = stdin)")
+    return ap
+
+
+def report_args(text):
+    """Return the argument list of the last ledger_add.py command in text, or None."""
+    found = None
+    for raw in text.splitlines():
+        pos = raw.find("ledger_add.py")
+        if pos < 0:
+            continue
+        rest = raw[pos + len("ledger_add.py"):].split("`")[0]  # stop at a closing backtick
+        try:
+            found = shlex.split(rest)
+        except ValueError:
+            continue
+    return found
+
+
+def main(argv=None):
+    ap = make_parser()
     try:
         args = ap.parse_args(argv)
     except SystemExit as exc:
         return 2 if exc.code else 0
+    if args.from_report:
+        try:
+            if args.from_report == "-":
+                text = sys.stdin.read()
+            else:
+                with open(args.from_report, encoding="utf-8-sig") as fh:
+                    text = fh.read()
+        except (OSError, UnicodeDecodeError) as exc:
+            print(f"ledger_add: cannot read report: {exc}", file=sys.stderr)
+            return 2
+        words = report_args(text)
+        if words is None:
+            print("ledger_add: no ledger_add.py command line in the report", file=sys.stderr)
+            return 2
+        try:
+            rep = make_parser().parse_args(words)
+        except SystemExit:
+            print("ledger_add: the command line in the report is not valid", file=sys.stderr)
+            return 2
+        for key in MERGE_KEYS:
+            if getattr(args, key) is None:
+                setattr(args, key, getattr(rep, key))
+    for key in ("agent", "model", "task", "area"):
+        if getattr(args, key) is None:
+            print(f"ledger_add: --{key} is required", file=sys.stderr)
+            return 2
+    for key, val in FIELD_DEFAULTS.items():
+        if getattr(args, key) is None:
+            setattr(args, key, val)
+    if args.date is None:
+        args.date = datetime.date.today().isoformat()
+    if args.outcome == "FAILED":
+        args.outcome = "FAILED x2"
     line, err = build_row(args)
     if err:
         print(f"ledger_add: {err}", file=sys.stderr)

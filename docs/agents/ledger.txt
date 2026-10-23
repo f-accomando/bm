@@ -11,8 +11,8 @@
 2026-10-15|general-purpose|sonnet|review SDLOG-FIX (AGY)|sync|-|-|DONE|88959|8|486
 2026-10-15|bm-planner|opus|WO FRZ freeze reports e log sicuri (AGY)|system|-|-|DONE|81712|50|337
 2026-10-15|general-purpose|sonnet|review NET-KEYS (NET)|tools|-|-|DONE|73694|6|203
-2026-10-15|generic|sonnet|review-FRZ|system|review|3|APPROVED|88856|9|381
-2026-10-15|generic|sonnet|review-R-NET4|tools|review|3|CHANGES REQUESTED|77942|9|470
+2026-10-15|general-purpose|sonnet|review-FRZ (APPROVED)|system|-|3|DONE|88856|9|381
+2026-10-15|general-purpose|sonnet|review-R-NET4 (CHANGES REQUESTED)|tools|-|3|DONE|77942|9|470
 2026-10-15|bm-research|haiku|beta requirements survey|docs|-|-|DONE|50931|26|57
 2026-10-15|bm-light|sonnet|translate CLAUDE/AGENTS/GEMINI|docs|-|-|DONE|37127|8|71
 2026-10-15|bm-light|sonnet|translate progress b16/yharnam + STRESS|docs|-|-|DONE|38282|9|71

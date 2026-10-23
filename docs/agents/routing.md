@@ -45,7 +45,12 @@ Every request for a model more expensive than the standard one (`bm-deep`, heavy
 | 5 | Almost a necessity: the error is irreversible or the alternative is giving up on solving it |
 
 ### Ledger
-after each finished subagent, SPV/the main agent appends a row to `docs/agents/ledger.txt` (append only); `python scripts/agent_audit.py` for tuning. `python scripts/ledger_repeats.py` lists tasks repeated 3 or more times: on the third repeat they become a skill or a script. To add a row, run `python scripts/ledger_add.py --agent ... --model ... --task ... --area ... --tokens N --tools N --secs N`. The script validates the row like `agent_audit.py` and skips duplicates. `--no-write` shows a preview. Edit `ledger.txt` only through this script.
+after each finished subagent, SPV/the main agent appends a row to `docs/agents/ledger.txt` (append only); `python scripts/agent_audit.py` for tuning. `python scripts/ledger_repeats.py` lists tasks repeated 3 or more times: on the third repeat they become a skill or a script. To add a row, run `python scripts/ledger_add.py --agent ... --model ... --task ... --area ... --tokens N --tools N --secs N`. The script validates the row like `agent_audit.py` and skips duplicates. `--no-write` shows a preview. Edit `ledger.txt` only through this script. Allowed agents: the `bm-*` agents, `general-purpose`, `claude`, `Explore`, and `Plan`. A count that nobody measured is `-`. Never write 0 for it. The statistics use measured values only.
+
+One step per finished runner: the runner report ends with its `ledger_add.py ... --no-write` line. Run `python scripts/ledger_add.py --from-report REPORT --tokens N --tools N --secs N` with the numbers you measured. Options on the command line replace the ones in the report. `--from-report -` reads the report from stdin.
+
+### Scope check
+Before you merge a branch, check it against its work order: `python scripts/wo_scope.py --order ORDER.md --base origin/bm-core --branch BRANCH`. The scope is the paths in backticks under the `Files` heading of the order. A changed file outside the scope gives `out of scope: PATH` and exit 1. Add `--allow GLOB` for files that every task may touch, for example `docs/progress/*`. The baseline is `docs/agents/baseline.txt`: run `python scripts/agent_audit.py --baseline docs/agents/baseline.txt` and save a new one with `--save-baseline` when you accept the change.
 
 ### Escalation
 Agents always close with an explicit status:

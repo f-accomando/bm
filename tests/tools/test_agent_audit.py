@@ -26,6 +26,34 @@ class AgentAuditTest(unittest.TestCase):
         self.assertIn("bm-coder", res.stdout)
         self.assertIn("bm-planner", res.stdout)
 
+    def test_runner_and_unknown_counts(self):
+        unk = "2026-10-14|bm-runner|sonnet|task-x|tools|-|-|DONE|-|-|-"
+        res = self.run_audit([unk, row("bm-runner", tokens=300), row("Explore", tokens=500)])
+        self.assertEqual(res.returncode, 0, res.stderr)
+        line = [l for l in res.stdout.splitlines() if l.startswith("bm-runner")][0]
+        self.assertEqual(line.split()[-2], "300")  # median of the measured value only
+        only = self.run_audit([unk])
+        self.assertEqual(only.returncode, 0, only.stderr)
+        self.assertEqual([l for l in only.stdout.splitlines() if l.startswith("bm-runner")][0].split()[-2:], ["-", "-"])
+
+    def test_baseline_with_unknown_counts(self):
+        unk = "2026-10-14|bm-runner|sonnet|task-x|tools|-|-|DONE|-|-|-"
+        with tempfile.TemporaryDirectory() as tmp:
+            path, base = os.path.join(tmp, "l.txt"), os.path.join(tmp, "b.txt")
+            with open(path, "w", encoding="utf8") as fh:
+                fh.write(HEADER + "\n" + unk + "\n")
+            r1 = subprocess.run([sys.executable, SCRIPT, "--ledger", path, "--save-baseline", base],
+                                capture_output=True, text=True)
+            self.assertEqual(r1.returncode, 0, r1.stderr)
+            r2 = subprocess.run([sys.executable, SCRIPT, "--ledger", path, "--baseline", base],
+                                capture_output=True, text=True)
+            self.assertEqual(r2.returncode, 0, r2.stderr)
+            self.assertIn("vs baseline", r2.stdout)
+
+    def test_legacy_generic_agent_still_read(self):
+        res = self.run_audit(["2026-10-14|generic|sonnet|task-x|tools|-|-|DONE|10|1|2"])
+        self.assertEqual(res.returncode, 0, res.stderr)
+
     def test_wrong_field_count_reports_line(self):
         bad = "2026-10-14|bm-coder|claude-haiku-5-5|task-x|tools|1|-|DONE|100|3"  # 10 fields
         res = self.run_audit([row("bm-coder"), bad])
