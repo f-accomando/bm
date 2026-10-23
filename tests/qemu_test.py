@@ -4607,7 +4607,7 @@ def test_studio_animator(b, opts):
         keys(DOWN, DOWN, "\r", gap=0.4)         # Continue, Open..., New project
         screen(["BLOCK", "cell 0,0,0"])
         keys(" ")
-        screen(["6 faces", "12 tri", "8 vert"])
+        screen(["6 faces", "12 tri", "8 of 65535 vert"])
         shot("studio-new")
         keys(ESC, gap=0.6)
         for _ in range(4):
@@ -4873,7 +4873,7 @@ def test_img2mesh(b, opts):
         keys("s", "s", "s", "s", "\r", gap=0.4)
         screen(["build", "models", "TOOLS"])
         keys(F2)
-        screen(["MODELS 2", "mech", "robot", "662 faces 1160 tri 702 vertices", "9 bones, 3 animations"])
+        screen(["MODELS 2", "mech", "robot", "662 faces 1160 tri 702 of 65535 vertices", "9 bones, 3 animations"])
         keys(ESC, gap=0.6)
         screen(["Open in bm Animator"])
         for _ in range(8):
