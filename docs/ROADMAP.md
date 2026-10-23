@@ -72,6 +72,22 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 - M45 - P2 - in progress - bm Write: `.BMD` documents, TXT/MD/HTM/PDF export. A formatted document exported to PDF is identical on the PC (checked against the screen on the host). Left: Pi and RGB30 try, a real PDF viewer, Market. [tools](progress/tools.md)
 - APP-8 - P2 - partly done - Multitab in bm Code for the source files of one project. Done: bm Code opens a `.bme` with `--@module name` lines as one tab per module (second row), `U.tabbar` in bmui is the shared tab bar, the project keeps ONE code section (same bytes, same build). Done when (what is left): bm SDK and the other editors with a code page show the same module tabs with `U.tabbar` (the SDK edits the whole code without tabs today); the modules are separate files in the project, each saved to its own file (this needs a file API for tools in `runtime.c`; today the modules are lines of the one code section). The tab layout is for readability only. [suite-code](design/suite-code.md), [tools](progress/tools.md)
 - R39 - P3 - idea - 720×720 SDK on the RGB30. [suite-sdk](design/suite-sdk.md), [sdk-720](design/sdk-720.md)
+- APP-17 - P2 - to do - bm Pixel tile view: key q shows the sprite 3 x 3 to check seams. [tools](progress/tools.md)
+- APP-18 - P2 - to do - bm Pixel wand select (w): the connected area of one colour; copy, cut, clear and move act on it. [tools](progress/tools.md)
+- APP-19 - P2 - to do - Lua `sheet_png(x, y, w, h)` and the rectangle-list form: PNG bytes with alpha (`shot_png_rgba`), host test `make test-sheet-png`. [tools](progress/tools.md)
+- APP-20 - P2 - to do - bm Pixel export (Ctrl+E): the sprite, the animation strip or the sheet as a PNG in /docs. After APP-18, APP-19. [tools](progress/tools.md)
+- APP-21 - P2 - to do - bm SDK terrain brush (t): a 4 x 4 tile set, 4-neighbour autotile, paint and erase re-tile the neighbours. [tools](progress/tools.md)
+- APP-22 - P2 - to do - bm SDK (RGB30) terrain brush, from its own sources. After APP-21. [tools](progress/tools.md)
+- APP-23 - P1 - to do - bm Code find in the project (Ctrl+Shift+F): all modules and tabs, a list of hits, Enter jumps. [tools](progress/tools.md)
+- APP-24 - P1 - to do - bm Code rename (Ctrl+Shift+H): whole word in all modules, not in strings or comments. After APP-23. [tools](progress/tools.md)
+- APP-25 - P2 - to do - bm Mesh smooth (Shift+V): relax the chosen vertices, borders fixed, live mirror. [modelling-suite](design/modelling-suite.md)
+- APP-26 - P3 - to do - bm Mesh pivot (Shift+O): centre, origin or base for rotate and scale. [modelling-suite](design/modelling-suite.md)
+- APP-27 - P1 - to do - bm Animator animations from another model (Ctrl+Shift+I): retarget by bone name, translations scaled by height. [tools](progress/tools.md)
+- APP-28 - P2 - to do - bm Write Table style: `|` cells, aligned columns, MD, HTM, TXT and PDF export. [tools](progress/tools.md)
+- APP-29 - P3 - idea - bm Animator two-bone IK in the animate page. [tools](progress/tools.md)
+- APP-30 - P3 - idea - Ease-in and ease-out clip modes in `pose_at` (runtime.c) and bm Animator; an old kernel plays them linear. [tools](progress/tools.md)
+- APP-31 - P3 - idea - bm Sound solo on the track header and a piano-roll view of one track. [tools](progress/tools.md)
+- APP-32 - P3 - idea - bm Pixel animated GIF export (an LZW encoder in C). After APP-20. [tools](progress/tools.md)
 
 ## Games
 
