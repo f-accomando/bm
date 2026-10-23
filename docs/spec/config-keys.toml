@@ -639,7 +639,7 @@ name = "<game>_<anything>"
 scope = "all"
 values = "free text; <game> = first word of the game's title, lower case, only a-z and 0-9 kept (Overbit: overbit_bench)"
 default = "cart_config(key) returns nil when missing or empty"
-meaning = "Flags of one game, read and written only by the Lua cart_config(key [, value]); a key with another prefix is an error. Set from the monitor line (set overbit_bench=1080) or easy_install."
+meaning = "Flags of one game, read and written only by the Lua cart_config(key [, value]); a key with another prefix is an error. Set from the monitor line (set overbit_bench=1080) or easy_install. `bm_screen` (`1280x720` or `640x360`; none = 1280x720 where the GPU draws) is the screen of the SDK and of the editors of the suite: every tool is `bm ...`, so they share it (`lib.layout.auto`, the Screen row of their menus)."
 settings = ""
 read_in = "src/bm/runtime.c:3511 (l_cart_config)"
 

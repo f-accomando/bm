@@ -147,9 +147,13 @@ E.keyheld = function(n) return n == "space" and space_held end
 local MS = { x = 0, y = 0, b = 0, w = 0, p = 0 }
 E.mouse = function(on) if on ~= nil then return true end; return MS.x, MS.y, MS.b, MS.w, true end
 E.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
-local bmui
+local bmui, bmlib
 E.require = function(name)
-  assert(name == "bmui", "require: only bmui here")
+  if name == "bmlib" then                -- the layout (lib.layout): once
+    bmlib = bmlib or assert(loadfile(ROOT .. "/src/script/bmlib.lua", "t", E))()
+    return bmlib
+  end
+  assert(name == "bmui", "require: only bmui and bmlib here")
   bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()   -- the mouse (it takes keyp over)
   return bmui
 end

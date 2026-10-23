@@ -1869,6 +1869,7 @@ end
 --                               call. Returns true then
 --   L.big_ok()                  whether the GPU draws (a screen over 640x360
 --                               is worth it only then)
+--   L.auto(), L.switch(), L.label(), L.is_big()   the suite's screen choice (bm_screen)
 --   L.want(w, h)                screen(w, h) if the size is already it, or
 --                               it is one of the console's and, over
 --                               640x360, the GPU draws. true if the screen
@@ -1998,6 +1999,34 @@ end
 
 function Lay.big_ok()
   return gpu3d ~= nil and (gpu3d()) == true
+end
+
+-- The suite's screen choice (bm_screen in bm/config.txt, shared by the SDK
+-- and every editor: "1280x720", "640x360", or none = 1280x720 where the GPU
+-- draws). Call auto() once when the cart loads, switch() from a menu row.
+local BIG_W, BIG_H = 1280, 720
+
+function Lay.auto()
+  local pref = cart_config and cart_config("bm_screen")
+  if pref == "1280x720" then
+    return screen(BIG_W, BIG_H) == true
+  elseif pref == nil then
+    return Lay.want(BIG_W, BIG_H)
+  end
+  return false
+end
+
+function Lay.is_big() return SCREEN_W >= BIG_W end
+
+function Lay.label()
+  return "Screen: " .. (Lay.is_big() and "1280x720" or "640x360") .. " (switch)"
+end
+
+function Lay.switch()
+  local big = not Lay.is_big()
+  if cart_config then cart_config("bm_screen", big and "1280x720" or "640x360") end
+  if big then screen(BIG_W, BIG_H) else screen(640, 360) end
+  return big
 end
 
 function Lay.want(w, h)

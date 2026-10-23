@@ -303,6 +303,7 @@ Le Impostazioni, `set`/`save` della riga del monitor e gli strumenti del PC scri
 | `lib_tab=1` | mostra la scheda Lib |
 | `show_bm=0` | nasconde i file `.bm` nella scheda Games dell'RGB30 |
 | `market_bm=0` | nasconde i file `.bm` nel Market dell'RGB30 |
+| `bm_screen` | `1280x720` o `640x360`: lo schermo dell'SDK e degli editor (default 1280x720 con la GPU) |
 | `menu_scale=1`, `2`, `3` | il menu del Pi a 640x360, 1280x720 (default con la GPU) o 1920x1080 |
 | `battery_icon=0` | spegne l'icona di batteria scarica (RGB30) |
 | `mouse=off` | spegne il puntatore |

@@ -10,14 +10,27 @@
 -- changes in the file, as SHEET8 with this palette first when it has at
 -- most 256 colours; the SDK, bm Studio and bm Animator read it as theirs.
 
+local LY = require("bmlib").layout          -- the elastic layout: 1280x720 where the GPU draws
+LY.auto()
 local W, H = SCREEN_W, SCREEN_H
 local U = require "bmui"                 -- the mouse: what the keys do, by clicking
 local C_BG, C_PANEL, C_BAR = 0x14161E, 0x1C2030, 0x2A3048
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x707890, 0xFFC050, 0xFF6060, 0x3050A0
 local C_CHK1, C_CHK2, C_GRID, C_GRID8, C_PT = 0x2A2E3A, 0x343846, 0x3C4254, 0x5A6280, 0xFFE070
 local HINT_Y, STATUS_Y = H - 40, H - 24          -- text on rows of 16 pixels
-local CANVAS_X, CANVAS_Y, CANVAS = 8, 32, 288    -- the zoomed sprite
-local PANEL_X = 312
+local CANVAS_X, CANVAS_Y, CANVAS = 8, 32, 288    -- the zoomed sprite (CANVAS: to the hint row)
+local PANEL_X = 312                              -- the panel right of it
+
+-- the screen changed size (screen(): 1280x720 where the GPU draws): the zoomed sprite takes
+-- the height to the hint row and the panel what is right of it. The pages that keep their own
+-- views (the sheet, the stack) register their own function, after this one.
+LY.on_resize(function(w, h)
+  W, H = w, h
+  HINT_Y, STATUS_Y = H - 40, H - 24
+  CANVAS = HINT_Y - CANVAS_Y
+  PANEL_X = CANVAS_X + CANVAS + 16
+  if LY.screen_row then LY.screen_row[1] = LY.label() end
+end)
 local SIZES = { 8, 16, 32, 64, 128 }
 local ZOOMS = { 0.25, 0.5, 1, 2, 4 }
 
@@ -1157,7 +1170,7 @@ function draw_draw()
     print("anim " .. (k + 1) .. "/" .. anim.frames, ax, 160, C_DIM)
   end
   print(string.format("%d fps%s%s%s%s", anim.fps, anim.play and "" or " ||", anim.onion and "  onion" or "",
-                      anim.boxes and "  boxes" or "", mirror and "  mirror" or ""), x, 304, C_DIM)
+                      anim.boxes and "  boxes" or "", mirror and "  mirror" or ""), x, HINT_Y - 16, C_DIM)
   if dp.float then hint({ { { "up", "down", "left", "right" }, "move" }, { { "space" }, "put it down" }, { { "esc" }, "drop it" } })
   elseif dp.sel then
     hint({ { { "ctrl", "c" }, "copy" }, { { "ctrl", "x" }, "cut" }, { { "enter" }, "lift" }, { { "h", "v" }, "flip" },
@@ -1176,6 +1189,10 @@ do
 
 shp = { zoom = 1, vx = 0, vy = 0 }
 local VIEW_X, VIEW_Y, VIEW_W, VIEW_H = 8, 32, 624, 272
+LY.on_resize(function(w, h)
+  VIEW_W, VIEW_H = w - 16, HINT_Y - 48
+  sheet_reset()
+end)
 
 function sheet_reset()
   shp.zoom = ZOOMS[1]                                -- a big sheet: as far as it goes
@@ -1344,9 +1361,9 @@ function draw_sheet()
   rectfill(0, 16, W, 16, C_BG)
   print(string.format("sheet %dx%d  zoom %s  sprite %d at (%d,%d) %dx%d", sw, sh, z < 1 and ("1/" .. floor(1 / z)) or z,
                       sprite_index(), rx, ry, rs, rs), 8, 16, C_TEXT)
-  rectfill(0, 304, W, 16, C_BG)
+  rectfill(0, HINT_Y - 16, W, 16, C_BG)
   print(string.format("view (%d,%d)  %d frames from here%s  spr(%d, x, y, %d, %d)", shp.vx, shp.vy, anim.frames,
-                      anim.boxes and "  boxes" or "", sprite_index(), rs // 8, rs // 8), 8, 304, C_DIM)
+                      anim.boxes and "  boxes" or "", sprite_index(), rs // 8, rs // 8), 8, HINT_Y - 16, C_DIM)
   hint({ { { "up", "down", "left", "right" }, "sprite" }, { { "enter" }, "draw it" }, { { "z" }, "size" }, { { "+", "-" }, "zoom" },
          { { "j" }, "boxes" }, { { "ctrl", "c" }, "copy" }, { { "ctrl", "v" }, "paste" }, { { "shift", "r" }, "sheet size" }, { { "ctrl", "e" }, "export PNG" } })
 end
@@ -1574,7 +1591,10 @@ end
 do
 
 sp = { zi = 1, k = 1, rot = 0, spin = true, zdirty = false, onion = false, ghost = nil }
-local PREV_X, PREV_Y, PREV_W, PREV_H = 312, 144, 320, 160
+local PREV_X, PREV_Y, PREV_W, PREV_H = 312, 144, 320, 160   -- the stack preview
+LY.on_resize(function(w, h)
+  PREV_X, PREV_W, PREV_H = PANEL_X, w - PANEL_X - 8, HINT_Y - 16 - PREV_Y
+end)
 local TWO_PI = 2 * math.pi
 
 -- the stack zones of the file (SPRITES with 2 or more slices)
@@ -1944,8 +1964,8 @@ function draw_stack()
   rectfill(0, 16, W, 16, C_BG)
   print(string.format("%s %s  slice %d/%d  at (%d,%d)  %dx%d  zstack(\"%s\", x, y, rz)", z.vert and "stackv" or "stack", z.name,
                       sp.k, z.n, cx, cy, z.w, z.h, z.name):sub(1, 79), 8, 16, C_TEXT)
-  rectfill(PANEL_X, 304, W - PANEL_X, 16, C_BG)
-  print(string.format("turn %d deg%s  x%d", floor(sp.rot * 180 / math.pi), sp.spin and " (turning)" or "", s), PREV_X, 304, C_DIM)
+  rectfill(PANEL_X, HINT_Y - 16, W - PANEL_X, 16, C_BG)
+  print(string.format("turn %d deg%s  x%d", floor(sp.rot * 180 / math.pi), sp.spin and " (turning)" or "", s), PREV_X, HINT_Y - 16, C_DIM)
   rectfill(0, HINT_Y, W, 16, C_BG)
   hint({ { { "left", "right" }, "slice" }, { { "up", "down" }, "zone" }, { { "enter" }, "draw it" }, { { "k" }, "onion" },
          { { "c" }, "copy up" }, { { "del" }, "delete" }, { { "n" }, "new" }, { { "e" }, "change" }, { { "p" }, "turn" },
@@ -2160,8 +2180,11 @@ local MENU = {
   { "Try the game (F5)", try_game },
   { "Export a PNG or GIF to /docs...   (Ctrl+E)", function() shp.export_png() end },
   { "Sheet size...", function() go("sheet"); shp.resize() end },
+  { LY.label(), LY.switch },
   { "Exit bm Pixel", function() if not dirty or confirmed("exit", "unsaved changes: choose again to exit") then remember(); quit() end end },
 }
+
+LY.screen_row = MENU[#MENU - 1]                   -- its label follows the size (the top on_resize)
 
 local function menu_key(k)
   if k == "up" then msel = (msel - 2) % #MENU + 1
@@ -2303,6 +2326,7 @@ local function mouse_frame()
 end
 
 function _update()
+  LY.poll()
   frame = frame + 1
   if busy then                          -- nothing else until the save is done
     if busy.wait > 0 then busy.wait = busy.wait - 1
@@ -2367,6 +2391,7 @@ function _update()
 end
 
 function _draw()
+  LY.poll()
   U.begin()
   if page == "draw" then draw_draw()
   elseif page == "sheet" then draw_sheet()
@@ -2398,7 +2423,7 @@ function _draw()
     status = string.format("%s  %s  colour %s", sn and string.format("stack %s %d/%d", sn, sk, sc) or ("sprite " .. sprite_index()),
                            tool, colour_name(colour()))
   end
-  print(status:sub(1, 79), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
+  print(status:sub(1, W // 8 - 1), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
   if pick then draw_pick() end
   if input then draw_input() end
   if busy then                           -- the text on the columns and rows of the font

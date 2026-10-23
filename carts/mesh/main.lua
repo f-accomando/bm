@@ -17,6 +17,7 @@
 local W, H = SCREEN_W, SCREEN_H
 local U = require "bmui"                 -- the mouse: what the keys do, by clicking
 local B = require "bm3d"                 -- the shared code; B.G is the pure geometry of a model
+B.LY.auto()                              -- the elastic layout (B.LY = lib.layout): 1280x720 where the GPU draws
 local C_BG, C_PANEL, C_BAR = 0x14161E, 0x1C2030, 0x2A3048
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x707890, 0xFFC050, 0xFF6060, 0x3050A0
 local C_SKY, C_GRID, C_WIRE, C_PT, C_HOT = 0x262C3E, 0x3A4258, 0x7A88B0, 0xFFE070, 0x60E0FF
@@ -31,6 +32,15 @@ local PANEL_W = 208                              -- the list on the left
 local HINT_Y, STATUS_Y = H - 40, H - 24          -- text on rows of 16 pixels
 local INFO_X = PANEL_W + 16
 local FOCAL = (W / 2) / math.tan(math.rad(30))   -- camera3d with fov 60
+
+-- the screen changed size (screen(): 1280x720 where the GPU draws): what was cut from W and H again
+B.LY.on_resize(function(w, h)
+  W, H = w, h
+  HINT_Y, STATUS_Y = H - 40, H - 24
+  FOCAL = (W / 2) / math.tan(math.rad(30))
+  B.resize(w, h)
+  if B.screen_row then B.screen_row[1] = B.LY.label() end   -- the menu's Screen row follows the size
+end)
 local BEGIN, END = "-- [bm Mesh begin]", "-- [bm Mesh end]"
 
 local floor, abs, sqrt, sin, cos = math.floor, math.abs, math.sqrt, math.sin, math.cos
@@ -3314,8 +3324,11 @@ local MENU = {
   { "Try the game (F5)", try_game },
   { "Import a model...   (Ctrl+I)", function() if lp.import_dialog() then go("list") end end },
   { "Export to /bmm...   (Ctrl+E)", function() lp.export_dialog() end },
+  { B.LY.label(), B.LY.switch },
   { "Exit bm Mesh", function() if not dirty or confirmed("exit", "unsaved changes: choose again to exit") then quit() end end },
 }
+
+B.screen_row = MENU[#MENU - 1]
 
 local function menu_key(k)
   if k == "up" then msel = (msel - 2) % #MENU + 1
@@ -3444,6 +3457,7 @@ local function mouse_frame()
 end
 
 function _update()
+  B.LY.poll()
   frame = frame + 1
   if msg_t > 0 then msg_t = msg_t - 1 end
   if confirm_t > 0 then confirm_t = confirm_t - 1 end
@@ -3493,6 +3507,7 @@ function _update()
 end
 
 function _draw()
+  B.LY.poll()
   U.begin()
   if page == "list" then draw_list_page()
   elseif page == "edit" then draw_edit()
@@ -3519,7 +3534,7 @@ function _draw()
   if msg_t > 0 and msg then status = msg
   elseif page == "menu" then status = "up/down choose, Enter select"
   else status = I() and ("mesh " .. cur .. "/" .. #items .. ": " .. I().name .. " (" .. KIND_L[I().kind] .. ")") or "" end
-  print(status:sub(1, 79), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
+  print(status:sub(1, W // 8 - 1), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
   if pick then draw_pick() end
   if input then draw_input() end
   if ok_assist then assist.draw() end    -- the assistant's panel on top, if open

@@ -549,14 +549,18 @@ local function new_env(arg_path)
                                     { t = 0.5, pose = { { q = { 0, 0, 0, 1 }, t = { 0, 0.1, 0 } } } } } } } }
     end,
   }
-  local bmui
+  local bmui, bmlib
   E.require = function(name)
+  if name == "bmlib" then                -- the layout (lib.layout): once
+    bmlib = bmlib or assert(loadfile(ROOT .. "/src/script/bmlib.lua", "t", E))()
+    return bmlib
+  end
     if name == "assist" then return assert(loadfile(ROOT .. "/src/ai/assist.lua", "t", E))() end
     if name == "bmui" then                 -- the mouse: once (it takes keyp over)
       bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()
       return bmui
     end
-    assert(name == "bm3d", "require: only bm3d, bmui and assist here")
+    assert(name == "bm3d", "require: only bm3d, bmui, bmlib and assist here")
     BM3D = assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
     return BM3D
   end

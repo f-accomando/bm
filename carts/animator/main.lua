@@ -1949,7 +1949,7 @@ function sprites_page.draw()
     print("drawing... " .. sp.job.phase, 16, 64 + #ROWS * 16 + 32, C.ACC)
   elseif sp.last then
     rectfill(0, HINT_Y - 48, W, 48, C.BAR)
-    for i, l in ipairs(sp.last) do print(l:sub(1, 79), 0, HINT_Y - 48 + (i - 1) * 16, i == 2 and C.OK or C.DIM) end
+    for i, l in ipairs(sp.last) do print(l:sub(1, W // 8 - 1), 0, HINT_Y - 48 + (i - 1) * 16, i == 2 and C.OK or C.DIM) end
   end
   if not m then no_model(336, 48) end
   T.hint({ { { "up", "down" }, "setting" }, { { "left", "right" }, "change" }, { { "enter" }, "put in the sheet" } })
@@ -1958,8 +1958,14 @@ end
 
 ----------------------------------------------------------------- the program
 
+-- the screen changed size (1280x720 where the GPU draws): what was cut from W and H again
+local function relayout(w, h)
+  W, H, HINT_Y = w, h, T.HINT_Y
+end
+
 T.run({
   name = "bm Animator",
+  resize = relayout,
   empty_model = false,
   page_list = { play, rig_page, anim_page, sprites_page },
   hello = function(files)

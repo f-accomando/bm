@@ -159,13 +159,17 @@ E.keyheld = function() return false end
 local MS = { x = 0, y = 0, b = 0, w = 0, p = 0 }
 E.mouse = function(on) if on ~= nil then return true end; return MS.x, MS.y, MS.b, MS.w, true end
 E.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
-local bmui
+local bmui, bmlib
 E.require = function(name)
+  if name == "bmlib" then                -- the layout (lib.layout): once
+    bmlib = bmlib or assert(loadfile(ROOT .. "/src/script/bmlib.lua", "t", E))()
+    return bmlib
+  end
   if name == "bmui" then                 -- the mouse: once (it takes keyp over)
     bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()
     return bmui
   end
-  assert(name == "bm3d", "require: only bm3d and bmui here")      -- (no assistant: F6 says so)
+  assert(name == "bm3d", "require: only bm3d, bmui and bmlib here")      -- (no assistant: F6 says so)
   return assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
 end
 local keyhelp_list, keyhelp_title

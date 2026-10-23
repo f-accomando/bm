@@ -34,19 +34,8 @@ local function relayout(w, h)
 end
 LY.on_resize(relayout)
 
--- 1280x720 where the GPU draws (auto), or as the menu's Screen row chose
-local BIG_W, BIG_H = 1280, 720
-do
-  local pref = (saved() or {}).big
-  if pref == true then screen(BIG_W, BIG_H)
-  elseif pref == nil then LY.want(BIG_W, BIG_H) end
-end
-local function switch_screen()
-  local t = saved() or {}
-  t.big = not (SCREEN_W >= BIG_W)
-  save(t)
-  if t.big then screen(BIG_W, BIG_H) else screen(640, 360) end
-end
+-- 1280x720 where the GPU draws, or as the suite's Screen row chose (bm_screen)
+LY.auto()
 local max, min, floor = math.max, math.min, math.floor
 local spack, sunpack = string.pack, string.unpack
 local C_KEY = 0xFFC050                   -- the key of a row in the panel
@@ -3338,7 +3327,7 @@ do
       { "Try the game (F5)", run_project },
       { "New map layer (" .. #mlayers() .. "/8)", function() S.d2view = "map"; show("d2"); P.map.new_layer() end },
       { "Import a Tiled map (.tmj)...", import_tiled },
-      { "Screen: " .. (SCREEN_W >= BIG_W and "1280x720" or "640x360") .. " (switch)", switch_screen },
+      { LY.label(), LY.switch },
       { "Exit bm SDK", function() if not needs_confirm("exit") then quit() end end },
     }
   end

@@ -14,6 +14,8 @@ local T = {}
 -- the mouse (require "bmui"): what the keys do, by clicking
 local U = require "bmui"
 T.U = U
+local LY = require("bmlib").layout        -- the elastic layout: the size of the screen is read, not assumed
+T.LY = LY
 -- the assistant's panel (F6, Y + X): the base of a model from a 3D recipe
 local ok_assist, assist = pcall(require, "assist")
 if not ok_assist then assist = { update = function() return false end, draw = function() end } end
@@ -3491,6 +3493,7 @@ local function build_menu()
   items[#items + 1] = { "Import a model...   (Ctrl+I)", function() if T.import_dialog() then go(S.last_page or A.order[1]) end end }
   items[#items + 1] = { "Export to /bmm...   (Ctrl+E)", function() if T.export_dialog() then go(S.last_page or A.order[1]) end end }
   if A.picture then items[#items + 1] = { "Model from picture...", function() if T.picture_chooser() then go(S.last_page or A.order[1]) end end } end
+  items[#items + 1] = { LY.label(), LY.switch }
   -- opened by the bm SDK on this file: the way back to it (saved first)
   if S.from_sdk then items[#items + 1] = { "Back to bm SDK", function() T.open_in("sdk", "bm SDK") end } end
   items[#items + 1] = { "Exit " .. A.name, function() if not needs_confirm("exit") then quit() end end }
@@ -3686,6 +3689,12 @@ function T.run(app)
     A.pages[pg.id] = pg
     A.order[#A.order + 1] = pg.id
   end
+  -- the screen's size: 1280x720 where the GPU draws (the suite's Screen row), the frame and the app follow it
+  LY.on_resize(function(w, h)
+    T.resize(w, h)
+    if A.resize then A.resize(w, h) end
+  end)
+  LY.auto()
 
   function _init()
     keyp()                                 -- typing on: the keyboard types
@@ -3724,6 +3733,7 @@ function T.run(app)
   end
 
   function _update()
+    LY.poll()
     S.frame = S.frame + 1
     if S.msg_t > 0 then S.msg_t = S.msg_t - 1 end
     if confirm_t > 0 then confirm_t = confirm_t - 1 end
@@ -3779,6 +3789,7 @@ function T.run(app)
   end
 
   function _draw()
+    LY.poll()
     U.begin()
     local pg = A.pages[S.page]
     if pg then pg.draw() else draw_menu() end

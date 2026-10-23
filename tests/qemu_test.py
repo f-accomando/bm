@@ -9667,6 +9667,64 @@ def test_sdk_elastic(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+SUITE_TOOLS = (("1", "code", ("\x1bOP", "\x1bOQ", "\x1bOR")), ("2", "pixel", ("\x1bOP", "\x1bOQ", "\x1bOR")),
+               ("3", "studio", ("\x1bOP", "\x1bOQ")), ("4", "animator", ("\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS")),
+               ("5", "mesh", ("\x1bOP", "\x1bOQ", "\x1bOR")), ("6", "sound", ("\x1bOP", "\x1bOQ", "\x1bOR")))
+
+
+def test_suite_elastic(b, opts):
+    """Each tool of the suite (bm Code, Pixel, Studio, Animator, Mesh, Sound)
+    opened from the SDK with bm_screen=1280x720 in bm/config.txt: the screen
+    is 1280x720 and its pages are drawn (screenshots with --shots). -k
+    suite_elastic=NAME runs one tool."""
+    only = os.environ.get("BM_SUITE_TOOL", "")
+    for key, name, pages in SUITE_TOOLS:
+        if only and only != name:
+            continue
+        tmp = tempfile.mkdtemp(prefix="bm-suite-")
+        img = os.path.join(tmp, "sd.img")
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nbm_screen=1280x720\n")
+        mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/village.bm"), "carts/village.bm")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+        def k(s, gap=0.4):
+            q.send(s)
+            time.sleep(gap)
+
+        def grab(label):
+            got = q.screendump()
+            for _ in range(20):
+                got = q.screendump()
+                if (got[0], got[1]) == (1280, 720):
+                    break
+                time.sleep(0.4)
+            time.sleep(0.6)
+            got = q.screendump()
+            if opts.shots:
+                _save_png(got, os.path.join(opts.shots, f"suite-{name}-{label}.png"))
+            assert (got[0], got[1]) == (1280, 720), f"{name} {label}: {got[0]}x{got[1]}"
+        try:
+            q.boot()
+            k("e", 1)
+            k("\x0f", 0.5)
+            k("\r", 1.5)
+            k(key, 3)
+            grab("open")
+            for i, fk in enumerate(pages):
+                k(fk, 1.5)
+                grab(f"f{i + 1}")
+            k("\x1b", 1.5)
+            grab("menu")
+            q.send("\x1c")
+            time.sleep(1)
+            q.send("\x1c")
+        finally:
+            q.close()
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_projects(b, opts):
     """Games and projects (src/bm/project.h, 2026-10-06): a game (.bm) is read
     only for the tools. Its options make an editable copy, a project (.bme)

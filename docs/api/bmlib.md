@@ -258,6 +258,7 @@ SDK uses it (1280x720 where the GPU draws, 640x360 otherwise).
 | `lib.layout.inside(a, b)`, `lib.layout.overlap(a, b)` | with regions (`lib.inside` and `lib.overlap` take numbers) |
 | `lib.layout.narrow([w])` | the screen is too narrow for panels side by side |
 | `lib.layout.on_resize(fn, [now])` / `lib.layout.poll()` | `fn(w, h)` runs when the size changed. Call `lib.layout.poll()` first in `_update` and `_draw`: it runs the functions when `screen()` took effect (the next frame). With `now` the function runs once at once |
+| `lib.layout.auto()` / `lib.layout.switch()` / `lib.layout.label()` / `lib.layout.is_big()` | the suite's screen choice, the key `bm_screen` of `bm/config.txt` (`1280x720`, `640x360`, none = 1280x720 where the GPU draws). `auto()` once when the cart loads; `switch()` toggles and saves it (a menu row, `label()` is its text); `is_big()` is 1280x720 now. Every tool is `bm ...`, so `cart_config` lets them share the key |
 | `lib.layout.big_ok()` / `lib.layout.want(w, h)` | whether the GPU draws; `screen(w, h)`, but a size over 640x360 only where the GPU draws. `true` if the screen is that size now or from the next frame |
 
 ```lua

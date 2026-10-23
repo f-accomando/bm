@@ -303,6 +303,7 @@ Settings, the monitor line `set`/`save` and the PC tools write `bm/config.txt`. 
 | `lib_tab=1` | show the Lib tab |
 | `show_bm=0` | hide `.bm` files in the Games tab of the RGB30 |
 | `market_bm=0` | hide `.bm` files in the Market of the RGB30 |
+| `bm_screen` | `1280x720` or `640x360`: the screen of the SDK and the editors (default 1280x720 with the GPU) |
 | `menu_scale=1`, `2`, `3` | the Pi's menu at 640x360, 1280x720 (default with the GPU) or 1920x1080 |
 | `battery_icon=0` | turn off the low-battery icon (RGB30) |
 | `mouse=off` | turn the pointer off |

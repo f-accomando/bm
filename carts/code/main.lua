@@ -14,6 +14,8 @@ local assist = require "assist"
 local predict = require "predict"
 local pt = require "padtype"
 local U = require "bmui"                 -- the mouse: what the keys do
+local LY = require("bmlib").layout       -- the elastic layout: 1280x720 where the GPU draws
+LY.auto()
 
 local W, H = SCREEN_W, SCREEN_H
 local key_chip = prompt                  -- the kernel's prompt(): prompt() here is the text dialog
@@ -376,6 +378,12 @@ local function set_font(i)
   CW, CH = font(FONTS[font_i])
   COLS, ROWS = W // CW, H // CH
 end
+
+-- the screen changed size (screen(): 1280x720 where the GPU draws): more columns and rows
+LY.on_resize(function(w, h)
+  W, H = w, h
+  set_font(font_i)
+end)
 
 ------------------------------------------------------------------ text
 
@@ -1481,14 +1489,15 @@ local MENU = {
   { "Find in the project...", "Ctrl+Shift+F" }, { "Rename a word...", "Ctrl+Shift+H" }, { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
   { "Explain the error", "F9" }, { "Play the music (riff)", "Ctrl+Enter" }, { "Stop the music", "Ctrl+." },
   { "Word completion", "" }, { "Words in comments", "" },
-  { "Pad typing", "" }, { "Keys", "F12 held" }, { "Exit", "" },
+  { "Pad typing", "" }, { "Keys", "F12 held" }, { "Screen", "" }, { "Exit", "" },
 }
 
 local function open_menu()
   for _, m in ipairs(MENU) do                -- the completion's settings, on the right
     if m[1] == "Word completion" then m[2] = complete_on and "on" or "off"
     elseif m[1] == "Words in comments" then m[2] = WORD_LANGS[words_lang]
-    elseif m[1] == "Pad typing" then m[2] = "Share: " .. (pt.mode() or "off") end
+    elseif m[1] == "Pad typing" then m[2] = "Share: " .. (pt.mode() or "off")
+    elseif m[1] == "Screen" then m[2] = LY.is_big() and "1280x720" or "640x360" end
   end
   overlay = { kind = "menu", sel = 1 }
 end
@@ -1540,6 +1549,7 @@ local function menu_choose(name)
     pt.on(not pt.mode() and "compose" or nil)
     say(pt.mode() and "pad typing: the cross writes, the overlay shows how (Share: off)" or "pad typing off", C_ACC)
   elseif name == "Keys" then overlay = { kind = "help" }
+  elseif name == "Screen" then LY.switch()
   elseif name == "Back to bm SDK" then back_to_sdk()
   elseif name == "Exit" then quit_editor() end
 end
@@ -2019,6 +2029,7 @@ function _init()
 end
 
 function _update()
+  LY.poll()
   frame = frame + 1
   if status_t > 0 then status_t = status_t - 1 end
   riff_frame()
@@ -2483,6 +2494,7 @@ local function draw_overlay()
 end
 
 function _draw()
+  LY.poll()
   U.begin()
   font(FONTS[font_i])
   cls(C_BG)

@@ -31,6 +31,8 @@
 -- F12 for every key.
 
 local U = require "bmui"                 -- the mouse: what the keys do, by clicking
+local LY = require("bmlib").layout       -- the elastic layout: 1280x720 where the GPU draws
+LY.auto()
 local W, H = SCREEN_W, SCREEN_H
 
 ----------------------------------------------------------------- look
@@ -877,6 +879,12 @@ end
 ----------------------------------------------------------------- shared views
 
 local TOP, BOTTOM = 34, 336           -- the area between the top bar and the help line
+
+-- the screen changed size (screen(): 1280x720 where the GPU draws): the help line stays at the bottom
+LY.on_resize(function(w, h)
+  W, H = w, h
+  BOTTOM = H - 24
+end)
 
 -- a list of slots on the left: items, the selected index (0-based), label(i)
 local function slot_list(title, n, sel, label, used, c)
@@ -3269,6 +3277,7 @@ local function open_menu()
     if proj.dirty then ui.ask("Open the demo?", "The changes not saved are lost.", "Open", go) else go() end
   end }
   items[#items + 1] = { label = "Controls", note = "pad and keyboard", act = function() overlay = { kind = "help", lines = HELP } end }
+  items[#items + 1] = { label = LY.label(), act = LY.switch }
   if from_sdk and proj.path then              -- opened by the bm SDK on this file: the way back
     items[#items + 1] = { label = "Back to bm SDK", note = "saves first", act = function()
       save()
@@ -3327,7 +3336,7 @@ local function draw_bottom()
   rectfill(0, BOTTOM + 2, W, H - BOTTOM - 2, C.dark)
   local y = BOTTOM + 3
   if msg_t > 0 and msg then
-    print(msg:sub(1, 79), 8, y, msg_c)
+    print(msg:sub(1, W // 8 - 1), 8, y, msg_c)
     return
   end
   -- the page's hints, then the fixed chip "F12 keys" (U.hint_row), then the menu
@@ -3588,6 +3597,7 @@ function _init()
 end
 
 function _update()
+  LY.poll()
   frame = frame + 1
   if msg_t > 0 then msg_t = msg_t - 1 end
   U.update()                              -- the mouse, for the assistant's panel too
@@ -3621,6 +3631,7 @@ function _update()
 end
 
 function _draw()
+  LY.poll()
   U.begin()
   cls(C.bg)
   P[cur.page].draw()

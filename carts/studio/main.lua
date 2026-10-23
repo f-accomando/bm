@@ -1780,8 +1780,15 @@ end
 
 ----------------------------------------------------------------- the program
 
+-- the screen changed size (1280x720 where the GPU draws): what was cut from W and H again
+local function relayout(w, h)
+  W, H, HINT_Y = w, h, T.HINT_Y
+  VIEW_DX = (PANEL_W + W) // 2 - W // 2
+end
+
 T.run({
   name = "bm Studio",
+  resize = relayout,
   viewer = VIEWER,
   empty_model = true,
   picture = true,
