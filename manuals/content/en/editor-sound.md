@@ -296,7 +296,7 @@ You can take a sound, an effect, a pattern or a song from another game or sound 
 2. In the list, choose the file. The list shows games and sound packs. While the cursor rests on a file, its content is read: how many sounds, effects, patterns and songs it has.
 3. Choose what to take: *a sound*, *a sound effect*, *a pattern*, *a song* or *everything*.
 4. Choose the item from the list that follows.
-5. A message says where it went: for example `imported as sound effect 5`. The sounds that an effect, a pattern or a song uses come with it, in free slots. A sound that is already the same in your bank is not copied twice.
+5. A message says where it went: for example `imported as sound effect 5`. The sounds that an effect, a pattern or a song uses come with it, in free slots. A sound that is already the same in your bank is not copied twice. A SAMPLE sound brings its sample too (a sample with the same bytes is not copied twice).
 6. Press Ctrl+S to save.
 
 ::: warn

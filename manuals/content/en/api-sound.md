@@ -384,7 +384,7 @@ A WAV file goes into a bank from the JSON, and a sound plays it by name:
 ## Caveats
 
 - A sound pack in `/bm/sounds` (a `.bm` with only AUDIO) can still be read; bm Sound saves new ones as `.bms` files in `/bm/lib`.
-- Importing a single SAMPLE sound from another bank does not bring its sample: it points into the current bank's samples (or the kit), so it plays whatever sample has that number there, or is silent.
+- bm Sound's **Import from...** copies the sample of a SAMPLE sound with the sound and renumbers the sound's `MOD1`. A sample with the same bytes is not copied twice. The kit's drums need no copy. A bank holds at most 64 samples.
 
 # riff: music as patterns
 

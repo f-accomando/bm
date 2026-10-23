@@ -270,8 +270,8 @@
     "title": "Instruments, tone, room"
    },
    "6": {
-    "en": "7fa079b0e9b5",
-    "it": "7ce2057e5823",
+    "en": "fb44229b04d9",
+    "it": "b4f94dbe7703",
     "title": "The bank: format and tools"
    },
    "7": {
@@ -812,8 +812,8 @@
     "title": "Controls"
    },
    "5": {
-    "en": "a0c3df5678b0",
-    "it": "8e15c1d9885e",
+    "en": "100bdbd796bb",
+    "it": "ca93c5a79ec9",
     "title": "Tutorials"
    },
    "6": {
@@ -828,11 +828,11 @@
    }
   },
   "sources": {
-   "carts/sound/main.lua": "371e2584d9c8",
+   "carts/sound/main.lua": "c3dca68055e4",
    "docs/RISORSE.md": "4b94efc50686",
-   "docs/design/suite-sound.md": "d9e2be743e24",
-   "docs/progress/tools.md": "a4a65307cada",
-   "sdk/README.md": "f56faae98658"
+   "docs/design/suite-sound.md": "a112c9f9705e",
+   "docs/progress/tools.md": "c6c854b346d0",
+   "sdk/README.md": "f82ca797337d"
   }
  },
  "editor-studio": {
