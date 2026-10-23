@@ -1046,6 +1046,7 @@ check(keyhelp_title == "Sound" and in_help("i") and in_help("SELECT LEFTRIGHT"),
 -- the fixed chip "F12 keys" at the right of the bottom bar, on every page (a keyboard in use):
 -- inside the screen, the hints and the menu chip never reach it, a click opens the keys
 do
+  run(300)                              -- (a message of the last keys hides the hints while it shows)
   local function chip_frame() repeat cap = {}; frame() until last_input == "keyboard" end
   for page = 1, 4 do
     chip_frame()
