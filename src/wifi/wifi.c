@@ -18,6 +18,7 @@
 #include "drivers/board.h"
 #include "drivers/sd.h"
 #include "drivers/timer.h"
+#include "drivers/watchdog.h"
 #include "fs/fat.h"
 #include "kernel/config.h"
 #include "kernel/fiber.h"
@@ -170,6 +171,7 @@ static int bp_write32(uint32_t addr, uint32_t v)
 static int bp_mem(int write, uint32_t addr, uint8_t *buf, uint32_t len)
 {
     while (len) {
+        watchdog_progress();                    /* the firmware (400 KB) goes in here (SYS-2) */
         uint32_t off = addr & (SB_WINDOW - 1);
         uint32_t n = SB_WINDOW - off;
         if (n > len) n = len;

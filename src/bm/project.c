@@ -2,6 +2,7 @@
  * project (project.h). */
 #include "project.h"
 #include "bm.h"
+#include "lint.h"
 
 #include "fs/fat.h"
 #include "lib/printf.h"
@@ -215,6 +216,15 @@ int bm_build(const char *project, char *out, size_t n, char *err, size_t en)
     return r;
 }
 
+/* one lint warning of the .b16 export: on the serial console, like the other build messages */
+static void lint_say(void *ctx, int line, const char *msg)
+{
+    if (line)
+        kprintf("bm: warning: %s:%d: %s\n", (const char *)ctx, line, msg);
+    else
+        kprintf("bm: warning: %s: %s\n", (const char *)ctx, msg);
+}
+
 int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en)
 {
     if (!bm_is_project(src) && !ends_ci(src, ".bm"))
@@ -244,6 +254,7 @@ int bm_build_b16(const char *src, char *out, size_t n, char *err, size_t en)
         data[14] = 360 & 0xff; data[15] = 360 >> 8;
     }
     bm_set_built_from(data, from);
+    bm_b16_lint(data, len, lint_say, from);     /* warnings only: the build goes on */
     int k, found = 0;
     for (k = 0; k < 10 && !found; k++) {
         candidate(dir, base, ".b16", k, out, n);

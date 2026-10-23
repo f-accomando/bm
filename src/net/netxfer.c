@@ -344,6 +344,7 @@ int netxfer_start(void)
  * again from inside, has nothing to do while the state is WRITING. */
 static int keep_net(void)
 {
+    watchdog_progress();                /* a slow card writes a kernel for longer than the limit */
     net_poll();
     return 0;
 }

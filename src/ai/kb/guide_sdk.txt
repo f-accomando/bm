@@ -878,7 +878,7 @@ numeri della prova: fps, ms medi e massimi, fotogrammi oltre 16,7 ms, RAM
 massima, istruzioni del fotogramma più pesante.
 
 3. Il dev kit mostra anche i token, le funzioni più grandi, la memoria dei
-dati (sheet, mappa, modelli, suoni) e il file contro gli 8 MiB di un .b16.
+dati (sheet, mappa, modelli, suoni) e la dimensione del file.
 
 4. Dal codice: stat(1) ms, stat(2) fps, stat(11) token, stat(12) KiB di Lua
 al massimo, stat(13) KiB dei dati.
@@ -894,8 +894,7 @@ shows the numbers of that try: fps, average and peak ms, frames over 16.7
 ms, peak RAM, instructions of the heaviest frame.
 
 3. The dev kit also shows the tokens, the biggest functions, the memory
-of the data (sheet, map, models, sounds) and the file against the 8 MiB
-of a .b16.
+of the data (sheet, map, models, sounds) and the size of the file.
 
 4. From the code: stat(1) ms, stat(2) fps, stat(11) tokens, stat(12) peak
 KiB of Lua, stat(13) KiB of the data.
@@ -986,24 +985,24 @@ keys: b16, rgb30, portatile, 8mb
 see: guide.devkit, guide.ram
 text:
 Il .b16 è la cartuccia a risorse limitate per le portatili come la RGB30:
-non c'è ancora, la specifica è in docs/B16.md.
+lo stesso file gira sul Pi e sulla RGB30, la specifica è in docs/B16.md.
 
-Le regole già note: il file al massimo 8 MiB; lo stesso gioco dà gli
+Le regole già note: nessun limite di dimensione suo; lo stesso gioco dà gli
 stessi pixel su ogni macchina (niente math.random di sistema né orologio:
 un tuo generatore); niente file, rete, require o load.
 
 Nell'SDK, b sulla pagina del progetto mette il target .b16: il dev kit
-mostra il file contro gli 8 MiB e le righe che il .b16 non avrà.
+mostra le righe che il .b16 non avrà.
 text_en:
 The .b16 is the cartridge with limited resources for handhelds like the
-RGB30: it does not exist yet, the specification is in docs/B16.md.
+RGB30: the same file runs on the Pi and the RGB30, the specification is in docs/B16.md.
 
-The rules already known: the file at most 8 MiB; the same game gives the
+The rules already known: no size limit of its own; the same game gives the
 same pixels on every machine (no system math.random and no clock: a
 generator of your own); no files, network, require or load.
 
 In the SDK, b on the project page sets the .b16 target: the dev kit
-shows the file against the 8 MiB and the lines the .b16 will not have.
+shows the lines the .b16 will not have.
 code:
 -- un generatore tuo, lo stesso su ogni macchina
 local seed = 12345
