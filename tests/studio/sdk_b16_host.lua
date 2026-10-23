@@ -865,6 +865,7 @@ for _, pg in ipairs(pages) do
   check(seen_rows["Save as..."] and seen_rows["Open..."] and seen_rows["Menu"],
         pg[1] .. ": the actions end with save, open, menu")
   check(seen_rows["Try the game"] and seen_rows["Build the game .bm"], pg[1] .. ": try and build (a tool)")
+  if pg[1] == "map" then check(seen_rows["Terrain brush"], "map: the actions list has Terrain brush (APP-22)") end
   check(not seen_rows["Open in bm Studio"] and not seen_rows["Open in bm Mesh"], pg[1] .. ": no other program")
   press("back")
   check(not dialog_open(), pg[1] .. ": back closes the actions")
@@ -1116,6 +1117,73 @@ check(sees("4px") or status():find("1:2", 1, true), "-: map zoom out to 4px")
 key("m")
 check(sees("OVERVIEW") and sees("256x256"), "m: 256x256 overview in one screen")
 key("m", "z")
+-- APP-22: the terrain brush (t), as in the Pi SDK (APP-21): a 4 x 4 block of the sheet from the base tile
+do
+  local B = E.require("bm3d")
+  local function tl(m, base, step) return base + (m % 4) * step + (m // 4) * step * 32 end
+  for _, cfg in ipairs({ { 1, 1 }, { 2, 2 } }) do
+    local step, base = cfg[1], 1 + cfg[1] * 64
+    for m = 0, 15 do
+      local cells = { ["5,5"] = base }
+      if m & 1 ~= 0 then cells["5," .. 5 - step] = tl(15, base, step) end
+      if m & 2 ~= 0 then cells[5 + step .. ",5"] = tl(0, base, step) end
+      if m & 4 ~= 0 then cells["5," .. 5 + step] = tl(9, base, step) end
+      if m & 8 ~= 0 then cells[5 - step .. ",5"] = tl(6, base, step) end
+      cells["6,6"] = base + 1                         -- (a diagonal one: it does not count)
+      local get = function(x, y) return cells[x .. "," .. y] or 0 end
+      local got = B.autotile_mask(get, 5, 5, base, step, 32, 256, 256)
+      check(got == m, "autotile: step " .. step .. " mask " .. m .. " = " .. got)
+      check(B.autotile_tile(base, m, step, 32) == tl(m, base, step), "autotile: tile of mask " .. m)
+    end
+  end
+  check(B.autotile_mask(function() return 1 end, 0, 0, 1, 1, 32, 256, 256) == 6, "autotile: the map's edge is no neighbour")
+
+  if settled():find("16x16", 1, true) then key("z") end        -- (the 8x8 brush)
+  check(not settled():find("16x16", 1, true), "terrain: the 8x8 brush: " .. status())
+  local cx, cy = status():match("%((%d+),(%d+)%)")
+  cx, cy = tonumber(cx), tonumber(cy)
+  local function go(x, y)
+    while cx < x do key("right"); cx = cx + 1 end
+    while cx > x do key("left"); cx = cx - 1 end
+    while cy < y do key("down"); cy = cy + 1 end
+    while cy > y do key("up"); cy = cy - 1 end
+  end
+  if tonumber(settled():match("tile (%d+)")) == 0 then key(".") end   -- (tile 0 is the empty cell)
+  local base = tonumber(settled():match("tile (%d+)"))
+  check(base and base + 3 * 32 + 3 < 1024, "terrain: a base tile with room for the block: " .. tostring(base))
+  local x0, y0 = 10, 10
+  local function T(m) return tl(m, base, 1) end
+  key("t")
+  check(status():find("TERRAIN base " .. base, 1, true), "terrain: t shows TERRAIN base N: " .. status())
+  local function block(want)
+    for r = 0, 2 do for c = 0, 2 do
+      if E.mget(x0 + c, y0 + r) ~= T(want[r + 1][c + 1]) then return false end
+    end end
+    return true
+  end
+  for r = 0, 2 do for c = 0, 2 do go(x0 + c, y0 + r); key(" ") end end
+  local want = { { 6, 14, 12 }, { 7, 15, 13 }, { 3, 11, 9 } }
+  check(block(want), "terrain: a 3x3 block, corners, edges and the middle choose themselves")
+  go(x0 + 1, y0 + 1); key("")
+  check(E.mget(x0 + 1, y0 + 1) == 0 and E.mget(x0 + 1, y0) == T(10) and E.mget(x0, y0 + 1) == T(5)
+        and E.mget(x0 + 2, y0 + 1) == T(5) and E.mget(x0 + 1, y0 + 2) == T(10) and E.mget(x0, y0) == T(6),
+        "terrain: Backspace erases the cell and re-tiles its 4 neighbours")
+  key("u")
+  check(block(want), "terrain: one undo gives back the erased cell and its neighbours")
+  go(x0, y0 + 5); key(" "); go(x0 + 1, y0 + 5); key(" "); go(x0 + 2, y0 + 5); key(" ")
+  check(E.mget(x0, y0 + 5) == T(2) and E.mget(x0 + 1, y0 + 5) == T(10) and E.mget(x0 + 2, y0 + 5) == T(8), "terrain: a line")
+  go(x0 + 3, y0 + 5); key(" ")
+  check(E.mget(x0 + 2, y0 + 5) == T(10) and E.mget(x0 + 3, y0 + 5) == T(8), "terrain: the line grows, the old end re-tiled")
+  key("u")
+  check(E.mget(x0 + 2, y0 + 5) == T(8) and E.mget(x0 + 3, y0 + 5) == 0 and E.mget(x0, y0 + 5) == T(2),
+        "terrain: one undo takes one stroke")
+  key("t")
+  check(status():find("terrain brush off", 1, true), "terrain: t again, the brush is off: " .. status())
+  go(x0 + 6, y0); key(" ")
+  check(E.mget(x0 + 6, y0) == base, "terrain: off, space places the current tile")
+  key("u")
+  for y = y0, y0 + 6 do for x = x0, x0 + 6 do E.mset(x, y, 0) end end
+end
 press("r2")
 press("back")
 

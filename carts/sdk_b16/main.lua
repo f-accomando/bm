@@ -2347,6 +2347,7 @@ do
   local cam_pitch = -0.5
   local cam_dist = 12.0
   local tool_mode = nil
+  local terrain = nil                    -- the terrain brush: the base tile of the 16-tile set, or nil
   local tool_p1 = nil
   local path_width = 1
   local obj_counts = { apples = 0, crates = 0, lamps = 0, floor = 0, tri = 0 }
@@ -2842,6 +2843,12 @@ do
     end
     local cols = S.sheet_w // 8
     local cw, ch = view_dims()
+    if a == "terrain" and not picking then
+      terrain = (not terrain) and tile or nil
+      say(terrain and string.format("TERRAIN base %d: space paints, backspace erases, borders choose themselves (t: off)", terrain)
+                  or "terrain brush off")
+      return
+    end
     if picking then
       if a == "size" and big and #used > 0 then
         used_mode = not used_mode
@@ -2873,6 +2880,12 @@ do
     elseif a == "up" then my = my - s elseif a == "down" then my = my + s
     elseif a == "pgup" then my = my - max(s, ch) elseif a == "pgdn" then my = my + max(s, ch)
     elseif a == "pgleft" then mx = mx - max(s, cw) elseif a == "pgright" then mx = mx + max(s, cw)
+    elseif terrain and (a == "paint" or a == "erase") then
+      m_stroke = m_stroke or {}
+      B.autotile_paint(function(x, y) return mget(x, y, layer) end,
+                       function(x, y, t) for _, e in ipairs(brush(t)) do set_cell(x + e[1], y + e[2], t == 0 and 0 or e[3]) end end,
+                       mx, my, terrain, s, cols, a == "erase", S.map_w, S.map_h)
+      if a == "erase" then end_stroke() end
     elseif a == "paint" then
       m_stroke = m_stroke or {}
       for _, e in ipairs(brush(tile)) do set_cell(mx + e[1], my + e[2], e[3]) end
@@ -3174,7 +3187,7 @@ do
     end
     return { { "space", "ok", "place" }, { "x", "back", "pick" }, { ", .", "L2 R2", "tile" }, { "tab", "Y", "tiles" },
              { "backspace", nil, "clear" }, { "f", nil, "fill" }, { nil, "X", "more" }, { "l", nil, "layer" },
-             { "c", nil, "flags" }, { "u", nil, "undo" } }
+             { "t", nil, "terrain" }, { "u", nil, "undo" } }
   end
 
   local function status()
@@ -3208,6 +3221,10 @@ do
     if view3d then
       return string.format("[3D PREVIEW] (%d,%d) tile %d%s  orbit: yaw %.1f dist %.1f  (v/back: 2D)%s%s%s",
                            mx, my, tile, big and " 16x16" or "", cam_yaw, cam_dist, obj_info, tool_info, counts_info)
+    end
+    if terrain and not picking then
+      return string.format("TERRAIN base %d  (%d,%d)=%d%s L%d/%d %s  (t: off)", terrain, mx, my, val,
+                           big and " 16x16" or "", layer, #names, cur_name)
     end
     return picking and (used_mode and ("choosing a used 16x16 tile (" .. #used .. " in map)") or "choosing a tile") or
            string.format("(%d,%d)=%d tile %d%s L%d/%d %s%s%s%s%s",
@@ -3275,7 +3292,7 @@ do
     return { { view3d and "2D map editor" or "3D preview", "v" }, "-",
              { "Path tool", "Shift+P" }, { "Path width (" .. path_width .. ")", "Shift+W" },
              { "Apples row", "Shift+A" }, { "Place crate", "Shift+C" }, { "Place lamp", "Shift+O" }, "-",
-             { "Pick the tile", "x" }, { "Clear", "\b" }, { "Fill", "f" }, { "Tiles...", "\t" }, { "Next tile", "." },
+             { "Pick the tile", "x" }, { "Clear", "\b" }, { "Fill", "f" }, { "Terrain brush", "t" }, { "Tiles...", "\t" }, { "Next tile", "." },
              { "Tile before", "," }, { "8x8 / 16x16", "z" }, "-", { "Zoom in", "+" }, { "Zoom out", "-" },
              { "Overview", "m" }, "-", { "Next layer", "l" }, { "New layer", "L" }, { "Rename layer", "r" },
              { "Template: 3D map", "T" }, { "This layer only", "o" }, { "Flags", "c" }, "-", { "Page up", "pgup" },
@@ -3325,7 +3342,7 @@ do
               layer, only, show_flags, big, mini, zoom = 1, false, false, false, false, 8
               used, used_mode, used_rev, col_rev = {}, false, -1, -1
               view3d, w3d, w3d_edits, cam_yaw, cam_pitch, cam_dist = false, nil, -1, 0.0, -0.5, 12.0
-              tool_mode, tool_p1, path_width, obj_rev = nil, nil, 1, -1
+              tool_mode, tool_p1, path_width, obj_rev, terrain = nil, nil, 1, -1, nil
             end }
 end
 
@@ -4412,7 +4429,7 @@ local function page_key(k)
     if k ~= " " then P.sprite.stop() end
   else
     local a = ({ ["+"] = "zoom_in", ["="] = "zoom_in", ["-"] = "zoom_out", l = "layer", L = "newlayer", o = "only",
-                 c = "flags", m = "mini", home = "pgleft", ["end"] = "pgright",
+                 c = "flags", m = "mini", t = "terrain", home = "pgleft", ["end"] = "pgright",
                  v = "view3d", r = "rename_layer", R = "rename_layer", T = "map3d_template",
                  P = "tool_path", ["Shift+P"] = "tool_path", ["shift p"] = "tool_path",
                  W = "cycle_width", ["Shift+W"] = "cycle_width", ["shift w"] = "cycle_width",
@@ -4524,6 +4541,7 @@ local HELP = {
     { "v", "toggle 2D / 3D preview" },
     { "x", "pick the tile" },
     { "f", "fill" },
+    { "t", "terrain brush on / off: the base is the tile; 16 tiles (4 x 4 of the sheet) tile the borders" },
     { ", / .", "tile before / after" },
     { "tab", "choose the tile (z: used 16x16 / sheet)" },
     { "z", "8x8 / 16x16: a tile of 2 x 2 cells" },
