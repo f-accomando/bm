@@ -977,6 +977,7 @@ anim_page = {
     { "< / >", "shorter / longer" },
     { "o", "onion: the poses before and after" },
     { "n / ctrl d", "new / duplicate animation" },
+    { "ctrl shift i", "animations from another model (by bone name)" },
     { "enter", "rename the animation" },
     { "pgup / pgdn", "the animation" },
     { "backspace", "delete the animation (twice)" },
@@ -1097,10 +1098,43 @@ local function delete_clip_check(r, c)
   say("animation deleted", C.ACC)
 end
 
+-- Ctrl+Shift+I: pick a model (/bmm, /glb); its animations go onto this skeleton by bone name
+-- (T.retarget), one undo step, the new names kept apart from the ones here
+function anim_page.retarget_flow()
+  local r = rig()
+  if not r then say("make a skeleton first (F2)", C.ERR); return end
+  T.import_flow(T.ui, function(item)
+    if not item.ac then say("that model has no skeleton: it has no animations", C.ERR, 300); return end
+    local ok, src = pcall(T.decode_rig, item.ac)
+    if not ok or #src.bones == 0 or #src.clips == 0 then say("that model has no animations", C.ERR, 300); return end
+    local clips, info = T.retarget(src, r)
+    local room = 255 - #r.clips
+    if room <= 0 then say("at most 255 animations", C.ERR); return end
+    if info.matched == 0 then
+      say("no bone of that model has the name of one here: nothing added", C.ERR, 300)
+      return
+    end
+    T.begin_edit()
+    local n = 0
+    for i = 1, min(#clips, room) do
+      clips[i].name = unique_clip(r, clips[i].name)
+      r.clips[#r.clips + 1] = clips[i]
+      n = n + 1
+    end
+    an.clip, an.t = #r.clips - n + 1, 0
+    T.commit_anim()
+    local text = n .. " animations, " .. info.matched .. " bones matched"
+    if #info.missing > 0 then text = text .. ", missing: " .. table.concat(info.missing, " ") end
+    if #text > 76 then text = text:sub(1, 73) .. "..." end
+    say(text, #info.missing > 0 and C.TEXT or C.ACC, 400)
+  end)
+end
+
 function anim_page.key(k)
   local r, c = rig(), clip_obj()
   if T.cam_key(an.cam, k, 0.5, 100) then return end
   if k == "n" then new_clip(); return end
+  if k == "^I" then anim_page.retarget_flow(); return end
   if k == "z" then T.aim(an.cam, M() and M().faces or {}, 3); return end
   if not r then return end
   if k == "up" then an.bone = (an.bone - 2) % #r.bones + 1; return
@@ -1286,7 +1320,8 @@ function anim_page.menu_items()
   return { { an.playing and "Stop" or "Play", " " }, { "Keyframe", "k" }, { "Delete the keyframe", "x" },
            { "Copy the pose", "^c" }, { "Paste the pose", "^v" }, { "Rest the bone", "r" }, { "Mirror the pose", "m" },
            "-", { "Move / turn", "g" }, { "Loop", "l" }, { "Ease", "i" }, { "Onion skin", "o" }, "-",
-           { "New animation", "n" }, { "Duplicate", "^d" }, { "Rename...", "\n" }, { "Frame the model", "z" } }
+           { "New animation", "n" }, { "Duplicate", "^d" }, { "Rename...", "\n" },
+           { "Animations from another model...", "^I" }, { "Frame the model", "z" } }
 end
 
 function anim_page.draw()
@@ -1352,8 +1387,9 @@ function anim_page.draw()
   local x = INFO_X
   info_strip(c and 2 or 1)
   if not c then
-    print("no animations yet: n makes one", x, 32, C.ACC)
-    T.hint({ { { "n" }, "new animation" }, { { "up", "down" }, "bone" }, { { "+", "-" }, "zoom" } })
+    print("no animations yet: n makes one, ctrl shift i takes them from a model", x, 32, C.ACC)
+    T.hint({ { { "n" }, "new animation" }, { { "up", "down" }, "bone" }, { { "+", "-" }, "zoom" },
+             { { "ctrl", "shift", "i" }, "other anims" } })
     return
   end
   print(string.format("%s  %d/%d  %s%s  %.2f s%s", c.name, an.clip, #r.clips, T.MODES[c.mode], c.loop and "  loop" or "",
@@ -1363,7 +1399,7 @@ function anim_page.draw()
   print(string.format("%s %s   %.2f s  frame %d%s", an.move and "MOVE" or "TURN", r.bones[an.bone].name, tt,
                       round(tt * FPS), key_at(c, tt) and "  key" or ""), x, 48, key_at(c, tt) and C.ACC or C.TEXT)
   T.hint({ { { "left", "right" }, "time" }, { { "space" }, "play" }, { { "w", "s", "a", "d", "q", "e" }, "turn" },
-           { { "k" }, "key" }, { { ",", "." }, "keys" }, { { "m" }, "mirror" }, { { "o" }, "onion" } })
+           { { "k" }, "key" }, { { "ctrl", "shift", "i" }, "other anims" } })
 end
 
 ----------------------------------------------------------------- sprites page (the animation into the sheet)
