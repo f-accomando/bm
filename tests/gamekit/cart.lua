@@ -15,6 +15,11 @@ local W = SCREEN_W or 640
 local H = SCREEN_H or 360
 local score, lives_lost = 0, 0
 local world, S
+local snd = lib.sounds({
+  pew = { note = { 0, 1300, 60, SQUARE or 0, 70 } },
+  boom = { note = { 2, 400, 120, NOISE or 0, 130 }, gap = 4 },
+  win = { tune = { { 523, 6 }, { 784, 12 } } },
+})
 
 -- the kinds: what each entity is and does
 local kinds = {
@@ -26,6 +31,7 @@ local kinds = {
       if btn("act1") and e.cool == 0 then
         e.cool = 8
         w:spawn("shot", { x = e.x + e.w / 2 - 2, y = e.y - 6 })
+        snd:play("pew")
       end
     end,
     hurt = function(e) e.invuln = 60; lives_lost = lives_lost + 1 end,
@@ -40,6 +46,7 @@ local kinds = {
     end,
     die = function(e, w)
       score = score + 10
+      snd:play("boom")
       w:spawn("spark", { x = e.x, y = e.y })
     end,
     draw = function(e) rect(e.x, e.y, e.w, e.h, e.hp > 1 and 0xFF4040 or 0xFF9090) end },
@@ -74,6 +81,7 @@ S = lib.states({
       world:fight()
       if world:count("drone") == 0 and not s.won then
         s.won = true
+        snd:play("win")
         lib.after(0.5, function() S:go("over", true) end)
       end
     end,
@@ -119,6 +127,58 @@ local function kit_checks()
   check(not w:hurt(h, 1) and h.hp == 4, "invuln: safe while it counts down")
   w:clear()
   check(#w.list == 0, "clear")
+
+  -- named sound events (the sound functions are replaced: nothing sounds, the calls are noted)
+  local calls = {}
+  local api = {
+    note = function(...) calls[#calls + 1] = "note:" .. table.concat({ ... }, ",") end,
+    sfx = function(n, v, s, vol) calls[#calls + 1] = "sfx:" .. n .. "," .. tostring(s) .. "," .. tostring(vol) end,
+    play = function(s, n, ms, vol) calls[#calls + 1] = "play:" .. s .. "," .. tostring(ms) end,
+  }
+  local snd = lib.sounds({
+    hit = { note = { 0, 440, 45, 1, 110 }, gap = 3 },
+    pew = { sfx = 4, semis = 12, vol = 0.5 },
+    kick = { play = "kick", ms = 90 },
+    win = { tune = { { 500, 2 }, { 0, 1 }, { 600, 2 } }, prio = 1, ms = 10, wave = 7, vol = 99 },
+    sad = { tune = { { 100, 2 } } },
+  }, api)
+  check(snd:play("hit") and calls[1] == "note:0,440,45,1,110", "sounds: a note event")
+  check(not snd:play("hit") and #calls == 1, "sounds: the gap holds a second play back")
+  snd:update(); snd:update(); snd:update()
+  check(snd:play("hit") and #calls == 2, "sounds: ... until the frames pass")
+  check(snd:play("pew") and calls[3] == "sfx:4,12,0.5", "sounds: a bank effect")
+  check(snd:play("kick") and calls[4] == "play:kick,90", "sounds: an instrument")
+  check(not snd:play("nobody"), "sounds: an unknown name plays nothing")
+  snd:play("win")
+  check(#calls == 4, "sounds: a tune starts in the next update")
+  snd:update()
+  check(calls[5] == "note:3,500,20,7,99", "sounds: the tune's first note, with its own wave and volume")
+  check(not snd:play("sad"), "sounds: a tune of a lower prio does not cut the tune")
+  snd:update(); snd:update()
+  check(#calls == 5, "sounds: a rest and the note's length make no sound")
+  snd:update()
+  check(calls[6] == "note:3,600,20,7,99", "sounds: ... then the next note")
+  snd:update(); snd:update(); snd:update()
+  check(snd.tune == nil and snd:play("sad"), "sounds: the tune ends, another can start")
+  snd:stop()
+  check(snd.tune == nil, "sounds: stop")
+
+  -- save slots (the system's functions are replaced by a table)
+  local disk = {}
+  local sl = lib.slots({
+    save = function(t, n) disk[n] = t; return true end,
+    saved = function(n) return disk[n] end,
+    saves = function() local u = {}; for k in pairs(disk) do u[k] = 10 end; return u, 8 end,
+    delsave = function(n) disk[n] = nil; return true end,
+  })
+  check(sl:put(1, { lv = 3 }) and disk[2].lv == 3, "slots: the game's slot 1 is the cartridge's slot 2 (slot 1 stays for lib.store)")
+  check(sl:get(1).lv == 3 and sl:get(2) == nil, "slots: get")
+  sl:put(7, { lv = 9 })
+  check(sl:used(1) and not sl:used(2) and sl:used(7), "slots: used")
+  local li = sl:list()
+  check(#li == 2 and li[1].slot == 1 and li[2].slot == 7 and li[2].bytes == 10, "slots: list")
+  check(sl:del(1) and not sl:used(1), "slots: del")
+  check(not pcall(sl.get, sl, 8) and not pcall(sl.get, sl, 0) and not pcall(sl.put, sl, 1.5, {}), "slots: a slot out of range is an error")
 end
 
 local f = 0
@@ -131,6 +191,7 @@ end
 function _update()
   f = f + 1
   lib.update()
+  snd:update()
   S:update()
   if S.name == "over" and S:top().t > 0.2 then
     check(score == 30, "three drones shot: 30 points")

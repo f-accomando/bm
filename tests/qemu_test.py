@@ -6069,6 +6069,33 @@ def test_game_kit(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_pong_kit(b, opts):
+    """Pong, moved onto the gameplay kit (lib.world for the paddles and the ball,
+    lib.sounds for its notes and tunes): it starts on the ARM, runs without an
+    error and draws its title. Its play is compared with the old version by
+    make test-game-trace."""
+    cart = b("carts/pong.bm")
+    if not os.path.exists(cart):
+        subprocess.run(["make", "-s", cart], check=True, cwd=os.path.dirname(os.path.abspath(__file__)) + "/..")
+    tmp = tempfile.mkdtemp(prefix="bm-pongkit-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+        assert _upload(q, open(cart, "rb").read())
+        q.expect("received", timeout=30)
+        time.sleep(2.0)
+        q.buf += q.port.read(0.5)
+        out = q.buf.decode(errors="replace")
+        assert "stopped with an error" not in out and "attempt to" not in out, out[-3000:]
+        text = screen_text(q.screendump())
+        assert any("P O N G" in l for l in text), "\n".join(text)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # a square cartridge (256x256, in the middle of a 480x270 screen) lit by
 # levels as in Dank Tomb: white everywhere, one lamp in the middle
 SQUARE_CART = r"""
@@ -7166,6 +7193,99 @@ def test_sound_riff(b, opts):
         assert "into song 3, 1 patterns, 120 BPM" in out, out   # the demo has songs 0, 1 and 2
     finally:
         q.close()
+
+
+def test_sound_import(b, opts):
+    """bm Sound imports a WAV and a MIDI file from /docs on the SD card (Ctrl+W): the
+    tool reads the documents without asking; the MIDI file becomes a song, the WAV a
+    sample of the sound; the bank saved as a pack reads back with both."""
+    import math
+    import struct
+    import wave
+    tmp = tempfile.mkdtemp(prefix="bm-snd-imp-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    wav_path = os.path.join(tmp, "tone.wav")
+    with wave.open(wav_path, "wb") as w:                    # 441 frames of a 1 kHz sine, mono, 22050 Hz
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(22050)
+        w.writeframes(b"".join(struct.pack("<h", int(12000 * math.sin(2 * math.pi * i / 22.05))) for i in range(441)))
+
+    def vlq(v):
+        out = [v & 127]
+        v >>= 7
+        while v:
+            out.insert(0, v & 127 | 128)
+            v >>= 7
+        return bytes(out)
+    ev = [(0, b"\xff\x51\x03\x07\xa1\x20"), (0, b"\xff\x58\x04\x04\x02\x18\x08")]   # 500000 us, 4/4
+    for tick, dur, key, ch in ((0, 96, 60, 0), (96, 96, 64, 0), (192, 96, 67, 0), (0, 10, 36, 9), (96, 10, 38, 9)):
+        ev.append((tick, bytes([0x90 | ch, key, 100])))
+        ev.append((tick + dur, bytes([0x80 | ch, key, 0])))
+    ev.sort(key=lambda e: e[0])
+    body, at = b"", 0
+    for tick, data in ev:
+        body += vlq(tick - at) + data
+        at = tick
+    body += b"\x00\xff\x2f\x00"
+    mid_path = os.path.join(tmp, "tune.mid")
+    with open(mid_path, "wb") as f:
+        f.write(b"MThd" + struct.pack(">IHHH", 6, 0, 1, 96) + b"MTrk" + struct.pack(">I", len(body)) + body)
+    mksd.build(img, [(cfg, "bm/config.txt"), (wav_path, "docs/tone.wav"), (mid_path, "docs/tune.mid")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def k(s, gap=0.3):
+        q.send(s)
+        time.sleep(gap)
+    try:
+        q.boot()
+        k("A", 3)                                           # bm Sound, on the demo
+        k("\x17", 1.5)                                      # Ctrl+W: the list of /docs (a tool needs no permission)
+        k("\x1b[B", 0.4)                                    # the list: tone.wav, tune.mid
+        k("\r", 1)
+        q.expect("sound: imported the MIDI tune.mid: song 3: 1 patterns, 120 BPM, 3 new sounds", timeout=15)
+        k("\x17", 1)
+        k("\r", 1)                                          # tone.wav
+        k("\r", 1)                                          # as it is
+        q.expect("sound: imported the WAV tone.wav as sample 0 TONE: 22050 Hz mono", timeout=15)
+        if opts.shots:
+            time.sleep(0.5)
+            _save_png(q.screendump(), os.path.join(opts.shots, "sound-import.png"))
+        k("\x13", 1)                                        # Ctrl+S: a new pack, named
+        k("\r")
+        q.expect("sound: saved /bme/demo.bme", timeout=20)
+        k("\x1b", 0.6)                                      # the menu: Exit is the last item
+        k("\x1b[6~")
+        k("\x1b[6~")
+        k("\r")
+        q.expect("> ", timeout=15)
+    finally:
+        q.close()
+    try:
+        part = _sd_files(img)
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+        import bmaudio
+        pack = subprocess.run(["mtype", "-i", part, "::/BME/DEMO.BME"], capture_output=True, env=env).stdout
+        bank = bmaudio.unpack(bmaudio.extract(pack))
+        assert len(bank["samples"]) == 1, bank.get("samples")
+        smp = bank["samples"][0]
+        assert smp["name"] == "TONE" and smp["rate"] == 22050 and smp["channels"] == 1 and smp["format"] == "s16", smp
+        assert bank["sounds"][0].get("sample") == "TONE", bank["sounds"][0]
+        song = bank["songs"][3]
+        assert song["name"] == "TUNE" and song["bpm"] == 120, bank["songs"]
+        pat = bank["patterns"][song["order"][0]]
+        assert pat["tracks"]["0"][0].startswith("C4") and pat["tracks"]["0"][4].startswith("E4"), pat["tracks"]
+        # the documents stay as they were
+        got = subprocess.run(["mtype", "-i", part, "::/DOCS/TUNE.MID"], capture_output=True, env=env).stdout
+        assert got == open(mid_path, "rb").read(), "the MIDI file on the card is unchanged"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_audio(b, opts):

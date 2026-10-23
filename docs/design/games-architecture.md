@@ -186,7 +186,8 @@ only its rules and its drawing:
 | C. Attack phases and collisions | `lib.hits` for frame data; `W:fight()` for contact damage |
 | Input | `lib.input` (the standard actions of [`games-input-standard.md`](games-input-standard.md)) |
 | Tweens, timers, scripts | `lib.tween`, `lib.after`, `lib.every`, `lib.script` |
-| Record and save | `lib.best`, `lib.store` |
+| Sound | `lib.sounds` (named events, tunes) |
+| Record and save | `lib.best`, `lib.store` (slot 1); `lib.slots` (games in progress, slots 2 to 8) |
 
 The test game `tests/gamekit/cart.lua` ("gate") uses all of it. It has no entity loop, no
 collision loop, no state switch and no timer of its own. `make test-gamekit` runs it with
@@ -196,5 +197,13 @@ Cost: `W:update()` and `W:draw()` make no table. `W:fight()` compares each attac
 target (n times m, no table); a game with hundreds of bullets and hundreds of targets splits
 its entities in two worlds or checks fewer pairs. Not measured on the Pi Zero W.
 
-Not done yet: spawn from an OBJECTS section of the cartridge (needs a format change; `W:load`
-takes the data today), named audio events, save slots.
+Pong (`carts/pong`) runs on the kit: the two paddles and the ball are `lib.world` entities and
+all its notes and tunes are `lib.sounds` events. `make test-game-trace` plays it with a script of
+presses and compares a digest of every frame (what it draws, plays and saves) with the digest
+made before the move (`tests/gamekit/pong1.golden`, `pong2.golden`). They are equal. The same
+test works for the next game: add the tail `tests/gamekit/trace_tail.lua` to its `main.lua`.
+`tests/gamekit/cart.lua` checks `lib.sounds` and `lib.slots` (host and ARM).
+
+Not done yet: spawn from an OBJECTS section of the cartridge. It needs a format change: a new
+section number in `bm.h`, a reader in `format.c` and `runtime.c`, a writer in `mkbm.py` and
+`bmres.py`, and an editor to place the objects. `W:load` takes the rows as data today.

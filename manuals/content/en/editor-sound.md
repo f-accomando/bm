@@ -202,6 +202,7 @@ The pad and the keyboard do the same things. The bottom line of the screen shows
 | Undo | - | Ctrl+Z |
 | Copy / paste the item | - | Ctrl+C / Ctrl+V |
 | Export to a game | - | Ctrl+E |
+| Import a WAV or MIDI file | - | Ctrl+W |
 | Try it in the game | - | F5 or Ctrl+R |
 | Assistant | - | F6 |
 | Riff | - | F7 |
@@ -228,6 +229,7 @@ A short tap on SELECT opens the menu. If you press SELECT with left/right or up/
 | Export to a game... | writes this bank into a game |
 | Instrument... | SOUNDS page only: a ready-made sound |
 | Samples... | a sample into the sound |
+| Import WAV or MIDI... | a WAV file as a sample, a MIDI file as a song, from `/docs` (Ctrl+W) |
 | Compose with the assistant... | opens the assistant (F6) |
 | Riff... | opens Riff (F7) |
 | Try it in the game | with a game open: saves and runs it |
@@ -303,6 +305,29 @@ You can take a sound, an effect, a pattern or a song from another game or sound 
 *everything* replaces the whole bank you are working on, after a question. If there is no free slot, the import stops with a message such as `no free sound slots`. Undo is cleared after an import.
 :::
 
+## Import a WAV or MIDI file
+
+You can bring a sound recording or a song from the SD card into the bank. Put the file in the `/docs` folder of the card, with a name of the 8.3 kind (`kick.wav`, `tune.mid`).
+
+1. Open the Esc menu and choose **Import WAV or MIDI...** (or press Ctrl+W).
+2. In the list, choose the file. The list shows the `.wav` and `.mid` files of `/docs` with their size.
+3. For a WAV file, choose how to keep it: *as it is*, *mono*, *mono, 22050 Hz* or *mono, 11025 Hz*. The last ones make the sample smaller. A message says the result, for example `sample 2 TONE: 22050 Hz mono, 0.5 s, in sound 00`.
+4. The sample goes to the end of the bank's samples, and the sound you are on plays it (the wave becomes SAMPLE). The root note and the loop in the file are kept, when the file has them. A sample with the same bytes is not added twice.
+5. For a MIDI file, a new song appears with the file's name. Its patterns have 64 steps (or whole bars of the file's time signature), and the song has the file's tempo. A message says what was made, for example `song 3: 1 patterns, 120 BPM, 4 new sounds`.
+6. Press Ctrl+S to save.
+
+What the WAV import reads: 8, 16, 24 and 32-bit whole numbers and 32 and 64-bit floats, mono or stereo, up to 4 MiB. A rate above 48000 Hz is brought down to 48000 Hz.
+
+What the MIDI import does:
+- One step is a sixteenth note. Notes are put on the nearest step.
+- Each MIDI channel gets a sound. Its wave follows the General MIDI program (a bass is a SAW, a piano a PLUCK). The drum channel (10) plays the console's drum kit: `bd`, `sd`, `hh`, `oh`, `cp`, `rim`, `tom`, `cb`.
+- A pattern has 8 tracks, one note on a track at a time. Chords go to more tracks. A note that ends before the next one gets an OFF step.
+- Only the first tempo and the first time signature are used.
+
+::: warn
+A MIDI note over the 8 tracks is dropped, and the message tells how many. If the bank has fewer free pattern slots than the song needs, the song is cut to the slots there are. A pattern that a song of the bank already plays is not taken. The history of undo is cleared. A sample over the 64-sample limit or over the bank's memory is refused. A file with 12-bit samples, more than 2 channels or a rate under 1000 Hz is refused with a message. Not verified on the Pi and on the RGB30.
+:::
+
 ## Play it in your game
 
 1. In bm Sound, with your project open (see "Opening bm Sound"), press Ctrl+S. The sounds are written into the project.
@@ -362,6 +387,5 @@ Export replaces the sounds of the game you choose. The question names the file: 
 - Copy a pattern or a sound with Ctrl+C and paste it with Ctrl+V to make a variation without losing the first.
 - The notes of the piano rows play on the page's sound; change the octave with `,` and `.`.
 - Ctrl+Z undoes the last edit, also a paste, a clear or an assistant piece.
+- If **Import WAV or MIDI...** says `no .WAV or .MID file in /docs on the SD card`, the files are not in the `/docs` folder, or their names are longer than the 8.3 kind.
 - When you choose a file in **Import from...**, a line may say `a sound bank this version cannot read`: that file cannot be imported.
-
-[TO FILL: how to bring a WAV file into the bank on the console]

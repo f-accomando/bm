@@ -33,7 +33,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 - API-4 - P2 - to do - Video recording (VID-REC) next slices: run the Video bench on the Pi for the RLE565 numbers (bytes and ms a frame), real 8-bit palette, audio. [video](progress/video.md)
 - M46 - P2 - in progress - Audio 2: 24-bit stereo synthesizer, PCM/WAV samples, wizard, `riff`. Done when bm Sound games and tracks run at 24 bit on Pi and RGB30 with samples and patterns. [audio](progress/audio.md), [audio-samples](progress/audio-samples.md)
-- R9, R17, R21, R25, R32-R35 - P3 - idea - WAV from SD, MIDI import, GPIO audio, PC audio, samples and riff. After M46. [audio-samples](progress/audio-samples.md), [audio-output](progress/audio-output.md)
+- R21, R25, R32-R35 - P3 - idea - GPIO audio, MIDI export, PC audio, sample editor, sample packs, samples and riff. After M46. [audio-samples](progress/audio-samples.md), [audio-output](progress/audio-output.md)
 
 ## Network and web
 
@@ -78,7 +78,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 - GAME-1 - P3 - in progress - Yharnam: close the open checks (§2), test the map on the Pi. After M42. [yharnam](progress/yharnam.md) §2-3, [tools](progress/tools.md)
 - GAME-2 - P3 - in progress - Overbit: screens, quality, mech pilots from images. Benchmark on the Pi and the RGB30. After M41. [overbit](progress/overbit.md), [tools](progress/tools.md)
-- GAME-3 - P3 - in progress - Game architecture and gameplay kit. Done: `lib.world` and the test game `tests/gamekit` (`make test-gamekit`). Open: spawn from an OBJECTS section, named audio events, save slots, kit cost on the Pi Zero W. [games-architecture](design/games-architecture.md)
+- GAME-3 - P3 - in progress - Game architecture and gameplay kit. Done: `lib.world`, `lib.sounds`, `lib.slots`, the test game `tests/gamekit` (`make test-gamekit`) and Pong on the kit (`make test-game-trace`). Open: spawn from an OBJECTS section (format change), kit cost on the Pi Zero W, more games on the kit. [games-architecture](design/games-architecture.md)
 
 ## Process and docs
 

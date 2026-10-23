@@ -13,6 +13,10 @@
 -- menu's Samples... lists the bank's and the kit's samples and puts one
 -- into the sound; the menu's footer shows the output's depth (output
 -- 24-bit, audio_depth()).
+-- The menu's Import WAV or MIDI... (Ctrl+W) reads .wav and .mid files from
+-- /docs on the SD card: a WAV becomes a sample of the bank (8..32-bit or float,
+-- mono or stereo, at most 48000 Hz) put into the sound, a MIDI file becomes a
+-- song of patterns (B.wav_*, B.mid_*, tested by tests/sound/sim.lua).
 --
 -- Gamepad: d-pad moves; A tap adds / removes, A + up/down / left/right
 -- changes the note (or the value); Y + up/down / left/right sound and
@@ -286,6 +290,422 @@ function B.copy(v)
   for k, x in pairs(v) do t[k] = B.copy(x) end
   return t
 end
+
+----------------------------------------------------------------- WAV and MIDI files
+-- Read from /docs (doc_list, doc_read: at most 4 MiB). Pure functions of the
+-- file's bytes (tests/sound/sim.lua checks them): a WAV becomes a sample of
+-- the bank (B.wav_parse, B.wav_sample, B.add_sample), a standard MIDI file
+-- becomes patterns and a song (B.mid_parse, B.mid_import).
+
+B.WAV_RATE_MIN, B.WAV_OUT_MAX = 1000, 48000      -- the bank's lowest rate; the output's: more is only memory
+B.PCM_MAX = 8 << 20                       -- AU_PCM_MAX, 16-bit values of a bank's samples
+
+-- the same sound (the sample of a SAMPLE sound counts)
+function B.same_sound(a, b)
+  for _, k in ipairs(SOUND_KEYS) do if a[k] ~= b[k] then return false end end
+  if a.wave == 10 and (a.tone[7] ~= b.tone[7] or a.tone[8] ~= b.tone[8]) then return false end
+  return a.name == b.name
+end
+
+-- a WAV file's bytes -> { channels, rate, kind, frames, data, pos, root, fine, loop, ls, le }
+-- (kind u8 s16 s24 s32 f32 f64; the frames start at data:byte(pos)) or nil and why
+function B.wav_parse(data)
+  if type(data) ~= "string" or #data < 12 or data:sub(1, 4) ~= "RIFF" or data:sub(9, 12) ~= "WAVE" then
+    return nil, "not a WAV file"
+  end
+  local pos, fmt, dpos, dlen, smpl = 13, nil, nil, nil, nil
+  while pos + 7 <= #data do
+    local id, size = string.unpack("<c4I4", data, pos)
+    local body = pos + 8
+    if id == "fmt " and size >= 16 and body + 15 <= #data then
+      local tag, ch, rate, _, _, bits = string.unpack("<I2I2I4I4I2I2", data, body)
+      if tag == 0xFFFE and size >= 26 and body + 25 <= #data then tag = string.unpack("<I2", data, body + 24) end
+      fmt = { tag = tag, ch = ch, rate = rate, bits = bits }
+    elseif id == "data" and not dpos then
+      dpos, dlen = body, math.min(size, #data - body + 1)
+    elseif id == "smpl" and size >= 36 and body + 35 <= #data then
+      smpl = body
+    end
+    pos = body + size + (size & 1)
+  end
+  if not fmt or not dpos then return nil, "a WAV file without its format or its data" end
+  local kinds = { ["1/8"] = "u8", ["1/16"] = "s16", ["1/24"] = "s24", ["1/32"] = "s32", ["3/32"] = "f32", ["3/64"] = "f64" }
+  local kind = kinds[fmt.tag .. "/" .. fmt.bits]
+  if not kind then return nil, string.format("WAV samples of %d bits (format %d) are not read", fmt.bits, fmt.tag) end
+  if fmt.ch ~= 1 and fmt.ch ~= 2 then return nil, fmt.ch .. " channels: mono or stereo only" end
+  if fmt.rate < B.WAV_RATE_MIN then return nil, fmt.rate .. " Hz is too low (1000 Hz and up)" end
+  local w = { channels = fmt.ch, rate = fmt.rate, kind = kind, data = data, pos = dpos }
+  w.frames = dlen // (fmt.bits // 8 * fmt.ch)
+  if w.frames < 1 then return nil, "no sound in the file" end
+  w.root, w.fine, w.loop = 60, 0, 0
+  if smpl then                            -- the sampler chunk: root note, fine tune, first loop
+    local unity = string.unpack("<I4", data, smpl + 12)
+    local frac = string.unpack("<I4", data, smpl + 16)
+    local nloops = string.unpack("<I4", data, smpl + 28)
+    local cents = math.floor(frac / 4294967296 * 100 + 0.5)
+    if unity >= 1 and unity <= 127 then
+      w.root = unity
+      if cents > 50 and unity < 127 then w.root, cents = unity + 1, cents - 100 end
+      w.fine = clamp(cents, -100, 100)
+    end
+    if nloops >= 1 and smpl + 59 <= #data then
+      local lt, s, e = string.unpack("<I4I4I4", data, smpl + 40)
+      if e >= s and e + 1 <= w.frames and e + 1 - s >= 2 then
+        w.loop, w.ls, w.le = lt == 1 and 2 or 1, s, e + 1          -- the smpl end is inclusive
+      end
+    end
+  end
+  return w
+end
+
+-- the frames of a WAV as a function frame(i) (from 0) -> left, right (16-bit scale, floats)
+B.WAV_UNIT = { u8 = "B", s16 = "i2", s24 = "i3", s32 = "i4", f32 = "f", f64 = "d" }
+B.WAV_BYTES = { u8 = 1, s16 = 2, s24 = 3, s32 = 4, f32 = 4, f64 = 8 }
+function B.wav_reader(w)
+  local kind, ch = w.kind, w.channels
+  local unit, size = B.WAV_UNIT[kind], B.WAV_BYTES[kind]
+  local first, vals, N = -1, nil, 512                  -- a chunk of N frames decoded at a time
+  local function load(i)
+    first = i - i % N
+    local n = math.min(N, w.frames - first) * ch
+    vals = { string.unpack((kind == "u8" and "" or "<") .. string.rep(unit, n), w.data, w.pos + first * ch * size) }
+    vals[n + 1] = nil
+    if kind == "u8" then for k = 1, n do vals[k] = (vals[k] - 128) * 256 end
+    elseif kind == "s24" then for k = 1, n do vals[k] = vals[k] / 256 end
+    elseif kind == "s32" then for k = 1, n do vals[k] = vals[k] / 65536 end
+    elseif kind == "f32" or kind == "f64" then
+      for k = 1, n do
+        local v = vals[k]
+        vals[k] = v ~= v and 0 or clamp(v, -1, 1) * 32767
+      end
+    end
+  end
+  return function(i)
+    if not vals or i < first or i >= first + N then load(i) end
+    local k = (i - first) * ch + 1
+    return vals[k], vals[k + ch - 1]
+  end
+end
+
+-- a parsed WAV -> the sample's 32-byte header and its frames, ready for the
+-- bank's sraw: opts { mono = bool, rate = n (the most to keep) }. A file of 8
+-- or 16 bits that needs no change is copied as it is (8-bit stays 8-bit); the
+-- rest is 16-bit, a lower rate by the mean of the frames it covers (the rate
+-- never goes up: 48000 Hz is the most kept). Returns raw, info or nil, why.
+function B.wav_sample(w, name, opts)
+  opts = opts or {}
+  local rate = math.min(w.rate, B.WAV_OUT_MAX)
+  if opts.rate and opts.rate < rate then rate = opts.rate end
+  rate = math.max(rate, B.WAV_RATE_MIN)
+  local ch = (opts.mono or w.channels == 1) and 1 or 2
+  local frames, body, fmt
+  if rate == w.rate and ch == w.channels and (w.kind == "u8" or w.kind == "s16") then
+    frames = w.frames
+    body = w.data:sub(w.pos, w.pos + frames * ch * B.WAV_BYTES[w.kind] - 1)
+    fmt = w.kind == "u8" and 0 or 1
+  else
+    local rd = B.wav_reader(w)
+    local ratio = w.rate / rate
+    frames = math.max(1, math.floor(w.frames / ratio))
+    local out, n, chunk, cn = {}, 0, {}, 0
+    local function flush()
+      n = n + 1
+      out[n] = string.pack("<" .. string.rep("i2", cn), table.unpack(chunk, 1, cn))
+      cn = 0
+    end
+    local function put(l, r)
+      if ch == 1 then
+        cn = cn + 1; chunk[cn] = clamp(math.floor((r and (l + r) * 0.5 or l) + 0.5), -32768, 32767)
+      else
+        chunk[cn + 1] = clamp(math.floor(l + 0.5), -32768, 32767)
+        chunk[cn + 2] = clamp(math.floor(r + 0.5), -32768, 32767)
+        cn = cn + 2
+      end
+      if cn >= 2048 then flush() end
+    end
+    local stereo = w.channels == 2
+    for i = 0, frames - 1 do
+      local l, r
+      if ratio == 1 then
+        l, r = rd(i)
+      else                                -- the mean of the input frames this one covers
+        local a, b = i * ratio, math.min((i + 1) * ratio, w.frames)
+        local sl, sr, wt = 0, 0, 0
+        for j = math.floor(a), math.ceil(b) - 1 do
+          local wj = math.min(b, j + 1) - math.max(a, j)
+          if wj > 0 then
+            local x, y = rd(j)
+            sl, sr, wt = sl + x * wj, sr + y * wj, wt + wj
+          end
+        end
+        l, r = sl / wt, sr / wt
+      end
+      put(l, stereo and r or nil)
+    end
+    if cn > 0 then flush() end
+    body, fmt = table.concat(out), 1
+  end
+  local ls, le, loop = 0, 0, 0
+  if w.loop ~= 0 then
+    ls, le = math.floor(w.ls * frames / w.frames), math.floor(w.le * frames / w.frames)
+    if le > frames then le = frames end
+    if le - ls >= 2 then loop = w.loop else ls, le = 0, 0 end
+  end
+  local head = string.pack("<c8I4I4BBBbBxxxI4I4", name8(name), frames, rate, fmt, ch, w.root, w.fine, loop, ls, le)
+  return head .. body, { name = name8(name), frames = frames, rate = rate, format = fmt, channels = ch,
+                         root = w.root, fine = w.fine, loop = loop, loop_start = ls, loop_end = le }
+end
+
+-- raw (from wav_sample) into the bank: the same bytes already there are
+-- reused. Returns the sample's number (from 0) and true if it was there, or
+-- nil and why.
+function B.add_sample(b, raw, info)
+  local need = 0
+  for j, y in ipairs(b.samples) do
+    if y.n == #raw and b.sraw:sub(y.o, y.o + y.n - 1) == raw then return j - 1, true end
+    need = need + (y.frames + 4) * y.channels
+  end
+  if #b.samples >= 64 then return nil, "no free sample slots" end
+  if need + (info.frames + 4) * info.channels > B.PCM_MAX then return nil, "the samples would not fit in memory" end
+  local y = B.copy(info)
+  y.o, y.n = #b.sraw + 1, #raw
+  b.sraw = b.sraw .. raw
+  b.samples[#b.samples + 1] = y
+  return #b.samples - 1
+end
+
+-- a standard MIDI file -> { division, tempo (us a quarter note), num, den, notes },
+-- notes { t, e (ticks), key, vel, ch, prog } in time order; or nil and why
+function B.mid_parse(data)
+  if type(data) ~= "string" or #data < 14 or data:sub(1, 4) ~= "MThd" then return nil, "not a MIDI file" end
+  local hlen = string.unpack(">I4", data, 5)
+  local format, ntrk, div = string.unpack(">I2I2I2", data, 9)
+  if hlen < 6 or div == 0 then return nil, "not a MIDI file" end
+  if div & 0x8000 ~= 0 then return nil, "this MIDI file counts time in frames, not in beats" end
+  local m = { format = format, division = div, notes = {}, tempos = 0, cut = false }
+  local pos, tracks = 9 + hlen, 0
+  while pos + 7 <= #data and tracks < ntrk do
+    local id, size = string.unpack(">c4I4", data, pos)
+    local first, last = pos + 8, math.min(pos + 7 + size, #data)
+    if last < pos + 7 + size then m.cut = true end
+    pos = pos + 8 + size
+    if id == "MTrk" then
+      tracks = tracks + 1
+      local ok = pcall(function()
+        local p, t, status = first, 0, 0
+        local prog, open = {}, {}
+        local function vlq()
+          local v = 0
+          for _ = 1, 4 do
+            local c = data:byte(p)
+            p = p + 1
+            if not c or p > last + 1 then error("end") end
+            v = v << 7 | c & 127
+            if c < 128 then return v end
+          end
+          error("vlq")
+        end
+        local function close(ch, key, tick)
+          local list = open[ch * 128 + key]
+          if list and #list > 0 then
+            local n = table.remove(list, 1)
+            n.e = math.max(tick, n.t)
+            m.notes[#m.notes + 1] = n
+          end
+        end
+        local function finish()                      -- notes never ended: held to the track's end
+          for _, list in pairs(open) do
+            for _, n in ipairs(list) do n.e = math.max(t, n.t + 1); m.notes[#m.notes + 1] = n end
+          end
+        end
+        local ok2, err = pcall(function()
+          while p <= last do
+            t = t + vlq()
+            local b0 = data:byte(p)
+            if not b0 then break end
+            if b0 >= 128 then status = b0; p = p + 1 end
+            local hi, ch = status & 0xF0, status & 15
+            if status == 0xFF then
+              local mt = data:byte(p)
+              p = p + 1
+              local len = vlq()
+              if mt == 0x51 and len == 3 then
+                m.tempos = m.tempos + 1
+                if not m.tempo_t or t < m.tempo_t then
+                  local a, b_, c = data:byte(p, p + 2)
+                  m.tempo, m.tempo_t = a << 16 | b_ << 8 | c, t
+                end
+              elseif mt == 0x58 and len >= 2 and not m.num then
+                m.num, m.den = data:byte(p, p + 1)
+              elseif mt == 0x2F then
+                break
+              end
+              p = p + len
+            elseif status == 0xF0 or status == 0xF7 then
+              p = p + vlq()
+            elseif hi == 0x90 or hi == 0x80 then
+              local key, vel = data:byte(p, p + 1)
+              p = p + 2
+              if not vel then error("end") end
+              if hi == 0x90 and vel > 0 then
+                local k = ch * 128 + key
+                open[k] = open[k] or {}
+                open[k][#open[k] + 1] = { t = t, key = key, vel = vel, ch = ch, prog = prog[ch] or 0 }
+              else
+                close(ch, key, t)
+              end
+            elseif hi == 0xC0 then prog[ch] = data:byte(p); p = p + 1
+            elseif hi == 0xD0 then p = p + 1
+            elseif hi == 0xA0 or hi == 0xB0 or hi == 0xE0 then p = p + 2
+            else error("status")
+            end
+          end
+        end)
+        finish()
+        if not ok2 then error(err) end
+      end)
+      if not ok then m.cut = true end
+    end
+  end
+  if #m.notes == 0 then return nil, "no notes in the MIDI file" end
+  table.sort(m.notes, function(a, b)
+    if a.t ~= b.t then return a.t < b.t end
+    if a.ch ~= b.ch then return a.ch < b.ch end
+    return a.key < b.key
+  end)
+  return m
+end
+
+-- General MIDI drum keys -> the console's kit (0..7: bd sd hh oh cp rim tom cb)
+B.GM_DRUM = { [35] = 0, [36] = 0, [38] = 1, [40] = 1, [42] = 2, [44] = 2, [46] = 3, [39] = 4, [37] = 5,
+              [41] = 6, [43] = 6, [45] = 6, [47] = 6, [48] = 6, [50] = 6, [56] = 7, [49] = 3, [57] = 3,
+              [51] = 2, [59] = 2, [53] = 7, [54] = 2, [69] = 7, [70] = 2, [75] = 5, [76] = 5, [77] = 5 }
+B.KIT_NAMES = { "BD", "SD", "HH", "OH", "CP", "RIM", "TOM", "CB" }
+-- the wave for each family of eight GM programs (piano, chromatic, organ, guitar, bass,
+-- strings, ensemble, brass, reed, pipe, synth lead, synth pad, fx, ethnic, percussive, sfx)
+B.GM_WAVE = { 7, 6, 9, 7, 2, 2, 8, 2, 1, 4, 0, 8, 5, 7, 5, 3 }
+
+-- a parsed MIDI file -> the plan: 8 tracks of steps (a step is a 16th note).
+-- steps[t][s] = { key, voice, vel, dur }, voices = { {drum = k} or {ch, prog, wave} };
+-- bpm, plen (the pattern's length: whole bars, up to 64 steps), nsteps, dropped (notes
+-- that did not fit the 8 tracks)
+function B.mid_plan(m)
+  local plan = { steps = {}, voices = {}, dropped = 0, notes = 0, nsteps = 0, tempos = m.tempos, cut = m.cut }
+  for t = 1, 8 do plan.steps[t] = {} end
+  local us = m.tempo or 500000
+  plan.bpm_exact = math.floor(60000000 / us + 0.5)
+  plan.bpm = clamp(plan.bpm_exact, 40, 255)
+  local bar = 16
+  if m.num and m.den and m.den < 6 then
+    local x = m.num * 16 / (1 << m.den)
+    if x == math.floor(x) and x >= 1 and x <= 64 then bar = math.floor(x) end
+  end
+  plan.plen = bar * math.max(1, 64 // bar)
+  local st = m.division / 4
+  local vindex, tr = {}, {}
+  for t = 1, 8 do tr[t] = { busy = 0 } end
+  for _, n in ipairs(m.notes) do
+    local drum = n.ch == 9
+    local vkey = drum and ("d" .. (B.GM_DRUM[n.key] or 2)) or ("c" .. n.ch)
+    local v = vindex[vkey]
+    if not v then
+      plan.voices[#plan.voices + 1] = drum and { drum = B.GM_DRUM[n.key] or 2 }
+                                      or { ch = n.ch, prog = n.prog, wave = B.GM_WAVE[n.prog // 8 + 1] }
+      v = #plan.voices
+      vindex[vkey] = v
+    end
+    local s = math.floor(n.t / st + 0.5)
+    local dur = drum and 1 or math.max(1, math.floor(n.e / st + 0.5) - s)
+    -- the track: the one this voice used before if it is free, an unused one, any free one
+    local pick
+    for t = 1, 8 do if tr[t].busy <= s and tr[t].voice == v then pick = t break end end
+    if not pick then for t = 1, 8 do if tr[t].busy <= s and not tr[t].voice then pick = t break end end end
+    if not pick then for t = 1, 8 do if tr[t].busy <= s then pick = t break end end end
+    if pick then
+      tr[pick].busy, tr[pick].voice = s + dur, v
+      plan.steps[pick][s] = { key = drum and 60 or n.key, voice = v, vel = n.vel, dur = drum and 0 or dur }
+      plan.notes = plan.notes + 1
+      if s + 1 > plan.nsteps then plan.nsteps = s + 1 end
+    else
+      plan.dropped = plan.dropped + 1
+    end
+  end
+  return plan
+end
+
+-- the plan into the bank: sounds (a sound already there is reused), patterns,
+-- one song. Returns { song, first, patterns, needed, sounds, notes, dropped, bpm, ... }
+-- or nil and why; the bank is not changed when it is nil.
+function B.mid_import(b, m, name, spare_sound)
+  local plan = B.mid_plan(m)
+  if plan.nsteps == 0 then return nil, "no notes fit" end
+  local gslot
+  for i = 1, B.NSONG do if B.song_empty(b.songs[i]) then gslot = i break end end
+  if not gslot then return nil, "no free song slots" end
+  local used = {}                           -- a pattern an existing song plays is not taken
+  for _, s in ipairs(b.songs) do for _, n in ipairs(s.order) do used[n] = true end end
+  local slots = {}
+  for i = 1, B.NPAT do if B.pat_empty(b.pats[i]) and not used[i - 1] then slots[#slots + 1] = i end end
+  local need = math.ceil(plan.nsteps / plan.plen)
+  local npat = math.min(need, #slots, 64)
+  if npat < 1 then return nil, "no free pattern slots" end
+  local sound_of, made, planned, reserved = {}, 0, {}, {}
+  for v, voice in ipairs(plan.voices) do
+    local s = B.sound()
+    if voice.drum then
+      s.name, s.wave = B.KIT_NAMES[voice.drum + 1], 10
+      s.tone[7] = 128 + voice.drum
+    else
+      s.name, s.wave = string.format("CH%02d", voice.ch + 1), voice.wave
+      if voice.wave == 3 then s.vol = 160 end
+    end
+    local slot
+    for j = 1, B.NSOUND do
+      if not reserved[j] and not B.sound_empty(b.sounds[j]) and B.same_sound(b.sounds[j], s) then slot = j break end
+    end
+    if not slot then
+      for j = 1, B.NSOUND do if not reserved[j] and B.sound_empty(b.sounds[j]) then slot = j break end end
+      if slot then planned[#planned + 1] = { slot, s }; reserved[slot] = true; made = made + 1 end
+    end
+    sound_of[v] = slot and slot - 1 or (spare_sound or 0)
+  end
+  for _, p in ipairs(planned) do b.sounds[p[1]] = p[2] end
+  local order = {}
+  for k = 1, npat do
+    local p = B.pat()
+    p.len = plan.plen
+    local base = (k - 1) * plan.plen
+    for t = 1, 8 do
+      local track, any = {}, false
+      for i = 1, plan.plen do track[i] = 0 end
+      for i = 1, plan.plen do
+        local e = plan.steps[t][base + i - 1]
+        if e then
+          any = true
+          track[i] = mk(e.key, sound_of[e.voice], clamp(e.vel * 2 + 1, 1, 255), 0)
+        end
+      end
+      for i = 1, plan.plen do                   -- a note ends: OFF on the step it ends, if that step is free
+        local e = plan.steps[t][base + i - 1]
+        local j = i + (e and e.dur or 0)
+        if e and e.dur > 0 and j <= plan.plen and track[j] == 0 and not plan.steps[t][base + j - 1] then
+          track[j] = mk(128, 0, 0, 0)
+        end
+      end
+      if any then p.tracks[t] = track end
+    end
+    b.pats[slots[k]] = p
+    order[k] = slots[k] - 1
+  end
+  local song = B.song()
+  song.name, song.bpm, song.order = name8(name), plan.bpm, order
+  b.songs[gslot] = song
+  return { song = gslot - 1, first = order[1], patterns = npat, needed = need, sounds = made, notes = plan.notes,
+           dropped = plan.dropped, bpm = plan.bpm, bpm_exact = plan.bpm_exact, tempos = plan.tempos,
+           cut = plan.cut, plen = plan.plen }
+end
+
+if _TEST_HOOK then _TEST_HOOK(B) end          -- tests/sound/sim.lua checks the functions above
 
 -- the sounds a list of steps uses
 local function sounds_of_steps(steps, n, used)
@@ -1919,11 +2339,7 @@ local function free_slot(list, empty, from)
   return nil
 end
 
-local function same(a, b)
-  for _, k in ipairs(SOUND_KEYS) do if a[k] ~= b[k] then return false end end
-  if a.wave == 10 and (a.tone[7] ~= b.tone[7] or a.tone[8] ~= b.tone[8]) then return false end
-  return a.name == b.name
-end
+local same = B.same_sound
 
 -- a SAMPLE sound's sample (MOD1 below 128: the bank's own) comes along: the same
 -- bytes already in the bank are reused, else it goes to the end and the sound's
@@ -2088,6 +2504,90 @@ local function export_to(e)
          end)
 end
 
+-- WAV and MIDI files from /docs on the SD card (doc_list, doc_read: the player
+-- allows the documents the first time). A WAV becomes a sample put into the
+-- current sound (SAMPLE); a MIDI file becomes patterns and a song.
+function ui.import_wav(w, fname, opts)
+  local base = fname:gsub("%.[^.]*$", "")
+  local raw, info = B.wav_sample(w, base, opts)
+  if not raw then return say(info, C.red) end
+  local idx, err = B.add_sample(bank, raw, info)
+  if not idx then return say(err, C.red) end
+  local s = bank.sounds[cur.sound + 1]
+  begin_edit()
+  set(s, "wave", 10)
+  set(s.tone, 7, idx)
+  set(s.tone, 8, 0)
+  if s.name == "" or s.name == "SOUND" then set(s, "name", name8(base)) end
+  cur.page, sp.group, sp.col, sp.row = 1, 3, 1, 1
+  proj.dirty = true
+  bank_changed = true
+  local msg_ = string.format("sample %d %s: %d Hz %s, %.1f s, in sound %02d", idx, info.name, info.rate,
+                             info.channels == 2 and "stereo" or "mono", info.frames / info.rate, cur.sound)
+  say(msg_, C.green, 300)
+  note_log("imported the WAV " .. fname .. " as " .. msg_)
+end
+
+function ui.import_mid(m, fname)
+  local base = fname:gsub("%.[^.]*$", "")
+  local res, err = B.mid_import(bank, m, base, cur.sound)
+  if not res then return say(err, C.red) end
+  cur.song, cur.pat, cur.page = res.song, res.first, 4
+  undo = {}
+  proj.dirty = true
+  bank_changed = true
+  local line = string.format("song %d: %d patterns, %d BPM, %d new sounds", res.song, res.patterns, res.bpm, res.sounds)
+  local warn = {}
+  if res.patterns < res.needed then warn[#warn + 1] = "cut to " .. res.patterns .. " of " .. res.needed .. " patterns" end
+  if res.dropped > 0 then warn[#warn + 1] = res.dropped .. " notes over 8 tracks" end
+  if res.bpm ~= res.bpm_exact then warn[#warn + 1] = res.bpm_exact .. " BPM does not fit" end
+  if res.tempos > 1 then warn[#warn + 1] = "first tempo only" end
+  if res.cut then warn[#warn + 1] = "file cut short" end
+  say(line .. (#warn > 0 and " (" .. table.concat(warn, ", ") .. ")" or ""), #warn > 0 and C.yellow or C.green, 500)
+  note_log("imported the MIDI " .. fname .. ": " .. line .. " " .. table.concat(warn, ", "))
+end
+
+ui.WAV_OPTS = {
+  { label = "as it is", note = "stereo stays stereo", opts = {} },
+  { label = "mono", note = "the two channels mixed", opts = { mono = true } },
+  { label = "mono, 22050 Hz", note = "a quarter of the size", opts = { mono = true, rate = 22050 } },
+  { label = "mono, 11025 Hz", note = "an eighth of the size", opts = { mono = true, rate = 11025 } },
+}
+
+function ui.import_media()
+  local l, why = doc_list and doc_list()
+  if not l then say(tostring(why or "this console cannot read /docs"), C.red, 300) return end
+  table.sort(l, function(a, b) return a.name:lower() < b.name:lower() end)
+  local items = {}
+  for _, e in ipairs(l) do
+    local ext = e.name:lower():match("%.(%w+)$")
+    if ext == "wav" or ext == "mid" then
+      items[#items + 1] = { label = e.name:upper(), note = (ext == "wav" and "sample, " or "music, ") ..
+                            math.max(1, (e.size + 512) // 1024) .. " KB", ext = ext, name = e.name }
+    end
+  end
+  if #items == 0 then say("no .WAV or .MID file in /docs on the SD card", C.red, 300) return end
+  ui.choose("import a sound file from /docs", items, function(it)
+    local data, err = doc_read(it.name)
+    if not data then return say("cannot read " .. it.name .. ": " .. tostring(err), C.red, 300) end
+    if it.ext == "mid" then
+      local m, e = B.mid_parse(data)
+      if not m then return say(it.name .. ": " .. e, C.red, 300) end
+      ui.import_mid(m, it.name)
+    else
+      local w, e = B.wav_parse(data)
+      if not w then return say(it.name .. ": " .. e, C.red, 300) end
+      local pick = {}
+      for i, o in ipairs(ui.WAV_OPTS) do
+        if i == 1 or w.channels == 2 or o.opts.rate and o.opts.rate < w.rate then pick[#pick + 1] = o end
+      end
+      ui.choose(string.format("%s: %d Hz %s into sound %02d", it.name:upper(), w.rate,
+                              w.channels == 2 and "stereo" or "mono", cur.sound), pick,
+                function(o) ui.import_wav(w, it.name, o.opts) end)
+    end
+  end)
+end
+
 ----------------------------------------------------------------- item copy, paste, clear
 
 local clip = {}
@@ -2165,6 +2665,7 @@ local KEYHELP = {
   { "space", "play / stop" },
   { "pgup / pgdn", "the next sound, pattern, song" },
   { "ctrl e", "export to a game" },
+  { "ctrl w", "import a WAV (a sample) or a MIDI file (a song) from /docs" },
   { "f6", "the assistant: beats, backing tracks, melodies, sound effects" },
   { "f7", "riff: a pattern in a line, played, then into the bank" },
   "pad",
@@ -2573,6 +3074,7 @@ local function open_menu()
     items[#items + 1] = { label = "Instrument...", note = "a ready-made sound", act = choose_preset }
   end
   items[#items + 1] = { label = "Samples...", note = "the bank's and the kit's", act = ui.samples_menu }
+  items[#items + 1] = { label = "Import WAV or MIDI...", note = "Ctrl+W: from /docs", act = ui.import_media }
   items[#items + 1] = { label = "Compose with the assistant...", note = "F6: beats, melodies, sfx", act = compose }
   items[#items + 1] = { label = "Riff...", note = "F7: a pattern in a line", act = riff_open }
   if proj.path and proj.is_game then
@@ -2729,6 +3231,7 @@ local function global_key(k)
   elseif k == "^v" then item_paste()
   elseif k == "^o" then open_other()
   elseif k == "^e" then pick_file("export to", { game = true }, export_to)
+  elseif k == "^w" then ui.import_media()
   elseif k == "f6" then compose()
   elseif k == "f7" then riff_open()
   elseif k == "up" then page.move(0, -1)

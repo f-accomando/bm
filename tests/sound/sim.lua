@@ -194,6 +194,20 @@ local MS = { x = 0, y = 0, b = 0, w = 0, p = 0 }
 env.mouse = function(on) if on ~= nil then return true end; return MS.x, MS.y, MS.b, MS.w, true end
 env.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
 
+-- the documents (/docs): WAV and MIDI files for the importer
+local docs = {}
+env.doc_list = function()
+  local out = {}
+  for n, d in pairs(docs) do out[#out + 1] = { name = n, size = #d } end
+  return out
+end
+env.doc_read = function(n)
+  if docs[n] then return docs[n] end
+  return nil, "no document " .. n
+end
+local B                                   -- the cartridge's bank functions (the hook in main.lua)
+env._TEST_HOOK = function(b) B = b end
+
 local api = {}
 for k in pairs(env) do api[k] = true end
 local chunk = assert(load(readfile(SRC), "=main.lua", "t", env))
@@ -586,11 +600,288 @@ do
   type_keys("^z")
 end
 
+-- 9e. WAV files from /docs: the formats, the sampler chunk, the rate, mono, limits
+do
+  check(B ~= nil, "the cartridge hands its bank functions to the test hook")
+  local pk = string.pack
+  local function chunk(id, body) return id .. pk("<I4", #body) .. body .. (#body & 1 == 1 and "\0" or "") end
+  local function wav(tag, bits, ch, rate, frames_bytes, extra, ext)
+    local fmt = pk("<I2I2I4I4I2I2", ext and 0xFFFE or tag, ch, rate, rate * ch * bits // 8, ch * bits // 8, bits)
+    if ext then fmt = fmt .. pk("<I2I2I4I2", 22, bits, 0, tag) .. string.rep("\0", 14) end
+    local body = "WAVE" .. chunk("fmt ", fmt) .. (extra or "") .. chunk("data", frames_bytes)
+    return "RIFF" .. pk("<I4", #body) .. body
+  end
+  local function head(raw) return string.unpack("<c8I4I4BBBbBxxxI4I4", raw) end
+  local function s16s(f, n) local t = {} for i = 0, n - 1 do t[#t + 1] = pk("<i2", f(i)) end return table.concat(t) end
+
+  -- a mono 16-bit file with the sampler chunk: root 69 plus a quarter semitone, a ping-pong loop
+  local sine = s16s(function(i) return math.floor(math.sin(i / 100 * 2 * math.pi) * 20000) end, 100)
+  local smpl = chunk("smpl", pk("<I4I4I4I4I4I4I4I4I4", 0, 0, 45351, 69, 1 << 30, 0, 0, 1, 0) ..
+                             pk("<I4I4I4I4I4I4", 0, 1, 10, 49, 0, 0))
+  local w = assert(B.wav_parse(wav(1, 16, 1, 22050, sine, smpl)))
+  check(w.frames == 100 and w.rate == 22050 and w.channels == 1 and w.kind == "s16", "wav: the format is read")
+  check(w.root == 69 and w.fine == 25 and w.loop == 2 and w.ls == 10 and w.le == 50,
+        "wav: the sampler chunk: root, fine tune, ping-pong loop")
+  local raw, info = B.wav_sample(w, "loop.wav", {})
+  local name, frames, rate, fmt, ch, root, fine, loop, ls, le = head(raw)
+  check(#raw == 32 + #sine and raw:sub(33) == sine, "wav: a 16-bit file that needs no change is copied as it is")
+  check(name:match("^[^%z]*") == "LOOP.WAV" and frames == 100 and rate == 22050 and fmt == 1 and ch == 1 and
+        root == 69 and fine == 25 and loop == 2 and ls == 10 and le == 50, "wav: the 32-byte header")
+
+  -- 8-bit stereo stays 8-bit; mono mixes the two channels (16-bit)
+  local u8 = string.char(200, 100, 128, 128, 0, 255)
+  local w8 = assert(B.wav_parse(wav(1, 8, 2, 8000, u8)))
+  raw = B.wav_sample(w8, "S8", {})
+  local _, f8, r8, fm8, c8 = head(raw)
+  check(f8 == 3 and r8 == 8000 and fm8 == 0 and c8 == 2 and raw:sub(33) == u8, "wav: 8-bit stereo stays as it is")
+  raw = B.wav_sample(w8, "S8", { mono = true })
+  local _, fm, rm, fmm, cm = head(raw)
+  local m1, m2, m3 = string.unpack("<i2i2i2", raw, 33)
+  check(fm == 3 and fmm == 1 and cm == 1 and m1 == 5632, "wav: mono is the mean of the channels")
+  check(m2 == 0 and m3 == (-128 * 256 + 127 * 256) // 2, "wav: 8-bit values scale to 16 bits")
+
+  -- 24-bit stereo at 96000 Hz goes to 48000 Hz: a steady value stays what it is
+  local s24 = {}
+  for i = 1, 200 do s24[i] = pk("<i3i3", 1000 * 256, -2000 * 256) end
+  local w24 = assert(B.wav_parse(wav(1, 24, 2, 96000, table.concat(s24))))
+  raw, info = B.wav_sample(w24, "DEEP", {})
+  local _, f24, r24, fm24, c24 = head(raw)
+  check(f24 == 100 and r24 == 48000 and fm24 == 1 and c24 == 2 and #raw == 32 + 100 * 4,
+        "wav: 96000 Hz stereo 24-bit becomes 48000 Hz 16-bit")
+  local ok = true
+  for i = 0, 99 do
+    local l, r = string.unpack("<i2i2", raw, 33 + i * 4)
+    if l ~= 1000 or r ~= -2000 then ok = false end
+  end
+  check(ok, "wav: a steady value stays steady through the mean")
+
+  -- 32-bit float at 44100 Hz to 22050 Hz: the mean of two frames, exactly; clipping and NaN
+  local fl = {}
+  for i = 0, 440 do fl[#fl + 1] = pk("<f", 0.5 * math.sin(i / 441 * 2 * math.pi * 10)) end
+  local wf = assert(B.wav_parse(wav(3, 32, 1, 44100, table.concat(fl))))
+  raw = B.wav_sample(wf, "F32", { rate = 22050 })
+  local _, ff, rf = head(raw)
+  check(ff == 220 and rf == 22050 and #raw == 32 + 220 * 2, "wav: 44100 Hz float, asked for 22050 Hz: half the frames")
+  local worst = 0
+  for i = 0, 219 do
+    local a = string.unpack("<f", fl[2 * i + 1]) * 32767
+    local b2 = string.unpack("<f", fl[2 * i + 2]) * 32767
+    local got = string.unpack("<i2", raw, 33 + i * 2)
+    worst = math.max(worst, math.abs(got - (a + b2) / 2))
+  end
+  check(worst <= 1, "wav: the mean of two frames, within a step of 16 bits (" .. worst .. ")")
+  local wc = assert(B.wav_parse(wav(3, 32, 1, 8000, pk("<ffff", 2.0, -3.0, 0 / 0, 0.25))))
+  raw = B.wav_sample(wc, "CLIP", {})
+  local c1, c2, c3, c4 = string.unpack("<i2i2i2i2", raw, 33)
+  check(c1 == 32767 and c2 == -32767 and c3 == 0 and c4 == 8192, "wav: floats clip at full scale and NaN is silence")
+  local w64 = assert(B.wav_parse(wav(3, 64, 1, 8000, pk("<dd", 0.5, -0.5))))
+  raw = B.wav_sample(w64, "D64", {})
+  check(string.unpack("<i2", raw, 33) == 16384 and string.unpack("<i2", raw, 35) == -16383, "wav: 64-bit floats")
+
+  -- a rate that is not a whole ratio keeps a steady value; over 48000 Hz comes down
+  local dc = s16s(function() return 1234 end, 480)
+  raw = B.wav_sample(assert(B.wav_parse(wav(1, 16, 1, 48000, dc))), "DC", { rate = 11025 })
+  local _, fd, rd_ = head(raw)
+  ok = fd == math.floor(480 / (48000 / 11025)) and rd_ == 11025
+  for i = 0, fd - 1 do if string.unpack("<i2", raw, 33 + i * 2) ~= 1234 then ok = false end end
+  check(ok, "wav: a steady value stays steady at a rate that is not a whole ratio")
+  local big = s16s(function(i) return i % 100 end, 960)
+  raw = B.wav_sample(assert(B.wav_parse(wav(1, 16, 1, 96000, big))), "BIG", {})
+  local _, fb, rb = head(raw)
+  check(rb == 48000 and fb == 480, "wav: more than 48000 Hz is brought to 48000 Hz")
+  -- the loop follows the frames when the rate changes
+  local lp = chunk("smpl", pk("<I4I4I4I4I4I4I4I4I4", 0, 0, 0, 60, 0, 0, 0, 1, 0) ..
+                           pk("<I4I4I4I4I4I4", 0, 0, 100, 299, 0, 0))
+  raw = B.wav_sample(assert(B.wav_parse(wav(1, 16, 1, 96000, s16s(function() return 5 end, 400), lp))), "LP", {})
+  local _, _, _, _, _, _, _, lm, lstart, lend = head(raw)
+  check(lm == 1 and lstart == 50 and lend == 150, "wav: the loop points move with the rate")
+  -- extensible, an odd chunk before the data, a data size that is too big
+  local we = assert(B.wav_parse(wav(1, 16, 1, 22050, sine, chunk("LIST", "abc"), true)))
+  check(we.kind == "s16" and we.frames == 100, "wav: WAVE_FORMAT_EXTENSIBLE and an odd chunk before the data")
+  local wcut = assert(B.wav_parse(wav(1, 16, 1, 22050, sine):sub(1, -41)))
+  check(wcut.frames == 80, "wav: a data chunk longer than the file is read up to the end")
+  -- what is refused
+  check(not B.wav_parse("RIFF....WAVX"), "wav: not a WAV")
+  check(select(2, B.wav_parse(wav(1, 12, 1, 22050, sine))):find("12 bits"), "wav: 12 bits refused")
+  check(select(2, B.wav_parse(wav(1, 16, 3, 22050, sine))):find("3 channels"), "wav: 3 channels refused")
+  check(select(2, B.wav_parse(wav(1, 16, 1, 500, sine))):find("too low"), "wav: 500 Hz refused")
+  check(select(2, B.wav_parse(wav(1, 16, 1, 22050, ""))):find("no sound"), "wav: no frames refused")
+  check(select(2, B.wav_parse("RIFF" .. pk("<I4", 4) .. "WAVE")):find("without"), "wav: no format refused")
+
+  -- into the bank: the same bytes are reused, 64 samples at most, and the memory
+  local bk = B.blank()
+  raw, info = B.wav_sample(w, "ONE", {})
+  local i1, again = B.add_sample(bk, raw, info)
+  local i2, again2 = B.add_sample(bk, raw, info)
+  check(i1 == 0 and not again and i2 == 0 and again2 and #bk.samples == 1, "wav: the same sample is not added twice")
+  check(bk.sraw == raw and bk.samples[1].o == 1 and bk.samples[1].n == #raw, "wav: the bank's raw samples hold it")
+  local raw2, info2 = B.wav_sample(w8, "TWO", {})
+  check(B.add_sample(bk, raw2, info2) == 1 and bk.sraw == raw .. raw2 and bk.samples[2].o == #raw + 1,
+        "wav: the next one goes to the end")
+  local packed = B.parse(B.pack(bk))
+  check(packed and #packed.samples == 2 and packed.samples[1].root == 69 and packed.samples[1].loop == 2 and
+        packed.samples[2].format == 0, "wav: the bank with the new samples packs and reads back")
+  local full = B.blank()
+  for k = 1, 64 do full.samples[k] = { frames = 1, channels = 1, n = 0, o = 1 } end
+  check(select(2, B.add_sample(full, raw, info)) == "no free sample slots", "wav: a 65th sample is refused")
+  local heavy = B.blank()
+  heavy.samples[1] = { frames = B.PCM_MAX - 100, channels = 1, n = 0, o = 1 }
+  check(select(2, B.add_sample(heavy, raw, { frames = 200, channels = 1 })) == "the samples would not fit in memory",
+        "wav: past the bank's memory is refused")
+  check(#heavy.samples == 1 and heavy.sraw == "", "wav: a refused sample leaves the bank as it was")
+end
+
+-- 9f. MIDI files from /docs: tracks, tempo, the drums, the patterns and the song
+do
+  local pk = string.pack
+  local function vlq(v)
+    local t = { v & 127 }
+    v = v >> 7
+    while v > 0 do table.insert(t, 1, v & 127 | 128); v = v >> 7 end
+    return string.char(table.unpack(t))
+  end
+  -- events { tick, bytes } -> a track chunk
+  local function track(ev, no_end)
+    for i, e in ipairs(ev) do e[3] = i end                       -- a stable order for the events of one tick
+    table.sort(ev, function(a, b2) if a[1] ~= b2[1] then return a[1] < b2[1] end return a[3] < b2[3] end)
+    local out, at = {}, 0
+    for _, e in ipairs(ev) do out[#out + 1] = vlq(e[1] - at) .. e[2]; at = e[1] end
+    if not no_end then out[#out + 1] = "\0\255\47\0" end
+    local body = table.concat(out)
+    return "MTrk" .. pk(">I4", #body) .. body
+  end
+  local function smf(fmt, div, ...)
+    local tr = { ... }
+    return "MThd" .. pk(">I4I2I2I2", 6, fmt, #tr, div) .. table.concat(tr)
+  end
+  local function note(ev, tick, dur, key, vel, ch)
+    ev[#ev + 1] = { tick, string.char(0x90 | ch, key, vel) }
+    ev[#ev + 1] = { tick + dur, string.char(0x80 | ch, key, 0) }
+  end
+  local function tempo(us) return string.char(255, 0x51, 3, us >> 16, us >> 8 & 255, us & 255) end
+
+  local ev = { { 0, tempo(500000) }, { 0, string.char(255, 0x58, 4, 4, 2, 24, 8) }, { 0, string.char(0xC0, 33) } }
+  note(ev, 0, 96, 48, 100, 0)
+  note(ev, 96, 48, 52, 64, 0)
+  for _, k in ipairs({ 60, 64, 67 }) do note(ev, 192, 96, k, 100, 0) end
+  note(ev, 0, 10, 36, 127, 9); note(ev, 0, 10, 42, 90, 9); note(ev, 48, 10, 42, 90, 9); note(ev, 96, 10, 38, 110, 9)
+  local tune = smf(0, 96, track(ev))
+  local m = assert(B.mid_parse(tune))
+  check(#m.notes == 9 and m.division == 96 and m.tempo == 500000 and m.num == 4 and m.den == 2 and not m.cut,
+        "midi: the notes, the division, the tempo and the time signature are read")
+  local bk = B.blank()
+  local res = assert(B.mid_import(bk, m, "tune", 0))
+  check(res.song == 1 and res.patterns == 1 and res.needed == 1 and res.sounds == 4 and res.notes == 9 and
+        res.dropped == 0 and res.bpm == 120 and res.plen == 64, "midi: the song, the pattern, the sounds, the tempo")
+  local sg = bk.songs[res.song + 1]
+  check(sg.name == "TUNE" and sg.bpm == 120 and #sg.order == 1, "midi: the song takes the file's name and tempo")
+  local p = bk.pats[sg.order[1] + 1]
+  check(sg.order[1] == 1 and p.len == 64, "midi: the pattern is 64 steps and not the one the first song plays")
+  local function st(t, i) local v = p.tracks[t] and p.tracks[t][i] or 0 return v & 255, v >> 8 & 255, v >> 16 & 255 end
+  local n, snd, vol = st(1, 1)
+  check(n == 48 and vol == 201, "midi: the first note: C3, velocity 100 = volume 201")
+  check(st(1, 5) == 52 and st(1, 7) == 128 and st(1, 9) == 60,
+        "midi: a note that ends where another starts has no OFF; a gap gets one")
+  check(st(5, 9) == 64 and st(6, 9) == 67, "midi: a chord goes to three tracks")
+  check(st(2, 1) == 60 and st(3, 1) == 60 and st(3, 3) == 60 and st(4, 5) == 60,
+        "midi: the drums are one-shots on the next free tracks")
+  local _, ksnd = st(2, 1)
+  local _, hsnd = st(3, 1)
+  local _, bsnd = st(1, 1)
+  check(bk.sounds[ksnd + 1].name == "BD" and bk.sounds[ksnd + 1].wave == 10 and bk.sounds[ksnd + 1].tone[7] == 128,
+        "midi: the kick plays the kit's bd")
+  check(bk.sounds[hsnd + 1].name == "HH" and bk.sounds[hsnd + 1].tone[7] == 130, "midi: the hi-hat plays the kit's hh")
+  check(bk.sounds[bsnd + 1].name == "CH01" and bk.sounds[bsnd + 1].wave == 2, "midi: program 33 (a bass) is a saw")
+  check(B.parse(B.pack(bk)) ~= nil, "midi: the bank with the song packs and reads back")
+  -- the same file again: the sounds are reused
+  local res2 = assert(B.mid_import(bk, m, "again", 0))
+  check(res2.sounds == 0 and res2.song == 2 and res2.first == 2,
+        "midi: a second import reuses the sounds and takes the next slots")
+  -- tempo, bars, simultaneous notes
+  local function with(evs) return assert(B.mid_parse(smf(1, 480, track(evs)))) end
+  local e2 = { { 0, tempo(300000) }, { 0, tempo(300000) } }
+  note(e2, 0, 480, 60, 100, 1)
+  local r3 = assert(B.mid_import(B.blank(), with(e2), "T", 0))
+  check(r3.bpm == 200 and r3.tempos == 2, "midi: 300000 us a beat is 200 BPM; two tempo events are told")
+  local e3 = { { 0, tempo(2000000) } }
+  note(e3, 0, 480, 60, 100, 1)
+  local r4 = assert(B.mid_import(B.blank(), with(e3), "T", 0))
+  check(r4.bpm == 40 and r4.bpm_exact == 30, "midi: a tempo under 40 BPM is held at 40 and told")
+  local e4 = { { 0, string.char(255, 0x58, 4, 3, 2, 24, 8) } }          -- 3/4: 12 steps a bar
+  note(e4, 0, 480, 60, 100, 0); note(e4, 130 * 120, 120, 62, 100, 0)       -- step 130
+  local b4 = B.blank()
+  local r5 = assert(B.mid_import(b4, with(e4), "WALTZ", 0))
+  check(r5.plen == 60 and r5.needed == 3 and r5.patterns == 3,
+        "midi: 3/4 makes patterns of five bars (60 steps); 131 steps need three")
+  local o = b4.songs[r5.song + 1].order
+  check(#o == 3 and b4.pats[o[3] + 1].tracks[1][130 - 120 + 1] & 255 == 62,
+        "midi: the last note is in the third pattern, step 10")
+  local e5 = {}
+  for k = 1, 10 do note(e5, 0, 480, 40 + k, 100, 0) end
+  local r6 = assert(B.mid_import(B.blank(), with(e5), "CHORD", 0))
+  check(r6.dropped == 2 and r6.notes == 8, "midi: ten notes at once: eight tracks, two dropped and told")
+  -- running status, a note-on with velocity 0 as the note-off, a file cut short
+  local run_ = string.char(0x90, 60, 100) .. "\96" .. string.char(60, 0) .. "\0" .. string.char(62, 100)
+  local body = "\0" .. run_ .. "\96" .. string.char(62, 0) .. "\0\255\47\0"
+  local mr = assert(B.mid_parse("MThd" .. pk(">I4I2I2I2", 6, 0, 1, 96) .. "MTrk" .. pk(">I4", #body) .. body))
+  check(#mr.notes == 2 and mr.notes[1].e == 96 and mr.notes[2].t == 96, "midi: running status and note-on with velocity 0")
+  local mh = assert(B.mid_parse(tune:sub(1, #tune - 30)))
+  check(mh.cut and #mh.notes > 0, "midi: a file cut short keeps the notes it has and says so")
+  -- slots: patterns are cut to the free ones; no free song changes nothing
+  local few = B.blank()
+  for k = 4, B.NPAT do few.pats[k] = { len = 16, tracks = { [1] = { 0x3C } } } end   -- 1 and 2 free (0 is played)
+  local r7 = assert(B.mid_import(few, with(e4), "WALTZ", 0))
+  check(r7.patterns == 2 and r7.needed == 3, "midi: with two free pattern slots a song of three is cut to two")
+  local nosong = B.blank()
+  for k = 1, B.NSONG do nosong.songs[k].name = "S" .. k end
+  local before = B.pack(nosong)
+  check(select(2, B.mid_import(nosong, m, "X", 0)) == "no free song slots" and B.pack(nosong) == before,
+        "midi: no free song slot: refused, the bank is as it was")
+  -- what is refused
+  check(select(2, B.mid_parse("hello")):find("not a MIDI"), "midi: not a MIDI file")
+  check(select(2, B.mid_parse("MThd" .. pk(">I4I2I2I2", 6, 0, 1, 0xE728))):find("frames"),
+        "midi: a time code division is refused")
+  check(select(2, B.mid_parse(smf(0, 96, track({ { 0, tempo(500000) } })))):find("no notes"),
+        "midi: a file without notes is refused")
+
+  -- the whole way, with the keys: Ctrl+W, the file, and the song is in the bank
+  docs["song.mid"] = tune
+  local songs_before = #parse(last_bank).songs
+  type_keys("^w", "\n")                    -- song.mid is the first of the list
+  b = parse(last_bank)
+  check(#b.songs == songs_before + 1 and b.songs[#b.songs].name == "SONG" and b.songs[#b.songs].bpm == 120,
+        "midi: Ctrl+W imports song.mid as a song (" .. #b.songs .. " songs)")
+  check(logs[#logs]:find("imported the MIDI song.mid", 1, true), "midi: the import is in the log")
+  -- and a WAV: mono at 22050 Hz out of a stereo 96000 Hz file
+  local stc = {}
+  for i = 0, 959 do
+    local v = math.floor(math.sin(i / 96 * 2 * math.pi) * 10000)
+    stc[#stc + 1] = pk("<i2i2", v, v)
+  end
+  local fmtc = pk("<I2I2I4I4I2I2", 1, 2, 96000, 96000 * 4, 4, 16)
+  local body2 = "WAVE" .. "fmt " .. pk("<I4", 16) .. fmtc .. "data" .. pk("<I4", 960 * 4) .. table.concat(stc)
+  docs["tone.wav"] = "RIFF" .. pk("<I4", #body2) .. body2
+  local nsm = #parse(last_bank).samples
+  type_keys("^w", "down", "\n")            -- tone.wav: the choices as it is, mono, mono 22050 Hz, mono 11025 Hz
+  type_keys("down", "down", "\n")
+  b = parse(last_bank)
+  local tail = last_bank:sub(-(32 + 220 * 2))
+  local nm, fr, rt, fm_, ch_ = string.unpack("<c8I4I4BB", tail)
+  check(#b.samples == nsm + 1 and nm:match("^[^%z]*") == "TONE" and fr == 220 and rt == 22050 and fm_ == 1 and ch_ == 1,
+        "wav: Ctrl+W, tone.wav, mono at 22050 Hz: a mono sample of 220 frames is the bank's last")
+  local at_
+  for i, wv in ipairs(b.waves) do if wv == 10 and b.tones[i][7] == nsm then at_ = i end end
+  check(at_ ~= nil, "wav: the current sound plays the new sample (SAMPLE, MOD1 " .. nsm .. ")")
+  check(logs[#logs]:find("imported the WAV tone.wav", 1, true), "wav: the import is in the log")
+  docs["song.mid"], docs["tone.wav"] = nil, nil
+  type_keys("^w")                          -- nothing to import now: a message, no overlay
+end
+
 -- 10. random input: nothing stops the editor
 math.randomseed(7)
 local K = { "up", "down", "left", "right", "\n", "\b", " ", "f1", "f2", "f3", "f4", "\t", "z", "q", "x", "-", "=",
             "[", "]", ";", "'", "k", "l", "o", "p", "_", "+", ",", ".", "pgup", "pgdn", "esc", "^z", "^c", "^v",
-            "i", "^n", "^S" }
+            "i", "^n", "^S", "^w" }
 for i = 1, 6000 do
   for b2 = 0, 9 do pad[b2] = math.random() < (b2 == 9 and 0.03 or 0.12) end
   if math.random() < 0.2 then keys[#keys + 1] = K[math.random(#K)] end

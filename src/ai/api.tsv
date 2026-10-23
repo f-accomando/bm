@@ -51,13 +51,18 @@ R.setcps	R.setcps(x)	riff	the speed
 R.stop	R.stop(name)	riff	play (with a name), stop, to call in `_update`
 R.update	R.update()	riff	play (with a name), stop, to call in `_update`
 R.voices	R.voices(v, …)	riff	the names playing, their patterns, the errors, where the notes sounding are written, the voices it may use
+S:del	S:del(i)	bmlib	empties slot `i`
 S:draw	S:draw()	bmlib	in `_update` / in `_draw` (from the bottom: the game under its pause)
+S:get	S:get(i)	bmlib	the table saved in slot `i`, or `nil`
 S:go	S:go(name, ...)	bmlib	to state `name`: the open ones leave (`exit`), `name` enters (`enter(...)`)
 S:is	S:is(name)	bmlib	the state on top
+S:list	S:list()	bmlib	the slots in use as `{ {slot = i, bytes = n}, ... }` for a "load game" page; it makes a table, so call it when the page opens
 S:pop	S:pop()	bmlib	`name` over the one now (a pause, a dialogue: only it updates, both draw) / back to the one under it
 S:push	S:push(name, ...)	bmlib	`name` over the one now (a pause, a dialogue: only it updates, both draw) / back to the one under it
+S:put	S:put(i, t)	bmlib	saves table `t` in slot `i` (at the end of a match, not in every frame): `true`, or `false` and the reason
 S:top	S:top()	bmlib	the state on top
 S:update	S:update()	bmlib	in `_update` / in `_draw` (from the bottom: the game under its pause)
+S:used	S:used(i)	bmlib	`true` if slot `i` holds a save
 U.begin	U.begin()	input	in `_update` first (reads `mouse()` once a frame), in `_draw` first (forgets the zones of the frame before)
 U.key_zone	U.key_zone(x, y, w, h, keys)	input	a chip (`"ctrl s"`, `{"shift", "l"}`, `"f5"`) that presses its key when clicked; `U.keys()` does it for the click of the frame
 U.keys	U.keys()	input	a chip (`"ctrl s"`, `{"shift", "l"}`, `"f5"`) that presses its key when clicked; `U.keys()` does it for the click of the frame
@@ -353,6 +358,9 @@ shine3d	shine3d(spec, exponent, rim)	light3d	the sun's reflections on glossy fac
 shot	shot([prefix])	system	saves the frame being drawn as a PNG in `bm/shots/` when `_draw` ends and returns its name (`"bm/shots/PONG0007.png"`); the name starts with the first letters of the game's title, or of `prefix` (up to 4 letters or digits), then a number. `nil` and a message if the numbers are over. The player has a key for it too (Print Screen; Select held for 3 seconds). [SCREENSHOTS.md](../SCREENSHOTS.md)
 sky3d	sky3d(sun, sky, ground)	light3d	colours (0xRRGGBB) of the sun's light and of the ambient light coming from above and below (faces turned up take the sky, those turned down the ground); `sky3d()` goes back to white
 slide	slide(v, hz, [ms])	sound	the note slides to `hz` in `ms` (default 100): glissandos, sirens, lasers
+snd:play	snd:play(name)	bmlib	plays the event. Returns `false` if the name is unknown, the `gap` is not over, or a tune of a higher `prio` is running. A new tune replaces a tune of the same or a lower `prio`; its first note sounds in the next `snd:update()`
+snd:stop	snd:stop()	bmlib	stops the tune
+snd:update	snd:update()	bmlib	once a frame, first in `_update`: counts the frames and plays the next note of the tune
 spr	spr(n, x, y, [w, h, flip_x, flip_y])	draw	draws cell `n` (w×h cells, default 1×1), mirrored too
 sprite3d	sprite3d(sx, sy, sw, sh, x, y, z, width, [flags])	light3d	a rectangle of the sprite sheet facing the camera, `width` units wide in the world, hidden by the closer things: explosions, smoke, icons over the characters
 sset	sset(x, y, [c])	draw	reads / writes a pixel of the sheet (`nil` = transparent)

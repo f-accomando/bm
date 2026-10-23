@@ -91,10 +91,10 @@ Add two optional parameters for each sound effect:
 ## 5. Roadmap and Advanced Audio Tools (M46, R9, R17, R25, R31–R35)
 
 - **WAV / PCM Import from SD (R9, R25)**:
-  - Ability to import WAV audio samples directly from the SD card into bm Sound for instruments with the `SAMPLE` waveform.
+  - (Done: R9, WAV files from `/docs` into a bank sample, Ctrl+W.)
   - Sample editor (R32): built-in functions for trimming, amplitude normalization, loop point setting; live recording from USB microphone or internal mix.
 - **MIDI Import / Export (R17, R25)**:
-  - Import of standard `.mid` files to automatically generate sequences in the PATTERN and SONG banks of bm Sound.
+  - (Done: R17, import of standard `.mid` files as a song with patterns, Ctrl+W.) Export is left.
 - **Sample Management Across Banks (R33, R34)**:
   - (Done: R31, import of a `SAMPLE` instrument with its sample, renumbering `MOD1`.)
   - Distribution of `.bmau` v3 audio sample packs on the Market.
