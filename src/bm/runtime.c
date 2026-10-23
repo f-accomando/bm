@@ -5093,6 +5093,8 @@ static int l_mesh_reduce(lua_State *L);
 static int l_picture3d(lua_State *L);
 static int l_cutout3d(lua_State *L);
 static int l_glb3d(lua_State *L);
+static int l_res_write(lua_State *L);
+static int l_res_read(lua_State *L);
 static int l_cart_sheet(lua_State *L);
 
 /* ---------------------------------------------------------------- light */
@@ -5440,7 +5442,7 @@ static const luaL_Reg api[] = {
     { "cart_save", l_cart_save }, { "cart_build", l_cart_build }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg }, { "cart_config", l_cart_config },
     { "cart_data", l_cart_data },
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
-    { "mesh_reduce", l_mesh_reduce }, { "picture3d", l_picture3d }, { "cutout3d", l_cutout3d }, { "glb3d", l_glb3d },
+    { "mesh_reduce", l_mesh_reduce }, { "picture3d", l_picture3d }, { "cutout3d", l_cutout3d }, { "glb3d", l_glb3d }, { "res_write", l_res_write }, { "res_read", l_res_read },
     { "cart_sheet", l_cart_sheet },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow }, { "dark_end", l_dark_end },
@@ -7086,6 +7088,210 @@ static int l_glb3d(lua_State *L)
     }
     push_glb_model(L, &m);
     glb_model_free(&m);
+    return 1;
+}
+
+/* res_write(path, kind, {sections = {[8] = MESH, [9] = ANIM, [2] = SHEET | [5] = SHEET8, [10] = INFO},
+ * name =, author =, replace = false}) -> true, or nil and a message: a model file (BMRES, kind 1 or
+ * "model") in /bmm, for bm's tools only. The path is /bmm/NAME.bmm, NAME 1 to 8 lower case letters, digits,
+ * _ or -. The sections are strings, as cart_write takes them (the whole MESH section: the models and their
+ * header); MESH is needed, the rest is optional; each is checked as the kernel loads a file (the same
+ * parse). The folder is made if it is not there. A file that is there is not changed unless replace.
+ * name: the name shown (48 bytes; NAME by default); author: 32 bytes. */
+#define RES_NAME_MAX 8
+static int res_model_path(const char *path, char *file, size_t fn)
+{
+    if (strncmp(path, "/bmm/", 5) != 0)
+        return 0;
+    const char *n = path + 5;
+    size_t k = 0;
+    while (n[k] && n[k] != '.') {
+        const char c = n[k];
+        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-'))
+            return 0;
+        k++;
+    }
+    if (k < 1 || k > RES_NAME_MAX || strcmp(n + k, ".bmm") != 0 || k + 5 > fn)
+        return 0;
+    ksnprintf(file, fn, "%s", n);
+    return 1;
+}
+
+static int l_res_write(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    luaL_checktype(L, 3, LUA_TTABLE);
+    if (!tool_mode) {
+        lua_pushnil(L);
+        lua_pushstring(L, "res_write is for bm's tools only");
+        return 2;
+    }
+    int kind = -1;
+    if (lua_isinteger(L, 2))
+        kind = (int)lua_tointeger(L, 2);
+    else if (lua_isstring(L, 2) && strcmp(lua_tostring(L, 2), "model") == 0)
+        kind = BM_RES_MODEL;
+    if (kind != BM_RES_MODEL) {
+        lua_pushnil(L);
+        lua_pushstring(L, "res_write: only kind 1 (\"model\", a .bmm in /bmm)");
+        return 2;
+    }
+    char file[16];
+    if (!res_model_path(path, file, sizeof file)) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: a model goes to /bmm/NAME.bmm (NAME: 1 to 8 of a-z 0-9 _ -, lower case)", path);
+        return 2;
+    }
+    lua_getfield(L, 3, "replace");
+    const int replace = lua_toboolean(L, -1);
+    lua_getfield(L, 3, "name");
+    const char *name = lua_isstring(L, -1) ? lua_tostring(L, -1) : NULL;
+    lua_getfield(L, 3, "author");
+    const char *author = lua_isstring(L, -1) ? lua_tostring(L, -1) : "";
+    char stem[16];
+    if (!name) {
+        ksnprintf(stem, sizeof stem, "%s", file);
+        stem[strlen(stem) - 4] = 0;
+        name = stem;
+    }
+    lua_getfield(L, 3, "sections");
+    if (!lua_istable(L, -1))
+        return luaL_error(L, "res_write: sections = { [8] = MESH, ... }");
+    bm_put_t put[5];
+    int nput = 0, have_sheet = 0;
+    lua_pushnil(L);
+    while (lua_next(L, -2)) {
+        const lua_Integer t = lua_isinteger(L, -2) ? lua_tointeger(L, -2) : -1;
+        if (t != BM_SEC_MESH && t != BM_SEC_ANIM && t != BM_SEC_SHEET && t != BM_SEC_SHEET8 && t != BM_SEC_INFO)
+            return luaL_error(L, "sections: a model file holds 8 (MESH), 9 (ANIM), 2 (SHEET), 5 (SHEET8), 10 (INFO)");
+        lua_pop(L, 1);
+    }
+    /* in the order of a file bmres.py makes: MESH, ANIM, the sheet, INFO */
+    static const uint32_t order[5] = { BM_SEC_MESH, BM_SEC_ANIM, BM_SEC_SHEET, BM_SEC_SHEET8, BM_SEC_INFO };
+    for (int k = 0; k < 5; k++) {
+        lua_rawgeti(L, -1, order[k]);
+        if (lua_isnil(L, -1) || (lua_isboolean(L, -1) && !lua_toboolean(L, -1))) {
+            lua_pop(L, 1);
+            continue;
+        }
+        size_t n = 0;
+        const uint8_t *s = (const uint8_t *)luaL_checklstring(L, -1, &n);
+        const char *bad = NULL;
+        if (n > 0x1000000)
+            bad = "a section over 16 MiB";
+        else if (order[k] == BM_SEC_MESH && bm_mesh_check(s, (uint32_t)n) < 0)
+            bad = "broken MESH section";
+        else if (order[k] == BM_SEC_ANIM && bm_anim_check(s, (uint32_t)n) < 0)
+            bad = "broken ANIM section";
+        else if (order[k] == BM_SEC_INFO && n > BM_INFO_MAX)
+            bad = "INFO over 16 KiB";
+        if (bad) {
+            lua_pushnil(L);
+            lua_pushstring(L, bad);
+            return 2;
+        }
+        have_sheet += order[k] == BM_SEC_SHEET || order[k] == BM_SEC_SHEET8;
+        put[nput++] = (bm_put_t){ order[k], s, (uint32_t)n };
+        lua_pop(L, 1);              /* the string stays alive in the table */
+    }
+    if (nput == 0 || put[0].type != BM_SEC_MESH || have_sheet > 1) {
+        lua_pushnil(L);
+        lua_pushstring(L, nput == 0 || put[0].type != BM_SEC_MESH ? "a model file needs its MESH section (8)"
+                                                                  : "one sheet only (2 or 5)");
+        return 2;
+    }
+    size_t out_len = 0;
+    uint8_t *out = bm_res_build(BM_RES_MODEL, name, author, put, nput, &out_len);
+    if (!out)
+        return luaL_error(L, "not enough memory to save");
+    bm_cart_t c;
+    char err[64] = "";
+    if (bm_parse_any(out, out_len, &c, err, sizeof err) != 0) {
+        free(out);
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    fat_entry_t e;
+    int ok;
+    memset(&e, 0, sizeof e);
+    if (fat_find(path, &e) == 0) {
+        if (e.is_dir || !replace) {
+            free(out);
+            lua_pushnil(L);
+            lua_pushfstring(L, "%s: %s", path, e.is_dir ? "a directory" : "is there already (replace = true changes it)");
+            return 2;
+        }
+        ok = fat_replace(path, out, out_len) == 0;
+    } else {
+        ok = fat_mkdirs("/bmm") == 0 && fat_write_file("/bmm", file, out, out_len) == 0;
+    }
+    free(out);
+    if (!ok) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: %s", path, fat_error());
+        return 2;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/* res_read(path) -> { kind =, name =, author =, sections = { [type] = string, ... } }, or nil and a
+ * message: a resource file (BMRES: a .bmm, .bmi, ...) read and checked as the kernel loads it, read only.
+ * kind: 1 model, 2 image, 3 sounds, 4 map, 5 palette, 6 kit. The sections are the file's, whole (MESH is
+ * the whole section res_write takes). A file over 16 MiB is refused. */
+static int l_res_read(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    fat_entry_t e;
+    uint8_t *data = NULL;
+    size_t len = 0;
+    memset(&e, 0, sizeof e);
+    if (fat_find(path, &e) != 0 || e.is_dir) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: %s", path, e.is_dir ? "a directory" : fat_error());
+        return 2;
+    }
+    if (e.size > GLB3D_MAX_FILE) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: %d MiB is too big, the limit is 16 MiB (the console RAM)", path, (int)(e.size >> 20));
+        return 2;
+    }
+    if (fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: %s", path, fat_error());
+        return 2;
+    }
+    bm_cart_t c;
+    char err[64] = "";
+    const int bad = bm_parse_any(data, len, &c, err, sizeof err);
+    if (bad != 0 || c.kind == 0) {
+        free(data);
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: %s", path, bad ? err : "not a resource file");
+        return 2;
+    }
+    lua_createtable(L, 0, 4);
+    lua_pushinteger(L, c.kind);
+    lua_setfield(L, -2, "kind");
+    char text[49];
+    memcpy(text, c.title, 48);
+    text[48] = 0;
+    lua_pushstring(L, text);
+    lua_setfield(L, -2, "name");
+    memcpy(text, c.author, 32);
+    text[32] = 0;
+    lua_pushstring(L, text);
+    lua_setfield(L, -2, "author");
+    lua_createtable(L, 0, 4);
+    for (unsigned i = 0, n = data[17]; i < n; i++) {
+        const uint8_t *t = data + BM_HEADER_SIZE + i * 16;
+        lua_pushlstring(L, (const char *)data + (t[4] | t[5] << 8 | t[6] << 16 | (uint32_t)t[7] << 24),
+                        t[8] | t[9] << 8 | t[10] << 16 | (uint32_t)t[11] << 24);
+        lua_rawseti(L, -2, t[0] | t[1] << 8 | t[2] << 16);
+    }
+    lua_setfield(L, -2, "sections");
+    free(data);
     return 1;
 }
 

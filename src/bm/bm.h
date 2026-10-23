@@ -450,4 +450,10 @@ uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, siz
                          const char *title, const char *author, int width, const bm_put_t *put, int nput,
                          size_t *outlen);
 
+/* A resource file of `kind` (BM_RES_*) from sections, in the order given: the same bytes as scripts/bmres.py.
+ * name (48 bytes) and author (32) are cut on a character; NULL for none. NULL if a section has no data, a
+ * kind is wrong or memory is short. The checks of the sections are the caller's (bm_parse_any on the result). */
+uint8_t *bm_res_build(unsigned kind, const char *name, const char *author, const bm_put_t *sec, int n,
+                      size_t *outlen);
+
 #endif

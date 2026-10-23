@@ -298,8 +298,8 @@
     "title": "The sections of a cartridge"
    },
    "3": {
-    "en": "af4dcfb30709",
-    "it": "1fdc5bdaef5f",
+    "en": "3bb145af2f7a",
+    "it": "1e131d138566",
     "title": "The API for tools"
    },
    "4": {
@@ -322,7 +322,7 @@
    "docs/PROJECT-LAYOUT.md": "370910ab5f18",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/SCREENSHOTS.md": "afdde1690440",
-   "docs/api/tools.md": "32791e7adebe"
+   "docs/api/tools.md": "d98d081c49e7"
   }
  },
  "boot-os": {

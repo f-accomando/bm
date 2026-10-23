@@ -845,6 +845,175 @@ function T.split_anim(bin)
   return out
 end
 
+----------------------------------------------------------------- model files: /bmm and /glb (APP-9)
+
+-- What bm Studio, bm Animator and bm Mesh share to bring a model in. A .glb in /glb is read only
+-- (glb3d); a .bmm in /bmm is a model file (res_read, res_write). The item is the one of bm Mesh
+-- (T.G.model_item: v, f, and vb, bones, clips when the model has a skeleton), plus
+--   item.sheet = { type = 2 | 5, data = the sheet section }   when the model has its own sheet
+--   item.inset                                                 the texture margin (sheet pixels), 0.25
+--   item.file = { name =, author = }                           the name shown and the author of the file
+T.BMM_DIR, T.GLB_DIR = "/bmm", "/glb"
+
+-- the name of a .bmm: 1 to 8 of a-z 0-9 _ - (what res_write takes)
+local function bmm_stem(name)
+  local s = tostring(name or ""):lower():gsub("%.bmm$", ""):gsub("%.glb$", "")
+  if s:match("^[a-z0-9_%-]+$") and #s <= 8 then return s end
+end
+
+-- the model's name in an editor: 15 characters of letters, digits and _
+local function item_name(s)
+  s = tostring(s):lower():gsub("[^%w_]", ""):sub(1, 15)
+  return s ~= "" and s or "model"
+end
+
+-- the models on the card: { { name = "knight", kind = "bmm" | "glb", glb = true if a .glb of that name
+-- is there }, ... } sorted by name. kind "bmm": the converted model (preferred, it may be edited);
+-- kind "glb": only the .glb, to be converted. Names in lower case.
+function T.model_files()
+  local by, out = {}, {}
+  for _, d in ipairs({ { T.BMM_DIR, "bmm" }, { T.GLB_DIR, "glb" } }) do
+    for _, f in ipairs(ls(d[1])) do
+      local stem, ext = f.name:lower():match("^(.+)%.(%w+)$")
+      if not f.dir and ext == d[2] then
+        local e = by[stem]
+        if not e then
+          e = { name = stem, kind = d[2] }
+          by[stem] = e
+          out[#out + 1] = e
+        end
+        if d[2] == "glb" then e.glb = true end
+        if d[2] == "bmm" then e.kind = "bmm" end
+      end
+    end
+  end
+  table.sort(out, function(a, b) return a.name < b.name end)
+  return out
+end
+
+local function model_entry(name)
+  name = tostring(name or ""):lower():gsub("%.bmm$", ""):gsub("%.glb$", "")
+  for _, e in ipairs(T.model_files()) do
+    if e.name == name then return e end
+  end
+end
+
+-- a model from a file: the item, or nil and a message. name: as model_files() lists it.
+--   opts.from   "bmm" | "glb": that file (default: the .bmm if there is one, else the .glb)
+--   opts.model  of a .bmm with several models: the name or the number (default: the first)
+--   opts.name   the name of the item (default: the file's)
+-- for a .glb (glb3d): opts.height (2), opts.faces (0: all), opts.sheet (256), opts.texture (true: the
+-- texture of the .glb on the item's sheet; default: flat colours, no sheet)
+function T.import_model(name, opts)
+  opts = opts or {}
+  local e = model_entry(name)
+  if not e then return nil, "no model " .. tostring(name) .. " in /bmm or /glb" end
+  local from = opts.from or e.kind
+  if from == "glb" then
+    if not e.glb then return nil, "no " .. e.name .. ".glb in /glb" end
+    local nm = item_name(opts.name or e.name)
+    local m, err = glb3d(T.GLB_DIR .. "/" .. e.name .. ".glb",
+                         { name = nm, height = opts.height or 2, faces = opts.faces or 0, sheet = opts.sheet or 256 })
+    if not m then return nil, err end
+    local sheet
+    if opts.texture and m.textured and m.texture then
+      local side = opts.sheet or 256
+      if #m.texture == side * side * 4 then
+        sheet = { type = 2, data = spack("<I2I2", side, side) .. m.texture }
+      end
+    end
+    local item = G.model_item(nm, sheet and m.record or m.flat or m.record)
+    item.sheet = sheet
+    item.inset = 0.25
+    item.file = { name = nm, author = "" }
+    item.from = "glb"
+    return item
+  end
+  if from ~= "bmm" or e.kind ~= "bmm" then return nil, "no " .. e.name .. ".bmm in /bmm" end
+  local r, err = res_read(T.BMM_DIR .. "/" .. e.name .. ".bmm")
+  if not r then return nil, err end
+  if r.kind ~= 1 or not r.sections[SEC_MESH] then return nil, e.name .. ".bmm is not a model file" end
+  local parts, inset = T.split_mesh(r.sections[SEC_MESH])
+  local part
+  if type(opts.model) == "number" then
+    part = parts[opts.model]
+  elseif opts.model then
+    for _, p in ipairs(parts) do if p[1] == opts.model then part = p end end
+  else
+    part = parts[1]
+  end
+  if not part then return nil, e.name .. ".bmm has no model " .. tostring(opts.model or 1) end
+  local rigs = r.sections[9] and T.split_anim(r.sections[9]) or {}
+  local item = G.model_item(part[1], part[2], rigs[part[1]])
+  if opts.name then item.name = item_name(opts.name) end
+  if r.sections[2] then item.sheet = { type = 2, data = r.sections[2] }
+  elseif r.sections[5] then item.sheet = { type = 5, data = r.sections[5] } end
+  item.inset = inset
+  item.file = { name = r.name, author = r.author }
+  item.from = "bmm"
+  return item
+end
+
+-- an item into /bmm/NAME.bmm (NAME: 1 to 8 of a-z 0-9 _ -): true and the path, or nil and a message.
+-- The skeleton (ANIM) and the sheet go with the model when it has them (not when its vertices
+-- changed since the skeleton was made). A file that is there is not changed unless opts.replace.
+--   opts.title  the name shown in the file (default: the file's own, else the item's)
+--   opts.author, opts.inset (sheet pixels), opts.replace
+function T.write_bmm(item, name, opts)
+  opts = opts or {}
+  local stem = bmm_stem(name)
+  if not stem then return nil, tostring(name) .. ": a model file name is 1 to 8 of a-z 0-9 _ -" end
+  local nv, nf = #item.v, #item.f
+  if nv == 0 or nf == 0 then return nil, "the model is empty" end
+  if nv > T.LIMIT_V or nf > T.LIMIT_T then
+    return nil, nv .. " vertices and " .. nf .. " triangles: the format holds " .. T.LIMIT_V .. " of each"
+  end
+  local inset = opts.inset or item.inset or 0.25
+  local mesh = spack("<I2I2I4", 1, clamp(round(inset * 256), 0, 65535), 0) .. G.encode_model(item)
+  local sections = { [SEC_MESH] = mesh }
+  if item.ac then
+    local _, _, anv = sunpack("<I2I2I2", item.ac, 17)
+    if anv == nv then
+      sections[SEC_ANIM] = spack("<I2I2I4", 1, 0, 0) .. name16(item.name) .. item.ac:sub(17)
+    end
+  end
+  if item.sheet then sections[item.sheet.type] = item.sheet.data end
+  local file = item.file or {}
+  local path = T.BMM_DIR .. "/" .. stem .. ".bmm"
+  local ok, err = res_write(path, 1, { sections = sections, name = opts.title or file.name or item.name,
+                                       author = opts.author or file.author or "", replace = opts.replace })
+  if not ok then return nil, err end
+  return true, path
+end
+
+-- /glb/NAME.glb to /bmm/TO.bmm: the .glb is read (glb3d), never changed; opts as import_model and
+-- write_bmm, and opts.to (the .bmm name; default: NAME, 8 characters at most). A .bmm that is there
+-- stays unless opts.replace. Returns true, the path and the item, or nil and a message.
+function T.import_glb_to_bmm(name, opts)
+  opts = opts or {}
+  local e = model_entry(name)
+  if not e or not e.glb then return nil, "no " .. tostring(name) .. ".glb in /glb" end
+  local to = bmm_stem(opts.to or e.name)
+  if not to then
+    return nil, e.name .. ".glb: a .bmm name is 1 to 8 of a-z 0-9 _ - (give opts.to)"
+  end
+  if not opts.replace then
+    for _, f in ipairs(T.model_files()) do
+      if f.name == to and f.kind == "bmm" then
+        return nil, T.BMM_DIR .. "/" .. to .. ".bmm: is there already (replace = true changes it)"
+      end
+    end
+  end
+  local o = {}
+  for k, v in pairs(opts) do o[k] = v end
+  o.from = "glb"
+  local item, err = T.import_model(e.name, o)
+  if not item then return nil, err end
+  local ok, path = T.write_bmm(item, to, o)
+  if not ok then return nil, path end
+  return true, path, item
+end
+
 function T.decode_rig(ac)
   local nb, nc, nv = sunpack("<I2I2I2", ac, 17)
   local pos = 25

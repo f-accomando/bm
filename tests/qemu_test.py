@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.join(HERE, "ai"))
 import anim_figure  # noqa: E402
 import bm_load  # noqa: E402
 import bmmesh  # noqa: E402
+import bmres  # noqa: E402
 import glbfix  # noqa: E402
 import mkbm  # noqa: E402
 import mksd  # noqa: E402
@@ -1851,6 +1852,166 @@ def test_glb3d(b, opts):
         assert "BOX.GLB" in names and len(names.split()) == 4, names     # nothing written in /glb
         same = subprocess.run(["mtype", "-i", part, "::/GLB/BOX.GLB"], capture_output=True, env=env).stdout
         assert same == files["box.glb"], "the .glb is not changed"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+RES_LUA = r"""
+local M = %(mesh)s
+local SHEET = string.pack("<I2I2", 8, 8) .. string.rep("\200\100\50\255", 64)
+local function show(tag, ...)
+  local t = table.pack(...)
+  for i = 1, t.n do t[i] = tostring(t[i]) end
+  log(tag, table.unpack(t, 1, t.n))
+end
+local function whole(tag, r, err)
+  if not r then show(tag, "nil", err) return end
+  local s = r.sections
+  show(tag, r.kind, r.name, r.author, s[8] == M, s[9] and #s[9], s[2] and #s[2], s[5] and #s[5], s[10] and #s[10])
+end
+%(body)s
+"""
+
+RES_GAME_BODY = r"""
+function _init()
+  show("gw", res_write("/bmm/g.bmm", 1, { sections = { [8] = M } }))
+  whole("gr", res_read("/other/host.bmm"))
+  log("gdone")
+end
+"""
+
+RES_TOOL_BODY = r"""
+function _init()
+  show("w1", res_write("/bmm/tri.bmm", 1, { sections = { [8] = M } }))
+  whole("r1", res_read("/bmm/tri.bmm"))
+  show("again", res_write("/bmm/tri.bmm", 1, { sections = { [8] = M } }))
+  show("w2", res_write("/bmm/tri.bmm", "model", { sections = { [8] = M, [2] = SHEET }, replace = true,
+                                                  name = "Tri Two", author = "me" }))
+  whole("r2", res_read("/BMM/TRI.BMM"))
+  for i, p in ipairs({ "/bmm/Tri.bmm", "/carts/x.bmm", "/bmm/toolongname.bmm", "/bmm/a/b.bmm", "/bmm/x.bm",
+                       "/bmm/../x.bmm", "/bmm/.bmm", "/bmm/sp ace.bmm", "/bmm" }) do
+    show("path" .. i, res_write(p, 1, { sections = { [8] = M } }))
+  end
+  show("trunc", res_write("/bmm/t1.bmm", 1, { sections = { [8] = M:sub(1, #M - 1) } }))
+  show("nomesh", res_write("/bmm/t2.bmm", 1, { sections = {} }))
+  show("kind", res_write("/bmm/t3.bmm", 2, { sections = { [8] = M } }))
+  show("sec6", pcall(res_write, "/bmm/t4.bmm", 1, { sections = { [8] = M, [6] = "x" } }))
+  show("sheets", res_write("/bmm/t5.bmm", 1, { sections = { [8] = M, [2] = SHEET, [5] = SHEET } }))
+  show("badsheet", res_write("/bmm/t6.bmm", 1, { sections = { [8] = M, [2] = "abc" } }))
+  show("badanim", res_write("/bmm/t7.bmm", 1, { sections = { [8] = M, [9] = "abcdefgh" } }))
+  whole("host", res_read("/other/host.bmm"))
+  whole("badcrc", res_read("/other/bad.bmm"))
+  whole("game", res_read("/other/game.bm"))
+  whole("none", res_read("/other/none.bmm"))
+  whole("dir", res_read("/other"))
+  log("tdone")
+end
+"""
+
+
+def test_res_write(b, opts):
+    """APP9-b: res_write(path, kind, {sections=, name=, author=, replace=}) makes a model
+    file (BMRES) in /bmm, res_read(path) gives it back. For a game: res_write is refused and
+    res_read works. For a tool (the SD card's sdk.bm runs as bm SDK): a new file, the file read
+    back, no overwrite without replace, replace, a lower case name only, the MESH section
+    checked, one sheet, the bytes of the file (the ones scripts/bmres.py makes), nothing else
+    written in /bmm."""
+    tmp = tempfile.mkdtemp(prefix="bm-reswrite-")
+    img = os.path.join(tmp, "sd.img")
+    try:
+        mesh = bmmesh.encode([{"name": "tri", "verts": [(0, 0, 0), (1, 0, 0), (0, 1, 0)],
+                               "faces": [(0, 1, 2, 0x336699, None)]}])
+        bones = [{"name": "root", "parent": -1, "head": (0, 0, 0), "tail": (0, 1, 0)}]
+        clip = {"name": "idle", "length": 1.0, "keys": [{"t": 0.0, "pose": [{"q": (0, 0, 0, 1), "t": (0, 0, 0)}]}]}
+        anim = bmmesh.encode_anim([("tri", bones, [0, 0, 0], [clip])])
+        host = bmres.dump(bmres.File(bmres.MODEL, "Host Model", "ann", [[8, mesh], [9, anim]]))
+        broken = bytearray(host)
+        broken[-1] ^= 0xFF
+        sheet = struct.pack("<HH", 8, 8) + bytes([200, 100, 50, 255]) * 64
+
+        def cart(body):
+            return mkbm.pack((RES_LUA % {"mesh": _lua_bytes(mesh), "body": body}).encode(), title="reswrite")
+
+        files = {"carts/sdk.bm": cart(RES_TOOL_BODY), "other/host.bmm": host, "other/bad.bmm": bytes(broken),
+                 "other/game.bm": mkbm.pack(b"x = 1", title="game")}
+        cfg = os.path.join(tmp, "cfg")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        listing = [(cfg, "bm/config.txt")]
+        for name, data in files.items():
+            path = os.path.join(tmp, name.replace("/", "_"))
+            with open(path, "wb") as f:
+                f.write(data)
+            listing.append((path, name))
+        mksd.build(img, listing)
+
+        def rows_of(out):
+            rows = {}
+            for line in out.decode(errors="replace").replace("\r", "").split("\n"):
+                f = line.split("\t")
+                if len(f) > 1:
+                    rows[f[0].split()[-1]] = f[1:]
+            return rows
+
+        # a game: no writing, reading is allowed
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.boot()
+            assert _upload(q, mkbm.pack((RES_LUA % {"mesh": _lua_bytes(mesh), "body": RES_GAME_BODY}).encode(),
+                                        title="resgame"))
+            out = q.expect("gdone", timeout=60)
+            text = out.decode(errors="replace")
+            rows = rows_of(out)
+            assert rows["gw"][0] == "nil" and "res_write is for bm's tools only" in rows["gw"][1], text
+            assert rows["gr"][:3] == ["1", "Host Model", "ann"] and rows["gr"][3] == "true", text
+        finally:
+            q.close()
+
+        # a tool
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            q.send("3")                                           # Dev: the tools, bm SDK first
+            settled_screen(q, lambda i, t: any("bm SDK" in l for l in t), tries=40)
+            q.send("\r")
+            out = q.expect("tdone", timeout=120)
+            text = out.decode(errors="replace").replace("\r", "")
+            rows = rows_of(out)
+            assert rows["w1"] == ["true"], text
+            assert rows["r1"][:4] == ["1", "tri", "", "true"] and rows["r1"][4:] == ["nil"] * 4, text
+            assert rows["again"][0] == "nil" and "is there already" in rows["again"][1], text
+            assert rows["w2"] == ["true"], text
+            assert rows["r2"][:4] == ["1", "Tri Two", "me", "true"], text
+            assert rows["r2"][4:] == ["nil", str(len(sheet)), "nil", "nil"], text
+            for i in range(1, 10):
+                m = rows[f"path{i}"]
+                assert m[0] == "nil" and ("a model goes to /bmm/NAME.bmm" in m[1] or (i == 9 and "bmm" in m[1])), text
+            assert rows["trunc"][0] == "nil" and "broken MESH section" in rows["trunc"][1], text
+            assert rows["nomesh"][0] == "nil" and "needs its MESH section" in rows["nomesh"][1], text
+            assert rows["kind"][0] == "nil" and "only kind 1" in rows["kind"][1], text
+            assert rows["sec6"][0] == "false" and "a model file holds" in rows["sec6"][1], text
+            assert rows["sheets"][0] == "nil" and "one sheet only" in rows["sheets"][1], text
+            assert rows["badsheet"][0] == "nil" and "sheet" in rows["badsheet"][1], text
+            assert rows["badanim"][0] == "nil" and "broken ANIM section" in rows["badanim"][1], text
+            assert rows["host"][:4] == ["1", "Host Model", "ann", "true"], text
+            assert rows["host"][4] == str(len(anim)), text
+            assert rows["badcrc"][0] == "nil" and "CRC mismatch" in rows["badcrc"][1], text
+            assert rows["game"][0] == "nil" and "not a resource file" in rows["game"][1], text
+            assert rows["none"][0] == "nil" and "/other/none.bmm" in rows["none"][1], text
+            assert rows["dir"][0] == "nil" and "a directory" in rows["dir"][1], text
+        finally:
+            q.close()
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/BMM"], capture_output=True, text=True, env=env).stdout.upper()
+        assert "TRI.BMM" in names and len(names.split()) == 1, names          # nothing else written in /bmm
+        got = subprocess.run(["mtype", "-i", part, "::/BMM/TRI.BMM"], capture_output=True, env=env).stdout
+        want = bmres.dump(bmres.File(bmres.MODEL, "Tri Two", "me", [[8, mesh], [2, sheet]]))
+        assert got == want, "the file is not the one scripts/bmres.py makes"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
