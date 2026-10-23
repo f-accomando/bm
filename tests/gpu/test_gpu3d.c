@@ -773,6 +773,36 @@ static void s_tex_screen(r3d_t *r, g16_t *g, int gpu)
  * rectangle, then 3D partly behind it. The ARM draws the same with gfx16:
  * the 2D pixel for pixel, the 3D after it hiding it where it is nearer. */
 static int g2d;                         /* the 2D drawn by the GPU */
+/* a piece of the draw merging tests: k by k squares of 1 by 1 (two triangles each), baked light; kind 0 with the
+ * sheet, 1 with colours */
+static void merge_piece(r3d_mesh_t *m, int k, int kind)
+{
+    r3d_mesh_alloc(m, (k + 1) * (k + 1), 2 * k * k);
+    r3d_mesh_alloc_uv(m);
+    for (int z = 0; z <= k; z++)
+        for (int x = 0; x <= k; x++)
+            m->verts[z * (k + 1) + x] = (v3_t){ (float)x / k - 0.5f, 0.03f * (float)((x * 5 + z * 3) % 4), (float)z / k - 0.5f };
+    for (int z = 0, t = 0; z < k; z++)
+        for (int x = 0; x < k; x++, t += 2) {
+            const uint16_t a = (uint16_t)(z * (k + 1) + x), b = (uint16_t)(a + 1), c = (uint16_t)(a + k + 1),
+                           d = (uint16_t)(c + 1);
+            const uint16_t f[6] = { a, c, b, b, c, d };
+            memcpy(m->faces + t * 3, f, sizeof f);
+            m->colors[t] = m->colors[t + 1] = kind ? 0xC08040u : R3D_TEXTURED;
+            for (int q = 0; q < 2; q++)
+                for (int v = 0; v < 3; v++) {
+                    const int vi = f[q * 3 + v];
+                    m->uv[(t + q) * 6 + v * 2] = (float)(vi % (k + 1)) * 30.0f;
+                    m->uv[(t + q) * 6 + v * 2 + 1] = (float)(vi / (k + 1)) * 30.0f;
+                }
+        }
+    m->clight = malloc((size_t)m->nfaces * 9);
+    for (int i = 0; i < m->nfaces * 9; i++)
+        m->clight[i] = (uint8_t)(70 + (i * 37 + kind * 11) % 120);
+    m->tex = kind ? NULL : &sheet;
+    r3d_mesh_normals(m);
+}
+
 static void rect2d(g16_t *g, int x, int y, int w, int h, uint16_t c)
 {
     if (g2d)
@@ -1551,37 +1581,12 @@ int main(int argc, char **argv)
      * pieces drawn one by one. */
     {
         static r3d_mesh_t mt[2];
-        for (int kind = 0; kind < 2; kind++) {
-            r3d_mesh_t *m = &mt[kind];
-            const int k = 4;
-            r3d_mesh_alloc(m, (k + 1) * (k + 1), 2 * k * k);
-            r3d_mesh_alloc_uv(m);
-            for (int z = 0; z <= k; z++)
-                for (int x = 0; x <= k; x++)
-                    m->verts[z * (k + 1) + x] = (v3_t){ (float)x / k - 0.5f, 0.03f * (float)((x * 5 + z * 3) % 4), (float)z / k - 0.5f };
-            for (int z = 0, t = 0; z < k; z++)
-                for (int x = 0; x < k; x++, t += 2) {
-                    const uint16_t a = (uint16_t)(z * (k + 1) + x), b = (uint16_t)(a + 1), c = (uint16_t)(a + k + 1),
-                                   d = (uint16_t)(c + 1);
-                    const uint16_t f[6] = { a, c, b, b, c, d };
-                    memcpy(m->faces + t * 3, f, sizeof f);
-                    m->colors[t] = m->colors[t + 1] = kind ? 0xC08040u : R3D_TEXTURED;
-                    for (int q = 0; q < 2; q++)
-                        for (int v = 0; v < 3; v++) {
-                            const int vi = f[q * 3 + v];
-                            m->uv[(t + q) * 6 + v * 2] = (float)(vi % (k + 1)) * 30.0f;
-                            m->uv[(t + q) * 6 + v * 2 + 1] = (float)(vi / (k + 1)) * 30.0f;
-                        }
-                }
-            m->clight = malloc((size_t)m->nfaces * 9);
-            for (int i = 0; i < m->nfaces * 9; i++)
-                m->clight[i] = (uint8_t)(70 + (i * 37 + kind * 11) % 120);
-            m->tex = kind ? NULL : &sheet;
-            r3d_mesh_normals(m);
-        }
+        for (int kind = 0; kind < 2; kind++)
+            merge_piece(&mt[kind], 4, kind);
         uint16_t *mp[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
         uint32_t pieces = 0, merged = 0;
         uint32_t calls[2] = { 0, 0 };
+        int cap = 0;                    /* (the clipper and the vertex shader can merge) */
         for (int on = 0; on < 2; on++) {
             g16_t g;
             r3d_t r;
@@ -1591,7 +1596,7 @@ int main(int argc, char **argv)
             r.merge = on;
             gpu3d_drop();
             gpu3d_set_vshader(2);
-            const int cap = gpu3d_backend()->merge(NULL, NULL, NULL);     /* (the clipper and the vertex shader) */
+            cap = gpu3d_backend()->merge(NULL, NULL, NULL);
             const uint32_t m0 = r3d_merge_count(&pieces);
             const int frames = on ? 3 : 1;
             for (int fr = 0; fr < frames; fr++) {
@@ -1601,11 +1606,11 @@ int main(int argc, char **argv)
                 gpu3d_take_stats(&sx);
                 r3d_camera(&r, 0.3f, 2.5f, -6, 0.05f, -0.35f, 70);
                 for (int kind = 0; kind < 2; kind++)
-                    for (int i = 0; i < 6; i++)
-                        for (int j = 0; j < 6; j++)
+                    for (int i = 0; i < 8; i++)
+                        for (int j = 0; j < 8; j++)
                             if (((i + j) & 1) == kind)
-                                r3d_draw_flags(&r, &mt[kind], (v3_t){ -4.0f + 1.6f * (float)i, -1.0f + 0.01f * (float)j, -1.0f + 1.6f * (float)j },
-                                               0, (float)((i + j) % 4) * 1.5707963f, 0, i == 2 && j == 3 ? 1.2f : 1.6f, 0);
+                                r3d_draw_flags(&r, &mt[kind], (v3_t){ -3.5f + 1.0f * (float)i, -1.0f + 0.01f * (float)j, -1.0f + 1.0f * (float)j },
+                                               0, (float)((i + j) % 4) * 1.5707963f, 0, i == 2 && j == 3 ? 0.7f : 0.95f, 0);
                 CHECK(gpu3d_flush(&g, 0) == 0, "merge: flush: %s", gpu3d_status());
                 gpu3d_take_stats(&sx);
                 calls[on] = sx.glmeshes;
@@ -1624,9 +1629,54 @@ int main(int argc, char **argv)
         printf("  draw merging: %d of %d pixels differ from the pieces drawn one by one (rounding of the sums)\n", differ,
                640 * 360);
         CHECK(differ <= 10, "draw merging: %d pixels differ from the pieces drawn one by one", differ);
-        if (gpu3d_backend()->merge(NULL, NULL, NULL))
-            CHECK(merged == 4 && calls[1] == 2 && calls[0] == 36, "draw merging: %u merged draws, %u meshes against %u pieces",
+        if (cap)
+            CHECK(merged == 4 && calls[1] == 2 && calls[0] == 64, "draw merging: %u merged draws, %u meshes against %u pieces",
                   merged, calls[1], calls[0]);
+        /* a run merges only when it pays (r3d.c MG_MIN_PIECES, MG_MEAN_FACES): 100 small pieces do, 10 big
+         * ones do not (the Pi measured +24% and -26%) */
+        if (cap) {
+            static r3d_mesh_t small_, big_;
+            merge_piece(&small_, 4, 0);         /* 32 faces */
+            merge_piece(&big_, 16, 0);          /* 512 faces */
+            uint16_t *mt_buf = test_aligned_alloc(16, 640 * 360 * 2);
+            for (int c = 0; c < 2; c++) {
+                const int n = c ? 10 : 100, perrow = c ? 5 : 10;
+                const float gap = c ? 1.2f : 0.6f, sc = c ? 1.0f : 0.5f;
+                g16_t g;
+                r3d_t r;
+                g16_target(&g, mt_buf, 640, 640, 360, &font);
+                r3d_init(&r, &g);
+                r.backend = gpu3d_backend();
+                r.merge = 1;
+                gpu3d_drop();
+                gpu3d_set_vshader(2);
+                const uint32_t m0 = r3d_merge_count(&pieces);
+                uint32_t last = 0;
+                for (int fr = 0; fr < 3; fr++) {
+                    g16_cls(&g, g16_rgb(30, 20, 50));
+                    r3d_zclear(&r);
+                    gpu3d_stats_t sx;
+                    gpu3d_take_stats(&sx);
+                    r3d_camera(&r, 0.3f, 2.5f, -6, 0.05f, -0.35f, 70);
+                    for (int i = 0; i < n; i++)
+                        r3d_draw_flags(&r, c ? &big_ : &small_,
+                                       (v3_t){ -2.5f + gap * (float)(i % perrow), -1.0f, -1.0f + gap * (float)(i / perrow) },
+                                       0, 0, 0, sc, 0);
+                    CHECK(gpu3d_flush(&g, 0) == 0, "merge threshold: flush: %s", gpu3d_status());
+                    gpu3d_take_stats(&sx);
+                    last = sx.glmeshes;
+                }
+                const uint32_t mg = r3d_merge_count(&pieces) - m0;
+                printf("  draw merging threshold: %d pieces of %d faces: %u merged draws in 3 frames, %u meshes in the last\n",
+                       n, c ? 512 : 32, mg, last);
+                if (c)
+                    CHECK(mg == 0 && last == 10, "10 big pieces are not merged: %u merged draws, %u meshes", mg, last);
+                else
+                    CHECK(mg == 2 && last == 1, "100 small pieces are merged: %u merged draws, %u meshes", mg, last);
+                gpu3d_set_vshader(0);
+                r3d_free(&r);
+            }
+        }
         if (ppm_dir) {
             save(mp[0], 640, 360, "merge", "off");
             save(mp[1], 640, 360, "merge", "on");

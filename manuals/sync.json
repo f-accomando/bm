@@ -1078,8 +1078,8 @@
     "title": "The GPU and the 2D"
    },
    "4": {
-    "en": "e462d5c50c18",
-    "it": "9e6d81e9e7ff",
+    "en": "9afb98991674",
+    "it": "c9b67962e813",
     "title": "The GPU and the 3D"
    },
    "5": {
@@ -1104,12 +1104,12 @@
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "e334328bce5d",
-   "docs/DRIVERS.md": "e7e7672fc2c2",
+   "docs/BENCH3D.md": "f0eb5df7bb55",
+   "docs/DRIVERS.md": "af29fe46288c",
    "docs/HARDWARE.md": "1412f8591e74",
    "docs/PERFORMANCE.md": "1c3fc264eae4",
-   "docs/progress/graphics.md": "076009fe8f5f",
-   "docs/progress/v3d.md": "2aee663e92d0"
+   "docs/progress/graphics.md": "0450059d63f3",
+   "docs/progress/v3d.md": "a8e2c783421a"
   }
  },
  "riff": {

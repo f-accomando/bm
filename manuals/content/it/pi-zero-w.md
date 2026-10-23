@@ -252,8 +252,8 @@ Ogni opzione è una chiave in `bm/config.txt` e una riga in *Settings > Screen a
 | `gpu3d_etc1` | sheet opachi come ETC1 (imposta anche `gpu3d_tex16`) | spento |
 | `gpu3d_fs2` | pixel shader con texture a due thread | attivo (`0` lo spegne) |
 | `gpu3d_sort` | mesh dalla più vicina, triangoli nell'ordine della cache dei vertici | spento |
-| `gpu3d_attr` | attributi dei vertici compatti | attivo (`0` lo spegne) |
-| `gpu3d_merge` | unione dei disegni: i disegni consecutivi di pezzi di mappa fermi, con luce cotta e una sola sheet, diventano un solo disegno (nessuna riga nelle Settings) | attivo (`0` lo spegne) |
+| `gpu3d_attr` | attributi dei vertici compatti | spento (`1` li accende; sul Pi non hanno dato guadagno) |
+| `gpu3d_merge` | unione dei disegni: i disegni consecutivi di pezzi di mappa fermi, con luce cotta e una sola sheet, diventano un solo disegno, solo una serie di almeno 32 pezzi con 150 facce o meno in media (nessuna riga nelle Settings) | attivo (`0` lo spegne) |
 | `gpu3d_qpu` | `1`: il test GPU e il 3D Bench eseguono anche i programmi QPU a confronto con quelli ARM (una prima verifica sul Pi) | spento |
 | `r3d_fast` | renderer ARM: una matrice e la luce nello spazio del modello (i pixel non sono più identici bit a bit) | `r3d_fast=1` per attivarlo |
 | `r3d_impostor` | modelli lontani come un solo quad (da 2 a 64 pixel di uno schermo di 1080 righe) | spento |

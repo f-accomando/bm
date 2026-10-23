@@ -2029,8 +2029,9 @@ static void gpu3d_maybe(void)
         const char *so = config_get("gpu3d_sort");
         gpu3d_set_sort(so && strcmp(so, "1") == 0);     /* opaque meshes nearest first (bm3d 5.4): Settings */
         const char *at = config_get("gpu3d_attr");
-        gpu3d_set_attr(!at || strcmp(at, "0") != 0);    /* compact attributes (bm3d 7.1; on from 7.6 where the
-                                                         * boot's probe_attr passes; "0" = off): Settings */
+        gpu3d_set_attr(at && strcmp(at, "1") == 0);     /* compact attributes (bm3d 7.1; off by default, the
+                                                         * Pi measured no gain; the boot's probe_attr decides
+                                                         * when on): Settings */
         const char *g2 = config_get("gpu3d_2d");
         rt.gpu2d = g2 && strcmp(g2, "1") == 0;          /* the 2D over the 3D in the job (bm3d 4.8): Settings */
         const char *lt = config_get("gpu3d_later");

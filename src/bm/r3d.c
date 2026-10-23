@@ -2873,7 +2873,9 @@ static r3d_mesh_t *hull_get(r3d_mesh_t *m, float width, uint32_t rgb)
  *   - from then on the run is one draw of that mesh, as long as the same run comes again;
  *   - a run seen once, or one that changed, is drawn piece by piece as before.
  * A piece out of view is dropped when it is held (as draw_flags does), so the mesh holds the pieces
- * in view. The pixels are those of the pieces drawn one by one, up to the rounding of the sums of a
+ * in view. A run of fewer than MG_MIN_PIECES pieces, or of big ones (more than MG_MEAN_FACES faces on
+ * average), is always drawn piece by piece: on the Pi Zero W merging 10 pieces of 500 faces cost 26% of
+ * the frame, 100 pieces of 50 gained 24%. The pixels are those of the pieces drawn one by one, up to the rounding of the sums of a
  * vertex (object * turn * scale + place: the same sums, made ahead of the camera's). */
 
 #define MG_DRAWS 256                    /* draws in a run, at most */
@@ -2881,6 +2883,8 @@ static r3d_mesh_t *hull_get(r3d_mesh_t *m, float width, uint32_t rgb)
 #define MG_VERTS 60000                  /* vertices in a merged mesh (16-bit indices) */
 #define MG_ENTRIES 48                   /* runs remembered (a map of sets, each with its own place) */
 #define MG_BUDGET 64000                 /* faces of the merged meshes kept */
+#define MG_MIN_PIECES 32                /* a run merges from this many pieces ... */
+#define MG_MEAN_FACES 150               /* ... and when the pieces have this many faces or fewer on average */
 
 typedef struct {
     const r3d_mesh_t *m;
@@ -3051,7 +3055,8 @@ static void mg_flush(void)
     MG.busy = 1;
     r3d_t *r = MG.owner;
     const int n = mg_npend;
-    mg_entry_t *e = n >= 2 ? mg_entry(n) : NULL;
+    /* only a run that pays: many small pieces (the Pi: 100 pieces of 50 faces +24%, 10 of 500 -26%) */
+    mg_entry_t *e = (n >= MG_MIN_PIECES && MG.faces <= n * MG_MEAN_FACES) ? mg_entry(n) : NULL;
     if (e && e->built && !e->bad) {
         mg_took = 0;
         draw_flags(r, &e->mesh, MG.pend[0].p, 0, 0, 0, 1, MG.pend[0].flags);

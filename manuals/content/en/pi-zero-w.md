@@ -252,8 +252,8 @@ Each option is a key in `bm/config.txt` and a row in *Settings > Screen and soun
 | `gpu3d_etc1` | opaque sheets as ETC1 (sets `gpu3d_tex16` too) | off |
 | `gpu3d_fs2` | textured pixel shaders with two threads | on (`0` turns it off) |
 | `gpu3d_sort` | meshes nearest first, triangles in vertex-cache order | off |
-| `gpu3d_attr` | compact vertex attributes | on (`0` turns it off) |
-| `gpu3d_merge` | draw merging: consecutive draws of static map pieces with baked light and one sheet become one draw (no Settings row) | on (`0` turns it off) |
+| `gpu3d_attr` | compact vertex attributes | off (`1` turns it on; the Pi measured no gain) |
+| `gpu3d_merge` | draw merging: consecutive draws of static map pieces with baked light and one sheet become one draw, only a run of at least 32 pieces with 150 faces or fewer on average (no Settings row) | on (`0` turns it off) |
 | `gpu3d_qpu` | `1`: the GPU test and the 3D Bench also run the QPU programs against the ARM versions (a first check on the Pi) | off |
 | `r3d_fast` | ARM renderer: one matrix and light in model space (pixels no longer bit-identical) | `r3d_fast=1` to turn on |
 | `r3d_impostor` | far models as one quad (2 to 64 pixels of a 1080-line screen) | off |

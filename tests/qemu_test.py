@@ -1341,7 +1341,7 @@ def test_home_ui(b, opts):
         keys("s")
         screen(["3D draw order", "< As the game >"])
         keys("s")
-        screen(["3D corners", "< Compact >"])   # bm3d 7.1: compact attributes (on by default from 7.6; the boot probe keeps them only where the pixels match)
+        screen(["3D corners", "< Floats >"])    # bm3d 7.1: compact attributes (off unless gpu3d_attr=1; the boot probe keeps them only where the pixels match)
         keys("s")
         screen(["3D impostors", "< Off >"])     # far small models as one quad: off unless asked
         keys("s")

@@ -821,7 +821,9 @@ static void herotris_probe(int *gl, int *meshes)
  * 100, 10 or 1 calls a set. The pieces are drawn in two runs by sheet (all of the first sheet, then all
  * of the second), as a game that sorts its static map by texture. `ht_p100m` and `ht_p10m` are the
  * same scenes with r3d draw merging on (gpu3d_merge): the Pi shows the cost of a call (the ARM time
- * `ms - gpu_ms` of 100 against 1) and how much of it merging takes back. */
+ * `ms - gpu_ms` of 100 against 1) and how much of it merging takes back. A run merges only from 32
+ * pieces of at most 150 faces on average (Pi: 100 of 50 +24%, 10 of 500 -26%), so `ht_p10m` draws
+ * the pieces as `ht_p10` does. */
 
 static r3d_mesh_t slab_a, slab_b;       /* a strip (10) or the whole map (1), on the first and the second sheet */
 
