@@ -1470,7 +1470,10 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUIL
 	cp $(BUILD)/carts/village.bm $(BUILD)/demo.bm $(BUILD)/pixel-sd/carts/
 	$(BUILD)/host/luahost tests/studio/pixel_host.lua . $(BUILD)/pixel-sd
 	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/pixel-sd/bme/village.bme "" $(BUILD)/pixel-sd/bme/newspr.bme ""
-	$(PYTHON) tests/studio/check_files.py $(BUILD)/studio3d-sd $(BUILD)/mesh-sd $(BUILD)/pixel-sd $(BUILD)/carts/village.bm
+	rm -rf $(BUILD)/humanoid-sd && mkdir -p $(BUILD)/humanoid-sd/carts $(BUILD)/humanoid-sd/bme
+	$(BUILD)/host/luahost tests/studio/humanoid_host.lua . $(BUILD)/humanoid-sd
+	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/humanoid-sd/bme/humanoid.bme ""
+	$(PYTHON) tests/studio/check_files.py $(BUILD)/studio3d-sd $(BUILD)/mesh-sd $(BUILD)/pixel-sd $(BUILD)/carts/village.bm $(BUILD)/humanoid-sd
 	$(PYTHON) tests/studio/anim_figure.py $(BUILD)/anim-figure.bm
 	$(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/anim-figure.bm $(BUILD)/studio3d-sd/bme/blocks.bme
 

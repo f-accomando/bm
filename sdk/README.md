@@ -526,6 +526,7 @@ scripts/bmmesh.py            MESH, ANIM and .glb for mkbm.py
 tests/studio/tools3d_host.lua    bm Studio and bm Animator on the PC, with bm's APIs replaced
 tests/studio/mesh_host.lua       bm Mesh on the PC
 tests/studio/pixel_host.lua      bm Pixel on the PC
+tests/studio/humanoid_host.lua    bm Mesh and bm Animator on the PC: a humanoid of 1500 triangles, 16 bones, a walk
 tests/studio/sdk_host.lua        the bm SDK on the PC (every game template runs 400 frames)
 tests/studio/sdk_b16_host.lua    bm SDK (RGB30) on the PC: 360x360, the RGB30's pad
 tests/studio/check_files.py      their files reread by the build's Python

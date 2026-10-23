@@ -12,8 +12,11 @@ Python of the build (scripts/bmres.py, scripts/bmmesh.py):
   skeleton, MESHCOPY.BM the village as saved.
 - bm Pixel (tests/studio/pixel_host.lua): the village's sheet 64 pixels
   taller, what was not drawn on with its 24 bits; NEWSPR.BM, a new sheet.
+- the humanoid (tests/studio/humanoid_host.lua, APP-10): HUMANOID.BME, a
+  low-poly body of about 1500 triangles built in bm Mesh, with 16 bones and a
+  walk made in bm Animator.
 
-  python3 tests/studio/check_files.py STUDIO3D_SD MESH_SD PIXEL_SD VILLAGE.bm
+  python3 tests/studio/check_files.py STUDIO3D_SD MESH_SD PIXEL_SD VILLAGE.bm [HUMANOID_SD]
 """
 import math
 import os
@@ -184,13 +187,33 @@ def pixel(sd, village):
     check(opaque == 1, f"one pixel drawn ({opaque})")
 
 
+def humanoid(sd):
+    f = read(os.path.join(sd, "bme", "humanoid.bme"))
+    sane("HUMANOID.BME", f)
+    ms = models(f)
+    check([m["name"] for m in ms] == ["humanoid"], "HUMANOID.BME: one model, \"humanoid\"")
+    m = ms[0]
+    check(1200 <= len(m["faces"]) <= 1800, f"about 1500 triangles: {len(m['faces'])}")
+    r = rigs(f).get("humanoid")
+    check(r is not None and len(r[1]) == 16, "16 bones")
+    if r:
+        used = set(r[2])
+        check(used == set(range(16)), f"every one of the 16 bones has vertices: {sorted(used)}")
+        check(len(r[3]) == 1 and r[3][0]["name"] == "walk" and r[3][0]["loop"] and len(r[3][0]["keys"]) == 2,
+              "one animation, walk, looping, 2 keyframes")
+        check(all(abs(c) < 10 for v in m["verts"] for c in v), "the vertices are numbers of a body, not of a mistake")
+    check(len({t[3] for t in m["faces"]}) >= 4, "at least 4 colours")
+
+
 def main():
-    if len(sys.argv) != 5:
+    if len(sys.argv) not in (5, 6):
         sys.exit(__doc__)
-    studio3d_sd, mesh_sd, pixel_sd, village = sys.argv[1:]
+    studio3d_sd, mesh_sd, pixel_sd, village = sys.argv[1:5]
     studio3d(studio3d_sd, village)
     mesh(mesh_sd, village)
     pixel(pixel_sd, village)
+    if len(sys.argv) == 6:
+        humanoid(sys.argv[5])
     print(f"the tools' files: {checks - fails}/{checks} checks passed")
     sys.exit(1 if fails else 0)
 
