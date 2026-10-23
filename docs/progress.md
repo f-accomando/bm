@@ -24,7 +24,7 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 | [graphics-mali](progress/graphics-mali.md) | the RGB30's Mali-G52: bring-up, descriptors, shaders, triangle | `src/rgb30/mali.c`, `src/rgb30/mali_desc.c`, `tools/mali/` |
 | [v3d](progress/v3d.md) (+ [notes](progress/v3d-notes.md), [graphics keys](progress/v3d-flags.md), [formats](progress/v3d-formats.md), [Pi measurements](progress/v3d-pi-measurements.md)) | V3D driver on the Pi Zero W: async jobs, cache, binner memory, open work and Pi measurements | `src/gpu/v3d.c`, `src/gpu/gpu3d.c`, `src/bm/runtime.c` |
 | [lua](progress/lua.md) | Lua VM, cartridge runtime, built-in libraries, dev kit, profiler, session report | `third_party/lua/`, `src/bm/runtime.c`, `src/bm/require.c`, `src/script/`, `src/bm/profile.c` |
-| [audio](progress/audio.md) (+ [output](progress/audio-output.md), [samples](progress/audio-samples.md)) | synthesizer, sound bank and player, presets, outputs, riff, music assistant | `src/audio/`, `src/script/riff.lua`, `src/ai/music.c`, `src/rgb30/rk_audio.c` |
+| [audio](progress/audio.md) (+ [output](progress/audio-output.md), [samples](progress/audio-samples.md), [WAV and import](progress/audio-samples-wav.md)) | synthesizer, sound bank and player, presets, outputs, riff, music assistant | `src/audio/`, `src/script/riff.lua`, `src/ai/music.c`, `src/rgb30/rk_audio.c` |
 | [platforms](progress/platforms.md) | Pi Zero W / Pi 1, Pi Zero 2 W (off), RGB30, `bmhost`, QEMU | `src/rgb30/`, `rgb30.mk`, `tests/host/`, `tests/qemu_test.py` |
 | [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) | the games: screens and quality, bench flags, assets, verification | `carts/overbit/`, `carts/yharnam/` |
 | [stages3d](progress/stages3d.md) | the 3-stage 3D cartridge: shared logic, one front per edition (`.bm` and `.b16`) | `carts/stages3d/`, `tests/stages3d/` |
@@ -44,7 +44,7 @@ file ends with *Open work* and *Rules (do not break)*.
 - Menu fibers, shares, background jobs, SD/network measurements: [multitasking](progress/multitasking.md).
 - V3D driver on the Pi (async jobs, cache, binner memory, Pi measurements): [v3d](progress/v3d.md).
 - VM, runtime, built-in libraries, dev kit: [lua](progress/lua.md).
-- Synth, mixer, player, presets, riff, music assistant: [audio](progress/audio.md); output depth and dither: [audio-output](progress/audio-output.md); samples, effects, WAV: [audio-samples](progress/audio-samples.md).
+- Synth, mixer, player, presets, riff, music assistant: [audio](progress/audio.md); output depth and dither: [audio-output](progress/audio-output.md); samples, effects, WAV: [audio-samples](progress/audio-samples.md), [audio-samples-wav](progress/audio-samples-wav.md).
 - Pi Zero W, Pi Zero 2 W, RGB30, PC and QEMU: [platforms](progress/platforms.md).
 - Suite (SDK, Studio, Animator, Mesh, Pixel, Code, Sound, Write): [tools](progress/tools.md) (future suite evolution: `docs/design/suite-*.md`; modelling plan: [modelling-suite](design/modelling-suite.md)).
 - Games (Overbit, Yharnam): [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) (gameplay architecture: [`docs/design/games-architecture.md`](design/games-architecture.md)).
