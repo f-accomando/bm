@@ -491,7 +491,7 @@ check(sees("30 vertices, 32 triangles"), "the ship: 30 vertices, 32 triangles")
 key("m")
 check(chosen() == "M ship" and status():find('model("ship")', 1, true), "m: a copy as the model ship: " .. status())
 key("^s")
-check(status():find("saved /bme/ASTROWIN.BME", 1, true), "Ctrl+S: " .. status())
+check(status():find("saved /bme/astrowin.bme", 1, true), "Ctrl+S: " .. status())
 local ship = model_of("astrowin.bme", "ship")
 check(ship and ship.nv == 30 and ship.nf == 32, "the file has the model ship, 30 vertices and 32 triangles")
 local cap_ship = captured[1]
@@ -686,7 +686,7 @@ for _ = 1, 3 do key("down") end
 key("\n")
 check(sees("file name"), "Save as asks a name")
 type_text("MESHCOPY")
-check(status():find("saved /bme/MESHCOPY.BME", 1, true), "saved as: " .. status())
+check(status():find("saved /bme/meshcopy.bme", 1, true), "saved as: " .. status())
 local cp = file("meshcopy.bme")
 check(cp and section(cp, 8) == section(v1, 8) and section(cp, 9) == section(v1, 9) and section(cp, 5) == section(v1, 5),
       "the copy has the same models, skeletons and sheet")
@@ -1000,7 +1000,46 @@ do
   m4 = model_of("meshcopy.bme", name)
   check(m4 and m4.nv == 12 and m4.nf == 20 and sees("VERTICES: 4 chosen"), "loop cut from two vertices: the 4 new vertices are chosen")
   key("^z", "^s")
-  -- delete: the faces next to the edge
+  -- knife-lite (Shift+J): two edges of one triangle of the cube
+  mode("EDGES")
+  if not sees(": 0 chosen") then key("a") end
+  key("J")
+  check(status():find("knife", 1, true) and status():find("two edges", 1, true), "Shift+J with no edge: a message (" .. status() .. ")")
+  pick_edges(m0, { { 1, 2 } })
+  key("J")
+  check(status():find("knife", 1, true) and status():find("two edges", 1, true), "Shift+J with one edge: a message")
+  key("a")
+  pick_edges(m0, { { 1, 2 }, { 3, 4 } })
+  key("J")
+  local refused = status()
+  key("^s")
+  m4 = model_of("meshcopy.bme", name)
+  check(refused:find("share a triangle", 1, true) and m4 and m4.nv == 8 and m4.nf == 12,
+        "knife: edges with no common triangle are refused, nothing changes (" .. refused .. ")")
+  key("a")
+  pick_edges(m0, { { 1, 2 }, { 2, 3 } })
+  key("J", "^s")
+  m4 = model_of("meshcopy.bme", name)
+  check(m4 and m4.nv == 10 and m4.nf == 16, "knife on the cube: 10 vertices, 16 triangles (" .. (m4 and (m4.nv .. "/" .. m4.nf) or "-") .. ")")
+  check(sees("EDGES: 1 chosen"), "knife: the new edge is chosen")
+  check(m4 and outward(m4), "knife: the faces still look out")
+  key("g", "right", "\n", "^s")
+  local m5 = model_of("meshcopy.bme", name)
+  local mv = 0
+  for i = 1, m4.nv do if not same(m5.verts[i][1], m4.verts[i][1]) then mv = mv + 1 end end
+  check(mv == 2, "knife: the two new vertices move (" .. mv .. ")")
+  key("^z", "^z", "^s")
+  m4 = model_of("meshcopy.bme", name)
+  check(m4 and m4.nv == 8 and m4.nf == 12, "knife: move and knife are two undo steps, the cube again")
+  key("^y", "^s")
+  m4 = model_of("meshcopy.bme", name)
+  check(m4 and m4.nv == 10 and m4.nf == 16, "knife: redo, one step")
+  key("^z", "^s")
+  -- vertex mode: the key does nothing but say so
+  mode("VERTICES")
+  key("J")
+  check(status():find("knife", 1, true) and status():find("edges", 1, true), "knife: in vertex mode a message")
+  mode("EDGES")  -- delete: the faces next to the edge
   pick_edges(m0, { { 1, 2 } })
   key("del", "^s")
   m4 = model_of("meshcopy.bme", name)
@@ -1131,6 +1170,79 @@ do
       end
     end
     check(found and it.f[1][4] == -1, "loop cut: the new vertex gets the mean uv, the faces keep the sheet flag")
+  end
+  -- knife-lite, pure
+  do
+    -- a cube: the cut on the bottom face, the neighbours cut too
+    local it = { v = {}, f = {} }
+    G.primitive(it, "cube", { 0, 0, 0 }, 1, 0x808080)
+    local ef = G.edge_faces(it)
+    -- find a triangle and two of its edges
+    local f = it.f[1]
+    local k1, k2 = G.edge_key(f[1], f[2]), G.edge_key(f[2], f[3])
+    local res = G.knife(it, k1, k2)
+    check(res and #it.v == 10 and #it.f == 16 and #res.mids == 2, "T.G.knife on a cube: 10 vertices, 16 triangles")
+    local ok = true
+    for _, g in ipairs(it.f) do
+      local n = G.normal_of(it, g)
+      if n[1] == 0 and n[2] == 0 and n[3] == 0 then ok = false end
+    end
+    check(ok, "T.G.knife: no flat triangle")
+    local ef2 = G.edge_faces(it)
+    local open, over = 0, 0
+    for _, l in pairs(ef2) do if #l == 1 then open = open + 1 elseif #l > 2 then over = over + 1 end end
+    check(open == 0 and over == 0, "T.G.knife on a closed cube: no crack, no edge with 3 faces (" .. open .. "/" .. over .. ")")
+    check(ef2[G.edge_key(res.rung[1], res.rung[2])] ~= nil, "T.G.knife: the new edge is in the mesh")
+  end
+  -- a plane: the edges at a border corner; the border neighbours do not exist
+  do
+    local it = { v = {}, f = {} }
+    G.primitive(it, "plane", { 0, 0, 0 }, 1, 0xFF0000)
+    local f = it.f[1]
+    local res = G.knife(it, G.edge_key(f[1], f[2]), G.edge_key(f[2], f[3]))
+    check(res and #it.v == 6 and #it.f == 4, "T.G.knife on a plane: 6 vertices, 4 triangles (" .. #it.v .. "/" .. #it.f .. ")")
+  end
+  -- a border edge only: one edge of the triangle with no neighbour
+  do
+    local it = mk({ { 0, 0, 0 }, { 2, 0, 0 }, { 0, 0, 2 } }, { { 1, 3, 2 } })
+    local res = G.knife(it, G.edge_key(1, 2), G.edge_key(2, 3))
+    check(res and #it.v == 5 and #it.f == 3, "T.G.knife on a lone triangle: 3 triangles")
+  end
+  -- refused
+  do
+    local it = mk({ { 0, 0, 0 }, { 2, 0, 0 }, { 2, 0, 2 }, { 0, 0, 2 } }, { { 1, 3, 2 }, { 1, 4, 3 } })
+    local res, err = G.knife(it, G.edge_key(1, 2), G.edge_key(3, 4))
+    check(res == nil and err:find("share a triangle", 1, true), "T.G.knife: edges with no common triangle (" .. tostring(err) .. ")")
+    res, err = G.knife(it, G.edge_key(1, 2), G.edge_key(1, 2))
+    check(res == nil, "T.G.knife: the same edge twice")
+    res, err = G.knife(it, G.edge_key(1, 2), G.edge_key(2, 4))
+    check(res == nil and err:find("not an edge", 1, true), "T.G.knife: not an edge")
+    check(#it.v == 4 and #it.f == 2, "a failed knife changes nothing")
+    -- 3 faces on one edge
+    local it3 = mk({ { 0, 0, 0 }, { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 }, { 0, -1, 0 } },
+                   { { 1, 2, 3 }, { 1, 2, 4 }, { 1, 2, 5 } })
+    res, err = G.knife(it3, G.edge_key(1, 2), G.edge_key(2, 3))
+    check(res == nil and err:find("more than 2", 1, true), "T.G.knife: an edge with 3 faces (" .. tostring(err) .. ")")
+    check(#it3.v == 5 and #it3.f == 3, "a refused knife changes nothing")
+  end
+  -- bones and uv: the new vertex takes the bone of the lower end; the mean uv; the flag stays
+  do
+    local it = mk({ { 0, 0, 0 }, { 2, 0, 0 }, { 2, 0, 2 }, { 0, 0, 2 } },
+                  { { 1, 3, 2, -1, { 0, 0, 1, 1, 1, 0 } }, { 1, 4, 3, -1, { 0, 0, 0, 1, 1, 1 } } }, { 3, 4, 5, 6 })
+    local res = G.knife(it, G.edge_key(1, 3), G.edge_key(2, 3))
+    check(res and it.vb[5] == 3 and it.vb[6] == 4, "T.G.knife: the bones of the new vertices (" .. tostring(it.vb[5]) .. "," .. tostring(it.vb[6]) .. ")")
+    local found, flag = 0, true
+    for _, g in ipairs(it.f) do
+      if g[4] ~= -1 then flag = false end
+      for k = 1, 3 do
+        if g[k] == res.mids[1] and g[5] then
+          local u, v = g[5][k * 2 - 1], g[5][k * 2]
+          -- the middle of the diagonal 1-3: the uv between (0,0) and (1,1) of the first face, (0,0) and (1,1) of the second
+          if math.abs(u - 0.5) < 1e-6 and math.abs(v - 0.5) < 1e-6 then found = found + 1 end
+        end
+      end
+    end
+    check(found >= 1 and flag, "T.G.knife: the mean uv at the new vertex, the faces keep the sheet flag (" .. found .. ")")
   end
 end
 

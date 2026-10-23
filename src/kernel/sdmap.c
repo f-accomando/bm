@@ -29,7 +29,7 @@ static void save_cache(void)
     if (config_find_file("sdmap.txt", &e) == 0)
         fat_replace("/bm/sdmap.txt", buf, n);
     else
-        fat_write_file("/bm", "SDMAP.TXT", buf, n);
+        fat_write_file("/bm", "sdmap.txt", buf, n);
 }
 
 static void load_cache(void)

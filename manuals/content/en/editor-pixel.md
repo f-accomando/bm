@@ -346,7 +346,7 @@ python3 scripts/bmres.py add GAME.bm COIN.bmi
 5. Press **b** for the pencil. Move the pointer with the arrows and press **space**. Hold space and move to draw a line of pixels.
 6. Press **y** to draw mirrored: what you draw on one side appears on the other. Press **y** again to stop.
 7. If you make a mistake, press **Ctrl+Z**.
-8. Press **Esc**, choose **Save as...**, type a name such as `HERO.BME` and press Enter. The screen says `saved`.
+8. Press **Esc**, choose **Save as...**, type a name such as `hero.bme` and press Enter. The screen says `saved`.
 
 ![Your first sprite](shots/editor-pixel-first.png)
 

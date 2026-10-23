@@ -156,7 +156,7 @@ Left/right change page, B (or Esc) exits.
 
 ## The reports
 
-Each run saves `bm/bench/3D0001.TXT`, `3D0002.TXT`… on the SD: a header (kernel,
+Each run saves `bm/bench/3d0001.txt`, `3d0002.txt`… on the SD: a header (kernel,
 driver, date if there is a network, machine, GPU status) and one CSV line per test and profile
 (`R,test,profile,version,n60,n30,…`; the columns are in the `columns` line). The next
 run reads the last report and compares against it (white ticks, "x last" column). To

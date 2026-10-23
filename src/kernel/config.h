@@ -44,7 +44,7 @@ int config_secret(const char *key);
 int config_perf(const char *v);
 
 /* A file of the console on the SD card ("config.txt", "ca.pem",
- * "save/1A2B3C4D.SAV"): in /bm, or in the folder of before the rename
+ * "save/1a2b3c4d.sav"): in /bm, or in the folder of before the rename
  * until make install moves it. Returns 0 and fills e. */
 int config_find_file(const char *name, fat_entry_t *e);
 

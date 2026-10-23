@@ -812,7 +812,7 @@ end
 local function is_project(path) return path and path:lower():match("%.bme$") ~= nil end
 local function is_game(path) return path and (path:lower():match("%.bm$") or path:lower():match("%.b16$")) ~= nil end
 
--- "/bme/pong.bme" -> "/bme/PONG.BME"; longer names are cut to 8 characters. A name
+-- "/bme/pong.bme" -> "/bme/pong.bme"; longer names are cut to 8 characters. A name
 -- with no folder goes in /bme; an old project keeps its folder. A game stays as it
 -- is: the console makes its copy.
 local function short_path(path)
@@ -820,9 +820,9 @@ local function short_path(path)
   local dir, base = path:match("^(.*)/([^/]+)$")
   dir = dir or U.PROJECTS
   if dir == "" then dir = "/" end
-  local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
-  if stem == "" then stem = "GAME" end
-  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BME"
+  local stem = (base or path):gsub("%.[^.]*$", ""):lower():gsub("[^%w_]", "")
+  if stem == "" then stem = "game" end
+  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".bme"
 end
 
 local function list_files()
@@ -905,10 +905,10 @@ function store_target()
 end
 
 local function save_as(after)
-  local def = S.proj.save and S.proj.save:match("([^/]+)$"):gsub("%.[Bb][Mm]$", ".BME"):gsub("%.[Bb]16$", ".BME") or "MYGAME.BME"
+  local def = S.proj.save and S.proj.save:match("([^/]+)$"):gsub("%.[Bb][Mm]$", ".bme"):gsub("%.[Bb]16$", ".bme") or "mygame.bme"
   D.ask("file name (8.3, in /bme)", def, function(t)
     if t == "" then return end
-    if not t:upper():match("%.BME$") then t = t:gsub("%.[Bb][Mm]$", ""):gsub("%.[Bb]16$", "") .. ".BME" end
+    if not t:lower():match("%.bme$") then t = t:gsub("%.[Bb][Mm]$", ""):gsub("%.[Bb]16$", "") .. ".bme" end
     S.proj.save = U.project_path(t)
     S.proj.path = nil                    -- (the new file, once written)
     if save_project() then

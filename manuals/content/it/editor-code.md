@@ -44,7 +44,7 @@ Puoi scrivere, provare e correggere un gioco senza un computer: il ciclo è modi
 
 bm Code modifica solo i **progetti**, i file che finiscono in `.bme`. Un gioco (`.bm`) è in sola lettura: lo puoi aprire e leggere, ma mai cambiare.
 
-Quando salvi un gioco, bm Code non lo tocca. Scrive una copia modificabile in `/bme`, `NAME.BME`, e da quel momento la scheda lavora sulla copia. Il nome della scheda cambia nel nuovo file.
+Quando salvi un gioco, bm Code non lo tocca. Scrive una copia modificabile in `/bme`, `name.bme`, e da quel momento la scheda lavora sulla copia. Il nome della scheda cambia nel nuovo file.
 
 ## Aprire una cartuccia
 
@@ -52,7 +52,7 @@ Premi **Ctrl+O**. L'elenco mostra `+ New project...` e poi i progetti `.bme` di 
 
 ## Un nuovo progetto
 
-Premi **Ctrl+N**. Una riga chiede `New project, file name (8.3 in /bme):` e suggerisce `GAME1.BME`. Il nome deve essere 8.3: fino a otto lettere, cifre, `_` o `-`, e l'estensione `.BME`. Se il file esiste già, bm Code lo dice e suggerisce Ctrl+O. La nuova scheda ha un piccolo programma di partenza; premi **Ctrl+S** per scrivere il file.
+Premi **Ctrl+N**. Una riga chiede `New project, file name (8.3 in /bme):` e suggerisce `game1.bme`. Il nome deve essere 8.3: fino a otto lettere, cifre, `_` o `-`, e l'estensione `.BME`. Se il file esiste già, bm Code lo dice e suggerisce Ctrl+O. La nuova scheda ha un piccolo programma di partenza; premi **Ctrl+S** per scrivere il file.
 
 **Ctrl+T** apre una nuova scheda vuota senza file: il primo salvataggio chiede un nome.
 
@@ -316,8 +316,8 @@ Parti da bm Code. Sulla console è la voce **bm Code** del menu di bm. Puoi anch
 ## Scrivi ed esegui la tua prima riga
 
 1. Avvia bm Code. Al primo avvio mostra un piccolo programma di partenza in una scheda vuota.
-2. Premi **Ctrl+N**. Una riga chiede il nome del file e suggerisce `GAME1.BME`. Premi **Enter**. La riga di stato dice `new: Ctrl+S writes /bme/GAME1.BME`.
-3. Premi **Ctrl+S**. La riga di stato dice `saved /bme/GAME1.BME`.
+2. Premi **Ctrl+N**. Una riga chiede il nome del file e suggerisce `game1.bme`. Premi **Enter**. La riga di stato dice `new: Ctrl+S writes /bme/game1.bme`.
+3. Premi **Ctrl+S**. La riga di stato dice `saved /bme/game1.bme`.
 4. Porta il cursore con le frecce sulla riga `print("hello!", 296, 40, 0xFFFFFF)`. Cambia `hello!` con le tue parole. Il `*` compare dopo il nome del file.
 5. Premi **F5**. Il gioco parte: un cerchio giallo, le tue parole sullo schermo, e il D-pad muove il cerchio.
 6. Premi **Start + Select** (o **Ctrl+Esc**) per uscire. bm Code torna con `back from the game`.
@@ -361,8 +361,8 @@ Metti un breakpoint dentro `_draw`, premi F5 e premi F10 riga per riga. Quale va
 
 # Consigli e limiti
 
-- **Salva con un nome corto.** Il nome del file di un progetto è 8.3: `MYGAME.BME`.
-- **Lavora sulla copia.** Se apri un gioco (`.bm`), il primo salvataggio crea `NAME.BME`; continua a modificare quello.
+- **Salva con un nome corto.** Il nome del file di un progetto è 8.3: `mygame.bme`.
+- **Lavora sulla copia.** Se apri un gioco (`.bm`), il primo salvataggio crea `name.bme`; continua a modificare quello.
 - **Token.** I token di un programma sono contati come li conta il dev kit; `code_tokens(text)` dà il numero per un pezzo di Lua. Sono un'informazione, non un limite: bm non mette nessun tetto ai token. bm Code non li mostra: li mostra il bm SDK, nella pagina F1 e nella riga di stato del suo editor rapido.
 - **Il testo non salvato è conservato in uno spazio limitato.** Quando esci o esegui il gioco, bm Code conserva per la volta dopo il testo delle schede con modifiche (e delle schede senza file), fino a 16000 caratteri in tutto; il testo oltre non viene conservato. Salva spesso.
 - **Annulla** ricorda gli ultimi 100 passi di ogni scheda.

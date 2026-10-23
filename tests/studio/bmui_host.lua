@@ -160,13 +160,13 @@ frame(10, 330, 0, 0)
 
 -- projects live in /bme (docs/PROJECT-LAYOUT.md): the one helper for their paths and lists
 check(U.PROJECTS == "/bme", "projects: the folder is /bme")
-check(U.project_path("pong") == "/bme/PONG.BME", "project_path: a bare name")
-check(U.project_path("/carts/Il mio gioco.bm") == "/bme/ILMIOGIO.BME", "project_path: a game's path, 8.3")
-check(U.project_path("/bme/my-game.bme") == "/bme/MY-GAME.BME" and U.project_path("") == "/bme/GAME.BME", "project_path: a dash stays; no name: GAME")
-check(U.is_project("/bme/A.BME") and not U.is_project("/carts/a.bm") and not U.is_project(nil), "is_project: by the extension")
-check(not U.is_old_place("/bme/A.BME") and U.is_old_place("/carts/A.BME") and U.is_old_place("/A.bme") and not U.is_old_place("/carts/a.bm"),
+check(U.project_path("pong") == "/bme/pong.bme", "project_path: a bare name")
+check(U.project_path("/carts/Il mio gioco.bm") == "/bme/ilmiogio.bme", "project_path: a game's path, 8.3")
+check(U.project_path("/bme/my-game.bme") == "/bme/my-game.bme" and U.project_path("") == "/bme/game.bme", "project_path: a dash stays; no name: GAME")
+check(U.is_project("/bme/a.bme") and not U.is_project("/carts/a.bm") and not U.is_project(nil), "is_project: by the extension")
+check(not U.is_old_place("/bme/a.bme") and U.is_old_place("/carts/A.BME") and U.is_old_place("/A.bme") and not U.is_old_place("/carts/a.bm"),
       "is_old_place: a project outside /bme")
-check(U.saved_text("/bme/A.BME") == "saved /bme/A.BME", "saved_text: a project in /bme")
+check(U.saved_text("/bme/a.bme") == "saved /bme/a.bme", "saved_text: a project in /bme")
 check(U.saved_text("/carts/A.BME"):find("saved /carts/A.BME", 1, true) and U.saved_text("/carts/A.BME"):find("old place", 1, true),
       "saved_text: an old project says where it is")
 do

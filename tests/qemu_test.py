@@ -1677,7 +1677,7 @@ def test_sd_save_and_config(b, opts):
         assert "layout=us" in cfg and "draw=direct" in cfg, cfg
         saves = subprocess.run(["mdir", "-b", "-i", part, "::/BM/SAVE"], capture_output=True,
                                text=True, env=env).stdout
-        assert saves.count(".SAV") == 1, saves
+        assert saves.lower().count(".sav") == 1, saves
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -1931,9 +1931,9 @@ def test_web_api(b, opts):
     assert noid[0] == "nil" and "no such request" in noid[1], noid
     assert line("sspr") == ["true"], line("sspr")
 
-    assert line("fw1") == ["true", "bm/web/HELLO.TXT"], line("fw1")
-    assert line("fw2") == ["true", "bm/web/MODEL.GLB"], line("fw2")
-    assert line("fw3") == ["true", "bm/web/HELLO.TXT"], line("fw3")
+    assert line("fw1") == ["true", "bm/web/hello.txt"], line("fw1")
+    assert line("fw2") == ["true", "bm/web/model.glb"], line("fw2")
+    assert line("fw3") == ["true", "bm/web/hello.txt"], line("fw3")
     refused = [l.split("\t")[1:] for l in text.split("\n") if l.startswith("fwno\t")]
     assert len(refused) == 12, refused
     for p, r, e in refused:
@@ -3757,7 +3757,7 @@ def test_market(b, opts):
             keys("\r")
             screen(["%"])                            # the badge with the percent
             shot("download")
-            q.expect("market: games/mtest/mtest.bm -> /carts/MTEST.BM", timeout=20)
+            q.expect("market: games/mtest/mtest.bm -> /carts/mtest.bm", timeout=20)
             q.expect("market: Market Test installed", timeout=5)
             screen(["Installed", "Play"])
             keys("\r")                                  # A plays it
@@ -3805,7 +3805,7 @@ def test_market(b, opts):
         assert "INDEX.TXT" in cache and "INDEX.SIG" in cache and "GAMES.TXT" in cache and ".PNG" in cache, cache
         owned = subprocess.run(["mtype", "-i", part, "::/BM/MARKET/GAMES.TXT"], capture_output=True, text=True,
                                env=env).stdout
-        assert owned.startswith("mtest ") and owned.rstrip().endswith(" /carts/MTEST.BM"), owned
+        assert owned.startswith("mtest ") and owned.rstrip().endswith(" /carts/mtest.bm"), owned
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -4607,7 +4607,7 @@ def test_studio_animator(b, opts):
         keys(DOWN, DOWN, "\r", gap=0.4)         # Continue, Open..., New project
         screen(["BLOCK", "cell 0,0,0"])
         keys(" ")
-        screen(["6 faces", "12 tri", "8 vert"])
+        screen(["6 faces", "12 tri", "8 of 65535 vert"])
         shot("studio-new")
         keys(ESC, gap=0.6)
         for _ in range(4):
@@ -4618,7 +4618,7 @@ def test_studio_animator(b, opts):
             keys("\x7f", gap=0.1)
         for ch in "CUBE\r":
             keys(ch, gap=0.1)
-        screen(["saved /bme/CUBE.BME"])
+        screen(["saved /bme/cube.bme"])
 
         # try it: the viewer of a new project plays it, then bm Studio comes back
         keys("\x1b[15~", gap=1)                 # F5
@@ -4645,12 +4645,12 @@ def test_studio_animator(b, opts):
         screen(["TURN root   0.25 s  frame 3  key"])
         shot("animator-keyframe")
         keys("\x13", gap=0.1)                   # Ctrl+S; short gap: the toast is brief
-        screen(["saved /bme/CUBE.BME"])
+        screen(["saved /bme/cube.bme"])
 
         # the village: the villager, its bones, its animations, its sprites
         keys(ESC, gap=0.6)
         keys(DOWN, "\r")                        # Open...
-        screen(["/bme/CUBE.BME", "/carts/village.bm"])
+        screen(["/bme/cube.bme", "/carts/village.bm"])
         shot("animator-open")
         keys(DOWN, "\r", gap=1.0)               # CUBE.BME (in /bme), then village.bm
         screen(["opened /carts/village.bm", "MODELS"])
@@ -4783,7 +4783,7 @@ def test_studio_assistant(b, opts):
             keys("\x7f", gap=0.1)
         for ch in "AI\r":
             keys(ch, gap=0.1)
-        screen(["saved /bme/AI.BME"])
+        screen(["saved /bme/ai.bme"])
         keys(ESC, gap=0.6)                      # the menu goes back to the page...
         keys(ESC, gap=0.6)                      # ...and opens again on Continue
         screen(["Open in bm Animator"])
@@ -4804,7 +4804,7 @@ def test_studio_assistant(b, opts):
         screen(["ANIMATIONS", "fly"])
         shot("animator-assistant-dragon")
         keys("\x13", gap=0.8)                   # Ctrl+S
-        screen(["saved /bme/AI.BME"])
+        screen(["saved /bme/ai.bme"])
         keys(ESC, gap=0.6)
         keys("\x1b[A", "\r", gap=0.6)           # Exit bm Animator
         screen(["Games"])
@@ -4873,7 +4873,7 @@ def test_img2mesh(b, opts):
         keys("s", "s", "s", "s", "\r", gap=0.4)
         screen(["build", "models", "TOOLS"])
         keys(F2)
-        screen(["MODELS 2", "mech", "robot", "662 faces 1160 tri 702 vertices", "9 bones, 3 animations"])
+        screen(["MODELS 2", "mech", "robot", "662 faces 1160 tri 702 of 65535 vertices", "9 bones, 3 animations"])
         keys(ESC, gap=0.6)
         screen(["Open in bm Animator"])
         for _ in range(8):
@@ -5004,8 +5004,8 @@ def test_mesh_reduce(b, opts):
         assert got and 38 <= int(got.group(1)) <= 40, text
         shot("reduce-after")
         keys(SAVE, gap=0.8)
-        copy_yes(q, "/carts/village.bm", "/bme/VILLAGE.BME")     # a game: its editable copy
-        screen(["saved /bme/VILLAGE.BME"])
+        copy_yes(q, "/carts/village.bm", "/bme/village.bme")     # a game: its editable copy
+        screen(["saved /bme/village.bme"])
         keys(ESC, gap=0.6)
         screen(["bm Studio", "Exit bm Studio"])
         keys("\x1b[A", "\r", gap=0.6)
@@ -5099,8 +5099,8 @@ def test_picture_model(b, opts):
         assert "flat colours (the sheet is in use)" in text, text
         shot("picture-cutout")
         keys(SAVE, gap=0.8)
-        copy_yes(q, "/carts/village.bm", "/bme/VILLAGE.BME")     # a game: its editable copy
-        screen(["saved /bme/VILLAGE.BME"])
+        copy_yes(q, "/carts/village.bm", "/bme/village.bme")     # a game: its editable copy
+        screen(["saved /bme/village.bme"])
         # the service: the start fails with the reason (no network, no clock
         # for TLS...), named after the service; nothing changes
         keys("m")
@@ -5188,8 +5188,8 @@ def test_mesh(b, opts):
         screen(["VERTICES: 30 chosen", "MOVE", "y 0.2"])
         shot("edit")
         keys("\r", SAVE, gap=0.6)
-        copy_yes(q, "/carts/astrowing.bm", "/bme/ASTROWIN.BME")  # a game: its editable copy
-        screen(["saved /bme/ASTROWIN.BME"])
+        copy_yes(q, "/carts/astrowing.bm", "/bme/astrowin.bme")  # a game: its editable copy
+        screen(["saved /bme/astrowin.bme"])
 
         # mesh -> code
         keys(F1, DOWN, gap=0.5)
@@ -5197,7 +5197,7 @@ def test_mesh(b, opts):
         keys("c", gap=0.5)
         screen(["copied as code: mesh_ship()"])
         keys(SAVE, gap=0.6)
-        screen(["saved /bme/ASTROWIN.BME"])
+        screen(["saved /bme/astrowin.bme"])
         shot("code")
 
         # out of bm Mesh: back to the menu
@@ -5331,8 +5331,8 @@ def test_pixel(b, opts):
         screen(["PALETTE", "edit", "add", "remove"])
         shot("palette")
         keys("\r", SAVE, gap=0.6)
-        copy_yes(q, "/carts/village.bm", "/bme/VILLAGE.BME")     # a game: its editable copy
-        screen(["saved /bme/VILLAGE.BME"])
+        copy_yes(q, "/carts/village.bm", "/bme/village.bme")     # a game: its editable copy
+        screen(["saved /bme/village.bme"])
         keys(ESC, gap=0.6)
         screen(["bm Pixel", "Exit bm Pixel"])
         keys(UP, "\r")                          # up from Continue: Exit bm Pixel
@@ -5421,9 +5421,9 @@ def test_pixel_big(b, opts):
         screen(["/carts/titan.bm*"])
         keys(SAVE, gap=0.1)
         # "saving /carts/titan.bm ...", then the question: a game is read only
-        copy_yes(q, "/carts/titan.bm", "/bme/TITAN.BME")
+        copy_yes(q, "/carts/titan.bm", "/bme/titan.bme")
         shot("saving")
-        screen(["saved /bme/TITAN.BME"])
+        screen(["saved /bme/titan.bme"])
         keys(ESC, gap=0.6)
         screen(["bm Pixel", "Exit bm Pixel"])
         keys(UP, "\r")
@@ -5795,7 +5795,7 @@ def test_monitor_crc(b, opts):
 
 def test_reports(b, opts):
     """The reports (src/kernel/reports.c, 2026-10-04): Z in the monitor makes
-    one of the log, saved as bm/reports/RPT00001.TXT with its header (kernel,
+    one of the log, saved as bm/reports/rpt00001.txt with its header (kernel,
     branch, board, date, the long name with kernel and branch), the token
     masked where the log had it (the repository may be public); with a token
     but no network (QEMU) it waits on the card, and z says so; p (the
@@ -5821,7 +5821,7 @@ def test_reports(b, opts):
         q.expect("> ")
         q.send("Z")
         out = q.expect("report: on the SD card: no network", timeout=20).decode(errors="replace")
-        m = re.search(r"report: (nodate-[0-9a-f]{6}_log_\S+_\S+\.txt) saved as bm/reports/RPT00001\.TXT", out)
+        m = re.search(r"report: (nodate-[0-9a-f]{6}_log_\S+_\S+\.txt) saved as bm/reports/rpt00001.txt", out)
         assert m, out
         name = m.group(1)
         q.expect("> ")
@@ -5830,7 +5830,7 @@ def test_reports(b, opts):
         assert "on the SD card: no network; 1 waiting" in out, out
         q.expect("> ")
         q.send("p")                             # the render bench: a report of its printout
-        out = q.expect("RPT00002.TXT", timeout=120).decode(errors="replace")
+        out = q.expect("rpt00002.txt", timeout=120).decode(errors="replace")
         assert re.search(r"report: nodate-[0-9a-f]{6}_render_", out), out
         q.expect("> ")
         time.sleep(0.5)
@@ -5841,9 +5841,9 @@ def test_reports(b, opts):
         f.seek(2048 * 512)
         o.write(f.read())
     env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-    log = subprocess.run(["mtype", "-i", part, "::/BM/REPORTS/RPT00001.TXT"], capture_output=True, text=True,
+    log = subprocess.run(["mtype", "-i", part, "::/BM/REPORTS/rpt00001.txt"], capture_output=True, text=True,
                          env=env).stdout
-    render = subprocess.run(["mtype", "-i", part, "::/BM/REPORTS/RPT00002.TXT"], capture_output=True, text=True,
+    render = subprocess.run(["mtype", "-i", part, "::/BM/REPORTS/rpt00002.txt"], capture_output=True, text=True,
                             env=env).stdout
     shutil.rmtree(tmp, ignore_errors=True)
     head = log.split("\n\n", 1)[0].splitlines()
@@ -5884,7 +5884,7 @@ def test_crash_report(b, opts):
         out = q.expect("Restarting in 60 s", timeout=20).decode(errors="replace")
         assert re.search(r"called from:( [0-9a-f]{8})+", out), out
         q.expect("the last run ended in a crash: saved as a report", timeout=120)
-        out = q.expect("RPT00001.TXT", timeout=30).decode(errors="replace")
+        out = q.expect("rpt00001.txt", timeout=30).decode(errors="replace")
         assert re.search(r"report: nodate-[0-9a-f]{6}_crash_", out), out
         q.expect(MENU, timeout=30)
     finally:
@@ -5894,7 +5894,7 @@ def test_crash_report(b, opts):
         f.seek(2048 * 512)
         o.write(f.read())
     env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-    rep = subprocess.run(["mtype", "-i", part, "::/BM/REPORTS/RPT00001.TXT"], capture_output=True, text=True,
+    rep = subprocess.run(["mtype", "-i", part, "::/BM/REPORTS/rpt00001.txt"], capture_output=True, text=True,
                          env=env).stdout
     shutil.rmtree(tmp, ignore_errors=True)
     head, body = rep.split("\n\n", 1)
@@ -6159,13 +6159,13 @@ def test_bm_write(b, opts):
             _save_png(q.screendump(), os.path.join(opts.shots, "write-permission.png"))
         q.send("j")                                     # A: allow
         q.expect("bm: allowed", timeout=10)
-        q.expect("write: saved /docs/PROVA.BMD (3 paragraphs)", timeout=15)
-        _, text = settled_screen(q, lambda i, t: any("PROVA.BMD" in l for l in t))
-        assert any("bm Write" in l and "PROVA.BMD" in l for l in text), "\n".join(text)
+        q.expect("write: saved /docs/prova.bmd (3 paragraphs)", timeout=15)
+        _, text = settled_screen(q, lambda i, t: any("prova.bmd" in l for l in t))
+        assert any("bm Write" in l and "prova.bmd" in l for l in text), "\n".join(text)
         k("\x1b", 0.7)                                  # Esc: the menu, Export..., PDF
         k("\x1b[B\x1b[B\x1b[B\x1b[B\r", 0.2)
         k("\r", 0.2)
-        q.expect("write: exported /docs/PROVA.PDF", timeout=20)
+        q.expect("write: exported /docs/prova.pdf", timeout=20)
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "write.png"))
         q.send("\x1c")                                  # Ctrl+\: Ctrl+Esc, saved: it leaves
@@ -6490,15 +6490,15 @@ def test_sound_editor(b, opts):
             _save_png(q.screendump(), os.path.join(opts.shots, "sound-pattern.png"))
         k("\x13", 1)                                        # Ctrl+S: a new pack, named
         k("\r")                                             # "DEMO"
-        q.expect("sound: saved /bme/DEMO.BME", timeout=20)     # a project
+        q.expect("sound: saved /bme/demo.bme", timeout=20)     # a project
         k("\x0f", 1.5)                                      # Ctrl+O: the files
         k("\r")                                             # /carts/pong.bm
         q.expect("sound: opened /carts/pong.bm (no sounds yet)", timeout=20)
         k("\x1bOR")
         k("z")                                              # C4 on track 1, step 1
         k("\x13", 1)
-        copy_yes(q, "/carts/pong.bm", "/bme/PONG.BME")    # a game: its editable copy
-        q.expect("sound: saved /bme/PONG.BME", timeout=20)
+        copy_yes(q, "/carts/pong.bm", "/bme/pong.bme")    # a game: its editable copy
+        q.expect("sound: saved /bme/pong.bme", timeout=20)
         k("\x1b", 0.6)                                      # the menu
         k("\x1b[6~")
         k("\x1b[6~")                                        # the last item: Exit
@@ -6809,7 +6809,7 @@ PLAY_REC_CART = r"""
 local c, n
 function _init()
   local err
-  c, err = video_open("rec/R0010001.BMV")
+  c, err = video_open("rec/r0010001.bmv")
   if not c then log("open failed " .. tostring(err)) return end
   log(string.format("info %d %d %d %d", c:info()))
   n = 0
@@ -6942,7 +6942,7 @@ def _rec_check(b, fmt_cfg, min_chunks):
         assert len(cols) == captured, (len(cols), captured)
         assert all(c is not None for c in cols), cols
         assert all(a != b_ for a, b_ in zip(cols, cols[1:])), cols
-        # the first chunk through the cart's player (video_open("rec/R0010001.BMV"))
+        # the first chunk through the cart's player (video_open("rec/r0010001.bmv"))
         first = os.path.join(tmp, "c1.bmv")
         with open(first, "wb") as f:
             f.write(chunks[0])
@@ -6951,7 +6951,7 @@ def _rec_check(b, fmt_cfg, min_chunks):
             f.write(mkbm.pack(PLAY_REC_CART.encode(), title="Rec play", res=(320, 180)))
         img2 = os.path.join(tmp, "sd2.img")
         mksd.build(img2, [(os.path.join(tmp, "config.txt"), "bm/config.txt"), (pcart, "carts/play.bm"),
-                          (first, "bm/rec/R0010001.BMV")])
+                          (first, "bm/rec/r0010001.bmv")])
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img2}"])
         try:
             q.expect(MENU, timeout=30)
@@ -7688,8 +7688,8 @@ def test_code_editor(b, opts):
         k("1\r", 0.1)
         k("-- edited by bm Code\r")
         k("\x13")                                           # Ctrl+S
-        copy_asked(q, "/carts/pong.bm", "/bme/PONG.BME")    # a game: its editable copy
-        expect("code: saved /bme/PONG.BME")
+        copy_asked(q, "/carts/pong.bm", "/bme/pong.bme")    # a game: its editable copy
+        expect("code: saved /bme/pong.bme")
 
         # the demo (long name, sprites): an error on line 1, then F5
         k("\x1bOQ", 0.3)                                    # F2: the other tab
@@ -7697,8 +7697,8 @@ def test_code_editor(b, opts):
         k("1\r", 0.1)
         k('error("boom")\r')
         k("\x1b[15~")                                       # F5: save and run
-        copy_asked(q, "/carts/Il mio demo.bm", "/bme/ILMIODEM.BME")
-        expect("code: saved /bme/ILMIODEM.BME")
+        copy_asked(q, "/carts/Il mio demo.bm", "/bme/ilmiodem.bme")
+        expect("code: saved /bme/ilmiodem.bme")
         expect("main.lua:1: boom", timeout=30)
         expect("code: ready", timeout=30)
         see(["the game stopped"])
@@ -7725,10 +7725,10 @@ def test_code_editor(b, opts):
 
         # a new project: Ctrl+N, the name offered, Ctrl+S writes it
         k("\x0e", 0.5)                                      # Ctrl+N
-        see(["New project, file name", "GAME1.BME"])
+        see(["New project, file name", "game1.bme"])
         k("\r", 0.5)
         k("\x13")
-        expect("code: saved /bme/GAME1.BME")
+        expect("code: saved /bme/game1.bme")
 
         # leave: the untitled tab has changes; kept for later
         k("\x1b", 0.6)                                     # Esc: the menu
@@ -7941,8 +7941,8 @@ def test_code_api(b, opts):
         k("1\r", 0.1)
         k("sprt(1, 2, 3)\r")
         k("\x13")                                           # Ctrl+S
-        copy_yes(q, "/carts/pong.bm", "/bme/PONG.BME")
-        expect("code: saved /bme/PONG.BME")
+        copy_yes(q, "/carts/pong.bm", "/bme/pong.bme")
+        expect("code: saved /bme/pong.bme")
         expect("code: lint ")
         expect("sprt:1")
         see(["API:", "sprt"])
@@ -8338,12 +8338,12 @@ def test_editor(b, opts):
         k("\r")
         see("file name")
         k("\r")                                             # MYGAME.BME, a project
-        see("saved /bme/MYGAME.BME")
+        see("saved /bme/mygame.bme")
         k("\x1b", 0.5)                                      # back to the code
         k("\x12", 1)                                        # Ctrl+R: try it
         for _ in range(40):                                 # the game is on (slow hosts)
             _, text = settled_screen(q, lambda i, t: True, tries=1)
-            if not any("saved /bme/MYGAME.BME" in l or "line 1/" in l for l in text):
+            if not any("saved /bme/mygame.bme" in l or "line 1/" in l for l in text):
                 break
             time.sleep(0.25)
         time.sleep(2)
@@ -8437,7 +8437,7 @@ def test_sdk_layers(b, opts):
         k("\x13", 1)                                        # Ctrl+S: no name yet, Save as
         see("file name")
         k("\r")
-        see("saved /carts/")
+        see("saved /bme/")
     finally:
         q.close()
     try:
@@ -8446,7 +8446,7 @@ def test_sdk_layers(b, opts):
             f.seek(2048 * 512)
             o.write(f.read())
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-        names = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True, env=env,
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/BME"], capture_output=True, env=env,
                                text=True).stdout.split()
         assert names, "no cartridge saved"
         data = subprocess.run(["mtype", "-i", part, names[0]], capture_output=True, env=env).stdout
@@ -8525,8 +8525,8 @@ def test_sdk_suite(b, opts):
         see("MODELS 9")
         shot("3d-assistant")
         k("\x13", 1)                                        # Ctrl+S
-        copy_yes(q, "/carts/village.bm", "/bme/VILLAGE.BME")     # a game: its editable copy
-        see("saved /bme/VILLAGE.BME")
+        copy_yes(q, "/carts/village.bm", "/bme/village.bme")     # a game: its editable copy
+        see("saved /bme/village.bme")
         k(F1, 0.5)
         k("3", 1)                                           # bm Studio on the project
         see("TOOLS")                                        # its build page
@@ -8602,7 +8602,7 @@ def test_projects(b, opts):
         time.sleep(1)
         keys("-- a change\r", gap=0.05)
         keys("\x13", gap=0.5)                    # Ctrl+S
-        q.expect("bm: /carts/pong.bm is read only: save an editable copy as /bme/PONG.BME?", timeout=20)
+        q.expect("bm: /carts/pong.bm is read only: save an editable copy as /bme/pong.bme?", timeout=20)
         time.sleep(0.5)
         shot("question")
         q.send("k")                               # B: no
@@ -8622,21 +8622,21 @@ def test_projects(b, opts):
             keys("s")                             # Play, SDK, Code, Sound, Studio, Animator, Mesh, Pixel
         screen(["Make an editable copy"])
         keys("\r", gap=1.0)
-        q.expect("menu: copied /carts/pong.bm to /bme/PONG.BME", timeout=20)
-        screen(["PONG.BME is a project"])
+        q.expect("menu: copied /carts/pong.bm to /bme/pong.bme", timeout=20)
+        screen(["pong.bme is a project"])
         keys("3", gap=0.6)                        # Dev: the tools only, no row for the project
         screen(["bm SDK"])
         shot("dev")
         keys("\r", gap=1.5)                       # bm SDK, the first row
         keys("\x0f", gap=1.0)                     # Ctrl+O: the SDK's list of files
-        screen(["/bme/PONG.BME"])
+        screen(["/bme/pong.bme"])
         shot("sdk-open")
         keys("\r", gap=1.0)                       # the project
-        screen(["opened /bme/PONG.BME"], tries=80)
+        screen(["opened /bme/pong.bme"], tries=80)
         keys("\x02", gap=1.5)                     # Ctrl+B: the game of the project, a new name
-        screen(["built /carts/PONG1.BM"], tries=80)
+        screen(["built /carts/pong1.bm"], tries=80)
         keys("\x02", gap=1.5)                     # again: the same one
-        screen(["built /carts/PONG1.BM"], tries=80)
+        screen(["built /carts/pong1.bm"], tries=80)
         shot("sdk")
         keys("\x1b", gap=0.6)
         keys("\x1b[A", gap=0.3)                  # Exit bm SDK
@@ -8648,7 +8648,7 @@ def test_projects(b, opts):
         for _ in range(8):
             keys("d", gap=0.15)
         joined = screen(["Dev"])
-        assert "Project" not in joined and "/bme/PONG.BME" not in joined, joined
+        assert "Project" not in joined and "/bme/pong.bme" not in joined, joined
         keys("2", gap=0.6)                        # Games: the two Pongs, the build among them
         screen(["Pong"])
     finally:
@@ -8669,7 +8669,7 @@ def test_projects(b, opts):
         assert get("pong.bm") == game, "the game stays as it was"
         assert proj[128:] == game[128:] and proj[18] & 1 and not any(proj[104:128]), "the copy: a project"
         assert built[128:] == game[128:] and not built[18] & 1, "the build: a game"
-        assert built[104:112] == b"PONG.BME", built[104:128]
+        assert built[104:112] == b"pong.bme", built[104:128]
         names = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True, env=env,
                                text=True).stdout.split()
         assert not any("PONG2" in n for n in names), names
@@ -8907,7 +8907,7 @@ def test_sdk_stages_pi(b, opts):
         k("\x13", 1)                                        # Ctrl+S: no name yet, Save as
         see("file name")
         k("\r")
-        see("saved /bme/MYGAME.BME")
+        see("saved /bme/mygame.bme")
         k("\x02", 1)                                        # Ctrl+B: the game next to it
         see("built ")
     finally:
@@ -8968,7 +8968,7 @@ def test_sdk_code_pi(b, opts):
         k("\x13", 1)                                        # Ctrl+S: no name yet, Save as
         see("file name")
         k("\r")
-        see("saved /carts/")
+        see("saved /bme/")
     finally:
         q.close()
     try:
@@ -8977,7 +8977,7 @@ def test_sdk_code_pi(b, opts):
             f.seek(2048 * 512)
             o.write(f.read())
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-        names = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True, env=env,
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/BME"], capture_output=True, env=env,
                                text=True).stdout.split()
         assert names, "no project saved"
         data = subprocess.run(["mtype", "-i", part, names[0]], capture_output=True, env=env).stdout

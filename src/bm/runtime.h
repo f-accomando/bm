@@ -141,12 +141,12 @@ void bm_set_tool(int on);
  * --square sets it on the PC. */
 void bm_set_square_panel(int on);
 
-/* The save file of a cartridge ("/bm/save/1A2B3C4D.SAV", CRC-32 of its
+/* The save file of a cartridge ("/bm/save/1a2b3c4d.sav", CRC-32 of its
  * title and author as in the header): its slot 1. */
 void bm_save_path(const char *title, const char *author, char *out, size_t n);
 
 /* The file of save slot 1..BM_SAVE_SLOTS from that of slot 1: the same
- * name with ".S02" ... ".S08" (save(t, slot) of the cartridges). */
+ * name with ".s02" ... ".s08" (save(t, slot) of the cartridges). */
 #define BM_SAVE_SLOTS 8
 void bm_save_slot(const char *path, int slot, char *out, size_t n);
 

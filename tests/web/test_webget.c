@@ -280,7 +280,7 @@ static void test_policy(void)
                                         "a-b_c.d", "12345678.123", "BM/WEB/x.y" };
     for (size_t i = 0; i < sizeof good / sizeof *good; i++)
         CHECK(web_file_name(good[i], n, err, sizeof err) == 0, "file name \"%s\" -> %s", good[i], n);
-    CHECK(web_file_name("model.glb", n, err, sizeof err) == 0 && strcmp(n, "MODEL.GLB") == 0, "upper case");
+    CHECK(web_file_name("model.glb", n, err, sizeof err) == 0 && strcmp(n, "model.glb") == 0, "lower case");
     static const char *const badf[] = {
         "../x.txt", "..", "a/../b.txt", "/etc/passwd", "/kernel.img", "/bm/config.txt", "carts/x.txt", "bm/web/sub/x.txt",
         "bm/web/../x.txt", "x\\y.txt", ".hidden", "game.bm", "GAME.BME", "game.b16", "Game.Bm", "toolongname1.txt",
@@ -754,7 +754,7 @@ static void test_resume(void)
         size_t size, resumed;
         char err[192], part[40], rp[40];
         uint8_t *body = NULL;
-        snprintf(part, sizeof part, "/bm/web/%.*s.PRT", (int)(strchr(stems[k], '.') - stems[k]), stems[k]);
+        snprintf(part, sizeof part, "/bm/web/%.*s.prt", (int)(strchr(stems[k], '.') - stems[k]), stems[k]);
         int st = part_run(paths[k], stems[k], &size, &resumed, err, sizeof err, NULL);
         CHECK(st == WEB_ERROR && size == 80000, "%s: the first try is cut after %zu bytes (%s)", paths[k], size, err);
         webfile_flush();
@@ -781,7 +781,7 @@ static void test_resume(void)
     char err[192];
     int st = part_run("/cutn", NULL, &size, &resumed, err, sizeof err, NULL);
     webfile_flush();
-    CHECK(st == WEB_ERROR && ff("/bm/web/CUTN.PRT") < 0, "no resume name: no part file");
+    CHECK(st == WEB_ERROR && ff("/bm/web/cutn.prt") < 0, "no resume name: no part file");
     CHECK(part_run("/hello", "../X.BIN", &size, &resumed, err, sizeof err, NULL) == -1, "a resume name is checked like a file name: %s", err);
     free(want);
 }

@@ -2,6 +2,7 @@
 #include "config.h"
 #include "fiber.h"
 #include "icons.h"
+#include "menu_bg.h"
 #include "pointer.h"
 #include "prompts.h"
 #include "stalls.h"
@@ -88,6 +89,9 @@ static int first_row;
 static uint16_t *bg_cur, *bg_prev;  /* blurred covers, SW x SH */
 static const g16_sheet_t *bg_key;   /* the cover bg_cur was made from */
 static int bg_valid, fade;
+static menu_bg_t bgb;               /* the picture being made into bg_cur */
+static int bg_building;             /* bg_cur is not whole yet: bg_prev is shown */
+#define BG_ROWS 24                  /* rows made per frame (tests/ui/test_menu_bg.c: keep equal) */
 static int dim;                     /* a panel is open: the rest at half brightness */
 
 /* the things the pointer can click in the frame on screen, drawn last on
@@ -419,67 +423,11 @@ int menu_make_tool_cover(g16_sheet_t *s, const char *title, int icon, uint32_t r
 
 /* ---------------------------------------------------------------- background */
 
-static const uint8_t bayer[4][4] = {
-    { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 },
-};
-
-/* The cover shrunk to 16x10 (8x8 averages: the blur), stretched back to
- * the whole screen with bilinear filtering, darkened towards the bottom,
- * dithered to RGB565. Made once per selection. */
-static void make_background(uint16_t *out, const g16_sheet_t *cover)
-{
-    enum { LW = 16, LH = 10 };
-    float lo[LH][LW][3];
-    for (int j = 0; j < LH; j++)
-        for (int i = 0; i < LW; i++) {
-            uint32_t r = 0, gg = 0, b = 0;
-            if (cover && cover->px && cover->w >= LW && cover->h >= LH) {
-                /* the block of the cover under this one */
-                int x0 = i * cover->w / LW, x1 = (i + 1) * cover->w / LW;
-                int y0 = j * cover->h / LH, y1 = (j + 1) * cover->h / LH;
-                uint32_t n = 0;
-                for (int y = y0; y < y1; y++)
-                    for (int x = x0; x < x1; x++, n++) {
-                        uint32_t c = g16_to_rgb24(cover->px[y * cover->w + x]);
-                        r += c >> 16; gg += c >> 8 & 255; b += c & 255;
-                    }
-                r /= n; gg /= n; b /= n;
-            } else {
-                r = 40; gg = 44; b = 70;
-            }
-            lo[j][i][0] = (float)r; lo[j][i][1] = (float)gg; lo[j][i][2] = (float)b;
-        }
-    for (int y = 0; y < SH; y++) {
-        float v = (y + 0.5f) * LH / SH - 0.5f;
-        int j0 = (int)floorf(v);
-        float fy = v - j0;
-        int ja = j0 < 0 ? 0 : j0, jb = j0 + 1 >= LH ? LH - 1 : j0 + 1;
-        /* darker at the bottom, where the grid is */
-        float dark = 0.50f - 0.22f * (float)y / SH;
-        for (int x = 0; x < SW; x++) {
-            float u = (x + 0.5f) * LW / SW - 0.5f;
-            int i0 = (int)floorf(u);
-            float fx = u - i0;
-            int ia = i0 < 0 ? 0 : i0, ib = i0 + 1 >= LW ? LW - 1 : i0 + 1;
-            float edge = 1.0f - 0.25f * fabsf((float)x / SW - 0.5f) * 2.0f;
-            int d = bayer[y & 3][x & 3];
-            uint32_t c[3];
-            for (int k = 0; k < 3; k++) {
-                float top = lo[ja][ia][k] + (lo[ja][ib][k] - lo[ja][ia][k]) * fx;
-                float bot = lo[jb][ia][k] + (lo[jb][ib][k] - lo[jb][ia][k]) * fx;
-                float val = (top + (bot - top) * fy) * dark * edge + 10.0f;
-                int q = (int)val + (k == 1 ? d >> 2 : d >> 1);
-                c[k] = q < 0 ? 0 : q > 255 ? 255 : (uint32_t)q;
-            }
-            out[y * SW + x] = g16_rgb(c[0], c[1], c[2]);
-        }
-    }
-}
 
 /* the background into the frame, cross-fading from the previous one */
 static void put_background(void)
 {
-    if (fade > 0) {
+    if (fade > 0 && !bg_building) {
         uint32_t a = (uint32_t)(FADE_FRAMES - fade) * 32 / FADE_FRAMES;     /* 0..32 of the new */
         for (int y = 0; y < SH; y++) {
             const uint16_t *p = bg_prev + y * SW, *q = bg_cur + y * SW;
@@ -498,7 +446,7 @@ static void put_background(void)
     /* the video memory has no cache: only written, never read back */
     for (int y = 0; y < SH; y++) {
         uint16_t *o = g.px + (uint32_t)y * g.stride;
-        const uint16_t *q = bg_cur + y * SW;
+        const uint16_t *q = (bg_building ? bg_prev : bg_cur) + y * SW;
         if (!dim || y < BAR_H || y >= FOOT_Y)
             memcpy(o, q, SW * 2);
         else
@@ -1261,6 +1209,7 @@ int menu_ui_open(framebuffer_t *fb)
     cols = (SW - 16) / (CARD_W + GAP_X);    /* 6 at 640, 3 at 360 */
     ready = 1;
     bg_valid = 0;
+    bg_building = 0;
     fade = 0;
     nzones = 0;
     pointer_env(1, SW, SH);
@@ -1357,16 +1306,30 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     dim = v->panel != NULL;
     nzones = 0;
 
-    /* background: the selected cover, blurred; a cross-fade on change */
+    /* background: the selected cover, blurred; a cross-fade on change. It is
+     * made BG_ROWS rows per frame while the old one stays on screen: the
+     * whole picture in one frame was 3 frames or more on the Pi, and the
+     * pointer jumped each time it moved onto another cover. */
     const g16_sheet_t *key = cur ? cur->cover : NULL;
-    if (!bg_valid || key != bg_key) {
-        if (bg_valid) {
-            uint16_t *s = bg_prev; bg_prev = bg_cur; bg_cur = s;
-            fade = FADE_FRAMES;
-        }
-        make_background(bg_cur, key);
+    const uint16_t *kpx = key && key->px && key->w >= 16 && key->h >= 10 ? key->px : NULL;
+    if (!bg_valid) {
+        menu_bg_begin(&bgb, kpx, key ? key->w : 0, key ? key->h : 0, SW, SH);
+        menu_bg_step(&bgb, bg_cur, SH);         /* the first one: nothing to show meanwhile */
         bg_key = key;
         bg_valid = 1;
+        bg_building = 0;
+    } else if (key != bg_key) {
+        if (!bg_building) {                     /* the picture on screen is kept in bg_prev */
+            uint16_t *s = bg_prev; bg_prev = bg_cur; bg_cur = s;
+        }
+        fade = 0;
+        bg_building = 1;
+        menu_bg_begin(&bgb, kpx, key ? key->w : 0, key ? key->h : 0, SW, SH);
+        bg_key = key;
+    }
+    if (bg_building && menu_bg_step(&bgb, bg_cur, BG_ROWS)) {
+        bg_building = 0;
+        fade = FADE_FRAMES;
     }
     put_background();
 

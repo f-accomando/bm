@@ -354,9 +354,9 @@ local function short_path(path)
   local dir, base = path:match("^(.*)/([^/]+)$")
   dir = dir or U.PROJECTS
   if dir == "" then dir = "/" end
-  local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
-  if stem == "" then stem = "GAME" end
-  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BME"
+  local stem = (base or path):gsub("%.[^.]*$", ""):lower():gsub("[^%w_]", "")
+  if stem == "" then stem = "game" end
+  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".bme"
 end
 
 -- a game (.bm, .b16) is read only: saving it makes its editable copy
@@ -1287,6 +1287,28 @@ function ed.loop_cut()
               #plan.plains > 0 and (", " .. #plan.plains .. " other faces cut in 2") or ""))
 end
 
+-- Shift+J: knife-lite. Edge mode, two chosen edges of one triangle: a vertex
+-- in the middle of each, the triangle cut so that a new edge joins them; the
+-- face across each edge is cut too. Not mirrored (a topology tool).
+function ed.knife()
+  local it = I()
+  if ed.mode ~= "e" then say("knife: choose two edges first (Tab: edges)", C_ERR); return end
+  if count(ed.se) ~= 2 then
+    say("knife: choose two edges of one triangle" .. (ed.mirror and " (live mirror off: Shift+X)" or ""), C_ERR)
+    return
+  end
+  local k1, k2
+  for k in pairs(ed.se) do if not k1 then k1 = k else k2 = k end end
+  local plan, err = B.G.knife_plan(it, k1, k2)
+  if not plan then say("knife: " .. err, C_ERR); return end
+  it = begin_edit()
+  local res = B.G.knife_apply(it, plan)
+  ed.sv, ed.sf, ed.se, ed.order = {}, {}, {}, 1
+  ed.se[B.G.edge_key(res.rung[1], res.rung[2])] = 1
+  ed.se_to_sv()
+  ed.sig = ""
+  finish_edit(string.format("knife: 2 new vertices, %d faces added", res.faces))
+end
 -- delete in edge mode: the faces next to the chosen edges
 function ed.edge_delete()
   if not next(ed.se) then say("choose edges first", C_ERR); return end
@@ -1939,6 +1961,7 @@ local COMMANDS = {
   { "Duplicate (d)", "d" }, { "Add a part (A)", "A" }, { "Mirror left-right (m)", "m" }, { "Mirror copy across 0 (M)", "M" },
   { "Live mirror X on / off (X)", "X" },
   { "Loop cut on the chosen edge (Ctrl+R)", "^r" },
+  { "Knife on two edges of a triangle (J)", "J" },
   { "New face on 3-4 vertices (j)", "j" }, { "Merge vertices (k)", "k" }, { "Weld equal vertices (K)", "K" },
   { "Subdivide faces (u)", "u" }, { "Turn faces over (i)", "i" }, { "Paint faces (p)", "p" },
   { "Colour from the face (o)", "o" }, { "Palette (c)", "c" }, { "Delete (Del)", "del" },
@@ -2029,6 +2052,7 @@ function edit_key(k)
   elseif k == "M" then op_mirror_copy()
   elseif k == "X" then ed.toggle_mirror()
   elseif k == "^r" then ed.loop_cut()
+  elseif k == "J" then ed.knife()
   elseif k == "j" then op_join()
   elseif k == "k" then op_merge()
   elseif k == "K" then op_weld()
@@ -2232,6 +2256,7 @@ local HELP = {
     { "a", "all, none" },
     { "tab / l", "vertices, edges or faces / all linked" },
     { "ctrl r", "loop cut: a ring of new vertices across the chosen edge" },
+    { "shift j", "knife: cut a triangle between the middles of 2 chosen edges" },
     { "g / r / t", "move / rotate / scale" },
     { "x / d", "extrude faces / duplicate (then move)" },
     { "shift a", "add a part: cube, cylinder, sphere, plane" },
@@ -2320,7 +2345,7 @@ end
 
 local function save_as()
   if not proj.path then say("open a .bm first", C_ERR); return end
-  ask("file name (8.3, in /bme)", short_path(proj.path):match("([^/]+)$") or "MESHES.BME", function(t)
+  ask("file name (8.3, in /bme)", short_path(proj.path):match("([^/]+)$") or "meshes.bme", function(t)
     local to = U.project_path(t)
     local from = proj.path
     code_dirty = true                    -- the new file gets all the code

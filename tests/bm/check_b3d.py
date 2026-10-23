@@ -23,7 +23,7 @@ TESTS2D = {"map8": {"ARM"}, "sprites": {"ARM", "GPU+2D"}, "stack": {"ARM"}, "fad
 def check_2d(d):
     """make test-b3d, third run: only the 2D scenes, by name; every report field there and sane."""
     fails = 0
-    text = open(os.path.join(d, "3D0001.TXT")).read() if os.path.exists(os.path.join(d, "3D0001.TXT")) else ""
+    text = open(os.path.join(d, "3d0001.txt")).read() if os.path.exists(os.path.join(d, "3d0001.txt")) else ""
     rows = [l.split(",") for l in text.splitlines() if l.startswith("R,")]
     for t, need in TESTS2D.items():
         got = {r[2]: r for r in rows if r[1] == t}
@@ -91,7 +91,7 @@ def check_2d(d):
 
 def check_qpufade(d):
     """make test-b3d, fourth run: --tests=fade --profiles=ARM,QPU with a stand-in QPU hook: both rows, path=qpu."""
-    text = open(os.path.join(d, "3D0001.TXT")).read()
+    text = open(os.path.join(d, "3d0001.txt")).read()
     rows = {l.split(",")[2] for l in text.splitlines() if l.startswith("R,fade,")}
     qline = [l for l in text.splitlines() if l.startswith("qpufade ")]
     ok = rows == {"ARM", "QPU"} and len(qline) == 1 and "key=1 path=qpu" in qline[0] and "frames_arm=0" in qline[0]
@@ -113,14 +113,14 @@ def main():
         print(("ok   " if ok else "FAIL ") + what)
         fails += not ok
 
-    reports = sorted(f for f in os.listdir(d) if f.startswith("3D") and f.endswith(".TXT"))
-    check(reports == ["3D0001.TXT", "3D0002.TXT"], f"two reports ({' '.join(reports)})")
+    reports = sorted(f for f in os.listdir(d) if f.startswith("3d") and f.endswith(".txt"))
+    check(reports == ["3d0001.txt", "3d0002.txt"], f"two reports ({' '.join(reports)})")
     if len(reports) < 2:
         return 1
     text = open(os.path.join(d, reports[1])).read()
     lines = text.splitlines()
     check(lines[0] == "bm 3D Bench" and any(l.startswith("drivers bm3d ") for l in lines), "the header")
-    check("previous 3D0001.TXT" in lines, "the second run read the first report")
+    check("previous 3d0001.txt" in lines, "the second run read the first report")
     rows = [l.split(",") for l in lines if l.startswith("R,")]
     got = {(r[1], r[2]) for r in rows}
     for t in TESTS:

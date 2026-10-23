@@ -162,7 +162,7 @@ static struct {
     int esc_num;                /* ESC [ n ~ */
     uint8_t tq[256];            /* typed keys for keyp() */
     uint8_t tq_head, tq_tail;
-    char save_name[13];         /* "1A2B3C4D.SAV": CRC-32 of title and author */
+    char save_name[13];         /* "1a2b3c4d.sav": CRC-32 of title and author */
     uint8_t *mesh;              /* copy of the cartridge's MESH section, or NULL */
     uint32_t mesh_size;
     uint8_t *anim;              /* copy of its ANIM section (skeletons), or NULL */
@@ -3576,8 +3576,8 @@ static int l_net_resolve(lua_State *L)
 
 /* ---- save() / saved(): tables of a cartridge in /bm/save, as Lua source
  * ("return {...}") read back in an empty environment: data only. Up to
- * SAVE_SLOTS slots (R12): slot 1 is the file of before ("1A2B3C4D.SAV"),
- * the others "1A2B3C4D.S02" ... ".S08". */
+ * SAVE_SLOTS slots (R12): slot 1 is the file of before ("1a2b3c4d.sav"),
+ * the others "1a2b3c4d.s02" ... ".s08". */
 
 #define SAVE_DIR   "/bm/save"
 #define SAVE_MAX   (32 * 1024)
@@ -3587,7 +3587,7 @@ void bm_save_path(const char *title, const char *author, char *out, size_t n)
 {
     char id[96];
     int len = ksnprintf(id, sizeof id, "%s\n%s", title, author);
-    ksnprintf(out, n, "%s/%08lX.SAV", SAVE_DIR, crc32(id, (uint32_t)len));
+    ksnprintf(out, n, "%s/%08lx.sav", SAVE_DIR, crc32(id, (uint32_t)len));
 }
 
 void bm_save_slot(const char *path, int slot, char *out, size_t n)
@@ -3595,7 +3595,7 @@ void bm_save_slot(const char *path, int slot, char *out, size_t n)
     ksnprintf(out, n, "%s", path);
     char *dot = strrchr(out, '.');
     if (slot > 1 && dot && (size_t)(dot - out) + 5 <= n - 1)
-        ksnprintf(dot, 5, ".S%02d", slot);
+        ksnprintf(dot, 5, ".s%02d", slot);
 }
 
 /* The text is built in a fixed buffer: a luaL_Buffer cannot be used here,
@@ -3699,7 +3699,7 @@ static int save_slot(lua_State *L, int idx)
     return (int)slot;
 }
 
-/* the file of a slot in SAVE_DIR: "1A2B3C4D.SAV", "1A2B3C4D.S02"... */
+/* the file of a slot in SAVE_DIR: "1a2b3c4d.sav", "1a2b3c4d.s02"... */
 static void slot_name(int slot, char out[16])
 {
     bm_save_slot(rt.save_name, slot, out, 16);
@@ -3743,7 +3743,7 @@ static char perm_title[49];             /* the game asking */
 
 #define SHOT_DIR "/bm/shots"
 static int shot_req;                    /* a frame to save: the one drawn next */
-static char shot_file[13];              /* its name, "PONG0007.PNG" */
+static char shot_file[13];              /* its name, "pong0007.png" */
 static int shot_note;                   /* frames left for the box that says it was saved */
 static char shot_line[2][40];
 static int shot_net;                    /* asked over the network (bm_shot_ask): plan it at the next key poll */
@@ -3805,7 +3805,7 @@ void bm_shot_cancel(void)
     shot_res = 0;
 }
 
-/* 0 while the frame is not drawn yet, 1 when saved (name in `name`, "PONG0007.PNG"), -1 if it could not be written. */
+/* 0 while the frame is not drawn yet, 1 when saved (name in `name`, "pong0007.png"), -1 if it could not be written. */
 int bm_shot_done(char *name, size_t n)
 {
     if (shot_res == 1 && name && n)
@@ -3909,12 +3909,12 @@ static int l_delsave(lua_State *L)
 
 /* ---- documents (bm Write, 2026-10-06): the files of /docs on the SD card,
  * shared by the apps that ask for them (the player allows it the first
- * time: PERM_DOCS). Names 8.3, no folders ("LETTER.BMD", "LETTER.PDF"). */
+ * time: PERM_DOCS). Names 8.3, no folders ("letter.bmd", "letter.pdf"). */
 
 #define DOCS_DIR    "/docs"
 #define DOC_MAX     (4u * 1024 * 1024)
 
-/* a valid 8.3 name, upper case, in out (13 bytes); 0, or -1 */
+/* a valid 8.3 name, lower case, in out (13 bytes); 0, or -1 */
 static int doc_name(const char *in, char out[13])
 {
     int base = 0, ext = -1, n = 0;
@@ -3931,7 +3931,7 @@ static int doc_name(const char *in, char out[13])
         } else {
             return -1;
         }
-        out[n++] = (char)(c >= 'a' && c <= 'z' ? c - 32 : c);
+        out[n++] = (char)(c >= 'A' && c <= 'Z' ? c + 32 : c);
     }
     out[n] = 0;
     return base && ext != 0 ? 0 : -1;
@@ -3942,7 +3942,7 @@ static int doc_check(lua_State *L, int idx, char name[13])
     const char *in = luaL_checkstring(L, idx);
     if (doc_name(in, name) != 0) {
         lua_pushnil(L);
-        lua_pushfstring(L, "%s: a document's name is 8.3, like LETTER.BMD", in);
+        lua_pushfstring(L, "%s: a document's name is 8.3, like letter.bmd", in);
         return 2;
     }
     if (!perm_allowed(PERM_DOCS)) {
@@ -4061,7 +4061,7 @@ static int web_nil(lua_State *L, const char *why)
 }
 
 /* web_get(url, [{max = bytes, timeout = ms, resume = "NAME.EXT"}]) -> id, or nil and why. https only.
- * resume: a bare 8.3 name in bm/web; a request that failed or was cancelled leaves NAME.PRT there
+ * resume: a bare 8.3 name in bm/web; a request that failed or was cancelled leaves name.prt there
  * and the next web_get for the same address with the same resume name asks the server for the rest. */
 static int l_web_get(lua_State *L)
 {
@@ -4244,7 +4244,7 @@ static int l_image_load(lua_State *L)
     return 1;
 }
 
-/* file_write(name, bytes_or_id, [async]) -> true and the path ("bm/web/NAME.EXT"), or nil and why.
+/* file_write(name, bytes_or_id, [async]) -> true and the path ("bm/web/name.ext"), or nil and why.
  * Writes a file in bm/web on the SD card (made if it is not there): an 8.3 name, no other
  * folder, never .bm, .bme or .b16, at most file_write_max_kib (8 MiB) and 128 files in the
  * folder. A name that is there is replaced. Without async the call waits for the card: a big
@@ -6132,7 +6132,7 @@ static int write_target(lua_State *L, const char *path, char *to, size_t tn)
             return 0;
         fat_entry_t e;
         if (fat_find(path, &e) != 0) {
-            /* a new game: its project ("/carts/NEW.BM" -> "/bme/NEW.BME") */
+            /* a new game: its project ("/carts/new.bm" -> "/bme/new.bme") */
             bm_project_path(path, to, tn);
             return 0;
         }
@@ -6605,7 +6605,7 @@ static void put16(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(
 static void put32(uint8_t *p, uint32_t v) { put16(p, v); put16(p + 2, v >> 16); }
 static uint32_t get32(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
 
-/* "/carts/GAME.BM" -> "/carts", "GAME.BM"; a bare name goes to /carts */
+/* "/carts/game.bm" -> "/carts", "game.bm"; a bare name goes to /carts */
 static void split_path(const char *path, char *dir, size_t dn, char *name, size_t nn)
 {
     const char *slash = strrchr(path, '/');
@@ -6633,7 +6633,7 @@ static const char *field(lua_State *L, int t, const char *k, const char *def)
 /* cart_save(path, {title=, author=, res=, lua=}) -> true, or false and a
  * message. Sprite sheet, map (its layers), the flags of the tiles and the
  * named zones are the running cartridge's; the file name must be 8.3 (e.g.
- * "/carts/MYGAME.BM"). */
+ * "/carts/mygame.bm"). */
 static int l_cart_save(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
@@ -8455,6 +8455,9 @@ static void perm_key(char *key, size_t n)
     char *dot = strchr(stem, '.');
     if (dot)
         *dot = 0;
+    for (char *c = stem; *c; c++)               /* the key keeps its capitals: cards of before */
+        if (*c >= 'a' && *c <= 'z')
+            *c = (char)(*c - 32);
     ksnprintf(key, n, "allow_%s", stem);
 }
 

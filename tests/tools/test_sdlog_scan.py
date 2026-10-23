@@ -44,9 +44,9 @@ class TestSdlogScan(unittest.TestCase):
 
     def test_clean_exit_0(self):
         files = {
-            "BOOTPREV.TXT": CLEAN_BOOTPREV,
-            "BOOTLOG.TXT": CLEAN_BOOTLOG,
-            "LASTRUN.TXT": "lastrun line 1\nlastrun line 2\n",
+            "bootprev.txt": CLEAN_BOOTPREV,
+            "bootlog.txt": CLEAN_BOOTLOG,
+            "lastrun.txt": "lastrun line 1\nlastrun line 2\n",
         }
         res = self.run_scan(files)
         self.assertEqual(res.returncode, 0, res.stderr + res.stdout)
@@ -57,9 +57,9 @@ class TestSdlogScan(unittest.TestCase):
 
     def test_unclean_exit_1_freeze(self):
         files = {
-            "BOOTPREV.TXT": UNCLEAN_BOOTPREV,
-            "BOOTLOG.TXT": CLEAN_BOOTLOG,
-            "LASTRUN.TXT": "restarting log\n",
+            "bootprev.txt": UNCLEAN_BOOTPREV,
+            "bootlog.txt": CLEAN_BOOTLOG,
+            "lastrun.txt": "restarting log\n",
         }
         res = self.run_scan(files)
         self.assertEqual(res.returncode, 1)
@@ -68,9 +68,9 @@ class TestSdlogScan(unittest.TestCase):
 
     def test_crash_exit_1_crash(self):
         files = {
-            "BOOTPREV.TXT": CRASH_BOOTPREV,
-            "BOOTLOG.TXT": "[0.010] watchdog: on, 3000 ms\n[0.020] the last run ended in a crash: saved as a report\n",
-            "LASTRUN.TXT": "log\n",
+            "bootprev.txt": CRASH_BOOTPREV,
+            "bootlog.txt": "[0.010] watchdog: on, 3000 ms\n[0.020] the last run ended in a crash: saved as a report\n",
+            "lastrun.txt": "log\n",
         }
         res = self.run_scan(files)
         self.assertEqual(res.returncode, 1)
@@ -81,9 +81,9 @@ class TestSdlogScan(unittest.TestCase):
     def test_bootprev_clean_but_bootlog_freeze_exit_1_freeze(self):
         bootlog = "[0.010] watchdog: on\n\x1b[91mthe Pi froze last time and the watchdog restarted it:\x1b[0m\n"
         files = {
-            "BOOTPREV.TXT": CLEAN_BOOTPREV,
-            "BOOTLOG.TXT": bootlog,
-            "LASTRUN.TXT": "log\n",
+            "bootprev.txt": CLEAN_BOOTPREV,
+            "bootlog.txt": bootlog,
+            "lastrun.txt": "log\n",
         }
         res = self.run_scan(files)
         self.assertEqual(res.returncode, 1)
@@ -92,19 +92,20 @@ class TestSdlogScan(unittest.TestCase):
 
     def test_bootprev_missing_exit_1_incomplete(self):
         files = {
-            "BOOTLOG.TXT": CLEAN_BOOTLOG,
-            "LASTRUN.TXT": "log\n",
+            "bootlog.txt": CLEAN_BOOTLOG,
+            "lastrun.txt": "log\n",
         }
         res = self.run_scan(files)
         self.assertEqual(res.returncode, 1)
         self.assertIn("bootprev: MISSING", res.stdout)
         self.assertIn("verdict: INCOMPLETE", res.stdout)
 
-    def test_lowercase_names_and_bm_subfolder(self):
+    def test_uppercase_names_and_bm_subfolder(self):
+        # cards of before the lowercase rule: the scan reads in any case
         files = {
-            "bootprev.txt": CLEAN_BOOTPREV,
-            "bootlog.txt": CLEAN_BOOTLOG,
-            "lastrun.txt": "log line\n",
+            "BOOTPREV.TXT": CLEAN_BOOTPREV,
+            "BOOTLOG.TXT": CLEAN_BOOTLOG,
+            "LASTRUN.TXT": "log line" + chr(10),
         }
         res = self.run_scan(files, use_bm_subfolder=True)
         self.assertEqual(res.returncode, 0, res.stderr + res.stdout)
@@ -120,9 +121,9 @@ class TestSdlogScan(unittest.TestCase):
         ]
         for line, expected in cases:
             files = {
-                "BOOTPREV.TXT": CLEAN_BOOTPREV,
-                "BOOTLOG.TXT": f"[0.000] {line}\n",
-                "LASTRUN.TXT": "log\n",
+                "bootprev.txt": CLEAN_BOOTPREV,
+                "bootlog.txt": f"[0.000] {line}\n",
+                "lastrun.txt": "log\n",
             }
             res = self.run_scan(files)
             self.assertIn(f"watchdog {expected}", res.stdout)
@@ -130,18 +131,18 @@ class TestSdlogScan(unittest.TestCase):
     def test_lastrun_log_full(self):
         content = "line 1\nline 2\n--- (the log is full) the last lines printed ---\nline 3\n"
         files = {
-            "BOOTPREV.TXT": CLEAN_BOOTPREV,
-            "BOOTLOG.TXT": CLEAN_BOOTLOG,
-            "LASTRUN.TXT": content,
+            "bootprev.txt": CLEAN_BOOTPREV,
+            "bootlog.txt": CLEAN_BOOTLOG,
+            "lastrun.txt": content,
         }
         res = self.run_scan(files)
         self.assertIn("lastrun: PRESENT (4 lines, log full)", res.stdout)
 
     def test_secret_clear_leak_exit_1(self):
         files = {
-            "BOOTPREV.TXT": CLEAN_BOOTPREV + "connecting with test-pass-4242 here\n",
-            "BOOTLOG.TXT": CLEAN_BOOTLOG,
-            "LASTRUN.TXT": "log\n",
+            "bootprev.txt": CLEAN_BOOTPREV + "connecting with test-pass-4242 here\n",
+            "bootlog.txt": CLEAN_BOOTLOG,
+            "lastrun.txt": "log\n",
         }
         res = self.run_scan(files, extra_args=["--secret", "test-pass-4242"])
         self.assertEqual(res.returncode, 1)
@@ -150,9 +151,9 @@ class TestSdlogScan(unittest.TestCase):
 
     def test_secret_masked_exit_0(self):
         files = {
-            "BOOTPREV.TXT": CLEAN_BOOTPREV + "connecting with ************** here\n",
-            "BOOTLOG.TXT": CLEAN_BOOTLOG,
-            "LASTRUN.TXT": "log\n",
+            "bootprev.txt": CLEAN_BOOTPREV + "connecting with ************** here\n",
+            "bootlog.txt": CLEAN_BOOTLOG,
+            "lastrun.txt": "log\n",
         }
         res = self.run_scan(files, extra_args=["--secret", "test-pass-4242"])
         self.assertEqual(res.returncode, 0, res.stderr + res.stdout)
@@ -160,9 +161,9 @@ class TestSdlogScan(unittest.TestCase):
 
     def test_secret_embedded_alphanumeric_not_leak(self):
         files = {
-            "BOOTPREV.TXT": CLEAN_BOOTPREV + "hash xtest-pass-4242y is fine\n",
-            "BOOTLOG.TXT": CLEAN_BOOTLOG,
-            "LASTRUN.TXT": "log\n",
+            "bootprev.txt": CLEAN_BOOTPREV + "hash xtest-pass-4242y is fine\n",
+            "bootlog.txt": CLEAN_BOOTLOG,
+            "lastrun.txt": "log\n",
         }
         res = self.run_scan(files, extra_args=["--secret", "test-pass-4242"])
         self.assertEqual(res.returncode, 0, res.stderr + res.stdout)
@@ -170,9 +171,9 @@ class TestSdlogScan(unittest.TestCase):
 
     def test_secret_shorter_than_4_chars_note_exit_0(self):
         files = {
-            "BOOTPREV.TXT": CLEAN_BOOTPREV,
-            "BOOTLOG.TXT": CLEAN_BOOTLOG,
-            "LASTRUN.TXT": "log\n",
+            "bootprev.txt": CLEAN_BOOTPREV,
+            "bootlog.txt": CLEAN_BOOTLOG,
+            "lastrun.txt": "log\n",
         }
         res = self.run_scan(files, extra_args=["--secret", "abc"])
         self.assertEqual(res.returncode, 0, res.stderr + res.stdout)

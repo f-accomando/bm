@@ -149,6 +149,7 @@ The edit page draws the model with its edges, a pointer, and a line at the top w
 | M | copy the choice to the other side of 0 |
 | X (Shift+X) | live mirror on or off |
 | Ctrl+R | loop cut across the chosen edge |
+| Shift+J | knife: cut a triangle between the middles of two chosen edges |
 | j | make a face on 3 or 4 chosen vertices |
 | k | merge the chosen vertices into one |
 | K | weld the vertices at the same point |
@@ -226,13 +227,17 @@ Press **g** to move, **r** to rotate, **t** to scale the choice (the corners of 
 
 ## Edges and the loop cut
 
-In edge mode a choice is a set of edges. The chosen edges show as thick lines. Move, rotate and scale act on the two ends of each chosen edge. **x** and **d** act on the faces whose corners are all chosen. **Del** removes the triangles next to the chosen edges, and the vertices that no triangle uses any more. With the live mirror on, choosing an edge also chooses its counterpart across X = 0, and move, rotate, scale and delete act on both. The loop cut does not act on the other side.
+In edge mode a choice is a set of edges. The chosen edges show as thick lines. Move, rotate and scale act on the two ends of each chosen edge. **x** and **d** act on the faces whose corners are all chosen. **Del** removes the triangles next to the chosen edges, and the vertices that no triangle uses any more. With the live mirror on, choosing an edge also chooses its counterpart across X = 0, and move, rotate, scale and delete act on both. The loop cut and the knife do not act on the other side.
 
 **Ctrl+R** makes a loop cut. Choose one edge first (in vertex mode, two vertices that make an edge are enough). The editor goes from the edge across the quads around the model. A quad is two triangles that look the same way (the angle between their normals is less than 60 degrees) and share a diagonal. In each quad it crosses the edge and the opposite edge, and goes on from that edge. It puts one new vertex in the middle of each crossed edge and cuts each quad in four triangles. A new vertex takes the bone of the lower end of its edge and the mean of the texture points (UV). A new triangle takes the colour of the old face that holds most of its corners.
 
 The ring stops in two cases. At an open border (an edge with one triangle only) there is nothing to cross. At a triangle that is not part of a quad, the triangle is cut in two, from the new vertex to its far corner, so no gap stays. The ring is closed if it comes back to the first edge. If the ring would cross itself, or an edge has more than two triangles, nothing changes and a message tells why.
 
 When it is done, the new vertices are the choice (in edge mode, the new edges across the quads), so you can move or scale the loop at once. One undo takes back the whole cut. With the gamepad, tap X and pick **Loop cut on the chosen edge**.
+
+**Shift+J** is the knife. Use it in edge mode. Choose two edges of one triangle (two edges that meet at a corner of the triangle). The editor puts a new vertex in the middle of each edge and cuts the triangle so that a new edge joins the two new vertices. The triangle across each of the two edges is cut in two, from the new vertex to its far corner, so no crack appears. A new vertex takes the bone of the lower end of its edge and the mean of the texture points (UV). A new triangle keeps the colour of its old face. The two new vertices are the choice (the new edge, in edge mode), and one undo takes back the whole cut.
+
+The knife does nothing, and a message tells why, in these cases: you did not choose exactly two edges, the two edges are not edges of one triangle, or an edge has more than two triangles. The knife is a tool that changes the shape of the mesh, so the live mirror does not copy it to the other side. With the live mirror on, choosing an edge also chooses its counterpart, so turn the mirror off (Shift+X) before you choose the two edges. With the gamepad, tap X and pick **Knife on two edges of a triangle**.
 
 ## The view
 

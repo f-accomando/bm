@@ -400,7 +400,7 @@ It is bm's single benchmark of the 3D. Each test grows its load until a frame pa
 2. Open the Dev tab and choose **3D Bench**. You can also press `j` in the serial monitor.
 3. Leave it alone. The Pi report of 2026-10-05 ends with `total 79 s`. Each step measures 6 frames and keeps the middle one, so a single slow frame does not move the result.
 4. Use left and right to change page. The first page is the score. Press B (or Esc) to leave.
-5. Take the SD card out and open `bm/bench/` on it: the run saved `3D0001.TXT`, `3D0002.TXT`, and so on.
+5. Take the SD card out and open `bm/bench/` on it: the run saved `3d0001.txt`, `3d0002.txt`, and so on.
 6. The next run reads the last report and compares against it. To keep a history, copy the files to `docs/bench/` in the repository.
 
 ::: try

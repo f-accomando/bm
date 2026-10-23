@@ -80,8 +80,8 @@
     "title": "How a cartridge works"
    },
    "10": {
-    "en": "51974edbd6ae",
-    "it": "09733c974a00",
+    "en": "63dc64f135a4",
+    "it": "a350f64d3f45",
     "title": "The web"
    },
    "2": {
@@ -105,18 +105,18 @@
     "title": "Time and system"
    },
    "6": {
-    "en": "291566a8b3c5",
-    "it": "becaa28f85d3",
+    "en": "78e42f30a050",
+    "it": "47530e3e9d82",
     "title": "Saves"
    },
    "7": {
-    "en": "19a8483d3407",
-    "it": "931160f22689",
+    "en": "5ae3e1323727",
+    "it": "5fb403892b71",
     "title": "Documents"
    },
    "8": {
-    "en": "7714f06d5fdc",
-    "it": "4beaba48ac89",
+    "en": "e9c0b9bdef7a",
+    "it": "83d17eb56bb8",
     "title": "Screenshots"
    },
    "9": {
@@ -127,10 +127,10 @@
   },
   "sources": {
    "docs/API.md": "e985f0ef8b5c",
-   "docs/GAME-GUIDE.md": "958000b2bd91",
+   "docs/GAME-GUIDE.md": "aef62588eb3d",
    "docs/api/draw.md": "bc14d3e027f6",
    "docs/api/input.md": "4a75b07df3da",
-   "docs/api/system.md": "077e89b9faeb"
+   "docs/api/system.md": "2a164808a4c2"
   }
  },
  "api-lib": {
@@ -288,8 +288,8 @@
  "api-tools": {
   "chapters": {
    "1": {
-    "en": "45fdd7698851",
-    "it": "94f5395642b7",
+    "en": "6b11b0f8a6fe",
+    "it": "d1f28f86c106",
     "title": "The cartridge file"
    },
    "2": {
@@ -298,8 +298,8 @@
     "title": "The sections of a cartridge"
    },
    "3": {
-    "en": "42a81befb7d6",
-    "it": "f4e44aa1a0c4",
+    "en": "af4dcfb30709",
+    "it": "1fdc5bdaef5f",
     "title": "The API for tools"
    },
    "4": {
@@ -313,16 +313,16 @@
     "title": "The project layout"
    },
    "6": {
-    "en": "69a13c60ba6e",
-    "it": "05d9dcf7b64d",
+    "en": "15436a4d4cf6",
+    "it": "27d0a4e4300b",
     "title": "Screenshots for developers"
    }
   },
   "sources": {
-   "docs/PROJECT-LAYOUT.md": "a44281867d52",
+   "docs/PROJECT-LAYOUT.md": "370910ab5f18",
    "docs/RISORSE.md": "4b94efc50686",
-   "docs/SCREENSHOTS.md": "34e487f54164",
-   "docs/api/tools.md": "6dafeeb73022"
+   "docs/SCREENSHOTS.md": "afdde1690440",
+   "docs/api/tools.md": "32791e7adebe"
   }
  },
  "boot-os": {
@@ -333,13 +333,13 @@
     "title": "What bm is"
    },
    "10": {
-    "en": "9171cee1ee05",
-    "it": "0de466f8b0a6",
+    "en": "377604062d3a",
+    "it": "ec14fc9b16c2",
     "title": "Screenshots"
    },
    "11": {
-    "en": "fce68948d03b",
-    "it": "2379b44965dd",
+    "en": "31085dbe0718",
+    "it": "f1ad6fccdca0",
     "title": "Saves"
    },
    "12": {
@@ -397,7 +397,7 @@
    "boot": "63490264ed76",
    "chainloader": "7feaaf3a501c",
    "docs/HARDWARE.md": "1412f8591e74",
-   "docs/progress/system.md": "7385a5db4532",
+   "docs/progress/system.md": "049cda3b2b46",
    "src/kernel/syskeys.c": "6299911b4014"
   }
  },
@@ -502,8 +502,8 @@
     "title": "Tips and limits"
    },
    "2": {
-    "en": "f58376cbd850",
-    "it": "0482cebb6cb3",
+    "en": "07615c9c7316",
+    "it": "3cc20b5fedfb",
     "title": "Opening"
    },
    "3": {
@@ -546,7 +546,7 @@
    "carts/animator/main.lua": "6bc4c3631506",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
-   "docs/progress/tools.md": "80547a3b408d",
+   "docs/progress/tools.md": "a4a65307cada",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -558,13 +558,13 @@
     "title": "What bm Code is"
    },
    "10": {
-    "en": "b97545ee983f",
-    "it": "b3e228fcd8f5",
+    "en": "8b31c20006f2",
+    "it": "68e90a117289",
     "title": "Tips and limits"
    },
    "2": {
-    "en": "cfb71d25c6a9",
-    "it": "dcff2e98ffe0",
+    "en": "0cccf6b6d5ae",
+    "it": "cf9a06f2fb22",
     "title": "Opening and saving"
    },
    "3": {
@@ -598,16 +598,16 @@
     "title": "Running the game and reading errors"
    },
    "9": {
-    "en": "b5d056864bd5",
-    "it": "014a22ccf0a6",
+    "en": "a7536f7774bb",
+    "it": "5f3033efc27e",
     "title": "Guided tutorials"
    }
   },
   "sources": {
-   "carts/code/main.lua": "a9433a85ef31",
+   "carts/code/main.lua": "ab2f6fb6534d",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-code.md": "9def238703df",
-   "docs/progress/tools.md": "cfe67dd19cbf",
+   "docs/progress/tools.md": "a4a65307cada",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -624,13 +624,13 @@
     "title": "Opening"
    },
    "3": {
-    "en": "3e379aae410b",
-    "it": "4cfc1a3e2d43",
+    "en": "6420799c200a",
+    "it": "0dd213e75e65",
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "90469d61675b",
-    "it": "899ec40dc07c",
+    "en": "601527520adf",
+    "it": "a80b2f5aaefd",
     "title": "Selecting and moving"
    },
    "5": {
@@ -655,10 +655,10 @@
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "9f8bcb2e5596",
+   "carts/mesh/main.lua": "d955c5408725",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "15b2419a1eaa",
+   "docs/progress/tools.md": "f679d7973417",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -675,8 +675,8 @@
     "title": "Importing and exporting resources"
    },
    "11": {
-    "en": "22c5325c93cf",
-    "it": "18264e20b515",
+    "en": "1c5ef9d3693c",
+    "it": "e5277c5220a1",
     "title": "Guided tutorials"
    },
    "12": {
@@ -726,18 +726,18 @@
    }
   },
   "sources": {
-   "carts/pixel/main.lua": "4f25aed5dd88",
+   "carts/pixel/main.lua": "f1dff1037f16",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-pixel.md": "169370731398",
-   "docs/progress/tools.md": "cfe67dd19cbf",
+   "docs/progress/tools.md": "a4a65307cada",
    "sdk/README.md": "f56faae98658"
   }
  },
  "editor-sdk": {
   "chapters": {
    "1": {
-    "en": "6f1d209a6aad",
-    "it": "daccfeaf32d1",
+    "en": "d3c1f53fffec",
+    "it": "8b68d52bb2cb",
     "title": "What bm SDK is"
    },
    "2": {
@@ -751,8 +751,8 @@
     "title": "The screen"
    },
    "4": {
-    "en": "e250164f2f20",
-    "it": "21208c6088ca",
+    "en": "aa174f94f36f",
+    "it": "d265ca2dca96",
     "title": "Creating a project from a template"
    },
    "5": {
@@ -766,8 +766,8 @@
     "title": "Budgets and the dev kit report"
    },
    "7": {
-    "en": "8844e118996f",
-    "it": "f011c3b2a833",
+    "en": "46b19762da3a",
+    "it": "a37f8c503acd",
     "title": "Building and exporting"
    },
    "8": {
@@ -782,10 +782,10 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "6b12b2c76658",
+   "carts/editor/main.lua": "89b7c45e0ea6",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-sdk.md": "6a8b4424e3fa",
-   "docs/progress/tools.md": "cfe67dd19cbf",
+   "docs/progress/tools.md": "a4a65307cada",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -797,8 +797,8 @@
     "title": "What bm Sound is"
    },
    "2": {
-    "en": "86bb15ef6ed3",
-    "it": "699db0ac7152",
+    "en": "c43b5f745510",
+    "it": "ca7a3720e6e4",
     "title": "Opening bm Sound"
    },
    "3": {
@@ -807,8 +807,8 @@
     "title": "The pages"
    },
    "4": {
-    "en": "c6893bbf2f7e",
-    "it": "e939650dcaf1",
+    "en": "d65745ea3870",
+    "it": "efd9a2a75221",
     "title": "Controls"
    },
    "5": {
@@ -817,8 +817,8 @@
     "title": "Tutorials"
    },
    "6": {
-    "en": "07d8678cfccd",
-    "it": "a1ac7d545368",
+    "en": "23b5bc545d22",
+    "it": "c6489b7428a3",
     "title": "Saving and exporting"
    },
    "7": {
@@ -831,7 +831,7 @@
    "carts/sound/main.lua": "371e2584d9c8",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-sound.md": "d9e2be743e24",
-   "docs/progress/tools.md": "cfe67dd19cbf",
+   "docs/progress/tools.md": "a4a65307cada",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -848,8 +848,8 @@
     "title": "Tips and limits"
    },
    "2": {
-    "en": "e541686d9f3d",
-    "it": "2a0f3dc9bce2",
+    "en": "0f1b83b15e41",
+    "it": "1f78ddd9ebac",
     "title": "Opening a project or a game"
    },
    "3": {
@@ -892,15 +892,15 @@
    "carts/studio/main.lua": "d8500c830f1e",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "ee59eceb703a",
+   "docs/progress/tools.md": "a4a65307cada",
    "sdk/README.md": "f56faae98658"
   }
  },
  "editor-write": {
   "chapters": {
    "1": {
-    "en": "51cdcd2903a6",
-    "it": "f13e70388d74",
+    "en": "b62b6843ec60",
+    "it": "bed0fe31d4b9",
     "title": "What bm Write is"
    },
    "2": {
@@ -909,8 +909,8 @@
     "title": "First start"
    },
    "3": {
-    "en": "1de2145b0b7b",
-    "it": "382b27f12dc2",
+    "en": "51f98b5fd573",
+    "it": "9ed77868a288",
     "title": "The screen and the keys"
    },
    "4": {
@@ -919,25 +919,25 @@
     "title": "Styling"
    },
    "5": {
-    "en": "6475618a6e7e",
-    "it": "5102785204a7",
+    "en": "1a6da62f1a1d",
+    "it": "b61bd8db06f1",
     "title": "Saving, opening, exporting"
    },
    "6": {
-    "en": "c7b9adda209a",
-    "it": "70a2ebdcfc4b",
+    "en": "1f7d7de4b495",
+    "it": "9540c2e1cc49",
     "title": "Tutorials"
    },
    "7": {
-    "en": "b77994348907",
-    "it": "f111901efbfb",
+    "en": "a001b7f42288",
+    "it": "fd406960bb5a",
     "title": "Tips, limits and troubleshooting"
    }
   },
   "sources": {
-   "carts/write/main.lua": "e147f39975a8",
+   "carts/write/main.lua": "af740ba56a0b",
    "docs/RISORSE.md": "4b94efc50686",
-   "docs/progress/tools.md": "ebf31668470e",
+   "docs/progress/tools.md": "a4a65307cada",
    "sdk/README.md": "f56faae98658"
   }
  },
@@ -959,8 +959,8 @@
     "title": "Installing on the RGB30"
    },
    "4": {
-    "en": "4ed93e708113",
-    "it": "30da4b08c100",
+    "en": "e68159b5736b",
+    "it": "ea028aad28bc",
     "title": "The folders on the card"
    },
    "5": {
@@ -985,9 +985,9 @@
    }
   },
   "sources": {
-   "docs/RGB30.md": "852986301dff",
-   "docs/progress/platforms.md": "392ae24c0bb7",
-   "easy_install.sh": "4bf8bc567aea",
+   "docs/RGB30.md": "440510f5aa45",
+   "docs/progress/platforms.md": "afd45e3e9054",
+   "easy_install.sh": "93dfa42a24ed",
    "scripts/copy-sd-rgb30.sh": "38f59e3439e0",
    "scripts/mksd.py": "6ed865802e51"
   }
@@ -1088,8 +1088,8 @@
     "title": "The bm3d drivers"
    },
    "6": {
-    "en": "487620e0002b",
-    "it": "5df7843ae2be",
+    "en": "cf9cedf0bfce",
+    "it": "cbe62509dcac",
     "title": "Measure on your own board"
    },
    "7": {
@@ -1104,12 +1104,12 @@
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "6403d2e72032",
+   "docs/BENCH3D.md": "e334328bce5d",
    "docs/DRIVERS.md": "e7e7672fc2c2",
    "docs/HARDWARE.md": "1412f8591e74",
    "docs/PERFORMANCE.md": "1c3fc264eae4",
-   "docs/progress/graphics.md": "6240128d72c0",
-   "docs/progress/v3d.md": "f43dce1448d8"
+   "docs/progress/graphics.md": "076009fe8f5f",
+   "docs/progress/v3d.md": "2aee663e92d0"
   }
  },
  "riff": {

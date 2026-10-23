@@ -187,13 +187,13 @@ What is on the card depends on the board. The text in `LEGGIMI.txt` on the RGB30
 | `bm/config.txt` | both | bm's settings, `key=value` lines |
 | `bm/ca.pem` | both | the certificates for the network |
 | `bm/save/` | both | the save files of the games (8 slots each, up to 32 KiB a slot) |
-| `bm/shots/` | both | the screenshots (`PONG0001.PNG`) |
+| `bm/shots/` | both | the screenshots (`pong0001.png`) |
 | `bm/lib/` | both | resources (`.bmm`, `.bmi`, `.bms`...) the apps and games can share |
 | `bm/backup/` | both | the previous kernel, kept by every update |
 | `bm/reports/` | both | test reports waiting to be sent |
-| `bm/bench/` | both | reports of the 3D bench (`3D0001.TXT`) |
+| `bm/bench/` | both | reports of the 3D bench (`3d0001.txt`) |
 | `bm/bootlog.txt`, `bm/bootprev.txt`, `bm/lastrun.txt` | RGB30 | what the kernel printed at this boot, at the one before, and in the last session |
-| `docs/` | both | documents of the apps that ask for them, such as bm Write (`LETTER.BMD`) |
+| `docs/` | both | documents of the apps that ask for them, such as bm Write (`letter.bmd`) |
 
 The WiFi and Bluetooth firmware is in `bm/` too: on the Pi the files `BCM43430A1.hcd` and `brcmfmac43430-sdio.*`; on the RGB30 `rtl8821cs_fw.bin` and `rtl8821cs_config.bin`.
 

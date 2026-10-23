@@ -62,7 +62,7 @@ bm Sound modifica solo **progetti** (`.bme`). Un gioco (`.bm`) lo legge soltanto
 Premi Esc, poi scegli **Open a game or a sound pack...** (oppure premi Ctrl+O). L'elenco mostra quello che c'è in `/carts`, nella radice della scheda, in `/bme` (progetti, anche i sound pack) e in `/bm/sounds` (sound pack più vecchi), con l'etichetta "game" o "sound pack".
 
 - Se il file non ha ancora suoni, bm Sound lo dice e parti da banchi vuoti. **Save** ci scrive i suoni.
-- Se apri un gioco (`.bm`), il primo salvataggio chiede *Save an editable copy: NAME.BME?* e da lì in poi lavori sulla copia.
+- Se apri un gioco (`.bm`), il primo salvataggio chiede *Save an editable copy: name.bme?* e da lì in poi lavori sulla copia.
 - **New project** (Ctrl+N) parte da banchi vuoti: il suono 0 si chiama `SOUND` e la canzone 0 si chiama `SONG`, con l'ordine `{0}` (pattern 0). **The demo project** carica un banco con suoni e canzoni: premi START per ascoltare la canzone.
 
 ::: note
@@ -222,7 +222,7 @@ Un breve tocco su SELECT apre il menu. Se premi SELECT con sinistra/destra o su/
 | Play / Stop | avvia o ferma la musica o l'effetto (START) |
 | Undo | annulla l'ultima modifica (Ctrl+Z) |
 | Save | scrive nel file aperto; senza file, chiede il nome di un pack |
-| Save as a new sound pack... | chiede 8 caratteri e scrive `/bme/NAME.BME` |
+| Save as a new sound pack... | chiede 8 caratteri e scrive `/bme/name.bme` |
 | Open a game or a sound pack... | apre un altro file (Ctrl+O) |
 | Import from... | prende un suono, un effetto, un pattern o una canzone da un altro file |
 | Export to a game... | scrive questo banco in un gioco |
@@ -332,8 +332,8 @@ Un effetto usa una voce libera e la traccia della musica su quella voce resta mu
 
 # Salvare ed esportare
 
-- **Save** (Ctrl+S) scrive il banco nel file aperto. Con un gioco aperto, il primo salvataggio chiede la copia modificabile `NAME.BME`. Dopo un salvataggio la barra dice che il gioco suona i nuovi suoni.
-- **Save as a new sound pack...** (Ctrl+Shift+S) chiede un nome di al massimo 8 caratteri e scrive `/bme/NAME.BME`. Un sound pack è un piccolo programma che suona le tue canzoni e i tuoi effetti; puoi riaprirlo dopo in bm Sound.
+- **Save** (Ctrl+S) scrive il banco nel file aperto. Con un gioco aperto, il primo salvataggio chiede la copia modificabile `name.bme`. Dopo un salvataggio la barra dice che il gioco suona i nuovi suoni.
+- **Save as a new sound pack...** (Ctrl+Shift+S) chiede un nome di al massimo 8 caratteri e scrive `/bme/name.bme`. Un sound pack è un piccolo programma che suona le tue canzoni e i tuoi effetti; puoi riaprirlo dopo in bm Sound.
 - **Export to a game...** (Ctrl+E) elenca i giochi e, dopo una domanda, scrive questo banco in quello che scegli. I suoi suoni e la sua musica vengono sostituiti da questi.
 
 ::: warn

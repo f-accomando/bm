@@ -58,7 +58,7 @@ local BOLD, ITALIC, UNDER = 1, 2, 4
 -- font draws them), m = their bits (a letter each: "0" + BOLD | ITALIC |
 -- UNDER) }; lines, first, num: the layout's (wrap, layout)
 local doc
-local file                              -- its name in /docs ("LETTER.BMD"), nil if new
+local file                              -- its name in /docs ("letter.bmd"), nil if new
 local dirty = false
 local cur = { p = 1, c = 0 }            -- the cursor: paragraph, letters before it
 local anchor                            -- the selection's other end, or nil
@@ -863,16 +863,16 @@ local function prompt(label, text, done)
 end
 
 local function ask_name(then_do)
-  prompt("Name of the document (8 letters, in /docs):", base_name() or "DOC1", function(n)
-    n = n:upper():gsub("%.%w*$", "")
-    if not n:match("^[%w_%-]+$") or #n > 8 then say("8 letters or digits, like LETTER", C.err); return end
+  prompt("Name of the document (8 letters, in /docs):", base_name() or "doc1", function(n)
+    n = n:lower():gsub("%.%w*$", "")
+    if not n:match("^[%w_%-]+$") or #n > 8 then say("8 letters or digits, like letter", C.err); return end
     then_do(n)
   end)
 end
 
 local function save_doc(as)
   if file and not as then return write_doc(file) end
-  ask_name(function(n) write_doc(n .. ".BMD") end)
+  ask_name(function(n) write_doc(n .. ".bmd") end)
 end
 
 local function open_doc(name)
@@ -883,7 +883,7 @@ local function open_doc(name)
   if not d then say(name .. ": " .. why, C.err); return end
   new_doc()
   doc = d
-  file = name:upper():match("%.BMD$") and name:upper() or nil
+  file = name:upper():match("%.BMD$") and name:lower() or nil
   dirty = file == nil
   save_session()
   say("opened /docs/" .. name, C.ok)
@@ -903,14 +903,14 @@ local function open_files()
   overlay = { kind = "files", items = items, sel = 1, top = 1 }
 end
 
-local FORMATS = { { "PDF", "PDF" }, { "HTML", "HTM" }, { "Markdown", "MD" }, { "Text", "TXT" } }
+local FORMATS = { { "PDF", "pdf" }, { "HTML", "htm" }, { "Markdown", "md" }, { "Text", "txt" } }
 
 local function export(fmt)
   local function go(base)
     local ext = fmt[2]
     local title = to_utf8(doc[1].t ~= "" and doc[1].t or base)
-    local data = ext == "PDF" and EXP.pdf(title) or ext == "HTM" and EXP.html(title)
-                 or ext == "MD" and EXP.markdown() or EXP.text()
+    local data = ext == "pdf" and EXP.pdf(title) or ext == "htm" and EXP.html(title)
+                 or ext == "md" and EXP.markdown() or EXP.text()
     local name = base .. "." .. ext
     local ok, err = doc_write(name, data)
     if ok then
@@ -934,7 +934,7 @@ local function leave_doc(then_do)
   confirm("This document has changes. Save them?", { "Save", "Discard", "Cancel" }, function(i)
     if i == 1 then
       if file then if write_doc(file) then then_do() end
-      else ask_name(function(n) if write_doc(n .. ".BMD") then then_do() end end) end
+      else ask_name(function(n) if write_doc(n .. ".bmd") then then_do() end end) end
     elseif i == 2 then then_do() end
   end)
 end

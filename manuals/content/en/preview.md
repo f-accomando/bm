@@ -33,7 +33,7 @@ A bug report with the picture takes a minute to understand. A manual with real p
 
 ## Good to know
 
-- The file name starts with the first letters of the game's title, then a number: `PONG0001.PNG`, `PONG0002.PNG`.
+- The file name starts with the first letters of the game's title, then a number: `pong0001.png`, `pong0002.png`.
 - The number goes up by itself: bm never overwrites a picture. The Pi has no clock, so the name has no date.
 - A box says `Screenshot saved` for two seconds.
 
@@ -50,10 +50,10 @@ A bug report with the picture takes a minute to understand. A manual with real p
 4. Switch the console off and put the SD card in your computer.
 5. Open the folder `bm/shots/`: the picture is there.
 
-![Pong, as the console saved it: bm/shots/PONG0001.PNG](shots/pong-game.png)
+![Pong, as the console saved it: bm/shots/pong0001.png](shots/pong-game.png)
 
 ::: try
-Press Print Screen three times while Pong is running. You get `PONG0001.PNG`, `PONG0002.PNG` and `PONG0003.PNG`.
+Press Print Screen three times while Pong is running. You get `pong0001.png`, `pong0002.png` and `pong0003.png`.
 :::
 
 ## From your own app

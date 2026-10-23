@@ -598,7 +598,7 @@ log("frame ms", stat(1))                                         -- sulla linea 
 ## Da sapere
 
 - Ogni cartuccia ha **8 slot di salvataggio**, ciascuno una tabella fino a 32 KiB, in `/bm/save/` sulla scheda SD.
-- Lo slot 1 è `XXXXXXXX.SAV` (quello di sempre: `save(t)` e `saved()` senza slot), gli altri `XXXXXXXX.S02` … `.S08`.
+- Lo slot 1 è `xxxxxxxx.sav` (quello di sempre: `save(t)` e `saved()` senza slot), gli altri `xxxxxxxx.s02` … `.S08`.
 - Un uso comune: lo slot 1 per impostazioni e record (lo usa anche `lib.store`), gli altri per le partite in corso.
 - Una tabella può contenere numeri, stringhe, booleani e altre tabelle (niente funzioni).
 - Le opzioni del gioco nel menu (X sulla copertina) mostrano i byte di tutti gli slot, e *Delete the save data* li cancella tutti.
@@ -643,18 +643,18 @@ I file del giocatore, condivisi dalle app: `/docs` sulla scheda SD (bm Write vi 
 
 | Funzione | Cosa fa |
 |---|---|
-| `doc_list()` | i file in `/docs`: `{ {name = "LETTER.BMD", size = 1234}, ... }` (vuota se non ce ne sono); `nil` e il motivo se il giocatore non lo ha permesso |
+| `doc_list()` | i file in `/docs`: `{ {name = "letter.bmd", size = 1234}, ... }` (vuota se non ce ne sono); `nil` e il motivo se il giocatore non lo ha permesso |
 | `doc_read(name)` | i byte di un documento (una stringa), oppure `nil` e il motivo |
 | `doc_write(name, bytes)` | scrive un documento, nuovo o sostituito (al massimo 4 MiB); `true`, oppure `nil` e il motivo |
 | `doc_delete(name)` | cancella un documento; `true`, oppure `nil` e il motivo |
 
 ## Da sapere
 
-- I nomi sono 8.3 senza cartelle (`"LETTER.BMD"`; il minuscolo va bene, il file viene scritto in maiuscolo). La cartella la crea la prima scrittura.
+- I nomi sono 8.3 senza cartelle (`"letter.bmd"`; il file viene scritto sempre in minuscolo, e una lettura lo trova in qualsiasi caso). La cartella la crea la prima scrittura.
 - La prima volta che un'app li usa la console lo chiede al giocatore, come per la rete. La risposta resta in `bm/config.txt` (`allow_...=docs=yes`), e dopo un no ogni chiamata restituisce `nil` e il motivo.
 
 ```lua
-local ok, why = doc_write("NOTES.TXT", "shopping:\nbread\nmilk\n")
+local ok, why = doc_write("notes.txt", "shopping:\nbread\nmilk\n")
 if not ok then msg = why end
 for _, d in ipairs(doc_list() or {}) do print(d.name .. " " .. d.size) end
 ```
@@ -704,7 +704,7 @@ local path = shot("menu")    -- "bm/shots/MENU0001.png"
 2. Premi **Print Screen** sulla tastiera, oppure tieni premuto **Select** per 3 secondi sul pad.
 3. Aspetta il riquadro che dice `Screenshot saved`.
 4. Spegni la console e metti la scheda SD nel computer.
-5. Apri la cartella `bm/shots/`: l'immagine è lì, per esempio `PONG0001.PNG`.
+5. Apri la cartella `bm/shots/`: l'immagine è lì, per esempio `pong0001.png`.
 
 # Rete (UDP)
 
@@ -745,7 +745,7 @@ Per una cartuccia che mostra pagine web. Una richiesta gira in background: il gi
 - Una sola richiesta gira alla volta. I risultati di al massimo 3 richieste restano in memoria fino a `web_cancel` o alla fine della cartuccia.
 - `web_poll` lavora per circa 4 ms. Una nuova connessione TLS può richiedere circa 100 ms sul Pi Zero W, e il fotogramma aspetta. Mostra un messaggio "connecting" prima del primo `web_poll`.
 - Dopo una risposta completa il kernel tiene la connessione per la richiesta successiva allo stesso host (keep-alive). Le chiamate non cambiano.
-- Con `resume = "NAME.EXT"` una richiesta fallita o annullata conserva la parte ricevuta in `bm/web/NAME.PRT`. Il `web_get` successivo per lo stesso indirizzo con lo stesso nome chiede al server il resto (`Range`). Il server deve mandare `Accept-Ranges` e una dimensione. Il corpo è sempre il file intero: controlla la dimensione o un hash prima di usarlo.
+- Con `resume = "NAME.EXT"` una richiesta fallita o annullata conserva la parte ricevuta in `bm/web/name.prt`. Il `web_get` successivo per lo stesso indirizzo con lo stesso nome chiede al server il resto (`Range`). Il server deve mandare `Accept-Ranges` e una dimensione. Il corpo è sempre il file intero: controlla la dimensione o un hash prima di usarlo.
 - In bmhost `web_get` restituisce `nil` e un motivo. `image_load` e `file_write` funzionano.
 
 | Funzione | Che cosa fa |

@@ -101,23 +101,23 @@ int web_file_name(const char *path, char out[13], char *err, size_t en)
         const char c = *p;
         if (c == '.') {
             if (ext >= 0 || !base)
-                return fail(err, en, "a name like MODEL.GLB: 8 characters, a dot, 3 characters (no leading dot)");
+                return fail(err, en, "a name like model.glb: 8 characters, a dot, 3 characters (no leading dot)");
             ext = 0;
         } else if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' ||
                    c == '-') {
             if (ext >= 0 ? ++ext > 3 : ++base > 8)
-                return fail(err, en, "a name like MODEL.GLB: 8 characters, a dot, 3 characters");
+                return fail(err, en, "a name like model.glb: 8 characters, a dot, 3 characters");
         } else {
             return fail(err, en, "a file name has letters, digits, \"_\", \"-\" and one dot");
         }
-        out[n++] = (char)(c >= 'a' && c <= 'z' ? c - 32 : c);
+        out[n++] = (char)(c >= 'A' && c <= 'Z' ? c + 32 : c);
     }
     out[n] = 0;
     if (!base || ext == 0)
-        return fail(err, en, "a name like MODEL.GLB: 8 characters, a dot, 3 characters");
+        return fail(err, en, "a name like model.glb: 8 characters, a dot, 3 characters");
     if (ext > 0) {
         const char *e = strrchr(out, '.') + 1;
-        if (strcmp(e, "BM") == 0 || strcmp(e, "BME") == 0 || strcmp(e, "B16") == 0)
+        if (strcasecmp(e, "bm") == 0 || strcasecmp(e, "bme") == 0 || strcasecmp(e, "b16") == 0)
             return fail(err, en, "a cartridge cannot write .bm, .bme or .b16 files");
     }
     return 0;

@@ -771,7 +771,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
         run-serial test test-map3d test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
         test-fat test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
-        release disasm wav test-studio test-prompts test-docs test-api test-crumbs test-hyp test-zero2 \
+        release disasm wav test-studio test-prompts test-menu-bg test-docs test-api test-crumbs test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
         test-catalog test-github test-lan market-seed test-host test-qemu test-vid
 
@@ -904,7 +904,7 @@ release: $(BUILD)/kernel.img $(K7)
 
 # Copies what make sdcard prepared onto a mounted SD card (SD=/mnt/d by
 # default): the kernels, boot files, config.txt, cartridges and the chip
-# firmware in bm/. Settings and saves (bm/CONFIG.TXT, bm/SAVE) are
+# firmware in bm/. Settings and saves (bm/config.txt, bm/save) are
 # never touched. Uses sudo when the card is not writable (WSL).
 SD ?= /mnt/d
 # the console's folder before the project was renamed bm: moved to bm/
@@ -958,7 +958,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 HOST_TESTS := test-bm test-res test-compat test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-controls test-keymap test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
-	test-studio test-prompts test-docs test-api test-webp test-web test-webapi test-crumbs test-vid $(if $(K7),test-hyp)
+	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-webapi test-crumbs test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/herocart.bm
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
@@ -1338,6 +1338,14 @@ $(BUILD)/host/test_prompts: tests/ui/test_prompts.c src/kernel/prompts.c src/ker
 test-prompts: $(BUILD)/host/test_prompts
 	@mkdir -p $(BUILD)/prompts
 	$< $(BUILD)/prompts
+
+# The menu background, made a band of rows per frame (src/kernel/menu_bg.c)
+$(BUILD)/host/test_menu_bg: tests/ui/test_menu_bg.c src/kernel/menu_bg.c src/kernel/menu_bg.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ui/test_menu_bg.c src/kernel/menu_bg.c -lm
+
+test-menu-bg: $(BUILD)/host/test_menu_bg
+	$<
 
 # The crash record (src/kernel/crumbs.c): the old record is not written before crumbs_boot()
 test-crumbs: $(BUILD)/host/test_crumbs

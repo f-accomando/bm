@@ -437,9 +437,9 @@ local function new_env(arg, o)
   E.cart_build = function(path, kind)
     if not path:upper():match("%.BME$") then return false, path .. ": only a project (.bme) is built" end
     local dir, base = path:match("^(.*)/([^/.]+)%.[^.]*$")
-    local ext = kind == "b16" and ".B16" or ".BM"
+    local ext = kind == "b16" and ".b16" or ".bm"
     if dir == "/bme" then dir = "/bm" end                 -- a project in /bme builds into the games folder (RGB30: /bm)
-    local game = dir .. "/" .. base:upper() .. ext       -- bm_build / bm_build_b16: its 8.3 name
+    local game = dir .. "/" .. base:lower() .. ext       -- bm_build / bm_build_b16: its 8.3 name
     local d = assert(read_file(host(path)))
     local f = assert(io.open(host(game), "wb")); f:write(d); f:close()
     add_file(game)
@@ -584,7 +584,7 @@ local function new_env(arg, o)
   -- cart_save as the runtime's for a tool (write_target): any file but a
   -- game, a project of an earlier run too; a game (.bm, .b16) is read only:
   -- the console asks (yes here) and writes its editable copy next to it
-  -- (bm_copy_name: NAME.BME, NAME1.BME...), a new one becomes its project;
+  -- (bm_copy_name: name.bme, name1.bme...), a new one becomes its project;
   -- true and the file written when it is not the one asked
   E.cart_save = function(path, t)
     assert(type(t.lua) == "string", "cart_save: the code")
@@ -593,10 +593,10 @@ local function new_env(arg, o)
     if up:match("%.BM$") or up:match("%.B16$") then
       local dir, base = path:match("^(.*)/([^/.]+)%.[^.]*$")
       if exists(path) then
-        local stem = base:upper():sub(1, 8)
+        local stem = base:lower():sub(1, 8)
         path = nil
         for k = 0, 9 do
-          local p = "/bme/" .. (k == 0 and stem or stem:sub(1, 7) .. k) .. ".BME"
+          local p = "/bme/" .. (k == 0 and stem or stem:sub(1, 7) .. k) .. ".bme"
           if not exists(p) then path = p; break end
         end
         if not path then
@@ -605,7 +605,7 @@ local function new_env(arg, o)
         end
         copies = copies + 1
       else
-        path = "/bme/" .. base:upper():sub(1, 8) .. ".BME"
+        path = "/bme/" .. base:lower():sub(1, 8) .. ".bme"
       end
     end
     local px = {}
@@ -950,7 +950,7 @@ do
   key("\n")
   audio_files["/BME/TB.BME"] = orig
   local n0 = audio_puts
-  open_sounds({ path = "/bme/TB.BME", back = false })
+  open_sounds({ path = "/bme/tb.bme", back = false })
   check(sees("TEST") and settled():find("SINE", 1, true), "the file's bank: sound 0 TEST, SINE: " .. status())
   key("^s")
   frames(2)
@@ -968,7 +968,7 @@ do
 
   -- a bank the SDK cannot read: the page says so and nothing is written over it
   audio_files["/BME/TB.BME"] = "BMAUxxxxxxxxxxxxxxxxxxxx"
-  open_sounds({ path = "/bme/TB.BME", back = false })
+  open_sounds({ path = "/bme/tb.bme", back = false })
   check(sees("cannot be read"), "a broken bank: the page says so")
   press("right"); press("ok")
   key("^s")
@@ -1242,7 +1242,7 @@ for i, nm in ipairs(names) do
   press("ok")
   press("start")
   frames(2)
-  check(last_save and last_save.path == "/bme/" .. i .. ".BME", nm .. ": saved as " .. i .. ".BME: " ..
+  check(last_save and last_save.path == "/bme/" .. i .. ".bme", nm .. ": saved as " .. i .. ".bme: " ..
         tostring(last_save and last_save.path))
   if last_save then play_template(last_save.t.lua, nm) end
   if nm == "Stages 2D" and last_save then stages_flow(last_save.t.lua) end
@@ -1252,42 +1252,42 @@ end
 -- writes its project where it is: no new name, the runtime never refuses)
 run_sdk(nil)                                     -- (the last project comes back: saved())
 frames(3)
-check(sees("9.BME") or sees("Stages 2D"), "the last project (9.BME, Stages 2D) opens by itself: " .. tabs())
+check(sees("9.bme") or sees("Stages 2D"), "the last project (9.BME, Stages 2D) opens by itself: " .. tabs())
 key("^S")
 check(sees("file name"), "Ctrl+Shift+S: Save as")
 for _ = 1, 12 do key("\b") end
 for c in ("KEEP"):gmatch(".") do key(c) end
 key("\n")
-check(last_save.path == "/bme/KEEP.BME", "saved as KEEP.BME: " .. last_save.path)
+check(last_save.path == "/bme/keep.bme", "saved as KEEP.BME: " .. last_save.path)
 key("f2", "-")
 key("^s")
-check(last_save.path == "/bme/KEEP.BME" and refused == 0, "Ctrl+S again in the same run: the same file")
+check(last_save.path == "/bme/keep.bme" and refused == 0, "Ctrl+S again in the same run: the same file")
 run_sdk(nil)
 frames(3)
-check(sees("KEEP.BME") or tabs():find("KEEP", 1, true), "a new run: KEEP.BME again: " .. tabs())
+check(sees("keep.bme") or tabs():find("KEEP", 1, true), "a new run: KEEP.BME again: " .. tabs())
 local n_saves = saves
 key("f2", "-")
 key("^s")
 frames(2)
-check(not sees("file name") and saves == n_saves + 1 and last_save.path == "/bme/KEEP.BME",
+check(not sees("file name") and saves == n_saves + 1 and last_save.path == "/bme/keep.bme",
       "a new run: Ctrl+S writes KEEP.BME again, no new name: " .. last_save.path)
 check(refused == 0 and copies == 0, "the runtime never refused a save, no copy of a project (" .. refused .. ")")
 
 -- the build and the try: the project's game next to it (the Games tab
 -- lists the game: the message says so); F5 leaves for the console to play it
 key("^b")
-check(built == "/bm/KEEP.BM", "Ctrl+B builds the game: " .. tostring(built))
-check(status():find("built /bm/KEEP.BM", 1, true) and status():find("it is in Games", 1, true),
+check(built == "/bm/keep.bm", "Ctrl+B builds the game: " .. tostring(built))
+check(status():find("built /bm/keep.bm", 1, true) and status():find("it is in Games", 1, true),
       "Ctrl+B says where the game is: " .. status())
 key("^B")
-check(built == "/bm/KEEP.B16", "Ctrl+Shift+B exports .b16: " .. tostring(built))
+check(built == "/bm/keep.b16", "Ctrl+Shift+B exports .b16: " .. tostring(built))
 check(not quitted and not ran, "building does not leave the SDK")
 key("f5")
-check(ran == "/bme/KEEP.BME" and quitted, "F5 tries the project (the SDK leaves for it): " .. tostring(ran))
+check(ran == "/bme/keep.bme" and quitted, "F5 tries the project (the SDK leaves for it): " .. tostring(ran))
 
 -- the suite's other programs are not in the RGB30's kernel: not offered,
 -- and their keys say so with no cart_tool (it would end the session)
-run_sdk({ path = "/bme/KEEP.BME", back = false })
+run_sdk({ path = "/bme/keep.bme", back = false })
 frames(3)
 check(not sees("open in") and not sees("OPEN IN"), "no row of the suite's programs")
 key("1")
@@ -1300,7 +1300,7 @@ check(not tooled and not quitted and status():find("bm Studio is on the Pi", 1, 
 press("x")
 check(sees("The code to draw it") and not sees("Open in bm Studio"), "the 3D actions: no other program")
 press("back")
-run_sdk({ path = "/bme/KEEP.BME" }, { ai = true })
+run_sdk({ path = "/bme/keep.bme" }, { ai = true })
 frames(3)
 key("f4", "f6")
 frames(2)
@@ -1334,11 +1334,11 @@ press("back")
 key("f6")
 check(status():find("assistant is not on this console", 1, true), "F6 on the RGB30: no assistant: " .. status())
 key("^s")
-check(copies == 1 and last_save.path == "/bme/VILLAGE.BME", "Ctrl+S: the editable copy next to the game: " ..
+check(copies == 1 and last_save.path == "/bme/village.bme", "Ctrl+S: the editable copy next to the game: " ..
       last_save.path)
-check(status():find("saved /bme/VILLAGE.BME", 1, true), "the SDK goes on with the copy: " .. status())
+check(status():find("saved /bme/village.bme", 1, true), "the SDK goes on with the copy: " .. status())
 key("^b")
-check(built == "/bm/VILLAGE.BM" and status():find("it is in Games", 1, true), "Ctrl+B: the game in bm/: " .. status())
+check(built == "/bm/village.bm" and status():find("it is in Games", 1, true), "Ctrl+B: the game in bm/: " .. status())
 check(refused == 0, "the runtime never refused a save (" .. refused .. ")")
 
 -- the keyboard: the same pages with its keys, the hints with keys
@@ -1403,7 +1403,7 @@ check(sees("math.random") and sees("things a .b16 will not have"), "the dev kit:
 
 -- back from a try (a tool session): the numbers on the project page and in
 -- the dev kit; an error: the code page on its line
-run_sdk({ path = "/bme/KEEP.BME", back = true, run = { frames = 600, secs = 10, fps = 59.9, ms = 6.1, ms_max = 7.5,
+run_sdk({ path = "/bme/keep.bme", back = true, run = { frames = 600, secs = 10, fps = 59.9, ms = 6.1, ms_max = 7.5,
                                                          slow = 0, lua_kb = 120, lua_peak_kb = 180, data_kb = 330,
                                                          instr_max = 12000, tokens = 321, tris = 40, gpu = false } })
 tag = "after a try"
@@ -1415,7 +1415,7 @@ check(sees("LAST TRY") and sees("59.9 fps"), "the hub: the last try")
 with("y", "down")
 frames(2)
 check(sees("59.9 fps") and sees("RAM 510k"), "the dev kit: the last try")
-run_sdk({ path = "/bme/KEEP.BME", back = true, error = "main.lua:3: attempt to call a nil value (global 'boom')" })
+run_sdk({ path = "/bme/keep.bme", back = true, error = "main.lua:3: attempt to call a nil value (global 'boom')" })
 tag = "error"
 frames(2)
 check(status():find("the game stopped", 1, true), "back from an error: " .. status())

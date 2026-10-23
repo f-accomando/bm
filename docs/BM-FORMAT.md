@@ -30,7 +30,7 @@ All numbers are little endian.
 | 20 | u32 | CRC-32 | of the bytes from 128 to the end of the file. The **header is not covered** |
 | 24 | 48 | title | UTF-8, up to 47 bytes + NUL; shown by the menu |
 | 72 | 32 | author | up to 31 bytes + NUL |
-| 104 | 16 | built from | 8.3 name of the project a game was built from (`project.h`); `bm.h` still says "reserved" |
+| 104 | 16 | built from | 8.3 name of the project a game was built from, in lowercase (`project.h`; compared in any case, older games have capitals); `bm.h` still says "reserved" |
 | 120 | 8 | compatibility block | Valid only when flag bit 4 is set. All zero in an old file. See the next section |
 
 The title and author are also the key of the saves (`/bm/save/<CRC32(title, author)>.SAV`).

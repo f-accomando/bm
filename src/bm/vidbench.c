@@ -32,7 +32,7 @@ static void ms2(const char *label, uint32_t us)
 
 static void name_of(char *name, int i)
 {
-    ksnprintf(name, 13, "VB%03d.TMP", i);
+    ksnprintf(name, 13, "vb%03d.tmp", i);
 }
 
 static void remove_files(int n)

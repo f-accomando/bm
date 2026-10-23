@@ -18,7 +18,7 @@ void sdlog_prev(void)
     fat_entry_t e;
     uint8_t *old = NULL;
     size_t n = 0;
-    if (fat_find("/bm/BOOTLOG.TXT", &e) == 0 && fat_load(&e, &old, &n) != 0) {
+    if (fat_find("/bm/bootlog.txt", &e) == 0 && fat_load(&e, &old, &n) != 0) {
         old = NULL;
         n = 0;
     }
@@ -51,7 +51,7 @@ void sdlog_prev(void)
         len += (size_t)ksnprintf(buf + len, 32, "(nothing in RAM)\n");
     }
     reports_mask_secrets(buf, len);
-    if (fat_mkdirs("/bm") != 0 || fat_write_file("/bm", "BOOTPREV.TXT", buf, len) != 0)
+    if (fat_mkdirs("/bm") != 0 || fat_write_file("/bm", "bootprev.txt", buf, len) != 0)
         kprintf("boot log: cannot write bm/bootprev.txt (%s)\n", fat_error());
     free(buf);
 }
@@ -69,7 +69,7 @@ void sdlog_boot(int say)
     }
     memcpy(copy, log, n + 1);
     reports_mask_secrets(copy, n);
-    if (fat_mkdirs("/bm") == 0 && fat_write_file("/bm", "BOOTLOG.TXT", copy, n) == 0) {
+    if (fat_mkdirs("/bm") == 0 && fat_write_file("/bm", "bootlog.txt", copy, n) == 0) {
         if (say)
             kprintf("boot log saved to bm/bootlog.txt\n");
     } else {
@@ -106,7 +106,7 @@ void sdlog_lastrun(void)
         return;
     }
     reports_mask_secrets(buf, n);
-    if (fat_mkdirs("/bm") != 0 || fat_write_file("/bm", "LASTRUN.TXT", buf, n) != 0)
+    if (fat_mkdirs("/bm") != 0 || fat_write_file("/bm", "lastrun.txt", buf, n) != 0)
         kprintf("cannot write bm/lastrun.txt (%s)\n", fat_error());
     free(buf);
 }

@@ -749,7 +749,7 @@ check(#cur_models() == 8, "deleted again")
 menu_pick("Save as", EXIT_S)
 check(sees("file name"), "Save as asks a name")
 type_text("COPY3D")
-check(status():find("saved /bme/COPY3D.BME", 1, true), "saved: " .. status())
+check(status():find("saved /bme/copy3d.bme", 1, true), "saved: " .. status())
 local copy = read_file(SD .. "/bme/copy3d.bme")
 local got = {}
 for _, s in ipairs(sections_of(copy)) do got[s[1]] = s[2] end
@@ -903,7 +903,7 @@ check(#cur_models() == 1, "deleted again")
 -- save, then open it again
 menu_pick("Save as", EXIT_S)
 type_text("BLOCKS")
-check(status():find("saved /bme/BLOCKS.BME", 1, true), "saved: " .. status())
+check(status():find("saved /bme/blocks.bme", 1, true), "saved: " .. status())
 local blocks = read_file(SD .. "/bme/blocks.bme")
 check(blocks and blocks:sub(25, 38) == "New 3D project", "the title of a new project")
 local b8 = sec[8]

@@ -149,6 +149,7 @@ La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in
 | M | copia la scelta dall'altra parte dello 0 |
 | X (Maiusc+X) | specchio dal vivo acceso o spento |
 | Ctrl+R | taglio ad anello attraverso lo spigolo scelto |
+| Maiusc+J | coltello: taglia un triangolo tra i punti di mezzo di due spigoli scelti |
 | j | crea una faccia su 3 o 4 vertici scelti |
 | k | fonde i vertici scelti in uno |
 | K | salda i vertici nello stesso punto |
@@ -226,13 +227,17 @@ Premi **g** per spostare, **r** per ruotare, **t** per scalare la scelta (si muo
 
 ## Spigoli e taglio ad anello
 
-In modalità spigoli una scelta è un insieme di spigoli. Gli spigoli scelti si vedono come linee spesse. Sposta, ruota e scala agiscono sui due estremi di ogni spigolo scelto. **x** e **d** agiscono sulle facce di cui tutti gli angoli sono scelti. **Canc** toglie i triangoli accanto agli spigoli scelti, e i vertici che nessun triangolo usa più. Con lo specchio dal vivo acceso, scegliere uno spigolo sceglie anche il suo corrispondente dall'altra parte di X = 0, e sposta, ruota, scala e cancella agiscono su entrambi. Il taglio ad anello non agisce sull'altro lato.
+In modalità spigoli una scelta è un insieme di spigoli. Gli spigoli scelti si vedono come linee spesse. Sposta, ruota e scala agiscono sui due estremi di ogni spigolo scelto. **x** e **d** agiscono sulle facce di cui tutti gli angoli sono scelti. **Canc** toglie i triangoli accanto agli spigoli scelti, e i vertici che nessun triangolo usa più. Con lo specchio dal vivo acceso, scegliere uno spigolo sceglie anche il suo corrispondente dall'altra parte di X = 0, e sposta, ruota, scala e cancella agiscono su entrambi. +'+altro lato.'altro lato.
 
 **Ctrl+R** fa un taglio ad anello. Scegli prima uno spigolo (in modalità vertici bastano due vertici che formano uno spigolo). L'editor parte dallo spigolo e attraversa i quadrati intorno al modello. Un quadrato è fatto di due triangoli che guardano dalla stessa parte (l'angolo tra le loro normali è minore di 60 gradi) e che hanno una diagonale in comune. In ogni quadrato attraversa lo spigolo e quello opposto, e continua da quello opposto. Mette un vertice nuovo a metà di ogni spigolo attraversato e taglia ogni quadrato in quattro triangoli. Un vertice nuovo prende l'osso dell'estremo più basso del suo spigolo e la media dei punti della texture (UV). Un triangolo nuovo prende il colore della vecchia faccia che contiene più dei suoi angoli.
 
 L'anello si ferma in due casi. A un bordo aperto (uno spigolo con un solo triangolo) non c'è nulla da attraversare. A un triangolo che non fa parte di un quadrato, il triangolo viene tagliato in due, dal vertice nuovo all'angolo opposto, così non resta nessun buco. L'anello è chiuso se torna al primo spigolo. Se l'anello si attraversasse da solo, o uno spigolo avesse più di due triangoli, non cambia nulla e un messaggio dice il perché.
 
 Alla fine i vertici nuovi sono la scelta (in modalità spigoli, i nuovi spigoli attraverso i quadrati), quindi puoi spostare o scalare l'anello subito. Un solo annulla riporta indietro tutto il taglio. Con il gamepad tocca X e scegli **Loop cut on the chosen edge**.
+
+**Maiusc+J** è il coltello. Usalo in modalità spigoli. Scegli due spigoli di un triangolo (due spigoli che si incontrano in un angolo del triangolo). L'editor mette un vertice nuovo a metà di ogni spigolo e taglia il triangolo in modo che un nuovo spigolo unisca i due vertici nuovi. Anche il triangolo dall'altra parte di ognuno dei due spigoli viene tagliato in due, dal vertice nuovo all'angolo opposto, così non compare nessuna fessura. Un vertice nuovo prende l'osso dell'estremo più basso del suo spigolo e la media dei punti della texture (UV). Un triangolo nuovo tiene il colore della sua vecchia faccia. I due vertici nuovi sono la scelta (in modalità spigoli, il nuovo spigolo), e un solo annulla riporta indietro tutto il taglio.
+
+Il coltello non fa nulla, e un messaggio dice il perchè, in questi casi: non hai scelto esattamente due spigoli, i due spigoli non sono spigoli di uno stesso triangolo, oppure uno spigolo ha più di due triangoli. Il coltello cambia la forma della maglia, quindi lo specchio dal vivo non lo copia sull'altro lato. Con lo specchio dal vivo acceso, scegliere uno spigolo sceglie anche il suo corrispondente, quindi spegni lo specchio (Maiusc+X) prima di scegliere i due spigoli. Con il gamepad tocca X e scegli **Knife on two edges of a triangle**.
 
 ## La vista
 
