@@ -78,6 +78,8 @@ Friday evening (done 23 Oct, early):
 13. Multitasking per workload (SYS-10): phase 1 is the measurement list in `docs/design/multitasking-report.md` section 8 (benchmarks only, no live game). Order of phases: 1 measure, 2 SD card, 3 downloads, 4 covers and app start, 5 games, 6 RGB30 core. Start with phase 1 and the stall attribution line. The pointer jump over covers is explained in section 7 of the report; another runner fixes it in menu code.
 14. SYS-9b: game-side graphics options and an optional start benchmark that picks values (not built). Decide first if `gpu3d_2d` goes on by default: the Pi measured +6.7% (`gpu2d` test) and 3569+ sprites against 2574 on the ARM; check one played game on the Pi, then flip it in `runtime.c` and the manual table. Sheet: `docs/progress/v3d-flags.md`.
 
+15. RGB30 HDMI and multiplayer (queued 23 Oct by the user): SYS-12 HDMI output (panel off, HDMI on), SYS-13 Bluetooth keyboard and mouse for the SDK apps, SYS-14 more Bluetooth pads, split and shared screen. Start with a study of the RK3566 HDMI path (SYS-12); it needs the user's hardware. See `docs/ROADMAP.md`.
+
 ## Open issues
 - The Pi froze once on `b3d tests=herotris` with all profiles in one line (8 profiles in one run). The user power-cycled the Pi. The same profiles run one at a time did not freeze. Cause unknown, no fix. Command: `b3d tests=herotris` (no profile named, so all 8 profiles in one line). To reproduce, run it again and note the profile that is running at the freeze.
 
