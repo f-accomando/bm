@@ -74,7 +74,7 @@ SLOW = {
     "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
     "test_code_editor": 23, "test_code_modules": 45, "test_update": 22, "test_room_bench": 22, "test_video_bench": 30, "test_video_player": 25, "test_video_rec": 60, "test_video_rec_rle": 60, "test_video_rec_drops": 40, "test_stack_bench": 30, "test_bench_stop": 35, "test_bm_boot_demo": 22,
-    "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100, "test_projects": 45, "test_editor_mouse": 40,
+    "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100, "test_projects": 45, "test_sd_games_bm": 15, "test_editor_mouse": 40,
 }
 
 
@@ -1050,6 +1050,25 @@ def test_sd_cartridges(b, opts):
         q.send("q")
         q.expect("back to the monitor", timeout=10)
         q.expect("> ")
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_sd_games_bm(b, opts):
+    """The Pi menu scans /bm as well as /carts (a card made for the RGB30, or
+    a game copied to /bm): both folders list their games."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdbm-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/pong.bm"), "carts/pong.bm"),
+                     (b("demo.bm"), "bm/rgbgame.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        out = q.boot().decode(errors="replace")
+        assert "label BMSD; 2 cartridges" in out, out
+        q.send("f")
+        out = q.expect("> ").decode(errors="replace")
+        assert "/carts/pong.bm" in out and "/bm/rgbgame.bm" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)

@@ -63,7 +63,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 ## Tools and SDK
 
 - SYS-1 - P0 - in progress - CI green on `bm-core`. All `ci.yml` jobs (host, qemu 1-4, rgb30) are green and `scripts/ci_audit.py` exits 0. [tools](progress/tools.md)
-- M47 - P1 - in progress - Editable `.bme` projects, read-only `.bm`. The tools open a `.bm` read-only and ask for the `.bme` copy. `Ctrl+B` generates the `.bm` in Games. Projects are written in `/bme` (done); left: the hardware check of `/bme` on the Pi and RGB30, the `/carts` retirement, the Pi menu scan of `/bm`. [tools](progress/tools.md), [lua](progress/lua.md)
+- M47 - P1 - in progress - Editable `.bme` projects, read-only `.bm`. The tools open a `.bm` read-only and ask for the `.bme` copy. `Ctrl+B` generates the `.bm` in Games. Projects are written in `/bme` (done); the Pi menu and the Lib tab scan `/bm` (done); left: the hardware check of `/bme` on the Pi and RGB30, the `/carts` retirement (the games folder of the Pi, the Ctrl+B Pi path decision). [tools](progress/tools.md), [lua](progress/lua.md)
 - R15, R16, R26 - P3 - idea - Live reload from the PC, bm Code templates, mouse in nano8. [tools](progress/tools.md), [suite-code](design/suite-code.md)
 
 ## Editors and apps

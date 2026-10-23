@@ -287,6 +287,7 @@ static void scan_main(void *arg)
     scan_dir("/bm/lib", 1);
     scan_dir("/bm/sounds", 0);
     scan_dir("/carts", 0);
+    scan_dir("/bm", 0);
     scan_dir("/", 0);
     scan_total = nsources;
     /* the headers: kind, title, author (the files that are not ours go) */
