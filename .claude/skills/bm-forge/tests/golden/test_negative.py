@@ -367,7 +367,7 @@ class AnimNegative(unittest.TestCase):
         self.bad_rig(r)
 
     def test_clip_fields(self):
-        for attr, val in (("mode", 3), ("length", 0.0), ("length", 1e6), ("flags", 256)):
+        for attr, val in (("mode", 5), ("length", 0.0), ("length", 1e6), ("flags", 256)):
             with self.subTest(attr=attr, val=val):
                 r = rig_for()
                 setattr(r.clips[0], attr, val)

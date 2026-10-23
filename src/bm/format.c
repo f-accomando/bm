@@ -274,7 +274,7 @@ static uint32_t rig_walk(const uint8_t *p, uint32_t room, int deep)
         const uint8_t *h = p + off;
         unsigned nk = rd16(h + BM_MODEL_NAME), mode = h[BM_MODEL_NAME + 2];
         float length = rdf32(h + BM_MODEL_NAME + 4);
-        if (!nk || nk > BM_KEYS_MAX || mode > 2 || !(length > 0 && length < 1e6f))
+        if (!nk || nk > BM_KEYS_MAX || mode > 4 || !(length > 0 && length < 1e6f))
             return 0;
         off += CLIP_HEAD;
         if ((uint64_t)off + (uint64_t)nk * keysize > room)

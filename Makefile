@@ -594,6 +594,13 @@ test-gameapi: $(BUILD)/host/bmhost-bin $(BUILD)/gameapi-test.bm tests/gameapi/in
 	    | tee $(BUILD)/gameapi-test.log | grep "^gameapi"
 	grep -q "^gameapi: \([0-9]*\)/\1 checks passed" $(BUILD)/gameapi-test.log
 
+# Clip modes (APP-30): the kernel's pose_at through animate() and bone3d(), one clip a mode
+$(BUILD)/anim-ease.bm: tests/anim_ease_cart.py tests/anim_ease.lua tests/studio/anim_figure.py scripts/mkbm.py
+	$(PYTHON) tests/anim_ease_cart.py $@
+test-anim-ease: $(BUILD)/host/bmhost-bin $(BUILD)/anim-ease.bm
+	$< $(BUILD)/anim-ease.bm --seconds 2 2>&1 | tee $(BUILD)/anim-ease.log | grep "^anim-ease"
+	grep -q "^anim-ease: \([0-9]*\)/\1 checks passed" $(BUILD)/anim-ease.log
+
 # Stages 3D (W03): the three stages played in bmhost with tests/stages3d/input.txt, then
 # the finale and the record (saved and read back); check.py reads the log
 test-stages3d: $(BUILD)/host/bmhost-bin $(BUILD)/carts/stages3d.bm tests/stages3d/input.txt tests/stages3d/check.py
@@ -802,7 +809,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
         test-fat test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-prompts test-menu-bg test-docs test-api test-crumbs test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map \
-        test-catalog test-github test-lan market-seed test-host test-qemu test-vid
+        test-catalog test-github test-lan market-seed test-host test-anim-ease test-qemu test-vid
 
 all: $(BUILD)/kernel.img $(K7) $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -985,7 +992,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 # test-nano8 stays a target to run by hand; it is not in the CI list
 HOST_TESTS := test-bm test-res test-compat test-lint test-usb test-fat test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
+      test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-anim-ease test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-impostor test-cel test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
 	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-webapi test-crumbs test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)

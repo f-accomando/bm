@@ -2438,6 +2438,8 @@ static void pose_at(int nb, const bm_clip_t *c, float t, float (*q)[4], float (*
     float u = tb > ta ? (t - ta) / (tb - ta) : 0;
     if (c->mode == 2) u = 0;                         /* step */
     else if (c->mode == 1) u = u * u * (3 - 2 * u);  /* smooth */
+    else if (c->mode == 3) u = u * u;                /* ease-in: slow start */
+    else if (c->mode == 4) u = u * (2 - u);          /* ease-out: 1 - (1-u)^2, slow end */
     bm_clip_key(c, nb, ka, q, tr);
     bm_clip_key(c, nb, kb, key_q, key_tr);
     for (int i = 0; i < nb; i++) {

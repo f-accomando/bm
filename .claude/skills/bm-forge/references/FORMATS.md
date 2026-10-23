@@ -170,7 +170,7 @@ Then:
   (|v| < 1e9) (`src/bm/format.c:241,260-262,359-373`).
 - **nverts x u8**: bone index of each vertex (`< bones`), zero padded to a multiple of 4
   (`src/bm/format.c:266-269`).
-- **clips**: head 24 B: `char[16] name; u16 keys (1..1024); u8 mode (0 linear, 1 smooth, 2 step);
+- **clips**: head 24 B: `char[16] name; u16 keys (1..1024); u8 mode (0 linear, 1 smooth, 2 step, 3 ease-in, 4 ease-out);
   u8 flags (bit 0 loop); f32 length (s, 0 < length < 1e6)` (`src/bm/format.c:239,275-278,375-395`).
   Then `keys x (4 + bones*28)`: `f32 time` (non decreasing, `<= length + 1e-4`), then per bone
   `f32 q[4]` (x,y,z,w, rotation relative to parent) + `f32 t[3]` (translation) (`src/bm/format.c:286-296,397-407`).
@@ -181,7 +181,7 @@ Linking: a rig is applied only if a MESH model has the same name and `rig.nverts
 
 Semantics (playback, `src/bm/runtime.c:2230-2321`): loop -> `t mod length`, else clamp; interpolation
 between bracketing keys, wrap from last key to first in loops; `u` = linear, smoothstep
-`u*u*(3-2u)` (mode 1) or 0 (step); quaternion slerp (shortest way) + linear translation; bone matrix
+`u*u*(3-2u)` (mode 1), 0 (step), `u*u` (3 ease-in) or `u*(2-u)` (4 ease-out); quaternion slerp (shortest way) + linear translation; bone matrix
 `M = M_parent * T(head + t) * R(q) * T(-head)` (`src/bm/bm.h:75-76`, `src/bm/runtime.c:2273,2296-2317`).
 Rigid skinning, one bone per vertex (`src/bm/runtime.c:2319-2320`). The same maths in
 `carts/animator/main.lua:772-812` (CLAUDE.md invariant; checked by hand in phase 1b, port

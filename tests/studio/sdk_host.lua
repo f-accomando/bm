@@ -148,7 +148,7 @@ local function anim_rigs(bin)
     local p = pos + 24 + nb * 44 + ((nv + 3) & ~3)
     for c = 1, nc do
       local nk, mode, flags, length = string.unpack("<I2BBf", bin, p + 16)
-      assert(nk >= 1 and mode <= 2 and length > 0, "ANIM: a bad clip")
+      assert(nk >= 1 and mode <= 4 and length > 0, "ANIM: a bad clip")
       local prev, keys = 0, {}
       for k = 0, nk - 1 do
         local t = string.unpack("<f", bin, p + 24 + k * (4 + nb * 28))

@@ -96,6 +96,10 @@ def pose_at(clip, t, nbones):
         u = 0.0
     elif clip.mode == 1:
         u = u * u * (3 - 2 * u)
+    elif clip.mode == 3:
+        u = u * u
+    elif clip.mode == 4:
+        u = u * (2 - u)
     qa, ta_ = _key(clip, ka)
     qb, tb_ = _key(clip, kb)
     q = [quat_slerp(qa[i], qb[i], u) for i in range(nbones)]

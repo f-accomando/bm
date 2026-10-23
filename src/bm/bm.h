@@ -75,7 +75,7 @@
  *              vertices x u8: the bone each vertex of the model follows,
  *              zero padded to a multiple of 4,
  *              clips x { char[16] name; u16 keys (1..1024); u8 mode (0
- *                        linear, 1 smooth, 2 step); u8 flags (bit 0: loop);
+ *                        linear, 1 smooth, 2 step, 3 ease-in, 4 ease-out); u8 flags (bit 0: loop);
  *                        f32 length (seconds); keys x { f32 time (rising,
  *                        0..length); bones x { f32 q[4] (x, y, z, w: the
  *                        turn, relative to the parent), f32 t[3] (a move) } } }.

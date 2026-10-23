@@ -148,7 +148,7 @@ local function anim_rigs(bin)
     local p = pos + 24 + nb * 44 + ((nv + 3) & ~3)
     for c = 1, nc do
       local nk, mode, flags, length = string.unpack("<I2BBf", bin, p + 16)
-      assert(nk >= 1 and mode <= 2 and length > 0, "ANIM: a bad clip")
+      assert(nk >= 1 and mode <= 4 and length > 0, "ANIM: a bad clip")
       local prev, keys, poses = 0, {}, {}
       for k = 0, nk - 1 do
         local kp = p + 24 + k * (4 + nb * 28)
@@ -557,7 +557,8 @@ local function new_env(arg_path)
       return bmui
     end
     assert(name == "bm3d", "require: only bm3d, bmui and assist here")
-    return assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
+    BM3D = assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
+    return BM3D
   end
 end
 
@@ -1113,12 +1114,39 @@ type_text("walk")
 check(rig1().clips[2].name == "walk", "Enter: renamed walk")
 key("i")
 check(rig1().clips[2].mode == 2, "i: step")
+-- the five modes in a stable order: linear, smooth, step, ease-in, ease-out, then linear again
+key("i")
+check(rig1().clips[2].mode == 3 and sees("ease-in"), "i: ease-in (3), named on the page")
+key("i")
+check(rig1().clips[2].mode == 4 and sees("ease-out"), "i: ease-out (4), named on the page")
+key("i")
+check(rig1().clips[2].mode == 0 and sees("linear"), "i: linear again (0)")
+key("i")
+check(rig1().clips[2].mode == 1 and sees("smooth"), "i: smooth (1)")
+key("i")
+check(rig1().clips[2].mode == 2, "i: step again (2)")
+key("i", "i")
+check(rig1().clips[2].mode == 4, "mode 4 is saved in the clip bytes")
+do  -- the pure curves at u = 0, 0.25, 0.5, 1 and the names (the animate page and the kernel use the same formulas)
+  local want = { [0] = { 0, 0.25, 0.5, 1 }, { 0, 0.15625, 0.5, 1 }, { 0, 0, 0, 0 }, { 0, 0.0625, 0.25, 1 }, { 0, 0.4375, 0.75, 1 } }
+  local us, ok = { 0, 0.25, 0.5, 1 }, true
+  for mode = 0, 4 do
+    for i, u in ipairs(us) do
+      if math.abs(BM3D.ease(mode, u) - want[mode][i]) > 1e-9 then ok = false end
+    end
+  end
+  check(ok and BM3D.MODES[3] == "ease-in" and BM3D.MODES[4] == "ease-out", "ease: 5 modes, values at 0, 0.25, 0.5, 1")
+end
+key("i")                                 -- 0
+key("i", "i")                            -- 2
 key("m")
 check(sees("pose mirrored"), "m: the pose mirrored")
 key("\b")
 check(sees("Backspace again"), "Backspace asks first")
 key("\b")
 check(#rig1().clips == 1 and rig1().clips[1].name == "anim1", "Backspace twice: walk deleted")
+key("i", "i")
+check(rig1().clips[1].mode == 3, "i i: anim1 is ease-in (3), to be saved")
 
 -- the sprites of it, into the sheet
 key("f4")
@@ -1185,6 +1213,14 @@ key("^s")
 check(status():find("saved /bme/blocks.bme", 1, true), "Ctrl+S: " .. status())
 key("f1")
 check(sees("anim1"), "the player: the new animation")
+-- the model saved with mode 3 reloads as 3
+key("f3")
+menu_pick("Open...", EXIT_A)
+open_file("blocks.bme")
+check(rig1().clips[1].mode == 3, "reopened: the saved clip is mode " .. tostring(rig1().clips[1].mode) .. ", 3 wanted")
+key("f3")
+check(sees("ease-in"), "reopened: the animate page names the mode, ease-in")
+key("f1")                             -- the player, as before
 
 -- the pad: Y + B the menu, B back
 pad[7] = true; frames(2); pad[5] = true; frames(2); pad = {}; frames(3)

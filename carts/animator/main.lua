@@ -897,11 +897,7 @@ do
 local an = { clip = 1, t = 0, playing = false, move = false, copied = nil, onion = false, bone = 1,
              cam = { yaw = 0.5, pitch = -0.3, dist = 4, tx = 0, ty = 1, tz = 0 } }
 
-local function ease(mode, u)
-  if mode == 2 then return 0 end
-  if mode == 1 then return u * u * (3 - 2 * u) end
-  return u
-end
+local ease = T.ease
 
 -- the pose of a clip at time t (as the kernel's animate() in runtime.c)
 local function sample(r, c, t)
@@ -974,7 +970,7 @@ anim_page = {
     { "( / )", "move the keyframe a frame earlier / later" },
     { "ctrl c / ctrl v", "copy / paste the pose" },
     { "r / m", "rest bone / mirror the pose" },
-    { "l / i", "loop / ease (linear, smooth, step)" },
+    { "l / i", "loop / ease (linear, smooth, step, ease-in, ease-out)" },
     { "< / >", "shorter / longer" },
     { "o", "onion: the poses before and after" },
     { "n / ctrl d", "new / duplicate animation" },
@@ -1261,7 +1257,7 @@ function anim_page.key(k)
     set_pose(c, pose)
   elseif k == "o" then an.onion = not an.onion
   elseif k == "l" then T.begin_edit(); c.loop = not c.loop; T.commit_anim()
-  elseif k == "i" then T.begin_edit(); c.mode = (c.mode + 1) % 3; T.commit_anim()
+  elseif k == "i" then T.begin_edit(); c.mode = (c.mode + 1) % 5; T.commit_anim()
   elseif k == ">" then T.begin_edit(); c.length = snap_t(c.length) + 1 / FPS; T.commit_anim()
   elseif k == "<" then
     local last = c.keys[#c.keys].t

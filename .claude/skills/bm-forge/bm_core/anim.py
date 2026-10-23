@@ -21,7 +21,7 @@ POSE_SIZE = 28          # bm.h:183
 HEAD = 8                # u16 rigs, u16 0, u32 0 (src/bm/format.c:237)
 RIG_HEAD = NAME_FIELD + 8
 CLIP_HEAD = NAME_FIELD + 8
-MODES = {0: "linear", 1: "smooth", 2: "step"}      # src/bm/format.c:277, bm.h:61-76
+MODES = {0: "linear", 1: "smooth", 2: "step", 3: "ease-in", 4: "ease-out"}      # src/bm/format.c:277, bm.h:61-76
 LOOP = 1                # clip flags bit 0
 FIN = 1e9               # fin32, src/bm/format.c:241
 LENGTH_MAX = 1e6        # src/bm/format.c:277
@@ -75,7 +75,7 @@ class Key:
 
 @dataclass
 class Clip:
-    """head 24 B: name, u16 keys, u8 mode (0 linear, 1 smooth, 2 step), u8 flags
+    """head 24 B: name, u16 keys, u8 mode (0 linear, 1 smooth, 2 step, 3 ease-in, 4 ease-out), u8 flags
     (bit 0 loop; other bits kept), f32 length (src/bm/format.c:275-278)."""
     name: str
     length: float
@@ -169,7 +169,7 @@ def validate_rig(rig, kernel_limits=False, keep_long_names=False):
         cw = f"{w} clip {c.name!r}"
         name_bytes(c.name, cw, "clip name", allow_full=keep_long_names)
         need(1 <= len(c.keys) <= KEYS_MAX, f"{len(c.keys)} keys, 1 to {KEYS_MAX}", cw)
-        need(c.mode in MODES, f"mode {c.mode}, 0 linear / 1 smooth / 2 step", cw)
+        need(c.mode in MODES, f"mode {c.mode}, 0 linear / 1 smooth / 2 step / 3 ease-in / 4 ease-out", cw)
         need(0 <= c.flags <= 255, "flags out of u8", cw)
         need(finite_in(c.length, LENGTH_MAX) and f32(c.length) > 0, f"length {c.length}: 0 < length < 1e6", cw)
         top = f32(f32(c.length) + f32(1e-4))

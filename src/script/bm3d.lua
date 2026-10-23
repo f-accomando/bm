@@ -30,7 +30,15 @@ local C = {
 T.C = C
 T.FOCAL = (W / 2) / math.tan(math.rad(30))      -- camera3d with fov 60
 T.FPS = 12                                       -- the timeline's frames, as in bm Animator
-T.MODES = { [0] = "linear", "smooth", "step" }
+T.MODES = { [0] = "linear", "smooth", "step", "ease-in", "ease-out" }
+-- the clip mode's curve (as pose_at in runtime.c): u from 0 to 1 between two keyframes -> the share of the way
+function T.ease(mode, u)
+  if mode == 2 then return 0 end
+  if mode == 1 then return u * u * (3 - 2 * u) end
+  if mode == 3 then return u * u end
+  if mode == 4 then return u * (2 - u) end
+  return u
+end
 T.LIMIT_V, T.LIMIT_T = 65535, 65535              -- u16 format limit
 T.TRIS_60FPS = 1200                              -- about what the console draws at 60 fps
 -- text on rows of 16 pixels and columns of 8: the hint row, the status bar
