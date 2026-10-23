@@ -233,7 +233,7 @@ end
 local build, models_page
 do
 
-local bd = { cell = { 0, 0, 0 }, tool = 1, side = 1, grid = true, view = 1, back = false,
+local bd = { cell = { 0, 0, 0 }, tool = 1, side = 1, grid = true, view = 1, back = false, kind = 1,
              cam = { yaw = 0, pitch = -0.6, dist = 8, tx = 0.5, ty = 0.5, tz = 0.5 }, yaw_to = 0,
              hot = nil, sel = {}, pts = nil, hotp = nil, psel = {}, move = nil, paint = nil,
              back_mesh = nil, back_for = nil }
@@ -432,6 +432,28 @@ local function is_block(faces, c)
   return #faces_on(faces, c, 7, true) > 0
 end
 
+-- the faces of a ramp, corner or rounded block (T.block_shape) in the cell c: all their corners in the box
+-- of the cell, and not the wall of a neighbour (on a side of the box, looking into the cell)
+local function shaped_faces(faces, c)
+  local out = {}
+  for i, f in ipairs(faces) do
+    local inside = true
+    for _, p in ipairs(f.p) do
+      for k = 1, 3 do if p[k] < c[k] - 1e-3 or p[k] > c[k] + 1 + 1e-3 then inside = false end end
+    end
+    if inside then
+      local n, m = T.face_normal(f), T.face_center(f)
+      local own = true
+      for k = 1, 3 do
+        if abs(m[k] - c[k]) < 1e-3 and n[k] > 0.9 then own = false end
+        if abs(m[k] - (c[k] + 1)) < 1e-3 and n[k] < -0.9 then own = false end
+      end
+      if own then out[#out + 1] = i end
+    end
+  end
+  return out
+end
+
 -- the brush on a face (a colour, or a tile)
 local function texture(f, b)
   if b.c then
@@ -450,11 +472,19 @@ local function build_action(erase)
   if bd.tool == 1 then
     if not erase then
       T.begin_edit()
-      place_faces(m.faces, block_faces(c, one_tile(brush)), true)
+      if bd.kind == 1 then
+        place_faces(m.faces, block_faces(c, one_tile(brush)), true)
+      else
+        local fa, fs, ra, rs = T.view_axes(bd.yaw_to)
+        local shape = T.block_shape(bd.kind, c, fa, fs, ra, rs)
+        for _, f in ipairs(shape) do texture(f, brush) end
+        place_faces(m.faces, shape, true)
+      end
       T.commit()
       return
     end
-    if not is_block(m.faces, c) then say("no block here", C.DIM, 60); return end
+    local inner = shaped_faces(m.faces, c)
+    if not is_block(m.faces, c) and #inner == 0 then say("no block here", C.DIM, 60); return end
     T.begin_edit()
     -- its own walls go; where a neighbour touched it, the neighbour's wall
     -- shows again (with the texture of one of its faces)
@@ -464,6 +494,7 @@ local function build_action(erase)
       local n = T.face_normal(m.faces[i])
       for k = 1, 3 do if abs(n[k]) > 0.9 then had[k * 2 + (n[k] > 0 and 1 or 0)] = true end end
     end
+    for _, i in ipairs(inner) do walls[#walls + 1] = i end
     m.faces = remove_faces(m.faces, walls)
     local add = {}
     for k = 1, 3 do
@@ -1116,7 +1147,7 @@ local function draw_panel()
   print("MODEL", 16, 256, C.DIM)
   print((m and m.name or "-"):sub(1, 13), 64, 256, C.TEXT)
   local warn = T.counts(m, 16, 272, true)
-  print(warn and "heavy for 60 fps" or ("view: " .. VIEWS[bd.view] .. (bd.back and ", back" or "")), 16, 304,
+  print(warn and "heavy for 60 fps" or ("view: " .. VIEWS[bd.view] .. (bd.back and ", back" or "") .. (bd.kind > 1 and (", " .. T.BLOCK_KINDS[bd.kind]) or "")), 16, 304,
         warn and C.ACC or C.DIM)
 end
 
@@ -1129,6 +1160,7 @@ build = {
     { "pgup / pgdn", "a level up / down" },
     { "space / backspace", "put / remove" },
     { "f", "the side" },
+    { "k", "the block: cube, ramp, corner, rounded (the ramp rises away from the camera)" },
     { "tab", "the tiles and colours of the sheet" },
     { "r / h", "turn / mirror the tile" },
     { "x", "pick the tile of a face" },
@@ -1242,6 +1274,11 @@ function build.key(k)
   if k == "b" then bd.back = not bd.back; say(bd.back and "the faces seen from behind show, darker" or "faces from one side, as on the console", C.ACC, 90); return end
   if k == "r" and tool <= 2 then brush.rot = (brush.rot + 1) % 4; return end
   if k == "h" then brush.flip = not brush.flip; return end
+  if k == "k" and tool <= 2 then
+    bd.kind = bd.kind % #T.BLOCK_KINDS + 1
+    say("block: " .. T.BLOCK_KINDS[bd.kind] .. (bd.kind == 2 and " (rises away from the camera; q e turn the view)" or ""), C.ACC, 120)
+    return
+  end
   if k == "x" and tool <= 2 then
     local list = faces_on(faces(), bd.cell, bd.side == 7 and 1 or bd.side)
     if #list == 0 then list = faces_on(faces(), bd.cell, 7) end

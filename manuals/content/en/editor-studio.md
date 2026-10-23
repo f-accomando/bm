@@ -115,8 +115,22 @@ A block is a cube of one unit. Two blocks side by side have no wall between them
 | `PgUp` / `PgDn` | Move the cursor one level up / down |
 | `Space` | Put a block |
 | `Backspace` or `Del` | Remove the block |
+| `k` | Change the kind of block: cube, ramp, corner, rounded |
 
 On the gamepad: **A** puts, **B** removes, **X + up/down** changes level.
+
+### Ramp, corner and rounded blocks
+
+Press **k** (with the block or tile tool) to change the kind of block the next **Space** puts: cube, ramp, corner, rounded. The panel names the kind when it is not the cube. The kind stays until you change it.
+
+| Kind | Shape | Triangles |
+|---|---|---|
+| cube | the cube of one unit | 12 |
+| ramp | a slope from the near floor edge up to the far top edge, a wall on the far side, two triangular sides | 8 |
+| corner | a pyramid on the floor of the cell, its top at the far right top corner; its sloped sides fit a ramp | 6 |
+| rounded | an eight-sided column: the four vertical edges are cut 0.3 deep | 28 |
+
+The ramp and the corner rise **away from the camera**. Turn the view with **q** and **e** (45 degrees) to turn the block: far and right follow the view, in steps of 90 degrees. Every face takes the brush (a colour or a tile). **Backspace** removes the block of the cell, of any kind, and undo takes it back. The walls of a neighbour that look into the cell stay.
 
 ## The tile tool
 

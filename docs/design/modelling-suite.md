@@ -48,12 +48,14 @@ Done in `claude/app11-mesh-comfort`. The keys are in the manual `editor-mesh` an
 - **Reference images.** A front picture and a side picture from `/pics` stand behind the model.
 - **More undo steps.** Up to 100, within 4 MB of snapshots.
 
-### Phase 3: finish (APP-12)
+### Phase 3: finish (APP-12, done)
 
-- **Bevel.** An edge becomes a narrow strip, so hard corners get a soft highlight.
-- **Automatic texture projection.** Box projection: each face gets a place on the sprite sheet from the side it looks to. It saves the work of hand-placed UV.
-- **Humanoid base mesh.** A ready low-poly body with a skeleton. The generator and scripts of the `bm-forge` skill (`humanoid_boxes.json`) are reused if they fit.
-- **Studio blocks.** Ramp, corner and rounded blocks.
+Done in `claude/app12-modelling-finish`. The keys are in the manuals `editor-mesh` and `editor-studio` and in [`progress/tools.md`](../progress/tools.md).
+
+- **Bevel.** Shift+E. An edge becomes a narrow strip, so hard corners get a soft highlight. `T.G.bevel_plan`, `T.G.bevel_apply`. The live mirror bevels both sides.
+- **Automatic texture projection.** Shift+U. Box projection: each face gets a place on the sprite sheet from the side it looks to. It saves the work of hand-placed UV. `T.G.project_plan`, `T.G.project_apply`. The sheet is not painted.
+- **Humanoid base mesh.** F3 on the list of bm Mesh. A ready low-poly body with a skeleton of 16 bones: `T.G.humanoid`. It is a Lua table in `bm3d.lua`; the `bm-forge` generator is Python and its body has 7 bones, so it does not fit.
+- **Studio blocks.** Key `k` in the build page: ramp, corner and rounded blocks (`T.block_shape`).
 
 ## Data and code
 

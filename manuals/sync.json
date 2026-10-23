@@ -624,13 +624,13 @@
     "title": "Opening"
    },
    "3": {
-    "en": "a8fdeb89da94",
-    "it": "4467d45fad82",
+    "en": "cd6149d3a6bb",
+    "it": "99951c61c9e1",
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "9dff8be366d2",
-    "it": "0ebe3c83127b",
+    "en": "bfe219d4455e",
+    "it": "2bd21266c63a",
     "title": "Selecting and moving"
    },
    "5": {
@@ -649,13 +649,13 @@
     "title": "Tutorials"
    },
    "8": {
-    "en": "eb43067341f0",
-    "it": "b6399177df2d",
+    "en": "ffdc771faee8",
+    "it": "d889f3c84bdd",
     "title": "Tips and limits"
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "f6596e4b0382",
+   "carts/mesh/main.lua": "c15170eef48d",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
    "docs/progress/tools.md": "3457b87a304e",
@@ -858,8 +858,8 @@
     "title": "The screen and the 3D view"
    },
    "4": {
-    "en": "3204419ddc92",
-    "it": "c2ff3ea19b78",
+    "en": "0ff49de462fe",
+    "it": "81a530ee8851",
     "title": "Building: tiles and blocks"
    },
    "5": {
@@ -889,11 +889,11 @@
    }
   },
   "sources": {
-   "carts/studio/main.lua": "d8500c830f1e",
+   "carts/studio/main.lua": "285ae16f1382",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "26881cb737ba",
-   "sdk/README.md": "f56faae98658"
+   "docs/progress/tools.md": "3457b87a304e",
+   "sdk/README.md": "f82ca797337d"
   }
  },
  "editor-write": {

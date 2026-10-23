@@ -115,8 +115,22 @@ Un blocco è un cubo di una unità. Due blocchi affiancati non hanno una parete 
 | `PgUp` / `PgDn` | Muovono il cursore di un livello su / giù |
 | `Space` | Mette un blocco |
 | `Backspace` o `Del` | Toglie il blocco |
+| `k` | Cambia il tipo di blocco: cube, ramp, corner, rounded |
 
 Sul gamepad: **A** mette, **B** toglie, **X + su/giù** cambia livello.
+
+### Blocchi rampa, angolo e arrotondato
+
+Premi **k** (con lo strumento block o tile) per cambiare il tipo di blocco che il prossimo **Space** mette: cube, ramp, corner, rounded. Il pannello nomina il tipo quando non è il cubo. Il tipo resta finché non lo cambi.
+
+| Tipo | Forma | Triangoli |
+|---|---|---|
+| cube | il cubo di una unità | 12 |
+| ramp | una salita dal bordo vicino del pavimento al bordo alto lontano, una parete sul lato lontano, due lati triangolari | 8 |
+| corner | una piramide sul pavimento della cella, con la punta nell'angolo alto lontano a destra; i suoi lati inclinati si uniscono a una rampa | 6 |
+| rounded | una colonna a otto lati: i quattro spigoli verticali sono tagliati per 0.3 | 28 |
+
+La rampa e l'angolo salgono **lontano dalla camera**. Gira la vista con **q** ed **e** (45 gradi) per girare il blocco: lontano e destra seguono la vista, a passi di 90 gradi. Ogni faccia prende il pennello (un colore o una tessera). **Backspace** toglie il blocco della cella, di qualunque tipo, e annulla lo riporta. Le pareti di un vicino che guardano dentro la cella restano.
 
 ## Lo strumento tile
 
