@@ -62,7 +62,7 @@ Friday evening (done 23 Oct, early):
 - Yharnam `.b16` on the Pi and on the RGB30: run the same `.b16` on both and send the reports (screen, input, sound, a 5 minute hunt). Not verified on hardware. The lint of `mkbm.py` (and of the SDK export, same rule list) gives one warning for Yharnam (`math.random`, line 2898).
 
 ## Queue (development, in order)
-1. Remote branches left: `api-particles3d`, `beta1-c4-ring2`, `beta1-c4-ring3`, `gpu3d-fade`, `stages3d-budget`, `stages3d-qemu-test`, `v3d-compact-tex-attrs`, `reports`, `sync-handshake`. The Mali work is in `bm-core` (sheet `docs/progress/graphics-mali.md`, `Open work`: the device runs).
+1. Remote branches left: `api-particles3d`, `beta1-c4-ring2`, `beta1-c4-ring3`, `gpu3d-fade`, `stages3d-budget`, `stages3d-qemu-test`, `v3d-compact-tex-attrs`, `reports`. The Mali work is in `bm-core` (sheet `docs/progress/graphics-mali.md`, `Open work`: the device runs).
 2. Old work in the archive: 23 old unmerged branches are in `C:\Users\Utente\Documents\GitHub\bm-archive\branches-2026-10-22.bundle` and are deleted from the repository. Port their content on demand from the bundle: budget cart and `perf_table.py`, RGB30 cover job D10, xmenu close game, RGB30 QEMU freeze and delete tests, bench-vs-etc1 VSE column, 3D budget table, PROP-1 and PROP-2 docs, gfx-backends rule.
 4. Single-bm (SYS-8), next stage: the screen modes (720x405, `safe_area()`, `aspect()`, bars), then the input chips and the end of `.b16`. The compat check is in the menus, the Market list (`targets` line) and the load-time message; the build lint is done (`docs/spec/lint-rules.toml`, `make test-lint`); what is left is in `docs/progress/b16.md`, `## Open work`.
 5. VID-REC next slices: real 8-bit palette, audio (the RLE565 encoder is done; the Pi numbers are the API-4 item above).
@@ -80,7 +80,7 @@ Friday evening (done 23 Oct, early):
 - The Pi froze once on `b3d tests=herotris` with all profiles in one line (8 profiles in one run). The user power-cycled the Pi. The same profiles run one at a time did not freeze. Cause unknown, no fix. Command: `b3d tests=herotris` (no profile named, so all 8 profiles in one line). To reproduce, run it again and note the profile that is running at the freeze.
 
 ## Never delete
-`bm-core`, `reports`, `sync-handshake`, `claude/beta1-c4-ring2`, `claude/beta1-c4-ring3`, and the graphics branches below until their commits are ported or the user says go.
+`bm-core`, `reports`, `claude/beta1-c4-ring2`, `claude/beta1-c4-ring3`, and the graphics branches below until their commits are ported or the user says go.
 
 ## Useful commits on graphics branches (keep the branch until the commit is ported)
 - `claude/gpu3d-fade`: a2c1e904 and 4f7fbc3b (fade through the `g16_fade_accel` hook).
