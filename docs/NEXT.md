@@ -36,7 +36,7 @@ Friday evening (done 23 Oct, early):
 - The host test sweep ran: one failure, `make test-write`. Cause: the working tree of the main checkout had CRLF in `tests/write/input.txt` and `reopen.txt` (fixed). No code fault.
 
 ## Waiting for the user (decisions and Pi runs)
-- Hardware check of the editor additions of 23 Oct (APP-17 to APP-28, list in `docs/progress/tools-suite.md` section *Editor additions*): try each new key on the Pi and the RGB30; send what fails. Check also that the crowded hint bars of Pixel, Mesh and Animator are still readable (a proposal: one fixed chip for all keys).
+- Hardware check of the editor additions of 23 Oct (APP-17 to APP-28, list in `docs/progress/tools-suite.md` section *Editor additions*): try each new key on the Pi and the RGB30; send what fails. On the RGB30 SDK: press `t` on the map with a 4 x 4 tile block, paint a 3x3 area, erase the middle, then undo. Check also that the crowded hint bars of Pixel, Mesh and Animator are still readable (a proposal: one fixed chip for all keys).
 - Pi run, 23 Oct: the `X g` freeze test passed; still open: a long run and a night in the menu with no false restart (SYS-2), and `b3d tests=htmap profiles=VS` shows a worst frame of 41 ms for `ht_p100m` against 17 ms (API-6, check).
 - Decision, line endings: 1233 tracked files are CRLF in the working tree of the main checkout (index is LF). Cause: `core.autocrlf=true` in the global and user git config, `false` in the repo. Choose: renormalize the working tree (`git add --renormalize .` then `git checkout -- .`), and add `* text=auto eol=lf` to `.gitattributes`. Host tests that read input files can fail the way `test-write` did.
 - Decision, stray folder `C:` in the repo root (made by a command with a Windows path). Delete it?
