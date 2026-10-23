@@ -1581,6 +1581,95 @@ def test_sdk_pad_map(b, opts):
     sdk_kb_run(b, drive, check)
 
 
+def test_sdk_map3d_roundtrip(b, opts):
+    """APP-2 on the RGB30 SDK: a 3D map is saved and reloaded. A new project,
+    T (the 3D template: floor, height, walls, objects), tiles on the floor and
+    on the height layer, the markers on the objects layer (S start, C crate,
+    O lamp), v (the 3D preview), Ctrl+S. The LAYERS section holds the four
+    layers by name and the cells. Then Ctrl+O opens the project again: the
+    layers are on the map page, the 3D preview opens, and a second save works."""
+    tmp = mktmp(prefix="bm64map3d-")
+    q, size = sdk_session(b, tmp)
+
+    def k(s, gap=0.3):
+        q.send(s)
+        time.sleep(gap)
+    try:
+        sdk_open(q)
+        sdk_new_empty(q)
+        k(F3, 0.5)                                  # the sprites
+        sdk_screen(q, ["SPRITES"])
+        k(F3, 0.5)                                  # the map
+        time.sleep(0.5)
+        k("T")
+        sdk_screen(q, ["3D map template ready"])
+        k(" ")                                      # floor tile at (0, 0)
+        k(RIGHT)
+        k(" ")                                      # (2, 0)
+        k(RIGHT)
+        k(" ")                                      # (4, 0)
+        k("l")
+        sdk_screen(q, ["map layer 2/4: height"])
+        k(" ")                                      # height at (4, 0)
+        k("l")
+        k("l")
+        sdk_screen(q, ["map layer 4/4: objects"])
+        k("O")                                      # lamp at (4, 0)
+        sdk_screen(q, ["lamp placed"])
+        k(LEFT)
+        k("C")                                      # crate at (2, 0)
+        sdk_screen(q, ["crate placed"])
+        k(LEFT)
+        k("S")                                      # start at (0, 0)
+        sdk_screen(q, ["start placed"])
+        k("v", 1)
+        sdk_screen(q, ["3D preview"])
+        k("v", 0.5)
+        sdk_screen(q, ["2D map editor"])
+        sdk_save_default(q)
+        # the project opened again
+        k("\x0f", 1)                                # Ctrl+O
+        sdk_screen(q, ["open a cartridge"])
+        k("\r", 1)
+        sdk_screen(q, ["opened mygame.bme"])
+        k(F3, 0.5)                                  # the map page (the last view of the SDK)
+        time.sleep(0.5)
+        for _ in range(3):
+            k("l")
+        sdk_screen(q, ["map layer 4/4: objects"])
+        k("v", 1)
+        sdk_screen(q, ["3D preview"])
+        k("v", 0.5)
+        k(chr(19), 1)                               # Ctrl+S: the project has its name now
+        sdk_screen(q, ["saved /bme/mygame.bme"])
+        dump = sdk_exit_dump(q, tmp, size)
+    finally:
+        q.close()
+    data = sd_read(dump, "/bme/mygame.bme")
+    secs = cart_secs(data)
+    lay = secs[12]
+    w, h, n = struct.unpack_from("<HHH", lay, 0)
+    assert n == 4, (w, h, n)
+    got = [lay[8 + i * 16:24 + i * 16].rstrip(b"\x00") for i in range(4)]
+    assert got == [b"floor", b"height", b"walls", b"objects"], got
+    base = 8 + 4 * 16
+
+    def cell(layer, x, y):                          # layer 0 is the MAP section, 1.. are in LAYERS
+        if layer == 0:
+            return struct.unpack_from("<H", secs[3], 4 + (y * w + x) * 2)[0]
+        return struct.unpack_from("<H", lay, base + (layer - 1) * w * h * 2 + (y * w + x) * 2)[0]
+
+    def block(layer, x, y):                         # a 16x16 tile is a block of 2x2 cells
+        return [cell(layer, x + i, y + j) for j in (0, 1) for i in (0, 1)]
+    for x in (0, 2, 4):
+        assert any(block(0, x, 0)), f"floor tile at ({x}, 0)"
+    assert any(block(1, 4, 0)), "height at (4, 0)"
+    assert not any(block(1, 0, 0)) and not any(block(1, 2, 0)), "height only where it was drawn"
+    assert all(cell(2, x, 0) == 0 for x in range(8)), "walls stay empty"
+    assert (cell(3, 0, 0), cell(3, 2, 0), cell(3, 4, 0)) == (1024, 1028, 1032), (
+        cell(3, 0, 0), cell(3, 2, 0), cell(3, 4, 0))
+
+
 def test_sdk_pad_code(b, opts):
     """By keyboard: F2 is the code, 'do end ' is typed at the cursor (the
     start of the template's Lua); the saved project's LUA has it."""

@@ -2614,6 +2614,14 @@ do
     say("lamp placed (1032)")
   end
 
+  local function place_marker(id, name)
+    local tgt_l = find_layer("objects") or layer
+    m_stroke = {}
+    draw_brush_layer(mx, my, id, tgt_l)
+    end_stroke()
+    say(name .. " placed (" .. id .. ")")
+  end
+
   local function act(a)
     if a == "view3d" then
       view3d = not view3d
@@ -2685,6 +2693,14 @@ do
     end
     if a == "tool_lamps" then
       place_lamp()
+      return
+    end
+    if a == "tool_start" then
+      place_marker(1024, "start")
+      return
+    end
+    if a == "tool_goal" then
+      place_marker(1030, "goal")
       return
     end
     if a == "cycle_width" then
@@ -2843,6 +2859,7 @@ do
       -- Objects
       if w3d then
         local objs = map3d_objects(w3d)
+        local lamp_slot = 0
         for _, obj in ipairs(objs) do
           local m = model(obj.kind)
           if not m and (obj.kind == "PLAYER_START" or obj.kind == "PICO") then
@@ -2851,8 +2868,9 @@ do
           if m then
             draw3d(m, obj.x, obj.y, obj.z, 0, 0, 0, 1.0)
           else
-            if obj.kind == "LAMP" then
-              lamp3d(0, obj.x, obj.y + 1.0, obj.z, 4, 1.0, 0xFFC888)
+            if obj.kind == "LAMP" and lamp_slot < 4 then
+              lamp_slot = lamp_slot + 1                      -- lamp3d slots are 1..4
+              lamp3d(lamp_slot, obj.x, obj.y + 1.0, obj.z, 4, 1.0, 0xFFC888)
             end
             point3d(obj.x, obj.y + 0.5, obj.z, 0.3, OBJ_COL[1024] or 0xFFFF00)
           end
@@ -4266,6 +4284,7 @@ local function page_key(k)
                  W = "cycle_width", ["Shift+W"] = "cycle_width", ["shift w"] = "cycle_width",
                  A = "tool_apples", ["Shift+A"] = "tool_apples", ["shift a"] = "tool_apples",
                  C = "tool_crates", ["Shift+C"] = "tool_crates", ["shift c"] = "tool_crates",
+                 S = "tool_start", G = "tool_goal",
                  O = "tool_lamps", ["Shift+O"] = "tool_lamps", ["shift o"] = "tool_lamps",
                  ["\r"] = "ok", ["\n"] = "ok", ["return"] = "ok", ["enter"] = "ok" })[k] or SPRITE_KEYS[k]
     if a then P.map.act(a) end
