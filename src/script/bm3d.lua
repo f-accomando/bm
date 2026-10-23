@@ -516,6 +516,40 @@ function G.loop_cut(it, a, b)
   return G.loop_apply(it, plan), plan
 end
 
+-- Loop cut with the live mirror (APP-16): the ring of the edge a-b, and when the edge across X = 0
+-- (its ends' partners, G.mirror_pairs) is an edge too and is not on the first ring, the ring of that edge
+-- as well. A ring that crosses X = 0 holds both edges: it is cut once. Returns { mids, rungs } of both
+-- rings together, the first plan and the number of rings cut (1 or 2); or nil and a message.
+-- A counterpart edge whose ring cannot be cut leaves the first ring cut alone (rings = 1, mirror_err).
+function G.loop_cut_mirror(it, a, b)
+  local plan, err = G.loop_plan(it, a, b)
+  if not plan then return nil, err end
+  local mp = G.mirror_pairs(it, { a, b })
+  local ma, mb = mp[a], mp[b]
+  local k0 = G.edge_key(a, b)
+  local k2
+  if ma and mb and ma ~= mb then
+    k2 = G.edge_key(ma, mb)
+    if k2 == k0 or not G.edge_faces(it)[k2] then k2 = nil end
+  end
+  if k2 then for _, k in ipairs(plan.edges) do if k == k2 then k2 = nil; break end end end
+  local res = G.loop_apply(it, plan)
+  res.rings = 1
+  if k2 then
+    local plan2, err2 = G.loop_plan(it, ma, mb)
+    if plan2 then
+      local r2 = G.loop_apply(it, plan2)
+      for _, m in ipairs(r2.mids) do res.mids[#res.mids + 1] = m end
+      for _, r in ipairs(r2.rungs) do res.rungs[#res.rungs + 1] = r end
+      res.rings = 2
+      res.quads2, res.plains2 = #plan2.quads, #plan2.plains
+    else
+      res.mirror_err = err2
+    end
+  end
+  return res, plan
+end
+
 -- Knife-lite, the plan. The two edges k1 and k2 must be two edges of one
 -- triangle (they meet at its apex p). The cut joins the middles of the two
 -- edges. The face across each edge (if the edge has one) is cut in 2 too, so
@@ -694,8 +728,15 @@ function G.primitive(it, shape, centre, size, col, bone)
       local n = (s + 1) % segs
       f[#f + 1] = { top, s + 1, n + 1, col }
       f[#f + 1] = { bot, segs + n + 1, segs + s + 1, col }
-      f[#f + 1] = { s + 1, segs + s + 1, segs + n + 1, col }
-      f[#f + 1] = { s + 1, segs + n + 1, n + 1, col }
+      -- the diagonal of a side quad leans one way on one half and the other way on the other half, so the
+      -- triangles are mirror images across X = 0 (the quad s and the quad 3 - s mod 8 swap)
+      if s % 4 < 2 then
+        f[#f + 1] = { s + 1, segs + s + 1, segs + n + 1, col }
+        f[#f + 1] = { s + 1, segs + n + 1, n + 1, col }
+      else
+        f[#f + 1] = { s + 1, segs + s + 1, n + 1, col }
+        f[#f + 1] = { n + 1, segs + s + 1, segs + n + 1, col }
+      end
     end
   else
     local rings, segs = 6, 12
@@ -714,8 +755,15 @@ function G.primitive(it, shape, centre, size, col, bone)
       f[#f + 1] = { 1, at(1, s), at(1, s + 1), col }
       f[#f + 1] = { last, at(rings - 1, s + 1), at(rings - 1, s), col }
       for r = 1, rings - 2 do
-        f[#f + 1] = { at(r, s), at(r + 1, s), at(r + 1, s + 1), col }
-        f[#f + 1] = { at(r, s), at(r + 1, s + 1), at(r, s + 1), col }
+        -- the diagonal leans one way for s % 6 < 3 and the other way after, so the triangles are mirror
+        -- images across X = 0 (the quad s and the quad 5 - s mod 12 swap)
+        if s % 6 < 3 then
+          f[#f + 1] = { at(r, s), at(r + 1, s), at(r + 1, s + 1), col }
+          f[#f + 1] = { at(r, s), at(r + 1, s + 1), at(r, s + 1), col }
+        else
+          f[#f + 1] = { at(r, s), at(r + 1, s), at(r, s + 1), col }
+          f[#f + 1] = { at(r + 1, s), at(r + 1, s + 1), at(r, s + 1), col }
+        end
       end
     end
   end
@@ -729,6 +777,33 @@ function G.primitive(it, shape, centre, size, col, bone)
   end
   for _, t in ipairs(f) do it.f[#it.f + 1] = { t[1] + base, t[2] + base, t[3] + base, t[4] } end
   return out
+end
+
+-- A part with the live mirror (APP-16). Like G.primitive, and when the middle is off the plane X = 0
+-- (more than 0.001 away) the part is added twice: the second is the mirror image of the first (the
+-- vertices at -x, the corners of each triangle turned over, so the faces still look out). The second
+-- part takes the bone mirror_bone (the same bone when nil). A part in the middle of the plane is added
+-- once. Returns the list of all new vertex numbers and the list of the vertices of the mirror part
+-- (empty when there is none).
+function G.primitive_mirror(it, shape, centre, size, col, bone, mirror_bone)
+  local nf0 = #it.f
+  local out = G.primitive(it, shape, centre, size, col, bone)
+  local twin = {}
+  centre = centre or { 0, 0, 0 }
+  if math.abs(centre[1]) <= 0.001 then return out, twin end
+  local base, nv = out[1] - 1, #out
+  for i = 1, nv do
+    local p = it.v[out[i]]
+    local n = G.add_vertex(it, { -p[1], p[2], p[3] }, out[i])
+    if it.vb then it.vb[n] = mirror_bone or bone or 0 end
+    twin[i] = n
+  end
+  for fi = nf0 + 1, #it.f do
+    local f = it.f[fi]
+    it.f[#it.f + 1] = { twin[f[1] - base], twin[f[3] - base], twin[f[2] - base], f[4] }
+  end
+  for _, n in ipairs(twin) do out[#out + 1] = n end
+  return out, twin
 end
 
 local QUAD, TRI = { { 1, 2, 3 }, { 1, 3, 4 } }, { { 1, 2, 3 } }
