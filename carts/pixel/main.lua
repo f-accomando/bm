@@ -84,7 +84,7 @@ local page = "draw"
 local msg, msg_c, msg_t = nil, C_TEXT, 0
 local frame, edits = 0, 0
 local undo, redo = {}, {}
-local anim = { frames = 4, fps = 8, onion = false, play = true, t = 0, boxes = true }
+local anim = { frames = 4, fps = 8, onion = false, play = true, t = 0, boxes = true, wrap = false }
 local grid, mirror = true, false
 local clip_b = nil                   -- the clipboard: {w, h, px}
 local pick, input = nil, nil
@@ -807,7 +807,7 @@ local COMMANDS = {
   { "Clear (Del)", "del" }, { "Mirror drawing (y)", "y" }, { "Grid (t)", "t" }, { "Onion skin (k)", "k" },
   { "Play the animation (p)", "p" }, { "More frames (+)", "+" }, { "Fewer frames (-)", "-" },
   { "Faster (>)", ">" }, { "Slower (<)", "<" }, { "Sprite size (z)", "z" }, { "Next sprite (PgDn)", "pgdn" },
-  { "Previous sprite (PgUp)", "pgup" }, { "Assistant: a sprite base (F6)", "f6" },
+  { "Previous sprite (PgUp)", "pgup" }, { "Tile view (q)", "q" }, { "Assistant: a sprite base (F6)", "f6" },
 }
 
 function draw_actions()
@@ -853,6 +853,7 @@ function draw_key(k)
   elseif k == "<" then anim.fps = max(1, anim.fps - 1); say(anim.fps .. " frames a second", C_DIM, 60)
   elseif k == "z" then next_size()
   elseif k == "j" then anim.boxes = not anim.boxes; say(anim.boxes and "hitboxes on (BOXES)" or "hitboxes off", C_DIM, 90)
+  elseif k == "q" then anim.wrap = not anim.wrap; say(anim.wrap and "tile view: the seams show" or "tile view off", C_DIM, 90)
   elseif k == "pgdn" then go_sprite(1)
   elseif k == "pgup" then go_sprite(-1)
   elseif k == "," then set_colour((ci - 1) % (#pal() + 1))
@@ -1059,13 +1060,20 @@ function draw_draw()
   local pz = rs <= 32 and 2 or (rs == 64 and 1 or 0.5)
   local ps = floor(rs * pz)
   local py0 = 176
-  checker(x, py0, ps, ps, 8)
-  sspr(rx, ry, rs, rs, x, py0, false, false, pz)
   local k = anim.frames > 1 and floor(anim.t * anim.fps) % anim.frames or 0
   local fx, fy = frame_xy(k)
   local ax = x + 160
-  checker(ax, py0, ps, ps, 8)
-  sspr(fx, fy, rs, rs, ax, py0, false, false, pz)
+  if anim.wrap then                   -- tile view: the sprite 3 x 3, so the seams show
+    local c = max(1, rs // 8)
+    for ty = 0, 2 do
+      for tx = 0, 2 do spr(n, x + tx * rs, py0 + ty * rs, c, c) end
+    end
+  else
+    checker(x, py0, ps, ps, 8)
+    sspr(rx, ry, rs, rs, x, py0, false, false, pz)
+    checker(ax, py0, ps, ps, 8)
+    sspr(fx, fy, rs, rs, ax, py0, false, false, pz)
+  end
   if anim.boxes and zn then
     for _, b in ipairs(get_frame_boxes(zn, cur_f)) do
       rect(x + floor(b.x * pz), py0 + floor(b.y * pz), max(1, floor(b.w * pz)), max(1, floor(b.h * pz)), box_colour(b.kind))
@@ -1074,8 +1082,11 @@ function draw_draw()
       rect(ax + floor(b.x * pz), py0 + floor(b.y * pz), max(1, floor(b.w * pz)), max(1, floor(b.h * pz)), box_colour(b.kind))
     end
   end
-  print("x" .. (pz < 1 and "1/2" or pz), x, 160, C_DIM)
-  print("anim " .. (k + 1) .. "/" .. anim.frames, ax, 160, C_DIM)
+  if anim.wrap then print("tile view 3x3 (q)", x, 160, C_DIM)
+  else
+    print("x" .. (pz < 1 and "1/2" or pz), x, 160, C_DIM)
+    print("anim " .. (k + 1) .. "/" .. anim.frames, ax, 160, C_DIM)
+  end
   print(string.format("%d fps%s%s%s%s", anim.fps, anim.play and "" or " ||", anim.onion and "  onion" or "",
                       anim.boxes and "  boxes" or "", mirror and "  mirror" or ""), x, 304, C_DIM)
   if dp.float then hint({ { { "up", "down", "left", "right" }, "move" }, { { "space" }, "put it down" }, { { "esc" }, "drop it" } })
@@ -1085,7 +1096,7 @@ function draw_draw()
   elseif dp.anchor then hint({ { { "up", "down", "left", "right" }, "the other corner" }, { { "space" }, "done" }, { { "esc" }, "cancel" } })
   else
     hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "draw" }, { { "b", "e", "g", "l", "u", "o", "m" }, "tools" },
-           { { ",", "." }, "colour" }, { { "z" }, "size" }, { { "j" }, "boxes" }, { { "tab" }, "more" } })
+           { { ",", "." }, "colour" }, { { "z" }, "size" }, { { "j" }, "boxes" }, { { "q" }, "tile" }, { { "tab" }, "more" } })
   end
 end
 end
@@ -1903,6 +1914,7 @@ local HELP = {
     { "< / >", "speed" },
     { "p", "play" },
     { "z", "sprite size" },
+    { "q", "tile view: the sprite 3 x 3" },
     { "pgup / pgdn", "the sprite before / after" },
   },
   sheet = {
@@ -2154,7 +2166,7 @@ local function mouse_frame()
              { "Filled rectangle", "U" }, { "Oval", "o" }, { "Filled oval", "O" }, { "Select", "m" }, "-",
              { "Copy", "^c" }, { "Cut", "^x" }, { "Paste", "^v" }, { "Mirror", "h" }, { "Upside down", "v" },
              { "Turn", "r" }, { "Clear", "del" }, "-", { "Mirror drawing", "y" }, { "Grid", "t" }, { "Onion skin", "k" },
-             { "Play", "p" }, { "Size", "z" } }
+             { "Play", "p" }, { "Size", "z" }, { "Tile view", "q" } }
   elseif page == "stack" then
     list = { { "Draw this slice", "\n" }, { "Onion skin", "k" }, { "Copy the slice to the next", "c" }, { "New zone", "n" },
              { "Change the zone", "e" }, { "Delete the zone", "del" }, { "Turn or stop", "p" } }

@@ -172,6 +172,8 @@ E.sspr = function(sx, sy, sw, sh, dx, dy, fx, fy, z)
   assert(sw >= 0 and sh >= 0 and (z == nil or z > 0), "sspr: bad arguments")
   blits = blits + 1
 end
+local sprs = 0
+E.spr = function() sprs = sprs + 1 end
 E.cart_sheet = function(w, h)
   if w then
     assert(w >= 8 and h >= 8 and w <= 4096 and h <= 4096 and w % 8 == 0 and h % 8 == 0, "cart_sheet: 8 to 4096, multiples of 8")
@@ -659,8 +661,23 @@ local function in_help(keys, what)
   return false
 end
 key("f1")
+-- q: the tile view draws the sprite 3 x 3 with spr
+local s0 = sprs
+frames(1)
+check(sprs - s0 == 0, "tile view off: no spr call in the preview (" .. (sprs - s0) .. ")")
+key("q")
+check(sees("tile view: the seams show"), "q: the status says the seams show: " .. status())
+s0 = sprs
+frames(1)
+check(sprs - s0 == 9, "q: the preview draws the sprite 3 x 3, 9 spr calls: " .. (sprs - s0))
+key("q")
+s0 = sprs
+frames(1)
+check(sprs - s0 == 0 and sees("tile view off"), "q again: back to the normal preview, no spr call")
+
 check(keyhelp_title == "bm Pixel" and in_help("b / e / g / i", "pencil, eraser, fill") and in_help("Y A", "undo"),
       "keyhelp: the keys of the draw page, the pad's")
+check(in_help("q", "tile view"), "keyhelp: q is tile view")
 key("f3")
 check(in_help("e", "edit: R G B") and not in_help("p", "play"), "keyhelp: the palette's")
 check(E._exit() == true, "_exit: nothing to save, it leaves")
@@ -699,7 +716,8 @@ check(not sees("anchor"), "mouse: a rectangle from a press to a release")
 mouse(60, 60, 4); mouse(60, 60, 0); frames(1)
 mouse(60, 60, 0, 1)
 click(100, 100, 2)
-check(sees("Pencil") and sees("Filled rectangle"), "mouse: the draw page's context menu")
+check(sees("Pencil") and sees("Filled rectangle") and sees("Tile view"), "mouse: the draw page's context menu, with Tile view")
+
 mx, my = at("Pencil")
 click(mx, my)
 check(sees("pencil"), "mouse: Pencil from the context menu")
