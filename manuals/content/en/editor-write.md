@@ -27,7 +27,7 @@ bm Write is an app for writing documents. You type with a keyboard, or with the 
 
 ## What it does
 
-- Seven paragraph styles: title, two headings, body, quote, bullet list and numbered list.
+- Eight paragraph styles: title, two headings, body, quote, bullet list, numbered list and table.
 - Bold, italic and underline on single letters.
 - Four alignments: left, centre, right and justify.
 - Pages of A4 size with 2 cm margins and the page number at the bottom. The status line shows `Page 1 of 3` and the number of words.
@@ -157,7 +157,7 @@ While pad typing is on, the status line shows `PAD` and a small panel appears ab
 
 ## Paragraph styles
 
-Press **F2** to go to the next style: Body, Title, Heading 1, Heading 2, Quote, Bullet list, Numbered list, then Body again. The toolbar shows the name of the style.
+Press **F2** to go to the next style: Body, Title, Heading 1, Heading 2, Quote, Bullet list, Numbered list, Table, then Body again. The toolbar shows the name of the style.
 
 | Style | Look |
 |---|---|
@@ -168,6 +168,16 @@ Press **F2** to go to the next style: Body, Title, Heading 1, Heading 2, Quote, 
 | Quote | indented, italic |
 | Bullet list | indented; one paragraph per item |
 | Numbered list | indented; the numbers follow the paragraphs |
+| Table | one row of a table; the bar `\|` separates the cells |
+
+### Tables
+
+Choose the style Table (the last one in the **F2** list) and type a row with `|` between the cells, for example `Name | Price`. The bar becomes a thin line. The next row is another paragraph in the style Table. Press **Enter** at the end of a row to start a new row.
+
+- Consecutive table rows share the widths of the columns. Each column is as wide as its longest cell. The cells line up.
+- A row that is wider than 72 letters does not fit the page. bm Write shows it as body text, and the status line says `table too wide`. Make the cells shorter.
+- Press **Enter** on an empty row, or **Backspace** at the start of a row, to change the row to body text.
+- While the cursor is in a table row, the status line reminds you: `Table: | between the cells`.
 
 ## Letters
 
@@ -207,7 +217,9 @@ The next **Ctrl+S** saves with the same name. **Ctrl+Shift+S** asks for a new na
 2. Pick a file from the list `Open a document (/docs)` with the up and down arrows. The list shows `.BMD`, `.MD` and `.TXT` files, with their size.
 3. Press **Enter**.
 
-A `.MD` or `.TXT` file opens as a new document with no name: **Ctrl+S** asks for a name and saves it as `.BMD`. Markdown marks are understood: `#` title, `##` and `###` headings, `>` quote, `-` bullets, `1.` numbers, `**bold**`, `*italic*`, `<u>underline</u>`.
+A `.MD` or `.TXT` file opens as a new document with no name: **Ctrl+S** asks for a name and saves it as `.BMD`. Markdown marks are understood: `#` title, `##` and `###` headings, `>` quote, `-` bullets, `1.` numbers, `**bold**`, `*italic*`, `<u>underline</u>`. Rows with bars, such as `| a | b |`, come back as table rows; a row of the form `|---|---|` is skipped.
+
+An older kernel does not know the Table style. It opens a saved table as body text, and the cells are separated by box-drawing bars.
 
 ## Exporting
 
@@ -223,6 +235,15 @@ A `.MD` or `.TXT` file opens as a new document with no name: **Ctrl+S** asks for
 | Text | `letter.txt` |
 
 An export is a copy to read or share. Save the `.BMD` too: it is the one you can edit with all the styles.
+
+Tables go to each format in this way:
+
+| Format | A table |
+|---|---|
+| PDF | the same as on the screen |
+| HTML | a `<table>` |
+| Markdown | rows `\| a \| b \|`, with a `\|---\|` row under the first row of the table |
+| Text | the columns padded with spaces |
 
 ::: warn
 An export with the same name replaces the older one in `/docs`.

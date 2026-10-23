@@ -133,7 +133,7 @@ Una mesh G non si può rinominare né cancellare: la crea il codice del gioco. C
 
 ## La pagina edit (F2)
 
-La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in alto con il nome, il numero di vertici e di triangoli, la modalità (`VERTICES` o `FACES`) e quanti sono scelti. Sotto, un riquadro del colore corrente e il passo.
+La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in alto con il nome, il numero di vertici e di triangoli, la modalità (`VERTICES` o `FACES`) e quanti sono scelti. Sotto, un riquadro del colore corrente e il passo. La barra dei suggerimenti in fondo mostra i tasti principali. Per le tre modalità (vertici, spigoli, facce) mostra `mode`, cioè il tasto **Tab**. I tasti che la barra non mostra, come **a** (sceglie tutto), sono nell'aiuto di **F12**.
 
 | Tasto | Cosa fa |
 |---|---|
@@ -164,6 +164,8 @@ La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in
 | y | nasconde i vertici scelti; senza scelta mostra di nuovo tutto |
 | Y (Maiusc+Y) | isola: nasconde tutto tranne la scelta; senza scelta mostra di nuovo tutto |
 | P (Maiusc+P) | spostamento morbido: raggio spento, 0.25, 0.5, 1, 2 (anche dentro uno spostamento) |
+| O (Maiusc+O) | perno di rotazione e scala: centro, origine, base (anche dentro r e t) |
+| V (Maiusc+V) | leviga: rilassa i vertici scelti verso i vicini |
 | R (Maiusc+R) | immagini di riferimento: una frontale e una laterale da `/pics` |
 | Ctrl+R | taglio ad anello attraverso lo spigolo scelto |
 | Maiusc+J | coltello: taglia un triangolo tra i punti di mezzo di due spigoli scelti |
@@ -230,8 +232,21 @@ Premi **g** per spostare, **r** per ruotare, **t** per scalare la scelta (si muo
 - **Enter** conferma. **Esc** annulla e rimette tutto a posto.
 - Con il mouse, trascina il tasto sinistro per cambiare il valore e fai clic per metterlo. Con il gamepad, A conferma, B annulla e un tocco di X cambia asse.
 
+### Il perno (Maiusc+O)
+
+Rotazione e scala girano e ingrandiscono la scelta intorno a un punto, il perno. Premi **Maiusc+O** per cambiare il perno. Puoi premerlo prima dello strumento, o mentre lo strumento è aperto (dentro **r** e **t**). Gira tra tre valori:
+
+| Perno | Il punto |
+|---|---|
+| centre | il centro della scelta (è il valore di partenza) |
+| origin | il punto (0, 0, 0) del modello |
+| base | il centro della scelta in x e z, e la y più bassa della scelta |
+
+Usa *base* per scalare una figura e tenerne i piedi a terra. Usa *origin* per girare una parte intorno al centro del modello. Quando il perno non è il centro, l'intestazione mostra `PIVOT origin` o `PIVOT base`. Con lo specchio dal vivo acceso, il lato speculare gira intorno al perno speculare. Lo spostamento non ha perno. Il perno non è salvato nel file: una nuova sessione parte con *centre*. Il menu ha la voce *Pivot of rotate and scale: centre, origin, base (O)*.
+
 ## Altre modifiche
 
+- **Maiusc+V** leviga. Un passaggio sposta ogni vertice scelto a metà strada verso la media dei vertici che condividono uno spigolo con lui. Un vertice su un bordo aperto (uno spigolo con una sola faccia), un vertice nascosto e un vertice senza spigoli restano dove sono. Con lo specchio dal vivo acceso, il vertice speculare riceve l'immagine speculare del risultato. Se niente può muoversi, un messaggio lo dice. Un passaggio è un passo di annullamento. Premi di nuovo **Maiusc+V** per levigare di più.
 - **x** estrude le facce scelte; poi si muovono lungo la normale.
 - **j** crea una faccia su 3 o 4 vertici scelti, nell'ordine in cui li hai scelti, rivolta verso la camera. Funziona solo nella modalità vertici.
 - **k** fonde i vertici scelti nel loro punto medio; **K** salda i vertici che stanno nello stesso punto (con il flag 4 di `draw3d` le facce intorno sembrano lisce).

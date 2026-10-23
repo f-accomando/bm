@@ -172,6 +172,20 @@ In skin mode: arrows choose a face, space marks it, `c` marks the connected ones
 | Enter | rename the animation (up to 16 letters) |
 | `Ctrl+D` | duplicate the animation |
 | Backspace twice | delete the animation |
+| `Ctrl+Shift+I` | take the animations of another model |
+
+The hint bar at the bottom of F3 shows the main keys only. The keys `,` `.` (keyframe before and after), `m` (mirror) and `o` (onion skin) are not on the bar. They are in the help: hold **F12**.
+
+### Animations from another model (Ctrl+Shift+I)
+
+You can copy the animations of another model onto the skeleton you edit. Press **Ctrl+Shift+I**, or open the right-click menu of the animate page and choose *Animations from another model...*. You need a skeleton first (F2). Then:
+
+1. A list shows the models of `/bmm` and `/glb`. Choose one and press **Enter**.
+2. bm Animator matches the bones of the two skeletons by name. A bone matches when the names are exactly the same. If not, it matches when the names are the same in lower case with the signs `.`, `_` and `-` taken out.
+3. Each animation of the other model is added to your skeleton, with its times, length and loop. The rotations of the matched bones are copied. The translations are scaled by the ratio of the two heights (the height of your skeleton divided by the height of the other one). A bone with no match stays in its rest pose.
+4. The status line says, for example, `3 animations, 18 bones matched, missing: tail ear`. `missing` lists the bones of your skeleton that had no match.
+
+The new animations get the name of the source. If the name is already used, bm Animator makes it different. The first new animation is chosen. It is one undo step. A skeleton can hold 255 animations at most. If the other model has no skeleton, or no animations, or no bone with a name that matches, a message says so and nothing is added.
 
 ## F4, sprites
 

@@ -133,7 +133,7 @@ A G mesh cannot be renamed or deleted: the game's code makes it. Copy it with **
 
 ## The edit page (F2)
 
-The edit page draws the model with its edges, a pointer, and a line at the top with the name, the number of vertices and triangles, the mode (`VERTICES` or `FACES`) and how many are chosen. A small colour swatch and the current step are shown under it.
+The edit page draws the model with its edges, a pointer, and a line at the top with the name, the number of vertices and triangles, the mode (`VERTICES` or `FACES`) and how many are chosen. A small colour swatch and the current step are shown under it. The hint bar at the bottom shows the main keys. For the three modes (vertices, edges, faces) it shows `mode`, which is the **Tab** key. The keys that the bar does not show, such as **a** (choose all), are in the **F12** help.
 
 | Key | What it does |
 |---|---|
@@ -164,6 +164,8 @@ The edit page draws the model with its edges, a pointer, and a line at the top w
 | y | hide the chosen vertices; with nothing chosen it shows everything again |
 | Y (Shift+Y) | isolate: hide everything but the choice; with nothing chosen it shows everything again |
 | P (Shift+P) | soft move: radius off, 0.25, 0.5, 1, 2 (also inside a move) |
+| O (Shift+O) | pivot of rotate and scale: centre, origin, base (also inside r and t) |
+| V (Shift+V) | smooth: relax the chosen vertices toward their neighbours |
 | R (Shift+R) | reference pictures: a front and a side picture from `/pics` |
 | Ctrl+R | loop cut across the chosen edge |
 | Shift+J | knife: cut a triangle between the middles of two chosen edges |
@@ -230,8 +232,21 @@ Press **g** to move, **r** to rotate, **t** to scale the choice (the corners of 
 - **Enter** confirms. **Esc** cancels and puts everything back.
 - With the mouse, drag the left button to change the value and click to put it. With the gamepad, A confirms, B cancels and a tap of X switches the axis.
 
+### The pivot (Shift+O)
+
+Rotate and scale turn and grow the choice around a point, the pivot. Press **Shift+O** to change the pivot. You can press it before the tool, or while the tool is open (inside **r** and **t**). It cycles three values:
+
+| Pivot | The point |
+|---|---|
+| centre | the middle of the choice (this is the default) |
+| origin | the point (0, 0, 0) of the model |
+| base | the middle of the choice in x and z, and the lowest y of the choice |
+
+Use *base* to scale a figure and keep its feet on the ground. Use *origin* to turn a part around the centre of the model. When the pivot is not the centre, the header shows `PIVOT origin` or `PIVOT base`. With the live mirror on, the mirrored side turns around the mirrored pivot. The move tool has no pivot. The pivot is not saved in the file: a new session starts with *centre*. The menu has the entry *Pivot of rotate and scale: centre, origin, base (O)*.
+
 ## Other changes
 
+- **Shift+V** smooths. One pass moves each chosen vertex halfway to the mean of the vertices that share an edge with it. A vertex on an open border (an edge with one face only), a hidden vertex and a vertex with no edge stay where they are. With the live mirror on, the mirrored vertex gets the mirror image of the result. If nothing can move, a message says so. One pass is one undo step. Press **Shift+V** again to smooth more.
 - **x** extrudes the chosen faces; they then move along the normal.
 - **j** makes a face on 3 or 4 chosen vertices, in the order you chose them, turned towards the camera. It works in vertex mode only.
 - **k** merges the chosen vertices in their middle; **K** welds the vertices that are at the same point (with flag 4 of `draw3d` the faces around look smooth).

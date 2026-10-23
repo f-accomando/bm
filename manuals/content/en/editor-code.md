@@ -124,6 +124,8 @@ A name has letters, digits, `_`, `.` or `-`, up to 24 characters. Each module ke
 | Split screen | F4 |
 | Font size | F10 |
 | Find | Ctrl+F |
+| Find in the project... | Ctrl+Shift+F |
+| Rename a word... | Ctrl+Shift+H |
 | Replace | Ctrl+H |
 | Go to line | Ctrl+L |
 | Assistant | F6 |
@@ -153,7 +155,21 @@ These are the keys that exist in bm Code. **F11** and **F12** belong to the syst
 | Ctrl+L | go to line: type the number |
 | Ctrl+F | find: type the text (the word under the cursor is suggested) |
 | Ctrl+G | find the next |
+| Ctrl+Shift+F | find a text in every tab and module of the project |
+| Ctrl+Shift+H | rename the word under the cursor in every tab and module |
 | Ctrl+H | replace all: asks the text, then the new text |
+
+## Find and rename in the project
+
+**Ctrl+Shift+F** (menu: *Find in the project...*) finds a text in every open tab and in every module of a project. Type the text. The word under the cursor is suggested. The search does not care about upper and lower case. A list opens with one line for each hit: `module:line text`. If you have more than one tab open, the name starts with the tab name. The list shows 200 hits at most; the title says when there are more. Move with the up and down arrows. Press **Enter** to go to the hit: bm Code opens the tab and the module and puts the cursor on the text. If the text is not in the project, the status line says `not found in the project`.
+
+**Ctrl+Shift+H** (menu: *Rename a word...*) renames the word under the cursor. It changes the whole word only, in all modules and all open tabs. Text inside strings and comments stays as it is. Numbers stay too. If the cursor is not on a word, bm Code asks which word to rename. Then type the new name. It must be a valid Lua name: letters, digits and `_`, not a number first, not a keyword. The status line says how many words changed and in how many modules.
+
+::: warn
+Rename does not check the scope. If two different variables have the same name, both change. Look at the result before you save.
+:::
+
+Each module that changes gets one undo step. Press **Ctrl+Z** in each module to go back.
 
 ## Changing
 

@@ -27,7 +27,7 @@ bm Write è un'app per scrivere documenti. Scrivi con una tastiera, o con il pad
 
 ## Cosa fa
 
-- Sette stili di paragrafo: titolo, due titoletti, corpo, citazione, elenco puntato ed elenco numerato.
+- Otto stili di paragrafo: titolo, due titoletti, corpo, citazione, elenco puntato, elenco numerato e tabella.
 - Grassetto, corsivo e sottolineato sulle singole lettere.
 - Quattro allineamenti: a sinistra, centrato, a destra e giustificato.
 - Pagine in formato A4 con margini di 2 cm e il numero di pagina in fondo. La riga di stato mostra `Page 1 of 3` e il numero di parole.
@@ -157,7 +157,7 @@ Con la scrittura col pad accesa, la riga di stato mostra `PAD` e sopra di essa c
 
 ## Stili di paragrafo
 
-Premi **F2** per passare allo stile successivo: Body, Title, Heading 1, Heading 2, Quote, Bullet list, Numbered list, poi di nuovo Body. La barra mostra il nome dello stile.
+Premi **F2** per passare allo stile successivo: Body, Title, Heading 1, Heading 2, Quote, Bullet list, Numbered list, Table, poi di nuovo Body. La barra mostra il nome dello stile.
 
 | Stile | Aspetto |
 |---|---|
@@ -168,6 +168,16 @@ Premi **F2** per passare allo stile successivo: Body, Title, Heading 1, Heading 
 | Quote | rientrato, corsivo |
 | Bullet list | rientrato; un paragrafo per voce |
 | Numbered list | rientrato; i numeri seguono i paragrafi |
+| Table | una riga di tabella; la barra `\|` separa le celle |
+
+### Tabelle
+
+Scegli lo stile Table (l'ultimo nell'elenco di **F2**) e scrivi una riga con `|` tra le celle, per esempio `Nome | Prezzo`. La barra diventa una linea sottile. La riga dopo è un altro paragrafo nello stile Table. Premi **Invio** a fine riga per cominciare una nuova riga.
+
+- Le righe di tabella consecutive condividono le larghezze delle colonne. Ogni colonna è larga quanto la sua cella più lunga. Le celle sono allineate.
+- Una riga più larga di 72 lettere non sta nella pagina. bm Write la mostra come testo normale e la riga di stato dice `table too wide`. Accorcia le celle.
+- Premi **Invio** su una riga vuota, o **Backspace** all'inizio di una riga, per cambiare la riga in testo normale.
+- Mentre il cursore è in una riga di tabella, la riga di stato ti ricorda: `Table: | between the cells`.
 
 ## Le lettere
 
@@ -207,7 +217,9 @@ I **Ctrl+S** successivi salvano con lo stesso nome. **Ctrl+Shift+S** chiede un n
 2. Scegli un file dall'elenco `Open a document (/docs)` con le frecce su e giù. L'elenco mostra i file `.BMD`, `.MD` e `.TXT`, con la loro dimensione.
 3. Premi **Enter**.
 
-Un file `.MD` o `.TXT` si apre come documento nuovo senza nome: **Ctrl+S** chiede un nome e lo salva come `.BMD`. I segni del Markdown sono capiti: `#` titolo, `##` e `###` titoletti, `>` citazione, `-` elenchi puntati, `1.` numeri, `**grassetto**`, `*corsivo*`, `<u>sottolineato</u>`.
+Un file `.MD` o `.TXT` si apre come documento nuovo senza nome: **Ctrl+S** chiede un nome e lo salva come `.BMD`. I segni del Markdown sono capiti: `#` titolo, `##` e `###` titoletti, `>` citazione, `-` elenchi puntati, `1.` numeri, `**grassetto**`, `*corsivo*`, `<u>sottolineato</u>`. Le righe con barre, come `| a | b |`, tornano come righe di tabella; una riga come `|---|---|` è saltata.
+
+Un kernel più vecchio non conosce lo stile Table. Apre una tabella salvata come testo normale, e le celle sono separate da barre di disegno a riquadro.
 
 ## Esportare
 
@@ -223,6 +235,15 @@ Un file `.MD` o `.TXT` si apre come documento nuovo senza nome: **Ctrl+S** chied
 | Testo | `letter.txt` |
 
 Un'esportazione è una copia da leggere o condividere. Salva anche il `.BMD`: è quello che puoi modificare con tutti gli stili.
+
+Le tabelle vanno in ogni formato così:
+
+| Formato | Una tabella |
+|---|---|
+| PDF | come sullo schermo |
+| HTML | un `<table>` |
+| Markdown | righe `\| a \| b \|`, con una riga `\|---\|` sotto la prima riga della tabella |
+| Testo | le colonne riempite con spazi |
 
 ::: warn
 Un'esportazione con lo stesso nome sostituisce la precedente in `/docs`.
