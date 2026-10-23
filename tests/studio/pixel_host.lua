@@ -378,6 +378,19 @@ end
 
 ----------------------------------------------------------------- driving it
 
+-- the export: sheet_png and doc_write record what they are given
+local png_calls, docs, png_fail, doc_fail = {}, {}, nil, nil
+E.sheet_png = function(rects)
+  png_calls[#png_calls + 1] = rects
+  if png_fail then return nil, png_fail end
+  return "PNG" .. #png_calls
+end
+E.doc_write = function(name, bytes)
+  if doc_fail then return nil, doc_fail end
+  docs[name] = bytes
+  return true
+end
+
 local chunk = assert(loadfile(ROOT .. "/carts/pixel/main.lua", "t", E))
 chunk()
 
@@ -906,6 +919,77 @@ do                                       -- the sheet as the first save of NEWSP
 end
 key("^s")
 check(section(file("newspr.bme"), 11) ~= nil, "a stackv zone left in NEWSPR.BME for the kernel's parser")
+
+----------------------------------------------------------------- Ctrl+E: export a PNG
+local function rects_of(call)
+  local t = {}
+  for _, r in ipairs(call) do t[#t + 1] = table.concat(r, ",") end
+  return table.concat(t, ";")
+end
+key("f1")
+check(in_help("ctrl e", "export a PNG"), "help: Ctrl+E export a PNG")
+check(sees("PNG"), "the draw hint bar names Ctrl+E PNG")
+check(not sees("Export a PNG to /docs"), "the menu is closed on F1")
+key("esc")
+check(sees("Export a PNG to /docs...   (Ctrl+E)"), "the menu has the export row")
+key("f1")
+local rx0, ry0 = sprite_at()
+key("^e")
+check(sees("this sprite") and sees("the whole sheet") and sees("frames side by side"), "Ctrl+E: the chooser offers the three")
+key("\n")                                   -- this sprite
+check(sees("PNG name"), "the name is asked")
+check(sees("village.png") or sees("sprites.png") or sees(".png"), "the default name ends in .png")
+key("\n")
+check(#png_calls == 1 and #png_calls[1] == 1, "this sprite: one rectangle")
+local r1 = png_calls[1][1]
+check(r1[1] == rx0 and r1[2] == ry0 and r1[3] == r1[4], "this sprite: the sprite's corner and a square: " .. rects_of(png_calls[1]))
+local dname = next(docs)
+check(dname and #dname <= 12 and dname:match("^[%l%d_]+%.png$") and #dname:gsub("%.png$", "") <= 8, "the default name is 8.3: " .. tostring(dname))
+check(status():find("saved /docs/" .. dname, 1, true), "the status shows the path: " .. status())
+-- the animation: one rectangle per frame, in the preview order
+png_calls, docs = {}, {}
+key("^e", "down", "\n")
+type_text("walkcycle_long.PNG")
+local nfr = #png_calls[1]
+check(#png_calls == 1 and nfr >= 1, "animation: one call")
+local ok_anim = true
+for k, r in ipairs(png_calls[1]) do
+  if r[3] ~= r1[3] or r[4] ~= r1[3] or r[2] % r1[3] ~= 0 or r[1] % r1[3] ~= 0 then ok_anim = false end
+end
+check(ok_anim and png_calls[1][1][1] == rx0 and png_calls[1][1][2] == ry0, "animation: first rectangle is this sprite, all the same size: " .. rects_of(png_calls[1]))
+check(docs["walkcycl.png"] == "PNG1", "a long name is cut to 8 letters, lower case: " .. tostring(next(docs)))
+check(status():find("cut to 8", 1, true) and status():find("walkcycl.png", 1, true), "the status says the name was cut: " .. status())
+-- one more frame: the list grows
+png_calls, docs = {}, {}
+key("+")
+key("^e", "down", "\n")
+key("\n")
+check(#png_calls[1] == nfr + 1 or nfr == 16, "animation: + adds a rectangle (" .. nfr .. " -> " .. #png_calls[1] .. ")")
+-- the whole sheet
+png_calls, docs = {}, {}
+key("^e", "down", "down", "\n")
+key("\n")
+local w = png_calls[1][1]
+check(#png_calls[1] == 1 and w[1] == 0 and w[2] == 0 and w[3] > 0 and w[4] > 0, "whole sheet: {0,0,w,h}: " .. rects_of(png_calls[1]))
+-- the errors
+png_calls = {}
+png_fail = "the rectangle is larger than 4096"
+key("^e", "down", "down", "\n")
+key("\n")
+check(status():find("export failed: the rectangle is larger than 4096", 1, true), "sheet_png nil: the reason shows: " .. status())
+png_fail = nil
+doc_fail = "no space"
+key("^e", "\n")
+key("\n")
+check(status():find("export failed: no space", 1, true), "doc_write nil: the reason shows: " .. status())
+doc_fail = nil
+-- the menu row opens the same chooser; Esc leaves it
+key("esc")
+for _ = 1, 6 do key("down") end
+key("\n")
+check(sees("this sprite"), "the menu row opens the chooser")
+key("esc")
+key("f1")
 
 io.write(string.format("bm Pixel: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)
