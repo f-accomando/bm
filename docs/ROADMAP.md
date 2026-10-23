@@ -77,8 +77,6 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 - R39 - P3 - idea - 720×720 SDK on the RGB30. [suite-sdk](design/suite-sdk.md), [sdk-720](design/sdk-720.md)
 - APP-29 - P3 - idea - bm Animator two-bone IK in the animate page. [tools](progress/tools.md)
 - APP-30 - P3 - idea - Ease-in and ease-out clip modes in `pose_at` (runtime.c) and bm Animator; an old kernel plays them linear. [tools](progress/tools.md)
-- APP-31 - P3 - idea - bm Sound solo on the track header and a piano-roll view of one track. [tools](progress/tools.md)
-- APP-32 - P3 - idea - bm Pixel animated GIF export (an LZW encoder in C). After APP-20. [tools](progress/tools.md)
 
 ## Games
 
