@@ -23,6 +23,9 @@
 -- volume; B + up/down / left/right effect and amount; X clears; START
 -- plays; SELECT + left/right changes page, SELECT + up/down the item,
 -- SELECT alone opens the menu.
+-- PATTERN: a solo of one track or several (a, or B on the track's name; the
+-- others are quiet as when muted; not saved) and a piano-roll view of one
+-- track (f, or B on a step): pitch against time, the same steps and keys.
 -- Keyboard: F1-F4 pages, Esc menu, arrows, Enter, Space plays, Backspace
 -- clears, the two rows Z S X D C... and Q 2 W 3 E... are a piano, hold
 -- F12 for every key.
@@ -816,6 +819,7 @@ end
 -- with the keyboard in use, the keys that do the same (see HELP)
 local DIRS = { u = "UP", d = "DOWN", l = "LEFT", r = "RIGHT", ud = "UPDOWN", lr = "LEFTRIGHT" }
 local KEYS_OF = {
+  Bsolo = { "a" }, Bview = { "f" },            -- (the pattern page: solo, piano roll)
   A = { "enter" }, Aud = { "-", "=" }, Alr = { "_", "+" }, Yud = { "[", "]" }, Ylr = { ";", "'" },
   B = { "esc" }, Bud = { "k", "l" }, Blr = { "o", "p" }, X = { "backspace" }, Y = { "i" }, START = { "space" },
   SELECT = { "esc" },
@@ -1641,7 +1645,11 @@ P[2] = {
 
 ----------------------------------------------------------------- PATTERN
 
-local pp = { track = 0, step = 0, field = -1 }   -- track -1 is never used; step -1: the track header
+local pp = { track = 0, step = 0, field = -1,       -- track -1 is never used; step -1: the track header
+             solo = {}, roll = false, rn = 60, rtop = 71, pg = 0 }
+-- solo: the tracks heard alone (not saved: the file keeps only the mute flags
+-- of the game); roll: the piano-roll view of the track (pitch rn on the
+-- cursor, rtop the highest note of the window of 20 semitones)
 local track_sound = { 0, 1, 2, 3, 4, 5, 6, 7 }   -- the sound new notes get, per track
 local muted = {}
 local PAT_FIELDS = { "STEPS", "TEMPO", "SWING" }
@@ -1682,9 +1690,130 @@ local GX, GY, CW, CH = 124, TOP + 44, 30, 30
 local function cell_x(k) return GX + (k % 16) * CW + (k % 16 // 4) * 4 end
 local function cell_y(t) return GY + t * CH end
 
+-- Solo and the piano roll (the pattern page). Both are views of the same
+-- data: solo uses the mute of the player (the flags of `muted` are not
+-- touched, nothing is saved); the roll shows one track as pitch against time
+-- and edits the same steps as the grid.
+function pp.eff(t) return muted[t] or (next(pp.solo) ~= nil and not pp.solo[t]) end
+function pp.mutes()
+  for t = 0, 7 do mute(t, pp.eff(t) and true or false) end
+end
+function pp.solo_toggle()
+  local t = pp.track
+  pp.solo[t] = (not pp.solo[t]) or nil
+  pp.mutes()
+  if pp.solo[t] then say("track " .. (t + 1) .. " solo (the others are quiet; again: off)", C.yellow, 150)
+  else say(next(pp.solo) and ("track " .. (t + 1) .. " not solo") or "solo off: every track plays", C.dim, 120) end
+end
+-- the highest note of the window follows the cursor; snap: the cursor
+-- first goes to the note of the step
+function pp.follow(snap)
+  if not pp.roll then return end
+  local p = pat_now()
+  if snap and pp.step >= 0 and pp.step < p.len then
+    local n = s_note(pat_get(p, pp.track, pp.step))
+    if n > 0 and n < 128 then pp.rn = n end
+  end
+  pp.rn = clamp(pp.rn, 1, 127)
+  if pp.rn > pp.rtop then pp.rtop = pp.rn elseif pp.rn < pp.rtop - 19 then pp.rtop = pp.rn + 19 end
+  pp.rtop = clamp(pp.rtop, 19, 127)
+end
+-- the window over the notes the track uses
+function pp.fit()
+  local p, lo, hi = pat_now(), nil, nil
+  for k = 0, p.len - 1 do
+    local n = s_note(pat_get(p, pp.track, k))
+    if n > 0 and n < 128 then lo, hi = math.min(lo or n, n), math.max(hi or n, n) end
+  end
+  pp.rtop = clamp((lo and (lo + hi) // 2 or pp.rn) + 10, 19, 127)
+  pp.follow(true)
+end
+function pp.view_toggle()
+  pp.roll = not pp.roll
+  if pp.roll then
+    local n = pp.step >= 0 and s_note(pat_get(pat_now(), pp.track, pp.step)) or 0
+    pp.rn = n > 0 and n < 128 and n or last_note
+    pp.fit()
+    say("piano roll: the notes of track " .. (pp.track + 1) .. " by pitch (up/down: pitch, left of step 1: tracks)", C.green, 200)
+  else
+    say("step grid: all the tracks", C.green, 120)
+  end
+end
+-- the step and the pitch under the pointer in the roll
+function pp.hit()
+  local x, y = U.x, U.y
+  for c = 0, 15 do
+    local cx = cell_x(c)
+    if x >= cx - 2 and x < cx + CW - 1 then
+      local k = pp.pg * 16 + c
+      if k < pat_now().len then return k, clamp(pp.rtop - (y - GY) // 12, 1, 127) end
+    end
+  end
+end
+function pp.droll(p, page)
+  pp.pg = page
+  pp.follow()
+  local t, tc = pp.track, TRACK_C[pp.track + 1]
+  local m = pp.eff(t)
+  local hsel = pp.step < 0
+  U.zone(8, GY + 1, 82, CH - 3, "track", t)
+  ui.box(8, GY + 1, 82, CH - 3, hsel and C.panel2 or C.panel)
+  ui.box(10, GY + 3, 20, CH - 7, m and C.faint or tc)
+  print(tostring(t + 1), 16, GY + 6, C.dark)
+  print(sound_name(track_sound[t + 1]):sub(1, 6), 34, GY + 6, m and C.faint or (hsel and C.text or C.dim))
+  if hsel then ui.frame2(8, GY + 1, 82, CH - 3, C.white) end
+  print("PIANO ROLL", 8, GY + CH + 4, C.orange)
+  print("track " .. (t + 1), 8, GY + CH + 16, C.dim)
+  if muted[t] then print("MUTED", 8, GY + CH + 28, C.red) end
+  if pp.solo[t] then print("SOLO", 8, GY + CH + 40, C.yellow)
+  elseif m then print("quiet (solo)", 8, GY + CH + 40, C.faint) end
+  local top, W2 = pp.rtop, cell_x(15) + CW - GX + 2
+  U.zone(GX - 2, GY, W2, 240, "roll")
+  for r = 0, 19 do
+    local n, y = top - r, GY + r * 12
+    local k = n % 12
+    local black = k == 1 or k == 3 or k == 6 or k == 8 or k == 10
+    rectfill(GX - 2, y, W2, 12, black and C.panel or C.cell)
+    if k == 0 then rectfill(GX - 2, y + 11, W2, 1, C.faint) end
+    print(note_name(n), 92, y + 2, n == pp.rn and C.white or (black and C.faint or C.dim))
+  end
+  local now = playing_pattern()
+  for c = 0, 15 do
+    local k = page * 16 + c
+    local x = cell_x(c)
+    if c % 4 == 0 then rectfill(x - 2, GY, 1, 240, C.faint) end
+    if k < p.len then
+      if now == k then rectfill(x, GY, CW - 3, 2, C.white); rectfill(x, GY + 238, CW - 3, 2, C.white) end
+      local st = pat_get(p, t, k)
+      local n = s_note(st)
+      if n > 0 and n < 128 then
+        local v = s_vol(st) / 255
+        local col = m and C.faint or mix(C.cell, tc, 0.4 + 0.6 * v)
+        local last = page * 16 + 15
+        local j = k + 1
+        while j <= last and j < p.len and s_note(pat_get(p, t, j)) == 0 do j = j + 1 end
+        if n <= top and n >= top - 19 then
+          local y = GY + (top - n) * 12
+          local ek = math.min(j, last + 1, p.len) - 1          -- the last step the note still sounds on
+          if ek > k then rectfill(x + CW - 3, y + 4, cell_x(ek - page * 16) + CW - 3 - (x + CW - 3), 4, m and C.faint or mix(C.cell, tc, 0.5)) end
+          ui.box(x, y + 1, CW - 3, 10, col)
+          local nm = note_name(n)
+          print(nm, x + (CW - 3 - #nm * 8) // 2, y + 2, C.dark)
+        elseif n > top then rectfill(x + 6, GY, CW - 15, 3, col)
+        else rectfill(x + 6, GY + 237, CW - 15, 3, col) end
+      elseif n >= 128 then
+        rectfill(x, GY + 236, CW - 3, 4, C.red)
+      end
+    end
+  end
+  if pp.field < 0 and pp.step >= 0 and pp.step < p.len then
+    ui.frame2(cell_x(pp.step % 16) - 2, GY + (top - pp.rn) * 12 - 1, CW + 1, 14, C.white)
+  end
+end
+
 P[3] = {
   name = "PATTERN",
-  item = function(d) cur.pat = (cur.pat + d) % B.NPAT; learn_tracks() end,
+  item = function(d) cur.pat = (cur.pat + d) % B.NPAT; learn_tracks(); pp.fit() end,
   draw = function()
     local p = pat_now()
     local song = song_now()
@@ -1709,20 +1838,27 @@ P[3] = {
       ui.box(520 + i * 28, TOP + 14, 22, 14, c)
       if i < pages then print(tostring(i * 16 + 1), 520 + i * 28 + (i == 0 and 7 or 3), TOP + 13, i == page and C.dark or C.dim) end
     end
+    print(pp.roll and "VIEW: PIANO ROLL" or "VIEW: STEP GRID", 8, TOP + 24, C.dim)
+    if next(pp.solo) then
+      local l = {}
+      for t = 0, 7 do if pp.solo[t] then l[#l + 1] = t + 1 end end
+      print("SOLO: " .. table.concat(l, " "), 8, TOP + 34, C.yellow)
+    end
     print("song: " .. (song.name ~= "" and song.name or string.format("%d", cur.song)), 520, TOP + 28, C.faint)
     -- the grid
     local now = playing_pattern()
-    for t = 0, 7 do
+    for t = 0, pp.roll and -1 or 7 do          -- (the roll draws its own)
       local y = cell_y(t)
       local tc = TRACK_C[t + 1]
       local hsel = pp.field < 0 and pp.track == t and pp.step < 0
-      local m = muted[t]
+      local m = pp.eff(t)
       U.zone(8, y + 1, 108, CH - 3, "track", t)
       ui.box(8, y + 1, 108, CH - 3, hsel and C.panel2 or C.panel)
       ui.box(10, y + 3, 20, CH - 7, m and C.faint or tc)
       print(tostring(t + 1), 16, y + 6, C.dark)
       print(sound_name(track_sound[t + 1]):sub(1, 8), 36, y + 6, m and C.faint or (hsel and C.text or C.dim))
-      if m then print("M", 104, y + 6, C.red) end
+      if muted[t] then print("M", 104, y + 6, C.red) end
+      if pp.solo[t] then print("S", 94, y + 6, C.yellow) end
       if hsel then ui.frame2(8, y + 1, 108, CH - 3, C.white) end
       for c = 0, 15 do
         local k = page * 16 + c
@@ -1753,7 +1889,8 @@ P[3] = {
         end
       end
     end
-    if pp.field < 0 and pp.step >= 0 then
+    if pp.roll then pp.droll(p, page)
+    elseif pp.field < 0 and pp.step >= 0 then
       ui.frame2(cell_x(pp.step) - 2, cell_y(pp.track) - 1, CW + 1, CH + 1, C.white)
     end
     -- what the cursor holds
@@ -1765,15 +1902,21 @@ P[3] = {
     elseif pp.step < 0 then
       print(string.format("TRACK %d (voice %d)  new notes: %s", pp.track + 1, pp.track, sound_name(track_sound[pp.track + 1])),
             8, iy + 4, C.dim)
-      hint_line({ { "A", nil, muted[pp.track] and "unmute" or "mute" }, { "A", "ud", "sound" }, { "Y", nil, "play" },
-                  { "START", nil, "play" } })
+      hint_line({ { "A", nil, muted[pp.track] and "unmute" or "mute" }, { "B", "solo", pp.solo[pp.track] and "solo off" or "solo" },
+                  { "A", "ud", "sound" }, { "Y", nil, "play" }, { "START", nil, "play" } })
     else
       local st = pat_get(p, pp.track, pp.step)
       local t = step_info(st)
       print(string.format("TRACK %d  STEP %02d", pp.track + 1, pp.step + 1), 8, iy + 4, C.dim)
       print(t[1], 168, iy + 4, C.text)
       if t[2] then print(t[2], 440, iy + 4, C.yellow) end
-      hint_line(STEP_HINTS)
+      if pp.roll then
+        print("pitch " .. note_name(pp.rn), 560, iy + 4, C.dim)
+        hint_line({ { "A", nil, "add/move" }, { "B", "view", "grid" }, { "A", "ud", "note" }, { "A", "lr", "oct" },
+                    { "Y", "ud", "sound" }, { "Y", "lr", "vol" }, { "X", nil, "clear" } })
+      else
+        hint_line({ STEP_HINTS[1], { "B", "view", "roll" }, table.unpack(STEP_HINTS, 2) })
+      end
     end
   end,
   move = function(dx, dy)
@@ -1783,9 +1926,17 @@ P[3] = {
       elseif dx ~= 0 then pp.field = clamp(pp.field + dx, 0, 2) end
       return
     end
+    if pp.roll and pp.step >= 0 and dy ~= 0 then       -- the roll: up/down is the pitch
+      pp.rn = clamp(pp.rn - dy, 1, 127)
+      pp.follow()
+      preview(pp.track, track_sound[pp.track + 1], pp.rn)
+      return
+    end
     if dy < 0 and pp.track == 0 then pp.field = 0 return end
+    local t0 = pp.track
     pp.track = clamp(pp.track + dy, 0, 7)
     if dx ~= 0 then pp.step = clamp(pp.step + dx, -1, p.len - 1) end
+    if pp.track ~= t0 then pp.fit() else pp.follow(true) end
   end,
   edit = function(mod, dx, dy)
     local p, song = pat_now(), song_now()
@@ -1807,18 +1958,25 @@ P[3] = {
       end
       return
     end
-    local st = edit_step(pat_get(p, pp.track, pp.step), mod, dx, dy, track_sound[pp.track + 1])
+    local old = pat_get(p, pp.track, pp.step)
+    if pp.roll and s_note(old) == 0 then last_note = pp.rn end   -- (a new note starts at the cursor)
+    local st = edit_step(old, mod, dx, dy, track_sound[pp.track + 1])
     pat_set(p, pp.track, pp.step, st)
     if mod == "Y" and s_note(st) > 0 and s_note(st) < 128 then track_sound[pp.track + 1] = s_sound(st) end
     if mod ~= "B" then preview_step(pp.track, st) end
+    pp.follow(true)
   end,
   tap = function(mod)
     local p = pat_now()
     if pp.field >= 0 then return end
+    if mod == "B" then                       -- solo on a track's name, the view on a step
+      if pp.step < 0 then pp.solo_toggle() else pp.view_toggle() end
+      return
+    end
     if pp.step < 0 then
       if mod == "A" then
         muted[pp.track] = not muted[pp.track]
-        mute(pp.track, muted[pp.track] or false)
+        pp.mutes()
       elseif mod == "Y" then
         preview(pp.track, track_sound[pp.track + 1], last_note)
       end
@@ -1826,13 +1984,18 @@ P[3] = {
     end
     local st = pat_get(p, pp.track, pp.step)
     if mod == "A" then
-      if s_note(st) == 0 then
-        st = mk(last_note, track_sound[pp.track + 1], 255, s_fx(st))
+      local n = s_note(st)
+      if n == 0 then
+        st = mk(pp.roll and pp.rn or last_note, track_sound[pp.track + 1], 255, s_fx(st))
+        preview_step(pp.track, st)
+      elseif pp.roll and n < 128 and n ~= pp.rn then       -- the roll: the note moves to the cursor
+        st = mk(pp.rn, s_sound(st), s_vol(st), s_fx(st))
         preview_step(pp.track, st)
       else
         st = 0
       end
       pat_set(p, pp.track, pp.step, st)
+      pp.follow(true)
     elseif mod == "Y" then
       preview_step(pp.track, st)
     end
@@ -1854,7 +2017,14 @@ P[3] = {
     local st = mk(n, track_sound[pp.track + 1], s_vol(old) > 0 and s_note(old) > 0 and s_vol(old) or 255, s_fx(old))
     pat_set(p, pp.track, pp.step, st)
     preview_step(pp.track, st)
+    pp.rn = n
     pp.step = math.min(pp.step + 1, p.len - 1)
+    pp.follow(true)
+  end,
+  key = function(k)                          -- a: solo this track, f: the view (the pad's B)
+    if k == "a" then pp.solo_toggle() return true end
+    if k == "f" then pp.view_toggle() return true end
+    return false
   end,
 }
 
@@ -2245,7 +2415,7 @@ local function reset_view()
   cur.sound, cur.sfx, cur.pat, cur.song = 0, 0, 0, 0
   sp.row, xp.step, xp.field, pp.track, pp.step, pp.field, gp.slot, gp.field = 1, 0, -1, 0, 0, -1, 0, -1
   undo = {}
-  muted = {}
+  muted, pp.solo = {}, {}
   for t = 0, 7 do mute(t, false) end
   learn_tracks()
 end
@@ -2641,6 +2811,7 @@ local HELP = {
   "SELECT     this menu                  Z S X.. Q 2 W..  piano  , . octave",
   "START + SELECT  leave (as Ctrl+Esc)   Ctrl+S save  Ctrl+O open  F5 try",
   "F6 the assistant: beats, melodies...  Ctrl+C Ctrl+V copy  F12 held: keys",
+  "PATTERN: a solo of the track (B on its name), f piano roll (B on a step)",
   "SOUNDS: past the last row FILTER, then WAVE & SPACE. Instrument... puts a",
   "ready-made sound in; Samples... a sample (the bank's, the kit's: SAMPLE).",
   "F7 Riff...: s \"bd*4, ~ sd\", Enter plays, Ctrl+Enter into the bank.",
@@ -2664,6 +2835,8 @@ local KEYHELP = {
   { "q 2 w 3 e r 5 t 6 y 7 u", "piano, an octave up" },
   { ", / .", "the piano's octave" },
   { "space", "play / stop" },
+  { "a", "pattern: solo of the track (a again: off)" },
+  { "f", "pattern: piano roll / step grid" },
   { "pgup / pgdn", "the next sound, pattern, song" },
   { "ctrl e", "export to a game" },
   { "ctrl w", "import a WAV (a sample) or a MIDI file (a song) from /docs" },
@@ -2676,6 +2849,7 @@ local KEYHELP = {
   { "Y UPDOWN / Y LEFTRIGHT", "sound / volume of the step" },
   { "B UPDOWN / B LEFTRIGHT", "effect / amount" },
   { "X", "clear the step" },
+  { "B", "pattern: solo (on a track's name), piano roll (on a step)" },
   { "Y", "listen, insert a copy" },
   { "START", "play / stop" },
   { "SELECT LEFTRIGHT", "page" },
@@ -3314,6 +3488,9 @@ local function sound_mouse()
       edit_here(U.wheel)
     elseif kind == "step" then xp.field, xp.step = -1, z.a; edit_here(U.wheel)
     elseif kind == "cell" then pp.field, pp.track, pp.step = -1, z.b, z.a; edit_here(U.wheel)
+    elseif kind == "roll" then
+      local s2, n = pp.hit()
+      if s2 then pp.field, pp.step, pp.rn = -1, s2, n; edit_here(U.wheel) end
     elseif kind == "order" then gp.field, gp.slot = -1, z.a; edit_here(U.wheel) end
   end
   -- a value bar dragged: a step every 4 pixels
@@ -3355,6 +3532,13 @@ local function sound_mouse()
       pp.field, pp.track, pp.step = -1, c.b, c.a
       begin_edit()
       page.tap("A")
+    elseif k == "roll" then                -- the roll: a click puts the cursor there and does A
+      local s2, n = pp.hit()
+      if s2 then
+        pp.field, pp.step, pp.rn = -1, s2, n
+        begin_edit()
+        page.tap("A")
+      end
     elseif k == "order" then
       local again = gp.field < 0 and gp.slot == c.a
       gp.field, gp.slot = -1, c.a
@@ -3365,6 +3549,8 @@ local function sound_mouse()
   if U.clicked(1) then
     U.menu({ { "Play / stop", " " }, { "Play the note (Y)", "i" }, { "A (enter)", "\n" }, { "Clear", "\b" },
              { "Copy", "^c" }, { "Paste", "^v" }, { "Undo", "^z" }, "-",
+             cur.page == 3 and { "Solo this track", "a" }, cur.page == 3 and { "Piano roll / step grid", "f" },
+             cur.page == 3 and "-",
              { "Compose with the assistant", "f6" }, { "Riff...", "f7" }, "-", { "Save", "^s" },
              { "Try it in the game", "f5" }, { "Menu", "esc" } })
   end
