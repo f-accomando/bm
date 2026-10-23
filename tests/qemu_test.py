@@ -8544,6 +8544,21 @@ def test_code_modules(b, opts):
         see(["local u = 2"])
         k("\x10", 0.5)                                      # round to main
         see(["local n = 0"])
+        # APP-23, find in the project: from the menu (Ctrl+Shift+F is its key); a
+        # hit in the ui module opens that module
+        k("\x1b", 0.6)                                      # Esc: the menu
+        see(["Find in the project...", "Ctrl+Shift+F"])
+        k("\x1b[B" * 13, 0.15)                              # down to "Find in the project..."
+        k("\r", 0.5)
+        see(["Find in the project:"])
+        k("\b" * 12 + "U = 2", 0.1)                         # not case sensitive
+        k("\r", 0.5)
+        see(["Find \"U = 2\"", "1 hit", "ui:1 local u = 2"])
+        k("\r", 0.6)                                        # Enter: go to the hit
+        text = see(["local u = 2", "found at line 1"])
+        assert not any("local n = 0" in l or "Find \"" in l for l in text), text
+        k("\x10", 0.5)                                      # Ctrl+P: round to main
+        see(["local n = 0"])
         k("\x1b", 0.6)                                      # Esc: the menu
         see(["Modules..."])
         k("\x1b[A", 0.3)                                    # up from the first: Exit
