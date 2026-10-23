@@ -90,7 +90,7 @@ What a user can build with phase 1:
 - The second side is a copy across x = 0 (Shift+M). The live mirror (Shift+X) then paints, snaps, rotates and moves both sides together.
 - bm Mesh shows 802 of 65535 vertices and 1540 triangles. The file reopens with the same totals.
 
-Time in the host (PC, keys typed into the carts; the carts draw nothing here): about 25 s for 5379 keys. Each tool is one to a few keys and takes less than 0.1 s. The scale and move of the 16 parts take 765 keys and 2 s, because a value is a number of steps. The Pi is not measured.
+Time in the host (PC, keys typed into the carts; the carts draw nothing here): about 22 s for 5356 keys. Each tool is one to a few keys and takes less than 0.1 s. The scale and move of the 16 parts take 765 keys and 2 s, because a value is a number of steps. The Pi is not measured.
 
 | Tool (keys) | Times | Keys | Time |
 |---|---|---|---|
