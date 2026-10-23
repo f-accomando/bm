@@ -106,15 +106,15 @@ static void heading(const char *what)
 }
 
 enum {
-    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_SCREEN, R_DRAW, R_GPU3D, R_AA, R_VS, R_QUEUE, R_VOLUME, R_SYSTEM,
+    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_SCREEN, R_DRAW, R_GPU3D, R_AA, R_VOLUME, R_SYSTEM,
     R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_MOUSE, R_PAIR, R_PAIR_KBD, R_PAIR_MOUSE, R_TEST,
     R_PROMPTS, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
-    R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
-    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_LATER, R_IMPOSTOR, R_ATTR, R_UTILS,
+    R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_FILTER, R_FAST3D,
+    R_STYLE, R_DEPTH, R_BATTERY_ICON, R_CHANGE, R_IMPOSTOR, R_UTILS,
     R_SDMAP, R_SDBAR, R_SDFILES, R_SDINFO,
     R_CONTROLS, R_CTL_SCROLLER, R_CTL_TOPDOWN, R_CTL_STICK, R_CTL_SYSTEM, R_CTL_KEYS, R_CTL_RESET,
     R_CTL = 300,                /* + the index of the action in kernel/controls.c (R_UTIL_BASE uses 200..223) */
@@ -228,15 +228,6 @@ static int vs_on(void)
     return on[0] >= '1' && on[0] <= '2' ? on[0] - '0' : 0;
 }
 
-static const char *vs_choice(void)
-{
-    if (!vs_on())
-        return "ARM";
-    if (gpu3d_ready() && !gpu3d_vshader())
-        return "GPU: not on this GPU";
-    return vs_on() == 1 ? "GPU: scenery" : "GPU: all models";
-}
-
 /* gpu3d_queue=1 (bm3d 4.1): the end of a frame's 3D starts on the GPU and the
  * game's next _update runs meanwhile; 2 (bm3d 5.1): and two jobs in flight.
  * Without the key the queue is on (1); gpu3d_queue=0 turns it off. */
@@ -246,69 +237,10 @@ static int queue_on(void)
     return !on ? 1 : (on[0] == '1' || on[0] == '2') ? on[0] - '0' : 0;
 }
 
-static const char *queue_choice(void)
-{
-    if (!queue_on())
-        return "Off";
-    if (gpu3d_ready() && !gpu3d_queue_ok())
-        return "On: not on this GPU";
-    return queue_on() == 2 ? "On, 2 jobs" : "On";
-}
-
-/* gpu3d_later=1 (bm3d 6.9): each frame shown a frame later, the
- * game's next frame drawn while the GPU draws it; with gpu3d_queue=2 */
-static int later_on(void)
-{
-    const char *on = config_get("gpu3d_later");
-    return on && strcmp(on, "1") == 0;
-}
-
-static const char *later_choice(void)
-{
-    if (!later_on())
-        return "At once";
-    if (queue_on() != 2)
-        return "Later: needs 2 jobs";
-    if (gpu3d_ready() && !gpu3d_queue_ok())
-        return "Later: not on this GPU";
-    return "A frame later";
-}
-
-/* gpu3d_2d=1 (bm3d 4.8): the 2D over the 3D drawn by the GPU in its job */
-static int gpu2d_on(void)
-{
-    const char *on = config_get("gpu3d_2d");
-    return on && strcmp(on, "1") == 0;
-}
-
 /* gpu3d_filter=1 (bm3d 4.8): the GPU's textures filtered (bilinear) */
 static int filter_on(void)
 {
     const char *on = config_get("gpu3d_filter");
-    return on && strcmp(on, "1") == 0;
-}
-
-/* gpu3d_wc=1 (bm3d 4.1): the memory of the GPU's jobs uncached, the ARM's
- * writes merged */
-static int wc_on(void)
-{
-    const char *on = config_get("gpu3d_wc");
-    return on && strcmp(on, "1") == 0;
-}
-
-/* two-thread pixel shaders: on unless gpu3d_fs2=0 (bm3d 6.4: the Pi's
- * reports, +20-33% in the textured fill tests) */
-static int fs2_on(void)
-{
-    const char *on = config_get("gpu3d_fs2");
-    return !on || strcmp(on, "0") != 0;
-}
-
-/* compact vertex attributes: off unless gpu3d_attr=1 (the boot's
- * probe_attr keeps them only where the pixels match) */
-static int attr_on(void)
-{
-    const char *on = config_get("gpu3d_attr");
     return on && strcmp(on, "1") == 0;
 }
 
@@ -621,31 +553,8 @@ void home_panel(int id, home_panel_t *p)
                  "Drawn by the GPU (V3D), or by the ARM", "%s", gpu3d_choice());
         home_row(p, MENU_ROW_CHOICE, R_AA, "3D anti-aliasing",
                  "Smooth edges of the GPU's 3D (try Dev > GPU test)", "%s", aa_choice());
-        home_row(p, MENU_ROW_CHOICE, R_VS, "3D vertices",
-                 "Who places the corners: ARM, or the GPU for the scenery or all", "%s", vs_choice());
-        home_row(p, MENU_ROW_CHOICE, R_QUEUE, "3D frame queue",
-                 "The game goes on while the GPU draws the frame before", "%s", queue_choice());
-        home_row(p, MENU_ROW_CHOICE, R_LATER, "3D frame shown",
-                 "A frame later: the next one is drawn while the GPU draws it (2 jobs)", "%s", later_choice());
-        home_row(p, MENU_ROW_CHOICE, R_2D, "2D over the 3D",
-                 "Drawn by the ARM after the GPU, or by the GPU in the same job", "%s",
-                 gpu2d_on() ? "GPU" : "ARM");
         home_row(p, MENU_ROW_CHOICE, R_FILTER, "3D textures",
-                 "Nearest or filtered; 16-bit: half the memory; ETC1: opaque ones in an eighth",
-                 "%s%s", filter_on() ? "Bilinear" : "Nearest",
-                 config_on("gpu3d_etc1") ? ", ETC1" : config_on("gpu3d_tex16") ? ", 16-bit" : "");
-        home_row(p, MENU_ROW_CHOICE, R_WC, "3D job memory",
-                 "Cached, or uncached with the ARM's writes merged (compare: 3D Bench)", "%s",
-                 wc_on() ? "Uncached" : "Cached");
-        home_row(p, MENU_ROW_CHOICE, R_FS2, "3D pixel shaders",
-                 "Two threads: a QPU shades while the other waits for its texel", "%s",
-                 fs2_on() ? "Two threads" : "One thread");
-        home_row(p, MENU_ROW_CHOICE, R_SORT, "3D draw order",
-                 "Nearest first, triangles in cache order: the GPU skips work (vertex shader)", "%s",
-                 config_on("gpu3d_sort") ? "Nearest first" : "As the game");
-        home_row(p, MENU_ROW_CHOICE, R_ATTR, "3D corners",
-                 "Floats, or compact: colour and light bytes packed (vertex shader, bm3d 7.1)", "%s",
-                 attr_on() ? "Compact" : "Floats");
+                 "Nearest: sharp pixels. Bilinear: smooth", "%s", filter_on() ? "Bilinear" : "Nearest");
         home_row(p, MENU_ROW_CHOICE, R_IMPOSTOR, "3D impostors",
                  "Far small models as one quad of their colour; size in px of a 1080p screen", "%s", impostor_choice());
 #endif
@@ -1251,66 +1160,10 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_save();
         ksnprintf(d->note, sizeof d->note, "anti-aliasing of the next game: %s", aa_on() ? "4x" : "off");
         break;
-    case R_VS: {
-        static const char *const next[3] = { "1", "2", "0" };
-        config_set("gpu3d_vs", next[vs_on()]);
+    case R_FILTER:
+        config_set("gpu3d_filter", filter_on() ? "0" : "1");
         config_save();
-        ksnprintf(d->note, sizeof d->note, "3D vertices of the next game: %s", vs_choice());
-        break;
-    }
-    case R_QUEUE: {
-        static const char *const next[3] = { "1", "2", "0" };
-        config_set("gpu3d_queue", next[queue_on()]);
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "3D frame queue of the next game: %s", queue_choice());
-        break;
-    }
-    case R_LATER:
-        config_set("gpu3d_later", later_on() ? "0" : "1");
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "3D frame of the next game shown: %s", later_choice());
-        break;
-    case R_2D:
-        config_set("gpu3d_2d", gpu2d_on() ? "0" : "1");
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "2D over the 3D of the next game: %s", gpu2d_on() ? "GPU" : "ARM");
-        break;
-    case R_FILTER: {
-        /* nearest, bilinear, nearest 16-bit, bilinear 16-bit (bm3d 4.8, 5.2),
-         * nearest ETC1, bilinear ETC1 (bm3d 7.3: the opaque sheets as ETC1,
-         * the cut-outs in 16 bits) */
-        const int level = config_on("gpu3d_etc1") ? 2 : config_on("gpu3d_tex16") ? 1 : 0;
-        const int k = (filter_on() + 2 * level + 1) % 6;
-        config_set("gpu3d_filter", k & 1 ? "1" : "0");
-        config_set("gpu3d_tex16", k >= 2 ? "1" : "0");
-        config_set("gpu3d_etc1", k >= 4 ? "1" : "0");
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "3D textures of the next game: %s%s", k & 1 ? "bilinear" : "nearest",
-                  k >= 4 ? ", ETC1" : k >= 2 ? ", 16-bit" : "");
-        break;
-    }
-    case R_WC:
-        config_set("gpu3d_wc", wc_on() ? "0" : "1");
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "3D job memory of the next game: %s", wc_on() ? "uncached" : "cached");
-        break;
-    case R_FS2:
-        config_set("gpu3d_fs2", fs2_on() ? "0" : "1");
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "3D pixel shaders of the next game: %s",
-                  fs2_on() ? "two threads" : "one thread");
-        break;
-    case R_SORT:
-        config_set("gpu3d_sort", config_on("gpu3d_sort") ? "0" : "1");
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "3D draw order of the next game: %s",
-                  config_on("gpu3d_sort") ? "nearest first" : "as the game");
-        break;
-    case R_ATTR:
-        config_set("gpu3d_attr", attr_on() ? "0" : "1");   /* floats by default */
-        config_save();
-        ksnprintf(d->note, sizeof d->note, "3D corners of the next game: %s",
-                  attr_on() ? "compact" : "floats");
+        ksnprintf(d->note, sizeof d->note, "3D textures of the next game: %s", filter_on() ? "bilinear" : "nearest");
         break;
     case R_IMPOSTOR: {
         const int px = impostor_px();

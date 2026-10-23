@@ -376,7 +376,7 @@ end
   `print` at the end.
 - **The Pi's GPU:** `gpu3d()` says whether it draws the 3D, and how (`on, aa, vs, version,
   queue, impostor, later`). The console's options make the 3D faster without touching the game: with
-  *3D frame shown: A frame later* (`gpu3d_later=1`, with `gpu3d_queue=2`) each frame is shown
+  the hidden key `gpu3d_later=1` (no Settings row; with `gpu3d_queue=2`) each frame is shown
   a frame later and the next `_update` and `_draw` run while the GPU draws it. The pictures
   are the same; it asks only what every game should do anyway: the state changes in
   `_update`, the HUD after the 3D (`docs/API.md`, *A frame later*). `queue` comes back as the

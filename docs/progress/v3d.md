@@ -7,7 +7,7 @@ Tracking for bm3D 3.0-7.6. Rest of the graphics stack: [graphics](graphics.md). 
 - `v3d_start` / `v3d_busy` / `v3d_wait` (`src/gpu/v3d.c`) are async and polled. No IRQ:
   `INTENA` is never written and `src/kernel/irq.h` has no V3D line.
 - Bin then render are sequenced in hardware by a semaphore.
-- Rule: `gpu3d_queue=1` is the default on the Pi (22 Oct). Without the key the runtime and the Settings row use 1. `gpu3d_queue=0` is the off switch and the fallback. The queue works only where the boot probe passes (`gpu3d_queue_ok`). The Mali (RGB30) has no queue. The check of Overbit with queue 0 and 1 is not measured (graphics data comes only from benchmarks).
+- Rule: `gpu3d_queue=1` is the default on the Pi (22 Oct). Without the key the runtime uses 1. `gpu3d_queue=0` is the off switch and the fallback. The queue works only where the boot probe passes (`gpu3d_queue_ok`). The Mali (RGB30) has no queue. The check of Overbit with queue 0 and 1 is not measured (graphics data comes only from benchmarks).
 - `queue=2` = two job memory blocks (`JOB_BLOCK` / `JOB2_BLOCK`, `gpu3d.c`): the ARM fills
   N+1 while the GPU renders N. `run_async` / `gpu3d_submit` still call `job_wait()` before
   `v3d_start`, so one GPU job runs at a time (`v3d_start` rejects a second).
@@ -23,7 +23,7 @@ Tracking for bm3D 3.0-7.6. Rest of the graphics stack: [graphics](graphics.md). 
   Measurements only (QEMU test: `-k stat_perf`, range only). The overlay already shows both as its audio and wait bars.
 - `r3d_impostor=N` (off; 2..64 px of a 1080-line screen, threshold N*h/1080: `imp_threshold`
   in `r3d.c`; `gpu3d()` 5th; skinned meshes by their pose box). Host test: `make test-impostor`.
-- Rule: `gpu3d_attr` is off by default (Pi, 23 Oct: `herotris` 54 056 plain, 54 013 A8, no gain, the frame is ARM-bound). Without the key the runtime and the Settings row *3D corners* use floats. `gpu3d_attr=1` turns the compact attributes on. The boot `probe_attr` keeps the compact path only if its pixels match the floats; if it fails, the floats draw. The bench profiles set the key themselves.
+- Rule: `gpu3d_attr` is off by default (Pi, 23 Oct: `herotris` 54 056 plain, 54 013 A8, no gain, the frame is ARM-bound). Without the key the runtime uses floats. `gpu3d_attr=1` turns the compact attributes on. The boot `probe_attr` keeps the compact path only if its pixels match the floats; if it fails, the floats draw. The bench profiles set the key themselves.
 - Rule: draw merging, `gpu3d_merge` (bm3d 7.6, hidden key, no Settings row, on by default; `gpu3d_merge=0` is the off switch). A run merges only from `MG_MIN_PIECES` 32 pieces with at most `MG_MEAN_FACES` 150 faces a piece on average (Pi, 23 Oct: 100 pieces of 50 faces +24%, 10 of 500 -26%); any other run is drawn piece by piece. Keep the threshold in `mg_flush`. It lives in `r3d.c` ("draw merging") and needs `r3d_backend_t.merge`, so only the V3D has it (the Mali does not). Rules of the code:
   - A draw is held if its mesh has baked light (or the call has flag 2), no skeleton, no other flag, a positive scale, `r3d_t.impostor` is 0 and `textures3d` is on. Held draws of the same sheet, flags and light kind form a run (at most 256 draws, 16000 faces). A piece out of view is dropped when it is held, as `draw_flags` drops it.
   - The run is drawn before anything else changes the scene or reaches the job: every `r3d_*` call that changes the scene or draws, and the other entry points of `gpu3d.c` (`GPU_PRE`: `gpu3d_flush`, `gpu3d_submit`, `gpu3d_pending`, `gpu3d_rect2d`, `blit2d`, `text2d`, `sync`, `drop`, `page`, the setters). Add `MG_SYNC()` to a new `r3d_*` function and `GPU_PRE()` to a new public `gpu3d_*` function that records or changes the job.
@@ -31,7 +31,7 @@ Tracking for bm3D 3.0-7.6. Rest of the graphics stack: [graphics](graphics.md). 
   - Pixels: `make test-gpu3d` (`draw merging`) draws 64 pieces merged and piece by piece: 2 of 230400 pixels differ (the vertex sums are made in another order). Host counters: 64 meshes a frame become 2; 100 small pieces merge, 10 big ones (512 faces) do not.
   - Limits: a sheet edited between a held draw and the next flush shows its new texels in the held draws. A mesh freed or changed (`r3d_mesh_free`, `r3d_mesh_normals`) draws the held pieces first.
   - 3D Bench: `ht_p100`, `ht_p10`, `ht_p1` (the map in 100, 10 or 1 pieces, 5000 triangles) and `ht_p100m`, `ht_p10m` (merging on). Pi (23 Oct, before the threshold): `ht_p100m` +24%, `ht_p10m` -26% with the queue; `ht_p10m` re-measure pending ([BENCH3D](../BENCH3D.md) *herotris with the map in pieces*).
-- `gpu3d_attr=1` (bm3d 7.1; off by default; Settings *3D corners*, 3D Bench GPU+VS+A8): compact
+- `gpu3d_attr=1` (bm3d 7.1; off by default; hidden key, 3D Bench GPU+VS+A8): compact
   attributes for `GV_BAKED` (5 words a corner, was 9: `vs_baked8`) and `GV_LIT` (10, was 14:
   `vs_lit8`). ARM side `put_mesh_corner` / `pack_abc`; shader side the regfile A unpack
   (`UNPACK_A` in `tools/qpuasm.py`, emulated in `tests/gpu/v3d_emu.c`); `probe_attr` keeps it
@@ -43,7 +43,7 @@ Tracking for bm3D 3.0-7.6. Rest of the graphics stack: [graphics](graphics.md). 
   54 013 A8 (23 Oct), ARM 12.0 ms and GPU 7.0 ms in both. Off by default; a played Overbit with
   `gpu3d_attr=1` is not measured (the one played so far was `attr=0`, 1920x1080: 31.7 fps, GPU set the pace
   in 82% of the frames, GPU wait 10.4 ms).
-- `gpu3d_tex16=1` (Settings *3D textures: ..., 16-bit*, 3D Bench GPU+T16): opaque sheets as
+- `gpu3d_tex16=1` (hidden key, 3D Bench GPU+T16): opaque sheets as
   RGB565 (type 4, bm3d 5.2); bm3d 7.2: sheets with transparent texels (cut-outs) as RGBA5551
   (type 3) in the same 64x32 T-tiles (`t16_word`), `cut16_of` / `tex_get`. Sheets have 1-bit
   alpha (`g16_sheet_t.alpha`), so nothing is lost but green's last bit (a step of RGB565 at
@@ -59,8 +59,7 @@ Tracking for bm3D 3.0-7.6. Rest of the graphics stack: [graphics](graphics.md). 
   Pi (report 20261012-171826): type 3 works, order 0 (RGB565's, alpha low) is the right one
   (5551 1845/2048 exact, 4444 1561/2048, other orders under 45%); the exact check failed it.
   Next report: status `alpha textures RGBA5551 RGBA4444` expected.
-- `gpu3d_etc1=1` (bm3d 7.3, off; Settings *3D textures: ..., ETC1* also sets `gpu3d_tex16`;
-  3D Bench GPU+ETC1): opaque sheets with sides multiples of the ETC1 tile (64x128, or 128x64
+- `gpu3d_etc1=1` (bm3d 7.3, off; hidden key; 3D Bench GPU+ETC1): opaque sheets with sides multiples of the ETC1 tile (64x128, or 128x64
   for 4x2 utiles) as ETC1 (type 8), encoded in `tex_get` (`etc1_sheet`, encoder
   `src/gpu/etc1.c`, unit test `make test-etc1`); else the 16-bit / 32-bit chain as before.
   Layout: `etc1_block` (tiles and utile slots from RGB565's `t16_inner`: `etc1_slots`),
@@ -124,6 +123,10 @@ Tracking for bm3D 3.0-7.6. Rest of the graphics stack: [graphics](graphics.md). 
 - Mali: the RGB30 triangle fails (`JS_STATUS` 58); the variant probe is ready, the next Dev > GPU test run is in [graphics-mali](graphics-mali.md) `Open work`.
 - Sprite stacking (`stack()`, stack zones, `zstack()`) is done. It runs on the CPU only.
 Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [v3d-notes](v3d-notes.md). First QPU run (key `gpu3d_qpu`): same file, "First QPU run on the Pi".
+
+## Graphics keys (SYS-9 part 1)
+
+Settings shows five graphics rows; every performance flag is a hidden key. Keys, defaults and Pi numbers: [v3d-flags](v3d-flags.md). Manual: `api-3d`, *The graphics keys of the console*.
 
 ## To do, in order
 

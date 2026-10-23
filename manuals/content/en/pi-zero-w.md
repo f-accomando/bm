@@ -236,7 +236,7 @@ Optional features are probed at boot. The probe checks that the GPU draws what t
 
 ## Options
 
-Each option is a key in `bm/config.txt` and a row in *Settings > Screen and sound*. The default is what applies when the key is missing (source: `src/kernel/settings.c`, `docs/DRIVERS.md`).
+Each option is a key in `bm/config.txt`. Only five keys have a row in *Settings > Screen and sound*. The other keys are hidden: the console reads them from the file. The default is what applies when the key is missing (source: `src/kernel/settings.c`, `docs/DRIVERS.md`).
 
 | Key | What it does | Default |
 |---|---|---|
@@ -258,7 +258,7 @@ Each option is a key in `bm/config.txt` and a row in *Settings > Screen and soun
 | `r3d_fast` | ARM renderer: one matrix and light in model space (pixels no longer bit-identical) | `r3d_fast=1` to turn on |
 | `r3d_impostor` | far models as one quad (2 to 64 pixels of a 1080-line screen) | off |
 
-In the Settings the rows are named *3D of the games*, *3D anti-aliasing*, *3D vertices*, *3D frame queue*, *3D frame shown*, *2D over the 3D*, *3D textures*, *3D job memory*, *3D pixel shaders*, *3D draw order*, *3D corners*, *3D impostors* and *3D on the ARM* (source: `src/kernel/settings.c`).
+In the Settings the rows are *3D of the games*, *3D anti-aliasing*, *3D textures*, *3D impostors* and *3D on the ARM* (source: `src/kernel/settings.c`). The other `gpu3d_*` keys have no row. The 3D manual (volume 3, *The graphics keys of the console*) gives for each key what it does, what it costs and the Pi result.
 
 The cel light of `cel3d` (see the 3D volume) also runs on the Pi's GPU: with `gpu3d_vs=2` the lit vertex programs cut the light into the same bands. The game draws the same picture with the ARM lighting when `gpu3d_vs` is 0 or 1, or when the boot test sees the cel programs fail.
 

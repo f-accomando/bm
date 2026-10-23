@@ -425,13 +425,13 @@ action = "one function for the mapping (A2)"
 [[divergence]]
 id = "D37"
 area = "3D settings"
-pi = "12 rows (AA, VS, queue, textures...)"
+pi = "5 rows (3D of the games, anti-aliasing, textures, impostors, 3D on the ARM); the performance flags are hidden keys (SYS-9)"
 rgb30 = "'3D on the ARM' only"
 cause = "hardware"
 capability = "no-3d-gpu-yet"
 status = "accepted"
 note = "Accepted 2026-10-22 (BETA-6): a hardware difference named in docs/spec/platforms.toml (capability above). Intended."
-evidence = "src/rgb30/bm_port.c:24-60; src/kernel/settings.c:489-530"
+evidence = "src/rgb30/bm_port.c:24-60; src/kernel/settings.c:549-565"
 action = "until D23"
 
 [[divergence]]

@@ -2008,34 +2008,34 @@ static void gpu3d_maybe(void)
         gpu3d_drop();                   /* nothing learned from the game before (depth kept) */
         gpu3d_take_stats(&st);          /* this game's from here */
         const char *aa = config_get("gpu3d_aa");
-        gpu3d_set_msaa(aa && strcmp(aa, "1") == 0);     /* anti-aliasing: Settings */
+        gpu3d_set_msaa(aa && strcmp(aa, "1") == 0);     /* anti-aliasing: hidden key (SYS-9) */
         const char *vs = config_get("gpu3d_vs");
-        gpu3d_set_vshader(vs ? atoi(vs) : 2);           /* vertex shader: Settings (0, 1, 2; every model
+        gpu3d_set_vshader(vs ? atoi(vs) : 2);           /* vertex shader: hidden key (0, 1, 2; every model
                                                          * from bm3d 6.6, where the boot's probes saw it) */
         const char *q = config_get("gpu3d_queue");
         gpu3d_set_queue(!q ? 1 : (q[0] == '1' || q[0] == '2') ? q[0] - '0' : 0);  /* the frame in the queue (bm3d 4.1,
                                                                                      on without the key; "0" = off),
                                                                                      two jobs in flight (bm3d 5.1) */
         const char *wc = config_get("gpu3d_wc");
-        gpu3d_set_wc(wc && strcmp(wc, "1") == 0);       /* the jobs' memory uncached (bm3d 4.1): Settings */
+        gpu3d_set_wc(wc && strcmp(wc, "1") == 0);       /* the jobs' memory uncached (bm3d 4.1): hidden key (SYS-9) */
         const char *bf = config_get("gpu3d_filter");
-        gpu3d_set_bilinear(bf && strcmp(bf, "1") == 0); /* textures filtered (bm3d 4.8): Settings */
+        gpu3d_set_bilinear(bf && strcmp(bf, "1") == 0); /* textures filtered (bm3d 4.8): hidden key (SYS-9) */
         const char *t16 = config_get("gpu3d_tex16");
-        gpu3d_set_tex16(t16 && strcmp(t16, "1") == 0);  /* opaque textures in 16 bits (bm3d 5.2): Settings */
+        gpu3d_set_tex16(t16 && strcmp(t16, "1") == 0);  /* opaque textures in 16 bits (bm3d 5.2): hidden key (SYS-9) */
         const char *e1 = config_get("gpu3d_etc1");
-        gpu3d_set_etc1(e1 && strcmp(e1, "1") == 0);     /* opaque textures as ETC1 (bm3d 7.3): Settings */
+        gpu3d_set_etc1(e1 && strcmp(e1, "1") == 0);     /* opaque textures as ETC1 (bm3d 7.3): hidden key (SYS-9) */
         const char *fs2 = config_get("gpu3d_fs2");
         gpu3d_set_fs2(!fs2 || strcmp(fs2, "0") != 0);   /* two-thread pixel shaders (bm3d 5.3; on from 6.4) */
         const char *so = config_get("gpu3d_sort");
-        gpu3d_set_sort(so && strcmp(so, "1") == 0);     /* opaque meshes nearest first (bm3d 5.4): Settings */
+        gpu3d_set_sort(so && strcmp(so, "1") == 0);     /* opaque meshes nearest first (bm3d 5.4): hidden key (SYS-9) */
         const char *at = config_get("gpu3d_attr");
         gpu3d_set_attr(at && strcmp(at, "1") == 0);     /* compact attributes (bm3d 7.1; off by default, the
                                                          * Pi measured no gain; the boot's probe_attr decides
-                                                         * when on): Settings */
+                                                         * when on): hidden key (SYS-9) */
         const char *g2 = config_get("gpu3d_2d");
-        rt.gpu2d = g2 && strcmp(g2, "1") == 0;          /* the 2D over the 3D in the job (bm3d 4.8): Settings */
+        rt.gpu2d = g2 && strcmp(g2, "1") == 0;          /* the 2D over the 3D in the job (bm3d 4.8): hidden key (SYS-9) */
         const char *lt = config_get("gpu3d_later");
-        rt.later = lt && strcmp(lt, "1") == 0;          /* each frame shown a frame later (bm3d 6.9): Settings */
+        rt.later = lt && strcmp(lt, "1") == 0;          /* each frame shown a frame later (bm3d 6.9): hidden key (SYS-9) */
         rt.r3d.backend = gpu3d_backend();
         rt.r3d.arm_hook = gpu3d_to_arm;
         rt.r3d.merge = merge_cfg();
@@ -2064,7 +2064,7 @@ static r3d_t *r3d(lua_State *L)
         const char *fast = config_get("r3d_fast");
         rt.r3d.fast = fast && strcmp(fast, "1") == 0;   /* bm3d 4.9: one matrix, light in the object's axes */
         const char *imp = config_get("r3d_impostor");
-        rt.r3d.impostor = imp ? impostor_px(atoi(imp)) : 0;   /* far small meshes as one quad: Settings */
+        rt.r3d.impostor = imp ? impostor_px(atoi(imp)) : 0;   /* far small meshes as one quad: hidden key (SYS-9) */
         gpu3d_maybe();
     }
     if (rt.cls_pending && !rt.r3d.backend)

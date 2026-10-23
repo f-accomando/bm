@@ -2,8 +2,8 @@
  "api-3d": {
   "chapters": {
    "1": {
-    "en": "c0d1486c0bb4",
-    "it": "7d416d673bc1",
+    "en": "c55b4d950b02",
+    "it": "d8381ff03fa5",
     "title": "How 3D works in bm"
    },
    "10": {
@@ -62,13 +62,13 @@
     "title": "Visibility"
    },
    "9": {
-    "en": "492ff24a57a2",
-    "it": "e668f4736754",
+    "en": "ccad20e014a6",
+    "it": "bb36eb931f0d",
     "title": "The GPU: gpu3d and its options"
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "6403d2e72032",
+   "docs/BENCH3D.md": "f0eb5df7bb55",
    "docs/api/light3d.md": "e598e3265d36"
   }
  },
@@ -1078,8 +1078,8 @@
     "title": "The GPU and the 2D"
    },
    "4": {
-    "en": "9afb98991674",
-    "it": "c9b67962e813",
+    "en": "dd175ce62e9e",
+    "it": "73be21b9ed9c",
     "title": "The GPU and the 3D"
    },
    "5": {
@@ -1109,7 +1109,7 @@
    "docs/HARDWARE.md": "1412f8591e74",
    "docs/PERFORMANCE.md": "1c3fc264eae4",
    "docs/progress/graphics.md": "0450059d63f3",
-   "docs/progress/v3d.md": "a8e2c783421a"
+   "docs/progress/v3d.md": "aac07f63a1f9"
   }
  },
  "riff": {
