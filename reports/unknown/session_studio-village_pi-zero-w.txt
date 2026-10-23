@@ -3,32 +3,32 @@ kind: session
 kernel: dev
 branch: unknown
 board: Pi Zero W
-date: 2026-10-21 13:28:31
+date: 2026-10-23 17:28:10
 file: session_studio-village_pi-zero-w.txt
 
 session of "Studio Village" (the last one: the next run of this game replaces this file)
-options bm3d 7.3 gpu3d=off 3d=arm later=0 2d=0 impostor=8 fast=0
-screen 320x180, 1738 frames in 28.9 s, 59.9 fps
+options bm3d 7.6 gpu3d=off 3d=arm later=0 2d=0 impostor=8 fast=0
+screen 320x180, 1318 frames in 21.9 s, 59.9 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 9.8 ms, max 11.2 ms, 0 frames over 16.7 ms
-memory: Lua peak 48 KiB, data 462 KiB; code 734 tokens; busiest frame 1k Lua instructions
+time of _update + _draw (+ the 3D's wait): avg 9.9 ms, max 11.2 ms, 0 frames over 16.7 ms
+memory: Lua peak 49 KiB, data 462 KiB; code 734 tokens; busiest frame 1k Lua instructions
 frames that were shown after more than 1.5 frames: 0
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    1737
+  <= 18 ms (60 fps)    1317
   <= 25 ms             0
   <= 34 ms (30 fps)    0
   <= 50 ms             0
   <= 100 ms            0
   > 100 ms (a freeze)  0
 
-the frame in its parts (as the overlay, 1737 frames; ms a frame, % of the 16.7 ms of a frame):
+the frame in its parts (as the overlay, 1317 frames; ms a frame, % of the 16.7 ms of a frame):
   update           0.0    0%
   draw (no 3D)     0.7    4%
-  3D calls         9.0   54%
-  audio            0.1    0%
+  3D calls         9.1   55%
+  audio            0.1    1%
   GPU wait         0.0    0%
-  all             10.0   59%
-audio interrupt: 0.9% of the CPU's time (mean), 5.5% at most in a second
+  all             10.1   60%
+audio interrupt: 1.0% of the CPU's time (mean), 5.5% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
