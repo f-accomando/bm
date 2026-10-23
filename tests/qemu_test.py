@@ -9139,6 +9139,134 @@ def test_sdk_layers(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_sdk_map3d_roundtrip(b, opts):
+    """APP-2: a 3D map is saved and reloaded in the bm SDK. A new project,
+    T (the 3D template: floor, height, walls, objects), tiles on the floor and
+    on the height layer, the markers on the objects layer (Shift+S start,
+    Shift+C crate, Shift+O lamp), v (the 3D preview), Ctrl+S. The LAYERS
+    section holds the four layers by name and the cells. Then Ctrl+O opens the
+    project again: the layers, the floor tile and the start marker are on the
+    map page, the 3D preview opens, and a save keeps the cells."""
+    tmp = tempfile.mkdtemp(prefix="bm-map3d-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    F3 = "\x1bOR"
+
+    def k(s, gap=0.25):
+        q.send(s)
+        time.sleep(gap)
+
+    def see(word, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: any(word in l for l in t), tries=2)
+            if any(word in l for l in text):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("e")
+        see("OPEN IN")
+        k("\x0e", 0.5)                                      # Ctrl+N: the templates
+        see("new project from a template")
+        k("\r", 0.5)                                        # Empty 2D
+        see("new project (")
+        k(F3, 0.5)                                          # the sprites
+        see("SPRITES")
+        k(F3, 0.5)                                          # the map
+        see("layer 1/1 main")
+        k("T")
+        see("3D map template ready")
+        see("layer 1/4 floor")
+        k(" ")                                              # floor tile at (0, 0)
+        k("\x1b[C")
+        k(" ")                                              # (2, 0)
+        k("\x1b[C")
+        k(" ")                                              # (4, 0)
+        k("l")
+        see("map layer 2/4: height")
+        k(" ")                                              # height at (4, 0)
+        k("l")
+        k("l")
+        see("map layer 4/4: objects")
+        k("O")                                              # lamp at (4, 0)
+        see("lamp placed")
+        k("\x1b[D")
+        k("C")                                              # crate at (2, 0)
+        see("crate placed")
+        k("\x1b[D")
+        k("S")                                              # start at (0, 0)
+        see("start placed")
+        k("v", 1)
+        see("3D preview")
+        k("v", 0.5)
+        see("2D map editor")
+        k("\x13", 1)                                        # Ctrl+S: no name yet, Save as
+        see("file name")
+        k("\r")
+        see("saved /bme/")
+        # the project opened again
+        k("\x0f", 1)                                        # Ctrl+O
+        see("open a cartridge")
+        k("\r", 1)
+        see("opened /bme/")
+        see("4 layers")                                     # the project page: the map has its layers
+        k(F3, 0.5)                                          # the map page (the last view of the SDK)
+        see("layer 1/4 floor")
+        see("(0,0) = ")
+        k("l")
+        k("l")
+        k("l")
+        see("map layer 4/4: objects")
+        see("(0,0) = 1024")
+        k("v", 1)
+        see("3D preview")
+        k("v", 0.5)
+        k("\x13", 1)                                        # a save of the reloaded project
+        see("saved /bme/")
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/BME"], capture_output=True, env=env,
+                               text=True).stdout.split()
+        assert len(names) == 1, names
+        data = subprocess.run(["mtype", "-i", part, names[0]], capture_output=True, env=env).stdout
+        assert data[:8] == b"BMCART\x00\x00", data[:16]
+        secs = {}
+        for i in range(data[17]):
+            t, off, size, _ = struct.unpack_from("<IIII", data, 128 + i * 16)
+            secs[t] = data[off:off + size]
+        lay = secs[12]
+        w, h, n = struct.unpack_from("<HHH", lay, 0)
+        assert (w, h, n) == (256, 256, 4), (w, h, n)
+        got = [lay[8 + i * 16:24 + i * 16].rstrip(b"\0") for i in range(4)]
+        assert got == [b"floor", b"height", b"walls", b"objects"], got
+        base = 8 + 4 * 16
+
+        def cell(layer, x, y):                      # layer 1 is the MAP section, 2.. are in LAYERS
+            if layer == 0:
+                return struct.unpack_from("<H", secs[3], 4 + (y * w + x) * 2)[0]
+            return struct.unpack_from("<H", lay, base + (layer - 1) * w * h * 2 + (y * w + x) * 2)[0]
+
+        def block(layer, x, y):                     # a 16x16 tile is a block of 2x2 cells (tile 0 has an empty corner)
+            return [cell(layer, x + i, y + j) for j in (0, 1) for i in (0, 1)]
+        for x in (0, 2, 4):
+            assert any(block(0, x, 0)), f"floor tile at ({x}, 0)"
+        assert any(block(1, 4, 0)), "height at (4, 0)"
+        assert not any(block(1, 0, 0)) and not any(block(1, 2, 0)), "height only where it was drawn"
+        assert all(cell(2, x, 0) == 0 for x in range(8)), "walls stay empty"
+        assert (cell(3, 0, 0), cell(3, 2, 0), cell(3, 4, 0)) == (1024, 1028, 1032), \
+            (cell(3, 0, 0), cell(3, 2, 0), cell(3, 4, 0))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_sdk_suite(b, opts):
     """The SDK update (2026-10-04): the bm SDK opens Studio Village (Ctrl+O),
     its 3D page lists the models and draws them, i writes the code for one,
