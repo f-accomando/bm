@@ -75,7 +75,6 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 - M45 - P2 - in progress - bm Write: `.BMD` documents, TXT/MD/HTM/PDF export. A formatted document exported to PDF is identical on the PC (checked against the screen on the host). Left: Pi and RGB30 try, a real PDF viewer, Market. [tools](progress/tools.md)
 - APP-8 - P2 - partly done - Multitab in bm Code for the source files of one project. Done: bm Code opens a `.bme` with `--@module name` lines as one tab per module (second row), `U.tabbar` in bmui is the shared tab bar, the project keeps ONE code section (same bytes, same build). Done when (what is left): bm SDK and the other editors with a code page show the same module tabs with `U.tabbar` (the SDK edits the whole code without tabs today); the modules are separate files in the project, each saved to its own file (this needs a file API for tools in `runtime.c`; today the modules are lines of the one code section). The tab layout is for readability only. [suite-code](design/suite-code.md), [tools](progress/tools.md)
 - R39 - P3 - idea - 720×720 SDK on the RGB30. [suite-sdk](design/suite-sdk.md), [sdk-720](design/sdk-720.md)
-- APP-29 - P3 - idea - bm Animator two-bone IK in the animate page. [tools](progress/tools.md)
 - APP-30 - P3 - idea - Ease-in and ease-out clip modes in `pose_at` (runtime.c) and bm Animator; an old kernel plays them linear. [tools](progress/tools.md)
 
 ## Games
