@@ -93,7 +93,7 @@ All the colours, up to 256, with the red, green and blue value of the one chosen
 
 ## F4: the stack
 
-A *stack zone* is a zone with *n* slices of the same size that lie side by side on the sheet, from left to right. Slice 1 is the bottom. In the cartridge it is the line `stack name x y w h n`; a game draws it with `zstack`. The Stack page shows one slice, zoomed, on the left. On the right it shows the stack zones, a row of small pictures of the slices, and the whole stack as it turns (`stack` with a rotation angle). The stack reads the sheet each frame, so a change to a slice shows at once. A game can also use a `stackv` zone, with the slices one under the other on the sheet.
+A *stack zone* is a zone with *n* slices of the same size that lie side by side on the sheet, from left to right. Slice 1 is the bottom. In the cartridge it is the line `stack name x y w h n`; a game draws it with `zstack`. The Stack page shows one slice, zoomed, on the left. On the right it shows the stack zones, a row of small pictures of the slices, and the whole stack as it turns (`stack` with a rotation angle). The stack reads the sheet each frame, so a change to a slice shows at once. A `stackv` zone has the slices one under the other on the sheet, from the top down; the page reads and writes both layouts. The line ends with `h` (side by side, `stack`) or `v` (one under the other, `stackv`).
 
 | Key | Action |
 |---|---|
@@ -101,12 +101,15 @@ A *stack zone* is a zone with *n* slices of the same size that lie side by side 
 | up / down | the stack zone before / after |
 | PgUp / PgDn | 8 slices |
 | Enter | draw the slice on F1 (square slices only; **F4** comes back) |
-| n | new zone: name, x, y, w, h, n (for example `tree 0 0 16 16 8`) |
+| k | onion skin: the slice before, dimmed, in the empty pixels of this slice |
+| c | copy this slice to the next one and go to it (extrusion; **Ctrl+Z** undoes) |
+| Del or x | delete the zone (press twice; the pixels stay on the sheet) |
+| n | new zone: name, x, y, w, h, n, `h` or `v` (for example `tree 0 0 16 16 8 h`) |
 | e | change the zone (the same line; a new name makes a new zone) |
 | p | the stack turns or stops |
 | , and . | turn the stack by hand |
 
-When no stack zone exists, **n** makes the first one. The line starts with the sprite chosen on F1. **Ctrl+S** writes the zones and the slice count (byte 26 of the zone) with the sheet. There is no undo for the zone line. On the pad: left / right the slice, up / down the zone, **A** draw the slice, **B** turn or stop, **X** + left / right turn by hand, **X** (tap) the list of commands.
+When no stack zone exists, **n** makes the first one. The line starts with the sprite chosen on F1. **Ctrl+S** writes the zones and the slice count (byte 26 of the zone) with the sheet. There is no undo for the zone line; the copy of a slice has one. The onion skin draws at most 600 small squares, only when it is on. With a mouse: click a zone or a small picture to choose it, double click a small picture to draw it, the wheel changes the slice, a drag on the turning stack turns it by hand, a click on it stops or starts the turn, and the right button opens the list of commands. On the pad: left / right the slice, up / down the zone, **A** draw the slice, **B** turn or stop, **X** + left / right turn by hand, **X** (tap) the list of commands.
 
 ## The hitbox preview (j)
 

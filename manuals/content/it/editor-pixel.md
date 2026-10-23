@@ -93,7 +93,7 @@ Tutti i colori, fino a 256, con i valori di rosso, verde e blu di quello scelto.
 
 ## F4: lo stack
 
-Una *zona stack* è una zona con *n* fette della stessa misura, una accanto all'altra sullo sheet, da sinistra a destra. La fetta 1 è la più bassa. Nella cartuccia è la riga `stack nome x y w h n`; un gioco la disegna con `zstack`. La pagina Stack mostra a sinistra una fetta, ingrandita. A destra mostra le zone stack, una fila di piccole immagini delle fette e lo stack intero che gira (`stack` con un angolo di rotazione). Lo stack legge lo sheet a ogni fotogramma: una modifica a una fetta si vede subito. Un gioco può usare anche una zona `stackv`, con le fette una sotto l'altra sullo sheet.
+Una *zona stack* è una zona con *n* fette della stessa misura, una accanto all'altra sullo sheet, da sinistra a destra. La fetta 1 è la più bassa. Nella cartuccia è la riga `stack nome x y w h n`; un gioco la disegna con `zstack`. La pagina Stack mostra a sinistra una fetta, ingrandita. A destra mostra le zone stack, una fila di piccole immagini delle fette e lo stack intero che gira (`stack` con un angolo di rotazione). Lo stack legge lo sheet a ogni fotogramma: una modifica a una fetta si vede subito. Una zona `stackv` ha le fette una sotto l'altra sullo sheet, dall'alto in basso; la pagina legge e scrive tutte e due le disposizioni. La riga finisce con `h` (una accanto all'altra, `stack`) o `v` (una sotto l'altra, `stackv`).
 
 | Tasto | Azione |
 |---|---|
@@ -101,12 +101,15 @@ Una *zona stack* è una zona con *n* fette della stessa misura, una accanto all'
 | su / giù | la zona stack prima / dopo |
 | PgUp / PgDn | 8 fette |
 | Enter | disegna la fetta in F1 (solo fette quadrate; **F4** torna qui) |
-| n | nuova zona: nome, x, y, w, h, n (per esempio `tree 0 0 16 16 8`) |
+| k | onion skin: la fetta prima, attenuata, nei pixel vuoti di questa fetta |
+| c | copia questa fetta sulla successiva e ci va (estrusione; **Ctrl+Z** annulla) |
+| Del o x | cancella la zona (premi due volte; i pixel restano sullo sheet) |
+| n | nuova zona: nome, x, y, w, h, n, `h` o `v` (per esempio `tree 0 0 16 16 8 h`) |
 | e | modifica la zona (la stessa riga; un nome nuovo crea una zona nuova) |
 | p | lo stack gira o si ferma |
 | , e . | gira lo stack a mano |
 
-Se non esiste nessuna zona stack, **n** crea la prima. La riga parte dallo sprite scelto in F1. **Ctrl+S** scrive le zone e il numero di fette (byte 26 della zona) insieme allo sheet. La riga della zona non ha l'annulla. Sul pad: sinistra / destra la fetta, su / giù la zona, **A** disegna la fetta, **B** gira o ferma, **X** + sinistra / destra gira a mano, **X** (tocco) l'elenco dei comandi.
+Se non esiste nessuna zona stack, **n** crea la prima. La riga parte dallo sprite scelto in F1. **Ctrl+S** scrive le zone e il numero di fette (byte 26 della zona) insieme allo sheet. La riga della zona non ha l'annulla; la copia di una fetta sì. L'onion skin disegna al massimo 600 quadratini, solo quando è attivo. Con il mouse: clic su una zona o su una piccola immagine per sceglierla, doppio clic su una piccola immagine per disegnarla, la rotella cambia fetta, trascinare sullo stack che gira lo ruota a mano, un clic sopra lo ferma o lo fa ripartire, il tasto destro apre l'elenco dei comandi. Sul pad: sinistra / destra la fetta, su / giù la zona, **A** disegna la fetta, **B** gira o ferma, **X** + sinistra / destra gira a mano, **X** (tocco) l'elenco dei comandi.
 
 ## L'anteprima delle hitbox (j)
 

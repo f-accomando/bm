@@ -119,7 +119,12 @@ local space_held = false
 for k, v in pairs(_G) do E[k] = v end
 E.SCREEN_W, E.SCREEN_H = 640, 360
 local function nop() end
-for _, n in ipairs({ "cls", "rect", "rectfill", "line", "circ", "circfill", "pset", "clip", "camera" }) do E[n] = nop end
+for _, n in ipairs({ "cls", "rect", "line", "circ", "circfill", "pset", "clip", "camera" }) do E[n] = nop end
+local rects = 0
+E.rectfill = function() rects = rects + 1 end
+local last_stack                          -- the last stack() / stackv() call: { name, args... }
+E.stack = function(...) last_stack = { "stack", ... } end
+E.stackv = function(...) last_stack = { "stackv", ... } end
 E.print = function(s, x, y) texts[#texts + 1] = { tostring(s), x or 0, y or 0 }; return (x or 0) + #tostring(s) * 8 end
 -- the keys as chips: written as "[name]"; prompt(name) alone measures
 local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
@@ -179,9 +184,35 @@ E.cart_sheet = function(w, h)
   return sheet.w, sheet.h
 end
 E.cart_new = function() sheet = { w = 256, h = 256, px = {} } end
-E.zones = function() return {} end
+-- the SPRITES section (cart_data(11)) and the zones read from it, as the kernel gives them
+local zdata
+local function zlist()
+  local out = {}
+  if zdata and #zdata >= 4 then
+    for i = 0, string.unpack("<I2", zdata, 1) - 1 do
+      local name, x, y, w, h, fr, fps, sl = string.unpack("<c16I2I2I2I2BBB", zdata, 5 + i * 28)
+      out[#out + 1] = { name:match("^[^%c]*"), x, y, w, h, fr, fps, sl }
+    end
+  end
+  return out
+end
+E.cart_data = function(kind, bytes)
+  assert(kind == 11, "cart_data: only SPRITES here")
+  if bytes == nil then return zdata end
+  zdata = bytes ~= "" and bytes or nil
+  return true
+end
+E.zones = function()
+  local out = {}
+  for _, z in ipairs(zlist()) do out[#out + 1] = z[1] end
+  return out
+end
 E.zboxes = function() return {} end
-E.zone = function() return nil end
+E.zone = function(name)
+  for _, z in ipairs(zlist()) do
+    if z[1] == name then return table.unpack(z, 2) end
+  end
+end
 E.ai = {
   sprite = function(req, opt)
     local n = opt and opt.size or 16
@@ -203,6 +234,7 @@ E.cart_load = function(path)
   local data = read_file(host(path))
   if not data then return nil, "no such file" end
   local w, h, px, pal, nc = decode_sheet(data)
+  zdata = section(data, 11)
   sheet = { w = w or 256, h = h or 256, px = {} }
   for i, c in pairs(px or {}) do sheet.px[i] = q565(c) end
   local p = { title = data:sub(25, 72):match("^[^\0]*"), lua = section(data, 1) or "" }
@@ -324,6 +356,12 @@ E.cart_write = function(path, t)
   if t.sheet then
     local kind, data = sheet_section(t.palette, old)
     put({ [2] = true, [5] = true }, kind, data)
+  end
+  for kind, data in pairs(t.sections or {}) do       -- false takes the section away
+    local out = {}
+    for _, sec in ipairs(secs) do if sec[1] ~= kind then out[#out + 1] = sec end end
+    if data then out[#out + 1] = { kind, data } end
+    secs = out
   end
   local f = io.open(host(path), "wb")
   if not f then return false, "cannot write " .. path end
@@ -669,6 +707,121 @@ check(sees("Exit bm Pixel"), "mouse: the menu tab")
 mx, my = at("Continue", 32)
 click(mx, my)
 check(not sees("Exit bm Pixel"), "mouse: a click on Continue")
+
+
+----------------------------------------------------------------- the stack page
+
+-- a clean corner of the sheet, then: the page with no zone, a stack zone, copy a slice to the
+-- next, the onion skin, the vertical layout, the mouse, delete a zone, save
+frames(400)
+for y = 0, 127 do for x = 0, 63 do E.sset(x, y, nil) end end
+zdata = nil
+key("f4")
+check(sees("no stack zone"), "F4: no stack zone yet")
+key("n")
+type_text("tree 0 0 16 16 4 h")
+local tn = select(7, E.zone("tree"))
+check(tn == 4 and sees("stack tree"), "n: a stack zone, 4 slices, side by side")
+key("p")
+for _, p in ipairs({ { 0, 0 }, { 2, 0 }, { 0, 2 } }) do E.sset(p[1], p[2], 0xF80000) end   -- slice 1
+frames(2)
+check(last_stack and last_stack[1] == "stack" and last_stack[2] == 0 and last_stack[3] == 0 and last_stack[6] == 4,
+      "the turning view calls stack() with the zone")
+key("c")
+check(sees("slice 2/4") and E.sget(16, 0) == E.sget(0, 0) and E.sget(18, 0) and E.sget(16, 2),
+      "c: slice 1 is copied to slice 2 and the page goes to it")
+key("^z")
+check(E.sget(16, 0) == nil and E.sget(0, 0) ~= nil, "Ctrl+Z: the copy is one undo step")
+key("^y")
+check(E.sget(16, 0) ~= nil, "Ctrl+Y: and back")
+key("right")
+local r0 = rects
+frames(1)
+local base = rects - r0
+key("k")
+r0 = rects
+frames(1)
+check(rects - r0 - base == 3, "k: the onion skin draws the 3 dither pixels of the slice before: " .. (rects - r0 - base))
+r0 = rects
+frames(3)
+check(rects - r0 == 3 * (base + 3), "the onion skin costs only its pixels, 3 rectangles a frame")
+key("k")
+r0 = rects
+frames(1)
+check(rects - r0 == base, "k: the onion skin off")
+key("end", "c")
+check(sees("last slice"), "c on the last slice: nothing after it")
+
+-- the vertical layout
+key("n")
+type_text("bad 0 250 16 16 3 v")
+check(E.zone("bad") == nil and sees("out of the sheet"), "stackv zone below the sheet: refused")
+key("n")
+type_text("vt 0 64 16 16 3 v")
+check(select(7, E.zone("vt")) == 3 and zdata:byte(5 + 1 * 28 + 27) & 1 == 1 and zdata:byte(5 + 27) == 0,
+      "n ... v: a stackv zone, bit 0 of byte 27 only in its entry")
+frames(2)
+check(last_stack[1] == "stackv" and last_stack[3] == 64 and last_stack[6] == 3, "the view calls stackv() for it")
+key("right")
+check(sees("stackv vt  slice 2/3  at (0,80)"), "slice 2 of a stackv is 16 pixels lower: " .. (screen():match("stackv vt[^\n]*") or "?"))
+key("e")
+check(sees("vt 0 64 16 16 3 v"), "e: the layout is in the text")
+type_text("vt 0 64 16 16 3 h")
+frames(2)
+check(last_stack[1] == "stack" and zdata:byte(5 + 28 + 27) & 1 == 0, "e ... h: back to side by side")
+key("e")
+type_text("vt 0 64 16 16 3 v")
+
+-- the mouse: a drag on the turning view turns it, a click stops or starts it
+E.sp.spin = true
+click(400, 200)
+check(E.sp.spin == false, "mouse: a click on the view stops the turning")
+click(400, 200)
+check(E.sp.spin == true, "mouse: and starts it")
+E.sp.spin = false
+local rot0 = E.sp.rot
+mouse(400, 200, 0); mouse(400, 200, 1); mouse(420, 200, 1); mouse(450, 200, 1); mouse(450, 200, 0); frames(1)
+check(E.sp.rot ~= rot0 and E.sp.spin == false, "mouse: a drag on the view turns the stack by hand")
+click(100, 100, 2)
+check(sees("Onion skin") and sees("Copy the slice to the next") and sees("Delete the zone"), "mouse: the stack page's context menu")
+mx, my = at("Onion skin")
+click(mx, my)
+check(E.sp.onion == true, "mouse: Onion skin from the context menu")
+key("k")
+
+-- delete a zone: twice; the pixels stay
+key("up")
+local zs = #E.zones()
+key("del")
+check(#E.zones() == zs and sees("again"), "Del: asks first")
+key("del")
+check(#E.zones() == zs - 1 and E.zone("tree") == nil and E.zone("vt") ~= nil, "Del twice: the zone is out of SPRITES")
+check(E.sget(0, 0) ~= nil, "the pixels of the zone stay on the sheet")
+check(zdata:byte(5 + 27) & 1 == 1, "the layout of the other zone is kept")
+
+-- save: the zone and its layout are in the file
+key("^s")
+local nf = file("newspr.bme")
+local z11 = section(nf, 11)
+check(z11 and string.unpack("<I2", z11, 1) == 1 and z11:byte(5 + 27) & 1 == 1 and z11:byte(5 + 26) == 3,
+      "Ctrl+S: SPRITES in the file, vt, 3 slices, vertical")
+key("del", "del")
+check(#E.zones() == 0 and zdata == nil, "the last zone deleted: no SPRITES")
+key("^s")
+nf = file("newspr.bme")
+check(section(nf, 11) == nil, "Ctrl+S: the file has no SPRITES")
+key("f4")
+check(sees("no stack zone"), "F4: empty again")
+-- leave a stackv zone in the file that the kernel's parser and the build's Python read
+key("n")
+type_text("vt 0 64 16 16 3 v")
+do                                       -- the sheet as the first save of NEWSPR left it (check_files.py: one pixel)
+  local _, _, npx = decode_sheet(n1)
+  sheet.px = {}
+  for i, c in pairs(npx) do sheet.px[i] = q565(c) end
+end
+key("^s")
+check(section(file("newspr.bme"), 11) ~= nil, "a stackv zone left in NEWSPR.BME for the kernel's parser")
 
 io.write(string.format("bm Pixel: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)

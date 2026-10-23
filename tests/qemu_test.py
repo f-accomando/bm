@@ -5843,6 +5843,9 @@ def test_pixel(b, opts):
         screen(["stack stack  slice 1/8", "at (0,0)  16x16"])
         keys(RIGHT, gap=0.4)
         screen(["slice 2/8", "at (16,0)"])
+        keys("k", gap=0.4)                      # the onion skin on and off (no pixel of the sheet changes)
+        screen(["slice 2/8"])
+        keys("k", gap=0.4)
         shot("stack")
         view = q.screendump()                   # the stack turns in its box: it is not empty
         counts = {}

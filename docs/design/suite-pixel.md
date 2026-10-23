@@ -103,9 +103,9 @@ The *sprite stacking* technique allows generating pseudo-3D volumes by overlayin
    - Zone definition with type `stack` and slice count in `sprites.txt` / `mkbm.py --sprites`.
    - `zstack(nome, x, y, [rz, scala])` API, display with interactive rotation in the Lib tab and in `.bmi` files.
 3. **Dedicated Editor in bm Pixel**:
-   - New **Stack** page: slice view both side by side in a grid and overlaid with vertical onion skin; real-time rotating 3D preview; automatic duplication of the slice onto the upper level to ease extrusion; quick creation of a stack starting from an existing zone.
+   - **Stack** page (done): slice view with the thumbnails and the onion skin (the slice before, dimmed); real-time rotating preview; copy of the slice onto the upper level (`c`) to ease extrusion; both layouts (`stack`, `stackv`); delete a zone; mouse (pick, wheel, drag to turn, right menu). Left: quick creation of a stack starting from an existing zone.
 4. **Full x, y, z Rotation**:
-   - `stackv(...)` (done): `stack` with the slices one under the other on the sheet. A voxel volume with free 3D orientation along the axis closest to the camera stays open.
+   - `stackv(...)` (done): `stack` with the slices one under the other on the sheet; bm Pixel edits it. A voxel volume with free 3D orientation along the axis closest to the camera stays open.
 5. **Export to the Other Suite Tools**:
    - Automatic conversion of the stack into `MESH` (colored outer voxel faces) for `bm Studio` and `bm Mesh`.
    - Automatic generation of pre-rendered 8-direction sprites for `bm Animator`.

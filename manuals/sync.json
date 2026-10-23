@@ -690,8 +690,8 @@
     "title": "Opening a file"
    },
    "3": {
-    "en": "74f05bdf23eb",
-    "it": "1b4b8bdcda93",
+    "en": "b1c90704944b",
+    "it": "defaebc584ed",
     "title": "The pages"
    },
    "4": {
@@ -726,10 +726,10 @@
    }
   },
   "sources": {
-   "carts/pixel/main.lua": "634ae71952e3",
+   "carts/pixel/main.lua": "a58d37f0df41",
    "docs/RISORSE.md": "4b94efc50686",
-   "docs/design/suite-pixel.md": "169370731398",
-   "docs/progress/tools.md": "b6f6f3e87bee",
+   "docs/design/suite-pixel.md": "a0f942fe815a",
+   "docs/progress/tools.md": "1bd38b894068",
    "sdk/README.md": "f82ca797337d"
   }
  },

@@ -180,6 +180,7 @@ local function do_undo(from, to, what)
   if s.x + s.w > sw or s.y + s.h > sh then say("cannot " .. what .. ": the sheet changed size", C_ERR); return end
   to[#to + 1] = snap(s.x, s.y, s.w, s.h)
   put_snap(s)
+  if sp then sp.ghost = nil end
   dirty = true
   edits = edits + 1
   say(what, C_ACC, 60)
@@ -1472,11 +1473,13 @@ end
 -- Sprite stacking: a stack zone ("stack name x y w h n" in the SPRITES
 -- section) is n slices of w x h that lie side by side on the sheet. The
 -- page shows one slice, the stack turning (stack()) and the zones; Enter
--- draws the slice on F1. sp.dir "h" is the only layout today: slices from
--- left to right (a vertical layout comes later, with cell() and fits()).
+-- draws the slice on F1. A zone has one of two layouts (z.vert): slices from
+-- left to right (stack) or from top to bottom (stackv, bit 0 of byte 27 of the
+-- zone in SPRITES). Keys: k onion skin, c copy the slice to the next one,
+-- Del delete the zone. State lives in sp (the main chunk has 200 locals at most).
 do
 
-sp = { zi = 1, k = 1, rot = 0, spin = true, dir = "h", zdirty = false }
+sp = { zi = 1, k = 1, rot = 0, spin = true, zdirty = false, onion = false, ghost = nil }
 local PREV_X, PREV_Y, PREV_W, PREV_H = 312, 144, 320, 160
 local TWO_PI = 2 * math.pi
 
@@ -1486,9 +1489,20 @@ local function stack_zones()
   if zcache then return zcache end
   local list = {}
   if not zones or not zone then return list end
+  local vert = {}                         -- the layout is bit 0 of byte 27 of a zone in SPRITES
+  local cur = cart_data and cart_data(11)
+  if cur and #cur >= 4 then
+    for i = 0, sunpack("<I2", cur, 1) - 1 do
+      local o = 5 + i * 28
+      if #cur < o + 27 then break end
+      vert[cur:sub(o, o + 15):match("^[^\0]*")] = cur:byte(o + 27) & 1 == 1
+    end
+  end
   for _, zn in ipairs(zones() or {}) do
     local x, y, w, h, fr, fps, n = zone(zn)
-    if x and n and n >= 2 then list[#list + 1] = { name = zn, x = x, y = y, w = w, h = h, frames = fr, fps = fps, n = n } end
+    if x and n and n >= 2 then
+      list[#list + 1] = { name = zn, x = x, y = y, w = w, h = h, frames = fr, fps = fps, n = n, vert = vert[zn] or false }
+    end
   end
   zcache = list
   return list
@@ -1496,12 +1510,12 @@ end
 
 -- the corner of slice k (1 is the bottom one)
 local function cell(z, k)
-  if sp.dir == "v" then return z.x, z.y + (k - 1) * z.h end
+  if z.vert then return z.x, z.y + (k - 1) * z.h end
   return z.x + (k - 1) * z.w, z.y
 end
 
-local function fits(x, y, w, h, n)
-  if sp.dir == "v" then return x + w <= sw and y + h * n <= sh end
+local function fits(x, y, w, h, n, vert)
+  if vert then return x + w <= sw and y + h * n <= sh end
   return x + w * n <= sw and y + h <= sh
 end
 
@@ -1527,7 +1541,7 @@ function stack_at()
 end
 
 function stack_reset()
-  sp.zi, sp.k, sp.zdirty = 1, 1, false
+  sp.zi, sp.k, sp.zdirty, sp.ghost = 1, 1, false, nil
   zcache = nil
 end
 
@@ -1537,13 +1551,14 @@ function stack_resized()
   zcache = nil
   local bad = 0
   for _, z in ipairs(stack_zones()) do
-    if not fits(z.x, z.y, z.w, z.h, z.n) then bad = bad + 1 end
+    if not fits(z.x, z.y, z.w, z.h, z.n, z.vert) then bad = bad + 1 end
   end
   if cart_data and cart_data(11) then sp.zdirty = true end
   return bad
 end
 
 function stack_enter()
+  sp.ghost = nil                          -- the sheet may have changed on the other pages
   current()
 end
 
@@ -1553,27 +1568,27 @@ local function put_zone(z)
   if not cart_data then return false, "this kernel has no cart_data" end
   local cur = cart_data(11)
   local parts, done, count = {}, false, 0
-  local function add(name, x, y, w, h, fr, fps, sl)
-    parts[#parts + 1] = spack("<c16I2I2I2I2BBBx", name, x, y, w, h, fr, fps, sl)
+  local function add(name, x, y, w, h, fr, fps, sl, vt)
+    parts[#parts + 1] = spack("<c16I2I2I2I2BBBB", name, x, y, w, h, fr, fps, sl, vt and 1 or 0)
     count = count + 1
   end
   if cur and #cur >= 4 then
     for i = 0, sunpack("<I2", cur, 1) - 1 do
-      local name, x, y, w, h, fr, fps, sl = sunpack("<c16I2I2I2I2BBB", cur, 5 + i * 28)
+      local name, x, y, w, h, fr, fps, sl, vt = sunpack("<c16I2I2I2I2BBBB", cur, 5 + i * 28)
       name = name:match("^[^\0]*")
       if name == z.name then
-        add(z.name, z.x, z.y, z.w, z.h, fr, fps, z.n)
+        if not z.delete then add(z.name, z.x, z.y, z.w, z.h, fr, fps, z.n, z.vert) end
         done = true
       else
-        add(name, x, y, w, h, fr, fps, sl)
+        add(name, x, y, w, h, fr, fps, sl, vt & 1 == 1)
       end
     end
   end
-  if not done then add(z.name, z.x, z.y, z.w, z.h, 1, 0, z.n) end
-  local ok, e = cart_data(11, spack("<I2I2", count, 0) .. table.concat(parts))
+  if not done and not z.delete then add(z.name, z.x, z.y, z.w, z.h, 1, 0, z.n, z.vert) end
+  local ok, e = cart_data(11, count > 0 and spack("<I2I2", count, 0) .. table.concat(parts) or "")
   if not ok then return false, tostring(e) end
   sp.zdirty, dirty = true, true
-  zcache = nil
+  zcache, sp.ghost = nil, nil
   return true
 end
 
@@ -1587,32 +1602,36 @@ local function find_zone(name)
 end
 
 local function define_zone(t)
-  local name, x, y, w, h, n = t:match("^%s*(%S+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s*$")
-  if not name then say("name x y w h n, like: tree 0 0 16 16 8", C_ERR, 300); return end
+  local name, x, y, w, h, n, lay = t:match("^%s*(%S+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s*(%a?)%s*$")
+  if not name or (lay ~= "" and lay ~= "h" and lay ~= "v") then
+    say("name x y w h n [h or v], like: tree 0 0 16 16 8 v", C_ERR, 300); return
+  end
   x, y, w, h, n = tonumber(x), tonumber(y), tonumber(w), tonumber(h), tonumber(n)
   if #name > 15 then say("the name has at most 15 letters", C_ERR); return end
   if w < 1 or h < 1 or n < 2 or n > 255 then say("w and h at least 1, n (slices) from 2 to 255", C_ERR); return end
-  if not fits(x, y, w, h, n) then say("out of the sheet (" .. sw .. "x" .. sh .. ")", C_ERR); return end
+  local vert = lay == "v"
+  if not fits(x, y, w, h, n, vert) then say("out of the sheet (" .. sw .. "x" .. sh .. ")", C_ERR); return end
   local old = find_zone(name)
   if old and old.n < 2 then say("the zone " .. name .. " is not a stack: use another name", C_ERR, 300); return end
-  local z = { name = name, x = x, y = y, w = w, h = h, n = n }
+  local z = { name = name, x = x, y = y, w = w, h = h, n = n, vert = vert }
   local ok, e = put_zone(z)
   if not ok then say("the zone: " .. e, C_ERR, 300); return end
   for i, s in ipairs(stack_zones()) do if s.name == name then sp.zi = i end end
   sp.k = 1
-  say(string.format("stack %s: %d slices of %dx%d (Ctrl+S saves)", name, n, w, h), C_ACC)
+  say(string.format("stack %s: %d slices of %dx%d, %s (Ctrl+S saves)", name, n, w, h, vert and "stackv" or "stack"), C_ACC)
 end
 
 local function new_zone()
   local k, name = 1, "stack"
   while find_zone(name) do k = k + 1; name = "stack" .. k end
-  ask("new stack zone: name x y w h n", string.format("%s %d %d %d %d 8", name, rx, ry, rs, rs), define_zone)
+  ask("new stack zone: name x y w h n h|v", string.format("%s %d %d %d %d 8 h", name, rx, ry, rs, rs), define_zone)
 end
 
 local function change_zone()
   local z = current()
   if not z then new_zone(); return end
-  ask("stack zone: name x y w h n", string.format("%s %d %d %d %d %d", z.name, z.x, z.y, z.w, z.h, z.n), define_zone)
+  ask("stack zone: name x y w h n h|v", string.format("%s %d %d %d %d %d %s", z.name, z.x, z.y, z.w, z.h, z.n, z.vert and "v" or "h"),
+      define_zone)
 end
 
 local function edit_slice()
@@ -1625,6 +1644,35 @@ local function edit_slice()
   draw_reset()
   go("draw")
   say(string.format("%s slice %d/%d: F4 goes back to the stack", z.name, sp.k, z.n), C_ACC, 300)
+end
+
+-- copy slice k onto slice k+1 (extrusion: draw the next level from the last), then go to it;
+-- one undo step
+local function copy_slice()
+  local z = current()
+  if not z then say("no stack zone yet: n makes one", C_ERR); return end
+  if sp.k >= z.n then say("this is the last slice: nothing after it", C_ERR, 200); return end
+  if not fits(z.x, z.y, z.w, z.h, z.n, z.vert) then say("the zone is outside the sheet", C_ERR); return end
+  local ax, ay = cell(z, sp.k)
+  local bx, by = cell(z, sp.k + 1)
+  begin(bx, by, z.w, z.h)
+  for j = 0, z.h - 1 do
+    for i = 0, z.w - 1 do sset(bx + i, by + j, sget(ax + i, ay + j)) end
+  end
+  sp.k = sp.k + 1
+  sp.ghost = nil
+  say(string.format("%s: slice %d copied to %d (Ctrl+Z undoes)", z.name, sp.k - 1, sp.k), C_ACC, 200)
+end
+
+-- take the zone out of SPRITES; the pixels of its slices stay on the sheet
+local function delete_zone()
+  local z = current()
+  if not z then say("no stack zone to delete", C_ERR); return end
+  if not confirmed("delzone", "Del again deletes the zone " .. z.name .. " (its pixels stay)") then return end
+  local ok, e = put_zone({ name = z.name, delete = true })
+  if not ok then say("the zone: " .. e, C_ERR, 300); return end
+  sp.zi, sp.k = max(1, sp.zi - 1), 1
+  say("zone " .. z.name .. " deleted (Ctrl+S saves)", C_ACC, 200)
 end
 
 local function slice_by(d)
@@ -1649,8 +1697,11 @@ function stack_actions()
     { "Previous slice (left)", function() stack_key("left") end },
     { "Next zone (down)", function() stack_key("down") end },
     { "Previous zone (up)", function() stack_key("up") end },
+    { "Onion skin (k)", function() stack_key("k") end },
+    { "Copy the slice to the next (c)", copy_slice },
     { "New zone (n)", new_zone },
     { "Change the zone (e)", change_zone },
+    { "Delete the zone (Del)", delete_zone },
     { "Turn or stop the stack (p)", function() stack_key("p") end },
     { "Turn the stack by hand (. and ,)", function() stack_key(".") end },
   })
@@ -1668,6 +1719,9 @@ function stack_key(k)
   elseif k == "\n" or k == " " then edit_slice()
   elseif k == "n" then new_zone()
   elseif k == "e" then change_zone()
+  elseif k == "k" then sp.onion = not sp.onion; sp.ghost = nil
+  elseif k == "c" then copy_slice()
+  elseif k == "del" or k == "x" then delete_zone()
   elseif k == "p" then sp.spin = not sp.spin
   elseif k == "," then turn_by(-1)
   elseif k == "." then turn_by(1)
@@ -1696,6 +1750,14 @@ function stack_mouse()
   elseif z and z.kind == "stackslice" then
     if U.double and sp.k == z.a then stack_key("\n") else sp.k = z.a end
   end
+  -- the turning view: a drag turns the stack by hand, a click starts or stops it
+  local d = U.drag
+  if d and d.b == 0 and U.inside(PREV_X, PREV_Y, PREV_W, PREV_H) then
+    sp.spin = false
+    sp.rot = (sp.rot + d.dx * 0.03) % TWO_PI
+  elseif U.clicked(0) and U.inside(PREV_X, PREV_Y, PREV_W, PREV_H) then
+    sp.spin = not sp.spin
+  end
 end
 
 -- every frame on this page: the stack turns
@@ -1709,9 +1771,9 @@ function draw_stack()
   if not z then
     print("This file has no stack zone.", 8, 32, C_TEXT)
     print("A stack zone is n slices of the same size that", 8, 64, C_DIM)
-    print("lie side by side on the sheet, from left to right.", 8, 80, C_DIM)
-    print("Press n to make one: name x y w h n, for example", 8, 96, C_DIM)
-    print("tree 0 0 16 16 8 (slice 1 is the bottom).", 8, 112, C_DIM)
+    print("lie side by side on the sheet (h), or one under the", 8, 80, C_DIM)
+    print("other (v). Press n to make one: name x y w h n h|v,", 8, 96, C_DIM)
+    print("for example tree 0 0 16 16 8 h (slice 1 is the bottom).", 8, 112, C_DIM)
     hint({ { { "n" }, "new zone" } })
     return
   end
@@ -1722,7 +1784,32 @@ function draw_stack()
   local cw, ch = floor(z.w * zz), floor(z.h * zz)
   local cx, cy = cell(z, sp.k)
   checker(CANVAS_X, CANVAS_Y, cw, ch, 8)
-  if fits(z.x, z.y, z.w, z.h, z.n) then
+  local ok = fits(z.x, z.y, z.w, z.h, z.n, z.vert)
+  if ok then
+    if sp.onion and sp.k > 1 then
+      -- onion skin: the slice before, dimmed and dithered, where this one is empty (the list is
+      -- built once per slice, a frame only draws it)
+      local g = sp.ghost
+      if not g or g.zi ~= sp.zi or g.k ~= sp.k then
+        g = { zi = sp.zi, k = sp.k, n = 0, x = {}, y = {}, c = {} }
+        local px, py = cell(z, sp.k - 1)
+        for j = 0, z.h - 1 do
+          for i = 0, z.w - 1 do
+            if (i + j) % 2 == 0 and g.n < 600 and not sget(cx + i, cy + j) then
+              local c = sget(px + i, py + j)
+              if c then
+                g.n = g.n + 1
+                g.x[g.n], g.y[g.n] = i, j
+                g.c[g.n] = ((c & 0xFEFEFE) >> 1) + ((C_BG & 0xFEFEFE) >> 1)
+              end
+            end
+          end
+        end
+        sp.ghost = g
+      end
+      local gs = max(1, floor(zz))
+      for i = 1, g.n do rectfill(CANVAS_X + floor(g.x[i] * zz), CANVAS_Y + floor(g.y[i] * zz), gs, gs, g.c[i]) end
+    end
     sspr(cx, cy, z.w, z.h, CANVAS_X, CANVAS_Y, false, false, zz)
   end
   rect(CANVAS_X - 1, CANVAS_Y - 1, cw + 2, ch + 2, C_GRID8)
@@ -1746,27 +1833,29 @@ function draw_stack()
     local tx, ty = cell(z, k)
     U.zone(x, 104, 28, 28, "stackslice", k)
     rectfill(x, 104, 26, 26, C_PANEL)
-    if fits(z.x, z.y, z.w, z.h, z.n) then
+    if ok then
       sspr(tx, ty, z.w, z.h, x + 1, 105, false, false, tz)
     end
     if k == sp.k then rect(x, 104, 26, 26, (frame // 10) % 2 == 0 and C_PT or 0xFFFFFF) end
   end
   -- the stack, turning
+  U.zone(PREV_X, PREV_Y, PREV_W, PREV_H, "stackview")
   rectfill(PREV_X, PREV_Y, PREV_W, PREV_H, C_PANEL)
   rect(PREV_X, PREV_Y, PREV_W, PREV_H, C_GRID8)
   local s = clamp(min(105 // (z.n + z.h), 150 // max(1, floor(z.w * 1.5))), 1, 4)
-  if fits(z.x, z.y, z.w, z.h, z.n) then
-    stack(z.x, z.y, z.w, z.h, z.n, PREV_X + PREV_W // 2, PREV_Y + PREV_H - 28 - z.h * s // 2, sp.rot, s)
+  if ok then
+    (z.vert and stackv or stack)(z.x, z.y, z.w, z.h, z.n, PREV_X + PREV_W // 2, PREV_Y + PREV_H - 28 - z.h * s // 2, sp.rot, s)
   end
   -- text over what the stack may have covered
   rectfill(0, 16, W, 16, C_BG)
-  print(string.format("stack %s  slice %d/%d  at (%d,%d)  %dx%d  zstack(\"%s\", x, y, rz)", z.name, sp.k, z.n, cx, cy, z.w,
-                      z.h, z.name):sub(1, 79), 8, 16, C_TEXT)
+  print(string.format("%s %s  slice %d/%d  at (%d,%d)  %dx%d  zstack(\"%s\", x, y, rz)", z.vert and "stackv" or "stack", z.name,
+                      sp.k, z.n, cx, cy, z.w, z.h, z.name):sub(1, 79), 8, 16, C_TEXT)
   rectfill(PANEL_X, 304, W - PANEL_X, 16, C_BG)
   print(string.format("turn %d deg%s  x%d", floor(sp.rot * 180 / math.pi), sp.spin and " (turning)" or "", s), PREV_X, 304, C_DIM)
   rectfill(0, HINT_Y, W, 16, C_BG)
-  hint({ { { "left", "right" }, "slice" }, { { "up", "down" }, "zone" }, { { "enter" }, "draw it" }, { { "n" }, "new" },
-         { { "e" }, "change" }, { { "p" }, "turn" }, { { ",", "." }, "by hand" } })
+  hint({ { { "left", "right" }, "slice" }, { { "up", "down" }, "zone" }, { { "enter" }, "draw it" }, { { "k" }, "onion" },
+         { { "c" }, "copy up" }, { { "del" }, "delete" }, { { "n" }, "new" }, { { "e" }, "change" }, { { "p" }, "turn" },
+         { { ",", "." }, "by hand" } })
 end
 end
 
@@ -1818,7 +1907,10 @@ local HELP = {
     { "left / right", "the slice before / after" },
     { "up / down", "the stack zone" },
     { "enter", "draw the slice on F1" },
-    { "n / e", "new zone / change it (name x y w h n)" },
+    { "k", "onion skin (the slice before)" },
+    { "c", "copy the slice to the next one" },
+    { "del", "delete the zone (twice; pixels stay)" },
+    { "n / e", "new zone / change it (name x y w h n h|v)" },
     { "p", "the stack turns / stops" },
     { ", / .", "turn it by hand" },
     { "pgup / pgdn", "8 slices" },
@@ -2052,7 +2144,8 @@ local function mouse_frame()
              { "Turn", "r" }, { "Clear", "del" }, "-", { "Mirror drawing", "y" }, { "Grid", "t" }, { "Onion skin", "k" },
              { "Play", "p" }, { "Size", "z" } }
   elseif page == "stack" then
-    list = { { "Draw this slice", "\n" }, { "New zone", "n" }, { "Change the zone", "e" }, { "Turn or stop", "p" } }
+    list = { { "Draw this slice", "\n" }, { "Onion skin", "k" }, { "Copy the slice to the next", "c" }, { "New zone", "n" },
+             { "Change the zone", "e" }, { "Delete the zone", "del" }, { "Turn or stop", "p" } }
   elseif page == "sheet" then
     list = { { "Draw it", "\n" }, { "Size", "z" }, { "Zoom in", "+" }, { "Zoom out", "-" }, { "Copy", "^c" },
              { "Paste", "^v" }, { "Clear", "del" }, { "Sheet size...", "R" } }
