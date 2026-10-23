@@ -160,6 +160,11 @@ The edit page draws the model with its edges, a pointer, and a line at the top w
 | { and } (Shift+[ and Shift+]) | the ghost down or up (0.05 each press) |
 | S (Shift+S) | snap: off, grid, vertex, grid and vertex |
 | G (Shift+G) | grid step: 0.05, 0.1, 0.25, 0.5 |
+| z | box select: the pointer is one corner; move it to the other corner, Enter chooses only what is inside, Space adds it, Esc cancels |
+| y | hide the chosen vertices; with nothing chosen it shows everything again |
+| Y (Shift+Y) | isolate: hide everything but the choice; with nothing chosen it shows everything again |
+| P (Shift+P) | soft move: radius off, 0.25, 0.5, 1, 2 (also inside a move) |
+| R (Shift+R) | reference pictures: a front and a side picture from `/pics` |
 | Ctrl+R | loop cut across the chosen edge |
 | Shift+J | knife: cut a triangle between the middles of two chosen edges |
 | j | make a face on 3 or 4 chosen vertices |
@@ -218,6 +223,7 @@ Press **g** to move, **r** to rotate, **t** to scale the choice (the corners of 
 - The arrows and PgUp/PgDn change the value. For a move: left and right go along the view's horizontal axis, up and down change the height, PgUp and PgDn go nearer or farther.
 - **x**, **y**, **z** limit the change to that axis. **n** works along the normal. Press the same key again to free it.
 - `,` and `.` change the step. The move steps are 0.01, 0.05, 0.1, 0.25, 0.5 and 1; the rotation steps are 1, 5, 15, 30, 45 and 90 degrees; the scale steps are 1.01, 1.05, 1.1, 1.25, 1.5 and 2.
+- Type **0** to **9** to enter the exact value (see *Type a value*). **Shift+P** turns the soft move on (see *Soft move*).
 - **Enter** confirms. **Esc** cancels and puts everything back.
 - With the mouse, drag the left button to change the value and click to put it. With the gamepad, A confirms, B cancels and a tap of X switches the axis.
 
@@ -258,6 +264,32 @@ If a skeleton has no vertices yet, all vertices are on bone 0 until you give the
 The snap works on the leading vertex. This is the chosen vertex with the lowest number. The editor snaps the position of this vertex, and every other chosen vertex moves by the same distance. The grid mode rounds each axis of the leading vertex to the step. If you lock an axis (x, y or z), only that axis is rounded. The vertex mode moves the leading vertex to the nearest other vertex of the model when that vertex is within 6 pixels on the screen. A small green ring shows the vertex that the snap took. The chosen vertices are never a target. In the mode grid and vertex, a vertex in range wins, and the grid works when no vertex is in range. With an axis locked, the vertex snap changes only that axis.
 
 With the live mirror on, the counterparts follow the same move, mirrored. One undo takes back the whole move. The tool line shows **SNAP** and the move after the snap. The snap does not change a rotate or a scale, and it does not place a new part. With the gamepad, tap X and pick **Snap: off, grid, vertex, both** or **Snap grid step**.
+
+## Box select, hide and isolate
+
+**Box select.** Press **z**. The pointer is now one corner of a box. Move the pointer with the arrows to the other corner: the box is drawn. **Enter** chooses only what is inside the box, **Space** adds it to the choice, **Esc** cancels. With the mouse, drag the left button over the model: when you let go, what is inside is chosen; hold Shift to add. The box takes everything inside it, also the vertices behind the model. In vertex mode it chooses the vertices inside. In edge mode it chooses the edges whose two ends are inside. In face mode it chooses the faces whose three corners are inside. With the gamepad, tap X and pick **Box select**: the A button chooses, the B button cancels.
+
+**Hide and isolate.** Press **y** to hide the chosen vertices, and the faces that use them. Press **Shift+Y** to isolate: everything but the choice is hidden. The top right shows how many vertices are hidden, for example `12 HIDDEN`. A hidden vertex is not drawn, not under the pointer, not chosen by **a**, **l** or a box, and no tool moves it. With the live mirror on, the counterparts are hidden too. Press **y** (or **Shift+Y**) with nothing chosen to show everything again. The hidden vertices are still in the model: the file keeps all of them, and the counters show all of them. Hiding is part of the undo steps, so **Ctrl+Z** shows them again. The hidden set is forgotten when you change to another mesh.
+
+## Soft move
+
+**Shift+P** turns the soft move on. It cycles the radius: off, 0.25, 0.5, 1 and 2 units. The top right shows it, for example `SOFT 0.5`. With the soft move on, a move (**g**) also pulls the vertices near the chosen ones: a vertex at the radius does not move, a vertex next to the choice follows almost fully, and the fall in between is smooth. The distance is the distance in space to the nearest chosen vertex. The tool line shows the radius and how many vertices follow, for example `soft 0.5 (34 near)`. You can press **Shift+P** inside the move to change the radius. The soft move acts on a move only, not on a rotate or a scale. Hidden vertices do not follow. With the live mirror on, each counterpart pulls its own neighbours, mirrored. The snap and the typed value work with it. One undo takes back the move and all the vertices it pulled.
+
+## Type a value
+
+In a move, a rotate or a scale you can type the exact value. Press **x**, **y**, **z** or **n** to choose the axis, then type the number with the keys **0** to **9**, **.** and **-** (the minus first). The top line shows `typed 1.25_` and the model follows at once. **Backspace** takes the last character off. For a move the number is the distance in units on that axis. For a rotate it is the angle in degrees. For a scale it is the factor. If you chose no axis, a move goes along x, a rotate turns around y, and a scale changes all three axes. Press another axis key to type a value for that axis too: `x 3`, then `y 4` gives a move of 3 along x and 4 along y. The typed value replaces the arrow steps of that axis. **Enter** confirms and **Esc** cancels, as always. Start a number below 1 with the zero (`0.5`): the point alone is the step key. Typing needs a keyboard.
+
+## Reference pictures
+
+A reference picture is a front or a side picture that stands behind the model while you edit. Put the pictures in the `/pics` folder of the SD card (PNG, baseline JPEG or WebP).
+
+1. Press **Shift+R**. A list shows **Front picture** and **Side picture**. On the gamepad, tap X and pick **Reference pictures**.
+2. Pick one. A second list shows the pictures of `/pics`. Pick one.
+3. Press **1** for the front view, or **3** for the side view. The picture is drawn behind the model, flat on the plane through the middle of the model, with the model's feet at its lower edge.
+
+The picture shows when the view looks straight at it, within about 17 degrees. The front picture shows from the front and from the back (mirrored), the side picture from both sides. In other views nothing is drawn. The picture is made to fit 256 by 256 pixels and is drawn pale, so the model stays easy to see. The list of **Shift+R** also has **Hide the pictures**, **Bigger**, **Smaller**, **Up**, **Down** and **Clear the pictures**. At first the picture is as high as the model. Use Bigger and Smaller until the picture fits, and Up and Down to put the feet on the floor.
+
+The pictures are never saved in the model or in the project. They live in the sprite sheet, below the rows of the project: two places of 256 rows each (512 rows). Clear puts the sheet back to its own size. The export to `/bmm` writes only the rows of the project. Opening another project forgets the pictures. The Raspberry Pi Zero W has little memory: two small pictures cost about 260 KB in the sheet. Use pictures not larger than 1000 pixels: the console reads the whole file first, then makes it smaller.
 
 ## Edges and the loop cut
 
@@ -406,7 +438,7 @@ To leave the game and come back to bm Mesh, press Start + Select on the pad or C
 - Use a small step (`,`) to align a vertex, a larger one (`.`) to place a whole part.
 - Use **M** to build a symmetrical model: make half, then copy it to the other side.
 - Use **K** after joining parts, so the faces around look smooth.
-- Save often: the editor remembers 30 steps of undo, and opening or renaming clears them.
+- Save often: the editor remembers up to 100 steps of undo (fewer on a very big model: the steps may take 4 MB together, and at least 2 are kept), and opening or renaming clears them.
 
 ## Limits
 

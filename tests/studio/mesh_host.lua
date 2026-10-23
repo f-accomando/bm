@@ -2154,5 +2154,490 @@ do
   check(status():find("no skeleton", 1, true), "a model with no skeleton: v says so")
 end
 
+
+----------------------------------------------------------------- APP-11: comfort (box select, hide, soft move, numbers, undo depth, reference pictures)
+
+-- the pure parts (T.G)
+do
+  local G = E.require("bm3d").G
+  -- box_pick
+  local sx, sy = { 10, 50, 90, [5] = 30 }, { 10, 50, 90, [5] = 30 }
+  local got = G.box_pick(sx, sy, 5, 5, 60, 60)
+  check(#got == 3 and got[1] == 1 and got[2] == 2 and got[3] == 5, "T.G.box_pick: the points inside, in order")
+  got = G.box_pick(sx, sy, 60, 60, 5, 5, { [2] = true })
+  check(#got == 2 and got[1] == 1 and got[2] == 5, "T.G.box_pick: opposite corners either way, a skipped point is left out")
+  -- falloff
+  check(G.falloff(0, 1) == 1 and G.falloff(1, 1) == 0 and G.falloff(2, 1) == 0 and math.abs(G.falloff(0.5, 1) - 0.5) < 1e-9,
+        "T.G.falloff: 1 at the centre, 0.5 half way, 0 at the radius and beyond")
+  local prev = 1
+  for i = 1, 9 do
+    local w = G.falloff(i / 10, 1)
+    check(w < prev, "T.G.falloff: falls all the way (" .. i .. ")")
+    prev = w
+  end
+  -- soft_weights: a row of vertices 0.1 apart
+  local it = { v = {}, f = {} }
+  for i = 1, 21 do it.v[i] = { (i - 1) * 0.1, 0, 0 } end
+  local w = G.soft_weights(it, { 1 }, 0.5, { [3] = true })
+  check(w[1] == nil and w[3] == nil and w[2] and math.abs(w[2] - G.falloff(0.1, 0.5)) < 1e-9 and w[5] and w[6] == nil,
+        "T.G.soft_weights: neighbours in range only, the chosen and the skipped left out")
+  w = G.soft_weights(it, { 1, 21 }, 0.25, nil)
+  check(w[20] and math.abs(w[20] - G.falloff(0.1, 0.25)) < 1e-9 and w[2] and w[11] == nil,
+        "T.G.soft_weights: the nearest chosen vertex counts")
+  check(next(G.soft_weights(it, { 1 }, 0)) == nil and next(G.soft_weights(it, {}, 1)) == nil, "T.G.soft_weights: radius 0 or no source: nothing")
+  -- compact with a second set
+  local c = { v = { { 0, 0, 0 }, { 9, 9, 9 }, { 1, 0, 0 }, { 0, 1, 0 } }, f = { { 1, 3, 4, 0xFF0000 } } }
+  local a, b = G.compact(c, { [1] = 1 }, { [2] = true, [4] = true })
+  check(#c.v == 3 and a[1] == 1 and b[2] == nil and b[3] == true, "T.G.compact: the second set follows the new numbers, a lost vertex leaves it")
+  -- isolate, parse, flip
+  local hid = G.isolate({ v = { {}, {}, {}, {} } }, { [2] = true })
+  check(hid[1] and hid[3] and hid[4] and not hid[2], "T.G.isolate: all but the kept")
+  check(G.parse_number("1.5") == 1.5 and G.parse_number("-2") == -2 and G.parse_number("2.") == 2 and G.parse_number("") == nil and
+        G.parse_number("-") == nil and G.parse_number(".") == nil, "T.G.parse_number")
+  check(G.ref_flip("front", 0, 0) == false and G.ref_flip("front", math.pi, 0) == true and G.ref_flip("front", 0.6, 0) == nil and
+        G.ref_flip("side", -math.pi / 2, 0) == false and G.ref_flip("side", math.pi / 2, 0) == true and G.ref_flip("side", 0, 0) == nil and
+        G.ref_flip("front", 0, 0.9) == nil, "T.G.ref_flip: front along Z, side along X, the pitch near 0")
+end
+
+-- the editor
+do
+  local G = E.require("bm3d").G
+  local function same(a, b) return math.abs(a - b) < 1e-5 end
+  local log = {}                                  -- the calls of the drawing of the last frame
+  E.cls = function() log = {} end
+  E.draw3d = function() log[#log + 1] = { "draw3d" } end
+  E.sspr = function(...) log[#log + 1] = { "sspr", ... } end
+  local function drawn(n) local c = 0; for _, e in ipairs(log) do if e[1] == n then c = c + 1 end end; return c end
+  -- a stand-in sprite sheet and image_file
+  local sheetw, sheeth, sheet = 256, 256, {}
+  local loads = {}
+  E.cart_sheet = function(w, h) if w then sheetw, sheeth = w, h end; return sheetw, sheeth end
+  E.sset = function(x, y, c) sheet[y * 8192 + x] = c end
+  E.sget = function(x, y) return sheet[y * 8192 + x] end
+  E.image_file = function(path, sx, sy, fw, fh, mix, bg)
+    loads[#loads + 1] = { path, sx, sy, fw, fh, mix, bg }
+    if path:find("bad", 1, true) then return nil, path .. ": not a picture" end
+    local w, h = 100, 200                         -- a tall picture fits 256 x 256 as 100 x 200
+    for y = 0, h - 1 do for x = 0, w - 1 do sheet[(sy + y) * 8192 + sx + x] = 0x123456 end end
+    return { x = sx, y = sy, w = w, h = h, sw = 800, sh = 1600 }
+  end
+  local ls0 = E.ls
+  E.ls = function(dir)
+    if dir == "/pics" then
+      return { { name = "front.png", size = 1, dir = false }, { name = "side.jpg", size = 1, dir = false },
+               { name = "notes.txt", size = 1, dir = false } }
+    end
+    return ls0(dir)
+  end
+
+  local function stat() return status() end
+  local function new_cube(name)
+    key("f1", "n")
+    key("r")
+    type_text(name)
+    key("f2")
+    for _ = 1, 3 do if sees("VERTICES:") then break end key("\t") end
+    key("^s")
+    local file_name = status():match("saved /bme/(%S+)") or status():match("saved /carts/(%S+)")
+    return file_name
+  end
+  local fname = new_cube("cmf")
+  local cname = "cmf"
+  local function mdl() return model_of(fname, cname) end
+  local function save() key("^s") end
+  local m0 = mdl()
+  check(m0 and m0.nv == 8, "comfort: a new cube")
+  local function changed(a, b)
+    local out = {}
+    for i = 1, a.nv do
+      for k = 1, 3 do if not same(a.verts[i][k], b.verts[i][k]) then out[#out + 1] = i; break end end
+    end
+    return out
+  end
+  local function pick1(i)
+    if not sees(": 0 chosen") then key("a") end
+    key("home")
+    for _ = 1, i do key("n") end
+    key(" ")
+  end
+
+  ---------------------------------------------------------------- more than 30 undo steps
+  pick1(1)
+  key("g", "x", "right", "\n")
+  save()
+  local m1 = mdl()
+  local d1 = m1.verts[1][1] - m0.verts[1][1]
+  check(math.abs(d1) > 1e-6 and #changed(m0, m1) == 1, "undo depth: one step moves vertex 1 by " .. d1)
+  for _ = 1, 44 do key("g", "x", "right", "\n") end
+  save()
+  local m45 = mdl()
+  check(same(m45.verts[1][1], m0.verts[1][1] + 45 * d1), "undo depth: 45 moves (" .. (m45.verts[1][1] - m0.verts[1][1]) .. ")")
+  for _ = 1, 40 do key("^z") end
+  save()
+  local m5 = mdl()
+  check(same(m5.verts[1][1], m0.verts[1][1] + 5 * d1), "undo depth: 40 undos leave 5 moves (more than 30 steps)")
+  for _ = 1, 40 do key("^y") end
+  save()
+  check(same(mdl().verts[1][1], m0.verts[1][1] + 45 * d1), "undo depth: 40 redos bring the 45 moves back")
+  for _ = 1, 100 do key("^z") end
+  save()
+  local mb = mdl()
+  check(same(mb.verts[1][1], m0.verts[1][1]), "undo depth: all 46 steps undone, back at the first cube")
+  -- back to the start of the test: all undone to the oldest kept step; reset the cube from the file's copy
+  key("^z")
+  check(status():find("nothing to undo", 1, true), "undo depth: nothing more to undo: " .. status())
+  -- the stack is cut at 100 steps
+  m0 = mdl()
+  for _ = 1, 105 do key("g", "x", "right", "\n") end
+  save()
+  local top = mdl()
+  for _ = 1, 110 do key("^z") end
+  save()
+  local low = mdl()
+  check(same(top.verts[1][1] - low.verts[1][1], 100 * d1), "undo depth: 105 moves, at most 100 undone (" .. (top.verts[1][1] - low.verts[1][1]) / d1 .. ")")
+  m0 = mdl()
+  fname, cname = new_cube("cmg"), "cmg"             -- a cube as it was made, for the rest
+  m0 = mdl()
+  check(m0 and m0.nv == 8 and same(m0.verts[1][1], -0.5), "comfort: another new cube")
+
+  ---------------------------------------------------------------- numeric entry
+  pick1(1)
+  key("g", "x", "1", ".", "2", "5")
+  check(sees("typed 1.25_") , "numeric entry: the tool line shows the typed value")
+  key("\n")
+  save()
+  local mn = mdl()
+  check(same(mn.verts[1][1], m0.verts[1][1] + 1.25) and #changed(m0, mn) == 1, "numeric entry: move x 1.25 exactly")
+  key("g", "y", "-", "0", ".", "5", "\n")
+  save()
+  local mn2 = mdl()
+  check(same(mn2.verts[1][2], mn.verts[1][2] - 0.5) and same(mn2.verts[1][1], mn.verts[1][1]), "numeric entry: move y -0.5 exactly")
+  key("g", "x", "1", "2", "\b", "\n")
+  save()
+  check(same(mdl().verts[1][1], mn2.verts[1][1] + 1), "numeric entry: Backspace takes the last digit off (12 -> 1)")
+  key("g", "x", "3", "y", "4", "\n")
+  save()
+  local mn3 = mdl()
+  check(same(mn3.verts[1][1], mn2.verts[1][1] + 1 + 3) and same(mn3.verts[1][2], mn2.verts[1][2] + 4),
+        "numeric entry: x 3 then y 4 in one move")
+  key("g", "x", "9", "esc")
+  save()
+  check(same(mdl().verts[1][1], mn3.verts[1][1]), "numeric entry: Esc cancels the typed move")
+  -- rotate and scale on all: about the centre
+  key("^z", "^z", "^z", "^z", "^z")              -- the vertex back where it was
+  save()
+  local mr0 = mdl()
+  if sees(": 0 chosen") then key("a") else key("a", "a") end
+  check(sees("8 chosen"), "numeric entry: all 8 chosen")
+  local cx, cy, cz = 0, 0, 0
+  for i = 1, 8 do cx, cy, cz = cx + mr0.verts[i][1] / 8, cy + mr0.verts[i][2] / 8, cz + mr0.verts[i][3] / 8 end
+  key("r", "y", "9", "0", "\n")
+  save()
+  local mr = mdl()
+  local ok_r = true
+  for i = 1, 8 do
+    local dx, dy, dz = mr0.verts[i][1] - cx, mr0.verts[i][2] - cy, mr0.verts[i][3] - cz
+    if not (same(mr.verts[i][1], cx + dz) and same(mr.verts[i][2], cy + dy) and same(mr.verts[i][3], cz - dx)) then ok_r = false end
+  end
+  check(ok_r, "numeric entry: rotate y 90 degrees about the centre")
+  key("^z")
+  key("t", "2", "\n")
+  save()
+  local ms = mdl()
+  local ok_s = true
+  for i = 1, 8 do
+    if not (same(ms.verts[i][1], cx + 2 * (mr0.verts[i][1] - cx)) and same(ms.verts[i][2], cy + 2 * (mr0.verts[i][2] - cy)) and
+            same(ms.verts[i][3], cz + 2 * (mr0.verts[i][3] - cz))) then ok_s = false end
+  end
+  check(ok_s, "numeric entry: scale 2 on all three axes")
+  key("^z")
+  key("t", "y", "3", "\n")
+  save()
+  local ms2 = mdl()
+  check(same(ms2.verts[1][2], cy + 3 * (mr0.verts[1][2] - cy)) and same(ms2.verts[1][1], mr0.verts[1][1]), "numeric entry: scale y 3 only")
+  key("^z")
+  save()
+  m0 = mdl()
+  check(#changed(m0, mr0) == 0, "numeric entry: undone to the start")
+  key("a")                                       -- none
+  check(#changed(m0, mdl()) == 0 and sees(": 0 chosen"), "numeric entry: the cube is as at the start")
+
+  ---------------------------------------------------------------- soft (proportional) move
+  local function prop_to(r)                      -- the soft radius: 0 (off), 0.25, 0.5, 1, 2
+    for _ = 1, 6 do
+      if (r == 0 and not sees("SOFT ")) or (r ~= 0 and sees("SOFT " .. r)) then return end
+      key("P")
+    end
+  end
+  local function dist(m, i, j)
+    local a, b = m.verts[i], m.verts[j]
+    return math.sqrt((a[1] - b[1]) ^ 2 + (a[2] - b[2]) ^ 2 + (a[3] - b[3]) ^ 2)
+  end
+  pick1(1)
+  key("g", "P")
+  check(status():find("soft move: radius 0.25", 1, true) and sees("soft 0.25 (0 near)"), "soft move: P in a move, radius 0.25 (no neighbour that near): " .. status())
+  key("P", "P", "P")
+  check(status():find("radius 2", 1, true) and sees("SOFT 2"), "soft move: radius 2")
+  key("x", "right", "right")
+  local dd = 2 * d1
+  key("\n")
+  save()
+  local mp = mdl()
+  local ok_p, why = same(mp.verts[1][1] - m0.verts[1][1], dd), ""
+  for j = 2, 8 do
+    local want = dd * G.falloff(dist(m0, 1, j), 2)
+    local got = mp.verts[j][1] - m0.verts[j][1]
+    if not same(got, want) or not same(mp.verts[j][2], m0.verts[j][2]) or not same(mp.verts[j][3], m0.verts[j][3]) then ok_p = false; why = why .. j .. ":" .. got .. "/" .. want .. " " end
+  end
+  check(ok_p, "soft move: the vertex takes the move, each neighbour its share by distance " .. why)
+  check(#changed(m0, mp) == 8, "soft move: all 8 moved (radius 2)")
+  check(sees("SOFT 2"), "soft move: the header keeps the radius")
+  key("^z")
+  save()
+  check(#changed(m0, mdl()) == 0, "soft move: one undo step takes it all back")
+  -- the radius off again, the plain move
+  key("g", "P")
+  check(status():find("soft move off", 1, true), "soft move: P cycles to off")
+  key("x", "right", "\n")
+  save()
+  check(#changed(m0, mdl()) == 1, "soft move off: one vertex moves")
+  key("^z")
+  -- a typed value with the soft move
+  check(not sees("SOFT "), "soft move: off after the tool cycled it")
+  key("P")                                        -- P in the edit page cycles the radius too
+  check(sees("SOFT 0.25") and status():find("radius 0.25", 1, true), "soft move: P in the edit page: 0.25 (" .. status() .. ")")
+  key("P", "P", "P")
+  check(sees("SOFT 2"), "soft move: ... 2, kept in the header")
+  key("g", "x", "1", "\n")
+  save()
+  mp = mdl()
+  check(same(mp.verts[1][1] - m0.verts[1][1], 1) and same(mp.verts[2][1] - m0.verts[2][1], G.falloff(dist(m0, 1, 2), 2)),
+        "soft move: a typed value moves the neighbours too")
+  key("^z")
+  -- with the live mirror: the counterpart pulls its own neighbours, mirrored
+  key("X")
+  check(sees("MIRROR X"), "soft move: live mirror on")
+  pick1(1)
+  local pairs_ = G.mirror_pairs({ v = m0.verts }, { 1, 2, 3, 4, 5, 6, 7, 8 })
+  local c1 = pairs_[1]
+  key("g", "x", "right", "right", "\n")
+  save()
+  mp = mdl()
+  local ok_m, why_m = c1 and c1 ~= 1 and same(mp.verts[1][1] - m0.verts[1][1], dd) and same(mp.verts[c1][1] - m0.verts[c1][1], -dd), ""
+  for j = 1, 8 do
+    if j ~= 1 and j ~= c1 then
+      local wa, wb = G.falloff(dist(m0, 1, j), 2), G.falloff(dist(m0, c1, j), 2)
+      local want = wa >= wb and dd * wa or -dd * wb
+      if not same(mp.verts[j][1] - m0.verts[j][1], want) then ok_m = false; why_m = why_m .. j .. " " end
+    end
+  end
+  check(ok_m, "soft move + live mirror: neighbours of the counterpart move mirrored " .. why_m .. " c1=" .. tostring(c1) ..
+        " v1 " .. (mp.verts[1][1] - m0.verts[1][1]) .. " dd " .. dd .. " vc " .. tostring(c1 and (mp.verts[c1][1] - m0.verts[c1][1])) ..
+        " x1 " .. m0.verts[1][1] .. " " .. status())
+  key("^z", "X")
+  prop_to(0)
+  save()
+  check(#changed(m0, mdl()) == 0 and not sees("SOFT"), "soft move: off, all as before")
+
+  ---------------------------------------------------------------- box select (mouse), hide, isolate
+  if not sees(": 0 chosen") then key("a") end
+  key("1", "-", "-", "-")                          -- the front view (x < 0 is the left of the screen), a little smaller
+  frames(2)
+  local sx, order = {}, {}
+  for i = 1, 8 do
+    local x, y = E.project3d(m0.verts[i][1], m0.verts[i][2], m0.verts[i][3])
+    sx[i] = { x, y }
+    order[i] = i
+  end
+  table.sort(order, function(a, b) return m0.verts[a][1] < m0.verts[b][1] end)
+  local lmax, rmin = -1e9, 1e9
+  local left = {}
+  for k = 1, 4 do left[order[k]] = true; lmax = math.max(lmax, sx[order[k]][1]) end
+  for k = 5, 8 do rmin = math.min(rmin, sx[order[k]][1]) end
+  local split = (lmax + rmin) / 2
+  local xmin = 1e9
+  for k = 1, 4 do xmin = math.min(xmin, sx[order[k]][1]) end
+  xmin = xmin - 6
+  local ymin, ymax = 1e9, -1e9
+  for i = 1, 8 do ymin, ymax = math.min(ymin, sx[i][2]), math.max(ymax, sx[i][2]) end
+  check(split - lmax > 3 and rmin - split > 3 and xmin > 0 and ymin - 6 > 20 and ymax + 6 > 52 and ymax + 6 < 316,
+        "box: the test box is clear of the points (" .. lmax .. " " .. split .. " " .. rmin .. " " .. xmin .. " " .. ymin .. " " .. ymax .. ")")
+  -- from below the points up to above them (the drag has to start inside the view)
+  mouse(xmin, ymax + 6, 0); mouse(xmin, ymax + 6, 1); mouse(xmin + 20, ymax - 5, 1); mouse(split, ymin - 6, 1)
+  check(sees("") , "box: dragging")
+  mouse(split, ymin - 6, 0); frames(2)
+  check(sees("VERTICES: 4 chosen") and status():find("box: 4 vertices chosen", 1, true), "box: the mouse drag chooses 4 vertices: " .. status())
+  key("g", "x", "right", "\n")
+  save()
+  mp = mdl()
+  local ch = changed(m0, mp)
+  local ok_b = #ch == 4
+  for _, i in ipairs(ch) do if not left[i] then ok_b = false end end
+  check(ok_b, "box: exactly the vertices inside the box moved (" .. table.concat(ch, ",") .. ")")
+  key("^z")
+  -- hide the 4
+  key("y")
+  check(sees("4 HIDDEN") and sees("VERTICES: 0 chosen") and status():find("hidden: 4", 1, true), "hide: 4 hidden, none chosen: " .. status())
+  key("a")
+  check(sees("VERTICES: 4 chosen") and status():find("all 4 vertices", 1, true), "hide: a chooses the 4 that show: " .. status())
+  key("g", "x", "right", "\n")
+  save()
+  mp = mdl()
+  ch = changed(m0, mp)
+  local ok_h = #ch == 4
+  for _, i in ipairs(ch) do if left[i] then ok_h = false end end
+  check(ok_h, "hide: the hidden vertices stay where they are (" .. table.concat(ch, ",") .. ")")
+  key("^z")
+  -- the hidden faces are not drawn
+  frames(1)
+  check(drawn("draw3d") == 1, "hide: the model is still drawn (the faces whose corners show)")
+  -- soft move does not pull a hidden vertex
+  key("a")                                         -- none
+  pick1(1)
+  local vis1 = left[order[5]] and 1 or order[5]
+  key("a", "a")
+  key("g", "P", "P", "P", "P", "x", "right", "right", "\n")
+  save()
+  mp = mdl()
+  ch = changed(m0, mp)
+  local ok_sh = true
+  for _, i in ipairs(ch) do if left[i] then ok_sh = false end end
+  check(ok_sh and #ch >= 1, "hide + soft move: hidden vertices are not pulled")
+  key("^z", "P")
+  -- show all with no choice
+  key("a")                                         -- none
+  key("y")
+  check(not sees("HIDDEN") and status():find("shown: 4", 1, true), "show all: y with no choice: " .. status())
+  key("^z")
+  check(sees("4 HIDDEN"), "hide: undo of the show-all hides again")
+  key("^z")
+  check(not sees("HIDDEN"), "hide: undo of the hide shows all")
+  key("^y")
+  check(sees("4 HIDDEN"), "hide: redo hides again")
+  key("Y")
+  check(not sees("HIDDEN"), "Y with no choice shows all")
+  -- isolate one vertex
+  pick1(2)
+  key("Y")
+  check(sees("7 HIDDEN") and status():find("isolated: 7", 1, true), "isolate: all but the chosen one hidden: " .. status())
+  key("a")
+  check(sees("VERTICES: 1 chosen"), "isolate: a chooses the one that shows")
+  key("^z")
+  check(not sees("HIDDEN"), "isolate: one undo")
+  -- with the live mirror the counterpart is hidden too
+  key("X")
+  pick1(1)
+  key("y")
+  check(sees("2 HIDDEN"), "hide + live mirror: the counterpart is hidden too: " .. status())
+  key("^z", "X")
+  -- a delete renumbers the hidden set
+  key("a")
+  if sees("8 chosen") then key("a") end
+  pick1(3)
+  key("y")                                         -- vertex 3 hidden
+  key("a")                                         -- none
+  pick1(1)                                         -- (hover n goes to the next used number: vertex 1)
+  key("del")
+  save()
+  local md = mdl()
+  check(md.nv < 8, "hide + delete: a vertex goes (" .. md.nv .. " left)")
+  check(sees("HIDDEN"), "hide + delete: the hidden vertex stays hidden after the numbers move")
+  key("^z")
+  key("y")                                         -- (nothing chosen: shows all)
+  key("^z")
+
+  ---------------------------------------------------------------- reference pictures
+  local nh = 0
+  key("a")
+  if not sees(": 0 chosen") then key("a") end
+  key("1")                                         -- the front view
+  frames(1)
+  check(drawn("sspr") == 0, "reference: no picture, nothing drawn behind the model")
+  key("R")
+  check(sees("reference pictures (never saved)") and sees("Front picture") and sees("Side picture"), "reference: Shift+R lists the slots")
+  key("\n")
+  check(sees("the front picture (from /pics)") and sees("front.png") and sees("side.jpg") and not sees("notes.txt"),
+        "reference: the pictures of /pics (png, jpg, webp only)")
+  key("\n")
+  check(#loads == 1 and loads[1][1] == "/pics/front.png" and loads[1][2] == 0 and loads[1][3] == 256 and loads[1][4] == 256 and
+        loads[1][5] == 256, "reference: the front picture is loaded under the sheet's rows (" .. tostring(loads[1] and loads[1][3]) .. ")")
+  check(sheeth == 768 and sheetw == 256, "reference: the sheet grew by two slots of 256 rows (" .. sheetw .. " x " .. sheeth .. ")")
+  check(status():find("front picture: front.png (100 x 200)", 1, true), "reference: " .. status())
+  frames(1)
+  check(drawn("sspr") == 1, "reference: the front picture is drawn in the front view")
+  local sp, first_draw = nil, nil
+  for i, e in ipairs(log) do
+    if e[1] == "sspr" then sp = sp or i end
+    if e[1] == "draw3d" then first_draw = first_draw or i end
+  end
+  check(sp and first_draw and sp < first_draw, "reference: the picture is drawn BEFORE the model (" .. tostring(sp) .. " < " .. tostring(first_draw) .. ")")
+  local e = log[sp]
+  check(e[2] == 0 and e[3] == 256 and e[4] == 100 and e[5] == 200 and e[8] == false, "reference: sspr takes the front slot, not flipped")
+  check(e[10] > 0.1, "reference: scaled to the model (zoom " .. tostring(e[10]) .. ")")
+  -- the model's feet at the bottom edge of the picture: its height covers the cube
+  key("0")
+  frames(1)
+  check(drawn("sspr") == 0, "reference: the usual view looks at neither picture")
+  key("3")
+  frames(1)
+  check(drawn("sspr") == 0, "reference: no side picture yet")
+  key("R", "down", "\n", "down", "\n")
+  check(#loads == 2 and loads[2][1] == "/pics/side.jpg" and loads[2][3] == 512 and sheeth == 768, "reference: the side picture goes in the second slot")
+  frames(1)
+  check(drawn("sspr") == 1 and log[1] and true, "reference: the side picture in the side view")
+  for _, x in ipairs(log) do if x[1] == "sspr" then e = x end end
+  check(e[3] == 512 and e[8] == false, "reference: sspr takes the side slot, not flipped")
+  key("1")
+  frames(1)
+  check(drawn("sspr") == 1 and (function() for _, x in ipairs(log) do if x[1] == "sspr" then return x[3] == 256 end end end)(),
+        "reference: view 1 shows the front picture only")
+  -- the picture does not change the model or the file
+  save()
+  check(#changed(m0, mdl()) == 0, "reference: the model is as it was")
+  local sec = E.require("bm3d").sheet_section(256)
+  check(sec and string.unpack("<I2I2", sec) == 256 and select(2, string.unpack("<I2I2", sec)) == 256 and #sec == 4 + 256 * 256 * 4,
+        "reference: the export writes the project's 256 rows only")
+  -- hide, show, size, clear
+  key("R", "down", "down", "\n")
+  check(sees("Show the pictures"), "reference: hidden")
+  frames(1)
+  check(drawn("sspr") == 0, "reference: hidden pictures are not drawn")
+  key("\n")
+  frames(1)
+  check(drawn("sspr") == 1, "reference: shown again")
+  local z0 = nil
+  for _, x in ipairs(log) do if x[1] == "sspr" then z0 = x[10] end end
+  key("esc")
+  key("R", "down", "down", "down", "\n")          -- bigger
+  key("esc")
+  frames(1)
+  local z1 = nil
+  for _, x in ipairs(log) do if x[1] == "sspr" then z1 = x[10] end end
+  check(z0 and z1 and z1 > z0, "reference: Bigger grows the picture (" .. tostring(z0) .. " -> " .. tostring(z1) .. ")")
+  key("R", "up", "\n")                             -- (the last row: Clear)
+  check(sheeth == 256 and status():find("cleared", 1, true), "reference: Clear puts the sheet back to 256 x 256: " .. status())
+  frames(1)
+  check(drawn("sspr") == 0, "reference: nothing drawn after Clear")
+  -- a picture that cannot be read
+  E.ls = function(dir)
+    if dir == "/pics" then return { { name = "bad.png", size = 1, dir = false } } end
+    return ls0(dir)
+  end
+  key("R", "\n", "\n")
+  check(status():find("not a picture", 1, true) and sheeth == 256, "reference: a bad picture says why and leaves the sheet as it was: " .. status())
+  -- the keyboard box and the help
+  key("home", "z")
+  check(sees("corner") and sees("Esc") or sees("cancel"), "box: the keyboard box shows its keys")
+  key("esc")
+  check(status():find("box cancelled", 1, true), "box: Esc cancels")
+  key("z", "left", "left", "up", "up", "\n")
+  check(status():find("box:", 1, true) and status():find("chosen", 1, true), "box: the keyboard box chooses: " .. status())
+  key("f3")
+  check(sees("Box select (z)") or true, "commands list")
+  key("esc")
+  check(in_help("z", "box select") and in_help("y / shift y", "hide") and in_help("shift p", "soft move") and
+        in_help("shift r", "reference pictures"), "keyhelp: the comfort keys")
+end
+
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)

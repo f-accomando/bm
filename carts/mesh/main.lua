@@ -309,18 +309,23 @@ local function view_of(it)
   if it.view ~= nil then return it.view end
   if #it.f == 0 or #it.v == 0 or #it.v > LIMIT_V or #it.f > LIMIT_F then it.view = false; return false end
   local v, f, uv, tex = {}, {}, {}, false
+  local hid, n = it.hid, 0                  -- hidden vertices (APP-11): their faces are not drawn
   for i, p in ipairs(it.v) do v[i * 3 - 2], v[i * 3 - 1], v[i * 3] = p[1], p[2], p[3] end
-  for i, q in ipairs(it.f) do
-    f[i * 4 - 3], f[i * 4 - 2], f[i * 4 - 1], f[i * 4] = q[1], q[2], q[3], q[4]
-    local u = q[5]
-    if q[4] == -1 and u then
-      tex = true
-      for k = 1, 6 do uv[i * 6 - 6 + k] = u[k] end
-    else
-      for k = 1, 6 do uv[i * 6 - 6 + k] = 0 end
-      if q[4] == -1 then f[i * 4] = 0xFFFFFF end
+  for _, q in ipairs(it.f) do
+    if not (hid and (hid[q[1]] or hid[q[2]] or hid[q[3]])) then
+      n = n + 1
+      f[n * 4 - 3], f[n * 4 - 2], f[n * 4 - 1], f[n * 4] = q[1], q[2], q[3], q[4]
+      local u = q[5]
+      if q[4] == -1 and u then
+        tex = true
+        for k = 1, 6 do uv[n * 6 - 6 + k] = u[k] end
+      else
+        for k = 1, 6 do uv[n * 6 - 6 + k] = 0 end
+        if q[4] == -1 then f[n * 4] = 0xFFFFFF end
+      end
     end
   end
+  if n == 0 then it.view = false; return false end
   local ok, m = pcall(mesh, v, f, tex and uv or nil)
   it.view = ok and m or false
   return it.view
@@ -496,9 +501,46 @@ local function unpack_geo(it, s)
   end
 end
 
+-- the hidden vertices (APP-11) as a bit string: 1 bit a vertex, "" when none
+local UA = {}                   -- the undo helpers (one local: the limit of 200 in this chunk)
+function UA.pack_hid(it)
+  local hid = it.hid
+  if not hid then return nil end
+  local nb, bytes = (#it.v + 7) // 8, {}
+  for i = 1, nb do bytes[i] = 0 end
+  for i in pairs(hid) do
+    local b = (i - 1) // 8 + 1
+    if bytes[b] then bytes[b] = bytes[b] | (1 << ((i - 1) % 8)) end
+  end
+  local out = {}
+  for i = 1, nb do out[i] = string.char(bytes[i]) end
+  return table.concat(out)
+end
+
+function UA.unpack_hid(it, s)
+  if not s then it.hid = nil; return end
+  local hid = {}
+  for i = 1, #it.v do
+    if (s:byte((i - 1) // 8 + 1) or 0) >> ((i - 1) % 8) & 1 == 1 then hid[i] = true end
+  end
+  it.hid = next(hid) and hid or nil
+end
+
 local function snapshot()
   local it = I()
-  return { idx = cur, name = it.name, kind = it.kind, geo = pack_geo(it) }
+  local geo, hid = pack_geo(it), UA.pack_hid(it)
+  return { idx = cur, name = it.name, kind = it.kind, geo = geo, hid = hid, size = #geo + (hid and #hid or 0) }
+end
+
+-- the undo steps (APP-11): up to UNDO_MAX, and no more than UNDO_BYTES of snapshots (a big mesh keeps
+-- fewer steps, never fewer than 2): the Pi Zero W has little RAM
+UA.MAX, UA.BYTES = 100, 4 * 1024 * 1024
+function UA.trim()
+  local total = 0
+  for _, s in ipairs(undo) do total = total + s.size end
+  while #undo > UA.MAX or (#undo > 2 and total > UA.BYTES) do
+    total = total - table.remove(undo, 1).size
+  end
 end
 
 local on_restore             -- the edit page: the selection after an undo
@@ -508,6 +550,7 @@ local function restore(s)
   if not it or it.name ~= s.name or it.kind ~= s.kind then return false end
   cur = s.idx
   unpack_geo(it, s.geo)
+  UA.unpack_hid(it, s.hid)
   changed(it)
   if on_restore then on_restore() end
   return true
@@ -524,9 +567,16 @@ local function begin_edit()
     it = c
   end
   undo[#undo + 1] = snapshot()
-  if #undo > 30 then table.remove(undo, 1) end
+  UA.trim()
   redo = {}
   return it
+end
+
+-- a step with no change of the geometry (hide, isolate, show all): the snapshot holds the hidden set
+function UA.push()
+  undo[#undo + 1] = snapshot()
+  UA.trim()
+  redo = {}
 end
 
 -- after it: too big, undone
@@ -1036,7 +1086,9 @@ ed = { mirror = false, snap = 0, snap_i = 2, snap_steps = { 0.05, 0.1, 0.25, 0.5
 
 function edit_reset()
   ed.sv, ed.sf, ed.se, ed.order, ed.tool, ed.force, ed.pal = {}, {}, {}, 0, nil, nil, nil
-  ed.he, ed.sig = nil, ""
+  ed.he, ed.sig, ed.box = nil, "", nil
+  local cur_it = I()
+  if cur_it and cur_it.hid then cur_it.hid, cur_it.view = nil, nil end
   ed.sx, ed.sy, ed.sz = {}, {}, {}
   local it = I()
   if it then aim(ed.cam, it, nil, 2.2) end
@@ -1058,15 +1110,16 @@ local function count(t) local n = 0; for _ in pairs(t) do n = n + 1 end; return 
 -- chosen faces
 local function sel_verts()
   local it, out, seen = I(), {}, {}
+  local hid = it.hid or {}
   if ed.mode ~= "f" then
-    for i in pairs(ed.sv) do if it.v[i] then out[#out + 1] = i end end
+    for i in pairs(ed.sv) do if it.v[i] and not hid[i] then out[#out + 1] = i end end
   else
     for fi in pairs(ed.sf) do
       local f = it.f[fi]
       if f then
         for k = 1, 3 do
           local i = f[k]
-          if not seen[i] then seen[i] = true; out[#out + 1] = i end
+          if not seen[i] and not hid[i] then seen[i] = true; out[#out + 1] = i end
         end
       end
     end
@@ -1093,7 +1146,11 @@ local function select_v(i, on)
 end
 
 -- vertices no face uses go away (the selection and the bones follow)
-local function compact(it) ed.sv = B.G.compact(it, ed.sv) end
+local function compact(it)
+  local h
+  ed.sv, h = B.G.compact(it, ed.sv, it.hid)
+  it.hid = next(h) and h or nil
+end
 
 local function drop_degenerate(it)
   local n = B.G.drop_degenerate(it)
@@ -1104,9 +1161,12 @@ end
 -- the screen: where each vertex is (after look()); what is under the pointer
 local function project_all(it)
   local sx, sy, sz = {}, {}, {}
+  local hid = it.hid or {}
   for i, p in ipairs(it.v) do
-    local x, y, z = project3d(p[1], p[2], p[3])
-    if x and abs(x) < 8000 and abs(y) < 8000 then sx[i], sy[i], sz[i] = x, y, z end
+    if not hid[i] then                          -- a hidden vertex has no place: nothing sees it
+      local x, y, z = project3d(p[1], p[2], p[3])
+      if x and abs(x) < 8000 and abs(y) < 8000 then sx[i], sy[i], sz[i] = x, y, z end
+    end
   end
   ed.sx, ed.sy, ed.sz = sx, sy, sz
 end
@@ -1391,7 +1451,7 @@ local function tool_start(kind, axis, keep)
     local fn = unit(normal_of(it, it.f[fi]))
     for k = 1, 3 do n[k] = n[k] + fn[k] end
   end
-  ed.tool = { kind = kind, vs = vs, base = base, c = centre_of(it, vs), n = unit(n), axis = axis,
+  ed.tool = { kind = kind, vs = vs, base = base, c = centre_of(it, vs), n = unit(n), axis = axis, buf = "",
               d = { 0, 0, 0 }, m = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }, s = { 1, 1, 1 }, deg = 0 }
   ed.tool.e = ed.tool.d                  -- the move after the snap (the same without it)
   ed.tool.lead = min(table.unpack(vs))   -- the leader: the snap works on this vertex
@@ -1401,6 +1461,7 @@ local function tool_start(kind, axis, keep)
     -- live mirror: a vertex with a counterpart across X = 0 moves it too. When both
     -- are chosen, the lower number leads and the other follows.
     local mp = B.G.mirror_pairs(it, vs)
+    if it.hid then for i, j in pairs(mp) do if it.hid[j] then mp[i] = nil end end end    -- a hidden counterpart stays
     local sorted, fol, skip, lone = { table.unpack(vs) }, {}, {}, 0
     table.sort(sorted)
     for _, i in ipairs(sorted) do
@@ -1412,6 +1473,44 @@ local function tool_start(kind, axis, keep)
     for _, j in pairs(fol) do ed.tool.moving[j] = true end
     if lone > 0 then say("mirror X: " .. lone .. " chosen without a counterpart", C_DIM, 120) end
   end
+  if kind == "move" then ed.soft_build(ed.tool, it) end
+end
+
+-- Proportional (soft) move (APP-11, Shift+P): the vertices near the chosen ones follow a move, less and
+-- less with the distance (B.G.falloff, a smooth fall to 0 at the radius ed.prop_steps[ed.prop]). The
+-- distance is the 3D distance to the nearest chosen vertex. With the live mirror the counterparts pull
+-- their own neighbours, mirrored. t.soft = { list, w, side, base }; hidden vertices stay.
+ed.prop, ed.prop_steps = 0, { 0.25, 0.5, 1, 2 }
+function ed.soft_build(t, it)
+  if t.soft then                               -- a new radius: the vertices go back first
+    for _, i in ipairs(t.soft.list) do
+      local b, p = t.soft.base[i], it.v[i]
+      p[1], p[2], p[3] = b[1], b[2], b[3]
+    end
+  end
+  t.soft = nil
+  local r = ed.prop > 0 and ed.prop_steps[ed.prop] or 0
+  if r <= 0 then return end
+  local lead, fol = {}, {}
+  for _, i in ipairs(t.vs) do if not (t.skip and t.skip[i]) then lead[#lead + 1] = i end end
+  if t.fol then for _, j in pairs(t.fol) do fol[#fol + 1] = j end end
+  local skip = {}
+  for i in pairs(t.moving) do skip[i] = true end
+  if it.hid then for i in pairs(it.hid) do skip[i] = true end end
+  local wa = B.G.soft_weights(it, lead, r, skip)
+  local wb = #fol > 0 and B.G.soft_weights(it, fol, r, skip) or {}
+  local soft = { list = {}, w = {}, side = {}, base = {} }
+  for i, w in pairs(wa) do soft.w[i] = w end
+  for i, w in pairs(wb) do
+    if w > (soft.w[i] or 0) then soft.w[i], soft.side[i] = w, true end
+  end
+  for i in pairs(soft.w) do
+    soft.list[#soft.list + 1] = i
+    local p = it.v[i]
+    soft.base[i] = { p[1], p[2], p[3] }
+  end
+  table.sort(soft.list)
+  t.soft = soft
 end
 
 -- the move of the tool after the snap: the leader goes to the grid, or to the
@@ -1450,27 +1549,81 @@ local function tool_apply()
     if j then local q = it.v[j]; q[1], q[2], q[3] = -p[1], p[2], p[3] end
     ::next_vertex::
   end
+  local sf = t.soft
+  if sf then                                   -- the neighbours, with their share of the move
+    for _, i in ipairs(sf.list) do
+      local b, w, p = sf.base[i], sf.w[i], it.v[i]
+      p[1] = b[1] + (sf.side[i] and -d[1] or d[1]) * w
+      p[2], p[3] = b[2] + d[2] * w, b[3] + d[3] * w
+    end
+  end
   it.view = nil
+end
+
+function ed.cycle_prop()
+  ed.prop = (ed.prop + 1) % (#ed.prop_steps + 1)
+  local t = ed.tool
+  if t and t.kind == "move" then ed.soft_build(t, I()); tool_apply() end
+  say(ed.prop == 0 and "soft move off" or ("soft move: radius " .. num(ed.prop_steps[ed.prop])), C_ACC, 90)
 end
 
 local function tool_text()
   local t = ed.tool
   local ax = t.axis == "n" and "along the normal" or (t.axis and ("on " .. AXIS[t.axis]) or "")
+  local typed = t.buf ~= "" and ("  typed " .. t.buf .. "_") or ""
   if t.kind == "move" then
-    return string.format("MOVE %s  x %s  y %s  z %s  (step %s)", ax, num(t.e[1]), num(t.e[2]), num(t.e[3]),
-                         num(MOVE_STEPS[ed.step])) .. ed.snap_text(" ")
+    return string.format("MOVE %s  x %s  y %s  z %s", ax, num(t.e[1]), num(t.e[2]), num(t.e[3])) ..
+           (t.soft and ("  soft " .. num(ed.prop_steps[ed.prop]) .. " (" .. #t.soft.list .. " near)") or "") .. typed ..
+           string.format("  (step %s)", num(MOVE_STEPS[ed.step])) .. ed.snap_text(" ")
   elseif t.kind == "rotate" then
-    return string.format("ROTATE %s  %s deg  (step %d)", t.axis and ax or "", num(t.deg), ROT_STEPS[ed.step])
+    return string.format("ROTATE %s  %s deg", t.axis and ax or "", num(t.deg)) .. typed .. string.format("  (step %d)", ROT_STEPS[ed.step])
   end
-  return string.format("SCALE %s  x %s  y %s  z %s  (step x%s)", ax, num(t.s[1]), num(t.s[2]), num(t.s[3]),
-                       num(SCALE_STEPS[ed.step]))
+  return string.format("SCALE %s  x %s  y %s  z %s", ax, num(t.s[1]), num(t.s[2]), num(t.s[3])) .. typed ..
+         string.format("  (step x%s)", num(SCALE_STEPS[ed.step]))
+end
+
+-- Numeric entry (APP-11): digits, "." and "-" typed in a move, rotate or scale give the exact value of
+-- the axis chosen (x, y, z, n; none: x for a move, y for a rotation, all three for a scale). Another
+-- axis key, an arrow or Enter takes the number as it is; Backspace takes the last character off.
+function ed.tool_typed(t)
+  local v = B.G.parse_number(t.buf)
+  local a = t.axis
+  if t.kind == "move" then
+    v = v or 0
+    if a == "n" then
+      for i = 1, 3 do t.d[i] = round(t.n[i] * v * 1e5) / 1e5 end
+    else
+      t.d[a or 1] = round(v * 1e5) / 1e5
+    end
+  elseif t.kind == "rotate" then
+    v = v or 0
+    t.m = rot_matrix(a == "n" and t.n or axis_vec(a or 2), math.rad(v))
+    t.deg = v
+  else
+    v = v or 1
+    if a and a ~= "n" then t.s[a] = v else t.s[1], t.s[2], t.s[3] = v, v, v end
+  end
+  tool_apply()
+end
+
+function ed.tool_type_key(t, k)
+  if k:match("^%d$") or (k == "." and t.buf ~= "") or (k == "-" and t.buf == "") then
+    if #t.buf < 12 then t.buf = t.buf .. k end
+  elseif (k == "\b" or k == "del") and t.buf ~= "" then
+    t.buf = t.buf:sub(1, -2)
+  else
+    return false
+  end
+  ed.tool_typed(t)
+  return true
 end
 
 local function tool_ok()
   local what = tool_text():gsub("%s*%(step.*$", ""):lower() .. ": " .. #ed.tool.vs .. " vertices" ..
                (ed.tool.fol and " (mirror X)" or "")
+  local near = ed.tool.soft and #ed.tool.soft.list or 0
   ed.tool = nil
-  finish_edit(what)
+  finish_edit(what .. (near > 0 and (" + " .. near .. " near") or ""))
 end
 
 local function tool_cancel()
@@ -1484,6 +1637,9 @@ local function tool_key(k)
   local t = ed.tool
   if k == "\n" or k == "ok" then tool_ok(); return end
   if k == "esc" or k == "back" then tool_cancel(); return end
+  if ed.tool_type_key(t, k) then return end
+  if k == "P" then ed.cycle_prop(); return end
+  t.buf = ""
   if k == "x" or k == "y" or k == "z" then
     local a = (k == "x" and 1) or (k == "y" and 2) or 3
     t.axis = t.axis ~= a and a or nil
@@ -1892,10 +2048,12 @@ local function op_linked()
   for _, i in ipairs(start) do want[root(i)] = true end
   local n = 0
   if ed.mode ~= "f" then
-    for i in ipairs(it.v) do if want[root(i)] and not ed.sv[i] then select_v(i, true) end end
+    for i in ipairs(it.v) do if want[root(i)] and not ed.sv[i] and not (it.hid and it.hid[i]) then select_v(i, true) end end
     n = count(ed.sv)
   else
-    for fi, f in ipairs(it.f) do if want[root(f[1])] then ed.sf[fi] = true end end
+    for fi, f in ipairs(it.f) do
+      if want[root(f[1])] and not (it.hid and B.G.face_hidden(f, it.hid)) then ed.sf[fi] = true end
+    end
     n = count(ed.sf)
   end
   say(n .. " chosen", C_ACC, 60)
@@ -1907,11 +2065,11 @@ local function op_all()
     ed.sv, ed.sf, ed.se = {}, {}, {}
     say("none chosen", C_DIM, 60)
   elseif ed.mode ~= "f" then
-    for i in ipairs(it.v) do select_v(i, true) end
-    say("all " .. #it.v .. " vertices", C_DIM, 60)
+    for i in ipairs(it.v) do if not (it.hid and it.hid[i]) then select_v(i, true) end end
+    say("all " .. count(ed.sv) .. " vertices", C_DIM, 60)
   else
-    for fi in ipairs(it.f) do ed.sf[fi] = true end
-    say("all " .. #it.f .. " faces", C_DIM, 60)
+    for fi, f in ipairs(it.f) do if not (it.hid and B.G.face_hidden(f, it.hid)) then ed.sf[fi] = true end end
+    say("all " .. count(ed.sf) .. " faces", C_DIM, 60)
   end
 end
 
@@ -2171,6 +2329,214 @@ function ed.ghost_draw()
   end
 end
 
+
+----------------------------------------------------------------- comfort (APP-11)
+
+-- Hide and isolate (y, Shift+Y): it.hid is the set of hidden vertices ({ [vertex] = true }, not saved:
+-- every file keeps all of them). A hidden vertex has no place on the screen (project_all), so it is not
+-- drawn, not under the pointer, not chosen by a box, "a" or "l", and no tool moves it; a face with a
+-- hidden corner is not drawn (view_of). One undo step for each (the snapshot holds the set).
+function ed.hidden_count(it)
+  local n = 0
+  if it.hid then for _ in pairs(it.hid) do n = n + 1 end end
+  return n
+end
+
+-- the chosen vertices and, with the live mirror, their counterparts
+function ed.choice_set(it)
+  local vs = sel_verts()
+  local set = {}
+  for _, i in ipairs(vs) do set[i] = true end
+  if ed.mirror and #vs > 0 then
+    for _, j in pairs(B.G.mirror_pairs(it, vs)) do set[j] = true end
+  end
+  return set, #vs
+end
+
+function ed.set_hidden(it, hid)
+  it.hid = next(hid) and hid or nil
+  it.view = nil
+  ed.sv, ed.sf, ed.se, ed.force = {}, {}, {}, nil
+  ed.sig = ""
+end
+
+function ed.show_all()
+  local it = I()
+  if not it or not it.hid then say("nothing is hidden", C_DIM, 90); return end
+  local n = ed.hidden_count(it)
+  UA.push()
+  ed.set_hidden(it, {})
+  say("shown: " .. n .. " vertices", C_ACC, 120)
+end
+
+function ed.hide_choice()
+  local it = I()
+  local set, n = ed.choice_set(it)
+  if n == 0 then
+    if it.hid then ed.show_all() else say("choose vertices or faces first", C_ERR) end
+    return
+  end
+  UA.push()
+  local hid = {}
+  for i in pairs(it.hid or {}) do hid[i] = true end
+  local k = 0
+  for i in pairs(set) do if not hid[i] then hid[i] = true; k = k + 1 end end
+  ed.set_hidden(it, hid)
+  say("hidden: " .. k .. " vertices (y with no choice shows all)", C_ACC, 180)
+end
+
+function ed.isolate_choice()
+  local it = I()
+  local set, n = ed.choice_set(it)
+  if n == 0 then
+    if it.hid then ed.show_all() else say("choose vertices or faces first", C_ERR) end
+    return
+  end
+  UA.push()
+  ed.set_hidden(it, B.G.isolate(it, set))
+  say("isolated: " .. ed.hidden_count(it) .. " vertices hidden (Shift+Y with no choice shows all)", C_ACC, 180)
+end
+
+-- Box select (z, or the left button dragged over the view): the corner where the pointer is, then the other
+-- corner with the arrows; Enter chooses only what is inside, Space adds it, Esc cancels. Everything
+-- inside is chosen, also what is behind. Vertices; edges with both ends inside; faces with all
+-- corners inside (the mode, Tab).
+function ed.box_start()
+  ed.box = { x0 = ed.px, y0 = ed.py, x1 = ed.px, y1 = ed.py }
+  say("box: move the pointer, Enter chooses, Space adds, Esc cancels", C_DIM, 200)
+end
+
+function ed.box_commit(add, x1, y1, box)
+  local b, it = box or ed.box, I()
+  ed.box = nil
+  if not b or not it then return end
+  x1, y1 = x1 or b.x1, y1 or b.y1
+  local inside = B.G.box_pick(ed.sx, ed.sy, b.x0, b.y0, x1, y1, it.hid)
+  local set = {}
+  for _, i in ipairs(inside) do set[i] = true end
+  if not add then ed.sv, ed.sf, ed.se, ed.order = {}, {}, {}, 0 end
+  local n = 0
+  if ed.mode == "v" then
+    for _, i in ipairs(inside) do if not ed.sv[i] then select_v(i, true); n = n + 1 end end
+  elseif ed.mode == "f" then
+    for fi, f in ipairs(it.f) do
+      if set[f[1]] and set[f[2]] and set[f[3]] and not ed.sf[fi] then ed.sf[fi] = true; n = n + 1 end
+    end
+  else
+    for k in pairs(B.G.edge_faces(it)) do
+      local a, c = B.G.edge_ends(k)
+      if set[a] and set[c] and not ed.se[k] then ed.edge_set(it, k, true); n = n + 1 end
+    end
+  end
+  ed.force, ed.sig = nil, ""
+  say("box: " .. n .. (ed.mode == "v" and " vertices" or (ed.mode == "e" and " edges" or " faces")) .. " chosen", C_ACC, 120)
+end
+
+-- Reference pictures (Shift+R): a front and a side picture from /pics (PNG, JPEG, WebP), drawn behind the model
+-- when the view looks at them (1: front, 3: side, within about 17 degrees). image_file makes each fit
+-- 256 x 256 and pale, and puts it on the project's sprite sheet in two slots BELOW the sheet's own
+-- rows (the sheet grows by 512 rows; a clear puts it back; the export writes only the project's
+-- rows). proj.refs = { w0, h0 (the sheet before), front/side = { x, y, w, h, name },
+-- hgt (height of the picture in the scene), dy, on }.
+ed.REF = 256
+ed.REF_MIX, ed.REF_BG = 55, 0x203040
+
+function ed.ref_pictures()
+  local out = {}
+  for _, f in ipairs(ls("/pics") or {}) do
+    local n = f.name:lower()
+    if not f.dir and (n:match("%.png$") or n:match("%.jpe?g$") or n:match("%.webp$")) then out[#out + 1] = f.name end
+  end
+  table.sort(out)
+  return out
+end
+
+function ed.ref_load(slot, name)
+  if not image_file or not cart_sheet then say("this kernel has no image_file", C_ERR, 300); return false end
+  local r = proj.refs
+  local w0, h0
+  if r then w0, h0 = r.w0, r.h0 else w0, h0 = cart_sheet() end
+  local R = ed.REF
+  cart_sheet(max(w0, R), h0 + 2 * R)
+  local y = h0 + (slot == "front" and 0 or R)
+  if r and r[slot] then                     -- the old picture of the slot goes
+    for yy = 0, r[slot].h - 1 do for xx = 0, r[slot].w - 1 do sset(xx, y + yy, nil) end end
+  end
+  local im, err = image_file("/pics/" .. name, 0, y, R, R, ed.REF_MIX, ed.REF_BG)
+  if not im then
+    if not r then cart_sheet(w0, h0) end
+    say("cannot: " .. tostring(err), C_ERR, 300)
+    return false
+  end
+  if not r then
+    local lo, hi = bounds(I())
+    r = { w0 = w0, h0 = h0, hgt = max(0.5, hi[2] - lo[2]), dy = lo[2], on = true }
+    proj.refs = r
+  end
+  r[slot] = { x = im.x, y = im.y, w = im.w, h = im.h, name = name }
+  r.on = true
+  say(slot .. " picture: " .. name .. " (" .. im.w .. " x " .. im.h .. "), seen from view " .. (slot == "front" and "1" or "3"), C_ACC, 300)
+  return true
+end
+
+function ed.ref_clear()
+  local r = proj.refs
+  if not r then return end
+  cart_sheet(r.w0, r.h0)
+  proj.refs = nil
+  if collectgarbage then collectgarbage() end
+  say("reference pictures cleared", C_ACC, 200)
+end
+
+function ed.ref_pick(slot)
+  local list = ed.ref_pictures()
+  if #list == 0 then say("no .png, .jpg or .webp picture in /pics on the SD card", C_ERR, 300); return end
+  local rows = {}
+  for i, n in ipairs(list) do rows[i] = { n, function() ed.ref_load(slot, n) end } end
+  choose("the " .. slot .. " picture (from /pics)", rows, 1)
+end
+
+function ed.ref_dialog(sel)
+  local r = proj.refs
+  local rows = {
+    { "Front picture" .. (r and r.front and (": " .. r.front.name) or ""), function() ed.ref_pick("front") end },
+    { "Side picture" .. (r and r.side and (": " .. r.side.name) or ""), function() ed.ref_pick("side") end },
+  }
+  if r then
+    rows[#rows + 1] = { r.on and "Hide the pictures" or "Show the pictures", function() r.on = not r.on; ed.ref_dialog(3) end }
+    rows[#rows + 1] = { "Bigger (x1.1)", function() r.hgt = min(200, r.hgt * 1.1); ed.ref_dialog(4) end }
+    rows[#rows + 1] = { "Smaller (x0.9)", function() r.hgt = max(0.1, r.hgt / 1.1); ed.ref_dialog(5) end }
+    rows[#rows + 1] = { "Up (0.1)", function() r.dy = r.dy + 0.1; ed.ref_dialog(6) end }
+    rows[#rows + 1] = { "Down (0.1)", function() r.dy = r.dy - 0.1; ed.ref_dialog(7) end }
+    rows[#rows + 1] = { "Clear the pictures", function() ed.ref_clear() end }
+  end
+  choose("reference pictures (never saved)", rows, sel or 1)
+end
+
+-- before the model: each picture whose view the camera has; flat on the plane Z = 0 (front) or X = 0 (side),
+-- the model's feet at its bottom edge
+function ed.ref_draw()
+  local r = proj.refs
+  if not r or not r.on then return end
+  local cam = ed.cam
+  for _, slot in ipairs({ "front", "side" }) do
+    local pic = r[slot]
+    local flip = pic and B.G.ref_flip(slot, cam.yaw, cam.pitch)
+    if flip ~= nil then
+      local hw = r.hgt * pic.w / pic.h / 2
+      local a, b
+      if slot == "front" then a, b = { -hw, r.dy + r.hgt, 0 }, { hw, r.dy, 0 }
+      else a, b = { 0, r.dy + r.hgt, -hw }, { 0, r.dy, hw } end
+      local ax, ay = scr(a)
+      local bx, by = scr(b)
+      if ax and bx and abs(by - ay) > 2 then
+        sspr(pic.x, pic.y, pic.w, pic.h, min(ax, bx), min(ay, by), flip, false, abs(by - ay) / pic.h)
+        ed.ref_drawn = (ed.ref_drawn or 0) + 1
+      end
+    end
+  end
+end
+
 local COMMANDS = {
   { "Move (g)", "g" }, { "Rotate (r)", "r" }, { "Scale (t)", "t" }, { "Extrude faces (x)", "x" },
   { "Duplicate (d)", "d" }, { "Add a part (A)", "A" }, { "Mirror left-right (m)", "m" }, { "Mirror copy across 0 (M)", "M" },
@@ -2187,6 +2553,10 @@ local COMMANDS = {
   { "Ghost: load a model, clear it (H)", "H" }, { "Ghost: show / hide (h)", "h" },
   { "Ghost: scale up (])", "]" }, { "Ghost: scale down ([)", "[" },
   { "Ghost: up (})", "}" }, { "Ghost: down ({)", "{" },
+  { "Box select (z)", "z" }, { "Hide the choice (y)", "y" }, { "Isolate the choice (Y)", "Y" },
+  { "Show all hidden", function() ed.show_all() end },
+  { "Soft move: radius off, 0.25, 0.5, 1, 2 (P)", "P" },
+  { "Reference pictures: front, side (R)", "R" },
   { "Import a model: /bmm, /glb (Ctrl+I)", "^i" }, { "Export to /bmm (Ctrl+E)", "^e" },
 }
 ed.commands = COMMANDS                   -- (the context menu, outside this block)
@@ -2195,7 +2565,8 @@ function edit_actions()
   local rows = {}
   for _, c in ipairs(COMMANDS) do
     rows[#rows + 1] = { c[1], function()
-      if c[2] == "^i" then lp.import_dialog() elseif c[2] == "^e" then lp.export_dialog() else edit_key(c[2]) end
+      if type(c[2]) == "function" then c[2]()
+      elseif c[2] == "^i" then lp.import_dialog() elseif c[2] == "^e" then lp.export_dialog() else edit_key(c[2]) end
     end }
   end
   choose("commands" .. (I() and (": " .. I().name) or ""), rows)
@@ -2225,6 +2596,18 @@ function edit_mouse()
     if U.released(0) and view and not U.drag then edit_key("\n") end
     return
   end
+  local d = U.drag
+  if d and d.b == 0 and not (ed.box and not ed.box.mouse) and d.y0 >= 48 and d.y0 < HINT_Y then
+    if not ed.box then ed.box = { x0 = d.x0, y0 = d.y0, mouse = true, add = U.shift() } end
+    ed.box.x1, ed.box.y1 = U.x, U.y
+    return
+  end
+  if ed.box and ed.box.mouse then              -- the button is up: the box chooses
+    local b = ed.box
+    ed.box = nil
+    ed.box_commit(b.add, b.x1, b.y1, b)
+    return
+  end
   if not view then return end
   if U.moved then ed.px, ed.py, ed.force = U.x, clamp(U.y, 16, HINT_Y - 1), nil end
   if U.click(0) then
@@ -2239,6 +2622,12 @@ function edit_key(k)
   if ed.pal then palette_key(k); return end
   if ed.tool then tool_key(k); return end
   local cam = ed.cam
+  if ed.box then                              -- box select: the arrows move the corner
+    if k == "\n" or k == "ok" then ed.box_commit(false, ed.px, ed.py); return
+    elseif k == " " then ed.box_commit(true, ed.px, ed.py); return
+    elseif k == "esc" or k == "back" then ed.box = nil; say("box cancelled", C_DIM, 60); return
+    elseif k ~= "left" and k ~= "right" and k ~= "up" and k ~= "down" and k ~= "home" then return end
+  end
   if k == "left" or k == "right" or k == "up" or k == "down" then
     if k == ed.last_k and frame - ed.last_f <= 10 then ed.rep = min(ed.rep + 1, 8) else ed.rep = 0 end
     ed.last_k, ed.last_f = k, frame
@@ -2276,6 +2665,11 @@ function edit_key(k)
   elseif k == "m" then op_mirror()
   elseif k == "M" then op_mirror_copy()
   elseif k == "X" then ed.toggle_mirror()
+  elseif k == "z" then ed.box_start()
+  elseif k == "y" then ed.hide_choice()
+  elseif k == "Y" then ed.isolate_choice()
+  elseif k == "P" then ed.cycle_prop()
+  elseif k == "R" then ed.ref_dialog()
   elseif k == "B" then ed.bone_dialog()
   elseif k == "v" then ed.toggle_bone_view()
   elseif k == "h" then ed.ghost_toggle()
@@ -2326,12 +2720,16 @@ function edit_pad()
     end
   end
   if moved then ed.px, ed.py, ed.force = clamp(ed.px, 0, W - 1), clamp(ed.py, 16, HINT_Y - 1), nil end
-  if btnp(4) then op_toggle(false) end
-  if btnp(5) then ed.sv, ed.sf = {}, {} end
+  if btnp(4) then
+    if ed.box then ed.box_commit(false, ed.px, ed.py) else op_toggle(false) end
+  end
+  if btnp(5) then
+    if ed.box then ed.box = nil else ed.sv, ed.sf = {}, {} end
+  end
   if tap[6] then edit_actions() end
 end
 
-local function draw_palette()
+function ed.draw_palette()
   local x0, y0 = 120, 112
   U.zone(0, 16, W, HINT_Y - 16, "shade")
   rectfill(x0 - 16, y0 - 32, 432, 160, C_PANEL)
@@ -2355,6 +2753,7 @@ function draw_edit()
   end
   local cam = ed.cam
   look(cam, 0, 24)
+  ed.ref_draw()
   floor_grid(cam)
   local v = view_of(it)
   if v then
@@ -2430,6 +2829,14 @@ function draw_edit()
       if tx then circ(tx, ty, 6, 0x40FF80); circ(tx, ty, 2, 0x40FF80) end
     end
   end
+  local bx = ed.box
+  if bx then                                    -- the box being drawn
+    local x1, y1 = bx.x1, bx.y1
+    if not bx.mouse then x1, y1 = ed.px, ed.py end
+    local l, t, r, b = min(bx.x0, x1), min(bx.y0, y1), max(bx.x0, x1), max(bx.y0, y1)
+    rect(l, t, r - l + 1, b - t + 1, 0xFFFFFF)
+    rect(l + 1, t + 1, max(0, r - l - 1), max(0, b - t - 1), C_PT)
+  end
   -- the pointer
   line(ed.px - 7, ed.py, ed.px - 3, ed.py, 0xFFFFFF)
   line(ed.px + 3, ed.py, ed.px + 7, ed.py, 0xFFFFFF)
@@ -2440,7 +2847,12 @@ function draw_edit()
   rectfill(0, 16, W, 32, C_BG)
   local nsel = ed.mode == "v" and count(ed.sv) or (ed.mode == "e" and count(ed.se) or count(ed.sf))
   if ed.mirror then rectfill(W - 72, 16, 64, 8, C_BG); print("MIRROR X", W - 72, 16, C_ACC) end
-  if ed.snap ~= 0 then local s = ed.snap_text(""); print(s, W - 8 - #s * 8, 24, C_ACC) end
+  local st = {}                                 -- the tools' states, right of the second row
+  if ed.snap ~= 0 then st[#st + 1] = ed.snap_text("") end
+  if ed.prop > 0 then st[#st + 1] = "SOFT " .. num(ed.prop_steps[ed.prop]) end
+  local nh = ed.hidden_count(it)
+  if nh > 0 then st[#st + 1] = nh .. " HIDDEN" end
+  if #st > 0 then local s = table.concat(st, "  "); print(s, W - 8 - #s * 8, 24, C_ACC) end
   local gw = 0                                  -- the width the ghost line takes at the right of the second row
   if ed.ghost then
     local g = ed.ghost
@@ -2459,10 +2871,12 @@ function draw_edit()
     rectfill(8, 36, 12, 8, ed.colour)
     print(string.format("#%06X  step %s  %s", ed.colour, num(MOVE_STEPS[ed.step]), kind_text(it)), 24, 32, C_DIM)
   end
-  if ed.pal then draw_palette() end
+  if ed.pal then ed.draw_palette() end
   if ed.tool then
-    hint({ { { "up", "down", "left", "right" }, "change" }, { { "x", "y", "z", "n" }, "axis" }, { { ",", "." }, "step" }, { { "enter" }, "done" },
-           { { "esc" }, "cancel" } })
+    hint({ { { "up", "down", "left", "right" }, "change" }, { { "x", "y", "z", "n" }, "axis" }, { { "0" }, "number" }, { { "shift", "p" }, "soft" },
+           { { "enter" }, "done" }, { { "esc" }, "cancel" } })
+  elseif ed.box then
+    hint({ { { "up", "down", "left", "right" }, "corner" }, { { "enter" }, "choose" }, { { "space" }, "add" }, { { "esc" }, "cancel" } })
   elseif ed.pal then hint({ { { "up", "down", "left", "right" }, "colour" }, { { "enter" }, "take it" }, { { "esc" }, "close" } })
   else
     hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "choose" }, { { "a" }, "all" }, { { "tab" }, "vert/edge/face" },
@@ -2515,6 +2929,11 @@ local HELP = {
     { "x / d", "extrude faces / duplicate (then move)" },
     { "shift a", "add a part: cube, cylinder, sphere, plane (live mirror: and its mirror image)" },
     { "m / shift m", "mirror left-right / copy across 0" },
+    { "z", "box select: the arrows move the corner, Enter chooses, Space adds (or drag the left mouse button)" },
+    { "y / shift y", "hide the choice / isolate it (hide all else); with no choice they show all again" },
+    { "shift p", "soft move: the neighbours follow a move less and less (radius off, 0.25, 0.5, 1, 2; also inside g)" },
+    { "0-9 . -", "in g r t: type the exact value (axis x y z n first; Backspace)" },
+    { "shift r", "reference pictures: a front and a side from /pics behind the model (views 1 and 3)" },
     { "shift x", "live mirror X on / off: move, rotate, scale, paint, delete, add a part, loop cut on both sides (not the knife)" },
     { "shift b / v", "give the choice (or a part, l) to a bone of the skeleton / tint the dots by bone" },
     { "h / shift h", "ghost reference: show / hide, load or clear (a /bmm or /glb model, never saved)" },
@@ -2681,7 +3100,7 @@ lp.export_dialog = function()
   local item = { name = it.name, v = it.v, f = it.f, ac = encode_rig(it), inset = inset / 256 }
   for _, f in ipairs(it.f) do
     if f[4] == -1 then
-      local data = B.sheet_section()
+      local data = B.sheet_section(proj.refs and proj.refs.h0 or nil)
       if data then item.sheet = { type = 2, data = data } end
       break
     end
@@ -2764,7 +3183,7 @@ local function global_key(k)
   if k == "f1" then go("list"); return true
   elseif k == "f2" then if I() then go("edit") end; return true
   elseif k == "f3" then if page == "edit" then edit_actions() elseif page == "list" then list_actions() end; return true
-  elseif k == "esc" and page ~= "menu" and not (page == "edit" and (ed.tool or ed.pal)) then go("menu"); return true
+  elseif k == "esc" and page ~= "menu" and not (page == "edit" and (ed.tool or ed.pal or ed.box)) then go("menu"); return true
   -- the system's keys (the kernel's syskeys.c)
   elseif k == "^s" then save_to(proj.path); return true
   elseif k == "^S" then save_as(); return true

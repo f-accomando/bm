@@ -4245,6 +4245,124 @@ static int l_image_load(lua_State *L)
     return 1;
 }
 
+/* image_file(path, sx, sy, [fitw, fith, mix, bg]) -> { x =, y =, w =, h =, sw =, sh = }, or nil and why.
+ * Reads a JPEG (baseline), PNG or WebP file of the SD card (up to 16 MiB, 4 megapixels), makes it fit
+ * fitw x fith (default 256 x 256; the picture keeps its shape and is never made bigger; a box average)
+ * and puts it on the sprite sheet with its top left corner at (sx, sy). mix (0 to 100, default 100) is the
+ * share of the picture kept: the rest is the colour bg (0xRRGGBB, default black), so a reference
+ * picture can be drawn pale. w, h: the pixels used; sw, sh: the size of the file's picture. The decoded
+ * picture is freed before the call returns: only the small copy stays in the sheet. */
+static int l_image_file(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    const int sx = ival(L, 2), sy = ival(L, 3);
+    int fw = oval(L, 4, 256), fh = oval(L, 5, 256);
+    int mix = oval(L, 6, 100);
+    const uint32_t bg = (uint32_t)luaL_optinteger(L, 7, 0);
+    if (!rt.sheet.px || sx < 0 || sy < 0 || sx >= rt.sheet.w || sy >= rt.sheet.h)
+        return web_nil(L, "outside the sprite sheet (cart_sheet(w, h) makes it bigger)");
+    if (mix < 0)
+        mix = 0;
+    if (mix > 100)
+        mix = 100;
+    if (fw < 1 || fw > rt.sheet.w - sx)
+        fw = rt.sheet.w - sx;
+    if (fh < 1 || fh > rt.sheet.h - sy)
+        fh = rt.sheet.h - sy;
+    fat_entry_t e;
+    uint8_t *data = NULL;
+    size_t len = 0;
+    memset(&e, 0, sizeof e);
+    if (fat_find(path, &e) != 0 || e.is_dir) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: %s", path, e.is_dir ? "a directory" : fat_error());
+        return 2;
+    }
+    if (e.size > (16u << 20)) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: more than 16 MiB", path);
+        return 2;
+    }
+    if (fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: %s", path, fat_error());
+        return 2;
+    }
+    webimg_t im;
+    char err[96];
+    const int rc = webimg_decode(data, len, 0, 0, &im, err, sizeof err);
+    free(data);
+    if (rc != 0)
+        return web_nil(L, err);
+    int dw = im.w, dh = im.h;
+    if (dw > fw || dh > fh) {
+        if ((long long)fw * dh <= (long long)fh * dw) {
+            dh = (int)((long long)dh * fw / dw);
+            dw = fw;
+        } else {
+            dw = (int)((long long)dw * fh / dh);
+            dh = fh;
+        }
+        if (dw < 1)
+            dw = 1;
+        if (dh < 1)
+            dh = 1;
+    }
+    later_paint();
+    sync3d();
+    const int br = (int)((bg >> 16) & 255), bgc = (int)((bg >> 8) & 255), bb = (int)(bg & 255);
+    for (int y = 0; y < dh; y++) {
+        const int y0 = (int)((long long)y * im.h / dh);
+        int y1 = (int)((long long)(y + 1) * im.h / dh);
+        if (y1 <= y0)
+            y1 = y0 + 1;
+        for (int x = 0; x < dw; x++) {
+            const int x0 = (int)((long long)x * im.w / dw);
+            int x1 = (int)((long long)(x + 1) * im.w / dw);
+            if (x1 <= x0)
+                x1 = x0 + 1;
+            int r = 0, g = 0, b = 0, n = 0, on = 0;
+            for (int yy = y0; yy < y1; yy++)
+                for (int xx = x0; xx < x1; xx++) {
+                    const size_t k = (size_t)yy * im.w + xx;
+                    const uint16_t c = im.px[k];
+                    r += ((c >> 11) & 31) << 3;
+                    g += ((c >> 5) & 63) << 2;
+                    b += (c & 31) << 3;
+                    on += im.alpha[k] ? 1 : 0;
+                    n++;
+                }
+            r = (r / n * mix + br * (100 - mix)) / 100;
+            g = (g / n * mix + bgc * (100 - mix)) / 100;
+            b = (b / n * mix + bb * (100 - mix)) / 100;
+            g16_sheet_set(&rt.sheet, sx + x, sy + y, (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)),
+                          on * 2 >= n);
+        }
+    }
+    const int per = rt.sheet.w / G16_CELL;
+    for (int cy = sy / G16_CELL; cy <= (sy + dh - 1) / G16_CELL; cy++)
+        for (int cx = sx / G16_CELL; cx <= (sx + dw - 1) / G16_CELL; cx++)
+            rt.cell_dirty[cy * per + cx] = 1;
+    rt.sheet_dirty = 1;
+    proj_sheet_drawn = 1;
+    sheet_commit();
+    lua_createtable(L, 0, 6);
+    lua_pushinteger(L, sx);
+    lua_setfield(L, -2, "x");
+    lua_pushinteger(L, sy);
+    lua_setfield(L, -2, "y");
+    lua_pushinteger(L, dw);
+    lua_setfield(L, -2, "w");
+    lua_pushinteger(L, dh);
+    lua_setfield(L, -2, "h");
+    lua_pushinteger(L, im.w);
+    lua_setfield(L, -2, "sw");
+    lua_pushinteger(L, im.h);
+    lua_setfield(L, -2, "sh");
+    webimg_free(&im);
+    return 1;
+}
+
 /* file_write(name, bytes_or_id, [async]) -> true and the path ("bm/web/name.ext"), or nil and why.
  * Writes a file in bm/web on the SD card (made if it is not there): an 8.3 name, no other
  * folder, never .bm, .bme or .b16, at most file_write_max_kib (8 MiB) and 128 files in the
@@ -5434,7 +5552,7 @@ static const luaL_Reg api[] = {
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "web_get", l_web_get }, { "web_poll", l_web_poll }, { "web_info", l_web_info }, { "web_body", l_web_body },
-    { "web_cancel", l_web_cancel }, { "image_load", l_image_load }, { "file_write", l_file_write }, { "file_state", l_file_state },
+    { "web_cancel", l_web_cancel }, { "image_load", l_image_load }, { "image_file", l_image_file }, { "file_write", l_file_write }, { "file_state", l_file_state },
     { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
     { "doc_list", l_doc_list }, { "doc_read", l_doc_read }, { "doc_write", l_doc_write }, { "doc_delete", l_doc_delete },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },

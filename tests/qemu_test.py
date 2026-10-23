@@ -5667,6 +5667,77 @@ def test_mesh_ghost(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_mesh_reference(b, opts):
+    """APP-11: bm Mesh edit page, Shift+R: a front picture from /pics (here a magenta PNG) is read by
+    image_file (decoded, made pale, put under the project's sheet) and is drawn behind the model in the
+    front view (key 1) and not in the usual view (key 0); the model is not changed and the sheet of the
+    project goes back to its size on Clear."""
+    tmp = tempfile.mkdtemp(prefix="bm-meshref-")
+    img = os.path.join(tmp, "sd.img")
+    png = os.path.join(tmp, "front.png")
+    _save_png((64, 128, bytes([255, 0, 255]) * (64 * 128)), png)
+    mksd.build(img, [(b("carts/astrowing.bm"), "carts/astrowing.bm"), (png, "pics/front.png")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def magenta():
+        # the picture as the sheet gives it back: (255, 0, 255) kept 55 % over (0x20, 0x30, 0x40)
+        w, h, px = q.screendump()
+        n = 0
+        for i in range(0, len(px) - 2, 3):
+            if abs(px[i] - 156) < 14 and abs(px[i + 1] - 20) < 14 and abs(px[i + 2] - 173) < 14:
+                n += 1
+        return n
+
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Astro Wing"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "s", "s")
+        screen(["Open in bm Mesh"])
+        keys("\r")
+        screen(["list", "edit", "MESHES 13"])
+        keys("\r", gap=0.8)
+        screen(["of 65535 vertices"])
+        keys("1", gap=0.6)
+        assert magenta() == 0, "no picture yet: nothing magenta"
+        keys("R", gap=0.6)
+        screen(["Front picture", "Side picture"])
+        keys("\r", gap=0.6)
+        screen(["front.png"])
+        keys("\r", gap=1.0)
+        screen(["front picture: front.png (64 x 128)"])
+        keys("1", gap=0.8)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "mesh-reference-front.png"))
+        front = max(magenta() for _ in range(3))
+        assert front > 150, f"the picture is drawn in the front view ({front} pixels)"
+        keys("0", gap=0.8)
+        assert max(magenta() for _ in range(3)) == 0, "the usual view does not look at the picture"
+        keys("1", gap=0.6)
+        keys("R", "\x1b[B", "\x1b[B", gap=0.4)
+        keys("\r", gap=0.6)                      # row 3: Hide the pictures
+        keys("\x1b", gap=0.6)
+        assert max(magenta() for _ in range(3)) == 0, "hidden pictures are not drawn"
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def _sheet_pixels(data):
     """The sheet of a .bm: (w, h, [0xRRGGBB or None ...]), from SHEET8 or
     SHEET, and the SHEET8 palette (None for SHEET)."""

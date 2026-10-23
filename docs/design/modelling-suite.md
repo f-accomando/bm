@@ -1,6 +1,6 @@
 # Modelling suite: Studio, Mesh and Animator
 
-Status: phase 1 (APP-10) is built and tested on the PC; phases 2 and 3 are plans. Roadmap items: APP-11, APP-12 in [`../ROADMAP.md`](../ROADMAP.md). Related: [suite-studio-mesh](suite-studio-mesh.md), [suite-animator](suite-animator.md), [tools](../progress/tools.md).
+Status: phases 1 (APP-10) and 2 (APP-11) are built and tested on the PC; phase 3 is a plan. Roadmap item: APP-12 in [`../ROADMAP.md`](../ROADMAP.md). Related: [suite-studio-mesh](suite-studio-mesh.md), [suite-animator](suite-animator.md), [tools](../progress/tools.md).
 
 ## Goal
 
@@ -37,14 +37,16 @@ Each tool is described in plain words, as in Blender.
 - **Snap.** A move jumps to the grid, or to the nearest vertex. Done in step 6 (`claude/app10-snap`): Shift+S cycles off, grid, vertex, grid + vertex (`ed.snap`, shown at the top right as "SNAP grid 0.1"); Shift+G cycles the grid step 0.05, 0.1, 0.25, 0.5 (`ed.snap_i`, `ed.snap_steps`). Both are in the commands list on the pad. The move tool (and the move after duplicate) snaps its leader, the chosen vertex with the lowest number (`t.lead`), and every chosen vertex gets the same delta (`ed.snap_delta` sets `t.e`, the delta after the snap, which `tool_apply` uses); the live mirror counterparts follow it mirrored; one `begin_edit`, one undo step. `T.G.snap_grid`, `T.G.snap_vertex` (nearest other vertex within 6 px, the moving vertices are skipped) and `T.G.snap_pos` (a vertex in range wins over the grid; an axis lock changes only that axis; the normal axis has no grid) are pure. A green ring marks the vertex taken. Rotate, scale and add-a-part do not snap (a part is placed at the middle of the choice, there is no cursor point).
 - **Counters.** The vertex and triangle counters are always visible.
 
-### Phase 2: comfort (APP-11)
+### Phase 2: comfort (APP-11, done)
+
+Done in `claude/app11-mesh-comfort`. The keys are in the manual `editor-mesh` and in [`progress/tools.md`](../progress/tools.md).
 
 - **Box select.** You drag a rectangle and select all points inside it.
 - **Hide and isolate.** Hide the selection, or hide everything else, to reach the part you edit.
 - **Proportional (soft) move.** A move that also pulls the nearby points, less and less with the distance. It gives smooth shapes.
 - **Numeric entry.** You type the exact value of a move, rotation or scale.
 - **Reference images.** A front picture and a side picture from `/pics` stand behind the model.
-- **More undo steps.** Today there are 30.
+- **More undo steps.** Up to 100, within 4 MB of snapshots.
 
 ### Phase 3: finish (APP-12)
 
@@ -109,7 +111,6 @@ What is missing, in plain words. These are not hidden; each has a roadmap item. 
 
 - APP-15 (done): key `j` in the rig page of bm Animator moves one head alone. The test makes a shoulder and a hip with it: no stub bone.
 - APP-16 (done): with the live mirror on, Shift+A adds the part and its mirror image and the loop cut cuts both rings. The sphere and cylinder primitives have mirror-symmetric triangles, so Subdivide leaves no vertex of the head without a twin across x = 0; the humanoid test checks the whole body. The knife stays unmirrored.
-- APP-11 (already planned): numeric entry and box select. Without them a size is a series of scale steps and a vertex is reached with `n` and `b` presses.
 
 ## Not verified on hardware
 
