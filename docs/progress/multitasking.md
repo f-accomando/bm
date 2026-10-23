@@ -65,6 +65,7 @@ Measurement build (1), hash steps (2), SD writer lock (3), keep-alive (4) and Ra
 ## Considerations
 - Triage of the failing tests (cause, evidence, owner) and the roadmap cleanup list for open PRs 80-100: [`docs/design/triage-and-roadmap-cleanup.md`](../design/triage-and-roadmap-cleanup.md).
 - Best approach per workload (SD writes, downloads, covers, game freezes, app load and close), ranked, with what to measure first and what only multicore can do (ROADMAP SYS-10): [`docs/design/multitasking-report.md`](../design/multitasking-report.md).
+- SD stall plan for covers, background downloads and app open/close on one core (layers A bound, B park, C gate; stages S0-S5): [`docs/design/sd-stall-plan.md`](../design/sd-stall-plan.md).
 - Alternatives to R49 for every Open item, ranked, with a staged plan and Pi numbers to collect: [`docs/design/multitasking-alternatives.md`](../design/multitasking-alternatives.md).
 - Quotas matter little on a 14-game card: the value is the measurement and removing the long stalls
   (FAT, handshake, SD timeout), not the share table. With real multicore the idle-slice model gives
