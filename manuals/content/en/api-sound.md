@@ -385,6 +385,7 @@ A WAV file goes into a bank from the JSON, and a sound plays it by name:
 
 - A sound pack in `/bm/sounds` (a `.bm` with only AUDIO) can still be read; bm Sound saves new ones as `.bms` files in `/bm/lib`.
 - bm Sound's **Import from...** copies the sample of a SAMPLE sound with the sound and renumbers the sound's `MOD1`. A sample with the same bytes is not copied twice. The kit's drums need no copy. A bank holds at most 64 samples.
+- bm Sound's **Import WAV or MIDI...** (Ctrl+W) reads `.wav` and `.mid` files from `/docs` on the SD card with `doc_list` and `doc_read`: the tool needs no permission. A WAV becomes a bank sample (8 to 32-bit integers and 32 or 64-bit floats, mono or stereo, up to 4 MiB, over 48000 Hz brought down to 48000 Hz, the root note and loop of a `smpl` chunk kept). A MIDI file becomes a song of 64-step patterns, with the drum channel on the kit's drums.
 
 # riff: music as patterns
 

@@ -202,6 +202,7 @@ Il pad e la tastiera fanno le stesse cose. La riga in basso dello schermo mostra
 | Annullare | - | Ctrl+Z |
 | Copiare / incollare l'elemento | - | Ctrl+C / Ctrl+V |
 | Esportare in un gioco | - | Ctrl+E |
+| Importare un file WAV o MIDI | - | Ctrl+W |
 | Provarlo nel gioco | - | F5 o Ctrl+R |
 | Assistente | - | F6 |
 | Riff | - | F7 |
@@ -228,6 +229,7 @@ Un breve tocco su SELECT apre il menu. Se premi SELECT con sinistra/destra o su/
 | Export to a game... | scrive questo banco in un gioco |
 | Instrument... | solo pagina SOUNDS: un suono già pronto |
 | Samples... | un campione nel suono |
+| Import WAV or MIDI... | un file WAV come campione, un file MIDI come canzone, da `/docs` (Ctrl+W) |
 | Compose with the assistant... | apre l'assistente (F6) |
 | Riff... | apre Riff (F7) |
 | Try it in the game | con un gioco aperto: lo salva e lo avvia |
@@ -303,6 +305,29 @@ Puoi prendere un suono, un effetto, un pattern o una canzone da un altro gioco o
 *everything* sostituisce l'intero banco su cui stai lavorando, dopo una domanda. Se non c'è uno slot libero, l'importazione si ferma con un messaggio come `no free sound slots`. Dopo un'importazione la cronologia dell'annulla viene cancellata.
 :::
 
+## Importare un file WAV o MIDI
+
+Puoi portare nel banco una registrazione o un brano dalla scheda SD. Metti il file nella cartella `/docs` della scheda, con un nome di tipo 8.3 (`kick.wav`, `tune.mid`).
+
+1. Apri il menu Esc e scegli **Import WAV or MIDI...** (oppure premi Ctrl+W).
+2. Nell'elenco scegli il file. L'elenco mostra i file `.wav` e `.mid` di `/docs` con la loro dimensione.
+3. Per un file WAV scegli come tenerlo: *as it is*, *mono*, *mono, 22050 Hz* o *mono, 11025 Hz*. Le ultime rendono il campione più piccolo. Un messaggio dice il risultato, per esempio `sample 2 TONE: 22050 Hz mono, 0.5 s, in sound 00`.
+4. Il campione va in fondo ai campioni del banco, e il suono su cui sei lo suona (l'onda diventa SAMPLE). La nota base e il loop del file vengono mantenuti, se il file li ha. Un campione con gli stessi byte non viene aggiunto due volte.
+5. Per un file MIDI compare una nuova canzone con il nome del file. I suoi pattern hanno 64 passi (oppure battute intere dell'indicazione di tempo del file), e la canzone ha il tempo del file. Un messaggio dice che cosa è stato fatto, per esempio `song 3: 1 patterns, 120 BPM, 4 new sounds`.
+6. Premi Ctrl+S per salvare.
+
+Che cosa legge l'importazione WAV: interi a 8, 16, 24 e 32 bit e numeri in virgola mobile a 32 e 64 bit, mono o stereo, fino a 4 MiB. Una frequenza sopra 48000 Hz viene portata a 48000 Hz.
+
+Che cosa fa l'importazione MIDI:
+- Un passo è una semicroma. Le note vanno sul passo più vicino.
+- Ogni canale MIDI ottiene un suono. La sua onda segue il programma General MIDI (un basso è un SAW, un pianoforte un PLUCK). Il canale delle percussioni (10) suona il kit di batteria della console: `bd`, `sd`, `hh`, `oh`, `cp`, `rim`, `tom`, `cb`.
+- Un pattern ha 8 tracce, una nota alla volta su una traccia. Gli accordi vanno su più tracce. Una nota che finisce prima della successiva riceve un passo OFF.
+- Si usano solo il primo tempo e la prima indicazione di tempo.
+
+::: warn
+Una nota MIDI oltre le 8 tracce viene scartata, e il messaggio dice quante. Se il banco ha meno slot di pattern liberi di quelli che servono alla canzone, la canzone viene tagliata agli slot che ci sono. Un pattern che una canzone del banco già suona non viene preso. La cronologia dell'annulla viene cancellata. Un campione oltre il limite di 64 campioni o oltre la memoria del banco viene rifiutato. Un file con campioni a 12 bit, più di 2 canali o una frequenza sotto 1000 Hz viene rifiutato con un messaggio. Non verificato sul Pi e sull'RGB30.
+:::
+
 ## Suonarlo nel tuo gioco
 
 1. In bm Sound, con il tuo progetto aperto (vedi "Aprire bm Sound"), premi Ctrl+S. I suoni vengono scritti nel progetto.
@@ -363,6 +388,5 @@ Export sostituisce i suoni del gioco che scegli. La domanda nomina il file: legg
 - Copia un pattern o un suono con Ctrl+C e incollalo con Ctrl+V per fare una variazione senza perdere l'originale.
 - Le note delle file del pianoforte suonano sul suono della pagina; cambia l'ottava con `,` e `.`.
 - Ctrl+Z annulla l'ultima modifica, anche un incolla, una cancellazione o un pezzo dell'assistente.
+- Se **Import WAV or MIDI...** dice `no .WAV or .MID file in /docs on the SD card`, i file non sono nella cartella `/docs`, oppure i loro nomi sono più lunghi del tipo 8.3.
 - Quando scegli un file in **Import from...**, una riga può dire `a sound bank this version cannot read`: quel file non si può importare.
-
-[DA COMPLETARE: come portare un file WAV nel banco sulla console]

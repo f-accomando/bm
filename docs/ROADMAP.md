@@ -33,7 +33,7 @@ The development plan for **bm** (BareMetal), a bare metal *fantasy console* for 
 
 - API-4 - P2 - to do - Video recording (VID-REC) next slices: run the Video bench on the Pi for the RLE565 numbers (bytes and ms a frame), real 8-bit palette, audio. [video](progress/video.md)
 - M46 - P2 - in progress - Audio 2: 24-bit stereo synthesizer, PCM/WAV samples, wizard, `riff`. Done when bm Sound games and tracks run at 24 bit on Pi and RGB30 with samples and patterns. [audio](progress/audio.md), [audio-samples](progress/audio-samples.md)
-- R9, R17, R21, R25, R32-R35 - P3 - idea - WAV from SD, MIDI import, GPIO audio, PC audio, samples and riff. After M46. [audio-samples](progress/audio-samples.md), [audio-output](progress/audio-output.md)
+- R21, R25, R32-R35 - P3 - idea - GPIO audio, MIDI export, PC audio, sample editor, sample packs, samples and riff. After M46. [audio-samples](progress/audio-samples.md), [audio-output](progress/audio-output.md)
 
 ## Network and web
 

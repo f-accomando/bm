@@ -100,3 +100,41 @@ The player and the 48-byte sound needed nothing new: the sound's tone is registe
   sound effect brings the samples of all its sounds. The kit's drums (128 and up) need no
   copy. Refused when the bank would pass 64 samples or `AU_PCM_MAX`. The parser keeps each
   sample's offset and size in `sraw` (`o`, `n`). `tests/sound/sim.lua` 9d.
+- **WAV and MIDI import from the SD card (R9, R17)**: bm Sound's *Import WAV or MIDI...*
+  (menu, Ctrl+W) lists the `.wav` and `.mid` files of `/docs` (`doc_list`, `doc_read`, at most
+  4 MiB; a tool needs no permission for the documents) and imports one. The code is pure Lua
+  in `carts/sound/main.lua` (`B.wav_parse`, `B.wav_sample`, `B.add_sample`, `B.mid_parse`,
+  `B.mid_plan`, `B.mid_import`); no new C API.
+  * **WAV**: RIFF chunks in any order, `WAVE_FORMAT_EXTENSIBLE`, a data chunk longer than the
+    file read up to the end. 8 and 16-bit PCM, 24 and 32-bit PCM, 32 and 64-bit float; mono or
+    stereo; a rate of 1000 Hz or more (lower: refused). The `smpl` chunk gives the root note,
+    the fine tune (the pitch fraction in cents) and the first loop (forward or ping-pong). A
+    file of 8 or 16 bits that needs no change is copied as it is (8-bit stays 8-bit); the rest
+    becomes 16-bit. A rate above 48000 Hz is brought to 48000 Hz; the menu also offers mono,
+    mono at 22050 Hz and mono at 11025 Hz. A lower rate is the mean of the input frames that
+    the output frame covers (a steady value stays steady; the rate never goes up). The loop
+    points scale with the frames. Floats clip at full scale, NaN is silence. The sample goes to
+    the end of the bank (the same bytes are reused); it is refused past 64 samples or
+    `AU_PCM_MAX`, and the bank stays as it was. The current sound becomes SAMPLE with that
+    sample (`MOD1`, start 0).
+  * **MIDI**: standard files (format 0 or 1, ticks per quarter note; the time code division
+    is refused). Running status, note-on with velocity 0, meta events and system exclusive
+    are handled; a file cut short keeps its notes (the message says so). One step is a 16th
+    note; a note goes to the nearest step. The first tempo (held between 40 and 255 BPM) and
+    the first time signature (the pattern is whole bars, up to 64 steps) are used. A pattern
+    has 8 tracks and one note a step on a track: a channel keeps its track when it is free,
+    chords go to more tracks, a note over the 8 tracks is dropped (and counted). A note that
+    ends before the next one on its track gets an OFF step. Channel 10 plays the kit
+    (`B.GM_DRUM`: bd, sd, hh, oh, cp, rim, tom, cb) with one-shots on note 60; the other
+    channels get a sound with a wave chosen from the General MIDI program family
+    (`B.GM_WAVE`). The velocity becomes the step volume. The song takes the file's name; the
+    patterns go to free slots that no song plays (the song is cut to the free slots, and the
+    message says so); the sounds are reused when the same ones are in the bank; the current
+    sound stands in when no sound slot is free.
+  * **Tests**: `make test-sound` (`tests/sound/sim.lua`, 9e and 9f: formats, the sampler chunk,
+    rates, mono, limits, the tracks, the tempo, bars, refusals, then the keys Ctrl+W);
+    `tests/qemu_test.py -k sound_import` (an SD card with `/docs`, both imports, the bank saved
+    as a pack and read with `scripts/bmaudio.py`).
+  * **Not done**: MIDI export, tempo changes inside the song, control changes and pitch bend,
+    a sample editor (trim, normalise, loop points). Not verified by ear, on the Pi or on the
+    RGB30.

@@ -385,6 +385,7 @@ Un file WAV entra in un banco dal JSON, e un suono lo suona per nome:
 
 - Un pacchetto di suoni in `/bm/sounds` (un `.bm` con la sola sezione AUDIO) si può ancora leggere; bm Sound salva i nuovi come file `.bms` in `/bm/lib`.
 - **Importa da...** di bm Sound copia insieme al suono il campione di un suono SAMPLE e rinumera il `MOD1` del suono. Un campione con gli stessi byte non viene copiato due volte. I tamburi del kit non hanno bisogno di copia. Un banco contiene al massimo 64 campioni.
+- **Import WAV or MIDI...** di bm Sound (Ctrl+W) legge i file `.wav` e `.mid` da `/docs` sulla scheda SD con `doc_list` e `doc_read`: lo strumento non ha bisogno di permesso. Un WAV diventa un campione del banco (interi da 8 a 32 bit e numeri in virgola mobile a 32 o 64 bit, mono o stereo, fino a 4 MiB, sopra 48000 Hz portato a 48000 Hz, nota base e loop di un chunk `smpl` mantenuti). Un file MIDI diventa una canzone di pattern da 64 passi, con il canale delle percussioni sui tamburi del kit.
 
 # riff: musica a pattern
 

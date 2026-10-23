@@ -270,8 +270,8 @@
     "title": "Instruments, tone, room"
    },
    "6": {
-    "en": "fb44229b04d9",
-    "it": "b4f94dbe7703",
+    "en": "1d7f34f8f9f3",
+    "it": "6443c9556327",
     "title": "The bank: format and tools"
    },
    "7": {
@@ -807,13 +807,13 @@
     "title": "The pages"
    },
    "4": {
-    "en": "d65745ea3870",
-    "it": "efd9a2a75221",
+    "en": "4a489f110ad8",
+    "it": "a51e3a6f5166",
     "title": "Controls"
    },
    "5": {
-    "en": "100bdbd796bb",
-    "it": "ca93c5a79ec9",
+    "en": "2db843d42948",
+    "it": "84a6f7eae2db",
     "title": "Tutorials"
    },
    "6": {
@@ -822,16 +822,16 @@
     "title": "Saving and exporting"
    },
    "7": {
-    "en": "a337495a586e",
-    "it": "98a878d8b768",
+    "en": "f9133a0dbbc3",
+    "it": "df363c8ad118",
     "title": "Tips and limits"
    }
   },
   "sources": {
-   "carts/sound/main.lua": "c3dca68055e4",
+   "carts/sound/main.lua": "553281cbc787",
    "docs/RISORSE.md": "4b94efc50686",
-   "docs/design/suite-sound.md": "a112c9f9705e",
-   "docs/progress/tools.md": "b6f6f3e87bee",
+   "docs/design/suite-sound.md": "c2059f0520b0",
+   "docs/progress/tools.md": "1bd38b894068",
    "sdk/README.md": "f82ca797337d"
   }
  },
