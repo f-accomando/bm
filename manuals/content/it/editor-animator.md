@@ -60,7 +60,7 @@ Se l'elenco dei file è vuoto, lo schermo dice `no .bm files: make models in bm 
 | `.bme` | un progetto | lo apre, lo modifica, lo salva al suo posto |
 | `.bm`, `.b16` | un gioco | lo legge soltanto |
 
-Con un gioco aperto, il primo salvataggio chiede `Save an editable copy: NAME.BME?`. Rispondi sì: da lì lavori sulla copia, in `/bme`. Il gioco non viene mai modificato.
+Con un gioco aperto, il primo salvataggio chiede `Save an editable copy: name.bme?`. Rispondi sì: da lì lavori sulla copia, in `/bme`. Il gioco non viene mai modificato.
 
 ## Da sapere
 

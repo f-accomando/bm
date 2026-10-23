@@ -19,7 +19,7 @@ Standard library only (Linux / macOS / WSL).
   bm_net.py IP --config                 the console's bm/config.txt (secrets hidden)
   bm_net.py IP --config report_upload=0 game_intro=   a key set, one removed
   bm_net.py IP --shot shot.png          a screenshot of the running game, saved as shot.png
-  bm_net.py IP --get bm/shots/PONG0007.PNG out.png   a file of bm/shots on the console
+  bm_net.py IP --get bm/shots/pong0007.png out.png   a file of bm/shots on the console
   bm_net.py IP --keys Xa                the keys X then a pressed one by one (0.2 s apart), the
                                         console's answer shown for 3 s (what the bridge's `keys NAME` sends)
   bm_net.py IP --line "gpu; b3d; send"  a monitor line run (from the menu or the
@@ -31,7 +31,7 @@ keyboard, to what has them (the console says which: the menu takes them
 without echo, the monitor echoes; in the menu a line typed after ':' goes to
 the monitor); Ctrl-Q (or Ctrl-], or Enter ~ . as in ssh) quits. Plain text:
 use it on the home network only.
-Files on the SD card need 8.3 names (PONG.BM, not chaos_kitchen.bm):
+Files on the SD card need 8.3 names (pong.bm, not chaos_kitchen.bm):
 --name sets another one.
 """
 import argparse
@@ -213,7 +213,7 @@ def save(out, data):
 
 
 def get_file(args, path, out, password):
-    """--get: a file of bm/shots (or bm/BOOTPREV.TXT, BOOTLOG.TXT, LASTRUN.TXT) on the console, written to out"""
+    """--get: a file of bm/shots (or bm/bootprev.txt, bootlog.txt, lastrun.txt) on the console, written to out"""
     rc, data = fetch(args, path, password)
     return rc if data is None else save(out, data)
 
@@ -449,7 +449,7 @@ def main():
     ap.add_argument("--shot", metavar="OUT",
                     help="screenshot of the running game, written to OUT (a PNG)")
     ap.add_argument("--get", nargs=2, metavar=("PATH", "OUT"),
-                    help="a file of bm/shots on the console (PATH, e.g. bm/shots/PONG0007.PNG) written to OUT")
+                    help="a file of bm/shots on the console (PATH, e.g. bm/shots/pong0007.png) written to OUT")
     args = ap.parse_args()
 
     if args.shot is not None:

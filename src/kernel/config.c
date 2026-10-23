@@ -13,7 +13,7 @@
 #define DIR   "/bm"
 /* the folder's name before the project was renamed bm: still read */
 #define OLD_DIR "/bm33"
-#define FILE_ "CONFIG.TXT"
+#define FILE_ "config.txt"
 #define MAX_KEYS 64
 #define LINE (int)(sizeof kv[0].key + sizeof kv[0].value + 2)     /* "key=value\n" */
 

@@ -48,6 +48,13 @@ groups a cartridge without reading its INFO. On the SD, `.bm` and `.b16` games l
 - The Pi menu scans `/`, `/carts` and `/bme`. The RGB30 menu scans `/bm` and `/carts`: it does not list projects, the
   SDK opens them. `/carts` stays as it is.
 
+## File names the system writes
+
+- The system writes names and extensions in lowercase: `/bme/name.bme`, `/carts/name.bm`, `name.b16`, `bm/config.txt`, `bm/reports/rptNNNNN.txt`, `bm/bench/3dNNNN.txt`, `bm/shots/pongNNNN.png`, `bm/rec/rNNNNNNN.bmv`, `bm/save/xxxxxxxx.sav`, `bm/web/name.prt`.
+- The FAT driver writes an 8.3 entry in capitals with the NT lowercase flags (`fat.c`, `to_83()`). Windows, Linux and the console show the name in lowercase.
+- A name typed by the user is lowercased too. A project name is the lowercase of what the user typed (up to 8 characters).
+- Every lookup ignores case. A file of an old card, in capitals, is still read and replaced in place. The system never renames or deletes it.
+
 ## Credits: reusing other people's assets
 
 Sharing among developers is free: nothing refuses a resource because of its licence. To keep the credit, list what you

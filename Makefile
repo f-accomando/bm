@@ -904,7 +904,7 @@ release: $(BUILD)/kernel.img $(K7)
 
 # Copies what make sdcard prepared onto a mounted SD card (SD=/mnt/d by
 # default): the kernels, boot files, config.txt, cartridges and the chip
-# firmware in bm/. Settings and saves (bm/CONFIG.TXT, bm/SAVE) are
+# firmware in bm/. Settings and saves (bm/config.txt, bm/save) are
 # never touched. Uses sudo when the card is not writable (WSL).
 SD ?= /mnt/d
 # the console's folder before the project was renamed bm: moved to bm/

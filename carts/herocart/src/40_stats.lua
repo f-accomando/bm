@@ -108,14 +108,14 @@ do
     end
   end
 
-  -- Start saves the last 120 lines in /docs (the player copies HEROCART.TXT) and as a report
+  -- Start saves the last 120 lines in /docs (the player copies herocart.txt) and as a report
   function H.save()
     local head = string.format("herocart 1 saved t=%d n=%d lod=%s res=%dx%d map=%s\n", math.floor(time()), H.n,
       H.lod_name(), SCREEN_W, SCREEN_H, H.map_tris and tostring(math.floor(H.map_tris)) or "-")
     local text = head .. table.concat(H.lines, "\n") .. "\n"
-    local ok = doc_write("HEROCART.TXT", text)
+    local ok = doc_write("herocart.txt", text)
     report("herocart", text)
-    H.save_note = ok and "saved HEROCART.TXT" or "doc_write failed"
+    H.save_note = ok and "saved herocart.txt" or "doc_write failed"
     H.save_t = time()
   end
 end

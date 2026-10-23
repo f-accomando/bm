@@ -63,7 +63,7 @@ drawing while the page arrives. The kernel enforces the rules below. A cartridge
 - **One connection is kept.** After a complete answer the kernel keeps the connection and uses it for the next request to the same host
   (keep-alive): no new TLS handshake for a page and its pictures. The pause per host still applies. A server that closes the connection, or a request to
   another host, costs one new connection. Nothing changes in the calls.
-- **Resume.** `web_get` with `resume = "NAME.EXT"` keeps what came in `bm/web/NAME.PRT` when the request fails (a lost connection, a timeout) or is cancelled, and about
+- **Resume.** `web_get` with `resume = "NAME.EXT"` keeps what came in `bm/web/name.prt` when the request fails (a lost connection, a timeout) or is cancelled, and about
   every 1 MiB. The next `web_get` for the same address with the same `resume` name asks the server for the rest (`Range`). If the server sends the whole file
   (it changed, or it ignores `Range`), the saved start is dropped. The body is always the whole file. The part file is deleted when the request is done. It needs a server
   that sends `Accept-Ranges` and a size; else nothing is kept. The cap and the 128 files count it. Check the whole file (its size, a hash) before you use it.
@@ -118,8 +118,8 @@ end
 | `delsave([slot])` | empties the slot (default 1); `true`, or `false` and the reason (`"nothing saved in slot 3"`) |
 
 Each cartridge has **8 save slots**, each a table of up to 32 KiB, in `/bm/save/` on the SD
-card: slot 1 is `XXXXXXXX.SAV` (the one of always: `save(t)` and `saved()` without a slot),
-the others `XXXXXXXX.S02` ... `.S08`. The name depends on title and author: changing them
+card: slot 1 is `xxxxxxxx.sav` (the one of always: `save(t)` and `saved()` without a slot),
+the others `xxxxxxxx.s02` ... `.S08`. The name depends on title and author: changing them
 starts again from zero. A common use: slot 1 for settings and records (`lib.store` uses it
 too), the others for the games in progress. A table can hold numbers, strings, booleans and
 other tables (no functions). The game's options in the menu (X on the cover) show the bytes
@@ -156,20 +156,20 @@ function load_game(i) local p = saved(i + 1) if p then level, hp = p.level, p.hp
 
 The player's files, shared by the apps: `/docs` on the SD card (bm Write keeps its `.BMD`
 there, with the exports `.TXT`, `.MD`, `.HTM` and `.PDF`). Names are 8.3 without folders
-(`"LETTER.BMD"`; lower case is fine, the file is written in upper case); the folder is made
+(`"letter.bmd"`; the file is always written in lower case, and a read finds it in any case); the folder is made
 by the first write. The first time an app uses them the console asks the player, as for the
 network; the answer stays in `bm/config.txt` (`allow_...=docs=yes`), and after a no every
 call returns `nil` and the reason.
 
 | Function | Description |
 |---|---|
-| `doc_list()` | the files in `/docs`: `{ {name = "LETTER.BMD", size = 1234}, ... }` (empty if there are none); `nil` and the reason if the player did not allow it |
+| `doc_list()` | the files in `/docs`: `{ {name = "letter.bmd", size = 1234}, ... }` (empty if there are none); `nil` and the reason if the player did not allow it |
 | `doc_read(name)` | the bytes of a document (a string), or `nil` and the reason |
 | `doc_write(name, bytes)` | writes a document, new or replaced (at most 4 MiB); `true`, or `nil` and the reason |
 | `doc_delete(name)` | deletes a document; `true`, or `nil` and the reason |
 
 ```lua
-local ok, why = doc_write("NOTES.TXT", "shopping:\nbread\nmilk\n")
+local ok, why = doc_write("notes.txt", "shopping:\nbread\nmilk\n")
 if not ok then msg = why end
 for _, d in ipairs(doc_list() or {}) do print(d.name .. " " .. d.size) end
 ```

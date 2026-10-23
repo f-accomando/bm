@@ -912,7 +912,7 @@ local function is_project(path) return path and path:lower():match("%.bme$") ~= 
 local function is_game(path) return path and (path:lower():match("%.bm$") or path:lower():match("%.b16$")) ~= nil end
 local function base_name(path) return (path or ""):match("([^/]+)$") or "" end
 
--- "/bme/pong.bme" -> "/bme/PONG.BME"; longer names are cut to 8
+-- "/bme/pong.bme" -> "/bme/pong.bme"; longer names are cut to 8
 -- characters (no folder: /bme; an old project keeps its folder). A game keeps its path: saving it, the console asks and makes
 -- its editable copy in /bme (write_target), as with the Pi's SDK.
 local function short_path(path)
@@ -920,9 +920,9 @@ local function short_path(path)
   local dir, base = path:match("^(.*)/([^/]+)$")
   dir = dir or U.PROJECTS
   if dir == "" then dir = "/" end
-  local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
-  if stem == "" then stem = "GAME" end
-  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BME"
+  local stem = (base or path):gsub("%.[^.]*$", ""):lower():gsub("[^%w_]", "")
+  if stem == "" then stem = "game" end
+  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".bme"
 end
 
 -- the cartridges and projects on the card: the projects in /bme first, then the Pi's
@@ -1178,10 +1178,10 @@ function store_target()
 end
 
 function save_as(after, def)
-  def = def and base_name(def) or S.proj.save and base_name(S.proj.save) or "MYGAME.BME"
+  def = def and base_name(def) or S.proj.save and base_name(S.proj.save) or "mygame.bme"
   D.ask("file name (8.3, in /bme)", def, function(t)
     if t == "" then return end
-    t = t:upper():gsub("%.[^.]*$", "") .. ".BME"
+    t = t:lower():gsub("%.[^.]*$", "") .. ".bme"
     S.proj.save = U.project_path(t)
     save_project(after)
   end)

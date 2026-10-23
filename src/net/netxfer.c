@@ -176,7 +176,7 @@ static int parse_header(void)
  * when it reads a log (reports_mask_secrets): a log written by an older kernel has the password in clear. */
 static int get_allowed(const char *p)
 {
-    static const char *const logs[] = { "bm/BOOTPREV.TXT", "bm/BOOTLOG.TXT", "bm/LASTRUN.TXT" };
+    static const char *const logs[] = { "bm/bootprev.txt", "bm/bootlog.txt", "bm/lastrun.txt" };
     for (unsigned i = 0; i < sizeof logs / sizeof logs[0]; i++)
         if (strcasecmp(p, logs[i]) == 0)
             return 1;

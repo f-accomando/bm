@@ -991,14 +991,14 @@ function T.is_game(path)
   return p:match("%.bm$") ~= nil or p:match("%.b16$") ~= nil
 end
 
--- "/bme/my 3d.bme" -> "/bme/MY3D.BME" (8.3); no folder: /bme; an old project keeps its folder
+-- "/bme/my 3d.bme" -> "/bme/my3d.bme" (8.3); no folder: /bme; an old project keeps its folder
 function T.short_path(path)
   local dir, base = path:match("^(.*)/([^/]+)$")
   dir = dir or U.PROJECTS
   if dir == "" then dir = "/" end
-  local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
-  if stem == "" then stem = "GAME" end
-  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BME"
+  local stem = (base or path):gsub("%.[^.]*$", ""):lower():gsub("[^%w_]", "")
+  if stem == "" then stem = "game" end
+  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".bme"
 end
 
 function T.list_files()
@@ -1080,7 +1080,7 @@ local ask
 
 function T.save_as(after)
   local p = S.proj.path
-  ask("file name (8.3, in /bme)", p and T.short_path(p):match("([^/]+)$") or "MY3D.BME", function(t)
+  ask("file name (8.3, in /bme)", p and T.short_path(p):match("([^/]+)$") or "my3d.bme", function(t)
     if t == "" then return end
     if T.save_to(U.project_path(t), p) and after then after() end
   end)

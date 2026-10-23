@@ -41,7 +41,7 @@ The PDF is made by the console itself. It has the same lines on the same pages a
 ## Good to know
 
 - Your documents live in the folder `/docs` on the SD card. They are shared by the apps that you allow to use them.
-- The names are in the 8.3 form, without folders: up to 8 letters or digits, like `LETTER.BMD`.
+- The names are in the 8.3 form, without folders: up to 8 letters or digits, like `letter.bmd`.
 - bm Write is a Market app: it is not part of the kernel.
 
 # First start
@@ -77,7 +77,7 @@ Press **F1** at any time to see the keys on the screen. Any key closes the list.
 | Pages | the middle | the document on A4 pages, the cursor, the selection and the grey-blue word that Tab would write |
 | Status line | bottom line | `Page N of M`, the number of words, `PAD` and the pad mode when pad typing is on, the language |
 
-On the toolbar, the letters that are lit show the state at the cursor: bold, italic, underline, and the alignment of the paragraph. Messages such as `saved /docs/LETTER.BMD` take the place of the status line for a few seconds.
+On the toolbar, the letters that are lit show the state at the cursor: bold, italic, underline, and the alignment of the paragraph. Messages such as `saved /docs/letter.bmd` take the place of the status line for a few seconds.
 
 ## Writing and moving
 
@@ -177,8 +177,8 @@ Everything goes in the folder `/docs` on the SD card. The folder is made by the 
 ## Saving
 
 1. Press **Ctrl+S**.
-2. The first time, a line asks `Name of the document (8 letters, in /docs):`. Type up to 8 letters or digits (`-` and `_` are fine), for example `LETTER`. The name is written in capitals and `.BMD` is added.
-3. Press **Enter**. The status line says `saved /docs/LETTER.BMD`, and the `*` next to the name goes away.
+2. The first time, a line asks `Name of the document (8 letters, in /docs):`. Type up to 8 letters or digits (`-` and `_` are fine), for example `letter`. The name is written in lower case and `.bmd` is added.
+3. Press **Enter**. The status line says `saved /docs/letter.bmd`, and the `*` next to the name goes away.
 
 The next **Ctrl+S** saves with the same name. **Ctrl+Shift+S** asks for a new name.
 
@@ -194,14 +194,14 @@ A `.MD` or `.TXT` file opens as a new document with no name: **Ctrl+S** asks for
 
 1. Press **Esc**, go down to `Export...` and press **Enter**.
 2. In the box `Export to /docs as`, pick `PDF`, `HTML`, `Markdown` or `Text`, and press **Enter**.
-3. If the document has no name yet, bm Write asks for one. The status line says `exported /docs/LETTER.PDF` with the size in bytes.
+3. If the document has no name yet, bm Write asks for one. The status line says `exported /docs/letter.pdf` with the size in bytes.
 
 | Format | File |
 |---|---|
-| PDF | `LETTER.PDF` |
-| HTML | `LETTER.HTM` |
-| Markdown | `LETTER.MD` |
-| Text | `LETTER.TXT` |
+| PDF | `letter.pdf` |
+| HTML | `letter.htm` |
+| Markdown | `letter.md` |
+| Text | `letter.txt` |
 
 An export is a copy to read or share. Save the `.BMD` too: it is the one you can edit with all the styles.
 
@@ -226,24 +226,24 @@ Start at the console's menu, with the SD card in.
 3. The new paragraph is Body. Type `This text has a ` then press **Ctrl+B**, type `bold`, press **Ctrl+B** again, and type ` word.` The word `bold` is thicker.
 4. Press **Enter**. Press **F2** five times to reach `Bullet list`. Type `one`, **Enter**, `two`, **Enter**, `three`. The three lines have bullets.
 5. Press **Ctrl+S**. Type `LETTER` and press **Enter**.
-6. Look at the status line: it says `saved /docs/LETTER.BMD`, and the toolbar shows `LETTER.BMD` with no `*`.
+6. Look at the status line: it says `saved /docs/letter.bmd`, and the toolbar shows `letter.bmd` with no `*`.
 
-If the console cannot write, the status line is red and says `cannot save LETTER.BMD:` with the reason. See the last chapter.
+If the console cannot write, the status line is red and says `cannot save letter.bmd:` with the reason. See the last chapter.
 
 ![A first document just typed](shots/editor-write-pages.png)
 
 ## Export it as PDF and read it on your computer
 
 ::: try
-Start with `LETTER.BMD` open and saved, as in the tutorial above.
+Start with `letter.bmd` open and saved, as in the tutorial above.
 :::
 
 1. Press **Esc**. The menu opens.
 2. Go down to `Export...` and press **Enter**.
 3. With `PDF` selected, press **Enter**.
-4. Wait for `exported /docs/LETTER.PDF` on the status line.
+4. Wait for `exported /docs/letter.pdf` on the status line.
 5. Switch the console off and put the SD card in your computer.
-6. Open the folder `docs`: `LETTER.PDF` is there. Open it with any PDF reader. The pages have the same lines as the screen, in Courier.
+6. Open the folder `docs`: `letter.pdf` is there. Open it with any PDF reader. The pages have the same lines as the screen, in Courier.
 
 ## Open it again
 
@@ -252,11 +252,11 @@ Start with the document closed, or after starting bm Write again.
 :::
 
 1. Press **Ctrl+O**. If bm Write asks to save changes, choose one.
-2. The list `Open a document (/docs)` shows `LETTER.BMD` with its size, and the `.PDF` is not in the list.
-3. Select `LETTER.BMD` with the arrows and press **Enter**.
-4. The status line says `opened /docs/LETTER.BMD`. The text is as you left it.
+2. The list `Open a document (/docs)` shows `letter.bmd` with its size, and the `.PDF` is not in the list.
+3. Select `letter.bmd` with the arrows and press **Enter**.
+4. The status line says `opened /docs/letter.bmd`. The text is as you left it.
 
-You can also open `LETTER.MD`, if you exported it: it comes back with the same paragraphs.
+You can also open `letter.md`, if you exported it: it comes back with the same paragraphs.
 
 # Tips, limits and troubleshooting
 
@@ -283,7 +283,7 @@ You can also open `LETTER.MD`, if you exported it: it comes back with the same p
 |---|---|
 | Saving, opening or exporting fails and the status line is red | Read the reason. If you said no to the question on documents, the calls fail: [TO FILL: how to change the answer; the answer is kept in `bm/config.txt`] |
 | `no documents in /docs yet: Ctrl+S saves this one` | The folder is empty. Save a document first |
-| `8 letters or digits, like LETTER` | The name has a space, or more than 8 letters (a final `.ext` is dropped: `LETTER.TXT` is taken as `LETTER`). Type a shorter one |
+| `8 letters or digits, like LETTER` | The name has a space, or more than 8 letters (a final `.ext` is dropped: `letter.txt` is taken as `LETTER`). Type a shorter one |
 | `not a bm Write document` | The `.BMD` file is not in the bm Write format |
 | The file you saved is not in the open list | Only `.BMD`, `.MD` and `.TXT` are listed. A PDF or an HTML cannot be opened |
 | You closed the app without saving | Start bm Write again: if the changes were kept you see `the document with its changes is back (Ctrl+S saves it)` |

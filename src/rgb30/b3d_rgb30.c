@@ -111,7 +111,7 @@ static int save(const char *text, size_t len, char *name, size_t n)
     if (fat_mkdirs(DIR) != 0)
         return -1;
     char file[16];
-    ksnprintf(file, sizeof file, "3D%04d.TXT", last_report() + 1);
+    ksnprintf(file, sizeof file, "3d%04d.txt", last_report() + 1);
     if (fat_write_file(DIR, file, text, len) != 0)
         return -1;
     ksnprintf(name, n, "bm/bench/%s", file);
@@ -129,7 +129,7 @@ static int load_last(char **text, char *name, size_t n)
     if (!k)
         return -1;
     char path[32];
-    ksnprintf(path, sizeof path, DIR "/3D%04d.TXT", k);
+    ksnprintf(path, sizeof path, DIR "/3d%04d.txt", k);
     fat_entry_t e;
     uint8_t *data;
     size_t len;
@@ -144,7 +144,7 @@ static int load_last(char **text, char *name, size_t n)
     t[len] = 0;
     free(data);
     *text = t;
-    ksnprintf(name, n, "bm/bench/3D%04d.TXT", k);
+    ksnprintf(name, n, "bm/bench/3d%04d.txt", k);
     return 0;
 }
 

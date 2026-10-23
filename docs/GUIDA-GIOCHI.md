@@ -38,10 +38,10 @@ Se il gioco si ferma con un errore, l'SDK torna sulla riga in rosso (Ctrl+G la
 ritrova). Tutto il resto di questa guida vale anche per l'SDK.
 
 **Progetti e giochi**: quello che gli strumenti cambiano è un **progetto**, un `.bme` in
-`/carts` con un nome 8.3 (es. `MIOGIOCO.BME`). Non è nelle schede del menu: lo aprono gli editor
+`/carts` con un nome 8.3 (es. `miogioco.bme`). Non è nelle schede del menu: lo aprono gli editor
 (*Open* dell'SDK, Ctrl+O). Un `.bm` è un **gioco**, in Games: gli strumenti lo aprono
 per leggerlo e prenderne codice, sprite, modelli e suoni, ma non lo cambiano. Salvandolo
-chiedono di farne la **copia modificabile** (`NOME.BME`, accanto); la copia c'è anche nelle
+chiedono di farne la **copia modificabile** (`nome.bme`, accanto); la copia c'è anche nelle
 opzioni di un gioco (X), *Make an editable copy*. Quando il progetto è pronto, **Ctrl+B**
 nell'SDK (o *Build the game (.bm)* nelle sue opzioni) fa il suo gioco: `MIOGIOCO.BM` in Games,
 sostituito a ogni build.
@@ -560,7 +560,7 @@ if saves()[3] then print("slot 3: partita salvata", 8, 8, 7) end
 ```
 
 Un'app che fa dei file per il giocatore (testi, disegni, esportazioni) li scrive in
-`/docs`, comune a tutte le app: `doc_write("NOTES.TXT", testo)`, `doc_read`, `doc_list`,
+`/docs`, comune a tutte le app: `doc_write("notes.txt", testo)`, `doc_read`, `doc_list`,
 `doc_delete` (nomi 8.3; la prima volta la console chiede al giocatore). bm Write ci tiene i
 suoi documenti.
 

@@ -321,7 +321,7 @@ def main():
         for name, seq in (("monitor", "q"), ("crash-undef", "Xu"), ("crash-prefetch", "Xb")):
             pi_bridge.run("1.2.3.4", "s3cret", "keys " + name)
             check(seen[-1][-2:] == ["--keys", seq], f"bridge: keys {name} -> {seq}")
-        for name, f in (("bootprev", "BOOTPREV.TXT"), ("bootlog", "BOOTLOG.TXT"), ("lastrun", "LASTRUN.TXT")):
+        for name, f in (("bootprev", "bootprev.txt"), ("bootlog", "bootlog.txt"), ("lastrun", "lastrun.txt")):
             pi_bridge.run("1.2.3.4", "s3cret", "logs " + name)
             check(seen[-1][-3] == "--get" and seen[-1][-2] == "bm/" + f, f"bridge: logs {name} -> --get bm/{f}")
         def put_log(cmd, **kw):         # bm_net --get wrote the log, the password in it
@@ -331,7 +331,7 @@ def main():
             return R()
         pi_bridge.subprocess.run = put_log
         out = pi_bridge.run("1.2.3.4", "s3cret", "logs bootprev")
-        with open(os.path.join(pi_bridge.ROOT, "out", "pi_BOOTPREV.TXT")) as f:
+        with open(os.path.join(pi_bridge.ROOT, "out", "pi_bootprev.txt")) as f:
             kept = f.read()
         check("s3cret" not in out and "net_password=***" in out and "s3cret" not in kept,
               "bridge: logs bootprev: the password masked in the answer and in the file kept")

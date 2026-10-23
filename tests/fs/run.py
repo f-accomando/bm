@@ -74,6 +74,16 @@ def check(binary, size_mib, cluster_sectors):
         if "GONE.BIN" in mix or "TWICE.BIN" in mix or "BIG.BIN" in mix:
             print(f"FAIL mdir /mix: a file that should be gone ({what}):\n" + mix)
             return 1
+        # new names are written in lowercase (the NT flags of the entry): mtools shows them so
+        lc = subprocess.run(["mdir", "-b", "-i", part, "::/LC"],
+                            capture_output=True, text=True, env=env).stdout
+        for name in ("upper.txt", "mixed.bin", "noext", "a1.dat", "x.123", "sub"):
+            if not any(l.rstrip("/").endswith("/" + name) for l in lc.split()):
+                print(f"FAIL mdir /lc: no lowercase {name} ({what}):" + chr(10) + lc)
+                return 1
+        if "lower.txt" in lc or "123.456" not in lc.upper():
+            print(f"FAIL mdir /lc: wrong files ({what}):" + chr(10) + lc)
+            return 1
     print(f"fat ({what}): fsck.vfat clean, mtools reads the files back")
     return 0
 
