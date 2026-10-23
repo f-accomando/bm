@@ -1363,8 +1363,14 @@ test-menu-bg: $(BUILD)/host/test_menu_bg
 	$<
 
 # The crash record (src/kernel/crumbs.c): the old record is not written before crumbs_boot()
-test-crumbs: $(BUILD)/host/test_crumbs
+test-crumbs: $(BUILD)/host/test_crumbs $(BUILD)/host/test_wdguard
 	$(BUILD)/host/test_crumbs
+	$(BUILD)/host/test_wdguard
+
+# The freeze guard: the timer IRQ pets the watchdog only while the main code makes progress (SYS-2)
+$(BUILD)/host/test_wdguard: tests/kernel/test_wdguard.c src/drivers/watchdog.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/kernel/test_wdguard.c
 
 $(BUILD)/host/test_crumbs: tests/kernel/test_crumbs.c src/kernel/crumbs.c src/kernel/crumbs.h src/lib/printf.c src/lib/printf.h
 	@mkdir -p $(dir $@)

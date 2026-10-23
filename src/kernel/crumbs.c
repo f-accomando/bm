@@ -223,6 +223,7 @@ uint32_t crumbs_uptime_ms(void)
 
 void crumb(const char *what, const char *name)
 {
+    watchdog_progress();
     if (!cr_live)
         return;
     ksnprintf(cr.what, sizeof cr.what, name ? "%s \"%s\"" : "%s", what, name);
@@ -232,6 +233,7 @@ void crumb(const char *what, const char *name)
 
 void crumb_frame(uint32_t frame)
 {
+    watchdog_progress();
     if (!cr_live)
         return;
     cr.frame = frame;

@@ -18,4 +18,22 @@ void watchdog_probe_values(uint32_t *loaded, uint32_t *left);
 void watchdog_pet(void);
 void watchdog_stop(void);
 
+/* Main-loop guard. The 1 kHz timer IRQ calls watchdog_pet_irq(), not watchdog_pet():
+ * an IRQ that pets for ever would hide a hang of the main code (the Pi froze for
+ * hours with a timer that still ran). The main code calls watchdog_progress() each
+ * time it reaches a poll, a frame, a flip or a new crumb. Once it has called it,
+ * watchdog_pet_irq() pets only while the last call is at most WATCHDOG_STALL_US
+ * old. After that the SoC resets within the armed time and the next boot reports
+ * a freeze with the crumb that was set. Before the first call it always pets
+ * (boot has no poll). */
+#define WATCHDOG_STALL_US 20000000u
+void watchdog_progress(void);
+void watchdog_pet_irq(void);
+
+/* The decision, for the tests: mark 0 = no call yet. */
+static inline int watchdog_fresh(uint32_t now_us, uint32_t mark_us, uint32_t limit_us)
+{
+    return mark_us == 0 || (uint32_t)(now_us - mark_us) <= limit_us;
+}
+
 #endif

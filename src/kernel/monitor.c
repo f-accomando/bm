@@ -460,7 +460,8 @@ void monitor_run(void)
         case 'X': {
             /* two keys, so that a stray key never halts the console */
             kprintf("crash test: u undefined insn, a data abort, b prefetch abort, "
-                    "s SVC,\n  f freeze (the watchdog restarts the Pi in 3 s); other keys cancel\n");
+                    "s SVC,\n  f freeze (the watchdog restarts the Pi in 3 s),\n"
+                    "  g freeze with IRQs on (the guard restarts it in about 23 s); other keys cancel\n");
             char t = input_getc();
             if (t == 'u') trigger_undef();
             else if (t == 'a') trigger_dabt();
@@ -469,6 +470,11 @@ void monitor_run(void)
             else if (t == 'f') {
                 crumb("freeze test (X f)", NULL);
                 __asm__ volatile("cpsid i" ::: "memory");
+                for (;;)
+                    ;
+            }
+            else if (t == 'g') {
+                crumb("freeze test (X g, IRQs on)", NULL);
                 for (;;)
                     ;
             }
