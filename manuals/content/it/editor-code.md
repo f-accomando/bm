@@ -88,6 +88,23 @@ Le schede, i cursori, il font e i breakpoint tornano la prossima volta che apri 
 
 **F4** mostra due pagine affiancate. Ogni pagina ha la sua scheda. **F7** passa da una pagina all'altra; **F2** e **F3** cambiano la scheda della pagina in cui sei. Nella barra in alto una scheda mostra `1` o `2` per la pagina che la mostra. F4 di nuovo torna a una pagina.
 
+## Moduli in un progetto
+
+Un programma grande si può tagliare in **moduli**. Un modulo è una parte del codice che inizia a una riga `--@module nome`. La riga è un commento Lua, quindi il gioco non cambia: un progetto ha ancora UNA sola sezione di codice e il gioco costruito ha gli stessi byte di prima. Le schede servono solo a leggere meglio.
+
+Quando un progetto ha moduli, sotto la barra in alto compare una seconda riga. Mostra la parola `modules` e una scheda per ogni modulo. Il testo prima del primo marcatore è il modulo `main`.
+
+| Tasto o clic | Cosa fa |
+|---|---|
+| Ctrl+P / Ctrl+Maiusc+P | modulo successivo / precedente |
+| clic su una scheda modulo | mostra quel modulo |
+| clic destro su una scheda modulo | il menu dei moduli |
+| Esc, Modules... | lo stesso menu |
+
+Il menu dei moduli ha **New module...** (chiede un nome e lo aggiunge dopo quello in cui sei), **Rename module...** e **Merge into the one before** (le righe vanno in fondo al modulo precedente e la riga del marcatore sparisce; nessun codice si perde).
+
+Un nome ha lettere, cifre, `_`, `.` o `-`, fino a 24 caratteri. Ogni modulo ha il suo cursore, il suo annulla e i suoi breakpoint. Ctrl+S, F5 e Ctrl+W lavorano su tutto il progetto, non su un modulo. Il clic centrale su una scheda modulo non fa nulla; il clic centrale su una scheda file chiude il file. Quando il gioco si ferma con un errore, bm Code mostra il modulo e la riga al suo interno.
+
 ## Il menu
 
 **Esc** apre il menu (con una selezione attiva, Esc prima lascia la selezione). Su e giù muovono, Enter sceglie, Esc chiude. Le voci:
@@ -103,6 +120,7 @@ Le schede, i cursori, il font e i breakpoint tornano la prossima volta che apri 
 | Breakpoint | F8 |
 | Debug from the start | |
 | Clear breakpoints | |
+| Modules... | Ctrl+P |
 | Split screen | F4 |
 | Font size | F10 |
 | Find | Ctrl+F |
@@ -161,6 +179,7 @@ Scrivere `end`, `else`, `elseif`, `until` o `}` da soli su una riga li riporta a
 | Ctrl+T | nuova scheda vuota |
 | Ctrl+W | chiude la scheda |
 | F2 / F3 | scheda precedente / successiva |
+| Ctrl+P | modulo successivo del progetto (Ctrl+Maiusc+P: precedente) |
 | F4 | una pagina / due pagine |
 | F7 | passa all'altra pagina |
 | F10 | font 6x12 / 8x14 / 8x16 |
@@ -365,7 +384,8 @@ Metti un breakpoint dentro `_draw`, premi F5 e premi F10 riga per riga. Quale va
 - **Lavora sulla copia.** Se apri un gioco (`.bm`), il primo salvataggio crea `name.bme`; continua a modificare quello.
 - **Token.** I token di un programma sono contati come li conta il dev kit; `code_tokens(text)` dà il numero per un pezzo di Lua. Sono un'informazione, non un limite: bm non mette nessun tetto ai token. bm Code non li mostra: li mostra il bm SDK, nella pagina F1 e nella riga di stato del suo editor rapido.
 - **Il testo non salvato è conservato in uno spazio limitato.** Quando esci o esegui il gioco, bm Code conserva per la volta dopo il testo delle schede con modifiche (e delle schede senza file), fino a 16000 caratteri in tutto; il testo oltre non viene conservato. Salva spesso.
-- **Annulla** ricorda gli ultimi 100 passi di ogni scheda.
+- **Annulla** ricorda gli ultimi 100 passi di ogni scheda (ogni modulo ha il suo).
+- **I moduli sono un solo file.** I moduli sono righe `--@module nome` nell'unica sezione di codice; non sono file separati sulla scheda SD. Una riga di quella forma esatta dentro una lunga stringa Lua inizia un modulo per bm Code. L'SDK mostra tutto il codice senza schede modulo.
 - **Schede.** La barra in alto mostra tante schede quante ne stanno; le altre sono indicate da `...`. Usa F2 e F3 per raggiungerle.
 - **Debug solo da bm Code.** `breakpoint()` ferma solo in un gioco eseguito da uno strumento come bm Code.
 - **Righe sullo schermo.** Con una pagina sullo schermo 640x360, il codice mostra 28 righe con il font 6x12, 23 con l'8x14 e 20 con l'8x16 (le righe dello schermo, meno la barra in alto e la riga di stato). Le colonne sono 106, 80 e 80. Questi numeri vengono dall'impaginazione nel codice, non da un conteggio sullo schermo. La casella di scrittura con il pad occupa alcune righe.

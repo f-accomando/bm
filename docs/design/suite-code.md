@@ -61,6 +61,7 @@ Despite the excellent usability on the console, large projects run into strong l
 ## 4. Development Proposals & Roadmap for bm Code
 
 ### Proposal 1: Native Multi-Module Support in `.bme` Projects
+- **Status:** bm Code shows modules as tabs (lines `--@module name` in the one code section; see `docs/progress/tools.md`). `require "player"` between modules and the SDK tabs are not built.
 - Allow a `.bme` project to contain multiple Lua code sections (e.g. `main.lua`, `player.lua`, `enemies.lua`, `ui.lua`).
 - In bm Code, a secondary bar or a shortcut (e.g. `Ctrl+Tab` or `Ctrl+P`) lets you jump instantly from one module to another.
 - The Lua runtime natively integrates `require "player"`, searching first among the cartridge's internal modules. This way the project stays clean, modular and 100% developable on the console without external Python scripts.

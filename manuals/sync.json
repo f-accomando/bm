@@ -558,8 +558,8 @@
     "title": "What bm Code is"
    },
    "10": {
-    "en": "8b31c20006f2",
-    "it": "68e90a117289",
+    "en": "4ef2bfc9ecc5",
+    "it": "29517ff5dae0",
     "title": "Tips and limits"
    },
    "2": {
@@ -568,13 +568,13 @@
     "title": "Opening and saving"
    },
    "3": {
-    "en": "451b56d9e226",
-    "it": "7bb0f91156f9",
+    "en": "2179521295c1",
+    "it": "2f3c99943fe5",
     "title": "The screen"
    },
    "4": {
-    "en": "45490b36dc27",
-    "it": "bc71dae10d47",
+    "en": "7ff05ba758f3",
+    "it": "8ddbaa94c0fa",
     "title": "Editing keys"
    },
    "5": {
@@ -604,11 +604,11 @@
    }
   },
   "sources": {
-   "carts/code/main.lua": "186f8dfdbf36",
+   "carts/code/main.lua": "d1c30bc0136b",
    "docs/RISORSE.md": "4b94efc50686",
-   "docs/design/suite-code.md": "9def238703df",
-   "docs/progress/tools.md": "8c86e4b6fdce",
-   "sdk/README.md": "f56faae98658"
+   "docs/design/suite-code.md": "9fd910acecf7",
+   "docs/progress/tools.md": "702c8532fc91",
+   "sdk/README.md": "f82ca797337d"
   }
  },
  "editor-mesh": {

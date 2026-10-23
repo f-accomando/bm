@@ -23,6 +23,11 @@
 --   U.drag          while a button is held after moving 3 pixels:
 --                   {b=, x0=, y0=, dx=, dy=} (dx, dy: this frame's move)
 --
+--   U.tabbar(o)     the tab strip of every editor with tabs (one component,
+--                   no copy): draws the tabs and their zones, see below
+--   U.modules_split(lines), U.modules_join(mods)   the Lua modules of one
+--                   project, see below
+--
 -- With no mouse nothing changes: U.on is false, no zone is ever clicked.
 
 local U = { x = 0, y = 0, on = false, wheel = 0, double = false, drag = nil, held = 0 }
@@ -465,6 +470,103 @@ function U.project_files(exts, extra)
     end
   end
   return out, sizes
+end
+
+-- The tab strip (APP-8): the one tab bar of bm Code, bm SDK and the other
+-- editors with a code page. o = { x=, y=, w= (pixels), cw=, ch= (the font's
+-- cell), items = { {label=, on=, dirty=, tag=}, ... }, kind = the zone kind
+-- ("tab" by default; a click gives it with a = the item's number), c = {
+-- on=, off=, line=, dim= colours} }. Each tab is " label* tag " with one
+-- column between tabs. When the tabs do not fit, the strip starts at the
+-- first one that lets the active tab show, "<" marks the cut at the left and
+-- "..." the cut at the right. Returns the number of the first tab drawn and
+-- of the last one.
+function U.tabbar(o)
+  local cw, ch, kind, items = o.cw or 8, o.ch or 12, o.kind or "tab", o.items
+  local c = o.c or {}
+  local lab = {}
+  local act = 1
+  for i, it in ipairs(items) do
+    lab[i] = " " .. it.label .. (it.dirty and "*" or "") .. (it.tag or "") .. " "
+    if it.on then act = i end
+  end
+  local cols = o.w // cw
+  local function span(a, b)
+    local n = 0
+    for i = a, b do n = n + #lab[i] + 1 end
+    return n
+  end
+  local from = 1
+  while from < act and span(from, act) + (from > 1 and 2 or 0) > cols - 3 do from = from + 1 end
+  local x = o.x
+  if from > 1 then
+    print("<", x, o.y, c.dim or C.DIM)
+    x = x + 2 * cw
+  end
+  local last = from - 1
+  for i = from, #items do
+    local w = #lab[i] * cw
+    if x + w > o.x + o.w then
+      print("...", x, o.y, c.dim or C.DIM)
+      break
+    end
+    U.zone(x, o.y, w, ch, kind, i)
+    if items[i].on then rectfill(x, o.y, w, ch, c.line or C.LINE) end
+    print(lab[i], x, o.y, items[i].on and (c.on or 0xFFFFFF) or (c.off or C.DIM))
+    x = x + w + cw
+    last = i
+  end
+  return from, last
+end
+
+-- The Lua modules of one project (APP-8). The code of a project stays ONE
+-- LUA section; a line "--@module NAME" starts a module, which runs to the
+-- next such line. For the cartridge it is a comment, so the game, its bytes
+-- and its build do not depend on the tabs: the layout is for readability only.
+-- What comes before the first marker is the module "main" (no marker line).
+-- modules_split(lines) -> { {name=, lines=, head=, empty=}, ... }: head is the
+-- marker line as it was (nil for the first module without one), empty is
+-- true when the module has no line at all. modules_join(mods) -> lines is its
+-- exact inverse: split then join gives the same lines.
+function U.modules_split(lines)
+  local mods, cur = {}, nil
+  for _, l in ipairs(lines) do
+    local name = l:match("^%-%-@module%s+([%w_%.%-]+)%s*$")
+    if name then
+      cur = { name = name, lines = {}, head = l }
+      mods[#mods + 1] = cur
+    else
+      if not cur then
+        cur = { name = "main", lines = {} }
+        mods[1] = cur
+      end
+      cur.lines[#cur.lines + 1] = l
+    end
+  end
+  if #mods == 0 then mods[1] = { name = "main", lines = {} } end
+  for _, m in ipairs(mods) do m.empty = #m.lines == 0 end
+  return mods
+end
+
+-- the number of lines a module really has: an editor keeps one empty line in
+-- a module that has none (m.empty), which is not part of the code
+function U.module_len(m)
+  if m.empty and #m.lines == 1 and m.lines[1] == "" then return 0 end
+  return #m.lines
+end
+
+function U.modules_join(mods)
+  local out = {}
+  for _, m in ipairs(mods) do
+    if m.head then out[#out + 1] = m.head end
+    for i = 1, U.module_len(m) do out[#out + 1] = m.lines[i] end
+  end
+  return out
+end
+
+-- true when a name can be a module's: letters, digits, _ . -
+function U.module_name_ok(name)
+  return name ~= nil and name:match("^[%w_%.%-]+$") ~= nil and #name <= 24
 end
 
 U.keyp = mkeyp

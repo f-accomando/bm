@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 End-to-end tests in QEMU (-M raspi0). Images are loaded at 0x8000 through
 -bios, exactly as the Pi firmware does. The serial port is a TCP socket.
@@ -73,7 +73,7 @@ SLOW = {
     "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
-    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_video_bench": 30, "test_video_player": 25, "test_video_rec": 60, "test_video_rec_rle": 60, "test_video_rec_drops": 40, "test_stack_bench": 30, "test_bench_stop": 35, "test_bm_boot_demo": 22,
+    "test_code_editor": 23, "test_code_modules": 45, "test_update": 22, "test_room_bench": 22, "test_video_bench": 30, "test_video_player": 25, "test_video_rec": 60, "test_video_rec_rle": 60, "test_video_rec_drops": 40, "test_stack_bench": 30, "test_bench_stop": 35, "test_bm_boot_demo": 22,
     "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100, "test_projects": 45, "test_editor_mouse": 40,
 }
 
@@ -833,7 +833,7 @@ def test_usb_keyboard(b, opts):
         q.expect("> ")
 
         # monitor command and Lua REPL typed on the Italian layout:
-        # shift-8 = '(', shift-] = '*', shift-2 = '"', ';' key = 'ò' (CP437 0x95)
+        # shift-8 = '(', shift-] = '*', shift-2 = '"', ';' key = 'Ã²' (CP437 0x95)
         sendkeys(q, "l")
         q.expect("lua> ", timeout=10)
         sendkeys(q, "p r i n t shift-8 3 shift-bracket_right 4 shift-9 ret")
@@ -3795,7 +3795,7 @@ function _draw() cls(1) print("pocket", 8, 8, 7) end
 
 def test_b16_on_pi(b, opts):
     """A .b16 (the handhelds' cartridge: the same container, docs/B16.md
-    §0) is listed on the Pi with the .bm and plays the same way (the user,
+    Â§0) is listed on the Pi with the .bm and plays the same way (the user,
     2026-10-05)"""
     tmp = tempfile.mkdtemp(prefix="bm-b16-")
     try:
@@ -8212,6 +8212,119 @@ def test_code_editor(b, opts):
                        check=True, env=env)
         g = sections(open(os.path.join(tmp, "game1.bm"), "rb").read())
         assert list(g) == [1] and g[1].startswith(b"-- my game"), g.keys()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+MODS_LUA = "local n = 0\n--@module gfx\nlocal c = 1\n--@module ui\nlocal u = 2\n"
+
+
+def test_code_modules(b, opts):
+    """APP-8, bm Code: a project (.bme) whose code has "--@module" lines opens
+    with a second row of tabs, one per module (main, gfx, ui); Ctrl+P moves to
+    the next, a line typed in gfx is saved with Ctrl+S into the project's ONE
+    code section (the other modules and their markers as they were), and
+    the card is still a clean FAT32 volume."""
+    tmp = tempfile.mkdtemp(prefix="bm-codemod-")
+    img = os.path.join(tmp, "sd.img")
+    src = os.path.join(tmp, "mods.bme")
+    with open(src, "wb") as f:
+        f.write(mkbm.mark_project(mkbm.pack(MODS_LUA.encode(), title="mods")))
+    mksd.build(img, [(src, "bme/mods.bme")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}", "-device", "usb-tablet,port=1"])
+
+    def click(x, y, button="left"):
+        q.pointer(x + 1, y)                 # a move first: the arrow shows
+        time.sleep(0.15)
+        q.pointer(x, y)
+        time.sleep(0.25)
+        for down in (True, False):
+            q.input_events([{"type": "btn", "data": {"down": down, "button": button}}])
+            time.sleep(0.1)
+        time.sleep(0.3)
+
+    def at(text, row, word):
+        c = text[row].find(word)
+        assert c >= 0, (word, text[row])
+        return c * 6 + 3, row * 12 + 6
+
+    def k(s, gap=0.04):
+        for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
+            q.send(c)
+            time.sleep(gap)
+
+    def see(words, tries=80):
+        text = []
+        for _ in range(tries):
+            img_ = q.screendump()
+            text = screen_text(img_, 6, 12)
+            if all(any(w in l for l in text) for w in words):
+                return text
+            time.sleep(0.25)
+        os.makedirs("build/diag", exist_ok=True)
+        _save_png(img_, "build/diag/code-modules-miss.png")
+        raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("C")
+        q.expect("code: ready", timeout=15)
+        k("\x0f", 0.5)                                      # Ctrl+O
+        see(["Open a cartridge", "/bme/mods.bme"])
+        k("\r")
+        q.expect("code: opened /bme/mods.bme", timeout=15)
+        text = see(["modules", "main", "gfx", "ui", "local n = 0"])
+        assert "mods.bme" in text[0], text[0]               # one file tab on the first row
+        # the mouse: a click on a module tab shows it, the right button opens
+        # its menu, the middle button closes no module (only a file tab does)
+        click(*at(text, 1, "ui"))
+        see(["local u = 2"])
+        click(*at(text, 1, "gfx"), button="right")
+        see(["local c = 1"])                                # the module under the pointer is shown
+        click(400, 250)                                     # a click outside closes the menu
+        click(*at(text, 1, "gfx"), button="middle")
+        q.pointer(400, 300)                                 # the arrow off the tabs
+        time.sleep(0.5)
+        text = see(["modules", "gfx", "ui", "local c = 1"])
+        click(*at(text, 1, "main"))
+        q.pointer(400, 300)
+        time.sleep(0.5)
+        see(["local n = 0"])
+        k("\x10", 0.5)                                      # Ctrl+P: the next module
+        see(["local c = 1"])
+        k("-- added\r")
+        see(["-- added"])
+        k("\x13")                                           # Ctrl+S: a project, no question
+        q.expect("code: saved /bme/mods.bme", timeout=15)
+        k("\x10", 0.5)                                      # ui
+        see(["local u = 2"])
+        k("\x10", 0.5)                                      # round to main
+        see(["local n = 0"])
+        k("\x1b", 0.6)                                      # Esc: the menu
+        see(["Modules..."])
+        k("\x1b[A", 0.3)                                    # up from the first: Exit
+        k("\r", 0.5)
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        out = os.path.join(tmp, "out.bme")
+        subprocess.run(["mcopy", "-i", part, "::/BME/MODS.BME", out], check=True, env=env)
+        d = open(out, "rb").read()
+        n = d[17]
+        lua = None
+        for i in range(n):
+            t, off, size, _ = struct.unpack_from("<IIII", d, 128 + 16 * i)
+            if t == 1:
+                lua = d[off:off + size].decode()
+        want = "local n = 0\n--@module gfx\n-- added\nlocal c = 1\n--@module ui\nlocal u = 2\n"
+        assert lua == want, repr(lua)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
