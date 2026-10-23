@@ -5,7 +5,7 @@ import os
 import struct
 import zlib
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
 W = H = 128
 px = [[(0, 0, 0, 0)] * W for _ in range(H)]
 

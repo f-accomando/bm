@@ -43,10 +43,10 @@ note = "LUA SHEET MAP COVER SHEET8 AUDIO MESH ANIM INFO SPRITES LAYERS FLAGS BOX
 [[item]]
 id = "resource-files"
 since = 1
-status = "partial"
+status = "implemented"
 platforms = "pi"
-where = ["src/bm/bm.h", "scripts/bmres.py", "src/kernel/lib.c"]
-note = "BMRES files: the PC tools make and merge them, the Pi's Lib tab reads them; no console editor opens them; the RGB30 has no Lib tab"
+where = ["src/bm/bm.h", "scripts/bmres.py", "src/kernel/lib.c", "src/bm/runtime.c", "src/script/bm3d.lua"]
+note = "BMRES files: the PC tools make and merge them (scripts/bmres.py, make test-res); the Pi's Lib tab reads them (hidden until lib_tab=1); res_read and res_write (docs/api/tools.md) let the console editors open and save the model files (.bmm, T.import_model and T.write_bmm in bm3d.lua). The RGB30 has no Lib tab: the owner closed the Lib tab on both kernels on 2026-10-06 (CONSISTENCY.md, Decisions)"
 
 [[item]]
 id = "project-flag"
@@ -139,10 +139,10 @@ note = "transfer port 3334 ops S send, P play, K kernel, C config, T take a scre
 [[item]]
 id = "project-layout"
 since = 2
-status = "partial"
+status = "implemented"
 platforms = "all"
-where = ["docs/PROJECT-LAYOUT.md", "scripts/mkbm.py", "Makefile"]
-note = "bm.info + assets/ + res/ + build/; 21 of the 26 folders in carts/ have bm.info; without it: demo, stress, texroom, sdk_b16, titan_ex (they still build the old way, see Makefile)"
+where = ["docs/PROJECT-LAYOUT.md", "scripts/mkbm.py", "scripts/carts_layout.py", "Makefile"]
+note = "bm.info + assets/ + res/ + build/. Every project in carts/ has bm.info (BETA-6 round 2: demo, stress, texroom, sdk_b16 and titan_ex now build with --info; stages3d has one bm.info per edition); python scripts/carts_layout.py reports 0 errors"
 
 [[item]]
 id = "cart-type"

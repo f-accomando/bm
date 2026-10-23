@@ -182,23 +182,23 @@ $(BUILD)/pixel.bm: carts/pixel/bm.info carts/pixel/main.lua carts/pixel/icon.png
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(word 2,$^) --cover carts/pixel/icon.png --info carts/pixel/bm.info
 
-$(BUILD)/stress.bm: carts/stress/main.lua scripts/mkbm.py
+$(BUILD)/stress.bm: carts/stress/main.lua carts/stress/bm.info scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "bm stress test" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/stress/bm.info
 
 # Texture Room (M14, M33): the 3D benchmark of the Dev tab, built into the
 # kernel; the benchmark runs it at 320x180 and 640x360 (bm_next_run)
-$(BUILD)/texroom.bm: carts/texroom/main.lua carts/texroom/sheet.png carts/texroom/cover.png scripts/mkbm.py
+$(BUILD)/texroom.bm: carts/texroom/main.lua carts/texroom/assets/sheet.png carts/texroom/cover.png carts/texroom/bm.info scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "Texture Room" --author bm --res 320x180 \
-	    --cover carts/texroom/cover.png --sheet carts/texroom/sheet.png
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/texroom/bm.info \
+	    --cover carts/texroom/cover.png --sheet carts/texroom/assets/sheet.png
 
 # Native demo cartridge (.bm): Lua + sprite sheet + map
-DEMO_BM_SRC := carts/demo/main.lua carts/demo/sheet.png carts/demo/map.csv
+DEMO_BM_SRC := carts/demo/main.lua carts/demo/assets/sheet.png carts/demo/assets/map.csv carts/demo/bm.info
 $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua carts/demo/main.lua --sheet carts/demo/sheet.png \
-	    --map carts/demo/map.csv --title "bm native demo" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua carts/demo/main.lua --sheet carts/demo/assets/sheet.png \
+	    --map carts/demo/assets/map.csv --info carts/demo/bm.info
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
 GAMES := pong snake shooter astrowing hunt kitchen titan village nano8 overbit yharnam typing write
@@ -271,13 +271,13 @@ $(BUILD)/carts/titan.bm: $(BUILD)/titan/main.lua carts/titan/assets/sheet.png ca
 # Titan Clash EX (RGB30, .b16 only): the same game's second edition, 360x360 (1:1),
 # with its own sources in carts/titan_ex/ (the Pi's .bm stays in carts/titan/)
 TITAN_EX_SRC := $(sort $(wildcard carts/titan_ex/src/*.lua))
-$(BUILD)/titan_ex/main.lua: $(TITAN_EX_SRC) carts/titan_ex/build.py
-	$(PYTHON) carts/titan_ex/build.py $@ --map $(BUILD)/titan_ex/main.map
+$(BUILD)/titan_ex/main.lua: $(TITAN_EX_SRC) carts/titan_ex/build/build.py
+	$(PYTHON) carts/titan_ex/build/build.py $@ --map $(BUILD)/titan_ex/main.map
 
 $(BUILD)/carts/titanex.bm: $(BUILD)/titan_ex/main.lua carts/titan/assets/sheet.png carts/titan/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "Titan Clash EX" --author bm \
-	    --sheet carts/titan/assets/sheet.png --sheet8 --cover carts/titan/cover.png --res 360x360
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --info carts/titan_ex/bm.info \
+	    --sheet carts/titan/assets/sheet.png --sheet8 --cover carts/titan/cover.png
 
 # Stages 3D (W03): shared logic in carts/stages3d/common, one front per edition (bm/ now, b16/ later)
 STAGES3D_SRC := $(sort $(wildcard carts/stages3d/common/*.lua carts/stages3d/bm/*.lua))
@@ -307,14 +307,14 @@ $(BUILD)/carts/stages3d.b16: $(BUILD)/stages3d/b16/main.lua $(STAGES3D_ASSETS) c
 # built into the RGB30's kernel (rgb30.mk, its Dev tab), not into the Pi's: here
 # only its script, for test-sdk-b16. The Pi's SDK stays carts/editor.
 SDK_B16_RES ?= 360x360
-SDK_B16_SRC := carts/sdk_b16/layout.lua carts/sdk_b16/main.lua carts/sdk_b16/build.py
+SDK_B16_SRC := carts/sdk_b16/layout.lua carts/sdk_b16/main.lua carts/sdk_b16/build/build.py
 $(BUILD)/sdk_b16/main.lua: $(SDK_B16_SRC)
-	$(PYTHON) carts/sdk_b16/build.py $@
+	$(PYTHON) carts/sdk_b16/build/build.py $@
 
 $(BUILD)/carts/sdk_b16.bm: $(BUILD)/sdk_b16/main.lua carts/editor/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/editor/icon.png \
-	    --title "bm SDK (RGB30)" --author bm --res $(SDK_B16_RES)
+	    --info carts/sdk_b16/bm.info --res $(SDK_B16_RES)
 
 # nano8: plays .p8 / .p8.png carts (machine in src/bm/n8*.c); several Lua
 # files too. The carts it ships with (carts/nano8/roms, licenses in

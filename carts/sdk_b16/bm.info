@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: bm SDK (RGB30)
+desc: The SDK of the RGB30: 360x360 and the pad. Second edition of carts/editor.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+tags: app, tool, sdk
+resolution: 360x360

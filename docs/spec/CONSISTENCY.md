@@ -117,7 +117,7 @@ removing or changing a promise is a 2.0.0.
 | D05 | suspended | unknown | menu pointer | Pi: mouse: hover, click, wheel, right-click for options. RGB30: none; Settings still offers the mouse rows | port the block (pointer.c is built into the RGB30) or hide the mouse rows |
 | D11 | accepted | history | game options (X / C) | Pi: Open in the tools, editable copy, Build, Export .b16, Publish, Send to a nearby console, Close. RGB30: Play, Open in bm SDK, Export .b16, Send to a nearby console, info, delete save, delete | add Publish (the owner decided Publish stays off on the RGB30); the tool rows depend on D13 |
 | D12 | resolved | history | cover details | Pi: author, kind, size, path; a performance note after a game. RGB30: only the hint line; no performance note | add the note |
-| D14 | open | todo | Dev tab extras | Pi: CPU bench, Stress test, Texture Room, Demo. RGB30: not built (stress.c and roombench.c are excluded) | port when the RGB30 3D bench matters |
+| D14 | open | todo | Dev tab extras | Pi: CPU bench, Stress test, Texture Room, Video bench, Stack bench, Demo. RGB30: Stack bench since BETA-6 round 2; the others are not built (stress.c, roombench.c and vidbench.c are excluded) | Stress test and Texture Room come with the Mali driver (D23); the rest when the RGB30 needs it |
 | D15 | open | todo | Settings > System | Pi: CPU clock and temperature; 3D driver row; open the monitor. RGB30: CPU name only | add what the RK3566 can report |
 | D17 | open | todo | WiFi connect | Pi: scan and type the password with a keyboard. RGB30: only wifi_ssid / wifi_psk from config.txt; no on-screen keyboard | needs the on-screen keyboard (R1/R2) |
 | D19 | open | history | SD logs | Pi: none (only the crumbs report). RGB30: bootlog.txt, bootprev.txt, lastrun.txt in bm/ | give the Pi the same three files (R3) |
@@ -149,14 +149,14 @@ The differences that are hardware, with the capability that explains each:
 | D40 | network chip | `wifi-chip` | Pi: BCM43438 and Pi 1 Ethernet. RGB30: RTL8821CS: 2.4 GHz, open and WPA2-PSK, no Ethernet |
 | D41 | boot and update path | `board-boot` | Pi: firmware boots kernel.img; manifest.txt. RGB30: U-Boot boots kernel8.img; manifest-rgb30; a wrong-board kernel is refused |
 
-Also open in the specification (`gate`): resource files are managed only from the PC (the editors do not open them, the
-RGB30 has no Lib tab), and the common project layout is migrated for 3 games out of about 13.
+Also open in the specification (`gate`): the partial items compat-policy, cart-type and folders-bm-bme (see `specs.toml`).
+Resource files and the common project layout are `implemented` since BETA-6 round 2.
 
 ## Decisions needed
 
 - Version numbering: a baseline tag for the current line (for example `v0.3.0`) and `v1.0.0` when `gate` is empty. Tagging is
   outward-facing: waiting for a yes.
 - D03 and D05: should the RGB30 have local multiplayer and the menu pointer, or are they hardware choices (then the Settings rows go)? The owner keeps both suspended.
-- D49: do the Pi menus follow `mo` and `mc` (Settings > Controls)? Today the Pi menus keep A and B in `carts.c`.
+- D49 is accepted (BETA-6 round 2): the Pi menus keep A and B (D32); only the RGB30 remaps the menus' OK and Cancel with `mo` and `mc`. If you want the Pi menus to follow them, say so: the entry goes back to `todo`.
 - D16 is decided: `show_bm` is the Games tab, `market_bm` the Market (RGB30), `show_b16` the Market (Pi).
 - The Lib tab: accepted as closed on both kernels (owner's decision, 2026-10-06). The tools on the RGB30 come from Market > Apps and are recognised as tools (D13).

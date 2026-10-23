@@ -67,9 +67,9 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
 ## Open work
 
 - Kernel consistency, what the gate still lists (22 Oct 2026, `python scripts/consistency.py gate`, [CONSISTENCY](../spec/CONSISTENCY.md)):
-  - Large or waiting for a device: D10 (background covers: `carts.c:182-290`, about 110 lines, needs a timing check on the console); D14 (stress, room and video benches need the 3D path, D23); D15 (RK3566 thermal and clock drivers do not exist); D17 (on-screen keyboard); D23, D24 (Mali driver).
-  - Waiting for the owner: D03 and D05 (suspended); D49 (do the Pi menus follow `mo` and `mc`? `carts.c` fixes A and B); D48 follows the monitor (D22).
-  - Written, not tried on a console: D01, D02, D18, D26. Specification items still partial: resource files, project layout, cart type, `/bme` folder.
+  - Large or waiting for a device: D10 (background covers: `carts.c:182-290`, about 110 lines, needs a timing check on the console); D14 (Stack bench is on the RGB30 since round 2; the Stress test and Texture Room need the 3D path, D23; the CPU bench, Video bench and Demo are not ported); D15 (RK3566 thermal and clock drivers do not exist); D17 (on-screen keyboard); D23, D24 (Mali driver).
+  - Waiting for the owner: D03 and D05 (suspended). Accepted in BETA-6 round 2 (23 Oct 2026): D49 (the Pi menus keep A and B, D32; the owner can ask for `mo` and `mc` on the Pi) and D48 (the crc is a monitor line, the RGB30 has no monitor, D22).
+  - Written, not tried on a console: D01, D02, D18, D26. Specification items still partial: compat-policy (Market targets line, load-time message, RGB30 Market default for `.bm`: [b16](b16.md)), cart-type (the menu does not group by type; Utilities has no content), `/bme` folder. Resource files and project layout are `implemented` (round 2: every `carts/` project has `bm.info`).
 - RGB30 menu keys, user decision 19 Oct 2026 (target, not implemented): B = ok, Y = cancel,
   A is not a second back (games that rely on A as back are fixed one by one). Today the code
   still maps A to back (`pad_back`). Per-device key reference: branch `claude/ui-reference`

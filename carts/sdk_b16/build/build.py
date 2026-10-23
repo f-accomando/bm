@@ -6,7 +6,7 @@ A cartridge has one script and its require() has only the kernel's
 libraries, so they are joined: the module becomes the local `layout` at
 the top, main.lua follows unchanged.
 
-  carts/sdk_b16/build.py OUT.lua
+  carts/sdk_b16/build/build.py OUT.lua
 
 main.lua's line N is line N + OFFSET of OUT.lua (OFFSET is written in the
 first line), to find the source line of an error message.
@@ -14,7 +14,7 @@ first line), to find the source line of an error message.
 import os
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # carts/sdk_b16/
 
 
 def read(name):
@@ -28,7 +28,7 @@ def build():
     head = "local layout = (function()   -- carts/sdk_b16/layout.lua\n"
     tail = "end)()\n"
     offset = 2 + head.count("\n") + layout.count("\n") + tail.count("\n")
-    first = (f"-- bm SDK (RGB30), built by carts/sdk_b16/build.py: layout.lua, then main.lua "
+    first = (f"-- bm SDK (RGB30), built by carts/sdk_b16/build/build.py: layout.lua, then main.lua "
              f"(its line N is line N + {offset})\n")
     return first + "\n" + head + layout + tail + main
 
