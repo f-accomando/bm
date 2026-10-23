@@ -129,6 +129,7 @@ The layout is the one of the other console apps: on the left a panel with lists,
 | `n` | make the skeleton, or add a bone under the chosen one |
 | up, down | choose the bone |
 | `Tab` | work on the bone's tail or on its head |
+| `j` | head alone: **w a s d r f** move only the head of the bone, off the tail of its parent (press again: joints go together) |
 | `w` `a` `s` `d` `r` `f` | move the chosen end by 1/8 (uppercase: 1/32) |
 | `m` | mirror the bone and its children to the other side |
 | `p` | choose the parent |
@@ -223,6 +224,7 @@ The skeleton is what lets one model have many animations at small cost: the game
 - **n** on an empty model makes one bone, `root`, from the bottom of the model up to half its height. Every next **n** adds a child of the chosen bone, half a unit long in the same direction.
 - At most **64** bones in a skeleton.
 - Joints at the same point move together: a chain stays joined when you move a joint.
+- A shoulder or a hip is not at the end of its parent. Make the bone with **n**, move its tail, then choose its head with **Tab** and press **j**. Now **w a s d r f** move only this head. The parent stays the same, the tail stays, and the animations keep their keys. A bone cannot be shorter than 1/16. Press **j** again to join the joints. Each move is one step of **Ctrl+Z**.
 - **x** deletes a bone: its children go to its parent and its faces follow the parent (or the first bone). Deleting the only bone removes the skeleton.
 - **m** copies the bone and its children to the other side (x mirrored). The names end in `.L` and `.R`; a bone with no side yet gets `.L` if it is on the positive x side. The poses of the animations are mirrored too. The faces on the other side do not move by themselves: run the skin again with **k** or give them with **a**.
 - The parent of a bone is chosen among the bones before it in the list.

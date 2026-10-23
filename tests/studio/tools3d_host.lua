@@ -965,6 +965,43 @@ type_text("arm")
 check(rig1().bones[2].name == "arm", "Enter: renamed arm")
 key("^z")
 check(rig1().bones[2].name == "bone2", "undo the name")
+-- j: a head alone leaves the tail of its parent (a shoulder, a hip); the rest stays
+do
+  local function snap() local r = rig1(); return { r.bones[1].head[2], r.bones[1].tail[2], r.bones[2].head[2], r.bones[2].tail[2], r.bones[2].parent } end
+  key("\t")
+  check(sees("head of bone2"), "tab: the head of bone2")
+  local s0 = snap()
+  key("w")
+  local s1 = snap()
+  check(math.abs(s1[2] - s0[2] - 0.125) < 1e-6 and math.abs(s1[3] - s0[3] - 0.125) < 1e-6, "w on a head: the joint moves, root tail and head together")
+  key("^z")
+  key("j")
+  check(sees("head alone (j)") and sees("head of bone2"), "j: the head alone")
+  local before = snap()
+  key("w")
+  local s2 = snap()
+  check(math.abs(s2[3] - before[3] - 0.125) < 1e-6 and s2[2] == before[2] and s2[4] == before[4] and s2[1] == before[1] and s2[5] == 1,
+        "w with the head alone: only the head of bone2 moves, the tail of root, the tail and the parent stay")
+  key("^z")
+  local s3 = snap()
+  check(s3[3] == before[3] and s3[2] == before[2], "one undo: the head is back")
+  local n = 0
+  local moved = true
+  while n < 20 and moved do
+    local h = snap()[3]
+    key("w")
+    moved = snap()[3] ~= h
+    n = n + 1
+  end
+  local r = rig1()
+  local dx, dy, dz = r.bones[2].head[1] - r.bones[2].tail[1], r.bones[2].head[2] - r.bones[2].tail[2], r.bones[2].head[3] - r.bones[2].tail[3]
+  check(not moved and sees("too short") and dx * dx + dy * dy + dz * dz >= (1 / 16) ^ 2 - 1e-9, "the head stops 1/16 short of the tail")
+  for _ = 1, n - 1 do key("^z") end
+  check(snap()[3] == before[3], "undone: the head where it was")
+  key("j")
+  check(sees("joints go together"), "j again: the joints go together")
+  key("\t")
+end
 key("p")
 check(sees("the parent of bone2") and sees("root"), "p: the parent to choose")
 key("esc")

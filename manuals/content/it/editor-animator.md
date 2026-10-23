@@ -129,6 +129,7 @@ La disposizione è quella delle altre app della console: a sinistra un pannello 
 | `n` | crea lo scheletro, o aggiunge un osso sotto quello scelto |
 | su, giù | scegli l'osso |
 | `Tab` | lavora sulla coda dell'osso o sulla testa |
+| `j` | testa sola: **w a s d r f** spostano solo la testa dell'osso, lontano dalla coda del genitore (di nuovo: le giunture vanno insieme) |
 | `w` `a` `s` `d` `r` `f` | sposta l'estremità scelta di 1/8 (maiuscolo: 1/32) |
 | `m` | specchia l'osso e i suoi figli sull'altro lato |
 | `p` | scegli il genitore |
@@ -223,6 +224,7 @@ Lo scheletro permette a un modello di avere tante animazioni a basso costo: il g
 - **n** su un modello vuoto crea un osso, `root`, dal fondo del modello fino a metà della sua altezza. Ogni **n** successivo aggiunge un figlio dell'osso scelto, lungo circa mezza unità nella stessa direzione.
 - Al massimo **64** ossa in uno scheletro.
 - Le giunture nello stesso punto si muovono insieme: una catena resta unita quando sposti una giuntura.
+- Una spalla o un'anca non è all'estremità del genitore. Crea l'osso con **n**, sposta la sua coda, poi scegli la sua testa con **Tab** e premi **j**. Ora **w a s d r f** spostano solo questa testa. Il genitore resta lo stesso, la coda resta ferma e le animazioni conservano le chiavi. Un osso non può essere più corto di 1/16. Premi **j** di nuovo per riunire le giunture. Ogni spostamento è un passo di **Ctrl+Z**.
 - **x** elimina un osso: i suoi figli passano al suo genitore e le sue facce seguono il genitore (o il primo osso). Eliminando l'unico osso si toglie lo scheletro.
 - **m** copia l'osso e i suoi figli sull'altro lato (x specchiato). I nomi finiscono in `.L` e `.R`; un osso senza lato ancora riceve `.L` se sta sul lato x positivo. Anche le pose delle animazioni vengono specchiate. Le facce sull'altro lato non si muovono da sole: rifai la pelle con **k** o assegnale con **a**.
 - Il genitore di un osso si sceglie tra le ossa che lo precedono nell'elenco.
