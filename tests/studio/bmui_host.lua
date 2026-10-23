@@ -27,7 +27,16 @@ E.time = function() return clock end
 E.screen_size = function() return 640, 360 end
 E.rectfill = function() end
 E.rect = function() end
-E.print = function(s, x, y) drawn[#drawn + 1] = { s = s, x = x, y = y } end
+E.print = function(s, x, y) drawn[#drawn + 1] = { s = s, x = x, y = y }; return (x or 0) + #tostring(s) * 8 end
+local chips_drawn, li, shown_keys = {}, "keyboard", 0
+E.prompt = function(n, x, y)
+  local w = #n == 1 and 16 or math.max(16, #n * 6 + 10)
+  if type(x) ~= "number" then return w, 16 end
+  chips_drawn[#chips_drawn + 1] = { n = n, x = x, y = y, w = w }
+  return x + w
+end
+E.lastinput = function() return li end
+E.showkeys = function() shown_keys = shown_keys + 1; return true end
 
 local U = assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()
 
@@ -380,6 +389,44 @@ do
   t.pos = 3; drawn = {}
   U.line_draw(t, 96, 176, 7, true)
   check(drawn[2] and drawn[2].s == "_" and drawn[2].x == 96 + 24, "line: the caret at the end is an underscore")
+end
+
+-- the hint bar: the fixed chip "F12 keys" at the right end (U.hint_row)
+do
+  local MANY = {}
+  for i, l in ipairs({ "choose", "mode", "move", "rotate", "scale", "extrude", "smooth", "bevel", "knife", "loop cut" }) do
+    MANY[i] = { keys = { i % 2 == 0 and "shift" or "ctrl", string.char(96 + i) }, label = l }
+  end
+  for _, W in ipairs({ 640, 360 }) do
+    chips_drawn, drawn = {}, {}
+    U.begin()
+    local x, n = U.hint_row(MANY, { y = 344, w = W, x = 8 })
+    local f12
+    for _, c in ipairs(chips_drawn) do if c.n == "f12" then f12 = c end end
+    local fixed_label
+    for _, t in ipairs(drawn) do if t.s == "keys" then fixed_label = t end end
+    check(f12 and fixed_label and f12.x % 8 == 0 and fixed_label.x % 8 == 0, W .. ": the fixed chip is drawn, on the 8 px columns")
+    check(f12 and fixed_label.x + 32 <= W and fixed_label.x + 32 >= W - 16, W .. ": and it sits at the right end, inside the screen")
+    check(n >= 1 and n < #MANY, W .. ": the other chips are cut to what fits (" .. n .. " of " .. #MANY .. ")")
+    local over = 0
+    for _, c in ipairs(chips_drawn) do if c.n ~= "f12" and c.x + c.w > f12.x - 8 then over = over + 1 end end
+    for _, t in ipairs(drawn) do if t.s ~= "keys" and t.x + #t.s * 8 > f12.x - 8 then over = over + 1 end end
+    check(over == 0, W .. ": no chip or label reaches the fixed chip")
+    -- a click on it opens the keys
+    local before = shown_keys
+    frame(f12.x + 4, 350, 0, 0, {})
+    frame(f12.x + 4, 350, 1, 0, { { f12.x, 344, 40, 16, "help" } })
+    check(U.keys(), W .. ": the click is the fixed chip's")
+    check(shown_keys == before + 1, W .. ": a click on the fixed chip opens the keys (showkeys)")
+    frame(f12.x + 4, 350, 0, 0, {})
+  end
+  -- a pad in use: no button for it, no chip
+  li = "pad"; chips_drawn = {}
+  U.hint_row(MANY, { y = 344, w = 640, x = 8 })
+  local any = false
+  for _, c in ipairs(chips_drawn) do if c.n == "f12" then any = true end end
+  check(not any, "a pad in use: no fixed chip (it has no button for it)")
+  li = "keyboard"
 end
 
 print(fails == 0 and ("bmui: " .. checks .. "/" .. checks .. " checks passed") or (fails .. " of " .. checks .. " FAILED"))

@@ -103,17 +103,19 @@ end
 
 -- the hint row: { {keys or nil, pad or nil, label}, ... } while it fits;
 -- with the pad, what has no button is left out (and with a keyboard what
--- has no key)
+-- has no key); then the fixed chip "F12 keys" at the right with a keyboard
+-- (U.hint_row): a new key goes in the help, the row shows the first chips
 local function hint(list, y)
-  y = y or HINT_Y
-  local x, pad = 8, pad_used()
+  local items, pad = {}, pad_used()
   for _, h in ipairs(list) do
     local k = (pad and h[2]) or (not pad and h[1])
     if k then
-      if snap(chips(k, x) + 2) + #h[3] * 8 > W then break end
-      x = chip_hint(h[1], h[2], h[3], x, y)
+      local t = {}
+      for w in k:gmatch("%S+") do t[#t + 1] = w end
+      items[#items + 1] = { keys = t, label = h[3], click = h[1] }
     end
   end
+  U.hint_row(items, { y = y or HINT_Y, w = W, x = 8, snap = snap, gap = 8, dim = C.DIM, fixed = not pad })
 end
 
 -- "512k", "1.5M": KiB in a few columns, as the dev kit's overlay

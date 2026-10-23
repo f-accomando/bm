@@ -170,6 +170,8 @@ E.require = function(name)
 end
 local keyhelp_list, keyhelp_title
 E.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
+local showkeys_n = 0
+E.showkeys = function() showkeys_n = showkeys_n + 1; return true end
 E.save = function(t) saved_t = t; return true end
 E.saved = function() return saved_t end
 E.cart_arg = function() return nil end
@@ -2566,7 +2568,7 @@ do
     end
     local all8 = { 1, 2, 3, 4, 5, 6, 7, 8 }
     if not sees(": 0 chosen") then key("a") end
-    check(sees("smooth"), "smooth: the hint bar shows Shift+V")
+    check(in_help("shift v", "smooth"), "smooth: Shift+V is in the F12 help (the hint bar keeps the top keys and the fixed chip)")
     key("V")
     check(status():find("choose vertices", 1, true), "smooth: nothing chosen, a message (" .. status() .. ")")
     key("f3")
@@ -3265,6 +3267,21 @@ do
         "humanoid: the bone names in the file")
   key("f2")
   check(sees("136 of 65535 vertices"), "humanoid: bm Mesh edits it")
+end
+
+-- the fixed chip "F12 keys" on the hint bar of every page
+dofile(ROOT .. "/tests/studio/hintchip.lua"){
+  name = "bm Mesh", check = check, texts = function() return texts end, hy = 320, w = 640, chip_w = chip_w,
+  click = click, shown = function() return showkeys_n end,
+  pages = {
+    { name = "list", go = function() key("f1") end },
+    { name = "edit", go = function() key("f2") end },
+    { name = "menu", go = function() key("esc") end },
+  } }
+key("f2")
+do
+  local function on_bar(s) for _, t in ipairs(texts) do if t[3] == 320 and t[1] == s then return true end end end
+  check(on_bar("all") and on_bar("mode") and on_bar("extrude"), "edit page: the bar has choose, all (a), mode and extrude next to the fixed chip")
 end
 
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))

@@ -155,6 +155,8 @@ E.require = function(name)
 end
 local keyhelp_list, keyhelp_title
 E.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
+local showkeys_n = 0
+E.showkeys = function() showkeys_n = showkeys_n + 1; return true end
 E.save = function(t) saved_t = t; return true end
 E.saved = function() return saved_t end
 E.cart_arg = function() return nil end
@@ -990,6 +992,24 @@ key("\n")
 check(sees("this sprite"), "the menu row opens the chooser")
 key("esc")
 key("f1")
+
+-- the fixed chip "F12 keys" on the hint bar of every page
+dofile(ROOT .. "/tests/studio/hintchip.lua"){
+  name = "bm Pixel", check = check, texts = function() return texts end, hy = 320, w = 640, chip_w = chip_w,
+  click = click, shown = function() return showkeys_n end,
+  pages = {
+    { name = "draw", go = function() key("f1") end },
+    { name = "sheet", go = function() key("f2") end },
+    { name = "palette", go = function() key("f3") end },
+    { name = "stack", go = function() key("f4") end },
+    { name = "menu", go = function() key("esc") end },
+  } }
+key("f1")
+do
+  local function on_bar(s) for _, t in ipairs(texts) do if t[3] == 320 and t[1] == s then return true end end end
+  check(on_bar("shapes") and on_bar("tools") and on_bar("PNG") and on_bar("colour"),
+        "draw page: the bar has the tools, the shapes (l u o), PNG and colour next to the fixed chip")
+end
 
 io.write(string.format("bm Pixel: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)

@@ -3156,11 +3156,10 @@ local function draw_bottom()
     print(msg:sub(1, 79), 8, y, msg_c)
     return
   end
-  local x = 8
-  for _, h in ipairs(hints) do
-    if x + ui.hint_w(x, h[1], h[2], h[3]) > W - 108 then break end
-    x = ui.hint(x, y, h[1], h[2], h[3])
-  end
+  -- the page's hints, then the fixed chip "F12 keys" (U.hint_row), then the menu
+  local items = {}
+  for i, h in ipairs(hints) do items[i] = { keys = hint_keys(h[1], h[2]), label = h[3], click = {} } end
+  U.hint_row(items, { y = y, w = W - 104, x = 8, snap = snap, gap = 8, dim = C.dim })
   ui.hint(W - 104, y, "SELECT", nil, "menu")
   U.zone(W - 104, y, 104, H - y, "menu")
 end
@@ -3333,6 +3332,7 @@ local function sound_mouse()
     local k = c.kind
     if k == "tab" then goto_page(c.a)
     elseif k == "menu" then open_menu()
+    elseif k == "help" then if showkeys then showkeys() end          -- the fixed chip "F12 keys"
     elseif k == "slot" then
       local now = cur.page == 1 and cur.sound or cur.page == 2 and cur.sfx or cur.song
       page.item(c.a - now)

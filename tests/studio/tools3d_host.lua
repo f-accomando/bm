@@ -193,6 +193,7 @@ local clipbox, drawn_box = nil, nil
 
 local MESH_MT = {}
 local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
+local showkeys_n = 0
 
 local MS
 local function new_env(arg_path)
@@ -237,6 +238,7 @@ local function new_env(arg_path)
   E.keyp = function() return table.remove(keyq, 1) end
   E.keyheld = function() return false end
   E.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
+  E.showkeys = function() showkeys_n = showkeys_n + 1; return true end
   -- the mouse (bmui): MS as a USB mouse would give it
   MS = { x = 0, y = 0, b = 0, w = 0, p = 0 }
   E.mouse = function(on) if on ~= nil then return true end; return MS.x, MS.y, MS.b, MS.w, true end
@@ -1263,6 +1265,15 @@ mx, my = at("Continue", 32)
 click(mx, my)
 check(not sees("Exit bm Studio"), "mouse: a click on Continue")
 
+-- the fixed chip "F12 keys" on the hint bar of the pages of bm Studio
+dofile(ROOT .. "/tests/studio/hintchip.lua"){
+  name = "bm Studio", check = check, texts = function() return texts end, hy = 320, w = 640, chip_w = chip_w,
+  click = click, shown = function() return showkeys_n end,
+  pages = {
+    { name = "build", go = function() key("f1") end },
+    { name = "models", go = function() key("f2") end },
+  } }
+
 run_cart("/carts/animator/main.lua", "/carts/village.bm")
 E._init()
 frames(3)
@@ -1293,6 +1304,17 @@ mx, my = at("sprites", nil, 0)
 click(mx, my)
 mouse(100, 80, 0, 1)
 check(sees("SPRITES"), "mouse: the sprites page, the wheel on a row")
+
+-- the fixed chip "F12 keys" on the hint bar of the pages of bm Animator
+dofile(ROOT .. "/tests/studio/hintchip.lua"){
+  name = "bm Animator", check = check, texts = function() return texts end, hy = 320, w = 640, chip_w = chip_w,
+  click = click, shown = function() return showkeys_n end,
+  pages = {
+    { name = "play", go = function() key("f1") end },
+    { name = "rig", go = function() key("f2") end },
+    { name = "animate", go = function() key("f3") end },
+    { name = "sprites", go = function() key("f4") end },
+  } }
 
 -- models from /bmm and /glb (APP-9): the list, a .bmm read, a .glb converted to /bmm (a name asked when
 -- its own is over 8 characters or taken), the errors, the texture, the skeleton, the export to /bmm
@@ -1475,7 +1497,7 @@ do
   check(dst and #dst.clips == 1 and sees("walk"), "retarget: the target model has one animation")
   check(in_help("ctrl shift i", "animate"), "retarget: Ctrl+Shift+I is in the F12 help of the animate page")
   check(in_help("ctrl c / ctrl v", "animate") and in_help("o", "animate"), "retarget: the onion key stays in the help")
-  check(sees("other anims"), "retarget: the hint bar has the new key")
+  check(sees("retarget"), "retarget: the hint bar has the new key")
   key("^I")
   check(sees("import a model (/bmm, /glb)"), "retarget: Ctrl+Shift+I opens the list of models")
   key("esc")

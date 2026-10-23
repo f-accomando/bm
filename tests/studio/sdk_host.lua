@@ -189,6 +189,7 @@ end
 
 local E, texts, sel_rows, keyq, pad, padprev, frame, saved_t, quitted, draws, arg_t
 local keyhelp_list, keyhelp_title
+local showkeys_n = 0
 local MESH_MT = {}
 local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
 local PADN = { A = 1, B = 1, X = 1, Y = 1, START = 1, SELECT = 1, L1 = 1, R1 = 1, UP = 1, UPDOWN = 1, LEFTRIGHT = 1,
@@ -273,6 +274,7 @@ local function new_env(arg)
     keyhelp_list, keyhelp_title = list, title
     return 0
   end
+  E.showkeys = function() showkeys_n = showkeys_n + 1; return true end
   E.save = function(t) saved_t = t; return true end
   E.saved = function() return saved_t end
   E.cart_arg = function() return arg_t end
@@ -1113,6 +1115,26 @@ do
   names = E.mlayers()
   check(#names == 1 and names[1] == "Ground" and E.mget(3, 0, "Ground") == 33, "tiled: replace keeps only the imported layers: " .. table.concat(names, ","))
   key("esc", "down", "down", "esc")                -- (the menu's choice back on the first line)
+end
+
+-- the fixed chip "F12 keys" on the hint bar of every page
+do
+  dofile(ROOT .. "/tests/studio/hintchip.lua"){
+    name = "bm SDK", check = check, texts = function() return texts end, hy = 320, w = 640, chip_w = chip_w,
+    click = click, shown = function() return showkeys_n end,
+    pages = {
+      { name = "project", go = function() key("f1") end },
+      { name = "code", go = function() key("f2") end },
+      { name = "sprites", go = function() key("f3") end },
+      { name = "map", go = function() key("f3") end },
+      { name = "models", go = function() key("f4") end },
+      { name = "menu", go = function() key("esc") end },
+    } }
+  key("f3")
+  key("f3")
+  local function on_bar(s) for _, t in ipairs(texts) do if t[3] == 320 and t[1] == s then return true end end end
+  check(on_bar("terrain") and on_bar("layer") and on_bar("mini"), "map page: the bar has terrain, layer and mini (m) next to the fixed chip")
+  key("esc")
 end
 
 io.write(string.format("sdk_host: %d checks, %d failed\n", checks, fails))
