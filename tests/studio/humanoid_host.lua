@@ -1434,6 +1434,52 @@ do
   say("moved per bone (m): %s", table.concat(t, ", "))
 end
 
+----------------------------------------------------------------- the humanoid base (APP-12)
+
+-- bm Mesh makes the base body with its skeleton from the list (F3), bm Animator opens it with the rig
+do
+  local P2 = "/bme/base.bme"
+  local fh = assert(io.open(host(P2), "wb"))
+  fh:write(pack_cart("Base", "bm", "640x360", { { 1, "function _draw() cls(0) end\n" } }))
+  fh:close()
+  add_file(P2)
+  run_cart(MESH, P2)
+  check(sees("0 models"), "base: bm Mesh opens an empty project")
+  key("f3")
+  check(sees("New model: humanoid"), "base: F3 lists the humanoid")
+  for _ = 1, 4 do key("down") end                  -- cube, plane, sphere, cylinder, humanoid
+  key("\n")
+  check(status():find("new model man", 1, true) and status():find("16 bones", 1, true), "base: " .. status())
+  key("^s")
+  check(status():find("saved", 1, true), "base: Ctrl+S: " .. status())
+  local file1 = read_file(host(P2))
+  local m = mesh_models(section(file1, 8))[1]
+  local r1 = anim_rigs(section(file1, 9)).man
+  check(m and m.nv == 136 and m.nf == 204 and r1 and r1.nb == 16 and r1.nv == 136 and r1.nc == 0, "base: 136 vertices, 204 triangles, 16 bones, no animation yet")
+  run_cart(ANIMATOR, P2)
+  check(sees("136 vertices, 204 triangles"), "base: bm Animator lists the model")
+  key("f2")
+  check(not sees("NO SKELETON"), "base: the rig page shows a skeleton")
+  local e, n, x, y, z = bone_info()
+  check(n == "pelvis" and math.abs(y - 1.0) < 1e-3, "base: the first bone is the pelvis, " .. e .. " at y 1 (" .. tostring(n) .. " " .. tostring(y) .. ")")
+  for _ = 1, 3 do key("down") end
+  e, n, x, y, z = bone_info()
+  check(n == "head" and math.abs(y - 1.875) < 1e-3, "base: the fourth bone is the head, " .. e .. " at y 1.875 (" .. tostring(n) .. " " .. tostring(y) .. ")")
+  for _ = 1, 9 do key("down") end
+  e, n, x, y, z = bone_info()
+  check(n == "foot.L" and x > 0, "base: the thirteenth bone is foot.L, on the +x side (" .. tostring(n) .. ")")
+  key("^s")
+  check(status():find("saved", 1, true), "base: bm Animator saves: " .. status())
+  local r2 = anim_rigs(section(read_file(host(P2)), 9)).man
+  local same = r2 and r2.nb == 16 and r2.nv == 136
+  for i = 1, 136 do if not r2 or r2.vb[i] ~= r1.vb[i] then same = false; break end end
+  check(same, "base: bm Animator keeps the 16 bones and the bone of every vertex")
+  -- the base walks: bm Animator can add a clip on top of it (a key on the rig page is not needed here: the file reads back)
+  run_cart(MESH, P2)
+  key("f2")
+  check(sees("136 of 65535 vertices  204 triangles"), "base: bm Mesh reopens it with the skeleton")
+end
+
 for _, n in ipairs(TOOL_ORDER) do say("  %-12s %3d times %5d keys %.2f s", n, TOOLS[n].n, TOOLS[n].keys, TOOLS[n].secs) end
 say("the whole build: %d keys, %d distinct tools", KEYS, #TOOL_ORDER)
 

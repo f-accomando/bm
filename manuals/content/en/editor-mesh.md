@@ -120,7 +120,7 @@ Other keys. F3 works only on the list and edit pages, and `[` and `]` are ignore
 | r | rename |
 | d | duplicate (a model keeps its skeleton) |
 | Del | delete: press it twice |
-| n | a new model, a cube; with F3 also a plane or a sphere |
+| n | a new model, a cube; with F3 also a plane, a sphere, a cylinder or the humanoid base |
 | i | import a model from `/bmm` or `/glb` |
 | x | export the mesh to `/bmm` |
 | q, e | turn the view |
@@ -167,6 +167,8 @@ The edit page draws the model with its edges, a pointer, and a line at the top w
 | R (Shift+R) | reference pictures: a front and a side picture from `/pics` |
 | Ctrl+R | loop cut across the chosen edge |
 | Shift+J | knife: cut a triangle between the middles of two chosen edges |
+| Shift+E | bevel: each chosen edge becomes a narrow strip (you type the width) |
+| Shift+U | project the faces onto the sprite sheet (you type cell size, x and y) |
 | j | make a face on 3 or 4 chosen vertices |
 | k | merge the chosen vertices into one |
 | K | weld the vertices at the same point |
@@ -304,6 +306,24 @@ When it is done, the new vertices are the choice (in edge mode, the new edges ac
 **Shift+J** is the knife. Use it in edge mode. Choose two edges of one triangle (two edges that meet at a corner of the triangle). The editor puts a new vertex in the middle of each edge and cuts the triangle so that a new edge joins the two new vertices. The triangle across each of the two edges is cut in two, from the new vertex to its far corner, so no crack appears. A new vertex takes the bone of the lower end of its edge and the mean of the texture points (UV). A new triangle keeps the colour of its old face. The two new vertices are the choice (the new edge, in edge mode), and one undo takes back the whole cut.
 
 The knife does nothing, and a message tells why, in these cases: you did not choose exactly two edges, the two edges are not edges of one triangle, or an edge has more than two triangles. The knife works on one triangle, so the live mirror does not copy it to the other side. With the live mirror on, choosing an edge also chooses its counterpart, so turn the mirror off (Shift+X) before you choose the two edges. Cut the other side by hand. With the gamepad, tap X and pick **Knife on two edges of a triangle**.
+
+## Bevel
+
+**Shift+E** bevels edges. Use it in edge mode. Choose the edges, press **Shift+E** and type the width (the first value is 0.1). In vertex or face mode the edges with both ends chosen are used. Each chosen edge becomes a narrow strip of two triangles, and the hard corner gets a soft highlight.
+
+The two faces of an edge move away from it by the width, and the strip joins them. At the end of an edge the corner vertex is split in two (or in more, where several chosen edges meet; three edges or more get a cap face), and one face is cut in two, so no gap stays. The new faces keep the colour, the sheet uv and the bone of the faces and vertices they come from.
+
+- A flat edge (two faces that look the same way) is left out, and the message counts it.
+- The width is cut to 0.45 of the smallest face height over a chosen edge, so the strip cannot fold over. The message says when it was cut.
+- The editor refuses an edge on an open border or with more than two faces, and a vertex whose faces do not close round it. A message tells which, and nothing changes.
+- When the strips are done, they are the choice (face mode). One undo takes back the whole bevel.
+- With the live mirror on, the counterparts across X = 0 are bevelled too. Both sides then get the same width.
+
+## Project onto the sprite sheet
+
+**Shift+U** gives a place on the sprite sheet to each chosen face (or to every shown face when none is chosen). This is box projection. Type the cell size, the x and the y of the top left corner, for example `32 0 0`. The editor uses 6 cells of that size, 3 across and 2 down: +x, -x, +y on the first row, and -y, +z, -z on the second. Each face goes to the cell of the side it looks to, drawn as seen from that side. All the cells have the same scale, so the texel size is the same on every side. One pixel at the edge of each cell stays free.
+
+The faces become faces with a texture of the sheet. The editor does not paint the sheet: paint the cells in bm Pixel, then look at the model. If the sheet is too small for the 6 cells, a message says so and nothing changes. The faces that were flat colours lose their colour. One undo takes the projection back.
 
 ## Reference model (ghost)
 
@@ -446,5 +466,6 @@ To leave the game and come back to bm Mesh, press Start + Select on the pad or C
 - At most 256 models in a cartridge.
 - A G mesh cannot be renamed or deleted: change the code with bm Code.
 - A copy as code does not keep the skeleton.
+- The humanoid base (F3 on the list, **New model: humanoid with a skeleton**) has 17 boxes, 136 vertices, 204 triangles and 16 bones. It has no animation: make one in bm Animator.
 - The assistant (F6) adds a model with no skeleton.
 - [TO FILL: the size of a model that the Pi Zero W draws smoothly]

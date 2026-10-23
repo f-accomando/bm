@@ -2691,5 +2691,377 @@ do
         in_help("shift r", "reference pictures"), "keyhelp: the comfort keys")
 end
 
+-- APP-12: bevel, box projection, humanoid base
+do
+  local G = E.require("bm3d").G
+  local function same(a, b) return math.abs(a - b) < 1e-5 end
+  local function cube_item()
+    local it = { v = {}, f = {} }
+    G.primitive(it, "cube", { 0, 0, 0 }, 1, 0xFF0000)
+    return it
+  end
+  -- every directed edge once, and its reverse once (a closed mesh with every face looking out); the
+  -- Euler number V - E + F of the vertices that are used
+  local function closed(it)
+    local dir, bad = {}, 0
+    for _, f in ipairs(it.f) do
+      for k = 1, 3 do
+        local a, b = f[k], f[k % 3 + 1]
+        dir[a .. ">" .. b] = (dir[a .. ">" .. b] or 0) + 1
+      end
+    end
+    for key, n in pairs(dir) do
+      local a, b = key:match("(%d+)>(%d+)")
+      if n ~= 1 or dir[b .. ">" .. a] ~= 1 then bad = bad + 1 end
+    end
+    local used, nu, ne = {}, 0, 0
+    for _, f in ipairs(it.f) do for k = 1, 3 do if not used[f[k]] then used[f[k]] = true; nu = nu + 1 end end end
+    for _ in pairs(G.edge_faces(it)) do ne = ne + 1 end
+    return bad == 0, nu - ne + #it.f, nu
+  end
+  local function volume(it)
+    local s = 0
+    for _, f in ipairs(it.f) do
+      local a, b, c = it.v[f[1]], it.v[f[2]], it.v[f[3]]
+      s = s + (a[1] * (b[2] * c[3] - b[3] * c[2]) - a[2] * (b[1] * c[3] - b[3] * c[1]) + a[3] * (b[1] * c[2] - b[2] * c[1])) / 6
+    end
+    return s
+  end
+  local function hard_edges(it, below)
+    local out = {}
+    for k, l in pairs(G.edge_faces(it)) do
+      local n1, n2 = G.unit(G.normal_of(it, it.f[l[1]])), G.unit(G.normal_of(it, it.f[l[2]]))
+      if n1[1] * n2[1] + n1[2] * n2[2] + n1[3] * n2[3] < below then out[#out + 1] = k end
+    end
+    table.sort(out)
+    return out
+  end
+
+  ---------------------------------------------------------------- bevel, pure
+  do
+    local it = cube_item()
+    local ks = hard_edges(it, 0.5)
+    check(#ks == 12, "bevel: a cube has 12 hard edges (" .. #ks .. ")")
+    local plan = G.bevel_plan(it, { ks[1] }, 0.1)
+    check(plan and #it.f == 12 and #it.v == 8, "bevel_plan changes nothing")
+    local res = G.bevel(it, { ks[1] }, 0.1)
+    local ok, euler = closed(it)
+    check(res and #it.v == 10 and #it.f == 16 and #res.strips == 2 and #res.verts == 4, tostring(res and #res.strips) .. " " .. tostring(res and #res.verts) .. " " .. "bevel one edge: 10 vertices, 16 triangles, 2 faces in the strip (" .. #it.v .. "/" .. #it.f .. ")")
+    check(ok and euler == 2, "bevel one edge: closed, every face looks out, Euler number 2 (" .. tostring(euler) .. ")")
+    check(math.abs(volume(it) - (1 - 0.1 * 0.1 / 2)) < 1e-6, "bevel one edge: the corner prism is gone (volume " .. volume(it) .. ")")
+    -- the strip is flat and 0.1 + 0.1 across: its normal is at 45 degrees
+    local n = G.unit(G.normal_of(it, it.f[res.strips[1]]))
+    local a1, a2, a3 = math.abs(n[1]), math.abs(n[2]), math.abs(n[3])
+    check(math.abs(a1 - a2) < 1e-6 or math.abs(a1 - a3) < 1e-6 or math.abs(a2 - a3) < 1e-6,
+          "bevel one edge: the strip looks away at 45 degrees")
+    local it2 = cube_item()
+    local r2 = G.bevel(it2, ks, 0.1)
+    ok, euler = closed(it2)
+    check(r2 and #it2.v == 24 and #it2.f == 44 and ok and euler == 2, "bevel all 12 edges: 24 vertices, 44 triangles, closed (" .. #it2.v .. "/" .. #it2.f .. ")")
+    check(volume(it2) < 1 and volume(it2) > 0.9, "bevel all edges: smaller, same shape (volume " .. volume(it2) .. ")")
+    -- two edges that meet, three edges at a corner
+    for _, set in ipairs({ { 1, 2 }, { 1, 2, 3 }, { 1, 2, 3, 4, 5 } }) do
+      local itn = cube_item()
+      local chosen = {}
+      for _, i in ipairs(set) do chosen[#chosen + 1] = ks[i] end
+      local rn = G.bevel(itn, chosen, 0.1)
+      ok, euler = closed(itn)
+      check(rn and ok and euler == 2, "bevel " .. #set .. " edges: closed and looks out (Euler " .. tostring(euler) .. ")")
+    end
+    -- the diagonals are flat and are left out; a width that is too big is cut
+    local itd = cube_item()
+    local all = {}
+    for k in pairs(G.edge_faces(itd)) do all[#all + 1] = k end
+    local pd = G.bevel_plan(itd, all, 0.1)
+    check(pd and pd.flat == 6 and #pd.edges == 12, "bevel: the 6 flat diagonals are left out (" .. tostring(pd and pd.flat) .. ")")
+    local pw = G.bevel_plan(itd, { ks[1] }, 5)
+    check(pw and pw.w <= 0.45 + 1e-9, "bevel: a width that is too big is cut (" .. tostring(pw and pw.w) .. ")")
+    local nothing, err = G.bevel_plan(cube_item(), {}, 0.1)
+    check(nothing == nil and err:find("choose edges", 1, true), "bevel: no edges is refused")
+    local _, err0 = G.bevel_plan(cube_item(), { ks[1] }, 0)
+    check(err0 and err0:find("width", 1, true), "bevel: a width of 0 is refused")
+    -- an edge on a border: refused
+    local pl = { v = {}, f = {} }
+    G.primitive(pl, "plane", { 0, 0, 0 }, 1, 0xFF0000)
+    local pk
+    for k in pairs(G.edge_faces(pl)) do pk = k end
+    local _, errb = G.bevel_plan(pl, { pk }, 0.1)
+    check(errb and errb:find("border", 1, true), "bevel: an edge on a border is refused (" .. tostring(errb) .. ")")
+    -- the colour and the sheet uv stay; the strip takes the colour of its face; bones follow
+    local itt = cube_item()
+    for _, f in ipairs(itt.f) do f[4] = -1; f[5] = { 0, 0, 8, 0, 8, 8 } end
+    itt.vb = {}
+    for i = 1, 8 do itt.vb[i] = i % 3 end
+    local rt = G.bevel(itt, { ks[1] }, 0.1)
+    local texd = true
+    for _, f in ipairs(itt.f) do if f[4] ~= -1 or not f[5] or #f[5] ~= 6 then texd = false end end
+    check(rt and texd and #itt.vb == #itt.v, "bevel: textured faces stay textured, every vertex has a bone")
+    -- a cylinder
+    local cy = { v = {}, f = {} }
+    G.primitive(cy, "cylinder", { 0, 0, 0 }, 1, 0x808080)
+    local rc = G.bevel(cy, hard_edges(cy, 0.8), 0.05)
+    ok, euler = closed(cy)
+    check(rc and ok and euler == 2, "bevel the cylinder's rims: closed (Euler " .. tostring(euler) .. ")")
+  end
+
+  ---------------------------------------------------------------- box projection, pure
+  do
+    local it = cube_item()
+    local plan = G.project_plan(it, nil, { 0, 0, 32 }, 256, 256)
+    check(plan and it.f[1][4] == 0xFF0000, "projection: the plan changes nothing")
+    local n, sc = G.project_apply(it, plan)
+    check(n == 12 and sc == 30, "projection: 12 faces placed, 30 px a unit (" .. tostring(n) .. ", " .. tostring(sc) .. ")")
+    local cells, inside, flag = {}, true, true
+    for _, f in ipairs(it.f) do
+      if f[4] ~= -1 or not f[5] then flag = false end
+      local c0
+      for i = 1, 6, 2 do
+        local u, v = f[5][i], f[5][i + 1]
+        if u < 0 or v < 0 or u > 96 or v > 64 then inside = false end
+        local c = math.floor(u / 32 - 1e-9) + 3 * math.floor(v / 32 - 1e-9)
+        c0 = c0 or c
+        if c ~= c0 then inside = false end
+      end
+      cells[c0] = true
+    end
+    local nc = 0
+    for _ in pairs(cells) do nc = nc + 1 end
+    check(flag and inside and nc == 6, "projection: every face is textured, in one of 6 cells, inside 3 x 2 cells (" .. nc .. " cells)")
+    -- a long box: the same scale on every side, another place and cell size
+    local box = { v = {}, f = {} }
+    G.primitive(box, "cube", { 0, 0, 0 }, 1, 0x00FF00)
+    for _, p in ipairs(box.v) do p[1] = p[1] * 4 end
+    G.project_box(box, nil, { 8, 16, 64 }, 256, 256)
+    local u0, u1 = 1e9, -1e9
+    for _, f in ipairs(box.f) do for i = 1, 6, 2 do u0, u1 = math.min(u0, f[5][i]), math.max(u1, f[5][i]) end end
+    check(u0 >= 8 and u1 <= 8 + 192, "projection: another place and cell size stay inside (" .. u0 .. " to " .. u1 .. ")")
+    -- the chosen faces only
+    local it3 = cube_item()
+    local n3 = G.project_box(it3, { 1, 2 }, { 0, 0, 16 }, 256, 256)
+    check(n3 == 2 and it3.f[1][4] == -1 and it3.f[3][4] == 0xFF0000, "projection: only the faces given")
+    local a, e1 = G.project_plan(cube_item(), nil, { 0, 0, 100 }, 256, 256)
+    check(a == nil and e1:find("too small", 1, true), "projection: a sheet too small is refused")
+    local a2, e2 = G.project_plan(cube_item(), {}, { 0, 0, 16 }, 256, 256)
+    check(a2 == nil and e2:find("no faces", 1, true), "projection: no faces is refused")
+    -- seen from the front (+z) x grows to the right, y up is v down
+    local sq = { v = { { 0, 0, 1 }, { 1, 0, 1 }, { 1, 1, 1 }, { 0, 1, 1 } }, f = { { 1, 2, 3, 0 }, { 1, 3, 4, 0 } } }
+    G.project_box(sq, nil, { 0, 0, 32 }, 256, 256)
+    local f1 = sq.f[1][5]
+    check(f1[3] > f1[1] and f1[6] < f1[2], "projection: a front face reads left to right and bottom to top")
+  end
+
+  ---------------------------------------------------------------- humanoid, pure
+  do
+    local h = G.humanoid("man")
+    local ok, euler = closed(h)
+    check(#h.v == 136 and #h.f == 204 and h.bones == 16 and #h.vb == 136 and ok and euler == 34,
+          "humanoid: 17 boxes, 136 vertices, 204 triangles, 16 bones (" .. #h.v .. "/" .. #h.f .. ")")
+    local rig = G.rig_bones(h)
+    check(#rig == 16 and rig[1].name == "pelvis" and rig[16].name == "foot.R" and G.skin_state(h) == "skinned", "humanoid: the skeleton and its skin")
+    local used, cols = {}, {}
+    for i = 1, 136 do used[h.vb[i]] = true end
+    for _, f in ipairs(h.f) do cols[f[4]] = true end
+    local nused, ncols = 0, 0
+    for _ in pairs(used) do nused = nused + 1 end
+    for _ in pairs(cols) do ncols = ncols + 1 end
+    check(nused == 16 and ncols == 5, "humanoid: every bone has vertices, 5 colours (" .. nused .. ", " .. ncols .. ")")
+    local list = {}
+    for i = 1, 136 do list[i] = i end
+    local mp = G.mirror_pairs(h, list)
+    local lonely, wrong = 0, 0
+    for i = 1, 136 do
+      if not mp[i] then lonely = lonely + 1
+      elseif G.mirror_bone(rig, h.vb[i]) ~= h.vb[mp[i]] then wrong = wrong + 1 end
+    end
+    check(lonely == 0 and wrong == 0, "humanoid: every vertex has a twin across x = 0 on the mirror bone (" .. lonely .. " lonely, " .. wrong .. " wrong)")
+    local lo, hi = 1e9, -1e9
+    for _, p in ipairs(h.v) do lo, hi = math.min(lo, p[2]), math.max(hi, p[2]) end
+    check(same(lo, 0) and hi > 1.85 and hi < 1.95, "humanoid: stands on y = 0, about 1.9 high (" .. hi .. ")")
+  end
+
+  ---------------------------------------------------------------- Studio block shapes, pure
+  do
+    local T = E.require("bm3d")
+    -- the faces of T.block_shape as a triangle mesh: shared corners welded by position
+    local function tri_mesh(faces)
+      local it, index = { v = {}, f = {} }, {}
+      local function vid(p)
+        local k = string.format("%.4f,%.4f,%.4f", p[1], p[2], p[3])
+        if not index[k] then it.v[#it.v + 1] = { p[1], p[2], p[3] }; index[k] = #it.v end
+        return index[k]
+      end
+      for _, f in ipairs(faces) do
+        for j = 2, #f.p - 1 do it.f[#it.f + 1] = { vid(f.p[1]), vid(f.p[j]), vid(f.p[j + 1]), 0 } end
+      end
+      return it
+    end
+    local want = { [2] = { faces = 5, vol = 0.5 }, [3] = { faces = 5, vol = 1 / 3 }, [4] = { faces = 14, vol = 0.82 } }
+    for kind = 2, 4 do
+      for _, view in ipairs({ { 3, 1, 1, 1 }, { 3, -1, 1, -1 }, { 1, 1, 3, -1 }, { 1, -1, 3, 1 } }) do
+        local faces = T.block_shape(kind, { 2, 3, -1 }, view[1], view[2], view[3], view[4])
+        local it = tri_mesh(faces)
+        local ok, euler = closed(it)
+        local name = T.BLOCK_KINDS[kind] .. " seen along axis " .. view[1] .. " sign " .. view[2]
+        check(#faces == want[kind].faces and ok and euler == 2, "block shape " .. name .. ": " .. #faces .. " faces, closed, looks out (Euler " .. tostring(euler) .. ")")
+        check(math.abs(volume(it) - want[kind].vol) < 1e-6, "block shape " .. name .. ": volume " .. volume(it))
+        local inside = true
+        for _, p in ipairs(it.v) do
+          if p[1] < 2 - 1e-9 or p[1] > 3 + 1e-9 or p[2] < 3 - 1e-9 or p[2] > 4 + 1e-9 or p[3] < -1 - 1e-9 or p[3] > 0 + 1e-9 then inside = false end
+        end
+        check(inside, "block shape " .. name .. ": inside its cell")
+      end
+    end
+    check(T.block_shape(1, { 0, 0, 0 }, 3, 1, 1, 1) == nil, "block shape: the cube is bm Studio's own")
+    -- the ramp rises away from the camera: its high wall is on the far side
+    local r = T.block_shape(2, { 0, 0, 0 }, 3, 1, 1, 1)
+    local hi = 0
+    for _, f in ipairs(r) do for _, p in ipairs(f.p) do if p[2] == 1 then hi = math.max(hi, p[3]) end end end
+    local lo = 1
+    for _, f in ipairs(r) do for _, p in ipairs(f.p) do if p[2] == 1 then lo = math.min(lo, p[3]) end end end
+    check(hi == 1 and lo == 1, "block shape: the ramp's top edge is on the far side (z = 1)")
+  end
+
+  ---------------------------------------------------------------- in the editor
+  local function new_cube(name)
+    key("f1", "n")
+    key("r")
+    type_text(name)
+    key("f2")
+    for _ = 1, 3 do if sees("VERTICES:") then break end key("\t") end
+    key("^s")
+    return status():match("saved /bme/(%S+)") or status():match("saved /carts/(%S+)")
+  end
+  local function edges_mode() for _ = 1, 3 do if sees("EDGES:") then return end key("\t") end end
+  local fname = new_cube("bvl")
+  local m0 = model_of(fname, "bvl")
+  check(m0 and m0.nv == 8 and m0.nf == 12, "bevel: a new cube for the keys")
+  key("E")
+  check(status():find("choose edges", 1, true), "Shift+E with nothing chosen: a message (" .. status() .. ")")
+  edges_mode()
+  key("a")                                        -- every edge, the diagonals too
+  key("E")
+  check(sees("bevel width"), "Shift+E asks for the width")
+  type_text("0.1")
+  key("^s")
+  local m1 = model_of(fname, "bvl")
+  check(m1 and m1.nv == 24 and m1.nf == 44 and status():find("saved", 1, true), "bevel keys: 24 vertices, 44 triangles (" .. (m1 and (m1.nv .. "/" .. m1.nf) or "-") .. ")")
+  check(m1 and outward(m1), "bevel keys: the faces still look out")
+  check(sees("FACES:"), "after a bevel the strips are chosen, in face mode")
+  key("^z", "^s")
+  m1 = model_of(fname, "bvl")
+  check(m1 and m1.nv == 8 and m1.nf == 12, "bevel: one undo step brings the cube back")
+  key("^y", "^s")
+  m1 = model_of(fname, "bvl")
+  check(m1 and m1.nv == 24 and m1.nf == 44, "bevel: redo")
+  key("^z")
+  -- a bad width
+  edges_mode()
+  key("a", "E")
+  type_text("abc")
+  check(status():find("number above 0", 1, true), "bevel: a width that is no number is refused (" .. status() .. ")")
+  -- one edge: 1 strip; with the live mirror its counterpart too
+  local function none() if not sees(": 0 chosen") then key("a") end end
+  local function edge_pick(a, b)               -- the edge (a, b) of the cube: n steps through the sorted keys
+    local keys = {}
+    for k in pairs(G.edge_faces({ f = m0.faces })) do keys[#keys + 1] = k end
+    table.sort(keys)
+    edges_mode()
+    none()
+    key("home")
+    for i, k in ipairs(keys) do
+      key("n")
+      if k == G.edge_key(a, b) then key(" "); return end
+    end
+  end
+  edge_pick(1, 4)
+  key("E")
+  type_text("0.1")
+  key("^s")
+  m1 = model_of(fname, "bvl")
+  check(m1 and m1.nv == 10 and m1.nf == 16, "bevel one edge, live mirror off: 10 vertices, 16 triangles (" .. (m1 and (m1.nv .. "/" .. m1.nf) or "-") .. ")")
+  key("^z")
+  key("X")
+  edge_pick(1, 4)
+  check(sees("EDGES: 2 chosen"), "bevel: the live mirror chooses the counterpart edge too (" .. status() .. ")")
+  key("E")
+  type_text("0.1")
+  key("^s")
+  m1 = model_of(fname, "bvl")
+  local mirror_ok = false
+  if m1 then
+    local lp = {}
+    for i = 1, m1.nv do lp[i] = i end
+    local mp = G.mirror_pairs({ v = m1.verts }, lp)
+    mirror_ok = true
+    for i = 1, m1.nv do if not mp[i] then mirror_ok = false end end
+  end
+  check(m1 and (m1.nv == 12 and m1.nf == 20) and mirror_ok, "bevel with the live mirror: both sides, every vertex has a twin (" .. (m1 and (m1.nv .. "/" .. m1.nf) or "-") .. ")")
+  key("^z", "X")
+
+  -- the projection
+  local function uv_of(name, mname)
+    local bin = section(file(name), 8)
+    local n = string.unpack("<I2", bin)
+    local pos = 9
+    for _ = 1, n do
+      local nm = bin:sub(pos, pos + 15):match("^[^\0]*")
+      local nv, nf = string.unpack("<I2I2", bin, pos + 16)
+      local out = {}
+      for i = 1, nf do
+        local f = pos + 24 + nv * 12 + (i - 1) * 24
+        local _, _, _, _, col, u0, v0, u1, v1, u2, v2 = string.unpack("<I2I2I2I2I4I2I2I2I2I2I2", bin, f)
+        out[i] = { col = col, uv = { u0 / 8, v0 / 8, u1 / 8, v1 / 8, u2 / 8, v2 / 8 } }
+      end
+      if nm == mname then return out end
+      pos = pos + 24 + nv * 12 + nf * 24
+    end
+  end
+  local pname = new_cube("prj")
+  key("U")
+  check(sees("sheet cell px"), "Shift+U asks for the cell size and the place")
+  type_text("32 8 16")
+  key("^s")
+  local fs = uv_of(pname, "prj")
+  local cells, textured, within = {}, 0, true
+  for _, f in ipairs(fs or {}) do
+    if f.col & 0x80000000 ~= 0 then textured = textured + 1 end
+    local c0
+    for i = 1, 6, 2 do
+      local u, v = f.uv[i], f.uv[i + 1]
+      if u < 8 or v < 16 or u > 8 + 96 or v > 16 + 64 then within = false end
+      local c = math.floor((u - 8) / 32 - 1e-9) + 3 * math.floor((v - 16) / 32 - 1e-9)
+      c0 = c0 or c
+    end
+    cells[c0] = true
+  end
+  local nc = 0
+  for _ in pairs(cells) do nc = nc + 1 end
+  check(fs and #fs == 12 and textured == 12 and within and nc == 6, "projection keys: 12 faces textured, in 6 cells at 8,16 (" .. textured .. ", " .. nc .. ")")
+  key("^z")
+  key("U")
+  type_text("500 0 0")
+  check(status():find("too small", 1, true), "projection: a cell too big for the sheet is refused (" .. status() .. ")")
+  check(in_help("shift e", "bevel") and in_help("shift u", "project"), "keyhelp: bevel and projection")
+
+  -- the humanoid base from the list
+  key("f1")
+  key("f3")
+  check(sees("New model: humanoid"), "F3 on the list: the humanoid row")
+  for _ = 1, 10 do key("down") end
+  key("\n")
+  check(status():find("new model man", 1, true) and status():find("16 bones", 1, true), "humanoid: the new model says its bones (" .. status() .. ")")
+  key("^s")
+  local hf = file(pname)
+  local hm = model_of(pname, "man")
+  local rigs = anim_rigs(section(hf, 9))
+  check(hm and hm.nv == 136 and hm.nf == 204 and rigs.man and rigs.man.nb == 16 and rigs.man.nv == 136 and rigs.man.nc == 0,
+        "humanoid: saved with 136 vertices, 204 triangles and a skeleton of 16 bones")
+  local function bname(i) return rigs.man.bones:sub((i - 1) * 44 + 1, i * 44):match("^[^\0]*") end
+  check(rigs.man and bname(1) == "pelvis" and bname(4) == "head" and bname(13) == "foot.L",
+        "humanoid: the bone names in the file")
+  key("f2")
+  check(sees("136 of 65535 vertices"), "humanoid: bm Mesh edits it")
+end
+
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)

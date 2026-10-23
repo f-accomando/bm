@@ -750,6 +750,433 @@ function G.knife(it, k1, k2)
   if not plan then return nil, err end
   return G.knife_apply(it, plan), plan
 end
+----------------------------------------------------------------- finish tools (APP-12): bevel, box projection, humanoid base
+do
+  local function sub3(a, b) return { a[1] - b[1], a[2] - b[2], a[3] - b[3] } end
+  local function dot3(a, b) return a[1] * b[1] + a[2] * b[2] + a[3] * b[3] end
+  local function cross3(a, b)
+    return { a[2] * b[3] - a[3] * b[2], a[3] * b[1] - a[1] * b[3], a[1] * b[2] - a[2] * b[1] }
+  end
+  local function len3(a) return sqrt(dot3(a, a)) end
+
+  -- Bevel. An edge shared by two faces becomes a narrow strip: each end of the edge is split in two
+  -- vertices, one for each face, pushed w into its face and across the edge; two triangles fill the strip.
+  -- A vertex where several chosen edges meet gets one vertex for each sector between them, and a cap
+  -- face (a polygon of the sector vertices) when 3 or more edges meet. A vertex with one chosen edge keeps
+  -- its fan whole except one face that is cut in two (the "straddle"), so no gap stays. Faces keep their
+  -- colour and uv; the strip takes the colour and uv of the face that holds the edge from a to b.
+  G.BEVEL_FLAT = 0.9995         -- two faces with normals this close (dot) are flat: no bevel there
+
+  -- the direction in the plane of face f, across the edge (v, u), into the face
+  local function bevel_dir(it, f, v, u)
+    local n = G.unit(G.normal_of(it, f))
+    local d = G.unit(cross3(n, G.unit(sub3(it.v[u], it.v[v]))))
+    local third
+    for k = 1, 3 do if f[k] ~= v and f[k] ~= u then third = f[k] end end
+    if dot3(d, sub3(it.v[third], it.v[v])) < 0 then d = { -d[1], -d[2], -d[3] } end
+    return d
+  end
+
+  -- the faces around vertex v in order (each shares the edge (v, y) with the next); nil if not a closed fan
+  local function bevel_fan(it, v, fl)
+    local out, info = {}, {}
+    for _, fi in ipairs(fl) do
+      local f = it.f[fi]
+      local k = 1
+      while f[k] ~= v do k = k + 1 end
+      local x, y = f[k % 3 + 1], f[(k + 1) % 3 + 1]
+      if out[x] then return nil end
+      out[x] = fi
+      info[fi] = { x = x, y = y }
+    end
+    local cyc, seen, cur = { fl[1] }, { [fl[1]] = true }, fl[1]
+    for i = 2, #fl do
+      local nxt = out[info[cur].y]
+      if not nxt or seen[nxt] then return nil end
+      seen[nxt] = true
+      cyc[i] = nxt
+      cur = nxt
+    end
+    if out[info[cur].y] ~= fl[1] then return nil end
+    return cyc, info
+  end
+
+  local function corner_uv(f, v)
+    if not f[5] then return nil end
+    for k = 1, 3 do if f[k] == v then return { f[5][k * 2 - 1], f[5][k * 2] } end end
+  end
+
+  -- G.bevel_plan(it, keys, w): keys = a list of edge keys. Nothing changes. Returns the plan or nil and a
+  -- message. plan.w is the width used (never more than 0.45 of the height of a face over the edge),
+  -- plan.flat the number of flat edges left out, plan.edges the edges that will be bevelled.
+  function G.bevel_plan(it, keys, w)
+    if not w or w <= 0 then return nil, "the width must be more than 0" end
+    local ef = G.edge_faces(it)
+    local chosen, order, flat, hmin = {}, {}, 0, 1e30
+    for _, k in ipairs(keys) do
+      if chosen[k] == nil then
+        local l = ef[k]
+        if not l then return nil, "this is not an edge" end
+        if #l ~= 2 then return nil, "an edge on a border, or with more than 2 faces, cannot be bevelled" end
+        local f1, f2, a, b
+        for _, fi in ipairs(l) do
+          local f = it.f[fi]
+          for j = 1, 3 do
+            local x, y = f[j], f[j % 3 + 1]
+            if G.edge_key(x, y) == k then
+              if not f1 then f1, a, b = fi, x, y
+              elseif x == b and y == a then f2 = fi end
+            end
+          end
+        end
+        if not f2 then return nil, "the two faces of an edge look different ways: turn one over (i)" end
+        local n1, n2 = G.normal_of(it, it.f[f1]), G.normal_of(it, it.f[f2])
+        local l1, l2 = len3(n1), len3(n2)
+        if l1 < 1e-12 or l2 < 1e-12 then return nil, "an edge has a face with no area" end
+        if dot3(n1, n2) / (l1 * l2) > G.BEVEL_FLAT then
+          flat = flat + 1
+          chosen[k] = false
+        else
+          local el = len3(sub3(it.v[b], it.v[a]))
+          hmin = min(hmin, l1 / el, l2 / el)
+          chosen[k] = { a = a, b = b, f1 = f1, f2 = f2 }
+          order[#order + 1] = k
+        end
+      end
+    end
+    if #order == 0 then
+      return nil, flat > 0 and "the chosen edges are flat: nothing to bevel" or "choose edges first"
+    end
+    w = min(w, 0.45 * hmin)
+    -- the faces around each vertex that an edge touches
+    local vs, vlist = {}, {}
+    for _, k in ipairs(order) do
+      for _, v in ipairs({ chosen[k].a, chosen[k].b }) do
+        if not vs[v] then vs[v] = true; vlist[#vlist + 1] = v end
+      end
+    end
+    table.sort(vlist)
+    local vf = {}
+    for fi, f in ipairs(it.f) do
+      for j = 1, 3 do
+        if vs[f[j]] then
+          vf[f[j]] = vf[f[j]] or {}
+          table.insert(vf[f[j]], fi)
+        end
+      end
+    end
+    local cps, cm, caps = {}, {}, {}          -- copy specs, corner map { [face] = { [v] = copy | {R, L} } }, caps
+    local function put(fi, v, c)
+      cm[fi] = cm[fi] or {}
+      cm[fi][v] = c
+    end
+    for _, v in ipairs(vlist) do
+      local cyc, info = bevel_fan(it, v, vf[v])
+      if not cyc then
+        return nil, "vertex " .. v .. " is on a border or not a closed fan of faces: bevel stops"
+      end
+      local n, br = #cyc, {}
+      for i = 1, n do
+        local y = info[cyc[i]].y
+        if chosen[G.edge_key(v, y)] then br[#br + 1] = i end
+      end
+      local k = #br
+      local pv = it.v[v]
+      if k == 1 then
+        if n < 3 then return nil, "vertex " .. v .. " has too few faces" end
+        local chain = {}
+        for j = 1, n do chain[j] = cyc[(br[1] + j - 1) % n + 1] end
+        local u = info[cyc[br[1]]].y
+        local dir = G.unit(sub3(it.v[u], pv))
+        local m, best = 2, 1e30
+        for j = 2, n - 1 do
+          local f = it.f[chain[j]]
+          local qa, qb, qc = it.v[f[1]], it.v[f[2]], it.v[f[3]]
+          local c = G.unit(sub3({ (qa[1] + qb[1] + qc[1]) / 3, (qa[2] + qb[2] + qc[2]) / 3, (qa[3] + qb[3] + qc[3]) / 3 }, pv))
+          local d = dot3(c, dir)
+          if d < best - 1e-9 then best, m = d, j end
+        end
+        local dl, dr = bevel_dir(it, it.f[chain[1]], v, u), bevel_dir(it, it.f[chain[n]], v, u)
+        cps[#cps + 1] = { v = v, p = { pv[1] + w * dl[1], pv[2] + w * dl[2], pv[3] + w * dl[3] } }
+        local L = #cps
+        cps[#cps + 1] = { v = v, p = { pv[1] + w * dr[1], pv[2] + w * dr[2], pv[3] + w * dr[3] } }
+        local R = #cps
+        for j = 1, n do
+          if j < m then put(chain[j], v, L) elseif j > m then put(chain[j], v, R) else put(chain[j], v, { R, L }) end
+        end
+      else
+        local secs = {}
+        for s = 1, k do
+          local from, to = br[s] + 1, br[s % k + 1]
+          local faces = {}
+          local j = from
+          while true do
+            faces[#faces + 1] = cyc[(j - 1) % n + 1]
+            if (j - 1) % n + 1 == to then break end
+            j = j + 1
+          end
+          local d1 = bevel_dir(it, it.f[faces[1]], v, info[cyc[br[s]]].y)
+          local d2 = bevel_dir(it, it.f[faces[#faces]], v, info[cyc[to]].y)
+          local den = max(1 + dot3(d1, d2), 0.25)
+          cps[#cps + 1] = { v = v, p = { pv[1] + w / den * (d1[1] + d2[1]), pv[2] + w / den * (d1[2] + d2[2]),
+                                         pv[3] + w / den * (d1[3] + d2[3]) } }
+          for _, fi in ipairs(faces) do put(fi, v, #cps) end
+          secs[s] = { c = #cps, f = faces[1] }
+        end
+        if k >= 3 then
+          local cap = { v = v, c = {}, f = secs[1].f }
+          for s = 1, k do cap.c[s] = secs[s].c end
+          caps[#caps + 1] = cap
+        end
+      end
+    end
+    local strips = {}
+    for _, k in ipairs(order) do strips[#strips + 1] = chosen[k] end
+    return { w = w, flat = flat, edges = order, strips = strips, cps = cps, cm = cm, caps = caps }
+  end
+
+  -- G.bevel_apply(it, plan): makes the change. The first vertex of each split keeps its number, so no vertex
+  -- is left over. Returns { strips = {the new faces of the strips}, verts = {the new vertex numbers},
+  -- faces = the number of faces added }.
+  function G.bevel_apply(it, plan)
+    local id, newv, used = {}, {}, {}
+    for i, c in ipairs(plan.cps) do
+      if not used[c.v] then
+        used[c.v] = true
+        id[i] = c.v
+        it.v[c.v] = { c.p[1], c.p[2], c.p[3] }
+      else
+        id[i] = G.add_vertex(it, c.p, c.v)
+      end
+      newv[#newv + 1] = id[i]
+    end
+    local nf0 = #it.f
+    local old = {}
+    for fi in pairs(plan.cm) do old[fi] = it.f[fi] end
+    local function cid(fi, v)
+      local c = plan.cm[fi] and plan.cm[fi][v]
+      if type(c) == "number" then return id[c] end
+      return v
+    end
+    local add = {}
+    for fi, f in pairs(old) do
+      local poly, uvs = {}, {}
+      for j = 1, 3 do
+        local v = f[j]
+        local c = plan.cm[fi][v]
+        local uv = f[5] and { f[5][j * 2 - 1], f[5][j * 2] }
+        if type(c) == "table" then
+          poly[#poly + 1] = id[c[1]]; uvs[#poly] = uv
+          poly[#poly + 1] = id[c[2]]; uvs[#poly] = uv
+        else
+          poly[#poly + 1] = c and id[c] or v; uvs[#poly] = uv
+        end
+      end
+      local function tri(i, j, l)
+        local g = { poly[i], poly[j], poly[l], f[4] }
+        if f[5] then g[5] = { uvs[i][1], uvs[i][2], uvs[j][1], uvs[j][2], uvs[l][1], uvs[l][2] } end
+        return g
+      end
+      it.f[fi] = tri(1, 2, 3)
+      for j = 3, #poly - 1 do add[#add + 1] = tri(1, j, j + 1) end
+    end
+    -- the strips: (b1, a1, a2) and (b1, a2, b2)
+    local strips, nextra = {}, #add
+    for _, e in ipairs(plan.strips) do
+      local f1 = old[e.f1] or it.f[e.f1]
+      local a1, b1, a2, b2 = cid(e.f1, e.a), cid(e.f1, e.b), cid(e.f2, e.a), cid(e.f2, e.b)
+      local ua, ub = corner_uv(f1, e.a), corner_uv(f1, e.b)
+      local function s(p, q, r, up, uq, ur)
+        local g = { p, q, r, f1[4] }
+        if f1[5] then g[5] = { up[1], up[2], uq[1], uq[2], ur[1], ur[2] } end
+        return g
+      end
+      add[#add + 1] = s(b1, a1, a2, ub, ua, ua)
+      add[#add + 1] = s(b1, a2, b2, ub, ua, ub)
+    end
+    local nstrip = #add
+    for _, cap in ipairs(plan.caps) do
+      local f = old[cap.f] or it.f[cap.f]
+      local uv = corner_uv(f, cap.v)
+      for s = 2, #cap.c - 1 do
+        local g = { id[cap.c[1]], id[cap.c[s]], id[cap.c[s + 1]], f[4] }
+        if uv then g[5] = { uv[1], uv[2], uv[1], uv[2], uv[1], uv[2] } end
+        add[#add + 1] = g
+      end
+    end
+    for i, g in ipairs(add) do
+      it.f[#it.f + 1] = g
+      if i > nextra and i <= nstrip then strips[#strips + 1] = #it.f end
+    end
+    return { strips = strips, verts = newv, faces = #it.f - nf0 }
+  end
+
+  function G.bevel(it, keys, w)
+    local plan, err = G.bevel_plan(it, keys, w)
+    if not plan then return nil, err end
+    return G.bevel_apply(it, plan), plan
+  end
+
+  -- Box projection. G.project_box(it, fs, rect): fs = a list of face numbers (nil: every face), rect =
+  -- { x, y, cell } the place on the sprite sheet. The sheet area is 3 x 2 cells of cell pixels: the six
+  -- sides +x, -x, +y / -y, +z, -z. Each face goes to the cell of the axis its normal is nearest to, drawn
+  -- as seen from that side (+y: from above, +z: from the front, up is up), with the same scale on every
+  -- side (the largest size of the faces fits one cell, 1 pixel kept free round it). The faces become
+  -- textured (colour -1) with the uv as sheet pixels. G.project_plan changes nothing and returns the plan
+  -- { placed, scale, rect } or nil and a message; G.project_apply makes it and returns the number of faces
+  -- placed and the scale in pixels per unit; G.project_box does both.
+  local SIDE_CELL = { { 0, 0 }, { 1, 0 }, { 2, 0 }, { 0, 1 }, { 1, 1 }, { 2, 1 } }
+  function G.project_plan(it, fs, rect, sheet_w, sheet_h)
+    local x0, y0, cell = rect[1], rect[2], rect[3]
+    if not cell or cell < 4 then return nil, "the cell must be 4 pixels or more" end
+    if sheet_w and (x0 < 0 or y0 < 0 or x0 + cell * 3 > sheet_w or y0 + cell * 2 > sheet_h) then
+      return nil, "the sheet is too small for 3 x 2 cells of " .. cell
+    end
+    if not fs then
+      fs = {}
+      for i = 1, #it.f do fs[i] = i end
+    end
+    if #fs == 0 then return nil, "no faces to project" end
+    local lo, hi = { 1e30, 1e30, 1e30 }, { -1e30, -1e30, -1e30 }
+    for _, fi in ipairs(fs) do
+      for j = 1, 3 do
+        local p = it.v[it.f[fi][j]]
+        for a = 1, 3 do lo[a], hi[a] = min(lo[a], p[a]), max(hi[a], p[a]) end
+      end
+    end
+    local ext = max(hi[1] - lo[1], hi[2] - lo[2], hi[3] - lo[3])
+    if ext < 1e-9 then return nil, "the faces have no size" end
+    local sc = (cell - 2) / ext
+    local placed = {}
+    for _, fi in ipairs(fs) do
+      local f = it.f[fi]
+      local n = G.normal_of(it, f)
+      local ax, best = 1, abs(n[1])
+      if abs(n[2]) > best + 1e-9 then ax, best = 2, abs(n[2]) end
+      if abs(n[3]) > best + 1e-9 then ax = 3 end
+      local side = (ax - 1) * 2 + (n[ax] >= 0 and 1 or 2)
+      local c = SIDE_CELL[side]
+      local ox, oy = x0 + c[1] * cell + 1, y0 + c[2] * cell + 1
+      local uv = {}
+      for j = 1, 3 do
+        local p = it.v[f[j]]
+        local u, v
+        if ax == 1 then
+          u = side == 1 and hi[3] - p[3] or p[3] - lo[3]
+          v = hi[2] - p[2]
+        elseif ax == 2 then
+          u = p[1] - lo[1]
+          v = side == 3 and p[3] - lo[3] or hi[3] - p[3]
+        else
+          u = side == 5 and p[1] - lo[1] or hi[1] - p[1]
+          v = hi[2] - p[2]
+        end
+        uv[j * 2 - 1], uv[j * 2] = ox + u * sc, oy + v * sc
+      end
+      placed[#placed + 1] = { f, uv }
+    end
+    return { placed = placed, scale = sc, rect = { x0, y0, cell } }
+  end
+
+  function G.project_apply(it, plan)
+    for _, pl in ipairs(plan.placed) do pl[1][4], pl[1][5] = -1, pl[2] end
+    return #plan.placed, plan.scale
+  end
+
+  function G.project_box(it, fs, rect, sheet_w, sheet_h)
+    local plan, err = G.project_plan(it, fs, rect, sheet_w, sheet_h)
+    if not plan then return nil, err end
+    return G.project_apply(it, plan)
+  end
+
+  -- Humanoid base. 17 boxes on 16 bones (pelvis, spine, neck, head, and on each side uarm, larm, hand, uleg,
+  -- lleg, foot; names end in .L (x > 0) or .R), 136 vertices, 204 triangles, 5 colours. The body is about
+  -- 1.9 high, stands on y = 0 and faces -z. Bone order puts a parent before its children.
+  local HB = {          -- name, parent (0 = none), head, tail
+    { "pelvis", 0, { 0, 0.875, 0 }, { 0, 1, 0 } },
+    { "spine", 1, { 0, 1, 0 }, { 0, 1.5, 0 } },
+    { "neck", 2, { 0, 1.5, 0 }, { 0, 1.625, 0 } },
+    { "head", 3, { 0, 1.625, 0 }, { 0, 1.875, 0 } },
+    { "uarm.L", 2, { 0.375, 1.5, 0 }, { 0.375, 1.25, 0 } },
+    { "larm.L", 5, { 0.375, 1.25, 0 }, { 0.375, 1, 0 } },
+    { "hand.L", 6, { 0.375, 1, 0 }, { 0.375, 0.875, 0 } },
+    { "uarm.R", 2, { -0.375, 1.5, 0 }, { -0.375, 1.25, 0 } },
+    { "larm.R", 8, { -0.375, 1.25, 0 }, { -0.375, 1, 0 } },
+    { "hand.R", 9, { -0.375, 1, 0 }, { -0.375, 0.875, 0 } },
+    { "uleg.L", 1, { 0.125, 0.875, 0 }, { 0.125, 0.5, 0 } },
+    { "lleg.L", 11, { 0.125, 0.5, 0 }, { 0.125, 0.1, 0 } },
+    { "foot.L", 12, { 0.125, 0.1, 0 }, { 0.125, 0.05, -0.15 } },
+    { "uleg.R", 1, { -0.125, 0.875, 0 }, { -0.125, 0.5, 0 } },
+    { "lleg.R", 14, { -0.125, 0.5, 0 }, { -0.125, 0.1, 0 } },
+    { "foot.R", 15, { -0.125, 0.1, 0 }, { -0.125, 0.05, -0.15 } },
+  }
+  local TROUSERS, SHIRT, SKIN, HAIR, BOOTS = 0x404450, 0x3478C4, 0xF0C090, 0x5A3A1E, 0x2A1E18
+  -- bone number (1-based), lo, hi, colour
+  local HP = {
+    { 1, { -0.2, 0.85, -0.12 }, { 0.2, 1.0, 0.12 }, TROUSERS },
+    { 2, { -0.25, 1.0, -0.14 }, { 0.25, 1.5, 0.14 }, SHIRT },
+    { 3, { -0.06, 1.5, -0.06 }, { 0.06, 1.625, 0.06 }, SKIN },
+    { 4, { -0.12, 1.625, -0.12 }, { 0.12, 1.85, 0.12 }, SKIN },
+    { 4, { -0.13, 1.8, -0.13 }, { 0.13, 1.9, 0.13 }, HAIR },
+  }
+  for s = 1, 2 do                                   -- 1 = .L (x > 0), 2 = .R
+    local sg, b0 = s == 1 and 1 or -1, s == 1 and 0 or 3
+    local function bx(lo, hi) return sg > 0 and lo or -hi, sg > 0 and hi or -lo end
+    local function add(bone, x0, y0, z0, x1, y1, z1, col)
+      local a, b = bx(x0, x1)
+      HP[#HP + 1] = { bone, { a, y0, z0 }, { b, y1, z1 }, col }
+    end
+    add(5 + b0, 0.315, 1.25, -0.06, 0.435, 1.5, 0.06, SHIRT)
+    add(6 + b0, 0.32, 1.0, -0.055, 0.43, 1.25, 0.055, SKIN)
+    add(7 + b0, 0.325, 0.86, -0.05, 0.425, 1.0, 0.05, SKIN)
+  end
+  for s = 1, 2 do
+    local sg, b0 = s == 1 and 1 or -1, s == 1 and 11 or 14
+    local function add(bone, x0, y0, z0, x1, y1, z1, col)
+      local a, b = sg > 0 and x0 or -x1, sg > 0 and x1 or -x0
+      HP[#HP + 1] = { bone, { a, y0, z0 }, { b, y1, z1 }, col }
+    end
+    add(b0, 0.045, 0.5, -0.1, 0.205, 0.875, 0.1, TROUSERS)
+    add(b0 + 1, 0.055, 0.1, -0.08, 0.195, 0.5, 0.08, TROUSERS)
+    add(b0 + 2, 0.045, 0, -0.2, 0.205, 0.1, 0.1, BOOTS)
+  end
+  G.HUMANOID_BONES = #HB
+
+  -- the ANIM part of a skeleton with no animation: bones = { {name, parent (0 = none), head, tail}, ... },
+  -- vb = the bone of each vertex (from 0)
+  function G.rig_part(name, bones, vb)
+    local nb, n = #bones, #vb
+    local out = { name16(name), spack("<I2I2I2I2", nb, 0, n, 0) }
+    for _, b in ipairs(bones) do
+      out[#out + 1] = name16(b[1]) .. spack("<i2I2ffffff", b[2] - 1, 0, b[3][1], b[3][2], b[3][3], b[4][1], b[4][2], b[4][3])
+    end
+    local s = {}
+    for i = 1, n do s[i] = string.char(vb[i]) end
+    out[#out + 1] = table.concat(s) .. string.rep("\0", (4 - n % 4) % 4)
+    return table.concat(out)
+  end
+
+  -- G.humanoid(name): a new model item with the base body and its skeleton (it.ac, it.vb, it.bones = 16)
+  function G.humanoid(name)
+    local it = { kind = "model", name = name, v = {}, f = {}, vb = {}, dirty = true }
+    for _, p in ipairs(HP) do
+      local lo, hi = p[2], p[3]
+      local mid = { (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2, (lo[3] + hi[3]) / 2 }
+      local n0 = #it.v
+      G.primitive(it, "cube", mid, 1, p[4], p[1] - 1)
+      for i = n0 + 1, #it.v do
+        local q = it.v[i]
+        q[1] = mid[1] + (q[1] - mid[1]) * (hi[1] - lo[1])
+        q[2] = mid[2] + (q[2] - mid[2]) * (hi[2] - lo[2])
+        q[3] = mid[3] + (q[3] - mid[3]) * (hi[3] - lo[3])
+      end
+    end
+    it.ac = G.rig_part(name, HB, it.vb)
+    it.bones, it.clips = #HB, 0
+    return it
+  end
+end
+
 -- Snap. G.snap_grid(p, step, axis): a copy of the point p with each axis
 -- rounded to a multiple of step (only the axis given, 1-3, when there is one).
 -- G.snap_vertex(it, p, proj, px, skip): the number of the vertex of it nearest
@@ -1923,6 +2350,73 @@ function T.view_axes(yaw)
     ra, rs = 1, fs
   end
   return fa, fs, ra, rs
+end
+
+-- Block shapes of bm Studio (APP-12). T.BLOCK_KINDS names them: 1 cube, 2 ramp, 3 corner, 4 rounded.
+-- T.block_shape(kind, c, fa, fs, ra, rs): the faces ({ p = corners }, 3 or 4 each, looking out) of a
+-- block in the cell c ({x, y, z} the lowest corner). The ramp rises towards "far": axis fa (1 or 3), sign
+-- fs; "right" is axis ra, sign rs (T.view_axes). Ramp: a slope from the near floor edge to the far top
+-- edge, a far wall, 2 triangular sides. Corner: a pyramid on the cell floor whose top is the far right top
+-- corner (5 faces; the sloped sides meet a ramp's slope). Rounded: an octagon prism (the 4 vertical edges
+-- cut 0.3 deep), 14 faces. The cube is not here: bm Studio builds it with block_faces.
+T.BLOCK_KINDS = { "cube", "ramp", "corner", "rounded" }
+function T.block_shape(kind, c, fa, fs, ra, rs)
+  local function at(lr, lf, h)
+    local p = {}
+    p[ra] = c[ra] + (rs > 0 and lr or 1 - lr)
+    p[fa] = c[fa] + (fs > 0 and lf or 1 - lf)
+    p[2] = c[2] + h
+    return p
+  end
+  local faces = {}
+  if kind == 2 then
+    local nbl, nbr, fbl, fbr = at(0, 0, 0), at(1, 0, 0), at(0, 1, 0), at(1, 1, 0)
+    local ftl, ftr = at(0, 1, 1), at(1, 1, 1)
+    faces = { { p = { nbl, nbr, fbr, fbl } }, { p = { fbl, fbr, ftr, ftl } }, { p = { nbl, nbr, ftr, ftl } },
+              { p = { nbl, fbl, ftl } }, { p = { nbr, fbr, ftr } } }
+  elseif kind == 3 then
+    local nbl, nbr, fbl, fbr, ftr = at(0, 0, 0), at(1, 0, 0), at(0, 1, 0), at(1, 1, 0), at(1, 1, 1)
+    faces = { { p = { nbl, nbr, fbr, fbl } }, { p = { fbl, fbr, ftr } }, { p = { nbr, fbr, ftr } },
+              { p = { nbl, nbr, ftr } }, { p = { nbl, ftr, fbl } } }
+  elseif kind == 4 then
+    local o = { { 0.3, 0 }, { 0.7, 0 }, { 1, 0.3 }, { 1, 0.7 }, { 0.7, 1 }, { 0.3, 1 }, { 0, 0.7 }, { 0, 0.3 } }
+    local lo, hi = {}, {}
+    for i, q in ipairs(o) do lo[i], hi[i] = at(q[1], q[2], 0), at(q[1], q[2], 1) end
+    for i = 1, 8 do
+      local j = i % 8 + 1
+      faces[#faces + 1] = { p = { lo[i], lo[j], hi[j], hi[i] } }
+    end
+    for _, r in ipairs({ lo, hi }) do
+      faces[#faces + 1] = { p = { r[1], r[2], r[3], r[4] } }
+      faces[#faces + 1] = { p = { r[1], r[4], r[5], r[6] } }
+      faces[#faces + 1] = { p = { r[1], r[6], r[7], r[8] } }
+    end
+  else
+    return nil
+  end
+  -- every face looks away from the middle of the corners (all three shapes are convex)
+  local mid, seen, nm = { 0, 0, 0 }, {}, 0
+  for _, f in ipairs(faces) do
+    for _, q in ipairs(f.p) do
+      local key = q[1] .. "," .. q[2] .. "," .. q[3]
+      if not seen[key] then
+        seen[key] = true
+        nm = nm + 1
+        mid[1], mid[2], mid[3] = mid[1] + q[1], mid[2] + q[2], mid[3] + q[3]
+      end
+    end
+  end
+  mid[1], mid[2], mid[3] = mid[1] / nm, mid[2] / nm, mid[3] / nm
+  for _, f in ipairs(faces) do
+    local n, m = T.face_normal(f), T.face_center(f)
+    if n[1] * (m[1] - mid[1]) + n[2] * (m[2] - mid[2]) + n[3] * (m[3] - mid[3]) < 0 then
+      local r = {}
+      for i = #f.p, 1, -1 do r[#r + 1] = f.p[i] end
+      f.p = r
+    end
+    for i, q in ipairs(f.p) do f.p[i] = { q[1], q[2], q[3] } end    -- no corner shared between faces
+  end
+  return faces
 end
 
 -- the camera from the keyboard and the pad, the same on every page: Alt +

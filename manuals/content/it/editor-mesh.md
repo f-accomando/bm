@@ -120,7 +120,7 @@ Altri tasti. F3 funziona solo nelle pagine list ed edit, e `[` e `]` sono ignora
 | r | rinomina |
 | d | duplica (un modello conserva lo scheletro) |
 | Del | cancella: premilo due volte |
-| n | un nuovo modello, un cubo; con F3 anche un piano o una sfera |
+| n | un nuovo modello, un cubo; con F3 anche un piano, una sfera, un cilindro o la base umanoide |
 | i | importa un modello da `/bmm` o `/glb` |
 | x | esporta la mesh in `/bmm` |
 | q, e | ruota la vista |
@@ -167,6 +167,8 @@ La pagina edit disegna il modello con i suoi spigoli, un puntatore e una riga in
 | R (Maiusc+R) | immagini di riferimento: una frontale e una laterale da `/pics` |
 | Ctrl+R | taglio ad anello attraverso lo spigolo scelto |
 | Maiusc+J | coltello: taglia un triangolo tra i punti di mezzo di due spigoli scelti |
+| Maiusc+E | smusso: ogni spigolo scelto diventa una striscia stretta (scrivi la larghezza) |
+| Maiusc+U | proietta le facce sullo sprite sheet (scrivi dimensione della cella, x e y) |
 | j | crea una faccia su 3 o 4 vertici scelti |
 | k | fonde i vertici scelti in uno |
 | K | salda i vertici nello stesso punto |
@@ -304,6 +306,24 @@ Alla fine i vertici nuovi sono la scelta (in modalità spigoli, i nuovi spigoli 
 **Maiusc+J** è il coltello. Usalo in modalità spigoli. Scegli due spigoli di un triangolo (due spigoli che si incontrano in un angolo del triangolo). L'editor mette un vertice nuovo a metà di ogni spigolo e taglia il triangolo in modo che un nuovo spigolo unisca i due vertici nuovi. Anche il triangolo dall'altra parte di ognuno dei due spigoli viene tagliato in due, dal vertice nuovo all'angolo opposto, così non compare nessuna fessura. Un vertice nuovo prende l'osso dell'estremo più basso del suo spigolo e la media dei punti della texture (UV). Un triangolo nuovo tiene il colore della sua vecchia faccia. I due vertici nuovi sono la scelta (in modalità spigoli, il nuovo spigolo), e un solo annulla riporta indietro tutto il taglio.
 
 Il coltello non fa nulla, e un messaggio dice il perchè, in questi casi: non hai scelto esattamente due spigoli, i due spigoli non sono spigoli di uno stesso triangolo, oppure uno spigolo ha più di due triangoli. Il coltello lavora su un solo triangolo, quindi lo specchio dal vivo non lo copia sull'altro lato. Con lo specchio dal vivo acceso, scegliere uno spigolo sceglie anche il suo corrispondente, quindi spegni lo specchio (Maiusc+X) prima di scegliere i due spigoli. Taglia l'altro lato a mano. Con il gamepad tocca X e scegli **Knife on two edges of a triangle**.
+
+## Smusso
+
+**Maiusc+E** smussa gli spigoli. Usalo in modalità spigoli. Scegli gli spigoli, premi **Maiusc+E** e scrivi la larghezza (il primo valore è 0.1). In modalità vertici o facce si usano gli spigoli con entrambe le estremità scelte. Ogni spigolo scelto diventa una striscia stretta di due triangoli, e l'angolo duro prende una luce morbida.
+
+Le due facce di uno spigolo si allontanano da esso della larghezza, e la striscia le unisce. All'estremità di uno spigolo il vertice d'angolo si divide in due (o in più, dove si incontrano più spigoli scelti; da tre spigoli in su c'è una faccia di chiusura), e una faccia si taglia in due, così non resta nessun buco. Le facce nuove tengono il colore, gli uv dello sheet e l'osso delle facce e dei vertici da cui vengono.
+
+- Uno spigolo piatto (due facce che guardano nello stesso verso) viene lasciato fuori, e il messaggio lo conta.
+- La larghezza si riduce a 0.45 dell'altezza minima delle facce su uno spigolo scelto, così la striscia non si ripiega. Il messaggio dice quando è stata ridotta.
+- L'editor rifiuta uno spigolo su un bordo aperto o con più di due facce, e un vertice le cui facce non si chiudono attorno. Un messaggio dice quale, e nulla cambia.
+- Finito lo smusso, le strisce sono la scelta (modalità facce). Un annulla riporta indietro tutto lo smusso.
+- Con lo specchio dal vivo acceso si smussano anche i corrispondenti rispetto a X = 0. I due lati hanno la stessa larghezza.
+
+## Proietta sullo sprite sheet
+
+**Maiusc+U** dà un posto sullo sprite sheet a ogni faccia scelta (o a ogni faccia mostrata, se non ne hai scelta nessuna). È la proiezione a scatola. Scrivi la dimensione della cella, la x e la y dell'angolo in alto a sinistra, per esempio `32 0 0`. L'editor usa 6 celle di quella dimensione, 3 in orizzontale e 2 in verticale: +x, -x, +y sulla prima riga, e -y, +z, -z sulla seconda. Ogni faccia va nella cella del lato verso cui guarda, disegnata come si vede da quel lato. Tutte le celle hanno la stessa scala, quindi la dimensione del texel è la stessa su ogni lato. Un pixel al bordo di ogni cella resta libero.
+
+Le facce diventano facce con una texture dello sheet. L'editor non dipinge lo sheet: dipingi le celle in bm Pixel, poi guarda il modello. Se lo sheet è troppo piccolo per le 6 celle, un messaggio lo dice e nulla cambia. Le facce che erano di colore piatto perdono il colore. Un annulla riporta indietro la proiezione.
 
 ## Modello di riferimento (fantasma)
 
@@ -446,5 +466,6 @@ Per uscire dal gioco e tornare a bm Mesh premi Start + Select sul pad o Ctrl+Esc
 - Al massimo 256 modelli in una cartuccia.
 - Una mesh G non si può rinominare né cancellare: cambia il codice con bm Code.
 - Una copia come codice non conserva lo scheletro.
+- La base umanoide (F3 nella lista, **New model: humanoid with a skeleton**) ha 17 scatole, 136 vertici, 204 triangoli e 16 ossa. Non ha animazioni: falle in bm Animator.
 - L'assistente (F6) aggiunge un modello senza scheletro.
 - [DA COMPLETARE: la dimensione di un modello che il Pi Zero W disegna in modo fluido]

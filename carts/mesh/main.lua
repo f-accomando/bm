@@ -956,6 +956,15 @@ local function new_shape(shape)
   say("new model " .. it.name .. ": F2 edits it", C_ACC)
 end
 
+-- a humanoid base: 17 boxes on 16 bones (T.G.humanoid); bm Animator makes the walk and the poses
+function lp.new_humanoid()
+  if not proj.path then say("open a .bm first: Esc > Open", C_ERR); return end
+  local it = B.G.humanoid(unique_name("model", "man"))
+  dirty = true
+  select_item(insert_item(it))
+  say("new model " .. it.name .. ": " .. #it.v .. " vertices, " .. it.bones .. " bones (bm Animator animates it)", C_ACC)
+end
+
 function list_actions()
   local it = I()
   local rows = {
@@ -969,10 +978,11 @@ function list_actions()
     { "New model: plane", function() new_shape("plane") end },
     { "New model: sphere", function() new_shape("sphere") end },
     { "New model: cylinder", function() new_shape("cylinder") end },
+    { "New model: humanoid with a skeleton", function() lp.new_humanoid() end },
   }
   rows[#rows + 1] = { "Import a model: /bmm, /glb (i)", function() lp.import_dialog() end }
   rows[#rows + 1] = { "Export to /bmm (x)", function() lp.export_dialog() end }
-  if not it then rows = { rows[7], rows[8], rows[9], rows[10], rows[11] } end
+  if not it then rows = { rows[7], rows[8], rows[9], rows[10], rows[11], rows[12] } end
   choose("the mesh" .. (it and (": " .. it.name) or ""), rows)
 end
 
@@ -1391,6 +1401,96 @@ function ed.knife()
   ed.sig = ""
   finish_edit(string.format("knife: 2 new vertices, %d faces added", res.faces))
 end
+-- Shift+E: bevel (APP-12). The chosen edges (edge mode; in the other modes the edges with both ends
+-- chosen) each become a narrow strip of the width typed. The flat ones are left out. With the live mirror on
+-- the counterparts across x = 0 are bevelled too. The strip faces are chosen after it.
+function ed.bevel_keys(it)
+  local keys = {}
+  if ed.mode == "e" then
+    for k in pairs(ed.se) do keys[#keys + 1] = k end
+  else
+    for k in pairs(B.G.edge_faces(it)) do
+      local a, b = B.G.edge_ends(k)
+      if ed.sv[a] and ed.sv[b] then keys[#keys + 1] = k end
+    end
+  end
+  table.sort(keys)
+  if ed.mirror and #keys > 0 then
+    local ef, vs, seen = B.G.edge_faces(it), {}, {}
+    for _, k in ipairs(keys) do
+      local a, b = B.G.edge_ends(k)
+      vs[#vs + 1], vs[#vs + 2], seen[k] = a, b, true
+    end
+    local mp = B.G.mirror_pairs(it, vs)
+    for i = 1, #keys do
+      local a, b = B.G.edge_ends(keys[i])
+      local ma, mb = mp[a], mp[b]
+      if ma and mb and ma ~= mb then
+        local k2 = B.G.edge_key(ma, mb)
+        if ef[k2] and not seen[k2] then seen[k2] = true; keys[#keys + 1] = k2 end
+      end
+    end
+  end
+  return keys
+end
+
+function ed.bevel_run(w)
+  local it = I()
+  local keys = ed.bevel_keys(it)
+  if #keys == 0 then say("bevel: choose edges first (Tab: edges)", C_ERR); return end
+  local plan, err = B.G.bevel_plan(it, keys, w)
+  if not plan then say("bevel: " .. err, C_ERR); return end
+  it = begin_edit()
+  local res = B.G.bevel_apply(it, plan)
+  ed.sv, ed.sf, ed.se, ed.order, ed.mode = {}, {}, {}, 0, "f"
+  for _, fi in ipairs(res.strips) do ed.sf[fi] = true end
+  ed.sig = ""
+  finish_edit(string.format("bevel: %d edges, width %s, %d faces added%s%s", #plan.edges, num(plan.w), res.faces,
+              plan.flat > 0 and (", " .. plan.flat .. " flat left out") or "",
+              plan.w < w - 1e-9 and " (width cut to fit)" or ""))
+end
+
+function ed.bevel()
+  local it = I()
+  if not it then return end
+  if #ed.bevel_keys(it) == 0 then say("bevel: choose edges first (Tab: edges)", C_ERR); return end
+  ask("bevel width", ed.bevel_text or "0.1", function(t)
+    local w = tonumber(t)
+    if not w or w <= 0 then say("bevel: the width is a number above 0", C_ERR); return end
+    ed.bevel_text = t
+    ed.bevel_run(w)
+  end)
+end
+
+-- Shift+U: box projection onto the sprite sheet (APP-12). The chosen faces (all the shown faces when none is
+-- chosen) go to 6 cells of the sheet, 3 across and 2 down, by the side they look to; cell size and place are
+-- typed ("32 0 0": 32-pixel cells with the top left at x 0, y 0).
+function ed.project_run(cell, x, y)
+  local it = I()
+  local fs = sel_faces()
+  if #fs == 0 then
+    for fi, f in ipairs(it.f) do if not (it.hid and B.G.face_hidden(f, it.hid)) then fs[#fs + 1] = fi end end
+  end
+  local sw, sh = cart_sheet()
+  local plan, err = B.G.project_plan(it, fs, { x, y, cell }, sw, sh)
+  if not plan then say("project: " .. err, C_ERR); return end
+  it = begin_edit()
+  local n, sc = B.G.project_apply(it, plan)
+  finish_edit(string.format("project: %d faces on the sheet at %d,%d, 3 x 2 cells of %d px, %s px per unit",
+              n, x, y, cell, num(round(sc * 10) / 10)))
+end
+
+function ed.project()
+  if not I() then return end
+  ask("sheet cell px, x, y", ed.project_text or "32 0 0", function(t)
+    local c, x, y = t:match("^%s*(%d+)%s+(%d+)%s+(%d+)%s*$")
+    if not c then c = t:match("^%s*(%d+)%s*$"); x, y = 0, 0 end
+    if not c then say("project: type the cell size, x and y: 32 0 0", C_ERR); return end
+    ed.project_text = t
+    ed.project_run(tonumber(c), tonumber(x), tonumber(y))
+  end)
+end
+
 -- delete in edge mode: the faces next to the chosen edges
 function ed.edge_delete()
   if not next(ed.se) then say("choose edges first", C_ERR); return end
@@ -2570,6 +2670,7 @@ local COMMANDS = {
   { "Snap: off, grid, vertex, both (S)", "S" }, { "Snap grid step (G)", "G" },
   { "Loop cut on the chosen edge (Ctrl+R)", "^r" },
   { "Knife on two edges of a triangle (J)", "J" },
+  { "Bevel the chosen edges (E)", "E" }, { "Project onto the sheet (U)", "U" },
   { "New face on 3-4 vertices (j)", "j" }, { "Merge vertices (k)", "k" }, { "Weld equal vertices (K)", "K" },
   { "Subdivide faces (u)", "u" }, { "Turn faces over (i)", "i" }, { "Paint faces (p)", "p" },
   { "Colour from the face (o)", "o" }, { "Palette (c)", "c" }, { "Delete (Del)", "del" },
@@ -2704,6 +2805,8 @@ function edit_key(k)
   elseif k == "G" then ed.cycle_step()
   elseif k == "^r" then ed.loop_cut()
   elseif k == "J" then ed.knife()
+  elseif k == "E" then ed.bevel()
+  elseif k == "U" then ed.project()
   elseif k == "j" then op_join()
   elseif k == "k" then op_merge()
   elseif k == "K" then op_weld()
@@ -2950,6 +3053,8 @@ local HELP = {
     { "tab / l", "vertices, edges or faces / all linked" },
     { "ctrl r", "loop cut: a ring of new vertices across the chosen edge (live mirror: the counterpart ring too)" },
     { "shift j", "knife: cut a triangle between the middles of 2 chosen edges" },
+    { "shift e", "bevel: each chosen edge becomes a narrow strip of the width typed (live mirror: both sides)" },
+    { "shift u", "project the chosen faces (or all) onto the sheet: 3 x 2 cells, by the side they look to; type cell px, x, y" },
     { "g / r / t", "move / rotate / scale" },
     { "x / d", "extrude faces / duplicate (then move)" },
     { "shift a", "add a part: cube, cylinder, sphere, plane (live mirror: and its mirror image)" },
