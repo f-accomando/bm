@@ -7,7 +7,9 @@
 -- streams. Then, page by page: the same runs of letters at the same place
 -- (the screen's pixels times 595/540 points), the same font (Courier, bold,
 -- oblique), the same size (6/10 of it is a letter's width), the underlines,
--- the quote bars, the bullets, the numbers and the page numbers.
+-- the quote bars, the bullets, the numbers, the page numbers and the tables
+-- (the columns of a run of rows, the thin lines of the bars, a row too wide
+-- for the page wrapped as body text).
 --
 --   luahost tests/studio/write_pdf_host.lua ROOT [OUT.pdf]     (make test-studio)
 local ROOT = arg and arg[1] or "."
@@ -24,6 +26,7 @@ local HEIGHT = BAR + TOP + NPAGES * (PH + GAP) + 40     -- every page in view
 
 ------------------------------------------------------------ the document
 local BOLD, ITALIC, UNDER = 1, 2, 4
+local WANT = {}                          -- the words each paragraph must have in the PDF
 local function para(s, a, ...)
   local text, runs = "", {}
   for _, seg in ipairs({ ... }) do
@@ -32,6 +35,11 @@ local function para(s, a, ...)
     if bits ~= 0 then runs[#runs + 1] = string.format("%d:%d:%d", #text + 1, #t, bits) end
     text = text .. t
   end
+  if s == "table" then                  -- as save_text writes a row: "body table", the bars U+2502
+    WANT[#WANT + 1] = (text:gsub("%s*|%s*", " "))
+    return "body table " .. table.concat(runs, ",") .. "|" .. text:gsub("|", "\u{2502}")
+  end
+  WANT[#WANT + 1] = text
   return s .. " " .. a .. " " .. table.concat(runs, ",") .. "|" .. text
 end
 local lorem = "Questo paragrafo è abbastanza lungo da andare a capo più volte, con parole di varia lunghezza e qualche "
@@ -64,6 +72,16 @@ for i = 1, 40 do
                    "Paragrafo " .. i .. ": " .. lorem .. (i % 2 == 0 and "no" or "sì") .. " e una parola molto lunga alla fine.")
 end
 for i = 1, 8 do P[#P + 1] = para("number", "left", "elenco " .. i) end
+-- a table of four rows (the columns 15, 3 and 6 wide), then one too wide for the page
+P[#P + 1] = para("body", "left", "Una tabella con tre colonne:")
+P[#P + 1] = para("table", "left", { "Voce", BOLD }, "|", { "Qta", BOLD }, "|", { "Prezzo", BOLD })
+P[#P + 1] = para("table", "left", "Mela|3|1.20")
+P[#P + 1] = para("table", "left", { "Pera", UNDER }, "|12|0.5")
+P[#P + 1] = para("table", "left", "Albicocca secca|120|10.00")
+P[#P + 1] = para("body", "left", "Dopo la tabella, una riga troppo larga:")
+local WIDE = string.rep("x", 50) .. "|" .. string.rep("y", 30)
+P[#P + 1] = "body table |" .. WIDE:gsub("|", "\u{2502}")
+P[#P + 1] = "body table |a\u{2502}b"
 local BMD = "bmwrite 1\ntitle=Relazione\n\n" .. table.concat(P, "\n") .. "\n"
 
 ------------------------------------------------------------ the cart on a tall screen
@@ -186,7 +204,7 @@ local function read_page(n)
   local len = tonumber(objs[content]:match("/Length (%d+)"))
   local stream = objs[content]:match("stream\n(.*)\nendstream$")
   check(stream and #stream == len, "PDF: page " .. n .. ": /Length is the stream's")
-  local page = { text = {}, lines = {}, fills = {} }
+  local page = { text = {}, lines = {}, fills = {}, tbars = {} }
   for ln in (stream or ""):gmatch("[^\n]+") do
     local f, sz, x, y, s = ln:match("^BT /F(%d) ([%d.]+) Tf ([%d.-]+) ([%d.-]+) Td %((.*)%) Tj ET$")
     if f then
@@ -197,7 +215,9 @@ local function read_page(n)
         page.lines[#page.lines + 1] = { x0 = tonumber(x0), y = tonumber(y0), x1 = tonumber(x1), w = tonumber(lw) }
       else
         local rx, ry, rw, rh = ln:match("^[%d. ]+ rg ([%d.-]+) ([%d.-]+) ([%d.-]+) ([%d.-]+) re f 0 g$")
-        if rx then page.fills[#page.fills + 1] = { x = tonumber(rx), y = tonumber(ry), w = tonumber(rw), h = tonumber(rh) }
+        if rx then
+          local f = { x = tonumber(rx), y = tonumber(ry), w = tonumber(rw), h = tonumber(rh) }
+          if f.w < 2 then page.tbars[#page.tbars + 1] = f else page.fills[#page.fills + 1] = f end
         else check(false, "PDF: page " .. n .. ": a line of the stream that is not known: " .. ln) end
       end
     end
@@ -250,7 +270,7 @@ do
   end
 end
 
-local total_runs, total_under, total_bars, total_bullets = 0, 0, 0, 0
+local total_runs, total_under, total_bars, total_bullets, total_tbars = 0, 0, 0, 0, 0
 for n = 1, NPAGES do
   local pg = read_page(n)
   -- the screen's side of this page
@@ -352,6 +372,21 @@ for n = 1, NPAGES do
           and math.abs(a.top - (b.y + b.h)) < 0.02, string.format("page %d: quote bar %d", n, i))
   end
   total_bars = total_bars + #sq
+  -- the tables' bars: thin lines, one pixel wide and a line high
+  local sb = {}
+  for _, r in ipairs(rects) do
+    local pn, ry = page_of(r.y)
+    if pn == n and r.w == 1 and r.h == 15 then sb[#sb + 1] = { x = (r.x - PX) * PT, top = 842 - ry * PT } end
+  end
+  check(#sb == #pg.tbars, string.format("page %d: %d table bars on the screen, %d in the PDF", n, #sb, #pg.tbars))
+  table.sort(sb, function(a, b) if math.abs(a.top - b.top) > 0.01 then return a.top > b.top end; return a.x < b.x end)
+  table.sort(pg.tbars, function(a, b) if math.abs(a.y + a.h - b.y - b.h) > 0.01 then return a.y + a.h > b.y + b.h end; return a.x < b.x end)
+  for i = 1, math.min(#sb, #pg.tbars) do
+    local a, b = sb[i], pg.tbars[i]
+    check(math.abs(a.x - b.x) < 0.02 and math.abs(a.top - (b.y + b.h)) < 0.02 and math.abs(b.w - PT) < 0.02
+          and math.abs(b.h - 15 * PT) < 0.02, string.format("page %d: table bar %d", n, i))
+  end
+  total_tbars = total_tbars + #sb
   -- nothing in the margins
   for _, t in ipairs(pt_) do
     check(t.x >= 54 * PT - 0.01 and t.x + utf8.len(t.s) * 0.6 * t.size <= (PW - 54) * PT + 0.5 and t.y > 64 * PT - 1 and t.y < 842 - 54 * PT + 1,
@@ -359,12 +394,12 @@ for n = 1, NPAGES do
   end
 end
 check(total_runs > 200, "enough runs compared (" .. total_runs .. ")")
+check(total_tbars == 8, "table bars all compared (" .. total_tbars .. ")")
 check(total_under >= 3 and total_bars >= 2 and total_bullets >= 3, string.format("underlines, bars and bullets all compared (%d, %d, %d)", total_under, total_bars, total_bullets))
 
 -- the text of the whole document in reading order is the document's own
 local want = {}
-for _, line in ipairs(P) do
-  local t = line:match("^%S+ %S+ %S*|(.*)$")
+for _, t in ipairs(WANT) do
   if t:find("[^ ]") then want[#want + 1] = t:gsub("[ ]+", " ") end
 end
 local got = {}
@@ -387,6 +422,24 @@ end
 check(all_ok, "the PDF holds the words of every paragraph (missing: " .. tostring(miss) .. ")")
 check(joined:find("f(x) = a\\b (nota)", 1, true) ~= nil, "brackets and backslash come back from the PDF")
 check(joined:find("è già più", 1, true) ~= nil, "accents come back from the PDF (WinAnsi)")
+
+-- the table's columns in the PDF: one x for every cell of a column, 18 and 24 letters on (Albicocca secca is 15
+-- wide, Qta 3 and the bars take 3 each); the row too wide is body text, bars and all
+do
+  local xs = {}
+  for n = 1, NPAGES do
+    for _, t in ipairs(read_page(n).text) do xs[t.s] = t.x; xs.size = xs.size or t.size end
+  end
+  local c1, c2, c3 = xs["Voce"], xs["Qta"], xs["Prezzo"]
+  check(c1 and c1 == xs["Mela"] and c1 == xs["Pera"] and c1 == xs["Albicocca secca"], "pdf table: the first column's cells start at one x")
+  check(c2 and c2 == xs["3"] and c2 == xs["12"] and c2 == xs["120"], "pdf table: the second column's")
+  check(c3 and c3 == xs["1.20"] and c3 == xs["0.5"] and c3 == xs["10.00"], "pdf table: the third column's")
+  local cw = 6 * PT
+  check(c1 and c2 and c3 and math.abs(c2 - c1 - 18 * cw) < 0.01 and math.abs(c3 - c1 - 24 * cw) < 0.01,
+        "pdf table: the columns are 18 and 24 letters from the first")
+  check(joined:find(string.rep("x", 50) .. "|" .. string.rep("y", 21), 1, true) ~= nil,
+        "pdf table: a row too wide is body text, with its bar a letter")
+end
 
 print(fails == 0 and ("write pdf: " .. checks .. "/" .. checks .. " checks passed, " .. total_runs .. " runs, " .. total_under
       .. " underlines, " .. total_bars .. " bars, " .. total_bullets .. " bullets") or (fails .. " of " .. checks .. " FAILED"))

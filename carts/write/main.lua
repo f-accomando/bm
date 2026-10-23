@@ -1,5 +1,5 @@
 -- bm Write: the word processor of bm (2026-10-06). Documents with styles
--- (title, two headings, body, quote, bullet and numbered lists), bold,
+-- (title, two headings, body, quote, bullet and numbered lists, tables), bold,
 -- italic and underline, four alignments, laid out on A4 pages as they print:
 -- the PDF it exports has the same lines on the same pages (Courier, whose
 -- letters are all as wide, as the screen's are). Saved in its own format
@@ -48,8 +48,10 @@ local STY = {
              italic = true },
   bullet = { name = "Bullet list", font = "6x12", scale = 1, cw = 6, fh = 12, lh = 15, before = 0, after = 3, indent = 24 },
   number = { name = "Numbered list", font = "6x12", scale = 1, cw = 6, fh = 12, lh = 15, before = 0, after = 3, indent = 30 },
+  -- a table row: "|" between the cells; the rows of a run share the columns
+  table  = { name = "Table", font = "6x12", scale = 1, cw = 6, fh = 12, lh = 15, before = 0, after = 7, indent = 0 },
 }
-local ORDER = { "body", "title", "h1", "h2", "quote", "bullet", "number" }
+local ORDER = { "body", "title", "h1", "h2", "quote", "bullet", "number", "table" }
 local ALIGNS = { "left", "center", "right", "justify" }
 local BOLD, ITALIC, UNDER = 1, 2, 4
 
@@ -92,9 +94,76 @@ end
 
 ------------------------------------------------------------------ layout
 
+-- Tables. The rows of a run of table paragraphs share their columns: a
+-- column is as wide as its longest cell (in letters); a cell is followed by
+-- a space, the bar (a letter, drawn as a thin line) and a space. layout
+-- sets, on each row, cs (the letter where each cell starts) and tcol
+-- ({ X = the column's start, W = its width }, in letters) or, when the row
+-- is wider than the page, wide: it is then wrapped as body text.
+local TB = {}
+
+function TB.prepare()
+  local cols = TW // STY.table.cw
+  local i = 1
+  while i <= #doc do
+    local p = doc[i]
+    if p.s ~= "table" then
+      p.cs, p.tcol, p.wide = nil, nil, nil
+      i = i + 1
+    else
+      local j, W = i, {}
+      while doc[j] and doc[j].s == "table" do
+        local q = doc[j]
+        local cs = { 1 }
+        for b in q.t:gmatch("()|") do cs[#cs + 1] = b + 1 end
+        q.cs = cs
+        for c = 1, #cs do
+          local len = (cs[c + 1] and cs[c + 1] - 1 or #q.t + 1) - cs[c]
+          W[c] = math.max(W[c] or 0, len)
+        end
+        j = j + 1
+      end
+      local X = { 0 }
+      for c = 2, #W do X[c] = X[c - 1] + W[c - 1] + 3 end
+      local col = { X = X, W = W }
+      for r = i, j - 1 do
+        local q = doc[r]
+        local n = #q.cs
+        local wide = X[n] + W[n] > cols
+        if wide ~= (q.wide or false) then q.lines = nil end
+        q.wide, q.tcol = wide, (not wide) and col or nil
+      end
+      i = j
+    end
+  end
+end
+
+-- the x (pixels from the text's left edge) of the thin line that is the
+-- bar at letter k
+function TB.bar_x(p, k)
+  local tc, cs = p.tcol, p.cs
+  local c = 1
+  while cs[c + 1] and cs[c + 1] - 1 < k do c = c + 1 end
+  return (tc.X[c] + tc.W[c] + 1) * STY.table.cw + STY.table.cw // 2
+end
+
+-- a row's cells with the spaces at their ends taken off: { { t, m }, ... }
+function TB.cells(p)
+  local out, from = {}, 1
+  local function add(a, b)
+    while a <= b and p.t:byte(a) == 32 do a = a + 1 end
+    while b >= a and p.t:byte(b) == 32 do b = b - 1 end
+    out[#out + 1] = { t = p.t:sub(a, b), m = p.m:sub(a, b) }
+  end
+  for b in p.t:gmatch("()|") do add(from, b - 1); from = b + 1 end
+  add(from, #p.t)
+  return out
+end
+
 -- the lines of a paragraph: { from, to } letters [from, to), words whole
 -- when they fit, the spaces at a line's end on it
 local function wrap(p)
+  if p.tcol then return { { 1, #p.t + 1 } } end    -- a table row: one line
   local st = STY[p.s]
   local cols = (TW - st.indent) // st.cw
   local t, n = p.t, #p.t
@@ -119,6 +188,7 @@ end
 local function layout()
   if laid then return end
   PL = {}
+  TB.prepare()
   local page, y, num = 1, MT, 0
   for pi, p in ipairs(doc) do
     local st = STY[p.s]
@@ -131,7 +201,8 @@ local function layout()
       PL[#PL + 1] = { p = pi, li = li, page = page, y = y }
       y = y + st.lh
     end
-    y = y + st.after
+    local nx = doc[pi + 1]
+    y = y + ((p.s == "table" and nx and nx.s == "table") and 0 or st.after)    -- the rows of a table together
   end
   npages = page
   laid = true
@@ -146,6 +217,7 @@ local function line_geom(p, li)
   local a, b = p.lines[li][1], p.lines[li][2]
   local e = b
   while e > a and p.t:byte(e - 1) == 32 do e = e - 1 end
+  if p.tcol then return 0, a, e, 0, 0 end
   local w, avail = (e - a) * st.cw, TW - st.indent
   local x, per, extra = st.indent, 0, 0
   if p.a == "center" then x = x + (avail - w) // 2
@@ -160,6 +232,12 @@ end
 
 -- the x of letter k in a line laid out by line_geom
 local function letter_x(p, x, a, k, per, extra)
+  local tc = p.tcol
+  if tc then                            -- a table row: the cell's column, then the letters in it
+    local cs, c = p.cs, 1
+    while cs[c + 1] and cs[c + 1] <= k do c = c + 1 end
+    return x + (tc.X[c] + k - cs[c]) * STY.table.cw
+  end
   local sp = 0
   if per > 0 or extra > 0 then
     for j = a, k - 1 do if p.t:byte(j) == 32 then sp = sp + 1 end end
@@ -265,7 +343,12 @@ local function save_text()
       if b ~= 48 then runs[#runs + 1] = i .. ":" .. (j - i + 1) .. ":" .. (b - 48) end
       i = j + 1
     end
-    out[#out + 1] = p.s .. " " .. p.a .. " " .. table.concat(runs, ",") .. "|" .. to_utf8(p.t)
+    -- a table row is "body table" with the bars as U+2502: an older Write
+    -- reads body text (an unknown alignment is left) with box-drawing lines
+    -- (a "|" would break its line reader); this one reads a table row
+    local s, al, t = p.s, p.a, to_utf8(p.t)
+    if s == "table" then s, al, t = "body", "table", (t:gsub("|", "\u{2502}")) end
+    out[#out + 1] = s .. " " .. al .. " " .. table.concat(runs, ",") .. "|" .. t
   end
   return table.concat(out, "\n") .. "\n"
 end
@@ -275,9 +358,12 @@ local function load_bmd(text)
   local body = text:match("\n\n(.*)$") or ""
   local d = {}
   for line in body:gmatch("([^\n]*)\n?") do
-    local s, a, runs, t = line:match("^(%S+) (%S+) (%S*)|(.*)$")
+    local s, a, runs, t = line:match("^(%S+) (%S+) ([%d:,]*)|(.*)$")
+    local row = s == "body" and a == "table"
+    if row then s, a = "table", "left" end
     if s and STY[s] then
       t = from_utf8(t)
+      if row then t = t:gsub("\179", "|") end
       local m = { string.rep("0", #t):byte(1, -1) }
       for st, len, bits in runs:gmatch("(%d+):(%d+):(%d+)") do
         for k = tonumber(st), math.min(#t, tonumber(st) + tonumber(len) - 1) do m[k] = 48 + tonumber(bits) % 8 end
@@ -290,7 +376,8 @@ local function load_bmd(text)
 end
 
 -- Markdown (and plain text: no marks) into paragraphs: # title, ##, ###,
--- > quote, - * bullets, 1. numbers, **bold**, *italic*, <u>underline</u>
+-- > quote, - * bullets, 1. numbers, | a | b | table rows (a |---| row is
+-- skipped), **bold**, *italic*, <u>underline</u>
 local function load_md(text)
   text = from_utf8(text:gsub("\r", ""))
   local d = {}
@@ -322,6 +409,17 @@ local function load_md(text)
   for line in (text .. "\n"):gmatch("([^\n]*)\n") do
     local s, rest
     if line:match("^%s*$") then flush()
+    elseif line:match("^%s*|.+$") then
+      flush()
+      local row = (line:gsub("^%s*|", "")):gsub("|%s*$", "")
+      if not row:match("^[%s|:%-]*$") or not row:find("-", 1, true) then       -- not the |---| row
+        local ts, ms = {}, {}
+        for cell in (row .. "|"):gmatch("([^|]*)|") do
+          local t, m = inline((cell:gsub("^%s+", "")):gsub("%s+$", ""))
+          ts[#ts + 1], ms[#ms + 1] = t, m
+        end
+        d[#d + 1] = para("table", nil, table.concat(ts, "|"), table.concat(ms, "0"))
+      end
     else
       local h, r = line:match("^(#+)%s+(.*)$")
       if h then s, rest = (#h == 1 and "title" or #h == 2 and "h1" or "h2"), r
@@ -361,37 +459,71 @@ local function runs_of(p)          -- { {text, bits}, ... } of a paragraph
   return out
 end
 
+-- a run of table rows as text: the cells padded to their column, two
+-- spaces between the columns
+function TB.text(i)
+  local rows, W, out = {}, {}, {}
+  while doc[i] and doc[i].s == "table" do
+    local cells = TB.cells(doc[i])
+    rows[#rows + 1] = cells
+    for c, cell in ipairs(cells) do W[c] = math.max(W[c] or 0, #cell.t) end
+    i = i + 1
+  end
+  for _, cells in ipairs(rows) do
+    local parts = {}
+    for c, cell in ipairs(cells) do parts[c] = to_utf8(cell.t) .. string.rep(" ", W[c] - #cell.t) end
+    out[#out + 1] = (table.concat(parts, "  "):gsub("%s+$", ""))
+  end
+  return out
+end
+
 function EXP.text()
   local out, prev = {}, nil
-  for _, p in ipairs(doc) do
+  for i, p in ipairs(doc) do
     local t = to_utf8(p.t)
     local list = p.s == "bullet" or p.s == "number"
-    if prev and not (list and prev == p.s) then out[#out + 1] = "" end     -- a list's items together
-    if p.s == "bullet" then t = "- " .. t
-    elseif p.s == "number" then t = (p.num or 1) .. ". " .. t
-    elseif p.s == "quote" then t = "    " .. t end
-    out[#out + 1] = t
-    if p.s == "title" or p.s == "h1" then out[#out + 1] = string.rep(p.s == "title" and "=" or "-", #p.t) end
+    if p.s == "table" then
+      if prev ~= "table" then                  -- the run's rows, at its first
+        if prev then out[#out + 1] = "" end
+        for _, row in ipairs(TB.text(i)) do out[#out + 1] = row end
+      end
+    else
+      if prev and not (list and prev == p.s) then out[#out + 1] = "" end     -- a list's items together
+      if p.s == "bullet" then t = "- " .. t
+      elseif p.s == "number" then t = (p.num or 1) .. ". " .. t
+      elseif p.s == "quote" then t = "    " .. t end
+      out[#out + 1] = t
+      if p.s == "title" or p.s == "h1" then out[#out + 1] = string.rep(p.s == "title" and "=" or "-", #p.t) end
+    end
     prev = p.s
   end
   return table.concat(out, "\n") .. "\n"
 end
 
+local function md_runs(p)
+  local s = {}
+  for _, r in ipairs(runs_of(p)) do
+    local t = to_utf8(r[1]):gsub("([*_\\`])", "\\%1")
+    if r[2] & UNDER ~= 0 then t = "<u>" .. t .. "</u>" end
+    if r[2] & ITALIC ~= 0 then t = "*" .. t .. "*" end
+    if r[2] & BOLD ~= 0 then t = "**" .. t .. "**" end
+    s[#s + 1] = t
+  end
+  return table.concat(s)
+end
+
 function EXP.markdown()
   local out, prev = {}, nil
   for _, p in ipairs(doc) do
-    local s = {}
-    for _, r in ipairs(runs_of(p)) do
-      local t = to_utf8(r[1]):gsub("([*_\\`])", "\\%1")
-      if r[2] & UNDER ~= 0 then t = "<u>" .. t .. "</u>" end
-      if r[2] & ITALIC ~= 0 then t = "*" .. t .. "*" end
-      if r[2] & BOLD ~= 0 then t = "**" .. t .. "**" end
-      s[#s + 1] = t
-    end
-    local t = table.concat(s)
-    local list = p.s == "bullet" or p.s == "number"
+    local t = md_runs(p)
+    local list = p.s == "bullet" or p.s == "number" or p.s == "table"
     if prev and not (list and prev == p.s) then out[#out + 1] = "" end
-    if p.s == "title" then t = "# " .. t
+    if p.s == "table" then
+      local cells = {}
+      for c, cell in ipairs(TB.cells(p)) do cells[c] = md_runs(cell) end
+      t = "| " .. table.concat(cells, " | ") .. " |"
+      if prev ~= "table" then t = t .. "\n|" .. string.rep("---|", #cells) end    -- under a run's first row
+    elseif p.s == "title" then t = "# " .. t
     elseif p.s == "h1" then t = "## " .. t
     elseif p.s == "h2" then t = "### " .. t
     elseif p.s == "quote" then t = "> " .. t
@@ -423,11 +555,15 @@ function EXP.html(title)
     ".justify { text-align: justify }",
     "</style></head><body>",
   }
+  for _, p in ipairs(doc) do                  -- a table's style, only when there is one
+    if p.s == "table" then
+      table.insert(out, #out, "table { border-collapse: collapse; margin: 0 0 .7em }")
+      table.insert(out, #out, "td { border: 1px solid #9aa3b8; padding: .15em .6em }")
+      break
+    end
+  end
   local open
-  for _, p in ipairs(doc) do
-    local list = p.s == "bullet" and "ul" or p.s == "number" and "ol" or nil
-    if open and open ~= list then out[#out + 1] = "</" .. open .. ">"; open = nil end
-    if list and not open then out[#out + 1] = "<" .. list .. ">"; open = list end
+  local function html_runs(p)
     local s = {}
     for _, r in ipairs(runs_of(p)) do
       local t = esc(r[1])
@@ -436,12 +572,22 @@ function EXP.html(title)
       if r[2] & BOLD ~= 0 then t = "<b>" .. t .. "</b>" end
       s[#s + 1] = t
     end
-    local t = #s > 0 and table.concat(s) or "&nbsp;"
+    return #s > 0 and table.concat(s) or "&nbsp;"
+  end
+  for _, p in ipairs(doc) do
+    local list = p.s == "bullet" and "ul" or p.s == "number" and "ol" or p.s == "table" and "table" or nil
+    if open and open ~= list then out[#out + 1] = "</" .. open .. ">"; open = nil end
+    if list and not open then out[#out + 1] = "<" .. list .. ">"; open = list end
+    local t = html_runs(p)
     local cls = p.a ~= "left" and p.a ~= (STY[p.s].align or "left") and (" class=\"" .. p.a .. "\"") or ""
     if p.s == "title" then out[#out + 1] = "<h1 class=\"title" .. (p.a ~= "center" and " " .. p.a or "") .. "\">" .. t .. "</h1>"
     elseif p.s == "h1" then out[#out + 1] = "<h1" .. cls .. ">" .. t .. "</h1>"
     elseif p.s == "h2" then out[#out + 1] = "<h2" .. cls .. ">" .. t .. "</h2>"
     elseif p.s == "quote" then out[#out + 1] = "<blockquote" .. cls .. ">" .. t .. "</blockquote>"
+    elseif p.s == "table" then
+      local tds = {}
+      for c, cell in ipairs(TB.cells(p)) do tds[c] = "<td>" .. html_runs(cell) .. "</td>" end
+      out[#out + 1] = "<tr>" .. table.concat(tds) .. "</tr>"
     elseif list then out[#out + 1] = "<li" .. cls .. ">" .. t .. "</li>"
     else out[#out + 1] = "<p" .. cls .. ">" .. t .. "</p>" end
   end
@@ -493,10 +639,17 @@ function EXP.pdf(title)
     end
     local k = a
     local gapped = per > 0 or extra > 0
+    local tab = p.tcol
     while k < e do
       local raw = p.m:byte(k) - 48
       local j = k
-      while j + 1 < e and p.m:byte(j + 1) - 48 == raw and not (gapped and (p.t:byte(j + 1) == 32 or p.t:byte(j) == 32)) do
+      if tab and p.t:byte(k) == 124 then      -- a table's bar: a thin line
+        add(L.page, string.format("0.6 0.64 0.72 rg %.2f %.2f %.2f %.2f re f 0 g", (left + TB.bar_x(p, k)) * PT,
+                                  y_pt(L.y + st.lh), PT, st.lh * PT))
+        k = k + 1
+      else
+      while j + 1 < e and p.m:byte(j + 1) - 48 == raw and not (gapped and (p.t:byte(j + 1) == 32 or p.t:byte(j) == 32))
+            and not (tab and p.t:byte(j + 1) == 124) do
         j = j + 1
       end
       local bits = raw | (st.bold and BOLD or 0) | (st.italic and ITALIC or 0)
@@ -511,6 +664,7 @@ function EXP.pdf(title)
                                   x0 + (j - k + 1) * st.cw * PT, base - size * 0.12))
       end
       k = j + 1
+      end
     end
   end
   -- the objects: catalog, pages, four fonts, then a page and its contents each
@@ -649,7 +803,7 @@ end
 -- empty list item ends the list
 local function split()
   local p = doc[cur.p]
-  if (p.s == "bullet" or p.s == "number") and p.t == "" then
+  if (p.s == "bullet" or p.s == "number" or p.s == "table") and p.t == "" then
     p.s = "body"
     touched(p)
     return
@@ -671,7 +825,7 @@ local function backspace()
     p.m = p.m:sub(1, cur.c - 1) .. p.m:sub(cur.c + 1)
     cur.c = cur.c - 1
     touched(p)
-  elseif p.s == "bullet" or p.s == "number" or p.s == "quote" then
+  elseif p.s == "bullet" or p.s == "number" or p.s == "quote" or p.s == "table" then
     p.s = "body"                         -- the mark goes first, as in a word processor
     touched(p)
   elseif cur.p > 1 then
@@ -982,7 +1136,7 @@ local MENU = {
 local KEYHELP = {
   { "ctrl b / ctrl i / ctrl u", "bold, italic, underline" },
   { "ctrl l / ctrl e / ctrl r / ctrl j", "align left, centre, right, justify" },
-  { "f2", "the paragraph's style" },
+  { "f2", "the paragraph's style (last: Table, | between cells)" },
   { "f4", "its alignment (left, centre, right, justify)" },
   { "f3", "start or end a selection (or shift + arrows)" },
   { "tab", "the word in grey-blue" },
@@ -1006,7 +1160,8 @@ local KEYHELP = {
 local HELP = {                          -- "#" a heading
   "#Writing", "Enter new paragraph, Backspace / Del delete", "Tab writes the grey-blue word",
   "Arrows, Home, End, PgUp, PgDn move", "F3 or Shift+arrows select", "",
-  "#Look", "F2 style: Body, Title, Heading 1, Heading 2,", "  Quote, Bullet list, Numbered list",
+  "#Look", "F2 style: Body, Title, Heading 1, Heading 2,", "  Quote, Bullet list, Numbered list, Table",
+  "Table: | between the cells; the rows of a table line up",
   "F4 alignment: left, centre, right, justify", "Ctrl+L / E / R / J left, centre, right, justify",
   "Ctrl+B bold, Ctrl+I italic, Ctrl+U underline", "",
   "#Files (in /docs on the SD card)", "Ctrl+S save, Ctrl+Shift+S save as, Ctrl+O open",
@@ -1419,16 +1574,23 @@ local function draw_line(L, sx, sy, s0, s1)
   end
   if p.s == "quote" then rectfill(base + st.indent - 14, sy, 3, st.lh, C.quote) end
   local gapped = per > 0 or extra > 0
+  local tab = p.tcol
   local k = a
   while k < e do
     local raw = p.m:byte(k) - 48
     local j = k
-    while j + 1 < e and p.m:byte(j + 1) - 48 == raw and not (gapped and (p.t:byte(j + 1) == 32 or p.t:byte(j) == 32)) do
-      j = j + 1
+    if tab and p.t:byte(k) == 124 then      -- a table's bar: a thin line
+      rectfill(base + TB.bar_x(p, k), sy, 1, st.lh, C.quote)
+      k = k + 1
+    else
+      while j + 1 < e and p.m:byte(j + 1) - 48 == raw and not (gapped and (p.t:byte(j + 1) == 32 or p.t:byte(j) == 32))
+            and not (tab and p.t:byte(j + 1) == 124) do
+        j = j + 1
+      end
+      local bits = raw | (st.bold and BOLD or 0) | (st.italic and ITALIC or 0)
+      draw_run(p.t:sub(k, j), base + letter_x(p, x, a, k, per, extra), ty, bits, st, col)
+      k = j + 1
     end
-    local bits = raw | (st.bold and BOLD or 0) | (st.italic and ITALIC or 0)
-    draw_run(p.t:sub(k, j), base + letter_x(p, x, a, k, per, extra), ty, bits, st, col)
-    k = j + 1
   end
 end
 
@@ -1533,6 +1695,8 @@ local function draw_status()
   local k = cursor_line()
   local page = PL[k] and PL[k].page or 1
   local left = "Page " .. page .. " of " .. npages .. "   " .. count_words() .. " words"
+  local cp = doc[cur.p]
+  if cp.s == "table" then left = cp.wide and "table too wide" or "Table: | between the cells   " .. left end
   if pt.mode() then left = left .. "   PAD " .. pt.mode() end
   if status_t > 0 then
     print(status:sub(1, W // 8 - 1), 0, y, status_c)

@@ -17,7 +17,7 @@ E.SCREEN_W, E.SCREEN_H = 640, 360
 local texts, keyq, frame = {}, {}, 0
 local docs = {}                           -- /docs: name -> text
 local function nop() end
-for _, n in ipairs({ "cls", "rect", "rectfill", "line", "clip", "font", "sset", "pset" }) do E[n] = nop end
+for _, n in ipairs({ "cls", "rect", "rectfill", "circfill", "line", "clip", "font", "sset", "pset" }) do E[n] = nop end
 E.print = function(s, x, y) texts[#texts + 1] = { tostring(s), x or 0, y or 0 }; return (x or 0) + #tostring(s) * 8 end
 E.log = nop
 E.time = function() return frame / 60 end
@@ -214,6 +214,127 @@ local row_b = sees("B.BMD")
 click(row_b[2] + 4, row_b[3] + 4)
 click(row_b[2] + 4, row_b[3] + 4)
 check(sees("opened /docs/B.BMD") ~= nil or sees("Other file") ~= nil, "open: a double click opens the file")
+
+
+------------------------------------------------------------------ tables (APP-28)
+local function sum(str)                  -- FNV-1a: the old exports' bytes without keeping them
+  local h = 2166136261
+  for i = 1, #str do h = ((h ~ str:byte(i)) * 16777619) & 0xFFFFFFFF end
+  return string.format("%08x", h)
+end
+local function exact(s)                  -- a printed text, whole
+  for _, t in ipairs(texts) do if t[1] == s then return t end end
+end
+local function open_file(name)
+  type_keys("^o")
+  local row = sees(name)
+  click(row[2] + 4, row[3] + 4)
+  click(row[2] + 4, row[3] + 4)
+end
+local function export_as(n)              -- the menu: Export..., the n-th format (PDF HTML MD TXT)
+  type_keys("esc", "down", "down", "down", "down", "\n")
+  for _ = 2, n do type_keys("down") end
+  type_keys("\n")
+end
+
+-- the old documents: every old style, the same bytes out as the version before tables made
+local OLDDOC = "bmwrite 1\ntitle=Old è\n\ntitle center |Old è\nh1 left |Heading\nh2 left 1:3:2|Sub head\n"
+  .. "body left 1:5:1,7:3:2,12:4:4|Bold and ita under line\nbody justify |" .. string.rep("justify words ", 12) .. "\n"
+  .. "body right |right\nquote left |A quote\nbullet left |one\nbullet left |two\nnumber left |one\nnumber left |two\nbody left |\n"
+type_keys("^n")
+docs["old.bmd"] = OLDDOC
+open_file("OLD.BMD")
+type_keys("^s")
+local OLD = { bmd = "9675d2d9", pdf = "1d4deda7", htm = "ba49d784", md = "08019992", txt = "315b9af5" }   -- from the cart before tables
+local got = { bmd = sum(docs["old.bmd"]) }
+export_as(1); got.pdf = sum(docs["old.pdf"] or "")
+export_as(2); got.htm = sum(docs["old.htm"] or "")
+export_as(3); got.md = sum(docs["old.md"] or "")
+export_as(4); got.txt = sum(docs["old.txt"] or "")
+if arg and arg[2] == "sums" then
+  print("SUMS " .. string.format("bmd=%q pdf=%q htm=%q md=%q txt=%q", got.bmd, got.pdf, got.htm, got.md, got.txt))
+  print(docs["old.bmd"] == OLDDOC and "bmd same as fixture" or ("bmd differs:\n" .. docs["old.bmd"]))
+end
+check(docs["old.bmd"] == OLDDOC, "old: a document without tables is saved as it was read")
+for _, k in ipairs({ "pdf", "htm", "md", "txt" }) do
+  check(got[k] == OLD[k], "old: the " .. k .. " export has the bytes it had before tables (" .. got[k] .. ")")
+end
+
+
+-- F2 reaches the table style after the lists
+type_keys("^n")
+for _ = 1, 7 do type_keys("f2") end
+check(sees("Table") ~= nil, "table: F2 seven times from Body: the bar shows Table")
+frames(250)
+check(sees("Table: | between the cells") ~= nil, "table: the status says how to write it")
+type_text("Name|Qty|Price")
+type_keys("\n")
+type_text("Apple|3|1.2")
+type_keys("\n")
+type_text("Fig|12|0.5")
+-- the columns: Name/Apple/Fig 5 wide, Qty/3/12 3, Price 5; a cell is followed by a space, the bar, a space
+local TX, TY = 50 + 54, 16 + 12 + 54
+check(exact("Name") and exact("Name")[2] == TX and exact("Qty")[2] == TX + 8 * 6 and exact("Price")[2] == TX + 14 * 6,
+      "table: the header's cells start at the columns 0, 8 and 14")
+check(exact("Apple") and exact("Apple")[2] == TX and exact("3")[2] == TX + 8 * 6 and exact("1.2")[2] == TX + 14 * 6,
+      "table: the second row's cells are under them")
+check(exact("Fig")[2] == TX and exact("12")[2] == TX + 8 * 6 and exact("0.5")[2] == TX + 14 * 6, "table: and the third's")
+check(exact("Apple")[3] - exact("Name")[3] == 15 and exact("Fig")[3] - exact("Apple")[3] == 15, "table: the rows are 15 pixels apart")
+-- the caret keeps the text index: a click in the first cell's padding goes before the bar; Right steps over it
+click(TX + 4 * 6 + 2, TY + 30 + 5)
+type_text("Y")
+type_keys("right")
+type_text("Z")
+type_keys("^s")
+type_text("tab1")
+type_keys("\n")
+local tabdoc = body(docs["tab1.bmd"] or "")
+check(tabdoc == "body table |Name│Qty│Price\nbody table |Apple│3│1.2\nbody table |FigY│Z12│0.5\n",
+      "table: the caret keeps the text index (FigY|Z12), saved as body/table: " .. tabdoc)
+-- Up keeps the column: from after Z (x 158) to after Apple's 3
+type_keys("up")
+type_text("W")
+type_keys("^s")
+check(body(docs["tab1.bmd"]):find("|Apple│3W│1.2\n", 1, true) ~= nil, "table: Up keeps the column: " .. body(docs["tab1.bmd"]))
+type_keys("\b")
+type_keys("^s")
+-- an older Write reads "body table" as body text: the style is known and the alignment is left alone
+do
+  local s, a, runs, t = body(docs["tab1.bmd"]):match("^(%S+) (%S+) (%S*)|([^\n]*)")
+  check(s == "body" and a == "table" and t == "Name│Qty│Price", "table: .bmd rows read as body text by the older (greedy) line reader: " .. tostring(t))
+end
+
+-- the exports
+export_as(2)
+local htm = docs["tab1.htm"] or ""
+check(htm:find("<table>\n<tr><td>Name</td><td>Qty</td><td>Price</td></tr>\n<tr><td>Apple</td><td>3</td><td>1.2</td></tr>\n"
+               .. "<tr><td>FigY</td><td>Z12</td><td>0.5</td></tr>\n</table>\n", 1, true) ~= nil, "table: HTML: " .. htm:sub(-300))
+export_as(3)
+local md = docs["tab1.md"] or ""
+check(md == "| Name | Qty | Price |\n|---|---|---|\n| Apple | 3 | 1.2 |\n| FigY | Z12 | 0.5 |\n", "table: Markdown: " .. md)
+export_as(4)
+check(docs["tab1.txt"] == "Name   Qty  Price\nApple  3    1.2\nFigY   Z12  0.5\n", "table: text: " .. tostring(docs["tab1.txt"]))
+-- Markdown in: pipe rows are table paragraphs again (the |---| row is not a paragraph)
+open_file("TAB1.MD")
+type_keys("^s")
+type_text("back1")
+type_keys("\n")
+check(docs["back1.bmd"] == docs["tab1.bmd"], "table: Markdown out and in: the same document: " .. tostring(docs["back1.bmd"]))
+docs["mix.md"] = "# Prices\n\nBefore the table.\n\n| a | **b** |\n|:--|--:|\n|1|2 |\n\nAfter.\n"
+open_file("MIX.MD")
+type_keys("^s")
+type_text("mix1")
+type_keys("\n")
+check(body(docs["mix1.bmd"] or "") == "title center |Prices\nbody left |Before the table.\nbody table 3:1:1|a│b\nbody table |1│2\nbody left |After.\n",
+      "table: a Markdown table among paragraphs: " .. tostring(body(docs["mix1.bmd"] or "")))
+
+-- a row wider than the page wraps as body text and the status says so
+type_keys("^n")
+for _ = 1, 7 do type_keys("f2") end
+type_text(string.rep("w", 50) .. "|" .. string.rep("v", 30))
+frames(250)
+check(sees("table too wide") ~= nil, "table: a row wider than 72 letters: the status says 'table too wide'")
+check(sees(string.rep("w", 50) .. "|" .. string.rep("v", 21)) ~= nil, "table: and it wraps as body text")
 
 print(fails == 0 and ("write: " .. checks .. "/" .. checks .. " checks passed") or (fails .. " of " .. checks .. " FAILED"))
 if fails > 0 then os.exit(1) end
