@@ -2112,13 +2112,30 @@ function ed.ghost_clear()
   say("ghost cleared", C_ACC, 300)
 end
 
-function ed.ghost_set(name)
-  local g, err = B.ghost_load(name)
+-- the ghost detail: the budget of faces of the next load (in the editor state, never in the model)
+ed.ghost_detail_i = 3
+function ed.ghost_budget() return B.G.GHOST_DETAIL[ed.ghost_detail_i] end
+function ed.ghost_detail_text()
+  local n = ed.ghost_budget()
+  return "Ghost detail: " .. (n >= 65535 and "all" or tostring(n)) .. " faces (Enter: next)"
+end
+
+function ed.ghost_set(name, keep)
+  local g, err = B.ghost_load(name, ed.ghost_budget())
   if not g then say(tostring(err), C_ERR, 300); return false end
+  if keep then g.scale, g.dy, g.on = keep.scale, keep.dy, keep.on end
   ed.ghost = nil
   ed.ghost = g
-  say(B.G.ghost_text(g) .. "  (h hides, [ ] scale, { } height)", g.stride > 1 and C_ERR or C_ACC, 420)
+  say(B.G.ghost_text(g) .. "  (h hides, [ ] scale, { } height)", (g.stride > 1 or g.every > 1) and C_ERR or C_ACC, 420)
   return true
+end
+
+-- the row of the chooser: 2000, 5000, 20000, all; a ghost that is loaded is read again with the new budget
+function ed.ghost_detail_next()
+  ed.ghost_detail_i = ed.ghost_detail_i % #B.G.GHOST_DETAIL + 1
+  local g = ed.ghost
+  if g then ed.ghost_set(g.name, g) else say((ed.ghost_detail_text():gsub(" %(Enter: next%)", "")), C_ACC, 200) end
+  ed.ghost_dialog(true)
 end
 
 function ed.ghost_toggle()
@@ -2128,7 +2145,7 @@ function ed.ghost_toggle()
   say(g.on and ("ghost " .. g.name .. " shown") or ("ghost " .. g.name .. " hidden"), C_ACC, 120)
 end
 
-function ed.ghost_dialog()
+function ed.ghost_dialog(at_detail)
   local list = B.model_files()
   local rows = {}
   if ed.ghost then rows[#rows + 1] = { "Clear the ghost: " .. ed.ghost.name, function() ed.ghost_clear() end } end
@@ -2136,8 +2153,9 @@ function ed.ghost_dialog()
     rows[#rows + 1] = { e.name .. (e.kind == "bmm" and "   .bmm" or "   .glb: read only, not converted"),
                         function() ed.ghost_set(e.name) end }
   end
-  if #list == 0 then say("no model in /bmm or /glb on the SD card", C_ERR, 300); if #rows == 0 then return false end end
-  choose("ghost: a model as a reference (never saved)", rows, ed.ghost and 2 or 1)
+  if #list == 0 then say("no model in /bmm or /glb on the SD card", C_ERR, 300) end
+  rows[#rows + 1] = { ed.ghost_detail_text(), function() ed.ghost_detail_next() end }
+  choose("ghost: a model as a reference (never saved)", rows, at_detail and #rows or (ed.ghost and 2 or 1))
   return true
 end
 
@@ -2157,17 +2175,24 @@ end
 function ed.ghost_draw()
   local g = ed.ghost
   if not g or not g.on then return end
-  local gx, gy = {}, {}
+  -- at most B.G.GHOST_EDGES_FRAME edges: 1 edge in `every`, the window moves by one edge each frame;
+  -- a vertex is projected the first time an edge needs it
+  local gx, gy, done = {}, {}, {}
   local v, sc, dy = g.v, g.scale, g.dy
-  for _, i in ipairs(g.used) do
-    local p = v[i]
-    local x, y = project3d(p[1] * sc, p[2] * sc + dy, p[3] * sc)
-    if x and abs(x) < 8000 and abs(y) < 8000 then gx[i], gy[i] = x, y end
+  local function at(i)
+    if not done[i] then
+      done[i] = true
+      local p = v[i]
+      local x, y = project3d(p[1] * sc, p[2] * sc + dy, p[3] * sc)
+      if x and abs(x) < 8000 and abs(y) < 8000 then gx[i], gy[i] = x, y end
+    end
+    return gx[i]
   end
-  local ea, eb = g.ea, g.eb
-  for k = 1, #ea do
+  local ea, eb, every = g.ea, g.eb, g.every
+  g.phase = (g.phase + 1) % every
+  for k = g.phase + 1, #ea, every do
     local a, b = ea[k], eb[k]
-    if gx[a] and gx[b] then line(gx[a], gy[a], gx[b], gy[b], ed.GHOST_C) end
+    if at(a) and at(b) then line(gx[a], gy[a], gx[b], gy[b], ed.GHOST_C) end
   end
 end
 
@@ -2517,7 +2542,7 @@ local HELP = {
     { "m / shift m", "mirror left-right / copy across 0" },
     { "shift x", "live mirror X on / off: move, rotate, scale, paint, delete, add a part, loop cut on both sides (not the knife)" },
     { "shift b / v", "give the choice (or a part, l) to a bone of the skeleton / tint the dots by bone" },
-    { "h / shift h", "ghost reference: show / hide, load or clear (a /bmm or /glb model, never saved)" },
+    { "h / shift h", "ghost reference: show / hide, load or clear (a /bmm or /glb model, never saved); the last row sets its detail (2000, 5000, 20000, all); a long wire is drawn thinned" },
     { "[ ] / { }", "ghost: scale / height (with a ghost, [ ] do not change the mesh)" },
     { "shift s / shift g", "snap: off, grid, vertex, both / the grid step (0.05 to 0.5)" },
     { "j", "new face on 3-4 vertices" },

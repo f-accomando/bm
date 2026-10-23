@@ -36,6 +36,7 @@ Friday evening:
 - Read this file, update `docs/ROADMAP.md`, write the summary.
 
 ## Waiting for the user (decisions and Pi runs)
+- Pi check, ghost wire in bm Mesh (benchmarks only; for the SPV): load a ghost of 2000, 20000 and 65535 faces (a `.bmm` made on the PC) and read the frame rate with the ghost shown and hidden. Host numbers and what is not measured are in `docs/progress/tools.md` (Modelling suite, step 7). Set `T.G.GHOST_EDGES_FRAME` (now 4000) from the result.
 - Decision: `gpu3d_qpu` default. Pi measurement: full-screen fade 20.4 ms on ARM, 9.3 ms on the QPU (one run). Recommendation: make `dark_end` use the QPU by default on the Pi with the ARM fallback, after one longer soak run (Yharnam) on the Pi; today the key is off.
 - RGB30 runs (the user does them; exact steps in `docs/progress/graphics-mali.md` `Open work`): Dev > GPU test with the variant probe, then 3D Bench with `mali3d=1`.
 - RGB30 runs for the performance budget (API-1; the user does them): 3D Bench with the Mali driver and the 2D scenes `b3d tests=map8,sprites,stack,fade,light,gpu2d`. Send the reports. Then fill the RGB30 column of `docs/PERF-BUDGET.md` and remove API-1 from `docs/ROADMAP.md`.

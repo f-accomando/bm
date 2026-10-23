@@ -278,14 +278,14 @@ The knife does nothing, and a message tells why, in these cases: you did not cho
 A ghost is a model that you show as a faint reference while you edit another model. You trace over it. It is drawn as a thin green wire behind your work. It is not part of your model: you cannot choose it, it is not in the vertex and triangle counters, and it is never saved in the project or in a model. The live mirror and the snap do not act on it.
 
 1. Open a model on the edit page. Press **Shift+H**. On the gamepad, tap X and pick **Ghost: load a model, clear it**.
-2. Choose a model from `/bmm` or `/glb`. A `.glb` is only read: bm Mesh does not convert it and does not write anything to `/bmm`. The status line tells the name and the counts, for example `ghost robot.glb: 1200 vertices, 2000 triangles`. The page shows **GHOST** and the name at the top right.
+2. Choose a model from `/bmm` or `/glb`. A `.glb` is only read: bm Mesh does not convert it and does not write anything to `/bmm`. The status line tells the name and the counts, for example `ghost robot.glb: 1200 vertices, 2000 triangles`. The page shows **GHOST** and the name at the top right. The last row of the chooser is **Ghost detail**. Press Enter on it to change the detail: 2000, 5000, 20000 or all faces. The detail applies to the next load. If a ghost is loaded, bm Mesh reads it again with the new detail and keeps its scale and height. The detail is a setting of the editor: it is not saved in the model.
 3. Press **h** to hide the ghost and **h** again to show it. The ghost stays when you change page or model.
 4. Make the ghost fit your work. **[** and **]** make it smaller and larger. **{** and **}** (**Shift+[** and **Shift+]**) move it down and up. The scale goes from 0.1 to 10. The ghost uses the same camera as your model, so it stays aligned when you turn the view.
 5. To remove the ghost, press **Shift+H** and choose **Clear the ghost**. The memory of the ghost is freed.
 
 With a ghost loaded on the edit page, **[** and **]** change the ghost scale and no longer change to the previous or next mesh. Use the list page (F1) to change the mesh.
 
-The Raspberry Pi Zero W draws every edge of the ghost on each frame, so the ghost has a budget of 2000 triangles. A `.glb` with more triangles is reduced to 2000 by the console. A `.bmm` with more triangles shows 1 triangle in 2, 3 or more. The status line says it when this happens. This is a budget for the picture only: the file is not changed. The ghost has no texture.
+The ghost has a budget of faces. The default is 20000. A model with more faces shows only part of them: a `.glb` is reduced by the console, and a `.bmm` shows 1 triangle in 2, 3 or more. The status line says it when this happens. The ghost has a second limit: one frame draws at most 4000 edges of the ghost. When the wire has more edges, bm Mesh draws 1 edge in 2, 3 or more, and the set of edges that is drawn moves on each frame. The wire then looks thinner and can flicker a little. The status line says it, for example `each frame draws 1 edge in 8 (the line budget)`. Choose a lower detail to get a steadier wire. These limits are for the picture only: the file is not changed. The ghost has no texture.
 
 ## The view
 

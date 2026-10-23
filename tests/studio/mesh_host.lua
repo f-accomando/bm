@@ -1971,6 +1971,53 @@ do
   ghost_row("bad", true)
   check(status():find("not a .glb file", 1, true) and sees("GHOST kite"), "ghost: a bad .glb says why and keeps the ghost: " .. status())
 
+  -- the detail row of the chooser and the thinned wire: a strip of 9000 triangles (18001 edges)
+  do
+    local NT = 9000
+    local rec = { string.rep("strip", 1) .. string.rep("\0", 11), string.pack("<I2I2I4", NT + 2, NT, 0) }
+    for i = 1, NT + 2 do rec[#rec + 1] = string.pack("<fff", (i % 100) * 0.02 - 1, (i // 100) * 0.02 - 0.8, 0) end
+    for i = 1, NT do
+      rec[#rec + 1] = string.pack("<I2I2I2I2I4I2I2I2I2I2I2", i - 1, i, i + 1, 0, 0x336600, 0, 0, 0, 0, 0, 0)
+    end
+    MF.card["/bmm"]["strip.bmm"] = { kind = 1, name = "Strip", author = "tests",
+      sections = { [8] = string.pack("<I2I2I4", 1, 64, 0) .. table.concat(rec) } }
+    local function detail_row()                  -- the chooser, the last row: Enter cycles the detail
+      key("H"); key("pgdn"); key("pgdn"); key("\n")
+    end
+    key("H"); key("pgdn"); key("pgdn")
+    check(sees("Ghost detail: 20000 faces (Enter: next)"), "ghost: the last row of the chooser is the detail: 20000 at first")
+    key("esc")
+    ghost_row("strip", true)
+    check(status():find("strip.bmm: 9002 vertices, 9000 triangles", 1, true) and status():find("each frame draws 1 edge in 5", 1, true)
+          and not status():find("1 in", 1, true), "ghost: 9000 faces all kept, the wire thinned: " .. status())
+    local first, total = drawn(), 0
+    check(first > 0 and first <= 4000, "ghost: a frame draws at most 4000 edges (" .. first .. ")")
+    for _ = 1, 5 do total = total + drawn() end
+    check(total > 4000 and total <= 5 * 4000, "ghost: the window moves, 5 frames draw more than one (" .. total .. ")")
+    detail_row()
+    check(sees("Ghost detail: all faces") and status():find("strip.bmm: 9002 vertices, 9000 triangles", 1, true)
+          and not status():find("the budget)", 1, true), "ghost: detail all: the ghost is read again: " .. status())
+    detail_row()
+    check(sees("Ghost detail: 2000 faces") and status():find("keeps 1800 triangles", 1, true),
+          "ghost: detail 2000: 1 triangle in 5: " .. status())
+    check(drawn() > 0 and drawn() <= 4000, "ghost: the thinned model draws edges")
+    detail_row()
+    check(sees("Ghost detail: 5000 faces") and status():find("keeps 4500 triangles", 1, true),
+          "ghost: detail 5000: 1 triangle in 2: " .. status())
+    key("]")                                    -- the chooser is still open: ] does nothing to the ghost
+    key("esc")
+    key("]")
+    key("]")
+    check(sees("x1.10"), "ghost: scale is kept (x1.10)")
+    detail_row()
+    check(sees("Ghost detail: 20000 faces") and sees("x1.10") and file(project) == bytes0,
+          "ghost: back to 20000, scale kept, project bytes the same")
+    key("esc")
+    MF.card["/bmm"]["strip.bmm"] = nil
+    ghost_row("kite", true)
+    check(status():find("ghost kite.bmm", 1, true), "ghost: kite again: " .. status())
+  end
+
   -- the budget: a ghost over it keeps some of the faces and says so
   local G = E.require("bm3d").G
   local item = { name = "big", from = "bmm", v = {}, f = {} }
@@ -1981,7 +2028,12 @@ do
     item.v[b + 3] = { b + 1, 0, 0 }
     item.f[#item.f + 1] = { b + 1, b + 2, b + 3, 0x808080 }
   end
-  local g = G.ghost_make(item)
+  check(G.GHOST_FACES == 20000 and G.GHOST_DETAIL[1] == 2000 and G.GHOST_DETAIL[2] == 5000 and G.GHOST_DETAIL[3] == 20000
+        and G.GHOST_DETAIL[4] == 65535 and G.GHOST_EDGES_FRAME == 4000, "T.G: the budget constants")
+  local gd = G.ghost_make(item)
+  check(gd.stride == 1 and gd.shown == 5000 and gd.every == 4 and G.ghost_text(gd):find("1 edge in 4", 1, true),
+        "T.G.ghost_make: the default budget (20000) keeps 5000 faces; 15000 edges are drawn 1 in 4: " .. G.ghost_text(gd))
+  local g = G.ghost_make(item, 2000)
   check(g.nf == 5000 and g.stride == 3 and g.shown == 1667 and #g.ea == 3 * 1667,
         "T.G.ghost_make: over the budget: every 3rd face (" .. g.shown .. ")")
   check(G.ghost_text(g):find("keeps 1667 triangles (1 in 3: the budget)", 1, true), "T.G.ghost_text: the budget is said: " .. G.ghost_text(g))

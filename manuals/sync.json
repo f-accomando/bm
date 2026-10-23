@@ -629,8 +629,8 @@
     "title": "The screen and the controls"
    },
    "4": {
-    "en": "f02791f97658",
-    "it": "616d1513a8d0",
+    "en": "e87247b7960b",
+    "it": "22464b416ba3",
     "title": "Selecting and moving"
    },
    "5": {
@@ -655,10 +655,10 @@
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "bc3079f7decf",
+   "carts/mesh/main.lua": "70a82397475f",
    "docs/RISORSE.md": "4b94efc50686",
    "docs/design/suite-studio-mesh.md": "30a26e82944b",
-   "docs/progress/tools.md": "18e4faeb7bc8",
+   "docs/progress/tools.md": "1d5291cea8ae",
    "sdk/README.md": "f82ca797337d"
   }
  },
