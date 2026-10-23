@@ -210,6 +210,8 @@ Il pad e la tastiera fanno le stesse cose. La riga in basso dello schermo mostra
 
 Funziona anche il mouse: un clic sceglie, un doppio clic fa quello che fa A, la rotella cambia il valore sotto il puntatore e una barra trascinata a sinistra o a destra lo cambia.
 
+Nell'editor del nome un clic su una casella sceglie quella lettera. Nella riga riff un clic vi mette il cursore.
+
 ::: note
 Un breve tocco su SELECT apre il menu. Se premi SELECT con sinistra/destra o su/giù, cambia pagina o elemento e il menu non si apre.
 :::

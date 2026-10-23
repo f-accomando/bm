@@ -213,6 +213,7 @@ The edit page has three modes. **Tab** goes from one to the next: vertices, edge
 - Put the pointer on a vertex, on an edge or on a face: it lights up. An edge is the line between two vertices of a triangle; the pointer must be within 6 pixels of it.
 - **space** adds it to the choice, or takes it away if it was in. **Enter** makes it the only one.
 - With the mouse, a click chooses only what is under the pointer; Shift + click adds or takes away.
+- In a dialog line (for example the file name), a click puts the caret between the letters.
 - **a** chooses all; press it again to choose none. **l** adds everything joined to the choice by faces.
 - **n** and **b** walk through all the vertices, edges or faces in order: this reaches also the ones hidden behind the model.
 

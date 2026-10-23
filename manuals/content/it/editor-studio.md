@@ -36,6 +36,7 @@ bm Studio costruisce modelli 3D con blocchi e tessere, direttamente sulla consol
 
 - bm Studio è una cartuccia inclusa nel kernel. La trovi nella scheda **Dev** del menu.
 - Lo usi con la tastiera o con il gamepad (Bluetooth o USB). Anche il mouse funziona, quando ce n'è uno collegato.
+- In una riga di dialogo (per esempio il nome del file), un clic mette il cursore tra le lettere.
 - Tieni premuto **F12**, oppure premi **?**, e sullo schermo compaiono i tasti della pagina in cui sei.
 
 # Aprire un progetto o un gioco

@@ -688,8 +688,7 @@ end
 local function input_key(k)
   if k == "\n" then local d, t = input.done, input.text; input = nil; d(t)
   elseif k == "esc" then input = nil
-  elseif k == "\b" then input.text = input.text:sub(1, -2)
-  elseif #k == 1 and k:byte() >= 32 and #input.text < 40 then input.text = input.text .. k end
+  else U.line_key(input, k, 40) end
 end
 
 local function draw_pick()
@@ -719,7 +718,8 @@ local function draw_input()
   rectfill(80, 144, 480, 64, C_PANEL)
   rect(80, 144, 480, 64, C_ACC)
   print(input.label, 96, 160, C_DIM)
-  print(input.text .. ((frame // 20) % 2 == 0 and "_" or ""), 96, 176, C_TEXT)
+  U.zone(88, 176, 464, 16, "field")              -- a click puts the caret
+  U.line_draw(input, 96, 176, C_TEXT, (frame // 20) % 2 == 0)
   chip_hint("esc", nil, "cancel", chip_hint("enter", nil, "ok", 336, 144), 144)
 end
 
@@ -734,6 +734,8 @@ local function dialog_mouse()
     if z.a == pick.sel or U.double then U.press("\n") else pick.sel = z.a end
   elseif z and z.kind == "shade" then
     U.press("esc")
+  elseif z and z.kind == "field" and input then
+    U.line_click(input, 96, 8)
   end
   return true
 end

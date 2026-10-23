@@ -221,6 +221,7 @@ Premi **F3** per vedere gli sprite, poi ancora **F3** per la mappa. Una mappa è
 
 - Le celle della mappa sono numeri: 0 è vuoto, gli altri sono la tile.
 - Con il mouse: il tasto sinistro piazza la tile, quello centrale la prende, il destro o il centrale trascinato sposta la vista, la rotella la fa scorrere.
+- Nella pagina del codice, trascina il tasto sinistro per selezionare il testo e fai doppio clic per selezionare una parola; Ctrl+C e Ctrl+X usano la selezione, e una lettera o Backspace la sostituisce. In una riga di dialogo, un clic vi mette il cursore. Nella pagina dei suoni dell'RGB30 la rotella su un campo o su un passo lo cambia, un doppio clic lo suona e un clic su un messaggio lungo lo nasconde.
 - Quando passi a un layer chiamato `objects`, il pennello diventa 16x16 e viene scelta la prima tile segnaposto (1024 o più). I segnaposto sono etichette che il gioco non disegna: il gioco le legge e costruisce lì le cose.
 - I flag appartengono alla **tile** dello sheet, non a un punto della mappa. Impostali nella pagina degli sprite con i tasti da `0` a `7`.
 

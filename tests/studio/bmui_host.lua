@@ -310,5 +310,41 @@ do
         not U.module_name_ok(string.rep("x", 25)), "modules: a name is letters, digits, _ . -")
 end
 
+-- a line of text with a caret: keys, click, draw
+do
+  local t = { text = "abc" }
+  U.line_key(t, "d", 8)
+  check(t.text == "abcd" and t.pos == 4, "line: a letter goes at the end when pos is nil")
+  U.line_key(t, "left"); U.line_key(t, "left"); U.line_key(t, "X", 8)
+  check(t.text == "abXcd" and t.pos == 3, "line: a letter goes at the caret")
+  U.line_key(t, "\b")
+  check(t.text == "abcd" and t.pos == 2, "line: backspace deletes before the caret")
+  U.line_key(t, "del")
+  check(t.text == "abd" and t.pos == 2, "line: del deletes after the caret")
+  U.line_key(t, "home"); U.line_key(t, "\b")
+  check(t.text == "abd" and t.pos == 0, "line: backspace at the start does nothing")
+  U.line_key(t, "end")
+  check(t.pos == 3 and not U.line_key(t, "f5") and not U.line_key(t, "enter"), "line: end; other keys are not used")
+  local full = { text = "abc" }
+  U.line_key(full, "z", 3)
+  check(full.text == "abc", "line: the maximum is kept")
+  frame(104, 0, 0, 0, {})
+  U.line_click(t, 96, 8)
+  check(t.pos == 1, "line: a click puts the caret on the nearest gap (x 104 -> 1)")
+  frame(300, 0, 0, 0, {})
+  U.line_click(t, 96, 8)
+  check(t.pos == 3, "line: a click past the end puts the caret at the end")
+  frame(10, 0, 0, 0, {})
+  U.line_click(t, 96, 8)
+  check(t.pos == 0, "line: a click before the start puts the caret at 0")
+  drawn = {}
+  t.pos = 1
+  U.line_draw(t, 96, 176, 7, true)
+  check(drawn[1].s == "abd" and #drawn == 1, "line: a caret inside the text is a bar (no extra print)")
+  t.pos = 3; drawn = {}
+  U.line_draw(t, 96, 176, 7, true)
+  check(drawn[2] and drawn[2].s == "_" and drawn[2].x == 96 + 24, "line: the caret at the end is an underscore")
+end
+
 print(fails == 0 and ("bmui: " .. checks .. "/" .. checks .. " checks passed") or (fails .. " of " .. checks .. " FAILED"))
 if fails > 0 then os.exit(1) end

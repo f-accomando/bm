@@ -3122,8 +3122,7 @@ T.needs_confirm = needs_confirm
 local function input_key(k)
   if k == "\n" then local d, t = input.done, input.text; input = nil; d(t)
   elseif k == "esc" then input = nil
-  elseif k == "\b" then input.text = input.text:sub(1, -2)
-  elseif #k == 1 and k:byte() >= 32 and #input.text < 40 then input.text = input.text .. k end
+  else U.line_key(input, k, 40) end
 end
 
 local function choose_key(k)
@@ -3146,7 +3145,8 @@ local function draw_input()
   rectfill(80, 144, 480, 64, C.PANEL)
   rect(80, 144, 480, 64, C.ACC)
   print(input.label, 96, 160, C.DIM)
-  print(input.text .. ((S.frame // 20) % 2 == 0 and "_" or ""), 96, 176, C.TEXT)
+  U.zone(88, 176, 464, 16, "field")              -- a click puts the caret
+  U.line_draw(input, 96, 176, C.TEXT, (S.frame // 20) % 2 == 0)
   T.chip_hint("esc", nil, "cancel", T.chip_hint("enter", nil, "ok", 336, 144), 144)
 end
 
@@ -3400,7 +3400,8 @@ function T.mouse_frame()
   if U.keys() then return end
   if input then
     local z = U.click(0)
-    if z and z.kind == "shade" then U.press("esc") end
+    if z and z.kind == "shade" then U.press("esc")
+    elseif z and z.kind == "field" then U.line_click(input, 96, 8) end
     return
   end
   if choosing then

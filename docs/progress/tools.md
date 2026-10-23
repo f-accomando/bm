@@ -7,55 +7,7 @@ tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); reso
 ## How it is today
 
 ### The suite (`carts/`, opened from the Dev tab or installed from the Market Apps page)
-- **bm SDK** (`carts/editor`): projects, templates (Empty 2D, Platform 2D, Top-down 2D,
-  Shooter 2D, Versus 2D, Online 2D, 3D scene, 3D with models, Stages 2D), budgets (tokens, Lua, assets),
-  the dev kit report of a test run, jumps to the other tools (`cart_tool`), `Build .bm` (`Ctrl+B`,
-  or builds a real `.b16` when `target = "b16"`) and `Export .b16` (`Ctrl+Shift+B`,
-  `cart_build(path, "b16")`). Map page (`P.map`): layers, flags, `z` a 16×16 brush (2×2 cells,
-  cursor and tile on even cells; fill on whole tiles), automatic 16×16 brush and first object
-  placeholder tile (`>= 1024`) when switching to the `objects` layer, zoom in/out (`-`/`+`: 1, 2,
-  4, 8, 16 px/cell), `m` (*Overview*) full 256×256 map at 1 px/cell with viewport box and
-  click/arrow jump, `Tab` compact palette of used 16×16 tiles (`z` toggles full sheet), Home/End
-  and PgUp/PgDn a page. Template *Stages 2D* as on the RGB30: `test_sdk_stages_pi`.
-- **bm SDK (RGB30)** (`carts/sdk_b16`, built into `kernel8.img` unless `CLEAN_KERNEL=1`, and
-  published as `editor.b16` in the Market): the SDK's pages at 360×360 (`layout.lua`: `split` on
-  the 8×16 grid, joined before `main.lua` by `build.py`), the pad by names (`ok`/`back`, L1/R1,
-  Start, X = the page's actions as a list, L2/R2), `padtype` for code and names, page `snd` (F7: Sounds with 7 fields and Lib import `i`, Effects with 32 steps; QEMU `test_sdk_pad_*` drive it by keyboard), map zoom in/out
-  (`-`/`+`), `Overview` (`m`, full 256×256 at 1 px/cell), `Tab`/`Y` compact palette of used 16×16
-  tiles, automatic 16×16 object brush on the `objects` layer, `Build .bm` (`Ctrl+B`) and
-  `Export .b16` (`Ctrl+Shift+B`; on the RGB30, exporting a `.b16` from `/carts` also copies it to
-  `/bm/` so it appears immediately in Games). Template *Stages 2D* (3 stages in map bands, record in slot 1): `test_stages_template`, `test_sdk_stages_build`.
-- **Tool session** (`src/kernel/devtool.c`): the tool, the games it tries (`cart_run`, back with
-  `cart_arg()`), the tools it opens (`cart_tool`); prefers SD-installed Market apps (`/carts` or
-  `/bm/`) over embedded kernel copies so tools can be updated from the Market and kernels can be
-  built clean with `CLEAN_KERNEL=1`.
-- **bm Code** (`carts/code`): tabs, two pages, 6×12/8×14/8×16 fonts; Ctrl+Q / Y+X help on the API function, API lint on save (`predict.lint`, same rules as `scripts/api_lint.py`); completion
-  (`predict`, [`docs/PREDICT.md`](../PREDICT.md)), pad typing (`padtype`,
-  [`docs/PADTYPE.md`](../PADTYPE.md)), F6 assistant and `#entry: … #` lines, F8
-  breakpoints, Ctrl+Enter plays riff.
-- **bm Pixel** (`carts/pixel`): F1 draw, F2 sheet, F3 palette, F4 stack (stack zones, both layouts `stack` and `stackv`: slices one by one, the stack turning, make or change a zone, draw a slice on F1, onion skin `k`, copy a slice to the next `c` (one undo step), delete a zone `Del` twice; mouse: pick zone or slice, wheel, drag on the view turns it, click stops or starts it, right menu; save writes SPRITES with `cart_write` `sections[11]`, the layout is bit 0 of byte 27 of the zone). The page keeps its state in the table `sp` (the main chunk has 200 locals at most). Host test: the end of `tests/studio/pixel_host.lua` (`make test-studio`); hitboxes of BOXES on the canvas, previews and sheet view (toggle j).
-- **bm Studio** (`carts/studio`): models from tiles and blocks (block, tile, select, vertex,
-  paint), reduce. **bm Animator** (`carts/animator`): rig and skin (`t` test pose: [tools-assistant](tools-assistant.md)), keyframes, sprites from an
-  animation (F4: bone hitboxes previewed and baked into SPRITES and BOXES). **bm Mesh** (`carts/mesh`): vertices and faces of MESH models and of meshes the
-  game builds (`cart_meshes()`).
-- **bm Sound** (`carts/sound`): SOUNDS, SFX, PATTERN, SONG pages; music assistant on F6
-  ([audio](audio.md)).
-- **bm Write** (`carts/write`, a Market app): `.BMD` documents in `/docs`, A4 pages,
-  exports `.TXT`/`.MD`/`.HTM`/`.PDF`. The PDF equals the screen: host test `tests/studio/write_pdf_host.lua`
-  (in `make test-studio`) exports a five-page document with every style, alignment, bold, italic, underline,
-  accents, brackets and a backslash. It reads the PDF with its own small reader (xref, pages, streams) and
-  compares each page with what the cart draws on a tall screen: the same runs of letters, the same place (screen
-  pixels times 595/540 points, within 0.01 pt), the same Courier face, size and width, the underlines, quote bars,
-  bullets and page numbers (493 checks, 389 runs). A change to the baseline or a bullet makes it fail. Not
-  checked: a real PDF viewer (no `pdftotext` or `pdftoppm` in WSL; the test keeps the file with `luahost ... ROOT
-  OUT.pdf`), the Pi and the RGB30.
-- **Lib tab** (`src/kernel/lib.c`, `libview.c`): resources `.bmm .bmi .bms .bmt .bmc .bmk`,
-  hidden until `lib_tab=1`.
-- Shared Lua: `bm3d` (Studio/Animator; Mesh loads it only for the pure geometry `T.G`: `model_item`, `encode_model`, `orient`, `compact`... on the shape `{v, f, vb}`), `bmui` (mouse: zones registered while drawing,
-  chips that press keys, `U.press` before `keyp()`, a context menu of keys).
-- Projects (M47): tools edit `.bme` in `/bme`, never a `.bm`/`.b16`; saving a game asks for a copy. `bm_build` and
-  `bm_build_b16` build from a `.bme` or a `.bm` into the games folder, never over the other edition. Layout, pickers and
-  old cards: [`PROJECT-LAYOUT.md`](../PROJECT-LAYOUT.md). Runtime side in [lua](lua.md).
+Detail of each editor (SDK, SDK for the RGB30, Code, Pixel, Studio, Animator, Mesh, Sound, Write), the Lib tab, shared Lua and projects (M47): [tools-suite](tools-suite.md).
 
 ### Assistant (`src/ai/`)
 Details: [tools-assistant](tools-assistant.md). Tutorial videos (`video/`, series *Skyvale World*): [video](video.md).
@@ -124,21 +76,22 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   of keys on the 8x16 grid. A mouse function outside a page's `do … end` does not see its
   locals: export them. Tests `bmui_host.lua`, `write_host.lua`, `MS` in the test doubles, QEMU `test_editor_mouse`.
   Shared helpers (M48): `U.list(kind, sel, n, step)` (wheel, click, click on the chosen row: acts), `U.col`
-  (pixel to text column), `U.scroll` (wheel on a view).
+  (pixel to text column), `U.scroll` (wheel on a view), `U.line_key/line_click/line_draw` (a text line with a caret; the dialogs use them).
+  The SDK code view keeps its selection in `sl` (`carts/editor`, `carts/sdk_b16`); mouse press uses `U.pressed(0)` (the view has no zone).
 - Mouse per program (M48, 23 Oct; host tests and QEMU `-k` on the Pi build; hardware not verified).
   Works = tabs/chips press the key, lists (click, double click, wheel), dialogs (click outside = Esc), right-click menu.
 
   | Program | Works | Gap (file) |
   |---|---|---|
   | bm Code | tabs (middle click closes), text click, drag, double click word, breakpoints, wheel, lists, dialogs, right menu | none found |
-  | bm SDK (`carts/editor`) | tabs, code click and wheel, pickers, sprite/map/3D, hub list (click, wheel since M48), right menu | code view: no drag or word select (the view has no selection); prompt box: no caret placement |
-  | bm SDK RGB30 (`carts/sdk_b16`) | same as above (hub wheel since M48) | code view as above; sound page: no wheel or double click (`mouse` near line 4052); zone `message` has no handler |
-  | bm Studio | tabs, lists, build view (paint, pick, camera), picker, models page, right menu | prompt: no caret placement |
-  | bm Animator | rig, anim (timeline drag, bones), sprites page (wheel changes a value), play, lists, right menu | prompt: no caret placement |
-  | bm Mesh | tabs, list, edit page, chooser (Open, Add a part, Ghost, Bones, Commands: click, double click, wheel, outside = Esc), camera, right menu; Import, Export, Snap, Ghost and Bones are rows of the Commands chooser (`COMMANDS`, `carts/mesh/main.lua:2179`), so the mouse reaches them | prompt: no caret placement |
-  | bm Pixel | tabs, draw (paint, wheel), sheet, palette (click, double click), stack, menu, dialogs, right menu | palette page: no wheel |
-  | bm Sound | tabs, slots, fields, steps, tracks, cells, orders, bar drag, overlays, right menu; text dialogs (riff, name): click outside = Esc (M48) | no caret placement in the name and riff fields |
-  | bm Write (M48) | page click, drag select, double click word, Shift+click, wheel, bar chips (style, B I U, L C R J), `bm Write` opens the menu, right-click edit menu, menu, open list, export list, confirm, help | prompt (file name): no caret placement; no hover highlight |
+  | bm SDK (`carts/editor`) | tabs, code (click, wheel, drag, double click word, selection with Ctrl+C/X), pickers, sprite/map/3D, hub list, prompt (caret by click), right menu | none found |
+  | bm SDK RGB30 (`carts/sdk_b16`) | same as above; sound page (wheel on a field or step, double click plays); click hides a long message | none found |
+  | bm Studio | tabs, lists, build view (paint, pick, camera), picker, models page, prompt (caret by click), right menu | none found |
+  | bm Animator | rig, anim (timeline drag, bones), sprites page (wheel changes a value), play, lists, prompt (caret by click), right menu | none found |
+  | bm Mesh | tabs, list, edit page, chooser (Open, Add a part, Ghost, Bones, Commands: click, double click, wheel, outside = Esc), camera, right menu; Import, Export, Snap, Ghost and Bones are rows of the Commands chooser (`COMMANDS`, `carts/mesh/main.lua:2179`), so the mouse reaches them; prompt (caret by click) | none found |
+  | bm Pixel | tabs, draw (paint, wheel), sheet, palette (click, double click, wheel), stack, menu, dialogs (caret by click), right menu | none found |
+  | bm Sound | tabs, slots, fields, steps, tracks, cells, orders, bar drag, overlays, right menu; text dialogs (riff, name): click outside = Esc, click puts the caret or letter (M48) | none found |
+  | bm Write (M48) | page click, drag select, double click word, Shift+click, wheel, bar chips (style, B I U, L C R J), `bm Write` opens the menu, right-click edit menu, menu, open list, export list, confirm, help, prompt (caret by click) | no hover highlight |
   | bm assistant | chips F6 to F9 press the key; the panel (`assist.lua`) clicks and wheels | none found |
   | Settings (C pages) | kernel menu, not Lua: see `ui-reference.md` | not part of this pass |
 

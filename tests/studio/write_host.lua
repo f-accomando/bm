@@ -97,6 +97,11 @@ type_text("second line")
 type_keys("\n")
 type_text("third")
 type_keys("^s")                          -- the name
+-- a click in the name puts the caret between the letters: Backspace takes "c" out, "c" puts it back
+click(136 + 3 * 8, 176)
+type_keys("\b")
+check(sees("do1"), "prompt: a click puts the caret in the name, Backspace takes the letter before it")
+type_keys("c")
 type_keys("\n")
 check(docs["doc1.bmd"] ~= nil, "setup: saved as doc1")
 check(body(saved_doc()):find("body left |Hello world\nbody left |second line\nbody left |third", 1, true) ~= nil,

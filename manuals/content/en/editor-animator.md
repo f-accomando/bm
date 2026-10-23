@@ -207,6 +207,7 @@ In skin mode: arrows choose a face, space marks it, `c` marks the connected ones
 ## Caveats
 
 - [TO FILL: the mouse. The suite's guide says Animator does not use it yet, but the code has mouse handlers (click a bone, drag to move or turn, click the timeline); check on the console]
+- In a dialog line (for example the file name), a click puts the caret between the letters.
 
 # Bones and rigging
 

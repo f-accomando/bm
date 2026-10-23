@@ -221,6 +221,7 @@ Press **F3** to see the sprites, then **F3** again for the map. A map is made of
 
 - Map cells are numbers: 0 is empty, the others are the tile.
 - With the mouse: the left button places the tile, the middle one picks it, the right or middle button dragged moves the view, the wheel scrolls.
+- In the code page, drag the left button to select text and double click to select a word; Ctrl+C and Ctrl+X use the selection, and a letter or Backspace replaces it. In a dialog line, a click puts the caret there. On the RGB30 sounds page the wheel over a field or a step changes it, a double click plays it, and a click on a long message hides it.
 - When you go to a layer named `objects`, the brush becomes 16x16 and the first placeholder tile (1024 or more) is chosen. Placeholders are tags the game does not draw: the game reads them and builds things there.
 - The flags belong to the **tile** on the sheet, not to a place on the map. Set them on the sprite page with keys `0` to `7`.
 

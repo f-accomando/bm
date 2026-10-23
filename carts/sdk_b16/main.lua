@@ -1395,14 +1395,12 @@ do
 
   local ask_host = { lang = "none", prose = false }   -- no words, no capital by itself (L2: a capital)
   function ask_host.now() return time() end
-  function ask_host.before() return input and input.text or "" end
+  function ask_host.before() return input and input.text:sub(1, input.pos or #input.text) or "" end
   function ask_host.insert(s)
     if not input then return end
-    for c in s:gmatch(".") do
-      if c:byte() >= 32 and #input.text < 47 then input.text = input.text .. c end
-    end
+    for c in s:gmatch(".") do U.line_key(input, c, 47) end
   end
-  function ask_host.erase(n) if input then input.text = input.text:sub(1, max(0, #input.text - n)) end end
+  function ask_host.erase(n) if input then for _ = 1, n do U.line_key(input, "\b") end end end
   function ask_host.newline() D.key("ok") end
   function ask_host.move() end
 
@@ -1431,8 +1429,7 @@ do
     if input then
       if k == "\n" or k == "ok" then local d, t = input.done, input.text; close_input(); d(t)
       elseif k == "esc" or k == "back" then close_input()
-      elseif k == "\b" then input.text = input.text:sub(1, -2)
-      elseif #k == 1 and k:byte() >= 32 and #input.text < 47 then input.text = input.text .. k end
+      else U.line_key(input, k, 47) end
       return true
     end
     if pick then
@@ -1487,6 +1484,8 @@ do
       if z.a == pick.sel or U.double then U.press("\n") else pick.sel = z.a end
     elseif z.kind == "shade" then
       U.press("esc")
+    elseif z.kind == "field" and input then
+      input.pos = z.b + U.col(U.x, z.a, 8, #input.text - z.b)   -- the caret goes where the click is
     end
   end
 
@@ -1523,9 +1522,11 @@ do
       rect(BOX.x, y0, BOX.w, 64, C.ACC)
       local tc = (BOX.w - 32) // 8
       print(LY.fit(input.label, tc), BOX.x + 16, y0 + 16, C.DIM)
-      local shown = input.text
-      if #shown > tc - 1 then shown = shown:sub(-(tc - 1)) end
-      print(shown .. ((S.frame // 20) % 2 == 0 and "_" or ""), BOX.x + 16, y0 + 32, C.TEXT)
+      local pos = input.pos or #input.text
+      local off = pos > tc - 1 and pos - (tc - 1) or 0         -- the part of the line shown
+      local shown = { text = input.text:sub(off + 1, off + tc - 1), pos = pos - off }
+      U.zone(BOX.x + 16, y0 + 32, tc * 8, 16, "field", BOX.x + 16, off)
+      U.line_draw(shown, BOX.x + 16, y0 + 32, C.TEXT, (S.frame // 20) % 2 == 0)
       if pt and pt.mode() and pad_used() then
         local ow = pt.size()
         pt.draw((W - ow) // 2, y0 + 80)
@@ -1709,9 +1710,68 @@ do
     return l:sub(a + 1, b - 1)
   end
 
+  -- the selection (M48): an anchor (sl.ay, sl.ax) and the cursor; drag or double click make it.
+  -- Ctrl+C / Ctrl+X / Ctrl+K act on it (else on the line), a letter or Backspace replaces it.
+  local sl = { clip = nil, md = false }
+  local function sel_range()
+    local ay, ax = sl.ay, sl.ax
+    if not ay or ay > #S.lines or (ay == cy and ax == cx) then return nil end
+    if ay < cy or (ay == cy and ax < cx) then return ay, ax, cy, cx end
+    return cy, cx, ay, ax
+  end
+  local function sel_text()
+    local y1, x1, y2, x2 = sel_range()
+    if not y1 then return nil end
+    local L = S.lines
+    if y1 == y2 then return L[y1]:sub(x1 + 1, x2) end
+    local t = { L[y1]:sub(x1 + 1) }
+    for i = y1 + 1, y2 - 1 do t[#t + 1] = L[i] end
+    t[#t + 1] = L[y2]:sub(1, x2)
+    return table.concat(t, "\n")
+  end
+  local function sel_cut()                 -- takes the selected text out; the cursor goes to its start
+    local y1, x1, y2, x2 = sel_range()
+    sl.ay = nil
+    if not y1 then return end
+    local L = S.lines
+    L[y1] = L[y1]:sub(1, x1) .. L[y2]:sub(x2 + 1)
+    for _ = y2, y1 + 1, -1 do table.remove(L, y1 + 1) end
+    cy, cx = y1, x1
+  end
+  local function put_text(s)               -- text (with line breaks) at the cursor
+    local L = S.lines
+    local head, tail = L[cy]:sub(1, cx), L[cy]:sub(cx + 1)
+    local parts = {}
+    for p in (s .. "\n"):gmatch("(.-)\n") do parts[#parts + 1] = p end
+    L[cy] = head .. parts[1]
+    for i = 2, #parts do table.insert(L, cy + i - 1, parts[i]) end
+    cy = cy + #parts - 1
+    cx = (#parts == 1 and #head or 0) + #parts[#parts]
+    L[cy] = L[cy] .. tail
+  end
+
   local function key(k)
     local lines = S.lines
     local l = lines[cy]
+    if sel_range() then
+      local edit = k == "\n" or k == "\t" or (#k == 1 and k:byte() >= 32)
+      if k == "^c" then
+        sl.clip, clip_lines = sel_text(), nil
+        say("copied: Ctrl+V pastes it")
+        return
+      elseif k == "^x" or k == "^k" or k == "\b" or k == "del" or edit or (k == "^v" and sl.clip) then
+        last_edit = nil
+        snapshot("sel")
+        if k == "^x" or k == "^k" then sl.clip, clip_lines = sel_text(), nil end
+        sel_cut()
+        if k == "^v" then put_text(sl.clip) end
+        code_touched()
+        if not edit then clamp_cursor(); last_edit = nil; return end
+        lines = S.lines
+        l = lines[cy]
+      end
+    end
+    sl.ay = nil
     if k == "up" then cy = cy - 1
     elseif k == "down" then cy = cy + 1
     elseif k == "left" then if cx > 0 then cx = cx - 1 elseif cy > 1 then cy = cy - 1; cx = #lines[cy] end
@@ -1752,13 +1812,18 @@ do
       if u then S.lines, cx, cy = u.lines, u.cx, u.cy; last_edit = nil; code_touched(); say("undo") end
     elseif k == "^k" or k == "^x" then                -- cut the line (paste puts it back)
       snapshot("kill")
-      clip_lines = { l }
+      clip_lines, sl.clip = { l }, nil
       if #lines > 1 then table.remove(lines, cy) else lines[1] = "" end
       last_edit = nil
       code_touched()
     elseif k == "^c" then
-      clip_lines = { l }
+      clip_lines, sl.clip = { l }, nil
       say("line copied: paste puts it above the cursor")
+    elseif k == "^v" and sl.clip then
+      snapshot("paste")
+      put_text(sl.clip)
+      last_edit = nil
+      code_touched()
     elseif k == "^v" then
       if clip_lines then
         snapshot("paste")
@@ -1843,10 +1908,18 @@ do
     local rows = vis_rows()
     rectfill(0, 16, W, rows * 16, C.BG)
     local lines = S.lines
+    local sy1, sx1, sy2, sx2 = sel_range()
     for r = 0, rows - 1 do
       local i = top + r
       local y = 16 + r * 16
       if i > #lines then break end
+      if sy1 and i >= sy1 and i <= sy2 then          -- the selection under the letters
+        local a0 = (i == sy1 and sx1 or 0) - left
+        local a1 = (i == sy2 and sx2 or #lines[i] + 1) - left
+        if a0 < 0 then a0 = 0 end
+        if a1 > VISIBLE_COLS then a1 = VISIBLE_COLS end
+        if a1 > a0 then rectfill((GUTTER + a0) * 8, y, (a1 - a0) * 8, 16, C.SEL) end
+      end
       local num = tostring(i)
       print(string.rep(" ", 4 - #num) .. num, 0, y, i == cy and C.ACC or C.DIM)
       if i == S.err_line then rectfill(GUTTER * 8 - 4, y, 3, 16, C.ERR) end
@@ -1899,11 +1972,27 @@ do
       top, cy = top + d, cy + d
       clamp_cursor()
     end
-    if U.click(0) and U.inside(0, 16, W, rows * 16) then
+    if U.pressed(0) and U.inside(0, 16, W, rows * 16) then
       cy = top + (U.y - 16) // 16
       cx = left + (U.x + 4) // 8 - GUTTER
       last_edit = nil
       clamp_cursor()
+      sl.ay, sl.ax, sl.md = cy, cx, true         -- where a drag starts
+      if U.double then                           -- a double click: the word
+        local l = S.lines[cy]
+        local a, b = cx, cx
+        while a > 0 and l:sub(a, a):match("[%w_]") do a = a - 1 end
+        while b < #l and l:sub(b + 1, b + 1):match("[%w_]") do b = b + 1 end
+        if b > a then sl.ay, sl.ax, cx = cy, a, b end
+      end
+    elseif sl.md and U.down(0) then
+      if U.drag then                             -- a drag: the cursor follows, the anchor stays
+        cy = top + clamp((U.y - 16) // 16, -1, rows)
+        cx = left + (U.x + 4) // 8 - GUTTER
+        clamp_cursor()
+      end
+    else
+      sl.md = false
     end
   end
 
@@ -1912,7 +2001,8 @@ do
                    { "New line", "\n" }, { "Delete before", "\b" }, { "Delete after", "del" },
                    { "Two spaces", "\t" }, { "The line's start", "home" }, { "The line's end", "end" },
                    { "Page up", "pgup" }, { "Page down", "pgdn" }, "-",
-                   { "Cut the line", "^x" }, { "Copy the line", "^c" }, { "Paste", "^v" }, { "Duplicate", "^d" },
+                   { sel_range() and "Cut" or "Cut the line", "^x" }, { sel_range() and "Copy" or "Copy the line", "^c" },
+                   { "Paste", "^v" }, { "Duplicate", "^d" },
                    { "Undo", "^z" } }
     if S.err_line then
       list[#list + 1] = { "Go to the error", "^g" }
@@ -1925,7 +2015,7 @@ do
              menu_items = menu_items, hints = hints, pad = pad, typing = typing, type_frame = type_frame,
              goto_line = function(n) cy, cx = clamp(n, 1, #S.lines), 0; clamp_cursor() end,
              cursor = function() return cy, cx end,
-             reset = function() cx, cy, top, left, undo, last_edit = 0, 1, 1, 0, {}, nil end }
+             reset = function() cx, cy, top, left, undo, last_edit = 0, 1, 1, 0, {}, nil; sl.ay = nil end }
 end
 
 ----------------------------------------------------------------- 2D page: sprites and map
@@ -4068,11 +4158,21 @@ do
     if PAD.p.back and S.sndview == "sfx" then act("erase") end
   end
 
+  -- the mouse: a click chooses a field or a step, a double click does what Enter does (plays it);
+  -- the wheel over one changes it (the value of the field, the note of the step: right/left, up/down)
   local function mouse()
     local z = U.at()
+    if z and U.wheel ~= 0 and (z.kind == "field" or z.kind == "step") then
+      if z.kind == "field" then field = z.a else k = z.a end
+      for _ = 1, math.abs(U.wheel) do
+        act(z.kind == "field" and (U.wheel > 0 and "right" or "left") or (U.wheel > 0 and "up" or "down"))
+      end
+      return
+    end
     if not z or not U.pressed(0) then return end
     if z.kind == "field" then field = z.a
     elseif z.kind == "step" then k = z.a end
+    if U.double and (z.kind == "field" or z.kind == "step") then act("play") end
   end
 
   P.snd = { act = act, draw = draw, status = status, key = key, pad = pad, mouse = mouse,
@@ -4523,6 +4623,7 @@ local function mouse_frame()
   end
   local c = U.click(0)
   if c and c.kind == "row" then c.b.pick(c.a, U.double); return end
+  if c and c.kind == "message" then S.msg_t = 0; return end      -- a click hides a long message
   local pg = page_of()
   if pg and pg.mouse then pg.mouse() end
   if U.clicked(1) then

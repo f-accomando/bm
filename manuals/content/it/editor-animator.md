@@ -207,6 +207,7 @@ In modalità pelle: le frecce scelgono una faccia, spazio la segna, `c` segna qu
 ## Avvertenze
 
 - [DA COMPLETARE: il mouse. La guida della suite dice che Animator non lo usa ancora, ma il codice ha gestori del mouse (clic su un osso, trascinamento per spostare o ruotare, clic sulla timeline); da verificare sulla console]
+- In una riga di dialogo (per esempio il nome del file), un clic mette il cursore tra le lettere.
 
 # Ossa e rigging
 

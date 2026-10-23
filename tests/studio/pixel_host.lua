@@ -626,6 +626,20 @@ check(sees("new sheet"), "a new sheet")
 key("1", "b", " ")
 key("^s")
 check(sees("file name"), "Ctrl+S on a new sheet: Save as")
+-- a click on the line of the dialog puts the caret there (M48): "ac", a click between, "b"
+for _ = 1, 40 do key("\b") end
+key("a", "c")
+for _, b in ipairs({ 0, 1, 0 }) do
+  local was = MS.b
+  MS.x, MS.y, MS.b, MS.w = 96 + 8, 184, b, 0
+  MS.p = MS.b & ~was
+  frames(1)
+  MS.p = 0
+end
+frames(1)
+key("b")
+check(sees("abc"), "mouse: a click on the line of the dialog puts the caret between the letters")
+key("end")
 type_text("NEWSPR")
 check(status():find("saved /bme/newspr.bme", 1, true), "saved: " .. status())
 local n1 = file("newspr.bme")
@@ -700,7 +714,15 @@ check(sees("PALETTE"), "mouse: the palette tab")
 click(16 + 2 * 16 + 4, 48 + 4)
 click(304 + 10, 128 + 6)
 mouse(310, 134, 1); mouse(330, 134, 1); mouse(330, 134, 0); frames(1)
+local function chan() for _, t in ipairs(texts) do if t[2] == 304 and t[3] == 128 then return tonumber(t[1]:match("%d+")) end end end
+local r0 = chan()
+mouse(400, 136, 0, 1); mouse(400, 136, 0); frames(1)
+check(r0 and chan() ~= r0, "mouse: the wheel over R changes its value (" .. tostring(r0) .. " -> " .. tostring(chan()) .. ")")
 key("esc")
+click(16 + 2 * 16 + 4, 48 + 4)
+check(sees("colour 3"), "mouse: a click chooses colour 3")
+mouse(100, 100, 0, -1); mouse(100, 100, 0); frames(1)
+check(sees("colour 19"), "mouse: the wheel moves the choice one row of the palette")
 mx, my = at("menu", nil, 0)
 click(mx, my)
 check(sees("Exit bm Pixel"), "mouse: the menu tab")

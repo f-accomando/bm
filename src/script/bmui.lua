@@ -219,6 +219,46 @@ function U.col(x, x0, cw, n)
   return c < 0 and 0 or (c > n and n or c)
 end
 
+-- a line of text with a caret (M48): t = { text =, pos = } (pos 0..#text; nil
+-- is the end). U.line_key(t, k, max) edits it with a key as keyp() gives it
+-- (letters insert at the caret; backspace, del, left, right, home, end) and
+-- returns true when it used the key. U.line_click(t, x0, cw) puts the caret
+-- where the pointer is, for a line printed from x0 with letters cw wide.
+-- U.line_draw(t, x0, y, colour, blink, cw) prints the line and, when blink
+-- is true, the caret: "_" after the last letter, a thin bar inside the text.
+function U.line_key(t, k, max)
+  local s = t.text
+  local p = t.pos or #s
+  if p > #s then p = #s end
+  if k == "left" then p = p > 0 and p - 1 or 0
+  elseif k == "right" then p = p < #s and p + 1 or #s
+  elseif k == "home" then p = 0
+  elseif k == "end" then p = #s
+  elseif k == "\b" then
+    if p > 0 then s, p = s:sub(1, p - 1) .. s:sub(p + 1), p - 1 end
+  elseif k == "del" then s = s:sub(1, p) .. s:sub(p + 2)
+  elseif #k == 1 and k:byte() >= 32 and (not max or #s < max) then
+    s, p = s:sub(1, p) .. k .. s:sub(p + 1), p + 1
+  else return false end
+  t.text, t.pos = s, p
+  return true
+end
+
+function U.line_click(t, x0, cw)
+  t.pos = U.col(U.x, x0, cw or 8, #t.text)
+end
+
+function U.line_draw(t, x0, y, colour, blink, cw)
+  cw = cw or 8
+  local p = t.pos or #t.text
+  if p > #t.text then p = #t.text end
+  print(t.text, x0, y, colour)
+  if blink then
+    if p >= #t.text then print("_", x0 + p * cw, y, colour)
+    else rectfill(x0 + p * cw, y, 1, 16, colour) end
+  end
+end
+
 -- the wheel on a view: the new top (lo..hi) after `step` units per click
 function U.scroll(top, lo, hi, step)
   if U.wheel == 0 then return top end

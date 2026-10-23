@@ -34,6 +34,7 @@ A game looks like what is on its sheet. With bm Pixel you draw on the console it
 - There are four pages: **F1** draw, **F2** sheet, **F3** palette, **F4** stack. **Esc** opens the menu.
 - Hold **F12**, or press **?**, to see the keys of the page. **Tab** (on the pad **X**) opens the list of the page's commands.
 - With a mouse, the mouse does what the keys do.
+- In a dialog line, a click puts the caret between the letters. On the palette page the wheel moves the choice one row; over R, G or B it changes that value.
 
 ## Caveats
 
