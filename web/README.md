@@ -33,3 +33,7 @@ The page loads React 18.3.1 and ReactDOM 18.3.1 (MIT) from `cdnjs.cloudflare.com
 ## Cartridge reader (stage 1)
 
 `bmcart.js` reads a `.bm` or `.b16` file in the page (header, CRC-32, sections, INFO lines, cover). The Start tab has an "Open a .bm file" input that shows the result. The file stays in the browser. Test: `node tests/webplayer/test_bmcart.js`. The plan is in `docs/design/bm-web-player.md`.
+
+## Clock and sound queue
+
+`bmring.js` holds `BmPacer` (the 60 Hz clock) and `BmRing` (the queue of the AudioWorklet). `node tests/webplayer/test_bmring.js` tests them. While a game plays, read `bmLauncher.stats` in the console: `hz`, `frameWorstMs`, `audioUnderruns`, `audioDrops`.
